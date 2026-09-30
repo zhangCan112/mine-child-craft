@@ -30,8 +30,6 @@ function mkRoom(cx,cz,iw,idh,h){
   fillB(x1,top,z1,x2,top,z2,3);                                // 天花板
   for(let x=x1+3;x<x2;x+=4)                                    // 顶灯
     for(let z=z1+3;z<z2;z+=4) setBlockRaw(x,top,z,19);
-  pillar(x1+1,z1+1,11,top-1,13); pillar(x2-1,z1+1,11,top-1,13);
-  pillar(x1+1,z2-1,11,top-1,13); pillar(x2-1,z2-1,11,top-1,13);
   return {x1,x2,z1,z2,top};
 }
 
