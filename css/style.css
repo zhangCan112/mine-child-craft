@@ -1,0 +1,120 @@
+/* ============================================================
+   我的世界 · 方块乐园 — 样式
+============================================================ */
+html,body{margin:0;height:100%;overflow:hidden;background:#8fc7ff;font-family:'Segoe UI',Arial,sans-serif;cursor:default}
+#app{position:fixed;inset:0}
+canvas{display:block}
+
+/* 准星 */
+#crosshair{position:fixed;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);
+  pointer-events:none;z-index:10;opacity:.85}
+#crosshair::before,#crosshair::after{content:"";position:absolute;background:#fff;box-shadow:0 0 2px #000}
+#crosshair::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%)}
+#crosshair::after{top:50%;left:0;height:2px;width:100%;transform:translateY(-50%)}
+
+/* 物品栏 */
+#hotbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:6px;
+  padding:6px;background:rgba(0,0,0,.35);border-radius:8px;z-index:10}
+.slot{width:54px;height:54px;border:3px solid rgba(255,255,255,.25);border-radius:6px;
+  position:relative;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);
+  user-select:none;cursor:pointer}
+.slot.active{border-color:#fff;box-shadow:0 0 10px rgba(255,255,255,.6)}
+.slot .cube{width:34px;height:34px;border-radius:4px;
+  box-shadow:inset 0 -8px 0 rgba(0,0,0,.25), inset 0 8px 0 rgba(255,255,255,.18)}
+.slot .icon{font-size:28px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
+.slot .num{position:absolute;top:2px;left:4px;font-size:11px;color:#fff;text-shadow:0 1px 2px #000}
+.slot .cnt{position:absolute;top:2px;right:4px;font-size:13px;font-weight:700;color:#ffe27a;text-shadow:0 1px 2px #000}
+.slot .lbl{position:absolute;bottom:3px;font-size:9px;color:#fff;text-shadow:0 1px 2px #000}
+.slot.empty{opacity:.45}
+
+/* 开始遮罩 + 菜单 */
+#overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;flex-direction:column;
+  align-items:center;justify-content:center;color:#fff;z-index:20;text-align:center;overflow:auto}
+#overlay h1{font-size:40px;margin:0 0 4px;letter-spacing:3px;text-shadow:0 3px 10px #000}
+#overlay h1 span{color:#7CFC00}
+#overlay p{margin:2px 0 4px;font-size:14px;opacity:.9}
+#overlay .keys{margin-top:14px;font-size:12.5px;line-height:1.9;opacity:.85}
+#overlay .keys b{color:#ffe27a}
+#overlay .safe{color:#9fe8a0}
+
+.menuPage{display:none;flex-direction:column;align-items:center}
+.menuPage.active{display:flex}
+
+/* 主菜单模式卡片 */
+#modeCards{display:flex;gap:22px;margin-top:18px;flex-wrap:wrap;justify-content:center}
+.modeCard{width:230px;padding:26px 18px;border:3px solid rgba(255,255,255,.3);border-radius:16px;
+  background:rgba(255,255,255,.08);cursor:pointer;transition:transform .12s, background .12s;user-select:none}
+.modeCard:hover{transform:translateY(-4px);background:rgba(255,255,255,.16)}
+.modeCard .big{font-size:46px;line-height:1.2}
+.modeCard h2{margin:8px 0 4px;font-size:20px}
+.modeCard small{font-size:12px;opacity:.8}
+.modeCard.tnt{border-color:rgba(255,120,80,.55)}
+.modeCard.tnt:hover{background:rgba(255,110,70,.18)}
+
+/* 竞技场对战面板 */
+#panel{margin-top:8px;display:flex;gap:12px;align-items:stretch}
+.teamBox{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.18);border-radius:10px;
+  padding:10px 12px;min-width:200px;text-align:left}
+.teamBox h3{margin:0 0 8px;font-size:15px}
+.teamBox.red h3{color:#ff7a6e}
+.teamBox.blue h3{color:#6ab6ff}
+.mobBtns{display:flex;flex-wrap:wrap;gap:6px}
+.mobBtns button{padding:6px 10px;font-size:13px;border-radius:6px;border:2px solid rgba(255,255,255,.25);
+  background:rgba(0,0,0,.3);color:#fff;cursor:pointer}
+.mobBtns button:hover{background:rgba(255,255,255,.15)}
+.teamBox.red .mobBtns button.active{border-color:#ff7a6e;background:rgba(255,122,110,.22)}
+.teamBox.blue .mobBtns button.active{border-color:#6ab6ff;background:rgba(106,182,255,.22)}
+.countRow{margin-top:10px;display:flex;align-items:center;gap:8px;font-size:13px;color:#fff}
+.countRow button{min-width:28px;height:28px;padding:0 7px;border-radius:6px;border:2px solid rgba(255,255,255,.25);
+  background:rgba(0,0,0,.3);color:#fff;cursor:pointer;font-size:14px;line-height:1}
+.countRow button:hover{background:rgba(255,255,255,.15)}
+.countRow b{font-size:18px;min-width:38px;text-align:center}
+.countRow.pw{font-size:12px;opacity:.95}
+.countRow.pw b{font-size:15px;min-width:46px;display:inline-block}
+.countRow.pw b.ok{color:#9fe8a0}
+.countRow.pw b.warn{color:#ffb0a0}
+.vs{align-self:center;font-size:22px;font-weight:800;color:#ffe27a;text-shadow:0 2px 6px #000}
+.btnRow{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
+#overlay .play{padding:11px 28px;font-size:17px;border:2px solid #fff;border-radius:8px;
+  background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-weight:600}
+#overlay .play:hover{background:rgba(255,255,255,.25)}
+#overlay .play.primary{background:rgba(124,252,0,.22);border-color:#9fe8a0}
+#overlay .play.primary:hover{background:rgba(124,252,0,.35)}
+#overlay .play.danger{border-color:#ffb0a0}
+#overlay .play.danger:hover{background:rgba(255,100,80,.2)}
+
+/* TNT 关卡选择 */
+#levelGrid{display:grid;grid-template-columns:repeat(5,92px);gap:12px;margin-top:14px}
+.lvBtn{width:92px;height:92px;border:3px solid rgba(255,255,255,.35);border-radius:12px;
+  background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-weight:800;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;user-select:none}
+.lvBtn:hover{background:rgba(255,255,255,.2)}
+.lvBtn .no{font-size:26px;text-shadow:0 2px 4px #000}
+.lvBtn .stars{font-size:13px;letter-spacing:1px;color:#ffe27a;min-height:16px}
+.lvBtn.locked{opacity:.4;cursor:not-allowed}
+.lvBtn .lock{font-size:26px}
+
+/* 通关面板 */
+#winStars{font-size:64px;letter-spacing:10px;margin:6px 0;text-shadow:0 4px 14px rgba(255,220,80,.6)}
+#winStars .off{opacity:.22;text-shadow:none}
+#winTime{font-size:14px;opacity:.85;margin-bottom:6px}
+
+/* 左上信息 */
+#hud{position:fixed;top:10px;left:12px;color:#fff;font-size:12px;z-index:10;
+  text-shadow:0 1px 2px #000;line-height:1.6;font-family:monospace}
+
+/* 顶部记分板 */
+#score{position:fixed;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:16px;align-items:center;
+  background:rgba(0,0,0,.4);padding:6px 18px;border-radius:10px;color:#fff;z-index:10;
+  font-family:monospace;font-size:15px;text-shadow:0 1px 2px #000}
+#score .red{color:#ff6a5e;font-weight:700}
+#score .blue{color:#5ab0ff;font-weight:700}
+#score .mid{opacity:.9;font-size:12px}
+
+/* 提示消息 */
+#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);color:#fff;font-size:15px;
+  text-shadow:0 1px 3px #000;background:rgba(0,0,0,.45);padding:6px 16px;border-radius:6px;
+  z-index:12;opacity:0;transition:opacity .35s;pointer-events:none;white-space:nowrap}
+
+/* 昏迷/关卡切换黑场 */
+#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:15;transition:opacity .45s}
