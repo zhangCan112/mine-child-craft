@@ -82,6 +82,7 @@ canvas{display:block}
 #overlay .play.primary:hover{background:rgba(124,252,0,.35)}
 #overlay .play.danger{border-color:#ffb0a0}
 #overlay .play.danger:hover{background:rgba(255,100,80,.2)}
+#overlay .play:disabled{opacity:.35;cursor:not-allowed}
 
 /* TNT 关卡选择 */
 #levelGrid{display:grid;grid-template-columns:repeat(5,92px);gap:12px;margin-top:14px}
