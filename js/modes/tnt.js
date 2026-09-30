@@ -83,7 +83,7 @@ function smallPop(x,y,z,color){
 /* ---------- 实体注册 ---------- */
 function registerTnt(x,y,z, demo){
   if(findTntAt(x,y,z)) return;
-  tnts.push({x,y,z, fuse:-1, demo:!!demo, mesh:null});
+  tnts.push({x,y,z, fuse:null, demo:!!demo, mesh:null});   // null=未点燃
 }
 function addPickup(p){
   const g = new THREE.Group();
@@ -157,7 +157,7 @@ function startLevel(i, fresh){
   weights.length = 0;
   for(const w of (lv.weights||[])) weights.push({x:w.x, y:w.y, z:w.z, state:'rest', mesh:null, vy:0});
 
-  pos.set(lv.spawn.x+0.5, groundTop(lv.spawn.x, lv.spawn.z)+1.01, lv.spawn.z+0.5);
+  pos.set(lv.spawn.x+0.5, (lv.spawn.y||11)+0.01, lv.spawn.z+0.5);   // 固定楼层出生(密室有顶,不能扫顶)
   vel.set(0,0,0);
   yaw = lv.spawn.yaw||0; pitch = 0;
 
@@ -169,7 +169,7 @@ function startLevel(i, fresh){
 
 /* ---------- TNT 点火与爆炸 ---------- */
 function igniteTnt(t, delay){
-  if(t.fuse >= -0.0001) return;                 // 已点燃
+  if(t.fuse !== null) return;                    // 已点燃/已在延迟中
   t.fuse = -(delay||0);
   sfx('fss');
 }
@@ -445,9 +445,9 @@ function tryLeftClick(hit){
   if(id===B_FUSE){                          // 捡回引线
     editBlock(hit.x, hit.y, hit.z, 0);
     fuseInv++; sfx('pick'); updateTntHotbar();
-  } else if(id===B_TNT){                    // 捡回 TNT
+  } else if(id===B_TNT){                    // 捡回 TNT (未点燃的)
     const t = findTntAt(hit.x, hit.y, hit.z);
-    if(t && !t.demo && t.fuse < -0.0001){
+    if(t && !t.demo && t.fuse===null){
       removeTnt(t);
       editBlock(hit.x, hit.y, hit.z, 0);
       tntInv++; sfx('pick'); updateTntHotbar();
@@ -622,8 +622,8 @@ const TntMode = {
       // TNT 引信计时
       for(let i=tnts.length-1;i>=0;i--){
         const t = tnts[i];
-        if(t.fuse < -0.0001){ t.fuse += dt; continue; }
-        if(t.fuse < 0){ t.fuse = 0; }
+        if(t.fuse===null) continue;              // 未点燃
+        if(t.fuse < 0){ t.fuse += dt; continue; } // 链爆延迟中
         t.fuse += dt;
         if(!t.mesh){
           t.mesh = new THREE.Mesh(tntFlashGeo, tntFlashMat.clone());
