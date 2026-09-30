@@ -50,10 +50,14 @@
   .teamBox.red .mobBtns button.active{border-color:#ff7a6e;background:rgba(255,122,110,.22)}
   .teamBox.blue .mobBtns button.active{border-color:#6ab6ff;background:rgba(106,182,255,.22)}
   .countRow{margin-top:10px;display:flex;align-items:center;gap:8px;font-size:13px;color:#fff}
-  .countRow button{width:28px;height:28px;border-radius:6px;border:2px solid rgba(255,255,255,.25);
-    background:rgba(0,0,0,.3);color:#fff;cursor:pointer;font-size:16px;line-height:1}
+  .countRow button{min-width:28px;height:28px;padding:0 7px;border-radius:6px;border:2px solid rgba(255,255,255,.25);
+    background:rgba(0,0,0,.3);color:#fff;cursor:pointer;font-size:14px;line-height:1}
   .countRow button:hover{background:rgba(255,255,255,.15)}
-  .countRow b{font-size:18px;min-width:30px;text-align:center}
+  .countRow b{font-size:18px;min-width:38px;text-align:center}
+  .countRow.pw{font-size:12px;opacity:.95}
+  .countRow.pw b{font-size:15px;min-width:46px;display:inline-block}
+  .countRow.pw b.ok{color:#9fe8a0}
+  .countRow.pw b.warn{color:#ffb0a0}
   .vs{align-self:center;font-size:22px;font-weight:800;color:#ffe27a;text-shadow:0 2px 6px #000}
   .btnRow{margin-top:16px;display:flex;gap:10px;justify-content:center}
   #overlay .play{padding:11px 28px;font-size:17px;border:2px solid #fff;border-radius:8px;
@@ -105,20 +109,23 @@
       <h3>红方 (西侧)</h3>
       <div class="mobBtns" data-team="A"></div>
       <div class="countRow">数量
-        <button data-cnt="A" data-d="-10">-10</button><button data-cnt="A" data-d="-1">-</button><b id="cntA">8</b><button data-cnt="A" data-d="1">+</button><button data-cnt="A" data-d="10">+10</button>
+        <button data-cnt="A" data-d="-100">-100</button><button data-cnt="A" data-d="-10">-10</button><button data-cnt="A" data-d="-1">-</button><b id="cntA">8</b><button data-cnt="A" data-d="1">+</button><button data-cnt="A" data-d="10">+10</button><button data-cnt="A" data-d="100">+100</button>
       </div>
+      <div class="countRow pw">总战力 <b id="powA" class="ok">0</b>（每只 <span id="unitA">0</span>）</div>
     </div>
     <div class="vs">VS</div>
     <div class="teamBox blue">
       <h3>蓝方 (东侧)</h3>
       <div class="mobBtns" data-team="B"></div>
       <div class="countRow">数量
-        <button data-cnt="B" data-d="-10">-10</button><button data-cnt="B" data-d="-1">-</button><b id="cntB">8</b><button data-cnt="B" data-d="1">+</button><button data-cnt="B" data-d="10">+10</button>
+        <button data-cnt="B" data-d="-100">-100</button><button data-cnt="B" data-d="-10">-10</button><button data-cnt="B" data-d="-1">-</button><b id="cntB">8</b><button data-cnt="B" data-d="1">+</button><button data-cnt="B" data-d="10">+10</button><button data-cnt="B" data-d="100">+100</button>
       </div>
+      <div class="countRow pw">总战力 <b id="powB" class="ok">0</b>（每只 <span id="unitB">0</span>）</div>
     </div>
   </div>
   <div class="btnRow">
     <button class="play primary" id="fightBtn">开 战</button>
+    <button class="play" id="balBtn">战力配平：开</button>
     <button class="play" id="resumeBtn">进入观战</button>
     <button class="play" id="clearBtn">清场</button>
   </div>
@@ -126,6 +133,7 @@
     <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift<br>
     <b>挖/放方块</b>：鼠标左右键 &nbsp; <b>选方块</b>：数字键 1~9 / 滚轮<br>
     <b>R</b>：用当前配置重新开战 &nbsp; <b>B / Esc</b>：打开本面板<br>
+    <b>战力配平</b>：按怪物强度计算总战力，开启时另一队数量自动匹配（末影龙 2000 · 铁傀儡 1000 · 僵尸 140 · 骷髅 130 · 苦力怕 100）<br>
     <span class="safe">你出生在南侧看台顶端，有玻璃护栏，怪物只会互相战斗，不会攻击你</span>
   </div>
 </div>
@@ -615,8 +623,12 @@ function collidesAtPlayer(bx,by,bz){
    音效 (WebAudio 合成)
 ============================================================ */
 let actx = null;
+const sfxLastT = {};
 function sfx(kind){
   try{
+    const nowMs = performance.now();                  // 大规模混战时限制同类音效频率
+    if(kind!=='win' && nowMs - (sfxLastT[kind]||0) < 60) return;
+    sfxLastT[kind] = nowMs;
     if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
     if(actx.state==='suspended') actx.resume();
     const t = actx.currentTime;
@@ -668,13 +680,16 @@ function sfx(kind){
    怪物类型
 ============================================================ */
 const MOB_TYPES = {
-  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
-  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.3, h:1.9, ranged:true, hitR:0.55},
-  creeper: {name:'苦力怕', hp:24,  dmg:30, speed:2.9, range:1.8, cd:9,   h:1.7, boom:true, hitR:0.5},
-  golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0},
-  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2},
-  mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2}
+  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:140},
+  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.3, h:1.9, ranged:true, hitR:0.55, power:130},
+  creeper: {name:'苦力怕', hp:24,  dmg:30, speed:2.9, range:1.8, cd:9,   h:1.7, boom:true, hitR:0.5, power:100},
+  golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0, power:1000},
+  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, power:2000},
+  mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2, power:0}
 };
+// 混合编队战力 = 各兵种平均值
+const MIX_POOL = ['zombie','skeleton','creeper','golem','dragon'];
+MOB_TYPES.mix.power = Math.round(MIX_POOL.reduce((s,k)=>s+MOB_TYPES[k].power,0) / MIX_POOL.length);
 
 function angleLerp(a, b, t){
   let d = (b - a) % (Math.PI*2);
@@ -829,6 +844,7 @@ const BUILDERS = { zombie:buildZombie, skeleton:buildSkeleton, creeper:buildCree
    怪物实例 / 战斗
 ============================================================ */
 const mobs = [];
+const sepGrid = new Map();   // 挤开检测用的空间网格(1×1 格)
 let mobId = 0;
 let battleState = 'idle';   // idle | fighting | over
 let battleResult = '';
@@ -847,7 +863,7 @@ const clouds = [];
 function spawnMob(team, type, x, z){
   const cfg = MOB_TYPES[type];
   const built = BUILDERS[type]();
-  const lc = document.createElement('canvas'); lc.width=256; lc.height=64;
+  const lc = document.createElement('canvas'); lc.width=160; lc.height=40;
   const ltex = new THREE.CanvasTexture(lc);
   const label = new THREE.Sprite(new THREE.SpriteMaterial({map:ltex, transparent:true, depthTest:false}));
   label.scale.set(2.6, 0.65, 1);
@@ -867,7 +883,7 @@ function spawnMob(team, type, x, z){
     slamCd:2+Math.random()*3,
     orbitA:Math.random()*Math.PI*2, flyPhase:Math.random()*6,
     flank:(Math.random()*2-1) * (cfg.ranged ? 0.35 : 0.85),
-    lastLabelHp:-1, lastLabelDead:false
+    lastLabelHp:-1, lastLabelDead:false, labelT:0
   };
   drawMobLabel(m);
   mobs.push(m);
@@ -875,17 +891,17 @@ function spawnMob(team, type, x, z){
 
 function drawMobLabel(m){
   const g = m.labelCanvas.getContext('2d');
-  g.clearRect(0,0,256,64);
-  g.textAlign='center'; g.font='bold 24px sans-serif';
-  g.shadowColor='#000'; g.shadowBlur=5;
+  g.clearRect(0,0,160,40);
+  g.textAlign='center'; g.font='bold 15px sans-serif';
+  g.shadowColor='#000'; g.shadowBlur=4;
   const isA = m.team==='A';
   g.fillStyle = m.dead ? '#9a9a9a' : (isA ? '#ff6055' : '#5ab0ff');
-  g.fillText((isA?'红方·':'蓝方·')+m.cfg.name, 128, 26);
+  g.fillText((isA?'红方·':'蓝方·')+m.cfg.name, 80, 15);
   g.shadowBlur = 0;
-  g.fillStyle='rgba(0,0,0,.65)'; g.fillRect(48,38,160,13);
+  g.fillStyle='rgba(0,0,0,.65)'; g.fillRect(30,22,100,10);
   const r = Math.max(0, m.hp/m.maxHp);
   g.fillStyle = r>0.5 ? '#48d848' : (r>0.25 ? '#e8c030' : '#e04030');
-  g.fillRect(50,40,156*r,9);
+  g.fillRect(32,24,96*r,6);
   m.labelTex.needsUpdate = true;
 }
 
@@ -1039,7 +1055,10 @@ function updateMobs(dt){
       if(!m.lastLabelDead){ drawMobLabel(m); m.lastLabelDead = true; }
       continue;
     }
-    if(m.lastLabelHp !== m.hp){ drawMobLabel(m); m.lastLabelHp = m.hp; }
+    if(m.lastLabelHp !== m.hp){                       // 大兵团时血条节流重绘
+      m.labelT -= dt;
+      if(m.labelT <= 0){ drawMobLabel(m); m.lastLabelHp = m.hp; m.labelT = 0.3; }
+    }
 
     if(m.flashT > 0){
       m.flashT -= dt;
@@ -1252,19 +1271,36 @@ function updateMobs(dt){
     m.group.rotation.y = m.yaw;
   }
 
-  for(let i=0;i<mobs.length;i++){
-    const a = mobs[i]; if(a.dead||a.gone) continue;
-    for(let j=i+1;j<mobs.length;j++){
-      const b = mobs[j]; if(b.dead||b.gone) continue;
-      if(Math.abs(b.pos.y-a.pos.y) > 2.5) continue;    // 空中/地面不互相挤开
-      const dx = b.pos.x-a.pos.x, dz = b.pos.z-a.pos.z;
-      const d = Math.hypot(dx,dz);
-      const min = 0.85;
-      if(d > 0.001 && d < min){
-        const push = (min-d)*0.5;
-        const ux = dx/d, uz = dz/d;
-        stepMove(a, -ux*push, 0); stepMove(a, 0, -uz*push);
-        stepMove(b,  ux*push, 0); stepMove(b, 0,  uz*push);
+  // 大规模兵团:空间网格加速挤开检测(代替 O(n²) 两两枚举)
+  sepGrid.clear();
+  const live = [];
+  for(const m of mobs){
+    if(m.dead || m.gone) continue;
+    live.push(m);
+    const k = Math.floor(m.pos.x) + ',' + Math.floor(m.pos.z);
+    let arr = sepGrid.get(k);
+    if(!arr){ arr = []; sepGrid.set(k, arr); }
+    arr.push(m);
+  }
+  const minSep = 0.85;
+  for(const a of live){
+    const gx = Math.floor(a.pos.x), gz = Math.floor(a.pos.z);
+    for(let ox=-1;ox<=1;ox++){
+      for(let oz=-1;oz<=1;oz++){
+        const arr = sepGrid.get((gx+ox)+','+(gz+oz));
+        if(!arr) continue;
+        for(const b of arr){
+          if(b.id <= a.id) continue;                   // 每对只处理一次
+          if(Math.abs(b.pos.y-a.pos.y) > 2.5) continue; // 空中/地面不互相挤开
+          const dx = b.pos.x-a.pos.x, dz = b.pos.z-a.pos.z;
+          const d = Math.hypot(dx,dz);
+          if(d > 0.001 && d < minSep){
+            const push = (minSep-d)*0.5;
+            const ux = dx/d, uz = dz/d;
+            stepMove(a, -ux*push, 0); stepMove(a, 0, -uz*push);
+            stepMove(b,  ux*push, 0); stepMove(b, 0,  uz*push);
+          }
+        }
       }
     }
   }
@@ -1423,16 +1459,27 @@ function updateClouds(dt){
 ============================================================ */
 const cfgA = {type:'zombie',  count:8};
 const cfgB = {type:'skeleton',count:8};
+let autoBalance = true;      // 开启后两队总战力自动一致
+let lastEdited = 'A';        // 最后编辑的一侧，另一侧随之配平
+const MAX_MOBS = 1000;
+
+function teamPower(cfg){ return cfg.count * MOB_TYPES[cfg.type].power; }
+function balanceTeams(){
+  const from = lastEdited==='A' ? cfgA : cfgB;
+  const to   = lastEdited==='A' ? cfgB : cfgA;
+  const n = Math.round(from.count * MOB_TYPES[from.type].power / MOB_TYPES[to.type].power);
+  to.count = Math.min(MAX_MOBS, Math.max(1, n));
+}
 
 function spawnTeam(team, cfg){
   const ax = team==='A' ? ARENA.cx-19 : ARENA.cx+19;
   const az = ARENA.cz;
-  const spread = Math.min(12, 1.2 + Math.sqrt(cfg.count)*0.6);
+  const spread = Math.min(15, 1.2 + Math.sqrt(cfg.count)*0.6);
   for(let i=0;i<cfg.count;i++){
     const a = Math.random()*Math.PI*2, rr = 0.6+Math.random()*spread;
     const x = ax + Math.cos(a)*rr, z = az + Math.sin(a)*rr;
     const type = cfg.type==='mix'
-      ? ['zombie','skeleton','creeper','golem','dragon'][Math.floor(Math.random()*5)]
+      ? MIX_POOL[Math.floor(Math.random()*MIX_POOL.length)]
       : cfg.type;
     spawnMob(team, type, x, z);
   }
@@ -1447,7 +1494,8 @@ function startBattle(){
   spawnTeam('B', cfgB);
   battleState = 'fighting';
   battleResult = '';
-  showToast('对战开始！红方 ' + cfgA.count + ' 人  VS  蓝方 ' + cfgB.count + ' 人', 3000);
+  showToast('对战开始！红方 ' + cfgA.count + '×' + MOB_TYPES[cfgA.type].name + '（战力' + teamPower(cfgA)
+    + '） VS 蓝方 ' + cfgB.count + '×' + MOB_TYPES[cfgB.type].name + '（战力' + teamPower(cfgB) + '）', 3200);
 }
 
 function clearBattle(){
@@ -1494,29 +1542,45 @@ function updateHotbar(){
 
 const cntAEl = document.getElementById('cntA');
 const cntBEl = document.getElementById('cntB');
+const powAEl = document.getElementById('powA');
+const powBEl = document.getElementById('powB');
+const unitAEl = document.getElementById('unitA');
+const unitBEl = document.getElementById('unitB');
+const balBtn = document.getElementById('balBtn');
 function buildPanel(){
   document.querySelectorAll('.mobBtns').forEach(el=>{
     for(const [k,v] of Object.entries(MOB_TYPES)){
       const b = document.createElement('button');
       b.textContent = v.name;
+      b.title = '战力 ' + v.power;
       b.dataset.type = k;
       b.addEventListener('click', ()=>{
-        (el.dataset.team==='A' ? cfgA : cfgB).type = k;
+        const cfg = el.dataset.team==='A' ? cfgA : cfgB;
+        cfg.type = k;
+        lastEdited = el.dataset.team;
+        if(autoBalance) balanceTeams();
         updatePanel();
       });
       el.appendChild(b);
     }
   });
-  document.querySelectorAll('.countRow button').forEach(b=>{
+  document.querySelectorAll('.countRow:not(.pw) button').forEach(b=>{
     b.addEventListener('click', ()=>{
       const cfg = b.dataset.cnt==='A' ? cfgA : cfgB;
-      cfg.count = Math.min(100, Math.max(1, cfg.count + parseInt(b.dataset.d)));
+      lastEdited = b.dataset.cnt;
+      cfg.count = Math.min(MAX_MOBS, Math.max(1, cfg.count + parseInt(b.dataset.d)));
+      if(autoBalance) balanceTeams();
       updatePanel();
     });
   });
   document.getElementById('fightBtn').addEventListener('click', ()=>{ startBattle(); requestLock(); });
   document.getElementById('resumeBtn').addEventListener('click', requestLock);
   document.getElementById('clearBtn').addEventListener('click', clearBattle);
+  balBtn.addEventListener('click', ()=>{
+    autoBalance = !autoBalance;
+    if(autoBalance) balanceTeams();
+    updatePanel();
+  });
 }
 function updatePanel(){
   document.querySelectorAll('.mobBtns').forEach(el=>{
@@ -1525,18 +1589,29 @@ function updatePanel(){
   });
   cntAEl.textContent = cfgA.count;
   cntBEl.textContent = cfgB.count;
+  unitAEl.textContent = MOB_TYPES[cfgA.type].power;
+  unitBEl.textContent = MOB_TYPES[cfgB.type].power;
+  const pA = teamPower(cfgA), pB = teamPower(cfgB);
+  powAEl.textContent = pA;
+  powBEl.textContent = pB;
+  const warn = Math.abs(pA-pB) / Math.max(pA,pB) > 0.1;   // 超过上限无法配平时红字提示
+  powAEl.className = warn ? 'warn' : 'ok';
+  powBEl.className = warn ? 'warn' : 'ok';
+  balBtn.textContent = '战力配平：' + (autoBalance ? '开' : '关');
 }
 
 const scoreAEl = document.getElementById('scoreA');
 const scoreBEl = document.getElementById('scoreB');
 const scoreMidEl = document.getElementById('scoreMid');
 function updateScoreboard(){
-  let a=0, b=0;
+  let a=0, b=0, pa=0, pb=0;
   for(const m of mobs){
-    if(!m.dead && !m.gone){ if(m.team==='A') a++; else b++; }
+    if(!m.dead && !m.gone){
+      if(m.team==='A'){ a++; pa+=m.cfg.power; } else { b++; pb+=m.cfg.power; }
+    }
   }
-  scoreAEl.textContent = '红方 ' + a;
-  scoreBEl.textContent = '蓝方 ' + b;
+  scoreAEl.textContent = '红方 ' + a + ' · ' + pa;
+  scoreBEl.textContent = '蓝方 ' + b + ' · ' + pb;
   scoreMidEl.textContent = battleState==='fighting' ? '战斗中'
     : (battleState==='over' ? battleResult : '备战中');
 }
@@ -1615,6 +1690,7 @@ function init(){
   spawnPlayer();
   buildHotbar();
   buildPanel();
+  if(autoBalance) balanceTeams();
   updatePanel();
   addEventListener('resize', ()=>{
     camera.aspect = innerWidth/innerHeight;
