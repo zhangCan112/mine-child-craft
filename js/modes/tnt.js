@@ -147,7 +147,10 @@ function startLevel(i, fresh){
   lv.build();                                   // 关卡自己铺方块
   rebuildAll();
 
-  for(const t of (lv.tnts||[])) registerTnt(t.x, t.y, t.z, t.demo);
+  for(const t of (lv.tnts||[])){
+    setBlockRaw(t.x, t.y, t.z, B_TNT);                        // 预放置 TNT 方块
+    registerTnt(t.x, t.y, t.z, t.demo);
+  }
   for(const p of (lv.pickups||[])) addPickup(p);
   for(const s of (lv.switches||[])) registerSwitch(s);
   plateDoors = (lv.doors||[]).map(d=>({plates:d.plates, cells:d.cells, open:false}));
@@ -291,7 +294,9 @@ function updateSparks(dt){
       } else {
         const cands = [];
         for(const [dx,dz] of DIRS4){
-          if(isFuseOrSwitch(s.x+dx, s.y, s.z+dz)) cands.push({x:s.x+dx, y:s.y, z:s.z+dz});
+          const nx=s.x+dx, nz=s.z+dz;
+          if(isFuseOrSwitch(nx, s.y, nz) && !(nx===s.px && nz===s.pz))  // 不走回头路
+            cands.push({x:nx, y:s.y, z:nz});
         }
         const sx = s.x + (s.x-s.px), sz = s.z + (s.z-s.pz);
         next = cands.find(c=> c.x===sx && c.z===sz) || cands[0] || null;
@@ -409,7 +414,7 @@ function updatePickups(dt){
     p.mesh.rotation.y += dt*2;
     p.mesh.position.y = p.y+0.5 + Math.sin(p.t*2.2)*0.12;
     const dx = pos.x-(p.x+0.5), dz = pos.z-(p.z+0.5), dy = pos.y+0.9-(p.y+0.5);
-    if(dx*dx+dz*dz < 1.7 && Math.abs(dy) < 1.6){
+    if(dx*dx+dz*dz < 1.45 && Math.abs(dy) < 1.6){
       if(p.kind==='tnt') tntInv += p.n; else fuseInv += p.n;
       sfx('pick');
       smallPop(p.x+0.5, p.y+0.8, p.z+0.5, p.kind==='tnt'?0xff6644:0xffcc44);
