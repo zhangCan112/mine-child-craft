@@ -90,6 +90,44 @@ const blockMat = new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.Do
 const glassMat = new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.DoubleSide,
   transparent:true, opacity:0.32, depthWrite:false});
 
+/* TNT 贴图图集: 上/下/侧 三格竖排, 像素风 */
+function makeTntTexture(){
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 192;
+  const g = c.getContext('2d');
+  const red = '#c33a24', dark = '#8f2313';
+  const speckle = (x0,y0)=>{                       // 红底像素噪点
+    for(let i=0;i<90;i++){
+      g.fillStyle = Math.random()<0.5 ? 'rgba(0,0,0,.14)' : 'rgba(255,255,255,.08)';
+      g.fillRect(x0+Math.floor(Math.random()*64), y0+Math.floor(Math.random()*64), 2, 2);
+    }
+  };
+  // 第一格: 顶面 (红底 + 深红边框 + 中心引信孔)
+  g.fillStyle = red; g.fillRect(0,0,64,64);
+  speckle(0,0);
+  g.fillStyle = dark;
+  g.fillRect(0,0,64,4); g.fillRect(0,60,64,4); g.fillRect(0,0,4,64); g.fillRect(60,0,4,64);
+  g.fillStyle = '#5b1508'; g.fillRect(24,24,16,16);
+  g.fillStyle = '#e8c07a'; g.fillRect(28,28,8,8);
+  // 第二格: 底面 (深红)
+  g.fillStyle = dark; g.fillRect(0,64,64,64);
+  g.fillStyle = '#7a1d0f'; g.fillRect(6,70,52,52);
+  // 第三格: 侧面 (红底 + 白带 + 黑字 TNT)
+  g.fillStyle = red; g.fillRect(0,128,64,64);
+  speckle(0,128);
+  g.fillStyle = dark;
+  g.fillRect(0,128,64,4); g.fillRect(0,188,64,4);
+  g.fillStyle = '#efe7dc'; g.fillRect(4,148,56,24);
+  g.fillStyle = '#111';
+  g.font = 'bold 18px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
+  g.fillText('TNT', 32, 161);
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter;
+  tex.minFilter = THREE.NearestFilter;
+  return tex;
+}
+const tntMat = new THREE.MeshLambertMaterial({map:makeTntTexture(), side:THREE.DoubleSide});
+
 /* ---------- 区块网格构建 (不透明 + 玻璃双通道 + 贴地薄块) ---------- */
 const FACES = [
   { dir:[-1,0,0], corners:[ [0,1,0],[0,0,0],[0,1,1],[0,0,1] ] },
@@ -119,9 +157,22 @@ function pushThin(t, x, y, z, h, col, tint){
   }
 }
 
+/* 面朝向 → UV (保证侧面文字不镜像) */
+function faceUV(dir, cor){
+  let u, v;
+  if(dir[1] === 1)       { u = cor[0];   v = 1-cor[2]; }   // 顶
+  else if(dir[1] === -1) { u = 1-cor[0]; v = 1-cor[2]; }   // 底
+  else if(dir[0] === 1)  { u = 1-cor[2]; v = cor[1];   }   // 东
+  else if(dir[0] === -1) { u = cor[2];   v = cor[1];   }   // 西
+  else if(dir[2] === 1)  { u = cor[0];   v = cor[1];   }   // 南
+  else                   { u = 1-cor[0]; v = cor[1];   }   // 北
+  return [u, v];
+}
+
 function buildChunkGeometries(cx, cz){
   const S = {positions:[], colors:[], normals:[], indices:[], n:0};
   const G = {positions:[], colors:[], normals:[], indices:[], n:0};
+  const T = {positions:[], uvs:[], normals:[], indices:[], n:0};   // TNT 贴图通道
   const x0=cx*CHUNK, z0=cz*CHUNK;
   for(let x=x0; x<x0+CHUNK; x++){
     for(let z=z0; z<z0+CHUNK; z++){
@@ -133,6 +184,26 @@ function buildChunkGeometries(cx, cz){
           const col = b.all;
           const tint = 0.92 + hashRand(x*3+z, y)*0.12;
           pushThin(S, x, y, z, b.thin, col, tint);
+          continue;
+        }
+        if(b.tnt){                              // TNT: 走贴图通道
+          for(let f=0; f<6; f++){
+            const face = FACES[f];
+            const nx=x+face.dir[0], ny=y+face.dir[1], nz=z+face.dir[2];
+            const nid = getBlock(nx,ny,nz);
+            const nb = nid!==0 ? BLOCKS[nid] : null;
+            if(nb && !nb.glass && !nb.thin) continue;
+            const tileV = face.dir[1]===1 ? 2 : (face.dir[1]===-1 ? 1 : 0);  // 顶/底/侧
+            for(let c=0;c<4;c++){
+              const cor = face.corners[c];
+              T.positions.push(x+cor[0], y+cor[1], z+cor[2]);
+              T.normals.push(face.dir[0], face.dir[1], face.dir[2]);
+              const uv = faceUV(face.dir, cor);
+              T.uvs.push(uv[0], (tileV+uv[1])/3);
+            }
+            T.indices.push(T.n, T.n+1, T.n+2, T.n+2, T.n+1, T.n+3);
+            T.n += 4;
+          }
           continue;
         }
         const isGlass = !!b.glass;
@@ -171,7 +242,15 @@ function buildChunkGeometries(cx, cz){
     g.setIndex(b.indices);
     return g;
   };
-  return { solid: S.n>0 ? make(S) : null, glass: G.n>0 ? make(G) : null };
+  const makeTex = (b)=>{
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions,3));
+    g.setAttribute('normal',   new THREE.Float32BufferAttribute(b.normals,3));
+    g.setAttribute('uv',       new THREE.Float32BufferAttribute(b.uvs,2));
+    g.setIndex(b.indices);
+    return g;
+  };
+  return { solid: S.n>0 ? make(S) : null, glass: G.n>0 ? make(G) : null, tnt: T.n>0 ? makeTex(T) : null };
 }
 
 function rebuildChunk(cx,cz){
@@ -179,10 +258,11 @@ function rebuildChunk(cx,cz){
   const k = chunkKey(cx,cz);
   const old = chunkMeshes.get(k);
   if(old){ old.forEach(m=>{ scene.remove(m); m.geometry.dispose(); }); }
-  const {solid, glass} = buildChunkGeometries(cx,cz);
+  const {solid, glass, tnt} = buildChunkGeometries(cx,cz);
   const arr = [];
   if(solid){ const m=new THREE.Mesh(solid, blockMat); scene.add(m); arr.push(m); }
   if(glass){ const m=new THREE.Mesh(glass, glassMat); scene.add(m); arr.push(m); }
+  if(tnt){   const m=new THREE.Mesh(tnt, tntMat);     scene.add(m); arr.push(m); }
   if(arr.length) chunkMeshes.set(k, arr); else chunkMeshes.delete(k);
 }
 
