@@ -55,7 +55,7 @@ const fuseTipGeo = new THREE.BoxGeometry(0.08,0.08,0.08);
 const fuseTipMat = new THREE.MeshBasicMaterial({color:0xffee99});
 const arrowRodGeo = new THREE.BoxGeometry(0.14,0.08,0.5);
 const arrowHeadGeo = new THREE.BoxGeometry(0.24,0.1,0.2);
-const arrowMat = new THREE.MeshBasicMaterial({color:0xff8800});
+const switchArrowMat = new THREE.MeshBasicMaterial({color:0xff8800});
 
 /* ---------- 小工具 ---------- */
 function inZone(p, z){
@@ -102,8 +102,8 @@ function addPickup(p){
 }
 function registerSwitch(s){
   const g = new THREE.Group();
-  const rod = new THREE.Mesh(arrowRodGeo, arrowMat); rod.position.set(0,0,-0.15);
-  const head = new THREE.Mesh(arrowHeadGeo, arrowMat); head.position.set(0,0,-0.42);
+  const rod = new THREE.Mesh(arrowRodGeo, switchArrowMat); rod.position.set(0,0,-0.15);
+  const head = new THREE.Mesh(arrowHeadGeo, switchArrowMat); head.position.set(0,0,-0.42);
   g.add(rod, head);
   g.position.set(s.x+0.5, s.y+1.12, s.z+0.5);
   const sw = {x:s.x, y:s.y, z:s.z, dirIdx:s.dir||0, mesh:g};
