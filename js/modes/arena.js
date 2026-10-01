@@ -74,11 +74,13 @@ function spawnPlayer(){
   yaw = 0; pitch = -0.22;                           // 面朝 -Z 俯瞰全场
 }
 
-/* ---------- 怪物类型 ---------- */
+/* ---------- 怪物类型 ----------
+   特有技能: 僵尸=狂暴(半血加速+群体冲锋) 骷髅=强力箭(每3箭)
+             苦力怕=扑袭(跃进扑脸) 铁傀儡=震地(震慑+震落) 末影龙=龙息毒云 */
 const MOB_TYPES = {
-  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:140},
-  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.3, h:1.9, ranged:true, hitR:0.55, power:130},
-  creeper: {name:'苦力怕', hp:24,  dmg:30, speed:2.9, range:1.8, cd:9,   h:1.7, boom:true, hitR:0.5, power:100},
+  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:170},
+  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.3, h:1.9, ranged:true, hitR:0.55, power:165},
+  creeper: {name:'苦力怕', hp:24,  dmg:30, speed:2.9, range:1.8, cd:9,   h:1.7, boom:true, hitR:0.5, power:140},
   golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0, power:1000},
   dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, power:2000},
   mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2, power:0}
@@ -92,6 +94,13 @@ function angleLerp(a, b, t){
   if(d >  Math.PI) d -= Math.PI*2;
   if(d < -Math.PI) d += Math.PI*2;
   return a + d*Math.min(1, t);
+}
+/* 狂暴/群体冲锋 速度系数 */
+function mobSpeed(m){
+  let s = m.cfg.speed;
+  if(m.raged)      s *= 1.5;
+  if(m.rageBuffT > 0) s *= 1.25;
+  return s;
 }
 const mkBox = (w,h,d,m)=> new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
 
@@ -246,6 +255,7 @@ let battleResult = '';
 const arrows = [];
 const arrowGeo = new THREE.BoxGeometry(0.07,0.07,0.8);
 const arrowMat = new THREE.MeshLambertMaterial({color:0x3a2c1c});
+const arrowPowerMat = new THREE.MeshBasicMaterial({color:0xfff2b0});   // 强力箭(亮白)
 const breathBalls = [];
 const clouds = [];
 
@@ -269,7 +279,8 @@ function spawnMob(team, type, x, z){
     walkPhase:Math.random()*6, speedNow:0, wanderT:0, fuse:-1,
     vx:0, vz:0, strafeT:0, strafeDir:1,
     air:false, vy:0, jumpVX:0, jumpVZ:0, slamming:false,
-    slamCd:2+Math.random()*3,
+    slamCd:2+Math.random()*3, pounceCd:2+Math.random()*3,
+    shotCnt:0, raged:false, rageBuffT:0,
     orbitA:Math.random()*Math.PI*2, flyPhase:Math.random()*6,
     flank:(Math.random()*2-1) * (cfg.ranged ? 0.35 : 0.85),
     lastLabelHp:-1, lastLabelDead:false, labelT:0
@@ -337,9 +348,9 @@ function setEmissive(m, r, g, b){
   m.mats.forEach(mt=>{ if(mt.emissive) mt.emissive.setRGB(r,g,b); });
 }
 
-function shootArrow(m, tg){
+function shootArrow(m, tg, power){
   sfx('shoot');
-  const v0 = 26, g = 9.5;                          // 初速 / 箭矢重力(与 updateArrows 一致)
+  const v0 = power ? 34 : 26, g = 9.5;            // 强力箭更快更痛更重击退
   const from = new THREE.Vector3(m.pos.x, m.pos.y+1.45, m.pos.z);
   const vx = tg.vx||0, vz = tg.vz||0;
   let t = tg.pos.distanceTo(from)/v0;                        // 飞行时间预估(3D,兼容空中目标)
@@ -348,16 +359,18 @@ function shootArrow(m, tg){
   const lift = 0.5*g*t*t;                                    // 重力下坠补偿(抬高瞄准点)
   const aim = new THREE.Vector3(tx, tg.pos.y + tg.cfg.h*0.55 + lift, tz);
   const dir = aim.sub(from).normalize();
-  dir.x += (Math.random()-0.5)*0.04;                         // 少量散布
+  dir.x += (Math.random()-0.5)*(power?0.02:0.04);            // 强力箭更精准
   dir.y += (Math.random()-0.5)*0.02;
-  dir.z += (Math.random()-0.5)*0.04;
+  dir.z += (Math.random()-0.5)*(power?0.02:0.04);
   dir.normalize();
-  const mesh = new THREE.Mesh(arrowGeo, arrowMat);
+  const mesh = new THREE.Mesh(arrowGeo, power ? arrowPowerMat : arrowMat);
+  if(power) mesh.scale.set(1.6,1.6,1.6);
   mesh.position.copy(from);
   mesh.lookAt(from.x+dir.x, from.y+dir.y, from.z+dir.z);
   scene.add(mesh);
   arrows.push({mesh, vel:dir.multiplyScalar(v0), life:2.5, team:m.team,
-    dmg:6+Math.floor(Math.random()*3)});
+    dmg: power ? 12+Math.floor(Math.random()*4) : 6+Math.floor(Math.random()*3),
+    kpow: power ? 0.8 : 0.35});
 }
 
 function golemSlam(m){
@@ -384,6 +397,9 @@ function golemSlam(m){
     const d = Math.hypot(dx,dz);
     if(d < 4 && Math.abs(t.pos.y-m.pos.y) < 3.5){
       damageMob(t, Math.round(18*(1-d/4*0.6)), dx, dz, 2.2);
+      t.staggerT = Math.max(t.staggerT, 1.0);              // 震地:震慑 1 秒
+    } else if(t.cfg.fly && d < 4.5 && (t.pos.y-m.pos.y) < 8){
+      t.staggerT = Math.max(t.staggerT, 1.2);              // 冲击波:震落低空单位
     }
   }
 }
@@ -443,10 +459,27 @@ function updateMobs(dt){
       const f = Math.max(0, m.flashT)/0.25;
       setEmissive(m, f*0.9, f*0.1, f*0.1);
     }
+    if(m.raged && m.flashT <= 0) setEmissive(m, 0.30, 0.02, 0.02);  // 狂暴红光
     if(m.staggerT > 0) m.staggerT -= dt;
     if(m.attackCd  > 0) m.attackCd  -= dt;
     if(m.attackT   > 0) m.attackT   -= dt;
     if(m.slamCd    > 0) m.slamCd    -= dt;
+    if(m.pounceCd  > 0) m.pounceCd  -= dt;
+    if(m.rageBuffT > 0) m.rageBuffT -= dt;
+    // 僵尸狂暴:半血触发,自身加速+攻速,附近同伴群体冲锋
+    if(m.type==='zombie' && !m.raged && m.hp < m.maxHp*0.5){
+      m.raged = true;
+      sfx('roar');
+      for(const t of mobs){
+        if(t!==m && t.type==='zombie' && !t.dead && !t.gone
+           && Math.hypot(t.pos.x-gp.x, t.pos.z-gp.z) < 6) t.rageBuffT = 4;
+      }
+    }
+    // 被震落的飞行单位下沉
+    if(m.cfg.fly && m.staggerT > 0){
+      const gy = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
+      if(gp.y > gy) gp.y = Math.max(gy, gp.y - 10*dt);
+    }
 
     m.retargetT -= dt;
     if(!m.target || m.target.dead || m.target.gone || m.retargetT <= 0){
@@ -520,12 +553,21 @@ function updateMobs(dt){
         if(dist < m.cfg.range){
           if(m.fuse < 0) m.fuse = 0;
         } else if(m.fuse < 0){
-          speed = m.cfg.speed;
+          if(!m.air && m.pounceCd <= 0 && dist > 3 && dist < 9){
+            // 扑袭:向目标跃进扑脸再引爆
+            m.pounceCd = 6 + Math.random()*4;
+            m.air = true; m.vy = 6.5;
+            const hl = Math.hypot(dx,dz) || 1;
+            const hv = Math.min(9, dist*1.2);
+            m.jumpVX = dx/hl*hv; m.jumpVZ = dz/hl*hv;
+          } else {
+            speed = mobSpeed(m);
+          }
         }
       } else if(m.cfg.ranged){
         const shootDist = Math.min(m.cfg.range, 10);   // 有效射程:超过就压上,避免远距离干瞪眼
         if(dist > shootDist){
-          speed = m.cfg.speed;
+          speed = mobSpeed(m);
         } else if(dist < 4.5){
           speed = -m.cfg.speed*0.65;
         } else {
@@ -539,10 +581,11 @@ function updateMobs(dt){
         }
         if(dist <= shootDist && m.attackCd <= 0){
           m.attackCd = m.cfg.cd; m.attackT = 0.35;
-          shootArrow(m, tg);
+          m.shotCnt++;                                 // 骷髅强力箭:每第 3 箭
+          shootArrow(m, tg, m.shotCnt % 3 === 0);
         }
       } else {
-        if(dist > m.cfg.range*0.85) speed = m.cfg.speed;
+        if(dist > m.cfg.range*0.85) speed = mobSpeed(m);
         if(m.type==='golem' && m.slamCd <= 0 && dist > 2.2 && dist < 6.5){
           // 跃起砸地
           m.slamCd = 6 + Math.random()*4;
@@ -554,7 +597,7 @@ function updateMobs(dt){
           speed = 0;
         }
         if(!m.air && dist <= m.cfg.range && Math.abs(tg.pos.y-gp.y) < 3 && m.attackCd <= 0){
-          m.attackCd = m.cfg.cd; m.attackT = 0.45;
+          m.attackCd = m.cfg.cd * (m.raged ? 0.55 : 1); m.attackT = 0.45;   // 狂暴攻速
           damageMob(tg, Math.round(m.cfg.dmg*(0.85+Math.random()*0.3)),
                     tg.pos.x-gp.x, tg.pos.z-gp.z, 0.45);
           sfx('hit');
@@ -708,7 +751,7 @@ function updateArrows(dt){
         const hr = t.cfg.hitR || 0.55;
         if(Math.abs(p.x-t.pos.x) < hr && Math.abs(p.z-t.pos.z) < hr
            && p.y > t.pos.y-0.3 && p.y < t.pos.y + t.cfg.h + 0.5){
-          damageMob(t, a.dmg, a.vel.x, a.vel.z, 0.35);
+          damageMob(t, a.dmg, a.vel.x, a.vel.z, a.kpow||0.35);
           sfx('hit');
           hit = true; break;
         }

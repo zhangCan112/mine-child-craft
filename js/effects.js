@@ -76,6 +76,11 @@ function sfx(kind){
       o.frequency.setValueAtTime(500,t); o.frequency.exponentialRampToValueAtTime(120,t+0.15);
       g.gain.setValueAtTime(0.1,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
       o.start(t); o.stop(t+0.18);
+    } else if(kind==='roar'){                         // 僵尸狂暴怒吼
+      o.type='sawtooth';
+      o.frequency.setValueAtTime(110,t); o.frequency.exponentialRampToValueAtTime(45,t+0.35);
+      g.gain.setValueAtTime(0.14,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
+      o.start(t); o.stop(t+0.4);
     } else if(kind==='win'){
       const o2 = actx.createOscillator(); o2.connect(g);
       o.type='sine'; o2.type='sine';

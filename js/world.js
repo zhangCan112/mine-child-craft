@@ -398,15 +398,15 @@ function physics(dt){
   let nxp = pos.x + vel.x*dt;
   if(!collides(nxp, pos.y, pos.z)){ pos.x = nxp; }
   else {
-    if(vel.x > 0) pos.x = Math.floor(nxp+PLAYER.hx)-PLAYER.hx-0.001;   // 留缝隙,避免边缘压线
-    else          pos.x = Math.floor(nxp-PLAYER.hx)+1+PLAYER.hx+0.001;
+    if(vel.x > 0) pos.x = Math.floor(nxp+PLAYER.hx)-PLAYER.hx;
+    else          pos.x = Math.floor(nxp-PLAYER.hx)+1+PLAYER.hx;
     vel.x = 0;
   }
   let nzp = pos.z + vel.z*dt;
   if(!collides(pos.x, pos.y, nzp)){ pos.z = nzp; }
   else {
-    if(vel.z > 0) pos.z = Math.floor(nzp+PLAYER.hz)-PLAYER.hz-0.001;
-    else          pos.z = Math.floor(nzp-PLAYER.hz)+1+PLAYER.hz+0.001;
+    if(vel.z > 0) pos.z = Math.floor(nzp+PLAYER.hz)-PLAYER.hz;
+    else          pos.z = Math.floor(nzp-PLAYER.hz)+1+PLAYER.hz;
     vel.z = 0;
   }
   if(pos.y < -12){                          // 掉出世界:交给当前模式处理
