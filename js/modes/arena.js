@@ -80,7 +80,7 @@ function spawnPlayer(){
 const MOB_TYPES = {
   zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:170},
   skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.3, h:1.9, ranged:true, hitR:0.55, power:165},
-  creeper: {name:'苦力怕', hp:24,  dmg:30, speed:2.9, range:1.8, cd:9,   h:1.7, boom:true, hitR:0.5, power:140},
+  creeper: {name:'苦力怕', hp:24,  dmg:30, speed:2.9, range:1.8, cd:9,   h:1.7, boom:true, hitR:0.5, power:180},
   golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0, power:1000},
   dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, power:2000},
   mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2, power:0}
@@ -404,16 +404,44 @@ function golemSlam(m){
   }
 }
 
-function explode(x,y,z){
+function explode(x,y,z,team){
   boomVisual(x,y,z,5,10);
   for(const t of mobs){
     if(t.dead || t.gone) continue;
+    if(team!==undefined && t.team===team) continue;   // 自爆不炸友方
     const dx=t.pos.x-x, dz=t.pos.z-z;
     const d = Math.hypot(dx, t.pos.y+1-y, dz);
     if(d < 5){
       damageMob(t, Math.round(30*(1-d/5*0.75)), dx, dz, 1.8);
     }
   }
+}
+
+/* 苦力怕平A: 吐舌头舔击(短伸缩特效) */
+const tongueFx = [];
+function spawnTongue(m, tg){
+  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.1,0.7),
+    new THREE.MeshBasicMaterial({color:0xff8fb0}));
+  const a = Math.atan2(tg.pos.x-m.pos.x, tg.pos.z-m.pos.z);
+  mesh.position.set(m.pos.x + Math.sin(a)*0.95, m.pos.y + 1.32, m.pos.z + Math.cos(a)*0.95);
+  mesh.rotation.y = a;
+  scene.add(mesh);
+  tongueFx.push({mesh, t:0});
+}
+function updateTongues(dt){
+  for(let i=tongueFx.length-1;i>=0;i--){
+    const f = tongueFx[i];
+    f.t += dt;
+    f.mesh.scale.z = 1 + Math.sin(Math.min(1, f.t/0.28)*Math.PI)*0.7;   // 伸缩
+    if(f.t > 0.3){
+      scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose();
+      tongueFx.splice(i,1);
+    }
+  }
+}
+function clearTongues(){
+  for(const f of tongueFx){ scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); }
+  tongueFx.length = 0;
 }
 
 function checkBattleEnd(){
@@ -428,6 +456,7 @@ function checkBattleEnd(){
 }
 
 function updateMobs(dt){
+  updateTongues(dt);
   for(const m of mobs){
     if(m.gone) continue;
     const gp = m.pos;
@@ -552,6 +581,14 @@ function updateMobs(dt){
       } else if(m.cfg.boom){
         if(dist < m.cfg.range){
           if(m.fuse < 0) m.fuse = 0;
+          // 平A: 吐舌头舔击(引爆读条期间也能舔)
+          if(m.attackCd <= 0 && !tg.dead && Math.abs(tg.pos.y-gp.y) < 2.5){
+            m.attackCd = 1.0; m.attackT = 0.4;
+            damageMob(tg, Math.round(4*(0.85+Math.random()*0.3)),
+                      tg.pos.x-gp.x, tg.pos.z-gp.z, 0.3);
+            spawnTongue(m, tg);
+            sfx('hit');
+          }
         } else if(m.fuse < 0){
           if(!m.air && m.pounceCd <= 0 && dist > 3 && dist < 9){
             // 扑袭:向目标跃进扑脸再引爆
@@ -612,7 +649,7 @@ function updateMobs(dt){
         setEmissive(m, blink, blink, blink);
         if(m.fuse >= 1.4){
           m.gone = true;
-          explode(gp.x, gp.y+0.8, gp.z);
+          explode(gp.x, gp.y+0.8, gp.z, m.team);
           checkBattleEnd();
           continue;
         }
@@ -676,6 +713,8 @@ function updateMobs(dt){
       P.wingL.rotation.z =  wf + 0.15;
       P.wingR.rotation.z = -(wf + 0.15);
       P.head.rotation.x = m.attackT>0 ? -0.55 : Math.sin(m.flyPhase*0.35)*0.1;
+    } else if(m.type==='creeper'){
+      P.head.rotation.x = m.attackT>0 ? -0.55 : 0;      // 吐舌时头部前扑
     } else if(m.type==='golem'){
       P.armL.rotation.x = -sw*0.5;
       P.armR.rotation.x = m.attackT>0
@@ -878,6 +917,7 @@ function spawnTeam(team, cfg){
 }
 
 function startBattle(){
+  clearTongues();
   for(const m of mobs) disposeMob(m);
   mobs.length = 0;
   for(const a of arrows) scene.remove(a.mesh);
@@ -891,6 +931,7 @@ function startBattle(){
 }
 
 function clearBattle(){
+  clearTongues();
   for(const m of mobs) disposeMob(m);
   mobs.length = 0;
   for(const a of arrows) scene.remove(a.mesh);
@@ -1019,6 +1060,7 @@ const ArenaMode = {
     hotbarEl.style.display = 'flex';
   },
   cleanup(){
+    clearTongues();
     for(const m of mobs) disposeMob(m);
     mobs.length = 0;
     for(const a of arrows) scene.remove(a.mesh);
