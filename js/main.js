@@ -5,7 +5,8 @@
 
 const MODES = {
   arena: ArenaMode,
-  tnt:   TntMode
+  tnt:   TntMode,
+  focus: FocusMode
 };
 MODES.cur = null;
 let curModeId = null;
@@ -57,6 +58,9 @@ function buildMenu(){
     if(curModeId !== 'tnt') switchMode('tnt');
     showPage('tnt');
     if(MODES.cur.buildMenu) MODES.cur.buildMenu();
+  };
+  document.getElementById('cardFocus').onclick = ()=>{
+    if(curModeId !== 'focus') switchMode('focus');   // 专注训练营接管全屏 UI
   };
   document.getElementById('arenaBackBtn').onclick = ()=> showPage('main');
   document.getElementById('tntBackBtn').onclick   = ()=> showPage('main');

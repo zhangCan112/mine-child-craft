@@ -1,0 +1,291 @@
+"use strict";
+/* ============================================================
+   专注训练营模式 — 屏幕流 / 三星 / 每日锁定 / 家长面板
+   会话: 进入→今日页→关卡→星级+过程表扬→自动下一关→每日 6 关或 20 分钟锁定
+============================================================ */
+
+const FOCUS_SAVE_KEY = 'focus_camp_save';
+const FOCUS_DAILY_MAX = 6;               // 每日关卡上限
+const FOCUS_DAILY_MS  = 20*60*1000;      // 每日时长上限
+
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+function loadFocusSave(){
+  try{
+    const s = JSON.parse(localStorage.getItem(FOCUS_SAVE_KEY));
+    if(s && typeof s.unlocked==='number')
+      return { unlocked:s.unlocked, stars:s.stars||{}, daily:s.daily||{date:'',played:0,ms:0},
+               history:Array.isArray(s.history)?s.history:[], };
+  }catch(e){}
+  return { unlocked:0, stars:{}, daily:{date:'',played:0,ms:0}, history:[] };
+}
+function saveFocusSave(s){
+  try{ localStorage.setItem(FOCUS_SAVE_KEY, JSON.stringify(s)); }catch(e){}
+}
+function focusDailyRolled(save){
+  if(save.daily.date !== todayStr()){
+    save.daily = { date: todayStr(), played:0, ms:0 };
+  }
+}
+function focusLocked(save){
+  return save.daily.played >= FOCUS_DAILY_MAX || save.daily.ms >= FOCUS_DAILY_MS;
+}
+/* 三星:⭐完成 ⭐⭐准确≥75% ⭐⭐⭐准确≥90%且无连续3错 */
+function focusStars(level, st){
+  if(level.kind === 'tutorial') return 0;
+  let s = 1;
+  if(st.acc >= 0.75) s++;
+  if(st.acc >= 0.9 && st.maxStreakErr < 3) s++;
+  return s;
+}
+
+/* ---------- 根容器与屏幕 ---------- */
+let focusRoot = null, focusCtrl = null, focusLevelT0 = 0, focusCurLevel = null;
+let focusAutoTimer = 0;
+
+function ensureFocusRoot(){
+  if(focusRoot) return;
+  focusRoot = fEl('div');
+  focusRoot.id = 'focusRoot';
+  document.body.appendChild(focusRoot);
+}
+function focusScreen(html){
+  clearTimeout(focusAutoTimer);
+  focusRoot.innerHTML = '<div class="f-top"><button class="f-back" id="fBackBtn">⬅️</button></div>' + html;
+  document.getElementById('fBackBtn').onclick = focusExit;
+  return focusRoot;
+}
+function focusExit(){
+  if(focusCtrl){ focusCtrl.stop(); focusCtrl = null; }
+  try{ if(typeof speechSynthesis!=='undefined') speechSynthesis.cancel(); }catch(e){}
+  focusRoot.style.display = 'none';
+  overlay.style.display = 'flex';
+  showPage('main');
+}
+
+/* ---------- 今日页 ---------- */
+function showFocusToday(){
+  const save = loadFocusSave();
+  focusDailyRolled(save); saveFocusSave(save);
+  const locked = focusLocked(save);
+  const total = Object.values(save.stars).reduce((s,x)=>s+x,0);
+  const cur = Math.min(save.unlocked, 99);
+  const lv = FOCUS_LEVELS[cur];
+  const meta = FOCUS_META[lv.dim];
+  const dots = Array.from({length:FOCUS_DAILY_MAX}, (_,k)=>
+    '<span class="dot '+(k < save.daily.played?'done':'')+'"></span>').join('');
+
+  let html = '';
+  if(locked){
+    html = `
+    <div class="f-screen">
+      <div class="f-lock">🌙</div>
+      <h1>今天的训练完成啦！</h1>
+      <p class="f-sub">训练师要休息了，明天怪物们等你来 😊</p>
+      <div class="f-dots">${dots}</div>
+      <button class="f-btn" id="fHome2">🏠 回主页</button>
+    </div>`;
+    focusScreen(html);
+    document.getElementById('fHome2').onclick = focusExit;
+    return;
+  }
+  html = `
+  <div class="f-screen">
+    <div class="f-progress-line">第 ${cur+1} 关 / 100 · ⭐${total}</div>
+    <div class="f-dim-icon">${meta.icon}</div>
+    <h1>${meta.game}</h1>
+    <p class="f-sub">${meta.name}${lv.kind==='review'?' · 复习':(lv.kind==='tutorial'?' · 教学':(lv.kind==='master'?' · 大师考验':''))}</p>
+    <button class="f-start" id="fStartBtn">▶ 开始训练</button>
+    <div class="f-dots">${dots}</div>
+    <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
+  </div>`;
+  focusScreen(html);
+  document.getElementById('fStartBtn').onclick = ()=> startFocusLevel(cur);
+  document.getElementById('fParentBtn').onclick = showFocusParentGate;
+}
+
+/* ---------- 关卡 ---------- */
+function startFocusLevel(i){
+  const level = FOCUS_LEVELS[i];
+  focusCurLevel = level;
+  focusLevelT0 = Date.now();
+  const meta = FOCUS_META[level.dim];
+  const kindTag = level.kind==='tutorial' ? '· 教学' : level.kind==='review' ? '· 复习' : level.kind==='master' ? '· 大师考验' : '';
+  focusScreen(`
+    <div class="f-level-head">
+      <div class="f-rule"><span class="f-rule-icon">${meta.icon}</span>
+        <span class="f-rule-text">${meta.game} ${kindTag}</span></div>
+      <div class="f-progress"><div class="f-progress-bar" id="fProg"></div></div>
+    </div>
+    <div class="f-area" id="fArea"></div>`);
+  document.getElementById('fBackBtn').onclick = showFocusToday;
+  focusSpeak(FOCUS_META[level.dim].rule);
+  focusCtrl = runFocusLevel(level, document.getElementById('fArea'), {
+    progress(k, n){
+      const bar = document.getElementById('fProg');
+      if(bar) bar.style.width = Math.round(k/Math.max(1,n)*100) + '%';
+    },
+    showRule(dim){ focusSpeak(FOCUS_META[dim || level.dim].rule); },
+    end(st){ onFocusLevelEnd(level, st); }
+  });
+}
+
+function onFocusLevelEnd(level, st){
+  focusCtrl = null;
+  const elapsed = Date.now() - focusLevelT0;
+  const stars = focusStars(level, st);
+  const save = loadFocusSave();
+  focusDailyRolled(save);
+  save.unlocked = Math.max(save.unlocked, Math.min(level.i+1, 99));
+  if(level.kind !== 'tutorial')
+    save.stars[level.i] = Math.max(save.stars[level.i]||0, stars);
+  save.daily.played++;
+  save.daily.ms += elapsed;
+  save.history.push({ d: todayStr(), i: level.i, dim: level.dim, kind: level.kind,
+    acc: Math.round(st.acc*100), mrt: Math.round(st.mrt), trials: st.trials, stars });
+  if(save.history.length > 400) save.history.splice(0, save.history.length-400);
+  saveFocusSave(save);
+
+  focusScreen(`
+    <div class="f-screen">
+      <div class="f-stars" id="fStars">
+        ${[1,2,3].map(n=>'<span class="st '+(n<=stars?'on':'')+'" data-n="'+n+'">⭐</span>').join('')}
+      </div>
+      <h1>${level.kind==='tutorial' ? '学会啦！' : '完成！'}</h1>
+      <p class="f-sub">正确 ${Math.round(st.acc*100)}%</p>
+      <button class="f-start" id="fNextBtn">继续 ▶</button>
+    </div>`);
+  focusSpeak(level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine());
+  [1,2,3].forEach(n=>{
+    if(n<=stars) setTimeout(()=>{
+      const el = document.querySelector('#fStars .st[data-n="'+n+'"]');
+      if(el){ el.classList.add('pop'); sfx('pick'); }
+    }, 350*n);
+  });
+  const next = ()=>{
+    const s2 = loadFocusSave();
+    focusDailyRolled(s2);
+    if(focusLocked(s2)) showFocusToday();
+    else if(level.i >= 99) showFocusToday();
+    else startFocusLevel(level.i+1);
+  };
+  document.getElementById('fNextBtn').onclick = next;
+  focusAutoTimer = setTimeout(()=>{ if(document.getElementById('fNextBtn')) next(); }, 4000);
+}
+
+/* ---------- 家长面板 ---------- */
+function showFocusParentGate(){
+  const a = 5 + Math.floor(Math.random()*5), b = 5 + Math.floor(Math.random()*5);
+  const ans = a + b;
+  const opts = [ans, ans + 1 + Math.floor(Math.random()*3), Math.max(2, ans - 1 - Math.floor(Math.random()*3))]
+    .sort(()=>Math.random()-0.5);
+  focusScreen(`
+    <div class="f-screen">
+      <h1>家长入口</h1>
+      <p class="f-sub">请回答：${a} + ${b} = ?</p>
+      <div class="f-gate-row">${opts.map(o=>'<button class="f-btn" data-a="'+o+'">'+o+'</button>').join('')}</div>
+    </div>`);
+  document.querySelectorAll('#focusRoot .f-gate-row button').forEach(btn=>{
+    btn.onclick = ()=>{ parseInt(btn.dataset.a,10)===ans ? showFocusParent() : showFocusToday(); };
+  });
+}
+
+function showFocusParent(){
+  const save = loadFocusSave();
+  focusDailyRolled(save); saveFocusSave(save);
+  const total = Object.values(save.stars).reduce((s,x)=>s+x,0);
+  const mins = Math.round(save.daily.ms/60000);
+  const dims = FOCUS_DIMS;
+  const perDim = dims.map(d=>{
+    const h = save.history.filter(x=>x.dim===d).slice(-20);
+    const acc = h.length ? Math.round(h.reduce((s,x)=>s+x.acc,0)/h.length) : null;
+    const mrt = h.length ? Math.round(h.reduce((s,x)=>s+x.mrt,0)/h.length) : null;
+    return { d, n:h.length, acc, mrt, h };
+  });
+  function spark(h){                                  // 迷你正确率折线(SVG)
+    if(h.length < 2) return '<span class="f-nodata">数据不足</span>';
+    const W=120, H=36, pts = h.map((x,k)=>(k*(W/(h.length-1))).toFixed(1)+','+(H-2-(H-6)*x.acc/100).toFixed(1)).join(' ');
+    return `<svg width="${W}" height="${H}" class="f-spark"><polyline points="${pts}" fill="none" stroke="#7cfc00" stroke-width="2"/></svg>`;
+  }
+  focusScreen(`
+    <div class="f-screen f-parent">
+      <h1>家长面板</h1>
+      <div class="f-stat-row">
+        <div class="f-stat">今日 <b>${save.daily.played}</b>/6 关 · <b>${mins}</b> 分钟</div>
+        <div class="f-stat">累计 <b>${save.unlocked+1}</b>/100 关 · ⭐${total}</div>
+      </div>
+      <table class="f-table">
+        <tr><th>维度</th><th>练习次数</th><th>平均正确率</th><th>平均反应</th><th>近期趋势</th></tr>
+        ${perDim.map(p=>`<tr><td>${FOCUS_META[p.d].icon} ${FOCUS_META[p.d].name}</td>
+          <td>${p.n}</td><td>${p.acc===null?'—':p.acc+'%'}</td>
+          <td>${p.mrt===null?'—':(p.mrt/1000).toFixed(1)+'s'}</td><td>${spark(p.h)}</td></tr>`).join('')}
+      </table>
+      <div class="f-note">
+        本模式是注意力技能的<b>结构化练习</b>(持续警觉/抑制控制/干扰控制/视空记忆/规则切换),
+        不用于诊断或治疗,不宣称提升智力或成绩(远迁移证据不足, Melby-Lervåg 2016)。
+        6 岁儿童的注意力本身随年龄快速发育,偶尔分心是正常的;
+        如在<b>家庭和学校等多个场景</b>持续存在困难并影响生活,请咨询儿科医生(NIMH 指引)。
+      </div>
+      <div class="f-btn-row">
+        <button class="f-btn" id="fCsvBtn">📄 导出记录 CSV</button>
+        <button class="f-btn danger" id="fResetBtn">↺ 重置进度</button>
+        <button class="f-btn" id="fBackToday">返回</button>
+      </div>
+    </div>`);
+  document.getElementById('fBackToday').onclick = showFocusToday;
+  document.getElementById('fCsvBtn').onclick = ()=>{
+    const rows = [['日期','关卡','阶段','维度','类型','正确率%','反应中位数ms','试次数','星级']];
+    for(const h of save.history){
+      const lv = FOCUS_LEVELS[h.i] || {stage:0};
+      rows.push([h.d, h.i+1, lv.stage, FOCUS_META[h.dim] ? FOCUS_META[h.dim].name : h.dim,
+        h.kind, h.acc, h.mrt, h.trials, h.stars]);
+    }
+    const csv = '\uFEFF' + rows.map(r=>r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+    a.download = '专注训练营记录.csv';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+  };
+  const rb = document.getElementById('fResetBtn');
+  let armed = false;
+  rb.onclick = ()=>{
+    if(armed){
+      localStorage.removeItem(FOCUS_SAVE_KEY);
+      showToast('训练进度已重置', 1800);
+      showFocusParent();
+    } else {
+      armed = true; rb.textContent = '⚠ 再点一次确认';
+      setTimeout(()=>{ armed=false; rb.textContent='↺ 重置进度'; }, 3000);
+    }
+  };
+}
+
+/* ---------- 模式对象 ---------- */
+const FocusMode = {
+  id:'focus',
+  init(){
+    ensureFocusRoot();
+    focusRoot.style.display = 'block';
+    overlay.style.display = 'none';
+    tntScoreEl.style.display = 'none';
+    hotbarEl.style.display = 'none';
+    hudEl.innerHTML = '';
+    showFocusToday();
+  },
+  cleanup(){
+    if(focusCtrl){ focusCtrl.stop(); focusCtrl = null; }
+    clearTimeout(focusAutoTimer);
+    try{ if(typeof speechSynthesis!=='undefined') speechSynthesis.cancel(); }catch(e){}
+    if(focusRoot) focusRoot.style.display = 'none';
+    tntScoreEl.style.display = 'flex';
+  },
+  update(dt){},
+  onKey(){},
+  onWheel(){},
+  onDigit(){},
+  onMouse(){},
+  updateHud(){}
+};
