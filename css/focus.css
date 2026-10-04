@@ -34,6 +34,14 @@
 .f-parent-btn{margin-top:22px;font-size:13px;padding:6px 14px;border-radius:8px;
   border:2px solid rgba(255,255,255,.3);background:rgba(0,0,0,.3);color:#fff;cursor:pointer;opacity:.85}
 
+/* 关卡说明页 */
+.f-intro .f-rulebox{max-width:520px;background:rgba(0,0,0,.42);border:3px solid rgba(127,220,100,.6);
+  border-radius:12px;padding:14px 22px;font-size:19px;font-weight:700;line-height:1.7;margin:10px 0}
+.f-intro .f-tipbox{max-width:520px;background:rgba(0,0,0,.32);border-radius:12px;
+  padding:10px 20px;font-size:15px;line-height:1.7;opacity:.95;margin-bottom:18px}
+.f-rule-small{max-width:min(560px,86vw);text-align:center;font-size:13px;opacity:.85;
+  text-shadow:0 1px 3px #000;line-height:1.5}
+
 /* 关卡界面 */
 .f-level-head{display:flex;flex-direction:column;align-items:center;gap:6px;padding:4px 16px 10px}
 .f-rule{display:flex;align-items:center;gap:10px;font-size:19px;font-weight:700;text-shadow:0 2px 5px #000}

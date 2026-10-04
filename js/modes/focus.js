@@ -106,10 +106,51 @@ function showFocusToday(){
   document.getElementById('fParentBtn').onclick = showFocusParentGate;
 }
 
+/* ---------- 本关说明(按参数自动生成) ---------- */
+function focusTip(level){
+  const p = level.params || {};
+  if(level.kind==='master') return '五个小游戏连着玩：瞭望塔、挖矿、排队、闪闪光、听指挥。全部完成就是专注大师！';
+  if(level.kind==='tutorial') return '新手教学：先看一遍演示，再跟着做，很轻松！';
+  switch(level.dim){
+    case 'cpt':
+      if(p.similar) return '小心！有一种假钻石 💠 长得很像真钻石，看清楚了再点！';
+      return '矿灯闪得' + (p.isi < 1150 ? '很快' : '比较快') + '，钻石出现得不多，眼睛要一直盯着。';
+    case 'gonogo':
+      if(p.disguised) return 'TNT 会变成 💠 的样子混进来！手别太快，看清楚再挖。';
+      return '钻石变少、TNT 变多了，忍住不碰 TNT 才能拿星星。';
+    case 'flanker':
+      return '队伍变成 ' + p.len + ' 只，两边捣乱的苦力怕' + (p.congruentRate < 0.6 ? '很多' : '不少') + '。记住：只看中间那只！';
+    case 'corsi':
+      return '要记住 ' + p.len + ' 个钻石亮的顺序' + (p.grid===16 ? '，格子也变成 4×4 了' : '') + '。';
+    case 'switch':
+      return (p.rules===3 ? '现在有三种旗子：颜色、形状、大小。' : '两种旗子：颜色和形状。')
+        + '旗子大约每 ' + p.switchEvery + ' 次换一次，盯紧旗子！';
+  }
+  return '';
+}
+
 /* ---------- 关卡 ---------- */
 function startFocusLevel(i){
   const level = FOCUS_LEVELS[i];
   focusCurLevel = level;
+  const meta = FOCUS_META[level.dim];
+  const kindNote = level.kind==='tutorial' ? ' · 教学关' : level.kind==='review' ? ' · 复习关'
+                 : level.kind==='master' ? ' · 大师考验' : '';
+  focusScreen(`
+    <div class="f-screen f-intro">
+      <div class="f-progress-line">第 ${i+1} / 100 关${kindNote}</div>
+      <div class="f-dim-icon">${meta.icon}</div>
+      <h1>${meta.game}</h1>
+      <p class="f-sub">${meta.name}</p>
+      <div class="f-rulebox">🎯 ${meta.rule}</div>
+      <div class="f-tipbox">💡 ${focusTip(level)}</div>
+      <button class="f-start" id="fGoBtn">▶ 开始</button>
+    </div>`);
+  focusSpeak(meta.rule);
+  document.getElementById('fGoBtn').onclick = ()=> beginFocusRun(level);
+}
+
+function beginFocusRun(level){
   focusLevelT0 = Date.now();
   const meta = FOCUS_META[level.dim];
   const kindTag = level.kind==='tutorial' ? '· 教学' : level.kind==='review' ? '· 复习' : level.kind==='master' ? '· 大师考验' : '';
@@ -117,11 +158,11 @@ function startFocusLevel(i){
     <div class="f-level-head">
       <div class="f-rule"><span class="f-rule-icon">${meta.icon}</span>
         <span class="f-rule-text">${meta.game} ${kindTag}</span></div>
+      <div class="f-rule-small">${meta.rule}</div>
       <div class="f-progress"><div class="f-progress-bar" id="fProg"></div></div>
     </div>
     <div class="f-area" id="fArea"></div>`);
   document.getElementById('fBackBtn').onclick = showFocusToday;
-  focusSpeak(FOCUS_META[level.dim].rule);
   focusCtrl = runFocusLevel(level, document.getElementById('fArea'), {
     progress(k, n){
       const bar = document.getElementById('fProg');
