@@ -86,9 +86,11 @@ function showFocusToday(){
       <p class="f-sub">训练师要休息了，明天怪物们等你来 😊</p>
       <div class="f-dots">${dots}</div>
       <button class="f-btn" id="fHome2">🏠 回主页</button>
+      <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
     </div>`;
     focusScreen(html);
     document.getElementById('fHome2').onclick = focusExit;
+    document.getElementById('fParentBtn').onclick = showFocusParentGate;
     return;
   }
   html = `
