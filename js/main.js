@@ -17,16 +17,61 @@ const pages = {
   main:  document.getElementById('menuMain'),
   arena: document.getElementById('menuArena'),
   tnt:   document.getElementById('menuTnt'),
-  win:   document.getElementById('menuWin')
+  win:   document.getElementById('menuWin'),
+  playTime: document.getElementById('menuPlayTime')
 };
 let curPage = 'main';
 function showPage(id){
   curPage = id;
   for(const k in pages) pages[k].classList.toggle('active', k===id);
+  if(id === 'main') refreshPlayCards();
+}
+
+/* ---------- 儿童游玩时限: 竞技场+TNT 每天共 10 分钟 ----------
+   只在实际游玩(锁定/触屏进行)时计时; 跨设备随 SyncDB 同步; 专注训练营不受影响 */
+const PLAY_LIMIT_MS = 10*60*1000;
+const PLAY_SAVE_KEY = 'play_time_save';
+let playMs = (function(){
+  try{
+    const s = JSON.parse(SyncDB.get(PLAY_SAVE_KEY));
+    if(s && s.date === todayStr()) return s.ms || 0;
+  }catch(e){}
+  return 0;
+})();
+let playSaveT = 0, playWarned = false, playDoneShown = false;
+function playBlocked(){ return playMs >= PLAY_LIMIT_MS; }
+function savePlayTime(){
+  SyncDB.set(PLAY_SAVE_KEY, JSON.stringify({date: todayStr(), ms: Math.round(playMs)}));
+}
+function refreshPlayCards(){
+  const blocked = playBlocked();
+  ['cardArena','cardTnt'].forEach(id=>{
+    const c = document.getElementById(id);
+    if(!c) return;
+    c.classList.toggle('timedout', blocked);
+    let b = c.querySelector('.timeoutBadge');
+    if(blocked && !b){ b = document.createElement('div'); b.className='timeoutBadge'; b.textContent='🌙 今天玩完啦'; c.appendChild(b); }
+    if(!blocked && b) b.remove();
+  });
+}
+function showPlayTimeoutPage(){
+  overlay.style.display = 'flex';
+  showPage('playTime');
+}
+function playTimeUp(){
+  savePlayTime();
+  if(!playDoneShown){
+    playDoneShown = true;
+    focusSpeak('今天的游玩时间到啦，怪物们要休息了，明天再来挑战吧！');
+  }
+  if(document.pointerLockElement) document.exitPointerLock();   // 事件异步, onLockChanged 尊重 playTime 页
+  else { touchPlaying = false; overlay.style.display = 'flex'; }
+  showPlayTimeoutPage();
 }
 
 /* ---------- 模式切换 ---------- */
 function switchMode(id){
+  if(curModeId==='arena' || curModeId==='tnt') savePlayTime();   // 离开计费模式先存
   if(MODES.cur && MODES.cur.cleanup) MODES.cur.cleanup();
   for(const e of effects){ scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose(); }
   effects.length = 0;
@@ -42,7 +87,7 @@ function switchMode(id){
 function onLockChanged(l){
   overlay.style.display = l ? 'none' : 'flex';
   if(!l){
-    if(curPage === 'win') return;                    // 通关结算页由 TNT 模式控制
+    if(curPage === 'win' || curPage === 'playTime') return;   // 通关/时限页由各自逻辑控制
     if(curModeId === 'tnt' && MODES.cur && MODES.cur.onMenu) MODES.cur.onMenu();
     else showPage(curModeId || 'main');
   }
@@ -51,10 +96,12 @@ function onLockChanged(l){
 /* ---------- 主菜单与按钮 ---------- */
 function buildMenu(){
   document.getElementById('cardArena').onclick = ()=>{
+    if(playBlocked()){ showPlayTimeoutPage(); return; }
     if(curModeId !== 'arena') switchMode('arena');
     showPage('arena');
   };
   document.getElementById('cardTnt').onclick = ()=>{
+    if(playBlocked()){ showPlayTimeoutPage(); return; }
     if(curModeId !== 'tnt') switchMode('tnt');
     showPage('tnt');
     if(MODES.cur.buildMenu) MODES.cur.buildMenu();
@@ -64,6 +111,7 @@ function buildMenu(){
   };
   document.getElementById('arenaBackBtn').onclick = ()=> showPage('main');
   document.getElementById('tntBackBtn').onclick   = ()=> showPage('main');
+  document.getElementById('playTimeHomeBtn').onclick = ()=> showPage('main');
 }
 
 /* ---------- 主循环 ---------- */
@@ -78,6 +126,16 @@ function loop(now){
     physics(dt);
     if(MODES.cur && MODES.cur.update) MODES.cur.update(dt);
     updateEffects(dt);
+    /* 儿童时限: 竞技场+TNT 实际游玩时累计 */
+    if((curModeId==='arena' || curModeId==='tnt')){
+      playMs += dt*1000;
+      if(!playWarned && playMs >= PLAY_LIMIT_MS-60000 && playMs < PLAY_LIMIT_MS){
+        playWarned = true;
+        showToast('⏰ 还剩 1 分钟哦');
+      }
+      if(playMs >= PLAY_LIMIT_MS) playTimeUp();
+      else if(now - playSaveT > 5000){ playSaveT = now; savePlayTime(); }
+    }
   }
 
   camera.position.set(pos.x, pos.y+PLAYER.eye, pos.z);
