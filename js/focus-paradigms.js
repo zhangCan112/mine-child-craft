@@ -141,6 +141,7 @@ function runDiscrimination(area, params, adapt, h, framing){
       T.after(240, ()=>{ stim.remove(); T.after(adapt.t(params.isi||800), next); });
     }
     stim.onmousedown = (e)=>{ e.preventDefault(); resolve(true); };
+    stim.ontouchstart = (e)=>{ e.preventDefault(); resolve(true); };   // 触屏即时响应
     T.after(dur, ()=>resolve(false));
 
     if(isDemo){                                  // 教学演示:自动高亮正确做法

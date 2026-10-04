@@ -1,0 +1,67 @@
+/* ============================================================
+   触屏控制 + 平板 UI 适配
+   虚拟摇杆(左) · 视角拖动(右侧画布) · 动作按钮(右下) · 暂停(右上)
+============================================================ */
+html,body{-webkit-user-select:none;-webkit-touch-callout:none}
+canvas{touch-action:none}
+
+/* 触屏 UI 容器 */
+#touchUI{display:none;position:fixed;inset:0;z-index:14;pointer-events:none}
+#touchUI>*{pointer-events:auto}
+#joy{position:absolute;left:26px;bottom:96px;width:132px;height:132px;border-radius:50%;
+  background:rgba(0,0,0,.28);border:3px solid rgba(255,255,255,.35);touch-action:none}
+#joyKnob{position:absolute;left:50%;top:50%;width:58px;height:58px;border-radius:50%;
+  transform:translate(-50%,-50%);background:rgba(255,255,255,.55);
+  border:3px solid rgba(255,255,255,.8);box-shadow:0 3px 8px rgba(0,0,0,.4)}
+#touchBtns{position:absolute;right:22px;bottom:88px;display:grid;
+  grid-template-columns:repeat(2,84px);gap:14px;touch-action:none}
+#touchBtns button{width:84px;height:84px;border-radius:50%;font-size:34px;line-height:1;
+  border:3px solid rgba(255,255,255,.5);background:rgba(0,0,0,.32);color:#fff;
+  touch-action:manipulation;box-shadow:0 4px 10px rgba(0,0,0,.35)}
+#touchBtns button:active{background:rgba(124,252,0,.4)}
+#touchPause{position:absolute;top:14px;right:14px;width:52px;height:52px;border-radius:12px;
+  font-size:22px;border:3px solid rgba(255,255,255,.4);background:rgba(0,0,0,.32);color:#fff}
+
+/* ---------- 平板/触屏 适配 ---------- */
+@media (pointer: coarse), (max-width: 900px){
+  /* 主菜单卡片 */
+  #modeCards{gap:14px}
+  .modeCard{width:min(230px,42vw);padding:20px 12px}
+  .modeCard .big{font-size:min(46px,9vw)}
+  .modeCard h2{font-size:17px}
+  #overlay h1{font-size:clamp(22px,6vw,40px)}
+  #overlay{padding:12px}
+  .keys{font-size:11px}
+  /* 对战面板可换行 */
+  #panel{flex-wrap:wrap;justify-content:center;max-width:94vw}
+  .teamBox{min-width:min(200px,44vw)}
+  .vs{width:100%;text-align:center}
+  /* 物品栏加大 */
+  .slot{width:62px;height:62px}
+  .slot .cube{width:42px;height:42px}
+  .slot .icon{font-size:32px}
+  #hotbar{bottom:12px;padding:5px;gap:5px;max-width:96vw;flex-wrap:wrap;justify-content:center}
+  /* HUD/记分板 */
+  #score{font-size:12px;padding:4px 12px;gap:8px;max-width:94vw;flex-wrap:wrap}
+  #hud{font-size:11px;max-width:46vw}
+  /* TNT 关卡格 */
+  #levelGrid{grid-template-columns:repeat(5,minmax(52px,16vw));gap:8px}
+  .lvBtn{width:100%;height:auto;aspect-ratio:1;font-size:0.85em}
+  .lvBtn .no{font-size:min(26px,6vw)}
+  /* 专注训练营 */
+  .f-screen h1{font-size:clamp(22px,6vw,34px)}
+  .f-start{font-size:22px;padding:14px 44px}
+  .f-area{width:94vw;height:min(420px,52vh)}
+  .f-stim img{width:64px;height:64px}
+  .f-flanker-btns{gap:20px}
+  .f-big-btn{width:104px;height:80px;font-size:38px}
+  .f-creeper{width:min(64px,12vw);height:min(64px,12vw)}
+  .f-switch-board{gap:16px;padding:24px 6px}
+  .f-block.big img{width:min(100px,20vw);height:min(100px,20vw)}
+  .f-block.small img{width:50px;height:50px}
+  .f-corsi-grid.g3{grid-template-columns:repeat(3,min(84px,22vw))}
+  .f-corsi-grid.g3 .f-corsi-tile{width:min(84px,22vw);height:min(84px,22vw)}
+  .f-table{font-size:11px}
+  .f-table th,.f-table td{padding:5px 8px}
+  .f-note{font-size:11px}
+}

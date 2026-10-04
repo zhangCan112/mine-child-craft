@@ -73,7 +73,7 @@ function loop(now){
   let dt = (now-last)/1000; last=now;
   if(dt>0.05) dt=0.05;
 
-  if(locked){
+  if(locked || touchPlaying){
     physics(dt);
     if(MODES.cur && MODES.cur.update) MODES.cur.update(dt);
     updateEffects(dt);

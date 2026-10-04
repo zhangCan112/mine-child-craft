@@ -316,6 +316,7 @@ const FocusMode = {
     tntScoreEl.style.display = 'none';
     hotbarEl.style.display = 'none';
     hudEl.innerHTML = '';
+    setTouchActions(null);                            // 本模式纯点选, 无需触屏控件
     showFocusToday();
   },
   cleanup(){

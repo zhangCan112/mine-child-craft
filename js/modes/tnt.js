@@ -526,7 +526,7 @@ function buildTntHotbar(){
     div.className = 'slot';
     div.innerHTML = `<span class="num">${i+1}</span><span class="icon">${it.icon}</span>
       <span class="cnt">${it.cnt()}</span><span class="lbl">${it.lbl}</span>`;
-    div.addEventListener('mousedown',(ev)=>{ ev.preventDefault(); tntSel=i; updateTntHotbar(); });
+    div.addEventListener('pointerdown',(ev)=>{ ev.preventDefault(); tntSel=i; updateTntHotbar(); });
     hotbarEl.appendChild(div);
   });
   updateTntHotbar();
@@ -584,6 +584,14 @@ function buildTntMenu(){
   document.getElementById('winMenuBtn').onclick = ()=>{ showPage('tnt'); buildTntMenu(); };
 }
 
+/* R 重置本关 (键盘/触屏共用) */
+function tntReset(){
+  if(lvState !== 'playing') return;
+  resets++;
+  startLevel(levelIdx, false);
+  showToast('↺ 本关已重置', 1500);
+}
+
 /* ---------- 模式对象 ---------- */
 const TntMode = {
   id:'tnt',
@@ -593,6 +601,13 @@ const TntMode = {
       hudEl.innerHTML = '';
       hotbarEl.style.display = 'none';
     }
+    setTouchActions([                                 // 平板动作按钮
+      {label:'⬆️', hold:'Space'},
+      {label:'🔥', act:()=>tryIgnite()},
+      {label:'🧨', act:()=>doCenterClick(2)},
+      {label:'✋', act:()=>doCenterClick(0)},
+      {label:'↺',  act:()=>tntReset()}
+    ]);
   },
   cleanup(){
     clearTntEntities();
@@ -651,12 +666,8 @@ const TntMode = {
   },
   onKey(code){
     if(code==='KeyF') tryIgnite();
-    if(code==='KeyR' && lvState==='playing'){
-      resets++;
-      startLevel(levelIdx, false);
-      showToast('↺ 本关已重置', 1500);
-    }
-    if(code==='KeyB') document.exitPointerLock();
+    if(code==='KeyR') tntReset();
+    if(code==='KeyB') uiPause();
   },
   onDigit(n){
     if(n===1||n===2){ tntSel = n-1; updateTntHotbar(); }

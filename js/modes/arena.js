@@ -957,7 +957,7 @@ function buildHotbar(){
     div.innerHTML = `<span class="num">${i+1}</span>
       <div class="cube" style="background:rgb(${col.map(c=>Math.round(c*255)).join(',')})"></div>
       <span class="lbl">${b.name}</span>`;
-    div.addEventListener('mousedown',(ev)=>{ ev.preventDefault(); selected=i; updateHotbar(); });
+    div.addEventListener('pointerdown',(ev)=>{ ev.preventDefault(); selected=i; updateHotbar(); });
     hotbarEl.appendChild(div);
   });
   updateHotbar();
@@ -1058,6 +1058,11 @@ const ArenaMode = {
     updatePanel();
     scoreEl.style.display = 'flex';
     hotbarEl.style.display = 'flex';
+    setTouchActions([                                 // 平板动作按钮
+      {label:'⬆️', hold:'Space'},
+      {label:'⛏️', act:()=>doCenterClick(0)},
+      {label:'🧱', act:()=>doCenterClick(2)}
+    ]);
   },
   cleanup(){
     clearTongues();
@@ -1077,7 +1082,7 @@ const ArenaMode = {
   },
   onKey(code){
     if(code==='KeyR') startBattle();
-    if(code==='KeyB') document.exitPointerLock();
+    if(code==='KeyB') uiPause();
   },
   onDigit(n){
     if(n>=1 && n<=HOTBAR.length){ selected = n-1; updateHotbar(); }

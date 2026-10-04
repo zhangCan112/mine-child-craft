@@ -376,12 +376,15 @@ function physics(dt){
   if(keys['KeyS']) mf-=1;
   if(keys['KeyD']) ms+=1;
   if(keys['KeyA']) ms-=1;
+  mf += -touchMove.y;  ms += touchMove.x;               // 虚拟摇杆
+  mf = Math.max(-1, Math.min(1, mf));
+  ms = Math.max(-1, Math.min(1, ms));
   const sinY=Math.sin(yaw), cosY=Math.cos(yaw);
   let dx = (-sinY)*mf + (cosY)*ms;
   let dz = (-cosY)*mf + (-sinY)*ms;
   const len=Math.hypot(dx,dz);
   if(len>0){ dx/=len; dz/=len; }
-  const spd = keys['ShiftLeft']||keys['ShiftRight'] ? PLAYER.sprint : PLAYER.speed;
+  const spd = (keys['ShiftLeft']||keys['ShiftRight']||touchSprint) ? PLAYER.sprint : PLAYER.speed;
   vel.x = dx*spd; vel.z = dz*spd;
 
   vel.y -= PLAYER.gravity*dt;
