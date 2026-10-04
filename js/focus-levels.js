@@ -70,33 +70,31 @@ function paramsFor(dim, tier){
   }
 }
 
-/* ---------- 100 关编排 ----------
-   5 阶段 × 20 关, 每阶段一个维度:
-   - 阶段首关(pos 0) = 教学演示关
-   - 阶段 1~3: 每 5 关插 1 关前面维度的复习关(难度约 60%)
-   - 阶段 4(81~99): 每 3 关混 1 关前四维复习
-   - 第 100 关 = 五维大师考验                                       */
+/* ---------- 100 关编排 (螺旋轮换制) ----------
+   - 第 1~5 关: 五个游戏的入门教学关 (从第一关就换着玩)
+   - 第 6~99 关: 每 5 关一轮, 五个游戏轮换出现, 难度档随轮次递进
+     (交错练习+间隔复习合一: Klimovich 2025; Cepeda 2006)
+   - 第 100 关: 五维大师考验
+   - 特殊变体随难度档自然出现: 规则切换 3 旗(tier≥6≈L28) · TNT 伪装(tier≥8≈L40)
+     · 假钻石(tier≥10≈L50) · 记忆 4×4(tier≥12≈L60)                              */
 const FOCUS_LEVELS = [];
 (function generateFocusLevels(){
   for(let i=0; i<100; i++){
-    const stage = Math.floor(i/20);                     // 0..4
-    const pos = i % 20;                                 // 0..19
-    let dim = FOCUS_DIMS[stage];
-    let kind = 'normal';
-    let tier = Math.max(1, pos);                        // pos0 教学关 tier=1
-
-    if(pos === 0) kind = 'tutorial';
-    else if(i === 99) kind = 'master';
-    else if(stage >= 1){
-      const isReview = (stage < 4) ? (pos % 5 === 4) : (pos % 3 === 2);
-      if(isReview){
-        kind = 'review';
-        const pool = FOCUS_DIMS.slice(0, stage);
-        dim = pool[(i*7 + 3) % pool.length];            // 确定性轮换
-        tier = Math.max(1, Math.floor(pos * 0.6));      // 复习关难度约 60%
-      }
+    let dim, kind = 'normal', tier;
+    if(i < 5){                                        // 五个教学关
+      dim = FOCUS_DIMS[i];
+      kind = 'tutorial';
+      tier = 1;
+    } else if(i === 99){                              // 大师考验
+      dim = FOCUS_DIMS[4];
+      kind = 'master';
+      tier = 19;
+    } else {                                          // 螺旋轮换
+      const k = i - 5;
+      dim = FOCUS_DIMS[k % 5];
+      tier = Math.min(19, 2 + Math.floor(k / 5));
     }
-    FOCUS_LEVELS.push({ i, stage: stage+1, dim, kind, tier, params: paramsFor(dim, tier) });
+    FOCUS_LEVELS.push({ i, stage: Math.floor(i/5)+1, dim, kind, tier, params: paramsFor(dim, tier) });
   }
   // 大师关: 五维连续小节(各 tier 8 难度)
   FOCUS_LEVELS[99].sections = FOCUS_DIMS.map(d => ({dim:d, params: paramsFor(d, 8)}));

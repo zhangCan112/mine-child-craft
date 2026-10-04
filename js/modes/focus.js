@@ -279,7 +279,7 @@ function showFocusParent(){
     </div>`);
   document.getElementById('fBackToday').onclick = showFocusToday;
   document.getElementById('fCsvBtn').onclick = ()=>{
-    const rows = [['日期','关卡','阶段','维度','类型','正确率%','反应中位数ms','试次数','星级']];
+    const rows = [['日期','关卡','轮次','游戏','类型','正确率%','反应中位数ms','试次数','星级']];
     for(const h of save.history){
       const lv = FOCUS_LEVELS[h.i] || {stage:0};
       rows.push([h.d, h.i+1, lv.stage, FOCUS_META[h.dim] ? FOCUS_META[h.dim].name : h.dim,
