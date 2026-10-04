@@ -81,6 +81,12 @@ function sfx(kind){
       o.frequency.setValueAtTime(110,t); o.frequency.exponentialRampToValueAtTime(45,t+0.35);
       g.gain.setValueAtTime(0.14,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.4);
       o.start(t); o.stop(t+0.4);
+    } else if(kind==='level'){                        // 晋升琶音
+      o.type='sine';
+      o.frequency.setValueAtTime(660,t); o.frequency.setValueAtTime(880,t+0.08);
+      o.frequency.setValueAtTime(1320,t+0.16);
+      g.gain.setValueAtTime(0.12,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.42);
+      o.start(t); o.stop(t+0.42);
     } else if(kind==='win'){
       const o2 = actx.createOscillator(); o2.connect(g);
       o.type='sine'; o2.type='sine';
