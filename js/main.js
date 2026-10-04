@@ -70,6 +70,7 @@ function buildMenu(){
 let last=performance.now(), fps=0, fpsAcc=0, fpsCnt=0;
 function loop(now){
   requestAnimationFrame(loop);
+  if(NET_DEAD) return;                             // 心跳失联: 冻结一切
   let dt = (now-last)/1000; last=now;
   if(dt>0.05) dt=0.05;
 
@@ -111,7 +112,34 @@ function loop(now){
 }
 
 /* ---------- 启动 ---------- */
+let NET_DEAD = false;                              // 心跳失联 → 冻结游戏
+function netDead(){
+  if(NET_DEAD) return;
+  NET_DEAD = true;
+  try{ speechSynthesis.cancel(); }catch(e){}
+  const d = document.createElement('div');
+  d.id = 'netDead';
+  d.innerHTML = '<div><h1>📡 与服务器的连接已断开</h1>' +
+    '<p>训练师与方块世界的通道关闭了。</p>' +
+    '<p class="tip">请确认电脑上的服务已启动（node server.js），<br>然后刷新本页面继续游玩。</p></div>';
+  document.body.appendChild(d);
+}
+(function startHeartbeat(){
+  if(typeof location === 'undefined' || location.protocol.indexOf('http') !== 0) return;  // file:// 不检测
+  let fails = 0;
+  setInterval(()=>{
+    if(NET_DEAD) return;
+    const ctl = new AbortController();
+    const to = setTimeout(()=>ctl.abort(), 5000);
+    fetch('/ping', {cache:'no-store', signal:ctl.signal})
+      .then(()=>{ clearTimeout(to); fails = 0; })
+      .catch(()=>{ clearTimeout(to); if(++fails >= 5) netDead(); });   // 5×10s ≈ 50s < 60s
+  }, 10000);
+})();
+
 function init(){
+  const sp = document.getElementById('splash');
+  if(sp) sp.remove();
   buildMenu();
   switchMode('arena');       // 默认后台加载竞技场作为主菜单背景
   showPage('main');

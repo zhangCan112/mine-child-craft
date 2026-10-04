@@ -119,3 +119,15 @@ canvas{display:block}
 
 /* 昏迷/关卡切换黑场 */
 #fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:15;transition:opacity .45s}
+
+/* 加载屏 */
+#splash{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(#8fc7ff,#b8e0ff);color:#fff;font-size:26px;font-weight:700;
+  text-shadow:0 2px 8px #000;letter-spacing:2px}
+
+/* 心跳失联锁定层 */
+#netDead{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
+  background:rgba(10,12,18,.94);color:#fff;text-align:center;padding:24px}
+#netDead h1{font-size:clamp(22px,5vw,34px);margin:0 0 12px;text-shadow:0 3px 8px #000}
+#netDead p{font-size:16px;opacity:.9;margin:6px 0}
+#netDead .tip{font-size:13px;opacity:.7;line-height:1.8}

@@ -41,7 +41,8 @@ function groundTop(x, z){
 
 /* ---------- Three.js 场景 ---------- */
 const renderer = new THREE.WebGLRenderer({antialias:true});
-renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+const _coarse = (function(){ try{ return (navigator.maxTouchPoints||0) > 0; }catch(e){ return false; } })();
+renderer.setPixelRatio(Math.min(devicePixelRatio, _coarse ? 1.5 : 2));   // 触屏设备限 1.5 省性能
 renderer.setSize(innerWidth, innerHeight);
 document.getElementById('app').appendChild(renderer.domElement);
 

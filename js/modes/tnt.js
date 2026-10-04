@@ -511,7 +511,7 @@ function doWin(){
     nextBtn.textContent = '🎉 全部通关！选关';
   }
   showPage('win');
-  document.exitPointerLock();
+  uiPause();                                       // 桌面=退出指针锁, 触屏=直接显示覆盖层
 }
 
 /* ---------- HUD / 物品栏 ---------- */
