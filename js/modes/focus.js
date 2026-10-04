@@ -32,14 +32,24 @@ function focusDailyRolled(save){
 function focusLocked(save){
   return save.daily.played >= FOCUS_DAILY_MAX || save.daily.ms >= FOCUS_DAILY_MS;
 }
-/* 三星:⭐完成 ⭐⭐准确≥75% ⭐⭐⭐准确≥90%且无连续3错 */
+/* 通过门槛(科学标准): 正确率≥70%(自适应训练区下界, EndeavorRx 同款目标带)
+   警觉/抑制类另需命中率≥60% (防止不动手靠"正确拒斥"混过) */
+function focusPassed(level, st){
+  if(level.kind === 'tutorial') return true;
+  if(st.acc < 0.70) return false;
+  if((level.dim==='cpt' || level.dim==='gonogo') && st.hitRate !== undefined && st.hitRate < 0.6)
+    return false;
+  return true;
+}
+/* 三星:⭐通过 ⭐⭐优秀≥85% ⭐⭐⭐专注之星≥95%且无连续3错 (仅在通过时) */
 function focusStars(level, st){
   if(level.kind === 'tutorial') return 0;
   let s = 1;
-  if(st.acc >= 0.75) s++;
-  if(st.acc >= 0.9 && st.maxStreakErr < 3) s++;
+  if(st.acc >= 0.85) s++;
+  if(st.acc >= 0.95 && st.maxStreakErr < 3) s++;
   return s;
 }
+const focusFailCount = {};                     // 本关连续未通过次数 → 重试自动放宽
 
 /* ---------- 根容器与屏幕 ---------- */
 let focusRoot = null, focusCtrl = null, focusLevelT0 = 0, focusCurLevel = null;
@@ -145,7 +155,7 @@ function startFocusLevel(i){
       <h1>${meta.game}</h1>
       <p class="f-sub">${meta.name}</p>
       <div class="f-rulebox">🎯 ${meta.rule}</div>
-      <div class="f-tipbox">💡 ${focusTip(level)}</div>
+      <div class="f-tipbox">💡 ${focusTip(level)}${level.kind!=='tutorial' ? ' 目标：正确 70% 以上通过！' : ''}</div>
       <button class="f-start" id="fGoBtn">▶ 开始</button>
     </div>`);
   focusSpeak(meta.rule);
@@ -172,45 +182,64 @@ function beginFocusRun(level){
     },
     showRule(dim){ focusSpeak(FOCUS_META[dim || level.dim].rule); },
     end(st){ onFocusLevelEnd(level, st); }
-  });
+  }, 1 + Math.min(0.4, 0.12 * (focusFailCount[level.i] || 0)));   // 重试自动放宽 12%/次
 }
 
 function onFocusLevelEnd(level, st){
   focusCtrl = null;
   const elapsed = Date.now() - focusLevelT0;
-  const stars = focusStars(level, st);
+  const passed = focusPassed(level, st);
+  const stars = passed ? focusStars(level, st) : 0;
   const save = loadFocusSave();
   focusDailyRolled(save);
-  save.unlocked = Math.max(save.unlocked, Math.min(level.i+1, 99));
-  if(level.kind !== 'tutorial')
-    save.stars[level.i] = Math.max(save.stars[level.i]||0, stars);
-  save.daily.played++;
+  if(passed){
+    save.unlocked = Math.max(save.unlocked, Math.min(level.i+1, 99));
+    if(level.kind !== 'tutorial')
+      save.stars[level.i] = Math.max(save.stars[level.i]||0, stars);
+    delete focusFailCount[level.i];
+  } else {
+    focusFailCount[level.i] = (focusFailCount[level.i]||0) + 1;
+  }
+  save.daily.played++;                         // 无论通过与否都计入每日额度(防疲劳刷)
   save.daily.ms += elapsed;
   save.history.push({ d: todayStr(), i: level.i, dim: level.dim, kind: level.kind,
-    acc: Math.round(st.acc*100), mrt: Math.round(st.mrt), trials: st.trials, stars });
+    acc: Math.round(st.acc*100), mrt: Math.round(st.mrt), trials: st.trials, stars, passed });
   if(save.history.length > 400) save.history.splice(0, save.history.length-400);
   saveFocusSave(save);
 
-  focusScreen(`
-    <div class="f-screen">
-      <div class="f-stars" id="fStars">
-        ${[1,2,3].map(n=>'<span class="st '+(n<=stars?'on':'')+'" data-n="'+n+'">⭐</span>').join('')}
-      </div>
-      <h1>${level.kind==='tutorial' ? '学会啦！' : '完成！'}</h1>
-      <p class="f-sub">正确 ${Math.round(st.acc*100)}%</p>
-      <button class="f-start" id="fNextBtn">继续 ▶</button>
-    </div>`);
-  focusSpeak(level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine());
-  [1,2,3].forEach(n=>{
-    if(n<=stars) setTimeout(()=>{
-      const el = document.querySelector('#fStars .st[data-n="'+n+'"]');
-      if(el){ el.classList.add('pop'); sfx('pick'); }
-    }, 350*n);
-  });
+  if(passed){
+    focusScreen(`
+      <div class="f-screen">
+        <div class="f-stars" id="fStars">
+          ${[1,2,3].map(n=>'<span class="st '+(n<=stars?'on':'')+'" data-n="'+n+'">⭐</span>').join('')}
+        </div>
+        <h1>${level.kind==='tutorial' ? '学会啦！' : '通过！'}</h1>
+        <p class="f-sub">正确 ${Math.round(st.acc*100)}%</p>
+        <button class="f-start" id="fNextBtn">继续 ▶</button>
+      </div>`);
+    focusSpeak(level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine());
+    [1,2,3].forEach(n=>{
+      if(n<=stars) setTimeout(()=>{
+        const el = document.querySelector('#fStars .st[data-n="'+n+'"]');
+        if(el){ el.classList.add('pop'); sfx('pick'); }
+      }, 350*n);
+    });
+  } else {
+    focusScreen(`
+      <div class="f-screen">
+        <div class="f-stars"></div>
+        <h1>很努力了！</h1>
+        <p class="f-sub">正确 ${Math.round(st.acc*100)}% · 目标 70%</p>
+        <p class="f-sub">我们再试一次，这次会简单一点点 😊</p>
+        <button class="f-start" id="fNextBtn">再来一次 ↺</button>
+      </div>`);
+    focusSpeak('你刚才很努力！我们再来一次，这次会简单一点点。');
+  }
   const next = ()=>{
     const s2 = loadFocusSave();
     focusDailyRolled(s2);
     if(focusLocked(s2)) showFocusToday();
+    else if(!passed) startFocusLevel(level.i);
     else if(level.i >= 99) showFocusToday();
     else startFocusLevel(level.i+1);
   };
@@ -279,11 +308,11 @@ function showFocusParent(){
     </div>`);
   document.getElementById('fBackToday').onclick = showFocusToday;
   document.getElementById('fCsvBtn').onclick = ()=>{
-    const rows = [['日期','关卡','轮次','游戏','类型','正确率%','反应中位数ms','试次数','星级']];
+    const rows = [['日期','关卡','轮次','游戏','类型','通过','正确率%','反应中位数ms','试次数','星级']];
     for(const h of save.history){
       const lv = FOCUS_LEVELS[h.i] || {stage:0};
       rows.push([h.d, h.i+1, lv.stage, FOCUS_META[h.dim] ? FOCUS_META[h.dim].name : h.dim,
-        h.kind, h.acc, h.mrt, h.trials, h.stars]);
+        h.kind, h.passed===false ? '否' : '是', h.acc, h.mrt, h.trials, h.stars]);
     }
     const csv = '\uFEFF' + rows.map(r=>r.join(',')).join('\n');
     const a = document.createElement('a');

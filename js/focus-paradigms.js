@@ -41,10 +41,10 @@ function praiseLine(){ return FOCUS_PRAISE[Math.floor(Math.random()*FOCUS_PRAISE
 function comfortLine(){ return FOCUS_COMFORT[Math.floor(Math.random()*FOCUS_COMFORT.length)]; }
 
 /* ---------- 阶梯自适应:目标 70~85% 成功率;连错 3 次开挫败阀 ---------- */
-function mkAdapt(){
+function mkAdapt(initial){
   const hist = [];
   return {
-    calib: 1,                 // 时间参数乘数:>1 更宽松
+    calib: initial || 1,       // 时间参数乘数:>1 更宽松(重试自动放宽)
     streak: 0,
     valveCount: 0,
     record(ok){
@@ -127,6 +127,8 @@ function runDiscrimination(area, params, adapt, h, framing){
       if(ok && clicked) stats.rts.push(performance.now()-t0);
       if(!isDemo){
         stats.trials++;
+        if(isGo) stats.goTrials = (stats.goTrials||0) + 1;
+        if(isGo && clicked) stats.hits = (stats.hits||0) + 1;
         if(ok) stats.correct++;
         stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak + (ok?0:1));
         const valve = adapt.record(ok);
@@ -167,6 +169,7 @@ function runDiscrimination(area, params, adapt, h, framing){
   function finish(){
     stats.acc = stats.trials ? stats.correct/stats.trials : 0;
     stats.mrt = median(stats.rts);
+    stats.hitRate = stats.goTrials ? stats.hits/stats.goTrials : 1;   // 命中率(防挂机)
     stats.valveCount += adapt.valveCount;
     h.end(stats);
   }
@@ -459,8 +462,8 @@ function runSwitch(area, params, adapt, h){
 }
 
 /* ---------- 调度入口 ---------- */
-function runFocusLevel(level, area, h){
-  const adapt = mkAdapt();
+function runFocusLevel(level, area, h, calib0){
+  const adapt = mkAdapt(calib0);
   const p = {...level.params};
   if(level.kind==='tutorial') p.demo = true;
   if(level.dim==='cpt')         return runDiscrimination(area, p, adapt, h, 'cpt');
@@ -471,13 +474,14 @@ function runFocusLevel(level, area, h){
   if(level.kind==='master'){                             // 五维连续小节
     const T = mkTimers();
     let isStopped = false;
-    const agg = { trials:0, correct:0, rts:[], maxStreakErr:0, valveCount:0 };
+    const agg = { trials:0, correct:0, rts:[], maxStreakErr:0, valveCount:0, goTrials:0, hits:0 };
     let sec = 0;
     function runSection(){
       if(isStopped) return;
       if(sec >= level.sections.length){
         agg.acc = agg.trials ? agg.correct/agg.trials : 0;
         agg.mrt = median(agg.rts);
+        agg.hitRate = agg.goTrials ? agg.hits/agg.goTrials : 1;
         h.end(agg);
         return;
       }
@@ -489,6 +493,7 @@ function runFocusLevel(level, area, h){
         end(st){
           agg.trials += st.trials; agg.correct += st.correct;
           agg.rts.push(...st.rts);
+          agg.goTrials += st.goTrials||0; agg.hits += st.hits||0;
           agg.maxStreakErr = Math.max(agg.maxStreakErr, st.maxStreakErr);
           agg.valveCount += st.valveCount;
           sec++;
@@ -497,7 +502,7 @@ function runFocusLevel(level, area, h){
       };
       const p2 = {...s.params};
       area.innerHTML = '';
-      const engine = runFocusLevel({dim:s.dim, kind:'normal', params:p2}, area, sub);
+      const engine = runFocusLevel({dim:s.dim, kind:'normal', params:p2}, area, sub, calib0);
       curStop = engine ? engine.stop : null;
     }
     let curStop = null;
