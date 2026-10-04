@@ -511,10 +511,12 @@ function awardKill(killer, victim){
   const mult = comebackMult(victim.team==='A' ? 'B' : 'A');
   if(killer && killer.team!==victim.team && !killer.dead && !killer.gone)
     addKillCredit(killer, mult);
-  for(const c of mobs){                               // 苦力怕特权:队友击杀分半杀
-    if(c!==killer && c.type==='creeper' && c.team!==victim.team && !c.dead && !c.gone)
-      addKillCredit(c, 0.35*mult);
-  }
+  // 苦力怕特权:每击杀随机挑一只存活苦力怕分得经验(避免全群同步晋升)
+  const creeps = [];
+  for(const c of mobs)
+    if(c!==killer && c.type==='creeper' && c.team!==victim.team && !c.dead && !c.gone) creeps.push(c);
+  if(creeps.length)
+    addKillCredit(creeps[Math.floor(Math.random()*creeps.length)], 0.5*mult);
 }
 function addKillCredit(m, credit){
   m.kills += credit;
