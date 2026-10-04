@@ -14,7 +14,7 @@ function todayStr(){
 }
 function loadFocusSave(){
   try{
-    const s = JSON.parse(localStorage.getItem(FOCUS_SAVE_KEY));
+    const s = JSON.parse(SyncDB.get(FOCUS_SAVE_KEY));
     if(s && typeof s.unlocked==='number')
       return { unlocked:s.unlocked, stars:s.stars||{}, daily:s.daily||{date:'',played:0,ms:0},
                history:Array.isArray(s.history)?s.history:[], };
@@ -22,7 +22,7 @@ function loadFocusSave(){
   return { unlocked:0, stars:{}, daily:{date:'',played:0,ms:0}, history:[] };
 }
 function saveFocusSave(s){
-  try{ localStorage.setItem(FOCUS_SAVE_KEY, JSON.stringify(s)); }catch(e){}
+  try{ SyncDB.set(FOCUS_SAVE_KEY, JSON.stringify(s)); }catch(e){}
 }
 function focusDailyRolled(save){
   if(save.daily.date !== todayStr()){
@@ -325,7 +325,7 @@ function showFocusParent(){
   let armed = false;
   rb.onclick = ()=>{
     if(armed){
-      localStorage.removeItem(FOCUS_SAVE_KEY);
+      SyncDB.remove(FOCUS_SAVE_KEY);
       showToast('训练进度已重置', 1800);
       showFocusParent();
     } else {

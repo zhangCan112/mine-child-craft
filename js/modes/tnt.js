@@ -8,13 +8,13 @@
 const TNT_SAVE_KEY = 'tnt_escape_progress';
 function loadTntSave(){
   try{
-    const s = JSON.parse(localStorage.getItem(TNT_SAVE_KEY));
+    const s = JSON.parse(SyncDB.get(TNT_SAVE_KEY));
     if(s && typeof s.unlocked==='number') return {unlocked:s.unlocked, stars:s.stars||{}};
   }catch(e){}
   return {unlocked:0, stars:{}};
 }
 function saveTntSave(s){
-  try{ localStorage.setItem(TNT_SAVE_KEY, JSON.stringify(s)); }catch(e){}
+  try{ SyncDB.set(TNT_SAVE_KEY, JSON.stringify(s)); }catch(e){}
 }
 
 /* ---------- 状态 ---------- */
@@ -565,7 +565,7 @@ function buildTntMenu(){
   rb.textContent = '重置进度 ↺';
   rb.onclick = ()=>{
     if(performance.now() - resetArm < 3000){
-      localStorage.removeItem(TNT_SAVE_KEY);
+      SyncDB.remove(TNT_SAVE_KEY);
       resetArm = 0;
       showToast('进度已重置', 1800);
       buildTntMenu();

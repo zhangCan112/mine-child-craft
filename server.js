@@ -11,6 +11,12 @@ const zlib = require('zlib');
 
 const PORT = parseInt(process.argv[2] || '8080', 10);
 const ROOT = __dirname;
+const DATA_DIR = path.join(ROOT, 'data');
+try{ fs.mkdirSync(DATA_DIR); }catch(e){}
+const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');   // { ip: 设备ID }
+const progFile = id => path.join(DATA_DIR, 'progress-' + id + '.json');
+function readJSON(f, fb){ try{ return JSON.parse(fs.readFileSync(f, 'utf8')); }catch(e){ return fb; } }
+function safeId(id){ return typeof id==='string' && /^[a-z0-9-]{4,64}$/i.test(id); }
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css':  'text/css; charset=utf-8',
@@ -33,6 +39,51 @@ http.createServer((req, res)=>{
   if(p === '/ping'){
     res.writeHead(200, {'Content-Type':'text/plain', 'Cache-Control':'no-store'});
     return res.end('ok');
+  }
+
+  const query = {};
+  const qs = (req.url||'').split('?')[1];
+  if(qs) qs.split('&').forEach(kv=>{ const [k,v] = kv.split('='); query[decodeURIComponent(k||'')] = decodeURIComponent(v||''); });
+  const clientIP = (req.socket.remoteAddress||'').replace(/^::ffff:/, '');
+
+  /* 设备身份: 按 IP 分配固定 ID (浏览器清缓存也能找回进度) */
+  if(p === '/id'){
+    const devices = readJSON(DEVICES_FILE, {});
+    let id = devices[clientIP];
+    if(!id){
+      id = 'dv-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+      devices[clientIP] = id;
+      try{ fs.writeFileSync(DEVICES_FILE, JSON.stringify(devices)); }catch(e){}
+    }
+    res.writeHead(200, {'Content-Type':'application/json', 'Cache-Control':'no-store'});
+    return res.end(JSON.stringify({id}));
+  }
+
+  /* 进度读写: GET ?id= / POST ?id= (整份 JSON, ≤200KB) */
+  if(p === '/progress'){
+    let id = query.id;
+    if(!id){ const devices = readJSON(DEVICES_FILE, {}); id = devices[clientIP]; }
+    if(!safeId(id)){ res.writeHead(403); return res.end('bad id'); }
+    if(req.method === 'GET'){
+      const data = readJSON(progFile(id), null);
+      res.writeHead(200, {'Content-Type':'application/json', 'Cache-Control':'no-store'});
+      return res.end(JSON.stringify(data || {}));
+    }
+    if(req.method === 'POST'){
+      let body = '', dead = false;
+      req.on('data', ch=>{ body += ch; if(body.length > 204800){ dead = true; req.destroy(); } });
+      req.on('end', ()=>{
+        if(dead) return;
+        try{
+          const obj = JSON.parse(body);
+          if(typeof obj !== 'object' || obj === null || Array.isArray(obj)) throw 0;
+          fs.writeFile(progFile(id), JSON.stringify(obj), ()=>{});
+          res.writeHead(200, {'Content-Type':'application/json'});
+          res.end('{"ok":true}');
+        }catch(e){ res.writeHead(400); res.end('bad json'); }
+      });
+      return;
+    }
   }
 
   const file = path.normalize(path.join(ROOT, p));
