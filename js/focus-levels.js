@@ -10,17 +10,18 @@
 ============================================================ */
 
 const FOCUS_DIMS = ['cpt', 'gonogo', 'flanker', 'corsi', 'switch'];   // 阶段顺序
+const mcIco = n => '<img class="f-mcicon" draggable="false" src="' + mcIcon(n) + '">';
 const FOCUS_META = {
-  cpt:    {name:'持续警觉', game:'矿洞瞭望塔',   icon:'🔦',
+  cpt:    {name:'持续警觉', game:'矿洞瞭望塔',   icon: mcIco('torch'),
            rule:'看到钻石，快点点它！别的矿不要点。'},
-  gonogo: {name:'抑制控制', game:'挖矿小能手',   icon:'⛏️',
+  gonogo: {name:'抑制控制', game:'挖矿小能手',   icon: mcIco('pickaxe'),
            rule:'钻石快挖！TNT 千万不要碰。'},
-  flanker:{name:'干扰控制', game:'苦力怕排队',   icon:'👀',
+  flanker:{name:'干扰控制', game:'苦力怕排队',   icon: '<img class="f-mcicon" draggable="false" src="'+creeperFace(1)+'">',
            rule:'只看中间那只苦力怕，它看哪边，就点哪边。'},
-  corsi:  {name:'视空记忆', game:'钻石闪闪光',   icon:'✨',
+  corsi:  {name:'视空记忆', game:'钻石闪闪光',   icon: mcIco('diamond'),
            rule:'看清楚钻石亮的顺序，再按一样的顺序点回去。'},
-  switch: {name:'规则切换', game:'听指挥的小矿工', icon:'🚩',
-           rule:'看旗子！按旗子说的采，旗子变了就换方法。'}
+  switch: {name:'规则切换', game:'听指挥的小矿工', icon: mcIco('flag'),
+           rule:'看旗子！按旗子说的采方块，旗子变了就换方法。'}
 };
 
 function fLerp(a, b, t){ return a + (b-a)*t; }

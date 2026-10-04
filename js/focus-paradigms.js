@@ -95,15 +95,16 @@ function median(nums){
 function runDiscrimination(area, params, adapt, h, framing){
   const T = mkTimers();
   const stats = { trials:0, correct:0, rts:[], maxStreakErr:0, valveCount:0 };
-  const goSet = ['💎'];
-  let noSet = framing==='gonogo' ? ['🧨'] : ['🪨','⬛','🟫'];
-  if(framing==='gonogo' && params.disguised) noSet = ['💠'];
-  if(framing==='cpt' && params.similar)      noSet = ['🪨','💠'];
+  const goSet = ['diamond'];                                        // 钻石=要点
+  let noSet = framing==='gonogo' ? ['tnt'] : ['stone','coal','iron'];
+  if(framing==='gonogo' && params.disguised) noSet = ['emerald'];   // 伪装No-Go=绿宝石
+  if(framing==='cpt' && params.similar)      noSet = ['stone','emerald'];
   const goRate = framing==='gonogo' ? params.goRate : params.targetRate;
   let comfortSaid = false;
 
-  function showStim(emoji, hinted){
-    const s = fEl('div', 'f-stim' + (hinted?' hint':''), emoji);
+  function showStim(iconName, hinted){
+    const s = fEl('div', 'f-stim' + (hinted?' hint':''),
+      '<img draggable="false" src="'+mcIcon(iconName)+'">');
     const W = area.clientWidth || 640, H = area.clientHeight || 380;
     s.style.left = (60 + Math.random()*(W-180)) + 'px';
     s.style.top  = (50 + Math.random()*(H-160)) + 'px';
@@ -174,32 +175,6 @@ function runDiscrimination(area, params, adapt, h, framing){
 
 /* ---------- Flanker:苦力怕排队 ----------
    一排像素苦力怕, 只看中间那只的视线方向, 点左右按钮 */
-let creeperCache = {};
-function creeperFace(dir){
-  if(creeperCache[dir]) return creeperCache[dir];
-  const c = document.createElement('canvas');
-  c.width = c.height = 16;
-  const g = c.getContext('2d');
-  g.fillStyle = '#4fae4f'; g.fillRect(0,0,16,16);
-  g.fillStyle = '#3d8f3d';                                  // 噪点(固定图案)
-  [[1,2],[5,1],[9,3],[13,2],[3,7],[11,6],[2,12],[7,14],[12,11],[14,14],[6,9],[9,13]]
-    .forEach(([x,y])=>g.fillRect(x,y,1,1));
-  const eyeY = 5;
-  [[3],[10]].forEach(([x])=>{                               // 眼白+瞳孔(瞳孔位置=方向)
-    g.fillStyle = '#f4f4f4'; g.fillRect(x, eyeY, 3, 3);
-    g.fillStyle = '#101510';
-    g.fillRect(dir<0 ? x : x+2, eyeY+1, 1, 2);
-  });
-  g.fillStyle = '#101510';                                  // 嘴
-  g.fillRect(6,9,4,3); g.fillRect(7,12,2,2);
-  const big = document.createElement('canvas');
-  big.width = big.height = 96;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 96, 96);
-  creeperCache[dir] = big.toDataURL();
-  return creeperCache[dir];
-}
 function runFlanker(area, params, adapt, h){
   const T = mkTimers();
   const stats = { trials:0, correct:0, rts:[], maxStreakErr:0, valveCount:0 };
@@ -302,7 +277,11 @@ function runCorsi(area, params, adapt, h){
 
   function light(k, ms){
     tiles[k].classList.add('lit');
-    T.after(Math.max(220, ms*0.65), ()=>tiles[k].classList.remove('lit'));
+    tiles[k].style.backgroundImage = 'url(' + mcIcon('diamond') + ')';
+    T.after(Math.max(220, ms*0.65), ()=>{
+      tiles[k].classList.remove('lit');
+      tiles[k].style.backgroundImage = '';
+    });
   }
   function runSeq(seqIdx, seq){
     inputOn = false;
@@ -370,51 +349,63 @@ function runCorsi(area, params, adapt, h){
 }
 
 /* ---------- 任务切换:听指挥的小矿工 ----------
-   旗子=当前规则(颜色/形状/大小), 点符合目标的方块;旗子会变 */
+   旗子=当前规则(羊毛颜色 / 方块材质 / 大小), 点符合目标的方块;旗子会变 */
+const SW_WOOLS = ['wool_red','wool_blue','wool_yellow'];
+const SW_MATS  = ['cobble','planks','brick'];
 function runSwitch(area, params, adapt, h){
   const T = mkTimers();
   const stats = { trials:0, correct:0, rts:[], maxStreakErr:0, valveCount:0 };
-  const ruleNames = ['color','shape','size'].slice(0, params.rules);
-  const colors = ['red','blue','yellow'];
-  const shapes = ['square','circle'];
+  const ruleNames = ['color','mat','size'].slice(0, params.rules);
   let rule = ruleNames[0], comfortSaid = false;
 
-  const flag = fEl('div', 'f-switch-flag', '🚩');
+  const flag = fEl('div', 'f-switch-flag');
   area.appendChild(flag);
   const board = fEl('div', 'f-switch-board');
   area.appendChild(board);
 
-  function flagContent(target){
-    if(rule==='color') return '🚩<span class="sw big '+target.color+'"></span>';
-    if(rule==='shape') return '🚩<span class="outline big '+target.shape+'"></span>';
-    return '🚩<span class="dot '+(target.size==='big'?'big':'small')+'"></span>';
+  function flagHTML(target){
+    if(rule==='size')
+      return mcIconTag('flag') + '<img class="tgt '+(target.attr==='big'?'tgt-big':'tgt-small')+'" src="'+mcIcon('stone')+'">';
+    return mcIconTag('flag') + '<img class="tgt" src="'+mcIcon(target.attr)+'">';
   }
-  function mkBlock(color, shape, size, isTarget){
-    return fEl('div', 'sw block '+color+' '+shape+' '+(size==='big'?'big':'small'));
-  }
+  function mcIconTag(n){ return '<img class="flagpole" draggable="false" src="'+mcIcon(n)+'">'; }
+
   function trial(isDemo){
-    const target = { color:pickRand(colors), shape:pickRand(shapes), size:pickRand(['big','small']) };
-    flag.innerHTML = flagContent(target);
+    const family = rule==='color' ? SW_WOOLS : rule==='mat' ? SW_MATS
+                 : (Math.random()<0.5 ? SW_WOOLS : SW_MATS);
+    const target = { attr:null };
+    let isCorrect;
+    if(rule==='color'){ target.attr = pickRand(SW_WOOLS); isCorrect = b=>b.icon===target.attr; }
+    else if(rule==='mat'){ target.attr = pickRand(SW_MATS); isCorrect = b=>b.icon===target.attr; }
+    else { target.attr = pickRand(['big','small']); isCorrect = b=>b.size===target.attr; }
+    flag.innerHTML = flagHTML(target);
     board.innerHTML = '';
+
     const choices = [];
-    choices.push({...target});                             // 唯一正确项
-    while(choices.length < params.choices){
-      const c = { color:pickRand(colors), shape:pickRand(shapes), size:pickRand(['big','small']) };
-      const wrongOnRule = rule==='color' ? c.color!==target.color
-                        : rule==='shape' ? c.shape!==target.shape
-                        : c.size!==target.size;
-      if(wrongOnRule && !choices.some(x=>x.color===c.color&&x.shape===c.shape&&x.size===c.size))
-        choices.push(c);
+    if(rule==='size'){
+      const wrongSize = target.attr==='big' ? 'small' : 'big';
+      const shuffled = [...family].sort(()=>Math.random()-0.5);
+      for(let k=0;k<params.choices-1;k++)
+        choices.push({icon: shuffled[k%shuffled.length], size: wrongSize});
+      choices.push({icon: pickRand(family), size: target.attr});   // 唯一正确
+    } else {
+      choices.push({icon: target.attr, size: pickRand(['big','small'])});
+      const others = family.filter(x=>x!==target.attr);
+      let k = 0;
+      while(choices.length < params.choices){
+        choices.push({icon: others[k%others.length], size: pickRand(['big','small'])});
+        k++;
+      }
     }
-    // 打乱
     for(let k=choices.length-1;k>0;k--){ const j=Math.floor(Math.random()*(k+1)); [choices[k],choices[j]]=[choices[j],choices[k]]; }
 
     let answered = false; const t0 = performance.now();
     choices.forEach(c=>{
-      const el = mkBlock(c.color, c.shape, c.size);
+      const el = fEl('div', 'f-block block ' + (c.size==='big'?'big':'small'),
+        '<img draggable="false" src="'+mcIcon(c.icon)+'">');
       el.onclick = ()=>{
         if(answered) return; answered = true;
-        const ok = c.color===target.color && c.shape===target.shape && c.size===target.size;
+        const ok = isCorrect(c);
         if(ok){ stats.rts.push(performance.now()-t0); el.classList.add('good'); sfx('pick'); }
         else { el.classList.add('bad'); sfx('click'); }
         if(isDemo===undefined){
@@ -431,10 +422,8 @@ function runSwitch(area, params, adapt, h){
         T.after(420, next);
       };
       board.appendChild(el);
-      if(isDemo){
-        const isT = c.color===target.color && c.shape===target.shape && c.size===target.size;
-        if(isT) T.after(1200, ()=>{ if(!answered){ el.classList.add('hint'); focusSpeak('看，点这个！'); } });
-      }
+      if(isDemo && isCorrect(c))
+        T.after(1200, ()=>{ if(!answered){ el.classList.add('hint'); focusSpeak('看，点这个！'); } });
     });
   }
 

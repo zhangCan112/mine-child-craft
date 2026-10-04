@@ -115,17 +115,17 @@ function focusTip(level){
   if(level.kind==='tutorial') return '新手教学：先看一遍演示，再跟着做，很轻松！';
   switch(level.dim){
     case 'cpt':
-      if(p.similar) return '小心！有一种假钻石 💠 长得很像真钻石，看清楚了再点！';
+      if(p.similar) return '小心！绿宝石长得像钻石，看清楚了再点！';
       return '矿灯闪得' + (p.isi < 1150 ? '很快' : '比较快') + '，钻石出现得不多，眼睛要一直盯着。';
     case 'gonogo':
-      if(p.disguised) return 'TNT 会变成 💠 的样子混进来！手别太快，看清楚再挖。';
+      if(p.disguised) return 'TNT 会变成绿宝石的样子混进来！手别太快，看清楚再挖。';
       return '钻石变少、TNT 变多了，忍住不碰 TNT 才能拿星星。';
     case 'flanker':
       return '队伍变成 ' + p.len + ' 只，两边捣乱的苦力怕' + (p.congruentRate < 0.6 ? '很多' : '不少') + '。记住：只看中间那只！';
     case 'corsi':
       return '要记住 ' + p.len + ' 个钻石亮的顺序' + (p.grid===16 ? '，格子也变成 4×4 了' : '') + '。';
     case 'switch':
-      return (p.rules===3 ? '现在有三种旗子：颜色、形状、大小。' : '两种旗子：颜色和形状。')
+      return (p.rules===3 ? '现在有三种旗子：颜色、材质、大小。' : '两种旗子：颜色和材质。')
         + '旗子大约每 ' + p.switchEvery + ' 次换一次，盯紧旗子！';
   }
   return '';
