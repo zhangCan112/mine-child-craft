@@ -525,7 +525,7 @@ function levelUp(m){
   m.level++;
   const tm = TIER_MULT[m.level];
   m.maxHp = Math.round(m.baseMaxHp*tm.hp);
-  m.hp = m.maxHp;                                     // 激进成长:回满血
+  m.hp = Math.min(m.maxHp, m.hp + Math.round(m.maxHp*0.2));   // 升级回复20%最大生命
   m.dmgMult = tm.dmg;
   m.invulnT = 0.5;                                    // 金身免死
   m.lastLabelHp = -1;
