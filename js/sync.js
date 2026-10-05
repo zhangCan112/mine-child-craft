@@ -5,7 +5,7 @@
    file:// 直开(桌面)自动降级为纯 localStorage
    已知进度键集中登记在此, 新模式存档时在 SYNC_KEYS 补一行
 ============================================================ */
-const SYNC_KEYS = ['tnt_escape_progress', 'focus_camp_save', 'play_time_save'];
+const SYNC_KEYS = ['tnt_escape_progress', 'focus_camp_save', 'play_time_save', 'build_world_save'];
 
 const SyncDB = {
   enabled: (typeof location !== 'undefined' && location.protocol.indexOf('http') === 0),

@@ -359,6 +359,7 @@ const pos = new THREE.Vector3();
 const vel = new THREE.Vector3();
 let onGround = false;
 let yaw = 0, pitch = 0;
+let flyMode = false;                              // 建造模式:飞行(空格升 · Shift 降, 无重力)
 
 function collides(px,py,pz){
   const minX=Math.floor(px-PLAYER.hx), maxX=Math.floor(px+PLAYER.hx);
@@ -385,13 +386,19 @@ function physics(dt){
   let dz = (-cosY)*mf + (-sinY)*ms;
   const len=Math.hypot(dx,dz);
   if(len>0){ dx/=len; dz/=len; }
-  const spd = (keys['ShiftLeft']||keys['ShiftRight']||touchSprint) ? PLAYER.sprint : PLAYER.speed;
-  vel.x = dx*spd; vel.z = dz*spd;
-
-  vel.y -= PLAYER.gravity*dt;
-  if((keys['Space']) && onGround){ vel.y = PLAYER.jump; onGround=false; }
-
-  onGround = false;
+  if(flyMode){                                    // 飞行: 恒速平移 + 垂直控制
+    vel.x = dx*PLAYER.sprint; vel.z = dz*PLAYER.sprint;
+    vel.y = 0;
+    if(keys['Space']) vel.y = 7;
+    if(keys['ShiftLeft']||keys['ShiftRight']) vel.y = -7;
+    onGround = false;
+  } else {
+    const spd = (keys['ShiftLeft']||keys['ShiftRight']||touchSprint) ? PLAYER.sprint : PLAYER.speed;
+    vel.x = dx*spd; vel.z = dz*spd;
+    vel.y -= PLAYER.gravity*dt;
+    if((keys['Space']) && onGround){ vel.y = PLAYER.jump; onGround=false; }
+    onGround = false;
+  }
   let ny = pos.y + vel.y*dt;
   if(!collides(pos.x, ny, pos.z)){ pos.y = ny; }
   else {

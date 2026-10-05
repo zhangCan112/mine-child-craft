@@ -6,7 +6,8 @@
 const MODES = {
   arena: ArenaMode,
   tnt:   TntMode,
-  focus: FocusMode
+  focus: FocusMode,
+  build: BuildMode
 };
 MODES.cur = null;
 let curModeId = null;
@@ -17,6 +18,7 @@ const pages = {
   main:  document.getElementById('menuMain'),
   arena: document.getElementById('menuArena'),
   tnt:   document.getElementById('menuTnt'),
+  build: document.getElementById('menuBuild'),
   win:   document.getElementById('menuWin'),
   playTime: document.getElementById('menuPlayTime')
 };
@@ -43,9 +45,10 @@ function playBlocked(){ return playMs >= PLAY_LIMIT_MS; }
 function savePlayTime(){
   SyncDB.set(PLAY_SAVE_KEY, JSON.stringify({date: todayStr(), ms: Math.round(playMs)}));
 }
+const PLAY_LIMIT_MODES = ['arena', 'tnt', 'build'];   // 共享时限的模式
 function refreshPlayCards(){
   const blocked = playBlocked();
-  ['cardArena','cardTnt'].forEach(id=>{
+  ['cardArena','cardTnt','cardBuild'].forEach(id=>{
     const c = document.getElementById(id);
     if(!c) return;
     c.classList.toggle('timedout', blocked);
@@ -71,7 +74,7 @@ function playTimeUp(){
 
 /* ---------- 模式切换 ---------- */
 function switchMode(id){
-  if(curModeId==='arena' || curModeId==='tnt') savePlayTime();   // 离开计费模式先存
+  if(PLAY_LIMIT_MODES.indexOf(curModeId) >= 0) savePlayTime();   // 离开计费模式先存
   if(MODES.cur && MODES.cur.cleanup) MODES.cur.cleanup();
   for(const e of effects){ scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose(); }
   effects.length = 0;
@@ -109,8 +112,15 @@ function buildMenu(){
   document.getElementById('cardFocus').onclick = ()=>{
     if(curModeId !== 'focus') switchMode('focus');   // 专注训练营接管全屏 UI
   };
+  document.getElementById('cardBuild').onclick = ()=>{
+    if(playBlocked()){ showPlayTimeoutPage(); return; }
+    if(curModeId !== 'build') switchMode('build');
+    showPage('build');
+    if(MODES.cur.buildMenu) MODES.cur.buildMenu();
+  };
   document.getElementById('arenaBackBtn').onclick = ()=> showPage('main');
   document.getElementById('tntBackBtn').onclick   = ()=> showPage('main');
+  document.getElementById('buildBackBtn').onclick = ()=> showPage('main');
   document.getElementById('playTimeHomeBtn').onclick = ()=> showPage('main');
 }
 
@@ -126,8 +136,8 @@ function loop(now){
     physics(dt);
     if(MODES.cur && MODES.cur.update) MODES.cur.update(dt);
     updateEffects(dt);
-    /* 儿童时限: 竞技场+TNT 实际游玩时累计 */
-    if((curModeId==='arena' || curModeId==='tnt')){
+    /* 儿童时限: 竞技场+TNT+建造 实际游玩时累计 */
+    if(PLAY_LIMIT_MODES.indexOf(curModeId) >= 0){
       playMs += dt*1000;
       if(!playWarned && playMs >= PLAY_LIMIT_MS-60000 && playMs < PLAY_LIMIT_MS){
         playWarned = true;

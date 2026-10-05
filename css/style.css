@@ -50,6 +50,8 @@ canvas{display:block}
 .modeCard small{font-size:12px;opacity:.8}
 .modeCard.tnt{border-color:rgba(255,120,80,.55)}
 .modeCard.tnt:hover{background:rgba(255,110,70,.18)}
+.modeCard.build{border-color:rgba(233,196,106,.6)}
+.modeCard.build:hover{background:rgba(233,196,106,.18)}
 .modeCard.timedout{opacity:.45;position:relative}
 .modeCard.timedout:hover{transform:none;background:rgba(255,255,255,.08)}
 .modeCard .timeoutBadge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);
@@ -137,3 +139,16 @@ canvas{display:block}
 #netDead h1{font-size:clamp(22px,5vw,34px);margin:0 0 12px;text-shadow:0 3px 8px #000}
 #netDead p{font-size:16px;opacity:.9;margin:6px 0}
 #netDead .tip{font-size:13px;opacity:.7;line-height:1.8}
+
+/* 建造模式:场景选择卡片 + 加宽物品栏 */
+#buildScenes{display:flex;gap:20px;margin-top:16px;flex-wrap:wrap;justify-content:center}
+.sceneCard{width:250px;padding:24px 18px;border:3px solid rgba(255,255,255,.3);border-radius:14px;
+  background:rgba(255,255,255,.08);cursor:pointer;transition:transform .12s, background .12s;user-select:none}
+.sceneCard:hover{transform:translateY(-4px);background:rgba(255,255,255,.16)}
+.sceneCard.active{border-color:#ffe27a;box-shadow:0 0 14px rgba(255,226,122,.35)}
+.sceneCard .big{font-size:44px;line-height:1.2}
+.sceneCard h2{margin:8px 0 4px;font-size:19px}
+.sceneCard small{font-size:12px;opacity:.8;line-height:1.6;display:block}
+#hotbar.build{gap:4px;padding:5px;flex-wrap:wrap;justify-content:center;max-width:96vw}
+#hotbar.build .slot{width:44px;height:44px}
+#hotbar.build .slot .cube{width:26px;height:26px}

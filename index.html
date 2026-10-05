@@ -50,6 +50,11 @@
         <h2>专注训练营</h2>
         <small>每天 6 关 · 越玩越专注</small>
       </div>
+      <div class="modeCard build" id="cardBuild">
+        <div class="big">🔨</div>
+        <h2>建造模式</h2>
+        <small>自由搭建 · 精选初始场景</small>
+      </div>
     </div>
     <div class="keys">
       <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>菜单</b>：Esc
@@ -117,6 +122,22 @@
     </div>
   </div>
 
+  <!-- 建造模式:场景选择页 -->
+  <div class="menuPage" id="menuBuild">
+    <h1>建造 <span>创意工坊</span></h1>
+    <p>自由搭建你的世界 · 点一张卡片开始建造</p>
+    <div id="buildScenes"></div>
+    <div class="btnRow">
+      <button class="play primary" id="buildEnterBtn">继续建造 ▶</button>
+      <button class="play" id="buildBackBtn">⬅ 返回</button>
+    </div>
+    <div class="keys">
+      <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>挖/放方块</b>：鼠标左右键 &nbsp; <b>选方块</b>：1~9 / 滚轮<br>
+      <b>F</b>：飞行开关（空格上升 · Shift 下降） &nbsp; <b>R</b>：重置场景 &nbsp; <b>B / Esc</b>：返回本页<br>
+      <span class="safe">你的建造会自动保存，换设备也能继续！和竞技场、TNT 共享每天 10 分钟游玩时间</span>
+    </div>
+  </div>
+
   <!-- 儿童时限提醒页 -->
   <div class="menuPage" id="menuPlayTime">
     <h1>🌙 今天的冒险时间到啦！</h1>
@@ -125,7 +146,7 @@
       <button class="play primary" id="playTimeHomeBtn">🏠 回主页</button>
     </div>
     <div class="keys">
-      <span class="safe">竞技场 + TNT 密室每天共 10 分钟 · 专注训练营不受影响（每天 6 关 / 20 分钟）</span>
+      <span class="safe">竞技场 + TNT 密室 + 建造模式每天共 10 分钟 · 专注训练营不受影响（每天 6 关 / 20 分钟）</span>
     </div>
   </div>
 
@@ -156,6 +177,7 @@
 <script src="js/modes/arena.js" defer></script>
 <script src="js/modes/tnt.js" defer></script>
 <script src="js/modes/focus.js" defer></script>
+<script src="js/modes/build.js" defer></script>
 <script src="js/main.js" defer></script>
 </body>
 </html>
