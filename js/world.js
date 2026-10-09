@@ -362,9 +362,11 @@ let yaw = 0, pitch = 0;
 let flyMode = false;                              // 建造模式:飞行(空格升 · Shift 降, 无重力)
 
 function collides(px,py,pz){
-  const minX=Math.floor(px-PLAYER.hx), maxX=Math.floor(px+PLAYER.hx);
-  const minY=Math.floor(py),           maxY=Math.floor(py+PLAYER.height-0.0001);
-  const minZ=Math.floor(pz-PLAYER.hz), maxZ=Math.floor(pz+PLAYER.hz);
+  /* ε 收缩: 视"恰好贴面"为不重叠, 消除浮点擦边导致的穿墙/假落地 */
+  const EPS = 1e-4;
+  const minX=Math.floor(px-PLAYER.hx+EPS), maxX=Math.floor(px+PLAYER.hx-EPS);
+  const minY=Math.floor(py+EPS),           maxY=Math.floor(py+PLAYER.height-EPS);
+  const minZ=Math.floor(pz-PLAYER.hz+EPS), maxZ=Math.floor(pz+PLAYER.hz-EPS);
   for(let x=minX;x<=maxX;x++)
     for(let y=minY;y<=maxY;y++)
       for(let z=minZ;z<=maxZ;z++)
@@ -396,29 +398,61 @@ function physics(dt){
     const spd = (keys['ShiftLeft']||keys['ShiftRight']||touchSprint) ? PLAYER.sprint : PLAYER.speed;
     vel.x = dx*spd; vel.z = dz*spd;
     vel.y -= PLAYER.gravity*dt;
+    if(vel.y < -30) vel.y = -30;              // 坠落限速: 防止高坠穿透薄楼板
     if((keys['Space']) && onGround){ vel.y = PLAYER.jump; onGround=false; }
     onGround = false;
   }
-  let ny = pos.y + vel.y*dt;
-  if(!collides(pos.x, ny, pos.z)){ pos.y = ny; }
-  else {
-    if(vel.y < 0){ pos.y = Math.floor(ny)+1; onGround = true; }
-    else        { pos.y = Math.floor(ny+PLAYER.height)-PLAYER.height; }
+  /* 轴向子步进移动(每步≤0.25格): 防止斜向贴角/高速一步跨过碰撞判定穿墙
+     返回 null=畅通走完; 否则返回受阻的子步目标坐标(供贴齐吸附) */
+  const stepMove = (axis, d)=>{
+    if(d === 0) return null;
+    const n = Math.max(1, Math.ceil(Math.abs(d)/0.25));
+    const s = d/n;
+    for(let i=0;i<n;i++){
+      const nx = axis===0 ? pos.x+s : pos.x;
+      const ny = axis===1 ? pos.y+s : pos.y;
+      const nz = axis===2 ? pos.z+s : pos.z;
+      if(collides(nx,ny,nz)) return {nx,ny,nz};   // 本步受阻
+      pos.x = nx; pos.y = ny; pos.z = nz;
+    }
+    return null;
+  };
+  const hitY = stepMove(1, vel.y*dt);
+  if(hitY){
+    if(vel.y < 0){ pos.y = Math.floor(hitY.ny+1e-4)+1; onGround = true; }
+    else        { pos.y = Math.floor(hitY.ny+PLAYER.height-1e-4)-PLAYER.height; }
     vel.y = 0;
   }
-  let nxp = pos.x + vel.x*dt;
-  if(!collides(nxp, pos.y, pos.z)){ pos.x = nxp; }
-  else {
-    if(vel.x > 0) pos.x = Math.floor(nxp+PLAYER.hx)-PLAYER.hx;
-    else          pos.x = Math.floor(nxp-PLAYER.hx)+1+PLAYER.hx;
+  let dxStep = vel.x*dt;
+  if(pos.x+dxStep < PLAYER.hx)         dxStep = PLAYER.hx-pos.x;          // 世界边缘隐形墙
+  if(pos.x+dxStep > WORLD_W-PLAYER.hx) dxStep = WORLD_W-PLAYER.hx-pos.x;
+  const hitX = stepMove(0, dxStep);
+  if(hitX){
+    if(vel.x > 0) pos.x = Math.floor(hitX.nx+PLAYER.hx-1e-4)-PLAYER.hx;
+    else          pos.x = Math.floor(hitX.nx-PLAYER.hx+1e-4)+1+PLAYER.hx;
     vel.x = 0;
   }
-  let nzp = pos.z + vel.z*dt;
-  if(!collides(pos.x, pos.y, nzp)){ pos.z = nzp; }
-  else {
-    if(vel.z > 0) pos.z = Math.floor(nzp+PLAYER.hz)-PLAYER.hz;
-    else          pos.z = Math.floor(nzp-PLAYER.hz)+1+PLAYER.hz;
+  let dzStep = vel.z*dt;
+  if(pos.z+dzStep < PLAYER.hz)         dzStep = PLAYER.hz-pos.z;
+  if(pos.z+dzStep > WORLD_D-PLAYER.hz) dzStep = WORLD_D-PLAYER.hz-pos.z;
+  const hitZ = stepMove(2, dzStep);
+  if(hitZ){
+    if(vel.z > 0) pos.z = Math.floor(hitZ.nz+PLAYER.hz-1e-4)-PLAYER.hz;
+    else          pos.z = Math.floor(hitZ.nz-PLAYER.hz+1e-4)+1+PLAYER.hz;
     vel.z = 0;
+  }
+  /* 兜底: 极端挤压下若仍嵌入方块, 先向上再向四侧弹出 */
+  if(collides(pos.x, pos.y, pos.z)){
+    let free = false;
+    for(let up=1; up<=8 && !free; up++){
+      if(!collides(pos.x, pos.y+0.25*up, pos.z)){ pos.y += 0.25*up; vel.y = 0; free = true; }
+    }
+    if(!free){
+      const nudge = [[0.3,0],[-0.3,0],[0,0.3],[0,-0.3]];
+      for(const q of nudge){
+        if(!collides(pos.x+q[0], pos.y, pos.z+q[1])){ pos.x += q[0]; pos.z += q[1]; free = true; break; }
+      }
+    }
   }
   if(pos.y < -12){                          // 掉出世界:交给当前模式处理
     if(typeof MODES !== 'undefined' && MODES.cur && MODES.cur.onVoidFall) MODES.cur.onVoidFall();

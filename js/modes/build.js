@@ -81,6 +81,24 @@ function fxNightstand(x,y,z){ setBlockRaw(x,y,z,5); setBlockRaw(x,y+1,z,19); }
 function fxLampPost(x,y,z){ setBlockRaw(x,y,z,5); setBlockRaw(x,y+1,z,5); setBlockRaw(x,y+2,z,19); }
 /* 平地毯: 把地面顶层方块替换成羊毛(与地面齐平, 可自由踩踏) */
 function fxCarpet(x1,z1,x2,z2,y,id){ fillB(x1,y,z1,x2,y,z2,id); }
+/* 石景堆: 圆石/苔石小丘, rad 为半径 */
+function fxBoulder(cx,cz,rad){
+  for(let dx=-rad;dx<=rad;dx++)
+    for(let dz=-rad;dz<=rad;dz++){
+      if(Math.abs(dx)+Math.abs(dz) > rad+ (rad>1?1:0)) continue;   // 菱形轮廓更自然
+      const h = 1 + Math.floor(fxHash(cx+dx, cz+dz, 21)*2);       // 1~2 高
+      for(let y=0;y<h;y++) setBlockRaw(cx+dx,25+y,cz+dz, fxHash(cx+dx,cz+dz,33)>0.5?4:14);
+    }
+}
+
+/* 确定性散列 (hashRand 在部分区间输出被截断在 0.5 以下, 树木散布用它) */
+function fxHash(x,z,salt){
+  let n = ((x+salt)*2654435761 ^ (z-salt)*340573321) >>> 0;
+  n = (n ^ (n>>>13)) >>> 0;
+  n = (n + 0x9e3779b9) >>> 0;
+  n = (n ^ (n>>>16)) >>> 0;
+  return n / 4294967295;
+}
 
 /* 平坦草原: 顶 y=grassY 草地, 下 4 层泥土, 其下石头; 保护区内不种树 */
 function buildGrassField(grassY, px1, pz1, px2, pz2){
@@ -160,6 +178,12 @@ function buildHouseScene(){
     setBlockRaw(l[0],25,l[1],19);              // 一层吸顶灯
   fxCarpet(62,70,63,73,G,4);                   // 门外圆石小径
   fxLampPost(60,21,71);                        // 门廊路灯
+  /* 院子: 两棵树 + 门前花坛 */
+  plantTree(52,21,64); plantTree(74,21,64);
+  for(let i=0;i<4;i++){
+    setBlockRaw(57+i,21,72, i%2?16:15);
+    setBlockRaw(66+i,21,72, i%2?16:15);
+  }
 
   /* ---- 二层: 主卧(西) + 儿童房(东) ---- */
   fillB(65,26,58,65,27,62,6);                  // 隔断墙(南侧留门)
@@ -180,7 +204,7 @@ function buildHouseScene(){
 ============================================================ */
 function buildBasementScene(){
   const G = 24;
-  buildGrassField(G, 42, 42, 86, 86);
+  buildGrassField(G, 40, 26, 108, 92);         // 保护大厅/入口/花园/池塘区域
 
   /* ---- 地下大厅: 42×34 石砖壳, 内部 40×32 × 高5 ---- */
   const x1=43, x2=84, z1=43, z2=76;
@@ -193,7 +217,7 @@ function buildBasementScene(){
     fillB(p[0],18,p[1],p[0],22,p[1],4);
   for(const lx of [48,56,64,72,80])
     for(const lz of [48,58,68]) setBlockRaw(lx,23,lz,19);
-  for(const w of [[43,50],[43,62],[84,50],[84,62],[50,43],[64,43],[75,43]])
+  for(const w of [[43,50],[43,62],[84,50],[84,62],[50,43],[58,43],[75,43]])
     setBlockRaw(w[0],20,w[1],19);
 
   /* ---- 地表入口小屋 (红砖) ---- */
@@ -249,6 +273,47 @@ function buildBasementScene(){
       setBlockRaw(62+i,17,66+j, (i+j)%2 ? 15 : 16);
   for(const s of [[61,67],[70,67],[61,72],[70,72]]) setBlockRaw(s[0],18,s[1],5);
   fxLampPost(45,18,72); fxLampPost(82,18,44);
+
+  /* ---- 北侧大阶梯: 大厅直上地面 (3宽 x63..65, 7 级) ---- */
+  for(let i=0;i<=6;i++){
+    const z=43-i, top=19+i, sY=top-1;
+    fillB(63,sY,z,65,sY,z,13);                  // 台阶
+    fillB(63,top,z,65,top+3,z,0);               // 头顶净空
+    const wTop=Math.min(top+3,24);
+    fillB(62,sY,z,62,wTop,z,13);                // 侧墙
+    fillB(66,sY,z,66,wTop,z,13);
+    if(i%3===1){ setBlockRaw(62,top+1,z,19); setBlockRaw(66,top+1,z,19); }  // 壁灯
+  }
+  /* 地面出口凉亭 + 圆石广场小径 */
+  for(const p of [[61,36],[67,36],[61,41],[67,41]]){
+    fillB(p[0],25,p[1],p[0],27,p[1],5); setBlockRaw(p[0],28,p[1],19);       // 木柱+柱灯
+  }
+  fillB(60,28,35,68,28,41,6);                   // 凉亭木板顶
+  fxCarpet(61,34,67,36,24,4);                   // 圆石广场(嵌地面)
+  fxCarpet(63,26,64,33,24,4);                   // 北向小径
+  fxCarpet(63,85,64,88,24,4);                   // 小屋南向小径
+  fxLampPost(61,25,29); fxLampPost(66,25,29);
+  /* 花坛 + 绿篱 */
+  for(let i=0;i<8;i++) setBlockRaw(71+(i%4)*2,25,33+Math.floor(i/4)*3, i%2?16:15);
+  setBlockRaw(70,25,35,7); setBlockRaw(70,25,38,7); setBlockRaw(79,25,36,7);
+  /* 小树林: 大厅草坪上空 + 东侧野外 */
+  for(let x=45;x<=82;x++)
+    for(let z=45;z<=74;z++){
+      if(x>=62&&x<=65&&z>=70) continue;         // 南口阶梯区留空
+      if(fxHash(x,z,7) > 0.982) plantTree(x, 25, z);
+    }
+  for(let x=88;x<=100;x++)
+    for(let z=45;z<=74;z++)
+      if(fxHash(x,z,13) > 0.987) plantTree(x, 25, z);
+  /* 池塘: 沙岸 + 清水(可趟水) */
+  for(let x=93;x<=104;x++)
+    for(let z=28;z<=38;z++){
+      const r=Math.hypot(x-98.5, z-33);
+      if(r<4.4){ setBlockRaw(x,24,z, r<3.5?B_WATER:8); setBlockRaw(x,23,z,8); }
+    }
+  fxLampPost(92,25,33);
+  /* 石景堆 */
+  fxBoulder(48,88,2); fxBoulder(100,84,2); fxBoulder(91,28,1);
 }
 
 /* ============================================================
@@ -256,7 +321,7 @@ function buildBasementScene(){
 ============================================================ */
 const BUILD_SCENES = [
   { id:'basement', name:'巨大地下室', icon:'🕳️',
-    desc:'40×32 超大地下大厅<br>客厅·卧室·厨房·书房·棋盘室',
+    desc:'40×32 超大地下大厅<br>客厅·卧室·书房·棋盘室<br>北侧阶梯直达地面花园',
     spawn:{x:65.5, y:18, z:69.5, yaw:0},
     build: buildBasementScene },
   { id:'house', name:'二层小楼房', icon:'🏡',
@@ -302,13 +367,13 @@ function buildLoadScene(id){
     setBlockRaw(+p[0], +p[1], +p[2], v);
   }
   rebuildAll();
-  buildSpawnAt(sc.spawn);
+  buildSpawnAt(sc);
   buildDirty = true;                            // 记住当前场景
 }
 function buildResetScene(){
   buildEdits[buildSceneId].clear();
   const sc = BUILD_SCENES.find(s=>s.id===buildSceneId);
-  clearWorld(); sc.build(); rebuildAll(); buildSpawnAt(sc.spawn);
+  clearWorld(); sc.build(); rebuildAll(); buildSpawnAt(sc);
   buildDirty = true;
   buildSaveNow();
   showToast('已重置「' + sc.name + '」', 2000);
@@ -404,6 +469,7 @@ const BuildMode = {
     if(!hit) return;
     let x, y, z, id;
     if(button === 0){                                   // 挖
+      if(hit.y === 0){ showToast('🪨 底层基岩挖不动哦'); return; }   // 底层保护, 防挖穿坠出世界
       x=hit.x; y=hit.y; z=hit.z; id=0;
     } else if(button === 2){                            // 放
       x=hit.x+hit.nx; y=hit.y+hit.ny; z=hit.z+hit.nz;
@@ -417,7 +483,7 @@ const BuildMode = {
   },
   onVoidFall(){
     const sc = BUILD_SCENES.find(s=>s.id===buildSceneId);
-    if(sc) buildSpawnAt(sc.spawn);
+    if(sc) buildSpawnAt(sc);
   },
   updateHud(){
     const sc = BUILD_SCENES.find(s=>s.id===buildSceneId);
