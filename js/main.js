@@ -29,9 +29,9 @@ function showPage(id){
   if(id === 'main') refreshPlayCards();
 }
 
-/* ---------- 儿童游玩时限: 竞技场+TNT 每天共 10 分钟 ----------
+/* ---------- 儿童游玩时限: 竞技场+TNT+建造 共享, 时长配置见 config.js ----------
    只在实际游玩(锁定/触屏进行)时计时; 跨设备随 SyncDB 同步; 专注训练营不受影响 */
-const PLAY_LIMIT_MS = 10*60*1000;
+const PLAY_LIMIT_MS = (TEMP_PLAY_LIMIT_MIN[todayStr()] || PLAY_LIMIT_DEFAULT_MIN) * 60 * 1000;
 const PLAY_SAVE_KEY = 'play_time_save';
 let playMs = (function(){
   try{
@@ -44,6 +44,13 @@ let playSaveT = 0, playWarned = false, playDoneShown = false;
 function playBlocked(){ return playMs >= PLAY_LIMIT_MS; }
 function savePlayTime(){
   SyncDB.set(PLAY_SAVE_KEY, JSON.stringify({date: todayStr(), ms: Math.round(playMs)}));
+}
+const tempLimitMin = TEMP_PLAY_LIMIT_MIN[todayStr()];
+if(tempLimitMin){
+  const tRule = document.getElementById('playTimeRule');
+  if(tRule) tRule.textContent = '竞技场 + TNT 密室 + 建造模式今天临时开放 ' + tempLimitMin + ' 分钟 · 专注训练营不受影响（每天 6 关 / 20 分钟）';
+  const bRule = document.getElementById('buildTimeRule');
+  if(bRule) bRule.textContent = '你的建造会自动保存，换设备也能继续！和竞技场、TNT 今天共享 ' + tempLimitMin + ' 分钟游玩时间';
 }
 const PLAY_LIMIT_MODES = ['arena', 'tnt', 'build'];   // 共享时限的模式
 function refreshPlayCards(){
