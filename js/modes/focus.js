@@ -225,21 +225,22 @@ function onFocusLevelEnd(level, st){
       }, 350*n);
     });
   } else {
+    const moveOn = (focusFailCount[level.i]||0) >= 2;      // 连败 2 次后换下一个游戏, 避免整段时间卡死在同一关
     focusScreen(`
       <div class="f-screen">
         <div class="f-stars"></div>
         <h1>很努力了！</h1>
         <p class="f-sub">正确 ${Math.round(st.acc*100)}% · 目标 70%</p>
-        <p class="f-sub">我们再试一次，这次会简单一点点 😊</p>
-        <button class="f-start" id="fNextBtn">再来一次 ↺</button>
+        <p class="f-sub">${moveOn ? '这关先记住感觉，我们去玩别的游戏，以后再来挑战！' : '我们再试一次，这次会简单一点点 😊'}</p>
+        <button class="f-start" id="fNextBtn">${moveOn ? '下一个游戏 ▶' : '再来一次 ↺'}</button>
       </div>`);
-    focusSpeak('你刚才很努力！我们再来一次，这次会简单一点点。');
+    focusSpeak(moveOn ? '你已经很努力了！我们先去玩别的游戏，以后再来挑战这一关。' : '你刚才很努力！我们再来一次，这次会简单一点点。');
   }
   const next = ()=>{
     const s2 = loadFocusSave();
     focusDailyRolled(s2);
     if(focusLocked(s2)) showFocusToday();
-    else if(!passed) startFocusLevel(level.i);
+    else if(!passed && (focusFailCount[level.i]||0) < 2) startFocusLevel(level.i);
     else if(level.i >= 99) showFocusToday();
     else startFocusLevel(level.i+1);
   };

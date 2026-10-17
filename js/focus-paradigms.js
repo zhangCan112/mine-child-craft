@@ -74,6 +74,13 @@ function fEl(tag, cls, html){
   return e;
 }
 function pickRand(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+function shuffleArr(a){
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    const t = a[i]; a[i] = a[j]; a[j] = t;
+  }
+  return a;
+}
 function mkTimers(){
   const ts = [];
   return {
@@ -100,6 +107,11 @@ function runDiscrimination(area, params, adapt, h, framing){
   if(framing==='gonogo' && params.disguised) noSet = ['emerald'];   // 伪装No-Go=绿宝石
   if(framing==='cpt' && params.similar)      noSet = ['stone','emerald'];
   const goRate = framing==='gonogo' ? params.goRate : params.targetRate;
+  /* 预生成整局序列: No-Go(gonogo=TNT)至少 20% 且至少 1 个,
+     避免逐次独立随机导致极端情况下整局一个 TNT 都不出 */
+  const minNo = framing==='gonogo' ? Math.max(1, Math.ceil(params.trials*0.2)) : 1;
+  const nGo = Math.max(0, Math.min(params.trials - minNo, Math.round(params.trials*goRate)));
+  const plan = shuffleArr(Array.from({length:params.trials}, (_,k)=> k < nGo));
   let comfortSaid = false;
 
   function showStim(iconName, hinted){
@@ -162,7 +174,7 @@ function runDiscrimination(area, params, adapt, h, framing){
     if(params.demo && idx===1){ trial(false, true); idx=2; return; }                                // 演示:不该点的
     if(idx >= params.trials){ finish(); return; }
     h.progress(idx, params.trials);
-    trial(Math.random() < goRate);
+    trial(plan[idx - (params.demo ? 2 : 0)]);
     idx++;
   }
   let isStopped = false;
