@@ -91,7 +91,7 @@ const MOB_TYPES = {
 const TANK_VS_MOBS = {
   direct: 40, splash: 25, edge: 10, crush: 40,
   blastR: 3.1,                // 爆炸波及判定半径(格, ≈ shellR+0.9)
-  blastDy: 4                  // 波及高度差(格)
+  blastDy: 7                  // 波及高度差(格): 放宽到 7 让低飞的末影龙(flyY=地面+6)能被平地炮波及
 };
 
 

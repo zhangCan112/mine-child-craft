@@ -213,7 +213,7 @@ const Mobs = (() => {
     g.shadowColor='#000'; g.shadowBlur=4;
     const pre = m.labelCfg ? m.labelCfg.prefix : '';
     const col = m.labelCfg ? m.labelCfg.color : '#ffd44d';
-    const full = pre + m.cfg.name + (m.level>1?'★'.repeat(m.level-1):'');
+    const full = pre + m.cfg.name + (m.level>1?'★'.repeat(m.level-1):'');   // level 是模式挂的私有字段(竞技场晋升), 不挂就不画星
     if(m.dead){
       g.textAlign='center'; g.fillStyle='#9a9a9a'; g.fillText(full, 80, 15);
     } else if(m.level>1){
@@ -252,6 +252,7 @@ const Mobs = (() => {
     opts = opts || {};
     const cfg = MOB_TYPES[type];
     const gy = groundTop(Math.floor(x), Math.floor(z)) + 1;
+    const y0 = cfg.fly ? (opts.flyY !== undefined ? opts.flyY : gy + 6) : gy;   // 巡航高度(游荡飞行被震落后回这里)
     const m = {
       id: mobId++, type, cfg,
       labelCfg: opts.label || null,
@@ -259,12 +260,12 @@ const Mobs = (() => {
       drawScale:1, deadTilt:0,                       // 体型(挂件缩放/引信膨胀) 与 倒地角
       tr:1, tg:1, tb:1, tintBase:[1,1,1],            // instanceColor 着色(闪白/狂暴等持久色)
       pos:(typeof THREE !== 'undefined')
-      ? new THREE.Vector3(x, cfg.fly ? (opts.flyY !== undefined ? opts.flyY : gy + 6) : gy, z)
-      : { x, y: cfg.fly ? (opts.flyY !== undefined ? opts.flyY : gy + 6) : gy, z },
+      ? new THREE.Vector3(x, y0, z)
+      : { x, y: y0, z },
       yaw: opts.yaw || 0,
       hp:cfg.hp, maxHp:cfg.hp, dead:false, deadT:0, gone:false,
       flashT:0, staggerT:0,
-      walkPhase:Math.random()*6, speedNow:0, flyPhase:Math.random()*6,
+      walkPhase:Math.random()*6, speedNow:0, flyPhase:Math.random()*6, flyHome:y0,
       wander: opts.wander || null,                   // 游荡配置(栅栏), 无则站立/由模式驱动
       wanderT:0, wanderDir:Math.random()*Math.PI*2,
       clamp: opts.clamp || null,                     // 飞行单位击退后的边界约束(竞技场圆形)
@@ -352,6 +353,8 @@ const Mobs = (() => {
     if(!m.cfg.fly){
       const ty = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
       gp.y += (ty-gp.y)*Math.min(1, dt*10);          // 爬坡下坎自然贴地
+    } else if(gp.y !== m.flyHome){
+      gp.y += (m.flyHome-gp.y)*Math.min(1, dt*2);    // 被震落后缓慢回到巡航高度(不贴地怪飞)
     }
     m.speedNow = sp;
     m.walkPhase += sp*dt*3.4;
@@ -461,6 +464,13 @@ const Mobs = (() => {
         px(5,9,6,3,'#262633');                               // 吻部
         px(6,10,1,1,'#0a0a10'); px(9,10,1,1,'#0a0a10');      // 鼻孔
         px(5,12,6,1,'#0a0a10');                              // 颚线
+        break;
+      }
+      case 'mix': {                                          // 四象限:僵尸/骷髅/苦力怕/铁傀儡(竞技场编队按钮)
+        px(0,0,8,8,'#5e9440');  px(1,3,2,2,'#14200f'); px(5,3,2,2,'#14200f');
+        px(8,0,8,8,'#d8d8d2');  px(9,3,2,2,'#1a1a1a'); px(13,3,2,2,'#1a1a1a');
+        px(0,8,8,8,'#4fae4f');  px(1,10,2,2,'#101510'); px(5,10,2,2,'#101510'); px(3,12,2,2,'#101510');
+        px(8,8,8,8,'#cdd0d8');  px(9,11,2,1,'#ff2a1a'); px(13,11,2,1,'#ff2a1a'); px(11,12,1,2,'#555a63');
         break;
       }
     }

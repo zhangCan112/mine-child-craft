@@ -72,7 +72,6 @@ test('stepMove: 平地与上 1 格台阶放行, 2 格台阶拦截', () => {
   MobCore.stepMove(climb, 1, 0, g);
   assert.strictEqual(climb.pos.x, 66.5, '上 1 格台阶放行(履带/脚能爬)');
   const wall = mkMob(30); wall.pos.x = 66.5;
-  fakeGround({ '67,64': 12 });
   const g2 = fakeGround({ '66,64': 11, '67,64': 13 });
   MobCore.stepMove(wall, 1, 0, g2);
   assert.strictEqual(wall.pos.x, 66.5, '2 格高差拦截');

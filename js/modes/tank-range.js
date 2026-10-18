@@ -20,7 +20,7 @@ const TANK_RANGE = {
   spawn: { x: 59.5, z: 98, yaw: 0 },      // 玩家出生在坦克侧后方, 抬眼即见坦克
   targetId: 16                            // 靶方块 id(红羊毛): 建靶与命中判定, 演习场专属玩法
 };
-const VS = TANK_VS_MOBS;                  // 坦克打怪伤害表(config.js)
+/* 坦克打怪伤害直查 config 的 TANK_VS_MOBS(直击/波及/碾压) */
 
 let speakArmed = 10;                      // 邀请语音计时: 初始即"到点"(首靠近就说)
 let hitCount = 0;                         // 已命中炮数(爆炸炸到靶才算)
@@ -62,10 +62,10 @@ function onBoom(x, y, z, res){
     SpeechKit.speak('打中啦！好厉害！');
     showToast('🎯 命中 ' + hitCount);
   }
-  for(const m of Mobs.near(x, z, VS.blastR, y, VS.blastDy)){
+  for(const m of Mobs.near(x, z, TANK_VS_MOBS.blastR, y, TANK_VS_MOBS.blastDy)){
     const d = Math.hypot(m.pos.x - x, m.pos.z - z);
-    const dmg = d < 1.2 ? VS.direct
-      : Math.round(VS.splash - (VS.splash - VS.edge) * Math.min(1, d / VS.blastR));
+    const dmg = d < 1.2 ? TANK_VS_MOBS.direct
+      : Math.round(TANK_VS_MOBS.splash - (TANK_VS_MOBS.splash - TANK_VS_MOBS.edge) * Math.min(1, d / TANK_VS_MOBS.blastR));
     const r = Mobs.hit(m, dmg, m.pos.x - x, m.pos.z - z, 0.8);
     if(r.freshDead) onKill(m);
   }
@@ -107,7 +107,7 @@ function deployMobs(){
     Mobs.spawn(mobCfg.type, x + 0.5, z + 0.5, {
       label: { prefix: '', color: '#ffd44d' },                 /* 名牌: 名字+血条, 无阵营前缀 */
       wander: { x0: 18, x1: 110, z0: 18, z1: 110 },            /* 游荡栅栏(怪物库本能, 可关) */
-      flyY: TANK_RANGE.groundY + 10                            /* 飞行怪(末影龙)巡航高度 */
+      flyY: TANK_RANGE.groundY + 6                            /* 飞行怪(末影龙)巡航高度: 低飞才够得着(平地炮波及) */
     });
     placed++;
   }
@@ -255,7 +255,7 @@ const TankRangeMode = mkMode({
     const tp = Tank.driving() ? Tank.at() : null;
     if(tp){
       for(const m of Mobs.near(tp.x, tp.z, 1.8, tp.y, 2.5)){
-        const r = Mobs.hit(m, VS.crush, m.pos.x - tp.x, m.pos.z - tp.z, 0.5);
+        const r = Mobs.hit(m, TANK_VS_MOBS.crush, m.pos.x - tp.x, m.pos.z - tp.z, 0.5);
         if(r.freshDead) onKill(m);
       }
     }
