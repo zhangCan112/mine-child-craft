@@ -87,10 +87,7 @@ function playTimeUp(){
 function switchMode(id){
   if(Budgets && PLAY_LIMIT_MODES.indexOf(curModeId) >= 0) Budgets.play.flush();   // 离开计费模式先落账
   if(MODES.cur && MODES.cur.cleanup) MODES.cur.cleanup();
-  for(const e of effects){ scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose(); }
-  effects.length = 0;
-  for(const d of debris) scene.remove(d.mesh);
-  debris.length = 0;
+  Fx.clear();                                // 特效清场收口在 Fx, 不再亲手 dispose 私有数组
   clearWorld();
   curModeId = MODES[id].id || id;
   MODES.cur = MODES[id];
@@ -150,7 +147,7 @@ function loop(now){
       if(MODES.cur && MODES.cur.onVoidFall) MODES.cur.onVoidFall();
     }
     if(MODES.cur && MODES.cur.update) MODES.cur.update(dt);
-    updateEffects(dt);
+    Fx.update(dt);
     /* 儿童时限: 游玩模式实际游玩时累计入每日预算 */
     if(Budgets && PLAY_LIMIT_MODES.indexOf(curModeId) >= 0){
       Budgets.play.accrue(dt*1000);
@@ -160,12 +157,7 @@ function loop(now){
 
   camera.position.set(pos.x, pos.y+PLAYER.eye, pos.z);
   camera.rotation.set(pitch, yaw, 0, 'YXZ');
-  if(shake > 0){
-    shake -= dt;
-    const s = Math.max(0, shake)*0.4;
-    camera.position.x += (Math.random()-0.5)*s;
-    camera.position.y += (Math.random()-0.5)*s;
-  }
+  Fx.wobble(dt, camera);   // 震屏消费(衰减+抖动)收在 Fx, 须在相机位姿设定之后
 
   const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
   const hit = raycastVoxel(camera.position, dir, 6);

@@ -430,8 +430,8 @@ function throwRock(m, tg){
     dmg: Math.round(22*m.dmgMult), kpow:1.4, aoe:2.6, owner:m});
 }
 function rockBlast(a, p){
-  boomVisual(p.x, p.y, p.z, a.aoe, 6);
-  shake = Math.max(shake, 0.3);
+  Fx.boom(p.x, p.y, p.z, {r1: a.aoe, n: 6});
+  Fx.kick(0.3);
   for(const t of mobs){
     if(t.dead || t.gone || t.team===a.team) continue;
     const dx=t.pos.x-p.x, dz=t.pos.z-p.z;
@@ -446,21 +446,10 @@ function rockBlast(a, p){
 function golemSlam(m){
   m.slamming = false;
   m.staggerT = 0.5;                                  // 落地后短暂硬直
-  shake = Math.max(shake, 0.45);
+  Fx.kick(0.45);
   sfx('boom');
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
-    new THREE.MeshBasicMaterial({color:0xd8c9a8, transparent:true, opacity:0.8, depthWrite:false}));
-  mesh.position.set(m.pos.x, m.pos.y+0.3, m.pos.z);
-  scene.add(mesh);
-  effects.push({mesh, t:0, dur:0.35, r0:0.5, r1: m.level>=2 ? 5.2 : 4.2});
-  for(let i=0;i<8;i++){
-    const d = new THREE.Mesh(debrisGeo, debrisMat);
-    d.position.set(m.pos.x, m.pos.y+0.2, m.pos.z);
-    scene.add(d);
-    const a = Math.random()*Math.PI*2;
-    debris.push({mesh:d, life:0.7,
-      vel:new THREE.Vector3(Math.cos(a)*(2+Math.random()*3), 2+Math.random()*4, Math.sin(a)*(2+Math.random()*3))});
-  }
+  Fx.pop(m.pos.x, m.pos.y+0.3, m.pos.z, {color:0xd8c9a8, r0:0.5, r1: m.level>=2 ? 5.2 : 4.2, dur:0.35, opacity:0.8});
+  Fx.debrisBurst(m.pos.x, m.pos.y+0.2, m.pos.z, 8, {ring:true, life:0.7});
   const R = m.level>=2 ? 5 : 4;                       // 精英:震地范围更大
   for(const t of mobs){
     if(t===m || t.dead || t.gone || t.team===m.team) continue;
@@ -479,7 +468,7 @@ function explode(x,y,z,team,owner,ratio){
   ratio = ratio || 1;
   const lv = owner ? owner.level : 1;
   const r = 5.5*ratio*(1+0.15*(lv-1));
-  boomVisual(x,y,z,r,Math.round(11*ratio));
+  Fx.boom(x,y,z, {r1: r, n: Math.round(11*ratio)});
   for(const t of mobs){
     if(t.dead || t.gone) continue;
     if(team!==undefined && t.team===team) continue;   // 自爆不炸友方
@@ -588,11 +577,7 @@ function applyTierVisual(m){
 }
 function levelUpFx(m){
   sfx('level');
-  const ring = new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
-    new THREE.MeshBasicMaterial({color:0xffe27a, transparent:true, opacity:0.9, depthWrite:false}));
-  ring.position.set(m.pos.x, m.pos.y+1, m.pos.z);
-  scene.add(ring);
-  effects.push({mesh:ring, t:0, dur:0.5, r0:0.5, r1:2.6});
+  Fx.pop(m.pos.x, m.pos.y+1, m.pos.z, {color:0xffe27a, r0:0.5, r1:2.6, dur:0.5});
   const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.34,6,10,1,true),
     new THREE.MeshBasicMaterial({color:0xffe27a, transparent:true, opacity:0.55, depthWrite:false}));
   beam.position.set(m.pos.x, m.pos.y+3, m.pos.z);
@@ -726,10 +711,7 @@ function updateMobs(dt){
            && Math.hypot(t.pos.x-gp.x, t.pos.z-gp.z) < rr) t.rageBuffT = m.level>=3?5:4;
       }
       if(m.level>=3){                                // 王者·狂暴冲击波
-        const ring = new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
-          new THREE.MeshBasicMaterial({color:0xff6a4a, transparent:true, opacity:0.8, depthWrite:false}));
-        ring.position.set(gp.x, gp.y+1, gp.z); scene.add(ring);
-        effects.push({mesh:ring, t:0, dur:0.4, r0:0.5, r1:5});
+        Fx.pop(gp.x, gp.y+1, gp.z, {color:0xff6a4a, r0:0.5, r1:5, dur:0.4, opacity:0.8});
         for(const t of mobs){
           if(t===m || t.dead || t.gone || t.team===m.team) continue;
           const dx=t.pos.x-gp.x, dz=t.pos.z-gp.z, d=Math.hypot(dx,dz);

@@ -72,11 +72,7 @@ function findTntAt(x,y,z){
   return tnts.find(t=> t.x===x && t.y===y && t.z===z);
 }
 function smallPop(x,y,z,color){
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.14,8,6),
-    new THREE.MeshBasicMaterial({color, transparent:true, opacity:0.9, depthWrite:false}));
-  mesh.position.set(x,y,z);
-  scene.add(mesh);
-  effects.push({mesh, t:0, dur:0.3, r0:0.15, r1:0.55});
+  Fx.pop(x,y,z, {color, geo:new THREE.SphereGeometry(0.14,8,6), r0:0.15, r1:0.55, dur:0.3});
 }
 
 /* ---------- 实体注册 ---------- */
@@ -179,7 +175,7 @@ function explodeTnt(t){
   removeTnt(t);
   editBlockDirty(t.x, t.y, t.z, 0);
   const cx=t.x+0.5, cy=t.y+0.5, cz=t.z+0.5;
-  boomVisual(cx, cy, cz, TNT_CFG.radius+1.5, 14);
+  Fx.boom(cx, cy, cz, {r1: TNT_CFG.radius+1.5, n: 14});
   destroySphere(cx, cy, cz, t);
   flushDirty();
 }
@@ -355,7 +351,7 @@ function updateWeights(dt){
       setBlockRaw(fx, land, fz, B_WEIGHT);
       markDirty(fx, fz);
       dirty = true;
-      shake = Math.max(shake, 0.35);
+      Fx.kick(0.35);
       sfx('boom');
       // 砸到玩家
       if(Math.floor(pos.x)===fx && Math.floor(pos.z)===fz

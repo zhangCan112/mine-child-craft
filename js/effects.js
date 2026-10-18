@@ -98,55 +98,103 @@ function sfx(kind){
   }catch(e){}
 }
 
-/* ---------- 通用特效 ---------- */
-let shake = 0;
-const effects = [];   // 冲击波球
-const debris = [];    // 物理碎块
-const debrisGeo = new THREE.BoxGeometry(0.16,0.16,0.16);
-const debrisMat = new THREE.MeshLambertMaterial({color:0x4a4a48});
+/* ---------- 通用特效 Fx: 爆炸/冲击波/碎块/震屏的唯一入口 ----------
+   条目形状/动画/衰减全部收在 implementation, 外部只经 7 个入口触碰 */
+const Fx = (function(){
+  let shake = 0;
+  const effects = [];   // 冲击波球
+  const debris = [];    // 物理碎块
+  const debrisGeo = new THREE.BoxGeometry(0.16,0.16,0.16);
+  const debrisMat = new THREE.MeshLambertMaterial({color:0x4a4a48});
 
-/* 爆炸视觉(不伤人):音效 + 震屏 + 冲击波 + 碎块 */
-function boomVisual(x,y,z,r1,nDebris){
-  sfx('boom'); shake = Math.max(shake, 0.6);
-  const mesh = new THREE.Mesh(new THREE.SphereGeometry(1,12,10),
-    new THREE.MeshBasicMaterial({color:0xffd9a0, transparent:true, opacity:0.9, depthWrite:false}));
-  mesh.position.set(x,y,z); scene.add(mesh);
-  effects.push({mesh, t:0, dur:0.4, r0:0.6, r1: r1||5});
-  for(let i=0;i<(nDebris||10);i++){
-    const d = new THREE.Mesh(debrisGeo, debrisMat);
-    d.position.set(x,y,z);
-    scene.add(d);
-    debris.push({mesh:d, life:0.9,
-      vel:new THREE.Vector3((Math.random()-0.5)*9, 3+Math.random()*6, (Math.random()-0.5)*9)});
+  /* 单个膨胀淡出球: 冲击波/升级环/狂暴环/小火花的通用形状
+     o: {color, geo(默认单位球), r0, r1, dur, opacity} */
+  function pop(x,y,z,o){
+    o = o || {};
+    const mesh = new THREE.Mesh(o.geo || new THREE.SphereGeometry(1,12,10),
+      new THREE.MeshBasicMaterial({color: o.color!==undefined ? o.color : 0xffd9a0,
+        transparent:true, opacity: o.opacity!==undefined ? o.opacity : 0.9, depthWrite:false}));
+    mesh.position.set(x,y,z); scene.add(mesh);
+    effects.push({mesh, t:0, dur: o.dur||0.4,
+      r0: o.r0!==undefined ? o.r0 : 0.6, r1: o.r1!==undefined ? o.r1 : 5});
   }
-}
 
-function updateEffects(dt){
-  for(let i=effects.length-1;i>=0;i--){
-    const e = effects[i];
-    e.t += dt;
-    const p = e.t/e.dur;
-    if(p >= 1){
-      scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose();
-      effects.splice(i,1); continue;
-    }
-    const r = e.r0 + (e.r1-e.r0)*p;
-    e.mesh.scale.set(r,r,r);
-    e.mesh.material.opacity = 0.85*(1-p);
-  }
-  for(let i=debris.length-1;i>=0;i--){
-    const d = debris[i];
-    d.life -= dt;
-    d.vel.y -= 20*dt;
-    d.mesh.position.addScaledVector(d.vel, dt);
-    d.mesh.rotation.x += dt*7;
-    d.mesh.rotation.z += dt*5;
-    if(d.life <= 0){
-      scene.remove(d.mesh);
-      debris.splice(i,1);
+  /* 物理碎块: ring=径向低速(震地掀尘), 默认均匀高抛(爆炸) */
+  function debrisBurst(x,y,z,n,o){
+    o = o || {};
+    for(let i=0;i<n;i++){
+      const d = new THREE.Mesh(debrisGeo, debrisMat);
+      d.position.set(x,y,z);
+      scene.add(d);
+      let vel;
+      if(o.ring){
+        const a = Math.random()*Math.PI*2;
+        vel = new THREE.Vector3(Math.cos(a)*(2+Math.random()*3), 2+Math.random()*4, Math.sin(a)*(2+Math.random()*3));
+      } else {
+        vel = new THREE.Vector3((Math.random()-0.5)*9, 3+Math.random()*6, (Math.random()-0.5)*9);
+      }
+      debris.push({mesh:d, life: o.life||0.9, vel});
     }
   }
-}
+
+  /* 爆炸视觉(不伤人): 音效 + 震屏 + 冲击波 + 碎块 */
+  function boom(x,y,z,o){
+    o = o || {};
+    sfx('boom'); kick(o.kick!==undefined ? o.kick : 0.6);
+    pop(x,y,z, {r0:0.6, r1: o.r1||5, dur:0.4});
+    debrisBurst(x,y,z, o.n||10, {life:0.9});
+  }
+
+  function kick(a){ shake = Math.max(shake, a); }
+
+  /* 清空全部特效(模式切换用); 碎块共享 geo/mat 不可 dispose */
+  function clear(){
+    for(const e of effects){ scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose(); }
+    effects.length = 0;
+    for(const d of debris) scene.remove(d.mesh);
+    debris.length = 0;
+  }
+
+  /* 生命周期推进(主循环游玩门内, 每帧) */
+  function update(dt){
+    for(let i=effects.length-1;i>=0;i--){
+      const e = effects[i];
+      e.t += dt;
+      const p = e.t/e.dur;
+      if(p >= 1){
+        scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose();
+        effects.splice(i,1); continue;
+      }
+      const r = e.r0 + (e.r1-e.r0)*p;
+      e.mesh.scale.set(r,r,r);
+      e.mesh.material.opacity = 0.85*(1-p);
+    }
+    for(let i=debris.length-1;i>=0;i--){
+      const d = debris[i];
+      d.life -= dt;
+      d.vel.y -= 20*dt;
+      d.mesh.position.addScaledVector(d.vel, dt);
+      d.mesh.rotation.x += dt*7;
+      d.mesh.rotation.z += dt*5;
+      if(d.life <= 0){
+        scene.remove(d.mesh);
+        debris.splice(i,1);
+      }
+    }
+  }
+
+  /* 震屏消费: 衰减 + 相机抖动(主循环每帧, 相机位姿设定之后调用) */
+  function wobble(dt, camera){
+    if(shake > 0){
+      shake -= dt;
+      const s = Math.max(0, shake)*0.4;
+      camera.position.x += (Math.random()-0.5)*s;
+      camera.position.y += (Math.random()-0.5)*s;
+    }
+  }
+
+  return {boom, pop, debrisBurst, kick, clear, update, wobble};
+})();
 
 /* ---------- 提示消息 ---------- */
 const toastEl = document.getElementById('toast');
