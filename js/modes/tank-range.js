@@ -2,7 +2,8 @@
 /* ============================================================
    坦克演习场 (TankRangeMode, 术语见 GLOSSARY.md) — 应用层
    ------------------------------------------------------------
-   载具能力的第一个投放场: 平地 + 围栏 + 履带爬坡台阶。
+   载具能力的第一个投放场: 96×96 多地形场(丘陵·峡谷·乱石阵·瞭望台)
+   + 五类可破坏靶(靶排·环靶·靶墙·靶屋红心·远距靶塔)。
    政策全在此层(引擎不知道"提示"与"语音"):
    · E 键与触屏 🚙 按钮同走 Tank.toggle(单一入口)
    · 靠近邀请语音 10 秒节流; 上下车话术随 toggle 结果
@@ -10,10 +11,10 @@
    场景每次进入重建(switchMode 已 clearWorld), 天然"退出还原"。
    ============================================================ */
 const TANK_RANGE = {
-  x0: 34, z0: 34, x1: 94, z1: 94,        // 场地范围(128×128 世界居中)
+  x0: 16, z0: 16, x1: 112, z1: 112,      // 围栏内场地 96×96(世界 128×128 居中)
   groundY: 12,                            // 草地顶层(y=12, 站立面 y=13)
-  tank:  { x: 64, z: 70, yaw: 0 },        // 坦克初始位(朝 -Z 开阔地)
-  spawn: { x: 67.5, z: 74, yaw: 0 },       // 玩家出生在坦克侧后方, 抬眼即见坦克(yaw=0 面向 -Z)
+  tank:  { x: 56, z: 94, yaw: 0 },        // 坦克初始位(南区, 朝 -Z 正对全场)
+  spawn: { x: 59.5, z: 98, yaw: 0 },      // 玩家出生在坦克侧后方, 抬眼即见坦克
   targetId: 16                            // 靶方块 id(红羊毛): 建靶与命中判定, 演习场专属玩法
 };
 
@@ -43,22 +44,71 @@ function onBoom(res){
   }
 }
 
+/* ---------- 建场: 全图草海为底, 围栏内布设多地形与多类靶 ----------
+   布局(俯视, x→东 z→南): 西北丘陵 · 西侧峡谷 | 中部环靶 · 中东乱石阵 |
+   东侧爬坡+瞭望台 | 南区靶屋/靶排(近) → 中距靶墙 → 北端远距靶塔 */
 function buildRange(){
-  const R = TANK_RANGE;
-  SceneKit.fill(R.x0, R.groundY-2, R.z0, R.x1, R.groundY-1, R.z1, 2);   // 泥土基层
-  SceneKit.fill(R.x0, R.groundY,   R.z0, R.x1, R.groundY,   R.z1, 1);   // 草地
-  /* 石围栏(高 3): 场地一圈, 坦克宽 1.9 格不设窄口 */
-  SceneKit.fill(R.x0-1, R.groundY+1, R.z0-1, R.x1+1, R.groundY+3, R.z0-1, 3);
-  SceneKit.fill(R.x0-1, R.groundY+1, R.z1+1, R.x1+1, R.groundY+3, R.z1+1, 3);
-  SceneKit.fill(R.x0-1, R.groundY+1, R.z0,   R.x0-1, R.groundY+3, R.z1,   3);
-  SceneKit.fill(R.x1+1, R.groundY+1, R.z0,   R.x1+1, R.groundY+3, R.z1,   3);
-  /* 东侧履带爬坡: 五级台阶升到瞭望台(每级 1 格, 验证履带爬台阶) */
-  for(let i=0; i<5; i++)
-    SceneKit.fill(R.x1-14+i, R.groundY+1, R.z0+8, R.x1-14+i, R.groundY+1+i, R.z1-8, 3);
-  SceneKit.fill(R.x1-9, R.groundY+1, R.z0+8, R.x1-2, R.groundY+5, R.z1-8, 3);
-  /* 北侧靶墙 ×3(红羊毛 = TANK_RANGE.targetId): 打掉了退出重进即复原 */
-  for(const tx of [R.x0+10, R.x0+29, R.x0+48])
-    SceneKit.fill(tx, R.groundY+1, R.z0+6, tx+2, R.groundY+3, R.z0+7, TANK_RANGE.targetId);
+  const R = TANK_RANGE, G = R.groundY, T = R.targetId;
+
+  /* 草海打底(全图铺到边界, 围栏外也有地平线, 不见虚空) */
+  SceneKit.fill(0, G-2, 0, 127, G-1, 127, 2);
+  SceneKit.fill(0, G,   0, 127, G,   127, 1);
+
+  /* 石围栏(高 3): 演习场一圈, 坦克宽 1.9 格不设窄口 */
+  SceneKit.fill(R.x0-1, G+1, R.z0-1, R.x1+1, G+3, R.z0-1, 3);
+  SceneKit.fill(R.x0-1, G+1, R.z1+1, R.x1+1, G+3, R.z1+1, 3);
+  SceneKit.fill(R.x0-1, G+1, R.z0,   R.x0-1, G+3, R.z1,   3);
+  SceneKit.fill(R.x1+1, G+1, R.z0,   R.x1+1, G+3, R.z1,   3);
+
+  /* 西北丘陵 ×2(双层草帽, 可炸出弹坑) */
+  SceneKit.fill(20, G+1, 18, 32, G+2, 30, 2);
+  SceneKit.fill(20, G+3, 18, 32, G+3, 30, 1);
+  SceneKit.fill(34, G+1, 20, 46, G+3, 34, 2);
+  SceneKit.fill(34, G+4, 20, 46, G+4, 34, 1);
+
+  /* 西侧南北峡谷: 双石壁(高 4)夹 6 宽通道, 穿行与掩体射击 */
+  SceneKit.fill(24, G+1, 44, 24, G+4, 104, 3);
+  SceneKit.fill(31, G+1, 44, 31, G+4, 104, 3);
+
+  /* 中东乱石阵: 石/圆石确定性散布(掩体, 可被炸毁) */
+  for(let i=0; i<26; i++){
+    const x = 88 + Math.floor(SceneKit.rand(i, 7, 1)*18);
+    const z = 44 + Math.floor(SceneKit.rand(i, 9, 2)*24);
+    SceneKit.fill(x, G+1, z, x, G+1 + (i % 2), z, (i % 3 === 0) ? 3 : 4);
+  }
+
+  /* 东侧履带爬坡(六级台阶) → 瞭望台(全场制高点, 顶上旗杆蓝旗) */
+  for(let i=0; i<6; i++)
+    SceneKit.fill(96-i, G+1, 88, 96-i, G+1+i, 100, 3);
+  SceneKit.fill(78, G+1, 88, 90, G+6, 100, 3);
+  SceneKit.fill(84, G+7, 94, 84, G+11, 94, 5);       /* 旗杆(木头) */
+  SceneKit.fill(85, G+10, 93, 86, G+11, 93, 15);     /* 蓝旗 */
+
+  /* 近距靶排 ×7(双柱, 新手直线练习) */
+  for(let x=44; x<=68; x+=4)
+    SceneKit.fill(x, G+1, 80, x, G+2, 80, T);
+
+  /* 环心散靶 ×8(绕中心两格一圈, 练绕场机动射击) */
+  for(let i=0; i<8; i++){
+    const a = i/8*Math.PI*2;
+    const x = Math.round(64 + Math.cos(a)*10), z = Math.round(64 + Math.sin(a)*10);
+    SceneKit.fill(x, G+1, z, x, G+1, z, T);
+  }
+
+  /* 中距靶墙 ×3(5 宽 3 高) */
+  for(const wx of [36, 60, 84])
+    SceneKit.fill(wx, G+1, 58, wx+4, G+3, 58, T);
+
+  /* 靶屋 ×2(木壳红心: 炸开外壳露出靶心) */
+  for(const hx of [36, 90]){
+    const hz = (hx === 36) ? 86 : 74;
+    SceneKit.fill(hx, G+1, hz, hx+6, G+3, hz+4, 6);      /* 木壳 */
+    SceneKit.fill(hx+2, G+1, hz+1, hx+4, G+2, hz+3, T);  /* 红心 */
+  }
+
+  /* 远距靶塔 ×2(3×3 底 · 8 高, 远程射击的显眼目标) */
+  for(const tx of [33, 87])
+    SceneKit.fill(tx, G+1, 28, tx+2, G+8, 30, T);
 }
 
 const TankRangeMode = mkMode({
