@@ -37,7 +37,7 @@ function generate(){
         setBlockRaw(x, G+10, z, 18);
       }
       if(r > ARENA.rOut+7 && x>2 && z>2 && x<WORLD_W-3 && z<WORLD_D-3
-         && hashRand(x+31, z+17) > 0.988) plantTree(x, G+1, z);
+         && hashRand(x+31, z+17) > 0.988) SceneKit.tree(x, G+1, z);
     }
   }
   for(let i=0;i<12;i++){                                    // 看台立柱 + 灯
@@ -47,23 +47,6 @@ function generate(){
     for(let y=G+9;y<=G+11;y++) setBlockRaw(px,y,pz,13);
     setBlockRaw(px, G+12, pz, 19);
   }
-}
-function plantTree(x,baseY,z){
-  const th = 4 + Math.floor(hashRand(x+7,z+3)*3);
-  for(let i=0;i<th;i++) setBlockRaw(x, baseY+i, z, 5);
-  const top = baseY+th;
-  for(let dy=-1;dy<=1;dy++){
-    const rad = dy===1?1:2;
-    for(let dx=-rad;dx<=rad;dx++){
-      for(let dz=-rad;dz<=rad;dz++){
-        if(dx===0&&dz===0&&dy<1) continue;
-        if(Math.abs(dx)===rad&&Math.abs(dz)===rad&&rad===2) continue;
-        const lx=x+dx, ly=top+dy-1, lz=z+dz;
-        if(getBlock(lx,ly,lz)===0) setBlockRaw(lx,ly,lz,7);
-      }
-    }
-  }
-  setBlockRaw(x, top, z, 7);
 }
 function spawnPlayer(){
   const sx = ARENA.cx;                              // 南侧看台正中

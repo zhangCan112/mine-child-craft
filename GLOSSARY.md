@@ -14,6 +14,18 @@ _Avoid_: 底层、框架、核心库
 方块世界的数据与规则：存取、碰撞、物理、射线。不含渲染——渲染是它之上的 adapter。
 _Avoid_: 世界数据（仅指 Map 本体时可用）、引擎核心
 
+**Fx**:
+特效的唯一入口：爆炸组合、冲击波球、碎块、震屏。条目形状与动画是它的 implementation，调用方不可见。
+_Avoid_: effects 数组、震屏变量（那是内部状态）
+
+**SpeechKit**:
+全游戏共用的语音 interface：speak 与 cancel。声音挑选与播报策略收在它的 implementation。
+_Avoid_: focusSpeak（历史名——语音已不属于专注子系统）
+
+**SceneKit**:
+坐在体素模型之上的场景搭建工具：填充、种树、确定性散布。三个游玩模式的场景构建共用它。
+_Avoid_: fillB / plantTree / fxHash（历史名，已归并）
+
 **应用层（Application）**:
 玩法与政策所在之处：游戏模式、每日预算、存档、语音、菜单。应用可依赖引擎，引擎不得依赖应用。
 _Avoid_: 上层、业务层、游戏逻辑层

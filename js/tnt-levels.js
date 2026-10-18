@@ -11,9 +11,7 @@
 
 /* ---------- 搭建辅助 ---------- */
 function fillB(x1,y1,z1,x2,y2,z2,id){
-  for(let x=x1;x<=x2;x++)
-    for(let y=y1;y<=y2;y++)
-      for(let z=z1;z<=z2;z++) setBlockRaw(x,y,z,id);
+  SceneKit.fill(x1,y1,z1,x2,y2,z2,id);      // TNT 方言名, 实现在 SceneKit
 }
 function lineZ(x, z1, z2, id){ fillB(x,11,z1,x,11,z2,id); }
 function lineX(z, x1, x2, id){ fillB(x1,11,z,x2,11,z,id); }

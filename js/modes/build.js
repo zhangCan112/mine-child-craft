@@ -81,24 +81,15 @@ function fxNightstand(x,y,z){ setBlockRaw(x,y,z,5); setBlockRaw(x,y+1,z,19); }
 /* 路灯柱: 木杆 ×2 + 灯块 */
 function fxLampPost(x,y,z){ setBlockRaw(x,y,z,5); setBlockRaw(x,y+1,z,5); setBlockRaw(x,y+2,z,19); }
 /* 平地毯: 把地面顶层方块替换成羊毛(与地面齐平, 可自由踩踏) */
-function fxCarpet(x1,z1,x2,z2,y,id){ fillB(x1,y,z1,x2,y,z2,id); }
+function fxCarpet(x1,z1,x2,z2,y,id){ SceneKit.fill(x1,y,z1,x2,y,z2,id); }
 /* 石景堆: 圆石/苔石小丘, rad 为半径 */
 function fxBoulder(cx,cz,rad){
   for(let dx=-rad;dx<=rad;dx++)
     for(let dz=-rad;dz<=rad;dz++){
       if(Math.abs(dx)+Math.abs(dz) > rad+ (rad>1?1:0)) continue;   // 菱形轮廓更自然
-      const h = 1 + Math.floor(fxHash(cx+dx, cz+dz, 21)*2);       // 1~2 高
-      for(let y=0;y<h;y++) setBlockRaw(cx+dx,25+y,cz+dz, fxHash(cx+dx,cz+dz,33)>0.5?4:14);
+      const h = 1 + Math.floor(SceneKit.rand(cx+dx, cz+dz, 21)*2);       // 1~2 高
+      for(let y=0;y<h;y++) setBlockRaw(cx+dx,25+y,cz+dz, SceneKit.rand(cx+dx,cz+dz,33)>0.5?4:14);
     }
-}
-
-/* 确定性散列 (hashRand 在部分区间输出被截断在 0.5 以下, 树木散布用它) */
-function fxHash(x,z,salt){
-  let n = ((x+salt)*2654435761 ^ (z-salt)*340573321) >>> 0;
-  n = (n ^ (n>>>13)) >>> 0;
-  n = (n + 0x9e3779b9) >>> 0;
-  n = (n ^ (n>>>16)) >>> 0;
-  return n / 4294967295;
 }
 
 /* 平坦草原: 顶 y=grassY 草地, 下 4 层泥土, 其下石头; 保护区内不种树 */
@@ -109,7 +100,7 @@ function buildGrassField(grassY, px1, pz1, px2, pz2){
       for(let y=grassY-4;y<grassY;y++) setBlockRaw(x,y,z,2);
       setBlockRaw(x,grassY,z,1);
       if((x<px1||x>px2||z<pz1||z>pz2) && hashRand(x+53,z+91) > 0.988)
-        plantTree(x, grassY+1, z);
+        SceneKit.tree(x, grassY+1, z);
     }
   }
 }
@@ -123,16 +114,16 @@ function buildHouseScene(){
   const x1=55, x2=71, z1=57, z2=69;            // 外墙范围
 
   /* 地基与地面 */
-  fillB(x1,G,z1,x2,G,z2,4);                    // 圆石基座
-  fillB(x1+1,G,z1+1,x2-1,G,z2-1,6);            // 室内木地板(与草地齐平)
+  SceneKit.fill(x1,G,z1,x2,G,z2,4);                    // 圆石基座
+  SceneKit.fill(x1+1,G,z1+1,x2-1,G,z2-1,6);            // 室内木地板(与草地齐平)
 
   /* 两层墙体: 木板 + 四角木柱 */
   for(const ya of [21,26]){
-    fillB(x1,ya,z1,x2,ya,z1,6); fillB(x1,ya,z2,x2,ya,z2,6);
-    fillB(x1,ya,z1,x1,ya,z2,6); fillB(x2,ya,z1,x2,ya,z2,6);
+    SceneKit.fill(x1,ya,z1,x2,ya,z1,6); SceneKit.fill(x1,ya,z2,x2,ya,z2,6);
+    SceneKit.fill(x1,ya,z1,x1,ya,z2,6); SceneKit.fill(x2,ya,z1,x2,ya,z2,6);
   }
   for(const c of [[x1,z1],[x2,z1],[x1,z2],[x2,z2]])
-    fillB(c[0],21,c[1],c[0],29,c[1],5);        // 角柱贯通两层
+    SceneKit.fill(c[0],21,c[1],c[0],29,c[1],5);        // 角柱贯通两层
 
   /* 窗户 (玻璃 2 高) */
   const win = (x,y,z,alongX,w)=>{
@@ -146,22 +137,22 @@ function buildHouseScene(){
     win(57,ya,z2,true,2);  win(67,ya,z2,true,2);           // 南墙(避开门)
     win(x1,ya,61,false,3); win(x2,ya,61,false,3);          // 东西墙
   }
-  fillB(62,21,z2,63,22,z2,0);                  // 南侧大门门洞
+  SceneKit.fill(62,21,z2,63,22,z2,0);                  // 南侧大门门洞
 
   /* 一层顶楼板 y25 + 楼梯口 (东侧 x67..69, z61..63) */
-  fillB(x1,25,z1,x2,25,z2,6);
-  fillB(67,25,61,69,25,63,0);
+  SceneKit.fill(x1,25,z1,x2,25,z2,6);
+  SceneKit.fill(67,25,61,69,25,63,0);
   /* 室内楼梯: 4 级向北爬升到楼板 */
-  for(let i=0;i<4;i++) fillB(67,21+i,64-i,69,21+i,64-i,6);
+  for(let i=0;i<4;i++) SceneKit.fill(67,21+i,64-i,69,21+i,64-i,6);
   for(let z=61;z<=65;z++) setBlockRaw(66,26,z,18);   // 楼梯口玻璃护栏
 
   /* 人字坡屋顶 (红砖) + 山墙 + 烟囱 */
   for(let z=z1-1; z<=z2+1; z++){
     const h = 30 + Math.min(z-(z1-1), (z2+1)-z);
-    fillB(x1-1,h,z,x2+1,h,z,9);
+    SceneKit.fill(x1-1,h,z,x2+1,h,z,9);
     for(let y=30;y<h;y++){ setBlockRaw(x1,y,z,6); setBlockRaw(x2,y,z,6); }
   }
-  fillB(57,30,60,57,35,60,13); setBlockRaw(57,36,60,19);   // 烟囱
+  SceneKit.fill(57,30,60,57,35,60,13); setBlockRaw(57,36,60,19);   // 烟囱
 
   /* ---- 一层: 客厅(西) + 厨房(东) ---- */
   fxCarpet(57,60,62,64,G,16);                  // 红色客厅地毯(嵌入地面)
@@ -169,9 +160,9 @@ function buildHouseScene(){
   fxTable(59,21,61,2,2,17);                    // 石英茶几
   fxTV(58,22,58,4,true);                       // 电视挂北墙
   fxShelf(56,21,60,3,3,false);                 // 西墙书架
-  fillB(70,21,58,70,21,64,12);                 // 厨台(金属)
+  SceneKit.fill(70,21,58,70,21,64,12);                 // 厨台(金属)
   setBlockRaw(70,21,59,11); setBlockRaw(70,21,62,17);      // 灶台/水槽
-  fillB(70,21,66,70,22,67,17);                 // 冰箱(石英)
+  SceneKit.fill(70,21,66,70,22,67,17);                 // 冰箱(石英)
   fxTable(65,21,63,3,2,6);                     // 餐桌
   fxChair(65,21,61,'n'); fxChair(67,21,61,'n');
   fxChair(65,21,66,'s'); fxChair(67,21,66,'s');
@@ -180,14 +171,14 @@ function buildHouseScene(){
   fxCarpet(62,70,63,73,G,4);                   // 门外圆石小径
   fxLampPost(60,21,71);                        // 门廊路灯
   /* 院子: 两棵树 + 门前花坛 */
-  plantTree(52,21,64); plantTree(74,21,64);
+  SceneKit.tree(52,21,64); SceneKit.tree(74,21,64);
   for(let i=0;i<4;i++){
     setBlockRaw(57+i,21,72, i%2?16:15);
     setBlockRaw(66+i,21,72, i%2?16:15);
   }
 
   /* ---- 二层: 主卧(西) + 儿童房(东) ---- */
-  fillB(65,26,58,65,27,62,6);                  // 隔断墙(南侧留门)
+  SceneKit.fill(65,26,58,65,27,62,6);                  // 隔断墙(南侧留门)
   fxBed(57,26,61,'z',16); fxBed(58,26,61,'z',16);          // 双人床(红)
   fxNightstand(56,26,61); fxNightstand(59,26,61);
   fxWardrobe(56,26,66,3,true);                 // 衣柜
@@ -209,33 +200,33 @@ function buildBasementScene(){
 
   /* ---- 地下大厅: 42×34 石砖壳, 内部 40×32 × 高5 ---- */
   const x1=43, x2=84, z1=43, z2=76;
-  fillB(x1,17,z1,x2,23,z2,13);                 // 石砖整块
-  fillB(x1+1,18,z1+1,x2-1,22,z2-1,0);          // 掏空内部 (y18..22)
-  fillB(56,17,50,73,17,63,6);                  // 客厅区木地板(嵌入)
+  SceneKit.fill(x1,17,z1,x2,23,z2,13);                 // 石砖整块
+  SceneKit.fill(x1+1,18,z1+1,x2-1,22,z2-1,0);          // 掏空内部 (y18..22)
+  SceneKit.fill(56,17,50,73,17,63,6);                  // 客厅区木地板(嵌入)
 
   /* 立柱 + 吊灯 + 壁灯 */
   for(const p of [[52,46],[52,64],[52,72],[60,46],[60,72],[76,46],[76,64],[76,72]])
-    fillB(p[0],18,p[1],p[0],22,p[1],4);
+    SceneKit.fill(p[0],18,p[1],p[0],22,p[1],4);
   for(const lx of [48,56,64,72,80])
     for(const lz of [48,58,68]) setBlockRaw(lx,23,lz,19);
   for(const w of [[43,50],[43,62],[84,50],[84,62],[50,43],[58,43],[75,43]])
     setBlockRaw(w[0],20,w[1],19);
 
   /* ---- 地表入口小屋 (红砖) ---- */
-  fillB(62,25,80,66,27,84,9);
-  fillB(63,25,81,65,27,83,0);
-  fillB(62,28,80,66,28,84,6);                  // 木板顶
+  SceneKit.fill(62,25,80,66,27,84,9);
+  SceneKit.fill(63,25,81,65,27,83,0);
+  SceneKit.fill(62,28,80,66,28,84,6);                  // 木板顶
   setBlockRaw(64,28,82,19);
-  fillB(63,25,84,64,26,84,0);                  // 南门洞
+  SceneKit.fill(63,25,84,64,26,84,0);                  // 南门洞
 
   /* ---- 下行阶梯隧道: 7 级台阶 y24→y18 直通大厅 ---- */
   for(let i=0;i<=6;i++){
     const z=80-i, sY=23-i, cT=sY+4;
-    fillB(63,12,z,64,sY,z,13);                 // 台阶及基座
-    fillB(63,sY+1,z,64,cT,z,0);                // 头顶净空
+    SceneKit.fill(63,12,z,64,sY,z,13);                 // 台阶及基座
+    SceneKit.fill(63,sY+1,z,64,cT,z,0);                // 头顶净空
     const wallTop = Math.min(cT, 24);          // 近地表处与草地齐平
-    fillB(62,12,z,62,wallTop,z,13);            // 侧墙
-    fillB(65,12,z,65,wallTop,z,13);
+    SceneKit.fill(62,12,z,62,wallTop,z,13);            // 侧墙
+    SceneKit.fill(65,12,z,65,wallTop,z,13);
     if(i%3===1){ setBlockRaw(62,sY+2,z,19); setBlockRaw(65,sY+2,z,19); }  // 阶梯壁灯
   }
 
@@ -254,9 +245,9 @@ function buildBasementScene(){
   fxWardrobe(78,18,44,3,true);
 
   /* ---- 厨房 + 餐厅 (东南) ---- */
-  fillB(50,18,74,62,18,74,12);                 // 厨台
+  SceneKit.fill(50,18,74,62,18,74,12);                 // 厨台
   setBlockRaw(54,18,74,11); setBlockRaw(58,18,74,17);
-  fillB(63,18,74,63,19,74,17);                 // 冰箱
+  SceneKit.fill(63,18,74,63,19,74,17);                 // 冰箱
   fxTable(53,18,67,3,3,6);                     // 大餐桌
   fxChair(52,18,67,'e'); fxChair(56,18,67,'w');
   fxChair(52,18,69,'e'); fxChair(56,18,69,'w');
@@ -278,18 +269,18 @@ function buildBasementScene(){
   /* ---- 北侧大阶梯: 大厅直上地面 (3宽 x63..65, 7 级) ---- */
   for(let i=0;i<=6;i++){
     const z=43-i, top=19+i, sY=top-1;
-    fillB(63,sY,z,65,sY,z,13);                  // 台阶
-    fillB(63,top,z,65,top+3,z,0);               // 头顶净空
+    SceneKit.fill(63,sY,z,65,sY,z,13);                  // 台阶
+    SceneKit.fill(63,top,z,65,top+3,z,0);               // 头顶净空
     const wTop=Math.min(top+3,24);
-    fillB(62,sY,z,62,wTop,z,13);                // 侧墙
-    fillB(66,sY,z,66,wTop,z,13);
+    SceneKit.fill(62,sY,z,62,wTop,z,13);                // 侧墙
+    SceneKit.fill(66,sY,z,66,wTop,z,13);
     if(i%3===1){ setBlockRaw(62,top+1,z,19); setBlockRaw(66,top+1,z,19); }  // 壁灯
   }
   /* 地面出口凉亭 + 圆石广场小径 */
   for(const p of [[61,36],[67,36],[61,41],[67,41]]){
-    fillB(p[0],25,p[1],p[0],27,p[1],5); setBlockRaw(p[0],28,p[1],19);       // 木柱+柱灯
+    SceneKit.fill(p[0],25,p[1],p[0],27,p[1],5); setBlockRaw(p[0],28,p[1],19);       // 木柱+柱灯
   }
-  fillB(60,28,35,68,28,41,6);                   // 凉亭木板顶
+  SceneKit.fill(60,28,35,68,28,41,6);                   // 凉亭木板顶
   fxCarpet(61,34,67,36,24,4);                   // 圆石广场(嵌地面)
   fxCarpet(63,26,64,33,24,4);                   // 北向小径
   fxCarpet(63,85,64,88,24,4);                   // 小屋南向小径
@@ -301,11 +292,11 @@ function buildBasementScene(){
   for(let x=45;x<=82;x++)
     for(let z=45;z<=74;z++){
       if(x>=62&&x<=65&&z>=70) continue;         // 南口阶梯区留空
-      if(fxHash(x,z,7) > 0.982) plantTree(x, 25, z);
+      if(SceneKit.rand(x,z,7) > 0.982) SceneKit.tree(x, 25, z);
     }
   for(let x=88;x<=100;x++)
     for(let z=45;z<=74;z++)
-      if(fxHash(x,z,13) > 0.987) plantTree(x, 25, z);
+      if(SceneKit.rand(x,z,13) > 0.987) SceneKit.tree(x, 25, z);
   /* 池塘: 沙岸 + 清水(可趟水) */
   for(let x=93;x<=104;x++)
     for(let z=28;z<=38;z++){
