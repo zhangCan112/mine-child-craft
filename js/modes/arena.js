@@ -69,9 +69,7 @@ function spawnPlayer(){
   const sx = ARENA.cx;                              // 南侧看台正中
   const sz = ARENA.cz + (ARENA.rIn + ARENA.rOut)/2; // 走道中心
   const sy = groundTop(sx, sz);
-  pos.set(sx+0.5, sy+1.0, sz+0.5);
-  vel.set(0,0,0);
-  yaw = 0; pitch = -0.22;                           // 面朝 -Z 俯瞰全场
+  ModeKit.spawn(sx+0.5, sy+1.0, sz+0.5, {pitch:-0.22});   // 面朝 -Z 俯瞰全场
 }
 
 /* ---------- 怪物类型 ----------
@@ -1250,29 +1248,7 @@ function clearBattle(){
 }
 
 /* ---------- 竞技场 UI ---------- */
-let selected = 0;
-const hotbarEl = document.getElementById('hotbar');
-const scoreEl = document.getElementById('score');
-const hudEl = document.getElementById('hud');
-
-function buildHotbar(){
-  hotbarEl.innerHTML='';
-  HOTBAR.forEach((id,i)=>{
-    const b = BLOCKS[id];
-    const col = (b.all||b.side);
-    const div = document.createElement('div');
-    div.className='slot';
-    div.innerHTML = `<span class="num">${i+1}</span>
-      <div class="cube" style="background:rgb(${col.map(c=>Math.round(c*255)).join(',')})"></div>
-      <span class="lbl">${b.name}</span>`;
-    div.addEventListener('pointerdown',(ev)=>{ ev.preventDefault(); selected=i; updateHotbar(); });
-    hotbarEl.appendChild(div);
-  });
-  updateHotbar();
-}
-function updateHotbar(){
-  [...hotbarEl.children].forEach((el,i)=> el.classList.toggle('active', i===selected));
-}
+const arenaHb = mkHotbar({ items: HOTBAR.map(id=>({block:id})) });   // 选块由 kit 接管(digit/wheel/点选)
 
 /* ---------- 怪物像素头像 (16×16 手绘 → 64×64 dataURL, 与 3D 模型同配色) ---------- */
 const mobFaceCache = {};
@@ -1428,23 +1404,22 @@ function updateScoreboard(){
 }
 
 /* ---------- 模式对象 ---------- */
-const ArenaMode = {
-  id:'arena',
+const ArenaMode = mkMode({
+  id: 'arena',
+  chrome: { score:'flex', hotbar:'flex' },
+  hotbar: arenaHb,
+  touch: [                                           // 平板动作按钮
+    {label:'⬆️', hold:'Space'},
+    {label:'⛏️', act:()=>doCenterClick(0)},
+    {label:'🧱', act:()=>doCenterClick(2)}
+  ],
   init(){
     generate();
     rebuildAll();
     spawnPlayer();
-    buildHotbar();
     buildPanel();
     if(autoBalance) balanceTeams();
     updatePanel();
-    scoreEl.style.display = 'flex';
-    hotbarEl.style.display = 'flex';
-    setTouchActions([                                 // 平板动作按钮
-      {label:'⬆️', hold:'Space'},
-      {label:'⛏️', act:()=>doCenterClick(0)},
-      {label:'🧱', act:()=>doCenterClick(2)}
-    ]);
   },
   cleanup(){
     clearTongues();
@@ -1457,7 +1432,6 @@ const ArenaMode = {
     beams.length = 0;
     battleState = 'idle';
     battleResult = '';
-    scoreEl.style.display = 'none';
   },
   update(dt){
     updateMobs(dt);
@@ -1469,14 +1443,6 @@ const ArenaMode = {
   },
   onKey(code){
     if(code==='KeyR') startBattle();
-    if(code==='KeyB') uiPause();
-  },
-  onDigit(n){
-    if(n>=1 && n<=HOTBAR.length){ selected = n-1; updateHotbar(); }
-  },
-  onWheel(d){
-    selected = (selected + d + HOTBAR.length) % HOTBAR.length;
-    updateHotbar();
   },
   onMouse(button, hit){
     if(!hit) return;
@@ -1486,20 +1452,17 @@ const ArenaMode = {
       const px=hit.x+hit.nx, py=hit.y+hit.ny, pz=hit.z+hit.nz;
       if(getBlock(px,py,pz)!==0) return;
       if(collidesAtPlayer(px,py,pz)) return;
-      editBlock(px,py,pz, HOTBAR[selected]);
+      editBlock(px,py,pz, HOTBAR[arenaHb.sel]);
     }
   },
-  updateHud(){
-    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-    const hit = raycastVoxel(camera.position, dir, 6);
-    let target = '无';
-    if(hit){ const id=getBlock(hit.x,hit.y,hit.z); target = BLOCKS[id]?BLOCKS[id].name:'?'; }
-    hudEl.innerHTML =
-      `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>`+
-      `FPS: ${fps}<br>`+
-      `手持: ${BLOCKS[HOTBAR[selected]].name}<br>`+
-      `注视: ${target}<br>`+
-      `R 重新开战 · B 面板`;
+  hud(hit){
     updateScoreboard();
+    return [
+      `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
+      `FPS: ${fps}`,
+      `手持: ${BLOCKS[HOTBAR[arenaHb.sel]].name}`,
+      `注视: ${ModeKit.lookName(hit)}`,
+      `R 重新开战 · B 面板`
+    ];
   }
-};
+});

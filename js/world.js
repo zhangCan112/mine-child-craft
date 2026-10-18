@@ -454,11 +454,9 @@ function physics(dt){
       }
     }
   }
-  if(pos.y < -12){                          // 掉出世界:交给当前模式处理
-    if(typeof MODES !== 'undefined' && MODES.cur && MODES.cur.onVoidFall) MODES.cur.onVoidFall();
-    else if(typeof spawnPlayer === 'function') spawnPlayer();
-  }
+  if(pos.y < -12) worldEvents.voidFall = true;   // 掉出世界: 引擎只报事件, 处理由应用层分发(main loop)
 }
+const worldEvents = { voidFall: false };         // 引擎→应用 的单向事件通道(分层规则见 GLOSSARY.md)
 
 function collidesAtPlayer(bx,by,bz){
   const minX=pos.x-PLAYER.hx, maxX=pos.x+PLAYER.hx;

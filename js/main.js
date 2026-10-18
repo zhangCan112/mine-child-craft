@@ -92,7 +92,7 @@ function switchMode(id){
   for(const d of debris) scene.remove(d.mesh);
   debris.length = 0;
   clearWorld();
-  curModeId = id;
+  curModeId = MODES[id].id || id;
   MODES.cur = MODES[id];
   MODES.cur.init();
 }
@@ -102,7 +102,7 @@ function onLockChanged(l){
   overlay.style.display = l ? 'none' : 'flex';
   if(!l){
     if(curPage === 'win' || curPage === 'playTime') return;   // 通关/时限页由各自逻辑控制
-    if(curModeId === 'tnt' && MODES.cur && MODES.cur.onMenu) MODES.cur.onMenu();
+    if(MODES.cur && MODES.cur.onMenu) MODES.cur.onMenu();     // 定义了菜单钩子的模式自行接管
     else showPage(curModeId || 'main');
   }
 }
@@ -145,6 +145,10 @@ function loop(now){
 
   if(locked || touchPlaying){
     physics(dt);
+    if(worldEvents.voidFall){                       // 引擎事件 → 分发给当前模式的 onVoidFall
+      worldEvents.voidFall = false;
+      if(MODES.cur && MODES.cur.onVoidFall) MODES.cur.onVoidFall();
+    }
     if(MODES.cur && MODES.cur.update) MODES.cur.update(dt);
     updateEffects(dt);
     /* 儿童时限: 游玩模式实际游玩时累计入每日预算 */
@@ -182,7 +186,7 @@ function loop(now){
 
   fpsAcc+=dt; fpsCnt++;
   if(fpsAcc>=0.5){ fps=Math.round(fpsCnt/fpsAcc); fpsAcc=0; fpsCnt=0; }
-  if(MODES.cur && MODES.cur.updateHud) MODES.cur.updateHud();
+  if(MODES.cur && MODES.cur.updateHud) MODES.cur.updateHud(hit);   // hit 复用本帧唯一一次 raycast
 }
 
 /* ---------- 启动 ---------- */

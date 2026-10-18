@@ -328,34 +328,26 @@ function showFocusParent(){
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
   };
-  const rb = document.getElementById('fResetBtn');
-  let armed = false;
-  rb.onclick = ()=>{
-    if(armed){
+  ModeKit.confirmBtn(document.getElementById('fResetBtn'), {
+    label: '↺ 重置进度', confirm: '⚠ 再点一次确认',
+    onConfirm(){
       SyncDB.remove(FOCUS_SAVE_KEY);
       const fb2 = focusBudget();
       if(fb2) fb2.reset();                        // 旧行为保持: 重置进度同时清当日额度
       showToast('训练进度已重置', 1800);
       showFocusParent();
-    } else {
-      armed = true; rb.textContent = '⚠ 再点一次确认';
-      setTimeout(()=>{ armed=false; rb.textContent='↺ 重置进度'; }, 3000);
     }
-  };
+  });
 }
 
 /* ---------- 模式对象 ---------- */
-const FocusMode = {
-  id:'focus',
+const FocusMode = mkMode({
+  id: 'focus',
   init(){
     ensureFocusRoot();
     focusRoot.style.display = 'block';
     overlay.style.display = 'none';
-    tntScoreEl.style.display = 'none';
-    hotbarEl.style.display = 'none';
-    hudEl.innerHTML = '';
-    setTouchActions(null);                            // 本模式纯点选, 无需触屏控件
-    showFocusToday();
+    showFocusToday();                              // 纯点选全屏 UI: chrome 全关由 kit 默认处理
   },
   cleanup(){
     stopFocusTicker();
@@ -363,12 +355,5 @@ const FocusMode = {
     clearTimeout(focusAutoTimer);
     try{ if(typeof speechSynthesis!=='undefined') speechSynthesis.cancel(); }catch(e){}
     if(focusRoot) focusRoot.style.display = 'none';
-    tntScoreEl.style.display = 'flex';
-  },
-  update(dt){},
-  onKey(){},
-  onWheel(){},
-  onDigit(){},
-  onMouse(){},
-  updateHud(){}
-};
+  }
+});

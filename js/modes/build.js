@@ -11,8 +11,9 @@ const BUILD_SAVE_KEY = 'build_world_save';
 
 let buildSceneId = null;          // 当前场景 id
 const buildEdits = {};            // 各场景玩家改动 { sceneId: Map("x,y,z"→id) }
-let buildSel = 0;                 // 物品栏选中
 let buildSaveT = 0, buildDirty = false;
+/* hotbar (kit 实例): 建造调色板, cls:'build' 换皮肤 */
+const buildHb = mkHotbar({ cls:'build', items: BUILD_PALETTE.map(id=>({block:id})) });
 
 /* ============================================================
    家具搭建辅助 (y 为家具底部所在层)
@@ -330,8 +331,7 @@ const BUILD_SCENES = [
     build: buildHouseScene }
 ];
 function buildSpawnAt(sc){
-  pos.set(sc.spawn.x, sc.spawn.y, sc.spawn.z);
-  vel.set(0,0,0); yaw = sc.spawn.yaw; pitch = 0;
+  ModeKit.spawn(sc.spawn.x, sc.spawn.y, sc.spawn.z, {yaw: sc.spawn.yaw});   // 经 kit 记住出生点
   flyMode = false;
 }
 
@@ -379,27 +379,7 @@ function buildResetScene(){
   showToast('已重置「' + sc.name + '」', 2000);
 }
 
-/* ---------- 物品栏 ---------- */
-const buildHotbarEl = document.getElementById('hotbar');
-function buildHotbarUI(){
-  buildHotbarEl.innerHTML = '';
-  buildHotbarEl.classList.add('build');
-  BUILD_PALETTE.forEach((id,i)=>{
-    const b = BLOCKS[id];
-    const col = (b.all||b.side);
-    const div = document.createElement('div');
-    div.className='slot';
-    div.innerHTML = `<span class="num">${i+1<=9?i+1:''}</span>
-      <div class="cube" style="background:rgb(${col.map(c=>Math.round(c*255)).join(',')})"></div>
-      <span class="lbl">${b.name}</span>`;
-    div.addEventListener('pointerdown',(ev)=>{ ev.preventDefault(); buildSel=i; buildHotbarSel(); });
-    buildHotbarEl.appendChild(div);
-  });
-  buildHotbarSel();
-}
-function buildHotbarSel(){
-  [...buildHotbarEl.children].forEach((el,i)=> el.classList.toggle('active', i===buildSel));
-}
+/* ---------- 物品栏: hotbar 由 mode-kit 的 buildHb 接管 ---------- */
 
 /* ---------- 场景选择页 ---------- */
 function buildSceneMenu(){
@@ -419,30 +399,32 @@ function buildSceneMenu(){
   if(enter) enter.onclick = ()=> requestLock();
 }
 
+/* 飞行开关 (键盘 F 与触屏 ✈️ 按钮共用, 不再自引用 BuildMode) */
+function buildToggleFly(){
+  flyMode = !flyMode; vel.y = 0;
+  showToast(flyMode ? '✈️ 飞行开启：空格上升 · Shift 下降' : '🚶 飞行关闭', 2200);
+}
+
 /* ---------- 模式对象 ---------- */
-const buildHudEl = document.getElementById('hud');
-const BuildMode = {
-  id:'build',
+const BuildMode = mkMode({
+  id: 'build',
+  chrome: { score:'none', hotbar:'flex' },
+  hotbar: buildHb,
+  touch: [
+    {label:'⬆️', hold:'Space'},
+    {label:'⬇️', hold:'ShiftLeft'},
+    {label:'✈️', act:()=>buildToggleFly()},
+    {label:'⛏️', act:()=>doCenterClick(0)},
+    {label:'🧱', act:()=>doCenterClick(2)}
+  ],
   init(){
     if(!buildSceneId) buildSceneId = buildLoadSave() || BUILD_SCENES[0].id;
     buildLoadScene(buildSceneId);
-    buildHotbarUI();
     buildSceneMenu();
-    document.getElementById('score').style.display = 'none';
-    buildHotbarEl.style.display = 'flex';
-    setTouchActions([
-      {label:'⬆️', hold:'Space'},
-      {label:'⬇️', hold:'ShiftLeft'},
-      {label:'✈️', act:()=>BuildMode.onKey('KeyF')},
-      {label:'⛏️', act:()=>doCenterClick(0)},
-      {label:'🧱', act:()=>doCenterClick(2)}
-    ]);
   },
   cleanup(){
     buildSaveNow();
     flyMode = false;
-    buildHotbarEl.classList.remove('build');
-    buildHotbarEl.style.display = 'none';
   },
   buildMenu(){ buildSceneMenu(); },            // 打开菜单页时刷新高亮
   update(){
@@ -451,19 +433,8 @@ const BuildMode = {
     }
   },
   onKey(code){
-    if(code==='KeyF'){
-      flyMode = !flyMode; vel.y = 0;
-      showToast(flyMode ? '✈️ 飞行开启：空格上升 · Shift 下降' : '🚶 飞行关闭', 2200);
-    }
+    if(code==='KeyF') buildToggleFly();
     if(code==='KeyR') buildResetScene();
-    if(code==='KeyB') uiPause();
-  },
-  onDigit(n){
-    if(n>=1 && n<=Math.min(9, BUILD_PALETTE.length)){ buildSel = n-1; buildHotbarSel(); }
-  },
-  onWheel(d){
-    buildSel = (buildSel + d + BUILD_PALETTE.length) % BUILD_PALETTE.length;
-    buildHotbarSel();
   },
   onMouse(button, hit){
     if(!hit) return;
@@ -475,28 +446,25 @@ const BuildMode = {
       x=hit.x+hit.nx; y=hit.y+hit.ny; z=hit.z+hit.nz;
       if(getBlock(x,y,z)!==0) return;
       if(collidesAtPlayer(x,y,z)) return;
-      id = BUILD_PALETTE[buildSel];
+      id = BUILD_PALETTE[buildHb.sel];
     } else return;
     editBlock(x,y,z,id);
     buildEdits[buildSceneId].set(key(x,y,z), id);       // 记录改动供存档
     buildDirty = true;
   },
-  onVoidFall(){
+  onVoidFall(){                                         // 保留自定义: 回出生点时需同时关飞行
     const sc = BUILD_SCENES.find(s=>s.id===buildSceneId);
     if(sc) buildSpawnAt(sc);
   },
-  updateHud(){
+  hud(hit){
     const sc = BUILD_SCENES.find(s=>s.id===buildSceneId);
-    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-    const hit = raycastVoxel(camera.position, dir, 6);
-    let target = '无';
-    if(hit){ const id=getBlock(hit.x,hit.y,hit.z); target = BLOCKS[id]?BLOCKS[id].name:'?'; }
-    buildHudEl.innerHTML =
-      `场景: ${sc?sc.name:'-'} · 已建造 ${buildEdits[buildSceneId].size} 块<br>`+
-      `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}<br>`+
-      `FPS: ${fps}${flyMode?' · <b>✈️ 飞行中</b>':''}<br>`+
-      `手持: ${BLOCKS[BUILD_PALETTE[buildSel]].name} · 注视: ${target}<br>`+
-      `F 飞行 · R 重置场景 · B 菜单`;
+    return [
+      `场景: ${sc?sc.name:'-'} · 已建造 ${buildEdits[buildSceneId].size} 块`,
+      `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
+      `FPS: ${fps}${flyMode?' · <b>✈️ 飞行中</b>':''}`,
+      `手持: ${BLOCKS[BUILD_PALETTE[buildHb.sel]].name} · 注视: ${ModeKit.lookName(hit)}`,
+      `F 飞行 · R 重置场景 · B 菜单`
+    ];
   }
-};
+});
 

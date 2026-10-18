@@ -26,7 +26,14 @@ let resets = 0;           // 本关重置次数(昏迷/按R)
 let deadT = 0;
 let demoFired = false, demoT = 0;
 
-let fuseInv = 0, tntInv = 0, tntSel = 0;   // 0=引线 1=TNT
+let fuseInv = 0, tntInv = 0;   // 库存: 引线 / TNT
+/* hotbar (kit 实例): 0=引线 1=TNT, 库存计数实时重读 */
+const tntHb = mkHotbar({
+  items: [
+    {icon:'🧵', lbl:'引线', cnt:()=>fuseInv},
+    {icon:'💣', lbl:'TNT',  cnt:()=>tntInv}
+  ]
+});
 
 const sparks = [];        // 火花
 const tnts = [];          // TNT 实体
@@ -37,7 +44,6 @@ let plateDoors = [];      // 压力板-铁门联动组
 let doorCheckT = 0;
 
 const fadeEl = document.getElementById('fade');
-const tntScoreEl = document.getElementById('score');
 const DIRS4 = [[1,0],[-1,0],[0,1],[0,-1]];
 
 /* ---------- 共享素材 ---------- */
@@ -141,7 +147,7 @@ function startLevel(i, fresh){
   lvState = 'playing';
   timer = 0;
   if(fresh !== false) resets = 0;
-  fuseInv = 0; tntInv = 0; tntSel = 0;
+  fuseInv = 0; tntInv = 0; tntHb.select(0);
   demoFired = false; demoT = 0;
 
   lv.build();                                   // 关卡自己铺方块
@@ -157,12 +163,9 @@ function startLevel(i, fresh){
   weights.length = 0;
   for(const w of (lv.weights||[])) weights.push({x:w.x, y:w.y, z:w.z, state:'rest', mesh:null, vy:0});
 
-  pos.set(lv.spawn.x+0.5, (lv.spawn.y||11)+0.01, lv.spawn.z+0.5);   // 固定楼层出生(密室有顶,不能扫顶)
-  vel.set(0,0,0);
-  yaw = lv.spawn.yaw||0; pitch = 0;
+  ModeKit.spawn(lv.spawn.x+0.5, (lv.spawn.y||11)+0.01, lv.spawn.z+0.5, {yaw: lv.spawn.yaw||0});   // 固定楼层出生(密室有顶,不能扫顶)
 
-  buildTntHotbar();
-  hotbarEl.style.display = 'flex';
+  tntHb.show();
   fadeEl.style.opacity = 0;
   showToast('第 ' + (i+1) + ' 关 · ' + lv.name, 2000);
 }
@@ -420,7 +423,7 @@ function updatePickups(dt){
       smallPop(p.x+0.5, p.y+0.8, p.z+0.5, p.kind==='tnt'?0xff6644:0xffcc44);
       scene.remove(p.mesh);
       pickups.splice(i,1);
-      updateTntHotbar();
+      tntHb.refresh();
     }
   }
 }
@@ -444,13 +447,13 @@ function tryLeftClick(hit){
   const id = getBlock(hit.x, hit.y, hit.z);
   if(id===B_FUSE){                          // 捡回引线
     editBlock(hit.x, hit.y, hit.z, 0);
-    fuseInv++; sfx('pick'); updateTntHotbar();
+    fuseInv++; sfx('pick'); tntHb.refresh();
   } else if(id===B_TNT){                    // 捡回 TNT (未点燃的)
     const t = findTntAt(hit.x, hit.y, hit.z);
     if(t && !t.demo && t.fuse===null){
       removeTnt(t);
       editBlock(hit.x, hit.y, hit.z, 0);
-      tntInv++; sfx('pick'); updateTntHotbar();
+      tntInv++; sfx('pick'); tntHb.refresh();
     }
   } else if(id===B_SWITCH){                 // 扳转辙器
     const sw = switches.get(key(hit.x, hit.y, hit.z));
@@ -466,7 +469,7 @@ function tryPlace(hit){
   const px=hit.x+hit.nx, py=hit.y+hit.ny, pz=hit.z+hit.nz;
   if(getBlock(px,py,pz)!==0) return;
   if(!isSolid(getBlock(px,py-1,pz))) return;          // 必须铺在实心地上
-  if(tntSel===0){
+  if(tntHb.sel===0){
     if(fuseInv<=0) return;
     fuseInv--;
     editBlock(px,py,pz, B_FUSE);
@@ -478,7 +481,7 @@ function tryPlace(hit){
     registerTnt(px,py,pz,false);
   }
   sfx('click');
-  updateTntHotbar();
+  tntHb.refresh();
 }
 
 /* ---------- 失败 / 通关 ---------- */
@@ -514,34 +517,9 @@ function doWin(){
   uiPause();                                       // 桌面=退出指针锁, 触屏=直接显示覆盖层
 }
 
-/* ---------- HUD / 物品栏 ---------- */
-function buildTntHotbar(){
-  hotbarEl.innerHTML = '';
-  const items = [
-    {icon:'🧵', lbl:'引线', cnt:()=>fuseInv},
-    {icon:'💣', lbl:'TNT',  cnt:()=>tntInv}
-  ];
-  items.forEach((it,i)=>{
-    const div = document.createElement('div');
-    div.className = 'slot';
-    div.innerHTML = `<span class="num">${i+1}</span><span class="icon">${it.icon}</span>
-      <span class="cnt">${it.cnt()}</span><span class="lbl">${it.lbl}</span>`;
-    div.addEventListener('pointerdown',(ev)=>{ ev.preventDefault(); tntSel=i; updateTntHotbar(); });
-    hotbarEl.appendChild(div);
-  });
-  updateTntHotbar();
-}
-function updateTntHotbar(){
-  const cnts = [fuseInv, tntInv];
-  [...hotbarEl.children].forEach((el,i)=>{
-    el.classList.toggle('active', i===tntSel);
-    el.classList.toggle('empty', cnts[i]<=0);
-    el.querySelector('.cnt').textContent = cnts[i];
-  });
-}
+/* ---------- HUD / 物品栏: hotbar 由 mode-kit 的 tntHb 接管 ---------- */
 
 /* ---------- 菜单 ---------- */
-let resetArm = 0;
 function buildTntMenu(){
   const grid = document.getElementById('levelGrid');
   grid.innerHTML = '';
@@ -561,20 +539,10 @@ function buildTntMenu(){
   });
   document.getElementById('tntResumeBtn').disabled = (levelIdx==null);
   document.getElementById('tntResumeBtn').onclick = requestLock;
-  const rb = document.getElementById('tntResetBtn');
-  rb.textContent = '重置进度 ↺';
-  rb.onclick = ()=>{
-    if(performance.now() - resetArm < 3000){
-      SyncDB.remove(TNT_SAVE_KEY);
-      resetArm = 0;
-      showToast('进度已重置', 1800);
-      buildTntMenu();
-    } else {
-      resetArm = performance.now();
-      rb.textContent = '⚠ 再点一次确认重置';
-      setTimeout(()=>{ rb.textContent = '重置进度 ↺'; }, 3000);
-    }
-  };
+  ModeKit.confirmBtn(document.getElementById('tntResetBtn'), {
+    label: '重置进度 ↺', confirm: '⚠ 再点一次确认重置',
+    onConfirm(){ SyncDB.remove(TNT_SAVE_KEY); showToast('进度已重置', 1800); buildTntMenu(); }
+  });
   document.getElementById('winNextBtn').onclick = ()=>{
     if(levelIdx+1 < LEVELS.length) startLevel(levelIdx+1);
     else { showPage('tnt'); buildTntMenu(); return; }
@@ -593,27 +561,21 @@ function tntReset(){
 }
 
 /* ---------- 模式对象 ---------- */
-const TntMode = {
-  id:'tnt',
-  init(){
-    tntScoreEl.style.display = 'none';
-    if(levelIdx==null || !LEVELS[levelIdx]){
-      hudEl.innerHTML = '';
-      hotbarEl.style.display = 'none';
-    }
-    setTouchActions([                                 // 平板动作按钮
-      {label:'⬆️', hold:'Space'},
-      {label:'🔥', act:()=>tryIgnite()},
-      {label:'🧨', act:()=>doCenterClick(2)},
-      {label:'✋', act:()=>doCenterClick(0)},
-      {label:'↺',  act:()=>tntReset()}
-    ]);
-  },
+const TntMode = mkMode({
+  id: 'tnt',
+  chrome: { score:'none', hotbar:'none' },          // 进关卡后由 tntHb.show() 现身
+  hotbar: tntHb,
+  touch: [                                           // 平板动作按钮
+    {label:'⬆️', hold:'Space'},
+    {label:'🔥', act:()=>tryIgnite()},
+    {label:'🧨', act:()=>doCenterClick(2)},
+    {label:'✋', act:()=>doCenterClick(0)},
+    {label:'↺',  act:()=>tntReset()}
+  ],
   cleanup(){
     clearTntEntities();
     highlight.material.color.set(0x000000);
     highlight.material.opacity = 0.5;
-    tntScoreEl.style.display = 'flex';
     levelIdx = null; lv = null; lvState = 'idle';
   },
   update(dt){
@@ -667,14 +629,6 @@ const TntMode = {
   onKey(code){
     if(code==='KeyF') tryIgnite();
     if(code==='KeyR') tntReset();
-    if(code==='KeyB') uiPause();
-  },
-  onDigit(n){
-    if(n===1||n===2){ tntSel = n-1; updateTntHotbar(); }
-  },
-  onWheel(d){
-    tntSel = (tntSel + d + 2) % 2;
-    updateTntHotbar();
   },
   onMouse(button, hit){
     if(button===0) tryLeftClick(hit);
@@ -696,10 +650,8 @@ const TntMode = {
     buildTntMenu();
   },
   buildMenu: buildTntMenu,
-  updateHud(){
-    if(!lv){ hudEl.innerHTML=''; return; }
-    const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-    const hit = raycastVoxel(camera.position, dir, 6);
+  hud(hit){
+    if(!lv) return [];
     let hint = '';
     if(hit){
       const id = getBlock(hit.x, hit.y, hit.z);
@@ -707,11 +659,12 @@ const TntMode = {
       else if(id===B_SWITCH) hint = '☝ 左键 扳动';
       else hint = BLOCKS[id] ? BLOCKS[id].name : '';
     }
-    hudEl.innerHTML =
-      `第 ${levelIdx+1}/${LEVELS.length} 关 · ${lv.name}<br>`+
-      `⏱ ${fmtTime(timer)} / ${fmtTime(lv.par)}<br>`+
-      `🧵×${fuseInv} 💣×${tntInv}<br>`+
-      (hint ? '👉 '+hint+'<br>' : '') +
-      `R 重置 · Esc 菜单`;
+    return [
+      `第 ${levelIdx+1}/${LEVELS.length} 关 · ${lv.name}`,
+      `⏱ ${fmtTime(timer)} / ${fmtTime(lv.par)}`,
+      `🧵×${fuseInv} 💣×${tntInv}`,
+      ...(hint ? ['👉 '+hint] : []),
+      `R 重置 · Esc 菜单`
+    ];
   }
-};
+});
