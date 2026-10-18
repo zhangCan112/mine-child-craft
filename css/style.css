@@ -46,6 +46,7 @@ canvas{display:block}
   background:rgba(255,255,255,.08);cursor:pointer;transition:transform .12s, background .12s;user-select:none}
 .modeCard:hover{transform:translateY(-4px);background:rgba(255,255,255,.16)}
 .modeCard .big{font-size:46px;line-height:1.2}
+.modeCard .big img{width:56px;height:56px;image-rendering:pixelated;display:block;margin:0 auto}
 .modeCard h2{margin:8px 0 4px;font-size:20px}
 .modeCard small{font-size:12px;opacity:.8}
 .modeCard.tnt{border-color:rgba(255,120,80,.55)}
