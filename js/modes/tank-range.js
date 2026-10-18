@@ -48,14 +48,15 @@ function onBoom(x, y, z, res){
     SpeechKit.speak('打中啦！好厉害！');
     showToast('🎯 命中 ' + hitCount);
   }
-  for(let i=mobs.length-1; i>=0; i--){            /* 爆炸波及怪物 */
-    const m = mobs[i];
+  for(let i=rgMobs.length-1; i>=0; i--){            /* 爆炸波及怪物 */
+    const m = rgMobs[i];
     if(Math.hypot(m.x - x, m.z - z) < TANK.shellR + 0.9 && Math.abs(m.y + 1 - y) < 4) killMob(i);
   }
 }
 
-/* ---------- 游荡怪波: 僵尸风小车怪, 可炸可碾, 清完 3 秒刷新一波 ---------- */
-const mobs = [];
+/* ---------- 游荡怪波: 僵尸风小车怪, 可炸可碾, 清完 3 秒刷新一波 ----------
+   命名带 rg 前缀: 经典 script 共享全局词法环境, 须避开 arena.js 的 rgMobs/updateMobs */
+const rgMobs = [];
 let killCount = 0, waveN = 0, waveT = 0;
 
 function mkMob(x, z){
@@ -88,26 +89,26 @@ function spawnWave(){
     salt += 7;
     if(Math.hypot(x - tk.x, z - tk.z) < 12) continue;          /* 别刷在坦克脸上 */
     if(isSolid(getBlock(x, groundTop(x, z) + 1, z))) continue; /* 头顶要有净空 */
-    mobs.push(mkMob(x + 0.5, z + 0.5));
+    rgMobs.push(mkMob(x + 0.5, z + 0.5));
     placed++;
   }
   waveN++;
 }
 
 function killMob(i){
-  const m = mobs[i];
+  const m = rgMobs[i];
   sfx('death');
   Fx.debrisBurst(m.x, m.y + 0.8, m.z, 6, { color: 0x43a047, life: 0.6 });
   scene.remove(m.grp); m.dispose();
-  mobs.splice(i, 1);
+  rgMobs.splice(i, 1);
   killCount++;
   showToast('👾 消灭 ' + killCount);
-  if(mobs.length === 0) waveT = 3;                 /* 清场 → 3 秒后新一波 */
+  if(rgMobs.length === 0) waveT = 3;                 /* 清场 → 3 秒后新一波 */
 }
 
-function updateMobs(dt){
-  for(let i=mobs.length-1; i>=0; i--){
-    const m = mobs[i];
+function updateRgMobs(dt){
+  for(let i=rgMobs.length-1; i>=0; i--){
+    const m = rgMobs[i];
     m.t -= dt;
     if(m.t <= 0){                                  /* 换个方向溜达 */
       m.dir = SceneKit.rand(Math.floor(m.x)*13 + i, Math.floor(m.z)*7, 3)*Math.PI*2;
@@ -128,8 +129,8 @@ function updateMobs(dt){
   /* 坦克碾压: 驾驶中贴身即压扁(孩子的最爱) */
   const tp = Tank.driving() ? Tank.at() : null;
   if(tp){
-    for(let i=mobs.length-1; i>=0; i--){
-      const m = mobs[i];
+    for(let i=rgMobs.length-1; i>=0; i--){
+      const m = rgMobs[i];
       if(Math.hypot(m.x - tp.x, m.z - tp.z) < 1.8 && Math.abs(m.y - tp.y) < 2.5) killMob(i);
     }
   }
@@ -228,8 +229,8 @@ const TankRangeMode = mkMode({
 
   cleanup(){
     Tank.clear();
-    for(const m of mobs){ scene.remove(m.grp); m.dispose(); }
-    mobs.length = 0;
+    for(const m of rgMobs){ scene.remove(m.grp); m.dispose(); }
+    rgMobs.length = 0;
   },
 
   onKey(code){
@@ -247,13 +248,13 @@ const TankRangeMode = mkMode({
       speakArmed = 0;
       SpeechKit.speak('要开坦克吗？按 E！');
     }
-    updateMobs(dt);
+    updateRgMobs(dt);
   },
 
   hud(){
     if(Tank.driving()){
       const lines = ['🚙 驾驶中 · 左键/💥 开炮 · E 下车'];
-      if(mobs.length > 0) lines.push('👾 怪物 ' + mobs.length + ' · 冲上去压！');
+      if(rgMobs.length > 0) lines.push('👾 怪物 ' + rgMobs.length + ' · 冲上去压！');
       if(killCount > 0) lines.push('☠️ 已消灭 ' + killCount);
       if(hitCount > 0) lines.push('🎯 已命中 ' + hitCount);
       return lines;
