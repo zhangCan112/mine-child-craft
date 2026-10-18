@@ -13,15 +13,23 @@ const FOCUS_DIMS = ['cpt', 'gonogo', 'flanker', 'corsi', 'switch'];   // 阶段�
 const mcIco = n => '<img class="f-mcicon" draggable="false" src="' + mcIcon(n) + '">';
 const FOCUS_META = {
   cpt:    {name:'持续警觉', game:'矿洞瞭望塔',   icon: mcIco('torch'),
-           rule:'看到钻石，快点点它！别的矿不要点。'},
+           rule:'看到钻石，快点点它！别的矿不要点。',
+           tip(p){ return p.similar ? '小心！绿宝石长得像钻石，看清楚了再点！'
+             : '矿灯闪得' + (p.isi < 1150 ? '很快' : '比较快') + '，钻石出现得不多，眼睛要一直盯着。'; }},
   gonogo: {name:'抑制控制', game:'挖矿小能手',   icon: mcIco('pickaxe'),
-           rule:'钻石快挖！TNT 千万不要碰。'},
+           rule:'钻石快挖！TNT 千万不要碰。',
+           tip(p){ return p.disguised ? 'TNT 会变成绿宝石的样子混进来！手别太快，看清楚再挖。'
+             : '钻石变少、TNT 变多了，忍住不碰 TNT 才能拿星星。'; }},
   flanker:{name:'干扰控制', game:'苦力怕排队',   icon: '<img class="f-mcicon" draggable="false" src="'+creeperFace(1)+'">',
-           rule:'只看中间那只苦力怕，它看哪边，就点哪边。'},
+           rule:'只看中间那只苦力怕，它看哪边，就点哪边。',
+           tip(p){ return '队伍变成 ' + p.len + ' 只，两边捣乱的苦力怕' + (p.congruentRate < 0.6 ? '很多' : '不少') + '。记住：只看中间那只！'; }},
   corsi:  {name:'视空记忆', game:'钻石闪闪光',   icon: mcIco('diamond'),
-           rule:'看清楚钻石亮的顺序，再按一样的顺序点回去。'},
+           rule:'看清楚钻石亮的顺序，再按一样的顺序点回去。',
+           tip(p){ return '要记住 ' + p.len + ' 个钻石亮的顺序' + (p.grid===16 ? '，格子也变成 4×4 了' : '') + '。'; }},
   switch: {name:'规则切换', game:'听指挥的小矿工', icon: mcIco('flag'),
-           rule:'看旗子！按旗子说的采方块，旗子变了就换方法。'}
+           rule:'看旗子！按旗子说的采方块，旗子变了就换方法。',
+           tip(p){ return (p.rules===3 ? '现在有三种旗子：颜色、材质、大小。' : '两种旗子：颜色和材质。')
+             + '旗子大约每 ' + p.switchEvery + ' 次换一次，盯紧旗子！'; }}
 };
 
 function fLerp(a, b, t){ return a + (b-a)*t; }

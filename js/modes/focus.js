@@ -72,7 +72,7 @@ function focusScreen(html){
 function focusExit(){
   stopFocusTicker();
   if(focusCtrl){ focusCtrl.stop(); focusCtrl = null; }
-  try{ if(typeof speechSynthesis!=='undefined') speechSynthesis.cancel(); }catch(e){}
+  SpeechKit.cancel();
   focusRoot.style.display = 'none';
   overlay.style.display = 'flex';
   showPage('main');
@@ -122,27 +122,11 @@ function showFocusToday(){
   document.getElementById('fParentBtn').onclick = showFocusParentGate;
 }
 
-/* ---------- 本关说明(按参数自动生成) ---------- */
+/* ---------- 本关说明(说明书归各范式自带, 这里只剩 kind 特判与查表) ---------- */
 function focusTip(level){
-  const p = level.params || {};
   if(level.kind==='master') return '五个小游戏连着玩：瞭望塔、挖矿、排队、闪闪光、听指挥。全部完成就是专注大师！';
   if(level.kind==='tutorial') return '新手教学：先看一遍演示，再跟着做，很轻松！';
-  switch(level.dim){
-    case 'cpt':
-      if(p.similar) return '小心！绿宝石长得像钻石，看清楚了再点！';
-      return '矿灯闪得' + (p.isi < 1150 ? '很快' : '比较快') + '，钻石出现得不多，眼睛要一直盯着。';
-    case 'gonogo':
-      if(p.disguised) return 'TNT 会变成绿宝石的样子混进来！手别太快，看清楚再挖。';
-      return '钻石变少、TNT 变多了，忍住不碰 TNT 才能拿星星。';
-    case 'flanker':
-      return '队伍变成 ' + p.len + ' 只，两边捣乱的苦力怕' + (p.congruentRate < 0.6 ? '很多' : '不少') + '。记住：只看中间那只！';
-    case 'corsi':
-      return '要记住 ' + p.len + ' 个钻石亮的顺序' + (p.grid===16 ? '，格子也变成 4×4 了' : '') + '。';
-    case 'switch':
-      return (p.rules===3 ? '现在有三种旗子：颜色、材质、大小。' : '两种旗子：颜色和材质。')
-        + '旗子大约每 ' + p.switchEvery + ' 次换一次，盯紧旗子！';
-  }
-  return '';
+  return FOCUS_META[level.dim].tip(level.params || {});
 }
 
 /* ---------- 关卡 ---------- */
@@ -162,7 +146,7 @@ function startFocusLevel(i){
       <div class="f-tipbox">💡 ${focusTip(level)}${level.kind!=='tutorial' ? ' 目标：正确 70% 以上通过！' : ''}</div>
       <button class="f-start" id="fGoBtn">▶ 开始</button>
     </div>`);
-  focusSpeak(meta.rule);
+  SpeechKit.speak(meta.rule);
   document.getElementById('fGoBtn').onclick = ()=> beginFocusRun(level);
 }
 
@@ -184,9 +168,9 @@ function beginFocusRun(level){
       const bar = document.getElementById('fProg');
       if(bar) bar.style.width = Math.round(k/Math.max(1,n)*100) + '%';
     },
-    showRule(dim){ focusSpeak(FOCUS_META[dim || level.dim].rule); },
+    showRule(dim){ SpeechKit.speak(FOCUS_META[dim || level.dim].rule); },
     end(st){ onFocusLevelEnd(level, st); }
-  }, 1 + Math.min(0.4, 0.12 * (focusFailCount[level.i] || 0)));   // 重试自动放宽 12%/次
+  }, focusFailCount[level.i] || 0);   // 只报失败次数, 重试放宽政策在引擎(mkAdapt)一处
 }
 
 function onFocusLevelEnd(level, st){
@@ -220,7 +204,7 @@ function onFocusLevelEnd(level, st){
         <p class="f-sub">正确 ${Math.round(st.acc*100)}%</p>
         <button class="f-start" id="fNextBtn">继续 ▶</button>
       </div>`);
-    focusSpeak(level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine());
+    SpeechKit.speak(level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine());
     [1,2,3].forEach(n=>{
       if(n<=stars) setTimeout(()=>{
         const el = document.querySelector('#fStars .st[data-n="'+n+'"]');
@@ -237,7 +221,7 @@ function onFocusLevelEnd(level, st){
         <p class="f-sub">${moveOn ? '这关先记住感觉，我们去玩别的游戏，以后再来挑战！' : '我们再试一次，这次会简单一点点 😊'}</p>
         <button class="f-start" id="fNextBtn">${moveOn ? '下一个游戏 ▶' : '再来一次 ↺'}</button>
       </div>`);
-    focusSpeak(moveOn ? '你已经很努力了！我们先去玩别的游戏，以后再来挑战这一关。' : '你刚才很努力！我们再来一次，这次会简单一点点。');
+    SpeechKit.speak(moveOn ? '你已经很努力了！我们先去玩别的游戏，以后再来挑战这一关。' : '你刚才很努力！我们再来一次，这次会简单一点点。');
   }
   const next = ()=>{
     if(focusLocked()) showFocusToday();
@@ -349,7 +333,7 @@ const FocusMode = mkMode({
     stopFocusTicker();
     if(focusCtrl){ focusCtrl.stop(); focusCtrl = null; }
     clearTimeout(focusAutoTimer);
-    try{ if(typeof speechSynthesis!=='undefined') speechSynthesis.cancel(); }catch(e){}
+    SpeechKit.cancel();
     if(focusRoot) focusRoot.style.display = 'none';
   }
 });

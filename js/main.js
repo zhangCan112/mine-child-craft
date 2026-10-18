@@ -77,7 +77,7 @@ function showPlayTimeoutPage(){
 }
 function playTimeUp(){
   if(Budgets) Budgets.play.flush();
-  focusSpeak('今天的游玩时间到啦，怪物们要休息了，明天再来挑战吧！');
+  SpeechKit.speak('今天的游玩时间到啦，怪物们要休息了，明天再来挑战吧！');
   if(document.pointerLockElement) document.exitPointerLock();   // 事件异步, onLockChanged 尊重 playTime 页
   else { touchPlaying = false; overlay.style.display = 'flex'; }
   showPlayTimeoutPage();
@@ -186,7 +186,7 @@ let NET_DEAD = false;                              // 心跳失联 → 冻结游
 function netDead(){
   if(NET_DEAD) return;
   NET_DEAD = true;
-  try{ speechSynthesis.cancel(); }catch(e){}
+  SpeechKit.cancel();
   const d = document.createElement('div');
   d.id = 'netDead';
   d.innerHTML = '<div><h1>📡 与服务器的连接已断开</h1>' +

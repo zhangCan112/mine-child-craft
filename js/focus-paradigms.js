@@ -6,28 +6,7 @@
    全部为 DOM 点选式, 零文字依赖(图标+语音), 纯鼠标可完成
 ============================================================ */
 
-/* ---------- 语音 (Web Speech API 中文) ---------- */
-let focusVoice = null;
-function pickFocusVoice(){
-  try{
-    const vs = speechSynthesis.getVoices();
-    focusVoice = vs.find(v=>/zh[-_]CN/i.test(v.lang)) || vs.find(v=>/^zh/i.test(v.lang)) || null;
-  }catch(e){}
-}
-if(typeof speechSynthesis !== 'undefined'){
-  pickFocusVoice();
-  try{ speechSynthesis.onvoiceschanged = pickFocusVoice; }catch(e){}
-}
-function focusSpeak(text){
-  try{
-    if(typeof speechSynthesis === 'undefined') return;
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = 'zh-CN'; u.rate = 0.9; u.pitch = 1.1;
-    if(focusVoice) u.voice = focusVoice;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-  }catch(e){}
-}
+/* 语音已归引擎侧 SpeechKit(js/speech.js): 范式引擎只调用 speak/cancel, 不再拥有语音技术 */
 
 /* ---------- 过程性表扬 / 中性安慰 (夸努力不夸聪明, Mueller & Dweck 1998) ---------- */
 const FOCUS_PRAISE = [
@@ -40,11 +19,12 @@ const FOCUS_COMFORT = [
 function praiseLine(){ return FOCUS_PRAISE[Math.floor(Math.random()*FOCUS_PRAISE.length)]; }
 function comfortLine(){ return FOCUS_COMFORT[Math.floor(Math.random()*FOCUS_COMFORT.length)]; }
 
-/* ---------- 阶梯自适应:目标 70~85% 成功率;连错 3 次开挫败阀 ---------- */
-function mkAdapt(initial){
+/* ---------- 阶梯自适应:目标 70~85% 成功率;连错 3 次开挫败阀 ----------
+   重试放宽政策只在引擎这一处: 失败次数 ×12%/次, 封顶 +40%(零惩罚哲学) */
+function mkAdapt(failCount){
   const hist = [];
   return {
-    calib: initial || 1,       // 时间参数乘数:>1 更宽松(重试自动放宽)
+    calib: 1 + Math.min(0.4, 0.12*(failCount||0)),   // 时间参数乘数:>1 更宽松
     streak: 0,
     valveCount: 0,
     record(ok){
@@ -147,7 +127,7 @@ function runDiscrimination(area, params, adapt, h, framing){
         feedback(ok, stim);
         if(valve==='valve'){
           stats.valveCount++;
-          if(!comfortSaid){ comfortSaid = true; focusSpeak(comfortLine()); }
+          if(!comfortSaid){ comfortSaid = true; SpeechKit.speak(comfortLine()); }
           h.showRule && h.showRule();
         }
       } else feedback(isGo ? clicked : true, stim);
@@ -161,8 +141,8 @@ function runDiscrimination(area, params, adapt, h, framing){
     if(isDemo){                                  // 教学演示:自动高亮正确做法
       T.after(1100, ()=>{
         if(answered) return;
-        if(isGo){ stim.classList.add('hint'); focusSpeak('看，点它！'); }
-        else { stim.classList.add('hint-no'); focusSpeak('看，这个不点，等它自己走。'); }
+        if(isGo){ stim.classList.add('hint'); SpeechKit.speak('看，点它！'); }
+        else { stim.classList.add('hint-no'); SpeechKit.speak('看，这个不点，等它自己走。'); }
       });
     }
   }
@@ -232,7 +212,7 @@ function runFlanker(area, params, adapt, h){
         stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak + (ok?0:1));
         if(adapt.record(ok)==='valve'){
           stats.valveCount++;
-          if(!comfortSaid){ comfortSaid=true; focusSpeak(comfortLine()); }
+          if(!comfortSaid){ comfortSaid=true; SpeechKit.speak(comfortLine()); }
           h.showRule && h.showRule();
         }
         bl.classList.toggle('picked-ok', ok && dir<0);
@@ -250,7 +230,7 @@ function runFlanker(area, params, adapt, h){
     if(isDemo !== undefined){
       T.after(1300, ()=>{
         if(answered) return;
-        focusSpeak('看，中间那只看' + (centerDir<0?'左':'右') + '边！');
+        SpeechKit.speak('看，中间那只看' + (centerDir<0?'左':'右') + '边！');
         (centerDir<0?bl:br).classList.add('hint');
       });
     }
@@ -332,7 +312,7 @@ function runCorsi(area, params, adapt, h){
             stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak+1);
             if(adapt.record(false)==='valve'){
               stats.valveCount++;
-              if(!comfortSaid){ comfortSaid=true; focusSpeak(comfortLine()); }
+              if(!comfortSaid){ comfortSaid=true; SpeechKit.speak(comfortLine()); }
             }
             T.after(600, ()=>{ t.classList.remove('bad'); nextSeq(++seqIdx); });
           }
@@ -356,7 +336,7 @@ function runCorsi(area, params, adapt, h){
     const seq = [];
     while(seq.length < len && pool.length){ seq.push(pool.splice(Math.floor(Math.random()*pool.length),1)[0]); }
     if(params.demo && n===0){
-      focusSpeak('看，钻石亮了两次，你也点两下！');
+      SpeechKit.speak('看，钻石亮了两次，你也点两下！');
       T.after(600, ()=>runSeq(n, seq));
     } else runSeq(n, seq);
   }
@@ -430,7 +410,7 @@ function runSwitch(area, params, adapt, h){
           stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak + (ok?0:1));
           if(adapt.record(ok)==='valve'){
             stats.valveCount++;
-            if(!comfortSaid){ comfortSaid=true; focusSpeak(comfortLine()); }
+            if(!comfortSaid){ comfortSaid=true; SpeechKit.speak(comfortLine()); }
             flag.classList.add('bounce');
             T.after(800, ()=>flag.classList.remove('bounce'));
           }
@@ -439,7 +419,7 @@ function runSwitch(area, params, adapt, h){
       };
       board.appendChild(el);
       if(isDemo && isCorrect(c))
-        T.after(1200, ()=>{ if(!answered){ el.classList.add('hint'); focusSpeak('看，点这个！'); } });
+        T.after(1200, ()=>{ if(!answered){ el.classList.add('hint'); SpeechKit.speak('看，点这个！'); } });
     });
   }
 
@@ -456,7 +436,7 @@ function runSwitch(area, params, adapt, h){
       sinceSwitch = 0;
       flag.classList.add('bounce');
       sfx('click');
-      focusSpeak('旗子变啦！');
+      SpeechKit.speak('旗子变啦！');
       T.after(800, ()=>flag.classList.remove('bounce'));
     } else sinceSwitch++;
     trial();
@@ -474,8 +454,8 @@ function runSwitch(area, params, adapt, h){
 }
 
 /* ---------- 调度入口 ---------- */
-function runFocusLevel(level, area, h, calib0){
-  const adapt = mkAdapt(calib0);
+function runFocusLevel(level, area, h, failCount){
+  const adapt = mkAdapt(failCount);
   const p = {...level.params};
   if(level.kind==='tutorial') p.demo = true;
   if(level.dim==='cpt')         return runDiscrimination(area, p, adapt, h, 'cpt');
@@ -498,7 +478,7 @@ function runFocusLevel(level, area, h, calib0){
         return;
       }
       const s = level.sections[sec];
-      focusSpeak('新游戏：' + FOCUS_META[s.dim].game + '！');
+      SpeechKit.speak('新游戏：' + FOCUS_META[s.dim].game + '！');
       const sub = {
         progress(k,n){ h.progress(sec + k/Math.max(1,n), level.sections.length); },
         showRule(){ h.showRule && h.showRule(s.dim); },
@@ -514,7 +494,7 @@ function runFocusLevel(level, area, h, calib0){
       };
       const p2 = {...s.params};
       area.innerHTML = '';
-      const engine = runFocusLevel({dim:s.dim, kind:'normal', params:p2}, area, sub, calib0);
+      const engine = runFocusLevel({dim:s.dim, kind:'normal', params:p2}, area, sub, failCount);
       curStop = engine ? engine.stop : null;
     }
     let curStop = null;
