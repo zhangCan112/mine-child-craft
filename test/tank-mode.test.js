@@ -55,6 +55,8 @@ globalThis.SpeechKit = { speak(s){ spoken.push(s); }, cancel(){} };
 globalThis.showToast = (s) => calls.push(['toast', s]);
 globalThis.setTouchActions = (l) => { touchList = l; };
 globalThis.spawn = (x, y, z) => calls.push(['spawn', x, y, z]);
+let rebuilt = 0;
+globalThis.rebuildAll = () => { rebuilt++; };   /* 建场收尾: 方块数据 → 区块网格 */
 globalThis.pos = { set(){} };
 globalThis.vel = { set(){} };
 globalThis.yaw = 0; globalThis.pitch = 0; globalThis.onGround = true;
@@ -69,6 +71,7 @@ function has(ev){ return calls.some(c => c[0] === ev); }
 test('模式装配: id=tank, init 建场放坦克并出生, cleanup 清场, 触屏按钮就位', () => {
   TankRangeMode.init();
   assert.ok(has('fill'), 'init 用 SceneKit 建场');
+  assert.ok(rebuilt >= 1, 'init 收尾调 rebuildAll(方块数据 → 可见网格, 漏了就是一片天蓝)');
   assert.ok(has('place'), 'init 放置坦克');
   assert.ok(has('spawn'), 'init 出生玩家');
   assert.ok(Array.isArray(touchList) && touchList.length >= 1, '声明了触屏按钮');

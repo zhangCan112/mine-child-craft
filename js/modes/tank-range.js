@@ -13,7 +13,7 @@ const TANK_RANGE = {
   x0: 34, z0: 34, x1: 94, z1: 94,        // 场地范围(128×128 世界居中)
   groundY: 12,                            // 草地顶层(y=12, 站立面 y=13)
   tank:  { x: 64, z: 70, yaw: 0 },        // 坦克初始位(朝 -Z 开阔地)
-  spawn: { x: 67.5, z: 74, yaw: Math.PI },// 玩家出生在坦克侧后, 面向坦克
+  spawn: { x: 67.5, z: 74, yaw: 0 },       // 玩家出生在坦克侧后方, 抬眼即见坦克(yaw=0 面向 -Z)
   targetId: 16                            // 靶方块 id(红羊毛): 建靶与命中判定, 演习场专属玩法
 };
 
@@ -66,6 +66,7 @@ const TankRangeMode = mkMode({
 
   init(){
     buildRange();
+    rebuildAll();                         // 建场收尾: 方块数据 → 区块网格(各模式惯例, 漏了整场不可见)
     Tank.place(TANK_RANGE.tank.x, TANK_RANGE.groundY+1, TANK_RANGE.tank.z, { yaw: TANK_RANGE.tank.yaw });
     spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });
     Tank.onExplode(onBoom);              /* 命中反馈: 炸到靶才表扬 */
