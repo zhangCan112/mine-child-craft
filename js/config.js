@@ -51,7 +51,7 @@ const TNT_CFG = {
 const PLAY_LIMIT_DEFAULT_MIN = 10;
 const TEMP_PLAY_LIMIT_MIN = {
   '2026-10-17': 20,
-  '2026-10-18': 25
+  '2026-10-18': 35
 };
 
 /* 专注训练营每日预算(独立于儿童时限): 每日关卡数与训练时长上限 */
