@@ -4,6 +4,9 @@
    ------------------------------------------------------------
    载具能力的第一个投放场: 96×96 多地形场(丘陵·峡谷·乱石阵·瞭望台)
    + 五类可破坏靶(靶排·环靶·靶墙·靶屋红心·远距靶塔)。
+   怪物走共享怪物库(js/mobs.js, 竞技场同款五怪): 选怪面板
+   (#menuTank)选种类和数量 → 一次性部署, 无波次; 清场后按 R
+   再来一批或 Esc 回面板换怪。伤害走 config.js TANK_VS_MOBS 表。
    政策全在此层(引擎不知道"提示"与"语音"):
    · E 键与触屏 🚙 按钮同走 Tank.toggle(单一入口)
    · 靠近邀请语音 10 秒节流; 上下车话术随 toggle 结果
@@ -17,9 +20,19 @@ const TANK_RANGE = {
   spawn: { x: 59.5, z: 98, yaw: 0 },      // 玩家出生在坦克侧后方, 抬眼即见坦克
   targetId: 16                            // 靶方块 id(红羊毛): 建靶与命中判定, 演习场专属玩法
 };
+const VS = TANK_VS_MOBS;                  // 坦克打怪伤害表(config.js)
 
 let speakArmed = 10;                      // 邀请语音计时: 初始即"到点"(首靠近就说)
 let hitCount = 0;                         // 已命中炮数(爆炸炸到靶才算)
+let killCount = 0;                        // 已消灭怪物数(跨批累计, 过程性表扬)
+let deployed = false, clearPraised = false;
+
+/* 选怪配置: 菜单页 #menuTank 面板读写(竞技场同款交互, 单边训练配置) */
+const mobCfg = { type: 'zombie', count: 6 };
+const RANGE_MOBS_MAX = 30;
+let rgPanelBuilt = false;                 // 避撞: arena.js 顶层也有 panelBuilt(经典 script 共享词法环境)
+const typeBtns = [];
+let cntEl = null;
 
 function speakForToggle(r){
   if(r === 'entered'){ SpeechKit.speak('开坦克喽！'); showToast('🚙 上车！W 前进 · S 倒车 · A D 转向 · 左键开炮 · E 下车'); }
@@ -40,7 +53,8 @@ function keepGround(id, bx, by){
   return by <= TANK_RANGE.groundY && (id === 1 || id === 2);
 }
 
-/* 爆炸回调(引擎在命中点回调, 带爆点坐标): 炸到靶才表扬 — 过程性表扬, 不罚脱靶 */
+/* 爆炸回调(引擎在命中点回调, 带爆点坐标): 炸到靶表扬 + 波及怪物 —
+   直击(近爆心)满伤, 边缘按距离线性衰减 */
 function onBoom(x, y, z, res){
   const hits = (res.counts && res.counts[TANK_RANGE.targetId]) || 0;
   if(hits > 0){
@@ -48,100 +62,86 @@ function onBoom(x, y, z, res){
     SpeechKit.speak('打中啦！好厉害！');
     showToast('🎯 命中 ' + hitCount);
   }
-  for(let i=rgMobs.length-1; i>=0; i--){            /* 爆炸波及怪物 */
-    const m = rgMobs[i];
-    if(Math.hypot(m.x - x, m.z - z) < TANK.shellR + 0.9 && Math.abs(m.y + 1 - y) < 4) killMob(i);
+  for(const m of Mobs.near(x, z, VS.blastR, y, VS.blastDy)){
+    const d = Math.hypot(m.pos.x - x, m.pos.z - z);
+    const dmg = d < 1.2 ? VS.direct
+      : Math.round(VS.splash - (VS.splash - VS.edge) * Math.min(1, d / VS.blastR));
+    const r = Mobs.hit(m, dmg, m.pos.x - x, m.pos.z - z, 0.8);
+    if(r.freshDead) onKill(m);
   }
 }
 
-/* ---------- 游荡怪波: 僵尸风小车怪, 可炸可碾, 清完 3 秒刷新一波 ----------
-   命名带 rg 前缀: 经典 script 共享全局词法环境, 须避开 arena.js 的 rgMobs/updateMobs */
-const rgMobs = [];
-let killCount = 0, waveN = 0, waveT = 0;
-
-function mkMob(x, z){
-  const box = (w, h, d, c)=> new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({color: c}));
-  const grp = new THREE.Group();
-  const legL = box(0.20, 0.50, 0.22, 0x2e7d32); legL.position.set(-0.12, 0.25, 0);
-  const legR = box(0.20, 0.50, 0.22, 0x2e7d32); legR.position.set( 0.12, 0.25, 0);
-  const body = box(0.52, 0.62, 0.30, 0x43a047); body.position.y = 0.81;
-  const armL = box(0.15, 0.15, 0.48, 0x388e3c); armL.position.set(-0.33, 1.00, -0.24);  /* 僵尸前伸手 */
-  const armR = box(0.15, 0.15, 0.48, 0x388e3c); armR.position.set( 0.33, 1.00, -0.24);
-  const head = box(0.44, 0.44, 0.44, 0x66bb6a); head.position.y = 1.35;
-  const eL = box(0.08, 0.09, 0.03, 0x1b1b1b); eL.position.set(-0.10, 1.38, -0.225);
-  const eR = box(0.08, 0.09, 0.03, 0x1b1b1b); eR.position.set( 0.10, 1.38, -0.225);
-  grp.add(legL, legR, body, armL, armR, head, eL, eR);
-  scene.add(grp);
-  const dispose = ()=> grp.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
-  return { grp, x, z, y: groundTop(Math.floor(x), Math.floor(z)) + 1,
-           dir: SceneKit.rand(Math.floor(x), Math.floor(z), 5)*Math.PI*2, t: 0, hop: 0, dispose };
+/* 击杀反馈: 碎块 + 计数(死亡音效怪物库已播, 话术是模式政策) */
+const MOB_DEBRIS = { zombie:0x5e9440, skeleton:0xd8d8d2, creeper:0x4fae4f, golem:0xcdd0d8, dragon:0x3a2055 };
+function onKill(m){
+  killCount++;
+  Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 6, { color: MOB_DEBRIS[m.type] || 0x8a8f98, life: 0.6 });
+  showToast('👾 消灭 ' + killCount);
+  checkCleared();
 }
 
-function spawnWave(){
-  if(typeof THREE === 'undefined') return;         /* Node 单测无渲染, 只跳过视觉 */
-  const n = 6 + waveN;                             /* 一波比一波多一只 */
+function aliveCount(){ return Mobs.list().filter(m => !m.dead && !m.gone).length; }
+
+/* 清场播报: 一批全灭 → 表扬一次(不罚失误, R 再来) */
+function checkCleared(){
+  if(deployed && !clearPraised && aliveCount() === 0){
+    clearPraised = true;
+    SpeechKit.speak('全部消灭！你好棒！按 R 再来一批吧！');
+    showToast('🎉 全部消灭！R 再来 · Esc 换怪物');
+  }
+}
+
+/* ---------- 部署: 面板配置一次性撒进场(围栏内, 避开坦克与头顶障碍) ---------- */
+function deployMobs(){
+  Mobs.clear();                            // 先清当前批(击杀计数跨批累计, 不清零)
+  deployed = true;
+  clearPraised = false;
   const tk = TANK_RANGE.tank;
-  let placed = 0, salt = waveN*97 + 1;
-  while(placed < n && salt < 4000){
+  let placed = 0, salt = 7;
+  while(placed < mobCfg.count && salt < 4000){
     const x = 24 + Math.floor(SceneKit.rand(salt, 11, 1)*80);
     const z = 24 + Math.floor(SceneKit.rand(salt, 13, 2)*80);
     salt += 7;
     if(Math.hypot(x - tk.x, z - tk.z) < 12) continue;          /* 别刷在坦克脸上 */
     if(isSolid(getBlock(x, groundTop(x, z) + 1, z))) continue; /* 头顶要有净空 */
-    rgMobs.push(mkMob(x + 0.5, z + 0.5));
+    Mobs.spawn(mobCfg.type, x + 0.5, z + 0.5, {
+      label: { prefix: '', color: '#ffd44d' },                 /* 名牌: 名字+血条, 无阵营前缀 */
+      wander: { x0: 18, x1: 110, z0: 18, z1: 110 },            /* 游荡栅栏(怪物库本能, 可关) */
+      flyY: TANK_RANGE.groundY + 10                            /* 飞行怪(末影龙)巡航高度 */
+    });
     placed++;
   }
-  waveN++;
+  const nm = (Mobs.types[mobCfg.type] || {}).name || '';
+  SpeechKit.speak(mobCfg.count + '只' + nm + '来啦！开炮！');
+  showToast('👾 ' + nm + ' × ' + mobCfg.count);
 }
 
-function killMob(i){
-  const m = rgMobs[i];
-  sfx('death');
-  Fx.debrisBurst(m.x, m.y + 0.8, m.z, 6, { color: 0x43a047, life: 0.6 });
-  scene.remove(m.grp); m.dispose();
-  rgMobs.splice(i, 1);
-  killCount++;
-  showToast('👾 消灭 ' + killCount);
-  if(rgMobs.length === 0) waveT = 3;                 /* 清场 → 3 秒后新一波 */
+/* ---------- 选怪面板(菜单页 #menuTank): 竞技场同款交互, 单边训练配置 ---------- */
+function buildTankPanel(){
+  if(rgPanelBuilt){ updateTankPanel(); return; }
+  rgPanelBuilt = true;
+  const btns = document.getElementById('tankMobBtns');
+  for(const k of ['zombie','skeleton','creeper','golem','dragon']){
+    const b = document.createElement('button');
+    b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${Mobs.types[k].name}`;
+    b.dataset.type = k;
+    b.addEventListener('click', ()=>{ mobCfg.type = k; updateTankPanel(); });
+    btns.appendChild(b);
+    typeBtns.push(b);
+  }
+  cntEl = document.getElementById('tankCnt');
+  for(const [id, d] of [['tankCntM5',-5], ['tankCntM1',-1], ['tankCntP1',1], ['tankCntP5',5]]){
+    document.getElementById(id).addEventListener('click', ()=>{
+      mobCfg.count = Math.min(RANGE_MOBS_MAX, Math.max(1, mobCfg.count + d));
+      updateTankPanel();
+    });
+  }
+  document.getElementById('tankGoBtn').onclick = ()=>{ deployMobs(); requestLock(); };
 }
-
-function updateRgMobs(dt){
-  for(let i=rgMobs.length-1; i>=0; i--){
-    const m = rgMobs[i];
-    m.t -= dt;
-    if(m.t <= 0){                                  /* 换个方向溜达 */
-      m.dir = SceneKit.rand(Math.floor(m.x)*13 + i, Math.floor(m.z)*7, 3)*Math.PI*2;
-      m.t = 1 + SceneKit.rand(Math.floor(m.x), i, 4)*2;
-    }
-    const nx = m.x + Math.cos(m.dir)*1.1*dt, nz = m.z + Math.sin(m.dir)*1.1*dt;
-    if(nx < 18 || nx > 110 || nz < 18 || nz > 110 ||
-       isSolid(getBlock(Math.floor(nx), Math.floor(m.y + 1), Math.floor(nz)))){
-      m.t = 0;                                     /* 撞墙/到边 → 原地换向 */
-      continue;
-    }
-    m.x = nx; m.z = nz;
-    m.y = groundTop(Math.floor(m.x), Math.floor(m.z)) + 1;     /* 爬坡下坎自然贴地 */
-    m.hop += dt*9;
-    m.grp.position.set(m.x, m.y + Math.abs(Math.sin(m.hop))*0.06, m.z);
-    m.grp.rotation.y = -m.dir - Math.PI/2;         /* 模型面朝 -Z, 转到行进方向 */
-  }
-  /* 坦克碾压: 驾驶中贴身即压扁(孩子的最爱) */
-  const tp = Tank.driving() ? Tank.at() : null;
-  if(tp){
-    for(let i=rgMobs.length-1; i>=0; i--){
-      const m = rgMobs[i];
-      if(Math.hypot(m.x - tp.x, m.z - tp.z) < 1.8 && Math.abs(m.y - tp.y) < 2.5) killMob(i);
-    }
-  }
-  /* 波次刷新 */
-  if(waveT > 0){
-    waveT -= dt;
-    if(waveT <= 0){
-      spawnWave();
-      SpeechKit.speak('新一波怪物来啦！冲呀！');
-    }
-  }
+function updateTankPanel(){
+  if(!rgPanelBuilt) return;
+  typeBtns.forEach(b => b.classList.toggle('active', b.dataset.type === mobCfg.type));
+  if(cntEl) cntEl.textContent = mobCfg.count;
 }
 
 /* ---------- 建场: 全图草海为底, 围栏内布设多地形与多类靶 ----------
@@ -219,42 +219,56 @@ const TankRangeMode = mkMode({
     rebuildAll();                         // 建场收尾: 方块数据 → 区块网格(各模式惯例, 漏了整场不可见)
     Tank.place(TANK_RANGE.tank.x, TANK_RANGE.groundY+1, TANK_RANGE.tank.z, { yaw: TANK_RANGE.tank.yaw });
     spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });
-    Tank.onExplode(onBoom);              /* 命中反馈: 炸到靶才表扬 */
+    Tank.onExplode(onBoom);              /* 命中反馈: 炸靶表扬 + 波及怪物 */
     Tank.protect(keepGround);            /* 爆炸保护: 平坦草海永固(丘陵/峡谷/乱石仍可炸) */
+    buildTankPanel();                    /* 选怪面板(菜单页, 只绑一次) */
     speakArmed = 10;                     // 重进模式即可再次邀请
-    hitCount = 0;
-    killCount = 0; waveN = 0; waveT = 0;
-    spawnWave();                         // 第一波怪物
+    hitCount = 0; killCount = 0;
+    deployed = false; clearPraised = false;
+    deployMobs();                        // 第一批: 默认僵尸×6, 点卡直进即有得玩
   },
 
   cleanup(){
     Tank.clear();
-    for(const m of rgMobs){ scene.remove(m.grp); m.dispose(); }
-    rgMobs.length = 0;
+    Mobs.clear();                        // 共享怪物: 回收名牌/挂件并冲刷批次
   },
 
   onKey(code){
     if(code === 'KeyE') speakForToggle(Tank.toggle());
+    else if(code === 'KeyR') deployMobs();   // 清场/想换批: 按当前配置再来一批
   },
 
   onMouse(button){                       /* 左键开炮(准星方向 = 车头目标 + 视角俯仰) */
     if(button === 0) fireOnce();
   },
 
-  /* 靠近邀请: 未驾驶 + 近旁有车 + 距上次满 10 秒 → 语音一次; 怪物游荡/碾压/波次同帧推进 */
+  /* 靠近邀请: 未驾驶 + 近旁有车 + 距上次满 10 秒 → 语音一次;
+     怪物本能(游荡/受击/死亡/名牌)在 Mobs.update, 碾压与清场播报在此 */
   update(dt){
     speakArmed += dt;
     if(!Tank.driving() && Tank.nearby() !== null && speakArmed >= 10){
       speakArmed = 0;
       SpeechKit.speak('要开坦克吗？按 E！');
     }
-    updateRgMobs(dt);
+    Mobs.update(dt);
+    /* 坦克碾压: 驾驶中贴身即压(脆怪一发, 硬怪要补炮——孩子的最爱) */
+    const tp = Tank.driving() ? Tank.at() : null;
+    if(tp){
+      for(const m of Mobs.near(tp.x, tp.z, 1.8, tp.y, 2.5)){
+        const r = Mobs.hit(m, VS.crush, m.pos.x - tp.x, m.pos.z - tp.z, 0.5);
+        if(r.freshDead) onKill(m);
+      }
+    }
+    Mobs.render();
+    checkCleared();
   },
 
   hud(){
     if(Tank.driving()){
+      const n = aliveCount();
       const lines = ['🚙 驾驶中 · 左键/💥 开炮 · E 下车'];
-      if(rgMobs.length > 0) lines.push('👾 怪物 ' + rgMobs.length + ' · 冲上去压！');
+      if(n > 0) lines.push('👾 剩 ' + n + ' 只 · 冲上去压！');
+      else if(deployed) lines.push('🎉 全消灭！R 再来 · Esc 换怪物');
       if(killCount > 0) lines.push('☠️ 已消灭 ' + killCount);
       if(hitCount > 0) lines.push('🎯 已命中 ' + hitCount);
       return lines;
@@ -266,9 +280,14 @@ const TankRangeMode = mkMode({
   touch: [
     { label: '🚙', act(){ speakForToggle(Tank.toggle()); } },
     { label: '💥', act: fireOnce },
+    { label: '👾', act(){ deployMobs(); } },        // 平板再来一批(与 R 同入口)
   ],
 
-  onMenu(){ Tank.exitAll(); },            // Esc/暂停保底: 人在车里也要安全落地
+  onMenu(){                               // Esc/暂停保底: 下车 + 打开选怪面板(回面板再选再来)
+    Tank.exitAll();
+    showPage('tank');
+    updateTankPanel();
+  },
   onHighlight(){ return false; }          // 本模式不挖不放, 隐藏方块高亮
 });
 

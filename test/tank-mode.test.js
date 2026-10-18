@@ -8,7 +8,7 @@ const assert = require('node:assert');
 
 function fakeEl(){
   const el = {
-    children: [], _cls: new Set(), style: {}, innerHTML: '', textContent: '',
+    children: [], _cls: new Set(), style: {}, innerHTML: '', textContent: '', dataset: {},
     addEventListener(){}, appendChild(c){ this.children.push(c); return c; },
     querySelector(sel){ if(!this['q_' + sel]) this['q_' + sel] = fakeEl(); return this['q_' + sel]; },
   };
@@ -59,6 +59,31 @@ globalThis.setTouchActions = (l) => { touchList = l; };
 globalThis.spawn = (x, y, z) => calls.push(['spawn', x, y, z]);
 let rebuilt = 0;
 globalThis.rebuildAll = () => { rebuilt++; };   /* 建场收尾: 方块数据 → 区块网格 */
+
+/* ---------- fake 怪物库(共享怪物: js/mobs.js 的调用期全局) ---------- */
+const mobsState = { spawned: [], cleared: 0 };
+let nearResult = [];
+let listResult = [];
+let nextHit = { hp: 10, dead: false, freshDead: false };
+const hitLog = [];
+globalThis.Mobs = {
+  types: { zombie:{name:'僵尸'}, skeleton:{name:'骷髅'}, creeper:{name:'苦力怕'}, golem:{name:'铁傀儡'}, dragon:{name:'末影龙'} },
+  spawn(type, x, z, opts){ mobsState.spawned.push({ type, x, z, opts }); return { type, pos:{ x, y: 13, z } }; },
+  update(){}, render(){},
+  hit(m, dmg){ hitLog.push({ m, dmg }); return nextHit; },
+  near(){ return nearResult; },
+  clear(){ mobsState.cleared++; },
+  list(){ return listResult; },
+  face(){ return 'data:'; },
+  hasSlot(){ return true; },
+};
+globalThis.Fx = { debrisBurst(){ calls.push(['debris']); } };
+globalThis.showPage = (id) => calls.push(['page', id]);
+globalThis.requestLock = () => calls.push(['lock']);
+globalThis.getBlock = () => 0;                /* 部署寻位的头顶净空查询 */
+globalThis.isSolid = () => false;
+globalThis.groundTop = () => 11;
+globalThis.TANK_VS_MOBS = { direct: 40, splash: 25, edge: 10, crush: 40, blastR: 3.1, blastDy: 4 };   /* config 数值表替身 */
 globalThis.pos = { set(){} };
 globalThis.vel = { set(){} };
 globalThis.yaw = 0; globalThis.pitch = 0; globalThis.onGround = true;
@@ -194,4 +219,88 @@ test('命中反馈: 爆炸炸到靶才表扬, 计数进 HUD', () => {
   spoken.length = 0;
   explodeCb(64, 12, 54, { removed: 20, counts: {} });          /* 只炸地板不炸靶 → 不表扬 */
   assert.ok(!spoken.some(s => s.indexOf('打中') >= 0), '没打到靶不表扬');
+});
+
+/* ============ 共享怪物: 部署 · 爆炸 · 碾压 · 清场 ============ */
+
+test('共享怪物: init 按默认配置一次性部署(僵尸×6, 带游荡栅栏), cleanup 清场', () => {
+  mobsState.spawned.length = 0; mobsState.cleared = 0;
+  TankRangeMode.init();
+  assert.strictEqual(mobsState.spawned.length, 6, '默认 6 只: ' + mobsState.spawned.length);
+  assert.ok(mobsState.spawned.every(s => s.type === 'zombie'), '默认僵尸');
+  assert.ok(mobsState.spawned.every(s => s.opts && s.opts.wander && s.opts.wander.x0 === 18), '带游荡栅栏(怪物库游荡本能)');
+  assert.ok(mobsState.spawned.every(s => Math.hypot(s.x - 56, s.z - 94) >= 12), '不刷在坦克脸上');
+  const before = mobsState.cleared;
+  TankRangeMode.cleanup();
+  assert.ok(mobsState.cleared > before, 'cleanup 清掉怪物');
+});
+
+test('R 键重部署: 清掉当前批, 按当前配置再来一批(无波次自动刷新)', () => {
+  mobsState.spawned.length = 0; mobsState.cleared = 0;
+  TankRangeMode.onKey('KeyR');
+  assert.ok(mobsState.cleared >= 1, '先清场');
+  assert.strictEqual(mobsState.spawned.length, 6, '再部署一批');
+});
+
+test('爆炸打怪: 近爆心按直击满伤, 边缘按距离衰减; 击杀给碎块与计数', () => {
+  TankRangeMode.init();                       /* 注册 onExplode/onBoom */
+  hitLog.length = 0; calls.length = 0; spoken.length = 0;
+  const mA = { type:'zombie', pos:{ x:64.5, y:12, z:54.5 } };   /* 爆心旁 → 直击 */
+  const mB = { type:'zombie', pos:{ x:66.5, y:12, z:56.5 } };   /* 边缘 → 衰减 */
+  nearResult = [mA, mB];
+  nextHit = { hp: 0, dead: false, freshDead: false };
+  explodeCb(64, 12, 54, { removed: 5, counts: {} });
+  assert.strictEqual(hitLog.length, 2, '波及范围内两只都挨打');
+  assert.strictEqual(hitLog[0].dmg, 40, '爆心旁按直击伤 40');
+  const dB = Math.hypot(66.5 - 64, 56.5 - 54);
+  assert.strictEqual(hitLog[1].dmg, Math.round(25 - 15 * Math.min(1, dB / 3.1)), '边缘按距离线性衰减');
+  nearResult = [mA];
+  nextHit = { hp: 0, dead: true, freshDead: true };
+  explodeCb(64, 12, 54, { removed: 5, counts: {} });
+  assert.ok(has('debris'), '击杀有碎块特效');
+  assert.ok(calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('消灭') >= 0), '击杀计数 toast');
+  nearResult = [];
+});
+
+test('坦克碾压: 驾驶中贴身怪物挨碾压伤(孩子的最爱)', () => {
+  hitLog.length = 0;
+  const m = { type:'zombie', pos:{ x:56.8, y:13, z:94.3 } };   /* 坦克(56,94)贴身 */
+  nearResult = [m];
+  nextHit = { hp: 0, dead: true, freshDead: true };
+  tankState.driving = true;
+  calls.length = 0;
+  TankRangeMode.update(1/60);
+  assert.strictEqual(hitLog.length, 1, '贴身怪物挨碾压');
+  assert.strictEqual(hitLog[0].dmg, 40, '碾压伤 40(脆怪一发压扁)');
+  assert.ok(has('debris'), '碾压击杀也有碎块');
+  nearResult = [];
+  tankState.driving = false;
+});
+
+test('清场播报: 一批全灭时语音表扬一次(过程性表扬, 不罚失误)', () => {
+  TankRangeMode.onKey('KeyR');                /* 显式部署一批, 不依赖跨测试状态 */
+  spoken.length = 0;
+  tankState.driving = false;
+  listResult = [];                            /* 场上一只不剩 */
+  TankRangeMode.update(1/60);
+  assert.ok(spoken.some(s => s.indexOf('全部消灭') >= 0), '清场表扬: ' + spoken.join('/'));
+  spoken.length = 0;
+  TankRangeMode.update(1/60);
+  assert.ok(!spoken.some(s => s.indexOf('全部消灭') >= 0), '只说一次');
+});
+
+test('菜单保底新增: Esc 打开选怪面板页(回面板再选再来)', () => {
+  calls.length = 0;
+  TankRangeMode.onMenu();
+  assert.ok(has('exitAll'), 'onMenu → Tank.exitAll');
+  assert.ok(calls.some(c => c[0] === 'page' && c[1] === 'tank'), 'onMenu → 显示坦克选怪页');
+});
+
+test('HUD: 驾驶中报剩余怪物数(怪物库 list 只读视图)', () => {
+  const hudEl = elCache['hud'];
+  listResult = [{}, {}, {}];                  /* 三只存活 */
+  tankState.driving = true; tankState.near = 0.4;
+  fakeClock += 200; TankRangeMode.updateHud(null);
+  assert.ok(hudEl.innerHTML.indexOf('剩 3') >= 0, 'HUD 剩余数: ' + hudEl.innerHTML);
+  listResult = [];
 });
