@@ -79,6 +79,22 @@ test('groundTop: 自上而下扫到首个非空气; 空柱返回 0', () => {
   assert.strictEqual(v.groundTop(60, 60), 0);
 });
 
+test('groundTop 缓存一致性: 写入/移除按列失效重算, world.clear 连带清缓存', () => {
+  const v = loadVoxel();
+  fill(v, 5, 0, 5, 5, 2, 5, 3);                 // 一根 3 高石柱
+  assert.strictEqual(v.groundTop(5, 5), 2);     // 首查建立缓存
+  v.setBlockRaw(5, 7, 5, 3);                    // 更高处放块 → 列失效
+  assert.strictEqual(v.groundTop(5, 5), 7);
+  v.setBlockRaw(5, 7, 5, 0);                    // 移除 → 回落
+  assert.strictEqual(v.groundTop(5, 5), 2);
+  for(let y=0;y<=2;y++) v.setBlockRaw(5, y, 5, 0);   // 整柱挖空 → 0
+  assert.strictEqual(v.groundTop(5, 5), 0);
+  fill(v, 8, 0, 8, 8, 5, 8, 3);
+  assert.strictEqual(v.groundTop(8, 8), 5);
+  v.world.clear();                              // 直清数据(测试/清场共用入口)
+  assert.strictEqual(v.groundTop(8, 8), 0);     // 不得返回清场前的旧缓存
+});
+
 /* ============ 碰撞与物理 ============ */
 
 test('collides: 站上方块之上为不碰撞(ε 收缩), 嵌入为碰撞', () => {

@@ -17,15 +17,26 @@ function hashRand(x,z){
   return ((n ^ (n >> 16)) >>> 0) / 4294967295;
 }
 
-/* ---------- 世界数据 ---------- */
-const world = new Map();
+/* ---------- 世界数据 ----------
+   内部整数键: getBlock 是全游戏最热的路径(物理/射线/网格重建/怪物落地
+   扫描), 字符串键在千怪规模下每帧产生数十万次临时字符串分配, GC 压力
+   直接转成掉帧; 数值键 < 2^24 是安全整数。blockKey(字符串) 保留为
+   存档/转辙器等外部格式专用, 与内部键无关。 */
+const topCache = new Map();                     // 按列高度缓存 (x,z)→顶层 y
+const world = new class extends Map {           // clear() 钩子: 直清数据必须连带失效高度缓存
+  clear(){ super.clear(); topCache.clear(); }   // (world.js 清场 与 tnt-levels 单测 共用此入口)
+};
 const blockKey = (x,y,z)=> x + ',' + y + ',' + z;
+const cellIdx = (x,y,z)=> (y*WORLD_D + z)*WORLD_W + x;
 function getBlock(x,y,z){
   if(y<0 || y>=WORLD_H) return 0;
   if(x<0||z<0||x>=WORLD_W||z>=WORLD_D) return 0;
-  return world.get(blockKey(x,y,z)) || 0;
+  return world.get(cellIdx(x,y,z)) || 0;
 }
-function setBlockRaw(x,y,z,id){ world.set(blockKey(x,y,z), id); }
+function setBlockRaw(x,y,z,id){
+  world.set(cellIdx(x,y,z), id);
+  topCache.delete(x*WORLD_D + z);               // 本列高度缓存失效, 读时惰性重算
+}
 function isSolid(id){
   if(id===0) return false;
   const b = BLOCKS[id];
@@ -37,9 +48,17 @@ function isOpaque(id){
   const b = BLOCKS[id];
   return b ? (b.solid !== false && !b.glass) : true;
 }
+/* 按列高度记忆化: 原自上而下全高扫描(至多 WORLD_H 次 getBlock), 千怪×
+   每帧多次落地查询是热点; setBlockRaw 已失效所在列, 这里读时重算一次 */
 function groundTop(x, z){
-  for(let y=WORLD_H-1; y>=0; y--) if(getBlock(x,y,z)!==0) return y;
-  return 0;
+  if(x<0||z<0||x>=WORLD_W||z>=WORLD_D) return 0;
+  const ck = x*WORLD_D + z;
+  if(topCache.has(ck)) return topCache.get(ck);
+  let y = WORLD_H-1;
+  for(; y>=0; y--) if(getBlock(x,y,z)!==0) break;
+  const top = y >= 0 ? y : 0;                   // 空列按 0(与原语义一致)
+  topCache.set(ck, top);
+  return top;
 }
 
 /* ---------- 体素射线 (Amanatides-Woo) ----------
