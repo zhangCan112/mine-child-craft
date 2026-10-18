@@ -109,7 +109,7 @@ test('A·D 集成: steer 以转向速率改写 aimYaw, 车体跟随(无鼠标也
   flatGround(t, 10, 50, 50, 80, 80);
   const T = grounded(t, 64, 64, 0);
   drive(t, T, {forward:0, steer:1, lookYaw:null}, 1);          // 按住 D 一秒
-  assert.ok(T.aimYaw > 1.4, 'aimYaw 应累积约 turnRate·1s=1.9: ' + T.aimYaw);
+  assert.ok(T.aimYaw < -1.4, 'aimYaw 应累积约 -turnRate·1s=-1.9(D=右转, 与鼠标右移同号): ' + T.aimYaw);
   assert.ok(Math.abs(t.TankCore.wrapAngle(T.yaw - T.aimYaw)) < 0.1, '车体跟上 aimYaw');
 });
 

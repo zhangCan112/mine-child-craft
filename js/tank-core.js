@@ -44,7 +44,7 @@ const TankCore = (()=>{
 
     /* --- 方向权威: 鼠标/摇杆(lookYaw 非空即采纳) > A·D(以转向速率积分) --- */
     if(input.lookYaw !== null && input.lookYaw !== undefined) T.aimYaw = input.lookYaw;
-    else if(input.steer) T.aimYaw += input.steer * TANK.turnRate * dt;
+    else if(input.steer) T.aimYaw -= input.steer * TANK.turnRate * dt;   // steer 与鼠标同号: 右转(D/摇杆右)= yaw 减小(pad 试玩反馈: 曾反号, 推右左转)
 
     /* 车体以 turnRate 追踪 aimYaw(取最短方向) */
     const d = wrapAngle(T.aimYaw - T.yaw);
