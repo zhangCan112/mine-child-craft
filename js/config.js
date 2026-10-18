@@ -13,6 +13,16 @@ const PLAYER = {
   speed: 5.0, sprint: 8.5, jump: 8.6, gravity: 26.0
 };
 
+/* 第三人称相机 (CameraRig 用, 见 js/camera-rig.js) */
+const CAM = {
+  dist: 3.2,       // 轨道距离(格): 相机离眼睛多远
+  shoulder: 0.55,  // 越肩横移: 相机向人物右肩偏移, 人物落画面左侧, 准心不被挡
+  lift: 0.18,      // 越肩抬升: 相机沿视线上方轻微抬高
+  minDist: 0.35,   // 防穿墙收拢下限(贴墙时最近)
+  margin: 0.28,    // 相机与命中面的留白
+  hideDist: 0.9    // 收拢近于此 → 隐藏玩家形象(头不再挡画面)
+};
+
 /* 竞技场几何参数 */
 const ARENA = {
   cx: WORLD_W/2, cz: WORLD_D/2,   // 中心 (64,64)

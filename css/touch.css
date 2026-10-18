@@ -19,8 +19,10 @@ canvas{touch-action:none}
   border:3px solid rgba(255,255,255,.5);background:rgba(0,0,0,.32);color:#fff;
   touch-action:manipulation;box-shadow:0 4px 10px rgba(0,0,0,.35)}
 #touchBtns button:active{background:rgba(124,252,0,.4)}
-#touchPause{position:absolute;top:14px;right:14px;width:52px;height:52px;border-radius:12px;
+#touchPause,#touchCam{position:absolute;top:14px;width:52px;height:52px;border-radius:12px;
   font-size:22px;border:3px solid rgba(255,255,255,.4);background:rgba(0,0,0,.32);color:#fff}
+#touchPause{right:14px}
+#touchCam{right:76px}
 
 /* ---------- 平板/触屏 适配 ---------- */
 @media (pointer: coarse), (max-width: 900px){

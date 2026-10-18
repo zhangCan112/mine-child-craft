@@ -419,8 +419,8 @@ function updatePickups(dt){
 /* ---------- 玩家操作 ---------- */
 function tryIgnite(){
   if(lvState!=='playing') return;
-  const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-  const hit = raycastVoxel(camera.position, dir, 6);
+  const aim = CameraRig.aim();
+  const hit = raycastVoxel(aim.origin, aim.dir, 6);
   if(!hit) return;
   const id = getBlock(hit.x, hit.y, hit.z);
   if(id===B_TNT){

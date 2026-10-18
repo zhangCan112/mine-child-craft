@@ -31,13 +31,23 @@ function isSolid(id){
   const b = BLOCKS[id];
   return b ? b.solid !== false : true;
 }
+/* 不透明判定: 相机防穿墙用 — 实心且非玻璃(隔着玻璃透视不收拢相机) */
+function isOpaque(id){
+  if(id===0) return false;
+  const b = BLOCKS[id];
+  return b ? (b.solid !== false && !b.glass) : true;
+}
 function groundTop(x, z){
   for(let y=WORLD_H-1; y>=0; y--) if(getBlock(x,y,z)!==0) return y;
   return 0;
 }
 
-/* ---------- 体素射线 (Amanatides-Woo) ---------- */
-function raycastVoxel(origin, dir, maxDist){
+/* ---------- 体素射线 (Amanatides-Woo) ----------
+   filter: 可选命中判定 (id)=>bool, 默认任何非空气;
+   相机防穿墙传 isSolid — 滤过水面/引线等非实心方块。
+   返回值 t: 从 origin 到进入命中格的距离(0=origin 起步就在格内) */
+function raycastVoxel(origin, dir, maxDist, filter){
+  const hitFn = filter || (id => id !== 0);
   let x=Math.floor(origin.x), y=Math.floor(origin.y), z=Math.floor(origin.z);
   const stepX = dir.x>0?1:(dir.x<0?-1:0);
   const stepY = dir.y>0?1:(dir.y<0?-1:0);
@@ -54,8 +64,8 @@ function raycastVoxel(origin, dir, maxDist){
   let normal=[0,0,0];
   let t = 0;
   while(t <= maxDist){
-    if(getBlock(x,y,z)!==0){
-      return { x,y,z, nx:normal[0], ny:normal[1], nz:normal[2] };
+    if(hitFn(getBlock(x,y,z))){
+      return { x,y,z, nx:normal[0], ny:normal[1], nz:normal[2], t };
     }
     if(tMaxX < tMaxY){
       if(tMaxX < tMaxZ){ x+=stepX; t=tMaxX; tMaxX+=tDeltaX; normal=[-stepX,0,0]; }

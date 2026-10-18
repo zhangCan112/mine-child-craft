@@ -65,6 +65,10 @@ addEventListener('pointercancel', (e)=>{ if(e.pointerId === lookId) lookId = nul
 document.addEventListener('keydown', (e)=>{
   keys[e.code] = true;
   if(!locked && !touchPlaying) return;
+  if(e.code==='KeyV' || e.code==='KeyC'){            // 视角切换(不用 F5: 留给浏览器刷新)
+    showToast('📷 视角：' + CameraRig.cycle());
+    return;
+  }
   if(e.code.startsWith('Digit')){
     const n = parseInt(e.code.slice(5),10);
     if(MODES.cur && MODES.cur.onDigit) MODES.cur.onDigit(n);
@@ -87,17 +91,15 @@ renderer.domElement.addEventListener('click', ()=>{
 renderer.domElement.addEventListener('mousedown', (e)=>{
   if(performance.now() - lastTouchT < 600) return;    // 触屏合成鼠标事件, 忽略
   if(!locked) return;
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
-  const hit = raycastVoxel(camera.position, dir, 6);
+  const aim = CameraRig.aim();
+  const hit = raycastVoxel(aim.origin, aim.dir, 6);
   if(MODES.cur && MODES.cur.onMouse) MODES.cur.onMouse(e.button, hit);
 });
 
 /* 准星中心点击 (触屏动作按钮用) */
 function doCenterClick(button){
-  const dir = new THREE.Vector3();
-  camera.getWorldDirection(dir);
-  const hit = raycastVoxel(camera.position, dir, 6);
+  const aim = CameraRig.aim();
+  const hit = raycastVoxel(aim.origin, aim.dir, 6);
   if(MODES.cur && MODES.cur.onMouse) MODES.cur.onMouse(button, hit);
 }
 
@@ -110,9 +112,11 @@ function buildTouchUI(){
   root.id = 'touchUI';
   root.innerHTML = '<div id="joy"><div id="joyKnob"></div></div>'
     + '<div id="touchBtns"></div>'
+    + '<button id="touchCam">📷</button>'
     + '<button id="touchPause">⏸</button>';
   document.body.appendChild(root);
   document.getElementById('touchPause').onpointerdown = (e)=>{ e.preventDefault(); uiPause(); };
+  document.getElementById('touchCam').onpointerdown = (e)=>{ e.preventDefault(); showToast('📷 视角：' + CameraRig.cycle()); };
 
   const joy = document.getElementById('joy');
   const knob = document.getElementById('joyKnob');

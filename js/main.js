@@ -155,12 +155,12 @@ function loop(now){
     }
   }
 
-  camera.position.set(pos.x, pos.y+PLAYER.eye, pos.z);
-  camera.rotation.set(pitch, yaw, 0, 'YXZ');
+  const camDist = CameraRig.apply(camera, dt);   // 相机装置: 视角模式/轨道/防穿墙
+  Avatar.update(dt, camDist);                    // 玩家形象同步+动画(近距自动隐藏)
   Fx.wobble(dt, camera);   // 震屏消费(衰减+抖动)收在 Fx, 须在相机位姿设定之后
 
-  const dir = new THREE.Vector3(); camera.getWorldDirection(dir);
-  const hit = raycastVoxel(camera.position, dir, 6);
+  const aim = CameraRig.aim();                   // 瞄准射线统一从眼睛出发(不因第三人称瞄到身后)
+  const hit = raycastVoxel(aim.origin, aim.dir, 6);
   let hlShow = !!hit;
   if(hit && MODES.cur && MODES.cur.onHighlight){
     if(MODES.cur.onHighlight(hit) === false) hlShow = false;

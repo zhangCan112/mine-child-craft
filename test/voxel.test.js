@@ -19,7 +19,7 @@ function loadVoxel(){
   /* 桥接: context 内可见全局词法名, 外部经 __v 访问; let 基本类型用 getter/setter 保持同步 */
   vm.runInContext(`
     globalThis.__v = {
-      world, getBlock, setBlockRaw, isSolid, groundTop, hashRand, blockKey,
+      world, getBlock, setBlockRaw, isSolid, isOpaque, groundTop, hashRand, blockKey,
       raycastVoxel, pos, vel, collides, physics, collidesAtPlayer, worldEvents,
       keys, touchMove, touchSprint,
       get onGround(){ return onGround; }, set onGround(v){ onGround = v; },
@@ -61,6 +61,14 @@ test('isSolid: 引线/水非实心, 石头实心, 未知 id 按实心(现状)', 
   assert.strictEqual(v.isSolid(v.B_FUSE), false);         // 引线 thin + solid:false
   assert.strictEqual(v.isSolid(v.B_WATER), false);        // 水 solid:false
   assert.strictEqual(v.isSolid(99), true);                // 未知 id 兜底为实心(记录现状)
+});
+
+test('isOpaque: 玻璃与水可透视(相机防穿墙不收拢), 石头不透明', () => {
+  const v = loadVoxel();
+  assert.strictEqual(v.isOpaque(3), true);                // 石头 → 相机收拢
+  assert.strictEqual(v.isOpaque(18), false);              // 玻璃 → 相机隔着玻璃透视
+  assert.strictEqual(v.isOpaque(v.B_WATER), false);       // 水
+  assert.strictEqual(v.isOpaque(0), false);               // 空气
 });
 
 test('groundTop: 自上而下扫到首个非空气; 空柱返回 0', () => {
@@ -164,6 +172,19 @@ test('raycastVoxel: 侧向命中给出反向法线', () => {
   assert.ok(hit);
   assert.strictEqual(hit.x, 45);
   assert.strictEqual(hit.nx, -1);                         // 自西侧进入 → 法线朝 -x
+});
+
+test('raycastVoxel: 命中距离 t 与实心过滤 filter (相机防穿墙用)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);                      // y=10 石地板
+  v.setBlockRaw(42, 14, 42, v.B_WATER);                    // 脚下隔一层水
+  const eye = {x:42.5, y:15.5, z:42.5}, down = {x:0, y:-1, z:0};
+  const anyHit = v.raycastVoxel(eye, down, 6);
+  assert.ok(anyHit && anyHit.y === 14);                    // 默认: 水也算命中
+  assert.ok(Math.abs(anyHit.t - 0.5) < 1e-9);              // y15.5 → 水顶 15: 距离 0.5
+  const solidHit = v.raycastVoxel(eye, down, 6, v.isSolid);
+  assert.ok(solidHit && solidHit.y === 10);                // 实心过滤: 穿过水命中地板
+  assert.ok(Math.abs(solidHit.t - 4.5) < 1e-9);            // y15.5 → 地板顶 11: 距离 4.5
 });
 
 test('hashRand: 确定性且落在 [0,1)', () => {
