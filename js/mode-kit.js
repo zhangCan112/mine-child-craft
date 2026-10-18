@@ -145,7 +145,21 @@ function mkMode(cfg){
   if(cfg.onHighlight) mode.onHighlight = cfg.onHighlight;
   if(cfg.onMenu) mode.onMenu = cfg.onMenu;
   if(cfg.buildMenu) mode.buildMenu = cfg.buildMenu;
-  if(cfg.hud && MK.hud) mode.updateHud = (hit)=>{ MK.hud.innerHTML = cfg.hud(hit).join('<br>'); };
+  if(cfg.hud && MK.hud){
+    /* HUD 节流: 主循环每帧调用, 但文本至多 10Hz 变化 — 先限频再比对,
+       内容相同直接跳过 innerHTML 写入(省去每帧 DOM 重建/布局/重绘,
+       也省掉 hud() 内的全量重算, 如竞技场记分板遍历全部怪物) */
+    let hudLastT = -1e9, hudLastHtml = null;
+    mode.updateHud = (hit)=>{
+      const now = performance.now();
+      if(now - hudLastT < 100) return;
+      hudLastT = now;
+      const html = cfg.hud(hit).join('<br>');
+      if(html === hudLastHtml) return;
+      hudLastHtml = html;
+      MK.hud.innerHTML = html;
+    };
+  }
   return mode;
 }
 

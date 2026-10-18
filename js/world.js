@@ -54,7 +54,10 @@ for(let i=0;i<3;i++){
   }
 }
 
-const blockMat = new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.DoubleSide});
+/* 材质侧面: 网格生成已剔除实心邻面且法线一律朝外, 实心/TNT 几何的
+   背面永远不可见 → FrontSide 让 GPU 在光栅化前丢弃背面三角形(省约
+   一半填充率)。玻璃/水需从透明体内侧观看, 保留 DoubleSide。 */
+const blockMat = new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.FrontSide});
 const glassMat = new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.DoubleSide,
   transparent:true, opacity:0.32, depthWrite:false});
 
@@ -94,7 +97,7 @@ function makeTntTexture(){
   tex.minFilter = THREE.NearestFilter;
   return tex;
 }
-const tntMat = new THREE.MeshLambertMaterial({map:makeTntTexture(), side:THREE.DoubleSide});
+const tntMat = new THREE.MeshLambertMaterial({map:makeTntTexture(), side:THREE.FrontSide});
 
 /* ---------- 区块网格构建 (不透明 + 玻璃双通道 + 贴地薄块) ---------- */
 const FACES = [

@@ -56,6 +56,26 @@ const arrowRodGeo = new THREE.BoxGeometry(0.14,0.08,0.5);
 const arrowHeadGeo = new THREE.BoxGeometry(0.24,0.1,0.2);
 const switchArrowMat = new THREE.MeshBasicMaterial({color:0xff8800});
 
+/* ---------- 火花点光池 ----------
+   场景灯光数量变化会让 Three 重编译所有材质的 program —— 原来每点燃/
+   熄灭一个火花就全局卡一下, 且正好发生在引线燃烧最密集的时刻。
+   改为固定盏数常驻场景: 空闲灯 intensity=0, 每帧把灯对齐到最前面的
+   几个火花。池在脚本加载时建好(首次编译材质时已包含, 游玩中灯数
+   永远不变 → 零重编译), 跨关卡/跨模式常驻, clearTntEntities 只熄不摘。 */
+const sparkLights = [];
+for(let i=0;i<3;i++){
+  const l = new THREE.PointLight(0xffaa33, 0, 5);
+  scene.add(l);
+  sparkLights.push(l);
+}
+function syncSparkLights(){
+  for(let i=0;i<sparkLights.length;i++){
+    const l = sparkLights[i], s = sparks[i];
+    if(s){ l.position.copy(s.mesh.position); l.intensity = 0.9; }
+    else l.intensity = 0;
+  }
+}
+
 /* ---------- 小工具 ---------- */
 function inZone(p, z){
   return p.x>=z.x1 && p.x<=z.x2+1 && p.y>=z.y1 && p.y<=z.y2+1 && p.z>=z.z1 && p.z<=z.z2+1;
@@ -113,8 +133,9 @@ function updateSwitchArrow(sw){
 
 /* ---------- 实体清理 ---------- */
 function clearTntEntities(){
-  for(const s of sparks){ scene.remove(s.mesh); if(s.light) scene.remove(s.light); }
+  for(const s of sparks){ scene.remove(s.mesh); }
   sparks.length = 0;
+  for(const l of sparkLights) l.intensity = 0;   // 池灯常驻: 只熄不摘(灯数不变防重编译)
   for(const t of tnts){ if(t.mesh) scene.remove(t.mesh); }
   tnts.length = 0;
   for(const p of pickups) scene.remove(p.mesh);
@@ -227,20 +248,19 @@ function destroySphere(cx, cy, cz, srcTnt){
   for(let i=sparks.length-1;i>=0;i--){
     const s = sparks[i];
     if(Math.hypot(s.x+0.5-cx, s.y+0.5-cy, s.z+0.5-cz) < R+1){
-      scene.remove(s.mesh); if(s.light) scene.remove(s.light);
+      scene.remove(s.mesh);
       sparks.splice(i,1);
     }
   }
+  syncSparkLights();                              // 池灯立即让位, 不等下一帧
 }
 
 /* ---------- 火花 ---------- */
 function spawnSpark(x,y,z){
   const mesh = new THREE.Mesh(sparkGeo, sparkMat);
   mesh.position.set(x+0.5, y+0.2, z+0.5);
-  const light = new THREE.PointLight(0xffaa33, 0.9, 5);
-  light.position.copy(mesh.position);
-  scene.add(mesh); scene.add(light);
-  sparks.push({x, y, z, px:x, py:y, pz:z, prog:1, mesh, light,
+  scene.add(mesh);
+  sparks.push({x, y, z, px:x, py:y, pz:z, prog:1, mesh,
     speed: (lv && lv.fast) ? TNT_CFG.sparkFast : TNT_CFG.sparkSpeed, fssT:0, life:0});
   sfx('fss');
 }
@@ -253,7 +273,7 @@ function killSpark(s, water){
   } else {
     smallPop(s.x+0.5, s.y+0.3, s.z+0.5, 0x888888);
   }
-  scene.remove(s.mesh); scene.remove(s.light);
+  scene.remove(s.mesh);                          // 点光常驻池, 由 syncSparkLights 接管
 }
 
 function updateSparks(dt){
@@ -316,8 +336,8 @@ function updateSparks(dt){
                    s.pz+0.5 + (s.z-s.pz)*s.prog);
     const blink = 0.85 + Math.sin(performance.now()/40)*0.2;
     m.scale.set(blink, blink, blink);
-    s.light.position.copy(m.position);
   }
+  syncSparkLights();                              // 点光池对齐存活火花(含刚熄灭的清零)
   flushDirty();
 }
 
