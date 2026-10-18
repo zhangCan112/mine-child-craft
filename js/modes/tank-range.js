@@ -34,6 +34,12 @@ function fireOnce(){
   if(r === 'cooldown') showToast('⏳ 装填中…');
 }
 
+/* 爆炸保护: 只护平坦草海(全图 y≤groundY 的草/泥基层) —
+   丘陵草帽在 y≥13、峡谷石壁/乱石/围栏都不是草海, 照炸 */
+function keepGround(id, bx, by){
+  return by <= TANK_RANGE.groundY && (id === 1 || id === 2);
+}
+
 /* 爆炸回调(引擎在命中点回调, 带爆点坐标): 炸到靶才表扬 — 过程性表扬, 不罚脱靶 */
 function onBoom(x, y, z, res){
   const hits = (res.counts && res.counts[TANK_RANGE.targetId]) || 0;
@@ -213,6 +219,7 @@ const TankRangeMode = mkMode({
     Tank.place(TANK_RANGE.tank.x, TANK_RANGE.groundY+1, TANK_RANGE.tank.z, { yaw: TANK_RANGE.tank.yaw });
     spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });
     Tank.onExplode(onBoom);              /* 命中反馈: 炸到靶才表扬 */
+    Tank.protect(keepGround);            /* 爆炸保护: 平坦草海永固(丘陵/峡谷/乱石仍可炸) */
     speakArmed = 10;                     // 重进模式即可再次邀请
     hitCount = 0;
     killCount = 0; waveN = 0; waveT = 0;

@@ -3,6 +3,8 @@
    载具 (Tank, 术语见 GLOSSARY.md) — 引擎层
    ------------------------------------------------------------
    可驾驶实体的建模与状态机: 上车/下车/相机挂载/玩家物理切换/开炮。
+   建模(斜甲车首·侧裙·迷彩·车灯·阶梯炮塔·天线晃动·炮口焰)与
+   履带滚动全是 implementation。
    interface: place / update / toggle / driving / nearby /
               exitAll / clear / fire / onExplode。驾驶物理与炮弹弹道、
    爆炸破坏在 TankCore(纯核心), 提示文案与话术在模式层 — 本文件零玩法知识。
@@ -19,12 +21,22 @@ const Tank = (()=>{
   let drivingIdx = -1;                    // -1=无人驾驶
   const shells = [];                      // 在飞的炮弹 { S, mesh }
   let boomCb = null;                      // 模式注册的爆炸回调(命中反馈, 政策在模式层)
+  let protectFn = null;                   // 模式注册的爆炸保护谓词(什么不可炸, 政策在模式层)
 
-  /* ---------- 体素风建模: 车体 + 炮塔(旋转枢轴) + 履带(滚动动画) ---------- */
-  const box = (w, h, d, color)=> new THREE.Mesh(
-    new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({color}));
-  /* 配色取自方块注册表: 装甲 10 · 履带 11 · 金属 12 */
-  const COL = { hull: 0x61753d, track: 0x26262a, link: 0x3d3d44, turret: 0x55703c, barrel: 0x787d87, shell: 0x1c1c20 };
+  /* ---------- 体素风建模: 斜甲车首 · 侧裙 · 迷彩 · 车灯 · 阶梯炮塔 ·
+     天线(晃动) · 炮口制退器 · 炮口焰 ---------- */
+  const box = (w, h, d, color, opts)=>{
+    const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d),
+      new THREE.MeshLambertMaterial(Object.assign({ color }, opts)));
+    return m;
+  };
+  /* 配色取自方块注册表: 装甲 10 · 履带 11 · 金属 12, 迷彩/灯为观感增强 */
+  const COL = {
+    hull: 0x61753d, hullDark: 0x4a5a30, camo: 0x3c4a28, camo2: 0x6f7f46,
+    track: 0x26262a, link: 0x3d3d44, skirt: 0x333d24,
+    turret: 0x55703c, turretTop: 0x476031, barrel: 0x787d87, brake: 0x8b909a,
+    shell: 0x1c1c20, lamp: 0xfff2b0, antTip: 0xff4444, flash: 0xffa030,
+  };
 
   function buildModel(){
     const root = new THREE.Group();
@@ -32,7 +44,7 @@ const Tank = (()=>{
     /* 履带: 底带 + 5 节循环滚动的履带节(差速: 原地转也滚) */
     const mkTrack = (x)=>{
       const g = new THREE.Group(); g.position.x = x;
-      const base = box(0.42, 0.50, 3.0, COL.track); base.position.y = 0.25; g.add(base);
+      const base = box(0.42, 0.50, 3.1, COL.track); base.position.y = 0.25; g.add(base);
       g.userData.links = [];
       for(let i=0; i<5; i++){
         const link = box(0.46, 0.06, 0.30, COL.link);
@@ -41,21 +53,56 @@ const Tank = (()=>{
       }
       return g;
     };
-    const trackL = mkTrack(-0.72), trackR = mkTrack(0.72);
-    const hull = box(1.55, 0.55, 2.9, COL.hull);  hull.position.y = 0.78;
+    const trackL = mkTrack(-0.78), trackR = mkTrack(0.78);
 
-    /* 炮塔独立 Group(枢轴在座圈): 后坐沿炮管 z, 二期开炮只转它 */
-    const turret = new THREE.Group();     turret.position.y = 1.12;
-    const dome = box(0.95, 0.42, 1.05, COL.turret); dome.position.y = 0.18;
-    const barrel = box(0.16, 0.16, 1.6, COL.barrel); barrel.position.set(0, 0.22, -1.05);
+    /* 侧裙板: 盖住履带上半, 装甲感 */
+    const skirtL = box(0.14, 0.36, 2.75, COL.skirt); skirtL.position.set(-0.82, 0.72, 0);
+    const skirtR = box(0.14, 0.36, 2.75, COL.skirt); skirtR.position.set( 0.82, 0.72, 0);
 
-    turret.add(dome, barrel);
-    root.add(trackL, trackR, hull, turret);
+    /* 车体主甲 + 阶梯斜甲车首(三段收窄, 迎弹面) + 尾部排气筒 ×2 */
+    const hull = box(1.7, 0.5, 2.9, COL.hull);  hull.position.y = 0.92;
+    const glacis1 = box(1.66, 0.16, 0.62, COL.hullDark); glacis1.position.set(0, 0.76, -1.48);
+    const glacis2 = box(1.5,  0.18, 0.5,  COL.hullDark); glacis2.position.set(0, 0.94, -1.28);
+    const glacis3 = box(1.28, 0.2,  0.46, COL.hullDark); glacis3.position.set(0, 1.12, -1.08);
+    const exhL = box(0.14, 0.16, 0.42, COL.track); exhL.position.set(-0.4, 1.18, 1.42);
+    const exhR = box(0.14, 0.16, 0.42, COL.track); exhR.position.set( 0.4, 1.18, 1.42);
+
+    /* 迷彩色块(微浮出表面, 免 z-fight) */
+    const camo1 = box(0.5, 0.52, 0.5, COL.camo);  camo1.position.set(-0.42, 0.92, -0.4);
+    const camo2 = box(0.44, 0.52, 0.4, COL.camo2); camo2.position.set(0.45, 0.92, 0.55);
+    const camo3 = box(0.36, 0.52, 0.34, COL.camo); camo3.position.set(0.3, 0.92, -0.95);
+
+    /* 车头灯 ×2(自发光, 夜里也亮) */
+    const lampL = box(0.16, 0.13, 0.1, COL.lamp, { emissive: 0x997f30 });
+    lampL.position.set(-0.56, 1.06, -1.5);
+    const lampR = box(0.16, 0.13, 0.1, COL.lamp, { emissive: 0x997f30 });
+    lampR.position.set( 0.56, 1.06, -1.5);
+
+    /* 炮塔群(枢轴在座圈): 阶梯塔身 · 舱盖 · 天线(红头) ·
+       炮管 + 炮口制退器 + 炮口焰(开炮瞬闪) */
+    const turret = new THREE.Group();     turret.position.y = 1.34;
+    const dome1 = box(1.05, 0.34, 1.2, COL.turret);     dome1.position.y = 0.14;
+    const dome2 = box(0.8,  0.26, 0.92, COL.turretTop); dome2.position.y = 0.42;
+    const hatch = box(0.34, 0.08, 0.34, COL.barrel);    hatch.position.set(0, 0.58, 0.18);
+    const mantlet = box(0.3, 0.3, 0.36, COL.barrel);    mantlet.position.set(0, 0.22, -0.62);
+    const barrel = box(0.15, 0.15, 1.7, COL.barrel);    barrel.position.set(0, 0.22, -1.1);
+    const brake  = box(0.24, 0.24, 0.3, COL.brake);     brake.position.set(0, 0.22, -1.98);
+    const antenna = new THREE.Group();  antenna.position.set(0.42, 0.5, 0.44);
+    const antRod = box(0.045, 0.95, 0.045, COL.brake);  antRod.position.y = 0.48;
+    const antTip = box(0.06, 0.12, 0.06, COL.antTip, { emissive: 0x881111 });
+    antTip.position.y = 1.0;
+    antenna.add(antRod, antTip);
+    const flash = box(0.55, 0.55, 0.7, COL.flash, { emissive: 0xcc6600, transparent: true, opacity: 0.95 });
+    flash.position.set(0, 0.22, -2.3); flash.visible = false;
+    turret.add(dome1, dome2, hatch, mantlet, barrel, brake, antenna, flash);
+
+    root.add(trackL, trackR, skirtL, skirtR, hull, glacis1, glacis2, glacis3,
+             exhL, exhR, camo1, camo2, camo3, lampL, lampR, turret);
 
     const dispose = ()=> root.traverse(o=>{
       if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); }
     });
-    return { root, turret, barrel, trackL, trackR, dispose };
+    return { root, turret, barrel, antenna, flash, trackL, trackR, dispose };
   }
 
   /* ---------- 输入映射: 键盘 + 摇杆 → TankCore 的 input 数据 ----------
@@ -124,7 +171,7 @@ const Tank = (()=>{
       if(!sh.S.dead) continue;
       disposeShell(sh);
       shells.splice(i, 1);
-      const res = TankCore.explode(sh.S.x, sh.S.y, sh.S.z, editBlockDirty);
+      const res = TankCore.explode(sh.S.x, sh.S.y, sh.S.z, editBlockDirty, protectFn);
       flushDirty();                                     // 批量破坏 → 一次重建受影响区块
       Fx.boom(sh.S.x, sh.S.y, sh.S.z, { r1: TANK.shellR + 1.2, n: 12 });   // 内含 boom 音+震屏
       if(boomCb) boomCb(sh.S.x, sh.S.y, sh.S.z, res);   // 带爆点坐标: 波及判定归模式层
@@ -136,7 +183,7 @@ const Tank = (()=>{
   function place(x, y, z, o){
     o = o || {};
     const m = buildModel();
-    const tk = { T: TankCore.mkT(x, y, z, o.yaw || 0), prevYaw: o.yaw || 0, recoil: 0, ...m };
+    const tk = { T: TankCore.mkT(x, y, z, o.yaw || 0), prevYaw: o.yaw || 0, recoil: 0, animT: 0, flashT: 0, ...m };
     scene.add(m.root);
     syncMesh(tk);
     tanks.push(tk);
@@ -154,9 +201,20 @@ const Tank = (()=>{
       syncMesh(tk);
       animateTreads(tk, dt);
       engineHum(Math.abs(tk.T.vel)/TANK.speed);        // 引擎嗡鸣随车速(内部量化免抖)
+      /* 天线随行进晃动, 停车缓摆回正 */
+      tk.animT += dt*(1 + Math.abs(tk.T.vel)*0.6);
+      tk.antenna.rotation.x = Math.sin(tk.animT*5.5)*0.1*Math.min(1, Math.abs(tk.T.vel)/2);
+      tk.antenna.rotation.z = Math.cos(tk.animT*4.2)*0.07*Math.min(1, Math.abs(tk.T.vel)/2);
       if(tk.recoil > 0){                    /* 炮管后坐复位 */
         tk.recoil = Math.max(0, tk.recoil - dt*1.4);
-        tk.barrel.position.z = -1.05 + tk.recoil;
+        tk.barrel.position.z = -1.1 + tk.recoil;
+      }
+      if(tk.flashT > 0){                    /* 炮口焰: 0.12 秒缩小消失 */
+        tk.flashT -= dt;
+        const k = Math.max(0, tk.flashT)/0.12;
+        tk.flash.scale.set(0.5 + k*0.7, 0.5 + k*0.7, 0.4 + k*0.9);
+        tk.flash.material.opacity = 0.35 + k*0.6;
+        if(tk.flashT <= 0) tk.flash.visible = false;
       }
     } else {
       engineHum(0);                          // 无人驾驶即熄声(切模式/回菜单由 clear 兜底)
@@ -170,7 +228,8 @@ const Tank = (()=>{
     const tk = tanks[drivingIdx];
     if(tk.T.cool > 0) return 'cooldown';
     tk.T.cool = TANK.reload;
-    tk.recoil = 0.3;
+    tk.recoil = 0.32;
+    tk.flashT = 0.12; tk.flash.visible = true; tk.flash.scale.set(1.2, 1.2, 1.3);
     sfx('shoot');
     const aim = CameraRig.aim();
     const T = tk.T;
@@ -184,6 +243,7 @@ const Tank = (()=>{
   }
 
   function onExplode(cb){ boomCb = cb; }    /* 命中反馈钩子: 政策(表扬/计数)归模式层 */
+  function protect(fn){ protectFn = fn; }   /* 爆炸保护钩子: 政策(什么不可炸)归模式层 */
 
   function toggle(){
     if(drivingIdx >= 0){                  /* ---- 下车 ---- */
@@ -228,5 +288,5 @@ const Tank = (()=>{
     shells.length = 0;
   }
 
-  return { place, update, toggle, driving, at, nearby, exitAll, clear, fire, onExplode };
+  return { place, update, toggle, driving, at, nearby, exitAll, clear, fire, onExplode, protect };
 })();

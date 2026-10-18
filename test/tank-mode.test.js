@@ -49,8 +49,9 @@ globalThis.Tank = {
   fire(){ calls.push(['fire']); return tankState.fireResult || 'fired'; },
   at(){ return { x: 56, y: 13, z: 94 }; },       /* 驾驶中车位(碾压判定用) */
   onExplode(cb){ explodeCb = cb; },          /* 模式注册爆炸回调(命中反馈) */
+  protect(fn){ protectFn = fn; },            /* 模式注册爆炸保护谓词(地面政策) */
 };
-let explodeCb = null;
+let explodeCb = null, protectFn = null;
 globalThis.SceneKit = { fill(){ calls.push(['fill']); }, tree(){}, rand: () => 0 };
 globalThis.SpeechKit = { speak(s){ spoken.push(s); }, cancel(){} };
 globalThis.showToast = (s) => calls.push(['toast', s]);
@@ -177,6 +178,12 @@ test('命中反馈: 爆炸炸到靶才表扬, 计数进 HUD', () => {
   spoken.length = 0;
   TankRangeMode.init();                       /* 注册 onExplode */
   assert.strictEqual(typeof explodeCb, 'function', '模式在 init 注册爆炸回调');
+  assert.strictEqual(typeof protectFn, 'function', '模式在 init 注册爆炸保护谓词');
+  /* 保护判定: 平坦草海(y≤12 草/泥)永固; 丘陵层(y≥13)与石质照炸 */
+  assert.strictEqual(protectFn(1, 64, 12, 64), true, '草海顶层受保护');
+  assert.strictEqual(protectFn(2, 64, 10, 64), true, '泥底基层受保护');
+  assert.strictEqual(protectFn(1, 30, 15, 24), false, '丘陵草帽(y≥13)可炸');
+  assert.strictEqual(protectFn(3, 64, 14, 58), false, '石质结构可炸');
   tankState.driving = true; tankState.near = 0.4;
   fakeClock += 200; TankRangeMode.updateHud(null);
   explodeCb(64, 12, 54, { removed: 9, counts: { 16: 3 } });   /* 一炮炸掉 3 块靶(带爆点坐标) */

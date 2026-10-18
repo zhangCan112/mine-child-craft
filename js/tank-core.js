@@ -156,8 +156,10 @@ const TankCore = (()=>{
   /* ---------- 爆炸: 球形破坏随距离衰减(确定性哈希), 按方块 id 分桶计数 ----------
      edit 为注入的写入口: Node 单测传 setBlockRaw(或 spy),
      浏览器侧传 world.js 的 editBlockDirty(记账+markDirty), 事后 flushDirty。
-     返回 counts 按被毁方块 id 分桶 — "什么算靶"是玩法, 判定归模式层。 */
-  function explode(x, y, z, edit){
+     keep(id,bx,by,bz) 可选保护谓词: 命中即分毫不动、不计入破坏数 —
+     "什么不可炸"是模式政策(如演习场草海永固), 判定归调用方。
+     返回 counts 按被毁方块 id 分桶 — "什么算靶"同理, 判定归模式层。 */
+  function explode(x, y, z, edit, keep){
     const set = edit || setBlockRaw;
     const r = TANK.shellR;
     let removed = 0;
@@ -172,6 +174,7 @@ const TankCore = (()=>{
           const bx = cx+dx, by = cy+dy, bz = cz+dz;
           const id = getBlock(bx, by, bz);
           if(id === 0) continue;
+          if(keep && keep(id, bx, by, bz)) continue;          /* 受保护: 不炸不计数 */
           /* 爆心必毁, 边缘按确定性哈希渐稀(与 TNT 密室的破坏思路同构) */
           if(d > 0.5 && hashRand(bx*3 + dy + 7, bz*5 - dz + 11) > 1 - (d/r)*0.55) continue;
           counts[id] = (counts[id] || 0) + 1;

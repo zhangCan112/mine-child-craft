@@ -175,6 +175,18 @@ test('挤压兜底: 嵌入方块时向上弹出', () => {
 
 /* ============ 二期: 装填 · 炮弹 · 爆炸 ============ */
 
+test('爆炸保护: keep 谓词命中的方块分毫不动, 其余照炸照计数', () => {
+  const t = loadTank();
+  for(let x=50; x<=80; x++) for(let z=50; z<=80; z++) t.setBlockRaw(x, 10, z, 3);   // 地板(要保护)
+  for(let x=62; x<=66; x++) for(let y=13; y<=14; y++) t.setBlockRaw(x, y, 55, 3);   // 高台石堆(不保护)
+  const keep = (id, bx, by) => by <= 10;                                             // 只保护地板层
+  const res = t.TankCore.explode(64, 12.5, 54, t.setBlockRaw, keep);
+  assert.notStrictEqual(t.getBlock(64, 10, 54), 0, '爆心正下方的受保护地板完好');
+  assert.strictEqual(t.getBlock(64, 13, 55), 0, '高台石堆照炸: ' + JSON.stringify(res));
+  assert.ok(res.removed >= 3, '只计入真被炸掉的: ' + res.removed);
+  assert.ok(!res.counts[3] || res.counts[3] < 30, '受保护层不计入破坏数');
+});
+
 test('装填冷却: 开炮后 cool>0 随帧递减, 归零前不能再开', () => {
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
