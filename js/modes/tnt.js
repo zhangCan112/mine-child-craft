@@ -115,7 +115,7 @@ function registerSwitch(s){
   const sw = {x:s.x, y:s.y, z:s.z, dirIdx:s.dir||0, mesh:g};
   updateSwitchArrow(sw);
   scene.add(g);
-  switches.set(key(s.x,s.y,s.z), sw);
+  switches.set(blockKey(s.x,s.y,s.z), sw);
 }
 function updateSwitchArrow(sw){
   const [dx,dz] = DIRS4[sw.dirIdx];
@@ -291,7 +291,7 @@ function updateSparks(dt){
       // 决定下一格
       let next = null;
       if(getBlock(s.x, s.y, s.z) === B_SWITCH){
-        const sw = switches.get(key(s.x,s.y,s.z));
+        const sw = switches.get(blockKey(s.x,s.y,s.z));
         const [dx,dz] = sw ? DIRS4[sw.dirIdx] : [0,1];
         next = {x:s.x+dx, y:s.y, z:s.z+dz};
       } else {
@@ -456,7 +456,7 @@ function tryLeftClick(hit){
       tntInv++; sfx('pick'); tntHb.refresh();
     }
   } else if(id===B_SWITCH){                 // 扳转辙器
-    const sw = switches.get(key(hit.x, hit.y, hit.z));
+    const sw = switches.get(blockKey(hit.x, hit.y, hit.z));
     if(sw){
       sw.dirIdx = (sw.dirIdx+1) % 4;
       updateSwitchArrow(sw);

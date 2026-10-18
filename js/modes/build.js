@@ -449,7 +449,7 @@ const BuildMode = mkMode({
       id = BUILD_PALETTE[buildHb.sel];
     } else return;
     editBlock(x,y,z,id);
-    buildEdits[buildSceneId].set(key(x,y,z), id);       // 记录改动供存档
+    buildEdits[buildSceneId].set(blockKey(x,y,z), id);       // 记录改动供存档
     buildDirty = true;
   },
   onVoidFall(){                                         // 保留自定义: 回出生点时需同时关飞行
