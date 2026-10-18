@@ -211,6 +211,7 @@ function init(){
   const sp = document.getElementById('splash');
   if(sp) sp.remove();
   buildMenu();
+  Avatar.setItem(PLAYER.heldItem);   // 组合根装配默认手持物(参数表驱动, 见 config.js)
   SyncDB.ready.then(setupBudgets);      // 服务器镜像完成后再建账本/迁移(进度零丢失的时序保证)
   switchMode('arena');       // 默认后台加载竞技场作为主菜单背景
   showPage('main');

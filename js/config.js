@@ -10,7 +10,8 @@ const WORLD_H = 48;
 
 const PLAYER = {
   hx: 0.3, hz: 0.3, height: 1.8, eye: 1.62,
-  speed: 5.0, sprint: 8.5, jump: 8.6, gravity: 26.0
+  speed: 5.0, sprint: 8.5, jump: 8.6, gravity: 26.0,
+  heldItem: 'hoe'   // 默认手持物(HeldItems.defs 的键; main.js 组合根装配)
 };
 
 /* 第三人称相机 (CameraRig 用, 见 js/camera-rig.js) */

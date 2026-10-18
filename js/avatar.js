@@ -2,13 +2,16 @@
 /* ============================================================
    玩家形象 (Avatar, 术语见 GLOSSARY.md) — 引擎层
    ------------------------------------------------------------
-   玩家的小探险家模型 + 行走/腾空动画 + 随相机距离显隐。
+   玩家的小探险家模型 + 行走/腾空动画 + 手持物装配与挥击 + 随相机距离显隐。
    加载即建并挂入场景(clearWorld 只清区块网格, 本模型跨模式存活);
    每帧 update(dt, camDist) 由主循环驱动, camDist 传 CameraRig.apply
-   的返回值: 第一人称(0)与贴墙收拢过近时自动隐藏。
-   建模与动画全部是 implementation。人物面向 -Z, 与玩家视线一致。
+   的返回值: 第一人称(0)与贴墙收拢过近时自动隐藏(手持物随之隐藏)。
+   interface: update / setItem(id|null 装备手持物) / swing(挥一次右臂,
+   连点连挥, 对空也挥)。建模与动画全部是 implementation。
+   人物面向 -Z, 与玩家视线一致。
    依赖: world.js 的 scene, voxel.js 的 pos/vel/yaw/pitch/onGround/
-   flyMode, config.js 的 PLAYER/CAM。零输入 · 零玩法知识。
+   flyMode, config.js 的 PLAYER/CAM, held-item.js 的 HeldItems。
+   零输入 · 零玩法知识。
    ============================================================ */
 const Avatar = (()=>{
   const box = (w,h,d,color)=> new THREE.Mesh(
@@ -60,7 +63,32 @@ const Avatar = (()=>{
 
   /* ---------- 动画 ---------- */
   let walkT = 0;
+
+  /* ---------- 手持物 (HeldItems) + 挥击 ----------
+     setItem: 装配/更换(未知 id 按空手); swing: 触发一次右臂挥击。
+     握持姿态在 armR 手部枢轴上施加; mesh 是 Avatar 唯一外部可见物。 */
+  let itemMesh = null, itemDef = null;
+  let swingT = -1;                              // <0 空闲; >=0 已挥出秒数
+
+  function setItem(id){
+    if(itemMesh){
+      armR.remove(itemMesh);
+      itemMesh.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
+      itemMesh = null;
+    }
+    itemDef = HeldItems.defs[id] || null;
+    if(itemDef){
+      itemMesh = HeldItems.mount(itemDef);
+      itemMesh.position.fromArray(itemDef.grip.pos);
+      itemMesh.rotation.fromArray(itemDef.grip.rot);
+      armR.add(itemMesh);
+    }
+  }
+
+  function swing(){ swingT = 0; }               // 连点重置 = 连挥
+
   function update(dt, camDist){
+    if(swingT >= 0) swingT += dt;               // 隐藏期间也推进, 恢复可见不接旧挥击
     root.visible = camDist > CAM.hideDist;
     if(!root.visible) return;          // 隐藏时省去全部动画
 
@@ -82,7 +110,22 @@ const Avatar = (()=>{
       armL.rotation.x = -0.45;            armR.rotation.x = -0.45;
       armL.rotation.z =  0.50;            armR.rotation.z = -0.50;
     }
+
+    /* 手持物层, 优先级 挥击 > 走路摆臂 > 待机呼吸。
+       加法式叠加: swingPose 端点归零, 边界自动连续, 无混合状态机。 */
+    const d = itemDef || HeldItems.bare;
+    if(swingT >= 0){
+      if(swingT >= d.swing.dur) swingT = -1;
+      else {
+        const s = HeldItems.swingPose(swingT / d.swing.dur, d);
+        armR.rotation.x += s.x;
+        armR.rotation.z += s.z;
+      }
+    } else {
+      const b = Math.sin(walkT*0.55) * d.sway.idle * (1 - w);   // 待机双臂轻浮(地面/空中一致)
+      armL.rotation.x += b;             armR.rotation.x += b;
+    }
   }
 
-  return { update };
+  return { update, setItem, swing };
 })();

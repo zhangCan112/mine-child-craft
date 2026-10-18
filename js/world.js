@@ -241,7 +241,14 @@ function rebuildAll(){
 }
 
 function editBlock(x,y,z,id){
+  const old = getBlock(x,y,z);
   setBlockRaw(x,y,z,id);
+  if(id === 0 && old !== 0){           // 挖除反馈: 同色碎屑(唯一入口经 Fx, 见 GLOSSARY)
+    const c = faceColor(old, [0,1,0]);               // 顶面色 — 方块注册表的单一来源
+    Fx.debrisBurst(x+0.5, y+0.5, z+0.5, 6, {
+      color: (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255),
+      life: 0.7 });
+  }
   const cx=Math.floor(x/CHUNK), cz=Math.floor(z/CHUNK);
   rebuildChunk(cx,cz);
   if(x % CHUNK === 0)      rebuildChunk(cx-1,cz);

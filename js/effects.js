@@ -119,11 +119,16 @@ const Fx = (function(){
       r0: o.r0!==undefined ? o.r0 : 0.6, r1: o.r1!==undefined ? o.r1 : 5});
   }
 
-  /* 物理碎块: ring=径向低速(震地掀尘), 默认均匀高抛(爆炸) */
+  /* 物理碎块: ring=径向低速(震地掀尘), 默认均匀高抛(爆炸);
+     color=本批专用色(每批一份共享材质, 存活归零才 dispose) */
   function debrisBurst(x,y,z,n,o){
     o = o || {};
+    const custom = o.color !== undefined;
+    const mat = custom ? new THREE.MeshLambertMaterial({color:o.color}) : debrisMat;
+    const ref = { n };                            // 本批存活计数
+    const done = custom ? ()=>{ if(--ref.n <= 0) mat.dispose(); } : null;
     for(let i=0;i<n;i++){
-      const d = new THREE.Mesh(debrisGeo, debrisMat);
+      const d = new THREE.Mesh(debrisGeo, mat);
       d.position.set(x,y,z);
       scene.add(d);
       let vel;
@@ -133,7 +138,7 @@ const Fx = (function(){
       } else {
         vel = new THREE.Vector3((Math.random()-0.5)*9, 3+Math.random()*6, (Math.random()-0.5)*9);
       }
-      debris.push({mesh:d, life: o.life||0.9, vel});
+      debris.push({mesh:d, life: o.life||0.9, vel, done});
     }
   }
 
@@ -147,11 +152,11 @@ const Fx = (function(){
 
   function kick(a){ shake = Math.max(shake, a); }
 
-  /* 清空全部特效(模式切换用); 碎块共享 geo/mat 不可 dispose */
+  /* 清空全部特效(模式切换用); 碎块共享 geo/mat 不可 dispose, 专用色除外 */
   function clear(){
     for(const e of effects){ scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose(); }
     effects.length = 0;
-    for(const d of debris) scene.remove(d.mesh);
+    for(const d of debris){ scene.remove(d.mesh); if(d.done) d.done(); }
     debris.length = 0;
   }
 
@@ -178,6 +183,7 @@ const Fx = (function(){
       d.mesh.rotation.z += dt*5;
       if(d.life <= 0){
         scene.remove(d.mesh);
+        if(d.done) d.done();
         debris.splice(i,1);
       }
     }

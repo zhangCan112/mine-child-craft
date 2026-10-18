@@ -88,19 +88,25 @@ renderer.domElement.addEventListener('click', ()=>{
   if(isTouch || locked) return;
   requestLock();
 });
+/* 准星点击统一入口(桌面 mousedown 与触屏动作按钮共用):
+   aim → raycast → 手持物挥击 → 分发模式。挥臂是纯手部反馈,
+   不含命中判定(挖/放/对空一致 — 按共识收在输入层一处, 全模式统一)。 */
+function aimClick(button){
+  const aim = CameraRig.aim();
+  const hit = raycastVoxel(aim.origin, aim.dir, 6);
+  if(button === 0 || button === 2) Avatar.swing();
+  if(MODES.cur && MODES.cur.onMouse) MODES.cur.onMouse(button, hit);
+}
+
 renderer.domElement.addEventListener('mousedown', (e)=>{
   if(performance.now() - lastTouchT < 600) return;    // 触屏合成鼠标事件, 忽略
   if(!locked) return;
-  const aim = CameraRig.aim();
-  const hit = raycastVoxel(aim.origin, aim.dir, 6);
-  if(MODES.cur && MODES.cur.onMouse) MODES.cur.onMouse(e.button, hit);
+  aimClick(e.button);
 });
 
 /* 准星中心点击 (触屏动作按钮用) */
 function doCenterClick(button){
-  const aim = CameraRig.aim();
-  const hit = raycastVoxel(aim.origin, aim.dir, 6);
-  if(MODES.cur && MODES.cur.onMouse) MODES.cur.onMouse(button, hit);
+  aimClick(button);
 }
 
 /* ---------- 虚拟摇杆 + 动作按钮 ---------- */
