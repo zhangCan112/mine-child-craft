@@ -80,6 +80,7 @@ const COUNTER = {zombie:'skeleton', skeleton:'creeper', creeper:'golem', golem:'
 let teamInitHp = {A:1, B:1};          // 劣势加成基准(开战时总HP)
 const pendingBooms = [];              // 王者苦力怕·连环爆破二段
 const beams = [];                     // 升级光柱
+const beamGeo = new THREE.CylinderGeometry(0.22,0.34,6,10,1,true);   // 共享: 逐实例只有透明度(在材质)
 
 function angleLerp(a, b, t){
   let d = (b - a) % (Math.PI*2);
@@ -576,7 +577,7 @@ function applyTierVisual(m){
 function levelUpFx(m){
   sfx('level');
   Fx.pop(m.pos.x, m.pos.y+1, m.pos.z, {color:0xffe27a, r0:0.5, r1:2.6, dur:0.5});
-  const beam = new THREE.Mesh(new THREE.CylinderGeometry(0.22,0.34,6,10,1,true),
+  const beam = new THREE.Mesh(beamGeo,
     new THREE.MeshBasicMaterial({color:0xffe27a, transparent:true, opacity:0.55, depthWrite:false}));
   beam.position.set(m.pos.x, m.pos.y+3, m.pos.z);
   scene.add(beam);
@@ -586,7 +587,7 @@ function updateBeams(dt){
   for(let i=beams.length-1;i>=0;i--){
     const b = beams[i]; b.t += dt;
     const p = b.t/b.dur;
-    if(p >= 1){ scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); beams.splice(i,1); continue; }
+    if(p >= 1){ scene.remove(b.mesh); b.mesh.material.dispose(); beams.splice(i,1); continue; }
     b.mesh.material.opacity = 0.55*(1-p);
     b.mesh.scale.set(1+p*0.6, 1, 1+p*0.6);
   }
@@ -598,11 +599,12 @@ function updatePendingBooms(dt){
   }
 }
 
-/* 苦力怕平A: 吐舌头舔击(短伸缩特效) */
+/* 苦力怕平A: 吐舌头舔击(短伸缩特效) — 几何/材质全共享(动画只有缩放, 无逐实例材质状态) */
 const tongueFx = [];
+const tongueGeo = new THREE.BoxGeometry(0.34,0.1,0.7);
+const tongueMat = new THREE.MeshBasicMaterial({color:0xff8fb0});
 function spawnTongue(m, tg){
-  const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.34,0.1,0.7),
-    new THREE.MeshBasicMaterial({color:0xff8fb0}));
+  const mesh = new THREE.Mesh(tongueGeo, tongueMat);
   const a = Math.atan2(tg.pos.x-m.pos.x, tg.pos.z-m.pos.z);
   mesh.position.set(m.pos.x + Math.sin(a)*0.95, m.pos.y + 1.32, m.pos.z + Math.cos(a)*0.95);
   mesh.rotation.y = a;
@@ -615,13 +617,13 @@ function updateTongues(dt){
     f.t += dt;
     f.mesh.scale.z = 1 + Math.sin(Math.min(1, f.t/0.28)*Math.PI)*0.7;   // 伸缩
     if(f.t > 0.3){
-      scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose();
+      scene.remove(f.mesh);                       // 几何/材质共享常驻
       tongueFx.splice(i,1);
     }
   }
 }
 function clearTongues(){
-  for(const f of tongueFx){ scene.remove(f.mesh); f.mesh.geometry.dispose(); f.mesh.material.dispose(); }
+  for(const f of tongueFx){ scene.remove(f.mesh); }
   tongueFx.length = 0;
 }
 
@@ -1073,6 +1075,9 @@ function updateArrows(dt){
 }
 
 /* ---------- 末影龙龙息 ---------- */
+/* 龙息球: 几何/材质共享(动画只有位置与缩放, 无逐实例材质状态) */
+const breathGeo = new THREE.SphereGeometry(0.45,10,8);
+const breathMat = new THREE.MeshBasicMaterial({color:0xb44bff, transparent:true, opacity:0.9, depthWrite:false});
 function spawnBreath(m, tg){
   sfx('breath');
   const hx = m.pos.x + Math.sin(m.yaw)*3.3;
@@ -1087,8 +1092,7 @@ function spawnBreath(m, tg){
                  {x:tx-Math.cos(a)*2.4, z:tz-Math.sin(a)*2.4});
   }
   for(const tp of targets){
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.45,10,8),
-      new THREE.MeshBasicMaterial({color:0xb44bff, transparent:true, opacity:0.9, depthWrite:false}));
+    const mesh = new THREE.Mesh(breathGeo, breathMat);
     mesh.position.set(hx,hy,hz);
     scene.add(mesh);
     breathBalls.push({mesh, t:0, dur:0.6, team:m.team, owner:m,
@@ -1097,17 +1101,20 @@ function spawnBreath(m, tg){
   }
 }
 
+/* 毒云: 圆盘/云朵几何共享; 材质逐云一份(透明度随存活衰减, 六朵云 puff 共享同一份) */
+const cloudDiscGeo = new THREE.CircleGeometry(3,24);
+const cloudPuffGeo = new THREE.SphereGeometry(0.35,8,6);
 function spawnCloud(team, x, z, owner){
   const gy = groundTop(Math.floor(x), Math.floor(z)) + 1;
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(3,24),
+  const disc = new THREE.Mesh(cloudDiscGeo,
     new THREE.MeshBasicMaterial({color:0x9a3cd8, transparent:true, opacity:0.35, depthWrite:false}));
   disc.rotation.x = -Math.PI/2;
   disc.position.set(x, gy+0.08, z);
   scene.add(disc);
+  const puffMat = new THREE.MeshBasicMaterial({color:0xc06bff, transparent:true, opacity:0.7, depthWrite:false});
   const puffs = [];
   for(let i=0;i<6;i++){
-    const p = new THREE.Mesh(new THREE.SphereGeometry(0.35,8,6),
-      new THREE.MeshBasicMaterial({color:0xc06bff, transparent:true, opacity:0.7, depthWrite:false}));
+    const p = new THREE.Mesh(cloudPuffGeo, puffMat);
     p.userData.bx = x + (Math.random()-0.5)*4;
     p.userData.bz = z + (Math.random()-0.5)*4;
     p.userData.by = gy + 0.4 + Math.random()*1.2;
@@ -1117,7 +1124,7 @@ function spawnCloud(team, x, z, owner){
   }
   clouds.push({team, x, z, r:3, t:0,
     dur: owner && owner.level>=2 ? 6 : 4.5,           // 精英:毒云更持久
-    tick:0.3, dmg: Math.round(7*(owner?owner.dmgMult:1)), disc, puffs, gy, owner});
+    tick:0.3, dmg: Math.round(7*(owner?owner.dmgMult:1)), disc, puffs, puffMat, gy, owner});
 }
 
 function updateBreath(dt){
@@ -1131,7 +1138,7 @@ function updateBreath(dt){
     b.mesh.scale.set(s,s,s);
     if(p >= 1){
       spawnCloud(b.team, b.to.x, b.to.z, b.owner);
-      scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose();
+      scene.remove(b.mesh);                       // 几何/材质共享常驻
       breathBalls.splice(i,1);
     }
   }
@@ -1143,9 +1150,9 @@ function updateClouds(dt){
     c.t += dt;
     const fade = 1 - c.t/c.dur;
     c.disc.material.opacity = 0.35*Math.max(0, fade);
+    c.puffMat.opacity = 0.7*Math.max(0, fade);        // 六朵 puff 共享一份材质, 设一次
     for(const p of c.puffs){
       p.position.y = p.userData.by + Math.sin(c.t*2.2 + p.userData.ph)*0.35;
-      p.material.opacity = 0.7*Math.max(0, fade);
     }
     c.tick -= dt;
     if(c.tick <= 0){
@@ -1159,8 +1166,9 @@ function updateClouds(dt){
       }
     }
     if(c.t >= c.dur){
-      scene.remove(c.disc); c.disc.geometry.dispose(); c.disc.material.dispose();
-      c.puffs.forEach(p=>{ scene.remove(p); p.geometry.dispose(); p.material.dispose(); });
+      scene.remove(c.disc); c.disc.material.dispose();
+      c.puffs.forEach(p=> scene.remove(p));           // 几何共享常驻
+      c.puffMat.dispose();
       clouds.splice(i,1);
     }
   }
@@ -1231,7 +1239,7 @@ function startBattle(){
   }
   teamInitHp = {A:0, B:0};
   pendingBooms.length = 0;
-  for(const b of beams){ scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); }
+  for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
   beams.length = 0;
   battleState = 'fighting';
   battleResult = '';
@@ -1247,7 +1255,7 @@ function clearBattle(){
   arrows.length = 0;
   spawnQueue.length = 0; spawnCursor = 0;             // 未入场的部署一并取消
   pendingBooms.length = 0;
-  for(const b of beams){ scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); }
+  for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
   beams.length = 0;
   battleState = 'idle';
   battleResult = '';
@@ -1436,7 +1444,7 @@ const ArenaMode = mkMode({
     arrows.length = 0;
     spawnQueue.length = 0; spawnCursor = 0;
     pendingBooms.length = 0;
-    for(const b of beams){ scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); }
+    for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
     beams.length = 0;
     battleState = 'idle';
     battleResult = '';

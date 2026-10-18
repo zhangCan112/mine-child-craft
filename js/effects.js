@@ -108,10 +108,13 @@ const Fx = (function(){
   const debrisMat = new THREE.MeshLambertMaterial({color:0x4a4a48});
 
   /* 单个膨胀淡出球: 冲击波/升级环/狂暴环/小火花的通用形状
-     o: {color, geo(默认单位球), r0, r1, dur, opacity} */
+     o: {color, r0, r1, dur, opacity}
+     几何共享单位球(膨胀靠 scale), 只逐实例建材质(透明度独立);
+     高频爆炸路径零几何分配 → 几何不 dispose, 常驻复用 */
+  const popGeo = new THREE.SphereGeometry(1,12,10);
   function pop(x,y,z,o){
     o = o || {};
-    const mesh = new THREE.Mesh(o.geo || new THREE.SphereGeometry(1,12,10),
+    const mesh = new THREE.Mesh(popGeo,
       new THREE.MeshBasicMaterial({color: o.color!==undefined ? o.color : 0xffd9a0,
         transparent:true, opacity: o.opacity!==undefined ? o.opacity : 0.9, depthWrite:false}));
     mesh.position.set(x,y,z); scene.add(mesh);
@@ -154,7 +157,7 @@ const Fx = (function(){
 
   /* 清空全部特效(模式切换用); 碎块共享 geo/mat 不可 dispose, 专用色除外 */
   function clear(){
-    for(const e of effects){ scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose(); }
+    for(const e of effects){ scene.remove(e.mesh); e.mesh.material.dispose(); }   // 几何共享常驻
     effects.length = 0;
     for(const d of debris){ scene.remove(d.mesh); if(d.done) d.done(); }
     debris.length = 0;
@@ -167,7 +170,7 @@ const Fx = (function(){
       e.t += dt;
       const p = e.t/e.dur;
       if(p >= 1){
-        scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose();
+        scene.remove(e.mesh); e.mesh.material.dispose();
         effects.splice(i,1); continue;
       }
       const r = e.r0 + (e.r1-e.r0)*p;

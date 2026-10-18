@@ -91,8 +91,8 @@ function isFuseOrSwitch(x,y,z){
 function findTntAt(x,y,z){
   return tnts.find(t=> t.x===x && t.y===y && t.z===z);
 }
-function smallPop(x,y,z,color){
-  Fx.pop(x,y,z, {color, geo:new THREE.SphereGeometry(0.14,8,6), r0:0.15, r1:0.55, dur:0.3});
+function smallPop(x,y,z,color){                  // 原 0.14 半径小球 ×0.15~0.55 ≈ 单位球 ×0.02~0.08
+  Fx.pop(x,y,z, {color, r0:0.02, r1:0.08, dur:0.3});
 }
 
 /* ---------- 实体注册 ---------- */
