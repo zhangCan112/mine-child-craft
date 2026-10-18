@@ -172,3 +172,51 @@ test('挤压兜底: 嵌入方块时向上弹出', () => {
   assert.ok(!t.TankCore.boxCollides(T.x, T.y, T.z), '一秒内应弹出嵌入方块: y=' + T.y);
 });
 
+/* ============ 二期: 装填 · 炮弹 · 爆炸 ============ */
+
+test('装填冷却: 开炮后 cool>0 随帧递减, 归零前不能再开', () => {
+  const t = loadTank();
+  flatGround(t, 10, 50, 50, 80, 80);
+  const T = grounded(t, 64, 64, 0);
+  T.cool = t.TANK.reload;                          // 模拟刚开过一炮
+  drive(t, T, IDLE, t.TANK.reload - 0.05);
+  assert.ok(T.cool > 0, '还差 0.05 秒, 仍在装填: ' + T.cool);
+  drive(t, T, IDLE, 0.1);
+  assert.strictEqual(T.cool, 0, '装填完毕归零');
+});
+
+test('炮弹: 受轻度重力, 命中方块即停(S.hit); 无阻挡则超程自毁', () => {
+  const t = loadTank();
+  flatGround(t, 10, 50, 50, 80, 80);
+  for(let x=60; x<=68; x++) for(let y=11; y<=14; y++) t.setBlockRaw(x, y, 55, 3);   // 9 格外靶墙
+  const S = t.TankCore.mkShell(64, 13, 64, 0, 0, -t.TANK.shellSpeed);
+  for(let i=0; i<Math.round(1.5/DT) && !S.dead; i++) t.TankCore.shellStep(S, DT);
+  assert.ok(S.dead, '应已终止');
+  assert.ok(S.hit && S.hit.z === 55, '命中靶墙所在格: ' + JSON.stringify(S.hit));
+  assert.ok(S.y < 13, '飞行中受重力下坠: ' + S.y);
+
+  const S2 = t.TankCore.mkShell(10, 20, 10, 0, 10, 0);         // 空旷处垂直上抛, 无遮挡
+  for(let i=0; i<Math.round(t.TANK.shellLife/DT)+10 && !S2.dead; i++) t.TankCore.shellStep(S2, DT);
+  assert.ok(S2.dead && !S2.hit, '超程(life 耗尽)自毁, 无命中');
+});
+
+test('爆炸: 球形破坏随距离衰减, 按方块 id 分桶计数, 半径外完好, 结果确定', () => {
+  const t = loadTank();
+  const TARGET = 16;                                            // 靶=红羊毛(什么算靶由调用方判定)
+  function build(){
+    for(let x=50; x<=80; x++) for(let z=50; z<=80; z++) t.setBlockRaw(x, 10, z, 3);   // 地板
+    for(let x=58; x<=72; x++) for(let y=11; y<=13; y++) t.setBlockRaw(x, y, 55, TARGET);   // 靶墙
+  }
+  build();
+  let edits = 0;
+  const edit = (x, y, z, id) => { edits++; t.setBlockRaw(x, y, z, id); };
+  const r1 = t.TankCore.explode(64, 12, 54, edit);
+  assert.ok(r1.removed >= 10, '爆心成片破坏(含地板弹坑): ' + r1.removed);
+  assert.ok(r1.counts[TARGET] >= 5, '靶方块按 id 计入 counts: ' + r1.counts[TARGET]);
+  assert.ok(edits === r1.removed, '全部破坏经注入的 edit 管线(浏览器侧=markDirty)');
+  assert.notStrictEqual(t.getBlock(72, 11, 55), 0, '半径外的靶列完好');
+  build();                                                       // 重建同布局
+  const r2 = t.TankCore.explode(64, 12, 54, t.setBlockRaw);
+  assert.deepStrictEqual(r2, r1, '同输入两次爆炸结果一致(衰减用确定性哈希)');
+});
+

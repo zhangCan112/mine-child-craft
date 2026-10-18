@@ -147,8 +147,8 @@ function loop(now){
   if(dt>0.05) dt=0.05;
 
   if(locked || touchPlaying){
-    if(Tank.driving()) Tank.update(dt);               // 载具驾驶: 坦克物理替代玩家物理
-    else physics(dt);
+    if(!Tank.driving()) physics(dt);
+    Tank.update(dt);                     // 载具: 驾驶步进 · 在飞炮弹 · 履带动画, 每帧推进
     if(worldEvents.voidFall){                       // 引擎事件 → 分发给当前模式的 onVoidFall
       worldEvents.voidFall = false;
       if(MODES.cur && MODES.cur.onVoidFall) MODES.cur.onVoidFall();

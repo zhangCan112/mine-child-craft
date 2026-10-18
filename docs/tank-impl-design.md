@@ -132,7 +132,7 @@ TankRangeMode = mkMode({
 ### 4.4 组合根与资源改动(main.js / index.html / css)
 
 - `MODES.tank = TankRangeMode`;`PLAY_LIMIT_MODES` 加 `'tank'`(计费、超时锁卡、`refreshPlayCards` 自动生效)
-- 主循环:`Tank.driving() ? Tank.update(dt) : physics(dt)`(缝 C);`Tank.update` 仅驾驶时被调——idle 网格静态,place 时已同步一次
+- 主循环:`Tank.driving() ? Tank.update(dt) : physics(dt)`(缝 C);二期起 `Tank.update(dt)` 每帧调用——驾驶步进之外还有在飞炮弹与履带动画,下车后炮弹仍在飞
 - index.html `#modeCards` 第五张卡(🚙 坦克演习场 · 开坦克 炸靶子)+ `buildMenu` onclick + `updateLimitText` 文案加坦克
 
 ## 5. 深度自检(deletion test)
@@ -159,7 +159,7 @@ TankRangeMode = mkMode({
 
 ## 8. 二期接缝(只留缝,不实现)
 
-- `TankCore.step` **现在不加** `turretYaw`——加了没人用是假缝;二期加字段 + `aim()` 改从炮口 + `onMouse` 开炮 + `Fx` 爆炸 + `sfx('boom')` + 炸地形走 TNT 的 `setBlockRaw` 破坏管线
+- 开炮已落地(二期):`Tank.fire`(出膛点在炮管口,方向沿准星)+ 爆炸走 `editBlockDirty + flushDirty` 批量破坏管线 + `Fx.boom`(内含 boom 音与震屏)+ 命中回调 `onExplode`(靶判定在模式层)。勘误:炮塔独立旋转属**三期**(玩法定稿第 10 节),届时才加 `turretYaw` 字段——现在加是假缝
 - 炮塔 Group 旋转枢轴一期建好(渲染结构预留,零成本)
 - 演习场"退出还原":模式 `init` 每次重建场景(`switchMode` 已调 `clearWorld`,天然还原),不存档
 

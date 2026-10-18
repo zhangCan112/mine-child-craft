@@ -32,12 +32,16 @@ const TankCore = (()=>{
   }
 
   /* 载具状态: x/y/z 舱位 · yaw 车体朝向 · aimYaw 车头目标(方向权威) ·
-     vel 前向标量速度(负=倒车) · vy 垂直速度 · onGround 触地 */
+     vel 前向标量速度(负=倒车) · vy 垂直速度 · onGround 触地 ·
+     cool 装填冷却(>0 不能开炮, step 递减) */
   function mkT(x, y, z, yaw){
-    return { x, y, z, yaw, aimYaw: yaw, vel: 0, vy: 0, onGround: false };
+    return { x, y, z, yaw, aimYaw: yaw, vel: 0, vy: 0, onGround: false, cool: 0 };
   }
 
   function step(T, input, dt){
+    /* --- 装填冷却 --- */
+    if(T.cool > 0) T.cool = Math.max(0, T.cool - dt);
+
     /* --- 方向权威: 鼠标/摇杆(lookYaw 非空即采纳) > A·D(以转向速率积分) --- */
     if(input.lookYaw !== null && input.lookYaw !== undefined) T.aimYaw = input.lookYaw;
     else if(input.steer) T.aimYaw += input.steer * TANK.turnRate * dt;
@@ -121,6 +125,62 @@ const TankCore = (()=>{
     return (best !== null && bestD <= maxR) ? best : null;
   }
 
-  return { mkT, step, boxCollides, wrapAngle, nearest };
+  /* ---------- 炮弹: 平直弹道 + 轻重力 + 体素命中 ----------
+     shellStep 每帧推进: 命中实心方块记 S.hit 并终止(dead);
+     life 耗尽或坠出世界自毁。爆炸由调用方在命中点接手。 */
+  function mkShell(x, y, z, vx, vy, vz){
+    return { x, y, z, vx, vy, vz, life: TANK.shellLife, dead: false, hit: null };
+  }
+  const _sd = { x:0, y:0, z:0 };
+  function shellStep(S, dt){
+    S.life -= dt;
+    S.vy -= TANK.shellG*dt;
+    const nx = S.x + S.vx*dt, ny = S.y + S.vy*dt, nz = S.z + S.vz*dt;
+    const dist = Math.hypot(nx - S.x, ny - S.y, nz - S.z);
+    if(dist > 1e-9){
+      _sd.x = (nx - S.x)/dist; _sd.y = (ny - S.y)/dist; _sd.z = (nz - S.z)/dist;
+      const hit = raycastVoxel(S, _sd, dist, isSolid);
+      if(hit){
+        S.x = S.x + _sd.x*hit.t; S.y = S.y + _sd.y*hit.t; S.z = S.z + _sd.z*hit.t;
+        S.hit = { x: hit.x, y: hit.y, z: hit.z };
+        S.dead = true;
+        return S;
+      }
+    }
+    S.x = nx; S.y = ny; S.z = nz;
+    if(S.life <= 0 || S.y < -4 ||
+       S.x < 0 || S.z < 0 || S.x > WORLD_W || S.z > WORLD_D) S.dead = true;
+    return S;
+  }
+
+  /* ---------- 爆炸: 球形破坏随距离衰减(确定性哈希), 按方块 id 分桶计数 ----------
+     edit 为注入的写入口: Node 单测传 setBlockRaw(或 spy),
+     浏览器侧传 world.js 的 editBlockDirty(记账+markDirty), 事后 flushDirty。
+     返回 counts 按被毁方块 id 分桶 — "什么算靶"是玩法, 判定归模式层。 */
+  function explode(x, y, z, edit){
+    const set = edit || setBlockRaw;
+    const r = TANK.shellR;
+    let removed = 0;
+    const counts = {};
+    const R = Math.ceil(r);
+    const cx = Math.floor(x), cy = Math.floor(y), cz = Math.floor(z);
+    for(let dx=-R; dx<=R; dx++)
+      for(let dy=-R; dy<=R; dy++)
+        for(let dz=-R; dz<=R; dz++){
+          const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+          if(d > r) continue;
+          const bx = cx+dx, by = cy+dy, bz = cz+dz;
+          const id = getBlock(bx, by, bz);
+          if(id === 0) continue;
+          /* 爆心必毁, 边缘按确定性哈希渐稀(与 TNT 密室的破坏思路同构) */
+          if(d > 0.5 && hashRand(bx*3 + dy + 7, bz*5 - dz + 11) > 1 - (d/r)*0.55) continue;
+          counts[id] = (counts[id] || 0) + 1;
+          set(bx, by, bz, 0);
+          removed++;
+        }
+    return { removed, counts };
+  }
+
+  return { mkT, step, boxCollides, wrapAngle, nearest, mkShell, shellStep, explode };
 })();
 if(typeof module !== 'undefined' && module.exports) module.exports = TankCore;

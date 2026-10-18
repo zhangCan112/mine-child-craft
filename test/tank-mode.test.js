@@ -46,7 +46,10 @@ globalThis.Tank = {
   nearby(){ return tankState.near; },
   exitAll(){ calls.push(['exitAll']); },
   clear(){ calls.push(['clear']); },
+  fire(){ calls.push(['fire']); return tankState.fireResult || 'fired'; },
+  onExplode(cb){ explodeCb = cb; },          /* 模式注册爆炸回调(命中反馈) */
 };
+let explodeCb = null;
 globalThis.SceneKit = { fill(){ calls.push(['fill']); }, tree(){}, rand: () => 0 };
 globalThis.SpeechKit = { speak(s){ spoken.push(s); }, cancel(){} };
 globalThis.showToast = (s) => calls.push(['toast', s]);
@@ -137,4 +140,47 @@ test('驾驶中/远离时不说上车邀请', () => {
   tankState.driving = false; tankState.near = null;
   for(let i=0; i<Math.round(2/DT); i++) TankRangeMode.update(DT);
   assert.ok(!spoken.some(s => s.indexOf('要开坦克') >= 0), '不应发出邀请');
+});
+
+/* ============ 二期: 开炮路由与命中反馈 ============ */
+
+test('左键开炮: 驾驶中路由 Tank.fire, 步行时左键不开炮', () => {
+  calls.length = 0;
+  tankState.driving = true; tankState.fireResult = 'fired';
+  TankRangeMode.onMouse(0, null);
+  assert.ok(has('fire'), '驾驶中左键 → fire');
+  calls.length = 0;
+  tankState.driving = false;
+  TankRangeMode.onMouse(0, null);
+  assert.ok(!has('fire'), '步行时左键不开炮');
+});
+
+test('触屏开炮按钮: 💥 与桌面左键同入口, 装填中提示', () => {
+  assert.ok(touchList.length >= 2, '上下车 + 开炮两个按钮');
+  const fireBtn = touchList.find(b => b.label.indexOf('💥') >= 0);
+  assert.ok(fireBtn, '有 💥 开炮按钮');
+  calls.length = 0;
+  tankState.driving = true; tankState.fireResult = 'fired';
+  fireBtn.act();
+  assert.ok(has('fire'), '按钮 → fire');
+  calls.length = 0;
+  tankState.fireResult = 'cooldown';
+  fireBtn.act();
+  assert.ok(has('toast'), '装填中 toast 提示');
+});
+
+test('命中反馈: 爆炸炸到靶才表扬, 计数进 HUD', () => {
+  spoken.length = 0;
+  TankRangeMode.init();                       /* 注册 onExplode */
+  assert.strictEqual(typeof explodeCb, 'function', '模式在 init 注册爆炸回调');
+  tankState.driving = true; tankState.near = 0.4;
+  fakeClock += 200; TankRangeMode.updateHud(null);
+  explodeCb({ removed: 9, counts: { 16: 3 } });   /* 一炮炸掉 3 块靶(红羊毛 id=16) */
+  assert.ok(spoken.some(s => s.indexOf('打中') >= 0), '命中表扬: ' + spoken.join('/'));
+  fakeClock += 200; TankRangeMode.updateHud(null);
+  const hudEl = elCache['hud'];
+  assert.ok(hudEl.innerHTML.indexOf('命中 1') >= 0, 'HUD 计数: ' + hudEl.innerHTML);
+  spoken.length = 0;
+  explodeCb({ removed: 20, counts: {} });          /* 只炸地板不炸靶 → 不表扬 */
+  assert.ok(!spoken.some(s => s.indexOf('打中') >= 0), '没打到靶不表扬');
 });

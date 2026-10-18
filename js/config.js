@@ -64,7 +64,12 @@ const TANK = {
   speed: 7.0, reverse: 3.5,   // 前进/倒车极速(格/秒)
   accel: 6.0, friction: 4.0,  // 加速/滑行摩擦(指数逼近速率)
   turnRate: 1.6,              // 车体转向速率上限(弧度/秒), 亦为 A/D 集成速率
-  promptR: 2.5, enterR: 3.0   // 上车提示/上车判定半径(格): 走近才提示, 稍远一点仍可上
+  promptR: 2.5, enterR: 3.0,  // 上车提示/上车判定半径(格): 走近才提示, 稍远一点仍可上
+  shellSpeed: 26.0,           // 炮弹初速(格/秒)
+  shellG: 6.0,                // 炮弹重力(远轻于实体, 弹道近乎平直)
+  shellLife: 3.0,             // 炮弹超程自毁(秒)
+  shellR: 2.2,                // 爆炸破坏半径(格)
+  reload: 2.5                 // 装填冷却(秒)
 };
 /* 载具相机 (CameraRig.mount 用, 见 js/camera-rig.js) */
 const CAM_TANK = { dist: 6.5, lift: 1.6, eye: 1.8 };

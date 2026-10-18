@@ -98,6 +98,29 @@ function sfx(kind){
   }catch(e){}
 }
 
+/* ---------- 坦克引擎嗡鸣: 连续音, level 0..1(怠速微响 → 油门渐强渐升) ----------
+   level 量化后比较, 同值免重设; 停驶/下车/切模式须传 0 归零 */
+let humOsc = null, humGain = null, humLvl = -1;
+function engineHum(level){
+  try{
+    const q = Math.round(level*8)/8;
+    if(q === humLvl) return;
+    humLvl = q;
+    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
+    if(actx.state === 'suspended') actx.resume();
+    if(!humOsc){
+      humOsc = actx.createOscillator(); humOsc.type = 'sawtooth';
+      const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260;
+      humGain = actx.createGain(); humGain.gain.value = 0;
+      humOsc.connect(f); f.connect(humGain); humGain.connect(actx.destination);
+      humOsc.start();
+    }
+    const t = actx.currentTime;
+    humGain.gain.setTargetAtTime(0.045 + q*0.085, t, 0.12);
+    humOsc.frequency.setTargetAtTime(52 + q*46, t, 0.18);
+  }catch(e){}
+}
+
 /* ---------- 通用特效 Fx: 爆炸/冲击波/碎块/震屏的唯一入口 ----------
    条目形状/动画/衰减全部收在 implementation, 外部只经 7 个入口触碰 */
 const Fx = (function(){
