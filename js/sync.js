@@ -52,6 +52,15 @@ const SyncDB = {
     if(Object.prototype.hasOwnProperty.call(this.cache, key)) return this.cache[key];
     try{ return localStorage.getItem(key); }catch(e){ return null; }
   },
+  /* 存档槽: 声明即得 load/save/reset (逻辑在 js/save-slot.js, 纯函数可单测)
+     创建即注册 SYNC_KEYS; 注: 若服务器镜像先于本调用完成, backfill 可能漏掉该键 —
+     良性: get() 回退 localStorage, 下次 set() 会补推 */
+  slot(key, schema){
+    if(SYNC_KEYS.indexOf(key) < 0) SYNC_KEYS.push(key);
+    return mkSaveSlot(
+      { get:k=>this.get(k), set:(k,v)=>this.set(k,v), remove:k=>this.remove(k) },
+      key, schema);
+  },
   set(key, value){
     try{ localStorage.setItem(key, value); }catch(e){}
     this.cache[key] = value;

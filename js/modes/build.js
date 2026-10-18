@@ -335,23 +335,21 @@ function buildSpawnAt(sc){
   flyMode = false;
 }
 
-/* 存档: 当前场景 + 各场景改动表 (跨设备云同步) */
+/* 存档: 当前场景 + 各场景改动表 (跨设备云同步); Map↔entries 编解码收进槽 */
+const buildSlot = SyncDB.slot(BUILD_SAVE_KEY, {
+  defaults: { scene: null, edits: {} },
+  encode: st => ({ scene: st.scene,
+                   edits: Object.fromEntries(Object.keys(st.edits).map(id => [id, [...st.edits[id].entries()]])) }),
+  decode: sv => ({ scene: sv.scene,
+                   edits: Object.fromEntries(Object.keys(sv.edits || {}).map(id => [id, new Map(sv.edits[id])])) })
+});
 function buildSaveNow(){
-  const edits = {};
-  for(const id in buildEdits) edits[id] = [...buildEdits[id].entries()];
-  try{
-    SyncDB.set(BUILD_SAVE_KEY, JSON.stringify({scene:buildSceneId, edits}));
-  }catch(e){}
+  buildSlot.save({ scene: buildSceneId, edits: buildEdits });
   buildDirty = false;
 }
 function buildLoadSave(){
-  try{
-    const s = JSON.parse(SyncDB.get(BUILD_SAVE_KEY));
-    if(s && s.edits){
-      for(const id in s.edits) buildEdits[id] = new Map(s.edits[id]);
-      return s.scene || null;
-    }
-  }catch(e){}
+  const s = buildSlot.load();
+  if(s && s.edits){ for(const id in s.edits) buildEdits[id] = s.edits[id]; return s.scene || null; }
   return null;
 }
 

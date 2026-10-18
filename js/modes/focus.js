@@ -5,19 +5,15 @@
 ============================================================ */
 
 const FOCUS_SAVE_KEY = 'focus_camp_save';
-
-function loadFocusSave(){
-  try{
-    const s = JSON.parse(SyncDB.get(FOCUS_SAVE_KEY));
-    if(s && typeof s.unlocked==='number')
-      return { unlocked:s.unlocked, stars:s.stars||{},
-               history:Array.isArray(s.history)?s.history:[] };
-  }catch(e){}
-  return { unlocked:0, stars:{}, history:[] };
-}
-function saveFocusSave(s){
-  try{ SyncDB.set(FOCUS_SAVE_KEY, JSON.stringify(s)); }catch(e){}
-}
+const focusSlot = SyncDB.slot(FOCUS_SAVE_KEY, {
+  defaults: { unlocked: 0, stars: {}, history: [] },
+  migrate(s, from){                     // v0 老形状可能仍带 daily(已迁 daily_budget_save) → 摘除, 与启动迁移幂等
+    if(from === 0 && s && s.daily) delete s.daily;
+    return s;
+  }
+});
+function loadFocusSave(){ return focusSlot.load(); }
+function saveFocusSave(s){ focusSlot.save(s); }
 /* 每日预算(每日关数/时长)记在 js/daily-budget.js 的 focus 预算里(main.js setupBudgets 建立) */
 function focusBudget(){ return (typeof Budgets !== 'undefined' && Budgets) ? Budgets.focus : null; }
 function focusLocked(){ const b = focusBudget(); return !!(b && b.blocked()); }
@@ -331,7 +327,7 @@ function showFocusParent(){
   ModeKit.confirmBtn(document.getElementById('fResetBtn'), {
     label: '↺ 重置进度', confirm: '⚠ 再点一次确认',
     onConfirm(){
-      SyncDB.remove(FOCUS_SAVE_KEY);
+      focusSlot.reset();
       const fb2 = focusBudget();
       if(fb2) fb2.reset();                        // 旧行为保持: 重置进度同时清当日额度
       showToast('训练进度已重置', 1800);

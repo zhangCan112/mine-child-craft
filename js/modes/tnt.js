@@ -4,18 +4,11 @@
    捡引线 → 铺引线 → F 点火 → 火花沿线烧 → TNT 爆炸 → 炸穿出口逃出密室
 ============================================================ */
 
-/* ---------- 存档 ---------- */
+/* ---------- 存档 (SaveSlot: 解析/默认值/版本演化收在槽里) ---------- */
 const TNT_SAVE_KEY = 'tnt_escape_progress';
-function loadTntSave(){
-  try{
-    const s = JSON.parse(SyncDB.get(TNT_SAVE_KEY));
-    if(s && typeof s.unlocked==='number') return {unlocked:s.unlocked, stars:s.stars||{}};
-  }catch(e){}
-  return {unlocked:0, stars:{}};
-}
-function saveTntSave(s){
-  try{ SyncDB.set(TNT_SAVE_KEY, JSON.stringify(s)); }catch(e){}
-}
+const tntSlot = SyncDB.slot(TNT_SAVE_KEY, { defaults: { unlocked: 0, stars: {} } });
+function loadTntSave(){ return tntSlot.load(); }
+function saveTntSave(s){ tntSlot.save(s); }
 
 /* ---------- 状态 ---------- */
 let lv = null;            // 当前关数据
@@ -541,7 +534,7 @@ function buildTntMenu(){
   document.getElementById('tntResumeBtn').onclick = requestLock;
   ModeKit.confirmBtn(document.getElementById('tntResetBtn'), {
     label: '重置进度 ↺', confirm: '⚠ 再点一次确认重置',
-    onConfirm(){ SyncDB.remove(TNT_SAVE_KEY); showToast('进度已重置', 1800); buildTntMenu(); }
+    onConfirm(){ tntSlot.reset(); showToast('进度已重置', 1800); buildTntMenu(); }
   });
   document.getElementById('winNextBtn').onclick = ()=>{
     if(levelIdx+1 < LEVELS.length) startLevel(levelIdx+1);
