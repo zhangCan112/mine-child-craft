@@ -39,8 +39,13 @@ const TNT_CFG = {
    只对列出的日期生效, 次日自动恢复默认 */
 const PLAY_LIMIT_DEFAULT_MIN = 10;
 const TEMP_PLAY_LIMIT_MIN = {
-  '2026-10-12': 15
+  '2026-10-17': 20,
+  '2026-10-18': 20
 };
+
+/* 专注训练营每日预算(独立于儿童时限): 每日关卡数与训练时长上限 */
+const FOCUS_DAILY_LEVELS = 6;
+const FOCUS_DAILY_MIN = 20;
 
 /* ============================================================
    方块定义

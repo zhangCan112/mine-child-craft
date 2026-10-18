@@ -29,30 +29,37 @@ function showPage(id){
   if(id === 'main') refreshPlayCards();
 }
 
-/* ---------- 儿童游玩时限: 竞技场+TNT+建造 共享, 时长配置见 config.js ----------
-   只在实际游玩(锁定/触屏进行)时计时; 跨设备随 SyncDB 同步; 专注训练营不受影响 */
-const PLAY_LIMIT_MS = (TEMP_PLAY_LIMIT_MIN[todayStr()] || PLAY_LIMIT_DEFAULT_MIN) * 60 * 1000;
-const PLAY_SAVE_KEY = 'play_time_save';
-let playMs = (function(){
-  try{
-    const s = JSON.parse(SyncDB.get(PLAY_SAVE_KEY));
-    if(s && s.date === todayStr()) return s.ms || 0;
-  }catch(e){}
-  return 0;
-})();
-let playSaveT = 0, playWarned = false, playDoneShown = false;
-function playBlocked(){ return playMs >= PLAY_LIMIT_MS; }
-function savePlayTime(){
-  SyncDB.set(PLAY_SAVE_KEY, JSON.stringify({date: todayStr(), ms: Math.round(playMs)}));
+/* ---------- 每日预算 (DailyBudget) — 儿童时限的唯一账本 ----------
+    竞技场+TNT+建造 的儿童时限与 专注训练营的每日限额 都记在
+    js/daily-budget.js 的同一本预算里; 计时/午夜翻转/按日限额/迁移全部在那边 */
+const PLAY_LIMIT_MODES = ['arena', 'tnt', 'build'];   // 共享儿童时限的模式
+let Budgets = null;                                   // SyncDB.ready 后填充(镜像完成, 防"第二台设备读到旧本地值")
+let playSaveT = 0;
+
+function setupBudgets(){
+  Budgets = mkDailyBudgets({
+    storage: { get:k=>SyncDB.get(k), set:(k,v)=>SyncDB.set(k,v), remove:k=>SyncDB.remove(k) },
+    defs: {
+      play:  { capMsFor: d => (TEMP_PLAY_LIMIT_MIN[d] || PLAY_LIMIT_DEFAULT_MIN) * 60 * 1000,   // 读时求值: 跨午夜自动重读当日临时限额
+               warnAtMs: 60*1000 },
+      focus: { capMsFor: () => FOCUS_DAILY_MIN * 60 * 1000, capCount: FOCUS_DAILY_LEVELS }
+    }
+  });
+  Budgets.migrate();                                  // 旧 play_time_save / focus_camp_save.daily → daily_budget_save
+  Budgets.play.onWarn(()=> showToast('⏰ 还剩 1 分钟哦'));
+  Budgets.play.onExhausted(playTimeUp);               // 每天至多触发一次(语音也只说一次)
+  updateLimitText();                                  // 规则文案始终由限额生成(单一来源)
+  refreshPlayCards();
 }
-const tempLimitMin = TEMP_PLAY_LIMIT_MIN[todayStr()];
-if(tempLimitMin){
-  const tRule = document.getElementById('playTimeRule');
-  if(tRule) tRule.textContent = '竞技场 + TNT 密室 + 建造模式今天临时开放 ' + tempLimitMin + ' 分钟 · 专注训练营不受影响（每天 6 关 / 20 分钟）';
-  const bRule = document.getElementById('buildTimeRule');
-  if(bRule) bRule.textContent = '你的建造会自动保存，换设备也能继续！和竞技场、TNT 今天共享 ' + tempLimitMin + ' 分钟游玩时间';
+function playBlocked(){ return !!(Budgets && Budgets.play.blocked()); }
+function updateLimitText(){
+  if(!Budgets) return;
+  const m = Math.round(Budgets.play.capMs()/60000);
+  const t = document.getElementById('playTimeRule');
+  if(t) t.textContent = '竞技场 + TNT 密室 + 建造模式每天共 ' + m + ' 分钟 · 专注训练营不受影响（每天 ' + FOCUS_DAILY_LEVELS + ' 关 / ' + FOCUS_DAILY_MIN + ' 分钟）';
+  const b = document.getElementById('buildTimeRule');
+  if(b) b.textContent = '你的建造会自动保存，换设备也能继续！和竞技场、TNT 共享每天 ' + m + ' 分钟游玩时间';
 }
-const PLAY_LIMIT_MODES = ['arena', 'tnt', 'build'];   // 共享时限的模式
 function refreshPlayCards(){
   const blocked = playBlocked();
   ['cardArena','cardTnt','cardBuild'].forEach(id=>{
@@ -69,11 +76,8 @@ function showPlayTimeoutPage(){
   showPage('playTime');
 }
 function playTimeUp(){
-  savePlayTime();
-  if(!playDoneShown){
-    playDoneShown = true;
-    focusSpeak('今天的游玩时间到啦，怪物们要休息了，明天再来挑战吧！');
-  }
+  if(Budgets) Budgets.play.flush();
+  focusSpeak('今天的游玩时间到啦，怪物们要休息了，明天再来挑战吧！');
   if(document.pointerLockElement) document.exitPointerLock();   // 事件异步, onLockChanged 尊重 playTime 页
   else { touchPlaying = false; overlay.style.display = 'flex'; }
   showPlayTimeoutPage();
@@ -81,7 +85,7 @@ function playTimeUp(){
 
 /* ---------- 模式切换 ---------- */
 function switchMode(id){
-  if(PLAY_LIMIT_MODES.indexOf(curModeId) >= 0) savePlayTime();   // 离开计费模式先存
+  if(Budgets && PLAY_LIMIT_MODES.indexOf(curModeId) >= 0) Budgets.play.flush();   // 离开计费模式先落账
   if(MODES.cur && MODES.cur.cleanup) MODES.cur.cleanup();
   for(const e of effects){ scene.remove(e.mesh); e.mesh.geometry.dispose(); e.mesh.material.dispose(); }
   effects.length = 0;
@@ -143,15 +147,10 @@ function loop(now){
     physics(dt);
     if(MODES.cur && MODES.cur.update) MODES.cur.update(dt);
     updateEffects(dt);
-    /* 儿童时限: 竞技场+TNT+建造 实际游玩时累计 */
-    if(PLAY_LIMIT_MODES.indexOf(curModeId) >= 0){
-      playMs += dt*1000;
-      if(!playWarned && playMs >= PLAY_LIMIT_MS-60000 && playMs < PLAY_LIMIT_MS){
-        playWarned = true;
-        showToast('⏰ 还剩 1 分钟哦');
-      }
-      if(playMs >= PLAY_LIMIT_MS) playTimeUp();
-      else if(now - playSaveT > 5000){ playSaveT = now; savePlayTime(); }
+    /* 儿童时限: 游玩模式实际游玩时累计入每日预算 */
+    if(Budgets && PLAY_LIMIT_MODES.indexOf(curModeId) >= 0){
+      Budgets.play.accrue(dt*1000);
+      if(now - playSaveT > 5000){ playSaveT = now; Budgets.play.flush(); }
     }
   }
 
@@ -216,6 +215,7 @@ function init(){
   const sp = document.getElementById('splash');
   if(sp) sp.remove();
   buildMenu();
+  SyncDB.ready.then(setupBudgets);      // 服务器镜像完成后再建账本/迁移(进度零丢失的时序保证)
   switchMode('arena');       // 默认后台加载竞技场作为主菜单背景
   showPage('main');
   addEventListener('resize', ()=>{

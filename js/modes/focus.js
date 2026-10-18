@@ -5,33 +5,22 @@
 ============================================================ */
 
 const FOCUS_SAVE_KEY = 'focus_camp_save';
-const FOCUS_DAILY_MAX = 6;               // 每日关卡上限
-const FOCUS_DAILY_MS  = 20*60*1000;      // 每日时长上限
 
-function todayStr(){
-  const d = new Date();
-  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
-}
 function loadFocusSave(){
   try{
     const s = JSON.parse(SyncDB.get(FOCUS_SAVE_KEY));
     if(s && typeof s.unlocked==='number')
-      return { unlocked:s.unlocked, stars:s.stars||{}, daily:s.daily||{date:'',played:0,ms:0},
-               history:Array.isArray(s.history)?s.history:[], };
+      return { unlocked:s.unlocked, stars:s.stars||{},
+               history:Array.isArray(s.history)?s.history:[] };
   }catch(e){}
-  return { unlocked:0, stars:{}, daily:{date:'',played:0,ms:0}, history:[] };
+  return { unlocked:0, stars:{}, history:[] };
 }
 function saveFocusSave(s){
   try{ SyncDB.set(FOCUS_SAVE_KEY, JSON.stringify(s)); }catch(e){}
 }
-function focusDailyRolled(save){
-  if(save.daily.date !== todayStr()){
-    save.daily = { date: todayStr(), played:0, ms:0 };
-  }
-}
-function focusLocked(save){
-  return save.daily.played >= FOCUS_DAILY_MAX || save.daily.ms >= FOCUS_DAILY_MS;
-}
+/* 每日预算(每日关数/时长)记在 js/daily-budget.js 的 focus 预算里(main.js setupBudgets 建立) */
+function focusBudget(){ return (typeof Budgets !== 'undefined' && Budgets) ? Budgets.focus : null; }
+function focusLocked(){ const b = focusBudget(); return !!(b && b.blocked()); }
 /* 通过门槛(科学标准): 正确率≥70%(自适应训练区下界, EndeavorRx 同款目标带)
    警觉/抑制类另需命中率≥60% (防止不动手靠"正确拒斥"混过) */
 function focusPassed(level, st){
@@ -52,8 +41,25 @@ function focusStars(level, st){
 const focusFailCount = {};                     // 本关连续未通过次数 → 重试自动放宽
 
 /* ---------- 根容器与屏幕 ---------- */
-let focusRoot = null, focusCtrl = null, focusLevelT0 = 0, focusCurLevel = null;
-let focusAutoTimer = 0;
+let focusRoot = null, focusCtrl = null, focusCurLevel = null;
+let focusAutoTimer = 0, focusTicker = 0, focusTickT0 = 0;
+
+/* 训练时长入账: 关卡进行中每秒 accrue 实际毫秒并落账 —
+   崩溃/关页损失 ≤1 秒(原为关卡结束才入账, 丢整关 2~3 分钟); 菜单/说明页不计(口径不变) */
+function startFocusTicker(){
+  stopFocusTicker();
+  focusTickT0 = Date.now();
+  focusTicker = setInterval(()=>{
+    const b = focusBudget(); if(!b) return;
+    const nowT = Date.now();
+    b.accrue(nowT - focusTickT0);
+    focusTickT0 = nowT;
+    b.flush();
+  }, 1000);
+}
+function stopFocusTicker(){
+  if(focusTicker){ clearInterval(focusTicker); focusTicker = 0; }
+}
 
 function ensureFocusRoot(){
   if(focusRoot) return;
@@ -68,6 +74,7 @@ function focusScreen(html){
   return focusRoot;
 }
 function focusExit(){
+  stopFocusTicker();
   if(focusCtrl){ focusCtrl.stop(); focusCtrl = null; }
   try{ if(typeof speechSynthesis!=='undefined') speechSynthesis.cancel(); }catch(e){}
   focusRoot.style.display = 'none';
@@ -77,15 +84,16 @@ function focusExit(){
 
 /* ---------- 今日页 ---------- */
 function showFocusToday(){
+  stopFocusTicker();
   const save = loadFocusSave();
-  focusDailyRolled(save); saveFocusSave(save);
-  const locked = focusLocked(save);
+  const locked = focusLocked();
+  const played = focusBudget() ? focusBudget().spentCount() : 0;
   const total = Object.values(save.stars).reduce((s,x)=>s+x,0);
   const cur = Math.min(save.unlocked, 99);
   const lv = FOCUS_LEVELS[cur];
   const meta = FOCUS_META[lv.dim];
-  const dots = Array.from({length:FOCUS_DAILY_MAX}, (_,k)=>
-    '<span class="dot '+(k < save.daily.played?'done':'')+'"></span>').join('');
+  const dots = Array.from({length:FOCUS_DAILY_LEVELS}, (_,k)=>
+    '<span class="dot '+(k < played?'done':'')+'"></span>').join('');
 
   let html = '';
   if(locked){
@@ -163,7 +171,7 @@ function startFocusLevel(i){
 }
 
 function beginFocusRun(level){
-  focusLevelT0 = Date.now();
+  startFocusTicker();
   const meta = FOCUS_META[level.dim];
   const kindTag = level.kind==='tutorial' ? '· 教学' : level.kind==='review' ? '· 复习' : level.kind==='master' ? '· 大师考验' : '';
   focusScreen(`
@@ -187,11 +195,10 @@ function beginFocusRun(level){
 
 function onFocusLevelEnd(level, st){
   focusCtrl = null;
-  const elapsed = Date.now() - focusLevelT0;
+  stopFocusTicker();
   const passed = focusPassed(level, st);
   const stars = passed ? focusStars(level, st) : 0;
   const save = loadFocusSave();
-  focusDailyRolled(save);
   if(passed){
     save.unlocked = Math.max(save.unlocked, Math.min(level.i+1, 99));
     if(level.kind !== 'tutorial')
@@ -200,9 +207,9 @@ function onFocusLevelEnd(level, st){
   } else {
     focusFailCount[level.i] = (focusFailCount[level.i]||0) + 1;
   }
-  save.daily.played++;                         // 无论通过与否都计入每日额度(防疲劳刷)
-  save.daily.ms += elapsed;
-  save.history.push({ d: todayStr(), i: level.i, dim: level.dim, kind: level.kind,
+  const fb = focusBudget();
+  if(fb){ fb.count(1); fb.flush(); }              // 无论通过与否都计入每日额度(防疲劳刷)
+  save.history.push({ d: budgetDateStr(Date.now()), i: level.i, dim: level.dim, kind: level.kind,
     acc: Math.round(st.acc*100), mrt: Math.round(st.mrt), trials: st.trials, stars, passed });
   if(save.history.length > 400) save.history.splice(0, save.history.length-400);
   saveFocusSave(save);
@@ -237,9 +244,7 @@ function onFocusLevelEnd(level, st){
     focusSpeak(moveOn ? '你已经很努力了！我们先去玩别的游戏，以后再来挑战这一关。' : '你刚才很努力！我们再来一次，这次会简单一点点。');
   }
   const next = ()=>{
-    const s2 = loadFocusSave();
-    focusDailyRolled(s2);
-    if(focusLocked(s2)) showFocusToday();
+    if(focusLocked()) showFocusToday();
     else if(!passed && (focusFailCount[level.i]||0) < 2) startFocusLevel(level.i);
     else if(level.i >= 99) showFocusToday();
     else startFocusLevel(level.i+1);
@@ -267,9 +272,10 @@ function showFocusParentGate(){
 
 function showFocusParent(){
   const save = loadFocusSave();
-  focusDailyRolled(save); saveFocusSave(save);
+  const fb = focusBudget();
   const total = Object.values(save.stars).reduce((s,x)=>s+x,0);
-  const mins = Math.round(save.daily.ms/60000);
+  const mins = Math.round((fb ? fb.spentMs() : 0)/60000);
+  const played = fb ? fb.spentCount() : 0;
   const dims = FOCUS_DIMS;
   const perDim = dims.map(d=>{
     const h = save.history.filter(x=>x.dim===d).slice(-20);
@@ -286,7 +292,7 @@ function showFocusParent(){
     <div class="f-screen f-parent">
       <h1>家长面板</h1>
       <div class="f-stat-row">
-        <div class="f-stat">今日 <b>${save.daily.played}</b>/6 关 · <b>${mins}</b> 分钟</div>
+        <div class="f-stat">今日 <b>${played}</b>/${FOCUS_DAILY_LEVELS} 关 · <b>${mins}</b> 分钟</div>
         <div class="f-stat">累计 <b>${save.unlocked+1}</b>/100 关 · ⭐${total}</div>
       </div>
       <table class="f-table">
@@ -327,6 +333,8 @@ function showFocusParent(){
   rb.onclick = ()=>{
     if(armed){
       SyncDB.remove(FOCUS_SAVE_KEY);
+      const fb2 = focusBudget();
+      if(fb2) fb2.reset();                        // 旧行为保持: 重置进度同时清当日额度
       showToast('训练进度已重置', 1800);
       showFocusParent();
     } else {
@@ -350,6 +358,7 @@ const FocusMode = {
     showFocusToday();
   },
   cleanup(){
+    stopFocusTicker();
     if(focusCtrl){ focusCtrl.stop(); focusCtrl = null; }
     clearTimeout(focusAutoTimer);
     try{ if(typeof speechSynthesis!=='undefined') speechSynthesis.cancel(); }catch(e){}

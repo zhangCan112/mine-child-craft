@@ -5,9 +5,11 @@
    file:// 直开(桌面)自动降级为纯 localStorage
    已知进度键集中登记在此, 新模式存档时在 SYNC_KEYS 补一行
 ============================================================ */
-const SYNC_KEYS = ['tnt_escape_progress', 'focus_camp_save', 'play_time_save', 'build_world_save'];
+const SYNC_KEYS = ['tnt_escape_progress', 'focus_camp_save', 'daily_budget_save', 'build_world_save'];
 
+let _readyRes = null;
 const SyncDB = {
+  ready: new Promise(r=>{ _readyRes = r; }),   // 服务器镜像完成后 resolve (file:// 或离线立即) — 每日预算等它, 见 main.js setupBudgets
   enabled: (typeof location !== 'undefined' && location.protocol.indexOf('http') === 0),
   deviceId: null,
   cache: {},                       // 服务端整份镜像
@@ -16,7 +18,7 @@ const SyncDB = {
   _timer: 0,
 
   init(){
-    if(!this.enabled) return;
+    if(!this.enabled){ _readyRes(); return; }
     fetch('/id', {cache:'no-store'})
       .then(r=>r.json())
       .then(({id})=>{
@@ -41,8 +43,9 @@ const SyncDB = {
         }
         this.loaded = true;
         if(changed) this.push();
+        _readyRes();
       })
-      .catch(()=>{ /* 桌面/离线: 静默降级 */ });
+      .catch(()=>{ /* 桌面/离线: 静默降级 */ _readyRes(); });
   },
 
   get(key){
