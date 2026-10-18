@@ -231,9 +231,12 @@ test('共享怪物: init 按默认配置一次性部署(僵尸×6, 带游荡栅�
   assert.ok(mobsState.spawned.every(s => s.type === 'zombie'), '默认僵尸');
   assert.ok(mobsState.spawned.every(s => s.opts && s.opts.wander && s.opts.wander.x0 === 18), '带游荡栅栏(怪物库游荡本能)');
   assert.ok(mobsState.spawned.every(s => Math.hypot(s.x - 56, s.z - 94) >= 12), '不刷在坦克脸上');
+  assert.strictEqual(elCache['pkMobBtns'].children.length, 5, '选怪面板 5 个怪种按钮(自有 pk* 类, 不复用竞技场 .mobBtns → 不会被竞技场 buildPanel 注入翻倍)');
   const before = mobsState.cleared;
   TankRangeMode.cleanup();
   assert.ok(mobsState.cleared > before, 'cleanup 清掉怪物');
+  TankRangeMode.init();                                       /* 重复进场 */
+  assert.strictEqual(elCache['pkMobBtns'].children.length, 5, '重复进场不重复放按钮(幂等)');
 });
 
 test('R 键重部署: 清掉当前批, 按当前配置再来一批(无波次自动刷新)', () => {

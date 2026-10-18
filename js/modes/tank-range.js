@@ -42,6 +42,7 @@ function buildPicker(){
   pickerBuilt = true;
   pkEl = document.getElementById('mobPicker');
   const btns = document.getElementById('pkMobBtns');
+  btns.innerHTML = '';                               // 幂等: 先清空(类名撞车的历史教训, 双保险)
   for(const k of ['zombie','skeleton','creeper','golem','dragon']){
     const b = document.createElement('button');
     b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${Mobs.types[k].name}`;
