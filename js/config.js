@@ -58,6 +58,17 @@ const TEMP_PLAY_LIMIT_MIN = {
 const FOCUS_DAILY_LEVELS = 6;
 const FOCUS_DAILY_MIN = 20;
 
+/* 坦克载具参数 (tank-core/tank.js 用, 见 js/tank-core.js) */
+const TANK = {
+  hw: 0.95, height: 1.4,      // 碰撞半宽/高(格): 可进 2 格高空间, 过不了 2 格宽窄门
+  speed: 7.0, reverse: 3.5,   // 前进/倒车极速(格/秒)
+  accel: 6.0, friction: 4.0,  // 加速/滑行摩擦(指数逼近速率)
+  turnRate: 1.6,              // 车体转向速率上限(弧度/秒), 亦为 A/D 集成速率
+  promptR: 2.5, enterR: 3.0   // 上车提示/上车判定半径(格): 走近才提示, 稍远一点仍可上
+};
+/* 载具相机 (CameraRig.mount 用, 见 js/camera-rig.js) */
+const CAM_TANK = { dist: 6.5, lift: 1.6, eye: 1.8 };
+
 /* ============================================================
    方块定义
 ============================================================ */

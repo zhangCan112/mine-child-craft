@@ -7,7 +7,8 @@ const MODES = {
   arena: ArenaMode,
   tnt:   TntMode,
   focus: FocusMode,
-  build: BuildMode
+  build: BuildMode,
+  tank:  TankRangeMode
 };
 MODES.cur = null;
 let curModeId = null;
@@ -32,7 +33,7 @@ function showPage(id){
 /* ---------- 每日预算 (DailyBudget) — 儿童时限的唯一账本 ----------
     竞技场+TNT+建造 的儿童时限与 专注训练营的每日限额 都记在
     js/daily-budget.js 的同一本预算里; 计时/午夜翻转/按日限额/迁移全部在那边 */
-const PLAY_LIMIT_MODES = ['arena', 'tnt', 'build'];   // 共享儿童时限的模式
+const PLAY_LIMIT_MODES = ['arena', 'tnt', 'build', 'tank'];   // 共享儿童时限的模式
 let Budgets = null;                                   // SyncDB.ready 后填充(镜像完成, 防"第二台设备读到旧本地值")
 let playSaveT = 0;
 
@@ -56,13 +57,13 @@ function updateLimitText(){
   if(!Budgets) return;
   const m = Math.round(Budgets.play.capMs()/60000);
   const t = document.getElementById('playTimeRule');
-  if(t) t.textContent = '竞技场 + TNT 密室 + 建造模式每天共 ' + m + ' 分钟 · 专注训练营不受影响（每天 ' + FOCUS_DAILY_LEVELS + ' 关 / ' + FOCUS_DAILY_MIN + ' 分钟）';
+  if(t) t.textContent = '竞技场 + TNT 密室 + 建造 + 坦克演习场每天共 ' + m + ' 分钟 · 专注训练营不受影响（每天 ' + FOCUS_DAILY_LEVELS + ' 关 / ' + FOCUS_DAILY_MIN + ' 分钟）';
   const b = document.getElementById('buildTimeRule');
   if(b) b.textContent = '你的建造会自动保存，换设备也能继续！和竞技场、TNT 共享每天 ' + m + ' 分钟游玩时间';
 }
 function refreshPlayCards(){
   const blocked = playBlocked();
-  ['cardArena','cardTnt','cardBuild'].forEach(id=>{
+  ['cardArena','cardTnt','cardBuild','cardTank'].forEach(id=>{
     const c = document.getElementById(id);
     if(!c) return;
     c.classList.toggle('timedout', blocked);
@@ -126,6 +127,11 @@ function buildMenu(){
     showPage('build');
     if(MODES.cur.buildMenu) MODES.cur.buildMenu();
   };
+  document.getElementById('cardTank').onclick = ()=>{    // 坦克演习场: 点卡直进(最少步, 适合孩子)
+    if(playBlocked()){ showPlayTimeoutPage(); return; }
+    if(curModeId !== 'tank') switchMode('tank');
+    requestLock();
+  };
   document.getElementById('arenaBackBtn').onclick = ()=> showPage('main');
   document.getElementById('tntBackBtn').onclick   = ()=> showPage('main');
   document.getElementById('buildBackBtn').onclick = ()=> showPage('main');
@@ -141,7 +147,8 @@ function loop(now){
   if(dt>0.05) dt=0.05;
 
   if(locked || touchPlaying){
-    physics(dt);
+    if(Tank.driving()) Tank.update(dt);               // 载具驾驶: 坦克物理替代玩家物理
+    else physics(dt);
     if(worldEvents.voidFall){                       // 引擎事件 → 分发给当前模式的 onVoidFall
       worldEvents.voidFall = false;
       if(MODES.cur && MODES.cur.onVoidFall) MODES.cur.onVoidFall();

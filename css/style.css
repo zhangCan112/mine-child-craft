@@ -52,6 +52,8 @@ canvas{display:block}
 .modeCard.tnt:hover{background:rgba(255,110,70,.18)}
 .modeCard.build{border-color:rgba(233,196,106,.6)}
 .modeCard.build:hover{background:rgba(233,196,106,.18)}
+.modeCard.tank{border-color:rgba(126,180,94,.6)}
+.modeCard.tank:hover{background:rgba(110,168,80,.18)}
 .modeCard.timedout{opacity:.45;position:relative}
 .modeCard.timedout:hover{transform:none;background:rgba(255,255,255,.08)}
 .modeCard .timeoutBadge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);

@@ -55,9 +55,14 @@
         <h2>建造模式</h2>
         <small>自由搭建 · 精选初始场景</small>
       </div>
+      <div class="modeCard tank" id="cardTank">
+        <div class="big">🚙</div>
+        <h2>坦克演习场</h2>
+        <small>开坦克 · 爬坡 · 冲呀！</small>
+      </div>
     </div>
     <div class="keys">
-      <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>菜单</b>：Esc
+      <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>菜单</b>：Esc
     </div>
   </div>
 
@@ -146,7 +151,7 @@
       <button class="play primary" id="playTimeHomeBtn">🏠 回主页</button>
     </div>
     <div class="keys">
-      <span class="safe" id="playTimeRule">竞技场 + TNT 密室 + 建造模式每天共 10 分钟 · 专注训练营不受影响（每天 6 关 / 20 分钟）</span>
+      <span class="safe" id="playTimeRule">竞技场 + TNT 密室 + 建造 + 坦克演习场每天共 10 分钟 · 专注训练营不受影响（每天 6 关 / 20 分钟）</span>
     </div>
   </div>
 
@@ -167,12 +172,14 @@
 <script src="lib/three.min.js" defer></script>
 <script src="js/config.js" defer></script>
 <script src="js/voxel.js" defer></script>
+<script src="js/tank-core.js" defer></script>
 <script src="js/scene-kit.js" defer></script>
 <script src="js/world.js" defer></script>
 <script src="js/effects.js" defer></script>
 <script src="js/camera-rig.js" defer></script>
 <script src="js/held-item.js" defer></script>
 <script src="js/avatar.js" defer></script>
+<script src="js/tank.js" defer></script>
 <script src="js/speech.js" defer></script>
 <script src="js/input.js" defer></script>
 <script src="js/mode-kit.js" defer></script>
@@ -187,6 +194,7 @@
 <script src="js/modes/tnt.js" defer></script>
 <script src="js/modes/focus.js" defer></script>
 <script src="js/modes/build.js" defer></script>
+<script src="js/modes/tank-range.js" defer></script>
 <script src="js/main.js" defer></script>
 </body>
 </html>
