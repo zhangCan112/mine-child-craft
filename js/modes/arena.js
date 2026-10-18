@@ -109,146 +109,202 @@ function sharedBoxGeo(w,h,d){
 }
 const mkBox = (w,h,d,m)=> new THREE.Mesh(sharedBoxGeo(w,h,d), m);
 
-function buildZombie(){
-  const skin  = new THREE.MeshLambertMaterial({color:0x5e9440});
-  const shirt = new THREE.MeshLambertMaterial({color:0x2e7a70});
-  const pants = new THREE.MeshLambertMaterial({color:0x4a3f70});
-  const dark  = new THREE.MeshLambertMaterial({color:0x1c2b16});
-  const mats = [skin,shirt,pants,dark];
-  const g = new THREE.Group();
-  const legL = new THREE.Group(); legL.position.set(-0.13,0.75,0);
-  legL.add(mkBox(0.24,0.75,0.24,pants)); legL.children[0].position.y=-0.375;
-  const legR = new THREE.Group(); legR.position.set(0.13,0.75,0);
-  legR.add(mkBox(0.24,0.75,0.24,pants)); legR.children[0].position.y=-0.375;
-  const body = mkBox(0.5,0.75,0.26,shirt); body.position.y = 1.12;
-  const armL = new THREE.Group(); armL.position.set(-0.37,1.42,0);
-  armL.add(mkBox(0.2,0.72,0.2,skin)); armL.children[0].position.y=-0.34;
-  armL.rotation.x = -1.45;
-  const armR = new THREE.Group(); armR.position.set(0.37,1.42,0);
-  armR.add(mkBox(0.2,0.72,0.2,skin)); armR.children[0].position.y=-0.34;
-  armR.rotation.x = -1.45;
-  const head = new THREE.Group(); head.position.y = 1.5;
-  const skull = mkBox(0.5,0.5,0.5,skin); skull.position.y=0.25; head.add(skull);
-  const eL = mkBox(0.1,0.08,0.04,dark); eL.position.set(-0.12,0.3,0.26); head.add(eL);
-  const eR = mkBox(0.1,0.08,0.04,dark); eR.position.set( 0.12,0.3,0.26); head.add(eR);
-  g.add(legL,legR,body,armL,armR,head);
-  return {group:g, parts:{legL,legR,armL,armR,head}, mats};
+/* ============================================================
+   怪物实例化渲染 (MobBatch) — draw call 合批
+   ------------------------------------------------------------
+   原实现每只怪 ~10 个独立 mesh+材质 → 千怪 = 上万 draw call。
+   改为按 (类型 × 关节槽) InstancedMesh 合批: 各槽部件盒子烘进带
+   顶点色的合并几何(全场共享一份 Lambert vertexColors 材质), 每帧
+   CPU 组装实例矩阵(位置/朝向/体型/关节角, 数值全部存在 mob 状态上,
+   不再有 THREE 节点)。受击闪白·狂暴红晕·引信白闪改 instanceColor
+   着色(diffuse 乘法近似原 emissive); 尸体淡出改下沉(实例无法逐个
+   透明)。阶级挂件/光环是稀有物, 仍走普通 mesh, 每帧对齐实例位姿。
+   ============================================================ */
+
+/* 颜色 hex → 线性 [r,g,b](与旧材质 setHex 同口径, r128 无色彩管理) */
+const _rigCol = new THREE.Color();
+function rgb(hex){ _rigCol.setHex(hex); return [_rigCol.r, _rigCol.g, _rigCol.b]; }
+/* 部件描述: 尺寸/颜色/相对槽枢轴的偏移/可选绕 X 预旋转(龙颈) */
+function B(w,h,d,hex,x,y,z,rx){ return {w,h,d,col:rgb(hex),x,y,z,rx}; }
+
+/* 骨架注册表: slot = {joint:[枢轴], axis:'x'|'z', boxes:[部件]}
+   —— 尺寸/偏移/枢轴与旧 build* 函数逐字一致, 视觉不变 */
+const MOB_RIG = (()=>{
+  const SKIN=0x5e9440, SHIRT=0x2e7a70, PANTS=0x4a3f70, DARKZ=0x1c2b16;
+  const BONE=0xd8d8d2, BONE2=0xb8b8b0, DARKS=0x1a1a1a, WOOD=0x6b4a2a;
+  const GREEN=0x4fae4f, GREEN2=0x3d8f3d, DARKC=0x101510;
+  const IRON=0xcdd0d8, IRON2=0xaab0bb, DARKG=0x555a63, EYEG=0xff2a1a;
+  const BODY=0x16161f, DARKD=0x262633, MEMB=0x3a2055, EYED=0xd06bff;
+  return {
+    zombie: { slots: {
+      root: { joint:[0,0,0], boxes:[ B(0.5,0.75,0.26,SHIRT, 0,1.12,0) ] },
+      legL: { joint:[-0.13,0.75,0], boxes:[ B(0.24,0.75,0.24,PANTS, 0,-0.375,0) ] },
+      legR: { joint:[ 0.13,0.75,0], boxes:[ B(0.24,0.75,0.24,PANTS, 0,-0.375,0) ] },
+      armL: { joint:[-0.37,1.42,0], boxes:[ B(0.2,0.72,0.2,SKIN, 0,-0.34,0) ] },
+      armR: { joint:[ 0.37,1.42,0], boxes:[ B(0.2,0.72,0.2,SKIN, 0,-0.34,0) ] },
+      head: { joint:[0,1.5,0], boxes:[
+        B(0.5,0.5,0.5,SKIN, 0,0.25,0),
+        B(0.1,0.08,0.04,DARKZ, -0.12,0.3,0.26), B(0.1,0.08,0.04,DARKZ, 0.12,0.3,0.26) ] },
+    }},
+    skeleton: { slots: {
+      root: { joint:[0,0,0], boxes:[ B(0.5,0.72,0.24,BONE, 0,1.11,0) ] },
+      legL: { joint:[-0.1,0.75,0], boxes:[ B(0.16,0.75,0.16,BONE2, 0,-0.375,0) ] },
+      legR: { joint:[ 0.1,0.75,0], boxes:[ B(0.16,0.75,0.16,BONE2, 0,-0.375,0) ] },
+      armL: { joint:[-0.34,1.4,0], boxes:[ B(0.16,0.72,0.16,BONE, 0,-0.34,0),
+        B(0.07,0.6,0.09,WOOD, 0,-0.72,0.1) ] },                        // 弓
+      armR: { joint:[ 0.34,1.4,0], boxes:[ B(0.16,0.72,0.16,BONE, 0,-0.34,0) ] },
+      head: { joint:[0,1.47,0], boxes:[
+        B(0.5,0.5,0.5,BONE, 0,0.25,0),
+        B(0.12,0.1,0.04,DARKS, -0.12,0.3,0.26), B(0.12,0.1,0.04,DARKS, 0.12,0.3,0.26),
+        B(0.08,0.08,0.04,DARKS, 0,0.18,0.26) ] },
+    }},
+    creeper: { slots: {
+      root: { joint:[0,0,0], boxes:[ B(0.44,0.9,0.3,GREEN, 0,0.85,0) ] },
+      legL: { joint:[0,0.42,0], boxes:[                                // 对角腿对
+        B(0.26,0.42,0.28,GREEN2, -0.14,-0.21, 0.18), B(0.26,0.42,0.28,GREEN2, 0.14,-0.21,-0.18) ] },
+      legR: { joint:[0,0.42,0], boxes:[
+        B(0.26,0.42,0.28,GREEN2,  0.14,-0.21, 0.18), B(0.26,0.42,0.28,GREEN2, -0.14,-0.21,-0.18) ] },
+      head: { joint:[0,1.28,0], boxes:[
+        B(0.5,0.5,0.5,GREEN, 0,0.25,0),
+        B(0.12,0.12,0.05,DARKC, -0.13,0.32,0.26), B(0.12,0.12,0.05,DARKC, 0.13,0.32,0.26),
+        B(0.26,0.1,0.05,DARKC, 0,0.13,0.26), B(0.1,0.16,0.05,DARKC, 0,0.05,0.26) ] },
+    }},
+    golem: { slots: {
+      root: { joint:[0,0,0], boxes:[ B(1.35,1.5,0.85,IRON, 0,1.6,0) ] },
+      legL: { joint:[-0.34,0.85,0], boxes:[ B(0.5,0.85,0.5,IRON2, 0,-0.425,0) ] },
+      legR: { joint:[ 0.34,0.85,0], boxes:[ B(0.5,0.85,0.5,IRON2, 0,-0.425,0) ] },
+      armL: { joint:[-0.87,2.28,0], boxes:[ B(0.45,1.55,0.45,IRON, 0,-0.775,0) ] },
+      armR: { joint:[ 0.87,2.28,0], boxes:[ B(0.45,1.55,0.45,IRON, 0,-0.775,0) ] },
+      head: { joint:[0,2.35,0], boxes:[
+        B(0.72,0.66,0.72,IRON, 0,0.35,0),
+        B(0.16,0.34,0.16,DARKG, 0,0.28,0.42),
+        B(0.13,0.09,0.05,EYEG, -0.17,0.44,0.37), B(0.13,0.09,0.05,EYEG, 0.17,0.44,0.37) ] },
+    }},
+    dragon: { slots: {
+      root: { joint:[0,0,0], boxes:[                                 // 躯干+腹板+颈(预旋)+尾三节+后腿
+        B(1.7,1.3,3.4,BODY, 0,1.15,0), B(1.5,0.35,3.0,DARKD, 0,0.45,0),
+        B(0.75,0.75,1.7,BODY, 0,1.5,2.3, 0.25),
+        B(0.95,0.85,1.5,BODY, 0,1.15,-2.3), B(0.7,0.6,1.4,DARKD, 0,1.2,-3.5),
+        B(0.45,0.4,1.3,DARKD, 0,1.25,-4.6),
+        B(0.32,1.0,0.45,DARKD, -0.55,0.25,-1.1), B(0.32,1.0,0.45,DARKD, 0.55,0.25,-1.1) ] },
+      head: { joint:[0,1.85,3.3], boxes:[
+        B(0.95,0.85,1.2,BODY, 0,0,0), B(0.6,0.45,0.7,DARKD, 0,-0.12,0.9),
+        B(0.14,0.12,0.1,EYED, -0.32,0.18,0.35), B(0.14,0.12,0.1,EYED, 0.32,0.18,0.35),
+        B(0.16,0.55,0.16,DARKD, -0.3,0.6,-0.35), B(0.16,0.55,0.16,DARKD, 0.3,0.6,-0.35) ] },
+      wingL: { joint:[-0.85,1.75,0.2], axis:'z', boxes:[
+        B(3.2,0.12,2.2,MEMB, -1.6,0,0), B(1.8,0.1,1.4,MEMB, -3.9,-0.05,-0.2) ] },
+      wingR: { joint:[ 0.85,1.75,0.2], axis:'z', boxes:[
+        B(3.2,0.12,2.2,MEMB,  1.6,0,0), B(1.8,0.1,1.4,MEMB,  3.9,-0.05,-0.2) ] },
+    }},
+  };
+})();
+
+/* 槽部件盒子合并为一份带顶点色的几何(逐槽一份, 全类型共享材质) */
+function buildRigGeo(boxes){
+  const positions=[], normals=[], colors=[], indices=[];
+  let n = 0;
+  for(const b of boxes){
+    const g = new THREE.BoxGeometry(b.w,b.h,b.d);
+    if(b.rx) g.rotateX(b.rx);
+    g.translate(b.x, b.y, b.z);
+    const pos = g.attributes.position, nor = g.attributes.normal, idx = g.index;
+    for(let i=0;i<pos.count;i++){
+      positions.push(pos.getX(i), pos.getY(i), pos.getZ(i));
+      normals.push(nor.getX(i), nor.getY(i), nor.getZ(i));
+      colors.push(b.col[0], b.col[1], b.col[2]);
+    }
+    for(let i=0;i<idx.count;i++) indices.push(idx.getX(i)+n);
+    n += pos.count;
+    g.dispose();
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
+  geo.setAttribute('normal',   new THREE.Float32BufferAttribute(normals,3));
+  geo.setAttribute('color',    new THREE.Float32BufferAttribute(colors,3));
+  geo.setIndex(indices);
+  return geo;
 }
 
-function buildSkeleton(){
-  const bone  = new THREE.MeshLambertMaterial({color:0xd8d8d2});
-  const bone2 = new THREE.MeshLambertMaterial({color:0xb8b8b0});
-  const dark  = new THREE.MeshLambertMaterial({color:0x1a1a1a});
-  const wood  = new THREE.MeshLambertMaterial({color:0x6b4a2a});
-  const mats = [bone,bone2,dark,wood];
-  const g = new THREE.Group();
-  const legL = new THREE.Group(); legL.position.set(-0.1,0.75,0);
-  legL.add(mkBox(0.16,0.75,0.16,bone2)); legL.children[0].position.y=-0.375;
-  const legR = new THREE.Group(); legR.position.set(0.1,0.75,0);
-  legR.add(mkBox(0.16,0.75,0.16,bone2)); legR.children[0].position.y=-0.375;
-  const body = mkBox(0.5,0.72,0.24,bone); body.position.y = 1.11;
-  const armL = new THREE.Group(); armL.position.set(-0.34,1.4,0);
-  armL.add(mkBox(0.16,0.72,0.16,bone)); armL.children[0].position.y=-0.34;
-  const bow = mkBox(0.07,0.6,0.09,wood); bow.position.set(0,-0.72,0.1); armL.add(bow);
-  const armR = new THREE.Group(); armR.position.set(0.34,1.4,0);
-  armR.add(mkBox(0.16,0.72,0.16,bone)); armR.children[0].position.y=-0.34;
-  const head = new THREE.Group(); head.position.y = 1.47;
-  const skull = mkBox(0.5,0.5,0.5,bone); skull.position.y=0.25; head.add(skull);
-  const eL = mkBox(0.12,0.1,0.04,dark); eL.position.set(-0.12,0.3,0.26); head.add(eL);
-  const eR = mkBox(0.12,0.1,0.04,dark); eR.position.set( 0.12,0.3,0.26); head.add(eR);
-  const nose = mkBox(0.08,0.08,0.04,dark); nose.position.set(0,0.18,0.26); head.add(nose);
-  g.add(legL,legR,body,armL,armR,head);
-  return {group:g, parts:{legL,legR,armL,armR,head}, mats};
+/* 批次管理: (类型×槽) → InstancedMesh, 容量按需翻倍(矩阵每帧全量
+   重写, 扩容无需搬运); 空批次 count=0 不产生绘制 */
+const mobMat = new THREE.MeshLambertMaterial({vertexColors:true});
+const mobBatches = [];
+function getMobBatch(slot){
+  let b = slot.batch;
+  if(b) return b;
+  if(!slot.geo) slot.geo = buildRigGeo(slot.boxes);
+  const mesh = new THREE.InstancedMesh(slot.geo, mobMat, 16);
+  mesh.frustumCulled = false;                      // 实例散布全场, 按几何包围球剔除会误裁
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.setColorAt(0, _tintCol.setRGB(1,1,1));      // 预建 instanceColor, 避免首次着色才编译变体
+  scene.add(mesh);
+  b = { mesh, cap:16, n:0 };
+  slot.batch = b;
+  mobBatches.push(b);
+  return b;
+}
+function growMobBatch(b, need){
+  let cap = b.cap;
+  while(cap < need) cap *= 2;
+  scene.remove(b.mesh);
+  if(b.mesh.dispose) b.mesh.dispose();             // 几何/材质共享不在此动
+  const mesh = new THREE.InstancedMesh(b.mesh.geometry, mobMat, cap);
+  mesh.frustumCulled = false;
+  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  mesh.setColorAt(0, _tintCol.setRGB(1,1,1));
+  scene.add(mesh);
+  b.mesh = mesh; b.cap = cap;
 }
 
-function buildCreeper(){
-  const green = new THREE.MeshLambertMaterial({color:0x4fae4f});
-  const green2= new THREE.MeshLambertMaterial({color:0x3d8f3d});
-  const dark  = new THREE.MeshLambertMaterial({color:0x101510});
-  const mats = [green,green2,dark];
-  const g = new THREE.Group();
-  // 对角腿对 (两组合并成 legL/legR)
-  const legL = new THREE.Group(); legL.position.set(0,0.42,0);
-  const la = mkBox(0.26,0.42,0.28,green2); la.position.set(-0.14,-0.21, 0.18); legL.add(la);
-  const lb = mkBox(0.26,0.42,0.28,green2); lb.position.set( 0.14,-0.21,-0.18); legL.add(lb);
-  const legR = new THREE.Group(); legR.position.set(0,0.42,0);
-  const ra = mkBox(0.26,0.42,0.28,green2); ra.position.set( 0.14,-0.21, 0.18); legR.add(ra);
-  const rb = mkBox(0.26,0.42,0.28,green2); rb.position.set(-0.14,-0.21,-0.18); legR.add(rb);
-  const body = mkBox(0.44,0.9,0.3,green); body.position.y = 0.85;
-  const head = new THREE.Group(); head.position.y = 1.28;
-  const skull = mkBox(0.5,0.5,0.5,green); skull.position.y=0.25; head.add(skull);
-  const eL = mkBox(0.12,0.12,0.05,dark); eL.position.set(-0.13,0.32,0.26); head.add(eL);
-  const eR = mkBox(0.12,0.12,0.05,dark); eR.position.set( 0.13,0.32,0.26); head.add(eR);
-  const m1 = mkBox(0.26,0.1,0.05,dark);  m1.position.set(0,0.13,0.26); head.add(m1);
-  const m2 = mkBox(0.1,0.16,0.05,dark);  m2.position.set(0,0.05,0.26); head.add(m2);
-  g.add(legL,legR,body,head);
-  return {group:g, parts:{legL,legR,head}, mats};
+/* 每帧把存活怪的各槽实例矩阵/颜色写入批次(密集重排, 无空闲表):
+   世界 = 位置(含尸体下沉) × 朝向 × 倒地角 × 体型; 槽 = 关节平移 × 关节角 */
+const _wm=new THREE.Matrix4(), _jm=new THREE.Matrix4(), _im=new THREE.Matrix4();
+const _wq=new THREE.Quaternion(), _jq=new THREE.Quaternion(), _we=new THREE.Euler();
+const _wp=new THREE.Vector3(), _jp=new THREE.Vector3(), _ws=new THREE.Vector3();
+const _one=new THREE.Vector3(1,1,1);
+const _axisX=new THREE.Vector3(1,0,0), _axisZ=new THREE.Vector3(0,0,1);
+const _tintCol=new THREE.Color();
+function renderMobs(){
+  for(const b of mobBatches) b.n = 0;               // 也覆盖清场后: count 归零, 残余实例不再绘制
+  for(const m of mobs){
+    if(m.gone) continue;
+    if(m.dead && m.deadT > 2.2){                    // 原 visible=false 的隐藏期
+      if(m.tierNode) m.tierNode.visible = false;    // 挂件随尸体一起隐去
+      continue;
+    }
+    const rig = MOB_RIG[m.type];
+    const s = m.drawScale;
+    const sink = (m.dead && m.deadT > 0.8)
+      ? Math.min(1,(m.deadT-0.8)/1.4)*1.3 : 0;      // 原"透明淡出"的实例化等价: 下沉入地
+    _we.set(0, m.yaw, m.deadTilt);                  // Euler(0,yaw,tilt) 默认序 = Ry·Rz, 与旧 group 一致
+    _wq.setFromEuler(_we);
+    _wm.compose(_wp.set(m.pos.x, m.pos.y - sink, m.pos.z), _wq, _ws.set(s,s,s));
+    for(const name in rig.slots){
+      const slot = rig.slots[name];
+      const b = getMobBatch(slot);
+      if(b.n >= b.cap) growMobBatch(b, b.n+1);
+      _jq.setFromAxisAngle(slot.axis==='z' ? _axisZ : _axisX, name==='root' ? 0 : (m.pose[name]||0));
+      _jm.compose(_jp.fromArray(slot.joint), _jq, _one);
+      _im.multiplyMatrices(_wm, _jm);
+      b.mesh.setMatrixAt(b.n, _im);
+      b.mesh.setColorAt(b.n, _tintCol.setRGB(m.tr, m.tg, m.tb));
+      b.n++;
+    }
+    if(m.tierNode){                                 // 阶级挂件(稀有, 普通 mesh)对齐实例位姿
+      m.tierNode.visible = true;
+      m.tierNode.position.set(m.pos.x, m.pos.y - sink, m.pos.z);
+      m.tierNode.rotation.set(0, m.yaw, m.deadTilt);
+      m.tierNode.scale.setScalar(s);
+    }
+  }
+  for(const b of mobBatches){
+    b.mesh.count = b.n;
+    if(b.n > 0){
+      b.mesh.instanceMatrix.needsUpdate = true;
+      if(b.mesh.instanceColor) b.mesh.instanceColor.needsUpdate = true;
+    }
+  }
 }
-
-function buildGolem(){
-  const iron  = new THREE.MeshLambertMaterial({color:0xcdd0d8});
-  const iron2 = new THREE.MeshLambertMaterial({color:0xaab0bb});
-  const dark  = new THREE.MeshLambertMaterial({color:0x555a63});
-  const eyeM  = new THREE.MeshBasicMaterial({color:0xff2a1a});
-  const mats = [iron,iron2,dark,eyeM];
-  const g = new THREE.Group();
-  const legL = new THREE.Group(); legL.position.set(-0.34, 0.85, 0);
-  legL.add(mkBox(0.5,0.85,0.5,iron2)); legL.children[0].position.y = -0.425;
-  const legR = new THREE.Group(); legR.position.set( 0.34, 0.85, 0);
-  legR.add(mkBox(0.5,0.85,0.5,iron2)); legR.children[0].position.y = -0.425;
-  const body = mkBox(1.35,1.5,0.85,iron); body.position.y = 1.6;
-  const armL = new THREE.Group(); armL.position.set(-0.87, 2.28, 0);
-  armL.add(mkBox(0.45,1.55,0.45,iron)); armL.children[0].position.y = -0.775;
-  const armR = new THREE.Group(); armR.position.set( 0.87, 2.28, 0);
-  armR.add(mkBox(0.45,1.55,0.45,iron)); armR.children[0].position.y = -0.775;
-  const head = new THREE.Group(); head.position.set(0, 2.35, 0);
-  const skull = mkBox(0.72,0.66,0.72,iron); skull.position.y = 0.35; head.add(skull);
-  const nose = mkBox(0.16,0.34,0.16,dark); nose.position.set(0,0.28,0.42); head.add(nose);
-  const eL = mkBox(0.13,0.09,0.05,eyeM); eL.position.set(-0.17,0.44,0.37); head.add(eL);
-  const eR = mkBox(0.13,0.09,0.05,eyeM); eR.position.set( 0.17,0.44,0.37); head.add(eR);
-  g.add(legL, legR, body, armL, armR, head);
-  return {group:g, parts:{legL,legR,armL,armR,head}, mats};
-}
-
-function buildDragon(){
-  const body = new THREE.MeshLambertMaterial({color:0x16161f});
-  const dark = new THREE.MeshLambertMaterial({color:0x262633});
-  const memb = new THREE.MeshLambertMaterial({color:0x3a2055, side:THREE.DoubleSide});
-  const eyeM = new THREE.MeshBasicMaterial({color:0xd06bff});
-  const mats = [body,dark,memb,eyeM];
-  const g = new THREE.Group();
-  // 躯干 + 腹板
-  const torso = mkBox(1.7,1.3,3.4,body); torso.position.set(0,1.15,0);
-  const belly = mkBox(1.5,0.35,3.0,dark); belly.position.set(0,0.45,0);
-  // 颈 (前伸 +Z)
-  const neck = mkBox(0.75,0.75,1.7,body); neck.position.set(0,1.5,2.3); neck.rotation.x = 0.25;
-  // 头
-  const head = new THREE.Group(); head.position.set(0,1.85,3.3);
-  const skull = mkBox(0.95,0.85,1.2,body); head.add(skull);
-  const snout = mkBox(0.6,0.45,0.7,dark); snout.position.set(0,-0.12,0.9); head.add(snout);
-  const eL = mkBox(0.14,0.12,0.1,eyeM); eL.position.set(-0.32,0.18,0.35); head.add(eL);
-  const eR = mkBox(0.14,0.12,0.1,eyeM); eR.position.set( 0.32,0.18,0.35); head.add(eR);
-  const hL = mkBox(0.16,0.55,0.16,dark); hL.position.set(-0.3,0.6,-0.35); head.add(hL);
-  const hR = mkBox(0.16,0.55,0.16,dark); hR.position.set( 0.3,0.6,-0.35); head.add(hR);
-  // 尾巴三节
-  const t1 = mkBox(0.95,0.85,1.5,body); t1.position.set(0,1.15,-2.3);
-  const t2 = mkBox(0.7,0.6,1.4,body);   t2.position.set(0,1.2,-3.5);
-  const t3 = mkBox(0.45,0.4,1.3,dark);  t3.position.set(0,1.25,-4.6);
-  // 双翼 (枢轴在肩)
-  const wingL = new THREE.Group(); wingL.position.set(-0.85,1.75,0.2);
-  const wl1 = mkBox(3.2,0.12,2.2,memb); wl1.position.set(-1.6,0,0); wingL.add(wl1);
-  const wl2 = mkBox(1.8,0.1,1.4,memb);  wl2.position.set(-3.9,-0.05,-0.2); wingL.add(wl2);
-  const wingR = new THREE.Group(); wingR.position.set(0.85,1.75,0.2);
-  const wr1 = mkBox(3.2,0.12,2.2,memb); wr1.position.set(1.6,0,0); wingR.add(wr1);
-  const wr2 = mkBox(1.8,0.1,1.4,memb);  wr2.position.set(3.9,-0.05,-0.2); wingR.add(wr2);
-  // 悬垂后腿
-  const legL = mkBox(0.32,1.0,0.45,dark); legL.position.set(-0.55,0.25,-1.1);
-  const legR = mkBox(0.32,1.0,0.45,dark); legR.position.set( 0.55,0.25,-1.1);
-  g.add(torso,belly,neck,head,t1,t2,t3,wingL,wingR,legL,legR);
-  return {group:g, parts:{wingL,wingR,head}, mats};
-}
-
-const BUILDERS = { zombie:buildZombie, skeleton:buildSkeleton, creeper:buildCreeper, golem:buildGolem, dragon:buildDragon };
 
 /* ---------- 怪物实例 / 战斗 ---------- */
 const mobs = [];
@@ -269,16 +325,17 @@ const clouds = [];
 
 function spawnMob(team, type, x, z){
   const cfg = MOB_TYPES[type];
-  const built = BUILDERS[type]();
   const lc = document.createElement('canvas'); lc.width=160; lc.height=40;
   const ltex = new THREE.CanvasTexture(lc);
   const label = new THREE.Sprite(new THREE.SpriteMaterial({map:ltex, transparent:true, depthTest:false}));
   label.scale.set(2.6, 0.65, 1);
-  scene.add(built.group); scene.add(label);
+  scene.add(label);
   const m = {
     id:mobId++, team, type, cfg,
-    group:built.group, parts:built.parts, mats:built.mats,
     label, labelCanvas:lc, labelTex:ltex,
+    pose:{legL:0,legR:0,armL:0,armR:0,head:0,wingL:0,wingR:0},  // 关节角(弧度), renderMobs 组实例矩阵
+    drawScale:1, deadTilt:0,                       // 体型(阶级/引信膨胀) 与 倒地角
+    tr:1, tg:1, tb:1,                              // instanceColor 着色(闪白/狂暴/引信)
     pos:new THREE.Vector3(x, cfg.fly ? ARENA.floorY+ARENA.flyAlt : groundTop(Math.floor(x), Math.floor(z))+1, z),
     yaw: team==='A' ? Math.PI/2 : -Math.PI/2,
     hp:cfg.hp, maxHp:cfg.hp, dead:false, deadT:0, gone:false,
@@ -290,7 +347,7 @@ function spawnMob(team, type, x, z){
     slamCd:2+Math.random()*3, pounceCd:2+Math.random()*3,
     shotCnt:0, raged:false, rageBuffT:0,
     level:1, kills:0, k2:2, k3:5, dmgMult:1, invulnT:0, rockCd:2,
-    baseMaxHp:cfg.hp, tierScale:1, tierFx:null, tierMats:[], tierGeos:[],
+    baseMaxHp:cfg.hp, tierScale:1, tierNode:null, tierMats:[], tierGeos:[],
     orbitA:Math.random()*Math.PI*2, flyPhase:Math.random()*6,
     flank:(Math.random()*2-1) * (cfg.ranged ? 0.35 : 0.85),
     lastLabelHp:-1, lastLabelDead:false, labelT:0
@@ -332,9 +389,9 @@ function drawMobLabel(m){
 }
 
 function disposeMob(m){
-  scene.remove(m.group); scene.remove(m.label);
-  m.tierGeos.forEach(g=>g.dispose());       // 部件几何按尺寸共享缓存(不可 dispose), 只收光环等专属几何
-  m.mats.forEach(mt=>mt.dispose());
+  scene.remove(m.label);
+  if(m.tierNode) scene.remove(m.tierNode);    // 阶级挂件是独立普通 mesh(稀有物)
+  m.tierGeos.forEach(g=>g.dispose());       // 光环等专属几何; 挂件盒子走共享缓存
   m.tierMats.forEach(mt=>mt.dispose());
   m.label.material.map.dispose(); m.label.material.dispose();
 }
@@ -366,15 +423,10 @@ function damageMob(m, dmg, kdx, kdz, kpow, src){
   }
   if(m.hp <= 0){
     m.hp = 0; m.dead = true; m.deadT = 0;
-    m.mats.forEach(mt=>{ mt.transparent = true; mt.needsUpdate = true; });
     sfx('death');
     awardKill(src, m);
     checkBattleEnd();
   }
-}
-
-function setEmissive(m, r, g, b){
-  m.mats.forEach(mt=>{ if(mt.emissive) mt.emissive.setRGB(r,g,b); });
 }
 
 function shootArrow(m, tg, power, yawOff){
@@ -520,18 +572,19 @@ function levelUp(m){
   levelUpFx(m);
   showToast((m.team==='A'?'红方 ':'蓝方 ')+TIER_NAME[m.level]+m.cfg.name+' 晋升！', 2000);
 }
-/* 外形:体型放大 + 脚下光环(精英蓝/王者金) + 标志性附件 */
+/* 外形:体型放大 + 脚下光环(精英蓝/王者金) + 标志性附件
+   挂件是独立普通 mesh(稀有物), renderMobs 每帧对齐实例位姿 */
 function applyTierVisual(m){
   m.tierScale = m.level===2 ? 1.3 : (m.level===3 ? 1.6 : 1);   // 体型明显变大(体积≈2.2×/4×)
-  m.group.scale.set(m.tierScale, m.tierScale, m.tierScale);
-  if(m.tierFx){
-    m.group.remove(m.tierFx);
+  m.drawScale = m.tierScale;                        // 原 group.scale → 位姿数值(renderMobs 组矩阵)
+  if(m.tierNode){
+    scene.remove(m.tierNode);
     m.tierGeos.forEach(g=>g.dispose());     // 光环圆面是专属几何; 挂件盒子走共享缓存不 dispose
     m.tierGeos = [];
     m.tierMats.forEach(mt=>mt.dispose());
     m.tierMats = [];
   }
-  m.tierFx = null;
+  m.tierNode = null;
   if(m.level < 2) return;
   const ls = m.level===3 ? 1.5 : 1.25;               // 升级后名牌放大
   m.label.scale.set(2.6*ls, 0.65*ls, 1);
@@ -571,8 +624,8 @@ function applyTierVisual(m){
         add(0.16,0.4,0.16,0,2.15,-0.6,0xd8b028); add(0.16,0.4,0.16,0,2.1,-1.7,0xd8b028); }
       break;
   }
-  m.tierFx = fx;
-  m.group.add(fx);
+  m.tierNode = fx;
+  scene.add(fx);                                   // 独立节点: 不再挂在怪实例上
 }
 function levelUpFx(m){
   sfx('level');
@@ -674,13 +727,8 @@ function updateMobs(dt){
         const gy = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
         if(gp.y > gy) gp.y = Math.max(gy, gp.y - 16*dt);
       }
-      m.group.rotation.z = Math.min(Math.PI/2, m.deadT*3);
-      if(m.deadT > 0.8){
-        const o = Math.max(0, 1 - (m.deadT-0.8)/1.4);
-        m.mats.forEach(mt=>{ mt.opacity = o; });
-        m.label.visible = false;                   // 尸体淡出即收牌
-      }
-      if(m.deadT > 2.2) m.group.visible = false;
+      m.deadTilt = Math.min(Math.PI/2, m.deadT*3);   // 倒地角(renderMobs 组矩阵)
+      if(m.deadT > 0.8) m.label.visible = false;     // 尸体淡出即收牌(渲染侧改下沉入地)
       if(!m.lastLabelDead){ drawMobLabel(m); m.lastLabelDead = true; }
       continue;
     }
@@ -689,12 +737,17 @@ function updateMobs(dt){
       if(m.labelT <= 0){ drawMobLabel(m); m.lastLabelHp = m.hp; m.labelT = 0.3; }
     }
 
+    /* 着色(instanceColor): 受击闪红白 > 狂暴常驻红晕 > 常态 —
+       引信白闪在下方 fuse 块中每帧覆盖, 取消后下一帧自动回落 */
     if(m.flashT > 0){
       m.flashT -= dt;
       const f = Math.max(0, m.flashT)/0.25;
-      setEmissive(m, f*0.9, f*0.1, f*0.1);
+      m.tr = 1 + f*0.9; m.tg = 1 - f*0.9; m.tb = 1 - f*0.9;
+    } else if(m.raged){
+      m.tr = 1.4; m.tg = 0.5; m.tb = 0.5;           // 狂暴红晕
+    } else {
+      m.tr = m.tg = m.tb = 1;
     }
-    if(m.raged && m.flashT <= 0) setEmissive(m, 0.30, 0.02, 0.02);  // 狂暴红光
     if(m.staggerT > 0) m.staggerT -= dt;
     if(m.attackCd  > 0) m.attackCd  -= dt;
     if(m.attackT   > 0) m.attackT   -= dt;
@@ -703,9 +756,9 @@ function updateMobs(dt){
     if(m.rageBuffT > 0) m.rageBuffT -= dt;
     if(m.invulnT   > 0) m.invulnT   -= dt;
     if(m.rockCd    > 0) m.rockCd    -= dt;
-    if(m.tierFx && m.tierFx.userData.aura){          // 阶级光环呼吸
+    if(m.tierNode && m.tierNode.userData.aura){      // 阶级光环呼吸
       const as = 1 + Math.sin(performance.now()*0.004 + m.id)*0.12;
-      m.tierFx.userData.aura.scale.set(as, as, as);
+      m.tierNode.userData.aura.scale.set(as, as, as);
     }
     // 僵尸狂暴:血量触发(精英70%/基础50%),自身加速+攻速,附近同伴群体冲锋
     if(m.type==='zombie' && !m.raged && m.hp < m.maxHp*(m.level>=2?0.7:0.5)){
@@ -832,7 +885,7 @@ function updateMobs(dt){
       } else if(m.cfg.boom){
         if(m.fuse >= 0 && m.fuse < 0.35 && dist > m.cfg.range*2.2 && !tg.cfg.fly){
           m.fuse = -1;                               // AI:目标跑了及时取消读条,不浪费
-          m.group.scale.set(m.tierScale,m.tierScale,m.tierScale); setEmissive(m,0,0,0);
+          m.drawScale = m.tierScale;
         }
         if(dist < m.cfg.range){
           if(m.fuse < 0) m.fuse = 0;
@@ -912,9 +965,9 @@ function updateMobs(dt){
         const ft = m.level>=2 ? 0.9 : 1.1;           // 精英:引信更短
         const p = Math.min(1, m.fuse/ft);
         const sp = m.tierScale*(1+p*0.3);
-        m.group.scale.set(sp, sp, sp);
-        const blink = Math.sin(m.fuse*25) > 0 ? 0.85 : 0;
-        setEmissive(m, blink, blink, blink);
+        m.drawScale = sp;                            // 引信膨胀(原 group.scale)
+        const blink = Math.sin(m.fuse*25) > 0;
+        m.tr = m.tg = m.tb = blink ? 1.9 : 1;        // 引信白闪(instanceColor 增亮)
         if(m.fuse >= ft){
           m.gone = true;
           explode(gp.x, gp.y+0.8, gp.z, m.team, m);
@@ -937,7 +990,7 @@ function updateMobs(dt){
       }
     } else if(m.staggerT <= 0){
       if(m.fuse >= 0){
-        m.fuse = -1; m.group.scale.set(m.tierScale,m.tierScale,m.tierScale); setEmissive(m,0,0,0);
+        m.fuse = -1; m.drawScale = m.tierScale;
       }
       if(m.cfg.fly){
         // 无目标:绕场地中心巡航
@@ -968,37 +1021,36 @@ function updateMobs(dt){
 
     m.walkPhase += m.speedNow*dt*3.4;
     const sw = Math.sin(m.walkPhase)*0.5*Math.min(1, m.speedNow/2.2);
-    const P = m.parts;
-    if(P.legL){ P.legL.rotation.x =  sw; P.legR.rotation.x = -sw; }
+    /* 关节角写入数值状态(无 THREE 节点), renderMobs 统一组实例矩阵 */
+    const J = m.pose;
+    if(MOB_RIG[m.type].slots.legL){ J.legL =  sw; J.legR = -sw; }
     if(m.type==='zombie'){
-      P.armL.rotation.x = -1.45;
-      P.armR.rotation.x = m.attackT>0
+      J.armL = -1.45;
+      J.armR = m.attackT>0
         ? -1.45 - Math.sin((1-m.attackT/0.45)*Math.PI)*0.9 : -1.45;
     } else if(m.type==='skeleton'){
-      P.armL.rotation.x = -0.15 + sw*0.3;
-      P.armR.rotation.x = m.attackT>0 ? -1.3 : -sw*0.5;
+      J.armL = -0.15 + sw*0.3;
+      J.armR = m.attackT>0 ? -1.3 : -sw*0.5;
     } else if(m.type==='dragon'){
       m.flyPhase += dt*6;
       const wf = Math.sin(m.flyPhase)*0.5;
-      P.wingL.rotation.z =  wf + 0.15;
-      P.wingR.rotation.z = -(wf + 0.15);
-      P.head.rotation.x = m.attackT>0 ? -0.55 : Math.sin(m.flyPhase*0.35)*0.1;
+      J.wingL =  wf + 0.15;
+      J.wingR = -(wf + 0.15);
+      J.head = m.attackT>0 ? -0.55 : Math.sin(m.flyPhase*0.35)*0.1;
     } else if(m.type==='creeper'){
-      P.head.rotation.x = m.attackT>0 ? -0.55 : 0;      // 吐舌时头部前扑
+      J.head = m.attackT>0 ? -0.55 : 0;             // 吐舌时头部前扑
     } else if(m.type==='golem'){
-      P.armL.rotation.x = -sw*0.5;
-      P.armR.rotation.x = m.attackT>0
+      J.armL = -sw*0.5;
+      J.armR = m.attackT>0
         ? -Math.sin((1-m.attackT/0.45)*Math.PI)*2.1 : sw*0.5;
     }
     if(m.air && m.type==='golem'){
-      P.armL.rotation.x = -2.4;                     // 跃起时双臂高举
-      P.armR.rotation.x = -2.4;
+      J.armL = -2.4;                               // 跃起时双臂高举
+      J.armR = -2.4;
     }
     const idt = dt > 0 ? dt : 1e-4;
     m.vx = (gp.x - prevX)/idt;
     m.vz = (gp.z - prevZ)/idt;
-    m.group.position.set(gp.x, gp.y, gp.z);
-    m.group.rotation.y = m.yaw;
   }
 
   // 大规模兵团:空间网格加速挤开检测(代替 O(n²) 两两枚举)
@@ -1230,6 +1282,7 @@ function startBattle(){
   mobs.length = 0;
   for(const a of arrows) scene.remove(a.mesh);
   arrows.length = 0;
+  renderMobs();                                     // 冲刷批次计数(菜单中 update 不跑, 防残留上帧实例)
   spawnQueue.length = 0; spawnCursor = 0;
   const qa = queueTeam('A', cfgA), qb = queueTeam('B', cfgB);
   let ia = 0, ib = 0;
@@ -1253,6 +1306,7 @@ function clearBattle(){
   mobs.length = 0;
   for(const a of arrows) scene.remove(a.mesh);
   arrows.length = 0;
+  renderMobs();                                     // 冲刷批次计数(清场常发生在菜单页)
   spawnQueue.length = 0; spawnCursor = 0;             // 未入场的部署一并取消
   pendingBooms.length = 0;
   for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
@@ -1442,6 +1496,7 @@ const ArenaMode = mkMode({
     mobs.length = 0;
     for(const a of arrows) scene.remove(a.mesh);
     arrows.length = 0;
+    renderMobs();                                   // 冲刷批次计数(切模式即离开主循环)
     spawnQueue.length = 0; spawnCursor = 0;
     pendingBooms.length = 0;
     for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
@@ -1452,6 +1507,7 @@ const ArenaMode = mkMode({
   update(dt){
     deploySpawnQueue();                              // 分帧部署先于一切战斗逻辑
     updateMobs(dt);
+    renderMobs();                                    // 存活怪位姿写入实例批次(合批绘制)
     updateArrows(dt);
     updateBreath(dt);
     updateClouds(dt);
