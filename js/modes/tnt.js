@@ -348,8 +348,7 @@ function updateWeights(dt){
       y = land+0.5;
       w.state = 'landed';
       scene.remove(w.mesh); w.mesh = null;
-      setBlockRaw(fx, land, fz, B_WEIGHT);
-      markDirty(fx, fz);
+      editBlockDirty(fx, land, fz, B_WEIGHT);   // 直写留点了结: 与手动 setBlockRaw+markDirty 逐字等价
       dirty = true;
       Fx.kick(0.35);
       sfx('boom');
