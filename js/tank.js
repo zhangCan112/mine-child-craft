@@ -22,6 +22,7 @@ const Tank = (()=>{
   const shells = [];                      // 在飞的炮弹 { S, mesh }
   let boomCb = null;                      // 模式注册的爆炸回调(命中反馈, 政策在模式层)
   let protectFn = null;                   // 模式注册的爆炸保护谓词(什么不可炸, 政策在模式层)
+  let obstacleFn = null;                  // 模式注册的炮弹障碍谓词(什么挡炮弹, 如怪物身体 — 政策在模式层)
 
   /* ---------- 体素风建模: 斜甲车首 · 侧裙 · 迷彩 · 车灯 · 阶梯炮塔 ·
      天线(晃动) · 炮口制退器 · 炮口焰 ---------- */
@@ -165,7 +166,7 @@ const Tank = (()=>{
   function stepShells(dt){
     for(let i=shells.length-1; i>=0; i--){
       const sh = shells[i];
-      TankCore.shellStep(sh.S, dt);
+      TankCore.shellStep(sh.S, dt, obstacleFn);
       sh.mesh.position.set(sh.S.x, sh.S.y, sh.S.z);
       sh.mesh.rotation.x += dt*9;
       if(!sh.S.dead) continue;
@@ -244,6 +245,7 @@ const Tank = (()=>{
 
   function onExplode(cb){ boomCb = cb; }    /* 命中反馈钩子: 政策(表扬/计数)归模式层 */
   function protect(fn){ protectFn = fn; }   /* 爆炸保护钩子: 政策(什么不可炸)归模式层 */
+  function obstacle(fn){ obstacleFn = fn; } /* 炮弹障碍钩子: 政策(什么挡炮弹, 怪物身体)归模式层 */
 
   function toggle(){
     if(drivingIdx >= 0){                  /* ---- 下车 ---- */
@@ -286,7 +288,8 @@ const Tank = (()=>{
     tanks.length = 0;
     for(const sh of shells) disposeShell(sh);
     shells.length = 0;
+    protectFn = null; obstacleFn = null;           // 模式钩子随清场解除(模式重进会重注册)
   }
 
-  return { place, update, toggle, driving, at, nearby, exitAll, clear, fire, onExplode, protect };
+  return { place, update, toggle, driving, at, nearby, exitAll, clear, fire, onExplode, protect, obstacle };
 })();

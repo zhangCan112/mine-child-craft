@@ -213,6 +213,18 @@ test('炮弹: 受轻度重力, 命中方块即停(S.hit); 无阻挡则超程自�
   assert.ok(S2.dead && !S2.hit, '超程(life 耗尽)自毁, 无命中');
 });
 
+test('炮弹障碍: 注入的 extraSolid 谓词命中即停(怪物身体挡炮弹, 停在接触点)', () => {
+  const t = loadTank();
+  flatGround(t, 10, 50, 50, 80, 80);
+  const body = (x, y, z) => Math.abs(x - 64) < 0.9 && Math.abs(z - 55) < 0.9   // 站在 z=55 的"怪物身体"
+    && y > 11.5 && y < 14;
+  const S = t.TankCore.mkShell(64, 13, 64, 0, 0, -t.TANK.shellSpeed);
+  for(let i=0; i<Math.round(1.5/DT) && !S.dead; i++) t.TankCore.shellStep(S, DT, body);
+  assert.ok(S.dead, '应已终止');
+  assert.ok(S.hit && S.hit.z === 55, '停在怪物所在格(接触点引爆): ' + JSON.stringify(S.hit));
+  assert.ok(Math.abs(S.z - 55) < 0.7, '炮弹停在接触点附近: ' + S.z);
+});
+
 test('爆炸: 球形破坏随距离衰减, 按方块 id 分桶计数, 半径外完好, 结果确定', () => {
   const t = loadTank();
   const TARGET = 16;                                            // 靶=红羊毛(什么算靶由调用方判定)

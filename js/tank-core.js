@@ -132,7 +132,7 @@ const TankCore = (()=>{
     return { x, y, z, vx, vy, vz, life: TANK.shellLife, dead: false, hit: null };
   }
   const _sd = { x:0, y:0, z:0 };
-  function shellStep(S, dt){
+  function shellStep(S, dt, extraSolid){
     S.life -= dt;
     S.vy -= TANK.shellG*dt;
     const nx = S.x + S.vx*dt, ny = S.y + S.vy*dt, nz = S.z + S.vz*dt;
@@ -146,6 +146,12 @@ const TankCore = (()=>{
         S.dead = true;
         return S;
       }
+    }
+    if(extraSolid && extraSolid(nx, ny, nz)){       // 模式注入的额外障碍(如怪物身体): 碰上即停在接触点引爆
+      S.x = nx; S.y = ny; S.z = nz;
+      S.hit = { x: Math.floor(nx), y: Math.floor(ny), z: Math.floor(nz) };
+      S.dead = true;
+      return S;
     }
     S.x = nx; S.y = ny; S.z = nz;
     if(S.life <= 0 || S.y < -4 ||

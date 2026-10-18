@@ -39,7 +39,7 @@ _Avoid_: 玩家皮肤、人物模型（散称）
 _Avoid_: 武器表、物品系统（没有背包/耐久，别散称）
 
 **载具（Tank）**:
-引擎层的可驾驶实体模块：体素建模（含履带滚动/炮管后坐）、上下车状态机（toggle 返回 entered/exited/far）、相机锚源挂载、输入映射与开炮。interface：place / update / toggle / driving / nearby / exitAll / clear / fire / onExplode。驾驶物理、炮弹弹道与爆炸破坏收在坦克驾驶核心（TankCore，纯核心：差速转向、惯性、履带爬台阶、最近车距门控、球形爆炸）；提示文案与话术在模式层。
+引擎层的可驾驶实体模块：体素建模（含履带滚动/炮管后坐）、上下车状态机（toggle 返回 entered/exited/far）、相机锚源挂载、输入映射与开炮。interface：place / update / toggle / driving / nearby / exitAll / clear / fire / onExplode（另 protect 爆炸保护与 obstacle 炮弹障碍两个模式钩子）。驾驶物理、炮弹弹道与爆炸破坏收在坦克驾驶核心（TankCore，纯核心：差速转向、惯性、履带爬台阶、最近车距门控、球形爆炸）；提示文案与话术在模式层。
 _Avoid_: 坦克实体、载具系统
 
 **怪物库（Mobs）**:

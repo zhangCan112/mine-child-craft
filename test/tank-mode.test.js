@@ -50,8 +50,9 @@ globalThis.Tank = {
   at(){ return { x: 56, y: 13, z: 94 }; },       /* 驾驶中车位(碾压判定用) */
   onExplode(cb){ explodeCb = cb; },          /* 模式注册爆炸回调(命中反馈) */
   protect(fn){ protectFn = fn; },            /* 模式注册爆炸保护谓词(地面政策) */
+  obstacle(fn){ obstacleFn = fn; },          /* 模式注册炮弹障碍谓词(怪物身体挡炮弹) */
 };
-let explodeCb = null, protectFn = null;
+let explodeCb = null, protectFn = null, obstacleFn = null;
 globalThis.SceneKit = { fill(){ calls.push(['fill']); }, tree(){}, rand: () => 0 };
 globalThis.SpeechKit = { speak(s){ spoken.push(s); }, cancel(){} };
 globalThis.showToast = (s) => calls.push(['toast', s]);
@@ -83,7 +84,7 @@ globalThis.requestLock = () => calls.push(['lock']);
 globalThis.getBlock = () => 0;                /* 部署寻位的头顶净空查询 */
 globalThis.isSolid = () => false;
 globalThis.groundTop = () => 11;
-globalThis.TANK_VS_MOBS = { direct: 40, splash: 25, edge: 10, crush: 40, blastR: 3.1, blastDy: 4 };   /* config 数值表替身 */
+globalThis.TANK_VS_MOBS = { direct: 40, splash: 42, edge: 12, crush: 40, blastR: 3.1, blastDy: 7 };   /* config 数值表替身 */
 globalThis.pos = { set(){} };
 globalThis.vel = { set(){} };
 globalThis.yaw = 0; globalThis.pitch = 0; globalThis.onGround = true;
@@ -243,23 +244,35 @@ test('R 键重部署: 清掉当前批, 按当前配置再来一批(无波次自�
 });
 
 test('爆炸打怪: 近爆心按直击满伤, 边缘按距离衰减; 击杀给碎块与计数', () => {
-  TankRangeMode.init();                       /* 注册 onExplode/onBoom */
+  TankRangeMode.init();                       /* 注册 onExplode/onBoom 与炮弹障碍 */
   hitLog.length = 0; calls.length = 0; spoken.length = 0;
+  assert.strictEqual(typeof obstacleFn, 'function', '模式在 init 注册炮弹障碍谓词(怪物身体挡炮弹)');
   const mA = { type:'zombie', pos:{ x:64.5, y:12, z:54.5 } };   /* 爆心旁 → 直击 */
-  const mB = { type:'zombie', pos:{ x:66.5, y:12, z:56.5 } };   /* 边缘 → 衰减 */
+  const mB = { type:'zombie', pos:{ x:66.0, y:12, z:55.5 } };   /* 边缘 → 衰减 */
   nearResult = [mA, mB];
   nextHit = { hp: 0, dead: false, freshDead: false };
   explodeCb(64, 12, 54, { removed: 5, counts: {} });
   assert.strictEqual(hitLog.length, 2, '波及范围内两只都挨打');
   assert.strictEqual(hitLog[0].dmg, 40, '爆心旁按直击伤 40');
-  const dB = Math.hypot(66.5 - 64, 56.5 - 54);
-  assert.strictEqual(hitLog[1].dmg, Math.round(25 - 15 * Math.min(1, dB / 3.1)), '边缘按距离线性衰减');
+  const dB = Math.hypot(66.0 - 64, 55.5 - 54);
+  assert.strictEqual(hitLog[1].dmg, Math.round(42 - 30 * Math.min(1, dB / 3.1)), '边缘按距离线性衰减(42→12)');
   nearResult = [mA];
   nextHit = { hp: 0, dead: true, freshDead: true };
   explodeCb(64, 12, 54, { removed: 5, counts: {} });
   assert.ok(has('debris'), '击杀有碎块特效');
   assert.ok(calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('消灭') >= 0), '击杀计数 toast');
   nearResult = [];
+});
+
+test('炮弹障碍: 怪物身体挡炮弹(水平半径 hitR+0.35, 竖向身体区间)', () => {
+  TankRangeMode.init();
+  listResult = [{ type:'zombie', pos:{ x:64.5, y:12, z:54.5 }, cfg:{ hitR:0.55, h:1.9 } }];
+  assert.strictEqual(obstacleFn(64.6, 13.0, 54.4), true, '身体区间内 → 挡炮弹');
+  assert.strictEqual(obstacleFn(64.9, 13.0, 54.4), true, '半径放宽 0.35 仍算命中');
+  assert.strictEqual(obstacleFn(66.5, 13.0, 54.5), false, '横向太远不挡');
+  assert.strictEqual(obstacleFn(64.6, 15.0, 54.4), false, '头顶上方不挡');
+  assert.strictEqual(obstacleFn(64.6, 11.0, 54.4), false, '脚下不挡');
+  listResult = [];
 });
 
 test('坦克碾压: 驾驶中贴身怪物挨碾压伤(孩子的最爱)', () => {
@@ -289,11 +302,32 @@ test('清场播报: 一批全灭时语音表扬一次(过程性表扬, 不罚失
   assert.ok(!spoken.some(s => s.indexOf('全部消灭') >= 0), '只说一次');
 });
 
-test('菜单保底新增: Esc 打开选怪面板页(回面板再选再来)', () => {
-  calls.length = 0;
-  TankRangeMode.onMenu();
-  assert.ok(has('exitAll'), 'onMenu → Tank.exitAll');
-  assert.ok(calls.some(c => c[0] === 'page' && c[1] === 'tank'), 'onMenu → 显示坦克选怪页');
+test('选怪面板: 🐛 触屏按钮与 M 键开关游戏内浮动面板(不复用竞技场菜单页)', () => {
+  const picker = elCache['mobPicker'];
+  assert.ok(picker, 'index.html 有 #mobPicker');
+  const bugBtn = touchList.find(b => b.label.indexOf('👾') >= 0);
+  assert.ok(bugBtn, '触屏有 👾 换怪按钮');
+  bugBtn.act();
+  assert.ok(picker._cls.has('open'), '👾 开面板');
+  bugBtn.act();
+  assert.ok(!picker._cls.has('open'), '再点关闭');
+  TankRangeMode.onKey('KeyM');
+  assert.ok(picker._cls.has('open'), 'M 键同入口开关');
+  TankRangeMode.onKey('KeyM');
+  assert.ok(!picker._cls.has('open'), 'M 键再关');
+});
+
+test('选怪面板: 数量 +/- 生效, 面板内部署按钮按当前选择撒怪并关面板', () => {
+  mobsState.spawned.length = 0;
+  TankRangeMode.onKey('KeyM');                 /* 开面板 */
+  elCache['pkCntP'].onclick();                /* 6 → 7 */
+  elCache['pkCntP'].onclick();                /* 7 → 8 */
+  assert.strictEqual(elCache['pkCnt'].textContent, 8, '数量显示 8');
+  elCache['pkCntM'].onclick();                /* 8 → 7 */
+  assert.strictEqual(elCache['pkCnt'].textContent, 7, '减一回到 7');
+  elCache['pkGo'].onclick();                  /* 部署 */
+  assert.strictEqual(mobsState.spawned.length, 7, '按面板数量撒 7 只');
+  assert.ok(!elCache['mobPicker']._cls.has('open'), '部署即关面板');
 });
 
 test('HUD: 驾驶中报剩余怪物数(怪物库 list 只读视图)', () => {

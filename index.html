@@ -62,7 +62,7 @@
       </div>
     </div>
     <div class="keys">
-      <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>菜单</b>：Esc
+      <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc
     </div>
   </div>
 
@@ -105,31 +105,6 @@
       <b>升级系统</b>：击杀累积晋升 精英★(属性暴涨+技能强化) / 王者★★(解锁新技能：狂暴冲击波·箭雨·连环爆破·巨石投掷·三重龙息)，升级回复20%生命+短暂金身，劣势方经验加成，苦力怕享队友击杀分成(每击杀随机一只)<br>
       <b>克制关系</b>：僵尸→骷髅→苦力怕→铁傀儡→僵尸 · 末影龙制空克制地面近战<br>
       <span class="safe">你出生在南侧看台顶端，有玻璃护栏，怪物只会互相战斗，不会攻击你</span>
-    </div>
-  </div>
-
-  <!-- 坦克演习场选怪页 -->
-  <div class="menuPage" id="menuTank">
-    <h1>坦克<span>演习场</span></h1>
-    <p>选好怪物 · 一次性部署 · 开炮！</p>
-    <div id="tankPanel">
-      <div class="teamBox gold">
-        <h3>训练目标</h3>
-        <div class="mobBtns" id="tankMobBtns"></div>
-        <div class="countRow">数量
-          <button id="tankCntM5" data-d="-5">-5</button><button id="tankCntM1" data-d="-1">-</button><b id="tankCnt">6</b><button id="tankCntP1" data-d="1">+</button><button id="tankCntP5" data-d="5">+5</button>
-        </div>
-        <div class="countRow pw">怪物有血量：脆怪一炮一个 · 铁傀儡/末影龙要好几炮 · 碾压照旧爽</div>
-      </div>
-    </div>
-    <div class="btnRow">
-      <button class="play primary" id="tankGoBtn">部 署</button>
-      <button class="play" id="tankBackBtn">⬅ 返回</button>
-    </div>
-    <div class="keys">
-      <b>移动</b>：W A S D &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>开炮</b>：左键 &nbsp; <b>再来一批</b>：R &nbsp; <b>菜单</b>：Esc<br>
-      <b>怪物</b>：竞技场同款五种（僵尸 · 骷髅 · 苦力怕 · 铁傀儡 · 末影龙），游荡不还手，全靠你练炮<br>
-      <span class="safe">清完一批按 R 再来，或 Esc 回这里换怪物换数量</span>
     </div>
   </div>
 
@@ -192,6 +167,19 @@
     </div>
   </div>
 
+</div>
+
+<!-- 坦克演习场 · 游戏内选怪浮动面板(👾 按钮 / M 键开关) -->
+<div id="mobPicker">
+  <div class="pkTitle">👾 选怪物</div>
+  <div class="mobBtns" id="pkMobBtns"></div>
+  <div class="countRow">数量
+    <button id="pkCntM">−</button><b id="pkCnt">6</b><button id="pkCntP">＋</button>
+  </div>
+  <div class="btnRow">
+    <button class="play primary" id="pkGo">部署！</button>
+    <button class="play" id="pkClose">✕ 关闭</button>
+  </div>
 </div>
 
 <script src="lib/three.min.js" defer></script>

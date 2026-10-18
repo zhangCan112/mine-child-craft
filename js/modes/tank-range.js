@@ -4,9 +4,10 @@
    ------------------------------------------------------------
    载具能力的第一个投放场: 96×96 多地形场(丘陵·峡谷·乱石阵·瞭望台)
    + 五类可破坏靶(靶排·环靶·靶墙·靶屋红心·远距靶塔)。
-   怪物走共享怪物库(js/mobs.js, 竞技场同款五怪): 选怪面板
-   (#menuTank)选种类和数量 → 一次性部署, 无波次; 清场后按 R
-   再来一批或 Esc 回面板换怪。伤害走 config.js TANK_VS_MOBS 表。
+   怪物走共享怪物库(js/mobs.js, 竞技场同款五怪): 游戏内浮动面板
+   (#mobPicker, 👾 按钮/M 键)选种类和数量 → 一次性部署, 无波次;
+   清场后按 R 再来一批。炮弹被怪物身体阻挡即引爆(真直击)。
+   伤害走 config.js TANK_VS_MOBS 表。
    政策全在此层(引擎不知道"提示"与"语音"):
    · E 键与触屏 🚙 按钮同走 Tank.toggle(单一入口)
    · 靠近邀请语音 10 秒节流; 上下车话术随 toggle 结果
@@ -27,12 +28,45 @@ let hitCount = 0;                         // 已命中炮数(爆炸炸到靶才�
 let killCount = 0;                        // 已消灭怪物数(跨批累计, 过程性表扬)
 let deployed = false, clearPraised = false;
 
-/* 选怪配置: 菜单页 #menuTank 面板读写(竞技场同款交互, 单边训练配置) */
+/* ---------- 选怪: 游戏内浮动面板(👾 按钮 / M 键开关) ----------
+   训练场是单边选靶, 不做竞技场那种"赛前双方配置页";
+   面板选种类和数量 → 一次性部署; R 随时按当前配置再来一批 */
 const mobCfg = { type: 'zombie', count: 6 };
 const RANGE_MOBS_MAX = 30;
-let rgPanelBuilt = false;                 // 避撞: arena.js 顶层也有 panelBuilt(经典 script 共享词法环境)
-const typeBtns = [];
-let cntEl = null;
+let pickerBuilt = false, pickerOpen = false;
+const pkTypeBtns = [];
+let pkCntEl = null, pkEl = null;
+
+function buildPicker(){
+  if(pickerBuilt){ updatePicker(); return; }
+  pickerBuilt = true;
+  pkEl = document.getElementById('mobPicker');
+  const btns = document.getElementById('pkMobBtns');
+  for(const k of ['zombie','skeleton','creeper','golem','dragon']){
+    const b = document.createElement('button');
+    b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${Mobs.types[k].name}`;
+    b.dataset.type = k;
+    b.onclick = ()=>{ mobCfg.type = k; updatePicker(); };
+    btns.appendChild(b);
+    pkTypeBtns.push(b);
+  }
+  pkCntEl = document.getElementById('pkCnt');
+  document.getElementById('pkCntM').onclick = ()=>{ mobCfg.count = Math.max(1, mobCfg.count - 1); updatePicker(); };
+  document.getElementById('pkCntP').onclick = ()=>{ mobCfg.count = Math.min(RANGE_MOBS_MAX, mobCfg.count + 1); updatePicker(); };
+  document.getElementById('pkGo').onclick = ()=> deployMobs();     // 部署即关面板
+  document.getElementById('pkClose').onclick = ()=> togglePicker(false);
+  updatePicker();
+}
+function updatePicker(){
+  if(!pickerBuilt) return;
+  pkTypeBtns.forEach(b => b.classList.toggle('active', b.dataset.type === mobCfg.type));
+  if(pkCntEl) pkCntEl.textContent = mobCfg.count;
+}
+function togglePicker(open){
+  pickerOpen = (open !== undefined) ? open : !pickerOpen;
+  if(pkEl) pkEl.classList.toggle('open', pickerOpen);
+  if(pickerOpen) updatePicker();
+}
 
 function speakForToggle(r){
   if(r === 'entered'){ SpeechKit.speak('开坦克喽！'); showToast('🚙 上车！W 前进 · S 倒车 · A D 转向 · 左键开炮 · E 下车'); }
@@ -71,6 +105,18 @@ function onBoom(x, y, z, res){
   }
 }
 
+/* 炮弹障碍: 怪物身体挡炮弹, 碰上即停在接触点引爆(真·直击)。
+   注册进 Tank.obstacle(物理缝), "什么挡炮弹"的判定归模式层 */
+function mobSolid(x, y, z){
+  for(const m of Mobs.list()){
+    if(m.dead || m.gone) continue;
+    if(Math.hypot(m.pos.x - x, m.pos.z - z) > m.cfg.hitR + 0.35) continue;
+    if(y < m.pos.y - 0.3 || y > m.pos.y + m.cfg.h) continue;
+    return true;
+  }
+  return false;
+}
+
 /* 击杀反馈: 碎块 + 计数(死亡音效怪物库已播, 话术是模式政策) */
 const MOB_DEBRIS = { zombie:0x5e9440, skeleton:0xd8d8d2, creeper:0x4fae4f, golem:0xcdd0d8, dragon:0x3a2055 };
 function onKill(m){
@@ -96,6 +142,7 @@ function deployMobs(){
   Mobs.clear();                            // 先清当前批(击杀计数跨批累计, 不清零)
   deployed = true;
   clearPraised = false;
+  togglePicker(false);
   const tk = TANK_RANGE.tank;
   let placed = 0, salt = 7;
   while(placed < mobCfg.count && salt < 4000){
@@ -114,34 +161,6 @@ function deployMobs(){
   const nm = (Mobs.types[mobCfg.type] || {}).name || '';
   SpeechKit.speak(mobCfg.count + '只' + nm + '来啦！开炮！');
   showToast('👾 ' + nm + ' × ' + mobCfg.count);
-}
-
-/* ---------- 选怪面板(菜单页 #menuTank): 竞技场同款交互, 单边训练配置 ---------- */
-function buildTankPanel(){
-  if(rgPanelBuilt){ updateTankPanel(); return; }
-  rgPanelBuilt = true;
-  const btns = document.getElementById('tankMobBtns');
-  for(const k of ['zombie','skeleton','creeper','golem','dragon']){
-    const b = document.createElement('button');
-    b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${Mobs.types[k].name}`;
-    b.dataset.type = k;
-    b.addEventListener('click', ()=>{ mobCfg.type = k; updateTankPanel(); });
-    btns.appendChild(b);
-    typeBtns.push(b);
-  }
-  cntEl = document.getElementById('tankCnt');
-  for(const [id, d] of [['tankCntM5',-5], ['tankCntM1',-1], ['tankCntP1',1], ['tankCntP5',5]]){
-    document.getElementById(id).addEventListener('click', ()=>{
-      mobCfg.count = Math.min(RANGE_MOBS_MAX, Math.max(1, mobCfg.count + d));
-      updateTankPanel();
-    });
-  }
-  document.getElementById('tankGoBtn').onclick = ()=>{ deployMobs(); requestLock(); };
-}
-function updateTankPanel(){
-  if(!rgPanelBuilt) return;
-  typeBtns.forEach(b => b.classList.toggle('active', b.dataset.type === mobCfg.type));
-  if(cntEl) cntEl.textContent = mobCfg.count;
 }
 
 /* ---------- 建场: 全图草海为底, 围栏内布设多地形与多类靶 ----------
@@ -221,7 +240,8 @@ const TankRangeMode = mkMode({
     spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });
     Tank.onExplode(onBoom);              /* 命中反馈: 炸靶表扬 + 波及怪物 */
     Tank.protect(keepGround);            /* 爆炸保护: 平坦草海永固(丘陵/峡谷/乱石仍可炸) */
-    buildTankPanel();                    /* 选怪面板(菜单页, 只绑一次) */
+    Tank.obstacle(mobSolid);             /* 炮弹障碍: 怪物身体挡炮弹(碰上即炸=直击) */
+    buildPicker();                       /* 游戏内选怪面板(只绑一次) */
     speakArmed = 10;                     // 重进模式即可再次邀请
     hitCount = 0; killCount = 0;
     deployed = false; clearPraised = false;
@@ -236,6 +256,7 @@ const TankRangeMode = mkMode({
   onKey(code){
     if(code === 'KeyE') speakForToggle(Tank.toggle());
     else if(code === 'KeyR') deployMobs();   // 清场/想换批: 按当前配置再来一批
+    else if(code === 'KeyM') togglePicker(); // 换怪物面板(游戏内, 与触屏 👾 同入口)
   },
 
   onMouse(button){                       /* 左键开炮(准星方向 = 车头目标 + 视角俯仰) */
@@ -268,26 +289,22 @@ const TankRangeMode = mkMode({
       const n = aliveCount();
       const lines = ['🚙 驾驶中 · 左键/💥 开炮 · E 下车'];
       if(n > 0) lines.push('👾 剩 ' + n + ' 只 · 冲上去压！');
-      else if(deployed) lines.push('🎉 全消灭！R 再来 · Esc 换怪物');
+      else if(deployed) lines.push('🎉 全消灭！R 再来 · M 换怪物');
       if(killCount > 0) lines.push('☠️ 已消灭 ' + killCount);
       if(hitCount > 0) lines.push('🎯 已命中 ' + hitCount);
       return lines;
     }
-    if(Tank.nearby() !== null) return ['🚙 按 E 开坦克 · 平板点 🚙 按钮'];
+    if(Tank.nearby() !== null) return ['🚙 按 E 开坦克 · M 换怪物'];
     return [];
   },
 
   touch: [
     { label: '🚙', act(){ speakForToggle(Tank.toggle()); } },
     { label: '💥', act: fireOnce },
-    { label: '👾', act(){ deployMobs(); } },        // 平板再来一批(与 R 同入口)
+    { label: '👾', act(){ togglePicker(); } },        // 换怪物面板(部署在面板里, 与 M 键同入口)
   ],
 
-  onMenu(){                               // Esc/暂停保底: 下车 + 打开选怪面板(回面板再选再来)
-    Tank.exitAll();
-    showPage('tank');
-    updateTankPanel();
-  },
+  onMenu(){ Tank.exitAll(); },           // Esc/暂停保底: 人在车里也要安全落地
   onHighlight(){ return false; }          // 本模式不挖不放, 隐藏方块高亮
 });
 

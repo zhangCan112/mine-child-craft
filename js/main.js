@@ -20,7 +20,6 @@ const pages = {
   arena: document.getElementById('menuArena'),
   tnt:   document.getElementById('menuTnt'),
   build: document.getElementById('menuBuild'),
-  tank:  document.getElementById('menuTank'),
   win:   document.getElementById('menuWin'),
   playTime: document.getElementById('menuPlayTime')
 };
@@ -134,7 +133,6 @@ function buildMenu(){
     requestLock();
   };
   document.getElementById('arenaBackBtn').onclick = ()=> showPage('main');
-  document.getElementById('tankBackBtn').onclick = ()=> showPage('main');
   document.getElementById('tntBackBtn').onclick   = ()=> showPage('main');
   document.getElementById('buildBackBtn').onclick = ()=> showPage('main');
   document.getElementById('playTimeHomeBtn').onclick = ()=> showPage('main');
