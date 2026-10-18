@@ -56,17 +56,7 @@ function spawnPlayer(){
 }
 
 /* ---------- 怪物类型 ----------
-   特有技能: 僵尸=狂暴(半血加速+群体冲锋) 骷髅=强力箭(每3箭)
-             苦力怕=扑袭(跃进扑脸) 铁傀儡=震地(震慑+震落) 末影龙=龙息毒云 */
-const MOB_TYPES = {
-  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:170},
-  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.6, h:1.9, ranged:true, hitR:0.55, power:165},
-  creeper: {name:'苦力怕', hp:28,  dmg:33, speed:3.1, range:2.0, cd:9,   h:1.7, boom:true, hitR:0.5, power:195},
-  golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0, power:1000},
-  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, power:2000},
-  mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2, power:0}
-};
-// 混合编队战力 = 各兵种平均值
+   数值表 MOB_TYPES 在 config.js(怪物库 js/mobs.js 与竞技场/演习场共用) */
 const MIX_POOL = ['zombie','skeleton','creeper','golem','dragon'];
 MOB_TYPES.mix.power = Math.round(MIX_POOL.reduce((s,k)=>s+MOB_TYPES[k].power,0) / MIX_POOL.length);
 
@@ -97,222 +87,12 @@ function mobSpeed(m){
   else if(m.level===3) s *= 1.2;
   return s;
 }
-/* 部件几何按尺寸缓存共享: 每只怪 ~10 个盒子, 千怪规模逐只 new 既拖慢
-   部署又费内存; 共享后几何跨怪复用(变换挂在 mesh 节点上, 几何不可变),
-   disposeMob 不再 dispose 几何 */
-const boxGeoCache = new Map();
-function sharedBoxGeo(w,h,d){
-  const k = w+','+h+','+d;
-  let g = boxGeoCache.get(k);
-  if(!g){ g = new THREE.BoxGeometry(w,h,d); boxGeoCache.set(k,g); }
-  return g;
-}
-const mkBox = (w,h,d,m)=> new THREE.Mesh(sharedBoxGeo(w,h,d), m);
-
-/* ============================================================
-   怪物实例化渲染 (MobBatch) — draw call 合批
-   ------------------------------------------------------------
-   原实现每只怪 ~10 个独立 mesh+材质 → 千怪 = 上万 draw call。
-   改为按 (类型 × 关节槽) InstancedMesh 合批: 各槽部件盒子烘进带
-   顶点色的合并几何(全场共享一份 Lambert vertexColors 材质), 每帧
-   CPU 组装实例矩阵(位置/朝向/体型/关节角, 数值全部存在 mob 状态上,
-   不再有 THREE 节点)。受击闪白·狂暴红晕·引信白闪改 instanceColor
-   着色(diffuse 乘法近似原 emissive); 尸体淡出改下沉(实例无法逐个
-   透明)。阶级挂件/光环是稀有物, 仍走普通 mesh, 每帧对齐实例位姿。
-   ============================================================ */
-
-/* 颜色 hex → 线性 [r,g,b](与旧材质 setHex 同口径, r128 无色彩管理) */
-const _rigCol = new THREE.Color();
-function rgb(hex){ _rigCol.setHex(hex); return [_rigCol.r, _rigCol.g, _rigCol.b]; }
-/* 部件描述: 尺寸/颜色/相对槽枢轴的偏移/可选绕 X 预旋转(龙颈) */
-function B(w,h,d,hex,x,y,z,rx){ return {w,h,d,col:rgb(hex),x,y,z,rx}; }
-
-/* 骨架注册表: slot = {joint:[枢轴], axis:'x'|'z', boxes:[部件]}
-   —— 尺寸/偏移/枢轴与旧 build* 函数逐字一致, 视觉不变 */
-const MOB_RIG = (()=>{
-  const SKIN=0x5e9440, SHIRT=0x2e7a70, PANTS=0x4a3f70, DARKZ=0x1c2b16;
-  const BONE=0xd8d8d2, BONE2=0xb8b8b0, DARKS=0x1a1a1a, WOOD=0x6b4a2a;
-  const GREEN=0x4fae4f, GREEN2=0x3d8f3d, DARKC=0x101510;
-  const IRON=0xcdd0d8, IRON2=0xaab0bb, DARKG=0x555a63, EYEG=0xff2a1a;
-  const BODY=0x16161f, DARKD=0x262633, MEMB=0x3a2055, EYED=0xd06bff;
-  return {
-    zombie: { slots: {
-      root: { joint:[0,0,0], boxes:[ B(0.5,0.75,0.26,SHIRT, 0,1.12,0) ] },
-      legL: { joint:[-0.13,0.75,0], boxes:[ B(0.24,0.75,0.24,PANTS, 0,-0.375,0) ] },
-      legR: { joint:[ 0.13,0.75,0], boxes:[ B(0.24,0.75,0.24,PANTS, 0,-0.375,0) ] },
-      armL: { joint:[-0.37,1.42,0], boxes:[ B(0.2,0.72,0.2,SKIN, 0,-0.34,0) ] },
-      armR: { joint:[ 0.37,1.42,0], boxes:[ B(0.2,0.72,0.2,SKIN, 0,-0.34,0) ] },
-      head: { joint:[0,1.5,0], boxes:[
-        B(0.5,0.5,0.5,SKIN, 0,0.25,0),
-        B(0.1,0.08,0.04,DARKZ, -0.12,0.3,0.26), B(0.1,0.08,0.04,DARKZ, 0.12,0.3,0.26) ] },
-    }},
-    skeleton: { slots: {
-      root: { joint:[0,0,0], boxes:[ B(0.5,0.72,0.24,BONE, 0,1.11,0) ] },
-      legL: { joint:[-0.1,0.75,0], boxes:[ B(0.16,0.75,0.16,BONE2, 0,-0.375,0) ] },
-      legR: { joint:[ 0.1,0.75,0], boxes:[ B(0.16,0.75,0.16,BONE2, 0,-0.375,0) ] },
-      armL: { joint:[-0.34,1.4,0], boxes:[ B(0.16,0.72,0.16,BONE, 0,-0.34,0),
-        B(0.07,0.6,0.09,WOOD, 0,-0.72,0.1) ] },                        // 弓
-      armR: { joint:[ 0.34,1.4,0], boxes:[ B(0.16,0.72,0.16,BONE, 0,-0.34,0) ] },
-      head: { joint:[0,1.47,0], boxes:[
-        B(0.5,0.5,0.5,BONE, 0,0.25,0),
-        B(0.12,0.1,0.04,DARKS, -0.12,0.3,0.26), B(0.12,0.1,0.04,DARKS, 0.12,0.3,0.26),
-        B(0.08,0.08,0.04,DARKS, 0,0.18,0.26) ] },
-    }},
-    creeper: { slots: {
-      root: { joint:[0,0,0], boxes:[ B(0.44,0.9,0.3,GREEN, 0,0.85,0) ] },
-      legL: { joint:[0,0.42,0], boxes:[                                // 对角腿对
-        B(0.26,0.42,0.28,GREEN2, -0.14,-0.21, 0.18), B(0.26,0.42,0.28,GREEN2, 0.14,-0.21,-0.18) ] },
-      legR: { joint:[0,0.42,0], boxes:[
-        B(0.26,0.42,0.28,GREEN2,  0.14,-0.21, 0.18), B(0.26,0.42,0.28,GREEN2, -0.14,-0.21,-0.18) ] },
-      head: { joint:[0,1.28,0], boxes:[
-        B(0.5,0.5,0.5,GREEN, 0,0.25,0),
-        B(0.12,0.12,0.05,DARKC, -0.13,0.32,0.26), B(0.12,0.12,0.05,DARKC, 0.13,0.32,0.26),
-        B(0.26,0.1,0.05,DARKC, 0,0.13,0.26), B(0.1,0.16,0.05,DARKC, 0,0.05,0.26) ] },
-    }},
-    golem: { slots: {
-      root: { joint:[0,0,0], boxes:[ B(1.35,1.5,0.85,IRON, 0,1.6,0) ] },
-      legL: { joint:[-0.34,0.85,0], boxes:[ B(0.5,0.85,0.5,IRON2, 0,-0.425,0) ] },
-      legR: { joint:[ 0.34,0.85,0], boxes:[ B(0.5,0.85,0.5,IRON2, 0,-0.425,0) ] },
-      armL: { joint:[-0.87,2.28,0], boxes:[ B(0.45,1.55,0.45,IRON, 0,-0.775,0) ] },
-      armR: { joint:[ 0.87,2.28,0], boxes:[ B(0.45,1.55,0.45,IRON, 0,-0.775,0) ] },
-      head: { joint:[0,2.35,0], boxes:[
-        B(0.72,0.66,0.72,IRON, 0,0.35,0),
-        B(0.16,0.34,0.16,DARKG, 0,0.28,0.42),
-        B(0.13,0.09,0.05,EYEG, -0.17,0.44,0.37), B(0.13,0.09,0.05,EYEG, 0.17,0.44,0.37) ] },
-    }},
-    dragon: { slots: {
-      root: { joint:[0,0,0], boxes:[                                 // 躯干+腹板+颈(预旋)+尾三节+后腿
-        B(1.7,1.3,3.4,BODY, 0,1.15,0), B(1.5,0.35,3.0,DARKD, 0,0.45,0),
-        B(0.75,0.75,1.7,BODY, 0,1.5,2.3, 0.25),
-        B(0.95,0.85,1.5,BODY, 0,1.15,-2.3), B(0.7,0.6,1.4,DARKD, 0,1.2,-3.5),
-        B(0.45,0.4,1.3,DARKD, 0,1.25,-4.6),
-        B(0.32,1.0,0.45,DARKD, -0.55,0.25,-1.1), B(0.32,1.0,0.45,DARKD, 0.55,0.25,-1.1) ] },
-      head: { joint:[0,1.85,3.3], boxes:[
-        B(0.95,0.85,1.2,BODY, 0,0,0), B(0.6,0.45,0.7,DARKD, 0,-0.12,0.9),
-        B(0.14,0.12,0.1,EYED, -0.32,0.18,0.35), B(0.14,0.12,0.1,EYED, 0.32,0.18,0.35),
-        B(0.16,0.55,0.16,DARKD, -0.3,0.6,-0.35), B(0.16,0.55,0.16,DARKD, 0.3,0.6,-0.35) ] },
-      wingL: { joint:[-0.85,1.75,0.2], axis:'z', boxes:[
-        B(3.2,0.12,2.2,MEMB, -1.6,0,0), B(1.8,0.1,1.4,MEMB, -3.9,-0.05,-0.2) ] },
-      wingR: { joint:[ 0.85,1.75,0.2], axis:'z', boxes:[
-        B(3.2,0.12,2.2,MEMB,  1.6,0,0), B(1.8,0.1,1.4,MEMB,  3.9,-0.05,-0.2) ] },
-    }},
-  };
-})();
-
-/* 槽部件盒子合并为一份带顶点色的几何(逐槽一份, 全类型共享材质) */
-function buildRigGeo(boxes){
-  const positions=[], normals=[], colors=[], indices=[];
-  let n = 0;
-  for(const b of boxes){
-    const g = new THREE.BoxGeometry(b.w,b.h,b.d);
-    if(b.rx) g.rotateX(b.rx);
-    g.translate(b.x, b.y, b.z);
-    const pos = g.attributes.position, nor = g.attributes.normal, idx = g.index;
-    for(let i=0;i<pos.count;i++){
-      positions.push(pos.getX(i), pos.getY(i), pos.getZ(i));
-      normals.push(nor.getX(i), nor.getY(i), nor.getZ(i));
-      colors.push(b.col[0], b.col[1], b.col[2]);
-    }
-    for(let i=0;i<idx.count;i++) indices.push(idx.getX(i)+n);
-    n += pos.count;
-    g.dispose();
-  }
-  const geo = new THREE.BufferGeometry();
-  geo.setAttribute('position', new THREE.Float32BufferAttribute(positions,3));
-  geo.setAttribute('normal',   new THREE.Float32BufferAttribute(normals,3));
-  geo.setAttribute('color',    new THREE.Float32BufferAttribute(colors,3));
-  geo.setIndex(indices);
-  return geo;
-}
-
-/* 批次管理: (类型×槽) → InstancedMesh, 容量按需翻倍(矩阵每帧全量
-   重写, 扩容无需搬运); 空批次 count=0 不产生绘制 */
-const mobMat = new THREE.MeshLambertMaterial({vertexColors:true});
-const mobBatches = [];
-function getMobBatch(slot){
-  let b = slot.batch;
-  if(b) return b;
-  if(!slot.geo) slot.geo = buildRigGeo(slot.boxes);
-  const mesh = new THREE.InstancedMesh(slot.geo, mobMat, 16);
-  mesh.frustumCulled = false;                      // 实例散布全场, 按几何包围球剔除会误裁
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  mesh.setColorAt(0, _tintCol.setRGB(1,1,1));      // 预建 instanceColor, 避免首次着色才编译变体
-  scene.add(mesh);
-  b = { mesh, cap:16, n:0 };
-  slot.batch = b;
-  mobBatches.push(b);
-  return b;
-}
-function growMobBatch(b, need){
-  let cap = b.cap;
-  while(cap < need) cap *= 2;
-  scene.remove(b.mesh);
-  if(b.mesh.dispose) b.mesh.dispose();             // 几何/材质共享不在此动
-  const mesh = new THREE.InstancedMesh(b.mesh.geometry, mobMat, cap);
-  mesh.frustumCulled = false;
-  mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-  mesh.setColorAt(0, _tintCol.setRGB(1,1,1));
-  scene.add(mesh);
-  b.mesh = mesh; b.cap = cap;
-}
-
-/* 每帧把存活怪的各槽实例矩阵/颜色写入批次(密集重排, 无空闲表):
-   世界 = 位置(含尸体下沉) × 朝向 × 倒地角 × 体型; 槽 = 关节平移 × 关节角 */
-const _wm=new THREE.Matrix4(), _jm=new THREE.Matrix4(), _im=new THREE.Matrix4();
-const _wq=new THREE.Quaternion(), _jq=new THREE.Quaternion(), _we=new THREE.Euler();
-const _wp=new THREE.Vector3(), _jp=new THREE.Vector3(), _ws=new THREE.Vector3();
-const _one=new THREE.Vector3(1,1,1);
-const _axisX=new THREE.Vector3(1,0,0), _axisZ=new THREE.Vector3(0,0,1);
-const _tintCol=new THREE.Color();
-function renderMobs(){
-  for(const b of mobBatches) b.n = 0;               // 也覆盖清场后: count 归零, 残余实例不再绘制
-  for(const m of mobs){
-    if(m.gone) continue;
-    if(m.dead && m.deadT > 2.2){                    // 原 visible=false 的隐藏期
-      if(m.tierNode) m.tierNode.visible = false;    // 挂件随尸体一起隐去
-      continue;
-    }
-    const rig = MOB_RIG[m.type];
-    const s = m.drawScale;
-    const sink = (m.dead && m.deadT > 0.8)
-      ? Math.min(1,(m.deadT-0.8)/1.4)*1.3 : 0;      // 原"透明淡出"的实例化等价: 下沉入地
-    _we.set(0, m.yaw, m.deadTilt);                  // Euler(0,yaw,tilt) 默认序 = Ry·Rz, 与旧 group 一致
-    _wq.setFromEuler(_we);
-    _wm.compose(_wp.set(m.pos.x, m.pos.y - sink, m.pos.z), _wq, _ws.set(s,s,s));
-    for(const name in rig.slots){
-      const slot = rig.slots[name];
-      const b = getMobBatch(slot);
-      if(b.n >= b.cap) growMobBatch(b, b.n+1);
-      _jq.setFromAxisAngle(slot.axis==='z' ? _axisZ : _axisX, name==='root' ? 0 : (m.pose[name]||0));
-      _jm.compose(_jp.fromArray(slot.joint), _jq, _one);
-      _im.multiplyMatrices(_wm, _jm);
-      b.mesh.setMatrixAt(b.n, _im);
-      b.mesh.setColorAt(b.n, _tintCol.setRGB(m.tr, m.tg, m.tb));
-      b.n++;
-    }
-    if(m.tierNode){                                 // 阶级挂件(稀有, 普通 mesh)对齐实例位姿
-      m.tierNode.visible = true;
-      m.tierNode.position.set(m.pos.x, m.pos.y - sink, m.pos.z);
-      m.tierNode.rotation.set(0, m.yaw, m.deadTilt);
-      m.tierNode.scale.setScalar(s);
-    }
-  }
-  for(const b of mobBatches){
-    b.mesh.count = b.n;
-    if(b.n > 0){
-      b.mesh.instanceMatrix.needsUpdate = true;
-      if(b.mesh.instanceColor) b.mesh.instanceColor.needsUpdate = true;
-    }
-  }
-}
+/* ---------- 建模/合批渲染/名牌/受击/游荡 已归怪物库 js/mobs.js(Mobs) ---------- */
 
 /* ---------- 怪物实例 / 战斗 ---------- */
-const mobs = [];
-const LABEL_CULL_D = 64;                 // 名牌相机距离剔除(格): 远处名牌本就小到难读
-const LABEL_CULL_D2 = LABEL_CULL_D * LABEL_CULL_D;
+const mobs = Mobs.list();   // 怪物库内部数组的只读视图(clear 原地清空, 引用稳定)
 const fusingCreeps = [];  // 每帧收集:正在读条的苦力怕(逃跑AI用,避免O(n²))
 const sepGrid = new Map();   // 挤开检测用的空间网格(1×1 格)
-let mobId = 0;
 let battleState = 'idle';   // idle | fighting | over
 let battleResult = '';
 
@@ -323,107 +103,52 @@ const arrowPowerMat = new THREE.MeshBasicMaterial({color:0xfff2b0});   // 强力
 const breathBalls = [];
 const clouds = [];
 
+/* 部署: 怪物库造身体, 竞技场挂战斗字段(阵营/索敌/技能/晋升) */
 function spawnMob(team, type, x, z){
-  const cfg = MOB_TYPES[type];
-  const lc = document.createElement('canvas'); lc.width=160; lc.height=40;
-  const ltex = new THREE.CanvasTexture(lc);
-  const label = new THREE.Sprite(new THREE.SpriteMaterial({map:ltex, transparent:true, depthTest:false}));
-  label.scale.set(2.6, 0.65, 1);
-  scene.add(label);
-  const m = {
-    id:mobId++, team, type, cfg,
-    label, labelCanvas:lc, labelTex:ltex,
-    pose:{legL:0,legR:0,armL:0,armR:0,head:0,wingL:0,wingR:0},  // 关节角(弧度), renderMobs 组实例矩阵
-    drawScale:1, deadTilt:0,                       // 体型(阶级/引信膨胀) 与 倒地角
-    tr:1, tg:1, tb:1,                              // instanceColor 着色(闪白/狂暴/引信)
-    pos:new THREE.Vector3(x, cfg.fly ? ARENA.floorY+ARENA.flyAlt : groundTop(Math.floor(x), Math.floor(z))+1, z),
+  const m = Mobs.spawn(type, x, z, {
     yaw: team==='A' ? Math.PI/2 : -Math.PI/2,
-    hp:cfg.hp, maxHp:cfg.hp, dead:false, deadT:0, gone:false,
+    flyY: ARENA.floorY + ARENA.flyAlt,
+    label: team==='A' ? {prefix:'红方·', color:'#ff6055'} : {prefix:'蓝方·', color:'#5ab0ff'},
+    clamp: arenaFlyClamp
+  });
+  m.team = team;
+  Object.assign(m, {
     target:null, retargetT:Math.random()*0.5,
-    attackT:0, attackCd:0.6+Math.random()*0.6, staggerT:0, flashT:0,
-    walkPhase:Math.random()*6, speedNow:0, wanderT:0, fuse:-1,
+    attackT:0, attackCd:0.6+Math.random()*0.6,
+    wanderT:0, fuse:-1,
     vx:0, vz:0, strafeT:0, strafeDir:1,
     air:false, vy:0, jumpVX:0, jumpVZ:0, slamming:false,
     slamCd:2+Math.random()*3, pounceCd:2+Math.random()*3,
     shotCnt:0, raged:false, rageBuffT:0,
     level:1, kills:0, k2:2, k3:5, dmgMult:1, invulnT:0, rockCd:2,
-    baseMaxHp:cfg.hp, tierScale:1, tierNode:null, tierMats:[], tierGeos:[],
-    orbitA:Math.random()*Math.PI*2, flyPhase:Math.random()*6,
-    flank:(Math.random()*2-1) * (cfg.ranged ? 0.35 : 0.85),
-    lastLabelHp:-1, lastLabelDead:false, labelT:0
-  };
-  drawMobLabel(m);
-  mobs.push(m);
+    baseMaxHp:m.maxHp, tierScale:1,
+    orbitA:Math.random()*Math.PI*2,
+    flank:(Math.random()*2-1) * (m.cfg.ranged ? 0.35 : 0.85)
+  });
   return m;
 }
 
-function drawMobLabel(m){
-  const g = m.labelCanvas.getContext('2d');
-  g.clearRect(0,0,160,40);
-  g.font='bold 15px sans-serif';
-  g.shadowColor='#000'; g.shadowBlur=4;
-  const isA = m.team==='A';
-  const full = (isA?'红方·':'蓝方·')+m.cfg.name+(m.level>1?'★'.repeat(m.level-1):'');
-  if(m.dead){
-    g.textAlign='center'; g.fillStyle='#9a9a9a'; g.fillText(full, 80, 15);
-  } else if(m.level>1){
-    const pre = isA?'红方·':'蓝方·';                 // 前缀保持阵营色
-    const wPre = g.measureText(pre).width, wFull = g.measureText(full).width;
-    const x0 = 80 - wFull/2;
-    g.textAlign='left';
-    g.fillStyle = isA ? '#ff6055' : '#5ab0ff';
-    g.fillText(pre, x0, 15);
-    g.fillStyle = '#ffd44d';                          // 晋升金光
-    g.shadowColor='#ffb018'; g.shadowBlur=8;
-    g.fillText(full.slice(pre.length), x0+wPre, 15);
-  } else {
-    g.textAlign='center'; g.fillStyle = isA ? '#ff6055' : '#5ab0ff';
-    g.fillText(full, 80, 15);
-  }
-  g.shadowBlur = 0;
-  g.fillStyle='rgba(0,0,0,.65)'; g.fillRect(30,22,100,10);
-  const r = Math.max(0, m.hp/m.maxHp);
-  g.fillStyle = r>0.5 ? '#48d848' : (r>0.25 ? '#e8c030' : '#e04030');
-  g.fillRect(32,24,96*r,6);
-  m.labelTex.needsUpdate = true;
+/* 飞行单位击退后的场地边界(圆形, 怪物库 hit 回调) */
+function arenaFlyClamp(m){
+  const cdx = m.pos.x-ARENA.cx, cdz = m.pos.z-ARENA.cz;
+  const cd = Math.hypot(cdx,cdz);
+  if(cd > ARENA.rIn-2){ const k=(ARENA.rIn-2)/cd; m.pos.x=ARENA.cx+cdx*k; m.pos.z=ARENA.cz+cdz*k; }
 }
 
-function disposeMob(m){
-  scene.remove(m.label);
-  if(m.tierNode) scene.remove(m.tierNode);    // 阶级挂件是独立普通 mesh(稀有物)
-  m.tierGeos.forEach(g=>g.dispose());       // 光环等专属几何; 挂件盒子走共享缓存
-  m.tierMats.forEach(mt=>mt.dispose());
-  m.label.material.map.dispose(); m.label.material.dispose();
-}
-
+/* 移动: 圆形边界约束 + 怪物核心的台阶规则 */
 function stepMove(m, mx, mz){
   const nx = m.pos.x+mx, nz = m.pos.z+mz;
   const ddx = nx-ARENA.cx, ddz = nz-ARENA.cz;
   if(Math.hypot(ddx,ddz) > ARENA.rIn-1.2) return;
-  const curTop = groundTop(Math.floor(m.pos.x), Math.floor(m.pos.z));
-  const newTop = groundTop(Math.floor(nx), Math.floor(nz));
-  if(newTop - curTop <= 1.05){ m.pos.x = nx; m.pos.z = nz; }
+  MobCore.stepMove(m, mx, mz, groundTop);
 }
 
+/* 受击: 通用部分(扣血/闪白/踉跄/击退/死亡)归怪物库; 金身与击杀结算归玩法 */
 function damageMob(m, dmg, kdx, kdz, kpow, src){
   if(m.dead || m.gone) return;
   if(m.invulnT > 0) return;                    // 升级金身
-  m.hp -= dmg;
-  m.flashT = 0.25; m.staggerT = 0.22;
-  const l = Math.hypot(kdx,kdz) || 1;
-  if(m.cfg.fly){
-    m.pos.x += kdx/l*0.9*kpow;
-    m.pos.z += kdz/l*0.9*kpow;
-    const cdx = m.pos.x-ARENA.cx, cdz = m.pos.z-ARENA.cz;
-    const cd = Math.hypot(cdx,cdz);
-    if(cd > ARENA.rIn-2){ const k=(ARENA.rIn-2)/cd; m.pos.x=ARENA.cx+cdx*k; m.pos.z=ARENA.cz+cdz*k; }
-  } else {
-    stepMove(m, kdx/l*0.9*kpow, 0);
-    stepMove(m, 0, kdz/l*0.9*kpow);
-  }
-  if(m.hp <= 0){
-    m.hp = 0; m.dead = true; m.deadT = 0;
-    sfx('death');
+  const r = Mobs.hit(m, dmg, kdx, kdz, kpow);
+  if(r.freshDead){
     awardKill(src, m);
     checkBattleEnd();
   }
@@ -566,17 +291,16 @@ function levelUp(m){
   m.hp = Math.min(m.maxHp, m.hp + Math.round(m.maxHp*0.2));   // 升级回复20%最大生命
   m.dmgMult = tm.dmg;
   m.invulnT = 0.5;                                    // 金身免死
-  m.lastLabelHp = -1;
+  m.lastLabelHp = -1;                              // 名牌重绘交怪物库下一帧节流重画(星级+血条)
   applyTierVisual(m);
-  drawMobLabel(m);
   levelUpFx(m);
   showToast((m.team==='A'?'红方 ':'蓝方 ')+TIER_NAME[m.level]+m.cfg.name+' 晋升！', 2000);
 }
 /* 外形:体型放大 + 脚下光环(精英蓝/王者金) + 标志性附件
-   挂件是独立普通 mesh(稀有物), renderMobs 每帧对齐实例位姿 */
+   挂件是独立普通 mesh(稀有物), 怪物库 render 每帧对齐实例位姿 */
 function applyTierVisual(m){
   m.tierScale = m.level===2 ? 1.3 : (m.level===3 ? 1.6 : 1);   // 体型明显变大(体积≈2.2×/4×)
-  m.drawScale = m.tierScale;                        // 原 group.scale → 位姿数值(renderMobs 组矩阵)
+  m.drawScale = m.tierScale;                        // 原 group.scale → 位姿数值(怪物库 render 组矩阵)
   if(m.tierNode){
     scene.remove(m.tierNode);
     m.tierGeos.forEach(g=>g.dispose());     // 光环圆面是专属几何; 挂件盒子走共享缓存不 dispose
@@ -590,7 +314,7 @@ function applyTierVisual(m){
   m.label.scale.set(2.6*ls, 0.65*ls, 1);
   const fx = new THREE.Group();
   const mat = col => { const mt = new THREE.MeshBasicMaterial({color:col}); m.tierMats.push(mt); return mt; };
-  const add = (w,h,d,x,y,z,col)=>{ const b=mkBox(w,h,d,mat(col)); b.position.set(x,y,z); fx.add(b); };
+  const add = (w,h,d,x,y,z,col)=>{ const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat(col)); b.position.set(x,y,z); fx.add(b); };   // 挂件稀有, 不走共享缓存
   const aura = new THREE.Mesh(
     new THREE.CircleGeometry(m.cfg.fly?1.5:0.85, 24),
     new THREE.MeshBasicMaterial({color: m.level===3?0xffd44d:0x6cd8ff, transparent:true, opacity:0.5, depthWrite:false}));
@@ -712,43 +436,10 @@ function updateMobs(dt){
   for(const t of mobs)
     if(t.type==='creeper' && t.fuse>=0 && !t.dead && !t.gone) fusingCreeps.push(t);
   for(const m of mobs){
-    if(m.gone) continue;
+    if(m.gone || m.dead) continue;             // 名牌/计时/死亡动画/尸体回收归怪物库 Mobs.update
     const gp = m.pos;
-    /* 名牌剔除: 大兵团时千张名牌(各带纹理+透明排序)是主要绘制项 —
-       超过 LABEL_CULL_D 距离不绘制; 尸体开始淡出即收牌(见 dead 分支) */
-    const ldx = gp.x - camera.position.x, ldz = gp.z - camera.position.z;
-    m.label.visible = (ldx*ldx + ldz*ldz) < LABEL_CULL_D2;
-    if(m.label.visible) m.label.position.set(gp.x, gp.y + m.cfg.h + 0.55, gp.z);
     const prevX = gp.x, prevZ = gp.z;
 
-    if(m.dead){
-      m.deadT += dt;
-      if(m.cfg.fly){                                 // 飞行单位死亡坠落
-        const gy = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
-        if(gp.y > gy) gp.y = Math.max(gy, gp.y - 16*dt);
-      }
-      m.deadTilt = Math.min(Math.PI/2, m.deadT*3);   // 倒地角(renderMobs 组矩阵)
-      if(m.deadT > 0.8) m.label.visible = false;     // 尸体淡出即收牌(渲染侧改下沉入地)
-      if(!m.lastLabelDead){ drawMobLabel(m); m.lastLabelDead = true; }
-      continue;
-    }
-    if(m.lastLabelHp !== m.hp){                       // 大兵团时血条节流重绘
-      m.labelT -= dt;
-      if(m.labelT <= 0){ drawMobLabel(m); m.lastLabelHp = m.hp; m.labelT = 0.3; }
-    }
-
-    /* 着色(instanceColor): 受击闪红白 > 狂暴常驻红晕 > 常态 —
-       引信白闪在下方 fuse 块中每帧覆盖, 取消后下一帧自动回落 */
-    if(m.flashT > 0){
-      m.flashT -= dt;
-      const f = Math.max(0, m.flashT)/0.25;
-      m.tr = 1 + f*0.9; m.tg = 1 - f*0.9; m.tb = 1 - f*0.9;
-    } else if(m.raged){
-      m.tr = 1.4; m.tg = 0.5; m.tb = 0.5;           // 狂暴红晕
-    } else {
-      m.tr = m.tg = m.tb = 1;
-    }
-    if(m.staggerT > 0) m.staggerT -= dt;
     if(m.attackCd  > 0) m.attackCd  -= dt;
     if(m.attackT   > 0) m.attackT   -= dt;
     if(m.slamCd    > 0) m.slamCd    -= dt;
@@ -763,6 +454,7 @@ function updateMobs(dt){
     // 僵尸狂暴:血量触发(精英70%/基础50%),自身加速+攻速,附近同伴群体冲锋
     if(m.type==='zombie' && !m.raged && m.hp < m.maxHp*(m.level>=2?0.7:0.5)){
       m.raged = true;
+      m.tintBase = [1.4, 0.5, 0.5];                 // 狂暴红晕(持久色, 怪物库着色)
       sfx('roar');
       const rr = m.level>=2 ? 9 : 6;
       for(const t of mobs){
@@ -780,11 +472,6 @@ function updateMobs(dt){
           }
         }
       }
-    }
-    // 被震落的飞行单位下沉
-    if(m.cfg.fly && m.staggerT > 0){
-      const gy = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
-      if(gp.y > gy) gp.y = Math.max(gy, gp.y - 10*dt);
     }
 
     m.retargetT -= dt;
@@ -1021,9 +708,9 @@ function updateMobs(dt){
 
     m.walkPhase += m.speedNow*dt*3.4;
     const sw = Math.sin(m.walkPhase)*0.5*Math.min(1, m.speedNow/2.2);
-    /* 关节角写入数值状态(无 THREE 节点), renderMobs 统一组实例矩阵 */
+    /* 关节角写入数值状态(无 THREE 节点), 怪物库 render 统一组实例矩阵 */
     const J = m.pose;
-    if(MOB_RIG[m.type].slots.legL){ J.legL =  sw; J.legR = -sw; }
+    if(Mobs.hasSlot(m.type,'legL')){ J.legL =  sw; J.legR = -sw; }
     if(m.type==='zombie'){
       J.armL = -1.45;
       J.armR = m.attackT>0
@@ -1086,14 +773,7 @@ function updateMobs(dt){
       }
     }
   }
-
-  for(let i=mobs.length-1;i>=0;i--){
-    const m = mobs[i];
-    if(m.gone || (m.dead && m.deadT > 2.4)){
-      disposeMob(m);
-      mobs.splice(i,1);
-    }
-  }
+  // 尸体回收与 gone 清理归怪物库 Mobs.update(每帧先于战斗逻辑执行)
 }
 
 function updateArrows(dt){
@@ -1278,11 +958,9 @@ function deploySpawnQueue(){
 
 function startBattle(){
   clearTongues();
-  for(const m of mobs) disposeMob(m);
-  mobs.length = 0;
+  Mobs.clear();                                        // 回收怪物(含名牌/挂件)并冲刷批次
   for(const a of arrows) scene.remove(a.mesh);
   arrows.length = 0;
-  renderMobs();                                     // 冲刷批次计数(菜单中 update 不跑, 防残留上帧实例)
   spawnQueue.length = 0; spawnCursor = 0;
   const qa = queueTeam('A', cfgA), qb = queueTeam('B', cfgB);
   let ia = 0, ib = 0;
@@ -1302,11 +980,9 @@ function startBattle(){
 
 function clearBattle(){
   clearTongues();
-  for(const m of mobs) disposeMob(m);
-  mobs.length = 0;
+  Mobs.clear();                                        // 回收怪物(含名牌/挂件)并冲刷批次
   for(const a of arrows) scene.remove(a.mesh);
   arrows.length = 0;
-  renderMobs();                                     // 冲刷批次计数(清场常发生在菜单页)
   spawnQueue.length = 0; spawnCursor = 0;             // 未入场的部署一并取消
   pendingBooms.length = 0;
   for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
@@ -1318,80 +994,6 @@ function clearBattle(){
 
 /* ---------- 竞技场 UI ---------- */
 const arenaHb = mkHotbar({ items: HOTBAR.map(id=>({block:id})) });   // 选块由 kit 接管(digit/wheel/点选)
-
-/* ---------- 怪物像素头像 (16×16 手绘 → 64×64 dataURL, 与 3D 模型同配色) ---------- */
-const mobFaceCache = {};
-function mobFace(type){
-  if(mobFaceCache[type]) return mobFaceCache[type];
-  const c = document.createElement('canvas');
-  c.width = c.height = 16;
-  const g = c.getContext('2d');
-  const px = (x,y,w,h,col)=>{ g.fillStyle = col; g.fillRect(x,y,w,h); };
-  const mottle = (col, pts)=>pts.forEach(([x,y])=>px(x,y,1,1,col));
-  switch(type){
-    case 'zombie': {
-      px(0,0,16,16,'#5e9440');
-      mottle('#4a7a33',[[2,1],[6,3],[11,2],[14,5],[3,9],[8,8],[12,12],[5,14],[1,12],[9,14],[13,8]]);
-      px(3,5,3,3,'#14200f'); px(10,5,3,3,'#14200f');      // 黑眼窝
-      px(7,8,2,2,'#3d6b2e');                               // 鼻影
-      px(5,12,6,2,'#1c2b16');                              // 嘴
-      break;
-    }
-    case 'skeleton': {
-      px(0,0,16,16,'#d8d8d2');
-      mottle('#b8b8b0',[[3,1],[9,2],[13,4],[1,7],[6,6],[11,9],[4,14],[13,12],[8,15]]);
-      px(3,5,3,3,'#1a1a1a'); px(10,5,3,3,'#1a1a1a');      // 深眼窝
-      px(7,8,2,2,'#8a8a84');                               // 鼻孔
-      px(4,11,8,3,'#b8b8b0');                              // 牙床
-      for(let x=5;x<=11;x+=2) px(x,11,1,3,'#1a1a1a');      // 牙缝
-      break;
-    }
-    case 'creeper': {
-      px(0,0,16,16,'#4fae4f');
-      mottle('#3d8f3d',[[1,2],[5,1],[9,3],[13,2],[3,7],[11,6],[2,12],[7,14],[12,11],[14,14],[6,9]]);
-      px(3,5,3,3,'#101510'); px(10,5,3,3,'#101510');       // 眼
-      px(6,9,4,2,'#101510');                               // 嘴(上)
-      px(5,11,2,3,'#101510'); px(9,11,2,3,'#101510');      // 嘴(垂腿)
-      break;
-    }
-    case 'golem': {
-      px(0,0,16,16,'#cdd0d8');
-      mottle('#aab0bb',[[2,2],[7,1],[12,3],[1,9],[13,10],[4,13],[10,14],[14,2]]);
-      px(2,1,2,2,'#3d8f3d'); px(3,1,1,1,'#5e9440');        // 蔓藤
-      px(3,5,3,2,'#2a2e36'); px(10,5,3,2,'#2a2e36');       // 眼窝
-      px(4,5,1,2,'#ff2a1a'); px(11,5,1,2,'#ff2a1a');       // 红瞳
-      px(7,6,2,5,'#555a63');                               // 长鼻
-      px(5,13,6,1,'#555a63');                              // 嘴
-      break;
-    }
-    case 'dragon': {
-      px(0,0,16,16,'#16161f');
-      mottle('#262633',[[2,3],[6,2],[10,4],[13,7],[1,10],[5,12],[9,13],[14,11]]);
-      px(2,0,2,3,'#3a2055'); px(12,0,2,3,'#3a2055');       // 双角
-      px(7,0,2,2,'#3a2055');
-      px(3,5,3,2,'#d06bff'); px(10,5,3,2,'#d06bff');       // 紫瞳
-      px(4,5,1,2,'#e8a4ff'); px(11,5,1,2,'#e8a4ff');
-      px(5,9,6,3,'#262633');                               // 吻部
-      px(6,10,1,1,'#0a0a10'); px(9,10,1,1,'#0a0a10');      // 鼻孔
-      px(5,12,6,1,'#0a0a10');                              // 颚线
-      break;
-    }
-    case 'mix': {                                          // 四象限:僵尸/骷髅/苦力怕/铁傀儡
-      px(0,0,8,8,'#5e9440');  px(1,3,2,2,'#14200f'); px(5,3,2,2,'#14200f');
-      px(8,0,8,8,'#d8d8d2');  px(9,3,2,2,'#1a1a1a'); px(13,3,2,2,'#1a1a1a');
-      px(0,8,8,8,'#4fae4f');  px(1,10,2,2,'#101510'); px(5,10,2,2,'#101510'); px(3,12,2,2,'#101510');
-      px(8,8,8,8,'#cdd0d8');  px(9,11,2,1,'#ff2a1a'); px(13,11,2,1,'#ff2a1a'); px(11,12,1,2,'#555a63');
-      break;
-    }
-  }
-  const big = document.createElement('canvas');
-  big.width = big.height = 64;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 64, 64);
-  mobFaceCache[type] = big.toDataURL();
-  return mobFaceCache[type];
-}
 
 const cntAEl = document.getElementById('cntA');
 const cntBEl = document.getElementById('cntB');
@@ -1407,7 +1009,7 @@ function buildPanel(){
   document.querySelectorAll('.mobBtns').forEach(el=>{
     for(const [k,v] of Object.entries(MOB_TYPES)){
       const b = document.createElement('button');
-      b.innerHTML = `<img src="${mobFace(k)}" alt="">${v.name}`;
+      b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${v.name}`;
       b.title = '战力 ' + v.power;
       b.dataset.type = k;
       b.addEventListener('click', ()=>{
@@ -1492,11 +1094,9 @@ const ArenaMode = mkMode({
   },
   cleanup(){
     clearTongues();
-    for(const m of mobs) disposeMob(m);
-    mobs.length = 0;
+    Mobs.clear();                                     // 回收怪物(含名牌/挂件)并冲刷批次
     for(const a of arrows) scene.remove(a.mesh);
     arrows.length = 0;
-    renderMobs();                                   // 冲刷批次计数(切模式即离开主循环)
     spawnQueue.length = 0; spawnCursor = 0;
     pendingBooms.length = 0;
     for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
@@ -1506,8 +1106,9 @@ const ArenaMode = mkMode({
   },
   update(dt){
     deploySpawnQueue();                              // 分帧部署先于一切战斗逻辑
-    updateMobs(dt);
-    renderMobs();                                    // 存活怪位姿写入实例批次(合批绘制)
+    Mobs.update(dt);                                 // 怪物本能: 名牌/计时/死亡动画/回收
+    updateMobs(dt);                                  // 战斗 AI(索敌/技能/晋升)
+    Mobs.render();                                   // 存活怪位姿写入实例批次(合批绘制)
     updateArrows(dt);
     updateBreath(dt);
     updateClouds(dt);

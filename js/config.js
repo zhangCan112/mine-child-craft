@@ -51,7 +51,7 @@ const TNT_CFG = {
 const PLAY_LIMIT_DEFAULT_MIN = 10;
 const TEMP_PLAY_LIMIT_MIN = {
   '2026-10-17': 20,
-  '2026-10-18': 20
+  '2026-10-18': 25
 };
 
 /* 专注训练营每日预算(独立于儿童时限): 每日关卡数与训练时长上限 */
@@ -73,6 +73,27 @@ const TANK = {
 };
 /* 载具相机 (CameraRig.mount 用, 见 js/camera-rig.js) */
 const CAM_TANK = { dist: 6.5, lift: 1.6, eye: 1.8 };
+
+/* ---------- 怪物数值表 (js/mobs.js 怪物库用; 竞技场与坦克演习场共用) ----------
+   特有技能(竞技场战斗 AI 解读): 僵尸=狂暴(半血加速+群体冲锋) 骷髅=强力箭(每3箭)
+   苦力怕=扑袭(跃进扑脸) 铁傀儡=震地(震慑+震落) 末影龙=龙息毒云 */
+const MOB_TYPES = {
+  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:170},
+  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.6, h:1.9, ranged:true, hitR:0.55, power:165},
+  creeper: {name:'苦力怕', hp:28,  dmg:33, speed:3.1, range:2.0, cd:9,   h:1.7, boom:true, hitR:0.5, power:195},
+  golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0, power:1000},
+  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, power:2000},
+  mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2, power:0}
+};
+
+/* 坦克打怪物伤害表 (坦克演习场用; 怪物血量沿用 MOB_TYPES 原值)
+   direct=炮弹直击(近爆心) splash=波及起点 edge=波及边缘(线性递减) crush=碾压 */
+const TANK_VS_MOBS = {
+  direct: 40, splash: 25, edge: 10, crush: 40,
+  blastR: 3.1,                // 爆炸波及判定半径(格, ≈ shellR+0.9)
+  blastDy: 4                  // 波及高度差(格)
+};
+
 
 /* ============================================================
    方块定义
