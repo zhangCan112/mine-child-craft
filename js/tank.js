@@ -127,7 +127,7 @@ const Tank = (()=>{
       const res = TankCore.explode(sh.S.x, sh.S.y, sh.S.z, editBlockDirty);
       flushDirty();                                     // 批量破坏 → 一次重建受影响区块
       Fx.boom(sh.S.x, sh.S.y, sh.S.z, { r1: TANK.shellR + 1.2, n: 12 });   // 内含 boom 音+震屏
-      if(boomCb) boomCb(res);
+      if(boomCb) boomCb(sh.S.x, sh.S.y, sh.S.z, res);   // 带爆点坐标: 波及判定归模式层
     }
   }
 
@@ -208,6 +208,10 @@ const Tank = (()=>{
 
   function driving(){ return drivingIdx >= 0; }
 
+  function at(){                          /* 驾驶中坦克的车体状态(供模式层碾压/索敌), 否则 null */
+    return drivingIdx >= 0 ? tanks[drivingIdx].T : null;
+  }
+
   function nearby(){                      /* promptR 内最近车距 | null(供模式层提示) */
     const T = TankCore.nearest(tanks.map(tk=>tk.T), pos.x, pos.z, TANK.promptR);
     return T ? Math.hypot(T.x - pos.x, T.z - pos.z) : null;
@@ -224,5 +228,5 @@ const Tank = (()=>{
     shells.length = 0;
   }
 
-  return { place, update, toggle, driving, nearby, exitAll, clear, fire, onExplode };
+  return { place, update, toggle, driving, at, nearby, exitAll, clear, fire, onExplode };
 })();

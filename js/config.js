@@ -69,7 +69,7 @@ const TANK = {
   shellG: 4.0,                // 炮弹重力(远轻于实体, 弹道近乎平直)
   shellLife: 5.0,             // 炮弹超程自毁(秒) → 理论射程 200 格(全图对角线以内)
   shellR: 2.2,                // 爆炸破坏半径(格)
-  reload: 2.5                 // 装填冷却(秒)
+  reload: 1.25                // 装填冷却(秒)
 };
 /* 载具相机 (CameraRig.mount 用, 见 js/camera-rig.js) */
 const CAM_TANK = { dist: 6.5, lift: 1.6, eye: 1.8 };

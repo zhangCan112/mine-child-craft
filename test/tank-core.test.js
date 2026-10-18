@@ -161,6 +161,7 @@ test('TANK 参数表: promptR/enterR 齐备且 enterR ≥ promptR(方案 §3 距
   const t = loadTank();
   assert.ok(t.TANK.promptR > 0, 'promptR 存在且为正');
   assert.ok(t.TANK.enterR >= t.TANK.promptR, '上车半径不小于提示半径');
+  assert.ok(t.TANK.reload <= 1.25, '装填 ≤ 1.25 秒(用户要求较初版 2.5 缩短一半)');
 });
 
 test('挤压兜底: 嵌入方块时向上弹出', () => {

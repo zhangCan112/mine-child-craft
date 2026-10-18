@@ -47,6 +47,7 @@ globalThis.Tank = {
   exitAll(){ calls.push(['exitAll']); },
   clear(){ calls.push(['clear']); },
   fire(){ calls.push(['fire']); return tankState.fireResult || 'fired'; },
+  at(){ return { x: 56, y: 13, z: 94 }; },       /* 驾驶中车位(碾压判定用) */
   onExplode(cb){ explodeCb = cb; },          /* 模式注册爆炸回调(命中反馈) */
 };
 let explodeCb = null;
@@ -178,12 +179,12 @@ test('命中反馈: 爆炸炸到靶才表扬, 计数进 HUD', () => {
   assert.strictEqual(typeof explodeCb, 'function', '模式在 init 注册爆炸回调');
   tankState.driving = true; tankState.near = 0.4;
   fakeClock += 200; TankRangeMode.updateHud(null);
-  explodeCb({ removed: 9, counts: { 16: 3 } });   /* 一炮炸掉 3 块靶(红羊毛 id=16) */
+  explodeCb(64, 12, 54, { removed: 9, counts: { 16: 3 } });   /* 一炮炸掉 3 块靶(带爆点坐标) */
   assert.ok(spoken.some(s => s.indexOf('打中') >= 0), '命中表扬: ' + spoken.join('/'));
   fakeClock += 200; TankRangeMode.updateHud(null);
   const hudEl = elCache['hud'];
   assert.ok(hudEl.innerHTML.indexOf('命中 1') >= 0, 'HUD 计数: ' + hudEl.innerHTML);
   spoken.length = 0;
-  explodeCb({ removed: 20, counts: {} });          /* 只炸地板不炸靶 → 不表扬 */
+  explodeCb(64, 12, 54, { removed: 20, counts: {} });          /* 只炸地板不炸靶 → 不表扬 */
   assert.ok(!spoken.some(s => s.indexOf('打中') >= 0), '没打到靶不表扬');
 });

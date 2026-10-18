@@ -34,13 +34,106 @@ function fireOnce(){
   if(r === 'cooldown') showToast('⏳ 装填中…');
 }
 
-/* 爆炸回调(引擎在命中点回调): 炸到靶才表扬 — 过程性表扬, 不罚脱靶 */
-function onBoom(res){
+/* 爆炸回调(引擎在命中点回调, 带爆点坐标): 炸到靶才表扬 — 过程性表扬, 不罚脱靶 */
+function onBoom(x, y, z, res){
   const hits = (res.counts && res.counts[TANK_RANGE.targetId]) || 0;
   if(hits > 0){
     hitCount++;
     SpeechKit.speak('打中啦！好厉害！');
     showToast('🎯 命中 ' + hitCount);
+  }
+  for(let i=mobs.length-1; i>=0; i--){            /* 爆炸波及怪物 */
+    const m = mobs[i];
+    if(Math.hypot(m.x - x, m.z - z) < TANK.shellR + 0.9 && Math.abs(m.y + 1 - y) < 4) killMob(i);
+  }
+}
+
+/* ---------- 游荡怪波: 僵尸风小车怪, 可炸可碾, 清完 3 秒刷新一波 ---------- */
+const mobs = [];
+let killCount = 0, waveN = 0, waveT = 0;
+
+function mkMob(x, z){
+  const box = (w, h, d, c)=> new THREE.Mesh(
+    new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({color: c}));
+  const grp = new THREE.Group();
+  const legL = box(0.20, 0.50, 0.22, 0x2e7d32); legL.position.set(-0.12, 0.25, 0);
+  const legR = box(0.20, 0.50, 0.22, 0x2e7d32); legR.position.set( 0.12, 0.25, 0);
+  const body = box(0.52, 0.62, 0.30, 0x43a047); body.position.y = 0.81;
+  const armL = box(0.15, 0.15, 0.48, 0x388e3c); armL.position.set(-0.33, 1.00, -0.24);  /* 僵尸前伸手 */
+  const armR = box(0.15, 0.15, 0.48, 0x388e3c); armR.position.set( 0.33, 1.00, -0.24);
+  const head = box(0.44, 0.44, 0.44, 0x66bb6a); head.position.y = 1.35;
+  const eL = box(0.08, 0.09, 0.03, 0x1b1b1b); eL.position.set(-0.10, 1.38, -0.225);
+  const eR = box(0.08, 0.09, 0.03, 0x1b1b1b); eR.position.set( 0.10, 1.38, -0.225);
+  grp.add(legL, legR, body, armL, armR, head, eL, eR);
+  scene.add(grp);
+  const dispose = ()=> grp.traverse(o=>{ if(o.isMesh){ o.geometry.dispose(); o.material.dispose(); } });
+  return { grp, x, z, y: groundTop(Math.floor(x), Math.floor(z)) + 1,
+           dir: SceneKit.rand(Math.floor(x), Math.floor(z), 5)*Math.PI*2, t: 0, hop: 0, dispose };
+}
+
+function spawnWave(){
+  if(typeof THREE === 'undefined') return;         /* Node 单测无渲染, 只跳过视觉 */
+  const n = 6 + waveN;                             /* 一波比一波多一只 */
+  const tk = TANK_RANGE.tank;
+  let placed = 0, salt = waveN*97 + 1;
+  while(placed < n && salt < 4000){
+    const x = 24 + Math.floor(SceneKit.rand(salt, 11, 1)*80);
+    const z = 24 + Math.floor(SceneKit.rand(salt, 13, 2)*80);
+    salt += 7;
+    if(Math.hypot(x - tk.x, z - tk.z) < 12) continue;          /* 别刷在坦克脸上 */
+    if(isSolid(getBlock(x, groundTop(x, z) + 1, z))) continue; /* 头顶要有净空 */
+    mobs.push(mkMob(x + 0.5, z + 0.5));
+    placed++;
+  }
+  waveN++;
+}
+
+function killMob(i){
+  const m = mobs[i];
+  sfx('death');
+  Fx.debrisBurst(m.x, m.y + 0.8, m.z, 6, { color: 0x43a047, life: 0.6 });
+  scene.remove(m.grp); m.dispose();
+  mobs.splice(i, 1);
+  killCount++;
+  showToast('👾 消灭 ' + killCount);
+  if(mobs.length === 0) waveT = 3;                 /* 清场 → 3 秒后新一波 */
+}
+
+function updateMobs(dt){
+  for(let i=mobs.length-1; i>=0; i--){
+    const m = mobs[i];
+    m.t -= dt;
+    if(m.t <= 0){                                  /* 换个方向溜达 */
+      m.dir = SceneKit.rand(Math.floor(m.x)*13 + i, Math.floor(m.z)*7, 3)*Math.PI*2;
+      m.t = 1 + SceneKit.rand(Math.floor(m.x), i, 4)*2;
+    }
+    const nx = m.x + Math.cos(m.dir)*1.1*dt, nz = m.z + Math.sin(m.dir)*1.1*dt;
+    if(nx < 18 || nx > 110 || nz < 18 || nz > 110 ||
+       isSolid(getBlock(Math.floor(nx), Math.floor(m.y + 1), Math.floor(nz)))){
+      m.t = 0;                                     /* 撞墙/到边 → 原地换向 */
+      continue;
+    }
+    m.x = nx; m.z = nz;
+    m.y = groundTop(Math.floor(m.x), Math.floor(m.z)) + 1;     /* 爬坡下坎自然贴地 */
+    m.hop += dt*9;
+    m.grp.position.set(m.x, m.y + Math.abs(Math.sin(m.hop))*0.06, m.z);
+    m.grp.rotation.y = -m.dir - Math.PI/2;         /* 模型面朝 -Z, 转到行进方向 */
+  }
+  /* 坦克碾压: 驾驶中贴身即压扁(孩子的最爱) */
+  const tp = Tank.driving() ? Tank.at() : null;
+  if(tp){
+    for(let i=mobs.length-1; i>=0; i--){
+      const m = mobs[i];
+      if(Math.hypot(m.x - tp.x, m.z - tp.z) < 1.8 && Math.abs(m.y - tp.y) < 2.5) killMob(i);
+    }
+  }
+  /* 波次刷新 */
+  if(waveT > 0){
+    waveT -= dt;
+    if(waveT <= 0){
+      spawnWave();
+      SpeechKit.speak('新一波怪物来啦！冲呀！');
+    }
   }
 }
 
@@ -122,9 +215,15 @@ const TankRangeMode = mkMode({
     Tank.onExplode(onBoom);              /* 命中反馈: 炸到靶才表扬 */
     speakArmed = 10;                     // 重进模式即可再次邀请
     hitCount = 0;
+    killCount = 0; waveN = 0; waveT = 0;
+    spawnWave();                         // 第一波怪物
   },
 
-  cleanup(){ Tank.clear(); },
+  cleanup(){
+    Tank.clear();
+    for(const m of mobs){ scene.remove(m.grp); m.dispose(); }
+    mobs.length = 0;
+  },
 
   onKey(code){
     if(code === 'KeyE') speakForToggle(Tank.toggle());
@@ -134,18 +233,21 @@ const TankRangeMode = mkMode({
     if(button === 0) fireOnce();
   },
 
-  /* 靠近邀请: 未驾驶 + 近旁有车 + 距上次满 10 秒 → 语音一次 */
+  /* 靠近邀请: 未驾驶 + 近旁有车 + 距上次满 10 秒 → 语音一次; 怪物游荡/碾压/波次同帧推进 */
   update(dt){
     speakArmed += dt;
     if(!Tank.driving() && Tank.nearby() !== null && speakArmed >= 10){
       speakArmed = 0;
       SpeechKit.speak('要开坦克吗？按 E！');
     }
+    updateMobs(dt);
   },
 
   hud(){
     if(Tank.driving()){
       const lines = ['🚙 驾驶中 · 左键/💥 开炮 · E 下车'];
+      if(mobs.length > 0) lines.push('👾 怪物 ' + mobs.length + ' · 冲上去压！');
+      if(killCount > 0) lines.push('☠️ 已消灭 ' + killCount);
       if(hitCount > 0) lines.push('🎯 已命中 ' + hitCount);
       return lines;
     }
