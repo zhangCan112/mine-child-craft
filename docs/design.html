@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>设计图 · my-craft-demo</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: #0b1220; color: #cbd5e1;
+    font-family: "Segoe UI", "Microsoft YaHei", system-ui, sans-serif;
+    min-width: 1400px; padding: 28px 0 60px;
+  }
+  .wrap { width: 1360px; margin: 0 auto; }
+  header { margin-bottom: 18px; }
+  header h1 { font-size: 22px; color: #f1f5f9; font-weight: 600; }
+  header h1 small { font-size: 13px; color: #64748b; font-weight: 400; margin-left: 12px; }
+  .legend {
+    display: flex; gap: 18px; flex-wrap: wrap; align-items: center;
+    margin-top: 10px; font-size: 12px; color: #94a3b8;
+  }
+  .legend .k { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+  .sw-assembly { background: #a78bfa; } .sw-app { background: #60a5fa; }
+  .sw-data { background: #94a3b8; }   .sw-engine { background: #34d399; }
+  .sw-ext { background: #fbbf24; }    .sw-seam { background: #22d3ee; }
+  .line-sample { width: 26px; height: 0; border-top: 2px solid #94a3b8; display: inline-block; }
+  .line-amber { border-top: 2px dashed #fbbf24; }
+  .line-red { border-top: 2px dashed #f87171; }
+
+  canvas-map { display: block; }
+  .map {
+    position: relative; width: 1360px; height: 1395px;
+    background: #0d1526; border: 1px solid #1e293b; border-radius: 12px;
+  }
+  svg.wires { position: absolute; inset: 0; pointer-events: none; }
+  svg.wires text { font-size: 10px; fill: #94a3b8; font-family: inherit; }
+  svg.wires text.amber { fill: #fbbf24; }
+  svg.wires text.red { fill: #f87171; }
+  svg.wires text.cyan { fill: #67e8f9; }
+
+  .band { position: absolute; border-radius: 12px; }
+  .band .band-tag {
+    position: absolute; top: 6px; left: 12px; font-size: 11px; letter-spacing: 1px;
+  }
+  .band-app { background: rgba(96,165,250,.045); border: 1px dashed rgba(96,165,250,.25); }
+  .band-app .band-tag { color: #60a5fa; }
+  .band-engine { background: rgba(52,211,153,.045); border: 1px dashed rgba(52,211,153,.25); }
+  .band-engine .band-tag { color: #34d399; }
+
+  .node {
+    position: absolute; background: #0f172a; border: 1px solid #24344d;
+    border-left: 3px solid var(--c, #60a5fa); border-radius: 8px;
+    padding: 8px 10px; overflow: hidden;
+  }
+  .node .ttl { font-size: 12.5px; font-weight: 600; color: #e2e8f0; }
+  .node .sub { font-size: 11px; color: #94a3b8; margin-top: 4px; line-height: 1.45; }
+  .node .meta { font-size: 10.5px; color: #64748b; margin-top: 5px; }
+  .node .meta code {
+    font-family: Consolas, monospace; font-size: 10px; color: #7dd3fc;
+    background: rgba(125,211,252,.08); padding: 1px 5px; border-radius: 4px;
+  }
+  .node .ln { float: right; color: #475569; }
+  .assembly { --c: #a78bfa; } .app { --c: #60a5fa; }
+  .data { --c: #94a3b8; }     .engine { --c: #34d399; }
+  .ext { --c: #fbbf24; }
+
+  .node.seam {
+    --c: #22d3ee; border: 1.5px dashed #22d3ee66; background: rgba(34,211,238,.05);
+  }
+  .node.seam .ttl { color: #67e8f9; }
+  .node.seam .hooks {
+    font-family: Consolas, monospace; font-size: 10.5px; color: #a5f3fc;
+    margin-top: 4px; letter-spacing: .3px;
+  }
+  .bar .sub { white-space: nowrap; }
+
+  section { margin-top: 34px; }
+  section > h2 {
+    font-size: 15px; color: #f1f5f9; border-left: 3px solid #60a5fa;
+    padding-left: 10px; margin-bottom: 12px;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 12.5px; }
+  th, td { text-align: left; padding: 8px 12px; border: 1px solid #24344d; }
+  th { background: #101a2e; color: #7dd3fc; font-weight: 600; }
+  td { color: #cbd5e1; }
+  td code { font-family: Consolas, monospace; font-size: 11.5px; color: #7dd3fc; }
+  .grid3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
+  .card {
+    background: #0f172a; border: 1px solid #24344d; border-radius: 10px; padding: 14px 16px;
+    font-size: 12.5px; line-height: 1.6; color: #94a3b8;
+  }
+  .card b { color: #e2e8f0; }
+  .card.warn { border-color: rgba(248,113,113,.4); }
+  .card.warn b { color: #f87171; }
+  .chips { display: flex; flex-wrap: wrap; gap: 10px; }
+  .chip {
+    background: #0f172a; border: 1px solid #24344d; border-radius: 999px;
+    padding: 7px 16px; font-size: 12.5px; color: #cbd5e1;
+  }
+  .chip b { color: #34d399; }
+  .chip small { color: #64748b; }
+  footer { margin-top: 36px; font-size: 11.5px; color: #475569; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>my-craft-demo · 设计图 <small>2026-10 · 术语见 GLOSSARY.md（Module / Interface / Seam / Adapter / Depth）</small></h1>
+  <div class="legend">
+    <span class="k"><span class="dot sw-assembly"></span>装配</span>
+    <span class="k"><span class="dot sw-app"></span>应用层</span>
+    <span class="k"><span class="dot sw-data"></span>参数表（纯数据）</span>
+    <span class="k"><span class="dot sw-engine"></span>引擎层</span>
+    <span class="k"><span class="dot sw-ext"></span>外部 peer</span>
+    <span class="k"><span class="dot sw-seam"></span>模式 interface（seam）</span>
+    <span class="k"><span class="line-sample"></span>依赖</span>
+    <span class="k"><span class="line-sample line-amber"></span>注入 / 网络</span>
+    <span class="k"><span class="line-sample line-red"></span>耦合瑕疵</span>
+    <span class="k" style="color:#475569">箭头方向 = 依赖方向 · 加载序（index.html）即依赖序</span>
+  </div>
+</header>
+
+<div class="map" id="map">
+  <svg class="wires" width="1360" height="1395" viewBox="0 0 1360 1395">
+    <defs>
+      <marker id="m-dep"  viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#94a3b8"/>
+      </marker>
+      <marker id="m-amber" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#fbbf24"/>
+      </marker>
+      <marker id="m-red"   viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+        <path d="M0,0 L10,5 L0,10 z" fill="#f87171"/>
+      </marker>
+    </defs>
+
+    <!-- 分层背景带 -->
+    <rect class="band band-app" x="30" y="244" width="1300" height="666" rx="12"/>
+    <rect class="band band-engine" x="30" y="944" width="1300" height="312" rx="12"/>
+
+    <!-- ============ 依赖线 ============ -->
+    <!-- main → 模式 interface -->
+    <path d="M680,106 V150" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text x="690" y="133">调 mode 钩子 · 主循环 update</text>
+
+    <!-- interface → 四个模式 -->
+    <path d="M180,208 V258"  stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <path d="M500,208 V258"  stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <path d="M820,208 V258"  stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <path d="M1140,208 V258" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+
+    <!-- 模式 → 各自支撑 -->
+    <path d="M820,376 V430" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text x="828" y="402">runFocusLevel + 统计回调</text>
+    <path d="M500,376 V402 H370 V430" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text x="508" y="396">LEVELS</text>
+    <path d="M1140,376 V430" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text x="1148" y="402">slot 存档</text>
+
+    <!-- 模式带 → mode-kit（一条代表四个模式） -->
+    <path d="M660,376 V830" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text x="675" y="808">四个模式全部 = mkMode(cfg)</text>
+
+    <!-- 瑕疵①: focus 读全局 Budgets -->
+    <path d="M680,340 H620 V560 H280 V580" stroke="#f87171" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#m-red)"/>
+    <text class="red" x="300" y="553">⚠ 读全局 Budgets（main.js 定义，靠加载序）</text>
+
+    <!-- focus → focus-levels -->
+    <path d="M680,310 H640 V746 H680" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text x="560" y="740" style="font-size:9.5px">FOCUS_LEVELS / META</text>
+
+    <!-- paradigms → icons -->
+    <path d="M820,534 V580" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text x="828" y="562">mcIcon · creeperFace</text>
+
+    <!-- sync → save-slot -->
+    <path d="M1140,534 V580" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text x="1148" y="562">slot() 内部用 mkSaveSlot</text>
+
+    <!-- sync ↔ server (HTTP peer) -->
+    <path d="M1280,482 H1300 V748 H1280" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-start="url(#m-amber)" marker-end="url(#m-amber)"/>
+    <text class="amber" transform="translate(1294,614) rotate(-90)">HTTP /id · /progress</text>
+
+    <!-- main → daily-budget 注入 -->
+    <path d="M340,66 H25 V610 H40" stroke="#fbbf24" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-end="url(#m-amber)"/>
+    <text class="amber" x="36" y="52">注入 now + storage(SyncDB)</text>
+    <text class="amber" x="36" y="66">→ setupBudgets()</text>
+
+    <!-- mode-kit → 引擎 -->
+    <path d="M120,894 V960" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text x="128" y="926">spawn: pos/vel/yaw</text>
+    <path d="M1280,862 H1340 V1155 H1320" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text transform="translate(1348,1030) rotate(-90)">uiPause · setTouchActions</text>
+
+    <!-- 引擎内部 -->
+    <path d="M420,1030 H380" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text transform="translate(404,1028) rotate(-90)" style="font-size:9.5px">getBlock · hashRand</text>
+    <path d="M840,1010 H800" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text transform="translate(824,1008) rotate(-90)" style="font-size:9.5px">scene · camera</text>
+    <path d="M840,1130 H812 V1080 H800" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+    <text transform="translate(806,1128) rotate(-90)" style="font-size:9.5px">camera</text>
+    <path d="M300,1150 V1100" stroke="#94a3b8" stroke-width="1.5" fill="none" marker-end="url(#m-dep)"/>
+
+    <!-- 瑕疵②: voxel ↔ input 双向 -->
+    <path d="M900,1220 V1258 H30 V1030 H40" stroke="#f87171" stroke-width="1.5" stroke-dasharray="6 4" fill="none" marker-start="url(#m-red)" marker-end="url(#m-red)"/>
+    <text class="red" x="60" y="1251">⚠ voxel.physics 读 input 的 keys/touchSprint　↔　input 调 raycastVoxel/physics（双向耦合，只能一起换）</text>
+  </svg>
+
+  <!-- 分层标签 -->
+  <div style="position:absolute;left:44px;top:252px;font-size:11px;letter-spacing:1px;color:#60a5fa;">应用层 Application —— 玩法与政策</div>
+  <div style="position:absolute;left:44px;top:952px;font-size:11px;letter-spacing:1px;color:#34d399;">引擎层 Engine —— 不含玩法与政策 · 应用→引擎的边只画代表性几条</div>
+
+  <!-- ============ 节点 ============ -->
+  <div class="node assembly" style="left:340px;top:20px;width:680px;height:86px">
+    <div class="ttl">main.js · 装配<span class="ln">200 行</span></div>
+    <div class="sub">MODES 注册表 · 菜单页 · 主循环 loop（physics → Fx.update → mode.update → updateHud）· setupBudgets · switchMode/cleanup 收口</div>
+  </div>
+
+  <div class="node seam" style="left:40px;top:150px;width:1240px;height:58px">
+    <div class="ttl">模式 interface —— main / input 只认这一排钩子</div>
+    <div class="hooks">init · cleanup · update · onKey · onDigit · onWheel · onMouse · onHighlight · onMenu · buildMenu · updateHud · onVoidFall</div>
+  </div>
+
+  <div class="node app" style="left:40px;top:258px;width:280px;height:118px">
+    <div class="ttl">modes/arena.js<span class="ln">1337 行</span></div>
+    <div class="sub">竞技场 · 双阵营怪物 PVP · AI / 克制 / 升级 / 空间哈希</div>
+    <div class="meta"><code>mkMode(cfg)</code> 大而深：复杂度全藏在 cfg 后面</div>
+  </div>
+  <div class="node app" style="left:360px;top:258px;width:280px;height:118px">
+    <div class="ttl">modes/tnt.js<span class="ln">628 行</span></div>
+    <div class="sub">TNT 密室逃生 · 引线解谜 · 火花寻路 · 链式引爆</div>
+    <div class="meta"><code>mkMode(cfg)</code> + <code>SyncDB.slot</code></div>
+  </div>
+  <div class="node app" style="left:680px;top:258px;width:280px;height:118px">
+    <div class="ttl">modes/focus.js<span class="ln">318 行</span></div>
+    <div class="sub">专注训练营 · 百关进度 · 家长面板 / CSV · 预算 ticker</div>
+    <div class="meta"><code>mkMode(cfg)</code>（全屏 DOM，零指针锁）</div>
+  </div>
+  <div class="node app" style="left:1000px;top:258px;width:280px;height:118px">
+    <div class="ttl">modes/build.js<span class="ln">405 行</span></div>
+    <div class="sub">建造模式 · 精选场景（小屋/地下室/庭院）· 改动云同步</div>
+    <div class="meta"><code>mkMode(cfg)</code> + <code>SceneKit</code></div>
+  </div>
+
+  <div class="node app" style="left:40px;top:430px;width:200px;height:104px">
+    <div class="ttl">speech.js<span class="ln">36 行</span></div>
+    <div class="sub">SpeechKit — <code>speak / cancel</code> · voice 挑选 / 打断策略收在 implementation</div>
+  </div>
+  <div class="node data" style="left:260px;top:430px;width:220px;height:104px">
+    <div class="ttl">tnt-levels.js<span class="ln">262 行</span></div>
+    <div class="sub">LEVELS ×10 关参数表（mkRoom / mkExit 几何）</div>
+  </div>
+  <div class="node app" style="left:680px;top:430px;width:280px;height:104px">
+    <div class="ttl">focus-paradigms.js<span class="ln">475 行</span></div>
+    <div class="sub">五范式判别引擎（CPT / Go-NoGo / Flanker / Corsi / 切换）· <code>mkAdapt</code> 阶梯自适应 + 挫败阀</div>
+    <div class="meta"><code>runFocusLevel(level, area, h, failCount)</code></div>
+  </div>
+  <div class="node app" style="left:1000px;top:430px;width:280px;height:104px">
+    <div class="ttl">sync.js<span class="ln">86 行</span></div>
+    <div class="sub">SyncDB — <code>slot(key, schema)</code> 一行声明得 load/save/reset + 云同步 · localStorage+服务器双写 · file:// 降级</div>
+  </div>
+
+  <div class="node app" style="left:40px;top:580px;width:260px;height:96px">
+    <div class="ttl">daily-budget.js<span class="ln">131 行</span></div>
+    <div class="sub">DailyBudget — accrue/count/blocked/onWarn/onExhausted · 午夜翻转 · 旧账迁移 · 零 DOM/THREE/语音</div>
+  </div>
+  <div class="node data" style="left:680px;top:580px;width:280px;height:96px">
+    <div class="ttl">focus-icons.js<span class="ln">138 行</span></div>
+    <div class="sub"><code>mcIcon · creeperFace</code> —— paradigms / levels 共用图标</div>
+  </div>
+  <div class="node app" style="left:1000px;top:580px;width:280px;height:96px">
+    <div class="ttl">save-slot.js<span class="ln">39 行</span></div>
+    <div class="sub"><code>mkSaveSlot(storage, key, schema)</code> → load/save/reset · 版本合并 · 纯函数</div>
+  </div>
+
+  <div class="node data" style="left:680px;top:706px;width:280px;height:80px">
+    <div class="ttl">focus-levels.js<span class="ln">100 行</span></div>
+    <div class="sub">100 关生成器 · FOCUS_DIMS / FOCUS_META · <code>paramsFor(dim, tier)</code></div>
+  </div>
+  <div class="node ext" style="left:1000px;top:706px;width:280px;height:80px">
+    <div class="ttl">server.js · 外部 peer<span class="ln">130 行</span></div>
+    <div class="sub">Node · /id 按 IP 分配设备 · /progress 存取 · 静态文件 + gzip</div>
+  </div>
+
+  <div class="node app bar" style="left:40px;top:830px;width:1240px;height:64px">
+    <div class="ttl">mode-kit.js · ModeKit —— 应用层共用 shell<span class="ln">143 行</span></div>
+    <div class="sub"><code>mkMode · mkHotbar · spawn · lookName · confirmBtn</code> —— 删除测试：删掉它，四份样板（chrome/hotbar/KeyB 暂停/onVoidFall）在 4 个 mode 各长回一份</div>
+  </div>
+
+  <div class="node engine" style="left:40px;top:960px;width:340px;height:140px">
+    <div class="ttl">voxel.js · 体素模型<span class="ln">168 行</span></div>
+    <div class="sub">world Map · <code>getBlock/setBlockRaw</code> · <code>groundTop</code> · <code>raycastVoxel</code> · pos/vel · <code>physics(dt)</code> · collides</div>
+    <div class="meta">渲染是它之上的 adapter（world.js）</div>
+  </div>
+  <div class="node engine" style="left:420px;top:960px;width:380px;height:140px">
+    <div class="ttl">world.js · 渲染 adapter<span class="ln">261 行</span></div>
+    <div class="sub">chunk 网格化（贪面/贴图/TNT 通道）· <code>editBlock / editBlockDirty+flushDirty</code> · renderer/scene/camera · highlight</div>
+  </div>
+  <div class="node engine" style="left:840px;top:960px;width:480px;height:100px">
+    <div class="ttl">effects.js · Fx<span class="ln">195 行</span></div>
+    <div class="sub"><code>boom/pop/kick/wobble/clear</code> · WebAudio sfx · <code>showToast</code> —— 特效唯一入口，条目形状对调用方不可见</div>
+  </div>
+  <div class="node engine" style="left:840px;top:1090px;width:480px;height:130px">
+    <div class="ttl">input.js<span class="ln">146 行</span></div>
+    <div class="sub">键鼠/触控 → raycast → 派发 <code>MODES.cur</code> 钩子（hit 由主循环注入，模式不自行 raycast）· <code>setTouchActions</code> · <code>uiPause</code> · 指针锁</div>
+  </div>
+  <div class="node data" style="left:40px;top:1150px;width:160px;height:90px">
+    <div class="ttl">config.js<span class="ln">91 行</span></div>
+    <div class="sub">BLOCKS 注册表 · PLAYER/ARENA/TNT_CFG · 限额参数</div>
+  </div>
+  <div class="node engine" style="left:220px;top:1150px;width:160px;height:90px">
+    <div class="ttl">scene-kit.js<span class="ln">37 行</span></div>
+    <div class="sub">SceneKit — <code>fill · tree · rand</code> · 坐在体素模型之上</div>
+  </div>
+
+  <div class="node seam" style="left:40px;top:1280px;width:1240px;height:64px;border-color:#a855f766">
+    <div class="ttl" style="color:#c084fc">测试 seam —— node --test ×6</div>
+    <div class="sub" style="color:#94a3b8">voxel · tnt-levels · speech · save-slot · mode-kit · daily-budget —— 全部从 interface 测（interface 即测试面）</div>
+  </div>
+</div>
+
+<section>
+  <h2>一条 seam，四个模式</h2>
+  <div class="grid3">
+    <div class="card"><b>同一个小 interface</b>：arena 1337 行 / tnt 628 / focus 318 / build 405，对外全部只是 <code>mkMode(cfg)</code> 的十来个钩子。main 与 input 对模式内部零了解。</div>
+    <div class="card"><b>mkMode 是深 module</b>：chrome 显隐、hotbar 数字/滚轮/点选、KeyB 暂停、onVoidFall 兜底回出生点，全部收进一份 implementation。</div>
+    <div class="card"><b>政策不在引擎里</b>：DailyBudget 到量只回调 onWarn/onExhausted，何时打断游戏由 main 决定——零 DOM / 零 THREE / 零语音。</div>
+  </div>
+</section>
+
+<section>
+  <h2>真 seam —— 一侧两个 adapter</h2>
+  <table>
+    <tr><th style="width:32%">Seam</th><th style="width:34%">生产 adapter</th><th>第二 adapter</th></tr>
+    <tr><td><code>mkSpeech(synthesis, mkUtterance)</code></td><td>浏览器 speechSynthesis</td><td>test/speech.test.js fake</td></tr>
+    <tr><td><code>mkDailyBudgets({now, storage, defs})</code></td><td>Date.now + SyncDB（main 注入）</td><td>test 假钟 + 内存存储</td></tr>
+    <tr><td><code>mkSaveSlot(storage, key, schema)</code></td><td>SyncDB（localStorage + 云）</td><td>test 内存 Map</td></tr>
+    <tr><td><code>SyncDB.enabled</code></td><td>http 服务双写</td><td>file:// 纯 localStorage 降级</td></tr>
+    <tr><td><code>mkHotbar({doc})</code></td><td>document</td><td>Node 注入 doc</td></tr>
+  </table>
+</section>
+
+<section>
+  <h2>三处留意（图中红虚线）</h2>
+  <div class="grid3">
+    <div class="card warn"><b>voxel ↔ input 双向耦合</b><br>physics 直接读 input 的全局 keys/touchSprint，input 又调 raycastVoxel/physics。体素模型的 interface 隐含了"按键从 input 全局读取"，两者只能一起换。</div>
+    <div class="card warn"><b>focus.js 读全局 Budgets</b><br>main.js 定义、靠 script 加载序和 <code>typeof</code> 防御撑着。这条依赖没有自己的 seam。</div>
+    <div class="card warn"><b>world.js 三条写路径</b><br><code>setBlockRaw</code> / <code>editBlock</code> / <code>editBlockDirty + flushDirty</code>——调用方要知道"批量改动走 dirty + flush"，是 interface 里的一条隐性契约。</div>
+  </div>
+</section>
+
+<section>
+  <h2>深度快评</h2>
+  <div class="chips">
+    <span class="chip"><b>深</b> mkMode<small>（~12 钩子藏四模式全部样板）</small></span>
+    <span class="chip"><b>深</b> DailyBudget<small>（小 interface 藏午夜翻转/迁移/警告去重）</small></span>
+    <span class="chip"><b>深</b> SyncDB.slot<small>（一行声明得存档+云同步）</small></span>
+    <span class="chip"><b>深</b> SpeechKit<small>（2 个方法藏 voice 挑选与打断）</small></span>
+    <span class="chip"><b>大而深</b> arena.js<small>（1337 行只露 mkMode(cfg)）</small></span>
+    <span class="chip"><b>纯数据</b> config · tnt-levels · focus-icons · focus-levels</span>
+  </div>
+</section>
+
+<footer>生成于 2026-10-18 · 静态快照，改代码后需手动更新 · 部署为 docs/design.html（不被 index.html 加载，不影响游戏）</footer>
+</div>
+</body>
+</html>
