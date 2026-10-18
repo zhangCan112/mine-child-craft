@@ -96,7 +96,17 @@ function mobSpeed(m){
   else if(m.level===3) s *= 1.2;
   return s;
 }
-const mkBox = (w,h,d,m)=> new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m);
+/* 部件几何按尺寸缓存共享: 每只怪 ~10 个盒子, 千怪规模逐只 new 既拖慢
+   部署又费内存; 共享后几何跨怪复用(变换挂在 mesh 节点上, 几何不可变),
+   disposeMob 不再 dispose 几何 */
+const boxGeoCache = new Map();
+function sharedBoxGeo(w,h,d){
+  const k = w+','+h+','+d;
+  let g = boxGeoCache.get(k);
+  if(!g){ g = new THREE.BoxGeometry(w,h,d); boxGeoCache.set(k,g); }
+  return g;
+}
+const mkBox = (w,h,d,m)=> new THREE.Mesh(sharedBoxGeo(w,h,d), m);
 
 function buildZombie(){
   const skin  = new THREE.MeshLambertMaterial({color:0x5e9440});
@@ -241,6 +251,8 @@ const BUILDERS = { zombie:buildZombie, skeleton:buildSkeleton, creeper:buildCree
 
 /* ---------- 怪物实例 / 战斗 ---------- */
 const mobs = [];
+const LABEL_CULL_D = 64;                 // 名牌相机距离剔除(格): 远处名牌本就小到难读
+const LABEL_CULL_D2 = LABEL_CULL_D * LABEL_CULL_D;
 const fusingCreeps = [];  // 每帧收集:正在读条的苦力怕(逃跑AI用,避免O(n²))
 const sepGrid = new Map();   // 挤开检测用的空间网格(1×1 格)
 let mobId = 0;
@@ -277,13 +289,14 @@ function spawnMob(team, type, x, z){
     slamCd:2+Math.random()*3, pounceCd:2+Math.random()*3,
     shotCnt:0, raged:false, rageBuffT:0,
     level:1, kills:0, k2:2, k3:5, dmgMult:1, invulnT:0, rockCd:2,
-    baseMaxHp:cfg.hp, tierScale:1, tierFx:null, tierMats:[],
+    baseMaxHp:cfg.hp, tierScale:1, tierFx:null, tierMats:[], tierGeos:[],
     orbitA:Math.random()*Math.PI*2, flyPhase:Math.random()*6,
     flank:(Math.random()*2-1) * (cfg.ranged ? 0.35 : 0.85),
     lastLabelHp:-1, lastLabelDead:false, labelT:0
   };
   drawMobLabel(m);
   mobs.push(m);
+  return m;
 }
 
 function drawMobLabel(m){
@@ -319,7 +332,7 @@ function drawMobLabel(m){
 
 function disposeMob(m){
   scene.remove(m.group); scene.remove(m.label);
-  m.group.traverse(o=>{ if(o.isMesh) o.geometry.dispose(); });
+  m.tierGeos.forEach(g=>g.dispose());       // 部件几何按尺寸共享缓存(不可 dispose), 只收光环等专属几何
   m.mats.forEach(mt=>mt.dispose());
   m.tierMats.forEach(mt=>mt.dispose());
   m.label.material.map.dispose(); m.label.material.dispose();
@@ -512,7 +525,8 @@ function applyTierVisual(m){
   m.group.scale.set(m.tierScale, m.tierScale, m.tierScale);
   if(m.tierFx){
     m.group.remove(m.tierFx);
-    m.tierFx.children.forEach(c=>c.geometry.dispose());
+    m.tierGeos.forEach(g=>g.dispose());     // 光环圆面是专属几何; 挂件盒子走共享缓存不 dispose
+    m.tierGeos = [];
     m.tierMats.forEach(mt=>mt.dispose());
     m.tierMats = [];
   }
@@ -522,11 +536,12 @@ function applyTierVisual(m){
   m.label.scale.set(2.6*ls, 0.65*ls, 1);
   const fx = new THREE.Group();
   const mat = col => { const mt = new THREE.MeshBasicMaterial({color:col}); m.tierMats.push(mt); return mt; };
-  const add = (w,h,d,x,y,z,col)=>{ const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(col)); b.position.set(x,y,z); fx.add(b); };
+  const add = (w,h,d,x,y,z,col)=>{ const b=mkBox(w,h,d,mat(col)); b.position.set(x,y,z); fx.add(b); };
   const aura = new THREE.Mesh(
     new THREE.CircleGeometry(m.cfg.fly?1.5:0.85, 24),
     new THREE.MeshBasicMaterial({color: m.level===3?0xffd44d:0x6cd8ff, transparent:true, opacity:0.5, depthWrite:false}));
   m.tierMats.push(aura.material);
+  m.tierGeos.push(aura.geometry);
   aura.rotation.x = -Math.PI/2; aura.position.y = 0.07;
   fx.add(aura); fx.userData.aura = aura;
   switch(m.type){
@@ -612,6 +627,7 @@ function clearTongues(){
 
 function checkBattleEnd(){
   if(battleState !== 'fighting') return;
+  if(spawnQueue.length) return;                      // 部署未完: 不判负(未到场≠全灭)
   const a = mobs.some(m=>m.team==='A' && !m.dead && !m.gone);
   const b = mobs.some(m=>m.team==='B' && !m.dead && !m.gone);
   if(a && b) return;
@@ -643,7 +659,11 @@ function updateMobs(dt){
   for(const m of mobs){
     if(m.gone) continue;
     const gp = m.pos;
-    m.label.position.set(gp.x, gp.y + m.cfg.h + 0.55, gp.z);
+    /* 名牌剔除: 大兵团时千张名牌(各带纹理+透明排序)是主要绘制项 —
+       超过 LABEL_CULL_D 距离不绘制; 尸体开始淡出即收牌(见 dead 分支) */
+    const ldx = gp.x - camera.position.x, ldz = gp.z - camera.position.z;
+    m.label.visible = (ldx*ldx + ldz*ldz) < LABEL_CULL_D2;
+    if(m.label.visible) m.label.position.set(gp.x, gp.y + m.cfg.h + 0.55, gp.z);
     const prevX = gp.x, prevZ = gp.z;
 
     if(m.dead){
@@ -656,6 +676,7 @@ function updateMobs(dt){
       if(m.deadT > 0.8){
         const o = Math.max(0, 1 - (m.deadT-0.8)/1.4);
         m.mats.forEach(mt=>{ mt.opacity = o; });
+        m.label.visible = false;                   // 尸体淡出即收牌
       }
       if(m.deadT > 2.2) m.group.visible = false;
       if(!m.lastLabelDead){ drawMobLabel(m); m.lastLabelDead = true; }
@@ -1160,18 +1181,39 @@ function balanceTeams(){
   to.count = Math.min(MAX_MOBS, Math.max(1, n));
 }
 
-function spawnTeam(team, cfg){
+/* ---------- 部署队列: 大兵团分帧生成 ----------
+   千怪同步生成(建模+名牌画布+纹理上传)会冻结数秒; 改为队列分帧部署,
+   每帧限时 ~6ms, 双方交替入场(后到的一方不抢跑)。已入场怪立即参战;
+   胜负判定等队列清空才生效(防误判未到场一方全灭)。 */
+const spawnQueue = [];
+let spawnCursor = 0;
+function queueTeam(team, cfg){
   const ax = team==='A' ? ARENA.cx-19 : ARENA.cx+19;
   const az = ARENA.cz;
   const spread = Math.min(15, 1.2 + Math.sqrt(cfg.count)*0.6);
+  const out = [];
   for(let i=0;i<cfg.count;i++){
     const a = Math.random()*Math.PI*2, rr = 0.6+Math.random()*spread;
     const x = ax + Math.cos(a)*rr, z = az + Math.sin(a)*rr;
     const type = cfg.type==='mix'
       ? MIX_POOL[Math.floor(Math.random()*MIX_POOL.length)]
       : cfg.type;
-    spawnMob(team, type, x, z);
+    out.push({team, type, x, z});
   }
+  return out;
+}
+function deploySpawnQueue(){
+  if(spawnCursor >= spawnQueue.length) return;
+  const t0 = performance.now();
+  do {
+    const s = spawnQueue[spawnCursor++];
+    const m = spawnMob(s.team, s.type, s.x, s.z);
+    const ec = s.team==='A' ? cfgB.count : cfgA.count;   // 升级阈值随敌方规模缩放
+    m.k2 = Math.max(1, Math.min(6, Math.ceil(ec*0.25)));
+    m.k3 = Math.max(m.k2+1, Math.min(14, Math.ceil(ec*0.6)));
+    teamInitHp[m.team] += m.maxHp;
+  } while(spawnCursor < spawnQueue.length && performance.now() - t0 < 6);
+  if(spawnCursor >= spawnQueue.length){ spawnQueue.length = 0; spawnCursor = 0; }
 }
 
 function startBattle(){
@@ -1180,18 +1222,17 @@ function startBattle(){
   mobs.length = 0;
   for(const a of arrows) scene.remove(a.mesh);
   arrows.length = 0;
-  spawnTeam('A', cfgA);
-  spawnTeam('B', cfgB);
+  spawnQueue.length = 0; spawnCursor = 0;
+  const qa = queueTeam('A', cfgA), qb = queueTeam('B', cfgB);
+  let ia = 0, ib = 0;
+  while(ia < qa.length || ib < qb.length){            // 双方交替入队, 分帧入场不抢跑
+    if(ia < qa.length) spawnQueue.push(qa[ia++]);
+    if(ib < qb.length) spawnQueue.push(qb[ib++]);
+  }
   teamInitHp = {A:0, B:0};
   pendingBooms.length = 0;
   for(const b of beams){ scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); }
   beams.length = 0;
-  for(const m of mobs){                               // 升级阈值随敌方规模缩放
-    const ec = m.team==='A' ? cfgB.count : cfgA.count;
-    m.k2 = Math.max(1, Math.min(6, Math.ceil(ec*0.25)));
-    m.k3 = Math.max(m.k2+1, Math.min(14, Math.ceil(ec*0.6)));
-    teamInitHp[m.team] += m.maxHp;
-  }
   battleState = 'fighting';
   battleResult = '';
   showToast('对战开始！红方 ' + cfgA.count + '×' + MOB_TYPES[cfgA.type].name + '（战力' + teamPower(cfgA)
@@ -1204,6 +1245,7 @@ function clearBattle(){
   mobs.length = 0;
   for(const a of arrows) scene.remove(a.mesh);
   arrows.length = 0;
+  spawnQueue.length = 0; spawnCursor = 0;             // 未入场的部署一并取消
   pendingBooms.length = 0;
   for(const b of beams){ scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); }
   beams.length = 0;
@@ -1392,6 +1434,7 @@ const ArenaMode = mkMode({
     mobs.length = 0;
     for(const a of arrows) scene.remove(a.mesh);
     arrows.length = 0;
+    spawnQueue.length = 0; spawnCursor = 0;
     pendingBooms.length = 0;
     for(const b of beams){ scene.remove(b.mesh); b.mesh.geometry.dispose(); b.mesh.material.dispose(); }
     beams.length = 0;
@@ -1399,6 +1442,7 @@ const ArenaMode = mkMode({
     battleResult = '';
   },
   update(dt){
+    deploySpawnQueue();                              // 分帧部署先于一切战斗逻辑
     updateMobs(dt);
     updateArrows(dt);
     updateBreath(dt);
