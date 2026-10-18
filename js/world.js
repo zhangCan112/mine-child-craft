@@ -145,9 +145,18 @@ function buildChunkGeometries(cx, cz){
   const G = {positions:[], colors:[], normals:[], indices:[], n:0};
   const T = {positions:[], uvs:[], normals:[], indices:[], n:0};   // TNT 贴图通道
   const x0=cx*CHUNK, z0=cz*CHUNK;
+  /* y 上限截断: 经高度缓存 O(1) 取本区块实际最高方块, 不再扫整段天空
+     (竞技场柱高 ~26/48 · TNT 密室 ~15/48, 挖放/爆炸触发的重建省约
+     一半扫描; 邻块面剔除只读本格 y≤上限, 不受邻区块高度影响) */
+  let yMax = 0;
+  for(let x=x0; x<x0+CHUNK; x++)
+    for(let z=z0; z<z0+CHUNK; z++){
+      const t = groundTop(x,z);
+      if(t > yMax) yMax = t;
+    }
   for(let x=x0; x<x0+CHUNK; x++){
     for(let z=z0; z<z0+CHUNK; z++){
-      for(let y=0; y<WORLD_H; y++){
+      for(let y=0; y<=yMax; y++){
         const id = getBlock(x,y,z);
         if(id===0) continue;
         const b = BLOCKS[id];
