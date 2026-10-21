@@ -24,6 +24,8 @@ const TANK_RANGE = {
 /* 坦克打怪伤害直查 config 的 TANK_VS_MOBS(直击/波及/碾压) */
 
 let speakArmed = 10;                      // 邀请语音计时: 初始即"到点"(首靠近就说)
+let praiseT = 0;                          // 命中表扬节流计时(pad 实测: iOS TTS 频繁
+                                          // cancel+speak 是连环炮掉帧源之一, 3 秒最多一句)
 let hitCount = 0;                         // 已命中炮数(爆炸炸到靶才算)
 let killCount = 0;                        // 已消灭怪物数(跨批累计, 过程性表扬)
 let deployed = false, clearPraised = false;
@@ -94,7 +96,10 @@ function onBoom(x, y, z, res){
   const hits = (res.counts && res.counts[TANK_RANGE.targetId]) || 0;
   if(hits > 0){
     hitCount++;
-    SpeechKit.speak('打中啦！好厉害！');
+    if(praiseT <= 0){                       // 表扬 3 秒节流(计数照常累计, 语音不刷屏)
+      praiseT = 3;
+      SpeechKit.speak('打中啦！好厉害！');
+    }
     showToast('🎯 命中 ' + hitCount);
   }
   for(const m of Mobs.near(x, z, TANK_VS_MOBS.blastR, y, TANK_VS_MOBS.blastDy)){
@@ -244,6 +249,7 @@ const TankRangeMode = mkMode({
     Tank.obstacle(mobSolid);             /* 炮弹障碍: 怪物身体挡炮弹(碰上即炸=直击) */
     buildPicker();                       /* 游戏内选怪面板(只绑一次) */
     speakArmed = 10;                     // 重进模式即可再次邀请
+    praiseT = 0;
     hitCount = 0; killCount = 0;
     deployed = false; clearPraised = false;
     deployMobs();                        // 第一批: 默认僵尸×6, 点卡直进即有得玩
@@ -268,6 +274,7 @@ const TankRangeMode = mkMode({
      怪物本能(游荡/受击/死亡/名牌)在 Mobs.update, 碾压与清场播报在此 */
   update(dt){
     speakArmed += dt;
+    praiseT = Math.max(0, praiseT - dt);
     if(!Tank.driving() && Tank.nearby() !== null && speakArmed >= 10){
       speakArmed = 0;
       SpeechKit.speak('要开坦克吗？按 E！');
@@ -286,17 +293,19 @@ const TankRangeMode = mkMode({
   },
 
   hud(){
+    let lines;
     if(Tank.driving()){
       const n = aliveCount();
-      const lines = ['🚙 驾驶中 · 左键/💥 开炮 · E 下车'];
+      lines = ['🚙 驾驶中 · 左键/💥 开炮 · E 下车'];
       if(n > 0) lines.push('👾 剩 ' + n + ' 只 · 冲上去压！');
       else if(deployed) lines.push('🎉 全消灭！R 再来 · M 换怪物');
       if(killCount > 0) lines.push('☠️ 已消灭 ' + killCount);
       if(hitCount > 0) lines.push('🎯 已命中 ' + hitCount);
-      return lines;
     }
-    if(Tank.nearby() !== null) return ['🚙 按 E 开坦克 · M 换怪物'];
-    return [];
+    else if(Tank.nearby() !== null) lines = ['🚙 按 E 开坦克 · M 换怪物'];
+    else return [];
+    lines.push('FPS ' + fps);           // 与竞技场/建造同款帧率显示(pad 排查刚需)
+    return lines;
   },
 
   touch: [

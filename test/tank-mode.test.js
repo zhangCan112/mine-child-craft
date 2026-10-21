@@ -58,6 +58,7 @@ globalThis.SpeechKit = { speak(s){ spoken.push(s); }, cancel(){} };
 globalThis.showToast = (s) => calls.push(['toast', s]);
 globalThis.setTouchActions = (l) => { touchList = l; };
 globalThis.spawn = (x, y, z) => calls.push(['spawn', x, y, z]);
+globalThis.fps = 60;                                /* HUD 的 FPS 行读主循环全局(浏览器=main.js) */
 let rebuilt = 0;
 globalThis.rebuildAll = () => { rebuilt++; };   /* 建场收尾: 方块数据 → 区块网格 */
 

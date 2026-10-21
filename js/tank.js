@@ -158,10 +158,12 @@ const Tank = (()=>{
     }
   }
 
-  /* 在飞炮弹: 步进 + 命中/超程 → 爆炸(Fx + 批量破坏 + 回调) */
+  /* 在飞炮弹: 步进 + 命中/超程 → 爆炸(Fx + 批量破坏 + 回调)
+     几何/材质模块级共享(高频开炮零分配, dispose 只摘不释放) */
+  const shellGeo = new THREE.BoxGeometry(0.24, 0.24, 0.36);
+  const shellMat = new THREE.MeshLambertMaterial({color: COL.shell});
   function disposeShell(sh){
-    scene.remove(sh.mesh);
-    sh.mesh.geometry.dispose(); sh.mesh.material.dispose();
+    scene.remove(sh.mesh);                      // 共享资源不 dispose(常驻复用)
   }
   function stepShells(dt){
     for(let i=shells.length-1; i>=0; i--){
@@ -237,7 +239,7 @@ const Tank = (()=>{
     const S = TankCore.mkShell(
       T.x - Math.sin(T.yaw)*1.9, T.y + 1.32, T.z - Math.cos(T.yaw)*1.9,
       aim.dir.x*TANK.shellSpeed, aim.dir.y*TANK.shellSpeed, aim.dir.z*TANK.shellSpeed);
-    const mesh = box(0.24, 0.24, 0.36, COL.shell);
+    const mesh = new THREE.Mesh(shellGeo, shellMat);
     scene.add(mesh);
     shells.push({ S, mesh });
     return 'fired';
