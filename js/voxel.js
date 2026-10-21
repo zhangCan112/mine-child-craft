@@ -18,23 +18,25 @@ function hashRand(x,z){
 }
 
 /* ---------- 世界数据 ----------
-   内部整数键: getBlock 是全游戏最热的路径(物理/射线/网格重建/怪物落地
-   扫描), 字符串键在千怪规模下每帧产生数十万次临时字符串分配, GC 压力
-   直接转成掉帧; 数值键 < 2^24 是安全整数。blockKey(字符串) 保留为
-   存档/转辙器等外部格式专用, 与内部键无关。 */
+   平面 Uint8Array: getBlock 是全游戏最热的路径(物理/射线/网格重建/怪物
+   落地扫描), 演进史: 字符串键 Map(GC 掉帧) → 整数键 Map → 平面数组
+   (下标直读, 零分配零哈希; pad 真机爆炸重建实测是最大尖峰来源)。
+   128×128×48 = 786KB 一次分配; 方块 id ≤ 255, Uint8 足够。
+   blockKey(字符串) 保留为存档/转辙器等外部格式专用, 与内部布局无关。 */
 const topCache = new Map();                     // 按列高度缓存 (x,z)→顶层 y
-const world = new class extends Map {           // clear() 钩子: 直清数据必须连带失效高度缓存
-  clear(){ super.clear(); topCache.clear(); }   // (world.js 清场 与 tnt-levels 单测 共用此入口)
+const worldCells = new Uint8Array(WORLD_W * WORLD_D * WORLD_H);
+const world = {                                 // 门面: 只留 clear(直清数据必须连带
+  clear(){ worldCells.fill(0); topCache.clear(); }   // 失效高度缓存; world.js 清场 与 单测共用此入口)
 };
 const blockKey = (x,y,z)=> x + ',' + y + ',' + z;
 const cellIdx = (x,y,z)=> (y*WORLD_D + z)*WORLD_W + x;
 function getBlock(x,y,z){
   if(y<0 || y>=WORLD_H) return 0;
   if(x<0||z<0||x>=WORLD_W||z>=WORLD_D) return 0;
-  return world.get(cellIdx(x,y,z)) || 0;
+  return worldCells[(y*WORLD_D + z)*WORLD_W + x];
 }
 function setBlockRaw(x,y,z,id){
-  world.set(cellIdx(x,y,z), id);
+  worldCells[(y*WORLD_D + z)*WORLD_W + x] = id;
   topCache.delete(x*WORLD_D + z);               // 本列高度缓存失效, 读时惰性重算
 }
 function isSolid(id){
