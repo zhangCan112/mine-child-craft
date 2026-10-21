@@ -2,33 +2,71 @@
 /* ============================================================
    音效 (WebAudio 合成) + 通用特效 + 提示消息
 ============================================================ */
-let actx = null;
+let actx = null;            // 懒创建; iOS 须在用户手势内创建+resume 才能真正出声(见 unlockAudio)
+let master = null;          // 总线: 全部音效 → master → 压限器 → 扬声器, 多路叠加不再硬削波(pad 杂音根因)
 const sfxLastT = {};
+const sfxTouch = (()=>{ try{ return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0); }catch(e){ return false; } })();   // pad 小喇叭发不动低频
+
+/* 手势解锁(常驻监听): 非手势创建/恢复的 context 在 iOS 上保持 suspended,
+   挂起期间按冻结的 currentTime 排队的事件会在恢复瞬间同时炸响(爆音),
+   故创建+resume+播静音采样都收在 pointerdown/touchstart/keydown 手势栈内;
+   常驻而非 once: 切后台回来 context 会再次挂起, 每次手势都要续 */
+function unlockAudio(){
+  try{
+    if(!actx){
+      actx = new (window.AudioContext||window.webkitAudioContext)();
+      const comp = actx.createDynamicsCompressor();   // 保险丝: 混战叠加超出 0dB 也压不出破音
+      comp.threshold.value = -12; comp.knee.value = 20; comp.ratio.value = 12;
+      comp.attack.value = 0.003; comp.release.value = 0.25;
+      master = actx.createGain(); master.gain.value = 0.9;
+      master.connect(comp); comp.connect(actx.destination);
+    }
+    if(actx.state === 'suspended'){
+      actx.resume();
+      const s = actx.createBufferSource();            // 1 采样静音: 逼 iOS 立即开动渲染管线
+      s.buffer = actx.createBuffer(1, 1, actx.sampleRate);
+      s.connect(master); s.start(0);
+    }
+  }catch(e){}
+}
+if(typeof document !== 'undefined' && document.addEventListener){
+  document.addEventListener('pointerdown', unlockAudio);
+  document.addEventListener('touchstart', unlockAudio);
+  document.addEventListener('keydown', unlockAudio);
+}
+
+/* 带线性衰减的白噪声 buffer 按时长缓存: 以前每次爆炸现生成 2 万+ 随机数,
+   大规模混战高频分配 → GC 尖刺 → 音频毛刺; 现只生成一次常驻复用 */
+const noiseBufs = {};
+function noiseBuf(dur){
+  if(!noiseBufs[dur]){
+    const buf = actx.createBuffer(1, Math.floor(actx.sampleRate*dur), actx.sampleRate);
+    const ch = buf.getChannelData(0);
+    for(let i=0;i<ch.length;i++) ch[i] = (Math.random()*2-1)*(1-i/ch.length);
+    noiseBufs[dur] = buf;
+  }
+  return noiseBufs[dur];
+}
+
 function sfx(kind){
   try{
     const nowMs = performance.now();                  // 大规模混战时限制同类音效频率
     if(kind!=='win' && nowMs - (sfxLastT[kind]||0) < 60) return;
     sfxLastT[kind] = nowMs;
-    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
-    if(actx.state==='suspended') actx.resume();
+    unlockAudio();
+    if(!actx || actx.state !== 'running') return;     // 挂起中不排队: 免得恢复瞬间扎堆炸响
     const t = actx.currentTime;
-    const g = actx.createGain(); g.connect(actx.destination);
+    const g = actx.createGain(); g.connect(master);
     if(kind==='boom'){
-      const dur = 0.5, buf = actx.createBuffer(1, Math.floor(actx.sampleRate*dur), actx.sampleRate);
-      const ch = buf.getChannelData(0);
-      for(let i=0;i<ch.length;i++) ch[i] = (Math.random()*2-1)*(1-i/ch.length);
-      const src = actx.createBufferSource(); src.buffer = buf;
+      const src = actx.createBufferSource(); src.buffer = noiseBuf(0.5);
       const f = actx.createBiquadFilter(); f.type='lowpass'; f.frequency.value=420;
       src.connect(f); f.connect(g);
-      g.gain.setValueAtTime(0.4, t);
+      g.gain.setValueAtTime(0.2, t);                  // 0.4→0.2: 与其他音效重新配平, 给压限器留余量
       src.start(t);
       return;
     }
     if(kind==='fss'){                                 // 引线嘶嘶声
-      const dur = 0.3, buf = actx.createBuffer(1, Math.floor(actx.sampleRate*dur), actx.sampleRate);
-      const ch = buf.getChannelData(0);
-      for(let i=0;i<ch.length;i++) ch[i] = (Math.random()*2-1)*(1-i/ch.length);
-      const src = actx.createBufferSource(); src.buffer = buf;
+      const src = actx.createBufferSource(); src.buffer = noiseBuf(0.3);
       const f = actx.createBiquadFilter(); f.type='highpass'; f.frequency.value=3000;
       src.connect(f); f.connect(g);
       g.gain.setValueAtTime(0.12, t);
@@ -103,20 +141,22 @@ function sfx(kind){
 let humOsc = null, humGain = null, humLvl = -1;
 function engineHum(level){
   try{
+    unlockAudio();
+    if(!actx || actx.state !== 'running') return;    // 挂起中不动 humLvl: 恢复后同油门也能续上嗡鸣
     const q = Math.round(level*8)/8;
     if(q === humLvl) return;
     humLvl = q;
-    if(!actx) actx = new (window.AudioContext||window.webkitAudioContext)();
-    if(actx.state === 'suspended') actx.resume();
     if(!humOsc){
       humOsc = actx.createOscillator(); humOsc.type = 'sawtooth';
       const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260;
       humGain = actx.createGain(); humGain.gain.value = 0;
-      humOsc.connect(f); f.connect(humGain); humGain.connect(actx.destination);
+      humOsc.connect(f); f.connect(humGain); humGain.connect(master);
       humOsc.start();
     }
     const t = actx.currentTime;
-    humGain.gain.setTargetAtTime(0.045 + q*0.085, t, 0.12);
+    /* pad 小喇叭还原 50~100Hz 低频只会嗡嗡失真: 触屏设备引擎嗡鸣增益减半 */
+    const g0 = sfxTouch ? 0.022 : 0.045, gk = sfxTouch ? 0.045 : 0.085;
+    humGain.gain.setTargetAtTime(g0 + q*gk, t, 0.12);
     humOsc.frequency.setTargetAtTime(52 + q*46, t, 0.18);
   }catch(e){}
 }
