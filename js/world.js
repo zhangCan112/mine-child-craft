@@ -7,8 +7,13 @@
 /* ---------- 噪声哈希与世界数据已移至 js/voxel.js (体素模型) ---------- */
 
 /* ---------- Three.js 场景 ---------- */
-const renderer = new THREE.WebGLRenderer({antialias:true});
 const _coarse = (function(){ try{ return (navigator.maxTouchPoints||0) > 0; }catch(e){ return false; } })();
+/* 触屏(pad)策略: 高 DPI 下 MSAA 对像素风画面几乎无感, 关掉省一大块填充率;
+   high-performance 提示移动 GPU 拉满时钟(默认不指定偏保守) */
+const renderer = new THREE.WebGLRenderer({
+  antialias: !_coarse,
+  powerPreference: 'high-performance'
+});
 renderer.setPixelRatio(Math.min(devicePixelRatio, _coarse ? 1.5 : 2));   // 触屏设备限 1.5 省性能
 renderer.setSize(innerWidth, innerHeight);
 document.getElementById('app').appendChild(renderer.domElement);
@@ -261,16 +266,17 @@ function editBlock(x,y,z,id){
       color: (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255),
       life: 0.7 });
   }
-  const cx=Math.floor(x/CHUNK), cz=Math.floor(z/CHUNK);
-  rebuildChunk(cx,cz);
-  if(x % CHUNK === 0)      rebuildChunk(cx-1,cz);
-  if(x % CHUNK === CHUNK-1) rebuildChunk(cx+1,cz);
-  if(z % CHUNK === 0)      rebuildChunk(cx,cz-1);
-  if(z % CHUNK === CHUNK-1) rebuildChunk(cx,cz+1);
+  markDirty(x,z);                     // 单块编辑与批量同走队列(连续挖掘同样摊平)
+  flushDirty();
 }
 
-/* 批量编辑:先记账,最后一次性重建受影响区块(爆炸用) */
-const dirtyChunks = new Set();
+/* ---------- 编辑管线: 单块/批量统一走重建队列 ----------
+   重建一个 16×16×48 区块在移动端要数毫秒, 爆炸(1~4 区块)或连续挖掘
+   同帧全量重建会顶爆帧预算(pad 真机开炮顿挫的主因) → 统一入队,
+   主循环每帧按预算出队(视觉滞后 ≤2 帧 ≈ 33ms, 不可感知)。 */
+const dirtyChunks = new Set();                  // 本批已记账、尚未入队的区块
+const remeshQueue = [];                         // 重建队列(FIFO)
+const remeshQueued = new Set();                 // 在队去重(同区块多次标记只排一次)
 function markDirty(x,z){
   const cx=Math.floor(x/CHUNK), cz=Math.floor(z/CHUNK);
   dirtyChunks.add(chunkKey(cx,cz));
@@ -283,18 +289,27 @@ function editBlockDirty(x,y,z,id){
   setBlockRaw(x,y,z,id);
   markDirty(x,z);
 }
-function flushDirty(){
+function flushDirty(){                          // 记账收口: 脏区块转入重建队列
   for(const k of dirtyChunks){
-    const [cx,cz] = k.split(',').map(Number);
-    rebuildChunk(cx,cz);
+    if(!remeshQueued.has(k)){ remeshQueued.add(k); remeshQueue.push(k); }
   }
   dirtyChunks.clear();
+}
+function pumpRemesh(n){                         // 每帧出队重建 n 个(主循环每帧调用)
+  while(n-- > 0 && remeshQueue.length){
+    const k = remeshQueue.shift();
+    remeshQueued.delete(k);
+    const c = k.split(',');
+    rebuildChunk(+c[0], +c[1]);
+  }
 }
 
 /* 清空世界(切换模式/重置关卡用) */
 function clearWorld(){
   world.clear();
   dirtyChunks.clear();
+  remeshQueue.length = 0;
+  remeshQueued.clear();
   for(const arr of chunkMeshes.values())
     arr.forEach(m=>{ scene.remove(m); m.geometry.dispose(); });
   chunkMeshes.clear();

@@ -169,9 +169,30 @@ function buildMenu(){
 
 /* ---------- 主循环 ---------- */
 let last=performance.now(), fps=0, fpsAcc=0, fpsCnt=0;
+/* 帧率上限 60: ProMotion(pad Pro 等 120Hz)设备 rAF 翻倍 → JS/渲染成本全翻,
+   GPU 撑不住时帧率在 60~120 抖动, 锁 60 帧 pacing 反而稳; 60Hz 屏不受影响
+   (阈值 16.4ms < 16.7ms 常规帧全部放行) */
+const FRAME_MIN = 16.4;
+/* 触屏自适应分辨率: 持续低帧(连续 6 个半秒采样 <45fps, 即 3 秒)降一档
+   DPR(1.5 → 1.25 → 1), 只降不升防来回抖 — 填充率受限的老 pad 兜底,
+   瞬时爆炸掉帧不会误触发 */
+let dprCap = 0, lowFpsStreak = 0;
+function adaptDpr(){
+  if(!_coarse) return;
+  if(!dprCap) dprCap = renderer.getPixelRatio();
+  if(dprCap <= 1.01) return;
+  if(fps > 0 && fps < 45){
+    if(++lowFpsStreak >= 6){
+      lowFpsStreak = 0;
+      dprCap = Math.max(1, dprCap - 0.25);
+      renderer.setPixelRatio(dprCap);
+    }
+  } else lowFpsStreak = 0;
+}
 function loop(now){
   requestAnimationFrame(loop);
   if(NET_DEAD) return;                             // 心跳失联: 冻结一切
+  if(now - last < FRAME_MIN) return;               // 未满一帧预算: 等下个 rAF
   let dt = (now-last)/1000; last=now;
   if(dt>0.05) dt=0.05;
 
@@ -190,6 +211,7 @@ function loop(now){
       if(now - playSaveT > 5000){ playSaveT = now; Budgets.play.flush(); }
     }
   }
+  pumpRemesh(2);         // 编辑管线收尾: 每帧最多重建 2 个区块(暂停时也要追平)
 
   const camDist = CameraRig.apply(camera, dt);   // 相机装置: 视角模式/轨道/防穿墙
   Avatar.update(dt, camDist);                    // 玩家形象同步+动画(近距自动隐藏)
@@ -213,7 +235,7 @@ function loop(now){
   renderer.render(scene, camera);
 
   fpsAcc+=dt; fpsCnt++;
-  if(fpsAcc>=0.5){ fps=Math.round(fpsCnt/fpsAcc); fpsAcc=0; fpsCnt=0; }
+  if(fpsAcc>=0.5){ fps=Math.round(fpsCnt/fpsAcc); fpsAcc=0; fpsCnt=0; adaptDpr(); }
   if(MODES.cur && MODES.cur.updateHud) MODES.cur.updateHud(hit);   // hit 复用本帧唯一一次 raycast
 }
 
