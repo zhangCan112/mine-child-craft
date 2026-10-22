@@ -1,0 +1,2 @@
+# 全库统一 LF：覆盖 Windows 的 core.autocrlf，检出也保持 LF（与 .editorconfig 一致）
+* text=auto eol=lf
