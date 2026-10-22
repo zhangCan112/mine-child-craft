@@ -81,7 +81,9 @@ let listResult = [];
 let nextHit = { hp: 10, dead: false, freshDead: false };
 const hitLog = [];
 globalThis.Mobs = {
-  types: { zombie:{name:'僵尸'}, skeleton:{name:'骷髅'}, creeper:{name:'苦力怕'}, golem:{name:'铁傀儡'}, dragon:{name:'末影龙'}, husk:{name:'尸壳'}, mix:{name:'混合编队'} },
+  types: { zombie:{name:'僵尸', family:['zombie_line']}, skeleton:{name:'骷髅', family:['skeleton_line']},
+           creeper:{name:'苦力怕'}, golem:{name:'铁傀儡'}, dragon:{name:'末影龙'},
+           husk:{name:'尸壳', family:['zombie_line']}, mix:{name:'混合编队'} },
   /* ↑ fake 注册表多放一种新怪 + mix 伪类型: 选怪清单应动态全取并排除 mix */
   spawn(type, x, z, opts){ mobsState.spawned.push({ type, x, z, opts }); return { type, pos:{ x, y: 13, z } }; },
   update(){}, render(){},
@@ -92,6 +94,14 @@ globalThis.Mobs = {
   face(){ return 'data:'; },
   hasSlot(){ return true; },
   spawnable(){ return Object.keys(this.types).filter(k => k !== 'mix'); },
+  families(){                                     /* 谱系分组(镜像真库: 主族归组, 无族落 lone) */
+    const buckets = {};
+    for(const k of this.spawnable()){
+      const fam = (this.types[k].family || [])[0] || 'lone';
+      (buckets[fam] = buckets[fam] || []).push(k);
+    }
+    return Object.keys(buckets).map(key => ({ key, name: key, members: buckets[key] }));
+  },
   /* 意图 API 桩: 行为与真库一致(位移/面向), 断言不依赖 */
   move(m, dx, dz){ m.pos.x += dx; m.pos.z += dz; },
   shift(m, dx, dz){ m.pos.x += dx; m.pos.z += dz; },
@@ -251,12 +261,18 @@ test('共享怪物: init 按默认配置一次性部署(僵尸×6, 带游荡栅�
   assert.ok(mobsState.spawned.every(s => s.type === 'zombie'), '默认僵尸');
   assert.ok(mobsState.spawned.every(s => s.opts && s.opts.wander && s.opts.wander.x0 === 18), '带游荡栅栏(怪物库游荡本能)');
   assert.ok(mobsState.spawned.every(s => Math.hypot(s.x - 56, s.z - 94) >= 12), '不刷在坦克脸上');
-  assert.strictEqual(elCache['pkMobBtns'].children.length, 6, '选怪面板动态生成全部怪种按钮(fake 6 种, mix 伪类型排除; 自有 pk* 类, 不复用竞技场 .mobBtns → 不会被竞技场 buildPanel 注入翻倍)');
+  const pkFlat = () => elCache['pkMobBtns'].children        /* 内联簇: 按钮/组头嵌在 famGroup 簇里 */
+    .flatMap(c => c.className === 'famGroup' ? c.children : [c]);
+  const pkBtns = () => pkFlat().filter(c => c.dataset.type);
+  const pkHeads = () => pkFlat().filter(c => c.className === 'famHead');
+  assert.strictEqual(pkBtns().length, 6, '选怪面板动态生成全部怪种按钮(fake 6 种, mix 伪类型排除; 自有 pk* 类, 不复用竞技场 .mobBtns → 不会被竞技场 buildPanel 注入翻倍)');
+  assert.strictEqual(pkHeads().length, 3, '谱系分组组头在场(僵尸一家/骷髅一家/独行侠 — 主族归组, 无族落 lone)');
   const before = mobsState.cleared;
   TankRangeMode.cleanup();
   assert.ok(mobsState.cleared > before, 'cleanup 清掉怪物');
   TankRangeMode.init();                                       /* 重复进场 */
-  assert.strictEqual(elCache['pkMobBtns'].children.length, 6, '重复进场不重复放按钮(幂等)');
+  assert.strictEqual(pkBtns().length, 6, '重复进场不重复放按钮(幂等)');
+  assert.strictEqual(pkHeads().length, 3, '重复进场组头不重复(幂等)');
 });
 
 test('R 键重部署: 清掉当前批, 按当前配置再来一批(无波次自动刷新)', () => {

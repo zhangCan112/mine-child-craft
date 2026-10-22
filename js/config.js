@@ -136,57 +136,123 @@ const TANK_MODELS = {
    hp≈原版生命×1.5 · dmg≈原版普通难度伤害×1.6 · speed≈原版移速属性×10
    h/hitR≈原版碰撞箱(高/半宽) — 竞技场配平战力已归位 modes/arena.js(ARENA_POWER)
    旗标: ranged 远程 · boom 自爆 · fly 飞行 · boss Boss级(不进混合编队池)
-   特有技能(竞技场战斗 AI 解读): 僵尸=狂暴(半血加速+群体冲锋) 骷髅=强力箭(每3箭)
-   苦力怕=扑袭(跃进扑脸) 铁傀儡=震地(震慑+震落) 末影龙=龙息毒云
-   其余怪物复用旗标行为: ranged=放箭/爆裂火球(飞行炮台) fly=盘旋/俯冲(掠食者贴地掠袭) */
+   谱系(术语见 GLOSSARY「怪物谱系」): **种族=长相接近的血统组**(用户拍板),
+   另允许职责组(守卫组: 不长相近但都是"守卫"); 不按地域/维度分族。
+   proto 行为原型(AI 模板位) · family 物种族(有序多标签: 首位=主族=面板归组+
+   家传技能发放; 每怪必归种族, 单员族合法; 多族合法 — 僵尸猪灵/僵尸疣猪兽=猪物种+僵尸血统)。
+   特有技能: 家传=族共享模板(竞技场 FAMILY_SKILLS) · 个体特化每怪至多一招
+   (竞技场 MOB_QUIRKS: 守卫者系蓄力激光 · 末影人颤栗瞬移; 苦力怕扑袭/
+   铁傀儡震地/末影龙龙息是移动一体型特化, 留在原型分支) */
 const MOB_TYPES = {
-  /* —— 经典五怪 —— */
-  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
-  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.6, h:1.9, ranged:true, hitR:0.55},
-  creeper: {name:'苦力怕', hp:28,  dmg:33, speed:3.1, range:2.0, cd:9,   h:1.7, boom:true, hitR:0.5},
-  golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0},
-  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, boss:true},
-  /* —— 主世界杂兵(生命8~26: 蜘蛛16 洞穴蜘蛛12 蠹虫8 末影螨8 史莱姆16
-     末影人40 女巫26 尸壳20 溺尸20 流浪者20 沼骸16 幻翼20 恼鬼14 嘎枝20) —— */
-  spider:      {name:'蜘蛛',     hp:24, dmg:3,  speed:3.0, range:2.2, cd:1.2, h:0.9, hitR:0.65},
-  cave_spider: {name:'洞穴蜘蛛', hp:18, dmg:3,  speed:3.0, range:2.0, cd:1.1, h:0.5, hitR:0.35},
-  silverfish:  {name:'蠹虫',     hp:12, dmg:2,  speed:2.6, range:1.6, cd:0.9, h:0.35, hitR:0.25},
-  endermite:   {name:'末影螨',   hp:12, dmg:3,  speed:2.6, range:1.6, cd:1.0, h:0.35, hitR:0.25},
-  slime:       {name:'史莱姆',   hp:24, dmg:6,  speed:2.0, range:2.2, cd:1.4, h:2.0, hitR:0.55},
-  enderman:    {name:'末影人',   hp:60, dmg:11, speed:3.0, range:2.6, cd:1.2, h:2.9, hitR:0.35},
-  witch:       {name:'女巫',     hp:39, dmg:9,  speed:2.5, range:14,  cd:3.0, h:2.0, ranged:true, hitR:0.45},
-  husk:        {name:'尸壳',     hp:30, dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
-  drowned:     {name:'溺尸',     hp:30, dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
-  stray:       {name:'流浪者',   hp:30, dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55},
-  bogged:      {name:'沼骸',     hp:24, dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55},
-  phantom:     {name:'幻翼',     hp:30, dmg:6,  speed:3.5, range:3.5, cd:1.3, h:0.6, fly:true, hitR:0.45},
-  vex:         {name:'恼鬼',     hp:21, dmg:8,  speed:3.4, range:3.0, cd:1.0, h:0.8, fly:true, hitR:0.25},
-  creaking:    {name:'嘎枝',     hp:30, dmg:5,  speed:3.0, range:2.2, cd:1.1, h:1.7, hitR:0.5},
-  /* —— 下界(僵尸猪灵20 猪灵16 蛮兵50 疣猪兽40 凋灵骷髅20 烈焰人20 恶魂10 岩浆怪16) —— */
-  zombified_piglin:{name:'僵尸猪灵', hp:30, dmg:8,  speed:2.3, range:2.2, cd:1.1, h:1.9, hitR:0.55},
-  piglin:          {name:'猪灵',     hp:24, dmg:8,  speed:2.7, range:2.2, cd:1.1, h:1.9, hitR:0.55},
-  piglin_brute:    {name:'猪灵蛮兵', hp:75, dmg:20, speed:2.6, range:2.4, cd:1.3, h:2.0, hitR:0.6},
-  hoglin:          {name:'疣猪兽',   hp:60, dmg:9,  speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7},
-  zoglin:          {name:'僵尸疣猪兽',hp:60, dmg:9, speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7},
-  wither_skeleton: {name:'凋灵骷髅', hp:30, dmg:13, speed:2.5, range:2.4, cd:1.3, h:2.4, hitR:0.6},
-  blaze:           {name:'烈焰人',   hp:30, dmg:8,  speed:2.3, range:15,  cd:2.4, h:1.8, fly:true, ranged:true, hitR:0.45},
-  ghast:           {name:'恶魂',     hp:15, dmg:14, speed:3.2, range:16,  cd:3.4, h:3.4, fly:true, ranged:true, hitR:1.8},
-  magma_cube:      {name:'岩浆怪',   hp:24, dmg:9,  speed:2.1, range:2.2, cd:1.5, h:2.0, hitR:0.55},
-  /* —— 海洋与末地(守卫者30 远古守卫者80 潜影贝30) —— */
-  guardian:       {name:'守卫者',     hp:45, dmg:8,  speed:2.0, range:13, cd:2.8, h:0.9, ranged:true, hitR:0.6},
-  elder_guardian: {name:'远古守卫者', hp:120, dmg:13, speed:1.9, range:15, cd:3.2, h:2.0, ranged:true, hitR:1.0, boss:true},
-  shulker:        {name:'潜影贝',     hp:45, dmg:6,  speed:0.3, range:15, cd:3.0, h:1.0, ranged:true, hitR:0.5},
-  /* —— 灾厄村民(卫道士24 唤魔者24 掠夺者24 劫掠兽100) —— */
-  vindicator:{name:'卫道士', hp:36, dmg:20, speed:2.9, range:2.2, cd:1.2, h:1.9, hitR:0.55},
-  evoker:    {name:'唤魔者', hp:36, dmg:9,  speed:2.2, range:13,  cd:3.0, h:1.9, ranged:true, hitR:0.55},
-  pillager:  {name:'掠夺者', hp:36, dmg:6,  speed:2.4, range:14,  cd:2.7, h:1.9, ranged:true, hitR:0.55},
-  ravager:   {name:'劫掠兽', hp:150, dmg:18, speed:2.7, range:2.8, cd:1.6, h:2.2, hitR:1.0},
-  /* —— Boss(凋灵300 监守者500, 原版最强近战) —— */
-  wither: {name:'凋灵',   hp:450, dmg:13, speed:3.8, range:15, cd:2.2, h:3.5, fly:true, ranged:true, hitR:0.9, boss:true},
-  warden: {name:'监守者', hp:750, dmg:45, speed:2.7, range:3.2, cd:1.8, h:2.9, hitR:0.9, boss:true},
-  /* —— 伪类型: 竞技场混合编队按钮(种类池在 modes/arena.js 动态生成) —— */
+  /* —— 僵尸一家(主族 zombie_line, 家传·狂暴) —— */
+  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55,
+            proto:'charger', family:['zombie_line']},
+  husk:    {name:'尸壳',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55,
+            proto:'charger', family:['zombie_line']},
+  drowned: {name:'溺尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55,
+            proto:'archer',  family:['zombie_line']},
+  /* —— 骷髅一家(主族 skeleton_line, 家传·强力箭节奏/节奏重斩) —— */
+  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.6, h:1.9, ranged:true, hitR:0.55,
+            proto:'archer',  family:['skeleton_line']},
+  stray:   {name:'流浪者', hp:30,  dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55,
+            proto:'archer',  family:['skeleton_line']},
+  bogged:  {name:'沼骸',   hp:24,  dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55,
+            proto:'archer',  family:['skeleton_line']},
+  wither_skeleton:{name:'凋灵骷髅', hp:30, dmg:13, speed:2.5, range:2.4, cd:1.3, h:2.4, hitR:0.6,
+            proto:'charger', family:['skeleton_line']},
+  /* —— 虫虫族(主族 arthropod, 家传·疾爬突进) —— */
+  spider:      {name:'蜘蛛',     hp:24, dmg:3,  speed:3.0, range:2.2, cd:1.2, h:0.9, hitR:0.65,
+            proto:'ambusher', family:['arthropod']},
+  cave_spider: {name:'洞穴蜘蛛', hp:18, dmg:3,  speed:3.0, range:2.0, cd:1.1, h:0.5, hitR:0.35,
+            proto:'ambusher', family:['arthropod']},
+  silverfish:  {name:'蠹虫',     hp:12, dmg:2,  speed:2.6, range:1.6, cd:0.9, h:0.35, hitR:0.25,
+            proto:'ambusher', family:['arthropod']},
+  endermite:   {name:'末影螨',   hp:12, dmg:3,  speed:2.6, range:1.6, cd:1.0, h:0.35, hitR:0.25,
+            proto:'ambusher', family:['arthropod']},
+  /* —— 软软族(主族 slime_line, 家传·分裂) —— */
+  slime:      {name:'史莱姆', hp:24, dmg:6,  speed:2.0, range:2.2, cd:1.4, h:2.0, hitR:0.55,
+            proto:'splitter', family:['slime_line']},
+  magma_cube: {name:'岩浆怪', hp:24, dmg:9,  speed:2.1, range:2.2, cd:1.5, h:2.0, hitR:0.55,
+            proto:'splitter', family:['slime_line']},
+  /* —— 猪猪一家(主族 pig_line, 家传·蛮冲): 人形猪+野兽猪, 都是猪 —— */
+  piglin:          {name:'猪灵',     hp:24, dmg:8,  speed:2.7, range:2.2, cd:1.1, h:1.9, hitR:0.55,
+            proto:'charger', family:['pig_line']},
+  piglin_brute:    {name:'猪灵蛮兵', hp:75, dmg:20, speed:2.6, range:2.4, cd:1.3, h:2.0, hitR:0.6,
+            proto:'charger', family:['pig_line']},
+  zombified_piglin:{name:'僵尸猪灵', hp:30, dmg:8,  speed:2.3, range:2.2, cd:1.1, h:1.9, hitR:0.55,
+            proto:'charger', family:['pig_line','zombie_line']},   // 双物种血统: 主族领家传, 副族只领分组
+  hoglin:          {name:'疣猪兽',   hp:60, dmg:9,  speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7,
+            proto:'charger', family:['pig_line']},
+  zoglin:          {name:'僵尸疣猪兽', hp:60, dmg:9, speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7,
+            proto:'charger', family:['pig_line','zombie_line']},   // 双物种血统(同僵尸猪灵)
+  /* —— 鬼一族(主族 ghost, 家传·阴风): 长相/气质是幽灵飘忽的 —— */
+  ghast:   {name:'恶魂',   hp:15, dmg:14, speed:3.2, range:16,  cd:3.4, h:3.4, fly:true, ranged:true, hitR:1.8,
+            proto:'turret',  family:['ghost']},
+  phantom: {name:'幻翼',   hp:30, dmg:6,  speed:3.5, range:3.5, cd:1.3, h:0.6, fly:true, hitR:0.45,
+            proto:'diver',   family:['ghost']},
+  blaze:   {name:'烈焰人', hp:30, dmg:8,  speed:2.3, range:15,  cd:2.4, h:1.8, fly:true, ranged:true, hitR:0.45,
+            proto:'turret',  family:['ghost']},
+  wither:  {name:'凋灵',   hp:450, dmg:13, speed:3.8, range:15, cd:2.2, h:3.5, fly:true, ranged:true, hitR:0.9, boss:true,
+            proto:'turret',  family:['ghost']},
+  enderman:{name:'末影人', hp:60, dmg:11, speed:3.0, range:2.6, cd:1.2, h:2.9, hitR:0.35,
+            proto:'skirmisher', family:['ghost']},   // 个体特化=颤栗瞬移(模式层 MOB_QUIRKS)
+  vex:     {name:'恼鬼',   hp:21, dmg:8,  speed:3.4, range:3.0, cd:1.0, h:0.8, fly:true, hitR:0.25,
+            proto:'diver',  family:['ghost']},
+  /* —— 守卫组(主族 guard, 职责组: 不长相近但都是"守卫"; 家传·磐石) —— */
+  golem:          {name:'铁傀儡',     hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0,
+            proto:'charger', family:['guard']},      // 个体特化=震地/巨石(原型分支)
+  warden:         {name:'监守者',     hp:750, dmg:45, speed:2.7, range:3.2, cd:1.8, h:2.9, hitR:0.9, boss:true,
+            proto:'charger', family:['guard']},
+  guardian:       {name:'守卫者',     hp:45, dmg:8,  speed:2.0, range:13, cd:2.8, h:0.9, ranged:true, hitR:0.6,
+            proto:'turret',  family:['guard']},      // 个体特化=蓄力激光(模式层 MOB_QUIRKS)
+  elder_guardian: {name:'远古守卫者', hp:120, dmg:13, speed:1.9, range:15, cd:3.2, h:2.0, ranged:true, hitR:1.0, boss:true,
+            proto:'turret',  family:['guard']},
+  /* —— 灾厄帮(主族 illager, 家传·袭击协同) —— */
+  vindicator:{name:'卫道士', hp:36, dmg:20, speed:2.9, range:2.2, cd:1.2, h:1.9, hitR:0.55,
+            proto:'charger', family:['illager']},
+  evoker:    {name:'唤魔者', hp:36, dmg:9,  speed:2.2, range:13,  cd:3.0, h:1.9, ranged:true, hitR:0.55,
+            proto:'charger', family:['illager']},
+  pillager:  {name:'掠夺者', hp:36, dmg:6,  speed:2.4, range:14,  cd:2.7, h:1.9, ranged:true, hitR:0.55,
+            proto:'archer',  family:['illager']},
+  ravager:   {name:'劫掠兽', hp:150, dmg:18, speed:2.7, range:2.8, cd:1.6, h:2.2, hitR:1.0,
+            proto:'charger', family:['illager']},
+  witch:     {name:'女巫',   hp:39, dmg:9,  speed:2.5, range:14,  cd:3.0, h:2.0, ranged:true, hitR:0.45,
+            proto:'archer',  family:['illager']},   // raider 圈: 村民的邪恶亲戚(物种归帮, 原版亦此划分)
+  /* —— 独行侠已撤销(用户拍板"不要不伦不类的兜底族"): 每怪必归种族, 单员族合法 —— */
+  /* —— 草木族(主族 plant): 植物身子的怪(家传三期补) —— */
+  creeper: {name:'苦力怕', hp:28, dmg:33, speed:3.1, range:2.0, cd:9,   h:1.7, boom:true, hitR:0.5,
+            proto:'bomber', family:['plant']},     // 个体特化=扑袭+读条取消(原型分支)
+  creaking:{name:'嘎枝',   hp:30, dmg:5,  speed:3.0, range:2.2, cd:1.1, h:1.7, hitR:0.5,
+            proto:'skirmisher', family:['plant']},
+  /* —— 龙族(主族 dragon, 单员族): 家传无(龙息即本体特化, 原型分支) —— */
+  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, boss:true,
+            proto:'diver', family:['dragon']},
+  /* —— 海族(主族 sea, 单员族): 贝壳身子(家传无, 追踪弹特化三期补) —— */
+  shulker: {name:'潜影贝', hp:45, dmg:6,  speed:0.3, range:15,  cd:3.0, h:1.0, ranged:true, hitR:0.5,
+            proto:'turret', family:['sea']},
+  /* —— 伪类型: 竞技场混合编队按钮(种类池在 modes/arena.js 动态生成, 不带谱系) —— */
   mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2}
 };
+
+/* ---------- 怪物谱系注册表(数值表的两张维度表, 术语见 GLOSSARY「怪物谱系」) ----------
+   FAMILIES: 种族展示注册表 — 种族=长相接近的血统组(守卫组是唯一职责组例外);
+             name=孩子叫法(面板组头) · order=展示顺序; **无兜底族**(独行侠已撤):
+             每怪必归种族, 单员族合法(龙族/海族); 未注册键由怪物库兜底键名不丢桶。
+   PROTOS: 行为原型合法值(战斗 AI 模板位, 分期③的原型化分发键)。 */
+const FAMILIES = {
+  zombie_line:  {name:'僵尸一家', order:1},
+  skeleton_line:{name:'骷髅一家', order:2},
+  arthropod:    {name:'虫虫族',   order:3},
+  pig_line:     {name:'猪猪一家', order:4},
+  ghost:        {name:'鬼一族',   order:5},
+  guard:        {name:'守卫组',   order:6},
+  illager:      {name:'灾厄帮',   order:7},
+  slime_line:   {name:'软软族',   order:8},
+  plant:        {name:'草木族',   order:9},
+  dragon:       {name:'龙族',     order:10},
+  sea:          {name:'海族',     order:11},
+};
+const PROTOS = ['charger','archer','bomber','ambusher','diver','turret','splitter','skirmisher'];
 
 
 /* ============================================================

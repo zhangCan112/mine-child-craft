@@ -63,13 +63,22 @@ function buildPicker(){
   pkEl = document.getElementById('mobPicker');
   const btns = document.getElementById('pkMobBtns');
   btns.innerHTML = '';                               // 幂等: 先清空(类名撞车的历史教训, 双保险)
-  for(const k of RANGE_MOB_KEYS){
-    const b = document.createElement('button');
-    b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${Mobs.types[k].name}`;
-    b.dataset.type = k;
-    b.onclick = ()=>{ mobCfg.type = k; updatePicker(); };
-    btns.appendChild(b);
-    pkTypeBtns.push(b);
+  for(const g of Mobs.families()){                 // 谱系分组: 内联簇(组头+组员成簇, 簇随行流动 — 不整行断组)
+    const grp = document.createElement('div');
+    grp.className = 'famGroup';
+    const head = document.createElement('span');
+    head.className = 'famHead';
+    head.textContent = g.name;
+    grp.appendChild(head);
+    for(const k of g.members){
+      const b = document.createElement('button');
+      b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${Mobs.types[k].name}`;
+      b.dataset.type = k;
+      b.onclick = ()=>{ mobCfg.type = k; updatePicker(); };
+      grp.appendChild(b);
+      pkTypeBtns.push(b);
+    }
+    btns.appendChild(grp);
   }
   pkCntEl = document.getElementById('pkCnt');
   document.getElementById('pkCntM').onclick = ()=>{ mobCfg.count = Math.max(1, mobCfg.count - 1); updatePicker(); };

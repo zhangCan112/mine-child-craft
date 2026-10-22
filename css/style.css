@@ -96,7 +96,7 @@ canvas{display:block}
   border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff}
 .pkBtnRow button:hover{background:rgba(255,255,255,.2)}
 #pkGo{border-color:#9fd86a;background:rgba(126,180,94,.35);font-weight:bold}
-.mobBtns{display:flex;flex-wrap:wrap;gap:6px;max-height:132px;overflow-y:auto;padding:2px}
+.mobBtns{display:flex;flex-wrap:wrap;gap:4px;max-height:266px;overflow-y:auto;padding:2px}
 .mobBtns button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px 8px 5px;
   min-width:58px;font-size:12px;font-family:inherit;border-radius:8px;border:2px solid rgba(255,255,255,.25);
   background:rgba(0,0,0,.3);color:#fff;cursor:pointer}
@@ -104,6 +104,13 @@ canvas{display:block}
 .mobBtns button:hover{background:rgba(255,255,255,.15)}
 .teamBox.red .mobBtns button.active{border-color:#ff7a6e;background:rgba(255,122,110,.22)}
 .teamBox.blue .mobBtns button.active{border-color:#6ab6ff;background:rgba(106,182,255,.22)}
+/* 谱系分组(物种家族, 见 GLOSSARY): 组 = 内联簇(组头跟着组员一起排, 簇随行流动) —
+   组头不整行断组(37 怪 10 族会"每行短整体长"); 簇底色轻描族界, 竞技场/演习场共用 */
+.famGroup{display:inline-flex;flex-wrap:wrap;align-items:flex-start;gap:4px;
+  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;padding:4px;margin:0}
+.famHead{font-size:10px;color:#ffe9b0;opacity:.9;letter-spacing:1px;align-self:center;
+  padding:0 4px 0 2px;text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap}
 .countRow{margin-top:10px;display:flex;align-items:center;gap:8px;font-size:13px;color:#fff}
 .countRow button{min-width:28px;height:28px;padding:0 7px;border-radius:6px;border:2px solid rgba(255,255,255,.25);
   background:rgba(0,0,0,.3);color:#fff;cursor:pointer;font-size:14px;line-height:1}

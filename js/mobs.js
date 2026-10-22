@@ -781,6 +781,22 @@ const Mobs = (() => {
    "什么算真怪"的过滤归引擎, 调用方不再各自 k!=='mix') */
   function spawnable(){ return Object.keys(MOB_TYPES).filter(k => k !== 'mix'); }
 
+  /* 谱系分组查询: 面板分组渲染的唯一入口(竞技场/演习场共用, 与 spawnable 同地位)。
+     按主族(family 首位)归组 — 一怪只归一桶(多族怪的展示位由主族决定);
+     无兜底族(独行侠已撤, 每怪必归种族): 真出现无 family 怪时以键名兜底不静默丢桶;
+     空桶跳过; 顺序按 FAMILIES.order, 未注册键排最后 */
+  function families(){
+    const buckets = {};
+    for(const k of spawnable()){
+      const fam = (MOB_TYPES[k].family || [])[0] || 'other';
+      (buckets[fam] = buckets[fam] || []).push(k);
+    }
+    const meta = f => (typeof FAMILIES !== 'undefined' && FAMILIES[f]) || {name:f, order:99};
+    return Object.keys(buckets)
+      .map(f => ({key:f, name:meta(f).name, members:buckets[f]}))
+      .sort((a,b) => meta(a.key).order - meta(b.key).order);
+  }
+
   /* 清场: 回收全部(含挂件与名牌)并冲刷批次(菜单/切模式页可用) */
   function clear(){
     for(const m of mobList) dispose(m);
@@ -1112,11 +1128,26 @@ const Mobs = (() => {
     if(typeof MOB_TYPES === 'undefined' || typeof console === 'undefined') return;
     const missing = Object.keys(MOB_TYPES).filter(k => k!=='mix' && !MOB_RIG[k]);
     if(missing.length) console.warn('[Mobs] MOB_TYPES 有而 MOB_RIG 缺(渲染会崩):', missing.join(','));
+    /* 谱系自检: family 引用未注册键 / proto 不在合法值表 / mix 带谱系 —
+       新怪加行时漏声明或拼错键在这里即报(与 RIG 自检同一道理) */
+    if(typeof FAMILIES === 'undefined' || typeof PROTOS === 'undefined') return;
+    const famKeys = Object.keys(FAMILIES);
+    for(const k of Object.keys(MOB_TYPES)){
+      const def = MOB_TYPES[k];
+      if(k === 'mix'){
+        if(def.family || def.proto) console.warn('[Mobs] mix 伪类型不应带谱系字段');
+        continue;
+      }
+      if(!PROTOS.includes(def.proto))
+        console.warn('[Mobs] ' + k + ' 的 proto 非法(合法值见 config.js PROTOS):', def.proto);
+      for(const f of (def.family || []))
+        if(!famKeys.includes(f)) console.warn('[Mobs] ' + k + ' 引用未注册族:', f);
+    }
   })();
 
   return { types: MOB_TYPES, spawn, update, render, hit, near, clear,
            list: ()=>mobList, face, hasSlot, gait, stagger, pulseTint, scaleTo,
-           debrisColor, spawnable,
+           debrisColor, spawnable, families,
            move, shift, setPos, steer, heal, setMaxHp, remove, settle };
 })();
 if(typeof module !== 'undefined' && module.exports) module.exports = Mobs;

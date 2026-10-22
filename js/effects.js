@@ -330,6 +330,26 @@ const Fx = (function(){
     else { e.mesh.material.dispose(); if(e.ownGeo) e.mesh.geometry.dispose(); }
   }
 
+  /* 直线光束(守卫一家·蓄力激光): 单位圆柱拉长 A→B, 只淡出不膨胀 —
+     共享几何常驻(高频路径零几何分配), 逐实例材质(透明度独立) */
+  const beamGeo = new THREE.CylinderGeometry(1,1,1,8,1,true);
+  const UP = new THREE.Vector3(0,1,0);
+  function beam(x1,y1,z1,x2,y2,z2,o){
+    o = o || {};
+    const a = new THREE.Vector3(x1,y1,z1), b = new THREE.Vector3(x2,y2,z2);
+    const dir = b.clone().sub(a);
+    const len = dir.length() || 0.01;
+    const mesh = new THREE.Mesh(beamGeo,
+      new THREE.MeshBasicMaterial({color: o.color!==undefined?o.color:0xffa040,
+        transparent:true, opacity:0.95, depthWrite:false}));
+    const r = o.r!==undefined ? o.r : 0.12;
+    mesh.position.copy(a).addScaledVector(dir, 0.5);
+    mesh.scale.set(r, len, r);
+    mesh.quaternion.setFromUnitVectors(UP, dir.normalize());
+    scene.add(mesh);
+    effects.push({mesh, t:0, dur: o.dur||0.25, r0:0, r1:0, noScale:true});
+  }
+
   /* 清空全部特效(模式切换用); 共享 geo/mat 不可 dispose, 专用色/闪电线/落雷组/光束组除外 */
   function clear(){
     for(const e of effects) disposeFxEntry(e);
@@ -351,8 +371,10 @@ const Fx = (function(){
         disposeFxEntry(e);
         effects.splice(i,1); continue;
       }
-      const r = e.r0 + (e.r1-e.r0)*p;
-      e.mesh.scale.set(r,r,r);
+      if(!e.noScale){                              // 光束类只淡出不膨胀(长度定死在创建时)
+        const r = e.r0 + (e.r1-e.r0)*p;
+        e.mesh.scale.set(r,r,r);
+      }
       if(e.mats){ for(const m of e.mats) m.opacity = 0.85*(1-p); }   // 组条目逐材质淡出
       else e.mesh.material.opacity = 0.85*(1-p);
     }
@@ -381,7 +403,7 @@ const Fx = (function(){
     }
   }
 
-  return {boom, pop, debrisBurst, arc, bolt, kick, portalBeam, removeBeam, clear, update, wobble};
+  return {boom, pop, debrisBurst, arc, bolt, kick, portalBeam, removeBeam, beam, clear, update, wobble};
 })();
 
 /* ---------- 提示消息 ---------- */
