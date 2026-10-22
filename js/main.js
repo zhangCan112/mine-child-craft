@@ -179,7 +179,7 @@ function loop(now){
       if(now - playSaveT > 5000){ playSaveT = now; Budgets.play.flush(); }
     }
   }
-  pumpRemesh(2);         // 编辑管线收尾: 每帧最多重建 2 个区块(暂停时也要追平)
+  pumpRemesh(2);         // 编辑管线收尾: 每帧最多重建 2 个区块(暂停时也要追平; 泵自动收口脏区块)
 
   const camDist = CameraRig.apply(camera, dt);   // 相机装置: 视角模式/轨道/防穿墙
   Avatar.update(dt, camDist);                    // 玩家形象同步+动画(近距自动隐藏)

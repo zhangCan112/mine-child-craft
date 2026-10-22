@@ -39,6 +39,7 @@ ModeKit.spawn = (x, y, z, o) => { calls.push(['spawn', x, y, z, o]); };
 /* ---------- fake 引擎层(调用期解析的全局名) ---------- */
 globalThis.clearWorld = () => { calls.push(['clearWorld']); };
 globalThis.rebuildAll = () => { calls.push(['rebuild']); };
+globalThis.loadScene = (fn) => { calls.push(['loadScene']); fn(); };   /* 场景装填 seam: 清场+建场+收尾重建 */
 globalThis.buildBasementScene = () => { calls.push(['basement']); };
 globalThis.setBlockRaw = (x, y, z, id) => { calls.push(['set', x, y, z, id]); };
 globalThis.SceneKit = { fill(){}, tree(){}, rand: () => 0 };
@@ -125,7 +126,7 @@ test('下界冒险: 踩进上界传送门 → 进下界(重建下界地形 + 回
   NetheMode.init();                                       /* 回上界重来 */
   walkIntoPortal();
   assert.ok(spoke('进了下界'), '进下界语音');
-  assert.ok(calls.filter(c => c[0] === 'clearWorld').length >= 2, '阶段切换先清场(家的草坪/小屋不渗进下界, 反向亦然)');
+  assert.ok(calls.filter(c => c[0] === 'loadScene').length >= 2, '阶段切换先清场(家的草坪/小屋不渗进下界, 反向亦然)');
   assert.ok(calls.some(c => c[0] === 'set' && c[4] === 30), '下界地形用下界岩(B_NETHERRACK)');
   assert.ok(calls.some(c => c[0] === 'set' && c[4] === 31 && c[2] === NETHER_GROUND), '下界建好回程传送门(黑曜石底边在平地上)');
   assert.ok(calls.some(c => c[0] === 'spawn' && c[2] === NETHER_GROUND + 1), '玩家落在回程门前(平地顶层+1)');

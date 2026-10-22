@@ -1230,8 +1230,7 @@ const ArenaMode = mkMode({
     {label:'🧱', act:()=>doCenterClick(2)}
   ],
   init(){
-    generate();
-    rebuildAll();
+    loadScene(generate);                      // 场景装填 seam: 建 + 收尾重建一步到位
     spawnPlayer();
     buildPanel();
     if(autoBalance) balanceTeams();

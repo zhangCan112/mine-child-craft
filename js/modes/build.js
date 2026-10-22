@@ -358,20 +358,20 @@ function buildLoadScene(id){
   const sc = BUILD_SCENES.find(s=>s.id===id) || BUILD_SCENES[0];
   buildSceneId = sc.id;
   if(!buildEdits[sc.id]) buildEdits[sc.id] = new Map();
-  clearWorld();
-  sc.build();
-  for(const [k,v] of buildEdits[sc.id]){
-    const p = k.split(',');
-    setBlockRaw(+p[0], +p[1], +p[2], v);
-  }
-  rebuildAll();
+  loadScene(()=>{
+    sc.build();
+    for(const [k,v] of buildEdits[sc.id]){
+      const p = k.split(',');
+      setBlockRaw(+p[0], +p[1], +p[2], v);
+    }
+  });
   buildSpawnAt(sc);
   buildDirty = true;                            // 记住当前场景
 }
 function buildResetScene(){
   buildEdits[buildSceneId].clear();
   const sc = BUILD_SCENES.find(s=>s.id===buildSceneId);
-  clearWorld(); sc.build(); rebuildAll(); buildSpawnAt(sc);
+  loadScene(()=> sc.build()); buildSpawnAt(sc);
   buildDirty = true;
   buildSaveNow();
   showToast('已重置「' + sc.name + '」', 2000);

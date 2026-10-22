@@ -91,10 +91,10 @@ function applySky(k){
 /* ---------- 阶段切换: 上界 ↔ 下界 ---------- */
 function enterNether(){
   NETHER.phase = 'nether';
-  clearWorld();                                        // 先清上界(不清 → 家的草坪/小屋浮在下界岩上面, 看起来还是家)
-  buildNetherWorld();
-  buildPortalFrame(NETHER_RETURN_PORTAL.by, NETHER_RETURN_PORTAL.px, NETHER_RETURN_PORTAL.pz);   // 落地就有回程门
-  rebuildAll();
+  loadScene(()=>{                                       // 场景装填 seam: 清上界(不清 → 家的草坪/小屋浮在下界岩上面) + 建下界 + 收尾
+    buildNetherWorld();
+    buildPortalFrame(NETHER_RETURN_PORTAL.by, NETHER_RETURN_PORTAL.px, NETHER_RETURN_PORTAL.pz);   // 落地就有回程门
+  });
   applySky(NETHER_SKY);                                // 暗红天穹: 一眼就知道到了下界
   Mobs.clear();
   NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
@@ -107,9 +107,7 @@ function enterNether(){
 }
 function enterOverworld(){
   NETHER.phase = 'overworld';
-  clearWorld();                                        // 清下界残留, 家原样重建
-  buildOverworldWorld();
-  rebuildAll();
+  loadScene(buildOverworldWorld);                       // 场景装填 seam: 清下界残留, 家原样重建
   applySky(OVERWORLD_SKY);
   ModeKit.spawn(62.5, NETHER_HOME_GROUND + 1, 85.5, { yaw: Math.PI });   // 家门口(传送门南侧几步, 不站门里)
   flyMode = false;

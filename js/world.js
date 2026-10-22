@@ -266,6 +266,16 @@ function rebuildAll(){
       rebuildChunk(cx,cz);
 }
 
+/* 场景装填 seam: 清场 → 批量建 → 收尾重建, 一步到位。
+   "建完必须 rebuildAll 否则整场不可见"的收尾纪律收在此处, 调用方
+   不可能忘(曾有模式建场漏调收尾, 进场一片天蓝 — ca3ac43)。
+   clearWorld 幂等(switchMode 已清过再清无害)。 */
+function loadScene(buildFn){
+  clearWorld();
+  buildFn();
+  rebuildAll();
+}
+
 /* 单块编辑: 挖除出同色碎屑是默认反馈; 调用方要静默挖除(如模式自己的
    定制反馈)传 opt {debris:false}。反馈政策可关, 缺省保持原行为 */
 function editBlock(x,y,z,id,opt){
@@ -307,6 +317,7 @@ function flushDirty(){                          // 记账收口: 脏区块转入
   dirtyChunks.clear();
 }
 function pumpRemesh(n){                         // 每帧出队重建 n 个(主循环每帧调用)
+  flushDirty();                                 // 自动收口: 漏调 flushDirty 的脏区块最迟本帧入队(不再永远不可见); 批量编辑后手动 flush 仍是可选的即时提交
   while(n-- > 0 && remeshQueue.length){
     const k = remeshQueue.shift();
     remeshQueued.delete(k);

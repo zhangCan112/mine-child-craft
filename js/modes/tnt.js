@@ -163,7 +163,6 @@ function clearTntEntities(){
 /* ---------- 关卡流程 ---------- */
 function startLevel(i, fresh){
   clearTntEntities();
-  clearWorld();
   levelIdx = i;
   lv = TNT_LEVELS[i];
   lvState = 'playing';
@@ -172,13 +171,14 @@ function startLevel(i, fresh){
   fuseInv = 0; tntInv = 0; tntHb.select(0);
   demoFired = false; demoT = 0;
 
-  lv.build();                                   // 关卡自己铺方块
-  rebuildAll();
+  loadScene(()=>{                                 // 场景装填 seam: 清场+建关+收尾重建一步到位
+    lv.build();                                   // 关卡自己铺方块
+    for(const t of (lv.tnts||[])){
+      setBlockRaw(t.x, t.y, t.z, B_TNT);                        // 预放置 TNT 方块
+      registerTnt(t.x, t.y, t.z, t.demo);
+    }
+  });
 
-  for(const t of (lv.tnts||[])){
-    setBlockRaw(t.x, t.y, t.z, B_TNT);                        // 预放置 TNT 方块
-    registerTnt(t.x, t.y, t.z, t.demo);
-  }
   for(const p of (lv.pickups||[])) addPickup(p);
   for(const s of (lv.switches||[])) registerSwitch(s);
   plateDoors = (lv.doors||[]).map(d=>({plates:d.plates, cells:d.cells, open:false}));
@@ -209,7 +209,6 @@ function explodeTnt(t){
   const cx=t.x+0.5, cy=t.y+0.5, cz=t.z+0.5;
   Fx.boom(cx, cy, cz, {r1: TNT_CFG.radius+1.5, n: 14});
   destroySphere(cx, cy, cz, t);
-  flushDirty();
 }
 
 /* 球形破坏:裂纹砖必毁 · 软方块概率毁 · 功能方块免疫 · 支架被毁触发落石 · TNT 链爆 */
@@ -349,7 +348,6 @@ function updateSparks(dt){
     m.scale.set(blink, blink, blink);
   }
   syncSparkLights();                              // 点光池对齐存活火花(含刚熄灭的清零)
-  flushDirty();
 }
 
 /* ---------- 重物块 / 压力板 / 铁门 ---------- */
@@ -360,10 +358,8 @@ function startWeightFall(w){
   m.position.set(w.x+0.5, w.y+0.5, w.z+0.5);
   scene.add(m);
   w.mesh = m; w.vy = 0;
-  flushDirty();
 }
 function updateWeights(dt){
-  let dirty = false;
   for(const w of tntWeights){
     if(w.state!=='fall') continue;
     w.vy -= 22*dt;
@@ -380,7 +376,6 @@ function updateWeights(dt){
       w.state = 'landed';
       scene.remove(w.mesh); w.mesh = null;
       editBlockDirty(fx, land, fz, B_WEIGHT);   // 直写留点了结: 与手动 setBlockRaw+markDirty 逐字等价
-      dirty = true;
       Fx.kick(0.35);
       sfx('boom');
       // 砸到玩家
@@ -389,7 +384,6 @@ function updateWeights(dt){
     }
     if(w.mesh) w.mesh.position.y = y;
   }
-  if(dirty) flushDirty();
 }
 
 function updateDoors(){
@@ -409,7 +403,6 @@ function updateDoors(){
       pd.open = true;
       sfx('door');
       for(const c of pd.cells) editBlockDirty(c.x, c.y, c.z, 0);
-      flushDirty();
       showToast('🚪 轰隆…铁门开了！', 1800);
     } else if(!pressed && pd.open){
       // 关门防夹:玩家站在门里就不关
@@ -422,7 +415,6 @@ function updateDoors(){
         pd.open = false;
         sfx('door');
         for(const c of pd.cells) editBlockDirty(c.x, c.y, c.z, B_DOOR);
-        flushDirty();
       }
     }
   }

@@ -334,12 +334,10 @@ Tank.obstacle(mobSolid);
 Tank.targeter(nearestFoe);
 
 /* 进场/换车同一条路: 清场 → 建场 → 放当前型号的坦克 → 出生。
-   switchMode 进来时 world 已清, 这里的 clearWorld 再兜一次"换车型重建"(幂等) */
+   switchMode 进来时 world 已清, loadScene 的清场再兜一次"换车型重建"(幂等) */
 function enterField(){
   Tank.clear();
-  clearWorld();
-  buildRange();
-  rebuildAll();                         // 建场收尾: 方块数据 → 区块网格(各模式惯例, 漏了整场不可见)
+  loadScene(buildRange);                   // 场景装填 seam: 建场+收尾重建一步到位(漏收尾整场不可见已成历史)
   Tank.place(TANK_RANGE.tank.x, TANK_RANGE.groundY+1, TANK_RANGE.tank.z,
     { yaw: TANK_RANGE.tank.yaw, model: selModel });
   ModeKit.spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });

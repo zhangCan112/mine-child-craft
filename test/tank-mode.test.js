@@ -63,7 +63,7 @@ globalThis.TANK_MODELS = {
   classic: { key: 'classic', name: '迷彩战车', desc: '老兵', perf: { speed: 7 }, muzzle: { f: 1.9, y: 1.32 }, shell: {} },
   thunder: { key: 'thunder', name: '雷霆战神', desc: '电光', perf: { speed: 7.6 }, muzzle: { f: 2.25, y: 1.36 }, shell: {} },
 };
-globalThis.clearWorld = () => { calls.push(['clearWorld']); };   /* 换车型重建兜底 */
+globalThis.clearWorld = () => { calls.push(['clearWorld']); };   /* 换车型重建兜底(loadScene 内部调用) */
 let explodeCb = null, protectFn = null, obstacleFn = null;
 globalThis.SceneKit = { fill(){ calls.push(['fill']); }, tree(){}, rand: () => 0 };
 globalThis.SpeechKit = { speak(s){ spoken.push(s); }, cancel(){} };
@@ -71,8 +71,8 @@ globalThis.showToast = (s) => calls.push(['toast', s]);
 globalThis.setTouchActions = (l) => { touchList = l; };
 globalThis.spawn = (x, y, z) => calls.push(['spawn', x, y, z]);
 globalThis.fps = 60;                                /* HUD 的 FPS 行读主循环全局(浏览器=main.js) */
-let rebuilt = 0;
-globalThis.rebuildAll = () => { rebuilt++; };   /* 建场收尾: 方块数据 → 区块网格 */
+let sceneLoads = 0;
+globalThis.loadScene = (fn) => { sceneLoads++; calls.push(['loadScene']); fn(); };   /* 场景装填 seam: 清场+建场+收尾重建一步到位 */
 
 /* ---------- fake 怪物库(共享怪物: js/mobs.js 的调用期全局) ---------- */
 const mobsState = { spawned: [], cleared: 0 };
@@ -119,7 +119,7 @@ function has(ev){ return calls.some(c => c[0] === ev); }
 test('模式装配: id=tank, init 建场放坦克并出生, cleanup 清场, 触屏按钮就位', () => {
   TankRangeMode.init();
   assert.ok(has('fill'), 'init 用 SceneKit 建场');
-  assert.ok(rebuilt >= 1, 'init 收尾调 rebuildAll(方块数据 → 可见网格, 漏了就是一片天蓝)');
+  assert.ok(sceneLoads >= 1, 'init 场景装填走 loadScene(清场+建场+收尾一步到位, "漏调收尾整场天蓝"不可能再发生)');
   assert.ok(has('place'), 'init 放置坦克');
   assert.ok(has('spawn'), 'init 出生玩家');
   assert.ok(Array.isArray(touchList) && touchList.length >= 1, '声明了触屏按钮');
@@ -370,7 +370,7 @@ test('进场放当前型号: init 以 selModel(默认迷彩战车)放置, 重建
   const p = calls.find(c => c[0] === 'place');
   assert.ok(p, 'init 放置坦克');
   assert.strictEqual(p[4] && p[4].model, 'classic', '默认型号 classic: ' + JSON.stringify(p[4]));
-  assert.ok(has('clearWorld'), '进场重建幂等兜底 clearWorld');
+  assert.ok(has('loadScene'), '进场重建幂等兜底 clearWorld');
 });
 
 test('出发配置页: 坦克卡按 order 排序, 点卡只改选择不重建, 出发才进场', () => {
@@ -383,7 +383,7 @@ test('出发配置页: 坦克卡按 order 排序, 点卡只改选择不重建, �
   assert.ok(card && !card._cls.has('active'), '当前是迷彩战车, 雷霆卡未高亮');
   calls.length = 0; spoken.length = 0;
   card.onclick();                               /* 点卡 = 只选不进场 */
-  assert.ok(!has('clearWorld'), '点卡不重建');
+  assert.ok(!has('loadScene'), '点卡不重建');
   assert.ok(!has('place'), '点卡不放置');
   assert.ok(!has('lock'), '点卡不进战场');
   assert.ok(calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('雷霆战神') >= 0), '选中有提示: ' + JSON.stringify(calls));
@@ -394,7 +394,7 @@ test('出发配置页: 坦克卡按 order 排序, 点卡只改选择不重建, �
   assert.ok(has('lock'), '出发回战场');
   const p = calls.filter(c => c[0] === 'place').pop();
   assert.strictEqual(p[4].model, 'thunder', '换型号后放置雷霆战神');
-  assert.ok(has('clearWorld'), '换车重建演习场');
+  assert.ok(has('loadScene'), '换车重建演习场');
 });
 
 test('出发配置页: 怪物一行 6 卡(fake 7 种, mix 排除)与 👾 面板共用 mobCfg, 选完出发部署该怪', () => {
@@ -410,7 +410,7 @@ test('出发配置页: 怪物一行 6 卡(fake 7 种, mix 排除)与 👾 面板
   assert.ok(sk2._cls.has('active'), '选后骷髅卡高亮');
   calls.length = 0;
   elCache['tankGoBtn'].onclick();               /* 出发: 怪种变了 → 重建并部署骷髅 */
-  assert.ok(has('clearWorld'), '怪种变化也重建');
+  assert.ok(has('loadScene'), '怪种变化也重建');
   assert.ok(mobsState.spawned.length > 0 && mobsState.spawned.every(s => s.type === 'skeleton'),
     '出发部署的是骷髅: ' + mobsState.spawned.map(s => s.type).join(','));
   assert.ok(has('lock'), '出发回战场');
@@ -420,7 +420,7 @@ test('出发不折腾: 选择没变直接回战场, 不重建(进度不丢)', ()
   elCache['tankGoBtn'].onclick();               /* 先决: 以当前选择同步 placedModel/placedMob */
   calls.length = 0;
   elCache['tankGoBtn'].onclick();               /* selModel/怪种与场上一致 */
-  assert.ok(!has('clearWorld'), '没变不重建');
+  assert.ok(!has('loadScene'), '没变不重建');
   assert.ok(!has('place'), '没变不放置');
   assert.ok(has('lock'), '仍直接回战场');
 });

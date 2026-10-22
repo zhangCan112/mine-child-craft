@@ -13,7 +13,7 @@
               exitAll / clear / fire / onExplode / targeter / icon。
    爆炸破坏在 TankCore(纯核心), 提示文案与话术在模式层 — 本文件零玩法知识。
    依赖(均经全局名, 调用期解析): tank-core.js 的 TankCore,
-   world.js 的 scene/editBlockDirty/flushDirty, effects.js 的 sfx/Fx/engineHum,
+   world.js 的 scene/editBlockDirty, effects.js 的 sfx/Fx/engineHum,
    camera-rig.js 的 CameraRig, voxel.js 的 pos/vel/yaw/collides/onGround/WORLD_W/WORLD_D,
    config.js 的 TANK/CAM_TANK,
    input.js 的 keys/touchMove(仅 update 读取), config.js 的 IS_TOUCH。
@@ -488,7 +488,6 @@ const Tank = (()=>{
       disposeShell(sh);
       shells.splice(i, 1);
       const res = TankCore.explode(sh.S.x, sh.S.y, sh.S.z, editBlockDirty, protectFn, sh.S.spec);
-      flushDirty();                                     // 批量破坏 → 一次重建受影响区块
       const sr = TankCore.specV(sh.S.spec, 'shellR');   // 爆炸半径的同一回落规则(勿手抄 ||)
       if(sh.lightning){                                 /* 命中: 天降落雷(含 zap) + 雷鸣爆风 */
         Fx.bolt(sh.S.x, sh.S.y, sh.S.z, { color: sh.shell && sh.shell.boom, r1: sr + 1.0 });

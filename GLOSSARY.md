@@ -14,6 +14,10 @@ _Avoid_: 底层、框架、核心库
 方块世界的数据与规则：存取、碰撞、物理、射线。不含渲染——渲染是它之上的 adapter。
 _Avoid_: 世界数据（仅指 Map 本体时可用）、引擎核心
 
+**场景装填（loadScene）**:
+world.js 渲染 adapter 的建场 seam：loadScene(buildFn) = 清场 → 批量建 → 收尾重建一步到位。"建完必须 rebuildAll 否则整场不可见"的收尾纪律收在 seam 里（曾有模式漏调，进场一片天蓝）；清场幂等。编辑管线同理由 pumpRemesh 自动收口脏区块——漏调 flushDirty 最迟下帧入队，不再永远不可见。
+_Avoid_: clearWorld+build+rebuildAll 三连（历史惯用套路）、手动 flushDirty（即时提交的可选优化，不再是必需）
+
 **Fx**:
 特效的唯一入口：爆炸组合、冲击波球、闪电弧（arc）、落雷（bolt，盒段拼装的粗闪电）、碎块、震屏。条目形状与动画是它的 implementation，调用方不可见。
 _Avoid_: effects 数组、震屏变量（那是内部状态）
