@@ -41,9 +41,7 @@ function drive(t, T, input, sec){ for(let i=0; i<Math.round(sec/DT); i++) t.Tank
 test('前进: 沿车头加速, 不超极速, 松手前持续前进', () => {
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
-  const T = t.TankCore.mkT(64, 11, 64, 0);
-  for(let i=0; i<180 && !T.onGround; i++) t.TankCore.step(T, IDLE, DT);   // 先落地
-  assert.ok(T.onGround, '应已落在平地上');
+  const T = grounded(t, 64, 64, 0);
   const z0 = T.z;
   for(let i=0; i<90; i++) t.TankCore.step(T, {forward:1, steer:0, lookYaw:null}, DT);   // 1.5 秒全油门
   assert.ok(T.vel > 0, 'vel 应为正: ' + T.vel);

@@ -3,9 +3,17 @@
    进度同步层: 每台设备进度双写 (localStorage + 服务端)
    服务端按 IP 分配固定设备 ID → 浏览器清缓存后仍能找回进度
    file:// 直开(桌面)自动降级为纯 localStorage
-   已知进度键集中登记在此, 新模式存档时在 SYNC_KEYS 补一行
+   存档键注册制: 各存档模块在加载期顶层调 registerSyncKeys(或经
+   SyncDB.slot 创建即注册)。全部 <script defer> 执行完之后才会收到
+   服务器镜像, 注册永远先于回填 — "新模式存档"不再跨层改本文件。
 ============================================================ */
-const SYNC_KEYS = ['tnt_escape_progress', 'focus_camp_save', 'daily_budget_save', 'build_world_save'];
+const SYNC_KEYS = [];
+function registerSyncKeys(){
+  for(let i=0; i<arguments.length; i++){
+    const k = arguments[i];
+    if(SYNC_KEYS.indexOf(k) < 0) SYNC_KEYS.push(k);
+  }
+}
 
 let _readyRes = null;
 const SyncDB = {
@@ -53,10 +61,9 @@ const SyncDB = {
     try{ return localStorage.getItem(key); }catch(e){ return null; }
   },
   /* 存档槽: 声明即得 load/save/reset (逻辑在 js/save-slot.js, 纯函数可单测)
-     创建即注册 SYNC_KEYS; 注: 若服务器镜像先于本调用完成, backfill 可能漏掉该键 —
-     良性: get() 回退 localStorage, 下次 set() 会补推 */
+     创建即注册进 SYNC_KEYS(加载期顶层调用, 先于服务器镜像到达, 无回填竞态) */
   slot(key, schema){
-    if(SYNC_KEYS.indexOf(key) < 0) SYNC_KEYS.push(key);
+    registerSyncKeys(key);
     return mkSaveSlot(
       { get:k=>this.get(k), set:(k,v)=>this.set(k,v), remove:k=>this.remove(k) },
       key, schema);

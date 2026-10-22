@@ -11,7 +11,8 @@ const MODES = {
   tank:  TankRangeMode
 };
 MODES.cur = null;
-let curModeId = null;
+/* 当前模式 id 只从 MODES.cur 派生 — 不再另持一份需同步的状态 */
+const curModeId = () => (MODES.cur ? MODES.cur.id : null);
 
 /* ---------- 菜单页面切换 ---------- */
 const overlay = document.getElementById('overlay');
@@ -34,7 +35,16 @@ function showPage(id){
 /* ---------- 每日预算 (DailyBudget) — 儿童时限的唯一账本 ----------
     竞技场+TNT+建造 的儿童时限与 专注训练营的每日限额 都记在
     js/daily-budget.js 的同一本预算里; 计时/午夜翻转/按日限额/迁移全部在那边 */
-const PLAY_LIMIT_MODES = ['arena', 'tnt', 'build', 'tank'];   // 共享儿童时限的模式
+/* 主菜单模式卡注册表: 一张表派生入口 onclick / 超时置灰 / 共享儿童时限的
+   模式清单 — 新增模式 = index.html 加卡 + 这里加一行, 三处重复表达归一 */
+const MODE_CARDS = [
+  { id:'arena', card:'cardArena', page:'arena', gated:true },
+  { id:'tnt',   card:'cardTnt',   page:'tnt',   gated:true, menu:true },   // menu: 进页后刷新模式菜单
+  { id:'focus', card:'cardFocus', gated:false },                          // 专注训练营接管全屏 UI, 无菜单页
+  { id:'build', card:'cardBuild', page:'build', gated:true, menu:true },
+  { id:'tank',  card:'cardTank',  page:'tank',  gated:true, menu:true },
+];
+const PLAY_LIMIT_MODES = MODE_CARDS.filter(c => c.gated).map(c => c.id);   // 共享儿童时限的模式
 let Budgets = null;                                   // SyncDB.ready 后填充(镜像完成, 防"第二台设备读到旧本地值")
 let playSaveT = 0;
 
@@ -42,7 +52,7 @@ function setupBudgets(){
   Budgets = mkDailyBudgets({
     storage: { get:k=>SyncDB.get(k), set:(k,v)=>SyncDB.set(k,v), remove:k=>SyncDB.remove(k) },
     defs: {
-      play:  { capMsFor: d => (TEMP_PLAY_LIMIT_MIN[d] || PLAY_LIMIT_DEFAULT_MIN) * 60 * 1000,   // 读时求值: 跨午夜自动重读当日临时限额
+      play:  { capMsFor: () => PLAY_LIMIT_DEFAULT_MIN * 60 * 1000,   // 默认限额常量在 daily-budget.js; 临时调整走存储, 不写源码日期
                warnAtMs: 60*1000 },
       focus: { capMsFor: () => FOCUS_DAILY_MIN * 60 * 1000, capCount: FOCUS_DAILY_LEVELS }
     }
@@ -64,8 +74,8 @@ function updateLimitText(){
 }
 function refreshPlayCards(){
   const blocked = playBlocked();
-  ['cardArena','cardTnt','cardBuild','cardTank'].forEach(id=>{
-    const c = document.getElementById(id);
+  MODE_CARDS.filter(c => c.gated).forEach(({card})=>{
+    const c = document.getElementById(card);
     if(!c) return;
     c.classList.toggle('timedout', blocked);
     let b = c.querySelector('.timeoutBadge');
@@ -87,11 +97,10 @@ function playTimeUp(){
 
 /* ---------- 模式切换 ---------- */
 function switchMode(id){
-  if(Budgets && PLAY_LIMIT_MODES.indexOf(curModeId) >= 0) Budgets.play.flush();   // 离开计费模式先落账
+  if(Budgets && PLAY_LIMIT_MODES.indexOf(curModeId()) >= 0) Budgets.play.flush();   // 离开计费模式先落账
   if(MODES.cur && MODES.cur.cleanup) MODES.cur.cleanup();
   Fx.clear();                                // 特效清场收口在 Fx, 不再亲手 dispose 私有数组
   clearWorld();
-  curModeId = MODES[id].id || id;
   MODES.cur = MODES[id];
   MODES.cur.init();
 }
@@ -102,67 +111,25 @@ function onLockChanged(l){
   if(!l){
     if(curPage === 'win' || curPage === 'playTime') return;   // 通关/时限页由各自逻辑控制
     if(MODES.cur && MODES.cur.onMenu) MODES.cur.onMenu();     // 定义了菜单钩子的模式自行接管
-    else showPage(curModeId || 'main');
+    else showPage(curModeId() || 'main');
   }
 }
+/* 输入层路由注入(依赖倒置 seam, 见 input.js 头注释): 引擎不反向依赖应用层 */
+Input.route = MODES;
+Input.onLockChange = onLockChanged;
 
-/* ---------- 坦克模式卡入口图标 ----------
-   16×16 手绘 → 64×64 dataURL(与怪物头像 Mobs.face 同法):
-   emoji 🚙 各平台渲染不可控(有的像救护车), 换成与游戏内同配色的像素坦克 */
-function tankIcon(){
-  const c = document.createElement('canvas');
-  c.width = c.height = 16;
-  const g = c.getContext('2d');
-  const px = (x,y,w,h,col)=>{ g.fillStyle = col; g.fillRect(x,y,w,h); };
-  const GREEN='#5a6b4a', GREEN2='#6d7f58', DARK='#333a2e', TRACK='#22261e', WHEEL='#454d3e', METAL='#8a9184';
-  px(0,4,7,2,DARK);                                    // 炮管(朝左)
-  px(0,3,2,4,METAL);                                   // 炮口制退器
-  px(6,2,5,1,GREEN2);                                  // 炮塔顶
-  px(5,3,7,4,GREEN);                                   // 炮塔
-  px(3,7,12,3,GREEN);                                  // 车体
-  px(3,7,2,1,GREEN2);                                  // 斜甲高光
-  px(2,10,13,4,TRACK);                                 // 履带
-  for(const x of [3,5,7,9,11,13]) px(x,11,1,2,WHEEL);  // 负重轮
-  const big = document.createElement('canvas');
-  big.width = big.height = 64;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 64, 64);
-  return big.toDataURL();
-}
-(function(){                                           // 入口卡换标
-  const big = document.querySelector('#cardTank .big');
-  if(big) big.innerHTML = '<img alt="坦克演习场" src="' + tankIcon() + '">';
-})();
+/* ---------- 坦克模式卡入口图标: 已移居 js/icons.js(菜单像素图标工坊) ---------- */
 
-/* ---------- 主菜单与按钮 ---------- */
+/* ---------- 主菜单与按钮(模式卡 onclick 由 MODE_CARDS 表统一派生) ---------- */
 function buildMenu(){
-  document.getElementById('cardArena').onclick = ()=>{
-    if(playBlocked()){ showPlayTimeoutPage(); return; }
-    if(curModeId !== 'arena') switchMode('arena');
-    showPage('arena');
-  };
-  document.getElementById('cardTnt').onclick = ()=>{
-    if(playBlocked()){ showPlayTimeoutPage(); return; }
-    if(curModeId !== 'tnt') switchMode('tnt');
-    showPage('tnt');
-    if(MODES.cur.buildMenu) MODES.cur.buildMenu();
-  };
-  document.getElementById('cardFocus').onclick = ()=>{
-    if(curModeId !== 'focus') switchMode('focus');   // 专注训练营接管全屏 UI
-  };
-  document.getElementById('cardBuild').onclick = ()=>{
-    if(playBlocked()){ showPlayTimeoutPage(); return; }
-    if(curModeId !== 'build') switchMode('build');
-    showPage('build');
-    if(MODES.cur.buildMenu) MODES.cur.buildMenu();
-  };
-  document.getElementById('cardTank').onclick = ()=>{    // 坦克演习场: 先挑型号再进场(五款酷炫坦克)
-    if(playBlocked()){ showPlayTimeoutPage(); return; }
-    if(curModeId !== 'tank') switchMode('tank');
-    showPage('tank');
-    if(MODES.cur.buildMenu) MODES.cur.buildMenu();
-  };
+  for(const mc of MODE_CARDS){
+    document.getElementById(mc.card).onclick = ()=>{
+      if(mc.gated && playBlocked()){ showPlayTimeoutPage(); return; }
+      if(curModeId() !== mc.id) switchMode(mc.id);
+      if(mc.page) showPage(mc.page);
+      if(mc.menu && MODES.cur.buildMenu) MODES.cur.buildMenu();
+    };
+  }
   document.getElementById('arenaBackBtn').onclick = ()=> showPage('main');
   document.getElementById('tntBackBtn').onclick   = ()=> showPage('main');
   document.getElementById('buildBackBtn').onclick = ()=> showPage('main');
@@ -181,7 +148,7 @@ const FRAME_MIN = 16.4;
    瞬时爆炸掉帧不会误触发 */
 let dprCap = 0, lowFpsStreak = 0;
 function adaptDpr(){
-  if(!_coarse) return;
+  if(!IS_TOUCH) return;
   if(!dprCap) dprCap = renderer.getPixelRatio();
   if(dprCap <= 1.01) return;
   if(fps > 0 && fps < 45){
@@ -209,7 +176,7 @@ function loop(now){
     if(MODES.cur && MODES.cur.update) MODES.cur.update(dt);
     Fx.update(dt);
     /* 儿童时限: 游玩模式实际游玩时累计入每日预算 */
-    if(Budgets && PLAY_LIMIT_MODES.indexOf(curModeId) >= 0){
+    if(Budgets && PLAY_LIMIT_MODES.indexOf(curModeId()) >= 0){
       Budgets.play.accrue(dt*1000);
       if(now - playSaveT > 5000){ playSaveT = now; Budgets.play.flush(); }
     }
@@ -220,8 +187,8 @@ function loop(now){
   Avatar.update(dt, camDist);                    // 玩家形象同步+动画(近距自动隐藏)
   Fx.wobble(dt, camera);   // 震屏消费(衰减+抖动)收在 Fx, 须在相机位姿设定之后
 
-  const aim = CameraRig.aim();                   // 瞄准射线统一从眼睛出发(不因第三人称瞄到身后)
-  const hit = raycastVoxel(aim.origin, aim.dir, 6);
+  const aim = CameraRig.aim(camera);                 // 瞄准射线统一从眼睛出发(不因第三人称瞄到身后)
+  const hit = raycastVoxel(aim.origin, aim.dir, PLAYER.reach);
   let hlShow = !!hit;
   if(hit && MODES.cur && MODES.cur.onHighlight){
     if(MODES.cur.onHighlight(hit) === false) hlShow = false;

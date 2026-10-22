@@ -18,7 +18,19 @@ const BUDGET_BACKUP_KEY = 'daily_budget_migrate_backup';
 const LEGACY_PLAY_KEY   = 'play_time_save';     /* 旧机制A: {date, ms} */
 const LEGACY_FOCUS_KEY  = 'focus_camp_save';    /* 旧机制B: daily 字段 {date, played, ms} */
 
-/* 日期串: 年-月-日 无前导零 — 与历史存档及 config.js TEMP_PLAY_LIMIT_MIN 的键格式一致 */
+/* ---------- 政策限额常量(应用层; 曾住 config.js, 按分层口径移此) ----------
+   儿童游玩时限(竞技场/TNT/建造/坦克演习场共享) 与 专注训练营每日限额。
+   历史上的"按日期临时调整表"(TEMP_PLAY_LIMIT_MIN)已随过期退役:
+   临时调整请走存储(家长面板写 sync/localStorage), 不把日期写进源码
+   — 会静默过期成无人删除的死数据。 */
+const PLAY_LIMIT_DEFAULT_MIN = 10;
+const FOCUS_DAILY_LEVELS = 6;
+const FOCUS_DAILY_MIN = 20;
+
+/* 本模块的存档键在加载期注册(sync.js 的回填依赖; Node 单测直载时 sync 未加载, 静默跳过) */
+if(typeof registerSyncKeys === 'function') registerSyncKeys(BUDGET_SAVE_KEY);
+
+/* 日期串: 年-月-日 无前导零 — 与历史存档的键格式一致 */
 function budgetDateStr(t){
   const d = new Date(t);
   return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();

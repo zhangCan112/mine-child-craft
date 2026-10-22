@@ -32,7 +32,9 @@ const TankCore = (()=>{
   }
 
   /* 型号差异解析: 载具可带 spec(TANK_MODELS 的 perf), 逐键回落 TANK 基线 —
-     部分覆盖也稳健(没写的键用基线值) */
+     部分覆盖也稳健(没写的键用基线值)。
+     这是性能回落规则的唯一权威(0 值被尊重, 区别于 || 短路):
+     引擎层/模式层一律经 specV 取值, 不得手抄 || 回落 */
   function specV(spec, key){
     return (spec && spec[key] !== undefined) ? spec[key] : TANK[key];
   }
@@ -66,7 +68,7 @@ const TankCore = (()=>{
 
     /* --- 垂直: 重力 + 落地(贴齐方块顶面, 同 physics 惯例) --- */
     T.vy -= PLAYER.gravity*dt;
-    if(T.vy < -30) T.vy = -30;
+    if(T.vy < PLAYER.fallCap) T.vy = PLAYER.fallCap;
     T.onGround = false;
     const ny = T.y + T.vy*dt;
     if(boxCollides(T.x, ny, T.z)){
@@ -75,10 +77,10 @@ const TankCore = (()=>{
       T.vy = 0;
     } else T.y = ny;
 
-    /* --- 水平: 轴向子步进(每步≤0.25格, 同 physics 惯例)+ 履带爬台阶 --- */
+    /* --- 水平: 轴向子步进(每步≤PLAYER.substep 格, 同 physics 惯例)+ 履带爬台阶 --- */
     const tryAxis = (axis, d)=>{
       if(d === 0) return;
-      const n = Math.max(1, Math.ceil(Math.abs(d)/0.25));
+      const n = Math.max(1, Math.ceil(Math.abs(d)/PLAYER.substep));
       const s = d/n;
       for(let i=0; i<n; i++){
         const nx = axis===0 ? T.x+s : T.x;
@@ -138,7 +140,7 @@ const TankCore = (()=>{
   function mkShell(x, y, z, vx, vy, vz, spec){
     return { x, y, z, vx, vy, vz, life: specV(spec, 'shellLife'), dead: false, hit: null, spec: spec || null };
   }
-  const _sd = { x:0, y:0, z:0 };
+  const _sd = { x:0, y:0, z:0 };    /* 复用草稿(高频零分配); shellStep 因此不可重入 — 单线程顺序调用下安全 */
   function shellStep(S, dt, extraSolid){
     S.life -= dt;
     S.vy -= specV(S.spec, 'shellG')*dt;
@@ -195,7 +197,9 @@ const TankCore = (()=>{
      "什么不可炸"是模式政策(如演习场草海永固), 判定归调用方。
      返回 counts 按被毁方块 id 分桶 — "什么算靶"同理, 判定归模式层。 */
   function explode(x, y, z, edit, keep, spec){
-    const set = edit || setBlockRaw;
+    if(typeof edit !== 'function')
+      throw new Error('TankCore.explode 需显式注入写入口 edit(纯核心不碰全局世界)');
+    const set = edit;
     const r = specV(spec, 'shellR');
     let removed = 0;
     const counts = {};
@@ -219,6 +223,6 @@ const TankCore = (()=>{
     return { removed, counts };
   }
 
-  return { mkT, step, boxCollides, wrapAngle, nearest, mkShell, shellStep, homeShell, explode };
+  return { mkT, step, boxCollides, wrapAngle, nearest, mkShell, shellStep, homeShell, explode, specV };
 })();
 if(typeof module !== 'undefined' && module.exports) module.exports = TankCore;

@@ -13,10 +13,10 @@
               exitAll / clear / fire / onExplode / targeter / icon。
    爆炸破坏在 TankCore(纯核心), 提示文案与话术在模式层 — 本文件零玩法知识。
    依赖(均经全局名, 调用期解析): tank-core.js 的 TankCore,
-   world.js 的 scene/editBlockDirty/flushDirty, effects.js 的 sfx/Fx,
-   camera-rig.js 的 CameraRig, voxel.js 的 pos/vel/yaw/collides,
+   world.js 的 scene/editBlockDirty/flushDirty, effects.js 的 sfx/Fx/engineHum,
+   camera-rig.js 的 CameraRig, voxel.js 的 pos/vel/yaw/collides/onGround/WORLD_W/WORLD_D,
    config.js 的 TANK/CAM_TANK,
-   input.js 的 keys/touchMove/isTouch(仅 update 读取)。
+   input.js 的 keys/touchMove(仅 update 读取), config.js 的 IS_TOUCH。
    模型面朝 -Z(与 Avatar/玩家视线一致), root.rotation.y = yaw。
    ============================================================ */
 const Tank = (()=>{
@@ -61,6 +61,16 @@ const Tank = (()=>{
     const f = box(s, s, s*1.27, color, { emissive: glow, transparent: true, opacity: 0.95 });
     f.visible = false;
     return f;
+  }
+
+  /* 天线: 杆 + 顶端发光件(五款共用件, 各款只给参数)
+     o: {rodW, rodD(缺省=rodW), rodH, rodY, tipW, tipH, tipY, rodCol, tipCol, glow} */
+  function mkAntenna(x, y, z, o){
+    const a = new THREE.Group(); a.position.set(x, y, z);
+    const rod = box(o.rodW, o.rodH, o.rodD || o.rodW, o.rodCol); rod.position.y = o.rodY;
+    const tip = box(o.tipW, o.tipH, o.tipW, o.tipCol, { emissive: o.glow }); tip.position.y = o.tipY;
+    a.add(rod, tip);
+    return a;
   }
 
   const disposeModel = (root)=> ()=> root.traverse(o=>{
@@ -112,11 +122,8 @@ const Tank = (()=>{
     const barrel = box(0.15, 0.15, 1.7, COL.barrel);    barrel.position.set(0, 0.22, -1.1);
     barrel.userData.baseZ = -1.1;
     const brake  = box(0.24, 0.24, 0.3, COL.brake);     brake.position.set(0, 0.22, -1.98);
-    const antenna = new THREE.Group();  antenna.position.set(0.42, 0.5, 0.44);
-    const antRod = box(0.045, 0.95, 0.045, COL.brake);  antRod.position.y = 0.48;
-    const antTip = box(0.06, 0.12, 0.06, COL.antTip, { emissive: 0x881111 });
-    antTip.position.y = 1.0;
-    antenna.add(antRod, antTip);
+    const antenna = mkAntenna(0.42, 0.5, 0.44, { rodW:0.045, rodH:0.95, rodY:0.48,
+      tipW:0.06, tipH:0.12, tipY:1.0, rodCol:COL.brake, tipCol:COL.antTip, glow:0x881111 });
     const flash = mkFlash(0xffa030, 0xcc6600);
     flash.position.set(0, 0.22, -2.3);
     turret.add(dome1, dome2, hatch, mantlet, barrel, brake, antenna, flash);
@@ -156,10 +163,8 @@ const Tank = (()=>{
     const barrel = box(0.12, 0.12, 2.1, C.barrel);  barrel.position.set(0, 0.18, -1.55);
     barrel.userData.baseZ = -1.55;
     const brake = box(0.2, 0.2, 0.26, C.brake);     brake.position.set(0, 0.18, -2.62);
-    const antenna = new THREE.Group();  antenna.position.set(-0.34, 0.42, 0.4);
-    const antRod = box(0.04, 0.8, 0.04, C.brake);   antRod.position.y = 0.4;
-    const antTip = box(0.055, 0.1, 0.055, C.antTip, { emissive: 0x8a6a20 }); antTip.position.y = 0.85;
-    antenna.add(antRod, antTip);
+    const antenna = mkAntenna(-0.34, 0.42, 0.4, { rodW:0.04, rodH:0.8, rodY:0.4,
+      tipW:0.055, tipH:0.1, tipY:0.85, rodCol:C.brake, tipCol:C.antTip, glow:0x8a6a20 });
     const flash = mkFlash(0xffd070, 0xcc8a20);
     flash.position.set(0, 0.18, -2.85);
     turret.add(dome, top, stripe, mantlet, barrel, brake, antenna, flash);
@@ -240,10 +245,8 @@ const Tank = (()=>{
     const barrel = box(0.18, 0.18, 1.6, C.barrel);   barrel.position.set(0, 0.22, -1.05);
     barrel.userData.baseZ = -1.05;
     const brake = box(0.3, 0.3, 0.34, C.brake);      brake.position.set(0, 0.22, -1.92);
-    const antenna = new THREE.Group();  antenna.position.set(0.42, 0.5, 0.44);
-    const antRod = box(0.045, 0.95, 0.045, C.brake); antRod.position.y = 0.48;
-    const antTip = box(0.06, 0.12, 0.06, C.lava, { emissive: 0x993300 }); antTip.position.y = 1.0;
-    antenna.add(antRod, antTip);
+    const antenna = mkAntenna(0.42, 0.5, 0.44, { rodW:0.045, rodH:0.95, rodY:0.48,
+      tipW:0.06, tipH:0.12, tipY:1.0, rodCol:C.brake, tipCol:C.lava, glow:0x993300 });
     const flash = mkFlash(0xffa040, 0xcc5500, 0.7);
     flash.position.set(0, 0.22, -2.2);
     turret.add(dome, mid, core, mantlet, barrel, brake, antenna, flash);
@@ -287,10 +290,8 @@ const Tank = (()=>{
     const antFront = new THREE.Group(); antFront.position.set(-0.36, 0.42, -0.3);
     const frontRod = box(0.035, 0.7, 0.035, C.brake); frontRod.position.y = 0.35;
     antFront.rotation.x = 0.45; antFront.add(frontRod);
-    const antenna = new THREE.Group();  antenna.position.set(0.4, 0.44, 0.42);
-    const antRod = box(0.04, 0.85, 0.04, C.brake);   antRod.position.y = 0.42;
-    const antTip = box(0.055, 0.11, 0.055, C.neon, { emissive: 0x0e7f96 }); antTip.position.y = 0.9;
-    antenna.add(antRod, antTip);
+    const antenna = mkAntenna(0.4, 0.44, 0.42, { rodW:0.04, rodH:0.85, rodY:0.42,
+      tipW:0.055, tipH:0.11, tipY:0.9, rodCol:C.brake, tipCol:C.neon, glow:0x0e7f96 });
     const flash = mkFlash(0x8ff4ff, 0x1a9ab8, 0.6);
     flash.position.set(0, 0.2, -2.42);
     turret.add(dome, top, sensor, mantlet, barrel, ...rings, antFront, antenna, flash);
@@ -361,10 +362,8 @@ const Tank = (()=>{
     creep.add(cBody, cHead, eyeL, eyeR, cMouth);
 
     /* 引信天线: 白杆 + 顶端橙色火光(TNT 点着了!) */
-    const antenna = new THREE.Group();  antenna.position.set(-0.35, 0.42, 0.42);
-    const antRod = box(0.045, 0.85, 0.05, C.band);    antRod.position.y = 0.42;
-    const antTip = box(0.07, 0.14, 0.07, C.fuse, { emissive: 0xcc7710 }); antTip.position.y = 0.88;
-    antenna.add(antRod, antTip);
+    const antenna = mkAntenna(-0.35, 0.42, 0.42, { rodW:0.045, rodD:0.05, rodH:0.85, rodY:0.42,
+      tipW:0.07, tipH:0.14, tipY:0.88, rodCol:C.band, tipCol:C.fuse, glow:0xcc7710 });
 
     const flash = mkFlash(0xffd070, 0xcc7710, 0.7);   /* 四管齐射一大团 */
     flash.position.set(0, 0.26, -1.42);
@@ -490,7 +489,7 @@ const Tank = (()=>{
       shells.splice(i, 1);
       const res = TankCore.explode(sh.S.x, sh.S.y, sh.S.z, editBlockDirty, protectFn, sh.S.spec);
       flushDirty();                                     // 批量破坏 → 一次重建受影响区块
-      const sr = ((sh.S.spec && sh.S.spec.shellR) || TANK.shellR);
+      const sr = TankCore.specV(sh.S.spec, 'shellR');   // 爆炸半径的同一回落规则(勿手抄 ||)
       if(sh.lightning){                                 /* 命中: 天降落雷(含 zap) + 雷鸣爆风 */
         Fx.bolt(sh.S.x, sh.S.y, sh.S.z, { color: sh.shell && sh.shell.boom, r1: sr + 1.0 });
         Fx.boom(sh.S.x, sh.S.y, sh.S.z, { r1: sr + 1.2, n: 8, color: sh.shell && sh.shell.boom, kick: 0.5 });
@@ -521,7 +520,7 @@ const Tank = (()=>{
     if(drivingIdx >= 0){
       const tk = tanks[drivingIdx];
       const input = readInput();
-      if(!isTouch && yaw !== lastYaw) input.lookYaw = yaw;   // 鼠标动过 → 新车头目标
+      if(!IS_TOUCH && yaw !== lastYaw) input.lookYaw = yaw;   // 鼠标动过 → 新车头目标(触屏口径 config.IS_TOUCH)
       TankCore.step(tk.T, input, dt);
       lastYaw = yaw = tk.T.aimYaw;          // 视角跟随车头目标; 鼠标增量在下帧成为新目标
       pos.set(tk.T.x, tk.T.y + 0.5, tk.T.z); vel.set(0, 0, 0);   // 玩家锁进舱内(物理已挂起)
@@ -557,14 +556,14 @@ const Tank = (()=>{
     const tk = tanks[drivingIdx];
     const def = tk.T.model || TANK_MODELS.classic;
     if(tk.T.cool > 0) return 'cooldown';
-    tk.T.cool = (def.perf && def.perf.reload) || TANK.reload;
+    tk.T.cool = TankCore.specV(def.perf, 'reload');
     tk.recoil = 0.32;
     tk.flashT = 0.12; tk.flash.visible = true; tk.flash.scale.set(1.2, 1.2, 1.3);
     sfx('shoot');
-    const aim = CameraRig.aim();
+    const aim = CameraRig.aim(camera);
     const T = tk.T;
-    const mz = def.muzzle || { f: 1.9, y: 1.32 };
-    const sp = (def.perf && def.perf.shellSpeed) || TANK.shellSpeed;
+    const mz = def.muzzle || (console.warn('TANK_MODELS[' + def.key + '] 缺 muzzle, 回落 classic 出膛点'), TANK_MODELS.classic.muzzle);
+    const sp = TankCore.specV(def.perf, 'shellSpeed');
     const n = def.salvo || 1;
     const rvx = Math.cos(T.yaw), rvz = -Math.sin(T.yaw);   // 车体右向(横向错位用)
     for(let i=0; i<n; i++){
@@ -632,12 +631,13 @@ const Tank = (()=>{
   /* ---------- 型号像素图标 (16×16 手绘 → 64×64 dataURL, 选坦克菜单卡用;
      与怪物头像 Mobs.face 同法)。各型号同构不同色 + 一个签名细节 ---------- */
   const ICON_PAL = {                       // 侧视配色(炮口朝左): hull 车体 turret 炮塔 metal 炮管
+    /* gun: 炮管 [x,y,w,h](长度随型号); brake:false 不画炮口制退器(发射巢) — 纯数据, icon() 只画 */
     classic: { hull:'#5a6b4a', hull2:'#6d7f58', turret:'#55703c', track:'#22261e', wheel:'#454d3e', metal:'#8a9184', detail:null },
-    desert:  { hull:'#c9a44e', hull2:'#d6b56a', turret:'#bfa156', track:'#2c261d', wheel:'#5d5238', metal:'#8f7c4e', detail:'drums' },
-    frost:   { hull:'#dce8f2', hull2:'#eef5fa', turret:'#c3d6e4', track:'#3a4652', wheel:'#6d7d8d', metal:'#9fb8c8', detail:'plow', glow:'#9fe8ff' },
+    desert:  { hull:'#c9a44e', hull2:'#d6b56a', turret:'#bfa156', track:'#2c261d', wheel:'#5d5238', metal:'#8f7c4e', detail:'drums', gun:[0,4,7,1] },
+    frost:   { hull:'#dce8f2', hull2:'#eef5fa', turret:'#c3d6e4', track:'#3a4652', wheel:'#6d7d8d', metal:'#9fb8c8', detail:'plow', glow:'#9fe8ff', gun:[1,5,5,2] },
     magma:   { hull:'#392e28', hull2:'#4a3a30', turret:'#453530', track:'#1d1a18', wheel:'#4a4038', metal:'#57423a', detail:'lava', glow:'#ff6a1f' },
-    thunder: { hull:'#232f4e', hull2:'#31415f', turret:'#374a75', track:'#14182a', wheel:'#32405f', metal:'#3f5a8a', detail:'neon', glow:'#39e6ff' },
-    tingyu:  { hull:'#d14738', hull2:'#e25a4a', turret:'#c43e30', track:'#26262a', wheel:'#5d3a33', metal:'#f2efe8', detail:'tnt', glow:'#ffb040', creep:'#4fae4f' },
+    thunder: { hull:'#232f4e', hull2:'#31415f', turret:'#374a75', track:'#14182a', wheel:'#32405f', metal:'#3f5a8a', detail:'neon', glow:'#39e6ff', gun:[0,4,7,1] },
+    tingyu:  { hull:'#d14738', hull2:'#e25a4a', turret:'#c43e30', track:'#26262a', wheel:'#5d3a33', metal:'#f2efe8', detail:'tnt', glow:'#ffb040', creep:'#4fae4f', gun:[1,4,4,3], brake:false },
   };
   const iconCache = {};
   function icon(key){
@@ -648,9 +648,9 @@ const Tank = (()=>{
     const g = c.getContext('2d');
     const px = (x,y,w,h,col)=>{ g.fillStyle = col; g.fillRect(x,y,w,h); };
     /* 炮管(朝左, 长度随型号: 沙鹰最长/冰狼最短粗/廷彧号是宽发射巢) + 炮口制退器 */
-    const gun = { desert: [0,4,7,1], frost: [1,5,5,2], thunder: [0,4,7,1], tingyu: [1,4,4,3] }[key] || [0,4,6,2];
+    const gun = p.gun || [0,4,6,2];                   // 注册表数据驱动, 缺省与 classic 一致
     px(gun[0], gun[1], gun[2], gun[3], p.metal);
-    if(key !== 'tingyu') px(0,3,2,4,p.metal);          // 发射巢不画制退器
+    if(p.brake !== false) px(0,3,2,4,p.metal);        // 发射巢(brake:false)不画制退器
     /* 炮塔 + 车体 + 斜甲高光 */
     px(6,2,5,1,p.hull2);
     px(5,3,7,4,p.turret);
@@ -686,6 +686,7 @@ const Tank = (()=>{
     for(const sh of shells) disposeShell(sh);
     shells.length = 0;
     protectFn = null; obstacleFn = null; targetFn = null;  // 模式钩子随清场解除(模式重进会重注册)
+    boomCb = null;                                          // onExplode 回调同属模式钩子, 一并解除
   }
 
   return { place, update, toggle, driving, at, nearby, exitAll, clear, fire,

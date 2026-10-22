@@ -2,19 +2,24 @@
 /* ============================================================
    输入:指针锁(桌面) / 触屏(平板) 双路径 + 模式路由
    触屏: 左摇杆移动 · 画布拖动视角 · 右下动作按钮 · 右上暂停
+   模式路由经 Input seam 注入(依赖倒置): 本文件属引擎层, 不反向
+   依赖应用层的 MODES/onLockChanged — main.js 加载时注入
+   Input.route / Input.onLockChange, 未注入时静默(可独立加载)。
 ============================================================ */
 const keys = {};
 let locked = false;
 
-/* 触屏状态 */
-const isTouch = (()=>{ try{ return ('ontouchstart' in window) || (navigator.maxTouchPoints>0); }catch(e){ return false; } })();
+/* 触屏状态(检测口径统一在 config.js 的 IS_TOUCH) */
 let touchPlaying = false;                       // 触屏下的"进行中"等价于 locked
 const touchMove = {x:0, y:0};                   // 摇杆向量 (-1..1)
 let touchSprint = false;
 let lastTouchT = 0;                             // 抑制触屏合成的鼠标事件
 
+/* 模式路由 seam: route = MODES(有 .cur 与各 on* 钩子), onLockChange = 指针锁回调 */
+const Input = { route: null, onLockChange: null };
+
 function requestLock(){
-  if(isTouch){
+  if(IS_TOUCH){
     touchPlaying = true;
     document.getElementById('overlay').style.display = 'none';
     return;
@@ -26,13 +31,13 @@ function uiPause(){
   if(document.pointerLockElement){ document.exitPointerLock(); }
   else {
     touchPlaying = false;
-    if(typeof onLockChanged === 'function') onLockChanged(false);
+    if(Input.onLockChange) Input.onLockChange(false);
   }
 }
 
 document.addEventListener('pointerlockchange', ()=>{
   locked = (document.pointerLockElement === renderer.domElement);
-  if(typeof onLockChanged === 'function') onLockChanged(locked);
+  if(Input.onLockChange) Input.onLockChange(locked);
 });
 
 document.addEventListener('mousemove', (e)=>{
@@ -71,31 +76,34 @@ document.addEventListener('keydown', (e)=>{
   }
   if(e.code.startsWith('Digit')){
     const n = parseInt(e.code.slice(5),10);
-    if(MODES.cur && MODES.cur.onDigit) MODES.cur.onDigit(n);
+    const M = Input.route;
+    if(M && M.cur && M.cur.onDigit) M.cur.onDigit(n);
   }
-  if(MODES.cur && MODES.cur.onKey) MODES.cur.onKey(e.code);
+  { const M = Input.route; if(M && M.cur && M.cur.onKey) M.cur.onKey(e.code); }
 });
 document.addEventListener('keyup', (e)=>{ keys[e.code] = false; });
 
 document.addEventListener('wheel', (e)=>{
   if(!locked && !touchPlaying) return;
-  if(MODES.cur && MODES.cur.onWheel) MODES.cur.onWheel(e.deltaY>0 ? 1 : -1);
+  const M = Input.route;
+  if(M && M.cur && M.cur.onWheel) M.cur.onWheel(e.deltaY>0 ? 1 : -1);
 });
 
 /* ---------- 鼠标 (触屏合成事件会被抑制) ---------- */
 document.addEventListener('contextmenu', (e)=> e.preventDefault());
 renderer.domElement.addEventListener('click', ()=>{
-  if(isTouch || locked) return;
+  if(IS_TOUCH || locked) return;
   requestLock();
 });
 /* 准星点击统一入口(桌面 mousedown 与触屏动作按钮共用):
    aim → raycast → 手持物挥击 → 分发模式。挥臂是纯手部反馈,
    不含命中判定(挖/放/对空一致 — 按共识收在输入层一处, 全模式统一)。 */
 function aimClick(button){
-  const aim = CameraRig.aim();
-  const hit = raycastVoxel(aim.origin, aim.dir, 6);
+  const aim = CameraRig.aim(camera);
+  const hit = raycastVoxel(aim.origin, aim.dir, PLAYER.reach);
   if(button === 0 || button === 2) Avatar.swing();
-  if(MODES.cur && MODES.cur.onMouse) MODES.cur.onMouse(button, hit);
+  const M = Input.route;
+  if(M && M.cur && M.cur.onMouse) M.cur.onMouse(button, hit);
 }
 
 renderer.domElement.addEventListener('mousedown', (e)=>{
@@ -149,7 +157,7 @@ function buildTouchUI(){
 function setTouchActions(list){
   buildTouchUI();
   const root = document.getElementById('touchUI');
-  if(!list || !isTouch){ root.style.display = 'none'; return; }
+  if(!list || !IS_TOUCH){ root.style.display = 'none'; return; }
   root.style.display = 'block';
   const box = document.getElementById('touchBtns');
   box.innerHTML = '';

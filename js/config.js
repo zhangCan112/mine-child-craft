@@ -8,9 +8,18 @@ const WORLD_W = NCX * CHUNK;
 const WORLD_D = NCZ * CHUNK;
 const WORLD_H = 48;
 
+/* 触屏环境检测(全游戏唯一口径): 输入路由 / 音效配平 / 渲染降载共用
+   — 以前 isTouch/sfxTouch/_coarse 三处各测一次且口径不一, 统一于此 */
+const IS_TOUCH = (()=>{ try{ return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0); }catch(e){ return false; } })();
+
 const PLAYER = {
   hx: 0.3, hz: 0.3, height: 1.8, eye: 1.62,
   speed: 5.0, sprint: 8.5, jump: 8.6, gravity: 26.0,
+  flyVert: 7.0,     // 飞行模式垂直速度(格/秒)
+  fallCap: -30,     // 坠落限速(格/秒, 防高坠穿薄板)
+  substep: 0.25,    // 移动/驾驶的轴向子步长(格, 防高速跨过碰撞判定)
+  voidY: -12,       // 坠出世界判定线(引擎只报事件, 处理归应用层)
+  reach: 6,         // 玩家触达/瞄准距离(格)
   heldItem: 'hoe'   // 默认手持物(HeldItems.defs 的键; main.js 组合根装配)
 };
 
@@ -45,19 +54,7 @@ const TNT_CFG = {
   chainDelay: 0.3   // 链式引爆延迟(秒)
 };
 
-/* 儿童游玩时限(竞技场+TNT+建造共享): PLAY_LIMIT_DEFAULT_MIN 为每日默认分钟数;
-   TEMP_PLAY_LIMIT_MIN 按日期临时调整, 键=日期(年-月-日, 无前导零, 如 2026-10-12), 值=当天分钟数,
-   只对列出的日期生效, 次日自动恢复默认 */
-const PLAY_LIMIT_DEFAULT_MIN = 10;
-const TEMP_PLAY_LIMIT_MIN = {
-  '2026-10-17': 20,
-  '2026-10-18': 35,
-  '2026-10-21': 20
-};
-
-/* 专注训练营每日预算(独立于儿童时限): 每日关卡数与训练时长上限 */
-const FOCUS_DAILY_LEVELS = 6;
-const FOCUS_DAILY_MIN = 20;
+/* 儿童时限与专注每日限额等政策常量属应用层, 已移居 js/daily-budget.js */
 
 /* 坦克载具参数 (tank-core/tank.js 用, 见 js/tank-core.js) */
 const TANK = {
