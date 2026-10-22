@@ -180,15 +180,15 @@ function netherAI(dt){
     const tg = m.target;
     const dx = tg.pos.x - gp.x, dz = tg.pos.z - gp.z;
     const dist = Math.hypot(dx, dz);
-    m.yaw = Math.atan2(dx, dz);
+    Mobs.steer(m, Math.atan2(dx, dz));
     const speed = m.cfg.speed || 2;
 
     if(m.cfg.fly){
       if(m.cfg.ranged){
         const want = (m.type === 'blaze') ? 7 : 10;          // 炮台巡航距离(烈焰人绕近, 恶魂拉开)
         const sp = Math.min(speed, 3);
-        if(dist > want){ MobCore.stepMove(m, dx/dist*sp*dt, 0, groundTop); MobCore.stepMove(m, 0, dz/dist*sp*dt, groundTop); }
-        else if(dist < want - 1.5){ MobCore.stepMove(m, -dx/dist*sp*dt, 0, groundTop); MobCore.stepMove(m, 0, -dz/dist*sp*dt, groundTop); }
+        if(dist > want){ Mobs.move(m, dx/dist*sp*dt, dz/dist*sp*dt); }
+        else if(dist < want - 1.5){ Mobs.move(m, -dx/dist*sp*dt, -dz/dist*sp*dt); }
         if(Math.abs(tg.pos.y - gp.y) < 3 && dist <= want && m.attackCd <= 0){
           m.attackCd = m.cfg.cd; m.attackT = 0.5;
           netherShoot(m, tg);
@@ -196,8 +196,7 @@ function netherAI(dt){
       }
     } else {
       if(dist > m.cfg.range){                                   // 逼近
-        MobCore.stepMove(m, dx/dist*speed*dt, 0, groundTop);
-        MobCore.stepMove(m, 0, dz/dist*speed*dt, groundTop);
+        Mobs.move(m, dx/dist*speed*dt, dz/dist*speed*dt);
       } else if(Math.abs(tg.pos.y - gp.y) < 2.5 && m.attackCd <= 0){   // 近战攻击玩家
         m.attackCd = m.cfg.cd; m.attackT = 0.45;
         const r = Mobs.hit(p, Math.round(m.cfg.dmg*(m.dmgMult||1)), p.pos.x - gp.x, p.pos.z - gp.z, 0.4);

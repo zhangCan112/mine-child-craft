@@ -76,6 +76,10 @@ globalThis.Mobs = {
   list(){ return listResult; },
   face(){ return 'data:'; },
   hasSlot(){ return true; },
+  /* 意图 API 桩: 行为与真库一致(位移/面向), 断言不依赖 */
+  move(m, dx, dz){ m.pos.x += dx; m.pos.z += dz; },
+  shift(m, dx, dz){ m.pos.x += dx; m.pos.z += dz; },
+  steer(m, yaw){ m.yaw = yaw; },
   debrisColor(){ return 0x8a8f98; },
 };
 globalThis.pos = { x: 62.5, y: 25, z: 85.5, set(){} };

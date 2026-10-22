@@ -92,6 +92,10 @@ globalThis.Mobs = {
   face(){ return 'data:'; },
   hasSlot(){ return true; },
   spawnable(){ return Object.keys(this.types).filter(k => k !== 'mix'); },
+  /* 意图 API 桩: 行为与真库一致(位移/面向), 断言不依赖 */
+  move(m, dx, dz){ m.pos.x += dx; m.pos.z += dz; },
+  shift(m, dx, dz){ m.pos.x += dx; m.pos.z += dz; },
+  steer(m, yaw){ m.yaw = yaw; },
   debrisColor(){ return 0x8a8f98; },     /* 击杀碎块配色(真实表在怪物库) */
 };
 globalThis.Fx = { debrisBurst(){ calls.push(['debris']); } };

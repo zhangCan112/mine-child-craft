@@ -178,7 +178,7 @@ function clampToArena(m, margin){
   const cdx = m.pos.x-ARENA.cx, cdz = m.pos.z-ARENA.cz;
   const cd = Math.hypot(cdx,cdz);
   const rMax = ARENA.rIn - margin;
-  if(cd > rMax){ const k=rMax/cd; m.pos.x=ARENA.cx+cdx*k; m.pos.z=ARENA.cz+cdz*k; }
+  if(cd > rMax){ const k=rMax/cd; Mobs.setPos(m, ARENA.cx+cdx*k, ARENA.cz+cdz*k); }
 }
 function arenaFlyClamp(m){ clampToArena(m, FLY_KNOCK_R); }
 
@@ -363,8 +363,8 @@ function addKillCredit(m, credit){
 function levelUp(m){
   m.level++;
   const tm = TIER_MULT[m.level];
-  m.maxHp = Math.round(m.baseMaxHp*tm.hp);
-  m.hp = Math.min(m.maxHp, m.hp + Math.round(m.maxHp*0.2));   // 升级回复20%最大生命
+  Mobs.setMaxHp(m, Math.round(m.baseMaxHp*tm.hp));           // 晋升改上限(意图 API, 怪物库截断现血)
+  Mobs.heal(m, Math.round(m.maxHp*0.2));                     // 升级回复20%最大生命
   m.dmgMult = tm.dmg;
   m.invulnT = 0.5;                                    // 金身免死(名牌随 hp 变化由怪物库节流重绘)
   applyTierVisual(m);
@@ -605,8 +605,7 @@ function moveFly(m, dt, gp, tg, dist){
   if(tg.cfg.fly){
     const d3 = Math.hypot(dx, dz, tg.pos.y-gp.y);
     const spd = mobSpeed(m);
-    gp.x += Math.sin(m.yaw)*spd*dt;
-    gp.z += Math.cos(m.yaw)*spd*dt;
+    Mobs.shift(m, Math.sin(m.yaw)*spd*dt, Math.cos(m.yaw)*spd*dt);
     gp.y += Math.max(-6, Math.min(6, tg.pos.y-gp.y))*dt*1.2;
     if(d3 < 4.5 && m.attackCd <= 0){
       m.attackCd = 1.6; m.attackT = 0.5;
@@ -621,11 +620,10 @@ function moveFly(m, dt, gp, tg, dist){
     const py = ARENA.floorY + (m.cfg.ranged ? ARENA.flyAlt : 2.2);   // 掠食者低飞掠袭
     const mx = px-gp.x, mz = pz-gp.z;
     const ml = Math.hypot(mx,mz);
-    m.yaw = angleLerp(m.yaw, Math.atan2(mx,mz), dt*2.5);
+    Mobs.steer(m, angleLerp(m.yaw, Math.atan2(mx,mz), dt*2.5));
     if(ml > 0.05){
       const spd = mobSpeed(m);
-      gp.x += mx/ml*spd*dt;
-      gp.z += mz/ml*spd*dt;
+      Mobs.shift(m, mx/ml*spd*dt, mz/ml*spd*dt);
     }
     gp.y += (py-gp.y)*Math.min(1, dt*1.5);
     if(m.attackCd <= 0 && dist < m.cfg.range){
@@ -745,7 +743,7 @@ function updateFuse(m, dt, gp){
   const v = Math.sin(m.fuse*25) > 0 ? 1.9 : 1;
   Mobs.pulseTint(m, v, v, v);                 // 引信白闪(instanceColor 增亮)
   if(m.fuse >= ft){
-    m.gone = true;
+    Mobs.remove(m);                            // 自爆残躯立即移除(走引擎回收管线)
     explode(gp.x, gp.y+0.8, gp.z, m.team, m);
     if(m.level>=3)                            // 王者·连环爆破(0.5秒后二段)
       pendingBooms.push({t:0.5, x:gp.x, y:gp.y+0.8, z:gp.z, team:m.team, owner:m});
@@ -765,10 +763,9 @@ function wanderTick(m, dt, gp){
     const px = ARENA.cx + Math.sin(m.orbitA)*14;
     const pz = ARENA.cz + Math.cos(m.orbitA)*14;
     const mx = px-gp.x, mz = pz-gp.z, ml = Math.hypot(mx,mz);
-    m.yaw = angleLerp(m.yaw, Math.atan2(mx,mz), dt*2);
+    Mobs.steer(m, angleLerp(m.yaw, Math.atan2(mx,mz), dt*2));
     if(ml > 0.05){
-      gp.x += mx/ml*m.cfg.speed*0.7*dt;
-      gp.z += mz/ml*m.cfg.speed*0.7*dt;
+      Mobs.shift(m, mx/ml*m.cfg.speed*0.7*dt, mz/ml*m.cfg.speed*0.7*dt);
     }
     gp.y += (ARENA.floorY+ARENA.flyAlt-gp.y)*Math.min(1, dt);
     return 0;
@@ -843,7 +840,7 @@ function updateMobs(dt){
     } else if(m.staggerT <= 0 && tg){
       const dx = tg.pos.x-gp.x, dz = tg.pos.z-gp.z;
       const dist = Math.hypot(dx,dz);
-      m.yaw = angleLerp(m.yaw, Math.atan2(dx,dz), dt*5);
+      Mobs.steer(m, angleLerp(m.yaw, Math.atan2(dx,dz), dt*5));
 
       const fleeC = m.cfg.fly ? null : fusingCreeperNear(m);
       if(fleeC){
@@ -866,17 +863,14 @@ function updateMobs(dt){
         stepMove(m, Math.sin(ma)*speed*dt, 0);
         stepMove(m, 0, Math.cos(ma)*speed*dt);
       }
-      if(!m.cfg.fly){
-        const ty = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
-        gp.y += (ty-gp.y)*Math.min(1, dt*10);
-      }
+      if(!m.cfg.fly) Mobs.settle(m, dt);   // 贴地收尾(与游荡本能同一条式)
     } else if(m.staggerT <= 0){
       speed = wanderTick(m, dt, gp);
     }
-    m.speedNow = Math.abs(speed);
+    const speedNow = Math.abs(speed);
 
     /* 步态公共部分(摆腿/扇翅/基础摆臂)归怪物库 gait, 战斗姿态在其上覆盖 */
-    const sw = Mobs.gait(m, dt, m.speedNow);
+    const sw = Mobs.gait(m, dt, speedNow);
     const J = m.pose;
     if(m.type==='zombie'){
       J.armR = m.attackT>0

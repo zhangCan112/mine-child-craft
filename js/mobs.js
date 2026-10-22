@@ -8,7 +8,8 @@
    · 本能: 血量/受击(闪白·踉跄·击退)/死亡(倒地沉没)/游荡(wander 可关)
    interface: spawn / update / render / hit / near / clear /
               list / face / hasSlot / gait / stagger / pulseTint / scaleTo /
-               debrisColor / spawnable(可部署清单, mix 伪类型已在引擎侧排除)
+               debrisColor / spawnable /
+               move / shift / setPos / steer / heal / setMaxHp / remove / settle
    玩法(战斗AI/阵营/晋升/表扬话术)在模式层; 模式可在 spawn 返回的
    mob 上挂私有字段(tierNode/tierGeos 等挂件, dispose 时若存在一并回收)。
    模式可写引擎字段的白名单(除此之外引擎字段对模式只读):
@@ -17,8 +18,11 @@
    · attackCd / attackT / target  战斗节拍与索敌(引擎 spawn 置零/置空,
      模式读写 — 曾有模式漏初始化 attackCd 致怪物永不攻击, 初始化已收归引擎)
    · pose 等关节角 经 gait() 写入(战斗覆盖在其返回值之上叠加)
-   · 瞬时效果一律走意图 API: pulseTint(引信白闪) / stagger(硬直) /
-     scaleTo(引信膨胀·阶级放大) — 不直写 tr/tg/tb/staggerT/drawScale,
+     · pos.y       垂直特技(跃起砸地/悬浮压制)直写; 水平位移一律走意图 API
+     · 瞬时效果与结构变更一律走意图 API: pulseTint(引信白闪) / stagger(硬直) /
+       scaleTo(引信膨胀·阶级放大) / move·shift·setPos(水平位移) / steer(面向) /
+       heal·setMaxHp(生命) / remove(立即移除) / settle(贴地回巡航) —
+       不直写 tr/tg/tb/staggerT/drawScale/pos.x/pos.z/yaw/hp/maxHp/gone,
      免得正确性依赖"Mobs.update → 模式 → Mobs.render"的帧序。
    实例数组归本模块私有: list() 返回内部引用(只读约定),
    clear() 原地清空并冲刷批次, 引用保持稳定(竞技场的 mobs 别名长期有效)。
@@ -647,12 +651,7 @@ const Mobs = (() => {
     }
     m.yaw = Math.atan2(Math.cos(m.wanderDir), Math.sin(m.wanderDir));   // 模型面朝 +Z
     MobCore.stepMove(m, nx-gp.x, nz-gp.z, groundTop);
-    if(!m.cfg.fly){
-      const ty = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
-      gp.y += (ty-gp.y)*Math.min(1, dt*10);          // 爬坡下坎自然贴地
-    } else if(gp.y !== m.flyHome){
-      gp.y += (m.flyHome-gp.y)*Math.min(1, dt*2);    // 被震落后缓慢回到巡航高度(不贴地怪飞)
-    }
+    settle(m, dt);
     m.speedNow = sp;
     gait(m, dt, sp);
   }
@@ -685,6 +684,32 @@ const Mobs = (() => {
   function pulseTint(m, r, g, b){ m.tr = r; m.tg = g; m.tb = b; }       // 帧内瞬时着色(下一帧 update 的着色管线接管)
   function stagger(m, t){ m.staggerT = Math.max(m.staggerT||0, t); }    // 踉跄/硬直(取大, 不缩短更长的既有硬直)
   function scaleTo(m, s){ m.drawScale = s; }                            // 体型(引信膨胀/阶级放大)
+  /* 位移族: 战斗 AI 不再直写 pos/yaw —
+     move   地面步进(x/z 分轴走台阶规则, 爬坡/拦高墙)
+     shift  无碰撞平移(飞行单位的巡航/盘旋)
+     setPos 几何回弹的绝对落位(边界约束把单位拉回场内) */
+  function move(m, dx, dz){
+    MobCore.stepMove(m, dx, 0, groundTop);
+    MobCore.stepMove(m, 0, dz, groundTop);
+  }
+  function shift(m, dx, dz){ m.pos.x += dx; m.pos.z += dz; }
+  function setPos(m, x, z){ m.pos.x = x; m.pos.z = z; }
+  function steer(m, yaw){ m.yaw = yaw; }                                // 面向(render 消费)
+  /* 生命族: heal 回血(封顶 maxHp) · setMaxHp 晋升改上限(现血超出即截断) */
+  function heal(m, hp){ m.hp = Math.min(m.maxHp, m.hp + hp); }
+  function setMaxHp(m, maxHp){ m.maxHp = maxHp; if(m.hp > maxHp) m.hp = maxHp; }
+  /* 立即移除(下帧走引擎回收管线: 自爆残留/清场单只) */
+  function remove(m){ m.gone = true; }
+  /* 贴地/回巡航高度(游荡本能的同一条式, 战斗 AI 收尾复用) */
+  function settle(m, dt){
+    const gp = m.pos;
+    if(!m.cfg.fly){
+      const ty = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
+      gp.y += (ty-gp.y)*Math.min(1, dt*10);          // 爬坡下坎自然贴地
+    } else if(gp.y !== m.flyHome){
+      gp.y += (m.flyHome-gp.y)*Math.min(1, dt*2);    // 被震落后缓慢回到巡航高度(不贴地怪飞)
+    }
+  }
 
   /* 逐怪种碎块配色(击杀碎块观感, 竞技场/演习场共用), 缺省灰 */
   const MOB_DEBRIS = {
@@ -1070,6 +1095,7 @@ const Mobs = (() => {
 
   return { types: MOB_TYPES, spawn, update, render, hit, near, clear,
            list: ()=>mobList, face, hasSlot, gait, stagger, pulseTint, scaleTo,
-           debrisColor, spawnable };
+           debrisColor, spawnable,
+           move, shift, setPos, steer, heal, setMaxHp, remove, settle };
 })();
 if(typeof module !== 'undefined' && module.exports) module.exports = Mobs;

@@ -103,3 +103,33 @@ test('怪物库: 死亡时序 — update 推进 deadT, 超时回收(实例数组
   assert.strictEqual(before.length, 0, 'list() 返回内部引用, 回收立即可见');
   Mobs.clear();
 });
+
+test('怪物库: 意图 API — move/shift/setPos/steer/heal/setMaxHp/remove/settle', () => {
+  Mobs.clear();
+  const m = Mobs.spawn('zombie', 10, 10, {});
+  Mobs.move(m, 1.5, 0);                              /* 平地(stub 恒 11)无高差, 全额步进 */
+  assert.ok(Math.abs(m.pos.x - 11.5) < 1e-9, 'move: 地面步进(台阶规则)');
+  Mobs.shift(m, 0, 2);
+  assert.ok(Math.abs(m.pos.z - 12) < 1e-9, 'shift: 无碰撞平移');
+  Mobs.setPos(m, 3, 4);
+  assert.strictEqual(m.pos.x, 3); assert.strictEqual(m.pos.z, 4, 'setPos: 几何回弹落位');
+  Mobs.steer(m, 1.23);
+  assert.strictEqual(m.yaw, 1.23, 'steer: 面向');
+  Mobs.heal(m, 500);
+  assert.strictEqual(m.hp, 30, 'heal: 封顶 maxHp');
+  Mobs.hit(m, 10, 0, 0, 0);
+  Mobs.setMaxHp(m, 100);
+  assert.strictEqual(m.maxHp, 100, 'setMaxHp: 晋升改上限');
+  Mobs.heal(m, 20);
+  assert.strictEqual(m.hp, 40, 'heal: 新上限内回血');
+  Mobs.setMaxHp(m, 10);
+  assert.strictEqual(m.hp, 10, 'setMaxHp: 现血超出即截断');
+  Mobs.remove(m);
+  Mobs.update(0.05);
+  assert.strictEqual(Mobs.list().length, 0, 'remove: gone → 下帧走引擎回收');
+  const f = Mobs.spawn('blaze', 20, 20, {});
+  f.pos.y = 12;                                      /* 模拟被震落到地面 */
+  Mobs.settle(f, 1);
+  assert.ok(f.pos.y > 12, 'settle: 飞行单位回巡航高度(flyHome=18)');
+  Mobs.clear();
+});
