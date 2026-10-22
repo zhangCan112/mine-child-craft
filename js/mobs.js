@@ -7,9 +7,16 @@
    · 数值: config.js 的 MOB_TYPES(血量/速度/身高/碰撞半径/旗标)
    · 本能: 血量/受击(闪白·踉跄·击退)/死亡(倒地沉没)/游荡(wander 可关)
    interface: spawn / update / render / hit / near / clear /
-              list / face / hasSlot / types
+              list / face / hasSlot / gait / stagger / pulseTint / scaleTo / debrisColor
    玩法(战斗AI/阵营/晋升/表扬话术)在模式层; 模式可在 spawn 返回的
    mob 上挂私有字段(tierNode/tierGeos 等挂件, dispose 时若存在一并回收)。
+   模式可写引擎字段的白名单(除此之外引擎字段对模式只读):
+   · tintBase    持久色(狂暴红晕, 本模块 update 每帧消费)
+   · labelScale  名牌整体放大(本模块 update 每帧套用)
+   · pose 等关节角 经 gait() 写入(战斗覆盖在其返回值之上叠加)
+   · 瞬时效果一律走意图 API: pulseTint(引信白闪) / stagger(硬直) /
+     scaleTo(引信膨胀·阶级放大) — 不直写 tr/tg/tb/staggerT/drawScale,
+     免得正确性依赖"Mobs.update → 模式 → Mobs.render"的帧序。
    实例数组归本模块私有: list() 返回内部引用(只读约定),
    clear() 原地清空并冲刷批次, 引用保持稳定(竞技场的 mobs 别名长期有效)。
    THREE/DOM 全部惰性创建: 引导桩与 Node 测试环境可安全加载本文件。
@@ -19,6 +26,11 @@ const Mobs = (() => {
   let mobId = 0;
   const LABEL_CULL_D = 64;                 // 名牌相机距离剔除(格): 远处名牌本就小到难读
   const LABEL_CULL_D2 = LABEL_CULL_D * LABEL_CULL_D;
+  const LABEL_W = 160, LABEL_H = 40;       // 名牌画布(血条坐标按此布局, 两处共用)
+  const LABEL_BASE_W = 2.6, LABEL_BASE_H = 0.65;   // 名牌世界尺寸(× labelScale)
+  /* 死亡时序(秒): 倒地 → 收名牌并下沉 → 隐藏绘制 → 回收, 互相关联故提常量 */
+  const DEAD_FADE_T = 0.8, DEAD_SINK_DUR = 1.4, DEAD_SINK_DEPTH = 1.3;
+  const DEAD_HIDE_T = 2.2, DEAD_RECYCLE_T = 2.4;
 
   /* ---------- 建模: 骨架注册表 ----------
      slot = {joint:[枢轴], axis:'x'|'z', boxes:[部件]}
@@ -59,7 +71,7 @@ const Mobs = (() => {
         armL: { joint:[-0.37,1.42*t,0], boxes: armBoxes },
         armR: { joint:[ 0.37,1.42*t,0], boxes:[ B(0.2,0.72,0.2,o.skin, 0,-0.34,0) ] },
         head: { joint:[0,1.5*t,0], boxes: headBoxes },
-      }};
+      }, armStyle: o.arm };                                            // arm: 步态风格('zombie' 前伸手), gait 解读
     }
     function quad(o){
       const legOffs = o.legs8                                             // 八足:每槽4条(左槽左列)
@@ -82,7 +94,7 @@ const Mobs = (() => {
       }};
     }
     return {
-      zombie: hum({skin:SKIN, shirt:SHIRT, pants:PANTS, eye:DARKZ}),
+      zombie: hum({skin:SKIN, shirt:SHIRT, pants:PANTS, eye:DARKZ, arm:'zombie'}),
       skeleton: { slots: {
         root: { joint:[0,0,0], boxes:[ B(0.5,0.72,0.24,BONE, 0,1.11,0) ] },
         legL: { joint:[-0.1,0.75,0], boxes:[ B(0.16,0.75,0.16,BONE2, 0,-0.375,0) ] },
@@ -94,7 +106,7 @@ const Mobs = (() => {
           B(0.5,0.5,0.5,BONE, 0,0.25,0),
           B(0.12,0.1,0.04,DARKS, -0.12,0.3,0.26), B(0.12,0.1,0.04,DARKS, 0.12,0.3,0.26),
           B(0.08,0.08,0.04,DARKS, 0,0.18,0.26) ] },
-      }},
+      }, armStyle:'archer' },                        // 弓手: 持弓臂前伸(gait 解读)
       creeper: { slots: {
         root: { joint:[0,0,0], boxes:[ B(0.44,0.9,0.3,GREEN, 0,0.85,0) ] },
         legL: { joint:[0,0.42,0], boxes:[                                // 对角腿对
@@ -430,14 +442,14 @@ const Mobs = (() => {
     for(const b of mobBatches) b.n = 0;          // 也覆盖清场后: count 归零, 残余实例不再绘制
     for(const m of mobList){
       if(m.gone) continue;
-      if(m.dead && m.deadT > 2.2){               // 原 visible=false 的隐藏期
+      if(m.dead && m.deadT > DEAD_HIDE_T){           // 原 visible=false 的隐藏期
         if(m.tierNode) m.tierNode.visible = false;   // 挂件随尸体一起隐去
         continue;
       }
       const rig = MOB_RIG[m.type];
       const s = m.drawScale;
-      const sink = (m.dead && m.deadT > 0.8)
-        ? Math.min(1,(m.deadT-0.8)/1.4)*1.3 : 0; // 原"透明淡出"的实例化等价: 下沉入地
+      const sink = (m.dead && m.deadT > DEAD_FADE_T)
+        ? Math.min(1,(m.deadT-DEAD_FADE_T)/DEAD_SINK_DUR)*DEAD_SINK_DEPTH : 0; // 原"透明淡出"的实例化等价: 下沉入地
       _we.set(0, m.yaw, m.deadTilt);             // Euler(0,yaw,tilt) 默认序 = Ry·Rz, 与旧 group 一致
       _wq.setFromEuler(_we);
       _wm.compose(_wp.set(m.pos.x, m.pos.y - sink, m.pos.z), _wq, _ws.set(s,s,s));
@@ -468,24 +480,29 @@ const Mobs = (() => {
     }
   }
 
-  /* ---------- 名牌: 阵营前缀/颜色由调用方给(竞技场红蓝, 演习场无前缀) ---------- */
+  /* ---------- 名牌: 阵营前缀/颜色由调用方给(竞技场红蓝, 演习场无前缀) ----------
+     labelCfg 可选 suffix(m)/hot(m): 名字后追加的文案(如晋升星级)与
+     金色高亮开关 — 星级语义归模式层, 引擎只画调用方给的字符串 */
   function drawLabel(m){
     const g = m.labelCanvas.getContext('2d');
-    g.clearRect(0,0,160,40);
+    g.clearRect(0,0,LABEL_W,LABEL_H);
     g.font='bold 15px sans-serif';
     g.shadowColor='#000'; g.shadowBlur=4;
-    const pre = m.labelCfg ? m.labelCfg.prefix : '';
-    const col = m.labelCfg ? m.labelCfg.color : '#ffd44d';
-    const full = pre + m.cfg.name + (m.level>1?'★'.repeat(m.level-1):'');   // level 是模式挂的私有字段(竞技场晋升), 不挂就不画星
+    const cfg = m.labelCfg || {};
+    const pre = cfg.prefix || '';
+    const col = cfg.color || '#ffd44d';
+    const suffix = (cfg.suffix && cfg.suffix(m)) || '';
+    const hot = !!(cfg.hot && cfg.hot(m));
+    const full = pre + m.cfg.name + suffix;
     if(m.dead){
       g.textAlign='center'; g.fillStyle='#9a9a9a'; g.fillText(full, 80, 15);
-    } else if(m.level>1){
+    } else if(hot){
       const wPre = g.measureText(pre).width, wFull = g.measureText(full).width;
       const x0 = 80 - wFull/2;
       g.textAlign='left';
       g.fillStyle = col;                             // 前缀保持调用方色
       g.fillText(pre, x0, 15);
-      g.fillStyle = '#ffd44d';                       // 晋升金光
+      g.fillStyle = '#ffd44d';                       // 高亮金光(晋升)
       g.shadowColor='#ffb018'; g.shadowBlur=8;
       g.fillText(full.slice(pre.length), x0+wPre, 15);
     } else {
@@ -532,16 +549,17 @@ const Mobs = (() => {
       wander: opts.wander || null,                   // 游荡配置(栅栏), 无则站立/由模式驱动
       wanderT:0, wanderDir:Math.random()*Math.PI*2,
       clamp: opts.clamp || null,                     // 飞行单位击退后的边界约束(竞技场圆形)
+      labelScale: 1,                                 // 名牌放大倍率(模式可写, 白名单字段)
       tierNode:null, tierGeos:[], tierMats:[],       // 模式挂件位(dispose 一并回收)
       lastLabelHp:-1, lastLabelDead:false, labelT:0
     };
     if(opts.hpMult){ m.hp = m.maxHp = Math.round(cfg.hp * opts.hpMult); }
     if(typeof document !== 'undefined' && typeof THREE !== 'undefined'){
-      const lc = document.createElement('canvas'); lc.width=160; lc.height=40;
+      const lc = document.createElement('canvas'); lc.width=LABEL_W; lc.height=LABEL_H;
       const ltex = new THREE.CanvasTexture(lc);
       m.label = new THREE.Sprite(new THREE.SpriteMaterial({map:ltex, transparent:true, depthTest:false}));
-      m.label.scale.set(2.6, 0.65, 1);
       m.labelCanvas = lc; m.labelTex = ltex;
+      applyLabelScale(m);
       scene.add(m.label);
       drawLabel(m);
     }
@@ -560,7 +578,10 @@ const Mobs = (() => {
       if(m.label){
         const ldx = gp.x - camera.position.x, ldz = gp.z - camera.position.z;
         m.label.visible = (ldx*ldx + ldz*ldz) < LABEL_CULL_D2;
-        if(m.label.visible) m.label.position.set(gp.x, gp.y + m.cfg.h + 0.55, gp.z);
+        if(m.label.visible){
+          m.label.position.set(gp.x, gp.y + m.cfg.h + 0.55, gp.z);
+          applyLabelScale(m);                        // labelScale(模式白名单字段)每帧套用
+        }
       }
       if(m.dead){
         m.deadT += dt;
@@ -569,7 +590,7 @@ const Mobs = (() => {
           if(gp.y > gy) gp.y = Math.max(gy, gp.y - 16*dt);
         }
         m.deadTilt = Math.min(Math.PI/2, m.deadT*3); // 倒地角(render 组矩阵)
-        if(m.deadT > 0.8 && m.label) m.label.visible = false;  // 尸体淡出即收牌
+        if(m.deadT > DEAD_FADE_T && m.label) m.label.visible = false;  // 尸体淡出即收牌
         if(!m.lastLabelDead && m.labelCanvas){ drawLabel(m); m.lastLabelDead = true; }
         continue;
       }
@@ -589,11 +610,17 @@ const Mobs = (() => {
     }
     for(let i=mobList.length-1; i>=0; i--){
       const m = mobList[i];
-      if(m.gone || (m.dead && m.deadT > 2.4)){
+      if(m.gone || (m.dead && m.deadT > DEAD_RECYCLE_T)){
         dispose(m);
         mobList.splice(i,1);
       }
     }
+  }
+
+  /* 名牌尺寸 = 基准 × labelScale(spawn 初始与 update 每帧共用一条式) */
+  function applyLabelScale(m){
+    const ls = m.labelScale || 1;
+    m.label.scale.set(LABEL_BASE_W*ls, LABEL_BASE_H*ls, 1);
   }
 
   /* 游荡(演习场靶怪): 随机换向 · 栅栏/撞墙回头 · 贴地爬坡 · 步态关节 */
@@ -620,23 +647,52 @@ const Mobs = (() => {
       gp.y += (m.flyHome-gp.y)*Math.min(1, dt*2);    // 被震落后缓慢回到巡航高度(不贴地怪飞)
     }
     m.speedNow = sp;
+    gait(m, dt, sp);
+  }
+
+  /* 步态(引擎/模式共用): 走路摆腿 · 飞行扇翅 · 按骨架表 armStyle 摆臂。
+     返回摆幅 sw — 模式的攻击挥臂等战斗姿态在 gait 写入的 pose 之上覆盖叠加 */
+  function gait(m, dt, sp){
     m.walkPhase += sp*dt*3.4;
     const sw = Math.sin(m.walkPhase)*0.5*Math.min(1, sp/2.2);
     const J = m.pose;
-    if(MOB_RIG[m.type].slots.legL){ J.legL =  sw; J.legR = -sw; }
-    if(MOB_RIG[m.type].slots.wingL){                // 通用飞行扇翅(末影龙/幻翼/恼鬼)
+    const rig = MOB_RIG[m.type];
+    if(rig.slots.legL){ J.legL =  sw; J.legR = -sw; }
+    if(rig.slots.wingL){                          // 通用飞行扇翅(末影龙/幻翼/恼鬼)
       m.flyPhase += dt*6;
       const wf = Math.sin(m.flyPhase)*0.5;
-      J.wingL =  wf + 0.15; J.wingR = -(wf + 0.15);
+      J.wingL =  wf + 0.15;
+      J.wingR = -(wf + 0.15);
     }
-    if(m.type==='zombie'){
-      J.armL = -1.45; J.armR = -1.45;                // 僵尸前伸手
-    } else if(m.type==='skeleton'){
+    if(rig.armStyle === 'zombie'){                // 僵尸前伸手
+      J.armL = -1.45; J.armR = -1.45;
+    } else if(rig.armStyle === 'archer'){         // 骷髅弓手(持弓臂前伸)
       J.armL = -0.15 + sw*0.3; J.armR = -sw*0.5;
-    } else if(MOB_RIG[m.type].slots.armL){           // 通用摆臂(人形怪/守卫者侧刺/凋灵肩头)
+    } else if(rig.slots.armL){                    // 通用摆臂(人形怪/守卫者侧刺/凋灵肩头)
       J.armL = sw*0.5; J.armR = -sw*0.5;
     }
+    return sw;
   }
+
+  /* ---------- 模式层的意图 API(替代直写引擎字段, 帧序契约收在此) ---------- */
+  function pulseTint(m, r, g, b){ m.tr = r; m.tg = g; m.tb = b; }       // 帧内瞬时着色(下一帧 update 的着色管线接管)
+  function stagger(m, t){ m.staggerT = Math.max(m.staggerT||0, t); }    // 踉跄/硬直(取大, 不缩短更长的既有硬直)
+  function scaleTo(m, s){ m.drawScale = s; }                            // 体型(引信膨胀/阶级放大)
+
+  /* 逐怪种碎块配色(击杀碎块观感, 竞技场/演习场共用), 缺省灰 */
+  const MOB_DEBRIS = {
+    zombie:0x5e9440, skeleton:0xd8d8d2, creeper:0x4fae4f, golem:0xcdd0d8, dragon:0x3a2055,
+    spider:0x2a2226, cave_spider:0x1a3a4a, silverfish:0x9a9a8a, endermite:0x8a5ab8,
+    slime:0x5ac85a, enderman:0x101018, witch:0x5a3a6a, husk:0xb0a068, drowned:0x4a8a7a,
+    stray:0xd8dee4, bogged:0xb8c0a0, phantom:0x3a5a7a, vex:0x9ab8d8, creaking:0x54402e,
+    zombified_piglin:0xd88a8a, piglin:0xe8a08a, piglin_brute:0xe8a08a,
+    hoglin:0xa86a4a, zoglin:0x7a8a5a, wither_skeleton:0x242424,
+    blaze:0xe8c02a, ghast:0xe8e8e8, magma_cube:0xe8641a,
+    guardian:0x5a8a6a, elder_guardian:0x8a8a9a, shulker:0x8a5a9a,
+    vindicator:0x3a5a3a, evoker:0xd8d8c8, pillager:0x5a5a4a, ravager:0x4a4a52,
+    wither:0x1c1c1c, warden:0x182a3a,
+  };
+  function debrisColor(type){ return MOB_DEBRIS[type] || 0x8a8f98; }
 
   /* 受击: 扣血/闪白/踉跄(MobCore) + 击退(地面走台阶规则, 飞行直线+clamp)
      血量归零进入死亡流程并播死亡音; freshDead 供调用方只结算一次 */
@@ -974,6 +1030,12 @@ const Mobs = (() => {
         px(7,7,2,4,'#0f1d29');                                                    // 心口暗纹
         break;
       }
+      default: {                                        // 未画头像的怪种: 显眼问号 — 新增怪漏配 face 不再静默空白
+        px(0,0,16,16,'#4a4f58');
+        px(3,2,10,2,'#e8ecf2'); px(3,5,10,2,'#e8ecf2'); px(3,8,6,2,'#e8ecf2');
+        px(7,10,2,3,'#e8ecf2'); px(7,14,2,2,'#ff5a30');
+        break;
+      }
     }
     const big = document.createElement('canvas');
     big.width = big.height = 64;
@@ -986,7 +1048,16 @@ const Mobs = (() => {
 
   function hasSlot(type, name){ return !!MOB_RIG[type].slots[name]; }
 
+  /* 注册表一致性自检: MOB_TYPES(非伪类型) ↔ MOB_RIG — 漏配 RIG 的怪 render 会
+     崩帧, 在加载期就把漏配喊出来(新增怪"改 3 处"里的静默失败变即时报错;
+     漏配 face 则由 default 分支画显眼问号兜底) */
+  (function(){
+    if(typeof MOB_TYPES === 'undefined' || typeof console === 'undefined') return;
+    const missing = Object.keys(MOB_TYPES).filter(k => k!=='mix' && !MOB_RIG[k]);
+    if(missing.length) console.warn('[Mobs] MOB_TYPES 有而 MOB_RIG 缺(渲染会崩):', missing.join(','));
+  })();
+
   return { types: MOB_TYPES, spawn, update, render, hit, near, clear,
-           list: ()=>mobList, face, hasSlot };
+           list: ()=>mobList, face, hasSlot, gait, stagger, pulseTint, scaleTo, debrisColor };
 })();
 if(typeof module !== 'undefined' && module.exports) module.exports = Mobs;

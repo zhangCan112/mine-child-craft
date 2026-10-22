@@ -32,6 +32,8 @@ globalThis.document = {
 };
 const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;      /* 浏览器经典脚本下 mkMode 是全局, Node 需桥接 */
+globalThis.ModeKit = ModeKit;            /* 同上: tank-range 经 ModeKit.spawn 出生(不走裸全局名) */
+ModeKit.spawn = (x, y, z, o) => { calls.push(['spawn', x, y, z, o]); };   /* 出生桩: 不碰 pos/vel 全局 */
 
 /* ---------- fake 引擎层(调用期解析的全局名) ---------- */
 const calls = [];
@@ -88,6 +90,7 @@ globalThis.Mobs = {
   list(){ return listResult; },
   face(){ return 'data:'; },
   hasSlot(){ return true; },
+  debrisColor(){ return 0x8a8f98; },     /* 击杀碎块配色(真实表在怪物库) */
 };
 globalThis.Fx = { debrisBurst(){ calls.push(['debris']); } };
 globalThis.showPage = (id) => calls.push(['page', id]);
@@ -268,8 +271,8 @@ test('爆炸打怪: 近爆心按直击满伤, 边缘按距离衰减; 击杀给�
   explodeCb(64, 12, 54, { removed: 5, counts: {} });
   assert.strictEqual(hitLog.length, 2, '波及范围内两只都挨打');
   assert.strictEqual(hitLog[0].dmg, 40, '爆心旁按直击伤 40');
-  const dB = Math.hypot(66.0 - 64, 55.5 - 54);
-  assert.strictEqual(hitLog[1].dmg, Math.round(42 - 30 * Math.min(1, dB / 3.1)), '边缘按距离线性衰减(42→12)');
+  /* 固定期望值而非镜像公式: d≈2.5 → round(42 - 30×2.5/3.1) = 18; d≥3.1 → 12 */
+  assert.strictEqual(hitLog[1].dmg, 18, '边缘按距离线性衰减(42→12): ' + hitLog[1].dmg);
   nearResult = [mA];
   nextHit = { hp: 0, dead: true, freshDead: true };
   explodeCb(64, 12, 54, { removed: 5, counts: {} });
@@ -388,7 +391,7 @@ test('出发配置页: 坦克卡按 order 排序, 点卡只改选择不重建, �
   assert.ok(has('clearWorld'), '换车重建演习场');
 });
 
-test('出发配置页: 怪物一行 5 卡与 👾 面板共用 mobCfg, 选完出发部署该怪', () => {
+test('出发配置页: 怪物一行 6 卡(fake 7 种, mix 排除)与 👾 面板共用 mobCfg, 选完出发部署该怪', () => {
   const mrow = elCache['tankMobPick'];
   mrow.children.length = 0;
   TankRangeMode.buildMenu();
@@ -408,6 +411,7 @@ test('出发配置页: 怪物一行 5 卡与 👾 面板共用 mobCfg, 选完出
 });
 
 test('出发不折腾: 选择没变直接回战场, 不重建(进度不丢)', () => {
+  elCache['tankGoBtn'].onclick();               /* 先决: 以当前选择同步 placedModel/placedMob */
   calls.length = 0;
   elCache['tankGoBtn'].onclick();               /* selModel/怪种与场上一致 */
   assert.ok(!has('clearWorld'), '没变不重建');
@@ -415,7 +419,17 @@ test('出发不折腾: 选择没变直接回战场, 不重建(进度不丢)', ()
   assert.ok(has('lock'), '仍直接回战场');
 });
 
+/* 选车测试的独立前置: 先归位迷彩战车再选目标型号(不依赖前序测试的选择残留) */
+function selectTankViaUI(key){
+  TankRangeMode.buildMenu();
+  const grid = elCache['tankPick'];
+  const card = [...grid.children].reverse().find(c => c.dataset.model === key);
+  card.onclick();
+}
+
 test('HUD/话术带型号名: 驾驶中显示当前型号, 上车语音报名字', () => {
+  selectTankViaUI('classic');                   /* 归位(幂等), 保证下面的切换真实发生 */
+  selectTankViaUI('thunder');
   const hudEl = elCache['hud'];
   tankState.driving = true; tankState.near = 0.4;
   fakeClock += 200; TankRangeMode.updateHud(null);
@@ -426,6 +440,7 @@ test('HUD/话术带型号名: 驾驶中显示当前型号, 上车语音报名字
   TankRangeMode.onKey('KeyE');
   assert.ok(spoken.some(s => s.indexOf('雷霆战神') >= 0 && s.indexOf('开坦克') >= 0),
     '上车语音报型号名: ' + spoken.join('/'));
+  selectTankViaUI('classic');                   /* 收尾归位, 后续测试不依赖雷霆 */
 });
 
 /* ============ 四期: 张廷彧号追踪导弹(索敌政策归模式层) ============ */

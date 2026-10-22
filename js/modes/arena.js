@@ -4,17 +4,20 @@
 ============================================================ */
 
 /* ---------- 竞技场地形生成 ---------- */
+/* 地形方块别名(config 的 BLOCKS id, 名字见注册表): 免魔法数字散在地形代码里 */
+const ID_GRASS=1, ID_STONE=3, ID_COBBLE=4, ID_BRICK=13, ID_MOSS=14,
+      ID_BLUEWOOL=15, ID_REDWOOL=16, ID_QUARTZ=17, ID_GLASS=18, ID_LAMP=19;
 function floorBlock(x,z,dx,dz,r){
-  if(r < 8.6) return dx < 0 ? 16 : 15;             // 中央徽章 红西蓝东
-  if(Math.abs(r-9.5) < 0.6 || Math.abs(r-30) < 0.6) return 17; // 石英环
-  if(Math.hypot(dx+19, dz) < 3.3) return 16;       // 红方出生垫
-  if(Math.hypot(dx-19, dz) < 3.3) return 15;       // 蓝方出生垫
+  if(r < 8.6) return dx < 0 ? ID_REDWOOL : ID_BLUEWOOL;   // 中央徽章 红西蓝东
+  if(Math.abs(r-9.5) < 0.6 || Math.abs(r-30) < 0.6) return ID_QUARTZ; // 石英环
+  if(Math.hypot(dx+19, dz) < 3.3) return ID_REDWOOL;      // 红方出生垫
+  if(Math.hypot(dx-19, dz) < 3.3) return ID_BLUEWOOL;     // 蓝方出生垫
   const t = hashRand(x*5+z, z*7+x);
-  return t < 0.8 ? 3 : (t < 0.95 ? 4 : 14);
+  return t < 0.8 ? ID_STONE : (t < 0.95 ? ID_COBBLE : ID_MOSS);
 }
 function wallBlock(x,y,z){
   const t = hashRand(x*7+z*3, y*13+z);
-  return t < 0.7 ? 13 : (t < 0.9 ? 4 : 14);
+  return t < 0.7 ? ID_BRICK : (t < 0.9 ? ID_COBBLE : ID_MOSS);
 }
 function generate(){
   const G = ARENA.floorY;
@@ -22,19 +25,19 @@ function generate(){
     for(let z=0;z<WORLD_D;z++){
       const dx = x+0.5-ARENA.cx, dz = z+0.5-ARENA.cz;
       const r = Math.hypot(dx,dz);
-      for(let y=0;y<=G;y++) setBlockRaw(x,y,z,3);           // 地基
+      for(let y=0;y<=G;y++) setBlockRaw(x,y,z,ID_STONE);      // 地基
       if(r < ARENA.rIn-0.5)          setBlockRaw(x,G,z, floorBlock(x,z,dx,dz,r));
       else if(r <= ARENA.rOut+0.5)   setBlockRaw(x,G,z, wallBlock(x,G,z));
-      else                           setBlockRaw(x,G,z, 1); // 外部草原
+      else                           setBlockRaw(x,G,z, ID_GRASS); // 外部草原
       if(r >= ARENA.rIn-0.5 && r <= ARENA.rOut+0.5){        // 环形墙 + 看台
         for(let y=G+1;y<=G+7;y++) setBlockRaw(x,y,z, wallBlock(x,y,z));
-        setBlockRaw(x, G+8, z, hashRand(x*3,z) < 0.88 ? 13 : 4);
+        setBlockRaw(x, G+8, z, hashRand(x*3,z) < 0.88 ? ID_BRICK : ID_COBBLE);
       }
       if(r >= ARENA.rIn-0.6 && r <= ARENA.rIn+0.6)          // 内侧玻璃护栏(1格,不挡视线)
-        setBlockRaw(x, G+9, z, 18);
+        setBlockRaw(x, G+9, z, ID_GLASS);
       if(r >= ARENA.rOut-0.6 && r <= ARENA.rOut+0.6){       // 外侧玻璃护栏(2格)
-        setBlockRaw(x, G+9, z, 18);
-        setBlockRaw(x, G+10, z, 18);
+        setBlockRaw(x, G+9, z, ID_GLASS);
+        setBlockRaw(x, G+10, z, ID_GLASS);
       }
       if(r > ARENA.rOut+7 && x>2 && z>2 && x<WORLD_W-3 && z<WORLD_D-3
          && hashRand(x+31, z+17) > 0.988) SceneKit.tree(x, G+1, z);
@@ -44,8 +47,8 @@ function generate(){
     const a = i*Math.PI/6 + Math.PI/12;
     const px = Math.round(ARENA.cx + Math.cos(a)*(ARENA.rOut-1.4));
     const pz = Math.round(ARENA.cz + Math.sin(a)*(ARENA.rOut-1.4));
-    for(let y=G+9;y<=G+11;y++) setBlockRaw(px,y,pz,13);
-    setBlockRaw(px, G+12, pz, 19);
+    for(let y=G+9;y<=G+11;y++) setBlockRaw(px,y,pz,ID_BRICK);
+    setBlockRaw(px, G+12, pz, ID_LAMP);
   }
 }
 function spawnPlayer(){
@@ -57,10 +60,12 @@ function spawnPlayer(){
 
 /* ---------- 怪物类型 ----------
    数值表 MOB_TYPES 在 config.js(怪物库 js/mobs.js 与竞技场/演习场共用) */
-/* 混合编队池: 全部常规怪(Boss 与飞行单位除外 — 混编要贴脸互殴才热闹) */
+/* 混合编队池: 全部常规怪(Boss 与飞行单位除外 — 混编要贴脸互殴才热闹)
+   混编平均战力只算在本地常量: 不写回共享的 MOB_TYPES(其他调用方
+   不必感知竞技场脚本是否已加载) */
 const MIX_POOL = Object.keys(MOB_TYPES).filter(k =>
   k!=='mix' && !MOB_TYPES[k].boss && !MOB_TYPES[k].fly);
-MOB_TYPES.mix.power = Math.round(MIX_POOL.reduce((s,k)=>s+MOB_TYPES[k].power,0) / MIX_POOL.length);
+const MIX_AVG_POWER = Math.round(MIX_POOL.reduce((s,k)=>s+MOB_TYPES[k].power,0) / MIX_POOL.length);
 
 /* ---------- 升级系统 ----------
    个人击杀累积信用(劣势方×加成), 达标晋升:
@@ -73,7 +78,6 @@ const COUNTER = {
   zombie:'skeleton', skeleton:'creeper', creeper:'golem', golem:'zombie',   // 经典环
   enderman:'skeleton',                 // 末影人瞬移闪箭, 专猎弓手
   blaze:'stray', stray:'magma_cube',   // 火克冰, 冰克熔岩
-  breeze:'skeleton',                   // 旋风吹偏箭矢
   warden:'ravager',                    // 监守者的蛮力无视巨兽冲撞
 };
 let teamInitHp = {A:1, B:1};          // 劣势加成基准(开战时总HP)
@@ -113,23 +117,30 @@ const breathBalls = [];
 const clouds = [];
 
 /* 部署: 怪物库造身体, 竞技场挂战斗字段(阵营/索敌/技能/晋升) */
+/* 晋升星级的名牌呈现(语义归模式层): 名牌渲染归怪物库(labelCfg.suffix/hot) */
+const tierStars = m => m.level>1 ? '★'.repeat(m.level-1) : '';
+const tierHot = m => m.level>1;
 function spawnMob(team, type, x, z){
   const m = Mobs.spawn(type, x, z, {
     yaw: team==='A' ? Math.PI/2 : -Math.PI/2,
     flyY: ARENA.floorY + ARENA.flyAlt,
-    label: team==='A' ? {prefix:'红方·', color:'#ff6055'} : {prefix:'蓝方·', color:'#5ab0ff'},
+    label: team==='A'
+      ? {prefix:'红方·', color:'#ff6055', suffix: tierStars, hot: tierHot}
+      : {prefix:'蓝方·', color:'#5ab0ff', suffix: tierStars, hot: tierHot},
     clamp: arenaFlyClamp
   });
   m.team = team;
   Object.assign(m, {
     target:null, retargetT:Math.random()*0.5,
     attackT:0, attackCd:0.6+Math.random()*0.6,
-    wanderT:0, fuse:-1,
+    fuse:-1,
     vx:0, vz:0, strafeT:0, strafeDir:1,
     air:false, vy:0, jumpVX:0, jumpVZ:0, slamming:false,
     slamCd:2+Math.random()*3, pounceCd:2+Math.random()*3,
     shotCnt:0, raged:false, rageBuffT:0,
-    level:1, kills:0, k2:2, k3:5, dmgMult:1, invulnT:0, rockCd:2,
+    /* k2/k3(晋升杀数阈值)不设默认值: 部署时按敌方规模定值(deploySpawnQueue),
+       漏设会在 addKillCredit 里 NaN 比较永不晋升 — 宁可显式也不静默兜底 */
+    level:1, kills:0, dmgMult:1, invulnT:0, rockCd:2,
     baseMaxHp:m.maxHp, tierScale:1,
     orbitA:Math.random()*Math.PI*2,
     flank:(Math.random()*2-1) * (m.cfg.ranged ? 0.35 : 0.85)
@@ -137,12 +148,16 @@ function spawnMob(team, type, x, z){
   return m;
 }
 
-/* 飞行单位击退后的场地边界(圆形, 怪物库 hit 回调) */
-function arenaFlyClamp(m){
+/* 飞行单位场地边界(圆形): 击退回调(半径 FLY_KNOCK_R)与巡飞约束(FLY_ORBIT_R)两档,
+   均收在 clampToArena 一处 — 怪物库 hit 的 clamp 回调与战斗巡飞共用 */
+const FLY_KNOCK_R = 2, FLY_ORBIT_R = 2.5;
+function clampToArena(m, margin){
   const cdx = m.pos.x-ARENA.cx, cdz = m.pos.z-ARENA.cz;
   const cd = Math.hypot(cdx,cdz);
-  if(cd > ARENA.rIn-2){ const k=(ARENA.rIn-2)/cd; m.pos.x=ARENA.cx+cdx*k; m.pos.z=ARENA.cz+cdz*k; }
+  const rMax = ARENA.rIn - margin;
+  if(cd > rMax){ const k=rMax/cd; m.pos.x=ARENA.cx+cdx*k; m.pos.z=ARENA.cz+cdz*k; }
 }
+function arenaFlyClamp(m){ clampToArena(m, FLY_KNOCK_R); }
 
 /* 移动: 圆形边界约束 + 怪物核心的台阶规则 */
 function stepMove(m, mx, mz){
@@ -163,17 +178,48 @@ function damageMob(m, dmg, kdx, kdz, kpow, src){
   }
 }
 
-function shootArrow(m, tg, power, yawOff){
-  sfx('shoot');
-  const v0 = power ? 34 : 26, g = 9.5;            // 强力箭更快更痛更重击退
-  const from = new THREE.Vector3(m.pos.x, m.pos.y+1.45, m.pos.z);
+/* ---------- 弹道与 AoE 助手(箭/巨石/火球三套近似弹道与三套伤害环归一) ---------- */
+/* 预测弹道方向: 飞行时间预估 → 目标移动提前量 → 重力补偿抬枪(返回归一化方向) */
+function aimDir(from, tg, v0, g, hFrac){
   const vx = tg.vx||0, vz = tg.vz||0;
   let t = tg.pos.distanceTo(from)/v0;                        // 飞行时间预估(3D,兼容空中目标)
   const tx = tg.pos.x + vx*t, tz = tg.pos.z + vz*t;          // 目标移动提前量
   t = Math.hypot(tx-from.x, tz-from.z)/v0;
   const lift = 0.5*g*t*t;                                    // 重力下坠补偿(抬高瞄准点)
-  const aim = new THREE.Vector3(tx, tg.pos.y + tg.cfg.h*0.55 + lift, tz);
-  const dir = aim.sub(from).normalize();
+  return new THREE.Vector3(tx, tg.pos.y + tg.cfg.h*hFrac + lift, tz).sub(from).normalize();
+}
+
+/* AoE 伤害环: 过滤存活/敌队 → 距离线性衰减伤害+击退 → 硬直
+   o: {team(跳过同队, undefined=炸双方), skip(跳过自身), owner, dmg,
+       fallOff(边缘衰减比), kpow, stagger, use3D(距离含高度差), dyGate(高度差门槛)} */
+function aoeDamage(x, y, z, r, o){
+  for(const t of mobs){
+    if(t.dead || t.gone) continue;
+    if(o.skip && t === o.skip) continue;
+    if(o.team !== undefined && t.team === o.team) continue;
+    const dx = t.pos.x-x, dz = t.pos.z-z;
+    const d = o.use3D ? Math.hypot(dx, t.pos.y+1-y, dz) : Math.hypot(dx, dz);
+    if(o.dyGate !== undefined && Math.abs(t.pos.y-y) > o.dyGate) continue;
+    if(d < r){
+      damageMob(t, Math.round(o.dmg*(1-d/r*o.fallOff)), dx, dz, o.kpow, o.owner);
+      Mobs.stagger(t, o.stagger);
+    }
+  }
+}
+
+/* 强力箭节奏 + 王者箭雨(全部远程怪共用: 精英每第2箭强力, 王者三连散射) */
+function rangedVolley(m, tg){
+  m.shotCnt++;
+  const pw = m.shotCnt % (m.level>=2?2:3) === 0;
+  shootArrow(m, tg, pw);
+  if(pw && m.level>=3){ shootArrow(m, tg, true, 0.16); shootArrow(m, tg, true, -0.16); }
+}
+
+function shootArrow(m, tg, power, yawOff){
+  sfx('shoot');
+  const v0 = power ? 34 : 26, g = 9.5;            // 强力箭更快更痛更重击退
+  const from = new THREE.Vector3(m.pos.x, m.pos.y+1.45, m.pos.z);
+  const dir = aimDir(from, tg, v0, g, 0.55);
   dir.x += (Math.random()-0.5)*(power?0.02:0.04);            // 强力箭更精准
   dir.y += (Math.random()-0.5)*0.02;
   dir.z += (Math.random()-0.5)*(power?0.02:0.04);
@@ -199,12 +245,7 @@ function throwRock(m, tg){
   sfx('shoot');
   const v0 = 20;
   const from = new THREE.Vector3(m.pos.x, m.pos.y+3.0, m.pos.z);
-  const vx = tg.vx||0, vz = tg.vz||0;
-  let t = tg.pos.distanceTo(from)/v0;
-  const tx = tg.pos.x + vx*t, tz = tg.pos.z + vz*t;
-  t = Math.hypot(tx-from.x, tz-from.z)/v0;
-  const lift = 0.5*9.5*t*t;
-  const dir = new THREE.Vector3(tx, tg.pos.y + tg.cfg.h*0.5 + lift, tz).sub(from).normalize();
+  const dir = aimDir(from, tg, v0, 9.5, 0.5);
   const mesh = new THREE.Mesh(rockGeo, rockMat);
   mesh.position.copy(from);
   mesh.rotation.set(Math.random()*3, Math.random()*3, 0);
@@ -217,15 +258,8 @@ function rockBlast(a, p){
   if(a.fire)                                                // 火球爆心加橙红闪光
     Fx.pop(p.x, p.y+0.4, p.z, {color:0xff8a3c, r0:0.5, r1: a.aoe+1.2, dur:0.3, opacity:0.85});
   Fx.kick(0.3);
-  for(const t of mobs){
-    if(t.dead || t.gone || t.team===a.team) continue;
-    const dx=t.pos.x-p.x, dz=t.pos.z-p.z;
-    const d = Math.hypot(dx, t.pos.y+1-p.y, dz);
-    if(d < a.aoe){
-      damageMob(t, Math.round(a.dmg*(1-d/a.aoe*0.6)), dx, dz, 1.2, a.owner);
-      t.staggerT = Math.max(t.staggerT, 0.4);
-    }
-  }
+  aoeDamage(p.x, p.y, p.z, a.aoe, {team:a.team, owner:a.owner, dmg:a.dmg,
+    fallOff:0.6, kpow:1.2, stagger:0.4, use3D:true});
 }
 
 /* 飞行炮台通用·爆裂火球(恶魂/凋灵/烈焰人/旋风人): 抛物线 + 落点AoE(走 arrows 管线) */
@@ -235,11 +269,7 @@ function throwFireball(m, tg){
   sfx('shoot');
   const v0 = 17;
   const from = new THREE.Vector3(m.pos.x, m.pos.y + m.cfg.h*0.55, m.pos.z);
-  let t = tg.pos.distanceTo(from)/v0;
-  const tx = tg.pos.x + (tg.vx||0)*t, tz = tg.pos.z + (tg.vz||0)*t;
-  t = Math.hypot(tx-from.x, tz-from.z)/v0;
-  const lift = 0.5*6*t*t;                                    // 火球重力更轻, 弹道更飘
-  const dir = new THREE.Vector3(tx, tg.pos.y + tg.cfg.h*0.5 + lift, tz).sub(from).normalize();
+  const dir = aimDir(from, tg, v0, 6, 0.5);                  // 火球重力更轻, 弹道更飘
   const mesh = new THREE.Mesh(fireballGeo, fireballMat);
   mesh.position.copy(from);
   scene.add(mesh);
@@ -249,21 +279,22 @@ function throwFireball(m, tg){
 
 function golemSlam(m){
   m.slamming = false;
-  m.staggerT = 0.5;                                  // 落地后短暂硬直
+  Mobs.stagger(m, 0.5);                            // 落地后短暂硬直
   Fx.kick(0.45);
   sfx('boom');
   Fx.pop(m.pos.x, m.pos.y+0.3, m.pos.z, {color:0xd8c9a8, r0:0.5, r1: m.level>=2 ? 5.2 : 4.2, dur:0.35, opacity:0.8});
   Fx.debrisBurst(m.pos.x, m.pos.y+0.2, m.pos.z, 8, {ring:true, life:0.7});
   const R = m.level>=2 ? 5 : 4;                       // 精英:震地范围更大
+  /* 双分支刻意不成环: 近处受击致硬直 1s, 否则低空单位被冲击波震落 1.2s(不伤害) */
   for(const t of mobs){
     if(t===m || t.dead || t.gone || t.team===m.team) continue;
     const dx = t.pos.x-m.pos.x, dz = t.pos.z-m.pos.z;
     const d = Math.hypot(dx,dz);
     if(d < R && Math.abs(t.pos.y-m.pos.y) < 3.5){
       damageMob(t, Math.round(18*m.dmgMult*(1-d/R*0.6)), dx, dz, 2.2, m);
-      t.staggerT = Math.max(t.staggerT, 1.0);              // 震地:震慑 1 秒
+      Mobs.stagger(t, 1.0);                              // 震地:震慑 1 秒
     } else if(t.cfg.fly && d < R+0.5 && (t.pos.y-m.pos.y) < 8){
-      t.staggerT = Math.max(t.staggerT, 1.2);              // 冲击波:震落低空单位
+      Mobs.stagger(t, 1.2);                              // 冲击波:震落低空单位
     }
   }
 }
@@ -273,16 +304,8 @@ function explode(x,y,z,team,owner,ratio){
   const lv = owner ? owner.level : 1;
   const r = 5.5*ratio*(1+0.15*(lv-1));
   Fx.boom(x,y,z, {r1: r, n: Math.round(11*ratio)});
-  for(const t of mobs){
-    if(t.dead || t.gone) continue;
-    if(team!==undefined && t.team===team) continue;   // 自爆不炸友方
-    const dx=t.pos.x-x, dz=t.pos.z-z;
-    const d = Math.hypot(dx, t.pos.y+1-y, dz);
-    if(d < r){
-      damageMob(t, Math.round(33*ratio*(owner?owner.dmgMult:1)*(1-d/r*0.75)), dx, dz, 2.0, owner);
-      t.staggerT = Math.max(t.staggerT, 0.5);         // 爆炸冲击:短暂硬直
-    }
-  }
+  aoeDamage(x, y, z, r, {team, owner,
+    dmg: 33*ratio*(owner?owner.dmgMult:1), fallOff:0.75, kpow:2.0, stagger:0.5, use3D:true});
 }
 
 /* ---------- 升级系统逻辑 ---------- */
@@ -320,8 +343,7 @@ function levelUp(m){
   m.maxHp = Math.round(m.baseMaxHp*tm.hp);
   m.hp = Math.min(m.maxHp, m.hp + Math.round(m.maxHp*0.2));   // 升级回复20%最大生命
   m.dmgMult = tm.dmg;
-  m.invulnT = 0.5;                                    // 金身免死
-  m.lastLabelHp = -1;                              // 名牌重绘交怪物库下一帧节流重画(星级+血条)
+  m.invulnT = 0.5;                                    // 金身免死(名牌随 hp 变化由怪物库节流重绘)
   applyTierVisual(m);
   levelUpFx(m);
   showToast((m.team==='A'?'红方 ':'蓝方 ')+TIER_NAME[m.level]+m.cfg.name+' 晋升！', 2000);
@@ -330,7 +352,7 @@ function levelUp(m){
    挂件是独立普通 mesh(稀有物), 怪物库 render 每帧对齐实例位姿 */
 function applyTierVisual(m){
   m.tierScale = m.level===2 ? 1.3 : (m.level===3 ? 1.6 : 1);   // 体型明显变大(体积≈2.2×/4×)
-  m.drawScale = m.tierScale;                        // 原 group.scale → 位姿数值(怪物库 render 组矩阵)
+  Mobs.scaleTo(m, m.tierScale);                     // 原 group.scale → 位姿数值(怪物库 render 组矩阵)
   if(m.tierNode){
     scene.remove(m.tierNode);
     m.tierGeos.forEach(g=>g.dispose());     // 光环圆面是专属几何; 挂件盒子走共享缓存不 dispose
@@ -340,8 +362,7 @@ function applyTierVisual(m){
   }
   m.tierNode = null;
   if(m.level < 2) return;
-  const ls = m.level===3 ? 1.5 : 1.25;               // 升级后名牌放大
-  m.label.scale.set(2.6*ls, 0.65*ls, 1);
+  m.labelScale = m.level===3 ? 1.5 : 1.25;          // 升级后名牌放大(怪物库 update 每帧套用)
   const fx = new THREE.Group();
   const mat = col => { const mt = new THREE.MeshBasicMaterial({color:col}); m.tierMats.push(mt); return mt; };
   const add = (w,h,d,x,y,z,col)=>{ const b=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat(col)); b.position.set(x,y,z); fx.add(b); };   // 挂件稀有, 不走共享缓存
@@ -460,87 +481,342 @@ function fusingCreeperNear(m){
   return null;
 }
 
-function updateMobs(dt){
-  updateTongues(dt);
+/* ---------- 战斗 AI: 按职责拆分, updateMobs 只留编排(与旧版逐字等价的机械抽取) ---------- */
+
+/* 每帧收集: 正在读条的苦力怕(逃跑AI用,避免O(n²)) */
+function collectFusing(){
   fusingCreeps.length = 0;
   for(const t of mobs)
     if(t.type==='creeper' && t.fuse>=0 && !t.dead && !t.gone) fusingCreeps.push(t);
+}
+
+/* 冷却/计时器递减 + 阶级光环呼吸 */
+function tickTimers(m, dt){
+  if(m.attackCd  > 0) m.attackCd  -= dt;
+  if(m.attackT   > 0) m.attackT   -= dt;
+  if(m.slamCd    > 0) m.slamCd    -= dt;
+  if(m.pounceCd  > 0) m.pounceCd  -= dt;
+  if(m.rageBuffT > 0) m.rageBuffT -= dt;
+  if(m.invulnT   > 0) m.invulnT   -= dt;
+  if(m.rockCd    > 0) m.rockCd    -= dt;
+  if(m.tierNode && m.tierNode.userData.aura){
+    const as = 1 + Math.sin(performance.now()*0.004 + m.id)*0.12;
+    m.tierNode.userData.aura.scale.set(as, as, as);
+  }
+}
+
+/* 僵尸狂暴: 血量触发(精英70%/基础50%), 自身加速+攻速, 附近同伴群体冲锋; 王者附冲击波 */
+function tryZombieRage(m, gp){
+  if(m.type!=='zombie' || m.raged || m.hp >= m.maxHp*(m.level>=2?0.7:0.5)) return;
+  m.raged = true;
+  m.tintBase = [1.4, 0.5, 0.5];                     // 狂暴红晕(持久色, 怪物库着色)
+  sfx('roar');
+  const rr = m.level>=2 ? 9 : 6;
+  for(const t of mobs){
+    if(t!==m && t.type==='zombie' && !t.dead && !t.gone
+       && Math.hypot(t.pos.x-gp.x, t.pos.z-gp.z) < rr) t.rageBuffT = m.level>=3?5:4;
+  }
+  if(m.level>=3){                                   // 王者·狂暴冲击波
+    Fx.pop(gp.x, gp.y+1, gp.z, {color:0xff6a4a, r0:0.5, r1:5, dur:0.4, opacity:0.8});
+    aoeDamage(gp.x, gp.y, gp.z, 5, {skip:m, team:m.team, owner:m,
+      dmg:10*m.dmgMult, fallOff:0.5, kpow:1.2, stagger:0.8, dyGate:4});
+  }
+}
+
+/* 索敌: 距离 × 战术权重 — 个体偏好 + 目标粘性 + 收割残血 + 克制关系 + 可达性 */
+function retarget(m, gp, dt){
+  m.retargetT -= dt;
+  if(!m.target || m.target.dead || m.target.gone || m.retargetT <= 0){
+    m.retargetT = 0.5 + Math.random()*0.4;
+    let best=null, bd=1e9;
+    for(const t of mobs){
+      if(t===m || t.dead || t.gone || t.team===m.team) continue;
+      let w = 0.75 + hashRand(m.id*97 + t.id*13, t.id*29 + m.id*7)*0.5;
+      if(t === m.target) w *= 0.75;                         // 目标粘性:不频繁切换
+      if(t.hp < t.maxHp*0.3) w *= 0.55;                     // 优先收割残血
+      if(COUNTER[m.type] === t.type) w *= 0.65;             // 优先进攻克制对象
+      else if(COUNTER[t.type] === m.type) w *= 1.5;         // 回避克制自己的对手
+      if(t.cfg.fly && !m.cfg.fly && !m.cfg.ranged) w *= 4;  // 地面近战摸不到飞行
+      if(m.cfg.fly && !t.cfg.fly){
+        if(!t.cfg.ranged) w *= 0.6;                         // 龙:优先收割无法还手的近战
+        else w *= 1.3;                                      // 龙:优先清除远程威胁
+      }
+      const d = ((t.pos.x-gp.x)*(t.pos.x-gp.x) + (t.pos.z-gp.z)*(t.pos.z-gp.z)) * w;
+      if(d<bd){ bd=d; best=t; }
+    }
+    m.target = best;
+  }
+}
+
+/* AI:逃离正在读条的敌方苦力怕(远程单位边退边射它) */
+function fleeCreeper(m, dt, gp, fleeC){
+  const fa = Math.atan2(gp.x-fleeC.pos.x, gp.z-fleeC.pos.z);
+  const fs = mobSpeed(m)*1.05;
+  stepMove(m, Math.sin(fa)*fs*dt, 0);
+  stepMove(m, 0, Math.cos(fa)*fs*dt);
+  if(m.cfg.ranged && m.attackCd <= 0
+     && Math.hypot(fleeC.pos.x-gp.x, fleeC.pos.z-gp.z) <= 9){
+    m.attackCd = m.cfg.cd; m.attackT = 0.35;
+    rangedVolley(m, fleeC);
+  }
+  return fs;
+}
+
+/* 跃起砸地/扑袭: 抛物线飞行, 落地触发重击 */
+function moveAir(m, dt, gp){
+  m.vy -= 24*dt;
+  gp.y += m.vy*dt;
+  stepMove(m, m.jumpVX*dt, 0);
+  stepMove(m, 0, m.jumpVZ*dt);
+  const gy = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
+  if(m.vy < 0 && gp.y <= gy){
+    gp.y = gy; m.air = false; m.vy = 0;
+    if(m.slamming) golemSlam(m);
+  }
+  return 0;
+}
+
+/* 飞行单位: 空中狗斗(3D追击撕咬) / 对地盘旋(炮台远环·掠食者贴地近环), 出手按旗标 */
+function moveFly(m, dt, gp, tg, dist){
+  const dx = tg.pos.x-gp.x, dz = tg.pos.z-gp.z;
+  if(tg.cfg.fly){
+    const d3 = Math.hypot(dx, dz, tg.pos.y-gp.y);
+    const spd = mobSpeed(m);
+    gp.x += Math.sin(m.yaw)*spd*dt;
+    gp.z += Math.cos(m.yaw)*spd*dt;
+    gp.y += Math.max(-6, Math.min(6, tg.pos.y-gp.y))*dt*1.2;
+    if(d3 < 4.5 && m.attackCd <= 0){
+      m.attackCd = 1.6; m.attackT = 0.5;
+      damageMob(tg, Math.round(12*m.dmgMult*(0.85+Math.random()*0.3)), dx, dz, 0.8, m);
+      sfx('hit');
+    }
+  } else {
+    m.orbitA += dt*0.8;
+    const orbR = m.cfg.ranged ? 9 : 2.4;                     // 炮台远环 · 掠食者贴脸
+    const px = tg.pos.x + Math.sin(m.orbitA)*orbR;
+    const pz = tg.pos.z + Math.cos(m.orbitA)*orbR;
+    const py = ARENA.floorY + (m.cfg.ranged ? ARENA.flyAlt : 2.2);   // 掠食者低飞掠袭
+    const mx = px-gp.x, mz = pz-gp.z;
+    const ml = Math.hypot(mx,mz);
+    m.yaw = angleLerp(m.yaw, Math.atan2(mx,mz), dt*2.5);
+    if(ml > 0.05){
+      const spd = mobSpeed(m);
+      gp.x += mx/ml*spd*dt;
+      gp.z += mz/ml*spd*dt;
+    }
+    gp.y += (py-gp.y)*Math.min(1, dt*1.5);
+    if(m.attackCd <= 0 && dist < m.cfg.range){
+      if(m.type==='dragon'){                                  // 末影龙:龙息毒云
+        m.attackCd = (m.level>=2?3.5:4.5) + Math.random()*2;   // 精英:龙息更频繁
+        m.attackT = 0.6;
+        spawnBreath(m, tg);
+      } else if(m.cfg.ranged){                                // 飞行炮台:爆裂火球
+        m.attackCd = m.cfg.cd + Math.random()*1.2;
+        m.attackT = 0.5;
+        throwFireball(m, tg);
+      } else {                                                // 掠食者(幻翼/恼鬼):俯冲撕咬
+        m.attackCd = m.cfg.cd;
+        m.attackT = 0.4;
+        damageMob(tg, Math.round(m.cfg.dmg*m.dmgMult*(0.85+Math.random()*0.3)),
+                  tg.pos.x-gp.x, tg.pos.z-gp.z, 0.6, m);
+        sfx('hit');
+      }
+    }
+  }
+  clampToArena(m, FLY_ORBIT_R);
+  return 0;
+}
+
+/* 自爆怪: 读条取消判断 + 扑袭跃进 + 吐舌平A */
+function moveBoom(m, dt, gp, tg, dist, dx, dz){
+  let speed = 0;
+  if(m.fuse >= 0 && m.fuse < 0.35 && dist > m.cfg.range*2.2 && !tg.cfg.fly){
+    m.fuse = -1;                               // AI:目标跑了及时取消读条,不浪费
+    Mobs.scaleTo(m, m.tierScale);
+  }
+  if(dist < m.cfg.range){
+    if(m.fuse < 0) m.fuse = 0;
+    // 平A: 吐舌头舔击(引爆读条期间也能舔)
+    if(m.attackCd <= 0 && !tg.dead && Math.abs(tg.pos.y-gp.y) < 2.5){
+      m.attackCd = 1.0; m.attackT = 0.4;
+      damageMob(tg, Math.round(6*m.dmgMult*(0.85+Math.random()*0.3)),
+                tg.pos.x-gp.x, tg.pos.z-gp.z, 0.3, m);
+      spawnTongue(m, tg);
+      sfx('hit');
+    }
+  } else if(m.fuse < 0){
+    if(!m.air && m.pounceCd <= 0 && dist > 3 && dist < 11){
+      // 扑袭:向目标跃进扑脸再引爆
+      m.pounceCd = 5.5 + Math.random()*3;
+      m.air = true; m.vy = 7.2;
+      const hl = Math.hypot(dx,dz) || 1;
+      const hv = Math.min(10, dist*1.3);
+      m.jumpVX = dx/hl*hv; m.jumpVZ = dz/hl*hv;
+    } else {
+      speed = mobSpeed(m);
+    }
+  }
+  return speed;
+}
+
+/* 远程怪: 压上/拉开/横向走位 + 强力箭齐射 */
+function moveRanged(m, dt, tg, dist){
+  let speed = 0;
+  const shootDist = Math.min(m.cfg.range, 9);    // 有效射程:超过就压上,避免远距离干瞪眼
+  if(dist > shootDist){
+    speed = mobSpeed(m);
+  } else if(dist < 4.5){
+    speed = -mobSpeed(m)*0.65;
+  } else {
+    m.strafeT -= dt;                             // 保持距离时横向走位
+    if(m.strafeT <= 0){
+      m.strafeT = 1.2 + Math.random()*1.6;
+      m.strafeDir = Math.random()<0.5 ? -1 : 1;
+    }
+    stepMove(m,  Math.cos(m.yaw)*m.strafeDir*0.9*dt, 0);
+    stepMove(m, 0, -Math.sin(m.yaw)*m.strafeDir*0.9*dt);
+  }
+  if(dist <= shootDist && m.attackCd <= 0){
+    m.attackCd = m.cfg.cd; m.attackT = 0.35;
+    rangedVolley(m, tg);
+  }
+  return speed;
+}
+
+/* 近战怪: 压上 + 铁傀儡技能(王者巨石投掷/跃起震地) + 挥击 */
+function moveMelee(m, dt, gp, tg, dist, dx, dz){
+  let speed = 0;
+  if(dist > m.cfg.range*0.85) speed = mobSpeed(m);
+  if(m.type==='golem' && m.level>=3 && m.rockCd<=0 && dist>4.5 && dist<14){
+    // 王者·巨石投掷
+    m.rockCd = 4 + Math.random()*2;
+    m.attackT = 0.6;
+    throwRock(m, tg);
+  }
+  if(m.type==='golem' && m.slamCd <= 0 && dist > 2.2 && dist < 6.5){
+    // 跃起砸地
+    m.slamCd = (m.level>=2?4.5:6) + Math.random()*(m.level>=2?3:4);
+    m.slamming = true; m.air = true; m.vy = 8;
+    const hl = Math.hypot(dx,dz) || 1;
+    const hv = Math.min(10, hl/0.66);
+    m.jumpVX = dx/hl*hv; m.jumpVZ = dz/hl*hv;
+    m.attackT = 1.0;
+    speed = 0;
+  }
+  if(!m.air && dist <= m.cfg.range && Math.abs(tg.pos.y-gp.y) < 3 && m.attackCd <= 0){
+    m.attackCd = m.cfg.cd * (m.raged ? 0.55 : 1); m.attackT = 0.45;   // 狂暴攻速
+    damageMob(tg, Math.round(m.cfg.dmg*m.dmgMult*(0.85+Math.random()*0.3)),
+              tg.pos.x-gp.x, tg.pos.z-gp.z, 0.45, m);
+    sfx('hit');
+  }
+  return speed;
+}
+
+/* 引信读条: 膨胀 + 白闪 + 起爆(返回 true=已爆, 编排层跳过本怪后续) */
+function updateFuse(m, dt, gp){
+  if(m.fuse < 0) return false;
+  m.fuse += dt;
+  const ft = m.level>=2 ? 0.9 : 1.1;           // 精英:引信更短
+  const p = Math.min(1, m.fuse/ft);
+  Mobs.scaleTo(m, m.tierScale*(1+p*0.3));     // 引信膨胀(原 group.scale)
+  const v = Math.sin(m.fuse*25) > 0 ? 1.9 : 1;
+  Mobs.pulseTint(m, v, v, v);                 // 引信白闪(instanceColor 增亮)
+  if(m.fuse >= ft){
+    m.gone = true;
+    explode(gp.x, gp.y+0.8, gp.z, m.team, m);
+    if(m.level>=3)                            // 王者·连环爆破(0.5秒后二段)
+      pendingBooms.push({t:0.5, x:gp.x, y:gp.y+0.8, z:gp.z, team:m.team, owner:m});
+    checkBattleEnd();
+    return true;
+  }
+  return false;
+}
+
+/* 无目标游荡: 飞行绕场地中心巡航 / 地面随机换向(返回步态速度) */
+function wanderTick(m, dt, gp){
+  if(m.fuse >= 0){
+    m.fuse = -1; Mobs.scaleTo(m, m.tierScale);
+  }
+  if(m.cfg.fly){
+    m.orbitA += dt*0.5;
+    const px = ARENA.cx + Math.sin(m.orbitA)*14;
+    const pz = ARENA.cz + Math.cos(m.orbitA)*14;
+    const mx = px-gp.x, mz = pz-gp.z, ml = Math.hypot(mx,mz);
+    m.yaw = angleLerp(m.yaw, Math.atan2(mx,mz), dt*2);
+    if(ml > 0.05){
+      gp.x += mx/ml*m.cfg.speed*0.7*dt;
+      gp.z += mz/ml*m.cfg.speed*0.7*dt;
+    }
+    gp.y += (ARENA.floorY+ARENA.flyAlt-gp.y)*Math.min(1, dt);
+    return 0;
+  }
+  m.wanderT -= dt;
+  if(m.wanderT <= 0){
+    m.wanderT = 2 + Math.random()*3;
+    m.yaw += (Math.random()-0.5)*2;
+  }
+  const speed = 1.1;
+  stepMove(m, Math.sin(m.yaw)*speed*dt, 0);
+  stepMove(m, 0, Math.cos(m.yaw)*speed*dt);
+  const ty = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
+  gp.y += (ty-gp.y)*Math.min(1, dt*10);
+  return speed;
+}
+
+/* 大规模兵团:空间网格加速挤开检测(代替 O(n²) 两两枚举);
+   整数键 gx*512+gz 免每帧字符串拼接(世界 128×128 内无碰撞) */
+function separateMobs(dt){
+  sepGrid.clear();
+  const live = [];
+  for(const m of mobs){
+    if(m.dead || m.gone) continue;
+    live.push(m);
+    const k = Math.floor(m.pos.x)*512 + Math.floor(m.pos.z);
+    let arr = sepGrid.get(k);
+    if(!arr){ arr = []; sepGrid.set(k, arr); }
+    arr.push(m);
+  }
+  const minSep = 0.85;
+  for(const a of live){
+    const gx = Math.floor(a.pos.x), gz = Math.floor(a.pos.z);
+    for(let ox=-1;ox<=1;ox++){
+      for(let oz=-1;oz<=1;oz++){
+        const arr = sepGrid.get((gx+ox)*512 + (gz+oz));
+        if(!arr) continue;
+        for(const b of arr){
+          if(b.id <= a.id) continue;                   // 每对只处理一次
+          if(Math.abs(b.pos.y-a.pos.y) > 2.5) continue; // 空中/地面不互相挤开
+          const dx = b.pos.x-a.pos.x, dz = b.pos.z-a.pos.z;
+          const d = Math.hypot(dx,dz);
+          if(d > 0.001 && d < minSep){
+            const push = (minSep-d)*0.5;
+            const ux = dx/d, uz = dz/d;
+            stepMove(a, -ux*push, 0); stepMove(a, 0, -uz*push);
+            stepMove(b,  ux*push, 0); stepMove(b, 0,  uz*push);
+          }
+        }
+      }
+    }
+  }
+}
+
+function updateMobs(dt){
+  updateTongues(dt);
+  collectFusing();
   for(const m of mobs){
     if(m.gone || m.dead) continue;             // 名牌/计时/死亡动画/尸体回收归怪物库 Mobs.update
     const gp = m.pos;
     const prevX = gp.x, prevZ = gp.z;
 
-    if(m.attackCd  > 0) m.attackCd  -= dt;
-    if(m.attackT   > 0) m.attackT   -= dt;
-    if(m.slamCd    > 0) m.slamCd    -= dt;
-    if(m.pounceCd  > 0) m.pounceCd  -= dt;
-    if(m.rageBuffT > 0) m.rageBuffT -= dt;
-    if(m.invulnT   > 0) m.invulnT   -= dt;
-    if(m.rockCd    > 0) m.rockCd    -= dt;
-    if(m.tierNode && m.tierNode.userData.aura){      // 阶级光环呼吸
-      const as = 1 + Math.sin(performance.now()*0.004 + m.id)*0.12;
-      m.tierNode.userData.aura.scale.set(as, as, as);
-    }
-    // 僵尸狂暴:血量触发(精英70%/基础50%),自身加速+攻速,附近同伴群体冲锋
-    if(m.type==='zombie' && !m.raged && m.hp < m.maxHp*(m.level>=2?0.7:0.5)){
-      m.raged = true;
-      m.tintBase = [1.4, 0.5, 0.5];                 // 狂暴红晕(持久色, 怪物库着色)
-      sfx('roar');
-      const rr = m.level>=2 ? 9 : 6;
-      for(const t of mobs){
-        if(t!==m && t.type==='zombie' && !t.dead && !t.gone
-           && Math.hypot(t.pos.x-gp.x, t.pos.z-gp.z) < rr) t.rageBuffT = m.level>=3?5:4;
-      }
-      if(m.level>=3){                                // 王者·狂暴冲击波
-        Fx.pop(gp.x, gp.y+1, gp.z, {color:0xff6a4a, r0:0.5, r1:5, dur:0.4, opacity:0.8});
-        for(const t of mobs){
-          if(t===m || t.dead || t.gone || t.team===m.team) continue;
-          const dx=t.pos.x-gp.x, dz=t.pos.z-gp.z, d=Math.hypot(dx,dz);
-          if(d < 5 && Math.abs(t.pos.y-gp.y) < 4){
-            damageMob(t, Math.round(10*m.dmgMult*(1-d/5*0.5)), dx, dz, 1.2, m);
-            t.staggerT = Math.max(t.staggerT, 0.8);
-          }
-        }
-      }
-    }
-
-    m.retargetT -= dt;
-    if(!m.target || m.target.dead || m.target.gone || m.retargetT <= 0){
-      m.retargetT = 0.5 + Math.random()*0.4;
-      let best=null, bd=1e9;
-      for(const t of mobs){
-        if(t===m || t.dead || t.gone || t.team===m.team) continue;
-        // 距离 × 战术权重:个体偏好 + 目标粘性 + 收割残血 + 克制关系 + 可达性
-        let w = 0.75 + hashRand(m.id*97 + t.id*13, t.id*29 + m.id*7)*0.5;
-        if(t === m.target) w *= 0.75;                         // 目标粘性:不频繁切换
-        if(t.hp < t.maxHp*0.3) w *= 0.55;                     // 优先收割残血
-        if(COUNTER[m.type] === t.type) w *= 0.65;             // 优先进攻克制对象
-        else if(COUNTER[t.type] === m.type) w *= 1.5;         // 回避克制自己的对手
-        if(t.cfg.fly && !m.cfg.fly && !m.cfg.ranged) w *= 4;  // 地面近战摸不到飞行
-        if(m.cfg.fly && !t.cfg.fly){
-          if(!t.cfg.ranged) w *= 0.6;                         // 龙:优先收割无法还手的近战
-          else w *= 1.3;                                      // 龙:优先清除远程威胁
-        }
-        const d = ((t.pos.x-gp.x)*(t.pos.x-gp.x) + (t.pos.z-gp.z)*(t.pos.z-gp.z)) * w;
-        if(d<bd){ bd=d; best=t; }
-      }
-      m.target = best;
-    }
+    tickTimers(m, dt);
+    tryZombieRage(m, gp);
+    retarget(m, gp, dt);
 
     let speed = 0;
     const tg = m.target;
 
     if(m.air){
-      // 跃起砸地:抛物线飞行,落地触发重击
-      m.vy -= 24*dt;
-      gp.y += m.vy*dt;
-      stepMove(m, m.jumpVX*dt, 0);
-      stepMove(m, 0, m.jumpVZ*dt);
-      const gy = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
-      if(m.vy < 0 && gp.y <= gy){
-        gp.y = gy; m.air = false; m.vy = 0;
-        if(m.slamming) golemSlam(m);
-      }
+      speed = moveAir(m, dt, gp);
     } else if(m.staggerT <= 0 && tg){
       const dx = tg.pos.x-gp.x, dz = tg.pos.z-gp.z;
       const dist = Math.hypot(dx,dz);
@@ -548,165 +824,18 @@ function updateMobs(dt){
 
       const fleeC = m.cfg.fly ? null : fusingCreeperNear(m);
       if(fleeC){
-        // AI:逃离正在读条的敌方苦力怕(远程单位边退边射它)
-        const fa = Math.atan2(gp.x-fleeC.pos.x, gp.z-fleeC.pos.z);
-        const fs = mobSpeed(m)*1.05;
-        stepMove(m, Math.sin(fa)*fs*dt, 0);
-        stepMove(m, 0, Math.cos(fa)*fs*dt);
-        speed = fs;
-        if(m.cfg.ranged && m.attackCd <= 0
-           && Math.hypot(fleeC.pos.x-gp.x, fleeC.pos.z-gp.z) <= 9){
-          m.attackCd = m.cfg.cd; m.attackT = 0.35;
-          m.shotCnt++;
-          const pw = m.shotCnt % (m.level>=2?2:3) === 0;
-          shootArrow(m, fleeC, pw);
-          if(pw && m.level>=3){ shootArrow(m, fleeC, true, 0.16); shootArrow(m, fleeC, true, -0.16); }
-        }
+        speed = fleeCreeper(m, dt, gp, fleeC);
       } else if(m.cfg.fly){
-        if(tg.cfg.fly){
-          // 空中狗斗:3D 追击 + 撕咬
-          const d3 = Math.hypot(dx, dz, tg.pos.y-gp.y);
-          const spd = mobSpeed(m);
-          gp.x += Math.sin(m.yaw)*spd*dt;
-          gp.z += Math.cos(m.yaw)*spd*dt;
-          gp.y += Math.max(-6, Math.min(6, tg.pos.y-gp.y))*dt*1.2;
-          if(d3 < 4.5 && m.attackCd <= 0){
-            m.attackCd = 1.6; m.attackT = 0.5;
-            damageMob(tg, Math.round(12*m.dmgMult*(0.85+Math.random()*0.3)), dx, dz, 0.8, m);
-            sfx('hit');
-          }
-        } else {
-          // 对地:炮台远环盘旋放风筝 / 掠食者贴地近环, 按类型出手
-          m.orbitA += dt*0.8;
-          const orbR = m.cfg.ranged ? 9 : 2.4;                     // 炮台远环 · 掠食者贴脸
-          const px = tg.pos.x + Math.sin(m.orbitA)*orbR;
-          const pz = tg.pos.z + Math.cos(m.orbitA)*orbR;
-          const py = ARENA.floorY + (m.cfg.ranged ? ARENA.flyAlt : 2.2);   // 掠食者低飞掠袭
-          const mx = px-gp.x, mz = pz-gp.z;
-          const ml = Math.hypot(mx,mz);
-          m.yaw = angleLerp(m.yaw, Math.atan2(mx,mz), dt*2.5);
-          if(ml > 0.05){
-            const spd = mobSpeed(m);
-            gp.x += mx/ml*spd*dt;
-            gp.z += mz/ml*spd*dt;
-          }
-          gp.y += (py-gp.y)*Math.min(1, dt*1.5);
-          if(m.attackCd <= 0 && dist < m.cfg.range){
-            if(m.type==='dragon'){                                  // 末影龙:龙息毒云
-              m.attackCd = (m.level>=2?3.5:4.5) + Math.random()*2;   // 精英:龙息更频繁
-              m.attackT = 0.6;
-              spawnBreath(m, tg);
-            } else if(m.cfg.ranged){                                // 飞行炮台:爆裂火球
-              m.attackCd = m.cfg.cd + Math.random()*1.2;
-              m.attackT = 0.5;
-              throwFireball(m, tg);
-            } else {                                                // 掠食者(幻翼/恼鬼):俯冲撕咬
-              m.attackCd = m.cfg.cd;
-              m.attackT = 0.4;
-              damageMob(tg, Math.round(m.cfg.dmg*m.dmgMult*(0.85+Math.random()*0.3)),
-                        tg.pos.x-gp.x, tg.pos.z-gp.z, 0.6, m);
-              sfx('hit');
-            }
-          }
-        }
-        const cdx = gp.x-ARENA.cx, cdz = gp.z-ARENA.cz;
-        const cd = Math.hypot(cdx,cdz);
-        if(cd > ARENA.rIn-2.5){ const k=(ARENA.rIn-2.5)/cd; gp.x=ARENA.cx+cdx*k; gp.z=ARENA.cz+cdz*k; }
+        speed = moveFly(m, dt, gp, tg, dist);
       } else if(m.cfg.boom){
-        if(m.fuse >= 0 && m.fuse < 0.35 && dist > m.cfg.range*2.2 && !tg.cfg.fly){
-          m.fuse = -1;                               // AI:目标跑了及时取消读条,不浪费
-          m.drawScale = m.tierScale;
-        }
-        if(dist < m.cfg.range){
-          if(m.fuse < 0) m.fuse = 0;
-          // 平A: 吐舌头舔击(引爆读条期间也能舔)
-          if(m.attackCd <= 0 && !tg.dead && Math.abs(tg.pos.y-gp.y) < 2.5){
-            m.attackCd = 1.0; m.attackT = 0.4;
-            damageMob(tg, Math.round(6*m.dmgMult*(0.85+Math.random()*0.3)),
-                      tg.pos.x-gp.x, tg.pos.z-gp.z, 0.3, m);
-            spawnTongue(m, tg);
-            sfx('hit');
-          }
-        } else if(m.fuse < 0){
-          if(!m.air && m.pounceCd <= 0 && dist > 3 && dist < 11){
-            // 扑袭:向目标跃进扑脸再引爆
-            m.pounceCd = 5.5 + Math.random()*3;
-            m.air = true; m.vy = 7.2;
-            const hl = Math.hypot(dx,dz) || 1;
-            const hv = Math.min(10, dist*1.3);
-            m.jumpVX = dx/hl*hv; m.jumpVZ = dz/hl*hv;
-          } else {
-            speed = mobSpeed(m);
-          }
-        }
+        speed = moveBoom(m, dt, gp, tg, dist, dx, dz);
       } else if(m.cfg.ranged){
-        const shootDist = Math.min(m.cfg.range, 9);    // 有效射程:超过就压上,避免远距离干瞪眼
-        if(dist > shootDist){
-          speed = mobSpeed(m);
-        } else if(dist < 4.5){
-          speed = -mobSpeed(m)*0.65;
-        } else {
-          m.strafeT -= dt;                             // 保持距离时横向走位
-          if(m.strafeT <= 0){
-            m.strafeT = 1.2 + Math.random()*1.6;
-            m.strafeDir = Math.random()<0.5 ? -1 : 1;
-          }
-          stepMove(m,  Math.cos(m.yaw)*m.strafeDir*0.9*dt, 0);
-          stepMove(m, 0, -Math.sin(m.yaw)*m.strafeDir*0.9*dt);
-        }
-        if(dist <= shootDist && m.attackCd <= 0){
-          m.attackCd = m.cfg.cd; m.attackT = 0.35;
-          m.shotCnt++;
-          const pw = m.shotCnt % (m.level>=2?2:3) === 0;   // 精英:每第2箭强力
-          shootArrow(m, tg, pw);
-          if(pw && m.level>=3){                             // 王者·箭雨三连
-            shootArrow(m, tg, true, 0.16);
-            shootArrow(m, tg, true, -0.16);
-          }
-        }
+        speed = moveRanged(m, dt, tg, dist);
       } else {
-        if(dist > m.cfg.range*0.85) speed = mobSpeed(m);
-        if(m.type==='golem' && m.level>=3 && m.rockCd<=0 && dist>4.5 && dist<14){
-          // 王者·巨石投掷
-          m.rockCd = 4 + Math.random()*2;
-          m.attackT = 0.6;
-          throwRock(m, tg);
-        }
-        if(m.type==='golem' && m.slamCd <= 0 && dist > 2.2 && dist < 6.5){
-          // 跃起砸地
-          m.slamCd = (m.level>=2?4.5:6) + Math.random()*(m.level>=2?3:4);
-          m.slamming = true; m.air = true; m.vy = 8;
-          const hl = Math.hypot(dx,dz) || 1;
-          const hv = Math.min(10, hl/0.66);
-          m.jumpVX = dx/hl*hv; m.jumpVZ = dz/hl*hv;
-          m.attackT = 1.0;
-          speed = 0;
-        }
-        if(!m.air && dist <= m.cfg.range && Math.abs(tg.pos.y-gp.y) < 3 && m.attackCd <= 0){
-          m.attackCd = m.cfg.cd * (m.raged ? 0.55 : 1); m.attackT = 0.45;   // 狂暴攻速
-          damageMob(tg, Math.round(m.cfg.dmg*m.dmgMult*(0.85+Math.random()*0.3)),
-                    tg.pos.x-gp.x, tg.pos.z-gp.z, 0.45, m);
-          sfx('hit');
-        }
+        speed = moveMelee(m, dt, gp, tg, dist, dx, dz);
       }
 
-      if(m.fuse >= 0){
-        m.fuse += dt;
-        const ft = m.level>=2 ? 0.9 : 1.1;           // 精英:引信更短
-        const p = Math.min(1, m.fuse/ft);
-        const sp = m.tierScale*(1+p*0.3);
-        m.drawScale = sp;                            // 引信膨胀(原 group.scale)
-        const blink = Math.sin(m.fuse*25) > 0;
-        m.tr = m.tg = m.tb = blink ? 1.9 : 1;        // 引信白闪(instanceColor 增亮)
-        if(m.fuse >= ft){
-          m.gone = true;
-          explode(gp.x, gp.y+0.8, gp.z, m.team, m);
-          if(m.level>=3)                             // 王者·连环爆破(0.5秒后二段)
-            pendingBooms.push({t:0.5, x:gp.x, y:gp.y+0.8, z:gp.z, team:m.team, owner:m});
-          checkBattleEnd();
-          continue;
-        }
-      }
+      if(updateFuse(m, dt, gp)) continue;
 
       if(speed !== 0){
         // 侧向包抄角:远处直线逼近,近处按各自 flank 展开形成包围
@@ -719,53 +848,17 @@ function updateMobs(dt){
         gp.y += (ty-gp.y)*Math.min(1, dt*10);
       }
     } else if(m.staggerT <= 0){
-      if(m.fuse >= 0){
-        m.fuse = -1; m.drawScale = m.tierScale;
-      }
-      if(m.cfg.fly){
-        // 无目标:绕场地中心巡航
-        m.orbitA += dt*0.5;
-        const px = ARENA.cx + Math.sin(m.orbitA)*14;
-        const pz = ARENA.cz + Math.cos(m.orbitA)*14;
-        const mx = px-gp.x, mz = pz-gp.z, ml = Math.hypot(mx,mz);
-        m.yaw = angleLerp(m.yaw, Math.atan2(mx,mz), dt*2);
-        if(ml > 0.05){
-          gp.x += mx/ml*m.cfg.speed*0.7*dt;
-          gp.z += mz/ml*m.cfg.speed*0.7*dt;
-        }
-        gp.y += (ARENA.floorY+ARENA.flyAlt-gp.y)*Math.min(1, dt);
-      } else {
-        m.wanderT -= dt;
-        if(m.wanderT <= 0){
-          m.wanderT = 2 + Math.random()*3;
-          m.yaw += (Math.random()-0.5)*2;
-        }
-        speed = 1.1;
-        stepMove(m, Math.sin(m.yaw)*speed*dt, 0);
-        stepMove(m, 0, Math.cos(m.yaw)*speed*dt);
-        const ty = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
-        gp.y += (ty-gp.y)*Math.min(1, dt*10);
-      }
+      speed = wanderTick(m, dt, gp);
     }
     m.speedNow = Math.abs(speed);
 
-    m.walkPhase += m.speedNow*dt*3.4;
-    const sw = Math.sin(m.walkPhase)*0.5*Math.min(1, m.speedNow/2.2);
-    /* 关节角写入数值状态(无 THREE 节点), 怪物库 render 统一组实例矩阵 */
+    /* 步态公共部分(摆腿/扇翅/基础摆臂)归怪物库 gait, 战斗姿态在其上覆盖 */
+    const sw = Mobs.gait(m, dt, m.speedNow);
     const J = m.pose;
-    if(Mobs.hasSlot(m.type,'legL')){ J.legL =  sw; J.legR = -sw; }
-    if(Mobs.hasSlot(m.type,'wingL')){               // 通用飞行扇翅(末影龙/幻翼/恼鬼)
-      m.flyPhase += dt*6;
-      const wf = Math.sin(m.flyPhase)*0.5;
-      J.wingL =  wf + 0.15;
-      J.wingR = -(wf + 0.15);
-    }
     if(m.type==='zombie'){
-      J.armL = -1.45;
       J.armR = m.attackT>0
         ? -1.45 - Math.sin((1-m.attackT/0.45)*Math.PI)*0.9 : -1.45;
     } else if(m.type==='skeleton'){
-      J.armL = -0.15 + sw*0.3;
       J.armR = m.attackT>0 ? -1.3 : -sw*0.5;
     } else if(m.type==='dragon'){
       J.head = m.attackT>0 ? -0.55 : Math.sin(m.flyPhase*0.35)*0.1;
@@ -789,39 +882,7 @@ function updateMobs(dt){
     m.vz = (gp.z - prevZ)/idt;
   }
 
-  // 大规模兵团:空间网格加速挤开检测(代替 O(n²) 两两枚举)
-  sepGrid.clear();
-  const live = [];
-  for(const m of mobs){
-    if(m.dead || m.gone) continue;
-    live.push(m);
-    const k = Math.floor(m.pos.x) + ',' + Math.floor(m.pos.z);
-    let arr = sepGrid.get(k);
-    if(!arr){ arr = []; sepGrid.set(k, arr); }
-    arr.push(m);
-  }
-  const minSep = 0.85;
-  for(const a of live){
-    const gx = Math.floor(a.pos.x), gz = Math.floor(a.pos.z);
-    for(let ox=-1;ox<=1;ox++){
-      for(let oz=-1;oz<=1;oz++){
-        const arr = sepGrid.get((gx+ox)+','+(gz+oz));
-        if(!arr) continue;
-        for(const b of arr){
-          if(b.id <= a.id) continue;                   // 每对只处理一次
-          if(Math.abs(b.pos.y-a.pos.y) > 2.5) continue; // 空中/地面不互相挤开
-          const dx = b.pos.x-a.pos.x, dz = b.pos.z-a.pos.z;
-          const d = Math.hypot(dx,dz);
-          if(d > 0.001 && d < minSep){
-            const push = (minSep-d)*0.5;
-            const ux = dx/d, uz = dz/d;
-            stepMove(a, -ux*push, 0); stepMove(a, 0, -uz*push);
-            stepMove(b,  ux*push, 0); stepMove(b, 0,  uz*push);
-          }
-        }
-      }
-    }
-  }
+  separateMobs(dt);
   // 尸体回收与 gone 清理归怪物库 Mobs.update(每帧先于战斗逻辑执行)
 }
 
@@ -962,11 +1023,13 @@ let autoBalance = true;      // 开启后两队总战力自动一致
 let lastEdited = 'A';        // 最后编辑的一侧，另一侧随之配平
 const MAX_MOBS = 1000;
 
-function teamPower(cfg){ return cfg.count * MOB_TYPES[cfg.type].power; }
+/* 单只战力: 混编按池内平均值(伪类型不落盘到共享表, 见文件头 MIX_AVG_POWER) */
+function unitPower(cfg){ return cfg.type==='mix' ? MIX_AVG_POWER : MOB_TYPES[cfg.type].power; }
+function teamPower(cfg){ return cfg.count * unitPower(cfg); }
 function balanceTeams(){
   const from = lastEdited==='A' ? cfgA : cfgB;
   const to   = lastEdited==='A' ? cfgB : cfgA;
-  const n = Math.round(from.count * MOB_TYPES[from.type].power / MOB_TYPES[to.type].power);
+  const n = Math.round(from.count * unitPower(from) / unitPower(to));
   to.count = Math.min(MAX_MOBS, Math.max(1, n));
 }
 
@@ -1005,12 +1068,21 @@ function deploySpawnQueue(){
   if(spawnCursor >= spawnQueue.length){ spawnQueue.length = 0; spawnCursor = 0; }
 }
 
-function startBattle(){
+/* 清场序列(开战/清场/切模式三处共用): 舌头/怪物/箭矢/部署队列/连环爆破/光柱一把清
+   — 以前三份拷贝, 未来加新特效数组漏改一处就泄漏资源 */
+function resetBattleFx(){
   clearTongues();
   Mobs.clear();                                        // 回收怪物(含名牌/挂件)并冲刷批次
   for(const a of arrows) scene.remove(a.mesh);
   arrows.length = 0;
   spawnQueue.length = 0; spawnCursor = 0;
+  pendingBooms.length = 0;
+  for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
+  beams.length = 0;
+}
+
+function startBattle(){
+  resetBattleFx();
   const qa = queueTeam('A', cfgA), qb = queueTeam('B', cfgB);
   let ia = 0, ib = 0;
   while(ia < qa.length || ib < qb.length){            // 双方交替入队, 分帧入场不抢跑
@@ -1018,9 +1090,6 @@ function startBattle(){
     if(ib < qb.length) spawnQueue.push(qb[ib++]);
   }
   teamInitHp = {A:0, B:0};
-  pendingBooms.length = 0;
-  for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
-  beams.length = 0;
   battleState = 'fighting';
   battleResult = '';
   showToast('对战开始！红方 ' + cfgA.count + '×' + MOB_TYPES[cfgA.type].name + '（战力' + teamPower(cfgA)
@@ -1028,14 +1097,7 @@ function startBattle(){
 }
 
 function clearBattle(){
-  clearTongues();
-  Mobs.clear();                                        // 回收怪物(含名牌/挂件)并冲刷批次
-  for(const a of arrows) scene.remove(a.mesh);
-  arrows.length = 0;
-  spawnQueue.length = 0; spawnCursor = 0;             // 未入场的部署一并取消
-  pendingBooms.length = 0;
-  for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
-  beams.length = 0;
+  resetBattleFx();
   battleState = 'idle';
   battleResult = '';
   showToast('已清场', 1800);
@@ -1096,8 +1158,8 @@ function updatePanel(){
   });
   cntAEl.textContent = cfgA.count;
   cntBEl.textContent = cfgB.count;
-  unitAEl.textContent = MOB_TYPES[cfgA.type].power;
-  unitBEl.textContent = MOB_TYPES[cfgB.type].power;
+  unitAEl.textContent = unitPower(cfgA);
+  unitBEl.textContent = unitPower(cfgB);
   const pA = teamPower(cfgA), pB = teamPower(cfgB);
   powAEl.textContent = pA;
   powBEl.textContent = pB;
@@ -1142,14 +1204,7 @@ const ArenaMode = mkMode({
     updatePanel();
   },
   cleanup(){
-    clearTongues();
-    Mobs.clear();                                     // 回收怪物(含名牌/挂件)并冲刷批次
-    for(const a of arrows) scene.remove(a.mesh);
-    arrows.length = 0;
-    spawnQueue.length = 0; spawnCursor = 0;
-    pendingBooms.length = 0;
-    for(const b of beams){ scene.remove(b.mesh); b.mesh.material.dispose(); }
-    beams.length = 0;
+    resetBattleFx();
     battleState = 'idle';
     battleResult = '';
   },

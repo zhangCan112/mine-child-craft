@@ -202,22 +202,11 @@ function nearestFoe(x, y, z){
   return { x: best.pos.x, y: best.pos.y + (best.cfg.h || 1.9)*0.5, z: best.pos.z };
 }
 
-/* 击杀反馈: 碎块 + 计数(死亡音效怪物库已播, 话术是模式政策) — 逐怪碎块色, 缺省灰 */
-const MOB_DEBRIS = {
-  zombie:0x5e9440, skeleton:0xd8d8d2, creeper:0x4fae4f, golem:0xcdd0d8, dragon:0x3a2055,
-  spider:0x2a2226, cave_spider:0x1a3a4a, silverfish:0x9a9a8a, endermite:0x8a5ab8,
-  slime:0x5ac85a, enderman:0x101018, witch:0x5a3a6a, husk:0xb0a068, drowned:0x4a8a7a,
-  stray:0xd8dee4, bogged:0xb8c0a0, phantom:0x3a5a7a, vex:0x9ab8d8, creaking:0x54402e,
-  zombified_piglin:0xd88a8a, piglin:0xe8a08a, piglin_brute:0xe8a08a,
-  hoglin:0xa86a4a, zoglin:0x7a8a5a, wither_skeleton:0x242424,
-  blaze:0xe8c02a, ghast:0xe8e8e8, magma_cube:0xe8641a,
-  guardian:0x5a8a6a, elder_guardian:0x8a8a9a, shulker:0x8a5a9a,
-  vindicator:0x3a5a3a, evoker:0xd8d8c8, pillager:0x5a5a4a, ravager:0x4a4a52,
-  wither:0x1c1c1c, warden:0x182a3a,
-};
+/* 击杀反馈: 碎块 + 计数(死亡音效怪物库已播, 话术是模式政策) —
+   逐怪碎块色收在怪物库(Mobs.debrisColor, 与竞技场共用), 缺省灰 */
 function onKill(m){
   killCount++;
-  Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 6, { color: MOB_DEBRIS[m.type] || 0x8a8f98, life: 0.6 });
+  Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 6, { color: Mobs.debrisColor(m.type), life: 0.6 });
   showToast('👾 消灭 ' + killCount);
   checkCleared();
 }
@@ -254,9 +243,11 @@ function deployMobs(){
     });
     placed++;
   }
+  /* 报实际部署数: 场地极端拥挤时 while 可能提前放弃, 说 8 只实际 5 只
+     对 6 岁用户是"听到的和看到的不一样" */
   const nm = (Mobs.types[mobCfg.type] || {}).name || '';
-  SpeechKit.speak(mobCfg.count + '只' + nm + '来啦！开炮！');
-  showToast('👾 ' + nm + ' × ' + mobCfg.count);
+  SpeechKit.speak(placed + '只' + nm + '来啦！开炮！');
+  showToast('👾 ' + nm + ' × ' + placed);
 }
 
 /* ---------- 建场: 全图草海为底, 围栏内布设多地形与多类靶 ----------
@@ -335,7 +326,7 @@ function enterField(){
   rebuildAll();                         // 建场收尾: 方块数据 → 区块网格(各模式惯例, 漏了整场不可见)
   Tank.place(TANK_RANGE.tank.x, TANK_RANGE.groundY+1, TANK_RANGE.tank.z,
     { yaw: TANK_RANGE.tank.yaw, model: selModel });
-  spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });
+  ModeKit.spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });
   Tank.onExplode(onBoom);              /* 命中反馈: 炸靶表扬 + 波及怪物 */
   Tank.protect(keepGround);            /* 爆炸保护: 平坦草海永固(丘陵/峡谷/乱石仍可炸) */
   Tank.obstacle(mobSolid);            /* 炮弹障碍: 怪物身体挡炮弹(碰上即炸=直击) */

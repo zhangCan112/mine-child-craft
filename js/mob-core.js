@@ -35,7 +35,7 @@ const MobCore = (() => {
   /* 着色: 受击闪白(随剩余时间插值) > 持久色(狂暴红晕等, 模式写入 m.tintBase) */
   function tintFlash(m){
     if(m.flashT > 0){
-      const f = Math.max(0, m.flashT) / 0.25;
+      const f = m.flashT / 0.25;                        /* 外层已保证 > 0 */
       return [1 + f*0.9, 1 - f*0.9, 1 - f*0.9];
     }
     return m.tintBase;
