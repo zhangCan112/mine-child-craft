@@ -657,8 +657,12 @@ const Mobs = (() => {
   }
 
   /* 步态(引擎/模式共用): 走路摆腿 · 飞行扇翅 · 按骨架表 armStyle 摆臂。
-     返回摆幅 sw — 模式的攻击挥臂等战斗姿态在 gait 写入的 pose 之上覆盖叠加 */
-  function gait(m, dt, sp){
+     返回摆幅 sw — 模式的攻击挥臂等战斗姿态在 gait 写入的 pose 之上覆盖叠加。
+     第 4 参 atkDur(可缺省)= attackT 满时长 → 通用战斗姿态一并收在此:
+     有臂挥臂(僵尸式下劈/弓手举持/通用人形抡臂), 无臂有头则头部前扑 —
+     骨架知识本就住在引擎, 模式不再各自手抄 sin 公式(竞技场曾硬编码
+     /0.45, attackT 超时长时相位为负; 此处钳制到 [0,1]) */
+  function gait(m, dt, sp, atkDur){
     m.walkPhase += sp*dt*3.4;
     const sw = Math.sin(m.walkPhase)*0.5*Math.min(1, sp/2.2);
     const J = m.pose;
@@ -676,6 +680,20 @@ const Mobs = (() => {
       J.armL = -0.15 + sw*0.3; J.armR = -sw*0.5;
     } else if(rig.slots.armL){                    // 通用摆臂(人形怪/守卫者侧刺/凋灵肩头)
       J.armL = sw*0.5; J.armR = -sw*0.5;
+    }
+    if(atkDur){                                   // 战斗姿态叠加(每帧幂等: 攻/不攻都写, 无残留)
+      const s = m.attackT > 0
+        ? Math.sin(Math.max(0, Math.min(1, 1 - m.attackT/atkDur)) * Math.PI) : 0;
+      if(rig.armStyle === 'zombie'){              // 僵尸式: 平举前臂下劈
+        J.armR = m.attackT > 0 ? -1.45 - s*0.9 : -1.45;
+      } else if(rig.armStyle === 'archer'){       // 弓手式: 攻击中持弓臂定住瞄准
+        J.armR = m.attackT > 0 ? -1.3 : -sw*0.5;
+      } else if(rig.slots.armL){                  // 通用: 抡臂挥击(另一臂反向平衡)
+        J.armL = -sw*0.5;
+        J.armR = m.attackT > 0 ? -s*1.9 : sw*0.5;
+      } else if(rig.slots.head){                  // 四足/恶魂式: 头部前扑
+        J.head = m.attackT > 0 ? -0.55 : 0;
+      }
     }
     return sw;
   }

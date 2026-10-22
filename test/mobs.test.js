@@ -34,6 +34,7 @@ globalThis.isSolid = () => false;
 globalThis.MOB_TYPES = {
   zombie: {name:'僵尸',   hp:30, dmg:5, speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
   blaze:  {name:'烈焰人', hp:30, dmg:8, speed:2.3, range:15,  cd:2.4, h:1.8, fly:true, ranged:true, hitR:0.45},
+  hoglin: {name:'疣猪兽', hp:60, dmg:9, speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7},
   mix:    {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2},
 };
 
@@ -131,5 +132,38 @@ test('怪物库: 意图 API — move/shift/setPos/steer/heal/setMaxHp/remove/set
   f.pos.y = 12;                                      /* 模拟被震落到地面 */
   Mobs.settle(f, 1);
   assert.ok(f.pos.y > 12, 'settle: 飞行单位回巡航高度(flyHome=18)');
+  Mobs.clear();
+});
+
+test('怪物库: gait 攻击姿态窗口(第 4 参) — 挥臂(人形)/头前扑(四足) · 相位钳制 · 每帧幂等', () => {
+  Mobs.clear();
+  const z = Mobs.spawn('zombie', 10, 10, {});
+  Mobs.gait(z, 1/60, 2.3);                           /* 不传窗口: 与旧 3 参签名行为一致 */
+  assert.ok(Math.abs(z.pose.armR - (-1.45)) < 1e-9, '僵尸式基础姿态: 双臂前伸平举');
+  z.attackT = 0.45;
+  Mobs.gait(z, 1/60, 0, 0.5);
+  assert.ok(z.pose.armR < -1.45, '僵尸式攻击中: 平举手臂下劈(低于基线)');
+  z.attackT = 0.6;                                   /* attackT 超窗口 → 相位钳制, 不起负摆 */
+  Mobs.gait(z, 1/60, 0, 0.5);
+  assert.ok(Math.abs(z.pose.armR - (-1.45)) < 1e-9, 'attackT 超窗口: 钳制在起手位(修硬编码 /0.45 的相位越界)');
+  z.attackT = 0;
+  Mobs.gait(z, 1/60, 0, 0.5);
+  assert.ok(Math.abs(z.pose.armR - (-1.45)) < 1e-9, 'attackT 归零: 回平举基线(每帧幂等, 无残留姿态)');
+
+  const b = Mobs.spawn('blaze', 14, 14, {});         /* 通用人形分支(有臂槽, 无 armStyle) */
+  b.attackT = 0.25;                                  /* 相位中点 → 挥幅峰值 */
+  Mobs.gait(b, 1/60, 0, 0.5);
+  assert.ok(Math.abs(b.pose.armR - (-1.9)) < 1e-9, '通用人形: 相位中点抡臂到峰值 -1.9');
+  b.attackT = 0;
+  Mobs.gait(b, 1/60, 2, 0.5);
+  assert.ok(Math.abs(b.pose.armR) < 0.25, 'attackT 归零: 回步态摆臂基线');
+
+  const h = Mobs.spawn('hoglin', 12, 12, {});        /* 四足分支(无臂有头) */
+  h.attackT = 0.3;
+  Mobs.gait(h, 1/60, 0, 0.5);
+  assert.strictEqual(h.pose.head, -0.55, '四足攻击中: 头部前扑');
+  h.attackT = 0;
+  Mobs.gait(h, 1/60, 0, 0.5);
+  assert.strictEqual(h.pose.head, 0, 'attackT 归零: 头部回正');
   Mobs.clear();
 });

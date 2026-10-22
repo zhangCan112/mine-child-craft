@@ -82,6 +82,7 @@ globalThis.Mobs = {
   move(m, dx, dz){ m.pos.x += dx; m.pos.z += dz; },
   shift(m, dx, dz){ m.pos.x += dx; m.pos.z += dz; },
   steer(m, yaw){ m.yaw = yaw; },
+  gait(m, dt, sp, atk){ calls.push(['gait', m, sp, atk]); return 0; },
   debrisColor(){ return 0x8a8f98; },
 };
 globalThis.pos = { x: 62.5, y: 25, z: 85.5, set(){} };
@@ -207,6 +208,22 @@ test('下界冒险: 飞行炮台(烈焰人/恶魂)投火球 → 火球命中主�
   })];
   NetheMode.update(DT);                                 /* AI 开火 + 火球飞行一步即命中 */
   assert.ok(hitLog.some(h => h.dmg === 8 && h.m.pos === globalThis.pos), '火球按烈焰人 dmg 命中主人公(受击者=玩家实体)');
+});
+
+test('下界冒险: 每帧给活怪喂步态+战斗姿态窗口 — 此前下界怪连走路都不摆腿', () => {
+  calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0;
+  listResult = [];
+  NetheMode.init();
+  walkIntoPortal();
+  const live = mkMob('piglin', 40, 12, 40, {});
+  const dead = mkMob('hoglin', 41, 12, 41, { dead: true });
+  listResult = [live, dead];
+  calls.length = 0;
+  NetheMode.update(DT);
+  const gs = calls.filter(c => c[0] === 'gait');
+  assert.strictEqual(gs.filter(c => c[1] === live).length, 1, '活怪每帧喂一次步态(与竞技场同一入口)');
+  assert.strictEqual(gs.filter(c => c[1] === dead).length, 0, '死怪不喂');
+  assert.ok(gs.every(c => c[3] === 0.5), '带攻击姿态窗口(attackT 满时长 0.5 → 挥臂/头前扑)');
 });
 
 test('下界冒险: 下界回程传送门 → 切回上界家', () => {

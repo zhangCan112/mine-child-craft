@@ -25,6 +25,7 @@ const NETHER_RETURN_PORTAL = { by: NETHER_GROUND, px: 24, pz: 24 };   // 下界�
 const NETHER = { phase: 'overworld', wave: 0, waveInProgress: false,
                  killCount: 0, swingCd: 0, swingCdMax: 0.38, swingDmg: 10, meleeR: 1.8,
                  player: { hp: 30, maxHp: 30 } };
+const NETHER_ATTACK_T = 0.5;                // 怪物挥击姿态时长(attackT 满时长, 近战/远程统一 — gait 第 4 参)
 let pEnt = null;                          // 下界探险中的"主人公实体"(AI 索敌目标 + 受击/受死共用状态)
 let nArrows = [];                         // 下界怪物投射(烈焰人爆裂火球/恶魂恶魂火球 → 玩家受击)
 
@@ -179,28 +180,32 @@ function netherAI(dt){
     const dist = Math.hypot(dx, dz);
     Mobs.steer(m, Math.atan2(dx, dz));
     const speed = m.cfg.speed || 2;
+    let moved = 0;                          // 本帧实际移动速度(喂步态用)
 
     if(m.cfg.fly){
       if(m.cfg.ranged){
         const want = (m.type === 'blaze') ? 7 : 10;          // 炮台巡航距离(烈焰人绕近, 恶魂拉开)
         const sp = Math.min(speed, 3);
-        if(dist > want){ Mobs.move(m, dx/dist*sp*dt, dz/dist*sp*dt); }
-        else if(dist < want - 1.5){ Mobs.move(m, -dx/dist*sp*dt, -dz/dist*sp*dt); }
+        if(dist > want){ Mobs.move(m, dx/dist*sp*dt, dz/dist*sp*dt); moved = sp; }
+        else if(dist < want - 1.5){ Mobs.move(m, -dx/dist*sp*dt, -dz/dist*sp*dt); moved = sp; }
         if(Math.abs(tg.pos.y - gp.y) < 3 && dist <= want && m.attackCd <= 0){
-          m.attackCd = m.cfg.cd; m.attackT = 0.5;
+          m.attackCd = m.cfg.cd; m.attackT = NETHER_ATTACK_T;
           netherShoot(m, tg);
         }
       }
     } else {
       if(dist > m.cfg.range){                                   // 逼近
-        Mobs.move(m, dx/dist*speed*dt, dz/dist*speed*dt);
+        Mobs.move(m, dx/dist*speed*dt, dz/dist*speed*dt); moved = speed;
       } else if(Math.abs(tg.pos.y - gp.y) < 2.5 && m.attackCd <= 0){   // 近战攻击玩家
-        m.attackCd = m.cfg.cd; m.attackT = 0.45;
+        m.attackCd = m.cfg.cd; m.attackT = NETHER_ATTACK_T;
         const r = Mobs.hit(p, Math.round(m.cfg.dmg*(m.dmgMult||1)), p.pos.x - gp.x, p.pos.z - gp.z, 0.4);
         sfx('hit');
         if(r.freshDead) netherPlayerDied();
       }
     }
+    /* 步态+战斗姿态: 与竞技场同一条怪物库 gait 入口(此前下界只跑 AI 不喂步态 —
+       怪连走路都不摆腿; 第 4 参 = attackT 满时长 → 有臂挥臂/无臂头前扑) */
+    Mobs.gait(m, dt, moved, NETHER_ATTACK_T);
   }
 }
 
