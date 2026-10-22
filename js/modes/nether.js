@@ -4,7 +4,8 @@
    ------------------------------------------------------------
    玩法骨架: 上界(Overworld) ↔ 下界(Nether) 穿越 + 下界打怪物探险
    · 上界: 建造模式精选场景「巨大地下室」作本模式地形(用户约定: 地形暂时就和建造模式
-     里的地下室模式一样), 地表入口处放一座下界传送门(黑曜石框架 4×5, 内口 2×3)。
+     里的地下室模式一样), 地表入口处放一座下界传送门(霸气大门: 黑曜石主框 6×7 内口 4×5 + 塔楼/阶梯门楣/
+      发光岩点缀, 门中紫色光束常驻)。
      主人公(小探险家)出生/待在上界, 有传送门可去下界。
    · 踩进传送门 → phase='nether': 重建下界地形(下界岩 + 熔岩湖)并放回程传送门,
      释放下界怪物 → 开始下界探险(打怪 → 打完一波 → 新一波).
@@ -14,7 +15,7 @@
    · 防沉迷: 与竞技场/TNT/建造/坦克共属儿童时限预算(主菜单卡片 gated), 不新增账本.
    ============================================================ */
 
-const NETHER_PORTAL_W = 4, NETHER_PORTAL_H = 5;   // 下界传送门框架(宽×高): Minecraft 下界传送门最小尺寸 4×5
+const NETHER_PORTAL_W = 6, NETHER_PORTAL_H = 7;   // 下界传送门框架(宽×高): 比 Minecraft 最小门(4×5)放大一圈, 内口 4×5 — 大门才压得住场面
 
 const NETHER_MOBS = [ 'zombified_piglin','piglin','piglin_brute','hoglin','zoglin',
                       'wither_skeleton','blaze','ghast','magma_cube' ];
@@ -77,17 +78,48 @@ function buildNetherWorld(){
 function buildOverworldWorld(){
   if(typeof buildBasementScene === 'function') buildBasementScene();   // 地形暂时就和建造模式里的地下室模式一样
   buildPortalFrame(NETHER_HOME_GROUND, NETHER_HOME_PORTAL.px, NETHER_HOME_PORTAL.pz);
+  anchorPortalBeam(NETHER_HOME_GROUND, NETHER_HOME_PORTAL.px, NETHER_HOME_PORTAL.pz);   // 门中紫色光束
 }
 
-/* ---------- 下界传送门: 黑曜石框架 4×5(宽×高, Minecraft 下界传送门最小尺寸) + 内口 2×3 ----------
-   by 为框架底边(贴地表) · px/pz 为框架位置(x/z) · 内口 = 框架面积 - 边框环(2 宽 × 3 高) */
+/* ---------- 下界传送门: 霸气大门 ----------
+   门核心: 黑曜石环框 W×H(6×7), 内口 (W-2)×(H-2)=4×5 填紫色门面(B_PORTAL,
+   solid:false 可直接走入)。气势件全部对称、且都在内口判定区之外:
+   两侧黑曜石塔楼(高出门顶两层 + 发光岩压顶) · 阶梯门楣(逐层收窄, 顶心发光岩) ·
+   开口四角发光岩(暗框上勾出门洞轮廓) · 前后下界砖步道(与地表齐平, 走近有铺垫)。
+   by 为框架底边(贴地表层) · px/pz 为框架位置(门面朝 ±z);
+   踩入内口即传送的判定在 inPortal, 只认内口 x/y/z 区间 — 换外观不动判定 */
 function buildPortalFrame(by, px, pz){
-  for(let x=px; x<=px+NETHER_PORTAL_W-1; x++) setBlockRaw(x, by, pz, B_OBSIDIAN);                 // 底边
-  for(let x=px; x<=px+NETHER_PORTAL_W-1; x++) setBlockRaw(x, by+NETHER_PORTAL_H-1, pz, B_OBSIDIAN); // 顶边
-  for(let y=by+1; y<=by+NETHER_PORTAL_H-2; y++){
-    setBlockRaw(px, y, pz, B_OBSIDIAN);
-    setBlockRaw(px+NETHER_PORTAL_W-1, y, pz, B_OBSIDIAN);
+  const W = NETHER_PORTAL_W, H = NETHER_PORTAL_H;
+  for(let x=px; x<=px+W-1; x++) setBlockRaw(x, by, pz, B_OBSIDIAN);                 // 底边
+  for(let x=px; x<=px+W-1; x++) setBlockRaw(x, by+H-1, pz, B_OBSIDIAN);             // 顶边
+  for(let y=by+1; y<=by+H-2; y++){
+    setBlockRaw(px, y, pz, B_OBSIDIAN);                                             // 侧柱
+    setBlockRaw(px+W-1, y, pz, B_OBSIDIAN);
+    for(let x=px+1; x<=px+W-2; x++) setBlockRaw(x, y, pz, B_PORTAL);                // 内口 = 紫色门面
   }
+  for(const gx of [px, px+W-1])                                                     // 开口四角发光岩
+    for(const gy of [by+1, by+H-2]) setBlockRaw(gx, gy, pz, B_GLOWSTONE);
+  for(const tx of [px-1, px+W]){                                                    // 两侧塔楼 + 发光岩压顶
+    for(let y=by; y<=by+H; y++) setBlockRaw(tx, y, pz, B_OBSIDIAN);
+    setBlockRaw(tx, by+H+1, pz, B_GLOWSTONE);
+  }
+  for(let x=px; x<=px+W-1; x++) setBlockRaw(x, by+H, pz, B_OBSIDIAN);               // 门楣: 逐层收窄
+  for(let x=px+1; x<=px+W-2; x++) setBlockRaw(x, by+H+1, pz, B_OBSIDIAN);
+  for(let x=px+2; x<=px+W-3; x++) setBlockRaw(x, by+H+2, pz, B_GLOWSTONE);          // 顶心发光岩(塔尖)
+  for(const dz of [-1, 1])                                                          // 前后步道(与地表齐平)
+    for(let x=px-1; x<=px+W; x++) setBlockRaw(x, by, pz+dz, B_NETHER_BRICK);
+}
+
+/* ---------- 门中紫色光束(常驻动效): 特效唯一入口 Fx.portalBeam ----------
+   模式层只报开口锚点(开口中心/底高/门面), 脉动光柱+环绕微粒全收在 Fx;
+   两阶段各重锚一次(换句柄), Node 单测 fake Fx 没有该入口时静默跳过 */
+let portalBeamH = null;
+function anchorPortalBeam(by, px, pz){
+  if(portalBeamH && Fx.removeBeam) Fx.removeBeam(portalBeamH);
+  portalBeamH = Fx.portalBeam
+    ? Fx.portalBeam(px + NETHER_PORTAL_W/2, by + 1, pz + 0.5,
+        { w: NETHER_PORTAL_W - 2, h: NETHER_PORTAL_H - 2 })
+    : null;
 }
 /* 玩家是否站在传送门内口里(已踏入内口 y 区间, x/z 落在开口范围内) */
 function inPortal(by, px, pz){
@@ -117,6 +149,7 @@ function enterNether(){
   loadScene(()=>{                                       // 场景装填 seam: 清上界(不清 → 家的草坪/小屋浮在下界岩上面) + 建下界 + 收尾
     buildNetherWorld();
     buildPortalFrame(NETHER_RETURN_PORTAL.by, NETHER_RETURN_PORTAL.px, NETHER_RETURN_PORTAL.pz);   // 落地就有回程门
+    anchorPortalBeam(NETHER_RETURN_PORTAL.by, NETHER_RETURN_PORTAL.px, NETHER_RETURN_PORTAL.pz);   // 门中紫色光束重锚
   });
   applySky(NETHER_SKY);                                // 暗红天穹: 一眼就知道到了下界
   Mobs.clear();
@@ -397,6 +430,8 @@ const NetherMode = mkMode({
     Avatar.setItem(PLAYER.heldItem);                 // 手持物复位: 剑/弓不渗进其他模式(Avatar 跨模式存活)
     weaponBar.hide();                                // 武器栏复位
     disposeHpBar();                                  // 头顶血条网格/纹理回收
+    if(portalBeamH && Fx.removeBeam) Fx.removeBeam(portalBeamH);   // 常驻光束摘除(句柄置空, 不等 switchMode 的 Fx.clear)
+    portalBeamH = null;
   },
 
   update(dt){

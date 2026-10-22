@@ -144,8 +144,9 @@ function engineHum(level){
   }catch(e){}
 }
 
-/* ---------- 通用特效 Fx: 爆炸/冲击波/闪电/碎块/震屏的唯一入口 ----------
-   条目形状/动画/衰减全部收在 implementation, 外部只经 9 个入口触碰 */
+/* ---------- 通用特效 Fx: 爆炸/冲击波/闪电/碎块/震屏/传送门光束的唯一入口 ----------
+   条目形状/动画/衰减全部收在 implementation, 外部只经 11 个入口触碰
+   (一次性动效 7 个 + 常驻光束 portalBeam/removeBeam + clear/update/wobble) */
 const Fx = (function(){
   let shake = 0;
   const effects = [];   // 冲击波球
@@ -254,6 +255,63 @@ const Fx = (function(){
     sfx('zap');
   }
 
+  /* 传送门紫色光束: 常驻动效(非爆炸类一次性) — 句柄制, removeBeam(h) 摘除,
+     clear() 模式切换连带清场; 悬空句柄再 remove 无害(清场后找不到即跳过)。
+     观感 = 两层竖直光柱(亮芯 + 光晕)缓慢脉动 + 一簇绕柱盘旋上升的微粒
+     (到顶回卷, 漩涡感)。柱体用 boltBox 单位盒共享缩放, 零几何分配 */
+  const beams = [];
+  function portalBeam(x, y, z, o){
+    o = o || {};
+    const col = o.color !== undefined ? o.color : 0xa855f7;
+    const H = o.h || 3, W = o.w || 2;
+    const coreMat = new THREE.MeshBasicMaterial({ color: col, transparent:true, opacity:0.45, depthWrite:false });
+    const haloMat = new THREE.MeshBasicMaterial({ color: col, transparent:true, opacity:0.15, depthWrite:false, side:THREE.DoubleSide });
+    const moteMat = new THREE.MeshBasicMaterial({ color: 0xd9b3ff, transparent:true, opacity:0.8, depthWrite:false });
+    const core = new THREE.Mesh(boltBox, coreMat);            // 亮芯: 细高柱
+    core.scale.set(0.34, H, 0.34); core.position.set(x, y + H/2, z);
+    const halo = new THREE.Mesh(boltBox, haloMat);            // 光晕: 粗一圈的半透明柱
+    halo.scale.set(1.05, H, 1.05); halo.position.copy(core.position);
+    const group = new THREE.Group();
+    group.add(core, halo);
+    const motes = [];                                          // 环绕微粒: 各自带相位/速率/半径(读时算位置, 免逐帧分配)
+    const n = Math.round(Math.min(16, Math.max(8, W*3)));
+    for(let i=0;i<n;i++){
+      const m = new THREE.Mesh(boltBox, moteMat);
+      m.scale.setScalar(0.09 + Math.random()*0.12);
+      motes.push({ m, ph: Math.random()*Math.PI*2, sp: 0.7 + Math.random()*0.9,
+                   r: 0.3 + Math.random()*(0.6 + W*0.22), up: 0.35 + Math.random()*0.5, k: Math.random() });
+      group.add(m);
+    }
+    scene.add(group);
+    const h = { group, core, halo, coreMat, haloMat, mats: [coreMat, haloMat, moteMat],
+                x, y, z, H, motes, t: Math.random()*10 };      // t 随机起步: 多座门脉动不同相
+    beams.push(h);
+    return h;
+  }
+  function removeBeam(h){
+    const i = beams.indexOf(h);
+    if(i < 0) return;                       // 已随 clear() 清场: 悬空句柄无害
+    beams.splice(i, 1);
+    scene.remove(h.group);
+    for(const m of h.mats) m.dispose();
+  }
+  function stepBeams(dt){
+    for(const b of beams){
+      b.t += dt;
+      const pulse = 0.5 + 0.5*Math.sin(b.t*1.7);     // 0..1 缓慢脉动(周期 ~3.7s)
+      b.core.scale.x = b.core.scale.z = 0.28 + pulse*0.26;
+      b.coreMat.opacity = 0.32 + pulse*0.34;
+      b.halo.scale.x = b.halo.scale.z = 0.95 + pulse*0.45;
+      b.haloMat.opacity = 0.10 + pulse*0.12;
+      for(const p of b.motes){                        // 盘旋上升, 到顶回卷(取模循环)
+        p.ph += dt*p.sp;
+        const yy = (p.k + b.t*p.up) % 1;
+        p.m.position.set(b.x + Math.cos(p.ph)*p.r, b.y + yy*b.H, b.z + Math.sin(p.ph)*p.r);
+        p.m.rotation.y += dt*2;
+      }
+    }
+  }
+
   /* 爆炸视觉(不伤人): 音效 + 震屏 + 冲击波 + 碎块; o.color 可整场换配色(坦克型号爆风) */
   function boom(x,y,z,o){
     o = o || {};
@@ -272,16 +330,19 @@ const Fx = (function(){
     else { e.mesh.material.dispose(); if(e.ownGeo) e.mesh.geometry.dispose(); }
   }
 
-  /* 清空全部特效(模式切换用); 共享 geo/mat 不可 dispose, 专用色/闪电线/落雷组除外 */
+  /* 清空全部特效(模式切换用); 共享 geo/mat 不可 dispose, 专用色/闪电线/落雷组/光束组除外 */
   function clear(){
     for(const e of effects) disposeFxEntry(e);
     effects.length = 0;
     for(const d of debris){ scene.remove(d.mesh); if(d.done) d.done(); }
     debris.length = 0;
+    for(const b of beams){ scene.remove(b.group); for(const m of b.mats) m.dispose(); }
+    beams.length = 0;
   }
 
   /* 生命周期推进(主循环游玩门内, 每帧) */
   function update(dt){
+    stepBeams(dt);                                    // 常驻光束先行(不依赖一次性条目)
     for(let i=effects.length-1;i>=0;i--){
       const e = effects[i];
       e.t += dt;
@@ -320,7 +381,7 @@ const Fx = (function(){
     }
   }
 
-  return {boom, pop, debrisBurst, arc, bolt, kick, clear, update, wobble};
+  return {boom, pop, debrisBurst, arc, bolt, kick, portalBeam, removeBeam, clear, update, wobble};
 })();
 
 /* ---------- 提示消息 ---------- */

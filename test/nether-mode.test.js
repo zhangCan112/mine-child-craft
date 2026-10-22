@@ -46,7 +46,9 @@ globalThis.SceneKit = { fill(){}, tree(){}, rand: () => 0 };
 globalThis.SpeechKit = { speak(s){ spoken.push(s); }, cancel(){} };
 globalThis.showToast = (s) => calls.push(['toast', s]);
 globalThis.setTouchActions = (l) => { touchList = l; };
-globalThis.Fx = { debrisBurst(){ calls.push(['debris']); }, kick(){ calls.push(['kick']); } };
+globalThis.Fx = { debrisBurst(){ calls.push(['debris']); }, kick(){ calls.push(['kick']); },
+                  portalBeam(x, y, z, o){ calls.push(['beam', x, y, z, o]); return { id: calls.length }; },
+                  removeBeam(){ calls.push(['beamOff']); } };
 globalThis.sfx = (n) => { calls.push(['sfx', n]); };
 globalThis.getBlock = () => 0;
 globalThis.isSolid = () => false;
@@ -59,6 +61,9 @@ globalThis.WORLD_D = 8;
 globalThis.B_NETHERRACK = 30;
 globalThis.B_OBSIDIAN = 31;
 globalThis.B_LAVA = 25;
+globalThis.B_NETHER_BRICK = 33;
+globalThis.B_GLOWSTONE = 34;
+globalThis.B_PORTAL = 35;
 globalThis.PLAYER = { height: 1.8, eye: 1.62, speed: 3, heldItem: 'hoe' };
 globalThis.Avatar = { setItem(id){ calls.push(['setItem', id]); }, swing(){ calls.push(['swing']); },
                       flash(){ calls.push(['flash']); } };   /* 受击闪红(观感, 只记录调用) */
@@ -133,12 +138,18 @@ function mkMob(type, x, y, z, extra){
 
 /* ============ 测试 ============ */
 
-test('下界冒险: init 上界建场(建造模式场景 + 地表黑曜石传送门)+ 玩家出生在家, 不放怪', () => {
+test('下界冒险: init 上界建场(建造模式场景 + 地表霸气传送门)+ 玩家出生在家, 不放怪', () => {
   calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0;
   listResult = [];
   NetheMode.init();
   assert.ok(has('basement'), 'init 复用建造模式「巨大地下室」场景(地形暂时一样)');
   assert.ok(calls.some(c => c[0] === 'set' && c[4] === 31), '地表放下界传送门(黑曜石框架 B_OBSIDIAN)');
+  assert.ok(calls.some(c => c[0] === 'set' && c[4] === 35), '内口填传送门面(B_PORTAL 紫色可穿入门面)');
+  assert.ok(calls.some(c => c[0] === 'set' && c[4] === 34), '发光岩点缀(塔楼压顶/门楣顶心/开口四角)');
+  assert.ok(calls.some(c => c[0] === 'set' && c[4] === 33), '门前下界砖步道');
+  assert.ok(has('beam'), '门中紫色光束锚定(Fx.portalBeam, 特效唯一入口)');
+  assert.ok(calls.some(c => c[0] === 'beam' && c[1] === 61 + 3 && c[2] === 25 && c[3] === 88.5),
+    '光束锚在开口中心(px=61 门 6 宽 → 中心 x=64, 底高 by+1, 门面 z+0.5)');
   assert.ok(has('spawn'), '玩家出生在上界家');
   assert.ok(Array.isArray(touchList) && touchList.length >= 1, '声明了触屏按钮');
 
@@ -156,9 +167,31 @@ test('下界冒险: 踩进上界传送门 → 进下界(重建下界地形 + 回
   assert.ok(calls.filter(c => c[0] === 'loadScene').length >= 2, '阶段切换先清场(家的草坪/小屋不渗进下界, 反向亦然)');
   assert.ok(calls.some(c => c[0] === 'set' && c[4] === 30), '下界地形用下界岩(B_NETHERRACK)');
   assert.ok(calls.some(c => c[0] === 'set' && c[4] === 31 && c[2] === NETHER_GROUND), '下界建好回程传送门(黑曜石底边在平地上)');
+  assert.ok(calls.some(c => c[0] === 'set' && c[4] === 35 && c[2] === NETHER_GROUND + 1), '回程门内口也有紫色门面(底边上一层起填到顶)');
+  assert.ok(calls.filter(c => c[0] === 'beam').length >= 2 && calls.some(c => c[0] === 'beam' && c[1] === 24 + 3 && c[3] === 24.5),
+    '光束随阶段重锚到回程门开口中心(px=24 → x=27, pz=24 → z=24.5)');
   assert.ok(calls.some(c => c[0] === 'spawn' && c[2] === NETHER_GROUND + 1), '玩家落在回程门前(平地顶层+1)');
   assert.ok(mobsState.spawned.length > 0, '释放首波 hostile 怪物');
   assert.ok(mobsState.spawned.every(s => Object.keys(globalThis.Mobs.types).indexOf(s.type) >= 0), '都是下界怪物');
+});
+
+test('下界冒险: 霸气外观升级不破坏传送判定 — 判定只认内口区间(塔楼旁/门后/门楣顶都不传送)', () => {
+  calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0;
+  listResult = [];
+  NetheMode.init();
+  const noTp = (x, y, z) => {
+    spoken.length = 0;
+    globalThis.pos.x = x; globalThis.pos.y = y; globalThis.pos.z = z;
+    NetheMode.update(DT);
+    return !spoke('进了下界');
+  };
+  assert.ok(noTp(60.4, 25, 87.4), '塔楼旁(框架左外侧, x 未过 px)不传送');
+  assert.ok(noTp(67.5, 25, 87.4), '框架右外侧(过内口 x 上界)不传送');
+  assert.ok(noTp(63.5, 25, 90.6), '门后绕行(z 距门面超 1.5 格)不传送');
+  assert.ok(noTp(63.5, 34, 87.5), '站上门楣顶(高出内口 y 区间)不传送');
+  spoken.length = 0;
+  walkIntoPortal();                                       /* 踏进内口 → 传送(对照面) */
+  assert.ok(spoke('进了下界'), '踏进内口即传送(判定与外观件解耦, 语义不回归)');
 });
 
 test('下界冒险: 持剑挥击 → 命中最近 hostile 怪(近战伤害) → 击杀给碎块和表扬', () => {
