@@ -125,7 +125,9 @@ http.createServer((req, res)=>{
     const headers = {
       'Content-Type': type,
       'ETag': etag,
-      'Cache-Control': 'no-cache'
+      /* no-store 彻底禁缓存: 曾出现平板新旧文件混跑(旧 nether.js+新 config.js)
+         导致传送门行为错乱且无从排查 — 局域网带宽零成本, 换来版本一致性 */
+      'Cache-Control': 'no-store'
     };
 
     /* 大文本资源 gzip (three.js 600KB → ~150KB) */

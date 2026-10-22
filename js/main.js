@@ -143,6 +143,20 @@ function buildMenu(){
 
 /* ---------- 主循环 ---------- */
 let last=performance.now(), fps=0, fpsAcc=0, fpsCnt=0;
+/* 全局错误可见化: rAF 回调里的异常默认被下一帧静默吞掉, 游戏会带病运行
+   (传送门不切地图问题曾因此无从下手)。首个未捕获异常钉一条红条在屏幕
+   顶端, 刷新即消失 — 孩子/家长看得见, 排查不用猜。 */
+window.addEventListener('error', (e)=>{
+  const old = document.getElementById('runtimeErr');
+  if(old) return;                                    // 只钉第一条, 不刷屏
+  const d = document.createElement('div');
+  d.id = 'runtimeErr';
+  d.textContent = '⚠ 出了点问题: ' + (e.message || '未知错误') +
+    (e.filename ? ' @' + e.filename.split('/').pop() + ':' + e.lineno : '') + ' · 请截图反馈并刷新页面';
+  d.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9999;background:#c0392b;color:#fff;' +
+    'font:13px/1.6 sans-serif;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,.4)';
+  document.body.appendChild(d);
+});
 /* 帧率上限 60: ProMotion(pad Pro 等 120Hz)设备 rAF 翻倍 → JS/渲染成本全翻,
    GPU 撑不住时帧率在 60~120 抖动, 锁 60 帧 pacing 反而稳; 60Hz 屏不受影响
    (阈值 16.4ms < 16.7ms 常规帧全部放行) */
