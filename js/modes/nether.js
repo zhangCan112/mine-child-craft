@@ -178,6 +178,8 @@ function enterOverworld(){
   flyMode = false;
   Mobs.clear();
   while(nArrows.length) removeNetherArrow(0);          // 投射物不跨维度: 残留火球追进门会在上界把人打死 → 重生点落进地下室土里(实测根因)
+  const e = getPEnt();                                 // 回家 = 安全休整: 生命回满(空血进下界 = 落地即死,
+  e.hp = e.maxHp; NETHER.player.hp = NETHER.player.maxHp;   // 又回基地又死 — "死亡循环"的另一半根因)
   NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
   NETHER.swingCd = 0;
   hurtT = 0;                                           // 受击语音节流复位
@@ -243,6 +245,7 @@ function netherOnKill(m){
    常驻可见(每帧刷新)。致命一击不走这里 — 死亡路径已有专属文案/话术(引擎
    death 音), 且 SpeechKit 是 cancel-then-speak, 后播的受击话术会把死亡话术顶掉 */
 function netherOnHurt(r){
+  NETHER.player.hp = r.hp;                              // 账本同步(读侧都在 pEnt, NETHER.player 不落伍)
   sfx('hurt');                                    // 受击专属音(与"主人公打怪"的 hit 区分)
   Avatar.flash(0.4);                              // 主人公身体变红(主提醒)
   Fx.kick(0.35);                                  // 轻震屏(Fx 震屏入口, 主循环消费)
@@ -366,15 +369,21 @@ function updateNetherArrows(dt){
   }
 }
 
-/* ---------- 玩家阵亡: 下界重生 ---------- */
+/* ---------- 玩家阵亡: 回下界基地重来 ----------
+   战场一并重置: 杀人的那波怪清场 + 本波原样重打 — 只把人送回基地不清怪,
+   重生瞬间就被追过来的怪围殴再死, "死亡后无论何时都在回基地"的循环即此 */
 function netherPlayerDied(){
   const e = getPEnt();
   e.hp = NETHER.player.maxHp;                          // 实体血量同步回满(不回满 → 重生后被一碰再死)
   e.dead = false; e.deadT = 0; e.flashT = 0; e.staggerT = 0; e.tintBase = [1,1,1];
   NETHER.player.hp = NETHER.player.maxHp;
-  ModeKit.spawn(NETHER_BASE.x, NETHER_GROUND + 1, NETHER_BASE.z, { yaw: Math.PI });   // 回下界出生点(与传送落点同点, 离门 5 格)
+  Mobs.clear();                                        // 那波怪不追进基地
+  while(nArrows.length) removeNetherArrow(0);          // 残余火球一并散场(与怪同批)
+  NETHER.wave = Math.max(0, NETHER.wave - 1);          // 本波重打(startNetherWave 尾部 +1 补回原波号, 零进度损失)
+  startNetherWave();
+  ModeKit.spawn(NETHER_BASE.x, NETHER_GROUND + 1, NETHER_BASE.z, { yaw: Math.PI });   // 回下界基地(与传送落点同点, 离门 5 格)
   flyMode = false;
-  SpeechKit.speak('被怪物追上了！回出生点！');
+  SpeechKit.speak('被怪物追上了！回出生点重来！');
   showToast('💀 被怪物打死了，回出生点！');
 }
 

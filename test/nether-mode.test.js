@@ -55,6 +55,7 @@ globalThis.isSolid = () => false;
 globalThis.groundTop = () => 11;
 globalThis.MobCore = { stepMove(){}, hitState(){} };
 globalThis.CombatCore = require('../js/combat-core.js');   /* 战斗核心: 真模块(节拍/弹道/命中判定是纯函数) */
+const RealMobCore = require('../js/mob-core.js');          /* 受击状态机真模块: fake Mobs.hit 对玩家实体套用它(不改血量 → 血量断言无从谈起) */
 globalThis.hashRand = () => 0.13;
 globalThis.WORLD_W = 8;
 globalThis.WORLD_D = 8;
@@ -79,7 +80,11 @@ globalThis.Mobs = {
            zoglin:{name:'凋灵骷髅'}, wither_skeleton:{name:'远古守卫者'}, blaze:{name:'烈焰人'}, ghast:{name:'恶魂'}, magma_cube:{name:'岩浆怪'} },
   spawn(type, x, z, opts){ mobsState.spawned.push({ type, x, z, opts }); return { type, pos:{ x, y: 12, z } }; },
   update(){}, render(){},
-  hit(m, dmg){ hitLog.push({ m, dmg }); return nextHit; },
+  hit(m, dmg){
+    hitLog.push({ m, dmg });
+    if(m.pos === globalThis.pos) RealMobCore.hitState(m, dmg);   /* 玩家实体走真实受击状态机(分支结果仍由 nextHit 脚本控制) */
+    return nextHit;
+  },
   near(){ return []; },
   clear(){ mobsState.spawned.length = 0; },
   list(){ return listResult; },
@@ -427,4 +432,54 @@ test('下界冒险: 传送跨维度清掉飞行中的投射物 — 残留火球�
   for(let i = 0; i < 90; i++) NetheMode.update(DT);
   assert.ok(!calls.some(c => c[0] === 'sfx' && c[1] === 'hurt'), '残留火球没跨维度追击(传送即清)');
   assert.ok(!spoke('回出生点'), '上界不会被残留火球打死 → 不会"重生在地下室土里"');
+});
+
+test('下界冒险: 阵亡重置战场 — 杀人的那波怪清场 + 本波原样重打(死亡不再是"无限回基地"循环)', () => {
+  calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
+  listResult = [];
+  NetheMode.init();
+  listResult = [mkMob('piglin', 60, 12, 60)];          /* 占位活怪: fake 空列表会被 checkWaveClear 误判"波清空"再放一波 */
+  walkIntoPortal();
+  assert.strictEqual(mobsState.spawned.length, 2, '首波 2 只(wave0 → count 2+0)');
+
+  /* 两只怪压在基地旁(模拟追杀现场)把玩家打死 */
+  globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 30.5;
+  listResult = [mkMob('piglin', 25.6, 21, 30.4), mkMob('hoglin', 25.4, 21, 30.6)];
+  nextHit = { hp: 0, dead: true, freshDead: true };
+  calls.length = 0; spoken.length = 0;
+  NetheMode.update(DT);
+  assert.ok(spoke('回出生点'), '阵亡 → 回基地重来');
+  assert.strictEqual(mobsState.spawned.length, 2, '战场重置: 原波清场, 本波原样重打(仍是 2 只, 零进度损失)');
+  const rebirth = calls.filter(c => c[0] === 'spawn').pop();
+  assert.ok(rebirth && rebirth[3] === 30.5, '重生点 = 下界基地');
+  assert.ok(!spoke('打得漂亮'), '阵亡重开不算"波清空表扬"');
+});
+
+test('下界冒险: 回上界家休整 — 生命回满(空血进下界的"落地即死"循环断根)', () => {
+  calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
+  listResult = [];
+  NetheMode.init();
+  walkIntoPortal();
+
+  /* 先阵亡一次把血量复位到满(不依赖此前测试的血量残留) */
+  globalThis.pos.x = 20.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;
+  listResult = [mkMob('piglin', 20.6, 12, 20.4)];
+  nextHit = { hp: 0, dead: true, freshDead: true };
+  NetheMode.update(DT);
+
+  /* 非致命受击 → 22/30(HUD 读玩家实体血量, 经 updateHud 落进 fake hud 元素;
+     换一只新怪贴身 — 原怪 attackCd=1s 还在冷却, 打不出第二下) */
+  nextHit = { hp: 22, dead: false, freshDead: false };
+  listResult = [mkMob('hoglin', 20.4, 12, 20.6)];
+  NetheMode.update(DT);
+  fakeClock += 200; NetheMode.updateHud(null);        /* 拨快假时钟绕过 10Hz 节流 */
+  assert.ok(String(elCache['hud'].innerHTML).indexOf('生命: 22') >= 0, '受伤后 22/30');
+
+  /* 走回程门回家 → 休整回满 */
+  listResult = [];
+  globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 24.5;
+  NetheMode.update(DT);
+  assert.ok(spoke('回到上界'), '回了家');
+  fakeClock += 200; NetheMode.updateHud(null);
+  assert.ok(String(elCache['hud'].innerHTML).indexOf('生命: 30') >= 0, '回家休整: 生命回满(家是安全的)');
 });
