@@ -17,15 +17,15 @@ function loadLevels(){
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
   }
   vm.runInContext(`
-    globalThis.__lv = { LEVELS, world, getBlock, B_CRACK, B_DOOR };
+    globalThis.__lv = { TNT_LEVELS, world, getBlock, B_CRACK, B_DOOR };
   `, ctx);
   return ctx.__lv;
 }
 
-test('LEVELS 共 10 关且都有 build/spawn', () => {
+test('TNT_LEVELS 共 10 关且都有 build/spawn', () => {
   const lv = loadLevels();
-  assert.strictEqual(lv.LEVELS.length, 10);
-  for(const L of lv.LEVELS){
+  assert.strictEqual(lv.TNT_LEVELS.length, 10);
+  for(const L of lv.TNT_LEVELS){
     assert.strictEqual(typeof L.build, 'function');
     assert.ok(L.spawn && L.spawn.x !== undefined);
   }
@@ -35,7 +35,7 @@ for(let i=0;i<10;i++){
   test('L'+(i+1)+' 可建性: build 不抛错, 出口墙可达, 实体落点为空, 出生有支撑', () => {
     const lv = loadLevels();
     lv.world.clear();                                 // 前置清场(纯数据侧, 不涉渲染)
-    const L = lv.LEVELS[i];
+    const L = lv.TNT_LEVELS[i];
     assert.doesNotThrow(()=> L.build());              // (a)
     const z = L.exit;                                 // (b)
     assert.ok(z && z.x1 !== undefined, 'exit zone 存在');

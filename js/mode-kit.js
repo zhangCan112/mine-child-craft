@@ -8,7 +8,7 @@
      · hud(hit) → string[]     每帧 HUD 文本(hit 由主循环注入, 模式不再自行 raycast)
      · touch [...]             setTouchActions 声明 (缺省=null 隐藏)
      · KeyB 默认暂停 · 无 hud 配置则清空并跳过 · onVoidFall 默认回最近出生点
-   工具: spawn / lookName / confirmBtn
+   工具: spawn(对外经 ModeKit.spawn) / lookName / confirmBtn
    引擎层(world/input)对本文件零依赖; 本文件属应用层
 ============================================================ */
 
@@ -18,9 +18,10 @@ const MK = (typeof document !== 'undefined')
       hud:    document.getElementById('hud') }
   : { hotbar: null, score: null, hud: null };     // Node 测试环境
 
-/* ---------- 出生点: 设置玩家状态并记住, 供默认 onVoidFall 兜底 ---------- */
+/* ---------- 出生点: 设置玩家状态并记住, 供默认 onVoidFall 兜底 ----------
+   (内部名 kitSpawn: 不占用共享全局里最裸的 spawn 一词, 经 ModeKit.spawn 对外) */
 let mkLastSpawn = null;
-function spawn(x, y, z, o){
+function kitSpawn(x, y, z, o){
   o = o || {};
   pos.set(x, y, z);
   vel.set(0, 0, 0);
@@ -116,6 +117,8 @@ function mkMode(cfg){
   const hb = cfg.hotbar || null;
   function applyChrome(){
     if(MK.score) MK.score.style.display = (cfg.chrome && cfg.chrome.score) || 'none';
+    /* hotbar: 'flex' 立即显示; 'deferred' 现在隐藏、由模式在合适时机自行 show()
+       (如 TNT 入关卡后才现身); 缺省/none 恒隐藏 */
     if(hb && cfg.chrome && cfg.chrome.hotbar === 'flex') hb.show();
     else if(MK.hotbar) MK.hotbar.style.display = 'none';
     if(!cfg.hud && MK.hud) MK.hud.innerHTML = '';
@@ -139,7 +142,7 @@ function mkMode(cfg){
     onMouse(b, hit){ if(cfg.onMouse) cfg.onMouse(b, hit); },
     onVoidFall(){
       if(cfg.onVoidFall) cfg.onVoidFall();
-      else if(mkLastSpawn) spawn(mkLastSpawn.x, mkLastSpawn.y, mkLastSpawn.z, mkLastSpawn);
+      else if(mkLastSpawn) kitSpawn(mkLastSpawn.x, mkLastSpawn.y, mkLastSpawn.z, mkLastSpawn);
     },
   };
   if(cfg.onHighlight) mode.onHighlight = cfg.onHighlight;
@@ -163,5 +166,5 @@ function mkMode(cfg){
   return mode;
 }
 
-const ModeKit = { mkMode, mkHotbar, spawn, lookName, confirmBtn };
+const ModeKit = { mkMode, mkHotbar, spawn: kitSpawn, lookName, confirmBtn };
 if(typeof module !== 'undefined' && module.exports) module.exports = ModeKit;

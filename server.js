@@ -9,7 +9,7 @@ const path = require('path');
 const os = require('os');
 const zlib = require('zlib');
 
-const PORT = parseInt(process.argv[2] || '8080', 10);
+const PORT = (()=>{ const n = parseInt(process.argv[2] || '8080', 10); return Number.isFinite(n) && n > 0 && n < 65536 ? n : 8080; })();
 const ROOT = __dirname;
 const DATA_DIR = path.join(ROOT, 'data');
 try{ fs.mkdirSync(DATA_DIR); }catch(e){}
@@ -77,7 +77,7 @@ http.createServer((req, res)=>{
         try{
           const obj = JSON.parse(body);
           if(typeof obj !== 'object' || obj === null || Array.isArray(obj)) throw 0;
-          fs.writeFile(progFile(id), JSON.stringify(obj), ()=>{});
+          fs.writeFile(progFile(id), JSON.stringify(obj), err=>{ if(err) console.error('进度写盘失败:', err.message); });
           res.writeHead(200, {'Content-Type':'application/json'});
           res.end('{"ok":true}');
         }catch(e){ res.writeHead(400); res.end('bad json'); }
@@ -87,7 +87,7 @@ http.createServer((req, res)=>{
   }
 
   const file = path.normalize(path.join(ROOT, p));
-  if(!file.startsWith(ROOT)){ res.writeHead(403); return res.end('403'); }
+  if(!file.startsWith(ROOT + path.sep) && file !== ROOT){ res.writeHead(403); return res.end('403'); }
   fs.stat(file, (err, st)=>{
     if(err || !st.isFile()){ res.writeHead(404); return res.end('404 Not Found'); }
 

@@ -14,7 +14,7 @@ function saveTntSave(s){ tntSlot.save(s); }
 let lv = null;            // 当前关数据
 let levelIdx = null;      // 当前关索引
 let lvState = 'idle';     // idle | playing | dead | won
-let timer = 0;            // 本关用时(秒)
+let tntTimer = 0;            // 本关用时(秒)
 let resets = 0;           // 本关重置次数(昏迷/按R)
 let deadT = 0;
 let demoFired = false, demoT = 0;
@@ -28,11 +28,11 @@ const tntHb = mkHotbar({
   ]
 });
 
-const sparks = [];        // 火花
-const tnts = [];          // TNT 实体
-const pickups = [];       // 收集品
-const weights = [];       // 重物块
-const switches = new Map();// 转辙器 key → {x,y,z,dirIdx,mesh}
+const tntSparks = [];        // 火花
+const tntCharges = [];          // TNT 实体
+const tntPickups = [];       // 收集品
+const tntWeights = [];       // 重物块
+const tntSwitches = new Map();// 转辙器 key → {x,y,z,dirIdx,mesh}
 let plateDoors = [];      // 压力板-铁门联动组
 let doorCheckT = 0;
 
@@ -70,7 +70,7 @@ for(let i=0;i<3;i++){
 }
 function syncSparkLights(){
   for(let i=0;i<sparkLights.length;i++){
-    const l = sparkLights[i], s = sparks[i];
+    const l = sparkLights[i], s = tntSparks[i];
     if(s){ l.position.copy(s.mesh.position); l.intensity = 0.9; }
     else l.intensity = 0;
   }
@@ -89,7 +89,7 @@ function isFuseOrSwitch(x,y,z){
   return id===B_FUSE || id===B_SWITCH;
 }
 function findTntAt(x,y,z){
-  return tnts.find(t=> t.x===x && t.y===y && t.z===z);
+  return tntCharges.find(t=> t.x===x && t.y===y && t.z===z);
 }
 function smallPop(x,y,z,color){                  // 原 0.14 半径小球 ×0.15~0.55 ≈ 单位球 ×0.02~0.08
   Fx.pop(x,y,z, {color, r0:0.02, r1:0.08, dur:0.3});
@@ -98,7 +98,7 @@ function smallPop(x,y,z,color){                  // 原 0.14 半径小球 ×0.15
 /* ---------- 实体注册 ---------- */
 function registerTnt(x,y,z, demo){
   if(findTntAt(x,y,z)) return;
-  tnts.push({x,y,z, fuse:null, demo:!!demo, mesh:null});   // null=未点燃
+  tntCharges.push({x,y,z, fuse:null, demo:!!demo, mesh:null});   // null=未点燃
 }
 function addPickup(p){
   const g = new THREE.Group();
@@ -113,7 +113,7 @@ function addPickup(p){
   }
   g.position.set(p.x+0.5, p.y+0.5, p.z+0.5);
   scene.add(g);
-  pickups.push({x:p.x, y:p.y, z:p.z, kind:p.kind, n:p.n||1, mesh:g, t:Math.random()*6});
+  tntPickups.push({x:p.x, y:p.y, z:p.z, kind:p.kind, n:p.n||1, mesh:g, t:Math.random()*6});
 }
 function registerSwitch(s){
   const g = new THREE.Group();
@@ -124,7 +124,7 @@ function registerSwitch(s){
   const sw = {x:s.x, y:s.y, z:s.z, dirIdx:s.dir||0, mesh:g};
   updateSwitchArrow(sw);
   scene.add(g);
-  switches.set(blockKey(s.x,s.y,s.z), sw);
+  tntSwitches.set(blockKey(s.x,s.y,s.z), sw);
 }
 function updateSwitchArrow(sw){
   const [dx,dz] = DIRS4[sw.dirIdx];
@@ -133,17 +133,17 @@ function updateSwitchArrow(sw){
 
 /* ---------- 实体清理 ---------- */
 function clearTntEntities(){
-  for(const s of sparks){ scene.remove(s.mesh); }
-  sparks.length = 0;
+  for(const s of tntSparks){ scene.remove(s.mesh); }
+  tntSparks.length = 0;
   for(const l of sparkLights) l.intensity = 0;   // 池灯常驻: 只熄不摘(灯数不变防重编译)
-  for(const t of tnts){ if(t.mesh) scene.remove(t.mesh); }
-  tnts.length = 0;
-  for(const p of pickups) scene.remove(p.mesh);
-  pickups.length = 0;
-  for(const w of weights){ if(w.mesh) scene.remove(w.mesh); }
-  weights.length = 0;
-  for(const sw of switches.values()) scene.remove(sw.mesh);
-  switches.clear();
+  for(const t of tntCharges){ if(t.mesh) scene.remove(t.mesh); }
+  tntCharges.length = 0;
+  for(const p of tntPickups) scene.remove(p.mesh);
+  tntPickups.length = 0;
+  for(const w of tntWeights){ if(w.mesh) scene.remove(w.mesh); }
+  tntWeights.length = 0;
+  for(const sw of tntSwitches.values()) scene.remove(sw.mesh);
+  tntSwitches.clear();
   plateDoors = [];
   fadeEl.style.opacity = 0;
 }
@@ -153,9 +153,9 @@ function startLevel(i, fresh){
   clearTntEntities();
   clearWorld();
   levelIdx = i;
-  lv = LEVELS[i];
+  lv = TNT_LEVELS[i];
   lvState = 'playing';
-  timer = 0;
+  tntTimer = 0;
   if(fresh !== false) resets = 0;
   fuseInv = 0; tntInv = 0; tntHb.select(0);
   demoFired = false; demoT = 0;
@@ -170,8 +170,7 @@ function startLevel(i, fresh){
   for(const p of (lv.pickups||[])) addPickup(p);
   for(const s of (lv.switches||[])) registerSwitch(s);
   plateDoors = (lv.doors||[]).map(d=>({plates:d.plates, cells:d.cells, open:false}));
-  weights.length = 0;
-  for(const w of (lv.weights||[])) weights.push({x:w.x, y:w.y, z:w.z, state:'rest', mesh:null, vy:0});
+  for(const w of (lv.weights||[])) tntWeights.push({x:w.x, y:w.y, z:w.z, state:'rest', mesh:null, vy:0});
 
   ModeKit.spawn(lv.spawn.x+0.5, (lv.spawn.y||11)+0.01, lv.spawn.z+0.5, {yaw: lv.spawn.yaw||0});   // 固定楼层出生(密室有顶,不能扫顶)
 
@@ -187,8 +186,8 @@ function igniteTnt(t, delay){
   sfx('fss');
 }
 function removeTnt(t){
-  const i = tnts.indexOf(t);
-  if(i>=0) tnts.splice(i,1);
+  const i = tntCharges.indexOf(t);
+  if(i>=0) tntCharges.splice(i,1);
   if(t.mesh) scene.remove(t.mesh);
 }
 
@@ -236,7 +235,7 @@ function destroySphere(cx, cy, cz, srcTnt){
     }
   }
   // 重物:支架没了就落
-  for(const w of weights){
+  for(const w of tntWeights){
     if(w.state==='rest' && getBlock(w.x, w.y-1, w.z)===0) startWeightFall(w);
   }
   // 玩家伤害(演示 TNT 不伤人)
@@ -245,11 +244,11 @@ function destroySphere(cx, cy, cz, srcTnt){
     if(d < TNT_CFG.hurtR) knockout();
   }
   // 顺便清掉爆炸圈里的火花
-  for(let i=sparks.length-1;i>=0;i--){
-    const s = sparks[i];
+  for(let i=tntSparks.length-1;i>=0;i--){
+    const s = tntSparks[i];
     if(Math.hypot(s.x+0.5-cx, s.y+0.5-cy, s.z+0.5-cz) < R+1){
       scene.remove(s.mesh);
-      sparks.splice(i,1);
+      tntSparks.splice(i,1);
     }
   }
   syncSparkLights();                              // 池灯立即让位, 不等下一帧
@@ -260,7 +259,7 @@ function spawnSpark(x,y,z){
   const mesh = new THREE.Mesh(sparkGeo, sparkMat);
   mesh.position.set(x+0.5, y+0.2, z+0.5);
   scene.add(mesh);
-  sparks.push({x, y, z, px:x, py:y, pz:z, prog:1, mesh,
+  tntSparks.push({x, y, z, px:x, py:y, pz:z, prog:1, mesh,
     speed: (lv && lv.fast) ? TNT_CFG.sparkFast : TNT_CFG.sparkSpeed, fssT:0, life:0});
   sfx('fss');
 }
@@ -277,11 +276,11 @@ function killSpark(s, water){
 }
 
 function updateSparks(dt){
-  for(let i=sparks.length-1;i>=0;i--){
-    const s = sparks[i];
+  for(let i=tntSparks.length-1;i>=0;i--){
+    const s = tntSparks[i];
     let dead = false;
     s.life += dt;
-    if(s.life > 60){ killSpark(s,false); sparks.splice(i,1); continue; }
+    if(s.life > 60){ killSpark(s,false); tntSparks.splice(i,1); continue; }
     s.fssT -= dt;
     if(s.fssT <= 0){ sfx('fss'); s.fssT = 0.28; }
 
@@ -300,7 +299,7 @@ function updateSparks(dt){
       // 决定下一格
       let next = null;
       if(getBlock(s.x, s.y, s.z) === B_SWITCH){
-        const sw = switches.get(blockKey(s.x,s.y,s.z));
+        const sw = tntSwitches.get(blockKey(s.x,s.y,s.z));
         const [dx,dz] = sw ? DIRS4[sw.dirIdx] : [0,1];
         next = {x:s.x+dx, y:s.y, z:s.z+dz};
       } else {
@@ -323,7 +322,7 @@ function updateSparks(dt){
           if(getBlock(s.x+dx, s.y, s.z+dz)===B_WATER){ water=true; break; }
         }
         killSpark(s, water);
-        sparks.splice(i,1);
+        tntSparks.splice(i,1);
         dead = true;
         break;
       }
@@ -353,7 +352,7 @@ function startWeightFall(w){
 }
 function updateWeights(dt){
   let dirty = false;
-  for(const w of weights){
+  for(const w of tntWeights){
     if(w.state!=='fall') continue;
     w.vy -= 22*dt;
     let y = w.mesh.position.y + w.vy*dt;
@@ -386,7 +385,7 @@ function updateDoors(){
     let pressed = false;
     for(const p of pd.plates){
       // 重物压板
-      for(const w of weights){
+      for(const w of tntWeights){
         if(w.state==='landed' && w.x===p.x && w.z===p.z && w.y===p.y+1){ pressed=true; break; }
       }
       if(pressed) break;
@@ -419,8 +418,8 @@ function updateDoors(){
 
 /* ---------- 收集品 ---------- */
 function updatePickups(dt){
-  for(let i=pickups.length-1;i>=0;i--){
-    const p = pickups[i];
+  for(let i=tntPickups.length-1;i>=0;i--){
+    const p = tntPickups[i];
     p.t += dt;
     p.mesh.rotation.y += dt*2;
     p.mesh.position.y = p.y+0.5 + Math.sin(p.t*2.2)*0.12;
@@ -430,7 +429,7 @@ function updatePickups(dt){
       sfx('pick');
       smallPop(p.x+0.5, p.y+0.8, p.z+0.5, p.kind==='tnt'?0xff6644:0xffcc44);
       scene.remove(p.mesh);
-      pickups.splice(i,1);
+      tntPickups.splice(i,1);
       tntHb.refresh();
     }
   }
@@ -439,8 +438,8 @@ function updatePickups(dt){
 /* ---------- 玩家操作 ---------- */
 function tryIgnite(){
   if(lvState!=='playing') return;
-  const aim = CameraRig.aim();
-  const hit = raycastVoxel(aim.origin, aim.dir, 6);
+  const aim = CameraRig.aim(camera);
+  const hit = raycastVoxel(aim.origin, aim.dir, PLAYER.reach);
   if(!hit) return;
   const id = getBlock(hit.x, hit.y, hit.z);
   if(id===B_TNT){
@@ -464,7 +463,7 @@ function tryLeftClick(hit){
       tntInv++; sfx('pick'); tntHb.refresh();
     }
   } else if(id===B_SWITCH){                 // 扳转辙器
-    const sw = switches.get(blockKey(hit.x, hit.y, hit.z));
+    const sw = tntSwitches.get(blockKey(hit.x, hit.y, hit.z));
     if(sw){
       sw.dirIdx = (sw.dirIdx+1) % 4;
       updateSwitchArrow(sw);
@@ -492,6 +491,27 @@ function tryPlace(hit){
   tntHb.refresh();
 }
 
+/* TNT 引信: 计时 → 白闪网格(1.06 放大罩) → 到点爆炸
+   (从 update 的 cfg 内提出, 与 updateSparks/updateWeights 同级) */
+function updateTntFuses(dt){
+  for(let i=tntCharges.length-1;i>=0;i--){
+    const t = tntCharges[i];
+    if(t.fuse===null) continue;              // 未点燃
+    if(t.fuse < 0){ t.fuse += dt; continue; } // 链爆延迟中
+    t.fuse += dt;
+    if(!t.mesh){
+      t.mesh = new THREE.Mesh(tntFlashGeo, tntFlashMat.clone());
+      t.mesh.position.set(t.x+0.5, t.y+0.5, t.z+0.5);
+      scene.add(t.mesh);
+    }
+    const p = Math.min(1, t.fuse/TNT_CFG.tntFuse);
+    const s = 1 + p*0.3;
+    t.mesh.scale.set(s,s,s);
+    t.mesh.material.opacity = Math.sin(t.fuse*25)>0 ? 0.75 : 0.12;
+    if(t.fuse >= TNT_CFG.tntFuse) explodeTnt(t);
+  }
+}
+
 /* ---------- 失败 / 通关 ---------- */
 function knockout(){
   if(lvState!=='playing') return;
@@ -503,24 +523,19 @@ function knockout(){
 function doWin(){
   lvState = 'won';
   sfx('win');
-  const stars = 1 + (timer<=lv.par ? 1:0) + (resets===0 ? 1:0);
+  const stars = 1 + (tntTimer<=lv.par ? 1:0) + (resets===0 ? 1:0);
   const save = loadTntSave();
-  save.unlocked = Math.max(save.unlocked, Math.min(levelIdx+1, LEVELS.length-1));
+  save.unlocked = Math.max(save.unlocked, Math.min(levelIdx+1, TNT_LEVELS.length-1));
   save.stars[levelIdx] = Math.max(save.stars[levelIdx]||0, stars);
   saveTntSave(save);
   document.getElementById('winTitle').textContent = '第 ' + (levelIdx+1) + ' 关 · ' + lv.name + ' 逃出来啦！';
   document.getElementById('winStars').innerHTML =
     [1,2,3].map(n=> '<span class="'+(n<=stars?'':'off')+'">⭐</span>').join('');
   document.getElementById('winTime').textContent =
-    '用时 ' + fmtTime(timer) + ' · 目标 ' + fmtTime(lv.par) + (resets===0 ? ' · 全程无重置 ✨' : '');
+    '用时 ' + fmtTime(tntTimer) + ' · 目标 ' + fmtTime(lv.par) + (resets===0 ? ' · 全程无重置 ✨' : '');
   const nextBtn = document.getElementById('winNextBtn');
-  if(levelIdx+1 < LEVELS.length){
-    nextBtn.style.display = '';
-    nextBtn.textContent = '下一关 ➡';
-  } else {
-    nextBtn.style.display = '';
-    nextBtn.textContent = '🎉 全部通关！选关';
-  }
+  nextBtn.style.display = '';
+  nextBtn.textContent = (levelIdx+1 < TNT_LEVELS.length) ? '下一关 ➡' : '🎉 全部通关！选关';
   showPage('win');
   uiPause();                                       // 桌面=退出指针锁, 触屏=直接显示覆盖层
 }
@@ -532,7 +547,7 @@ function buildTntMenu(){
   const grid = document.getElementById('levelGrid');
   grid.innerHTML = '';
   const save = loadTntSave();
-  LEVELS.forEach((L,i)=>{
+  TNT_LEVELS.forEach((L,i)=>{
     const btn = document.createElement('button');
     btn.className = 'lvBtn';
     if(i <= save.unlocked){
@@ -552,7 +567,7 @@ function buildTntMenu(){
     onConfirm(){ tntSlot.reset(); showToast('进度已重置', 1800); buildTntMenu(); }
   });
   document.getElementById('winNextBtn').onclick = ()=>{
-    if(levelIdx+1 < LEVELS.length) startLevel(levelIdx+1);
+    if(levelIdx+1 < TNT_LEVELS.length) startLevel(levelIdx+1);
     else { showPage('tnt'); buildTntMenu(); return; }
     requestLock();
   };
@@ -571,7 +586,7 @@ function tntReset(){
 /* ---------- 模式对象 ---------- */
 const TntMode = mkMode({
   id: 'tnt',
-  chrome: { score:'none', hotbar:'none' },          // 进关卡后由 tntHb.show() 现身
+  chrome: { score:'none', hotbar:'deferred' },       // 入场隐藏, 进关卡后由 tntHb.show() 现身(见 mode-kit)
   hotbar: tntHb,
   touch: [                                           // 平板动作按钮
     {label:'⬆️', hold:'Space'},
@@ -589,7 +604,7 @@ const TntMode = mkMode({
   update(dt){
     if(!lv) return;
     if(lvState==='playing'){
-      timer += dt;
+      tntTimer += dt;
       // 开场自动演示
       if(lv.demo && !demoFired){
         demoT += dt;
@@ -604,23 +619,7 @@ const TntMode = mkMode({
       updatePickups(dt);
       doorCheckT -= dt;
       if(doorCheckT <= 0){ doorCheckT = 0.15; updateDoors(); }
-      // TNT 引信计时
-      for(let i=tnts.length-1;i>=0;i--){
-        const t = tnts[i];
-        if(t.fuse===null) continue;              // 未点燃
-        if(t.fuse < 0){ t.fuse += dt; continue; } // 链爆延迟中
-        t.fuse += dt;
-        if(!t.mesh){
-          t.mesh = new THREE.Mesh(tntFlashGeo, tntFlashMat.clone());
-          t.mesh.position.set(t.x+0.5, t.y+0.5, t.z+0.5);
-          scene.add(t.mesh);
-        }
-        const p = Math.min(1, t.fuse/TNT_CFG.tntFuse);
-        const s = 1 + p*0.3;
-        t.mesh.scale.set(s,s,s);
-        t.mesh.material.opacity = Math.sin(t.fuse*25)>0 ? 0.75 : 0.12;
-        if(t.fuse >= TNT_CFG.tntFuse) explodeTnt(t);
-      }
+      updateTntFuses(dt);
       // 岩浆 / 出口
       const feet = getBlock(Math.floor(pos.x), Math.floor(pos.y+0.1), Math.floor(pos.z));
       if(feet===B_LAVA) knockout();
@@ -668,8 +667,8 @@ const TntMode = mkMode({
       else hint = BLOCKS[id] ? BLOCKS[id].name : '';
     }
     return [
-      `第 ${levelIdx+1}/${LEVELS.length} 关 · ${lv.name}`,
-      `⏱ ${fmtTime(timer)} / ${fmtTime(lv.par)}`,
+      `第 ${levelIdx+1}/${TNT_LEVELS.length} 关 · ${lv.name}`,
+      `⏱ ${fmtTime(tntTimer)} / ${fmtTime(lv.par)}`,
       `🧵×${fuseInv} 💣×${tntInv}`,
       ...(hint ? ['👉 '+hint] : []),
       `R 重置 · Esc 菜单`

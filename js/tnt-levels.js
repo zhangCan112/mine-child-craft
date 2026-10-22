@@ -9,23 +9,20 @@
    - 每关只引入 1~2 个新概念
 =========================================================== */
 
-/* ---------- 搭建辅助 ---------- */
-function fillB(x1,y1,z1,x2,y2,z2,id){
-  SceneKit.fill(x1,y1,z1,x2,y2,z2,id);      // TNT 方言名, 实现在 SceneKit
-}
-function lineZ(x, z1, z2, id){ fillB(x,11,z1,x,11,z2,id); }
-function lineX(z, x1, x2, id){ fillB(x1,11,z,x2,11,z,id); }
-function pillar(x, z, y1, y2, id){ fillB(x,y1,z,x,y2,z,id); }
+/* ---------- 搭建辅助(方块填充直接走引擎 SceneKit — SceneKit.fill 方言名已退役, 见 GLOSSARY Avoid 名单) ---------- */
+function lineZ(x, z1, z2, id){ SceneKit.fill(x,11,z1,x,11,z2,id); }
+function lineX(z, x1, x2, id){ SceneKit.fill(x1,11,z,x2,11,z,id); }
+function pillar(x, z, y1, y2, id){ SceneKit.fill(x,y1,z,x,y2,z,id); }
 
 /* 标准密室外壳: 内部尺寸 iw×idh, 墙高 h, 返回边界 */
 function mkRoom(cx,cz,iw,idh,h){
   const x1=cx-(iw>>1)-1, x2=cx+(iw>>1)+1;
   const z1=cz-(idh>>1)-1, z2=cz+(idh>>1)+1;
   const top = 11+h;
-  fillB(x1,8,z1,x2,10,z2,3);                                   // 地板 (y8~10)
-  fillB(x1,11,z1,x2,top,z1,3); fillB(x1,11,z2,x2,top,z2,3);   // 南北墙
-  fillB(x1,11,z1,x1,top,z2,3); fillB(x2,11,z1,x2,top,z2,3);   // 东西墙
-  fillB(x1,top,z1,x2,top,z2,3);                                // 天花板
+  SceneKit.fill(x1,8,z1,x2,10,z2,3);                                   // 地板 (y8~10)
+  SceneKit.fill(x1,11,z1,x2,top,z1,3); SceneKit.fill(x1,11,z2,x2,top,z2,3);   // 南北墙
+  SceneKit.fill(x1,11,z1,x1,top,z2,3); SceneKit.fill(x2,11,z1,x2,top,z2,3);   // 东西墙
+  SceneKit.fill(x1,top,z1,x2,top,z2,3);                                // 天花板
   for(let x=x1+3;x<x2;x+=4)                                    // 顶灯
     for(let z=z1+3;z<z2;z+=4) setBlockRaw(x,top,z,19);
   pillar(x1+1,z1+1,11,top-1,13); pillar(x2-1,z1+1,11,top-1,13);
@@ -36,9 +33,9 @@ function mkRoom(cx,cz,iw,idh,h){
 /* 北墙裂纹砖出口 + 出口小屋 (zone 即通关区域) */
 function mkExit(b,cx,halfW){
   const z1=b.z1, top=b.top;
-  fillB(cx-halfW-1,8,z1-4,cx+halfW+1,top,z1-1,3);              // 小屋外壳
-  fillB(cx-halfW,11,z1-3,cx+halfW,top-1,z1-1,0);               // 掏空内部
-  fillB(cx-halfW,11,z1,cx+halfW,13,z1,B_CRACK);                // 裂纹砖出口墙
+  SceneKit.fill(cx-halfW-1,8,z1-4,cx+halfW+1,top,z1-1,3);              // 小屋外壳
+  SceneKit.fill(cx-halfW,11,z1-3,cx+halfW,top-1,z1-1,0);               // 掏空内部
+  SceneKit.fill(cx-halfW,11,z1,cx+halfW,13,z1,B_CRACK);                // 裂纹砖出口墙
   setBlockRaw(cx,top,z1-2,19);
   return {x1:cx-halfW, y1:11, z1:z1-3, x2:cx+halfW, y2:top-1, z2:z1-1};
 }
@@ -46,9 +43,9 @@ function mkExit(b,cx,halfW){
 /* 北墙铁门 + 门后走廊 (门 cells 由关卡数据登记给压力板联动) */
 function mkDoorExit(b,cx,halfW){
   const z1=b.z1, top=b.top;
-  fillB(cx-halfW-1,8,z1-4,cx+halfW+1,top,z1-1,3);
-  fillB(cx-halfW,11,z1-3,cx+halfW,top-1,z1-1,0);
-  fillB(cx-halfW,11,z1,cx+halfW,13,z1,B_DOOR);
+  SceneKit.fill(cx-halfW-1,8,z1-4,cx+halfW+1,top,z1-1,3);
+  SceneKit.fill(cx-halfW,11,z1-3,cx+halfW,top-1,z1-1,0);
+  SceneKit.fill(cx-halfW,11,z1,cx+halfW,13,z1,B_DOOR);
   setBlockRaw(cx,top,z1-2,19);
   return {x1:cx-halfW, y1:11, z1:z1-3, x2:cx+halfW, y2:top-1, z2:z1-1};
 }
@@ -62,7 +59,7 @@ function doorCells(cx,halfW,z){
 /* ============================================================
    关卡
 ============================================================ */
-const LEVELS = [
+const TNT_LEVELS = [
 
 /* ---------- L1 小木屋 · 第一次爆炸 (6岁- 教学) ----------
    预放 TNT 贴出口墙, 捡 6 段引线铺直线, F 点火快跑。
@@ -77,7 +74,7 @@ const LEVELS = [
     const b = mkRoom(64,64,9,9,5);
     this.exit = mkExit(b,64,2);
     pillar(62,66,11,14,5); pillar(66,66,11,14,5);              // 木柱装饰
-    fillB(62,11,66,62,12,66,6); fillB(66,11,66,66,12,66,6);
+    SceneKit.fill(62,11,66,62,12,66,6); SceneKit.fill(66,11,66,66,12,66,6);
     lineZ(67,64,65,B_FUSE);                                    // 演示引线
   }
 },
@@ -93,8 +90,8 @@ const LEVELS = [
     const b = mkRoom(64,64,11,11,5);
     this.exit = mkExit(b,64,2);
     pillar(59,64,11,14,14); pillar(69,64,11,14,14);            // 苔石柱
-    fillB(60,11,62,61,12,63,6); fillB(67,11,62,68,12,63,6);    // 木箱堆 (可炸碎)
-    fillB(59,11,60,60,11,61,8); fillB(68,11,60,69,11,61,8);    // 沙堆
+    SceneKit.fill(60,11,62,61,12,63,6); SceneKit.fill(67,11,62,68,12,63,6);    // 木箱堆 (可炸碎)
+    SceneKit.fill(59,11,60,60,11,61,8); SceneKit.fill(68,11,60,69,11,61,8);    // 沙堆
   }
 },
 
@@ -111,10 +108,10 @@ const LEVELS = [
   build(){
     const b = mkRoom(64,64,15,15,5);
     this.exit = mkExit(b,64,2);
-    fillB(b.x1+1,11,64,b.x2-1,b.top-1,64,3);                   // 内墙
-    fillB(63,11,64,65,13,64,B_CRACK);                          // 内墙裂纹门
-    fillB(59,10,67,69,10,71,16);                               // 南室红地毯
-    fillB(59,10,57,69,10,63,15);                               // 北室蓝地毯
+    SceneKit.fill(b.x1+1,11,64,b.x2-1,b.top-1,64,3);                   // 内墙
+    SceneKit.fill(63,11,64,65,13,64,B_CRACK);                          // 内墙裂纹门
+    SceneKit.fill(59,10,67,69,10,71,16);                               // 南室红地毯
+    SceneKit.fill(59,10,57,69,10,63,15);                               // 北室蓝地毯
   }
 },
 
@@ -128,9 +125,9 @@ const LEVELS = [
   build(){
     const b = mkRoom(64,64,15,15,6);
     this.exit = mkExit(b,64,2);
-    fillB(57,11,64,71,11,65,B_LAVA);                           // 岩浆带
-    fillB(63,11,64,65,11,65,0);                                // 红毯缺口 (3宽)
-    fillB(63,10,64,65,10,65,16);
+    SceneKit.fill(57,11,64,71,11,65,B_LAVA);                           // 岩浆带
+    SceneKit.fill(63,11,64,65,11,65,0);                                // 红毯缺口 (3宽)
+    SceneKit.fill(63,10,64,65,10,65,16);
     pillar(58,62,11,15,12); pillar(70,62,11,15,12);            // 金属矿柱
     pillar(58,68,11,15,12); pillar(70,68,11,15,12);
   }
@@ -146,9 +143,9 @@ const LEVELS = [
   build(){
     const b = mkRoom(64,64,17,17,6);
     this.exit = mkExit(b,64,2);
-    fillB(58,8,59,70,10,67,0);                                 // 深渊 (直通底部)
-    fillB(63,10,59,64,10,67,3);                                // 石桥
-    fillB(62,10,58,65,10,58,17); fillB(62,10,68,65,10,68,17);  // 桥头石英标记
+    SceneKit.fill(58,8,59,70,10,67,0);                                 // 深渊 (直通底部)
+    SceneKit.fill(63,10,59,64,10,67,3);                                // 石桥
+    SceneKit.fill(62,10,58,65,10,58,17); SceneKit.fill(62,10,68,65,10,68,17);  // 桥头石英标记
   }
 },
 
@@ -168,15 +165,15 @@ const LEVELS = [
     const b = mkRoom(64,64,17,17,6);
     this.exit = mkExit(b,64,2);
     setBlockRaw(64,10,56,17);                                  // TNT 摆位标记
-    fillB(64,10,62,64,10,67,16);                               // 红色铺线引导
+    SceneKit.fill(64,10,62,64,10,67,16);                               // 红色铺线引导
     setBlockRaw(64,11,61,B_SWITCH);                            // 转辙器 (初始朝西)
     lineX(61,65,66,B_FUSE); lineZ(66,57,60,B_FUSE);            // 东支: 出口方向
-    fillB(64,11,57,65,11,57,B_FUSE);
+    SceneKit.fill(64,11,57,65,11,57,B_FUSE);
     lineX(61,59,63,B_FUSE);                                    // 西支: 奖励方向
     // 西墙奖励壁龛: 裂纹砖 + 补给
-    fillB(52,8,59,55,b.top,63,3);
-    fillB(53,11,60,54,b.top-1,62,0);
-    fillB(55,11,60,55,12,62,B_CRACK);                          // 2 格高 (TNT 能够到)
+    SceneKit.fill(52,8,59,55,b.top,63,3);
+    SceneKit.fill(53,11,60,54,b.top-1,62,0);
+    SceneKit.fill(55,11,60,55,12,62,B_CRACK);                          // 2 格高 (TNT 能够到)
     setBlockRaw(53,b.top,61,19);
   }
 },
@@ -202,7 +199,7 @@ const LEVELS = [
     lineX(66,62,64,B_FUSE);                                    // 转向西
     lineZ(60,66,66,B_FUSE); lineZ(59,66,66,B_FUSE);            // 死路岔2
     lineZ(61,67,70,B_FUSE);                                    // 缺口 (61,11,71)(61,11,72)
-    fillB(61,10,67,61,10,72,16);                               // 红色引导
+    SceneKit.fill(61,10,67,61,10,72,16);                               // 红色引导
   }
 },
 
@@ -217,9 +214,9 @@ const LEVELS = [
   build(){
     const b = mkRoom(64,64,19,19,6);
     this.exit = mkExit(b,64,2);
-    fillB(55,11,61,72,11,62,B_WATER);                          // 水渠
-    fillB(63,11,61,64,11,62,0);                                // 缺口 (2宽)
-    fillB(63,10,61,64,10,62,15);                               // 蓝毯缺口
+    SceneKit.fill(55,11,61,72,11,62,B_WATER);                          // 水渠
+    SceneKit.fill(63,11,61,64,11,62,0);                                // 缺口 (2宽)
+    SceneKit.fill(63,10,61,64,10,62,15);                               // 蓝毯缺口
     lineZ(64,56,59,B_FUSE);                                    // 缺口 (64,11,60)
     lineZ(64,61,63,B_FUSE);                                    // 缺口 (64,11,64)
     lineZ(64,65,69,B_FUSE);
@@ -242,14 +239,14 @@ const LEVELS = [
   build(){
     const b = mkRoom(64,64,21,21,7);
     this.exit = mkDoorExit(b,64,1);
-    fillB(55,11,66,72,11,67,B_WATER);                          // 水渠
-    fillB(63,11,66,65,11,67,0);                                // 缺口 (3宽)
-    fillB(63,10,66,65,10,67,15);
+    SceneKit.fill(55,11,66,72,11,67,B_WATER);                          // 水渠
+    SceneKit.fill(63,11,66,65,11,67,0);                                // 缺口 (3宽)
+    SceneKit.fill(63,10,66,65,10,67,15);
     // 机关: 压力板 + 悬空支架 + 重物 + TNT 摆位标记
     setBlockRaw(63,11,59,B_PLATE);
     setBlockRaw(63,12,59,B_SUPPORT);
     setBlockRaw(63,13,59,B_WEIGHT);
-    fillB(62,10,58,64,10,60,17);                               // 石英机座
+    SceneKit.fill(62,10,58,64,10,60,17);                               // 石英机座
     setBlockRaw(62,10,59,17);                                  // TNT 摆位标记 (62,11,59)
     // 引线: 主干过水渠缺口, 西折终于 TNT 摆位旁
     lineZ(64,68,69,B_FUSE); lineZ(64,66,67,B_FUSE);            // 缺口 (64,11,65)
@@ -274,14 +271,14 @@ const LEVELS = [
   build(){
     const b = mkRoom(64,64,23,23,7);
     this.exit = mkExit(b,64,3);                                // 大出口墙 x61..67
-    fillB(b.x1+1,11,61,b.x2-1,b.top-1,61,3);                   // 内墙1 (铁门)
-    fillB(63,11,61,65,13,61,B_DOOR);                           // 铁门
-    fillB(b.x1+1,11,68,b.x2-1,b.top-1,68,3);                   // 内墙2 (裂纹门)
-    fillB(63,11,68,65,13,68,B_CRACK);                          // 南室裂纹门
+    SceneKit.fill(b.x1+1,11,61,b.x2-1,b.top-1,61,3);                   // 内墙1 (铁门)
+    SceneKit.fill(63,11,61,65,13,61,B_DOOR);                           // 铁门
+    SceneKit.fill(b.x1+1,11,68,b.x2-1,b.top-1,68,3);                   // 内墙2 (裂纹门)
+    SceneKit.fill(63,11,68,65,13,68,B_CRACK);                          // 南室裂纹门
     lineZ(64,70,70,B_FUSE);                                    // 南室预埋 (玩家向西绕线)
     // 中室: 水渠 + 机关 + 补线
-    fillB(55,11,65,74,11,66,B_WATER);
-    fillB(63,11,65,65,11,66,0);                                // 缺口 (3宽)
+    SceneKit.fill(55,11,65,74,11,66,B_WATER);
+    SceneKit.fill(63,11,65,65,11,66,0);                                // 缺口 (3宽)
     setBlockRaw(66,11,63,B_PLATE);
     setBlockRaw(66,12,63,B_SUPPORT);
     setBlockRaw(66,13,63,B_WEIGHT);

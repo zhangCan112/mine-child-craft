@@ -19,12 +19,12 @@ const buildHb = mkHotbar({ cls:'build', items: BUILD_PALETTE.map(id=>({block:id}
    家具搭建辅助 (y 为家具底部所在层)
 ============================================================ */
 /* 床: 石英枕头 + 羊毛垫 ×2, 沿 'x' 或 'z' 方向摆放 */
-function fxBed(x,y,z,dir,wool){
+function propBed(x,y,z,dir,wool){
   if(dir==='x'){ setBlockRaw(x,y,z,17); setBlockRaw(x+1,y,z,wool); setBlockRaw(x+2,y,z,wool); }
   else         { setBlockRaw(x,y,z,17); setBlockRaw(x,y,z+1,wool); setBlockRaw(x,y,z+2,wool); }
 }
 /* 沙发: len 个座位 + 墙侧靠背, face 为面朝方向 */
-function fxSofa(x,y,z,len,face,wool){
+function propSofa(x,y,z,len,face,wool){
   wool = wool || 15;
   for(let i=0;i<len;i++){
     let sx=x, sz=z, bx=x, bz=z;
@@ -37,14 +37,14 @@ function fxSofa(x,y,z,len,face,wool){
   }
 }
 /* 桌子: w×d 桌面 + 四角木腿 */
-function fxTable(x,y,z,w,d,top){
+function propTable(x,y,z,w,d,top){
   for(let i=0;i<w;i++)
     for(let j=0;j<d;j++) setBlockRaw(x+i,y+1,z+j, top||17);
   setBlockRaw(x,y,z,5);               setBlockRaw(x+w-1,y,z,5);
   setBlockRaw(x,y,z+d-1,5);           setBlockRaw(x+w-1,y,z+d-1,5);
 }
 /* 椅子: 木板座 + 靠背, face 为面朝方向 */
-function fxChair(x,y,z,face){
+function propChair(x,y,z,face){
   setBlockRaw(x,y,z,6);
   if(face==='n') setBlockRaw(x,y+1,z+1,6);
   if(face==='s') setBlockRaw(x,y+1,z-1,6);
@@ -52,7 +52,7 @@ function fxChair(x,y,z,face){
   if(face==='w') setBlockRaw(x+1,y+1,z,6);
 }
 /* 电视: 落地支架 + 履带屏幕 2 高, alongX 屏幕沿 x 还是 z 展开 */
-function fxTV(x,y,z,w,alongX){
+function propTV(x,y,z,w,alongX){
   for(let i=0;i<w;i++){
     const sx = alongX ? x+i : x, sz = alongX ? z : z+i;
     setBlockRaw(sx,y-1,sz,6);          // 落地支架
@@ -61,7 +61,7 @@ function fxTV(x,y,z,w,alongX){
   }
 }
 /* 书架: w 宽 h 高, 彩色羊毛当"书", 木板收顶 */
-function fxShelf(x,y,z,w,h,alongX){
+function propShelf(x,y,z,w,h,alongX){
   for(let i=0;i<w;i++)
     for(let j=0;j<h;j++){
       const sx = alongX ? x+i : x, sz = alongX ? z : z+i;
@@ -70,20 +70,20 @@ function fxShelf(x,y,z,w,h,alongX){
     }
 }
 /* 衣柜: 石英柜身 2 高 + 木头顶柜 */
-function fxWardrobe(x,y,z,w,alongX){
+function propWardrobe(x,y,z,w,alongX){
   for(let i=0;i<w;i++){
     const sx = alongX ? x+i : x, sz = alongX ? z : z+i;
     setBlockRaw(sx,y,sz,17); setBlockRaw(sx,y+1,sz,17); setBlockRaw(sx,y+2,sz,6);
   }
 }
 /* 床头柜 + 台灯 */
-function fxNightstand(x,y,z){ setBlockRaw(x,y,z,5); setBlockRaw(x,y+1,z,19); }
+function propNightstand(x,y,z){ setBlockRaw(x,y,z,5); setBlockRaw(x,y+1,z,19); }
 /* 路灯柱: 木杆 ×2 + 灯块 */
-function fxLampPost(x,y,z){ setBlockRaw(x,y,z,5); setBlockRaw(x,y+1,z,5); setBlockRaw(x,y+2,z,19); }
+function propLampPost(x,y,z){ setBlockRaw(x,y,z,5); setBlockRaw(x,y+1,z,5); setBlockRaw(x,y+2,z,19); }
 /* 平地毯: 把地面顶层方块替换成羊毛(与地面齐平, 可自由踩踏) */
-function fxCarpet(x1,z1,x2,z2,y,id){ SceneKit.fill(x1,y,z1,x2,y,z2,id); }
+function propCarpet(x1,z1,x2,z2,y,id){ SceneKit.fill(x1,y,z1,x2,y,z2,id); }
 /* 石景堆: 圆石/苔石小丘, rad 为半径 */
-function fxBoulder(cx,cz,rad){
+function propBoulder(cx,cz,rad){
   for(let dx=-rad;dx<=rad;dx++)
     for(let dz=-rad;dz<=rad;dz++){
       if(Math.abs(dx)+Math.abs(dz) > rad+ (rad>1?1:0)) continue;   // 菱形轮廓更自然
@@ -155,21 +155,21 @@ function buildHouseScene(){
   SceneKit.fill(57,30,60,57,35,60,13); setBlockRaw(57,36,60,19);   // 烟囱
 
   /* ---- 一层: 客厅(西) + 厨房(东) ---- */
-  fxCarpet(57,60,62,64,G,16);                  // 红色客厅地毯(嵌入地面)
-  fxSofa(58,21,64,4,'n',15);                   // 蓝沙发面朝电视
-  fxTable(59,21,61,2,2,17);                    // 石英茶几
-  fxTV(58,22,58,4,true);                       // 电视挂北墙
-  fxShelf(56,21,60,3,3,false);                 // 西墙书架
+  propCarpet(57,60,62,64,G,16);                  // 红色客厅地毯(嵌入地面)
+  propSofa(58,21,64,4,'n',15);                   // 蓝沙发面朝电视
+  propTable(59,21,61,2,2,17);                    // 石英茶几
+  propTV(58,22,58,4,true);                       // 电视挂北墙
+  propShelf(56,21,60,3,3,false);                 // 西墙书架
   SceneKit.fill(70,21,58,70,21,64,12);                 // 厨台(金属)
   setBlockRaw(70,21,59,11); setBlockRaw(70,21,62,17);      // 灶台/水槽
   SceneKit.fill(70,21,66,70,22,67,17);                 // 冰箱(石英)
-  fxTable(65,21,63,3,2,6);                     // 餐桌
-  fxChair(65,21,61,'n'); fxChair(67,21,61,'n');
-  fxChair(65,21,66,'s'); fxChair(67,21,66,'s');
+  propTable(65,21,63,3,2,6);                     // 餐桌
+  propChair(65,21,61,'n'); propChair(67,21,61,'n');
+  propChair(65,21,66,'s'); propChair(67,21,66,'s');
   for(const l of [[59,61],[66,61],[59,66],[66,66]])
     setBlockRaw(l[0],25,l[1],19);              // 一层吸顶灯
-  fxCarpet(62,70,63,73,G,4);                   // 门外圆石小径
-  fxLampPost(60,21,71);                        // 门廊路灯
+  propCarpet(62,70,63,73,G,4);                   // 门外圆石小径
+  propLampPost(60,21,71);                        // 门廊路灯
   /* 院子: 两棵树 + 门前花坛 */
   SceneKit.tree(52,21,64); SceneKit.tree(74,21,64);
   for(let i=0;i<4;i++){
@@ -179,14 +179,14 @@ function buildHouseScene(){
 
   /* ---- 二层: 主卧(西) + 儿童房(东) ---- */
   SceneKit.fill(65,26,58,65,27,62,6);                  // 隔断墙(南侧留门)
-  fxBed(57,26,61,'z',16); fxBed(58,26,61,'z',16);          // 双人床(红)
-  fxNightstand(56,26,61); fxNightstand(59,26,61);
-  fxWardrobe(56,26,66,3,true);                 // 衣柜
-  fxCarpet(57,62,63,66,25,15);                 // 卧室地毯(嵌入楼板)
-  fxBed(67,26,58,'z',15);                      // 儿童床(蓝,避让楼梯口)
-  fxTable(68,26,63,2,1,6);                     // 书桌
-  fxChair(68,26,64,'n');
-  fxShelf(70,26,66,3,false);                   // 玩具架
+  propBed(57,26,61,'z',16); propBed(58,26,61,'z',16);          // 双人床(红)
+  propNightstand(56,26,61); propNightstand(59,26,61);
+  propWardrobe(56,26,66,3,true);                 // 衣柜
+  propCarpet(57,62,63,66,25,15);                 // 卧室地毯(嵌入楼板)
+  propBed(67,26,58,'z',15);                      // 儿童床(蓝,避让楼梯口)
+  propTable(68,26,63,2,1,6);                     // 书桌
+  propChair(68,26,64,'n');
+  propShelf(70,26,66,3,false);                   // 玩具架
   for(const l of [[x1,61],[x1,65],[x2,61],[x2,65]])
     setBlockRaw(l[0],28,l[1],19);              // 二层壁灯
 }
@@ -231,32 +231,32 @@ function buildBasementScene(){
   }
 
   /* ---- 客厅区 (西) ---- */
-  fxCarpet(45,53,52,61,17,16);                 // 红地毯
-  fxTV(44,19,54,4,false);                      // 大电视靠西墙
-  fxSofa(48,18,54,4,'w',15);                   // 主沙发
-  fxSofa(46,18,60,3,'n',15);                   // L 型副沙发
-  fxSofa(48,18,58,1,'w',15);
-  fxTable(46,18,55,2,2,17);                    // 茶几
+  propCarpet(45,53,52,61,17,16);                 // 红地毯
+  propTV(44,19,54,4,false);                      // 大电视靠西墙
+  propSofa(48,18,54,4,'w',15);                   // 主沙发
+  propSofa(46,18,60,3,'n',15);                   // L 型副沙发
+  propSofa(48,18,58,1,'w',15);
+  propTable(46,18,55,2,2,17);                    // 茶几
 
   /* ---- 卧室区 (东北角) ---- */
-  fxCarpet(77,45,82,50,17,15);
-  fxBed(78,18,46,'z',16); fxBed(80,18,46,'z',15);
-  fxNightstand(77,18,46); fxNightstand(81,18,46);
-  fxWardrobe(78,18,44,3,true);
+  propCarpet(77,45,82,50,17,15);
+  propBed(78,18,46,'z',16); propBed(80,18,46,'z',15);
+  propNightstand(77,18,46); propNightstand(81,18,46);
+  propWardrobe(78,18,44,3,true);
 
   /* ---- 厨房 + 餐厅 (东南) ---- */
   SceneKit.fill(50,18,74,62,18,74,12);                 // 厨台
   setBlockRaw(54,18,74,11); setBlockRaw(58,18,74,17);
   SceneKit.fill(63,18,74,63,19,74,17);                 // 冰箱
-  fxTable(53,18,67,3,3,6);                     // 大餐桌
-  fxChair(52,18,67,'e'); fxChair(56,18,67,'w');
-  fxChair(52,18,69,'e'); fxChair(56,18,69,'w');
-  fxChair(53,18,70,'n'); fxChair(55,18,70,'n');
+  propTable(53,18,67,3,3,6);                     // 大餐桌
+  propChair(52,18,67,'e'); propChair(56,18,67,'w');
+  propChair(52,18,69,'e'); propChair(56,18,69,'w');
+  propChair(53,18,70,'n'); propChair(55,18,70,'n');
 
   /* ---- 书房区 (西北) ---- */
-  fxShelf(45,18,44,3,3,true); fxShelf(49,18,44,3,3,true);
-  fxTable(45,18,47,2,1,17); fxChair(45,18,48,'n');
-  fxTable(49,18,47,2,1,17); fxChair(49,18,48,'n');
+  propShelf(45,18,44,3,3,true); propShelf(49,18,44,3,3,true);
+  propTable(45,18,47,2,1,17); propChair(45,18,48,'n');
+  propTable(49,18,47,2,1,17); propChair(49,18,48,'n');
   setBlockRaw(46,20,47,19);                    // 桌上台灯
 
   /* ---- 中央游戏区: 8×8 棋盘 + 观棋座 ---- */
@@ -264,7 +264,7 @@ function buildBasementScene(){
     for(let j=0;j<8;j++)
       setBlockRaw(62+i,17,66+j, (i+j)%2 ? 15 : 16);
   for(const s of [[61,67],[70,67],[61,72],[70,72]]) setBlockRaw(s[0],18,s[1],5);
-  fxLampPost(45,18,72); fxLampPost(82,18,44);
+  propLampPost(45,18,72); propLampPost(82,18,44);
 
   /* ---- 北侧大阶梯: 大厅直上地面 (3宽 x63..65, 7 级) ---- */
   for(let i=0;i<=6;i++){
@@ -281,10 +281,10 @@ function buildBasementScene(){
     SceneKit.fill(p[0],25,p[1],p[0],27,p[1],5); setBlockRaw(p[0],28,p[1],19);       // 木柱+柱灯
   }
   SceneKit.fill(60,28,35,68,28,41,6);                   // 凉亭木板顶
-  fxCarpet(61,34,67,36,24,4);                   // 圆石广场(嵌地面)
-  fxCarpet(63,26,64,33,24,4);                   // 北向小径
-  fxCarpet(63,85,64,88,24,4);                   // 小屋南向小径
-  fxLampPost(61,25,29); fxLampPost(66,25,29);
+  propCarpet(61,34,67,36,24,4);                   // 圆石广场(嵌地面)
+  propCarpet(63,26,64,33,24,4);                   // 北向小径
+  propCarpet(63,85,64,88,24,4);                   // 小屋南向小径
+  propLampPost(61,25,29); propLampPost(66,25,29);
   /* 花坛 + 绿篱 */
   for(let i=0;i<8;i++) setBlockRaw(71+(i%4)*2,25,33+Math.floor(i/4)*3, i%2?16:15);
   setBlockRaw(70,25,35,7); setBlockRaw(70,25,38,7); setBlockRaw(79,25,36,7);
@@ -303,9 +303,9 @@ function buildBasementScene(){
       const r=Math.hypot(x-98.5, z-33);
       if(r<4.4){ setBlockRaw(x,24,z, r<3.5?B_WATER:8); setBlockRaw(x,23,z,8); }
     }
-  fxLampPost(92,25,33);
+  propLampPost(92,25,33);
   /* 石景堆 */
-  fxBoulder(48,88,2); fxBoulder(100,84,2); fxBoulder(91,28,1);
+  propBoulder(48,88,2); propBoulder(100,84,2); propBoulder(91,28,1);
 }
 
 /* ============================================================
@@ -335,7 +335,16 @@ const buildSlot = SyncDB.slot(BUILD_SAVE_KEY, {
                    edits: Object.fromEntries(Object.keys(sv.edits || {}).map(id => [id, new Map(sv.edits[id])])) })
 });
 function buildSaveNow(){
-  buildSlot.save({ scene: buildSceneId, edits: buildEdits });
+  /* 服务端 POST 上限 200KB(server.js): 超限会被静默拒收 — 存前粗测并提示,
+     免得重度建造的进度"看起来存了其实没存" */
+  const payload = { scene: buildSceneId, edits: buildEdits };
+  try{
+    if(JSON.stringify(payload).length > 190000){
+      showToast('⚠ 存档太大了，试试按 R 重置场景', 3000);
+      return;
+    }
+  }catch(e){}
+  buildSlot.save(payload);
   buildDirty = false;
 }
 function buildLoadSave(){
