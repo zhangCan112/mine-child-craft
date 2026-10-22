@@ -28,6 +28,8 @@ const NETHER = { phase: 'overworld', wave: 0, waveInProgress: false,
 const NETHER_ATTACK_T = 0.5;                // 怪物挥击姿态时长(attackT 满时长, 近战/远程统一 — gait 第 4 参)
 let pEnt = null;                          // 下界探险中的"主人公实体"(AI 索敌目标 + 受击/受死共用状态)
 let nArrows = [];                         // 下界怪物投射(烈焰人爆裂火球/恶魂恶魂火球 → 玩家受击)
+let hurtT = 0;                            // 受击语音节流计时(3 秒最多一句 — iOS TTS 频繁
+                                          // cancel+speak 是掉帧源, 坦克表扬 praiseT 同款节流)
 
 /* ---------- 主人公实体: AI 索敌 + 受击状态共用(同一套 MobCore 状态机) ---------- */
 function getPEnt(){
@@ -103,6 +105,7 @@ function enterNether(){
   ModeKit.spawn(25.5, NETHER_GROUND + 1, 27.5, { yaw: Math.PI });   // 从回程门前走出(门在身后, 面朝下界)
   flyMode = false;                                     // 冒险模式步行(不沿用建造的飞行)
   NETHER.swingCd = 0;                                  // 传送落地即可战斗(不留挥击锁)
+  hurtT = 0;                                           // 受击语音节流复位
   SpeechKit.speak('进了下界！回程传送门就在身后！怪物来了！');
   showToast('🌀 传送进下界！');
 }
@@ -115,6 +118,7 @@ function enterOverworld(){
   Mobs.clear();
   NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
   NETHER.swingCd = 0;
+  hurtT = 0;                                           // 受击语音节流复位
   SpeechKit.speak('回到上界啦');
 }
 
@@ -167,6 +171,16 @@ function netherOnKill(m){
   checkWaveClear();
 }
 
+/* ---------- 受击提醒(非致命): 音色区分 + 震屏 + 剩血 toast + 节流语音 ----------
+   致命一击不走这里 — 死亡路径已有专属文案/话术(引擎 death 音), 且 SpeechKit
+   是 cancel-then-speak, 后播的受击话术会把死亡话术顶掉 */
+function netherOnHurt(r){
+  sfx('hurt');                                    // 受击专属音(与"主人公打怪"的 hit 区分)
+  Fx.kick(0.35);                                  // 轻震屏(Fx 震屏入口, 主循环消费)
+  showToast('💔 被打中了！剩 ' + Math.max(0, Math.ceil(r.hp)) + ' 滴血');   // 每击都提(文本替换, 成本低)
+  if(hurtT <= 0){ hurtT = 3; SpeechKit.speak('哎呀被打中了！快躲开！'); }    // 语音 3 秒节流
+}
+
 /* ---------- 下界怪物 AI: 全部 hostile, 索敌=主人公 → 逼近/攻击/射击 ---------- */
 function netherAI(dt){
   const p = getPEnt();
@@ -199,8 +213,7 @@ function netherAI(dt){
       } else if(Math.abs(tg.pos.y - gp.y) < 2.5 && m.attackCd <= 0){   // 近战攻击玩家
         m.attackCd = m.cfg.cd; m.attackT = NETHER_ATTACK_T;
         const r = Mobs.hit(p, Math.round(m.cfg.dmg*(m.dmgMult||1)), p.pos.x - gp.x, p.pos.z - gp.z, 0.4);
-        sfx('hit');
-        if(r.freshDead) netherPlayerDied();
+        if(r.freshDead) netherPlayerDied(); else netherOnHurt(r);
       }
     }
     /* 步态+战斗姿态: 与竞技场同一条怪物库 gait 入口(此前下界只跑 AI 不喂步态 —
@@ -245,8 +258,7 @@ function updateNetherArrows(dt){
     if(getBlock(Math.floor(px), Math.floor(py), Math.floor(pz)) !== 0 || a.life <= 0){ removeNetherArrow(i); continue; }
     if(!p.dead && CombatCore.hitBody({x:px, y:py, z:pz}, p)){     // 命中主人公(与竞技场箭矢同一判定, 战斗核心)
       const r = Mobs.hit(p, a.dmg, p.pos.x - px, p.pos.z - pz, a.kpow);
-      sfx('hit');
-      if(r.freshDead) netherPlayerDied();
+      if(r.freshDead) netherPlayerDied(); else netherOnHurt(r);
       removeNetherArrow(i);
     }
   }
@@ -283,6 +295,7 @@ const NetherMode = mkMode({
 
   update(dt){
     if(NETHER.swingCd > 0) NETHER.swingCd = Math.max(0, NETHER.swingCd - dt);
+    hurtT = Math.max(0, hurtT - dt);         // 受击语音节流递减
     if(NETHER.phase === 'overworld'){
       if(inPortal(NETHER_HOME_GROUND, NETHER_HOME_PORTAL.px, NETHER_HOME_PORTAL.pz)) enterNether();
     } else {

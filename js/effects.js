@@ -56,6 +56,7 @@ const SFX_DEFS = {
   boom:    { noise:{type:'lowpass',  freq:420,  dur:0.5}, g:0.2 },   // g 0.4→0.2: 与其他音效重新配平, 给压限器留余量
   fss:     { noise:{type:'highpass', freq:3000, dur:0.3}, g:0.12 },  // 引线嘶嘶声
   hit:     { type:'square',   f0:170,  f1:80,   fT:0.08, dur:0.09, g:0.08 },
+  hurt:    { type:'sawtooth', f0:340,  f1:110,  fT:0.12, dur:0.14, g:0.10 },   // 玩家受击(比 hit 更"疼", 与打怪音区分)
   shoot:   { type:'square',   f0:820,  f1:300,  fT:0.07, dur:0.08, g:0.04 },
   zap:     { type:'sawtooth', f0:1900, f1:180,  fT:0.13, dur:0.15, g:0.09 },   // 闪电劈落(高频锯齿急坠)
   death:   { type:'sawtooth', f0:150,  f1:48,   fT:0.28, dur:0.30, g:0.10 },

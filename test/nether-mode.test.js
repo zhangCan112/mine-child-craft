@@ -46,7 +46,7 @@ globalThis.SceneKit = { fill(){}, tree(){}, rand: () => 0 };
 globalThis.SpeechKit = { speak(s){ spoken.push(s); }, cancel(){} };
 globalThis.showToast = (s) => calls.push(['toast', s]);
 globalThis.setTouchActions = (l) => { touchList = l; };
-globalThis.Fx = { debrisBurst(){ calls.push(['debris']); } };
+globalThis.Fx = { debrisBurst(){ calls.push(['debris']); }, kick(){ calls.push(['kick']); } };
 globalThis.sfx = (n) => { calls.push(['sfx', n]); };
 globalThis.getBlock = () => 0;
 globalThis.isSolid = () => false;
@@ -192,6 +192,26 @@ test('下界冒险: 怪物近战攻击玩家 → 玩家阵亡 → 回下界出�
   assert.ok(calls.some(c => c[0] === 'spawn' && c[1] === 25.5 && c[2] === NETHER_GROUND + 1 && c[3] === 27.5), '重生点=回程门前');
   assert.ok(spoke('回出生点'), '阵亡语音(零惩罚: 回出生点重来)');
   assert.ok(hitLog.some(h => h.dmg === 8), '怪物按自身 dmg 攻击玩家');
+  assert.ok(!calls.some(c => c[0] === 'sfx' && c[1] === 'hurt'), '致命一击不播受击音(死亡路径已有引擎 death 音)');
+  assert.ok(!calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('被打中') >= 0), '致命一击走死亡文案, 受击提醒不抢戏');
+});
+
+test('下界冒险: 被怪物打中(非致命) → 受击音+震屏+剩血提醒, 语音 3 秒节流', () => {
+  calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
+  listResult = [];
+  NetheMode.init();
+  walkIntoPortal();
+  calls.length = 0; spoken.length = 0; hitLog.length = 0;
+
+  globalThis.pos.x = 20.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;   /* 两只近战怪贴身 */
+  nextHit = { hp: 22, dead: false, freshDead: false };
+  listResult = [ mkMob('piglin', 20.6, 12, 20.4), mkMob('zombified_piglin', 20.4, 12, 20.6) ];
+  NetheMode.update(DT);                                 /* 同帧各打一下 */
+  assert.strictEqual(hitLog.length, 2, '两只怪都命中玩家');
+  assert.ok(calls.some(c => c[0] === 'sfx' && c[1] === 'hurt'), '受击音 hurt(与主人公打怪的 hit 区分)');
+  assert.ok(has('kick'), '受击震屏');
+  assert.ok(calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('剩 22') >= 0), '受击提醒带剩余血量');
+  assert.strictEqual(spoken.filter(s => String(s).indexOf('快躲开') >= 0).length, 1, '语音 3 秒节流: 同帧两击只播一句');
 });
 
 test('下界冒险: 飞行炮台(烈焰人/恶魂)投火球 → 火球命中主人公(不是打怪)', () => {
@@ -208,6 +228,9 @@ test('下界冒险: 飞行炮台(烈焰人/恶魂)投火球 → 火球命中主�
   })];
   NetheMode.update(DT);                                 /* AI 开火 + 火球飞行一步即命中 */
   assert.ok(hitLog.some(h => h.dmg === 8 && h.m.pos === globalThis.pos), '火球按烈焰人 dmg 命中主人公(受击者=玩家实体)');
+  assert.ok(calls.some(c => c[0] === 'sfx' && c[1] === 'hurt'), '火球命中 → 受击音(与打怪 hit 区分)');
+  assert.ok(calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('被打中') >= 0), '火球命中 → 受击提醒');
+  assert.ok(spoke('快躲开'), '受击语音');
 });
 
 test('下界冒险: 每帧给活怪喂步态+战斗姿态窗口 — 此前下界怪连走路都不摆腿', () => {
