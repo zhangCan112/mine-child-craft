@@ -35,6 +35,7 @@ globalThis.MOB_TYPES = {
   zombie: {name:'僵尸',   hp:30, dmg:5, speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
   blaze:  {name:'烈焰人', hp:30, dmg:8, speed:2.3, range:15,  cd:2.4, h:1.8, fly:true, ranged:true, hitR:0.45},
   hoglin: {name:'疣猪兽', hp:60, dmg:9, speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7},
+  piglin: {name:'猪灵',   hp:24, dmg:8, speed:2.7, range:2.2, cd:1.1, h:1.9, hitR:0.55},
   mix:    {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2},
 };
 
@@ -157,6 +158,15 @@ test('怪物库: gait 攻击姿态窗口(第 4 参) — 挥臂(人形)/头前扑
   b.attackT = 0;
   Mobs.gait(b, 1/60, 2, 0.5);
   assert.ok(Math.abs(b.pose.armR) < 0.25, 'attackT 归零: 回步态摆臂基线');
+
+  const p = Mobs.spawn('piglin', 16, 16, {});        /* 持械人形(hum 的 held → 武器挂 armL) */
+  p.attackT = 0.25;                                  /* 相位中点 → 挥幅峰值 */
+  Mobs.gait(p, 1/60, 0, 0.5);
+  assert.ok(Math.abs(p.pose.armL - (-1.9)) < 1e-9, '持械人形: 相位中点持械臂(armL)抡到峰值 -1.9, 不再空手挥拳');
+  assert.ok(Math.abs(p.pose.armR) < 1e-9, '空手右臂: 反向平衡(sp=0 时静止归零)');
+  p.attackT = 0;
+  Mobs.gait(p, 1/60, 2, 0.5);
+  assert.ok(Math.abs(p.pose.armL) < 0.25, 'attackT 归零: 持械臂回步态摆臂基线(每帧幂等)');
 
   const h = Mobs.spawn('hoglin', 12, 12, {});        /* 四足分支(无臂有头) */
   h.attackT = 0.3;

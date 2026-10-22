@@ -866,8 +866,11 @@ function updateMobs(dt){
     }
     const speedNow = Math.abs(speed);
 
-    /* 步态公共部分(摆腿/扇翅/基础摆臂)归怪物库 gait, 战斗姿态在其上覆盖 */
-    const sw = Mobs.gait(m, dt, speedNow);
+    /* 步态+战斗姿态归怪物库 gait(第 4 参=攻击姿态窗口 0.45s, 与下方专有公式的
+       /0.45 同值): 通用挥臂(挥击手=持械手, 骨架表 weaponArm)/无臂头前扑已在
+       引擎收口 — 卫道士/女巫/掠夺者等持械怪与下界同一条挥击公式;
+       以下仅保留本模式专有公式(僵尸下劈/骷髅瞄准/龙·苦力怕头扑/傀儡双臂) */
+    const sw = Mobs.gait(m, dt, speedNow, 0.45);
     const J = m.pose;
     if(m.type==='zombie'){
       J.armR = m.attackT>0
@@ -882,10 +885,6 @@ function updateMobs(dt){
       J.armL = -sw*0.5;
       J.armR = m.attackT>0
         ? -Math.sin((1-m.attackT/0.45)*Math.PI)*2.1 : sw*0.5;
-    } else if(Mobs.hasSlot(m.type,'armL')){         // 通用: 摆臂+攻击挥臂(持械人形/守卫者侧刺/凋灵肩头)
-      J.armL = -sw*0.5;
-      J.armR = m.attackT>0
-        ? -Math.sin((1-m.attackT/0.45)*Math.PI)*1.9 : sw*0.5;
     }
     if(m.air && m.type==='golem'){
       J.armL = -2.4;                               // 跃起时双臂高举

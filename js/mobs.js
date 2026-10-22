@@ -53,7 +53,8 @@ const Mobs = (() => {
 
     /* ---- 参数化骨架生成器(新怪共用, 尺寸基准=僵尸五槽) ----
        hum: 人形(亡灵/灾厄村民/猪灵/嘎枝…) — tall 高个系数 · held 左手持物
-            eye 眼色 · ears 猪灵耳 · hat 尖帽(女巫) · chest 胸前饰块(监守者光纹)
+            (→ rig 声明 weaponArm, gait 挥持械手) · eye 眼色 · ears 猪灵耳 ·
+            hat 尖帽(女巫) · chest 胸前饰块(监守者光纹)
        quad: 四足(蜘蛛/疣猪兽/劫掠兽) — 体+前伸头(带眼/獠牙)+对角腿(八足可选) */
     function hum(o){
       const t = o.tall || 1;
@@ -78,7 +79,8 @@ const Mobs = (() => {
         armL: { joint:[-0.37,1.42*t,0], boxes: armBoxes },
         armR: { joint:[ 0.37,1.42*t,0], boxes:[ B(0.2,0.72,0.2,o.skin, 0,-0.34,0) ] },
         head: { joint:[0,1.5*t,0], boxes: headBoxes },
-      }, armStyle: o.arm };                                            // arm: 步态风格('zombie' 前伸手), gait 解读
+      }, armStyle: o.arm,                                              // arm: 步态风格('zombie' 前伸手), gait 解读
+        weaponArm: o.held ? 'armL' : undefined };                      // 挥击手=持械手: 武器挂哪只臂, gait 战斗就挥哪只
     }
     function quad(o){
       const legOffs = o.legs8                                             // 八足:每槽4条(左槽左列)
@@ -241,7 +243,7 @@ const Mobs = (() => {
           B(0.09,0.07,0.04,0xd83a2a, -0.08,0.2,0.18), B(0.09,0.07,0.04,0xd83a2a, 0.08,0.2,0.18) ] },
         wingL: { joint:[-0.16,0.68,0], axis:'z', boxes:[ B(0.5,0.05,0.3,0xe8f2ff, -0.25,0,0) ] },
         wingR: { joint:[ 0.16,0.68,0], axis:'z', boxes:[ B(0.5,0.05,0.3,0xe8f2ff,  0.25,0,0) ] },
-      }},
+      }, weaponArm:'armL' },                                           // 小剑挂左臂: 挥击手=持械手
       creaking: hum({ skin:0x54402e, shirt:0x64503a, pants:0x483824,
         eye:0xff8a2a, tall:0.95 }),                                    // 木纹身+橙光眼
       /* ---- 下界 ---- */
@@ -659,7 +661,8 @@ const Mobs = (() => {
   /* 步态(引擎/模式共用): 走路摆腿 · 飞行扇翅 · 按骨架表 armStyle 摆臂。
      返回摆幅 sw — 模式的攻击挥臂等战斗姿态在 gait 写入的 pose 之上覆盖叠加。
      第 4 参 atkDur(可缺省)= attackT 满时长 → 通用战斗姿态一并收在此:
-     有臂挥臂(僵尸式下劈/弓手举持/通用人形抡臂), 无臂有头则头部前扑 —
+     有臂挥臂(僵尸式下劈/弓手举持/通用人形抡臂 — 挥击手=持械手: 骨架表
+     weaponArm 声明持械臂, 缺省抡右拳), 无臂有头则头部前扑 —
      骨架知识本就住在引擎, 模式不再各自手抄 sin 公式(竞技场曾硬编码
      /0.45, attackT 超时长时相位为负; 此处钳制到 [0,1]) */
   function gait(m, dt, sp, atkDur){
@@ -688,9 +691,9 @@ const Mobs = (() => {
         J.armR = m.attackT > 0 ? -1.45 - s*0.9 : -1.45;
       } else if(rig.armStyle === 'archer'){       // 弓手式: 攻击中持弓臂定住瞄准
         J.armR = m.attackT > 0 ? -1.3 : -sw*0.5;
-      } else if(rig.slots.armL){                  // 通用: 抡臂挥击(另一臂反向平衡)
-        J.armL = -sw*0.5;
-        J.armR = m.attackT > 0 ? -s*1.9 : sw*0.5;
+      } else if(rig.slots.armL){                  // 通用: 抡臂挥击 — 持械臂抡(缺省右拳), 另一臂反向平衡
+        J.armL = -sw*0.5; J.armR = sw*0.5;        // 两臂步态基线(相位互补)
+        if(m.attackT > 0) J[rig.weaponArm || 'armR'] = -s*1.9;   // 挥击手=持械手
       } else if(rig.slots.head){                  // 四足/恶魂式: 头部前扑
         J.head = m.attackT > 0 ? -0.55 : 0;
       }

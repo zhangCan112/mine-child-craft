@@ -223,7 +223,7 @@ function netherAI(dt){
       }
     }
     /* 步态+战斗姿态: 与竞技场同一条怪物库 gait 入口(此前下界只跑 AI 不喂步态 —
-       怪连走路都不摆腿; 第 4 参 = attackT 满时长 → 有臂挥臂/无臂头前扑) */
+       怪连走路都不摆腿; 第 4 参 = attackT 满时长 → 有臂挥臂(挥击手=持械手)/无臂头前扑) */
     Mobs.gait(m, dt, moved, NETHER_ATTACK_T);
   }
 }
