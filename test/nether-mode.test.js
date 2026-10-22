@@ -124,9 +124,9 @@ const DT = 1/60;
 const has = (ev) => calls.some(c => c[0] === ev);
 const spoke = (kw) => spoken.some(s => String(s).indexOf(kw) >= 0);
 
-/* 走进上界传送门内口(px=61, by=24, pz=88) → 触发 enterNether */
+/* 走进上界传送门内口(px=61, by=24, pz=90) → 触发 enterNether */
 function walkIntoPortal(){
-  globalThis.pos.x = 62.5; globalThis.pos.y = 25; globalThis.pos.z = 87.2;
+  globalThis.pos.x = 62.5; globalThis.pos.y = 25; globalThis.pos.z = 89.2;
   NetheMode.update(DT);
 }
 function mkMob(type, x, y, z, extra){
@@ -148,7 +148,7 @@ test('下界冒险: init 上界建场(建造模式场景 + 地表霸气传送门
   assert.ok(calls.some(c => c[0] === 'set' && c[4] === 34), '发光岩点缀(塔楼压顶/门楣顶心/开口四角)');
   assert.ok(calls.some(c => c[0] === 'set' && c[4] === 33), '门前下界砖步道');
   assert.ok(has('beam'), '门中紫色光束锚定(Fx.portalBeam, 特效唯一入口)');
-  assert.ok(calls.some(c => c[0] === 'beam' && c[1] === 61 + 3 && c[2] === 25 && c[3] === 88.5),
+  assert.ok(calls.some(c => c[0] === 'beam' && c[1] === 61 + 3 && c[2] === 25 && c[3] === 90.5),
     '光束锚在开口中心(px=61 门 6 宽 → 中心 x=64, 底高 by+1, 门面 z+0.5)');
   assert.ok(has('spawn'), '玩家出生在上界家');
   assert.ok(Array.isArray(touchList) && touchList.length >= 1, '声明了触屏按钮');
@@ -185,10 +185,10 @@ test('下界冒险: 霸气外观升级不破坏传送判定 — 判定只认内�
     NetheMode.update(DT);
     return !spoke('进了下界');
   };
-  assert.ok(noTp(60.4, 25, 87.4), '塔楼旁(框架左外侧, x 未过 px)不传送');
-  assert.ok(noTp(67.5, 25, 87.4), '框架右外侧(过内口 x 上界)不传送');
-  assert.ok(noTp(63.5, 25, 90.6), '门后绕行(z 距门面超 1.5 格)不传送');
-  assert.ok(noTp(63.5, 34, 87.5), '站上门楣顶(高出内口 y 区间)不传送');
+  assert.ok(noTp(60.4, 25, 89.4), '塔楼旁(框架左外侧, x 未过 px)不传送');
+  assert.ok(noTp(67.5, 25, 89.4), '框架右外侧(过内口 x 上界)不传送');
+  assert.ok(noTp(63.5, 25, 92.6), '门后绕行(z 距门面超 1.5 格)不传送');
+  assert.ok(noTp(63.5, 34, 89.5), '站上门楣顶(高出内口 y 区间)不传送');
   spoken.length = 0;
   walkIntoPortal();                                       /* 踏进内口 → 传送(对照面) */
   assert.ok(spoke('进了下界'), '踏进内口即传送(判定与外观件解耦, 语义不回归)');
@@ -308,7 +308,7 @@ test('下界冒险: 怪物近战攻击玩家 → 玩家阵亡 → 回下界出�
   nextHit = { hp: 0, dead: true, freshDead: true };
   NetheMode.update(DT);
   assert.ok(has('spawn'), '阵亡 → 重生(回下界出生点)');
-  assert.ok(calls.some(c => c[0] === 'spawn' && c[1] === 25.5 && c[2] === NETHER_GROUND + 1 && c[3] === 27.5), '重生点=回程门前');
+  assert.ok(calls.some(c => c[0] === 'spawn' && c[1] === 25.5 && c[2] === NETHER_GROUND + 1 && c[3] === 30.5), '重生点=下界基地(与传送落点同点, 离门 5 格)');
   assert.ok(spoke('回出生点'), '阵亡语音(零惩罚: 回出生点重来)');
   assert.ok(hitLog.some(h => h.dmg === 8), '怪物按自身 dmg 攻击玩家');
   assert.ok(!calls.some(c => c[0] === 'sfx' && c[1] === 'hurt'), '致命一击不播受击音(死亡路径已有引擎 death 音)');
@@ -380,4 +380,51 @@ test('下界冒险: 下界回程传送门 → 切回上界家', () => {
   NetheMode.update(DT);
   assert.ok(spoke('回到上界'), '回程传送门 → 回上界');
   assert.strictEqual(mobsState.spawned.length, 0, '回上界清掉下界怪物');
+});
+
+test('下界冒险: 传送落点/死亡重生点离门 ≥5 格 — 门前混战被击退两步不会弹回门里(实测修复)', () => {
+  calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
+  listResult = [];
+  NetheMode.init();
+  walkIntoPortal();                                       /* 进下界: 落点 = 下界基地 */
+  const landing = calls.filter(c => c[0] === 'spawn' && c[2] === NETHER_GROUND + 1).pop();
+  assert.ok(landing && landing[3] - 24 >= 5, '下界落点离门面 ≥5 格(判定缘 z<25.5, 落点 z=30.5)');
+  /* 阵亡重生与传送落点同点, 同样离门 ≥5 格 */
+  globalThis.pos.x = 20.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;
+  listResult = [mkMob('zombified_piglin', 20.6, 12, 20.4)];
+  nextHit = { hp: 0, dead: true, freshDead: true };
+  calls.length = 0; spoken.length = 0;
+  NetheMode.update(DT);
+  const rebirth = calls.filter(c => c[0] === 'spawn').pop();
+  assert.ok(rebirth && rebirth[3] - 24 >= 5, '死亡重生点 = 下界基地(离门 ≥5 格, 不再"死后出现在地下室")');
+  assert.ok(!spoke('回到上界'), '重生帧不会顺带弹回上界');
+});
+
+test('下界冒险: 传送跨维度清掉飞行中的投射物 — 残留火球不追进门把人打死在上界(地下室复活根因)', () => {
+  calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
+  listResult = [];
+  NetheMode.init();
+  walkIntoPortal();
+  calls.length = 0; spoken.length = 0;
+
+  /* 烈焰人朝下界基地的玩家直射一发火球(弹道直指玩家身体) */
+  globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 30.5;
+  listResult = [mkMob('blaze', 25.5, 23, 23.5, {
+    cfg: { range: 15, cd: 2.4, dmg: 8, h: 1.8, speed: 2.3, fly: true, ranged: true, hitR: 0.45 },
+  })];
+  NetheMode.update(DT);
+  assert.ok(calls.some(c => c[0] === 'sfx' && c[1] === 'shoot'), '烈焰人射出火球');
+
+  /* 玩家此刻踏进回程门 → 回上界(火球还在半路) */
+  listResult = [];
+  globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 24.5;
+  NetheMode.update(DT);
+  assert.ok(spoke('回到上界'), '回程传送门 → 回上界');
+
+  /* 回到火球弹道上的老位置站 1.5 秒 — 火球若跨了维度, ~0.4 秒内必命中 */
+  calls.length = 0; spoken.length = 0; hitLog.length = 0;
+  globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 30.5;
+  for(let i = 0; i < 90; i++) NetheMode.update(DT);
+  assert.ok(!calls.some(c => c[0] === 'sfx' && c[1] === 'hurt'), '残留火球没跨维度追击(传送即清)');
+  assert.ok(!spoke('回出生点'), '上界不会被残留火球打死 → 不会"重生在地下室土里"');
 });

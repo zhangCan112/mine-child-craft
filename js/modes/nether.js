@@ -20,9 +20,14 @@ const NETHER_PORTAL_W = 6, NETHER_PORTAL_H = 7;   // 下界传送门框架(宽×
 const NETHER_MOBS = [ 'zombified_piglin','piglin','piglin_brute','hoglin','zoglin',
                       'wither_skeleton','blaze','ghast','magma_cube' ];
 const NETHER_HOME_GROUND = 24;             // 建造模式「巨大地下室」地表草坪顶层(地形暂时复用它的场景)
-const NETHER_HOME_PORTAL = { px: 61, pz: 88 };   // 上界: 地表入口下界传送门(框架底边贴地表)
+const NETHER_HOME_PORTAL = { px: 61, pz: 90 };   // 上界: 地表入口下界传送门(框架底边贴地表)。pz 90: 比小屋/出生点
+                                                 // 再远 2 格 — 传送落点太贴门, 门前被击退两步就弹回门里(pad 实测)
 const NETHER_GROUND = 20;                  // 下界平地顶层 y(脚踩 y=21) — 下界地面是平的(用户拍板)
 const NETHER_RETURN_PORTAL = { by: NETHER_GROUND, px: 24, pz: 24 };   // 下界回程传送门: 落地就在它跟前(门在身后)
+/* 下界落点/死亡重生点(同一个点): 内口判定缘是 |z-24|<1.5(即 z<25.5), 落点离门 5 格 —
+   贴门落点会被门前混战的击退/回走两步弹回上界(用户实测"死后在地下室复活"即此: 重生
+   点贴门 → 弹回上界家门口)。z 也避开怪物出生环(绕 (25,28) 半径 6+), 落地不贴脸 */
+const NETHER_BASE = { x: 25.5, z: 30.5 };
 
 /* ---------- 武器政策(手持物 def 只管观感, 伤害/触及/弹道是模式政策):
    剑 dmg 16(猪灵 24 血两刀, 锄头 10 → 换剑变强) · 触及 3.0(原版玩家攻击
@@ -153,9 +158,10 @@ function enterNether(){
   });
   applySky(NETHER_SKY);                                // 暗红天穹: 一眼就知道到了下界
   Mobs.clear();
+  while(nArrows.length) removeNetherArrow(0);          // 投射物不跨维度: 门只渡人, 火球/箭留在原界
   NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
   startNetherWave();
-  ModeKit.spawn(25.5, NETHER_GROUND + 1, 27.5, { yaw: Math.PI });   // 从回程门前走出(门在身后, 面朝下界)
+  ModeKit.spawn(NETHER_BASE.x, NETHER_GROUND + 1, NETHER_BASE.z, { yaw: Math.PI });   // 从回程门前走出(门在身后, 面朝下界)
   flyMode = false;                                     // 冒险模式步行(不沿用建造的飞行)
   NETHER.swingCd = 0;                                  // 传送落地即可战斗(不留挥击锁)
   hurtT = 0;                                           // 受击语音节流复位
@@ -171,6 +177,7 @@ function enterOverworld(){
   ModeKit.spawn(62.5, NETHER_HOME_GROUND + 1, 85.5, { yaw: Math.PI });   // 家门口(传送门南侧几步, 不站门里)
   flyMode = false;
   Mobs.clear();
+  while(nArrows.length) removeNetherArrow(0);          // 投射物不跨维度: 残留火球追进门会在上界把人打死 → 重生点落进地下室土里(实测根因)
   NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
   NETHER.swingCd = 0;
   hurtT = 0;                                           // 受击语音节流复位
@@ -365,7 +372,7 @@ function netherPlayerDied(){
   e.hp = NETHER.player.maxHp;                          // 实体血量同步回满(不回满 → 重生后被一碰再死)
   e.dead = false; e.deadT = 0; e.flashT = 0; e.staggerT = 0; e.tintBase = [1,1,1];
   NETHER.player.hp = NETHER.player.maxHp;
-  ModeKit.spawn(25.5, NETHER_GROUND + 1, 27.5, { yaw: Math.PI });   // 回下界出生点(回程门前)
+  ModeKit.spawn(NETHER_BASE.x, NETHER_GROUND + 1, NETHER_BASE.z, { yaw: Math.PI });   // 回下界出生点(与传送落点同点, 离门 5 格)
   flyMode = false;
   SpeechKit.speak('被怪物追上了！回出生点！');
   showToast('💀 被怪物打死了，回出生点！');
