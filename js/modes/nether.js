@@ -24,9 +24,8 @@ const NETHER_HOME_PORTAL = { px: 61, pz: 90 };   // 上界: 地表入口下界�
                                                  // 再远 2 格 — 传送落点太贴门, 门前被击退两步就弹回门里(pad 实测)
 const NETHER_GROUND = 20;                  // 下界平地顶层 y(脚踩 y=21) — 下界地面是平的(用户拍板)
 const NETHER_RETURN_PORTAL = { by: NETHER_GROUND, px: 24, pz: 24 };   // 下界回程传送门: 落地就在它跟前(门在身后)
-/* 下界落点/死亡重生点(同一个点): 内口判定缘是 |z-24|<1.5(即 z<25.5), 落点离门 5 格 —
-   贴门落点会被门前混战的击退/回走两步弹回上界(用户实测"死后在地下室复活"即此: 重生
-   点贴门 → 弹回上界家门口)。z 也避开怪物出生环(绕 (25,28) 半径 6+), 落地不贴脸 */
+/* 下界传送落点(enterNether 落地用): 内口判定缘是 |z-24|<1.5(即 z<25.5), 落点离门 5 格 —
+   贴门落点会被门前混战的击退/回走两步弹回上界。z 也避开怪物出生环(绕 (25,28) 半径 6+), 落地不贴脸 */
 const NETHER_BASE = { x: 25.5, z: 30.5 };
 
 /* ---------- 武器政策(手持物 def 只管观感, 伤害/触及/弹道是模式政策):
@@ -372,22 +371,16 @@ function updateNetherArrows(dt){
   }
 }
 
-/* ---------- 玩家阵亡: 回下界基地重来 ----------
-   战场一并重置: 杀人的那波怪清场 + 本波原样重打 — 只把人送回基地不清怪,
-   重生瞬间就被追过来的怪围殴再死, "死亡后无论何时都在回基地"的循环即此 */
+/* ---------- 玩家阵亡: 被送回家(地下室)满血重来 ----------
+   用户拍板: 死亡不在下界原地挣扎(怪就在身边, 原地重生即再被围殴), 而是送回家 —
+   家是安全的, 想再战就再走进传送门(enterNether 波次从头开)。enterOverworld
+   一并完成: 切地图/清怪/收投射物/回满血/收武器/落点背对门 */
 function netherPlayerDied(){
   const e = getPEnt();
-  e.hp = NETHER.player.maxHp;                          // 实体血量同步回满(不回满 → 重生后被一碰再死)
   e.dead = false; e.deadT = 0; e.flashT = 0; e.staggerT = 0; e.tintBase = [1,1,1];
-  NETHER.player.hp = NETHER.player.maxHp;
-  Mobs.clear();                                        // 那波怪不追进基地
-  while(nArrows.length) removeNetherArrow(0);          // 残余火球一并散场(与怪同批)
-  NETHER.wave = Math.max(0, NETHER.wave - 1);          // 本波重打(startNetherWave 尾部 +1 补回原波号, 零进度损失)
-  startNetherWave();
-  ModeKit.spawn(NETHER_BASE.x, NETHER_GROUND + 1, NETHER_BASE.z, { yaw: Math.PI });   // 回下界基地(与传送落点同点, 离门 5 格)
-  flyMode = false;
-  SpeechKit.speak('被怪物追上了！回出生点重来！');
-  showToast('💀 被怪物打死了，回出生点！');
+  enterOverworld();
+  SpeechKit.speak('被怪物追上了！先回家休息，再回来冒险吧！');   // 后播顶掉"回到上界啦"(cancel-then-speak)
+  showToast('💀 被怪物打死了，回家重来！');
 }
 
 /* ---------- 主人公头顶血条(下界常驻): canvas 贴图 Sprite, 头顶 2.2 格 ----------

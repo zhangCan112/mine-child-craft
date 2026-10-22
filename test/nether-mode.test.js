@@ -306,7 +306,7 @@ test('下界冒险: 一波全灭 → 语音表扬 + 新一波来袭', () => {
   assert.ok(mobsState.spawned.length > 0, '新一波怪物释放');
 });
 
-test('下界冒险: 怪物近战攻击玩家 → 玩家阵亡 → 回下界出生点重来', () => {
+test('下界冒险: 怪物近战攻击玩家 → 玩家阵亡 → 回家(地下室)满血重来', () => {
   calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
   listResult = [];
   NetheMode.init();
@@ -317,9 +317,10 @@ test('下界冒险: 怪物近战攻击玩家 → 玩家阵亡 → 回下界出�
   listResult = [mkMob('zombified_piglin', 20.6, 12, 20.4)];
   nextHit = { hp: 0, dead: true, freshDead: true };
   NetheMode.update(DT);
-  assert.ok(has('spawn'), '阵亡 → 重生(回下界出生点)');
-  assert.ok(calls.some(c => c[0] === 'spawn' && c[1] === 25.5 && c[2] === NETHER_GROUND + 1 && c[3] === 30.5), '重生点=下界基地(与传送落点同点, 离门 5 格)');
-  assert.ok(spoke('回出生点'), '阵亡语音(零惩罚: 回出生点重来)');
+  assert.ok(has('spawn'), '阵亡 → 重生');
+  assert.ok(spoke('回到上界'), '阵亡 → 切地图回上界(地下室)');
+  assert.ok(calls.some(c => c[0] === 'spawn' && c[1] === 62.5 && c[2] === 25 && c[3] === 85.5), '重生点=上界家门口(被送回家)');
+  assert.ok(spoke('回家休息'), '阵亡语音(回家休整, 不在下界原地被围殴)');
   assert.ok(hitLog.some(h => h.dmg === 8), '怪物按自身 dmg 攻击玩家');
   assert.ok(!calls.some(c => c[0] === 'sfx' && c[1] === 'hurt'), '致命一击不播受击音(死亡路径已有引擎 death 音)');
   assert.ok(!calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('被打中') >= 0), '致命一击走死亡文案, 受击提醒不抢戏');
@@ -393,22 +394,22 @@ test('下界冒险: 下界回程传送门 → 切回上界家', () => {
   assert.strictEqual(mobsState.spawned.length, 0, '回上界清掉下界怪物');
 });
 
-test('下界冒险: 传送落点/死亡重生点离门 ≥5 格 — 门前混战被击退两步不会弹回门里(实测修复)', () => {
+test('下界冒险: 传送落点离门 ≥5 格 + 阵亡送回家 — 门前混战被击退两步不会弹回门里', () => {
   calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
   listResult = [];
   NetheMode.init();
   walkIntoPortal();                                       /* 进下界: 落点 = 下界基地 */
   const landing = calls.filter(c => c[0] === 'spawn' && c[2] === NETHER_GROUND + 1).pop();
   assert.ok(landing && landing[3] - 24 >= 5, '下界落点离门面 ≥5 格(判定缘 z<25.5, 落点 z=30.5)');
-  /* 阵亡重生与传送落点同点, 同样离门 ≥5 格 */
+  /* 阵亡 → 自动回地下室(上界家门口), 不在下界原地重生 */
   globalThis.pos.x = 20.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;
   listResult = [mkMob('zombified_piglin', 20.6, 12, 20.4)];
   nextHit = { hp: 0, dead: true, freshDead: true };
   calls.length = 0; spoken.length = 0;
   NetheMode.update(DT);
   const rebirth = calls.filter(c => c[0] === 'spawn').pop();
-  assert.ok(rebirth && rebirth[3] - 24 >= 5, '死亡重生点 = 下界基地(离门 ≥5 格, 不再"死后出现在地下室")');
-  assert.ok(!spoke('回到上界'), '重生帧不会顺带弹回上界');
+  assert.ok(rebirth && rebirth[1] === 62.5 && rebirth[3] === 85.5, '阵亡重生点 = 上界家门口(自动回地下室)');
+  assert.ok(!spoke('进了下界'), '回家落地不会顺带弹进家门');
 });
 
 test('下界冒险: 传送跨维度清掉飞行中的投射物 — 残留火球不追进门把人打死在上界(地下室复活根因)', () => {
@@ -441,25 +442,24 @@ test('下界冒险: 传送跨维度清掉飞行中的投射物 — 残留火球�
   assert.ok(!spoke('回出生点'), '上界不会被残留火球打死 → 不会"重生在地下室土里"');
 });
 
-test('下界冒险: 阵亡重置战场 — 杀人的那波怪清场 + 本波原样重打(死亡不再是"无限回基地"循环)', () => {
+test('下界冒险: 阵亡 → 被送回家 — 那波怪清掉、切地图回地下室(不在下界原地重生被围殴)', () => {
   calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
   listResult = [];
   NetheMode.init();
-  listResult = [mkMob('piglin', 60, 12, 60)];          /* 占位活怪: fake 空列表会被 checkWaveClear 误判"波清空"再放一波 */
   walkIntoPortal();
-  assert.strictEqual(mobsState.spawned.length, 2, '首波 2 只(wave0 → count 2+0)');
 
-  /* 两只怪压在基地旁(模拟追杀现场)把玩家打死 */
+  /* 两只怪贴身(模拟追杀现场)把玩家打死 */
   globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 30.5;
   listResult = [mkMob('piglin', 25.6, 21, 30.4), mkMob('hoglin', 25.4, 21, 30.6)];
   nextHit = { hp: 0, dead: true, freshDead: true };
   calls.length = 0; spoken.length = 0;
   NetheMode.update(DT);
-  assert.ok(spoke('回出生点'), '阵亡 → 回基地重来');
-  assert.strictEqual(mobsState.spawned.length, 2, '战场重置: 原波清场, 本波原样重打(仍是 2 只, 零进度损失)');
+  assert.ok(spoke('回到上界'), '阵亡 → 切地图回上界(地下室)');
+  assert.ok(spoke('回家休息'), '阵亡语音(回家休整)');
+  assert.strictEqual(mobsState.spawned.length, 0, '那波怪随回家清场(下界不残留)');
   const rebirth = calls.filter(c => c[0] === 'spawn').pop();
-  assert.ok(rebirth && rebirth[3] === 30.5, '重生点 = 下界基地');
-  assert.ok(!spoke('打得漂亮'), '阵亡重开不算"波清空表扬"');
+  assert.ok(rebirth && rebirth[1] === 62.5 && rebirth[3] === 85.5, '重生点 = 上界家门口');
+  assert.ok(!spoke('打得漂亮'), '阵亡不算"波清空表扬"');
 });
 
 test('下界冒险: 回上界家休整 — 生命回满(空血进下界的"落地即死"循环断根)', () => {
@@ -467,20 +467,26 @@ test('下界冒险: 回上界家休整 — 生命回满(空血进下界的"落�
   listResult = [];
   NetheMode.init();
   walkIntoPortal();
-  burnCd();                                               /* 传送冷却 0.8s 先烧掉(本用例后段要踩回程门) */
 
-  /* 先阵亡一次把血量复位到满(不依赖此前测试的血量残留) */
+  /* 自足复位: 阵亡一次(死亡=回家并回满血, 不依赖此前测试的血量残留) */
   globalThis.pos.x = 20.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;
   listResult = [mkMob('piglin', 20.6, 12, 20.4)];
   nextHit = { hp: 0, dead: true, freshDead: true };
-  NetheMode.update(DT);
+  NetheMode.update(DT);                                   /* → 回上界家中, 满血 */
+  assert.ok(spoke('回家休息'), '阵亡回家(顺带验证)');
 
-  /* 非致命受击 → 22/30(HUD 读玩家实体血量, 经 updateHud 落进 fake hud 元素;
-     换一只新怪贴身 — 原怪 attackCd=1s 还在冷却, 打不出第二下) */
+  /* 再进下界(cd 先烧掉) → 非致命受击 → 22/30(HUD 读玩家实体血量, 经 updateHud
+     落进 fake hud 元素) */
+  burnCd();
+  globalThis.pos.x = 62.5; globalThis.pos.y = 25; globalThis.pos.z = 89.2;
+  listResult = [];
+  NetheMode.update(DT);                                   /* 家门 → 再进下界 */
+  burnCd();
   nextHit = { hp: 22, dead: false, freshDead: false };
+  globalThis.pos.x = 20.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;
   listResult = [mkMob('hoglin', 20.4, 12, 20.6)];
   NetheMode.update(DT);
-  fakeClock += 200; NetheMode.updateHud(null);        /* 拨快假时钟绕过 10Hz 节流 */
+  fakeClock += 200; NetheMode.updateHud(null);            /* 拨快假时钟绕过 10Hz 节流 */
   assert.ok(String(elCache['hud'].innerHTML).indexOf('生命: 22') >= 0, '受伤后 22/30');
 
   /* 走回程门回家 → 休整回满 */
