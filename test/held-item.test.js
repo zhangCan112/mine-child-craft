@@ -26,6 +26,13 @@ test('默认手持物: PLAYER.heldItem 指向 defs 里的合法条目', () => {
   assert.ok(HeldItems.defs[PLAYER.heldItem], 'defs 里应有 ' + PLAYER.heldItem);
 });
 
+test('剑在注册表: 下界「进下界换剑」依赖它(Avatar.setItem 未知键会静默回落空手)', () => {
+  const { HeldItems } = loadHeld();
+  const sword = HeldItems.defs['sword'];
+  assert.ok(sword, 'defs 里应有 sword');
+  assert.strictEqual(sword.label, '剑');
+});
+
 test('def 形状: 每个手持物具备 部件表/握持/挥击/待机 四组数据', () => {
   const { HeldItems } = loadHeld();
   const V3 = a => Array.isArray(a) && a.length === 3 && a.every(n => typeof n === 'number');

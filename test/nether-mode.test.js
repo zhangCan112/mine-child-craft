@@ -60,6 +60,7 @@ globalThis.B_NETHERRACK = 30;
 globalThis.B_OBSIDIAN = 31;
 globalThis.B_LAVA = 25;
 globalThis.PLAYER = { height: 1.8, speed: 3, heldItem: 'hoe' };
+globalThis.Avatar = { setItem(id){ calls.push(['setItem', id]); }, swing(){ calls.push(['swing']); } };
 globalThis.NETHER_GROUND = 20;
 
 /* ---------- fake 怪物库 ---------- */
@@ -136,18 +137,19 @@ test('下界冒险: 踩进上界传送门 → 进下界(重建下界地形 + 回
   assert.ok(mobsState.spawned.every(s => Object.keys(globalThis.Mobs.types).indexOf(s.type) >= 0), '都是下界怪物');
 });
 
-test('下界冒险: 手持锄头挥击 → 命中最近 hostile 怪(近战伤害) → 击杀给碎块和表扬', () => {
+test('下界冒险: 持剑挥击 → 命中最近 hostile 怪(近战伤害) → 击杀给碎块和表扬', () => {
   calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
   listResult = [];
   NetheMode.init();
-  walkIntoPortal();                                       /* 传送落地挥击锁归零 */
+  walkIntoPortal();                                       /* 传送落地挥击锁归零(已换剑) */
 
   globalThis.pos.x = 21.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;   /* 贴身 */
   listResult = [mkMob('piglin', 21.6, 12, 20.4)];
   nextHit = { hp: 10, dead: false, freshDead: true };
   NetheMode.onMouse(0);
   assert.strictEqual(hitLog.length, 1, '挥击命中了身边的怪');
-  assert.strictEqual(hitLog[0].dmg, 10, '锄头近战伤害 10');
+  assert.strictEqual(hitLog[0].dmg, 16, '剑近战伤害 16(锄头 10 → 换剑变强)');
+  assert.ok(has('swing'), '出手带挥臂观感(触屏 👾 按钮同样有)');
   assert.ok(has('debris'), '击杀 → 碎块特效');
   assert.ok(calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('消灭') >= 0), '击杀 → 消灭提示');
 });
@@ -162,6 +164,36 @@ test('下界冒险: 怪不在挥击距离 → 不出手(不打空)', () => {
   listResult = [mkMob('hoglin', 20.5, 12, 20.5)];
   NetheMode.onMouse(0);
   assert.strictEqual(hitLog.length, 0, '距离不够不挥击');
+});
+
+test('下界冒险: 剑的触及 3.0 格 — 2.5 格外的怪也够得着(此前 meleeR 1.8 反被近战怪先手)', () => {
+  calls.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
+  listResult = [];
+  NetheMode.init();
+  walkIntoPortal();
+  hitLog.length = 0;
+
+  globalThis.pos.x = 20.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;
+  listResult = [mkMob('hoglin', 23, 12, 20.5)];        /* 距离 2.5: 旧 1.8 够不着, 剑触及 3.0 内 */
+  nextHit = { hp: 40, dead: false, freshDead: false };
+  NetheMode.onMouse(0);
+  assert.strictEqual(hitLog.length, 1, '2.5 格外的怪在剑触及内(原版玩家攻击距离口径 3.0)');
+});
+
+test('下界冒险: 进下界换剑, 回上界/退出模式换回锄头(默认手持物)', () => {
+  calls.length = 0; listResult = [];
+  NetheMode.init();
+  assert.ok(calls.some(c => c[0] === 'setItem' && c[1] === 'hoe'), 'init 进上界: 装配默认手持物(锄头)');
+  walkIntoPortal();
+  assert.ok(calls.some(c => c[0] === 'setItem' && c[1] === 'sword'), '进下界: 换剑');
+  globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 24.5;  /* 回程门内口 */
+  NetheMode.update(DT);
+  assert.ok(spoke('回到上界'), '回程传送门 → 回上界');
+  const last = calls.filter(c => c[0] === 'setItem').pop();
+  assert.ok(last && last[1] === 'hoe', '回上界: 换回默认手持物(锄头)');
+  calls.length = 0;
+  NetheMode.cleanup();
+  assert.ok(calls.some(c => c[0] === 'setItem' && c[1] === 'hoe'), '退出模式复位(Avatar 跨模式存活, 剑不渗进其他模式)');
 });
 
 test('下界冒险: 一波全灭 → 语音表扬 + 新一波来袭', () => {

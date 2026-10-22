@@ -9,7 +9,7 @@
    · 踩进传送门 → phase='nether': 重建下界地形(下界岩 + 熔岩湖)并放回程传送门,
      释放下界怪物 → 开始下界探险(打怪 → 打完一波 → 新一波).
    · 下界怪物(猪灵系/凋灵骷髅/烈焰人/恶魂/岩浆怪)全部 hostile: 主动攻击主人公,
-     主人公手持锄头挥击 → 近战打怪; 怪死 → 击杀计数 + 碎块 + 表扬, 波清空 → 新波.
+     主人公进下界自动换剑(手持物注册表)挥击 → 近战打怪; 怪死 → 击杀计数 + 碎块 + 表扬, 波清空 → 新波.
    · 防沉迷: 与竞技场/TNT/建造/坦克共属儿童时限预算(主菜单卡片 gated), 不新增账本.
    ============================================================ */
 
@@ -22,8 +22,11 @@ const NETHER_HOME_PORTAL = { px: 61, pz: 88 };   // 上界: 地表入口下界�
 const NETHER_GROUND = 20;                  // 下界平地顶层 y(脚踩 y=21) — 下界地面是平的(用户拍板)
 const NETHER_RETURN_PORTAL = { by: NETHER_GROUND, px: 24, pz: 24 };   // 下界回程传送门: 落地就在它跟前(门在身后)
 
+/* 剑的战斗政策(进下界换剑 — 手持物 def 只管观感, 伤害/触及是模式政策):
+   dmg 16(猪灵 24 血两刀, 锄头 10 → 换剑变强) · 触及 3.0(原版玩家攻击
+   距离口径, 盖过下界近战怪 2.2~2.6 — 此前 1.8 反被怪先手) */
 const NETHER = { phase: 'overworld', wave: 0, waveInProgress: false,
-                 killCount: 0, swingCd: 0, swingCdMax: 0.38, swingDmg: 10, meleeR: 1.8,
+                 killCount: 0, swingCd: 0, swingCdMax: 0.38, swingDmg: 16, meleeR: 3.0,
                  player: { hp: 30, maxHp: 30 } };
 const NETHER_ATTACK_T = 0.5;                // 怪物挥击姿态时长(attackT 满时长, 近战/远程统一 — gait 第 4 参)
 let pEnt = null;                          // 下界探险中的"主人公实体"(AI 索敌目标 + 受击/受死共用状态)
@@ -106,6 +109,7 @@ function enterNether(){
   flyMode = false;                                     // 冒险模式步行(不沿用建造的飞行)
   NETHER.swingCd = 0;                                  // 传送落地即可战斗(不留挥击锁)
   hurtT = 0;                                           // 受击语音节流复位
+  Avatar.setItem('sword');                             // 进下界换剑(手持物注册表; 挥击观感随 def 自动变)
   SpeechKit.speak('进了下界！回程传送门就在身后！怪物来了！');
   showToast('🌀 传送进下界！');
 }
@@ -119,6 +123,7 @@ function enterOverworld(){
   NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
   NETHER.swingCd = 0;
   hurtT = 0;                                           // 受击语音节流复位
+  Avatar.setItem(PLAYER.heldItem);                     // 回上界换回默认手持物(锄头)
   SpeechKit.speak('回到上界啦');
 }
 
@@ -144,10 +149,11 @@ function checkWaveClear(){
   startNetherWave();
 }
 
-/* ---------- 主人公攻击: 手持锄头挥击 → 近战打怪 ---------- */
+/* ---------- 主人公攻击: 持剑挥击 → 近战打怪(进下界自动换剑) ---------- */
 function netherAttack(){
   if(NETHER.swingCd > 0) return;
   NETHER.swingCd = NETHER.swingCdMax;
+  Avatar.swing();                          // 挥臂观感(桌面由 input 先行调用; 触屏 👾 按钮从这里补上)
   const p = getPEnt();
   let best = null, bd = NETHER.meleeR * NETHER.meleeR;
   for(const m of Mobs.list()){
@@ -291,6 +297,7 @@ const NetherMode = mkMode({
     while(nArrows.length) removeNetherArrow(0);      // 火球网格一并摘除
     NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
     applySky(OVERWORLD_SKY);                         // 天空复位: 红天不渗进其他模式
+    Avatar.setItem(PLAYER.heldItem);                 // 手持物复位: 剑不渗进其他模式(Avatar 跨模式存活)
   },
 
   update(dt){
