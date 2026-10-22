@@ -172,8 +172,7 @@ function netherAI(dt){
   for(const m of Mobs.list()){
     if(m.dead || m.gone) continue;
     const gp = m.pos;
-    if(m.attackCd > 0) m.attackCd -= dt;
-    if(m.attackT > 0) m.attackT -= dt;
+    CombatCore.tickCadence(m, dt);                 // 攻击节拍(与竞技场同一条, 战斗核心)
     if(!m.target || m.dead || m.gone) m.target = p;
     const tg = m.target;
     const dx = tg.pos.x - gp.x, dz = tg.pos.z - gp.z;
@@ -205,13 +204,15 @@ function netherAI(dt){
   }
 }
 
-/* 飞行怪投射(烈焰人爆裂火球 / 恶魂恶魂火球): 重力弹道 + 命中主人公 */
+/* 飞行怪投射(烈焰人爆裂火球 / 恶魂恶魂火球): 预测弹道(战斗核心 leadAim,
+   与竞技场箭矢同一套提前量+重力补偿 — 原直线弹道对移动中的主人公常打空) */
 let nFireGeo = null, nFireMat = null;                 // 火球几何/材质全局共用(移除只摘网格)
 function netherShoot(m, tg){
   sfx('shoot');
   const from = { x: m.pos.x, y: m.pos.y + (m.cfg.h||1.8)*0.55, z: m.pos.z };
-  const dir = { x: tg.pos.x - from.x, y: tg.pos.y - from.y, z: tg.pos.z - from.z };
-  const len = Math.hypot(dir.x, dir.y, dir.z) || 1;
+  const dir = CombatCore.leadAim(from,
+    { x: tg.pos.x, y: tg.pos.y, z: tg.pos.z, vx: tg.vel.x, vz: tg.vel.z, h: tg.cfg.h },
+    17, 6, 0.5);
   let mesh = null;
   if(typeof THREE !== 'undefined' && typeof scene !== 'undefined'){
     if(!nFireGeo){ nFireGeo = new THREE.SphereGeometry(0.16, 6, 6); nFireMat = new THREE.MeshBasicMaterial({color:0xffa53c}); }
@@ -219,7 +220,7 @@ function netherShoot(m, tg){
     mesh.position.set(from.x, from.y, from.z);
     scene.add(mesh);
   }
-  nArrows.push({ owner: m, mesh, from, vel: { x: dir.x/len*17, y: dir.y/len*17, z: dir.z/len*17 },
+  nArrows.push({ owner: m, mesh, from, vel: { x: dir.x*17, y: dir.y*17, z: dir.z*17 },
                  life: 2.5, dmg: Math.round(m.cfg.dmg), kpow: 1.0, g: 6 });
 }
 function removeNetherArrow(i){
@@ -237,8 +238,7 @@ function updateNetherArrows(dt){
     a.from = { x: px, y: py, z: pz };
     if(a.mesh) a.mesh.position.set(px, py, pz);
     if(getBlock(Math.floor(px), Math.floor(py), Math.floor(pz)) !== 0 || a.life <= 0){ removeNetherArrow(i); continue; }
-    if(!p.dead && Math.abs(px - p.pos.x) < 0.55 && Math.abs(pz - p.pos.z) < 0.55
-       && py > p.pos.y - 0.3 && py < p.pos.y + (p.cfg.h || 1.8) + 0.5){     // 命中主人公
+    if(!p.dead && CombatCore.hitBody({x:px, y:py, z:pz}, p)){     // 命中主人公(与竞技场箭矢同一判定, 战斗核心)
       const r = Mobs.hit(p, a.dmg, p.pos.x - px, p.pos.z - pz, a.kpow);
       sfx('hit');
       if(r.freshDead) netherPlayerDied();

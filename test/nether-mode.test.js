@@ -52,6 +52,7 @@ globalThis.getBlock = () => 0;
 globalThis.isSolid = () => false;
 globalThis.groundTop = () => 11;
 globalThis.MobCore = { stepMove(){}, hitState(){} };
+globalThis.CombatCore = require('../js/combat-core.js');   /* 战斗核心: 真模块(节拍/弹道/命中判定是纯函数) */
 globalThis.hashRand = () => 0.13;
 globalThis.WORLD_W = 8;
 globalThis.WORLD_D = 8;

@@ -202,14 +202,12 @@ function damageMob(m, dmg, kdx, kdz, kpow, src){
 }
 
 /* ---------- 弹道与 AoE 助手(箭/巨石/火球三套近似弹道与三套伤害环归一) ---------- */
-/* 预测弹道方向: 飞行时间预估 → 目标移动提前量 → 重力补偿抬枪(返回归一化方向) */
+/* 预测弹道方向: 预测/提前量/重力补偿的数学在战斗核心(CombatCore.leadAim,
+   与下界火球共用), 这里只做 THREE 包装 */
 function aimDir(from, tg, v0, g, hFrac){
-  const vx = tg.vx||0, vz = tg.vz||0;
-  let t = tg.pos.distanceTo(from)/v0;                        // 飞行时间预估(3D,兼容空中目标)
-  const tx = tg.pos.x + vx*t, tz = tg.pos.z + vz*t;          // 目标移动提前量
-  t = Math.hypot(tx-from.x, tz-from.z)/v0;
-  const lift = 0.5*g*t*t;                                    // 重力下坠补偿(抬高瞄准点)
-  return new THREE.Vector3(tx, tg.pos.y + tg.cfg.h*hFrac + lift, tz).sub(from).normalize();
+  const d = CombatCore.leadAim({x:from.x, y:from.y, z:from.z},
+    {x:tg.pos.x, y:tg.pos.y, z:tg.pos.z, vx:tg.vx||0, vz:tg.vz||0, h:tg.cfg.h}, v0, g, hFrac);
+  return new THREE.Vector3(d.x, d.y, d.z);
 }
 
 /* AoE 伤害环: 过滤存活/敌队 → 距离线性衰减伤害+击退 → 硬直
@@ -513,10 +511,9 @@ function collectFusing(){
     if(t.type==='creeper' && t.fuse>=0 && !t.dead && !t.gone) fusingCreeps.push(t);
 }
 
-/* 冷却/计时器递减 + 阶级光环呼吸 */
+/* 冷却/计时器递减 + 阶级光环呼吸(攻击节拍递减在战斗核心, 与下界共用) */
 function tickTimers(m, dt){
-  if(m.attackCd  > 0) m.attackCd  -= dt;
-  if(m.attackT   > 0) m.attackT   -= dt;
+  CombatCore.tickCadence(m, dt);
   if(m.slamCd    > 0) m.slamCd    -= dt;
   if(m.pounceCd  > 0) m.pounceCd  -= dt;
   if(m.rageBuffT > 0) m.rageBuffT -= dt;
@@ -916,9 +913,7 @@ function updateArrows(dt){
     if(!hit){
       for(const t of mobs){
         if(t.dead || t.gone || t.team===a.team) continue;
-        const hr = t.cfg.hitR || 0.55;
-        if(Math.abs(p.x-t.pos.x) < hr && Math.abs(p.z-t.pos.z) < hr
-           && p.y > t.pos.y-0.3 && p.y < t.pos.y + t.cfg.h + 0.5){
+        if(CombatCore.hitBody(p, t)){
           if(!a.aoe) damageMob(t, a.dmg, a.vel.x, a.vel.z, a.kpow||0.35, a.owner);
           sfx('hit');
           hit = true; break;

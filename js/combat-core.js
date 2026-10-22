@@ -1,0 +1,47 @@
+"use strict";
+/* ============================================================
+   战斗核心 (CombatCore) — 引擎层纯逻辑, 零全局依赖(术语见 GLOSSARY.md)
+   ------------------------------------------------------------
+   两个怪物战斗模式(竞技场/下界冒险)曾各自再推导的通用战斗数学:
+   · leadAim      预测弹道方向(目标移动提前量 + 重力补偿抬枪)
+   · tickCadence  攻击节拍递减(attackCd/attackT — 节拍字段由 Mobs.spawn 置零)
+   · hitBody      投射物对实体身体的盒判定(水平半径 + 垂直身高段)
+   弹道观感(网格/特效)与伤害政策(阵营/衰减/话术)留在模式层。
+   Node 可直接加载; 有单测(test/combat-core.test.js)。
+   ============================================================ */
+const CombatCore = (() => {
+
+  /* 预测弹道方向: 飞行时间预估 → 目标移动提前量 → 重力补偿抬枪。
+     from {x,y,z}; tgt {x,y,z, vx,vz, h} — hFrac 为瞄点高度系数(身高×比例)。
+     返回归一化方向 {x,y,z}(纯数据, 调用方自行乘初速/建 mesh)。 */
+  function leadAim(from, tgt, v0, g, hFrac){
+    const dist3 = Math.hypot(tgt.x-from.x, tgt.y-from.y, tgt.z-from.z);
+    let t = dist3/v0;                             // 飞行时间预估(3D, 兼容空中目标)
+    const tx = tgt.x + (tgt.vx||0)*t, tz = tgt.z + (tgt.vz||0)*t;   // 目标移动提前量
+    t = Math.hypot(tx-from.x, tz-from.z)/v0;
+    const lift = 0.5*g*t*t;                       // 重力下坠补偿(抬高瞄准点)
+    const dx = tx-from.x, dy = (tgt.y + (tgt.h||1.8)*hFrac + lift) - from.y, dz = tz-from.z;
+    const l = Math.hypot(dx, dy, dz) || 1;
+    return { x: dx/l, y: dy/l, z: dz/l };
+  }
+
+  /* 攻击节拍递减(冷却/挥击动画计时 — 与 Mobs.spawn 的置零配套,
+     下界曾自抄两行, 竞技场 tickTimers 也有一份) */
+  function tickCadence(m, dt){
+    if(m.attackCd > 0) m.attackCd -= dt;
+    if(m.attackT  > 0) m.attackT  -= dt;
+  }
+
+  /* 投射物命中身体判定: 水平按碰撞半径(hitR, 缺省 0.55), 垂直按
+     身高段(脚下 0.3 容忍 ~ 头顶 0.5 余量); p {x,y,z} 为弹着点。
+     inflate 追加判定余量(如爆炸直击要求更贴身)。 */
+  function hitBody(p, t, inflate){
+    const hr = ((t.cfg && t.cfg.hitR) || 0.55) + (inflate || 0);
+    const h = (t.cfg && t.cfg.h) || 1.8;
+    return Math.abs(p.x - t.pos.x) < hr && Math.abs(p.z - t.pos.z) < hr
+      && p.y > t.pos.y - 0.3 && p.y < t.pos.y + h + 0.5;
+  }
+
+  return { leadAim, tickCadence, hitBody };
+})();
+if(typeof module !== 'undefined' && module.exports) module.exports = CombatCore;

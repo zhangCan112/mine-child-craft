@@ -54,6 +54,10 @@ _Avoid_: 坦克实体、载具系统、坦克皮肤（型号不止换色，性�
 引擎层的怪物实体模块：全怪物建模（37 种，按 Minecraft 原版数值等比映射；骨架表——人形/四足参数化生成器 + 特殊骨架，实例化合批渲染）、数值表驱动（config 的 MOB_TYPES，旗标 ranged/boom/fly/boss 决定行为模式）、血量/受击（闪白·踉跄·击退）/死亡（倒地沉没）/游荡的通用本能。interface：spawn / update / render / hit / near / clear（附 list / face / hasSlot / gait 步态 / debrisColor 击杀碎块色，以及意图 API——stagger 硬直 / pulseTint 着色 / scaleTo 体型 / move·shift·setPos 水平位移 / steer 面向 / heal·setMaxHp 生命 / remove 立即移除 / settle 贴地回巡航，模式不直写引擎的位移/生命/硬直/着色/体型字段，战斗节拍字段（attackCd/attackT/target）由 spawn 置零、模式读写（曾因模式漏初始化 attackCd 致下界怪物永不攻击，初始化已收归引擎），可写字段白名单见 mobs.js 头注释）。战斗 AI、阵营、晋升、表扬话术在模式层，模式可在 spawn 返回的怪物上挂私有字段；竞技场与坦克演习场都是它的调用方，实例数组归它私有。
 _Avoid_: 怪物系统（散称）、mob 数组（那是实现）
 
+**战斗核心（CombatCore）**:
+引擎层纯逻辑模块（js/combat-core.js，零全局依赖，有单测）：leadAim 预测弹道方向（目标移动提前量 + 重力补偿抬枪）、tickCadence 攻击节拍递减（attackCd/attackT，与 Mobs.spawn 置零配套）、hitBody 投射物对身体的盒判定（水平 hitR × 垂直身高段）。竞技场箭矢/巨石与下界火球都是它的调用方——下界原是自抄的直线弹道，对移动目标常打空。弹道观感与伤害政策留在模式层。
+_Avoid_: 弹道系统（散称）、AI 核心（它不懂战术与阵营）
+
 **应用层（Application）**:
 玩法与政策所在之处：游戏模式、每日预算、存档、语音、菜单。应用可依赖引擎，引擎不得依赖应用。
 _Avoid_: 上层、业务层、游戏逻辑层
