@@ -4,6 +4,18 @@
    会话: 进入→今日页→关卡→星级+过程表扬→自动下一关→每日 6 关或 20 分钟锁定
 ============================================================ */
 
+/* ---------- 过程性表扬 / 中性安慰 (夸努力不夸聪明, Mueller & Dweck 1998) ----------
+   话术属应用层文案: 范式引擎(focus-paradigms.js)只经全局名调用期取用 */
+const FOCUS_PRAISE = [
+  '你一直在认真看，真棒！','你等到了对的时机，好有耐心！','你刚才特别专注！',
+  '你坚持做完啦，真了不起！','你的小眼睛看得真仔细！','你一直在努力，进步啦！'
+];
+const FOCUS_COMFORT = [
+  '没关系，我们慢慢来。','深呼吸，再看仔细一点。','差一点点啦，再试一次！','休息一下眼睛，我们继续。'
+];
+function praiseLine(){ return FOCUS_PRAISE[Math.floor(Math.random()*FOCUS_PRAISE.length)]; }
+function comfortLine(){ return FOCUS_COMFORT[Math.floor(Math.random()*FOCUS_COMFORT.length)]; }
+
 const FOCUS_SAVE_KEY = 'focus_camp_save';
 const focusSlot = SyncDB.slot(FOCUS_SAVE_KEY, {
   defaults: { unlocked: 0, stars: {}, history: [] },
@@ -17,23 +29,7 @@ function saveFocusSave(s){ focusSlot.save(s); }
 /* 每日预算(每日关数/时长)记在 js/daily-budget.js 的 focus 预算里(main.js setupBudgets 建立) */
 function focusBudget(){ return (typeof Budgets !== 'undefined' && Budgets) ? Budgets.focus : null; }
 function focusLocked(){ const b = focusBudget(); return !!(b && b.blocked()); }
-/* 通过门槛(科学标准): 正确率≥70%(自适应训练区下界, EndeavorRx 同款目标带)
-   警觉/抑制类另需命中率≥60% (防止不动手靠"正确拒斥"混过) */
-function focusPassed(level, st){
-  if(level.kind === 'tutorial') return true;
-  if(st.acc < 0.70) return false;
-  if((level.dim==='cpt' || level.dim==='gonogo') && st.hitRate !== undefined && st.hitRate < 0.6)
-    return false;
-  return true;
-}
-/* 三星:⭐通过 ⭐⭐优秀≥85% ⭐⭐⭐专注之星≥95%且无连续3错 (仅在通过时) */
-function focusStars(level, st){
-  if(level.kind === 'tutorial') return 0;
-  let s = 1;
-  if(st.acc >= 0.85) s++;
-  if(st.acc >= 0.95 && st.maxStreakErr < 3) s++;
-  return s;
-}
+/* 通过门槛/三星的判定是纯函数, 已移居 js/focus-levels.js(与关卡数据同层, 可单测) */
 const focusFailCount = {};                     // 本关连续未通过次数 → 重试自动放宽
 
 /* ---------- 根容器与屏幕 ---------- */

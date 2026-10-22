@@ -113,7 +113,7 @@ function mcIcon(name){
 }
 
 /* 苦力怕头像(左/右视线) — Flanker 刺激 */
-let creeperCache = {};
+const creeperCache = {};
 function creeperFace(dir){
   if(creeperCache[dir]) return creeperCache[dir];
   const c = document.createElement('canvas');

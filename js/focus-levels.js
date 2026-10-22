@@ -107,3 +107,24 @@ const FOCUS_LEVELS = [];
   // 大师关: 五维连续小节(各 tier 8 难度)
   FOCUS_LEVELS[99].sections = FOCUS_DIMS.map(d => ({dim:d, params: paramsFor(d, 8)}));
 })();
+
+/* ---------- 通过门槛 / 三星(纯函数, focus.js 与单测共用) ---------- */
+/* 通过门槛(科学标准): 正确率≥70%(自适应训练区下界, EndeavorRx 同款目标带)
+   警觉/抑制类与大师考验另需命中率≥60% (防止不动手靠"正确拒斥"混过;
+   大师关聚合各小节的 goTrials/hits, 口径与单局相同) */
+function focusPassed(level, st){
+  if(level.kind === 'tutorial') return true;
+  if(st.acc < 0.70) return false;
+  if((level.kind==='master' || level.dim==='cpt' || level.dim==='gonogo')
+     && st.hitRate !== undefined && st.hitRate < 0.6)
+    return false;
+  return true;
+}
+/* 三星:⭐通过 ⭐⭐优秀≥85% ⭐⭐⭐专注之星≥95%且无连续3错 (仅在通过时) */
+function focusStars(level, st){
+  if(level.kind === 'tutorial') return 0;
+  let s = 1;
+  if(st.acc >= 0.85) s++;
+  if(st.acc >= 0.95 && st.maxStreakErr < 3) s++;
+  return s;
+}

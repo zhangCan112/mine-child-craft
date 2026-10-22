@@ -6,18 +6,9 @@
    全部为 DOM 点选式, 零文字依赖(图标+语音), 纯鼠标可完成
 ============================================================ */
 
-/* 语音已归引擎侧 SpeechKit(js/speech.js): 范式引擎只调用 speak/cancel, 不再拥有语音技术 */
-
-/* ---------- 过程性表扬 / 中性安慰 (夸努力不夸聪明, Mueller & Dweck 1998) ---------- */
-const FOCUS_PRAISE = [
-  '你一直在认真看，真棒！','你等到了对的时机，好有耐心！','你刚才特别专注！',
-  '你坚持做完啦，真了不起！','你的小眼睛看得真仔细！','你一直在努力，进步啦！'
-];
-const FOCUS_COMFORT = [
-  '没关系，我们慢慢来。','深呼吸，再看仔细一点。','差一点点啦，再试一次！','休息一下眼睛，我们继续。'
-];
-function praiseLine(){ return FOCUS_PRAISE[Math.floor(Math.random()*FOCUS_PRAISE.length)]; }
-function comfortLine(){ return FOCUS_COMFORT[Math.floor(Math.random()*FOCUS_COMFORT.length)]; }
+/* 语音已归引擎侧 SpeechKit(js/speech.js): 范式引擎只调用 speak/cancel, 不再拥有语音技术
+   表扬/安慰话术(FOCUS_PRAISE/COMFORT 与 praiseLine/comfortLine)按分层口径属
+   应用层文案, 已移居 js/modes/focus.js(本文件加载在前, 调用期全局解析) */
 
 /* ---------- 阶梯自适应:目标 70~85% 成功率;连错 3 次开挫败阀 ----------
    重试放宽政策只在引擎这一处: 失败次数 ×12%/次, 封顶 +40%(零惩罚哲学) */
@@ -454,16 +445,20 @@ function runSwitch(area, params, adapt, h){
 }
 
 /* ---------- 调度入口 ---------- */
+/* 分发判定(纯函数, 单测锁住顺序): master 必须先于 dim 判定 —
+   第 100 关 dim='switch', 若先按 dim 分发, master 分支永远不可达(曾经的死码 bug) */
+function focusDispatch(level){
+  if(level.kind === 'master')  return { kind:'master' };
+  if(level.dim==='cpt')        return { kind:'engine', engine:'discrimination', framing:'cpt' };
+  if(level.dim==='gonogo')     return { kind:'engine', engine:'discrimination', framing:'gonogo' };
+  if(level.dim==='flanker')    return { kind:'engine', engine:'flanker' };
+  if(level.dim==='corsi')      return { kind:'engine', engine:'corsi' };
+  if(level.dim==='switch')     return { kind:'engine', engine:'switch' };
+  return { kind:'none' };
+}
 function runFocusLevel(level, area, h, failCount){
-  const adapt = mkAdapt(failCount);
-  const p = {...level.params};
-  if(level.kind==='tutorial') p.demo = true;
-  if(level.dim==='cpt')         return runDiscrimination(area, p, adapt, h, 'cpt');
-  if(level.dim==='gonogo')      return runDiscrimination(area, p, adapt, h, 'gonogo');
-  if(level.dim==='flanker')     return runFlanker(area, p, adapt, h);
-  if(level.dim==='corsi')       return runCorsi(area, p, adapt, h);
-  if(level.dim==='switch')      return runSwitch(area, p, adapt, h);
-  if(level.kind==='master'){                             // 五维连续小节
+  const d = focusDispatch(level);
+  if(d.kind === 'master'){                               // 五维连续小节
     const T = mkTimers();
     let isStopped = false;
     const agg = { trials:0, correct:0, rts:[], maxStreakErr:0, valveCount:0, goTrials:0, hits:0 };
@@ -501,4 +496,13 @@ function runFocusLevel(level, area, h, failCount){
     runSection();
     return { stop(){ isStopped = true; T.stop(); if(curStop) curStop(); } };
   }
+
+  if(d.kind === 'none') return null;
+  const adapt = mkAdapt(failCount);
+  const p = {...level.params};
+  if(level.kind==='tutorial') p.demo = true;
+  if(d.engine==='discrimination') return runDiscrimination(area, p, adapt, h, d.framing);
+  if(d.engine==='flanker')        return runFlanker(area, p, adapt, h);
+  if(d.engine==='corsi')          return runCorsi(area, p, adapt, h);
+  return runSwitch(area, p, adapt, h);
 }
