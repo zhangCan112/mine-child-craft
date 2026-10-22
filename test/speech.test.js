@@ -49,3 +49,21 @@ test('onvoiceschanged 挂钩: synthesis 存在时注册重挑函数', () => {
   mkSpeech(syn, mkU);
   assert.strictEqual(typeof syn.onvoiceschanged, 'function');
 });
+
+test('onvoiceschanged 重挑: 初值无 zh voice 不带, 异步填充后 speak 换上新挑中的 voice', () => {
+  const log = [];
+  let voices = [{lang:'en-US'}];                     // 浏览器 getVoices() 异步填充, 初值常为空/不含 zh
+  const syn = {
+    getVoices(){ return voices; },
+    cancel(){ log.push('cancel'); },
+    speak(u){ log.push(['speak', u]); },
+    onvoiceschanged: null,
+  };
+  const k = mkSpeech(syn, mkU);
+  k.speak('a');
+  assert.strictEqual(log[1][1].voice, null, '初始无 zh voice → 不带 voice');
+  voices = [{lang:'en-US'}, {lang:'zh-CN'}];
+  syn.onvoiceschanged();                             // 浏览器填好声音后触发重挑
+  k.speak('b');
+  assert.strictEqual(log[3][1].voice.lang, 'zh-CN', '重挑后 speak 带上 zh-CN');
+});

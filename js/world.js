@@ -7,14 +7,14 @@
 /* ---------- 噪声哈希与世界数据已移至 js/voxel.js (体素模型) ---------- */
 
 /* ---------- Three.js 场景 ---------- */
-const _coarse = (function(){ try{ return (navigator.maxTouchPoints||0) > 0; }catch(e){ return false; } })();
 /* 触屏(pad)策略: 高 DPI 下 MSAA 对像素风画面几乎无感, 关掉省一大块填充率;
-   high-performance 提示移动 GPU 拉满时钟(默认不指定偏保守) */
+   high-performance 提示移动 GPU 拉满时钟(默认不指定偏保守)。
+   触屏检测口径统一在 config.js 的 IS_TOUCH */
 const renderer = new THREE.WebGLRenderer({
-  antialias: !_coarse,
+  antialias: !IS_TOUCH,
   powerPreference: 'high-performance'
 });
-renderer.setPixelRatio(Math.min(devicePixelRatio, _coarse ? 1.5 : 2));   // 触屏设备限 1.5 省性能
+renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2));   // 触屏设备限 1.5 省性能
 renderer.setSize(innerWidth, innerHeight);
 document.getElementById('app').appendChild(renderer.domElement);
 
@@ -242,7 +242,7 @@ function rebuildChunk(cx,cz){
   if(cx<0||cz<0||cx>=NCX||cz>=NCZ) return;
   const k = chunkKey(cx,cz);
   const old = chunkMeshes.get(k);
-  if(old){ old.forEach(m=>{ scene.remove(m); m.geometry.dispose(); }); }
+  if(old) disposeChunkArr(old);
   const {solid, glass, tnt} = buildChunkGeometries(cx,cz);
   const arr = [];
   if(solid){ const m=new THREE.Mesh(solid, blockMat); scene.add(m); arr.push(m); }
@@ -251,16 +251,23 @@ function rebuildChunk(cx,cz){
   if(arr.length) chunkMeshes.set(k, arr); else chunkMeshes.delete(k);
 }
 
+/* 区块三通道网格的统一释放(重建替换与清场共用一条规则) */
+function disposeChunkArr(arr){
+  arr.forEach(m=>{ scene.remove(m); m.geometry.dispose(); });
+}
+
 function rebuildAll(){
   for(let cx=0;cx<NCX;cx++)
     for(let cz=0;cz<NCZ;cz++)
       rebuildChunk(cx,cz);
 }
 
-function editBlock(x,y,z,id){
+/* 单块编辑: 挖除出同色碎屑是默认反馈; 调用方要静默挖除(如模式自己的
+   定制反馈)传 opt {debris:false}。反馈政策可关, 缺省保持原行为 */
+function editBlock(x,y,z,id,opt){
   const old = getBlock(x,y,z);
   setBlockRaw(x,y,z,id);
-  if(id === 0 && old !== 0){           // 挖除反馈: 同色碎屑(唯一入口经 Fx, 见 GLOSSARY)
+  if(id === 0 && old !== 0 && !(opt && opt.debris === false)){   // 挖除反馈: 同色碎屑(唯一入口经 Fx, 见 GLOSSARY)
     const c = faceColor(old, [0,1,0]);               // 顶面色 — 方块注册表的单一来源
     Fx.debrisBurst(x+0.5, y+0.5, z+0.5, 6, {
       color: (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255),
@@ -310,8 +317,7 @@ function clearWorld(){
   dirtyChunks.clear();
   remeshQueue.length = 0;
   remeshQueued.clear();
-  for(const arr of chunkMeshes.values())
-    arr.forEach(m=>{ scene.remove(m); m.geometry.dispose(); });
+  for(const arr of chunkMeshes.values()) disposeChunkArr(arr);
   chunkMeshes.clear();
 }
 

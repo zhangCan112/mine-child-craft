@@ -8,7 +8,7 @@
    · mount(fn|null)     挂载/卸载载具锚源; 挂载后轨道换 CAM_TANK(车尾跟随),
                         apply 恒返回 0 — 复用"近距隐藏玩家形象"契约,
                         驾驶中 Avatar 自动隐藏, 主循环与 Avatar 零改动
-   · aim()              统一的角色瞄准射线 — 准星指什么就操作什么,
+   · aim(camera)         统一的角色瞄准射线 — 准星指什么就操作什么,
                         且不会瞄到人物身旁/身后
    越肩偏移(人物落画面左侧, 准心不被挡)、体素射线防穿墙收拢、
    贴墙平滑、正面视角翻转、肩平面推进都是 implementation。
@@ -27,6 +27,7 @@ const CameraRig = (()=>{
   const _ray  = { x:0, y:0, z:0 };     // 偏移方向(鸭类型, raycastVoxel 只读 xyz)
   const _eye  = { x:0, y:0, z:0 };     // 眼睛位置(同上)
   const _aimO = { x:0, y:0, z:0 };     // 瞄准起点(同上)
+  const _aim  = { origin:null, dir:null };   // aim() 的复用返回值(调用方即取即用, 勿跨帧持有)
 
   function eyePos(){
     if(mountFn) return mountFn();              /* 载具锚: 炮塔顶眼位 */
@@ -85,14 +86,19 @@ const CameraRig = (()=>{
   /* 统一瞄准射线 — 与视角模式无关的"准星所指":
      · 第一人称/正面: 眼睛出发沿玩家视线(正面时相机朝脸, 只能以视线为准)
      · 越肩背后: 相机沿准心方向推进到人物肩平面再发射 — 跳过相机与
-       人物之间的方块, 不会瞄到身旁/身后, 准星与高亮严格一致 */
-  function aim(){
+       人物之间的方块, 不会瞄到身旁/身后, 准星与高亮严格一致
+     camera 显式传入(与 apply 同口径, 不隐读全局); 返回复用对象零分配 */
+  function aim(camera){
     const dir = lookDir();
-    if(mode !== 1 || aimSkip <= 0.001) return { origin: eyePos(), dir };
+    if(mode !== 1 || aimSkip <= 0.001){
+      _aim.origin = eyePos(); _aim.dir = dir;
+      return _aim;
+    }
     _aimO.x = camera.position.x + dir.x*aimSkip;
     _aimO.y = camera.position.y + dir.y*aimSkip;
     _aimO.z = camera.position.z + dir.z*aimSkip;
-    return { origin: _aimO, dir };
+    _aim.origin = _aimO; _aim.dir = dir;
+    return _aim;
   }
 
   /* 挂载/卸载载具锚源: fn() → {x,y,z}(炮塔顶眼位); 卸载传 null */

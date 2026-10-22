@@ -82,18 +82,18 @@ function raycastVoxel(origin, dir, maxDist, filter){
             : stepY<0 ? (origin.y-Math.floor(origin.y))/(-dir.y) : Infinity;
   let tMaxZ = stepZ>0 ? (Math.floor(origin.z)+1-origin.z)/dir.z
             : stepZ<0 ? (origin.z-Math.floor(origin.z))/(-dir.z) : Infinity;
-  let normal=[0,0,0];
+  let nx=0, ny=0, nz=0;                            // 命中面法线(标量, 免逐格分配数组 — 主循环热路径)
   let t = 0;
   while(t <= maxDist){
     if(hitFn(getBlock(x,y,z))){
-      return { x,y,z, nx:normal[0], ny:normal[1], nz:normal[2], t };
+      return { x,y,z, nx, ny, nz, t };
     }
     if(tMaxX < tMaxY){
-      if(tMaxX < tMaxZ){ x+=stepX; t=tMaxX; tMaxX+=tDeltaX; normal=[-stepX,0,0]; }
-      else            { z+=stepZ; t=tMaxZ; tMaxZ+=tDeltaZ; normal=[0,0,-stepZ]; }
+      if(tMaxX < tMaxZ){ x+=stepX; t=tMaxX; tMaxX+=tDeltaX; nx=-stepX; ny=0; nz=0; }
+      else            { z+=stepZ; t=tMaxZ; tMaxZ+=tDeltaZ; nx=0; ny=0; nz=-stepZ; }
     } else {
-      if(tMaxY < tMaxZ){ y+=stepY; t=tMaxY; tMaxY+=tDeltaY; normal=[0,-stepY,0]; }
-      else            { z+=stepZ; t=tMaxZ; tMaxZ+=tDeltaZ; normal=[0,0,-stepZ]; }
+      if(tMaxY < tMaxZ){ y+=stepY; t=tMaxY; tMaxY+=tDeltaY; nx=0; ny=-stepY; nz=0; }
+      else            { z+=stepZ; t=tMaxZ; tMaxZ+=tDeltaZ; nx=0; ny=0; nz=-stepZ; }
     }
   }
   return null;
@@ -138,22 +138,22 @@ function physics(dt){
   if(flyMode){                                    // 飞行: 恒速平移 + 垂直控制
     vel.x = dx*PLAYER.sprint; vel.z = dz*PLAYER.sprint;
     vel.y = 0;
-    if(keys['Space']) vel.y = 7;
-    if(keys['ShiftLeft']||keys['ShiftRight']) vel.y = -7;
+    if(keys['Space']) vel.y = PLAYER.flyVert;
+    if(keys['ShiftLeft']||keys['ShiftRight']) vel.y = -PLAYER.flyVert;
     onGround = false;
   } else {
     const spd = (keys['ShiftLeft']||keys['ShiftRight']||touchSprint) ? PLAYER.sprint : PLAYER.speed;
     vel.x = dx*spd; vel.z = dz*spd;
     vel.y -= PLAYER.gravity*dt;
-    if(vel.y < -30) vel.y = -30;              // 坠落限速: 防止高坠穿透薄楼板
+    if(vel.y < PLAYER.fallCap) vel.y = PLAYER.fallCap;   // 坠落限速: 防止高坠穿透薄楼板
     if((keys['Space']) && onGround){ vel.y = PLAYER.jump; onGround=false; }
     onGround = false;
   }
-  /* 轴向子步进移动(每步≤0.25格): 防止斜向贴角/高速一步跨过碰撞判定穿墙
+  /* 轴向子步进移动(每步≤PLAYER.substep 格): 防止斜向贴角/高速一步跨过碰撞判定穿墙
      返回 null=畅通走完; 否则返回受阻的子步目标坐标(供贴齐吸附) */
   const stepMove = (axis, d)=>{
     if(d === 0) return null;
-    const n = Math.max(1, Math.ceil(Math.abs(d)/0.25));
+    const n = Math.max(1, Math.ceil(Math.abs(d)/PLAYER.substep));
     const s = d/n;
     for(let i=0;i<n;i++){
       const nx = axis===0 ? pos.x+s : pos.x;
@@ -201,7 +201,7 @@ function physics(dt){
       }
     }
   }
-  if(pos.y < -12) worldEvents.voidFall = true;   // 掉出世界: 引擎只报事件, 处理由应用层分发(main loop)
+  if(pos.y < PLAYER.voidY) worldEvents.voidFall = true;   // 掉出世界: 引擎只报事件, 处理由应用层分发(main loop)
 }
 const worldEvents = { voidFall: false };         // 引擎→应用 的单向事件通道(分层规则见 GLOSSARY.md)
 

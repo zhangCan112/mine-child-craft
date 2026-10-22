@@ -39,11 +39,11 @@ _Avoid_: 玩家皮肤、人物模型（散称）
 _Avoid_: 武器表、物品系统（没有背包/耐久，别散称）
 
 **载具（Tank）**:
-引擎层的可驾驶实体模块：体素建模（含履带滚动/炮管后坐）、上下车状态机（toggle 返回 entered/exited/far）、相机锚源挂载、输入映射与开炮。坦克型号注册表（config 的 TANK_MODELS）驱动六款坦克（迷彩战车 · 沙漠之鹰 · 极地冰狼 · 熔岩勇士 · 雷霆战神 · 张廷彧号）：性能经 spec 透传坦克驾驶核心逐键回落基线，建模、炮弹观感（弹色/曳光/爆风）与像素图标（icon）各款一套；可选 salvo 齐射与 homing 追踪（转向数学在 TankCore.homeShell 纯函数，敌人坐标经 targeter 钩子注入）。interface：place（含 model 型号键）/ update / toggle / driving / nearby（返回 {d, name}）/ exitAll / clear / fire / onExplode / targeter / icon（另 protect 爆炸保护与 obstacle 炮弹障碍两个模式钩子）。驾驶物理、炮弹弹道与爆炸破坏收在坦克驾驶核心（TankCore，纯核心：差速转向、惯性、履带爬台阶、最近车距门控、追踪转向、球形爆炸）；提示文案与话术在模式层。
+引擎层的可驾驶实体模块：体素建模（含履带滚动/炮管后坐）、上下车状态机（toggle 返回 entered/exited/far）、相机锚源挂载、输入映射与开炮。坦克型号注册表（config 的 TANK_MODELS）驱动六款坦克（迷彩战车 · 沙漠之鹰 · 极地冰狼 · 熔岩勇士 · 雷霆战神 · 张廷彧号）：性能经 spec 透传坦克驾驶核心逐键回落基线，建模、炮弹观感（弹色/曳光/爆风）与像素图标（icon）各款一套；可选 salvo 齐射与 homing 追踪（转向数学在 TankCore.homeShell 纯函数，敌人坐标经 targeter 钩子注入）。interface：place（含 model 型号键）/ update / toggle / driving / nearby（返回 {d, name}）/ at（驾驶中车体状态快照 {x,y,z,yaw}，供碾压/索敌；不外泄可变物理状态）/ exitAll / clear / fire / onExplode / targeter / icon（另 protect 爆炸保护与 obstacle 炮弹障碍两个模式钩子）。驾驶物理、炮弹弹道与爆炸破坏收在坦克驾驶核心（TankCore，纯核心：差速转向、惯性、履带爬台阶、最近车距门控、追踪转向、球形爆炸）；提示文案与话术在模式层。
 _Avoid_: 坦克实体、载具系统、坦克皮肤（型号不止换色，性能/炮弹/建模整套不同）
 
 **怪物库（Mobs）**:
-引擎层的怪物实体模块：全怪物建模（37 种，按 Minecraft 原版数值等比映射；骨架表——人形/四足参数化生成器 + 特殊骨架，实例化合批渲染）、数值表驱动（config 的 MOB_TYPES，旗标 ranged/boom/fly/boss 决定行为模式）、血量/受击（闪白·踉跄·击退）/死亡（倒地沉没）/游荡的通用本能。interface：spawn / update / render / hit / near / clear（附 list / face / hasSlot）。战斗 AI、阵营、晋升、表扬话术在模式层，模式可在 spawn 返回的怪物上挂私有字段；竞技场与坦克演习场都是它的调用方，实例数组归它私有。
+引擎层的怪物实体模块：全怪物建模（37 种，按 Minecraft 原版数值等比映射；骨架表——人形/四足参数化生成器 + 特殊骨架，实例化合批渲染）、数值表驱动（config 的 MOB_TYPES，旗标 ranged/boom/fly/boss 决定行为模式）、血量/受击（闪白·踉跄·击退）/死亡（倒地沉没）/游荡的通用本能。interface：spawn / update / render / hit / near / clear（附 list / face / hasSlot / gait 步态 / debrisColor 击杀碎块色，以及 stagger / pulseTint / scaleTo 三个意图 API——模式不直写引擎的硬直/着色/体型字段，可写字段白名单见 mobs.js 头注释）。战斗 AI、阵营、晋升、表扬话术在模式层，模式可在 spawn 返回的怪物上挂私有字段；竞技场与坦克演习场都是它的调用方，实例数组归它私有。
 _Avoid_: 怪物系统（散称）、mob 数组（那是实现）
 
 **应用层（Application）**:
