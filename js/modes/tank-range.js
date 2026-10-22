@@ -10,8 +10,8 @@
    导弹(索敌政策 nearestFoe 经 Tank.targeter 注入引擎)。怪物走共享怪物库
    (js/mobs.js, 竞技场同款五怪): 出发配置页与游戏内浮动面板(#mobPicker,
    👾 按钮/M 键)共用同一份 mobCfg, 一次性部署无波次, 清场后按 R 再来一批。
-   炮弹被怪物身体阻挡即引爆(真直击)。伤害走 config.js TANK_VS_MOBS 表
-   (各型号同伤, 对孩子公平)。
+   炮弹被怪物身体阻挡即引爆(真直击)。伤害走本文件的 TANK_VS_MOBS 表
+   (直击/波及/碾压, 各型号同伤, 对孩子公平)。
    政策全在此层(引擎不知道"提示"与"语音"):
    · E 键与触屏 🚙 按钮同走 Tank.toggle(单一入口)
    · 靠近邀请语音 10 秒节流; 上下车话术随 toggle 结果
@@ -25,7 +25,15 @@ const TANK_RANGE = {
   spawn: { x: 59.5, z: 98, yaw: 0 },      // 玩家出生在坦克侧后方, 抬眼即见坦克
   targetId: 16                            // 靶方块 id(红羊毛): 建靶与命中判定, 演习场专属玩法
 };
-/* 坦克打怪伤害直查 config 的 TANK_VS_MOBS(直击/波及/碾压) */
+/* 坦克打怪物伤害表(本模式唯一消费者, 归位自 config.js; 怪物血量沿用
+   MOB_TYPES 原值) direct=直击(炮弹碰身体或近爆心) splash=波及起点
+   edge=波及边缘(线性递减) crush=碾压
+   调参依据真机试玩: 近弹必须一炮一个脆怪(僵尸30), 否则像"没伤害" */
+const TANK_VS_MOBS = {
+  direct: 40, splash: 42, edge: 12, crush: 40,
+  blastR: 3.1,                // 爆炸波及判定半径(格, ≈ shellR+0.9)
+  blastDy: 7                  // 波及高度差(格): 放宽到 7 让低飞的末影龙(flyY=地面+6)能被平地炮波及
+};
 
 let selModel = 'classic';                 // 当前坦克型号(TANK_MODELS 键; 出发配置页点卡切换)
 let placedModel = null, placedMob = null; // 场上实际部署的型号/怪种(出发时比对, 变了才重建)
@@ -40,8 +48,9 @@ let deployed = false, clearPraised = false;
 /* ---------- 选怪: 游戏内浮动面板(👾 按钮 / M 键开关) ----------
    训练场是单边选靶, 不做竞技场那种"赛前双方配置页";
    面板选种类和数量 → 一次性部署; R 随时按当前配置再来一批
-   种类清单动态遍历 MOB_TYPES(排除 mix 伪类型): 以后加怪自动出现 */
-const RANGE_MOB_KEYS = Object.keys(Mobs.types).filter(k => k !== 'mix');
+   种类清单来自怪物库的 spawnable()(mix 伪类型已在引擎侧排除):
+   以后加怪自动出现 */
+const RANGE_MOB_KEYS = Mobs.spawnable();
 const mobCfg = { type: 'zombie', count: 6 };
 const RANGE_MOBS_MAX = 30;
 let pickerBuilt = false, pickerOpen = false;

@@ -7,7 +7,8 @@
    · 数值: config.js 的 MOB_TYPES(血量/速度/身高/碰撞半径/旗标)
    · 本能: 血量/受击(闪白·踉跄·击退)/死亡(倒地沉没)/游荡(wander 可关)
    interface: spawn / update / render / hit / near / clear /
-              list / face / hasSlot / gait / stagger / pulseTint / scaleTo / debrisColor
+              list / face / hasSlot / gait / stagger / pulseTint / scaleTo /
+               debrisColor / spawnable(可部署清单, mix 伪类型已在引擎侧排除)
    玩法(战斗AI/阵营/晋升/表扬话术)在模式层; 模式可在 spawn 返回的
    mob 上挂私有字段(tierNode/tierGeos 等挂件, dispose 时若存在一并回收)。
    模式可写引擎字段的白名单(除此之外引擎字段对模式只读):
@@ -730,6 +731,10 @@ const Mobs = (() => {
     return out;
   }
 
+  /* 可部署清单: 全部真实怪种(排除 mix 伪类型 — 它只是竞技场的编队按钮,
+   "什么算真怪"的过滤归引擎, 调用方不再各自 k!=='mix') */
+  function spawnable(){ return Object.keys(MOB_TYPES).filter(k => k !== 'mix'); }
+
   /* 清场: 回收全部(含挂件与名牌)并冲刷批次(菜单/切模式页可用) */
   function clear(){
     for(const m of mobList) dispose(m);
@@ -1064,6 +1069,7 @@ const Mobs = (() => {
   })();
 
   return { types: MOB_TYPES, spawn, update, render, hit, near, clear,
-           list: ()=>mobList, face, hasSlot, gait, stagger, pulseTint, scaleTo, debrisColor };
+           list: ()=>mobList, face, hasSlot, gait, stagger, pulseTint, scaleTo,
+           debrisColor, spawnable };
 })();
 if(typeof module !== 'undefined' && module.exports) module.exports = Mobs;

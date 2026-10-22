@@ -4,6 +4,18 @@
    捡引线 → 铺引线 → F 点火 → 火花沿线烧 → TNT 爆炸 → 炸穿出口逃出密室
 ============================================================ */
 
+/* ---------- TNT 密室逃生参数(本模式唯一消费者, 归位自 config.js) ---------- */
+const TNT_CFG = {
+  radius: 3.5,      // 爆炸破坏半径
+  chainR: 3.0,      // 链式引爆半径
+  sparkSpeed: 2.0,  // 火花速度(格/秒)
+  sparkFast: 4.0,   // 快引线火花速度(格/秒)
+  tntFuse: 1.0,     // TNT 点燃后白闪倒计时(秒)
+  hurtR: 4.5,       // 玩家被炸昏迷半径
+  breakBase: 0.95,  // 爆心软方块破坏概率(随距离衰减)
+  chainDelay: 0.3   // 链式引爆延迟(秒)
+};
+
 /* ---------- 存档 (SaveSlot: 解析/默认值/版本演化收在槽里) ---------- */
 const TNT_SAVE_KEY = 'tnt_escape_progress';
 const tntSlot = SyncDB.slot(TNT_SAVE_KEY, { defaults: { unlocked: 0, stars: {} } });

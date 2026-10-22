@@ -91,6 +91,7 @@ globalThis.Mobs = {
   list(){ return listResult; },
   face(){ return 'data:'; },
   hasSlot(){ return true; },
+  spawnable(){ return Object.keys(this.types).filter(k => k !== 'mix'); },
   debrisColor(){ return 0x8a8f98; },     /* 击杀碎块配色(真实表在怪物库) */
 };
 globalThis.Fx = { debrisBurst(){ calls.push(['debris']); } };

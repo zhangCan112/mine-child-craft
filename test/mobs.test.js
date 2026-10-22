@@ -34,6 +34,7 @@ globalThis.isSolid = () => false;
 globalThis.MOB_TYPES = {
   zombie: {name:'僵尸',   hp:30, dmg:5, speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
   blaze:  {name:'烈焰人', hp:30, dmg:8, speed:2.3, range:15,  cd:2.4, h:1.8, fly:true, ranged:true, hitR:0.45},
+  mix:    {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2},
 };
 
 const Mobs = require('../js/mobs.js');

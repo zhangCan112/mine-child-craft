@@ -3,6 +3,30 @@
    竞技场模式:环形竞技场 + 双阵营怪物 PVP 对战
 ============================================================ */
 
+/* ---------- 竞技场几何参数(本模式唯一消费者, 归位自 config.js) ---------- */
+const ARENA = {
+  cx: WORLD_W/2, cz: WORLD_D/2,   // 中心 (64,64)
+  floorY: 14,                     // 场地地面顶层方块 y
+  rIn: 36,                        // 内墙半径
+  rOut: 40,                       // 外墙半径
+  flyAlt: 7.8                     // 飞行单位悬停高度(离地面)
+};
+/* 选块物品栏(本模式唯一消费者, 归位自 config.js) */
+const HOTBAR = [3,4,13,5,6,17,16,15,18];
+
+/* ---------- 竞技场配平战力(本模式唯一消费者, 归位自 config.js 的 MOB_TYPES.power) ----------
+   综合命中/射程/技能的配平系数, 只喂给编队数量匹配; 其他模式(坦克演习场/
+   下界冒险)不感知战力。菜单页的战力示例文案由本表派生(fillPowerNote)。 */
+const ARENA_POWER = {
+  zombie:170, skeleton:165, creeper:195, golem:1000, dragon:2000, spider:110,
+  cave_spider:85, silverfish:40, endermite:55, slime:130, enderman:480, witch:300,
+  husk:160, drowned:160, stray:170, bogged:150, phantom:190, vex:260, creaking:200,
+  zombified_piglin:230, piglin:200, piglin_brute:950, hoglin:420, zoglin:430,
+  wither_skeleton:350, blaze:280, ghast:320, magma_cube:190, guardian:330,
+  elder_guardian:1000, shulker:200, vindicator:560, evoker:300, pillager:210,
+  ravager:1150, wither:3000, warden:4800
+};
+
 /* ---------- 竞技场地形生成 ---------- */
 /* 地形方块别名(config 的 BLOCKS id, 名字见注册表): 免魔法数字散在地形代码里 */
 const ID_GRASS=1, ID_STONE=3, ID_COBBLE=4, ID_BRICK=13, ID_MOSS=14,
@@ -60,12 +84,11 @@ function spawnPlayer(){
 
 /* ---------- 怪物类型 ----------
    数值表 MOB_TYPES 在 config.js(怪物库 js/mobs.js 与竞技场/演习场共用) */
-/* 混合编队池: 全部常规怪(Boss 与飞行单位除外 — 混编要贴脸互殴才热闹)
-   混编平均战力只算在本地常量: 不写回共享的 MOB_TYPES(其他调用方
-   不必感知竞技场脚本是否已加载) */
-const MIX_POOL = Object.keys(MOB_TYPES).filter(k =>
-  k!=='mix' && !MOB_TYPES[k].boss && !MOB_TYPES[k].fly);
-const MIX_AVG_POWER = Math.round(MIX_POOL.reduce((s,k)=>s+MOB_TYPES[k].power,0) / MIX_POOL.length);
+/* 混合编队池: 全部常规怪(Boss 与飞行单位除外 — 混编要贴脸互殴才热闹);
+   spawnable() 是怪物库的"可部署清单"(排除 mix 伪类型), 伪类型过滤归引擎 */
+const MIX_POOL = Mobs.spawnable().filter(k =>
+  !MOB_TYPES[k].boss && !MOB_TYPES[k].fly);
+const MIX_AVG_POWER = Math.round(MIX_POOL.reduce((s,k)=>s+ARENA_POWER[k],0) / MIX_POOL.length);
 
 /* ---------- 升级系统 ----------
    个人击杀累积信用(劣势方×加成), 达标晋升:
@@ -1024,7 +1047,7 @@ let lastEdited = 'A';        // 最后编辑的一侧，另一侧随之配平
 const MAX_MOBS = 1000;
 
 /* 单只战力: 混编按池内平均值(伪类型不落盘到共享表, 见文件头 MIX_AVG_POWER) */
-function unitPower(cfg){ return cfg.type==='mix' ? MIX_AVG_POWER : MOB_TYPES[cfg.type].power; }
+function unitPower(cfg){ return cfg.type==='mix' ? MIX_AVG_POWER : ARENA_POWER[cfg.type]; }
 function teamPower(cfg){ return cfg.count * unitPower(cfg); }
 function balanceTeams(){
   const from = lastEdited==='A' ? cfgA : cfgB;
@@ -1114,14 +1137,31 @@ const unitAEl = document.getElementById('unitA');
 const unitBEl = document.getElementById('unitB');
 const balBtn = document.getElementById('balBtn');
 let panelBuilt = false;
+/* 战力示例文案由 ARENA_POWER 派生(配平改数值, 菜单说明自动跟上 —
+   这段数字曾第三次手抄在 index.html, 必然漂移) */
+function fillPowerNote(){
+  const el = document.getElementById('arenaPowerNote');
+  if(!el) return;
+  const byPower = {};
+  for(const k in ARENA_POWER){
+    const p = ARENA_POWER[k];
+    (byPower[p] = byPower[p] || []).push(MOB_TYPES[k].name);
+  }
+  el.textContent = Object.keys(byPower).map(Number).sort((a,b)=>b-a)
+    .slice(0, 5)
+    .map(p => byPower[p].join('/') + ' ' + p)
+    .join(' · ') + ' …';
+}
+
 function buildPanel(){
   if(panelBuilt){ updatePanel(); return; }
   panelBuilt = true;
+  fillPowerNote();
   document.querySelectorAll('.mobBtns').forEach(el=>{
     for(const [k,v] of Object.entries(MOB_TYPES)){
       const b = document.createElement('button');
       b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${v.name}`;
-      b.title = '战力 ' + v.power + (v.boss ? ' · Boss' : '');
+      b.title = '战力 ' + unitPower({type:k}) + (v.boss ? ' · Boss' : '');
       b.dataset.type = k;
       b.addEventListener('click', ()=>{
         const cfg = el.dataset.team==='A' ? cfgA : cfgB;
@@ -1176,7 +1216,7 @@ function updateScoreboard(){
   let a=0, b=0, pa=0, pb=0;
   for(const m of mobs){
     if(!m.dead && !m.gone){
-      if(m.team==='A'){ a++; pa+=m.cfg.power; } else { b++; pb+=m.cfg.power; }
+      if(m.team==='A'){ a++; pa+=unitPower(m.cfg); } else { b++; pb+=unitPower(m.cfg); }
     }
   }
   scoreAEl.textContent = '红方 ' + a + ' · ' + pa;

@@ -33,28 +33,10 @@ const CAM = {
   hideDist: 0.9    // 收拢近于此 → 隐藏玩家形象(头不再挡画面)
 };
 
-/* 竞技场几何参数 */
-const ARENA = {
-  cx: WORLD_W/2, cz: WORLD_D/2,   // 中心 (64,64)
-  floorY: 14,                     // 场地地面顶层方块 y
-  rIn: 36,                        // 内墙半径
-  rOut: 40,                       // 外墙半径
-  flyAlt: 7.8                     // 飞行单位悬停高度(离地面)
-};
-
-/* TNT 密室逃生参数 */
-const TNT_CFG = {
-  radius: 3.5,      // 爆炸破坏半径
-  chainR: 3.0,      // 链式引爆半径
-  sparkSpeed: 2.0,  // 火花速度(格/秒)
-  sparkFast: 4.0,   // 快引线火花速度(格/秒)
-  tntFuse: 1.0,     // TNT 点燃后白闪倒计时(秒)
-  hurtR: 4.5,       // 玩家被炸昏迷半径
-  breakBase: 0.95,  // 爆心软方块破坏概率(随距离衰减)
-  chainDelay: 0.3   // 链式引爆延迟(秒)
-};
-
-/* 儿童时限与专注每日限额等政策常量属应用层, 已移居 js/daily-budget.js */
+/* 单消费者常量已归位: ARENA/HOTBAR(竞技场) · TNT_CFG(TNT密室) · TANK_VS_MOBS
+   (坦克演习场) — 政策常量属应用层, 不在引擎共享命名空间里放着( ambient 可见
+   会诱惑跨层乱读); 引擎真正的共享注册表只剩: 世界尺寸/PLAYER/CAM/BLOCKS/
+   TANK/TANK_MODELS/MOB_TYPES/IS_TOUCH/faceColor */
 
 /* 坦克载具参数 (tank-core/tank.js 用, 见 js/tank-core.js) */
 const TANK = {
@@ -131,67 +113,58 @@ const TANK_MODELS = {
 /* ---------- 怪物数值表 (js/mobs.js 怪物库用; 竞技场与坦克演习场共用) ----------
    数值按 Minecraft 原版等比映射(与初代五怪同口径):
    hp≈原版生命×1.5 · dmg≈原版普通难度伤害×1.6 · speed≈原版移速属性×10
-   h/hitR≈原版碰撞箱(高/半宽) · power=竞技场配平战力(综合命中/射程/技能)
+   h/hitR≈原版碰撞箱(高/半宽) — 竞技场配平战力已归位 modes/arena.js(ARENA_POWER)
    旗标: ranged 远程 · boom 自爆 · fly 飞行 · boss Boss级(不进混合编队池)
    特有技能(竞技场战斗 AI 解读): 僵尸=狂暴(半血加速+群体冲锋) 骷髅=强力箭(每3箭)
    苦力怕=扑袭(跃进扑脸) 铁傀儡=震地(震慑+震落) 末影龙=龙息毒云
    其余怪物复用旗标行为: ranged=放箭/爆裂火球(飞行炮台) fly=盘旋/俯冲(掠食者贴地掠袭) */
 const MOB_TYPES = {
   /* —— 经典五怪 —— */
-  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:170},
-  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.6, h:1.9, ranged:true, hitR:0.55, power:165},
-  creeper: {name:'苦力怕', hp:28,  dmg:33, speed:3.1, range:2.0, cd:9,   h:1.7, boom:true, hitR:0.5, power:195},
-  golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0, power:1000},
-  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, power:2000, boss:true},
+  zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
+  skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.6, h:1.9, ranged:true, hitR:0.55},
+  creeper: {name:'苦力怕', hp:28,  dmg:33, speed:3.1, range:2.0, cd:9,   h:1.7, boom:true, hitR:0.5},
+  golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0},
+  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, boss:true},
   /* —— 主世界杂兵(生命8~26: 蜘蛛16 洞穴蜘蛛12 蠹虫8 末影螨8 史莱姆16
      末影人40 女巫26 尸壳20 溺尸20 流浪者20 沼骸16 幻翼20 恼鬼14 嘎枝20) —— */
-  spider:      {name:'蜘蛛',     hp:24, dmg:3,  speed:3.0, range:2.2, cd:1.2, h:0.9, hitR:0.65, power:110},
-  cave_spider: {name:'洞穴蜘蛛', hp:18, dmg:3,  speed:3.0, range:2.0, cd:1.1, h:0.5, hitR:0.35, power:85},
-  silverfish:  {name:'蠹虫',     hp:12, dmg:2,  speed:2.6, range:1.6, cd:0.9, h:0.35, hitR:0.25, power:40},
-  endermite:   {name:'末影螨',   hp:12, dmg:3,  speed:2.6, range:1.6, cd:1.0, h:0.35, hitR:0.25, power:55},
-  slime:       {name:'史莱姆',   hp:24, dmg:6,  speed:2.0, range:2.2, cd:1.4, h:2.0, hitR:0.55, power:130},
-  enderman:    {name:'末影人',   hp:60, dmg:11, speed:3.0, range:2.6, cd:1.2, h:2.9, hitR:0.35, power:480},
-  witch:       {name:'女巫',     hp:39, dmg:9,  speed:2.5, range:14,  cd:3.0, h:2.0, ranged:true, hitR:0.45, power:300},
-  husk:        {name:'尸壳',     hp:30, dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:160},
-  drowned:     {name:'溺尸',     hp:30, dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:160},
-  stray:       {name:'流浪者',   hp:30, dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55, power:170},
-  bogged:      {name:'沼骸',     hp:24, dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55, power:150},
-  phantom:     {name:'幻翼',     hp:30, dmg:6,  speed:3.5, range:3.5, cd:1.3, h:0.6, fly:true, hitR:0.45, power:190},
-  vex:         {name:'恼鬼',     hp:21, dmg:8,  speed:3.4, range:3.0, cd:1.0, h:0.8, fly:true, hitR:0.25, power:260},
-  creaking:    {name:'嘎枝',     hp:30, dmg:5,  speed:3.0, range:2.2, cd:1.1, h:1.7, hitR:0.5, power:200},
+  spider:      {name:'蜘蛛',     hp:24, dmg:3,  speed:3.0, range:2.2, cd:1.2, h:0.9, hitR:0.65},
+  cave_spider: {name:'洞穴蜘蛛', hp:18, dmg:3,  speed:3.0, range:2.0, cd:1.1, h:0.5, hitR:0.35},
+  silverfish:  {name:'蠹虫',     hp:12, dmg:2,  speed:2.6, range:1.6, cd:0.9, h:0.35, hitR:0.25},
+  endermite:   {name:'末影螨',   hp:12, dmg:3,  speed:2.6, range:1.6, cd:1.0, h:0.35, hitR:0.25},
+  slime:       {name:'史莱姆',   hp:24, dmg:6,  speed:2.0, range:2.2, cd:1.4, h:2.0, hitR:0.55},
+  enderman:    {name:'末影人',   hp:60, dmg:11, speed:3.0, range:2.6, cd:1.2, h:2.9, hitR:0.35},
+  witch:       {name:'女巫',     hp:39, dmg:9,  speed:2.5, range:14,  cd:3.0, h:2.0, ranged:true, hitR:0.45},
+  husk:        {name:'尸壳',     hp:30, dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
+  drowned:     {name:'溺尸',     hp:30, dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
+  stray:       {name:'流浪者',   hp:30, dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55},
+  bogged:      {name:'沼骸',     hp:24, dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55},
+  phantom:     {name:'幻翼',     hp:30, dmg:6,  speed:3.5, range:3.5, cd:1.3, h:0.6, fly:true, hitR:0.45},
+  vex:         {name:'恼鬼',     hp:21, dmg:8,  speed:3.4, range:3.0, cd:1.0, h:0.8, fly:true, hitR:0.25},
+  creaking:    {name:'嘎枝',     hp:30, dmg:5,  speed:3.0, range:2.2, cd:1.1, h:1.7, hitR:0.5},
   /* —— 下界(僵尸猪灵20 猪灵16 蛮兵50 疣猪兽40 凋灵骷髅20 烈焰人20 恶魂10 岩浆怪16) —— */
-  zombified_piglin:{name:'僵尸猪灵', hp:30, dmg:8,  speed:2.3, range:2.2, cd:1.1, h:1.9, hitR:0.55, power:230},
-  piglin:          {name:'猪灵',     hp:24, dmg:8,  speed:2.7, range:2.2, cd:1.1, h:1.9, hitR:0.55, power:200},
-  piglin_brute:    {name:'猪灵蛮兵', hp:75, dmg:20, speed:2.6, range:2.4, cd:1.3, h:2.0, hitR:0.6, power:950},
-  hoglin:          {name:'疣猪兽',   hp:60, dmg:9,  speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7, power:420},
-  zoglin:          {name:'僵尸疣猪兽',hp:60, dmg:9, speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7, power:430},
-  wither_skeleton: {name:'凋灵骷髅', hp:30, dmg:13, speed:2.5, range:2.4, cd:1.3, h:2.4, hitR:0.6, power:350},
-  blaze:           {name:'烈焰人',   hp:30, dmg:8,  speed:2.3, range:15,  cd:2.4, h:1.8, fly:true, ranged:true, hitR:0.45, power:280},
-  ghast:           {name:'恶魂',     hp:15, dmg:14, speed:3.2, range:16,  cd:3.4, h:3.4, fly:true, ranged:true, hitR:1.8, power:320},
-  magma_cube:      {name:'岩浆怪',   hp:24, dmg:9,  speed:2.1, range:2.2, cd:1.5, h:2.0, hitR:0.55, power:190},
+  zombified_piglin:{name:'僵尸猪灵', hp:30, dmg:8,  speed:2.3, range:2.2, cd:1.1, h:1.9, hitR:0.55},
+  piglin:          {name:'猪灵',     hp:24, dmg:8,  speed:2.7, range:2.2, cd:1.1, h:1.9, hitR:0.55},
+  piglin_brute:    {name:'猪灵蛮兵', hp:75, dmg:20, speed:2.6, range:2.4, cd:1.3, h:2.0, hitR:0.6},
+  hoglin:          {name:'疣猪兽',   hp:60, dmg:9,  speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7},
+  zoglin:          {name:'僵尸疣猪兽',hp:60, dmg:9, speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7},
+  wither_skeleton: {name:'凋灵骷髅', hp:30, dmg:13, speed:2.5, range:2.4, cd:1.3, h:2.4, hitR:0.6},
+  blaze:           {name:'烈焰人',   hp:30, dmg:8,  speed:2.3, range:15,  cd:2.4, h:1.8, fly:true, ranged:true, hitR:0.45},
+  ghast:           {name:'恶魂',     hp:15, dmg:14, speed:3.2, range:16,  cd:3.4, h:3.4, fly:true, ranged:true, hitR:1.8},
+  magma_cube:      {name:'岩浆怪',   hp:24, dmg:9,  speed:2.1, range:2.2, cd:1.5, h:2.0, hitR:0.55},
   /* —— 海洋与末地(守卫者30 远古守卫者80 潜影贝30) —— */
-  guardian:       {name:'守卫者',     hp:45, dmg:8,  speed:2.0, range:13, cd:2.8, h:0.9, ranged:true, hitR:0.6, power:330},
-  elder_guardian: {name:'远古守卫者', hp:120, dmg:13, speed:1.9, range:15, cd:3.2, h:2.0, ranged:true, hitR:1.0, power:1000, boss:true},
-  shulker:        {name:'潜影贝',     hp:45, dmg:6,  speed:0.3, range:15, cd:3.0, h:1.0, ranged:true, hitR:0.5, power:200},
+  guardian:       {name:'守卫者',     hp:45, dmg:8,  speed:2.0, range:13, cd:2.8, h:0.9, ranged:true, hitR:0.6},
+  elder_guardian: {name:'远古守卫者', hp:120, dmg:13, speed:1.9, range:15, cd:3.2, h:2.0, ranged:true, hitR:1.0, boss:true},
+  shulker:        {name:'潜影贝',     hp:45, dmg:6,  speed:0.3, range:15, cd:3.0, h:1.0, ranged:true, hitR:0.5},
   /* —— 灾厄村民(卫道士24 唤魔者24 掠夺者24 劫掠兽100) —— */
-  vindicator:{name:'卫道士', hp:36, dmg:20, speed:2.9, range:2.2, cd:1.2, h:1.9, hitR:0.55, power:560},
-  evoker:    {name:'唤魔者', hp:36, dmg:9,  speed:2.2, range:13,  cd:3.0, h:1.9, ranged:true, hitR:0.55, power:300},
-  pillager:  {name:'掠夺者', hp:36, dmg:6,  speed:2.4, range:14,  cd:2.7, h:1.9, ranged:true, hitR:0.55, power:210},
-  ravager:   {name:'劫掠兽', hp:150, dmg:18, speed:2.7, range:2.8, cd:1.6, h:2.2, hitR:1.0, power:1150},
+  vindicator:{name:'卫道士', hp:36, dmg:20, speed:2.9, range:2.2, cd:1.2, h:1.9, hitR:0.55},
+  evoker:    {name:'唤魔者', hp:36, dmg:9,  speed:2.2, range:13,  cd:3.0, h:1.9, ranged:true, hitR:0.55},
+  pillager:  {name:'掠夺者', hp:36, dmg:6,  speed:2.4, range:14,  cd:2.7, h:1.9, ranged:true, hitR:0.55},
+  ravager:   {name:'劫掠兽', hp:150, dmg:18, speed:2.7, range:2.8, cd:1.6, h:2.2, hitR:1.0},
   /* —— Boss(凋灵300 监守者500, 原版最强近战) —— */
-  wither: {name:'凋灵',   hp:450, dmg:13, speed:3.8, range:15, cd:2.2, h:3.5, fly:true, ranged:true, hitR:0.9, power:3000, boss:true},
-  warden: {name:'监守者', hp:750, dmg:45, speed:2.7, range:3.2, cd:1.8, h:2.9, hitR:0.9, power:4800, boss:true},
+  wither: {name:'凋灵',   hp:450, dmg:13, speed:3.8, range:15, cd:2.2, h:3.5, fly:true, ranged:true, hitR:0.9, boss:true},
+  warden: {name:'监守者', hp:750, dmg:45, speed:2.7, range:3.2, cd:1.8, h:2.9, hitR:0.9, boss:true},
   /* —— 伪类型: 竞技场混合编队按钮(种类池在 modes/arena.js 动态生成) —— */
-  mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2, power:0}
-};
-
-/* 坦克打怪物伤害表 (坦克演习场用; 怪物血量沿用 MOB_TYPES 原值)
-   direct=直击(炮弹碰身体或近爆心) splash=波及起点 edge=波及边缘(线性递减) crush=碾压
-   调参依据真机试玩: 近弹必须一炮一个脆怪(僵尸30), 否则像"没伤害" */
-const TANK_VS_MOBS = {
-  direct: 40, splash: 42, edge: 12, crush: 40,
-  blastR: 3.1,                // 爆炸波及判定半径(格, ≈ shellR+0.9)
-  blastDy: 7                  // 波及高度差(格): 放宽到 7 让低飞的末影龙(flyY=地面+6)能被平地炮波及
+  mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2}
 };
 
 
@@ -245,8 +218,6 @@ BLOCKS[B_GLOWSTONE] = {name:'发光岩', all:[1.00,0.85,0.45]};
 
 /* 可被爆炸破坏的软方块(密室外壳石质方块不可破坏,防止把房间炸穿) */
 [5,6,8,9].forEach(id=> BLOCKS[id].soft = true);
-
-const HOTBAR = [3,4,13,5,6,17,16,15,18];
 
 function faceColor(id, dir){
   const b = BLOCKS[id];
