@@ -63,6 +63,38 @@ function groundTop(x, z){
   return top;
 }
 
+/* ---------- 区块数据打包 (体素模型 → 网格化核心 的数据边界) ----------
+   pack = { cells, w, d, h, border, bx, bz, yMax }:
+   cells 布局 (y*d+lz)*w+lx (y 行优先), border=1 时含邻块边界一圈供跨
+   区块剔面(界外恒 0, 与 getBlock 越界语义一致)。bx/bz 是 pack 原点的
+   世界坐标 — 网格化核心据此生成世界坐标顶点。yMax 只统计内部列
+   (行走上界; 边界圈高于它的块只影响 y≤yMax 的剔面, 与原实现一致)。
+   这是主线程兜底路径与 Worker 消息(transferable)共用的打包格式 —
+   布局即跨线程契约。 */
+function packChunkData(cx, cz, border){
+  const w = CHUNK + 2*border, d = CHUNK + 2*border;
+  const cells = new Uint8Array(w*d*WORLD_H);
+  const bx = cx*CHUNK - border, bz = cz*CHUNK - border;
+  for(let lx=0; lx<w; lx++){
+    for(let lz=0; lz<d; lz++){
+      const x = bx+lx, z = bz+lz;
+      if(x<0||z<0||x>=WORLD_W||z>=WORLD_D) continue;   // 界外列保持 0
+      const base = lz*w + lx;                          // 逐列竖扫, 列内步进 w
+      for(let y=0; y<WORLD_H; y++){
+        const id = worldCells[(y*WORLD_D + z)*WORLD_W + x];
+        if(id !== 0) cells[y*d*w + base] = id;
+      }
+    }
+  }
+  let yMax = 0;
+  for(let x=cx*CHUNK; x<cx*CHUNK+CHUNK; x++)
+    for(let z=cz*CHUNK; z<cz*CHUNK+CHUNK; z++){
+      const t = groundTop(x,z);
+      if(t > yMax) yMax = t;
+    }
+  return { cells, w, d, h: WORLD_H, border, bx, bz, yMax };
+}
+
 /* ---------- 体素射线 (Amanatides-Woo) ----------
    filter: 可选命中判定 (id)=>bool, 默认任何非空气;
    相机防穿墙传 isSolid — 滤过水面/引线等非实心方块。

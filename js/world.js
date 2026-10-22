@@ -20,9 +20,9 @@ document.getElementById('app').appendChild(renderer.domElement);
 const scene = new THREE.Scene();
 const sky = new THREE.Color(0x8fc7ff);
 scene.background = sky;
-scene.fog = new THREE.Fog(sky, 90, 230);
+scene.fog = new THREE.Fog(sky, VIEW.fogNear, VIEW.fogFar);   // 雾即渲染边界(Minecraft 同款语义): 远景到雾终点融进天色
 
-const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, 1000);
+const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, VIEW.far);   // far 只到雾终点+余量 — 雾外顶点不再参与变换与深度精度(原 1000 白交)
 
 scene.add(new THREE.AmbientLight(0xffffff, 0.65));
 const sun = new THREE.DirectionalLight(0xfff4e0, 0.75);
@@ -67,8 +67,9 @@ const glassMat = new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.Do
 
 /* TNT 贴图图集: 缓冲垫/顶/底/侧 四格竖排, 像素风。
    高度取 2 的幂(256): WebGL1 下 NPOT 纹理不能生成 mipmap; 第 0 格画满
-   侧格底色, 远处 mipmap 混采样时贴图边界不串色 */
-const TNT_TILES = 4;   // 图集竖排格数(含 0 号缓冲垫): 画布高/tileV 编号/UV 除数三处共用
+   侧格底色, 远处 mipmap 混采样时贴图边界不串色。
+   图集格数 TNT_TILES 已移 config.js — 单一来源, 本画布与网格化核心的
+   UV 除数共读(Worker 侧 importScripts 同源取值) */
 function makeTntTexture(){
   const c = document.createElement('canvas');
   c.width = 64; c.height = 64*TNT_TILES;
@@ -108,151 +109,53 @@ function makeTntTexture(){
 }
 const tntMat = new THREE.MeshLambertMaterial({map:makeTntTexture(), side:THREE.FrontSide});
 
-/* ---------- 区块网格构建 (不透明 + 玻璃双通道 + 贴地薄块) ---------- */
-const FACES = [
-  { dir:[-1,0,0], corners:[ [0,1,0],[0,0,0],[0,1,1],[0,0,1] ] },
-  { dir:[ 1,0,0], corners:[ [1,1,1],[1,0,1],[1,1,0],[1,0,0] ] },
-  { dir:[0,-1,0], corners:[ [1,0,1],[0,0,1],[1,0,0],[0,0,0] ] },
-  { dir:[0, 1,0], corners:[ [0,1,1],[1,1,1],[0,1,0],[1,1,0] ] },
-  { dir:[0,0,-1], corners:[ [1,0,0],[0,0,0],[1,1,0],[0,1,0] ] },
-  { dir:[0,0, 1], corners:[ [0,0,1],[1,0,1],[0,1,1],[1,1,1] ] }
-];
-
-const chunkMeshes = new Map();
+/* ---------- 区块网格装配 (纯几何在 MeshCore, 此处只做 THREE 装配与场景挂载) ----------
+   三通道: solid(不透明)/glass(玻璃)/tnt(贴图); LOD 通道单网格。
+   几何生成走 js/mesh-core.js 纯核心 — 同一份代码在主线程(同步兜底)与
+   js/mesh-worker.js(http 服务主路径)里运行, 输出裸数组经 makeGeo 装配。 */
+const chunkMeshes = new Map();                 // 全细节: key → [Mesh...]
+const lodMeshes = new Map();                   // LOD 粗网格: key → Mesh
 function chunkKey(cx,cz){ return cx+','+cz; }
 
-/* 贴地薄块(引线/压力板):不参与面剔除,始终绘制一个扁盒子 */
-function pushThin(t, x, y, z, h, col, tint){
-  for(let f=0; f<6; f++){
-    if(f===2) continue;                       // 跳过底面
-    const face = FACES[f];
-    for(let c=0;c<4;c++){
-      const cor = face.corners[c];
-      t.positions.push(x+cor[0], y+cor[1]*h, z+cor[2]);
-      t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
-      t.colors.push(col[0]*tint, col[1]*tint, col[2]*tint);
-    }
-    t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
-    t.n += 4;
-  }
-}
+const makeGeo = (b)=>{
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions,3));
+  g.setAttribute('normal',   new THREE.Float32BufferAttribute(b.normals,3));
+  g.setAttribute('color',    new THREE.Float32BufferAttribute(b.colors,3));
+  g.setIndex(new THREE.Uint32BufferAttribute(b.indices,1));   // 显式包装: Worker 回传的 Uint32Array 不是 BufferAttribute, setIndex 直接塞会炸渲染
+  return g;
+};
+const makeTexGeo = (b)=>{
+  const g = new THREE.BufferGeometry();
+  g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions,3));
+  g.setAttribute('normal',   new THREE.Float32BufferAttribute(b.normals,3));
+  g.setAttribute('uv',       new THREE.Float32BufferAttribute(b.uvs,2));
+  g.setIndex(new THREE.Uint32BufferAttribute(b.indices,1));
+  return g;
+};
+const addSceneMesh = (geo, mat)=>{
+  const m = new THREE.Mesh(geo, mat);
+  scene.add(m);
+  return m;
+};
 
-/* 面朝向 → UV (保证侧面文字不镜像) */
-function faceUV(dir, cor){
-  let u, v;
-  if(dir[1] === 1)       { u = cor[0];   v = 1-cor[2]; }   // 顶
-  else if(dir[1] === -1) { u = 1-cor[0]; v = 1-cor[2]; }   // 底
-  else if(dir[0] === 1)  { u = 1-cor[2]; v = cor[1];   }   // 东
-  else if(dir[0] === -1) { u = cor[2];   v = cor[1];   }   // 西
-  else if(dir[2] === 1)  { u = cor[0];   v = cor[1];   }   // 南
-  else                   { u = 1-cor[0]; v = cor[1];   }   // 北
-  return [u, v];
-}
-
-function buildChunkGeometries(cx, cz){
-  const S = {positions:[], colors:[], normals:[], indices:[], n:0};
-  const G = {positions:[], colors:[], normals:[], indices:[], n:0};
-  const T = {positions:[], uvs:[], normals:[], indices:[], n:0};   // TNT 贴图通道
-  const x0=cx*CHUNK, z0=cz*CHUNK;
-  /* y 上限截断: 经高度缓存 O(1) 取本区块实际最高方块, 不再扫整段天空
-     (竞技场柱高 ~26/48 · TNT 密室 ~15/48, 挖放/爆炸触发的重建省约
-     一半扫描; 邻块面剔除只读本格 y≤上限, 不受邻区块高度影响) */
-  let yMax = 0;
-  for(let x=x0; x<x0+CHUNK; x++)
-    for(let z=z0; z<z0+CHUNK; z++){
-      const t = groundTop(x,z);
-      if(t > yMax) yMax = t;
-    }
-  for(let x=x0; x<x0+CHUNK; x++){
-    for(let z=z0; z<z0+CHUNK; z++){
-      for(let y=0; y<=yMax; y++){
-        const id = getBlock(x,y,z);
-        if(id===0) continue;
-        const b = BLOCKS[id];
-        if(b.thin){                             // 引线 / 压力板
-          const col = b.all;
-          const tint = 0.92 + hashRand(x*3+z, y)*0.12;
-          pushThin(S, x, y, z, b.thin, col, tint);
-          continue;
-        }
-        if(b.tnt){                              // TNT: 走贴图通道
-          for(let f=0; f<6; f++){
-            const face = FACES[f];
-            const nx=x+face.dir[0], ny=y+face.dir[1], nz=z+face.dir[2];
-            const nid = getBlock(nx,ny,nz);
-            const nb = nid!==0 ? BLOCKS[nid] : null;
-            if(nb && !nb.glass && !nb.thin) continue;
-            const tileV = face.dir[1]===1 ? TNT_TILES-1 : (face.dir[1]===-1 ? TNT_TILES-2 : TNT_TILES-3);  // 顶/底/侧 (0 号格是 mipmap 缓冲垫)
-            for(let c=0;c<4;c++){
-              const cor = face.corners[c];
-              T.positions.push(x+cor[0], y+cor[1], z+cor[2]);
-              T.normals.push(face.dir[0], face.dir[1], face.dir[2]);
-              const uv = faceUV(face.dir, cor);
-              T.uvs.push(uv[0], (tileV+uv[1])/TNT_TILES);
-            }
-            T.indices.push(T.n, T.n+1, T.n+2, T.n+2, T.n+1, T.n+3);
-            T.n += 4;
-          }
-          continue;
-        }
-        const isGlass = !!b.glass;
-        for(let f=0; f<6; f++){
-          const face = FACES[f];
-          const nx=x+face.dir[0], ny=y+face.dir[1], nz=z+face.dir[2];
-          const nid = getBlock(nx,ny,nz);
-          const nb = nid!==0 ? BLOCKS[nid] : null;
-          let target;
-          if(isGlass){
-            if(nb && !nb.thin) continue;        // 玻璃只对着空气/薄块显示面
-            target = G;
-          } else {
-            if(nb && !nb.glass && !nb.thin) continue; // 实心面被实心邻居遮挡才剔除
-            target = S;
-          }
-          const col = faceColor(id, face.dir);
-          const tint = isGlass ? 1 : (0.92 + hashRand(x*3+z, y)*0.12);
-          for(let c=0;c<4;c++){
-            const cor = face.corners[c];
-            target.positions.push(x+cor[0], y+cor[1], z+cor[2]);
-            target.normals.push(face.dir[0], face.dir[1], face.dir[2]);
-            target.colors.push(col[0]*tint, col[1]*tint, col[2]*tint);
-          }
-          target.indices.push(target.n, target.n+1, target.n+2, target.n+2, target.n+1, target.n+3);
-          target.n += 4;
-        }
-      }
-    }
-  }
-  const make = (b)=>{
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions,3));
-    g.setAttribute('normal',   new THREE.Float32BufferAttribute(b.normals,3));
-    g.setAttribute('color',    new THREE.Float32BufferAttribute(b.colors,3));
-    g.setIndex(b.indices);
-    return g;
-  };
-  const makeTex = (b)=>{
-    const g = new THREE.BufferGeometry();
-    g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions,3));
-    g.setAttribute('normal',   new THREE.Float32BufferAttribute(b.normals,3));
-    g.setAttribute('uv',       new THREE.Float32BufferAttribute(b.uvs,2));
-    g.setIndex(b.indices);
-    return g;
-  };
-  return { solid: S.n>0 ? make(S) : null, glass: G.n>0 ? make(G) : null, tnt: T.n>0 ? makeTex(T) : null };
-}
-
-function rebuildChunk(cx,cz){
-  if(cx<0||cz<0||cx>=NCX||cz>=NCZ) return;
-  const k = chunkKey(cx,cz);
-  const old = chunkMeshes.get(k);
-  if(old) disposeChunkArr(old);
-  const {solid, glass, tnt} = buildChunkGeometries(cx,cz);
+/* 全细节上挂: 替换该区块全部既有网格(先统一释放再重建)。
+   空结果也记账(空数组) — "已服务但无网格"与"未服务"必须可区分, 否则距离环
+   会把空气区块当缺口无限重排(测试 test/world-rings.test.js 锁定此行为) */
+function mountChunk(cx, cz, r){
+  const k = chunkKey(cx, cz);
+  unloadChunk(k);
   const arr = [];
-  if(solid){ const m=new THREE.Mesh(solid, blockMat); scene.add(m); arr.push(m); }
-  if(glass){ const m=new THREE.Mesh(glass, glassMat); scene.add(m); arr.push(m); }
-  if(tnt){   const m=new THREE.Mesh(tnt, tntMat);     scene.add(m); arr.push(m); }
-  if(arr.length) chunkMeshes.set(k, arr); else chunkMeshes.delete(k);
+  if(r.solid) arr.push(addSceneMesh(makeGeo(r.solid),    blockMat));
+  if(r.glass) arr.push(addSceneMesh(makeGeo(r.glass),    glassMat));
+  if(r.tnt)   arr.push(addSceneMesh(makeTexGeo(r.tnt),   tntMat));
+  chunkMeshes.set(k, arr);                       // 空区块记空数组: 环状态机的"已服务"凭据
+}
+/* LOD 上挂: 顶替全细节(降采样网格成本 ~1/step², 远景视觉等价 — 雾中不可辨) */
+function mountChunkLod(cx, cz, r){
+  const k = chunkKey(cx, cz);
+  unloadChunk(k);
+  lodMeshes.set(k, r && r.solid ? addSceneMesh(makeGeo(r.solid), blockMat) : null);   // null=已服务无网格(空气区块)
 }
 
 /* 区块三通道网格的统一释放(重建替换与清场共用一条规则) */
@@ -260,13 +163,148 @@ function disposeChunkArr(arr){
   arr.forEach(m=>{ scene.remove(m); m.geometry.dispose(); });
 }
 
-function rebuildAll(){
-  for(let cx=0;cx<NCX;cx++)
-    for(let cz=0;cz<NCZ;cz++)
-      rebuildChunk(cx,cz);
+/* 一个区块的完整卸载(全细节 + LOD, 含空记账条目) — 上挂替换/环维护/清场的
+   唯一释放入口, 两个 Map 的键必须同进同退(残留会挡住环重建) */
+function unloadChunk(k){
+  const f = chunkMeshes.get(k);
+  if(f) disposeChunkArr(f);
+  chunkMeshes.delete(k);
+  const l = lodMeshes.get(k);
+  if(l) disposeChunkArr([l]);
+  lodMeshes.delete(k);
 }
 
-/* 场景装填 seam: 清场 → 批量建 → 收尾重建, 一步到位。
+/* ---------- 距离环 · 近实远虚 (调研与参数语义: docs/chunk-streaming-lod-research.md §7) ----------
+   玩家(或驾驶中的坦克)为环心: ≤fullChunks 全细节实时构建 · 到 lodChunks
+   降采样粗网格(成本 ~1/lodStep²) · 更远卸载(GPU 释放, 数据保留, 走近重建)。
+   环切换在消费端(pump 出队时按当前距离决定形态), 入队侧只登记缺口 —
+   队列条目不会因走远而失效(出队时按 'none' 惰性丢弃)。 */
+function ringCenter(){
+  if(typeof Tank === 'object' && Tank.driving && Tank.driving()){
+    const t = Tank.at();                          // 驾驶中: 坦克是环心
+    return { x: t.x, z: t.z };
+  }
+  return { x: pos.x, z: pos.z };
+}
+function chunkDist(cx, cz){                       // 区块中心到环心的距离(区块单位)
+  const c = ringCenter();
+  return Math.hypot(cx + 0.5 - c.x/CHUNK, cz + 0.5 - c.z/CHUNK);
+}
+function desiredState(cx, cz){
+  const d = chunkDist(cx, cz);
+  if(d <= VIEW.fullChunks) return 'full';
+  if(d <= VIEW.lodChunks) return 'lod';
+  return 'none';
+}
+
+/* ---------- 网格 Worker (http 服务主路径; file:// 直开自动降级同步构建) ----------
+   同源 http 下 Worker 规范保证合法(MDN Worker: same-origin); file:// 下
+   构造抛错 → try/catch 兜底走同步路径(同一队列, 只是消费者不同)。
+   协议: 请求 {gen,cx,cz,token,kind,cells(ArrayBuffer 转移),pack 元数据} →
+   响应 {gen,cx,cz,token,kind,res}。gen=清场次号(旧响应整体作废);
+   token=同区块递增(在途期间再入队, 旧响应丢弃)。 */
+let meshWorker = null;
+let workerTried = false;
+let meshGen = 0;
+const inFlight = new Map();                       // key → {token, gen}
+const meshToken = new Map();                      // key → 最新 token
+
+function ensureWorker(){
+  if(workerTried) return;
+  workerTried = true;
+  try{
+    meshWorker = new Worker('js/mesh-worker.js');
+    meshWorker.onmessage = (e)=>{
+      const m = e.data;
+      if(m.gen !== meshGen) return;               // 清场后的旧响应: 整体作废
+      const k = chunkKey(m.cx, m.cz);
+      const fl = inFlight.get(k);
+      if(!fl || fl.token !== m.token) return;     // 已被更新的请求取代
+      inFlight.delete(k);
+      if(m.kind === 'full') mountChunk(m.cx, m.cz, m.res);
+      else mountChunkLod(m.cx, m.cz, m.res);
+    };
+    meshWorker.onerror = ()=>{                    // 加载失败等: 回落同步, 在途区块回队
+      meshWorker = null;
+      for(const k of inFlight.keys()){
+        if(!remeshQueued.has(k)){ remeshQueued.add(k); remeshQueue.push(k); }
+      }
+      inFlight.clear();
+    };
+  }catch(e){ meshWorker = null; }                 // file://: SecurityError / 测试桩: ReferenceError → 同步兜底
+}
+
+/* 消费一个区块 key: 按当前环形态走 Worker 或同步构建。
+   kind→构建参数的映射与 js/mesh-worker.js 的 onmessage 各持一份(跨线程
+   无法共享函数), 改协议须两边同步改 — test/mesh-worker.test.js 锁协议 */
+const MESH_OPTS = { hashRand, tntTiles: TNT_TILES };   // 全细节 opts(hashRand 来自 voxel.js, 单一来源)
+function serveChunkKey(k){
+  const c = k.split(','), cx = +c[0], cz = +c[1];
+  if(cx<0||cz<0||cx>=NCX||cz>=NCZ) return false;
+  const st = desiredState(cx, cz);
+  if(st === 'none') return false;                 // 走远了: 惰性丢弃
+  ensureWorker();
+  if(meshWorker){
+    const pack = packChunkData(cx, cz, st === 'full' ? 1 : 0);
+    const token = (meshToken.get(k) || 0) + 1;
+    meshToken.set(k, token);
+    inFlight.set(k, { token, gen: meshGen });
+    meshWorker.postMessage(
+      { gen: meshGen, cx, cz, token, kind: st, cells: pack.cells.buffer,
+        w: pack.w, d: pack.d, h: pack.h, border: pack.border, bx: pack.bx, bz: pack.bz, yMax: pack.yMax },
+      [pack.cells.buffer]);                       // transferable: 所有权零拷贝转移
+  } else if(st === 'full'){
+    mountChunk(cx, cz, MeshCore.meshChunk(packChunkData(cx, cz, 1), MESH_OPTS));
+  } else {
+    mountChunkLod(cx, cz, MeshCore.meshChunkLod(packChunkData(cx, cz, 0), { step: VIEW.lodStep }));
+  }
+  return true;
+}
+
+/* 环维护: 卸载远区块 · 登记形态缺口/需切换的区块(近处优先)。
+   环心跨界才全扫 — 同区块内的小位移不重算(消除 fullChunks 边界上的
+   形态抖动, 也免大地图每帧全扫); 清场后由 rebuildAll 全量入队兜底 */
+const ringQueue = [];                             // 距离环填充队列(已按距离排序)
+const ringQueued = new Set();
+let ringCcx = -1e9, ringCcz = -1e9;               // 上次全扫的环心区块
+function maintainRings(){
+  const c = ringCenter();
+  const ncx = Math.floor(c.x/CHUNK), ncz = Math.floor(c.z/CHUNK);
+  if(ncx === ringCcx && ncz === ringCcz) return;  // 未跨界: 环状态不变
+  ringCcx = ncx; ringCcz = ncz;
+  for(let cx=0; cx<NCX; cx++){
+    for(let cz=0; cz<NCZ; cz++){
+      const k = chunkKey(cx, cz);
+      const d = chunkDist(cx, cz);
+      if(d > VIEW.lodChunks){                     // 卸载环: GPU 释放, 数据保留
+        unloadChunk(k);
+        continue;
+      }
+      const wantFull = d <= VIEW.fullChunks;
+      const hasFull = chunkMeshes.has(k), hasLod = lodMeshes.has(k);
+      if(wantFull ? hasFull : hasLod) continue;   // 已是目标形态
+      if(ringQueued.has(k) || remeshQueued.has(k) || inFlight.has(k)) continue;
+      ringQueued.add(k);
+      ringQueue.push({ k, d });
+    }
+  }
+  ringQueue.sort((a,b)=>a.d-b.d);                 // 近处优先(≤ 数百项, 每帧排序无感)
+}
+
+/* 收尾纪律的渐进版: 全部区块入环队列(近处优先), 由 pump 每帧按预算构建 —
+   进场先见脚下, 远景数帧内铺满; 建场不再一次性顶爆帧预算 */
+function rebuildAll(){
+  const all = [];
+  for(let cx=0; cx<NCX; cx++)
+    for(let cz=0; cz<NCZ; cz++)
+      all.push({ k: chunkKey(cx,cz), d: chunkDist(cx,cz) });
+  all.sort((a,b)=>a.d-b.d);
+  for(const it of all){
+    if(!ringQueued.has(it.k)){ ringQueued.add(it.k); ringQueue.push(it); }
+  }
+}
+
+/* 场景装填 seam: 清场 → 批量建 → 收尾入队, 一步到位。
    "建完必须 rebuildAll 否则整场不可见"的收尾纪律收在此处, 调用方
    不可能忘(曾有模式建场漏调收尾, 进场一片天蓝 — ca3ac43)。
    clearWorld 幂等(switchMode 已清过再清无害)。 */
@@ -316,24 +354,40 @@ function flushDirty(){                          // 记账收口: 脏区块转入
   }
   dirtyChunks.clear();
 }
-function pumpRemesh(n){                         // 每帧出队重建 n 个(主循环每帧调用)
+function pumpRemesh(n){                         // 每帧出队(主循环每帧调用; 同步预算 n, Worker 派发上限 VIEW.dispatch)
   flushDirty();                                 // 自动收口: 漏调 flushDirty 的脏区块最迟本帧入队(不再永远不可见); 批量编辑后手动 flush 仍是可选的即时提交
-  while(n-- > 0 && remeshQueue.length){
+  ensureWorker();
+  maintainRings();
+  /* 编辑优先(玩家正看着), 环填充其次; Worker 路径下"出队"只是打包+派发,
+     帧成本极低 — 网格在后台算, 响应异步回来挂载(视觉滞后 ≤2 帧不变) */
+  let budget = meshWorker ? VIEW.dispatch : n;
+  while(budget > 0 && remeshQueue.length){
     const k = remeshQueue.shift();
     remeshQueued.delete(k);
-    const c = k.split(',');
-    rebuildChunk(+c[0], +c[1]);
+    if(serveChunkKey(k)) budget--;
+  }
+  while(budget > 0 && ringQueue.length){
+    const it = ringQueue.shift();
+    ringQueued.delete(it.k);
+    if(serveChunkKey(it.k)) budget--;
   }
 }
 
 /* 清空世界(切换模式/重置关卡用) */
 function clearWorld(){
   world.clear();
+  meshGen++;                                    // 在途 Worker 响应整体作废
+  inFlight.clear();
+  meshToken.clear();
   dirtyChunks.clear();
   remeshQueue.length = 0;
   remeshQueued.clear();
-  for(const arr of chunkMeshes.values()) disposeChunkArr(arr);
+  ringQueue.length = 0;
+  ringQueued.clear();
+  ringCcx = ringCcz = -1e9;                     // 环缓存作废: 新世界的环维护必须重新全扫
+  for(const k of chunkMeshes.keys()) unloadChunk(k);
   chunkMeshes.clear();
+  lodMeshes.clear();
 }
 
 /* ---------- 方块高亮 ---------- */

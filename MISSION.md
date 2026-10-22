@@ -12,7 +12,7 @@
 
 ## Constraints
 - 目标用户 6 岁：纯鼠标点选、零文字依赖（图标+中文 TTS 语音）、无键盘/指针锁定
-- 技术栈锁定：原生 JS + Three.js r128 + 多文件经典 script（双击 index.html 即玩，无构建/无 fetch）
+- 技术栈锁定：原生 JS + Three.js r128 + 多文件经典 script、无构建步骤。正式入口为 http 服务（node server.js，2026-10 起）：网格构建走 Web Worker、进度走 /progress 同步；file:// 双击直开保留为降级路径（Worker 构造失败自动回落同步构建，服务器同步自动关闭为纯 localStorage，功能不缺）
 - 单关卡 2-3 分钟；开发遵循现有 MODES 框架与代码风格（中文注释、参数表驱动）
 - 反馈哲学：过程性表扬、零惩罚、零倒计时压迫（夸努力不夸聪明）
 

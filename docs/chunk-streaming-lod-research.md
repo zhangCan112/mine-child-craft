@@ -171,23 +171,29 @@
 - Minecraft 官方语义："Chunks generate **with the help of the map seed**… As players wander around the world, **new chunks generate as needed**"（来源：minecraft.wiki Chunk 页 Description，已抓取）。即：**世界数据 = seed + 生成函数，访问触发计算，而不是预存在数组里**。
 - 本项目已有全部原料：`hashRand(x,z)` 确定性哈希（voxel.js:13）+ SceneKit 的确定性散布。缺的只是把"建场脚本一次性填 `worldCells`"改成"`getBlock` 未命中时按 (seed, 坐标) 现算 + 缓存"。这是无限世界的必要条件。
 
-### 5.4 后台生成不卡主线程：Web Worker 在 file:// 下受限（重要约束）
+### 5.4 后台生成不卡主线程：Web Worker（2026-10-22 约束变更后转为主路径）
 
-**规范层面（一手，已抓取）**：
+> 修订记录：初版以"双击 index.html 即玩（file://）"为硬约束否决了 Worker；项目所有者当日明确以 http 服务为正式访问方式、性能最优优先。本节结论已翻转，原 file:// 分析保留为降级路径参考。
 
-- MDN `Worker()` 构造器：worker 脚本 URL "**must be same-origin with the caller's document, or a `blob:` or `data:` URL**"；违反同源策略时抛 `SecurityError`。（<https://developer.mozilla.org/en-US/docs/Web/API/Worker/Worker>）
-- MDN 同源策略："Modern browsers usually treat the origin of files loaded using the `file:///` scheme as **opaque origins**… they are not assumed to come from the same origin"；且 URL 规范把 file 的 origin 定义为 **implementation-dependent**（依浏览器而定）。（<https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy>）
-- Fetch 规范把 `file` 列为 fetch scheme，其取回行为留给实现（<https://fetch.spec.whatwg.org/>，已抓取；正文太长，file-urls 一节未逐字核到，以 MDN 对 URL 规范的引用为准）。
+**http 服务下 Worker 合法（一手）**：
 
-**推论**：`file://` 下 `new Worker('worker.js')` 的成败**没有规范保证**，全看浏览器实现。Chrome 的实践是阻止（SecurityError，origin 'null'）——此结论的社区证据（StackOverflow "Chrome can't load web worker"、webpack issue #16696、Chromium issue tracker）本次**均未能直接抓取**（403/需 JS），标注为二手佐证；Firefox/Safari 行为各异。**对"双击 index.html 即玩"是硬约束：不能把 Worker 当作正确性前提。**
+- MDN `Worker()` 构造器：worker 脚本 URL "**must be same-origin with the caller's document, or a `blob:` or `data:` URL**"。（<https://developer.mozilla.org/en-US/docs/Web/API/Worker/Worker>）页面与 worker 脚本同出 `http://<ip>:<port>` 即满足同源，**与是否 secure context 无关**——局域网 `http://192.168.x.x:8080`（server.js 的实际形态）下同样合法，且这是规范行为而非浏览器特定实现。
+- **复用体素模型零成本**：`voxel.js` 头注释自述"**零 THREE · 零 DOM · 加载零副作用** → Node 可直接加载单测"（voxel.js:6，本地源码）。这个为单测设计的约束恰好是 Worker 的入场券——Worker 内 `importScripts('js/config.js', 'js/voxel.js')` 即得到完整体素模型，"无构建多文件经典 script"的架构不受影响。
+- **数据传递用 transferable，不要指望 SharedArrayBuffer**：MDN SharedArrayBuffer 安全要求原文："To use shared memory your document must be in a **secure context** and **cross-origin isolated**"，否则构造器在全局被隐藏、postMessage 抛错（<https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer>，修订时抓取）。局域网 IP 的 http **不是 secure context**（需 https 或 localhost），给平板场景上自签证书成本过高——因此**不把 SAB 当前提**。正解是 postMessage + transferable（`ArrayBuffer` 按值转移所有权，零拷贝）：主线程发 chunk 数据切片（Uint8Array，一次拷贝开销可忽略），Worker 回传顶点裸数组（transferable 零拷贝），主线程挂 `Float32BufferAttribute`（现有 buildChunkGeometries 拼裸数组的方式正好无缝对接）。
+- **协同改造点**：`buildChunkGeometries` 目前直接读写主线程的 `worldCells` 与邻 chunk 数据；Worker 化需把"数据读取"与"顶点生成"拆开——输入为 chunk 数据 + 边界一圈邻 chunk 数据（跨 chunk 剔面必需，否则 Worker 内缺邻界信息），输出为 position/normal/color/uv 裸数组。
 
-**标准的绕法**：`blob:` URL worker——MDN 明确 "blob: URLs… **inherits the origin of the document that created it**"，因此 blob worker 与页面同源、构造合法（同 MDN Worker 页）。但 `file://` 下（origin 是 opaque/null，blob URL 形如 `blob:null/...`）各浏览器的实际兼容性**未找到一手验证**（Chromium issue 366055344 记录了 file:// 下 `blob:null/...` 资源被 "Not allowed to load local resource" 拒绝的案例——经搜索摘要获得，未直接抓取，二手）。**若采用，必须 try/catch 特性检测并在失败时静默降级。**
+**file:// 降级路径（原约束分析，保留参考）**：
 
-### 5.5 时间分片（Worker 的替代，本项目已走在正确的路上）
+- 规范层面（一手，已抓取）：MDN 同源策略页——"Modern browsers usually treat the origin of files loaded using the `file:///` scheme as **opaque origins**"（<https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy>）；Fetch 规范把 file 列为 fetch scheme、行为留给实现（<https://fetch.spec.whatwg.org/>）。推论：`file://` 下 `new Worker('worker.js')` 成败**无规范保证**，Chrome 实践中阻止（二手佐证，见 §9）。
+- `blob:` worker 是标准内绕法（blob URL 继承文档 origin，同 MDN Worker 页），但 file:// 下（origin=null，`blob:null/...`）跨浏览器兼容性**未找到一手验证**（Chromium issue 366055344 为方向性二手证据）。**降级实现：try/catch 构造 Worker，失败静默走 pumpRemesh 分片——两条路径共享同一 remeshQueue，只是消费者不同。**
+
+**收益上限（为什么值得）**：主线程只剩"收顶点数组 + 挂 mesh"，建场/重建/惰性生成的 CPU 尖峰不再与渲染帧竞争——这正是 Minecraft 1.18+ Chunk Builder 默认 Threaded、DH 全程多线程的原因（§1.1、§2）。对目标设备（触屏平板，CPU 最弱）价值最大。
+
+### 5.5 时间分片（file:// 降级路径；官方同款档位）
 
 - 0fps 原文即建议："when we have some idle cycles (or alternatively in another thread) we can run the better mesher on them at some later point"——先快速网格顶住、闲时换高质量网格（已抓取）。
-- Minecraft 的 Chunk Builder 选项（Threaded / **Semi Blocking** / Fully Blocking）证明"分帧预算式重建"是官方认可的档位（§1.1 来源）。
-- 本项目 `pumpRemesh(2)`（main.js:182，每帧最多重建 2 个区块）+ 脏区块队列 + 溢出自动收口（world.js:313-327）就是同一模式，已用于编辑/爆炸。**缺的只是把"启动全量构建"也接到这条队列上**——`loadScene` 的 `rebuildAll()` 改为"全部入队 + 近处优先出队"，即得分帧建场。
+- Minecraft 的 Chunk Builder 选项（Threaded / **Semi Blocking** / Fully Blocking）证明 Worker 线程与分帧预算本就是**同一旋钮的两档**（§1.1 来源）。
+- 本项目 `pumpRemesh(2)`（main.js:182，每帧最多重建 2 个区块）+ 脏区块队列 + 溢出自动收口（world.js:313-327）就是同一模式，已用于编辑/爆炸。**缺的只是把"启动全量构建"也接到这条队列上**——`loadScene` 的 `rebuildAll()` 改为"全部入队 + 近处优先出队"，即得分帧建场。此队列与 Worker 消费者天然兼容（§5.4）：**队列本身不用改，改的只是谁在消费它**。
 
 ---
 
@@ -217,6 +223,13 @@
 - 收益：建场从"一次 64 chunk 全建"变成"进场先建脚下 3×3，其余分帧"；GPU 对象数随半径² 封顶——**这是把地图从 128×128 放大到 512×512 的前提**。
 - 风险：低。注意 rebuildAll 的"收尾纪律"语义变化（GLOSSARY 的场景装填 seam 要同步改文档）；卸载后重进要保证重建（队列已有去重，够用）。
 
+### ②b 网格构建 Worker 化（成本：小-中；与 ② 共用队列，建议 ② 落地后做）
+
+- 改动：新增 `js/mesh-worker.js`（Worker 入口，`importScripts('config.js','voxel.js')` 复用体素模型——voxel.js"零 THREE · 零 DOM"特性为此而生，§5.4）；`buildChunkGeometries` 拆成"主线程收集 chunk+邻界数据"与"Worker 内顶点生成"两段，主线程只保留"收裸数组 → BufferGeometry → 挂 scene"。消息协议：发 `{cx, cz, cells, neighbors}`（Uint8Array，transferable），回 `{cx, cz, solid/glass/tnt 顶点裸数组}`（transferable）。Worker 构造包 try/catch，失败静默回落 `pumpRemesh` 分片——**两条路径共享同一 remeshQueue**。
+- 文件：新增 `js/mesh-worker.js`；`js/world.js`（buildChunkGeometries 拆分）、`js/main.js`（Worker 生命周期）。
+- 收益：建场/重建/爆炸重网格完全不占主帧——目标设备（触屏平板）帧率稳定性的根本改善；② 的距离环再激进也不会卡顿。这正是 Minecraft 1.18+ Chunk Builder 默认 Threaded 的形态（§1.1）。
+- 风险：中。跨 chunk 剔面需要邻 chunk 数据随消息发送（边界多一圈）；TNT UV/图集与 per-block tint 逻辑要确认纯数据可迁移；编辑后 Worker 内旧数据靠现有 dirty 队列语义失效即可。**依赖 ② 先落地**（距离环是骨架，Worker 只是换消费者）。
+
 ### ③ 分层 LOD 网格（Distant Horizons 思路）（成本：中）
 
 - 改动：在 ② 的距离环外再加一环"降采样环"：每 chunk 用 4×4 列采样（取每列 groundTop + 顶面颜色均值）构建只有顶面+侧裙的粗网格，材质复用 `blockMat`；近环 = 现有全细节，远环 = 粗网格，再外 = 雾。DH 的"先粗后细"（SURFACE_THEN_CHUNK）用于进场：先全图粗网格铺底，再逐 chunk 升级。
@@ -234,15 +247,16 @@
 
 - 改动：`voxel.js` 的 `worldCells` 平面数组改为 per-chunk 存储（Map<chunkKey, Uint8Array(16×16×48)> 或 LRU 环），`getBlock` 未命中时按 `(seed, x, z)` 惰性生成列数据并缓存；模式建场脚本（modes/*.js 经 SceneKit）改为"只在出生环内铺玩法内容，其余交给生成器"；save-slot 序列化改按脏 chunk 增量存。
 - 文件：`js/voxel.js`（核心）、`js/config.js`（NCX/NCZ 改动态）、`js/world.js`（越界语义）、`js/modes/*.js`（建场假设）、`js/save-slot.js`（存档）、`test/`（回归）。
-- 风险：高。`getBlock` 是全游戏最热路径（voxel.js 头注释），任何加层都会伤物理/射线/怪物落地；越界返回 0 的语义、`groundTop` 高度缓存、跨 chunk 面剔除都要重新核对。**必须配 ②③（渲染分级）先行，否则数据层放开后渲染层先爆。** 生成放后台的问题在 file:// 下无解，只能用 ② 的队列分帧（§5.4/5.5）。
+- 风险：高。`getBlock` 是全游戏最热路径（voxel.js 头注释），任何加层都会伤物理/射线/怪物落地；越界返回 0 的语义、`groundTop` 高度缓存、跨 chunk 面剔除都要重新核对。**必须配 ②③（渲染分级）先行，否则数据层放开后渲染层先爆。** 生成与网格均可进 Worker 后台化（http 下合法，§5.4；voxel.js 零 DOM 可被 importScripts 复用）——这是无限世界不卡主帧的前提；file:// 降级时用队列分片（§5.5）。
 
 ---
 
 ## 8. 被否决 / 受限的方案
 
-1. **`new Worker('worker.js')` 作为常规手段 —— 否决**（对本项目"双击 index.html 即玩"约束）：
-   - 规范要求 worker 脚本与文档同源（MDN，§5.4），而 `file://` 文档的 origin 是 opaque/implementation-dependent（MDN 同源策略页）；Chrome 实践中阻止（二手佐证未直接抓取）。**正确性不能建立在浏览器特定行为上。**
-   - `blob:` worker 是标准内绕法（blob 继承文档 origin），但 `file://`（origin=null）下的实际兼容性**未找到一手验证**，且 Chromium 有 blob:null 资源被拒的记录（二手）。若某天要用，必须 try/catch 检测 + 无 worker 降级路径——工程复杂度高于收益，**现阶段直接用时间分片**（本项目 pumpRemesh 已验证该模式，pad 真机开炮顿挫就是这么治的，world.js:294 注释）。
+1. **`new Worker('worker.js')` —— 初版否决，2026-10-22 约束变更后解禁（http 主路径 + file:// 降级）**：
+   - 初版否决依据（file:// 为硬约束时）：file:// 文档 origin 是 opaque/implementation-dependent（MDN，§5.4），Chrome 实践中阻止（二手佐证未直接抓取），正确性不能建立在浏览器特定行为上。
+   - 约束变更后（项目所有者确认 http 服务为正式访问方式）：同源 http 下 Worker **规范保证合法**（§5.4），否决撤销，Worker 升级为 ②b 主路径；原分析保留为降级依据——降级实现即"try/catch 构造 Worker，失败走 pumpRemesh 分片"（该模式项目已验证，pad 真机开炮顿挫就是这么治的，world.js:294 注释）。
+   - 附带澄清：**SharedArrayBuffer 维持否决**——需 secure context + cross-origin isolated（MDN，§5.4），局域网 IP 的 http 不满足且上 https 成本高；transferable 传递已够用。
 2. **THREE.LOD 直接套在区块上 —— 不推荐（非否决）**：r128 有完整 LOD（§4.1），但它切换的是"一个 Object3D 的子档"，且每帧 update 要挂主循环；本项目已有 chunkMeshes 距离环管理（②），用 LOD 反而多一层对象树。留给"单模型多档"场景（远处的坦克/怪人剪影）备用。
 3. **远山 billboard / impostor —— 当前否决**：世界 128×128，雾终点 230 已在视野边界之外，剪影无信息量也无省头；无限世界落地后再评估（且体素世界的 impostor **未找到一手文献**，§6）。
 4. **heightmap 式顶点 morphing / 裙边抗裂 —— 不适用**：CDLOD/Chunked LOD 的这些机制服务于连续高度场；体素离散网格允许不同分辨率间的阶梯误差（DH 远处就是大块），不需要 morphing（§3 结论）。"按距离降档"的函数思想保留，手术部分丢弃。
@@ -258,8 +272,8 @@
 | DH LOD 数据库为 SQLite 的文件级细节 | 二手 | MCME/Craft Down Under 社区文档（搜索摘要），未直接抓取 |
 | Mojang 官方 1.14.4 changelog 原文 | 抓取超时 | minecraft.net 文章未取得，未引用其内容 |
 | CDLOD / GeoMipmapping / Chunked LOD 论文 PDF 原文 | 未读原文 | webfetch 拒收 application/pdf；以作者仓库 README 摘要、作者页面、flipcode 归档页、vterrain 索引（均已抓取）替代；GeoMipmapping"屏幕空间误差切档"细节引 DTU 综述（二手） |
-| Chrome 阻止 file:// 外部脚本 worker 的官方公告 | 二手 | StackOverflow 403、Chromium issues 需 JS；以 MDN 规范性描述（同源要求 + opaque file origin）为主据 |
-| blob: worker 在 file:// 下的跨浏览器实测 | 未验证 | 未找到一手来源；Chromium issue 366055344（blob:null 资源被拒）为方向性二手证据 |
+| Chrome 阻止 file:// 外部脚本 worker 的官方公告 | 二手 | StackOverflow 403、Chromium issues 需 JS；以 MDN 规范性描述（同源要求 + opaque file origin）为主据。**注：2026-10-22 约束变更后仅关乎 file:// 降级路径** |
+| blob: worker 在 file:// 下的跨浏览器实测 | 未验证 | 未找到一手来源；Chromium issue 366055344（blob:null 资源被拒）为方向性二手证据。同上，仅降级路径相关 |
 | 体素世界 billboard/impostor 一手文献 | 未找到 | §6 表中已标注 |
 | minecraft.wiki 页面直抓 | 失败，已绕过 | 页面 HTML 拒抓，改走 `api.php?action=parse` 拿 wikitext 原文（Chunk / Simulation_distance / Options / Anvil / Region 均成功） |
 
@@ -270,6 +284,6 @@
 - minecraft.wiki（官方社区 wiki，经 api.php 抓 wikitext）：[Chunk](https://minecraft.wiki/w/Chunk) · [Simulation_distance](https://minecraft.wiki/w/Simulation_distance) · [Options](https://minecraft.wiki/w/Options) · [Anvil_file_format](https://minecraft.wiki/w/Anvil_file_format) · [Region_file_format](https://minecraft.wiki/w/Region_file_format)
 - Distant Horizons 官方：[GitLab 仓库](https://gitlab.com/distant-horizons-team/distant-horizons) · [Modrinth 发布页（FAQ）](https://modrinth.com/project/uCdwusMi) · [API Javadoc：EDhApiDetailLevel](https://distant-horizons-team.gitlab.io/distant-horizons/com/seibel/distanthorizons/api/enums/EDhApiDetailLevel.html) · [worldGeneration 枚举](https://distant-horizons-team.gitlab.io/distant-horizons/com/seibel/distanthorizons/api/enums/worldGeneration/package-summary.html) · [Javadoc 索引](https://distant-horizons-team.gitlab.io/distant-horizons/index-all.html)
 - 论文/作者一手：[fstrugar/CDLOD（README 含论文摘要）](https://github.com/fstrugar/CDLOD) · [Thatcher Ulrich Chunked LOD 页](http://tulrich.com/geekstuff/chunklod.html) · [flipcode GeoMipmapping 归档页](https://flipcode.com/archives/Fast_Terrain_Rendering_Using_Geometrical_MipMapping.shtml) · [vterrain 地形 LOD 论文索引](http://vterrain.org/LOD/Papers) · [0fps "Meshing in a Minecraft Game"（2012-06-30）](https://0fps.net/2012/06/30/meshing-in-a-minecraft-game/)
-- MDN（规范性文档）：[Worker() 构造器](https://developer.mozilla.org/en-US/docs/Web/API/Worker/Worker) · [Same-origin policy](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy) · [Fetch 标准](https://fetch.spec.whatwg.org/)
+- MDN（规范性文档）：[Worker() 构造器](https://developer.mozilla.org/en-US/docs/Web/API/Worker/Worker) · [Same-origin policy](https://developer.mozilla.org/en-US/docs/Web/Security/Same-origin_policy) · [Fetch 标准](https://fetch.spec.whatwg.org/) · [SharedArrayBuffer（安全要求：secure context + cross-origin isolated；2026-10-22 修订时抓取）](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer)
 - three.js r128（官方源码 + 本地发布库）：[r128/src/objects/LOD.js](https://raw.githubusercontent.com/mrdoob/three.js/r128/src/objects/LOD.js) · [r128/src/core/Object3D.js](https://raw.githubusercontent.com/mrdoob/three.js/r128/src/core/Object3D.js) · `lib/three.min.js`（本地，REVISION=128，符号检索验证）
 - 社区经验（已抓取）：[Drovolon：1.14.x chunk loading 实测](https://gist.github.com/Drovolon/24bfaae00d57e7a8ca64b792e14fa7c6) · [Technical Minecraft Wiki：chunk loading](https://techmcdocs.github.io/pages/GameMechanics/ChunkLoading)

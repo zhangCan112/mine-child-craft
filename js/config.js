@@ -35,8 +35,29 @@ const CAM = {
 
 /* 单消费者常量已归位: ARENA/HOTBAR(竞技场) · TNT_CFG(TNT密室) · TANK_VS_MOBS
    (坦克演习场) — 政策常量属应用层, 不在引擎共享命名空间里放着( ambient 可见
-   会诱惑跨层乱读); 引擎真正的共享注册表只剩: 世界尺寸/PLAYER/CAM/BLOCKS/
+   会诱惑跨层乱读); 引擎真正的共享注册表只剩: 世界尺寸/PLAYER/CAM/VIEW/BLOCKS/
    TANK/TANK_MODELS/MOB_TYPES/IS_TOUCH/faceColor */
+
+/* ---------- 远景与距离环 (world.js 渲染 adapter 用) ----------
+   雾即渲染边界(Minecraft 官方同款语义: render distance 别名 fog):
+   far 只需略过雾终点即可。距离环两层(调研见
+   docs/chunk-streaming-lod-research.md §7):
+   ≤fullChunks 全细节实时构建 · fullChunks~lodChunks 降采样粗网格
+   (每 lodStep×lodStep 列合并采样, 成本 ~1/lodStep²) · 更远卸载(GPU
+   释放, 数据保留, 走近重建)。当前 8×8 图上远角才进 LOD 环; 地图
+   调大(NCX/NCZ)后环自动生效, GPU 对象数按环面积封顶。 */
+const VIEW = {
+  fogNear: 90, fogFar: 230, far: 240,
+  fullChunks: 8,      // 全细节环半径(区块)
+  lodChunks: 15,      // LOD 环半径(区块; ×16 格 ≈ 雾终点)
+  lodStep: 2,         // LOD 采样步长(格/边; 须整除 CHUNK=16, 否则回落 2)
+  dispatch: 8         // Worker 每帧派发上限(派发只含打包+postMessage, 帧成本极低; 同步兜底预算由 pumpRemesh 入参)
+};
+
+/* TNT 贴图图集竖排格数(含 0 号 mipmap 缓冲垫): 画布高/tileV 编号/UV
+   除数三处共用(world.js 画布与 MeshCore UV 各读一次, 单一来源) */
+const TNT_TILES = 4;
+
 
 /* 坦克载具参数 (tank-core/tank.js 用, 见 js/tank-core.js) */
 const TANK = {

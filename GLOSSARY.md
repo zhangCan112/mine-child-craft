@@ -15,8 +15,16 @@ _Avoid_: 底层、框架、核心库
 _Avoid_: 世界数据（仅指 Map 本体时可用）、引擎核心
 
 **场景装填（loadScene）**:
-world.js 渲染 adapter 的建场 seam：loadScene(buildFn) = 清场 → 批量建 → 收尾重建一步到位。"建完必须 rebuildAll 否则整场不可见"的收尾纪律收在 seam 里（曾有模式漏调，进场一片天蓝）；清场幂等。编辑管线同理由 pumpRemesh 自动收口脏区块——漏调 flushDirty 最迟下帧入队，不再永远不可见。
+world.js 渲染 adapter 的建场 seam：loadScene(buildFn) = 清场 → 批量建 → 收尾入队一步到位。"建完必须 rebuildAll 否则整场不可见"的收尾纪律收在 seam 里（曾有模式漏调，进场一片天蓝）；收尾是渐进的——全部区块按距玩家距离入距离环队列（近处优先），由 pumpRemesh 每帧按预算构建，进场先见脚下、远景数帧铺满。清场幂等。编辑管线同理由 pumpRemesh 自动收口脏区块——漏调 flushDirty 最迟下帧入队，不再永远不可见。
 _Avoid_: clearWorld+build+rebuildAll 三连（历史惯用套路）、手动 flushDirty（即时提交的可选优化，不再是必需）
+
+**网格化核心（MeshCore）**:
+区块数据 → 顶点裸数组 的纯变换（js/mesh-core.js，零 THREE · 零 DOM，有单测）：全细节三通道（实心/玻璃/TNT 贴图）与 LOD 降采样粗网格（每 lodStep×lodStep 列合并采样，顶面+裙边）。输入是体素模型的 packChunkData 打包（含邻块边界圈供跨区块剔面），hashRand 由调用方注入——同一份代码在主线程（同步兜底）与网格 Worker（http 服务主路径）里运行，布局即跨线程契约。
+_Avoid_: 网格生成器（散称）、把 THREE 装配混进纯核心
+
+**距离环（Chunk Rings）**:
+近实远虚的渲染预算分配（world.js，参数在 config 的 VIEW）：环心=玩家（驾驶中=坦克）——全细节环内实时构建完整网格，LOD 环用降采样粗网格（成本 ~1/lodStep²），更远卸载（GPU 释放、体素数据保留、走近重建）。环形态在消费端决定（pump 出队时按当前距离选 full/lod，走远的惰性丢弃），入队侧只登记缺口；编辑永远优先于环填充。
+_Avoid_: 视距（那是渲染边界=雾，见 VIEW）、把卸载叫删除（数据还在 worldCells）
 
 **Fx**:
 特效的唯一入口：爆炸组合、冲击波球、闪电弧（arc）、落雷（bolt，盒段拼装的粗闪电）、碎块、震屏。条目形状与动画是它的 implementation，调用方不可见。

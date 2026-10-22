@@ -20,6 +20,7 @@ function loadVoxel(){
   vm.runInContext(`
     globalThis.__v = {
       world, getBlock, setBlockRaw, isSolid, isOpaque, groundTop, hashRand, blockKey,
+      packChunkData,
       raycastVoxel, pos, vel, collides, physics, collidesAtPlayer, worldEvents,
       keys, touchMove, touchSprint,
       get onGround(){ return onGround; }, set onGround(v){ onGround = v; },
@@ -93,6 +94,45 @@ test('groundTop 缓存一致性: 写入/移除按列失效重算, world.clear �
   assert.strictEqual(v.groundTop(8, 8), 5);
   v.world.clear();                              // 直清数据(测试/清场共用入口)
   assert.strictEqual(v.groundTop(8, 8), 0);     // 不得返回清场前的旧缓存
+});
+
+/* ============ 区块数据打包 (packChunkData) ============ */
+/* pack 是体素模型 → 网格化核心(主线程兜底 / Worker 消息)的数据边界:
+   cells 布局约定 (y*d+lz)*w+lx 是跨线程传递的契约, 变更即破坏兼容 */
+
+test('packChunkData: 尺寸/原点/索引布局 — border=1 时 18×18, 边界圈可读', () => {
+  const v = loadVoxel();
+  const p = v.packChunkData(1, 1, 1);                 // 区块(1,1): 世界 x/z 16..31
+  assert.strictEqual(p.w, 18);
+  assert.strictEqual(p.d, 18);
+  assert.strictEqual(p.bx, 15);                       // 原点 = 区块原点 - border
+  assert.strictEqual(p.bz, 15);
+  v.setBlockRaw(15, 5, 20, 3);                        // 边界圈格(x=15 是区块左邻)
+  v.setBlockRaw(16, 5, 20, 4);                        // 区块内部首列
+  const p2 = v.packChunkData(1, 1, 1);
+  assert.strictEqual(p2.cells[(5*18 + 5)*18 + 0], 3); // lz=20-16+1=5, lx=0 → 边界块
+  assert.strictEqual(p2.cells[(5*18 + 5)*18 + 1], 4); // lx=1 → 内部块
+});
+
+test('packChunkData: 地图外边界圈读 0(区块 0,0 的 -X/-Z 邻是界外)', () => {
+  const v = loadVoxel();
+  const p = v.packChunkData(0, 0, 1);
+  assert.strictEqual(p.cells[(5*18 + 5)*18 + 0], 0);  // lx=0 ↔ x=-1 界外
+  assert.strictEqual(p.cells[(5*18 + 0)*18 + 5], 0);  // lz=0 ↔ z=-1 界外
+});
+
+test('packChunkData: yMax = 内部列最高实心(高塔), 空区块 yMax=0', () => {
+  const v = loadVoxel();
+  fill(v, 20, 0, 30, 20, 20, 30, 3);                  // 内部 21 高石柱
+  assert.strictEqual(v.packChunkData(1, 1, 1).yMax, 20);
+  assert.strictEqual(v.packChunkData(6, 6, 1).yMax, 0);  // 空区块
+});
+
+test('packChunkData: border=0 时 16×16(LOD 用), 顶点行走不带边界圈', () => {
+  const v = loadVoxel();
+  const p = v.packChunkData(1, 1, 0);
+  assert.strictEqual(p.w, 16);
+  assert.strictEqual(p.bx, 16);
 });
 
 /* ============ 碰撞与物理 ============ */
