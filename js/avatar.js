@@ -7,7 +7,8 @@
    每帧 update(dt, camDist) 由主循环驱动, camDist 传 CameraRig.apply
    的返回值: 第一人称(0)与贴墙收拢过近时自动隐藏(手持物随之隐藏)。
    interface: update / setItem(id|null 装备手持物) / swing(挥一次右臂,
-   连点连挥, 对空也挥)。建模与动画全部是 implementation。
+   连点连挥, 对空也挥) / flash(受击闪红: 全身向红插值再淡出, 传秒数)。
+   建模与动画全部是 implementation。
    人物面向 -Z, 与玩家视线一致。
    依赖: world.js 的 scene, voxel.js 的 pos/vel/yaw/pitch/onGround/
    flyMode, config.js 的 PLAYER/CAM, held-item.js 的 HeldItems。
@@ -61,6 +62,14 @@ const Avatar = (()=>{
   root.add(legL, legR, body, armL, armR, head);
   scene.add(root);                     // 加载即挂: 跨模式存活, 主菜单背景也可见
 
+  /* ---------- 受击闪红: 全身材质向红插值再淡出 ----------
+     建模期收集身体材质与基色(手持物后挂载, 不在收集之列 → 不闪);
+     端点从基色出发精确还原, 无累计漂移。 */
+  const FLASH_RED = new THREE.Color(0xe83a2a);
+  const bodyMats = [];
+  root.traverse(o => { if(o.isMesh) bodyMats.push({ mat: o.material, base: o.material.color.clone() }); });
+  let flashT = -1;                             // <0 空闲; >=0 剩余闪红秒数
+
   /* ---------- 动画 ---------- */
   let walkT = 0;
 
@@ -87,8 +96,16 @@ const Avatar = (()=>{
 
   function swing(){ swingT = 0; }               // 连点重置 = 连挥
 
+  function flash(d){ flashT = d; }               // 受击闪红(模式层意图 API, 观感)
+
   function update(dt, camDist){
     if(swingT >= 0) swingT += dt;               // 隐藏期间也推进, 恢复可见不接旧挥击
+    if(flashT >= 0){                             // 闪红同理: 隐藏期间走完, 恢复即基色
+      flashT -= dt;
+      const k = Math.max(0, Math.min(1, flashT/0.3));
+      for(const e of bodyMats) e.mat.color.copy(e.base).lerp(FLASH_RED, k*0.9);
+      if(flashT < 0) for(const e of bodyMats) e.mat.color.copy(e.base);
+    }
     root.visible = camDist > CAM.hideDist;
     if(!root.visible) return;          // 隐藏时省去全部动画
 
@@ -127,5 +144,5 @@ const Avatar = (()=>{
     }
   }
 
-  return { update, setItem, swing };
+  return { update, setItem, swing, flash };
 })();

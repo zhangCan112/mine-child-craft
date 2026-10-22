@@ -33,6 +33,13 @@ test('剑在注册表: 下界「进下界换剑」依赖它(Avatar.setItem 未�
   assert.strictEqual(sword.label, '剑');
 });
 
+test('弓在注册表: 下界武器栏的远程位依赖它(与剑同为纯数据 def, 战斗政策在模式层)', () => {
+  const { HeldItems } = loadHeld();
+  const bow = HeldItems.defs['bow'];
+  assert.ok(bow, 'defs 里应有 bow');
+  assert.strictEqual(bow.label, '弓');
+});
+
 test('def 形状: 每个手持物具备 部件表/握持/挥击/待机 四组数据', () => {
   const { HeldItems } = loadHeld();
   const V3 = a => Array.isArray(a) && a.length === 3 && a.every(n => typeof n === 'number');

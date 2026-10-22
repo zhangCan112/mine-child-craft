@@ -59,8 +59,11 @@ globalThis.WORLD_D = 8;
 globalThis.B_NETHERRACK = 30;
 globalThis.B_OBSIDIAN = 31;
 globalThis.B_LAVA = 25;
-globalThis.PLAYER = { height: 1.8, speed: 3, heldItem: 'hoe' };
-globalThis.Avatar = { setItem(id){ calls.push(['setItem', id]); }, swing(){ calls.push(['swing']); } };
+globalThis.PLAYER = { height: 1.8, eye: 1.62, speed: 3, heldItem: 'hoe' };
+globalThis.Avatar = { setItem(id){ calls.push(['setItem', id]); }, swing(){ calls.push(['swing']); },
+                      flash(){ calls.push(['flash']); } };   /* 受击闪红(观感, 只记录调用) */
+let lookDirV = { x: 0, y: 0, z: -1 };                    /* 准星方向(射箭用, 测试可转) */
+globalThis.CameraRig = { lookDir: () => lookDirV };
 globalThis.NETHER_GROUND = 20;
 
 /* ---------- fake 怪物库 ---------- */
@@ -196,6 +199,36 @@ test('下界冒险: 进下界换剑, 回上界/退出模式换回锄头(默认�
   assert.ok(calls.some(c => c[0] === 'setItem' && c[1] === 'hoe'), '退出模式复位(Avatar 跨模式存活, 剑不渗进其他模式)');
 });
 
+test('下界冒险: 武器栏(⚔️剑/🏹弓) — 数字键切弓, 点击射箭按弹道命中前方怪', () => {
+  calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
+  listResult = [];
+  lookDirV = { x: 0, y: 0, z: -1 };                      /* 准星朝正北 */
+  NetheMode.init();
+  walkIntoPortal();
+  calls.length = 0; hitLog.length = 0;
+
+  assert.ok(NetheMode.hotbar && NetheMode.hotbar.items.length === 2, '武器栏两槽: 剑/弓(mkHotbar, 数字键/滚轮/点选)');
+  NetheMode.onDigit(2);                                  /* 数字键 2 → 弓槽 */
+  assert.ok(calls.some(c => c[0] === 'setItem' && c[1] === 'bow'), '切弓: Avatar 装配弓(手持物注册表)');
+
+  globalThis.pos.x = 20.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;
+  listResult = [mkMob('piglin', 20.5, 12, 14.5)];        /* 正北 6 格, 站在准星线上 */
+  nextHit = { hp: 14, dead: false, freshDead: false };
+  NetheMode.onMouse(0);                                  /* 点击 = 射箭(远程) */
+  assert.ok(calls.some(c => c[0] === 'sfx' && c[1] === 'shoot'), '射箭音');
+  assert.strictEqual(hitLog.length, 0, '点击瞬间不结算 — 箭要飞过去(近战才是即时判定)');
+  NetheMode.onMouse(0);                                  /* 冷却内连点 */
+  assert.strictEqual(calls.filter(c => c[0] === 'sfx' && c[1] === 'shoot').length, 1, '弓冷却内连点只射一箭');
+  for(let i = 0; i < 40 && hitLog.length === 0; i++) NetheMode.update(DT);   /* 箭飞 ~0.3 秒 */
+  assert.ok(hitLog.some(h => h.dmg === 10), '箭按重力弹道命中 6 格外的怪(远程伤害 10)');
+  assert.ok(calls.some(c => c[0] === 'sfx' && c[1] === 'hit'), '箭命中音(与怪受击同款)');
+
+  calls.length = 0;
+  NetheMode.onDigit(1);                                  /* 数字键 1 → 剑槽 */
+  const last = calls.filter(c => c[0] === 'setItem').pop();
+  assert.ok(last && last[1] === 'sword', '切回剑(近战位)');
+});
+
 test('下界冒险: 一波全灭 → 语音表扬 + 新一波来袭', () => {
   calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0;
   listResult = [];
@@ -242,7 +275,8 @@ test('下界冒险: 被怪物打中(非致命) → 受击音+震屏+剩血提醒
   assert.strictEqual(hitLog.length, 2, '两只怪都命中玩家');
   assert.ok(calls.some(c => c[0] === 'sfx' && c[1] === 'hurt'), '受击音 hurt(与主人公打怪的 hit 区分)');
   assert.ok(has('kick'), '受击震屏');
-  assert.ok(calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('剩 22') >= 0), '受击提醒带剩余血量');
+  assert.ok(has('flash'), '受击主提醒: 主人公身体变红(Avatar.flash)');
+  assert.ok(!calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('剩') >= 0), '剩血 toast 退役: 头顶血条常驻可见');
   assert.strictEqual(spoken.filter(s => String(s).indexOf('快躲开') >= 0).length, 1, '语音 3 秒节流: 同帧两击只播一句');
 });
 
@@ -261,7 +295,7 @@ test('下界冒险: 飞行炮台(烈焰人/恶魂)投火球 → 火球命中主�
   NetheMode.update(DT);                                 /* AI 开火 + 火球飞行一步即命中 */
   assert.ok(hitLog.some(h => h.dmg === 8 && h.m.pos === globalThis.pos), '火球按烈焰人 dmg 命中主人公(受击者=玩家实体)');
   assert.ok(calls.some(c => c[0] === 'sfx' && c[1] === 'hurt'), '火球命中 → 受击音(与打怪 hit 区分)');
-  assert.ok(calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('被打中') >= 0), '火球命中 → 受击提醒');
+  assert.ok(has('flash'), '火球命中 → 身体变红(受击主提醒)');
   assert.ok(spoke('快躲开'), '受击语音');
 });
 
