@@ -269,13 +269,15 @@ function netherShoot(m, tg){
   nArrows.push({ owner: m, mesh, from, vel: { x: dir.x*17, y: dir.y*17, z: dir.z*17 },
                  life: 2.5, dmg: Math.round(m.cfg.dmg), kpow: 1.0, g: 6 });
 }
-/* 主人公射箭(弓): 沿准星方向(CameraRig.lookDir 相机装置的唯一视线入口),
-   竞技场箭矢同款重力弹道(箭速/伤害是 NETHER 政策常量) */
+/* 主人公射箭(弓): 沿统一瞄准射线(CameraRig.aim — 相机装置的唯一视线入口,
+   越肩视角下与准星严格一致), 竞技场箭矢同款重力弹道(箭速/伤害是 NETHER 政策常量)。
+   注: aim 返回复用对象, 这里即刻取标量, 不跨帧持有 */
 let nArrowGeo = null, nArrowMat = null;               // 玩家箭矢几何/材质全局共用(移除只摘网格)
 function netherShootArrow(){
   sfx('shoot');
-  const d = CameraRig.lookDir();
-  const from = { x: pos.x + d.x*0.3, y: pos.y + (PLAYER.eye || 1.6) + d.y*0.3, z: pos.z + d.z*0.3 };   // 眼位前移 0.3: 第一人称不贴相机, 贴墙不误判撞块
+  const a = CameraRig.aim(camera);
+  const dx = a.dir.x, dy = a.dir.y, dz = a.dir.z;
+  const from = { x: a.origin.x + dx*0.3, y: a.origin.y + dy*0.3, z: a.origin.z + dz*0.3 };   // 沿准星前移 0.3: 第一人称不贴相机, 贴墙不误判撞块
   let mesh = null;
   if(typeof THREE !== 'undefined' && typeof scene !== 'undefined'){
     if(!nArrowGeo){ nArrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.62); nArrowMat = new THREE.MeshBasicMaterial({ color: 0xd8d8d0 }); }
@@ -283,7 +285,7 @@ function netherShootArrow(){
     mesh.position.set(from.x, from.y, from.z);
     scene.add(mesh);
   }
-  nArrows.push({ fromPlayer: true, mesh, from, vel: { x: d.x*NETHER.arrowSpeed, y: d.y*NETHER.arrowSpeed, z: d.z*NETHER.arrowSpeed },
+  nArrows.push({ fromPlayer: true, mesh, from, vel: { x: dx*NETHER.arrowSpeed, y: dy*NETHER.arrowSpeed, z: dz*NETHER.arrowSpeed },
                  life: 3, dmg: NETHER.bowDmg, kpow: 0.35, g: 9.5 });
 }
 function removeNetherArrow(i){

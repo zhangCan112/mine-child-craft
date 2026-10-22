@@ -62,8 +62,6 @@ globalThis.B_LAVA = 25;
 globalThis.PLAYER = { height: 1.8, eye: 1.62, speed: 3, heldItem: 'hoe' };
 globalThis.Avatar = { setItem(id){ calls.push(['setItem', id]); }, swing(){ calls.push(['swing']); },
                       flash(){ calls.push(['flash']); } };   /* 受击闪红(观感, 只记录调用) */
-let lookDirV = { x: 0, y: 0, z: -1 };                    /* 准星方向(射箭用, 测试可转) */
-globalThis.CameraRig = { lookDir: () => lookDirV };
 globalThis.NETHER_GROUND = 20;
 
 /* ---------- fake 怪物库 ---------- */
@@ -92,6 +90,29 @@ globalThis.Mobs = {
 globalThis.pos = { x: 62.5, y: 25, z: 85.5, set(){} };
 globalThis.vel = { set(){} };
 globalThis.flyMode = false;
+
+/* 真 CameraRig(独立 vm 桥接挂全局): 射箭曾用富 fake(自造 lookDir)藏住
+   "真模块没导出该方法"的接口谎言 → 实机一点就抛异常箭没射出。改挂真模块:
+   nether 再调不存在的方法, 单测当场红 — fake 接口不得比真模块富。 */
+{
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const v3 = function(x, y, z){ this.x = x || 0; this.y = y || 0; this.z = z || 0;
+    this.set = (a, b, c)=>{ this.x = a; this.y = b; this.z = c; return this; };
+    this.applyQuaternion = ()=> this; this.length = ()=> 1; };
+  const bridge = {
+    THREE: { Vector3: v3 },
+    pos: globalThis.pos, PLAYER: globalThis.PLAYER, camera: { position: { x:0, y:0, z:0 } },
+    get yaw(){ return globalThis.yaw; },  set yaw(v){ globalThis.yaw = v; },
+    get pitch(){ return globalThis.pitch; }, set pitch(v){ globalThis.pitch = v; },
+  };
+  vm.createContext(bridge);
+  vm.runInContext(
+    fs.readFileSync(path.join(__dirname, '..', 'js', 'camera-rig.js'), 'utf8')
+      + '\n;this.CameraRig = CameraRig;', bridge, { filename: 'camera-rig.js' });
+  globalThis.CameraRig = bridge.CameraRig;
+  globalThis.yaw = 0; globalThis.pitch = 0;            /* 准星朝正北(射箭用例的弹道方向) */
+  globalThis.camera = bridge.camera;                   /* 相机全局(world.js 在浏览器提供) */
+}
 
 const NetheMode = require('../js/modes/nether.js');
 const DT = 1/60;
@@ -202,7 +223,7 @@ test('下界冒险: 进下界换剑, 回上界/退出模式换回锄头(默认�
 test('下界冒险: 武器栏(⚔️剑/🏹弓) — 数字键切弓, 点击射箭按弹道命中前方怪', () => {
   calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0; hitLog.length = 0;
   listResult = [];
-  lookDirV = { x: 0, y: 0, z: -1 };                      /* 准星朝正北 */
+  globalThis.yaw = 0; globalThis.pitch = 0;              /* 准星朝正北(真 CameraRig 消费) */
   NetheMode.init();
   walkIntoPortal();
   calls.length = 0; hitLog.length = 0;
