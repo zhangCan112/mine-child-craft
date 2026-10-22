@@ -60,6 +60,11 @@
         <h2>坦克演习场</h2>
         <small>先挑坦克 · 开炮打靶 · 冲呀！</small>
       </div>
+      <div class="modeCard nether" id="cardNether">
+        <div class="big">🌀</div>
+        <h2>下界冒险</h2>
+        <small>家是安全的 · 下界狠起来！</small>
+      </div>
     </div>
     <div class="keys">
       <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc
@@ -162,6 +167,20 @@
     </div>
   </div>
 
+  <!-- 下界冒险页: 上界家(巨大地下室)+ 地表下界传送门 → 下界打怪物探险 -->
+  <div class="menuPage" id="menuNether">
+    <h1>下界 <span>冒险</span></h1>
+    <p>家是安全的 🏠 · 地表有传送门 🌀 → 下界狠起来！怪物来袭，手持锄头挥击开战！</p>
+    <div class="btnRow">
+      <button class="play primary" id="netherEnterBtn">🌀 出发下界 ▶</button>
+      <button class="play" id="netherBackBtn">⬅ 返回</button>
+    </div>
+    <div class="keys">
+      <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>挥击</b>：左键/右键 &nbsp; <b>菜单</b>：Esc<br>
+      <span class="safe">上界是安全的家(巨大地下室)，传送门在地表入口处 → 下界怪物都很狠，锄头挥击！</span>
+    </div>
+  </div>
+
   <!-- 儿童时限提醒页 -->
   <div class="menuPage" id="menuPlayTime">
     <h1>🌙 今天的冒险时间到啦！</h1>
@@ -230,6 +249,7 @@
 <script src="js/modes/focus.js" defer></script>
 <script src="js/modes/build.js" defer></script>
 <script src="js/modes/tank-range.js" defer></script>
+<script src="js/modes/nether.js" defer></script>
 <script src="js/icons.js" defer></script>
 <script src="js/main.js" defer></script>
 </body>

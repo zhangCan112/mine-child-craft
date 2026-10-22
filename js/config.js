@@ -235,6 +235,14 @@ BLOCKS[B_DOOR]   = {name:'铁门',   all:[0.58,0.64,0.70], door:true};
 BLOCKS[B_SUPPORT]= {name:'支架',   all:[0.42,0.32,0.20], support:true};
 BLOCKS[B_WEIGHT] = {name:'重物块', all:[0.33,0.34,0.40], weight:true};
 
+/* 下界模式新方块 (id 30~34) — 下界荒原主题: 下界岩/黑曜石/灵魂沙/下界砖/发光岩 */
+const B_NETHERRACK=30, B_OBSIDIAN=31, B_SOUL_SAND=32, B_NETHER_BRICK=33, B_GLOWSTONE=34;
+BLOCKS[B_NETHERRACK]= {name:'下界岩', all:[0.52,0.28,0.16]};
+BLOCKS[B_OBSIDIAN]  = {name:'黑曜石', all:[0.10,0.08,0.16]};
+BLOCKS[B_SOUL_SAND] = {name:'灵魂沙', all:[0.38,0.30,0.22]};
+BLOCKS[B_NETHER_BRICK]= {name:'下界砖', all:[0.48,0.20,0.16]};
+BLOCKS[B_GLOWSTONE] = {name:'发光岩', all:[1.00,0.85,0.45]};
+
 /* 可被爆炸破坏的软方块(密室外壳石质方块不可破坏,防止把房间炸穿) */
 [5,6,8,9].forEach(id=> BLOCKS[id].soft = true);
 

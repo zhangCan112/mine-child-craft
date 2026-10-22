@@ -8,7 +8,8 @@ const MODES = {
   tnt:   TntMode,
   focus: FocusMode,
   build: BuildMode,
-  tank:  TankRangeMode
+  tank:  TankRangeMode,
+  nether: NetherMode
 };
 MODES.cur = null;
 /* 当前模式 id 只从 MODES.cur 派生 — 不再另持一份需同步的状态 */
@@ -22,6 +23,7 @@ const pages = {
   tnt:   document.getElementById('menuTnt'),
   build: document.getElementById('menuBuild'),
   tank:  document.getElementById('menuTank'),
+  nether: document.getElementById('menuNether'),
   win:   document.getElementById('menuWin'),
   playTime: document.getElementById('menuPlayTime')
 };
@@ -43,16 +45,20 @@ const MODE_CARDS = [
   { id:'focus', card:'cardFocus', gated:false },                          // 专注训练营接管全屏 UI, 无菜单页
   { id:'build', card:'cardBuild', page:'build', gated:true, menu:true },
   { id:'tank',  card:'cardTank',  page:'tank',  gated:true, menu:true },
+  { id:'nether', card:'cardNether', page:'nether', gated:true, menu:true },   // 下界冒险: 传送门+打怪, 计入儿童时限
+
 ];
 const PLAY_LIMIT_MODES = MODE_CARDS.filter(c => c.gated).map(c => c.id);   // 共享儿童时限的模式
 let Budgets = null;                                   // SyncDB.ready 后填充(镜像完成, 防"第二台设备读到旧本地值")
 let playSaveT = 0;
 
 function setupBudgets(){
+  const store = { get:k=>SyncDB.get(k), set:(k,v)=>SyncDB.set(k,v), remove:k=>SyncDB.remove(k) };
   Budgets = mkDailyBudgets({
-    storage: { get:k=>SyncDB.get(k), set:(k,v)=>SyncDB.set(k,v), remove:k=>SyncDB.remove(k) },
+    storage: store,
     defs: {
-      play:  { capMsFor: () => PLAY_LIMIT_DEFAULT_MIN * 60 * 1000,   // 默认限额常量在 daily-budget.js; 临时调整走存储, 不写源码日期
+      play:  { capMsFor: d => PLAY_LIMIT_DEFAULT_MIN * 60 * 1000          // 默认限额常量在 daily-budget.js; 临时调整走存储, 不写源码日期
+                         + readExtraMs(store.get(PLAY_EXTRA_KEY), d),     // 家长加时: 本设备当日 {date,ms}, 次日自动失效
                warnAtMs: 60*1000 },
       focus: { capMsFor: () => FOCUS_DAILY_MIN * 60 * 1000, capCount: FOCUS_DAILY_LEVELS }
     }
@@ -68,7 +74,7 @@ function updateLimitText(){
   if(!Budgets) return;
   const m = Math.round(Budgets.play.capMs()/60000);
   const t = document.getElementById('playTimeRule');
-  if(t) t.textContent = '竞技场 + TNT 密室 + 建造 + 坦克演习场每天共 ' + m + ' 分钟 · 专注训练营不受影响（每天 ' + FOCUS_DAILY_LEVELS + ' 关 / ' + FOCUS_DAILY_MIN + ' 分钟）';
+  if(t) t.textContent = '竞技场 + TNT 密室 + 建造 + 坦克演习场 + 下界冒险每天共 ' + m + ' 分钟 · 专注训练营不受影响（每天 ' + FOCUS_DAILY_LEVELS + ' 关 / ' + FOCUS_DAILY_MIN + ' 分钟）';
   const b = document.getElementById('buildTimeRule');
   if(b) b.textContent = '你的建造会自动保存，换设备也能继续！和竞技场、TNT 共享每天 ' + m + ' 分钟游玩时间';
 }
@@ -134,6 +140,11 @@ function buildMenu(){
   document.getElementById('tntBackBtn').onclick   = ()=> showPage('main');
   document.getElementById('buildBackBtn').onclick = ()=> showPage('main');
   document.getElementById('tankBackBtn').onclick  = ()=> showPage('main');
+  document.getElementById('netherBackBtn').onclick = ()=> showPage('main');
+  document.getElementById('netherEnterBtn').onclick = ()=>{
+    if(curModeId() !== 'nether') switchMode('nether');   // 进入下界冒险(家=巨大地下室+地表传送门)
+    requestLock();                                       // 与竞技场/坦克同款: 锁指针进游戏(触屏=touchPlaying)
+  };
   document.getElementById('playTimeHomeBtn').onclick = ()=> showPage('main');
 }
 
