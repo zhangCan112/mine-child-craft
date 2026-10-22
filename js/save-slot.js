@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 /* ============================================================
    存档槽 (SaveSlot) — 应用层: 简单形状存档的深 interface
    ------------------------------------------------------------
@@ -13,38 +13,49 @@
    生产接线在 sync.js 的 SyncDB.slot (SYNC_KEYS 随之自动注册)。
    ============================================================ */
 
-function mkSaveSlot(storage, key, schema){
+function mkSaveSlot(storage, key, schema) {
   const sc = schema || {};
   const version = sc.version || 1;
   const clone = (o)=> JSON.parse(JSON.stringify(o));
 
-  function load(){
+  function load() {
     let s = null;
-    try{ s = JSON.parse(storage.get(key) || 'null'); }catch(e){ s = null; }
-    if(!s || typeof s !== 'object' || Array.isArray(s)) return clone(sc.defaults || {});
+    try {
+      s = JSON.parse(storage.get(key) || 'null');
+    } catch (e) {
+      s = null;
+    }
+    if (!s || typeof s !== 'object' || Array.isArray(s)) return clone(sc.defaults || {});
     const v = (typeof s._v === 'number') ? s._v : 0;
-    if(v > version) return clone(sc.defaults || {});        // 未来版本: 不猜形状
-    try{
-      for(let from = v; from < version; from++){
-        if(sc.migrate) s = sc.migrate(s, from) || s;
+    if (v > version) return clone(sc.defaults || {}); // 未来版本: 不猜形状
+    try {
+      for (let from = v; from < version; from++) {
+        if (sc.migrate) s = sc.migrate(s, from) || s;
       }
-    }catch(e){ return clone(sc.defaults || {}); }
-    delete s._v;                                            // 版本号不进入调用方状态
+    } catch (e) {
+      return clone(sc.defaults || {});
+    }
+    delete s._v; // 版本号不进入调用方状态
     const base = clone(sc.defaults || {});
-    for(const k in base) if(s[k] === undefined) s[k] = base[k];
-    try{ return sc.decode ? sc.decode(s) : s; }
-    catch(e){ return clone(sc.defaults || {}); }
+    for (const k in base) if (s[k] === undefined) s[k] = base[k];
+    try {
+      return sc.decode ? sc.decode(s) : s;
+    } catch (e) {
+      return clone(sc.defaults || {});
+    }
   }
 
-  function save(state){
+  function save(state) {
     const plain = sc.encode ? sc.encode(state) : state;
-    storage.set(key, JSON.stringify(Object.assign({}, plain, { _v: version })));
+    storage.set(key, JSON.stringify(Object.assign({}, plain, {_v: version})));
   }
 
-  function reset(){ storage.remove(key); }
+  function reset() {
+    storage.remove(key);
+  }
 
-  return { load, save, reset };
+  return {load, save, reset};
 }
 
-const SaveSlot = { mkSaveSlot };
-if(typeof module !== 'undefined' && module.exports) module.exports = SaveSlot;
+const SaveSlot = {mkSaveSlot};
+if (typeof module !== 'undefined' && module.exports) module.exports = SaveSlot;

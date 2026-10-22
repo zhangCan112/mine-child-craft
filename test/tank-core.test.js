@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 /* 坦克驾驶核心 (js/tank-core.js) 单测 — node --test (零依赖)
    运行: node --test test/tank-core.test.js
    加载器: vm context 依次执行 config.js + voxel.js + tank-core.js,
@@ -10,10 +10,10 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-function loadTank(){
-  const ctx = vm.createContext({ console });
-  for(const f of ['config.js', 'voxel.js', 'tank-core.js']){
-    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
+function loadTank() {
+  const ctx = vm.createContext({console});
+  for (const f of ['config.js', 'voxel.js', 'tank-core.js']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
     globalThis.__t = { TankCore, TANK, TANK_MODELS, getBlock, setBlockRaw, WORLD_W, WORLD_D, WORLD_H };
@@ -22,19 +22,21 @@ function loadTank(){
 }
 
 /* 石板平地: y 层铺 (x0,z0)~(x1,z1) */
-function flatGround(t, y, x0, z0, x1, z1){
-  for(let x=x0;x<=x1;x++) for(let z=z0;z<=z1;z++) t.setBlockRaw(x, y, z, 3);
+function flatGround(t, y, x0, z0, x1, z1) {
+  for (let x=x0; x<=x1; x++) for (let z=z0; z<=z1; z++) t.setBlockRaw(x, y, z, 3);
 }
 const DT = 1/60;
-const IDLE = { forward: 0, steer: 0, lookYaw: null };
+const IDLE = {forward: 0, steer: 0, lookYaw: null};
 
-function grounded(t, x, z, yaw){                     // 落地后的就绪坦克
+function grounded(t, x, z, yaw) { // 落地后的就绪坦克
   const T = t.TankCore.mkT(x, 11, z, yaw);
-  for(let i=0; i<180 && !T.onGround; i++) t.TankCore.step(T, IDLE, DT);
+  for (let i=0; i<180 && !T.onGround; i++) t.TankCore.step(T, IDLE, DT);
   assert.ok(T.onGround, '应已落在平地上');
   return T;
 }
-function drive(t, T, input, sec){ for(let i=0; i<Math.round(sec/DT); i++) t.TankCore.step(T, input, DT); }
+function drive(t, T, input, sec) {
+  for (let i=0; i<Math.round(sec/DT); i++) t.TankCore.step(T, input, DT);
+}
 
 /* ============ 前进 ============ */
 
@@ -43,7 +45,7 @@ test('前进: 沿车头加速, 不超极速, 松手前持续前进', () => {
   flatGround(t, 10, 50, 50, 80, 80);
   const T = grounded(t, 64, 64, 0);
   const z0 = T.z;
-  for(let i=0; i<90; i++) t.TankCore.step(T, {forward:1, steer:0, lookYaw:null}, DT);   // 1.5 秒全油门
+  for (let i=0; i<90; i++) t.TankCore.step(T, {forward: 1, steer: 0, lookYaw: null}, DT); // 1.5 秒全油门
   assert.ok(T.vel > 0, 'vel 应为正: ' + T.vel);
   assert.ok(T.vel <= t.TANK.speed + 1e-9, '不超过极速 speed=' + t.TANK.speed + ', 实测 ' + T.vel);
   assert.ok(T.z < z0 - 3, 'yaw=0 车头朝 -Z, z 应明显减小: ' + (T.z - z0));
@@ -57,7 +59,7 @@ test('倒车: 极速受 reverse 限制, 方向为车尾(yaw=0 → +Z)', () => {
   flatGround(t, 10, 50, 50, 80, 80);
   const T = grounded(t, 64, 64, 0);
   const z0 = T.z;
-  drive(t, T, {forward:-1, steer:0, lookYaw:null}, 2);
+  drive(t, T, {forward: -1, steer: 0, lookYaw: null}, 2);
   assert.ok(T.vel < 0, 'vel 应为负: ' + T.vel);
   assert.ok(T.vel >= -t.TANK.reverse - 1e-9, '倒车不超过 reverse=' + t.TANK.reverse + ', 实测 ' + T.vel);
   assert.ok(T.z > z0 + 2, 'yaw=0 倒车朝 +Z, z 应增大: ' + (T.z - z0));
@@ -67,10 +69,10 @@ test('滑行: 松油门后按摩擦衰减, 仍前进一小段(重量感)', () =>
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
   const T = grounded(t, 64, 70, 0);
-  drive(t, T, {forward:1, steer:0, lookYaw:null}, 2);          // 全速
+  drive(t, T, {forward: 1, steer: 0, lookYaw: null}, 2); // 全速
   const vFull = T.vel;
   assert.ok(vFull > t.TANK.speed*0.9, '应已接近极速');
-  drive(t, T, IDLE, 1);                                        // 松油门 1 秒
+  drive(t, T, IDLE, 1); // 松油门 1 秒
   assert.ok(T.vel < vFull*0.05, '1 秒后应接近停住: ' + T.vel);
   assert.ok(T.vel >= 0, '滑行不反转让(不倒车)');
 });
@@ -81,10 +83,10 @@ test('鼠标方向: 车体以 turnRate 上限追踪 lookYaw, 最终对齐', () =
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
   const T = grounded(t, 64, 64, 0);
-  const aim = Math.PI;                                         // 掉头
+  const aim = Math.PI; // 掉头
   let prevYaw = T.yaw;
-  for(let i=0; i<240; i++){
-    t.TankCore.step(T, {forward:0, steer:0, lookYaw:aim}, DT);
+  for (let i=0; i<240; i++) {
+    t.TankCore.step(T, {forward: 0, steer: 0, lookYaw: aim}, DT);
     const d = t.TankCore.wrapAngle(T.yaw - prevYaw);
     assert.ok(Math.abs(d) <= t.TANK.turnRate*DT + 1e-9, '每帧转向不超过 turnRate·dt');
     prevYaw = T.yaw;
@@ -97,7 +99,7 @@ test('追踪取最短方向: 目标 -π/2 时车体向负角旋转(原地差速�
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
   const T = grounded(t, 64, 64, 0);
-  drive(t, T, {forward:0, steer:0, lookYaw:-Math.PI/2}, 0.5);
+  drive(t, T, {forward: 0, steer: 0, lookYaw: -Math.PI/2}, 0.5);
   assert.ok(T.yaw < 0, '应向负方向转: ' + T.yaw);
   assert.ok(T.vel === 0, '原地转向不产生车速');
 });
@@ -106,7 +108,7 @@ test('A·D 集成: steer 以转向速率改写 aimYaw, 车体跟随(无鼠标也
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
   const T = grounded(t, 64, 64, 0);
-  drive(t, T, {forward:0, steer:1, lookYaw:null}, 1);          // 按住 D 一秒
+  drive(t, T, {forward: 0, steer: 1, lookYaw: null}, 1); // 按住 D 一秒
   assert.ok(T.aimYaw < -1.4, 'aimYaw 应累积约 -turnRate·1s=-1.9(D=右转, 与鼠标右移同号): ' + T.aimYaw);
   assert.ok(Math.abs(t.TankCore.wrapAngle(T.yaw - T.aimYaw)) < 0.1, '车体跟上 aimYaw');
 });
@@ -116,19 +118,21 @@ test('A·D 集成: steer 以转向速率改写 aimYaw, 车体跟随(无鼠标也
 test('撞墙刹停: 2 格高墙挡路, 车停墙前且车速归零', () => {
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
-  for(let x=50; x<=80; x++){ t.setBlockRaw(x, 11, 58, 3); t.setBlockRaw(x, 12, 58, 3); }   // z=58 两格高墙
-  const T = grounded(t, 64, 64, 0);                            // 朝 -Z 开向墙
-  drive(t, T, {forward:1, steer:0, lookYaw:null}, 3);
+  for (let x=50; x<=80; x++) {
+    t.setBlockRaw(x, 11, 58, 3); t.setBlockRaw(x, 12, 58, 3);
+  } // z=58 两格高墙
+  const T = grounded(t, 64, 64, 0); // 朝 -Z 开向墙
+  drive(t, T, {forward: 1, steer: 0, lookYaw: null}, 3);
   assert.ok(T.z > 59 && T.z < 60.5, '应停在墙前(z≈59.95): ' + T.z);
   assert.ok(Math.abs(T.vel) < 0.6, '撞墙后车速应接近 0: ' + T.vel);
 });
 
 test('履带爬台阶: 1 格高平台直接爬上, 在平台上继续前进', () => {
   const t = loadTank();
-  flatGround(t, 10, 50, 20, 80, 80);                           // 低层地板 z=20..80
-  for(let z=40; z<=58; z++) for(let x=50; x<=80; x++) t.setBlockRaw(x, 11, z, 3);   // z=40..58 一格高平台
+  flatGround(t, 10, 50, 20, 80, 80); // 低层地板 z=20..80
+  for (let z=40; z<=58; z++) for (let x=50; x<=80; x++) t.setBlockRaw(x, 11, z, 3); // z=40..58 一格高平台
   const T = grounded(t, 64, 64, 0);
-  drive(t, T, {forward:1, steer:0, lookYaw:null}, 3);
+  drive(t, T, {forward: 1, steer: 0, lookYaw: null}, 3);
   assert.ok(Math.abs(T.y - 12) < 0.2, '应爬上平台(y=12): y=' + T.y);
   assert.ok(T.z < 57 && T.z > 40, '应在平台上前进: z=' + T.z);
   assert.ok(T.vel > 3, '爬平台不刹停: vel=' + T.vel);
@@ -138,7 +142,7 @@ test('世界边缘: 隐形墙拦住, 不越出世界边界', () => {
   const t = loadTank();
   flatGround(t, 10, 30, 30, 120, 120);
   const T = grounded(t, 64, 64, 0);
-  drive(t, T, {forward:1, steer:0, lookYaw:-Math.PI/2}, 12);   // 朝 +X 全速开 12 秒
+  drive(t, T, {forward: 1, steer: 0, lookYaw: -Math.PI/2}, 12); // 朝 +X 全速开 12 秒
   assert.ok(T.x <= t.WORLD_W - t.TANK.hw + 0.01, 'x 不越界: ' + T.x + ' ≤ ' + (t.WORLD_W - t.TANK.hw));
   assert.ok(T.x > t.WORLD_W - 3, '确实开到了边缘');
 });
@@ -165,8 +169,8 @@ test('TANK 参数表: promptR/enterR 齐备且 enterR ≥ promptR(方案 §3 距
 test('挤压兜底: 嵌入方块时向上弹出', () => {
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
-  t.setBlockRaw(64, 11, 64, 3);                                // 落脚点正中一块石头
-  const T = t.TankCore.mkT(64, 11, 64, 0);                     // 与之重叠
+  t.setBlockRaw(64, 11, 64, 3); // 落脚点正中一块石头
+  const T = t.TankCore.mkT(64, 11, 64, 0); // 与之重叠
   drive(t, T, IDLE, 1);
   assert.ok(!t.TankCore.boxCollides(T.x, T.y, T.z), '一秒内应弹出嵌入方块: y=' + T.y);
 });
@@ -175,9 +179,9 @@ test('挤压兜底: 嵌入方块时向上弹出', () => {
 
 test('爆炸保护: keep 谓词命中的方块分毫不动, 其余照炸照计数', () => {
   const t = loadTank();
-  for(let x=50; x<=80; x++) for(let z=50; z<=80; z++) t.setBlockRaw(x, 10, z, 3);   // 地板(要保护)
-  for(let x=62; x<=66; x++) for(let y=13; y<=14; y++) t.setBlockRaw(x, y, 55, 3);   // 高台石堆(不保护)
-  const keep = (id, bx, by) => by <= 10;                                             // 只保护地板层
+  for (let x=50; x<=80; x++) for (let z=50; z<=80; z++) t.setBlockRaw(x, 10, z, 3); // 地板(要保护)
+  for (let x=62; x<=66; x++) for (let y=13; y<=14; y++) t.setBlockRaw(x, y, 55, 3); // 高台石堆(不保护)
+  const keep = (id, bx, by) => by <= 10; // 只保护地板层
   const res = t.TankCore.explode(64, 12.5, 54, t.setBlockRaw, keep);
   assert.notStrictEqual(t.getBlock(64, 10, 54), 0, '爆心正下方的受保护地板完好');
   assert.strictEqual(t.getBlock(64, 13, 55), 0, '高台石堆照炸: ' + JSON.stringify(res));
@@ -189,7 +193,7 @@ test('装填冷却: 开炮后 cool>0 随帧递减, 归零前不能再开', () =>
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
   const T = grounded(t, 64, 64, 0);
-  T.cool = t.TANK.reload;                          // 模拟刚开过一炮
+  T.cool = t.TANK.reload; // 模拟刚开过一炮
   drive(t, T, IDLE, t.TANK.reload - 0.05);
   assert.ok(T.cool > 0, '还差 0.05 秒, 仍在装填: ' + T.cool);
   drive(t, T, IDLE, 0.1);
@@ -199,25 +203,25 @@ test('装填冷却: 开炮后 cool>0 随帧递减, 归零前不能再开', () =>
 test('炮弹: 受轻度重力, 命中方块即停(S.hit); 无阻挡则超程自毁', () => {
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
-  for(let x=60; x<=68; x++) for(let y=11; y<=14; y++) t.setBlockRaw(x, y, 55, 3);   // 9 格外靶墙
+  for (let x=60; x<=68; x++) for (let y=11; y<=14; y++) t.setBlockRaw(x, y, 55, 3); // 9 格外靶墙
   const S = t.TankCore.mkShell(64, 13, 64, 0, 0, -t.TANK.shellSpeed);
-  for(let i=0; i<Math.round(1.5/DT) && !S.dead; i++) t.TankCore.shellStep(S, DT);
+  for (let i=0; i<Math.round(1.5/DT) && !S.dead; i++) t.TankCore.shellStep(S, DT);
   assert.ok(S.dead, '应已终止');
   assert.ok(S.hit && S.hit.z === 55, '命中靶墙所在格: ' + JSON.stringify(S.hit));
   assert.ok(S.y < 13, '飞行中受重力下坠: ' + S.y);
 
-  const S2 = t.TankCore.mkShell(10, 20, 10, 0, 10, 0);         // 空旷处垂直上抛, 无遮挡
-  for(let i=0; i<Math.round(t.TANK.shellLife/DT)+10 && !S2.dead; i++) t.TankCore.shellStep(S2, DT);
+  const S2 = t.TankCore.mkShell(10, 20, 10, 0, 10, 0); // 空旷处垂直上抛, 无遮挡
+  for (let i=0; i<Math.round(t.TANK.shellLife/DT)+10 && !S2.dead; i++) t.TankCore.shellStep(S2, DT);
   assert.ok(S2.dead && !S2.hit, '超程(life 耗尽)自毁, 无命中');
 });
 
 test('炮弹障碍: 注入的 extraSolid 谓词命中即停(怪物身体挡炮弹, 停在接触点)', () => {
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
-  const body = (x, y, z) => Math.abs(x - 64) < 0.9 && Math.abs(z - 55) < 0.9   // 站在 z=55 的"怪物身体"
-    && y > 11.5 && y < 14;
+  const body = (x, y, z) => Math.abs(x - 64) < 0.9 && Math.abs(z - 55) < 0.9 && // 站在 z=55 的"怪物身体"
+    y > 11.5 && y < 14;
   const S = t.TankCore.mkShell(64, 13, 64, 0, 0, -t.TANK.shellSpeed);
-  for(let i=0; i<Math.round(1.5/DT) && !S.dead; i++) t.TankCore.shellStep(S, DT, body);
+  for (let i=0; i<Math.round(1.5/DT) && !S.dead; i++) t.TankCore.shellStep(S, DT, body);
   assert.ok(S.dead, '应已终止');
   assert.ok(S.hit && S.hit.z === 55, '停在怪物所在格(接触点引爆): ' + JSON.stringify(S.hit));
   assert.ok(Math.abs(S.z - 55) < 0.7, '炮弹停在接触点附近: ' + S.z);
@@ -225,20 +229,22 @@ test('炮弹障碍: 注入的 extraSolid 谓词命中即停(怪物身体挡炮�
 
 test('爆炸: 球形破坏随距离衰减, 按方块 id 分桶计数, 半径外完好, 结果确定', () => {
   const t = loadTank();
-  const TARGET = 16;                                            // 靶=红羊毛(什么算靶由调用方判定)
-  function build(){
-    for(let x=50; x<=80; x++) for(let z=50; z<=80; z++) t.setBlockRaw(x, 10, z, 3);   // 地板
-    for(let x=58; x<=72; x++) for(let y=11; y<=13; y++) t.setBlockRaw(x, y, 55, TARGET);   // 靶墙
+  const TARGET = 16; // 靶=红羊毛(什么算靶由调用方判定)
+  function build() {
+    for (let x=50; x<=80; x++) for (let z=50; z<=80; z++) t.setBlockRaw(x, 10, z, 3); // 地板
+    for (let x=58; x<=72; x++) for (let y=11; y<=13; y++) t.setBlockRaw(x, y, 55, TARGET); // 靶墙
   }
   build();
   let edits = 0;
-  const edit = (x, y, z, id) => { edits++; t.setBlockRaw(x, y, z, id); };
+  const edit = (x, y, z, id) => {
+    edits++; t.setBlockRaw(x, y, z, id);
+  };
   const r1 = t.TankCore.explode(64, 12, 54, edit);
   assert.ok(r1.removed >= 10, '爆心成片破坏(含地板弹坑): ' + r1.removed);
   assert.ok(r1.counts[TARGET] >= 5, '靶方块按 id 计入 counts: ' + r1.counts[TARGET]);
   assert.ok(edits === r1.removed, '全部破坏经注入的 edit 管线(浏览器侧=markDirty)');
   assert.notStrictEqual(t.getBlock(72, 11, 55), 0, '半径外的靶列完好');
-  build();                                                       // 重建同布局
+  build(); // 重建同布局
   const r2 = t.TankCore.explode(64, 12, 54, t.setBlockRaw);
   assert.deepStrictEqual(r2, r1, '同输入两次爆炸结果一致(衰减用确定性哈希)');
 });
@@ -249,17 +255,19 @@ test('TANK_MODELS 注册表: 六款齐备, perf/muzzle/shell 三表齐(键名与
   const t = loadTank();
   const keys = Object.keys(t.TANK_MODELS);
   assert.strictEqual(keys.length, 6, '六款型号: ' + keys.join(','));
-  for(const k of keys){
+  for (const k of keys) {
     const d = t.TANK_MODELS[k];
     assert.ok(d.name && d.desc, k + ' 有名字与卖点');
-    for(const f of ['speed', 'reverse', 'accel', 'turnRate', 'reload',
-                    'shellSpeed', 'shellG', 'shellLife', 'shellR'])
+    for (const f of ['speed', 'reverse', 'accel', 'turnRate', 'reload',
+      'shellSpeed', 'shellG', 'shellLife', 'shellR']) {
       assert.ok(d.perf[f] > 0, k + '.perf.' + f + ' 应为正数');
+    }
     assert.ok(d.muzzle.f > 0 && d.muzzle.y > 0, k + ' 出膛点(f/y)齐备');
-    for(const f of ['color', 'size', 'trail', 'boom'])
+    for (const f of ['color', 'size', 'trail', 'boom']) {
       assert.ok(d.shell[f] !== undefined, k + '.shell.' + f + ' 齐备');
+    }
   }
-  const orders = keys.map(k => t.TANK_MODELS[k].order);
+  const orders = keys.map((k) => t.TANK_MODELS[k].order);
   assert.strictEqual(new Set(orders).size, keys.length, 'order 不重复(出发页排序稳定)');
   assert.strictEqual(t.TANK_MODELS.thunder.shell.fx, 'lightning', '雷霆战神是闪电弹(环体+落雷)');
 });
@@ -270,28 +278,29 @@ test('张廷彧号: 四联追踪导弹, 爆炸全场最小(小巧精准)', () =>
   assert.strictEqual(d.name, '张廷彧号');
   assert.ok(d.salvo >= 2, '多弹齐射: ' + d.salvo);
   assert.ok(d.homing > 0, '追踪转向速率为正: ' + d.homing);
-  for(const k of Object.keys(t.TANK_MODELS))
+  for (const k of Object.keys(t.TANK_MODELS)) {
     assert.ok(t.TANK_MODELS[k].perf.shellR >= d.perf.shellR,
-      k + ' 的爆炸半径不应小于张廷彧号');
+        k + ' 的爆炸半径不应小于张廷彧号');
+  }
 });
 
 test('追踪弹 homeShell: 按角速率转向目标(每帧限幅), 多步对准, 速率守恒, rate=0 不动', () => {
   const t = loadTank();
-  const RATE = 3.4, DTH = 1/60;
+  const RATE = 3.4; const DTH = 1/60;
   /* 起始朝 -Z 直飞, 目标在东南方: 每帧航向变化 ≤ RATE·dt */
   const S = t.TankCore.mkShell(0, 12, 0, 0, 0, -30, null);
-  let prevX = 0, prevY = 0, prevZ = -1;                 // 上帧单位航向
-  for(let i=0; i<12; i++){
+  let prevX = 0; let prevY = 0; let prevZ = -1; // 上帧单位航向
+  for (let i=0; i<12; i++) {
     t.TankCore.homeShell(S, 50, 12, -30, RATE, DTH);
     const sp = Math.hypot(S.vx, S.vy, S.vz);
-    const ux = S.vx/sp, uy = S.vy/sp, uz = S.vz/sp;
+    const ux = S.vx/sp; const uy = S.vy/sp; const uz = S.vz/sp;
     const dot = prevX*ux + prevY*uy + prevZ*uz;
     const turn = Math.acos(Math.max(-1, Math.min(1, dot)));
     assert.ok(turn <= RATE*DTH + 1e-6, '每帧转向不超过 rate·dt: ' + turn);
     prevX = ux; prevY = uy; prevZ = uz;
   }
   /* 追到底 → 航向对准目标(点积>0.99), 飞行速率不变 */
-  for(let i=0; i<300; i++) t.TankCore.homeShell(S, 50, 12, -30, RATE, DTH);
+  for (let i=0; i<300; i++) t.TankCore.homeShell(S, 50, 12, -30, RATE, DTH);
   const sp = Math.hypot(S.vx, S.vy, S.vz);
   const dl = Math.hypot(50 - S.x, 0, -30 - S.z);
   const dot = (S.vx*(50 - S.x) + S.vz*(-30 - S.z)) / (sp*dl);
@@ -307,20 +316,20 @@ test('追踪弹 homeShell: 按角速率转向目标(每帧限幅), 多步对准,
 test('型号性能: spec 覆盖极速(缺键回落 TANK 基线, 无 spec 完全按基线)', () => {
   const t = loadTank();
   flatGround(t, 10, 50, 50, 80, 80);
-  const S = t.TankCore.mkT(64, 11, 64, 0, { speed: 3.0 });       // 只覆盖极速, 其余走基线
-  for(let i=0; i<180 && !S.onGround; i++) t.TankCore.step(S, IDLE, DT);
-  drive(t, S, {forward:1, steer:0, lookYaw:null}, 2);
+  const S = t.TankCore.mkT(64, 11, 64, 0, {speed: 3.0}); // 只覆盖极速, 其余走基线
+  for (let i=0; i<180 && !S.onGround; i++) t.TankCore.step(S, IDLE, DT);
+  drive(t, S, {forward: 1, steer: 0, lookYaw: null}, 2);
   assert.ok(S.vel > 2.5 && S.vel <= 3.0 + 1e-9, '极速被 spec 压到 3: ' + S.vel);
-  const B = grounded(t, 60, 70, 0);                              // 无 spec 的基线车
-  drive(t, B, {forward:1, steer:0, lookYaw:null}, 2);
+  const B = grounded(t, 60, 70, 0); // 无 spec 的基线车
+  drive(t, B, {forward: 1, steer: 0, lookYaw: null}, 2);
   assert.ok(B.vel > t.TANK.speed*0.9, '无 spec 仍按 TANK.speed: ' + B.vel);
 });
 
 test('型号炮弹: spec.shellLife 缩短提前自毁, 无遮挡不算命中', () => {
   const t = loadTank();
-  const S = t.TankCore.mkShell(10, 20, 10, 0, 0, 0, { shellLife: 0.2, shellG: 0 });   // 悬停短寿弹
+  const S = t.TankCore.mkShell(10, 20, 10, 0, 0, 0, {shellLife: 0.2, shellG: 0}); // 悬停短寿弹
   let n = 0;
-  for(; n < 200 && !S.dead; n++) t.TankCore.shellStep(S, DT);
+  for (; n < 200 && !S.dead; n++) t.TankCore.shellStep(S, DT);
   assert.ok(S.dead, '应已自毁');
   assert.ok(n < 30, '0.2 秒(12 帧)左右终止, 实际 ' + n + ' 帧');
   assert.ok(!S.hit, '无遮挡: 超程而非命中');
@@ -328,12 +337,14 @@ test('型号炮弹: spec.shellLife 缩短提前自毁, 无遮挡不算命中', (
 
 test('型号爆炸: spec.shellR 收窄破坏半径(小半径炸得更少)', () => {
   const t = loadTank();
-  function floor(){ for(let x=50; x<=80; x++) for(let z=50; z<=80; z++) t.setBlockRaw(x, 10, z, 3); }
+  function floor() {
+    for (let x=50; x<=80; x++) for (let z=50; z<=80; z++) t.setBlockRaw(x, 10, z, 3);
+  }
   floor();
-  const rBig = t.TankCore.explode(64, 11, 54, t.setBlockRaw, null, { shellR: 2.2 });
+  const rBig = t.TankCore.explode(64, 11, 54, t.setBlockRaw, null, {shellR: 2.2});
   floor();
-  const rSmall = t.TankCore.explode(64, 11, 54, t.setBlockRaw, null, { shellR: 1.0 });
+  const rSmall = t.TankCore.explode(64, 11, 54, t.setBlockRaw, null, {shellR: 1.0});
   assert.ok(rSmall.removed < rBig.removed,
-    '半径 1.0 比 2.2 炸得少: ' + rSmall.removed + ' < ' + rBig.removed);
+      '半径 1.0 比 2.2 炸得少: ' + rSmall.removed + ' < ' + rBig.removed);
 });
 

@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 /* ============================================================
    网格化 Worker — http 服务下的网格构建主路径 (调研 §7②b)
    ------------------------------------------------------------
@@ -16,36 +16,39 @@ importScripts('config.js', 'voxel.js', 'mesh-core.js');
 self.onmessage = (e)=>{
   const m = e.data;
   const pack = {
-    cells: new Uint8Array(m.cells),              // 转移来的 ArrayBuffer → 视图
+    cells: new Uint8Array(m.cells), // 转移来的 ArrayBuffer → 视图
     w: m.w, d: m.d, h: m.h,
-    border: m.border, bx: m.bx, bz: m.bz, yMax: m.yMax
+    border: m.border, bx: m.bx, bz: m.bz, yMax: m.yMax,
   };
-  const res = m.kind === 'full'
-    ? MeshCore.meshChunk(pack, { hashRand, tntTiles: TNT_TILES })
-    : MeshCore.meshChunkLod(pack, { step: VIEW.lodStep });
+  const res = m.kind === 'full' ?
+    MeshCore.meshChunk(pack, {hashRand, tntTiles: TNT_TILES}) :
+    MeshCore.meshChunkLod(pack, {step: VIEW.lodStep});
   /* 裸数组 → TypedArray 转移回传: 普通 number[] 的结构化克隆逐元素装箱
      (最慢路径), TypedArray 走 transfer 零拷贝, 主线程侧 Float32BufferAttribute
      可直接视图、setIndex 直接包装 — 不再有第二次拷贝 */
   const transfer = [];
   const conv = (r)=>{
     const out = {};
-    for(const ch of ['solid', 'glass', 'tnt']){
+    for (const ch of ['solid', 'glass', 'tnt']) {
       const c = r[ch];
-      if(!c){ out[ch] = null; continue; }
+      if (!c) {
+        out[ch] = null; continue;
+      }
       const t = {
         positions: new Float32Array(c.positions),
-        normals:   new Float32Array(c.normals),
-        indices:   new Uint32Array(c.indices)
+        normals: new Float32Array(c.normals),
+        indices: new Uint32Array(c.indices),
       };
-      if(c.colors) t.colors = new Float32Array(c.colors);
-      if(c.uvs)    t.uvs    = new Float32Array(c.uvs);
+      if (c.colors) t.colors = new Float32Array(c.colors);
+      if (c.uvs) t.uvs = new Float32Array(c.uvs);
       out[ch] = t;
-      for(const key of ['positions','normals','indices','colors','uvs'])
-        if(t[key]) transfer.push(t[key].buffer);
+      for (const key of ['positions', 'normals', 'indices', 'colors', 'uvs']) {
+        if (t[key]) transfer.push(t[key].buffer);
+      }
     }
     return out;
   };
   self.postMessage(
-    { gen: m.gen, cx: m.cx, cz: m.cz, token: m.token, kind: m.kind, res: conv(res) },
-    transfer);
+      {gen: m.gen, cx: m.cx, cz: m.cz, token: m.token, kind: m.kind, res: conv(res)},
+      transfer);
 };

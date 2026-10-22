@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 /* ============================================================
    模式注册表 (ModeRegistry, 术语见 GLOSSARY.md) — 应用层
    ------------------------------------------------------------
@@ -12,26 +12,26 @@
    纯数据+纯函数, Node 可直接加载。
    ============================================================ */
 const MODE_REGISTRY = [
-  { id: 'arena',  name: '竞技场',     gated: true },
-  { id: 'tnt',    name: 'TNT 密室',   gated: true, menu: true },   /* menu: 进页后刷新模式出发配置页 */
-  { id: 'focus',  name: '专注训练营', gated: false, page: false }, /* 接管全屏 UI, 无菜单页/不计儿童时限 */
-  { id: 'build',  name: '建造',       gated: true, menu: true },
-  { id: 'tank',   name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js' },
-  { id: 'nether', name: '下界冒险',   gated: true, menu: true, enter: true },  /* enter: 出发页有"进入"按钮(锁指针) */
+  {id: 'arena', name: '竞技场', gated: true},
+  {id: 'tnt', name: 'TNT 密室', gated: true, menu: true}, /* menu: 进页后刷新模式出发配置页 */
+  {id: 'focus', name: '专注训练营', gated: false, page: false}, /* 接管全屏 UI, 无菜单页/不计儿童时限 */
+  {id: 'build', name: '建造', gated: true, menu: true},
+  {id: 'tank', name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js'},
+  {id: 'nether', name: '下界冒险', gated: true, menu: true, enter: true}, /* enter: 出发页有"进入"按钮(锁指针) */
 ];
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
-const cardId    = (m) => 'card' + cap(m.id);
-const pageId    = (m) => 'menu' + cap(m.id);
+const cardId = (m) => 'card' + cap(m.id);
+const pageId = (m) => 'menu' + cap(m.id);
 const backBtnId = (m) => m.id + 'BackBtn';
 const enterBtnId = (m) => m.id + 'EnterBtn';
-const hasPage   = (m) => m.page !== false;
+const hasPage = (m) => m.page !== false;
 const scriptSrc = (m) => m.src || ('js/modes/' + m.id + '.js');
 
-const playModeIds   = () => MODE_REGISTRY.filter(m => m.gated).map(m => m.id);
+const playModeIds = () => MODE_REGISTRY.filter((m) => m.gated).map((m) => m.id);
 const playModeNames = (withoutId) =>
-  MODE_REGISTRY.filter(m => m.gated && m.id !== withoutId).map(m => m.name);
+  MODE_REGISTRY.filter((m) => m.gated && m.id !== withoutId).map((m) => m.name);
 
-const ModeRegistry = { all: MODE_REGISTRY, cardId, pageId, backBtnId, enterBtnId,
-                       hasPage, scriptSrc, playModeIds, playModeNames };
-if(typeof module !== 'undefined' && module.exports) module.exports = ModeRegistry;
+const ModeRegistry = {all: MODE_REGISTRY, cardId, pageId, backBtnId, enterBtnId,
+  hasPage, scriptSrc, playModeIds, playModeNames};
+if (typeof module !== 'undefined' && module.exports) module.exports = ModeRegistry;

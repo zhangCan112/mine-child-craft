@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 /* ============================================================
    专注训练营模式 — 屏幕流 / 三星 / 每日锁定 / 家长面板
    会话: 进入→今日页→关卡→星级+过程表扬→自动下一关→每日 6 关或 20 分钟锁定
@@ -7,67 +7,83 @@
 /* ---------- 过程性表扬 / 中性安慰 (夸努力不夸聪明, Mueller & Dweck 1998) ----------
    话术属应用层文案: 范式引擎(focus-paradigms.js)只经全局名调用期取用 */
 const FOCUS_PRAISE = [
-  '你一直在认真看，真棒！','你等到了对的时机，好有耐心！','你刚才特别专注！',
-  '你坚持做完啦，真了不起！','你的小眼睛看得真仔细！','你一直在努力，进步啦！'
+  '你一直在认真看，真棒！', '你等到了对的时机，好有耐心！', '你刚才特别专注！',
+  '你坚持做完啦，真了不起！', '你的小眼睛看得真仔细！', '你一直在努力，进步啦！',
 ];
 const FOCUS_COMFORT = [
-  '没关系，我们慢慢来。','深呼吸，再看仔细一点。','差一点点啦，再试一次！','休息一下眼睛，我们继续。'
+  '没关系，我们慢慢来。', '深呼吸，再看仔细一点。', '差一点点啦，再试一次！', '休息一下眼睛，我们继续。',
 ];
-function praiseLine(){ return FOCUS_PRAISE[Math.floor(Math.random()*FOCUS_PRAISE.length)]; }
-function comfortLine(){ return FOCUS_COMFORT[Math.floor(Math.random()*FOCUS_COMFORT.length)]; }
+function praiseLine() {
+  return FOCUS_PRAISE[Math.floor(Math.random()*FOCUS_PRAISE.length)];
+}
+function comfortLine() {
+  return FOCUS_COMFORT[Math.floor(Math.random()*FOCUS_COMFORT.length)];
+}
 
 const FOCUS_SAVE_KEY = 'focus_camp_save';
 const focusSlot = SyncDB.slot(FOCUS_SAVE_KEY, {
-  defaults: { unlocked: 0, stars: {}, history: [] },
-  migrate(s, from){                     // v0 老形状可能仍带 daily(已迁 daily_budget_save) → 摘除, 与启动迁移幂等
-    if(from === 0 && s && s.daily) delete s.daily;
+  defaults: {unlocked: 0, stars: {}, history: []},
+  migrate(s, from) { // v0 老形状可能仍带 daily(已迁 daily_budget_save) → 摘除, 与启动迁移幂等
+    if (from === 0 && s && s.daily) delete s.daily;
     return s;
-  }
+  },
 });
-function loadFocusSave(){ return focusSlot.load(); }
-function saveFocusSave(s){ focusSlot.save(s); }
+function loadFocusSave() {
+  return focusSlot.load();
+}
+function saveFocusSave(s) {
+  focusSlot.save(s);
+}
 /* 每日预算(每日关数/时长)记在 js/daily-budget.js 的 focus 预算里(main.js setupBudgets 建立) */
-function focusBudget(){ return (typeof Budgets !== 'undefined' && Budgets) ? Budgets.focus : null; }
-function focusLocked(){ const b = focusBudget(); return !!(b && b.blocked()); }
+function focusBudget() {
+  return (typeof Budgets !== 'undefined' && Budgets) ? Budgets.focus : null;
+}
+function focusLocked() {
+  const b = focusBudget(); return !!(b && b.blocked());
+}
 /* 通过门槛/三星的判定是纯函数, 已移居 js/focus-levels.js(与关卡数据同层, 可单测) */
-const focusFailCount = {};                     // 本关连续未通过次数 → 重试自动放宽
+const focusFailCount = {}; // 本关连续未通过次数 → 重试自动放宽
 
 /* ---------- 根容器与屏幕 ---------- */
-let focusRoot = null, focusCtrl = null, focusCurLevel = null;
-let focusAutoTimer = 0, focusTicker = 0, focusTickT0 = 0;
+let focusRoot = null; let focusCtrl = null; let focusCurLevel = null;
+let focusAutoTimer = 0; let focusTicker = 0; let focusTickT0 = 0;
 
 /* 训练时长入账: 关卡进行中每秒 accrue 实际毫秒并落账 —
    崩溃/关页损失 ≤1 秒(原为关卡结束才入账, 丢整关 2~3 分钟); 菜单/说明页不计(口径不变) */
-function startFocusTicker(){
+function startFocusTicker() {
   stopFocusTicker();
   focusTickT0 = Date.now();
   focusTicker = setInterval(()=>{
-    const b = focusBudget(); if(!b) return;
+    const b = focusBudget(); if (!b) return;
     const nowT = Date.now();
     b.accrue(nowT - focusTickT0);
     focusTickT0 = nowT;
     b.flush();
   }, 1000);
 }
-function stopFocusTicker(){
-  if(focusTicker){ clearInterval(focusTicker); focusTicker = 0; }
+function stopFocusTicker() {
+  if (focusTicker) {
+    clearInterval(focusTicker); focusTicker = 0;
+  }
 }
 
-function ensureFocusRoot(){
-  if(focusRoot) return;
+function ensureFocusRoot() {
+  if (focusRoot) return;
   focusRoot = fEl('div');
   focusRoot.id = 'focusRoot';
   document.body.appendChild(focusRoot);
 }
-function focusScreen(html){
+function focusScreen(html) {
   clearTimeout(focusAutoTimer);
   focusRoot.innerHTML = '<div class="f-top"><button class="f-back" id="fBackBtn">⬅️</button></div>' + html;
   document.getElementById('fBackBtn').onclick = focusExit;
   return focusRoot;
 }
-function focusExit(){
+function focusExit() {
   stopFocusTicker();
-  if(focusCtrl){ focusCtrl.stop(); focusCtrl = null; }
+  if (focusCtrl) {
+    focusCtrl.stop(); focusCtrl = null;
+  }
   SpeechKit.cancel();
   focusRoot.style.display = 'none';
   overlay.style.display = 'flex';
@@ -75,20 +91,20 @@ function focusExit(){
 }
 
 /* ---------- 今日页 ---------- */
-function showFocusToday(){
+function showFocusToday() {
   stopFocusTicker();
   const save = loadFocusSave();
   const locked = focusLocked();
   const played = focusBudget() ? focusBudget().spentCount() : 0;
-  const total = Object.values(save.stars).reduce((s,x)=>s+x,0);
+  const total = Object.values(save.stars).reduce((s, x)=>s+x, 0);
   const cur = Math.min(save.unlocked, 99);
   const lv = FOCUS_LEVELS[cur];
   const meta = FOCUS_META[lv.dim];
-  const dots = Array.from({length:FOCUS_DAILY_LEVELS}, (_,k)=>
+  const dots = Array.from({length: FOCUS_DAILY_LEVELS}, (_, k)=>
     '<span class="dot '+(k < played?'done':'')+'"></span>').join('');
 
   let html = '';
-  if(locked){
+  if (locked) {
     html = `
     <div class="f-screen">
       <div class="f-lock">🌙</div>
@@ -108,7 +124,8 @@ function showFocusToday(){
     <div class="f-progress-line">第 ${cur+1} 关 / 100 · ⭐${total}</div>
     <div class="f-dim-icon">${meta.icon}</div>
     <h1>${meta.game}</h1>
-    <p class="f-sub">${meta.name}${lv.kind==='review'?' · 复习':(lv.kind==='tutorial'?' · 教学':(lv.kind==='master'?' · 大师考验':''))}</p>
+    <p class="f-sub">${meta.name}${lv.kind==='review' ? ' · 复习' :
+        (lv.kind==='tutorial' ? ' · 教学' : (lv.kind==='master' ? ' · 大师考验' : ''))}</p>
     <button class="f-start" id="fStartBtn">▶ 开始训练</button>
     <div class="f-dots">${dots}</div>
     <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
@@ -119,19 +136,19 @@ function showFocusToday(){
 }
 
 /* ---------- 本关说明(说明书归各范式自带, 这里只剩 kind 特判与查表) ---------- */
-function focusTip(level){
-  if(level.kind==='master') return '五个小游戏连着玩：瞭望塔、挖矿、排队、闪闪光、听指挥。全部完成就是专注大师！';
-  if(level.kind==='tutorial') return '新手教学：先看一遍演示，再跟着做，很轻松！';
+function focusTip(level) {
+  if (level.kind==='master') return '五个小游戏连着玩：瞭望塔、挖矿、排队、闪闪光、听指挥。全部完成就是专注大师！';
+  if (level.kind==='tutorial') return '新手教学：先看一遍演示，再跟着做，很轻松！';
   return FOCUS_META[level.dim].tip(level.params || {});
 }
 
 /* ---------- 关卡 ---------- */
-function startFocusLevel(i){
+function startFocusLevel(i) {
   const level = FOCUS_LEVELS[i];
   focusCurLevel = level;
   const meta = FOCUS_META[level.dim];
-  const kindNote = level.kind==='tutorial' ? ' · 教学关' : level.kind==='review' ? ' · 复习关'
-                 : level.kind==='master' ? ' · 大师考验' : '';
+  const kindNote = level.kind==='tutorial' ? ' · 教学关' : level.kind==='review' ? ' · 复习关' :
+                 level.kind==='master' ? ' · 大师考验' : '';
   focusScreen(`
     <div class="f-screen f-intro">
       <div class="f-progress-line">第 ${i+1} / 100 关${kindNote}</div>
@@ -146,10 +163,12 @@ function startFocusLevel(i){
   document.getElementById('fGoBtn').onclick = ()=> beginFocusRun(level);
 }
 
-function beginFocusRun(level){
+function beginFocusRun(level) {
   startFocusTicker();
   const meta = FOCUS_META[level.dim];
-  const kindTag = level.kind==='tutorial' ? '· 教学' : level.kind==='review' ? '· 复习' : level.kind==='master' ? '· 大师考验' : '';
+  const kindTag = level.kind==='tutorial' ? '· 教学' :
+      level.kind==='review' ? '· 复习' :
+      level.kind==='master' ? '· 大师考验' : '';
   focusScreen(`
     <div class="f-level-head">
       <div class="f-rule"><span class="f-rule-icon">${meta.icon}</span>
@@ -160,55 +179,66 @@ function beginFocusRun(level){
     <div class="f-area" id="fArea"></div>`);
   document.getElementById('fBackBtn').onclick = showFocusToday;
   focusCtrl = runFocusLevel(level, document.getElementById('fArea'), {
-    progress(k, n){
+    progress(k, n) {
       const bar = document.getElementById('fProg');
-      if(bar) bar.style.width = Math.round(k/Math.max(1,n)*100) + '%';
+      if (bar) bar.style.width = Math.round(k/Math.max(1, n)*100) + '%';
     },
-    showRule(dim){ SpeechKit.speak(FOCUS_META[dim || level.dim].rule); },
-    end(st){ onFocusLevelEnd(level, st); }
-  }, focusFailCount[level.i] || 0);   // 只报失败次数, 重试放宽政策在引擎(mkAdapt)一处
+    showRule(dim) {
+      SpeechKit.speak(FOCUS_META[dim || level.dim].rule);
+    },
+    end(st) {
+      onFocusLevelEnd(level, st);
+    },
+  }, focusFailCount[level.i] || 0); // 只报失败次数, 重试放宽政策在引擎(mkAdapt)一处
 }
 
-function onFocusLevelEnd(level, st){
+function onFocusLevelEnd(level, st) {
   focusCtrl = null;
   stopFocusTicker();
   const passed = focusPassed(level, st);
   const stars = passed ? focusStars(level, st) : 0;
   const save = loadFocusSave();
-  if(passed){
+  if (passed) {
     save.unlocked = Math.max(save.unlocked, Math.min(level.i+1, 99));
-    if(level.kind !== 'tutorial')
+    if (level.kind !== 'tutorial') {
       save.stars[level.i] = Math.max(save.stars[level.i]||0, stars);
+    }
     delete focusFailCount[level.i];
   } else {
     focusFailCount[level.i] = (focusFailCount[level.i]||0) + 1;
   }
   const fb = focusBudget();
-  if(fb){ fb.count(1); fb.flush(); }              // 无论通过与否都计入每日额度(防疲劳刷)
-  save.history.push({ d: budgetDateStr(Date.now()), i: level.i, dim: level.dim, kind: level.kind,
-    acc: Math.round(st.acc*100), mrt: Math.round(st.mrt), trials: st.trials, stars, passed });
-  if(save.history.length > 400) save.history.splice(0, save.history.length-400);
+  if (fb) {
+    fb.count(1); fb.flush();
+  } // 无论通过与否都计入每日额度(防疲劳刷)
+  save.history.push({d: budgetDateStr(Date.now()), i: level.i, dim: level.dim, kind: level.kind,
+    acc: Math.round(st.acc*100), mrt: Math.round(st.mrt), trials: st.trials, stars, passed});
+  if (save.history.length > 400) save.history.splice(0, save.history.length-400);
   saveFocusSave(save);
 
-  if(passed){
+  if (passed) {
     focusScreen(`
       <div class="f-screen">
         <div class="f-stars" id="fStars">
-          ${[1,2,3].map(n=>'<span class="st '+(n<=stars?'on':'')+'" data-n="'+n+'">⭐</span>').join('')}
+          ${[1, 2, 3].map((n)=>'<span class="st '+(n<=stars?'on':'')+'" data-n="'+n+'">⭐</span>').join('')}
         </div>
         <h1>${level.kind==='tutorial' ? '学会啦！' : '通过！'}</h1>
         <p class="f-sub">正确 ${Math.round(st.acc*100)}%</p>
         <button class="f-start" id="fNextBtn">继续 ▶</button>
       </div>`);
     SpeechKit.speak(level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine());
-    [1,2,3].forEach(n=>{
-      if(n<=stars) setTimeout(()=>{
-        const el = document.querySelector('#fStars .st[data-n="'+n+'"]');
-        if(el){ el.classList.add('pop'); sfx('pick'); }
-      }, 350*n);
+    [1, 2, 3].forEach((n)=>{
+      if (n<=stars) {
+        setTimeout(()=>{
+          const el = document.querySelector('#fStars .st[data-n="'+n+'"]');
+          if (el) {
+            el.classList.add('pop'); sfx('pick');
+          }
+        }, 350*n);
+      }
     });
   } else {
-    const moveOn = (focusFailCount[level.i]||0) >= 2;      // 连败 2 次后换下一个游戏, 避免整段时间卡死在同一关
+    const moveOn = (focusFailCount[level.i]||0) >= 2; // 连败 2 次后换下一个游戏, 避免整段时间卡死在同一关
     focusScreen(`
       <div class="f-screen">
         <div class="f-stars"></div>
@@ -220,49 +250,55 @@ function onFocusLevelEnd(level, st){
     SpeechKit.speak(moveOn ? '你已经很努力了！我们先去玩别的游戏，以后再来挑战这一关。' : '你刚才很努力！我们再来一次，这次会简单一点点。');
   }
   const next = ()=>{
-    if(focusLocked()) showFocusToday();
-    else if(!passed && (focusFailCount[level.i]||0) < 2) startFocusLevel(level.i);
-    else if(level.i >= 99) showFocusToday();
+    if (focusLocked()) showFocusToday();
+    else if (!passed && (focusFailCount[level.i]||0) < 2) startFocusLevel(level.i);
+    else if (level.i >= 99) showFocusToday();
     else startFocusLevel(level.i+1);
   };
   document.getElementById('fNextBtn').onclick = next;
-  focusAutoTimer = setTimeout(()=>{ if(document.getElementById('fNextBtn')) next(); }, 4000);
+  focusAutoTimer = setTimeout(()=>{
+    if (document.getElementById('fNextBtn')) next();
+  }, 4000);
 }
 
 /* ---------- 家长面板 ---------- */
-function showFocusParentGate(){
-  const a = 5 + Math.floor(Math.random()*5), b = 5 + Math.floor(Math.random()*5);
+function showFocusParentGate() {
+  const a = 5 + Math.floor(Math.random()*5); const b = 5 + Math.floor(Math.random()*5);
   const ans = a + b;
   const opts = [ans, ans + 1 + Math.floor(Math.random()*3), Math.max(2, ans - 1 - Math.floor(Math.random()*3))]
-    .sort(()=>Math.random()-0.5);
+      .sort(()=>Math.random()-0.5);
   focusScreen(`
     <div class="f-screen">
       <h1>家长入口</h1>
       <p class="f-sub">请回答：${a} + ${b} = ?</p>
-      <div class="f-gate-row">${opts.map(o=>'<button class="f-btn" data-a="'+o+'">'+o+'</button>').join('')}</div>
+      <div class="f-gate-row">${opts.map((o)=>'<button class="f-btn" data-a="'+o+'">'+o+'</button>').join('')}</div>
     </div>`);
-  document.querySelectorAll('#focusRoot .f-gate-row button').forEach(btn=>{
-    btn.onclick = ()=>{ parseInt(btn.dataset.a,10)===ans ? showFocusParent() : showFocusToday(); };
+  document.querySelectorAll('#focusRoot .f-gate-row button').forEach((btn)=>{
+    btn.onclick = ()=>{
+ parseInt(btn.dataset.a, 10)===ans ? showFocusParent() : showFocusToday();
+    };
   });
 }
 
-function showFocusParent(){
+function showFocusParent() {
   const save = loadFocusSave();
   const fb = focusBudget();
-  const total = Object.values(save.stars).reduce((s,x)=>s+x,0);
+  const total = Object.values(save.stars).reduce((s, x)=>s+x, 0);
   const mins = Math.round((fb ? fb.spentMs() : 0)/60000);
   const played = fb ? fb.spentCount() : 0;
   const dims = FOCUS_DIMS;
-  const perDim = dims.map(d=>{
-    const h = save.history.filter(x=>x.dim===d).slice(-20);
-    const acc = h.length ? Math.round(h.reduce((s,x)=>s+x.acc,0)/h.length) : null;
-    const mrt = h.length ? Math.round(h.reduce((s,x)=>s+x.mrt,0)/h.length) : null;
-    return { d, n:h.length, acc, mrt, h };
+  const perDim = dims.map((d)=>{
+    const h = save.history.filter((x)=>x.dim===d).slice(-20);
+    const acc = h.length ? Math.round(h.reduce((s, x)=>s+x.acc, 0)/h.length) : null;
+    const mrt = h.length ? Math.round(h.reduce((s, x)=>s+x.mrt, 0)/h.length) : null;
+    return {d, n: h.length, acc, mrt, h};
   });
-  function spark(h){                                  // 迷你正确率折线(SVG)
-    if(h.length < 2) return '<span class="f-nodata">数据不足</span>';
-    const W=120, H=36, pts = h.map((x,k)=>(k*(W/(h.length-1))).toFixed(1)+','+(H-2-(H-6)*x.acc/100).toFixed(1)).join(' ');
-    return `<svg width="${W}" height="${H}" class="f-spark"><polyline points="${pts}" fill="none" stroke="#7cfc00" stroke-width="2"/></svg>`;
+  function spark(h) { // 迷你正确率折线(SVG)
+    if (h.length < 2) return '<span class="f-nodata">数据不足</span>';
+    const W=120; const H=36;
+    const pts = h.map((x, k)=>(k*(W/(h.length-1))).toFixed(1)+','+(H-2-(H-6)*x.acc/100).toFixed(1)).join(' ');
+    return `<svg width="${W}" height="${H}" class="f-spark">
+        <polyline points="${pts}" fill="none" stroke="#7cfc00" stroke-width="2"/></svg>`;
   }
   focusScreen(`
     <div class="f-screen f-parent">
@@ -273,7 +309,7 @@ function showFocusParent(){
       </div>
       <table class="f-table">
         <tr><th>维度</th><th>练习次数</th><th>平均正确率</th><th>平均反应</th><th>近期趋势</th></tr>
-        ${perDim.map(p=>`<tr><td>${FOCUS_META[p.d].icon} ${FOCUS_META[p.d].name}</td>
+        ${perDim.map((p)=>`<tr><td>${FOCUS_META[p.d].icon} ${FOCUS_META[p.d].name}</td>
           <td>${p.n}</td><td>${p.acc===null?'—':p.acc+'%'}</td>
           <td>${p.mrt===null?'—':(p.mrt/1000).toFixed(1)+'s'}</td><td>${spark(p.h)}</td></tr>`).join('')}
       </table>
@@ -291,45 +327,47 @@ function showFocusParent(){
     </div>`);
   document.getElementById('fBackToday').onclick = showFocusToday;
   document.getElementById('fCsvBtn').onclick = ()=>{
-    const rows = [['日期','关卡','轮次','游戏','类型','通过','正确率%','反应中位数ms','试次数','星级']];
-    for(const h of save.history){
-      const lv = FOCUS_LEVELS[h.i] || {stage:0};
+    const rows = [['日期', '关卡', '轮次', '游戏', '类型', '通过', '正确率%', '反应中位数ms', '试次数', '星级']];
+    for (const h of save.history) {
+      const lv = FOCUS_LEVELS[h.i] || {stage: 0};
       rows.push([h.d, h.i+1, lv.stage, FOCUS_META[h.dim] ? FOCUS_META[h.dim].name : h.dim,
         h.kind, h.passed===false ? '否' : '是', h.acc, h.mrt, h.trials, h.stars]);
     }
-    const csv = '\uFEFF' + rows.map(r=>r.join(',')).join('\n');
+    const csv = '\uFEFF' + rows.map((r)=>r.join(',')).join('\n');
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'}));
+    a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
     a.download = '专注训练营记录.csv';
     a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
   };
   ModeKit.confirmBtn(document.getElementById('fResetBtn'), {
     label: '↺ 重置进度', confirm: '⚠ 再点一次确认',
-    onConfirm(){
+    onConfirm() {
       focusSlot.reset();
       const fb2 = focusBudget();
-      if(fb2) fb2.reset();                        // 旧行为保持: 重置进度同时清当日额度
+      if (fb2) fb2.reset(); // 旧行为保持: 重置进度同时清当日额度
       showToast('训练进度已重置', 1800);
       showFocusParent();
-    }
+    },
   });
 }
 
 /* ---------- 模式对象 ---------- */
 const FocusMode = mkMode({
   id: 'focus',
-  init(){
+  init() {
     ensureFocusRoot();
     focusRoot.style.display = 'block';
     overlay.style.display = 'none';
-    showFocusToday();                              // 纯点选全屏 UI: chrome 全关由 kit 默认处理
+    showFocusToday(); // 纯点选全屏 UI: chrome 全关由 kit 默认处理
   },
-  cleanup(){
+  cleanup() {
     stopFocusTicker();
-    if(focusCtrl){ focusCtrl.stop(); focusCtrl = null; }
+    if (focusCtrl) {
+      focusCtrl.stop(); focusCtrl = null;
+    }
     clearTimeout(focusAutoTimer);
     SpeechKit.cancel();
-    if(focusRoot) focusRoot.style.display = 'none';
-  }
+    if (focusRoot) focusRoot.style.display = 'none';
+  },
 });

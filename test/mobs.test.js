@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 /* 怪物库 (js/mobs.js) 壳层单测 — node --test (零依赖)
    运行: node --test test/mobs.test.js
    通过 interface 驱动(spawn/update/hit/near/clear — 界面即测试面):
@@ -8,35 +8,65 @@ const test = require('node:test');
 const assert = require('node:assert');
 
 /* ---- 最小 THREE 桩(链式 no-op: render 的临时量, 不参与断言) ---- */
-function mk(){ return { set(){ return this; }, compose(){ return this; }, multiplyMatrices(){ return this; },
-  setFromEuler(){ return this; }, setFromAxisAngle(){ return this; }, fromArray(){ return this; },
-  setRGB(){}, setScalar(){ return this; } }; }
+function mk() {
+  return {set() {
+    return this;
+  }, compose() {
+    return this;
+  }, multiplyMatrices() {
+    return this;
+  },
+  setFromEuler() {
+    return this;
+  }, setFromAxisAngle() {
+    return this;
+  }, fromArray() {
+    return this;
+  },
+  setRGB() {}, setScalar() {
+    return this;
+  }};
+}
 globalThis.THREE = {
-  Matrix4: function(){ return mk(); }, Quaternion: function(){ return mk(); },
-  Euler: function(){ return mk(); },
-  Vector3: function(x, y, z){ this.x = x || 0; this.y = y || 0; this.z = z || 0; },
-  Color: function(){ return mk(); },
-  MeshLambertMaterial: function(){}, DynamicDrawUsage: 1,
-  InstancedMesh: function(){
-    this.instanceMatrix = { setUsage(){}, needsUpdate: false };
+  Matrix4: function() {
+    return mk();
+  }, Quaternion: function() {
+    return mk();
+  },
+  Euler: function() {
+    return mk();
+  },
+  Vector3: function(x, y, z) {
+    this.x = x || 0; this.y = y || 0; this.z = z || 0;
+  },
+  Color: function() {
+    return mk();
+  },
+  MeshLambertMaterial: function() {}, DynamicDrawUsage: 1,
+  InstancedMesh: function() {
+    this.instanceMatrix = {setUsage() {}, needsUpdate: false};
     this.instanceColor = null; this.count = 0; this.frustumCulled = true;
-    this.setMatrixAt = () => {}; this.setColorAt = () => { this.instanceColor = { needsUpdate: false }; };
+    this.setMatrixAt = () => {}; this.setColorAt = () => {
+      this.instanceColor = {needsUpdate: false};
+    };
     this.dispose = () => {};
   },
 };
-globalThis.scene = { add(){}, remove(){} };
+globalThis.scene = {add() {}, remove() {}};
 const sfxLog = [];
-globalThis.sfx = (n) => { sfxLog.push(n); };
+globalThis.sfx = (n) => {
+  sfxLog.push(n);
+};
 globalThis.MobCore = require('../js/mob-core.js');
-globalThis.groundTop = () => 11;            /* 平地: 出生 y=12, 飞行巡航 y=17 */
+globalThis.groundTop = () => 11; /* 平地: 出生 y=12, 飞行巡航 y=17 */
 globalThis.getBlock = () => 0;
 globalThis.isSolid = () => false;
 globalThis.MOB_TYPES = {
-  zombie: {name:'僵尸',   hp:30, dmg:5, speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55},
-  blaze:  {name:'烈焰人', hp:30, dmg:8, speed:2.3, range:15,  cd:2.4, h:1.8, fly:true, ranged:true, hitR:0.45},
-  hoglin: {name:'疣猪兽', hp:60, dmg:9, speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7},
-  piglin: {name:'猪灵',   hp:24, dmg:8, speed:2.7, range:2.2, cd:1.1, h:1.9, hitR:0.55},
-  mix:    {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2},
+  zombie: {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55},
+  blaze: {name: '烈焰人', hp: 30, dmg: 8, speed: 2.3, range: 15, cd: 2.4, h: 1.8, fly: true, ranged: true, hitR: 0.45},
+  hoglin: {name: '疣猪兽', hp: 60, dmg: 9, speed: 2.8, range: 2.6, cd: 1.5, h: 1.4, hitR: 0.7},
+  piglin: {name: '猪灵', hp: 24, dmg: 8, speed: 2.7, range: 2.2, cd: 1.1, h: 1.9, hitR: 0.55},
+  mix: {name: '混合编队', hp: 0, dmg: 0, speed: 0, range: 0, cd: 0, h: 2},
 };
 
 const Mobs = require('../js/mobs.js');
@@ -59,9 +89,9 @@ test('怪物库: spawn 数值契约 — hp/maxHp 按表 · hpMult 生效 · 地�
   assert.strictEqual(g.pos.y, 12, '地面怪出生在 groundTop+1');
   const b = Mobs.spawn('blaze', 12, 12, {});
   assert.strictEqual(b.pos.y, 18, '飞行怪缺省巡航 = 站立面(groundTop+1)+6');
-  const b2 = Mobs.spawn('blaze', 14, 14, { flyY: 15 });
+  const b2 = Mobs.spawn('blaze', 14, 14, {flyY: 15});
   assert.strictEqual(b2.pos.y, 15, 'flyY 覆盖巡航高度');
-  const elite = Mobs.spawn('zombie', 16, 16, { hpMult: 2 });
+  const elite = Mobs.spawn('zombie', 16, 16, {hpMult: 2});
   assert.strictEqual(elite.hp, 60); assert.strictEqual(elite.maxHp, 60);
   assert.strictEqual(Mobs.list().length, 4, '实例数组私有, list() 只读可见');
   Mobs.clear();
@@ -86,8 +116,8 @@ test('怪物库: near 圆域查询 — 半径 · 高度门 · 死亡/移除过�
   Mobs.clear();
   const a = Mobs.spawn('zombie', 10, 10, {});
   const d = Mobs.spawn('zombie', 30, 30, {});
-  Mobs.hit(d, 99, 0, 0, 0);                          /* 击杀 → dead */
-  let out = Mobs.near(10, 10, 3, 12, 2);
+  Mobs.hit(d, 99, 0, 0, 0); /* 击杀 → dead */
+  const out = Mobs.near(10, 10, 3, 12, 2);
   assert.strictEqual(out.length, 1);
   assert.strictEqual(out[0], a, '近处活怪命中');
   assert.strictEqual(Mobs.near(10, 10, 3, 40, 2).length, 0, '高度差超门控');
@@ -100,7 +130,7 @@ test('怪物库: 死亡时序 — update 推进 deadT, 超时回收(实例数组
   const m = Mobs.spawn('zombie', 10, 10, {});
   Mobs.hit(m, 99, 0, 0, 0);
   const before = Mobs.list();
-  for(let i=0; i<26; i++) Mobs.update(0.1);          /* 2.6s > 2.4s 回收线 */
+  for (let i=0; i<26; i++) Mobs.update(0.1); /* 2.6s > 2.4s 回收线 */
   assert.strictEqual(Mobs.list().length, 0, '尸体超时回收');
   assert.strictEqual(before.length, 0, 'list() 返回内部引用, 回收立即可见');
   Mobs.clear();
@@ -109,7 +139,7 @@ test('怪物库: 死亡时序 — update 推进 deadT, 超时回收(实例数组
 test('怪物库: 意图 API — move/shift/setPos/steer/heal/setMaxHp/remove/settle', () => {
   Mobs.clear();
   const m = Mobs.spawn('zombie', 10, 10, {});
-  Mobs.move(m, 1.5, 0);                              /* 平地(stub 恒 11)无高差, 全额步进 */
+  Mobs.move(m, 1.5, 0); /* 平地(stub 恒 11)无高差, 全额步进 */
   assert.ok(Math.abs(m.pos.x - 11.5) < 1e-9, 'move: 地面步进(台阶规则)');
   Mobs.shift(m, 0, 2);
   assert.ok(Math.abs(m.pos.z - 12) < 1e-9, 'shift: 无碰撞平移');
@@ -130,7 +160,7 @@ test('怪物库: 意图 API — move/shift/setPos/steer/heal/setMaxHp/remove/set
   Mobs.update(0.05);
   assert.strictEqual(Mobs.list().length, 0, 'remove: gone → 下帧走引擎回收');
   const f = Mobs.spawn('blaze', 20, 20, {});
-  f.pos.y = 12;                                      /* 模拟被震落到地面 */
+  f.pos.y = 12; /* 模拟被震落到地面 */
   Mobs.settle(f, 1);
   assert.ok(f.pos.y > 12, 'settle: 飞行单位回巡航高度(flyHome=18)');
   Mobs.clear();
@@ -139,28 +169,28 @@ test('怪物库: 意图 API — move/shift/setPos/steer/heal/setMaxHp/remove/set
 test('怪物库: gait 攻击姿态窗口(第 4 参) — 挥臂(人形)/头前扑(四足) · 相位钳制 · 每帧幂等', () => {
   Mobs.clear();
   const z = Mobs.spawn('zombie', 10, 10, {});
-  Mobs.gait(z, 1/60, 2.3);                           /* 不传窗口: 与旧 3 参签名行为一致 */
+  Mobs.gait(z, 1/60, 2.3); /* 不传窗口: 与旧 3 参签名行为一致 */
   assert.ok(Math.abs(z.pose.armR - (-1.45)) < 1e-9, '僵尸式基础姿态: 双臂前伸平举');
   z.attackT = 0.45;
   Mobs.gait(z, 1/60, 0, 0.5);
   assert.ok(z.pose.armR < -1.45, '僵尸式攻击中: 平举手臂下劈(低于基线)');
-  z.attackT = 0.6;                                   /* attackT 超窗口 → 相位钳制, 不起负摆 */
+  z.attackT = 0.6; /* attackT 超窗口 → 相位钳制, 不起负摆 */
   Mobs.gait(z, 1/60, 0, 0.5);
   assert.ok(Math.abs(z.pose.armR - (-1.45)) < 1e-9, 'attackT 超窗口: 钳制在起手位(修硬编码 /0.45 的相位越界)');
   z.attackT = 0;
   Mobs.gait(z, 1/60, 0, 0.5);
   assert.ok(Math.abs(z.pose.armR - (-1.45)) < 1e-9, 'attackT 归零: 回平举基线(每帧幂等, 无残留姿态)');
 
-  const b = Mobs.spawn('blaze', 14, 14, {});         /* 通用人形分支(有臂槽, 无 armStyle) */
-  b.attackT = 0.25;                                  /* 相位中点 → 挥幅峰值 */
+  const b = Mobs.spawn('blaze', 14, 14, {}); /* 通用人形分支(有臂槽, 无 armStyle) */
+  b.attackT = 0.25; /* 相位中点 → 挥幅峰值 */
   Mobs.gait(b, 1/60, 0, 0.5);
   assert.ok(Math.abs(b.pose.armR - (-1.9)) < 1e-9, '通用人形: 相位中点抡臂到峰值 -1.9');
   b.attackT = 0;
   Mobs.gait(b, 1/60, 2, 0.5);
   assert.ok(Math.abs(b.pose.armR) < 0.25, 'attackT 归零: 回步态摆臂基线');
 
-  const p = Mobs.spawn('piglin', 16, 16, {});        /* 持械人形(hum 的 held → 武器挂 armL) */
-  p.attackT = 0.25;                                  /* 相位中点 → 挥幅峰值 */
+  const p = Mobs.spawn('piglin', 16, 16, {}); /* 持械人形(hum 的 held → 武器挂 armL) */
+  p.attackT = 0.25; /* 相位中点 → 挥幅峰值 */
   Mobs.gait(p, 1/60, 0, 0.5);
   assert.ok(Math.abs(p.pose.armL - (-1.9)) < 1e-9, '持械人形: 相位中点持械臂(armL)抡到峰值 -1.9, 不再空手挥拳');
   assert.ok(Math.abs(p.pose.armR) < 1e-9, '空手右臂: 反向平衡(sp=0 时静止归零)');
@@ -168,7 +198,7 @@ test('怪物库: gait 攻击姿态窗口(第 4 参) — 挥臂(人形)/头前扑
   Mobs.gait(p, 1/60, 2, 0.5);
   assert.ok(Math.abs(p.pose.armL) < 0.25, 'attackT 归零: 持械臂回步态摆臂基线(每帧幂等)');
 
-  const h = Mobs.spawn('hoglin', 12, 12, {});        /* 四足分支(无臂有头) */
+  const h = Mobs.spawn('hoglin', 12, 12, {}); /* 四足分支(无臂有头) */
   h.attackT = 0.3;
   Mobs.gait(h, 1/60, 0, 0.5);
   assert.strictEqual(h.pose.head, -0.55, '四足攻击中: 头部前扑');

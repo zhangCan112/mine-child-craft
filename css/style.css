@@ -1,208 +1,946 @@
 /* ============================================================
-   我的世界 · 方块乐园 — 样式
+ 我的世界 · 方块乐园 — 样式
 ============================================================ */
-html,body{margin:0;height:100%;overflow:hidden;background:#8fc7ff;font-family:'Segoe UI',Arial,sans-serif;cursor:default}
-#app{position:fixed;inset:0}
-canvas{display:block}
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: #8fc7ff;
+  font-family: 'Segoe UI',Arial,sans-serif;
+  cursor: default;
+}
+
+#app {
+  position: fixed;
+  inset: 0;
+}
+
+canvas {
+  display: block;
+}
 
 /* 准星 */
-#crosshair{position:fixed;left:50%;top:50%;width:22px;height:22px;transform:translate(-50%,-50%);
-  pointer-events:none;z-index:10;opacity:.85}
-#crosshair::before,#crosshair::after{content:"";position:absolute;background:#fff;box-shadow:0 0 2px #000}
-#crosshair::before{left:50%;top:0;width:2px;height:100%;transform:translateX(-50%)}
-#crosshair::after{top:50%;left:0;height:2px;width:100%;transform:translateY(-50%)}
+#crosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 22px;
+  height: 22px;
+  transform: translate(-50%,-50%);
+  pointer-events: none;
+  z-index: 10;
+  opacity: 0.85;
+}
+
+#crosshair::before,
+#crosshair::after {
+  content: "";
+  position: absolute;
+  background: #fff;
+  box-shadow: 0 0 2px #000;
+}
+
+#crosshair::before {
+  left: 50%;
+  top: 0;
+  width: 2px;
+  height: 100%;
+  transform: translateX(-50%);
+}
+
+#crosshair::after {
+  top: 50%;
+  left: 0;
+  height: 2px;
+  width: 100%;
+  transform: translateY(-50%);
+}
 
 /* 物品栏 */
-#hotbar{position:fixed;left:50%;bottom:18px;transform:translateX(-50%);display:flex;gap:6px;
-  padding:6px;background:rgba(0,0,0,.35);border-radius:8px;z-index:10}
-.slot{width:54px;height:54px;border:3px solid rgba(255,255,255,.25);border-radius:6px;
-  position:relative;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);
-  user-select:none;cursor:pointer}
-.slot.active{border-color:#fff;box-shadow:0 0 10px rgba(255,255,255,.6)}
-.slot .cube{width:34px;height:34px;border-radius:4px;
-  box-shadow:inset 0 -8px 0 rgba(0,0,0,.25), inset 0 8px 0 rgba(255,255,255,.18)}
-.slot .icon{font-size:28px;line-height:1;filter:drop-shadow(0 2px 2px rgba(0,0,0,.5))}
-.slot .num{position:absolute;top:2px;left:4px;font-size:11px;color:#fff;text-shadow:0 1px 2px #000}
-.slot .cnt{position:absolute;top:2px;right:4px;font-size:13px;font-weight:700;color:#ffe27a;text-shadow:0 1px 2px #000}
-.slot .lbl{position:absolute;bottom:3px;font-size:9px;color:#fff;text-shadow:0 1px 2px #000}
-.slot.empty{opacity:.45}
+#hotbar {
+  position: fixed;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgb(0 0 0 / 35%);
+  border-radius: 8px;
+  z-index: 10;
+}
+
+.slot {
+  width: 54px;
+  height: 54px;
+  border: 3px solid rgb(255 255 255 / 25%);
+  border-radius: 6px;
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 25%);
+  user-select: none;
+  cursor: pointer;
+}
+
+.slot.active {
+  border-color: #fff;
+  box-shadow: 0 0 10px rgb(255 255 255 / 60%);
+}
+
+.slot .cube {
+  width: 34px;
+  height: 34px;
+  border-radius: 4px;
+  box-shadow: inset 0 -8px 0 rgb(0 0 0 / 25%), inset 0 8px 0 rgb(255 255 255 / 18%);
+}
+
+.slot .icon {
+  font-size: 28px;
+  line-height: 1;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 50%));
+}
+
+.slot .num {
+  position: absolute;
+  top: 2px;
+  left: 4px;
+  font-size: 11px;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+}
+
+.slot .cnt {
+  position: absolute;
+  top: 2px;
+  right: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffe27a;
+  text-shadow: 0 1px 2px #000;
+}
+
+.slot .lbl {
+  position: absolute;
+  bottom: 3px;
+  font-size: 9px;
+  color: #fff;
+  text-shadow: 0 1px 2px #000;
+}
+
+.slot.empty {
+  opacity: 0.45;
+}
 
 /* 开始遮罩 + 菜单 */
-#overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;flex-direction:column;
-  align-items:center;justify-content:center;color:#fff;z-index:20;text-align:center;overflow:auto}
-#overlay h1{font-size:40px;margin:0 0 4px;letter-spacing:3px;text-shadow:0 3px 10px #000}
-#overlay h1 span{color:#7CFC00}
-#overlay p{margin:2px 0 4px;font-size:14px;opacity:.9}
-#overlay .keys{margin-top:14px;font-size:12.5px;line-height:1.9;opacity:.85}
-#overlay .keys b{color:#ffe27a}
-#overlay .safe{color:#9fe8a0}
+#overlay {
+  position: fixed;
+  inset: 0;
+  background: rgb(0 0 0 / 60%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  z-index: 20;
+  text-align: center;
+  overflow: auto;
+}
 
-.menuPage{display:none;flex-direction:column;align-items:center}
-.menuPage.active{display:flex}
+#overlay h1 {
+  font-size: 40px;
+  margin: 0 0 4px;
+  letter-spacing: 3px;
+  text-shadow: 0 3px 10px #000;
+}
+
+#overlay h1 span {
+  color: #7CFC00;
+}
+
+#overlay p {
+  margin: 2px 0 4px;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+#overlay .keys {
+  margin-top: 14px;
+  font-size: 12.5px;
+  line-height: 1.9;
+  opacity: 0.85;
+}
+
+#overlay .keys b {
+  color: #ffe27a;
+}
+
+#overlay .safe {
+  color: #9fe8a0;
+}
+
+.menu-page {
+  display: none;
+  flex-direction: column;
+  align-items: center;
+}
+
+.menu-page.active {
+  display: flex;
+}
 
 /* 主菜单模式卡片 */
-#modeCards{display:flex;gap:22px;margin-top:18px;flex-wrap:wrap;justify-content:center}
-.modeCard{width:230px;padding:26px 18px;border:3px solid rgba(255,255,255,.3);border-radius:16px;
-  background:rgba(255,255,255,.08);cursor:pointer;transition:transform .12s, background .12s;user-select:none}
-.modeCard:hover{transform:translateY(-4px);background:rgba(255,255,255,.16)}
-.modeCard .big{font-size:46px;line-height:1.2}
-.modeCard .big img{width:56px;height:56px;image-rendering:pixelated;display:block;margin:0 auto}
-.modeCard h2{margin:8px 0 4px;font-size:20px}
-.modeCard small{font-size:12px;opacity:.8}
-.modeCard.tnt{border-color:rgba(255,120,80,.55)}
-.modeCard.tnt:hover{background:rgba(255,110,70,.18)}
-.modeCard.build{border-color:rgba(233,196,106,.6)}
-.modeCard.build:hover{background:rgba(233,196,106,.18)}
-.modeCard.tank{border-color:rgba(126,180,94,.6)}
-.modeCard.tank:hover{background:rgba(110,168,80,.18)}
-.modeCard.nether{border-color:rgba(196,96,62,.65)}
-.modeCard.nether:hover{background:rgba(196,96,62,.2)}
-.modeCard.timedout{opacity:.45;position:relative}
-.modeCard.timedout:hover{transform:none;background:rgba(255,255,255,.08)}
-.modeCard .timeoutBadge{position:absolute;top:8px;right:8px;background:rgba(0,0,0,.65);
-  color:#ffe27a;padding:4px 9px;border-radius:8px;font-size:11px;font-weight:700}
+#modeCards {
+  display: flex;
+  gap: 22px;
+  margin-top: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.mode-card {
+  width: 230px;
+  padding: 26px 18px;
+  border: 3px solid rgb(255 255 255 / 30%);
+  border-radius: 16px;
+  background: rgb(255 255 255 / 8%);
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+  user-select: none;
+}
+
+.mode-card:hover {
+  transform: translateY(-4px);
+  background: rgb(255 255 255 / 16%);
+}
+
+.mode-card .big {
+  font-size: 46px;
+  line-height: 1.2;
+}
+
+.mode-card .big img {
+  width: 56px;
+  height: 56px;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto;
+}
+
+.mode-card h2 {
+  margin: 8px 0 4px;
+  font-size: 20px;
+}
+
+.mode-card small {
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+.mode-card.tnt {
+  border-color: rgb(255 120 80 / 55%);
+}
+
+.mode-card.tnt:hover {
+  background: rgb(255 110 70 / 18%);
+}
+
+.mode-card.build {
+  border-color: rgb(233 196 106 / 60%);
+}
+
+.mode-card.build:hover {
+  background: rgb(233 196 106 / 18%);
+}
+
+.mode-card.tank {
+  border-color: rgb(126 180 94 / 60%);
+}
+
+.mode-card.tank:hover {
+  background: rgb(110 168 80 / 18%);
+}
+
+.mode-card.nether {
+  border-color: rgb(196 96 62 / 65%);
+}
+
+.mode-card.nether:hover {
+  background: rgb(196 96 62 / 20%);
+}
+
+.mode-card.timedout {
+  opacity: 0.45;
+  position: relative;
+}
+
+.mode-card.timedout:hover {
+  transform: none;
+  background: rgb(255 255 255 / 8%);
+}
+
+.mode-card .timeout-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: rgb(0 0 0 / 65%);
+  color: #ffe27a;
+  padding: 4px 9px;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 700;
+}
 
 /* 竞技场对战面板 */
-#panel{margin-top:8px;display:flex;gap:12px;align-items:stretch}
-.teamBox{background:rgba(255,255,255,.07);border:2px solid rgba(255,255,255,.18);border-radius:10px;
-  padding:10px 12px;min-width:200px;text-align:left}
-.teamBox h3{margin:0 0 8px;font-size:15px}
-.teamBox.red h3{color:#ff7a6e}
-.teamBox.blue h3{color:#6ab6ff}
+#panel {
+  margin-top: 8px;
+  display: flex;
+  gap: 12px;
+  align-items: stretch;
+}
+
+.team-box {
+  background: rgb(255 255 255 / 7%);
+  border: 2px solid rgb(255 255 255 / 18%);
+  border-radius: 10px;
+  padding: 10px 12px;
+  min-width: 200px;
+  text-align: left;
+}
+
+.team-box h3 {
+  margin: 0 0 8px;
+  font-size: 15px;
+}
+
+.team-box.red h3 {
+  color: #ff7a6e;
+}
+
+.team-box.blue h3 {
+  color: #6ab6ff;
+}
 
 /* 坦克演习场 · 游戏内选怪浮动面板(自有 pk* 类: 竞技场 buildPanel 按
-   .mobBtns 全文档注入按钮, 复用它的类名会把竞技场按钮塞进来 → 选项翻倍) */
-#mobPicker{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);z-index:40;
-  display:none;flex-direction:column;align-items:center;gap:8px;padding:14px 18px;
-  background:rgba(18,22,26,.93);border:2px solid rgba(126,180,94,.6);border-radius:14px;
-  box-shadow:0 6px 24px rgba(0,0,0,.45)}
-#mobPicker.open{display:flex}
-#mobPicker .pkTitle{font-size:15px;color:#b8e29a;font-weight:bold;letter-spacing:1px}
-.pkRow{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;
-  max-height:38vh;overflow-y:auto;padding:2px}
-.pkRow button{display:flex;flex-direction:column;align-items:center;gap:4px;
-  min-width:64px;padding:8px 8px 6px;border-radius:10px;cursor:pointer;
-  border:2px solid rgba(255,255,255,.22);background:rgba(255,255,255,.07);color:#fff;font-size:13px}
-.pkRow button img{width:40px;height:40px;image-rendering:pixelated;display:block}
-.pkRow button:hover{background:rgba(255,255,255,.15)}
-.pkRow button.active{border-color:#9fd86a;background:rgba(126,180,94,.28)}
-.pkCntRow{display:flex;align-items:center;gap:8px;font-size:13px;color:#fff}
-.pkCntRow button{min-width:34px;height:34px;border-radius:8px;cursor:pointer;
-  border:2px solid rgba(255,255,255,.25);background:rgba(255,255,255,.08);color:#fff;font-size:17px}
-.pkCntRow button:hover{background:rgba(255,255,255,.16)}
-.pkCntRow b{font-size:19px;min-width:40px;text-align:center;color:#ffd44d}
-.pkBtnRow{display:flex;gap:10px;margin-top:2px}
-.pkBtnRow button{padding:10px 22px;border-radius:10px;cursor:pointer;font-size:15px;
-  border:2px solid rgba(255,255,255,.3);background:rgba(255,255,255,.1);color:#fff}
-.pkBtnRow button:hover{background:rgba(255,255,255,.2)}
-#pkGo{border-color:#9fd86a;background:rgba(126,180,94,.35);font-weight:bold}
-.mobBtns{display:flex;flex-wrap:wrap;gap:4px;max-height:266px;overflow-y:auto;padding:2px}
-.mobBtns button{display:flex;flex-direction:column;align-items:center;gap:4px;padding:7px 8px 5px;
-  min-width:58px;font-size:12px;font-family:inherit;border-radius:8px;border:2px solid rgba(255,255,255,.25);
-  background:rgba(0,0,0,.3);color:#fff;cursor:pointer}
-.mobBtns button img{width:32px;height:32px;image-rendering:pixelated;display:block}
-.mobBtns button:hover{background:rgba(255,255,255,.15)}
-.teamBox.red .mobBtns button.active{border-color:#ff7a6e;background:rgba(255,122,110,.22)}
-.teamBox.blue .mobBtns button.active{border-color:#6ab6ff;background:rgba(106,182,255,.22)}
+ .mob-btns 全文档注入按钮, 复用它的类名会把竞技场按钮塞进来 → 选项翻倍) */
+#mobPicker {
+  position: fixed;
+  left: 50%;
+  bottom: 92px;
+  transform: translateX(-50%);
+  z-index: 40;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 18px;
+  background: rgb(18 22 26 / 93%);
+  border: 2px solid rgb(126 180 94 / 60%);
+  border-radius: 14px;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 45%);
+}
+
+#mobPicker.open {
+  display: flex;
+}
+
+#mobPicker .pk-title {
+  font-size: 15px;
+  color: #b8e29a;
+  font-weight: bold;
+  letter-spacing: 1px;
+}
+
+.pk-row {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-height: 38vh;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.pk-row button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  min-width: 64px;
+  padding: 8px 8px 6px;
+  border-radius: 10px;
+  cursor: pointer;
+  border: 2px solid rgb(255 255 255 / 22%);
+  background: rgb(255 255 255 / 7%);
+  color: #fff;
+  font-size: 13px;
+}
+
+.pk-row button img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.pk-row button:hover {
+  background: rgb(255 255 255 / 15%);
+}
+
+.pk-row button.active {
+  border-color: #9fd86a;
+  background: rgb(126 180 94 / 28%);
+}
+
+.pk-cnt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #fff;
+}
+
+.pk-cnt-row button {
+  min-width: 34px;
+  height: 34px;
+  border-radius: 8px;
+  cursor: pointer;
+  border: 2px solid rgb(255 255 255 / 25%);
+  background: rgb(255 255 255 / 8%);
+  color: #fff;
+  font-size: 17px;
+}
+
+.pk-cnt-row button:hover {
+  background: rgb(255 255 255 / 16%);
+}
+
+.pk-cnt-row b {
+  font-size: 19px;
+  min-width: 40px;
+  text-align: center;
+  color: #ffd44d;
+}
+
+.pk-btn-row {
+  display: flex;
+  gap: 10px;
+  margin-top: 2px;
+}
+
+.pk-btn-row button {
+  padding: 10px 22px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 15px;
+  border: 2px solid rgb(255 255 255 / 30%);
+  background: rgb(255 255 255 / 10%);
+  color: #fff;
+}
+
+.pk-btn-row button:hover {
+  background: rgb(255 255 255 / 20%);
+}
+
+#pkGo {
+  border-color: #9fd86a;
+  background: rgb(126 180 94 / 35%);
+  font-weight: bold;
+}
+
+.mob-btns {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  max-height: 266px;
+  overflow-y: auto;
+  padding: 2px;
+}
+
+.mob-btns button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 7px 8px 5px;
+  min-width: 58px;
+  font-size: 12px;
+  font-family: inherit;
+  border-radius: 8px;
+  border: 2px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 30%);
+  color: #fff;
+  cursor: pointer;
+}
+
+.mob-btns button img {
+  width: 32px;
+  height: 32px;
+  image-rendering: pixelated;
+  display: block;
+}
+
+.mob-btns button:hover {
+  background: rgb(255 255 255 / 15%);
+}
+
+.team-box.red .mob-btns button.active {
+  border-color: #ff7a6e;
+  background: rgb(255 122 110 / 22%);
+}
+
+.team-box.blue .mob-btns button.active {
+  border-color: #6ab6ff;
+  background: rgb(106 182 255 / 22%);
+}
+
 /* 谱系分组(物种家族, 见 GLOSSARY): 组 = 内联簇(组头跟着组员一起排, 簇随行流动) —
-   组头不整行断组(37 怪 10 族会"每行短整体长"); 簇底色轻描族界, 竞技场/演习场共用 */
-.famGroup{display:inline-flex;flex-wrap:wrap;align-items:flex-start;gap:4px;
-  background:rgba(255,255,255,.055);border:1px solid rgba(255,255,255,.12);
-  border-radius:10px;padding:4px;margin:0}
-.famHead{font-size:10px;color:#ffe9b0;opacity:.9;letter-spacing:1px;align-self:center;
-  padding:0 4px 0 2px;text-shadow:0 1px 2px rgba(0,0,0,.6);white-space:nowrap}
-.countRow{margin-top:10px;display:flex;align-items:center;gap:8px;font-size:13px;color:#fff}
-.countRow button{min-width:28px;height:28px;padding:0 7px;border-radius:6px;border:2px solid rgba(255,255,255,.25);
-  background:rgba(0,0,0,.3);color:#fff;cursor:pointer;font-size:14px;line-height:1}
-.countRow button:hover{background:rgba(255,255,255,.15)}
-.countRow b{font-size:18px;min-width:38px;text-align:center}
-.countRow.pw{font-size:12px;opacity:.95}
-.countRow.pw b{font-size:15px;min-width:46px;display:inline-block}
-.countRow.pw b.ok{color:#9fe8a0}
-.countRow.pw b.warn{color:#ffb0a0}
-.vs{align-self:center;font-size:22px;font-weight:800;color:#ffe27a;text-shadow:0 2px 6px #000}
-.btnRow{margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap}
-#overlay .play{padding:11px 28px;font-size:17px;border:2px solid #fff;border-radius:8px;
-  background:rgba(255,255,255,.12);color:#fff;cursor:pointer;font-weight:600}
-#overlay .play:hover{background:rgba(255,255,255,.25)}
-#overlay .play.primary{background:rgba(124,252,0,.22);border-color:#9fe8a0}
-#overlay .play.primary:hover{background:rgba(124,252,0,.35)}
-#overlay .play.danger{border-color:#ffb0a0}
-#overlay .play.danger:hover{background:rgba(255,100,80,.2)}
-#overlay .play:disabled{opacity:.35;cursor:not-allowed}
+ 组头不整行断组(37 怪 10 族会"每行短整体长"); 簇底色轻描族界, 竞技场/演习场共用 */
+.fam-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 4px;
+  background: rgb(255 255 255 / 5.5%);
+  border: 1px solid rgb(255 255 255 / 12%);
+  border-radius: 10px;
+  padding: 4px;
+  margin: 0;
+}
+
+.fam-head {
+  font-size: 10px;
+  color: #ffe9b0;
+  opacity: 0.9;
+  letter-spacing: 1px;
+  align-self: center;
+  padding: 0 4px 0 2px;
+  text-shadow: 0 1px 2px rgb(0 0 0 / 60%);
+  white-space: nowrap;
+}
+
+.count-row {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #fff;
+}
+
+.count-row button {
+  min-width: 28px;
+  height: 28px;
+  padding: 0 7px;
+  border-radius: 6px;
+  border: 2px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 30%);
+  color: #fff;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.count-row button:hover {
+  background: rgb(255 255 255 / 15%);
+}
+
+.count-row b {
+  font-size: 18px;
+  min-width: 38px;
+  text-align: center;
+}
+
+.count-row.pw {
+  font-size: 12px;
+  opacity: 0.95;
+}
+
+.count-row.pw b {
+  font-size: 15px;
+  min-width: 46px;
+  display: inline-block;
+}
+
+.count-row.pw b.ok {
+  color: #9fe8a0;
+}
+
+.count-row.pw b.warn {
+  color: #ffb0a0;
+}
+
+.vs {
+  align-self: center;
+  font-size: 22px;
+  font-weight: 800;
+  color: #ffe27a;
+  text-shadow: 0 2px 6px #000;
+}
+
+.btn-row {
+  margin-top: 16px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+#overlay .play {
+  padding: 11px 28px;
+  font-size: 17px;
+  border: 2px solid #fff;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 12%);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+#overlay .play:hover {
+  background: rgb(255 255 255 / 25%);
+}
+
+#overlay .play.primary {
+  background: rgb(124 252 0 / 22%);
+  border-color: #9fe8a0;
+}
+
+#overlay .play.primary:hover {
+  background: rgb(124 252 0 / 35%);
+}
+
+#overlay .play.danger {
+  border-color: #ffb0a0;
+}
+
+#overlay .play.danger:hover {
+  background: rgb(255 100 80 / 20%);
+}
+
+#overlay .play:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
 
 /* TNT 关卡选择 */
-#levelGrid{display:grid;grid-template-columns:repeat(5,92px);gap:12px;margin-top:14px}
-.lvBtn{width:92px;height:92px;border:3px solid rgba(255,255,255,.35);border-radius:12px;
-  background:rgba(255,255,255,.1);color:#fff;cursor:pointer;font-weight:800;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;user-select:none}
-.lvBtn:hover{background:rgba(255,255,255,.2)}
-.lvBtn .no{font-size:26px;text-shadow:0 2px 4px #000}
-.lvBtn .stars{font-size:13px;letter-spacing:1px;color:#ffe27a;min-height:16px}
-.lvBtn.locked{opacity:.4;cursor:not-allowed}
-.lvBtn .lock{font-size:26px}
+#levelGrid {
+  display: grid;
+  grid-template-columns: repeat(5,92px);
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.lv-btn {
+  width: 92px;
+  height: 92px;
+  border: 3px solid rgb(255 255 255 / 35%);
+  border-radius: 12px;
+  background: rgb(255 255 255 / 10%);
+  color: #fff;
+  cursor: pointer;
+  font-weight: 800;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  user-select: none;
+}
+
+.lv-btn:hover {
+  background: rgb(255 255 255 / 20%);
+}
+
+.lv-btn .no {
+  font-size: 26px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.lv-btn .stars {
+  font-size: 13px;
+  letter-spacing: 1px;
+  color: #ffe27a;
+  min-height: 16px;
+}
+
+.lv-btn.locked {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.lv-btn .lock {
+  font-size: 26px;
+}
 
 /* 通关面板 */
-#winStars{font-size:64px;letter-spacing:10px;margin:6px 0;text-shadow:0 4px 14px rgba(255,220,80,.6)}
-#winStars .off{opacity:.22;text-shadow:none}
-#winTime{font-size:14px;opacity:.85;margin-bottom:6px}
+#winStars {
+  font-size: 64px;
+  letter-spacing: 10px;
+  margin: 6px 0;
+  text-shadow: 0 4px 14px rgb(255 220 80 / 60%);
+}
+
+#winStars .off {
+  opacity: 0.22;
+  text-shadow: none;
+}
+
+#winTime {
+  font-size: 14px;
+  opacity: 0.85;
+  margin-bottom: 6px;
+}
 
 /* 左上信息 */
-#hud{position:fixed;top:10px;left:12px;color:#fff;font-size:12px;z-index:10;
-  text-shadow:0 1px 2px #000;line-height:1.6;font-family:monospace}
+#hud {
+  position: fixed;
+  top: 10px;
+  left: 12px;
+  color: #fff;
+  font-size: 12px;
+  z-index: 10;
+  text-shadow: 0 1px 2px #000;
+  line-height: 1.6;
+  font-family: monospace;
+}
 
 /* 顶部记分板 */
-#score{position:fixed;top:10px;left:50%;transform:translateX(-50%);display:flex;gap:16px;align-items:center;
-  background:rgba(0,0,0,.4);padding:6px 18px;border-radius:10px;color:#fff;z-index:10;
-  font-family:monospace;font-size:15px;text-shadow:0 1px 2px #000}
-#score .red{color:#ff6a5e;font-weight:700}
-#score .blue{color:#5ab0ff;font-weight:700}
-#score .mid{opacity:.9;font-size:12px}
+#score {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 16px;
+  align-items: center;
+  background: rgb(0 0 0 / 40%);
+  padding: 6px 18px;
+  border-radius: 10px;
+  color: #fff;
+  z-index: 10;
+  font-family: monospace;
+  font-size: 15px;
+  text-shadow: 0 1px 2px #000;
+}
+
+#score .red {
+  color: #ff6a5e;
+  font-weight: 700;
+}
+
+#score .blue {
+  color: #5ab0ff;
+  font-weight: 700;
+}
+
+#score .mid {
+  opacity: 0.9;
+  font-size: 12px;
+}
 
 /* 提示消息 */
-#toast{position:fixed;left:50%;bottom:96px;transform:translateX(-50%);color:#fff;font-size:15px;
-  text-shadow:0 1px 3px #000;background:rgba(0,0,0,.45);padding:6px 16px;border-radius:6px;
-  z-index:12;opacity:0;transition:opacity .35s;pointer-events:none;white-space:nowrap}
+#toast {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 15px;
+  text-shadow: 0 1px 3px #000;
+  background: rgb(0 0 0 / 45%);
+  padding: 6px 16px;
+  border-radius: 6px;
+  z-index: 12;
+  opacity: 0;
+  transition: opacity 0.35s;
+  pointer-events: none;
+  white-space: nowrap;
+}
 
 /* 昏迷/关卡切换黑场 */
-#fade{position:fixed;inset:0;background:#000;opacity:0;pointer-events:none;z-index:15;transition:opacity .45s}
+#fade {
+  position: fixed;
+  inset: 0;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 15;
+  transition: opacity 0.45s;
+}
 
 /* 加载屏 */
-#splash{position:fixed;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
-  background:linear-gradient(#8fc7ff,#b8e0ff);color:#fff;font-size:26px;font-weight:700;
-  text-shadow:0 2px 8px #000;letter-spacing:2px}
+#splash {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(#8fc7ff,#b8e0ff);
+  color: #fff;
+  font-size: 26px;
+  font-weight: 700;
+  text-shadow: 0 2px 8px #000;
+  letter-spacing: 2px;
+}
 
 /* 心跳失联锁定层 */
-#netDead{position:fixed;inset:0;z-index:60;display:flex;align-items:center;justify-content:center;
-  background:rgba(10,12,18,.94);color:#fff;text-align:center;padding:24px}
-#netDead h1{font-size:clamp(22px,5vw,34px);margin:0 0 12px;text-shadow:0 3px 8px #000}
-#netDead p{font-size:16px;opacity:.9;margin:6px 0}
-#netDead .tip{font-size:13px;opacity:.7;line-height:1.8}
+#netDead {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(10 12 18 / 94%);
+  color: #fff;
+  text-align: center;
+  padding: 24px;
+}
+
+#netDead h1 {
+  font-size: clamp(22px,5vw,34px);
+  margin: 0 0 12px;
+  text-shadow: 0 3px 8px #000;
+}
+
+#netDead p {
+  font-size: 16px;
+  opacity: 0.9;
+  margin: 6px 0;
+}
+
+#netDead .tip {
+  font-size: 13px;
+  opacity: 0.7;
+  line-height: 1.8;
+}
 
 /* 建造模式:场景选择卡片 + 加宽物品栏 */
-#buildScenes{display:flex;gap:20px;margin-top:16px;flex-wrap:wrap;justify-content:center}
-.sceneCard{width:250px;padding:24px 18px;border:3px solid rgba(255,255,255,.3);border-radius:14px;
-  background:rgba(255,255,255,.08);cursor:pointer;transition:transform .12s, background .12s;user-select:none}
-.sceneCard:hover{transform:translateY(-4px);background:rgba(255,255,255,.16)}
-.sceneCard.active{border-color:#ffe27a;box-shadow:0 0 14px rgba(255,226,122,.35)}
-.sceneCard .big{font-size:44px;line-height:1.2}
-.sceneCard h2{margin:8px 0 4px;font-size:19px}
-.sceneCard small{font-size:12px;opacity:.8;line-height:1.6;display:block}
+#buildScenes {
+  display: flex;
+  gap: 20px;
+  margin-top: 16px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.scene-card {
+  width: 250px;
+  padding: 24px 18px;
+  border: 3px solid rgb(255 255 255 / 30%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 8%);
+  cursor: pointer;
+  transition: transform 0.12s, background 0.12s;
+  user-select: none;
+}
+
+.scene-card:hover {
+  transform: translateY(-4px);
+  background: rgb(255 255 255 / 16%);
+}
+
+.scene-card.active {
+  border-color: #ffe27a;
+  box-shadow: 0 0 14px rgb(255 226 122 / 35%);
+}
+
+.scene-card .big {
+  font-size: 44px;
+  line-height: 1.2;
+}
+
+.scene-card h2 {
+  margin: 8px 0 4px;
+  font-size: 19px;
+}
+
+.scene-card small {
+  font-size: 12px;
+  opacity: 0.8;
+  line-height: 1.6;
+  display: block;
+}
 
 /* 坦克演习场:出发配置页 — 坦克一行(横排, 窄屏横向滚动兜底) ·
-    怪物一行(全怪物库种类多, 小卡换行 + 区内滚动; 卡片来自 MOB_TYPES 动态生成,
-    以后加怪不用改这里) */
-#tankPick{display:flex;gap:10px;margin-top:8px;justify-content:center;
-  flex-wrap:nowrap;overflow-x:auto;padding:4px 6px}
-#tankMobPick{display:flex;gap:8px;margin-top:8px;justify-content:center;
-  flex-wrap:wrap;max-height:36vh;overflow-y:auto;padding:4px 6px}
-#tankPick .sceneCard{width:150px;padding:12px 8px;flex:0 0 auto}
-#tankMobPick .sceneCard{width:92px;padding:8px 6px;flex:0 0 auto}
-#tankPick .sceneCard .big img{width:64px;height:64px;image-rendering:pixelated}
-#tankMobPick .sceneCard .big img{width:40px;height:40px;image-rendering:pixelated}
-#tankMobPick .sceneCard h2{font-size:13px;margin:4px 0 0}
-.cfgRowTitle{margin-top:14px;font-size:14px;letter-spacing:2px;color:#ffe27a;
-  text-shadow:0 2px 4px rgba(0,0,0,.4)}
-#hotbar.build{gap:4px;padding:5px;flex-wrap:wrap;justify-content:center;max-width:96vw}
-#hotbar.build .slot{width:44px;height:44px}
-#hotbar.build .slot .cube{width:26px;height:26px}
+ 怪物一行(全怪物库种类多, 小卡换行 + 区内滚动; 卡片来自 MOB_TYPES 动态生成,
+ 以后加怪不用改这里) */
+#tankPick {
+  display: flex;
+  gap: 10px;
+  margin-top: 8px;
+  justify-content: center;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  padding: 4px 6px;
+}
+
+#tankMobPick {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+  max-height: 36vh;
+  overflow-y: auto;
+  padding: 4px 6px;
+}
+
+#tankPick .scene-card {
+  width: 150px;
+  padding: 12px 8px;
+  flex: 0 0 auto;
+}
+
+#tankMobPick .scene-card {
+  width: 92px;
+  padding: 8px 6px;
+  flex: 0 0 auto;
+}
+
+#tankPick .scene-card .big img {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+}
+
+#tankMobPick .scene-card .big img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+
+#tankMobPick .scene-card h2 {
+  font-size: 13px;
+  margin: 4px 0 0;
+}
+
+.cfg-row-title {
+  margin-top: 14px;
+  font-size: 14px;
+  letter-spacing: 2px;
+  color: #ffe27a;
+  text-shadow: 0 2px 4px rgb(0 0 0 / 40%);
+}
+
+#hotbar.build {
+  gap: 4px;
+  padding: 5px;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 96vw;
+}
+
+#hotbar.build .slot {
+  width: 44px;
+  height: 44px;
+}
+
+#hotbar.build .slot .cube {
+  width: 26px;
+  height: 26px;
+}

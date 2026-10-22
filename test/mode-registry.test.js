@@ -1,4 +1,4 @@
-"use strict";
+'use strict';
 /* 模式注册表 (js/mode-registry.js) + index.html 一致性单测 — node --test
    运行: node --test test/mode-registry.test.js
    把"三重命名约定"(注册表 id ↔ cardXxx ↔ menuXxx ↔ 脚本顺序)从口头约定
@@ -12,7 +12,7 @@ const ModeRegistry = require('../js/mode-registry.js');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 
 test('模式注册表: 派生 id 符合命名约定(cardXxx / menuXxx / xxxBackBtn / xxxEnterBtn)', () => {
-  for(const m of ModeRegistry.all){
+  for (const m of ModeRegistry.all) {
     assert.strictEqual(ModeRegistry.cardId(m), 'card' + m.id[0].toUpperCase() + m.id.slice(1), m.id);
     assert.strictEqual(ModeRegistry.pageId(m), 'menu' + m.id[0].toUpperCase() + m.id.slice(1), m.id);
     assert.strictEqual(ModeRegistry.backBtnId(m), m.id + 'BackBtn', m.id);
@@ -21,13 +21,13 @@ test('模式注册表: 派生 id 符合命名约定(cardXxx / menuXxx / xxxBackB
 });
 
 test('模式注册表: index.html 里卡片/页面/返回/出发按钮逐条在场', () => {
-  for(const m of ModeRegistry.all){
+  for (const m of ModeRegistry.all) {
     assert.ok(html.includes('id="' + ModeRegistry.cardId(m) + '"'), '缺模式卡: ' + ModeRegistry.cardId(m));
-    if(ModeRegistry.hasPage(m)){
+    if (ModeRegistry.hasPage(m)) {
       assert.ok(html.includes('id="' + ModeRegistry.pageId(m) + '"'), '缺菜单页: ' + ModeRegistry.pageId(m));
       assert.ok(html.includes('id="' + ModeRegistry.backBtnId(m) + '"'), '缺返回按钮: ' + ModeRegistry.backBtnId(m));
     }
-    if(m.enter){
+    if (m.enter) {
       assert.ok(html.includes('id="' + ModeRegistry.enterBtnId(m) + '"'), '缺出发按钮: ' + ModeRegistry.enterBtnId(m));
     }
   }
@@ -36,7 +36,7 @@ test('模式注册表: index.html 里卡片/页面/返回/出发按钮逐条在�
 test('模式注册表: 每个模式的 script 在 main.js 之前加载(经典脚本共享词法环境, 顺序即依赖)', () => {
   const mainAt = html.indexOf('js/main.js');
   assert.ok(mainAt > 0, 'main.js 在 index.html 里');
-  for(const m of ModeRegistry.all){
+  for (const m of ModeRegistry.all) {
     const tag = ModeRegistry.scriptSrc(m);
     const at = html.indexOf('src="' + tag + '"');
     assert.ok(at > 0, '缺 script: ' + tag);
