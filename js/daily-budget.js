@@ -17,6 +17,7 @@ const BUDGET_SAVE_KEY   = 'daily_budget_save';
 const BUDGET_BACKUP_KEY = 'daily_budget_migrate_backup';
 const LEGACY_PLAY_KEY   = 'play_time_save';     /* 旧机制A: {date, ms} */
 const LEGACY_FOCUS_KEY  = 'focus_camp_save';    /* 旧机制B: daily 字段 {date, played, ms} */
+const PLAY_EXTRA_KEY    = 'play_extra_save';    /* 家长加时: {date, ms} 单设备当日(见 readExtraMs) */
 
 /* ---------- 政策限额常量(应用层; 曾住 config.js, 按分层口径移此) ----------
    儿童游玩时限(竞技场/TNT/建造/坦克演习场共享) 与 专注训练营每日限额。
@@ -28,12 +29,24 @@ const FOCUS_DAILY_LEVELS = 6;
 const FOCUS_DAILY_MIN = 20;
 
 /* 本模块的存档键在加载期注册(sync.js 的回填依赖; Node 单测直载时 sync 未加载, 静默跳过) */
-if(typeof registerSyncKeys === 'function') registerSyncKeys(BUDGET_SAVE_KEY);
+if(typeof registerSyncKeys === 'function') registerSyncKeys(BUDGET_SAVE_KEY, PLAY_EXTRA_KEY);
 
 /* 日期串: 年-月-日 无前导零 — 与历史存档的键格式一致 */
 function budgetDateStr(t){
   const d = new Date(t);
   return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+
+/* ---------- 家长加时(单设备·当日): readExtraMs 纯函数, 读时求值 ----------
+   存储值 {date:'2026-10-22', ms:36000000} — date 与当天日期串一致才生效,
+   次日自动回落默认限额(不清存储, 日期不匹配即失效, 无死数据); 键随设备
+   进度走(sync/localStorage), 给一台设备加时不影响其他设备。
+   损坏/非对象/过期/非正数一律记 0。 */
+function readExtraMs(raw, date){
+  let v = raw;
+  if(typeof v === 'string'){ try{ v = JSON.parse(v); }catch(e){ return 0; } }
+  if(!v || typeof v !== 'object' || v.date !== date) return 0;
+  return (typeof v.ms === 'number' && Number.isFinite(v.ms) && v.ms > 0) ? v.ms : 0;
 }
 
 function mkDailyBudgets(opts){
@@ -154,5 +167,5 @@ function mkDailyBudgets(opts){
   return Object.assign({}, views, { migrate, flush, todayStr:()=>today() });
 }
 
-const DailyBudget = { mkDailyBudgets, budgetDateStr, BUDGET_SAVE_KEY, BUDGET_BACKUP_KEY };
+const DailyBudget = { mkDailyBudgets, budgetDateStr, readExtraMs, BUDGET_SAVE_KEY, BUDGET_BACKUP_KEY, PLAY_EXTRA_KEY };
 if(typeof module !== 'undefined' && module.exports) module.exports = DailyBudget;

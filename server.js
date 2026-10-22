@@ -17,6 +17,27 @@ const DEVICES_FILE = path.join(DATA_DIR, 'devices.json');   // { ip: 设备ID }
 const progFile = id => path.join(DATA_DIR, 'progress-' + id + '.json');
 function readJSON(f, fb){ try{ return JSON.parse(fs.readFileSync(f, 'utf8')); }catch(e){ return fb; } }
 function safeId(id){ return typeof id==='string' && /^[a-z0-9-]{4,64}$/i.test(id); }
+
+/* ---------- 家长加时 (服务器权威, 单设备当日) ----------
+   data/play-extra.json = { 设备ID: {date:'2026-10-22', ms:36000000} }
+   每次 GET /progress 时把 play_extra_save 注入下发(无有效加时则收回) —
+   读时重注, 客户端整份回写(含僵尸标签页的旧缓存)永远冲不掉它; 家长改
+   此文件即时生效, 无需重启。日期格式与 daily-budget.js budgetDateStr
+   一致(年-月-日无前导零), 非今日不注入。 */
+const EXTRA_FILE = path.join(DATA_DIR, 'play-extra.json');
+function todayStr(){
+  const d = new Date();
+  return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+}
+function applyPlayExtra(id, data){
+  const g = readJSON(EXTRA_FILE, {})[id];
+  if(g && typeof g === 'object' && g.date === todayStr()
+     && typeof g.ms === 'number' && Number.isFinite(g.ms) && g.ms > 0){
+    data.play_extra_save = JSON.stringify(g);
+  }else{
+    delete data.play_extra_save;              // 无有效加时 → 客户端塞的值不保真
+  }
+}
 const MIME = {
   '.html': 'text/html; charset=utf-8',
   '.css':  'text/css; charset=utf-8',
@@ -65,9 +86,10 @@ http.createServer((req, res)=>{
     if(!id){ const devices = readJSON(DEVICES_FILE, {}); id = devices[clientIP]; }
     if(!safeId(id)){ res.writeHead(403); return res.end('bad id'); }
     if(req.method === 'GET'){
-      const data = readJSON(progFile(id), null);
+      const data = readJSON(progFile(id), null) || {};
+      applyPlayExtra(id, data);                       // 家长加时: 服务器权威注入(读时重注)
       res.writeHead(200, {'Content-Type':'application/json', 'Cache-Control':'no-store'});
-      return res.end(JSON.stringify(data || {}));
+      return res.end(JSON.stringify(data));
     }
     if(req.method === 'POST'){
       let body = '', dead = false;

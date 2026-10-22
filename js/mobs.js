@@ -13,6 +13,8 @@
    模式可写引擎字段的白名单(除此之外引擎字段对模式只读):
    · tintBase    持久色(狂暴红晕, 本模块 update 每帧消费)
    · labelScale  名牌整体放大(本模块 update 每帧套用)
+   · attackCd / attackT / target  战斗节拍与索敌(引擎 spawn 置零/置空,
+     模式读写 — 曾有模式漏初始化 attackCd 致怪物永不攻击, 初始化已收归引擎)
    · pose 等关节角 经 gait() 写入(战斗覆盖在其返回值之上叠加)
    · 瞬时效果一律走意图 API: pulseTint(引信白闪) / stagger(硬直) /
      scaleTo(引信膨胀·阶级放大) — 不直写 tr/tg/tb/staggerT/drawScale,
@@ -544,6 +546,10 @@ const Mobs = (() => {
       : { x, y: y0, z },
       yaw: opts.yaw || 0,
       hp:cfg.hp, maxHp:cfg.hp, dead:false, deadT:0, gone:false,
+      /* 战斗节拍(攻击冷却/挥击动画计时/索敌目标): 引擎初始化, 模式可写可读 —
+         下界模式曾因模式层漏初始化 attackCd(undefined<=0 恒 false)导致怪物
+         永不攻击且零报错, 故收归引擎置零 */
+      attackCd:0, attackT:0, target:null,
       flashT:0, staggerT:0,
       walkPhase:Math.random()*6, speedNow:0, flyPhase:Math.random()*6, flyHome:y0,
       wander: opts.wander || null,                   // 游荡配置(栅栏), 无则站立/由模式驱动

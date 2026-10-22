@@ -102,6 +102,29 @@ test('flush 落账, 重开页面(新实例)从存储恢复当日账', () => {
   assert.strictEqual(b2.focus.spentMs(), 45000);
 });
 
+/* ============ 家长加时 (play_extra_save, 单设备当日有效) ============ */
+
+test('readExtraMs: 当日加时如实读出(字符串/对象), 过期·损坏·非正数记 0', () => {
+  assert.strictEqual(D.readExtraMs(JSON.stringify({ date: '2030-5-19', ms: 10*3600000 }), '2030-5-19'), 10*3600000);
+  assert.strictEqual(D.readExtraMs({ date: '2030-5-19', ms: 10*3600000 }, '2030-5-19'), 10*3600000);   // 容错: 缓存里已是对象
+  assert.strictEqual(D.readExtraMs(JSON.stringify({ date: '2030-5-18', ms: 10*3600000 }), '2030-5-19'), 0);   // 昨日加时已失效
+  assert.strictEqual(D.readExtraMs('not-json{{{', '2030-5-19'), 0);
+  assert.strictEqual(D.readExtraMs(null, '2030-5-19'), 0);
+  assert.strictEqual(D.readExtraMs(JSON.stringify({ date: '2030-5-19', ms: -1 }), '2030-5-19'), 0);
+});
+
+test('加时只抬当日 capMs, 跨午夜自动回落默认限额', () => {
+  const clk = mkClock(at(2030, 5, 19, 23, 59));
+  const st = mkStorage({ play_extra_save: JSON.stringify({ date: '2030-5-19', ms: 10*3600000 }) });
+  const b = D.mkDailyBudgets({ now: clk.now, storage: st, defs: {
+    play: { capMsFor: d => 10*60000 + D.readExtraMs(st.get('play_extra_save'), d) },   // 与 main.js setupBudgets 同款接线
+  }});
+  assert.strictEqual(b.play.capMs(), 10*60000 + 10*3600000);        // 当日: 默认 10 分钟 + 加时 10 小时
+  assert.strictEqual(b.play.blocked(), false);
+  clk.set(at(2030, 5, 20, 0));
+  assert.strictEqual(b.play.capMs(), 10*60000);                     // 次日: 加时失效, 回落默认
+});
+
 /* ============ 迁移 (用户进度零丢失) ============ */
 
 test('迁移-当日: 旧机制A/B 的当日账搬入新 key, 旧 key 退役, focus 存档仅摘除 daily', () => {
