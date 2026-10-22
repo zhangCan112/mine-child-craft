@@ -7,14 +7,13 @@
 /* ---------- 噪声哈希与世界数据已移至 js/voxel.js (体素模型) ---------- */
 
 /* ---------- Three.js 场景 ---------- */
-/* 触屏(pad)策略: 高 DPI 下 MSAA 对像素风画面几乎无感, 关掉省一大块填充率;
-   high-performance 提示移动 GPU 拉满时钟(默认不指定偏保守)。
-   触屏检测口径统一在 config.js 的 IS_TOUCH */
-const renderer = new THREE.WebGLRenderer({
-  antialias: !IS_TOUCH,
-  powerPreference: 'high-performance'
-});
-renderer.setPixelRatio(Math.min(devicePixelRatio, IS_TOUCH ? 1.5 : 2));   // 触屏设备限 1.5 省性能
+/* 抗锯齿策略: 体素世界的锯齿主源是远处方块轮廓与细线高亮框的高对比几何
+   边缘, MSAA 恰好只平滑几何边缘、不糊像素观感, 对本画风收益最大 —
+   全设备开启 (旧"触屏关 MSAA 省 1.5 填充率"假设对 2D 像素成立,
+   对 3D 透视几何不成立, 已由触屏 DPR 帧率自适应取代, 见 main.js)。
+   high-performance 提示移动 GPU 拉满时钟(默认不指定偏保守)。 */
+const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));   // 初始拉满; 触屏按帧率证据自适应回落
 renderer.setSize(innerWidth, innerHeight);
 document.getElementById('app').appendChild(renderer.domElement);
 
@@ -66,10 +65,13 @@ const blockMat = new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.Fr
 const glassMat = new THREE.MeshLambertMaterial({vertexColors:true, side:THREE.DoubleSide,
   transparent:true, opacity:0.32, depthWrite:false});
 
-/* TNT 贴图图集: 上/下/侧 三格竖排, 像素风 */
+/* TNT 贴图图集: 缓冲垫/顶/底/侧 四格竖排, 像素风。
+   高度取 2 的幂(256): WebGL1 下 NPOT 纹理不能生成 mipmap; 第 0 格画满
+   侧格底色, 远处 mipmap 混采样时贴图边界不串色 */
+const TNT_TILES = 4;   // 图集竖排格数(含 0 号缓冲垫): 画布高/tileV 编号/UV 除数三处共用
 function makeTntTexture(){
   const c = document.createElement('canvas');
-  c.width = 64; c.height = 192;
+  c.width = 64; c.height = 64*TNT_TILES;
   const g = c.getContext('2d');
   const red = '#c33a24', dark = '#8f2313';
   const speckle = (x0,y0)=>{                       // 红底像素噪点
@@ -97,9 +99,11 @@ function makeTntTexture(){
   g.fillStyle = '#111';
   g.font = 'bold 18px monospace'; g.textAlign = 'center'; g.textBaseline = 'middle';
   g.fillText('TNT', 32, 161);
-  const tex = new THREE.CanvasTexture(c);
-  tex.magFilter = THREE.NearestFilter;
-  tex.minFilter = THREE.NearestFilter;
+  // 第 0 号格(末格): mipmap 缓冲垫, 画满侧格底色防远处混色
+  g.fillStyle = red; g.fillRect(0, 64*(TNT_TILES-1), 64, 64);  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter;              // 近处保持像素颗粒
+  tex.minFilter = THREE.NearestMipmapLinearFilter;  // 远处走 mipmap, 消高频闪烁
+  tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
   return tex;
 }
 const tntMat = new THREE.MeshLambertMaterial({map:makeTntTexture(), side:THREE.FrontSide});
@@ -178,13 +182,13 @@ function buildChunkGeometries(cx, cz){
             const nid = getBlock(nx,ny,nz);
             const nb = nid!==0 ? BLOCKS[nid] : null;
             if(nb && !nb.glass && !nb.thin) continue;
-            const tileV = face.dir[1]===1 ? 2 : (face.dir[1]===-1 ? 1 : 0);  // 顶/底/侧
+            const tileV = face.dir[1]===1 ? TNT_TILES-1 : (face.dir[1]===-1 ? TNT_TILES-2 : TNT_TILES-3);  // 顶/底/侧 (0 号格是 mipmap 缓冲垫)
             for(let c=0;c<4;c++){
               const cor = face.corners[c];
               T.positions.push(x+cor[0], y+cor[1], z+cor[2]);
               T.normals.push(face.dir[0], face.dir[1], face.dir[2]);
               const uv = faceUV(face.dir, cor);
-              T.uvs.push(uv[0], (tileV+uv[1])/3);
+              T.uvs.push(uv[0], (tileV+uv[1])/TNT_TILES);
             }
             T.indices.push(T.n, T.n+1, T.n+2, T.n+2, T.n+1, T.n+3);
             T.n += 4;
