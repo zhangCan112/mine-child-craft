@@ -75,15 +75,116 @@ const TANK = {
 /* 载具相机 (CameraRig.mount 用, 见 js/camera-rig.js) */
 const CAM_TANK = { dist: 6.5, lift: 1.6, eye: 1.8 };
 
+/* ---------- 坦克型号注册表 (TANK_MODELS, tank.js 建模 / tank-range 选车页用) ----------
+   每款: name 选车页名 · desc 一句话卖点 · perf 性能(键同 TANK, 缺键回落 TANK 基线,
+   由 TankCore 逐键解析) · muzzle 出膛点(f 车体系前伸 / y 离地高) ·
+   shell 炮弹观感(color 弹体 / glow 自发光 / size 缩放 / stretch 纵向拉伸 /
+   trail 曳光 / boom 爆风色)。可选: salvo 一次点射弹数(横向错位+散布),
+   homing 追踪转向速率(弧度/秒, "谁是敌人"由模式层经 Tank.targeter 注入)。
+   伤害统一走 TANK_VS_MOBS(对每款都公平, 差异只在开起来/看起来)。 */
+const TANK_MODELS = {
+  classic: {
+    key: 'classic', order: 1,               // order: 选车页排列序(老兵 → 快枪 → 重炮 → 猛将 → 科技 → 旗舰压轴)
+    name: '迷彩战车', desc: '均衡可靠的绿林老兵<br>样样都在行',
+    perf: { speed: 7.0, reverse: 3.5, accel: 6.0, turnRate: 1.9, reload: 1.25,
+            shellSpeed: 40, shellG: 4.0, shellLife: 5.0, shellR: 2.2 },
+    muzzle: { f: 1.9, y: 1.32 },
+    shell: { color: 0x23262b, glow: 0x000000, size: 1.0, trail: 0xffc36b, boom: 0xffd9a0 },
+  },
+  desert: {
+    key: 'desert', order: 2, name: '沙漠之鹰', desc: '跑得最快 · 装填最快的<br>黄沙速射猎手',
+    perf: { speed: 8.6, reverse: 4.2, accel: 7.5, turnRate: 2.2, reload: 0.9,
+            shellSpeed: 44, shellG: 4.0, shellLife: 5.0, shellR: 1.9 },
+    muzzle: { f: 2.3, y: 1.28 },
+    shell: { color: 0xd9b23c, glow: 0x6b5210, size: 0.9, trail: 0xffe9a0, boom: 0xffe2a8 },
+  },
+  frost: {
+    key: 'frost', order: 3, name: '极地冰狼', desc: '冰原重装巨兽 · 炮弹<br>威力圈特别大',
+    perf: { speed: 6.0, reverse: 3.0, accel: 5.0, turnRate: 1.6, reload: 1.6,
+            shellSpeed: 36, shellG: 4.5, shellLife: 5.0, shellR: 2.9 },
+    muzzle: { f: 1.9, y: 1.66 },
+    shell: { color: 0xbfe8ff, glow: 0x2e7fa8, size: 1.35, trail: 0xd8f4ff, boom: 0xcfeeff },
+  },
+  magma: {
+    key: 'magma', order: 4, name: '熔岩勇士', desc: '火山里开出来的黑甲猛将<br>会喷熔岩火球',
+    perf: { speed: 6.6, reverse: 3.2, accel: 5.5, turnRate: 1.8, reload: 1.45,
+            shellSpeed: 38, shellG: 4.0, shellLife: 5.0, shellR: 2.7 },
+    muzzle: { f: 2.05, y: 1.56 },
+    shell: { color: 0xff7a2a, glow: 0xbb3d00, size: 1.25, trail: 0xff9a4d, boom: 0xff8a3d },
+  },
+  thunder: {
+    key: 'thunder', order: 5, name: '雷霆战神', desc: '未来科技电光战神<br>闪电环炮 · 命中处天降落雷',
+    perf: { speed: 7.6, reverse: 3.8, accel: 7.0, turnRate: 2.4, reload: 0.8,
+            shellSpeed: 48, shellG: 2.6, shellLife: 5.0, shellR: 2.0 },
+    muzzle: { f: 2.25, y: 1.36 },
+    shell: { color: 0x66ecff, glow: 0x0e7f96, size: 1.1, trail: 0x9fe8ff, boom: 0x7deaff,
+             fx: 'lightning' },        // 闪电弹: 环形弹体 + 电弧曳光 + 命中落雷(tank.js/Fx 解读)
+  },
+  tingyu: {
+    key: 'tingyu', order: 6, name: '张廷彧号', desc: 'TNT 迷彩涂装 · 苦力怕车长<br>四联追踪导弹 · 爆炸小巧精准',
+    perf: { speed: 7.2, reverse: 3.6, accel: 6.5, turnRate: 2.1, reload: 1.9,
+            shellSpeed: 34, shellG: 1.2, shellLife: 6.0, shellR: 1.1 },
+    muzzle: { f: 1.35, y: 1.62 },
+    shell: { color: 0xe04838, glow: 0x7a1c10, size: 0.8, stretch: 1.7, trail: 0xffb040, boom: 0xffd9a0 },
+    salvo: 4,                            // 一次点射 4 枚(横向队列弹出, 各自散布)
+    homing: 3.4                          // 追踪转向速率(弧度/秒): 引擎只管转向, "谁是敌人"归模式层
+  },
+};
+
 /* ---------- 怪物数值表 (js/mobs.js 怪物库用; 竞技场与坦克演习场共用) ----------
+   数值按 Minecraft 原版等比映射(与初代五怪同口径):
+   hp≈原版生命×1.5 · dmg≈原版普通难度伤害×1.6 · speed≈原版移速属性×10
+   h/hitR≈原版碰撞箱(高/半宽) · power=竞技场配平战力(综合命中/射程/技能)
+   旗标: ranged 远程 · boom 自爆 · fly 飞行 · boss Boss级(不进混合编队池)
    特有技能(竞技场战斗 AI 解读): 僵尸=狂暴(半血加速+群体冲锋) 骷髅=强力箭(每3箭)
-   苦力怕=扑袭(跃进扑脸) 铁傀儡=震地(震慑+震落) 末影龙=龙息毒云 */
+   苦力怕=扑袭(跃进扑脸) 铁傀儡=震地(震慑+震落) 末影龙=龙息毒云
+   其余怪物复用旗标行为: ranged=放箭/爆裂火球(飞行炮台) fly=盘旋/俯冲(掠食者贴地掠袭) */
 const MOB_TYPES = {
+  /* —— 经典五怪 —— */
   zombie:  {name:'僵尸',   hp:30,  dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:170},
   skeleton:{name:'骷髅',   hp:26,  dmg:6,  speed:2.6, range:14,  cd:2.6, h:1.9, ranged:true, hitR:0.55, power:165},
   creeper: {name:'苦力怕', hp:28,  dmg:33, speed:3.1, range:2.0, cd:9,   h:1.7, boom:true, hitR:0.5, power:195},
   golem:   {name:'铁傀儡', hp:110, dmg:15, speed:2.0, range:3.0, cd:1.6, h:2.8, hitR:1.0, power:1000},
-  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, power:2000},
+  dragon:  {name:'末影龙', hp:300, dmg:7,  speed:4.4, range:17,  cd:4.5, h:3.0, fly:true, hitR:2.2, power:2000, boss:true},
+  /* —— 主世界杂兵(生命8~26: 蜘蛛16 洞穴蜘蛛12 蠹虫8 末影螨8 史莱姆16
+     末影人40 女巫26 尸壳20 溺尸20 流浪者20 沼骸16 幻翼20 恼鬼14 嘎枝20) —— */
+  spider:      {name:'蜘蛛',     hp:24, dmg:3,  speed:3.0, range:2.2, cd:1.2, h:0.9, hitR:0.65, power:110},
+  cave_spider: {name:'洞穴蜘蛛', hp:18, dmg:3,  speed:3.0, range:2.0, cd:1.1, h:0.5, hitR:0.35, power:85},
+  silverfish:  {name:'蠹虫',     hp:12, dmg:2,  speed:2.6, range:1.6, cd:0.9, h:0.35, hitR:0.25, power:40},
+  endermite:   {name:'末影螨',   hp:12, dmg:3,  speed:2.6, range:1.6, cd:1.0, h:0.35, hitR:0.25, power:55},
+  slime:       {name:'史莱姆',   hp:24, dmg:6,  speed:2.0, range:2.2, cd:1.4, h:2.0, hitR:0.55, power:130},
+  enderman:    {name:'末影人',   hp:60, dmg:11, speed:3.0, range:2.6, cd:1.2, h:2.9, hitR:0.35, power:480},
+  witch:       {name:'女巫',     hp:39, dmg:9,  speed:2.5, range:14,  cd:3.0, h:2.0, ranged:true, hitR:0.45, power:300},
+  husk:        {name:'尸壳',     hp:30, dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:160},
+  drowned:     {name:'溺尸',     hp:30, dmg:5,  speed:2.3, range:2.1, cd:1.1, h:1.9, hitR:0.55, power:160},
+  stray:       {name:'流浪者',   hp:30, dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55, power:170},
+  bogged:      {name:'沼骸',     hp:24, dmg:6,  speed:2.5, range:14,  cd:2.8, h:1.9, ranged:true, hitR:0.55, power:150},
+  phantom:     {name:'幻翼',     hp:30, dmg:6,  speed:3.5, range:3.5, cd:1.3, h:0.6, fly:true, hitR:0.45, power:190},
+  vex:         {name:'恼鬼',     hp:21, dmg:8,  speed:3.4, range:3.0, cd:1.0, h:0.8, fly:true, hitR:0.25, power:260},
+  creaking:    {name:'嘎枝',     hp:30, dmg:5,  speed:3.0, range:2.2, cd:1.1, h:1.7, hitR:0.5, power:200},
+  /* —— 下界(僵尸猪灵20 猪灵16 蛮兵50 疣猪兽40 凋灵骷髅20 烈焰人20 恶魂10 岩浆怪16) —— */
+  zombified_piglin:{name:'僵尸猪灵', hp:30, dmg:8,  speed:2.3, range:2.2, cd:1.1, h:1.9, hitR:0.55, power:230},
+  piglin:          {name:'猪灵',     hp:24, dmg:8,  speed:2.7, range:2.2, cd:1.1, h:1.9, hitR:0.55, power:200},
+  piglin_brute:    {name:'猪灵蛮兵', hp:75, dmg:20, speed:2.6, range:2.4, cd:1.3, h:2.0, hitR:0.6, power:950},
+  hoglin:          {name:'疣猪兽',   hp:60, dmg:9,  speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7, power:420},
+  zoglin:          {name:'僵尸疣猪兽',hp:60, dmg:9, speed:2.8, range:2.6, cd:1.5, h:1.4, hitR:0.7, power:430},
+  wither_skeleton: {name:'凋灵骷髅', hp:30, dmg:13, speed:2.5, range:2.4, cd:1.3, h:2.4, hitR:0.6, power:350},
+  blaze:           {name:'烈焰人',   hp:30, dmg:8,  speed:2.3, range:15,  cd:2.4, h:1.8, fly:true, ranged:true, hitR:0.45, power:280},
+  ghast:           {name:'恶魂',     hp:15, dmg:14, speed:3.2, range:16,  cd:3.4, h:3.4, fly:true, ranged:true, hitR:1.8, power:320},
+  magma_cube:      {name:'岩浆怪',   hp:24, dmg:9,  speed:2.1, range:2.2, cd:1.5, h:2.0, hitR:0.55, power:190},
+  /* —— 海洋与末地(守卫者30 远古守卫者80 潜影贝30) —— */
+  guardian:       {name:'守卫者',     hp:45, dmg:8,  speed:2.0, range:13, cd:2.8, h:0.9, ranged:true, hitR:0.6, power:330},
+  elder_guardian: {name:'远古守卫者', hp:120, dmg:13, speed:1.9, range:15, cd:3.2, h:2.0, ranged:true, hitR:1.0, power:1000, boss:true},
+  shulker:        {name:'潜影贝',     hp:45, dmg:6,  speed:0.3, range:15, cd:3.0, h:1.0, ranged:true, hitR:0.5, power:200},
+  /* —— 灾厄村民(卫道士24 唤魔者24 掠夺者24 劫掠兽100) —— */
+  vindicator:{name:'卫道士', hp:36, dmg:20, speed:2.9, range:2.2, cd:1.2, h:1.9, hitR:0.55, power:560},
+  evoker:    {name:'唤魔者', hp:36, dmg:9,  speed:2.2, range:13,  cd:3.0, h:1.9, ranged:true, hitR:0.55, power:300},
+  pillager:  {name:'掠夺者', hp:36, dmg:6,  speed:2.4, range:14,  cd:2.7, h:1.9, ranged:true, hitR:0.55, power:210},
+  ravager:   {name:'劫掠兽', hp:150, dmg:18, speed:2.7, range:2.8, cd:1.6, h:2.2, hitR:1.0, power:1150},
+  /* —— Boss(凋灵300 监守者500, 原版最强近战) —— */
+  wither: {name:'凋灵',   hp:450, dmg:13, speed:3.8, range:15, cd:2.2, h:3.5, fly:true, ranged:true, hitR:0.9, power:3000, boss:true},
+  warden: {name:'监守者', hp:750, dmg:45, speed:2.7, range:3.2, cd:1.8, h:2.9, hitR:0.9, power:4800, boss:true},
+  /* —— 伪类型: 竞技场混合编队按钮(种类池在 modes/arena.js 动态生成) —— */
   mix:     {name:'混合编队', hp:0, dmg:0, speed:0, range:0, cd:0, h:2, power:0}
 };
 

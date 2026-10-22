@@ -57,7 +57,9 @@ function spawnPlayer(){
 
 /* ---------- 怪物类型 ----------
    数值表 MOB_TYPES 在 config.js(怪物库 js/mobs.js 与竞技场/演习场共用) */
-const MIX_POOL = ['zombie','skeleton','creeper','golem','dragon'];
+/* 混合编队池: 全部常规怪(Boss 与飞行单位除外 — 混编要贴脸互殴才热闹) */
+const MIX_POOL = Object.keys(MOB_TYPES).filter(k =>
+  k!=='mix' && !MOB_TYPES[k].boss && !MOB_TYPES[k].fly);
 MOB_TYPES.mix.power = Math.round(MIX_POOL.reduce((s,k)=>s+MOB_TYPES[k].power,0) / MIX_POOL.length);
 
 /* ---------- 升级系统 ----------
@@ -66,7 +68,14 @@ MOB_TYPES.mix.power = Math.round(MIX_POOL.reduce((s,k)=>s+MOB_TYPES[k].power,0) 
    阈值随敌方初始数量缩放(25%/60%), 封顶 6/14 杀 */
 const TIER_MULT = {2:{hp:1.6, dmg:1.4, spd:1.1}, 3:{hp:2.5, dmg:2.0, spd:1.2}};
 const TIER_NAME = {2:'精英', 3:'王者'};
-const COUNTER = {zombie:'skeleton', skeleton:'creeper', creeper:'golem', golem:'zombie'};  // A克B(龙另行特判)
+/* 克制关系(索敌偏好: 优先进攻自己克制的对手, 回避克制自己的)。龙另行特判 */
+const COUNTER = {
+  zombie:'skeleton', skeleton:'creeper', creeper:'golem', golem:'zombie',   // 经典环
+  enderman:'skeleton',                 // 末影人瞬移闪箭, 专猎弓手
+  blaze:'stray', stray:'magma_cube',   // 火克冰, 冰克熔岩
+  breeze:'skeleton',                   // 旋风吹偏箭矢
+  warden:'ravager',                    // 监守者的蛮力无视巨兽冲撞
+};
 let teamInitHp = {A:1, B:1};          // 劣势加成基准(开战时总HP)
 const pendingBooms = [];              // 王者苦力怕·连环爆破二段
 const beams = [];                     // 升级光柱
@@ -205,6 +214,8 @@ function throwRock(m, tg){
 }
 function rockBlast(a, p){
   Fx.boom(p.x, p.y, p.z, {r1: a.aoe, n: 6});
+  if(a.fire)                                                // 火球爆心加橙红闪光
+    Fx.pop(p.x, p.y+0.4, p.z, {color:0xff8a3c, r0:0.5, r1: a.aoe+1.2, dur:0.3, opacity:0.85});
   Fx.kick(0.3);
   for(const t of mobs){
     if(t.dead || t.gone || t.team===a.team) continue;
@@ -215,6 +226,25 @@ function rockBlast(a, p){
       t.staggerT = Math.max(t.staggerT, 0.4);
     }
   }
+}
+
+/* 飞行炮台通用·爆裂火球(恶魂/凋灵/烈焰人/旋风人): 抛物线 + 落点AoE(走 arrows 管线) */
+const fireballGeo = new THREE.BoxGeometry(0.42,0.42,0.42);
+const fireballMat = new THREE.MeshBasicMaterial({color:0xff9a3c});
+function throwFireball(m, tg){
+  sfx('shoot');
+  const v0 = 17;
+  const from = new THREE.Vector3(m.pos.x, m.pos.y + m.cfg.h*0.55, m.pos.z);
+  let t = tg.pos.distanceTo(from)/v0;
+  const tx = tg.pos.x + (tg.vx||0)*t, tz = tg.pos.z + (tg.vz||0)*t;
+  t = Math.hypot(tx-from.x, tz-from.z)/v0;
+  const lift = 0.5*6*t*t;                                    // 火球重力更轻, 弹道更飘
+  const dir = new THREE.Vector3(tx, tg.pos.y + tg.cfg.h*0.5 + lift, tz).sub(from).normalize();
+  const mesh = new THREE.Mesh(fireballGeo, fireballMat);
+  mesh.position.copy(from);
+  scene.add(mesh);
+  arrows.push({mesh, vel:dir.multiplyScalar(v0), life:2.5, team:m.team,
+    dmg: Math.round(m.cfg.dmg*m.dmgMult), kpow:1.0, aoe:2.2, fire:true, g:6, owner:m});
 }
 
 function golemSlam(m){
@@ -546,11 +576,12 @@ function updateMobs(dt){
             sfx('hit');
           }
         } else {
-          // 对地:绕目标盘旋 + 喷吐龙息
+          // 对地:炮台远环盘旋放风筝 / 掠食者贴地近环, 按类型出手
           m.orbitA += dt*0.8;
-          const px = tg.pos.x + Math.sin(m.orbitA)*9;
-          const pz = tg.pos.z + Math.cos(m.orbitA)*9;
-          const py = ARENA.floorY + ARENA.flyAlt;
+          const orbR = m.cfg.ranged ? 9 : 2.4;                     // 炮台远环 · 掠食者贴脸
+          const px = tg.pos.x + Math.sin(m.orbitA)*orbR;
+          const pz = tg.pos.z + Math.cos(m.orbitA)*orbR;
+          const py = ARENA.floorY + (m.cfg.ranged ? ARENA.flyAlt : 2.2);   // 掠食者低飞掠袭
           const mx = px-gp.x, mz = pz-gp.z;
           const ml = Math.hypot(mx,mz);
           m.yaw = angleLerp(m.yaw, Math.atan2(mx,mz), dt*2.5);
@@ -561,9 +592,21 @@ function updateMobs(dt){
           }
           gp.y += (py-gp.y)*Math.min(1, dt*1.5);
           if(m.attackCd <= 0 && dist < m.cfg.range){
-            m.attackCd = (m.level>=2?3.5:4.5) + Math.random()*2;   // 精英:龙息更频繁
-            m.attackT = 0.6;
-            spawnBreath(m, tg);
+            if(m.type==='dragon'){                                  // 末影龙:龙息毒云
+              m.attackCd = (m.level>=2?3.5:4.5) + Math.random()*2;   // 精英:龙息更频繁
+              m.attackT = 0.6;
+              spawnBreath(m, tg);
+            } else if(m.cfg.ranged){                                // 飞行炮台:爆裂火球
+              m.attackCd = m.cfg.cd + Math.random()*1.2;
+              m.attackT = 0.5;
+              throwFireball(m, tg);
+            } else {                                                // 掠食者(幻翼/恼鬼):俯冲撕咬
+              m.attackCd = m.cfg.cd;
+              m.attackT = 0.4;
+              damageMob(tg, Math.round(m.cfg.dmg*m.dmgMult*(0.85+Math.random()*0.3)),
+                        tg.pos.x-gp.x, tg.pos.z-gp.z, 0.6, m);
+              sfx('hit');
+            }
           }
         }
         const cdx = gp.x-ARENA.cx, cdz = gp.z-ARENA.cz;
@@ -711,6 +754,12 @@ function updateMobs(dt){
     /* 关节角写入数值状态(无 THREE 节点), 怪物库 render 统一组实例矩阵 */
     const J = m.pose;
     if(Mobs.hasSlot(m.type,'legL')){ J.legL =  sw; J.legR = -sw; }
+    if(Mobs.hasSlot(m.type,'wingL')){               // 通用飞行扇翅(末影龙/幻翼/恼鬼)
+      m.flyPhase += dt*6;
+      const wf = Math.sin(m.flyPhase)*0.5;
+      J.wingL =  wf + 0.15;
+      J.wingR = -(wf + 0.15);
+    }
     if(m.type==='zombie'){
       J.armL = -1.45;
       J.armR = m.attackT>0
@@ -719,10 +768,6 @@ function updateMobs(dt){
       J.armL = -0.15 + sw*0.3;
       J.armR = m.attackT>0 ? -1.3 : -sw*0.5;
     } else if(m.type==='dragon'){
-      m.flyPhase += dt*6;
-      const wf = Math.sin(m.flyPhase)*0.5;
-      J.wingL =  wf + 0.15;
-      J.wingR = -(wf + 0.15);
       J.head = m.attackT>0 ? -0.55 : Math.sin(m.flyPhase*0.35)*0.1;
     } else if(m.type==='creeper'){
       J.head = m.attackT>0 ? -0.55 : 0;             // 吐舌时头部前扑
@@ -730,6 +775,10 @@ function updateMobs(dt){
       J.armL = -sw*0.5;
       J.armR = m.attackT>0
         ? -Math.sin((1-m.attackT/0.45)*Math.PI)*2.1 : sw*0.5;
+    } else if(Mobs.hasSlot(m.type,'armL')){         // 通用: 摆臂+攻击挥臂(持械人形/守卫者侧刺/凋灵肩头)
+      J.armL = -sw*0.5;
+      J.armR = m.attackT>0
+        ? -Math.sin((1-m.attackT/0.45)*Math.PI)*1.9 : sw*0.5;
     }
     if(m.air && m.type==='golem'){
       J.armL = -2.4;                               // 跃起时双臂高举
@@ -779,7 +828,7 @@ function updateMobs(dt){
 function updateArrows(dt){
   for(let i=arrows.length-1;i>=0;i--){
     const a = arrows[i];
-    a.vel.y -= 9.5*dt;
+    a.vel.y -= (a.g || 9.5)*dt;                      // 逐弹重力(箭9.5 · 火球6)
     a.mesh.position.addScaledVector(a.vel, dt);
     const p = a.mesh.position;
     a.mesh.lookAt(p.x+a.vel.x, p.y+a.vel.y, p.z+a.vel.z);
@@ -1010,7 +1059,7 @@ function buildPanel(){
     for(const [k,v] of Object.entries(MOB_TYPES)){
       const b = document.createElement('button');
       b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${v.name}`;
-      b.title = '战力 ' + v.power;
+      b.title = '战力 ' + v.power + (v.boss ? ' · Boss' : '');
       b.dataset.type = k;
       b.addEventListener('click', ()=>{
         const cfg = el.dataset.team==='A' ? cfgA : cfgB;

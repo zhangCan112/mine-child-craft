@@ -40,10 +40,10 @@ const spoken = [];
 let touchList = null;
 
 globalThis.Tank = {
-  place(){ calls.push(['place']); },
+  place(x, y, z, o){ calls.push(['place', x, y, z, o]); },
   toggle(){ calls.push(['toggle']); return tankState.toggleResult; },
   driving(){ return tankState.driving; },
-  nearby(){ return tankState.near; },
+  nearby(){ return tankState.near === null ? null : { d: tankState.near, name: '迷彩战车' }; },
   exitAll(){ calls.push(['exitAll']); },
   clear(){ calls.push(['clear']); },
   fire(){ calls.push(['fire']); return tankState.fireResult || 'fired'; },
@@ -51,7 +51,16 @@ globalThis.Tank = {
   onExplode(cb){ explodeCb = cb; },          /* 模式注册爆炸回调(命中反馈) */
   protect(fn){ protectFn = fn; },            /* 模式注册爆炸保护谓词(地面政策) */
   obstacle(fn){ obstacleFn = fn; },          /* 模式注册炮弹障碍谓词(怪物身体挡炮弹) */
+  targeter(fn){ targeterFn = fn; },          /* 模式注册索敌钩子(追踪导弹的"敌人是谁") */
+  icon(){ return 'data:tank'; },             /* 型号像素图标(选坦克页卡片) */
 };
+let targeterFn = null;
+/* 坦克型号注册表替身(config 的 TANK_MODELS): 两款足够测选车与切换 */
+globalThis.TANK_MODELS = {
+  classic: { key: 'classic', name: '迷彩战车', desc: '老兵', perf: { speed: 7 }, muzzle: { f: 1.9, y: 1.32 }, shell: {} },
+  thunder: { key: 'thunder', name: '雷霆战神', desc: '电光', perf: { speed: 7.6 }, muzzle: { f: 2.25, y: 1.36 }, shell: {} },
+};
+globalThis.clearWorld = () => { calls.push(['clearWorld']); };   /* 换车型重建兜底 */
 let explodeCb = null, protectFn = null, obstacleFn = null;
 globalThis.SceneKit = { fill(){ calls.push(['fill']); }, tree(){}, rand: () => 0 };
 globalThis.SpeechKit = { speak(s){ spoken.push(s); }, cancel(){} };
@@ -69,7 +78,8 @@ let listResult = [];
 let nextHit = { hp: 10, dead: false, freshDead: false };
 const hitLog = [];
 globalThis.Mobs = {
-  types: { zombie:{name:'僵尸'}, skeleton:{name:'骷髅'}, creeper:{name:'苦力怕'}, golem:{name:'铁傀儡'}, dragon:{name:'末影龙'} },
+  types: { zombie:{name:'僵尸'}, skeleton:{name:'骷髅'}, creeper:{name:'苦力怕'}, golem:{name:'铁傀儡'}, dragon:{name:'末影龙'}, husk:{name:'尸壳'}, mix:{name:'混合编队'} },
+  /* ↑ fake 注册表多放一种新怪 + mix 伪类型: 选怪清单应动态全取并排除 mix */
   spawn(type, x, z, opts){ mobsState.spawned.push({ type, x, z, opts }); return { type, pos:{ x, y: 13, z } }; },
   update(){}, render(){},
   hit(m, dmg){ hitLog.push({ m, dmg }); return nextHit; },
@@ -232,12 +242,12 @@ test('共享怪物: init 按默认配置一次性部署(僵尸×6, 带游荡栅�
   assert.ok(mobsState.spawned.every(s => s.type === 'zombie'), '默认僵尸');
   assert.ok(mobsState.spawned.every(s => s.opts && s.opts.wander && s.opts.wander.x0 === 18), '带游荡栅栏(怪物库游荡本能)');
   assert.ok(mobsState.spawned.every(s => Math.hypot(s.x - 56, s.z - 94) >= 12), '不刷在坦克脸上');
-  assert.strictEqual(elCache['pkMobBtns'].children.length, 5, '选怪面板 5 个怪种按钮(自有 pk* 类, 不复用竞技场 .mobBtns → 不会被竞技场 buildPanel 注入翻倍)');
+  assert.strictEqual(elCache['pkMobBtns'].children.length, 6, '选怪面板动态生成全部怪种按钮(fake 6 种, mix 伪类型排除; 自有 pk* 类, 不复用竞技场 .mobBtns → 不会被竞技场 buildPanel 注入翻倍)');
   const before = mobsState.cleared;
   TankRangeMode.cleanup();
   assert.ok(mobsState.cleared > before, 'cleanup 清掉怪物');
   TankRangeMode.init();                                       /* 重复进场 */
-  assert.strictEqual(elCache['pkMobBtns'].children.length, 5, '重复进场不重复放按钮(幂等)');
+  assert.strictEqual(elCache['pkMobBtns'].children.length, 6, '重复进场不重复放按钮(幂等)');
 });
 
 test('R 键重部署: 清掉当前批, 按当前配置再来一批(无波次自动刷新)', () => {
@@ -341,4 +351,98 @@ test('HUD: 驾驶中报剩余怪物数(怪物库 list 只读视图)', () => {
   fakeClock += 200; TankRangeMode.updateHud(null);
   assert.ok(hudEl.innerHTML.indexOf('剩 3') >= 0, 'HUD 剩余数: ' + hudEl.innerHTML);
   listResult = [];
+});
+
+/* ============ 三期: 进场前选坦克型号(TANK_MODELS 注册表) ============ */
+
+test('进场放当前型号: init 以 selModel(默认迷彩战车)放置, 重建走 clearWorld 兜底', () => {
+  calls.length = 0;
+  TankRangeMode.init();
+  const p = calls.find(c => c[0] === 'place');
+  assert.ok(p, 'init 放置坦克');
+  assert.strictEqual(p[4] && p[4].model, 'classic', '默认型号 classic: ' + JSON.stringify(p[4]));
+  assert.ok(has('clearWorld'), '进场重建幂等兜底 clearWorld');
+});
+
+test('出发配置页: 坦克卡按 order 排序, 点卡只改选择不重建, 出发才进场', () => {
+  const grid = elCache['tankPick'];
+  grid.children.length = 0;
+  TankRangeMode.buildMenu();                    /* 与 main.js 同入口(main 的 buildMenu 钩子) */
+  assert.strictEqual(grid.children.length, 2, '每个型号一张卡: ' + grid.children.length);
+  assert.ok(grid.children.every(c => c.dataset.model), '卡片带 data-model');
+  const card = grid.children.find(c => c.dataset.model === 'thunder');
+  assert.ok(card && !card._cls.has('active'), '当前是迷彩战车, 雷霆卡未高亮');
+  calls.length = 0; spoken.length = 0;
+  card.onclick();                               /* 点卡 = 只选不进场 */
+  assert.ok(!has('clearWorld'), '点卡不重建');
+  assert.ok(!has('place'), '点卡不放置');
+  assert.ok(!has('lock'), '点卡不进战场');
+  assert.ok(calls.some(c => c[0] === 'toast' && String(c[1]).indexOf('雷霆战神') >= 0), '选中有提示: ' + JSON.stringify(calls));
+  const last = [...grid.children].reverse().find(c => c.dataset.model === 'thunder');
+  assert.ok(last._cls.has('active'), '选后雷霆战神卡高亮(重绘取最后一张)');
+  /* 出发: 换了型号 → 重建演习场放置雷霆战神 + 回战场 */
+  elCache['tankGoBtn'].onclick();
+  assert.ok(has('lock'), '出发回战场');
+  const p = calls.filter(c => c[0] === 'place').pop();
+  assert.strictEqual(p[4].model, 'thunder', '换型号后放置雷霆战神');
+  assert.ok(has('clearWorld'), '换车重建演习场');
+});
+
+test('出发配置页: 怪物一行 5 卡与 👾 面板共用 mobCfg, 选完出发部署该怪', () => {
+  const mrow = elCache['tankMobPick'];
+  mrow.children.length = 0;
+  TankRangeMode.buildMenu();
+  assert.strictEqual(mrow.children.length, 5 + 1, '怪物一行动态生成全部怪种卡(fake 6 种, mix 排除)');
+  const sk = mrow.children.find(c => c.dataset.mob === 'skeleton');
+  assert.ok(sk && !sk._cls.has('active'), '默认僵尸, 骷髅卡未高亮');
+  mobsState.spawned.length = 0;
+  sk.onclick();                                 /* 选骷髅 */
+  const sk2 = [...mrow.children].reverse().find(c => c.dataset.mob === 'skeleton');
+  assert.ok(sk2._cls.has('active'), '选后骷髅卡高亮');
+  calls.length = 0;
+  elCache['tankGoBtn'].onclick();               /* 出发: 怪种变了 → 重建并部署骷髅 */
+  assert.ok(has('clearWorld'), '怪种变化也重建');
+  assert.ok(mobsState.spawned.length > 0 && mobsState.spawned.every(s => s.type === 'skeleton'),
+    '出发部署的是骷髅: ' + mobsState.spawned.map(s => s.type).join(','));
+  assert.ok(has('lock'), '出发回战场');
+});
+
+test('出发不折腾: 选择没变直接回战场, 不重建(进度不丢)', () => {
+  calls.length = 0;
+  elCache['tankGoBtn'].onclick();               /* selModel/怪种与场上一致 */
+  assert.ok(!has('clearWorld'), '没变不重建');
+  assert.ok(!has('place'), '没变不放置');
+  assert.ok(has('lock'), '仍直接回战场');
+});
+
+test('HUD/话术带型号名: 驾驶中显示当前型号, 上车语音报名字', () => {
+  const hudEl = elCache['hud'];
+  tankState.driving = true; tankState.near = 0.4;
+  fakeClock += 200; TankRangeMode.updateHud(null);
+  assert.ok(hudEl.innerHTML.indexOf('雷霆战神') >= 0, 'HUD 带型号名: ' + hudEl.innerHTML);
+  tankState.driving = false;
+  spoken.length = 0;
+  tankState.toggleResult = 'entered';
+  TankRangeMode.onKey('KeyE');
+  assert.ok(spoken.some(s => s.indexOf('雷霆战神') >= 0 && s.indexOf('开坦克') >= 0),
+    '上车语音报型号名: ' + spoken.join('/'));
+});
+
+/* ============ 四期: 张廷彧号追踪导弹(索敌政策归模式层) ============ */
+
+test('导弹索敌: init 注册 Tank.targeter, 最近活怪身体中心, 跳过死怪, 无敌直飞', () => {
+  targeterFn = null;
+  TankRangeMode.init();
+  assert.strictEqual(typeof targeterFn, 'function', '模式在 init 注册索敌钩子');
+  listResult = [
+    { type: 'zombie', dead: true,  gone: false, pos: { x: 64, y: 13, z: 55 }, cfg: { h: 1.9 } },   /* 死怪不算 */
+    { type: 'zombie', dead: false, gone: false, pos: { x: 64, y: 13, z: 64 }, cfg: { h: 1.9 } },   /* 稍远 */
+    { type: 'golem',  dead: false, gone: false, pos: { x: 64, y: 13, z: 54 }, cfg: { h: 2.8 } },   /* 最近 */
+  ];
+  const t = targeterFn(64, 13, 56);
+  assert.ok(t, '有目标');
+  assert.strictEqual(t.z, 54, '取最近的活怪(铁傀儡)');
+  assert.ok(t.y > 13 && t.y < 14.5, '瞄准身体中部(脚底 y+身高一半): ' + t.y);
+  listResult = [];
+  assert.strictEqual(targeterFn(64, 13, 56), null, '场上无敌 → null(导弹直飞不拐弯)');
 });

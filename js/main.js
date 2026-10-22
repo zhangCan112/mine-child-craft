@@ -20,6 +20,7 @@ const pages = {
   arena: document.getElementById('menuArena'),
   tnt:   document.getElementById('menuTnt'),
   build: document.getElementById('menuBuild'),
+  tank:  document.getElementById('menuTank'),
   win:   document.getElementById('menuWin'),
   playTime: document.getElementById('menuPlayTime')
 };
@@ -156,14 +157,16 @@ function buildMenu(){
     showPage('build');
     if(MODES.cur.buildMenu) MODES.cur.buildMenu();
   };
-  document.getElementById('cardTank').onclick = ()=>{    // 坦克演习场: 点卡直进(最少步, 适合孩子)
+  document.getElementById('cardTank').onclick = ()=>{    // 坦克演习场: 先挑型号再进场(五款酷炫坦克)
     if(playBlocked()){ showPlayTimeoutPage(); return; }
     if(curModeId !== 'tank') switchMode('tank');
-    requestLock();
+    showPage('tank');
+    if(MODES.cur.buildMenu) MODES.cur.buildMenu();
   };
   document.getElementById('arenaBackBtn').onclick = ()=> showPage('main');
   document.getElementById('tntBackBtn').onclick   = ()=> showPage('main');
   document.getElementById('buildBackBtn').onclick = ()=> showPage('main');
+  document.getElementById('tankBackBtn').onclick  = ()=> showPage('main');
   document.getElementById('playTimeHomeBtn').onclick = ()=> showPage('main');
 }
 

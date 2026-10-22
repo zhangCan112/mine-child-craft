@@ -16,7 +16,7 @@ function loadTank(){
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, { filename: f });
   }
   vm.runInContext(`
-    globalThis.__t = { TankCore, TANK, getBlock, setBlockRaw, WORLD_W, WORLD_D, WORLD_H };
+    globalThis.__t = { TankCore, TANK, TANK_MODELS, getBlock, setBlockRaw, WORLD_W, WORLD_D, WORLD_H };
   `, ctx);
   return ctx.__t;
 }
@@ -243,5 +243,99 @@ test('爆炸: 球形破坏随距离衰减, 按方块 id 分桶计数, 半径外�
   build();                                                       // 重建同布局
   const r2 = t.TankCore.explode(64, 12, 54, t.setBlockRaw);
   assert.deepStrictEqual(r2, r1, '同输入两次爆炸结果一致(衰减用确定性哈希)');
+});
+
+/* ============ 三期: 坦克型号差异(spec 逐键回落 TANK 基线) ============ */
+
+test('TANK_MODELS 注册表: 六款齐备, perf/muzzle/shell 三表齐(键名与 TANK 对齐)', () => {
+  const t = loadTank();
+  const keys = Object.keys(t.TANK_MODELS);
+  assert.strictEqual(keys.length, 6, '六款型号: ' + keys.join(','));
+  for(const k of keys){
+    const d = t.TANK_MODELS[k];
+    assert.ok(d.name && d.desc, k + ' 有名字与卖点');
+    for(const f of ['speed', 'reverse', 'accel', 'turnRate', 'reload',
+                    'shellSpeed', 'shellG', 'shellLife', 'shellR'])
+      assert.ok(d.perf[f] > 0, k + '.perf.' + f + ' 应为正数');
+    assert.ok(d.muzzle.f > 0 && d.muzzle.y > 0, k + ' 出膛点(f/y)齐备');
+    for(const f of ['color', 'size', 'trail', 'boom'])
+      assert.ok(d.shell[f] !== undefined, k + '.shell.' + f + ' 齐备');
+  }
+  const orders = keys.map(k => t.TANK_MODELS[k].order);
+  assert.strictEqual(new Set(orders).size, keys.length, 'order 不重复(出发页排序稳定)');
+  assert.strictEqual(t.TANK_MODELS.thunder.shell.fx, 'lightning', '雷霆战神是闪电弹(环体+落雷)');
+});
+
+test('张廷彧号: 四联追踪导弹, 爆炸全场最小(小巧精准)', () => {
+  const t = loadTank();
+  const d = t.TANK_MODELS.tingyu;
+  assert.strictEqual(d.name, '张廷彧号');
+  assert.ok(d.salvo >= 2, '多弹齐射: ' + d.salvo);
+  assert.ok(d.homing > 0, '追踪转向速率为正: ' + d.homing);
+  for(const k of Object.keys(t.TANK_MODELS))
+    assert.ok(t.TANK_MODELS[k].perf.shellR >= d.perf.shellR,
+      k + ' 的爆炸半径不应小于张廷彧号');
+});
+
+test('追踪弹 homeShell: 按角速率转向目标(每帧限幅), 多步对准, 速率守恒, rate=0 不动', () => {
+  const t = loadTank();
+  const RATE = 3.4, DTH = 1/60;
+  /* 起始朝 -Z 直飞, 目标在东南方: 每帧航向变化 ≤ RATE·dt */
+  const S = t.TankCore.mkShell(0, 12, 0, 0, 0, -30, null);
+  let prevX = 0, prevY = 0, prevZ = -1;                 // 上帧单位航向
+  for(let i=0; i<12; i++){
+    t.TankCore.homeShell(S, 50, 12, -30, RATE, DTH);
+    const sp = Math.hypot(S.vx, S.vy, S.vz);
+    const ux = S.vx/sp, uy = S.vy/sp, uz = S.vz/sp;
+    const dot = prevX*ux + prevY*uy + prevZ*uz;
+    const turn = Math.acos(Math.max(-1, Math.min(1, dot)));
+    assert.ok(turn <= RATE*DTH + 1e-6, '每帧转向不超过 rate·dt: ' + turn);
+    prevX = ux; prevY = uy; prevZ = uz;
+  }
+  /* 追到底 → 航向对准目标(点积>0.99), 飞行速率不变 */
+  for(let i=0; i<300; i++) t.TankCore.homeShell(S, 50, 12, -30, RATE, DTH);
+  const sp = Math.hypot(S.vx, S.vy, S.vz);
+  const dl = Math.hypot(50 - S.x, 0, -30 - S.z);
+  const dot = (S.vx*(50 - S.x) + S.vz*(-30 - S.z)) / (sp*dl);
+  assert.ok(dot > 0.99, '对准目标: dot=' + dot);
+  assert.ok(Math.abs(sp - 30) < 1e-6, '速率守恒: ' + sp);
+  /* rate=0: 普通弹道弹原样返回(其他五款零成本跳过) */
+  const B = t.TankCore.mkShell(0, 12, 0, 0, 0, -30, null);
+  t.TankCore.homeShell(B, 50, 12, 0, 0, DTH);
+  assert.strictEqual(B.vx, 0);
+  assert.strictEqual(B.vz, -30, '速率与方向未动');
+});
+
+test('型号性能: spec 覆盖极速(缺键回落 TANK 基线, 无 spec 完全按基线)', () => {
+  const t = loadTank();
+  flatGround(t, 10, 50, 50, 80, 80);
+  const S = t.TankCore.mkT(64, 11, 64, 0, { speed: 3.0 });       // 只覆盖极速, 其余走基线
+  for(let i=0; i<180 && !S.onGround; i++) t.TankCore.step(S, IDLE, DT);
+  drive(t, S, {forward:1, steer:0, lookYaw:null}, 2);
+  assert.ok(S.vel > 2.5 && S.vel <= 3.0 + 1e-9, '极速被 spec 压到 3: ' + S.vel);
+  const B = grounded(t, 60, 70, 0);                              // 无 spec 的基线车
+  drive(t, B, {forward:1, steer:0, lookYaw:null}, 2);
+  assert.ok(B.vel > t.TANK.speed*0.9, '无 spec 仍按 TANK.speed: ' + B.vel);
+});
+
+test('型号炮弹: spec.shellLife 缩短提前自毁, 无遮挡不算命中', () => {
+  const t = loadTank();
+  const S = t.TankCore.mkShell(10, 20, 10, 0, 0, 0, { shellLife: 0.2, shellG: 0 });   // 悬停短寿弹
+  let n = 0;
+  for(; n < 200 && !S.dead; n++) t.TankCore.shellStep(S, DT);
+  assert.ok(S.dead, '应已自毁');
+  assert.ok(n < 30, '0.2 秒(12 帧)左右终止, 实际 ' + n + ' 帧');
+  assert.ok(!S.hit, '无遮挡: 超程而非命中');
+});
+
+test('型号爆炸: spec.shellR 收窄破坏半径(小半径炸得更少)', () => {
+  const t = loadTank();
+  function floor(){ for(let x=50; x<=80; x++) for(let z=50; z<=80; z++) t.setBlockRaw(x, 10, z, 3); }
+  floor();
+  const rBig = t.TankCore.explode(64, 11, 54, t.setBlockRaw, null, { shellR: 2.2 });
+  floor();
+  const rSmall = t.TankCore.explode(64, 11, 54, t.setBlockRaw, null, { shellR: 1.0 });
+  assert.ok(rSmall.removed < rBig.removed,
+    '半径 1.0 比 2.2 炸得少: ' + rSmall.removed + ' < ' + rBig.removed);
 });
 

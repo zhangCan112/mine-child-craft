@@ -84,6 +84,11 @@ function sfx(kind){
       o.frequency.setValueAtTime(820,t); o.frequency.exponentialRampToValueAtTime(300,t+0.07);
       g.gain.setValueAtTime(0.04,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.08);
       o.start(t); o.stop(t+0.08);
+    } else if(kind==='zap'){                         // 闪电劈落(高频锯齿急坠)
+      o.type='sawtooth';
+      o.frequency.setValueAtTime(1900,t); o.frequency.exponentialRampToValueAtTime(180,t+0.13);
+      g.gain.setValueAtTime(0.09,t); g.gain.exponentialRampToValueAtTime(0.001,t+0.15);
+      o.start(t); o.stop(t+0.15);
     } else if(kind==='death'){
       o.type='sawtooth';
       o.frequency.setValueAtTime(150,t); o.frequency.exponentialRampToValueAtTime(48,t+0.28);
@@ -161,8 +166,8 @@ function engineHum(level){
   }catch(e){}
 }
 
-/* ---------- 通用特效 Fx: 爆炸/冲击波/碎块/震屏的唯一入口 ----------
-   条目形状/动画/衰减全部收在 implementation, 外部只经 7 个入口触碰 */
+/* ---------- 通用特效 Fx: 爆炸/冲击波/闪电/碎块/震屏的唯一入口 ----------
+   条目形状/动画/衰减全部收在 implementation, 外部只经 9 个入口触碰 */
 const Fx = (function(){
   let shake = 0;
   const effects = [];   // 冲击波球
@@ -208,19 +213,86 @@ const Fx = (function(){
     }
   }
 
-  /* 爆炸视觉(不伤人): 音效 + 震屏 + 冲击波 + 碎块 */
+  /* 闪电弧: 围绕一点的锯齿电弧(飞行弹体的电花) — 快闪即逝;
+     每道线自带几何(ownGeo), 存活期满连几何一起释放(与共享球几何区分) */
+  function arc(x,y,z,o){
+    o = o || {};
+    const pts = [];
+    let px = x, py = y, pz = z;
+    for(let i=0; i<(o.pts||4); i++){
+      pts.push(new THREE.Vector3(px, py, pz));
+      px += (Math.random()-0.5)*(o.spread||0.8);
+      py += (Math.random()-0.5)*(o.spread||0.8);
+      pz += (Math.random()-0.5)*(o.spread||0.8);
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({ color: o.color!==undefined ? o.color : 0x9fe8ff,
+      transparent:true, opacity:0.95 });
+    const line = new THREE.Line(geo, mat);
+    scene.add(line);
+    effects.push({ mesh: line, t:0, dur: o.dur||0.09, r0:1, r1:1, ownGeo:true });   // r0=r1: 不缩放
+  }
+
+  /* 落雷: 主干+分叉两道锯齿闪电自天而降劈到命中点 + 地面电光环 + zap 音。
+     闪电由沿折线摆放的细长盒段拼成 — 真实截面厚度(WebGL 会忽略线宽, 线永远
+     1px), 每段两层: 亮芯(core) + 半透光晕(halo); 单位盒共享, 段只缩放旋转 */
+  const boltBox = new THREE.BoxGeometry(1, 1, 1);       // 单位盒共享
+  const _bz = new THREE.Vector3(0, 0, 1);               // 盒纵轴
+  const _bd = new THREE.Vector3();
+  function bolt(x,y,z,o){
+    o = o || {};
+    const col = o.color!==undefined ? o.color : 0xbff4ff;
+    const H = o.h || 9;
+    const w = o.w || 0.1;                               // 亮芯截面粗细(格)
+    const core = new THREE.MeshBasicMaterial({ color: col, transparent:true, opacity:1 });
+    const halo = new THREE.MeshBasicMaterial({ color: col, transparent:true, opacity:0.3 });
+    const group = new THREE.Group();
+    const mkBolt = (ox)=>{                              // 一道锯齿闪电(顶端起始带横向偏移)
+      let px = x + ox, pz = z + (Math.random()-0.5)*0.8, py = y + H;
+      for(let i=0; i<7; i++){
+        const nx = x + (Math.random()-0.5)*1.2;
+        const nz = z + (Math.random()-0.5)*1.2;
+        const ny = y + H - H*(i+1)/7;
+        _bd.set(nx - px, ny - py, nz - pz);
+        const len = _bd.length();
+        if(len > 1e-4){
+          _bd.divideScalar(len);
+          for(const cv of [[core, w], [halo, w*2.2]]){  // 亮芯 + 光晕两层
+            const seg = new THREE.Mesh(boltBox, cv[0]);
+            seg.scale.set(cv[1], cv[1], len);
+            seg.position.set((px+nx)/2, (py+ny)/2, (pz+nz)/2);
+            seg.quaternion.setFromUnitVectors(_bz, _bd);
+            group.add(seg);
+          }
+        }
+        px = nx; py = ny; pz = nz;
+      }
+    };
+    mkBolt(0); mkBolt((Math.random()-0.5)*2);           // 主干 + 分叉
+    scene.add(group);
+    effects.push({ mesh: group, mats: [core, halo], t:0, dur:0.22, r0:1, r1:1,
+      onEnd(){ core.dispose(); halo.dispose(); } });    // 几何共享常驻, 只释放两份材质
+    pop(x, y, z, { color: col, r0:0.4, r1: o.r1||3, dur:0.35 });   // 地面电光环
+    sfx('zap');
+  }
+
+  /* 爆炸视觉(不伤人): 音效 + 震屏 + 冲击波 + 碎块; o.color 可整场换配色(坦克型号爆风) */
   function boom(x,y,z,o){
     o = o || {};
     sfx('boom'); kick(o.kick!==undefined ? o.kick : 0.6);
-    pop(x,y,z, {r0:0.6, r1: o.r1||5, dur:0.4});
-    debrisBurst(x,y,z, o.n||10, {life:0.9});
+    pop(x,y,z, {r0:0.6, r1: o.r1||5, dur:0.4, color: o.color});
+    debrisBurst(x,y,z, o.n||10, {life:0.9, color: o.color});
   }
 
   function kick(a){ shake = Math.max(shake, a); }
 
-  /* 清空全部特效(模式切换用); 碎块共享 geo/mat 不可 dispose, 专用色除外 */
+  /* 清空全部特效(模式切换用); 共享 geo/mat 不可 dispose, 专用色/闪电线/落雷组除外 */
   function clear(){
-    for(const e of effects){ scene.remove(e.mesh); e.mesh.material.dispose(); }   // 几何共享常驻
+    for(const e of effects){
+      scene.remove(e.mesh);
+      if(e.onEnd) e.onEnd();
+      else { e.mesh.material.dispose(); if(e.ownGeo) e.mesh.geometry.dispose(); }
+    }
     effects.length = 0;
     for(const d of debris){ scene.remove(d.mesh); if(d.done) d.done(); }
     debris.length = 0;
@@ -233,12 +305,15 @@ const Fx = (function(){
       e.t += dt;
       const p = e.t/e.dur;
       if(p >= 1){
-        scene.remove(e.mesh); e.mesh.material.dispose();
+        scene.remove(e.mesh);
+        if(e.onEnd) e.onEnd();                       // 落雷组等自带收尾(释放私有材质)
+        else { e.mesh.material.dispose(); if(e.ownGeo) e.mesh.geometry.dispose(); }
         effects.splice(i,1); continue;
       }
       const r = e.r0 + (e.r1-e.r0)*p;
       e.mesh.scale.set(r,r,r);
-      e.mesh.material.opacity = 0.85*(1-p);
+      if(e.mats){ for(const m of e.mats) m.opacity = 0.85*(1-p); }   // 组条目逐材质淡出
+      else e.mesh.material.opacity = 0.85*(1-p);
     }
     for(let i=debris.length-1;i>=0;i--){
       const d = debris[i];
@@ -265,7 +340,7 @@ const Fx = (function(){
     }
   }
 
-  return {boom, pop, debrisBurst, kick, clear, update, wobble};
+  return {boom, pop, debrisBurst, arc, bolt, kick, clear, update, wobble};
 })();
 
 /* ---------- 提示消息 ---------- */

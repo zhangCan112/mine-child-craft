@@ -31,11 +31,17 @@ const TankCore = (()=>{
     return false;
   }
 
+  /* 型号差异解析: 载具可带 spec(TANK_MODELS 的 perf), 逐键回落 TANK 基线 —
+     部分覆盖也稳健(没写的键用基线值) */
+  function specV(spec, key){
+    return (spec && spec[key] !== undefined) ? spec[key] : TANK[key];
+  }
+
   /* 载具状态: x/y/z 舱位 · yaw 车体朝向 · aimYaw 车头目标(方向权威) ·
      vel 前向标量速度(负=倒车) · vy 垂直速度 · onGround 触地 ·
-     cool 装填冷却(>0 不能开炮, step 递减) */
-  function mkT(x, y, z, yaw){
-    return { x, y, z, yaw, aimYaw: yaw, vel: 0, vy: 0, onGround: false, cool: 0 };
+     cool 装填冷却(>0 不能开炮, step 递减) · spec 型号性能覆盖(TANK_MODELS.perf) */
+  function mkT(x, y, z, yaw, spec){
+    return { x, y, z, yaw, aimYaw: yaw, vel: 0, vy: 0, onGround: false, cool: 0, spec: spec || null };
   }
 
   function step(T, input, dt){
@@ -43,18 +49,19 @@ const TankCore = (()=>{
     if(T.cool > 0) T.cool = Math.max(0, T.cool - dt);
 
     /* --- 方向权威: 鼠标/摇杆(lookYaw 非空即采纳) > A·D(以转向速率积分) --- */
+    const turn = specV(T.spec, 'turnRate');
     if(input.lookYaw !== null && input.lookYaw !== undefined) T.aimYaw = input.lookYaw;
-    else if(input.steer) T.aimYaw -= input.steer * TANK.turnRate * dt;   // steer 与鼠标同号: 右转(D/摇杆右)= yaw 减小(pad 试玩反馈: 曾反号, 推右左转)
+    else if(input.steer) T.aimYaw -= input.steer * turn * dt;   // steer 与鼠标同号: 右转(D/摇杆右)= yaw 减小(pad 试玩反馈: 曾反号, 推右左转)
 
     /* 车体以 turnRate 追踪 aimYaw(取最短方向) */
     const d = wrapAngle(T.aimYaw - T.yaw);
-    T.yaw += Math.max(-TANK.turnRate*dt, Math.min(TANK.turnRate*dt, d));
+    T.yaw += Math.max(-turn*dt, Math.min(turn*dt, d));
 
     /* --- 纵向: 指数逼近目标速度 — 加速与滑行摩擦同一式, dt 稳健 --- */
-    const target = input.forward > 0 ? TANK.speed
-                 : input.forward < 0 ? -TANK.reverse
+    const target = input.forward > 0 ? specV(T.spec, 'speed')
+                 : input.forward < 0 ? -specV(T.spec, 'reverse')
                  : 0;
-    const rate = input.forward !== 0 ? TANK.accel : TANK.friction;
+    const rate = input.forward !== 0 ? specV(T.spec, 'accel') : specV(T.spec, 'friction');
     T.vel += (target - T.vel) * Math.min(1, rate*dt);
 
     /* --- 垂直: 重力 + 落地(贴齐方块顶面, 同 physics 惯例) --- */
@@ -128,13 +135,13 @@ const TankCore = (()=>{
   /* ---------- 炮弹: 平直弹道 + 轻重力 + 体素命中 ----------
      shellStep 每帧推进: 命中实心方块记 S.hit 并终止(dead);
      life 耗尽或坠出世界自毁。爆炸由调用方在命中点接手。 */
-  function mkShell(x, y, z, vx, vy, vz){
-    return { x, y, z, vx, vy, vz, life: TANK.shellLife, dead: false, hit: null };
+  function mkShell(x, y, z, vx, vy, vz, spec){
+    return { x, y, z, vx, vy, vz, life: specV(spec, 'shellLife'), dead: false, hit: null, spec: spec || null };
   }
   const _sd = { x:0, y:0, z:0 };
   function shellStep(S, dt, extraSolid){
     S.life -= dt;
-    S.vy -= TANK.shellG*dt;
+    S.vy -= specV(S.spec, 'shellG')*dt;
     const nx = S.x + S.vx*dt, ny = S.y + S.vy*dt, nz = S.z + S.vz*dt;
     const dist = Math.hypot(nx - S.x, ny - S.y, nz - S.z);
     if(dist > 1e-9){
@@ -159,15 +166,37 @@ const TankCore = (()=>{
     return S;
   }
 
+  /* ---------- 追踪弹: 把速度向量按角速率转向目标点(纯几何, 不做命中判定) ----------
+     "目标是谁"由调用方决定(引擎经模式注入的索敌钩子), 这里只管转 —
+     目标坐标显式传入; rate≤0 原样返回(普通弹道弹零成本跳过); 速率守恒。 */
+  function homeShell(S, tx, ty, tz, rate, dt){
+    if(rate <= 0) return S;
+    const sp = Math.hypot(S.vx, S.vy, S.vz);
+    if(sp < 1e-6) return S;
+    const dx = tx - S.x, dy = ty - S.y, dz = tz - S.z;
+    const dl = Math.hypot(dx, dy, dz);
+    if(dl < 1e-6) return S;
+    const ux = dx/dl, uy = dy/dl, uz = dz/dl;          // 指向目标
+    const vx = S.vx/sp, vy = S.vy/sp, vz = S.vz/sp;    // 当前航向
+    const dot = Math.max(-1, Math.min(1, vx*ux + vy*uy + vz*uz));
+    const ang = Math.acos(dot);
+    if(ang < 1e-4) return S;                           // 已对准
+    const step = Math.min(ang, rate*dt)/ang;           // 按角速率比例逼近(归一化保速率)
+    const nx = vx + (ux - vx)*step, ny = vy + (uy - vy)*step, nz = vz + (uz - vz)*step;
+    const nl = Math.hypot(nx, ny, nz) || 1;
+    S.vx = nx/nl*sp; S.vy = ny/nl*sp; S.vz = nz/nl*sp;
+    return S;
+  }
+
   /* ---------- 爆炸: 球形破坏随距离衰减(确定性哈希), 按方块 id 分桶计数 ----------
      edit 为注入的写入口: Node 单测传 setBlockRaw(或 spy),
      浏览器侧传 world.js 的 editBlockDirty(记账+markDirty), 事后 flushDirty。
      keep(id,bx,by,bz) 可选保护谓词: 命中即分毫不动、不计入破坏数 —
      "什么不可炸"是模式政策(如演习场草海永固), 判定归调用方。
      返回 counts 按被毁方块 id 分桶 — "什么算靶"同理, 判定归模式层。 */
-  function explode(x, y, z, edit, keep){
+  function explode(x, y, z, edit, keep, spec){
     const set = edit || setBlockRaw;
-    const r = TANK.shellR;
+    const r = specV(spec, 'shellR');
     let removed = 0;
     const counts = {};
     const R = Math.ceil(r);
@@ -190,6 +219,6 @@ const TankCore = (()=>{
     return { removed, counts };
   }
 
-  return { mkT, step, boxCollides, wrapAngle, nearest, mkShell, shellStep, explode };
+  return { mkT, step, boxCollides, wrapAngle, nearest, mkShell, shellStep, homeShell, explode };
 })();
 if(typeof module !== 'undefined' && module.exports) module.exports = TankCore;

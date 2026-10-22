@@ -4,10 +4,14 @@
    ------------------------------------------------------------
    载具能力的第一个投放场: 96×96 多地形场(丘陵·峡谷·乱石阵·瞭望台)
    + 五类可破坏靶(靶排·环靶·靶墙·靶屋红心·远距靶塔)。
-   怪物走共享怪物库(js/mobs.js, 竞技场同款五怪): 游戏内浮动面板
-   (#mobPicker, 👾 按钮/M 键)选种类和数量 → 一次性部署, 无波次;
-   清场后按 R 再来一批。炮弹被怪物身体阻挡即引爆(真直击)。
-   伤害走 config.js TANK_VS_MOBS 表。
+   进场先在出发配置页选好坦克与怪物(主菜单坦克卡 → #menuTank: 坦克一行 +
+   怪物一行): 六款坦克样子/颜色/炮弹/性能各异, 卡片按 order 排序; 点"出发"
+   才重建演习场(没变直回战场保进度), Esc 随时回来换; 张廷彧号自带四联追踪
+   导弹(索敌政策 nearestFoe 经 Tank.targeter 注入引擎)。怪物走共享怪物库
+   (js/mobs.js, 竞技场同款五怪): 出发配置页与游戏内浮动面板(#mobPicker,
+   👾 按钮/M 键)共用同一份 mobCfg, 一次性部署无波次, 清场后按 R 再来一批。
+   炮弹被怪物身体阻挡即引爆(真直击)。伤害走 config.js TANK_VS_MOBS 表
+   (各型号同伤, 对孩子公平)。
    政策全在此层(引擎不知道"提示"与"语音"):
    · E 键与触屏 🚙 按钮同走 Tank.toggle(单一入口)
    · 靠近邀请语音 10 秒节流; 上下车话术随 toggle 结果
@@ -23,6 +27,9 @@ const TANK_RANGE = {
 };
 /* 坦克打怪伤害直查 config 的 TANK_VS_MOBS(直击/波及/碾压) */
 
+let selModel = 'classic';                 // 当前坦克型号(TANK_MODELS 键; 出发配置页点卡切换)
+let placedModel = null, placedMob = null; // 场上实际部署的型号/怪种(出发时比对, 变了才重建)
+
 let speakArmed = 10;                      // 邀请语音计时: 初始即"到点"(首靠近就说)
 let praiseT = 0;                          // 命中表扬节流计时(pad 实测: iOS TTS 频繁
                                           // cancel+speak 是连环炮掉帧源之一, 3 秒最多一句)
@@ -32,7 +39,9 @@ let deployed = false, clearPraised = false;
 
 /* ---------- 选怪: 游戏内浮动面板(👾 按钮 / M 键开关) ----------
    训练场是单边选靶, 不做竞技场那种"赛前双方配置页";
-   面板选种类和数量 → 一次性部署; R 随时按当前配置再来一批 */
+   面板选种类和数量 → 一次性部署; R 随时按当前配置再来一批
+   种类清单动态遍历 MOB_TYPES(排除 mix 伪类型): 以后加怪自动出现 */
+const RANGE_MOB_KEYS = Object.keys(Mobs.types).filter(k => k !== 'mix');
 const mobCfg = { type: 'zombie', count: 6 };
 const RANGE_MOBS_MAX = 30;
 let pickerBuilt = false, pickerOpen = false;
@@ -45,7 +54,7 @@ function buildPicker(){
   pkEl = document.getElementById('mobPicker');
   const btns = document.getElementById('pkMobBtns');
   btns.innerHTML = '';                               // 幂等: 先清空(类名撞车的历史教训, 双保险)
-  for(const k of ['zombie','skeleton','creeper','golem','dragon']){
+  for(const k of RANGE_MOB_KEYS){
     const b = document.createElement('button');
     b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${Mobs.types[k].name}`;
     b.dataset.type = k;
@@ -72,9 +81,64 @@ function togglePicker(open){
 }
 
 function speakForToggle(r){
-  if(r === 'entered'){ SpeechKit.speak('开坦克喽！'); showToast('🚙 上车！W 前进 · S 倒车 · A D 转向 · 左键开炮 · E 下车'); }
+  const def = TANK_MODELS[selModel] || TANK_MODELS.classic;
+  if(r === 'entered'){ SpeechKit.speak('开坦克喽！你开的是' + def.name + '！'); showToast('🚙 ' + def.name + ' 出动！W 前进 · S 倒车 · A D 转向 · 左键开炮 · E 下车'); }
   else if(r === 'exited'){ SpeechKit.speak('下车喽，再见！'); showToast('🚙 下车'); }
   else if(r === 'far'){ showToast('🚙 先走近坦克一点'); }
+}
+
+/* ---------- 出发配置页: 坦克一行(按 order 排序) + 怪物一行 ----------
+   主菜单坦克卡 → 本页(buildMenu 刷新高亮); 卡片只改选择, 重建演习场
+   收在"出发"(launchField) — 浏览几款再出发只重建一次, 没变则直回战场保进度 */
+function buildTankMenu(){
+  const grid = document.getElementById('tankPick');
+  if(grid){
+    grid.innerHTML = '';                                // 幂等: 每次重绘(高亮随 selModel 走)
+    const keys = Object.keys(TANK_MODELS)
+      .sort((a, b) => (TANK_MODELS[a].order || 99) - (TANK_MODELS[b].order || 99));
+    for(const key of keys){
+      const def = TANK_MODELS[key];
+      const div = document.createElement('div');
+      div.className = 'sceneCard';
+      div.classList.toggle('active', key === selModel);   // 高亮当前型号(与选怪面板同法)
+      div.dataset.model = key;
+      div.innerHTML = '<div class="big"><img alt="' + def.name + '" src="' + Tank.icon(key) + '"></div>'
+        + '<h2>' + def.name + '</h2><small>' + def.desc + '</small>';
+      div.onclick = ()=>{ selectTank(key); };
+      grid.appendChild(div);
+    }
+  }
+  /* 怪物行: 与游戏内 👾 面板同一份 mobCfg(选的种类即出发部署的第一批) */
+  const mrow = document.getElementById('tankMobPick');
+  if(mrow){
+    mrow.innerHTML = '';
+    for(const k of RANGE_MOB_KEYS){
+      const b = document.createElement('div');
+      b.className = 'sceneCard';
+      b.classList.toggle('active', k === mobCfg.type);
+      b.dataset.mob = k;
+      b.innerHTML = '<div class="big"><img alt="" src="' + Mobs.face(k) + '"></div>'
+        + '<h2>' + Mobs.types[k].name + '</h2>';
+      b.onclick = ()=>{ mobCfg.type = k; buildTankMenu(); };
+      mrow.appendChild(b);
+    }
+  }
+  const go = document.getElementById('tankGoBtn');
+  if(go) go.onclick = ()=> launchField();
+}
+
+/* 选车页点卡: 只改选择并刷新高亮(换车重建收在"出发") */
+function selectTank(key){
+  if(!TANK_MODELS[key] || key === selModel) return;
+  selModel = key;
+  buildTankMenu();
+  showToast('🚙 ' + TANK_MODELS[key].name + ' 就绪！');
+}
+
+/* 出发: 型号或怪种变了才重建演习场(没变直接回战场, 进度不丢) */
+function launchField(){
+  if(selModel !== placedModel || mobCfg.type !== placedMob) enterField();
+  requestLock();
 }
 
 /* 开炮单一入口: 桌面左键与触屏 💥 按钮共用, 装填中给提示 */
@@ -123,8 +187,34 @@ function mobSolid(x, y, z){
   return false;
 }
 
-/* 击杀反馈: 碎块 + 计数(死亡音效怪物库已播, 话术是模式政策) */
-const MOB_DEBRIS = { zombie:0x5e9440, skeleton:0xd8d8d2, creeper:0x4fae4f, golem:0xcdd0d8, dragon:0x3a2055 };
+/* 导弹索敌: 64 格内最近活怪的身体中心(张廷彧号追踪导弹用)。
+   与 mobSolid 同族的 seam: 注册进 Tank.targeter, "谁是敌人"归模式层,
+   引擎只拿坐标做转向(飞行怪按 3D 距离一起算, 低飞的龙也追得到) */
+function nearestFoe(x, y, z){
+  let best = null, bestD = 64;
+  for(const m of Mobs.list()){
+    if(m.dead || m.gone) continue;
+    const cy = m.pos.y + (m.cfg.h || 1.9)*0.5;
+    const d = Math.hypot(m.pos.x - x, cy - y, m.pos.z - z);
+    if(d < bestD){ bestD = d; best = m; }
+  }
+  if(!best) return null;
+  return { x: best.pos.x, y: best.pos.y + (best.cfg.h || 1.9)*0.5, z: best.pos.z };
+}
+
+/* 击杀反馈: 碎块 + 计数(死亡音效怪物库已播, 话术是模式政策) — 逐怪碎块色, 缺省灰 */
+const MOB_DEBRIS = {
+  zombie:0x5e9440, skeleton:0xd8d8d2, creeper:0x4fae4f, golem:0xcdd0d8, dragon:0x3a2055,
+  spider:0x2a2226, cave_spider:0x1a3a4a, silverfish:0x9a9a8a, endermite:0x8a5ab8,
+  slime:0x5ac85a, enderman:0x101018, witch:0x5a3a6a, husk:0xb0a068, drowned:0x4a8a7a,
+  stray:0xd8dee4, bogged:0xb8c0a0, phantom:0x3a5a7a, vex:0x9ab8d8, creaking:0x54402e,
+  zombified_piglin:0xd88a8a, piglin:0xe8a08a, piglin_brute:0xe8a08a,
+  hoglin:0xa86a4a, zoglin:0x7a8a5a, wither_skeleton:0x242424,
+  blaze:0xe8c02a, ghast:0xe8e8e8, magma_cube:0xe8641a,
+  guardian:0x5a8a6a, elder_guardian:0x8a8a9a, shulker:0x8a5a9a,
+  vindicator:0x3a5a3a, evoker:0xd8d8c8, pillager:0x5a5a4a, ravager:0x4a4a52,
+  wither:0x1c1c1c, warden:0x182a3a,
+};
 function onKill(m){
   killCount++;
   Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 6, { color: MOB_DEBRIS[m.type] || 0x8a8f98, life: 0.6 });
@@ -236,24 +326,37 @@ function buildRange(){
     SceneKit.fill(tx, G+1, 28, tx+2, G+8, 30, T);
 }
 
+/* 进场/换车同一条路: 清场 → 建场 → 放当前型号的坦克 → 出生 → 注册钩子。
+   switchMode 进来时 world 已清, 这里的 clearWorld 再兜一次"换车型重建"(幂等) */
+function enterField(){
+  Tank.clear();
+  clearWorld();
+  buildRange();
+  rebuildAll();                         // 建场收尾: 方块数据 → 区块网格(各模式惯例, 漏了整场不可见)
+  Tank.place(TANK_RANGE.tank.x, TANK_RANGE.groundY+1, TANK_RANGE.tank.z,
+    { yaw: TANK_RANGE.tank.yaw, model: selModel });
+  spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });
+  Tank.onExplode(onBoom);              /* 命中反馈: 炸靶表扬 + 波及怪物 */
+  Tank.protect(keepGround);            /* 爆炸保护: 平坦草海永固(丘陵/峡谷/乱石仍可炸) */
+  Tank.obstacle(mobSolid);            /* 炮弹障碍: 怪物身体挡炮弹(碰上即炸=直击) */
+  Tank.targeter(nearestFoe);          /* 导弹索敌: 追踪弹(张廷彧号)的"敌人是谁" */
+  buildPicker();                       /* 游戏内选怪面板(只绑一次) */
+  buildTankMenu();                     /* 出发配置页刷新(高亮随 selModel/mobCfg) */
+  placedModel = selModel;              /* 记住场上部署, 出发时没变就不重建(保进度) */
+  placedMob = mobCfg.type;
+  speakArmed = 10;                     // 重进模式即可再次邀请
+  praiseT = 0;
+  hitCount = 0; killCount = 0;
+  deployed = false; clearPraised = false;
+  deployMobs();                        // 第一批: 默认僵尸×6, 挑完坦克进场即有得玩
+}
+
 const TankRangeMode = mkMode({
   id: 'tank',
 
-  init(){
-    buildRange();
-    rebuildAll();                         // 建场收尾: 方块数据 → 区块网格(各模式惯例, 漏了整场不可见)
-    Tank.place(TANK_RANGE.tank.x, TANK_RANGE.groundY+1, TANK_RANGE.tank.z, { yaw: TANK_RANGE.tank.yaw });
-    spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });
-    Tank.onExplode(onBoom);              /* 命中反馈: 炸靶表扬 + 波及怪物 */
-    Tank.protect(keepGround);            /* 爆炸保护: 平坦草海永固(丘陵/峡谷/乱石仍可炸) */
-    Tank.obstacle(mobSolid);             /* 炮弹障碍: 怪物身体挡炮弹(碰上即炸=直击) */
-    buildPicker();                       /* 游戏内选怪面板(只绑一次) */
-    speakArmed = 10;                     // 重进模式即可再次邀请
-    praiseT = 0;
-    hitCount = 0; killCount = 0;
-    deployed = false; clearPraised = false;
-    deployMobs();                        // 第一批: 默认僵尸×6, 点卡直进即有得玩
-  },
+  init(){ enterField(); },
+
+  buildMenu(){ buildTankMenu(); },       // Esc/主菜单进选坦克页时刷新高亮(与建造模式同钩子)
 
   cleanup(){
     Tank.clear();
@@ -277,7 +380,8 @@ const TankRangeMode = mkMode({
     praiseT = Math.max(0, praiseT - dt);
     if(!Tank.driving() && Tank.nearby() !== null && speakArmed >= 10){
       speakArmed = 0;
-      SpeechKit.speak('要开坦克吗？按 E！');
+      const def = TANK_MODELS[selModel] || TANK_MODELS.classic;
+      SpeechKit.speak('要开坦克吗？' + def.name + '在等你哦！按 E！');
     }
     Mobs.update(dt);
     /* 坦克碾压: 驾驶中贴身即压(脆怪一发, 硬怪要补炮——孩子的最爱) */
@@ -294,15 +398,17 @@ const TankRangeMode = mkMode({
 
   hud(){
     let lines;
+    const def = TANK_MODELS[selModel] || TANK_MODELS.classic;
     if(Tank.driving()){
       const n = aliveCount();
-      lines = ['🚙 驾驶中 · 左键/💥 开炮 · E 下车'];
+      lines = ['🚙 ' + def.name + ' · 左键/💥 开炮 · E 下车'];
       if(n > 0) lines.push('👾 剩 ' + n + ' 只 · 冲上去压！');
       else if(deployed) lines.push('🎉 全消灭！R 再来 · M 换怪物');
       if(killCount > 0) lines.push('☠️ 已消灭 ' + killCount);
       if(hitCount > 0) lines.push('🎯 已命中 ' + hitCount);
+      lines.push('Esc 换坦克');
     }
-    else if(Tank.nearby() !== null) lines = ['🚙 按 E 开坦克 · M 换怪物'];
+    else if(Tank.nearby() !== null) lines = ['🚙 按 E 开坦克 · ' + def.name + ' · M 换怪物'];
     else return [];
     lines.push('FPS ' + fps);           // 与竞技场/建造同款帧率显示(pad 排查刚需)
     return lines;
