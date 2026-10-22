@@ -39,6 +39,9 @@ const NETHER = { phase: 'overworld', wave: 0, waveInProgress: false,
                  weapon: 'sword', bowCd: 0.55, bowDmg: 10, arrowSpeed: 22,
                  player: { hp: 30, maxHp: 30 } };
 const NETHER_ATTACK_T = 0.5;                // 怪物挥击姿态时长(attackT 满时长, 近战/远程统一 — gait 第 4 参)
+const NETHER_PORTAL_CD = 0.8;               // 传送冷却(秒): 落地短暂"时空眩晕"。两界落点离门触发缘都只有几格,
+                                            // 落地瞬间还推着摇杆前进会立刻弹回另一界(实测"回不到地下室"即此)
+let portalCd = 0;                           // >0 = 眩晕中, 两座门都不触发
 let pEnt = null;                          // 下界探险中的"主人公实体"(AI 索敌目标 + 受击/受死共用状态)
 let nArrows = [];                         // 下界怪物投射(烈焰人爆裂火球/恶魂恶魂火球 → 玩家受击)
 let hurtT = 0;                            // 受击语音节流计时(3 秒最多一句 — iOS TTS 频繁
@@ -174,8 +177,8 @@ function enterOverworld(){
   NETHER.phase = 'overworld';
   loadScene(buildOverworldWorld);                       // 场景装填 seam: 清下界残留, 家原样重建
   applySky(OVERWORLD_SKY);
-  ModeKit.spawn(62.5, NETHER_HOME_GROUND + 1, 85.5, { yaw: Math.PI });   // 家门口(传送门南侧几步, 不站门里)
-  flyMode = false;
+  ModeKit.spawn(62.5, NETHER_HOME_GROUND + 1, 85.5, { yaw: 0 });   // 家门口(门南侧几步); 面朝房子背对门 —
+  flyMode = false;                                                 // 落地推"前进"只会走离门口, 不会一头弹回下界
   Mobs.clear();
   while(nArrows.length) removeNetherArrow(0);          // 投射物不跨维度: 残留火球追进门会在上界把人打死 → 重生点落进地下室土里(实测根因)
   const e = getPEnt();                                 // 回家 = 安全休整: 生命回满(空血进下界 = 落地即死,
@@ -435,6 +438,7 @@ const NetherMode = mkMode({
   chrome: { hotbar: 'deferred' },        // 上界先藏, 进下界现身(enterNether 里 show)
 
   init(){
+    portalCd = 0;                            // 新进场无冷却(冷却只在传送触发点置位)
     enterOverworld();
   },
 
@@ -448,15 +452,21 @@ const NetherMode = mkMode({
     disposeHpBar();                                  // 头顶血条网格/纹理回收
     if(portalBeamH && Fx.removeBeam) Fx.removeBeam(portalBeamH);   // 常驻光束摘除(句柄置空, 不等 switchMode 的 Fx.clear)
     portalBeamH = null;
+    portalCd = 0;
   },
 
   update(dt){
     if(NETHER.swingCd > 0) NETHER.swingCd = Math.max(0, NETHER.swingCd - dt);
     hurtT = Math.max(0, hurtT - dt);         // 受击语音节流递减
+    if(portalCd > 0) portalCd = Math.max(0, portalCd - dt);   // 传送眩晕递减(本帧先扣再判 — 到点即刻可再触发)
     if(NETHER.phase === 'overworld'){
-      if(inPortal(NETHER_HOME_GROUND, NETHER_HOME_PORTAL.px, NETHER_HOME_PORTAL.pz)) enterNether();
+      if(portalCd <= 0 && inPortal(NETHER_HOME_GROUND, NETHER_HOME_PORTAL.px, NETHER_HOME_PORTAL.pz)){
+        portalCd = NETHER_PORTAL_CD; enterNether();
+      }
     } else {
-      if(inPortal(NETHER_RETURN_PORTAL.by, NETHER_RETURN_PORTAL.px, NETHER_RETURN_PORTAL.pz)) enterOverworld();
+      if(portalCd <= 0 && inPortal(NETHER_RETURN_PORTAL.by, NETHER_RETURN_PORTAL.px, NETHER_RETURN_PORTAL.pz)){
+        portalCd = NETHER_PORTAL_CD; enterOverworld();
+      }
     }
     netherAI(dt);
     Mobs.update(dt);

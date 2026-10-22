@@ -134,6 +134,8 @@ function walkIntoPortal(){
   globalThis.pos.x = 62.5; globalThis.pos.y = 25; globalThis.pos.z = 89.2;
   NetheMode.update(DT);
 }
+/* 烧完传送冷却(0.8s ≈ 60 帧): 传送后立刻踩另一座门的用例, 先等"时空眩晕"过去 */
+function burnCd(){ listResult = []; for(let i = 0; i < 70; i++) NetheMode.update(DT); }
 function mkMob(type, x, y, z, extra){
   return Object.assign({
     type, pos: { x, y, z }, dead: false, gone: false, yaw: 0, attackCd: 0, attackT: 0, target: null,
@@ -155,6 +157,8 @@ test('下界冒险: init 上界建场(建造模式场景 + 地表霸气传送门
   assert.ok(has('beam'), '门中紫色光束锚定(Fx.portalBeam, 特效唯一入口)');
   assert.ok(calls.some(c => c[0] === 'beam' && c[1] === 61 + 3 && c[2] === 25 && c[3] === 90.5),
     '光束锚在开口中心(px=61 门 6 宽 → 中心 x=64, 底高 by+1, 门面 z+0.5)');
+  assert.ok(calls.some(c => c[0] === 'spawn' && c[3] === 85.5 && c[4] && c[4].yaw === 0),
+    '上界落点面朝房子背对门(yaw 0) — 落地推前进只会走离门口, 不会一头弹回下界');
   assert.ok(has('spawn'), '玩家出生在上界家');
   assert.ok(Array.isArray(touchList) && touchList.length >= 1, '声明了触屏按钮');
 
@@ -248,6 +252,7 @@ test('下界冒险: 进下界换剑, 回上界/退出模式换回锄头(默认�
   assert.ok(calls.some(c => c[0] === 'setItem' && c[1] === 'hoe'), 'init 进上界: 装配默认手持物(锄头)');
   walkIntoPortal();
   assert.ok(calls.some(c => c[0] === 'setItem' && c[1] === 'sword'), '进下界: 换剑');
+  burnCd();                                               /* 传送冷却 0.8s: 立刻踩回程门要等眩晕过去 */
   globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 24.5;  /* 回程门内口 */
   NetheMode.update(DT);
   assert.ok(spoke('回到上界'), '回程传送门 → 回上界');
@@ -379,6 +384,7 @@ test('下界冒险: 下界回程传送门 → 切回上界家', () => {
   listResult = [];
   NetheMode.init();
   walkIntoPortal();                                       /* 已在下界 */
+  burnCd();                                               /* 传送冷却 0.8s: 立刻踩回程门要等眩晕过去 */
   spoken.length = 0;
 
   globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 24.5;  /* 回程传送门内口(by=20, px=24, pz=24) */
@@ -410,6 +416,7 @@ test('下界冒险: 传送跨维度清掉飞行中的投射物 — 残留火球�
   listResult = [];
   NetheMode.init();
   walkIntoPortal();
+  burnCd();                                               /* 传送冷却 0.8s 先烧掉 */
   calls.length = 0; spoken.length = 0;
 
   /* 烈焰人朝下界基地的玩家直射一发火球(弹道直指玩家身体) */
@@ -460,6 +467,7 @@ test('下界冒险: 回上界家休整 — 生命回满(空血进下界的"落�
   listResult = [];
   NetheMode.init();
   walkIntoPortal();
+  burnCd();                                               /* 传送冷却 0.8s 先烧掉(本用例后段要踩回程门) */
 
   /* 先阵亡一次把血量复位到满(不依赖此前测试的血量残留) */
   globalThis.pos.x = 20.5; globalThis.pos.y = 12; globalThis.pos.z = 20.5;
@@ -482,4 +490,21 @@ test('下界冒险: 回上界家休整 — 生命回满(空血进下界的"落�
   assert.ok(spoke('回到上界'), '回了家');
   fakeClock += 200; NetheMode.updateHud(null);
   assert.ok(String(elCache['hud'].innerHTML).indexOf('生命: 30') >= 0, '回家休整: 生命回满(家是安全的)');
+});
+
+test('下界冒险: 传送冷却 0.8 秒 — 落地瞬间推着摇杆撞进另一座门不会弹回(实测"回不到地下室"根因)', () => {
+  calls.length = 0; spoken.length = 0; mobsState.spawned.length = 0;
+  listResult = [];
+  NetheMode.init();
+  walkIntoPortal();                                       /* 进下界, 落地即"时空眩晕" 0.8s */
+  spoken.length = 0;
+
+  /* 眩晕中立刻踩进回程门 → 不触发(此前: 落地推前进 3 格即撞家门, 秒弹回下界) */
+  globalThis.pos.x = 25.5; globalThis.pos.y = 21; globalThis.pos.z = 24.5;
+  NetheMode.update(DT);
+  assert.ok(!spoke('回到上界'), '眩晕中踩门不弹回');
+
+  /* 眩晕过去后人还在门口 → 正常触发 */
+  for(let i = 0; i < 70; i++) NetheMode.update(DT);
+  assert.ok(spoke('回到上界'), '眩晕结束仍在门口 → 正常回上界');
 });
