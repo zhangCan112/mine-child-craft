@@ -81,7 +81,7 @@ function togglePicker(open){
 }
 
 function speakForToggle(r){
-  const def = TANK_MODELS[selModel] || TANK_MODELS.classic;
+  const def = Tank.model(selModel);
   if(r === 'entered'){ SpeechKit.speak('开坦克喽！你开的是' + def.name + '！'); showToast('🚙 ' + def.name + ' 出动！W 前进 · S 倒车 · A D 转向 · 左键开炮 · E 下车'); }
   else if(r === 'exited'){ SpeechKit.speak('下车喽，再见！'); showToast('🚙 下车'); }
   else if(r === 'far'){ showToast('🚙 先走近坦克一点'); }
@@ -317,7 +317,14 @@ function buildRange(){
     SceneKit.fill(tx, G+1, 28, tx+2, G+8, 30, T);
 }
 
-/* 进场/换车同一条路: 清场 → 建场 → 放当前型号的坦克 → 出生 → 注册钩子。
+/* 模式钩子一次注册(Tank.clear 只清实体不解除钩子): 命中反馈/爆炸保护/
+   炮弹障碍/导弹索敌 — "什么该炸/谁挡炮弹/谁是敌"归模式层, 引擎只回调 */
+Tank.onExplode(onBoom);
+Tank.protect(keepGround);
+Tank.obstacle(mobSolid);
+Tank.targeter(nearestFoe);
+
+/* 进场/换车同一条路: 清场 → 建场 → 放当前型号的坦克 → 出生。
    switchMode 进来时 world 已清, 这里的 clearWorld 再兜一次"换车型重建"(幂等) */
 function enterField(){
   Tank.clear();
@@ -327,10 +334,6 @@ function enterField(){
   Tank.place(TANK_RANGE.tank.x, TANK_RANGE.groundY+1, TANK_RANGE.tank.z,
     { yaw: TANK_RANGE.tank.yaw, model: selModel });
   ModeKit.spawn(TANK_RANGE.spawn.x, TANK_RANGE.groundY+1, TANK_RANGE.spawn.z, { yaw: TANK_RANGE.spawn.yaw });
-  Tank.onExplode(onBoom);              /* 命中反馈: 炸靶表扬 + 波及怪物 */
-  Tank.protect(keepGround);            /* 爆炸保护: 平坦草海永固(丘陵/峡谷/乱石仍可炸) */
-  Tank.obstacle(mobSolid);            /* 炮弹障碍: 怪物身体挡炮弹(碰上即炸=直击) */
-  Tank.targeter(nearestFoe);          /* 导弹索敌: 追踪弹(张廷彧号)的"敌人是谁" */
   buildPicker();                       /* 游戏内选怪面板(只绑一次) */
   buildTankMenu();                     /* 出发配置页刷新(高亮随 selModel/mobCfg) */
   placedModel = selModel;              /* 记住场上部署, 出发时没变就不重建(保进度) */
@@ -371,7 +374,7 @@ const TankRangeMode = mkMode({
     praiseT = Math.max(0, praiseT - dt);
     if(!Tank.driving() && Tank.nearby() !== null && speakArmed >= 10){
       speakArmed = 0;
-      const def = TANK_MODELS[selModel] || TANK_MODELS.classic;
+      const def = Tank.model(selModel);
       SpeechKit.speak('要开坦克吗？' + def.name + '在等你哦！按 E！');
     }
     Mobs.update(dt);
@@ -389,7 +392,7 @@ const TankRangeMode = mkMode({
 
   hud(){
     let lines;
-    const def = TANK_MODELS[selModel] || TANK_MODELS.classic;
+    const def = Tank.model(selModel);
     if(Tank.driving()){
       const n = aliveCount();
       lines = ['🚙 ' + def.name + ' · 左键/💥 开炮 · E 下车'];

@@ -505,7 +505,7 @@ const Tank = (()=>{
 
   function place(x, y, z, o){
     o = o || {};
-    const def = TANK_MODELS[o.model] || TANK_MODELS.classic;   // 型号注册表(config), 未知回落经典款
+    const def = model(o.model);   // 型号注册表(config), 未知回落经典款(单一回落口)
     const m = buildModel(def.key);
     const T = TankCore.mkT(x, y, z, o.yaw || 0, def.perf);
     T.model = def;                                           // 挂上型号 def(模式层读 name 做提示)
@@ -617,8 +617,19 @@ const Tank = (()=>{
 
   function driving(){ return drivingIdx >= 0; }
 
-  function at(){                          /* 驾驶中坦克的车体状态(供模式层碾压/索敌), 否则 null */
-    return drivingIdx >= 0 ? tanks[drivingIdx].T : null;
+  function at(){                          /* 驾驶中坦克的车体状态快照(供模式层碾压/索敌), 否则 null */
+    if(drivingIdx < 0) return null;
+    const T = tanks[drivingIdx].T;
+    return { x: T.x, y: T.y, z: T.z, yaw: T.yaw };   /* 拷贝快照: 不外泄可变物理状态(GLOSSARY 契约) */
+  }
+
+  /* 型号查询的单一回落(specV 的注册表级同伴): 未知键回落 classic 并告警。
+     模式层不得手抄 `TANK_MODELS[k] || classic`(tank-range 曾三处手抄) */
+  function model(key){
+    const def = TANK_MODELS[key];
+    if(def) return def;
+    console.warn('[Tank] 未知坦克型号 ' + key + ', 回落 classic');
+    return TANK_MODELS.classic;
   }
 
   function nearby(){                      /* promptR 内最近车 {d, name} | null(供模式层提示) */
@@ -685,10 +696,10 @@ const Tank = (()=>{
     tanks.length = 0;
     for(const sh of shells) disposeShell(sh);
     shells.length = 0;
-    protectFn = null; obstacleFn = null; targetFn = null;  // 模式钩子随清场解除(模式重进会重注册)
-    boomCb = null;                                          // onExplode 回调同属模式钩子, 一并解除
+    /* 模式钩子(onExplode/protect/obstacle/targeter)是会话级接线, 不随清场解除:
+       clear 只清实体(车/弹/驾驶位), 模式在加载时注册一次即可, 重进无需重挂 */
   }
 
   return { place, update, toggle, driving, at, nearby, exitAll, clear, fire,
-           onExplode, protect, obstacle, targeter, icon };
+           onExplode, protect, obstacle, targeter, icon, model };
 })();

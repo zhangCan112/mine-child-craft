@@ -55,6 +55,7 @@ globalThis.Tank = {
   obstacle(fn){ obstacleFn = fn; },          /* 模式注册炮弹障碍谓词(怪物身体挡炮弹) */
   targeter(fn){ targeterFn = fn; },          /* 模式注册索敌钩子(追踪导弹的"敌人是谁") */
   icon(){ return 'data:tank'; },             /* 型号像素图标(选坦克页卡片) */
+  model(k){ return TANK_MODELS[k] || TANK_MODELS.classic; },   /* 型号查询单一回落(config 的 TANK_MODELS) */
 };
 let targeterFn = null;
 /* 坦克型号注册表替身(config 的 TANK_MODELS): 两款足够测选车与切换 */
@@ -445,10 +446,13 @@ test('HUD/话术带型号名: 驾驶中显示当前型号, 上车语音报名字
 
 /* ============ 四期: 张廷彧号追踪导弹(索敌政策归模式层) ============ */
 
-test('导弹索敌: init 注册 Tank.targeter, 最近活怪身体中心, 跳过死怪, 无敌直飞', () => {
-  targeterFn = null;
+test('导弹索敌: 模块加载即注册 Tank.targeter(钩子常驻, clear/init 不重挂), 最近活怪身体中心, 跳过死怪, 无敌直飞', () => {
+  assert.strictEqual(typeof targeterFn, 'function', '模式加载时注册索敌钩子(会话级接线)');
+  const registered = targeterFn;
+  targeterFn = null;                          /* 模拟钩子被解绑: init/clear 都不再重挂(引擎侧也不解除) */
   TankRangeMode.init();
-  assert.strictEqual(typeof targeterFn, 'function', '模式在 init 注册索敌钩子');
+  assert.strictEqual(targeterFn, null, '注册只发生在模块加载 — 重进模式无需重挂');
+  targeterFn = registered;                    /* 还原后继续测索敌政策 */
   listResult = [
     { type: 'zombie', dead: true,  gone: false, pos: { x: 64, y: 13, z: 55 }, cfg: { h: 1.9 } },   /* 死怪不算 */
     { type: 'zombie', dead: false, gone: false, pos: { x: 64, y: 13, z: 64 }, cfg: { h: 1.9 } },   /* 稍远 */
