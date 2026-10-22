@@ -54,6 +54,10 @@ _Avoid_: 怪物系统（散称）、mob 数组（那是实现）
 玩法与政策所在之处：游戏模式、每日预算、存档、语音、菜单。应用可依赖引擎，引擎不得依赖应用。
 _Avoid_: 上层、业务层、游戏逻辑层
 
+**模式注册表（ModeRegistry）**:
+游玩模式清单的唯一权威（js/mode-registry.js，纯数据+纯函数）：一行派生模式卡/菜单页/返回/出发按钮的 DOM id、脚本路径、儿童时限成员、限额文案里的模式名。main.js 只消费不另持影子；命名约定（id ↔ cardXxx ↔ menuXxx）由 test/mode-registry.test.js 对着 index.html 逐条断言。
+_Avoid_: MODE_CARDS（历史名——三份影子表达已归一）、模式列表散称
+
 ### 政策与进度
 
 **每日预算（DailyBudget）**:

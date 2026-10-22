@@ -15,18 +15,18 @@ MODES.cur = null;
 /* 当前模式 id 只从 MODES.cur 派生 — 不再另持一份需同步的状态 */
 const curModeId = () => (MODES.cur ? MODES.cur.id : null);
 
-/* ---------- 菜单页面切换 ---------- */
+/* ---------- 菜单页面切换 ----------
+   页面清单从模式注册表派生(唯一权威, 见 js/mode-registry.js);
+   win/playTime 是主循环/预算的静态页, 不属游玩模式 */
 const overlay = document.getElementById('overlay');
 const pages = {
   main:  document.getElementById('menuMain'),
-  arena: document.getElementById('menuArena'),
-  tnt:   document.getElementById('menuTnt'),
-  build: document.getElementById('menuBuild'),
-  tank:  document.getElementById('menuTank'),
-  nether: document.getElementById('menuNether'),
   win:   document.getElementById('menuWin'),
   playTime: document.getElementById('menuPlayTime')
 };
+for(const m of ModeRegistry.all){
+  if(ModeRegistry.hasPage(m)) pages[m.id] = document.getElementById(ModeRegistry.pageId(m));
+}
 let curPage = 'main';
 function showPage(id){
   curPage = id;
@@ -37,18 +37,9 @@ function showPage(id){
 /* ---------- 每日预算 (DailyBudget) — 儿童时限的唯一账本 ----------
     竞技场+TNT+建造 的儿童时限与 专注训练营的每日限额 都记在
     js/daily-budget.js 的同一本预算里; 计时/午夜翻转/按日限额/迁移全部在那边 */
-/* 主菜单模式卡注册表: 一张表派生入口 onclick / 超时置灰 / 共享儿童时限的
-   模式清单 — 新增模式 = index.html 加卡 + 这里加一行, 三处重复表达归一 */
-const MODE_CARDS = [
-  { id:'arena', card:'cardArena', page:'arena', gated:true },
-  { id:'tnt',   card:'cardTnt',   page:'tnt',   gated:true, menu:true },   // menu: 进页后刷新模式菜单
-  { id:'focus', card:'cardFocus', gated:false },                          // 专注训练营接管全屏 UI, 无菜单页
-  { id:'build', card:'cardBuild', page:'build', gated:true, menu:true },
-  { id:'tank',  card:'cardTank',  page:'tank',  gated:true, menu:true },
-  { id:'nether', card:'cardNether', page:'nether', gated:true, menu:true },   // 下界冒险: 传送门+打怪, 计入儿童时限
-
-];
-const PLAY_LIMIT_MODES = MODE_CARDS.filter(c => c.gated).map(c => c.id);   // 共享儿童时限的模式
+/* 游玩模式清单见 js/mode-registry.js(模式注册表 — 卡片/页面/按钮 id、
+   儿童时限成员、限额文案的模式名全部由它派生, 不在此另持影子) */
+const PLAY_LIMIT_MODES = ModeRegistry.playModeIds();   // 共享儿童时限的模式
 let Budgets = null;                                   // SyncDB.ready 后填充(镜像完成, 防"第二台设备读到旧本地值")
 let playSaveT = 0;
 
@@ -74,14 +65,14 @@ function updateLimitText(){
   if(!Budgets) return;
   const m = Math.round(Budgets.play.capMs()/60000);
   const t = document.getElementById('playTimeRule');
-  if(t) t.textContent = '竞技场 + TNT 密室 + 建造 + 坦克演习场 + 下界冒险每天共 ' + m + ' 分钟 · 专注训练营不受影响（每天 ' + FOCUS_DAILY_LEVELS + ' 关 / ' + FOCUS_DAILY_MIN + ' 分钟）';
+  if(t) t.textContent = ModeRegistry.playModeNames().join(' + ') + '每天共 ' + m + ' 分钟 · 专注训练营不受影响（每天 ' + FOCUS_DAILY_LEVELS + ' 关 / ' + FOCUS_DAILY_MIN + ' 分钟）';
   const b = document.getElementById('buildTimeRule');
-  if(b) b.textContent = '你的建造会自动保存，换设备也能继续！和竞技场、TNT 共享每天 ' + m + ' 分钟游玩时间';
+  if(b) b.textContent = '你的建造会自动保存，换设备也能继续！和' + ModeRegistry.playModeNames('build').join('、') + '共享每天 ' + m + ' 分钟游玩时间';
 }
 function refreshPlayCards(){
   const blocked = playBlocked();
-  MODE_CARDS.filter(c => c.gated).forEach(({card})=>{
-    const c = document.getElementById(card);
+  ModeRegistry.all.filter(m => m.gated).forEach((mc)=>{
+    const c = document.getElementById(ModeRegistry.cardId(mc));
     if(!c) return;
     c.classList.toggle('timedout', blocked);
     let b = c.querySelector('.timeoutBadge');
@@ -126,25 +117,27 @@ Input.onLockChange = onLockChanged;
 
 /* ---------- 坦克模式卡入口图标: 已移居 js/icons.js(菜单像素图标工坊) ---------- */
 
-/* ---------- 主菜单与按钮(模式卡 onclick 由 MODE_CARDS 表统一派生) ---------- */
+/* ---------- 主菜单与按钮(卡片 onclick / 返回 / 出发 全部由注册表派生) ---------- */
 function buildMenu(){
-  for(const mc of MODE_CARDS){
-    document.getElementById(mc.card).onclick = ()=>{
+  for(const mc of ModeRegistry.all){
+    document.getElementById(ModeRegistry.cardId(mc)).onclick = ()=>{
       if(mc.gated && playBlocked()){ showPlayTimeoutPage(); return; }
       if(curModeId() !== mc.id) switchMode(mc.id);
-      if(mc.page) showPage(mc.page);
+      if(ModeRegistry.hasPage(mc)) showPage(mc.id);
       if(mc.menu && MODES.cur.buildMenu) MODES.cur.buildMenu();
     };
+    if(ModeRegistry.hasPage(mc)){                       // 出发配置页的返回按钮
+      const back = document.getElementById(ModeRegistry.backBtnId(mc));
+      if(back) back.onclick = ()=> showPage('main');
+    }
+    if(mc.enter){                                       // "出发/进入"按钮: 锁指针进战场(触屏=touchPlaying)
+      const eb = document.getElementById(ModeRegistry.enterBtnId(mc));
+      if(eb) eb.onclick = ()=>{
+        if(curModeId() !== mc.id) switchMode(mc.id);
+        requestLock();
+      };
+    }
   }
-  document.getElementById('arenaBackBtn').onclick = ()=> showPage('main');
-  document.getElementById('tntBackBtn').onclick   = ()=> showPage('main');
-  document.getElementById('buildBackBtn').onclick = ()=> showPage('main');
-  document.getElementById('tankBackBtn').onclick  = ()=> showPage('main');
-  document.getElementById('netherBackBtn').onclick = ()=> showPage('main');
-  document.getElementById('netherEnterBtn').onclick = ()=>{
-    if(curModeId() !== 'nether') switchMode('nether');   // 进入下界冒险(家=巨大地下室+地表传送门)
-    requestLock();                                       // 与竞技场/坦克同款: 锁指针进游戏(触屏=touchPlaying)
-  };
   document.getElementById('playTimeHomeBtn').onclick = ()=> showPage('main');
 }
 
