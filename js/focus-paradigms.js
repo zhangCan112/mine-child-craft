@@ -275,8 +275,8 @@ function runFlanker(area, params, adapt, h) {
   const bar = fEl('div', 'f-flanker-row');
   area.appendChild(bar);
   const btns = fEl('div', 'f-flanker-btns');
-  const bl = fEl('button', 'f-big-btn', '⬅️');
-  const br = fEl('button', 'f-big-btn', '➡️');
+  const bl = fEl('button', 'f-big-btn', btnImg('left'));
+  const br = fEl('button', 'f-big-btn', btnImg('right'));
   btns.appendChild(bl); btns.appendChild(br);
   area.appendChild(btns);
 

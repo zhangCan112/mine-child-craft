@@ -1544,7 +1544,7 @@ const ArenaMode = mkMode({
   chrome: {score: 'flex', hotbar: 'flex'},
   hotbar: arenaHb,
   touch: [ /* ⛏️ 主动作键(用户拍板 2026-10-24): 挖掘/攻击显式按钮, 放置走轻点手势 */
-    {label: '⛏️', holdAct: ()=>aimClick(0)},
+    {icon: 'pick', label: '挖掘', holdAct: ()=>aimClick(0)},
   ],
   init() {
     loadScene(generate); // 场景装填 seam: 建 + 收尾重建一步到位

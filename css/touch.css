@@ -91,6 +91,30 @@ canvas {
   box-shadow: 0 4px 10px rgb(0 0 0 / 35%);
 }
 
+/* 触屏按钮像素图标(button-icons.js 工坊): 图标居中, 缩放不糊 */
+#touchActs button,
+#touchTop button,
+#touchJump,
+#touchDown,
+#touchCam,
+#touchPause {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+#touchActs button img,
+#touchTop button img,
+#touchJump img,
+#touchDown img,
+#touchCam img,
+#touchPause img {
+  width: 58%;
+  height: 58%;
+  image-rendering: pixelated;
+  pointer-events: none; /* 指针目标恒为按钮本体(捕获/按压判定不受图标干扰) */
+}
+
 /* ⛏️ 主动作键(holdAct): 最大最顺手 — 挖掘为主, 跳跃次之(用户拍板 2026-10-24) */
 #touchActs button.main {
   width: 88px;
@@ -125,6 +149,14 @@ canvas {
 #touchJump:active,
 #touchDown:active {
   background: rgb(124 252 0 / 40%);
+  transform: translateY(1px); /* MC 按钮按下观感: 整钮下沉 1px */
+}
+
+#touchCam:active,
+#touchPause:active,
+#touchTop button:active {
+  background: rgb(124 252 0 / 35%);
+  transform: translateY(1px);
 }
 
 /* 跳跃/下降: 次位 — 跳跃偏下偏小(用户拍板: 挖掘为主, 跳跃次之);

@@ -186,6 +186,7 @@ globalThis.setTouchActions = (l) => {
 globalThis.showPage = (id) => calls.push(['showPage', id]);
 globalThis.uiPause = () => calls.push(['uiPause']);
 globalThis.iconOf = () => ''; /* 像素图标工坊未加载: 空串=跳过图标 */
+globalThis.btnImg = () => ''; /* 按钮像素图标工坊未加载: 空串=面板 chrome 无图(不炸) */
 globalThis.Avatar = {setItem(id) {
   calls.push(['setItem', id]);
 }, swing() {

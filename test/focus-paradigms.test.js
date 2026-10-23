@@ -53,6 +53,8 @@ function loadFocus() {
     sfx() {},
     praiseLine: () => '(表扬)', comfortLine: () => '(安慰)',
     mcIcon: () => 'data:icon', creeperFace: () => 'data:face',
+    // 按钮像素图标(button-icons.js, Flanker 左右大按钮) — 只测同步路径给桩
+    btnImg: () => '<img class="bi" alt="" src="data:btn">',
     // focusTodayStr 委托的日期串唯一拼装点(daily-budget.js, 加载序在前)
     budgetDateStr(t) {
       const d = new Date(t);
@@ -295,6 +297,7 @@ function loadFocusDrv(opts) {
       log.iconOf.push(id);
       return (opts.noPix || []).includes(id) ? '' : 'data:icon:' + id;
     },
+    btnImg: (n) => '<img class="bi" data-btn="' + n + '" alt="" src="data:btn">', // 按钮像素图标桩
     Mobs: {face(t) {
       log.mobFace.push(t);
       return 'data:mob:' + t;

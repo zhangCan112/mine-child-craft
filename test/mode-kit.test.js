@@ -96,6 +96,9 @@ globalThis.ITEMS = {
   pick_wood: {name: '木镐', tool: {kind: 'pick', tier: 1, dmg: 3, dur: 120, speed: 2}},
 };
 globalThis.iconOf = (id) => (id === 'planks' ? 'data:image/png;base64,AA' : '🥓');
+/* 按钮像素图标(button-icons.js)引用的自由变量 → 全局桩(面板标题/页签/徽标) */
+globalThis.btnImg = (n) => '<img class="bi" data-btn="' + n + '" alt="" src="data:image/png;base64,BB">';
+globalThis.BTN_PIX = {heart: {art: [], map: {}}}; /* mkHpBar 像素心(THREE 缺席时不触达) */
 globalThis.toolOf = (id) => (/^(pick|axe|sword|shovel)_/.test(id) ? {kind: 'pick', tier: 1, dur: 120} : null);
 globalThis.HOTBAR_SLOTS = 9; // inventory-core 常量桩
 let pausedN = 0;
@@ -257,10 +260,10 @@ test('craft 面板: 卡片=产物大图+×数量+材料chip×数+站点徽标, �
   const planksCard = cards[0];
   assert.ok(planksCard.innerHTML.includes('src="data:image/png;base64,AA"')); // 产物像素大图
   assert.ok(planksCard.innerHTML.includes('×4')); // 产物数量
-  assert.ok(!planksCard.innerHTML.includes('🛠️')); // hand 级无徽标
+  assert.ok(!planksCard.innerHTML.includes('data-btn="table"')); // hand 级无徽标
   assert.strictEqual((planksCard.innerHTML.match(/class="mkp-chip"/g) || []).length, 1); // log×1
   const pickCard = cards[1];
-  assert.ok(pickCard.innerHTML.includes('🛠️')); // table 级徽标
+  assert.ok(pickCard.innerHTML.includes('data-btn="table"')); // table 级徽标(像素图标桩标记)
   assert.strictEqual((pickCard.innerHTML.match(/class="mkp-chip"/g) || []).length, 2); // planks + stick
   assert.ok(pickCard.innerHTML.includes('×3'));
   const torchCard = cards[2];
@@ -426,8 +429,8 @@ test('craft 面板: 页签过滤 — 工具/食物/方块各归其页, 材料只
   const panel = mkCraftPanel({doc, inv, recipes, onCraft() {}});
   panel.show();
   const tabs = collect(panel.root, 'mkp-tab');
-  assert.strictEqual(tabs.length, 4); // 📦⛏️🍎🧱 图标式零文字
-  assert.ok(tabs[0].innerHTML.includes('📦'));
+  assert.strictEqual(tabs.length, 4); // grid/pick/apple/brick 像素图标式零文字
+  assert.ok(tabs[0].innerHTML.includes('data-btn="grid"')); // 全部页签=物品格图标(桩标记)
   assert.strictEqual(collect(panel.root, 'mkp-card').length, 4); // 默认全部
   tabs[1].onclick(); // ⛏️ 工具
   assert.strictEqual(collect(panel.root, 'mkp-card').length, 1);

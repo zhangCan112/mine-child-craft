@@ -102,6 +102,10 @@ _Avoid_: 战利品系统（散称）、把掉落表掷骰写在模式层（语�
 手绘像素图标的工坊（js/icons.js）：16×16 字符画（字符查表上色，'.'=透明）→ 关平滑放大 64×64 → dataURL。tankIcon（主菜单坦克卡入口图标——emoji 各平台渲染不可控）+ 物品图标扩展 itemIcon/iconOf：ITEM_PIX 字符画数据表覆盖 ITEMS 全量（工具 16 条共用 4 张字符画，'#'主/'+'亮/'-'暗 三字符按木/石/铁/钻四阶色板替换，色板与 mkToolDef 同源），一期已全量替换 emoji 占位；iconOf 是物品图标统一出口——有像素图返 dataURL、未手绘返 emoji 文本、未注册返空串，掉落物 Sprite/快捷栏 item 槽/配方书卡片共用。怪物头像在怪物库，专注图标在 focus-icons.js。
 _Avoid_: emoji 图标（各平台渲染不可控）、把图标绘制散写在各消费方
 
+**按钮像素图标工坊**:
+全游戏按钮/chrome 图标的唯一工坊（js/button-icons.js，应用层·图标资源）：16×16 手绘字符画走像素图标工坊同款管线（复用 drawArt/pixToURL64），替换全部按钮 emoji（⬆️📷⛏️🎒🧹✕🎵❤ 等——各平台渲染不可控）。语义与视觉语言对照 MC 一手来源逐条调研（docs/mc-button-icons-research.md，Mojang/bedrock-samples 逐像素取证：跳跃=上箭头+地面线、视角=立方体线框不画相机、心形 9×9 三色无描边、背包=褐色箱形容器；版权口径 D13——只取语义与观感语言，像素全部自绘）。委托不二画：物品系按钮（镐/剑/苹果/箱…）直接走 itemIcon 同一图源，坦克/苦力怕/鬼村长复用 tankIcon/Mobs.face/chiefFace。interface：btnIcon(name)→dataURL|'' · btnImg(name, cls)→img HTML · BTN_PIX（字符画表）· BTN_CARD_ICON（模式卡图标键表，注入走模式注册表驱动）。触屏按钮经引擎层 input.js 的 Input.icon seam 注入（引擎不反向依赖应用层，main.js 组合根接线，未注入回落中文文案）；静态 index.html 按钮（菜单卡/返回/音量/出发）由工坊加载期 IIFE 手术式换装（只动文本节点，不重建已接线的元素）；面板 chrome 图标在 show() 期注入（构造期工坊可能未加载——adventure.js 顶层建面板，boot 冒烟守此加载序）。防错网：test/button-icons.test.js 扫 js/** 全部 icon:'…'/btnImg('…') 字面量 ⊆ 工坊键集。
+_Avoid_: 按钮用 emoji（观感业余且各平台字形漂移）、把按钮图标画进像素图标工坊的 ITEM_PIX（那是物品图标的地界）、在引擎层直连 btnIcon（必须走 Input.icon seam）
+
 **探险核心（AdventureCore）**:
 应用层纯核心（js/adventure-core.js，零 THREE 零 DOM，有单测）：探险模式的政策与地形段——地图常量表（湖/矿坑/山洞/巢穴/矿带）、确定性建场一族（advBuildWorld）、政策纯函数（死亡计划/巢穴节拍/挥击与怪物伤害/击杀掉落清单/收集播报/蓄力步进/放置合法性/食物政策/树苗计时/站点判定/烧炼单步/退炉/TNT 掷骰与衰减/大宝箱阶梯与入箱 advChestNext·advChestPut）、任务表 ADV_QUESTS 与计数键口径、提醒政策三件（低耐久预警/背包快满/工具坏话术）。壳（js/modes/adventure.js）只留 mkMode 装配/THREE·DOM 观感/话术/生命周期，经共享词法环境消费。
 _Avoid_: 把政策纯函数写回模式壳（S1 剥核先例：world→mesh-core / tank→tank-core / mobs→mob-core）

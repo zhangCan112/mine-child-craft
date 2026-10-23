@@ -146,7 +146,8 @@ function ensureFocusCaveSkin() {
 }
 function focusScreen(html) {
   clearTimeout(focusAutoTimer);
-  focusRoot.innerHTML = '<div class="f-top"><button class="f-back" id="fBackBtn">⬅️</button></div>' + html;
+  focusRoot.innerHTML = '<div class="f-top"><button class="f-back" id="fBackBtn" aria-label="返回">' +
+      btnImg('left') + '</button></div>' + html;
   document.getElementById('fBackBtn').onclick = focusExit;
   return focusRoot;
 }
@@ -297,11 +298,11 @@ function showFocusToday() {
       <p class="f-sub">训练师要休息了，明天怪物们等你来 😊</p>
       <div class="f-dots">${dots}</div>
       ${checkDue ? '<div class="f-extra-row">' +
-        '<button class="f-extra-btn f-check-btn" id="fCheckBtn">🔥 今日体检</button></div>' : ''}
+        '<button class="f-extra-btn f-check-btn" id="fCheckBtn">' + btnImg('flame') + '今日体检</button></div>' : ''}
       ${focusStampCalendarHtml(save)}
-      <button class="f-btn" id="fBagBtn">🎒 宝物柜</button>
-      <button class="f-btn" id="fHome2">🏠 回主页</button>
-      <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
+      <button class="f-btn" id="fBagBtn">${btnImg('chest')} 宝物柜</button>
+      <button class="f-btn" id="fHome2">${btnImg('house')} 回主页</button>
+      <button class="f-parent-btn" id="fParentBtn">${btnImg('lock')} 家长</button>
     </div>`;
     focusScreen(html);
     if (checkDue) document.getElementById('fCheckBtn').onclick = startFocusCheck;
@@ -330,11 +331,11 @@ function showFocusToday() {
     ${tasks ? '<div class="f-task-row" id="fTaskRow">' + tasks + '</div>' : ''}
     <button class="f-start" id="fStartBtn">▶ 开始训练</button>
     ${focusExtrasHtml(save)}
-    <button class="f-btn" id="fBagBtn">🎒 宝物柜</button>
-    <button class="f-btn" id="fProgressBtn">📈 我的进步</button>
+    <button class="f-btn" id="fBagBtn">${btnImg('chest')} 宝物柜</button>
+    <button class="f-btn" id="fProgressBtn">${btnImg('chart')} 我的进步</button>
     <div class="f-dots">${dots}</div>
     ${focusStampCalendarHtml(save)}
-    <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
+    <button class="f-parent-btn" id="fParentBtn">${btnImg('lock')} 家长</button>
   </div>`;
   focusScreen(html);
   // B4 今日页开场白: 每次进页问候一次, 点按跳过(停 TTS 并收起气泡)
@@ -822,13 +823,13 @@ function focusExtrasHtml(save) {
   const today = focusTodayStr();
   const parts = [];
   if (focusCheckEntry(save.checks, today)) {
-    parts.push('<button class="f-extra-btn f-check-btn" id="fCheckBtn">🔥 今日体检</button>');
+    parts.push('<button class="f-extra-btn f-check-btn" id="fCheckBtn">' + btnImg('flame') + '今日体检</button>');
   }
   const fb = focusBudget();
   const de = devilEntry(save.devil, today, fb ? fb.spentCount() : 0, fb ? fb.capCount() : FOCUS_DAILY_LEVELS);
   if (de.reason !== 'done') {
     parts.push('<button class="f-extra-btn f-devil-btn" id="fDevilBtn"' +
-        (de.open ? '' : ' disabled title="今天的关卡额度不够啦，明天再来！"') + '>👹 魔鬼特训</button>');
+        (de.open ? '' : ' disabled title="今天的关卡额度不够啦，明天再来！"') + '>' + btnImg('devil') + '魔鬼特训</button>');
   }
   return parts.length ? '<div class="f-extra-row">' + parts.join('') + '</div>' : '';
 }
@@ -923,7 +924,7 @@ function startFocusDevil() {
       <p class="f-sub">今天轮到：${meta.icon} ${meta.game} · ${meta.name}</p>
       <div class="f-rulebox">魔鬼特训，5 分钟，准备好了吗！</div>
       <div class="f-tipbox">比平时难一点点，要用 2 关的额度。输了也不扣任何东西，鬼等级永远不会归零！</div>
-      <button class="f-start" id="fDevilGo">🔥 我准备好了！</button>
+      <button class="f-start" id="fDevilGo">${btnImg('flame')} 我准备好了！</button>
     </div>`);
   SpeechKit.speak('魔鬼特训，5 分钟，准备好了吗！今天轮到' + meta.game + '！');
   document.getElementById('fDevilGo').onclick = ()=> beginDevilRun(dim, tier);
@@ -1117,7 +1118,7 @@ function showFocusParent() {
         如在<b>家庭和学校等多个场景</b>持续存在困难并影响生活,请咨询儿科医生(NIMH 指引)。
       </div>
       <div class="f-btn-row">
-        <button class="f-btn" id="fCsvBtn">📄 导出记录 CSV</button>
+        <button class="f-btn" id="fCsvBtn">${btnImg('doc')} 导出记录 CSV</button>
         <button class="f-btn danger" id="fResetBtn">↺ 重置进度</button>
         <button class="f-btn" id="fBackToday">返回</button>
       </div>

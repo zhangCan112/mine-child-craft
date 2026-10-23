@@ -453,12 +453,12 @@ const TankRangeMode = mkMode({
     return lines;
   },
 
-  touch: [ /* 💥🚙 常用(右缘动作条); 👾 选怪低频 → 顶部小键区(用户拍板 2026-10-24) */
-    {label: '🚙', act() {
+  touch: [ /* 开炮/上下车 常用(右缘动作条); 选怪低频 → 顶部小键区(用户拍板 2026-10-24) */
+    {icon: 'tank', label: '上下车', act() {
       speakForToggle(Tank.toggle());
     }},
-    {label: '💥', act: fireOnce},
-    {label: '👾', rare: true, act() {
+    {icon: 'boom', label: '开炮', act: fireOnce},
+    {icon: 'creeper', label: '选怪物', rare: true, act() {
       togglePicker();
     }}, // 换怪物面板(部署在面板里, 与 M 键同入口)
   ],

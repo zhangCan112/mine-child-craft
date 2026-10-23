@@ -1420,9 +1420,9 @@ const AdventureMode = mkMode({
 
   touch: [ /* ⛏️ 主动作键(用户拍板): 有怪打怪/瞄准方块挖掘, 按住连挖;
      🎒🏠 低频 → 顶部小键区, 不占拇指操作区 */
-    {label: '⛏️', holdAct: () => aimClick(0)},
-    {label: '🎒', act: () => advPanelToggle(), rare: true},
-    {label: '🏠', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
+    {icon: 'pick', label: '挖掘', holdAct: () => aimClick(0)},
+    {icon: 'chest', label: '背包', act: () => advPanelToggle(), rare: true},
+    {icon: 'house', label: '回家', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
   ],
   /* 触屏长按连挖(input.js 手势路由): 复用桌面按住标志 — 蓄力链自动连挖/触屏松手即停 */
   onHold(active) {

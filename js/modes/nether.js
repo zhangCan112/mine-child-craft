@@ -57,11 +57,11 @@ function getPEnt() {
   return pEnt;
 }
 
-/* ---------- 武器栏(mkHotbar 深接口): ⚔️剑/🏹弓 两槽 ----------
+/* ---------- 武器栏(mkHotbar 深接口): 剑/弓 两槽(item 槽型=像素物品图标) ----------
    数字键/滚轮/点选全自动(hotbar 样板吸收); 观感随手持物注册表走
    (Avatar.setItem), 伤害/弹道等战斗政策在 NETHER 常量, 不进 def */
 const weaponBar = ModeKit.mkHotbar({
-  items: [{icon: '⚔️', lbl: '剑'}, {icon: '🏹', lbl: '弓'}],
+  items: [{item: 'sword_iron', lbl: '剑'}, {item: 'bow_item', lbl: '弓'}],
   onPick: (i) => netherSetWeapon(i === 1 ? 'bow' : 'sword'),
 });
 function netherSetWeapon(id) {
@@ -485,7 +485,7 @@ const NetherMode = mkMode({
   },
 
   touch: [ /* ⛏️ 主动作键与探险同款(用户拍板 2026-10-24): 按一下打怪, 按住连续攻击 */
-    {label: '⛏️', holdAct: netherAttack},
+    {icon: 'sword', label: '攻击', holdAct: netherAttack},
   ],
   /* ⛏️ 按住=连续攻击(挥击冷却自节流, 弓按 bowCd 节奏) */
   onHold(active) {

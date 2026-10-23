@@ -37,6 +37,9 @@ globalThis.document = {
 const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;
 globalThis.ModeKit = ModeKit;
+/* 武器栏 item 槽型(像素物品图标)引用的自由变量 → 全局桩(浏览器来自 items-core/icons.js) */
+globalThis.ITEMS = {sword_iron: {name: '铁剑'}, bow_item: {name: '弓'}};
+globalThis.iconOf = (id) => 'data:image/png;base64,CC';
 const calls = [];
 const spoken = [];
 let touchList = null;
