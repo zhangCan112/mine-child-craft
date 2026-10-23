@@ -60,6 +60,11 @@
             <h2>下界冒险</h2>
             <small>家是安全的 · 下界狠起来！</small>
           </div>
+          <div class="mode-card adventure" id="cardAdventure">
+            <div class="big">🌲</div>
+            <h2>探险模式</h2>
+            <small>挖矿 · 合成 · 做任务</small>
+          </div>
         </div>
         <div class="keys">
           <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc<br>
@@ -158,6 +163,20 @@
         </div>
       </div>
 
+      <!-- 探险模式页: 确定性草原(树林/湖/矿坑/山洞) · 背包与配方书(T11 骨架) -->
+      <div class="menu-page" id="menuAdventure">
+        <h1>探险 <span>模式</span></h1>
+        <p>大草原上有树林 · 湖泊 · 矿坑和山洞 🌲 空手出发，成为小小探险家！</p>
+        <div class="btn-row">
+          <button class="play primary" id="adventureEnterBtn">🌲 出发探险 ▶</button>
+          <button class="play" id="adventureBackBtn">⬅ 返回</button>
+        </div>
+        <div class="keys">
+          <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>背包</b>：Tab / 🎒 &nbsp; <b>整理</b>：🧹 &nbsp; <b>菜单</b>：Esc<br>
+          <span class="safe">背包和配方书已经就位 · 挖矿、合成和怪物伙伴即将开放 · 死亡不掉背包，回小屋满血再来</span>
+        </div>
+      </div>
+
       <!-- 儿童时限提醒页 -->
       <div class="menu-page" id="menuPlayTime">
         <h1>🌙 今天的冒险时间到啦！</h1>
@@ -221,6 +240,7 @@
     <script src="js/modes/build.js" defer></script>
     <script src="js/modes/tank-range.js" defer></script>
     <script src="js/modes/nether.js" defer></script>
+    <script src="js/modes/adventure.js" defer></script>
     <script src="js/mode-registry.js" defer></script>
     <script src="js/icons.js" defer></script>
     <script src="js/main.js" defer></script>
