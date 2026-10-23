@@ -22,7 +22,9 @@ function comfortLine() {
 
 const FOCUS_SAVE_KEY = 'focus_camp_save';
 const focusSlot = SyncDB.slot(FOCUS_SAVE_KEY, {
-  defaults: {unlocked: 0, stars: {}, history: []},
+  /* stamps={日期:当日关数}(图章日历, 滚动 90 天) 与 stampClaimed=[已领集章达成线]:
+     缺字段由 save-slot 的 defaults 浅并入幂等补默认, 存量进度字段原样保留 */
+  defaults: {unlocked: 0, stars: {}, history: [], stamps: {}, stampClaimed: []},
   migrate(s, from) { // v0 老形状可能仍带 daily(已迁 daily_budget_save) → 摘除, 与启动迁移幂等
     if (from === 0 && s && s.daily) delete s.daily;
     return s;
@@ -90,6 +92,56 @@ function focusExit() {
   showPage('main');
 }
 
+/* ---------- 图章日历条 + 集章仪式(F7): 纯函数在 focus-levels.js, 此处只做呈现 ----------
+   当日 ≥1 关盖普通章(默认镐图案), 满 3 关盖大章; 漏签空白无任何负面标记;
+   集章里程碑(3/7/14/30…章)达成时村长喝彩授予观感奖励 —— 永不解锁关卡/
+   范式/难度(红线), 皮肤实际换肤挂 CSS 类钩子(f-bag-iron, 样式归 F9, 缺类不强求) */
+const FOCUS_STAMP_KIND = 'pick'; // 默认镐章; 3 章奖励"自选图案(⛏💎🧨)"的选择器挂后续工单
+const FOCUS_STAMP_REWARD_TEXT = {
+  stamp_pattern: '自选图章图案', bag_skin: '矿袋新皮肤', firework: '宝物柜烟花', gold_stamp: '金图章',
+};
+
+function focusStampCalendarHtml(save) { // 本月日历条(本月外不渲染)
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  const days = new Date(year, month+1, 0).getDate(); // 本月总天数
+  const todayStr = budgetDateStr(now.getTime());
+  let cells = '';
+  for (let d = 1; d <= days; d++) {
+    const key = year + '-' + (month+1) + '-' + d; // 与 budgetDateStr 同款无前导零
+    const n = save.stamps[key] || 0;
+    const ico = n >= FOCUS_STAMP_DAILY.big ? stampIcon('big') :
+                n >= FOCUS_STAMP_DAILY.min ? stampIcon(FOCUS_STAMP_KIND) : '';
+    cells += '<div class="f-stamp-cell' + (key === todayStr ? ' f-stamp-today' : '') + '">' +
+      (ico ? '<img draggable="false" alt="" src="' + ico + '">' : '') +
+      '<span>' + d + '</span></div>';
+  }
+  return '<div class="f-stamp-cal"><div class="f-stamp-title">📅 ' + (month+1) + ' 月的图章 · 已集 ' +
+      stampCount(save.stamps) + ' 枚</div><div class="f-stamp-grid">' + cells + '</div></div>';
+}
+
+/* 结算落账(须在 saveFocusSave 之前调用, 就近写回 save): 当日计数与预算 dots 同口径;
+   返回本次新达成的集章达成线(差集幂等, 已领不重发) */
+function settleFocusStamps(save, day, played) {
+  save.stamps = stampTrim(stampRecord(save.stamps || {}, day, played), day);
+  const due = stampRewardsDue(stampCount(save.stamps), save.stampClaimed || []);
+  if (due.length) {
+    save.stampClaimed = (save.stampClaimed || []).concat(due);
+    if (due.some((line) => stampRewardFor(line) === 'bag_skin')) {
+      document.body.classList.add('f-bag-iron'); // 矿袋皮肤钩子(F9 给样式)
+    }
+  }
+  return due;
+}
+
+function focusStampAwardHtml(lines) { // 集章授予仪式块: 村长喝彩 + 观感奖励声明
+  if (!lines || !lines.length) return '';
+  const items = lines.map((line)=>'<div>🎖️ ' + FOCUS_STAMP_REWARD_TEXT[stampRewardFor(line)] + '</div>').join('');
+  return '<div class="f-award"><img class="f-award-chief" draggable="false" alt="村长" src="' + chiefFace('cheer') + '">' +
+      '<div class="f-award-text"><b>集齐 ' + lines[lines.length-1] + ' 枚图章啦！</b>' + items + '</div></div>';
+}
+
 /* ---------- 今日页 ---------- */
 function showFocusToday() {
   stopFocusTicker();
@@ -111,6 +163,7 @@ function showFocusToday() {
       <h1>今天的训练完成啦！</h1>
       <p class="f-sub">训练师要休息了，明天怪物们等你来 😊</p>
       <div class="f-dots">${dots}</div>
+      ${focusStampCalendarHtml(save)}
       <button class="f-btn" id="fHome2">🏠 回主页</button>
       <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
     </div>`;
@@ -128,6 +181,7 @@ function showFocusToday() {
         (lv.kind==='tutorial' ? ' · 教学' : (lv.kind==='master' ? ' · 大师考验' : ''))}</p>
     <button class="f-start" id="fStartBtn">▶ 开始训练</button>
     <div class="f-dots">${dots}</div>
+    ${focusStampCalendarHtml(save)}
     <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
   </div>`;
   focusScreen(html);
@@ -214,6 +268,8 @@ function onFocusLevelEnd(level, st) {
   save.history.push({d: budgetDateStr(Date.now()), i: level.i, dim: level.dim, kind: level.kind,
     acc: Math.round(st.acc*100), mrt: Math.round(st.mrt), trials: st.trials, stars, passed});
   if (save.history.length > 400) save.history.splice(0, save.history.length-400);
+  const stampDue = settleFocusStamps(save, budgetDateStr(Date.now()), fb ? fb.spentCount() : 1); // 图章落账(F7)
+  const stampNames = stampDue.map((line)=>FOCUS_STAMP_REWARD_TEXT[stampRewardFor(line)]).join('、');
   saveFocusSave(save);
 
   if (passed) {
@@ -224,9 +280,11 @@ function onFocusLevelEnd(level, st) {
         </div>
         <h1>${level.kind==='tutorial' ? '学会啦！' : '通过！'}</h1>
         <p class="f-sub">正确 ${Math.round(st.acc*100)}%</p>
+        ${focusStampAwardHtml(stampDue)}
         <button class="f-start" id="fNextBtn">继续 ▶</button>
       </div>`);
-    SpeechKit.speak(level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine());
+    SpeechKit.speak(stampDue.length ? '集齐图章啦！获得' + stampNames + '！' :
+        (level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine()));
     [1, 2, 3].forEach((n)=>{
       if (n<=stars) {
         setTimeout(()=>{
@@ -245,9 +303,15 @@ function onFocusLevelEnd(level, st) {
         <h1>很努力了！</h1>
         <p class="f-sub">正确 ${Math.round(st.acc*100)}% · 目标 70%</p>
         <p class="f-sub">${moveOn ? '这关先记住感觉，我们去玩别的游戏，以后再来挑战！' : '我们再试一次，这次会简单一点点 😊'}</p>
+        ${focusStampAwardHtml(stampDue)}
         <button class="f-start" id="fNextBtn">${moveOn ? '下一个游戏 ▶' : '再来一次 ↺'}</button>
       </div>`);
-    SpeechKit.speak(moveOn ? '你已经很努力了！我们先去玩别的游戏，以后再来挑战这一关。' : '你刚才很努力！我们再来一次，这次会简单一点点。');
+    SpeechKit.speak(stampDue.length ? '集齐图章啦！获得' + stampNames + '！' :
+        (moveOn ? '你已经很努力了！我们先去玩别的游戏，以后再来挑战这一关。' : '你刚才很努力！我们再来一次，这次会简单一点点。'));
+  }
+  if (stampDue.length) { // 集章仪式: 奖励声明 toast + 晋升琶音(观感奖励, 与关卡解锁无关)
+    showToast('🎖️ 集章奖励：' + stampNames + '！', 2600);
+    sfx('level');
   }
   const next = ()=>{
     if (focusLocked()) showFocusToday();
