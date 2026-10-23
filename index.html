@@ -80,7 +80,7 @@
         </div>
         <div class="keys">
           <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc<br>
-          <span class="safe">版本 2026.10.23-3 · 若本行版本号和电脑上约定的一致, 说明运行的是最新版</span>
+          <span class="safe">版本 2026.10.24-1 · 若本行版本号和电脑上约定的一致, 说明运行的是最新版</span>
         </div>
       </div>
 
@@ -147,9 +147,9 @@
       <div class="menu-page" id="menuTank">
         <h1>坦克<span>演习场</span></h1>
         <p>先挑一辆坦克，再选一种怪物，出发！</p>
-        <div class="cfg-row-title">🚙 选坦克</div>
+        <div class="cfg-row-title" id="tankPickTitle">🚙 选坦克</div>
         <div id="tankPick"></div>
-        <div class="cfg-row-title">👾 选怪物</div>
+        <div class="cfg-row-title" id="mobPickTitle">👾 选怪物</div>
         <div id="tankMobPick"></div>
         <div class="btn-row">
           <button class="play primary" id="tankGoBtn">🚀 出发！</button>
@@ -263,6 +263,7 @@
 <script src="js/modes/adventure.js" defer></script>
     <script src="js/mode-registry.js" defer></script>
     <script src="js/icons.js" defer></script>
+    <script src="js/button-icons.js" defer></script>
     <script src="js/main.js" defer></script>
   </body>
 </html>

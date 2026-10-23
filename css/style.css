@@ -229,6 +229,35 @@ canvas {
   margin: 0 auto;
 }
 
+/* ---------- 按钮像素图标(button-icons.js 工坊注入的 img.bi): 16×16→64 dataURL,
+   按钮内联尺寸按容器分档; pixelated 保证缩放不糊 ---------- */
+.bi {
+  image-rendering: pixelated;
+  user-select: none;
+}
+
+.scene-card .big img {
+  width: 56px;
+  height: 56px;
+  display: block;
+  margin: 0 auto;
+}
+
+#overlay .play .bi,
+.pk-btn-row .bi,
+.pk-title .bi,
+.cfg-row-title .bi {
+  width: 20px;
+  height: 20px;
+  vertical-align: -4px;
+}
+
+.vol-row .bi {
+  width: 18px;
+  height: 18px;
+  vertical-align: -3px;
+}
+
 .mode-card h2 {
   margin: 8px 0 4px;
   font-size: 20px;
@@ -1011,9 +1040,32 @@ canvas {
   padding: 7px 12px;
 }
 
+/* 面板按钮/页签/徽标/标题的像素图标分档 */
+.mkp-sort .bi,
+.mkp-x .bi,
+.mkp-autofill .bi,
+.mkp-badge .bi,
+.mkp-fire .bi {
+  width: 16px;
+  height: 16px;
+  vertical-align: -3px;
+}
+
+.mkp-title .bi {
+  width: 20px;
+  height: 20px;
+  vertical-align: -5px;
+}
+
+.mkp-tab .bi {
+  width: 24px;
+  height: 24px;
+}
+
 .mkp-sort:active,
 .mkp-autofill:active {
   background: rgb(124 252 0 / 35%);
+  transform: translateY(1px); /* MC 按钮四态口径: 按下整钮下沉 1px */
 }
 
 .mkp-x {

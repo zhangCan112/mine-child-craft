@@ -27,6 +27,12 @@
   color: #fff;
 }
 
+#focusRoot .f-back .bi {
+  width: 22px;
+  height: 22px;
+  vertical-align: -5px;
+}
+
 .f-screen {
   position: relative; /* F9: 像素云伪元素以屏幕为定位框 */
   isolation: isolate; /* F9: 云层 z-index:-1 压到内容之下、天空之上 */
@@ -107,6 +113,15 @@
 
 .f-btn:hover {
   background: rgb(255 255 255 / 18%);
+}
+
+/* 按钮像素图标(button-icons.js 工坊注入的 img.bi, 文字按钮内联) */
+.f-btn .bi,
+.f-extra-btn .bi,
+.f-parent-btn .bi {
+  width: 18px;
+  height: 18px;
+  vertical-align: -4px;
 }
 
 .f-btn.danger {
@@ -370,6 +385,14 @@
   border: 4px solid rgb(255 255 255 / 45%);
   background: rgb(0 0 0 / 35%);
   cursor: pointer;
+  display: flex; /* 像素箭头图标居中(原 emoji 靠字体基线) */
+  align-items: center;
+  justify-content: center;
+}
+
+.f-big-btn .bi {
+  width: 44px;
+  height: 44px;
 }
 
 .f-big-btn:hover {

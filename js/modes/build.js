@@ -353,11 +353,11 @@ function buildBasementScene() {
    场景注册 / 存档
 ============================================================ */
 const BUILD_SCENES = [
-  {id: 'basement', name: '巨大地下室', icon: '🕳️',
+  {id: 'basement', name: '巨大地下室', icon: 'basement', /* 按钮像素图标键(button-icons.js) */
     desc: '40×32 超大地下大厅<br>客厅·卧室·书房·棋盘室<br>北侧阶梯直达地面花园',
     spawn: {x: 65.5, y: 18, z: 69.5, yaw: 0},
     build: buildBasementScene},
-  {id: 'house', name: '二层小楼房', icon: '🏡',
+  {id: 'house', name: '二层小楼房', icon: 'house',
     desc: '带院子的小家<br>一层客厅厨房 · 二层两间卧室',
     spawn: {x: 63.5, y: 21, z: 66.5, yaw: 0},
     build: buildHouseScene},
@@ -429,7 +429,7 @@ function buildSceneMenu() {
   BUILD_SCENES.forEach((sc)=>{
     const div = document.createElement('div');
     div.className = 'scene-card' + (sc.id===buildSceneId ? ' active' : '');
-    div.innerHTML = `<div class="big">${sc.icon}</div><h2>${sc.name}</h2><small>${sc.desc}</small>`;
+    div.innerHTML = `<div class="big">${btnImg(sc.icon)}</div><h2>${sc.name}</h2><small>${sc.desc}</small>`;
     div.onclick = ()=>{
       if (buildSceneId !== sc.id) {
         buildLoadScene(sc.id); buildSaveNow();
@@ -472,8 +472,8 @@ const BuildMode = mkMode({
   chrome: {score: 'none', hotbar: 'flex'},
   hotbar: buildHb,
   touch: [ /* ⛏️ 主动作键: 按住连挖准星方块(250ms/块); 放置走轻点手势; ✈️ 飞行开关 */
-    {label: '⛏️', holdAct: ()=>aimClick(0)},
-    {label: '✈️', act: ()=>buildToggleFly()},
+    {icon: 'pick', label: '挖掘', holdAct: ()=>aimClick(0)},
+    {icon: 'fly', label: '飞行', act: ()=>buildToggleFly()},
   ],
   init() {
     if (!buildSceneId) buildSceneId = buildLoadSave() || BUILD_SCENES[0].id;

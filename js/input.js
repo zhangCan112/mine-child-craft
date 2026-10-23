@@ -13,11 +13,14 @@
    · 右侧跳跃大键(按住连跳; 飞行中=上升), 飞行时下箭头=下降
      (上下文出现); 常用动作条(右缘) + rare 顶部小键区(低频键)
    · 菜单类按钮固定顶部一行(暂停/视角)
+   按钮图标经 Input.icon seam 注入(图标名→dataURL 解析器, 由按钮
+   像素图标工坊 button-icons.js 提供): 引擎不反向依赖应用层图标库,
+   未注入时按钮回落中文文案 — 与路由 seam 同一依赖倒置口径。
    模式路由经 Input seam 注入(依赖倒置): 本文件属引擎层, 不反向
    依赖应用层的 MODES/onLockChanged — main.js 加载时注入
    Input.route / Input.onLockChange, 未注入时静默(可独立加载)。
    interface: keys/touchMove/touchSprint · Input{route,onLockChange,
-   holdPt} · requestLock/uiPause/setTouchActions/refreshTouchUI
+   holdPt,icon} · requestLock/uiPause/setTouchActions/refreshTouchUI
    依赖(均经全局名, 调用期解析): config.js 的 IS_TOUCH/PLAYER ·
    world.js 的 renderer/yaw/pitch · voxel.js 的 flyMode ·
    camera-rig.js 的 CameraRig · touch-core.js 的 mkTouchGestures ·
@@ -34,8 +37,10 @@ let lastTouchT = 0; // 抑制触屏合成的鼠标事件
 
 /* 模式路由 seam: route = MODES(有 .cur 与各 on* 钩子), onLockChange = 指针锁回调;
    holdPt = 触屏长按的屏幕点 {x,y}|null — 探险挖掘进度环等消费方读它把
-   反馈画到指尖(MC 口径: 进度图形跟手), 引擎自身不解释它 */
-const Input = {route: null, onLockChange: null, holdPt: null};
+   反馈画到指尖(MC 口径: 进度图形跟手), 引擎自身不解释它;
+   icon = 按钮像素图标解析器(名字→dataURL, 见 button-icons.js) —
+   main.js 组合根注入, 引擎层不依赖应用层图标库 */
+const Input = {route: null, onLockChange: null, holdPt: null, icon: null};
 
 function requestLock() {
   if (IS_TOUCH) {
@@ -188,6 +193,12 @@ addEventListener('pointercancel', gestUp);
 
 /* ---------- 虚拟摇杆 + 动作按钮 ---------- */
 let touchBuilt = false;
+/* 按钮 glyph: seam 有图标则像素图, 否则回落中文文案(aria 恒在) */
+function btnGlyph(id, iconKey, label) {
+  const url = (Input.icon && Input.icon(iconKey)) || '';
+  return '<button id="' + id + '" aria-label="' + label + '">' +
+      (url ? '<img alt="" draggable="false" src="' + url + '">' : label) + '</button>';
+}
 function buildTouchUI() {
   if (touchBuilt) return;
   touchBuilt = true;
@@ -196,10 +207,10 @@ function buildTouchUI() {
   root.innerHTML = '<div id="joyZone"><div id="joy"><div id="joyKnob"></div></div></div>' +
     '<div id="touchActs"></div>' +
     '<div id="touchTop"></div>' +
-    '<button id="touchJump" aria-label="跳跃">⬆️</button>' +
-    '<button id="touchDown" aria-label="下降">⬇️</button>' +
-    '<button id="touchCam" aria-label="视角">📷</button>' +
-    '<button id="touchPause" aria-label="暂停">⏸</button>';
+    btnGlyph('touchJump', 'jump', '跳跃') +
+    btnGlyph('touchDown', 'down', '下降') +
+    btnGlyph('touchCam', 'cam', '视角') +
+    btnGlyph('touchPause', 'pause', '暂停');
   document.body.appendChild(root);
   document.getElementById('touchPause').onpointerdown = (e)=>{
     e.preventDefault(); uiPause();
@@ -300,10 +311,11 @@ function refreshTouchUI() {
   if (down) down.style.display = flyMode ? 'flex' : 'none';
 }
 /* 模式设置动作按钮, 两区分布(用户拍板 2026-10-24):
-   · 常用动作条(右缘 #touchActs, 拇指区): [{label, act:fn} | {label, holdAct:fn}]
-     holdAct = 主动作键(⛏️): 按下=fn() 打/挖起步 + 按住连挖(onHold), 松手=停
-   · 顶部小键区(#touchTop, 低频不占操作区): {label, act:fn, rare: true}
-   null = 全部隐藏 */
+   · 常用动作条(右缘 #touchActs, 拇指区): [{icon, label, act:fn} | {icon, label, holdAct:fn}]
+     holdAct = 主动作键: 按下=fn() 打/挖起步 + 按住连挖(onHold), 松手=停
+   · 顶部小键区(#touchTop, 低频不占操作区): {icon, label, act:fn, rare: true}
+   icon = 按钮像素图标键名(经 Input.icon seam 解析, button-icons.js 工坊);
+   label = 无障碍名与像素图缺失时的文案回落。null = 全部隐藏 */
 function setTouchActions(list) {
   buildTouchUI();
   const root = document.getElementById('touchUI');
@@ -317,7 +329,13 @@ function setTouchActions(list) {
   top.innerHTML = '';
   for (const a of list) {
     const b = document.createElement('button');
-    b.textContent = a.label;
+    const url = (a.icon && Input.icon && Input.icon(a.icon)) || '';
+    if (url) {
+      b.innerHTML = '<img alt="" draggable="false" src="' + url + '">';
+      b.setAttribute('aria-label', a.label || a.icon);
+    } else {
+      b.textContent = a.label; /* 回落: 文案按钮(图标工坊缺席时) */
+    }
     if (a.main || a.holdAct) b.classList.add('main'); /* 主动作键放大占拇指主位(用户拍板: 挖掘为主, 跳跃次之) */
     if (a.holdAct) {
       let held = false;

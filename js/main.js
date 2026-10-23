@@ -19,6 +19,9 @@ const MODES = {
   adventure: AdventureMode,
 };
 MODES.cur = null;
+/* 组合根接线: 触屏按钮像素图标解析器(button-icons.js 工坊)注入引擎
+   input.js 的 Input.icon seam — 引擎层不反向依赖应用层图标库 */
+Input.icon = btnIcon;
 /* 当前模式 id 只从 MODES.cur 派生 — 不再另持一份需同步的状态 */
 const curModeId = () => (MODES.cur ? MODES.cur.id : null);
 

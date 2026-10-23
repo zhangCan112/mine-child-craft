@@ -29,8 +29,9 @@
               mkChestPanel · mkHpBar · sortInv · spawn · lookName · confirmBtn
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax ·
      inventory-core 的 HOTBAR_SLOTS/costEntry · craft-core 的 RECIPES/
-     canCraft/craft/FUEL/fuelUnits/smeltOf · icons 的 iconOf(icons 加载序
-     在本文件之后, 但全部调用发生在用户交互期, 彼时已加载完毕)
+     canCraft/craft/FUEL/fuelUnits/smeltOf · icons 的 iconOf 与
+     button-icons 的 btnImg/BTN_PIX(两者加载序在本文件之后, 但全部
+     调用发生在用户交互期, 彼时已加载完毕)
    可测性: DOM 惰性创建(doc 可注入), Node 单测注入假 document
      (test/mode-kit.test.js); mkHpBar 的 THREE/DOM 惰性创建,
      Node 无渲染环境时 update/dispose 静默跳过(不参与行为断言)
@@ -191,16 +192,18 @@ const KIT_HIDDEN_RECIPES = ['bread', 'bone_meal', 'bow_item'];
 
 /* 站点徽标(D8): table=工作台 furnace=二期烧炼站点配方预留 hand=无
    (设计稿 D8 定稿: 一期熔炉是走近点击的开面板交互, 非 station 门槛配方——
-   furnace 键位为二期烧炼站点配方占位, 出处可溯而非泛泛「备用」) */
-const KIT_STATION_BADGE = {table: '🛠️', furnace: '♨️'};
+   furnace 键位为二期烧炼站点配方占位, 出处可溯而非泛泛「备用」);
+   值 = 按钮像素图标键名(button-icons.js 工坊, 物品图委托 itemIcon) */
+const KIT_STATION_BADGE = {table: 'table', furnace: 'furnace'};
 
-/* 分类页签(D8): 图标式零文字; 分类判据=产物(工具 toolOf/食物 food/方块 block),
-   其余(材料)不归类 — 只在「全部」页出现 */
+/* 分类页签(D8): 图标式零文字; 图标键名在 button-icons.js 工坊
+   (分类判据=产物(工具 toolOf/食物 food/方块 block),
+    其余(材料)不归类 — 只在「全部」页出现) */
 const KIT_TABS = [
-  {key: 'all', icon: '📦'},
-  {key: 'tool', icon: '⛏️'},
-  {key: 'food', icon: '🍎'},
-  {key: 'block', icon: '🧱'},
+  {key: 'all', icon: 'grid'},
+  {key: 'tool', icon: 'pick'},
+  {key: 'food', icon: 'apple'},
+  {key: 'block', icon: 'brick'},
 ];
 
 /* ---------- 背包+配方书面板(D8/D10, T10): 自建遮罩挂 body 级, 不动 index.html ----------
@@ -225,10 +228,10 @@ function mkCraftPanel(opts) {
   /* —— 头部: 标题 + 整理按钮 + 关闭 —— */
   const head = doc.createElement('div');
   head.className = 'mkp-head';
-  head.innerHTML = '<span class="mkp-title">🎒 背包与配方书</span>';
+  const titleEl = doc.createElement('span');
+  titleEl.className = 'mkp-title';
   const sortBtn = doc.createElement('button');
   sortBtn.className = 'mkp-sort';
-  sortBtn.textContent = '🧹 整理';
   sortBtn.onclick = ()=>{
     sortInv(inv);
     refresh();
@@ -236,10 +239,18 @@ function mkCraftPanel(opts) {
   };
   const closeBtn = doc.createElement('button');
   closeBtn.className = 'mkp-x';
-  closeBtn.textContent = '✕';
   closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
-  head.appendChild(sortBtn); head.appendChild(closeBtn);
+  head.appendChild(titleEl); head.appendChild(sortBtn); head.appendChild(closeBtn);
   main.appendChild(head);
+
+  /* 面板 chrome 像素图标 show 期才注入: 构造可能发生在模式加载序早期
+     (adventure.js 顶层建面板), button-icons.js 排在本文件之后未就位 —
+     运行期首次 show 必已加载(与 iconOf 同一延迟解析口径) */
+  function paintChrome() {
+    titleEl.innerHTML = btnImg('grid') + ' 背包与配方书';
+    sortBtn.innerHTML = btnImg('sort') + '整理';
+    closeBtn.innerHTML = btnImg('close');
+  }
 
   /* —— 背包网格: 18 主格(槽 9~26, 6 列×3 行) + 9 快捷栏镜像(槽 0~8) —— */
   const grid = doc.createElement('div');
@@ -296,7 +307,7 @@ function mkCraftPanel(opts) {
     KIT_TABS.forEach((t)=>{
       const b = doc.createElement('button');
       b.className = 'mkp-tab' + (tab === t.key ? ' on' : '');
-      b.innerHTML = t.icon;
+      b.innerHTML = btnImg(t.icon);
       b.onclick = ()=>{
         tab = t.key;
         renderTabs();
@@ -339,7 +350,9 @@ function mkCraftPanel(opts) {
       }); // 任选=逐候选一枚(需求量同一份)
     }
     const badge = KIT_STATION_BADGE[r.station] || '';
-    d.innerHTML = (badge ? '<span class="mkp-badge' + (stationLack ? ' lack' : '') + '">' + badge + '</span>' : '') +
+    const badgeHtml = badge ?
+      '<span class="mkp-badge' + (stationLack ? ' lack' : '') + '">' + btnImg(badge) + '</span>' : '';
+    d.innerHTML = badgeHtml +
       '<div class="mkp-out">' + iconHtml(r.out.item, 'big') +
       (r.out.n > 1 ? '<b class="mkp-n">×' + r.out.n + '</b>' : '') + '</div>' +
       '<div class="mkp-chips">' + chips + '</div>';
@@ -397,6 +410,7 @@ function mkCraftPanel(opts) {
 
   /* —— 生命周期: show 幂等挂载, remove 幂等卸载并停连做计时 —— */
   function show() {
+    paintChrome();
     refresh();
     if (root.parentNode !== doc.body) doc.body.appendChild(root);
     if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板, 不走菜单链 */
@@ -464,12 +478,12 @@ function mkFurnacePanel(opts) {
 
   const head = doc.createElement('div');
   head.className = 'mkp-head';
-  head.innerHTML = '<span class="mkp-title">♨️ 熔炉</span>';
+  const titleEl = doc.createElement('span');
+  titleEl.className = 'mkp-title';
   const closeBtn = doc.createElement('button');
   closeBtn.className = 'mkp-x';
-  closeBtn.textContent = '✕';
   closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
-  head.appendChild(closeBtn);
+  head.appendChild(titleEl); head.appendChild(closeBtn);
   box.appendChild(head);
 
   const row = doc.createElement('div');
@@ -493,7 +507,6 @@ function mkFurnacePanel(opts) {
   prog.className = 'mkp-pbar';
   const fire = doc.createElement('span');
   fire.className = 'mkp-fire';
-  fire.textContent = '🔥';
   const fill = doc.createElement('i');
   fill.className = 'mkp-pfill';
   prog.appendChild(fill);
@@ -507,11 +520,18 @@ function mkFurnacePanel(opts) {
 
   const autoBtn = doc.createElement('button');
   autoBtn.className = 'mkp-autofill';
-  autoBtn.textContent = '📥 自动放入';
   autoBtn.onclick = ()=>{
     if (o.onAutoFill) o.onAutoFill(autoPlan());
   };
   box.appendChild(autoBtn);
+
+  /* chrome 像素图标 show 期注入(同 mkCraftPanel 口径: 构造期工坊可能未加载) */
+  function paintChrome() {
+    titleEl.innerHTML = btnImg('furnace') + ' 熔炉';
+    closeBtn.innerHTML = btnImg('close');
+    fire.innerHTML = btnImg('flame');
+    autoBtn.innerHTML = btnImg('autofill') + '自动放入';
+  }
 
   function paint(cell, stack) {
     cell.innerHTML = '';
@@ -558,6 +578,7 @@ function mkFurnacePanel(opts) {
     return {load, fuel, units}; // 执行权在模式层(T13): take/add 经 inventory-core
   }
   function show() {
+    paintChrome();
     root.style.display = 'flex'; /* hide 后重开要复明(mkCraftPanel.refresh 同口径) */
     if (root.parentNode !== doc.body) doc.body.appendChild(root);
     if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板 */
@@ -602,12 +623,12 @@ function mkChestPanel(opts) {
 
   const head = doc.createElement('div');
   head.className = 'mkp-head';
-  head.innerHTML = '<span class="mkp-title">📦 我的宝箱</span>';
+  const titleEl = doc.createElement('span');
+  titleEl.className = 'mkp-title';
   const closeBtn = doc.createElement('button');
   closeBtn.className = 'mkp-x';
-  closeBtn.textContent = '✕';
   closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
-  head.appendChild(closeBtn);
+  head.appendChild(titleEl); head.appendChild(closeBtn);
   box.appendChild(head);
 
   const chestGrid = doc.createElement('div');
@@ -620,8 +641,14 @@ function mkChestPanel(opts) {
 
   const bpLabel = doc.createElement('div');
   bpLabel.className = 'mkp-chestlbl';
-  bpLabel.textContent = '🎒 背包（点一下放进箱子）';
   box.appendChild(bpLabel);
+
+  /* chrome 像素图标 show 期注入(同 mkCraftPanel 口径: 构造期工坊可能未加载) */
+  function paintChrome() {
+    titleEl.innerHTML = btnImg('chest') + ' 我的宝箱';
+    closeBtn.innerHTML = btnImg('close');
+    bpLabel.innerHTML = btnImg('grid') + ' 背包（点一下放进箱子）';
+  }
   const grid = doc.createElement('div');
   grid.className = 'mkp-grid';
   const hotrow = doc.createElement('div');
@@ -698,6 +725,7 @@ function mkChestPanel(opts) {
   }
 
   function show() {
+    paintChrome();
     root.style.display = 'flex'; /* hide 后重开要复明(mkCraftPanel 同口径) */
     if (root.parentNode !== doc.body) doc.body.appendChild(root);
     if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板 */
@@ -756,7 +784,7 @@ function mkHpBar(opts) {
       c.fillStyle = 'rgba(16,16,20,0.82)'; c.fillRect(14, 3, W - 16, 10); /* 底槽 */
       c.fillStyle = '#e83a3a'; c.fillRect(16, 5, Math.max(0, (W - 20) * h / maxHp), 6); /* 血量 */
       c.strokeStyle = '#f0f0f0'; c.lineWidth = 1; c.strokeRect(14.5, 3.5, W - 17, 9);
-      c.fillStyle = '#ff5a5a'; c.font = '13px sans-serif'; c.textBaseline = 'top'; c.fillText('❤', 1, 1);
+      drawArt(c, BTN_PIX.heart.art, BTN_PIX.heart.map); /* 像素红心(字体 ❤ 各平台渲染不可控) */
       tex.needsUpdate = true;
     }
     bar.position.set(x, y, z); /* 头顶(身高 1.8 + 余量; billboard 正面视角也常读) */

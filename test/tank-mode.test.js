@@ -290,10 +290,10 @@ test('左键开炮: 驾驶中路由 Tank.fire, 步行时左键不开炮', () => 
   assert.ok(!has('fire'), '步行时左键不开炮');
 });
 
-test('触屏开炮按钮: 💥 与桌面左键同入口, 装填中提示', () => {
+test('触屏开炮按钮: 与桌面左键同入口, 装填中提示', () => {
   assert.ok(touchList.length >= 2, '上下车 + 开炮两个按钮');
-  const fireBtn = touchList.find((b) => b.label.indexOf('💥') >= 0);
-  assert.ok(fireBtn, '有 💥 开炮按钮');
+  const fireBtn = touchList.find((b) => b.icon === 'boom');
+  assert.ok(fireBtn, '有开炮按钮(像素爆炸图标)');
   calls.length = 0;
   tankState.driving = true; tankState.fireResult = 'fired';
   fireBtn.act();
@@ -419,8 +419,8 @@ test('清场播报: 一批全灭时语音表扬一次(过程性表扬, 不罚失
 test('选怪面板: 🐛 触屏按钮与 M 键开关游戏内浮动面板(不复用竞技场菜单页)', () => {
   const picker = elCache['mobPicker'];
   assert.ok(picker, 'index.html 有 #mobPicker');
-  const bugBtn = touchList.find((b) => b.label.indexOf('👾') >= 0);
-  assert.ok(bugBtn, '触屏有 👾 换怪按钮');
+  const bugBtn = touchList.find((b) => b.icon === 'creeper');
+  assert.ok(bugBtn, '触屏有换怪按钮(苦力怕像素头像)');
   bugBtn.act();
   assert.ok(picker._cls.has('open'), '👾 开面板');
   bugBtn.act();
