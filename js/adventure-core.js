@@ -457,11 +457,13 @@ function advFurnaceRefund(inv, f) {
 }
 
 /* TNT 爆炸掉落掷骰(D4): 方块先掷 70% 门槛, 中签才走 rollBlockDrop(保底+
-   概率条目原样掷)。rand 可注入; 源块 B_TNT 无 drop 字段天然空手(不自掉) */
+   概率条目原样掷, 不传工具=默认表)。rand 可注入; tnt 旗标守卫恒空手 —
+   TNT 不经爆炸自掉(圈内 TNT 走链式点燃分支本就不进掷骰, 守卫与 drop
+   字段解耦, 挖掘硬度修正 D3) */
 function advTntRoll(id, rand) {
   rand = rand || Math.random;
   const def = BLOCKS[id];
-  if (!def) return [];
+  if (!def || def.tnt) return [];
   return rand() < ADV_TNT_DROP_P ? rollBlockDrop(def, rand) : [];
 }
 

@@ -6,8 +6,9 @@
    'hand' 随时可做 / 'table' 需走近工作台 4 格, 拍板④) · SMELTS 烧炼
    映射 · FUEL 燃料择优序(从 ITEMS fuel 字段按热值降序派生)。外加五个
    无状态纯函数: canCraft 缺失清单(驱动配方卡亮灰) · craft 扣料+产栈 ·
-   fuelUnits 热值查询 · smeltOf 烧炼产物 · breakTime 破坏时间(MC 公式,
-   封顶 8s 下限 0.15s, tier 不足可挖慢速但不掉落)。
+   fuelUnits 热值查询 · smeltOf 烧炼产物 · breakTime 破坏时间(MC JE 正交
+   口径: 品类对即吃速度乘数, canHarvest 管 ×1.5/×5 与掉落; 封顶 8s 下限
+   0.15s, tier 不足可挖慢速但不掉落 — 挖掘硬度修正 D1)。
    cost 值为数组 [候选id数组, 数量] = 任选其一(如煤/木炭, 设计稿 §3.2);
    背包操作全部经背包核心接口(count/take/add/costEntry, 扣料与任选
    判定语义单一权威归 inventory-core, 本文件不做第二份实现)。
@@ -134,22 +135,26 @@ function craft(inv, recipe, stationOk) {
 }
 
 /* ------------------------------------------------------------
-   breakTime — 破坏时间(挖掘规则的纯计算段, §3.4 公式)
-   t = hard × (无工具要求或工具匹配 ? 1.5 / 工具速度 : 5)
-   封顶 8s(儿童去绝望感) · 下限 0.15s · 匹配 = 工具类型相符且 tier 达标;
-   tier 不足 → 可挖慢速但 drops:false(掉落不触发, 模式层负责提示与图标闪烁)。
+   breakTime — 破坏时间(挖掘规则的纯计算段, 挖掘硬度修正设计稿 D1)
+   速度与掉落是两个正交判定(MC JE 口径, 研究稿 §8 源码 DiggerItem 双判定):
+   · 品类对(不看等级) → 工具速度乘数生效 — 哪怕 tier 不够也生效;
+   · canHarvest(tier 0, 或品类对且等级够) → ×1.5/×5 系数与掉落门禁。
+   t = hard × (canHarvest ? 1.5 : 5) / 速度乘数
+   封顶 8s(儿童去绝望感) · 下限 0.15s · tier 不足 → 可挖慢速但 drops:false
+   (掉落不触发, 模式层负责提示与图标闪烁)。
    blockDef 形状对齐 config.js BLOCKS(hard/tool/tier/drop);
    toolStack 为槽形状 {id,n,dur} 或 null=徒手; 手持非工具物品视为徒手。
    ------------------------------------------------------------ */
 function breakTime(blockDef, toolStack) {
   const tool = toolStack ? toolOf(toolStack.id) : null; // 非工具物品 → null → 徒手口径
-  const matched = !!(tool && blockDef.tool && tool.kind === blockDef.tool && tool.tier >= blockDef.tier);
-  const fast = blockDef.tool == null || matched; // 无工具要求: 徒手也算「匹配」
-  const raw = fast ? blockDef.hard * 1.5 / (tool ? tool.speed : 1) : blockDef.hard * 5;
+  const kindMatch = !!(tool && blockDef.tool && tool.kind === blockDef.tool); // 品类匹配, 等级不看
+  const speedMult = kindMatch ? tool.speed : 1; // 品类对 → 速度生效(JE: 等级不够也生效)
+  const harvest = blockDef.tier === 0 || (kindMatch && tool.tier >= blockDef.tier); // 采集门禁
+  const raw = blockDef.hard * (harvest ? 1.5 : 5) / speedMult;
   const time = Math.min(8, Math.max(0.15, raw));
   return {
     // 10μs 圆整数值卫生(公式值至多 5 位小数; 0.2×1.5 的浮点尾差不外漏给消费方)
     time: Math.round(time * 1e5) / 1e5,
-    drops: blockDef.tier === 0 || matched, // tier 0 = 无镐等级门槛: 任何方式都掉
+    drops: harvest, // tier 0 = 无门槛恒掉; 否则要品类对且等级够
   };
 }

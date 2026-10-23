@@ -1033,7 +1033,7 @@ test('T12 挖掘行为链: 掉落物真空拾取 — update 喂玩家胸口点 �
 test('T12 挖掘行为链: tier 不足 — 徒手/低阶镐挖铁矿只碎不掉 + TTS 节流提示', () => {
   mem.clear();
   freshInit();
-  holdOnly('pick_wood', 1, 120); /* 木镐 tier1 < 铁矿 tier2: 慢速 8s 封顶且不掉落 */
+  holdOnly('pick_wood', 1, 120); /* 木镐 tier1 < 铁矿 tier2: 品类对速度生效 3×5/2=7.5s, 不掉落(D1) */
   const spot = findGrassSpot();
   api.setBlockRaw(spot.x, 24, spot.z, 0); /* 竖井直达铁矿(测试布景) */
   api.setBlockRaw(spot.x, 23, spot.z, 0);
@@ -1043,8 +1043,8 @@ test('T12 挖掘行为链: tier 不足 — 徒手/低阶镐挖铁矿只碎不掉
     dir: {x: 0, y: -1, z: 0}})};
   AdventureMode.onMouse(0, {x: spot.x, y: 22, z: spot.z, nx: 0, ny: 1, nz: 0});
   AdventureMode.update(0.01); /* 首帧锁定目标并算出 breakTime */
-  assert.strictEqual(A.advMine.need, 8, '不匹配 5 倍慢速封顶 8s(breakTime 驱动)');
-  for (let i = 0; i < 17 && cell(spot.x, 22, spot.z) !== 0; i++) AdventureMode.update(0.5); /* 8s 蓄满 */
+  assert.strictEqual(A.advMine.need, 7.5, '品类对 tier 不足: 3×5/2 = 7.5(JE 保留工具速度, breakTime 驱动)');
+  for (let i = 0; i < 17 && cell(spot.x, 22, spot.z) !== 0; i++) AdventureMode.update(0.5); /* 7.5s 蓄满 */
   assert.strictEqual(cell(spot.x, 22, spot.z), 0, '可挖(慢) — 破坏照样发生');
   assert.ok(!globalThis.Drops.list().some((d) => d.id === 'iron_ore'), 'tier 不足不掉落(只碎)');
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '背包没有铁矿石');
@@ -1250,7 +1250,7 @@ test('T13 TNT 掷骰纯函数: advTntRoll — 70% 门槛种子化 + 中签才走
   /* 树叶: 中签后掉落表条目照掷(rand 恒 0 → 三样概率全中, 无保底) */
   assert.deepStrictEqual(roll(7, () => 0).map((e) => e[0]), ['sapling', 'apple', 'stick'],
       '中签后 rollBlockDrop 原样掷(保底+概率)');
-  assert.strictEqual(roll(20, () => 0).length, 0, 'TNT 源块无 drop 字段 → 空手(不自掉)');
+  assert.strictEqual(roll(20, () => 0).length, 0, 'tnt 旗标守卫恒空手(不自掉, D3 与 drop 字段解耦)');
 });
 
 test('T13 TNT 伤害纯函数: advTntDmg — 爆心 30 · 波及边缘 12 · 线性衰减', () => {
@@ -1323,7 +1323,7 @@ test('T13 退世界清炉: cleanup 先退料落盘再清场(重进熔炉是空�
   assert.strictEqual(A.advFurnace.input, null, '重进熔炉是空的(炉态不进存档, D8 口径)');
 });
 
-test('T13 TNT 行为链: 放置 → 空手点击点燃 → 引信延时 → 爆炸破坏记账 + 波及怪物受击', () => {
+test('T13 TNT 行为链: 放置 → 空手短按点燃 → 引信延时 → 爆炸破坏记账 + 波及怪物受击', () => {
   mem.clear();
   freshInit();
   const spot = findGrassSpot();
@@ -1334,7 +1334,8 @@ test('T13 TNT 行为链: 放置 → 空手点击点燃 → 引信延时 → 爆�
   holdOnly(null); /* 空手也能点(手持任意口径) */
   calls.length = 0;
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(A.advFuses.length, 1, '点击点燃引信(左键分支最前拦截)');
+  AdventureMode.update(0.05); /* 短按判定(D3): 测试环境无按住 → 松手即点燃 */
+  assert.strictEqual(A.advFuses.length, 1, '短按点燃引信(advTntTapTick 松手判定)');
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('点燃') >= 0), '点燃提示');
   /* 玩家走远(TNT 不伤玩家 — 儿童挖矿神器口径), 引信 1.45s 后布一只静止的怪在波及圈 */
   pos.x = spot.x + 20; pos.z = spot.z + 20;
@@ -1354,6 +1355,53 @@ test('T13 TNT 行为链: 放置 → 空手点击点燃 → 引信延时 → 爆�
   const edits = calls.filter((c) => c[0] === 'edit' && c[4] === 0);
   assert.ok(edits.length >= 10, '半径内方块破坏走 editBlock+记账: ' + edits.length + ' 格');
   assert.ok(globalThis.Drops.list().length >= 1, '70% 掷骰掉落物落地(统计上必有一批)');
+});
+
+test('T13 TNT 短按/按住二分(D3): 按住 0.25s+ 转蓄力挖走回收, 短按点燃', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('tnt', 1);
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5;
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_TNT, 'TNT 放进世界');
+  holdOnly(null); /* 空手挖(手持任意口径) */
+  aimDownAt(spot); /* 准星 fake: 射线打最高块 = y25 的 TNT */
+  A.advMouseHeldOn(); /* 模拟桌面 mousedown 按住 */
+  AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  for (let i = 0; i < 5; i++) AdventureMode.update(0.05); /* 0.25s: 短按窗口耗尽 */
+  assert.strictEqual(A.advGetTntTap(), null, 'tap 已转蓄力');
+  assert.strictEqual(A.advFuses.length, 0, '按住不点燃');
+  for (let i = 0; i < 6 && cell(spot.x, 25, spot.z) !== 0; i++) AdventureMode.update(0.05); /* 0.15s 蓄满 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, 'TNT 挖走(editBlock 破坏, MC 硬度 0 可回收)');
+  assert.ok(globalThis.Drops.list().some((d) => d.id === 'tnt'), '掉 tnt 物品回收');
+  A.advMouseHeldOff();
+  /* 短按回路: 再放一块 → 点按松手 → 点燃(现状口径回归锚点) */
+  holdOnly('tnt', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  holdOnly(null);
+  calls.length = 0;
+  AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  AdventureMode.update(0.05); /* 无按住 → 松手即点燃 */
+  assert.strictEqual(A.advFuses.length, 1, '短按=点燃(现状口径不变)');
+  clearAim();
+});
+
+test('T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落走 shearDrop 专属表', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shears', 1, 500);
+  const spot = findGrassSpot();
+  api.setBlockRaw(spot.x, 25, spot.z, 7); /* 树叶布景(准星射线最高块) */
+  aimDownAt(spot);
+  AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  for (let i = 0; i < 4 && cell(spot.x, 25, spot.z) !== 0; i++) AdventureMode.update(0.15); /* 0.2×1.5/5 触下限 0.15s */
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '树叶剪碎(剪刀品类匹配加速)');
+  assert.ok(globalThis.Drops.list().some((d) => d.id === 'leaves' && d.n === 1),
+      '剪刀 × shearDrop: 掉树叶方块本身(修复 leaves 物品无获取途径)');
+  assert.ok(!globalThis.Drops.list().some((d) => d.id === 'sapling'), '不掉默认表的概率件');
+  assert.strictEqual(A.advGetInv().slots[0].dur, 499, '剪刀耐久 −1');
+  clearAim();
 });
 
 /* ============ T15 任务链 12 步 + 仪式感 ============ */

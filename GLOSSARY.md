@@ -83,11 +83,11 @@ _Avoid_: 物品表（散称）、把背包规则写进这里（归背包核心�
 _Avoid_: 物品栏、inventory 对象（那是实现）、把扣料逻辑复制进合成（canAfford/take 的语义唯一权威在这里）
 
 **合成核心**:
-引擎层纯核心（js/craft-core.js，有单测）：合成烧炼的唯一数据源——RECIPES 全表（手搓级随时可做 + 工作台级需走近 4 格，拍板④）· SMELTS 烧炼映射 · FUEL 燃料择优序（从 ITEMS 的 fuel 字段按热值降序派生）；外加五个无状态纯函数——canCraft 缺失清单（驱动配方卡亮灰）· craft 扣料+产栈（满包余量以 leftover 返回，零惩罚政策）· fuelUnits 热值查询 · smeltOf 烧炼产物 · breakTime 破坏时间（MC 公式，儿童封顶 8s 下限 0.15s；tier 不足可挖慢速但不掉落）。cost 值支持任选材料（如煤/木炭）；背包操作全部经背包核心接口，扣料语义不做第二份实现。interface：RECIPES · SMELTS · FUEL · canCraft · craft · fuelUnits · smeltOf · breakTime。
+引擎层纯核心（js/craft-core.js，有单测）：合成烧炼的唯一数据源——RECIPES 全表（手搓级随时可做 + 工作台级需走近 4 格，拍板④）· SMELTS 烧炼映射 · FUEL 燃料择优序（从 ITEMS 的 fuel 字段按热值降序派生）；外加五个无状态纯函数——canCraft 缺失清单（驱动配方卡亮灰）· craft 扣料+产栈（满包余量以 leftover 返回，零惩罚政策）· fuelUnits 热值查询 · smeltOf 烧炼产物 · breakTime 破坏时间（MC JE 正交口径：工具品类对即吃速度乘数、canHarvest 管 ×1.5/×5 系数与掉落；儿童封顶 8s 下限 0.15s；tier 不足可挖慢速但不掉落）。cost 值支持任选材料（如煤/木炭）；背包操作全部经背包核心接口，扣料语义不做第二份实现。interface：RECIPES · SMELTS · FUEL · canCraft · craft · fuelUnits · smeltOf · breakTime。
 _Avoid_: 配方系统（散称）、网格拖拽合成（拍板②：点选配方书，不做拖拽）
 
 **掉落物实体库**:
-引擎层的掉落物实体模块（js/drops.js）：顶层纯函数段——rollDrops 读 config 的 MOB_DROPS 掷骰（保底必得、50% 加成次数、rare 独立掷）· rollBlockDrop 读 BLOCKS.drop 三元组 · pickupCheck 拾取距离（≤0.6 收集 · ≤2.5 真空吸附），掷骰语义收在这里、表只存数据；壳段管实体生命周期——落地弹跳一次 → 贴地浮动+缓旋 → 2.5 格内加速飞向玩家 → 0.6 格触发收集回调（返回 false=背包满拒收，停在地上稍后再试）→ 3 分钟到期静默消失。图标经全局 iconOf（存在像素图标工坊则优先像素图）、emoji 兜底，本模块只消费不定义。
+引擎层的掉落物实体模块（js/drops.js）：顶层纯函数段——rollDrops 读 config 的 MOB_DROPS 掷骰（保底必得、50% 加成次数、rare 独立掷）· rollBlockDrop 读 BLOCKS.drop 三元组（可选第三参手持工具：剪刀 × shearDrop 存在时掷专属表——剪树叶得树叶方块，爆炸路径不传天然走默认表）· pickupCheck 拾取距离（≤0.6 收集 · ≤2.5 真空吸附），掷骰语义收在这里、表只存数据；壳段管实体生命周期——落地弹跳一次 → 贴地浮动+缓旋 → 2.5 格内加速飞向玩家 → 0.6 格触发收集回调（返回 false=背包满拒收，停在地上稍后再试）→ 3 分钟到期静默消失。图标经全局 iconOf（存在像素图标工坊则优先像素图）、emoji 兜底，本模块只消费不定义。
 _Avoid_: 战利品系统（散称）、把掉落表掷骰写在模式层（语义归这里）
 
 **像素图标工坊**:

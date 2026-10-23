@@ -383,16 +383,19 @@ test('craft: 产物优先并堆, 背包满则余量 leftover 返回(零惩罚: �
   assert.strictEqual(invB.slots[0].n, 63, '原木照扣');
 });
 
-/* ============ breakTime: 破坏时间公式(§3.4) ============ */
-/* t = hard × (无工具要求或工具匹配 ? 1.5 / 工具速度 : 5), 封顶 8s 下限 0.15s;
-   tier 不足 → 可挖慢速但 drops:false(掉落不触发)。blockDef 手写, 字段形状
-   对齐 config.js BLOCKS 的 hard/tool/tier/drop(T2 落地)。 */
+/* ============ breakTime: 破坏时间公式(挖掘硬度修正 D1, JE 正交口径) ============ */
+/* 品类对(不看等级) → 速度乘数生效; canHarvest(tier 0, 或品类对且等级够) →
+   ×1.5/×5 系数与掉落门禁。t = hard × (canHarvest ? 1.5 : 5) / 速度乘数,
+   封顶 8s 下限 0.15s; tier 不足 → 可挖慢速但 drops:false(掉落不触发)。
+   blockDef 手写, 字段形状对齐 config.js BLOCKS 的 hard/tool/tier/drop(T2 落地)。 */
 
 const stone = {name: '石头', hard: 1.5, tool: 'pick', tier: 1, drop: [['cobble', 1, 0]]};
 const ironOre = {name: '铁矿', hard: 3.0, tool: 'pick', tier: 2, drop: [['iron_ore', 1, 0]]};
 const dirt = {name: '泥土', hard: 0.6, tool: 'shovel', tier: 0, drop: [['dirt', 1, 0]]};
 const leaves = {name: '树叶', hard: 0.2, tool: null, tier: 0, drop: []};
 const tuft = {name: '草丛', hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 0, 0.5]]};
+/* 树叶桩用 tool:null 代表「无品类」方块(玻璃/草丛同族); 真树叶 BLOCKS[7] 已改
+   'shears' 品类(D2), 其剪刀匹配在下方交叉测试 + blocks-fields/drops 单测覆盖 */
 
 test('breakTime: 徒手石头 7.5s 且不掉落(MC 口径: 教做镐, 研究稿)', () => {
   const {breakTime} = loadCraft();
@@ -418,34 +421,50 @@ test('breakTime: 匹配工具加速 — 木镐石头 1.125s · 钻镐 0.28125s',
   assert.strictEqual(breakTime(stone, mkStack('pick_diamond')).drops, true);
 });
 
-test('breakTime: tier 门槛 — 木镐挖铁矿慢速 8s 不掉, 石镐 1.125s 掉(需更硬的镐子)', () => {
+test('breakTime: tier 门槛 — 木镐挖铁矿慢速 7.5s 不掉, 石镐 1.125s 掉(需更硬的镐子)', () => {
   const {breakTime, mkStack} = loadCraft();
   const wood = breakTime(ironOre, mkStack('pick_wood'));
-  assert.strictEqual(wood.time, 8, '类型匹配但 tier 1 < 2 → 慢速 15 封顶 8');
+  assert.strictEqual(wood.time, 7.5, '品类对 tier 1 < 2 → 3×5/2 = 7.5(JE 保留工具速度, D1)');
   assert.strictEqual(wood.drops, false, '掉落不触发');
   const rock = breakTime(ironOre, mkStack('pick_stone'));
   assert.strictEqual(rock.time, 1.125, 'tier 2 ≥ 2 → 3.0 × 1.5/4');
   assert.strictEqual(rock.drops, true);
+  const gold = {name: '金矿', hard: 3.0, tool: 'pick', tier: 3};
+  const stoneOnGold = breakTime(gold, mkStack('pick_stone'));
+  assert.strictEqual(stoneOnGold.time, 3.75, '品类对 tier 2 < 3 → 3×5/4 = 3.75(现状曾封顶 8)');
+  assert.strictEqual(stoneOnGold.drops, false);
 });
 
-test('breakTime: 工具类型不匹配按徒手算 — 斧头砍石头 7.5s 不掉, 镐挖泥土 3s 仍掉', () => {
+test('breakTime: 品类不匹配 = 无加成无惩罚 — 斧头砍石头 7.5s 不掉, 镐挖泥土 0.9s 仍掉(D1)', () => {
   const {breakTime, mkStack} = loadCraft();
   const axeOnStone = breakTime(stone, mkStack('axe_diamond'));
-  assert.strictEqual(axeOnStone.time, 7.5, '非镐挖石 = 5 倍惩罚');
+  assert.strictEqual(axeOnStone.time, 7.5, '非镐挖石: 速度 1 + 采集失败 → 1.5×5');
   assert.strictEqual(axeOnStone.drops, false, '石头只认镐');
   const pickOnDirt = breakTime(dirt, mkStack('pick_diamond'));
-  assert.strictEqual(pickOnDirt.time, 3, '0.6 × 5(不匹配不吃工具速度)');
+  assert.strictEqual(pickOnDirt.time, 0.9, '0.6 × 1.5/1(品类不符不吃速度, 无门槛不挨 ×5; 现状曾 3s)');
   assert.strictEqual(pickOnDirt.drops, true, '泥土 tier 0: 任何方式都掉');
-  assert.strictEqual(breakTime(dirt, null).drops, true, '徒手挖泥土也掉(MC 口径)');
+  assert.strictEqual(breakTime(dirt, null).time, 0.9, '徒手挖泥土同 0.9s(MC 口径)');
+  assert.strictEqual(breakTime(dirt, null).drops, true);
 });
 
-test('breakTime: 无工具要求吃 1.5 系数 — 树叶徒手 0.3s; hard 0 触下限 0.15s', () => {
-  const {breakTime} = loadCraft();
+test('breakTime: 开局链回 MC 口径(D1 偏差 B) — 徒手原木 3s/工作台 3.75s, 木斧原木 1.5s', () => {
+  const {breakTime, mkStack} = loadCraft();
+  const log = {name: '原木', hard: 2.0, tool: 'axe', tier: 0, drop: [['log', 1, 0]]};
+  const table = {name: '工作台', hard: 2.5, tool: 'axe', tier: 0, drop: []};
+  assert.strictEqual(breakTime(log, null).time, 3, '2.0 × 1.5(无门槛徒手不挨 ×5, 现状曾 10s 封顶 8)');
+  assert.strictEqual(breakTime(log, null).drops, true, '木头徒手也掉');
+  assert.strictEqual(breakTime(table, null).time, 3.75, '2.5 × 1.5(现状曾 12.5s 封顶 8)');
+  assert.strictEqual(breakTime(log, mkStack('axe_wood')).time, 1.5, '品类对: 2.0 × 1.5/2');
+});
+
+test('breakTime: 无工具要求(tool:null)吃 1.5 系数且任何工具无加成 — 树叶类徒手 0.3s; hard 0 触下限 0.15s', () => {
+  const {breakTime, mkStack} = loadCraft();
   const r = breakTime(leaves, null);
   assert.strictEqual(r.time, 0.3, '0.2 × 1.5/1(徒手速度视为 1)');
   assert.strictEqual(r.drops, true);
   assert.strictEqual(breakTime(tuft, null).time, 0.15, 'hard 0 → 0 触发下限');
-  assert.strictEqual(breakTime(leaves, null).time >= 0.15, true);
+  assert.strictEqual(breakTime(leaves, mkStack('sword_diamond')).time, 0.3,
+      'tool:null 任何工具不吃速度(D1 差异 C 修正: 现状曾除以剑速度 8 → 0.15s)');
 });
 
 test('breakTime: 手持非工具物品视为徒手(null 同口径)', () => {
@@ -462,15 +481,20 @@ function loadCraftWithConfig() {
   for (const f of ['config.js', 'items-core.js', 'craft-core.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
-  vm.runInContext('globalThis.__x = { BLOCKS, breakTime };', ctx);
+  vm.runInContext('globalThis.__x = { BLOCKS, breakTime, mkStack };', ctx);
   return ctx.__x;
 }
 
-test('交叉: config.js BLOCKS 实表驱动 — 石头 7.5 · 铁矿封顶 8 · 树叶 0.3', () => {
-  const {BLOCKS, breakTime} = loadCraftWithConfig();
+test('交叉: config.js BLOCKS 实表驱动 — 石头 7.5 · 铁矿封顶 8 · 树叶 0.3 · 剪刀树叶 0.15 · TNT 0.15', () => {
+  const {BLOCKS, breakTime, mkStack} = loadCraftWithConfig();
   assert.strictEqual(breakTime(BLOCKS[3], null).time, 7.5, '存量方块: 石头(3)');
   assert.strictEqual(breakTime(BLOCKS[37], null).time, 8, '新方块: 铁矿 B_IRON_ORE(37) 封顶');
   assert.strictEqual(breakTime(BLOCKS[37], null).drops, false);
-  assert.strictEqual(breakTime(BLOCKS[7], null).time, 0.3, '树叶(7) 徒手秒破');
+  assert.strictEqual(breakTime(BLOCKS[7], null).time, 0.3, '树叶(7) 徒手无加成 0.3s');
+  assert.strictEqual(breakTime(BLOCKS[7], mkStack('shears')).time, 0.15, '剪刀品类匹配: 0.2×1.5/5 触下限(D2)');
+  assert.strictEqual(breakTime(BLOCKS[7], mkStack('sword_diamond')).time, 0.3, '非剪刀持树叶不吃速度');
   assert.strictEqual(breakTime(BLOCKS[1], null).drops, true, '草地(1) tier 0 徒手掉泥土');
+  assert.strictEqual(breakTime(BLOCKS[18], mkStack('sword_diamond')).time, 0.45, '玻璃 tool:null: 任何工具 0.45s');
+  assert.strictEqual(breakTime(BLOCKS[20], null).time, 0.15, 'TNT hard 0 可挖走回收(D3)');
+  assert.strictEqual(breakTime(BLOCKS[20], null).drops, true, 'TNT 掉自身');
 });

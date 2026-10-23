@@ -27,9 +27,10 @@ function loadCfg() {
   return ctx.__c;
 }
 
-/* 存量方块中「探险地形会出现/可采集」的 12 个(设计稿 §3.5 三分类:
-   直接采集 + 合成/烧炼); 创造专属 10/11/12/15/16/17/19 不加采集字段 */
-const GATHER_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 18];
+/* 存量方块中「探险地形会出现/可采集」的 13 个(设计稿 §3.5 三分类:
+   直接采集 + 合成/烧炼; TNT(20) 挖掘硬度修正 D3 起可挖走回收);
+   创造专属 10/11/12/15/16/17/19 不加采集字段 */
+const GATHER_IDS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 14, 18, 20];
 const CREATIVE_ONLY_IDS = [10, 11, 12, 15, 16, 17, 19];
 
 /* ============ 新方块 id 段(附录 A) ============ */
@@ -65,7 +66,7 @@ test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗(B_FUS
 
 /* ============ 采集字段防错网(hard/tool/tier/drop) ============ */
 
-test('存量探险方块 12 个补齐四字段; 创造专属 7 个保持无采集字段', () => {
+test('存量探险方块 13 个补齐四字段(TNT 可回收 D3); 创造专属 7 个保持无采集字段', () => {
   const c = loadCfg();
   const newIds = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50];
   for (const id of [...GATHER_IDS, ...newIds]) {
@@ -87,7 +88,7 @@ test('存量探险方块 12 个补齐四字段; 创造专属 7 个保持无采�
 test('hard 数值 = MC 硬度原值(徒手石头 7.5s 的口径来源, 研究稿 §1.5)', () => {
   const c = loadCfg();
   const expect = {1: 0.6, 2: 0.5, 3: 1.5, 4: 2.0, 5: 2.0, 6: 2.0, 7: 0.2, 8: 0.5,
-    9: 2.0, 13: 1.5, 14: 2.0, 18: 0.3, /* 以上存量; 以下新方块 */
+    9: 2.0, 13: 1.5, 14: 2.0, 18: 0.3, 20: 0, /* 以上存量(20 TNT 可回收 D3, MC 硬度 0); 以下新方块 */
     36: 3.0, 37: 3.0, 38: 3.0, 39: 3.0, /* 四矿 MC 硬度 3 */
     41: 0.6, 46: 2.5, 47: 3.5, 49: 0.6, /* 耕地/工作台/熔炉/黏土 */
     40: 0, 42: 0, 43: 0, 44: 0, 45: 0, 48: 0, 50: 0}; /* 草丛/麦/火把/树苗 = 秒碎 */
@@ -97,9 +98,9 @@ test('hard 数值 = MC 硬度原值(徒手石头 7.5s 的口径来源, 研究稿
   }
 });
 
-test('tool 取值只许 pick/axe/shovel/null(树叶玻璃等徒手方块用 null)', () => {
+test('tool 取值只许 pick/axe/shovel/shears/null(树叶=剪刀品类 D2; 玻璃等徒手方块用 null)', () => {
   const c = loadCfg();
-  const legal = ['pick', 'axe', 'shovel', null];
+  const legal = ['pick', 'axe', 'shovel', 'shears', null];
   const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50];
   for (const id of checked) {
     assert.ok(legal.includes(c.BLOCKS[id].tool),
@@ -117,6 +118,17 @@ test('tier 门槛: 石头系需镐(tier1), 四矿煤1/铁2/金3/钻3(设计稿 D
   assert.strictEqual(c.BLOCKS[c.B_DIAMOND_ORE].tier, 3, '钻石矿: 铁镐+');
   assert.strictEqual(c.BLOCKS[1].tier, 0, '土系无镐门槛');
   assert.strictEqual(c.BLOCKS[5].tier, 0, '木头无镐门槛');
+});
+
+test('树叶 shears 品类 + shearDrop 专属表(D2: 剪树叶得树叶方块, MC 口径)', () => {
+  const c = loadCfg();
+  assert.strictEqual(c.BLOCKS[7].tool, 'shears', '树叶品类=剪刀(剪刀加速+专属掉落, 徒手/其它工具无加成)');
+  assert.ok(Array.isArray(c.BLOCKS[7].shearDrop) && c.BLOCKS[7].shearDrop.length > 0,
+      'shearDrop 应为非空数组');
+  for (const e of c.BLOCKS[7].shearDrop) {
+    assert.ok(Array.isArray(e) && e.length >= 2, 'shearDrop 条目形状与 drop 同形');
+    assert.strictEqual(typeof e[0], 'string', '掉落物 id 应为字符串');
+  }
 });
 
 test('drop 条目结构: [itemId 非空字符串, 保底≥0 整数, 概率 0~1 数值]', () => {
