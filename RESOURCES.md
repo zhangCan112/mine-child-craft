@@ -37,11 +37,25 @@
 
 ### 参照游戏设计（脑锻炼系，训练营 2.0 结构层的参照系）
 
+**用户指定的参照版本是《5 分钟鬼训练》（3DS 2012）**，初代只是外壳层的历史来源。
+
+- [日文维基：ものすごく脳を鍛える5分間の鬼トレーニング](https://ja.wikipedia.org/wiki/%E3%82%82%E3%81%AE%E3%81%99%E3%81%94%E3%81%8F%E8%84%B3%E3%82%92%E9%8D%9B%E3%81%88%E3%82%8B5%E5%88%86%E9%96%93%E3%81%AE%E9%AC%BC%E3%83%88%E3%83%AC%E3%83%BC%E3%83%8B%E3%83%B3%E3%82%B0)
+  — 鬼训练机制最全一手细节：八种鬼训一览与机制（鬼計算 n-back/鬼ブロック 反组块/鬼カップ
+  追踪/鬼耳算语音版）；**85%↑·66~84%→·≤65%↓ 双阈阶梯**；5 分钟强制结束+逐日锁定+
+  "过训可能反伤大脑"的官方封顶理由；**儿童本就是该作目标用户**。
+- [Wikipedia: *Brain Age: Concentration Training*](https://en.wikipedia.org/wiki/Brain_Age:_Concentration_Training)
+  — 欧美版条目（2012 日 / 2013 美）。
+- [Nintendo World Report 评测](http://www.nintendoworldreport.com/review/33253/brain-age-concentration-training-nintendo-3ds)
+  — 八个练习、5 分钟一块、专攻工作记忆的第三方印证。
+- [川岛隆太 Miiverse 帖（r/3DS 存档）](https://www.reddit.com/r/3DS/comments/9cyzvc/dr_kawashimas_miiverse_posts_about_brain_age)
+  — 川岛亲口确认鬼計算采用 N-back 标准——**MISSION <8 岁排除条款的直接依据**。
+- [任天堂官方：鬼训练收录训练介绍页](https://www.nintendo.co.jp/3ds/asrj/training/index.html)
+  — 各鬼训官方说明。
 - [Wikipedia: *Brain Age: Train Your Brain in Minutes a Day!*](https://en.wikipedia.org/wiki/Brain_Age:_Train_Your_Brain_in_Minutes_a_Day!)
-  — 图章机制一手细节：每日首训得章、当日 3 项大图章、集章解锁新训练/难度/自定义图章、
-  每日首训才计入曲线图（防刷原则）；说明书对"脑年龄"的官方免责声明原文。
+  — 初代（2005）图章机制一手细节：每日首训得章、当日 3 项大图章、集章解锁新训练/难度/
+  自定义图章、每日首训才计入曲线图（防刷原则）；说明书对"脑年龄"的官方免责声明原文。
 - [机核：《从"知育玩具"到千万级销量怪物》](https://www.gcores.com/articles/119890)
-  — 脑锻炼系列设计史：川岛隆太与「学习疗法」（10~20 分钟/日）、主持人格的市场验证
+  — 系列设计史：川岛隆太与「学习疗法」（10~20 分钟/日）、主持人格的市场验证
   （PSP 版无川岛形象"没那个味道"）、科学界对其依据的批评（久保田競）。
 - [任天堂官网：脑锻炼 NS 介绍](https://www.nintendo.com.cn/topics/055b656d-f7b2-4242-b42d-c40fc32184b5)
   — "每天数分钟、持之以恒"的官方定位口径。
