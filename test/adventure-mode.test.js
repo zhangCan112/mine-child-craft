@@ -79,7 +79,7 @@ for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/items-cor
 }
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, hashRand, blockKey, world, worldCells, SceneKit,
-  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
+  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH,
   ITEMS, isTool, toolOf, stackMax, mkStack, breakTime,
@@ -397,7 +397,8 @@ test('探险模式: 四矿物深度带 + 矿簇密度序(常见→稀有) — �
   const dia = countId(api.B_DIAMOND_ORE);
   assert.ok(coal > iron && iron > gold && gold > dia, '相对丰度递减(煤>铁>金>钻): ' + coal + '/' + iron + '/' + gold + '/' + dia);
   assert.ok(coal >= 300 && coal <= 1600, '煤矿常见: ' + coal);
-  assert.ok(iron >= 120 && iron <= 800, '铁矿中等: ' + iron);
+  assert.ok(iron >= 120 && iron <= 1200, '铁矿中等: ' + iron +
+      '(2026-10-23 矿坑改每级 1 格台阶, 铁坑 r7→9 加深后坑壁教学裸露 +~200, 上限随校)');
   assert.ok(gold >= 30 && gold <= 350, '金矿偏少: ' + gold);
   assert.ok(dia >= 6 && dia <= 160, '钻石稀有但任务链(3 颗)挖得到: ' + dia);
 });
@@ -1650,4 +1651,70 @@ test('S4③ 工具坏指路行为链: 破板安抚 TTS 并句当前任务步 hin
   assert.ok(broke.indexOf('接下来') >= 0 && broke.indexOf('原木') >= 0,
       '并句当前任务步 hint(第 1 步「捡回 3 根原木」——cancel-then-speak 不拆两句)');
   clearAim();
+});
+
+/* ============ 2026-10-23 玩法实测修复轮: 矿坑出得来 + 面板不弹出发菜单 + 回小屋逃生口 ============ */
+
+test('修复①: 矿坑台阶每级恰 1 格 — 跳跃 1.42 格可登, 下得去也上得来(曾每级 2 格困人)', () => {
+  freshInit();
+  /* 坑心 → 坑沿(+x 轴逐环)取"顶部实心高度", 相邻差 ≤1 = 每步可跳上(修复前中心差 2 格) */
+  const topSolid = (x, z) => {
+    for (let y = 26; y >= 1; y--) if (cell(x, y, z) !== 0) return y;
+    return 0;
+  };
+  for (const p of A.ADV.pits) {
+    let prev = null;
+    for (let k = 0; k <= p.r; k++) {
+      const top = topSolid(p.cx + k, p.cz);
+      if (prev !== null) {
+        assert.ok(top - prev <= 1,
+            '台阶差 ≤1 格(距坑心 ' + k + '), 实差 ' + (top - prev) + ' — 跳跃 1.42 格上不来');
+      }
+      prev = top;
+    }
+  }
+  /* 加深半径后坑底仍落在对应矿带内(可见性教学不回归) */
+  assert.strictEqual(topSolid(A.ADV.pits[0].cx, A.ADV.pits[0].cz), 16,
+      '煤坑底 y16(煤带 12~20)');
+  assert.strictEqual(topSolid(A.ADV.pits[1].cx, A.ADV.pits[1].cz), 15,
+      '铁坑底 y15(铁带 6~16)');
+});
+
+test('修复②: 面板关闭状态同步 — ✕/Esc 走 onClose 后 panelOpen 不卡 true(曾卡住挖不了矿)', () => {
+  mem.clear();
+  freshInit();
+  AdventureMode.onKey('Tab');
+  assert.strictEqual(A.ADV.panelOpen, true, 'Tab 开背包');
+  A.advPanelClose(); /* ✕/Esc 统一出口(mkCraftPanel.close → onClose 也走这) */
+  assert.strictEqual(A.ADV.panelOpen, false, '关闭后状态同步(修复前 ✕ 直 hide 卡 true)');
+  A.advPanelClose(); /* 幂等: 已关再关不翻状态 */
+  assert.strictEqual(A.ADV.panelOpen, false, '重复关闭幂等');
+  AdventureMode.onKey('Tab'); /* Tab 路径不受影响: 再开 */
+  assert.strictEqual(A.ADV.panelOpen, true);
+  AdventureMode.onKey('Tab'); /* 再经 Tab 关 */
+  assert.strictEqual(A.ADV.panelOpen, false);
+});
+
+test('修复③: 🏠 回小屋逃生口 — 满血传送 + 60s 冷却拒绝(受困自救, 不播死亡安抚)', () => {
+  mem.clear();
+  freshInit();
+  /* 纯函数口径: 冷却判据(60s 窗口, 边界恰 60 算就绪) */
+  assert.strictEqual(A.advHomeReady(-1e9, 0), true, '从未用过: 立即可用');
+  assert.strictEqual(A.advHomeReady(0, 59.9), false, '冷却内拒绝');
+  assert.strictEqual(A.advHomeReady(0, 60), true, '边界 60s 恰就绪');
+  /* 行为链: 残血受困 → 回家满血 + 传送出生点; 冷却内再按不传送 */
+  const e = A.advGetPEnt();
+  e.hp = 7; A.ADV.player.hp = 7;
+  A.ADV.homeCd = -1e9;
+  calls.length = 0;
+  A.advGoHome();
+  assert.strictEqual(A.ADV.player.hp, A.ADV.player.maxHp, '回家满血');
+  assert.ok(calls.some((c) => c[0] === 'spawn' && c[1] === A.ADV.spawn.x && c[4] &&
+      c[4].yaw === A.ADV.spawn.yaw), '传送回出生小屋(带朝向)');
+  const cdAfter = A.ADV.homeCd;
+  e.hp = 7; A.ADV.player.hp = 7;
+  A.advGoHome(); /* 假时钟恒 0: 冷却未过 */
+  assert.strictEqual(A.ADV.player.hp, 7, '冷却内不回血');
+  assert.strictEqual(A.ADV.homeCd, cdAfter, '冷却时间不被刷新');
+  assert.strictEqual(calls.filter((c) => c[0] === 'spawn').length, 1, '冷却内不传送');
 });

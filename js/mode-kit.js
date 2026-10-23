@@ -234,7 +234,7 @@ function mkCraftPanel(opts) {
   const closeBtn = doc.createElement('button');
   closeBtn.className = 'mkp-x';
   closeBtn.textContent = '✕';
-  closeBtn.onclick = ()=>hide();
+  closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
   head.appendChild(sortBtn); head.appendChild(closeBtn);
   main.appendChild(head);
 
@@ -396,12 +396,24 @@ function mkCraftPanel(opts) {
   function show() {
     refresh();
     if (root.parentNode !== doc.body) doc.body.appendChild(root);
+    if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板, 不走菜单链 */
   }
   function hide() {
     root.style.display = 'none';
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
+  }
+  function close() {/* ✕/Esc 统一出口: 隐藏 + onClose(模式层做状态同步与指针回锁) */
+    hide();
+    if (o.onClose) o.onClose();
+  }
+  function onEsc(e) {
+    if (e.code !== 'Escape') return;
+    e.preventDefault();
+    close();
   }
   function remove() {
     stopPress(); // 停掉在飞的连做计时
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
     if (root.parentNode === doc.body) doc.body.removeChild(root);
   }
   function refresh() {
@@ -410,7 +422,7 @@ function mkCraftPanel(opts) {
     renderGrid();
     renderCards();
   }
-  return {root, questEl: quest, show, hide, remove, refresh};
+  return {root, questEl: quest, show, hide, close, remove, refresh};
 }
 
 
@@ -453,7 +465,7 @@ function mkFurnacePanel(opts) {
   const closeBtn = doc.createElement('button');
   closeBtn.className = 'mkp-x';
   closeBtn.textContent = '✕';
-  closeBtn.onclick = ()=>hide();
+  closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
   head.appendChild(closeBtn);
   box.appendChild(head);
 
@@ -545,14 +557,26 @@ function mkFurnacePanel(opts) {
   function show() {
     root.style.display = 'flex'; /* hide 后重开要复明(mkCraftPanel.refresh 同口径) */
     if (root.parentNode !== doc.body) doc.body.appendChild(root);
+    if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板 */
   }
   function hide() {
     root.style.display = 'none';
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
+  }
+  function close() {/* ✕/Esc 统一出口: 隐藏 + onClose(模式层做状态同步与指针回锁) */
+    hide();
+    if (o.onClose) o.onClose();
+  }
+  function onEsc(e) {
+    if (e.code !== 'Escape') return;
+    e.preventDefault();
+    close();
   }
   function remove() {
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
     if (root.parentNode === doc.body) doc.body.removeChild(root);
   }
-  return {root, show, hide, remove, setSlots, setProgress, autoPlan};
+  return {root, show, hide, close, remove, setSlots, setProgress, autoPlan};
 }
 
 /* ---------- 头顶血条(mkHpBar, S2): canvas 贴图 Sprite 的深接口 ----------

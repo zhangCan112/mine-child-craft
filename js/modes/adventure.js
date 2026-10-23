@@ -57,7 +57,7 @@
 const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
   pits: ADV_PITS, cave: ADV_CAVE, nests: ADV_NESTS,
   player: {hp: 30, maxHp: 30}, quest: {step: 0, counts: {}}, panelOpen: false, furnaceOpen: false,
-  killCount: 0, swingCd: 0};
+  killCount: 0, swingCd: 0, homeCd: -1e9};
 
 /* ---------- 世界/任务两份存档(D12): mkSaveSlot 语义, SyncDB 槽创建即注册回填 ----------
     全局唯一背包存档不在此开键——经背包壳 js/backpack.js 唯一持有
@@ -157,16 +157,38 @@ const advPanel = ModeKit.mkCraftPanel({
   inv: advInv,
   station: advStationOk,
   onCraft: advOnCraft,
+  onClose: () => advPanelClose(), /* ✕/Esc 统一出口: 状态同步 + 指针回锁(修: 曾直 hide 卡 panelOpen=true) */
   onSort: () => {
     advSyncHotbar();
     showToast('🧹 整理好啦！');
   },
 });
-const advFurnacePanel = ModeKit.mkFurnacePanel({inv: advInv, onAutoFill: advFurnaceAutoFill});
+const advFurnacePanel = ModeKit.mkFurnacePanel({inv: advInv, onAutoFill: advFurnaceAutoFill,
+  onClose: () => advFurnaceClose()});
+/* 指针锁配套(桌面; 触屏无此概念): 开面板放鼠标出来点卡片 — 解锁事件不弹菜单
+   (onMenu 有面板守卫收 overlay); 关面板在用户手势里回锁, 游戏无缝继续 */
+function advFreeMouse() {
+  if (!IS_TOUCH && typeof document !== 'undefined' && document.pointerLockElement) {
+    document.exitPointerLock();
+  }
+}
+function advRelock() {
+  if (IS_TOUCH || typeof document === 'undefined' || document.pointerLockElement) return;
+  if (typeof renderer !== 'undefined') renderer.domElement.requestPointerLock();
+}
+function advPanelClose() {/* 关闭唯一出口(Tab/✕/Esc 共用): 状态同步 + 回锁 */
+  if (!ADV.panelOpen) return;
+  ADV.panelOpen = false;
+  advPanel.hide();
+  advRelock();
+}
 function advPanelToggle() {/* 🎒/Tab 入口 */
-  ADV.panelOpen = !ADV.panelOpen;
-  if (ADV.panelOpen) advPanel.show();
-  else advPanel.hide();
+  if (ADV.panelOpen) {
+    advPanelClose(); return;
+  }
+  ADV.panelOpen = true;
+  advPanel.show();
+  advFreeMouse();
 }
 
 /* ---------- 玩家实体(受击/受死共用状态, nether getPEnt 同款) ---------- */
@@ -421,6 +443,26 @@ function advPlayerDied() {
   advFurnaceReset(true); /* 死亡清炉(T13 合同): 炉内材料全额退背包, 满包余量掉在重生点脚边 */
   SpeechKit.speak('不怕不怕，回到小屋休息好啦，背包里的宝贝都在！');
   showToast('💀 回到出生小屋，满血再来！');
+}
+
+/* ---------- 回小屋(受困逃生口, 2026-10-23 玩法实测补): 自挖竖井/TNT 弹坑
+   可能困住玩家(跳跃 1.42 格 < 2 格直壁), 与死亡同一传送口径但零惩罚措辞;
+   60s 冷却防滥用(躲怪用)。ADV_HOME_CD 与 advHomeReady 纯函数供单测。 */
+const ADV_HOME_CD = 60;
+function advHomeReady(cd, now) {
+  return now - cd >= ADV_HOME_CD;
+}
+function advGoHome() {
+  const now = typeof performance !== 'undefined' ? performance.now() / 1000 : Date.now() / 1000;
+  if (!advHomeReady(ADV.homeCd, now)) {
+    showToast('🏠 小屋还在休息, 稍等一下哦'); return;
+  }
+  ADV.homeCd = now;
+  const e = advGetPEnt();
+  e.hp = e.maxHp; ADV.player.hp = ADV.player.maxHp; /* 顺带回满血(回家=安全休整, nether 先例) */
+  ModeKit.spawn(ADV.spawn.x, ADV.spawn.y, ADV.spawn.z, {yaw: ADV.spawn.yaw});
+  SpeechKit.speak('回家咯！休息一下再出发！');
+  showToast('🏠 回到小屋');
 }
 
 /* ============================================================
@@ -699,11 +741,13 @@ function advFurnaceOpenPanel() {/* 走近熔炉点击打开: 先取走产物(即
   advFurnaceCollectOut();
   advFurnacePanel.show();
   advFurnacePaint();
+  advFreeMouse(); /* 放鼠标点面板(解锁不弹菜单: onMenu 守卫) */
 }
-function advFurnaceClose() {/* 收面板(✕/Tab/Esc 共用): 顺带取走产物, 烧炼照跑(进度保留) */
+function advFurnaceClose() {/* 收面板(✕/Tab/Esc/onClose 共用): 顺带取走产物, 烧炼照跑(进度保留) */
   ADV.furnaceOpen = false;
   advFurnacePanel.hide();
   advFurnaceCollectOut();
+  advRelock();
 }
 /* 取产物入包: 满包一件都放不下则整撮留炉(拒收口径), 部分放不下留余量在炉 */
 function advFurnaceCollectOut() {
@@ -1102,15 +1146,19 @@ const AdventureMode = mkMode({
       }
       advPanelToggle(); /* 🎒/Tab 开关背包+配方书 */
     }
+    if (code === 'KeyH') advGoHome(); /* 🏠 回小屋(受困逃生口, 桌面键) */
   },
 
   onVoidFall() {/* 坠出世界: 与死亡同一零惩罚出口(T14 的致命一击走 advPlayerDied) */
     advPlayerDied();
   },
 
-  onMenu() {/* Esc/B 回出发页: 先收面板再翻页(面板是 body 级遮罩, 不收会叠在菜单上) */
-    if (ADV.furnaceOpen) advFurnaceClose();
-    if (ADV.panelOpen) advPanelToggle();
+  onMenu() {/* 解锁回调(Esc/✕开面板期的 exitPointerLock 都会到这): 面板开着 =
+      放鼠标不是回菜单 — 收掉 onLockChanged 弹起的 overlay 即可(修: 曾在此
+      强收面板+翻出发页, 表现为「关背包弹出发菜单」); 面板全关时才是真回菜单 */
+    if (ADV.panelOpen || ADV.furnaceOpen) {
+      overlay.style.display = 'none'; return;
+    }
     showPage('adventure');
   },
 
@@ -1136,6 +1184,7 @@ const AdventureMode = mkMode({
     {label: '🧱', act: () => doCenterClick(2)}, /* 准星放置(手持放置型物品) */
     {label: '🎒', act: () => advPanelToggle()},
     {label: '👾', act: () => advAttack()},
+    {label: '🏠', act: () => advGoHome()}, /* 受困逃生口: 回出生小屋(60s 冷却) */
   ],
 });
 
@@ -1160,6 +1209,7 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advTryPlace, advGrowTree, advMineStop, advWearHeld,
   advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,
   advTntRoll, advTntDmg, advFurnace, advFurnaceAutoFill, advFurnaceOpenPanel,
-  advFurnaceClose, advIgnite, advFuses, advStations};
+  advFurnaceClose, advIgnite, advFuses, advStations,
+  advPanelClose, advGoHome, advHomeReady, ADV_HOME_CD};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;

@@ -30,9 +30,9 @@ const ADV_GROUND = 24; /* 草原表层 y: 下 4 层泥(y20~23), 再下石头到 
 const ADV_HUT = {x1: 58, x2: 64, z1: 78, z2: 84}; /* 出生小屋: 7×7, 北墙正中门洞 */
 const ADV_SPAWN = {x: 61.5, y: ADV_GROUND + 1, z: 76.5, yaw: 0}; /* 门口两步, 面朝旷野背对小屋 */
 const ADV_LAKE = {cx: 22, cz: 24, r: 7}; /* 湖: 西北角, 沙岸+可趟水+湖底黏土 */
-const ADV_PITS = [ /* 露天矿坑: 阶梯漏斗坑(每级 2 格), 坑壁矿化做可见性教学 */
-  {cx: 98, cz: 28, r: 6, floor: 12, ore: {id: B_COAL_ORE, yLo: 12, yHi: 20, salt: 4101}},
-  {cx: 30, cz: 96, r: 7, floor: 10, ore: {id: B_IRON_ORE, yLo: 6, yHi: 16, salt: 4207}},
+const ADV_PITS = [ /* 露天矿坑: 阶梯漏斗坑(每级 1 格 — 玩家跳跃 1.42 格, 下得去也上得来; 2026-10-23 实测 2 格级困人), 坑壁矿化做可见性教学 */
+  {cx: 98, cz: 28, r: 8, floor: 12, ore: {id: B_COAL_ORE, yLo: 12, yHi: 20, salt: 4101}},
+  {cx: 30, cz: 96, r: 9, floor: 10, ore: {id: B_IRON_ORE, yLo: 6, yHi: 16, salt: 4207}},
 ];
 const ADV_CAVE = {x1: 97, x2: 98, zStart: 72, steps: 20, y0: 23, zEnd: 52}; /* 山洞: 2 宽台阶隧道 y23→y3, 穴室镶钻 */
 const ADV_NESTS = [ /* 怪物巢穴位点(土丘洞穴): kinds=本巢刷怪池, 节律见巢穴战斗段(T14) */
@@ -107,13 +107,13 @@ function advScatterOres() {/* 种子点散布: 每列按密度掷种子, 深度�
   }
 }
 
-function advBuildPit(p) {/* 露天矿坑: 阶梯漏斗坑(每级 2 格深)挖到目标层, 坑壁矿化 */
+function advBuildPit(p) {/* 露天矿坑: 阶梯漏斗坑(每级 1 格深)挖到目标层, 坑壁矿化; 每级恰 1 格 = 跳跃可登, 上得来(修复: 曾为 2 格级只下不上) */
   for (let dx = -p.r; dx <= p.r; dx++) {
     for (let dz = -p.r; dz <= p.r; dz++) {
       const d = Math.hypot(dx, dz);
       if (d > p.r) continue;
       const depth = Math.floor(p.r - d);
-      const floorY = Math.max(p.floor, ADV_GROUND - depth * 2);
+      const floorY = Math.max(p.floor, ADV_GROUND - depth);
       const x = p.cx + dx; const z = p.cz + dz;
       for (let y = floorY + 1; y <= ADV_GROUND + 2; y++) setBlockRaw(x, y, z, 0); /* 挖空漏斗 */
       for (let y = Math.max(1, floorY - 2); y <= floorY; y++) setBlockRaw(x, y, z, 3); /* 露岩阶梯面 */
