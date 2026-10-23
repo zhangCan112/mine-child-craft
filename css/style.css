@@ -285,6 +285,47 @@ canvas {
   font-weight: 700;
 }
 
+/* ---------- 音量面板(A8): 主菜单 🎵 展开音乐/音效两滑杆; 触屏加大档在 touch.css ---------- */
+#volWrap {
+  margin-top: 14px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.vol-panel {
+  display: none;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px 24px;
+  border: 2px solid rgb(255 255 255 / 30%);
+  border-radius: 14px;
+  background: rgb(0 0 0 / 35%);
+}
+
+.vol-panel.open {
+  display: flex;
+}
+
+.vol-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.vol-row.muted {
+  opacity: 0.45;
+}
+
+.vol-row input[type="range"] {
+  width: 200px;
+  accent-color: #7cfc00;
+  cursor: pointer;
+}
+
 /* 竞技场对战面板 */
 #panel {
   margin-top: 8px;

@@ -62,8 +62,18 @@ const MIME = {
   '.csv': 'text/csv; charset=utf-8',
   '.md': 'text/markdown; charset=utf-8',
   '.ico': 'image/x-icon',
+  /* 音频素材 (A9): m4a 为选定入库格式, 其余格式一并登记备兼容 */
+  '.m4a': 'audio/mp4',
+  '.mp3': 'audio/mpeg',
+  '.ogg': 'audio/ogg',
+  '.wav': 'audio/wav',
+  '.flac': 'audio/flac',
 };
+/* gzip 只压文本: 音频格式本身已压封装, 再 gzip 无收益徒耗 CPU — 确认不入此表 */
 const GZIPABLE = ['.html', '.css', '.js', '.svg', '.json', '.csv', '.md'];
+/* 音频扩展名集: 从 MIME 表派生(过滤 audio/* 的键) — 一处加格式两处生效
+   (MIME 与缓存豁免永不漂移); 豁免 no-store, 走 ETag/304 协商缓存 (理由见下方 headers 处) */
+const AUDIO_EXT = Object.keys(MIME).filter((e) => MIME[e].startsWith('audio/'));
 
 http.createServer((req, res)=>{
   let p = decodeURIComponent((req.url||'/').split('?')[0]);
@@ -164,6 +174,11 @@ http.createServer((req, res)=>{
          导致传送门行为错乱且无从排查 — 局域网带宽零成本, 换来版本一致性 */
       'Cache-Control': 'no-store',
     };
+
+    /* 音频豁免 no-store (A9): 素材入库后内容不变, 不存在新旧混跑风险;
+       no-cache = 允许落盘但每次须经 ETag 协商, 未变化则 304 空体返回 —
+       每次刷新省 ~20MB 局域网重拉. 代码文件的 no-store 政策(理由见上)不动 */
+    if (AUDIO_EXT.includes(ext)) headers['Cache-Control'] = 'no-cache';
 
     /* 大文本资源 gzip (three.js 600KB → ~150KB) */
     if (GZIPABLE.includes(ext) && st.size > 1024 && /gzip/.test(req.headers['accept-encoding']||'')) {

@@ -29,12 +29,13 @@ css/              # 按端拆分：style(桌面) → focus(训练营) → touch(
 test/             # node --test 单测，与 js 模块镜像命名
 docs/             # <topic>-research / -design / -plan 三段式 + adr/NNNN-slug.md
 lib/              # 仅 vendored 三方库（three.min.js），只读
+assets/audio/     # CC0 音频资产 + CREDITS.md 溯源清单（只放转码后产物，源 wav/flac/ogg 不入库，见 adr/0003）
 data/             # 运行时数据（gitignore）
 server.js         # 零依赖静态服务器（Node 内建模块，无 npm 依赖）
 ```
 
 运行时零依赖 `node_modules`：浏览器直引 js/*.js，服务器只用 Node 内建模块。
-package.json 只承载开发期 lint 工具链（devDependencies）。
+package.json 只承载开发期工具链（lint + 一次性音频转码 ffmpeg-static，见 §5；均为 devDependencies）。
 
 ### 1.2 文件命名语法（后缀语义表）
 
@@ -191,6 +192,7 @@ id 命名偏离见 §6。
 | `.editorconfig` | UTF-8 · LF · 2 空格 · 收尾换行 · 去尾空白 |
 | `.gitattributes` | `* text=auto eol=lf`（覆盖 Windows autocrlf，检出也是 LF） |
 | `test/conventions.test.js` | 结构约定断言：命名语法 / strict+头注释横幅 / -core·-registry 配单测 / 文本卫生 |
+| `package.json` 的 `ffmpeg-static`（devDependency） | 一次性音频转码工具链（A7 素材入库：mono 44.1kHz AAC/m4a，决策见 adr/0003）；不进运行时——浏览器直引 js、server.js 只用内建模块，零依赖定位不破 |
 
 规范分三层被执行：**格式归 lint**（零错误才算过）、**结构归守门测试**（手滑即红）、
 **运行时归 boot 冒烟 + 各模块单测**。三者都绿才可提交。
@@ -205,6 +207,7 @@ id 命名偏离见 §6。
 | 4 | CSS/HTML 用 id 选择器且 id 为 camelCase | DOM id 是模式注册表三元组契约（id↔cardXxx↔menuXxx），有测试断言 | stylelint.config.mjs / .htmlhintrc |
 | 5 | CSS 关闭 no-descending-specificity | css 按加载顺序分层覆盖是既有架构 | stylelint.config.mjs |
 | 6 | HTML id 不含连字符（指南 id 条款） | 同 #4 | .htmlhintrc |
+| 7 | CSS 保留 `-webkit-appearance` 前缀版（与标准版并存，行内 disable property-no-vendor-prefix） | 旧 iPad Safari 只认前缀版外观属性；音量滑杆（A8）自绘 thumb 必须去默认外观 | css/touch.css 两处行内 |
 
 新增偏离必须登记在此表并给理由；未登记的偏离视为违规。
 
@@ -213,3 +216,5 @@ id 命名偏离见 §6。
 - 2026-10-22：初版。基于两份调研报告成文；同日完成存量全量对齐（ESLint 清零 21057→0、
   CSS 展开式排版+类名 kebab-case 迁移 134 处、HTML 缩进、行尾统一 LF、头注释契约补齐），
   209 项既有测试全数通过。
+- 2026-10-23：§6 登记 #7（css/touch.css 的 `-webkit-appearance` 行内豁免——A8 音量滑杆
+  入库时的旧账补记）。

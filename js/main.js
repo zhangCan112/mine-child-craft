@@ -37,7 +37,11 @@ let curPage = 'main';
 function showPage(id) {
   curPage = id;
   for (const k of Object.keys(pages)) pages[k].classList.toggle('active', k===id);
-  if (id === 'main') refreshPlayCards();
+  /* 回主菜单换 menu 口径情绪(MOODS.menu=calm): 模式菜单页仍是该模式情绪, 不在此切 */
+  if (id === 'main') {
+    refreshPlayCards();
+    AudioMixer.setMood(MOODS.menu);
+  }
 }
 
 /* ---------- 每日预算 (DailyBudget) — 儿童时限的唯一账本 ----------
@@ -118,6 +122,11 @@ function switchMode(id) {
   clearWorld();
   MODES.cur = MODES[id];
   MODES.cur.init();
+  /* BGM 情绪随模式走: 注册表 mood 字段是唯一权威(mode-registry.test 逐行
+     断言必在 — 不手抄 || 'none' 回落, 对齐 GLOSSARY Tank 条"单一回落"判例);
+     同 mood 续播不打断, 起曲计时/挂起保护收在 audio.js 的 MusicDirector,
+     此处只报情绪 */
+  AudioMixer.setMood(ModeRegistry.all.find((m) => m.id === id).mood);
 }
 
 /* ---------- 指针锁 / 遮罩 ---------- */
@@ -199,6 +208,7 @@ function loop(now) {
   if (now - last < FRAME_MIN) return; // 未满一帧预算: 等下个 rAF
   let dt = (now-last)/1000; last=now;
   if (dt>0.05) dt=0.05;
+  AudioMixer.tick(dt*1000); // BGM 调度步进: dt 秒→毫秒; context 挂起时 audio.js 内部有闸不推进
 
   if (locked || touchPlaying) {
     if (!Tank.driving()) physics(dt);

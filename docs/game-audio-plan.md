@@ -51,7 +51,7 @@
 | `js/main.js` | ○ | switchMode 里一行 `Audio.setMood(...)`；`interrupted`/visibilitychange 恢复挂钩 |
 | `server.js` | ○ | MIME 补 `.m4a/.mp3/.ogg/.wav/.flac`；`assets/audio/` 豁免 no-store 走 ETag/304（省每次刷新 20MB 局域网传输；代码文件维持 no-store 不变）；音频不 gzip |
 | `index.html` | ○ | script 列表在 effects.js 前插三个新文件；版本号行照例更新 |
-| `docs/conventions.md` §1.1 + GLOSSARY.md + `docs/adr/0002` | ○ | 目录宪法加 assets/；新词条（AudioRegistry/AudioCore/MusicDirector）；"音频资产入库 + 单格式 m4a + 只取 CC0"写 ADR |
+| `docs/conventions.md` §1.1 + GLOSSARY.md + `docs/adr/0003` | ○ | 目录宪法加 assets/；新词条（AudioRegistry/AudioCore/MusicDirector）；"音频资产入库 + 单格式 m4a + 只取 CC0"写 ADR |
 
 ### 3.2 音频图
 
@@ -119,7 +119,7 @@ decodeAudioData 用 callback 形式包 Promise（Safari reject `null` 怪癖防�
 | **P0 除噪微修**（半天，只动 effects.js 现有代码） | ① 全部 source 播完 `onended` disconnect；② IS_TOUCH 主链加 160Hz highpass；③ 压限器回调到保险丝参数（thr -18/knee 24/ratio 8）+ master 0.9→0.8；④ engineHum 频段重设计（120–250Hz） | iPad 内放+耳机各浸泡 10 分钟 100v100 无杂音 → 顺带定位 D1~D4 各自权重，给 P2 验收留基线 |
 | **P1 架构重排**（不引素材） | 三新文件落地；sfx/engineHum/unlockAudio 迁入 audio.js（接口签名不变）；VoiceGate 上线；tests：audio-core（准入/抢占/冷却、MusicDirector 状态机）+ audio-registry（资产存在性、js/ 内 sfx 字面量 ⊆ 注册表键）+ boot 冒烟自动覆盖 | 全测试 lint 绿；听感与 P0 一致（合成照旧发声，只是走新总线） |
 | **P2 素材 + BGM** | 下载/转码/入库 + CREDITS.md；注册表接样本；MusicDirector + mood 上线；speech duck 钩子；音量控制 UI（主菜单 音乐/音效 两滑杆，localStorage 记忆，默认保守值）；server MIME + 音频 ETag 缓存 | iPad 实机验收：BGM 稀疏触发正常、TTS 让路、切模式淡入淡出、旧曲库回归无杂音 |
-| **P3 打磨收尾** | MediaSession 元数据（iOS 16.4+，可选）；素材响度统一过一遍 loudnorm；GLOSSARY/conventions/ADR-0002 文档三件套；设备矩阵（内放/耳机 × 10min × 旧 iPad） | AGENTS.md"收尾前必跑"三项全绿；文档过审 |
+| **P3 打磨收尾** | MediaSession 元数据（iOS 16.4+，可选）；素材响度统一过一遍 loudnorm；GLOSSARY/conventions/ADR-0003 文档三件套；设备矩阵（内放/耳机 × 10min × 旧 iPad） | AGENTS.md"收尾前必跑"三项全绿；文档过审 |
 
 ## 6. 测试与规范影响
 

@@ -34,6 +34,18 @@ _Avoid_: 视距（那是渲染边界=雾，见 VIEW）、把卸载叫删除（�
 特效的唯一入口：爆炸组合、冲击波球、闪电弧（arc）、落雷（bolt，盒段拼装的粗闪电）、碎块、震屏。条目形状与动画是它的 implementation，调用方不可见。
 _Avoid_: effects 数组、震屏变量（那是内部状态）
 
+**声音清单注册表（AudioRegistry）**:
+游戏声音清单的唯一权威（js/audio-registry.js，纯数据+纯函数，有单测）：SFX 条目 `kind → {file 样本 + synth 合成回退, g/gTouch 双端增益, prio 抢占优先级, coolMs 同类冷却}`、BGM 曲目表（file/mood/g/durMs——durMs 是判曲毕的唯一依据）、主菜单情绪 MOODS（仅 `menu: 'calm'` 一键——各游玩模式的情绪唯一权威在 mode-registry 各行 mood 字段，镜像键已删）。标 file 走样本、无 file 或加载失败自动落条目内 synth——file 与 synth 互锁「永不哑」（A2 的「二选一」口径已作废）；TNT 下线死键（引线嘶声/铁门/水花）不迁入。加一种音效 = 这里改一行数据，播放器不自持清单；手滑防线在 test/audio-registry.test.js：扫 js/** 全部 `sfx('…')` 字面量 ⊆ SFX_KINDS 键（漏登记即红）、素材文件存在且 assets/audio/CREDITS.md 双向覆盖（正向=注册表引用必记载，反向=目录内文件漏记即红）。
+_Avoid_: SFX_DEFS（历史名——effects.js 的音效段自带合成定义表，已迁入并降级为条目内回退）、音效表/曲目表（散称——三张表同属一个注册表）
+
+**音频核心（AudioCore）**:
+音频系统的纯决策核心（js/audio-core.js，零 THREE·零 DOM·零全局可变依赖，时间与随机由调用方注入，有同名单测），藏住「何时允许一声 / 何时起停音乐」：mkVoiceGate 发声准入——活跃数未满放行（触屏 ≤8 / 桌面 ≤12）、满员时新声 prio 严格大于最老活跃声才抢占（victim 恒为最老、供停声）、同类冷却窗内忽略；mkMusicDirector BGM 稀疏调度状态机——tick 吐 start/stop/gain 纯数据事件（解锁后 5~30s 起曲、曲毕随机 60~180s 静默、换情绪 1.2s 淡出后 15~45s 起曲、同 mood 续播不打断、duck 让路）；mkVolState 音量滑杆状态（baseline() 双端基线快照是装配层取基准的统一口径）；musicBusTarget 音乐总线目标换算——duck 让路只降不升（上限 0.08，不把压低/静音的总线抬响）；AUDIO_MIX 儿童保守响度常数表。WebAudio 节点的真实启停不在此——在 AudioMixer。
+_Avoid_: 限声器/调度器（散称——准入与调度是两个工厂一个核心）、把决策逻辑写进 audio.js（那是执行层 adapter）
+
+**AudioMixer**:
+js/audio.js 的引擎层门面，全部声音的唯一出口：AudioContext 生命周期（手势解锁、interrupted/回前台恢复、挂起不排队）、双总线音频图（音效/音乐分账，触屏音效前置 ~160Hz 高通——音乐低频是内容不滤）、样本懒加载缓存与合成兜底解释器、坦克引擎嗡鸣、MusicDirector 事件流到真实节点的执行、duck。interface：`AudioMixer{sfx, engineHum, setMood, setMusicVol, setSfxVol, duck, tick, preload}`；全局 `sfx(kind)`/`engineHum(level)` 签名不变（60+ 调用点零改动）。决策在音频核心、清单在声音清单注册表，本门面只装配与执行。
+_Avoid_: effects.js 的音效段（历史归属——sfx/engineHum/unlockAudio 原住在那里，A4 已整体迁出，effects.js 只剩视觉特效与 toast）、音频系统（散称）
+
 **SpeechKit**:
 全游戏共用的语音 interface：speak 与 cancel。声音挑选与播报策略收在它的 implementation。
 _Avoid_: focusSpeak（历史名——语音已不属于专注子系统）

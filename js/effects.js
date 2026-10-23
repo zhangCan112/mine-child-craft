@@ -1,153 +1,19 @@
 'use strict';
 /* ============================================================
-   音效 (WebAudio 合成) + 通用特效 + 提示消息
-============================================================ */
-let actx = null; // 懒创建; iOS 须在用户手势内创建+resume 才能真正出声(见 unlockAudio)
-let master = null; // 总线: 全部音效 → master → 压限器 → 扬声器, 多路叠加不再硬削波(pad 杂音根因)
-const sfxLastT = {};
-/* pad 小喇叭发不动低频: 触屏检测口径统一在 config.js 的 IS_TOUCH */
-
-/* 手势解锁(常驻监听): 非手势创建/恢复的 context 在 iOS 上保持 suspended,
-   挂起期间按冻结的 currentTime 排队的事件会在恢复瞬间同时炸响(爆音),
-   故创建+resume+播静音采样都收在 pointerdown/touchstart/keydown 手势栈内;
-   常驻而非 once: 切后台回来 context 会再次挂起, 每次手势都要续 */
-function unlockAudio() {
-  try {
-    if (!actx) {
-      actx = new (window.AudioContext||window.webkitAudioContext)();
-      const comp = actx.createDynamicsCompressor(); // 保险丝: 混战叠加超出 0dB 也压不出破音
-      comp.threshold.value = -12; comp.knee.value = 20; comp.ratio.value = 12;
-      comp.attack.value = 0.003; comp.release.value = 0.25;
-      master = actx.createGain(); master.gain.value = 0.9;
-      master.connect(comp); comp.connect(actx.destination);
-    }
-    if (actx.state === 'suspended') {
-      actx.resume();
-      const s = actx.createBufferSource(); // 1 采样静音: 逼 iOS 立即开动渲染管线
-      s.buffer = actx.createBuffer(1, 1, actx.sampleRate);
-      s.connect(master); s.start(0);
-    }
-  } catch (e) {}
-}
-if (typeof document !== 'undefined' && document.addEventListener) {
-  document.addEventListener('pointerdown', unlockAudio);
-  document.addEventListener('touchstart', unlockAudio);
-  document.addEventListener('keydown', unlockAudio);
-}
-
-/* 带线性衰减的白噪声 buffer 按时长缓存: 以前每次爆炸现生成 2 万+ 随机数,
-   大规模混战高频分配 → GC 尖刺 → 音频毛刺; 现只生成一次常驻复用 */
-const noiseBufs = {};
-function noiseBuf(dur) {
-  if (!noiseBufs[dur]) {
-    const buf = actx.createBuffer(1, Math.floor(actx.sampleRate*dur), actx.sampleRate);
-    const ch = buf.getChannelData(0);
-    for (let i=0; i<ch.length; i++) ch[i] = (Math.random()*2-1)*(1-i/ch.length);
-    noiseBufs[dur] = buf;
-  }
-  return noiseBufs[dur];
-}
-
-/* ---------- 音效定义表(SFX_DEFS): 加音效 = 加一行数据 ----------
-   振荡器型: {type, f0, f1?, fT(频率滑落时长, 缺省=dur), dur, g, steps?([f@t...]), stepT?, linear?}
-   噪声型:   {noise:{type(滤波), freq, dur}, g}
-   win 为双振荡器琶音特例(解释器内联)。调音量/时长只改这张表 */
-const SFX_DEFS = {
-  boom: {noise: {type: 'lowpass', freq: 420, dur: 0.5}, g: 0.2}, // g 0.4→0.2: 与其他音效重新配平, 给压限器留余量
-  fss: {noise: {type: 'highpass', freq: 3000, dur: 0.3}, g: 0.12}, // 引线嘶嘶声
-  hit: {type: 'square', f0: 170, f1: 80, fT: 0.08, dur: 0.09, g: 0.08},
-  hurt: {type: 'sawtooth', f0: 340, f1: 110, fT: 0.12, dur: 0.14, g: 0.10}, // 玩家受击(比 hit 更"疼", 与打怪音区分)
-  shoot: {type: 'square', f0: 820, f1: 300, fT: 0.07, dur: 0.08, g: 0.04},
-  zap: {type: 'sawtooth', f0: 1900, f1: 180, fT: 0.13, dur: 0.15, g: 0.09}, // 闪电劈落(高频锯齿急坠)
-  death: {type: 'sawtooth', f0: 150, f1: 48, fT: 0.28, dur: 0.30, g: 0.10},
-  breath: {type: 'sawtooth', f0: 300, f1: 90, fT: 0.35, dur: 0.40, g: 0.07},
-  pick: {type: 'sine', steps: [880, 1318], dur: 0.22, g: 0.12}, // 拾取叮咚(两音)
-  click: {type: 'square', f0: 1200, dur: 0.05, g: 0.07}, // 转辙器咔哒
-  door: {type: 'sawtooth', f0: 90, f1: 220, fT: 0.30, dur: 0.35, g: 0.09, linear: true}, // 铁门滑开(上线性滑升)
-  splash: {type: 'sine', f0: 500, f1: 120, fT: 0.15, dur: 0.18, g: 0.10}, // 火花入水
-  roar: {type: 'sawtooth', f0: 110, f1: 45, fT: 0.35, dur: 0.40, g: 0.14}, // 僵尸狂暴怒吼
-  level: {type: 'sine', steps: [660, 880, 1320], stepT: 0.08, dur: 0.42, g: 0.12}, // 晋升琶音
-  gem: {type: 'sine', steps: [1318, 1760, 2637], stepT: 0.09, dur: 0.5, g: 0.12}, // 钻石首获琶音(T15 仪式, 三音上行更闪)
-  win: {special: 'win'}, // 胜利和弦(双振荡器)
-};
-
-function sfx(kind) {
-  try {
-    const nowMs = performance.now(); // 大规模混战时限制同类音效频率
-    if (kind!=='win' && nowMs - (sfxLastT[kind]||0) < 60) return;
-    sfxLastT[kind] = nowMs;
-    unlockAudio();
-    if (!actx || actx.state !== 'running') return; // 挂起中不排队: 免得恢复瞬间扎堆炸响
-    const t = actx.currentTime;
-    const g = actx.createGain(); g.connect(master);
-    const d = SFX_DEFS[kind];
-    if (!d) return;
-
-    if (d.noise) { // 噪声型: 滤波白噪(衰减 buffer 按时长缓存)
-      const src = actx.createBufferSource(); src.buffer = noiseBuf(d.noise.dur);
-      const f = actx.createBiquadFilter(); f.type = d.noise.type; f.frequency.value = d.noise.freq;
-      src.connect(f); f.connect(g);
-      g.gain.setValueAtTime(d.g, t);
-      src.start(t);
-      return;
-    }
-    if (d.special === 'win') { // 胜利和弦: 双正弦琶音 523→659→784
-      const o1 = actx.createOscillator(); o1.connect(g);
-      const o2 = actx.createOscillator(); o2.connect(g);
-      o1.type = o2.type = 'sine';
-      o1.frequency.setValueAtTime(523, t); o1.frequency.setValueAtTime(659, t+0.16);
-      o2.frequency.setValueAtTime(784, t+0.32);
-      g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.85);
-      o1.start(t); o1.stop(t+0.85); o2.start(t+0.32); o2.stop(t+0.85);
-      return;
-    }
-    const o = actx.createOscillator(); o.connect(g); // 振荡器型
-    o.type = d.type;
-    if (d.steps) { // 多音定格(叮咚/琶音)
-      for (let i=0; i<d.steps.length; i++) {
-        o.frequency.setValueAtTime(d.steps[i], t + (d.stepT||0)*i);
-      }
-    } else if (d.f0 !== undefined) {
-      o.frequency.setValueAtTime(d.f0, t);
-      if (d.f1 !== undefined) {
-        const fT = d.fT !== undefined ? d.fT : d.dur;
-        if (d.linear) o.frequency.linearRampToValueAtTime(d.f1, t+fT);
-        else o.frequency.exponentialRampToValueAtTime(d.f1, t+fT);
-      }
-    }
-    g.gain.setValueAtTime(d.g, t);
-    g.gain.exponentialRampToValueAtTime(0.001, t+d.dur);
-    o.start(t); o.stop(t+d.dur);
-  } catch (e) {}
-}
-
-/* ---------- 坦克引擎嗡鸣: 连续音, level 0..1(怠速微响 → 油门渐强渐升) ----------
-   level 量化后比较, 同值免重设; 停驶/下车/切模式须传 0 归零 */
-let humOsc = null; let humGain = null; let humLvl = -1;
-function engineHum(level) {
-  try {
-    unlockAudio();
-    if (!actx || actx.state !== 'running') return; // 挂起中不动 humLvl: 恢复后同油门也能续上嗡鸣
-    const q = Math.round(level*8)/8;
-    if (q === humLvl) return;
-    humLvl = q;
-    if (!humOsc) {
-      humOsc = actx.createOscillator(); humOsc.type = 'sawtooth';
-      const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260;
-      humGain = actx.createGain(); humGain.gain.value = 0;
-      humOsc.connect(f); f.connect(humGain); humGain.connect(master);
-      humOsc.start();
-    }
-    const t = actx.currentTime;
-    /* pad 小喇叭还原 50~100Hz 低频只会嗡嗡失真: 触屏设备引擎嗡鸣增益减半 */
-    const g0 = IS_TOUCH ? 0.022 : 0.045; const gk = IS_TOUCH ? 0.045 : 0.085;
-    humGain.gain.setTargetAtTime(g0 + q*gk, t, 0.12);
-    humOsc.frequency.setTargetAtTime(52 + q*46, t, 0.18);
-  } catch (e) {}
-}
+   通用特效 Fx (视觉) + 提示消息 toast — 引擎层
+   ------------------------------------------------------------
+   爆炸/冲击波/闪电/碎块/震屏/传送门光束的视觉唯一入口, 外部只经
+   12 个入口触碰(一次性动效 7 个 + 常驻光束 portalBeam/removeBeam +
+   clear/update/wobble), 另带主菜单提示消息 showToast。
+   音效段(sfx/engineHum/unlockAudio)已整体迁往 js/audio.js(工单 A4),
+   本文件不再触碰 WebAudio — 视觉与听觉从此各自单一职责。
+   interface: Fx{boom,pop,debrisBurst,arc,bolt,kick,portalBeam,removeBeam,beam,clear,update,wobble} / showToast
+   依赖(均经全局名, 调用期解析): THREE·scene(引擎共享) · sfx(js/audio.js, 加载序在其后亦可, 调用期解析)
+   可测性声明: 顶层即建 THREE 几何(Node 需桩方可载), adapter 无直测, 经 boot 冒烟覆盖(conventions §1.9)
+   ============================================================ */
 
 /* ---------- 通用特效 Fx: 爆炸/冲击波/闪电/碎块/震屏/传送门光束的唯一入口 ----------
-   条目形状/动画/衰减全部收在 implementation, 外部只经 11 个入口触碰
+   条目形状/动画/衰减全部收在 implementation, 外部只经 12 个入口触碰
    (一次性动效 7 个 + 常驻光束 portalBeam/removeBeam + clear/update/wobble) */
 const Fx = (function() {
   let shake = 0;

@@ -2,7 +2,9 @@
 /* 模式注册表 (js/mode-registry.js) + index.html 一致性单测 — node --test
    运行: node --test test/mode-registry.test.js
    把"三重命名约定"(注册表 id ↔ cardXxx ↔ menuXxx ↔ 脚本顺序)从口头约定
-   变成断言: 注册表加行而 index.html 忘加卡/页/script, 这里立刻红。 */
+   变成断言: 注册表加行而 index.html 忘加卡/页/script, 这里立刻红。
+   另断言各行 mood 字段(BGM 情绪)值 ∈ 合法情绪集 — 模式情绪的唯一
+   权威在此(每行必声明), audio-registry 的 MOODS 已收窄为仅 menu。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -54,4 +56,14 @@ test('模式注册表: 限额文案的模式名由表派生(漏一个模式不�
   assert.deepStrictEqual(names, ['竞技场', '建造', '坦克演习场', '下界冒险', '探险模式']);
   assert.ok(!ModeRegistry.playModeNames('build').includes('建造'), '建造页文案排除自身');
   assert.strictEqual(ModeRegistry.playModeNames('build').length, 4);
+});
+
+test('模式注册表: mood 字段值 ∈ 合法情绪集且每行必声明(BGM 接线数据源, 模式情绪唯一权威在此)', () => {
+  const legal = new Set(['calm', 'battle', 'dark', 'none']);
+  /* 合法情绪集: calm/battle/dark = MUSIC_TRACKS 曲目情绪, none = 无配乐;
+     引擎侧 MOODS 已收窄为仅 menu */
+  for (const m of ModeRegistry.all) {
+    assert.ok(legal.has(m.mood),
+        m.id + ' 的 mood 未声明或非法: ' + m.mood + ' ∈ ' + [...legal].join('|'));
+  }
 });
