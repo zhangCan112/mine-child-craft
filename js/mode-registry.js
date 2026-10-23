@@ -6,18 +6,21 @@
    返回按钮 id / 出发按钮 id / 脚本路径 / 儿童时限成员 / 限额文案的
    模式名清单。main.js 只消费, 不再另持 MODE_CARDS/pages/手写文案三份
    影子(曾出现"文案漏提坦克/下界"的漂移)。
-   新增模式 = index.html 加卡+加页+加 script, 这里加一行。
+   新增模式 = index.html 加卡+加页+加 script, 这里加一行(含 mood)。
+   各行的 mood 字段 = 该模式的 BGM 情绪(calm/battle/dark/none), 值与
+   js/audio-registry.js 的 MOODS 对齐——两处权威漂移由
+   test/mode-registry.test.js 断言; 未声明的行消费端按 none 兜底。
    三重命名约定(id ↔ cardXxx ↔ menuXxx)由 test/mode-registry.test.js
    对着 index.html 逐条断言, 手滑即红。
    纯数据+纯函数, Node 可直接加载。
    ============================================================ */
 const MODE_REGISTRY = [
-  {id: 'arena', name: '竞技场', gated: true},
-  {id: 'focus', name: '专注训练营', gated: false, page: false}, /* 接管全屏 UI, 无菜单页/不计儿童时限 */
-  {id: 'build', name: '建造', gated: true, menu: true},
-  {id: 'tank', name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js'},
-  {id: 'nether', name: '下界冒险', gated: true, menu: true, enter: true}, /* enter: 出发页有"进入"按钮(锁指针) */
-  {id: 'adventure', name: '探险模式', gated: true, enter: true}, /* 物品与合成一期的第一个消费者(T11 骨架) */
+  {id: 'arena', name: '竞技场', gated: true, mood: 'battle'},
+  {id: 'focus', name: '专注训练营', gated: false, page: false, mood: 'none'}, /* 接管全屏 UI, 无菜单页/不计儿童时限; none=无 BGM(注意力训练哲学) */
+  {id: 'build', name: '建造', gated: true, menu: true, mood: 'calm'},
+  {id: 'tank', name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js', mood: 'battle'},
+  {id: 'nether', name: '下界冒险', gated: true, menu: true, enter: true, mood: 'dark'}, /* enter: 出发页有"进入"按钮(锁指针) */
+  {id: 'adventure', name: '探险模式', gated: true, enter: true, mood: 'dark'}, /* 物品与合成一期的第一个消费者(T11 骨架) */
 ];
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
