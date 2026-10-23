@@ -7,7 +7,8 @@
    interface: loadScene(建场 seam: 清场→批量建→渐进收尾入队) / markDirty /
      pumpRemesh(每帧按预算构建, 编辑优先于环填充) / maintainRings(距离环:
      近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
-      级联清单, 设计稿 block-lifecycle D3) / raycast / camera / renderer / scene。
+      级联清单, 设计稿 block-lifecycle D3) / applySweep(世界卫生清扫, P14/D9)
+      / raycast / camera / renderer / scene。
    依赖(均经全局名, 调用期解析): voxel.js(体素数据) · cascade-core.js(方块级联) · mesh-core.js(网格化
    核心, 同一份代码在 Worker 里跑) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
    THREE/DOM 惰性创建, Node 测试环境可安全加载(经 boot.test.js 冒烟)。
@@ -397,6 +398,21 @@ function applyCascade(x, y, z, oldId) {
   if (oldId === 0) return [];
   const removed = CascadeCore.cascadeRemove(getBlock, setBlockRaw, x, y, z, oldId, CASCADE_POLICY);
   for (const r of removed) markDirty(r.x, r.z); // 级联块各自区块入脏(同区块多块由 Set 去重)
+  return removed;
+}
+/* 世界卫生清扫(P14, 设计稿 D9): 全图不变量违例一次治愈——装场期迁移 seam
+   (探险 init 在确定性重建 + edits 重放后调; 建造不调, 装饰保护口径不变)。
+   结算在级联核心, 这里同 applyCascade 装配 + 脏记账(网格未建时记账无害,
+   rebuildAll/pumpRemesh 兜底重建); 返回清单契约与 editBlock 相同(移动条目
+   带 to)。本入口不是运行期破坏路径——玩家破坏仍必须走 editBlock/editBlockDirty
+   两入口(D3 纪律不变)。 */
+function applySweep() {
+  const removed = CascadeCore.cascadeSweep(getBlock, setBlockRaw, CASCADE_POLICY,
+      WORLD_W, WORLD_H, WORLD_D);
+  for (const r of removed) {
+    markDirty(r.x, r.z);
+    if (r.to) markDirty(r.to.x, r.to.z); // 移动条目两格可能跨区块
+  }
   return removed;
 }
 /* 方块顶面色 → Fx 用 0xRRGGBB(碎屑/落块共用; 方块注册表单一来源) */

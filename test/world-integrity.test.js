@@ -65,6 +65,7 @@ function mkH() {
   }
   const h = vm.runInContext(`globalThis.__h = {
     editBlock, editBlockDirty, getBlock, setBlockRaw, SceneKit, clearWorld,
+    applySweep,
     BLOCKS, worldCells, W: WORLD_W, H: WORLD_H, D: WORLD_D,
   }; __h;`, ctx);
   h.at = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= h.W || y >= h.H || z >= h.D) ?
@@ -205,6 +206,39 @@ test('挖树脚泥土(真 editBlock): 失接地整树倒(P5 身份原则推论)'
   h.editBlock(20, 1, 20, 0); /* 挖的是泥土 */
   assert.strictEqual(h.countIn(5, 15, 25, 1, 12, 15, 25), 0, '整树倒');
   assert.deepStrictEqual(scanViolations(h), []);
+});
+
+test('砍树干中段(真 editBlock, P15 树桩连带): 整树倒无树桩, 邻树完好', () => {
+  const h = mkH();
+  buildForest(h);
+  const keepLogs = h.countIn(5, 36, 44, 1, 12, 16, 24);
+  const keepLeaves = h.countIn(7, 36, 44, 1, 12, 16, 24);
+  h.editBlock(20, 3, 20, 0); /* 砍第二节 */
+  assert.strictEqual(h.countIn(5, 15, 25, 1, 12, 15, 25), 0, '树桩连带: 干全清(不残留撑冠树桩)');
+  assert.strictEqual(h.countIn(7, 15, 25, 1, 12, 15, 25), 0, '树冠全清(不残留浮空叶)');
+  assert.deepStrictEqual(scanViolations(h), []);
+  assert.strictEqual(h.countIn(5, 36, 44, 1, 12, 16, 24), keepLogs, '邻树原木不少');
+  assert.strictEqual(h.countIn(7, 36, 44, 1, 12, 16, 24), keepLeaves, '邻树叶不少');
+});
+
+test('世界卫生清扫(真 applySweep 接线, P14/D9): 旧档浮空全治愈且幂等', () => {
+  const h = mkH();
+  buildForest(h);
+  const keepLogs = h.countIn(5, 15, 25, 1, 12, 15, 25); /* 邻树1(全程不动, 快照对比) */
+  const keepLeaves = h.countIn(7, 15, 25, 1, 12, 15, 25);
+  for (let y = 2; h.at(30, y, 20) === 5; y++) h.setBlockRaw(30, y, 20, 0); /* 树2 砍干(裸写=旧档口径) → 孤儿冠 */
+  h.setBlockRaw(40, 1, 20, 0); /* 树3 脚下挖空(裸写) → 悬浮树 */
+  h.setBlockRaw(22, 8, 22, 8); /* 浮沙 */
+  h.setBlockRaw(24, 9, 24, 48); /* 悬空火把 */
+  const removed = h.applySweep();
+  assert.deepStrictEqual(scanViolations(h), [], '治愈后全图三不变量成立');
+  assert.ok(removed.some((r) => r.id === 7), '孤儿冠叶入清单');
+  assert.ok(removed.some((r) => r.id === 5), '悬浮树干入清单');
+  assert.ok(removed.some((r) => r.id === 8 && r.to), '浮沙下沉(移动条目带 to)');
+  assert.ok(removed.some((r) => r.id === 48), '悬空火把脱落');
+  assert.strictEqual(h.countIn(5, 15, 25, 1, 12, 15, 25), keepLogs, '邻树1 原木一根不少');
+  assert.strictEqual(h.countIn(7, 15, 25, 1, 12, 15, 25), keepLeaves, '邻树1 树叶一片不少');
+  assert.strictEqual(h.applySweep().length, 0, '二次清扫零动作(幂等; vm 跨 realm 数组用长度断言)');
 });
 
 test('地下隧道(身份原则防线): 石头无旗标, 挖空洞穴顶板纹丝不动', () => {

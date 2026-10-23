@@ -112,6 +112,44 @@ globalThis.editBlock = (x, y, z, id) => {
   return (id === 0 && old !== 0) ?
     engCascade.core.cascadeRemove(api.getBlock, api.setBlockRaw, x, y, z, old, engCascade.policy) : [];
 };
+/* 世界卫生清扫 seam(P14/D9): 镜像 world.js applySweep 的装配。Node v24 的
+   vm context 对热循环不 JIT(实测 77~390× 慢), 全图扫描 ~80 万格不可行 →
+   快照桥接: 世界数据拷到 Node realm, 用同一份 cascade-core(require)与
+   同一 mkPolicy 派生在 Node 侧跑, 差异格回写走真 setBlockRaw(含 topCache
+   失效; 干净世界零回写)。行为保真: 真核心代码+真旗标派生+真数据。 */
+const Core = require('../js/cascade-core.js');
+const localBlocks = {};
+for (const k of Object.keys(api.BLOCKS)) {
+  const b = api.BLOCKS[k];
+  const nb = {};
+  if (b.fell) nb.fell = true;
+  if (b.thin != null) nb.thin = b.thin;
+  if (b.fall) nb.fall = true;
+  if (b.solid === false) nb.solid = false;
+  if (b.need) nb.need = {id: b.need.id, dist: b.need.dist};
+  localBlocks[+k] = nb;
+}
+const localPolicy = Core.mkPolicy(localBlocks);
+globalThis.applySweep = () => {
+  const W = api.WORLD_W; const H = api.WORLD_H; const D = api.WORLD_D;
+  const snap = new Uint8Array(api.worldCells);
+  const read = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= W || y >= H || z >= D) ?
+    0 : snap[(y * D + z) * W + x];
+  const write = (x, y, z, id) => {
+    snap[(y * D + z) * W + x] = id;
+  };
+  const removed = Core.cascadeSweep(read, write, localPolicy, W, H, D);
+  const orig = api.worldCells;
+  for (let i = 0; i < snap.length; i++) {
+    if (snap[i] === orig[i]) continue;
+    const x = i % W;
+    const t = (i - x) / W;
+    const z = t % D;
+    const y = (t - z) / D;
+    api.setBlockRaw(x, y, z, snap[i]);
+  }
+  return removed;
+};
 globalThis.sfx = (k) => calls.push(['sfx', k]);
 
 /* ---------- 假应用层(调用期解析的全局名) ---------- */
@@ -2051,4 +2089,43 @@ test('方块级联⑤(二期 D7): 沙随底座沉降 — 移动两格记账, 重
   freshInit();
   assert.strictEqual(cell(spot.x, 24, spot.z), 8, '重进: 沙在落位');
   assert.strictEqual(cell(spot.x, 25, spot.z), 0, '重进: 原位不复活(两格记账)');
+});
+
+test('方块级联⑥(三期 P15): 砍树干中段=整树倒(树桩连带) — 干/叶全清+话术', () => {
+  mem.clear();
+  freshInit();
+  const t = findLoneTree();
+  assert.ok(treeLeaves(t) >= 40, '布景: 树冠在场');
+  A.advBreakBlock(t.x, 26, t.z, 5, {time: 3, drops: true}); /* 砍第二节 */
+  for (let y = 25; y <= 31; y++) assert.strictEqual(cell(t.x, y, t.z), 0, '干列全清 y=' + y + '(含树桩)');
+  assert.strictEqual(treeLeaves(t), 0, '树冠全清(旧口径树桩会撑起 15~49 片浮空叶)');
+  assert.ok(spoken.some((s) => String(s).indexOf('大树倒啦') >= 0), '整树倒话术');
+  const logs = dropsState.spawned.filter((d) => d.id === 'log').length;
+  assert.ok(logs >= 4, '原木掉落含树桩(材料零损失), 实际 ' + logs);
+});
+
+test('方块级联⑦(三期 P14 红线): 旧档浮空冠重进治愈 — 治愈记账落盘, 二次进世界幂等', () => {
+  mem.clear();
+  freshInit();
+  const t = findLoneTree();
+  assert.ok(treeLeaves(t) >= 40, '布景: 树冠在场');
+  /* 模拟级联合并前的旧档: 当年砍光树干只记 edits(那个年代无级联) → 重进剩浮空冠 */
+  const edits = [];
+  for (let y = 25; cell(t.x, y, t.z) === 5; y++) edits.push([t.x + ',' + y + ',' + t.z, 0]);
+  assert.ok(edits.length >= 4, '树干 edits 在场');
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits}));
+  freshInit(); /* 重进: 重建+重放 → P14 清扫治愈 */
+  assert.strictEqual(treeLeaves(t), 0, '孤儿冠被清扫治愈(静默, 无掉落无话术)');
+  for (let y = 25; y <= 31; y++) assert.strictEqual(cell(t.x, y, t.z), 0, '干列空');
+  assert.ok(!dropsState.spawned.some((d) => d.id === 'sapling' || d.id === 'apple'),
+      '治愈不掉落(装场期迁移不是游戏事件, 防刷档)');
+  AdventureMode.cleanup(); /* 治愈记账落盘 */
+  const saved = JSON.parse(mem.get('adventure_world_save'));
+  const healN = saved.edits.length - edits.length;
+  assert.ok(healN >= 40, '治愈格逐块记账(漏记=重进复活/重复清扫), 实际新增 ' + healN);
+  freshInit(); /* 二次进世界: 幂等 */
+  assert.strictEqual(treeLeaves(t), 0, '二次进: 依然干净');
+  AdventureMode.cleanup();
+  const saved2 = JSON.parse(mem.get('adventure_world_save'));
+  assert.strictEqual(saved2.edits.length, saved.edits.length, '幂等: 二次进世界零新增治愈记账');
 });

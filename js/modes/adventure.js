@@ -1235,7 +1235,19 @@ const AdventureMode = mkMode({
         const p = k.split(',');
         setBlockRaw(+p[0], +p[1], +p[2], v);
       }
-      advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
+      /* P14 世界卫生清扫(设计稿 D9): 级联合并前的旧档浮空(孤儿冠/悬浮树/浮沙/
+         悬空依附块)在重进时一次性治愈——静默结算(装场期迁移不是游戏事件:
+         无掉落无话术无任务, 防刷档), 逐块记 edits 幂等(D5 红线: 治愈落盘后
+         重进无违例, 清扫成空操作)。建造模式不清扫(故意搭的浮空装饰保护)。 */
+      for (const r of applySweep()) {
+        if (r.to) {/* 移动两格记账(与 advCascadeApply 同口径, D7) */
+          advMarkEdit(r.x, r.y, r.z, 0);
+          advMarkEdit(r.to.x, r.to.y, r.to.z, r.id);
+        } else {
+          advMarkEdit(r.x, r.y, r.z, 0);
+        }
+      }
+      advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘; 清扫之后跑——被治愈掀掉的悬空树苗不再重挂) */
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
     ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
