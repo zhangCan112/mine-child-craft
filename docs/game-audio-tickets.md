@@ -144,10 +144,11 @@ flowchart TD
 - 交付：mode-registry.js 各行加可选 `mood` 字段（数据级，值与 A2 的 MOODS 对齐）；main.js：switchMode 里调 `AudioMixer.setMood(...)`、showPage('main') 时 menu mood、主循环 `AudioMixer.tick(dt)` 一行；MusicDirector 执行器（audio.js 内部）：起曲=解码一次性播放（不循环，播完丢引用）、gain 事件映射 musicBus setTargetAtTime；focus=none 恒静默；空曲表时结构就绪不出声（A7 填曲后自然生效）。
 - 测试：mode-registry.test.js 扩展断言 mood 值 ⊆ 合法集；audio-core 既有测试覆盖调度；boot 全绿。
 
-### A6 TTS duck 钩子 `[ ]`
+### A6 TTS duck 钩子 `[x]`（并入 `4548e12`）
 - 依赖：A4。
 - 交付：speech.js 的 mkSpeech 增加可选说话起止钩子（接口形态自选：第三参 hooks 或实例 onSpeak 注册器；默认空操作，现有调用方与测试零破坏）；utterance 的 onstart/onend 触发钩子；接线侧把钩子指向 `AudioMixer.duck(true/false)`（接线处可在 speech.js 底部创建处或 main.js 组合根，报告说明取舍）。
 - 测试：speech.test.js 扩展——fake speechSynthesis 断言说话起→钩子 start、说完→钩子 end（含 cancel 路径的 end 兜底）；boot 全绿。
+- 备注：duck 经 director 事件化执行，A5 接上主循环 tick 后才真正出声（A5 并入前钩子只改状态，属预期）。
 
 ### A7 素材入库 + 样本条目 + CREDITS `[ ]`
 - 依赖：A4（结构与加载器就绪）。
