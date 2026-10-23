@@ -529,10 +529,11 @@ function runSwitch(area, params, adapt, h) {
 }
 
 /* ---------- 调度入口 ---------- */
-/* 分发判定(纯函数, 单测锁住顺序): master 必须先于 dim 判定 —
-   第 100 关 dim='switch', 若先按 dim 分发, master 分支永远不可达(曾经的死码 bug) */
+/* 分发判定(纯函数, 单测锁住顺序): master/check 必须先于 dim 判定 —
+   第 100 关 dim='switch', 若先按 dim 分发, master 分支永远不可达(曾经的死码 bug);
+   check=每日体检(F8), 与 master 同走五维连跑(sections 分发, 短参数来自 FOCUS_CHECK_PARAMS) */
 function focusDispatch(level) {
-  if (level.kind === 'master') return {kind: 'master'};
+  if (level.kind === 'master' || level.kind === 'check') return {kind: 'master'};
   if (level.dim==='cpt') return {kind: 'engine', engine: 'discrimination', framing: 'cpt'};
   if (level.dim==='gonogo') return {kind: 'engine', engine: 'discrimination', framing: 'gonogo'};
   if (level.dim==='flanker') return {kind: 'engine', engine: 'flanker'};

@@ -1,7 +1,10 @@
 'use strict';
 /* ============================================================
    专注训练营模式 — 屏幕流 / 三星 / 每日锁定 / 家长面板
-   会话: 进入→今日页→关卡→星级+过程表扬→自动下一关→每日 6 关或 20 分钟锁定
+   会话: 进入→今日页→关卡→星级+过程表扬→自动下一关→每日 6 关或 20 分钟锁定;
+   附每日体检(五维连跑→探险家火苗, 计时长不占额度)与魔鬼特训(单维轮换
+   挑战档 5 分钟硬顶, 计 2 关额度; 鬼等级双阈进退零扣损) — 决策纯函数在
+   js/focus-levels.js, 本文件只做流程装配与应用层文案
 ============================================================ */
 
 /* ---------- 过程性表扬 / 中性安慰 (夸努力不夸聪明, Mueller & Dweck 1998) ----------
@@ -22,7 +25,9 @@ function comfortLine() {
 
 const FOCUS_SAVE_KEY = 'focus_camp_save';
 const focusSlot = SyncDB.slot(FOCUS_SAVE_KEY, {
-  defaults: {unlocked: 0, stars: {}, history: []},
+  defaults: {unlocked: 0, stars: {}, history: [],
+    checks: {}, // 每日体检: {日期: {acc, flame}} 滚动 90 天(F8, 设计稿 §8 B3)
+    devil: {levels: {}, days: {}}}, // 魔鬼特训: levels={维度: 鬼等级1~10}, days={日期: 当日训况} 滚动 90 天(§8 B8)
   migrate(s, from) { // v0 老形状可能仍带 daily(已迁 daily_budget_save) → 摘除, 与启动迁移幂等
     if (from === 0 && s && s.daily) delete s.daily;
     return s;
@@ -127,11 +132,13 @@ function showFocusToday() {
     <p class="f-sub">${meta.name}${lv.kind==='review' ? ' · 复习' :
         (lv.kind==='tutorial' ? ' · 教学' : (lv.kind==='master' ? ' · 大师考验' : ''))}</p>
     <button class="f-start" id="fStartBtn">▶ 开始训练</button>
+    ${focusExtrasHtml(save)}
     <div class="f-dots">${dots}</div>
     <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
   </div>`;
   focusScreen(html);
   document.getElementById('fStartBtn').onclick = ()=> startFocusLevel(cur);
+  wireFocusExtras();
   document.getElementById('fParentBtn').onclick = showFocusParentGate;
 }
 
@@ -261,6 +268,255 @@ function onFocusLevelEnd(level, st) {
   }, 4000);
 }
 
+/* ---------- 每日体检 · 魔鬼特训 (F8, 设计稿 §8 B3/B8) ----------
+   体检: FOCUS_CHECK_PARAMS 五维连跑约 90 秒 → 探险家火苗三档; 计入时长、
+   不占关数额度; 当日一次, 做完入口消失; 只与自己近 7 天均值比且只显变亮。
+   魔鬼特训: 单维按日轮换的挑战档(当前档+2)连续小节, 5 分钟硬顶到点当前
+   小节打完即强制结束; 计 2 关额度 + 计入时长; 当日一次; 鬼等级 1~10 双阈
+   进退, 失败零扣损/零重置(红线); 记录滚动 90 天。决策纯函数在
+   js/focus-levels.js(可单测), 这里只做流程装配与文案(应用层话术同 FOCUS_PRAISE) */
+const FOCUS_FLAME_NAME = {1: '小火苗', 2: '中火苗', 3: '大火苗'};
+const FOCUS_FLAME_TEXT = {
+  1: '今天慢慢来，火苗明天会长大的', // 小火苗配中性温暖文案(不与任何标准比较)
+  2: '火苗亮亮的，精神不错！',
+  3: '哇，大火苗亮堂堂！',
+};
+
+/* 今日页附加入口行: 体检(当日未做才显示) + 魔鬼特训(当日未训: 可用或禁用态) */
+function focusExtrasHtml(save) {
+  const today = budgetDateStr(Date.now());
+  const parts = [];
+  if (focusCheckEntry(save.checks, today)) {
+    parts.push('<button class="f-extra-btn f-check-btn" id="fCheckBtn">🔥 今日体检</button>');
+  }
+  const fb = focusBudget();
+  const de = devilEntry(save.devil, today, fb ? fb.spentCount() : 0, fb ? fb.capCount() : FOCUS_DAILY_LEVELS);
+  if (de.reason !== 'done') {
+    parts.push('<button class="f-extra-btn f-devil-btn" id="fDevilBtn"' +
+        (de.open ? '' : ' disabled title="今天的关卡额度不够啦，明天再来！"') + '>👹 魔鬼特训</button>');
+  }
+  return parts.length ? '<div class="f-extra-row">' + parts.join('') + '</div>' : '';
+}
+function wireFocusExtras() {
+  const cb = document.getElementById('fCheckBtn');
+  if (cb) cb.onclick = startFocusCheck;
+  const db = document.getElementById('fDevilBtn');
+  if (db && !db.disabled) db.onclick = startFocusDevil; // 禁用态不挂点击(余额<2)
+}
+
+/* ----- 每日体检流程 ----- */
+function startFocusCheck() {
+  focusScreen(`
+    <div class="f-screen f-intro">
+      <div class="f-chief"><img src="${chiefFace('smile')}" draggable="false" alt="村长"></div>
+      <h1>🔥 今日体检</h1>
+      <p class="f-sub">五个小游戏各玩一小会儿，看看今天的探险家火苗有多亮！</p>
+      <div class="f-rulebox">约 90 秒 · 不计关卡次数，放轻松就好</div>
+      <button class="f-start" id="fCheckGo">▶ 开始体检</button>
+    </div>`);
+  SpeechKit.speak('今日体检！五个小游戏各玩一小会儿，看看你的火苗有多亮！');
+  document.getElementById('fCheckGo').onclick = beginFocusCheck;
+}
+
+function beginFocusCheck() {
+  startFocusTicker(); // 计入时长预算(每秒 accrue); 不调 count — 体检不占关数额度(B3)
+  focusScreen(`
+    <div class="f-level-head">
+      <div class="f-rule"><span class="f-rule-icon">🔥</span><span class="f-rule-text">今日体检</span></div>
+      <div class="f-rule-small">放轻松，做你自己就好</div>
+      <div class="f-progress"><div class="f-progress-bar" id="fProg"></div></div>
+    </div>
+    <div class="f-area" id="fArea"></div>`);
+  document.getElementById('fBackBtn').onclick = ()=>{ // 中途退出: 不落账, 入口保留可重做(体检零压力)
+    if (focusCtrl) {
+      focusCtrl.stop(); focusCtrl = null;
+    }
+    showFocusToday();
+  };
+  focusCtrl = runFocusLevel({kind: 'check', dim: 'switch', sections: FOCUS_CHECK_PARAMS},
+      document.getElementById('fArea'), {
+    progress(k, n) {
+      const bar = document.getElementById('fProg');
+      if (bar) bar.style.width = Math.round(k/Math.max(1, n)*100) + '%';
+    },
+    showRule(dim) {
+      SpeechKit.speak(FOCUS_META[dim].rule);
+    },
+    end(st) {
+      onCheckEnd(st);
+    },
+  }, 0);
+}
+
+function onCheckEnd(st) {
+  focusCtrl = null;
+  stopFocusTicker();
+  const save = loadFocusSave();
+  const today = budgetDateStr(Date.now());
+  const base = checkBaseline(save.checks, today); // 只与自己近 7 天均值比
+  const res = focusFlame(st.acc, base);
+  save.checks = trimFocusLog(save.checks, today, FOCUS_LOG_KEEP_DAYS);
+  save.checks[today] = {acc: Math.round(st.acc*100)/100, flame: res.flame};
+  saveFocusSave(save);
+  const line = res.brighter ? '比上次更亮啦！' : FOCUS_FLAME_TEXT[res.flame]; // 不显示回落(诚实口径)
+  focusScreen(`
+    <div class="f-screen">
+      <div class="f-chief"><img src="${chiefFace(res.brighter ? 'cheer' : 'smile')}" draggable="false" alt="村长"></div>
+      <div class="f-flame"><img class="f-flame-sway" src="${flameIcon(res.flame)}"
+          draggable="false" alt="${FOCUS_FLAME_NAME[res.flame]}"></div>
+      <h1>${FOCUS_FLAME_NAME[res.flame]}</h1>
+      <p class="f-sub">${line}</p>
+      <button class="f-start" id="fCheckHome">回到今天</button>
+    </div>`);
+  SpeechKit.speak(line);
+  if (res.brighter) sfx('level'); // 喝彩只在变亮时(村长喝彩脸同上), 回落静默
+  document.getElementById('fCheckHome').onclick = showFocusToday;
+}
+
+/* ----- 魔鬼特训流程 ----- */
+let devilRun = null; // 进行中的特训会话(⬅️ 结算与模式清理互斥用)
+
+function startFocusDevil() {
+  const save = loadFocusSave();
+  const dim = devilDimFor(budgetDateStr(Date.now())); // 维度按日轮换(纯函数, 同一天恒定)
+  const meta = FOCUS_META[dim];
+  const tier = devilTierFor(dim, save.unlocked); // 该维当前档 → 挑战档 = +2 封顶 19
+  focusScreen(`
+    <div class="f-screen f-intro f-devil-zone">
+      <div class="f-chief"><img src="${chiefFace('devil')}" draggable="false" alt="鬼村长"></div>
+      <h1>👹 魔鬼特训</h1>
+      <p class="f-sub">今天轮到：${meta.icon} ${meta.game} · ${meta.name}</p>
+      <div class="f-rulebox">魔鬼特训，5 分钟，准备好了吗！</div>
+      <div class="f-tipbox">比平时难一点点，要用 2 关的额度。输了也不扣任何东西，鬼等级永远不会归零！</div>
+      <button class="f-start" id="fDevilGo">🔥 我准备好了！</button>
+    </div>`);
+  SpeechKit.speak('魔鬼特训，5 分钟，准备好了吗！今天轮到' + meta.game + '！');
+  document.getElementById('fDevilGo').onclick = ()=> beginDevilRun(dim, tier);
+}
+
+function beginDevilRun(dim, tier) {
+  startFocusTicker(); // 时长入账照常(每秒 accrue)
+  const t0 = Date.now();
+  focusScreen(`
+    <div class="f-level-head f-devil-head">
+      <div class="f-rule"><span class="f-rule-icon f-devil-ico"><img src="${chiefFace('devil')}"
+          draggable="false" alt="鬼村长"></span>
+        <span class="f-rule-text">👹 魔鬼特训 · ${FOCUS_META[dim].game}</span></div>
+      <div class="f-rule-small">${FOCUS_META[dim].rule}</div>
+      <div class="f-devil-timer" id="fDevilTimer">⏱ 5:00</div>
+      <div class="f-progress"><div class="f-progress-bar f-devil-bar" id="fProg"></div></div>
+    </div>
+    <div class="f-area f-devil-area" id="fArea"></div>`);
+  document.getElementById('fBackBtn').onclick = ()=> settleDevilRun(true); // 中途退出: 打过即结算(中断不划算但零扣损)
+  const run = {
+    dim, tier,
+    agg: {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0, goTrials: 0, hits: 0, rounds: 0},
+    stopped: false, deadlineHit: false, deadlineId: 0, tickId: 0,
+  };
+  devilRun = run;
+  /* 5 分钟硬顶: 到点只立标志, 不打断 — 当前小节打完(end 回调)才强制结束(B8) */
+  run.deadlineId = setTimeout(()=>{ run.deadlineHit = true; }, FOCUS_DEVIL_TIME_MS);
+  run.tickId = setInterval(()=>{ // 倒计时显示 + 时间进度条; 结算屏切走后自愈退出
+    const el = document.getElementById('fDevilTimer');
+    if (!el) {
+      clearInterval(run.tickId); return;
+    }
+    const left = Math.max(0, FOCUS_DEVIL_TIME_MS - (Date.now() - t0));
+    el.textContent = left > 0 ?
+        '⏱ ' + Math.floor(left/60000) + ':' + String(Math.floor(left%60000/1000)).padStart(2, '0') : '⏱ 时间到！';
+    const bar = document.getElementById('fProg');
+    if (bar) bar.style.width = Math.min(100, (Date.now() - t0)/FOCUS_DEVIL_TIME_MS*100) + '%';
+  }, 500);
+  devilRound(run, t0);
+}
+
+/* 一轮 = 该维度挑战档的一整小节(引擎自带 mkAdapt 阶梯与挫败阀, 失败零扣损);
+   时间未到就连续开下一轮 — 鬼训练同款 5 分钟连续训练块 */
+function devilRound(run, t0) {
+  if (run.stopped) return;
+  const params = devilParams(run.dim, run.tier);
+  focusCtrl = runFocusLevel({kind: 'normal', dim: run.dim, params},
+      document.getElementById('fArea'), {
+    progress() {}, // 进度条由 5 分钟时间驱动, 不按试次
+    showRule() {
+      SpeechKit.speak(FOCUS_META[run.dim].rule);
+    },
+    end(st) {
+      run.agg.trials += st.trials; run.agg.correct += st.correct;
+      run.agg.rts.push(...st.rts);
+      run.agg.goTrials += st.goTrials||0; run.agg.hits += st.hits||0;
+      run.agg.maxStreakErr = Math.max(run.agg.maxStreakErr, st.maxStreakErr);
+      run.agg.valveCount += st.valveCount;
+      run.agg.rounds++;
+      if (run.stopped) return;
+      if (run.deadlineHit || Date.now() - t0 >= FOCUS_DEVIL_TIME_MS) settleDevilRun(false); // 到点: 小节打完即止
+      else devilRound(run, t0);
+    },
+  }, 0);
+}
+
+/* 结算/中断统一入口: manual=孩子按 ⬅️ 中途退出。打过 ≥1 小节即算当日已训
+   (计 2 关额度 + 当日锁定); 一节没打完就退出: 不计费不落账(入口保留) */
+function settleDevilRun(manual) {
+  const run = devilRun;
+  if (!run || run.stopped) return;
+  run.stopped = true;
+  clearTimeout(run.deadlineId);
+  clearInterval(run.tickId);
+  devilRun = null;
+  if (focusCtrl) {
+    focusCtrl.stop(); focusCtrl = null; // 丢弃进行中的小节(其 end 不再触发)
+  }
+  if (run.agg.rounds < 1) {
+    showFocusToday(); return; // 一节都没打完: 不计费不落账
+  }
+  stopFocusTicker();
+  const save = loadFocusSave();
+  const today = budgetDateStr(Date.now());
+  const cur = save.devil.levels[run.dim] || 1;
+  const acc = run.agg.trials ? run.agg.correct/run.agg.trials : 0;
+  const next = run.agg.trials ? devilStep(cur, acc) : cur; // 零试次兜底: 等级不动
+  save.devil.levels[run.dim] = next;
+  save.devil.days = trimFocusLog(save.devil.days, today, FOCUS_LOG_KEEP_DAYS);
+  save.devil.days[today] = {dim: run.dim, acc: Math.round(acc*100), lv: next};
+  saveFocusSave(save);
+  const fb = focusBudget();
+  if (fb) {
+    fb.count(2); fb.flush(); // 计 2 关额度(时长已由 ticker 每秒入账)
+  }
+  const meta = FOCUS_META[run.dim];
+  const up = next > cur;
+  const down = next < cur;
+  const line = up ? '鬼村长瞪大眼睛：好厉害！升到 ' + next + ' 级啦！' :
+      down ? '鬼村长坏笑：下次再来！' : // 降级文案中性(不渲染失败感)
+      '鬼村长点点头：稳稳的 ' + next + ' 级，下次再来！';
+  focusScreen(`
+    <div class="f-screen f-devil-zone">
+      <div class="f-chief"><img src="${chiefFace('devil')}" draggable="false" alt="鬼村长"></div>
+      <h1>魔鬼特训完成！</h1>
+      <p class="f-sub">${meta.icon} ${meta.game} · 鬼等级 Lv.${next}</p>
+      <p class="f-sub">${line}</p>
+      <div class="f-devil-stamp"><img src="${stampIcon('devil')}" draggable="false" alt="鬼图章"></div>
+      <button class="f-start" id="fDevilHome">回到今天</button>
+    </div>`);
+  SpeechKit.speak(up ? '好厉害！鬼等级升到' + next + '级啦！' : '鬼村长说，下次再来！');
+  if (up) sfx('level');
+  /* 通关鬼图章此处仅渲染观感; 落账进 stamps 日历由 F7 图章工单接管(其未并入
+     feature/focus-revamp, 集成时从 devil.days 派生当日特殊章即可) */
+  document.getElementById('fDevilHome').onclick = showFocusToday;
+}
+
+/* 模式清理用的静默终止: 不弹结算屏不计费(cleanup 路径与可见结算区分);
+   静默放弃 = 未落账未计费, 无额度套利空间 */
+function abortDevilRun() {
+  const run = devilRun;
+  if (!run) return;
+  run.stopped = true;
+  clearTimeout(run.deadlineId);
+  clearInterval(run.tickId);
+  devilRun = null;
+}
+
 /* ---------- 家长面板 ---------- */
 function showFocusParentGate() {
   const a = 5 + Math.floor(Math.random()*5); const b = 5 + Math.floor(Math.random()*5);
@@ -363,6 +619,7 @@ const FocusMode = mkMode({
   },
   cleanup() {
     stopFocusTicker();
+    abortDevilRun(); // 魔鬼特训静默终止(不弹结算屏, 见函数注释)
     if (focusCtrl) {
       focusCtrl.stop(); focusCtrl = null;
     }

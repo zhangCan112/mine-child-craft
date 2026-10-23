@@ -12,7 +12,9 @@
    interface: FOCUS_DIMS · FOCUS_META · paramsFor(dim, tier, li) ·
      FOCUS_LEVELS · focusPassed · focusStars · FOCUS_LOOT · FOCUS_MILESTONES ·
      FOCUS_CHECK_PARAMS · focusFlame · devilStep · devilParams ·
-     FOCUS_STAMP_DAILY · FOCUS_STAMP_REWARDS
+     FOCUS_STAMP_DAILY · FOCUS_STAMP_REWARDS ·
+     focusDayIndex · trimFocusLog · FOCUS_LOG_KEEP_DAYS · FOCUS_DEVIL_TIME_MS ·
+     devilDimFor · focusCheckEntry · checkBaseline · devilEntry · devilTierFor
    依赖(均经全局名): 纯函数无依赖; FOCUS_META 的图标字段在构造期调用
      mcIcon/creeperFace(js/focus-icons.js, 加载序在本文件之前, 见 index.html)
    可测性: 零 THREE·零 DOM(图标为惰性字符串拼接)·有单测
@@ -224,6 +226,85 @@ function devilStep(level, acc) {
 }
 function devilParams(dim, currentTier) {
   return paramsFor(dim, Math.min(19, currentTier + 2));
+}
+
+/* ---------- F8 每日体检/魔鬼特训的入口与记账纯函数(设计稿 §8 B3/B8) ---------- */
+/* 存档按日记录(checks/devil.days)的滚动保留窗口: 防存档膨胀(90 天) */
+const FOCUS_LOG_KEEP_DAYS = 90;
+/* 魔鬼特训 5 分钟硬顶(到点当前小节打完即强制结束, B8) */
+const FOCUS_DEVIL_TIME_MS = 5*60*1000;
+
+/* 日期串(年-月-日 无前导零, budgetDateStr 同款)→本地日序数:
+   近 7 天均值与 90 天滚动的日差全部基于它; 损坏串返回 NaN(调用方按"无记录"处理) */
+function focusDayIndex(dateStr) {
+  const m = /^(\d+)-(\d+)-(\d+)$/.exec(String(dateStr));
+  if (!m) return NaN;
+  const d = new Date(+m[1], +m[2]-1, +m[3]);
+  return Math.round((d.getTime() - new Date(1970, 0, 1).getTime())/86400000);
+}
+
+/* 按日记录滚动裁剪: 返回只保留最近 keepDays 天(含今天)的新对象, 不改原;
+   未来日期(时钟回拨产物)保留 — 零惩罚哲学不因设备时钟惩罚孩子 */
+function trimFocusLog(log, today, keepDays) {
+  const out = {};
+  if (!log) return out;
+  const t0 = focusDayIndex(today);
+  for (const k in log) {
+    const diff = t0 - focusDayIndex(k);
+    if (diff < keepDays) out[k] = log[k]; // NaN(损坏键)与未来日期 diff<0 均保留
+  }
+  return out;
+}
+
+/* 魔鬼特训维度按日轮换(设计稿 B8 "天数%5"): 从日期字符串哈希取五维之一,
+   纯函数 — 同一天恒定同维度, 不依赖 Date.now */
+function devilDimFor(dateStr) {
+  let h = 0;
+  const s = String(dateStr);
+  for (let k = 0; k < s.length; k++) h = (h*31 + s.charCodeAt(k)) >>> 0;
+  return FOCUS_DIMS[h % FOCUS_DIMS.length];
+}
+
+/* 体检入口: 当日未做过即可见(当天做完即消失, B3 "每天一次") */
+function focusCheckEntry(checks, today) {
+  return !checks || !hasFocusDay(checks, today);
+}
+
+/* 体检成长基线: 自己近 7 天(不含今天)体检 acc 的均值; 无记录返回 undefined
+   (focusFlame 的 brighter 只在此值存在时才作对比 — 只显示变亮, 不显示回落) */
+function checkBaseline(checks, today) {
+  const t0 = focusDayIndex(today);
+  if (!Number.isFinite(t0) || !checks) return undefined;
+  let sum = 0; let n = 0;
+  for (const k in checks) {
+    const diff = t0 - focusDayIndex(k);
+    if (diff >= 1 && diff <= 7 && checks[k] && typeof checks[k].acc === 'number') {
+      sum += checks[k].acc; n++;
+    }
+  }
+  return n ? sum/n : undefined;
+}
+
+/* 魔鬼特训入口决策: 当日已训→done(入口消失); 关数余额<2→quota(禁用态);
+   否则 ok — 特训计 2 关额度, 余额不足时不得开训(B8 预算完整性优先) */
+function devilEntry(devil, today, playedCount, capCount) {
+  if (devil && devil.days && hasFocusDay(devil.days, today)) return {open: false, reason: 'done'};
+  if (playedCount + 2 > capCount) return {open: false, reason: 'quota'};
+  return {open: true, reason: 'ok'};
+}
+
+/* 孩子在某维度的"当前档": 从待打关(unlocked)向下找该维最近一关的 tier —
+   魔鬼特训挑战档 = devilParams(dim, 该档+2)(封顶 19); 前 5 关教学覆盖五维, 循环必命中 */
+function devilTierFor(dim, unlocked) {
+  for (let i = Math.min(unlocked, 99); i >= 0; i--) {
+    if (FOCUS_LEVELS[i].dim === dim) return FOCUS_LEVELS[i].tier;
+  }
+  return 1; // 不可达兜底(防御性, 不影响正常档)
+}
+
+/* 日期键探测(避开原型链与 hasOwnProperty 重复书写) */
+function hasFocusDay(log, day) {
+  return Object.prototype.hasOwnProperty.call(log, day);
 }
 
 /* ---------- 图章/集章(设计稿 §8 B1/B6): 习惯阶梯 ----------

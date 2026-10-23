@@ -13,6 +13,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
+const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
+
 function fakeEl() {
   const el = {
     children: [], style: {}, dataset: {}, innerHTML: '', textContent: '',
@@ -32,7 +34,7 @@ function fakeEl() {
 function loadFocus() {
   const spoken = [];
   const sandbox = {
-    console, Math, JSON, Object, Array,
+    console, Math, JSON, Object, Array, Date, Number,
     performance: {now: () => 0},
     setTimeout: () => 0, clearTimeout: () => {}, // 计时器不触发: 只测同步路径
     document: {createElement: () => fakeEl()},
@@ -56,6 +58,9 @@ function loadFocus() {
                         FOCUS_LOOT, FOCUS_MILESTONES, FOCUS_CHECK_PARAMS,
                         focusFlame, devilStep, devilParams,
                         FOCUS_STAMP_DAILY, FOCUS_STAMP_REWARDS,
+                        focusDayIndex, trimFocusLog, FOCUS_LOG_KEEP_DAYS,
+                        devilDimFor, focusCheckEntry, checkBaseline,
+                        devilEntry, devilTierFor, FOCUS_DEVIL_TIME_MS,
                         ITEMS, stackMax, isTool };
   `, ctx);
   return {fp: sandbox.__fp, spoken};
@@ -400,4 +405,121 @@ test('图章/集章数据: 大章门槛 3 关, 集章里程碑 3/7/14/30 全有�
   for (const k of [3, 7, 14, 30]) {
     assert.ok(typeof fp.FOCUS_STAMP_REWARDS[k] === 'string' && fp.FOCUS_STAMP_REWARDS[k].length > 0, k + ' 章有奖励');
   }
+});
+
+/* ============ F8 每日体检 + 魔鬼特训(设计稿 §8 B3/B8) ============ */
+
+test('focusDayIndex: 日期串→本地日序数, 跨月/跨年连续, 损坏串 NaN', () => {
+  const {fp} = loadFocus();
+  const D = fp.focusDayIndex;
+  assert.strictEqual(D('2026-10-23') - D('2026-10-22'), 1, '相邻一天差 1');
+  assert.strictEqual(D('2026-10-1') - D('2026-9-30'), 1, '跨月连续(无前导零格式)');
+  assert.strictEqual(D('2027-1-1') - D('2026-12-31'), 1, '跨年连续');
+  assert.strictEqual(D('2026-12-31') - D('2026-1-1'), 364, '2026 平年 364 天');
+  assert.ok(Number.isNaN(D('不是个日期')), '损坏串返回 NaN');
+  assert.ok(Number.isNaN(D(undefined)), 'undefined 返回 NaN');
+});
+
+test('trimFocusLog: 按日记录滚动 90 天裁剪(含今天), 返回新对象不改原', () => {
+  const {fp} = loadFocus();
+  const today = '2026-10-23';
+  const log = {
+    '2026-10-23': {v: 1}, // 今天 diff=0, 保留
+    '2026-7-26': {v: 1}, // diff=89, 90 天窗口边界, 保留
+    '2026-7-25': {v: 1}, // diff=90, 出窗, 剔除
+    '2026-10-24': {v: 1}, // 未来日期(时钟回拨产物), 保留(零惩罚)
+  };
+  const out = fp.trimFocusLog(log, today, 90);
+  assert.ok(hasOwn(out, '2026-10-23') && hasOwn(out, '2026-7-26') && hasOwn(out, '2026-10-24'), '窗口内与未来日期保留');
+  assert.ok(!hasOwn(out, '2026-7-25'), '90 天前的记录剔除');
+  assert.notStrictEqual(out, log, '返回新对象(纯函数不改原)');
+  assert.ok(hasOwn(log, '2026-7-25'), '原始对象原样保留');
+  assert.strictEqual(Object.keys(fp.trimFocusLog(null, today, 90)).length, 0, '空记录返回空对象');
+});
+
+test('滚动保留天数常量: 90 天(存档防膨胀口径)', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.FOCUS_LOG_KEEP_DAYS, 90);
+});
+
+test('devilDimFor: 日期字符串哈希轮换五维, 纯函数稳定且五维都有轮到', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.devilDimFor('2026-10-23'), fp.devilDimFor('2026-10-23'), '同一天恒定同维度');
+  assert.ok(fp.FOCUS_DIMS.includes(fp.devilDimFor('2026-10-23')), '返回值必在五维内');
+  /* 连续 40 天的轮换分布: 五维都被轮到(哈希均匀性抽查) */
+  const seen = new Set();
+  for (let k = 0; k < 40; k++) seen.add(fp.devilDimFor('2026-9-' + (1 + k)));
+  assert.strictEqual(seen.size, 5, '40 天窗口五维都有轮到: ' + [...seen].join(','));
+});
+
+test('focusCheckEntry: 当日未做过才显示入口(做过即消失)', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.focusCheckEntry({}, '2026-10-23'), true, '没做过 → 入口可见');
+  assert.strictEqual(fp.focusCheckEntry(null, '2026-10-23'), true, '无记录 → 入口可见');
+  assert.strictEqual(fp.focusCheckEntry({'2026-10-23': {acc: 0.8, flame: 2}}, '2026-10-23'), false, '当天做过 → 入口消失');
+  assert.strictEqual(fp.focusCheckEntry({'2026-10-22': {acc: 0.8, flame: 2}}, '2026-10-23'), true, '昨天做过 → 今天入口回来');
+});
+
+test('checkBaseline: 近 7 天(不含今天)体检均值, 窗外/无记录不算', () => {
+  const {fp} = loadFocus();
+  const today = '2026-10-23';
+  assert.strictEqual(fp.checkBaseline({}, today), undefined, '无记录无基线(不作对比)');
+  assert.strictEqual(fp.checkBaseline(null, today), undefined);
+  assert.strictEqual(fp.checkBaseline({[today]: {acc: 0.9}}, today), undefined, '今天自己不算进基线');
+  assert.ok(Math.abs(fp.checkBaseline({'2026-10-22': {acc: 0.8}}, today) - 0.8) < 1e-9, '昨天一次');
+  const c1 = {'2026-10-22': {acc: 0.8}, '2026-10-17': {acc: 0.6}};
+  const c2 = {'2026-10-22': {acc: 0.8}, '2026-10-16': {acc: 0.4}};
+  const c3 = {'2026-10-22': {acc: 0.8}, '2026-10-15': {acc: 0.4}};
+  assert.ok(Math.abs(fp.checkBaseline(c1, today) - 0.7) < 1e-9, '近 7 天两次取均值');
+  assert.ok(Math.abs(fp.checkBaseline(c2, today) - 0.6) < 1e-9, '第 7 天前(10-16 diff=7)仍在窗内');
+  assert.ok(Math.abs(fp.checkBaseline(c3, today) - 0.8) < 1e-9, '第 8 天前(10-15 diff=8)出窗不计');
+  assert.strictEqual(fp.checkBaseline({'2026-10-22': {flame: 2}}, today), undefined, '记录缺 acc 不算');
+});
+
+test('devilEntry: 当日已训→done, 关数余额<2→quota(禁用态), 否则 ok', () => {
+  const {fp} = loadFocus();
+  const today = '2026-10-23';
+  const clean = {levels: {}, days: {}};
+  assert.deepStrictEqual({...fp.devilEntry(clean, today, 0, 6)}, {open: true, reason: 'ok'}, '全新一天可开训');
+  assert.deepStrictEqual({...fp.devilEntry(clean, today, 4, 6)}, {open: true, reason: 'ok'}, '余额恰 2 关(已玩 4/6)仍可开训');
+  assert.deepStrictEqual({...fp.devilEntry(clean, today, 5, 6)}, {open: false, reason: 'quota'}, '余额 1 关不足 2 → 禁用态');
+  assert.deepStrictEqual({...fp.devilEntry(clean, today, 6, 6)}, {open: false, reason: 'quota'}, '额度耗尽 → 禁用态');
+  const done = {levels: {}, days: {[today]: {dim: 'corsi', acc: 72, lv: 3}}};
+  const yesterday = {levels: {}, days: {'2026-10-22': {dim: 'corsi'}}};
+  assert.deepStrictEqual({...fp.devilEntry(done, today, 0, 6)}, {open: false, reason: 'done'}, '当日已训 → 入口消失(优先于额度判定)');
+  assert.deepStrictEqual({...fp.devilEntry(yesterday, today, 0, 6)}, {open: true, reason: 'ok'}, '昨天训过 → 今天入口回来');
+  assert.deepStrictEqual({...fp.devilEntry(null, today, 0, 6)}, {open: true, reason: 'ok'}, '无 devil 字段的存量档视作可开训');
+});
+
+test('devilTierFor: 从待打关向下找该维最近一关的 tier(教学关兜底)', () => {
+  const {fp} = loadFocus();
+  /* 编排事实: 第 54 关(i=53)是 corsi tier11, i=52 flanker tier11, i=51 gonogo tier11 */
+  assert.strictEqual(fp.FOCUS_LEVELS[53].dim, 'corsi');
+  assert.strictEqual(fp.devilTierFor('corsi', 53), 11, '待打关恰是该维 → 直接取');
+  assert.strictEqual(fp.devilTierFor('flanker', 53), 11, '该维在 52 关 → 往下找到');
+  assert.strictEqual(fp.devilTierFor('cpt', 53), 11, 'cpt 在 i=50(k=45) → 往下扫最近一关同为 tier11');
+  assert.strictEqual(fp.devilTierFor('switch', 99), 19, '第 100 关 master 的 dim 恰是 switch → 直接取 19');
+  assert.strictEqual(fp.devilTierFor('switch', 0), 1, '开局只解锁 cpt 教学 → switch 兜到 i=4 教学 tier1');
+  assert.strictEqual(fp.devilTierFor('cpt', 0), 1, '教学关也是合法当前档');
+  assert.strictEqual(fp.devilTierFor('corsi', 99), 19, '封顶: 第 100 关 master 的 dim=switch, corsi 最近在 i=98 tier19');
+});
+
+test('FOCUS_DEVIL_TIME_MS: 魔鬼特训 5 分钟硬顶(到点当前小节打完强制结束)', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.FOCUS_DEVIL_TIME_MS, 5*60*1000, '5 分钟 = 300000ms(设计稿 B8)');
+});
+
+test('focusDispatch: kind=check(每日体检)与 master 同走五维连跑路径', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.focusDispatch({kind: 'check', dim: 'switch'}).kind, 'master', '体检走 sections 分发');
+  assert.strictEqual(fp.focusDispatch({kind: 'devil', dim: 'corsi'}).kind, 'engine', '魔鬼特训是单维小节, 走普通引擎分发');
+});
+
+test('runFocusLevel: 体检 level(FOCUS_CHECK_PARAMS)真进五维连跑且报幕可停', () => {
+  const {fp, spoken} = loadFocus();
+  const h = {progress() {}, showRule() {}, end() {}};
+  const ctrl = fp.runFocusLevel({kind: 'check', dim: 'switch', sections: fp.FOCUS_CHECK_PARAMS}, fakeEl(), h, 0);
+  assert.ok(spoken.some((s) => s.indexOf('新游戏：') >= 0), '第一节开跑即报幕: ' + spoken.join('/'));
+  assert.ok(ctrl && typeof ctrl.stop === 'function', '返回可停止的控制柄');
+  assert.doesNotThrow(()=> ctrl.stop(), 'stop 幂等安全');
 });
