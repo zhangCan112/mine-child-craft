@@ -323,9 +323,12 @@ function engineHum(level) {
       humOsc.start(); humLfo.start();
     }
     const t = actx.currentTime;
-    /* pad 小喇叭还原低频只会嗡嗡失真: 触屏设备引擎嗡鸣增益减半(政策保留) */
+    /* pad 小喇叭还原低频只会嗡嗡失真: 触屏设备引擎嗡鸣增益减半(政策保留)。
+       q=0(停驶/下车/切模式)必须真静音: 早期版本留 g0 怠速地板, 开过一次坦克
+       回主菜单后 120Hz 蜂鸣永驻耳机(2026-10-23 用户实测"一直有嗡嗡声"),
+       引擎声改为随车速从零渐起——零速即无声, 静止怠速鸣响不再保留 */
     const g0 = IS_TOUCH ? 0.022 : 0.045; const gk = IS_TOUCH ? 0.045 : 0.085;
-    const lv = g0 + q*gk;
+    const lv = q <= 0 ? 0 : g0 + q*gk;
     humGain.gain.setTargetAtTime(lv, t, 0.12);
     humDepth.gain.setTargetAtTime(lv*0.18, t, 0.12); // ±18% 轻微颤幅, 与油门同比例
     const f0 = 120 + q*130; // 基频 52~98Hz → 120~250Hz 可重放频段

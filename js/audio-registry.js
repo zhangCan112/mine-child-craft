@@ -55,15 +55,17 @@ const SFX_KINDS = {
 
 /* ---------- BGM 曲目表 ----------
    每条: trackId → {file(assets/audio/ 下文件名), mood, g 曲目增益,
-    durMs 实测时长毫秒}。A7 入库 CC0 三曲(calm/battle/dark 各一, 溯源
-    与听感映射见 assets/audio/CREDITS.md): mood 为曲目名听感推断,
-    A10 复核可调; durMs 以 loudnorm 重转码(ADR 0003)后 ffmpeg 实测
+    durMs 实测时长毫秒}。CC0 三曲(calm/battle/dark 各一, 溯源与听感映射
+    见 assets/audio/CREDITS.md): mood 为曲目名听感推断, 复核可调;
+    2026-10-23 用户试听反馈"瘆人"全量换为欢快曲(原蟋蟀夜声/深渊低回/
+    火山行军三曲下线, 曲目短故曲毕静默期占比更高, 稀疏调度符合儿童口径);
+    durMs 以 loudnorm 重转码(ADR 0003)后 ffmpeg 实测
     Duration 换算毫秒 — MusicDirector 判曲毕的唯一依据(A3 接口备注②),
     执行器另有 AudioBuffer.duration 解码预填兜底(audio.js), 此处静态值保首拍即准。 */
 const MUSIC_TRACKS = {
-  'crickets': {file: 'bgm-crickets.m4a', mood: 'calm', g: 1, durMs: 209400}, // 00:03:29.40 蟋蟀夏夜环境
-  'the-abyss': {file: 'bgm-the-abyss.m4a', mood: 'dark', g: 1, durMs: 147200}, // 00:02:27.20 深渊低回
-  'volcano': {file: 'bgm-entering-the-volcano.m4a', mood: 'battle', g: 1, durMs: 128100}, // 00:02:08.10 火山行进
+  'happy-adventure': {file: 'bgm-happy-adventure.m4a', mood: 'calm', g: 1, durMs: 46900}, // 00:00:46.90 轻快芯片冒险(主菜单/建造)
+  'trip-to-mars': {file: 'bgm-trip-to-mars.m4a', mood: 'dark', g: 1, durMs: 38400}, // 00:00:38.40 欢快火星之旅(下界/探险)
+  'we-are-prophet': {file: 'bgm-we-are-prophet.m4a', mood: 'battle', g: 1, durMs: 34600}, // 00:00:34.60 欢快能量曲(竞技场/坦克)
 };
 
 /* ---------- 主菜单 BGM 情绪 ----------
