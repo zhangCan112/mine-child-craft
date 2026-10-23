@@ -22,15 +22,23 @@
    · 巢穴战斗(T14, D6/D11/D9): 每巢限量 2~3 只 · 清空 60s 再刷 · 索敌
      收敛不追出巢区; 击杀掉落(rollDrops) + 收集 3s 合并播报; 玩家战斗
      (nether 同骨架 AI, 单击伤害封顶 10)
-   · 任务链(T15, D11): 12 步+终章, 事件挂点只往计数账本累计(只增不减=
-     跳步防护), update 内 0.5s 节流查当前步谓词(不越级); 钻石首获仪式;
-     终章合成钻石剑 → 「小小探险家」称号+烟花; 任务卡挂 advPanel.questEl
+   · 任务链(引导链 v2): 15 步+终章(安家/挖矿/冶炼/冒险四章, 12 步版与
+     插步依据见 docs/story-quest-research.md), 事件挂点只往计数账本累计
+     (只增不减=跳步防护), update 内 0.5s 节流查当前步谓词(不越级);
+     钻石首获仪式; 终章合成钻石剑 → 「小小探险家」称号+烟花;
+     任务卡挂 advPanel.questEl
+   · 大宝箱(引导链 v2 拍板): 全局共享账户——所有放置的箱子同一份存储
+     (adventure_chest_save), 只储物不解锁配方(合成仍要工作台); 点击放置
+     的箱子(走近 4 格, 熔炉同款)开 mkChestPanel 点选搬运; 9/18/27 三档
+     材料扩容, 政策纯函数 advChestNext/advChestPut 在 adventure-core
    · 提醒政策(S4): 低耐久语音预警(耐久比首次 <0.25, 每工具每命一次,
      破板即重置) · 背包快满一次性 toast+TTS(占用槽 ≥24/27, 回落再满才
-     再提醒)——判据纯函数 advWearWarn/advBagFullStep/advBreakToolText
-   · 三份存档: 全局唯一背包存档键经背包壳 js/backpack.js 唯一持有
+     再提醒; 放过箱子后话术指向收纳)——判据纯函数
+     advWearWarn/advBagFullStep/advBreakToolText
+   · 四份存档: 全局唯一背包存档键经背包壳 js/backpack.js 唯一持有
      (ADR 0002, 跨模式共享背包) / adventure_world_save(场景确定性重建+
      edits 重放, build 模式同款) / adventure_quest_save({step,counts,title?})
+     / adventure_chest_save({size, slots} 大宝箱全局账户)
    · 防沉迷: 与竞技场/建造/坦克/下界共享儿童时限(gated, 不新增账本)
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
      onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面
@@ -47,7 +55,7 @@
      的 CombatCore(节拍/弹道/盒判定) · effects.js 的 sfx/Fx(boom/arc/
      pop/debrisBurst 爆炸·引信·仪式观感) · input.js 的 doCenterClick ·
      mode-kit.js 的 mkMode/mkHotbar/mkCraftPanel/mkFurnacePanel/
-     mkHpBar(头顶血条, S2) · sync.js 的 SyncDB.slot · speech.js 的
+     mkChestPanel(大宝箱)/mkHpBar(头顶血条, S2) · sync.js 的 SyncDB.slot · speech.js 的
      SpeechKit · avatar.js 的 Avatar(setItem/swing/flash)
    可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格/进度环), Node 测试可
      安全加载(test/adventure-mode.test.js, 真引擎件经 vm 装载)
@@ -57,7 +65,7 @@
 const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
   pits: ADV_PITS, cave: ADV_CAVE, nests: ADV_NESTS,
   player: {hp: 30, maxHp: 30}, quest: {step: 0, counts: {}}, panelOpen: false, furnaceOpen: false,
-  killCount: 0, swingCd: 0, homeCd: -1e9};
+  chestOpen: false, killCount: 0, swingCd: 0, homeCd: -1e9};
 
 /* ---------- 世界/任务两份存档(D12): mkSaveSlot 语义, SyncDB 槽创建即注册回填 ----------
     全局唯一背包存档不在此开键——经背包壳 js/backpack.js 唯一持有
@@ -71,6 +79,11 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
 });
 /* T15 任务进度: mkSaveSlot defaults 只补缺失字段——老档 {step:N} 自动补空 counts */
 const advQuestSlot = SyncDB.slot(ADV_QUEST_KEY, {defaults: {step: 0, counts: {}}});
+/* 引导链 v2 大宝箱: 全局共享账户(所有放置的箱子同一份存储; 挖掉箱子内容
+   保留在账户里, 零损失)——defaults 只补缺失字段, init 归一化成满长槽数组 */
+const ADV_CHEST_KEY = 'adventure_chest_save';
+const advChestSlot = SyncDB.slot(ADV_CHEST_KEY, {defaults: {size: ADV_CHEST_START, slots: []}});
+let advChest = {size: ADV_CHEST_START, slots: []}; /* 账户本体(init 换装) */
 
 let advEdits = new Map(); /* 玩家方块改动 "x,y,z"→id(只存差异, 重进重放) */
 let advDirty = false;
@@ -165,6 +178,11 @@ const advPanel = ModeKit.mkCraftPanel({
 });
 const advFurnacePanel = ModeKit.mkFurnacePanel({inv: advInv, onAutoFill: advFurnaceAutoFill,
   onClose: () => advFurnaceClose()});
+/* 大宝箱面板(引导链 v2): 政策与存档在本文件下方箱子段, 面板只管格子 */
+const advChestPanel = ModeKit.mkChestPanel({inv: advInv, chest: () => advChest,
+  next: () => advChestNext(advChest.size), have: (id) => count(advInv, id),
+  onPut: (i) => advChestDeposit(i), onTake: (i) => advChestWithdraw(i),
+  onExpand: () => advChestExpand(), onClose: () => advChestClose()});
 /* 指针锁配套(桌面; 触屏无此概念): 开面板放鼠标出来点卡片 — 解锁事件不弹菜单
    (onMenu 有面板守卫收 overlay); 关面板在用户手势里回锁, 游戏无缝继续 */
 function advFreeMouse() {
@@ -222,8 +240,15 @@ function advBagTick(dt) {/* 背包快满提醒(S4②): 占用槽经纯函数判 
   const r = advBagFullStep(used, advBagArmed);
   advBagArmed = r.armed;
   if (r.fire) {
-    SpeechKit.speak('背包快满啦，去合成一些吧！');
-    showToast('🎒 背包快满啦，去合成一些吧');
+    /* 引导链 v2 联动: 已放置过箱子(任务链教过的收纳机制)→提醒指向箱子,
+       否则维持合成出口——提醒复用玩家已被教过的机制, 不引入新知识 */
+    if ((ADV.quest.counts.place_chest || 0) >= 1) {
+      SpeechKit.speak('背包快满啦，把宝贝放进箱子里吧！');
+      showToast('🎒 背包快满啦，把宝贝放进箱子里吧');
+    } else {
+      SpeechKit.speak('背包快满啦，去合成一些吧！');
+      showToast('🎒 背包快满啦，去合成一些吧');
+    }
   }
 }
 
@@ -314,8 +339,10 @@ function advWearHeld(src) {
   }
   advSyncHotbar();
 }
-function advOnKill(m) {/* 击杀观感(nether 先例): 碎块+计数 toast; 掉落在 onDeath 回调 */
+function advOnKill(m) {/* 击杀观感(nether 先例): 碎块+计数 toast; 掉落在 onDeath 回调;
+   任务记账只认亲手击杀(挥击/箭/TNT 三路都经此—— TNT 掀方块不算挖掘, 但炸死怪物算战果) */
   ADV.killCount++;
+  advTally('kill_mob', 1); /* 引导链 v2: 战斗教学步(铁镐后钻石前) */
   Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 6, {color: Mobs.debrisColor(m.type), life: 0.6});
   showToast('👾 击杀 ' + ADV.killCount);
 }
@@ -587,7 +614,11 @@ function advTryPlace(hit) {
   advMarkEdit(pc.x, pc.y, pc.z, it.block);
   if (it.block === B_CRAFT) advTally('place_craft_table', 1); /* T15: 站点放置记账(任务链消费的两键) */
   if (it.block === B_FURNACE) advTally('place_furnace', 1);
-  if (it.block === B_SAPLING) advSapPlant(pc.x, pc.y, pc.z);
+  if (it.block === B_CHEST) advTally('place_chest', 1); /* 引导链 v2: 箱子步(合成/放置/打开三条件) */
+  if (it.block === B_SAPLING) {
+    advTally('place_sapling', 1); /* 引导链 v2: 种树苗步(砍了树要种回去) */
+    advSapPlant(pc.x, pc.y, pc.z);
+  }
   remove(advInv, slot, 1);
   advSyncHotbar();
   sfx('click');
@@ -917,6 +948,83 @@ function advExplode(x, y, z) {
 }
 
 /* ============================================================
+   大宝箱 (引导链 v2) — 全局共享账户 + 点选搬运面板 + 材料扩容
+   (阶梯表与政策纯函数 advChestNext/advChestPut 在 adventure-core.js)
+   ============================================================ */
+function advChestSave() {/* 账户落盘: 存取/扩容是离散动作, 即做即存不等 5s 节流 */
+  advChestSlot.save(advChest);
+}
+function advChestOpenPanel() {/* 走近箱子点击打开: open_chest 记账(步 4 三条件之一) + 回显 */
+  ADV.chestOpen = true;
+  advTally('open_chest', 1);
+  advChestPanel.show();
+  advChestPanel.refresh();
+  advFreeMouse(); /* 放鼠标点面板(解锁不弹菜单: onMenu 守卫) */
+}
+function advChestClose() {/* 收面板(✕/Tab/Esc/onClose 共用): 账户无会话态, 直接收 */
+  ADV.chestOpen = false;
+  advChestPanel.hide();
+  advRelock();
+}
+/* 存入(背包槽整摞搬进账户): advChestPut 只认前 size 格, 放不下的余量留在
+   背包原槽——满箱只拒收不惩罚 */
+function advChestDeposit(slotIdx) {
+  const s = advInv.slots[slotIdx];
+  if (!s) return;
+  const left = advChestPut(advChest, s);
+  if (left >= s.n) {
+    showToast('📦 箱子满啦');
+    return;
+  }
+  if (left > 0) s.n = left; else advInv.slots[slotIdx] = null;
+  advChestSave();
+  advSyncHotbar();
+  sfx('pick');
+}
+/* 取出(账户槽整摞搬回背包): 可堆叠走 add 并堆; 工具连耐久找空位整槽搬
+   (add 会经 mkStack 把工具重铸满耐久, 工具禁走); 背包满整摞留在箱里 */
+function advChestWithdraw(i) {
+  const st = advChest.slots[i];
+  if (!st) return;
+  if (!isTool(st.id)) {
+    const left = add(advInv, st.id, st.n);
+    if (left >= st.n) {
+      showToast('🎒 背包满啦');
+      return;
+    }
+    if (left > 0) st.n = left; else advChest.slots[i] = null;
+  } else {
+    const j = advInv.slots.findIndex((t) => !t);
+    if (j < 0) {
+      showToast('🎒 背包满啦');
+      return;
+    }
+    advInv.slots[j] = st;
+    advChest.slots[i] = null;
+  }
+  advChestSave();
+  advSyncHotbar();
+  sfx('pick');
+}
+/* 扩容(面板 ＋ 按钮出口): canAfford 验费 → take 扣料 → 档位落盘; 材料
+   不够温和提示(零惩罚; 阶梯取任务链产物, 目标随进度自然到期) */
+function advChestExpand() {
+  const nx = advChestNext(advChest.size);
+  if (!nx) return;
+  if (!take(advInv, nx.cost)) {
+    showToast('材料还不够，先去挖一挖吧！');
+    SpeechKit.speak('扩容的材料还不够，先去挖一挖，等会儿再来！');
+    return;
+  }
+  advChest.size = nx.size;
+  advChestSave();
+  advSyncHotbar();
+  sfx('level');
+  SpeechKit.speak('宝箱变大啦！能放更多宝贝咯！');
+  showToast('📦 宝箱扩到 ' + nx.size + ' 格！');
+}
+
+/* ============================================================
    T15 任务链 — 计数账本 + 推进引擎 + 任务卡 + 仪式
    (QUESTS 数据表与谓词纯函数在 adventure-core.js)
    ============================================================ */
@@ -1036,6 +1144,13 @@ const AdventureMode = mkMode({
        历史计数不追溯(玩家挖过什么无法从世界状态重建); step 钳进表界(表外=终章完成) */
     if (!ADV.quest.counts || typeof ADV.quest.counts !== 'object') ADV.quest.counts = {};
     ADV.quest.step = Math.max(0, Math.min(ADV.quest.step | 0, ADV_QUESTS.length));
+    /* 大宝箱账户(引导链 v2): 归一化成满长槽数组, size 钩进档位界(扩容只升不降);
+       账户槽 ≥ size 的存量(异常档)不清理——扩容后自然可见, 零损失口径 */
+    advChest = advChestSlot.load();
+    if (!Array.isArray(advChest.slots)) advChest.slots = [];
+    for (let i = 0; i < ADV_CHEST_SLOTS; i++) if (!advChest.slots[i]) advChest.slots[i] = null;
+    advChest.slots.length = ADV_CHEST_SLOTS;
+    advChest.size = Math.max(ADV_CHEST_START, Math.min(advChest.size | 0, ADV_CHEST_SLOTS));
     advQuestT = ADV_QUEST_CHECK_T; /* 谓词检查节流复位(进场半秒后首查) */
     advQuestPaint();
     advBag.load(); /* 全局背包经背包壳读档(原地换槽, 面板/快捷栏闭包不脱钩) */
@@ -1053,6 +1168,7 @@ const AdventureMode = mkMode({
     Avatar.setItem(PLAYER.heldItem);
     ADV.panelOpen = false;
     ADV.furnaceOpen = false; /* T13 熔炉面板/炉态/引信全部复位 */
+    ADV.chestOpen = false; /* 引导链 v2: 箱子面板一并复位 */
     advFurnaceZero();
     advFuses.length = 0;
     advTableNear = false;
@@ -1097,8 +1213,11 @@ const AdventureMode = mkMode({
     while (advArrows.length) advRemoveArrow(0); /* 箭矢网格一并摘除 */
     ADV.panelOpen = false;
     ADV.furnaceOpen = false;
+    ADV.chestOpen = false;
     advPanel.remove(); /* 卸载面板 DOM */
     advFurnacePanel.remove(); /* T13: 熔炉面板一并卸载 */
+    advChestPanel.remove(); /* 引导链 v2: 箱子面板一并卸载 */
+    advChestSave(); /* 账户兜底落盘(存取/扩容已即做即存, 双保险口径) */
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活) */
     advMouseListeners(false);
     advMineStop(); /* 蓄力清零 + 进度环收起 */
@@ -1140,8 +1259,9 @@ const AdventureMode = mkMode({
   },
 
   onMouse(button, hit) {/* 左键并线(T12×T13×T14): TNT 短按点燃/按住挖走(D3)/熔炉走近点击开面板(T13, 准星块
-    精确命中故在最前), 准星锥内有活怪→挥击(T14), 否则吃/挖掘蓄力(T12); 右键放置 */
-    if (ADV.panelOpen || ADV.furnaceOpen) return; /* 面板遮罩兜底: 开面板不挖不放不打 */
+    精确命中故在最前)/箱子走近点击开面板(引导链 v2, 站点缓存外故按点击块直算距离), 准星锥内有
+    活怪→挥击(T14), 否则吃/挖掘蓄力(T12); 右键放置 */
+    if (ADV.panelOpen || ADV.furnaceOpen || ADV.chestOpen) return; /* 面板遮罩兜底: 开面板不挖不放不打 */
     if (button === 0) {
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
       if (lookId === B_TNT) {/* TNT(D3): 短按=点燃(松手<0.25s 在 advTntTapTick 判定),
@@ -1154,6 +1274,15 @@ const AdventureMode = mkMode({
           advFurnaceOpenPanel();
         } else {
           showToast('♨️ 走近一点就能用熔炉啦');
+        }
+        return;
+      }
+      if (lookId === B_CHEST) {/* 箱子交互(引导链 v2): 走近 4 格开大宝箱; 箱子不是
+        站点(不在 advStations 缓存), 对点击块直算水平距离(与站点同半径口径) */
+        if (Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z) <= ADV_STATION_R) {
+          advChestOpenPanel();
+        } else {
+          showToast('📦 走近一点就能打开箱子啦');
         }
         return;
       }
@@ -1170,6 +1299,10 @@ const AdventureMode = mkMode({
 
   onKey(code) {
     if (code === 'Tab') {
+      if (ADV.chestOpen) {/* 箱子开着先收箱子(body 级遮罩不叠层) */
+        advChestClose();
+        return;
+      }
       if (ADV.furnaceOpen) {/* 熔炉开着先收熔炉(两块 body 级遮罩不叠层) */
         advFurnaceClose();
         return;
@@ -1186,7 +1319,7 @@ const AdventureMode = mkMode({
   onMenu() {/* 解锁回调(Esc/✕开面板期的 exitPointerLock 都会到这): 面板开着 =
       放鼠标不是回菜单 — 收掉 onLockChanged 弹起的 overlay 即可(修: 曾在此
       强收面板+翻出发页, 表现为「关背包弹出发菜单」); 面板全关时才是真回菜单 */
-    if (ADV.panelOpen || ADV.furnaceOpen) {
+    if (ADV.panelOpen || ADV.furnaceOpen || ADV.chestOpen) {
       overlay.style.display = 'none'; return;
     }
     showPage('adventure');
@@ -1226,21 +1359,27 @@ const AdventureMode = mkMode({
     T14 已落地(ADV.killCount 击杀账本, 击杀挂 Mobs.onDeath; 左键语义与
     挖掘在 onMouse 并线: 准星锥内有怪=挥击, 否则让位挖掘/放置) ·
     T15 已落地(ADV.quest.counts 事件计数账本, 挂点=advBreakBlock 尾部/
-    advOnCollect/advOnCraft/advTryPlace/advFurnaceTick 产出分支五处只 +=;
+    advOnCollect/advOnCraft/advTryPlace/advFurnaceTick 产出分支只 +=;
     推进=update 内 advQuestTick 0.5s 节流只查当前步; 任务卡=advQuestPaint
     挂 advPanel.questEl; 仪式=advDiamondRite 首获专属/advFireworks 终章烟花) ·
+    引导链 v2 已落地(任务表 15 步+终章; 新挂点=advTryPlace 的箱子/树苗
+    放置 · advChestOpenPanel 的 open_chest · advOnKill 的 kill_mob;
+    大宝箱=全局共享账户 advChest+advChestPanel 点选搬运+材料扩容,
+    政策纯函数 advChestNext/advChestPut 在 adventure-core) ·
     code-review 修复轮已落地(纯函数段与任务表迁 adventure-core.js 经此转发;
     advWearHeld=原 advWearTool/advDamageHeld 合一(S3)+低耐久预警(S4①)+
-    破板指路(S4③); advBagTick=背包快满提醒(S4②)) */
+    破板指路(S4③); advBagTick=背包快满提醒(S4②, 放过箱子后话术指向收纳)) */
 AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advGetInv: () => advInv,
   advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar, advQuestEl, advQuestPaint,
-  advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText,
+  advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText, advOnKill,
   advMineStep, advPlaceCheck, advEatPolicy, advSapDue, advMine, advSaplings, advBreakBlock,
   advGetTntTap: () => advTntTap, advMouseHeldOn, advMouseHeldOff,
   advTryPlace, advGrowTree, advMineStop, advWearHeld,
   advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,
   advTntRoll, advTntDmg, advFurnace, advFurnaceAutoFill, advFurnaceOpenPanel,
   advFurnaceClose, advIgnite, advFuses, advStations,
+  advGetChest: () => advChest, advChestOpenPanel, advChestClose,
+  advChestDeposit, advChestWithdraw, advChestExpand,
   advPanelClose, advGoHome, advHomeReady, ADV_HOME_CD};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;

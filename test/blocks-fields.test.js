@@ -22,7 +22,7 @@ function loadCfg() {
     BLOCKS, MOB_DROPS, MOB_TYPES,
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_GRASS_TUFT, B_FARMLAND,
     B_WHEAT_0, B_WHEAT_1, B_WHEAT_2, B_WHEAT_3, B_CRAFT, B_FURNACE, B_TORCH,
-    B_SAPLING, B_CLAY,
+    B_SAPLING, B_CLAY, B_CHEST,
   };`, ctx);
   return ctx.__c;
 }
@@ -35,18 +35,19 @@ const CREATIVE_ONLY_IDS = [10, 11, 12, 15, 16, 17, 19];
 
 /* ============ 新方块 id 段(附录 A) ============ */
 
-test('新方块常量与 id 一一对应: 36~49 按附录 A, B_SAPLING 表未编号 → 顺延 50', () => {
+test('新方块常量与 id 一一对应: 36~49 按附录 A, B_SAPLING 顺延 50, B_CHEST 引导链 v2 顺延 51', () => {
   const c = loadCfg();
   const expect = {B_COAL_ORE: 36, B_IRON_ORE: 37, B_GOLD_ORE: 38, B_DIAMOND_ORE: 39,
     B_GRASS_TUFT: 40, B_FARMLAND: 41, B_WHEAT_0: 42, B_WHEAT_1: 43, B_WHEAT_2: 44,
-    B_WHEAT_3: 45, B_CRAFT: 46, B_FURNACE: 47, B_TORCH: 48, B_CLAY: 49, B_SAPLING: 50};
+    B_WHEAT_3: 45, B_CRAFT: 46, B_FURNACE: 47, B_TORCH: 48, B_CLAY: 49, B_SAPLING: 50,
+    B_CHEST: 51};
   for (const [k, id] of Object.entries(expect)) {
     assert.strictEqual(c[k], id, k + ' 应为 ' + id);
     assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
     assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
   /* 附录 A 里 36~49 已被 14 个编号方块占满, 树苗行 id 栏是「—」;
-     存档按数字 id 记, 顺延 50 不与任何号段(1-19/20-29/30-35/36-49)冲突 */
+     存档按数字 id 记, 顺延 50/51 不与任何号段(1-19/20-29/30-35/36-49)冲突 */
 });
 
 test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗(B_FUSE 同款口径)', () => {

@@ -15,10 +15,11 @@
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
      advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 任务表
-     ADV_QUESTS/ADV_MINE_TALLY · 节律常量 ADV_*
+     ADV_QUESTS/ADV_MINE_TALLY · 大宝箱政策 ADV_CHEST_START/ADV_CHEST_SLOTS/
+     ADV_CHEST_TIERS/advChestNext/advChestPut · 节律常量 ADV_*
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界
      尺寸 · voxel.js 的 getBlock/setBlockRaw · scene-kit.js 的
-     SceneKit · items-core 的 ITEMS/toolOf · inventory-core 的 add ·
+     SceneKit · items-core 的 ITEMS/toolOf/stackMax · inventory-core 的 add ·
      craft-core 的 fuelUnits/smeltOf · drops.js 的 rollDrops/
      rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件)
    可测性: 零 THREE·零 DOM·有单测(test/adventure-core.test.js,
@@ -479,23 +480,28 @@ function advTntDmg(d) {
 const ADV_QUEST_CHECK_T = 0.5; /* 谓词检查节流秒(update 内, 最坏延迟半秒无感) */
 const ADV_QUEST_TITLE = '小小探险家'; /* 通关称号(D11 终章, 随 quest 存档) */
 
-/* 挖掘→计数键映射: 石头/圆石都产圆石(步 5 口径「挖 8 圆石」)。只认玩家蓄力
+/* 挖掘→计数键映射: 石头/圆石都产圆石(步 7 口径「挖 8 圆石」)。只认玩家蓄力
    挖掘(advBreakBlock 挂点)——TNT 爆炸掀掉的不算, 任务链是亲手做的教学 */
 const ADV_MINE_TALLY = {
   3: 'mine_cobble', 4: 'mine_cobble',
   [B_COAL_ORE]: 'mine_coal_ore', [B_IRON_ORE]: 'mine_iron_ore', [B_DIAMOND_ORE]: 'mine_diamond_ore',
 };
 
-/* 主线任务表(D11 12 步+终章): 每条 = 纯函数谓词 check + 语音引导 hint + 图标
-   icon + 完成表扬 praise(夸努力不夸聪明口径); target 是进度分母, prog 算分子
-   (复合步取各条件已得之和, 超量钳回)。counts 键五类(事件处只 += 不判断):
-   collect_<物品> 拾取件数 · craft_<物品> 合成件数 · mine_<矿> 挖掉块数 ·
-   place_<站点> 放置次数 · smelt_<物品> 炉内烧成件数 */
+/* 主线任务表(引导链 v2, 15 步+终章; 12 步版与插步依据见
+   docs/story-quest-research.md): 每条 = 纯函数谓词 check + 语音引导 hint +
+   图标 icon + 完成表扬 praise(夸努力不夸聪明口径); target 是进度分母,
+   prog 算分子(复合步取各条件已得之和, 超量钳回)。counts 键七类(事件处只
+   += 不判断): collect_<物品> 拾取件数 · craft_<物品> 合成件数 · mine_<矿>
+   挖掉块数 · place_<方块> 放置次数 · open_<站点> 打开次数 · smelt_<物品>
+   炉内烧成件数 · kill_mob 击杀只数。
+   步序设计: 安家章(1~5 原木→木板→工作台→箱子→树苗, 5 原木=20 板恰好
+   覆盖 工作台4+箱子8+木镐3+木棍2=17 板) → 挖矿章(6~10 工具两阶+燃料)
+   → 冶炼章(11~13 铁链) → 冒险章(14 战斗教学, 15 钻石) → 终章(钻石剑)。 */
 const ADV_QUESTS = [
-  {id: 'q1_log', icon: '🪵', goal: '砍树收集 3 根原木', target: 3,
-    hint: '去找一棵大树，按住挖树干，捡回 3 根原木哦！',
+  {id: 'q1_log', icon: '🪵', goal: '砍树收集 5 根原木', target: 5,
+    hint: '去找一棵大树，按住挖树干，捡回 5 根原木哦！',
     praise: '原木收集齐啦！你一直在努力，真棒！',
-    prog: (c) => Math.min(c.collect_log || 0, 3), check: (c) => (c.collect_log || 0) >= 3},
+    prog: (c) => Math.min(c.collect_log || 0, 5), check: (c) => (c.collect_log || 0) >= 5},
   {id: 'q2_planks', icon: '🟫', goal: '合成 4 块木板', target: 4,
     hint: '打开背包，用原木合成木板吧！',
     praise: '木板做好啦！你真会想办法！',
@@ -505,40 +511,54 @@ const ADV_QUESTS = [
     praise: '工作台放好啦！能做的东西越来越多咯！',
     prog: (c) => Math.min(c.craft_craft_table || 0, 1) + Math.min(c.place_craft_table || 0, 1),
     check: (c) => (c.craft_craft_table || 0) >= 1 && (c.place_craft_table || 0) >= 1},
-  {id: 'q4_pick_wood', icon: '⛏️', goal: '合成木镐', target: 1,
+  {id: 'q4_chest', icon: '📦', goal: '合成、放下并打开箱子', target: 3,
+    hint: '站到工作台旁边，用木板合成一个箱子，找块空地放下，再点一点把它打开！',
+    praise: '箱子放好啦！你的宝贝有家咯，你安排得真好！',
+    prog: (c) => Math.min(c.craft_chest || 0, 1) + Math.min(c.place_chest || 0, 1) +
+        Math.min(c.open_chest || 0, 1),
+    check: (c) => (c.craft_chest || 0) >= 1 && (c.place_chest || 0) >= 1 && (c.open_chest || 0) >= 1},
+  {id: 'q5_sapling', icon: '🌱', goal: '种下 1 棵树苗', target: 1,
+    hint: '打一打树叶，可能会掉下小树苗！把它种在泥土上，等它长成大树哦！',
+    praise: '小树苗种好啦！你懂得爱护大自然，真棒！',
+    prog: (c) => Math.min(c.place_sapling || 0, 1), check: (c) => (c.place_sapling || 0) >= 1},
+  {id: 'q6_pick_wood', icon: '⛏️', goal: '合成木镐', target: 1,
     hint: '站到工作台旁边，合成一把木镐！',
     praise: '木镐做好啦！石头也难不倒你！',
     prog: (c) => Math.min(c.craft_pick_wood || 0, 1), check: (c) => (c.craft_pick_wood || 0) >= 1},
-  {id: 'q5_cobble', icon: '🪨', goal: '挖 8 块圆石', target: 8,
+  {id: 'q7_cobble', icon: '🪨', goal: '挖 8 块圆石', target: 8,
     hint: '用木镐去挖石头，石头会掉成圆石哦！',
     praise: '圆石挖够啦！你挖得又稳又认真！',
     prog: (c) => Math.min(c.mine_cobble || 0, 8), check: (c) => (c.mine_cobble || 0) >= 8},
-  {id: 'q6_pick_stone', icon: '⛏️', goal: '合成石镐', target: 1,
+  {id: 'q8_pick_stone', icon: '⛏️', goal: '合成石镐', target: 1,
     hint: '回到工作台，用圆石合成更硬的石镐！',
     praise: '石镐做好啦！你在一步步变厉害！',
     prog: (c) => Math.min(c.craft_pick_stone || 0, 1), check: (c) => (c.craft_pick_stone || 0) >= 1},
-  {id: 'q7_coal', icon: '⚫', goal: '挖 5 个煤矿', target: 5,
+  {id: 'q9_coal', icon: '⚫', goal: '挖 5 个煤矿', target: 5,
     hint: '矿坑和山洞里有黑亮的煤矿，去挖 5 个！',
     praise: '煤矿挖够啦！火把有燃料咯！',
     prog: (c) => Math.min(c.mine_coal_ore || 0, 5), check: (c) => (c.mine_coal_ore || 0) >= 5},
-  {id: 'q8_torch', icon: '🔥', goal: '合成 4 支火把', target: 4,
+  {id: 'q10_torch', icon: '🔥', goal: '合成 4 支火把', target: 4,
     hint: '用煤和木棍合成火把，山洞里就不怕黑啦！',
     praise: '火把做好啦！你想得真周到！',
     prog: (c) => Math.min(c.craft_torch || 0, 4), check: (c) => (c.craft_torch || 0) >= 4},
-  {id: 'q9_iron', icon: '🟠', goal: '挖 5 块铁矿', target: 5,
+  {id: 'q11_iron', icon: '🟠', goal: '挖 5 块铁矿', target: 5,
     hint: '铁矿藏在更深的地方，带上火把去挖 5 块！',
     praise: '铁矿挖够啦！你真勇敢！',
     prog: (c) => Math.min(c.mine_iron_ore || 0, 5), check: (c) => (c.mine_iron_ore || 0) >= 5},
-  {id: 'q10_smelt', icon: '♨️', goal: '放下熔炉，烧出 3 块铁锭', target: 4,
+  {id: 'q12_smelt', icon: '♨️', goal: '放下熔炉，烧出 3 块铁锭', target: 4,
     hint: '用圆石合成熔炉放下来，把铁矿烧成铁锭！',
     praise: '铁锭烧好啦！等一等就有收获，你真有耐心！',
     prog: (c) => Math.min(c.place_furnace || 0, 1) + Math.min(c.smelt_iron_ingot || 0, 3),
     check: (c) => (c.place_furnace || 0) >= 1 && (c.smelt_iron_ingot || 0) >= 3},
-  {id: 'q11_pick_iron', icon: '⛏️', goal: '合成铁镐', target: 1,
+  {id: 'q13_pick_iron', icon: '⛏️', goal: '合成铁镐', target: 1,
     hint: '用铁锭合成铁镐，最硬的矿石也能挖啦！',
     praise: '铁镐做好啦！钻石就在不远处等你！',
     prog: (c) => Math.min(c.craft_pick_iron || 0, 1), check: (c) => (c.craft_pick_iron || 0) >= 1},
-  {id: 'q12_diamond', icon: '💎', goal: '挖到 3 颗钻石', target: 3,
+  {id: 'q14_fight', icon: '⚔️', goal: '打败 1 只怪物', target: 1,
+    hint: '拿起工具，去怪物窝打败 1 只小怪物！害怕了就跑回家，一点都不丢人！',
+    praise: '怪物被你打败啦！你真勇敢！',
+    prog: (c) => Math.min(c.kill_mob || 0, 1), check: (c) => (c.kill_mob || 0) >= 1},
+  {id: 'q15_diamond', icon: '💎', goal: '挖到 3 颗钻石', target: 3,
     hint: '去山洞最深处找亮晶晶的钻石，挖 3 颗！',
     praise: '钻石挖够啦！你坚持到了最后，真了不起！',
     prog: (c) => Math.min(c.mine_diamond_ore || 0, 3), check: (c) => (c.mine_diamond_ore || 0) >= 3},
@@ -547,6 +567,53 @@ const ADV_QUESTS = [
     praise: '钻石剑做好啦！',
     prog: (c) => Math.min(c.craft_sword_diamond || 0, 1), check: (c) => (c.craft_sword_diamond || 0) >= 1},
 ];
+
+/* ============================================================
+   大宝箱政策 (引导链 v2) — 纯函数段: 全局共享账户 + 材料扩容
+   ============================================================ */
+const ADV_CHEST_SLOTS = 27; /* 账户槽位硬上限(顶格档, 与背包同宽) */
+const ADV_CHEST_START = 9; /* 初始格数: 合成解锁的第一档 */
+/* 扩容阶梯(拍板: 箱子只储物+全局共享+材料扩容): 9→18 档 8 圆石(第 7 步挖
+   圆石即凑齐) · 18→27 档 4 铁锭(第 12 步烧铁)——材料刻意取任务链产物,
+   扩容目标随引导进度自然到期; 挖掉箱子内容保留在账户里(零损失口径) */
+const ADV_CHEST_TIERS = [
+  {size: 18, cost: {cobble: 8}},
+  {size: 27, cost: {iron_ingot: 4}},
+];
+
+/* 当前格数 → 下一档 {size, cost} | null(已顶格) */
+function advChestNext(size) {
+  for (const t of ADV_CHEST_TIERS) if (t.size > size) return t;
+  return null;
+}
+
+/* 整摞入箱: 前 size 格先并堆(可堆叠)再进空位, 返回放不下的余量件数
+   (0=全部收下; 满箱只拒收不惩罚, 余量由调用方留在背包原槽)。
+   与 InventoryCore.add 的两处刻意差异: ① 只认前 size 格(扩容档);
+   ② 工具按原耐久整槽搬——add 经 mkStack 会把工具重铸满耐久, 不能复用 */
+function advChestPut(chest, stack) {
+  const max = stackMax(stack.id);
+  if (!max) return stack.n; /* 未注册 = 拒收门禁(items-core, add 同口径): 不落格不污染 */
+  let n = stack.n;
+  if (max > 1) {
+    for (let i = 0; i < chest.size && n > 0; i++) {
+      const t = chest.slots[i];
+      if (t && t.id === stack.id && t.n < max) {
+        const mv = Math.min(max - t.n, n);
+        t.n += mv; n -= mv;
+      }
+    }
+  }
+  for (let i = 0; i < chest.size && n > 0; i++) {
+    if (chest.slots[i]) continue;
+    const mv = Math.min(n, max);
+    const st = {id: stack.id, n: mv};
+    if (stack.dur != null) st.dur = stack.dur; /* 工具耐久原样保留 */
+    chest.slots[i] = st;
+    n -= mv;
+  }
+  return n;
+}
 
 /* ============================================================
    提醒政策 (code-review 修复轮 S4) — 纯函数段
@@ -596,6 +663,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advSmeltStep,
     advFurnaceRefund, advTntRoll, advTntDmg,
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS,
+    ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut,
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,
     advBreakToolText};
 }

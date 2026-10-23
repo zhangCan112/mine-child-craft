@@ -334,11 +334,13 @@ BLOCKS[B_PORTAL] = {name: '传送门面', all: [0.50, 0.20, 0.80], glass: true, 
    tier 门槛照 MC 标签口径平移(手0/木1/石2/铁3/钻4): 煤1(木镐) 铁2(石镐) 金3/钻3(铁镐) — 设计稿 D5
    掉落: 铁/金掉矿石物品(粗矿口径, 需熔炼), 煤/钻直接掉成品
    薄块(thin)一律 solid:false 不挡人(B_FUSE 同款); 勿用 thin 做远观物(LOD 降采样会跳过)
-   B_SAPLING 附录 A 的 id 栏未编号(「—」), 36~49 已被 14 方块占满 → 顺延 50(号段不冲突) */
+   B_SAPLING 附录 A 的 id 栏未编号(「—」), 36~49 已被 14 方块占满 → 顺延 50(号段不冲突);
+   B_CHEST 是引导链 v2 新增件(51, docs/story-quest-research.md)——不在附录 A, 号段顺延同款 */
 const B_COAL_ORE=36; const B_IRON_ORE=37; const B_GOLD_ORE=38; const B_DIAMOND_ORE=39;
 const B_GRASS_TUFT=40; const B_FARMLAND=41;
 const B_WHEAT_0=42; const B_WHEAT_1=43; const B_WHEAT_2=44; const B_WHEAT_3=45;
 const B_CRAFT=46; const B_FURNACE=47; const B_TORCH=48; const B_CLAY=49; const B_SAPLING=50;
+const B_CHEST=51;
 BLOCKS[B_COAL_ORE] = {name: '煤矿', all: [0.36, 0.36, 0.38], hard: 3.0, tool: 'pick', tier: 1, drop: [['coal', 1, 0]]};
 BLOCKS[B_IRON_ORE] = {name: '铁矿', all: [0.55, 0.44, 0.36], hard: 3.0, tool: 'pick', tier: 2, drop: [['iron_ore', 1, 0]]};
 BLOCKS[B_GOLD_ORE] = {name: '金矿', all: [0.62, 0.52, 0.28], hard: 3.0, tool: 'pick', tier: 3, drop: [['gold_ore', 1, 0]]};
@@ -365,6 +367,8 @@ BLOCKS[B_CLAY] = {name: '黏土', all: [0.58, 0.60, 0.68],
   hard: 0.6, tool: 'shovel', tier: 0, drop: [['clay_ball', 4, 0]]}; // 掉 4 黏土球(红砖链源头, §3.5); 湖底生成
 BLOCKS[B_SAPLING] = {name: '树苗', all: [0.30, 0.60, 0.25], thin: 0.4, solid: false,
   hard: 0, tool: null, tier: 0, drop: [['sapling', 1, 0]]}; // 20s 长成树(T12 模式层计时)
+BLOCKS[B_CHEST] = {name: '箱子', top: [0.72, 0.55, 0.30], side: [0.62, 0.44, 0.22], bottom: [0.55, 0.38, 0.20],
+  hard: 2.5, tool: 'axe', tier: 0, drop: [['chest', 1, 0]]}; // 引导链 v2: 点击开大宝箱面板(走近 4 格, 熔炉同款); 全局共享账户, 挖掉不丢内容
 
 /* 可被爆炸破坏的软方块(TNT 密室时期的爆炸口径, 保留为创意资产) */
 [5, 6, 8, 9].forEach((id)=> BLOCKS[id].soft = true);

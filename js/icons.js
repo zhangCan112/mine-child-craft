@@ -677,6 +677,24 @@ const FURNACE_ART = [ // 熔炉: 石体 + 黑炉口 + 炉膛火
   '................',
   '................',
 ];
+const CHEST_ART = [ // 箱子: 亮木盖 + 深色盖缝箍 + 中央金属锁扣
+  '................',
+  '................',
+  '..llllllllllll..',
+  '..lmmmmmmmmmml..',
+  '..dddddddddddd..',
+  '..mmmmkkkkmmmm..',
+  '..mmmmkKKkmmmm..',
+  '..mmmmkkkkmmmm..',
+  '..mmmmmmmmmmmm..',
+  '..mllmmmllmmmm..',
+  '..mmmmmmmmmmmm..',
+  '..mddmmmddmmmm..',
+  '..mmmmmmmmmmmm..',
+  '..dddddddddddd..',
+  '................',
+  '................',
+];
 const TNT_ART = [ // TNT: 红柱 + 白标带 + 三个黑字块(16px 画不下字母)
   '................',
   '................',
@@ -763,6 +781,7 @@ const ITEM_PIX = {
   torch: {art: TORCH_ART, map: {f: '#e8632c', 2: '#ff9d2e', 3: '#ffd83d', W: PIX_HANDLE.light, w: PIX_HANDLE.dark}},
   craft_table: {art: TABLE_ART, map: {g: '#6b451f', m: '#b1804f', s: '#8a5a2b', l: '#caa06e', d: '#7d5432'}},
   furnace: {art: FURNACE_ART, map: {s: '#8a8f98', L: '#a3a8b0', d: '#6e737c', k: '#1a1a1a', F: '#ffc04d', f: '#ff8c1a'}},
+  chest: {art: CHEST_ART, map: {m: '#b1804f', l: '#caa06e', d: '#6b451f', k: '#4a4f57', K: '#d8dde5'}},
   tnt: {art: TNT_ART, map: {r: '#d0342c', R: '#f05545', w: '#ececec', k: '#1a1a1a', d: '#a02018'}},
   /* 二期占位 */
   bow_item: {art: BOW_ART, map: {W: PIX_HANDLE.light, w: PIX_HANDLE.dark, s: '#e0ded4'}},

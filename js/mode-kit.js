@@ -22,8 +22,10 @@
        update(hp,maxHp,x,y,z)/dispose, 可选 opts.visible() 控显隐
        (下界: 只在下界显示); 探险/下界两模式共用, 原两份同形实现归一
    引擎层(world/input)对本文件零依赖; 本文件属应用层
-   interface: mkMode · mkHotbar · mkCraftPanel · mkFurnacePanel · mkHpBar ·
-              sortInv · spawn · lookName · confirmBtn
+   引导链 v2: mkChestPanel — 大宝箱面板(箱子格/扩容行/背包格, 点选搬运;
+     政策与存档在模式层回调, 顶格档隐藏扩容行)
+   interface: mkMode · mkHotbar · mkCraftPanel · mkFurnacePanel ·
+              mkChestPanel · mkHpBar · sortInv · spawn · lookName · confirmBtn
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax ·
      inventory-core 的 HOTBAR_SLOTS/costEntry · craft-core 的 RECIPES/
      canCraft/craft/FUEL/fuelUnits/smeltOf · icons 的 iconOf(icons 加载序
@@ -579,6 +581,146 @@ function mkFurnacePanel(opts) {
   return {root, show, hide, close, remove, setSlots, setProgress, autoPlan};
 }
 
+/* ---------- 大宝箱面板(mkChestPanel, 引导链 v2): 点选搬运的纯格子面板 ----------
+    全局共享账户的观感层: 箱子格(前 size 格, 点击=取回背包) + 扩容行(下一档
+    材料 chip + 按钮, 顶格隐藏) + 背包格(18 主格+9 快捷镜像, 点击=存入箱子)。
+    存取/扩容的政策与存档全在模式层(onPut/onTake/onExpand 回调), 面板只管
+    格子与点击, 每次动作后自 chest()/inv 重画; 触屏桌面同一套点选(无拖拽, 拍板②)。
+    opts: inv(mkInventory 背包) · chest()→{size, slots} 账户现状 · next()→
+    {size, cost}|null 下一扩容档 · have(id)→背包持有数(缺料角标 have/need) ·
+    onPut(invSlotIdx) · onTake(chestSlotIdx) · onExpand() · onClose */
+function mkChestPanel(opts) {
+  const o = opts || {};
+  const doc = o.doc || document;
+  const inv = o.inv;
+  const root = doc.createElement('div');
+  root.className = 'mkp-mask';
+  const box = doc.createElement('div');
+  box.className = 'mkp-box mkp-chest';
+  root.appendChild(box);
+
+  const head = doc.createElement('div');
+  head.className = 'mkp-head';
+  head.innerHTML = '<span class="mkp-title">📦 我的宝箱</span>';
+  const closeBtn = doc.createElement('button');
+  closeBtn.className = 'mkp-x';
+  closeBtn.textContent = '✕';
+  closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
+  head.appendChild(closeBtn);
+  box.appendChild(head);
+
+  const chestGrid = doc.createElement('div');
+  chestGrid.className = 'mkp-grid mkp-chestgrid';
+  box.appendChild(chestGrid);
+
+  const expandRow = doc.createElement('div');
+  expandRow.className = 'mkp-chestrow';
+  box.appendChild(expandRow);
+
+  const bpLabel = doc.createElement('div');
+  bpLabel.className = 'mkp-chestlbl';
+  bpLabel.textContent = '🎒 背包（点一下放进箱子）';
+  box.appendChild(bpLabel);
+  const grid = doc.createElement('div');
+  grid.className = 'mkp-grid';
+  const hotrow = doc.createElement('div');
+  hotrow.className = 'mkp-hotrow';
+  box.appendChild(grid); box.appendChild(hotrow);
+
+  function cellEl(stack) {/* 槽堆→格子(与 mkCraftPanel 同观感: 像素图标+数量) */
+    const d = doc.createElement('div');
+    d.className = 'mkp-cell';
+    if (stack) {
+      const ic = iconOf(stack.id);
+      d.innerHTML = (ic.startsWith('data:') ? '<img class="pic" alt="" src="' + ic + '">' :
+        (ic ? '<span class="icon">' + ic + '</span>' : '')) +
+        (stack.n > 1 ? '<span class="cnt">' + stack.n + '</span>' : '');
+    }
+    return d;
+  }
+  function chipHtml(id, need, have) {/* 扩容材料 chip: 缺料显 have/need(配方卡同口径) */
+    const ic = iconOf(id);
+    const img = ic.startsWith('data:') ? '<img class="mini" alt="" src="' + ic + '">' :
+      '<span class="icon mini">' + ic + '</span>';
+    return '<span class="mkp-chip' + (have < need ? ' lack' : '') + '">' + img +
+        '<b>' + have + '/' + need + '</b></span>';
+  }
+
+  function refresh() {/* 每次动作后整幅重画(格子数 ≤27+27, 无性能顾虑) */
+    const ch = o.chest();
+    chestGrid.innerHTML = '';
+    for (let i = 0; i < ch.size; i++) {
+      const d = cellEl(ch.slots[i]);
+      const idx = i;
+      d.onclick = ()=>{
+        o.onTake(idx);
+        refresh();
+      };
+      chestGrid.appendChild(d);
+    }
+    expandRow.innerHTML = '';
+    const nx = o.next();
+    if (nx) {
+      for (const key of Object.keys(nx.cost)) {
+        const chip = doc.createElement('span'); /* 材料账单 chip(配方卡同观感) */
+        chip.innerHTML = chipHtml(key, nx.cost[key], o.have(key));
+        expandRow.appendChild(chip);
+      }
+      const btn = doc.createElement('button');
+      btn.className = 'mkp-autofill';
+      btn.textContent = '＋ 扩到 ' + nx.size + ' 格';
+      btn.onclick = ()=>{
+        o.onExpand();
+        refresh();
+      };
+      expandRow.appendChild(btn);
+    }
+    grid.innerHTML = ''; hotrow.innerHTML = '';
+    for (let i = HOTBAR_SLOTS; i < inv.slots.length; i++) {
+      const d = cellEl(inv.slots[i]);
+      const idx = i;
+      d.onclick = ()=>{
+        o.onPut(idx);
+        refresh();
+      };
+      grid.appendChild(d);
+    }
+    for (let i = 0; i < HOTBAR_SLOTS; i++) {
+      const d = cellEl(inv.slots[i]);
+      const idx = i;
+      d.onclick = ()=>{
+        o.onPut(idx);
+        refresh();
+      };
+      hotrow.appendChild(d);
+    }
+  }
+
+  function show() {
+    root.style.display = 'flex'; /* hide 后重开要复明(mkCraftPanel 同口径) */
+    if (root.parentNode !== doc.body) doc.body.appendChild(root);
+    if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板 */
+  }
+  function hide() {
+    root.style.display = 'none';
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
+  }
+  function close() {/* ✕/Esc 统一出口: 隐藏 + onClose(模式层做状态同步与指针回锁) */
+    hide();
+    if (o.onClose) o.onClose();
+  }
+  function onEsc(e) {
+    if (e.code !== 'Escape') return;
+    e.preventDefault();
+    close();
+  }
+  function remove() {
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
+    if (root.parentNode === doc.body) doc.body.removeChild(root);
+  }
+  return {root, show, hide, close, remove, refresh};
+}
+
 /* ---------- 头顶血条(mkHpBar, S2): canvas 贴图 Sprite 的深接口 ----------
     探险/下界两模式的同形实现归一: 血量变化才重绘(逐帧纹理上传是移动端
     掉帧源); update 惰性建条(THREE/DOM/scene 缺任一即静默待命——Node 单测
@@ -693,6 +835,6 @@ function mkMode(cfg) {
   return mode;
 }
 
-const ModeKit = {mkMode, mkHotbar, mkCraftPanel, mkFurnacePanel, mkHpBar, sortInv,
+const ModeKit = {mkMode, mkHotbar, mkCraftPanel, mkFurnacePanel, mkChestPanel, mkHpBar, sortInv,
   spawn: kitSpawn, lookName, confirmBtn};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;

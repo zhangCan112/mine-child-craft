@@ -56,16 +56,18 @@ function tilePixels(t, all, idx) {
 
 /* ============ 布局 · 覆盖面 ============ */
 
-test('布局: 新方块 36~50 每个都有格子且格号合法(未入集方块走纯色兜底)', () => {
+test('布局: 新方块 36~51 每个都有格子且格号合法(未入集方块走纯色兜底)', () => {
   const t = loadAtlas();
   const count = t.TextureAtlas.count;
-  for (let id=36; id<=50; id++) {
+  /* 51=B_CHEST(引导链 v2, 号段顺延) */
+  for (let id=36; id<=51; id++) {
     assert.ok(t.BLOCKS[id], 'id ' + id + ' 应在 BLOCKS 注册');
     for (const idx of tileSet(t, id)) {
       assert.ok(Number.isInteger(idx) && idx >= 0 && idx < count,
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
+  assert.strictEqual(t.TextureAtlas.count, 31, '已绘制格数 = 31(29+箱子正/顶两格)');
 });
 
 test('布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格)', () => {

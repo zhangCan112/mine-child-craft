@@ -54,23 +54,24 @@ test('加载: 顶层暴露三张表(FUEL 从 ITEMS 派生, 加载序在 items-co
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 手搓 4 条 + 工作台级(工具16/站点件/补给包)共 28 条, id 唯一', () => {
+test('配方全量: 手搓 4 条 + 工作台级(工具16/站点件/补给包/箱子)共 29 条, id 唯一', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 28, '一期全表 4+16+8 条, 实际 ' + RECIPES.length);
+  assert.strictEqual(RECIPES.length, 29, '全表 4+16+9 条(引导链 v2 加箱子), 实际 ' + RECIPES.length);
   // 手搓级(设计稿 §3.2): 随时可做
   for (const id of ['planks', 'stick', 'craft_table', 'torch']) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '手搓配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
   }
-  // 工作台级: 工具 16 + furnace/stone_bricks/bricks/shears/tnt/bow_item/bread/bone_meal
+  // 工作台级: 工具 16 + furnace/stone_bricks/bricks/shears/tnt/bow_item/bread/bone_meal/chest
   const tableIds = ['pick_wood', 'pick_stone', 'pick_iron', 'pick_diamond',
     'axe_wood', 'axe_stone', 'axe_iron', 'axe_diamond',
     'sword_wood', 'sword_stone', 'sword_iron', 'sword_diamond',
     'shovel_wood', 'shovel_stone', 'shovel_iron', 'shovel_diamond',
-    'furnace', 'stone_bricks', 'bricks', 'shears', 'tnt', 'bow_item', 'bread', 'bone_meal'];
+    'furnace', 'stone_bricks', 'bricks', 'shears', 'tnt', 'bow_item', 'bread', 'bone_meal',
+    'chest'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');

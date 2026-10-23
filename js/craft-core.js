@@ -22,7 +22,7 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 一期全表 28 条(设计稿 §3.2 + §3.5 补给包)
+   RECIPES 配方表 — 28 条(设计稿 §3.2 + §3.5) + 箱子(引导链 v2, story-quest-research)
    条目形状: id 配方卡键 · out {item, n} 产物 · cost 材料计费
    (值=数量; 值=[候选id数组,数量]=任选其一, 键名仅占位) · station 'hand'|'table'
    ------------------------------------------------------------ */
@@ -55,6 +55,7 @@ const RECIPES = [
 
   /* —— 站点件与补给包(§3.5 + §3.2) —— */
   {id: 'furnace', out: {item: 'furnace', n: 1}, cost: {cobble: 8}, station: 'table'}, // 8 圆石, 无需煤(§5.5)
+  {id: 'chest', out: {item: 'chest', n: 1}, cost: {planks: 8}, station: 'table'}, // 8 木板(MC 正典); 只储物非站点
   {id: 'stone_bricks', out: {item: 'stone_bricks', n: 4}, cost: {stone: 4}, station: 'table'}, // 4 石→4 石砖(MC 口径, §3.5)
   {id: 'bricks', out: {item: 'bricks', n: 1}, cost: {brick: 4}, station: 'table'}, // 4 红砖→1 红砖块(黏土-红砖链, §3.5)
   {id: 'shears', out: {item: 'shears', n: 1}, cost: {iron_ingot: 2}, station: 'table'}, // 剪树叶得树叶方块(§3.5)

@@ -24,7 +24,7 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT,
-  ITEMS, isTool, toolOf, breakTime,
+  ITEMS, isTool, toolOf, breakTime, stackMax,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf,
 })`, eng);
@@ -152,17 +152,62 @@ test('核心政策: 站点判定/烧炼单步/退炉/TNT 掷骰与衰减', () =>
   assert.strictEqual(Core.advTntDmg(9), Core.ADV_TNT_DMG_LO, '越界钳边缘 12');
 });
 
-test('核心任务表: 13 条形状齐 + 谓词口径抽样(全量逐条在 adventure-mode.test.js)', () => {
-  assert.strictEqual(Core.ADV_QUESTS.length, 13, '12 步 + 终章');
-  assert.strictEqual(Core.ADV_QUESTS[12].finale, true, '第 13 条是终章');
+test('核心任务表: 16 条形状齐 + 谓词口径抽样(全量逐条在 adventure-mode.test.js)', () => {
+  assert.strictEqual(Core.ADV_QUESTS.length, 16, '引导链 v2: 15 步 + 终章');
+  assert.strictEqual(Core.ADV_QUESTS[15].finale, true, '第 16 条是终章');
   Core.ADV_QUESTS.forEach((q, i) => {
     assert.ok(q.id && q.icon && q.goal && q.hint && q.praise, '步 ' + i + ' 文案五件套');
     assert.strictEqual(typeof q.prog, 'function', '步 ' + i + ' prog 谓词');
     assert.strictEqual(typeof q.check, 'function', '步 ' + i + ' check 谓词');
   });
-  assert.strictEqual(Core.ADV_QUESTS[0].check({collect_log: 3}), true, '步1 最低满足');
-  assert.strictEqual(Core.ADV_QUESTS[0].check({collect_log: 2}), false, '步1 差一不满足');
-  assert.strictEqual(Core.ADV_MINE_TALLY[3], 'mine_cobble', '石头也计圆石(步5 口径)');
+  assert.strictEqual(Core.ADV_QUESTS[0].check({collect_log: 5}), true, '步1 最低满足(v2 提到 5 根: 箱子步的原木预算)');
+  assert.strictEqual(Core.ADV_QUESTS[0].check({collect_log: 4}), false, '步1 差一不满足');
+  assert.strictEqual(Core.ADV_QUESTS[3].id, 'q4_chest', '步4 = 箱子步(工作台后, 用户拍板)');
+  assert.strictEqual(Core.ADV_QUESTS[3].check({craft_chest: 1, place_chest: 1, open_chest: 1}), true,
+      '箱子步三条件齐: 合成+放置+打开');
+  assert.strictEqual(Core.ADV_QUESTS[3].check({craft_chest: 1, place_chest: 1}), false,
+      '箱子步只合成放置没打开: 不满足(收纳闭环要教到交互)');
+  assert.strictEqual(Core.ADV_QUESTS[4].id, 'q5_sapling', '步5 = 种树苗步(生态闭环)');
+  assert.strictEqual(Core.ADV_QUESTS[13].id, 'q14_fight', '步14 = 战斗教学步(铁镐后钻石前)');
+  assert.strictEqual(Core.ADV_MINE_TALLY[3], 'mine_cobble', '石头也计圆石(步7 口径)');
+});
+
+/* ============ 大宝箱政策(引导链 v2 纯函数段) ============ */
+
+test('大宝箱阶梯: 9→18(8 圆石)→27(4 铁锭), 顶格 null, 材料取任务链产物', () => {
+  assert.strictEqual(Core.ADV_CHEST_START, 9, '初始 9 格');
+  assert.strictEqual(Core.ADV_CHEST_SLOTS, 27, '顶格 27 格(与背包同宽)');
+  assert.deepStrictEqual(Core.advChestNext(9), {size: 18, cost: {cobble: 8}}, '第一档 8 圆石(第 7 步挖圆石即凑齐)');
+  assert.deepStrictEqual(Core.advChestNext(18), {size: 27, cost: {iron_ingot: 4}}, '第二档 4 铁锭(第 12 步烧铁)');
+  assert.strictEqual(Core.advChestNext(27), null, '顶格后无下一档');
+  assert.strictEqual(Core.advChestNext(5).size, 18, '异常低档也指向第一档');
+});
+
+test('advChestPut: 并堆优先→空位→余量; 只认前 size 格; 工具连耐久整槽搬', () => {
+  const mk = (size, slots) => ({size, slots: slots.slice()});
+  /* 并堆: 已有 60 圆石, 再进 10 → 并满 64, 余 6 落空位 */
+  let ch = mk(9, [{id: 'cobble', n: 60}, null, null]);
+  let left = Core.advChestPut(ch, {id: 'cobble', n: 10});
+  assert.strictEqual(left, 0, '全部收下');
+  assert.strictEqual(ch.slots[0].n, 64, '并堆到 64 上限');
+  assert.strictEqual(ch.slots[1].n, 6, '溢出 6 落首个空位');
+  /* 档位上限: size=9 时第 10 格(下标 9)不可见也不可入 */
+  ch = mk(9, Array(27).fill(null));
+  ch.slots[9] = {id: 'cobble', n: 64}; /* 异常档直塞(防 expand 前可见) */
+  left = Core.advChestPut(ch, {id: 'cobble', n: 70});
+  assert.strictEqual(ch.slots[9].n, 64, '越档格(≥size)不被并堆');
+  /* 满箱: 9 格各 64 圆石, 再进一件余量=1 */
+  ch = mk(9, Array(9).fill({id: 'cobble', n: 64}));
+  left = Core.advChestPut(ch, {id: 'cobble', n: 1});
+  assert.strictEqual(left, 1, '满箱整批拒收返回余量(只拒不惩罚)');
+  /* 工具: n=1 连 dur 原样搬, 不重铸满耐久 */
+  ch = mk(9, Array(27).fill(null));
+  left = Core.advChestPut(ch, {id: 'pick_iron', n: 1, dur: 200});
+  assert.strictEqual(left, 0, '工具入箱成功');
+  assert.deepStrictEqual(ch.slots[0], {id: 'pick_iron', n: 1, dur: 200}, '耐久 200 原样保留');
+  /* 未注册物品整批拒收(stackMax=0 → mv=0, 余量原数) */
+  left = Core.advChestPut(mk(9, []), {id: 'not_a_thing', n: 3});
+  assert.strictEqual(left, 3, '未注册整批拒收');
 });
 
 /* ============ 提醒政策(S4 纯函数段) ============ */
