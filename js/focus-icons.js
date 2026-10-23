@@ -4,6 +4,7 @@
    MC 观感语言的 16×16 手绘像素 → 96×96 dataURL(pixelated), 零外部资源;
    专注训练营全部刺激/头像/图章/火苗共用, 调用方只需传键名拿 dataURL
    interface: mcIcon(name) 刺激图标 · creeperFace(dir) 苦力怕头像 ·
+     pigFace() 猪中立头像 · sheepFace() 羊中立头像(Flanker 中立行 D3) ·
      chiefFace(mood) 训练师村长(mood ∈ smile/cheer/sleepy/devil, 鬼化=devil) ·
      stampIcon(kind) 图章(kind ∈ pick/gem/tnt/big/gold/devil) ·
      flameIcon(level) 探险家火苗(level ∈ 1/2/3, CSS 摇曳底图)
@@ -152,6 +153,64 @@ function creeperFace(dir) {
   bg.drawImage(c, 0, 0, 96, 96);
   creeperCache[dir] = big.toDataURL();
   return creeperCache[dir];
+}
+
+/* 猪中立头像(无方向) — Flanker 中立行(D3): 粉皮+中央大鼻, 双瞳看镜头;
+   左右镜像对称不给任何方向线索, 苦力怕同管线 16×16→96×96 */
+const pigCache = {face: ''};
+function pigFace() {
+  if (pigCache.face) return pigCache.face;
+  const c = document.createElement('canvas');
+  c.width = c.height = 16;
+  const g = c.getContext('2d');
+  const px = (x, y, w, h, col)=>{
+    g.fillStyle = col; g.fillRect(x, y, w, h);
+  };
+  px(0, 0, 16, 16, '#eda3a3'); // 粉皮底
+  [[1, 1], [6, 2], [12, 1], [14, 3], [1, 4], [2, 8], [13, 8], [1, 12], [7, 13], [12, 13], [14, 12], [5, 3]]
+      .forEach(([x, y])=>px(x, y, 1, 1, '#d98d8a')); // 深粉噪点(避五官)
+  px(4, 5, 2, 2, '#f4f4f4'); px(5, 6, 1, 1, '#101510'); // 左眼(瞳朝中=看镜头)
+  px(10, 5, 2, 2, '#f4f4f4'); px(10, 6, 1, 1, '#101510'); // 右眼(镜像)
+  px(5, 9, 6, 3, '#d17f7c'); // 中央猪鼻
+  px(6, 10, 1, 2, '#7d4644'); px(9, 10, 1, 2, '#7d4644'); // 双鼻孔
+  const big = document.createElement('canvas');
+  big.width = big.height = 96;
+  const bg = big.getContext('2d');
+  bg.imageSmoothingEnabled = false;
+  bg.drawImage(c, 0, 0, 96, 96);
+  pigCache.face = big.toDataURL();
+  return pigCache.face;
+}
+
+/* 羊中立头像(无方向) — Flanker 中立行(D3): 白绒框+浅脸板+粉鼻,
+   绒纹同 mcIcon 羊毛手法; 双瞳看镜头, 左右镜像对称无方向线索 */
+const sheepCache = {face: ''};
+function sheepFace() {
+  if (sheepCache.face) return sheepCache.face;
+  const c = document.createElement('canvas');
+  c.width = c.height = 16;
+  const g = c.getContext('2d');
+  const px = (x, y, w, h, col)=>{
+    g.fillStyle = col; g.fillRect(x, y, w, h);
+  };
+  px(0, 0, 16, 16, '#e8e8e8'); // 白绒底
+  for (let y=0; y<16; y++) {
+    for (let x=0; x<16; x++) {
+      if ((x+y)%4===0) px(x, y, 1, 1, '#f7f7f7');
+      else if ((x+y)%4===2) px(x, y, 1, 1, '#d2d2d2');
+    }
+  }
+  px(4, 5, 8, 7, '#eadfcb'); // 浅脸板(四周留绒)
+  px(5, 7, 2, 2, '#f4f4f4'); px(6, 8, 1, 1, '#101510'); // 左眼(瞳朝中)
+  px(9, 7, 2, 2, '#f4f4f4'); px(9, 8, 1, 1, '#101510'); // 右眼(镜像)
+  px(7, 10, 2, 2, '#e0a3a0'); // 粉鼻(居中)
+  const big = document.createElement('canvas');
+  big.width = big.height = 96;
+  const bg = big.getContext('2d');
+  bg.imageSmoothingEnabled = false;
+  bg.drawImage(c, 0, 0, 96, 96);
+  sheepCache.face = big.toDataURL();
+  return sheepCache.face;
 }
 
 /* 训练师村长头像 — 白胡子+矿工帽+头灯的老矿工(设计稿 §8 B4 主持人格)
