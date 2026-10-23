@@ -3,7 +3,7 @@
    SceneKit — 场景搭建小工具, 坐在体素模型(voxel.js)之上
    fill: 长方体填充 · tree: 树 · rand: 确定性散布散列
    依赖 voxel 的全局词法(setBlockRaw/getBlock/hashRand),
-   与 tnt-levels/build/arena 的加载序: voxel → 本文件 → 使用方
+   与 build/arena 的加载序: voxel → 本文件 → 使用方
    rand 即原 build.js 的 fxHash: hashRand 部分区间输出截断在
    0.5 以下不适合散布, 故散布专用此散列(家从 build 移来)
 ============================================================ */

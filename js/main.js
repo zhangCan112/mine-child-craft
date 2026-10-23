@@ -12,7 +12,6 @@
 
 const MODES = {
   arena: ArenaMode,
-  tnt: TntMode,
   focus: FocusMode,
   build: BuildMode,
   tank: TankRangeMode,
@@ -28,7 +27,6 @@ const curModeId = () => (MODES.cur ? MODES.cur.id : null);
 const overlay = document.getElementById('overlay');
 const pages = {
   main: document.getElementById('menuMain'),
-  win: document.getElementById('menuWin'),
   playTime: document.getElementById('menuPlayTime'),
 };
 for (const m of ModeRegistry.all) {
@@ -42,7 +40,7 @@ function showPage(id) {
 }
 
 /* ---------- 每日预算 (DailyBudget) — 儿童时限的唯一账本 ----------
-    竞技场+TNT+建造 的儿童时限与 专注训练营的每日限额 都记在
+    游玩模式(竞技场/建造/坦克/下界) 的儿童时限与 专注训练营的每日限额 都记在
     js/daily-budget.js 的同一本预算里; 计时/午夜翻转/按日限额/迁移全部在那边 */
 /* 游玩模式清单见 js/mode-registry.js(模式注册表 — 卡片/页面/按钮 id、
    儿童时限成员、限额文案的模式名全部由它派生, 不在此另持影子) */
@@ -125,7 +123,7 @@ function switchMode(id) {
 function onLockChanged(l) {
   overlay.style.display = l ? 'none' : 'flex';
   if (!l) {
-    if (curPage === 'win' || curPage === 'playTime') return; // 通关/时限页由各自逻辑控制
+    if (curPage === 'playTime') return; // 时限页由各自逻辑控制
     if (MODES.cur && MODES.cur.onMenu) MODES.cur.onMenu(); // 定义了菜单钩子的模式自行接管
     else showPage(curModeId() || 'main');
   }

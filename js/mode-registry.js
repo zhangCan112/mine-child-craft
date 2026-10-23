@@ -13,7 +13,6 @@
    ============================================================ */
 const MODE_REGISTRY = [
   {id: 'arena', name: '竞技场', gated: true},
-  {id: 'tnt', name: 'TNT 密室', gated: true, menu: true}, /* menu: 进页后刷新模式出发配置页 */
   {id: 'focus', name: '专注训练营', gated: false, page: false}, /* 接管全屏 UI, 无菜单页/不计儿童时限 */
   {id: 'build', name: '建造', gated: true, menu: true},
   {id: 'tank', name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js'},

@@ -171,7 +171,7 @@ test('只增不改: 存量方块 name 与颜色三元组保持原值', () => {
     }
   }
   assert.strictEqual(c.BLOCKS[18].glass, true, '玻璃 glass 旗标保留');
-  assert.strictEqual(c.BLOCKS[5].soft, true, 'TNT 模式 soft 旗标保留');
+  assert.strictEqual(c.BLOCKS[5].soft, true, 'soft 旗标保留(爆炸破坏口径的创意资产)');
 });
 
 /* ============ MOB_DROPS(设计稿 §3.3: 保底 1 + 50% 加成 1) ============ */

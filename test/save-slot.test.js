@@ -113,22 +113,12 @@ test('reset: 移除槽位', () => {
   assert.deepStrictEqual(slot.load(), {a: 1});
 });
 
-/* ============ 真实用户数据夹具 (schema 与三个模式文件一致) ============ */
+/* ============ 真实用户数据夹具 (schema 与存活模式文件一致) ============ */
 
 for (const f of ['progress-device-a.json', 'progress-device-b.json']) {
   test(`真实夹具 ${f}: 三种存档过槽, 字段零丢失`, () => {
     const blob = JSON.parse(fs.readFileSync(path.join(__dirname, 'fixtures', f), 'utf8'));
     const st = mkStorage(blob);
-
-    /* tnt (与 modes/tnt.js 同 schema; 该设备可能从未玩过 TNT → 应回 defaults) */
-    const tnt = mkSaveSlot(st, 'tnt_escape_progress', {defaults: {unlocked: 0, stars: {}}}).load();
-    if (blob.tnt_escape_progress) {
-      const origTnt = parse(blob.tnt_escape_progress);
-      assert.strictEqual(tnt.unlocked, origTnt.unlocked);
-      assert.deepStrictEqual(tnt.stars, origTnt.stars || {});
-    } else {
-      assert.deepStrictEqual(tnt, {unlocked: 0, stars: {}});
-    }
 
     /* focus (含 v0 残留 daily 的摘除验证) */
     const focus = mkSaveSlot(st, 'focus_camp_save', {

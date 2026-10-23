@@ -184,23 +184,6 @@ canvas {
     max-width: 46vw;
   }
 
-/* TNT 关卡格 */
-  #levelGrid {
-    grid-template-columns: repeat(5,minmax(52px,16vw));
-    gap: 8px;
-  }
-
-  .lv-btn {
-    width: 100%;
-    height: auto;
-    aspect-ratio: 1;
-    font-size: 0.85em;
-  }
-
-  .lv-btn .no {
-    font-size: min(26px,6vw);
-  }
-
 /* 专注训练营 */
   .f-screen h1 {
     font-size: clamp(22px,6vw,34px);
