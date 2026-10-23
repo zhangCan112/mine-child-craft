@@ -8,30 +8,38 @@
    煤/铁矿) · 1 山洞隧道通 y<10 深处(沿途裸露铁/金/钻石矿带) · 出生小屋
    (原木+木板, 工作台/熔炉不送——任务链做出来才有仪式感) · 3 怪物巢穴
    位点(土丘洞穴地形+常量表)。T14 已接巢穴战斗: 每巢限量 2~3 只·清空
-   60s 再刷·索敌收敛不追出巢区(儿童可控口径, 参数见巢穴战斗段注释)。
-   本单是骨架+战斗掉落: 能进能玩地形 + 背包 UI 出来 + 击杀掉落/收集
-   播报/玩家战斗; 挖掘蓄力(T12)/合成站点解锁(T13)/任务链 12 步(T15)
-   依次接线。
+   60s 再刷·索敌收敛不追出巢区(儿童可控口径, 参数见巢穴战斗段注释);
+   T12 挖掘与采集亦已接线(蓄力/放置/树链/食物/耐久, 见下)。
+   能进能玩地形 + 背包 UI + 击杀掉落/收集播报/玩家战斗均已落地;
+   合成站点解锁(T13)/任务链 12 步(T15) 依次接线。
    · 玩家: 出生小屋门口 · 步行(不飞行) · 血量 30 + 头顶血条; 死亡=背包
      保留+回出生点满血+TTS 安抚(下界先例口径, 零惩罚哲学)。
+   · T12 挖掘与采集(D4/D7): 按住蓄力(准星进度环+挥动循环+换目标/松手
+     清零, breakTime 驱动) → 破坏碎屑+记账+rollBlockDrop 掉落真空拾取;
+     tier 不足只碎不掉+TTS 节流; 放置型物品点准星面(editBlock+背包−1),
+     thin 块(火把/树苗)只放实心面顶; 树苗放草地/泥土 20s 长成(计时 Map
+     不落盘, 重进全图重建); 草丛确定性散布(挖掉 50% 掉种子); 食物点击吃
+     (advEatPolicy, 腐肉同口径); 工具破坏成功耐久 −1, 归零消失+安抚。
    · 三份存档: inventory_save(全局唯一背包, 跨模式共享) /
      adventure_world_save(场景确定性重建+edits 重放, build 模式同款) /
      adventure_quest_save({step:0} 占位, T15 填)。
    · 防沉迷: 与竞技场/TNT/建造/坦克/下界共享儿童时限(gated, 不新增账本)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/onMouse/
      hud/touch) · AdventureMode.adv — T12~T15 接线挂点与单测触达面(常量表/
-     死亡政策纯函数/巢穴节律纯函数/挥击伤害/掉落清单/播报文案/edits 记账/
-     背包只读)
-   依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/PLAYER/WORLD 尺寸/B_* 常量 ·
-     voxel.js 的 getBlock/setBlockRaw/blockKey · world.js 的 loadScene ·
-     scene-kit.js 的 SceneKit · items-core 的 ITEMS/isTool/toolOf ·
-     inventory-core 的 mkInventory/add/remove/damageTool/HOTBAR_SLOTS/
-     INV_SLOTS/serialize/deserialize · craft-core 的 RECIPES(面板缺省全表) ·
-     drops.js 的 rollDrops(纯)/spawn/update/onCollect/clear · mobs.js 的
-     spawn/hit/onDeath/update/render/steer/move/gait/debrisColor/clear ·
-     combat-core.js 的 CombatCore(节拍/弹道/盒判定) · effects.js 的 sfx/Fx ·
+     死亡+蓄力+放置+食物+树苗+巢穴节律纯函数/挥击伤害/掉落清单/播报文案/
+     edits 记账/背包只读)
+   依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/PLAYER/WORLD 尺寸/
+     B_* 常量 · voxel.js 的 getBlock/setBlockRaw/blockKey/raycastVoxel/
+     collidesAtPlayer · world.js 的 loadScene/editBlock · scene-kit.js 的
+     SceneKit · items-core 的 ITEMS/isTool/toolOf · inventory-core 的
+     mkInventory/HOTBAR_SLOTS/INV_SLOTS/add/remove/damageTool/serialize/
+     deserialize · craft-core 的 breakTime/RECIPES(面板缺省全表) ·
+     drops.js 的 rollBlockDrop/rollDrops(纯)/spawn/update/onCollect/clear ·
+     mobs.js 的 spawn/hit/onDeath/update/render/steer/move/gait/debrisColor/
+     clear(退出清场) · combat-core.js 的 CombatCore(节拍/弹道/盒判定) ·
+     effects.js 的 sfx/Fx · input.js 的 doCenterClick(触屏准星点击) ·
      mode-kit.js 的 mkMode/mkHotbar/mkCraftPanel · sync.js 的 SyncDB.slot ·
-     speech.js 的 SpeechKit · avatar.js 的 Avatar
+     speech.js 的 SpeechKit · avatar.js 的 Avatar(setItem/swing/flash)
    可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格), Node 测试可安全加载
      (test/adventure-mode.test.js, 真引擎件经 vm 装载)
    ============================================================ */
@@ -391,6 +399,19 @@ function advPlantTrees() {/* 树林 ~40: 候选按散列值排序取前 N(空间
   for (const cd of cands.slice(0, ADV_TREES)) SceneKit.tree(cd.x, ADV_GROUND + 1, cd.z);
 }
 
+function advScatterTufts() {/* 草丛散布(T11 缺口, D7 草丛链): 确定性掷点, 只长
+  草地表层顶上且上方无物(不占树干/不飘在沙/水上); 密度 ~4.5% 列 — 草原上
+  可发现但不铺满, 挖掉 50% 掉小麦种子(config drop 表) */
+  for (let x = 2; x < WORLD_W - 2; x++) {
+    for (let z = 2; z < WORLD_D - 2; z++) {
+      if (SceneKit.rand(x, z, 9101) < 0.955) continue;
+      if (getBlock(x, ADV_GROUND, z) !== 1) continue; /* 脚下是草地(沙岸/湖/矿坑天然排除) */
+      if (getBlock(x, ADV_GROUND + 1, z) !== 0) continue; /* 顶上无物(树干/小屋墙不占) */
+      setBlockRaw(x, ADV_GROUND + 1, z, B_GRASS_TUFT);
+    }
+  }
+}
+
 function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模式同款架构) */
   advBaseTerrain();
   advBuildLake();
@@ -400,6 +421,7 @@ function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模
   advBuildHut();
   for (const n of ADV_NESTS) advBuildNest(n);
   advPlantTrees();
+  advScatterTufts(); /* 树立好再撒草丛(顶上无物判据吃树干占位) */
 }
 
 /* ---------- 死亡政策(纯函数段): 满血 + 回出生点 + 背包保留(零惩罚哲学) ---------- */
@@ -602,7 +624,7 @@ function advMobAI(dt) {
     const aggro = !p.dead && distP <= ADV_NEST_AGGRO_R && distHome <= ADV_NEST_LEASH_R;
     if (aggro) {
       Mobs.steer(m, Math.atan2(dxP, dzP));
-      if (m.cfg.ranged) { /* 骷髅: 炮台巡航(7 格), 太远逼近太近拉开, 节拍到就放箭 */
+      if (m.cfg.ranged) {/* 骷髅: 炮台巡航(7 格), 太远逼近太近拉开, 节拍到就放箭 */
         const want = 7;
         if (distP > want) {
           Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
@@ -613,15 +635,15 @@ function advMobAI(dt) {
           m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
           advShootArrow(m, p);
         }
-      } else if (distP > m.cfg.range) { /* 近战逼近 */
+      } else if (distP > m.cfg.range) {/* 近战逼近 */
         Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
-      } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.attackCd <= 0) { /* 贴身攻击玩家 */
+      } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.attackCd <= 0) {/* 贴身攻击玩家 */
         m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
         const r = Mobs.hit(p, advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4);
         if (r.freshDead) advPlayerDied();
         else advOnHurt(r);
       }
-    } else if (distHome > ADV_NEST_HOME_R) { /* 收队: 慢步回巢(掉头不恋战) */
+    } else if (distHome > ADV_NEST_HOME_R) {/* 收队: 慢步回巢(掉头不恋战) */
       Mobs.steer(m, Math.atan2(hx, hz));
       const sp = speed * 0.6;
       Mobs.move(m, hx / distHome * sp * dt, hz / distHome * sp * dt); moved = sp;
@@ -675,12 +697,306 @@ function advUpdateArrows(dt) {
       advRemoveArrow(i);
       continue;
     }
-    if (!p.dead && CombatCore.hitBody({x: px, y: py, z: pz}, p)) { /* 命中玩家(战斗核心盒判定) */
+    if (!p.dead && CombatCore.hitBody({x: px, y: py, z: pz}, p)) {/* 命中玩家(战斗核心盒判定) */
       const r = Mobs.hit(p, a.dmg, p.pos.x - px, p.pos.z - pz, a.kpow);
       if (r.freshDead) advPlayerDied();
       else advOnHurt(r);
       advRemoveArrow(i);
     }
+  }
+}
+
+/* ============================================================
+   T12 挖掘与采集 — 蓄力状态机 / 放置 / 树链 / 食物 / 耐久
+   纯函数段在前(单测直测), 交互段在后(挂 onMouse/update)
+   ============================================================ */
+
+/* 蓄力单步(纯函数): m 为当前状态 {t,key,need,drops}, key 为准星目标
+   blockKey、bt 为 breakTime 结果 {time,drops}。同目标累加 t, 换目标/指空
+   清零重来; need 每帧以 bt.time 刷新(中途换工具重估), 到点 done 且 t 钳
+   在 need(不外漏超额给消费方)。 */
+function advMineStep(m, key, bt, dt) {
+  if (!key || !bt) return {t: 0, key: '', need: 0, drops: true, done: false};
+  if (m.key !== key) return {t: dt, key, need: bt.time, drops: bt.drops, done: dt >= bt.time};
+  const t = m.t + dt;
+  return {t: Math.min(t, bt.time), key, need: bt.time, drops: bt.drops, done: t >= bt.time};
+}
+
+/* 放置合法性(纯函数): hit 为准星命中 {x,y,z,nx,ny,nz}, blockId 为物品的
+   block 字段, lookId 为命中格方块 id, targetId 为落点格现有方块 id。
+   规则(D4): 落点必须空气 · thin 块(火把/树苗)只放实心面顶(点击面法线
+   朝上, 支承块 solid) · 树苗支承限草地/泥土(D7)。返回 {ok,x,y,z} 或
+   {ok:false}(不可放置的旗标语义: 草丛/麦等薄块自身 solid:false, 天然
+   当不了支承; 草丛/麦物品不存在 block 字段, 进不了本函数)。 */
+function advPlaceCheck(hit, blockId, lookId, targetId) {
+  const def = blockId != null ? BLOCKS[blockId] : null;
+  if (!hit || !def) return {ok: false};
+  if (targetId !== 0) return {ok: false}; /* 落点非空气 → 拒(不可叠放) */
+  const x = hit.x + hit.nx;
+  const y = hit.y + hit.ny;
+  const z = hit.z + hit.nz;
+  if (def.thin != null) {/* 薄块贴地口径(B_FUSE 同款): 只认实心面顶 */
+    const support = lookId != null ? BLOCKS[lookId] : null;
+    const solidTop = hit.ny === 1 && support && support.solid !== false && support.thin == null;
+    if (!solidTop) return {ok: false};
+    if (blockId === B_SAPLING && lookId !== 1 && lookId !== 2) return {ok: false}; /* 树苗限草地/泥土 */
+  }
+  return {ok: true, x, y, z};
+}
+
+/* 食物回血政策(纯函数, D7 腐肉同口径): 回复钳制在 maxHp, 满血 canEat=false
+   (交互层据此不扣物品); healed = 实际回复量(血条动画消费) */
+function advEatPolicy(hp, maxHp, food) {
+  const capped = Math.min(maxHp, hp + food);
+  return {hp: capped, healed: Math.max(0, capped - hp), canEat: hp < maxHp};
+}
+
+/* 树苗计时到期(纯函数): 全员递减 dt, 到期项出清单并移出 Map, 未到期留队。
+   20s 的挂表政策在交互段(advSapPlant), 这里只管时间账(D7) */
+function advSapDue(map, dt) {
+  const due = [];
+  for (const [k, s] of map) {
+    s.left -= dt;
+    if (s.left <= 0) {
+      due.push(s);
+      map.delete(k);
+    }
+  }
+  return due;
+}
+
+/* ---------- 交互段 ---------- */
+
+const ADV_MINE_SWING = 0.28; /* 蓄力期间挥动节拍(秒/挥, Avatar.swing 循环喂 HeldItems.swingPose) */
+const ADV_SAP_GROW = 20; /* 树苗 20s 长成(D7) */
+let advTierT = 0; /* 「需要更硬的镐子」TTS 节流(3s) */
+const advSaplings = new Map(); /* 树苗计时 "x,y,z"→{x,y,z,left}; 重进经全图扫描重建 */
+const advMine = {down: false, t: 0, key: '', need: 0, drops: true, swingT: 0}; /* 蓄力状态机 */
+let advMouseHeld = false; /* 桌面按住标志(document mousedown/up 维护): 按住连挖, 触屏单击挖一块 */
+
+/* 准星命中(每帧蓄力判定用): CameraRig.aim 唯一视线入口(nether 先例);
+   Node 测试无相机件时返回 null(蓄力链经 onMouse 直测) */
+function advAimHit() {
+  if (typeof CameraRig === 'undefined' || typeof camera === 'undefined' ||
+      typeof raycastVoxel === 'undefined') return null;
+  const a = CameraRig.aim(camera);
+  return raycastVoxel(a.origin, a.dir, PLAYER.reach);
+}
+
+/* 蓄力清零(松手/换目标不可挖/面板打开/退出模式) */
+function advMineStop() {
+  advMine.down = false;
+  advMine.t = 0;
+  advMine.key = '';
+  advMine.swingT = 0;
+  advRingSet(-1);
+}
+
+/* 破坏结算: 碎屑(editBlock 内置同色 Fx.debrisBurst)+记账+掉落+耐久。
+   bt 为破坏时的 breakTime 结果(drops:false = tier 不足, 只碎不掉+节流提示) */
+function advBreakBlock(x, y, z, id, bt) {
+  editBlock(x, y, z, 0);
+  advMarkEdit(x, y, z, 0);
+  if (id === B_SAPLING) advSaplings.delete(blockKey(x, y, z)); /* 挖树苗撤计时 */
+  sfx('hit');
+  advDamageHeld(); /* 破坏成功 −1(工具匹配与否都扣, MC 口径; 徒手无槽可扣) */
+  if (!bt.drops) {/* tier 不足: 可挖慢速但掉落不触发(§3.4) */
+    if (advTierT <= 0) {
+      advTierT = 3;
+      SpeechKit.speak('需要更硬的镐子哦！');
+      showToast('⛏️ 换更硬的镐子才能挖到宝贝');
+    }
+    return;
+  }
+  for (const d of rollBlockDrop(BLOCKS[id])) Drops.spawn(d.id, d.n, x + 0.5, y + 0.8, z + 0.5);
+}
+
+/* 手持工具耐久结算: damageTool 返 0 = 破板信号(inventory-core 口径) →
+   remove 清槽 + 安抚 TTS(D4) + 观感回落锄头 */
+function advDamageHeld() {
+  const slot = advHb.sel;
+  if (damageTool(advInv, slot) !== 0) {
+    advSyncHotbar();
+    return;
+  }
+  remove(advInv, slot); /* 工具 n=1, 整槽消失 */
+  Avatar.setItem(PLAYER.heldItem);
+  SpeechKit.speak('镐子累了！我们再做一个更棒的！');
+  showToast('🔧 工具用坏了，再做一把更棒的吧！');
+  advSyncHotbar();
+}
+
+/* 蓄力推进(update 每帧): 准星指住可挖方块才累计; 换目标/指空清零;
+   到点破坏 — 桌面按住连挖(advMouseHeld), 触屏单击政策本块完成即停 */
+function advMineTick(dt) {
+  if (!advMine.down || ADV.panelOpen) {
+    advMineStop();
+    return;
+  }
+  const hit = advAimHit();
+  const id = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
+  const def = id ? BLOCKS[id] : null;
+  if (!def || def.hard == null) {/* 空气/水/创造专属(字段缺失即不可采集, T2 判据) */
+    advMineStop();
+    return;
+  }
+  const held = advInv.slots[advHb.sel];
+  const bt = breakTime(def, held && isTool(held.id) ? held : null); /* 非工具手持 = 徒手口径 */
+  Object.assign(advMine, advMineStep(advMine, blockKey(hit.x, hit.y, hit.z), bt, dt));
+  advMine.swingT += dt; /* 挥动循环: 节拍触发 Avatar.swing(swingPose 纯函数在 Avatar 内循环) */
+  if (advMine.swingT >= ADV_MINE_SWING) {
+    advMine.swingT = 0;
+    Avatar.swing();
+  }
+  advRingSet(advMine.need > 0 ? advMine.t / advMine.need : -1); /* 准星进度环填充 */
+  if (!advMine.done) return;
+  advBreakBlock(hit.x, hit.y, hit.z, id, bt);
+  advMine.t = 0;
+  advMine.key = '';
+  if (!advMouseHeld) advMine.down = false; /* 触屏单击/桌面已松手: 本块完成即停 */
+  advRingSet(-1);
+}
+
+/* 放置交互: 选中放置型物品(ITEMS.block 字段)点击准星面 → editBlock+记账+
+   背包 −1(D4); 树苗额外挂 20s 计时; thin 块非法落点给节流 toast */
+function advTryPlace(hit) {
+  const slot = advHb.sel;
+  const s = advInv.slots[slot];
+  const it = s ? ITEMS[s.id] : null;
+  if (!hit || !it || it.block == null) return false;
+  const lookId = getBlock(hit.x, hit.y, hit.z);
+  const targetId = getBlock(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz);
+  const pc = advPlaceCheck(hit, it.block, lookId, targetId);
+  if (!pc.ok || collidesAtPlayer(pc.x, pc.y, pc.z)) {/* 不与玩家身体重叠(arena 先例) */
+    showToast('这里放不了哦');
+    return false;
+  }
+  editBlock(pc.x, pc.y, pc.z, it.block);
+  advMarkEdit(pc.x, pc.y, pc.z, it.block);
+  if (it.block === B_SAPLING) advSapPlant(pc.x, pc.y, pc.z);
+  remove(advInv, slot, 1);
+  advSyncHotbar();
+  sfx('click');
+  showToast('放下 ' + it.name + '！');
+  return true;
+}
+
+/* 树苗挂表: 20s 后长成(D7); 重进经 advRescanSaplings 全图重建计时 */
+function advSapPlant(x, y, z) {
+  advSaplings.set(blockKey(x, y, z), {x, y, z, left: ADV_SAP_GROW});
+}
+
+/* 树苗长成: SceneKit.tree(确定性外观与地形树一致) + 足迹逐块记账
+   (footprint 粗扫 y..y+7 / ±2, 重放同值幂等, 邻居地形冗余记账无害) */
+function advGrowTree(x, y, z) {
+  SceneKit.tree(x, y, z);
+  for (let yy = y; yy <= y + 7; yy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -2; dz <= 2; dz++) {
+        const id = getBlock(x + dx, yy, z + dz);
+        if (id !== 0) advMarkEdit(x + dx, yy, z + dz, id);
+      }
+    }
+  }
+  showToast('🌱 小树苗长成大树啦！');
+}
+
+/* 树苗计时推进(update 每帧): 到期清单逐棵长树 */
+function advSapTick(dt) {
+  for (const s of advSapDue(advSaplings, dt)) advGrowTree(s.x, s.y, s.z);
+}
+
+/* 全图扫树苗重建计时(init 重放 edits 后调): 计时不落盘, 重进重挂 20s */
+function advRescanSaplings() {
+  for (let x = 0; x < WORLD_W; x++) {
+    for (let z = 0; z < WORLD_D; z++) {
+      for (let y = 1; y < WORLD_H; y++) {
+        if (getBlock(x, y, z) === B_SAPLING) advSapPlant(x, y, z);
+      }
+    }
+  }
+}
+
+/* 吃食物: 点击手持食物(D4) — 满血不吃; 回血走 advEatPolicy(腐肉同口径),
+   remove 吃一口返堆拷贝(inventory-core 口径), 头顶血条随 hp 变化自动重绘 */
+function advTryEat() {
+  const slot = advHb.sel;
+  const s = advInv.slots[slot];
+  const it = s ? ITEMS[s.id] : null;
+  if (!it || it.food == null) return false;
+  const e = advGetPEnt();
+  const pol = advEatPolicy(e.hp, e.maxHp, it.food);
+  if (!pol.canEat) {
+    showToast('现在饱饱的，还不饿哦！');
+    return true; /* 吃过 attempt 但没吃: 不进入蓄力 */
+  }
+  e.hp = pol.hp;
+  ADV.player.hp = pol.hp;
+  remove(advInv, slot, 1);
+  advSyncHotbar();
+  sfx('pick');
+  SpeechKit.speak('咔嚓咔嚓真好吃！');
+  showToast('😋 吃掉 ' + it.name + '，生命 +' + pol.healed);
+  return true;
+}
+
+/* 掉落物收集回调(Drops.onCollect, init 挂/cleanup 随 Drops.clear 解除):
+   入包并堆, 一件都放不下才拒返 false(掉落物停地上冷却重试, D6 背包满);
+   收集 TTS 合并播报(3s 节流)归 T14, 这里只 toast+音效 */
+function advOnCollect(itemId, n) {
+  const left = add(advInv, itemId, n);
+  if (left >= n) {
+    showToast('🎒 背包满啦');
+    return false;
+  }
+  advSyncHotbar();
+  sfx('pick');
+  const name = (ITEMS[itemId] && ITEMS[itemId].name) || itemId;
+  showToast('🎒 捡到 ' + name + ' ×' + n);
+  return true;
+}
+
+/* ---------- 挖掘进度环(准星 conic-gradient 圆环, 自建 DOM 不依赖 index.html) ---------- */
+let advRingEl = null;
+function advRingSet(p) {
+  if (typeof document === 'undefined') return;
+  if (!advRingEl) {
+    if (p < 0) return;
+    advRingEl = document.createElement('div');
+    advRingEl.style.cssText = 'position:fixed;left:50%;top:50%;width:40px;height:40px;' +
+        'margin:-20px 0 0 -20px;border-radius:50%;pointer-events:none;z-index:9;';
+    advRingEl.style.webkitMask = advRingEl.style.mask =
+        'radial-gradient(circle, transparent 12px, #000 13px)'; /* 中心留孔露出准星 */
+    document.body.appendChild(advRingEl);
+  }
+  advRingEl.style.display = p < 0 ? 'none' : 'block';
+  if (p >= 0) {
+    advRingEl.style.background =
+        'conic-gradient(#ffd23f ' + Math.round(p * 360) + 'deg, rgba(255,255,255,0.3) 0)';
+  }
+}
+function advRingDispose() {
+  if (!advRingEl) return;
+  if (advRingEl.parentNode) advRingEl.parentNode.removeChild(advRingEl);
+  advRingEl = null;
+}
+
+/* ---------- 桌面按住检测(capture 阶段先于 input.js 的 mousedown 路由) ---------- */
+function advMouseHeldOn() {
+  advMouseHeld = true;
+}
+function advMouseHeldOff() {
+  advMouseHeld = false;
+}
+function advMouseListeners(on) {
+  if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return;
+  const opt = {capture: true};
+  if (on) {
+    document.addEventListener('mousedown', advMouseHeldOn, opt);
+    document.addEventListener('mouseup', advMouseHeldOff, opt);
+  } else {
+    document.removeEventListener('mousedown', advMouseHeldOn, opt);
+    document.removeEventListener('mouseup', advMouseHeldOff, opt);
   }
 }
 
@@ -706,6 +1022,8 @@ const AdventureMode = mkMode({
 
   init() {
     advEdits = advWorldSlot.load().edits;
+    /* 空存档时 load() 返回 defaults 深拷贝(edits 是数组, 不经 decode) → 归一化成 Map */
+    if (!(advEdits instanceof Map)) advEdits = new Map(advEdits || []);
     ADV.quest = advQuestSlot.load();
     advInv.slots = advInvSlot.load().slots; /* 原地换槽, 面板/快捷栏闭包不脱钩 */
     loadScene(() => {/* 场景装填 seam: 清场→建场→收尾入队一步到位 */
@@ -714,15 +1032,18 @@ const AdventureMode = mkMode({
         const p = k.split(',');
         setBlockRaw(+p[0], +p[1], +p[2], v);
       }
+      advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
     });
     ModeKit.spawn(ADV_SPAWN.x, ADV_SPAWN.y, ADV_SPAWN.z, {yaw: ADV_SPAWN.yaw});
     flyMode = false; /* 探险步行(不沿用建造的飞行) */
     Avatar.setItem(PLAYER.heldItem);
     ADV.panelOpen = false;
+    advMineStop(); /* 蓄力状态复位(上次退出可能按住) */
+    advMouseListeners(true); /* 桌面按住连挖检测(capture) */
     advSyncHotbar();
     /* —— 巢穴战斗段(T14): 清残留 → 重挂引擎回调(clear 会解除, 每次进场重挂) → 三巢首刷 */
     Mobs.clear();
-    Drops.clear();
+    Drops.clear(); /* 重进清残留掉落物(挖掘/击杀两链共用; 并解除旧收集回调) */
     while (advArrows.length) advRemoveArrow(0); /* 上一场的箭不渗进来 */
     ADV.killCount = 0; ADV.swingCd = 0;
     advHurtT = 0;
@@ -733,12 +1054,8 @@ const AdventureMode = mkMode({
     Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8) */
       for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
     });
-    Drops.onCollect((id, n) => {/* 收集: 入包+镜像; 满包拒返 false → 1.2s 冷却重试 */
-      if (add(advInv, id, n) > 0) {
-        showToast('🎒 背包满啦');
-        return false;
-      }
-      advSyncHotbar();
+    Drops.onCollect((id, n) => {/* 收集并线(T12×T14): 入包/镜像/逐件 toast(T12) → 3s 合并播报窗(T14) */
+      if (!advOnCollect(id, n)) return false; /* 满包拒返 false → 1.2s 冷却重试(D6) */
       advPickBuf.set(id, (advPickBuf.get(id) || 0) + n); /* 并入 3s 合并播报窗 */
       advPickT = ADV_PICKUP_WINDOW;
     });
@@ -755,6 +1072,11 @@ const AdventureMode = mkMode({
     ADV.panelOpen = false;
     advPanel.remove(); /* 卸载面板 DOM */
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活) */
+    advMouseListeners(false);
+    advMineStop(); /* 蓄力清零 + 进度环收起 */
+    advSaplings.clear(); /* 计时不落盘, 重进经全图扫描重建 */
+    advTierT = 0;
+    advRingDispose();
     advDisposeHpBar();
   },
 
@@ -763,25 +1085,38 @@ const AdventureMode = mkMode({
       advSaveT = performance.now();
       advSaveNow();
     }
-    if (ADV.swingCd > 0) ADV.swingCd = Math.max(0, ADV.swingCd - dt); /* 挥击冷却 */
-    advHurtT = Math.max(0, advHurtT - dt); /* 受击语音节流递减 */
+    advTierT = Math.max(0, advTierT - dt); /* tier 提示节流递减(T12) */
+    advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */
+    advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
+    if (ADV.swingCd > 0) ADV.swingCd = Math.max(0, ADV.swingCd - dt); /* 挥击冷却(T14) */
+    advHurtT = Math.max(0, advHurtT - dt); /* 受击语音节流递减(T14) */
     advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架) */
     Mobs.update(dt);
     Mobs.render();
     advUpdateArrows(dt); /* 骷髅箭矢弹道 */
-    Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 拾取给玩家胸口点 */
+    Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 真空拾取(挖掘/击杀两链共用, 玩家胸口点) */
     Drops.render();
     advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */
     advPickupTick(dt); /* 收集播报合并窗 */
     advUpdateHpBar();
   },
 
-  onKey(code) {
-    if (code === 'Tab') advPanelToggle(); /* 🎒/Tab 开关背包+配方书 */
+  onMouse(button, hit) {/* 左键并线(T12×T14): 准星锥内有活怪→挥击(T14, 无怪不出手不占冷却), 否则吃/挖掘蓄力(T12); 右键放置 */
+    if (ADV.panelOpen) return; /* 面板遮罩兜底: 开面板不挖不放不打 */
+    if (button === 0) {
+      if (advAimMob(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖) */
+        advAttack();
+        return;
+      }
+      if (advTryEat()) return; /* 手持食物: 点击吃, 不进蓄力 */
+      if (hit) advMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update) */
+    } else if (button === 2) {
+      advTryPlace(hit);
+    }
   },
 
-  onMouse(button) {/* 左键挥击(准星锥内有怪才出手, 挖掘/放置点击政策归 T12) */
-    if (button === 0) advAttack();
+  onKey(code) {
+    if (code === 'Tab') advPanelToggle(); /* 🎒/Tab 开关背包+配方书 */
   },
 
   onVoidFall() {/* 坠出世界: 与死亡同一零惩罚出口(T14 的致命一击走 advPlayerDied) */
@@ -807,20 +1142,24 @@ const AdventureMode = mkMode({
 
   touch: [
     {label: '⬆️', hold: 'Space'},
+    {label: '⛏️', act: () => doCenterClick(0)}, /* 准星点击(arena 先例): 开始蓄力挖 */
+    {label: '🧱', act: () => doCenterClick(2)}, /* 准星放置(手持放置型物品) */
     {label: '🎒', act: () => advPanelToggle()},
     {label: '👾', act: () => advAttack()},
   ],
 });
 
 /* T12~T15 的接线挂点(内部接口, 不进模式公共行为; 单测亦经此触达常量与纯函数段):
-   T12 挖掘/放置 → advMarkEdit 记账 + advSyncHotbar 刷新(左键语义与战斗挥击
-   在 onMouse 并线: 准星锥内有怪=挥击, 否则点击留给挖掘/放置) · T13 站点判定
-   在 advStationOk(替换恒 true) · T14 已落地(巢穴节律/挥击伤害/掉落清单/播报
-   文案纯函数 + ADV.killCount 击杀账本, 击杀事件挂 Mobs.onDeath 回调) ·
-   T15 任务进度挂 ADV.quest(advQuestSlot 落盘), 击杀/掉落事件挂点 =
-   advOnKill(观感+计数) 与 init 里的 onDeath/收集回调两处闭包 */
+    T12 已落地(蓄力/放置/树苗/食物纯函数与交互, 站点/TNT 放置复用 advTryPlace) ·
+    T13 站点判定在 advStationOk(替换恒 true) · T14 已落地(巢穴节律/挥击伤害/
+    掉落清单/播报文案纯函数 + ADV.killCount 击杀账本, 击杀挂 Mobs.onDeath;
+    左键语义与挖掘在 onMouse 并线: 准星锥内有怪=挥击, 否则让位挖掘/放置) ·
+    T15 任务进度挂 ADV.quest(advQuestSlot 落盘), 击杀/掉落事件挂点 =
+    advOnKill(观感+计数) 与 init 里的 onDeath/收集回调两处闭包 */
 AdventureMode.adv = {ADV, ADV_NESTS, advDeathPlan, advMarkEdit, advGetInv: () => advInv,
   advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar,
-  advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText};
+  advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText,
+  advMineStep, advPlaceCheck, advEatPolicy, advSapDue, advMine, advSaplings, advBreakBlock,
+  advTryPlace, advGrowTree, advMineStop};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;

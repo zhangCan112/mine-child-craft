@@ -69,22 +69,43 @@ globalThis.document = {
   body: docBody,
 };
 
-/* ---------- 真引擎件: config + voxel + scene-kit + 两纯核心, 共享一个 vm 词法环境 ---------- */
+/* ---------- 真引擎件: config + voxel + scene-kit + 四纯核心/库, 共享一个 vm 词法环境 ---------- */
 const ROOT = path.join(__dirname, '..');
-const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
-for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/items-core.js', 'js/inventory-core.js',
-  'js/drops.js']) {
+/* groundTop 桩: drops 壳段 restY 用(world.js 太重不装) */
+const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
+for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/items-core.js',
+  'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, hashRand, blockKey, world, worldCells, SceneKit,
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
-  ITEMS, isTool, toolOf, stackMax, mkStack,
+  B_GRASS_TUFT, B_SAPLING, B_TORCH,
+  ITEMS, isTool, toolOf, stackMax, mkStack, breakTime,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
-  rollDrops, MOB_DROPS,
+  raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
 })`, eng);
 Object.assign(globalThis, api); /* 模式文件经全局名消费这些真件(经典 script 词法环境) */
+/* 掉落物实体库: vm 真件(壳段无 THREE/DOM 不建观感, 实体逻辑照跑), clear 记账以兼容既有断言 */
+const RealDrops = api.Drops;
+globalThis.Drops = {
+  spawn: (...a) => RealDrops.spawn(...a),
+  update: (...a) => RealDrops.update(...a),
+  render: () => RealDrops.render(),
+  onCollect: (cb) => RealDrops.onCollect(cb),
+  list: () => RealDrops.list(),
+  clear() {
+    calls.push(['dropsClear']);
+    RealDrops.clear();
+  },
+};
+/* 单块编辑 seam: world.js 太重, 记账走真 setBlockRaw(碎屑反馈归浏览器的 editBlock 内置) */
+globalThis.editBlock = (x, y, z, id) => {
+  api.setBlockRaw(x, y, z, id);
+  calls.push(['edit', x, y, z, id]);
+};
+globalThis.sfx = (k) => calls.push(['sfx', k]);
 
 /* ---------- 假应用层(调用期解析的全局名) ---------- */
 const calls = [];
@@ -137,7 +158,7 @@ const hitLog = [];
 const moveLog = [];
 let listResult = [];
 let nextHit = {hp: 10, dead: false, freshDead: false};
-const ADV_MOB_CFG = { /* 四怪数值摘自 config.js MOB_TYPES(巢穴池, 行为断言所需最小集) */
+const ADV_MOB_CFG = {/* 四怪数值摘自 config.js MOB_TYPES(巢穴池, 行为断言所需最小集) */
   zombie: {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55},
   skeleton: {name: '骷髅', hp: 26, dmg: 6, speed: 2.6, range: 14, cd: 2.6, h: 1.9, ranged: true, hitR: 0.55},
   spider: {name: '蜘蛛', hp: 24, dmg: 3, speed: 3.0, range: 2.2, cd: 1.2, h: 0.9, hitR: 0.65},
@@ -181,21 +202,25 @@ globalThis.Mobs = {
     return 0x1a2b3c;
   },
 };
+/* Drops 并线(T12×T14): 代理 vm 真件(T12 挖掘掉落/真空拾取链可真跑),
+   同时记账 spawn/收集回调(T14 行为断言走调用记录) */
 globalThis.Drops = {
   spawn(id, n, x, y, z) {
     dropsState.spawned.push({id, n, x, y, z});
+    return RealDrops.spawn(id, n, x, y, z);
   },
-  update() {}, render() {},
+  update: (...a) => RealDrops.update(...a),
+  render: () => RealDrops.render(),
   onCollect(cb) {
     dropsState.cbs.push(cb);
+    RealDrops.onCollect(cb);
   },
+  list: () => RealDrops.list(),
   clear() {
     calls.push(['dropsClear']);
     dropsState.spawned.length = 0;
     dropsState.cbs.length = 0;
-  },
-  list() {
-    return [];
+    RealDrops.clear();
   },
 };
 globalThis.sfx = (n) => {
@@ -806,4 +831,295 @@ test('T14 骷髅远程: 索敌内保持距离放箭, 箭沿预测弹道命中玩
   assert.ok(hitPlayer, '箭按弹道飞到玩家(不是即时判定)');
   assert.ok(hitLog.some((h) => h.m.pos === globalThis.pos && h.dmg === 6), '箭伤 = 骷髅 dmg 6');
   assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hurt'), '箭命中 → 受击音');
+});
+
+/* ============ T12 挖掘与采集交互 ============ */
+
+test('T12 蓄力纯函数: advMineStep — 时间累积/换目标清零/breakTime 驱动', () => {
+  const step = A.advMineStep;
+  /* 时间累积: 同目标逐帧累加, 到点 done 且 t 钳在 need */
+  const bt = {time: 1.125, drops: true};
+  let m = step({t: 0, key: '', need: 0, drops: true}, '10,24,10', bt, 0.5);
+  assert.strictEqual(m.t, 0.5, '第一帧累计 0.5');
+  assert.strictEqual(m.key, '10,24,10', '锁定目标 key');
+  assert.strictEqual(m.need, bt.time, 'need 由 breakTime 驱动');
+  assert.strictEqual(m.done, false, '未到点');
+  m = step(m, '10,24,10', bt, 0.5);
+  assert.strictEqual(m.t, 1.0, '第二帧累计 1.0');
+  m = step(m, '10,24,10', bt, 0.5);
+  assert.strictEqual(m.done, true, '累计到 1.125 → done');
+  assert.strictEqual(m.t, bt.time, 't 钳在 need(不外漏超额)');
+  /* 换目标清零: 新 key 从头累计, need 换新目标的时长 */
+  m = step({t: 5, key: '10,24,10', need: 7.5, drops: false}, '20,24,20', {time: 0.9, drops: true}, 0.3);
+  assert.strictEqual(m.t, 0.3, '换目标进度清零重新累计');
+  assert.strictEqual(m.need, 0.9, 'need 换成新目标时长');
+  assert.strictEqual(m.drops, true, 'drops 标志随新目标刷新');
+  /* 准星指空(key 空) → 完全清零待命 */
+  m = step({t: 5, key: '10,24,10', need: 7.5, drops: true}, '', {time: 1, drops: true}, 0.3);
+  assert.strictEqual(m.t, 0, '指空清零');
+  assert.strictEqual(m.key, '', 'key 清空');
+  assert.strictEqual(m.done, false, '不触发破坏');
+  /* breakTime 真值驱动: 徒手石头 7.5s(§0 现状口径) · 木镐匹配 1.125s · tier 不足 drops:false */
+  const bare = api.breakTime(api.BLOCKS[3], null);
+  assert.strictEqual(bare.time, 7.5, '徒手石头 7.5s');
+  assert.strictEqual(bare.drops, false, '石头 tier1 徒手不掉落');
+  const pick = api.breakTime(api.BLOCKS[3], {id: 'pick_wood', n: 1, dur: 120});
+  assert.strictEqual(pick.time, 1.125, '木镐匹配 1.5×1.5/2');
+  assert.strictEqual(pick.drops, true, '木镐达 tier1 掉圆石');
+  const m2 = step({t: 0, key: '', need: 0, drops: true}, '5,10,5', bare, 7.5);
+  assert.strictEqual(m2.done, true, '蓄满 7.5s 一帧到点');
+  assert.strictEqual(m2.drops, false, 'drops 透传(徒手石头只碎不掉)');
+});
+
+test('T12 放置合法性纯函数: advPlaceCheck — 实心块贴面/thin 只放顶面/树苗限草地泥土', () => {
+  const chk = A.advPlaceCheck;
+  /* 实心块(泥土): 任意朝向面都可贴放(目标位空气) */
+  const side = chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, 1, 0);
+  assert.ok(side.ok, '泥土放草地顶面 ok');
+  assert.deepStrictEqual([side.x, side.y, side.z], [10, 25, 10], '落点 = 命中格 + 面法线');
+  const wall = chk({x: 10, y: 24, z: 10, nx: 1, ny: 0, nz: 0}, 2, 1, 0);
+  assert.ok(wall.ok, '实心块贴侧面也可');
+  /* 目标位非空气 → 拒(叠块) */
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, 1, 5).ok, false,
+      '目标位已有方块 → 拒');
+  /* thin 块(火把): 只放实心面顶(点击面法线朝上), 草丛等薄块顶不可当支承 */
+  assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, 1, 0).ok, '火把放草地顶面 ok');
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 1, ny: 0, nz: 0}, api.B_TORCH, 1, 0).ok, false,
+      '火把贴侧面 → 拒(thin 只放顶面)');
+  assert.strictEqual(chk({x: 10, y: 25, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, api.B_GRASS_TUFT, 0).ok,
+      false, '草丛(solid:false)顶上放火把 → 拒');
+  /* 树苗: 顶面 + 支承限草地/泥土 */
+  assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 1, 0).ok, '树苗放草地 ok');
+  assert.ok(chk({x: 10, y: 23, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 2, 0).ok, '树苗放泥土 ok');
+  assert.strictEqual(chk({x: 10, y: 22, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 3, 0).ok, false,
+      '树苗放石头上 → 拒');
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 0, nz: 1}, api.B_SAPLING, 1, 0).ok, false,
+      '树苗贴侧面 → 拒');
+  /* 非放置型物品(无 block 方块定义)与无效输入 → 拒 */
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 9999, 1, 0).ok, false,
+      '未注册方块 id → 拒');
+  assert.strictEqual(chk(null, 2, 1, 0).ok, false, '无命中 → 拒');
+});
+
+test('T12 食物回血政策纯函数: advEatPolicy — 钳制上限/满血不吃/腐肉同口径', () => {
+  const pol = A.advEatPolicy;
+  assert.deepStrictEqual(pol(28, 30, 4), {hp: 30, healed: 2, canEat: true}, '回复钳制在 maxHp');
+  assert.deepStrictEqual(pol(10, 30, 4), {hp: 14, healed: 4, canEat: true}, '未满血按 food 全回');
+  assert.strictEqual(pol(30, 30, 4).canEat, false, '满血不饿(canEat=false)');
+  /* 腐肉也走食物口径(儿童版无饥饿 debuff, D7): 注册表 food=2 同一函数消化 */
+  assert.strictEqual(api.ITEMS.rotten_flesh.food, 2, '腐肉注册表 food=2');
+  assert.strictEqual(pol(10, 30, api.ITEMS.rotten_flesh.food).hp, 12, '腐肉回 2 血(同口径)');
+});
+
+test('T12 树苗计时纯函数: advSapDue — dt 递减/到期出清单/未到期留队', () => {
+  const due = A.advSapDue;
+  const map = new Map([
+    ['10,25,10', {x: 10, y: 25, z: 10, left: 0.5}],
+    ['20,25,20', {x: 20, y: 25, z: 20, left: 3}],
+  ]);
+  const out = due(map, 1.0);
+  assert.strictEqual(out.length, 1, '只有到期的进清单');
+  assert.strictEqual(out[0].x, 10, '到期项坐标完整');
+  assert.ok(!map.has('10,25,10'), '到期项移出计时 Map');
+  assert.strictEqual(map.get('20,25,20').left, 2, '未到期递减留队');
+  const out2 = due(map, 2.0);
+  assert.strictEqual(out2.length, 1, '第二轮到期出清单');
+  assert.strictEqual(map.size, 0, 'Map 清空');
+});
+
+/* ---------- 行为链共用: 动态找一块干净的草地(避开树/草丛/小屋), 准星 fake 指向它 ---------- */
+function findGrassSpot() {
+  for (let x = 3; x < 50; x++) {
+    for (let z = 3; z < 50; z++) {
+      if (cell(x, 24, z) === 1 && cell(x, 25, z) === 0 && cell(x, 26, z) === 0) return {x, z};
+    }
+  }
+  throw new Error('找不到干净草地');
+}
+function aimDownAt(spot) {/* 准星 fake: 从 (x,28.5,z) 正下方 → 命中 (x,24,z) 草地 */
+  globalThis.camera = {};
+  globalThis.CameraRig = {aim: () => ({origin: {x: spot.x + 0.5, y: 28.5, z: spot.z + 0.5},
+    dir: {x: 0, y: -1, z: 0}})};
+}
+function clearAim() {
+  delete globalThis.camera;
+  delete globalThis.CameraRig;
+}
+function holdOnly(id, n, dur) {/* 背包清空后只在快捷栏 0 槽放一件并选中 */
+  const inv = A.advGetInv();
+  inv.slots = new Array(api.INV_SLOTS).fill(null);
+  if (id) inv.slots[0] = dur != null ? {id, n: 1, dur} : {id, n};
+  AdventureMode.hotbar.select(0);
+}
+
+test('T12 草丛散布: 确定性 + 只长草地顶 + 密度可发现不铺满(T11 缺口补齐)', () => {
+  mem.clear();
+  freshInit();
+  const tufts = countId(api.B_GRASS_TUFT);
+  assert.ok(tufts >= 250 && tufts <= 1200, '草原上可发现但不铺满: ' + tufts + ' 丛');
+  let onGrass = 0;
+  for (let y = 0; y < H; y++) {
+    for (let z = 0; z < D; z++) {
+      for (let x = 0; x < W; x++) {
+        if (cell(x, y, z) === api.B_GRASS_TUFT) {
+          assert.strictEqual(y, 25, '草丛只在地表上一层(y25)');
+          if (cell(x, 24, z) === 1) onGrass++;
+        }
+      }
+    }
+  }
+  assert.strictEqual(onGrass, tufts, '每丛脚下都是草地(不占沙/水/矿坑)');
+  const again = (freshInit(), countId(api.B_GRASS_TUFT));
+  assert.strictEqual(again, tufts, '重进草丛位置完全复现(确定性散布)');
+});
+
+test('T12 挖掘行为链: 蓄力到点破坏 — 记账/掉落物 spawn/耐久 −1/触屏政策本块即停', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shovel_wood', 1, 120); /* 木锹 matched 草地: 0.6×1.5/2 = 0.45s */
+  const spot = findGrassSpot();
+  aimDownAt(spot);
+  const hit = {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0};
+  AdventureMode.onMouse(0, hit); /* 开始蓄力(准星指住方块按住) */
+  for (let i = 0; i < 2; i++) AdventureMode.update(0.15); /* 0.3s: 不到点 */
+  assert.strictEqual(cell(spot.x, 24, spot.z), 1, '蓄力未满方块还在');
+  assert.ok(A.advMine.t > 0 && A.advMine.t < A.advMine.need, '进度环数据在累积');
+  for (let i = 0; i < 6 && cell(spot.x, 24, spot.z) !== 0; i++) AdventureMode.update(0.15); /* 补满 0.45s(浮点尾差容错) */
+  assert.strictEqual(cell(spot.x, 24, spot.z), 0, '到点破坏(editBlock 挖除)');
+  assert.ok(calls.some((c) => c[0] === 'edit' && c[1] === spot.x && c[2] === 24 && c[3] === spot.z && c[4] === 0),
+      'editBlock 走单块编辑 seam');
+  assert.strictEqual(A.advGetInv().slots[0].dur, 119, '破坏成功工具耐久 −1');
+  assert.ok(globalThis.Drops.list().some((d) => d.id === 'dirt' && d.n === 1),
+      '草地掉落泥土实体 spawn(保底 1)');
+  assert.strictEqual(A.advMine.down, false, '触屏单击政策: 本块完成即停(无按住)');
+  clearAim();
+});
+
+test('T12 挖掘行为链: 掉落物真空拾取 — update 喂玩家胸口点 → onCollect 入包', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shovel_wood', 1, 120);
+  const spot = findGrassSpot();
+  aimDownAt(spot);
+  AdventureMode.onMouse(0, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  for (let i = 0; i < 8 && cell(spot.x, 24, spot.z) !== 0; i++) AdventureMode.update(0.15); /* 破坏 */
+  assert.strictEqual(cell(spot.x, 24, spot.z), 0, '破坏发生(有掉落物可捡)');
+  clearAim();
+  const keep = {x: pos.x, y: pos.y, z: pos.z};
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 0.5; /* 玩家站在掉落物旁 */
+  for (let i = 0; i < 30 && api.count(A.advGetInv(), 'dirt') === 0; i++) {
+    AdventureMode.update(0.05); /* 吸附 → 收集 → onCollect → add 入包 */
+  }
+  assert.strictEqual(api.count(A.advGetInv(), 'dirt'), 1, '泥土捡进背包');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'pick'), '拾取音效');
+  pos.x = keep.x; pos.y = keep.y; pos.z = keep.z; /* 复位共享玩家位 */
+});
+
+test('T12 挖掘行为链: tier 不足 — 徒手/低阶镐挖铁矿只碎不掉 + TTS 节流提示', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('pick_wood', 1, 120); /* 木镐 tier1 < 铁矿 tier2: 慢速 8s 封顶且不掉落 */
+  const spot = findGrassSpot();
+  api.setBlockRaw(spot.x, 24, spot.z, 0); /* 竖井直达铁矿(测试布景) */
+  api.setBlockRaw(spot.x, 23, spot.z, 0);
+  api.setBlockRaw(spot.x, 22, spot.z, api.B_IRON_ORE);
+  globalThis.camera = {};
+  globalThis.CameraRig = {aim: () => ({origin: {x: spot.x + 0.5, y: 24.5, z: spot.z + 0.5},
+    dir: {x: 0, y: -1, z: 0}})};
+  AdventureMode.onMouse(0, {x: spot.x, y: 22, z: spot.z, nx: 0, ny: 1, nz: 0});
+  AdventureMode.update(0.01); /* 首帧锁定目标并算出 breakTime */
+  assert.strictEqual(A.advMine.need, 8, '不匹配 5 倍慢速封顶 8s(breakTime 驱动)');
+  for (let i = 0; i < 17 && cell(spot.x, 22, spot.z) !== 0; i++) AdventureMode.update(0.5); /* 8s 蓄满 */
+  assert.strictEqual(cell(spot.x, 22, spot.z), 0, '可挖(慢) — 破坏照样发生');
+  assert.ok(!globalThis.Drops.list().some((d) => d.id === 'iron_ore'), 'tier 不足不掉落(只碎)');
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '背包没有铁矿石');
+  assert.ok(spoken.some((s) => String(s).indexOf('更硬') >= 0), 'TTS 提示换更硬的镐子');
+  clearAim();
+});
+
+test('T12 耐久政策: damageTool 归零 — remove 清槽 + 安抚 TTS + 观感回落锄头', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shovel_wood', 1, 1); /* 剩 1 耐久: 再挖一块即破板 */
+  const spot = findGrassSpot();
+  aimDownAt(spot);
+  AdventureMode.onMouse(0, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  for (let i = 0; i < 8 && cell(spot.x, 24, spot.z) !== 0; i++) AdventureMode.update(0.15);
+  assert.strictEqual(cell(spot.x, 24, spot.z), 0, '破坏完成');
+  assert.strictEqual(A.advGetInv().slots[0], null, '工具归零消失(remove 清槽)');
+  assert.ok(spoken.some((s) => String(s).indexOf('再做一个') >= 0), '安抚 TTS(零惩罚哲学)');
+  assert.ok(calls.some((c) => c[0] === 'setItem' && c[1] === globalThis.PLAYER.heldItem),
+      '手持观感回落默认锄头');
+  clearAim();
+});
+
+test('T12 放置行为链: 泥土/火把/树苗 — 落点+背包 −1+记账; thin 违规落点 toast 拒绝', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  const hitTop = {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0};
+  holdOnly('dirt', 3);
+  calls.length = 0;
+  AdventureMode.onMouse(2, hitTop);
+  assert.strictEqual(cell(spot.x, 25, spot.z), 2, '泥土放草地顶(实心块贴面)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 2, '背包 −1');
+  assert.ok(calls.some((c) => c[0] === 'edit' && c[4] === 2), '放置记账走 editBlock seam');
+  /* 火把 thin: 放在刚放的泥土顶 ok / 贴侧面拒 */
+  holdOnly('torch', 2);
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0}); /* 泥土块顶面 */
+  assert.strictEqual(cell(spot.x, 26, spot.z), api.B_TORCH, '火把放泥土顶 ok');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '火把 −1');
+  calls.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 1, ny: 0, nz: 0}); /* 贴侧面 → 拒 */
+  assert.ok(!calls.some((c) => c[0] === 'edit'), 'thin 贴侧面不落块');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '被拒不扣物品');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('放不了') >= 0), '拒绝 toast');
+  /* 收拾布景, 树苗放置走干净草地 */
+  api.setBlockRaw(spot.x, 25, spot.z, 0);
+  api.setBlockRaw(spot.x, 26, spot.z, 0);
+  holdOnly('sapling', 1);
+  AdventureMode.onMouse(2, hitTop);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_SAPLING, '树苗放草地顶');
+  assert.strictEqual(A.advSaplings.size, 1, '树苗挂上 20s 计时');
+});
+
+test('T12 树苗生长链: 20s 到期长成树 + 逐块记账 + 重进树还在(计时不落盘不重挂)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('sapling', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advSaplings.size, 1, '计时挂表');
+  for (let i = 0; i < 39; i++) AdventureMode.update(0.5); /* 19.5s: 未到期 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_SAPLING, '19.5s 还是树苗');
+  AdventureMode.update(0.5); /* 20s 到点 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), 5, '长成树干(SceneKit.tree 确定性外观)');
+  assert.ok(cell(spot.x, 26, spot.z) === 5 || cell(spot.x, 26, spot.z) === 7, '树向上长');
+  assert.strictEqual(A.advSaplings.size, 0, '到期移出计时 Map');
+  AdventureMode.cleanup(); /* 落盘 */
+  const saved = JSON.parse(mem.get('adventure_world_save'));
+  const flat = (saved.edits || []).map((e) => e[0]);
+  assert.ok(flat.includes(spot.x + ',25,' + spot.z), '树干格记账(edits 存差异)');
+  freshInit(); /* 重进: 确定性重建 + edits 重放 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), 5, '重进树还在(不靠计时重演)');
+  assert.strictEqual(A.advSaplings.size, 0, '长成的树不再是树苗, 不重挂计时');
+});
+
+test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + 满血不吃不扣', () => {
+  mem.clear();
+  freshInit();
+  A.advGetPEnt().hp = 20;
+  A.ADV.player.hp = 20; /* 账本与实体同源(死亡政策口径) */
+  holdOnly('apple', 2);
+  spoken.length = 0;
+  AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0}); /* 手持食物: 点击=吃, 不蓄力 */
+  assert.strictEqual(A.advGetPEnt().hp, 24, '苹果回 4 血(ITEMS.food)');
+  assert.strictEqual(A.ADV.player.hp, 24, '账本同步(头顶血条重绘依据)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '吃掉 1 个');
+  assert.ok(spoken.some((s) => String(s).indexOf('真好吃') >= 0), 'TTS 吃货播报');
+  assert.strictEqual(A.advMine.down, false, '吃不打断也不开始蓄力');
+  A.advGetPEnt().hp = 30;
+  A.ADV.player.hp = 30; /* 满血 */
+  AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '满血不吃不扣');
 });
