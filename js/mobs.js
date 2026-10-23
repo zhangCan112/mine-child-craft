@@ -5,8 +5,9 @@
    全游戏唯一的怪物实体模块(竞技场与坦克演习场共用):
    · 建模: MOB_RIG 骨架注册表 → (类型×关节槽) InstancedMesh 合批渲染
    · 数值: config.js 的 MOB_TYPES(血量/速度/身高/碰撞半径/旗标)
-   · 本能: 血量/受击(闪白·踉跄·击退)/死亡(倒地沉没)/游荡(wander 可关)
-   interface: spawn / update / render / hit / near / clear /
+   · 本能: 血量/受击(闪白·踉跄·击退)/死亡(倒地沉没; 存活→死亡瞬间逐
+     onDeath 回调报事件, 引擎不解释死因不做掉落)/游荡(wander 可关)
+   interface: spawn / update / render / hit / near / clear / onDeath /
               list / face / hasSlot / gait / stagger / pulseTint / scaleTo /
                debrisColor / spawnable /
                move / shift / setPos / steer / heal / setMaxHp / remove / settle
@@ -805,8 +806,21 @@ const Mobs = (() => {
       MobCore.stepMove(m, kdx/l*0.9*kpow, 0, groundTop);
       MobCore.stepMove(m, 0, kdz/l*0.9*kpow, groundTop);
     }
-    if (r.freshDead) sfx('death');
+    if (r.freshDead) {
+      sfx('death');
+      for (const cb of deathCbs) cb(m);
+    } // 存活→死亡瞬间: 击杀事件只报实体, 死因解释/掉落掷骰归消费方
     return r;
+  }
+
+  /* ---------- 击杀事件(引擎只报不解释): onDeath(cb) 可注册多个回调,
+     hit() 判定存活→死亡的瞬间每个回调恰调一次(参数=怪物实体 m —
+     此时 m.dead 已置位, 位置/类型等字段仍可读); 死因/掉落归模式层
+     (巢穴掉落掷骰走 drops.rollDrops, 引擎不掺和); clear() 清场一并
+     解除注册(切模式页时旧模式的闭包不残留到新场景) ---------- */
+  const deathCbs = [];
+  function onDeath(cb) {
+    deathCbs.push(cb);
   }
 
   /* 圆域查询: 爆炸波及/坦克碾压共用; y+maxDy 给高度差过滤(可选) */
@@ -843,10 +857,12 @@ const Mobs = (() => {
         .sort((a, b) => meta(a.key).order - meta(b.key).order);
   }
 
-  /* 清场: 回收全部(含挂件与名牌)并冲刷批次(菜单/切模式页可用) */
+  /* 清场: 回收全部(含挂件与名牌)并冲刷批次(菜单/切模式页可用);
+     死亡回调一并解除(与实例数组同生命周期, 旧模式闭包不残留) */
   function clear() {
     for (const m of mobList) dispose(m);
     mobList.length = 0;
+    deathCbs.length = 0;
     render();
   }
 
@@ -1199,7 +1215,7 @@ const Mobs = (() => {
     }
   })();
 
-  return {types: MOB_TYPES, spawn, update, render, hit, near, clear,
+  return {types: MOB_TYPES, spawn, update, render, hit, near, clear, onDeath,
     list: ()=>mobList, face, hasSlot, gait, stagger, pulseTint, scaleTo,
     debrisColor, spawnable, families,
     move, shift, setPos, steer, heal, setMaxHp, remove, settle};
