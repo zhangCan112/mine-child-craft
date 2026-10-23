@@ -124,6 +124,23 @@ test('rollBlockDrop 无掉落字段/空表 → 空数组(创造专属方块与�
   eq(h.rollBlockDrop(null, seqRand([])), []);
 });
 
+test('rollBlockDrop 第三参: 剪刀 × shearDrop 掷专属表(D2) · 不传/非剪刀回落默认表', () => {
+  const h = loadDrops();
+  eq(h.rollBlockDrop(h.BLOCKS[7], seqRand([0.0]), {id: 'shears'}),
+      [{id: 'leaves', n: 1}],
+      '剪刀剪树叶 → 掉树叶方块本身(专属表保底 1)');
+  eq(h.rollBlockDrop(h.BLOCKS[7], seqRand([0.11, 0.11, 0.11]), {id: 'shovel_diamond'}),
+      [{id: 'sapling', n: 1}],
+      '非剪刀持具走默认概率表(爆炸/错工具同口径)');
+  eq(h.rollBlockDrop(h.BLOCKS[7], seqRand([0.11, 0.11, 0.11])),
+      [{id: 'sapling', n: 1}],
+      '不传工具(TNT 爆炸路径) → 默认表');
+  eq(h.rollBlockDrop(h.BLOCKS[3], seqRand([0.0]), {id: 'shears'}),
+      [{id: 'cobble', n: 1}],
+      '无 shearDrop 的方块持剪刀 → 照默认表');
+  eq(h.rollBlockDrop(null, seqRand([]), {id: 'shears'}), [], '裸定义/null 持剪刀也不炸');
+});
+
 /* ============ pickupCheck: 2.5 格真空吸附 / 0.6 格收集(三维距离) ============ */
 
 test('pickupCheck 距离边界: 恰 0.6 收集 · 0.6+ 吸附 · 恰 2.5 吸附 · 2.5+ 不理睬', () => {

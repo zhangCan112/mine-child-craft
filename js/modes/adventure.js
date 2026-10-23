@@ -474,6 +474,30 @@ const advSaplings = new Map(); /* 树苗计时 "x,y,z"→{x,y,z,left}; 重进经
 const advMine = {down: false, t: 0, key: '', need: 0, drops: true, swingT: 0}; /* 蓄力状态机 */
 let advMouseHeld = false; /* 桌面按住标志(document mousedown/up 维护): 按住连挖, 触屏单击挖一块 */
 
+/* TNT 短按/按住二分(D3, 挖掘硬度修正): mousedown 只记账不点燃 — 松手
+   <0.25s = 点燃(现状口径), 按住 ≥0.25s = 转蓄力挖走回收(hard 0)。
+   触屏单击天然走「松手」分支(advMouseHeld 恒 false)。 */
+let advTntTap = null; /* {x, y, z, held} | null */
+const ADV_TNT_TAP_T = 0.25; /* 短按窗口(秒) */
+function advTntTapTick(dt) {
+  if (!advTntTap) return;
+  if (ADV.panelOpen || ADV.furnaceOpen) {
+    advTntTap = null; return; /* 面板期取消不点燃 */
+  }
+  advTntTap.held += dt;
+  if (!advMouseHeld) {/* 松手: 短按=点燃(块还在才点), 长按已转蓄力不在此 */
+    if (advTntTap.held < ADV_TNT_TAP_T && getBlock(advTntTap.x, advTntTap.y, advTntTap.z) === B_TNT) {
+      advIgnite(advTntTap.x, advTntTap.y, advTntTap.z);
+    }
+    advTntTap = null;
+    return;
+  }
+  if (advTntTap.held >= ADV_TNT_TAP_T) {/* 按住转蓄力: 挖走回收(准星已移开则蓄力链自清) */
+    advTntTap = null;
+    advMine.down = true;
+  }
+}
+
 /* 准星命中(每帧蓄力判定用): CameraRig.aim 唯一视线入口(nether 先例);
    Node 测试无相机件时返回 null(蓄力链经 onMouse 直测) */
 function advAimHit() {
@@ -508,7 +532,9 @@ function advBreakBlock(x, y, z, id, bt) {
     }
     return;
   }
-  for (const d of rollBlockDrop(BLOCKS[id])) Drops.spawn(d.id, d.n, x + 0.5, y + 0.8, z + 0.5);
+  const held = advInv.slots[advHb.sel];
+  /* 剪刀 × shearDrop 掷专属表(D2); 爆炸路径不传工具走默认表 */
+  for (const d of rollBlockDrop(BLOCKS[id], null, held)) Drops.spawn(d.id, d.n, x + 0.5, y + 0.8, z + 0.5);
   advQuestMine(id, x, y, z); /* T15: 挖到矿记账+钻石首获仪式(只认蓄力挖掘, TNT 链不挂) */
 }
 
@@ -858,7 +884,7 @@ function advFuseTick(dt) {/* 引信倒计时: 顶上火花弧观感 + 到点起�
 function advExplode(x, y, z) {
   const cx = x + 0.5; const cy = y + 0.5; const cz = z + 0.5;
   Fx.boom(cx, cy, cz, {r1: ADV_TNT_R + 1.5, n: 14});
-  editBlock(x, y, z, 0); /* 源块清除(B_TNT 无 hard 字段, 不进圈内判据) */
+  editBlock(x, y, z, 0); /* 源块直接清除不经掷骰(圈内 TNT 链式点燃分支在前, D3) */
   advMarkEdit(x, y, z, 0);
   const r = Math.ceil(ADV_TNT_R);
   for (let dx = -r; dx <= r; dx++) {
@@ -1031,6 +1057,7 @@ const AdventureMode = mkMode({
     advFuses.length = 0;
     advTableNear = false;
     advMineStop(); /* 蓄力状态复位(上次退出可能按住) */
+    advTntTap = null; /* TNT 短按判定复位(上次退出可能按在 TNT 上) */
     advMouseListeners(true); /* 桌面按住连挖检测(capture) */
     advSyncHotbar();
     advWarnLow.clear(); /* S4① 预警账本复位: 新一命重新预警 */
@@ -1075,6 +1102,7 @@ const AdventureMode = mkMode({
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活) */
     advMouseListeners(false);
     advMineStop(); /* 蓄力清零 + 进度环收起 */
+    advTntTap = null; /* TNT 短按判定一并复位 */
     advSaplings.clear(); /* 计时不落盘, 重进经全图扫描重建 */
     advFuses.length = 0; /* 引信不落盘 */
     advStations.clear(); /* 站点缓存重进由 advRescanStations 重建 */
@@ -1095,6 +1123,7 @@ const AdventureMode = mkMode({
     advBagTick(dt); /* 背包快满提醒(S4②): 0.5s 节流查占用槽 */
     advFurnaceTick(dt); /* 烧炼节律常开(面板只是回显), ✕ 关闭对账(T13) */
     advFuseTick(dt); /* TNT 引信倒计时到点起爆(T13, 先于怪物 AI——当帧爆炸位置不漂移) */
+    advTntTapTick(dt); /* TNT 短按/按住判定(D3): 转蓄力需先于 advMineTick 同帧生效 */
     advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */
     advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
     if (ADV.swingCd > 0) ADV.swingCd = Math.max(0, ADV.swingCd - dt); /* 挥击冷却(T14) */
@@ -1110,13 +1139,14 @@ const AdventureMode = mkMode({
     advHpBar.update(advGetPEnt().hp, ADV.player.maxHp, pos.x, pos.y + 2.2, pos.z); /* 头顶血条 */
   },
 
-  onMouse(button, hit) {/* 左键并线(T12×T13×T14): TNT 点击点燃/熔炉走近点击开面板(T13, 准星块
+  onMouse(button, hit) {/* 左键并线(T12×T13×T14): TNT 短按点燃/按住挖走(D3)/熔炉走近点击开面板(T13, 准星块
     精确命中故在最前), 准星锥内有活怪→挥击(T14), 否则吃/挖掘蓄力(T12); 右键放置 */
     if (ADV.panelOpen || ADV.furnaceOpen) return; /* 面板遮罩兜底: 开面板不挖不放不打 */
     if (button === 0) {
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
-      if (lookId === B_TNT) {/* TNT: 手持任意, 点击点燃(T13 拦截在最前——B_TNT 无 hard 不可挖) */
-        advIgnite(hit.x, hit.y, hit.z);
+      if (lookId === B_TNT) {/* TNT(D3): 短按=点燃(松手<0.25s 在 advTntTapTick 判定),
+        按住=蓄力挖走回收 — mousedown 只记账不点燃, 与现状点击点燃逐点一致 */
+        advTntTap = {x: hit.x, y: hit.y, z: hit.z, held: 0};
         return;
       }
       if (lookId === B_FURNACE) {/* 熔炉交互: 走近 4 格点击开面板; 太远只提示不误挖 */
@@ -1206,6 +1236,7 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar, advQuestEl, advQuestPaint,
   advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText,
   advMineStep, advPlaceCheck, advEatPolicy, advSapDue, advMine, advSaplings, advBreakBlock,
+  advGetTntTap: () => advTntTap, advMouseHeldOn, advMouseHeldOff,
   advTryPlace, advGrowTree, advMineStop, advWearHeld,
   advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,
   advTntRoll, advTntDmg, advFurnace, advFurnaceAutoFill, advFurnaceOpenPanel,
