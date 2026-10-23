@@ -238,7 +238,7 @@ function loadFocusDrv(opts) {
   const els = [];
   const timers = [];
   const clsLog = []; // 全局时序 classList 日志(亮灯顺序重建: add('lit') 按 seq 序入账)
-  const log = {mc: [], creeper: [], iconOf: [], mobFace: [], sfx: []};
+  const log = {mc: [], creeper: [], iconOf: [], mobFace: [], pigFace: [], sheepFace: [], sfx: []};
   const spoken = [];
   let seed = opts.seed === undefined ? 12345 : opts.seed;
   const rand = () => { // LCG: 确定性伪随机, 概率断言不抖动
@@ -267,6 +267,15 @@ function loadFocusDrv(opts) {
     creeperFace(dir) {
       log.creeper.push(dir);
       return 'data:creeper:' + (dir < 0 ? 'L' : 'R');
+    },
+    /* F4b 中立头像桩: mobFace 对 pig/sheep 路由到训练营像素库(非怪物库) */
+    pigFace() {
+      log.pigFace.push(1);
+      return 'data:pig';
+    },
+    sheepFace() {
+      log.sheepFace.push(1);
+      return 'data:sheep';
     },
     iconOf(id) {
       log.iconOf.push(id);
@@ -663,8 +672,8 @@ test('flanker neutralRate=1: 两侧全中立生物头像(无方向线索), 中�
   assert.strictEqual(rows.length, 3);
   for (const row of rows) {
     const flankers = row.filter((e) => !e.className.includes('center'));
-    assert.ok(flankers.every((e) => /^data:mob:(pig|sheep)$/.test(e.src)),
-        '两侧全中立头像(猪/羊, 经怪物库单一取图出口): ' + flankers.map((e) => e.src).join(','));
+    assert.ok(flankers.every((e) => /^data:(pig|sheep)$/.test(e.src)),
+        '两侧全中立头像(猪/羊, 经 mobFace 路由到训练营像素库 pigFace/sheepFace): ' + flankers.map((e) => e.src).join(','));
     assert.ok(row.find((e) => e.className.includes('center')).src.startsWith('data:creeper:'),
         '中间仍是苦力怕(方向线索唯一来源)');
   }

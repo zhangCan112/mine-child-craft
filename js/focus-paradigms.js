@@ -14,7 +14,7 @@
    事件缝: handler 可选 h.onTrial({ok, streak}) — 每正式试次恰一次,
    教学演示不计; 维度名由 runFocusLevel 调度层补注(引擎不知道玩法,
    分层红线); 干扰物/宝石图标走 stimIcon(iconOf 优先, mcIcon 兜底),
-   生物头像走 mobFace(怪物库单一出口 seam)
+   生物头像走 mobFace(单一出口 seam: 中立猪/羊=训练营像素库, 混入=怪物库)
    ============================================================ */
 
 /* 语音已归引擎侧 SpeechKit(js/speech.js): 范式引擎只调用 speak/cancel, 不再拥有语音技术
@@ -100,12 +100,15 @@ function stimIcon(name) {
 }
 
 /* ---------- 生物头像取图(单一出口 seam) ----------
-   Flanker 中立行(猪/羊)与混入生物(非苦力怕)共用怪物库 Mobs.face 的
-   16×16 手绘像素头像(64×64 dataURL, 自带缓存); 猪/羊头像由 F4 补画进
-   怪物库, 补画后此处零改自动生效 — 调用期解析(mobs.js 先于本文件加载) */
+   中立行猪/羊走训练营像素库 pigFace/sheepFace(F4b 补画——温中立物不是
+   怪物, 怪物库不收, 引擎层不加游戏里不存在的生物); 混入生物(非苦力怕)
+   仍走怪物库 Mobs.face 的手绘像素头像(自带缓存) — 调用期解析
+   (focus-icons.js/mobs.js 均先于本文件加载, 见 index.html) */
 const NEUTRAL_MOBS = ['pig', 'sheep']; // 中立行: 无方向线索的温和生物
 const MIXER_MOBS = ['zombie', 'skeleton', 'spider', 'slime']; // 混入生物(怪物库已有)
 function mobFace(type) {
+  if (type === 'pig') return pigFace();
+  if (type === 'sheep') return sheepFace();
   if (typeof Mobs !== 'undefined' && Mobs.face) return Mobs.face(type);
   return '';
 }
