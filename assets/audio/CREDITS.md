@@ -144,25 +144,33 @@
 
 ## 4. OpenGameArt BGM 3 首（均入注册表 MUSIC_TRACKS）
 
-- 转码：96k 命令（见公共信息，含 loudnorm）；durMs 以 loudnorm 重转码后文件实测（`ffmpeg -i` Duration 换算毫秒）为准填入 MUSIC_TRACKS——MusicDirector 判曲毕的唯一依据（A3 接口备注②）。重转码后实测时长：crickets 00:03:29.40（209400ms）· the-abyss 00:02:27.20（147200ms）· volcano 00:02:08.10（128100ms）。
+- 转码：96k 命令（见公共信息，含 loudnorm）；durMs 以 loudnorm 重转码后文件实测（`ffmpeg -i` Duration 换算毫秒）为准填入 MUSIC_TRACKS——MusicDirector 判曲毕的唯一依据（A3 接口备注②）。2026-10-23 用户试听反馈原三曲（Crickets / The Abyss / Entering the Volcano，原作者 SpringySpringo 与 Umplix，均已 CC0）「瘆人，给小朋友听要欢快的」，全量下线换为下列三首欢快曲；原文件已删（git 历史可溯），换曲后实测时长：happy-adventure 00:00:46.90（46900ms）· trip-to-mars 00:00:38.40（38400ms）· we-are-prophet 00:00:34.60（34600ms）。
 
-### 4.1「Crickets - General calm ambient music」1 首
+### 4.1「Happy Adventure (Loop)」1 首（calm）
 
-- 作者：SpringySpringo · 发布：2022-11-22 · 许可：CC0（页面明示）
-- 来源：<https://opengameart.org/content/crickets-general-calm-ambient-music>（wav 直链 <https://opengameart.org/sites/default/files/crickets.wav>）
+- 作者：TinyWorlds · 发布：2014-02-04 · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/happy-adventure-loop>（mp3 直链 <https://opengameart.org/sites/default/files/happy_adveture.mp3>，源文件名原文即拼写 adveture）
 
 | 文件 | 曲目名 | 注册表 trackId | mood | 源时长 |
 | --- | --- | --- | --- | --- |
-| bgm-crickets.m4a | Crickets | crickets | calm（主菜单/建造） | 00:03:29.36 |
+| bgm-happy-adventure.m4a | Happy Adventure | happy-adventure | calm（主菜单/建造） | 00:00:46.90 |
 
-### 4.2「Ambience of a Fallen Age」2 首
+### 4.2「Happy Trip To Mars」1 首（dark）
 
-- 作者：Umplix · 发布：2022-04-22 · 许可：CC0（页面明示）
-- 来源：<https://opengameart.org/content/ambience-of-a-fallen-age>（wav 直链见各行）
+- 作者：Pro Sensory（Alex McCulloch）· 发布：2020-08-14 · 许可：CC0（页面明示；作者礼貌性请求署名，此处已记录）
+- 来源：<https://opengameart.org/content/happy-trip-to-mars>（mp3 直链 <https://opengameart.org/sites/default/files/happy_trip_to_mars_0.mp3>）
 
-| 文件 | 曲目名 | 注册表 trackId | mood | wav 直链 |
+| 文件 | 曲目名 | 注册表 trackId | mood | 备注 |
 | --- | --- | --- | --- | --- |
-| bgm-the-abyss.m4a | The Abyss | the-abyss | dark（下界/冒险） | <https://opengameart.org/sites/default/files/the_abyss.wav> |
-| bgm-entering-the-volcano.m4a | Entering the Volcano | volcano | battle（竞技场/坦克） | <https://opengameart.org/sites/default/files/entering_the_volcano.wav> |
+| bgm-trip-to-mars.m4a | Happy Trip To Mars | trip-to-mars | dark（下界/探险——红色异世界配欢快太空曲） | mp3 直链见上方来源行 |
 
-- 备注：同包另两首（A Forgotten World / Ruins of an Ancient Culture）已下载至仓库外临时目录备用，本单按「2~3 首」上限未入库；A10 复核若需换曲可增补并同步本文件。
+### 4.3「We Are Prophet - Happy, Energetic Tune」1 首（battle）
+
+- 作者：TinyWorlds · 发布：2014-01-27 · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/we-are-prophet-happy-energetic-tune>（mp3 直链 <https://opengameart.org/sites/default/files/bu-offensive-birds.mp3>）
+
+| 文件 | 曲目名 | 注册表 trackId | mood | 源时长 |
+| --- | --- | --- | --- | --- |
+| bgm-we-are-prophet.m4a | We Are Prophet | we-are-prophet | battle（竞技场/坦克） | 00:00:34.60 |
+
+- 备注：三曲均为听感标签推断的欢快向选曲（happy/fun/energy），真机复核不满意可再换（OpenGameArt CC0 曲库充足）。
