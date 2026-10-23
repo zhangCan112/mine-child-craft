@@ -235,7 +235,9 @@ globalThis.Fx = {debrisBurst() {
   calls.push(['boom']);
 }, arc() {
   calls.push(['arc']);
-}}; /* T13 爆炸组合/引信火花观感走调用记录 */
+}, pop() {
+  calls.push(['pop']);
+}}; /* T13 爆炸组合/引信火花观感走调用记录; T15 仪式冲击波/烟花再加 pop */
 globalThis.CombatCore = require('../js/combat-core.js'); /* 战斗核心: 真模块(弹道/盒判定是纯函数) */
 globalThis.pos = {x: 61.5, y: 25, z: 76.5, set() {}};
 globalThis.vel = {set() {}};
@@ -1344,4 +1346,232 @@ test('T13 TNT 行为链: 放置 → 空手点击点燃 → 引信延时 → 爆�
   const edits = calls.filter((c) => c[0] === 'edit' && c[4] === 0);
   assert.ok(edits.length >= 10, '半径内方块破坏走 editBlock+记账: ' + edits.length + ' 格');
   assert.ok(globalThis.Drops.list().length >= 1, '70% 掷骰掉落物落地(统计上必有一批)');
+});
+
+/* ============ T15 任务链 12 步 + 仪式感 ============ */
+
+test('T15 QUESTS 数据表: 12 步主线 + 终章 — 步序照设计稿 D11, 形状齐, id 唯一', () => {
+  const qs = A.ADV_QUESTS;
+  assert.strictEqual(qs.length, 13, '12 步主线 + 终章');
+  assert.deepStrictEqual(qs.map((q) => q.id),
+      ['q1_log', 'q2_planks', 'q3_table', 'q4_pick_wood', 'q5_cobble', 'q6_pick_stone',
+        'q7_coal', 'q8_torch', 'q9_iron', 'q10_smelt', 'q11_pick_iron', 'q12_diamond', 'finale'],
+      '步序 = 设计稿 D11 清单(砍树→木板→工作台→木镐→圆石→石镐→煤→火把→铁矿→熔炉铁锭→铁镐→钻石→钻石剑)');
+  assert.strictEqual(qs[12].finale, true, '第 13 条是终章(主线 12 条不带 finale 标记)');
+  assert.ok(qs.slice(0, 12).every((q) => !q.finale), '主线步骤无 finale 标记');
+  qs.forEach((q, i) => {
+    assert.ok(typeof q.id === 'string' && q.id, '步 ' + i + ' 有 id');
+    assert.ok(typeof q.icon === 'string' && q.icon, '步 ' + i + ' 有图标(emoji)');
+    assert.ok(typeof q.goal === 'string' && q.goal, '步 ' + i + ' 有目标文案');
+    assert.ok(q.target >= 1, '步 ' + i + ' target ≥ 1');
+    assert.strictEqual(typeof q.hint, 'string', '步 ' + i + ' 有语音引导');
+    assert.ok(q.hint.length > 0, '步 ' + i + ' 引导非空');
+    assert.strictEqual(typeof q.praise, 'string', '步 ' + i + ' 有完成表扬');
+    assert.ok(q.praise.length > 0, '步 ' + i + ' 表扬非空');
+    assert.strictEqual(typeof q.prog, 'function', '步 ' + i + ' prog 纯函数(进度分子)');
+    assert.strictEqual(typeof q.check, 'function', '步 ' + i + ' check 纯函数(触发谓词)');
+  });
+  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 13, 'id 唯一');
+});
+
+test('T15 谓词逐条: 最小满足触发 / 空账本或差一不触发 / 复合步两条件缺一不可', () => {
+  const qs = A.ADV_QUESTS;
+  const ck = (i, c) => qs[i].check(c);
+  assert.strictEqual(ck(0, {collect_log: 3}), true, '步1: 捡 3 原木 → 达成');
+  assert.strictEqual(ck(0, {collect_log: 2}), false, '步1: 差一根');
+  assert.strictEqual(ck(0, {}), false, '步1: 空账本');
+  assert.strictEqual(ck(1, {craft_planks: 4}), true, '步2: 合成 4 木板(一次手搓即 4)');
+  assert.strictEqual(ck(1, {craft_planks: 3}), false, '步2: 差一块');
+  assert.strictEqual(ck(2, {craft_craft_table: 1, place_craft_table: 1}), true, '步3: 合成+放置');
+  assert.strictEqual(ck(2, {craft_craft_table: 1}), false, '步3: 只合成没放下');
+  assert.strictEqual(ck(2, {place_craft_table: 1}), false, '步3: 只放下不算(文案「合成并放置」)');
+  assert.strictEqual(ck(3, {craft_pick_wood: 1}), true, '步4: 木镐');
+  assert.strictEqual(ck(4, {mine_cobble: 8}), true, '步5: 挖 8 圆石');
+  assert.strictEqual(ck(4, {mine_cobble: 7}), false, '步5: 差一块');
+  assert.strictEqual(ck(5, {craft_pick_stone: 1}), true, '步6: 石镐');
+  assert.strictEqual(ck(6, {mine_coal_ore: 5}), true, '步7: 挖 5 煤');
+  assert.strictEqual(ck(6, {mine_coal_ore: 4}), false, '步7: 差一个');
+  assert.strictEqual(ck(7, {craft_torch: 4}), true, '步8: 合成 4 火把(一次配方即 4)');
+  assert.strictEqual(ck(8, {mine_iron_ore: 5}), true, '步9: 挖 5 铁矿');
+  assert.strictEqual(ck(9, {place_furnace: 1, smelt_iron_ingot: 3}), true, '步10: 放熔炉+烧 3 铁锭');
+  assert.strictEqual(ck(9, {smelt_iron_ingot: 3}), false, '步10: 只烧没放炉不算');
+  assert.strictEqual(ck(9, {place_furnace: 1, smelt_iron_ingot: 2}), false, '步10: 差一块铁锭');
+  assert.strictEqual(ck(10, {craft_pick_iron: 1}), true, '步11: 铁镐');
+  assert.strictEqual(ck(11, {mine_diamond_ore: 3}), true, '步12: 挖 3 钻石');
+  assert.strictEqual(ck(11, {mine_diamond_ore: 2}), false, '步12: 差一颗');
+  assert.strictEqual(ck(12, {craft_sword_diamond: 1}), true, '终章: 合成钻石剑');
+  assert.strictEqual(ck(12, {craft_pick_diamond: 1}), false, '终章: 钻石镐不算(要的是剑)');
+  /* prog 进度分子: 复合步取各条件已得之和, 单条件步钳在 target */
+  assert.strictEqual(qs[2].prog({craft_craft_table: 1}), 1, '步3 prog: 合成半程');
+  assert.strictEqual(qs[9].prog({place_furnace: 1, smelt_iron_ingot: 2}), 3, '步10 prog: 1+2');
+  assert.strictEqual(qs[0].prog({collect_log: 9}), 3, '步1 prog: 超量钳在 target');
+  assert.strictEqual(qs[0].prog({}), 0, '空账本 prog 0');
+});
+
+test('T15 事件计数累计链: 挖→拾取→合成→放置→烧成 五类挂点只 += (与步进解耦)', () => {
+  mem.clear();
+  freshInit();
+  const c = () => A.ADV.quest.counts;
+  /* 挖: 玩家蓄力破坏石头 ×8(掉圆石) — advBreakBlock 挂点 */
+  for (let i = 0; i < 8; i++) A.advBreakBlock(90 + i, 24, 90, 3, {time: 1, drops: true});
+  assert.strictEqual(c().mine_cobble, 8, '挖 8 块石头 → mine_cobble 8');
+  /* 拾取: init 挂的 Drops 收集回调链 — advOnCollect 挂点 */
+  dropsState.cbs[0]('log', 1);
+  dropsState.cbs[0]('log', 2);
+  assert.strictEqual(c().collect_log, 3, '捡原木 1+2 → collect_log 3');
+  /* 合成: advOnCraft 挂点(按产出件数累计) */
+  A.advOnCraft({item: 'planks', n: 4, leftover: 0});
+  assert.strictEqual(c().craft_planks, 4, '合成一次木板 4 件 → craft_planks 4');
+  /* 放置: advTryPlace 成功分支(站点两键) */
+  const spot = findGrassSpot();
+  holdOnly('craft_table', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(c().place_craft_table, 1, '放置工作台 → place_craft_table 1');
+  /* 烧成: advFurnaceTick 产出分支(3 件铁锭 = 7.5s+) */
+  A.advFurnace.input = {id: 'iron_ore', n: 3};
+  A.advFurnace.fuel = {id: 'coal', n: 1};
+  for (let i = 0; i < 170; i++) AdventureMode.update(0.05); /* 8.5s */
+  assert.strictEqual(c().smelt_iron_ingot, 3, '烧成 3 件铁锭 → smelt_iron_ingot 3');
+  /* 未发生的事件不预置键(账本从零长出来) */
+  assert.strictEqual(c().mine_diamond_ore, undefined, '没挖钻石就没有键');
+});
+
+test('T15 不越级: 第 n 步只查第 n 步谓词 — 后期计数全满仍逐级推进(一周期一步)', () => {
+  mem.clear();
+  freshInit();
+  /* 把全部计数一次灌满(模拟玩家把后面的事全提前做了) — 步进仍从第 1 步逐级走 */
+  const c = A.ADV.quest.counts;
+  c.collect_log = 3; c.craft_planks = 4; c.craft_craft_table = 1; c.place_craft_table = 1;
+  c.craft_pick_wood = 1; c.mine_cobble = 8; c.craft_pick_stone = 1; c.mine_coal_ore = 5;
+  c.craft_torch = 4; c.mine_iron_ore = 5; c.place_furnace = 1; c.smelt_iron_ingot = 3;
+  c.craft_pick_iron = 1; c.mine_diamond_ore = 3; c.craft_sword_diamond = 1;
+  AdventureMode.update(0.51); /* 一个节流周期只查当前步一次 */
+  assert.strictEqual(A.ADV.quest.step, 1, '首查只推第 1 步(不直接跳终章)');
+  AdventureMode.update(0.51);
+  assert.strictEqual(A.ADV.quest.step, 2, '逐级推进: 一步一周期');
+});
+
+test('T15 步进链(行为): 捡齐 3 原木 → 表扬 TTS+完成 toast+音效+引导下一步+落盘+任务卡刷新', () => {
+  mem.clear();
+  freshInit();
+  assert.ok(spoken.some((s) => String(s).indexOf('原木') >= 0), '进场欢迎句带第 1 步语音引导(hint 并句, 不 cancel 打断)');
+  spoken.length = 0;
+  calls.length = 0;
+  dropsState.cbs[0]('log', 3); /* 捡齐 3 原木 */
+  AdventureMode.update(0.49); /* 节流窗内 */
+  assert.strictEqual(A.ADV.quest.step, 0, '0.5s 节流窗内不检查(省帧)');
+  AdventureMode.update(0.03); /* 累计过窗 → 查 → 步进 */
+  assert.strictEqual(A.ADV.quest.step, 1, '第 1 步完成步进');
+  assert.ok(spoken.some((s) => String(s).indexOf('原木') >= 0), '表扬 TTS 提及原木');
+  assert.ok(spoken.some((s) => String(s).indexOf('木板') >= 0), '语音引导下一步(木板, 表扬+引导并句)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'level'), '完成音效 level 琶音');
+  assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('完成') >= 0), '完成 toast');
+  assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('新任务') >= 0), '新任务图标 toast');
+  assert.ok(String(A.advQuestEl().innerHTML).indexOf('木板') >= 0, '任务卡刷新显示当前步(木板)');
+  /* 落盘: step+counts 都进 adventure_quest_save */
+  AdventureMode.cleanup();
+  const saved = JSON.parse(mem.get('adventure_quest_save'));
+  assert.strictEqual(saved.step, 1, 'step 落盘');
+  assert.strictEqual(saved.counts.collect_log, 3, 'counts 落盘(中途退出当前步进度不丢)');
+  freshInit();
+  assert.strictEqual(A.ADV.quest.step, 1, '重进恢复 step');
+  assert.strictEqual(A.ADV.quest.counts.collect_log, 3, '重进恢复 counts');
+});
+
+test('T15 老档归一化: {step:N} 无 counts → 补空表当前步从零继续; counts 损坏同样归一', () => {
+  mem.clear();
+  mem.set('adventure_quest_save', JSON.stringify({_v: 1, step: 4})); /* step 0 基: QUESTS[4] = 挖 8 圆石 */
+  freshInit();
+  assert.strictEqual(A.ADV.quest.step, 4, 'step 保留');
+  assert.deepStrictEqual(A.ADV.quest.counts, {}, 'counts 补空表(mkSaveSlot defaults 只补缺失字段)');
+  /* 当前步(挖 8 圆石)从零累计: 历史计数不追溯——玩家挖过什么无法从世界状态重建 */
+  for (let i = 0; i < 8; i++) A.advBreakBlock(80 + i, 24, 80, 3, {time: 1, drops: true});
+  AdventureMode.update(0.55);
+  assert.strictEqual(A.ADV.quest.step, 5, '从零计数照样推进第 5 步(圆石步完成)');
+  /* 损坏 counts(非对象) → init 归一化空表, step 钳在表界 */
+  mem.clear();
+  mem.set('adventure_quest_save', JSON.stringify({_v: 1, step: 99, counts: 3}));
+  freshInit();
+  assert.deepStrictEqual(A.ADV.quest.counts, {}, '损坏 counts 归一空表');
+  assert.strictEqual(A.ADV.quest.step, 13, '越界 step 钳到表外上界(终章完成位)');
+});
+
+test('T15 钻石首获仪式: 首次挖到钻石矿触发一次(专属 TTS+音效+冲击波碎块), 第二颗起不再', () => {
+  mem.clear();
+  freshInit();
+  spoken.length = 0;
+  calls.length = 0;
+  const bt = {time: 1, drops: true};
+  A.advBreakBlock(70, 5, 70, api.B_DIAMOND_ORE, bt);
+  assert.ok(spoken.some((s) => /钻石/.test(String(s)) && /亮晶晶|宝贝|仔细/.test(String(s))),
+      '专属 TTS(夸仔细口径, 不与普通拾取播报同句)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'gem'), '专属音效 gem 琶音');
+  assert.ok(calls.filter((x) => x[0] === 'pop').length >= 2, '双层冲击波球(Fx.pop 现成件, 钻色+金光)');
+  assert.ok(calls.some((x) => x[0] === 'debris'), '钻色碎块(Fx.debrisBurst)');
+  assert.ok(calls.some((x) => x[0] === 'arc'), '金色弧光(Fx.arc)');
+  const pops = calls.filter((x) => x[0] === 'pop').length;
+  const riteTts = spoken.filter((s) => /亮晶晶/.test(String(s))).length;
+  A.advBreakBlock(71, 5, 70, api.B_DIAMOND_ORE, bt);
+  assert.strictEqual(calls.filter((x) => x[0] === 'pop').length, pops, '第二颗不再放仪式(首获专属)');
+  assert.strictEqual(spoken.filter((s) => /亮晶晶/.test(String(s))).length, riteTts, '仪式 TTS 不重播');
+  assert.strictEqual(A.ADV.quest.counts.mine_diamond_ore, 2, '计数照累计(仪式≠记账)');
+  assert.strictEqual(A.ADV.quest.step, 0, '仪式≠步进(第 12 步要凑满 3 颗)');
+});
+
+test('T15 终章: 合成钻石剑 → 「小小探险家」称号+烟花+入档; 只触发一次, 重进不重复', () => {
+  mem.clear();
+  freshInit();
+  A.ADV.quest.step = 12; /* 测试捷径: 直达终章(主线 12 步谓词已由直测覆盖) */
+  spoken.length = 0;
+  calls.length = 0;
+  A.advOnCraft({item: 'sword_diamond', n: 1, leftover: 0});
+  AdventureMode.update(0.55);
+  assert.strictEqual(A.ADV.quest.step, 13, '终章完成(表外 step=13)');
+  assert.strictEqual(A.ADV.quest.title, '小小探险家', '称号写入 quest 账本');
+  assert.ok(spoken.some((s) => String(s).indexOf('小小探险家') >= 0), '称号 TTS');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'win'), '胜利和弦 win');
+  assert.ok(calls.filter((x) => x[0] === 'pop').length >= 4, '四色烟花(Fx.pop 组合)');
+  assert.ok(calls.filter((x) => x[0] === 'debris').length >= 1, '烟花碎块');
+  assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('小小探险家') >= 0), '称号 toast');
+  const pops2 = calls.filter((x) => x[0] === 'pop').length;
+  const titleTts = spoken.filter((s) => String(s).indexOf('小小探险家') >= 0).length;
+  A.advOnCraft({item: 'sword_diamond', n: 1, leftover: 0}); /* 再合成一把 */
+  for (let i = 0; i < 20; i++) AdventureMode.update(0.05);
+  assert.strictEqual(calls.filter((x) => x[0] === 'pop').length, pops2, '烟花不放第二遍');
+  assert.strictEqual(spoken.filter((s) => String(s).indexOf('小小探险家') >= 0).length, titleTts,
+      '称号不重复授予');
+  /* 称号随档: cleanup 落盘 → 重进 step=13 不再触发 */
+  AdventureMode.cleanup();
+  freshInit();
+  spoken.length = 0;
+  calls.length = 0;
+  for (let i = 0; i < 20; i++) AdventureMode.update(0.05);
+  assert.strictEqual(A.ADV.quest.step, 13, '重进 step 保持表外(终章完成)');
+  assert.strictEqual(A.ADV.quest.title, '小小探险家', '称号随档恢复');
+  assert.ok(!spoken.some((s) => String(s).indexOf('小小探险家') >= 0), '重进不重复授予称号');
+  assert.strictEqual(calls.filter((x) => x[0] === 'pop').length, 0, '重进不放烟花');
+});
+
+test('T15 任务卡 UI: 打开背包即见 — 当前步目标+进度, 完成步划线, 称号置顶, 不剧透未来步', () => {
+  mem.clear();
+  freshInit();
+  const html = () => String(A.advQuestEl().innerHTML);
+  assert.ok(html().indexOf('原木') >= 0, '进场任务卡显示第 1 步(原木)');
+  assert.ok(!html().includes('钻石'), '不剧透未来步骤');
+  assert.ok(!html().includes('<s>'), '还没有完成史(无划线区)');
+  AdventureMode.updateHud(null); /* mkMode 把 cfg.hud 包装成 updateHud(写 MK.hud) */
+  assert.ok(String(elCache['hud'].innerHTML).indexOf('任务') >= 0, 'HUD 常驻一行任务进度(免开背包)');
+  /* 推到第 3 步看历史区与进度数字 */
+  A.ADV.quest.step = 2;
+  A.advQuestPaint();
+  assert.ok(/<s>[^]*木板[^]*<\/s>/.test(html()), '已完成步划线(<s> 历史区, 木板在第 2 步)');
+  assert.ok(html().indexOf('工作台') >= 0, '当前步换成工作台');
+  assert.ok(html().indexOf('0 / 2') >= 0, '复合步进度 0 / 2(合成+放置)');
+  /* 终章完成态: 称号置顶 + 自由玩提示 */
+  A.ADV.quest.step = 13;
+  A.ADV.quest.title = '小小探险家';
+  A.advQuestPaint();
+  assert.ok(html().indexOf('小小探险家') >= 0, '称号置顶显示');
+  assert.ok(html().indexOf('自由') >= 0, '全部完成提示(循环出口: 自由玩)');
+  assert.ok(html().indexOf('<s>') >= 0, '全史划线保留');
 });
