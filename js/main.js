@@ -17,6 +17,7 @@ const MODES = {
   build: BuildMode,
   tank: TankRangeMode,
   nether: NetherMode,
+  adventure: AdventureMode,
 };
 MODES.cur = null;
 /* 当前模式 id 只从 MODES.cur 派生 — 不再另持一份需同步的状态 */
