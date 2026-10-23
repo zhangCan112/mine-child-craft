@@ -20,7 +20,7 @@
    依赖应用层的 MODES/onLockChanged — main.js 加载时注入
    Input.route / Input.onLockChange, 未注入时静默(可独立加载)。
    interface: keys/touchMove/touchSprint · Input{route,onLockChange,
-   holdPt,icon} · requestLock/uiPause/setTouchActions/refreshTouchUI
+   holdPt,icon} · requestLock/uiPause/setTouchActions/refreshTouchUI/refreshTouchMain
    依赖(均经全局名, 调用期解析): config.js 的 IS_TOUCH/PLAYER ·
    world.js 的 renderer/yaw/pitch · voxel.js 的 flyMode ·
    camera-rig.js 的 CameraRig · touch-core.js 的 mkTouchGestures ·
@@ -310,9 +310,23 @@ function refreshTouchUI() {
   const down = document.getElementById('touchDown');
   if (down) down.style.display = flyMode ? 'flex' : 'none';
 }
+/* 智能主动作键观感刷新(手持感知, 2026-10-24 拍板): 模式在手持物变化时调用,
+   icon=按钮像素图标工坊键名, label=无障碍名; 主动作键未建/触屏未开 → 静默 */
+function refreshTouchMain(icon, label) {
+  const b = document.querySelector('#touchActs .main');
+  if (!b) return;
+  const url = (icon && Input.icon && Input.icon(icon)) || '';
+  if (url) {
+    b.innerHTML = '<img alt="" draggable="false" src="' + url + '">';
+    b.setAttribute('aria-label', label || icon);
+  } else {
+    b.textContent = label; /* 回落: 文案按钮(图标工坊缺席时) */
+  }
+}
 /* 模式设置动作按钮, 两区分布(用户拍板 2026-10-24):
    · 常用动作条(右缘 #touchActs, 拇指区): [{icon, label, act:fn} | {icon, label, holdAct:fn}]
-     holdAct = 主动作键: 按下=fn() 打/挖起步 + 按住连挖(onHold), 松手=停
+     holdAct = 主动作键: 按下=fn() 打/挖起步 + 按住连挖(onHold), 松手=停;
+      fn 返 false = 一次性动作(mkMainAct 智能分派判为放置), 不进连发
    · 顶部小键区(#touchTop, 低频不占操作区): {icon, label, act:fn, rare: true}
    icon = 按钮像素图标键名(经 Input.icon seam 解析, button-icons.js 工坊);
    label = 无障碍名与像素图缺失时的文案回落。null = 全部隐藏 */
@@ -344,7 +358,10 @@ function setTouchActions(list) {
         try {
           b.setPointerCapture(e.pointerId);
         } catch (_) { }
-        a.holdAct();
+        /* 智能主动作(mkMainAct): 判定为放置时 holdAct 返 false — 一次性动作
+           不进按住连发(一按一放, 用户拍板 2026-10-24 防误连放) */
+        const once = a.holdAct() === false;
+        if (once) return;
         held = true; holdActive = true;
         const M = Input.route;
         if (M && M.cur && M.cur.onHold) M.cur.onHold(true);

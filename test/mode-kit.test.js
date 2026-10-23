@@ -544,6 +544,26 @@ test('init: 无声明的模式安全通过(Node 无 DOM, MK.* 为 null)', () => 
   assert.strictEqual(touchList, null); // touch 缺省 → null 隐藏
 });
 
+/* ============ mkMainAct 智能主动作分派(手持感知, 2026-10-24) ============ */
+
+test('mkMainAct: 手持可放置物 → aimClick(2) 且返 false(一次性放置, 不进连发)', () => {
+  const clicks = [];
+  globalThis.aimClick = (b) => clicks.push(b);
+  const act = ModeKit.mkMainAct(() => true);
+  assert.strictEqual(act(), false); // input.js 据此跳过 onHold 连发(一按一放)
+  assert.deepStrictEqual(clicks, [2]);
+  delete globalThis.aimClick;
+});
+
+test('mkMainAct: 空手/工具/食物 → aimClick(0) 挖打起步, 返回值非 false 进连发', () => {
+  const clicks = [];
+  globalThis.aimClick = (b) => clicks.push(b);
+  const act = ModeKit.mkMainAct(() => false);
+  assert.notStrictEqual(act(), false);
+  assert.deepStrictEqual(clicks, [0]);
+  delete globalThis.aimClick;
+});
+
 /* ============ 出生点与 onVoidFall ============ */
 
 test('spawn 记住出生点, 默认 onVoidFall 回到出生点', () => {

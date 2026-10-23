@@ -183,6 +183,8 @@ globalThis.showToast = (s) => calls.push(['toast', s]);
 globalThis.setTouchActions = (l) => {
   touchList = l;
 };
+globalThis.aimClick = (b) => calls.push(['aimClick', b]); /* 智能主动作(mkMainAct)的路由终点 */
+globalThis.refreshTouchMain = (icon, label) => calls.push(['touchMain', icon, label]); /* 主动作键观感刷新 */
 globalThis.showPage = (id) => calls.push(['showPage', id]);
 globalThis.uiPause = () => calls.push(['uiPause']);
 globalThis.iconOf = () => ''; /* 像素图标工坊未加载: 空串=跳过图标 */
@@ -293,6 +295,7 @@ globalThis.flyMode = false;
 
 const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;
+globalThis.mkMainAct = ModeKit.mkMainAct; /* 智能主动作分派(手持感知): touch 列表顶层即消费 */
 globalThis.ModeKit = ModeKit;
 ModeKit.spawn = (x, y, z, o) => {
   calls.push(['spawn', x, y, z, o]);
@@ -416,6 +419,35 @@ test('探险模式: init 建场 — 草原地层/出生小屋/出生点/快捷�
   assert.ok(!touchList.some((b) => b.hold === 'Space' || b.hold === 'ShiftLeft'),
       '跳跃/下降已收归引擎常驻键(直接触控改造), 模式列表不再自带');
   assert.ok(spoken.some((s) => String(s).indexOf('探险') >= 0 || String(s).indexOf('欢迎') >= 0), '进场欢迎语音');
+});
+
+test('智能主动作(手持感知, 2026-10-24): 拿放置物→aimClick(2)+返 false 不连发; 工具/食物/空手→aimClick(0); 图标随手持刷新', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  const main = touchList[0];
+  assert.strictEqual(typeof main.holdAct, 'function', '主动作键 holdAct 在位');
+  /* 木板: 放置型(ITEMS.block=6) → 放置一次, 不进连发 */
+  inv.slots[0] = {id: 'planks', n: 4};
+  AdventureMode.hotbar.select(0); /* 选中槽 0(advHeldChanged → 图标同步) */
+  assert.strictEqual(A.advMainPlaceable(), true, '手持木板判定可放置');
+  assert.strictEqual(main.holdAct(), false, '放置分支返 false → input.js 跳过 onHold 连发(一按一放)');
+  assert.ok(calls.some((c) => c[0] === 'aimClick' && c[1] === 2), '路由 aimClick(2) 放置/使用链');
+  assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'brick'), '图标切到砖块(放置态)');
+  calls.length = 0;
+  /* 木镐: 工具(非放置) → 挖/打起步, 进连发 */
+  inv.slots[0] = {id: 'pick_wood', n: 1, dur: 120};
+  assert.notStrictEqual(main.holdAct(), false, '挖打分支返回非 false → 进 onHold 连发');
+  assert.ok(calls.some((c) => c[0] === 'aimClick' && c[1] === 0), '路由 aimClick(0) 挖/打链');
+  /* 食物与空手: 0 分支(吃路径在 onMouse(0) 内建, 不回归) */
+  inv.slots[0] = {id: 'apple', n: 1};
+  assert.strictEqual(A.advMainPlaceable(), false, '食物非放置物');
+  inv.slots[0] = null;
+  assert.strictEqual(A.advMainPlaceable(), false, '空手非放置物');
+  /* 背包变动(放光/吃光/拾取)走 advSyncHotbar 的图标同步路径 */
+  calls.length = 0;
+  inv.slots[0] = {id: 'planks', n: 1};
+  A.advSyncHotbar();
+  assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'brick'), 'advSyncHotbar 同步放置态图标');
 });
 
 test('探险模式: 湖 — 水面 + 沙底 + 湖底黏土层(红砖链源头) 2~3 格厚', () => {

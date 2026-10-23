@@ -138,6 +138,20 @@ function advHeldChanged(i) {/* 选中槽: 工具换观感(defs 与物品 id 同�
     Avatar.setItem(PLAYER.heldItem); /* 放置/食物的点击政策归 T12 */
   }
   advHb.refresh();
+  advTouchMainSync();
+}
+function advMainPlaceable() {/* 智能主动作的手持判定(纯 seam, 单测直触): 选中
+   放置型物品(ITEMS.block 字段, D4)才走放置; 空手/工具/武器/食物/材料全走
+   挖/打(探险 onMouse(0) 已内建 TNT→站点→打怪→吃→蓄力 的次序, 无需改) */
+  const s = advInv.slots[advHb.sel];
+  return !!(s && ITEMS[s.id] && ITEMS[s.id].block != null);
+}
+function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/其余=镐,
+   2026-10-24 手持感知拍板); input.js 未加载(桌面/Node 单测)时静默 */
+  if (typeof refreshTouchMain === 'function') {
+    const place = advMainPlaceable();
+    refreshTouchMain(place ? 'brick' : 'pick', place ? '放置' : '挖/打');
+  }
 }
 let advHbSig = '';
 function advSyncHotbar() {/* 背包变动后同步快捷栏: 换物重渲染, 只变数量/耐久走轻刷新 */
@@ -154,6 +168,7 @@ function advSyncHotbar() {/* 背包变动后同步快捷栏: 换物重渲染, �
   if (sig !== advHbSig || changed) advHb.render();
   else advHb.refresh();
   advHbSig = sig;
+  advTouchMainSync(); /* 背包变动可能换了手上物(放光/吃光/拾取), 观感跟进 */
 }
 
 /* ---------- 背包+配方书面板(T10 mkCraftPanel) + 熔炉面板(T13 实例化) ---------- */
@@ -1418,9 +1433,10 @@ const AdventureMode = mkMode({
     ];
   },
 
-  touch: [ /* ⛏️ 主动作键(用户拍板): 有怪打怪/瞄准方块挖掘, 按住连挖;
+  touch: [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2026-10-24): 拿可放置物→放置
+     一次(mkMainAct 返 false 不连发), 空手/工具/食物→打/挖起步+按住连挖;
      🎒🏠 低频 → 顶部小键区, 不占拇指操作区 */
-    {icon: 'pick', label: '挖掘', holdAct: () => aimClick(0)},
+    {icon: 'pick', label: '挖/放', holdAct: mkMainAct(advMainPlaceable)},
     {icon: 'chest', label: '背包', act: () => advPanelToggle(), rare: true},
     {icon: 'house', label: '回家', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
   ],
@@ -1453,7 +1469,7 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText, advOnKill,
   advMineStep, advPlaceCheck, advEatPolicy, advSapDue, advMine, advSaplings, advBreakBlock,
   advCascadeApply, advExplode,
-  advGetTntTap: () => advTntTap, advMouseHeldOn, advMouseHeldOff,
+  advGetTntTap: () => advTntTap, advMouseHeldOn, advMouseHeldOff, advMainPlaceable,
   advTryPlace, advGrowTree, advMineStop, advWearHeld,
   advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,
   advTntRoll, advTntDmg, advFurnace, advFurnaceAutoFill, advFurnaceOpenPanel,

@@ -67,7 +67,7 @@ _Avoid_: fillB / plantTree / fxHash（历史名，已归并）
 _Avoid_: 自适应分辨率（历史名——现在管的是画质档决策）、dprCap/lowFpsStreak（被取代的内联实现）
 
 **触控手势核心（TouchCore）**:
-引擎层纯核心（js/touch-core.js，零 THREE·零 DOM，有单测）：触屏指针流 → tap（轻点=放置/交互，作用于指尖）· drag（拖动=视角）· hold（长按，分类保留防静置手指误判轻点——挖掘/攻击已收进显式 ⛏️ 主动作键，长按当前无动作）三分类状态机，判据=按时长 × 位移阈值，一指一局互不串扰；到点升级（due）由调用方定时询问——纯核心不持定时器。手势底座按 MC 基岩版新触控口径（调研在 docs/mc-touch-controls-research.md，按钮策略经用户 2026-10-24 pinpoint 备注调整）；input.js 把 tap 分发为 aimClick(2) 于触点（CameraRig.holdAim 瞬态注入）。主动作键（holdAct：按下打/挖、按住经 onHold 连挖）与低频键顶部小键区（rare）同在 input.js 的按钮系统里。
+引擎层纯核心（js/touch-core.js，零 THREE·零 DOM，有单测）：触屏指针流 → tap（轻点=放置/交互，作用于指尖）· drag（拖动=视角）· hold（长按，分类保留防静置手指误判轻点——挖掘/攻击已收进显式 ⛏️ 主动作键，长按当前无动作）三分类状态机，判据=按时长 × 位移阈值，一指一局互不串扰；到点升级（due）由调用方定时询问——纯核心不持定时器。手势底座按 MC 基岩版新触控口径（调研在 docs/mc-touch-controls-research.md，按钮策略经用户 2026-10-24 pinpoint 备注调整）；input.js 把 tap 分发为 aimClick(2) 于触点（CameraRig.holdAim 瞬态注入）。主动作键（holdAct：**手持感知智能分派**——手持可放置物按下=放置一次且返 false 不进连发（mode-kit 的 mkMainAct），空手/工具/铲子按下=打/挖起步、按住经 onHold 连挖；图标经 input.js 的 refreshTouchMain 随手持切换镐/铲↔砖块）与低频键顶部小键区（rare）同在 input.js 的按钮系统里。
 _Avoid_: 手势识别器（散称）、把定时器塞进纯核心（到点驱动归调用方）
 
 **相机装置（CameraRig）**:

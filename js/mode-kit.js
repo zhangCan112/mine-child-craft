@@ -25,7 +25,7 @@
    引擎层(world/input)对本文件零依赖; 本文件属应用层
    引导链 v2: mkChestPanel — 大宝箱面板(箱子格/扩容行/背包格, 点选搬运;
      政策与存档在模式层回调, 顶格档隐藏扩容行)
-   interface: mkMode · mkHotbar · mkCraftPanel · mkFurnacePanel ·
+   interface: mkMode · mkHotbar · mkMainAct · mkCraftPanel · mkFurnacePanel ·
               mkChestPanel · mkHpBar · sortInv · spawn · lookName · confirmBtn
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax ·
      inventory-core 的 HOTBAR_SLOTS/costEntry · craft-core 的 RECIPES/
@@ -61,6 +61,22 @@ function lookName(hit) {
   if (!hit) return '无';
   const id = getBlock(hit.x, hit.y, hit.z);
   return BLOCKS[id] ? BLOCKS[id].name : '?';
+}
+
+/* ---------- 主动作键智能分派(2026-10-24 用户拍板: 手持感知) ----------
+   规则全模式统一: placeable() 为真(手持可放置物) → 放置一次并返 false
+   (input.js 据此不进 onHold 连发 — 一按一放, 防误连放); 其余(空手/工具/
+   武器/食物/材料) → 挖/打起步走 aimClick(0), 返 undefined 进按住连挖。
+   MC 口径同构: 拿方块点哪放哪、空手/工具按哪挖哪(docs/mc-touch-controls-
+   research.md §3.9; 手持分派详见 docs/touch-controls-design.md §3.2) */
+function mkMainAct(placeable) {
+  return () => {
+    if (placeable()) {
+      aimClick(2);
+      return false;
+    }
+    aimClick(0);
+  };
 }
 
 /* ---------- hotbar: 三种槽型 {block:id} | {icon,lbl,cnt()} | {item:id}(T10) ----------
@@ -868,6 +884,6 @@ function mkMode(cfg) {
   return mode;
 }
 
-const ModeKit = {mkMode, mkHotbar, mkCraftPanel, mkFurnacePanel, mkChestPanel, mkHpBar, sortInv,
+const ModeKit = {mkMode, mkHotbar, mkMainAct, mkCraftPanel, mkFurnacePanel, mkChestPanel, mkHpBar, sortInv,
   spawn: kitSpawn, lookName, confirmBtn};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;
