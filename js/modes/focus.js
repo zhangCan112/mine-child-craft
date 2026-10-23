@@ -195,8 +195,9 @@ function settleFocusStamps(save, day, played) {
 
 function focusStampAwardHtml(lines) { // 集章授予仪式块: 村长喝彩 + 观感奖励声明
   if (!lines || !lines.length) return '';
-  const items = lines.map((line)=>'<div>🎖️ ' + FOCUS_STAMP_REWARD_TEXT[stampRewardFor(line)] + '</div>').join('');
-  return '<div class="f-award"><img class="f-award-chief" draggable="false" alt="村长" src="' + chiefFace('cheer') + '">' +
+  const items = lines.map((line) => '<div>🎖️ ' + FOCUS_STAMP_REWARD_TEXT[stampRewardFor(line)] + '</div>').join('');
+  return '<div class="f-award"><img class="f-award-chief" draggable="false" alt="村长" src="' +
+      chiefFace('cheer') + '">' +
       '<div class="f-award-text"><b>集齐 ' + lines[lines.length-1] + ' 枚图章啦！</b>' + items + '</div></div>';
 }
 
@@ -562,7 +563,9 @@ function showFocusAward(ids, after) {
   const queue = ids.slice();
   const step = () => {
     const id = queue.shift();
-    if (!id) { after(); return; }
+    if (!id) {
+      after(); return;
+    }
     const name = ITEMS[id] ? ITEMS[id].name : '新工具';
     focusScreen(`
       <div class="f-screen f-award">
@@ -719,17 +722,17 @@ function beginFocusCheck() {
   };
   focusCtrl = runFocusLevel({kind: 'check', dim: 'switch', sections: FOCUS_CHECK_PARAMS},
       document.getElementById('fArea'), {
-    progress(k, n) {
-      const bar = document.getElementById('fProg');
-      if (bar) bar.style.width = Math.round(k/Math.max(1, n)*100) + '%';
-    },
-    showRule(dim) {
-      SpeechKit.speak(FOCUS_META[dim].rule);
-    },
-    end(st) {
-      onCheckEnd(st);
-    },
-  }, 0);
+        progress(k, n) {
+          const bar = document.getElementById('fProg');
+          if (bar) bar.style.width = Math.round(k/Math.max(1, n)*100) + '%';
+        },
+        showRule(dim) {
+          SpeechKit.speak(FOCUS_META[dim].rule);
+        },
+        end(st) {
+          onCheckEnd(st);
+        },
+      }, 0);
 }
 
 function onCheckEnd(st) {
@@ -799,7 +802,9 @@ function beginDevilRun(dim, tier) {
   };
   devilRun = run;
   /* 5 分钟硬顶: 到点只立标志, 不打断 — 当前小节打完(end 回调)才强制结束(B8) */
-  run.deadlineId = setTimeout(()=>{ run.deadlineHit = true; }, FOCUS_DEVIL_TIME_MS);
+  run.deadlineId = setTimeout(()=>{
+    run.deadlineHit = true;
+  }, FOCUS_DEVIL_TIME_MS);
   run.tickId = setInterval(()=>{ // 倒计时显示 + 时间进度条; 结算屏切走后自愈退出
     const el = document.getElementById('fDevilTimer');
     if (!el) {
@@ -821,22 +826,22 @@ function devilRound(run, t0) {
   const params = devilParams(run.dim, run.tier);
   focusCtrl = runFocusLevel({kind: 'normal', dim: run.dim, params},
       document.getElementById('fArea'), {
-    progress() {}, // 进度条由 5 分钟时间驱动, 不按试次
-    showRule() {
-      SpeechKit.speak(FOCUS_META[run.dim].rule);
-    },
-    end(st) {
-      run.agg.trials += st.trials; run.agg.correct += st.correct;
-      run.agg.rts.push(...st.rts);
-      run.agg.goTrials += st.goTrials||0; run.agg.hits += st.hits||0;
-      run.agg.maxStreakErr = Math.max(run.agg.maxStreakErr, st.maxStreakErr);
-      run.agg.valveCount += st.valveCount;
-      run.agg.rounds++;
-      if (run.stopped) return;
-      if (run.deadlineHit || Date.now() - t0 >= FOCUS_DEVIL_TIME_MS) settleDevilRun(false); // 到点: 小节打完即止
-      else devilRound(run, t0);
-    },
-  }, 0);
+        progress() {}, // 进度条由 5 分钟时间驱动, 不按试次
+        showRule() {
+          SpeechKit.speak(FOCUS_META[run.dim].rule);
+        },
+        end(st) {
+          run.agg.trials += st.trials; run.agg.correct += st.correct;
+          run.agg.rts.push(...st.rts);
+          run.agg.goTrials += st.goTrials||0; run.agg.hits += st.hits||0;
+          run.agg.maxStreakErr = Math.max(run.agg.maxStreakErr, st.maxStreakErr);
+          run.agg.valveCount += st.valveCount;
+          run.agg.rounds++;
+          if (run.stopped) return;
+          if (run.deadlineHit || Date.now() - t0 >= FOCUS_DEVIL_TIME_MS) settleDevilRun(false); // 到点: 小节打完即止
+          else devilRound(run, t0);
+        },
+      }, 0);
 }
 
 /* 结算/中断统一入口: manual=孩子按 ⬅️ 中途退出。打过 ≥1 小节即算当日已训

@@ -55,7 +55,8 @@ const FOCUS_META = {
   corsi: {name: '视空记忆', game: '钻石闪闪光', icon: mcIco('diamond'),
     rule: '看清楚宝石亮的顺序，再按一样的顺序点回去。',
     tip(p) {
-      let s = '要记住 ' + p.len + ' 个' + (p.gem === 'gold_ingot' ? '金锭' : '钻石') + '亮的顺序' + (p.grid===16 ? '，格子也变成 4×4 了' : '') + '。';
+      let s = '要记住 ' + p.len + ' 个' + (p.gem === 'gold_ingot' ? '金锭' : '钻石') + '亮的顺序' +
+          (p.grid === 16 ? '，格子也变成 4×4 了' : '') + '。';
       if (p.lenMix > 0) s += '有时候会少亮一个，别担心，记住亮过的顺序就好！';
       if (p.antiChunk > 0) s += '格子还会换位置排，别想着只记位置哦！';
       return s;
@@ -213,7 +214,7 @@ const FOCUS_LOOT_STREAK = 3; // 保底节拍: 连对每满 3 次掷稀有池
 
 function mkLootRand(seed) {
   let s = seed;
-  return function () {
+  return function() {
     s = (s*1103515245 + 12345) % 2147483648;
     return s/2147483648;
   };
@@ -222,7 +223,7 @@ function mkLootRand(seed) {
 /* 骰值落累积区间取件(池概率和=1 由既有测试锁死); 浮点尾差兜底最后一键 */
 function pickLootWeighted(pool, r) {
   let acc = 0;
-  for (const id in pool) {
+  for (const id of Object.keys(pool)) {
     acc += pool[id];
     if (r < acc) return id;
   }
@@ -346,7 +347,7 @@ function trimFocusLog(log, today, keepDays) {
   const out = {};
   if (!log) return out;
   const t0 = focusDayIndex(today);
-  for (const k in log) {
+  for (const k of Object.keys(log)) {
     const diff = t0 - focusDayIndex(k);
     if (diff < keepDays) out[k] = log[k]; // NaN(损坏键)与未来日期 diff<0 均保留
   }
@@ -373,7 +374,7 @@ function checkBaseline(checks, today) {
   const t0 = focusDayIndex(today);
   if (!Number.isFinite(t0) || !checks) return undefined;
   let sum = 0; let n = 0;
-  for (const k in checks) {
+  for (const k of Object.keys(checks)) {
     const diff = t0 - focusDayIndex(k);
     if (diff >= 1 && diff <= 7 && checks[k] && typeof checks[k].acc === 'number') {
       sum += checks[k].acc; n++;
