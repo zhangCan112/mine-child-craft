@@ -19,11 +19,12 @@
    F8 增: 每日体检(五维连跑→探险家火苗, 计时长不占额度)与魔鬼特训(单维轮换
    挑战档 5 分钟硬顶, 计 2 关额度; 鬼等级双阈进退零扣损) — 决策纯函数在
    js/focus-levels.js, 本文件只做流程装配与应用层文案;
-   F5 增: 矿袋战利品回路 — onTrial 逐试次掷骰入共享背包(教学关豁免,
-   体检/魔鬼特训不挂回调天然免), 矿袋 HUD 槽位飞入(贝塞尔弧线观感归
-   css/focus.css), 结算屏战利品列队回顾, 满包每关至多一次「背包满啦」
-   toast; 掉落政策纯函数(rollFocusLoot/levelBonusLoot/grantFocusLoot)
-   在 js/focus-levels.js(可单测), 本文件只做流程装配与观感
+   F5 增·奖励调优(2026-10): 矿袋战利品回路 — onTrial 逐试次段位掷骰入共享
+   背包(教学关豁免, 体检/魔鬼特训不挂回调天然免; 幅度/品质随关卡 tier 分四
+   段递增, 见 docs/focus-reward-tuning-design.md), 矿袋 HUD 槽位飞入(贝塞尔
+   弧线观感归 css/focus.css), 结算屏战利品列队回顾, 满包每关至多一次
+   「背包满啦」toast; 掉落政策纯函数(rollFocusLoot/levelBonusLoot/
+   grantFocusLoot)在 js/focus-levels.js(可单测), 本文件只做流程装配与观感
 ============================================================ */
 
 /* ---------- 过程性表扬 / 中性安慰 (夸努力不夸聪明, Mueller & Dweck 1998) ----------
@@ -73,11 +74,13 @@ const focusBag = Backpack.mkBackpack();
    focusLootSession: 本关入包明细 {id: n}(结算回顾与 HUD 计数的唯一数据源);
    focusBagFullSaid: 满包 toast 每关至多一次(政策在 grantFocusLoot 纯函数,
    toast 节流在此); focusStreakChimes: 连对琶音每关至多 3 次防轰炸;
-   focusLastTap: 最近一次点击坐标 — 战利品飞行起点(复刻 drops 真空吸附,
-   引擎事件缝不带 DOM 信息, 模式层自记) */
+   focusLootDry: 关内连续答对未掉计数(奖励调优干燥兜底, 答错/掉落即清零,
+   达阈值由纯函数必得, 防整关空手挫败); focusLastTap: 最近一次点击坐标 —
+   战利品飞行起点(复刻 drops 真空吸附, 引擎事件缝不带 DOM 信息, 模式层自记) */
 let focusLootSession = null;
 let focusBagFullSaid = false;
 let focusStreakChimes = 0;
+let focusLootDry = 0;
 let focusLastTap = null;
 
 /* 每日预算(每日关数/时长)记在 js/daily-budget.js 的 focus 预算里(main.js setupBudgets 建立) */
@@ -391,10 +394,11 @@ function startFocusLevel(i) {
   document.getElementById('fGoBtn').onclick = ()=> beginFocusRun(level);
 }
 
-/* ---------- 矿袋战利品回路(F5, 设计稿 §3 L3/L5): 政策纯函数的流程装配 ----------
-   onTrial → 连对显示(教学关照常, 零压力正反馈) + 掷骰(rollFocusLoot 内拦
-   教学关/错误试次) → grantFocusLoot 入包 + save → 飞入 HUD 槽位;
-   结算奖励(levelBonusLoot)在 onFocusLevelEnd 发放并入回顾列队 */
+/* ---------- 矿袋战利品回路(F5 起源 → 奖励调优 2026-10): 政策纯函数的流程装配 ----------
+   onTrial → 连对显示(教学关照常, 零压力正反馈) + 段位掷骰(rollFocusLoot
+   内拦教学关/错误试次; 掉率与品质查 FOCUS_REWARD_STAGES, dry 达阈值必得)
+   → grantFocusLoot 入包 + save → 飞入 HUD 槽位; 结算奖励(levelBonusLoot
+   按段位展开)在 onFocusLevelEnd 发放并入回顾列队 */
 
 /* 连对显示: ⛏️×N 挂 .f-streak(F9 备好样式与 .bump 弹跳), streak≥2 才显示;
    琶音 sfx('level') 每关至多 3 次防轰炸 */
@@ -433,11 +437,13 @@ function grantFocusLootIntoBag(ids) {
   return res;
 }
 
-/* 逐试次事件(F2 契约 {ok, streak, dim}): 维度取事件补注值(master 关每小节
-   各归各的池), kind 传给纯函数拦教学关豁免 */
+/* 逐试次事件(F2 契约 {ok, streak, dim}): dim 取事件补注值(master 关每小节
+   各归各的试次归一), kind 由 rollFocusLoot 读 level 拦教学关豁免;
+   dry 计数: 答对未掉 +1, 掉落/答错清零(干燥兜底政策在纯函数) */
 function onFocusTrialLoot(level, t) {
   updateFocusStreak(t.streak);
-  const id = rollFocusLoot(t.dim || level.dim, {ok: t.ok, streak: t.streak, kind: level.kind});
+  const id = rollFocusLoot(level, {ok: t.ok, dry: focusLootDry, dim: t.dim});
+  focusLootDry = id ? 0 : (t.ok ? focusLootDry + 1 : 0);
   if (!id) return;
   if (grantFocusLootIntoBag([id]).granted.length) flyFocusLoot(id, focusLastTap);
 }
@@ -519,10 +525,12 @@ function runFocusLootRecap() {
 
 function beginFocusRun(level) {
   startFocusTicker();
-  /* F5 矿袋会话状态: 每关一份新明细 / 满包 toast 与琶音节流计数 / 飞行起点 */
+  /* F5 矿袋会话状态: 每关一份新明细 / 满包 toast 与琶音节流计数 / 飞行起点
+     / 干燥计数(奖励调优) */
   focusLootSession = {};
   focusBagFullSaid = false;
   focusStreakChimes = 0;
+  focusLootDry = 0;
   focusLastTap = null;
   const meta = FOCUS_META[level.dim];
   const kindTag = level.kind==='tutorial' ? '· 教学' :
@@ -603,9 +611,9 @@ function onFocusLevelEnd(level, st) {
   /* F6 里程碑: 越线即授予(历史已落账, focusProgress 可见刚通关的一关);
      记账进 tools 字段(选型 B 不进背包), 仪式排在星屏之后(见 proceed) */
   const award = passed ? focusGrantMilestones(save) : [];
-  /* F5 结算奖励: 通关 torch|apple 二选一 + 三星 +1 钻石(levelBonusLoot 内
-     拦教学关/未通过); 入包后进本关明细, 与关内掉落一起列队回顾 */
-  const bonus = passed ? levelBonusLoot(passed, stars, {kind: level.kind}) : [];
+  /* F5 结算奖励(庆祝层): 按段位表展开 bonus + 三星追加(levelBonusLoot 内
+   拦教学关/未通过); 入包后进本关明细, 与关内掉落一起列队回顾 */
+  const bonus = passed ? levelBonusLoot(passed, stars, level) : [];
   if (bonus.length) grantFocusLootIntoBag(bonus);
   const praise = level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine();
 
