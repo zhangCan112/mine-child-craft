@@ -111,8 +111,9 @@ flowchart TD
 
 ## 第二波
 
-### T5 背包核心（inventory-core）`[ ]`
+### T5 背包核心（inventory-core）`[x]`（并入 `823594a`）
 - 依赖：T1。
+- 接口备注：HOTBAR_SLOTS=9/MAIN_SLOTS=18/INV_SLOTS=27 已导出；函数就地修改 inv；damageTool 返 0=破板信号（消失政策在模式层，接线后记得 remove）；serialize 直产 {_v:1,slots} 喂 mkSaveSlot('inventory_save')；任选材料 cost 形态 [['coal','charcoal'],1] 按候选顺序扣。
 - 交付：`js/inventory-core.js`——27 槽模型（9 快捷+18 主格）+ 纯函数 `add/count/canAfford/take/remove/damageTool/serialize/deserialize`（add 优先并堆→首个空位，满则拒收返回余量；canAfford 支持任选材料数组扣料边界）。
 - 测试：`test/inventory-core.test.js`——并堆/满拒/跨槽扣料/耐久归零/序列化往返。
 - 先例：`test/tank-core.test.js` 的 vm 加载（需连 items-core 一起 load）。
@@ -122,8 +123,10 @@ flowchart TD
 - 交付：`js/craft-core.js`——`RECIPES`（设计稿 §3.2 一期全表：手搓 4 条 + 工作台级 20 条左右 + 补给包石砖/红砖/剪刀 + TNT；面包/骨粉注册但不点亮说明写注释）+ `SMELTS` + `FUEL` + 纯函数 `canCraft(inv, recipe, unlocked)→{ok,missing} / craft / fuelUnits / smeltOf / breakTime(blockDef, toolDef)`（公式与封顶见设计稿 §3.4）。
 - 测试：`test/craft-core.test.js`——缺失清单、扣料产物、任选材料（煤/木炭）、热值、烧炼映射、破坏时间（徒手石头 7.5s、封顶 8s、下限 0.15s、tier 门槛）。
 
-### T7 掉落物实体库（drops）`[ ]`
+### T7 掉落物实体库（drops）`[x]`（并入 `749f880` + 集成校正）
 - 依赖：T1、T2。
+- 集成校正：树叶掉落改**概率无保底**（T2 数据保底误写 1 → 每叶必得三件，按 D7 改 `[0,0.12/0.04/0.08]`，配置+两处测试同步）。
+- 接口备注：update(dt, playerPos) 传玩家胸口点；onCollect 返 false=拒收→掉落物 1.2s 冷却重试（背包满 toast 挂拒收分支）；clear() 解除回调（T14 在模式 init 里重挂）；链路 onDeath(m)→rollDrops(m.type)→spawn；未收录怪种返 []。
 - 交付：`js/drops.js` 引擎壳——顶层纯函数段：`rollDrops(type)`（读 MOB_DROPS 掷骰，种子可注入）+ `rollBlockDrop(blockDef)`（保底+概率）+ 拾取距离判定；壳段：`spawn/update/render/clear/list/onCollect`（像素图标 Sprite 一期可用 emoji canvas 过渡——图标函数签名按 `iconOf(itemId)` 收口，T8 接管后自动换脸；落地弹跳、2.5 格真空吸附、3 分钟消失）。
 - 测试：`test/drops.test.js`——掷骰种子化断言（保底必得/概率边界）、**交叉断言：MOB_DROPS 与 BLOCKS.drop 引用的物品 id 必须全部在 ITEMS 注册**（防改表漏改注册）。
 - 声明加载位置：mobs.js 之后。

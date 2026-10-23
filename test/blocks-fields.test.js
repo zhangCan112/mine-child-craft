@@ -140,8 +140,8 @@ test('关键掉落口径: 石掉圆石/草掉泥土/树叶三概率 12%-4%-8%/�
   assert.deepEqual(c.BLOCKS[3].drop, [['cobble', 1, 0]], '石头掉圆石');
   assert.deepEqual(c.BLOCKS[1].drop, [['dirt', 1, 0]], '草地掉泥土(MC 口径)');
   assert.deepEqual(c.BLOCKS[7].drop,
-      [['sapling', 1, 0.12], ['apple', 1, 0.04], ['stick', 1, 0.08]],
-      '树叶: 树苗 12%/苹果 4%/木棍 8%(MC 5%/0.5%/2% 儿童加倍, 附录 B)');
+      [['sapling', 0, 0.12], ['apple', 0, 0.04], ['stick', 0, 0.08]],
+      '树叶概率掉落无保底: 树苗 12%/苹果 4%/木棍 8%(设计稿 D7, MC 儿童加倍)');
   assert.deepEqual(c.BLOCKS[c.B_CLAY].drop, [['clay_ball', 4, 0]], '黏土块掉 4 黏土球(红砖链源头)');
   assert.deepEqual(c.BLOCKS[c.B_GRASS_TUFT].drop, [['wheat_seeds', 0, 0.5]], '草丛: 无保底, 50% 掉种子');
   assert.deepEqual(c.BLOCKS[c.B_WHEAT_3].drop,
@@ -200,10 +200,12 @@ test('MOB_DROPS 结构: rolls=[itemId,保底,加成次数], rare=[itemId,概率]
       assert.ok(Number.isInteger(e[1]) && e[1] >= 1, '保底至少 1(儿童配平: 不空手)');
       assert.ok(Number.isInteger(e[2]) && e[2] >= 0, '加成掷骰次数应为非负整数');
     }
-    if (d.rare) for (const e of d.rare) {
-      assert.strictEqual(typeof e[0], 'string');
-      assert.ok(e[0].length > 0, '稀有掉落物 id 应非空');
-      assert.ok(typeof e[1] === 'number' && e[1] > 0 && e[1] <= 1, '稀有概率应在 0~1');
+    if (d.rare) {
+      for (const e of d.rare) {
+        assert.strictEqual(typeof e[0], 'string');
+        assert.ok(e[0].length > 0, '稀有掉落物 id 应非空');
+        assert.ok(typeof e[1] === 'number' && e[1] > 0 && e[1] <= 1, '稀有概率应在 0~1');
+      }
     }
   }
   assert.deepEqual(c.MOB_DROPS.zombie.rare, [['iron_ingot', 0.05]],

@@ -1,0 +1,256 @@
+'use strict';
+/* 贴图图集 (js/texture-atlas.js) 单测 — node --test (零依赖)
+   运行: node --test test/texture-atlas.test.js
+   加载器与 mesh-core.test.js 同惯例: config.js + texture-atlas.js
+   (+ mesh-core.js, 接线段) 依序共享词法环境。
+   被测 seam: TextureAtlas.layout(布局唯一权威, MeshCore opts.atlas 载荷) /
+   paintAll(确定性像素纯函数) / tileUV(格→UV 矩形) /
+   makeCanvas(doc 桩注入 — mode-kit.test.js 先例)。 */
+const test = require('node:test');
+const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+function loadAtlas() {
+  const ctx = vm.createContext({console});
+  for (const f of ['config.js', 'texture-atlas.js', 'mesh-core.js']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
+  }
+  vm.runInContext(
+      'globalThis.__t = { TextureAtlas, MeshCore, BLOCKS,' +
+      ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING };', ctx);
+  return ctx.__t;
+}
+
+/* 布局条目 → 该方块引用的全部格号(number 简写=全格同图) */
+function tileSet(t, id) {
+  const e = t.TextureAtlas.layout.tiles[id];
+  assert.ok(e, '方块 ' + id + '(' + (t.BLOCKS[id] ? t.BLOCKS[id].name : '?') + ') 应在图集布局中');
+  return typeof e === 'number' ? [e] : [e.top, e.side, e.bottom];
+}
+
+/* 全部被引用的格号去重 */
+function usedTiles(t) {
+  const out = new Set();
+  for (const id in t.TextureAtlas.layout.tiles) {
+    for (const idx of tileSet(t, id)) out.add(idx);
+  }
+  return out;
+}
+
+/* 从整图像素里抠出某格的 16×16 像素(网格布局: idx 行优先) */
+function tilePixels(t, all, idx) {
+  const L = t.TextureAtlas.layout; const T = 16;
+  const c = idx % L.cols; const r = Math.floor(idx / L.cols);
+  const out = [];
+  for (let y=0; y<T; y++) {
+    for (let x=0; x<T; x++) {
+      const o = (((r*T+y)*L.cols*T) + c*T + x) * 4;
+      out.push([all.pixels[o], all.pixels[o+1], all.pixels[o+2], all.pixels[o+3]]);
+    }
+  }
+  return out;
+}
+
+/* ============ 布局 · 覆盖面 ============ */
+
+test('布局: 新方块 36~50 每个都有格子且格号合法(未入集方块走纯色兜底)', () => {
+  const t = loadAtlas();
+  const count = t.TextureAtlas.count;
+  for (let id=36; id<=50; id++) {
+    assert.ok(t.BLOCKS[id], 'id ' + id + ' 应在 BLOCKS 注册');
+    for (const idx of tileSet(t, id)) {
+      assert.ok(Number.isInteger(idx) && idx >= 0 && idx < count,
+          '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
+    }
+  }
+});
+
+test('布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格)', () => {
+  const t = loadAtlas();
+  for (let id=1; id<=8; id++) tileSet(t, id); // 逐个断言在集
+  const grass = t.TextureAtlas.layout.tiles[1];
+  const log = t.TextureAtlas.layout.tiles[5];
+  assert.notStrictEqual(grass.top, grass.side, '草地顶(绿斑)与侧(草沿泥壁)应分格');
+  assert.notStrictEqual(log.top, log.side, '木头顶(年轮)与侧(树皮)应分格');
+});
+
+test('布局: 图集画布为正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)', () => {
+  const t = loadAtlas();
+  const all = t.TextureAtlas.paintAll();
+  assert.strictEqual(all.w, all.h);
+  assert.strictEqual(all.w & (all.w - 1), 0, all.w + ' 应为 2 的幂');
+  assert.strictEqual(all.pixels.length, all.w * all.h * 4);
+});
+
+/* ============ UV · 不越界不重叠 ============ */
+
+test('UV: 每个被引用的格 tileUV 落在 [0,1] 且两两不重叠', () => {
+  const t = loadAtlas();
+  const L = t.TextureAtlas.layout;
+  const rects = new Map();
+  for (const idx of usedTiles(t)) {
+    const r = t.TextureAtlas.tileUV(idx);
+    const [u0, v0, u1, v1] = r;
+    assert.ok(u0 >= 0 && v0 >= 0 && u1 <= 1 && v1 <= 1 && u0 < u1 && v0 < v1,
+        '格 ' + idx + ' 矩形应落在 [0,1]: ' + r);
+    assert.ok(Math.abs((u1-u0) - 1/L.cols) < 1e-12 && Math.abs((v1-v0) - 1/L.rows) < 1e-12,
+        '格 ' + idx + ' 应恰占一格(宽 1/cols 高 1/rows)');
+    rects.set(idx, r);
+  }
+  for (const [a, ra] of rects) {
+    for (const [b, rb] of rects) {
+      if (a >= b) continue;
+      const sep = ra[2] <= rb[0] || rb[2] <= ra[0] || ra[3] <= rb[1] || rb[3] <= ra[1];
+      assert.ok(sep, '格 ' + a + ' 与 ' + b + ' 不应重叠');
+    }
+  }
+});
+
+/* ============ 确定性 · 逐像素一致 ============ */
+
+test('确定性: 两次生成逐像素一致(噪点/斑点用种子化伪随机, 同 seed 同图)', () => {
+  const t = loadAtlas();
+  const a = t.TextureAtlas.paintAll();
+  const b = t.TextureAtlas.paintAll();
+  assert.strictEqual(a.pixels.length, b.pixels.length);
+  for (let i=0; i<a.pixels.length; i++) {
+    assert.strictEqual(a.pixels[i], b.pixels[i], '偏移 ' + i + ' 应逐像素一致');
+  }
+});
+
+test('像素: 每个被引用格至少有一个非透明像素; 植物类有透明像素(alpha 裁切前提)', () => {
+  const t = loadAtlas();
+  const all = t.TextureAtlas.paintAll();
+  const alphaStats = (idx)=>{
+    let opaque = 0; let hole = 0;
+    for (const p of tilePixels(t, all, idx)) {
+      if (p[3] === 255) opaque++; else if (p[3] === 0) hole++;
+    }
+    return {opaque, hole};
+  };
+  for (const idx of usedTiles(t)) {
+    const s = alphaStats(idx);
+    assert.ok(s.opaque > 0, '格 ' + idx + ' 不该全透明(手滑空格子)');
+  }
+  /* 十字面片方块(草丛/火把/树苗)与树叶孔洞: 贴图带 alpha=0 区域,
+     alphaTest 裁切后才呈"镂空植物"观感 — 全不透明即退化成实心纸片 */
+  for (const id of [t.B_GRASS_TUFT, t.B_TORCH, t.B_SAPLING, 7]) {
+    const idx = tileSet(t, id)[0];
+    assert.ok(alphaStats(idx).hole > 0, '方块 ' + id + ' 的贴图应有透明像素');
+  }
+});
+
+/* ============ meshChunk 接线 · 图集通道(第 4 通道, TNT 贴图通道同款思路) ============ */
+/* pack 构造与 mesh-core.test.js 同构: 16×16 内部 + 边界圈, hashRand 固定 */
+function mkPack(border) {
+  const w = 16 + 2*border; const d = 16 + 2*border;
+  return {
+    cells: new Uint8Array(w*d*48), w, d, h: 48, border,
+    bx: 100 - border, bz: 100 - border, yMax: 0,
+    set(lx, y, lz, id) {
+      this.cells[(y*this.d + lz)*this.w + lx] = id;
+      if (id !== 0 && y > this.yMax) this.yMax = y;
+    },
+  };
+}
+const HR = ()=>0.5;
+const ATLAS_OPT = (t)=>({hashRand: HR, tntTiles: 4, atlas: t.TextureAtlas.layout});
+const quads = (ch) => ch ? ch.indices.length/6 : 0;
+
+test('meshChunk: 图集方块走 atlas 通道 — 煤矿立方体 6 面, UV 全落在煤矿格内', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_COAL_ORE);
+  const r = t.MeshCore.meshChunk(p, ATLAS_OPT(t));
+  assert.strictEqual(r.solid, null, '入集方块不再走纯色通道');
+  assert.strictEqual(r.tnt, null);
+  assert.strictEqual(quads(r.atlas), 6);
+  const rect = t.TextureAtlas.tileUV(t.TextureAtlas.layout.tiles[t.B_COAL_ORE]);
+  for (let i=0; i<r.atlas.uvs.length; i+=2) {
+    const u = r.atlas.uvs[i]; const v = r.atlas.uvs[i+1];
+    assert.ok(u >= rect[0]-1e-12 && u <= rect[2]+1e-12 && v >= rect[1]-1e-12 && v <= rect[3]+1e-12,
+        'UV(' + u + ',' + v + ') 应落在煤矿格 ' + rect);
+  }
+});
+
+test('meshChunk: 顶/侧/底分格 — 草地三面各归各格(草顶/草侧/泥土底)', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, 1); // 草地
+  const r = t.MeshCore.meshChunk(p, ATLAS_OPT(t));
+  assert.strictEqual(quads(r.atlas), 6);
+  const e = t.TextureAtlas.layout.tiles[1];
+  const inRect = (rect, uvs)=>uvs.every((q, i)=> i%2===0 ?
+    q >= rect[0]-1e-12 && q <= rect[2]+1e-12 :
+    q >= rect[1]-1e-12 && q <= rect[3]+1e-12);
+  for (let q=0; q<r.atlas.indices.length; q+=6) {
+    const ny = r.atlas.normals[r.atlas.indices[q]*3+1];
+    const uvs = [];
+    for (let c=0; c<4; c++) {
+      const vi = r.atlas.indices[q+c];
+      uvs.push(r.atlas.uvs[vi*2], r.atlas.uvs[vi*2+1]);
+    }
+    if (ny === 1) assert.ok(inRect(t.TextureAtlas.tileUV(e.top), uvs), '顶面应落草顶格');
+    else if (ny === -1) assert.ok(inRect(t.TextureAtlas.tileUV(e.bottom), uvs), '底面应落泥土格');
+    else assert.ok(inRect(t.TextureAtlas.tileUV(e.side), uvs), '侧面应落草侧格');
+  }
+});
+
+test('meshChunk: opts 不带 atlas → 入集方块回落纯色通道(存量调用方零侵入)', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_COAL_ORE);
+  const r = t.MeshCore.meshChunk(p, {hashRand: HR, tntTiles: 4});
+  assert.strictEqual(r.atlas, null);
+  assert.strictEqual(quads(r.solid), 6, '无图集载荷时行为与存量一致');
+});
+
+test('meshChunk: 薄块图集走十字面片 — 草丛 2 面×正反共 4 面, 几何全高(UV 全落格)', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_GRASS_TUFT); // thin 0.35 的草丛
+  const r = t.MeshCore.meshChunk(p, ATLAS_OPT(t));
+  assert.strictEqual(r.solid, null, '图集薄块不再走实心通道的扁盒子');
+  assert.strictEqual(quads(r.atlas), 4, '两个对角面各正反两绘(FrontSide 材质双面可见)');
+  const ys = new Set();
+  for (let i=1; i<r.atlas.positions.length; i+=3) ys.add(r.atlas.positions[i]);
+  assert.ok(ys.has(5) && ys.has(6) && ys.size === 2, '面片占满格高, 视觉高度由贴图 alpha 裁切: ' + [...ys]);
+  const rect = t.TextureAtlas.tileUV(t.TextureAtlas.layout.tiles[t.B_GRASS_TUFT]);
+  for (let i=0; i<r.atlas.uvs.length; i+=2) {
+    const u = r.atlas.uvs[i]; const v = r.atlas.uvs[i+1];
+    assert.ok(u >= rect[0]-1e-12 && u <= rect[2]+1e-12 && v >= rect[1]-1e-12 && v <= rect[3]+1e-12,
+        'UV(' + u + ',' + v + ') 应落在草丛格 ' + rect);
+  }
+});
+
+test('meshChunk: 图集立方体邻面剔除同实心规则 — 相邻两煤矿共界面剔成 10 面', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_COAL_ORE); p.set(9, 5, 8, t.B_COAL_ORE);
+  assert.strictEqual(quads(t.MeshCore.meshChunk(p, ATLAS_OPT(t)).atlas), 10);
+});
+
+/* ============ 画布壳 · doc 桩注入 ============ */
+
+test('makeCanvas: doc 桩注入 — 尺寸按图集, putImageData 像素与 paintAll 一致', () => {
+  const t = loadAtlas();
+  const all = t.TextureAtlas.paintAll();
+  let captured = null; let created = 0;
+  const ctxStub = {
+    createImageData: (w, h)=>({width: w, height: h, data: new Uint8ClampedArray(w*h*4)}),
+    putImageData: (img, x, y)=>{ captured = {img, x, y}; },
+  };
+  const canvasStub = {width: 0, height: 0, getContext: ()=>ctxStub};
+  const docStub = {createElement: ()=>{ created++; return canvasStub; }};
+  const c = t.TextureAtlas.makeCanvas(docStub);
+  assert.strictEqual(created, 1, '只创建一次画布');
+  assert.strictEqual(c, canvasStub);
+  assert.strictEqual(canvasStub.width, all.w);
+  assert.strictEqual(canvasStub.height, all.h);
+  assert.ok(captured, '应 putImageData 一次');
+  for (let i=0; i<all.pixels.length; i++) {
+    assert.strictEqual(captured.img.data[i], all.pixels[i], '画布像素应与 paintAll 一致(偏移 ' + i + ')');
+  }
+});

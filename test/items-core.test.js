@@ -13,7 +13,9 @@ const vm = require('node:vm');
 
 function loadItems() {
   const ctx = vm.createContext({console});
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'items-core.js'), 'utf8'), ctx, {filename: 'items-core.js'});
+  vm.runInContext(
+      fs.readFileSync(path.join(__dirname, '..', 'js', 'items-core.js'), 'utf8'),
+      ctx, {filename: 'items-core.js'});
   vm.runInContext('globalThis.__i = { ITEMS, stackMax, mkStack, isTool, toolOf };', ctx);
   return ctx.__i;
 }
@@ -71,7 +73,8 @@ test('条目形状: 每个物品必备 name/icon, 类别字段(block/food/fuel/t
       ['kind', 'tier', 'dmg', 'dur', 'speed'].forEach((k) => assert.ok(k in t, id + ' tool.' + k + ' 必备'));
       assert.strictEqual(typeof t.kind, 'string', id + ' tool.kind');
       assert.ok(Number.isInteger(t.tier) && t.tier >= 0, id + ' tool.tier 非负整数');
-      ['dmg', 'dur', 'speed'].forEach((k) => assert.ok(typeof t[k] === 'number' && t[k] > 0, id + ' tool.' + k + ' 正数'));
+      ['dmg', 'dur', 'speed'].forEach((k) =>
+        assert.ok(typeof t[k] === 'number' && t[k] > 0, id + ' tool.' + k + ' 正数'));
     }
   }
 });
@@ -80,9 +83,9 @@ test('放置型 block 挂点: 与方块注册表既有 id / 附录 A 规划 id �
   const {ITEMS} = loadItems();
   const pinned = {
     log: 5, planks: 6, dirt: 2, sand: 8, cobble: 4, stone: 3, glass: 18,
-    torch: 48, craft_table: 46, furnace: 47,               // 附录 A: B_TORCH/B_CRAFT/B_FURNACE
-    tnt: 20,                                                // 既有 B_TNT(config.js TNT 模式)
-    leaves: 7, mossy_cobble: 14, stone_bricks: 13, bricks: 9,   // 既有装饰方块的三分类归属(§3.5)
+    torch: 48, craft_table: 46, furnace: 47, // 附录 A: B_TORCH/B_CRAFT/B_FURNACE
+    tnt: 20, // 既有 B_TNT(config.js TNT 模式)
+    leaves: 7, mossy_cobble: 14, stone_bricks: 13, bricks: 9, // 既有装饰方块的三分类归属(§3.5)
   };
   for (const [id, b] of Object.entries(pinned)) {
     assert.strictEqual(ITEMS[id] && ITEMS[id].block, b, id + ' block 应为 ' + b);

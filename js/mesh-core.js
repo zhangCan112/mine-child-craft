@@ -2,11 +2,14 @@
 /* ============================================================
    网格化核心 (MeshCore) — 引擎层纯核心 (术语见 GLOSSARY.md)
    ------------------------------------------------------------
-   区块数据 → 顶点裸数组 的纯变换: 全细节三通道(实心/玻璃/TNT贴图)
-   与 LOD 降采样粗网格。零 THREE · 零 DOM · 加载零副作用 →
+   区块数据 → 顶点裸数组 的纯变换: 全细节四通道(实心/玻璃/TNT贴图/
+   方块图集 texture-atlas)与 LOD 降采样粗网格。零 THREE · 零 DOM ·
+   加载零副作用 →
    Node 可直接加载单测; 同一份代码在主线程(world.js 兜底路径)与
    Worker(js/mesh-worker.js, http 服务下的主路径)里运行。
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/CHUNK/faceColor。
+   图集布局经 opts.atlas 注入(texture-atlas.js 的 layout, 与 tntTiles
+   同惯例): 未注入时入集方块回落纯色通道, 存量调用方零侵入。
    hashRand 由调用方注入(与 combat-core 同惯例: 纯核心零全局可变依赖,
    且 Worker 不加载体素模型 — 世界数据随消息传递, 不共享)。
    输入 pack = voxel.js packChunkData 的输出:
@@ -78,12 +81,47 @@ const MeshCore = (() => {
     t.n += 4;
   }
 
-  /* ---------- 全细节: 区块 → 实心/玻璃/TNT 三通道顶点裸数组 ----------
+  /* 十字面片(草丛/麦/火把/树苗等入集薄块): 两个对角面各正反两绘 —
+     FrontSide 材质下双面可见; 几何占满格高, 视觉高度由贴图 alpha 裁切
+     (world.js atlasMat 的 alphaTest), 麦四阶段的"渐高"画在像素里而非
+     压扁几何(压扁会让植株比例失真) */
+  function pushCross(t, x, y, z, tile, cols, rows) {
+    const c = tile % cols; const r = Math.floor(tile / cols);
+    const u0 = c/cols; const u1 = (c+1)/cols;
+    const v0 = (rows-1-r)/rows; const v1 = (rows-r)/rows;
+    const s = 0.7071; // 对角面法线水平分量(1/√2)
+    /* corners 序 [bl, br, tl, tr]; 反向面角点镜像(UV 随之镜像, 背面图案不反) */
+    const planes = [
+      {p: [[0.1, 0, 0.1], [0.9, 0, 0.9], [0.1, 1, 0.1], [0.9, 1, 0.9]], n: [-s, 0, s], mirror: false},
+      {p: [[0.9, 0, 0.9], [0.1, 0, 0.1], [0.9, 1, 0.9], [0.1, 1, 0.1]], n: [s, 0, -s], mirror: true},
+      {p: [[0.9, 0, 0.1], [0.1, 0, 0.9], [0.9, 1, 0.1], [0.1, 1, 0.9]], n: [-s, 0, -s], mirror: false},
+      {p: [[0.1, 0, 0.9], [0.9, 0, 0.1], [0.1, 1, 0.9], [0.9, 1, 0.1]], n: [s, 0, s], mirror: true},
+    ];
+    for (const pl of planes) {
+      const us = pl.mirror ? [u1, u0, u1, u0] : [u0, u1, u0, u1];
+      for (let i=0; i<4; i++) {
+        t.positions.push(x+pl.p[i][0], y+pl.p[i][1], z+pl.p[i][2]);
+        t.normals.push(pl.n[0], pl.n[1], pl.n[2]);
+        t.uvs.push(us[i], i < 2 ? v0 : v1);
+      }
+      t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
+      t.n += 4;
+    }
+  }
+
+  /* 图集条目 → 面朝向格号(number 简写=六面同格; 分面条目按朝向取) */
+  function atlasTileOf(entry, dir) {
+    if (typeof entry === 'number') return entry;
+    return dir[1] === 1 ? entry.top : (dir[1] === -1 ? entry.bottom : entry.side);
+  }
+
+  /* ---------- 全细节: 区块 → 实心/玻璃/TNT/图集 四通道顶点裸数组 ----------
      与原 world.js buildChunkGeometries 的几何逐字节同构(仅把 getBlock
      换成 pack 内读取 — 含边界圈, 跨区块剔面数据随消息自带) */
   function meshChunk(pack, opts) {
     const hashRand = opts.hashRand; const tiles = opts.tntTiles;
-    const S = mkCh(); const G = mkCh(); const T = mkTexCh();
+    const atlas = opts.atlas || null; // 图集布局可选: 缺省全走纯色通道(存量行为)
+    const S = mkCh(); const G = mkCh(); const T = mkTexCh(); const A = mkTexCh();
     const cells = pack.cells; const w = pack.w; const d = pack.d; const h = pack.h;
     const border = pack.border; const bx = pack.bx; const bz = pack.bz; const yMax = pack.yMax;
     const lget = (lx, y, lz)=>{
@@ -97,6 +135,32 @@ const MeshCore = (() => {
           const id = lget(lx, y, lz);
           if (id===0) continue;
           const b = BLOCKS[id];
+          const ae = atlas ? atlas.tiles[id] : undefined;
+          if (ae) { // 图集方块: 第 4 通道(薄块走十字面片, 立方体按面取格)
+            if (b.thin) {
+              pushCross(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows);
+              continue;
+            }
+            for (let f=0; f<6; f++) {
+              const face = FACES[f];
+              const nid = lget(lx+face.dir[0], y+face.dir[1], lz+face.dir[2]);
+              const nb = nid!==0 ? BLOCKS[nid] : null;
+              if (nb && !nb.glass && !nb.thin) continue; // 剔面规则与实心通道一致
+              const tile = atlasTileOf(ae, face.dir);
+              const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
+              for (let c=0; c<4; c++) {
+                const cor = face.corners[c];
+                A.positions.push(wx+cor[0], y+cor[1], wz+cor[2]);
+                A.normals.push(face.dir[0], face.dir[1], face.dir[2]);
+                const uv = faceUV(face.dir, cor);
+                // 画布 y 向下、纹理 v 向上: 第 0 行格占 v 最高段(与 tileUV 同换算)
+                A.uvs.push((tc+uv[0])/atlas.cols, (atlas.rows-1-tr+uv[1])/atlas.rows);
+              }
+              A.indices.push(A.n, A.n+1, A.n+2, A.n+2, A.n+1, A.n+3);
+              A.n += 4;
+            }
+            continue;
+          }
           if (b.thin) { // 引线 / 压力板
             pushThin(S, wx, y, wz, b.thin, b.all, 0.92 + hashRand(wx*3+wz, y)*0.12);
             continue;
@@ -148,7 +212,7 @@ const MeshCore = (() => {
         }
       }
     }
-    return {solid: S.n>0 ? S : null, glass: G.n>0 ? G : null, tnt: T.n>0 ? T : null};
+    return {solid: S.n>0 ? S : null, glass: G.n>0 ? G : null, tnt: T.n>0 ? T : null, atlas: A.n>0 ? A : null};
   }
 
   /* ---------- LOD 降采样: 区块 → 顶面+侧裙粗网格 (Distant Horizons 思路) ----------
