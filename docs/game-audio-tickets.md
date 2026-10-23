@@ -82,7 +82,7 @@ flowchart TD
   - 过渡期守卫测试⑤（synth 与 SFX_DEFS 一致性）在 A4 删 SFX_DEFS 后退场；
   - A7 的 file 存在性/CREDITS 断言从空转转咬合、曲目 mood 不含 none。
 
-### A3 AudioCore（audio-core.js + 同名单测）`[ ]`
+### A3 AudioCore（audio-core.js + 同名单测）`[x]`（并入 `8a15df3`）
 - 依赖：无。
 - 交付：`js/audio-core.js`（`-core` 后缀语义：零 THREE·零 DOM，工厂接口走 quality-core 的 mk/step 先例，时间与随机注入可测）：
   - `mkVoiceGate({max})` → `{admit(kind, prio, coolMs): 'play'|'steal'|'ignore', release(kind), activeN()}`：同类冷却窗内 ignore；活跃数 < max 放行；满员时新声 prio 严格大于最老活跃声才抢占（steal 返回被抢 kind 供适配层停声），否则 ignore。max 由调用方按 IS_TOUCH 给 8/12。
@@ -113,6 +113,15 @@ flowchart TD
   - 迁移清单含 A1 新增的 dropOnEnd 助手与 humFilt/humLfo/humDepth 顶层绑定；
   - sfx() 早退路径留孤儿 gain 节点——A4 改为先查表再建 gain 根治；
   - A1 的触屏高通现挂 master 与压限器之间（单总线等效实现），A4 拆 sfxBus/musicBus 时必须挪到 sfxBus 专属前置（音乐低频是内容，spec 总线图明确高通只挂音效总线）。
+- 接口备注（转记 A3 报告）：
+  - ① admit 返回结构化对象 `{act:'play'|'steal'|'ignore', victim}`，steal 时执行器 stop(victim)；抢占语义=victim 恒为进入时刻最老活跃声、且新声 prio 严格大于它；
+  - ② 曲目条目契约含 durMs（核心判曲毕唯一依据），A7 填曲须补（A4 亦可用 AudioBuffer.duration 预填）；
+  - ③ duck/setMood 只改状态、事件从下一次 tick 的 pending 流出，同拍 gain 事件先于 start/stop；
+  - ④ 事件形态 `{type:'start',track,gain,fadeInMs}`/`{type:'stop'}`/`{type:'gain',target,rampMs}`；start 的 gain 已按 duck 算好、淡入 1200ms 与淡出对称；
+  - ⑤ 音乐总线基线增益按 IS_TOUCH 传 AUDIO_MIX.music(0.30)/musicTouch(0.25)，duck 深度 0.08 绝对值；
+  - ⑥ 同 mood 选曲避重复上一首（池≥2 排除上首，单首池允许重复，测试已钉死）；
+  - ⑦ mkVoiceGate 的 max 由 A4 按 IS_TOUCH 给 8/12，now 生产默认 Date.now；
+  - ⑧ duck 释放时若正在淡出/无曲，回升目标自动 0，执行器无需特判。
 
 ---
 
