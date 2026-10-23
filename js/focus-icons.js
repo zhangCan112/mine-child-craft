@@ -13,6 +13,18 @@
      boot.test.js 按 index.html 顺序全链冒烟兜底(conventions §1.9)
 =========================================================== */
 const mcIconCache = {};
+
+/* 16×16 画布 → 96×96 dataURL(关平滑放大): 各图标共用的放大+缓存收尾 —
+   画像素是各函数自己的事, 收尾管线只此一份 */
+function to96(c) {
+  const big = document.createElement('canvas');
+  big.width = big.height = 96;
+  const bg = big.getContext('2d');
+  bg.imageSmoothingEnabled = false;
+  bg.drawImage(c, 0, 0, 96, 96);
+  return big.toDataURL();
+}
+
 function mcIcon(name) {
   if (mcIconCache[name]) return mcIconCache[name];
   const c = document.createElement('canvas');
@@ -118,13 +130,9 @@ function mcIcon(name) {
       break;
     }
   }
-  const big = document.createElement('canvas');
-  big.width = big.height = 96;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 96, 96);
-  mcIconCache[name] = big.toDataURL();
-  return mcIconCache[name];
+  const url = to96(c);
+  mcIconCache[name] = url;
+  return url;
 }
 
 /* 苦力怕头像(左/右视线) — Flanker 刺激 */
@@ -146,13 +154,9 @@ function creeperFace(dir) {
   });
   g.fillStyle = '#101510';
   g.fillRect(6, 9, 4, 3); g.fillRect(7, 12, 2, 2);
-  const big = document.createElement('canvas');
-  big.width = big.height = 96;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 96, 96);
-  creeperCache[dir] = big.toDataURL();
-  return creeperCache[dir];
+  const url = to96(c);
+  creeperCache[dir] = url;
+  return url;
 }
 
 /* 猪中立头像(无方向) — Flanker 中立行(D3): 粉皮+中央大鼻, 双瞳看镜头;
@@ -173,13 +177,9 @@ function pigFace() {
   px(10, 5, 2, 2, '#f4f4f4'); px(10, 6, 1, 1, '#101510'); // 右眼(镜像)
   px(5, 9, 6, 3, '#d17f7c'); // 中央猪鼻
   px(6, 10, 1, 2, '#7d4644'); px(9, 10, 1, 2, '#7d4644'); // 双鼻孔
-  const big = document.createElement('canvas');
-  big.width = big.height = 96;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 96, 96);
-  pigCache.face = big.toDataURL();
-  return pigCache.face;
+  const url = to96(c);
+  pigCache.face = url;
+  return url;
 }
 
 /* 羊中立头像(无方向) — Flanker 中立行(D3): 白绒框+浅脸板+粉鼻,
@@ -204,13 +204,9 @@ function sheepFace() {
   px(5, 7, 2, 2, '#f4f4f4'); px(6, 8, 1, 1, '#101510'); // 左眼(瞳朝中)
   px(9, 7, 2, 2, '#f4f4f4'); px(9, 8, 1, 1, '#101510'); // 右眼(镜像)
   px(7, 10, 2, 2, '#e0a3a0'); // 粉鼻(居中)
-  const big = document.createElement('canvas');
-  big.width = big.height = 96;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 96, 96);
-  sheepCache.face = big.toDataURL();
-  return sheepCache.face;
+  const url = to96(c);
+  sheepCache.face = url;
+  return url;
 }
 
 /* 训练师村长头像 — 白胡子+矿工帽+头灯的老矿工(设计稿 §8 B4 主持人格)
@@ -272,13 +268,9 @@ function chiefFace(mood) {
     px(6, 10, 1, 1, '#8c8c8c'); px(9, 10, 1, 1, '#8c8c8c');
     px(7, 11, 2, 1, '#8c8c8c'); // 胡中浅笑弧
   }
-  const big = document.createElement('canvas');
-  big.width = big.height = 96;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 96, 96);
-  chiefCache[mood] = big.toDataURL();
-  return chiefCache[mood];
+  const url = to96(c);
+  chiefCache[mood] = url;
+  return url;
 }
 
 /* 集章图章 — 圆角方章面+亮内框+中央图案(设计稿 §8 B1 日历/B6 集章/B8 通关章)
@@ -342,13 +334,9 @@ function stampIcon(kind) {
     px(7, 9, 2, 1, '#7a1f12'); // 坏笑暗嘴
     px(6, 10, 1, 1, '#f4f4f4'); px(9, 10, 1, 1, '#f4f4f4'); // 獠牙
   }
-  const big = document.createElement('canvas');
-  big.width = big.height = 96;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 96, 96);
-  stampCache[kind] = big.toDataURL();
-  return stampCache[kind];
+  const url = to96(c);
+  stampCache[kind] = url;
+  return url;
 }
 
 /* 探险家火苗 — 1 小/2 中/3 大(设计稿 §8 B3 体检三档), CSS 摇曳动画底图

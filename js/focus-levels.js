@@ -11,15 +11,18 @@
    · 复习/交错编排 = 间隔效应+交错练习(Cepeda 2006; Klimovich 2025)
    interface: FOCUS_DIMS · FOCUS_META · paramsFor(dim, tier, li) ·
      FOCUS_LEVELS · focusPassed · focusStars · FOCUS_LOOT · FOCUS_MILESTONES ·
-     milestoneDue · focusProgress ·
+     milestoneLevels · milestoneDue · focusProgress ·
      rollFocusLoot(dim,{ok,streak,kind,seed}) · levelBonusLoot(passed,stars,{kind,seed}) ·
      grantFocusLoot(inv,ids) ·
      FOCUS_CHECK_PARAMS · focusFlame · devilStep · devilParams ·
      FOCUS_STAMP_DAILY · FOCUS_STAMP_REWARDS · stampRecord(stamps, day, count) ·
      stampTrim(stamps, today) · stampCount(stamps) · stampMilestones(count) ·
      stampRewardsDue(count, claimed) · stampRewardFor(line) ·
+     FOCUS_STAMP_KINDS(自选图案白名单) · stampRewardClaimed(claimed, rid) ·
      focusDayIndex · trimFocusLog · FOCUS_LOG_KEEP_DAYS · FOCUS_DEVIL_TIME_MS ·
-     devilDimFor · focusCheckEntry · checkBaseline · devilEntry · devilTierFor
+     devilDimFor · focusCheckEntry · checkBaseline · devilEntry · devilTierFor ·
+     focusTodayDims · focusDimStars · focusLastBreakthrough ·
+     FOCUS_SAVE_DEFAULTS · migrateFocusSave
    依赖(均经全局名): 掷骰/结算纯函数无依赖; grantFocusLoot 调用期解析
      inventory-core 的 add(加载序先于本文件, 见 index.html); FOCUS_META 的
      图标字段在构造期调用 mcIcon/creeperFace(js/focus-icons.js, 加载序在
@@ -275,14 +278,22 @@ const FOCUS_MILESTONES = {
   70: 'sword_iron', 90: 'pick_diamond', 100: 'sword_diamond',
 };
 
+/* 里程碑升序派生的唯一出口(纯函数): 门槛升序的 [{line, id}] 清单 —
+   milestoneDue 应授差集与宝物柜工具组渲染两处共用, 升序编排只此一份,
+   消费方不得再手抄 Object.keys+sort */
+function milestoneLevels() {
+  return Object.keys(FOCUS_MILESTONES).map(Number).sort((a, b) => a - b)
+      .map((k) => ({line: k, id: FOCUS_MILESTONES[k]}));
+}
+
 /* 应授差集(纯函数, 幂等): progress ≥ 门槛且不在已授集合内的工具 id,
    按门槛升序返回; 存量档补授 = 差集一次性追授(F6), 再次计算自然得
    空集(不重授); 授予流 = 结果并入存档 tools 字段 */
 function milestoneDue(progress, tools) {
   const owned = new Set(tools || []);
-  return Object.keys(FOCUS_MILESTONES).map(Number).sort((a, b) => a - b)
-      .filter((k) => progress >= k && !owned.has(FOCUS_MILESTONES[k]))
-      .map((k) => FOCUS_MILESTONES[k]);
+  return milestoneLevels()
+      .filter((e) => progress >= e.line && !owned.has(e.id))
+      .map((e) => e.id);
 }
 
 /* 有效通关数(纯函数, 里程碑的进度口径): unlocked 在模式层被 99 封顶
@@ -341,26 +352,29 @@ function focusDayIndex(dateStr) {
   return Math.round((d.getTime() - new Date(1970, 0, 1).getTime())/86400000);
 }
 
-/* 按日记录滚动裁剪: 返回只保留最近 keepDays 天(含今天)的新对象, 不改原;
-   未来日期(时钟回拨产物)保留 — 零惩罚哲学不因设备时钟惩罚孩子 */
+/* 按日记录滚动裁剪(共享工具, F8 与 F7 图章同一实现): 返回只保留最近
+   keepDays 天(含今天)的新对象, 不改原; 未来日期(时钟回拨产物)保留 —
+   零惩罚哲学不因设备时钟惩罚孩子; 非法键丢弃(防死数据); today 本身
+   非法时原样返回(防御: 不清档)。checks/devil.days 与 stamps 只差窗口
+   常量(两个 KEEP_DAYS 有意分立, 见 tickets F10 收口②), 机制不并概念 */
 function trimFocusLog(log, today, keepDays) {
+  const t0 = focusDayIndex(today);
+  if (!Number.isFinite(t0)) return log || {};
   const out = {};
   if (!log) return out;
-  const t0 = focusDayIndex(today);
   for (const k of Object.keys(log)) {
     const diff = t0 - focusDayIndex(k);
-    if (diff < keepDays) out[k] = log[k]; // NaN(损坏键)与未来日期 diff<0 均保留
+    if (diff < keepDays) out[k] = log[k]; // NaN(非法键)比较为 false 自然丢弃, 未来日期 diff<0 保留
   }
   return out;
 }
 
-/* 魔鬼特训维度按日轮换(设计稿 B8 "天数%5"): 从日期字符串哈希取五维之一,
-   纯函数 — 同一天恒定同维度, 不依赖 Date.now */
+/* 魔鬼特训维度按日严格轮换(设计稿 B8 "天数%5"): 日序数(focusDayIndex 派生)
+   %5 映射五维 — 相邻两天必不同维、五天一轮全覆盖, 纯函数不依赖 Date.now */
 function devilDimFor(dateStr) {
-  let h = 0;
-  const s = String(dateStr);
-  for (let k = 0; k < s.length; k++) h = (h*31 + s.charCodeAt(k)) >>> 0;
-  return FOCUS_DIMS[h % FOCUS_DIMS.length];
+  const idx = focusDayIndex(dateStr);
+  const n = Number.isFinite(idx) ? idx : 0; // 损坏串回落第 0 维(不炸)
+  return FOCUS_DIMS[((n % FOCUS_DIMS.length) + FOCUS_DIMS.length) % FOCUS_DIMS.length];
 }
 
 /* 体检入口: 当日未做过即可见(当天做完即消失, B3 "每天一次") */
@@ -421,14 +435,11 @@ const FOCUS_STAMP_REWARDS = {
    stamps 形状 {日期: 当日关数}(键与 budgetDateStr 同款 'Y-M-D' 无前导零);
    全部无突变(返回新对象/新数组)。落账点在 modes/focus.js 的结算处,
    count 传当日预算已耗关数(与今日页 dots 同口径, 通过与否都计) */
-const FOCUS_STAMP_KEEP_DAYS = 90; // 滚动保留窗口(含今天), 防存档膨胀
-const FOCUS_STAMP_DAY_MS = 86400000;
+const FOCUS_STAMP_KEEP_DAYS = 90; // 滚动保留窗口(含今天), 防存档膨胀(与 FOCUS_LOG_KEEP_DAYS 有意分立, 见 tickets F10 收口②)
 
-/* 'Y-M-D' → 当天 00:00 时间戳; 非法键 NaN(裁剪时自然丢弃) */
-function stampDayTs(day) {
-  const m = /^(\d+)-(\d+)-(\d+)$/.exec(String(day));
-  return m ? new Date(+m[1], +m[2]-1, +m[3]).getTime() : NaN;
-}
+/* 自选图章图案三选一白名单(B6 集章 3 章奖励 ⛏️💎🧨): stampIcon 的合法 kind
+   子集; 存档字段 stampKind 记孩子选择(缺省 'pick'), 选择器只渲这三个 */
+const FOCUS_STAMP_KINDS = ['pick', 'gem', 'tnt'];
 
 /* 落账: 当日计数钳 1~6(日限 FOCUS_DAILY_LEVELS=6, 按值拷贝免跨文件依赖),
    当日取 max 不重复累加(重玩同日不叠章); 0/负/NaN 关不落账 */
@@ -441,16 +452,10 @@ function stampRecord(stamps, day, count) {
 }
 
 /* 裁剪: 只保留今天起 90 天窗口内的键(含今天), 更老与非法键丢弃(防存档膨胀);
-   today 本身非法时原样返回(防御: 不清档) */
+   today 本身非法时原样返回(防御: 不清档) — 机制与 trimFocusLog 同一实现
+   (共享工具), 仅窗口常量分立 */
 function stampTrim(stamps, today) {
-  const t0 = stampDayTs(today);
-  if (Number.isNaN(t0)) return stamps;
-  const cutoff = t0 - (FOCUS_STAMP_KEEP_DAYS-1)*FOCUS_STAMP_DAY_MS;
-  const next = {};
-  for (const day in stamps) {
-    if (stampDayTs(day) >= cutoff) next[day] = stamps[day];
-  }
-  return next;
+  return trimFocusLog(stamps, today, FOCUS_STAMP_KEEP_DAYS);
 }
 
 /* 集章总数 = 有章天数(每天至多 1 章; 普通/大章是同一枚章的两种大小, 不双计) */
@@ -475,4 +480,68 @@ function stampRewardsDue(count, claimed) {
 /* 达成线 → 奖励 id: 递进线(60/90/…)不在表内, 沿用 30 的金图章 */
 function stampRewardFor(line) {
   return FOCUS_STAMP_REWARDS[line] || FOCUS_STAMP_REWARDS[30];
+}
+
+/* 已领奖励判定(纯函数): claimed 线集合里是否领过某奖励 id — 矿袋皮肤/
+   烟花等持久观感奖励的"进场恢复"与"触发迸发"共用同一口径 */
+function stampRewardClaimed(claimed, rid) {
+  return (claimed || []).some((line) => stampRewardFor(line) === rid);
+}
+
+/* ---------- 今日任务单/我的进步(B2/B5 最小呈现)的派生纯函数 ----------
+   编排不动(100 关螺旋是科学编排, 只做呈现升级), 模式层拿清单渲染图标 */
+
+/* 今日任务单: 从待打关(FOCUS_LEVELS[unlocked])起取今日预算内将轮到的
+   维度, 按出场序去重, 至多 2 个(今日先玩什么的一行图标) */
+function focusTodayDims(unlocked, remaining) {
+  const dims = [];
+  const cur = Math.min(Math.max(0, unlocked || 0), 99);
+  for (let k = 0; k < remaining && cur + k < 100; k++) {
+    const d = FOCUS_LEVELS[cur + k].dim;
+    if (!dims.includes(d)) dims.push(d);
+    if (dims.length >= 2) break;
+  }
+  return dims;
+}
+
+/* 我的进步·五维星柱: 各维累计星数(stars 按关卡号归维求和; 每关历史最高,
+   重玩不稀释——防刷天然满足)。返回五维齐全的计数对象, 零星也占位 */
+function focusDimStars(save) {
+  const out = {};
+  for (const d of FOCUS_DIMS) out[d] = 0;
+  if (save && save.stars) {
+    for (const k of Object.keys(save.stars)) {
+      const lv = FOCUS_LEVELS[+k];
+      if (lv) out[lv.dim] += save.stars[k] || 0;
+    }
+  }
+  return out;
+}
+
+/* 我的进步·最新突破维: history 里最近一条通过记录的维度(无记录 null)
+   — B5 只呈现累计与突破, 不呈现下滑 */
+function focusLastBreakthrough(save) {
+  if (!save || !Array.isArray(save.history)) return null;
+  for (let k = save.history.length - 1; k >= 0; k--) {
+    const h = save.history[k];
+    if (h && h.passed && typeof h.i === 'number' && FOCUS_LEVELS[h.i]) {
+      return FOCUS_LEVELS[h.i].dim;
+    }
+  }
+  return null;
+}
+
+/* ---------- 训练营存档形状(纯函数, modes/focus.js 的 slot 与 vm 单测共用) ----------
+   FOCUS_SAVE_DEFAULTS: 新档默认形状(mkSaveSlot 浅并入幂等补缺);
+   migrateFocusSave(s, from): 按 fromVer 迁移一步(幂等 — 已是好形状再跑
+   原样), 供 save-slot 的 migrate 链调用; 存量进度字段原样保留 */
+const FOCUS_SAVE_DEFAULTS = {unlocked: 0, stars: {}, history: [], tools: [],
+  stamps: {}, stampClaimed: [], stampKind: 'pick',
+  checks: {}, devil: {levels: {}, days: {}}};
+
+function migrateFocusSave(s, from) {
+  if (from === 0 && s && s.daily) delete s.daily; // v0 老形状可能仍带 daily(已迁 daily_budget_save) → 摘除
+  if (s && !Array.isArray(s.tools)) s.tools = []; // F6: 里程碑工具记账字段幂等补缺/修形
+  if (s && !FOCUS_STAMP_KINDS.includes(s.stampKind)) s.stampKind = 'pick'; // B6: 自选图章图案字段修形(缺/损坏回落默认镐章)
+  return s;
 }
