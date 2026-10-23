@@ -536,6 +536,7 @@ function mkFurnacePanel(opts) {
     return {load, fuel, units}; // 执行权在模式层(T13): take/add 经 inventory-core
   }
   function show() {
+    root.style.display = 'flex'; /* hide 后重开要复明(mkCraftPanel.refresh 同口径) */
     if (root.parentNode !== doc.body) doc.body.appendChild(root);
   }
   function hide() {

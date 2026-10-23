@@ -85,6 +85,7 @@ const api = vm.runInContext(`({
   ITEMS, isTool, toolOf, stackMax, mkStack, breakTime,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
+  RECIPES, canCraft, craft, take, costEntry, FUEL, fuelUnits, smeltOf, B_TNT,
 })`, eng);
 Object.assign(globalThis, api); /* 模式文件经全局名消费这些真件(经典 script 词法环境) */
 /* 掉落物实体库: vm 真件(壳段无 THREE/DOM 不建观感, 实体逻辑照跑), clear 记账以兼容既有断言 */
@@ -230,7 +231,11 @@ globalThis.Fx = {debrisBurst() {
   calls.push(['debris']);
 }, kick() {
   calls.push(['kick']);
-}};
+}, boom() {
+  calls.push(['boom']);
+}, arc() {
+  calls.push(['arc']);
+}}; /* T13 爆炸组合/引信火花观感走调用记录 */
 globalThis.CombatCore = require('../js/combat-core.js'); /* 战斗核心: 真模块(弹道/盒判定是纯函数) */
 globalThis.pos = {x: 61.5, y: 25, z: 76.5, set() {}};
 globalThis.vel = {set() {}};
@@ -1122,4 +1127,221 @@ test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + �
   A.ADV.player.hp = 30; /* 满血 */
   AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(A.advGetInv().slots[0].n, 1, '满血不吃不扣');
+});
+
+/* ============ T13 合成与烧炼接线 ============ */
+
+test('T13 站点判定纯函数: advNearStation — 4 格边界(含等号)/按 id 过滤/空缓存', () => {
+  const near = A.advNearStation;
+  const sts = [{x: 10, y: 25, z: 10, id: api.B_CRAFT}, {x: 30, y: 25, z: 30, id: api.B_FURNACE}];
+  assert.strictEqual(near(sts, 14.5, 10.5, 4, api.B_CRAFT), true, '水平距离恰 4 格 → 解锁(含等号)');
+  assert.strictEqual(near(sts, 14.6, 10.5, 4, api.B_CRAFT), false, '4.1 格 → 不解锁');
+  assert.strictEqual(near(sts, 10.5, 10.5, 4, api.B_CRAFT), true, '贴身解锁');
+  assert.strictEqual(near(sts, 10.5, 10.5, 4, api.B_FURNACE), false, '按 id 过滤: 工作台位点不点亮熔炉判定');
+  assert.strictEqual(near(sts, 33.5, 30.5, 4, api.B_FURNACE), true, '熔炉位点命中(缓存里两种站点并存)');
+  assert.strictEqual(near([], 10, 10, 4, api.B_CRAFT), false, '空缓存(一个站点都没放过)');
+});
+
+test('T13 站点行为链: 放置工作台 → 走近 4 格解锁 + 首次靠近一句 TTS 引导 + 重进缓存重建', () => {
+  mem.clear();
+  freshInit();
+  spoken.length = 0;
+  const spot = findGrassSpot();
+  holdOnly('craft_table', 1);
+  pos.x = spot.x + 2.5; pos.y = 25; pos.z = spot.z + 0.5; /* 站 2 格外放置(reach 6 内) */
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CRAFT, '工作台放进世界(放置链复用 advTryPlace)');
+  assert.strictEqual(A.advStationOk(), true, '站旁边 → table 级解锁(站点缓存命中, 不扫全图)');
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(spoken.filter((s) => String(s).indexOf('工作台') >= 0).length, 1,
+      '首次靠近给一句 TTS 引导(上升沿触发, 不唠叨)');
+  pos.x = spot.x + 30; pos.z = spot.z + 30; /* 走远 */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advStationOk(), false, '走出 4 格锁回(table 级卡片重新灰显)');
+  /* 退世界重进: 站点只可能来自玩家放置(edits 全量差异) → 重放后缓存重建 */
+  AdventureMode.cleanup();
+  freshInit();
+  pos.x = spot.x + 1.5; pos.z = spot.z + 0.5;
+  assert.strictEqual(A.advStationOk(), true, '重进后已放置站点仍在缓存(edits 重放收集)');
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CRAFT, '工作台方块也在(存档往返)');
+});
+
+test('T13 onCraft 链路: TTS 具体表扬(产物名入句) + leftover 转脚下掉落物 + 零余量不 spawn', () => {
+  mem.clear();
+  freshInit();
+  spoken.length = 0;
+  const inv = A.advGetInv();
+  const before = globalThis.Drops.list().length;
+  A.advOnCraft({item: 'planks', n: 4, leftover: 3}); /* 满包合成: 3 件放不下(craft 已扣料) */
+  assert.ok(spoken.some((s) => String(s).indexOf('木板') >= 0 && String(s).indexOf('做好啦') >= 0 &&
+      String(s).indexOf('想办法') >= 0), 'TTS 表扬: 产物名入句 + 夸努力口径(D8 例句)');
+  const got = globalThis.Drops.list().slice(before);
+  assert.strictEqual(got.length, 1, '余量整撮成一个掉落物实体');
+  assert.strictEqual(got[0].id, 'planks', '掉落物 = 产物本体');
+  assert.strictEqual(got[0].n, 3, '余量 3 件(Drops.spawn 脚下, 零惩罚口径)');
+  assert.ok(Math.hypot(got[0].x - pos.x, got[0].z - pos.z) < 1.5, '落在玩家脚边');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('木板') >= 0), 'toast 回显');
+  /* 零余量: 不产生掉落物 */
+  const before2 = globalThis.Drops.list().length;
+  A.advOnCraft({item: 'planks', n: 4, leftover: 0});
+  assert.strictEqual(globalThis.Drops.list().length, before2, 'leftover 0 不 spawn');
+  assert.ok(inv, '背包对象稳定(面板闭包不脱钩)');
+});
+
+test('T13 烧炼节律纯函数: advSmeltStep — 2.5s/件 · 煤热值 8 件 · 无热暂停进度保留 · 余时结转', () => {
+  const step = A.advSmeltStep;
+  const mk = (n) => ({input: {id: 'iron_ore', n}, fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
+  /* 一件: 恰 2.5s 烧成; 唯一一块煤折成热值入炉(自动燃料), 烧 1 件后余 7 */
+  const s = step(mk(1), 2.5);
+  assert.deepStrictEqual(s.out, {id: 'iron_ingot', n: 1}, '2.5s 产一件(D8: MC 10s → 儿童 2.5s)');
+  assert.strictEqual(s.input, null, '料尽清空');
+  assert.strictEqual(s.fuel, null, '煤 1 件已折成热值入炉');
+  assert.strictEqual(s.heat, 7, '煤热值 8 件: 烧 1 件后余 7');
+  assert.strictEqual(s.prog, 0, '完成后进度归零');
+  /* 一块煤正好烧 8 件(ITEMS.fuel 热值口径) */
+  let s8 = mk(8);
+  for (let i = 0; i < 8; i++) s8 = step(s8, 2.5);
+  assert.deepStrictEqual(s8.out, {id: 'iron_ingot', n: 8}, '一块煤(热值 8)烧完 8 件铁锭');
+  assert.strictEqual(s8.input, null, '料尽');
+  assert.strictEqual(s8.heat, 0, '热值耗光(8 件 × 2.5s = 20s = 8 热值)');
+  /* 无热无燃料: 暂停且进度保留(关面板/燃料断档都不清零不白烧) */
+  const ps = step({input: {id: 'iron_ore', n: 2}, fuel: null, out: null, heat: 0, prog: 1.2}, 5);
+  assert.strictEqual(ps.prog, 1.2, '暂停进度保留');
+  assert.strictEqual(ps.out, null, '暂停不产出');
+  /* 大步长: 余时结转下一件 + 进度钳在 2.5 内 */
+  const big = step(mk(3), 6);
+  assert.strictEqual(big.out.n, 2, '6s 一气烧成 2 件');
+  assert.ok(Math.abs(big.prog - 1) < 1e-9, '余 1s 结转下一件(6 - 2×2.5)');
+  assert.ok(big.prog <= 2.5, '进度钳制(显示层再钳一次)');
+});
+
+test('T13 退炉政策纯函数: advFurnaceRefund — 炉内三笔全额退包 + 满包转余量清单', () => {
+  const inv = api.mkInventory();
+  const left = A.advFurnaceRefund(inv, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
+    out: {id: 'iron_ingot', n: 2}, heat: 1.5, prog: 0.8});
+  assert.deepStrictEqual(left, [], '有空位: 三笔全退(零惩罚口径)');
+  assert.strictEqual(api.count(inv, 'iron_ore'), 3, '待烧料退回');
+  assert.strictEqual(api.count(inv, 'coal'), 2, '燃料退回');
+  assert.strictEqual(api.count(inv, 'iron_ingot'), 2, '产物退回');
+  const full = api.mkInventory();
+  for (let i = 0; i < api.INV_SLOTS; i++) full.slots[i] = {id: 'stone', n: 64};
+  const left2 = A.advFurnaceRefund(full, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
+    out: {id: 'iron_ingot', n: 2}, heat: 0, prog: 0});
+  assert.deepStrictEqual(left2, [{id: 'iron_ore', n: 3}, {id: 'coal', n: 2}, {id: 'iron_ingot', n: 2}],
+      '满包容纳不下 → 逐笔转掉落清单(调用方 Drops.spawn 脚下)');
+});
+
+test('T13 TNT 掷骰纯函数: advTntRoll — 70% 门槛种子化 + 中签才走掉落表', () => {
+  /* rollBlockDrop 产自 vm 语境(数组/原型与宿主不同), 展开映射进宿主数组再比对 */
+  const roll = (id, r) => [...A.advTntRoll(id, r).map((d) => [d.id, d.n])];
+  assert.deepStrictEqual(roll(3, () => 0.69), [['cobble', 1]], '0.69 < 0.7 中签 → 石头掉圆石');
+  assert.strictEqual(roll(3, () => 0.7).length, 0, '恰 0.7 不中签(MC 30% → 儿童加倍 70%)');
+  assert.strictEqual(roll(3, () => 0.99).length, 0, '远不中签 → 只碎不掉');
+  /* 树叶: 中签后掉落表条目照掷(rand 恒 0 → 三样概率全中, 无保底) */
+  assert.deepStrictEqual(roll(7, () => 0).map((e) => e[0]), ['sapling', 'apple', 'stick'],
+      '中签后 rollBlockDrop 原样掷(保底+概率)');
+  assert.strictEqual(roll(20, () => 0).length, 0, 'TNT 源块无 drop 字段 → 空手(不自掉)');
+});
+
+test('T13 TNT 伤害纯函数: advTntDmg — 爆心 30 · 波及边缘 12 · 线性衰减', () => {
+  assert.strictEqual(A.advTntDmg(0), 30, '爆心最痛(僵尸 30 一击清场)');
+  assert.strictEqual(A.advTntDmg(1.5), 24, '中途线性衰减 24');
+  assert.strictEqual(A.advTntDmg(4.5), 12, '波及边缘 12');
+  assert.strictEqual(A.advTntDmg(9), 12, '越界钳制(调用方已按半径过滤)');
+});
+
+test('T13 熔炉行为链: 走近点击开面板 → 自动放料(扣包) → 2.5s/件烧成 → 关面板取产入包', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('furnace', 1);
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5;
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_FURNACE, '熔炉放进世界(放置链复用 advTryPlace)');
+  /* 离 4 格远点击: 不开面板只给提示; 走近点击才开 */
+  pos.x = spot.x + 20; pos.z = spot.z + 20;
+  calls.length = 0;
+  AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.ADV.furnaceOpen, false, '离炉 20 格: 点击不开面板(4 格门槛)');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('走近') >= 0), '给走近提示');
+  pos.x = spot.x + 0.5; pos.z = spot.z + 2.5; /* 距炉 2 格 */
+  AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.ADV.furnaceOpen, true, '走近 4 格内点击熔炉 → 打开烧炼面板');
+  /* 自动放料: 面板只报意图, 模式层执行 take — 矿石全入炉 + 最省凑料 1 块煤(热值 8 ≥ 5 件) */
+  api.add(A.advGetInv(), 'iron_ore', 5);
+  api.add(A.advGetInv(), 'coal', 2);
+  A.advFurnaceAutoFill();
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '矿石全入炉(take 扣包)');
+  assert.strictEqual(api.count(A.advGetInv(), 'coal'), 1, '最省凑料: 1 块煤已覆盖 5 件热值');
+  assert.strictEqual(A.advFurnace.input.n, 5, '炉内待烧 5 件');
+  assert.strictEqual(A.advFurnace.fuel.n, 1, '炉内燃料 1 块煤');
+  /* 烧炼 12.5s+: 5 件铁锭 + 完成播报(产物名入句) */
+  spoken.length = 0;
+  for (let i = 0; i < 340; i++) AdventureMode.update(0.05); /* 17s > 12.5s */
+  assert.deepStrictEqual(A.advFurnace.out, {id: 'iron_ingot', n: 5}, '5 件全部烧成');
+  assert.ok(spoken.some((s) => String(s).indexOf('铁锭') >= 0 && String(s).indexOf('烧好') >= 0),
+      '完成播报(产物名入句)');
+  A.advFurnaceClose();
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 5, '关面板取产入包');
+  assert.strictEqual(A.ADV.furnaceOpen, false, '面板收起');
+  assert.strictEqual(A.advFurnace.out, null, '产物槽清空');
+});
+
+test('T13 死亡清炉: 炉内材料全额退背包 + 状态归零(退世界同一政策)', () => {
+  mem.clear();
+  freshInit();
+  A.advFurnace.input = {id: 'iron_ore', n: 3};
+  A.advFurnace.fuel = {id: 'coal', n: 1};
+  A.advFurnace.out = {id: 'iron_ingot', n: 2};
+  AdventureMode.onVoidFall(); /* 死亡类事件 → advPlayerDied → 清炉 */
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '待烧料退包');
+  assert.strictEqual(api.count(A.advGetInv(), 'coal'), 1, '燃料退包');
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 2, '产物退包');
+  assert.strictEqual(A.advFurnace.input, null, '炉清空(状态归零)');
+  assert.strictEqual(A.advFurnace.heat, 0, '热值清零');
+});
+
+test('T13 退世界清炉: cleanup 先退料落盘再清场(重进熔炉是空的, 材料在背包)', () => {
+  mem.clear();
+  freshInit();
+  A.advFurnace.input = {id: 'iron_ore', n: 3};
+  AdventureMode.cleanup();
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '退炉材料进背包');
+  const invSave = JSON.parse(mem.get('inventory_save'));
+  assert.ok(invSave.slots.some((s) => s && s.id === 'iron_ore' && s.n === 3), '退料随 inventory_save 落盘');
+  freshInit();
+  assert.strictEqual(A.advFurnace.input, null, '重进熔炉是空的(炉态不进存档, D8 口径)');
+});
+
+test('T13 TNT 行为链: 放置 → 空手点击点燃 → 引信延时 → 爆炸破坏记账 + 波及怪物受击', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('tnt', 1);
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5;
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_TNT, 'TNT 放进世界(5 火药+4 沙合成的放置型物品)');
+  holdOnly(null); /* 空手也能点(手持任意口径) */
+  calls.length = 0;
+  AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advFuses.length, 1, '点击点燃引信(左键分支最前拦截)');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('点燃') >= 0), '点燃提示');
+  /* 玩家走远(TNT 不伤玩家 — 儿童挖矿神器口径), 引信 1.45s 后布一只静止的怪在波及圈 */
+  pos.x = spot.x + 20; pos.z = spot.z + 20;
+  listResult = [];
+  for (let i = 0; i < 29; i++) AdventureMode.update(0.05);
+  const still = {name: '僵尸', hp: 30, dmg: 5, speed: 0, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55};
+  const mob = mkAdvMob('zombie', spot.x + 2.0, 25, spot.z + 0.5, {nest: 0, cfg: still}); /* 距爆心 1.5 格 */
+  listResult = [mob];
+  nextHit = {hp: 6, dead: false, freshDead: false};
+  hitLog.length = 0;
+  for (let i = 0; i < 3; i++) AdventureMode.update(0.05); /* 引信到点起爆 */
+  assert.strictEqual(A.advFuses.length, 0, '引信烧完');
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, 'TNT 源块清除');
+  assert.ok(calls.some((c) => c[0] === 'boom'), 'Fx.boom 爆炸观感(旧 TNT 模式口径)');
+  assert.ok(hitLog.some((h) => h.m === mob && h.dmg === 24), '波及怪物受击(距爆心 1.5 格 → 伤害 24)');
+  /* 破坏记账: 半径内可采集方块逐块 editBlock+记账, 70% 掷骰产生掉落物 */
+  const edits = calls.filter((c) => c[0] === 'edit' && c[4] === 0);
+  assert.ok(edits.length >= 10, '半径内方块破坏走 editBlock+记账: ' + edits.length + ' 格');
+  assert.ok(globalThis.Drops.list().length >= 1, '70% 掷骰掉落物落地(统计上必有一批)');
 });
