@@ -154,12 +154,17 @@ flowchart TD
 - 测试：speech.test.js 扩展——fake speechSynthesis 断言说话起→钩子 start、说完→钩子 end（含 cancel 路径的 end 兜底）；boot 全绿。
 - 备注：duck 经 director 事件化执行，A5 接上主循环 tick 后才真正出声（A5 并入前钩子只改状态，属预期）。
 
-### A7 素材入库 + 样本条目 + CREDITS `[ ]`
+### A7 素材入库 + 样本条目 + CREDITS `[x]`（并入 `adc924d`）
 - 依赖：A4（结构与加载器就绪）。
 - 工具链预案（本机已探明无 ffmpeg/curl）：转码优先序 ① PATH 里有 ffmpeg 直接用；② `npm i -D ffmpeg-static`（package.json 只装开发期工具链的既有定位内，运行时零依赖不破）并用其二进制；③ 都不行则 OGA 的 mp3 直接入库（iPad Safari 解码 MP3 无碍，m4a 决策降级为 mp3 并在 CREDITS 与 ADR 记录原因）。下载用 PowerShell Invoke-WebRequest，源文件（zip/wav/flac）放仓库外临时目录不入库。
 - 交付：assets/audio/ 目录 + m4a（或降级 mp3）+ CREDITS.md（曲目/作者/来源 URL/许可/下载日期逐条）；清单：Kenney music-jingles 全包（反馈类）+ impact-sounds / rpg-audio 两包各挑（打击爆炸类，均 CC0 OGG 需转码）+ OGA「Crickets」与「Ambience of a Fallen Age」挑 2~3 首（BGM）；转码参数：mono 44.1k，BGM 96k / 短曲 128k（loudnorm 可选）；A2 注册表填 file 条目与 MUSIC_TRACKS（mood 对齐），死键不复活。
 - 测试：A2 的资产存在性/CREDITS 覆盖断言此时咬合；`node --test` 全绿。
 - 红线：只取 CC0；不下载 Minecraft/C418 原声；总体积 ≤25MB。
+- 收尾备注（转记 A10）：
+  - ① 条目形状演进——file 条目必带 synth 回退（A2 的「二选一」口径作废，测试已改为互锁「永不哑」）；
+  - ② ADR-0002 补记 ffmpeg-static 的 TLS workaround（NODE_TLS_REJECT_UNAUTHORIZED=0 重装）与「响度未过 loudnorm、由 g/gTouch+AUDIO_MIX 分工」现状；
+  - ③ mood 映射为听感推断（crickets→calm · the-abyss→dark · volcano→battle）待 A10 复核；Fallen Age 另两首在临时目录 `C:\Users\user\AppData\Local\Temp\opencode\a7-sources\` 备用可增补；
+  - ④ level/win 保持纯合成（琶音/和弦比打击样本贴仪式感）。
 
 ### A8 音量滑杆 UI `[x]`（并入 `b695f66`）
 - 依赖：A4。
