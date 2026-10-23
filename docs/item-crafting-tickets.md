@@ -84,8 +84,10 @@ flowchart TD
 - 测试：`test/items-core.test.js`（vm 加载同 held-item.test.js 惯例）——注册表形状防错网（name/icon 必备；工具必有 tool{kind,tier,dmg,dur,speed}；食物必有 food>0）+ 纯函数行为（堆叠 64/工具 1）。
 - 数值：耐久 120/260/500/1500；速度 2/4/6/8；剑伤 7/9/11/13、镐 3/4/6/8、斧 5/6/8/10、锹 2/3/4/5；tier 木1石2铁3钻4；燃料热值照设计稿 §3.1。
 
-### T2 方块注册表扩展 + 怪物掉落表 `[ ]`
+### T2 方块注册表扩展 + 怪物掉落表 `[x]`（并入 `af3bde8`）
 - 依赖：无。
+- 决策已审定：B_SAPLING=50（号段顺延）；玻璃破坏掉自身（零惩罚，附录 B 已补）；红砖块物品 id=`bricks` 与红砖物品 `brick` 区分；MOB_DROPS 收 slime 共五怪。
+- 字段口径：drop 条目 `[itemId,保底,概率]`（概率=额外+1 的几率）；MOB_DROPS `rolls:[itemId,保底,加成次数]` + `rare:[itemId,概率]`；tier 不足=可挖慢速但 drop 不触发；创造专属=字段缺失即不可采集判据。
 - 交付：`config.js` 修改——① 存量方块中「探险地形会出现/可采集」的（草地1 泥土2 石头3 圆石4 木头5 木板6 树叶7 沙子8 红砖9 石砖13 苔石14 玻璃18）补 `hard/tool/tier/drop` 字段（数值见设计稿 §3.4；创造专属方块 10/11/12/15/16/17/19 不动）；② 新方块 id 36~49（附录 A 表：四矿/草丛/耕地/麦四阶段/工作台/熔炉/火把/树苗/黏土，thin 块 `solid:false`）；③ 新增 `MOB_DROPS` 一期四怪（§3.3：保底 1 + 50% 加成 1；僵尸 5% 稀有铁锭）。
 - 测试：`test/blocks-fields.test.js`（vm 加载 config.js）——新 id 齐全、thin 块 solid:false、采集类字段齐全、drop 物品名非空、tool 取值合法。
 - 约束：只增不改既有键的既有字段；方块定义仍纯色（贴图归 T9）。
@@ -130,7 +132,7 @@ flowchart TD
 
 ### T9 贴图图集（texture-atlas）`[ ]`
 - 依赖：T2。
-- 交付：`js/texture-atlas.js`——程序化 16×16 像素画风图集（草顶斑点/石材颗粒/矿石嵌斑/木纹/板缝/树叶孔洞/工作台面/熔炉口/黏土纹理），覆盖全部新方块（36~49）+ 树叶/木头/木板/石头系升级款；接入 MeshCore/world.js 渲染（TNT 贴图图集同款管线：画布→CanvasTexture→UV）；纯色 `faceColor` 仍为存量方块兜底。
+- 交付：`js/texture-atlas.js`——程序化 16×16 像素画风图集（草顶斑点/石材颗粒/矿石嵌斑/木纹/板缝/树叶孔洞/工作台面/熔炉口/黏土纹理），覆盖全部新方块（36~50）+ 树叶/木头/木板/石头系升级款；接入 MeshCore/world.js 渲染（TNT 贴图图集同款管线：画布→CanvasTexture→UV）；纯色 `faceColor` 仍为存量方块兜底。
 - 测试：`test/texture-atlas.test.js`——图集生成纯函数段（画布桩注入）：每新方块 id 有格子、UV 映射不越界；MeshCore 回归（test/mesh-core.test.js 全绿）。
 - 报告须声明：world.js/mesh-core.js 的接入改动点与 index.html 加载位置。
 
