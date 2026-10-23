@@ -3,13 +3,14 @@
    声音清单注册表 (AudioRegistry, 术语见 GLOSSARY.md) — 引擎层
    ------------------------------------------------------------
    游戏声音的唯一权威清单: SFX 音效条目(kind → 样本文件或合成定义,
-   附双端增益/优先级/同类冷却)、BGM 曲目表、模式→情绪映射。
+   附双端增益/优先级/同类冷却)、BGM 曲目表、主菜单情绪 MOODS(仅 menu
+   键 — 各游玩模式的情绪唯一权威在 mode-registry 各行 mood 字段)。
    播放器只按条目解释发声(标 file 走样本、标 synth 走合成兜底),
    不再自持清单; 加音效/换样本 = 这里改一行数据, 手滑(漏登记/
    死文件/情绪值拼错)由 test/audio-registry.test.js 扫源码调用量
    与资产存在性逐条断言, 与 mode-registry 同一套执行哲学。
-   MOODS 的键是应用层模式 id 的字符串镜像(不依赖 mode-registry
-   模块本体, 一致性由单测断言) — 引擎层数据, 应用层读它合法。
+   MOODS 仅存 menu(主菜单非模式): 模式情绪不再在此镜像 — 引擎层数据,
+   应用层读它合法。
    interface: SFX_KINDS / MUSIC_TRACKS / MOODS / AudioRegistry(命名空间)
    依赖(均经全局名, 调用期解析): 无 — 纯数据表, 任何加载序可用
    可测性声明: 零 THREE·零 DOM·有单测(test/audio-registry.test.js)
@@ -55,28 +56,22 @@ const SFX_KINDS = {
    每条: trackId → {file(assets/audio/ 下文件名), mood, g 曲目增益,
     durMs 实测时长毫秒}。A7 入库 CC0 三曲(calm/battle/dark 各一, 溯源
     与听感映射见 assets/audio/CREDITS.md): mood 为曲目名听感推断,
-    A10 复核可调; durMs 以转码后 ffmpeg 实测 Duration 换算毫秒 —
-    MusicDirector 判曲毕的唯一依据(A3 接口备注②), 执行器另有
-    AudioBuffer.duration 解码预填兜底(audio.js), 此处静态值保首拍即准。 */
+    A10 复核可调; durMs 以 loudnorm 重转码(ADR 0003)后 ffmpeg 实测
+    Duration 换算毫秒 — MusicDirector 判曲毕的唯一依据(A3 接口备注②),
+    执行器另有 AudioBuffer.duration 解码预填兜底(audio.js), 此处静态值保首拍即准。 */
 const MUSIC_TRACKS = {
-  'crickets': {file: 'bgm-crickets.m4a', mood: 'calm', g: 1, durMs: 209360}, // 00:03:29.36 蟋蟀夏夜环境
-  'the-abyss': {file: 'bgm-the-abyss.m4a', mood: 'dark', g: 1, durMs: 147140}, // 00:02:27.14 深渊低回
-  'volcano': {file: 'bgm-entering-the-volcano.m4a', mood: 'battle', g: 1, durMs: 128000}, // 00:02:08.00 火山行进
+  'crickets': {file: 'bgm-crickets.m4a', mood: 'calm', g: 1, durMs: 209400}, // 00:03:29.40 蟋蟀夏夜环境
+  'the-abyss': {file: 'bgm-the-abyss.m4a', mood: 'dark', g: 1, durMs: 147200}, // 00:02:27.20 深渊低回
+  'volcano': {file: 'bgm-entering-the-volcano.m4a', mood: 'battle', g: 1, durMs: 128100}, // 00:02:08.10 火山行进
 };
 
-/* ---------- 模式→BGM 情绪映射 ----------
-   键 = 模式 id(js/mode-registry.js 全集的字符串镜像) + 'menu'(主菜单,
-   非模式); 值 ∈ {calm 轻柔, battle 战斗, dark 阴暗, none 无配乐}。
-   focus(专注训练营)=none: 配乐与反馈音争注意力, 注意力训练哲学
-   (spec 拍板)。新模式入 mode-registry 而忘了在此声明情绪, 单测即红。 */
+/* ---------- 主菜单 BGM 情绪 ----------
+   引擎侧只需 menu 一个键: 各游玩模式的情绪唯一权威在 mode-registry 各行
+   mood 字段(main.js switchMode 直接消费, 每行必声明由其单测断言), 此前的
+   模式 id 镜像键已删——两处权威各改一半的漂移源一并拔除。值 ∈ {calm,
+   battle, dark, none}; menu=calm: 主菜单轻柔迎接(spec 故事 9)。 */
 const MOODS = {
   menu: 'calm', // 主菜单轻柔迎接(spec 故事 9)
-  arena: 'battle',
-  focus: 'none',
-  build: 'calm',
-  tank: 'battle',
-  nether: 'dark',
-  adventure: 'dark',
 };
 
 /* CommonJS 导出守卫(mode-registry 同款): 浏览器经典脚本共享词法

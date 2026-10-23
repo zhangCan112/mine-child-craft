@@ -207,6 +207,7 @@ id 命名偏离见 §6。
 | 4 | CSS/HTML 用 id 选择器且 id 为 camelCase | DOM id 是模式注册表三元组契约（id↔cardXxx↔menuXxx），有测试断言 | stylelint.config.mjs / .htmlhintrc |
 | 5 | CSS 关闭 no-descending-specificity | css 按加载顺序分层覆盖是既有架构 | stylelint.config.mjs |
 | 6 | HTML id 不含连字符（指南 id 条款） | 同 #4 | .htmlhintrc |
+| 7 | CSS 保留 `-webkit-appearance` 前缀版（与标准版并存，行内 disable property-no-vendor-prefix） | 旧 iPad Safari 只认前缀版外观属性；音量滑杆（A8）自绘 thumb 必须去默认外观 | css/touch.css 两处行内 |
 
 新增偏离必须登记在此表并给理由；未登记的偏离视为违规。
 
@@ -215,3 +216,5 @@ id 命名偏离见 §6。
 - 2026-10-22：初版。基于两份调研报告成文；同日完成存量全量对齐（ESLint 清零 21057→0、
   CSS 展开式排版+类名 kebab-case 迁移 134 处、HTML 缩进、行尾统一 LF、头注释契约补齐），
   209 项既有测试全数通过。
+- 2026-10-23：§6 登记 #7（css/touch.css 的 `-webkit-appearance` 行内豁免——A8 音量滑杆
+  入库时的旧账补记）。

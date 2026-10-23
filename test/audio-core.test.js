@@ -342,6 +342,28 @@ test('VolState 无存储注入也内存可用(不抛, 纯决策态)', () => {
   assert.strictEqual(v.music(), 0.5);
 });
 
+/* ============ musicBusTarget: 让路×音量的总线目标换算(A1 duck 修复) ============ */
+
+test('musicBusTarget 基线类目标(> duck 深度)按音量倍率缩放', () => {
+  const f = loadCore().musicBusTarget;
+  assert.strictEqual(f(0.30, 1, 0.30), 0.30, '倍率 1 基线原样');
+  assert.strictEqual(f(0.30, 0.5, 0.30), 0.15);
+  assert.strictEqual(f(0.25, 0.5, 0.25), 0.125, '触屏两档同口径');
+});
+
+test('musicBusTarget 让路只降不升: duck 目标 = min(基线×倍率, 0.08), 静音 0 时 TTS 开口不抬声', () => {
+  const f = loadCore().musicBusTarget;
+  assert.strictEqual(f(0.08, 1, 0.30), 0.08, '基线高于让路深度: 照常压到 0.08');
+  assert.strictEqual(f(0.08, 0.2, 0.30), 0.06, '基线×倍率 0.06 已低于 0.08: 让路到 0.06 不抬升');
+  assert.strictEqual(f(0.08, 0, 0.30), 0, '静音时让路保持 0(让路不得变抬声)');
+});
+
+test('musicBusTarget 淡出目标 0 恒 0(换曲交叉淡出不因倍率回弹)', () => {
+  const f = loadCore().musicBusTarget;
+  assert.strictEqual(f(0, 0.5, 0.30), 0);
+  assert.strictEqual(f(0, 1, 0.25), 0);
+});
+
 /* ============ AUDIO_MIX: 响度常数表 ============ */
 
 test('AUDIO_MIX 儿童保守响度常数钉死(spec 音频图与调度参数的防漂移锚点)', () => {

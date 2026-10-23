@@ -11,17 +11,21 @@
    (自 effects.js 音效段迁入, 60+ 调用点零改动)。
    interface: AudioMixer{sfx,engineHum,setMood,setMusicVol,setSfxVol,duck,tick,preload} / sfx / engineHum / unlockAudio
    依赖(均经全局名): config.js 的 IS_TOUCH · audio-registry.js 的 SFX_KINDS/MUSIC_TRACKS ·
-     audio-core.js 的 AUDIO_MIX/mkVoiceGate/mkMusicDirector — 三者均须先于本文件加载(本文件顶层即取值建 gate/director)
+     audio-core.js 的 AUDIO_MIX/mkVoiceGate/mkMusicDirector/mkVolState/musicBusTarget —
+     均须先于本文件加载(本文件顶层即取值建 gate/director/音量账本)
    可测性声明: WebAudio/DOM 全部调用期惰性创建, Node 测试可安全加载; adapter 无直测, 经 boot 冒烟覆盖(conventions §1.9)
    ============================================================ */
 
 let actx = null; // 懒创建; iOS 须在用户手势内创建+resume 才能真正出声(见 unlockAudio)
 let master = null; // 总增益: sfxBus/musicBus 两路汇此 → 压限器 → 扬声器(plan §3.2 总线图)
 let sfxBus = null; // 音效总线(桌面 0.9/触屏 0.8; 触屏再前置 ~160Hz 高通)
-let musicBus = null; // 音乐总线(桌面 0.30/触屏 0.25, duck 时压 0.08) — 起停/让路/淡变全在这层
-let sfxVolMul = 1; // 音效音量倍率(A8 滑杆消费; 本单恒 1)
-let musicVolMul = 1; // 音乐音量倍率(A8 滑杆消费; 本单恒 1)
+let musicBus = null; // 音乐总线(桌面 0.30/触屏 0.25, duck 时压 min(基线×倍率, 0.08)) — 起停/让路/淡变全在这层
+/* 音量倍率账本(B10/B13): 0..1 钳制与双端基线快照收在 audio-core 的
+   mkVolState, 倍率/基线/钳制不再各处手写; 无存储注入 — 持久化实例在
+   audio-vol-ui, 滑杆值经 setMusicVol/setSfxVol 链路同步进来 */
+const volState = mkVolState({isTouch: IS_TOUCH});
 let directorStarted = false; // BGM 计时起步只发一次(menu 口径 5~30s 首曲从此走)
+let audioPreloaded = false; // 首次走通 context running 后自动 preload 一次(A9): 标记先行防重入(preload 内部再调 unlockAudio)
 /* pad 小喇叭发不动低频: 触屏检测口径统一在 config.js 的 IS_TOUCH */
 
 /* 手势解锁(常驻监听): 非手势创建/恢复的 context 在 iOS 上保持 suspended,
@@ -49,7 +53,7 @@ function unlockAudio() {
       /* 双总线(plan §3.2): 音效/音乐分账 — 音效可叠可抢可滤, 音乐走自己的
          基线/让路/淡变; 两路再汇 master。总线基准取 AUDIO_MIX 双端两档 */
       sfxBus = actx.createGain();
-      sfxBus.gain.value = (IS_TOUCH ? AUDIO_MIX.sfxTouch : AUDIO_MIX.sfx) * sfxVolMul;
+      sfxBus.gain.value = volState.baseline().sfx * volState.sfx(); // 双端基线快照 × 音效倍率(B10: 不再手写 IS_TOUCH 三元)
       /* pad 扬声器频响: ~160Hz 以下频段小喇叭发不出, 白占 headroom 还逼
          锥体冲程发劈(research A.8 移动端混音检查单)。高通只挂音效总线前置
          (A1 校正③): 音乐低频是内容, spec 总线图明确不滤 */
@@ -76,6 +80,14 @@ function unlockAudio() {
          提前起步无害 — 挂起期间导演时钟本来就冻结(挂起不排队纪律) */
       directorStarted = true;
       musicDir.unlock();
+    }
+    if (!audioPreloaded && actx && actx.state === 'running') {
+      /* 首次真正走通(context running)即自动预热样本缓存一次(A4 跨单备注
+         本意): 消灭"首播必走合成"。标记先行防重入 — preload 内部又会调
+         unlockAudio; iOS 首手势 resume 是异步的, running 前不预热,
+         下一次手势/sfx 重试直到走通 */
+      audioPreloaded = true;
+      AudioMixer.preload();
     }
   } catch (e) {}
 }
@@ -325,23 +337,28 @@ function engineHum(level) {
 /* ---------- BGM 调度执行器: MusicDirector 事件流 → 真实节点 ----------
    决策(何时起/停/让路)在 audio-core 的 musicDir(有单测), 本层翻译事件:
    start=解码一次性播放(不循环, 播完丢引用回收 PCM; 曲目条目缺 durMs 时用
-   AudioBuffer.duration 预填回注册表条目 — A3 备注②, 判曲毕唯一依据);
+   AudioBuffer.duration 预填进副本条目 — A3 备注②, 判曲毕唯一依据;
+   director 消费的是注册表条目的浅副本, 运行时回写不落注册表 — 纯数据);
    stop=曲已淡出, 停源断链; gain=musicBus 开闸到目标(一切变化
    setTargetAtTime)。空曲表时 director 恒 idle, 本段结构就绪不出声
    (A7 填曲后自然生效); 音乐不进 sampleCache — 同时最多解码一首(plan §3.3) */
-const trackList = Object.values(MUSIC_TRACKS); // director 持同引用: 死曲可从此表摘除
+/* 条目浅副本(A6 注册表纯数据): durMs 预填/死曲短命等运行时回写落副本;
+   死曲可从此表摘除 */
+const trackList = Object.values(MUSIC_TRACKS).map((t) => ({...t}));
 const musicDir = mkMusicDirector({
   tracks: trackList,
-  gain: IS_TOUCH ? AUDIO_MIX.musicTouch : AUDIO_MIX.music, // 总线基线双端两档(A3 备注⑤)
+  gain: volState.baseline().music, // 总线基线双端两档(A3 备注⑤; B10 经 baseline() 取, 不再手写三元)
 });
 let musicSrc = null; // 当前一次性曲源(同时 ≤1 首, 播完丢引用)
 let musicGain = null; // 当前曲目私有增益(曲目 g + 淡入), 与总线 duck/让路分层
 let musicWant = null; // 起曲意图令牌: 解码等待期若已被停(换情绪淡出先到)则弃起
 
-/* 总线增益目标换算: duck 深度 0.08 是绝对值不缩放(A3 备注⑤);
+/* 总线增益目标换算: 换算纯函数 musicBusTarget 在 audio-core(有单测) —
+   duck 深度 0.08 是"只降不升"的上限, 不是"抬到 0.08"的定值(A1 修复:
+   音乐倍率 <0.27 或静音 0 时, TTS 开口不得反把总线抬响/让静音失效),
    其余基线目标按音乐音量倍率缩放(A8 滑杆消费) */
 function musicGainTarget(target) {
-  return target <= AUDIO_MIX.duck ? target : target*musicVolMul;
+  return musicBusTarget(target, volState.music(), volState.baseline().music);
 }
 
 /* 总线开闸: setTargetAtTime 时间常数取 ramp/3(~95% 到位), 平滑无爆点 */
@@ -350,8 +367,8 @@ function applyBusGain(target, rampMs) {
 }
 
 /* 死曲处理: 拉取/解码失败的曲目标死并从池中摘除(后续选曲不再撞);
-   给个短 durMs 让 director 尽快"曲毕"入静默换下一首 — BGM 侧的
-   永不哑就是静默 */
+   给个短 durMs 让 director 尽快"曲毕"入静默换下一首(tr 是副本条目,
+   注册表不回写 — A6) — BGM 侧的永不哑就是静默 */
 function deadTrack(tr) {
   const i = trackList.indexOf(tr);
   if (i >= 0) trackList.splice(i, 1);
@@ -364,7 +381,7 @@ function playTrack(tr, busGain, fadeInMs) {
       .then((bytes) => decodeAudio(bytes))
       .then((buf) => {
         if (musicWant !== tr) return; // 等待期已被停(切情绪淡出先到): 不再起声
-        if (!tr.durMs) tr.durMs = Math.round(buf.duration*1000); // 曲目时长预填(A3 备注②)
+        if (!tr.durMs) tr.durMs = Math.round(buf.duration*1000); // 曲目时长预填(A3 备注②; tr 是副本条目, 注册表不回写)
         const t = actx.currentTime;
         const src = actx.createBufferSource(); src.buffer = buf;
         const g = actx.createGain(); g.gain.value = 0;
@@ -408,20 +425,21 @@ const AudioMixer = {
   setMood(m) {
     musicDir.setMood(m);
   },
-  /* setMusicVol(v): 0..1 音乐音量倍率(钳制); duck 让路深度是绝对值不随之缩放。
+  /* setMusicVol(v): 0..1 音乐音量倍率(volState 钳制, B13); 让路深度是
+     "只降不升"的上限, 不把压低/静音的总线抬响(musicBusTarget, A1)。
      曲目进行中立即重设总线, 其余场景下次 gain/start 事件自然带新倍率 */
   setMusicVol(v) {
-    musicVolMul = Math.min(1, Math.max(0, v));
+    volState.setMusic(v);
     const s = actx && musicBus ? musicDir.snapshot() : null;
     if (s && s.state === 'playing') {
-      applyBusGain(s.ducked ? AUDIO_MIX.duck : (IS_TOUCH ? AUDIO_MIX.musicTouch : AUDIO_MIX.music), 250);
+      applyBusGain(s.ducked ? AUDIO_MIX.duck : volState.baseline().music, 250);
     }
   },
-  /* setSfxVol(v): 0..1 音效音量倍率(钳制), 总线基准 × 倍率平滑过渡 */
+  /* setSfxVol(v): 0..1 音效音量倍率(volState 钳制, B13), 总线基准 × 倍率平滑过渡 */
   setSfxVol(v) {
-    sfxVolMul = Math.min(1, Math.max(0, v));
+    volState.setSfx(v);
     if (actx && sfxBus) {
-      sfxBus.gain.setTargetAtTime((IS_TOUCH ? AUDIO_MIX.sfxTouch : AUDIO_MIX.sfx)*sfxVolMul,
+      sfxBus.gain.setTargetAtTime(volState.baseline().sfx*volState.sfx(),
           actx.currentTime, 0.05);
     }
   },
@@ -440,8 +458,9 @@ const AudioMixer = {
       else if (ev.type === 'gain') applyBusGain(ev.target, ev.rampMs);
     }
   },
-  /* preload(): 预热全部样本条目(首次手势后调用最佳; 失败条目自动永走
-     合成)。BGM 曲目不预载 — 一次性按需解码, 省常驻 PCM 内存 */
+  /* preload(): 预热全部样本条目(unlockAudio 首次走通 running 后已自动
+     调用一次 — A9, 消灭"首播必走合成"; 失败条目自动永走合成)。
+     BGM 曲目不预载 — 一次性按需解码, 省常驻 PCM 内存 */
   preload() {
     unlockAudio();
     for (const e of Object.values(SFX_KINDS)) {

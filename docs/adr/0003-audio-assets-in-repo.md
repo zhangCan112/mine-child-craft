@@ -33,8 +33,12 @@ Statement）。我们决定把 CC0 素材**转码后直接入仓**：`assets/aud
   （本机 PATH 无 ffmpeg）；其安装需直连 GitHub 拉取二进制，当时证书校验失败，
   以 `NODE_TLS_REJECT_UNAUTHORIZED=0` 重装绕过（一次性 TLS workaround，已记
   CREDITS 公共信息）。转码命令逐条记在 CREDITS.md；运行时零依赖不破。
-- 素材**未过 loudnorm** 响度归一：现状由注册表条目 g/gTouch（条目级）与
-  AudioCore 的 AUDIO_MIX 总线增益（总线级）分工校准；后续听感漂移优先调这两处，
-  而非重转码——重转码改文件哈希，须同步 CREDITS 与注册表全量重验。
+- 素材**已过 loudnorm** 响度归一（2026-10-23 评审修复轮落实）：已接线的 13 个文件（3 BGM
+  + 10 SFX 样本）按单遍 `loudnorm=I=-21:TP=-2:LRA=7`（I=-21 取 spec「混音目标 −24~−18 LUFS
+  儿童保守区间」的中偏保守值；TP=-2 防真峰削波；LRA=7 窄响度范围）自入库 m4a 重转码，mono 44.1kHz 与码率
+  （BGM 96k / 短曲 128k）沿原档；BGM durMs 随重转码以 ffmpeg 实测更新进注册表，CREDITS
+  转码命令同步。85 首 jingles 备用池未接线、未归一（接线时须按 CREDITS 命令补齐）。此后
+  条目级 g/gTouch 与 AUDIO_MIX 总线增益只做听感微调，不再整批重转码——重转码改文件哈希，
+  须同步 CREDITS 与注册表全量重验。
 - 单格式的代价：若未来出现不解 AAC 的目标设备，须按 CREDITS 的来源 URL 重新
   下载源文件整批重转码（源 wav/flac/ogg 不入库）。
