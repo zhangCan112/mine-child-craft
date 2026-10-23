@@ -260,6 +260,19 @@ const FAMILIES = {
 };
 const PROTOS = ['charger', 'archer', 'bomber', 'ambusher', 'diver', 'turret', 'splitter', 'skirmisher'];
 
+/* ---------- 怪物掉落表 (物品与合成一期, 设计稿 §3.3) ----------
+   儿童配平: 击杀必得保底数, 再以 50% 掷「加成次数」次(替代 MC 66%×0-2 的空手可能)。
+   rolls: [itemId, 保底, 加成次数] · rare: [itemId, 概率](独立小概率额外掉落)。
+   一期: 战斗四怪 + 史莱姆; 二期补下界四条/三期动物(设计稿 §3.3 注释口径)。
+   消费者: Drops.rollDrops(T7) — 掷骰语义在此表, 表只存数据。 */
+const MOB_DROPS = {
+  zombie: {rolls: [['rotten_flesh', 1, 1]], rare: [['iron_ingot', 0.05]]}, // MC 稀有铁锭 0.83% → 5%(§3.1)
+  skeleton: {rolls: [['bone', 1, 1]]}, // 箭二期(弓物品化)
+  creeper: {rolls: [['gunpowder', 1, 1]]},
+  spider: {rolls: [['string', 1, 1]]},
+  slime: {rolls: [['slimeball', 1, 1]]}, // MC 需玩家击杀口径: 本游戏击杀者只有玩家, 天然满足
+};
+
 
 /* ============================================================
    方块定义
@@ -314,8 +327,66 @@ BLOCKS[B_GLOWSTONE] = {name: '发光岩', all: [1.00, 0.85, 0.45]};
    (传送判定只看坐标区间, 不看点位); portal 旗标 = 门面唯一身份 */
 BLOCKS[B_PORTAL] = {name: '传送门面', all: [0.50, 0.20, 0.80], glass: true, solid: false, portal: true};
 
+/* 物品与合成一期新方块 (id 36~50, 附录 A) — 探险地形与站点件
+   四矿: 石头底色+矿斑的纯色近似(嵌斑贴图归 T9 图集) · 硬度 3 = MC 矿石原值
+   tier 门槛照 MC 标签口径平移(手0/木1/石2/铁3/钻4): 煤1(木镐) 铁2(石镐) 金3/钻3(铁镐) — 设计稿 D5
+   掉落: 铁/金掉矿石物品(粗矿口径, 需熔炼), 煤/钻直接掉成品
+   薄块(thin)一律 solid:false 不挡人(B_FUSE 同款); 勿用 thin 做远观物(LOD 降采样会跳过)
+   B_SAPLING 附录 A 的 id 栏未编号(「—」), 36~49 已被 14 方块占满 → 顺延 50(号段不冲突) */
+const B_COAL_ORE=36; const B_IRON_ORE=37; const B_GOLD_ORE=38; const B_DIAMOND_ORE=39;
+const B_GRASS_TUFT=40; const B_FARMLAND=41;
+const B_WHEAT_0=42; const B_WHEAT_1=43; const B_WHEAT_2=44; const B_WHEAT_3=45;
+const B_CRAFT=46; const B_FURNACE=47; const B_TORCH=48; const B_CLAY=49; const B_SAPLING=50;
+BLOCKS[B_COAL_ORE] = {name: '煤矿', all: [0.36, 0.36, 0.38], hard: 3.0, tool: 'pick', tier: 1, drop: [['coal', 1, 0]]};
+BLOCKS[B_IRON_ORE] = {name: '铁矿', all: [0.55, 0.44, 0.36], hard: 3.0, tool: 'pick', tier: 2, drop: [['iron_ore', 1, 0]]};
+BLOCKS[B_GOLD_ORE] = {name: '金矿', all: [0.62, 0.52, 0.28], hard: 3.0, tool: 'pick', tier: 3, drop: [['gold_ore', 1, 0]]};
+BLOCKS[B_DIAMOND_ORE] = {name: '钻石矿', all: [0.42, 0.56, 0.58], hard: 3.0, tool: 'pick', tier: 3, drop: [['diamond', 1, 0]]};
+BLOCKS[B_GRASS_TUFT] = {name: '草丛', all: [0.38, 0.66, 0.28], thin: 0.35, solid: false,
+  hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 0, 0.5]]}; // 无保底, 50% 掉种子(MC 12.5% → 儿童加倍)
+BLOCKS[B_FARMLAND] = {name: '耕地', top: [0.32, 0.22, 0.13], side: [0.42, 0.30, 0.18], bottom: [0.42, 0.30, 0.18],
+  hard: 0.6, tool: 'shovel', tier: 0, drop: [['dirt', 1, 0]]}; // 锄头点草地/泥土转来(二期农田链)
+BLOCKS[B_WHEAT_0] = {name: '麦苗', all: [0.45, 0.70, 0.30], thin: 0.3, solid: false,
+  hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 1, 0]]};
+BLOCKS[B_WHEAT_1] = {name: '麦苗', all: [0.50, 0.72, 0.25], thin: 0.45, solid: false,
+  hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 1, 0]]};
+BLOCKS[B_WHEAT_2] = {name: '麦苗', all: [0.60, 0.70, 0.22], thin: 0.55, solid: false,
+  hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 1, 0]]};
+BLOCKS[B_WHEAT_3] = {name: '小麦', all: [0.85, 0.72, 0.20], thin: 0.7, solid: false,
+  hard: 0, tool: null, tier: 0, drop: [['wheat', 1, 0], ['wheat_seeds', 1, 0.5]]}; // 熟麦: 小麦×1 + 种子 1-2
+BLOCKS[B_CRAFT] = {name: '工作台', top: [0.55, 0.42, 0.26], side: [0.66, 0.52, 0.33], bottom: [0.60, 0.47, 0.30],
+  hard: 2.5, tool: 'axe', tier: 0, drop: [['craft_table', 1, 0]]}; // 站点: table 级配方
+BLOCKS[B_FURNACE] = {name: '熔炉', top: [1.00, 0.45, 0.10], side: [0.35, 0.35, 0.38], bottom: [0.35, 0.35, 0.38],
+  hard: 3.5, tool: 'pick', tier: 1, drop: [['furnace', 1, 0]]}; // 站点: 烧炼
+BLOCKS[B_TORCH] = {name: '火把', all: [1.00, 0.70, 0.25], thin: 0.5, solid: false,
+  hard: 0, tool: null, tier: 0, drop: [['torch', 1, 0]]}; // 装饰(无光照系统)
+BLOCKS[B_CLAY] = {name: '黏土', all: [0.58, 0.60, 0.68],
+  hard: 0.6, tool: 'shovel', tier: 0, drop: [['clay_ball', 4, 0]]}; // 掉 4 黏土球(红砖链源头, §3.5); 湖底生成
+BLOCKS[B_SAPLING] = {name: '树苗', all: [0.30, 0.60, 0.25], thin: 0.4, solid: false,
+  hard: 0, tool: null, tier: 0, drop: [['sapling', 1, 0]]}; // 20s 长成树(T12 模式层计时)
+
 /* 可被爆炸破坏的软方块(密室外壳石质方块不可破坏,防止把房间炸穿) */
 [5, 6, 8, 9].forEach((id)=> BLOCKS[id].soft = true);
+
+/* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
+   只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段
+   (soft 旗标先例同款赋值式)。hard = MC 硬度原值(徒手石头 7.5s 口径的来源) ·
+   tool = 加速工具(null = 徒手同速, 如树叶/玻璃) ·
+   tier = 掉落所需镐等级(手0/木1/石2/铁3/钻4; 不足可挖但慢且不掉落) ·
+   drop 条目 [itemId, 保底, 概率]: 保底=破坏必得数量, 概率=额外再得 1 个的几率。
+   创造专属 10/11/12/15/16/17/19 不加(探险不可得, 建造即点即碎政策不变)。 */
+Object.assign(BLOCKS[1], {hard: 0.6, tool: 'shovel', tier: 0, drop: [['dirt', 1, 0]]}); // 草地: MC 掉泥土
+Object.assign(BLOCKS[2], {hard: 0.5, tool: 'shovel', tier: 0, drop: [['dirt', 1, 0]]});
+Object.assign(BLOCKS[3], {hard: 1.5, tool: 'pick', tier: 1, drop: [['cobble', 1, 0]]}); // 石头掉圆石; 徒手挖不动→教做镐
+Object.assign(BLOCKS[4], {hard: 2.0, tool: 'pick', tier: 1, drop: [['cobble', 1, 0]]});
+Object.assign(BLOCKS[5], {hard: 2.0, tool: 'axe', tier: 0, drop: [['log', 1, 0]]});
+Object.assign(BLOCKS[6], {hard: 2.0, tool: 'axe', tier: 0, drop: [['planks', 1, 0]]});
+Object.assign(BLOCKS[7], {hard: 0.2, tool: null, tier: 0, // 树叶概率掉落: MC 5%/0.5%/2% → 儿童加倍(附录 B)
+  drop: [['sapling', 1, 0.12], ['apple', 1, 0.04], ['stick', 1, 0.08]]});
+Object.assign(BLOCKS[8], {hard: 0.5, tool: 'shovel', tier: 0, drop: [['sand', 1, 0]]});
+Object.assign(BLOCKS[9], {hard: 2.0, tool: 'pick', tier: 1, drop: [['bricks', 1, 0]]}); // 红砖块: 黏土链合成来路(§3.5)
+Object.assign(BLOCKS[13], {hard: 1.5, tool: 'pick', tier: 1, drop: [['stone_bricks', 1, 0]]}); // 石砖: 4 石合成(§3.5)
+Object.assign(BLOCKS[14], {hard: 2.0, tool: 'pick', tier: 1, drop: [['mossy_cobble', 1, 0]]}); // 苔石: 矿洞/遗迹直接采集(§3.5)
+Object.assign(BLOCKS[18], {hard: 0.3, tool: null, tier: 0, drop: [['glass', 1, 0]]}); // MC 玻璃无掉落 → 零惩罚哲学掉自身
 
 function faceColor(id, dir) {
   const b = BLOCKS[id];
