@@ -6,7 +6,8 @@
    DedicatedWorker 全局, 校验消息协议(跨线程契约)与纯核心接线。
    消息协议(与 world.js serveChunkKey 对应):
    请求 {gen,cx,cz,token,kind,cells:ArrayBuffer,w,d,h,border,bx,bz,yMax}
-   响应 {gen,cx,cz,token,kind,res} — res 为 MeshCore 三通道/LOD 裸数组 */
+   响应 {gen,cx,cz,token,kind,res} — res 为 MeshCore 四通道(solid/glass/
+   tnt/atlas)/LOD 裸数组 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -49,7 +50,7 @@ function mkMsg(kind) {
     w, d, h: 48, border, bx: 32-border, bz: 48-border, yMax: 5};
 }
 
-test('mesh-worker: full 请求 → 纯核心三通道 + 协议字段原样回程', () => {
+test('mesh-worker: full 请求 → 纯核心四通道 + 协议字段原样回程', () => {
   const w = loadWorker();
   w.onmessage({data: mkMsg('full')});
   assert.strictEqual(w.out.length, 1);
@@ -59,9 +60,14 @@ test('mesh-worker: full 请求 → 纯核心三通道 + 协议字段原样回程
   assert.strictEqual(r.cz, 3);
   assert.strictEqual(r.token, 1);
   assert.strictEqual(r.kind, 'full');
-  assert.strictEqual(r.res.solid.indices.length/6, 6); // 单方块 6 面
+  /* 石头(T9 起入方块图集): 走 atlas 通道, UV 经 TypedArray 转移回传 */
+  assert.strictEqual(r.res.solid, null);
   assert.strictEqual(r.res.glass, null);
   assert.strictEqual(r.res.tnt, null);
+  assert.strictEqual(r.res.atlas.indices.length/6, 6); // 单方块 6 面
+  /* UV 走 Float32Array transfer(vm 沙箱跨 realm, instanceof 不可用, 用 toString 判型) */
+  assert.strictEqual(Object.prototype.toString.call(r.res.atlas.uvs), '[object Float32Array]');
+  assert.strictEqual(r.res.atlas.uvs.length, 24*2); // 24 顶点 UV
 });
 
 test('mesh-worker: lod 请求 → 降采样粗网格(step 取 config 的 VIEW.lodStep)', () => {
