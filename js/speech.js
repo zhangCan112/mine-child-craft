@@ -14,8 +14,20 @@ function mkSpeech(synthesis, mkUtterance, hooks) {
   let voice = null;
   let cur = null; // 最近交给 synthesis 的 utterance: onstart/onend 溯源防串句
   let live = false; // cur 已发"说话起"、未发"说话止"(被打断时的兜底窗)
-  function fireStart() { if (onStart) { try { onStart(); } catch (e) {} } }
-  function fireEnd() { if (onEnd) { try { onEnd(); } catch (e) {} } }
+  function fireStart() {
+    if (onStart) {
+      try {
+        onStart();
+      } catch (e) {}
+    }
+  }
+  function fireEnd() {
+    if (onEnd) {
+      try {
+        onEnd();
+      } catch (e) {}
+    }
+  }
   function pick() {
     try {
       const vs = synthesis.getVoices();
@@ -37,13 +49,23 @@ function mkSpeech(synthesis, mkUtterance, hooks) {
         if (voice) u.voice = voice;
         /* 钩子只认溯源到 u 的事件: 后句顶掉前句后, 浏览器迟到补发的
            前句 onstart/onend 不得误伤新句的让路状态 */
-        u.onstart = () => { if (cur === u && !live) { live = true; fireStart(); } };
-        u.onend = () => { if (cur === u && live) { live = false; fireEnd(); } };
+        u.onstart = () => {
+          if (cur === u && !live) {
+            live = true; fireStart();
+          }
+        };
+        u.onend = () => {
+          if (cur === u && live) {
+            live = false; fireEnd();
+          }
+        };
         cur = u;
         /* cancel-then-speak: cancel 不保证派发前句 onend(说话被打断时
            音乐不能压着不回升), 先自行兜底"说话止"; 浏览器若补发前句
            onend, 会被上面的溯源挡掉, 不会双发 */
-        if (live) { live = false; fireEnd(); }
+        if (live) {
+          live = false; fireEnd();
+        }
         synthesis.cancel(); // 新句子打断旧句子
         synthesis.speak(u);
       } catch (e) {}
@@ -52,7 +74,9 @@ function mkSpeech(synthesis, mkUtterance, hooks) {
       try {
         if (synthesis) synthesis.cancel();
       } catch (e) {}
-      if (live) { live = false; fireEnd(); } // cancel 路径同样要有 end 兜底
+      if (live) {
+        live = false; fireEnd();
+      } // cancel 路径同样要有 end 兜底
     },
   };
 }
