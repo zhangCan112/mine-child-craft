@@ -21,12 +21,13 @@
      FOCUS_STAMP_KINDS(自选图案白名单) · stampRewardClaimed(claimed, rid) ·
      focusDayIndex · trimFocusLog · FOCUS_LOG_KEEP_DAYS · FOCUS_DEVIL_TIME_MS ·
      devilDimFor · focusCheckEntry · checkBaseline · devilEntry · devilTierFor ·
-     focusTodayDims · focusDimStars · focusLastBreakthrough ·
+     focusTodayStr(now) · focusTodayDims · focusDimStars · focusLastBreakthrough ·
      FOCUS_SAVE_DEFAULTS · migrateFocusSave
-   依赖(均经全局名): 掷骰/结算纯函数无依赖; grantFocusLoot 调用期解析
-     inventory-core 的 add(加载序先于本文件, 见 index.html); FOCUS_META 的
-     图标字段在构造期调用 mcIcon/creeperFace(js/focus-icons.js, 加载序在
-     本文件之前, 见 index.html)
+   依赖(均经全局名, 调用期解析): 掷骰/结算纯函数无依赖; grantFocusLoot 调用期
+     解析 inventory-core 的 add(加载序先于本文件, 见 index.html); FOCUS_META
+     的图标字段在构造期调用 mcIcon/creeperFace(js/focus-icons.js, 加载序在
+     本文件之前); focusTodayStr 调用期解析 daily-budget.js 的 budgetDateStr
+     (加载序先于本文件, 见 index.html; 'Y-M-D' 拼装全库只留那唯一一处)
    可测性: 零 THREE·零 DOM(图标为惰性字符串拼接)·有单测
      (test/focus-paradigms.test.js, vm 直测)
    ============================================================ */
@@ -342,6 +343,14 @@ function devilParams(dim, currentTier) {
 const FOCUS_LOG_KEEP_DAYS = 90;
 /* 魔鬼特训 5 分钟硬顶(到点当前小节打完即强制结束, B8) */
 const FOCUS_DEVIL_TIME_MS = 5*60*1000;
+
+/* 今日日期串(单点出口, focus-levels 的日期工具族): 委托 budgetDateStr
+   (daily-budget.js, 加载序先于本文件, 调用期解析) — 模式层一律经此取
+   'Y-M-D' 键, 全库日期串拼装只留在 budgetDateStr 一处; now 可注入
+   (毫秒时间戳)供日历单元格与单测复用 */
+function focusTodayStr(now) {
+  return budgetDateStr(now === undefined ? Date.now() : now);
+}
 
 /* 日期串(年-月-日 无前导零, budgetDateStr 同款)→本地日序数:
    近 7 天均值与 90 天滚动的日差全部基于它; 损坏串返回 NaN(调用方按"无记录"处理) */

@@ -371,11 +371,7 @@ function flameIcon(level) {
   } else if (level === 2) { // 中苗左右小瓣
     px(4, 9, 1, 1, LAYERS[0]); px(11, 9, 1, 1, LAYERS[0]);
   }
-  const big = document.createElement('canvas');
-  big.width = big.height = 96;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 96, 96);
-  flameCache[level] = big.toDataURL();
-  return flameCache[level];
+  const url = to96(c);
+  flameCache[level] = url;
+  return url;
 }
