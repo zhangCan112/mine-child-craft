@@ -34,6 +34,7 @@ function tileSet(t, id) {
 function usedTiles(t) {
   const out = new Set();
   for (const id in t.TextureAtlas.layout.tiles) {
+    if (!Object.prototype.hasOwnProperty.call(t.TextureAtlas.layout.tiles, id)) continue;
     for (const idx of tileSet(t, id)) out.add(idx);
   }
   return out;
@@ -156,14 +157,14 @@ function mkPack(border) {
   };
 }
 const HR = ()=>0.5;
-const ATLAS_OPT = (t)=>({hashRand: HR, tntTiles: 4, atlas: t.TextureAtlas.layout});
+const atlasOpt = (t)=>({hashRand: HR, tntTiles: 4, atlas: t.TextureAtlas.layout});
 const quads = (ch) => ch ? ch.indices.length/6 : 0;
 
 test('meshChunk: 图集方块走 atlas 通道 — 煤矿立方体 6 面, UV 全落在煤矿格内', () => {
   const t = loadAtlas();
   const p = mkPack(1);
   p.set(8, 5, 8, t.B_COAL_ORE);
-  const r = t.MeshCore.meshChunk(p, ATLAS_OPT(t));
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
   assert.strictEqual(r.solid, null, '入集方块不再走纯色通道');
   assert.strictEqual(r.tnt, null);
   assert.strictEqual(quads(r.atlas), 6);
@@ -179,7 +180,7 @@ test('meshChunk: 顶/侧/底分格 — 草地三面各归各格(草顶/草侧/�
   const t = loadAtlas();
   const p = mkPack(1);
   p.set(8, 5, 8, 1); // 草地
-  const r = t.MeshCore.meshChunk(p, ATLAS_OPT(t));
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
   assert.strictEqual(quads(r.atlas), 6);
   const e = t.TextureAtlas.layout.tiles[1];
   const inRect = (rect, uvs)=>uvs.every((q, i)=> i%2===0 ?
@@ -211,7 +212,7 @@ test('meshChunk: 薄块图集走十字面片 — 草丛 2 面×正反共 4 面, 
   const t = loadAtlas();
   const p = mkPack(1);
   p.set(8, 5, 8, t.B_GRASS_TUFT); // thin 0.35 的草丛
-  const r = t.MeshCore.meshChunk(p, ATLAS_OPT(t));
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
   assert.strictEqual(r.solid, null, '图集薄块不再走实心通道的扁盒子');
   assert.strictEqual(quads(r.atlas), 4, '两个对角面各正反两绘(FrontSide 材质双面可见)');
   const ys = new Set();
@@ -229,7 +230,7 @@ test('meshChunk: 图集立方体邻面剔除同实心规则 — 相邻两煤矿�
   const t = loadAtlas();
   const p = mkPack(1);
   p.set(8, 5, 8, t.B_COAL_ORE); p.set(9, 5, 8, t.B_COAL_ORE);
-  assert.strictEqual(quads(t.MeshCore.meshChunk(p, ATLAS_OPT(t)).atlas), 10);
+  assert.strictEqual(quads(t.MeshCore.meshChunk(p, atlasOpt(t)).atlas), 10);
 });
 
 /* ============ 画布壳 · doc 桩注入 ============ */
@@ -240,10 +241,14 @@ test('makeCanvas: doc 桩注入 — 尺寸按图集, putImageData 像素与 pain
   let captured = null; let created = 0;
   const ctxStub = {
     createImageData: (w, h)=>({width: w, height: h, data: new Uint8ClampedArray(w*h*4)}),
-    putImageData: (img, x, y)=>{ captured = {img, x, y}; },
+    putImageData: (img, x, y)=>{
+      captured = {img, x, y};
+    },
   };
   const canvasStub = {width: 0, height: 0, getContext: ()=>ctxStub};
-  const docStub = {createElement: ()=>{ created++; return canvasStub; }};
+  const docStub = {createElement: ()=>{
+    created++; return canvasStub;
+  }};
   const c = t.TextureAtlas.makeCanvas(docStub);
   assert.strictEqual(created, 1, '只创建一次画布');
   assert.strictEqual(c, canvasStub);

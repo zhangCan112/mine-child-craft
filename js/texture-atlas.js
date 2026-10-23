@@ -191,10 +191,18 @@ const TextureAtlas = (() => {
     for (let i=0; i<10; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [34, 96, 40]);
     for (let i=0; i<9; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [0, 0, 0], 0); // 孔洞透隙
   };
-  PAINTERS[T_COAL_ORE] = (px, rng)=>{ stoneBase(px, rng); oreSpots(px, rng, [30, 30, 32], [70, 70, 74], 4); };
-  PAINTERS[T_IRON_ORE] = (px, rng)=>{ stoneBase(px, rng); oreSpots(px, rng, [196, 156, 126], [226, 190, 162], 4); };
-  PAINTERS[T_GOLD_ORE] = (px, rng)=>{ stoneBase(px, rng); oreSpots(px, rng, [238, 190, 62], [255, 232, 130], 4); };
-  PAINTERS[T_DIAMOND_ORE] = (px, rng)=>{ stoneBase(px, rng); oreSpots(px, rng, [70, 200, 194], [158, 244, 240], 4); };
+  PAINTERS[T_COAL_ORE] = (px, rng)=>{
+    stoneBase(px, rng); oreSpots(px, rng, [30, 30, 32], [70, 70, 74], 4);
+  };
+  PAINTERS[T_IRON_ORE] = (px, rng)=>{
+    stoneBase(px, rng); oreSpots(px, rng, [196, 156, 126], [226, 190, 162], 4);
+  };
+  PAINTERS[T_GOLD_ORE] = (px, rng)=>{
+    stoneBase(px, rng); oreSpots(px, rng, [238, 190, 62], [255, 232, 130], 4);
+  };
+  PAINTERS[T_DIAMOND_ORE] = (px, rng)=>{
+    stoneBase(px, rng); oreSpots(px, rng, [70, 200, 194], [158, 244, 240], 4);
+  };
   PAINTERS[T_TUFT] = (px, rng)=>{ // 草丛十字面片: 透明底 + 9 根草叶
     for (let i=0; i<9; i++) {
       const x = 1 + Math.floor(rng() * 14); const h = 4 + Math.floor(rng() * 7);

@@ -136,8 +136,11 @@ flowchart TD
 - 交付：`icons.js` 扩展 `itemIcon(itemId)`——16×16 手绘像素图标 → 64×64 dataURL（tankIcon 先例、MC 风格自绘不复制素材）；一期覆盖 ITEMS 全量（镐斧剑锹四阶配色、锭/矿/粉/球/骨/线/食物/站点件/放置型方块）；`iconOf(itemId)` 统一出口（emoji 兜底）。
 - 测试：`test/icons.test.js`（doc/canvas 桩注入——mode-kit.test.js 先例）——全 ITEMS 键有图标、dataURL 形状。
 
-### T9 贴图图集（texture-atlas）`[ ]`
+### T9 贴图图集（texture-atlas）`[x]`（并入 `6fc043d` + 集成校正）
 - 依赖：T2。
+- 接线：MeshCore 第四通道 atlas（缺省回落纯色，存量零侵入）+ world CanvasTexture(alphaTest 0.5 裁切) + mesh-worker 双路同步；薄块改全高十字面片（视觉高度画在贴图 alpha 里，config thin 值只剩碰撞语义）。
+- 给 T11/T12：探险地形放 36~50 与 1~8 方块零接线自动有贴图；LOD 远景仍纯色（雾内不可辨）；未入集方块（下界/装饰/羊毛）走 faceColor 兜底。
+- GLOSSARY「网格化核心」词条仍写三通道——T16 收尾更新为四通道并补「贴图图集」词条。
 - 交付：`js/texture-atlas.js`——程序化 16×16 像素画风图集（草顶斑点/石材颗粒/矿石嵌斑/木纹/板缝/树叶孔洞/工作台面/熔炉口/黏土纹理），覆盖全部新方块（36~50）+ 树叶/木头/木板/石头系升级款；接入 MeshCore/world.js 渲染（TNT 贴图图集同款管线：画布→CanvasTexture→UV）；纯色 `faceColor` 仍为存量方块兜底。
 - 测试：`test/texture-atlas.test.js`——图集生成纯函数段（画布桩注入）：每新方块 id 有格子、UV 映射不越界；MeshCore 回归（test/mesh-core.test.js 全绿）。
 - 报告须声明：world.js/mesh-core.js 的接入改动点与 index.html 加载位置。

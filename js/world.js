@@ -273,7 +273,8 @@ function ensureWorker() {
 /* 消费一个区块 key: 按当前环形态走 Worker 或同步构建。
    kind→构建参数的映射与 js/mesh-worker.js 的 onmessage 各持一份(跨线程
    无法共享函数), 改协议须两边同步改 — test/mesh-worker.test.js 锁协议 */
-const MESH_OPTS = {hashRand, tntTiles: TNT_TILES, atlas: ATLAS_LAYOUT}; // 全细节 opts(hashRand 来自 voxel.js, 图集布局来自 texture-atlas.js — 均单一来源)
+/* 全细节 opts: hashRand 来自 voxel.js, 图集布局来自 texture-atlas.js — 均单一来源 */
+const MESH_OPTS = {hashRand, tntTiles: TNT_TILES, atlas: ATLAS_LAYOUT};
 function serveChunkKey(k) {
   const c = k.split(','); const cx = +c[0]; const cz = +c[1];
   if (cx<0||cz<0||cx>=NCX||cz>=NCZ) return false;
