@@ -380,8 +380,8 @@ Object.assign(BLOCKS[3], {hard: 1.5, tool: 'pick', tier: 1, drop: [['cobble', 1,
 Object.assign(BLOCKS[4], {hard: 2.0, tool: 'pick', tier: 1, drop: [['cobble', 1, 0]]});
 Object.assign(BLOCKS[5], {hard: 2.0, tool: 'axe', tier: 0, drop: [['log', 1, 0]]});
 Object.assign(BLOCKS[6], {hard: 2.0, tool: 'axe', tier: 0, drop: [['planks', 1, 0]]});
-Object.assign(BLOCKS[7], {hard: 0.2, tool: null, tier: 0, // 树叶概率掉落: MC 5%/0.5%/2% → 儿童加倍(附录 B)
-  drop: [['sapling', 1, 0.12], ['apple', 1, 0.04], ['stick', 1, 0.08]]});
+Object.assign(BLOCKS[7], {hard: 0.2, tool: null, tier: 0, // 树叶概率掉落(无保底): MC 5%/0.5%/2% → 儿童加倍(附录 B·D7)
+  drop: [['sapling', 0, 0.12], ['apple', 0, 0.04], ['stick', 0, 0.08]]});
 Object.assign(BLOCKS[8], {hard: 0.5, tool: 'shovel', tier: 0, drop: [['sand', 1, 0]]});
 Object.assign(BLOCKS[9], {hard: 2.0, tool: 'pick', tier: 1, drop: [['bricks', 1, 0]]}); // 红砖块: 黏土链合成来路(§3.5)
 Object.assign(BLOCKS[13], {hard: 1.5, tool: 'pick', tier: 1, drop: [['stone_bricks', 1, 0]]}); // 石砖: 4 石合成(§3.5)

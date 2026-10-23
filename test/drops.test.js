@@ -105,11 +105,14 @@ test('rollBlockDrop 概率边界: 草丛保底 0 — 恰 0.5 不掉 · 0.49 掉 
   eq(h.rollBlockDrop(tuft, seqRand([0.49])), [{id: 'wheat_seeds', n: 1}]);
 });
 
-test('rollBlockDrop 多条目混合: 树叶三件各自独立掷 · 熟麦 1 小麦 + 1~2 种子', () => {
+test('rollBlockDrop 多条目混合: 树叶三件各自独立掷(无保底) · 熟麦 1 小麦 + 1~2 种子', () => {
   const h = loadDrops();
   eq(h.rollBlockDrop(h.BLOCKS[7], seqRand([0.11, 0.11, 0.11])),
-      [{id: 'sapling', n: 2}, {id: 'apple', n: 1}, {id: 'stick', n: 1}],
-      '树苗加成中(0.11<0.12)、苹果/木棍只保底');
+      [{id: 'sapling', n: 1}],
+      '只有树苗掷中(0.11<0.12), 苹果/木棍未中且无保底(设计稿 D7 口径)');
+  eq(h.rollBlockDrop(h.BLOCKS[7], seqRand([0.03, 0.03, 0.05])),
+      [{id: 'sapling', n: 1}, {id: 'apple', n: 1}, {id: 'stick', n: 1}],
+      '三件全中: 各 1 个');
   eq(h.rollBlockDrop(h.BLOCKS[45], seqRand([0.9, 0.49])),
       [{id: 'wheat', n: 1}, {id: 'wheat_seeds', n: 2}]);
 });
