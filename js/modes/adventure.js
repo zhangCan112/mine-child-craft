@@ -10,7 +10,8 @@
      黏土, 红砖链源头) · 2 露天矿坑 · 山洞隧道通 y<10 钻石带 · 出生小屋
      (站点件不送, 任务链做出来才有仪式感) · 3 怪物巢穴 · 草丛散布
    · 玩家: 出生小屋门口 · 步行(不飞行) · 血量 30 + 头顶血条(mkHpBar);
-     死亡 = 背包保留 + 回出生点满血 + TTS 安抚(advDeathPlan, 零惩罚哲学)
+     死亡 = 背包保留 + 回出生点满血 + TTS 安抚(advDeathPlan, 零惩罚哲学);
+     位置/朝向+血量随世界档落盘 → 重进原地续命(死亡·回家即时落盘防节流窗口)
    · 挖掘与采集(T12, D4/D7): 按住蓄力(breakTime 驱动, 准星进度环+挥动
      循环) → 掉落真空拾取; tier 不足只碎不掉 + TTS 节流; 放置型点准星面;
      树苗 20s 长成(计时 Map 不落盘, 重进重建); 食物点击吃; 工具耐久归零
@@ -37,7 +38,7 @@
      advWearWarn/advBagFullStep/advBreakToolText
    · 四份存档: 全局唯一背包存档键经背包壳 js/backpack.js 唯一持有
      (ADR 0002, 跨模式共享背包) / adventure_world_save(场景确定性重建+
-     edits 重放, build 模式同款) / adventure_quest_save({step,counts,title?})
+     edits 重放, build 模式同款; 另带玩家位置/朝向+血量) / adventure_quest_save({step,counts,title?})
      / adventure_chest_save({size, slots} 大宝箱全局账户)
    · 防沉迷: 与竞技场/建造/坦克/下界共享儿童时限(gated, 不新增账本)
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
@@ -73,9 +74,11 @@ const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
 const ADV_WORLD_KEY = 'adventure_world_save';
 const ADV_QUEST_KEY = 'adventure_quest_save';
 const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
-  defaults: {edits: []},
-  encode: (st) => ({edits: [...st.edits.entries()]}),
-  decode: (sv) => ({edits: new Map(sv.edits || [])}),
+  defaults: {edits: [], pos: null, hp: null}, /* pos(含 yaw)/hp: 玩家状态随世界档, 老档补 null → 出生点/满血 */
+  encode: (st) => ({edits: [...st.edits.entries()], pos: st.pos || null,
+    hp: (typeof st.hp === 'number') ? st.hp : null}),
+  decode: (sv) => ({edits: new Map(sv.edits || []), pos: sv.pos || null,
+    hp: (typeof sv.hp === 'number') ? sv.hp : null}),
 });
 /* T15 任务进度: mkSaveSlot defaults 只补缺失字段——老档 {step:N} 自动补空 counts */
 const advQuestSlot = SyncDB.slot(ADV_QUEST_KEY, {defaults: {step: 0, counts: {}}});
@@ -100,8 +103,8 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
   else advStations.delete(k); /* 挖除/覆盖皆注销(爆炸掀掉站点同样走此 seam) */
   advDirty = true;
 }
-function advSaveNow() {
-  advWorldSlot.save({edits: advEdits});
+function advSaveNow() {/* 全量落盘(5s 节流/退出兜底/死亡·回家即时): 世界档带上玩家位置+朝向与血量(重进保留) */
+  advWorldSlot.save({edits: advEdits, pos: {x: pos.x, y: pos.y, z: pos.z, yaw}, hp: ADV.player.hp});
   advBag.save(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
   advQuestSlot.save(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   advDirty = false;
@@ -468,6 +471,7 @@ function advPlayerDied() {
   e.hp = plan.hp; ADV.player.hp = plan.hp;
   ModeKit.spawn(plan.x, plan.y, plan.z, {yaw: plan.yaw});
   advFurnaceReset(true); /* 死亡清炉(T13 合同): 炉内材料全额退背包, 满包余量掉在重生点脚边 */
+  advSaveNow(); /* 重生态即时落盘: 防 5s 节流窗口内关页面 → 重进在死亡点残血(与死亡语义矛盾) */
   SpeechKit.speak('不怕不怕，回到小屋休息好啦，背包里的宝贝都在！');
   showToast('💀 回到出生小屋，满血再来！');
 }
@@ -488,6 +492,7 @@ function advGoHome() {
   const e = advGetPEnt();
   e.hp = e.maxHp; ADV.player.hp = ADV.player.maxHp; /* 顺带回满血(回家=安全休整, nether 先例) */
   ModeKit.spawn(ADV.spawn.x, ADV.spawn.y, ADV.spawn.z, {yaw: ADV.spawn.yaw});
+  advSaveNow(); /* 回家态即时落盘(与死亡同口径): 满血+小屋位置即刻入档, 防节流窗口 */
   SpeechKit.speak('回家咯！休息一下再出发！');
   showToast('🏠 回到小屋');
 }
@@ -1196,9 +1201,19 @@ const AdventureMode = mkMode({
   chrome: {score: 'none', hotbar: 'flex'},
 
   init() {
-    advEdits = advWorldSlot.load().edits;
+    const advLoad = advWorldSlot.load();
+    advEdits = advLoad.edits;
     /* 空存档时 load() 返回 defaults 深拷贝(edits 是数组, 不经 decode) → 归一化成 Map */
     if (!(advEdits instanceof Map)) advEdits = new Map(advEdits || []);
+    /* 位置与血量随世界档保留(2026-10 拍板): 老档/坏档无 pos/hp → 出生点/满血; hp 钳
+       1~maxHp; 存的 pos 是退出时站的合法空腔(世界经 edits 重放同坐标系), 不必二次校验 */
+    const svPos = advLoad.pos;
+    const advSpawnAt = (svPos && typeof svPos.x === 'number' && typeof svPos.y === 'number' &&
+        typeof svPos.z === 'number') ?
+      {x: svPos.x, y: svPos.y, z: svPos.z, yaw: (typeof svPos.yaw === 'number') ? svPos.yaw : ADV_SPAWN.yaw} :
+      ADV_SPAWN;
+    const advHpIn = (typeof advLoad.hp === 'number' && advLoad.hp >= 1) ?
+      Math.min(advLoad.hp | 0, ADV.player.maxHp) : ADV.player.maxHp;
     ADV.quest = advQuestSlot.load();
     /* T15 归一化: 老档 {step:N} 无 counts(或损坏) → 补空表, 当前步从零累计——
        历史计数不追溯(玩家挖过什么无法从世界状态重建); step 钳进表界(表外=终章完成) */
@@ -1223,7 +1238,7 @@ const AdventureMode = mkMode({
       advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
-    ModeKit.spawn(ADV_SPAWN.x, ADV_SPAWN.y, ADV_SPAWN.z, {yaw: ADV_SPAWN.yaw});
+    ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
     flyMode = false; /* 探险步行(不沿用建造的飞行) */
     Avatar.setItem(PLAYER.heldItem);
     ADV.panelOpen = false;
@@ -1247,8 +1262,8 @@ const AdventureMode = mkMode({
     advHurtT = 0;
     advPickBuf.clear(); advPickT = 0;
     advNestT.fill(0);
-    const pe = advGetPEnt(); /* 进场满血(不带上一次退出时的残血) */
-    pe.hp = pe.maxHp; ADV.player.hp = ADV.player.maxHp;
+    const pe = advGetPEnt(); /* 进场血量随世界档(重进保留残血); 老档/坏档 → 满血 */
+    pe.hp = advHpIn; ADV.player.hp = advHpIn;
     Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8) */
       for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
     });

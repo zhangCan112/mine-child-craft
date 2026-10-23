@@ -257,7 +257,11 @@ globalThis.mkMode = ModeKit.mkMode;
 globalThis.ModeKit = ModeKit;
 ModeKit.spawn = (x, y, z, o) => {
   calls.push(['spawn', x, y, z, o]);
-}; /* 出生点记账(不写真玩家状态) */
+  /* 镜像真 kitSpawn 写 pos/yaw: 位置+血量入档链(死亡·回家即时落盘)依赖
+     spawn 后全局 pos 已是重生态; 出生点恰等于假 pos 初值, 既有断言不受扰 */
+  globalThis.pos.x = x; globalThis.pos.y = y; globalThis.pos.z = z;
+  globalThis.yaw = (o && o.yaw) || 0;
+}; /* 出生点记账 + 位置/朝向写回(其余玩家状态不真写) */
 
 /* 探险核心(S1 纯函数段迁 js/adventure-core.js) + 背包壳(S6, ADR 0002
    inventory_save 唯一持有): 浏览器按 index.html 加载序在壳之前, Node 侧
@@ -521,6 +525,62 @@ test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 
   freshInit();
   assert.strictEqual(cell(90, 24, 90), 3, '重进: 玩家改动重放');
   assert.strictEqual(cell(91, 24, 91), 0, '重进: 玩家挖开的洞还在');
+});
+
+test('探险模式: 位置与血量随世界档保留 — 重进原地续命; 老档无 pos/hp 回出生点满血(不回归)', () => {
+  mem.clear();
+  /* 老档只有 edits(无 pos/hp) → defaults 补 null → 出生点满血 */
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: []}));
+  freshInit();
+  assert.strictEqual(A.advGetPEnt().hp, 30, '老档无 hp → 满血');
+  const s0 = calls.find((c) => c[0] === 'spawn');
+  assert.deepStrictEqual([s0[1], s0[2], s0[3]], [A.ADV.spawn.x, A.ADV.spawn.y, A.ADV.spawn.z],
+      '老档无 pos → 出生小屋门口');
+  /* 残血 + 走到旷野 → cleanup 全量落盘带上 pos/hp */
+  A.advGetPEnt().hp = 7; A.ADV.player.hp = 7; /* 账本与实体同源(死亡政策口径) */
+  globalThis.pos.x = 90.5; globalThis.pos.y = 26; globalThis.pos.z = 91.5; globalThis.yaw = 2.5;
+  AdventureMode.cleanup();
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  assert.strictEqual(sv.hp, 7, '血量落盘');
+  assert.deepStrictEqual(sv.pos, {x: 90.5, y: 26, z: 91.5, yaw: 2.5}, '位置+朝向落盘');
+  /* 重进: 原位置残血续命 */
+  freshInit();
+  assert.strictEqual(A.advGetPEnt().hp, 7, '重进: 残血保留');
+  assert.strictEqual(A.ADV.player.hp, 7, '账本同步');
+  const s1 = calls.find((c) => c[0] === 'spawn');
+  assert.deepStrictEqual([s1[1], s1[2], s1[3]], [90.5, 26, 91.5], '重进: 上次退出位置');
+  assert.strictEqual(s1[4].yaw, 2.5, '重进: 朝向保留');
+});
+
+test('探险模式: 死亡即时落盘 — 5s 节流窗口内重进也是出生点满血(不留死亡点残血档)', () => {
+  mem.clear();
+  freshInit();
+  A.advGetPEnt().hp = 3; A.ADV.player.hp = 3; /* 残血 */
+  globalThis.pos.x = 8; globalThis.pos.y = 8; globalThis.pos.z = 8; /* 「死亡点」远离出生小屋 */
+  A.advPlayerDied();
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  assert.strictEqual(sv.hp, 30, '死亡落盘: 回满血');
+  assert.deepStrictEqual([sv.pos.x, sv.pos.y, sv.pos.z], [A.ADV.spawn.x, A.ADV.spawn.y, A.ADV.spawn.z],
+      '死亡落盘: 出生点(非死亡点)');
+  freshInit();
+  assert.strictEqual(A.advGetPEnt().hp, 30, '重进: 满血(死亡零惩罚语义不回归)');
+  const s1 = calls.find((c) => c[0] === 'spawn');
+  assert.deepStrictEqual([s1[1], s1[2], s1[3]], [A.ADV.spawn.x, A.ADV.spawn.y, A.ADV.spawn.z],
+      '重进: 出生小屋门口');
+});
+
+test('探险模式: 回家即时落盘 — 满血+小屋位置即刻入档(5s 窗口内重进不在受困点残血)', () => {
+  mem.clear();
+  freshInit();
+  A.advGetPEnt().hp = 5; A.ADV.player.hp = 5;
+  globalThis.pos.x = 10; globalThis.pos.y = 10; globalThis.pos.z = 10; /* 受困点 */
+  A.ADV.homeCd = -1e9; /* 就绪(冷却是跨测试的全局账本, 用完还原) */
+  A.advGoHome();
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  assert.strictEqual(sv.hp, A.ADV.player.maxHp, '回家落盘: 满血');
+  assert.deepStrictEqual([sv.pos.x, sv.pos.y, sv.pos.z], [A.ADV.spawn.x, A.ADV.spawn.y, A.ADV.spawn.z],
+      '回家落盘: 小屋(非受困点)');
+  A.ADV.homeCd = -1e9; /* 还原, 不影响后续冷却类测试 */
 });
 
 test('探险模式: 全局背包存档 — inventory_save 序列化往返(T5 serialize 形状) + 快捷栏镜像', () => {
