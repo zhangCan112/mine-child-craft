@@ -12,14 +12,18 @@
    interface: FOCUS_DIMS · FOCUS_META · paramsFor(dim, tier, li) ·
      FOCUS_LEVELS · focusPassed · focusStars · FOCUS_LOOT · FOCUS_MILESTONES ·
      milestoneDue · focusProgress ·
+     rollFocusLoot(dim,{ok,streak,kind,seed}) · levelBonusLoot(passed,stars,{kind,seed}) ·
+     grantFocusLoot(inv,ids) ·
      FOCUS_CHECK_PARAMS · focusFlame · devilStep · devilParams ·
      FOCUS_STAMP_DAILY · FOCUS_STAMP_REWARDS · stampRecord(stamps, day, count) ·
      stampTrim(stamps, today) · stampCount(stamps) · stampMilestones(count) ·
      stampRewardsDue(count, claimed) · stampRewardFor(line) ·
      focusDayIndex · trimFocusLog · FOCUS_LOG_KEEP_DAYS · FOCUS_DEVIL_TIME_MS ·
      devilDimFor · focusCheckEntry · checkBaseline · devilEntry · devilTierFor
-   依赖(均经全局名): 纯函数无依赖; FOCUS_META 的图标字段在构造期调用
-     mcIcon/creeperFace(js/focus-icons.js, 加载序在本文件之前, 见 index.html)
+   依赖(均经全局名): 掷骰/结算纯函数无依赖; grantFocusLoot 调用期解析
+     inventory-core 的 add(加载序先于本文件, 见 index.html); FOCUS_META 的
+     图标字段在构造期调用 mcIcon/creeperFace(js/focus-icons.js, 加载序在
+     本文件之前, 见 index.html)
    可测性: 零 THREE·零 DOM(图标为惰性字符串拼接)·有单测
      (test/focus-paradigms.test.js, vm 直测)
    ============================================================ */
@@ -188,7 +192,7 @@ function focusStars(level, st) {
    按维度主题化、以基础材料为主(为未来探险经济留余量, ADR 0002);
    概率和=1, id 全部在物品注册表注册(items-core 的 ITEMS)。
    掷骰政策(正确 p=0.45 · 3 连对保底稀有池 · 教学关豁免 · 通关/三星追加)
-   归训练营模式层(F5 工单), 本表只出数据; 稀有池五维共用。 */
+   见下方纯函数; HUD/飞入观感/满包 toast 归模式层; 稀有池五维共用。 */
 const FOCUS_LOOT_RARE = {gold_ingot: 0.6, diamond: 0.4};
 const FOCUS_LOOT = {
   cpt: {pool: {coal: 0.40, iron_ore: 0.25, torch: 0.20, iron_ingot: 0.12, gold_ingot: 0.03}, rare: FOCUS_LOOT_RARE},
@@ -197,6 +201,69 @@ const FOCUS_LOOT = {
   corsi: {pool: {diamond: 0.40, gold_ingot: 0.25, iron_ingot: 0.20, bone_meal: 0.15}, rare: FOCUS_LOOT_RARE},
   switch: {pool: {planks: 0.25, stick: 0.25, brick: 0.20, clay_ball: 0.15, bread: 0.15}, rare: FOCUS_LOOT_RARE},
 };
+
+/* ---------- 矿袋掷骰政策(F5 工单, 设计稿 §3 L3): 种子可注入的纯函数 ----------
+   教学关(kind='tutorial')与错误试次零掉落(零压力/只奖不罚); 正确试次以
+   p=0.45 掷维度池; 连对每满 3 次的那一试次(streak=3/6/…)保底掷稀有池
+   (稀有池概率和=1 必得, 不受 0.45 门槛)。seed 缺省走 Math.random(运行时);
+   注入数字则用与测试惯例同常数的 LCG — 同 seed 同输出, 概率边界可锁定。
+   HUD/飞入观感/满包 toast 归模式层(modes/focus.js), 本层只出决策。 */
+const FOCUS_LOOT_P = 0.45; // 正确试次掉落概率(L3)
+const FOCUS_LOOT_STREAK = 3; // 保底节拍: 连对每满 3 次掷稀有池
+
+function mkLootRand(seed) {
+  let s = seed;
+  return function () {
+    s = (s*1103515245 + 12345) % 2147483648;
+    return s/2147483648;
+  };
+}
+
+/* 骰值落累积区间取件(池概率和=1 由既有测试锁死); 浮点尾差兜底最后一键 */
+function pickLootWeighted(pool, r) {
+  let acc = 0;
+  for (const id in pool) {
+    acc += pool[id];
+    if (r < acc) return id;
+  }
+  return Object.keys(pool).pop();
+}
+
+/* t = {ok, streak, kind, seed} → itemId|null */
+function rollFocusLoot(dim, t) {
+  const e = t || {};
+  if (e.kind === 'tutorial' || !e.ok) return null; // 教学豁免 + 只奖不罚
+  const loot = FOCUS_LOOT[dim];
+  if (!loot) return null; // 未知维度兜底
+  const rnd = mkLootRand(e.seed);
+  if (e.streak > 0 && e.streak % FOCUS_LOOT_STREAK === 0) {
+    return pickLootWeighted(loot.rare, rnd()); // 保底: 必得稀有池一件
+  }
+  if (rnd() >= FOCUS_LOOT_P) return null; // 未中
+  return pickLootWeighted(loot.pool, rnd());
+}
+
+/* 结算奖励(设计稿 §3 L3): 通关得 torch|apple 二选一(掷骰), 三星追加 1 钻石;
+   未通过/教学关不发。opts = {kind, seed} */
+function levelBonusLoot(passed, stars, opts) {
+  const o = opts || {};
+  if (!passed || o.kind === 'tutorial') return [];
+  const base = mkLootRand(o.seed)() < 0.5 ? 'torch' : 'apple';
+  return stars >= 3 ? [base, 'diamond'] : [base];
+}
+
+/* 战利品入包授予流(F3 核定口径): 逐件 add 进背包本体, 余量>0 静默忽略
+   (不入 granted 清单, 无容量预检)并标 full — 每关至多一次「背包满啦」
+   toast 与 save 时机归模式层; add 经全局名调用期解析(inventory-core
+   加载序先于本文件, 见 index.html) */
+function grantFocusLoot(inv, ids) {
+  const granted = []; let full = false;
+  for (const id of ids || []) {
+    if (add(inv, id, 1) > 0) full = true;
+    else granted.push(id);
+  }
+  return {granted, full};
+}
 
 /* ---------- 里程碑工具表(设计稿 §3 L4 · spec 实现决策 9/17): 进度阶梯 ----------
    unlocked 首次越线授予(木镐→钻镐→钻剑的长线追求); 与图章习惯阶梯双轨

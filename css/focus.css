@@ -1134,7 +1134,7 @@
 
 /* ============================================================
    每日体检 · 魔鬼特训 (F8, 设计稿 §8 B3/B8)
-   ============================================================ */
+============================================================ */
 
 /* 今日页附加入口行 */
 .f-extra-row {
@@ -1231,3 +1231,218 @@
   40% {
     transform: scale(1.5) rotate(10deg);
   }}
+
+/* ============================================================
+   F5 · 矿袋 HUD / 战利品飞行 / 结算回顾 (设计稿 §3 L3/L5 · §4)
+   — 关卡底部收集条(hotbar 木箱观感, 集章 7 章皮肤换铁皮) ·
+   贝塞尔弧线飞入(位移经 --dx/--dy 变量传给 keyframes) ·
+   结算屏本关收获列队(从矿袋飞出逐件 pop)
+ ============================================================ */
+
+/* ---------- 矿袋收集条: 关卡界面底部, 本关拾取实时可见 ---------- */
+.f-bag {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  width: min(458px, 92vw); /* 至多可视 8 槽(8×54+边距), 超出滚动 */
+  box-sizing: border-box;
+  margin: 10px auto 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 35%);
+  border: 3px solid rgb(0 0 0 / 45%);
+  overflow-x: auto; /* 槽满滚动(JS 落袋时滚到最新拾取) */
+  scrollbar-width: none;
+}
+
+.f-bag::-webkit-scrollbar {
+  display: none;
+}
+
+/* 槽位: 木箱 hotbar 质感 — 亮顶暗底 inset 棱线(对齐 MC 立体按钮口径) */
+.f-bag-slot {
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 3px solid #5d4a24;
+  background: linear-gradient(#a98950, #8a6d3b);
+  box-shadow:
+    inset 0 2px 0 rgb(255 235 190 / 30%),
+    inset 0 -3px 0 rgb(0 0 0 / 30%),
+    0 3px 0 rgb(0 0 0 / 35%);
+}
+
+.f-bag-slot img {
+  width: 40px;
+  height: 40px;
+  margin: 1px auto 0;
+  display: block;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%));
+}
+
+/* 数量角标(×2 起显示, 计数权威在 focusLootSession) */
+.f-bag-n {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #2c2c34;
+  border: 2px solid #ffd83d;
+  color: #ffd83d;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* 落袋弹跳: 与飞行 0.6s 尾牙衔接 */
+.f-bag-slot.bump {
+  animation: f-bag-bump 0.45s;
+}
+
+@keyframes f-bag-bump {
+  30% {
+    transform: scale(1.32) rotate(-6deg);
+  }
+
+  60% {
+    transform: scale(0.92) rotate(4deg);
+  }
+}
+
+/* 集章 7 章皮肤奖励(body.f-bag-iron 钩子, 授予处在 settleFocusStamps):
+   木箱→铁皮 — 银灰底 + 冷色棱线 + 四角铆钉(box-shadow 拼点) */
+body.f-bag-iron .f-bag-slot {
+  border-color: #6a7480;
+  background: linear-gradient(#dfe6ec, #aab6c2);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 55%),
+    inset 0 -3px 0 rgb(40 52 64 / 40%),
+    0 3px 0 rgb(0 0 0 / 35%),
+    6px 6px 0 -3px #6a7480,
+    -6px 6px 0 -3px #6a7480,
+    6px -6px 0 -3px #6a7480,
+    -6px -6px 0 -3px #6a7480; /* 四角铆钉 */
+}
+
+body.f-bag-iron .f-bag-n {
+  border-color: #e8edf2;
+  color: #e8edf2;
+}
+
+/* ---------- 战利品飞行: 刺激位置→槽位贝塞尔弧线(真空吸附观感) ----------
+   元素挂 document.body(JS 侧 addFocusBagSlot 的调用节奏与之对齐):
+   ① 不受 #focusRoot 的滚动/层叠上下文牵制, ② 下方 reduced-motion
+   降级要自管(fade 退化), 不被 #focusRoot 的动画全关块盖掉 */
+.f-loot-fly {
+  position: fixed;
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 55%));
+  animation: f-loot-arc 0.6s cubic-bezier(0.32, 0.08, 0.4, 1) forwards;
+}
+
+/* 弧线三关键帧: 原位→弧顶(半程上抛 90px 再放大, 抛起手)→槽位(收小入袋);
+   位移由 JS 写入 --dx/--dy(中心到中心位移) */
+@keyframes f-loot-arc {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+  45% {
+    transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5 - 90px)) scale(1.32) rotate(-10deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.45) rotate(8deg);
+    opacity: 0.95;
+  }
+}
+
+/* 动画敏感者: 飞行退化为中心淡入(JS 侧 620ms 后照常落袋入槽) */
+@media (prefers-reduced-motion: reduce) {
+  .f-loot-fly {
+    animation: f-loot-fade 0.35s ease-out forwards;
+  }
+}
+
+@keyframes f-loot-fade {
+  0% {
+    opacity: 0;
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.9;
+  }
+}
+
+/* ---------- 结算屏战利品回顾: 本关收获从矿袋飞出列队(级联 pop) ---------- */
+.f-loot-recap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 6px 0 2px;
+  padding: 8px 18px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 216 61 / 60%);
+  background: rgb(0 0 0 / 40%);
+}
+
+.f-loot-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffd83d;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-loot-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  animation: f-loot-pop 0.45s backwards; /* backwards: 级联进场不露形 */
+}
+
+.f-loot-item img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 50%));
+}
+
+.f-loot-item b {
+  font-size: 13px;
+  color: #ffd83d;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* 从矿袋升起: 自下方 28px 抬起 + 回弹放大(列队进场, JS 逐件延迟插入) */
+@keyframes f-loot-pop {
+  0% {
+    transform: translateY(28px) scale(0.3);
+    opacity: 0;
+  }
+
+  60% {
+    transform: translateY(-4px) scale(1.18);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}

@@ -9,9 +9,12 @@
    F2 引擎行为驱动缝(loadFocusDrv, 手动时钟+记录桩+LCG): 伪装掷骰/noSet 扩充/
    iconOf 出口 · lenMix/antiChunk/gem · onTrial 事件契约(四引擎+master+不传零影响)
    · flanker len9/中立行/混生物 · switch choices5/bivalent/switchJitter
-   加载器: vm context 依次执行 items-core.js + focus-levels.js +
-   focus-paradigms.js, 镜像浏览器 <script defer> 共享词法环境(相对序同
-   index.html); DOM/语音/图标以 stub 注入 */
+   F5 矿袋战利品政策(设计稿 §3 L3): rollFocusLoot 概率边界(种子锁定)/保底
+   触发/教学豁免 · levelBonusLoot 通关二选一+三星钻石 · grantFocusLoot 满包
+   余量语义(inventory-core 一并入 vm 缝, 相对序同 index.html)
+   加载器: vm context 依次执行 items-core.js + inventory-core.js +
+   focus-levels.js + focus-paradigms.js, 镜像浏览器 <script defer> 共享词法
+   环境(相对序同 index.html); DOM/语音/图标以 stub 注入 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -54,7 +57,8 @@ function loadFocus() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['items-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
+  /* inventory-core(F5 授予流语义)排在 focus-levels 之前 — 与 index.html 相对序一致 */
+  for (const f of ['items-core.js', 'inventory-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
@@ -69,6 +73,8 @@ function loadFocus() {
                         stampRecord, stampTrim, stampCount,
                         stampMilestones, stampRewardsDue, stampRewardFor,
                         FOCUS_MILESTONES, milestoneDue, focusProgress,
+                        rollFocusLoot, levelBonusLoot, grantFocusLoot,
+                        add, count, mkInventory, INV_SLOTS,
                         ITEMS, stackMax, isTool };
   `, ctx);
   return {fp: sandbox.__fp, spoken};
@@ -1331,4 +1337,133 @@ test('milestoneDue × focusProgress: 大师通关存档一次补授全 6 件', (
   const save = {unlocked: 99, history: [{i: 99, passed: true}], tools: []};
   const due = fp.milestoneDue(fp.focusProgress(save), save.tools);
   assert.strictEqual(due.length, 6, '进度 100 → 6 阶全授');
+});
+
+/* ============ F5 矿袋战利品政策(设计稿 §3 L3): 掷骰/结算/授予纯函数 ============
+   rollFocusLoot: 正确试次 p=0.45 掷维度池 · 连对每满 3 次的那一试次保底掷
+   稀有池(概率和=1 必得) · 教学关/错误试次零掉落; seed 注入锁定概率边界
+   (首骰值以同常数 LCG 独立预言 — 常数是本文件 loadFocusDrv 已有的公开
+   惯例, 选择逻辑不重实现, 只断言掉/不掉与产物归属)。
+   levelBonusLoot: 通关 torch|apple 二选一 + 三星追加 1 钻石(教学关不发)。
+   grantFocusLoot: F3 核定授予流 — 余量>0 静默忽略并标 full(每关至多一次
+   toast 归模式层); DOM 飞入/HUD 不直测, boot 冒烟兜底。 */
+
+/* LCG 首骰预言: 只复现第一个骰值(非保底路径首骰即 p 骰), 不复现选择逻辑 */
+function lootFirstRoll(seed) {
+  return ((seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+}
+
+test('rollFocusLoot: 教学关豁免 + 错误试次只奖不罚 — 恒无掉落', () => {
+  const {fp} = loadFocus();
+  for (const seed of [1, 7, 42, 99, 12345]) {
+    assert.strictEqual(fp.rollFocusLoot('cpt', {ok: true, streak: 3, kind: 'tutorial', seed}),
+        null, '教学关 3 连对也不掉(US12 零压力), seed=' + seed);
+    assert.strictEqual(fp.rollFocusLoot('cpt', {ok: false, streak: 0, seed}),
+        null, '错误试次永不掉(只奖不罚), seed=' + seed);
+    assert.strictEqual(fp.rollFocusLoot('cpt', {streak: 0, seed}),
+        null, '缺 ok 不掷(防御: 调用方必传布尔)');
+  }
+});
+
+test('rollFocusLoot: p=0.45 边界种子锁定 — 首骰未中→null, 中→产物在维度池内', () => {
+  const {fp} = loadFocus();
+  const poolIds = Object.keys(fp.FOCUS_LOOT.cpt.pool);
+  let sawDrop = 0; let sawNull = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    const wantDrop = lootFirstRoll(seed) < 0.45; // streak=0 非保底: 首骰即 p 骰
+    const got = fp.rollFocusLoot('cpt', {ok: true, streak: 0, seed});
+    if (wantDrop) {
+      sawDrop++;
+      assert.ok(poolIds.includes(got), '首骰<0.45 必掉且产物∈cpt 池: seed=' + seed + ' got=' + got);
+    } else {
+      sawNull++;
+      assert.strictEqual(got, null, '首骰≥0.45 不掉: seed=' + seed);
+    }
+  }
+  assert.ok(sawDrop > 15 && sawNull > 15, '60 种子两个分支都充分覆盖(掉 ' + sawDrop + ' / 不掉 ' + sawNull + ')');
+});
+
+test('rollFocusLoot: 池产物服从权重(1200 种子: 每类频率≈权重, 全部在池内)', () => {
+  const {fp} = loadFocus();
+  const pool = fp.FOCUS_LOOT.cpt.pool; // coal .40 / iron_ore .25 / torch .20 / iron_ingot .12 / gold_ingot .03
+  const freq = {};
+  let total = 0;
+  for (let seed = 1; seed <= 1200; seed++) {
+    const id = fp.rollFocusLoot('cpt', {ok: true, streak: 0, seed});
+    if (id) {
+      freq[id] = (freq[id] || 0) + 1;
+      total++;
+    }
+  }
+  assert.ok(total > 400, '掉落样本足够(约 0.45×1200): ' + total);
+  for (const id of Object.keys(pool)) {
+    assert.ok((freq[id] || 0) > 0, '池内每类都有样本: ' + id);
+    const rel = (freq[id] || 0) / total;
+    assert.ok(Math.abs(rel - pool[id]) < 0.06,
+        id + ' 相对频率 ' + rel.toFixed(3) + ' ≈ 权重 ' + pool[id] + '(±0.06)');
+  }
+});
+
+test('rollFocusLoot: 连对每满 3 次保底必得稀有池一件, 未满节拍走普通掷骰', () => {
+  const {fp} = loadFocus();
+  const rareIds = Object.keys(fp.FOCUS_LOOT.cpt.rare); // gold_ingot .6 / diamond .4
+  for (const seed of [1, 7, 42, 99, 12345]) {
+    for (const streak of [3, 6]) {
+      const got = fp.rollFocusLoot('cpt', {ok: true, streak, seed});
+      assert.ok(rareIds.includes(got),
+          streak + ' 连对保底必得稀有池(不受 0.45 门槛): seed=' + seed + ' got=' + got);
+    }
+  }
+  /* 未满节拍(2/4/5)不触发保底: 有种子产 null(首骰未中), 有种子产普通池独有物品 */
+  let sawNull = false; let sawCoal = false;
+  for (let seed = 1; seed <= 80; seed++) {
+    const got = fp.rollFocusLoot('cpt', {ok: true, streak: 2, seed});
+    if (got === null) sawNull = true;
+    if (got === 'coal') sawCoal = true; // coal 只在普通池(稀有池没有)
+  }
+  assert.ok(sawNull && sawCoal, 'streak=2 走普通掷骰(有掉有不掉, 保底不触发)');
+});
+
+test('rollFocusLoot: 未知维度兜底 null(防御, 不掷不炸)', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.rollFocusLoot('???', {ok: true, streak: 0, seed: 1}), null);
+  assert.strictEqual(fp.rollFocusLoot(undefined, {ok: true, streak: 3, seed: 1}), null);
+});
+
+test('levelBonusLoot: 未通过/教学关不发; 通关 torch|apple 二选一; 三星 +1 钻石', () => {
+  const {fp} = loadFocus();
+  /* 返回数组克隆回本 realm 再 deepStrictEqual(先例: focusDispatch 测试的跨 realm 注) */
+  assert.deepStrictEqual([...fp.levelBonusLoot(false, 0)], [], '未通过不发');
+  assert.deepStrictEqual([...fp.levelBonusLoot(false, 3)], [], '未通过即使三星口径也不发');
+  assert.deepStrictEqual([...fp.levelBonusLoot(true, 0, {kind: 'tutorial'})], [], '教学关通关也不发(零压力)');
+  let sawTorch = false; let sawApple = false;
+  for (let seed = 1; seed <= 40; seed++) {
+    const one = [...fp.levelBonusLoot(true, 1, {seed})];
+    assert.strictEqual(one.length, 1, '通关恰 1 件结算物');
+    assert.ok(one[0] === 'torch' || one[0] === 'apple', '结算物∈{torch,apple}: ' + one[0]);
+    if (one[0] === 'torch') sawTorch = true; else sawApple = true;
+    const three = [...fp.levelBonusLoot(true, 3, {seed})];
+    assert.strictEqual(three.length, 2, '三星恰 2 件');
+    assert.ok(three.includes('diamond'), '三星追加 1 钻石');
+    assert.ok(three.includes('torch') || three.includes('apple'), '另一件仍是 torch|apple');
+  }
+  assert.ok(sawTorch && sawApple, '40 种子覆盖二选一两个分支');
+});
+
+test('grantFocusLoot: 空包逐件入包(granted 全记); 满包余量>0 静默忽略并标 full', () => {
+  const {fp} = loadFocus();
+  const clone = (r) => ({granted: [...r.granted], full: r.full}); // 克隆回本 realm(跨 realm 原型先例)
+  const inv = fp.mkInventory();
+  const r1 = fp.grantFocusLoot(inv, ['coal', 'torch', 'coal']);
+  assert.deepStrictEqual(clone(r1), {granted: ['coal', 'torch', 'coal'], full: false}, '空包全收');
+  assert.strictEqual(fp.count(inv, 'coal'), 2, '两件 coal 已落包(并堆)');
+  assert.strictEqual(fp.count(inv, 'torch'), 1);
+
+  const full = fp.mkInventory();
+  for (let i = 0; i < fp.INV_SLOTS; i++) fp.add(full, 'dirt', 64); // 27 堆全满(既有测试惯例)
+  const before = JSON.stringify(full.slots);
+  const r2 = fp.grantFocusLoot(full, ['diamond', 'coal']);
+  assert.deepStrictEqual(clone(r2), {granted: [], full: true}, '满包静默忽略(零惩罚)且标 full 供模式层 toast');
+  assert.strictEqual(JSON.stringify(full.slots), before, '满包语义: 包内容不变(无部分入包残留)');
+  assert.deepStrictEqual(clone(fp.grantFocusLoot(inv, [])), {granted: [], full: false}, '空清单安全');
 });
