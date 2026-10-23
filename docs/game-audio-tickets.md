@@ -100,7 +100,7 @@ flowchart TD
 
 ## 第二波
 
-### A4 audio adapter 迁移与总线接线 `[ ]`
+### A4 audio adapter 迁移与总线接线 `[x]`（并入 `8c962b4`）
 - 依赖：A1 A2 A3。
 - 交付：新 `js/audio.js`（引擎层 adapter，头注释五要素），effects.js 瘦身为 Fx+toast：
   - 迁入并整合：unlockAudio（+`state==='interrupted'` 与 visibilitychange 恢复；挂起不排队纪律保持）、A1 的全部除噪修补（onended 断连/触屏高通/压限器参数/引擎嗡鸣重设计）、A2 的 synth 解释器（SFX_DEFS 播放路径原样迁）。
@@ -122,6 +122,18 @@ flowchart TD
   - ⑥ 同 mood 选曲避重复上一首（池≥2 排除上首，单首池允许重复，测试已钉死）；
   - ⑦ mkVoiceGate 的 max 由 A4 按 IS_TOUCH 给 8/12，now 生产默认 Date.now；
   - ⑧ duck 释放时若正在淡出/无曲，回升目标自动 0，执行器无需特判。
+- 门面签名（转记 A4 报告，A5~A8 消费）：
+  | 签名 | 口径 |
+  | --- | --- |
+  | `setMood(m)` | m ∈ calm/battle/dark/none，同 mood 续播不打断；BGM 计时不需要 A5 操心——unlock 首次走通自动按 menu 口径 5~30s 起步，director 只在 context running 时推进 |
+  | `tick(dtMs)` | **毫秒**（A5 主循环传 dt\*1000） |
+  | `duck(on)` | A6 说话起 true、说完 false |
+  | `setMusicVol(v)` / `setSfxVol(v)` | 0..1 钳制（A8 接滑杆） |
+  | `preload()` | A7 消费，手势后预热 SFX file 条目 |
+  | `sfx` / `engineHum` | 全局函数签名不变（60+ 调用点零改动） |
+- 跨单备注（A4 转记）：
+  - A7 填 file 后首播仍走合成（样本异步就绪；要首播即样本可在手势后 `preload()`）；
+  - playTrack 解码延迟使曲毕判定略早（≈解码时长，1.2s 淡出掩盖，A5 可选自测补偿）。
 
 ---
 
