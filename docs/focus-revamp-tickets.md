@@ -152,3 +152,14 @@ flowchart TD
 - 交付：index.html 加载声明核对（仅背包壳一行，位置见 F3）；GLOSSARY 词条（共享背包 Backpack/矿袋/宝物柜/图章日历/魔鬼特训/训练师村长，含 _Avoid_ 别名）；核对 item-crafting-design 变更记录与 ADR 0002 交叉引用；npm test + npm run lint 全绿汇总。
 - 手工验收剧本（设计稿 §6）：造档 L37/L49 体验伪装渐入与长度混编的坡道感；矿袋飞行/3 连保底/结算回顾/宝物柜计数/满包 toast 一次性；unlocked=50 存量档首入补授铁镐；顶格关（tier 18/19）len9 行宽与双价干扰可读性；家长面板 CSV 列与免责声明不变。
 - 首周观察项：魔鬼特训鬼等级分布——某维度连续降级占多数则该维度挑战档回退 +1（设计稿 §8 风险条款）。
+
+---
+
+## 终审修复轮（code-review）
+
+双轴评审（Standards/Spec）对 `master...feature/focus-revamp` 全量 diff 的发现，一轮修完并入 `80dadce`（工作分解 `ff14812` 库层 + `80dadce` 模式层/测试），539 全绿 + 三 lint 工具零错：
+
+- **Standards**：focus-paradigms/focus-modes 头注释五要素补齐；日期机制收拢为共享工具（`focusTodayStr`→`budgetDateStr` 全库唯一拼装点，两 KEEP_DAYS 维持有意分立）；`milestoneLevels()` 里程碑派生唯一出口；master 路径 `withDim` 去重；`to96()` 放大样板收拢（含 flameIcon 收尾）；`settleFocusStamps` 去 DOM 副作用（皮肤恢复/烟花挪到仪式路径，家长重置清 `f-bag-iron`）。
+- **Spec 缺失补齐**：B6 集章奖励三缺三（图案三选一 `stampKind` 字段+选择器 / 宝物柜烟花 `launchFocusFirework` / 金图章渲染位）；B4 村长四处接线（今日页开场白可点跳过 / 规则页头像气泡 / 结算喝彩 / 锁定页打盹）；B8 鬼图章进日历角标并存；B2 今日任务单（`focusTodayDims`）；B5 我的进步星柱页（`focusDimStars`/`focusLastBreakthrough`）；迁移幂等测试（`FOCUS_SAVE_DEFAULTS`+`migrateFocusSave` 下沉库层）。
+- **Spec 疑错修复**：魔鬼特训图章按当日并集落账（`fb.count(2)` 后取 `spentCount()`，B1 大图章不漏判）；noSet 全档扩充偏差回写设计稿 D2；`devilDimFor` 改日序数 %5 严格轮换（相邻两天必不同维，测试锁死）；锁定屏保留体检入口（不占关数额度）。
+- **遗留（记录不修）**：modes/focus.js 体量过「~800 行重问」线（三问尚答得上来，拆分留待下个增量）；真人走查三项与手工验收剧本仍待有浏览器环境执行。
