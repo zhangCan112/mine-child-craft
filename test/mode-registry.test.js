@@ -45,13 +45,13 @@ test('模式注册表: 每个模式的 script 在 main.js 之前加载(经典脚
 });
 
 test('模式注册表: 儿童时限成员 = gated 模式(专注训练营独立预算不入列)', () => {
-  assert.deepStrictEqual(ModeRegistry.playModeIds(), ['arena', 'tnt', 'build', 'tank', 'nether', 'adventure']);
+  assert.deepStrictEqual(ModeRegistry.playModeIds(), ['arena', 'build', 'tank', 'nether', 'adventure']);
   assert.ok(!ModeRegistry.playModeIds().includes('focus'));
 });
 
 test('模式注册表: 限额文案的模式名由表派生(漏一个模式不再是手滑)', () => {
   const names = ModeRegistry.playModeNames();
-  assert.deepStrictEqual(names, ['竞技场', 'TNT 密室', '建造', '坦克演习场', '下界冒险', '探险模式']);
+  assert.deepStrictEqual(names, ['竞技场', '建造', '坦克演习场', '下界冒险', '探险模式']);
   assert.ok(!ModeRegistry.playModeNames('build').includes('建造'), '建造页文案排除自身');
-  assert.strictEqual(ModeRegistry.playModeNames('build').length, 5);
+  assert.strictEqual(ModeRegistry.playModeNames('build').length, 4);
 });

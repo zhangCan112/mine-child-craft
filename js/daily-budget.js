@@ -4,7 +4,7 @@
    ------------------------------------------------------------
    一天一本账, 单一 key (daily_budget_save) 存全部预算:
      { date:'2026-10-18', budgets:{ play:{ms,played}, focus:{ms,played} } }
-   · 儿童时限(竞技场/TNT/建造共享) = play 预算 (只按时长)
+   · 儿童时限(游玩模式共享) = play 预算 (只按时长)
    · 专注训练营每日限额           = focus 预算 (时长 + 关数)
    · 午夜翻转: 读写时惰性检查, 不靠定时器
    · 限额读时求值 capMsFor(date) → 临时限额跨午夜自动重读当天配置
@@ -20,7 +20,7 @@ const LEGACY_FOCUS_KEY = 'focus_camp_save'; /* 旧机制B: daily 字段 {date, p
 const PLAY_EXTRA_KEY = 'play_extra_save'; /* 家长加时: {date, ms} 单设备当日(见 readExtraMs) */
 
 /* ---------- 政策限额常量(应用层; 曾住 config.js, 按分层口径移此) ----------
-   儿童游玩时限(竞技场/TNT/建造/坦克演习场共享) 与 专注训练营每日限额。
+   儿童游玩时限(全部游玩模式共享) 与 专注训练营每日限额。
    历史上的"按日期临时调整表"(TEMP_PLAY_LIMIT_MIN)已随过期退役:
    临时调整请走存储(家长面板写 sync/localStorage), 不把日期写进源码
    — 会静默过期成无人删除的死数据。 */

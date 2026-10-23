@@ -555,7 +555,7 @@ test('spawn 记住出生点, 默认 onVoidFall 回到出生点', () => {
   assert.deepStrictEqual(pos.v, [11, 22, 33]);
 });
 
-test('自定义 onVoidFall 优先 (tnt 昏迷语义)', () => {
+test('自定义 onVoidFall 优先 (模式自定义坠落语义)', () => {
   let fell = false;
   mkMode({id: 'x', onVoidFall() {
     fell = true;

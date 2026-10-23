@@ -40,11 +40,6 @@
             <h2>怪物竞技场</h2>
             <small>双阵营团队 PVP 观战</small>
           </div>
-          <div class="mode-card tnt" id="cardTnt">
-            <div class="big">🧨</div>
-            <h2>TNT 密室逃生</h2>
-            <small>收集引线 · 点火 · 快跑！</small>
-          </div>
           <div class="mode-card focus" id="cardFocus">
             <div class="big">🧠</div>
             <h2>专注训练营</h2>
@@ -73,7 +68,7 @@
         </div>
         <div class="keys">
           <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc<br>
-          <span class="safe">版本 2026.10.22-6 · 若本行版本号和电脑上约定的一致, 说明运行的是最新版</span>
+          <span class="safe">版本 2026.10.23-1 · 若本行版本号和电脑上约定的一致, 说明运行的是最新版</span>
         </div>
       </div>
 
@@ -117,25 +112,6 @@
           <b>升级系统</b>：击杀累积晋升 精英★(属性暴涨+技能强化) / 王者★★(解锁新技能：狂暴冲击波·箭雨·连环爆破·巨石投掷·三重龙息)，升级回复20%生命+短暂金身，劣势方经验加成，苦力怕享队友击杀分成(每击杀随机一只)<br>
           <b>克制关系</b>：僵尸→骷髅→苦力怕→铁傀儡→僵尸 · 末影人克骷髅(瞬移闪箭) · 烈焰人克流浪者(火克冰) · 流浪者克岩浆怪 · 旋风人克骷髅(吹偏箭矢) · 监守者克劫掠兽 · 末影龙制空克制地面近战<br>
           <span class="safe">你出生在南侧看台顶端，有玻璃护栏，怪物只会互相战斗，不会攻击你</span>
-        </div>
-      </div>
-
-      <!-- TNT 关卡选择页 -->
-      <div class="menu-page" id="menuTnt">
-        <h1>TNT <span>密室逃生</span></h1>
-        <p>收集引线 🧨 连接 TNT 💣 点火 🔥 然后快跑！</p>
-        <div id="levelGrid"></div>
-        <div class="btn-row">
-          <button class="play primary" id="tntResumeBtn">继续本关 ▶</button>
-          <button class="play" id="tntBackBtn">⬅ 返回</button>
-        </div>
-        <div class="btn-row">
-          <button class="play danger" id="tntResetBtn">重置进度 ↺</button>
-        </div>
-        <div class="keys">
-          <b>移动</b>：W A S D &nbsp; <b>铺引线/放TNT</b>：右键 &nbsp; <b>点火</b>：F &nbsp; <b>切换手持</b>：1 / 2 / 滚轮<br>
-          <b>捡回引线/扳转辙器</b>：左键 &nbsp; <b>重置本关</b>：R &nbsp; <b>菜单</b>：Esc<br>
-          <span class="safe">火花碰到水会熄灭 · 岩浆和深渊要绕开 · 点着火就快跑！</span>
         </div>
       </div>
 
@@ -213,17 +189,6 @@
         </div>
       </div>
 
-      <!-- TNT 通关结算页 -->
-      <div class="menu-page" id="menuWin">
-        <h1 id="winTitle">逃出来啦！</h1>
-        <div id="winStars"></div>
-        <div id="winTime"></div>
-        <div class="btn-row">
-          <button class="play primary" id="winNextBtn">下一关 ➡</button>
-          <button class="play" id="winReplayBtn">再玩一次 ↺</button>
-          <button class="play" id="winMenuBtn">选关 ⬅</button>
-        </div>
-      </div>
 
     </div>
 
@@ -267,12 +232,10 @@
     <script src="js/save-slot.js" defer></script>
     <script src="js/sync.js" defer></script>
     <script src="js/daily-budget.js" defer></script>
-    <script src="js/tnt-levels.js" defer></script>
     <script src="js/focus-icons.js" defer></script>
     <script src="js/focus-levels.js" defer></script>
     <script src="js/focus-paradigms.js" defer></script>
     <script src="js/modes/arena.js" defer></script>
-    <script src="js/modes/tnt.js" defer></script>
     <script src="js/modes/focus.js" defer></script>
     <script src="js/modes/build.js" defer></script>
     <script src="js/modes/tank-range.js" defer></script>

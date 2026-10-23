@@ -228,7 +228,7 @@ const TankCore = (()=>{
           const id = getBlock(bx, by, bz);
           if (id === 0) continue;
           if (keep && keep(id, bx, by, bz)) continue; /* 受保护: 不炸不计数 */
-          /* 爆心必毁, 边缘按确定性哈希渐稀(与 TNT 密室的破坏思路同构) */
+          /* 爆心必毁, 边缘按确定性哈希渐稀 */
           if (d > 0.5 && hashRand(bx*3 + dy + 7, bz*5 - dz + 11) > 1 - (d/r)*0.55) continue;
           counts[id] = (counts[id] || 0) + 1;
           set(bx, by, bz, 0);

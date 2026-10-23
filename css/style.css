@@ -239,14 +239,6 @@ canvas {
   opacity: 0.8;
 }
 
-.mode-card.tnt {
-  border-color: rgb(255 120 80 / 55%);
-}
-
-.mode-card.tnt:hover {
-  background: rgb(255 110 70 / 18%);
-}
-
 .mode-card.build {
   border-color: rgb(233 196 106 / 60%);
 }
@@ -623,75 +615,6 @@ canvas {
 #overlay .play:disabled {
   opacity: 0.35;
   cursor: not-allowed;
-}
-
-/* TNT 关卡选择 */
-#levelGrid {
-  display: grid;
-  grid-template-columns: repeat(5,92px);
-  gap: 12px;
-  margin-top: 14px;
-}
-
-.lv-btn {
-  width: 92px;
-  height: 92px;
-  border: 3px solid rgb(255 255 255 / 35%);
-  border-radius: 12px;
-  background: rgb(255 255 255 / 10%);
-  color: #fff;
-  cursor: pointer;
-  font-weight: 800;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
-  user-select: none;
-}
-
-.lv-btn:hover {
-  background: rgb(255 255 255 / 20%);
-}
-
-.lv-btn .no {
-  font-size: 26px;
-  text-shadow: 0 2px 4px #000;
-}
-
-.lv-btn .stars {
-  font-size: 13px;
-  letter-spacing: 1px;
-  color: #ffe27a;
-  min-height: 16px;
-}
-
-.lv-btn.locked {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.lv-btn .lock {
-  font-size: 26px;
-}
-
-/* 通关面板 */
-#winStars {
-  font-size: 64px;
-  letter-spacing: 10px;
-  margin: 6px 0;
-  text-shadow: 0 4px 14px rgb(255 220 80 / 60%);
-}
-
-#winStars .off {
-  opacity: 0.22;
-  text-shadow: none;
-}
-
-#winTime {
-  font-size: 14px;
-  opacity: 0.85;
-  margin-bottom: 6px;
 }
 
 /* 左上信息 */

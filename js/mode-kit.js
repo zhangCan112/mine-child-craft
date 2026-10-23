@@ -47,7 +47,7 @@ function kitSpawn(x, y, z, o) {
   mkLastSpawn = {x, y, z, yaw: o.yaw || 0, pitch: o.pitch || 0};
 }
 
-/* "注视"方块名 — arena/build/tnt 三处重复的查询 */
+/* "注视"方块名 — arena/build 两处重复的查询 */
 function lookName(hit) {
   if (!hit) return '无';
   const id = getBlock(hit.x, hit.y, hit.z);
@@ -55,7 +55,7 @@ function lookName(hit) {
 }
 
 /* ---------- hotbar: 三种槽型 {block:id} | {icon,lbl,cnt()} | {item:id}(T10) ----------
-   cls:'build' 附加类名; cnt 为函数, refresh/show 时重读 (tnt 库存);
+   cls:'build' 附加类名; cnt 为函数, refresh/show 时重读;
    item 型: 像素图标(iconOf 的 dataURL/emoji 二合一) + 右上数量(>1 才显) +
    底部耐久条(dur 访问器返 0..1 比, 模式层算 dur/toolOf(id).dur, 仅工具条目配) */
 function mkHotbar(opts) {
@@ -552,8 +552,8 @@ function mkMode(cfg) {
   const hb = cfg.hotbar || null;
   function applyChrome() {
     if (MK.score) MK.score.style.display = (cfg.chrome && cfg.chrome.score) || 'none';
-    /* hotbar: 'flex' 立即显示; 'deferred' 现在隐藏、由模式在合适时机自行 show()
-       (如 TNT 入关卡后才现身); 缺省/none 恒隐藏 */
+    /* hotbar: 'flex' 立即显示; 'deferred' 现在隐藏、由模式在合适时机自行 show();
+       缺省/none 恒隐藏 */
     if (hb && cfg.chrome && cfg.chrome.hotbar === 'flex') hb.show();
     else if (MK.hotbar) MK.hotbar.style.display = 'none';
     if (!cfg.hud && MK.hud) MK.hud.innerHTML = '';

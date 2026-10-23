@@ -72,7 +72,7 @@ const ITEMS = {
   torch: {name: '火把', icon: '🔥', block: 48}, // 附录 A: B_TORCH(48)
   craft_table: {name: '工作台', icon: '🛠️', block: 46}, // 附录 A: B_CRAFT(46); 解锁 table 级配方
   furnace: {name: '熔炉', icon: '♨️', block: 47}, // 附录 A: B_FURNACE(47); 烧炼站点
-  tnt: {name: 'TNT', icon: '🧨', block: 20}, // 既有 B_TNT(config.js TNT 模式); 5 火药+4 沙合成
+  tnt: {name: 'TNT', icon: '🧨', block: 20}, // 既有 B_TNT(config.js); 5 火药+4 沙合成
 
   /* —— 二期占位(§3.2 配方书全表引用 bow_item, 一期卡片不点亮) —— */
   bow_item: {name: '弓', icon: '🏹'},

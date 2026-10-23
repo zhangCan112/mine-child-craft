@@ -39,7 +39,7 @@ const CAM = {
   hideDist: 0.9, // 收拢近于此 → 隐藏玩家形象(头不再挡画面)
 };
 
-/* 单消费者常量已归位: ARENA/HOTBAR(竞技场) · TNT_CFG(TNT密室) · TANK_VS_MOBS
+/* 单消费者常量已归位: ARENA/HOTBAR(竞技场) · TANK_VS_MOBS
    (坦克演习场) — 政策常量属应用层, 不在引擎共享命名空间里放着( ambient 可见
    会诱惑跨层乱读); 引擎真正的共享注册表只剩: 世界尺寸/PLAYER/CAM/VIEW/BLOCKS/
    TANK/TANK_MODELS/MOB_TYPES/IS_TOUCH/faceColor */
@@ -299,7 +299,8 @@ const BLOCKS = {
   19: {name: '灯块', all: [1.00, 0.92, 0.55]},
 };
 
-/* TNT 模式新方块 (id 20~29)
+/* TNT 密室方块 (id 20~29) — 模式已下线, 定义保留为创意资产:
+   B_TNT 仍被物品/合成的 tnt 条目引用, B_WATER/B_LAVA 为建造/下界地形件
    solid:false 不可碰撞 · thin:N 贴地薄块高度 · soft 可被炸毁 · crack 必被炸毁 */
 const B_TNT=20; const B_FUSE=21; const B_CRACK=22; const B_SWITCH=23; const B_WATER=24;
 const B_LAVA=25; const B_PLATE=26; const B_DOOR=27; const B_SUPPORT=28; const B_WEIGHT=29;
@@ -364,7 +365,7 @@ BLOCKS[B_CLAY] = {name: '黏土', all: [0.58, 0.60, 0.68],
 BLOCKS[B_SAPLING] = {name: '树苗', all: [0.30, 0.60, 0.25], thin: 0.4, solid: false,
   hard: 0, tool: null, tier: 0, drop: [['sapling', 1, 0]]}; // 20s 长成树(T12 模式层计时)
 
-/* 可被爆炸破坏的软方块(密室外壳石质方块不可破坏,防止把房间炸穿) */
+/* 可被爆炸破坏的软方块(TNT 密室时期的爆炸口径, 保留为创意资产) */
 [5, 6, 8, 9].forEach((id)=> BLOCKS[id].soft = true);
 
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
