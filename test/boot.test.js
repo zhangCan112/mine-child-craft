@@ -75,4 +75,7 @@ test('引导链: index.html 全部脚本在共享词法环境依序加载无错'
   /* 引导完成探针: 组合根的 MODES 应已注册坦克模式(共享词法可跨脚本读取) */
   const probe = vm.runInContext('typeof MODES !== "undefined" && MODES.tank ? "ok" : "missing"', ctx);
   assert.strictEqual(probe, 'ok', 'main.js 组合根应注册 tank 模式');
+  /* T1 接线骨架: 数学冒险岛(MathMode)与专注训练营同款走组合根注册 */
+  const probeMath = vm.runInContext('typeof MODES !== "undefined" && MODES.math ? "ok" : "missing"', ctx);
+  assert.strictEqual(probeMath, 'ok', 'main.js 组合根应注册 math 模式(数学冒险岛)');
 });

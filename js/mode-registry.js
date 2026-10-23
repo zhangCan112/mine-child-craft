@@ -17,6 +17,7 @@
 const MODE_REGISTRY = [
   {id: 'arena', name: '竞技场', gated: true, mood: 'battle'},
   {id: 'focus', name: '专注训练营', gated: false, page: false, mood: 'none'}, /* 接管全屏 UI, 无菜单页/不计儿童时限; none=无 BGM(注意力训练哲学) */
+  {id: 'math', name: '数学冒险岛', gated: false, page: false, mood: 'none'}, /* 训练营类同 focus: 独立预算/无菜单页; none=无 BGM(TTS 主导) */
   {id: 'build', name: '建造', gated: true, menu: true, mood: 'calm'},
   {id: 'tank', name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js', mood: 'battle'},
   {id: 'nether', name: '下界冒险', gated: true, menu: true, enter: true, mood: 'dark'}, /* enter: 出发页有"进入"按钮(锁指针) */

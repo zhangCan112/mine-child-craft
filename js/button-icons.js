@@ -557,6 +557,27 @@ const BASEMENT_ART = [
   '................',
 ];
 
+/* ---------- 方块阶梯(数学冒险岛卡 — 1/2/3 递增的草方块塔, "数一数"语义;
+     像素全部自绘, 版权口径 D13(只取语义与观感语言, 见 docs/mc-button-icons-research.md)) ---------- */
+const STEPS_ART = [
+  '................',
+  '................',
+  '................',
+  '...........KKKK.',
+  '...........KGGK.',
+  '...........KggK.',
+  '......KKKK.KKKK.',
+  '......KGGK.KGGK.',
+  '......KggK.KggK.',
+  '.KKKK.KKKK.KKKK.',
+  '.KGGK.KGGK.KGGK.',
+  '.KggK.KggK.KggK.',
+  '.KKKK.KKKK.KKKK.',
+  '................',
+  '................',
+  '................',
+];
+
 /* ---------- 派生: 左右箭头(纯箭头基画几何派生防手抖; 跳跃/下降因带
    地面线/顶线, 各自手绘不参与旋转派生) ---------- */
 const ARROW_RIGHT_ART = rotCW(ARROW_UP_ART);
@@ -602,6 +623,7 @@ const BTN_PIX = {
   portal: {art: PORTAL_ART, map: {p: '#5a1f8f', P: '#8a3fd4', m: '#6a2ba8', W: '#e8d5ff'}},
   tree: {art: TREE_ART, map: {g: '#3f8f3f', G: '#5abf5a', t: '#7d5730'}},
   basement: {art: BASEMENT_ART, map: {S: '#8a8f98', L: '#c8cdd4', K: '#14161a'}},
+  steps: {art: STEPS_ART, map: {K: '#14161a', G: '#5abf5a', g: '#3f8f3f'}}, /* 数学冒险岛卡(草方块阶梯, 与 tree 同绿系) */
 };
 
 /* 交叉剑色板: 与物品工坊铁剑同源(字符画直接 ⊕ 自那里, 色板也一并) */
@@ -654,7 +676,7 @@ function btnImg(name, cls) {
    纪律同 icons.js 入口卡装配: 本段只按 id/选择器换装, 不重建含接线的
    元素(滑杆行的 input 监听在 audio-vol-ui.js 早已挂上, 只做"文本节点
    前插图 + 去 emoji"的手术, 不动子元素)。 */
-const BTN_CARD_ICON = {arena: 'swords', focus: 'brain', build: 'hammer',
+const BTN_CARD_ICON = {arena: 'swords', focus: 'brain', math: 'steps', build: 'hammer',
   tank: 'tank', nether: 'portal', adventure: 'tree'};
 
 /* 首个文本节点的 emoji 前缀 → 像素图(保留中文文案; 无 emoji 则原样) */
