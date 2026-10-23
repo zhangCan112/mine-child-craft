@@ -13,6 +13,7 @@
 const MODES = {
   arena: ArenaMode,
   focus: FocusMode,
+  math: MathMode,
   build: BuildMode,
   tank: TankRangeMode,
   nether: NetherMode,
@@ -65,6 +66,7 @@ function setupBudgets() {
                          readExtraMs(store.get(PLAY_EXTRA_KEY), d), // 家长加时: 本设备当日 {date,ms}, 次日自动失效
       warnAtMs: 60*1000},
       focus: {capMsFor: () => FOCUS_DAILY_MIN * 60 * 1000, capCount: FOCUS_DAILY_LEVELS},
+      math: {capMsFor: () => MATH_DAILY_MIN * 60 * 1000, capCount: MATH_DAILY_LEVELS},
     },
   });
   Budgets.migrate(); // 旧 play_time_save / focus_camp_save.daily → daily_budget_save

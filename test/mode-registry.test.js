@@ -51,6 +51,13 @@ test('模式注册表: 儿童时限成员 = gated 模式(专注训练营独立�
   assert.ok(!ModeRegistry.playModeIds().includes('focus'));
 });
 
+test('模式注册表: 训练营类模式(gated:false 接管全屏 UI)清单 = focus + math', () => {
+  /* 数学冒险岛与专注训练营同形态: 独立每日预算/无菜单页/不计儿童时限;
+     手滑把 math 改成 gated 会把它错并进儿童时限, 这里当场红 */
+  const camps = ModeRegistry.all.filter((m) => !m.gated).map((m) => m.id);
+  assert.deepStrictEqual(camps, ['focus', 'math']);
+});
+
 test('模式注册表: 限额文案的模式名由表派生(漏一个模式不再是手滑)', () => {
   const names = ModeRegistry.playModeNames();
   assert.deepStrictEqual(names, ['竞技场', '建造', '坦克演习场', '下界冒险', '探险模式']);
