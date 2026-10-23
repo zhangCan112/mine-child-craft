@@ -176,7 +176,7 @@ flowchart TD
 
 ## 第四波
 
-### A10 文档收尾 + 集成验证 `[ ]`
+### A10 文档收尾 + 集成验证 `[x]`（并入 `426266c`）
 - 依赖：A5 A6 A7 A8 A9。
 - 交付：GLOSSARY 收词（AudioRegistry / AudioCore(VoiceGate·MusicDirector) / AudioMixer，_Avoid_ 标注 effects.js 音效段历史归属）；conventions.md §1.1 目录宪法补 assets/ 行（若 A7 用了 ffmpeg-static，§工具链表同步登记 devDependency 理由）；`docs/adr/0003-audio-assets-in-repo.md`（音频入库 + 单格式 + CC0-only + 体积预算的不可逆决策；编号自 0002 顺延——基线里 0002 已被 focus-loot-integration 占用）；index.html 版本行声明（集成者改）；CREDITS 复核；集成分支全量 `node --test` + `npm run lint` 绿。
 - 收尾拍板（A10，承接 A5 验收提示③ / A7 收尾备注③④）：

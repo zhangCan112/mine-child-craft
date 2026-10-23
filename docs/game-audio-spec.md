@@ -50,7 +50,7 @@
 ## Implementation Decisions
 
 - **模块划分**（一文件一模块，遵守仓库后缀语义）：
-  - `AudioRegistry`（`-registry`，清单唯一权威，纯数据+纯函数）：SFX 条目 `kind → {样本文件 或 合成定义, 桌面增益, 触屏增益, 优先级, 同类冷却ms}`；曲目表 `trackId → {文件, 情绪, 增益}`；情绪映射 `modeId → mood`。一条音效标"样本"或"合成"决定走哪条路。
+  - `AudioRegistry`（`-registry`，清单唯一权威，纯数据+纯函数）：SFX 条目 `kind → {file 样本文件 + synth 合成定义(互锁，file 条目必带 synth 回退), 桌面增益, 触屏增益, 优先级, 同类冷却ms}`（A7 实装演进：file+synth 互锁保证永不哑——素材未就绪/fetch 失败/file:// 时自动落合成；纯合成条目仅 synth，如 level/win 仪式音）；曲目表 `trackId → {文件, 情绪, 增益}`；情绪映射 `modeId → mood`。
   - `AudioCore`（`-core`，纯决策核心，零 THREE·零 DOM）：VoiceGate（发声准入：上限内放行/超限按优先级抢占最老/同类冷却期内忽略）；MusicDirector（稀疏调度状态机：tick 推进，输出 起/停/音量 事件）；儿童响度常数表。工厂接口注入时间，决策纯函数化。
   - audio adapter（无后缀，引擎层装配）：AudioContext 生命周期（手势解锁迁入+补 `interrupted` 恢复）、总线图、素材懒加载缓存、样本播放器、合成回退解释器（现合成定义表全量迁入做兜底）、引擎嗡鸣重设计、MusicDirector 执行器、duck 执行。
 - **调用面不变性**：`sfx(kind)` / `engineHum(level)` 全局函数签名与语义保持；现特效模块只保留视觉特效与提示消息，音频部分整体迁出。
