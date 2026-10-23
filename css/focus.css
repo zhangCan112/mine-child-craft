@@ -336,7 +336,7 @@
 }
 
 /* len9 长队小尺寸档(设计稿 D3): 9×(56+14)=616px, 760px 区域放得下 */
-.f-creeper--sm {
+.f-creeper-sm {
   width: 56px;
   height: 56px;
 }

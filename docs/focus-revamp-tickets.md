@@ -144,7 +144,10 @@ flowchart TD
 
 ### F10 回归收尾 + GLOSSARY `[ ]`
 - 备注（F6 转记）：宝物柜工具组只认 `tools` 字段——探险合成所得工具不进柜（选型 B 口径），是否补充该展示在此再议并记录结论。
+  - **F10 收口①**：维持只认 `tools` 字段。宝物柜是训练营的成就展示（赚到了什么），不是全背包镜像——若再从共享背包读探险合成工具，同一件工具出现两种记账来源，且重演 F3 否掉的"白送贬值"面；全背包查看属探险侧 UI 需求，另议不做。
 - 备注（F9 转记）：①**lint 债**——集成分支 eslint 存量经 F4b 复测为 **264 错**（F2/F8 的 modes/focus.js indent 大片 + F4 focus-icons no-multi-spaces 等；master 侧 lint 为绿，差异全来自本分支），stylelint 的 Unclosed block 已由集成者热修（F8 粘贴事故）；②**真人走查三项**——corisi 4×4/flanker len9 下石壁对比度、底部火把光晕是否干扰刺激、游标窄屏（80vw）两端裁切。
+  - **F10 lint 清偿**：复测基线 114 错（264 为 F4b 时点快照，其后的热修已收敛一半）→ `--fix` 清 95 + 手工清 19（guard-for-in 三处改 `for...of Object.keys` 先例 / max-len 五处折行 / new-cap 十处别名小写化 / 测试 unused flag 删除 / `.f-creeper--sm` 改名 `.f-creeper-sm` 归一全库 kebab-case 类名惯例，js+css+test 三处同步）→ 三工具全零错。真人走查三项仍未做（无浏览器环境，boot 冒烟+静态检查替代），留待集成者/用户走查。
+  - **F10 收口②（F8 转记的 KEEP_DAYS 分立）**：**有意分立，不合并**。图章窗口（FOCUS_STAMP_KEEP_DAYS）管玩家可见的收集记录——下界受集章最长线约束（60/90 章金图章需要更长留存），只许变长；日志窗口（FOCUS_LOG_KEEP_DAYS）管 checks/devil 分析原料——基线只用近 7 天，可独立调（如延长做趋势分析）不动玩家可见物。两类窗口演化压力不同向，合并成单常量会把它们耦合；省一个常量的收益抵不过动 focus-levels + modes/focus + 测试断言三处的面。
 - 依赖：全部。
 - 交付：index.html 加载声明核对（仅背包壳一行，位置见 F3）；GLOSSARY 词条（共享背包 Backpack/矿袋/宝物柜/图章日历/魔鬼特训/训练师村长，含 _Avoid_ 别名）；核对 item-crafting-design 变更记录与 ADR 0002 交叉引用；npm test + npm run lint 全绿汇总。
 - 手工验收剧本（设计稿 §6）：造档 L37/L49 体验伪装渐入与长度混编的坡道感；矿袋飞行/3 连保底/结算回顾/宝物柜计数/满包 toast 一次性；unlocked=50 存量档首入补授铁镐；顶格关（tier 18/19）len9 行宽与双价干扰可读性；家长面板 CSV 列与免责声明不变。

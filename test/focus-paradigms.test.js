@@ -298,7 +298,8 @@ function loadFocusDrv(opts) {
   for (const f of ['items-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
-  vm.runInContext('globalThis.__fp = {focusDispatch, runFocusLevel, mkAdapt, paramsFor, FOCUS_LEVELS, FOCUS_DIMS};', ctx);
+  vm.runInContext('globalThis.__fp = {focusDispatch, runFocusLevel, mkAdapt, paramsFor, ' +
+      'FOCUS_LEVELS, FOCUS_DIMS};', ctx);
   return {
     fp: sandbox.__fp, spoken, els, log, clsLog,
     flush(max) { // 按注册序触发待决定时器(链式注册随触发入队, 续驱动到局末)
@@ -644,7 +645,7 @@ test('onTrial master: 五小节事件全部上报, dim=各小节维度, 总数=�
 
 /* ============ F2 Flanker: len9 小尺寸 / neutralRate 中立行 / mobMix 混生物 ============ */
 
-test('flanker len9: 全行贴图带小尺寸类 f-creeper--sm, len<9 不带', () => {
+test('flanker len9: 全行贴图带小尺寸类 f-creeper-sm, len<9 不带', () => {
   const d = loadFocusDrv({seed: 8});
   const p = Object.assign(d.fp.paramsFor('flanker', 18), {trials: 3, demo: false});
   assert.strictEqual(p.len, 9);
@@ -655,13 +656,13 @@ test('flanker len9: 全行贴图带小尺寸类 f-creeper--sm, len<9 不带', ()
   assert.strictEqual(ended.length, 1);
   const imgs = drvEls(d, 'f-creeper');
   assert.strictEqual(imgs.length, 27, '3 试次 × 9 只');
-  assert.ok(imgs.every((e) => e.className.includes('f-creeper--sm')), 'len9 全行小尺寸(760px 放得下)');
+  assert.ok(imgs.every((e) => e.className.includes('f-creeper-sm')), 'len9 全行小尺寸(760px 放得下)');
   const d2 = loadFocusDrv({seed: 8});
   const p2 = Object.assign(d2.fp.paramsFor('flanker', 10), {trials: 2, demo: false});
   assert.strictEqual(p2.len, 5);
   d2.fp.runFocusLevel({dim: 'flanker', kind: 'normal', params: p2}, fakeEl(), {progress() {}, end() {}});
   d2.flush();
-  assert.ok(drvEls(d2, 'f-creeper').every((e) => !e.className.includes('f-creeper--sm')), 'len5 常规尺寸');
+  assert.ok(drvEls(d2, 'f-creeper').every((e) => !e.className.includes('f-creeper-sm')), 'len5 常规尺寸');
 });
 
 test('flanker neutralRate=1: 两侧全中立生物头像(无方向线索), 中间仍苦力怕; 教学行不掷中立', () => {
@@ -837,7 +838,6 @@ test('switch switchJitter=true: 切换间隔随机 1~3(不可预测); false 时�
     const ended = [];
     d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, fakeEl(),
         {progress() {}, end: (s) => ended.push(s)});
-    const flag = drvEls(d, 'f-switch-flag')[0];
     let mark = 0;
     const switchAt = [];
     for (let i = 0; i < p.trials; i++) {
@@ -885,11 +885,11 @@ test('paramsFor 渐进无断层: qualitative 概率参数引入档 0<值<1, 单�
   const {fp} = loadFocus();
   /* "qualitative 跳变必须混编"由此锁死: 新元素以概率 p 渐入, 不许一步全量 */
   const cases = [
-    {dim: 'gonogo', key: 'disguiseRate', cap: 1},    // D2: 伪装 tier8 渐入 0.3→顶格 1.0
+    {dim: 'gonogo', key: 'disguiseRate', cap: 1}, // D2: 伪装 tier8 渐入 0.3→顶格 1.0
     {dim: 'flanker', key: 'neutralRate', cap: 0.25}, // D3: 中立行 tier13 引入即顶格
-    {dim: 'flanker', key: 'mobMix', cap: 0.3},       // D3: 混生物 tier15 引入即顶格
-    {dim: 'corsi', key: 'antiChunk', cap: 0.6},      // D4: 反组块 tier16 起 0.3→0.6
-    {dim: 'switch', key: 'bivalent', cap: 1},        // D5: 双价 tier8 起 0.5→顶格 1.0
+    {dim: 'flanker', key: 'mobMix', cap: 0.3}, // D3: 混生物 tier15 引入即顶格
+    {dim: 'corsi', key: 'antiChunk', cap: 0.6}, // D4: 反组块 tier16 起 0.3→0.6
+    {dim: 'switch', key: 'bivalent', cap: 1}, // D5: 双价 tier8 起 0.5→顶格 1.0
   ];
   for (const c of cases) {
     const vals = tierCurve(fp, c.dim, c.key);
@@ -923,7 +923,8 @@ test('paramsFor 档位边界: corsi len≤6 封顶, grid 4×4 仅 tier≥14(与 
 
 test('paramsFor 档位边界: flanker len≤9 且 len9 仅 tier≥18, congruentRate≥0.35, window≥1500', () => {
   const {fp} = loadFocus();
-  assert.deepStrictEqual([...tierCurve(fp, 'flanker', 'len')], [3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5, 7, 7, 7, 7, 7, 7, 9, 9]);
+  assert.deepStrictEqual([...tierCurve(fp, 'flanker', 'len')],
+      [3, 3, 3, 3, 3, 3, 5, 5, 5, 5, 5, 7, 7, 7, 7, 7, 7, 9, 9]);
   for (let t = 1; t <= 19; t++) {
     const p = fp.paramsFor('flanker', t);
     assert.ok(p.congruentRate >= 0.35, 'tier ' + t + ' congruentRate 下界 0.35');
@@ -967,7 +968,8 @@ test('paramsFor 宝石轮换: corsi 关卡奇偶轮换 diamond/gold_ingot, 未�
   assert.strictEqual(fp.paramsFor('corsi', 5).gem, 'diamond', '大师小节等无关卡号场景恒钻石');
   for (const lv of fp.FOCUS_LEVELS) {
     if (lv.dim !== 'corsi') continue;
-    assert.strictEqual(lv.params.gem, lv.i % 2 === 0 ? 'diamond' : 'gold_ingot', '第 ' + (lv.i+1) + ' 关 corsi 宝石按关卡奇偶落位');
+    assert.strictEqual(lv.params.gem, lv.i % 2 === 0 ? 'diamond' : 'gold_ingot',
+        '第 ' + (lv.i + 1) + ' 关 corsi 宝石按关卡奇偶落位');
   }
 });
 
@@ -1092,13 +1094,13 @@ test('图章/集章数据: 大章门槛 3 关, 集章里程碑 3/7/14/30 全有�
 
 test('focusDayIndex: 日期串→本地日序数, 跨月/跨年连续, 损坏串 NaN', () => {
   const {fp} = loadFocus();
-  const D = fp.focusDayIndex;
-  assert.strictEqual(D('2026-10-23') - D('2026-10-22'), 1, '相邻一天差 1');
-  assert.strictEqual(D('2026-10-1') - D('2026-9-30'), 1, '跨月连续(无前导零格式)');
-  assert.strictEqual(D('2027-1-1') - D('2026-12-31'), 1, '跨年连续');
-  assert.strictEqual(D('2026-12-31') - D('2026-1-1'), 364, '2026 平年 364 天');
-  assert.ok(Number.isNaN(D('不是个日期')), '损坏串返回 NaN');
-  assert.ok(Number.isNaN(D(undefined)), 'undefined 返回 NaN');
+  const dayIdx = fp.focusDayIndex;
+  assert.strictEqual(dayIdx('2026-10-23') - dayIdx('2026-10-22'), 1, '相邻一天差 1');
+  assert.strictEqual(dayIdx('2026-10-1') - dayIdx('2026-9-30'), 1, '跨月连续(无前导零格式)');
+  assert.strictEqual(dayIdx('2027-1-1') - dayIdx('2026-12-31'), 1, '跨年连续');
+  assert.strictEqual(dayIdx('2026-12-31') - dayIdx('2026-1-1'), 364, '2026 平年 364 天');
+  assert.ok(Number.isNaN(dayIdx('不是个日期')), '损坏串返回 NaN');
+  assert.ok(Number.isNaN(dayIdx(undefined)), 'undefined 返回 NaN');
 });
 
 test('trimFocusLog: 按日记录滚动 90 天裁剪(含今天), 返回新对象不改原', () => {

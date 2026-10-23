@@ -274,7 +274,7 @@ function runFlanker(area, params, adapt, h) {
     bar.innerHTML = '';
     const n = params.len;
     /* len9 行用小尺寸贴图(D3): 9×(56+14)=616px, 760px 区域放得下 */
-    const base = 'f-creeper' + (n >= 9 ? ' f-creeper--sm' : '');
+    const base = 'f-creeper' + (n >= 9 ? ' f-creeper-sm' : '');
     for (let k=0; k<n; k++) {
       const isC = k === Math.floor(n/2);
       if (!isC && (neutralRow || mixSet.includes(k))) {
