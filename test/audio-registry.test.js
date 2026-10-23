@@ -5,9 +5,10 @@
    ① js/** 每处 sfx('…') 字面量都在 SFX_KINDS 登记(漏登记即红),
      且只收活着的 kind(TNT 死键不迁);
    ② 条目形状防错网(synth/file 至少其一(file 须带 synth 回退, A7 起共存) + g/gTouch/prio/coolMs 齐全);
-   ③ MOODS 键集与模式注册表逐条对齐, 值 ∈ 合法情绪集;
+   ③ MOODS 收窄为仅 menu(模式情绪唯一权威在 mode-registry 各行 mood 字段), 值 ∈ 合法情绪集;
    ④ 样本 file 条目须真实存在于 assets/audio/ 且 CREDITS.md 记载
-     (A2 无样本空转, A7 素材入库后咬合);
+     (A2 无样本空转, A7 素材入库后咬合); 反向覆盖: 目录内全部素材
+     文件漏记 CREDITS 即红;
    ⑤ 过渡期守卫: synth 定义与 effects.js 的 SFX_DEFS 原样一致
      (A4 迁走解释器删表后自动退场)。 */
 const test = require('node:test');
@@ -17,7 +18,6 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 const AudioRegistry = require('../js/audio-registry.js');
-const ModeRegistry = require('../js/mode-registry.js');
 
 const ROOT = path.join(__dirname, '..');
 const walk = (d) => {
@@ -92,25 +92,17 @@ test('声音清单: 条目形状 — synth/file 至少其一, file 条目须带 
   }
 });
 
-test('声音清单: MOODS 键 = 模式注册表全集 + menu(新模式忘声明情绪即红), 值 ∈ 合法情绪集', () => {
+test('声音清单: MOODS 收窄为仅 menu — 模式情绪唯一权威在 mode-registry 各行 mood 字段, 值 ∈ 合法情绪集', () => {
   const legal = ['calm', 'battle', 'dark', 'none'];
-  const expectKeys = [...ModeRegistry.all.map((m) => m.id), 'menu'].sort();
-  assert.deepStrictEqual(Object.keys(AudioRegistry.MOODS).sort(), expectKeys,
-      'MOODS 键集应覆盖全部模式 id + menu(无配乐的模式显式写 none)');
-  for (const [k, v] of Object.entries(AudioRegistry.MOODS)) {
-    assert.ok(legal.includes(v), 'MOODS.' + k + ' 情绪值非法: ' + v + ' ∈ ' + legal.join('|'));
+  assert.deepStrictEqual(Object.keys(AudioRegistry.MOODS), ['menu'],
+      '引擎侧只需 menu 键(各游玩模式情绪随 mode-registry 各行 mood 字段走, 不再镜像)');
+  for (const v of Object.values(AudioRegistry.MOODS)) {
+    assert.ok(legal.includes(v), 'MOODS 情绪值非法: ' + v + ' ∈ ' + legal.join('|'));
   }
 });
 
-test('声音清单: MOODS 基线 = menu/build→calm · arena/tank→battle · nether/adventure→dark · focus→none', () => {
-  const m = AudioRegistry.MOODS;
-  assert.strictEqual(m.menu, 'calm');
-  assert.strictEqual(m.build, 'calm');
-  assert.strictEqual(m.arena, 'battle');
-  assert.strictEqual(m.tank, 'battle');
-  assert.strictEqual(m.nether, 'dark');
-  assert.strictEqual(m.adventure, 'dark');
-  assert.strictEqual(m.focus, 'none', '专注训练营无 BGM(注意力训练哲学, spec 拍板)');
+test('声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9)', () => {
+  assert.strictEqual(AudioRegistry.MOODS.menu, 'calm');
 });
 
 test('声音清单: MUSIC_TRACKS 条目形状 {file, mood, g, durMs}, 曲目情绪不含 none(A7 起填曲)', () => {
@@ -141,6 +133,16 @@ test('声音清单: 样本 file 条目在 assets/audio/ 真实存在且 CREDITS.
     assert.ok(fs.existsSync(path.join(ROOT, 'assets/audio', file)),
         id + ' 样本文件缺失: assets/audio/' + file);
     assert.ok(credits.includes(file), 'CREDITS.md 未记载 ' + file + ' 的来源/许可');
+  }
+});
+
+test('声音清单: 反向覆盖 — assets/audio/ 下全部素材文件都在 CREDITS.md 记载(备用池 jingles 漏记也红)', () => {
+  const dir = path.join(ROOT, 'assets/audio');
+  const credits = fs.readFileSync(path.join(dir, 'CREDITS.md'), 'utf8');
+  const files = walk(dir).map((p) => path.basename(p)).filter((n) => n !== 'CREDITS.md');
+  assert.ok(files.length >= 90, '扫描器失灵? 入库素材应 98 文件, 实得 ' + files.length);
+  for (const n of files) {
+    assert.ok(credits.includes(n), 'CREDITS.md 未记载 assets/audio/' + n + '(反向覆盖: 文件在而记录缺)');
   }
 });
 

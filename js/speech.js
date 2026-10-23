@@ -1,6 +1,8 @@
 'use strict';
 /* ============================================================
-   SpeechKit — 全游戏共用的中文语音小 interface
+   SpeechKit — 应用层 · 全游戏共用的中文语音小 interface
+   (层声明关系 A6 接线方向的合法性: 本模块在创建处直接接引擎层
+   AudioMixer.duck, 应用层→引擎层方向合法, 反向不成立)
    依赖注入: synthesis(生产=浏览器 speechSynthesis, 测试=fake) + utterance 工厂
    + 可选 hooks(说话起止, A6 接 AudioMixer.duck 给 BGM 让路)
    voice 挑选 / onvoiceschanged 重挑 / cancel-then-speak / 语速音高

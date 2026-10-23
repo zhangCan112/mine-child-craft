@@ -122,10 +122,11 @@ function switchMode(id) {
   clearWorld();
   MODES.cur = MODES[id];
   MODES.cur.init();
-  /* BGM 情绪随模式走: 注册表 mood 字段(未声明按无配乐兜底); 同 mood 续播
-     不打断, 起曲计时/挂起保护收在 audio.js 的 MusicDirector, 此处只报情绪 */
-  const row = ModeRegistry.all.find((m) => m.id === id);
-  AudioMixer.setMood(row && row.mood ? row.mood : 'none');
+  /* BGM 情绪随模式走: 注册表 mood 字段是唯一权威(mode-registry.test 逐行
+     断言必在 — 不手抄 || 'none' 回落, 对齐 GLOSSARY Tank 条"单一回落"判例);
+     同 mood 续播不打断, 起曲计时/挂起保护收在 audio.js 的 MusicDirector,
+     此处只报情绪 */
+  AudioMixer.setMood(ModeRegistry.all.find((m) => m.id === id).mood);
 }
 
 /* ---------- 指针锁 / 遮罩 ---------- */

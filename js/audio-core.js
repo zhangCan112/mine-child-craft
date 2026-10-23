@@ -6,9 +6,11 @@
    · mkVoiceGate      SFX 发声准入 — 上限内放行, 满员按优先级抢占最老, 同类冷却
    · mkMusicDirector  BGM 稀疏调度状态机 — tick 吐 start/stop/gain 纯数据事件
    · mkVolState       音量滑杆状态 — 存 0..1 倍率(非绝对值), 默认 1.0, 持久化注入
+   · musicBusTarget  音乐总线目标换算 — duck 让路只降不升(上限 0.08, 不反把总线抬响)
    · AUDIO_MIX        儿童保守响度常数表(总线增益 / duck 深度 / 各淡变时长)
    WebAudio 节点的真实启停在引擎层 adapter(js/audio.js), 本核心不碰。
-   interface: AUDIO_MIX / mkVoiceGate({max,now}) / mkMusicDirector({rand,tracks,gain}) / mkVolState({storage,isTouch})
+   interface: AUDIO_MIX / mkVoiceGate({max,now}) / mkMusicDirector({rand,tracks,gain}) /
+     mkVolState({storage,isTouch}) / musicBusTarget(target,volMul,baseGain)
    依赖(均经全局名, 调用期解析): 无 — 时间与随机均由调用方注入, 加载零副作用
    可测性: 零 THREE·零 DOM·零全局可变依赖, 有同名单测 test/audio-core.test.js
    ============================================================ */
@@ -176,12 +178,23 @@ function mkMusicDirector({rand = Math.random, tracks = [], gain = AUDIO_MIX.musi
   };
 }
 
+/* ---------- 音乐总线目标换算 — 纯函数(A1 duck×音量修复) ----------
+    director 吐出的总线目标是无倍率口径(基线 gain / 让路深度 duck / 淡出 0),
+    真实目标在此与音量倍率合成: 基线类目标(> duck 深度)按倍率缩放;
+    让路/淡出类(≤ duck 深度)取 min(基线×倍率, 目标) — 让路是"只降不升"的
+    上限, 不是"抬到 0.08"的定值: 音乐倍率 <0.27 或静音 0 时, TTS 开口不得
+    反把总线抬响(让路变抬声 / 静音失效, A1 修复前的实害)。 */
+function musicBusTarget(target, volMul, baseGain) {
+  return target > AUDIO_MIX.duck ? target*volMul : Math.min(baseGain*volMul, target);
+}
+
 /* ---------- 音量状态(A8 滑杆的决策面): 存 0..1 倍率, 不存绝对增益 ----------
    语义(头注释钉死): 滑杆值 = 倍率, 默认 1.0 = "没动过" — 听感基线(桌面
    0.30/0.9 · 触屏 0.25/0.8)由 baseline() 按 isTouch 取 AUDIO_MIX, 真实总线
    增益 = 基线 × 倍率, 与 js/audio.js 的 setMusicVol/setSfxVol 同口径(它们
-   收同一 0..1 倍率钳制后乘在总线上); duck 深度 0.08 是绝对值不随倍率缩放
-   (A3 备注⑤)。存储经 seam 注入({get,set}, 生产=localStorage, 测试=内存):
+   收同一 0..1 倍率钳制后乘在总线上); duck 让路深度是"只降不升"的上限 —
+   目标 = min(基线×倍率, 0.08), 见上方 musicBusTarget(A1 修复)。
+   存储经 seam 注入({get,set}, 生产=localStorage, 测试=内存):
    音量是"这台设备的喇叭"的事, 不进跨设备镜像; 单键 JSON 序列化, 坏档回落默认。 */
 const VOL_SAVE_KEY = 'audio_vol_save';
 
@@ -237,5 +250,5 @@ function mkVolState({storage = null, isTouch = false} = {}) {
   };
 }
 
-const AudioCore = {AUDIO_MIX, mkVoiceGate, mkMusicDirector, mkVolState};
+const AudioCore = {AUDIO_MIX, mkVoiceGate, mkMusicDirector, mkVolState, musicBusTarget};
 if (typeof module !== 'undefined' && module.exports) module.exports = AudioCore;

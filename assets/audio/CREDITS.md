@@ -10,19 +10,19 @@
 - 下载日期：全部 **2026-10-23**（PowerShell `Invoke-WebRequest`，源 zip/wav/ogg 原件存仓库外临时目录，不入库）
 - 许可：[CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)（作者放弃一切权利，可商用、可改编、署名非义务——为溯源与儿童项目礼节仍逐条记录）
 - 转码：ffmpeg 6.1.1（devDependency `ffmpeg-static` 附带构建；本机 PATH 无 ffmpeg，直连 GitHub 拉取其二进制时证书校验失败，需 `NODE_TLS_REJECT_UNAUTHORIZED=0`，详见工单 A7 / ADR 0003）
-- 转码命令（128k 反馈短曲 / 打击样本）：
+- 转码命令（128k 反馈短曲 / 打击样本，含响度归一）：
 
   ```
-  ffmpeg -i <源> -ac 1 -ar 44100 -c:a aac -b:a 128k <out>.m4a
+  ffmpeg -i <源> -af loudnorm=I=-21:TP=-2:LRA=7 -ac 1 -ar 44100 -c:a aac -b:a 128k <out>.m4a
   ```
 
-  转码命令（96k BGM 长曲）：
+  转码命令（96k BGM 长曲，含响度归一）：
 
   ```
-  ffmpeg -i <源> -ac 1 -ar 44100 -c:a aac -b:a 96k <out>.m4a
+  ffmpeg -i <源> -af loudnorm=I=-21:TP=-2:LRA=7 -ac 1 -ar 44100 -c:a aac -b:a 96k <out>.m4a
   ```
 
-  统一 mono 44.1kHz AAC；未加 loudnorm——响度由注册表条目 g/gTouch 与 A3 的 AUDIO_MIX 总线分工校准（A10 听感复核）。
+  统一 mono 44.1kHz AAC + 单遍 loudnorm 响度归一（I=-21 / TP=-2 / LRA=7，儿童保守目标，参数依据见 ADR 0003）。已接线的 13 个文件（3 BGM + 10 SFX 样本）于 2026-10-23（评审修复轮）自入库 m4a 重转码归一；85 首 jingles 备用池未接线，**未做 loudnorm**——接线时须按上表命令补齐。
 
 ## 1. Kenney「Music Jingles」全包 85 首（反馈类短曲）
 
@@ -144,7 +144,7 @@
 
 ## 4. OpenGameArt BGM 3 首（均入注册表 MUSIC_TRACKS）
 
-- 转码：96k 命令（见公共信息）；durMs 以转码后文件实测（`ffmpeg -i` Duration 换算毫秒）为准填入 MUSIC_TRACKS——MusicDirector 判曲毕的唯一依据（A3 接口备注②）。
+- 转码：96k 命令（见公共信息，含 loudnorm）；durMs 以 loudnorm 重转码后文件实测（`ffmpeg -i` Duration 换算毫秒）为准填入 MUSIC_TRACKS——MusicDirector 判曲毕的唯一依据（A3 接口备注②）。重转码后实测时长：crickets 00:03:29.40（209400ms）· the-abyss 00:02:27.20（147200ms）· volcano 00:02:08.10（128100ms）。
 
 ### 4.1「Crickets - General calm ambient music」1 首
 

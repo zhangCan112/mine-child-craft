@@ -7,9 +7,9 @@
    模式名清单。main.js 只消费, 不再另持 MODE_CARDS/pages/手写文案三份
    影子(曾出现"文案漏提坦克/下界"的漂移)。
    新增模式 = index.html 加卡+加页+加 script, 这里加一行(含 mood)。
-   各行的 mood 字段 = 该模式的 BGM 情绪(calm/battle/dark/none), 值与
-   js/audio-registry.js 的 MOODS 对齐——两处权威漂移由
-   test/mode-registry.test.js 断言; 未声明的行消费端按 none 兜底。
+   各行的 mood 字段 = 该模式的 BGM 情绪(calm/battle/dark/none), 是模式
+   情绪的唯一权威(audio-registry 的 MOODS 已收窄为仅 menu 键); 每行
+   必声明 — 未声明/拼错由 test/mode-registry.test.js 逐行断言即红。
    三重命名约定(id ↔ cardXxx ↔ menuXxx)由 test/mode-registry.test.js
    对着 index.html 逐条断言, 手滑即红。
    纯数据+纯函数, Node 可直接加载。
