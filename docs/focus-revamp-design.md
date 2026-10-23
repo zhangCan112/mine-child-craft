@@ -112,6 +112,8 @@
 
 素材：材质族 [cobble, planks, brick] 在 tier≥6 扩为五件 [+, glass, stone_bricks]（配 choices5；
 iconOf 像素版）。羊毛三色暂沿用 mcIcon（ITEMS 无羊毛物品；补画羊毛像素图留二期）。
+**实现注（F2）**：五件扩为**无条件**生效——参数表无承载参数且 choices5 的 mat 规则需五件去重，
+低档仅增干扰多样性、构念不变，已接受。
 
 ### 难度变化总览（孩子当前位置 tier≈11 对照）
 

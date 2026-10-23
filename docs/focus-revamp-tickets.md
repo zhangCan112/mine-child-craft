@@ -99,7 +99,7 @@ flowchart TD
 
 ## 第二波
 
-### F2 范式引擎新参数 + 逐试次事件缝 `[ ]`
+### F2 范式引擎新参数 + 逐试次事件缝 `[x]`（并入 `2d5003a`，520 全绿。**onTrial 契约**：`h.onTrial({ok, streak, dim})` 每正式试次恰一次（超时算 ok:false），streak=连对数含本次、错归零；教学关豁免由模式层拦 `kind==='tutorial'`（demo 只豁免前 2 演示试次）；**预算口径**：demo 试次计入 trials/seqs（gonogo/flanker/switch 正式=trials−2，corsi=seqs−1）。**实现取舍**：材质族五件扩为无条件（D5 原写 tier≥6 但参数表无承载，choices5 需五件去重——构念不变已接受，设计稿 D5 已注）；switchJitter=阈值随机 1~3、实际间隔=阈值+1。中立头像走单一出口 `mobFace()`——猪羊像素画补画转 F4b）
 - 依赖：F1（paramsFor 形状）。
 - 交付：①判别引擎：No-Go 逐试次按 disguiseRate 掷骰伪装（绿宝石/TNT）、noSet 扩充 coal/iron_ore；②Corsi：lenMix 过渡档混出上一档长度、antiChunk 序列展示前按概率打乱格位（打乱后格子互异、序列仍可解）、gem 轮换；③Flanker：len9 小尺寸档、neutralRate 中立行、mobMix 行内混入非苦力怕生物；④Switch：tier≥10 五选项、bivalent 无关维度匹配（颜色规则下干扰项与目标同大小 / 大小规则下干扰项用目标同族图标）、switchJitter 随机切换间隔；⑤handler 契约新增**可选** `onTrial({ok, streak, dim})`——不传零影响，引擎不知道奖励存在（分层红线）。
 - 测试（vm 缝行为断言）：disguiseRate=0 时整局无伪装出现；lenMix 过渡档确实产出两种长度；antiChunk 打乱不产生重复格位；onTrial 每试次恰一次且字段正确（教学演示不计）；既有全绿。
