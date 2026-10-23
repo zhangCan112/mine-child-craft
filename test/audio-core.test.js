@@ -12,7 +12,9 @@ const loadCore = () => require('../js/audio-core.js');
 /* 伪时钟: VoiceGate 的时间注入 */
 function fakeClock() {
   let t = 0;
-  return {now: () => t, adv: (d) => { t += d; }};
+  return {now: () => t, adv: (d) => {
+    t += d;
+  }};
 }
 
 /* 脚本随机: 依次吐出脚本序列, MusicDirector 的 rand 注入 */

@@ -104,7 +104,7 @@ function mkMusicDirector({rand = Math.random, tracks = [], gain = AUDIO_MIX.musi
     /* tick(dtMs) → events[]: 推进状态机, 返回本拍事件(可能为空) */
     tick(dtMs) {
       const events = pending.splice(0, pending.length);
-      if (state === 'playing' && fadeMs > 0) { /* 换情绪淡出中 */
+      if (state === 'playing' && fadeMs > 0) {/* 换情绪淡出中 */
         fadeMs -= dtMs;
         if (fadeMs <= 0) {
           events.push({type: 'stop'});
@@ -116,7 +116,7 @@ function mkMusicDirector({rand = Math.random, tracks = [], gain = AUDIO_MIX.musi
         }
       } else if (state === 'waiting') {
         waitMs -= dtMs;
-        if (waitMs <= 0) { /* 到点起曲: 同 mood 池内避开上一首(池只有一首时允许重复) */
+        if (waitMs <= 0) {/* 到点起曲: 同 mood 池内避开上一首(池只有一首时允许重复) */
           const full = poolOf(mood);
           const pool = full.length > 1 ? full.filter((t) => t !== lastTrack) : full;
           const pick = pool[Math.floor(rand() * pool.length)];
@@ -127,7 +127,7 @@ function mkMusicDirector({rand = Math.random, tracks = [], gain = AUDIO_MIX.musi
           const startGain = ducked ? AUDIO_MIX.duck : gain;
           events.push({type: 'start', track: pick, gain: startGain, fadeInMs: AUDIO_MIX.fadeInMs});
         }
-      } else if (state === 'playing') { /* 曲中计时, 曲毕入静默 */
+      } else if (state === 'playing') {/* 曲中计时, 曲毕入静默 */
         playMs += dtMs;
         if (track && playMs >= track.durMs) {
           events.push({type: 'stop'});
@@ -164,9 +164,9 @@ function mkMusicDirector({rand = Math.random, tracks = [], gain = AUDIO_MIX.musi
     duck(on) {
       if (!!on === ducked) return;
       ducked = !!on;
-      pending.push(ducked
-          ? {type: 'gain', target: AUDIO_MIX.duck, rampMs: AUDIO_MIX.duckRampMs}
-          : {type: 'gain', target: busTarget(), rampMs: AUDIO_MIX.duckReleaseMs});
+      pending.push(ducked ?
+          {type: 'gain', target: AUDIO_MIX.duck, rampMs: AUDIO_MIX.duckRampMs} :
+          {type: 'gain', target: busTarget(), rampMs: AUDIO_MIX.duckReleaseMs});
     },
     /* snapshot(): 状态快照(纯数据, 调试与测试用) */
     snapshot() {
