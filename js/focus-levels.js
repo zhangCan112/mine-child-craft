@@ -11,6 +11,7 @@
    · 复习/交错编排 = 间隔效应+交错练习(Cepeda 2006; Klimovich 2025)
    interface: FOCUS_DIMS · FOCUS_META · paramsFor(dim, tier, li) ·
      FOCUS_LEVELS · focusPassed · focusStars · FOCUS_LOOT · FOCUS_MILESTONES ·
+     milestoneDue · focusProgress ·
      FOCUS_CHECK_PARAMS · focusFlame · devilStep · devilParams ·
      FOCUS_STAMP_DAILY · FOCUS_STAMP_REWARDS
    依赖(均经全局名): 纯函数无依赖; FOCUS_META 的图标字段在构造期调用
@@ -193,10 +194,37 @@ const FOCUS_LOOT = {
   switch: {pool: {planks: 0.25, stick: 0.25, brick: 0.20, clay_ball: 0.15, bread: 0.15}, rare: FOCUS_LOOT_RARE},
 };
 
-/* ---------- 里程碑工具表(设计稿 §3 L4): 进度阶梯 ----------
-   unlocked 首次越线授予(木镐→钻镐→钻剑的长线追求); 存量档按当前
-   unlocked 一次性追溯补授、不重授(补授纯函数归 F6 工单) */
-const FOCUS_MILESTONES = {10: 'pick_wood', 30: 'pick_stone', 50: 'pick_iron', 70: 'sword_iron', 90: 'pick_diamond', 100: 'sword_diamond'};
+/* ---------- 里程碑工具表(设计稿 §3 L4 · spec 实现决策 9/17): 进度阶梯 ----------
+   unlocked 首次越线授予(木镐→钻镐→钻剑的长线追求); 与图章习惯阶梯双轨
+   独立计数; 工具不进共享背包(F3 混装核定选型 B)——记账进训练营存档
+   tools 字段(已授 id 集合), 宝物柜工具组从该字段渲染。 */
+const FOCUS_MILESTONES = {
+  10: 'pick_wood', 30: 'pick_stone', 50: 'pick_iron',
+  70: 'sword_iron', 90: 'pick_diamond', 100: 'sword_diamond',
+};
+
+/* 应授差集(纯函数, 幂等): progress ≥ 门槛且不在已授集合内的工具 id,
+   按门槛升序返回; 存量档补授 = 差集一次性追授(F6), 再次计算自然得
+   空集(不重授); 授予流 = 结果并入存档 tools 字段 */
+function milestoneDue(progress, tools) {
+  const owned = new Set(tools || []);
+  return Object.keys(FOCUS_MILESTONES).map(Number).sort((a, b) => a - b)
+      .filter((k) => progress >= k && !owned.has(FOCUS_MILESTONES[k]))
+      .map((k) => FOCUS_MILESTONES[k]);
+}
+
+/* 有效通关数(纯函数, 里程碑的进度口径): unlocked 在模式层被 99 封顶
+   (通关后不再前进, 今日页索引用), 第 100 关大师考验的进度兜底取
+   history 里已通关最高关号——大师关(i=99)通关可到 100, 钻剑不漏发 */
+function focusProgress(save) {
+  let top = (save && typeof save.unlocked === 'number') ? save.unlocked : 0;
+  if (save && Array.isArray(save.history)) {
+    for (const h of save.history) {
+      if (h && h.passed && typeof h.i === 'number') top = Math.max(top, h.i + 1);
+    }
+  }
+  return top;
+}
 
 /* ---------- 每日体检短参数(设计稿 §8 B3) ----------
    复用大师关的五维连跑机制(sections 分发), 各维度取低档(tier 2)
