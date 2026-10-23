@@ -67,13 +67,20 @@ flowchart TD
 - 测试：`node --test` 现有套件全绿（adapter 无直测，boot 冒烟覆盖）；无新增测试文件。
 - 备注：iPad 真机验证由需求方事后执行（内放/耳机 × 10 分钟 × 100v100），报告里注明「待真机验收」。
 
-### A2 AudioRegistry（audio-registry.js + 同名单测）`[ ]`
+### A2 AudioRegistry（audio-registry.js + 同名单测）`[x]`（并入 `56f00bf`）
 - 依赖：无。
 - 交付：`js/audio-registry.js`（`-registry` 后缀语义：清单唯一权威，纯数据+纯函数，Node 直载，CommonJS 导出守卫）：
   - `SFX_KINDS`：只收**活着的** kind（扫 js/** 的 `sfx('…')` 字面量：zap/boom/pick/click/death/hit/hurt/shoot/level/win/roar/breath；TNT 遗留死键 fss/door/splash **不迁**）。每条 `{synth|file, g, gTouch, prio, coolMs}`——synth 定义从 effects.js 的 SFX_DEFS 原样迁入（win 双振荡器特例内联注释）；prio 参考 spec（仪式>受击>爆炸>打击）；file 字段本单留空（A7 填）。
   - `MUSIC_TRACKS`：空表（结构 `{file, mood, g}`，A7 填）。
   - `MOODS`：modeId→mood 映射（menu/build=calm · arena/tank=battle · nether/adventure=dark · focus=none），模式 id 以 js/mode-registry.js 为准。
 - 测试：`test/audio-registry.test.js`（-registry 消费端断言先例 mode-registry.test.js）：① 扫 js/** 源码 `sfx('…')` 字面量 ⊆ SFX_KINDS 键（漏登记即红）；② 条目形状防错网（四字段齐全 + synth/file 二选一）；③ MOODS 的键 ⊆ mode-registry 模式 id + 'menu'，值 ⊆ 合法 mood 集；④ file 条目（若有）在 assets/audio/ 存在且 CREDITS.md 记载（本单空转过，A7 起生效）。
+- 配平备注（转记 A3/A7 用）：
+  - prio 四档工程推定：4=win/level · 3=hurt/death · 2=boom/zap/roar/breath · 1=hit/shoot/pick/click；
+  - g/gTouch 中性 1 起步——合成路径响度已在 synth 内配平，迁移期听感不变；
+  - coolMs 沿用 60ms 同类窗、win 豁免 0；
+  - VoiceGate 抢占为严格大于（相等不抢）；
+  - 过渡期守卫测试⑤（synth 与 SFX_DEFS 一致性）在 A4 删 SFX_DEFS 后退场；
+  - A7 的 file 存在性/CREDITS 断言从空转转咬合、曲目 mood 不含 none。
 
 ### A3 AudioCore（audio-core.js + 同名单测）`[ ]`
 - 依赖：无。
