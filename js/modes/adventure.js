@@ -7,26 +7,32 @@
    湖(湖底黏土 2~3 格厚, 红砖链源头) · 2 露天矿坑(阶梯漏斗坑, 坑壁裸露
    煤/铁矿) · 1 山洞隧道通 y<10 深处(沿途裸露铁/金/钻石矿带) · 出生小屋
    (原木+木板, 工作台/熔炉不送——任务链做出来才有仪式感) · 3 怪物巢穴
-   位点(土丘洞穴地形+常量表, 刷怪归 T14)。
-   本单是骨架: 能进能玩地形 + 背包 UI 出来; 挖掘蓄力(T12)/合成站点解锁
-   (T13)/巢穴战斗掉落(T14)/任务链 12 步(T15) 依次在此接线。
+   位点(土丘洞穴地形+常量表)。T14 已接巢穴战斗: 每巢限量 2~3 只·清空
+   60s 再刷·索敌收敛不追出巢区(儿童可控口径, 参数见巢穴战斗段注释)。
+   本单是骨架+战斗掉落: 能进能玩地形 + 背包 UI 出来 + 击杀掉落/收集
+   播报/玩家战斗; 挖掘蓄力(T12)/合成站点解锁(T13)/任务链 12 步(T15)
+   依次接线。
    · 玩家: 出生小屋门口 · 步行(不飞行) · 血量 30 + 头顶血条; 死亡=背包
      保留+回出生点满血+TTS 安抚(下界先例口径, 零惩罚哲学)。
    · 三份存档: inventory_save(全局唯一背包, 跨模式共享) /
      adventure_world_save(场景确定性重建+edits 重放, build 模式同款) /
      adventure_quest_save({step:0} 占位, T15 填)。
    · 防沉迷: 与竞技场/TNT/建造/坦克/下界共享儿童时限(gated, 不新增账本)。
-   interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/hud/
-     touch) · AdventureMode.adv — T12~T15 接线挂点与单测触达面(常量表/
-     死亡政策纯函数/edits 记账/背包只读)
+   interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/onMouse/
+     hud/touch) · AdventureMode.adv — T12~T15 接线挂点与单测触达面(常量表/
+     死亡政策纯函数/巢穴节律纯函数/挥击伤害/掉落清单/播报文案/edits 记账/
+     背包只读)
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/PLAYER/WORLD 尺寸/B_* 常量 ·
      voxel.js 的 getBlock/setBlockRaw/blockKey · world.js 的 loadScene ·
      scene-kit.js 的 SceneKit · items-core 的 ITEMS/isTool/toolOf ·
-     inventory-core 的 mkInventory/HOTBAR_SLOTS/INV_SLOTS/serialize/
-     deserialize · craft-core 的 RECIPES(面板缺省全表) · mode-kit.js 的
-     mkMode/mkHotbar/mkCraftPanel · sync.js 的 SyncDB.slot · speech.js 的
-     SpeechKit · avatar.js 的 Avatar · mobs.js/drops.js 的 clear(退出清场)
-   可测性: THREE/DOM 惰性创建(头顶血条), Node 测试可安全加载
+     inventory-core 的 mkInventory/add/remove/damageTool/HOTBAR_SLOTS/
+     INV_SLOTS/serialize/deserialize · craft-core 的 RECIPES(面板缺省全表) ·
+     drops.js 的 rollDrops(纯)/spawn/update/onCollect/clear · mobs.js 的
+     spawn/hit/onDeath/update/render/steer/move/gait/debrisColor/clear ·
+     combat-core.js 的 CombatCore(节拍/弹道/盒判定) · effects.js 的 sfx/Fx ·
+     mode-kit.js 的 mkMode/mkHotbar/mkCraftPanel · sync.js 的 SyncDB.slot ·
+     speech.js 的 SpeechKit · avatar.js 的 Avatar
+   可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格), Node 测试可安全加载
      (test/adventure-mode.test.js, 真引擎件经 vm 装载)
    ============================================================ */
 
@@ -40,7 +46,7 @@ const ADV_PITS = [ /* 露天矿坑: 阶梯漏斗坑(每级 2 格), 坑壁矿化�
   {cx: 30, cz: 96, r: 7, floor: 10, ore: {id: B_IRON_ORE, yLo: 6, yHi: 16, salt: 4207}},
 ];
 const ADV_CAVE = {x1: 97, x2: 98, zStart: 72, steps: 20, y0: 23, zEnd: 52}; /* 山洞: 2 宽台阶隧道 y23→y3, 穴室镶钻 */
-const ADV_NESTS = [ /* 怪物巢穴位点(土丘洞穴): 本单只放地形, kinds 是给 T14 的刷怪池备注 */
+const ADV_NESTS = [ /* 怪物巢穴位点(土丘洞穴): kinds=本巢刷怪池, 节律见巢穴战斗段(T14) */
   {x: 40, z: 52, kinds: ['zombie', 'skeleton', 'spider']},
   {x: 86, z: 96, kinds: ['creeper', 'zombie', 'spider']},
   {x: 56, z: 20, kinds: ['skeleton', 'creeper', 'zombie']},
@@ -57,7 +63,8 @@ const ADV_TREES = 40; /* 树林目标棵数(候选按散列值排序取前 N, �
 
 const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
   pits: ADV_PITS, cave: ADV_CAVE, nests: ADV_NESTS,
-  player: {hp: 30, maxHp: 30}, quest: {step: 0}, panelOpen: false};
+  player: {hp: 30, maxHp: 30}, quest: {step: 0}, panelOpen: false,
+  killCount: 0, swingCd: 0};
 
 /* ---------- 三份存档(D12): mkSaveSlot 语义, SyncDB 槽创建即注册回填 ---------- */
 const ADV_INV_KEY = 'inventory_save';
@@ -411,6 +418,284 @@ function advPlayerDied() {
 }
 
 /* ============================================================
+   巢穴战斗掉落 (T14, 设计稿 D6/D11/D9) — 常量→纯函数段→壳段
+   ------------------------------------------------------------
+   儿童可控口径(半径与节拍自行配平, 出处标注):
+   · 每巢存量 2~3 只(MC 刷怪笼感觉, 但封顶不滚雪球) · 全清 60s 再刷
+     (每巢独立计时 — 一个巢清完不影响另外两个) · 出生环带 1.5~4.5 格
+     (洞口附近不贴脸: 巢中心 2 格土丘, 环带落在丘脚一圈)。
+   · 索敌半径 12: 玩家进巢区才被追(草原视距内看得见来敌, 巢间不串联);
+     收队半径 16: 怪被击退/引诱出巢超此距离就掉头回家(不会一路追到
+     出生小屋 — 三巢到小屋最近 ~27 格, 永远收队)。
+   · 单击伤害封顶 10(苦力怕表值 33 → 10: 满血 30 三击才倒, 不秒杀)。
+   · 挥击 meleeR 3.0 / swingCd 0.38 / 攻击姿态 0.5s 全部照 nether 口径,
+     玩家触及盖过全部近战怪(2.0~2.2) — 先手优势给孩子的。
+   ============================================================ */
+const ADV_NEST_MIN = 2; const ADV_NEST_MAX = 3; /* 每巢存量(D11) */
+const ADV_NEST_RESPAWN_T = 60; /* 全清到再刷的间隔秒数(D11) */
+const ADV_NEST_AGGRO_R = 12; /* 索敌半径: 玩家距怪 ≤ 此值才开战 */
+const ADV_NEST_LEASH_R = 16; /* 收队半径: 怪离巢超此值不再追, 掉头回巢 */
+const ADV_NEST_HOME_R = 2; /* 到家判定: 距巢 ≤ 此值原地驻守 */
+const ADV_NEST_RING_LO = 1.5; const ADV_NEST_RING_HI = 4.5; /* 出生环带(洞口附近不贴脸) */
+const ADV_DMG_CAP = 10; /* 怪物对玩家单击伤害封顶(儿童不秒杀) */
+const ADV_MELEE_R = 3.0; const ADV_SWING_CD = 0.38; /* 玩家挥击触及/冷却(nether 口径) */
+const ADV_FIST_DMG = 3; /* 空手伤害(D9) */
+const ADV_AIM_COS = 0.5; /* 准星锥余弦(±60°): 「对准星方向最近怪」的朝向门槛 */
+const ADV_ATTACK_T = 0.5; /* 怪物挥击姿态时长(nether 同款, gait 第 4 参) */
+const ADV_ARROW_SPEED = 16; /* 骷髅箭速(竞技场/nether 弹道档) */
+const ADV_PICKUP_WINDOW = 3; /* 收集播报合并窗秒数(D6: 计数累计 3 秒合并播报) */
+
+/* ---------- 纯函数段(零引擎状态, 单测直测; rand 均可注入) ---------- */
+
+/* 每巢刷怪数量: 2~3 只(D11), rand 可注入(缺省 Math.random) */
+function advNestCount(rand) {
+  const r = (rand || Math.random)();
+  return ADV_NEST_MIN + Math.floor(r * (ADV_NEST_MAX - ADV_NEST_MIN + 1));
+}
+
+/* 巢穴节拍: 巢里有活怪 → 不刷且计时归零; 全清 → 累计到 60s 发刷怪令并归零。
+   返回 {spawn, t} — t 由调用方逐巢各存一份(计时独立是结构保证) */
+function advNestStep(alive, t, dt) {
+  if (alive > 0) return {spawn: false, t: 0};
+  const nt = t + dt;
+  if (nt >= ADV_NEST_RESPAWN_T) return {spawn: true, t: 0};
+  return {spawn: false, t: nt};
+}
+
+/* 挥击伤害: 手持工具按 D9 表(toolOf.dmg), 空手/非工具 3 */
+function advSwingDmg(heldId) {
+  const t = heldId ? toolOf(heldId) : null;
+  return t ? t.dmg : ADV_FIST_DMG;
+}
+
+/* 怪物对玩家伤害: 表值单击封顶 ADV_DMG_CAP(苦力怕 33 → 10) */
+function advMobDmg(m) {
+  return Math.min(ADV_DMG_CAP, Math.round(m.cfg.dmg * (m.dmgMult || 1)));
+}
+
+/* 击杀掉落清单(D6 链路的事件侧): onDeath 报实体 → 掷骰 → 逐条 spawn 落点
+   (尸体落点上方 0.8 — 从击杀碎块里蹦出来的观感)。rollDrops 种子可注入 */
+function advDeathDrops(m, rand) {
+  const out = [];
+  for (const s of rollDrops(m.type, rand)) {
+    out.push({id: s.id, n: s.n, x: m.pos.x, y: m.pos.y + 0.8, z: m.pos.z});
+  }
+  return out;
+}
+
+/* 合并播报文案: 「捡到 2 个煤炭、1 根骨头！」(Map 迭代序=进账序, 同项已合数量) */
+function advPickupText(buf) {
+  const parts = [];
+  for (const entry of buf) {
+    const name = (ITEMS[entry[0]] && ITEMS[entry[0]].name) || entry[0];
+    parts.push(entry[1] + ' 个' + name);
+  }
+  return '捡到 ' + parts.join('、') + '！';
+}
+
+/* ---------- 壳段: 刷怪节律 / 玩家战斗 / 怪物 AI / 箭矢 / 收集 ---------- */
+
+const advNestT = ADV_NESTS.map(() => 0); /* 各巢独立计时器(秒): 全清后累计 */
+function advNestAlive(i) {/* 巢内存活数(m.nest 挂件是归属唯一依据; 尸体不计) */
+  let n = 0;
+  for (const m of Mobs.list()) {
+    if (!m.dead && !m.gone && m.nest === i) n++;
+  }
+  return n;
+}
+function advSpawnNest(i) {/* 本巢首刷/再刷: 池内取种, 洞口环带落位 */
+  const nest = ADV_NESTS[i];
+  const count = advNestCount();
+  for (let k = 0; k < count; k++) {
+    const type = nest.kinds[Math.floor(Math.random() * nest.kinds.length)];
+    const a = Math.random() * Math.PI * 2;
+    const r = ADV_NEST_RING_LO + Math.random() * (ADV_NEST_RING_HI - ADV_NEST_RING_LO);
+    const m = Mobs.spawn(type, nest.x + Math.cos(a) * r, nest.z + Math.sin(a) * r, {yaw: 0});
+    m.nest = i; /* 模式私有挂件: 巢穴归属(AI 收队/清巢计数的唯一依据) */
+  }
+}
+function advNestTick(dt) {
+  for (let i = 0; i < ADV_NESTS.length; i++) {
+    const step = advNestStep(advNestAlive(i), advNestT[i], dt); /* 节拍纯函数段 */
+    advNestT[i] = step.t;
+    if (step.spawn) advSpawnNest(i);
+  }
+}
+
+/* 玩家挥击: 准星锥内最近怪(纯方向门槛, 不依赖相机 — 与 lookDir 同式的
+   yaw 朝向); 锥内无怪不出手不空挥, 点击留给挖掘/放置(T12 语义不抢) */
+function advAimMob(p) {
+  let best = null; let bd = ADV_MELEE_R * ADV_MELEE_R;
+  const fx = -Math.sin(yaw); const fz = -Math.cos(yaw); /* 朝向(camera-rig lookDir 同式) */
+  for (const m of Mobs.list()) {
+    if (m.dead || m.gone) continue;
+    const dx = m.pos.x - p.pos.x; const dz = m.pos.z - p.pos.z;
+    const d2 = dx * dx + dz * dz;
+    if (d2 > bd) continue;
+    if (Math.abs(m.pos.y - p.pos.y) > 2.5) continue;
+    const d = Math.sqrt(d2) || 1e-9;
+    if ((dx / d) * fx + (dz / d) * fz < ADV_AIM_COS) continue; /* 不在准星锥内 */
+    bd = d2; best = m;
+  }
+  return best;
+}
+function advAttack() {
+  if (ADV.swingCd > 0) return;
+  const p = advGetPEnt();
+  const m = advAimMob(p);
+  if (!m) return; /* 锥内无怪: 不出手(挖掘/放置的点击政策归 T12) */
+  ADV.swingCd = ADV_SWING_CD;
+  Avatar.swing();
+  const held = advInv.slots[advHb.sel];
+  const r = Mobs.hit(m, advSwingDmg(held ? held.id : ''),
+      m.pos.x - p.pos.x, m.pos.z - p.pos.z, 0.35);
+  sfx('hit');
+  advWearTool(); /* 命中才扣耐久(空手/非工具不扣) */
+  if (r.freshDead) advOnKill(m);
+}
+/* 手持工具耐久 -1; 归零 → remove + 安抚 TTS(D4/D9 政策, 与 T12 各管各路径) */
+function advWearTool() {
+  const slot = advHb.sel;
+  const s = advInv.slots[slot];
+  if (!s || !isTool(s.id)) return;
+  if (damageTool(advInv, slot) === 0) {
+    const name = (ITEMS[s.id] && ITEMS[s.id].name) || s.id;
+    remove(advInv, slot);
+    SpeechKit.speak('哎呀，' + name + ' 用坏了！不哭，我们再做一把新的！');
+    showToast('💔 ' + name + ' 用坏了');
+  }
+  advSyncHotbar();
+}
+function advOnKill(m) {/* 击杀观感(nether 先例): 碎块+计数 toast; 掉落在 onDeath 回调 */
+  ADV.killCount++;
+  Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 6, {color: Mobs.debrisColor(m.type), life: 0.6});
+  showToast('👾 击杀 ' + ADV.killCount);
+}
+
+/* 受击提醒(非致命, nether 全套): 账本同步 + 受击音 + 闪红 + 震屏 + 语音 3s 节流 */
+let advHurtT = 0; /* 受击语音节流计时(iOS TTS 频繁 cancel 是掉帧源, nether 同款) */
+function advOnHurt(r) {
+  ADV.player.hp = r.hp;
+  sfx('hurt');
+  Avatar.flash(0.4); /* 主提醒: 身体变红(剩血走头顶血条, 不再 toast) */
+  Fx.kick(0.35);
+  if (advHurtT <= 0) {
+    advHurtT = 3;
+    SpeechKit.speak('哎呀被打中了！快躲开！');
+  }
+}
+
+/* 怪物 AI(nether 同款骨架 + 巢穴收敛): 索敌=玩家且同巢; 超收队半径掉头回巢;
+   近战逼近→贴身打, 骷髅(ranged)保持 7 格巡航放箭(leadAim 预测弹道) */
+function advMobAI(dt) {
+  const p = advGetPEnt();
+  for (const m of Mobs.list()) {
+    if (m.dead || m.gone) continue;
+    CombatCore.tickCadence(m, dt); /* 攻击节拍(战斗核心, 与竞技场/下界同一条) */
+    const nest = ADV_NESTS[m.nest != null ? m.nest : 0];
+    const dxP = p.pos.x - m.pos.x; const dzP = p.pos.z - m.pos.z;
+    const distP = Math.hypot(dxP, dzP) || 1e-9;
+    const hx = nest.x - m.pos.x; const hz = nest.z - m.pos.z;
+    const distHome = Math.hypot(hx, hz) || 1e-9;
+    const speed = m.cfg.speed || 2;
+    let moved = 0; /* 本帧实际速度(喂步态) */
+    const aggro = !p.dead && distP <= ADV_NEST_AGGRO_R && distHome <= ADV_NEST_LEASH_R;
+    if (aggro) {
+      Mobs.steer(m, Math.atan2(dxP, dzP));
+      if (m.cfg.ranged) { /* 骷髅: 炮台巡航(7 格), 太远逼近太近拉开, 节拍到就放箭 */
+        const want = 7;
+        if (distP > want) {
+          Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
+        } else if (distP < want - 2) {
+          Mobs.move(m, -dxP / distP * speed * dt, -dzP / distP * speed * dt); moved = speed;
+        }
+        if (Math.abs(p.pos.y - m.pos.y) < 3 && distP <= want && m.attackCd <= 0) {
+          m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
+          advShootArrow(m, p);
+        }
+      } else if (distP > m.cfg.range) { /* 近战逼近 */
+        Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
+      } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.attackCd <= 0) { /* 贴身攻击玩家 */
+        m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
+        const r = Mobs.hit(p, advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4);
+        if (r.freshDead) advPlayerDied();
+        else advOnHurt(r);
+      }
+    } else if (distHome > ADV_NEST_HOME_R) { /* 收队: 慢步回巢(掉头不恋战) */
+      Mobs.steer(m, Math.atan2(hx, hz));
+      const sp = speed * 0.6;
+      Mobs.move(m, hx / distHome * sp * dt, hz / distHome * sp * dt); moved = sp;
+    }
+    Mobs.gait(m, dt, moved, ADV_ATTACK_T); /* 步态+战斗姿态(引擎同一入口) */
+  }
+}
+
+/* 骷髅箭矢(nether 投射先例): leadAim 预测弹道 + 重力, 命中玩家走受击/死亡 */
+const advArrows = []; /* 玩家近战无远程, 弹道单向(怪 → 玩家) */
+let advArrGeo = null; let advArrMat = null; /* 箭矢几何/材质全局共用(移除只摘网格) */
+function advShootArrow(m, tg) {
+  sfx('shoot');
+  const from = {x: m.pos.x, y: m.pos.y + (m.cfg.h || 1.8) * 0.55, z: m.pos.z};
+  const dir = CombatCore.leadAim(from,
+      {x: tg.pos.x, y: tg.pos.y, z: tg.pos.z, vx: tg.vel.x, vz: tg.vel.z, h: tg.cfg.h},
+      ADV_ARROW_SPEED, 6, 0.5);
+  let mesh = null;
+  if (typeof THREE !== 'undefined' && typeof scene !== 'undefined') {
+    if (!advArrGeo) {
+      advArrGeo = new THREE.BoxGeometry(0.06, 0.06, 0.62);
+      advArrMat = new THREE.MeshBasicMaterial({color: 0xd8d0b8});
+    }
+    mesh = new THREE.Mesh(advArrGeo, advArrMat);
+    mesh.position.set(from.x, from.y, from.z);
+    scene.add(mesh);
+  }
+  advArrows.push({owner: m, mesh, from,
+    vel: {x: dir.x * ADV_ARROW_SPEED, y: dir.y * ADV_ARROW_SPEED, z: dir.z * ADV_ARROW_SPEED},
+    life: 2.5, dmg: advMobDmg(m), kpow: 0.6, g: 6});
+}
+function advRemoveArrow(i) {
+  const a = advArrows[i];
+  if (a.mesh && typeof scene !== 'undefined') scene.remove(a.mesh);
+  advArrows.splice(i, 1);
+}
+function advUpdateArrows(dt) {
+  const p = advGetPEnt();
+  for (let i = advArrows.length - 1; i >= 0; i--) {
+    const a = advArrows[i];
+    a.vel.y -= a.g * dt;
+    a.life -= dt;
+    const px = a.from.x + a.vel.x * dt; const py = a.from.y + a.vel.y * dt;
+    const pz = a.from.z + a.vel.z * dt;
+    a.from = {x: px, y: py, z: pz};
+    if (a.mesh) {
+      a.mesh.position.set(px, py, pz);
+      a.mesh.lookAt(px + a.vel.x, py + a.vel.y, pz + a.vel.z); /* 箭头朝飞行方向 */
+    }
+    if (getBlock(Math.floor(px), Math.floor(py), Math.floor(pz)) !== 0 || a.life <= 0) {
+      advRemoveArrow(i);
+      continue;
+    }
+    if (!p.dead && CombatCore.hitBody({x: px, y: py, z: pz}, p)) { /* 命中玩家(战斗核心盒判定) */
+      const r = Mobs.hit(p, a.dmg, p.pos.x - px, p.pos.z - pz, a.kpow);
+      if (r.freshDead) advPlayerDied();
+      else advOnHurt(r);
+      advRemoveArrow(i);
+    }
+  }
+}
+
+/* 收集播报合并窗(D6): 进账并入缓冲并开/续 3s 窗, 到期一句合并播报 */
+const advPickBuf = new Map(); /* 物品 id → 窗内累计数量 */
+let advPickT = 0;
+function advPickupTick(dt) {
+  if (advPickBuf.size === 0) return;
+  advPickT -= dt;
+  if (advPickT > 0) return;
+  SpeechKit.speak(advPickupText(advPickBuf));
+  advPickBuf.clear();
+}
+
+/* ============================================================
    模式对象
    ============================================================ */
 const AdventureMode = mkMode({
@@ -435,30 +720,68 @@ const AdventureMode = mkMode({
     Avatar.setItem(PLAYER.heldItem);
     ADV.panelOpen = false;
     advSyncHotbar();
+    /* —— 巢穴战斗段(T14): 清残留 → 重挂引擎回调(clear 会解除, 每次进场重挂) → 三巢首刷 */
+    Mobs.clear();
+    Drops.clear();
+    while (advArrows.length) advRemoveArrow(0); /* 上一场的箭不渗进来 */
+    ADV.killCount = 0; ADV.swingCd = 0;
+    advHurtT = 0;
+    advPickBuf.clear(); advPickT = 0;
+    advNestT.fill(0);
+    const pe = advGetPEnt(); /* 进场满血(不带上一次退出时的残血) */
+    pe.hp = pe.maxHp; ADV.player.hp = ADV.player.maxHp;
+    Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8) */
+      for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
+    });
+    Drops.onCollect((id, n) => {/* 收集: 入包+镜像; 满包拒返 false → 1.2s 冷却重试 */
+      if (add(advInv, id, n) > 0) {
+        showToast('🎒 背包满啦');
+        return false;
+      }
+      advSyncHotbar();
+      advPickBuf.set(id, (advPickBuf.get(id) || 0) + n); /* 并入 3s 合并播报窗 */
+      advPickT = ADV_PICKUP_WINDOW;
+    });
+    for (let i = 0; i < ADV_NESTS.length; i++) advSpawnNest(i);
     SpeechKit.speak('欢迎来到探险草原！你是小小探险家！');
     showToast('🌲 探险草原 · 按 Tab 或点 🎒 打开背包');
   },
 
   cleanup() {
     advSaveNow();
-    Mobs.clear(); /* 清怪(T14)/清掉落物(T12/T14): 不渗进其他模式 */
-    Drops.clear();
+    Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
+    Drops.clear(); /* 清掉落物+解除收集回调 */
+    while (advArrows.length) advRemoveArrow(0); /* 箭矢网格一并摘除 */
     ADV.panelOpen = false;
     advPanel.remove(); /* 卸载面板 DOM */
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活) */
     advDisposeHpBar();
   },
 
-  update() {
+  update(dt) {
     if (advDirty && performance.now() - advSaveT > 5000) {/* 世界存档节流(build 同款) */
       advSaveT = performance.now();
       advSaveNow();
     }
+    if (ADV.swingCd > 0) ADV.swingCd = Math.max(0, ADV.swingCd - dt); /* 挥击冷却 */
+    advHurtT = Math.max(0, advHurtT - dt); /* 受击语音节流递减 */
+    advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架) */
+    Mobs.update(dt);
+    Mobs.render();
+    advUpdateArrows(dt); /* 骷髅箭矢弹道 */
+    Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 拾取给玩家胸口点 */
+    Drops.render();
+    advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */
+    advPickupTick(dt); /* 收集播报合并窗 */
     advUpdateHpBar();
   },
 
   onKey(code) {
     if (code === 'Tab') advPanelToggle(); /* 🎒/Tab 开关背包+配方书 */
+  },
+
+  onMouse(button) {/* 左键挥击(准星锥内有怪才出手, 挖掘/放置点击政策归 T12) */
+    if (button === 0) advAttack();
   },
 
   onVoidFall() {/* 坠出世界: 与死亡同一零惩罚出口(T14 的致命一击走 advPlayerDied) */
@@ -472,9 +795,11 @@ const AdventureMode = mkMode({
 
   hud(hit) {
     const s = advInv.slots[advHb.sel];
+    const alive = Mobs.list().filter((m) => !m.dead && !m.gone).length;
     return [
       `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
+      `👾 怪物: ${alive} · ☠️ 击杀: ${ADV.killCount}`,
       `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
       `注视: ${ModeKit.lookName(hit)} · B 菜单`,
     ];
@@ -483,14 +808,19 @@ const AdventureMode = mkMode({
   touch: [
     {label: '⬆️', hold: 'Space'},
     {label: '🎒', act: () => advPanelToggle()},
+    {label: '👾', act: () => advAttack()},
   ],
 });
 
 /* T12~T15 的接线挂点(内部接口, 不进模式公共行为; 单测亦经此触达常量与纯函数段):
-   T12 挖掘/放置 → advMarkEdit 记账 + advSyncHotbar 刷新 · T13 站点判定在
-   advStationOk(替换恒 true) · T14 巢穴刷怪读 ADV_NESTS + 死亡走 advPlayerDied ·
-   T15 任务进度挂 ADV.quest(advQuestSlot 落盘) */
+   T12 挖掘/放置 → advMarkEdit 记账 + advSyncHotbar 刷新(左键语义与战斗挥击
+   在 onMouse 并线: 准星锥内有怪=挥击, 否则点击留给挖掘/放置) · T13 站点判定
+   在 advStationOk(替换恒 true) · T14 已落地(巢穴节律/挥击伤害/掉落清单/播报
+   文案纯函数 + ADV.killCount 击杀账本, 击杀事件挂 Mobs.onDeath 回调) ·
+   T15 任务进度挂 ADV.quest(advQuestSlot 落盘), 击杀/掉落事件挂点 =
+   advOnKill(观感+计数) 与 init 里的 onDeath/收集回调两处闭包 */
 AdventureMode.adv = {ADV, ADV_NESTS, advDeathPlan, advMarkEdit, advGetInv: () => advInv,
-  advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar};
+  advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar,
+  advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;
