@@ -4,7 +4,18 @@
    判别引擎(CPT警觉/Go-No-Go) · Flanker(苦力怕排队) · Corsi(钻石闪闪光)
    · 任务切换(听指挥小矿工) · 大师混合
    全部为 DOM 点选式, 零文字依赖(图标+语音), 纯鼠标可完成
-============================================================ */
+   ------------------------------------------------------------
+   F2 关内行为(参数形状权威=focus-levels.js 头注释):
+   判别: No-Go 逐试次按 disguiseRate 掷骰伪装(中=绿宝石/不中=显性
+   干扰), noSet 扩 coal/iron_ore · Corsi: lenMix 混出 len-1 ·
+   antiChunk 展示前置换打乱格位 · gem 轮换亮格宝石 · Flanker: len9
+   小尺寸档 + neutralRate 中立行(猪/羊) + mobMix 混入非苦力怕生物 ·
+   Switch: choices 5 选项 + bivalent 双价干扰 + switchJitter 切换抖动
+   事件缝: handler 可选 h.onTrial({ok, streak}) — 每正式试次恰一次,
+   教学演示不计; 维度名由 runFocusLevel 调度层补注(引擎不知道玩法,
+   分层红线); 干扰物/宝石图标走 stimIcon(iconOf 优先, mcIcon 兜底),
+   生物头像走 mobFace(怪物库单一出口 seam)
+   ============================================================ */
 
 /* 语音已归引擎侧 SpeechKit(js/speech.js): 范式引擎只调用 speak/cancel, 不再拥有语音技术
    表扬/安慰话术(FOCUS_PRAISE/COMFORT 与 praiseLine/comfortLine)按分层口径属
@@ -76,15 +87,62 @@ function median(nums) {
   return s[Math.floor(s.length/2)];
 }
 
+/* ---------- 刺激图标出口(F2 素材升级): 干扰物/宝石像素图统一走物品系统 ----------
+   iconOf 有像素图返 data: 前缀直接用; 未注册/未画(如 emerald/羊毛——物品系统没有)
+   回落训练营自有管线 mcIcon, 保证任何刺激名都有图可渲染;
+   调用期解析: icons.js/focus-icons.js 均先于本文件加载(见 index.html) */
+function stimIcon(name) {
+  if (typeof iconOf === 'function') {
+    const url = iconOf(name);
+    if (typeof url === 'string' && url.startsWith('data:')) return url;
+  }
+  return mcIcon(name);
+}
+
+/* ---------- 生物头像取图(单一出口 seam) ----------
+   Flanker 中立行(猪/羊)与混入生物(非苦力怕)共用怪物库 Mobs.face 的
+   16×16 手绘像素头像(64×64 dataURL, 自带缓存); 猪/羊头像由 F4 补画进
+   怪物库, 补画后此处零改自动生效 — 调用期解析(mobs.js 先于本文件加载) */
+const NEUTRAL_MOBS = ['pig', 'sheep']; // 中立行: 无方向线索的温和生物
+const MIXER_MOBS = ['zombie', 'skeleton', 'spider', 'slime']; // 混入生物(怪物库已有)
+function mobFace(type) {
+  if (typeof Mobs !== 'undefined' && Mobs.face) return Mobs.face(type);
+  return '';
+}
+
+/* ---------- 逐试次事件缝(L2 契约): handler 可选 h.onTrial({ok, streak}) ----------
+   每正式试次恰一次, 教学演示不计; streak=连对数(含本次, 错则归零);
+   维度名由调度层 runFocusLevel 补注 — 引擎只报事件不解释玩法,
+   不知道奖励/物品/背包的存在(分层红线); 不传回调零开销零影响 */
+function mkTrialEvents() {
+  let streak = 0;
+  return {
+    fire(h, ok) {
+      streak = ok ? streak + 1 : 0;
+      if (h.onTrial) h.onTrial({ok, streak});
+    },
+  };
+}
+
 /* ---------- 判别引擎:CPT 警觉 / Go-No-Go 共用 ----------
    go 刺激要点, no-go 刺激不能点;击中/正确拒斥=对, 虚报/漏报=错 */
 function runDiscrimination(area, params, adapt, h, framing) {
   const T = mkTimers();
+  const ev = mkTrialEvents(); // 逐试次事件缝
   const stats = {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0};
   const goSet = ['diamond']; // 钻石=要点
-  let noSet = framing==='gonogo' ? ['tnt'] : ['stone', 'coal', 'iron'];
-  if (framing==='gonogo' && params.disguised) noSet = ['emerald']; // 伪装No-Go=绿宝石
+  /* noSet 扩充(D2/D1 素材行): 干扰矿走物品系统像素口径 iron_ore(原自绘 iron);
+     gonogo 的煤/铁矿都是"不碰"类, 只添观感丰富度不改构念 */
+  let noSet = framing==='gonogo' ? ['tnt', 'coal', 'iron_ore'] : ['stone', 'coal', 'iron_ore'];
   if (framing==='cpt' && params.similar) noSet = ['stone', 'emerald'];
+  /* No-Go 逐试次掷骰伪装(D2 断层→坡道): 中=绿宝石(与 Go 钻石同色系高相似),
+     不中=显性干扰(从 noSet 取) — 替代旧版 tier≥8 一步全量的 params.disguised */
+  function pickNoGo() {
+    if (framing==='gonogo' && params.disguiseRate > 0 && Math.random() < params.disguiseRate) {
+      return 'emerald';
+    }
+    return pickRand(noSet);
+  }
   const goRate = framing==='gonogo' ? params.goRate : params.targetRate;
   /* 预生成整局序列: No-Go(gonogo=TNT)至少 20% 且至少 1 个,
      避免逐次独立随机导致极端情况下整局一个 TNT 都不出 */
@@ -95,7 +153,7 @@ function runDiscrimination(area, params, adapt, h, framing) {
 
   function showStim(iconName, hinted) {
     const s = fEl('div', 'f-stim' + (hinted?' hint':''),
-        '<img draggable="false" src="'+mcIcon(iconName)+'">');
+        '<img draggable="false" src="'+stimIcon(iconName)+'">');
     const W = area.clientWidth || 640; const H = area.clientHeight || 380;
     s.style.left = (60 + Math.random()*(W-180)) + 'px';
     s.style.top = (50 + Math.random()*(H-160)) + 'px';
@@ -111,7 +169,9 @@ function runDiscrimination(area, params, adapt, h, framing) {
   }
 
   function trial(isGo, isDemo) {
-    const stim = showStim(isGo ? pickRand(goSet) : pickRand(noSet), isDemo);
+    /* 教学演示固定经典样例(该点的=钻石/不该点的=显性 TNT), 不被扩充集与伪装骰分心 */
+    const iconName = isGo ? pickRand(goSet) : (isDemo ? 'tnt' : pickNoGo());
+    const stim = showStim(iconName, isDemo);
     const dur = adapt.t(isDemo ? params.dur*1.5 : params.dur);
     let answered = false; const t0 = performance.now();
 
@@ -126,6 +186,7 @@ function runDiscrimination(area, params, adapt, h, framing) {
         if (ok) stats.correct++;
         stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak + (ok?0:1));
         const valve = adapt.record(ok);
+        ev.fire(h, ok); // 事件缝: 超时/点击每正式试次恰一次
         feedback(ok, stim);
         if (valve==='valve') {
           stats.valveCount++;
@@ -194,6 +255,7 @@ function runDiscrimination(area, params, adapt, h, framing) {
    一排像素苦力怕, 只看中间那只的视线方向, 点左右按钮 */
 function runFlanker(area, params, adapt, h) {
   const T = mkTimers();
+  const ev = mkTrialEvents(); // 逐试次事件缝
   const stats = {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0};
   let comfortSaid = false;
 
@@ -205,14 +267,24 @@ function runFlanker(area, params, adapt, h) {
   btns.appendChild(bl); btns.appendChild(br);
   area.appendChild(btns);
 
-  function showRow(centerDir, congruent, hinted) {
+  function showRow(centerDir, congruent, hinted, neutralRow, mixSet) {
     bar.innerHTML = '';
     const n = params.len;
+    /* len9 行用小尺寸贴图(D3): 9×(56+14)=616px, 760px 区域放得下 */
+    const base = 'f-creeper' + (n >= 9 ? ' f-creeper--sm' : '');
     for (let k=0; k<n; k++) {
       const isC = k === Math.floor(n/2);
+      if (!isC && (neutralRow || mixSet.includes(k))) {
+        /* 中立行/混入位换生物头像(无方向线索), 构念不变: 只看中间 */
+        const pool = neutralRow ? NEUTRAL_MOBS : MIXER_MOBS;
+        const img = fEl('img', base);
+        img.src = mobFace(pool[Math.floor(Math.random()*pool.length)]);
+        bar.appendChild(img);
+        continue;
+      }
       let d = centerDir;
       if (!congruent && !isC) d = -centerDir;
-      const img = fEl('img', 'f-creeper' + (isC?' center':''));
+      const img = fEl('img', base + (isC?' center':''));
       img.src = creeperFace(d);
       if (hinted && isC) img.classList.add('hint');
       bar.appendChild(img);
@@ -221,7 +293,21 @@ function runFlanker(area, params, adapt, h) {
   function trial(isDemo) {
     const centerDir = Math.random()<0.5 ? -1 : 1;
     const congruent = isDemo ? true : (Math.random() < params.congruentRate);
-    showRow(centerDir, congruent, isDemo);
+    /* 中立行/混入生物掷骰(D3): 仅正式试次, 教学演示保持经典苦力怕行 */
+    let neutralRow = false; const mixSet = [];
+    if (isDemo === undefined) {
+      neutralRow = Math.random() < (params.neutralRate || 0);
+      if (!neutralRow && params.mobMix > 0 && Math.random() < params.mobMix) {
+        const flankers = [];
+        for (let k=0; k<params.len; k++) {
+          if (k !== Math.floor(params.len/2)) flankers.push(k);
+        }
+        shuffleArr(flankers);
+        const cnt = 1 + (Math.random()<0.5 ? 0 : 1); // 混入 1~2 只(知觉噪声)
+        for (let k=0; k<cnt; k++) mixSet.push(flankers[k]);
+      }
+    }
+    showRow(centerDir, congruent, isDemo, neutralRow, mixSet);
     let answered = false; const t0 = performance.now();
     function resolve(dir) {
       if (answered) return; answered = true;
@@ -231,6 +317,7 @@ function runFlanker(area, params, adapt, h) {
         stats.trials++;
         if (ok) stats.correct++;
         stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak + (ok?0:1));
+        ev.fire(h, ok); // 事件缝: 点击路径每正式试次恰一次
         if (adapt.record(ok)==='valve') {
           stats.valveCount++;
           if (!comfortSaid) {
@@ -253,6 +340,7 @@ function runFlanker(area, params, adapt, h) {
         answered=true;
         if (isDemo===undefined) {
           stats.trials++;
+          ev.fire(h, false); // 事件缝: 窗口耗尽也报(算错, 连对归零)
         }
         bar.classList.add('no'); T.after(360, ()=>{
           bar.className='f-flanker-row'; next();
@@ -297,6 +385,7 @@ function runFlanker(area, params, adapt, h) {
 /* ---------- Corsi:钻石闪闪光(视空记忆) ---------- */
 function runCorsi(area, params, adapt, h) {
   const T = mkTimers();
+  const ev = mkTrialEvents(); // 逐试次事件缝(试次=序列)
   const stats = {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0};
   const side = params.grid===16 ? 4 : 3;
   const hint = fEl('div', 'f-corsi-hint', '👀 看顺序…');
@@ -311,13 +400,14 @@ function runCorsi(area, params, adapt, h) {
 
   function light(k, ms) {
     tiles[k].classList.add('lit');
-    tiles[k].style.backgroundImage = 'url(' + mcIcon('diamond') + ')';
+    tiles[k].style.backgroundImage = 'url(' + stimIcon(params.gem || 'diamond') + ')';
     T.after(Math.max(220, ms*0.65), ()=>{
       tiles[k].classList.remove('lit');
       tiles[k].style.backgroundImage = '';
     });
   }
   function runSeq(seqIdx, seq) {
+    const isDemo = params.demo && seqIdx===0;
     inputOn = false;
     hint.textContent = '👀 看顺序…';
     tiles.forEach((t)=>{
@@ -342,6 +432,7 @@ function runCorsi(area, params, adapt, h) {
             if (step >= seq.length) { // 整序列完成
               inputOn = false;
               stats.trials++; stats.correct++;
+              if (!isDemo) ev.fire(h, true); // 事件缝: 序列完成报对(教学演示不计)
               sfx('pick');
               T.after(700, ()=>nextSeq(++seqIdx));
             }
@@ -349,6 +440,7 @@ function runCorsi(area, params, adapt, h) {
             inputOn = false;
             t.classList.add('bad');
             stats.trials++;
+            if (!isDemo) ev.fire(h, false); // 事件缝: 点错即本序列终止报错
             stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak+1);
             if (adapt.record(false)==='valve') {
               stats.valveCount++;
@@ -375,7 +467,16 @@ function runCorsi(area, params, adapt, h) {
       return;
     }
     h.progress(n, params.seqs);
-    const len = params.demo && n===0 ? 2 : params.len;
+    const isDemo = params.demo && n===0;
+    /* lenMix 长度混编(D4 台阶变坡道): 过渡档按概率混出 len-1, 教学演示不吃 */
+    let len = isDemo ? 2 : params.len;
+    if (!isDemo && len > 1 && params.lenMix > 0 && Math.random() < params.lenMix) len--;
+    /* antiChunk 反组块(D4 顶格新杠杆): 展示前按概率打乱格位布局 — 置换重排
+       (格位互异不丢格), "哪些格子按什么顺序亮"不变故序列仍可解,
+       只阻断"记位置组合"的组块化取巧 */
+    if (!isDemo && params.antiChunk > 0 && Math.random() < params.antiChunk) {
+      shuffleArr(tiles).forEach((t)=>grid.appendChild(t));
+    }
     const pool = tiles.map((_, k)=>k);
     const seq = [];
     while (seq.length < len && pool.length) {
@@ -395,9 +496,11 @@ function runCorsi(area, params, adapt, h) {
 /* ---------- 任务切换:听指挥的小矿工 ----------
    旗子=当前规则(羊毛颜色 / 方块材质 / 大小), 点符合目标的方块;旗子会变 */
 const SW_WOOLS = ['wool_red', 'wool_blue', 'wool_yellow'];
-const SW_MATS = ['cobble', 'planks', 'brick'];
+/* 材质族五件(D5 素材行, 配 choices5: 干扰项图标不两两重复; 全走 iconOf 像素版) */
+const SW_MATS = ['cobble', 'planks', 'brick', 'glass', 'stone_bricks'];
 function runSwitch(area, params, adapt, h) {
   const T = mkTimers();
+  const ev = mkTrialEvents(); // 逐试次事件缝
   const stats = {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0};
   const ruleNames = ['color', 'mat', 'size'].slice(0, params.rules);
   let rule = ruleNames[0]; let comfortSaid = false;
@@ -410,12 +513,12 @@ function runSwitch(area, params, adapt, h) {
   function flagHTML(target) {
     if (rule==='size') {
       return mcIconTag('flag') +
-          '<img class="tgt '+(target.attr==='big'?'tgt-big':'tgt-small')+'" src="'+mcIcon('stone')+'">';
+          '<img class="tgt '+(target.attr==='big'?'tgt-big':'tgt-small')+'" src="'+stimIcon('stone')+'">';
     }
-    return mcIconTag('flag') + '<img class="tgt" src="'+mcIcon(target.attr)+'">';
+    return mcIconTag('flag') + '<img class="tgt" src="'+stimIcon(target.attr)+'">';
   }
   function mcIconTag(n) {
-    return '<img class="flagpole" draggable="false" src="'+mcIcon(n)+'">';
+    return '<img class="flagpole" draggable="false" src="'+stimIcon(n)+'">';
   }
 
   function trial(isDemo) {
@@ -434,19 +537,25 @@ function runSwitch(area, params, adapt, h) {
     board.innerHTML = '';
 
     const choices = [];
+    /* 双价干扰(D5): 概率使干扰项在无关维度匹配目标 — 颜色/材质规则下与目标
+       同大小(大小线索失效), 大小规则下用目标同族图标(材质线索失效),
+       逼孩子只看旗子说的当前维度; 教学演示不掷 */
+    const biva = (isDemo) => !isDemo && Math.random() < (params.bivalent || 0);
     if (rule==='size') {
       const wrongSize = target.attr==='big' ? 'small' : 'big';
+      const correct = {icon: pickRand(family), size: target.attr};
       const shuffled = [...family].sort(()=>Math.random()-0.5);
       for (let k=0; k<params.choices-1; k++) {
-        choices.push({icon: shuffled[k%shuffled.length], size: wrongSize});
+        choices.push({icon: biva(isDemo) ? correct.icon : shuffled[k%shuffled.length], size: wrongSize});
       }
-      choices.push({icon: pickRand(family), size: target.attr}); // 唯一正确
+      choices.push(correct); // 唯一正确
     } else {
       choices.push({icon: target.attr, size: pickRand(['big', 'small'])});
       const others = family.filter((x)=>x!==target.attr);
       let k = 0;
       while (choices.length < params.choices) {
-        choices.push({icon: others[k%others.length], size: pickRand(['big', 'small'])});
+        choices.push({icon: others[k%others.length],
+          size: biva(isDemo) ? choices[0].size : pickRand(['big', 'small'])});
         k++;
       }
     }
@@ -457,7 +566,7 @@ function runSwitch(area, params, adapt, h) {
     let answered = false; const t0 = performance.now();
     choices.forEach((c)=>{
       const el = fEl('div', 'f-block block ' + (c.size==='big'?'big':'small'),
-          '<img draggable="false" src="'+mcIcon(c.icon)+'">');
+          '<img draggable="false" src="'+stimIcon(c.icon)+'">');
       el.onclick = ()=>{
         if (answered) return; answered = true;
         const ok = isCorrect(c);
@@ -470,6 +579,7 @@ function runSwitch(area, params, adapt, h) {
           stats.trials++;
           if (ok) stats.correct++;
           stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak + (ok?0:1));
+          ev.fire(h, ok); // 事件缝: 每正式试次恰一次
           if (adapt.record(ok)==='valve') {
             stats.valveCount++;
             if (!comfortSaid) {
@@ -503,7 +613,11 @@ function runSwitch(area, params, adapt, h) {
     }
     h.progress(idx, params.trials);
     // 切换规则?
-    if (ruleNames.length>1 && sinceSwitch >= Math.max(1, params.switchEvery + (Math.random()<0.3?-1:0))) {
+    /* switchJitter(D5): 切换点抖动 — 阈值随机 1~3(与 switchEvery 同尺度), 不可预测 */
+    const gap = params.switchJitter ?
+        1 + Math.floor(Math.random()*3) :
+        Math.max(1, params.switchEvery + (Math.random()<0.3?-1:0));
+    if (ruleNames.length>1 && sinceSwitch >= gap) {
       const old = rule;
       rule = pickRand(ruleNames.filter((r)=>r!==old));
       sinceSwitch = 0;
@@ -529,6 +643,16 @@ function runSwitch(area, params, adapt, h) {
 }
 
 /* ---------- 调度入口 ---------- */
+/* dim 补注包装: 引擎报 {ok, streak}(不知道自己叫什么), 维度名由本调度层
+   统一补进事件对象 — 调用方(modes/focus.js)拿到完整的 {ok, streak, dim} */
+function withDim(h, dim) {
+  if (!h.onTrial) return h;
+  return Object.assign({}, h, {
+    onTrial(t) {
+      h.onTrial(Object.assign({dim}, t));
+    },
+  });
+}
 /* 分发判定(纯函数, 单测锁住顺序): master/check 必须先于 dim 判定 —
    第 100 关 dim='switch', 若先按 dim 分发, master 分支永远不可达(曾经的死码 bug);
    check=每日体检(F8), 与 master 同走五维连跑(sections 分发, 短参数来自 FOCUS_CHECK_PARAMS) */
@@ -566,6 +690,9 @@ function runFocusLevel(level, area, h, failCount) {
         showRule() {
           h.showRule && h.showRule(s.dim);
         },
+        onTrial(t) { // 事件缝透传: 小节事件补上该小节的维度名
+          h.onTrial && h.onTrial(Object.assign({dim: s.dim}, t));
+        },
         end(st) {
           agg.trials += st.trials; agg.correct += st.correct;
           agg.rts.push(...st.rts);
@@ -592,8 +719,9 @@ function runFocusLevel(level, area, h, failCount) {
   const adapt = mkAdapt(failCount);
   const p = {...level.params};
   if (level.kind==='tutorial') p.demo = true;
-  if (d.engine==='discrimination') return runDiscrimination(area, p, adapt, h, d.framing);
-  if (d.engine==='flanker') return runFlanker(area, p, adapt, h);
-  if (d.engine==='corsi') return runCorsi(area, p, adapt, h);
-  return runSwitch(area, p, adapt, h);
+  const hd = withDim(h, level.dim); // 事件缝补注维度名(不传 onTrial 时零包装)
+  if (d.engine==='discrimination') return runDiscrimination(area, p, adapt, hd, d.framing);
+  if (d.engine==='flanker') return runFlanker(area, p, adapt, hd);
+  if (d.engine==='corsi') return runCorsi(area, p, adapt, hd);
+  return runSwitch(area, p, adapt, hd);
 }
