@@ -178,8 +178,10 @@ flowchart TD
 - 接口备注：工作台/熔炉/TNT 放置复用 advTryPlace(hit)；TNT 点燃在 onMouse 左键分支前拦截；站点判定换 advStationOk()；采集事件挂点 advBreakBlock/advOnCollect/advTryEat/advGrowTree。
 - 交付：探险模式内——按住蓄力状态机（进度环+挥动循环+换目标清零；breakTime 驱动）、破坏→碎块→掉落拾取、放置（放置型物品）、树叶掉树苗/苹果/木棍、树苗 20s 生长（计时 Map）、草丛掉种子、食物点击吃、快捷栏 item 槽接线。
 
-### T13 合成与烧炼接线 `[ ]`
+### T13 合成与烧炼接线 `[x]`（并入 `c47b2d6`）
 - 依赖：T10、T11。
+- 接口备注：合成事件挂点=advOnCraft(out) 成功分支；熔炉/TNT/站点纯函数与状态均已挂 AdventureMode.adv（advSmeltStep/advTntRoll/advNearStation/advFurnace/advStations…）；TNT 不伤玩家、链式点燃。
+- 跨单观察：熔炉被左键拦截（开面板）无法用镐拆挪，drop 只剩 TNT 爆炸一条来路——是否加「持镐点击=拆」留 code-review/T15 裁量。
 - 交付：探险模式内——配方书面板开关（🎒/Tab）、工作台/熔炉放置与 4 格解锁判定、熔炉烧炼（2.5s/件、自动燃料、关面板进度保留、退世界材料退回）、合成成功 TTS 表扬、TNT 合成→放置→点击点燃→爆炸 70% 掉落。
 
 ### T14 巢穴战斗掉落 `[x]`（并入 `b258ab5`，语义合并 `601a892` 与 T12 并线）
