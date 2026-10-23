@@ -57,7 +57,7 @@ flowchart TD
 
 ## 第一波（frontier·可并行）
 
-### A1 P0 除噪微修（effects.js）`[ ]`
+### A1 P0 除噪微修（effects.js）`[x]`（并入 `7846b16`）
 - 依赖：无。
 - 交付（四处微修，全在 js/effects.js，参数出处见 research A.8）：
   ① **节点纪律**：sfx 的全部一次性音源（振荡器/白噪 BufferSource/win 双振荡器）播完 `onended` 摘除断连（Bug 222098 官方 workaround）；
@@ -102,6 +102,10 @@ flowchart TD
   - 门面 `AudioMixer`：`{sfx, engineHum, setMood, setMusicVol, setSfxVol, duck, tick, preload}`——全局 sfx/engineHum 函数签名不变（60+ 调用点零改动，定义挪到本文件）；setMood/setMusicVol/setSfxVol/duck 本单可为薄壳（A5/A6/A8 消费），tick 驱动 mkMusicDirector 实例。
   - **index.html 只声明**：报告里给出「在 js/effects.js 行之前插 js/audio-registry.js / js/audio-core.js / js/audio.js 三行 defer script」。
 - 测试：`node --test` 全绿（boot 冒烟在集成者挂上 script 行后覆盖新文件加载序）；无 adapter 直测。
+- 集成校正（A1 报告转记）：
+  - 迁移清单含 A1 新增的 dropOnEnd 助手与 humFilt/humLfo/humDepth 顶层绑定；
+  - sfx() 早退路径留孤儿 gain 节点——A4 改为先查表再建 gain 根治；
+  - A1 的触屏高通现挂 master 与压限器之间（单总线等效实现），A4 拆 sfxBus/musicBus 时必须挪到 sfxBus 专属前置（音乐低频是内容，spec 总线图明确高通只挂音效总线）。
 
 ---
 
