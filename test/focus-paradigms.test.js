@@ -53,6 +53,11 @@ function loadFocus() {
     sfx() {},
     praiseLine: () => '(表扬)', comfortLine: () => '(安慰)',
     mcIcon: () => 'data:icon', creeperFace: () => 'data:face',
+    // focusTodayStr 委托的日期串唯一拼装点(daily-budget.js, 加载序在前)
+    budgetDateStr(t) {
+      const d = new Date(t);
+      return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+    },
   };
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
@@ -72,7 +77,10 @@ function loadFocus() {
                         devilEntry, devilTierFor, FOCUS_DEVIL_TIME_MS,
                         stampRecord, stampTrim, stampCount,
                         stampMilestones, stampRewardsDue, stampRewardFor,
-                        FOCUS_MILESTONES, milestoneDue, focusProgress,
+                        FOCUS_STAMP_KINDS, stampRewardClaimed,
+                        focusTodayStr, focusTodayDims, focusDimStars, focusLastBreakthrough,
+                        FOCUS_SAVE_DEFAULTS, migrateFocusSave,
+                        FOCUS_MILESTONES, milestoneLevels, milestoneDue, focusProgress,
                         rollFocusLoot, levelBonusLoot, grantFocusLoot,
                         add, count, mkInventory, INV_SLOTS,
                         ITEMS, stackMax, isTool };
@@ -1125,14 +1133,21 @@ test('滚动保留天数常量: 90 天(存档防膨胀口径)', () => {
   assert.strictEqual(fp.FOCUS_LOG_KEEP_DAYS, 90);
 });
 
-test('devilDimFor: 日期字符串哈希轮换五维, 纯函数稳定且五维都有轮到', () => {
+test('devilDimFor: 严格按日序数 %5 轮换 — 连续 5 天五维全覆盖, 相邻两天必不同维', () => {
   const {fp} = loadFocus();
-  assert.strictEqual(fp.devilDimFor('2026-10-23'), fp.devilDimFor('2026-10-23'), '同一天恒定同维度');
-  assert.ok(fp.FOCUS_DIMS.includes(fp.devilDimFor('2026-10-23')), '返回值必在五维内');
-  /* 连续 40 天的轮换分布: 五维都被轮到(哈希均匀性抽查) */
-  const seen = new Set();
-  for (let k = 0; k < 40; k++) seen.add(fp.devilDimFor('2026-9-' + (1 + k)));
-  assert.strictEqual(seen.size, 5, '40 天窗口五维都有轮到: ' + [...seen].join(','));
+  const dstr = (d) => d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
+  const days = Array.from({length: 10}, (_, k)=>dstr(new Date(2026, 9, 20 + k))); // 10-20 起跨月进位
+  const dims = days.map((day)=>fp.devilDimFor(day));
+  assert.strictEqual(dims.slice(0, 5).sort().join(','), [...fp.FOCUS_DIMS].sort().join(','),
+      '连续 5 天恰好五维各一次: ' + dims.slice(0, 5).join(','));
+  assert.strictEqual(dims[5], dims[0], '第 6 天回到第 1 天的维度(5 天一轮)');
+  for (let k = 0; k < days.length - 1; k++) { // 相邻两天必不同维(严格轮换, 非哈希)
+    assert.strictEqual(fp.focusDayIndex(days[k+1]) - fp.focusDayIndex(days[k]), 1,
+        '日期构造相邻: ' + days[k] + ' → ' + days[k+1]);
+    assert.notStrictEqual(dims[k+1], dims[k], '相邻两天维度必须不同: ' + days[k] + '/' + days[k+1]);
+  }
+  assert.strictEqual(fp.devilDimFor(days[0]), dims[0], '同一天恒定同维(纯函数稳定)');
+  assert.ok(fp.FOCUS_DIMS.includes(fp.devilDimFor('bad-day')), '损坏日期回落合法维度(不炸)');
 });
 
 test('focusCheckEntry: 当日未做过才显示入口(做过即消失)', () => {
@@ -1468,4 +1483,90 @@ test('grantFocusLoot: 空包逐件入包(granted 全记); 满包余量>0 静默�
   assert.deepStrictEqual(clone(r2), {granted: [], full: true}, '满包静默忽略(零惩罚)且标 full 供模式层 toast');
   assert.strictEqual(JSON.stringify(full.slots), before, '满包语义: 包内容不变(无部分入包残留)');
   assert.deepStrictEqual(clone(fp.grantFocusLoot(inv, [])), {granted: [], full: false}, '空清单安全');
+});
+
+/* ============ B2/B5 派生纯函数 + B6 奖励判定 + 日期单点出口 ============ */
+
+test('focusTodayStr: 委托唯一日期拼装点, 时间戳注入且无前导零', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.focusTodayStr(new Date(2026, 9, 5).getTime()), '2026-10-5');
+  assert.strictEqual(fp.focusTodayStr(new Date(2030, 11, 31).getTime()), '2030-12-31');
+});
+
+test('milestoneLevels: 门槛升序唯一派生出口, 与 FOCUS_MILESTONES 表一致', () => {
+  const {fp} = loadFocus();
+  const rows = [...fp.milestoneLevels()];
+  assert.deepStrictEqual(rows.map((e)=>e.line), [10, 30, 50, 70, 90, 100], '门槛升序');
+  assert.deepStrictEqual(rows.map((e)=>e.id),
+      ['pick_wood', 'pick_stone', 'pick_iron', 'sword_iron', 'pick_diamond', 'sword_diamond']);
+});
+
+test('focusTodayDims: 从待打关取今日额度内将轮到的维度, 去重至多 2 个', () => {
+  const {fp} = loadFocus();
+  assert.deepStrictEqual([...fp.focusTodayDims(0, 2)], ['cpt', 'gonogo'], '教学关前两关');
+  assert.deepStrictEqual([...fp.focusTodayDims(5, 2)], ['cpt', 'gonogo'], '第 6 关起螺旋轮换');
+  assert.deepStrictEqual([...fp.focusTodayDims(5, 1)], ['cpt'], '额度 1 只取 1 个');
+  assert.deepStrictEqual([...fp.focusTodayDims(99, 6)], ['switch'], '第 100 关大师 dim=switch');
+  assert.deepStrictEqual([...fp.focusTodayDims(0, 0)], [], '今日额度耗尽返回空');
+  assert.deepStrictEqual([...fp.focusTodayDims(-3, 2)], ['cpt', 'gonogo'], '负 unlocked 钳到 0');
+});
+
+test('focusDimStars: 五维齐全, 按关卡号归维求和, 重玩取历史最高不稀释', () => {
+  const {fp} = loadFocus();
+  const left = fp.focusDimStars({stars: {'0': 3, '1': 2, '5': 1, '99': 3}});
+  assert.deepStrictEqual({...left}, {cpt: 4, gonogo: 2, flanker: 0, corsi: 0, switch: 3});
+  assert.deepStrictEqual({...fp.focusDimStars({})}, {cpt: 0, gonogo: 0, flanker: 0, corsi: 0, switch: 0},
+      '空档五维占位');
+  assert.deepStrictEqual({...fp.focusDimStars(null)}, {cpt: 0, gonogo: 0, flanker: 0, corsi: 0, switch: 0},
+      '空档安全');
+});
+
+test('focusLastBreakthrough: history 最近一条通过记录的维度, 无记录/坏索引返回 null', () => {
+  const {fp} = loadFocus();
+  const save = {history: [{i: 0, passed: true}, {i: 1, passed: false}, {i: 2, passed: true}]};
+  assert.strictEqual(fp.focusLastBreakthrough(save), 'flanker', '跳过未通过, 取最近通过关');
+  assert.strictEqual(fp.focusLastBreakthrough({history: []}), null, '无记录 null');
+  assert.strictEqual(fp.focusLastBreakthrough({history: [{i: 999, passed: true}]}), null, '坏索引跳过');
+  assert.strictEqual(fp.focusLastBreakthrough(null), null, '空档安全');
+});
+
+test('stampRewardClaimed: 已领线集合里按奖励 id 判定(皮肤/烟花恢复与触发同口径)', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.stampRewardClaimed([3, 7], 'bag_skin'), true, '7 章线已领皮肤');
+  assert.strictEqual(fp.stampRewardClaimed([3], 'bag_skin'), false, '只领 3 章线未领皮肤');
+  assert.strictEqual(fp.stampRewardClaimed([14], 'firework'), true, '14 章线烟花');
+  assert.strictEqual(fp.stampRewardClaimed([30, 60], 'gold_stamp'), true, '30/60 都归金图章');
+  assert.strictEqual(fp.stampRewardClaimed(null, 'bag_skin'), false, '空集合安全');
+});
+
+/* ============ 存档迁移幂等(F11: modes/focus slot 与库层共用) ============ */
+
+test('migrateFocusSave: 摘 v0 daily / 补 tools·stampKind / 坏 stampKind 回落 / 连跑幂等', () => {
+  const {fp} = loadFocus();
+  for (const k of ['unlocked', 'stars', 'history', 'tools', 'stamps', 'stampClaimed',
+    'stampKind', 'checks', 'devil']) {
+    assert.ok(hasOwn(fp.FOCUS_SAVE_DEFAULTS, k), 'defaults 形状含 ' + k);
+  }
+  assert.strictEqual(fp.FOCUS_SAVE_DEFAULTS.stampKind, 'pick', '缺省镐章');
+  const old = {_v: 0, daily: {date: '2026-10-22', played: 2}, unlocked: 53,
+    stars: {'0': 3}, stampKind: 'ruby'};
+  const once = fp.migrateFocusSave(old, 0);
+  assert.strictEqual(hasOwn(once, 'daily'), false, 'v0 老形状的 daily 字段被摘除');
+  assert.deepStrictEqual([...once.tools], [], '缺 tools 补空数组');
+  assert.strictEqual(once.stampKind, 'pick', '损坏 stampKind 回落 pick');
+  assert.strictEqual(once.unlocked, 53, '存量进度原样保留');
+  assert.strictEqual(once.stars['0'], 3, '星级原样保留');
+  const twice = fp.migrateFocusSave(once, 0);
+  assert.strictEqual(twice, once, '原地迁移返回同一对象');
+  assert.strictEqual(hasOwn(twice, 'daily'), false, '第二次仍无 daily');
+  assert.deepStrictEqual([...twice.tools], [], '第二次不重复追加 tools');
+  assert.strictEqual(twice.stampKind, 'pick', '第二次保持回落值(幂等)');
+  const missing = fp.migrateFocusSave({unlocked: 0}, 0);
+  assert.deepStrictEqual([...missing.tools], [], '缺 tools 补齐');
+  assert.strictEqual(missing.stampKind, 'pick', '缺 stampKind 补齐');
+  const legal = fp.migrateFocusSave({tools: ['pick_wood'], stampKind: 'gem'}, 1);
+  assert.strictEqual(legal.stampKind, 'gem', '合法三选一图案保留');
+  assert.deepStrictEqual([...legal.tools], ['pick_wood'], '已有 tools 不重置');
+  assert.strictEqual(fp.migrateFocusSave({stampKind: 'bad'}, 1).stampKind, 'pick',
+      '从 v1 起跑同样修形(旧档损坏字段兜底)');
 });

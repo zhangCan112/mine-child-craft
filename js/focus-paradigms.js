@@ -1,9 +1,19 @@
 'use strict';
 /* ============================================================
-   专注训练营 — 五范式小游戏引擎
-   判别引擎(CPT警觉/Go-No-Go) · Flanker(苦力怕排队) · Corsi(钻石闪闪光)
-   · 任务切换(听指挥小矿工) · 大师混合
-   全部为 DOM 点选式, 零文字依赖(图标+语音), 纯鼠标可完成
+   Focus Paradigms (专注五范式引擎) — 引擎层
+   ------------------------------------------------------------
+   一句话职责: 藏住四类点选式判别游戏的试次生成/计时/自适应与结算,
+   调度层只给参数与 handler, 拿回统计; 引擎不知道奖励/背包/图章。
+   interface: mkAdapt(failCount) · runDiscrimination(area, params, adapt, h, framing) ·
+     runFlanker(area, params, adapt, h) · runCorsi(area, params, adapt, h) ·
+     runSwitch(area, params, adapt, h) · withDim(h, dim) ·
+     focusDispatch(level) · runFocusLevel(level, area, h, failCount)
+   依赖(均经全局名, 调用期解析): SpeechKit(js/speech.js) · sfx(js/audio.js) ·
+     stimIcon→iconOf(js/icons.js)/mcIcon(js/focus-icons.js) ·
+     mobFace→pigFace/sheepFace(js/focus-icons.js)/Mobs.face(js/mobs.js) ·
+     FOCUS_META(js/focus-levels.js); 本文件只被模式层调用, 不反向依赖模式层
+   可测性: DOM 惰性创建(仅 document) · Node 测试可安全加载, 有驱动缝单测
+     (test/focus-paradigms.test.js, vm 直测)
    ------------------------------------------------------------
    F2 关内行为(参数形状权威=focus-levels.js 头注释):
    判别: No-Go 逐试次按 disguiseRate 掷骰伪装(中=绿宝石/不中=显性
@@ -686,15 +696,15 @@ function runFocusLevel(level, area, h, failCount) {
       }
       const s = level.sections[sec];
       SpeechKit.speak('新游戏：' + FOCUS_META[s.dim].game + '！');
-      const sub = {
+      const sub = withDim({
         progress(k, n) {
           h.progress(sec + k/Math.max(1, n), level.sections.length);
         },
         showRule() {
           h.showRule && h.showRule(s.dim);
         },
-        onTrial(t) { // 事件缝透传: 小节事件补上该小节的维度名
-          h.onTrial && h.onTrial(Object.assign({dim: s.dim}, t));
+        onTrial(t) { // 先透传调用方事件, dim 补注交给 withDim 统一实现
+          h.onTrial && h.onTrial(t);
         },
         end(st) {
           agg.trials += st.trials; agg.correct += st.correct;
@@ -705,7 +715,7 @@ function runFocusLevel(level, area, h, failCount) {
           sec++;
           T.after(600, runSection);
         },
-      };
+      }, s.dim); // 事件缝补注该小节维度(与普通关卡同一实现, 不再手抄)
       const p2 = {...s.params};
       area.innerHTML = '';
       const engine = runFocusLevel({dim: s.dim, kind: 'normal', params: p2}, area, sub, failCount);
