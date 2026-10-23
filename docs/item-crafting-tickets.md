@@ -161,8 +161,11 @@ flowchart TD
 
 ## 第四波
 
-### T11 探险模式骨架 `[ ]`
+### T11 探险模式骨架 `[x]`（并入 `4dd36dd`）
 - 依赖：T2、T5、T6、T7、T9、T10。
+- 挂点清单（模式对象 `AdventureMode.adv`）：挖掘挂 onMouse（未声明，mkMode 直通）；破坏/放置记账 `advMarkEdit`；`advStationOk()` 恒 true 占位（T13 换 4 格判定）；`advOnCraft` toast 占位；熔炉面板未实例化（放 advPanel 旁）；巢穴常量 `ADV_NESTS`（kinds 池备注）；`advGetPEnt()` 玩家实体；`ADV.quest`+`advPanel.questEl` 任务卡接线点。
+- 缺口：草丛（B_GRASS_TUFT）地形散布未做——**归 T12 补**。
+- 环境：外部提交 c69177c 下线 TNT 密室模式（mode-registry 断言 5→4+adventure）。
 - 交付：`js/modes/adventure.js` + 模式注册表行 + index.html 卡/页/script（本单唯一允许改 index.html 的工单——引擎 script 行按此前各单的声明一并加上，加完 boot 冒烟必须绿）。地形确定性生成（SceneKit：草原/树林~40/湖+湖底黏土/2 露天矿坑/1 山洞/出生小屋/3 巢穴位标记）、出生与死亡政策（死亡：背包保留+回出生点满血）、三份存档接线（inventory/adventure_world/adventure_quest，mkSaveSlot+SyncDB）、儿童时限共享预算。本单只交付「能进能玩地形+背包 UI 出来」，交互在后三单。
 - 测试：`test/adventure-mode.test.js`（nether-mode.test.js 先例）——模式注册断言、地形生成纯函数段、存档往返。
 
