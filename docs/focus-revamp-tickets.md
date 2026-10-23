@@ -5,10 +5,11 @@
 > 本文件是 implement-spec 流程的 tracker 代理：工单完成 = 分支并入集成分支 + 勾选状态。
 >
 > **上下文指针（实现者必读，勿复述）**
-> - Spec（合同）：`docs/focus-revamp-plan.md`——Implementation Decisions 19 条 + Testing Decisions（测试缝已与用户确认）
+> - Spec（合同）：`docs/focus-revamp-spec.md`——Implementation Decisions 19 条 + Testing Decisions（测试缝已与用户确认，基线核对后零新缝）
 > - 实现设计与全部数值：`docs/focus-revamp-design.md`（§2 难度曲线 D1~D5 · §3 战利品 L1~L6 · §4 观感清单 · §8 结构层 B1~B8）
 > - 决策记录：`docs/adr/0002-focus-loot-integration.md`（共享背包推翻 D1 口径）
 > - 工程规范：`AGENTS.md` 硬规则 + `docs/conventions.md`（§1.7 模块头 `====` 五要素；`-core` 必配同名单测）
+> - 基线：音频重建已收官、探险模式已上线并经背包薄壳接入物品系统（训练营为共享背包第二消费方）
 >
 > **通用纪律（每单生效）**
 > 1. worktree 基于 `feature/focus-revamp`（集成者建），开工前核对基点，不符则 `reset --hard` 回集成分支顶端。
@@ -27,7 +28,7 @@
 flowchart TD
     F1["F1 关卡曲线再平衡+数据表"]:::w1
     F2["F2 范式引擎新参数+事件缝"]:::w2
-    F3["F3 共享背包壳 Backpack"]:::w1
+    F3["F3 背包壳对接核对(薄壳已存在)"]:::w1
     F4["F4 像素资产包(村长/图章/火苗)"]:::w1
     F5["F5 矿袋+战利品政策"]:::w3
     F6["F6 里程碑工具+宝物柜"]:::w3
@@ -68,12 +69,12 @@ flowchart TD
 - 测试（范式引擎 vm 缝扩展）：**渐进无断层断言族**——每个 qualitative 参数在引入档必须 0<值<1、单调不降至封顶（"qualitative 跳变必须混编"由此锁死）；档位边界（corsi len≤6 且 grid16 仅 tier≥14；flanker len≤9 且 len9 仅 tier≥18、congruentRate≥0.35、window≥1500；switch rules≤3、choices∈{4,5}）；掉落表概率和=1 且全部 id 在 ITEMS 注册（交叉断言，先例：物品系统掉落表测试）且 stackMax>0；里程碑 6 条且 isTool 全真；focusFlame 边界（85/70）；devilStep 边界（85↑/66 保持/65↓、等级 1 不下探、10 不上溢）；体检参数时长上界（试次数×时长封顶）；既有测试（门槛/编排/三星/自适应）必须原样全绿。
 - 备注：gonogo 规则文案随 disguiseRate 改为「钻石快挖！别的矿和 TNT 都不要碰。」；focusTip 同步微调。
 
-### F3 共享背包壳（Backpack）`[ ]`
+### F3 背包壳对接核对（薄壳已存在）`[ ]`
 - 依赖：无。
-- 决策已审定：ADR 0002——全游戏唯一拥有共享背包存档键的模块，未来消费方（探险/建造/下界）一律经此壳；专注只产出不消耗（不接配方/耐久/挖掘/放置）。
-- 交付：新应用层壳模块——`load()→inv / add(id,n)→余量 / count(id) / total() / onChange(fn) / renderGrid(doc?)→宝物柜 HTML`；内部走背包核心纯函数（add 并堆→空位→满拒收）与云同步存档槽（defaults=空背包序列化，损坏回落空包）；头注释五要素 + CommonJS 导出守卫。
-- 测试：`test/backpack.test.js`（**本特性唯一新缝**）——vm 加载 items-core + inventory-core + 本模块，stub 存储槽：默认空包 / 增删往返 / 堆叠与拒收（未注册 id） / onChange 触发 / 损坏档回落。先例：存档槽与模式工具箱的壳层 vm 测试。
-- 声明加载位置：背包核心（inventory-core）之后、训练营模式层（modes/focus.js）之前。
+- 现状：`js/backpack.js` 已由 code-review 轮 S6 装配（`mkBackpack()→{inv, load 原地换槽, save}`，
+  存档键唯一持有，ADR 0002），index.html 已挂载，`test/backpack.test.js` 已存在——**本单不新建文件不加新缝**。
+- 交付：训练营接入核对——①授予流走背包核心纯函数直接作用于 `bp.inv` + `bp.save()`（不在壳上叠包装）；②宝物柜渲染落在训练营模式层（分组网格 + iconOf + 数量角标）；③**混装容量核定**：与探险模式共用 27 槽，复核「里程碑 6 件工具 + 双模式战利品」的容量共存；不足则里程碑工具改存宝物柜展示位不占背包槽（在报告里写明选型）；④满包语义核对（add 返余量>0 → 静默忽略 + 每关至多一次 toast，政策归 F5）。
+- 测试：既有 `test/backpack.test.js` 保持全绿；本单不新增缝。
 
 ### F4 像素资产包 `[ ]`
 - 依赖：无。
@@ -95,8 +96,8 @@ flowchart TD
 ## 第三波（可并行）
 
 ### F5 矿袋 + 战利品政策 `[ ]`
-- 依赖：F1（掉落表）、F2（事件缝）、F3（Backpack）。
-- 交付：训练营模式层接 onTrial→按 FOCUS_LOOT 掷骰（正确 p=0.45 / 3 连对保底稀有池 / 教学关豁免 / 通关 torch|apple 二选一 / 三星追加 1 钻石）→ Backpack.add → 矿袋 HUD 槽位飞入动画（贝塞尔弧线，复刻掉落物真空吸附观感）+ 落袋音；结算页战利品列队回顾；满包静默忽略 + 每关至多一次 toast「背包满啦」。
+- 依赖：F1（掉落表）、F2（事件缝）、F3（背包对接核对）。
+- 交付：训练营模式层接 onTrial→按 FOCUS_LOOT 掷骰（正确 p=0.45 / 3 连对保底稀有池 / 教学关豁免 / 通关 torch|apple 二选一 / 三星追加 1 钻石）→ 背包核心 add 作用于 bp.inv + bp.save → 矿袋 HUD 槽位飞入动画（贝塞尔弧线，复刻掉落物真空吸附观感）+ 落袋音；结算页战利品列队回顾；满包静默忽略 + 每关至多一次 toast「背包满啦」。
 - 测试：掷骰政策抽成种子可注入的顶层纯函数进 vm 缝（概率边界/保底触发/豁免分支/满包余量）；DOM 动画不直测。
 - 数值：设计稿 §3 L3 + §4。
 

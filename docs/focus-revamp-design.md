@@ -131,15 +131,14 @@ gonogo tier11 伪装已全量（与旧持平），无断崖。
 
 ## 3. 战利品回路与共享背包（L1~L6）
 
-### L1 · 共享背包 Backpack（新文件 `js/backpack.js`，应用层 adapter）
+### L1 · 共享背包 Backpack（对接既有薄壳——code-review 轮 S6 已装配 `js/backpack.js`）
 
-- **唯一拥有 `inventory_save` 存档键的模块**（ADR 0002）：`SyncDB.slot('inventory_save',
-  {defaults: serialize(mkInventory())})`；满包/损坏回落空背包。
-- interface：`load()→inv` · `add(id,n)→余量`（内部落账+onChange）· `count(id)` ·
-  `total()` · `onChange(fn)` · `renderGrid(doc?)→宝物柜 HTML`。
-- 依赖：inventory-core（引擎纯核心）、SyncDB、iconOf（icons.js）。index.html 挂载位置：
-  inventory-core 之后、modes/focus.js 之前。
-- 未来消费方（探险/建造生存/下界掉落）一律经此壳，不得自开键。
+- 存档键唯一持有（ADR 0002）：`mkBackpack() → {inv, load(原地换槽), save}` 薄壳已上线并配
+  单测，探险模式为第一消费方，训练营为第二消费方。**授予流 = 背包核心纯函数直接作用于
+  inv + save，不在壳上叠包装**；宝物柜渲染归训练营模式层。
+- 与探险共用一包的共存口径：27 槽容量共享，满包=静默忽略+每关至多一次提示（见 L3）；
+  「里程碑 6 件工具 + 双模式战利品」的混装余量在实现期核定，不足则里程碑工具改存宝物柜
+  展示位、不占背包槽。
 
 ### L2 · 引擎事件缝（focus-paradigms.js，分层不破）
 
@@ -391,3 +390,7 @@ gonogo tier11 伪装已全量（与旧持平），无断崖。
   逐日锁定/计 2 关额度/85-66 双阈鬼等级阶梯/村长鬼化），§2 D4 追加 **antiChunk**
   （鬼ブロック 反组块变体，corsi 顶格新杠杆）；**明确不引入 n-back**（鬼計算即 N-back，
   MISSION <8 岁排除条款，满 8 岁重议入口见 §7.7）。
+- 2026-10-23 四次微调（spec 化对齐基线）：背包壳不再是新文件——S6 已装配薄壳
+  （`mkBackpack()→{inv, load, save}`，探险已为第一消费方），L1 改为对接口径（授予流走
+  背包核心、宝物柜渲染归模式层、混装容量实现期核定）；实现规格与工单另立
+  `docs/focus-revamp-spec.md` / `docs/focus-revamp-tickets.md`（ready-for-agent）。
