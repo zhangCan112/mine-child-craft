@@ -83,7 +83,7 @@ flowchart TD
   - `AUDIO_MIX`：响度常数表（musicBus 0.30/0.25 触屏 · sfxBus 0.9/0.8 · duck 0.08 · 淡入淡出时长）。
 - 测试：`test/audio-core.test.js`（先例 quality-core.test.js）：VoiceGate 边界（未满放行/满员低让高抢/冷却窗/抢占恰停最老）；MusicDirector 注入确定性 rand 序列，tick 推进断言事件序列与增益轨迹（起曲延迟区间/静默区间/换 mood 交叉淡出时序/duck 压低回升）。
 
-### A9 server.js 音频 MIME + 缓存豁免 `[ ]`
+### A9 server.js 音频 MIME + 缓存豁免 `[x]`（并入 `e2b35f0`，合并 `e32f01b`）
 - 依赖：无。
 - 交付：server.js 两处：① MIME 表补 `.m4a audio/mp4 · .mp3 audio/mpeg · .ogg audio/ogg · .wav audio/wav · .flac audio/flac`；② 音频扩展名豁免 `no-store`（走既有 ETag/304 协商缓存——每次刷新省 ~20MB 局域网重拉；代码文件维持 no-store 版本一致性政策不动，注释写明理由）。音频不入 GZIPABLE（现表已不含，注释确认）。
 - 测试：server.js 无单测先例，不加；报告里附一条本地验证（node server.js 起 + PowerShell Invoke-WebRequest 拉 .m4a 断言 Content-Type 与二次请求 304）。
