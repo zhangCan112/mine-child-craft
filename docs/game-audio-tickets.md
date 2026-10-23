@@ -183,3 +183,11 @@ flowchart TD
   - ① **超时页 playTime 保持模式情绪口径，不改**——`playTimeUp` 只 `showPage('playTime')`，不触发 switchMode/showPage('main')，BGM 情绪维持当前模式；A5 设计如此（超时收摊不另做音乐情绪提示）。若产品口径日后要收成 menu/none，是在 `playTimeUp`/`showPlayTimeoutPage`（main.js）补一行 `AudioMixer.setMood(...)` 的事，本单不做。
   - ② **mood 映射维持听感推断**（crickets→calm · the-abyss→dark · volcano→battle，即 MUSIC_TRACKS 现值），iPad 真机验收后可调；Fallen Age 备用两首（A Forgotten World / Ruins of an Ancient Culture）在仓库外临时目录 `C:\Users\user\AppData\Local\Temp\opencode\a7-sources\`，换曲/增补时入库并同步 CREDITS 与 MUSIC_TRACKS。
   - ③ **level/win 保持纯合成**——琶音/和弦比打击样本更贴仪式感（A7④），不样本化。
+
+---
+
+## 评审收尾
+
+- 双轴评审（Standards 轴 2 处硬违规 + Spec 轴 4 处发现，含 duck×音量只降不升 bug）全部由 `audio/review-fixes`（f607563）单实现者修复（并入 83d4607）。
+- 两处实现偏离（durMs 浅副本替代 trackId Map / MOODS 镜像断言随收窄退役）已记录。
+- loudnorm 落实 13 文件 I=-21/TP=-2，85 首 jingles 备用池未处理。
