@@ -6,13 +6,15 @@
    paramsFor 难度曲线(tier 1..19, qualitative 跳变一律概率渐进
    混编——台阶变坡道) · 100 关螺旋编排 · 通过门槛/三星 ·
    战利品掉落表与里程碑工具 · 体检/魔鬼特训/图章数据与纯函数。
-   数值出处: docs/focus-revamp-design.md §2(D1~D5)/§3(L3~L4)/§8(B1~B8)。
+   数值出处: docs/focus-revamp-design.md §2(D1~D5)/§3(L3~L4)/§8(B1~B8);
+   奖励数值(2026-10 调优)出处: docs/focus-reward-tuning-design.md(段位表/EV 台账)。
    科学依据(见 MISSION.md): 五维范式 · 每关只动一个难度维度(Davidson 2006)
    · 复习/交错编排 = 间隔效应+交错练习(Cepeda 2006; Klimovich 2025)
    interface: FOCUS_DIMS · FOCUS_META · paramsFor(dim, tier, li) ·
-     FOCUS_LEVELS · focusPassed · focusStars · FOCUS_LOOT · FOCUS_MILESTONES ·
+     FOCUS_LEVELS · focusPassed · focusStars · FOCUS_REWARD_STAGES ·
+     rewardStageFor(tier) · rewardTrialCount(level, dim) · FOCUS_MILESTONES ·
      milestoneLevels · milestoneDue · focusProgress ·
-     rollFocusLoot(dim,{ok,streak,kind,seed}) · levelBonusLoot(passed,stars,{kind,seed}) ·
+     rollFocusLoot(level,{ok,dry,dim,seed}) · levelBonusLoot(passed,stars,level,{seed}) ·
      grantFocusLoot(inv,ids) ·
      FOCUS_CHECK_PARAMS · focusFlame · devilStep · devilParams ·
      FOCUS_STAMP_DAILY · FOCUS_STAMP_REWARDS · stampRecord(stamps, day, count) ·
@@ -193,31 +195,68 @@ function focusStars(level, st) {
   return s;
 }
 
-/* ---------- 战利品掉落表(设计稿 §3 L3) ----------
-   按维度主题化、以基础材料为主(为未来探险经济留余量, ADR 0002);
-   概率和=1, id 全部在物品注册表注册(items-core 的 ITEMS)。
-   掷骰政策(正确 p=0.45 · 3 连对保底稀有池 · 教学关豁免 · 通关/三星追加)
-   见下方纯函数; HUD/飞入观感/满包 toast 归模式层; 稀有池五维共用。 */
-const FOCUS_LOOT_RARE = {gold_ingot: 0.6, diamond: 0.4};
-const FOCUS_LOOT = {
-  cpt: {pool: {coal: 0.40, iron_ore: 0.25, torch: 0.20, iron_ingot: 0.12, gold_ingot: 0.03}, rare: FOCUS_LOOT_RARE},
-  gonogo: {pool: {cobble: 0.30, coal: 0.25, iron_ore: 0.20, iron_ingot: 0.15, diamond: 0.10}, rare: FOCUS_LOOT_RARE},
-  flanker: {pool: {gunpowder: 0.45, string: 0.25, bone: 0.20, slimeball: 0.10}, rare: FOCUS_LOOT_RARE}, // 苦力怕/蜘蛛/骷髅的掉落物
-  corsi: {pool: {diamond: 0.40, gold_ingot: 0.25, iron_ingot: 0.20, bone_meal: 0.15}, rare: FOCUS_LOOT_RARE},
-  switch: {pool: {planks: 0.25, stick: 0.25, brick: 0.20, clay_ball: 0.15, bread: 0.15}, rare: FOCUS_LOOT_RARE},
-};
+/* ---------- 矿袋段位奖励表(奖励调优 2026-10, docs/focus-reward-tuning-design.md) ----------
+   品质镜像探险深度带(adventure-core D5): 段越深矿越贵——段1 煤带级 → 段4
+   钻带级(钻石只在此段出现, 金段3 首见, 铁锭全程不发——烧炼教学归探险)。
+   幅度随段递增(变率 p 0.06→0.15 · 通关 1→2 件 · 三星追加煤→钻), 总量压至
+   旧口径(固定 p=0.45+连对保底, 日产约 60 件)的 1/3~1/5: 段1 日约 11 件、
+   段4 满载约 25 件。奖励形态依动机研究(docs/reward-model-research.md §4):
+   变率掷骰=意外层(意外奖励 d≈0 无害), 通关/三星=庆祝层, 星级/火苗=能力
+   反馈层; 连对保底(每满 3 必得=预期的实物工资, completion-contingent
+   d=−0.36)退役, 防空关挫败改关内干燥兜底(连续 FOCUS_REWARD_DRY 个答对
+   未掉则必得, Schreiber L7 干燥期后必给大奖的背书)。概率和=1, id 全部在
+   物品注册表注册(items-core 的 ITEMS)。
+   复用契约(后续带奖励模式接入同构预算治理, 见设计文档 §5): 登记段位表
+   {tier 门槛, p, pool, bonus, star3} + 试次基准 + 干燥阈值三件即可,
+   掉落永远不与表现排名挂钩(差额奖励 d=−0.88 最危险形态, 红线)。 */
+const FOCUS_REWARD_STAGES = [
+  {tier: 2, p: 0.06, pool: {coal: 0.55, cobble: 0.25, planks: 0.20},
+    bonus: [['torch']], star3: [['coal']]},
+  {tier: 6, p: 0.09, pool: {coal: 0.35, iron_ore: 0.30, cobble: 0.20, clay_ball: 0.15},
+    bonus: [['torch', 'apple']], star3: [['coal']]},
+  {tier: 11, p: 0.12, pool: {coal: 0.25, iron_ore: 0.35, bread: 0.20, bone_meal: 0.10, gold_ingot: 0.10},
+    bonus: [['apple', 'bread']], star3: [['gold_ingot']]},
+  {tier: 16, p: 0.15, pool: {iron_ore: 0.40, coal: 0.12, bread: 0.25, gold_ingot: 0.15, diamond: 0.08},
+    bonus: [['bread', 'apple'], ['iron_ore']], star3: [['diamond']]},
+];
 
-/* ---------- 矿袋掷骰政策(F5 工单, 设计稿 §3 L3): 种子可注入的纯函数 ----------
-   教学关(kind='tutorial')与错误试次零掉落(零压力/只奖不罚); 正确试次以
-   p=0.45 掷维度池; 连对每满 3 次的那一试次(streak=3/6/…)保底掷稀有池
-   (稀有池概率和=1 必得, 不受 0.45 门槛)。seed 缺省走 Math.random(运行时);
-   注入数字则用与测试惯例同常数的 LCG — 同 seed 同输出, 概率边界可锁定。
-   HUD/飞入观感/满包 toast 归模式层(modes/focus.js), 本层只出决策。 */
-const FOCUS_LOOT_P = 0.45; // 正确试次掉落概率(L3)
-const FOCUS_LOOT_STREAK = 3; // 保底节拍: 连对每满 3 次掷稀有池
+/* 矿袋掷骰政策(F5 起源 → 奖励调优): 种子可注入的纯函数。seed 缺省走
+   Math.random(运行时); 注入数字则用与测试惯例同常数的 LCG — 同 seed
+   同输出, 概率边界可锁定。HUD/飞入观感/满包 toast 归模式层
+   (modes/focus.js), 本层只出决策。 */
+const FOCUS_REWARD_TRIAL_REF = 18; // 试次归一基准: 各维每关期望产次趋同
+const FOCUS_REWARD_DRY = 10; // 干燥兜底: 关内连续 10 个答对未掉, 下一答对必得
+
+/* tier → 奖励段行(纯函数): 返回 tier 所属段的表行; 教学(tier1)/越界无段
+   返回 null(掷骰侧另有教学豁免双保险, 此处防御不奖励白给) */
+function rewardStageFor(tier) {
+  let st = null;
+  for (const row of FOCUS_REWARD_STAGES) {
+    if (tier >= row.tier) st = row;
+  }
+  return st;
+}
+
+/* 该关该维度的期望试次数(纯函数): 普通关读 params, 大师关 sections 各节
+   各归各(dim 补注); corsi 无 trials 用 seqs 兜底, 未知回落基准(=归一 1.0) */
+function rewardTrialCount(level, dim) {
+  const d = dim || level.dim;
+  if (Array.isArray(level.sections)) {
+    const sec = level.sections.find((s)=>s.dim === d);
+    if (sec) return sec.params.trials || sec.params.seqs || FOCUS_REWARD_TRIAL_REF;
+  }
+  if (d === level.dim && level.params) {
+    return level.params.trials || level.params.seqs || FOCUS_REWARD_TRIAL_REF;
+  }
+  /* 维度补注与本体不同且无对应节(防御): 按该维度难度现算期望试次 */
+  const p = paramsFor(d, level.tier || 1) || {};
+  return p.trials || p.seqs || FOCUS_REWARD_TRIAL_REF;
+}
 
 function mkLootRand(seed) {
-  let s = seed;
+  // seed 缺省回落 Math.random(头部注释的既定口径): 不回落则 LCG 首步
+  // 得 NaN, NaN>=p 恒假=掉率虚涨到 100%, 池内比较全假=恒掉最后一键
+  let s = seed === undefined ? Math.floor(Math.random() * 2147483648) : seed;
   return function() {
     s = (s*1103515245 + 12345) % 2147483648;
     return s/2147483648;
@@ -234,27 +273,40 @@ function pickLootWeighted(pool, r) {
   return Object.keys(pool).pop();
 }
 
-/* t = {ok, streak, kind, seed} → itemId|null */
-function rollFocusLoot(dim, t) {
+/* t = {ok, dry, dim, seed} → itemId|null; dry = 关内连续答对未掉计数
+   (模式层维护, 关开始清零, 答错清零), 达 FOCUS_REWARD_DRY 跳过掷骰必得 */
+function rollFocusLoot(level, t) {
   const e = t || {};
-  if (e.kind === 'tutorial' || !e.ok) return null; // 教学豁免 + 只奖不罚
-  const loot = FOCUS_LOOT[dim];
-  if (!loot) return null; // 未知维度兜底
+  if (level.kind === 'tutorial' || !e.ok) return null; // 教学豁免 + 只奖不罚
+  const st = rewardStageFor(level.tier);
+  if (!st) return null; // 无奖励段(防御)
   const rnd = mkLootRand(e.seed);
-  if (e.streak > 0 && e.streak % FOCUS_LOOT_STREAK === 0) {
-    return pickLootWeighted(loot.rare, rnd()); // 保底: 必得稀有池一件
-  }
-  if (rnd() >= FOCUS_LOOT_P) return null; // 未中
-  return pickLootWeighted(loot.pool, rnd());
+  // 试次归一: corsi 6 序列 vs cpt 28 试次, 不归一则记忆维度关恒穷
+  const pEff = st.p * FOCUS_REWARD_TRIAL_REF / rewardTrialCount(level, e.dim);
+  if (!(e.dry >= FOCUS_REWARD_DRY) && rnd() >= pEff) return null; // 未中
+  return pickLootWeighted(st.pool, rnd());
 }
 
-/* 结算奖励(设计稿 §3 L3): 通关得 torch|apple 二选一(掷骰), 三星追加 1 钻石;
-   未通过/教学关不发。opts = {kind, seed} */
-function levelBonusLoot(passed, stars, opts) {
+/* 段位表条目展开(纯函数): [[a,b],[c]] → 掷骰选一 + 固定 c 的 id 清单 */
+function expandRewardEntries(entries, rnd) {
+  const out = [];
+  for (const one of entries || []) {
+    out.push(one.length === 1 ? one[0] : one[Math.min(one.length - 1, Math.floor(rnd() * one.length))]);
+  }
+  return out;
+}
+
+/* 结算奖励(庆祝层): 通关按段位表展开 bonus, 三星追加 star3; 未通过/教学关
+   不发。内层数组单元素=固定得, 多元素=掷骰选一(保留开箱风味); opts = {seed} */
+function levelBonusLoot(passed, stars, level, opts) {
   const o = opts || {};
-  if (!passed || o.kind === 'tutorial') return [];
-  const base = mkLootRand(o.seed)() < 0.5 ? 'torch' : 'apple';
-  return stars >= 3 ? [base, 'diamond'] : [base];
+  if (!passed || !level || level.kind === 'tutorial') return [];
+  const st = rewardStageFor(level.tier);
+  if (!st) return [];
+  const rnd = mkLootRand(o.seed);
+  const out = expandRewardEntries(st.bonus, rnd);
+  if (stars >= 3) out.push(...expandRewardEntries(st.star3, rnd));
+  return out;
 }
 
 /* 战利品入包授予流(F3 核定口径): 逐件 add 进背包本体, 余量>0 静默忽略

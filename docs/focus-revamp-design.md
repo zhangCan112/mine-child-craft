@@ -152,6 +152,8 @@ gonogo tier11 伪装已全量（与旧持平），无断崖。
 
 ### L3 · 矿袋奖励政策（modes/focus.js，应用层）
 
+> ⚠️ 2026-10-24 奖励调优修订：本节的掉落数值口径（p=0.45 / 连对保底稀有池 / 五维主题池 / 三星恒 +1 钻石）已被 **docs/focus-reward-tuning-design.md** 取代（段位递增 + 总量压制 + 干燥兜底，FOCUS_REWARD_STAGES 为数值权威）；本节保留为 2.0 增量的历史口径，观感装配描述（飞入弧线/结算回顾/满包 toast）仍有效。
+
 - 触发：`onTrial({ok, streak})` → 正确以 **p=0.45** 掷骰掉落；**3 连对保底**一掷稀有池
   （连续正确的"desirable difficulty"正反馈，只奖不罚）。
 - 教学关（kind=tutorial）不掉落——零压力入门。

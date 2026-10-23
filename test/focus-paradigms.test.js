@@ -71,7 +71,9 @@ function loadFocus() {
   vm.runInContext(`
     globalThis.__fp = { focusDispatch, runFocusLevel, mkAdapt, FOCUS_LEVELS, FOCUS_DIMS,
                         focusPassed, focusStars, FOCUS_META, paramsFor,
-                        FOCUS_LOOT, FOCUS_CHECK_PARAMS,
+                        FOCUS_REWARD_STAGES, rewardStageFor, rewardTrialCount,
+                        FOCUS_REWARD_TRIAL_REF, FOCUS_REWARD_DRY,
+                        FOCUS_CHECK_PARAMS,
                         focusFlame, devilStep, devilParams,
                         FOCUS_STAMP_DAILY, FOCUS_STAMP_REWARDS,
                         focusDayIndex, trimFocusLog, FOCUS_LOG_KEEP_DAYS,
@@ -1000,28 +1002,71 @@ test('FOCUS_META: gonogo 规则文案随伪装坡道更新, 各维 tip 全档位
 
 /* ============ F1 数据表与纯函数(掉落/里程碑/体检/火苗/鬼等级/图章) ============ */
 
-test('FOCUS_LOOT: 五维掉落池与稀有池概率和=1, id 全在 ITEMS 注册且 stackMax>0', () => {
+test('FOCUS_REWARD_STAGES: 四段递增掉落表 — 概率和=1, id 全在 ITEMS 注册且 stackMax>0', () => {
   const {fp} = loadFocus();
-  for (const dim of fp.FOCUS_DIMS) {
-    const loot = fp.FOCUS_LOOT[dim];
-    assert.ok(loot && loot.pool && loot.rare, dim + ' 有掉落池与稀有池');
-    for (const name of ['pool', 'rare']) {
-      const entries = Object.keys(loot[name]);
-      assert.ok(entries.length >= 2, dim + ' ' + name + ' 至少两件');
-      let sum = 0;
-      for (const id of entries) {
-        sum += loot[name][id];
-        assert.ok(fp.ITEMS[id], dim + ' ' + name + ' 的 ' + id + ' 必须在 ITEMS 注册');
-        assert.ok(fp.stackMax(id) > 0, id + ' 可入包堆叠(stackMax>0)');
+  const stages = fp.FOCUS_REWARD_STAGES;
+  assert.strictEqual(stages.length, 4, '四段(奖励调优: 品质镜像探险深度带)');
+  let lastTier = 0;
+  let lastP = 0;
+  for (const st of stages) {
+    assert.ok(st.tier > lastTier, '段位 tier 门槛升序无重叠');
+    lastTier = st.tier;
+    assert.ok(st.p > lastP && st.p <= 1, '变率 p 随段严格递增(幅度随进度递增)');
+    lastP = st.p;
+    const entries = Object.keys(st.pool);
+    assert.ok(entries.length >= 3, '段池至少三件');
+    let sum = 0;
+    for (const id of entries) {
+      sum += st.pool[id];
+      assert.ok(fp.ITEMS[id], '段池的 ' + id + ' 必须在 ITEMS 注册');
+      assert.ok(fp.stackMax(id) > 0, id + ' 可入包堆叠(stackMax>0)');
+    }
+    assert.ok(Math.abs(sum - 1) < 1e-9, '段池概率和=1, 实为 ' + sum);
+    for (const key of ['bonus', 'star3']) {
+      assert.ok(st[key].length >= 1, key + ' 至少一组');
+      for (const one of st[key]) {
+        assert.ok(Array.isArray(one) && one.length >= 1, key + ' 内层为非空数组(单元素=固定, 多元素=掷骰选一)');
+        for (const id of one) {
+          assert.ok(fp.ITEMS[id], key + ' 的 ' + id + ' 必须在 ITEMS 注册');
+        }
       }
-      assert.ok(Math.abs(sum - 1) < 1e-9, dim + ' ' + name + ' 概率和=1, 实为 ' + sum);
     }
   }
-  /* 锚点(设计稿 §3 L3): 稀有池五维共用 gold_ingot .6/diamond .4; flanker 池为怪物掉落物 */
-  near(fp.FOCUS_LOOT.cpt.rare.gold_ingot, 0.6);
-  near(fp.FOCUS_LOOT.flanker.rare.diamond, 0.4);
-  near(fp.FOCUS_LOOT.flanker.pool.gunpowder, 0.45);
-  near(fp.FOCUS_LOOT.corsi.pool.diamond, 0.4);
+  /* 品质红线锚点(奖励调优设计文档): 钻石只在段4出现、金段3 首见、铁锭全程
+     不发(烧炼教学归探险, ADR 0002 只产不耗的语义收窄) */
+  const idsOf = (st) => [...Object.keys(st.pool), ...st.bonus.flat(), ...st.star3.flat()];
+  for (let s = 0; s < 3; s++) {
+    assert.ok(!idsOf(stages[s]).includes('diamond'), '段' + (s+1) + ' 无钻石(高价值=晚出现)');
+    assert.ok(!idsOf(stages[s]).includes('iron_ingot'), '段' + (s+1) + ' 无铁锭');
+  }
+  for (let s = 0; s < 2; s++) {
+    assert.ok(!idsOf(stages[s]).includes('gold_ingot'), '段' + (s+1) + ' 无金锭(段3 首见)');
+  }
+  assert.ok(stages[3].pool.diamond > 0, '段4 钻带级含钻石');
+});
+
+test('rewardStageFor/rewardTrialCount: tier→段映射与试次归一的取数口径', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.rewardStageFor(1), null, '教学 tier1 无奖励段');
+  assert.strictEqual(fp.rewardStageFor(2), fp.FOCUS_REWARD_STAGES[0]);
+  assert.strictEqual(fp.rewardStageFor(5), fp.FOCUS_REWARD_STAGES[0]);
+  assert.strictEqual(fp.rewardStageFor(6), fp.FOCUS_REWARD_STAGES[1]);
+  assert.strictEqual(fp.rewardStageFor(11), fp.FOCUS_REWARD_STAGES[2]);
+  assert.strictEqual(fp.rewardStageFor(16), fp.FOCUS_REWARD_STAGES[3]);
+  assert.strictEqual(fp.rewardStageFor(19), fp.FOCUS_REWARD_STAGES[3]);
+  assert.strictEqual(fp.rewardStageFor(99), fp.FOCUS_REWARD_STAGES[3], '越界回落末段(防御不白给)');
+  /* 试次取数: 普通关读 params(cpt trials / corsi seqs), 大师关 sections 各节各归各 */
+  const L50 = fp.FOCUS_LEVELS[50];
+  assert.strictEqual(fp.rewardTrialCount(L50), L50.params.trials, 'cpt 关读 params.trials');
+  const L8 = fp.FOCUS_LEVELS[8]; /* i=8: k=3 → corsi(FOCUS_DIMS[3]) */
+  assert.strictEqual(L8.dim, 'corsi');
+  assert.strictEqual(fp.rewardTrialCount(L8), L8.params.seqs, 'corsi 关读 params.seqs');
+  const M = fp.FOCUS_LEVELS[99];
+  const mCpt = M.sections.find((s)=>s.dim==='cpt');
+  assert.strictEqual(fp.rewardTrialCount(M, 'cpt'), mCpt.params.trials, '大师关按 dim 补注查 sections');
+  const mSelf = M.sections.find((s)=>s.dim===M.dim);
+  assert.strictEqual(fp.rewardTrialCount(M), mSelf.params.trials, '大师关缺省 dim 落本体 dim 的 sections 节(哨兵 dim=switch 也在节内)');
+  assert.strictEqual(fp.rewardTrialCount({dim: 'cpt'}, '???'), fp.FOCUS_REWARD_TRIAL_REF, '未知 dim 回落基准=归一 1.0(防御)');
 });
 
 test('FOCUS_MILESTONES: 6 条里程碑(10/30/50/70/90/100)且全为工具(木镐→钻剑长线)', () => {
@@ -1359,115 +1404,196 @@ test('milestoneDue × focusProgress: 大师通关存档一次补授全 6 件', (
   assert.strictEqual(due.length, 6, '进度 100 → 6 阶全授');
 });
 
-/* ============ F5 矿袋战利品政策(设计稿 §3 L3): 掷骰/结算/授予纯函数 ============
-   rollFocusLoot: 正确试次 p=0.45 掷维度池 · 连对每满 3 次的那一试次保底掷
-   稀有池(概率和=1 必得) · 教学关/错误试次零掉落; seed 注入锁定概率边界
-   (首骰值以同常数 LCG 独立预言 — 常数是本文件 loadFocusDrv 已有的公开
-   惯例, 选择逻辑不重实现, 只断言掉/不掉与产物归属)。
-   levelBonusLoot: 通关 torch|apple 二选一 + 三星追加 1 钻石(教学关不发)。
-   grantFocusLoot: F3 核定授予流 — 余量>0 静默忽略并标 full(每关至多一次
-   toast 归模式层); DOM 飞入/HUD 不直测, boot 冒烟兜底。 */
+/* ============ F5 矿袋段位奖励政策(奖励调优 2026-10): 掷骰/结算/授予纯函数 ============
+   rollFocusLoot(level,{ok,dry,dim,seed}): 教学关/错误试次零掉落; 正确试次按
+   段位变率 p×试次归一掷段位池(品质随段递增, LCG 首骰独立预言锁边界);
+   dry 达 FOCUS_REWARD_DRY 跳过掷骰必得(防空关挫败的干燥兜底; 连对保底已
+   退役 — 预期的实物工资形态, docs/reward-model-research.md §4)。
+   levelBonusLoot(passed,stars,level,{seed}): 按段位表展开 bonus(单元素固定,
+   多元素掷骰选一) + 三星追加 star3(钻石只在段4)。
+   grantFocusLoot: F3 核定授予流 — 余量>0 静默忽略并标 full; DOM 不直测。 */
 
-/* LCG 首骰预言: 只复现第一个骰值(非保底路径首骰即 p 骰), 不复现选择逻辑 */
+/* LCG 首骰预言: 只复现第一个骰值(非兜底路径首骰即 p 骰), 不复现选择逻辑 */
 function lootFirstRoll(seed) {
   return ((seed * 1103515245 + 12345) % 2147483648) / 2147483648;
 }
 
+/* 段位造档: 直接取真实关卡表(段1 L5=tier2 · 段2 L25=tier6 · 段3 L50=tier11
+   · 段4 L75=tier16), 与运行时同源不手搓 */
+function stageLevel(fp, s) {
+  return fp.FOCUS_LEVELS[[5, 25, 50, 75][s - 1]];
+}
+
 test('rollFocusLoot: 教学关豁免 + 错误试次只奖不罚 — 恒无掉落', () => {
   const {fp} = loadFocus();
+  const L0 = fp.FOCUS_LEVELS[0];
   for (const seed of [1, 7, 42, 99, 12345]) {
-    assert.strictEqual(fp.rollFocusLoot('cpt', {ok: true, streak: 3, kind: 'tutorial', seed}),
-        null, '教学关 3 连对也不掉(US12 零压力), seed=' + seed);
-    assert.strictEqual(fp.rollFocusLoot('cpt', {ok: false, streak: 0, seed}),
+    assert.strictEqual(fp.rollFocusLoot(L0, {ok: true, dry: 99, seed}),
+        null, '教学关干燥兜底也不掉(零压力), seed=' + seed);
+    assert.strictEqual(fp.rollFocusLoot(stageLevel(fp, 4), {ok: false, dry: 99, seed}),
         null, '错误试次永不掉(只奖不罚), seed=' + seed);
-    assert.strictEqual(fp.rollFocusLoot('cpt', {streak: 0, seed}),
+    assert.strictEqual(fp.rollFocusLoot(stageLevel(fp, 4), {dry: 0, seed}),
         null, '缺 ok 不掷(防御: 调用方必传布尔)');
   }
 });
 
-test('rollFocusLoot: p=0.45 边界种子锁定 — 首骰未中→null, 中→产物在维度池内', () => {
+test('rollFocusLoot: seed 缺省回落 Math.random — 有掉有不掉且产物不恒定(NaN 回归)', () => {
   const {fp} = loadFocus();
-  const poolIds = Object.keys(fp.FOCUS_LOOT.cpt.pool);
+  const L = stageLevel(fp, 2); /* 段2 p_eff=0.09×18/19≈0.085: 200 掷两分支都充分 */
+  const poolIds = Object.keys(fp.rewardStageFor(L.tier).pool);
   let sawDrop = 0; let sawNull = 0;
-  for (let seed = 1; seed <= 60; seed++) {
-    const wantDrop = lootFirstRoll(seed) < 0.45; // streak=0 非保底: 首骰即 p 骰
-    const got = fp.rollFocusLoot('cpt', {ok: true, streak: 0, seed});
-    if (wantDrop) {
+  const distinct = new Set();
+  for (let i = 0; i < 200; i++) {
+    // 不传 seed = 运行时真实路径(modes/focus.js 调用点); 曾因缺省不回落
+    // 致 LCG 产 NaN: 掉率虚涨 100% 且 pickLootWeighted 恒掉池末一键
+    const got = fp.rollFocusLoot(L, {ok: true, dry: 0});
+    if (got === null) sawNull++;
+    else {
       sawDrop++;
-      assert.ok(poolIds.includes(got), '首骰<0.45 必掉且产物∈cpt 池: seed=' + seed + ' got=' + got);
-    } else {
-      sawNull++;
-      assert.strictEqual(got, null, '首骰≥0.45 不掉: seed=' + seed);
+      assert.ok(poolIds.includes(got), '缺省 seed 产物∈段2 池: got=' + got);
+      distinct.add(got);
     }
   }
-  assert.ok(sawDrop > 15 && sawNull > 15, '60 种子两个分支都充分覆盖(掉 ' + sawDrop + ' / 不掉 ' + sawNull + ')');
+  assert.ok(sawNull > 100, '200 掷必有大量未中(NaN 时 100% 掉): 不掉 ' + sawNull);
+  assert.ok(sawDrop > 5, '200 掷必有命中: 掉 ' + sawDrop);
+  assert.ok(distinct.size >= 2, '产物不恒为池末一键: ' + [...distinct].join(','));
 });
 
-test('rollFocusLoot: 池产物服从权重(1200 种子: 每类频率≈权重, 全部在池内)', () => {
+test('rollFocusLoot: 段位变率边界种子锁定 — 首骰对 p_eff 边界, 产物在段池内', () => {
   const {fp} = loadFocus();
-  const pool = fp.FOCUS_LOOT.cpt.pool; // coal .40 / iron_ore .25 / torch .20 / iron_ingot .12 / gold_ingot .03
-  const freq = {};
-  let total = 0;
-  for (let seed = 1; seed <= 1200; seed++) {
-    const id = fp.rollFocusLoot('cpt', {ok: true, streak: 0, seed});
-    if (id) {
-      freq[id] = (freq[id] || 0) + 1;
-      total++;
+  /* 每段一个代表关, p_eff = 段位 p × REF/该关期望试次; 首骰<p_eff 必掉∈段池,
+     首骰≥p_eff 不掉 — LCG 首骰值由 lootFirstRoll 独立预言, 断言掉/不掉与产物归属 */
+  for (const s of [1, 2, 3, 4]) {
+    const L = stageLevel(fp, s);
+    const st = fp.rewardStageFor(L.tier);
+    const poolIds = Object.keys(st.pool);
+    const pEff = st.p * fp.FOCUS_REWARD_TRIAL_REF / fp.rewardTrialCount(L);
+    let sawDrop = 0; let sawNull = 0;
+    for (let seed = 1; seed <= 400; seed++) {
+      const wantDrop = lootFirstRoll(seed) < pEff;
+      const got = fp.rollFocusLoot(L, {ok: true, dry: 0, seed});
+      if (wantDrop) {
+        sawDrop++;
+        assert.ok(poolIds.includes(got), '段' + s + ' 首骰<p_eff 必掉且产物∈段池: seed=' + seed + ' got=' + got);
+      } else {
+        sawNull++;
+        assert.strictEqual(got, null, '段' + s + ' 首骰≥p_eff 不掉: seed=' + seed);
+      }
     }
+    assert.ok(sawDrop >= 3 && sawNull >= 3, '段' + s + ' 两分支都有覆盖(掉 ' + sawDrop + ' / 不掉 ' + sawNull + ')');
   }
-  assert.ok(total > 400, '掉落样本足够(约 0.45×1200): ' + total);
-  for (const id of Object.keys(pool)) {
-    assert.ok((freq[id] || 0) > 0, '池内每类都有样本: ' + id);
-    const rel = (freq[id] || 0) / total;
-    assert.ok(Math.abs(rel - pool[id]) < 0.06,
-        id + ' 相对频率 ' + rel.toFixed(3) + ' ≈ 权重 ' + pool[id] + '(±0.06)');
+  /* 递增性: 四段 p 单调递增 — 变率幅度随进度逐级增加(奖励调优核心诉求) */
+  let prev = 0;
+  for (const st of fp.FOCUS_REWARD_STAGES) {
+    assert.ok(st.p > prev, '段位 p 递增: ' + st.p + ' > ' + prev);
+    prev = st.p;
   }
 });
 
-test('rollFocusLoot: 连对每满 3 次保底必得稀有池一件, 未满节拍走普通掷骰', () => {
+test('rollFocusLoot: 试次归一 — corsi(6 序列)与 cpt(约 20 试次)每关期望产次趋同', () => {
   const {fp} = loadFocus();
-  const rareIds = Object.keys(fp.FOCUS_LOOT.cpt.rare); // gold_ingot .6 / diamond .4
-  for (const seed of [1, 7, 42, 99, 12345]) {
-    for (const streak of [3, 6]) {
-      const got = fp.rollFocusLoot('cpt', {ok: true, streak, seed});
-      assert.ok(rareIds.includes(got),
-          streak + ' 连对保底必得稀有池(不受 0.45 门槛): seed=' + seed + ' got=' + got);
+  const L75 = stageLevel(fp, 4);
+  const st = fp.rewardStageFor(L75.tier);
+  const poolIds = Object.keys(st.pool);
+  const roll = (dim) => {
+    let hits = 0;
+    for (let seed = 1; seed <= 300; seed++) {
+      const got = fp.rollFocusLoot(L75, {ok: true, dry: 0, dim, seed});
+      if (got !== null) {
+        hits++;
+        assert.ok(poolIds.includes(got), '产物∈段4 池: ' + got);
+      }
     }
-  }
-  /* 未满节拍(2/4/5)不触发保底: 有种子产 null(首骰未中), 有种子产普通池独有物品 */
-  let sawNull = false; let sawCoal = false;
-  for (let seed = 1; seed <= 80; seed++) {
-    const got = fp.rollFocusLoot('cpt', {ok: true, streak: 2, seed});
-    if (got === null) sawNull = true;
-    if (got === 'coal') sawCoal = true; // coal 只在普通池(稀有池没有)
-  }
-  assert.ok(sawNull && sawCoal, 'streak=2 走普通掷骰(有掉有不掉, 保底不触发)');
+    return hits;
+  };
+  const cptHits = roll('cpt');
+  const corsiHits = roll('corsi');
+  /* 未归一时 corsi 与 cpt 的 p_eff 相同(命中≈1/3); 归一后 corsi 命中显著更高 */
+  assert.ok(corsiHits > cptHits * 1.5,
+      'corsi 归一命中(' + corsiHits + ')显著高于 cpt(' + cptHits + ') — 记忆维度关不恒穷');
 });
 
-test('rollFocusLoot: 未知维度兜底 null(防御, 不掷不炸)', () => {
+test('rollFocusLoot: 干燥兜底 — 关内连续答对未掉满阈值, 下一答对必得(不掷 p)', () => {
   const {fp} = loadFocus();
-  assert.strictEqual(fp.rollFocusLoot('???', {ok: true, streak: 0, seed: 1}), null);
-  assert.strictEqual(fp.rollFocusLoot(undefined, {ok: true, streak: 3, seed: 1}), null);
+  const L = stageLevel(fp, 1); /* 段1 p_eff≈0.064 最低: 兜底在此最有价值 */
+  const st = fp.rewardStageFor(L.tier);
+  const poolIds = Object.keys(st.pool);
+  for (const seed of [1, 7, 42, 99, 12345, 99991]) {
+    const got = fp.rollFocusLoot(L, {ok: true, dry: fp.FOCUS_REWARD_DRY, seed});
+    assert.ok(poolIds.includes(got), 'dry 达阈值跳过掷骰必得且∈段池: seed=' + seed + ' got=' + got);
+    const near = fp.rollFocusLoot(L, {ok: true, dry: fp.FOCUS_REWARD_DRY - 1, seed});
+    if (near !== null) assert.ok(poolIds.includes(near), '阈值前一档产物∈段池(防御)');
+  }
+  let sawNullNear = 0;
+  for (let seed = 1; seed <= 60; seed++) {
+    if (fp.rollFocusLoot(L, {ok: true, dry: fp.FOCUS_REWARD_DRY - 1, seed}) === null) sawNullNear++;
+  }
+  assert.ok(sawNullNear > 40, '阈值前一档走普通掷骰(段1 大多不掉): ' + sawNullNear);
 });
 
-test('levelBonusLoot: 未通过/教学关不发; 通关 torch|apple 二选一; 三星 +1 钻石', () => {
+test('rollFocusLoot: 未知维度补注不炸 — 归一回落基准, 产物仍在段池', () => {
   const {fp} = loadFocus();
-  /* 返回数组克隆回本 realm 再 deepStrictEqual(先例: focusDispatch 测试的跨 realm 注) */
-  assert.deepStrictEqual([...fp.levelBonusLoot(false, 0)], [], '未通过不发');
-  assert.deepStrictEqual([...fp.levelBonusLoot(false, 3)], [], '未通过即使三星口径也不发');
-  assert.deepStrictEqual([...fp.levelBonusLoot(true, 0, {kind: 'tutorial'})], [], '教学关通关也不发(零压力)');
+  const L = stageLevel(fp, 3);
+  const poolIds = Object.keys(fp.rewardStageFor(L.tier).pool);
+  for (const seed of [1, 42, 999]) {
+    const got = fp.rollFocusLoot(L, {ok: true, dry: 0, dim: '???', seed});
+    assert.ok(got === null || poolIds.includes(got), '未知 dim 不炸, 产物∈段池或 null');
+  }
+});
+
+test('levelBonusLoot: 未通过/教学关不发; 各段通关按表展开, 三星追加段位升档', () => {
+  const {fp} = loadFocus();
+  /* 返回数组克隆回本 realm 再断言(先例: focusDispatch 测试的跨 realm 注) */
+  assert.deepStrictEqual([...fp.levelBonusLoot(false, 0, stageLevel(fp, 1))], [], '未通过不发');
+  assert.deepStrictEqual([...fp.levelBonusLoot(false, 3, stageLevel(fp, 4))], [], '未通过即使三星口径也不发');
+  assert.deepStrictEqual([...fp.levelBonusLoot(true, 0, fp.FOCUS_LEVELS[0])], [], '教学关通关也不发(零压力)');
+  /* 段1: 固定 torch 单件; 三星追加固定 coal */
+  for (const seed of [1, 7, 42, 99]) {
+    assert.deepStrictEqual([...fp.levelBonusLoot(true, 1, stageLevel(fp, 1), {seed})], ['torch'], '段1 通关固定 torch');
+    assert.deepStrictEqual([...fp.levelBonusLoot(true, 3, stageLevel(fp, 1), {seed})],
+        ['torch', 'coal'], '段1 三星 +coal');
+  }
+  /* 段2: torch|apple 二选一; 三星 +coal */
   let sawTorch = false; let sawApple = false;
   for (let seed = 1; seed <= 40; seed++) {
-    const one = [...fp.levelBonusLoot(true, 1, {seed})];
-    assert.strictEqual(one.length, 1, '通关恰 1 件结算物');
-    assert.ok(one[0] === 'torch' || one[0] === 'apple', '结算物∈{torch,apple}: ' + one[0]);
+    const one = [...fp.levelBonusLoot(true, 1, stageLevel(fp, 2), {seed})];
+    assert.strictEqual(one.length, 1, '段2 通关恰 1 件');
+    assert.ok(one[0] === 'torch' || one[0] === 'apple', '段2 二选一: ' + one[0]);
     if (one[0] === 'torch') sawTorch = true; else sawApple = true;
-    const three = [...fp.levelBonusLoot(true, 3, {seed})];
-    assert.strictEqual(three.length, 2, '三星恰 2 件');
-    assert.ok(three.includes('diamond'), '三星追加 1 钻石');
-    assert.ok(three.includes('torch') || three.includes('apple'), '另一件仍是 torch|apple');
+    const three = [...fp.levelBonusLoot(true, 3, stageLevel(fp, 2), {seed})];
+    assert.deepStrictEqual(three[1], 'coal', '段2 三星追加固定 coal');
   }
-  assert.ok(sawTorch && sawApple, '40 种子覆盖二选一两个分支');
+  assert.ok(sawTorch && sawApple, '40 种子覆盖段2 二选一两个分支');
+  /* 段3: apple|bread 二选一; 三星 +gold_ingot(金带级首见) */
+  for (let seed = 1; seed <= 40; seed++) {
+    const one = [...fp.levelBonusLoot(true, 1, stageLevel(fp, 3), {seed})];
+    assert.strictEqual(one.length, 1, '段3 通关恰 1 件');
+    assert.ok(one[0] === 'apple' || one[0] === 'bread', '段3 二选一: ' + one[0]);
+    const three = [...fp.levelBonusLoot(true, 3, stageLevel(fp, 3), {seed})];
+    assert.deepStrictEqual(three[1], 'gold_ingot', '段3 三星追加金锭(金带级首见)');
+  }
+  /* 段4: (bread|apple)+固定 iron_ore 两件; 三星 +diamond(钻石唯一入口) */
+  for (let seed = 1; seed <= 40; seed++) {
+    const one = [...fp.levelBonusLoot(true, 1, stageLevel(fp, 4), {seed})];
+    assert.strictEqual(one.length, 2, '段4 通关两件(幅度顶格)');
+    assert.ok(one[0] === 'bread' || one[0] === 'apple', '段4 首件二选一: ' + one[0]);
+    assert.deepStrictEqual(one[1], 'iron_ore', '段4 第二件固定铁矿(钻带级)');
+    const three = [...fp.levelBonusLoot(true, 3, stageLevel(fp, 4), {seed})];
+    assert.deepStrictEqual(three[2], 'diamond', '段4 三星追加钻石 — 全表唯一钻石入口');
+  }
+  /* 品质红线: 段1-2 任何口径(含三星)不产金/钻; 段1-3 不产钻 */
+  for (let seed = 1; seed <= 60; seed++) {
+    for (const stars of [1, 3]) {
+      for (const s of [1, 2]) {
+        const got = [...fp.levelBonusLoot(true, stars, stageLevel(fp, s), {seed})];
+        assert.ok(!got.includes('gold_ingot') && !got.includes('diamond'), '段' + s + ' 无金无钻');
+      }
+      for (const s of [1, 2, 3]) {
+        const got = [...fp.levelBonusLoot(true, stars, stageLevel(fp, s), {seed})];
+        assert.ok(!got.includes('diamond'), '段' + s + ' 无钻石');
+      }
+    }
+  }
 });
 
 test('grantFocusLoot: 空包逐件入包(granted 全记); 满包余量>0 静默忽略并标 full', () => {
