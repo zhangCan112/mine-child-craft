@@ -23,6 +23,14 @@ function seq(...vals) {
   return () => q.shift();
 }
 
+/* 内存存储: mkVolState 持久化注入(生产=localStorage, seam 口径同 daily-budget) */
+function memStore() {
+  const m = new Map();
+  return {get: (k) => (m.has(k) ? m.get(k) : null), set: (k, v) => {
+    m.set(k, v);
+  }};
+}
+
 /* 曲目 fixture: durMs(毫秒时长)是核心判"曲毕"的条目契约字段, A7 填真值 */
 const TRACKS = [
   {id: 'calm1', file: 'a.m4a', mood: 'calm', g: 0.9, durMs: 10000},
@@ -273,6 +281,65 @@ test('BGM 空曲表恒 idle: unlock/setMood 后推进再久也无 start, 但 gai
   assert.strictEqual(d.snapshot().state, 'idle');
   d.duck(true);
   assert.deepStrictEqual(d.tick(16), [{type: 'gain', target: 0.08, rampMs: 250}], '无曲也照发让路指令');
+});
+
+/* ============ VolState: 音量滑杆状态(A8) ============ */
+
+test('VolState 默认倍率 1.0(存倍率不存绝对值): 基准按 isTouch 取 AUDIO_MIX 双端两档', () => {
+  const desk = loadCore().mkVolState({storage: memStore(), isTouch: false});
+  assert.strictEqual(desk.music(), 1, '音乐默认倍率 1.0 = 基线原样');
+  assert.strictEqual(desk.sfx(), 1);
+  assert.deepStrictEqual(desk.baseline(), {music: 0.30, sfx: 0.9}, '桌面两档');
+  const touch = loadCore().mkVolState({storage: memStore(), isTouch: true});
+  assert.deepStrictEqual(touch.baseline(), {music: 0.25, sfx: 0.8}, '触屏两档');
+});
+
+test('VolState 0..1 钳制: 超界夹回, 非有限数忽略不动', () => {
+  const v = loadCore().mkVolState({storage: memStore()});
+  assert.strictEqual(v.setMusic(1.7), 1, '上界夹回 1');
+  assert.strictEqual(v.setMusic(-0.5), 0, '下界夹回 0');
+  assert.strictEqual(v.setMusic(0.4), 0.4);
+  assert.strictEqual(v.setMusic(NaN), 0.4, 'NaN 忽略, 原值不动');
+  assert.strictEqual(v.setMusic(Infinity), 0.4, 'Infinity 忽略');
+  assert.strictEqual(v.setSfx(2), 1);
+  assert.strictEqual(v.setSfx('loud'), 1, '字符串不是有限数, 忽略');
+});
+
+test('VolState 持久化往返: 单键 JSON 存档, 新实例恢复', () => {
+  const mem = memStore();
+  const a = loadCore().mkVolState({storage: mem});
+  a.setMusic(0.4);
+  a.setSfx(0);
+  assert.ok(String(mem.get('audio_vol_save')).includes('"music":0.4'), '键名与格式钉死(audio_vol_save)');
+  const b = loadCore().mkVolState({storage: mem});
+  assert.strictEqual(b.music(), 0.4);
+  assert.strictEqual(b.sfx(), 0);
+});
+
+test('VolState 坏档回落: 坏 JSON 整档弃, 非数值字段逐项回落默认', () => {
+  const mem = memStore();
+  mem.set('audio_vol_save', '{oops');
+  const c = loadCore().mkVolState({storage: mem});
+  assert.strictEqual(c.music(), 1, '坏 JSON → 默认 1.0');
+  assert.strictEqual(c.sfx(), 1);
+  mem.set('audio_vol_save', JSON.stringify({music: 'loud', sfx: 0.3}));
+  const d = loadCore().mkVolState({storage: mem});
+  assert.strictEqual(d.music(), 1, 'music 字段非数值 → 该项回落');
+  assert.strictEqual(d.sfx(), 0.3, 'sfx 字段完好保留');
+});
+
+test('VolState 越界持久值读入时同样钳制(存档被手改/损坏不炸总线)', () => {
+  const mem = memStore();
+  mem.set('audio_vol_save', JSON.stringify({music: 3, sfx: -2}));
+  const v = loadCore().mkVolState({storage: mem});
+  assert.strictEqual(v.music(), 1);
+  assert.strictEqual(v.sfx(), 0);
+});
+
+test('VolState 无存储注入也内存可用(不抛, 纯决策态)', () => {
+  const v = loadCore().mkVolState();
+  assert.strictEqual(v.setMusic(0.5), 0.5);
+  assert.strictEqual(v.music(), 0.5);
 });
 
 /* ============ AUDIO_MIX: 响度常数表 ============ */
