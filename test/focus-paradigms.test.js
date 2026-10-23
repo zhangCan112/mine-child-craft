@@ -2,9 +2,11 @@
 /* 专注训练营纯逻辑单测 — node --test (零依赖)
    运行: node --test test/focus-paradigms.test.js
    覆盖: 分发判定(master 先于 dim — 死码 bug 的回归锁) · mkAdapt 阶梯自适应 ·
-   通过门槛/三星(含大师考验命中率门槛) · 100 关编排不变量 · master 路径贯通
-   加载器: vm context 依次执行 focus-levels.js + focus-paradigms.js,
-   镜像浏览器 <script defer> 共享词法环境; DOM/语音/图标以 stub 注入 */
+   通过门槛/三星(含大师考验命中率门槛) · 100 关编排不变量 · master 路径贯通 ·
+   里程碑工具表与补授差集(F6, 设计稿 §3 L4 / spec 实现决策 9·17)
+   加载器: vm context 依次执行 items-core.js + focus-levels.js +
+   focus-paradigms.js, 镜像浏览器 <script defer> 共享词法环境(相对序同
+   index.html); DOM/语音/图标以 stub 注入 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -45,12 +47,13 @@ function loadFocus() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['focus-levels.js', 'focus-paradigms.js']) {
+  for (const f of ['items-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
     globalThis.__fp = { focusDispatch, runFocusLevel, mkAdapt, FOCUS_LEVELS, FOCUS_DIMS,
-                        focusPassed, focusStars, FOCUS_META };
+                        focusPassed, focusStars, FOCUS_META,
+                        FOCUS_MILESTONES, milestoneDue, focusProgress, ITEMS, isTool };
   `, ctx);
   return {fp: sandbox.__fp, spoken};
 }
@@ -176,4 +179,60 @@ test('FOCUS_LEVELS: 6~99 关五维轮换且 tier 随轮次递进(封顶 19)', ()
     assert.strictEqual(L[i].dim, fp.FOCUS_DIMS[k % 5], '第 ' + (i+1) + ' 关轮换维度');
     assert.strictEqual(L[i].tier, Math.min(19, 2 + Math.floor(k/5)), '第 ' + (i+1) + ' 关难度档');
   }
+});
+
+/* ============ 里程碑工具(F6: 设计稿 §3 L4 · spec 实现决策 9/17) ============ */
+
+test('FOCUS_MILESTONES: 6 阶进度阶梯(门槛照抄设计稿 L4), id 全注册且均为工具', () => {
+  const {fp} = loadFocus();
+  const keys = Object.keys(fp.FOCUS_MILESTONES).map(Number);
+  assert.deepStrictEqual(keys, [10, 30, 50, 70, 90, 100], '门槛唯一权威是设计稿 §3 L4 的表');
+  assert.strictEqual(fp.FOCUS_MILESTONES[10], 'pick_wood');
+  assert.strictEqual(fp.FOCUS_MILESTONES[50], 'pick_iron');
+  assert.strictEqual(fp.FOCUS_MILESTONES[100], 'sword_diamond');
+  for (const k of keys) {
+    const id = fp.FOCUS_MILESTONES[k];
+    assert.ok(fp.ITEMS[id], '里程碑工具必须已注册: ' + id);
+    assert.strictEqual(fp.isTool(id), true, '里程碑 id 必须是工具(不混入材料): ' + id);
+  }
+});
+
+test('milestoneDue: 差集应授 = 越线且未授, 按门槛升序', () => {
+  const {fp} = loadFocus();
+  assert.deepStrictEqual([...fp.milestoneDue(9, [])], [], '未越线不授(9 < 10)');
+  assert.deepStrictEqual([...fp.milestoneDue(10, [])], ['pick_wood'], '恰好越线授首阶');
+  assert.deepStrictEqual([...fp.milestoneDue(50, [])], ['pick_wood', 'pick_stone', 'pick_iron'], '越线授全部未得阶(升序)');
+  assert.deepStrictEqual([...fp.milestoneDue(50, ['pick_wood'])], ['pick_stone', 'pick_iron'], '已授者差集剔除');
+  assert.deepStrictEqual([...fp.milestoneDue(50, ['pick_stone', 'pick_wood'])], ['pick_iron'], '已授乱序同样剔除');
+});
+
+test('milestoneDue: 幂等 — 授予结果并回 tools 后再算得空集(不重授)', () => {
+  const {fp} = loadFocus();
+  let tools = [];
+  for (let round = 0; round < 2; round++) { // 模拟存量档两次进入训练营
+    tools = tools.concat(fp.milestoneDue(100, tools));
+  }
+  assert.deepStrictEqual(tools,
+      ['pick_wood', 'pick_stone', 'pick_iron', 'sword_iron', 'pick_diamond', 'sword_diamond'],
+      '两轮合计恰授 6 件, 无重复');
+  assert.deepStrictEqual([...fp.milestoneDue(100, tools)], [], '全授后再算为空');
+});
+
+test('focusProgress: unlocked 被 99 封顶, 大师关通关经 history 兜底到 100', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.focusProgress({unlocked: 53}), 53, '普通档直接取 unlocked');
+  assert.strictEqual(fp.focusProgress({unlocked: 99, history: []}), 99, '无 history 不虚抬');
+  assert.strictEqual(fp.focusProgress({unlocked: 99, history: [{i: 98, passed: true}]}), 99, 'history 不高于 unlocked 不抬');
+  assert.strictEqual(fp.focusProgress({unlocked: 99, history: [{i: 99, passed: true}]}),
+      100, '大师关(i=99)通关 → 100 门槛可达(钻剑不因封顶漏发)');
+  assert.strictEqual(fp.focusProgress({unlocked: 30, history: [{i: 40, passed: false}]}),
+      30, '未通过关卡不计入进度');
+  assert.strictEqual(fp.focusProgress(null), 0, '空档安全回落 0');
+});
+
+test('milestoneDue × focusProgress: 大师通关存档一次补授全 6 件', () => {
+  const {fp} = loadFocus();
+  const save = {unlocked: 99, history: [{i: 99, passed: true}], tools: []};
+  const due = fp.milestoneDue(fp.focusProgress(save), save.tools);
+  assert.strictEqual(due.length, 6, '进度 100 → 6 阶全授');
 });
