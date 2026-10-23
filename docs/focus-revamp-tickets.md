@@ -63,7 +63,8 @@ flowchart TD
 
 ## 第一波（frontier·可并行）
 
-### F1 关卡曲线再平衡 + 数据表 `[ ]`
+### F1 关卡曲线再平衡 + 数据表 `[x]`（并入 `54b5b6a`，478 全绿；给 F2 的参数形状备注见下）
+- 备注（给 F2）：新参数 `disguiseRate`（gonogo，替代**已删除**的旧布尔 `disguised`，引擎接上前 tier≥8 无伪装安全不炸）/ `lenMix`（corsi 过渡档 0.5、次档 0.25）/ `antiChunk`（tier16 起 0.3→0.6）/ `neutralRate`（tier13 起 0.25）/ `mobMix`（tier15 起 0.3）/ `bivalent`（tier8 起 0.5→1.0）/ `switchJitter`（tier≥14 布尔）/ `choices`（4|5）/ `gem`（奇偶轮换，paramsFor 第三参 `li`）；`FOCUS_LOOT[dim]={pool,rare}`、`FOCUS_CHECK_PARAMS=[{dim,params}]` 可直接喂 runFocusLevel、`focusFlame(acc,baseline)→{flame,brighter}`、`devilParams(dim,tier)`。形状权威= focus-levels.js 头注释。
 - 依赖：无。
 - 交付：关卡参数表的 paramsFor 五维新曲线与全部新参数（伪装率 disguiseRate / 长度混编 lenMix / 反组块 antiChunk / 中立行 neutralRate / 混生物 mobMix / 双价 bivalent / 切换抖动 switchJitter / 选项数 choices / 宝石轮换 gem）+ FOCUS_LOOT 五维掉落表与稀有池 + FOCUS_MILESTONES 里程碑工具表 + FOCUS_CHECK_PARAMS 体检短参数 + 纯函数 focusFlame(acc, baseline)（火苗三档）与 devilStep(level, acc)（鬼等级双阈进退）+ 图章/集章里程碑数据。数值全部照抄设计稿 §2 D1~D5、§3 L3/L4、§8 B3/B8，不自创。
 - 测试（范式引擎 vm 缝扩展）：**渐进无断层断言族**——每个 qualitative 参数在引入档必须 0<值<1、单调不降至封顶（"qualitative 跳变必须混编"由此锁死）；档位边界（corsi len≤6 且 grid16 仅 tier≥14；flanker len≤9 且 len9 仅 tier≥18、congruentRate≥0.35、window≥1500；switch rules≤3、choices∈{4,5}）；掉落表概率和=1 且全部 id 在 ITEMS 注册（交叉断言，先例：物品系统掉落表测试）且 stackMax>0；里程碑 6 条且 isTool 全真；focusFlame 边界（85/70）；devilStep 边界（85↑/66 保持/65↓、等级 1 不下探、10 不上溢）；体检参数时长上界（试次数×时长封顶）；既有测试（门槛/编排/三星/自适应）必须原样全绿。
