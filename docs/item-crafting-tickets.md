@@ -173,16 +173,18 @@ flowchart TD
 
 ## 第五波（三单并行）
 
-### T12 挖掘与采集交互 `[ ]`
+### T12 挖掘与采集交互 `[x]`（并入 `8f645e1`，语义合并 `601a892` 与 T14 并线）
 - 依赖：T11。
+- 接口备注：工作台/熔炉/TNT 放置复用 advTryPlace(hit)；TNT 点燃在 onMouse 左键分支前拦截；站点判定换 advStationOk()；采集事件挂点 advBreakBlock/advOnCollect/advTryEat/advGrowTree。
 - 交付：探险模式内——按住蓄力状态机（进度环+挥动循环+换目标清零；breakTime 驱动）、破坏→碎块→掉落拾取、放置（放置型物品）、树叶掉树苗/苹果/木棍、树苗 20s 生长（计时 Map）、草丛掉种子、食物点击吃、快捷栏 item 槽接线。
 
 ### T13 合成与烧炼接线 `[ ]`
 - 依赖：T10、T11。
 - 交付：探险模式内——配方书面板开关（🎒/Tab）、工作台/熔炉放置与 4 格解锁判定、熔炉烧炼（2.5s/件、自动燃料、关面板进度保留、退世界材料退回）、合成成功 TTS 表扬、TNT 合成→放置→点击点燃→爆炸 70% 掉落。
 
-### T14 巢穴战斗掉落 `[ ]`
+### T14 巢穴战斗掉落 `[x]`（并入 `b258ab5`，语义合并 `601a892` 与 T12 并线）
 - 依赖：T3、T7、T11。
+- 接口备注：击杀账本 ADV.killCount；掉落/收集事件挂 init 的 onDeath/onCollect 回调闭包；纯函数 advNestCount/advNestStep/advSwingDmg/advDeathDrops/advPickupText 已导出；单击伤害封顶 10。
 - 交付：探险模式内——3 巢穴限量刷怪（每巢 2-3 只僵尸/骷髅/蜘蛛/苦力怕，清空 60s 再刷）、击杀事件→rollDrops→掉落物、收集 TTS 合并播报（3s 节流）、玩家战斗（工具伤害、受伤反馈沿用 Avatar.flash/血条先例）、死亡政策联通。
 
 ---
