@@ -142,7 +142,7 @@ flowchart TD
 
 ## 第四波
 
-### F10 回归收尾 + GLOSSARY `[ ]`
+### F10 回归收尾 + GLOSSARY `[x]`（并入 `724cfba`，527 全绿 + eslint/stylelint/htmlhint 三工具零错；收口决策：①宝物柜工具组维持只认 tools 字段 ②两 KEEP_DAYS 有意分立不合并；真人走查三项与手工验收剧本留待有浏览器环境执行）
 - 备注（F6 转记）：宝物柜工具组只认 `tools` 字段——探险合成所得工具不进柜（选型 B 口径），是否补充该展示在此再议并记录结论。
   - **F10 收口①**：维持只认 `tools` 字段。宝物柜是训练营的成就展示（赚到了什么），不是全背包镜像——若再从共享背包读探险合成工具，同一件工具出现两种记账来源，且重演 F3 否掉的"白送贬值"面；全背包查看属探险侧 UI 需求，另议不做。
 - 备注（F9 转记）：①**lint 债**——集成分支 eslint 存量经 F4b 复测为 **264 错**（F2/F8 的 modes/focus.js indent 大片 + F4 focus-icons no-multi-spaces 等；master 侧 lint 为绿，差异全来自本分支），stylelint 的 Unclosed block 已由集成者热修（F8 粘贴事故）；②**真人走查三项**——corisi 4×4/flanker len9 下石壁对比度、底部火把光晕是否干扰刺激、游标窄屏（80vw）两端裁切。
