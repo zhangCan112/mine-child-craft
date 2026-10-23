@@ -312,4 +312,49 @@ canvas {
     width: 84px;
     height: 12px;
   }
+
+  /* 音量面板(A8): 儿童友好大滑杆 — 44px 命中区 + 40px 拇指圆钮指尖好按;
+     自绘 thumb 而非 accent-color: 靠它要 Safari 15.4+, 本项目面向旧 iPad */
+  .vol-row {
+    font-size: 19px;
+  }
+
+  .vol-row input[type="range"] {
+    -webkit-appearance: none;
+    appearance: none;
+    width: min(300px, 56vw);
+    height: 44px;
+    background: transparent;
+  }
+
+  .vol-row input[type="range"]::-webkit-slider-runnable-track {
+    height: 12px;
+    border-radius: 6px;
+    background: rgb(255 255 255 / 30%);
+  }
+
+  .vol-row input[type="range"]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    margin-top: -14px;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: #7cfc00;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 6px rgb(0 0 0 / 40%);
+  }
+
+  .vol-row input[type="range"]::-moz-range-track {
+    height: 12px;
+    border-radius: 6px;
+    background: rgb(255 255 255 / 30%);
+  }
+
+  .vol-row input[type="range"]::-moz-range-thumb {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: #7cfc00;
+    border: 3px solid #fff;
+  }
 }

@@ -5,9 +5,10 @@
    音频系统里可纯计算的全部决策, 藏住"何时允许一声 / 何时起停音乐":
    · mkVoiceGate      SFX 发声准入 — 上限内放行, 满员按优先级抢占最老, 同类冷却
    · mkMusicDirector  BGM 稀疏调度状态机 — tick 吐 start/stop/gain 纯数据事件
+   · mkVolState       音量滑杆状态 — 存 0..1 倍率(非绝对值), 默认 1.0, 持久化注入
    · AUDIO_MIX        儿童保守响度常数表(总线增益 / duck 深度 / 各淡变时长)
    WebAudio 节点的真实启停在引擎层 adapter(js/audio.js), 本核心不碰。
-   interface: AUDIO_MIX / mkVoiceGate({max,now}) / mkMusicDirector({rand,tracks,gain})
+   interface: AUDIO_MIX / mkVoiceGate({max,now}) / mkMusicDirector({rand,tracks,gain}) / mkVolState({storage,isTouch})
    依赖(均经全局名, 调用期解析): 无 — 时间与随机均由调用方注入, 加载零副作用
    可测性: 零 THREE·零 DOM·零全局可变依赖, 有同名单测 test/audio-core.test.js
    ============================================================ */
@@ -175,5 +176,66 @@ function mkMusicDirector({rand = Math.random, tracks = [], gain = AUDIO_MIX.musi
   };
 }
 
-const AudioCore = {AUDIO_MIX, mkVoiceGate, mkMusicDirector};
+/* ---------- 音量状态(A8 滑杆的决策面): 存 0..1 倍率, 不存绝对增益 ----------
+   语义(头注释钉死): 滑杆值 = 倍率, 默认 1.0 = "没动过" — 听感基线(桌面
+   0.30/0.9 · 触屏 0.25/0.8)由 baseline() 按 isTouch 取 AUDIO_MIX, 真实总线
+   增益 = 基线 × 倍率, 与 js/audio.js 的 setMusicVol/setSfxVol 同口径(它们
+   收同一 0..1 倍率钳制后乘在总线上); duck 深度 0.08 是绝对值不随倍率缩放
+   (A3 备注⑤)。存储经 seam 注入({get,set}, 生产=localStorage, 测试=内存):
+   音量是"这台设备的喇叭"的事, 不进跨设备镜像; 单键 JSON 序列化, 坏档回落默认。 */
+const VOL_SAVE_KEY = 'audio_vol_save';
+
+function mkVolState({storage = null, isTouch = false} = {}) {
+  const clamp01 = (v) => Math.min(1, Math.max(0, v));
+  const readNum = (v, fallback) => (Number.isFinite(v) ? clamp01(v) : fallback);
+  let music = 1; /* 倍率默认 1.0: 两端各自基线原样起步 */
+  let sfx = 1;
+  if (storage) { /* 读档: 坏 JSON/非数值字段逐项回落默认(越界值也钳), 永不抛 */
+    try {
+      const s = JSON.parse(storage.get(VOL_SAVE_KEY) || 'null');
+      if (s && typeof s === 'object') {
+        music = readNum(s.music, 1);
+        sfx = readNum(s.sfx, 1);
+      }
+    } catch (e) {}
+  }
+  function save() {
+    if (!storage) return;
+    try {
+      storage.set(VOL_SAVE_KEY, JSON.stringify({music, sfx}));
+    } catch (e) {}
+  }
+  return {
+    /* music()/sfx(): 当前 0..1 倍率(滑杆位) */
+    music() {
+      return music;
+    },
+    sfx() {
+      return sfx;
+    },
+    /* baseline(): 双端两档总线基准快照 — 装配层与测试的统一口径,
+       adapter 不再各处手写 IS_TOUCH 三元 */
+    baseline() {
+      return {music: isTouch ? AUDIO_MIX.musicTouch : AUDIO_MIX.music,
+        sfx: isTouch ? AUDIO_MIX.sfxTouch : AUDIO_MIX.sfx};
+    },
+    /* setMusic(v)/setSfx(v): 0..1 钳制后存档并返回新倍率; 非有限数忽略返原值 */
+    setMusic(v) {
+      if (Number.isFinite(v)) {
+        music = clamp01(v);
+        save();
+      }
+      return music;
+    },
+    setSfx(v) {
+      if (Number.isFinite(v)) {
+        sfx = clamp01(v);
+        save();
+      }
+      return sfx;
+    },
+  };
+}
+
+const AudioCore = {AUDIO_MIX, mkVoiceGate, mkMusicDirector, mkVolState};
 if (typeof module !== 'undefined' && module.exports) module.exports = AudioCore;
