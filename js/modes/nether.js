@@ -407,42 +407,12 @@ function netherPlayerDied() {
   showToast('💀 被怪物打死了，回家重来！');
 }
 
-/* ---------- 主人公头顶血条(下界常驻): canvas 贴图 Sprite, 头顶 2.2 格 ----------
-   血量变化才重绘(逐帧纹理上传是移动端掉帧源); 无 THREE/DOM 的 Node 单测
-   环境静默跳过(渲染态不参与行为断言) */
-let pHpBar = null; let pHpCtx = null; let pHpTex = null; let pHpLast = -1;
-function ensureHpBar() {
-  if (pHpBar || typeof THREE === 'undefined' || typeof document === 'undefined' || typeof scene === 'undefined') return;
-  const cv = document.createElement('canvas'); cv.width = 128; cv.height = 16;
-  pHpCtx = cv.getContext('2d');
-  pHpTex = new THREE.CanvasTexture(cv);
-  pHpBar = new THREE.Sprite(new THREE.SpriteMaterial({map: pHpTex, transparent: true}));
-  pHpBar.scale.set(1.5, 0.19, 1); // 128×16 的等比世界尺寸
-  scene.add(pHpBar);
-}
-function updateHpBar() {
-  ensureHpBar();
-  if (!pHpBar) return;
-  pHpBar.visible = NETHER.phase === 'nether'; // 上界头顶不放血条
-  if (!pHpBar.visible) return;
-  const hp = Math.max(0, Math.ceil(getPEnt().hp));
-  if (hp !== pHpLast) { // 血量变化才重绘
-    pHpLast = hp;
-    const c = pHpCtx; const W = 128;
-    c.clearRect(0, 0, W, 16);
-    c.fillStyle = 'rgba(16,16,20,0.82)'; c.fillRect(14, 3, W - 16, 10); // 底槽
-    c.fillStyle = '#e83a3a'; c.fillRect(16, 5, Math.max(0, (W - 20) * hp / NETHER.player.maxHp), 6); // 血量
-    c.strokeStyle = '#f0f0f0'; c.lineWidth = 1; c.strokeRect(14.5, 3.5, W - 17, 9);
-    c.fillStyle = '#ff5a5a'; c.font = '13px sans-serif'; c.textBaseline = 'top'; c.fillText('❤', 1, 1);
-    pHpTex.needsUpdate = true;
-  }
-  pHpBar.position.set(pos.x, pos.y + 2.2, pos.z); // 头顶(身高 1.8 + 余量; billboard 正面视角也常读)
-}
-function disposeHpBar() {
-  if (!pHpBar) return;
-  if (typeof scene !== 'undefined') scene.remove(pHpBar);
-  pHpBar.material.dispose(); pHpTex.dispose();
-  pHpBar = null; pHpCtx = null; pHpTex = null; pHpLast = -1;
+/* ---------- 主人公头顶血条(下界常驻): mode-kit mkHpBar 深接口(S2 两模式归一) ----------
+    血量变化才重绘(逐帧纹理上传是移动端掉帧源); 上界不放血条(visible
+    回调按阶段控制); Node 单测无 THREE/DOM 时 update 静默跳过 */
+const hpBar = ModeKit.mkHpBar({visible: () => NETHER.phase === 'nether'});
+function updateHpBar() {/* S2: 逐帧喂血量与世界坐标(头顶 2.2 格), 重绘/显隐收在深接口 */
+  hpBar.update(getPEnt().hp, NETHER.player.maxHp, pos.x, pos.y + 2.2, pos.z);
 }
 
 /* ============================================================
@@ -466,7 +436,7 @@ const NetherMode = mkMode({
     applySky(OVERWORLD_SKY); // 天空复位: 红天不渗进其他模式
     Avatar.setItem(PLAYER.heldItem); // 手持物复位: 剑/弓不渗进其他模式(Avatar 跨模式存活)
     weaponBar.hide(); // 武器栏复位
-    disposeHpBar(); // 头顶血条网格/纹理回收
+    hpBar.dispose(); // 头顶血条网格/纹理回收(S2 深接口)
     if (portalBeamH && Fx.removeBeam) Fx.removeBeam(portalBeamH); // 常驻光束摘除(句柄置空, 不等 switchMode 的 Fx.clear)
     portalBeamH = null;
     portalCd = 0;
