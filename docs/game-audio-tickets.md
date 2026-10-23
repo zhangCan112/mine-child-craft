@@ -161,10 +161,11 @@ flowchart TD
 - 测试：A2 的资产存在性/CREDITS 覆盖断言此时咬合；`node --test` 全绿。
 - 红线：只取 CC0；不下载 Minecraft/C418 原声；总体积 ≤25MB。
 
-### A8 音量滑杆 UI `[ ]`
+### A8 音量滑杆 UI `[x]`（并入 `b695f66`）
 - 依赖：A4。
 - 交付：主菜单 🎵 按钮展开 音乐/音效 两滑杆（触屏儿童友好大控件；CSS 入 css/touch.css 或 style.css 按端归属）；audio-core 加 `mkVolState`（默认值按 IS_TOUCH 取 AUDIO_MIX、0..1 钳制、localStorage 序列化）+ 同名单测扩展；接线 `AudioMixer.setMusicVol/setSfxVol`；**index.html 只声明**（按钮与面板 DOM 位置）。
 - 测试：audio-core.test.js 扩展（默认/钳制/持久化往返）；boot 全绿。
+- 备注：滑杆手感与 muted 变暗待 iPad 真机验收（同 A1 口径）；试听嘟声为后续增强未做。
 
 ---
 

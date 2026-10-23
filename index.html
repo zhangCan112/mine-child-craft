@@ -66,6 +66,18 @@
             <small>挖矿 · 合成 · 做任务</small>
           </div>
         </div>
+        <!-- 音量面板(A8): 🎵 开关 + 音乐/音效滑杆, 接线在 js/audio-vol-ui.js -->
+        <div id="volWrap">
+          <button class="play" id="volBtn" type="button">🎵 声音</button>
+          <div class="vol-panel" id="volPanel">
+            <label class="vol-row" id="volMusicRow">🎵 音乐
+              <input type="range" id="volMusic" min="0" max="1" step="0.05" aria-label="音乐音量">
+            </label>
+            <label class="vol-row" id="volSfxRow">🔔 音效
+              <input type="range" id="volSfx" min="0" max="1" step="0.05" aria-label="音效音量">
+            </label>
+          </div>
+        </div>
         <div class="keys">
           <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc<br>
           <span class="safe">版本 2026.10.23-1 · 若本行版本号和电脑上约定的一致, 说明运行的是最新版</span>
@@ -219,6 +231,7 @@
     <script src="js/audio-registry.js" defer></script>
     <script src="js/audio-core.js" defer></script>
     <script src="js/audio.js" defer></script>
+    <script src="js/audio-vol-ui.js" defer></script>
     <script src="js/effects.js" defer></script>
     <script src="js/mobs.js" defer></script>
 <script src="js/drops.js" defer></script>
