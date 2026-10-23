@@ -1,6 +1,6 @@
 'use strict';
 /* ============================================================
-   专注训练营模式 — 屏幕流 / 三星 / 每日锁定 / 家长面板
+   专注训练营模式 — 屏幕流 / 三星 / 每日锁定 / 家长面板 / 矿洞皮肤(F9)
    会话: 进入→今日页→关卡→星级+过程表扬→自动下一关→每日 6 关或 20 分钟锁定
 ============================================================ */
 
@@ -73,6 +73,31 @@ function ensureFocusRoot() {
   focusRoot.id = 'focusRoot';
   document.body.appendChild(focusRoot);
 }
+
+/* ---------- 矿洞皮肤(F9): TextureAtlas 单格雪碧 → #focusRoot 的 CSS 变量 ----------
+   进训练营惰性生成一次(focusCaveSkinned 模块级缓存, 勿每帧生成):
+   --f-atlas = 整图 256×256 dataURL, 火把层用它 + background-position 取格;
+   --f-tile-* = 抠出的单格 16×16 dataURL, 石头/泥土/圆石带要 repeat,
+   整图 repeat 会把 256 格全铺出来, 故单格单存(同一 makeCanvas 的切片) */
+let focusCaveSkinned = false;
+function ensureFocusCaveSkin() {
+  if (focusCaveSkinned) return;
+  focusCaveSkinned = true; // 先落记: 即使引擎缺席也不再重试(保留纯色兜底)
+  if (typeof TextureAtlas === 'undefined') return;
+  const atlas = TextureAtlas.makeCanvas(document);
+  const tileIdx = (blockId)=>TextureAtlas.layout.tiles[blockId]; // 方块 id → 格号(与引擎 UV 同表)
+  const tileURL = (idx)=>{
+    const c = document.createElement('canvas');
+    c.width = c.height = 16;
+    c.getContext('2d').drawImage(atlas, (idx%16)*16, Math.floor(idx/16)*16, 16, 16, 0, 0, 16, 16);
+    return 'url(' + c.toDataURL() + ')';
+  };
+  const s = focusRoot.style; // 基础方块 id: 泥土 2 / 石头 3 / 圆石 4(config.js 方块表同号)
+  s.setProperty('--f-atlas', 'url(' + atlas.toDataURL() + ')');
+  s.setProperty('--f-tile-stone', tileURL(tileIdx(3)));
+  s.setProperty('--f-tile-cobble', tileURL(tileIdx(4)));
+  s.setProperty('--f-tile-dirt', tileURL(tileIdx(2)));
+}
 function focusScreen(html) {
   clearTimeout(focusAutoTimer);
   focusRoot.innerHTML = '<div class="f-top"><button class="f-back" id="fBackBtn">⬅️</button></div>' + html;
@@ -106,7 +131,7 @@ function showFocusToday() {
   let html = '';
   if (locked) {
     html = `
-    <div class="f-screen">
+    <div class="f-screen f-today">
       <div class="f-lock">🌙</div>
       <h1>今天的训练完成啦！</h1>
       <p class="f-sub">训练师要休息了，明天怪物们等你来 😊</p>
@@ -120,7 +145,7 @@ function showFocusToday() {
     return;
   }
   html = `
-  <div class="f-screen">
+  <div class="f-screen f-today">
     <div class="f-progress-line">第 ${cur+1} 关 / 100 · ⭐${total}</div>
     <div class="f-dim-icon">${meta.icon}</div>
     <h1>${meta.game}</h1>
@@ -174,14 +199,28 @@ function beginFocusRun(level) {
       <div class="f-rule"><span class="f-rule-icon">${meta.icon}</span>
         <span class="f-rule-text">${meta.game} ${kindTag}</span></div>
       <div class="f-rule-small">${meta.rule}</div>
-      <div class="f-progress"><div class="f-progress-bar" id="fProg"></div></div>
+      <div class="f-progress-wrap">
+        <div class="f-progress">
+          <div class="f-progress-bar" id="fProg"></div>
+          <i class="f-progress-ticks" aria-hidden="true"></i>
+        </div>
+        <i class="f-progress-cursor" id="fProgCursor" aria-hidden="true"><img src="${mcIcon('pickaxe')}" alt=""></i>
+      </div>
     </div>
-    <div class="f-area" id="fArea"></div>`);
+    <div class="f-area" id="fArea">
+      <div class="f-cave" aria-hidden="true">
+        <i class="f-torch f-torch-top-left"></i><i class="f-torch f-torch-top-right"></i>
+        <i class="f-torch f-torch-bottom-left"></i><i class="f-torch f-torch-bottom-right"></i>
+      </div>
+    </div>`);
   document.getElementById('fBackBtn').onclick = showFocusToday;
   focusCtrl = runFocusLevel(level, document.getElementById('fArea'), {
     progress(k, n) {
+      const pct = Math.round(k/Math.max(1, n)*100);
       const bar = document.getElementById('fProg');
-      if (bar) bar.style.width = Math.round(k/Math.max(1, n)*100) + '%';
+      if (bar) bar.style.width = pct + '%';
+      const cursor = document.getElementById('fProgCursor'); // F9: ⛏️ 游标随进度推进
+      if (cursor) cursor.style.left = pct + '%';
     },
     showRule(dim) {
       SpeechKit.speak(FOCUS_META[dim || level.dim].rule);
@@ -218,7 +257,7 @@ function onFocusLevelEnd(level, st) {
 
   if (passed) {
     focusScreen(`
-      <div class="f-screen">
+      <div class="f-screen f-result">
         <div class="f-stars" id="fStars">
           ${[1, 2, 3].map((n)=>'<span class="st '+(n<=stars?'on':'')+'" data-n="'+n+'">⭐</span>').join('')}
         </div>
@@ -240,7 +279,7 @@ function onFocusLevelEnd(level, st) {
   } else {
     const moveOn = (focusFailCount[level.i]||0) >= 2; // 连败 2 次后换下一个游戏, 避免整段时间卡死在同一关
     focusScreen(`
-      <div class="f-screen">
+      <div class="f-screen f-result">
         <div class="f-stars"></div>
         <h1>很努力了！</h1>
         <p class="f-sub">正确 ${Math.round(st.acc*100)}% · 目标 70%</p>
@@ -357,6 +396,7 @@ const FocusMode = mkMode({
   id: 'focus',
   init() {
     ensureFocusRoot();
+    ensureFocusCaveSkin(); // F9: 矿洞贴图雪碧进训练营只生成一次
     focusRoot.style.display = 'block';
     overlay.style.display = 'none';
     showFocusToday(); // 纯点选全屏 UI: chrome 全关由 kit 默认处理
