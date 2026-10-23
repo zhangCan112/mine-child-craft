@@ -5,13 +5,14 @@
    全游戏唯一的掉落物实体模块(探险挖掘与巢穴战斗共用):
    · 掷骰: rollDrops 读 config.js 的 MOB_DROPS(保底必得, 再以 50% 掷
      「加成次数」次, rare 独立掷骰) · rollBlockDrop 读 BLOCKS.drop 三元组
-     [itemId, 保底, 概率](概率=额外再得 1 个的几率) — 掷骰语义在此, 表只存数据
+     [itemId, 保底, 概率](概率=额外再得 1 个的几率; 剪刀 × shearDrop 存在
+     时掷专属表, 挖掘硬度修正 D2) — 掷骰语义在此, 表只存数据
    · 拾取判定: pickupCheck 三维距离 — <=0.6 收集 · <=2.5 真空吸附
    · 壳段实体生命周期: 落地弹跳一次 → 贴地浮动+缓旋 → 2.5 格内加速飞向
      玩家 → 0.6 格触发收集回调 → 3 分钟到期静默消失; 贴图 emoji canvas
      Sprite 过渡, 运行时存在全局 iconOf(T8 的 icons.js 将提供)则优先用
      像素图 dataURL, 否则 emoji 兜底(本模块不定义 iconOf, 只消费)
-   interface: rollDrops(type, rand?) · rollBlockDrop(blockDef, rand?) ·
+   interface: rollDrops(type, rand?) · rollBlockDrop(blockDef, rand?, toolStack?) ·
               pickupCheck(dropPos, playerPos) · resolveIcon(itemId) /
               Drops.spawn(itemId, n, x, y, z) · Drops.update(dt, playerPos) ·
               Drops.render · Drops.clear · Drops.list · Drops.onCollect(cb)
@@ -51,12 +52,18 @@ function rollDrops(type, rand) {
 
 /* 方块掉落掷骰: BLOCKS.drop 条目 [itemId, 保底, 概率] — n = 保底 + (rand <
    概率 ? 1 : 0), 概率=额外再得 1 个的几率(设计稿 §3.4; rand=0 且概率=0
-   也不加成)。无 drop 字段(创造专属)/裸定义/null → 空数组。 */
-function rollBlockDrop(blockDef, rand) {
+   也不加成)。无 drop 字段(创造专属)/裸定义/null → 空数组。
+   第三参 toolStack(可省, 槽形状): 手持剪刀且方块有 shearDrop → 掷专属表
+   替代默认表(挖掘硬度修正 D2: 剪树叶得树叶方块, MC 口径); 爆炸路径不传
+   工具, 天然走默认表。 */
+function rollBlockDrop(blockDef, rand, toolStack) {
   rand = rand || Math.random;
   const out = [];
-  if (!blockDef || !blockDef.drop) return out;
-  for (const entry of blockDef.drop) {
+  let tbl = blockDef && blockDef.drop;
+  const tl = toolStack ? toolOf(toolStack.id) : null; // items-core 全局(调用期解析)
+  if (tl && tl.kind === 'shears' && blockDef && blockDef.shearDrop) tbl = blockDef.shearDrop;
+  if (!tbl) return out;
+  for (const entry of tbl) {
     const n = entry[1] + (rand() < entry[2] ? 1 : 0);
     if (n > 0) out.push({id: entry[0], n});
   }

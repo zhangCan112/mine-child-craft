@@ -304,7 +304,8 @@ const BLOCKS = {
    solid:false 不可碰撞 · thin:N 贴地薄块高度 · soft 可被炸毁 · crack 必被炸毁 */
 const B_TNT=20; const B_FUSE=21; const B_CRACK=22; const B_SWITCH=23; const B_WATER=24;
 const B_LAVA=25; const B_PLATE=26; const B_DOOR=27; const B_SUPPORT=28; const B_WEIGHT=29;
-BLOCKS[B_TNT] = {name: 'TNT', all: [0.82, 0.28, 0.22], tnt: true};
+BLOCKS[B_TNT] = {name: 'TNT', all: [0.82, 0.28, 0.22], tnt: true,
+  hard: 0, tool: null, tier: 0, drop: [['tnt', 1, 0]]}; // 可回收(挖掘硬度修正 D3, MC 硬度 0): 短按点燃/按住挖走
 BLOCKS[B_FUSE] = {name: '引线', all: [0.92, 0.75, 0.30], fuse: true, thin: 0.14, solid: false};
 BLOCKS[B_CRACK] = {name: '裂纹砖', all: [0.74, 0.68, 0.58], crack: true};
 BLOCKS[B_SWITCH] = {name: '转辙器', top: [0.78, 0.62, 0.36], side: [0.46, 0.36, 0.22], bottom: [0.46, 0.36, 0.22], switch: true};
@@ -381,8 +382,9 @@ Object.assign(BLOCKS[3], {hard: 1.5, tool: 'pick', tier: 1, drop: [['cobble', 1,
 Object.assign(BLOCKS[4], {hard: 2.0, tool: 'pick', tier: 1, drop: [['cobble', 1, 0]]});
 Object.assign(BLOCKS[5], {hard: 2.0, tool: 'axe', tier: 0, drop: [['log', 1, 0]]});
 Object.assign(BLOCKS[6], {hard: 2.0, tool: 'axe', tier: 0, drop: [['planks', 1, 0]]});
-Object.assign(BLOCKS[7], {hard: 0.2, tool: null, tier: 0, // 树叶概率掉落(无保底): MC 5%/0.5%/2% → 儿童加倍(附录 B·D7)
-  drop: [['sapling', 0, 0.12], ['apple', 0, 0.04], ['stick', 0, 0.08]]});
+Object.assign(BLOCKS[7], {hard: 0.2, tool: 'shears', tier: 0, // 剪刀品类(挖掘硬度修正 D2): 剪刀加速+掉树叶本身; 其它工具/徒手无加成 0.3s
+  drop: [['sapling', 0, 0.12], ['apple', 0, 0.04], ['stick', 0, 0.08]], // 默认表: 概率掉落 MC 5%/0.5%/2% → 儿童加倍(附录 B·D7)
+  shearDrop: [['leaves', 1, 0]]}); // 剪刀专属表: 直接得树叶方块(MC 口径, rollBlockDrop 第三参)
 Object.assign(BLOCKS[8], {hard: 0.5, tool: 'shovel', tier: 0, drop: [['sand', 1, 0]]});
 Object.assign(BLOCKS[9], {hard: 2.0, tool: 'pick', tier: 1, drop: [['bricks', 1, 0]]}); // 红砖块: 黏土链合成来路(§3.5)
 Object.assign(BLOCKS[13], {hard: 1.5, tool: 'pick', tier: 1, drop: [['stone_bricks', 1, 0]]}); // 石砖: 4 石合成(§3.5)
