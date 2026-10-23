@@ -25,7 +25,7 @@ const ITEMS = {
   log:         {name: '原木', icon: '🪵', block: 5, fuel: 1.5},  // 木头(5); 也可烧成木炭
   planks:      {name: '木板', icon: '🟫', block: 6, fuel: 1.5},  // 木板(6)
   stick:       {name: '木棍', icon: '🥢', fuel: 0.5},
-  sapling:     {name: '树苗', icon: '🌿', block: 41},  // 附录 A 表 15 项挤 36~49 的 14 格, 设计稿未定其 id — 暂占耕地号 41(耕地/麦为二期件), T2 落定终表后回改此行
+  sapling:     {name: '树苗', icon: '🌿', block: 50},  // B_SAPLING=50(T2 落定号段顺延); 放草地/泥土 20s 长成树
 
   /* —— 矿物链(煤直接用 · 铁/金粗矿需熔炼 · 钻直接得, 设计稿 D5) —— */
   coal:        {name: '煤炭', icon: '⚫', fuel: 8},
@@ -65,7 +65,7 @@ const ITEMS = {
   cobble:      {name: '圆石', icon: '🪨', block: 4},               // 挖石头得; 烧回石头
   stone:       {name: '石头', icon: '⬜', block: 3},               // 烧圆石得(研究稿 §5.3)
   glass:       {name: '玻璃', icon: '🔷', block: 18},              // 烧沙子得
-  mossy:       {name: '苔石', icon: '🟩', block: 14},              // 矿洞/遗迹自然生成(§3.5 由装饰转直接采集)
+  mossy_cobble:{name: '苔石', icon: '🟩', block: 14},              // 矿洞/遗迹自然生成(§3.5 由装饰转直接采集); 键名与 config 掉落表一致
   leaves:      {name: '树叶', icon: '🍃', block: 7},               // 剪刀剪树叶得(MC 口径, §3.5)
 
   /* —— 站点件与功能件(放置后走近 4 格解锁, 拍板④) —— */

@@ -78,8 +78,11 @@ flowchart TD
 
 ## 第一波（frontier·可并行）
 
-### T1 物品核心（items-core）`[ ]`
+### T1 物品核心（items-core）`[x]`（并入 `46d9476` + 集成校正）
 - 依赖：无。
+- 交付：ITEMS 注册表 54 条（§3.1 三十项 + §3.5 补给包八件 + 工具十六项，键名与 HELD_DEFS 逐字一致已实测）+ stackMax（未注册=0 拒收门禁）/mkStack（槽形状 {id,n,dur}）/isTool/toolOf。
+- 集成校正（集成者提交）：苔石键名统一为 `mossy_cobble`（对齐 config 掉落表）；树苗 block 41→50（T2 落定号段）；测试号段断言 1~50。
+- 口径备注：燃料热值在 ITEMS 条目 `fuel` 字段；剪刀数值工程推定 {tier:0, dmg:2, dur:500, speed:5}，后续只动一行数据。
 - 交付：新纯核心 `js/items-core.js`——`ITEMS` 注册表（设计稿 §3.1 全量：材料/食物/放置型 ~26 条 + 工具 16 条 = 4 阶×镐斧剑锹；icon 暂用设计稿 emoji 占位）+ 纯函数 `stackMax / mkStack / isTool / toolOf`。零 THREE 零 DOM，不依赖 config.js（放置型的 block 字段只存数字，测试做号段范围断言）。
 - 测试：`test/items-core.test.js`（vm 加载同 held-item.test.js 惯例）——注册表形状防错网（name/icon 必备；工具必有 tool{kind,tier,dmg,dur,speed}；食物必有 food>0）+ 纯函数行为（堆叠 64/工具 1）。
 - 数值：耐久 120/260/500/1500；速度 2/4/6/8；剑伤 7/9/11/13、镐 3/4/6/8、斧 5/6/8/10、锹 2/3/4/5；tier 木1石2铁3钻4；燃料热值照设计稿 §3.1。

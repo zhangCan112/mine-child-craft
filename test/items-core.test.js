@@ -37,7 +37,7 @@ test('注册表全量: 设计稿 §3.1 + §3.5 一期补给包条目全部注册
     'gunpowder', 'bone', 'bone_meal', 'string', 'slimeball',
     'wheat', 'wheat_seeds',
     // §3.5 一期补给包: 黏土-红砖链 / 石砖链 / 剪刀 / 苔石 / 树叶
-    'clay_ball', 'brick', 'bricks', 'stone_bricks', 'mossy', 'leaves', 'shears',
+    'clay_ball', 'brick', 'bricks', 'stone_bricks', 'mossy_cobble', 'leaves', 'shears',
     // 食物
     'apple', 'bread', 'rotten_flesh',
     // 放置型方块物品与站点件
@@ -61,8 +61,8 @@ test('条目形状: 每个物品必备 name/icon, 类别字段(block/food/fuel/t
     assert.strictEqual(typeof it.icon, 'string', id + ' icon');
     assert.ok(it.icon.length > 0, id + ' icon 非空(emoji 占位, 正式图标归 icons.js/T8)');
     if ('block' in it) {
-      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 49,
-          id + ' block 应为 1~49 整数(附录 A 新方块表上限), 实际 ' + it.block);
+      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 50,
+          id + ' block 应为 1~50 整数(附录 A 新方块表上限, B_SAPLING=50), 实际 ' + it.block);
     }
     if ('food' in it) assert.ok(typeof it.food === 'number' && it.food > 0, id + ' food 应为正数');
     if ('fuel' in it) assert.ok(typeof it.fuel === 'number' && it.fuel > 0, id + ' fuel 应为正数');
@@ -82,14 +82,13 @@ test('放置型 block 挂点: 与方块注册表既有 id / 附录 A 规划 id �
     log: 5, planks: 6, dirt: 2, sand: 8, cobble: 4, stone: 3, glass: 18,
     torch: 48, craft_table: 46, furnace: 47,               // 附录 A: B_TORCH/B_CRAFT/B_FURNACE
     tnt: 20,                                                // 既有 B_TNT(config.js TNT 模式)
-    leaves: 7, mossy: 14, stone_bricks: 13, bricks: 9,     // 既有装饰方块的三分类归属(§3.5)
+    leaves: 7, mossy_cobble: 14, stone_bricks: 13, bricks: 9,   // 既有装饰方块的三分类归属(§3.5)
   };
   for (const [id, b] of Object.entries(pinned)) {
     assert.strictEqual(ITEMS[id] && ITEMS[id].block, b, id + ' block 应为 ' + b);
   }
-  // 树苗: 附录 A 表 15 项挤 36~49 的 14 格, 设计稿未定其 id — 暂占 41(耕地/麦为二期件),
-  // T2 落定终表后回改 items-core.js 该行即可; 此处只断言新区号段, 不钉死数值。
-  assert.ok(ITEMS.sapling.block >= 36 && ITEMS.sapling.block <= 49, 'sapling block 应落在 36~49');
+  // 树苗: B_SAPLING=50(T2 落定, 号段 36~50 顺延)
+  assert.strictEqual(ITEMS.sapling.block, 50, 'sapling block 应为 B_SAPLING=50');
 });
 
 test('工具 16 条数值表: 4 阶 × 镐斧剑锹 与设计稿 D9 逐格一致', () => {
