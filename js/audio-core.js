@@ -190,7 +190,7 @@ function mkVolState({storage = null, isTouch = false} = {}) {
   const readNum = (v, fallback) => (Number.isFinite(v) ? clamp01(v) : fallback);
   let music = 1; /* 倍率默认 1.0: 两端各自基线原样起步 */
   let sfx = 1;
-  if (storage) { /* 读档: 坏 JSON/非数值字段逐项回落默认(越界值也钳), 永不抛 */
+  if (storage) {/* 读档: 坏 JSON/非数值字段逐项回落默认(越界值也钳), 永不抛 */
     try {
       const s = JSON.parse(storage.get(VOL_SAVE_KEY) || 'null');
       if (s && typeof s === 'object') {

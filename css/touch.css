@@ -320,7 +320,7 @@ canvas {
   }
 
   .vol-row input[type="range"] {
-    -webkit-appearance: none;
+    -webkit-appearance: none; /* stylelint-disable-line property-no-vendor-prefix -- 旧 Safari 只认前缀版, 须与标准版并存 */
     appearance: none;
     width: min(300px, 56vw);
     height: 44px;
@@ -334,7 +334,7 @@ canvas {
   }
 
   .vol-row input[type="range"]::-webkit-slider-thumb {
-    -webkit-appearance: none;
+    -webkit-appearance: none; /* stylelint-disable-line property-no-vendor-prefix -- 自绘 thumb 在旧 Safari 必须去默认外观 */
     margin-top: -14px;
     width: 40px;
     height: 40px;
