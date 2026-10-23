@@ -118,8 +118,25 @@ function makeTntTexture() {
 }
 const tntMat = new THREE.MeshLambertMaterial({map: makeTntTexture(), side: THREE.FrontSide});
 
+/* 方块贴图图集 (js/texture-atlas.js): 像素在纯数据缓冲里确定性生成,
+   此处只做画布壳 + CanvasTexture 包装(与 TNT 图集同款管线/滤波口径)。
+   alphaTest 裁切让植物十字面片与树叶孔洞呈镂空观感(不透明像素照常
+   渲染, 无透明排序负担); 256×256 正方形 2 的幂, WebGL1 mipmap 合法。
+   typeof 防御与下方 ringCenter 的 Tank 同款: texture-atlas.js 的 script
+   行由集成者加入 index.html, 并入前 boot 冒烟不炸(缺图集 → 纯色兜底)。 */
+const ATLAS_LAYOUT = (typeof TextureAtlas !== 'undefined') ? TextureAtlas.layout : null;
+function makeAtlasTexture() {
+  const tex = new THREE.CanvasTexture(TextureAtlas.makeCanvas(document));
+  tex.magFilter = THREE.NearestFilter; // 近处保持像素颗粒
+  tex.minFilter = THREE.NearestMipmapLinearFilter; // 远处走 mipmap, 消高频闪烁
+  tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  return tex;
+}
+const atlasMat = new THREE.MeshLambertMaterial({map: ATLAS_LAYOUT ? makeAtlasTexture() : null,
+  alphaTest: 0.5, side: THREE.FrontSide});
+
 /* ---------- 区块网格装配 (纯几何在 MeshCore, 此处只做 THREE 装配与场景挂载) ----------
-   三通道: solid(不透明)/glass(玻璃)/tnt(贴图); LOD 通道单网格。
+   四通道: solid(不透明)/glass(玻璃)/tnt(TNT贴图)/atlas(方块图集); LOD 通道单网格。
    几何生成走 js/mesh-core.js 纯核心 — 同一份代码在主线程(同步兜底)与
    js/mesh-worker.js(http 服务主路径)里运行, 输出裸数组经 makeGeo 装配。 */
 const chunkMeshes = new Map(); // 全细节: key → [Mesh...]
@@ -161,6 +178,7 @@ function mountChunk(cx, cz, r) {
   if (r.solid) arr.push(addSceneMesh(makeGeo(r.solid), blockMat));
   if (r.glass) arr.push(addSceneMesh(makeGeo(r.glass), glassMat));
   if (r.tnt) arr.push(addSceneMesh(makeTexGeo(r.tnt), tntMat));
+  if (r.atlas) arr.push(addSceneMesh(makeTexGeo(r.atlas), atlasMat)); // 方块图集通道
   chunkMeshes.set(k, arr); // 空区块记空数组: 环状态机的"已服务"凭据
 }
 /* LOD 上挂: 顶替全细节(降采样网格成本 ~1/step², 远景视觉等价 — 雾中不可辨) */
@@ -255,7 +273,7 @@ function ensureWorker() {
 /* 消费一个区块 key: 按当前环形态走 Worker 或同步构建。
    kind→构建参数的映射与 js/mesh-worker.js 的 onmessage 各持一份(跨线程
    无法共享函数), 改协议须两边同步改 — test/mesh-worker.test.js 锁协议 */
-const MESH_OPTS = {hashRand, tntTiles: TNT_TILES}; // 全细节 opts(hashRand 来自 voxel.js, 单一来源)
+const MESH_OPTS = {hashRand, tntTiles: TNT_TILES, atlas: ATLAS_LAYOUT}; // 全细节 opts(hashRand 来自 voxel.js, 图集布局来自 texture-atlas.js — 均单一来源)
 function serveChunkKey(k) {
   const c = k.split(','); const cx = +c[0]; const cz = +c[1];
   if (cx<0||cz<0||cx>=NCX||cz>=NCZ) return false;
