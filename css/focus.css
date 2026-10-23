@@ -28,6 +28,8 @@
 }
 
 .f-screen {
+  position: relative; /* F9: 像素云伪元素以屏幕为定位框 */
+  isolation: isolate; /* F9: 云层 z-index:-1 压到内容之下、天空之上 */
   min-height: 78vh;
   display: flex;
   flex-direction: column;
@@ -63,6 +65,10 @@
 }
 
 .f-lock {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
   font-size: 64px;
 }
 
@@ -193,8 +199,13 @@
   font-size: 30px;
 }
 
-.f-progress {
+.f-progress-wrap {
+  position: relative; /* F9: 宽度归包裹层, ⛏️ 游标可在条外自由定位 */
   width: min(560px,80vw);
+}
+
+.f-progress {
+  width: 100%;
   height: 14px;
   border-radius: 8px;
   background: rgb(0 0 0 / 40%);
@@ -211,10 +222,11 @@
 
 .f-area {
   position: relative;
+  isolation: isolate; /* F9: 矿洞皮肤 z-index:-1 沉到游戏内容之下 */
   width: min(760px,92vw);
   height: min(440px,56vh);
   border-radius: 16px;
-  background: linear-gradient(#2b2b33,#1c1c22);
+  background: linear-gradient(#2b2b33,#1c1c22); /* 无贴图时的纯色兜底 */
   border: 4px solid #5a5a63;
   overflow: hidden;
   box-shadow: inset 0 0 40px rgb(0 0 0 / 60%);
@@ -325,6 +337,12 @@
   height: 72px;
   image-rendering: pixelated;
   border-radius: 10px;
+}
+
+/* len9 长队小尺寸档(设计稿 D3): 9×(56+14)=616px, 760px 区域放得下 */
+.f-creeper-sm {
+  width: 56px;
+  height: 56px;
 }
 
 .f-creeper.center {
@@ -516,6 +534,84 @@
   border-radius: 12px;
 }
 
+/* ---------- 图章日历条 + 集章仪式(F7): 漏签空白无负面标记 ---------- */
+.f-stamp-cal {
+  margin-top: 18px;
+  max-width: 560px;
+  width: 100%;
+}
+
+.f-stamp-title {
+  font-size: 14px;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-stamp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(40px, 1fr));
+  gap: 5px;
+}
+
+.f-stamp-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 2px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 22%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.f-stamp-cell img {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.f-stamp-cell span {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font-size: 10px;
+  opacity: 0.85;
+  text-shadow: 0 1px 2px #000;
+}
+
+.f-stamp-today {
+  border-color: #ffd83d;
+  box-shadow: 0 0 0 2px rgb(255 216 61 / 35%);
+}
+
+.f-award {
+  margin: 10px 0 4px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 18px;
+  border-radius: 14px;
+  border: 3px solid #ffd83d;
+  background: rgb(0 0 0 / 40%);
+}
+
+.f-award-chief {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+}
+
+.f-award-text {
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+.f-award-text b {
+  color: #ffd83d;
+  font-size: 17px;
+}
+
 .sw {
   display: inline-block;
 }
@@ -527,6 +623,8 @@
 }
 
 .f-stars .st {
+  position: relative; /* F9: 爆星粒子伪元素的定位框 */
+  display: inline-block;
   opacity: 0.22;
   transition: transform 0.2s;
 }
@@ -611,4 +709,1061 @@
 .f-gate-row {
   display: flex;
   gap: 14px;
+}
+
+/* ============================================================
+   F9 观感升级 — 矿洞皮肤 / MC 立体按钮 / 进度条刻度+游标 /
+   三星爆星粒子 / 像素云缓移 / 火苗摇曳(供 F8) / 连对弹跳(供 F5)
+   贴图变量(--f-atlas / --f-tile-*)由 js/modes/focus.js
+   进训练营时经 TextureAtlas 惰性生成一次并写到 #focusRoot
+============================================================ */
+
+/* ---------- 训练场矿洞皮肤: .f-area 三带石壁 + 四角火把 ----------
+   石头/泥土/圆石用单格 16×16 雪碧图 repeat(整图 repeat 会铺出全部
+   256 格, 故抠格单存); 火把用整图图集 + background-position 取格
+   (T_TORCH=第 26 格 → 列 10 行 1, ×3 缩放即 -480px -48px) */
+.f-cave {
+  position: absolute;
+  inset: 0;
+  z-index: -1; /* 沉到范式内容之下(.f-area 的 isolation 圈住栈层) */
+  pointer-events: none;
+  image-rendering: pixelated;
+  background-image: var(--f-tile-stone, none);
+  background-repeat: repeat;
+  background-size: 48px 48px;
+  box-shadow: inset 0 0 40px rgb(0 0 0 / 55%); /* 洞穴暗角 */
+}
+
+.f-cave::before { /* 顶缘泥土条 */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 48px;
+  image-rendering: pixelated;
+  background-image: var(--f-tile-dirt, none);
+  background-repeat: repeat-x;
+  background-size: 48px 48px;
+  box-shadow: inset 0 3px 0 rgb(255 255 255 / 14%), inset 0 -5px 0 rgb(0 0 0 / 30%);
+}
+
+.f-cave::after { /* 底部圆石带(洞底铺路层) */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  image-rendering: pixelated;
+  background-image: var(--f-tile-cobble, none);
+  background-repeat: repeat-x;
+  background-size: 48px 48px;
+  box-shadow: inset 0 5px 0 rgb(0 0 0 / 35%);
+}
+
+.f-torch { /* 四角火把贴片: 暖光晕随火苗一起呼吸 */
+  position: absolute;
+  z-index: 1;
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  background-image: var(--f-atlas, none);
+  background-repeat: no-repeat;
+  background-size: 768px 768px; /* 256px 图集 ×3 → 单格 48px */
+  background-position: -480px -48px; /* 取格: T_TORCH = 列 10 行 1 */
+  animation: f-torch-flicker 2.8s ease-in-out infinite;
+}
+
+.f-torch::before { /* 火把暖光晕 */
+  content: '';
+  position: absolute;
+  inset: -64px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 190 90 / 30%), rgb(255 150 50 / 10%) 46%, transparent 70%);
+}
+
+.f-torch-top-left {
+  top: 10px;
+  left: 12px;
+}
+
+.f-torch-top-right {
+  top: 10px;
+  right: 12px;
+  animation-delay: -0.9s;
+}
+
+.f-torch-bottom-left { /* 坐在圆石带沿上 */
+  bottom: 76px;
+  left: 12px;
+  animation-delay: -1.7s;
+}
+
+.f-torch-bottom-right {
+  bottom: 76px;
+  right: 12px;
+  animation-delay: -0.4s;
+}
+
+@keyframes f-torch-flicker {
+  0%,100%{filter:brightness(1)}35%{filter:brightness(1.22)}65%{filter:brightness(0.9)}82%{filter:brightness(1.1)}
+}
+
+/* ---------- MC 立体按钮: 亮顶暗底 inset 棱线 + 抬升投影, :active 按压位移并翻转棱线 ---------- */
+.f-start,
+.f-btn,
+.f-big-btn {
+  box-shadow:
+    inset 0 3px 0 rgb(255 255 255 / 30%),
+    inset 3px 0 0 rgb(255 255 255 / 14%),
+    inset -3px 0 0 rgb(0 0 0 / 20%),
+    inset 0 -4px 0 rgb(0 0 0 / 35%),
+    0 5px 0 rgb(0 0 0 / 40%),
+    0 7px 10px rgb(0 0 0 / 30%);
+}
+
+#focusRoot .f-start:active,
+#focusRoot .f-btn:active,
+#focusRoot .f-big-btn:active {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 3px 0 rgb(0 0 0 / 30%),
+    inset 3px 0 0 rgb(0 0 0 / 16%),
+    inset -3px 0 0 rgb(255 255 255 / 12%),
+    inset 0 -3px 0 rgb(255 255 255 / 18%),
+    0 1px 0 rgb(0 0 0 / 40%);
+}
+
+#focusRoot .f-start:active {
+  animation: none; /* f-pulse 的 transform 会盖住按压位移, 按下瞬间让位 */
+}
+
+/* ---------- 进度条: 十分位刻度层 + ⛏️ 像素镐游标(随进度推进) ---------- */
+.f-progress-ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(to right,
+    transparent, transparent calc(10% - 2px),
+    rgb(0 0 0 / 30%) calc(10% - 2px), rgb(0 0 0 / 30%) 10%);
+}
+
+.f-progress-cursor {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  margin-left: -13px;
+  pointer-events: none;
+  transform: rotate(-18deg); /* 挥镐姿态 */
+  transition: left 0.3s;
+}
+
+.f-progress-cursor img {
+  width: 26px;
+  height: 26px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 50%));
+}
+
+/* ---------- 三星爆星粒子: box-shadow 像素点四散, 挂在既有 .st.pop 上(零 JS) ---------- */
+.f-stars .st.pop::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px;
+  border-radius: 50%;
+  animation: f-burst 0.6s ease-out forwards;
+}
+
+@keyframes f-burst {
+  0% {
+    box-shadow: 3px -2px 0 -1px #ffd83d, -3px -2px 0 -1px #7cfc00, 3px 2px 0 -1px #fff2a8,
+      -3px 2px 0 -1px #7cfc00, 0 -3px 0 -1px #ffd83d, 0 3px 0 -1px #fff2a8,
+      -2px 0 0 -1px #7cfc00, 2px 0 0 -1px #ffd83d;
+    opacity: 1;
+  }
+
+  100% {
+    box-shadow: 30px -22px 0 -1px #ffd83d, -26px -28px 0 -1px #fff2a8, 32px 20px 0 -1px #7cfc00,
+      -30px 24px 0 -1px #ffd83d, 2px -34px 0 -1px #fff2a8, -4px 32px 0 -1px #7cfc00,
+      -34px 2px 0 -1px #ffd83d, 30px -2px 0 -1px #fff2a8;
+    opacity: 0;
+  }
+}
+
+/* ---------- 今日页/星屏像素云缓移: 方块云两层异速异向, 背景层不挡交互 ---------- */
+.f-today::before,
+.f-result::before { /* 前层大云: 三朵, box-shadow 方块拼形 */
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 9%;
+  left: 0;
+  width: 22px;
+  height: 11px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow:
+    22px 0 rgb(255 255 255 / 88%), 44px 0 rgb(255 255 255 / 88%), 66px 0 rgb(255 255 255 / 88%),
+    22px -11px rgb(255 255 255 / 88%), 44px -11px rgb(255 255 255 / 88%), 33px -22px rgb(255 255 255 / 88%),
+    340px 14px rgb(255 255 255 / 88%), 362px 14px rgb(255 255 255 / 88%), 384px 14px rgb(255 255 255 / 88%),
+    362px 3px rgb(255 255 255 / 88%),
+    620px 22px rgb(255 255 255 / 88%), 642px 22px rgb(255 255 255 / 88%), 664px 22px rgb(255 255 255 / 88%),
+    686px 22px rgb(255 255 255 / 88%), 653px 11px rgb(255 255 255 / 88%);
+  pointer-events: none;
+  animation: f-cloud-drift 110s linear infinite;
+}
+
+.f-today::after,
+.f-result::after { /* 后层小云: 更淡更慢, 反向漂 */
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 21%;
+  left: 0;
+  width: 16px;
+  height: 8px;
+  background: rgb(255 255 255 / 60%);
+  box-shadow:
+    16px 0 rgb(255 255 255 / 60%), 32px 0 rgb(255 255 255 / 60%), 16px -8px rgb(255 255 255 / 60%),
+    260px 10px rgb(255 255 255 / 60%), 276px 10px rgb(255 255 255 / 60%), 292px 10px rgb(255 255 255 / 60%),
+    540px 2px rgb(255 255 255 / 60%), 556px 2px rgb(255 255 255 / 60%);
+  pointer-events: none;
+  animation: f-cloud-drift 150s linear infinite reverse;
+}
+
+@keyframes f-cloud-drift {
+  from{transform:translateX(-240px)}
+  to{transform:translateX(100vw)}
+}
+
+/* ---------- 火苗摇曳(供 F8 给 flameIcon 图挂 .f-flame-sway): 从根部摆, 底宽顶尖 ---------- */
+.f-flame-sway {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  animation: f-flame-sway 1.2s ease-in-out infinite;
+}
+
+@keyframes f-flame-sway {
+  0%,100%{transform:rotate(-4deg) scaleY(1)}
+  28%{transform:rotate(3deg) scaleY(1.05)}
+  52%{transform:rotate(-2deg) scaleY(0.97)}
+  76%{transform:rotate(4deg) scaleY(1.03)}
+}
+
+/* ---------- 连对反馈(供 F5 挂钩): 矿袋政策把 ⛏️×N 计数挂 .f-area 角落, ----------
+   每次连对 +1 时重挂 .bump 触发弹跳(琶音归 sfx, 图标归 mcIcon) */
+.f-streak {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  z-index: 2;
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 4px #000;
+  pointer-events: none;
+}
+
+.f-streak.bump {
+  animation: f-streak-bump 0.45s;
+}
+
+@keyframes f-streak-bump {
+  30%{transform:scale(1.35) rotate(-8deg)}
+  60%{transform:scale(0.92) rotate(5deg)}
+}
+
+/* ---------- 动画全关降级: 本层动画/过渡停跳, 教学提示光环退化为静态描边 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #focusRoot,
+  #focusRoot *,
+  #focusRoot ::before,
+  #focusRoot ::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  #focusRoot .f-stim.hint,
+  #focusRoot .f-creeper.hint,
+  #focusRoot .f-big-btn.hint,
+  #focusRoot .f-block.hint {
+    box-shadow: 0 0 0 4px #7cfc00;
+  }
+
+  #focusRoot .f-stim.hint-no {
+    box-shadow: 0 0 0 4px #ff7043;
+  }
+}
+
+/* ============================================================
+  F6 · 里程碑授予仪式 与 宝物柜 (设计稿 §3 L4/L5)
+ ============================================================ */
+
+/* 授予仪式 */
+.f-award-chief img {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  animation: f-award-cheer 0.9s infinite;
+}
+
+@keyframes f-award-cheer {
+  0%,100%{transform:translateY(0) rotate(-3deg)}
+  50%{transform:translateY(-8px) rotate(3deg)}
+}
+
+.f-award-tool {
+  margin: 10px 0 6px;
+}
+
+.f-award-tool img {
+  width: 168px;
+  height: 168px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 55%));
+  animation: f-award-pop 0.7s;
+}
+
+@keyframes f-award-pop {
+  0%{transform:scale(0.2) rotate(-24deg)}
+  60%{transform:scale(1.25) rotate(6deg)}
+  100%{transform:scale(1)}
+}
+
+/* 宝物柜 */
+.f-cabinet {
+  gap: 4px;
+  justify-content: flex-start;
+  padding-top: 6px;
+}
+
+.f-cab-chief {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.f-cab-chief img {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+}
+
+.f-cab-hint {
+  font-size: 15px;
+  text-shadow: 0 2px 4px #000;
+  background: rgb(0 0 0 / 35%);
+  padding: 6px 14px;
+  border-radius: 12px;
+}
+
+.f-cab-group {
+  width: min(680px, 94vw);
+  background: rgb(0 0 0 / 32%);
+  border: 2px solid rgb(255 255 255 / 18%);
+  border-radius: 14px;
+  padding: 10px 14px 12px;
+  margin: 6px 0;
+}
+
+.f-cab-title {
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  text-shadow: 0 2px 4px #000;
+  margin-bottom: 8px;
+}
+
+.f-cab-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.f-cab-item {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  border-radius: 12px;
+  border: 3px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 30%);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.f-cab-item:hover {
+  border-color: rgb(255 255 255 / 60%);
+  transform: scale(1.08);
+}
+
+.f-cab-item img {
+  width: 58px;
+  height: 58px;
+  image-rendering: pixelated;
+}
+
+.f-cab-badge {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: #2c2c34;
+  border: 2px solid #ffd83d;
+  color: #ffd83d;
+}
+
+/* 工具组: 从 tools 字段渲染的里程碑大格(金边) */
+.f-cab-tools .f-cab-item {
+  width: 84px;
+  height: 84px;
+  border-color: rgb(255 216 61 / 45%);
+}
+
+.f-cab-tools .f-cab-item img {
+  width: 72px;
+  height: 72px;
+}
+
+/* ============================================================
+   每日体检 · 魔鬼特训 (F8, 设计稿 §8 B3/B8)
+============================================================ */
+
+/* 今日页附加入口行 */
+.f-extra-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.f-extra-btn {
+  font-size: 17px;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 255 255 / 45%);
+  background: rgb(0 0 0 / 35%);
+  cursor: pointer;
+  color: #fff;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-extra-btn:hover {
+  background: rgb(255 255 255 / 18%);
+}
+
+.f-extra-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.f-check-btn {
+  border-color: rgb(255 216 61 / 75%);
+}
+
+/* 村长头像(体检/魔鬼特训主持) */
+.f-chief img {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 40%));
+}
+
+/* 探险家火苗: 三档底图(摇曳动画类 .f-flame-sway 由 F9 备好, 此处复用不重定义) */
+.f-flame img {
+  width: 128px;
+  height: 128px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 18px rgb(255 157 46 / 55%));
+}
+
+/* 魔鬼特训: 红黑氛围(鬼村长上岗) */
+.f-devil-zone {
+  background: radial-gradient(ellipse at center, rgb(90 20 40 / 35%), rgb(20 8 16 / 75%));
+}
+
+.f-devil-head .f-rule-text {
+  color: #ffb0a0;
+}
+
+.f-devil-timer {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffd83d;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-devil-bar {
+  background: linear-gradient(90deg, #c33a24, #8a5cb0);
+}
+
+.f-devil-area {
+  border-color: #5a3a4d;
+  background: linear-gradient(#2b1c26, #1c1218);
+}
+
+.f-devil-ico img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  vertical-align: middle;
+}
+
+/* 通关鬼图章 */
+.f-devil-stamp img {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 14px rgb(138 92 176 / 60%));
+  animation: f-stamp-pop 0.5s;
+}
+
+@keyframes f-stamp-pop {
+  40% {
+    transform: scale(1.5) rotate(10deg);
+  }}
+
+/* ============================================================
+   F5 · 矿袋 HUD / 战利品飞行 / 结算回顾 (设计稿 §3 L3/L5 · §4)
+   — 关卡底部收集条(hotbar 木箱观感, 集章 7 章皮肤换铁皮) ·
+   贝塞尔弧线飞入(位移经 --dx/--dy 变量传给 keyframes) ·
+   结算屏本关收获列队(从矿袋飞出逐件 pop)
+ ============================================================ */
+
+/* ---------- 矿袋收集条: 关卡界面底部, 本关拾取实时可见 ---------- */
+.f-bag {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  width: min(458px, 92vw); /* 至多可视 8 槽(8×54+边距), 超出滚动 */
+  box-sizing: border-box;
+  margin: 10px auto 0;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 35%);
+  border: 3px solid rgb(0 0 0 / 45%);
+  overflow-x: auto; /* 槽满滚动(JS 落袋时滚到最新拾取) */
+  scrollbar-width: none;
+}
+
+.f-bag::-webkit-scrollbar {
+  display: none;
+}
+
+/* 槽位: 木箱 hotbar 质感 — 亮顶暗底 inset 棱线(对齐 MC 立体按钮口径) */
+.f-bag-slot {
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 3px solid #5d4a24;
+  background: linear-gradient(#a98950, #8a6d3b);
+  box-shadow:
+    inset 0 2px 0 rgb(255 235 190 / 30%),
+    inset 0 -3px 0 rgb(0 0 0 / 30%),
+    0 3px 0 rgb(0 0 0 / 35%);
+}
+
+.f-bag-slot img {
+  width: 40px;
+  height: 40px;
+  margin: 1px auto 0;
+  display: block;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%));
+}
+
+/* 数量角标(×2 起显示, 计数权威在 focusLootSession) */
+.f-bag-n {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #2c2c34;
+  border: 2px solid #ffd83d;
+  color: #ffd83d;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* 落袋弹跳: 与飞行 0.6s 尾牙衔接 */
+.f-bag-slot.bump {
+  animation: f-bag-bump 0.45s;
+}
+
+@keyframes f-bag-bump {
+  30% {
+    transform: scale(1.32) rotate(-6deg);
+  }
+
+  60% {
+    transform: scale(0.92) rotate(4deg);
+  }
+}
+
+/* 集章 7 章皮肤奖励(body.f-bag-iron 钩子, 应用处在 establish/恢复路径
+   applyFocusBagSkin, 家长重置时清除):
+   木箱→铁皮 — 银灰底 + 冷色棱线 + 四角铆钉(box-shadow 拼点) */
+body.f-bag-iron .f-bag-slot {
+  border-color: #6a7480;
+  background: linear-gradient(#dfe6ec, #aab6c2);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 55%),
+    inset 0 -3px 0 rgb(40 52 64 / 40%),
+    0 3px 0 rgb(0 0 0 / 35%),
+    6px 6px 0 -3px #6a7480,
+    -6px 6px 0 -3px #6a7480,
+    6px -6px 0 -3px #6a7480,
+    -6px -6px 0 -3px #6a7480; /* 四角铆钉 */
+}
+
+body.f-bag-iron .f-bag-n {
+  border-color: #e8edf2;
+  color: #e8edf2;
+}
+
+/* ---------- 战利品飞行: 刺激位置→槽位贝塞尔弧线(真空吸附观感) ----------
+   元素挂 document.body(JS 侧 addFocusBagSlot 的调用节奏与之对齐):
+   ① 不受 #focusRoot 的滚动/层叠上下文牵制, ② 下方 reduced-motion
+   降级要自管(fade 退化), 不被 #focusRoot 的动画全关块盖掉 */
+.f-loot-fly {
+  position: fixed;
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 55%));
+  animation: f-loot-arc 0.6s cubic-bezier(0.32, 0.08, 0.4, 1) forwards;
+}
+
+/* 弧线三关键帧: 原位→弧顶(半程上抛 90px 再放大, 抛起手)→槽位(收小入袋);
+   位移由 JS 写入 --dx/--dy(中心到中心位移) */
+@keyframes f-loot-arc {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+  45% {
+    transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5 - 90px)) scale(1.32) rotate(-10deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.45) rotate(8deg);
+    opacity: 0.95;
+  }
+}
+
+/* 动画敏感者: 飞行退化为中心淡入(JS 侧 620ms 后照常落袋入槽) */
+@media (prefers-reduced-motion: reduce) {
+  .f-loot-fly {
+    animation: f-loot-fade 0.35s ease-out forwards;
+  }
+}
+
+@keyframes f-loot-fade {
+  0% {
+    opacity: 0;
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.9;
+  }
+}
+
+/* ---------- 结算屏战利品回顾: 本关收获从矿袋飞出列队(级联 pop) ---------- */
+.f-loot-recap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 6px 0 2px;
+  padding: 8px 18px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 216 61 / 60%);
+  background: rgb(0 0 0 / 40%);
+}
+
+.f-loot-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffd83d;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-loot-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  animation: f-loot-pop 0.45s backwards; /* backwards: 级联进场不露形 */
+}
+
+.f-loot-item img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 50%));
+}
+
+.f-loot-item b {
+  font-size: 13px;
+  color: #ffd83d;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* 从矿袋升起: 自下方 28px 抬起 + 回弹放大(列队进场, JS 逐件延迟插入) */
+@keyframes f-loot-pop {
+  0% {
+    transform: translateY(28px) scale(0.3);
+    opacity: 0;
+  }
+
+  60% {
+    transform: translateY(-4px) scale(1.18);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ============================================================
+   B4 训练师村长 · B2 今日任务单 · B5 我的进步 · B6 集章观感
+   ============================================================ */
+
+/* 村长头像 + 气泡(今日页开场白 / 规则说明页 / 结算表扬) */
+.f-chief-bubble,
+.f-result-chief {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 560px;
+  margin: 4px 0 2px;
+}
+
+.f-chief-bubble {
+  cursor: pointer;
+}
+
+.f-chief-bubble img,
+.f-result-chief img {
+  width: 64px;
+  height: 64px;
+  flex: none;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 55%));
+}
+
+.f-bubble {
+  position: relative;
+  padding: 10px 16px;
+  border: 3px solid #ffd83d;
+  border-radius: 14px;
+  background: rgb(0 0 0 / 42%);
+  text-align: left;
+  font-size: 15px;
+  line-height: 1.5;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-bubble::before {
+  content: '';
+  position: absolute;
+  left: -10px;
+  top: 22px;
+  border: 7px solid transparent;
+  border-right-color: #ffd83d;
+}
+
+.f-greeting:hover .f-bubble,
+.f-greeting:focus-visible .f-bubble {
+  border-color: #fff2a8;
+  box-shadow: 0 0 0 3px rgb(255 216 61 / 30%);
+}
+
+.f-rule-bubble {
+  margin: 6px 0;
+}
+
+.f-rule-bubble .f-bubble {
+  flex: 1;
+  font-size: 17px;
+}
+
+.f-result-chief {
+  justify-content: center;
+}
+
+/* 锁定页: 打盹村长与月亮并置(零文字表达) */
+.f-lock-chief {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 45%));
+}
+
+.f-lock-moon {
+  font-size: 40px;
+}
+
+/* B2 今日任务单: 1~2 个维度图标(零文字, 点击 TTS 读维度名) */
+.f-task-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 2px 0 4px;
+}
+
+.f-task-chip {
+  width: 56px;
+  height: 56px;
+  padding: 4px;
+  border: 3px solid rgb(255 255 255 / 35%);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 30%);
+  cursor: pointer;
+}
+
+.f-task-chip:hover {
+  border-color: rgb(255 255 255 / 70%);
+}
+
+.f-task-chip .f-mcicon {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+
+/* B5 我的进步: 五维星柱 + 最新突破维高亮(只呈现累计与突破, 不呈现下滑) */
+.f-progress-page {
+  gap: 8px;
+}
+
+.f-progress-cols {
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  gap: 14px;
+  padding: 14px 18px;
+  border: 3px solid rgb(255 255 255 / 20%);
+  border-radius: 16px;
+  background: rgb(0 0 0 / 30%);
+}
+
+.f-dim-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  width: 72px;
+  min-height: 150px;
+  padding: 6px 4px;
+  border: 0;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.f-dim-col.f-latest {
+  background: rgb(255 216 61 / 12%);
+  box-shadow: inset 0 0 0 2px rgb(255 216 61 / 55%);
+}
+
+.f-star-stack {
+  display: flex;
+  flex-direction: column-reverse;
+  align-items: center;
+  gap: 1px;
+  max-height: 110px;
+  overflow: hidden;
+}
+
+.f-star-stack i {
+  font-style: normal;
+  font-size: 14px;
+  line-height: 1;
+  filter: drop-shadow(0 1px 2px rgb(0 0 0 / 60%));
+}
+
+.f-star-stack .f-star-empty {
+  opacity: 0.35;
+}
+
+.f-dim-badge img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+
+.f-break {
+  position: absolute;
+  top: -18px;
+  font-size: 20px;
+  animation: f-break-bob 1.6s ease-in-out infinite;
+}
+
+@keyframes f-break-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* B6 金图章(30 章起日历头部常驻) · 鬼图章角标(B8 与普通章并存) */
+.f-stamp-gold {
+  width: 26px;
+  height: 26px;
+  margin-left: 6px;
+  vertical-align: -6px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 4px #ffd83d);
+}
+
+.f-stamp-cell img.f-stamp-devil {
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  z-index: 1;
+  width: 46%;
+  height: 46%;
+  border-radius: 6px;
+  background: #2a1e36;
+  box-shadow: 0 0 0 2px #8a5cb0;
+}
+
+/* B6 三选一图章图案(stamp_pattern 奖励) */
+.f-stamp-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border: 2px dashed rgb(255 216 61 / 70%);
+  border-radius: 14px;
+  background: rgb(0 0 0 / 38%);
+}
+
+.f-stamp-pick-label {
+  font-size: 14px;
+  color: #ffd83d;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-stamp-pick button {
+  width: 52px;
+  height: 52px;
+  padding: 2px;
+  border: 3px solid rgb(255 255 255 / 25%);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 30%);
+  cursor: pointer;
+}
+
+.f-stamp-pick button.on {
+  border-color: #ffd83d;
+  box-shadow: 0 0 0 3px rgb(255 216 61 / 30%);
+}
+
+.f-stamp-pick img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+
+/* B6 宝物柜烟花: 复用 F9 box-shadow 粒子手法, 一次性迸发(基础 opacity=0,
+   prefers-reduced-motion 动画全关时自然不可见) */
+.f-firework {
+  position: fixed;
+  left: 50%;
+  top: 42%;
+  z-index: 70;
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  animation: f-firework-a 1.4s ease-out forwards;
+}
+
+.f-firework::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: f-firework-b 1.4s 0.12s ease-out forwards;
+}
+
+@keyframes f-firework-a {
+  0% {
+    opacity: 1;
+    box-shadow:
+      4px -3px 0 0 #ffd83d, -4px -3px 0 0 #7cfc00, 4px 3px 0 0 #fff2a8,
+      -4px 3px 0 0 #7cfc00, 0 -5px 0 0 #ffd83d, 0 5px 0 0 #fff2a8;
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      180px -130px 0 0 #ffd83d, -160px -150px 0 0 #fff2a8, 190px 120px 0 0 #7cfc00,
+      -180px 140px 0 0 #ffd83d, 20px -190px 0 0 #fff2a8, -30px 180px 0 0 #7cfc00,
+      -200px 10px 0 0 #ffd83d, 200px -10px 0 0 #fff2a8, 130px -190px 0 0 #7cfc00,
+      -120px -200px 0 0 #ffd83d;
+  }
+}
+
+@keyframes f-firework-b {
+  0% {
+    opacity: 1;
+    box-shadow:
+      4px 2px 0 0 #f4f4f4, -4px 2px 0 0 #ffd83d, 2px -4px 0 0 #fff2a8,
+      -2px -4px 0 0 #f4f4f4;
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      -150px -170px 0 0 #f4f4f4, 170px -140px 0 0 #ffd83d, -170px 130px 0 0 #fff2a8,
+      160px 160px 0 0 #f4f4f4, 200px 40px 0 0 #ffd83d, -200px -30px 0 0 #fff2a8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .f-firework,
+  .f-firework::after {
+    display: none;
+  }
 }

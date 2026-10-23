@@ -1,13 +1,36 @@
 'use strict';
 /* ============================================================
-   专注训练营 — 维度定义 / 难度参数表 / 100 关生成器
-
-   科学依据(见 MISSION.md 与设计共识):
-   - 持续警觉=CPT 警觉范式 · 抑制控制=Go/No-Go · 干扰控制=Flanker
-   - 视空记忆=Corsi 方块(6岁常模 3~5) · 规则切换=任务切换
-   - 每关只动一个难度维度(Davidson 2006: 2 规则可, 6 规则崩)
-   - 复习/交错编排 = 间隔效应+交错练习(Cepeda 2006; Klimovich 2025)
-============================================================ */
+   关卡参数表 (FocusLevels) — 应用层·数据表+纯函数
+   ------------------------------------------------------------
+   专注训练营 2.0 的数值唯一权威: 五维元数据(规则/tip 文案) ·
+   paramsFor 难度曲线(tier 1..19, qualitative 跳变一律概率渐进
+   混编——台阶变坡道) · 100 关螺旋编排 · 通过门槛/三星 ·
+   战利品掉落表与里程碑工具 · 体检/魔鬼特训/图章数据与纯函数。
+   数值出处: docs/focus-revamp-design.md §2(D1~D5)/§3(L3~L4)/§8(B1~B8)。
+   科学依据(见 MISSION.md): 五维范式 · 每关只动一个难度维度(Davidson 2006)
+   · 复习/交错编排 = 间隔效应+交错练习(Cepeda 2006; Klimovich 2025)
+   interface: FOCUS_DIMS · FOCUS_META · paramsFor(dim, tier, li) ·
+     FOCUS_LEVELS · focusPassed · focusStars · FOCUS_LOOT · FOCUS_MILESTONES ·
+     milestoneLevels · milestoneDue · focusProgress ·
+     rollFocusLoot(dim,{ok,streak,kind,seed}) · levelBonusLoot(passed,stars,{kind,seed}) ·
+     grantFocusLoot(inv,ids) ·
+     FOCUS_CHECK_PARAMS · focusFlame · devilStep · devilParams ·
+     FOCUS_STAMP_DAILY · FOCUS_STAMP_REWARDS · stampRecord(stamps, day, count) ·
+     stampTrim(stamps, today) · stampCount(stamps) · stampMilestones(count) ·
+     stampRewardsDue(count, claimed) · stampRewardFor(line) ·
+     FOCUS_STAMP_KINDS(自选图案白名单) · stampRewardClaimed(claimed, rid) ·
+     focusDayIndex · trimFocusLog · FOCUS_LOG_KEEP_DAYS · FOCUS_DEVIL_TIME_MS ·
+     devilDimFor · focusCheckEntry · checkBaseline · devilEntry · devilTierFor ·
+     focusTodayStr(now) · focusTodayDims · focusDimStars · focusLastBreakthrough ·
+     FOCUS_SAVE_DEFAULTS · migrateFocusSave
+   依赖(均经全局名, 调用期解析): 掷骰/结算纯函数无依赖; grantFocusLoot 调用期
+     解析 inventory-core 的 add(加载序先于本文件, 见 index.html); FOCUS_META
+     的图标字段在构造期调用 mcIcon/creeperFace(js/focus-icons.js, 加载序在
+     本文件之前); focusTodayStr 调用期解析 daily-budget.js 的 budgetDateStr
+     (加载序先于本文件, 见 index.html; 'Y-M-D' 拼装全库只留那唯一一处)
+   可测性: 零 THREE·零 DOM(图标为惰性字符串拼接)·有单测
+     (test/focus-paradigms.test.js, vm 直测)
+   ============================================================ */
 
 const FOCUS_DIMS = ['cpt', 'gonogo', 'flanker', 'corsi', 'switch']; // 阶段顺序
 const mcIco = (n) => '<img class="f-mcicon" draggable="false" src="' + mcIcon(n) + '">';
@@ -19,26 +42,37 @@ const FOCUS_META = {
              '矿灯闪得' + (p.isi < 1150 ? '很快' : '比较快') + '，钻石出现得不多，眼睛要一直盯着。';
     }},
   gonogo: {name: '抑制控制', game: '挖矿小能手', icon: mcIco('pickaxe'),
-    rule: '钻石快挖！TNT 千万不要碰。',
+    rule: '钻石快挖！别的矿和 TNT 都不要碰。',
     tip(p) {
-      return p.disguised ? 'TNT 会变成绿宝石的样子混进来！手别太快，看清楚再挖。' :
+      return p.disguiseRate >= 1 ? 'TNT 全都会变成绿宝石的样子混进来！手别太快，看清楚再挖。' :
+             p.disguiseRate > 0 ? '有的 TNT 会变成绿宝石的样子，手别太快，看清楚再挖。' :
              '钻石变少、TNT 变多了，忍住不碰 TNT 才能拿星星。';
     }},
   flanker: {name: '干扰控制', game: '苦力怕排队', icon: '<img class="f-mcicon" draggable="false" src="'+creeperFace(1)+'">',
     rule: '只看中间那只苦力怕，它看哪边，就点哪边。',
     tip(p) {
-      return '队伍变成 ' + p.len + ' 只，两边捣乱的苦力怕' + (p.congruentRate < 0.6 ? '很多' : '不少') + '。记住：只看中间那只！';
+      let s = '队伍变成 ' + p.len + ' 只，两边捣乱的苦力怕' + (p.congruentRate < 0.6 ? '很多' : '不少') + '。记住：只看中间那只！';
+      if (p.neutralRate > 0) s += '有的位置会换成中立的猪和羊，别被它们带偏！';
+      if (p.mobMix > 0) s += '队伍里还会混进别的生物，只认苦力怕！';
+      return s;
     }},
   corsi: {name: '视空记忆', game: '钻石闪闪光', icon: mcIco('diamond'),
-    rule: '看清楚钻石亮的顺序，再按一样的顺序点回去。',
+    rule: '看清楚宝石亮的顺序，再按一样的顺序点回去。',
     tip(p) {
-      return '要记住 ' + p.len + ' 个钻石亮的顺序' + (p.grid===16 ? '，格子也变成 4×4 了' : '') + '。';
+      let s = '要记住 ' + p.len + ' 个' + (p.gem === 'gold_ingot' ? '金锭' : '钻石') + '亮的顺序' +
+          (p.grid === 16 ? '，格子也变成 4×4 了' : '') + '。';
+      if (p.lenMix > 0) s += '有时候会少亮一个，别担心，记住亮过的顺序就好！';
+      if (p.antiChunk > 0) s += '格子还会换位置排，别想着只记位置哦！';
+      return s;
     }},
   switch: {name: '规则切换', game: '听指挥的小矿工', icon: mcIco('flag'),
     rule: '看旗子！按旗子说的采方块，旗子变了就换方法。',
     tip(p) {
-      return (p.rules===3 ? '现在有三种旗子：颜色、材质、大小。' : '两种旗子：颜色和材质。') +
-             '旗子大约每 ' + p.switchEvery + ' 次换一次，盯紧旗子！';
+      let s = (p.rules===3 ? '现在有三种旗子：颜色、材质、大小。' : '两种旗子：颜色和材质。') +
+          (p.switchJitter ? '旗子说变就变，不定时哦，盯紧它！' : '旗子大约每 ' + p.switchEvery + ' 次换一次，盯紧旗子！');
+      if (p.choices === 5) s += '方块变多了，看仔细再点！';
+      if (p.bivalent > 0) s += '有的方块会故意长得像目标，只看旗子说的那一样！';
+      return s;
     }},
 };
 
@@ -47,45 +81,61 @@ function fLerp(a, b, t) {
 }
 
 /* 各范式难度参数: tier 1..19 (关卡在阶段内的档位, 教学关固定 tier 1)
-   时间类参数会被关内阶梯微调(calib)缩放 —— 时间放宽=更简单 */
-function paramsFor(dim, tier) {
+   时间类参数会被关内阶梯微调(calib)缩放 —— 时间放宽=更简单
+   设计总则(设计稿 §2): qualitative 变化一律概率渐进混入(p 随 tier 升至封顶),
+   不再一步全量; li = 关卡号(0 基, 可选), 供 corsi 宝石按关卡奇偶轮换 */
+function paramsFor(dim, tier, li) {
   const t = Math.min(1, Math.max(0, (tier-1)/18)); // 0..1 归一
   switch (dim) {
-    case 'cpt': // 警觉:更快+目标更少+干扰更相似
+    case 'cpt': // D1 警觉:更快+目标更少+干扰更相似(校准恰好, 顶格再紧一档)
       return {
         trials: Math.round(fLerp(16, 28, t)),
-        isi: Math.round(fLerp(1500, 950, t)), // 间隔
-        dur: Math.round(fLerp(1000, 800, t)), // 呈现时长(calib 杠杆)
-        targetRate: fLerp(0.55, 0.3, t),
+        isi: Math.round(fLerp(1500, 900, t)), // 间隔
+        dur: Math.round(fLerp(1000, 780, t)), // 呈现时长(calib 杠杆)
+        targetRate: fLerp(0.55, 0.28, t),
         similar: tier >= 10, // 加入💎的高相似干扰💠
       };
-    case 'gonogo': // 抑制:Go 更少+伪装+更快
+    case 'gonogo': // D2 抑制:Go 更少+伪装渐入+更快(治 tier8 一步全量的墙)
       return {
         trials: Math.round(fLerp(16, 28, t)),
         dur: Math.round(fLerp(1100, 750, t)), // (calib 杠杆)
         goRate: fLerp(0.75, 0.55, t),
-        disguised: tier >= 8, // No-Go 用💠伪装
+        // 伪装率: 每个 No-Go 试次独立掷骰(中则绿宝石伪装, 否则显性 TNT)
+        disguiseRate: Math.min(1, Math.max(0, 0.3*(tier-7))), // tier8→0.3, 9→0.6, 10→0.9, ≥11→1.0
       };
-    case 'flanker': // 干扰:不一致更多+排更长+窗口更短
+    case 'flanker': { // D3 干扰:不一致更多+排更长+中立行+混生物(治无顶碾压)
+      const len = tier <= 6 ? 3 : tier <= 11 ? 5 : tier <= 17 ? 7 : 9; // D3 档位表: tier≤6/7~11/12~17/18+
       return {
         trials: Math.round(fLerp(14, 22, t)),
-        len: t < 0.4 ? 3 : (t < 0.75 ? 5 : 7),
-        congruentRate: fLerp(0.8, 0.45, t),
-        window: Math.round(fLerp(2600, 1900, t)), // (calib 杠杆)
+        len,
+        congruentRate: fLerp(0.8, 0.35, t), // 顶格不一致占 65%
+        window: Math.round(fLerp(2600, 1500, t)), // (calib 杠杆)
+        neutralRate: tier >= 13 ? 0.25 : 0, // 中立行(两侧换猪/羊): 引入即顶格
+        mobMix: tier >= 15 ? 0.3 : 0, // 行内混入 1~2 只非苦力怕生物(知觉噪声)
       };
-    case 'corsi': // 记忆:序列更长+格阵更大+节奏更快
+    }
+    case 'corsi': { // D4 记忆:序列更长+格阵更大+节奏更快(长度/格阵跳档全部混编成坡)
+      const clen = (tr) => Math.min(6, 2 + Math.floor(Math.max(0, tr)/4)); // 公式不变, 顶格 6
+      const cgrid = (tr) => tr >= 14 ? 16 : 9; // 4×4 推迟到 tier14, 与 len5@tier12 脱钩拆"同档双跳"
+      const jump = (tr) => clen(tr) > clen(tr-1) || cgrid(tr) > cgrid(tr-1); // 过渡档=长度跳档或 4×4 首见
       return {
         seqs: 6,
-        grid: tier >= 12 ? 16 : 9,
-        len: Math.min(6, 2 + Math.floor(tier/4)), // 6 岁常模 3~5,顶格 6
+        grid: cgrid(tier),
+        len: clen(tier),
+        lenMix: jump(tier) ? 0.5 : (jump(tier-1) ? 0.25 : 0), // 过渡档 50% 出 len-1, +1 档 25%——首见 4×4 的 tier14~15 同时吃减载(D4)
+        antiChunk: tier >= 16 ? fLerp(0.3, 0.6, (tier-16)/3) : 0, // 顶格反组块: 序列展示前按概率打乱格位
         pace: Math.round(fLerp(850, 600, t)), // (calib 杠杆)
+        gem: (li === undefined || li % 2 === 0) ? 'diamond' : 'gold_ingot', // 关卡奇偶轮换(纯风味, 同序列恒一种)
       };
-    case 'switch': // 切换:规则更多+切换更频繁
+    }
+    case 'switch': // D5 切换:规则更多+切换更频繁+五选项+双价干扰(治无顶碾压)
       return {
         trials: Math.round(fLerp(14, 22, t)),
-        rules: tier < 6 ? 2 : 3, // 颜色/形状 (+大小)
+        rules: tier < 6 ? 2 : 3, // 颜色/形状 (+大小) — Davidson 2006: 6 岁 3 规则封顶
         switchEvery: Math.round(fLerp(5, 2, t)),
-        choices: 4,
+        switchJitter: tier >= 14, // 切换点改随机 1~3, 不可预测
+        choices: tier >= 10 ? 5 : 4, // 第 5 选项(扫视负载)
+        bivalent: tier >= 8 ? fLerp(0.5, 1, (tier-8)/11) : 0, // 无关维度匹配 0.5→顶格 1.0(逼孩子只看当前规则维度)
       };
   }
 }
@@ -95,8 +145,9 @@ function paramsFor(dim, tier) {
    - 第 6~99 关: 每 5 关一轮, 五个游戏轮换出现, 难度档随轮次递进
      (交错练习+间隔复习合一: Klimovich 2025; Cepeda 2006)
    - 第 100 关: 五维大师考验
-   - 特殊变体随难度档自然出现: 规则切换 3 旗(tier≥6≈L28) · TNT 伪装(tier≥8≈L40)
-     · 假钻石(tier≥10≈L50) · 记忆 4×4(tier≥12≈L60)                              */
+   - 特殊变体随难度档渐进混入(新曲线见 paramsFor): 伪装渐入 tier8 ·
+     假钻石 tier10 · 五选项 tier10 · 中立行 tier13 · 4×4 格阵 tier14 ·
+     混生物 tier15 · 队伍 9 只 tier18                                */
 const FOCUS_LEVELS = [];
 (function generateFocusLevels() {
   for (let i=0; i<100; i++) {
@@ -114,7 +165,7 @@ const FOCUS_LEVELS = [];
       dim = FOCUS_DIMS[k % 5];
       tier = Math.min(19, 2 + Math.floor(k / 5));
     }
-    FOCUS_LEVELS.push({i, stage: Math.floor(i/5)+1, dim, kind, tier, params: paramsFor(dim, tier)});
+    FOCUS_LEVELS.push({i, stage: Math.floor(i/5)+1, dim, kind, tier, params: paramsFor(dim, tier, i)});
   }
   // 大师关: 五维连续小节(各 tier 8 难度)
   FOCUS_LEVELS[99].sections = FOCUS_DIMS.map((d) => ({dim: d, params: paramsFor(d, 8)}));
@@ -139,5 +190,367 @@ function focusStars(level, st) {
   let s = 1;
   if (st.acc >= 0.85) s++;
   if (st.acc >= 0.95 && st.maxStreakErr < 3) s++;
+  return s;
+}
+
+/* ---------- 战利品掉落表(设计稿 §3 L3) ----------
+   按维度主题化、以基础材料为主(为未来探险经济留余量, ADR 0002);
+   概率和=1, id 全部在物品注册表注册(items-core 的 ITEMS)。
+   掷骰政策(正确 p=0.45 · 3 连对保底稀有池 · 教学关豁免 · 通关/三星追加)
+   见下方纯函数; HUD/飞入观感/满包 toast 归模式层; 稀有池五维共用。 */
+const FOCUS_LOOT_RARE = {gold_ingot: 0.6, diamond: 0.4};
+const FOCUS_LOOT = {
+  cpt: {pool: {coal: 0.40, iron_ore: 0.25, torch: 0.20, iron_ingot: 0.12, gold_ingot: 0.03}, rare: FOCUS_LOOT_RARE},
+  gonogo: {pool: {cobble: 0.30, coal: 0.25, iron_ore: 0.20, iron_ingot: 0.15, diamond: 0.10}, rare: FOCUS_LOOT_RARE},
+  flanker: {pool: {gunpowder: 0.45, string: 0.25, bone: 0.20, slimeball: 0.10}, rare: FOCUS_LOOT_RARE}, // 苦力怕/蜘蛛/骷髅的掉落物
+  corsi: {pool: {diamond: 0.40, gold_ingot: 0.25, iron_ingot: 0.20, bone_meal: 0.15}, rare: FOCUS_LOOT_RARE},
+  switch: {pool: {planks: 0.25, stick: 0.25, brick: 0.20, clay_ball: 0.15, bread: 0.15}, rare: FOCUS_LOOT_RARE},
+};
+
+/* ---------- 矿袋掷骰政策(F5 工单, 设计稿 §3 L3): 种子可注入的纯函数 ----------
+   教学关(kind='tutorial')与错误试次零掉落(零压力/只奖不罚); 正确试次以
+   p=0.45 掷维度池; 连对每满 3 次的那一试次(streak=3/6/…)保底掷稀有池
+   (稀有池概率和=1 必得, 不受 0.45 门槛)。seed 缺省走 Math.random(运行时);
+   注入数字则用与测试惯例同常数的 LCG — 同 seed 同输出, 概率边界可锁定。
+   HUD/飞入观感/满包 toast 归模式层(modes/focus.js), 本层只出决策。 */
+const FOCUS_LOOT_P = 0.45; // 正确试次掉落概率(L3)
+const FOCUS_LOOT_STREAK = 3; // 保底节拍: 连对每满 3 次掷稀有池
+
+function mkLootRand(seed) {
+  let s = seed;
+  return function() {
+    s = (s*1103515245 + 12345) % 2147483648;
+    return s/2147483648;
+  };
+}
+
+/* 骰值落累积区间取件(池概率和=1 由既有测试锁死); 浮点尾差兜底最后一键 */
+function pickLootWeighted(pool, r) {
+  let acc = 0;
+  for (const id of Object.keys(pool)) {
+    acc += pool[id];
+    if (r < acc) return id;
+  }
+  return Object.keys(pool).pop();
+}
+
+/* t = {ok, streak, kind, seed} → itemId|null */
+function rollFocusLoot(dim, t) {
+  const e = t || {};
+  if (e.kind === 'tutorial' || !e.ok) return null; // 教学豁免 + 只奖不罚
+  const loot = FOCUS_LOOT[dim];
+  if (!loot) return null; // 未知维度兜底
+  const rnd = mkLootRand(e.seed);
+  if (e.streak > 0 && e.streak % FOCUS_LOOT_STREAK === 0) {
+    return pickLootWeighted(loot.rare, rnd()); // 保底: 必得稀有池一件
+  }
+  if (rnd() >= FOCUS_LOOT_P) return null; // 未中
+  return pickLootWeighted(loot.pool, rnd());
+}
+
+/* 结算奖励(设计稿 §3 L3): 通关得 torch|apple 二选一(掷骰), 三星追加 1 钻石;
+   未通过/教学关不发。opts = {kind, seed} */
+function levelBonusLoot(passed, stars, opts) {
+  const o = opts || {};
+  if (!passed || o.kind === 'tutorial') return [];
+  const base = mkLootRand(o.seed)() < 0.5 ? 'torch' : 'apple';
+  return stars >= 3 ? [base, 'diamond'] : [base];
+}
+
+/* 战利品入包授予流(F3 核定口径): 逐件 add 进背包本体, 余量>0 静默忽略
+   (不入 granted 清单, 无容量预检)并标 full — 每关至多一次「背包满啦」
+   toast 与 save 时机归模式层; add 经全局名调用期解析(inventory-core
+   加载序先于本文件, 见 index.html) */
+function grantFocusLoot(inv, ids) {
+  const granted = []; let full = false;
+  for (const id of ids || []) {
+    if (add(inv, id, 1) > 0) full = true;
+    else granted.push(id);
+  }
+  return {granted, full};
+}
+
+/* ---------- 里程碑工具表(设计稿 §3 L4 · spec 实现决策 9/17): 进度阶梯 ----------
+   unlocked 首次越线授予(木镐→钻镐→钻剑的长线追求); 与图章习惯阶梯双轨
+   独立计数; 工具不进共享背包(F3 混装核定选型 B)——记账进训练营存档
+   tools 字段(已授 id 集合), 宝物柜工具组从该字段渲染。 */
+const FOCUS_MILESTONES = {
+  10: 'pick_wood', 30: 'pick_stone', 50: 'pick_iron',
+  70: 'sword_iron', 90: 'pick_diamond', 100: 'sword_diamond',
+};
+
+/* 里程碑升序派生的唯一出口(纯函数): 门槛升序的 [{line, id}] 清单 —
+   milestoneDue 应授差集与宝物柜工具组渲染两处共用, 升序编排只此一份,
+   消费方不得再手抄 Object.keys+sort */
+function milestoneLevels() {
+  return Object.keys(FOCUS_MILESTONES).map(Number).sort((a, b) => a - b)
+      .map((k) => ({line: k, id: FOCUS_MILESTONES[k]}));
+}
+
+/* 应授差集(纯函数, 幂等): progress ≥ 门槛且不在已授集合内的工具 id,
+   按门槛升序返回; 存量档补授 = 差集一次性追授(F6), 再次计算自然得
+   空集(不重授); 授予流 = 结果并入存档 tools 字段 */
+function milestoneDue(progress, tools) {
+  const owned = new Set(tools || []);
+  return milestoneLevels()
+      .filter((e) => progress >= e.line && !owned.has(e.id))
+      .map((e) => e.id);
+}
+
+/* 有效通关数(纯函数, 里程碑的进度口径): unlocked 在模式层被 99 封顶
+   (通关后不再前进, 今日页索引用), 第 100 关大师考验的进度兜底取
+   history 里已通关最高关号——大师关(i=99)通关可到 100, 钻剑不漏发 */
+function focusProgress(save) {
+  let top = (save && typeof save.unlocked === 'number') ? save.unlocked : 0;
+  if (save && Array.isArray(save.history)) {
+    for (const h of save.history) {
+      if (h && h.passed && typeof h.i === 'number') top = Math.max(top, h.i + 1);
+    }
+  }
+  return top;
+}
+
+/* ---------- 每日体检短参数(设计稿 §8 B3) ----------
+   复用大师关的五维连跑机制(sections 分发), 各维度取低档(tier 2)
+   短参数、每节约 6 试次; 计费归模式层(F8): 计入时长、不占关数额度 */
+const FOCUS_CHECK_PARAMS = FOCUS_DIMS.map((dim) => {
+  const p = {...paramsFor(dim, 2)};
+  if (p.trials) p.trials = 6; // corsi 无 trials, 序列数本就是 6
+  return {dim, params: p};
+});
+
+/* 探险家火苗(设计稿 §8 B3): 三档按当次五维平均正确率映射(≥85 大/≥70 中/其余小);
+   brighter 只在超过自己近 7 天体检均值时为真(只显示变亮, 不显示回落, 不与常模比较) */
+function focusFlame(acc, baseline) {
+  const flame = acc >= 0.85 ? 3 : acc >= 0.70 ? 2 : 1;
+  return {flame, brighter: baseline !== undefined && acc > baseline};
+}
+
+/* ---------- 魔鬼特训(设计稿 §8 B8) ----------
+   每维度独立鬼等级 1~10, 按 85/66 双阈进退(≥85 升 / 66~84 保持 / ≤65 降,
+   降级文案中性, 失败零扣损); 挑战档 = 该维度当前档 +2, 封顶 19 */
+function devilStep(level, acc) {
+  if (acc >= 0.85) return Math.min(10, level + 1);
+  if (acc >= 0.66) return level;
+  return Math.max(1, level - 1);
+}
+function devilParams(dim, currentTier) {
+  return paramsFor(dim, Math.min(19, currentTier + 2));
+}
+
+/* ---------- F8 每日体检/魔鬼特训的入口与记账纯函数(设计稿 §8 B3/B8) ---------- */
+/* 存档按日记录(checks/devil.days)的滚动保留窗口: 防存档膨胀(90 天) */
+const FOCUS_LOG_KEEP_DAYS = 90;
+/* 魔鬼特训 5 分钟硬顶(到点当前小节打完即强制结束, B8) */
+const FOCUS_DEVIL_TIME_MS = 5*60*1000;
+
+/* 今日日期串(单点出口, focus-levels 的日期工具族): 委托 budgetDateStr
+   (daily-budget.js, 加载序先于本文件, 调用期解析) — 模式层一律经此取
+   'Y-M-D' 键, 全库日期串拼装只留在 budgetDateStr 一处; now 可注入
+   (毫秒时间戳)供日历单元格与单测复用 */
+function focusTodayStr(now) {
+  return budgetDateStr(now === undefined ? Date.now() : now);
+}
+
+/* 日期串(年-月-日 无前导零, budgetDateStr 同款)→本地日序数:
+   近 7 天均值与 90 天滚动的日差全部基于它; 损坏串返回 NaN(调用方按"无记录"处理) */
+function focusDayIndex(dateStr) {
+  const m = /^(\d+)-(\d+)-(\d+)$/.exec(String(dateStr));
+  if (!m) return NaN;
+  const d = new Date(+m[1], +m[2]-1, +m[3]);
+  return Math.round((d.getTime() - new Date(1970, 0, 1).getTime())/86400000);
+}
+
+/* 按日记录滚动裁剪(共享工具, F8 与 F7 图章同一实现): 返回只保留最近
+   keepDays 天(含今天)的新对象, 不改原; 未来日期(时钟回拨产物)保留 —
+   零惩罚哲学不因设备时钟惩罚孩子; 非法键丢弃(防死数据); today 本身
+   非法时原样返回(防御: 不清档)。checks/devil.days 与 stamps 只差窗口
+   常量(两个 KEEP_DAYS 有意分立, 见 tickets F10 收口②), 机制不并概念 */
+function trimFocusLog(log, today, keepDays) {
+  const t0 = focusDayIndex(today);
+  if (!Number.isFinite(t0)) return log || {};
+  const out = {};
+  if (!log) return out;
+  for (const k of Object.keys(log)) {
+    const diff = t0 - focusDayIndex(k);
+    if (diff < keepDays) out[k] = log[k]; // NaN(非法键)比较为 false 自然丢弃, 未来日期 diff<0 保留
+  }
+  return out;
+}
+
+/* 魔鬼特训维度按日严格轮换(设计稿 B8 "天数%5"): 日序数(focusDayIndex 派生)
+   %5 映射五维 — 相邻两天必不同维、五天一轮全覆盖, 纯函数不依赖 Date.now */
+function devilDimFor(dateStr) {
+  const idx = focusDayIndex(dateStr);
+  const n = Number.isFinite(idx) ? idx : 0; // 损坏串回落第 0 维(不炸)
+  return FOCUS_DIMS[((n % FOCUS_DIMS.length) + FOCUS_DIMS.length) % FOCUS_DIMS.length];
+}
+
+/* 体检入口: 当日未做过即可见(当天做完即消失, B3 "每天一次") */
+function focusCheckEntry(checks, today) {
+  return !checks || !hasFocusDay(checks, today);
+}
+
+/* 体检成长基线: 自己近 7 天(不含今天)体检 acc 的均值; 无记录返回 undefined
+   (focusFlame 的 brighter 只在此值存在时才作对比 — 只显示变亮, 不显示回落) */
+function checkBaseline(checks, today) {
+  const t0 = focusDayIndex(today);
+  if (!Number.isFinite(t0) || !checks) return undefined;
+  let sum = 0; let n = 0;
+  for (const k of Object.keys(checks)) {
+    const diff = t0 - focusDayIndex(k);
+    if (diff >= 1 && diff <= 7 && checks[k] && typeof checks[k].acc === 'number') {
+      sum += checks[k].acc; n++;
+    }
+  }
+  return n ? sum/n : undefined;
+}
+
+/* 魔鬼特训入口决策: 当日已训→done(入口消失); 关数余额<2→quota(禁用态);
+   否则 ok — 特训计 2 关额度, 余额不足时不得开训(B8 预算完整性优先) */
+function devilEntry(devil, today, playedCount, capCount) {
+  if (devil && devil.days && hasFocusDay(devil.days, today)) return {open: false, reason: 'done'};
+  if (playedCount + 2 > capCount) return {open: false, reason: 'quota'};
+  return {open: true, reason: 'ok'};
+}
+
+/* 孩子在某维度的"当前档": 从待打关(unlocked)向下找该维最近一关的 tier —
+   魔鬼特训挑战档 = devilParams(dim, 该档+2)(封顶 19); 前 5 关教学覆盖五维, 循环必命中 */
+function devilTierFor(dim, unlocked) {
+  for (let i = Math.min(unlocked, 99); i >= 0; i--) {
+    if (FOCUS_LEVELS[i].dim === dim) return FOCUS_LEVELS[i].tier;
+  }
+  return 1; // 不可达兜底(防御性, 不影响正常档)
+}
+
+/* 日期键探测(避开原型链与 hasOwnProperty 重复书写) */
+function hasFocusDay(log, day) {
+  return Object.prototype.hasOwnProperty.call(log, day);
+}
+
+/* ---------- 图章/集章(设计稿 §8 B1/B6): 习惯阶梯 ----------
+   与里程碑工具(进度阶梯)双轨独立计数、互不折算; 漏签无任何负面标记。
+   集章只发观感/收集类奖励, 永不解锁关卡/范式/难度(红线);
+   30 章起每 30 章递进金图章(60/90/…由 F7 按 章数%30 派生) */
+const FOCUS_STAMP_DAILY = {min: 1, big: 3}; // 当日完成 ≥1 关得章, 满 3 关(日限 6 的一半)得大章
+const FOCUS_STAMP_REWARDS = {
+  3: 'stamp_pattern', // 自选图章图案(⛏️💎🧨 三选一)
+  7: 'bag_skin', // 矿袋皮肤(木箱→铁箱)
+  14: 'firework', // 宝物柜烟花彩蛋
+  30: 'gold_stamp', // 金图章
+};
+
+/* ---------- 图章纯函数(F7 工单): 落账/裁剪/集章计数/里程碑判定 ----------
+   stamps 形状 {日期: 当日关数}(键与 budgetDateStr 同款 'Y-M-D' 无前导零);
+   全部无突变(返回新对象/新数组)。落账点在 modes/focus.js 的结算处,
+   count 传当日预算已耗关数(与今日页 dots 同口径, 通过与否都计) */
+const FOCUS_STAMP_KEEP_DAYS = 90; // 滚动保留窗口(含今天), 防存档膨胀(与 FOCUS_LOG_KEEP_DAYS 有意分立, 见 tickets F10 收口②)
+
+/* 自选图章图案三选一白名单(B6 集章 3 章奖励 ⛏️💎🧨): stampIcon 的合法 kind
+   子集; 存档字段 stampKind 记孩子选择(缺省 'pick'), 选择器只渲这三个 */
+const FOCUS_STAMP_KINDS = ['pick', 'gem', 'tnt'];
+
+/* 落账: 当日计数钳 1~6(日限 FOCUS_DAILY_LEVELS=6, 按值拷贝免跨文件依赖),
+   当日取 max 不重复累加(重玩同日不叠章); 0/负/NaN 关不落账 */
+function stampRecord(stamps, day, count) {
+  if (!(count > 0)) return stamps;
+  const n = Math.max(1, Math.min(6, Math.round(count)));
+  const next = {...stamps};
+  next[day] = Math.max(next[day] || 0, n);
+  return next;
+}
+
+/* 裁剪: 只保留今天起 90 天窗口内的键(含今天), 更老与非法键丢弃(防存档膨胀);
+   today 本身非法时原样返回(防御: 不清档) — 机制与 trimFocusLog 同一实现
+   (共享工具), 仅窗口常量分立 */
+function stampTrim(stamps, today) {
+  return trimFocusLog(stamps, today, FOCUS_STAMP_KEEP_DAYS);
+}
+
+/* 集章总数 = 有章天数(每天至多 1 章; 普通/大章是同一枚章的两种大小, 不双计) */
+function stampCount(stamps) {
+  return Object.keys(stamps).length;
+}
+
+/* 达成线: 表内 3/7/14/30 + 60/90/…每 30 章递进(都是金图章, 30 已在表内) */
+function stampMilestones(count) {
+  const lines = Object.keys(FOCUS_STAMP_REWARDS).map(Number).filter((k) => count >= k);
+  for (let m = 60; m <= count; m += 30) lines.push(m);
+  return lines.sort((a, b) => a - b);
+}
+
+/* 待领 = 已越线 − 已领(差集): 幂等, 领取方把线记进存档后不再重发;
+   存量档首次落账时一次性补授全部已越线(观感奖励, 无重复入账风险) */
+function stampRewardsDue(count, claimed) {
+  const got = new Set(claimed || []);
+  return stampMilestones(count).filter((line) => !got.has(line));
+}
+
+/* 达成线 → 奖励 id: 递进线(60/90/…)不在表内, 沿用 30 的金图章 */
+function stampRewardFor(line) {
+  return FOCUS_STAMP_REWARDS[line] || FOCUS_STAMP_REWARDS[30];
+}
+
+/* 已领奖励判定(纯函数): claimed 线集合里是否领过某奖励 id — 矿袋皮肤/
+   烟花等持久观感奖励的"进场恢复"与"触发迸发"共用同一口径 */
+function stampRewardClaimed(claimed, rid) {
+  return (claimed || []).some((line) => stampRewardFor(line) === rid);
+}
+
+/* ---------- 今日任务单/我的进步(B2/B5 最小呈现)的派生纯函数 ----------
+   编排不动(100 关螺旋是科学编排, 只做呈现升级), 模式层拿清单渲染图标 */
+
+/* 今日任务单: 从待打关(FOCUS_LEVELS[unlocked])起取今日预算内将轮到的
+   维度, 按出场序去重, 至多 2 个(今日先玩什么的一行图标) */
+function focusTodayDims(unlocked, remaining) {
+  const dims = [];
+  const cur = Math.min(Math.max(0, unlocked || 0), 99);
+  for (let k = 0; k < remaining && cur + k < 100; k++) {
+    const d = FOCUS_LEVELS[cur + k].dim;
+    if (!dims.includes(d)) dims.push(d);
+    if (dims.length >= 2) break;
+  }
+  return dims;
+}
+
+/* 我的进步·五维星柱: 各维累计星数(stars 按关卡号归维求和; 每关历史最高,
+   重玩不稀释——防刷天然满足)。返回五维齐全的计数对象, 零星也占位 */
+function focusDimStars(save) {
+  const out = {};
+  for (const d of FOCUS_DIMS) out[d] = 0;
+  if (save && save.stars) {
+    for (const k of Object.keys(save.stars)) {
+      const lv = FOCUS_LEVELS[+k];
+      if (lv) out[lv.dim] += save.stars[k] || 0;
+    }
+  }
+  return out;
+}
+
+/* 我的进步·最新突破维: history 里最近一条通过记录的维度(无记录 null)
+   — B5 只呈现累计与突破, 不呈现下滑 */
+function focusLastBreakthrough(save) {
+  if (!save || !Array.isArray(save.history)) return null;
+  for (let k = save.history.length - 1; k >= 0; k--) {
+    const h = save.history[k];
+    if (h && h.passed && typeof h.i === 'number' && FOCUS_LEVELS[h.i]) {
+      return FOCUS_LEVELS[h.i].dim;
+    }
+  }
+  return null;
+}
+
+/* ---------- 训练营存档形状(纯函数, modes/focus.js 的 slot 与 vm 单测共用) ----------
+   FOCUS_SAVE_DEFAULTS: 新档默认形状(mkSaveSlot 浅并入幂等补缺);
+   migrateFocusSave(s, from): 按 fromVer 迁移一步(幂等 — 已是好形状再跑
+   原样), 供 save-slot 的 migrate 链调用; 存量进度字段原样保留 */
+const FOCUS_SAVE_DEFAULTS = {unlocked: 0, stars: {}, history: [], tools: [],
+  stamps: {}, stampClaimed: [], stampKind: 'pick',
+  checks: {}, devil: {levels: {}, days: {}}};
+
+function migrateFocusSave(s, from) {
+  if (from === 0 && s && s.daily) delete s.daily; // v0 老形状可能仍带 daily(已迁 daily_budget_save) → 摘除
+  if (s && !Array.isArray(s.tools)) s.tools = []; // F6: 里程碑工具记账字段幂等补缺/修形
+  if (s && !FOCUS_STAMP_KINDS.includes(s.stampKind)) s.stampKind = 'pick'; // B6: 自选图章图案字段修形(缺/损坏回落默认镐章)
   return s;
 }
