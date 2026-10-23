@@ -178,4 +178,8 @@ flowchart TD
 
 ### A10 文档收尾 + 集成验证 `[ ]`
 - 依赖：A5 A6 A7 A8 A9。
-- 交付：GLOSSARY 收词（AudioRegistry / AudioCore(VoiceGate·MusicDirector) / AudioMixer，_Avoid_ 标注 effects.js 音效段历史归属）；conventions.md §1.1 目录宪法补 assets/ 行（若 A7 用了 ffmpeg-static，§工具链表同步登记 devDependency 理由）；`docs/adr/0002-audio-assets-in-repo.md`（音频入库 + 单格式 + CC0-only + 体积预算的不可逆决策）；index.html 版本行声明（集成者改）；CREDITS 复核；集成分支全量 `node --test` + `npm run lint` 绿。
+- 交付：GLOSSARY 收词（AudioRegistry / AudioCore(VoiceGate·MusicDirector) / AudioMixer，_Avoid_ 标注 effects.js 音效段历史归属）；conventions.md §1.1 目录宪法补 assets/ 行（若 A7 用了 ffmpeg-static，§工具链表同步登记 devDependency 理由）；`docs/adr/0003-audio-assets-in-repo.md`（音频入库 + 单格式 + CC0-only + 体积预算的不可逆决策；编号自 0002 顺延——基线里 0002 已被 focus-loot-integration 占用）；index.html 版本行声明（集成者改）；CREDITS 复核；集成分支全量 `node --test` + `npm run lint` 绿。
+- 收尾拍板（A10，承接 A5 验收提示③ / A7 收尾备注③④）：
+  - ① **超时页 playTime 保持模式情绪口径，不改**——`playTimeUp` 只 `showPage('playTime')`，不触发 switchMode/showPage('main')，BGM 情绪维持当前模式；A5 设计如此（超时收摊不另做音乐情绪提示）。若产品口径日后要收成 menu/none，是在 `playTimeUp`/`showPlayTimeoutPage`（main.js）补一行 `AudioMixer.setMood(...)` 的事，本单不做。
+  - ② **mood 映射维持听感推断**（crickets→calm · the-abyss→dark · volcano→battle，即 MUSIC_TRACKS 现值），iPad 真机验收后可调；Fallen Age 备用两首（A Forgotten World / Ruins of an Ancient Culture）在仓库外临时目录 `C:\Users\user\AppData\Local\Temp\opencode\a7-sources\`，换曲/增补时入库并同步 CREDITS 与 MUSIC_TRACKS。
+  - ③ **level/win 保持纯合成**——琶音/和弦比打击样本更贴仪式感（A7④），不样本化。

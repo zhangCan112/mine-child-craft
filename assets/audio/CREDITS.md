@@ -9,7 +9,7 @@
 
 - 下载日期：全部 **2026-10-23**（PowerShell `Invoke-WebRequest`，源 zip/wav/ogg 原件存仓库外临时目录，不入库）
 - 许可：[CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)（作者放弃一切权利，可商用、可改编、署名非义务——为溯源与儿童项目礼节仍逐条记录）
-- 转码：ffmpeg 6.1.1（devDependency `ffmpeg-static` 附带构建；本机 PATH 无 ffmpeg，直连 GitHub 拉取其二进制时证书校验失败，需 `NODE_TLS_REJECT_UNAUTHORIZED=0`，详见工单 A7 / ADR 0002）
+- 转码：ffmpeg 6.1.1（devDependency `ffmpeg-static` 附带构建；本机 PATH 无 ffmpeg，直连 GitHub 拉取其二进制时证书校验失败，需 `NODE_TLS_REJECT_UNAUTHORIZED=0`，详见工单 A7 / ADR 0003）
 - 转码命令（128k 反馈短曲 / 打击样本）：
 
   ```

@@ -29,12 +29,13 @@ css/              # 按端拆分：style(桌面) → focus(训练营) → touch(
 test/             # node --test 单测，与 js 模块镜像命名
 docs/             # <topic>-research / -design / -plan 三段式 + adr/NNNN-slug.md
 lib/              # 仅 vendored 三方库（three.min.js），只读
+assets/audio/     # CC0 音频资产 + CREDITS.md 溯源清单（只放转码后产物，源 wav/flac/ogg 不入库，见 adr/0003）
 data/             # 运行时数据（gitignore）
 server.js         # 零依赖静态服务器（Node 内建模块，无 npm 依赖）
 ```
 
 运行时零依赖 `node_modules`：浏览器直引 js/*.js，服务器只用 Node 内建模块。
-package.json 只承载开发期 lint 工具链（devDependencies）。
+package.json 只承载开发期工具链（lint + 一次性音频转码 ffmpeg-static，见 §5；均为 devDependencies）。
 
 ### 1.2 文件命名语法（后缀语义表）
 
@@ -191,6 +192,7 @@ id 命名偏离见 §6。
 | `.editorconfig` | UTF-8 · LF · 2 空格 · 收尾换行 · 去尾空白 |
 | `.gitattributes` | `* text=auto eol=lf`（覆盖 Windows autocrlf，检出也是 LF） |
 | `test/conventions.test.js` | 结构约定断言：命名语法 / strict+头注释横幅 / -core·-registry 配单测 / 文本卫生 |
+| `package.json` 的 `ffmpeg-static`（devDependency） | 一次性音频转码工具链（A7 素材入库：mono 44.1kHz AAC/m4a，决策见 adr/0003）；不进运行时——浏览器直引 js、server.js 只用内建模块，零依赖定位不破 |
 
 规范分三层被执行：**格式归 lint**（零错误才算过）、**结构归守门测试**（手滑即红）、
 **运行时归 boot 冒烟 + 各模块单测**。三者都绿才可提交。
