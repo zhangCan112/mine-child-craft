@@ -137,7 +137,7 @@ const hitLog = [];
 const moveLog = [];
 let listResult = [];
 let nextHit = {hp: 10, dead: false, freshDead: false};
-const ADV_MOB_CFG = { /* 四怪数值摘自 config.js MOB_TYPES(巢穴池, 行为断言所需最小集) */
+const ADV_MOB_CFG = {/* 四怪数值摘自 config.js MOB_TYPES(巢穴池, 行为断言所需最小集) */
   zombie: {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55},
   skeleton: {name: '骷髅', hp: 26, dmg: 6, speed: 2.6, range: 14, cd: 2.6, h: 1.9, ranged: true, hitR: 0.55},
   spider: {name: '蜘蛛', hp: 24, dmg: 3, speed: 3.0, range: 2.2, cd: 1.2, h: 0.9, hitR: 0.65},

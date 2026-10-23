@@ -602,7 +602,7 @@ function advMobAI(dt) {
     const aggro = !p.dead && distP <= ADV_NEST_AGGRO_R && distHome <= ADV_NEST_LEASH_R;
     if (aggro) {
       Mobs.steer(m, Math.atan2(dxP, dzP));
-      if (m.cfg.ranged) { /* 骷髅: 炮台巡航(7 格), 太远逼近太近拉开, 节拍到就放箭 */
+      if (m.cfg.ranged) {/* 骷髅: 炮台巡航(7 格), 太远逼近太近拉开, 节拍到就放箭 */
         const want = 7;
         if (distP > want) {
           Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
@@ -613,15 +613,15 @@ function advMobAI(dt) {
           m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
           advShootArrow(m, p);
         }
-      } else if (distP > m.cfg.range) { /* 近战逼近 */
+      } else if (distP > m.cfg.range) {/* 近战逼近 */
         Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
-      } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.attackCd <= 0) { /* 贴身攻击玩家 */
+      } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.attackCd <= 0) {/* 贴身攻击玩家 */
         m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
         const r = Mobs.hit(p, advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4);
         if (r.freshDead) advPlayerDied();
         else advOnHurt(r);
       }
-    } else if (distHome > ADV_NEST_HOME_R) { /* 收队: 慢步回巢(掉头不恋战) */
+    } else if (distHome > ADV_NEST_HOME_R) {/* 收队: 慢步回巢(掉头不恋战) */
       Mobs.steer(m, Math.atan2(hx, hz));
       const sp = speed * 0.6;
       Mobs.move(m, hx / distHome * sp * dt, hz / distHome * sp * dt); moved = sp;
@@ -675,7 +675,7 @@ function advUpdateArrows(dt) {
       advRemoveArrow(i);
       continue;
     }
-    if (!p.dead && CombatCore.hitBody({x: px, y: py, z: pz}, p)) { /* 命中玩家(战斗核心盒判定) */
+    if (!p.dead && CombatCore.hitBody({x: px, y: py, z: pz}, p)) {/* 命中玩家(战斗核心盒判定) */
       const r = Mobs.hit(p, a.dmg, p.pos.x - px, p.pos.z - pz, a.kpow);
       if (r.freshDead) advPlayerDied();
       else advOnHurt(r);
