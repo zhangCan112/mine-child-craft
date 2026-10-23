@@ -111,7 +111,7 @@ flowchart TD
 
 ## 第三波（可并行）
 
-### F5 矿袋 + 战利品政策 `[ ]`
+### F5 矿袋 + 战利品政策 `[x]`（并入 `1cd8979`，接口：`rollFocusLoot(dim,{ok,streak,kind,seed})` · `levelBonusLoot` · `grantFocusLoot(inv,ids)→{granted,full}` · HUD `.f-bag/.f-bag-slot(+.bump)/.f-loot-fly(弧线)/.f-loot-recap` · 保底=streak%3 · 魔鬼/体检不挂 onTrial 天然免掉落；顺修 F8 modes/focus.js 闭括号事故 `91c84a6`）
 - 依赖：F1（掉落表）、F2（事件缝）、F3（背包对接核对）。
 - 交付：训练营模式层接 onTrial→按 FOCUS_LOOT 掷骰（正确 p=0.45 / 3 连对保底稀有池 / 教学关豁免 / 通关 torch|apple 二选一 / 三星追加 1 钻石）→ 背包核心 add 作用于 bp.inv + bp.save → 矿袋 HUD 槽位飞入动画（贝塞尔弧线，复刻掉落物真空吸附观感）+ 落袋音；结算页战利品列队回顾；满包静默忽略 + 每关至多一次 toast「背包满啦」。
 - 测试：掷骰政策抽成种子可注入的顶层纯函数进 vm 缝（概率边界/保底触发/豁免分支/满包余量）；DOM 动画不直测。
