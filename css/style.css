@@ -944,3 +944,345 @@ canvas {
   width: 26px;
   height: 26px;
 }
+
+/* ============================================================
+ T10 · mode-kit 物品槽与面板(item 槽型 / 背包+配方书 / 熔炉)
+ 沿用 hotbar 的黑底半透明+圆角+#ffe27a 数量色体系
+============================================================ */
+
+/* hotbar item 槽: 像素图标(img)与耐久条 */
+.slot .pic {
+  width: 36px;
+  height: 36px;
+  image-rendering: pixelated; /* 16×16→64×64 dataURL 放大不糊 */
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 50%));
+}
+
+.slot .dur {
+  position: absolute;
+  left: 4px;
+  right: 4px;
+  bottom: 2px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(0 0 0 / 55%);
+  overflow: hidden;
+}
+
+.slot .dur i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+
+.slot .dur i.bar-hi {
+  background: #7ec850;
+}
+
+.slot .dur i.bar-mid {
+  background: #ffe27a;
+}
+
+.slot .dur i.bar-lo {
+  background: #ff6b5e;
+}
+
+/* ---------- 面板底座: 自建遮罩挂 body 级 ---------- */
+.mkp-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 55%);
+}
+
+.mkp-box {
+  display: flex;
+  gap: 14px;
+  width: min(880px, 94vw);
+  max-height: 92vh;
+  padding: 14px 16px;
+  overflow: auto;
+  color: #fff;
+  background: rgb(20 26 34 / 94%);
+  border: 3px solid rgb(255 255 255 / 22%);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 45%);
+}
+
+.mkp-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* 头部: 标题 + 整理 + 关闭 */
+.mkp-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mkp-title {
+  flex: 1;
+  font-size: 17px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #000;
+}
+
+.mkp-sort,
+.mkp-x,
+.mkp-autofill {
+  font-size: 15px;
+  line-height: 1;
+  color: #fff;
+  cursor: pointer;
+  background: rgb(0 0 0 / 32%);
+  border: 2px solid rgb(255 255 255 / 40%);
+  border-radius: 8px;
+  padding: 7px 12px;
+}
+
+.mkp-sort:active,
+.mkp-autofill:active {
+  background: rgb(124 252 0 / 35%);
+}
+
+.mkp-x {
+  padding: 7px 10px;
+}
+
+/* ---------- 背包网格: 18 主格(6 列×3 行) + 9 快捷镜像 ---------- */
+.mkp-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 54px);
+  gap: 6px;
+}
+
+.mkp-hotrow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 4px;
+  border-top: 2px dashed rgb(255 255 255 / 18%);
+}
+
+.mkp-cell {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 54px;
+  height: 54px;
+  background: rgb(0 0 0 / 25%);
+  border: 3px solid rgb(255 255 255 / 22%);
+  border-radius: 6px;
+}
+
+.mkp-cell .pic {
+  width: 36px;
+  height: 36px;
+  image-rendering: pixelated;
+}
+
+.mkp-cell .icon {
+  font-size: 28px;
+  line-height: 1;
+}
+
+.mkp-cell .cnt {
+  position: absolute;
+  top: 1px;
+  right: 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffe27a;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* ---------- 分类页签: 图标式零文字 ---------- */
+.mkp-tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.mkp-tab {
+  width: 44px;
+  height: 40px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  background: rgb(0 0 0 / 32%);
+  border: 2px solid rgb(255 255 255 / 30%);
+  border-radius: 8px;
+}
+
+.mkp-tab.on {
+  background: rgb(255 255 255 / 18%);
+  border-color: #fff;
+  box-shadow: 0 0 8px rgb(255 255 255 / 45%);
+}
+
+/* ---------- 配方卡: 产物大图 + 材料 chip + 站点徽标 ---------- */
+.mkp-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-content: flex-start;
+}
+
+.mkp-card {
+  position: relative;
+  width: 168px;
+  padding: 10px 8px 8px;
+  cursor: pointer;
+  background: rgb(0 0 0 / 30%);
+  border: 3px solid rgb(255 255 255 / 22%);
+  border-radius: 10px;
+}
+
+.mkp-card:active {
+  transform: scale(0.96);
+}
+
+.mkp-card.dim {
+  opacity: 0.45;
+  filter: grayscale(0.55); /* 缺什么灰什么(D8) */
+}
+
+.mkp-out {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 52px;
+}
+
+.mkp-out .big {
+  width: 46px;
+  height: 46px;
+  font-size: 38px;
+  line-height: 1;
+  image-rendering: pixelated;
+}
+
+.mkp-n {
+  font-size: 16px;
+  font-weight: 700;
+  color: #ffe27a;
+  text-shadow: 0 1px 2px #000;
+}
+
+.mkp-badge {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  font-size: 15px;
+}
+
+.mkp-badge.lack {
+  opacity: 0.4;
+  filter: grayscale(1); /* 站点未解锁 → 徽标灰 */
+}
+
+.mkp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: center;
+}
+
+.mkp-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 5px;
+  background: rgb(0 0 0 / 35%);
+  border-radius: 6px;
+  font-size: 12px;
+}
+
+.mkp-chip .mini {
+  width: 20px;
+  height: 20px;
+  font-size: 16px;
+  line-height: 1;
+  image-rendering: pixelated;
+}
+
+.mkp-chip b {
+  font-weight: 700;
+  color: #ffe27a;
+}
+
+.mkp-chip.lack {
+  opacity: 0.45;
+  filter: grayscale(0.6); /* 缺料图标灰显 */
+}
+
+/* ---------- 任务卡容器(T15 填内容) ---------- */
+.mkp-quest {
+  flex: none;
+  width: 190px;
+}
+
+/* ---------- 熔炉面板: 三槽 + 进度条 ---------- */
+.mkp-furnace {
+  width: min(420px, 94vw);
+  flex-direction: column;
+  gap: 14px;
+}
+
+.mkp-frow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.mkp-fslot {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 5px;
+}
+
+.mkp-flbl {
+  font-size: 11px;
+  color: rgb(255 255 255 / 85%);
+  text-shadow: 0 1px 2px #000;
+}
+
+.mkp-fmid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+}
+
+.mkp-fire {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.mkp-pbar {
+  width: 64px;
+  height: 10px;
+  border-radius: 5px;
+  background: rgb(0 0 0 / 55%);
+  border: 2px solid rgb(255 255 255 / 25%);
+  overflow: hidden;
+}
+
+.mkp-pfill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 5px;
+  background: linear-gradient(90deg, #ff9d3c, #ffe27a);
+  transition: width 0.15s linear;
+}
