@@ -4,7 +4,7 @@
    把"清单是唯一权威"从口头约定变成断言(先例 mode-registry.test.js):
    ① js/** 每处 sfx('…') 字面量都在 SFX_KINDS 登记(漏登记即红),
      且只收活着的 kind(TNT 死键不迁);
-   ② 条目形状防错网(synth/file 二选一 + g/gTouch/prio/coolMs 齐全);
+   ② 条目形状防错网(synth/file 至少其一(file 须带 synth 回退, A7 起共存) + g/gTouch/prio/coolMs 齐全);
    ③ MOODS 键集与模式注册表逐条对齐, 值 ∈ 合法情绪集;
    ④ 样本 file 条目须真实存在于 assets/audio/ 且 CREDITS.md 记载
      (A2 无样本空转, A7 素材入库后咬合);
@@ -68,16 +68,20 @@ test('声音清单: 只收活着的 kind — 12 活键齐备, TNT 死键(fss/doo
   }
 });
 
-test('声音清单: 条目形状 — synth/file 二选一 + g/gTouch/prio/coolMs 四字段齐全', () => {
+test('声音清单: 条目形状 — synth/file 至少其一, file 条目须带 synth 回退(降级链互锁) + 增益/优先级/冷却齐全', () => {
   for (const [kind, e] of Object.entries(AudioRegistry.SFX_KINDS)) {
     const hasSynth = e.synth !== undefined;
     const hasFile = e.file !== undefined;
-    assert.ok(hasSynth !== hasFile, kind + ' 须 synth/file 恰选其一(标样本或合成)');
-    if (hasSynth) {
-      assert.ok(typeof e.synth === 'object' && e.synth !== null, kind + ' synth 须为合成定义对象');
-    }
+    /* A7 起条目形状演进: file(样本优先) 与 synth(回退) 可共存 —
+       audio.js 的降级链在样本未就绪/加载失败时无条件消费 e.synth,
+       纯 file 条目失败即哑(违背"游戏永不哑"); 纯 synth 条目仍允许 */
+    assert.ok(hasSynth || hasFile, kind + ' 须 synth/file 至少其一(合成或样本)');
     if (hasFile) {
       assert.strictEqual(typeof e.file, 'string', kind + ' file 须为 assets/audio/ 下文件名');
+      assert.ok(hasSynth, kind + ' 标 file 须同时保留 synth 做加载失败回退(游戏永不哑)');
+    }
+    if (hasSynth) {
+      assert.ok(typeof e.synth === 'object' && e.synth !== null, kind + ' synth 须为合成定义对象');
     }
     for (const f of ['g', 'gTouch']) {
       assert.strictEqual(typeof e[f], 'number', kind + ' 缺数值字段 ' + f);
@@ -109,13 +113,15 @@ test('声音清单: MOODS 基线 = menu/build→calm · arena/tank→battle · n
   assert.strictEqual(m.focus, 'none', '专注训练营无 BGM(注意力训练哲学, spec 拍板)');
 });
 
-test('声音清单: MUSIC_TRACKS 条目形状 {file, mood, g}, 曲目情绪不含 none(空转至 A7)', () => {
+test('声音清单: MUSIC_TRACKS 条目形状 {file, mood, g, durMs}, 曲目情绪不含 none(A7 起填曲)', () => {
   for (const [id, t] of Object.entries(AudioRegistry.MUSIC_TRACKS)) {
     assert.strictEqual(typeof t.file, 'string', id + ' 缺 file(assets/audio/ 下文件名)');
     assert.ok(['calm', 'battle', 'dark'].includes(t.mood),
         id + ' mood 非法: ' + t.mood + '(none=不放曲, 曲目不该有)');
     assert.strictEqual(typeof t.g, 'number', id + ' 缺数值增益 g');
     assert.ok(t.g > 0, id + '.g 须为正增益');
+    assert.ok(Number.isInteger(t.durMs) && t.durMs > 0,
+        id + ' 缺实测 durMs(MusicDirector 判曲毕唯一依据, A3 备注②; 转码后 ffmpeg 实测毫秒)');
   }
 });
 
