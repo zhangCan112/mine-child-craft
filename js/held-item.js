@@ -4,8 +4,9 @@
    ------------------------------------------------------------
    手持物(工具/武器)的唯一数据源: 部件表 + 握持姿态 + 挥击/待机
    参数(个性武器 = 在 defs 里加一份纯数据; 镐/斧/剑/锹四阶工具 =
-   mkToolDef 参数化生成); 外加三个无状态入口:
-   mkToolDef 工具 def 工厂 · swingPose 挥击关节角纯函数 · mount 按 def 装配网格。
+   mkToolDef 加载期批量生成 16 条 def 的工厂, 单测直调——非运行时
+   按需入口); 外加两个无状态入口:
+   swingPose 挥击关节角纯函数 · mount 按 def 装配网格。
    肢体动画与握持施加收在 Avatar。顶层零 THREE → Node vm 可直接
    加载单测; mount() 调用期才触碰 THREE(仅浏览器)。
    依赖: 无(挥击曲线纯数学; 颜色/尺寸为字面量)。
@@ -165,7 +166,9 @@ const HELD_DEFS = {
 const HeldItems = {
   defs: HELD_DEFS,
   bare: HELD_BARE,
-  /* 工具 def 工厂: kind×tier → 全新 def(与 defs 里 16 条同构同源, 供运行时按需生成) */
+  /* 工具 def 工厂: kind×tier → 全新 def。加载期已批量生成 16 条进 defs
+     (本入口即那段装配代码的单测直调面), 非运行时按需入口——运行时
+     消费方一律读 defs, 不经此现做 */
   mkToolDef,
 
   /* 挥击关节角(纯函数): p 为 0..1 的挥击进度。

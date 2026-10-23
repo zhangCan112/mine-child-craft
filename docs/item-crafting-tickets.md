@@ -210,3 +210,39 @@ flowchart TD
 - 三门禁全绿：397 测试 / lint 三工具零错 / server 冒烟 200+六 script 行。GLOSSARY 七新五更；设计稿顶部实施状态注记（TNT 下线/拆炉不做/QUESTS 口径）。
 - 交付：全量 `npm test` + `npm run lint` 零错误；五模式回归确认；GLOSSARY 新术语（物品核心/背包核心/合成核心/掉落物实体库/探险模式/像素图标工坊）词条合入；设计稿与本工单状态对齐勾选。
 - 完成后由主会话跑 code-review 技能评审集成分支。
+
+---
+
+## code-review 修复轮（fix/code-review-round1，双轴评审发现全处置）
+
+> 主会话对集成分支跑 code-review（Standards×Spec 双轴）后的修复轮，七项按序处置。
+> 基点 `feature/item-crafting` 顶端（`6b1e9c6`），三门禁全绿后并回。
+
+### S1【硬违规】剥 adventure-core `[x]`
+- 交付：新纯核心 `js/adventure-core.js`（应用层·纯核心，零 THREE 零 DOM，570 行）——地图常量表、地形生成一族（advBuildWorld 及 12 个构件）、政策纯函数（死亡计划/巢穴节拍/挥击与怪物伤害/击杀掉落/收集播报/蓄力步进/放置合法性/食物政策/树苗计时/站点判定/烧炼单步/退炉/TNT 掷骰与衰减）、任务表 ADV_QUESTS/ADV_MINE_TALLY、提醒政策三件（见 S4）。adventure.js 只留壳（1650→1141 行；mkMode 装配/THREE·DOM/话术/生命周期），`AdventureMode.adv` 转发保留（T12~T15 挂点与单测触达面不变）。
+- 迁移保真：29 个迁移函数与全部常量声明经临时脚本与 git HEAD 逐字节比对一致；壳段 55/57 函数逐字节一致，2 处差异均为 S3 预期换调。
+- 接线：index.html 在 adventure.js 行前加 adventure-core.js；test/adventure-mode.test.js 装载序同步（require core 铺全局后再 require 壳）；新同名单测 `test/adventure-core.test.js`（conventions §1.2 守门，地形确定性对着真散布函数断言）。
+
+### S2【硬违规】血条收 -kit（mkHpBar）`[x]`
+- 交付：`mode-kit.js` 新增 `mkHpBar`——深接口 update(hp,maxHp,x,y,z)/dispose，canvas 贴图 Sprite 血量变化才重绘，可选 visible() 回调控制显隐（下界：只下界显示）；探险/下界两份同形内联实现（advEnsureHpBar/advUpdateHpBar/advDisposeHpBar 与 ensureHpBar/updateHpBar/disposeHpBar）归一为调用方。两模式测试全绿（均走行为断言未捅血条内部）；mode-kit.test.js 补无渲染环境安全测试；GLOSSARY 增「头顶血条（mkHpBar）」词条。
+
+### S3【重复】耐久结算合一 `[x]`
+- 交付：advWearTool（命中路径）/advDamageHeld（挖掘路径）合并为 `advWearHeld(src)`——damageTool 破板信号 → remove 清槽 + 安抚 TTS + 观感回落锄头（原命中路径漏的）+ 预警账本重置；两路话术统一为一句（含「不哭」「再做一个」，T12/T14 既有断言口径兼容）。AdventureMode.adv 挂点导出 advWearHeld 供单测触达。
+
+### S4【Spec 缺口三连】提醒政策 `[x]`
+- ①低耐久语音预警：耐久比首次 <0.25 提醒一句（每工具每命一次，破板/换掉即重置——判据纯函数 advWearWarn，挂在 advWearHeld 内，S3 合一后两路共享）。
+- ②背包快满提醒：占用槽 ≥24/27 一次性 toast+TTS「背包快满啦，去合成一些吧」（update 内 0.5s 节流查账；冷却口径=「回落再满」的上升沿——整理/合成腾格子后再满才再提醒，持续满格不轰炸，口径写在纯函数注释）。判据纯函数 advBagFullStep。
+- ③工具坏指路：破板安抚话术并句当前任务步 hint（advBreakToolText——SpeechKit 是 cancel-then-speak，拆两句会被顶掉，与任务链「表扬+引导并句」同口径）。
+- 测试：三件纯函数在 test/adventure-core.test.js 直测 + 三条行为链在 test/adventure-mode.test.js 实测（含挖掘路径破板指路）。
+
+### S5【Speculative Generality】措辞降级 `[x]`
+- held-item.js 头注释与 HeldItems.mkToolDef 接口注释改为「加载期批量生成 16 条 def 的工厂（单测直调），非运行时按需入口——运行时一律读 defs」；GLOSSARY 手持物注册表词条同步。
+- mode-kit.js 的 KIT_STATION_BADGE.furnace 保留，注释改为「二期烧炼站点配方预留（设计稿 D8 定稿：一期熔炉为面板交互非 station 配方）」——从泛泛「备用」变为有出处的规划。
+
+### S6【ADR 矛盾】背包壳 Backpack `[x]`
+- 读 docs/adr/0002-focus-loot-integration.md：其口径确为「新增应用层壳 `js/backpack.js` 唯一持有该存档键」「未来消费方必须走 backpack.js，不得自开存档键」——按最小实现落地：新 `js/backpack.js`（mkBackpack：mkSaveSlot+SyncDB 装配 + load 原地换槽 + save + inv 稳定引用；背包规则零复制），adventure.js 改为消费它（存档形状/时机/行为不变），index.html 挂 js/sync.js 之后，GLOSSARY 增「背包壳（Backpack）」词条；test/backpack.test.js 守往返/回落/引用稳定 + 「键字面量只在 backpack.js」唯一持有守门（ADR 0002）。
+
+### S7 收尾 `[x]`
+- 三门禁：`npm test` 414/414 全绿（基线 397 → +17：adventure-core 10 + backpack 3 + S4 行为链 3 + mkHpBar 1）；`npm run lint`（ESLint/Stylelint/htmlhint）零错误；server 冒烟 200 且 index.html 两个新 script 行在场（js/backpack.js、js/adventure-core.js）。
+- GLOSSARY 增改同步：新增「头顶血条（mkHpBar）/探险核心（AdventureCore）/背包壳（Backpack）」三词条，更新「探险模式/手持物注册表」两条。
+- 铁律执行：未触碰 NOTES.md/RESOURCES.md/docs/focus-revamp-design.md/learning-records/ 与 ADR 正文；git add 只加明确路径。
