@@ -2,6 +2,8 @@
 /* ============================================================
    专注训练营模式 — 屏幕流 / 三星 / 每日锁定 / 家长面板 / 矿洞皮肤(F9)
    会话: 进入→今日页→关卡→星级+过程表扬→自动下一关→每日 6 关或 20 分钟锁定
+   F6 增: 里程碑工具授予(存档 tools 字段记账 + 全屏仪式)与 🎒 宝物柜
+   (工具组从 tools 字段渲染, 其余组从共享背包计数渲染, 点击 TTS 读物品名)
 ============================================================ */
 
 /* ---------- 过程性表扬 / 中性安慰 (夸努力不夸聪明, Mueller & Dweck 1998) ----------
@@ -22,9 +24,10 @@ function comfortLine() {
 
 const FOCUS_SAVE_KEY = 'focus_camp_save';
 const focusSlot = SyncDB.slot(FOCUS_SAVE_KEY, {
-  defaults: {unlocked: 0, stars: {}, history: []},
+  defaults: {unlocked: 0, stars: {}, history: [], tools: []},
   migrate(s, from) { // v0 老形状可能仍带 daily(已迁 daily_budget_save) → 摘除, 与启动迁移幂等
     if (from === 0 && s && s.daily) delete s.daily;
+    if (s && !Array.isArray(s.tools)) s.tools = []; // F6: 里程碑工具记账字段(spec 17) 幂等补缺/修形, 只补缺不碰其余字段
     return s;
   },
 });
@@ -34,6 +37,14 @@ function loadFocusSave() {
 function saveFocusSave(s) {
   focusSlot.save(s);
 }
+
+/* ---------- 共享背包(F6 接入, ADR 0002 / F3 核定口径) ----------
+   训练营是共享背包的第二个消费方: 进训练营 init() 时 load 一次(双消费方
+   共用存档介质, 重进必重读, 探险同款); 训练营只产出不消耗。里程碑工具
+   不进背包(选型 B: 容量核定见 docs/focus-revamp-tickets.md F3 备注)——
+   记账进训练营存档 tools 字段, 宝物柜工具组从该字段渲染 */
+const focusBag = Backpack.mkBackpack();
+
 /* 每日预算(每日关数/时长)记在 js/daily-budget.js 的 focus 预算里(main.js setupBudgets 建立) */
 function focusBudget() {
   return (typeof Budgets !== 'undefined' && Budgets) ? Budgets.focus : null;
@@ -136,10 +147,12 @@ function showFocusToday() {
       <h1>今天的训练完成啦！</h1>
       <p class="f-sub">训练师要休息了，明天怪物们等你来 😊</p>
       <div class="f-dots">${dots}</div>
+      <button class="f-btn" id="fBagBtn">🎒 宝物柜</button>
       <button class="f-btn" id="fHome2">🏠 回主页</button>
       <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
     </div>`;
     focusScreen(html);
+    document.getElementById('fBagBtn').onclick = showFocusCabinet;
     document.getElementById('fHome2').onclick = focusExit;
     document.getElementById('fParentBtn').onclick = showFocusParentGate;
     return;
@@ -152,11 +165,13 @@ function showFocusToday() {
     <p class="f-sub">${meta.name}${lv.kind==='review' ? ' · 复习' :
         (lv.kind==='tutorial' ? ' · 教学' : (lv.kind==='master' ? ' · 大师考验' : ''))}</p>
     <button class="f-start" id="fStartBtn">▶ 开始训练</button>
+    <button class="f-btn" id="fBagBtn">🎒 宝物柜</button>
     <div class="f-dots">${dots}</div>
     <button class="f-parent-btn" id="fParentBtn">🔒 家长</button>
   </div>`;
   focusScreen(html);
   document.getElementById('fStartBtn').onclick = ()=> startFocusLevel(cur);
+  document.getElementById('fBagBtn').onclick = showFocusCabinet;
   document.getElementById('fParentBtn').onclick = showFocusParentGate;
 }
 
@@ -254,6 +269,9 @@ function onFocusLevelEnd(level, st) {
     acc: Math.round(st.acc*100), mrt: Math.round(st.mrt), trials: st.trials, stars, passed});
   if (save.history.length > 400) save.history.splice(0, save.history.length-400);
   saveFocusSave(save);
+  /* F6 里程碑: 越线即授予(历史已落账, focusProgress 可见刚通关的一关);
+     记账进 tools 字段(选型 B 不进背包), 仪式排在星屏之后(见 proceed) */
+  const award = passed ? focusGrantMilestones(save) : [];
 
   if (passed) {
     focusScreen(`
@@ -294,10 +312,108 @@ function onFocusLevelEnd(level, st) {
     else if (level.i >= 99) showFocusToday();
     else startFocusLevel(level.i+1);
   };
-  document.getElementById('fNextBtn').onclick = next;
+  const proceed = () => (award.length ? showFocusAward(award, next) : next()); // 有新授先仪式再续程
+  document.getElementById('fNextBtn').onclick = proceed;
   focusAutoTimer = setTimeout(()=>{
-    if (document.getElementById('fNextBtn')) next();
+    if (document.getElementById('fNextBtn')) proceed();
   }, 4000);
+}
+
+/* ---------- 里程碑授予仪式(设计稿 §3 L4) ----------
+   unlocked 首次越线 → 全屏一屏一件: iconOf 工具大图 + 喝彩村长 chiefFace('cheer')
+   + level 琶音 + TTS 报名; 多件串播(点按/超时进下一屏), 播完回 after() */
+function showFocusAward(ids, after) {
+  const queue = ids.slice();
+  const step = () => {
+    const id = queue.shift();
+    if (!id) { after(); return; }
+    const name = ITEMS[id] ? ITEMS[id].name : '新工具';
+    focusScreen(`
+      <div class="f-screen f-award">
+        <div class="f-award-chief"><img draggable="false" src="${chiefFace('cheer')}" alt="村长爷爷"></div>
+        <div class="f-award-tool"><img draggable="false" src="${iconOf(id)}" alt="${name}"></div>
+        <h1>你获得了${name}！</h1>
+        <p class="f-sub">挖矿越来越厉害啦！</p>
+        <button class="f-start" id="fAwardNext">继续 ▶</button>
+      </div>`);
+    document.getElementById('fBackBtn').onclick = step; // 返回=跳过剩余串播(授予已落账)
+    document.getElementById('fAwardNext').onclick = step;
+    focusAutoTimer = setTimeout(step, 4500); // TTS 报名+琶音留足时间
+    sfx('level');
+    SpeechKit.speak('你获得了' + name + '！挖矿越来越厉害啦！');
+  };
+  step();
+}
+
+/* 授予落账: 应授差集并入存档 tools 字段并保存, 返回本次新授(空=无新授)。
+   幂等: 已授者被 milestoneDue 差集剔除, 再进训练营不会重授 */
+function focusGrantMilestones(save) {
+  const due = milestoneDue(focusProgress(save), save.tools);
+  for (const id of due) save.tools.push(id);
+  if (due.length) saveFocusSave(save);
+  return due;
+}
+
+/* 存量档一次性补授(F6): 进入训练营时按当前进度追授(仪式串播), 再进今日页 */
+function focusBackfillMilestones(after) {
+  const due = focusGrantMilestones(loadFocusSave());
+  if (due.length) showFocusAward(due, after);
+  else after();
+}
+
+/* ---------- 宝物柜(设计稿 §3 L5: 收集可见性, 零文字依赖) ----------
+   材料/矿物/食物/方块四组从共享背包计数渲染(iconOf 像素图标+数量角标),
+   工具组从存档 tools 字段渲染(选型 B: 里程碑工具不占背包槽); 空组不显示;
+   点击 TTS 读 ITEMS[id].name; 村长导览(smile) */
+const FOCUS_CABINET_GROUPS = [
+  {name: '材料', ids: ['log', 'planks', 'stick', 'sapling', 'charcoal', 'bone', 'gunpowder',
+    'string', 'slimeball', 'bone_meal', 'clay_ball', 'brick', 'wheat', 'wheat_seeds']},
+  {name: '矿物', ids: ['coal', 'iron_ore', 'iron_ingot', 'gold_ore', 'gold_ingot', 'diamond']},
+  {name: '食物', ids: ['apple', 'bread', 'rotten_flesh']},
+  {name: '工具', tools: true},
+  {name: '方块', ids: ['dirt', 'sand', 'cobble', 'stone', 'glass', 'mossy_cobble', 'leaves',
+    'bricks', 'stone_bricks', 'torch', 'craft_table', 'furnace', 'tnt']},
+];
+
+function focusCabSlot(id, n) { // 柜面一格: 图标+角标(名只进 alt/tooltip 供 TTS 与读屏, 柜面零文字)
+  const nm = ITEMS[id] ? ITEMS[id].name : id;
+  return `<button class="f-cab-item" data-item="${id}" title="${nm}">
+    <img draggable="false" src="${iconOf(id)}" alt="${nm}">${n > 1 ? '<span class="f-cab-badge">×' + n + '</span>' : ''}
+  </button>`;
+}
+
+function showFocusCabinet() {
+  const save = loadFocusSave();
+  const sections = FOCUS_CABINET_GROUPS.map((g) => {
+    if (g.tools) { // 工具组: 按里程碑表序从 tools 字段渲染(大格)
+      const ids = Object.keys(FOCUS_MILESTONES).map(Number).sort((a, b) => a - b)
+          .map((k) => FOCUS_MILESTONES[k]).filter((id) => save.tools.includes(id));
+      if (!ids.length) return '';
+      return `<div class="f-cab-group"><div class="f-cab-title">⛏ ${g.name}</div>
+        <div class="f-cab-grid f-cab-tools">${ids.map((id) => focusCabSlot(id, 1)).join('')}</div></div>`;
+    }
+    const slots = g.ids.map((id) => ({id, n: count(focusBag.inv, id)}))
+        .filter((x) => x.n > 0).map((x) => focusCabSlot(x.id, x.n));
+    if (!slots.length) return '';
+    return `<div class="f-cab-group"><div class="f-cab-title">${g.name}</div>
+      <div class="f-cab-grid">${slots.join('')}</div></div>`;
+  }).join('');
+  focusScreen(`
+    <div class="f-screen f-cabinet">
+      <div class="f-cab-chief"><img draggable="false" src="${chiefFace('smile')}" alt="村长爷爷">
+        <span class="f-cab-hint">点一点，我念给你听</span></div>
+      <h1>🎒 宝物柜</h1>
+      ${sections || '<p class="f-sub">还没有宝贝，训练赢宝物吧！</p>'}
+      <button class="f-btn" id="fCabBack">返回</button>
+    </div>`);
+  document.getElementById('fCabBack').onclick = showFocusToday;
+  document.querySelectorAll('#focusRoot .f-cab-item').forEach((btn)=>{
+    btn.onclick = ()=>{
+      const it = ITEMS[btn.dataset.item];
+      if (it) SpeechKit.speak(it.name);
+    };
+  });
+  SpeechKit.speak(count(focusBag.inv, 'diamond') > 0 ? '哇，这么多钻石！' : '哇，好多宝贝！点一点，我念给你听。');
 }
 
 /* ---------- 家长面板 ---------- */
@@ -399,8 +515,9 @@ const FocusMode = mkMode({
     ensureFocusCaveSkin(); // F9: 矿洞贴图雪碧进训练营只生成一次
     focusRoot.style.display = 'block';
     overlay.style.display = 'none';
-    showFocusToday(); // 纯点选全屏 UI: chrome 全关由 kit 默认处理
-  },
+    focusBag.load(); // 共享背包读档(F3 口径: 重进必重读, 探险同款)
+    focusBackfillMilestones(showFocusToday); // F6: 存量档按进度一次性补授(仪式串播)后进今日页
+  }, // 纯点选全屏 UI: chrome 全关由 kit 默认处理
   cleanup() {
     stopFocusTicker();
     if (focusCtrl) {
