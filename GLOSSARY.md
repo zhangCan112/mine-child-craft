@@ -59,7 +59,7 @@ _Avoid_: 武器表、物品系统（没有背包/耐久，别散称）
 _Avoid_: 坦克实体、载具系统、坦克皮肤（型号不止换色，性能/炮弹/建模整套不同）
 
 **怪物库（Mobs）**:
-引擎层的怪物实体模块：全怪物建模（37 种，按 Minecraft 原版数值等比映射；骨架表——人形/四足参数化生成器 + 特殊骨架，实例化合批渲染）、数值表驱动（config 的 MOB_TYPES，旗标 ranged/boom/fly/boss 决定行为模式）、血量/受击（闪白·踉跄·击退）/死亡（倒地沉没）/游荡的通用本能。interface：spawn / update / render / hit / near / clear（附 list / face / hasSlot / families 谱系分组查询（面板分组唯一入口：按主族归组、无族落独行侠、FAMILIES 未定义时退化单桶）/ gait 步态+战斗姿态（第 4 参 attackT 窗口 → 通用挥臂——挥击手=持械手：骨架表 weaponArm 声明持械臂（hum 的 held → armL），缺省抡右拳/头前扑，竞技场与下界同一条入口）/ debrisColor 击杀碎块色，以及意图 API——stagger 硬直 / pulseTint 着色 / scaleTo 体型 / move·shift·setPos 水平位移 / steer 面向 / heal·setMaxHp 生命 / remove 立即移除 / settle 贴地回巡航，模式不直写引擎的位移/生命/硬直/着色/体型字段，战斗节拍字段（attackCd/attackT/target）由 spawn 置零、模式读写（曾因模式漏初始化 attackCd 致下界怪物永不攻击，初始化已收归引擎），可写字段白名单见 mobs.js 头注释）。战斗 AI、阵营、晋升、表扬话术在模式层，模式可在 spawn 返回的怪物上挂私有字段；竞技场与坦克演习场都是它的调用方，实例数组归它私有。
+引擎层的怪物实体模块：全怪物建模（37 种，按 Minecraft 原版数值等比映射；骨架表——人形/四足参数化生成器 + 特殊骨架，实例化合批渲染）、数值表驱动（config 的 MOB_TYPES，旗标 ranged/boom/fly/boss 决定行为模式）、血量/受击（闪白·踉跄·击退）/死亡（倒地沉没）/游荡的通用本能。interface：spawn / update / render / hit / near / clear / onDeath（击杀事件：hit 判定存活→死亡的瞬间逐回调恰一次、参数为怪物实体，引擎只报事件不解释死因不做掉落，掷骰归消费方，clear 一并解除注册）（附 list / face / hasSlot / families 谱系分组查询（面板分组唯一入口：按主族归组、无族落独行侠、FAMILIES 未定义时退化单桶）/ gait 步态+战斗姿态（第 4 参 attackT 窗口 → 通用挥臂——挥击手=持械手：骨架表 weaponArm 声明持械臂（hum 的 held → armL），缺省抡右拳/头前扑，竞技场与下界同一条入口）/ debrisColor 击杀碎块色，以及意图 API——stagger 硬直 / pulseTint 着色 / scaleTo 体型 / move·shift·setPos 水平位移 / steer 面向 / heal·setMaxHp 生命 / remove 立即移除 / settle 贴地回巡航，模式不直写引擎的位移/生命/硬直/着色/体型字段，战斗节拍字段（attackCd/attackT/target）由 spawn 置零、模式读写（曾因模式漏初始化 attackCd 致下界怪物永不攻击，初始化已收归引擎），可写字段白名单见 mobs.js 头注释）。战斗 AI、阵营、晋升、表扬话术在模式层，模式可在 spawn 返回的怪物上挂私有字段；竞技场与坦克演习场都是它的调用方，实例数组归它私有。
 _Avoid_: 怪物系统（散称）、mob 数组（那是实现）
 
 **怪物谱系（Mob Taxonomy）**:
