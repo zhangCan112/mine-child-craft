@@ -61,6 +61,44 @@ test('def 形状: 每个手持物具备 部件表/握持/挥击/待机 四组数
   }
 });
 
+/* ============ 工具参数化 (mkToolDef): 镐/斧/剑/锹 × 四阶 ============ */
+/* 期望值独立于实现: 命名与色板照工单 T4 / 设计稿 §3.1 抄录 */
+const KIND_NAMES = {pick: '镐', axe: '斧', sword: '剑', shovel: '锹'};
+const TIER_NAMES = {wood: '木', stone: '石', iron: '铁', diamond: '钻石'};
+const TIER_HEAD_COLORS = {
+  wood: 0x8a5a2b, stone: 0x8a8f98, iron: 0xd8dde4, diamond: 0x4ee1d2,
+};
+
+test('工具 def 注册: 4 种 × 4 阶共 16 键(kind_tier 命名, 键名与物品 id 一致)', () => {
+  const {HeldItems} = loadHeld();
+  for (const kind of Object.keys(KIND_NAMES)) {
+    for (const tier of Object.keys(TIER_NAMES)) {
+      const id = kind + '_' + tier;
+      const def = HeldItems.defs[id];
+      assert.ok(def, 'defs 里应有 ' + id);
+      assert.strictEqual(def.label, TIER_NAMES[tier] + KIND_NAMES[kind], id + ' label');
+    }
+  }
+});
+
+test('四阶色板: 每个工具 def 至少一个部件色等于该阶材质色', () => {
+  const {HeldItems} = loadHeld();
+  for (const tier of Object.keys(TIER_HEAD_COLORS)) {
+    for (const kind of Object.keys(KIND_NAMES)) {
+      const def = HeldItems.defs[kind + '_' + tier];
+      assert.ok(
+          def.parts.some((p) => p.color === TIER_HEAD_COLORS[tier]),
+          kind + '_' + tier + ' 应含 ' + tier + ' 阶色板部件');
+    }
+  }
+});
+
+test('mkToolDef 工厂: 越界 kind/tier 显式抛错, 不静默产出残缺 def', () => {
+  const {HeldItems} = loadHeld();
+  assert.throws(() => HeldItems.mkToolDef('hammer', 'wood'), /kind/);
+  assert.throws(() => HeldItems.mkToolDef('pick', 'gold'), /tier/);
+});
+
 /* ============ swingPose: 挥击关节角的纯数学 ============ */
 
 test('swingPose 端点归零: 加法叠加无跳变的前提', () => {
