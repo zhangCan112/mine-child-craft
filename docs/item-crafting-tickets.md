@@ -90,7 +90,7 @@ flowchart TD
 - 测试：`test/blocks-fields.test.js`（vm 加载 config.js）——新 id 齐全、thin 块 solid:false、采集类字段齐全、drop 物品名非空、tool 取值合法。
 - 约束：只增不改既有键的既有字段；方块定义仍纯色（贴图归 T9）。
 
-### T3 怪物库击杀事件（onDeath）`[ ]`
+### T3 怪物库击杀事件（onDeath）`[x]`（并入 `6cc76bd`）
 - 依赖：无。
 - 交付：`mobs.js` 加 `onDeath(cb)`——在 `hit()` 判定存活→死亡的瞬间回调恰好一次（传怪物实体 m）；引擎只报事件不解释死因。接口表头注释同步。
 - 测试：`test/mobs.test.js` 扩展（沿用其现有加载器与桩）——致死一击回调恰一次、非致死不回调。
