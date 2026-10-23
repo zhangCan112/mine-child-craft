@@ -543,10 +543,30 @@ function advMineStop() {
   advRingSet(-1);
 }
 
+/* 级联块结算(方块级联设计稿 D4/D5/P6): editBlock 返回的级联清单逐块——
+   存档记账(重进不复活红线: 漏记会复活半棵树)+树苗计时清理+默认表掉落
+   (零惩罚, 不传工具=砸倒不是剪)+任务计数(quest=true 蓄力链视同玩家亲手挖;
+   TNT 链传 false——「TNT 掀掉的不算」既有口径)。含原木时给整树倒话术。 */
+function advCascadeApply(removed, quest) {
+  let felled = false;
+  for (const r of removed) {
+    advMarkEdit(r.x, r.y, r.z, 0);
+    if (r.id === B_SAPLING) advSaplings.delete(blockKey(r.x, r.y, r.z));
+    if (BLOCKS[r.id] && BLOCKS[r.id].fell) felled = true;
+    for (const d of rollBlockDrop(BLOCKS[r.id], null, null)) Drops.spawn(d.id, d.n, r.x + 0.5, r.y + 0.8, r.z + 0.5);
+    if (quest) advQuestMine(r.id, r.x, r.y, r.z);
+  }
+  if (felled) {/* 整树倒: 只为含原木的级联喊话(火把/草丛脱落不出声) */
+    SpeechKit.speak('哇！大树倒啦！');
+    showToast('🌳 大树倒啦！');
+  }
+}
+
 /* 破坏结算: 碎屑(editBlock 内置同色 Fx.debrisBurst)+记账+掉落+耐久。
-   bt 为破坏时的 breakTime 结果(drops:false = tier 不足, 只碎不掉+节流提示) */
+   bt 为破坏时的 breakTime 结果(drops:false = tier 不足, 只碎不掉+节流提示);
+   级联块(整树/依附脱落)经 advCascadeApply 结算(方块级联设计稿 D4) */
 function advBreakBlock(x, y, z, id, bt) {
-  editBlock(x, y, z, 0);
+  advCascadeApply(editBlock(x, y, z, 0), true); /* 级联: 记账+默认表掉落+任务(蓄力链视同亲手挖, P6) */
   advMarkEdit(x, y, z, 0);
   if (id === B_SAPLING) advSaplings.delete(blockKey(x, y, z)); /* 挖树苗撤计时 */
   sfx('hit');
@@ -915,7 +935,9 @@ function advFuseTick(dt) {/* 引信倒计时: 顶上火花弧观感 + 到点起�
 function advExplode(x, y, z) {
   const cx = x + 0.5; const cy = y + 0.5; const cz = z + 0.5;
   Fx.boom(cx, cy, cz, {r1: ADV_TNT_R + 1.5, n: 14});
-  editBlock(x, y, z, 0); /* 源块直接清除不经掷骰(圈内 TNT 链式点燃分支在前, D3) */
+  /* 源块直接清除不经掷骰(圈内 TNT 链式点燃分支在前, D3); 级联块默认表掉落
+     不进任务(P6: TNT 掀掉的不算——级联同理) */
+  advCascadeApply(editBlock(x, y, z, 0), false);
   advMarkEdit(x, y, z, 0);
   const r = Math.ceil(ADV_TNT_R);
   for (let dx = -r; dx <= r; dx++) {
@@ -930,7 +952,7 @@ function advExplode(x, y, z) {
         }
         const def = id ? BLOCKS[id] : null;
         if (!def || def.hard == null) continue; /* 空气/水/创造专属免疫(字段缺失判据) */
-        editBlock(bx, by, bz, 0);
+        advCascadeApply(editBlock(bx, by, bz, 0), false); /* 级联块: 记账+默认表掉落, 不进任务(P6) */
         advMarkEdit(bx, by, bz, 0);
         if (id === B_SAPLING) advSaplings.delete(blockKey(bx, by, bz)); /* 掀掉的树苗撤计时 */
         for (const d of advTntRoll(id)) Drops.spawn(d.id, d.n, bx + 0.5, by + 0.8, bz + 0.5);
@@ -1373,6 +1395,7 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar, advQuestEl, advQuestPaint,
   advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText, advOnKill,
   advMineStep, advPlaceCheck, advEatPolicy, advSapDue, advMine, advSaplings, advBreakBlock,
+  advCascadeApply, advExplode,
   advGetTntTap: () => advTntTap, advMouseHeldOn, advMouseHeldOff,
   advTryPlace, advGrowTree, advMineStop, advWearHeld,
   advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,

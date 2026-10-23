@@ -73,7 +73,7 @@ globalThis.document = {
 const ROOT = path.join(__dirname, '..');
 /* groundTop 桩: drops 壳段 restY 用(world.js 太重不装) */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
-for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/items-core.js',
+for (const f of ['js/config.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js', 'js/items-core.js',
   'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
@@ -101,10 +101,16 @@ globalThis.Drops = {
     RealDrops.clear();
   },
 };
-/* 单块编辑 seam: world.js 太重, 记账走真 setBlockRaw(碎屑反馈归浏览器的 editBlock 内置) */
+/* 单块编辑 seam: world.js 太重——真级联核心镜像 world.js 的装配(cascade-core
+   在 vm 里加载, policy 用同一 mkPolicy 派生), 碎屑反馈归浏览器; 破坏返回级联
+   清单(与真 editBlock 契约一致, 方块级联设计稿 D3) */
+const engCascade = vm.runInContext('({core: CascadeCore, policy: CascadeCore.mkPolicy(BLOCKS)})', eng);
 globalThis.editBlock = (x, y, z, id) => {
+  const old = api.getBlock(x, y, z);
   api.setBlockRaw(x, y, z, id);
   calls.push(['edit', x, y, z, id]);
+  return (id === 0 && old !== 0) ?
+    engCascade.core.cascadeRemove(api.getBlock, api.setBlockRaw, x, y, z, old, engCascade.policy) : [];
 };
 globalThis.sfx = (k) => calls.push(['sfx', k]);
 
@@ -1874,4 +1880,96 @@ test('修复③: 🏠 回小屋逃生口 — 满血传送 + 60s 冷却拒绝(受
   assert.strictEqual(A.ADV.player.hp, 7, '冷却内不回血');
   assert.strictEqual(A.ADV.homeCd, cdAfter, '冷却时间不被刷新');
   assert.strictEqual(calls.filter((c) => c[0] === 'spawn').length, 1, '冷却内不传送');
+});
+
+/* ============ 方块级联(设计稿 D4/D5/P6): 砍树行为链 — 「砍树悬浮」bug 的修复面 ============ */
+
+/* 找一棵带树冠、±6 内无其它树干的自然树(确定性生成, 草地顶 y=24/干基 y=25) */
+function findLoneTree() {
+  for (let z = 4; z < D - 4; z++) {
+    for (let x = 4; x < W - 4; x++) {
+      if (cell(x, 25, z) !== 5 || cell(x, 26, z) !== 5) continue;
+      if (cell(x, 29, z) !== 7 && cell(x, 30, z) !== 7) continue; /* 有树冠(th=4~6 通用) */
+      let alone = true;
+      for (let dz = -6; dz <= 6 && alone; dz++) {
+        for (let dx = -6; dx <= 6; dx++) {
+          if ((dx || dz) && cell(x + dx, 25, z + dz) === 5) {
+            alone = false; break;
+          }
+        }
+      }
+      if (alone) return {x, z};
+    }
+  }
+  throw new Error('地图上找不到独立树');
+}
+function treeLeaves(t) {/* 该树树冠盒(干±2 × y27..31)内树叶数 */
+  let n = 0;
+  for (let y = 27; y <= 31; y++) {
+    for (let z = t.z - 2; z <= t.z + 2; z++) {
+      for (let x = t.x - 2; x <= t.x + 2; x++) if (cell(x, y, z) === 7) n++;
+    }
+  }
+  return n;
+}
+
+test('方块级联①: 砍树底一节=整树倒 — 干/叶全清+原木掉落雨+话术', () => {
+  mem.clear();
+  freshInit();
+  const t = findLoneTree();
+  assert.ok(treeLeaves(t) >= 40, '树冠 ~49 叶');
+  A.advBreakBlock(t.x, 25, t.z, 5, {time: 3, drops: true});
+  for (let y = 25; y <= 31; y++) assert.strictEqual(cell(t.x, y, t.z), 0, '干列 y=' + y + ' 清空');
+  assert.strictEqual(treeLeaves(t), 0, '树冠全清(4 格内已无原木)');
+  const logs = dropsState.spawned.filter((d) => d.id === 'log').length;
+  assert.ok(logs >= 4, '原木掉落 ≥4(触发块+级联默认表), 实际 ' + logs);
+  assert.ok(spoken.some((s) => String(s).indexOf('大树倒啦') >= 0), '整树倒话术');
+});
+
+test('方块级联②(红线): 级联块全量记账 — cleanup 落盘→重进(重建+重放)整树不复活', () => {
+  mem.clear();
+  freshInit();
+  const t = findLoneTree();
+  A.advBreakBlock(t.x, 25, t.z, 5, {time: 3, drops: true});
+  assert.strictEqual(treeLeaves(t), 0, '砍后树冠清空');
+  AdventureMode.cleanup(); /* 落盘 */
+  freshInit(); /* 重进: 确定性重建 + edits 重放 */
+  for (let y = 25; y <= 31; y++) {
+    assert.strictEqual(cell(t.x, y, t.z), 0, '重进: 干列不复活(级联块漏记会复活半棵树)');
+  }
+  assert.strictEqual(treeLeaves(t), 0, '重进: 树冠不复活');
+});
+
+test('方块级联③: 挖火把/树苗的底座 → 依附块脱落掉落, 树苗计时撤销', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('torch', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_TORCH, '火把放上草地');
+  A.advBreakBlock(spot.x, 24, spot.z, 1, {time: 1, drops: true});
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '火把随底座脱落');
+  assert.ok(dropsState.spawned.some((d) => d.id === 'torch'), '火把掉落(默认表, 可捡回)');
+  const spot2 = findGrassSpot(); /* 首块草地已挖开, 顺位找到下一块(确定性) */
+  holdOnly('sapling', 1);
+  AdventureMode.onMouse(2, {x: spot2.x, y: 24, z: spot2.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot2.x, 25, spot2.z), api.B_SAPLING, '树苗放上草地');
+  assert.strictEqual(A.advSaplings.size, 1, '挂上 20s 计时');
+  A.advBreakBlock(spot2.x, 24, spot2.z, 1, {time: 1, drops: true});
+  assert.strictEqual(cell(spot2.x, 25, spot2.z), 0, '树苗随底座脱落');
+  assert.strictEqual(A.advSaplings.size, 0, '计时撤销(advCascadeApply 清理)');
+  assert.ok(dropsState.spawned.some((d) => d.id === 'sapling'), '树苗掉落(可捡回重种)');
+});
+
+test('方块级联④: TNT 波及原木 → 整树级联倒 — 默认表掉落, 不进任务(P6)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  for (let y = 25; y <= 32; y++) api.setBlockRaw(spot.x, y, spot.z, 5); /* 8 节高原木柱 */
+  A.advExplode(spot.x, 25, spot.z);
+  for (let y = 25; y <= 32; y++) assert.strictEqual(cell(spot.x, y, spot.z), 0, '整柱清空');
+  const logs = dropsState.spawned.filter((d) => d.id === 'log').length;
+  assert.ok(logs >= 4, '级联原木默认表必得(源块破坏即掀整柱), 实际 ' + logs);
+  assert.ok(Object.keys(A.ADV.quest.counts).every((k) => k.indexOf('mine_') !== 0),
+      'TNT 链(含级联)不进任务计数(TNT 掀掉的不算)');
 });

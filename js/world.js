@@ -6,9 +6,10 @@
    纯体素数据(存取/碰撞/物理/射线)在 js/voxel.js — 本文件不定义游戏规则。
    interface: loadScene(建场 seam: 清场→批量建→渐进收尾入队) / markDirty /
      pumpRemesh(每帧按预算构建, 编辑优先于环填充) / maintainRings(距离环:
-     近实远虚三档) / rebuildAll / raycast / camera / renderer / scene。
-   依赖(均经全局名, 调用期解析): voxel.js(体素数据) · mesh-core.js(网格化
-   核心, 同一份代码在 Worker 里跑) · config.js(VIEW/CAM) · lib/three.min.js。
+     近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
+      级联清单, 设计稿 block-lifecycle D3) / raycast / camera / renderer / scene。
+   依赖(均经全局名, 调用期解析): voxel.js(体素数据) · cascade-core.js(方块级联) · mesh-core.js(网格化
+   核心, 同一份代码在 Worker 里跑) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
    THREE/DOM 惰性创建, Node 测试环境可安全加载(经 boot.test.js 冒烟)。
 ============================================================ */
 
@@ -401,7 +402,9 @@ function cascadeDebris(removed) {
   }
   for (const [gid, rs] of groups) {
     let gx = 0; let gy = 0; let gz = 0;
-    for (const r of rs) { gx += r.x + 0.5; gy += r.y + 0.5; gz += r.z + 0.5; }
+    for (const r of rs) {
+      gx += r.x + 0.5; gy += r.y + 0.5; gz += r.z + 0.5;
+    }
     const c = faceColor(gid, [0, 1, 0]);
     Fx.debrisBurst(gx / rs.length, gy / rs.length, gz / rs.length, Math.min(rs.length * 2, 24), {
       color: (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255),

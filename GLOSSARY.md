@@ -14,6 +14,10 @@ _Avoid_: 底层、框架、核心库
 方块世界的数据与规则：存取、碰撞、物理、射线。不含渲染——渲染是它之上的 adapter。
 _Avoid_: 世界数据（仅指 Map 本体时可用）、引擎核心
 
+**方块级联（Block Cascade）**:
+编辑后世界自洽的引擎能力（js/cascade-core.js 纯核心 + world.js 两编辑入口装配，docs/block-lifecycle-design.md 是设计权威）：破坏一个方块后依身份旗标连锁结算失撑方块——原木组件**接地判定**（砍一节=整树倒、挖脚=结构倒、双柱桥断一柱仍立）、树叶失依而落（taxicab 4 内无原木）、thin 依附块随底座脱落（火把/树苗/草丛）。**身份原则**：判据只读 config BLOCKS 旗标（fell/need/thin），不含任何位置/模式条件——石头无旗标在哪挖都不塌，是树就倒（孩子搭的原木柱与自然树同规则）。放置/生成永不触发；editBlock/editBlockDirty 破坏时返回级联清单，引擎只报事件，掉落/记账/话术是模式政策（探险=默认表掉落+edits 记账，建造=buildEdits 补记——漏记重进复活半棵树）。
+_Avoid_: 倒树系统（树只是第一个消费者）、物理引擎（无刚体无连续力学）、把级联政策（掉落/任务）写进引擎
+
 **场景装填（loadScene）**:
 world.js 渲染 adapter 的建场 seam：loadScene(buildFn) = 清场 → 批量建 → 收尾入队一步到位。"建完必须 rebuildAll 否则整场不可见"的收尾纪律收在 seam 里（曾有模式漏调，进场一片天蓝）；收尾是渐进的——全部区块按距玩家距离入距离环队列（近处优先），由 pumpRemesh 每帧按预算构建，进场先见脚下、远景数帧铺满。清场幂等。编辑管线同理由 pumpRemesh 自动收口脏区块——漏调 flushDirty 最迟下帧入队，不再永远不可见。
 _Avoid_: clearWorld+build+rebuildAll 三连（历史惯用套路）、手动 flushDirty（即时提交的可选优化，不再是必需）

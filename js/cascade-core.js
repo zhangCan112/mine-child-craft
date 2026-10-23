@@ -99,7 +99,7 @@ const CascadeCore = (() => {
   function cascadeRemove(read, write, x, y, z, oldId, policy) {
     const removed = [];
     const queue = [{x, y, z, oldId}];
-    const take = (cx, cy, cz) => { /* 级联移除一格: 落地 + 记账 + 入队 */
+    const take = (cx, cy, cz) => {/* 级联移除一格: 落地 + 记账 + 入队 */
       const id = read(cx, cy, cz);
       if (id === 0) return; /* 空格天然免疫: 已移除的格重复 take 无副作用 */
       write(cx, cy, cz, 0);
