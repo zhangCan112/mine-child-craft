@@ -4,9 +4,11 @@
    手法: config/voxel/scene-kit 经 vm 装真件(树形=真 SceneKit.tree, 确定性),
    policy 用核心自己的 mkPolicy 派生(与 world.js 同一装配, 防两份漂移);
    网格读写直接桥 vm 的 getBlock/setBlockRaw。断言按设计稿速查表逐行:
-   砍树底=整树倒 · 砍中段=上倒下留 · 挖树脚=整树倒 · 双柱桥断一柱仍立 ·
-   石头柱不级联(身份原则) · 邻树保护 · 手掰单叶不动装饰 · thin 脱落 ·
-   世界底兜底 · 终止性。 */
+   砍树底=整树倒 · 砍中段=整树倒(树桩连带 P15) · 挖树脚=整树倒 ·
+   双柱桥断一柱仍立(砍桥面不牵柱) · 石头柱不级联(身份原则) · 邻树保护 ·
+   手掰单叶不动装饰 · thin 脱落 · 世界底兜底 · 终止性;
+   三期 P14 世界卫生清扫: 孤儿叶/悬浮树(互保叶存活)/浮沙/悬空 thin
+   治愈 · 干净世界幂等 · 恶意大杂烩不动点终止。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -120,17 +122,18 @@ test('砍树底一节 = 整树倒: 干+叶全清, 地面完好(本次 bug 的直
   assert.strictEqual(h.count(2, 18, 22, 1, 1, 18, 22), 25, '泥土地板完好');
 });
 
-test('砍树干中段 = 上段倒, 树桩留(接地判定, 非位置启发式)', () => {
+test('砍树干中段 = 整树倒(树桩连带, P15): 干全清+树冠全清, 与砍底节同形', () => {
   const h = mkH();
   h.fill(18, 1, 18, 22, 1, 22, 2);
   h.e.SceneKit.tree(20, 2, 20);
-  h.fell(20, 3, 20); /* 第二节 */
-  assert.strictEqual(h.e.getBlock(20, 2, 20), 5, '树桩接地留下');
-  for (let y = 4; y <= 9; y++) {
-    assert.notStrictEqual(h.e.getBlock(20, y, 20), 5, 'y=' + y + ' 上方原木已倒');
-  }
-  /* 残余树叶只可能是树桩 4 格内的(MC 口径: 叶离原木 ≤4 存活) */
-  assert.ok(leavesAllSupported(h, 14, 26, 1, 12, 14, 26), '残余叶全部有原木支撑(不变量)');
+  const logs = h.count(5, 14, 26, 1, 12, 14, 26);
+  const leaves = h.count(7, 14, 26, 1, 12, 14, 26);
+  const removed = h.fell(20, 3, 20); /* 第二节 */
+  assert.strictEqual(h.count(5, 14, 26, 1, 12, 14, 26), 0,
+      '树桩连带倒: 干全清(旧口径留树桩撑起 15~49 片浮空叶——2026-10-24 实测定案)');
+  assert.strictEqual(h.count(7, 14, 26, 1, 12, 14, 26), 0, '树冠全清(失去全部支撑)');
+  assert.strictEqual(removed.length, logs + leaves - 1, '级联清单 = 整树 - 触发块');
+  assert.strictEqual(h.count(2, 18, 22, 1, 1, 18, 22), 25, '泥土地板完好');
 });
 
 test('挖掉树脚下的泥土 = 整树倒(身份原则: 结构失去接地, 设计稿 P5)', () => {
@@ -156,6 +159,29 @@ test('双柱桥: 断一柱仍立(他柱接地), 两柱全断整体倒', () => {
   assert.strictEqual(h.count(5, 10, 24, 1, 8, 20, 24), total - 1, '只少了触发块');
   h.fell(20, 2, 22); /* 再断柱2基 */
   assert.strictEqual(h.count(5, 10, 24, 1, 8, 20, 24), 0, '两柱全断: 整体倒');
+});
+
+test('树桩连带(P15)边界: 砍桥面中格不牵柱(脚下非同柱 fell), 桥完好', () => {
+  const h = mkH();
+  h.fill(10, 1, 20, 24, 1, 24, 2);
+  for (let y = 2; y <= 5; y++) {
+    h.e.setBlockRaw(12, y, 22, 5);
+    h.e.setBlockRaw(20, y, 22, 5);
+  }
+  for (let x = 13; x <= 19; x++) h.e.setBlockRaw(x, 5, 22, 5); /* 桥面连双柱 */
+  const removed = h.fell(16, 5, 22); /* 砍桥面中格: 脚下是空气, 非同柱残段 */
+  assert.strictEqual(removed.length, 0, '两半各自经柱接地, 零级联(连带只认同柱, 不横向蔓延)');
+  assert.strictEqual(h.count(5, 10, 24, 1, 8, 20, 24), 14, '15-1=14 根全在');
+});
+
+test('树桩连带(P15): 独立原木柱砍顶节 = 同柱下方全倒(材料零损失)', () => {
+  const h = mkH();
+  h.fill(18, 1, 18, 22, 1, 22, 2);
+  for (let y = 2; y <= 6; y++) h.e.setBlockRaw(20, y, 20, 5); /* 5 节原木柱 */
+  const removed = h.fell(20, 6, 20); /* 砍顶节: 上方无组件, 只有下方同柱连带 */
+  assert.strictEqual(removed.length, 4, '同柱 4 节连带(整柱 - 触发块)');
+  assert.strictEqual(h.count(5, 14, 26, 1, 12, 14, 26), 0, '柱全清');
+  assert.ok(removed.every((r) => r.id === 5 && !r.to), '全部进移除清单(掉落照常, 零损失)');
 });
 
 test('身份原则: 石头柱挖底不级联(无旗标, 在哪挖都不塌——地下隧道安全的根)', () => {
@@ -208,10 +234,10 @@ test('thin 依附块随底座脱落: 火把/树苗(草丛/麦同款旗标)', () 
 test('世界底兜底: y=0 的原木视为接地(防挖穿世界底雪崩)', () => {
   const h = mkH();
   for (let y = 0; y <= 3; y++) h.e.setBlockRaw(20, y, 20, 5); /* 直抵世界底, 下方无地板 */
-  h.fell(20, 2, 20);
-  assert.strictEqual(h.e.getBlock(20, 0, 20), 5, 'y0 接地留下');
-  assert.strictEqual(h.e.getBlock(20, 1, 20), 5, 'y1 连着 y0 留下');
-  assert.strictEqual(h.e.getBlock(20, 3, 20), 0, 'y3 失接地倒了');
+  h.e.setBlockRaw(19, 1, 20, 2); /* 紧邻泥土(触发块非 fell: 树桩连带不触发, 隔离测 y0 接地) */
+  const removed = h.fell(19, 1, 20); /* 挖泥土, 触发对邻柱组件的接地重查 */
+  assert.strictEqual(removed.length, 0, '柱组件经 y0 接地, 零级联');
+  for (let y = 0; y <= 3; y++) assert.strictEqual(h.e.getBlock(20, y, 20), 5, 'y=' + y + ' 原木全留');
 });
 
 test('终止性: 浮空原木墙挖一中格整墙倒(定点迭代必终止, 数量精确)', () => {
@@ -301,4 +327,105 @@ test('大沙柱终止性 + 隔空沙段不追认(既有浮空只在扰动时结�
   for (let y = 0; y <= 29; y++) assert.strictEqual(h.e.getBlock(20, y, 20), 8, '整柱落底 y=' + y);
   for (let y = 30; y <= 34; y++) assert.strictEqual(h.e.getBlock(20, y, 20), 0, '柱顶空 y=' + y);
   assert.strictEqual(h.e.getBlock(20, 35, 20), 8, '隔空浮沙不被追认');
+});
+
+/* ============ 三期 D9/P14: 世界卫生清扫(cascadeSweep) — 旧档浮空一次性治愈 ============
+ * 级联只由编辑触发(既有浮空不追认)——级联合并前的存档里, 已失撑的浮空块
+ * (孤儿冠/悬浮树/浮沙/悬空依附块)永无触发时机, P14 拍板在探险 init 全图治愈。 */
+
+/* 清扫装配(镜像 world.js applySweep: 同一核心 + 同一 policy 派生 + 世界尺寸) */
+function sweepWorld(h) {
+  return CascadeCore.cascadeSweep(h.e.getBlock, h.e.setBlockRaw, h.policy,
+      h.e.WORLD_W, h.e.WORLD_H, h.e.WORLD_D);
+}
+
+test('清扫: 孤儿叶团全清(旧档整树砍干) — 清单含全叶, 地面完好', () => {
+  const h = mkH();
+  h.fill(18, 1, 18, 22, 1, 22, 2);
+  h.e.SceneKit.tree(20, 2, 20);
+  for (let y = 2; h.e.getBlock(20, y, 20) === 5; y++) h.e.setBlockRaw(20, y, 20, 0); /* 裸写=级联前旧档口径 */
+  const leaves = h.count(7, 14, 26, 1, 12, 14, 26);
+  assert.ok(leaves >= 40, '布景: 浮空树冠在场, 实际 ' + leaves);
+  const removed = sweepWorld(h);
+  assert.strictEqual(h.count(7, 14, 26, 1, 12, 14, 26), 0, '孤儿叶全清(依赖早已不在, 永无触发时机)');
+  assert.strictEqual(removed.length, leaves, '清单 = 全部孤儿叶');
+  assert.ok(removed.every((r) => r.id === 7 && !r.to), '全部是叶的移除条目');
+  assert.strictEqual(h.count(2, 18, 22, 1, 1, 18, 22), 25, '泥土地板完好');
+});
+
+test('清扫: 悬浮树整棵倒 — 干全移除, 冠重查(邻树互保叶存活, P4 口径不变)', () => {
+  const h = mkH();
+  h.fill(14, 1, 18, 30, 1, 24, 2);
+  h.e.SceneKit.tree(20, 2, 20); /* 接地树 */
+  h.e.SceneKit.tree(23, 5, 20); /* 悬浮树: 干基无接地, 冠缘伸进接地树的支撑域 */
+  const gLogs = h.count(5, 19, 21, 1, 9, 19, 21); /* 接地树干列 */
+  const removed = sweepWorld(h);
+  assert.strictEqual(h.count(5, 22, 24, 1, 12, 18, 22), 0, '悬浮树干全移除');
+  assert.ok(removed.some((r) => r.id === 5 && !r.to), '悬浮干入移除清单');
+  assert.strictEqual(h.count(5, 19, 21, 1, 9, 19, 21), gLogs, '接地树干一根不少');
+  assert.ok(h.count(7, 21, 26, 1, 12, 18, 22) > 0, '互保叶残留(悬浮冠靠接地树存活的叶, MC 口径)');
+  assert.ok(leavesAllSupported(h, 14, 30, 1, 12, 14, 26), '残余叶全部有原木支撑(不变量)');
+});
+
+test('清扫: 悬浮沙下沉(移动语义带 to) + 穿水沉底(P11 口径)', () => {
+  const h = mkH();
+  h.e.setBlockRaw(20, 0, 20, 2); /* 湖底泥 */
+  h.e.setBlockRaw(20, 1, 20, 24); /* 水 */
+  h.e.setBlockRaw(20, 5, 20, 8); /* 浮沙(隔空, 下方 y2~4 空气) */
+  h.e.setBlockRaw(21, 0, 21, 2);
+  for (let y = 3; y <= 4; y++) h.e.setBlockRaw(21, y, 21, 8); /* 浮沙段 y3~4 */
+  const removed = sweepWorld(h);
+  assert.strictEqual(h.e.getBlock(20, 1, 20), 8, '单沙穿水沉到湖底(替换水格)');
+  assert.strictEqual(h.e.getBlock(20, 5, 20), 0, '原位空出');
+  assert.strictEqual(h.e.getBlock(21, 1, 21), 8, '沙段落到实地(底)');
+  assert.strictEqual(h.e.getBlock(21, 2, 21), 8, '沙段落到实地(顶)');
+  assert.strictEqual(h.e.getBlock(21, 3, 21), 0, '段顶空出');
+  assert.ok(removed.length === 3 && removed.every((r) => r.id === 8 && r.to), '全部移动条目(带 to)');
+});
+
+test('清扫: 悬空 thin 脱落 + 孤儿叶上的火把连锁脱落', () => {
+  const h = mkH();
+  h.e.setBlockRaw(20, 5, 20, 48); /* 悬空火把(下方空气) */
+  h.e.setBlockRaw(30, 6, 30, 7); /* 孤儿叶 */
+  h.e.setBlockRaw(30, 7, 30, 48); /* 叶上的火把(叶落它也落) */
+  const removed = sweepWorld(h);
+  assert.ok(removed.some((r) => r.id === 48 && r.x === 20 && r.y === 5), '悬空火把脱落');
+  assert.ok(removed.some((r) => r.id === 7), '孤儿叶清除');
+  assert.ok(removed.some((r) => r.id === 48 && r.y === 7), '叶上的火把随叶连锁脱落(规则①)');
+  assert.strictEqual(h.count(7, 26, 34, 1, 12, 26, 34), 0, '区域无残留');
+});
+
+test('清扫: 干净世界零动作(幂等) — 接地树/地面火把/实地沙全不动', () => {
+  const h = mkH();
+  h.fill(14, 1, 18, 30, 1, 24, 2);
+  h.e.SceneKit.tree(20, 2, 20); /* 接地树 */
+  h.e.setBlockRaw(22, 2, 22, 48); /* 地面火把 */
+  h.e.setBlockRaw(24, 2, 22, 8); /* 实地沙 */
+  const removed = sweepWorld(h);
+  assert.deepStrictEqual(removed, [], '零违例 → 零写入(第二次清扫同此, 幂等)');
+  assert.deepStrictEqual(sweepWorld(h), [], '二次清扫仍为空');
+  assert.strictEqual(h.e.getBlock(22, 2, 22), 48, '火把不动');
+  assert.strictEqual(h.e.getBlock(24, 2, 22), 8, '实地沙不下沉');
+});
+
+test('清扫: 恶意大杂烩不动点治愈 — 浮树上叠沙/骑沙树连锁, 终止且区域清空', () => {
+  const h = mkH();
+  h.fill(10, 1, 10, 40, 1, 40, 2); /* 地板 y1 */
+  h.e.SceneKit.tree(15, 6, 15); /* 悬浮树A(脚下空气) */
+  for (let y = 9; y <= 11; y++) h.e.setBlockRaw(15, y, 15, 8); /* A 树干顶上再叠浮沙(树倒后穿冠落底) */
+  h.e.setBlockRaw(35, 8, 35, 8); /* 浮沙 */
+  h.e.setBlockRaw(35, 9, 35, 5); /* 骑在浮沙上的原木(沙沉后失接地连锁倒, ④→②) */
+  h.e.setBlockRaw(36, 9, 35, 5); /* 与骑沙原木横连的同组件成员 */
+  h.e.setBlockRaw(30, 6, 30, 7); /* 孤儿叶 */
+  h.e.setBlockRaw(25, 6, 25, 48); /* 悬空火把 */
+  const removed = sweepWorld(h); /* 完成本身即终止性证明 */
+  assert.ok(removed.length >= 20, '治愈清单非空(原木+叶+移动条目), 实际 ' + removed.length);
+  assert.strictEqual(h.count(5, 10, 40, 2, 12, 10, 40), 0, '原木全清(悬浮树+骑沙组件连锁倒)');
+  assert.strictEqual(h.count(7, 10, 40, 2, 14, 10, 40), 0, '叶全清(A 树冠+孤儿叶)');
+  assert.strictEqual(h.count(8, 10, 40, 2, 12, 10, 40), 4, '4 块沙全部落底(3 叠沙+1 骑位沙)');
+  assert.strictEqual(h.e.getBlock(15, 2, 15), 8, '叠沙落底(底节)');
+  assert.strictEqual(h.e.getBlock(15, 4, 15), 8, '叠沙落底(顶节)');
+  assert.strictEqual(h.e.getBlock(35, 2, 35), 8, '骑位沙落底');
+  assert.strictEqual(h.e.getBlock(25, 6, 25), 0, '悬空火把脱落');
+  assert.ok(leavesAllSupported(h, 10, 40, 1, 14, 10, 40), '区域叶不变量成立');
 });

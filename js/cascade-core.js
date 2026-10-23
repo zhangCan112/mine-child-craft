@@ -6,23 +6,29 @@
    方块后, 依身份旗标连锁结算失撑方块——
    · thin 脱落  依附块随底座脱落(火把/树苗/草丛/麦, 柱状链式上行)
    · fell 接地  结构组件失去接地 → 整组件倒(接地判定而非位置启发式:
-                砍树底=整树倒/砍中段=上倒下留/双柱桥断一柱仍立/挖脚=结构倒)
+                砍树底=整树倒/砍中段=树桩连带整树倒(P15)/双柱桥断一
+                柱仍立/挖脚=结构倒)
    · need 存活  伴生块重查依赖(树叶 taxicab 4 内无原木即落)
    · fall 重力  重力段失撑整体下沉(二期 D7: 移动语义——落沙砸碎沿途
                 thin/穿水, 段顶空位入队连锁①②)
-   身份原则(设计稿 P2): 四规则只读旗标, 不含任何位置/模式/场景条件——
+   · fell 树桩连带  被移除的原木正下方同柱残段一并倒(P15: 砍任何一
+                节=整树倒, 树桩不再撑起残余树冠的浮空叶观感)
+   身份原则(设计稿 P2): 各规则只读旗标, 不含任何位置/模式/场景条件——
    石头没有旗标在哪挖都不塌; 是树就倒(生成的/种的/孩子搭的一视同仁)。
    触发面: 破坏(id→0)全旗标; 放置仅 fall 旗标(P9 半空即落, 原木/树叶/
    thin 放置永不触发——建造装饰保护)。定点迭代, 被移除/空出的格才入队
-   (空格天然免疫, 无需 visited), 每格至多处理一次, 总量有界必终止。
+   (空格天然免疫, 树桩连带/清扫可与组件移除重复入队同格——各规则幂等),
+   总量有界必终止。
    interface: cascadeRemove(read, write, x, y, z, oldId, policy) → 清单
      · cascadePlace(read, write, x, y, z, id, policy) → 清单(放置触发)
+     · cascadeSweep(read, write, policy, w, h, d) → 清单(世界卫生清扫,
+       P14/D9: 全图违例治愈, 装场期迁移 seam)
      · mkPolicy(BLOCKS) → policy(身份旗标 → 判定函数, world.js 与单测
        共用同一装配, 防两份派生漂移)
    清单条目: {x,y,z,id}=移除(消费方掉落/任务照常); {x,y,z,id,to:{x,y,z}}
    =移动(方块存活——不掉落不进任务, 记账必须两格: 原格 0 + 落格 id)。
    依赖(零全局, 全部经参数注入): read(x,y,z)→id(界外=0) · write(x,y,z,id) ·
-     BLOCKS(config 方块注册表, 仅 mkPolicy 消费)
+     BLOCKS(config 方块注册表, 仅 mkPolicy 消费) · w/h/d(清扫的全图尺寸)
    可测性: 零 THREE·零 DOM·有单测(test/cascade-core.test.js)
    ============================================================ */
 const CascadeCore = (() => {
@@ -133,9 +139,10 @@ const CascadeCore = (() => {
     return true;
   }
 
-  /* 定点迭代循环(破坏/放置两种子共用): take=级联移除一格, enqueue=登记
+  /* 定点迭代循环(破坏/放置/清扫三种子共用): take=级联移除一格, enqueue=登记
      新空格; 规则①thin→②fell→④fall 查正上方(互斥旗标, else-if 链),
-     规则③need 与上方无关独立查(只认被移除的是依赖方块) */
+     规则⑤树桩连带查正下方同柱(只认被移除的是 fell), 规则③need 与邻格
+     无关独立查(只认被移除的是依赖方块) */
   function mkLoop(read, write, policy, removed) {
     const queue = [];
     const take = (cx, cy, cz) => {/* 级联移除一格: 落地 + 记账 + 入队 */
@@ -168,6 +175,18 @@ const CascadeCore = (() => {
         } else if (up !== 0 && policy.isFall(up)) {
           /* ④ 重力段整体下沉(移动语义); 段顶空位入队 → 连锁①②④ */
           settleFallRun(read, write, take, enqueue, c.x, c.y + 1, c.z, policy, removed);
+        }
+        /* ⑤ 树桩连带(P15): 被移除的是 fell 且正下方仍是同柱 fell(残余树桩) →
+           下方连续段整段移除——砍任何一节=整树倒(P1 口径), 树桩不再撑起残余
+           树冠(中段砍伐的浮空叶, 2026-10-24 拍板)。与接地无关: 树桩本就接地,
+           连带的是「同柱结构被斩断」事件本身; 桥面等横向结构脚下非同柱 fell,
+           不受牵连(砍桥面中格两半各自经柱接地, 桥不倒) */
+        if (policy.isFell(c.oldId)) {
+          let sy = c.y - 1;
+          while (policy.isFell(read(c.x, sy, c.z))) {
+            take(c.x, sy, c.z);
+            sy--;
+          }
         }
         /* ③ 伴生存活: 被移除的是依赖方块(原木)才重查——伴生块存活只取决于
            依赖方块的分布, 移除树叶/泥土等不改变任何树叶的判定(手掰单叶
@@ -211,6 +230,75 @@ const CascadeCore = (() => {
     return removed;
   }
 
-  return {cascadeRemove, cascadePlace, mkPolicy};
+  /* 世界卫生清扫(P14, 设计稿 D9): 全图扫四类不变量违例并治愈——级联只由
+     编辑触发, 级联合并前存档里的既有浮空(孤儿冠/悬浮树/浮沙/悬空依附块)
+     永无触发时机, 这里在装场期一次性补结算:
+     · need 违例(叶 4 格内无原木) → 直接移除(依赖早已不在, 破坏触发面无机会)
+     · fell 违例(组件无接地) → 整组件移除(成员入队后规则③照常重查伴生块
+       ——邻树互保的叶按 P4 口径存活)
+     · fall/thin 违例(脚下非支撑) → 以脚下合成空格入队, 交规则④/①按既有
+       语义下沉/脱落(砸碎沿途 thin/穿水等连锁照常)
+     不动点迭代: 一轮治愈可能揭出新违例(如沙沉后骑沙结构失撑——多由队列
+     链当场结算, 扫描仅兜底斜邻等漏网), 扫到无违例止。终止性: 每轮净移除
+     或净下移至少一格(take 减块数, settle 降重心不增块), 总量有界; 干净
+     世界首轮即空 → 返回 []。违例判据与 test/world-integrity.test.js 的
+     全图扫描同构(身份旗标, 无位置条件)。 */
+  function cascadeSweep(read, write, policy, w, h, d) {
+    const removed = [];
+    const lp = mkLoop(read, write, policy, removed);
+    /* 旗标查表前置(装场期一次): 扫描热路径 ~80 万格逐格查 id → 数组直查,
+       免 needOf/isSupport 等函数调用; id 域=Uint8Array 0..255 */
+    const needRule = [];
+    const thinId = [];
+    const fallId = [];
+    const fellId = [];
+    const supportId = [];
+    for (let id = 0; id < 256; id++) {
+      needRule[id] = policy.needOf(id);
+      thinId[id] = policy.isThin(id);
+      fallId[id] = policy.isFall(id);
+      fellId[id] = policy.isFell(id);
+      supportId[id] = policy.isSupport(id);
+    }
+    for (;;) {
+      const needSeeds = [];
+      const fellSeeds = [];
+      const fallSeeds = [];
+      const thinSeeds = [];
+      const fellSeen = new Set();
+      /* 列主序扫描(x,z 外层, y 内层): below=上一格 id 直复用, 免二次 read */
+      for (let x = 0; x < w; x++) {
+        for (let z = 0; z < d; z++) {
+          let below = 0;
+          for (let y = 0; y < h; y++) {
+            const id = read(x, y, z);
+            if (id !== 0) {
+              if (needRule[id] && !hasDepWithin(read, x, y, z, needRule[id])) needSeeds.push([x, y, z]);
+              if (y > 0 && (below === 0 || !supportId[below])) {
+                if (thinId[id]) thinSeeds.push([x, y - 1, z]);
+                if (fallId[id]) fallSeeds.push([x, y - 1, z]);
+              }
+              if (fellId[id] && !fellSeen.has(x + ',' + y + ',' + z)) {
+                const comp = fellComponent(read, x, y, z, policy, fellSeen);
+                if (!compGrounded(read, comp, policy)) {
+                  for (const m of comp) fellSeeds.push(m);
+                }
+              }
+            }
+            below = id;
+          }
+        }
+      }
+      if (!needSeeds.length && !fellSeeds.length && !fallSeeds.length && !thinSeeds.length) break;
+      for (const s of needSeeds) lp.take(s[0], s[1], s[2]);
+      for (const s of fellSeeds) lp.take(s[0], s[1], s[2]);
+      for (const s of thinSeeds) lp.enqueue(s[0], s[1], s[2], 0);
+      for (const s of fallSeeds) lp.enqueue(s[0], s[1], s[2], 0);
+      lp.run();
+    }
+    return removed;
+  }
+
+  return {cascadeRemove, cascadePlace, cascadeSweep, mkPolicy};
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = CascadeCore;
