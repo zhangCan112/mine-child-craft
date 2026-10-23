@@ -132,6 +132,19 @@ test('树叶 shears 品类 + shearDrop 专属表(D2: 剪树叶得树叶方块, M
   }
 });
 
+test('方块级联身份旗标(设计稿 D1/D7): fell/need/fall 形状 + 地形采集方块反白名单(身份原则)', () => {
+  const c = loadCfg();
+  assert.strictEqual(c.BLOCKS[5].fell, true, '原木 = fell 结构成员');
+  assert.strictEqual(c.BLOCKS[7].need.id, 5, '树叶依赖原木');
+  assert.strictEqual(c.BLOCKS[7].need.dist, 4, 'taxicab 4(BE 口径 P4)');
+  assert.strictEqual(c.BLOCKS[8].fall, true, '沙子 = fall 重力方块(二期 D7)');
+  /* 地形采集方块不得携带任何级联旗标——身份即白名单: 在哪挖都不塌 */
+  for (const id of [1, 2, 3, 4, 6, 9, 13, 14, 18, 36, 37, 38, 39, 41, 46, 47, 49]) {
+    const b = c.BLOCKS[id];
+    assert.ok(!b.fell && !b.need && !b.fall, id + '(' + b.name + ') 地形方块不得带级联旗标');
+  }
+});
+
 test('drop 条目结构: [itemId 非空字符串, 保底≥0 整数, 概率 0~1 数值]', () => {
   const c = loadCfg();
   const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50];

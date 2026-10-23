@@ -1973,3 +1973,20 @@ test('方块级联④: TNT 波及原木 → 整树级联倒 — 默认表掉落,
   assert.ok(Object.keys(A.ADV.quest.counts).every((k) => k.indexOf('mine_') !== 0),
       'TNT 链(含级联)不进任务计数(TNT 掀掉的不算)');
 });
+
+test('方块级联⑤(二期 D7): 沙随底座沉降 — 移动两格记账, 重进不错位(红线)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('sand', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), 8, '沙放草地顶(脚下实心, 放置不落)');
+  A.advBreakBlock(spot.x, 24, spot.z, 1, {time: 1, drops: true}); /* 挖草皮 */
+  assert.strictEqual(cell(spot.x, 24, spot.z), 8, '沙落进挖开的格(规则④)');
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '原位空出');
+  /* 红线: 触发格先记+移动后记(last-write-wins), 重进不错位 */
+  AdventureMode.cleanup();
+  freshInit();
+  assert.strictEqual(cell(spot.x, 24, spot.z), 8, '重进: 沙在落位');
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '重进: 原位不复活(两格记账)');
+});

@@ -358,8 +358,10 @@ function loadScene(buildFn) {
 
 /* 单块编辑: 挖除出同色碎屑是默认反馈; 调用方要静默挖除(如模式自己的
    定制反馈)传 opt {debris:false}。反馈政策可关, 缺省保持原行为。
-   破坏(id→0)时返回方块级联清单 [{x,y,z,id}...](不含触发块; 放置返回 [])——
-   引擎只报事件, 掉落/记账/话术是模式政策(方块级联设计稿 D3/D4)。
+   返回方块级联清单 [{x,y,z,id}... | {x,y,z,id,to:{x,y,z}}...]——破坏(id→0)
+   全旗标触发; 放置仅 fall 旗标触发(P9 半空即落), 其余放置返回 []。
+   带 to 的条目是移动(方块存活, 消费方记账两格), 引擎只报事件,
+   掉落/记账/话术是模式政策(方块级联设计稿 D3/D4/D7)。
    既有调用方忽略返回值则行为不变(级联自动生效), 向后兼容 */
 function editBlock(x, y, z, id, opt) {
   const old = getBlock(x, y, z);
@@ -367,13 +369,17 @@ function editBlock(x, y, z, id, opt) {
   let removed = [];
   if (id === 0 && old !== 0) {
     if (!(opt && opt.debris === false)) { // 挖除反馈: 同色碎屑(唯一入口经 Fx, 见 GLOSSARY)
-      const c = faceColor(old, [0, 1, 0]); // 顶面色 — 方块注册表的单一来源
-      Fx.debrisBurst(x+0.5, y+0.5, z+0.5, 6, {
-        color: (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255),
-        life: 0.7});
+      Fx.debrisBurst(x+0.5, y+0.5, z+0.5, 6, {color: packColor(old), life: 0.7});
     }
     removed = applyCascade(x, y, z, old);
-    if (removed.length && !(opt && opt.debris === false)) cascadeDebris(removed);
+    if (removed.length && !(opt && opt.debris === false)) {
+      cascadeDebris(removed);
+      cascadeVisuais(removed); /* 落沙/倒树原木 tumble(纯 overlay, D7/D8) */
+    }
+  } else if (id !== 0) {
+    /* 放置触发仅 fall 旗标(P9); 原木/树叶/thin 放置零触发(建造装饰保护) */
+    removed = CascadeCore.cascadePlace(getBlock, setBlockRaw, x, y, z, id, CASCADE_POLICY);
+    if (removed.length && !(opt && opt.debris === false)) cascadeVisuais(removed);
   }
   markDirty(x, z); // 单块编辑与批量同走队列(连续挖掘同样摊平)
   flushDirty();
@@ -393,10 +399,17 @@ function applyCascade(x, y, z, oldId) {
   for (const r of removed) markDirty(r.x, r.z); // 级联块各自区块入脏(同区块多块由 Set 去重)
   return removed;
 }
-/* 级联碎屑: 同 id 聚一撮取质心, 一次加量(单棵树至多两三撮, 上限 24 粒/撮) */
+/* 方块顶面色 → Fx 用 0xRRGGBB(碎屑/落块共用; 方块注册表单一来源) */
+function packColor(id) {
+  const c = faceColor(id, [0, 1, 0]);
+  return (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255);
+}
+/* 级联碎屑: 同 id 聚一撮取质心, 一次加量(单棵树至多两三撮, 上限 24 粒/撮);
+   移动条目(带 to)不碎——方块存活, 观感归 cascadeVisuais 的落块 */
 function cascadeDebris(removed) {
   const groups = new Map();
   for (const r of removed) {
+    if (r.to) continue;
     if (!groups.has(r.id)) groups.set(r.id, []);
     groups.get(r.id).push(r);
   }
@@ -405,10 +418,24 @@ function cascadeDebris(removed) {
     for (const r of rs) {
       gx += r.x + 0.5; gy += r.y + 0.5; gz += r.z + 0.5;
     }
-    const c = faceColor(gid, [0, 1, 0]);
     Fx.debrisBurst(gx / rs.length, gy / rs.length, gz / rs.length, Math.min(rs.length * 2, 24), {
-      color: (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255),
-      life: 0.7});
+      color: packColor(gid), life: 0.7});
+  }
+}
+/* 级联落块观感(D7/D8, 纯 overlay——数据已即时结算, 动画不承载语义):
+   移动条目(带 to)=色块自原位坠到落位; fell 条目=倒树原木逐节 tumble 到
+   地形顶(groundTop 之后即树倒后的地表, 60ms/节阶梯)。上限 24 块超出静默 */
+function cascadeVisuais(removed) {
+  let n = 0; let log = 0;
+  for (const r of removed) {
+    if (r.to) {
+      if (n++ < 24) Fx.fallBlock(r.x + 0.5, r.y + 0.5, r.to.y + 0.5, r.z + 0.5, {color: packColor(r.id)});
+    } else if (BLOCKS[r.id] && BLOCKS[r.id].fell) {
+      const gy = groundTop(r.x, r.z) + 1.5;
+      if (r.y + 0.5 > gy && n++ < 24) {
+        Fx.fallBlock(r.x + 0.5, r.y + 0.5, gy, r.z + 0.5, {color: packColor(r.id), delay: 0.06 * log++});
+      }
+    }
   }
 }
 
@@ -430,9 +457,14 @@ function markDirty(x, z) {
 function editBlockDirty(x, y, z, id) {
   const old = getBlock(x, y, z);
   setBlockRaw(x, y, z, id);
-  const removed = (id === 0 && old !== 0) ? applyCascade(x, y, z, old) : [];
+  let removed = [];
+  if (id === 0 && old !== 0) {
+    removed = applyCascade(x, y, z, old);
+  } else if (id !== 0) {
+    removed = CascadeCore.cascadePlace(getBlock, setBlockRaw, x, y, z, id, CASCADE_POLICY);
+  }
   markDirty(x, z);
-  return removed; // 坦克批量链注入此入口: 级联已生效(炸林区整树倒), 返回值按需消费
+  return removed; // 坦克批量链注入此入口: 级联已生效(炸林区整树倒), 返回值按需消费; 批量路径不放动画(自带爆风观感)
 }
 function flushDirty() { // 记账收口: 脏区块转入重建队列
   for (const k of dirtyChunks) {

@@ -402,9 +402,12 @@ Object.assign(BLOCKS[18], {hard: 0.3, tool: null, tier: 0, drop: [['glass', 1, 0
    fell  结构身份: 连成一体共享接地, 失撑整组件倒(砍一节=整树倒/柱脚被挖=柱倒);
    need  伴生身份: {id, dist} 依赖某方块在 taxicab 距离内, 失依即落
          (树叶 4 格内须有原木——MC BE 口径, JE 6 会让贴脸双树互保);
+   fall  重力身份: 失撑整段下沉(移动语义, 二期 D7——落沙砸碎沿途 thin、穿水,
+         放置半空即落地 P9);
    thin  依附身份: 旗标既有(草丛/麦/火把/树苗), 破坏侧随底座脱落——复用不新增。 */
 Object.assign(BLOCKS[5], {fell: true}); // 原木: 结构成员(木板 6 不参与——原木房子承重墙不受牵连)
 Object.assign(BLOCKS[7], {need: {id: 5, dist: 4}}); // 树叶: 4 格内有原木才存活
+Object.assign(BLOCKS[8], {fall: true}); // 沙子: 重力方块(MC 口径, 二期 D7)
 
 function faceColor(id, dir) {
   const b = BLOCKS[id];

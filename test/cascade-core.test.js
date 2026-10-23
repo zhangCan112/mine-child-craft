@@ -50,7 +50,11 @@ function mkH() {
       }
     }
   };
-  return {e, policy, fell, count, fill};
+  const place = (x, y, z, id) => {/* 放置并跑级联(镜像 world.js 放置触发装配, P9) */
+    e.setBlockRaw(x, y, z, id);
+    return CascadeCore.cascadePlace(e.getBlock, e.setBlockRaw, x, y, z, id, policy);
+  };
+  return {e, policy, fell, count, fill, place};
 }
 
 /* 每片残余树叶 4 格内必有原木(need 存活不变量, 世界完整性扫描的同款判据) */
@@ -87,6 +91,8 @@ test('mkPolicy: 身份判定从 config 真件派生 — fell/need/thin/support �
   assert.strictEqual(p.isFell(3), false, '石头无旗标');
   assert.strictEqual(p.isThin(48), true, '火把 = thin 依附块');
   assert.strictEqual(p.isThin(7), false, '树叶是整块');
+  assert.strictEqual(p.isFall(8), true, '沙子 = fall 重力方块(二期 D7)');
+  assert.strictEqual(p.isFall(5), false, '原木无重力');
   assert.strictEqual(p.needOf(7).id, 5, '树叶依赖原木');
   assert.strictEqual(p.needOf(7).dist, 4, 'taxicab 4(BE 口径, 设计稿 P4)');
   assert.strictEqual(p.needOf(5), null, '原木无 need 规则');
@@ -216,4 +222,83 @@ test('终止性: 浮空原木墙挖一中格整墙倒(定点迭代必终止, 数
   const removed = h.fell(20, 13, 12);
   assert.strictEqual(removed.length, 21 * 8 - 1, '整墙 - 触发块全倒');
   assert.strictEqual(h.count(5, 10, 30, 1, 20, 12, 12), 0, '无残留');
+});
+
+/* ============ 二期 D7: 沙子重力(fall 旗标 · 移动语义 · 放置触发) ============ */
+
+test('沙柱挖底: 整段下沉一格, moved 条目带 to(原格空+落格得沙)', () => {
+  const h = mkH();
+  h.fill(18, 0, 18, 22, 1, 22, 2); /* 泥土 y0~y1 */
+  for (let y = 2; y <= 4; y++) h.e.setBlockRaw(20, y, 20, 8); /* 沙柱 y2~y4 */
+  const removed = h.fell(20, 1, 20); /* 挖掉沙脚下的泥土 */
+  assert.strictEqual(h.e.getBlock(20, 4, 20), 0, '段顶 y4 空出');
+  for (let y = 1; y <= 3; y++) assert.strictEqual(h.e.getBlock(20, y, 20), 8, '沙柱整体下沉一格 y=' + y);
+  assert.strictEqual(removed.length, 3, '三条移动条目');
+  assert.ok(removed.every((r) => r.to && r.id === 8), '全部带 to(移动语义, 方块存活)');
+  assert.strictEqual(removed[0].to.y, 1, '首条落点=触发格(挖开的洞)');
+});
+
+test('落沙砸碎沿途依附块(P10): 沙坠穿火把, 火把进移除清单', () => {
+  const h = mkH();
+  h.e.setBlockRaw(20, 0, 20, 2); /* 泥土 */
+  h.e.setBlockRaw(20, 1, 20, 48); /* 火把(底下是泥土, 布景合法) */
+  h.e.setBlockRaw(20, 2, 20, 3); /* 石头 */
+  h.e.setBlockRaw(20, 3, 20, 8); /* 沙 */
+  const removed = h.fell(20, 2, 20); /* 挖石头 */
+  assert.strictEqual(h.e.getBlock(20, 1, 20), 8, '沙落到火把位');
+  assert.strictEqual(h.e.getBlock(20, 2, 20), 0);
+  assert.ok(removed.some((r) => r.id === 48 && !r.to), '火把被砸碎(移除条目)');
+  assert.ok(removed.some((r) => r.id === 8 && r.to), '沙的移动条目');
+});
+
+test('落沙穿水(P11): 非支撑可穿, 沉到湖底(落点水格被替换, 静水不回填)', () => {
+  const h = mkH();
+  h.e.setBlockRaw(20, 0, 20, 2); /* 湖底 */
+  for (let y = 1; y <= 3; y++) h.e.setBlockRaw(20, y, 20, 24); /* 水 y1~y3 */
+  h.e.setBlockRaw(20, 4, 20, 3); /* 石 */
+  h.e.setBlockRaw(20, 5, 20, 8); /* 沙 */
+  h.fell(20, 4, 20); /* 挖石头 */
+  assert.strictEqual(h.e.getBlock(20, 1, 20), 8, '沙沉到湖底');
+  assert.strictEqual(h.e.getBlock(20, 2, 20), 24, '途经水格保留');
+  assert.strictEqual(h.e.getBlock(20, 3, 20), 24, '途经水格保留');
+  assert.strictEqual(h.e.getBlock(20, 5, 20), 0, '原位空出');
+});
+
+test('放置触发(P9): 半空沙即落地; 脚下实心不动; 原木放置零触发(装饰保护)', () => {
+  const h = mkH();
+  h.e.setBlockRaw(20, 0, 20, 2);
+  const moved = h.place(20, 5, 20, 8); /* 半空放沙 */
+  assert.strictEqual(moved.length, 1, '一段一条移动');
+  assert.strictEqual(h.e.getBlock(20, 1, 20), 8, '落到实地');
+  assert.strictEqual(h.e.getBlock(20, 5, 20), 0, '原位空');
+  const stay = h.place(20, 2, 20, 8); /* 脚下是沙(实心支撑) */
+  assert.strictEqual(stay.length, 0, '叠沙不落');
+  assert.strictEqual(h.e.getBlock(20, 2, 20), 8);
+  const log = h.place(30, 5, 30, 5); /* 原木放置: 零触发 */
+  assert.strictEqual(log.length, 0);
+  assert.strictEqual(h.e.getBlock(30, 5, 30), 5, '浮空原木放置即悬空(一期口径不变)');
+});
+
+test('沙落牵动上方原木结构(规则④→②连锁): 沙塌后原木失接地整组倒', () => {
+  const h = mkH();
+  h.e.setBlockRaw(20, 0, 20, 2);
+  for (let y = 1; y <= 3; y++) h.e.setBlockRaw(20, y, 20, 8); /* 沙柱 */
+  h.e.setBlockRaw(20, 4, 20, 5); /* 原木骑在沙柱上 */
+  h.e.setBlockRaw(21, 4, 20, 5); /* 横臂 */
+  const removed = h.fell(20, 0, 20); /* 挖掉沙脚下的泥土 */
+  assert.ok(removed.some((r) => r.id === 8 && r.to), '沙段下移');
+  assert.ok(removed.some((r) => r.id === 5 && !r.to), '原木组件倒(移除条目)');
+  assert.strictEqual(h.e.getBlock(20, 4, 20), 0, '原木没了');
+  assert.strictEqual(h.e.getBlock(20, 2, 20), 8, '沙落位');
+});
+
+test('大沙柱终止性 + 隔空沙段不追认(既有浮空只在扰动时结算)', () => {
+  const h = mkH();
+  h.e.setBlockRaw(20, 0, 20, 2);
+  for (let y = 1; y <= 30; y++) h.e.setBlockRaw(20, y, 20, 8); /* 30 高沙柱 */
+  h.e.setBlockRaw(20, 35, 20, 8); /* 隔空浮沙(既有浮空, 与浮空原木同口径) */
+  h.fell(20, 0, 20); /* 挖底 */
+  for (let y = 0; y <= 29; y++) assert.strictEqual(h.e.getBlock(20, y, 20), 8, '整柱落底 y=' + y);
+  for (let y = 30; y <= 34; y++) assert.strictEqual(h.e.getBlock(20, y, 20), 0, '柱顶空 y=' + y);
+  assert.strictEqual(h.e.getBlock(20, 35, 20), 8, '隔空浮沙不被追认');
 });

@@ -55,7 +55,7 @@ function mkH() {
     location: {protocol: 'file:'},
     innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
     addEventListener() {},
-    Fx: {debrisBurst() {}}, /* 碎屑观感桩(级联碎屑走 Fx, 行为断言不需要) */
+    Fx: {debrisBurst() {}, fallBlock() {}}, /* 碎屑/落块观感桩(级联观感走 Fx, 行为断言不需要) */
   };
   sandbox.window = sandbox;
   const ctx = vm.createContext(sandbox);
@@ -107,6 +107,11 @@ function scanViolations(h) {
           const b = h.at(x, y - 1, z);
           const bd = b ? h.BLOCKS[b] : null;
           if (!bd || bd.solid === false || bd.thin != null) bad.push({k: 'thin', x, y, z, id});
+        }
+        if (def.fall && y > 0) {/* ④ fall: 重力块不得悬在非支撑之上(世界底豁免) */
+          const b = h.at(x, y - 1, z);
+          const bd = b ? h.BLOCKS[b] : null;
+          if (!bd || bd.solid === false || bd.thin != null) bad.push({k: 'fall', x, y, z, id});
         }
         if (def.fell && !fellSeen.has(x + ',' + y + ',' + z)) {
           /* fell 组件接地: BFS 收全组件, 任一成员 y=0 或脚下是外部实心支撑 */
@@ -222,7 +227,38 @@ test('地下隧道(身份原则防线): 石头无旗标, 挖空洞穴顶板纹�
   assert.deepStrictEqual(scanViolations(h), []);
 });
 
-test('放置永不触发级联: 浮空原木/树叶放上去就悬空, 破坏邻近才结算', () => {
+test('二期 D7 沙子重力(真 editBlock 接线): 挖底下沉 + 放置半空落地, 全图不变量成立', () => {
+  const h = mkH();
+  for (let z = 14; z <= 46; z++) {
+    for (let x = 14; x <= 46; x++) h.setBlockRaw(x, 0, z, 2); /* 泥底 y0 */
+  }
+  for (let y = 1; y <= 3; y++) h.setBlockRaw(20, y, 20, 8); /* 沙柱 */
+  const removed = h.editBlock(20, 0, 20, 0); /* 挖泥底 */
+  assert.strictEqual(removed.length, 3, '三段移动');
+  assert.ok(removed.every((r) => r.to && r.to.x === r.x && r.to.z === r.z), '纵向移动(同柱)');
+  assert.deepStrictEqual(scanViolations(h), []);
+  /* 放置半空沙(P9) → 落地 */
+  const moves = h.editBlock(30, 6, 30, 8);
+  assert.strictEqual(moves.length, 1);
+  assert.strictEqual(moves[0].to.y, 1, '落到泥底上');
+  assert.strictEqual(h.at(30, 1, 30), 8);
+  assert.strictEqual(h.at(30, 6, 30), 0, '原位空');
+  assert.deepStrictEqual(scanViolations(h), []);
+});
+
+test('二期 D7 批量爆破(editBlockDirty): 掏空沙柱下部, 上段逐次沉降不变量成立', () => {
+  const h = mkH();
+  for (let z = 14; z <= 46; z++) {
+    for (let x = 14; x <= 46; x++) h.setBlockRaw(x, 0, z, 2);
+  }
+  for (let y = 1; y <= 8; y++) h.setBlockRaw(20, y, 20, 8); /* 8 高沙柱 */
+  for (let y = 1; y <= 3; y++) h.editBlockDirty(20, y, 20, 0); /* 爆心自底掏三格 */
+  for (let y = 1; y <= 5; y++) assert.strictEqual(h.at(20, y, 20), 8, '上段沉实 y=' + y);
+  for (let y = 6; y <= 8; y++) assert.strictEqual(h.at(20, y, 20), 0, '柱顶空出 y=' + y);
+  assert.deepStrictEqual(scanViolations(h), []);
+});
+
+test('放置永不触发级联(fell/need 口径): 浮空原木/树叶放上去就悬空, 破坏邻近才结算', () => {
   const h = mkH();
   for (let z = 14; z <= 46; z++) {
     for (let x = 14; x <= 46; x++) h.setBlockRaw(x, 1, z, 2);

@@ -550,6 +550,11 @@ function advMineStop() {
 function advCascadeApply(removed, quest) {
   let felled = false;
   for (const r of removed) {
+    if (r.to) {/* 移动(落沙, D7): 方块存活——不掉落不进任务, 记账两格(漏一格重进错位) */
+      advMarkEdit(r.x, r.y, r.z, 0);
+      advMarkEdit(r.to.x, r.to.y, r.to.z, r.id);
+      continue;
+    }
     advMarkEdit(r.x, r.y, r.z, 0);
     if (r.id === B_SAPLING) advSaplings.delete(blockKey(r.x, r.y, r.z));
     if (BLOCKS[r.id] && BLOCKS[r.id].fell) felled = true;
@@ -566,8 +571,8 @@ function advCascadeApply(removed, quest) {
    bt 为破坏时的 breakTime 结果(drops:false = tier 不足, 只碎不掉+节流提示);
    级联块(整树/依附脱落)经 advCascadeApply 结算(方块级联设计稿 D4) */
 function advBreakBlock(x, y, z, id, bt) {
+  advMarkEdit(x, y, z, 0); /* 触发格先记账(级联移动可能落回此格, 后写覆盖才对) */
   advCascadeApply(editBlock(x, y, z, 0), true); /* 级联: 记账+默认表掉落+任务(蓄力链视同亲手挖, P6) */
-  advMarkEdit(x, y, z, 0);
   if (id === B_SAPLING) advSaplings.delete(blockKey(x, y, z)); /* 挖树苗撤计时 */
   sfx('hit');
   advWearHeld('mine'); /* 破坏成功 −1(工具匹配与否都扣, MC 口径; 徒手无槽可扣) */
@@ -630,8 +635,12 @@ function advTryPlace(hit) {
     showToast('这里放不了哦');
     return false;
   }
-  editBlock(pc.x, pc.y, pc.z, it.block);
+  const moved = editBlock(pc.x, pc.y, pc.z, it.block); /* 放置触发仅 fall(P9): 半空沙即落 */
   advMarkEdit(pc.x, pc.y, pc.z, it.block);
+  for (const r of moved) {/* 移动两格记账: 原格清空+落格得沙(漏记重进悬空沙复活) */
+    advMarkEdit(r.x, r.y, r.z, 0);
+    advMarkEdit(r.to.x, r.to.y, r.to.z, r.id);
+  }
   if (it.block === B_CRAFT) advTally('place_craft_table', 1); /* T15: 站点放置记账(任务链消费的两键) */
   if (it.block === B_FURNACE) advTally('place_furnace', 1);
   if (it.block === B_CHEST) advTally('place_chest', 1); /* 引导链 v2: 箱子步(合成/放置/打开三条件) */
@@ -936,9 +945,9 @@ function advExplode(x, y, z) {
   const cx = x + 0.5; const cy = y + 0.5; const cz = z + 0.5;
   Fx.boom(cx, cy, cz, {r1: ADV_TNT_R + 1.5, n: 14});
   /* 源块直接清除不经掷骰(圈内 TNT 链式点燃分支在前, D3); 级联块默认表掉落
-     不进任务(P6: TNT 掀掉的不算——级联同理) */
-  advCascadeApply(editBlock(x, y, z, 0), false);
+     不进任务(P6: TNT 掀掉的不算——级联同理)。触发格先记账(移动可能落回此格) */
   advMarkEdit(x, y, z, 0);
+  advCascadeApply(editBlock(x, y, z, 0), false);
   const r = Math.ceil(ADV_TNT_R);
   for (let dx = -r; dx <= r; dx++) {
     for (let dy = -r; dy <= r; dy++) {
@@ -952,8 +961,8 @@ function advExplode(x, y, z) {
         }
         const def = id ? BLOCKS[id] : null;
         if (!def || def.hard == null) continue; /* 空气/水/创造专属免疫(字段缺失判据) */
+        advMarkEdit(bx, by, bz, 0); /* 触发格先记账(级联移动可能落回此格) */
         advCascadeApply(editBlock(bx, by, bz, 0), false); /* 级联块: 记账+默认表掉落, 不进任务(P6) */
-        advMarkEdit(bx, by, bz, 0);
         if (id === B_SAPLING) advSaplings.delete(blockKey(bx, by, bz)); /* 掀掉的树苗撤计时 */
         for (const d of advTntRoll(id)) Drops.spawn(d.id, d.n, bx + 0.5, by + 0.8, bz + 0.5);
       }

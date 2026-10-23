@@ -497,7 +497,10 @@ const BuildMode = mkMode({
     } else return;
     const removed = editBlock(x, y, z, id);
     buildEdits[buildSceneId].set(blockKey(x, y, z), id); // 记录改动供存档
-    for (const r of removed) buildEdits[buildSceneId].set(blockKey(r.x, r.y, r.z), 0); // 级联块同记(方块级联 D5: 漏记重进复活半棵树)
+    for (const r of removed) {/* 级联同记(D5/D7): 移动两格(原格 0+落格 id), 移除一格 */
+      buildEdits[buildSceneId].set(blockKey(r.x, r.y, r.z), 0);
+      if (r.to) buildEdits[buildSceneId].set(blockKey(r.to.x, r.to.y, r.to.z), r.id);
+    }
     buildDirty = true;
   },
   onVoidFall() { // 保留自定义: 回出生点时需同时关飞行

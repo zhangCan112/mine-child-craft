@@ -3,18 +3,19 @@
    通用特效 Fx (视觉) + 提示消息 toast — 引擎层
    ------------------------------------------------------------
    爆炸/冲击波/闪电/碎块/震屏/传送门光束的视觉唯一入口, 外部只经
-   12 个入口触碰(一次性动效 7 个 + 常驻光束 portalBeam/removeBeam +
+   13 个入口触碰(一次性动效 8 个 + 常驻光束 portalBeam/removeBeam +
    clear/update/wobble), 另带主菜单提示消息 showToast。
    音效段(sfx/engineHum/unlockAudio)已整体迁往 js/audio.js(工单 A4),
    本文件不再触碰 WebAudio — 视觉与听觉从此各自单一职责。
-   interface: Fx{boom,pop,debrisBurst,arc,bolt,kick,portalBeam,removeBeam,beam,clear,update,wobble} / showToast
+   interface: Fx{boom,pop,debrisBurst,arc,bolt,kick,fallBlock,portalBeam,removeBeam,
+      beam,clear,update,wobble} / showToast
    依赖(均经全局名, 调用期解析): THREE·scene(引擎共享) · sfx(js/audio.js, 加载序在其后亦可, 调用期解析)
    可测性声明: 顶层即建 THREE 几何(Node 需桩方可载), adapter 无直测, 经 boot 冒烟覆盖(conventions §1.9)
    ============================================================ */
 
 /* ---------- 通用特效 Fx: 爆炸/冲击波/闪电/碎块/震屏/传送门光束的唯一入口 ----------
-   条目形状/动画/衰减全部收在 implementation, 外部只经 12 个入口触碰
-   (一次性动效 7 个 + 常驻光束 portalBeam/removeBeam + clear/update/wobble) */
+   条目形状/动画/衰减全部收在 implementation, 外部只经 13 个入口触碰
+   (一次性动效 8 个 + 常驻光束 portalBeam/removeBeam + clear/update/wobble) */
 const Fx = (function() {
   let shake = 0;
   const effects = []; // 冲击波球
@@ -227,6 +228,40 @@ const Fx = (function() {
     effects.push({mesh, t: 0, dur: o.dur||0.25, r0: 0, r1: 0, noScale: true});
   }
 
+  /* 落块(方块级联移动观感: 落沙/倒树原木 tumble): 0.94³ 色块自 y0 坠至 y1,
+     位移 ∝ t²(重力加速), 着地前淡出; o={color, delay, dur}。
+     纯 overlay——体素数据已即时结算(设计稿 D7/P12), 动画不承载语义 */
+  const fallers = [];
+  const fallGeo = new THREE.BoxGeometry(0.94, 0.94, 0.94);
+  function fallBlock(x, y0, y1, z, o) {
+    o = o || {};
+    const dy = Math.max(0.01, y0 - y1);
+    const dur = o.dur !== undefined ? o.dur : Math.min(0.55, Math.max(0.16, Math.sqrt(dy / 9)));
+    const mat = new THREE.MeshLambertMaterial({color: o.color !== undefined ? o.color : 0xd9cf9a,
+      transparent: true});
+    const m = new THREE.Mesh(fallGeo, mat);
+    m.position.set(x, y0, z);
+    m.visible = false; /* delay 未到不露面 */
+    scene.add(m);
+    fallers.push({m, mat, y0, y1, t: -(o.delay || 0), dur});
+  }
+  function stepFallers(dt) {
+    for (let i = fallers.length - 1; i >= 0; i--) {
+      const f = fallers[i];
+      f.t += dt;
+      if (f.t < 0) continue; /* 延迟阶梯(倒树 60ms/节) */
+      f.m.visible = true;
+      const p = f.t / f.dur;
+      if (p >= 1) {
+        scene.remove(f.m); f.mat.dispose();
+        fallers.splice(i, 1);
+        continue;
+      }
+      f.m.position.y = f.y0 + (f.y1 - f.y0) * p * p; /* 重力加速 */
+      f.mat.opacity = p > 0.8 ? 0.9 * (1 - p) / 0.2 : 0.9; /* 着地前淡出 */
+    }
+  }
+
   /* 清空全部特效(模式切换用); 共享 geo/mat 不可 dispose, 专用色/闪电线/落雷组/光束组除外 */
   function clear() {
     for (const e of effects) disposeFxEntry(e);
@@ -239,11 +274,16 @@ const Fx = (function() {
       scene.remove(b.group); for (const m of b.mats) m.dispose();
     }
     beams.length = 0;
+    for (const f of fallers) {
+      scene.remove(f.m); f.mat.dispose();
+    }
+    fallers.length = 0;
   }
 
   /* 生命周期推进(主循环游玩门内, 每帧) */
   function update(dt) {
     stepBeams(dt); // 常驻光束先行(不依赖一次性条目)
+    stepFallers(dt); // 落块(级联移动观感)
     for (let i=effects.length-1; i>=0; i--) {
       const e = effects[i];
       e.t += dt;
@@ -285,7 +325,7 @@ const Fx = (function() {
     }
   }
 
-  return {boom, pop, debrisBurst, arc, bolt, kick, portalBeam, removeBeam, beam, clear, update, wobble};
+  return {boom, pop, debrisBurst, arc, bolt, kick, fallBlock, portalBeam, removeBeam, beam, clear, update, wobble};
 })();
 
 /* ---------- 提示消息 ---------- */
