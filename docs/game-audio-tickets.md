@@ -139,10 +139,14 @@ flowchart TD
 
 ## 第三波
 
-### A5 BGM 上线 `[ ]`
+### A5 BGM 上线 `[x]`（并入 `4e8aab0`）
 - 依赖：A4。
 - 交付：mode-registry.js 各行加可选 `mood` 字段（数据级，值与 A2 的 MOODS 对齐）；main.js：switchMode 里调 `AudioMixer.setMood(...)`、showPage('main') 时 menu mood、主循环 `AudioMixer.tick(dt)` 一行；MusicDirector 执行器（audio.js 内部）：起曲=解码一次性播放（不循环，播完丢引用）、gain 事件映射 musicBus setTargetAtTime；focus=none 恒静默；空曲表时结构就绪不出声（A7 填曲后自然生效）。
 - 测试：mode-registry.test.js 扩展断言 mood 值 ⊆ 合法集；audio-core 既有测试覆盖调度；boot 全绿。
+- 验收提示（转记 A10）：
+  - ① 验收前须先并 A7——当前 MUSIC_TRACKS 空曲表，听不到 BGM 是预期（结构就绪不出声，A7 填曲后自然生效）；
+  - ② 行为验收点清单：主菜单 5~30s 起 calm · battle 模式（arena/tank）15~45s 换曲 · 同 mood 进出不打断（续播）· 回主菜单才切 menu 口径 · focus 恒静默；
+  - ③ 超时页 playTime 不切情绪保持原口径（不触发 switchMode/showPage，BGM 情绪维持当前模式）——若应收成 menu/none 是一行改动，A10 拍板。
 
 ### A6 TTS duck 钩子 `[x]`（并入 `4548e12`）
 - 依赖：A4。
