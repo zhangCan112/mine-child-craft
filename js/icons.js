@@ -731,7 +731,7 @@ const ITEM_PIX = {
   iron_ingot: {art: INGOT_ART, map: {'#': PIX_TIER.iron.main, '+': PIX_TIER.iron.light, '-': PIX_TIER.iron.dark}},
   gold_ore: {art: ORE_ART, map: {s: '#8a8f98', L: '#a3a8b0', d: '#6e737c', o: '#f0c53a', O: '#f8e08a'}},
   gold_ingot: {art: INGOT_ART, map: {'#': '#f0c53a', '+': '#f8e08a', '-': '#c79a22'}},
-  diamond: {art: DIAMOND_ART, map: {'#': PIX_TIER.diamond.main, l: '#a5f3ea', d: '#2fb8aa', m: '#3ac4b4'}},
+  diamond: {art: DIAMOND_ART, map: {'#': PIX_TIER.diamond.main, 'l': '#a5f3ea', 'd': '#2fb8aa', 'm': '#3ac4b4'}},
   /* 怪物掉落材料 */
   rotten_flesh: {art: FLESH_ART, map: {m: '#8a3a2e', l: '#a85446', d: '#5c1f14', p: '#c9877b'}},
   bone: {art: BONE_ART, map: {m: '#e8e5d8', l: '#f8f6ee', d: '#c0bcae'}},
@@ -774,7 +774,7 @@ for (const [kind, art] of [['pick', PICK_ART], ['axe', AXE_ART],
   for (const [tier, pal] of Object.entries(PIX_TIER)) {
     ITEM_PIX[kind + '_' + tier] = {art, map: {
       '#': pal.main, '+': pal.light, '-': pal.dark,
-      W: PIX_HANDLE.light, w: PIX_HANDLE.dark,
+      'W': PIX_HANDLE.light, 'w': PIX_HANDLE.dark,
     }};
   }
 }

@@ -68,12 +68,12 @@ const RECIPES = [
    铁/金为粗矿口径(挖出矿石物品, 需熔炼); 圆石烧回石头成建材循环
    ------------------------------------------------------------ */
 const SMELTS = {
-  iron_ore: 'iron_ingot',  // 粗矿→锭(D5)
-  gold_ore: 'gold_ingot',  // 粗矿→锭(D5)
-  log: 'charcoal',         // 烧原木得木炭(与煤等效的任选燃料/材料)
-  cobble: 'stone',         // 圆石↔石头建材循环(§3.5)
-  sand: 'glass',           // 烧沙得玻璃
-  clay_ball: 'brick',      // 黏土球→红砖(§3.5 红砖链)
+  iron_ore: 'iron_ingot', // 粗矿→锭(D5)
+  gold_ore: 'gold_ingot', // 粗矿→锭(D5)
+  log: 'charcoal', // 烧原木得木炭(与煤等效的任选燃料/材料)
+  cobble: 'stone', // 圆石↔石头建材循环(§3.5)
+  sand: 'glass', // 烧沙得玻璃
+  clay_ball: 'brick', // 黏土球→红砖(§3.5 红砖链)
 };
 
 /* ------------------------------------------------------------

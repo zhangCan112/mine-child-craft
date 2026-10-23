@@ -116,19 +116,19 @@ test('配方数值抽查: 与设计稿 §3.2/§3.5 逐条一致(研究稿 MC 口
   assert.deepStrictEqual(out('planks'), {item: 'planks', n: 4});
   assert.deepStrictEqual(cost('stick'), {planks: 2});
   assert.deepStrictEqual(out('stick'), {item: 'stick', n: 4});
-  assert.deepStrictEqual(cost('craft_table'), {planks: 4});          // §5.5 工作台 4 板
+  assert.deepStrictEqual(cost('craft_table'), {planks: 4}); // §5.5 工作台 4 板
   assert.deepStrictEqual(cost('torch'), {fuel: [['coal', 'charcoal'], 1], stick: 1}); // §5.2 煤/木炭任选
   assert.deepStrictEqual(out('torch'), {item: 'torch', n: 4});
   // 站点件与补给包(§3.5 + §3.2)
-  assert.deepStrictEqual(cost('furnace'), {cobble: 8});              // §5.5 8 圆石无需煤
-  assert.deepStrictEqual(cost('stone_bricks'), {stone: 4});          // 4 石→4 石砖(MC 口径)
+  assert.deepStrictEqual(cost('furnace'), {cobble: 8}); // §5.5 8 圆石无需煤
+  assert.deepStrictEqual(cost('stone_bricks'), {stone: 4}); // 4 石→4 石砖(MC 口径)
   assert.deepStrictEqual(out('stone_bricks'), {item: 'stone_bricks', n: 4});
-  assert.deepStrictEqual(cost('bricks'), {brick: 4});                // 4 红砖→1 红砖块(黏土链)
-  assert.deepStrictEqual(cost('shears'), {iron_ingot: 2});           // 2 铁锭(§3.5)
-  assert.deepStrictEqual(cost('tnt'), {gunpowder: 5, sand: 4});      // MC 口径(§3.2)
-  assert.deepStrictEqual(cost('bow_item'), {stick: 3, string: 3});   // 二期启用占位(§5.4)
-  assert.deepStrictEqual(cost('bread'), {wheat: 3});                 // 原料二期, 卡片不点亮
-  assert.deepStrictEqual(cost('bone_meal'), {bone: 1});              // 用途二期催熟
+  assert.deepStrictEqual(cost('bricks'), {brick: 4}); // 4 红砖→1 红砖块(黏土链)
+  assert.deepStrictEqual(cost('shears'), {iron_ingot: 2}); // 2 铁锭(§3.5)
+  assert.deepStrictEqual(cost('tnt'), {gunpowder: 5, sand: 4}); // MC 口径(§3.2)
+  assert.deepStrictEqual(cost('bow_item'), {stick: 3, string: 3}); // 二期启用占位(§5.4)
+  assert.deepStrictEqual(cost('bread'), {wheat: 3}); // 原料二期, 卡片不点亮
+  assert.deepStrictEqual(cost('bone_meal'), {bone: 1}); // 用途二期催熟
   assert.deepStrictEqual(out('bone_meal'), {item: 'bone_meal', n: 3});
 });
 
@@ -267,7 +267,8 @@ test('canCraft: 任选判定与 canAfford 同口径(候选合计), 不留语义�
   const h = loadCraft();
   const {canCraft, canAfford} = h;
   // 手造 cost: 任选需求 2(表内一期均为 1, 此处专测口径对齐)
-  const recipe = {id: 'probe', out: {item: 'torch', n: 1}, cost: {fuel: [['coal', 'charcoal'], 2], stick: 9}, station: 'hand'};
+  const recipe = {id: 'probe', out: {item: 'torch', n: 1},
+    cost: {fuel: [['coal', 'charcoal'], 2], stick: 9}, station: 'hand'};
   const inv = invWith(h, [['coal', 1], ['charcoal', 1], ['stick', 9]]);
   assert.strictEqual(canAfford(inv, recipe.cost), true, '背包核心: 候选合计 1+1 ≥ 2');
   assert.strictEqual(canCraft(inv, recipe, true).ok, true, '合成核心口径应与之一致');

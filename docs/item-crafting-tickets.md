@@ -118,8 +118,9 @@ flowchart TD
 - 测试：`test/inventory-core.test.js`——并堆/满拒/跨槽扣料/耐久归零/序列化往返。
 - 先例：`test/tank-core.test.js` 的 vm 加载（需连 items-core 一起 load）。
 
-### T6 合成核心（craft-core）`[ ]`
+### T6 合成核心（craft-core）`[x]`（并入 `8374785`）
 - 依赖：T1。
+- 接口备注：missing 三形状（{id,need,have}/{any,need}/{station}）直接驱动灰显；bread/bone_meal/bow_item 三 id 一期模式层过滤不点亮；craft 返 {ok,out,leftover}——leftover>0 模式层转掉落物；breakTime(BLOCKS[id], 槽堆|null) 返 {time,drops}；FUEL 数组序即最省排序；任选=候选合计口径与 T5 对齐。
 - 交付：`js/craft-core.js`——`RECIPES`（设计稿 §3.2 一期全表：手搓 4 条 + 工作台级 20 条左右 + 补给包石砖/红砖/剪刀 + TNT；面包/骨粉注册但不点亮说明写注释）+ `SMELTS` + `FUEL` + 纯函数 `canCraft(inv, recipe, unlocked)→{ok,missing} / craft / fuelUnits / smeltOf / breakTime(blockDef, toolDef)`（公式与封顶见设计稿 §3.4）。
 - 测试：`test/craft-core.test.js`——缺失清单、扣料产物、任选材料（煤/木炭）、热值、烧炼映射、破坏时间（徒手石头 7.5s、封顶 8s、下限 0.15s、tier 门槛）。
 
@@ -131,8 +132,9 @@ flowchart TD
 - 测试：`test/drops.test.js`——掷骰种子化断言（保底必得/概率边界）、**交叉断言：MOB_DROPS 与 BLOCKS.drop 引用的物品 id 必须全部在 ITEMS 注册**（防改表漏改注册）。
 - 声明加载位置：mobs.js 之后。
 
-### T8 像素图标工坊扩展（itemIcon）`[ ]`
+### T8 像素图标工坊扩展（itemIcon）`[x]`（并入 `f606276`）
 - 依赖：T1。
+- 接口备注：iconOf(id) 返 string——'data:' 开头喂 Sprite/图 src，否则 emoji 文本，'' 未注册跳过；dataURL 自带缓存；64×64 配 CSS image-rendering:pixelated 最佳。
 - 交付：`icons.js` 扩展 `itemIcon(itemId)`——16×16 手绘像素图标 → 64×64 dataURL（tankIcon 先例、MC 风格自绘不复制素材）；一期覆盖 ITEMS 全量（镐斧剑锹四阶配色、锭/矿/粉/球/骨/线/食物/站点件/放置型方块）；`iconOf(itemId)` 统一出口（emoji 兜底）。
 - 测试：`test/icons.test.js`（doc/canvas 桩注入——mode-kit.test.js 先例）——全 ITEMS 键有图标、dataURL 形状。
 
