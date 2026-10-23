@@ -200,10 +200,12 @@ test('MOB_DROPS 结构: rolls=[itemId,保底,加成次数], rare=[itemId,概率]
       assert.ok(Number.isInteger(e[1]) && e[1] >= 1, '保底至少 1(儿童配平: 不空手)');
       assert.ok(Number.isInteger(e[2]) && e[2] >= 0, '加成掷骰次数应为非负整数');
     }
-    if (d.rare) for (const e of d.rare) {
-      assert.strictEqual(typeof e[0], 'string');
-      assert.ok(e[0].length > 0, '稀有掉落物 id 应非空');
-      assert.ok(typeof e[1] === 'number' && e[1] > 0 && e[1] <= 1, '稀有概率应在 0~1');
+    if (d.rare) {
+      for (const e of d.rare) {
+        assert.strictEqual(typeof e[0], 'string');
+        assert.ok(e[0].length > 0, '稀有掉落物 id 应非空');
+        assert.ok(typeof e[1] === 'number' && e[1] > 0 && e[1] <= 1, '稀有概率应在 0~1');
+      }
     }
   }
   assert.deepEqual(c.MOB_DROPS.zombie.rare, [['iron_ingot', 0.05]],
