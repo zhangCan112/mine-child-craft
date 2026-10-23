@@ -1480,7 +1480,7 @@ function advQuestPaint() {
   }
   if (st.step > 0) {
     html += '<div class="advq-hist">' + ADV_QUESTS.slice(0, st.step).map((h) =>
-        '<div class="advq-row"><s>' + h.icon + ' ' + h.goal + '</s></div>').join('') + '</div>';
+      '<div class="advq-row"><s>' + h.icon + ' ' + h.goal + '</s></div>').join('') + '</div>';
   }
   advPanel.questEl.innerHTML = html;
 }
