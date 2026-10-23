@@ -272,4 +272,61 @@ canvas {
   .f-note {
     font-size: 11px;
   }
+
+/* T10 面板放大档: 背包格/页签/卡片/熔炉槽加大, 指尖好按 */
+  .mkp-grid {
+    grid-template-columns: repeat(6, 62px);
+    gap: 7px;
+  }
+
+  .mkp-cell {
+    width: 62px;
+    height: 62px;
+  }
+
+  .mkp-cell .pic {
+    width: 44px;
+    height: 44px;
+  }
+
+  .mkp-cell .icon {
+    font-size: 34px;
+  }
+
+  .mkp-tab {
+    width: 54px;
+    height: 48px;
+    font-size: 24px;
+  }
+
+  .mkp-card {
+    width: 190px;
+  }
+
+  .mkp-out .big,
+  .mkp-out img.big {
+    width: 54px;
+    height: 54px;
+    font-size: 44px;
+  }
+
+  .mkp-chip .mini,
+  .mkp-chip img.mini {
+    width: 26px;
+    height: 26px;
+    font-size: 20px;
+  }
+
+  .mkp-quest {
+    width: 150px; /* 窄屏让位给背包/配方书 */
+  }
+
+  .mkp-frow {
+    gap: 20px;
+  }
+
+  .mkp-pbar {
+    width: 84px;
+    height: 12px;
+  }
 }
