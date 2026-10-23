@@ -1,8 +1,8 @@
 'use strict';
 /* 怪物库 (js/mobs.js) 壳层单测 — node --test (零依赖)
    运行: node --test test/mobs.test.js
-   通过 interface 驱动(spawn/update/hit/near/clear — 界面即测试面):
-   出厂契约(战斗节拍置零)/ 数值 / 受击死亡 / 圆域查询 / 尸体回收。
+   通过 interface 驱动(spawn/update/hit/near/clear/onDeath — 界面即测试面):
+   出厂契约(战斗节拍置零)/ 数值 / 受击死亡 / 击杀事件 / 圆域查询 / 尸体回收。
    THREE 以最小桩注入: 加载期只 new 矩阵临时量, 断言不依赖其语义。 */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -109,6 +109,31 @@ test('怪物库: hit 扣血 → 归零死亡只结算一次 + 死亡音; 尸体�
   r = Mobs.hit(m, 99, 1, 0, 0.5);
   assert.strictEqual(r.freshDead, false, '补刀不重复结算');
   assert.strictEqual(r.hp, 0, '尸体血量封底');
+  Mobs.clear();
+});
+
+test('怪物库: onDeath 击杀事件 — 致死一击每个回调恰一次 · 非致死/补刀不回调 · clear 解除注册', () => {
+  Mobs.clear();
+  let a = 0; let b = 0; let got = null;
+  Mobs.onDeath((m) => {
+    a++; got = m;
+  });
+  Mobs.onDeath(() => {
+    b++;
+  });
+  const m = Mobs.spawn('zombie', 10, 10, {});
+  Mobs.hit(m, 10, 0, 0, 0);
+  assert.strictEqual(a + b, 0, '非致死一击不回调');
+  Mobs.hit(m, 99, 0, 0, 0);
+  assert.strictEqual(a, 1, '致死一击: 回调 A 恰一次');
+  assert.strictEqual(b, 1, '致死一击: 回调 B 恰一次(可注册多个回调)');
+  assert.strictEqual(got, m, '参数为死亡的怪物实体(引擎只报事件, 不解释死因)');
+  Mobs.hit(m, 99, 0, 0, 0);
+  assert.strictEqual(a + b, 2, '补刀不重复回调(只在存活→死亡瞬间触发)');
+  Mobs.clear();
+  const m2 = Mobs.spawn('zombie', 20, 20, {});
+  Mobs.hit(m2, 99, 0, 0, 0);
+  assert.strictEqual(a + b, 2, 'clear() 清场一并解除死亡回调(切模式不残留旧闭包)');
   Mobs.clear();
 });
 

@@ -90,14 +90,15 @@ flowchart TD
 - 测试：`test/blocks-fields.test.js`（vm 加载 config.js）——新 id 齐全、thin 块 solid:false、采集类字段齐全、drop 物品名非空、tool 取值合法。
 - 约束：只增不改既有键的既有字段；方块定义仍纯色（贴图归 T9）。
 
-### T3 怪物库击杀事件（onDeath）`[ ]`
+### T3 怪物库击杀事件（onDeath）`[x]`（并入 `6cc76bd`）
 - 依赖：无。
 - 交付：`mobs.js` 加 `onDeath(cb)`——在 `hit()` 判定存活→死亡的瞬间回调恰好一次（传怪物实体 m）；引擎只报事件不解释死因。接口表头注释同步。
 - 测试：`test/mobs.test.js` 扩展（沿用其现有加载器与桩）——致死一击回调恰一次、非致死不回调。
 - 先读：`js/mobs.js` 的 `hit()` 与 `test/mobs.test.js` 惯例。
 
-### T4 手持物参数化（mkToolDef）`[ ]`
+### T4 手持物参数化（mkToolDef）`[x]`（并入 `2cbd510`）
 - 依赖：无。
+- 备注：工具键名契约 `{pick|axe|sword|shovel}_{wood|stone|iron|diamond}`；mkToolDef 收字符串 tier（items-core 的 tool.tier 是数字 1-4，接线侧做映射）；「钻石镐」不带石字。
 - 交付：`held-item.js` 加 `mkToolDef(kind, tier)`——四阶色板（木 0x8a5a2b / 石 0x8a8f98 / 铁 0xd8dde4 / 钻 0x4ee1d2）× 四种（pick/axe/sword/shovel）同构部件（柄+头），grip/swing 参数参照现有 sword 手感分档；16 个工具 def 以 `pick_wood … shovel_diamond` 命名注册进 `defs`（键名须与 T1 的 ITEMS 工具 id 一致，供 Avatar.setItem 直用）。现有 hoe/sword/bow 保留不动。
 - 测试：`test/held-item.test.js` 扩展——16 键存在、形状断言（现有防错网自动覆盖）、四阶色板断言。
 
