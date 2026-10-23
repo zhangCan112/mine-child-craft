@@ -3,7 +3,7 @@
    音效 (WebAudio 合成) + 通用特效 + 提示消息
 ============================================================ */
 let actx = null; // 懒创建; iOS 须在用户手势内创建+resume 才能真正出声(见 unlockAudio)
-let master = null; // 总线: 全部音效 → master → 压限器 → 扬声器, 多路叠加不再硬削波(pad 杂音根因)
+let master = null; // 总线: 全部音效 → master →(触屏: ~160Hz 高通)→ 压限器 → 扬声器, 多路叠加不再硬削波(pad 杂音根由之一)
 const sfxLastT = {};
 /* pad 小喇叭发不动低频: 触屏检测口径统一在 config.js 的 IS_TOUCH */
 
@@ -15,17 +15,35 @@ function unlockAudio() {
   try {
     if (!actx) {
       actx = new (window.AudioContext||window.webkitAudioContext)();
-      const comp = actx.createDynamicsCompressor(); // 保险丝: 混战叠加超出 0dB 也压不出破音
-      comp.threshold.value = -12; comp.knee.value = 20; comp.ratio.value = 12;
+      /* 压限器回调"保险丝"定位(research A.5): DynamicsCompressor 自带只随
+         threshold/knee/ratio 走的固定 makeup gain, 原 -12/20/12 比规范默认
+         (-24/30/12) 激进一倍 — 常驻低电平源(引擎嗡鸣)被持续抬高, 每次音效
+         attack/release 都跟着"呼吸"(pumping); 收回 -18/24/8 只兜混战峰值,
+         混音层级交还各音源自身增益 */
+      const comp = actx.createDynamicsCompressor();
+      comp.threshold.value = -18; comp.knee.value = 24; comp.ratio.value = 8;
       comp.attack.value = 0.003; comp.release.value = 0.25;
-      master = actx.createGain(); master.gain.value = 0.9;
-      master.connect(comp); comp.connect(actx.destination);
+      /* master 0.9→0.8: 压限器 makeup gain 缩水后再让一档 headroom,
+         多路方波+白噪叠加的瞬时峰值远离 ±1 — 目标节点超界行为规范未定义,
+         在 iOS 小喇叭上即破音(research A.5 §5.1/§5.2) */
+      master = actx.createGain(); master.gain.value = 0.8;
+      /* pad 扬声器频响: ~160Hz 以下频段小喇叭发不出, 白占 headroom 还逼
+         锥体冲程发劈(research A.8 移动端混音检查单: 主链挂 150~200Hz 高通);
+         触屏设备在 master 与压限器之间前置高通, 低频能量先滤掉再进保险丝 */
+      if (IS_TOUCH) {
+        const hp = actx.createBiquadFilter(); hp.type = 'highpass'; hp.frequency.value = 160;
+        master.connect(hp); hp.connect(comp);
+      } else {
+        master.connect(comp);
+      }
+      comp.connect(actx.destination);
     }
     if (actx.state === 'suspended') {
       actx.resume();
       const s = actx.createBufferSource(); // 1 采样静音: 逼 iOS 立即开动渲染管线
       s.buffer = actx.createBuffer(1, 1, actx.sampleRate);
       s.connect(master); s.start(0);
+      dropOnEnd(s); // 静音采样也是一次性音源: 每次手势续命都会新建, 播完即摘
     }
   } catch (e) {}
 }
@@ -33,6 +51,17 @@ if (typeof document !== 'undefined' && document.addEventListener) {
   document.addEventListener('pointerdown', unlockAudio);
   document.addEventListener('touchstart', unlockAudio);
   document.addEventListener('keydown', unlockAudio);
+}
+
+/* 一次性音源播完即从音频图摘除(WebKit Bug 222098 官方 workaround):
+   已播完仍连着的节点不会被及时回收, 音频图随游玩持续膨胀, 累积上千节点后
+   渲染线程实时算力不支(spec §7.4 glitch) → "越玩越劈"的渐进式爆音。
+   挂在链上最后结束的节点, 播完把整条链一起 disconnect */
+function dropOnEnd(end, ...chain) {
+  end.onended = () => {
+    end.disconnect();
+    for (const n of chain) n.disconnect();
+  };
 }
 
 /* 带线性衰减的白噪声 buffer 按时长缓存: 以前每次爆炸现生成 2 万+ 随机数,
@@ -88,6 +117,7 @@ function sfx(kind) {
       src.connect(f); f.connect(g);
       g.gain.setValueAtTime(d.g, t);
       src.start(t);
+      dropOnEnd(src, f, g); // 播完摘除断连(Bug 222098): 混战高频爆炸也不积图
       return;
     }
     if (d.special === 'win') { // 胜利和弦: 双正弦琶音 523→659→784
@@ -98,6 +128,7 @@ function sfx(kind) {
       o2.frequency.setValueAtTime(784, t+0.32);
       g.gain.setValueAtTime(0.12, t); g.gain.exponentialRampToValueAtTime(0.001, t+0.85);
       o1.start(t); o1.stop(t+0.85); o2.start(t+0.32); o2.stop(t+0.85);
+      dropOnEnd(o2, o1, g); // 双振荡器同刻收尾: 挂 o2, 连 o1/g 整链摘除
       return;
     }
     const o = actx.createOscillator(); o.connect(g); // 振荡器型
@@ -117,31 +148,47 @@ function sfx(kind) {
     g.gain.setValueAtTime(d.g, t);
     g.gain.exponentialRampToValueAtTime(0.001, t+d.dur);
     o.start(t); o.stop(t+d.dur);
+    dropOnEnd(o, g); // 播完摘除断连(Bug 222098)
   } catch (e) {}
 }
 
 /* ---------- 坦克引擎嗡鸣: 连续音, level 0..1(怠速微响 → 油门渐强渐升) ----------
    level 量化后比较, 同值免重设; 停驶/下车/切模式须传 0 归零 */
 let humOsc = null; let humGain = null; let humLvl = -1;
+let humFilt = null; let humLfo = null; let humDepth = null;
 function engineHum(level) {
   try {
     unlockAudio();
     if (!actx || actx.state !== 'running') return; // 挂起中不动 humLvl: 恢复后同油门也能续上嗡鸣
-    const q = Math.round(level*8)/8;
+    const q = Math.round(level*8)/8; // 8 级量化: 油门离散档, 免连续值逐帧重设
     if (q === humLvl) return;
     humLvl = q;
     if (!humOsc) {
+      /* 频段重设计(iPad 杂音首要嫌疑, research A.8-1): 旧基频 52~98Hz 低于
+         pad 扬声器可重放限, 小喇叭还原不了只剩失真与机身共振; 上移到
+         120~250Hz 发得出的频段, lowpass 260 换成中心跟随基频的 bandpass —
+         滤掉锯齿高频毛刺也压掉残余次低频, 能量收在喇叭干得动的窄带里 */
       humOsc = actx.createOscillator(); humOsc.type = 'sawtooth';
-      const f = actx.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260;
+      humFilt = actx.createBiquadFilter(); humFilt.type = 'bandpass'; humFilt.Q.value = 1;
       humGain = actx.createGain(); humGain.gain.value = 0;
-      humOsc.connect(f); f.connect(humGain); humGain.connect(master);
-      humOsc.start();
+      /* 幅度调制补"体积感": 单频连续音在小喇叭上干瘪, ~6Hz 微颤让嗡鸣像
+         机器在呼吸; LFO 加法调制 humGain.gain, 深度随油门同步缩放,
+         怠速近零不在弱信号里起波澜 */
+      humLfo = actx.createOscillator(); humLfo.frequency.value = 6;
+      humDepth = actx.createGain(); humDepth.gain.value = 0;
+      humLfo.connect(humDepth); humDepth.connect(humGain.gain);
+      humOsc.connect(humFilt); humFilt.connect(humGain); humGain.connect(master);
+      humOsc.start(); humLfo.start();
     }
     const t = actx.currentTime;
-    /* pad 小喇叭还原 50~100Hz 低频只会嗡嗡失真: 触屏设备引擎嗡鸣增益减半 */
+    /* pad 小喇叭还原低频只会嗡嗡失真: 触屏设备引擎嗡鸣增益减半(政策保留) */
     const g0 = IS_TOUCH ? 0.022 : 0.045; const gk = IS_TOUCH ? 0.045 : 0.085;
-    humGain.gain.setTargetAtTime(g0 + q*gk, t, 0.12);
-    humOsc.frequency.setTargetAtTime(52 + q*46, t, 0.18);
+    const lv = g0 + q*gk;
+    humGain.gain.setTargetAtTime(lv, t, 0.12);
+    humDepth.gain.setTargetAtTime(lv*0.18, t, 0.12); // ±18% 轻微颤幅, 与油门同比例
+    const f0 = 120 + q*130; // 基频 52~98Hz → 120~250Hz 可重放频段
+    humOsc.frequency.setTargetAtTime(f0, t, 0.18);
+    humFilt.frequency.setTargetAtTime(f0, t, 0.18); // 带通中心跟随基频
   } catch (e) {}
 }
 
