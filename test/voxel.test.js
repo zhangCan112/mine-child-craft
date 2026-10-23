@@ -210,6 +210,62 @@ test('physics: 落地状态下跳跃获得向上速度', () => {
   assert.strictEqual(v.onGround, false);
 });
 
+/* ============ 自动跳 (MC 基岩版触屏默认, PLAYER.autoJump) ============ */
+
+test('physics: autoJump 默认关(桌面口径), 开启标志由触屏环境派生', () => {
+  const v = loadVoxel();
+  assert.strictEqual(v.PLAYER.autoJump, false, 'Node 测试环境非触屏, 默认应关闭');
+});
+
+test('physics: autoJump 开启 → 贴地走向 1 格台阶自动攀上(不按跳跃键)', () => {
+  const v = loadVoxel();
+  v.PLAYER.autoJump = true;
+  fill(v, 40, 10, 40, 50, 10, 44, 3); // 连续地板(y=10, 顶面 11)
+  fill(v, 46, 11, 40, 50, 11, 44, 3); // 东侧 1 格台阶(y=11, 顶面 12)
+  v.pos.set(42.5, 11, 42.5);
+  settle(v, 200); // 先落地
+  v.keys['KeyD'] = true; // yaw=0 → +x 走向台阶
+  let stepped = false;
+  for (let i = 0; i < 600; i++) {
+    v.physics(DT);
+    if (v.pos.y >= 12 - 1e-6 && v.pos.x > 45) {
+      stepped = true; break; // 已站上台阶顶
+    }
+  }
+  v.keys['KeyD'] = false;
+  assert.ok(stepped, '应自动跳上台阶: pos=' + v.pos.x.toFixed(2) + ',' + v.pos.y.toFixed(2));
+});
+
+test('physics: autoJump 对 2 格高墙无效(头顶无净空不跳)', () => {
+  const v = loadVoxel();
+  v.PLAYER.autoJump = true;
+  fill(v, 40, 10, 40, 50, 10, 44, 3);
+  fill(v, 46, 11, 40, 50, 12, 44, 3); // 2 格高墙(y=11~12)
+  v.pos.set(42.5, 11, 42.5);
+  settle(v, 200);
+  v.keys['KeyD'] = true;
+  for (let i = 0; i < 120; i++) v.physics(DT); // 走到墙前贴住
+  const yBefore = v.pos.y;
+  for (let i = 0; i < 120; i++) v.physics(DT); // 贴墙久站不应反复跳
+  v.keys['KeyD'] = false;
+  assert.strictEqual(yBefore, 11, '墙前仍站在地面');
+  assert.ok(v.pos.y <= 11.001, '2 格墙不可自动跳越: ' + v.pos.y);
+  assert.ok(v.pos.x < 46 - v.PLAYER.hx + 1e-6, '不可穿墙: ' + v.pos.x);
+});
+
+test('physics: autoJump 关闭 → 贴台阶不跳(桌面行走口径不变)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 50, 10, 44, 3);
+  fill(v, 46, 11, 40, 50, 11, 44, 3);
+  v.pos.set(42.5, 11, 42.5);
+  settle(v, 200);
+  v.keys['KeyD'] = true;
+  for (let i = 0; i < 300; i++) v.physics(DT);
+  v.keys['KeyD'] = false;
+  assert.ok(v.pos.x < 46 - v.PLAYER.hx + 1e-6, '台阶挡住去路: ' + v.pos.x);
+  assert.strictEqual(v.pos.y, 11);
+});
+
 /* ============ 射线 ============ */
 
 test('raycastVoxel: 向下命中地板并给出顶面法线', () => {

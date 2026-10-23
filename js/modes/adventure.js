@@ -53,8 +53,8 @@
      spawn/update/onCollect/clear · mobs.js 的 spawn/hit/onDeath/update/
      render/steer/move/gait/debrisColor/clear(退出清场) · combat-core.js
      的 CombatCore(节拍/弹道/盒判定) · effects.js 的 sfx/Fx(boom/arc/
-     pop/debrisBurst 爆炸·引信·仪式观感) · input.js 的 doCenterClick ·
-     mode-kit.js 的 mkMode/mkHotbar/mkCraftPanel/mkFurnacePanel/
+     pop/debrisBurst 爆炸·引信·仪式观感) · input.js 的 Input.holdPt(触屏
+     长按屏幕点, 进度环跟手) · mode-kit.js 的 mkMode/mkHotbar/mkCraftPanel/mkFurnacePanel/
      mkChestPanel(大宝箱)/mkHpBar(头顶血条, S2) · sync.js 的 SyncDB.slot · speech.js 的
      SpeechKit · avatar.js 的 Avatar(setItem/swing/flash)
    可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格/进度环), Node 测试可
@@ -731,7 +731,9 @@ function advOnCollect(itemId, n) {
   return true;
 }
 
-/* ---------- 挖掘进度环(准星 conic-gradient 圆环, 自建 DOM 不依赖 index.html) ---------- */
+/* ---------- 挖掘进度环(conic-gradient 圆环, 自建 DOM 不依赖 index.html) ----------
+   位置: 触屏长按期间画在指尖(Input.holdPt, MC 口径"进度图形跟手"),
+   桌面/准星口径仍在屏幕中心 */
 let advRingEl = null;
 function advRingSet(p) {
   if (typeof document === 'undefined') return;
@@ -746,6 +748,9 @@ function advRingSet(p) {
   }
   advRingEl.style.display = p < 0 ? 'none' : 'block';
   if (p >= 0) {
+    const hp = (typeof Input !== 'undefined' && Input.holdPt) ? Input.holdPt : null;
+    advRingEl.style.left = hp ? hp.x + 'px' : '50%';
+    advRingEl.style.top = hp ? hp.y + 'px' : '50%';
     advRingEl.style.background =
         'conic-gradient(#ffd23f ' + Math.round(p * 360) + 'deg, rgba(255,255,255,0.3) 0)';
   }
@@ -1157,6 +1162,30 @@ function advQuestEl() {/* 任务卡容器只读引用(单测触达面) */
   return advPanel.questEl;
 }
 
+/* 使用型站点交互(熔炉/箱子, 挖掘左键与轻点/右键共用): 走近 4 格开面板,
+   太远只提示不误触; 消耗了本次点击返回 true。
+   箱子不是站点(不在 advStations 缓存), 对点击块直算水平距离(与站点同半径口径)。 */
+function advUseStation(hit, lookId) {
+  if (!hit) return false;
+  if (lookId === B_FURNACE) {
+    if (advNearStation(advStations.values(), pos.x, pos.z, ADV_STATION_R, B_FURNACE)) {
+      advFurnaceOpenPanel();
+    } else {
+      showToast('♨️ 走近一点就能用熔炉啦');
+    }
+    return true;
+  }
+  if (lookId === B_CHEST) {
+    if (Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z) <= ADV_STATION_R) {
+      advChestOpenPanel();
+    } else {
+      showToast('📦 走近一点就能打开箱子啦');
+    }
+    return true;
+  }
+  return false;
+}
+
 /* ============================================================
    模式对象
    ============================================================ */
@@ -1300,23 +1329,7 @@ const AdventureMode = mkMode({
         advTntTap = {x: hit.x, y: hit.y, z: hit.z, held: 0};
         return;
       }
-      if (lookId === B_FURNACE) {/* 熔炉交互: 走近 4 格点击开面板; 太远只提示不误挖 */
-        if (advNearStation(advStations.values(), pos.x, pos.z, ADV_STATION_R, B_FURNACE)) {
-          advFurnaceOpenPanel();
-        } else {
-          showToast('♨️ 走近一点就能用熔炉啦');
-        }
-        return;
-      }
-      if (lookId === B_CHEST) {/* 箱子交互(引导链 v2): 走近 4 格开大宝箱; 箱子不是
-        站点(不在 advStations 缓存), 对点击块直算水平距离(与站点同半径口径) */
-        if (Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z) <= ADV_STATION_R) {
-          advChestOpenPanel();
-        } else {
-          showToast('📦 走近一点就能打开箱子啦');
-        }
-        return;
-      }
+      if (advUseStation(hit, lookId)) return; /* 熔炉/箱子: 走近开面板(见下) */
       if (advAimMob(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖) */
         advAttack();
         return;
@@ -1324,6 +1337,12 @@ const AdventureMode = mkMode({
       if (advTryEat()) return; /* 手持食物: 点击吃, 不进蓄力 */
       if (hit) advMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update) */
     } else if (button === 2) {
+      /* 轻点/右键 = 使用优先(MC 正典: 交互先于放置): 熔炉/箱子走近开面板 →
+         手持食物吃 → 放置。TNT 点燃不走轻点(用户拍板 2026-10-24 防误触):
+         ⛏️ 键短按点燃/按住挖走(onMouse(0) 的 advTntTap 二分) */
+      const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
+      if (advUseStation(hit, lookId)) return;
+      if (advTryEat()) return;
       advTryPlace(hit);
     }
   },
@@ -1372,14 +1391,16 @@ const AdventureMode = mkMode({
     ];
   },
 
-  touch: [
-    {label: '⬆️', hold: 'Space'},
-    {label: '⛏️', act: () => doCenterClick(0)}, /* 准星点击(arena 先例): 开始蓄力挖 */
-    {label: '🧱', act: () => doCenterClick(2)}, /* 准星放置(手持放置型物品) */
-    {label: '🎒', act: () => advPanelToggle()},
-    {label: '👾', act: () => advAttack()},
-    {label: '🏠', act: () => advGoHome()}, /* 受困逃生口: 回出生小屋(60s 冷却) */
+  touch: [ /* ⛏️ 主动作键(用户拍板): 有怪打怪/瞄准方块挖掘, 按住连挖;
+     🎒🏠 低频 → 顶部小键区, 不占拇指操作区 */
+    {label: '⛏️', holdAct: () => aimClick(0)},
+    {label: '🎒', act: () => advPanelToggle(), rare: true},
+    {label: '🏠', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
   ],
+  /* 触屏长按连挖(input.js 手势路由): 复用桌面按住标志 — 蓄力链自动连挖/触屏松手即停 */
+  onHold(active) {
+    advMouseHeld = active;
+  },
 });
 
 /* T12~T15 的接线挂点(内部接口, 不进模式公共行为; 单测亦经此触达状态账本、

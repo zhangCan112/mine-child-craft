@@ -219,6 +219,7 @@ function checkWaveClear() {
 }
 
 /* ---------- 主人公攻击: 武器栏当前武器 — 剑=近战挥击(即时判定) / 弓=射箭(弹道飞行) ---------- */
+let netherHoldAtk = false; /* ⛏️ 主动作键按住中: update 里持续补刀(冷却自节流) */
 function netherAttack() {
   if (NETHER.swingCd > 0) return;
   const bow = NETHER.weapon === 'bow';
@@ -432,6 +433,7 @@ const NetherMode = mkMode({
   cleanup() {
     Mobs.clear();
     while (nArrows.length) removeNetherArrow(0); // 火球/箭矢网格一并摘除
+    netherHoldAtk = false; /* ⛏️ 按住场随模式退出收起 */
     NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
     applySky(OVERWORLD_SKY); // 天空复位: 红天不渗进其他模式
     Avatar.setItem(PLAYER.heldItem); // 手持物复位: 剑/弓不渗进其他模式(Avatar 跨模式存活)
@@ -444,6 +446,7 @@ const NetherMode = mkMode({
 
   update(dt) {
     if (NETHER.swingCd > 0) NETHER.swingCd = Math.max(0, NETHER.swingCd - dt);
+    if (netherHoldAtk) netherAttack(); /* ⛏️ 按住连打(挥击/射箭冷却自节流, 同探险按住连挖的节奏) */
     hurtT = Math.max(0, hurtT - dt); // 受击语音节流递减
     if (portalCd > 0) portalCd = Math.max(0, portalCd - dt); // 传送眩晕递减(本帧先扣再判 — 到点即刻可再触发)
     if (NETHER.phase === 'overworld') {
@@ -481,11 +484,13 @@ const NetherMode = mkMode({
     ];
   },
 
-  touch: [
-    {label: '⬆️', hold: 'Space'},
-    {label: '⬇️', hold: 'ShiftLeft'},
-    {label: '👾', act: netherAttack},
+  touch: [ /* ⛏️ 主动作键与探险同款(用户拍板 2026-10-24): 按一下打怪, 按住连续攻击 */
+    {label: '⛏️', holdAct: netherAttack},
   ],
+  /* ⛏️ 按住=连续攻击(挥击冷却自节流, 弓按 bowCd 节奏) */
+  onHold(active) {
+    netherHoldAtk = active;
+  },
 });
 
 if (typeof module !== 'undefined' && module.exports) module.exports = NetherMode;

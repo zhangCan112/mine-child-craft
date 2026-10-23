@@ -178,6 +178,7 @@ function physics(dt) {
   mf += -touchMove.y; ms += touchMove.x; // 虚拟摇杆
   mf = Math.max(-1, Math.min(1, mf));
   ms = Math.max(-1, Math.min(1, ms));
+  const wasGround = onGround; // 帧首贴地快照: 自动跳的判定基准(下方 Y 结算会改写 onGround)
   const sinY=Math.sin(yaw); const cosY=Math.cos(yaw);
   let dx = (-sinY)*mf + (cosY)*ms;
   let dz = (-cosY)*mf + (-sinY)*ms;
@@ -242,6 +243,14 @@ function physics(dt) {
     if (vel.z > 0) pos.z = Math.floor(hitZ.nz+PLAYER.hz-1e-4)-PLAYER.hz;
     else pos.z = Math.floor(hitZ.nz-PLAYER.hz+1e-4)+1+PLAYER.hz;
     vel.z = 0;
+  }
+  /* 自动跳(MC 基岩版触屏默认): 贴地行走被水平面挡住 + 台阶上方有净空
+     (目标确是 1 格台阶而非高墙/屋檐) → 自动起跳攀上去; 跳跃键仍可用,
+     越沟/躲怪的手动跳不受影响。仅走路物理(飞行分支无重力, 不参与)。
+     净空探测点=沿移动方向前探 0.45 格(身体贴墙不重叠, 原位查不到墙) */
+  if (PLAYER.autoJump && !flyMode && wasGround && (hitX || hitZ) && len>0 && vel.y<=0.01 &&
+      !collides(pos.x + dx/len*0.45, pos.y+1.05, pos.z + dz/len*0.45)) {
+    vel.y = PLAYER.jump;
   }
   /* 兜底: 极端挤压下若仍嵌入方块, 先向上再向四侧弹出 */
   if (collides(pos.x, pos.y, pos.z)) {

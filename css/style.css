@@ -68,7 +68,7 @@ canvas {
   padding: 6px;
   background: rgb(0 0 0 / 35%);
   border-radius: 8px;
-  z-index: 10;
+  z-index: 16; /* 高于触屏控件层 #touchUI(14): 摇杆区不挡快捷栏点选(MC: 快捷栏始终可点) */
 }
 
 .slot {

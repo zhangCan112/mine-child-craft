@@ -1,6 +1,10 @@
 /* ============================================================
  触屏控制 + 平板 UI 适配
- 虚拟摇杆(左) · 视角拖动(右侧画布) · 动作按钮(右下) · 暂停(右上)
+ MC 基岩版新触控口径(docs/mc-touch-controls-research.md)+
+ 用户拍板(2026-10-24): 挖/打=显式 ⛏️ 主动作键, 轻点=放置/交互
+ 动态摇杆(左下, 跟手) · 轻点放(指尖) · 拖动视角 · 长按无动作
+ 右侧跳跃大键(飞行变上升)+飞行下降键(上下文) · 常用动作条(右缘)
+ 低频键顶部小键区 · 暂停/视角固定顶部一行 · 快捷栏点选(底部居中)
 ============================================================ */
 html,
 body {
@@ -25,6 +29,17 @@ canvas {
   pointer-events: auto;
 }
 
+/* 摇杆区: 左下拇指弧(落此区的指针只管移动, 不进画布手势) */
+#joyZone {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 40vw;
+  height: 62vh;
+  touch-action: none;
+}
+
+/* 摇杆: 静息停默认位, 按下处起杆(JS 摆位) */
 #joy {
   position: absolute;
   left: 26px;
@@ -50,21 +65,24 @@ canvas {
   box-shadow: 0 3px 8px rgb(0 0 0 / 40%);
 }
 
-#touchBtns {
+/* 动作窄条: 模式常用按钮(⛏️ ✈️ 💥 等), 右缘竖排(底部对齐主位, 次键往上叠) */
+#touchActs {
   position: absolute;
-  right: 22px;
-  bottom: 88px;
-  display: grid;
-  grid-template-columns: repeat(2,84px);
-  gap: 14px;
+  right: 18px;
+  top: 118px;
+  bottom: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 12px;
   touch-action: none;
 }
 
-#touchBtns button {
-  width: 84px;
-  height: 84px;
+#touchActs button {
+  width: 62px;
+  height: 62px;
   border-radius: 50%;
-  font-size: 34px;
+  font-size: 26px;
   line-height: 1;
   border: 3px solid rgb(255 255 255 / 50%);
   background: rgb(0 0 0 / 32%);
@@ -73,10 +91,70 @@ canvas {
   box-shadow: 0 4px 10px rgb(0 0 0 / 35%);
 }
 
-#touchBtns button:active {
+/* ⛏️ 主动作键(holdAct): 最大最顺手 — 挖掘为主, 跳跃次之(用户拍板 2026-10-24) */
+#touchActs button.main {
+  width: 88px;
+  height: 88px;
+  font-size: 38px;
+}
+
+/* 顶部小键区: 低频键(🎒🏠 等)收进顶部, 不占拇指操作区(用户拍板) */
+#touchTop {
+  position: absolute;
+  right: 14px;
+  top: 76px;
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+  touch-action: none;
+}
+
+#touchTop button {
+  width: 46px;
+  height: 46px;
+  border-radius: 12px;
+  font-size: 19px;
+  line-height: 1;
+  border: 2px solid rgb(255 255 255 / 35%);
+  background: rgb(0 0 0 / 32%);
+  color: #fff;
+  touch-action: manipulation;
+}
+
+#touchActs button:active,
+#touchJump:active,
+#touchDown:active {
   background: rgb(124 252 0 / 40%);
 }
 
+/* 跳跃/下降: 次位 — 跳跃偏下偏小(用户拍板: 挖掘为主, 跳跃次之);
+   飞行中跳跃变上升, 下降在跳跃左侧并排亮出(MC: 潜行键飞行变下降) */
+#touchJump,
+#touchDown {
+  position: absolute;
+  bottom: 96px;
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  font-size: 27px;
+  line-height: 1;
+  border: 3px solid rgb(255 255 255 / 40%);
+  background: rgb(0 0 0 / 28%);
+  color: #fff;
+  touch-action: none;
+  box-shadow: 0 4px 10px rgb(0 0 0 / 30%);
+}
+
+#touchJump {
+  right: 26px;
+}
+
+#touchDown {
+  right: 100px;
+  display: none; /* 飞行时由 refreshTouchUI 亮出 */
+}
+
+/* 暂停/视角: 固定顶部一行(MC: 菜单类按钮永远在顶部) */
 #touchPause,
 #touchCam {
   position: absolute;

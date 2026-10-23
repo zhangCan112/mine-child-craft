@@ -7,6 +7,7 @@
      · hotbar (mkHotbar 实例)  digit/wheel/点选 选块全自动
      · hud(hit) → string[]     每帧 HUD 文本(hit 由主循环注入, 模式不再自行 raycast)
      · touch [...]             setTouchActions 声明 (缺省=null 隐藏)
+     · onHold(active)          触屏长按起止钩子(手势分类在 input.js/touch-core)
      · KeyB 默认暂停 · 无 hud 配置则清空并跳过 · onVoidFall 默认回最近出生点
    工具: spawn(对外经 ModeKit.spawn) / lookName / confirmBtn
    T10 扩展(设计稿 D8/D10):
@@ -808,6 +809,10 @@ function mkMode(cfg) {
     },
     onMouse(b, hit) {
       if (cfg.onMouse) cfg.onMouse(b, hit);
+    },
+    /* 触屏长按起止(input.js 手势路由): 按住连挖等持续语义由模式自决 */
+    onHold(active) {
+      if (cfg.onHold) cfg.onHold(active);
     },
     onVoidFall() {
       if (cfg.onVoidFall) cfg.onVoidFall();

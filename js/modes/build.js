@@ -446,6 +446,24 @@ function buildSceneMenu() {
 function buildToggleFly() {
   flyMode = !flyMode; vel.y = 0;
   showToast(flyMode ? '✈️ 飞行开启：空格上升 · Shift 下降' : '🚶 飞行关闭', 2200);
+  if (typeof refreshTouchUI === 'function') refreshTouchUI(); /* 触屏下降键随飞行亮出(MC: 下箭头飞行中变下降) */
+}
+
+/* ---------- 触屏长按连挖(每 250ms 一块; 与桌面单击同路) ----------
+    目标跟随指尖(CameraRig.aim 在长按期间被 holdAim 覆盖); 基岩层静默跳过
+    (单击仍有"挖不动"提示, 连挖不刷屏)。防误触不在连挖上加延迟(MC 创造
+    800ms 的目的): 本作轻点=放置(可逆无损) 而非破坏, 且长按需静止满
+    250ms 才成手势 — 门槛本身即防误触, 见 docs/touch-controls-design.md §6。 */
+let buildHoldOn = false; let buildHoldT = 0;
+function buildHoldStep(dt) {
+  if (!buildHoldOn) return;
+  buildHoldT += dt;
+  if (buildHoldT < 0.25) return;
+  buildHoldT = 0;
+  const aim = CameraRig.aim(camera);
+  const hit = raycastVoxel(aim.origin, aim.dir, PLAYER.reach);
+  if (!hit || hit.y === 0) return; /* 指空/基岩: 静默等下一拍 */
+  BuildMode.onMouse(0, hit);
 }
 
 /* ---------- 模式对象 ---------- */
@@ -453,12 +471,9 @@ const BuildMode = mkMode({
   id: 'build',
   chrome: {score: 'none', hotbar: 'flex'},
   hotbar: buildHb,
-  touch: [
-    {label: '⬆️', hold: 'Space'},
-    {label: '⬇️', hold: 'ShiftLeft'},
+  touch: [ /* ⛏️ 主动作键: 按住连挖准星方块(250ms/块); 放置走轻点手势; ✈️ 飞行开关 */
+    {label: '⛏️', holdAct: ()=>aimClick(0)},
     {label: '✈️', act: ()=>buildToggleFly()},
-    {label: '⛏️', act: ()=>doCenterClick(0)},
-    {label: '🧱', act: ()=>doCenterClick(2)},
   ],
   init() {
     if (!buildSceneId) buildSceneId = buildLoadSave() || BUILD_SCENES[0].id;
@@ -468,14 +483,21 @@ const BuildMode = mkMode({
   cleanup() {
     buildSaveNow();
     flyMode = false;
+    buildHoldOn = false; /* 长按连挖场: 退出模式即收 */
   },
   buildMenu() {
     buildSceneMenu();
   }, // 打开菜单页时刷新高亮
-  update() {
+  update(dt) {
+    buildHoldStep(dt); /* 触屏长按连挖(桌面不触发: buildHoldOn 恒 false) */
     if (buildDirty && performance.now() - buildSaveT > 5000) {
       buildSaveT = performance.now(); buildSaveNow();
     }
+  },
+  /* 触屏长按起止(input.js 手势路由): 连挖计时器复位 */
+  onHold(active) {
+    buildHoldOn = active;
+    buildHoldT = 0;
   },
   onKey(code) {
     if (code==='KeyF') buildToggleFly();

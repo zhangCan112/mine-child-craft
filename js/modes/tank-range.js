@@ -453,12 +453,12 @@ const TankRangeMode = mkMode({
     return lines;
   },
 
-  touch: [
+  touch: [ /* 💥🚙 常用(右缘动作条); 👾 选怪低频 → 顶部小键区(用户拍板 2026-10-24) */
     {label: '🚙', act() {
       speakForToggle(Tank.toggle());
     }},
     {label: '💥', act: fireOnce},
-    {label: '👾', act() {
+    {label: '👾', rare: true, act() {
       togglePicker();
     }}, // 换怪物面板(部署在面板里, 与 M 键同入口)
   ],

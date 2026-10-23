@@ -9,10 +9,13 @@ const WORLD_D = NCZ * CHUNK;
 const WORLD_H = 48;
 
 /* 触屏环境检测(全游戏唯一口径): 输入路由 / 音效配平 / 渲染降载共用
-   — 以前 isTouch/sfxTouch/_coarse 三处各测一次且口径不一, 统一于此 */
+   — 以前 isTouch/sfxTouch/_coarse 三处各测一次且口径不一, 统一于此
+   ?touch=1 是桌面浏览器的强制预览口(调触屏布局用): 摇杆/按钮/手势
+   全套照常渲染, 且鼠标可当手指驱动(input.js 手势路由不滤鼠标) */
 const IS_TOUCH = (()=>{
   try {
-    return ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
+    const forced = (location.search || '').includes('touch=1');
+    return forced || ('ontouchstart' in window) || (navigator.maxTouchPoints > 0);
   } catch (e) {
     return false;
   }
@@ -27,6 +30,7 @@ const PLAYER = {
   voidY: -12, // 坠出世界判定线(引擎只报事件, 处理归应用层)
   reach: 6, // 玩家触达/瞄准距离(格)
   heldItem: 'hoe', // 默认手持物(HeldItems.defs 的键; main.js 组合根装配)
+  autoJump: IS_TOUCH, // 自动跳(MC 基岩版触屏默认开): 贴地行走撞 1 格台阶自动起跳, 免去跳跃键依赖
 };
 
 /* 第三人称相机 (CameraRig 用, 见 js/camera-rig.js) */

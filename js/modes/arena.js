@@ -1543,10 +1543,8 @@ const ArenaMode = mkMode({
   id: 'arena',
   chrome: {score: 'flex', hotbar: 'flex'},
   hotbar: arenaHb,
-  touch: [ // 平板动作按钮
-    {label: '⬆️', hold: 'Space'},
-    {label: '⛏️', act: ()=>doCenterClick(0)},
-    {label: '🧱', act: ()=>doCenterClick(2)},
+  touch: [ /* ⛏️ 主动作键(用户拍板 2026-10-24): 挖掘/攻击显式按钮, 放置走轻点手势 */
+    {label: '⛏️', holdAct: ()=>aimClick(0)},
   ],
   init() {
     loadScene(generate); // 场景装填 seam: 建 + 收尾重建一步到位

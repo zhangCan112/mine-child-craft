@@ -10,6 +10,8 @@
                         驾驶中 Avatar 自动隐藏, 主循环与 Avatar 零改动
    · aim(camera)         统一的角色瞄准射线 — 准星指什么就操作什么,
                         且不会瞄到人物身旁/身后
+   · holdAim(pt|null)    触屏长按屏幕点注入: 指尖所在即瞄准所在(挖/高亮
+                        跟手), null 还原准星口径
    越肩偏移(人物落画面左侧, 准心不被挡)、体素射线防穿墙收拢、
    贴墙平滑、正面视角翻转、肩平面推进都是 implementation。
    依赖(均经全局名, 调用期解析): voxel.js 的 pos/yaw/pitch/
@@ -24,10 +26,12 @@ const CameraRig = (()=>{
 
   const _dir = new THREE.Vector3(); // 玩家视线方向
   const _off = new THREE.Vector3(); // 眼睛→相机 的世界偏移
+  const _v = new THREE.Vector3(); // 触屏长按: 屏幕点反投影的工作向量
   const _ray = {x: 0, y: 0, z: 0}; // 偏移方向(鸭类型, raycastVoxel 只读 xyz)
   const _eye = {x: 0, y: 0, z: 0}; // 眼睛位置(同上)
   const _aimO = {x: 0, y: 0, z: 0}; // 瞄准起点(同上)
   const _aim = {origin: null, dir: null}; // aim() 的复用返回值(调用方即取即用, 勿跨帧持有)
+  let holdPt = null; // 触屏长按屏幕点(NDC 预算) | null; aim() 优先走指尖射线
 
   function eyePos() {
     if (mountFn) return mountFn(); /* 载具锚: 炮塔顶眼位 */
@@ -87,8 +91,20 @@ const CameraRig = (()=>{
      · 第一人称/正面: 眼睛出发沿玩家视线(正面时相机朝脸, 只能以视线为准)
      · 越肩背后: 相机沿准心方向推进到人物肩平面再发射 — 跳过相机与
        人物之间的方块, 不会瞄到身旁/身后, 准星与高亮严格一致
+     · 触屏长按期间(holdAim 屏幕点): 眼睛出发穿过触点 — 挖掘/高亮跟随
+       指尖(MC 基岩版触控"所见即所点"口径), 每帧重算不惧相机转动
      camera 显式传入(与 apply 同口径, 不隐读全局); 返回复用对象零分配 */
   function aim(camera) {
+    if (holdPt) {
+      _v.set(holdPt.nx, holdPt.ny, 0.5).unproject(camera);
+      const eye = eyePos();
+      _aimO.x = eye.x; _aimO.y = eye.y; _aimO.z = eye.z;
+      _v.x -= eye.x; _v.y -= eye.y; _v.z -= eye.z;
+      const l = Math.hypot(_v.x, _v.y, _v.z) || 1;
+      _v.x /= l; _v.y /= l; _v.z /= l;
+      _aim.origin = _aimO; _aim.dir = _v;
+      return _aim;
+    }
     const dir = lookDir();
     if (mode !== 1 || aimSkip <= 0.001) {
       _aim.origin = eyePos(); _aim.dir = dir;
@@ -101,13 +117,21 @@ const CameraRig = (()=>{
     return _aim;
   }
 
+  /* 触屏长按瞄准注入: pt = {x, y, w, h} 屏幕点(内部换算 NDC); null 清除 */
+  function holdAim(pt) {
+    if (!pt) {
+      holdPt = null; return;
+    }
+    holdPt = {nx: (pt.x / pt.w) * 2 - 1, ny: -(pt.y / pt.h) * 2 + 1};
+  }
+
   /* 挂载/卸载载具锚源: fn() → {x,y,z}(炮塔顶眼位); 卸载传 null */
   function mount(fn) {
     mountFn = fn;
     curS = 1; // 换锚直接用满距离, 不从旧距离滑过去
   }
 
-  return {apply, cycle, aim, mount, get mode() {
+  return {apply, cycle, aim, holdAim, mount, get mode() {
     return mode;
   }};
 })();

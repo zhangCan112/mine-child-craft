@@ -370,6 +370,8 @@ test('探险模式: init 建场 — 草原地层/出生小屋/出生点/快捷�
   /* 快捷栏: 9 个 item 型槽(镜像背包槽 0~8), 数字键/滚轮/点选走 mkHotbar */
   assert.strictEqual(AdventureMode.hotbar.items.length, api.HOTBAR_SLOTS, '快捷栏 9 槽');
   assert.ok(Array.isArray(touchList) && touchList.length >= 1, '声明了触屏按钮');
+  assert.ok(!touchList.some((b) => b.hold === 'Space' || b.hold === 'ShiftLeft'),
+      '跳跃/下降已收归引擎常驻键(直接触控改造), 模式列表不再自带');
   assert.ok(spoken.some((s) => String(s).indexOf('探险') >= 0 || String(s).indexOf('欢迎') >= 0), '进场欢迎语音');
 });
 
