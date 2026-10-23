@@ -61,9 +61,9 @@ const PuzzleCore = (() => {
 
   /* 镜像: axis 'x' → x'=k-x(左右镜, 镜面 x=k/2) · 'z' → z'=k-z(前后镜) */
   function mirrorPattern(cells, axis, k) {
-    return cells.map((b) => (axis === 'z')
-        ? Object.assign({}, b, {z: k - b.z})
-        : Object.assign({}, b, {x: k - b.x}));
+    return cells.map((b) => (axis === 'z') ?
+        Object.assign({}, b, {z: k - b.z}) :
+        Object.assign({}, b, {x: k - b.x}));
   }
 
   /* 中心对称(180°): (x,z) → (kx-x, kz-z), y 不动 — 中心 (kx/2, kz/2) */
@@ -119,12 +119,12 @@ const PuzzleCore = (() => {
       half = [{x: 0, y: 0, z: 0, col: 1}, {x: hw - 1, y: 0, z: fw - 1, col: 1}];
     }
     const k = 2 * hw - 1; const kz = 2 * fw - 1;
-    const twin = axis === 'x' ? mirrorPattern(half, 'x', k)
-      : axis === 'z' ? mirrorPattern(half, 'z', kz)
-        : rot180Pattern(half, k, kz);
-    const box = axis === 'z' ? {w: fw, d: 2 * hw, h: layers}
-      : axis === 'c' ? {w: 2 * hw, d: 2 * fw, h: layers}
-        : {w: 2 * hw, d: fw, h: layers};
+    const twin = axis === 'x' ? mirrorPattern(half, 'x', k) :
+      axis === 'z' ? mirrorPattern(half, 'z', kz) :
+        rot180Pattern(half, k, kz);
+    const box = axis === 'z' ? {w: fw, d: 2 * hw, h: layers} :
+      axis === 'c' ? {w: 2 * hw, d: 2 * fw, h: layers} :
+        {w: 2 * hw, d: fw, h: layers};
     return {axis, k, kz, half, solution: half.concat(twin), box};
   }
 

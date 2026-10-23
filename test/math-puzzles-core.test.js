@@ -82,14 +82,14 @@ test('mkSymmetryPuzzle: solution = 半边 ∪ 镜像半边, 三种轴全覆盖',
     assert.ok(p.half.length >= 2, axis + ' 半边至少 2 块');
     assert.strictEqual(p.solution.length, p.half.length * 2, axis + ' 解=半边×2(无跨镜面块)');
     // 手算对照: 解集对镜面变换不变(对称性独立真值)
-    const back = p.axis === 'x' ? PuzzleCore.mirrorPattern(p.solution, 'x', p.k)
-      : p.axis === 'z' ? PuzzleCore.mirrorPattern(p.solution, 'z', p.kz)
-        : PuzzleCore.rot180Pattern(p.solution, p.k, p.kz);
+    const back = p.axis === 'x' ? PuzzleCore.mirrorPattern(p.solution, 'x', p.k) :
+      p.axis === 'z' ? PuzzleCore.mirrorPattern(p.solution, 'z', p.kz) :
+        PuzzleCore.rot180Pattern(p.solution, p.k, p.kz);
     assert.ok(sameSet(back, p.solution), axis + ' 解集变换后不变');
     // 半边严格在镜面一侧(coord < (k+1)/2 即 x<hw / z<hw), 不许跨面
-    const halfSide = p.axis === 'z'
-      ? p.half.every((c) => c.z < (p.kz + 1) / 2)
-      : p.half.every((c) => c.x < (p.k + 1) / 2);
+    const halfSide = p.axis === 'z' ?
+      p.half.every((c) => c.z < (p.kz + 1) / 2) :
+      p.half.every((c) => c.x < (p.k + 1) / 2);
     assert.ok(halfSide, axis + ' 半边不得跨镜面');
   }
 });
@@ -186,8 +186,12 @@ test('mkBlueprintPuzzle: 蓝图与结构互证, 同 seed 同输出, 组块红线
 /* 手工造 3×3×3 实心立方(27 块) 与 2×2×2(8 块) 与 2×2×1 板(4 块) */
 function box(w, h, d, y0) {
   const out = [];
-  for (let y = 0; y < h; y++) for (let z = 0; z < d; z++) for (let x = 0; x < w; x++) {
-    out.push({x, y: (y0 || 0) + y, z});
+  for (let y = 0; y < h; y++) {
+    for (let z = 0; z < d; z++) {
+      for (let x = 0; x < w; x++) {
+        out.push({x, y: (y0 || 0) + y, z});
+      }
+    }
   }
   return out;
 }
@@ -251,7 +255,7 @@ test('mkSeqPuzzle: 规则键独立重推 — 展示项与下一项都按规则�
       const replay = replaySeq(p.rule, p.seq[0], p.seq.length); // 展示项+下一项
       assert.strictEqual(replay[p.seq.length], p.next, '下一项=规则外推');
       replay.slice(0, p.seq.length).forEach((v, i) =>
-          assert.strictEqual(v, p.seq[i], '展示项与规则一致'));
+        assert.strictEqual(v, p.seq[i], '展示项与规则一致'));
       const nums = p.seq.concat([p.next]);
       assert.ok(nums.every((v) => v >= 1 && v <= max), '全部落在 1..max(不超前)');
     }
@@ -314,8 +318,12 @@ function brute(n, parts, min) {
   if (parts === 2) {
     for (let a = min; a <= n; a++) for (let b = a; b <= n; b++) if (a + b === n) out.push([a, b]);
   } else {
-    for (let a = min; a <= n; a++) for (let b = a; b <= n; b++) for (let c = b; c <= n; c++) {
-      if (a + b + c === n) out.push([a, b, c]);
+    for (let a = min; a <= n; a++) {
+      for (let b = a; b <= n; b++) {
+        for (let c = b; c <= n; c++) {
+          if (a + b + c === n) out.push([a, b, c]);
+        }
+      }
     }
   }
   return out;
@@ -517,7 +525,7 @@ test('全局红线: 全部出题函数同 seed 同输出; LIMITS 常数与设计
     () => PuzzleCore.mkIntervalPuzzle({seed: 5, max: 20}),
   ];
   CASES.forEach((mk, i) =>
-      assert.deepStrictEqual(mk(), mk(), '生成器#' + i + ' 同 seed 必须逐字段一致'));
+    assert.deepStrictEqual(mk(), mk(), '生成器#' + i + ' 同 seed 必须逐字段一致'));
   assert.deepStrictEqual(PuzzleCore.LIMITS, {chunks: 4, clues: 3},
       '认知负荷红线: 一次呈现 ≤4 组块 · 线索 ≤3 条');
 });
