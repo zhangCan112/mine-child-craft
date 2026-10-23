@@ -17,15 +17,20 @@
      · mkFurnacePanel — 三槽+进度条的纯显示面板,「自动放入」只算
        plan 回调 onAutoFill(矿石全放+FUEL 序最省凑料), 不动背包
      · sortInv — 整理按钮底座: 主格区同项合并(快捷栏不动)
+     code-review 修复轮(S2): mkHpBar — 头顶血条深接口(canvas 贴图
+       Sprite, 血量变化才重绘——逐帧纹理上传是移动端掉帧源):
+       update(hp,maxHp,x,y,z)/dispose, 可选 opts.visible() 控显隐
+       (下界: 只在下界显示); 探险/下界两模式共用, 原两份同形实现归一
    引擎层(world/input)对本文件零依赖; 本文件属应用层
-   interface: mkMode · mkHotbar · mkCraftPanel · mkFurnacePanel · sortInv ·
-              spawn · lookName · confirmBtn
+   interface: mkMode · mkHotbar · mkCraftPanel · mkFurnacePanel · mkHpBar ·
+              sortInv · spawn · lookName · confirmBtn
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax ·
      inventory-core 的 HOTBAR_SLOTS/costEntry · craft-core 的 RECIPES/
      canCraft/craft/FUEL/fuelUnits/smeltOf · icons 的 iconOf(icons 加载序
      在本文件之后, 但全部调用发生在用户交互期, 彼时已加载完毕)
    可测性: DOM 惰性创建(doc 可注入), Node 单测注入假 document
-     (test/mode-kit.test.js)
+     (test/mode-kit.test.js); mkHpBar 的 THREE/DOM 惰性创建,
+     Node 无渲染环境时 update/dispose 静默跳过(不参与行为断言)
 ============================================================ */
 
 const MK = (typeof document !== 'undefined') ?
@@ -181,7 +186,9 @@ function sortInv(inv) {
 /* 一期不点亮的配方 id(T6 备注: 原料/用途归二期, 模式层过滤口径收在面板) */
 const KIT_HIDDEN_RECIPES = ['bread', 'bone_meal', 'bow_item'];
 
-/* 站点徽标(D8): table=工作台 furnace=熔炉(备用) hand=无 */
+/* 站点徽标(D8): table=工作台 furnace=二期烧炼站点配方预留 hand=无
+   (设计稿 D8 定稿: 一期熔炉是走近点击的开面板交互, 非 station 门槛配方——
+   furnace 键位为二期烧炼站点配方占位, 出处可溯而非泛泛「备用」) */
 const KIT_STATION_BADGE = {table: '🛠️', furnace: '♨️'};
 
 /* 分类页签(D8): 图标式零文字; 分类判据=产物(工具 toolOf/食物 food/方块 block),
@@ -548,6 +555,54 @@ function mkFurnacePanel(opts) {
   return {root, show, hide, remove, setSlots, setProgress, autoPlan};
 }
 
+/* ---------- 头顶血条(mkHpBar, S2): canvas 贴图 Sprite 的深接口 ----------
+    探险/下界两模式的同形实现归一: 血量变化才重绘(逐帧纹理上传是移动端
+    掉帧源); update 惰性建条(THREE/DOM/scene 缺任一即静默待命——Node 单测
+    无渲染环境不参与行为断言), opts.visible() 可选回调控制显隐(下界:
+    只在下界显示; 缺省恒显)。Sprite 挂 scene/位置随玩家都收在 update 里,
+    调用方每帧只喂 {hp, maxHp, x, y, z}。128×16 贴图 → 世界尺寸 1.5×0.19,
+    头顶 y+2.2 的口径由调用方给坐标。 */
+function mkHpBar(opts) {
+  const o = opts || {};
+  let bar = null; let ctx = null; let tex = null; let last = -1;
+  function ensure() {
+    if (bar || typeof THREE === 'undefined' || typeof document === 'undefined' ||
+        typeof scene === 'undefined') return;
+    const cv = document.createElement('canvas');
+    cv.width = 128; cv.height = 16;
+    ctx = cv.getContext('2d');
+    tex = new THREE.CanvasTexture(cv);
+    bar = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent: true}));
+    bar.scale.set(1.5, 0.19, 1); /* 128×16 的等比世界尺寸 */
+    scene.add(bar);
+  }
+  function update(hp, maxHp, x, y, z) {
+    ensure();
+    if (!bar) return;
+    bar.visible = o.visible ? o.visible() : true;
+    if (!bar.visible) return;
+    const h = Math.max(0, Math.ceil(hp));
+    if (h !== last) {/* 血量变化才重绘 */
+      last = h;
+      const c = ctx; const W = 128;
+      c.clearRect(0, 0, W, 16);
+      c.fillStyle = 'rgba(16,16,20,0.82)'; c.fillRect(14, 3, W - 16, 10); /* 底槽 */
+      c.fillStyle = '#e83a3a'; c.fillRect(16, 5, Math.max(0, (W - 20) * h / maxHp), 6); /* 血量 */
+      c.strokeStyle = '#f0f0f0'; c.lineWidth = 1; c.strokeRect(14.5, 3.5, W - 17, 9);
+      c.fillStyle = '#ff5a5a'; c.font = '13px sans-serif'; c.textBaseline = 'top'; c.fillText('❤', 1, 1);
+      tex.needsUpdate = true;
+    }
+    bar.position.set(x, y, z); /* 头顶(身高 1.8 + 余量; billboard 正面视角也常读) */
+  }
+  function dispose() {
+    if (!bar) return;
+    if (typeof scene !== 'undefined') scene.remove(bar);
+    bar.material.dispose(); tex.dispose();
+    bar = null; ctx = null; tex = null; last = -1;
+  }
+  return {update, dispose};
+}
+
 /* ---------- 模式工厂: 模式只声明差异, 样板在此吸收 ---------- */
 function mkMode(cfg) {
   const hb = cfg.hotbar || null;
@@ -614,5 +669,6 @@ function mkMode(cfg) {
   return mode;
 }
 
-const ModeKit = {mkMode, mkHotbar, mkCraftPanel, mkFurnacePanel, sortInv, spawn: kitSpawn, lookName, confirmBtn};
+const ModeKit = {mkMode, mkHotbar, mkCraftPanel, mkFurnacePanel, mkHpBar, sortInv,
+  spawn: kitSpawn, lookName, confirmBtn};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;

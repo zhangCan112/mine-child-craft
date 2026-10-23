@@ -253,6 +253,13 @@ ModeKit.spawn = (x, y, z, o) => {
   calls.push(['spawn', x, y, z, o]);
 }; /* 出生点记账(不写真玩家状态) */
 
+/* 探险核心(S1 纯函数段迁 js/adventure-core.js) + 背包壳(S6, ADR 0002
+   inventory_save 唯一持有): 浏览器按 index.html 加载序在壳之前, Node 侧
+   显式铺到全局再 require 壳——壳顶层即消费这些全局名 */
+const AdventureCore = require('../js/adventure-core.js');
+Object.assign(globalThis, AdventureCore);
+globalThis.Backpack = require('../js/backpack.js');
+
 const AdventureMode = require('../js/modes/adventure.js');
 const A = AdventureMode.adv; /* 内部挂点(常量表/政策纯函数/存档记账), 报告里给 T12~T15 的接线面 */
 
@@ -1574,4 +1581,73 @@ test('T15 任务卡 UI: 打开背包即见 — 当前步目标+进度, 完成步
   assert.ok(html().indexOf('小小探险家') >= 0, '称号置顶显示');
   assert.ok(html().indexOf('自由') >= 0, '全部完成提示(循环出口: 自由玩)');
   assert.ok(html().indexOf('<s>') >= 0, '全史划线保留');
+});
+
+/* ============ code-review 修复轮 S4: 提醒政策行为链(纯函数直测在 adventure-core.test.js) ============ */
+
+test('S4① 低耐久预警行为链: 首次 <0.25 提醒一次, 同命不唠叨, 破板重置后再做同款可再预警', () => {
+  mem.clear();
+  freshInit();
+  spoken.length = 0;
+  const warnCount = () => spoken.filter((s) => String(s).indexOf('快没劲') >= 0).length;
+  holdOnly('pick_wood', 1, 31); /* 31/120≈0.258: 下一击 30/120=0.25 恰在线上 */
+  A.advWearHeld();
+  assert.strictEqual(warnCount(), 0, '0.25 恰在线上不提醒(严小于口径)');
+  A.advGetInv().slots[0].dur = 29; /* 下一击 28/120≈0.233 跌破线 */
+  A.advWearHeld();
+  assert.strictEqual(warnCount(), 1, '首次跌破提醒一次');
+  A.advWearHeld(); /* 仍 <0.25 但本命已提醒过 */
+  assert.strictEqual(warnCount(), 1, '同命第二次不唠叨(节流=账本)');
+  A.advGetInv().slots[0].dur = 1; /* 下一击破板 */
+  A.advWearHeld();
+  assert.ok(!A.advGetInv().slots[0], '破板清槽(remove)');
+  assert.ok(spoken.some((s) => String(s).indexOf('用坏了') >= 0), '破板安抚话术仍在');
+  holdOnly('pick_wood', 1, 29); /* 再做一把同款(破板已重置账本) */
+  A.advWearHeld();
+  assert.strictEqual(warnCount(), 2, '破板重置: 新一把重新预警(每工具每命一次)');
+});
+
+test('S4② 背包快满行为链: 占用 ≥24/27 一次性 toast+TTS「背包快满啦，去合成一些吧」', () => {
+  mem.clear();
+  freshInit();
+  spoken.length = 0;
+  calls.length = 0;
+  const inv = A.advGetInv();
+  const fullCount = () => spoken.filter((s) => String(s).indexOf('背包快满') >= 0).length;
+  for (let i = 0; i < 23; i++) inv.slots[i] = {id: 'coal', n: 1};
+  AdventureMode.update(0.51); /* 首查(init 复位半秒节流) */
+  assert.strictEqual(fullCount(), 0, '23 格未到线不提醒');
+  inv.slots[23] = {id: 'coal', n: 1}; /* 24/27 到线 */
+  AdventureMode.update(0.51);
+  assert.strictEqual(fullCount(), 1, '到 24/27 提醒一次');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('背包快满') >= 0),
+      'toast 与 TTS 同文案');
+  inv.slots[24] = {id: 'coal', n: 1}; /* 持续满格 */
+  AdventureMode.update(0.51);
+  assert.strictEqual(fullCount(), 1, '持续满格不重复轰炸');
+  inv.slots[23] = null; inv.slots[24] = null; /* 回落(整理/合成腾格子) */
+  AdventureMode.update(0.51);
+  assert.strictEqual(fullCount(), 1, '回落不提醒(只重新武装) — 冷却口径: 回落再满的上升沿');
+  inv.slots[23] = {id: 'coal', n: 1}; inv.slots[24] = {id: 'coal', n: 1}; /* 再满 */
+  AdventureMode.update(0.51);
+  assert.strictEqual(fullCount(), 2, '回落再满: 允许再提醒一次');
+});
+
+test('S4③ 工具坏指路行为链: 破板安抚 TTS 并句当前任务步 hint(挖掘路径实测)', () => {
+  mem.clear();
+  freshInit();
+  spoken.length = 0;
+  holdOnly('shovel_wood', 1, 1); /* 剩 1 耐久: 挖一块即破板 */
+  const spot = findGrassSpot();
+  aimDownAt(spot);
+  AdventureMode.onMouse(0, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  for (let i = 0; i < 8 && cell(spot.x, 24, spot.z) !== 0; i++) AdventureMode.update(0.15);
+  assert.strictEqual(cell(spot.x, 24, spot.z), 0, '破坏完成');
+  assert.ok(!A.advGetInv().slots[0], '工具归零消失');
+  const broke = spoken.find((s) => String(s).indexOf('用坏了') >= 0);
+  assert.ok(broke, '安抚 TTS 在场');
+  assert.ok(broke.indexOf('不哭') >= 0, '安抚口径不变');
+  assert.ok(broke.indexOf('接下来') >= 0 && broke.indexOf('原木') >= 0,
+      '并句当前任务步 hint(第 1 步「捡回 3 根原木」——cancel-then-speak 不拆两句)');
+  clearAim();
 });
