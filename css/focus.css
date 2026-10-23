@@ -28,6 +28,8 @@
 }
 
 .f-screen {
+  position: relative; /* F9: 像素云伪元素以屏幕为定位框 */
+  isolation: isolate; /* F9: 云层 z-index:-1 压到内容之下、天空之上 */
   min-height: 78vh;
   display: flex;
   flex-direction: column;
@@ -193,8 +195,13 @@
   font-size: 30px;
 }
 
-.f-progress {
+.f-progress-wrap {
+  position: relative; /* F9: 宽度归包裹层, ⛏️ 游标可在条外自由定位 */
   width: min(560px,80vw);
+}
+
+.f-progress {
+  width: 100%;
   height: 14px;
   border-radius: 8px;
   background: rgb(0 0 0 / 40%);
@@ -211,10 +218,11 @@
 
 .f-area {
   position: relative;
+  isolation: isolate; /* F9: 矿洞皮肤 z-index:-1 沉到游戏内容之下 */
   width: min(760px,92vw);
   height: min(440px,56vh);
   border-radius: 16px;
-  background: linear-gradient(#2b2b33,#1c1c22);
+  background: linear-gradient(#2b2b33,#1c1c22); /* 无贴图时的纯色兜底 */
   border: 4px solid #5a5a63;
   overflow: hidden;
   box-shadow: inset 0 0 40px rgb(0 0 0 / 60%);
@@ -605,6 +613,8 @@
 }
 
 .f-stars .st {
+  position: relative; /* F9: 爆星粒子伪元素的定位框 */
+  display: inline-block;
   opacity: 0.22;
   transition: transform 0.2s;
 }
@@ -689,4 +699,429 @@
 .f-gate-row {
   display: flex;
   gap: 14px;
+}
+
+/* ============================================================
+   F9 观感升级 — 矿洞皮肤 / MC 立体按钮 / 进度条刻度+游标 /
+   三星爆星粒子 / 像素云缓移 / 火苗摇曳(供 F8) / 连对弹跳(供 F5)
+   贴图变量(--f-atlas / --f-tile-*)由 js/modes/focus.js
+   进训练营时经 TextureAtlas 惰性生成一次并写到 #focusRoot
+============================================================ */
+
+/* ---------- 训练场矿洞皮肤: .f-area 三带石壁 + 四角火把 ----------
+   石头/泥土/圆石用单格 16×16 雪碧图 repeat(整图 repeat 会铺出全部
+   256 格, 故抠格单存); 火把用整图图集 + background-position 取格
+   (T_TORCH=第 26 格 → 列 10 行 1, ×3 缩放即 -480px -48px) */
+.f-cave {
+  position: absolute;
+  inset: 0;
+  z-index: -1; /* 沉到范式内容之下(.f-area 的 isolation 圈住栈层) */
+  pointer-events: none;
+  image-rendering: pixelated;
+  background-image: var(--f-tile-stone, none);
+  background-repeat: repeat;
+  background-size: 48px 48px;
+  box-shadow: inset 0 0 40px rgb(0 0 0 / 55%); /* 洞穴暗角 */
+}
+
+.f-cave::before { /* 顶缘泥土条 */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  height: 48px;
+  image-rendering: pixelated;
+  background-image: var(--f-tile-dirt, none);
+  background-repeat: repeat-x;
+  background-size: 48px 48px;
+  box-shadow: inset 0 3px 0 rgb(255 255 255 / 14%), inset 0 -5px 0 rgb(0 0 0 / 30%);
+}
+
+.f-cave::after { /* 底部圆石带(洞底铺路层) */
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 96px;
+  image-rendering: pixelated;
+  background-image: var(--f-tile-cobble, none);
+  background-repeat: repeat-x;
+  background-size: 48px 48px;
+  box-shadow: inset 0 5px 0 rgb(0 0 0 / 35%);
+}
+
+.f-torch { /* 四角火把贴片: 暖光晕随火苗一起呼吸 */
+  position: absolute;
+  z-index: 1;
+  width: 48px;
+  height: 48px;
+  image-rendering: pixelated;
+  background-image: var(--f-atlas, none);
+  background-repeat: no-repeat;
+  background-size: 768px 768px; /* 256px 图集 ×3 → 单格 48px */
+  background-position: -480px -48px; /* 取格: T_TORCH = 列 10 行 1 */
+  animation: f-torch-flicker 2.8s ease-in-out infinite;
+}
+
+.f-torch::before { /* 火把暖光晕 */
+  content: '';
+  position: absolute;
+  inset: -64px;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(255 190 90 / 30%), rgb(255 150 50 / 10%) 46%, transparent 70%);
+}
+
+.f-torch-top-left {
+  top: 10px;
+  left: 12px;
+}
+
+.f-torch-top-right {
+  top: 10px;
+  right: 12px;
+  animation-delay: -0.9s;
+}
+
+.f-torch-bottom-left { /* 坐在圆石带沿上 */
+  bottom: 76px;
+  left: 12px;
+  animation-delay: -1.7s;
+}
+
+.f-torch-bottom-right {
+  bottom: 76px;
+  right: 12px;
+  animation-delay: -0.4s;
+}
+
+@keyframes f-torch-flicker {
+  0%,100%{filter:brightness(1)}35%{filter:brightness(1.22)}65%{filter:brightness(0.9)}82%{filter:brightness(1.1)}
+}
+
+/* ---------- MC 立体按钮: 亮顶暗底 inset 棱线 + 抬升投影, :active 按压位移并翻转棱线 ---------- */
+.f-start,
+.f-btn,
+.f-big-btn {
+  box-shadow:
+    inset 0 3px 0 rgb(255 255 255 / 30%),
+    inset 3px 0 0 rgb(255 255 255 / 14%),
+    inset -3px 0 0 rgb(0 0 0 / 20%),
+    inset 0 -4px 0 rgb(0 0 0 / 35%),
+    0 5px 0 rgb(0 0 0 / 40%),
+    0 7px 10px rgb(0 0 0 / 30%);
+}
+
+#focusRoot .f-start:active,
+#focusRoot .f-btn:active,
+#focusRoot .f-big-btn:active {
+  transform: translateY(4px);
+  box-shadow:
+    inset 0 3px 0 rgb(0 0 0 / 30%),
+    inset 3px 0 0 rgb(0 0 0 / 16%),
+    inset -3px 0 0 rgb(255 255 255 / 12%),
+    inset 0 -3px 0 rgb(255 255 255 / 18%),
+    0 1px 0 rgb(0 0 0 / 40%);
+}
+
+#focusRoot .f-start:active {
+  animation: none; /* f-pulse 的 transform 会盖住按压位移, 按下瞬间让位 */
+}
+
+/* ---------- 进度条: 十分位刻度层 + ⛏️ 像素镐游标(随进度推进) ---------- */
+.f-progress-ticks {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: repeating-linear-gradient(to right,
+    transparent, transparent calc(10% - 2px),
+    rgb(0 0 0 / 30%) calc(10% - 2px), rgb(0 0 0 / 30%) 10%);
+}
+
+.f-progress-cursor {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  z-index: 1;
+  width: 26px;
+  height: 26px;
+  margin-top: -13px;
+  margin-left: -13px;
+  pointer-events: none;
+  transform: rotate(-18deg); /* 挥镐姿态 */
+  transition: left 0.3s;
+}
+
+.f-progress-cursor img {
+  width: 26px;
+  height: 26px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 50%));
+}
+
+/* ---------- 三星爆星粒子: box-shadow 像素点四散, 挂在既有 .st.pop 上(零 JS) ---------- */
+.f-stars .st.pop::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 6px;
+  height: 6px;
+  margin: -3px;
+  border-radius: 50%;
+  animation: f-burst 0.6s ease-out forwards;
+}
+
+@keyframes f-burst {
+  0% {
+    box-shadow: 3px -2px 0 -1px #ffd83d, -3px -2px 0 -1px #7cfc00, 3px 2px 0 -1px #fff2a8,
+      -3px 2px 0 -1px #7cfc00, 0 -3px 0 -1px #ffd83d, 0 3px 0 -1px #fff2a8,
+      -2px 0 0 -1px #7cfc00, 2px 0 0 -1px #ffd83d;
+    opacity: 1;
+  }
+
+  100% {
+    box-shadow: 30px -22px 0 -1px #ffd83d, -26px -28px 0 -1px #fff2a8, 32px 20px 0 -1px #7cfc00,
+      -30px 24px 0 -1px #ffd83d, 2px -34px 0 -1px #fff2a8, -4px 32px 0 -1px #7cfc00,
+      -34px 2px 0 -1px #ffd83d, 30px -2px 0 -1px #fff2a8;
+    opacity: 0;
+  }
+}
+
+/* ---------- 今日页/星屏像素云缓移: 方块云两层异速异向, 背景层不挡交互 ---------- */
+.f-today::before,
+.f-result::before { /* 前层大云: 三朵, box-shadow 方块拼形 */
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 9%;
+  left: 0;
+  width: 22px;
+  height: 11px;
+  background: rgb(255 255 255 / 88%);
+  box-shadow:
+    22px 0 rgb(255 255 255 / 88%), 44px 0 rgb(255 255 255 / 88%), 66px 0 rgb(255 255 255 / 88%),
+    22px -11px rgb(255 255 255 / 88%), 44px -11px rgb(255 255 255 / 88%), 33px -22px rgb(255 255 255 / 88%),
+    340px 14px rgb(255 255 255 / 88%), 362px 14px rgb(255 255 255 / 88%), 384px 14px rgb(255 255 255 / 88%),
+    362px 3px rgb(255 255 255 / 88%),
+    620px 22px rgb(255 255 255 / 88%), 642px 22px rgb(255 255 255 / 88%), 664px 22px rgb(255 255 255 / 88%),
+    686px 22px rgb(255 255 255 / 88%), 653px 11px rgb(255 255 255 / 88%);
+  pointer-events: none;
+  animation: f-cloud-drift 110s linear infinite;
+}
+
+.f-today::after,
+.f-result::after { /* 后层小云: 更淡更慢, 反向漂 */
+  content: '';
+  position: absolute;
+  z-index: -1;
+  top: 21%;
+  left: 0;
+  width: 16px;
+  height: 8px;
+  background: rgb(255 255 255 / 60%);
+  box-shadow:
+    16px 0 rgb(255 255 255 / 60%), 32px 0 rgb(255 255 255 / 60%), 16px -8px rgb(255 255 255 / 60%),
+    260px 10px rgb(255 255 255 / 60%), 276px 10px rgb(255 255 255 / 60%), 292px 10px rgb(255 255 255 / 60%),
+    540px 2px rgb(255 255 255 / 60%), 556px 2px rgb(255 255 255 / 60%);
+  pointer-events: none;
+  animation: f-cloud-drift 150s linear infinite reverse;
+}
+
+@keyframes f-cloud-drift {
+  from{transform:translateX(-240px)}
+  to{transform:translateX(100vw)}
+}
+
+/* ---------- 火苗摇曳(供 F8 给 flameIcon 图挂 .f-flame-sway): 从根部摆, 底宽顶尖 ---------- */
+.f-flame-sway {
+  display: inline-block;
+  transform-origin: 50% 100%;
+  animation: f-flame-sway 1.2s ease-in-out infinite;
+}
+
+@keyframes f-flame-sway {
+  0%,100%{transform:rotate(-4deg) scaleY(1)}
+  28%{transform:rotate(3deg) scaleY(1.05)}
+  52%{transform:rotate(-2deg) scaleY(0.97)}
+  76%{transform:rotate(4deg) scaleY(1.03)}
+}
+
+/* ---------- 连对反馈(供 F5 挂钩): 矿袋政策把 ⛏️×N 计数挂 .f-area 角落, ----------
+   每次连对 +1 时重挂 .bump 触发弹跳(琶音归 sfx, 图标归 mcIcon) */
+.f-streak {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  z-index: 2;
+  font-size: 24px;
+  font-weight: 800;
+  color: #fff;
+  text-shadow: 0 2px 4px #000;
+  pointer-events: none;
+}
+
+.f-streak.bump {
+  animation: f-streak-bump 0.45s;
+}
+
+@keyframes f-streak-bump {
+  30%{transform:scale(1.35) rotate(-8deg)}
+  60%{transform:scale(0.92) rotate(5deg)}
+}
+
+/* ---------- 动画全关降级: 本层动画/过渡停跳, 教学提示光环退化为静态描边 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #focusRoot,
+  #focusRoot *,
+  #focusRoot ::before,
+  #focusRoot ::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  #focusRoot .f-stim.hint,
+  #focusRoot .f-creeper.hint,
+  #focusRoot .f-big-btn.hint,
+  #focusRoot .f-block.hint {
+    box-shadow: 0 0 0 4px #7cfc00;
+  }
+
+  #focusRoot .f-stim.hint-no {
+    box-shadow: 0 0 0 4px #ff7043;
+  }
+}
+
+/* ============================================================
+  F6 · 里程碑授予仪式 与 宝物柜 (设计稿 §3 L4/L5)
+ ============================================================ */
+
+/* 授予仪式 */
+.f-award-chief img {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  animation: f-award-cheer 0.9s infinite;
+}
+
+@keyframes f-award-cheer {
+  0%,100%{transform:translateY(0) rotate(-3deg)}
+  50%{transform:translateY(-8px) rotate(3deg)}
+}
+
+.f-award-tool {
+  margin: 10px 0 6px;
+}
+
+.f-award-tool img {
+  width: 168px;
+  height: 168px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 10px 18px rgb(0 0 0 / 55%));
+  animation: f-award-pop 0.7s;
+}
+
+@keyframes f-award-pop {
+  0%{transform:scale(0.2) rotate(-24deg)}
+  60%{transform:scale(1.25) rotate(6deg)}
+  100%{transform:scale(1)}
+}
+
+/* 宝物柜 */
+.f-cabinet {
+  gap: 4px;
+  justify-content: flex-start;
+  padding-top: 6px;
+}
+
+.f-cab-chief {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.f-cab-chief img {
+  width: 72px;
+  height: 72px;
+  image-rendering: pixelated;
+}
+
+.f-cab-hint {
+  font-size: 15px;
+  text-shadow: 0 2px 4px #000;
+  background: rgb(0 0 0 / 35%);
+  padding: 6px 14px;
+  border-radius: 12px;
+}
+
+.f-cab-group {
+  width: min(680px, 94vw);
+  background: rgb(0 0 0 / 32%);
+  border: 2px solid rgb(255 255 255 / 18%);
+  border-radius: 14px;
+  padding: 10px 14px 12px;
+  margin: 6px 0;
+}
+
+.f-cab-title {
+  font-size: 15px;
+  font-weight: 700;
+  text-align: left;
+  text-shadow: 0 2px 4px #000;
+  margin-bottom: 8px;
+}
+
+.f-cab-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.f-cab-item {
+  position: relative;
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  border-radius: 12px;
+  border: 3px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 30%);
+  cursor: pointer;
+  transition: transform 0.12s;
+}
+
+.f-cab-item:hover {
+  border-color: rgb(255 255 255 / 60%);
+  transform: scale(1.08);
+}
+
+.f-cab-item img {
+  width: 58px;
+  height: 58px;
+  image-rendering: pixelated;
+}
+
+.f-cab-badge {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  font-size: 13px;
+  font-weight: 800;
+  padding: 1px 7px;
+  border-radius: 10px;
+  background: #2c2c34;
+  border: 2px solid #ffd83d;
+  color: #ffd83d;
+}
+
+/* 工具组: 从 tools 字段渲染的里程碑大格(金边) */
+.f-cab-tools .f-cab-item {
+  width: 84px;
+  height: 84px;
+  border-color: rgb(255 216 61 / 45%);
+}
+
+.f-cab-tools .f-cab-item img {
+  width: 72px;
+  height: 72px;
 }

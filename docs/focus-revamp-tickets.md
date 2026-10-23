@@ -115,7 +115,7 @@ flowchart TD
 - 测试：掷骰政策抽成种子可注入的顶层纯函数进 vm 缝（概率边界/保底触发/豁免分支/满包余量）；DOM 动画不直测。
 - 数值：设计稿 §3 L3 + §4。
 
-### F6 里程碑工具 + 宝物柜 `[ ]`
+### F6 里程碑工具 + 宝物柜 `[x]`（并入 `94ba69b`，接口：`tools:string[]` 字段 · `focusGrantMilestones(save)→due[]` 幂等差集 · `showFocusAward(ids,after)` 仪式串播 · `focusBackfillMilestones(after)` 存量补授 · `focusProgress(save)` 有效通关数（大师关封顶兜底，F8 复用勿开第二口径） · `showFocusCabinet()` 收集柜（数据源=focusBag+tools 字段））
 - 依赖：F3、F4。
 - 交付：unlocked 首次越线 → 全屏授予仪式（像素工具大图 + level 琶音 + TTS「你获得了铁镐！」）；**存量档按当前 unlocked 一次性补授、不重授**；**工具不进共享背包（F3 核定选型 B）**——记账进训练营存档 `tools` 字段（补授=里程碑表与已授差集，幂等），宝物柜工具组从该字段渲染；今日页 🎒 宝物柜：分组网格（材料/矿物/食物/工具/方块）+ 数量角标 + 点击 TTS 读物品名 + 村长导览台词。
 - 测试：补授幂等纯函数进 vm 缝（对既有档计算应授集合=里程碑表与已授的差集）。
@@ -131,7 +131,7 @@ flowchart TD
 - 测试：入口锁定与计费决策、时长上界、轮换维度选择纯函数进 vm 缝。
 - 数值：设计稿 §8 B3/B8；不搬 n-back（合同 Out of Scope）。
 
-### F9 观感升级 `[ ]`
+### F9 观感升级 `[x]`（并入 `0600194`，F5/F8 挂钩：`.f-streak(+.bump)` 连对 · `.f-flame-sway` 火苗摇曳 · 游标 `#fProgCursor` 设 left:% · 皮肤变量 `--f-atlas/--f-tile-stone/--f-tile-cobble/--f-tile-dirt`；prefers-reduced-motion 全域降级）
 - 依赖：F4。
 - 交付：训练场矿洞皮肤（贴图图集 makeCanvas→dataURL→CSS 雪碧，石头带/圆石带/顶缘泥土/四角火把贴片闪烁）；MC 立体按钮（亮暗边 bevel+按压位移）；进度条分段刻度+⛏️游标；连对⛏️×N 弹跳+琶音；三星爆星粒子；今日页/星屏像素云缓移。
 - 测试：不直测——boot 冒烟 + 手工验收（node server.js 起 8080 逐屏走查）；可与逻辑工单分提交降低回归压力。
@@ -141,6 +141,8 @@ flowchart TD
 ## 第四波
 
 ### F10 回归收尾 + GLOSSARY `[ ]`
+- 备注（F6 转记）：宝物柜工具组只认 `tools` 字段——探险合成所得工具不进柜（选型 B 口径），是否补充该展示在此再议并记录结论。
+- 备注（F9 转记）：①**lint 债**——集成分支 eslint 既有 60 错待集成者收（F4 focus-icons no-multi-spaces×56+indent×4、F1 focus-levels max-len×1、F6 modes/focus.js:329 brace-style/block-spacing×4），stylelint 已过；②**真人走查三项**——corisi 4×4/flanker len9 下石壁对比度、底部火把光晕是否干扰刺激、游标窄屏（80vw）两端裁切。
 - 依赖：全部。
 - 交付：index.html 加载声明核对（仅背包壳一行，位置见 F3）；GLOSSARY 词条（共享背包 Backpack/矿袋/宝物柜/图章日历/魔鬼特训/训练师村长，含 _Avoid_ 别名）；核对 item-crafting-design 变更记录与 ADR 0002 交叉引用；npm test + npm run lint 全绿汇总。
 - 手工验收剧本（设计稿 §6）：造档 L37/L49 体验伪装渐入与长度混编的坡道感；矿袋飞行/3 连保底/结算回顾/宝物柜计数/满包 toast 一次性；unlocked=50 存量档首入补授铁镐；顶格关（tier 18/19）len9 行宽与双价干扰可读性；家长面板 CSV 列与免责声明不变。
