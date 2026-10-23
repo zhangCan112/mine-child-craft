@@ -11,8 +11,8 @@
    60s 再刷·索敌收敛不追出巢区(儿童可控口径, 参数见巢穴战斗段注释);
    T12 挖掘与采集亦已接线(蓄力/放置/树链/食物/耐久, 见下)。
    能进能玩地形 + 背包 UI + 击杀掉落/收集播报/玩家战斗均已落地;
-   T13 合成与烧炼亦已接线(站点解锁/配方表扬/熔炉状态机/TNT 链, 见下),
-   任务链 12 步(T15) 依次接线。
+   T13 合成与烧炼亦已接线(站点解锁/配方表扬/熔炉状态机/TNT 链, 见下);
+   T15 任务链 12 步+终章亦已接线(计数账本+节流推进+任务卡+仪式, 见下)。
    · 玩家: 出生小屋门口 · 步行(不飞行) · 血量 30 + 头顶血条; 死亡=背包
      保留+回出生点满血+TTS 安抚(下界先例口径, 零惩罚哲学)。
    · T12 挖掘与采集(D4/D7): 按住蓄力(准星进度环+挥动循环+换目标/松手
@@ -27,14 +27,23 @@
      熔炉状态机挂模式层(2.5s/件·自动燃料热值·关面板进度保留·退世界/死亡
      全额退料); TNT 合成→放置→空手点击点燃→延时爆炸(半径 3.5·方块 70%
      掉落·波及怪物, 不伤玩家——儿童挖矿神器口径)。
+   · T15 任务链(D11): QUESTS 数据表 12 步+终章, 每步 = 纯函数谓词 + 语音
+     引导 + 图标 + 完成表扬(夸努力口径); 事件挂点(挖掘/拾取/合成/放置/烧成)
+     只往 ADV.quest.counts 累计(只增不减=跳步防护, 只认玩家亲手做——TNT
+     掀掉的不算), update 内 0.5s 节流查当前步谓词(不越级), 完成 → 表扬
+     TTS+toast+音效 → 语音引导下一步 → 落盘; 钻石首获专属仪式(双层冲击波+
+     碎钻+金弧+专属琶音); 终章合成钻石剑 → 「小小探险家」称号+四色烟花
+     (称号随 quest 存档, 重进不重复授予); 任务卡挂 advPanel.questEl,
+     打开背包即见(当前步大图标+进度+划线史), HUD 常驻一行任务进度。
    · 三份存档: inventory_save(全局唯一背包, 跨模式共享) /
      adventure_world_save(场景确定性重建+edits 重放, build 模式同款) /
-     adventure_quest_save({step:0} 占位, T15 填)。
+     adventure_quest_save({step, counts, title?}, T15 任务进度)。
    · 防沉迷: 与竞技场/TNT/建造/坦克/下界共享儿童时限(gated, 不新增账本)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/onMouse/
      hud/touch) · AdventureMode.adv — T12~T15 接线挂点与单测触达面(常量表/
      死亡+蓄力+放置+食物+树苗+巢穴节律+站点判定+烧炼节律+TNT 掷骰纯函数/
-     挥击伤害/掉落清单/播报文案/edits 记账/背包只读/熔炉状态与炉前交互)
+     挥击伤害/掉落清单/播报文案/edits 记账/背包只读/熔炉状态与炉前交互/
+     任务表 QUESTS 与任务卡只读引用)
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/PLAYER/WORLD 尺寸/
      B_* 常量 · voxel.js 的 getBlock/setBlockRaw/blockKey/raycastVoxel/
      collidesAtPlayer · world.js 的 loadScene/editBlock · scene-kit.js 的
@@ -44,8 +53,8 @@
      fuelUnits/smeltOf/breakTime · drops.js 的 rollBlockDrop/rollDrops(纯)/
      spawn/update/onCollect/clear · mobs.js 的 spawn/hit/onDeath/update/
      render/steer/move/gait/debrisColor/clear(退出清场) · combat-core.js 的
-     CombatCore(节拍/弹道/盒判定) · effects.js 的 sfx/Fx(boom/arc 爆炸与
-     引信观感) · input.js 的 doCenterClick(触屏准星点击) · mode-kit.js 的
+     CombatCore(节拍/弹道/盒判定) · effects.js 的 sfx/Fx(boom/arc/pop/
+     debrisBurst 爆炸·引信·仪式观感) · input.js 的 doCenterClick(触屏准星点击) · mode-kit.js 的
      mkMode/mkHotbar/mkCraftPanel/mkFurnacePanel · sync.js 的 SyncDB.slot ·
      speech.js 的 SpeechKit · avatar.js 的 Avatar(setItem/swing/flash)
    可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格), Node 测试可安全加载
@@ -79,7 +88,7 @@ const ADV_TREES = 40; /* 树林目标棵数(候选按散列值排序取前 N, �
 
 const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
   pits: ADV_PITS, cave: ADV_CAVE, nests: ADV_NESTS,
-  player: {hp: 30, maxHp: 30}, quest: {step: 0}, panelOpen: false, furnaceOpen: false,
+  player: {hp: 30, maxHp: 30}, quest: {step: 0, counts: {}}, panelOpen: false, furnaceOpen: false,
   killCount: 0, swingCd: 0};
 
 /* ---------- 三份存档(D12): mkSaveSlot 语义, SyncDB 槽创建即注册回填 ---------- */
@@ -96,7 +105,8 @@ const advInvSlot = SyncDB.slot(ADV_INV_KEY, {
   encode: (inv) => serialize(inv), /* T5 形状 {_v:1, slots} 直产 */
   decode: (sv) => deserialize(sv), /* 损坏回落空包(inventory-core 口径) */
 });
-const advQuestSlot = SyncDB.slot(ADV_QUEST_KEY, {defaults: {step: 0}}); /* T15 填任务进度 */
+/* T15 任务进度: mkSaveSlot defaults 只补缺失字段——老档 {step:N} 自动补空 counts */
+const advQuestSlot = SyncDB.slot(ADV_QUEST_KEY, {defaults: {step: 0, counts: {}}});
 
 let advEdits = new Map(); /* 玩家方块改动 "x,y,z"→id(只存差异, 重进重放) */
 let advDirty = false;
@@ -116,6 +126,7 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
 function advSaveNow() {
   advWorldSlot.save({edits: advEdits});
   advInvSlot.save(advInv);
+  advQuestSlot.save(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   advDirty = false;
 }
 
@@ -175,6 +186,7 @@ function advOnCraft(out) {/* 合成成功(T13, D8): TTS 具体表扬(产物名�
   if (out.leftover > 0) Drops.spawn(out.item, out.leftover, pos.x, pos.y + 0.5, pos.z);
   advSyncHotbar();
   showToast('✅ ' + name + ' 做好啦！');
+  advTally('craft_' + out.item, out.n); /* T15: 合成件数记账(事件处只 +=, 推进归节流查) */
 }
 const advPanel = ModeKit.mkCraftPanel({
   inv: advInv,
@@ -830,6 +842,7 @@ function advBreakBlock(x, y, z, id, bt) {
     return;
   }
   for (const d of rollBlockDrop(BLOCKS[id])) Drops.spawn(d.id, d.n, x + 0.5, y + 0.8, z + 0.5);
+  advQuestMine(id, x, y, z); /* T15: 挖到矿记账+钻石首获仪式(只认蓄力挖掘, TNT 链不挂) */
 }
 
 /* 手持工具耐久结算: damageTool 返 0 = 破板信号(inventory-core 口径) →
@@ -894,6 +907,8 @@ function advTryPlace(hit) {
   }
   editBlock(pc.x, pc.y, pc.z, it.block);
   advMarkEdit(pc.x, pc.y, pc.z, it.block);
+  if (it.block === B_CRAFT) advTally('place_craft_table', 1); /* T15: 站点放置记账(任务链消费的两键) */
+  if (it.block === B_FURNACE) advTally('place_furnace', 1);
   if (it.block === B_SAPLING) advSapPlant(pc.x, pc.y, pc.z);
   remove(advInv, slot, 1);
   advSyncHotbar();
@@ -970,6 +985,7 @@ function advOnCollect(itemId, n) {
     showToast('🎒 背包满啦');
     return false;
   }
+  advTally('collect_' + itemId, n - left); /* T15: 实收件数记账(满包部分入包按收到的算) */
   advSyncHotbar();
   sfx('pick');
   const name = (ITEMS[itemId] && ITEMS[itemId].name) || itemId;
@@ -1215,6 +1231,7 @@ function advFurnaceTick(dt) {
   const hadOut = advFurnace.out ? advFurnace.out.n : 0;
   Object.assign(advFurnace, advSmeltStep(advFurnace, dt));
   const made = (advFurnace.out ? advFurnace.out.n : 0) - hadOut;
+  if (made > 0) advTally('smelt_' + advFurnace.out.id, made); /* T15: 烧成件数记账(炉内产出即算, 不等入包) */
   advSmeltTtsT = Math.max(0, advSmeltTtsT - dt);
   if (made > 0 && ADV.furnaceOpen && advSmeltTtsT <= 0) {
     advSmeltTtsT = ADV_SMELT_TTS_T;
@@ -1298,6 +1315,180 @@ function advExplode(x, y, z) {
 }
 
 /* ============================================================
+   T15 任务链 — QUESTS 数据表 + 计数账本 + 推进引擎 + 任务卡 + 仪式
+   (设计稿 D11) 谓词纯函数在前(单测直测), 交互段在后(挂 update/事件挂点)
+   ============================================================ */
+const ADV_QUEST_CHECK_T = 0.5; /* 谓词检查节流秒(update 内, 最坏延迟半秒无感) */
+const ADV_QUEST_TITLE = '小小探险家'; /* 通关称号(D11 终章, 随 quest 存档) */
+
+/* 挖掘→计数键映射: 石头/圆石都产圆石(步 5 口径「挖 8 圆石」)。只认玩家蓄力
+   挖掘(advBreakBlock 挂点)——TNT 爆炸掀掉的不算, 任务链是亲手做的教学 */
+const ADV_MINE_TALLY = {
+  3: 'mine_cobble', 4: 'mine_cobble',
+  [B_COAL_ORE]: 'mine_coal_ore', [B_IRON_ORE]: 'mine_iron_ore', [B_DIAMOND_ORE]: 'mine_diamond_ore',
+};
+
+/* 主线任务表(D11 12 步+终章): 每条 = 纯函数谓词 check + 语音引导 hint + 图标
+   icon + 完成表扬 praise(夸努力不夸聪明口径); target 是进度分母, prog 算分子
+   (复合步取各条件已得之和, 超量钳回)。counts 键五类(事件处只 += 不判断):
+   collect_<物品> 拾取件数 · craft_<物品> 合成件数 · mine_<矿> 挖掉块数 ·
+   place_<站点> 放置次数 · smelt_<物品> 炉内烧成件数 */
+const ADV_QUESTS = [
+  {id: 'q1_log', icon: '🪵', goal: '砍树收集 3 根原木', target: 3,
+    hint: '去找一棵大树，按住挖树干，捡回 3 根原木哦！',
+    praise: '原木收集齐啦！你一直在努力，真棒！',
+    prog: (c) => Math.min(c.collect_log || 0, 3), check: (c) => (c.collect_log || 0) >= 3},
+  {id: 'q2_planks', icon: '🟫', goal: '合成 4 块木板', target: 4,
+    hint: '打开背包，用原木合成木板吧！',
+    praise: '木板做好啦！你真会想办法！',
+    prog: (c) => Math.min(c.craft_planks || 0, 4), check: (c) => (c.craft_planks || 0) >= 4},
+  {id: 'q3_table', icon: '🛠️', goal: '合成并放下工作台', target: 2,
+    hint: '先用木板合成工作台，再找块空地放下它！',
+    praise: '工作台放好啦！能做的东西越来越多咯！',
+    prog: (c) => Math.min(c.craft_craft_table || 0, 1) + Math.min(c.place_craft_table || 0, 1),
+    check: (c) => (c.craft_craft_table || 0) >= 1 && (c.place_craft_table || 0) >= 1},
+  {id: 'q4_pick_wood', icon: '⛏️', goal: '合成木镐', target: 1,
+    hint: '站到工作台旁边，合成一把木镐！',
+    praise: '木镐做好啦！石头也难不倒你！',
+    prog: (c) => Math.min(c.craft_pick_wood || 0, 1), check: (c) => (c.craft_pick_wood || 0) >= 1},
+  {id: 'q5_cobble', icon: '🪨', goal: '挖 8 块圆石', target: 8,
+    hint: '用木镐去挖石头，石头会掉成圆石哦！',
+    praise: '圆石挖够啦！你挖得又稳又认真！',
+    prog: (c) => Math.min(c.mine_cobble || 0, 8), check: (c) => (c.mine_cobble || 0) >= 8},
+  {id: 'q6_pick_stone', icon: '⛏️', goal: '合成石镐', target: 1,
+    hint: '回到工作台，用圆石合成更硬的石镐！',
+    praise: '石镐做好啦！你在一步步变厉害！',
+    prog: (c) => Math.min(c.craft_pick_stone || 0, 1), check: (c) => (c.craft_pick_stone || 0) >= 1},
+  {id: 'q7_coal', icon: '⚫', goal: '挖 5 个煤矿', target: 5,
+    hint: '矿坑和山洞里有黑亮的煤矿，去挖 5 个！',
+    praise: '煤矿挖够啦！火把有燃料咯！',
+    prog: (c) => Math.min(c.mine_coal_ore || 0, 5), check: (c) => (c.mine_coal_ore || 0) >= 5},
+  {id: 'q8_torch', icon: '🔥', goal: '合成 4 支火把', target: 4,
+    hint: '用煤和木棍合成火把，山洞里就不怕黑啦！',
+    praise: '火把做好啦！你想得真周到！',
+    prog: (c) => Math.min(c.craft_torch || 0, 4), check: (c) => (c.craft_torch || 0) >= 4},
+  {id: 'q9_iron', icon: '🟠', goal: '挖 5 块铁矿', target: 5,
+    hint: '铁矿藏在更深的地方，带上火把去挖 5 块！',
+    praise: '铁矿挖够啦！你真勇敢！',
+    prog: (c) => Math.min(c.mine_iron_ore || 0, 5), check: (c) => (c.mine_iron_ore || 0) >= 5},
+  {id: 'q10_smelt', icon: '♨️', goal: '放下熔炉，烧出 3 块铁锭', target: 4,
+    hint: '用圆石合成熔炉放下来，把铁矿烧成铁锭！',
+    praise: '铁锭烧好啦！等一等就有收获，你真有耐心！',
+    prog: (c) => Math.min(c.place_furnace || 0, 1) + Math.min(c.smelt_iron_ingot || 0, 3),
+    check: (c) => (c.place_furnace || 0) >= 1 && (c.smelt_iron_ingot || 0) >= 3},
+  {id: 'q11_pick_iron', icon: '⛏️', goal: '合成铁镐', target: 1,
+    hint: '用铁锭合成铁镐，最硬的矿石也能挖啦！',
+    praise: '铁镐做好啦！钻石就在不远处等你！',
+    prog: (c) => Math.min(c.craft_pick_iron || 0, 1), check: (c) => (c.craft_pick_iron || 0) >= 1},
+  {id: 'q12_diamond', icon: '💎', goal: '挖到 3 颗钻石', target: 3,
+    hint: '去山洞最深处找亮晶晶的钻石，挖 3 颗！',
+    praise: '钻石挖够啦！你坚持到了最后，真了不起！',
+    prog: (c) => Math.min(c.mine_diamond_ore || 0, 3), check: (c) => (c.mine_diamond_ore || 0) >= 3},
+  {id: 'finale', icon: '🗡️', goal: '合成钻石剑', target: 1, finale: true,
+    hint: '用 2 颗钻石和 1 根木棍，合成属于你的钻石剑！',
+    praise: '钻石剑做好啦！',
+    prog: (c) => Math.min(c.craft_sword_diamond || 0, 1), check: (c) => (c.craft_sword_diamond || 0) >= 1},
+];
+
+let advQuestT = 0; /* 谓词检查节流计时(init 复位一个整窗, 首查在进场半秒后) */
+
+function advTally(kind, n) {/* 任务计数: 事件挂点只 += 不做判断(推进归 advQuestTick 节流查);
+   counts 只增不减 = 跳步防护(计数依赖事件, 不可逆); 顺路挂脏标记随 5s 存档节流落盘 */
+  ADV.quest.counts[kind] = (ADV.quest.counts[kind] || 0) + n;
+  advDirty = true;
+}
+
+/* 挖掘挂点(advBreakBlock 尾部): 矿物记账 + 钻石首获仪式(与任务步无关——
+   第 12 步之前挖到第一颗同样庆祝, 仪式属于"第一颗"这个时刻) */
+function advQuestMine(id, x, y, z) {
+  const firstDia = id === B_DIAMOND_ORE && !ADV.quest.counts.mine_diamond_ore;
+  const k = ADV_MINE_TALLY[id];
+  if (k) advTally(k, 1);
+  if (firstDia) advDiamondRite(x, y, z);
+}
+
+/* 钻石首获仪式(D11): 钻色+金光双层冲击波 · 钻色碎块 · 金弧 · 专属琶音——
+   现成件组合约 1s 收场, 克制不抢戏(不做慢镜: 引擎无 timescale 先例, 不为
+   一处观感动主循环) */
+function advDiamondRite(x, y, z) {
+  sfx('gem');
+  Fx.pop(x + 0.5, y + 1.1, z + 0.5, {color: 0x4ee1d2, r0: 0.3, r1: 2.4, dur: 0.7});
+  Fx.pop(x + 0.5, y + 1.1, z + 0.5, {color: 0xffd23f, r0: 0.2, r1: 1.6, dur: 0.9, opacity: 0.7});
+  Fx.debrisBurst(x + 0.5, y + 1.2, z + 0.5, 10, {color: 0x4ee1d2, life: 1.3});
+  for (let i = 0; i < 3; i++) {
+    Fx.arc(x + 0.5, y + 1.4 + i * 0.5, z + 0.5, {color: 0xffd23f, dur: 0.3, spread: 1.2, pts: 5});
+  }
+  SpeechKit.speak('哇！挖到钻石啦！亮晶晶的宝贝！你找得真仔细！');
+  showToast('💎 第一颗钻石！一共要挖 3 颗哦！');
+}
+
+/* 通关烟花(D11 终章): 玩家四周四色礼花(pop 冲击波球+碎块), 不震屏不轰鸣 */
+function advFireworks() {
+  const cols = [0xff5a5a, 0xffd23f, 0x4ee1d2, 0xb78af7];
+  for (let i = 0; i < cols.length; i++) {
+    const a = (i / cols.length) * Math.PI * 2 + 0.6;
+    const fx = pos.x + Math.cos(a) * 2.5;
+    const fz = pos.z + Math.sin(a) * 2.5;
+    const fy = pos.y + 2 + (i % 2) * 0.8;
+    Fx.pop(fx, fy, fz, {color: cols[i], r0: 0.4, r1: 2.2, dur: 0.6});
+    Fx.debrisBurst(fx, fy + 0.2, fz, 8, {color: cols[i], life: 1.4});
+  }
+}
+
+/* 任务推进节流入口(update 每帧): 到窗查**当前步**谓词(不越级——第 n 步只认
+   第 n 步; 计数提前灌满也一步一周期逐级走), 完成 → 音效+完成 toast → 表扬
+   TTS(与下一步引导并句, 防 cancel 打断) → 新任务图标 toast → 步进+落盘+重画 */
+function advQuestTick(dt) {
+  advQuestT -= dt;
+  if (advQuestT > 0) return;
+  advQuestT = ADV_QUEST_CHECK_T;
+  const st = ADV.quest;
+  const q = ADV_QUESTS[st.step];
+  if (!q || !q.check(st.counts)) return;
+  sfx(q.finale ? 'win' : 'level');
+  showToast('✅ ' + q.icon + ' ' + q.goal + ' 完成！');
+  if (q.finale) {/* 终章: 称号入档(step 走到表外不再查) + 烟花, 重进不重复授予 */
+    st.title = ADV_QUEST_TITLE;
+    SpeechKit.speak(q.praise + '你获得了「' + ADV_QUEST_TITLE + '」称号！为你放烟花！');
+    showToast('🏅 获得称号：' + ADV_QUEST_TITLE + '！');
+    advFireworks();
+  } else {
+    const nxt = ADV_QUESTS[st.step + 1];
+    SpeechKit.speak(q.praise + (nxt ? ' 接下来：' + nxt.hint : ''));
+    if (nxt) showToast(nxt.icon + ' 新任务：' + nxt.goal);
+  }
+  st.step += 1;
+  advQuestSlot.save(st);
+  advQuestPaint();
+}
+
+/* 任务卡(背包面板 aside, 打开背包即见): 当前步大图标+进度条, 已完成步划线史,
+   称号置顶; 未来步不剧透(一步步揭示) */
+function advQuestPaint() {
+  const st = ADV.quest;
+  const q = ADV_QUESTS[st.step];
+  let html = '<div class="advq-head">📖 探险任务</div>';
+  if (st.title) html += '<div class="advq-badge">🏅 ' + st.title + '</div>';
+  if (q) {
+    const p = Math.min(q.prog(st.counts), q.target);
+    html += '<div class="advq-cur"><span class="advq-ic">' + q.icon + '</span>' +
+        '<div><div class="advq-goal">' + q.goal + '</div>' +
+        '<div class="advq-pg">' + p + ' / ' + q.target + '</div>' +
+        '<div class="advq-bar"><i style="width:' + Math.round(p / q.target * 100) + '%"></i></div></div></div>';
+  } else {
+    html += '<div class="advq-done">🎉 全部完成！<br>自由探险咯！</div>';
+  }
+  if (st.step > 0) {
+    html += '<div class="advq-hist">' + ADV_QUESTS.slice(0, st.step).map((h) =>
+        '<div class="advq-row"><s>' + h.icon + ' ' + h.goal + '</s></div>').join('') + '</div>';
+  }
+  advPanel.questEl.innerHTML = html;
+}
+function advQuestEl() {/* 任务卡容器只读引用(单测触达面) */
+  return advPanel.questEl;
+}
+
+/* ============================================================
    模式对象
    ============================================================ */
 const AdventureMode = mkMode({
@@ -1311,6 +1502,12 @@ const AdventureMode = mkMode({
     /* 空存档时 load() 返回 defaults 深拷贝(edits 是数组, 不经 decode) → 归一化成 Map */
     if (!(advEdits instanceof Map)) advEdits = new Map(advEdits || []);
     ADV.quest = advQuestSlot.load();
+    /* T15 归一化: 老档 {step:N} 无 counts(或损坏) → 补空表, 当前步从零累计——
+       历史计数不追溯(玩家挖过什么无法从世界状态重建); step 钳进表界(表外=终章完成) */
+    if (!ADV.quest.counts || typeof ADV.quest.counts !== 'object') ADV.quest.counts = {};
+    ADV.quest.step = Math.max(0, Math.min(ADV.quest.step | 0, ADV_QUESTS.length));
+    advQuestT = ADV_QUEST_CHECK_T; /* 谓词检查节流复位(进场半秒后首查) */
+    advQuestPaint();
     advInv.slots = advInvSlot.load().slots; /* 原地换槽, 面板/快捷栏闭包不脱钩 */
     loadScene(() => {/* 场景装填 seam: 清场→建场→收尾入队一步到位 */
       advBuildWorld();
@@ -1351,7 +1548,9 @@ const AdventureMode = mkMode({
       advPickT = ADV_PICKUP_WINDOW;
     });
     for (let i = 0; i < ADV_NESTS.length; i++) advSpawnNest(i);
-    SpeechKit.speak('欢迎来到探险草原！你是小小探险家！');
+    const qNow = ADV_QUESTS[ADV.quest.step]; /* 进场欢迎句带上当前步引导(hint 并句, 防 cancel 打断;
+        「小小探险家」字样留给终章称号的仪式感) */
+    SpeechKit.speak('欢迎来到探险草原！' + (qNow ? qNow.hint : '任务全部完成啦，自由探险咯！'));
     showToast('🌲 探险草原 · 按 Tab 或点 🎒 打开背包');
   },
 
@@ -1385,6 +1584,7 @@ const AdventureMode = mkMode({
     }
     advTierT = Math.max(0, advTierT - dt); /* tier 提示节流递减(T12) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
+    advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */
     advFurnaceTick(dt); /* 烧炼节律常开(面板只是回显), ✕ 关闭对账(T13) */
     advFuseTick(dt); /* TNT 引信倒计时到点起爆(T13, 先于怪物 AI——当帧爆炸位置不漂移) */
     advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */
@@ -1452,12 +1652,16 @@ const AdventureMode = mkMode({
 
   hud(hit) {
     const s = advInv.slots[advHb.sel];
+    const q = ADV_QUESTS[ADV.quest.step];
+    const qTxt = q ? q.icon + ' ' + q.goal + ' ' + Math.min(q.prog(ADV.quest.counts), q.target) + '/' + q.target :
+        (ADV.quest.title ? '🏅 ' + ADV.quest.title : '全部完成 🎉');
     const alive = Mobs.list().filter((m) => !m.dead && !m.gone).length;
     return [
       `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
       `👾 怪物: ${alive} · ☠️ 击杀: ${ADV.killCount}`,
       `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
+      `📖 任务: ${qTxt}`,
       `注视: ${ModeKit.lookName(hit)} · B 菜单`,
     ];
   },
@@ -1479,11 +1683,13 @@ const AdventureMode = mkMode({
     T14 已落地(巢穴节律/挥击伤害/掉落清单/播报文案纯函数 + ADV.killCount 击杀账本,
     击杀挂 Mobs.onDeath; 左键语义与挖掘在 onMouse 并线: 准星锥内有怪=挥击,
     否则让位挖掘/放置) ·
-    T15 任务进度挂 ADV.quest(advQuestSlot 落盘), 合成事件挂钩点 =
-    advOnCraft 成功分支(产物名/leftover 都在手), 击杀/掉落事件挂点 =
-    advOnKill(观感+计数) 与 init 里的 onDeath/收集回调两处闭包 */
-AdventureMode.adv = {ADV, ADV_NESTS, advDeathPlan, advMarkEdit, advGetInv: () => advInv,
-  advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar,
+    T15 已落地(ADV_QUESTS 12 步+终章数据表与谓词纯函数 + ADV.quest.counts 事件
+    计数账本, 挂点=advBreakBlock 尾部/advOnCollect/advOnCraft/advTryPlace/
+    advFurnaceTick 产出分支五处只 +=; 推进=update 内 advQuestTick 0.5s 节流
+    只查当前步; 任务卡=advQuestPaint 挂 advPanel.questEl; 仪式=advDiamondRite
+    首获专属/advFireworks 终章烟花) */
+AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advGetInv: () => advInv,
+  advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar, advQuestEl, advQuestPaint,
   advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText,
   advMineStep, advPlaceCheck, advEatPolicy, advSapDue, advMine, advSaplings, advBreakBlock,
   advTryPlace, advGrowTree, advMineStop,

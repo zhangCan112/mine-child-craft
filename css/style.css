@@ -1153,6 +1153,94 @@ canvas {
   width: 190px;
 }
 
+/* 任务卡内容(T15): 标题/称号/当前步/进度条/划线史 */
+.advq-head {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffe27a;
+  text-shadow: 0 1px 2px #000;
+  margin-bottom: 8px;
+}
+
+.advq-badge {
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  text-align: center;
+  background: rgb(124 252 0 / 18%);
+  border: 2px solid rgb(255 226 122 / 55%);
+  border-radius: 8px;
+  padding: 6px 4px;
+  margin-bottom: 8px;
+}
+
+.advq-cur {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  background: rgb(0 0 0 / 32%);
+  border: 2px solid rgb(255 255 255 / 25%);
+  border-radius: 8px;
+  padding: 8px;
+}
+
+.advq-ic {
+  font-size: 30px;
+  line-height: 1.1;
+}
+
+.advq-goal {
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.advq-pg {
+  font-size: 12px;
+  color: #ffe27a;
+  margin-top: 3px;
+}
+
+.advq-bar {
+  height: 8px;
+  background: rgb(255 255 255 / 14%);
+  border-radius: 4px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.advq-bar i {
+  display: block;
+  height: 100%;
+  background: linear-gradient(90deg, #7cfc00, #ffe27a);
+  border-radius: 4px;
+  transition: width 0.3s;
+}
+
+.advq-done {
+  font-size: 13px;
+  line-height: 1.5;
+  text-align: center;
+  background: rgb(0 0 0 / 32%);
+  border-radius: 8px;
+  padding: 10px 6px;
+}
+
+.advq-hist {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.advq-row {
+  font-size: 11px;
+  color: rgb(255 255 255 / 62%);
+}
+
+.advq-row s {
+  text-decoration-color: rgb(255 120 120 / 70%);
+}
+
 /* ---------- 熔炉面板: 三槽 + 进度条 ---------- */
 .mkp-furnace {
   width: min(420px, 94vw);

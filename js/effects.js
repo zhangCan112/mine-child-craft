@@ -67,6 +67,7 @@ const SFX_DEFS = {
   splash: {type: 'sine', f0: 500, f1: 120, fT: 0.15, dur: 0.18, g: 0.10}, // 火花入水
   roar: {type: 'sawtooth', f0: 110, f1: 45, fT: 0.35, dur: 0.40, g: 0.14}, // 僵尸狂暴怒吼
   level: {type: 'sine', steps: [660, 880, 1320], stepT: 0.08, dur: 0.42, g: 0.12}, // 晋升琶音
+  gem: {type: 'sine', steps: [1318, 1760, 2637], stepT: 0.09, dur: 0.5, g: 0.12}, // 钻石首获琶音(T15 仪式, 三音上行更闪)
   win: {special: 'win'}, // 胜利和弦(双振荡器)
 };
 
