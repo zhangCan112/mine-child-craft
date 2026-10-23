@@ -486,6 +486,8 @@ function showFocusCabinet() {
     };
   });
   SpeechKit.speak(count(focusBag.inv, 'diamond') > 0 ? '哇，这么多钻石！' : '哇，好多宝贝！点一点，我念给你听。');
+}
+
 /* ---------- 每日体检 · 魔鬼特训 (F8, 设计稿 §8 B3/B8) ----------
    体检: FOCUS_CHECK_PARAMS 五维连跑约 90 秒 → 探险家火苗三档; 计入时长、
    不占关数额度; 当日一次, 做完入口消失; 只与自己近 7 天均值比且只显变亮。
@@ -733,7 +735,7 @@ function abortDevilRun() {
   run.stopped = true;
   clearTimeout(run.deadlineId);
   clearInterval(run.tickId);
-  devilRun = null;}
+  devilRun = null;
 }
 
 /* ---------- 家长面板 ---------- */
