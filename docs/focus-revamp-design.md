@@ -396,3 +396,7 @@ gonogo tier11 伪装已全量（与旧持平），无断崖。
   （`mkBackpack()→{inv, load, save}`，探险已为第一消费方），L1 改为对接口径（授予流走
   背包核心、宝物柜渲染归模式层、混装容量实现期核定）；实现规格与工单另立
   `docs/focus-revamp-spec.md` / `docs/focus-revamp-tickets.md`（ready-for-agent）。
+- 2026-10-23 五次实现期回写（F1~F9 并入，逐笔见对应提交）：F1 按实现回写 D4 lenMix
+  口径矛盾（grid 行口径，tier14/15 吃减载，`175fe1f`）；F3 选型 B（里程碑工具记账
+  不进包）回填 L1/L4 与 spec #9/#17（`5a11184`）；F2 D5 材质族五件无条件化实现注
+  （参数表无 tier≥6 承载、choices5 需五件去重，构念不变，`e4fc894`）。
