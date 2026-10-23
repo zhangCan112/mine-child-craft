@@ -1124,4 +1124,101 @@
 .f-cab-tools .f-cab-item img {
   width: 72px;
   height: 72px;
+  每日体检 · 魔鬼特训 (F8, 设计稿 §8 B3/B8)
+============================================================ */
+
+/* 今日页附加入口行 */
+.f-extra-row {
+  display: flex;
+  gap: 12px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+  justify-content: center;
 }
+
+.f-extra-btn {
+  font-size: 17px;
+  font-weight: 700;
+  padding: 10px 20px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 255 255 / 45%);
+  background: rgb(0 0 0 / 35%);
+  cursor: pointer;
+  color: #fff;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-extra-btn:hover {
+  background: rgb(255 255 255 / 18%);
+}
+
+.f-extra-btn[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.f-check-btn {
+  border-color: rgb(255 216 61 / 75%);
+}
+
+/* 村长头像(体检/魔鬼特训主持) */
+.f-chief img {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 40%));
+}
+
+/* 探险家火苗: 三档底图(摇曳动画类 .f-flame-sway 由 F9 备好, 此处复用不重定义) */
+.f-flame img {
+  width: 128px;
+  height: 128px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 18px rgb(255 157 46 / 55%));
+}
+
+/* 魔鬼特训: 红黑氛围(鬼村长上岗) */
+.f-devil-zone {
+  background: radial-gradient(ellipse at center, rgb(90 20 40 / 35%), rgb(20 8 16 / 75%));
+}
+
+.f-devil-head .f-rule-text {
+  color: #ffb0a0;
+}
+
+.f-devil-timer {
+  font-size: 20px;
+  font-weight: 800;
+  color: #ffd83d;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-devil-bar {
+  background: linear-gradient(90deg, #c33a24, #8a5cb0);
+}
+
+.f-devil-area {
+  border-color: #5a3a4d;
+  background: linear-gradient(#2b1c26, #1c1218);
+}
+
+.f-devil-ico img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  vertical-align: middle;
+}
+
+/* 通关鬼图章 */
+.f-devil-stamp img {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 14px rgb(138 92 176 / 60%));
+  animation: f-stamp-pop 0.5s;
+}
+
+@keyframes f-stamp-pop {
+  40% {
+    transform: scale(1.5) rotate(10deg);
+  }}
