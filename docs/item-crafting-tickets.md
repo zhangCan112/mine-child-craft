@@ -111,8 +111,9 @@ flowchart TD
 
 ## 第二波
 
-### T5 背包核心（inventory-core）`[ ]`
+### T5 背包核心（inventory-core）`[x]`（并入 `823594a`）
 - 依赖：T1。
+- 接口备注：HOTBAR_SLOTS=9/MAIN_SLOTS=18/INV_SLOTS=27 已导出；函数就地修改 inv；damageTool 返 0=破板信号（消失政策在模式层，接线后记得 remove）；serialize 直产 {_v:1,slots} 喂 mkSaveSlot('inventory_save')；任选材料 cost 形态 [['coal','charcoal'],1] 按候选顺序扣。
 - 交付：`js/inventory-core.js`——27 槽模型（9 快捷+18 主格）+ 纯函数 `add/count/canAfford/take/remove/damageTool/serialize/deserialize`（add 优先并堆→首个空位，满则拒收返回余量；canAfford 支持任选材料数组扣料边界）。
 - 测试：`test/inventory-core.test.js`——并堆/满拒/跨槽扣料/耐久归零/序列化往返。
 - 先例：`test/tank-core.test.js` 的 vm 加载（需连 items-core 一起 load）。
