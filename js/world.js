@@ -356,18 +356,57 @@ function loadScene(buildFn) {
 }
 
 /* 单块编辑: 挖除出同色碎屑是默认反馈; 调用方要静默挖除(如模式自己的
-   定制反馈)传 opt {debris:false}。反馈政策可关, 缺省保持原行为 */
+   定制反馈)传 opt {debris:false}。反馈政策可关, 缺省保持原行为。
+   破坏(id→0)时返回方块级联清单 [{x,y,z,id}...](不含触发块; 放置返回 [])——
+   引擎只报事件, 掉落/记账/话术是模式政策(方块级联设计稿 D3/D4)。
+   既有调用方忽略返回值则行为不变(级联自动生效), 向后兼容 */
 function editBlock(x, y, z, id, opt) {
   const old = getBlock(x, y, z);
   setBlockRaw(x, y, z, id);
-  if (id === 0 && old !== 0 && !(opt && opt.debris === false)) { // 挖除反馈: 同色碎屑(唯一入口经 Fx, 见 GLOSSARY)
-    const c = faceColor(old, [0, 1, 0]); // 顶面色 — 方块注册表的单一来源
-    Fx.debrisBurst(x+0.5, y+0.5, z+0.5, 6, {
-      color: (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255),
-      life: 0.7});
+  let removed = [];
+  if (id === 0 && old !== 0) {
+    if (!(opt && opt.debris === false)) { // 挖除反馈: 同色碎屑(唯一入口经 Fx, 见 GLOSSARY)
+      const c = faceColor(old, [0, 1, 0]); // 顶面色 — 方块注册表的单一来源
+      Fx.debrisBurst(x+0.5, y+0.5, z+0.5, 6, {
+        color: (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255),
+        life: 0.7});
+    }
+    removed = applyCascade(x, y, z, old);
+    if (removed.length && !(opt && opt.debris === false)) cascadeDebris(removed);
   }
   markDirty(x, z); // 单块编辑与批量同走队列(连续挖掘同样摊平)
   flushDirty();
+  return removed;
+}
+
+/* ---------- 方块级联(编辑后世界自洽, docs/block-lifecycle-design.md) ----------
+   机制在 cascade-core(纯核心), 身份旗标在 config BLOCKS(D1), 这里只做装配:
+   破坏结算后按身份连锁(原木组件接地砍倒/树叶失依而落/依附块随底座脱落)。
+   全模式破坏路径都收敛在 editBlock / editBlockDirty 两入口(设计稿 D3 已
+   逐一核实: 探险挖掘·探险 TNT·建造·竞技场→editBlock, 坦克炮击→editBlockDirty);
+   新的破坏路径必须走这两入口——绕过=世界不变量破洞(world-integrity 兜底)。 */
+const CASCADE_POLICY = CascadeCore.mkPolicy(BLOCKS);
+function applyCascade(x, y, z, oldId) {
+  if (oldId === 0) return [];
+  const removed = CascadeCore.cascadeRemove(getBlock, setBlockRaw, x, y, z, oldId, CASCADE_POLICY);
+  for (const r of removed) markDirty(r.x, r.z); // 级联块各自区块入脏(同区块多块由 Set 去重)
+  return removed;
+}
+/* 级联碎屑: 同 id 聚一撮取质心, 一次加量(单棵树至多两三撮, 上限 24 粒/撮) */
+function cascadeDebris(removed) {
+  const groups = new Map();
+  for (const r of removed) {
+    if (!groups.has(r.id)) groups.set(r.id, []);
+    groups.get(r.id).push(r);
+  }
+  for (const [gid, rs] of groups) {
+    let gx = 0; let gy = 0; let gz = 0;
+    for (const r of rs) { gx += r.x + 0.5; gy += r.y + 0.5; gz += r.z + 0.5; }
+    const c = faceColor(gid, [0, 1, 0]);
+    Fx.debrisBurst(gx / rs.length, gy / rs.length, gz / rs.length, Math.min(rs.length * 2, 24), {
+      color: (Math.round(c[0]*255)<<16) | (Math.round(c[1]*255)<<8) | Math.round(c[2]*255),
+      life: 0.7});
+  }
 }
 
 /* ---------- 编辑管线: 单块/批量统一走重建队列 ----------
@@ -386,8 +425,11 @@ function markDirty(x, z) {
   if (z % CHUNK === CHUNK-1) dirtyChunks.add(chunkKey(cx, cz+1));
 }
 function editBlockDirty(x, y, z, id) {
+  const old = getBlock(x, y, z);
   setBlockRaw(x, y, z, id);
+  const removed = (id === 0 && old !== 0) ? applyCascade(x, y, z, old) : [];
   markDirty(x, z);
+  return removed; // 坦克批量链注入此入口: 级联已生效(炸林区整树倒), 返回值按需消费
 }
 function flushDirty() { // 记账收口: 脏区块转入重建队列
   for (const k of dirtyChunks) {

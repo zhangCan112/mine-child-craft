@@ -395,6 +395,17 @@ Object.assign(BLOCKS[13], {hard: 1.5, tool: 'pick', tier: 1, drop: [['stone_bric
 Object.assign(BLOCKS[14], {hard: 2.0, tool: 'pick', tier: 1, drop: [['mossy_cobble', 1, 0]]}); // 苔石: 矿洞/遗迹直接采集(§3.5)
 Object.assign(BLOCKS[18], {hard: 0.3, tool: null, tier: 0, drop: [['glass', 1, 0]]}); // MC 玻璃无掉落 → 零惩罚哲学掉自身
 
+/* ---------- 方块级联身份旗标 (docs/block-lifecycle-design.md D1) ----------
+   编辑后世界自洽的级联判据(block-lifecycle): 身份即白名单——机制跟着
+   「它是什么」走, 不跟「它在哪」走(石头无旗标, 在哪挖都不塌; 是树就倒,
+   孩子搭的原木柱与自然树同一规则)。
+   fell  结构身份: 连成一体共享接地, 失撑整组件倒(砍一节=整树倒/柱脚被挖=柱倒);
+   need  伴生身份: {id, dist} 依赖某方块在 taxicab 距离内, 失依即落
+         (树叶 4 格内须有原木——MC BE 口径, JE 6 会让贴脸双树互保);
+   thin  依附身份: 旗标既有(草丛/麦/火把/树苗), 破坏侧随底座脱落——复用不新增。 */
+Object.assign(BLOCKS[5], {fell: true}); // 原木: 结构成员(木板 6 不参与——原木房子承重墙不受牵连)
+Object.assign(BLOCKS[7], {need: {id: 5, dist: 4}}); // 树叶: 4 格内有原木才存活
+
 function faceColor(id, dir) {
   const b = BLOCKS[id];
   if (b.all) return b.all;
