@@ -205,7 +205,8 @@ flowchart TD
 
 ## 第七波（收尾）
 
-### T16 回归收尾 + GLOSSARY 合入 `[ ]`
+### T16 回归收尾 + GLOSSARY 合入 `[x]`（并入 `d73a82b`）
 - 依赖：T15。
+- 三门禁全绿：397 测试 / lint 三工具零错 / server 冒烟 200+六 script 行。GLOSSARY 七新五更；设计稿顶部实施状态注记（TNT 下线/拆炉不做/QUESTS 口径）。
 - 交付：全量 `npm test` + `npm run lint` 零错误；五模式回归确认；GLOSSARY 新术语（物品核心/背包核心/合成核心/掉落物实体库/探险模式/像素图标工坊）词条合入；设计稿与本工单状态对齐勾选。
 - 完成后由主会话跑 code-review 技能评审集成分支。
