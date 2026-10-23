@@ -13,7 +13,9 @@
      FOCUS_LEVELS · focusPassed · focusStars · FOCUS_LOOT · FOCUS_MILESTONES ·
      milestoneDue · focusProgress ·
      FOCUS_CHECK_PARAMS · focusFlame · devilStep · devilParams ·
-     FOCUS_STAMP_DAILY · FOCUS_STAMP_REWARDS
+     FOCUS_STAMP_DAILY · FOCUS_STAMP_REWARDS · stampRecord(stamps, day, count) ·
+     stampTrim(stamps, today) · stampCount(stamps) · stampMilestones(count) ·
+     stampRewardsDue(count, claimed) · stampRewardFor(line)
    依赖(均经全局名): 纯函数无依赖; FOCUS_META 的图标字段在构造期调用
      mcIcon/creeperFace(js/focus-icons.js, 加载序在本文件之前, 见 index.html)
    可测性: 零 THREE·零 DOM(图标为惰性字符串拼接)·有单测
@@ -265,3 +267,63 @@ const FOCUS_STAMP_REWARDS = {
   14: 'firework', // 宝物柜烟花彩蛋
   30: 'gold_stamp', // 金图章
 };
+
+/* ---------- 图章纯函数(F7 工单): 落账/裁剪/集章计数/里程碑判定 ----------
+   stamps 形状 {日期: 当日关数}(键与 budgetDateStr 同款 'Y-M-D' 无前导零);
+   全部无突变(返回新对象/新数组)。落账点在 modes/focus.js 的结算处,
+   count 传当日预算已耗关数(与今日页 dots 同口径, 通过与否都计) */
+const FOCUS_STAMP_KEEP_DAYS = 90; // 滚动保留窗口(含今天), 防存档膨胀
+const FOCUS_STAMP_DAY_MS = 86400000;
+
+/* 'Y-M-D' → 当天 00:00 时间戳; 非法键 NaN(裁剪时自然丢弃) */
+function stampDayTs(day) {
+  const m = /^(\d+)-(\d+)-(\d+)$/.exec(String(day));
+  return m ? new Date(+m[1], +m[2]-1, +m[3]).getTime() : NaN;
+}
+
+/* 落账: 当日计数钳 1~6(日限 FOCUS_DAILY_LEVELS=6, 按值拷贝免跨文件依赖),
+   当日取 max 不重复累加(重玩同日不叠章); 0/负/NaN 关不落账 */
+function stampRecord(stamps, day, count) {
+  if (!(count > 0)) return stamps;
+  const n = Math.max(1, Math.min(6, Math.round(count)));
+  const next = {...stamps};
+  next[day] = Math.max(next[day] || 0, n);
+  return next;
+}
+
+/* 裁剪: 只保留今天起 90 天窗口内的键(含今天), 更老与非法键丢弃(防存档膨胀);
+   today 本身非法时原样返回(防御: 不清档) */
+function stampTrim(stamps, today) {
+  const t0 = stampDayTs(today);
+  if (Number.isNaN(t0)) return stamps;
+  const cutoff = t0 - (FOCUS_STAMP_KEEP_DAYS-1)*FOCUS_STAMP_DAY_MS;
+  const next = {};
+  for (const day in stamps) {
+    if (stampDayTs(day) >= cutoff) next[day] = stamps[day];
+  }
+  return next;
+}
+
+/* 集章总数 = 有章天数(每天至多 1 章; 普通/大章是同一枚章的两种大小, 不双计) */
+function stampCount(stamps) {
+  return Object.keys(stamps).length;
+}
+
+/* 达成线: 表内 3/7/14/30 + 60/90/…每 30 章递进(都是金图章, 30 已在表内) */
+function stampMilestones(count) {
+  const lines = Object.keys(FOCUS_STAMP_REWARDS).map(Number).filter((k) => count >= k);
+  for (let m = 60; m <= count; m += 30) lines.push(m);
+  return lines.sort((a, b) => a - b);
+}
+
+/* 待领 = 已越线 − 已领(差集): 幂等, 领取方把线记进存档后不再重发;
+   存量档首次落账时一次性补授全部已越线(观感奖励, 无重复入账风险) */
+function stampRewardsDue(count, claimed) {
+  const got = new Set(claimed || []);
+  return stampMilestones(count).filter((line) => !got.has(line));
+}
+
+/* 达成线 → 奖励 id: 递进线(60/90/…)不在表内, 沿用 30 的金图章 */
+function stampRewardFor(line) {
+  return FOCUS_STAMP_REWARDS[line] || FOCUS_STAMP_REWARDS[30];
+}
