@@ -95,6 +95,8 @@ flowchart TD
 - 交付：训练营像素图标库扩充——训练师村长三表情（微笑/喝彩/打盹，白胡子+矿工帽+头灯，16×16→96px 既有管线）+ 鬼化变体（矿工帽加鬼角+坏笑）；图章组（⛏️💎🧨 三图案 + 大图章 + 金图章 + 鬼图章）；火苗三态（小/中/大，做摇曳帧基础图）。中立头像（猪/羊）**仅当 F2 报告声明怪物库头像接口不合用时**补画。
 - 测试：像素图标库无直测惯例——boot 冒烟兜底；函数形状沿用既有缓存模式（同键只画一次）。
 
+### F4b 猪/羊中立头像（F2 转单）`[x]`（并入 `f8309ff`，`pigFace()`/`sheepFace()` 像素画 + `mobFace()` 前置路由收敛一处；混入生物仍走 Mobs.face；未动 mobs.js）
+
 ---
 
 ## 第二波
@@ -142,7 +144,7 @@ flowchart TD
 
 ### F10 回归收尾 + GLOSSARY `[ ]`
 - 备注（F6 转记）：宝物柜工具组只认 `tools` 字段——探险合成所得工具不进柜（选型 B 口径），是否补充该展示在此再议并记录结论。
-- 备注（F9 转记）：①**lint 债**——集成分支 eslint 既有 60 错待集成者收（F4 focus-icons no-multi-spaces×56+indent×4、F1 focus-levels max-len×1、F6 modes/focus.js:329 brace-style/block-spacing×4），stylelint 已过；②**真人走查三项**——corisi 4×4/flanker len9 下石壁对比度、底部火把光晕是否干扰刺激、游标窄屏（80vw）两端裁切。
+- 备注（F9 转记）：①**lint 债**——集成分支 eslint 存量经 F4b 复测为 **264 错**（F2/F8 的 modes/focus.js indent 大片 + F4 focus-icons no-multi-spaces 等；master 侧 lint 为绿，差异全来自本分支），stylelint 的 Unclosed block 已由集成者热修（F8 粘贴事故）；②**真人走查三项**——corisi 4×4/flanker len9 下石壁对比度、底部火把光晕是否干扰刺激、游标窄屏（80vw）两端裁切。
 - 依赖：全部。
 - 交付：index.html 加载声明核对（仅背包壳一行，位置见 F3）；GLOSSARY 词条（共享背包 Backpack/矿袋/宝物柜/图章日历/魔鬼特训/训练师村长，含 _Avoid_ 别名）；核对 item-crafting-design 变更记录与 ADR 0002 交叉引用；npm test + npm run lint 全绿汇总。
 - 手工验收剧本（设计稿 §6）：造档 L37/L49 体验伪装渐入与长度混编的坡道感；矿袋飞行/3 连保底/结算回顾/宝物柜计数/满包 toast 一次性；unlocked=50 存量档首入补授铁镐；顶格关（tier 18/19）len9 行宽与双价干扰可读性；家长面板 CSV 列与免责声明不变。
