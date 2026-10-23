@@ -151,8 +151,9 @@ flowchart TD
 
 ## 第三波
 
-### T10 mode-kit 扩展（item 槽型 + 面板）`[ ]`
+### T10 mode-kit 扩展（item 槽型 + 面板）`[x]`（并入 `a77a0ba`）
 - 依赖：T1、T6、T8。
+- 接口备注：item 槽 {item:id, cnt?, dur?} 访问器模式（refresh 重读）；mkCraftPanel {inv, station?, allow?, onCraft, onSort} → {root, questEl, show, hide, remove, refresh}（questEl=T15 任务卡挂点；外部扣加后要手动 refresh）；ModeKit.sortInv 只压实主格；mkFurnacePanel 纯显示+意图出口 setSlots/setProgress/onAutoFill({load,fuel,units})——烧炼状态由模式层喂。
 - 交付：`mode-kit.js`——① `mkHotbar` 第三种槽型 `{item:id}`（像素图标+数量+耐久条，digit/wheel/点选自动）；② `mkCraftPanel`（背包网格 3×6 + 配方书卡片列表 + 分类页签 + 任务卡占位容器；卡片亮灰由 `canCraft` 驱动，单击合成、长按连做，缺料图标灰显）；③ `mkFurnacePanel`（三槽+进度条+自动放料）。CSS 配套（hotbar 既有皮肤体系）。DOM 挂点新增元素由面板自建（不依赖 index.html 改动）。
 - 测试：`test/mode-kit.test.js` 扩展（doc 注入桩）——item 槽渲染形状、亮灰切换回调、连做节流。
 
