@@ -402,11 +402,16 @@ function startMathLevel(i) {
 }
 
 
-/* 摆与搭世界轨(T6)离场收口: 停引擎(清 HUD/热栏/触屏键) · 交还指针
-   (uiPause → onLockChanged → MathMode.onMenu, 彼时已无进行中关卡, 只收
-   overlay) · 复明 DOM 屏 — hop 轨不锁指针不走 uiPause, 幂等无害 */
+/* 摆与搭世界轨(T6)离场收口: 只收当前 runner(清 HUD/热栏/触屏键) ·
+   交还指针(uiPause → onLockChanged → MathMode.onMenu, 彼时已无进行中
+   关卡, 只收 overlay) · 复明 DOM 屏。不调 mathStopRun — 那会顺手掐死
+   boss 链的 mathBossStop 旗(世界小节收尾时链条必须活着走下一节;
+   Esc/退出的整链中止归 onMenu)。hop 轨不锁指针不走 uiPause, 幂等无害 */
 function mathWorldLeave() {
-  mathStopRun();
+  if (mathCtrl) {
+    mathCtrl.stop();
+    mathCtrl = null;
+  }
   if (document.pointerLockElement || (typeof touchPlaying !== 'undefined' && touchPlaying)) {
     uiPause();
   }
