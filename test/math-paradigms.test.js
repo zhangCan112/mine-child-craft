@@ -9,6 +9,8 @@
    mathPraiseLine/mathComfortLine) · 种子确定性(同 seed 同输出, 异 seed 异题)
    · stop() 中止 · 模式层流程纯函数(mathVariantTrack 分发缝 / mathBossPlan
    / mathAggStats / mathFrontier / mathFamChallengeDone / mathSettleSave 落账)
+   · G1 常驻钟面纯函数(mClockAngles 时/分针角度 · mClockSay 报时口径
+   整时/半时/几时几分 · mClockFace 角度单一出处守卫)
    · index.html 脚本序(math-levels → math-puzzles-core → math-paradigms →
    modes/math, 加载序即依赖序)
    加载器: vm context 依次执行 math-levels.js + math-puzzles-core.js +
@@ -112,7 +114,9 @@ function loadMathParadigms(opts) {
       MATH_FAMILIES, MATH_CONTEXTS, mathParamsFor, mathPassed, mathStars, MATH_SAVE_DEFAULTS,
       migrateMathSave, MATH_LOG_KEEP_DAYS, trimMathLog,
       mathScreenDispatch, mathGuardParams, runMathScreen,
-      mBalancePair, mBalanceReveal, MATH_BALANCE_HINT };
+      mathScreenDispatch, mathGuardParams, runMathScreen,
+      mBalancePair, mBalanceReveal, MATH_BALANCE_HINT,
+      mClockFace, mClockAngles, mClockSay };
   `, ctx);
   return {
     mp: sandbox.__mp, els, spoken, warns, sfxLog, clsLog, timers,
@@ -1030,6 +1034,44 @@ test('hop/clock: 时间推算 — 基时刻+delta 神oracle(过半小时/一小�
     }
     assert.ok(found >= 1, 'tier' + tier + ' 30 个种子内掷到推算子型');
   }
+});
+
+/* ============ G1 常驻昼夜大钟: 角度/报时纯函数(钟部件族, 单一直出处) ============ */
+
+test('mClockAngles: 时/分针角度 — 12 点制归 0..360, 半时时针落两数字之间, 分针连续无跳变', () => {
+  const {mp} = loadMathParadigms();
+  /* {...} 展开: vm context 的对象原型与宿主不同, deepStrictEqual 前先落宿主对象(仓库惯例) */
+  const ang = (h, m) => ({...mp.mClockAngles(h, m)});
+  assert.deepStrictEqual(ang(12, 0), {hour: 0, min: 0}, '12 点制: 12 时不转 360°');
+  assert.deepStrictEqual(ang(0, 0), {hour: 0, min: 0}, '24 时制 0 点=12 点位置');
+  assert.deepStrictEqual(ang(3, 0), {hour: 90, min: 0});
+  assert.deepStrictEqual(ang(3, 30), {hour: 105, min: 180}, '半时时针在 3 与 4 中间(认钟教学点)');
+  assert.deepStrictEqual(ang(6, 15), {hour: 187.5, min: 90}, '时针随分推进(每分 0.5°)');
+  /* 分针连续性: 10:59→11:00 分针 354°→360°(≡0°) 顺接无回卷, 时针 329.5°→330° */
+  assert.deepStrictEqual(ang(10, 59), {hour: 329.5, min: 354});
+  assert.deepStrictEqual(ang(11, 0), {hour: 330, min: 0});
+});
+
+test('mClockSay: 报时中文串 — 整时「X 点整」/半时「X 点半」教材口径, 任意分「X 点 Y 分」, 24 时制归 12 点制', () => {
+  const {mp} = loadMathParadigms();
+  assert.strictEqual(mp.mClockSay(3, 0), '现在是 3 点整');
+  assert.strictEqual(mp.mClockSay(3, 30), '现在是 3 点半');
+  assert.strictEqual(mp.mClockSay(3, 7), '现在是 3 点 7 分', '任意分: 几时几分口径');
+  assert.strictEqual(mp.mClockSay(15, 30), '现在是 3 点半', '24 时制 15 时=下午 3 点');
+  assert.strictEqual(mp.mClockSay(0, 0), '现在是 12 点整', '0 时=12 点制 12 点');
+  assert.strictEqual(mp.mClockSay(12, 5), '现在是 12 点 5 分');
+  assert.strictEqual(mp.mClockSay(23, 59), '现在是 11 点 59 分');
+});
+
+test('mClockFace: 针角度出自 mClockAngles 单一出处 — 常驻钟面与谜题钟面同形态', () => {
+  const {mp} = loadMathParadigms();
+  const face = mp.mClockFace(mkFakeEl([], []), 2, 35);
+  const a = mp.mClockAngles(2, 35);
+  const html = String(face.innerHTML);
+  assert.ok(html.includes('rotate(' + a.hour + 'deg)'), '时针角度=纯函数值 ' + a.hour + '°');
+  assert.ok(html.includes('rotate(' + a.min + 'deg)'), '分针角度=纯函数值 ' + a.min + '°');
+  assert.strictEqual(face.dataset.h, 2, 'oracle 位 dataset.h 保持 12 时制原值');
+  assert.strictEqual(face.dataset.m, 35, 'oracle 位 dataset.m');
 });
 
 /* 测距神 oracle: m-path 的 a/b/mode/round → mkIntervalPuzzle 口径 */
