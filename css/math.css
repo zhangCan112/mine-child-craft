@@ -1,5 +1,5 @@
 /* ============================================================
- 数学冒险岛 — 界面样式 (T1 骨架 + T4 屏流引擎/关卡地图/关卡屏/结算)
+ 数学冒险岛 — 界面样式 (T1 骨架 + T4 屏流引擎/关卡地图/关卡屏/结算 + T5 世界轨混合宿主)
  MC 配色 · 大目标 · 零文字压力 (focus.css 同款纪律: 像素图标
  image-rendering: pixelated · DPR 友好 · reduced-motion 动画全关)
  ============================================================ */
@@ -703,6 +703,152 @@ button.m-mark:hover {
   text-shadow: 0 2px 3px #000;
 }
 
+/* ---------- 情境变体小部件(T7): 商店/钟面/测距格子路 ---------- */
+
+/* 人民币商店: 货架行 + 价签 + 付款整钞 */
+.m-shoprow {
+  display: flex;
+  gap: 18px;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+
+.m-shopgood {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 255 255 / 45%);
+  background: rgb(0 0 0 / 35%);
+}
+
+.m-pricetag {
+  font-size: 18px;
+  font-weight: 800;
+  color: #ffd83d;
+  text-shadow: 0 2px 3px #000;
+}
+
+.m-shoppay {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 18px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: rgb(0 0 0 / 28%);
+}
+
+.m-bill {
+  display: inline-block;
+  font-size: 22px;
+  font-weight: 800;
+  padding: 6px 16px;
+  border-radius: 8px;
+  border: 3px solid rgb(126 211 96 / 85%);
+  background: rgb(60 140 60 / 45%);
+}
+
+/* 钟面: DOM 指针钟(12/3/6/9 刻度, 时/分针 transform 旋转) */
+.m-clock {
+  position: relative;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  border: 6px solid rgb(255 255 255 / 75%);
+  background: rgb(20 40 70 / 75%);
+}
+
+.m-clock-num {
+  position: absolute;
+  font-size: 16px;
+  font-weight: 800;
+  text-shadow: 0 1px 3px #000;
+}
+
+.m-clock-n12 {
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.m-clock-n3 {
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.m-clock-n6 {
+  bottom: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+}
+
+.m-clock-n9 {
+  left: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.m-clock-hand {
+  position: absolute;
+  left: 50%;
+  bottom: 50%;
+  transform-origin: 50% 100%;
+  border-radius: 4px;
+  background: #fff;
+}
+
+.m-hourhand {
+  width: 6px;
+  height: 36px;
+  margin-left: -3px;
+}
+
+.m-minhand {
+  width: 4px;
+  height: 52px;
+  margin-left: -2px;
+  background: #ffd83d;
+}
+
+/* 测距步数: 格子路(带绝对序号, 起点小怪物/终点小旗) */
+.m-path {
+  display: flex;
+  gap: 4px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  justify-content: center;
+  max-width: 660px;
+}
+
+.m-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 2px;
+  width: 46px;
+  min-height: 58px;
+  padding: 2px 0 4px;
+  border-radius: 6px;
+  border: 2px solid rgb(255 255 255 / 35%);
+  background: rgb(109 184 78 / 80%);
+}
+
+.m-cellend {
+  border-color: rgb(255 216 61 / 80%);
+  background: rgb(80 150 60 / 90%);
+}
+
+.m-cellnum {
+  font-size: 13px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #000;
+}
+
 /* ---------- 结算屏 ---------- */
 .m-stars {
   display: flex;
@@ -732,7 +878,163 @@ button.m-mark:hover {
   100% { transform: scale(1); }
 }
 
-/* ---------- 世界轨 HUD(T6, math-world.js 渲染): 任务卡 + 图纸覆层 ----------
+/* ---------- 世界轨(T5): 透明宿主 + 点选接球层 + 任务卡 + 反馈闪条 ----------
+   混合宿主: 3D 世界渲染在画布上, mathRoot 只剩覆层 — 接球层收指针,
+   任务卡/返回钮可点, 头部信息不挡点选(pointer-events 分层) ---------- */
+#mathRoot.m-world {
+  background: none;
+  overflow: hidden;
+}
+
+#mathRoot.m-world .m-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+#mathRoot.m-world .m-top .m-back {
+  pointer-events: auto;
+}
+
+#mathRoot.m-world .m-level-head {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(640px, 92vw);
+  margin: 0;
+  z-index: 3;
+  pointer-events: none;
+}
+
+.m-w-catcher {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.m-w-card {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 4;
+  width: min(560px, 94vw);
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border-radius: 16px;
+  border: 3px solid rgb(255 255 255 / 40%);
+  background: rgb(10 14 20 / 62%);
+  text-align: center;
+}
+
+.m-w-q {
+  font-size: 19px;
+  font-weight: 800;
+  line-height: 1.45;
+  margin: 2px 0 8px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.m-w-hint {
+  font-size: 14px;
+  opacity: 0.85;
+  margin: 6px 0 2px;
+  text-shadow: 0 2px 4px #000;
+}
+
+/* 规律跳的序列槽排复用屏流 m-slot/m-numslot/m-blank, 收窄到卡内尺寸 */
+.m-w-card .m-slot {
+  min-width: 40px;
+  min-height: 40px;
+  font-size: 17px;
+}
+
+.m-w-card .m-seq {
+  gap: 5px;
+  margin: 4px 0;
+}
+
+/* 掷骰按钮 + 3×3 骰面 */
+.m-w-die {
+  font-size: 21px;
+  font-weight: 800;
+  color: #fff;
+  padding: 10px 26px;
+  border-radius: 14px;
+  border: 4px solid #fff;
+  cursor: pointer;
+  background: rgb(220 60 40 / 55%);
+  text-shadow: 0 2px 4px #000;
+  box-shadow: 0 5px 0 rgb(0 0 0 / 30%);
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.m-w-die:hover {
+  background: rgb(220 60 40 / 75%);
+}
+
+.m-w-pips {
+  display: inline-grid;
+  grid-template-columns: repeat(3, 9px);
+  grid-auto-rows: 9px;
+  gap: 3px;
+  padding: 5px;
+  border-radius: 8px;
+  background: #fff;
+}
+
+.m-w-pips i {
+  border-radius: 50%;
+}
+
+.m-w-pips i.on {
+  background: #23252d;
+}
+
+.m-w-flash {
+  position: absolute;
+  top: 24%;
+  left: 50%;
+  transform: translateX(-50%) scale(0.9);
+  z-index: 5;
+  pointer-events: none;
+  font-size: 30px;
+  font-weight: 800;
+  padding: 10px 26px;
+  border-radius: 14px;
+  background: rgb(10 14 20 / 70%);
+  text-shadow: 0 2px 6px #000;
+  opacity: 0;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.m-w-flash.show {
+  opacity: 1;
+  transform: translateX(-50%) scale(1);
+}
+
+.m-w-flash.good {
+  border: 3px solid #7cfc00;
+}
+
+.m-w-flash.bad {
+  border: 3px solid rgb(255 179 166 / 80%);
+}
+
+/* 世界轨卡内数字选项收窄(复用屏流 m-nums/m-choice/m-num 观感) */
+#mathRoot.m-world .m-choice.m-num {
+  font-size: 22px;
+  min-width: 56px;
+  padding: 8px 12px;
+}
+
+/* ---------- 世界轨 HUD(T6, math-build-world.js 渲染): 任务卡 + 图纸覆层 ----------
    指针锁定/触屏进行态下 DOM 按钮点不到 → 全卡 pointer-events:none,
    确认走世界内的发光石; 图纸是 blueprintPixels 纯投影画的 2D 像素图 */
 #mathWorldHud {
@@ -799,6 +1101,7 @@ button.m-mark:hover {
   border-radius: 8px;
   background: #2f353d;
 }
+
 
 /* ---------- 动画全关降级: 本层动画/过渡停跳 ---------- */
 @media (prefers-reduced-motion: reduce) {

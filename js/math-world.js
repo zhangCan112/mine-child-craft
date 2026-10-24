@@ -1,72 +1,57 @@
 'use strict';
 /* ============================================================
-   Math World Engine (数学世界轨引擎, 术语见 GLOSSARY.md「数学世界轨
-   引擎」) — 应用层·库(DOM/THREE 惰性, modes/math.js 的世界分支)
+   Math World Track (数学世界轨装配, 术语见 GLOSSARY.md「数学世界轨」) — 应用层·库
    ------------------------------------------------------------
-   一句话职责: 摆一摆(mirror)/搭一搭(plan)两族 8 个世界变体的
-   "装场-点选-反馈"流程 — 每试次按 MathWorldCore/PuzzleCore 的谜题
-   数据装一个 ≤32×32 小场景(石英画布+玻璃标记+样品/候选/数字牌),
-   瞄准射线点选放置/撤除(build.js 形态的关卡内临时放置)或点选
-   候选牌, 判分全部委托 PuzzleCore; 出题形状与候选生成在
-   js/math-world-core.js(纯核心, 有单测), 本文件不造第二套判分。
-   interface: runMathWorld(section, h) → {stop(), onMouse(b,hit)}|null
-     section = {family 'mirror'|'plan', variant, tier?, kind?, params, seed?}
-     h = {progress(k,n)?, onTrial({ok,streak})?, end(st)} — 与
-       runMathScreen 同契约, st 供 mathPassed/mathStars(单关口径);
-       非 mirror/plan 变体返回 null(模式层走占位屏)
-     · MATH_WORLD_FAMILIES(接管族清单, modes/math.js 分发用)
-     · mathWorldHb(三色材料热栏, MathMode 经 mkMode 挂 digit/wheel)
-   交互(纯鼠标/触屏, 无键盘依赖): 放置类右键/轻点=对准画布放置,
-     ⛏️/左键=撤除自己摆的块(样品与场地不可拆), 发光石=「好啦」
-     交卷(摆对自动过关, 交卷判错计一次试次); 选答类点数字牌/图纸牌。
-   世界轨纪律(design §3): 进场装场 · 退出清场(经 stop/模式切换),
-     不写建造存档; 图纸由 blueprintPixels 纯投影画 2D 像素图
-     (不用引擎相机远拍)。
-   依赖(均经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js) ·
-     MathWorldCore(js/math-world-core.js) · MATH_META(js/math-levels.js) ·
-     loadScene/setBlockRaw/getBlock/editBlock/collidesAtPlayer(js/world.js
-     与 voxel.js) · SceneKit(js/scene-kit.js) · mkHotbar/mode-kit.js ·
-     ModeKit.spawn · requestLock/setTouchActions/aimClick/touchPlaying
-     (js/input.js) · SpeechKit/sfx · showToast/Fx(js/effects.js) ·
-     mathPraiseLine/mathComfortLine(js/modes/math.js, 加载序在后的
-     运行期话术, math-paradigms 同款分层口径)
-   可测性: THREE/DOM 惰性创建(HUD/热栏运行期才建), 判分与候选纯逻辑
-     已下沉 math-world-core(有单测); 本文件由 boot 冒烟兜底
+   一句话职责: 把 HopWorld 纯核心出的题演成 3D 数字小路关卡 —— 装场
+   (线性方块路/整十旗/起终点装饰, ≤32×32 草岛)、走子(Avatar 沿路走+
+   逐格读数)、相机跟随与纯鼠标点选交互, 判分与出题零逻辑(全部在
+   js/hop-world-core.js)。
+   宿主形态(T4 样式基座上的混合宿主): mathRoot 切透明背景(m-world 类),
+   世界渲染在画布上, 点选接球层(.m-w-catcher)收全部指针事件, 任务卡
+   (.m-w-card)承载题面/骰子/数字选项 —— 全程不锁指针, DOM 可点、3D
+   可点, 无键盘依赖(MISSION 纯点选口径); 不锁指针=主循环不跑物理,
+   走子由本层自持 rAF 直接写 pos/vel(相机装置/玩家形象仍由主循环每帧
+   照常驱动, 引擎层零改动)。
+   玩法流(工单 T5): 规则语音(MATH_META.rule 在入场屏, 变体补充在本层)
+   → 试次循环(掷骰/跳格/间隔问答 — 间隔题点出发旗走一遍数出来, 规律跳
+   看前几次落格点下一次) → 逐试次 onTrial({ok, streak}) → end(st) 交回
+   结算(mathPassed/mathStars/星显零改动)。
+   交互射线: 点选/悬停走 CameraRig.holdAim(屏幕点)+aim(相机) 的触屏
+   口径注入 + raycastVoxel —— 相机装置瞄准 seam 的"所见即所点"用法,
+   一帧性注入不污染准星口径。
+   interface: runHopWorld(section, h) → {stop()} ·
+     section = {family:'hop', variant 'dice'|'jumps'|'gaps', tier, kind,
+     params, seed} · h = {progress(k,n)?, onTrial({ok,streak})?, end(st)}
+   依赖(均经全局名, 调用期解析): HopWorld(js/hop-world-core.js) ·
+     mRand/mEl(js/math-paradigms.js, 加载序在本文件之前) ·
+     loadScene/clearWorld/scene/camera(js/world.js) ·
+     setBlockRaw/getBlock/raycastVoxel/pos/vel/yaw/pitch/onGround
+     (js/voxel.js) · SceneKit(js/scene-kit.js) · ModeKit(js/mode-kit.js) ·
+     CameraRig(js/camera-rig.js) · SpeechKit/sfx(js/speech.js·js/audio.js) ·
+     mathPraiseLine/mathComfortLine(js/modes/math.js 应用层话术, 本文件
+     加载在其之前, 调用期解析 — 与 math-paradigms 同款分层口径)
+   可测性: THREE/DOM 全惰性(顶层零执行), Node 测试可安全加载(vm 直载,
+     boot.test.js 全链冒烟兜底); 判分纯逻辑已下沉 hop-world-core(有单测)
    ============================================================ */
 
-/* ---------- 场地与材料常数 ---------- */
-const MATH_WORLD_FAMILIES = new Set(['mirror', 'plan']);
-const MATH_WORLD = {
-  x0: 48, z0: 48, x1: 79, z1: 79, // 32×32 平台(世界 128×128 居中)
-  groundY: 20, // 平台顶层(画布嵌在这层, 站立面 y=21)
-  colBlock: {1: 16, 2: 15, 3: 19}, // 颜色号→方块: 红羊毛/蓝羊毛/灯块
-  canvasBlock: 17, // 画布底(石英)
-  markerBlock: 18, // 镜面线/轮廓/角框标记(玻璃, 嵌地面)
-  pedestalBlock: 17, // 「好啦」基座(石英)
-  checkBlock: 34, // 「好啦」确认块(发光岩)
-  digitBlock: 16, // 数字牌笔划(红羊毛)
-  boardBlock: 17, // 候选牌底板(石英)
-  askS: '摆好啦，就敲一下发光石！',
+/* ---------- 世界轨场景常数(装场口径, 判分不读这里) ---------- */
+
+const MATH_W_GROUND = 12; // 草岛顶层 y(坦克演习场同款高程)
+/* 方块选型(config BLOCKS): 路面石砖13 · 连接格圆石4 · 整十格石英17 ·
+   起点木板6 · 终点灯块19 · 旗杆木5 · 旗面蓝羊毛15/红羊毛16/黄羊毛14 */
+const MATH_W_BLOCKS = {
+  path: 13, link: 4, decade: 17, start: 6, goal: 19,
+  pole: 5, flagBlue: 15, flagRed: 16, flagYellow: 14,
 };
-const MATH_WORLD_COLS = [1, 2, 3]; // 热栏序 = 颜色号序
+const MATH_W_CAM_PITCH = -0.72; // 俯视跟随镜头(脚下与前方数格同框)
+/* 走子速度(格/秒): 复位快走 / 数数慢走(unit=10 读数更长, 再慢些) */
+const MATH_W_FAST = 4.2;
+const MATH_W_COUNT = 1.35;
+const MATH_W_COUNT10 = 1.05;
 
-/* 三色材料热栏(放置类试次亮出; MathMode 经 mkMode 挂 digit/wheel/点选) */
-const mathWorldHb = mkHotbar({items: MATH_WORLD_COLS.map((c) => ({block: MATH_WORLD.colBlock[c]}))});
-
-/* ---------- 小工具(ww 前缀避开共享词法环境的既有全局) ---------- */
-
-function wwSfx(name) {
-  if (typeof sfx === 'function') sfx(name);
-}
-function wwSpeak(s) {
-  if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak(s);
-}
-function wwPraise(ok) {
-  if (ok && typeof mathPraiseLine === 'function') wwSpeak(mathPraiseLine());
-  if (!ok && typeof mathComfortLine === 'function') wwSpeak(mathComfortLine());
-}
-/* 计时器收口: stop 一次清空(mTimers 同构的独立副本) */
-function wwTimers() {
+/* 计时器收口: stop 一次清空(math-paradigms mTimers 同构的本地副本,
+   不跨引擎复用是刻意的 — 两轨生命周期不同) */
+function mWTimers() {
   const ts = [];
   return {
     after(ms, fn) {
@@ -84,335 +69,256 @@ function wwTimers() {
     },
   };
 }
-const wwKey = (x, y, z) => x + ',' + y + ',' + z;
 
-/* ---------- 世界 HUD(任务卡 + 图纸覆层, pointer-events:none) ---------- */
-
-let wwHud = null; let wwTitleEl = null; let wwSubEl = null;
-let wwProgEl = null; let wwCanvas = null;
-function wwEnsureHud() {
-  if (wwHud) return;
-  wwHud = document.createElement('div');
-  wwHud.id = 'mathWorldHud';
-  const card = document.createElement('div');
-  card.className = 'mw-card';
-  wwTitleEl = document.createElement('div');
-  wwTitleEl.className = 'mw-title';
-  wwSubEl = document.createElement('div');
-  wwSubEl.className = 'mw-sub';
-  wwProgEl = document.createElement('div');
-  wwProgEl.className = 'mw-progress';
-  const fill = document.createElement('i');
-  wwProgEl.appendChild(fill);
-  wwCanvas = document.createElement('canvas');
-  wwCanvas.className = 'mw-blueprint';
-  card.appendChild(wwTitleEl);
-  card.appendChild(wwSubEl);
-  card.appendChild(wwProgEl);
-  card.appendChild(wwCanvas);
-  wwHud.appendChild(card);
-  document.body.appendChild(wwHud);
-}
-function wwHudShow(title, sub, withBlueprint) {
-  wwEnsureHud();
-  wwTitleEl.innerHTML = title;
-  wwSubEl.textContent = sub || '';
-  wwCanvas.style.display = withBlueprint ? 'block' : 'none';
-  wwHud.style.display = 'block';
-}
-function wwHudProgress(k, n) {
-  if (wwProgEl && wwProgEl.firstChild) {
-    wwProgEl.firstChild.style.width = Math.round(k / Math.max(1, n) * 100) + '%';
-  }
-}
-/* 图纸 = blueprintPixels 纯投影的 2D 像素图(design §3 不拍照) */
-function wwPaintBlueprint(bp) {
-  if (!wwCanvas) return;
-  const px = MathWorldCore.blueprintPixels(bp);
-  const s = 26;
-  wwCanvas.width = bp.w * s;
-  wwCanvas.height = bp.d * s;
-  const ctx = wwCanvas.getContext('2d');
-  for (let z = 0; z < px.length; z++) {
-    for (let x = 0; x < px[z].length; x++) {
-      ctx.fillStyle = px[z][x] || '#2f353d';
-      ctx.fillRect(x * s, z * s, s - 2, s - 2);
-    }
-  }
+/* 数字贴片: canvas → CanvasTexture → Sprite(mkHpBar 同款管线, 静态一次
+   绘制), 白字黑边任何底色可读; 大号金色用于整十格(位值醒目) */
+function mWNumSprite(text, x, y, z, big) {
+  const cv = document.createElement('canvas');
+  cv.width = 96; cv.height = 96;
+  const c = cv.getContext('2d');
+  c.font = 'bold ' + (big ? 54 : 46) + 'px "Segoe UI", Arial, sans-serif';
+  c.textAlign = 'center';
+  c.textBaseline = 'middle';
+  c.lineWidth = big ? 9 : 7;
+  c.strokeStyle = 'rgba(20,22,30,0.9)';
+  c.strokeText(String(text), 48, 50);
+  c.fillStyle = big ? '#ffd83d' : '#ffffff';
+  c.fillText(String(text), 48, 50);
+  const tex = new THREE.CanvasTexture(cv);
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent: true, depthWrite: false}));
+  const s = big ? 1.5 : 1.06;
+  sp.scale.set(s, s, 1);
+  sp.position.set(x, y, z);
+  return sp;
 }
 
-/* ---------- 装场地基(平台 + 居中石英画布) ---------- */
-
-/* 平台(泥土+草地) + w×d 石英画布(外扩一圈), 返回画布原点 */
-function wwStage(w, d) {
-  const W = MATH_WORLD;
-  SceneKit.fill(W.x0, W.groundY - 3, W.z0, W.x1, W.groundY - 1, W.z1, 2);
-  SceneKit.fill(W.x0, W.groundY, W.z0, W.x1, W.groundY, W.z1, 1);
-  const x0 = 64 - Math.floor(w / 2);
-  const z0 = 64 - Math.floor(d / 2);
-  SceneKit.fill(x0 - 1, W.groundY, z0 - 1, x0 + w, W.groundY, z0 + d, W.canvasBlock);
-  return {x0, z0};
-}
-/* 细胞(局部坐标) → 世界方块(y 基面 = groundY+1) */
-function wwCellsToWorld(cells, x0, z0, y0) {
-  for (const c of cells) {
-    setBlockRaw(x0 + c.x, y0 + c.y, z0 + c.z, MATH_WORLD.colBlock[c.col || 1]);
-  }
-}
-/* 「好啦」确认块: 画布南缘外的石英基座 + 发光岩(点击交卷) */
-function wwCheckBlock(x0, z0, w, d) {
-  const W = MATH_WORLD;
-  const cx = x0 + Math.floor(w / 2);
-  const cz = z0 + d + 2;
-  setBlockRaw(cx, W.groundY + 1, cz, W.pedestalBlock);
-  setBlockRaw(cx, W.groundY + 2, cz, W.checkBlock);
-  return {x: cx, y: W.groundY + 2, z: cz};
-}
-/* 候选牌(图纸牌/数字牌共用): 宽度超 28(平台一行放不下)自动折两行;
-   slots = [{w, d, value?, draw(bx,bz)}] — value = 数字牌的数值(判分
-   比较值), 图纸牌缺省按下标判分 */
-function wwBoardRow(slots, zLine) {
-  const W = MATH_WORLD;
-  const gap = 2;
-  const rowMax = 28;
-  const rows = [[]];
-  let rowW = 0;
-  for (const s of slots) {
-    const wSlot = s.w + 2;
-    if (rows[rows.length - 1].length && rowW + gap + wSlot > rowMax) {
-      rows.push([]);
-      rowW = 0;
-    }
-    if (rowW) rowW += gap;
-    rows[rows.length - 1].push(s);
-    rowW += wSlot;
-  }
-  const boards = [];
-  rows.forEach((row, r) => {
-    const line = zLine + (rows.length > 1 ? (r === 0 ? -4 : 4) : 0);
-    const total = row.reduce((a, s) => a + s.w + 2, 0) + gap * (row.length - 1);
-    let bx = 64 - Math.floor(total / 2);
-    for (const s of row) {
-      const i = boards.length;
-      const x0 = bx; const z0 = line - Math.floor(s.d / 2);
-      SceneKit.fill(x0 - 1, W.groundY + 1, z0 - 1, x0 + s.w, W.groundY + 1, z0 + s.d, W.boardBlock);
-      s.draw(x0, z0);
-      boards.push({x0: x0 - 1, z0: z0 - 1, x1: x0 + s.w, z1: z0 + s.d, idx: i, value: s.value});
-      bx += s.w + 2 + gap;
-    }
-  });
-  return boards;
+function mWDisposeSprite(sp) {
+  sp.material.map.dispose();
+  sp.material.dispose();
 }
 
-/* ---------- 变体表: 出题 · 装场 · 话术 ---------- */
+/* ---------- 掷骰前进 / 跳格子 / 间隔问题 的世界装配 ---------- */
 
-const MATH_WORLD_VARIANTS = {
-  /* ---- D 摆一摆 ---- */
-  'mirror/reflect': {
-    make(sec, seed) {
-      const q = MathWorldCore.mathWorldSymParams({seed, span: sec.params.span,
-        layerRate: sec.params.layerRate});
-      const axis = ['x', 'z'][seed % 2];
-      return {pz: PuzzleCore.mkSymmetryPuzzle(Object.assign({seed, axis}, q)),
-        axisLine: axis};
-    },
-    build(t) {
-      const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
-      wwCellsToWorld(p.half, x0, z0, MATH_WORLD.groundY + 1);
-      const Y = MATH_WORLD.groundY;
-      if (t.axisLine === 'x') { // 镜面缝: 样品与空侧的交界列(嵌地面)
-        const mx = x0 + (p.k + 1) / 2;
-        SceneKit.fill(mx, Y, z0 - 1, mx, Y, z0 + p.box.d, MATH_WORLD.markerBlock);
-      } else {
-        const mz = z0 + (p.kz + 1) / 2;
-        SceneKit.fill(x0 - 1, Y, mz, x0 + p.box.w, Y, mz, MATH_WORLD.markerBlock);
-      }
-      return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h};
-    },
-    speak() {
-      return '魔法镜照一照，把另一边摆得一模一样！' + MATH_WORLD.askS;
-    },
-  },
-  'mirror/rotate': {
-    make(sec, seed) {
-      const q = MathWorldCore.mathWorldSymParams({seed, span: sec.params.span,
-        layerRate: sec.params.layerRate});
-      return {pz: PuzzleCore.mkSymmetryPuzzle(Object.assign({seed, axis: 'c'}, q))};
-    },
-    build(t) {
-      const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
-      wwCellsToWorld(p.half, x0, z0, MATH_WORLD.groundY + 1);
-      const cx = x0 + (p.k + 1) / 2 - 1; const cz = z0 + (p.kz + 1) / 2 - 1; // 中心 2×2 标记
-      SceneKit.fill(cx, MATH_WORLD.groundY, cz, cx + 1, MATH_WORLD.groundY, cz + 1, MATH_WORLD.markerBlock);
-      return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h};
-    },
-    speak() {
-      return '小图案围着中心转半圈，把对角也摆出来！' + MATH_WORLD.askS;
-    },
-  },
-  'mirror/translate': {
-    make(sec, seed) {
-      return {pz: MathWorldCore.mkWorldTranslate({seed, span: sec.params.span,
-        layerRate: sec.params.layerRate})};
-    },
-    build(t) {
-      const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
-      wwCellsToWorld(p.sample, x0, z0, MATH_WORLD.groundY + 1);
-      /* 目标区四角玻璃角框(定区域不给逐格答案) */
-      const Y = MATH_WORLD.groundY;
-      const tgt = p.solution.filter((c) => !p.sample.some((s) =>
-        wwKey(s.x, s.y, s.z) === wwKey(c.x, c.y, c.z)));
-      const tb = MathWorldCore.boundsOf(tgt);
-      for (const [gx, gz] of [[tb.x0 - 1, tb.z0 - 1], [tb.x0 + tb.w, tb.z0 - 1],
-        [tb.x0 - 1, tb.z0 + tb.d], [tb.x0 + tb.w, tb.z0 + tb.d]]) {
-        setBlockRaw(x0 + gx, Y, z0 + gz, MATH_WORLD.markerBlock);
-      }
-      return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h};
-    },
-    speak(p) {
-      return '照着图案的样子，往右搬一份，摆进玻璃角框里！' + MATH_WORLD.askS;
-    },
-  },
-  'mirror/tangram': {
-    make(sec, seed) {
-      return {pz: MathWorldCore.mkWorldTangram({seed, span: sec.params.span})};
-    },
-    build(t) {
-      const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
-      for (const c of p.target) { // 玻璃格 = 要盖住的目标(画布内缩 1 格锚定)
-        setBlockRaw(x0 + 1 + c.x, MATH_WORLD.groundY, z0 + 1 + c.z, MATH_WORLD.markerBlock);
-      }
-      /* 判分锚点 = 标记原点(画布内缩 1), 摆放界 = 整张画布(白格多摆
-         即错 — "恰好拼出"的纪律), 两套坐标经 ax/az 解耦 */
-      return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h,
-        ax: 1, az: 1};
-    },
-    speak() {
-      return '用积木把玻璃格子全部盖住，不多也不少！' + MATH_WORLD.askS;
-    },
-  },
-  /* ---- E 搭一搭 ---- */
-  'plan/build': {
-    make(sec, seed) {
-      return {pz: MathWorldCore.mkWorldBuild({seed, blocks: sec.params.blocks})};
-    },
-    build(t) {
-      const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
-      return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h,
-        blueprint: true, gradeBlueprint: true};
-    },
-    speak() {
-      return '看着上面的图纸，把一样颜色的房顶摆出来！' + MATH_WORLD.askS;
-    },
-  },
-  'plan/pick': {
-    make(sec, seed) {
-      return {pz: MathWorldCore.mkWorldPick({seed, blocks: sec.params.blocks})};
-    },
-    build(t) {
-      const p = t.pz;
-      const {x0, z0} = wwStage(24, 20);
-      const sb = MathWorldCore.boundsOf(p.cells);
-      wwCellsToWorld(p.cells, x0 + 12 - Math.floor(sb.w / 2) - sb.x0,
-          z0 + 4 - sb.z0, MATH_WORLD.groundY + 1);
-      const boards = wwBoardRow(p.candidates.map((c) => ({
-        w: c.w, d: c.d,
-        draw(bx, bz) {
-          for (let i = 0; i < c.top.length; i++) {
-            if (c.top[i] > 0) {
-              setBlockRaw(bx + i % c.w, MATH_WORLD.groundY + 2, bz + Math.floor(i / c.w),
-                  MATH_WORLD.colBlock[c.top[i]]);
-            }
-          }
-        },
-      })), z0 + 16);
-      return {mode: 'choice', pz: p, x0, z0, w: 24, d: 20, boards};
-    },
-    speak() {
-      return '看一看这座建筑，从下面的图纸里，点出从上往下看的样子！';
-    },
-  },
-  'plan/hidden': {
-    make(sec, seed) {
-      return {pz: MathWorldCore.mkWorldHidden({seed, blocks: sec.params.blocks,
-        max: sec.params.max})};
-    },
-    build: wwBuildCountScene,
-    speak() {
-      return '这座建筑藏着几块看不见的方块？露在外面的能数，藏着的要靠想！点出数字！';
-    },
-  },
-  'plan/countall': {
-    make(sec, seed) {
-      return {pz: MathWorldCore.mkWorldCount({seed, blocks: sec.params.blocks,
-        max: sec.params.max, reasoning: sec.params.reasoning})};
-    },
-    build: wwBuildCountScene,
-    speak(p) {
-      return p.mode === 'faces' ?
-        '这座建筑露在外面几个面？点出数字！' :
-        '这座建筑一共有几块方块？藏起来的也要数进去！点出数字！';
-    },
-  },
-};
-
-/* 隐藏块/数方块共用装场: 北侧建筑 + 南侧 4 张数字牌 */
-function wwBuildCountScene(t) {
-  const p = t.pz;
-  const {x0, z0} = wwStage(24, 20);
-  const sb = MathWorldCore.boundsOf(p.cells);
-  wwCellsToWorld(p.cells, x0 + 12 - Math.floor(sb.w / 2) - sb.x0,
-      z0 + 4 - sb.z0, MATH_WORLD.groundY + 1);
-  const boards = wwBoardRow(p.cands.map((v) => {
-    const ds = String(v).split('').map(Number); // 多位数 = 逐位拼牌(个十百, 位间 1 格)
-    return {
-      w: ds.length * 3 + (ds.length - 1), d: 5, value: v,
-      draw(bx, bz) {
-        ds.forEach((d, i) => {
-          for (const [dx, dy] of MathWorldCore.digitCells(d)) {
-            setBlockRaw(bx + i * 4 + dx, MATH_WORLD.groundY + 2, bz + dy, MATH_WORLD.digitBlock);
-          }
-        });
-      },
-    };
-  }), z0 + 16);
-  return {mode: 'choice', pz: p, x0, z0, w: 24, d: 20, boards};
-}
-
-/* ---------- 主入口: 世界轨试次驱动器 ---------- */
-
-function runMathWorld(section, h) {
-  if (!section || !MATH_WORLD_FAMILIES.has(section.family)) return null;
-  const spec = MATH_WORLD_VARIANTS[section.family + '/' + section.variant];
-  if (!spec) return null;
-  const p = section.params || {};
-  const n = Math.max(1, Math.min(30, p.trials || 6));
+/* hop 世界关卡主入口: 返回 {stop()}; 判分/出题在 HopWorld, 本函数只演 */
+function runHopWorld(section, h) {
   const hh = h || {};
-  const T = wwTimers();
+  const p = Object.assign({}, section.params || {});
+  const plan = HopWorld.hopPathPlan(p);
+  const rnd = mRand(section.seed !== undefined ? section.seed : p.seed);
+  const T = mWTimers();
+  const G = MATH_W_GROUND;
+  const pathMax = plan.value(plan.last);
+  const n = Math.max(1, Math.min(30, p.trials || 6));
   const stats = {trials: 0, correct: 0, acc: 0, maxStreakErr: 0};
+  const speak = (s) => {
+    if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak(s);
+  };
+  const sfxSafe = (k) => {
+    if (typeof sfx === 'function') sfx(k);
+  };
+
+  /* ===== 装场(场景装填纪律: 进场装场, 退出清场, 不写建造存档) ===== */
+  const squareAt = new Map(); // "x,z" → 格下标(点选命中换算)
+  const sprites = [];
+  const marks = []; // 试次临时标记 [{x,y,z,prev}] — 下一试次/退场恢复
+  let hoverBox = null;
+
+  function buildScene() {
+    loadScene(() => {
+      const b = plan.bounds;
+      const m = HopWorld.HOP_MARGIN;
+      /* 草岛基底(浮岛观感): 泥土芯 + 草顶, 幅面 ≤32×32(纯核心测试锁定) */
+      SceneKit.fill(b.x1 - m, G - 3, b.z1 - m, b.x2 + m, G - 1, b.z2 + m, 2);
+      SceneKit.fill(b.x1 - m, G, b.z1 - m, b.x2 + m, G, b.z2 + m, 1);
+      /* 数格入表(点选命中的唯一权威), 再铺全路(含蛇行折返连接格=圆石) */
+      for (let i = 0; i <= plan.last; i++) {
+        const c = plan.at(i);
+        squareAt.set(c.x + ',' + c.z, i);
+      }
+      const route = HopWorld.hopRoute(plan, 0, plan.last);
+      for (const c of route) {
+        const sq = squareAt.get(c.x + ',' + c.z);
+        let id = MATH_W_BLOCKS.path;
+        if (sq === undefined) id = MATH_W_BLOCKS.link;
+        else if (sq === 0) id = MATH_W_BLOCKS.start;
+        else if (sq === plan.last) id = MATH_W_BLOCKS.goal;
+        else if (plan.isDecade(sq)) id = MATH_W_BLOCKS.decade;
+        setBlockRaw(c.x, G + 1, c.z, id);
+      }
+      /* 路侧装饰全部放南侧(z+1 — 相机侧, 孩子看得清; 路面留净给走子):
+         起点拱门骑在 0 号格上 · 终点大旗 · 整十一档红旗(位值) */
+      const s0 = plan.at(0);
+      SceneKit.fill(s0.x, G + 1, s0.z + 1, s0.x, G + 3, s0.z + 1, MATH_W_BLOCKS.pole);
+      SceneKit.fill(s0.x, G + 1, s0.z - 1, s0.x, G + 3, s0.z - 1, MATH_W_BLOCKS.pole);
+      SceneKit.fill(s0.x, G + 4, s0.z - 1, s0.x, G + 4, s0.z + 1, MATH_W_BLOCKS.start);
+      const gl = plan.at(plan.last);
+      SceneKit.fill(gl.x, G + 1, gl.z + 1, gl.x, G + 4, gl.z + 1, MATH_W_BLOCKS.pole);
+      setBlockRaw(gl.x + 1, G + 4, gl.z + 1, MATH_W_BLOCKS.flagBlue);
+      if (p.landmark) { // 整十小旗: 曲线 tier6 起开(十格一档标位值)
+        for (let i = 10; i < plan.last; i += HopWorld.HOP_ROW) {
+          const c = plan.at(i);
+          SceneKit.fill(c.x, G + 1, c.z + 1, c.x, G + 2, c.z + 1, MATH_W_BLOCKS.pole);
+          setBlockRaw(c.x, G + 3, c.z + 1, MATH_W_BLOCKS.flagRed);
+        }
+      }
+      /* 岛缘两棵树(先路后树: SceneKit.tree 只种空格, 不压路; 放北侧避开
+         南侧相机与路侧旗) */
+      SceneKit.tree(b.x1 - 2, G + 1, b.z1 - 2);
+      SceneKit.tree(b.x2 + 2, G + 1, b.z1 - 2);
+      /* 每格数字贴片(整十格大号金色 — 十格一档的位值读法) */
+      for (let i = 0; i <= plan.last; i++) {
+        const c = plan.at(i);
+        const sp = mWNumSprite(plan.value(i), c.x + 0.5, G + 1 + (plan.isDecade(i) ? 1.05 : 0.62),
+            c.z + 0.5, plan.isDecade(i));
+        scene.add(sp);
+        sprites.push(sp);
+      }
+    });
+  }
+
+  function clearMarks() {
+    for (const mk of marks) setBlockRaw(mk.x, mk.y, mk.z, mk.prev);
+    marks.length = 0;
+  }
+  function addMark(x, y, z, id) {
+    marks.push({x, y, z, prev: getBlock(x, y, z)});
+    setBlockRaw(x, y, z, id);
+  }
+  /* 试次旗标(路侧南侧 z+1: 短杆+色旗, 不挡走子; 点旗=点格, 见命中换算) */
+  function markSquare(i, id) {
+    const c = plan.at(i);
+    if (!c) return;
+    addMark(c.x, G + 1, c.z + 1, MATH_W_BLOCKS.pole);
+    addMark(c.x, G + 2, c.z + 1, id);
+  }
+
+  /* ===== 混合宿主 DOM: 点选接球 + 任务卡 + 反馈闪条 ===== */
+  const rootEl = (typeof document !== 'undefined') ? document.getElementById('mathRoot') : null;
+  let catcher = null; let card = null; let flash = null; let crosshairEl = null;
+  const areaEl = (typeof document !== 'undefined') ? document.getElementById('mArea') : null;
+
+  function buildDom() {
+    if (!rootEl) return;
+    rootEl.classList.add('m-world');
+    catcher = mEl('div', 'm-w-catcher');
+    card = mEl('div', 'm-w-card');
+    flash = mEl('div', 'm-w-flash');
+    rootEl.appendChild(catcher);
+    rootEl.appendChild(card);
+    rootEl.appendChild(flash);
+    if (areaEl) areaEl.style.display = 'none'; // boss 世界节: 屏流训练区让位
+    crosshairEl = document.getElementById('crosshair');
+    if (crosshairEl) crosshairEl.style.display = 'none'; // 点选跟手, 准星退役
+    catcher.addEventListener('pointerdown', onPointerDown);
+    catcher.addEventListener('pointermove', onPointerMove);
+    catcher.addEventListener('pointerleave', onPointerLeave);
+  }
+  function teardownDom() {
+    if (catcher) {
+      catcher.removeEventListener('pointerdown', onPointerDown);
+      catcher.removeEventListener('pointermove', onPointerMove);
+      catcher.removeEventListener('pointerleave', onPointerLeave);
+    }
+    for (const el of [catcher, card, flash]) {
+      if (el && el.parentNode) el.parentNode.removeChild(el);
+    }
+    catcher = null; card = null; flash = null;
+    if (crosshairEl) crosshairEl.style.display = '';
+    if (areaEl) areaEl.style.display = '';
+    if (rootEl) rootEl.classList.remove('m-world');
+  }
+
+  /* 悬停高亮盒(点选目标的即时反馈; 命中色/答案揭示色复用同一盒) */
+  function ensureHover() {
+    if (hoverBox || typeof THREE === 'undefined' || typeof scene === 'undefined') return;
+    hoverBox = new THREE.Mesh(
+        new THREE.BoxGeometry(1.08, 0.26, 1.08),
+        new THREE.MeshBasicMaterial({color: 0xffd83d, transparent: true, opacity: 0.5, depthWrite: false}));
+    hoverBox.visible = false;
+    scene.add(hoverBox);
+  }
+  function showHover(i, color) {
+    ensureHover();
+    if (!hoverBox) return;
+    const c = plan.at(i);
+    hoverBox.material.color.setHex(color || 0xffd83d);
+    hoverBox.position.set(c.x + 0.5, G + 2 + 0.14, c.z + 0.5);
+    hoverBox.visible = true;
+  }
+  function hideHover() {
+    if (hoverBox) hoverBox.visible = false;
+  }
+
+  /* ===== 交互射线: 屏幕点 → holdAim 注入 → 相机装置 aim → 体素射线;
+     路侧旗(z+1)命中折算回它的格 — 点旗=点格 ===== */
+  function squareFromScreen(px, py) {
+    CameraRig.holdAim({x: px, y: py, w: innerWidth, h: innerHeight});
+    const aim = CameraRig.aim(camera);
+    CameraRig.holdAim(null); // 一帧性注入, 不污染主循环准星口径
+    const hit = raycastVoxel(aim.origin, aim.dir, 64);
+    if (!hit) return null;
+    const direct = squareAt.get(hit.x + ',' + hit.z);
+    if (direct !== undefined) return direct;
+    const viaFlag = squareAt.get(hit.x + ',' + (hit.z - 1));
+    return viaFlag === undefined ? null : viaFlag;
+  }
+
+  /* ===== 走子: 沿 hopRoute 逐格推进, 逐格读数 ===== */
+  let walk = null; // {pts:[{x,z,sq}], i, speed, count(fn?), onDone, to}
+  let cur = 0; // 当前所在格下标(试次间延续, 走满一条路的数序)
+  let phase = 'idle'; // idle|die|pick-target|pick-start|choice|walking|done
+  let trial = null; // 当前试次数据(HopWorld 纯核心产物)
+
+  function startWalk(fromIdx, toIdx, opts) {
+    const o = opts || {};
+    const route = HopWorld.hopRoute(plan, fromIdx, toIdx);
+    const pts = route.map((c) => ({x: c.x + 0.5, z: c.z + 0.5,
+      sq: squareAt.get(c.x + ',' + c.z)}));
+    phase = 'walking';
+    walk = {pts, i: 0, speed: o.speed || MATH_W_FAST,
+      count: o.count || null, onDone: o.onDone || null, to: toIdx};
+    pos.set(pts[0].x, G + 2, pts[0].z);
+  }
+  function stepWalk(dt) {
+    if (!walk) return;
+    let dist = walk.speed * dt;
+    while (dist > 0 && walk.i < walk.pts.length - 1) {
+      const a = walk.pts[walk.i];
+      const b = walk.pts[walk.i + 1];
+      const dx = b.x - a.x; const dz = b.z - a.z;
+      const len = Math.hypot(dx, dz) || 1;
+      if (dist >= len) { // 走完这一段
+        dist -= len;
+        walk.i++;
+        const hitSq = walk.pts[walk.i];
+        pos.set(hitSq.x, G + 2, hitSq.z);
+        if (hitSq.sq !== undefined && walk.count) walk.count(hitSq.sq);
+        continue;
+      }
+      pos.set(a.x + dx / len * dist, G + 2, a.z + dz / len * dist);
+      vel.set(dx / len * 2.6, 0, dz / len * 2.6); // 走路动画喂数(玩家形象)
+      dist = 0;
+    }
+    if (walk.i >= walk.pts.length - 1) {
+      const done = walk.onDone;
+      const to = walk.to;
+      walk = null;
+      vel.set(0, 0, 0);
+      cur = to;
+      if (done) done();
+    }
+  }
+
+  /* ===== 试次循环 ===== */
   let idx = 0;
   let streak = 0;
   let errRun = 0;
-  let settled = false;
   let stopped = false;
-  let trial = null; // 当前试次现场(build 返回值)
-  let hintT = 0; // 拆不动/放不进提示节流
-
-  const titleHtml = '<span class="mw-ico">' + (MATH_META[section.family] ?
-      MATH_META[section.family].icon : '') + '</span>' +
-      (typeof mathVariantName === 'function' ?
-          mathVariantName(section.family, section.variant) : section.variant);
-
-  function hint(msg) {
-    const now = typeof performance !== 'undefined' ? performance.now() : Date.now();
-    if (now - hintT < 1200) return;
-    hintT = now;
-    showToast(msg);
-  }
+  let rafId = 0;
+  let lastT = 0;
+  let flashT = 0;
 
   function settle(ok) {
-    if (settled || stopped) return;
-    settled = true;
     stats.trials++;
     if (ok) {
       stats.correct++;
@@ -423,161 +329,348 @@ function runMathWorld(section, h) {
       errRun++;
       stats.maxStreakErr = Math.max(stats.maxStreakErr, errRun);
     }
-    wwSfx(ok ? 'pick' : 'click');
-    if (trial) { // 世界内视觉反馈: 对=画布绿环, 错=红闪
-      const W = MATH_WORLD;
-      if (typeof Fx !== 'undefined' && Fx && Fx.pop) {
-        Fx.pop(trial.x0 + trial.w / 2 + 0.5, W.groundY + 2, trial.z0 + trial.d / 2 + 0.5,
-            {color: ok ? 0x7cfc00 : 0xd1483a, r0: 0.8, r1: 4.5, dur: 0.5});
-      }
-    }
+    sfxSafe(ok ? 'pick' : 'click');
     if (hh.onTrial) hh.onTrial({ok, streak});
-    if (ok && streak % 3 === 0) wwPraise(true); /* 过程性表扬(同屏流口径) */
+    if (ok && streak % 3 === 0 && typeof mathPraiseLine === 'function') {
+      speak(mathPraiseLine()); // 过程性表扬(话术住模式层)
+    }
     if (!ok && errRun >= 3) {
       errRun = 0;
-      wwPraise(false);
+      if (typeof mathComfortLine === 'function') speak(mathComfortLine());
     }
-    T.after(1000, next);
+    flashFeedback(ok);
   }
 
-  /* 放置类判分: 交卷或每次增删后自动对答案(摆对即时过关) */
-  function gradeNow(cells) {
-    const ok = trial.gradeBlueprint ?
-      PuzzleCore.gradeBlueprint(cells, trial.pz.blueprint) :
-      PuzzleCore.gradeSymmetry(cells, trial.pz);
-    settle(ok);
-  }
-  function childCells() {
-    const out = [];
-    trial.placed.forEach((c) => out.push(c));
-    return out;
+  function flashFeedback(ok) {
+    if (!flash) return;
+    flash.textContent = ok ? '✅ 真棒！' : '🙂 没关系，再想一想';
+    flash.className = 'm-w-flash show ' + (ok ? 'good' : 'bad');
+    clearTimeout(flashT);
+    flashT = setTimeout(() => {
+      if (flash) flash.className = 'm-w-flash';
+    }, 900);
   }
 
-  function next() {
+  function nextTrial() {
     if (stopped) return;
+    clearMarks();
+    hideHover();
     if (idx >= n) {
+      phase = 'done';
       stats.acc = stats.trials ? stats.correct / stats.trials : 0;
-      if (hh.end) hh.end(stats);
+      T.after(500, () => {
+        teardown();
+        if (hh.end) hh.end(stats);
+      });
       return;
     }
     if (hh.progress) hh.progress(idx, n);
-    settled = false;
-    const seed = (section.seed === undefined ? 0 : section.seed) * 31 + idx * 101 + 7;
-    const made = spec.make(section, seed);
-    /* 装场 seam: 清场 → 建场 → 收尾入队一步到位(退出/换关清场幂等,
-       不写建造存档 — 世界轨纪律 design §3) */
-    let built = null;
-    loadScene(() => {
-      built = spec.build(made);
-    });
-    trial = built;
-    trial.placed = new Map();
-    trial.check = null;
-    /* 出生: 画布南缘后撤, 正对谜面(准星即所操作, 无键盘也能全场点到) */
-    if (trial.mode === 'place') {
-      ModeKit.spawn(64.5, MATH_WORLD.groundY + 1, trial.z0 + trial.d + 5,
-          {yaw: 0, pitch: -0.55});
-      trial.check = wwCheckBlock(trial.x0, trial.z0, trial.w, trial.d);
-      mathWorldHb.show();
-      if (typeof setTouchActions === 'function') {
-        setTouchActions([{icon: 'pick', label: '撤除', holdAct() {
-          if (typeof aimClick === 'function') aimClick(0);
-        }}]);
-      }
-    } else {
-      /* 出生在牌阵正南(贴最近一张牌, 远排走两步即到; 判分点击无键盘依赖) */
-      let zSpawn = trial.z0 + trial.d + 2;
-      for (const b of trial.boards || []) zSpawn = Math.max(zSpawn, b.z1 + 2);
-      ModeKit.spawn(64.5, MATH_WORLD.groundY + 1, zSpawn, {yaw: 0, pitch: -0.4});
-      mathWorldHb.hide();
-      if (typeof setTouchActions === 'function') setTouchActions([]);
-    }
-    wwHudShow(titleHtml, (idx + 1) + ' / ' + n, !!trial.blueprint);
-    wwHudProgress(idx, n);
-    if (trial.blueprint) wwPaintBlueprint(trial.pz.blueprint);
-    wwSpeak(spec.speak(trial.pz));
     idx++;
+    trial = null;
+    if (section.variant === 'dice') trialDice();
+    else if (section.variant === 'jumps') trialJump();
+    else trialGap();
   }
 
-  /* ---------- 点选路由(瞄准射线 hit 由模式层喂入) ---------- */
-
-  function onMouse(button, hit) {
-    if (!trial || settled || stopped || !hit) return;
-    if (trial.mode === 'choice') {
-      for (const b of trial.boards) {
-        if (hit.x >= b.x0 && hit.x <= b.x1 && hit.z >= b.z0 && hit.z <= b.z1 &&
-            hit.y > MATH_WORLD.groundY && hit.y <= MATH_WORLD.groundY + 2) {
-          /* 数字牌判值(answer 是数值), 图纸牌判下标(answer 是下标) */
-          settle(b.value !== undefined ? b.value === trial.pz.answer : b.idx === trial.pz.answer);
-          return;
+  /* ---- 掷骰前进: 点骰子 → 骰值 → 走子逐格读数 → 报落格数字 ---- */
+  function trialDice() {
+    phase = 'die';
+    setCard('<div class="m-w-q">🎲 掷骰子，走一走！</div>' +
+        '<button class="m-w-die" id="mWDie"><span class="m-w-pips" id="mWPips"></span>掷骰子</button>');
+    const btn = document.getElementById('mWDie');
+    if (btn) {
+      btn.onclick = () => {
+        if (phase !== 'die') return;
+        const st = HopWorld.hopDiceStep(plan, rnd, cur);
+        const rollDie = () => {
+          paintPips(st.roll);
+          speak('掷出了 ' + st.roll + '！');
+          T.after(750, () => {
+            startWalk(st.from, st.to, {
+              speed: countSpeed(),
+              count: (sq) => speak(plan.value(sq)),
+              onDone() {
+                askChoices('现在站在哪块石板？数字是几？', plan.value(st.to), pathMax, null);
+              },
+            });
+          });
+        };
+        if (st.wrap && cur !== st.from) { // 临近终点: 先回起点再掷(数序走满整条路)
+          speak('我们回到起点，再走一次！');
+          T.after(600, () => startWalk(cur, 0, {speed: MATH_W_FAST, onDone: rollDie}));
+        } else {
+          cur = st.from;
+          rollDie();
         }
-      }
-      hint('点下面的牌子回答哦');
-      return;
+      };
     }
-    /* 放置类: 发光石=交卷 */
-    if (trial.check && hit.x === trial.check.x && hit.y === trial.check.y &&
-        hit.z === trial.check.z) {
-      gradeNow(childCells());
-      return;
+    if (idx === 1) speak('点骰子，掷一掷，看看走几格！');
+  }
+
+  function paintPips(v) {
+    const el = document.getElementById('mWPips');
+    if (!el) return;
+    el.innerHTML = '';
+    el.dataset.v = v;
+    const cells = {1: [4], 2: [0, 8], 3: [0, 4, 8], 4: [0, 2, 6, 8],
+      5: [0, 2, 4, 6, 8], 6: [0, 2, 3, 5, 6, 8]}[v] || [4];
+    for (let k = 0; k < 9; k++) {
+      const d = document.createElement('i');
+      if (cells.includes(k)) d.className = 'on';
+      el.appendChild(d);
     }
-    const W = MATH_WORLD;
-    if (button === 0) { // 撤除(只拆自己摆的; 样品/场地/基座不动)
-      const k = wwKey(hit.x, hit.y, hit.z);
-      if (trial.placed.has(k)) {
-        trial.placed.delete(k);
-        editBlock(hit.x, hit.y, hit.z, 0);
-        autoGrade();
+  }
+
+  /* ---- 跳格子任务: 前跳/往回跳点落格, 倒推答步数(两端旗) ---- */
+  function trialJump() {
+    const t = HopWorld.hopJumpTrial(plan, p, rnd, cur);
+    trial = t;
+    const begin = () => {
+      const fromV = plan.value(t.from);
+      if (t.form === 'rev') {
+        markSquare(t.to, MATH_W_BLOCKS.flagBlue);
+        const q = '从小旗 ' + fromV + ' 到小旗 ' + plan.value(t.to) + '，要跳几格？';
+        askChoices(q, t.answer, 12, () => demoCount(t.from, t.to, 'fwd'));
+        speak(q);
       } else {
-        hint('这块不能拿走哦');
+        const back = t.form === 'back';
+        const q = '从 ' + fromV + ' 出发，' + (back ? '往回' : '向前') + '跳 ' + t.n + ' 格，落在哪里？';
+        phase = 'pick-target';
+        setCard('<div class="m-w-q">' + q + '</div><div class="m-w-hint">👆 点要落在的那块石板</div>');
+        speak(q);
+        if (idx === 1 && !back) speak('听题目，点一点要跳到的那块石板！');
+      }
+    };
+    if (t.from !== cur) { // 无前跳空间回起点 / 试次衔接: 先走到出发点
+      startWalk(cur, t.from, {speed: MATH_W_FAST, onDone: begin});
+    } else {
+      begin();
+    }
+  }
+
+  /* 答题后的示范走子(答案在脚下走一遍 — 往回跳倒着数) */
+  function demoCount(fromIdx, toIdx, form) {
+    startWalk(fromIdx, toIdx, {
+      speed: countSpeed(),
+      count: (sq) => {
+        if (sq === fromIdx) return;
+        if (form !== 'back' || sq <= toIdx) speak(plan.value(sq));
+      },
+      onDone: () => T.after(600, nextTrial),
+    });
+  }
+
+  /* ---- 间隔问题+规律跳(挑战): 先走一遍数出来 / 看规律点下一落格 ---- */
+  function trialGap() {
+    const g = HopWorld.hopGapTrial(plan, p, rnd);
+    trial = g;
+    if (g.sub === 'interval') {
+      const aV = plan.value(g.aIdx);
+      const bV = plan.value(g.bIdx);
+      markSquare(g.aIdx, MATH_W_BLOCKS.flagRed);
+      markSquare(g.bIdx, MATH_W_BLOCKS.flagBlue);
+      const qs = {
+        neither: '从小旗 ' + aV + ' 走到小旗 ' + bV + '，中间经过几块石板？',
+        both: '从小旗 ' + aV + ' 走到小旗 ' + bV + '，一共踩到几块石板？',
+        one: '从小旗 ' + aV + ' 跳到小旗 ' + bV + '，要跳几格？',
+      };
+      const begin = () => {
+        phase = 'pick-start';
+        setCard('<div class="m-w-q">' + qs[g.mode] + '</div>' +
+            '<div class="m-w-hint">👆 先点红色出发小旗，走一走数一数</div>');
+        speak(qs[g.mode] + '先点红色出发小旗！');
+      };
+      if (cur !== g.aIdx) startWalk(cur, g.aIdx, {speed: MATH_W_FAST, onDone: begin});
+      else begin();
+    } else {
+      /* 规律跳: 依次亮出前几次落格(黄旗+落地读数), 问下一次落哪 */
+      const vals = g.seq.map((v) => plan.value(v));
+      const begin = () => {
+        let k = 0;
+        const hopNext = () => {
+          if (stopped) return;
+          if (k >= g.seq.length) {
+            const q = '按这个规律，第 ' + (g.seq.length + 1) + ' 次落在哪里？';
+            phase = 'pick-target';
+            setCard('<div class="m-w-q">' + q + '</div>' +
+                '<div class="m-w-seq">' +
+                vals.map((v) => '<span class="m-slot m-numslot">' + v + '</span>').join('') +
+                '<span class="m-slot m-blank">?</span></div>' +
+                '<div class="m-w-hint">👆 点下一块落脚的石板</div>');
+            speak(q);
+            return;
+          }
+          const to = g.seq[k];
+          markSquare(to, MATH_W_BLOCKS.flagYellow);
+          startWalk(k === 0 ? g.seq[0] : g.seq[k - 1], to, {
+            speed: MATH_W_FAST,
+            onDone() {
+              speak('第 ' + (k + 1) + ' 次落在 ' + vals[k]);
+              k++;
+              T.after(700, hopNext);
+            },
+          });
+        };
+        hopNext();
+      };
+      if (cur !== g.seq[0]) startWalk(cur, g.seq[0], {speed: MATH_W_FAST, onDone: begin});
+      else begin();
+      if (idx === 1) speak('看一看每次落在哪，找找规律！');
+    }
+  }
+
+  /* 间隔题的"走一遍": 点出发旗 → 走到终点旗, 读数口径随两端模式 */
+  function walkInterval(g) {
+    startWalk(g.aIdx, g.bIdx, {
+      speed: countSpeed(),
+      count: (sq) => {
+        if (g.mode === 'both') speak(plan.value(sq)); // 两端都踩: 全读
+        else if (g.mode === 'neither') { // 只数中间: 出发与终点都不读
+          if (sq > g.aIdx && sq < g.bIdx) speak(plan.value(sq));
+        } else if (sq > g.aIdx) speak(plan.value(sq)); // 只算一端: 跳过的每格都读
+      },
+      onDone() {
+        askChoices('', g.answer, 12, null);
+        speak('数好了吗？点出你的答案！');
+      },
+    });
+  }
+
+  /* ---- 问答小卡: 数字选项(恰 4 项, ≤4 组块红线) ---- */
+  function askChoices(q, answer, hi, after) {
+    phase = 'choice';
+    const vals = HopWorld.hopChoices(rnd, answer, hi);
+    let html = '<div class="m-w-q">' + (q || '🔢 点出答案') + '</div><div class="m-nums">';
+    for (const v of vals) html += '<button class="m-choice m-num" data-v="' + v + '">' + v + '</button>';
+    html += '</div>';
+    setCard(html);
+    card.querySelectorAll('.m-choice').forEach((b) => {
+      b.onclick = () => {
+        if (phase !== 'choice') return;
+        const ok = +b.dataset.v === answer;
+        b.classList.add(ok ? 'good' : 'bad');
+        settle(ok);
+        if (after) after(ok);
+        else T.after(900, nextTrial);
+      };
+    });
+  }
+
+  function countSpeed() {
+    return plan.unit === 1 ? MATH_W_COUNT : MATH_W_COUNT10;
+  }
+
+  function setCard(html) {
+    if (card) card.innerHTML = html;
+  }
+
+  /* ===== 指针事件(点选接球层): 点格(=点路侧旗) / 悬停 ===== */
+  function onPointerDown(e) {
+    if (stopped || (phase !== 'pick-target' && phase !== 'pick-start')) return;
+    const i = squareFromScreen(e.clientX, e.clientY);
+    if (i === null) return;
+    if (phase === 'pick-start') { // 间隔题: 只认出发旗(点错不判分, 温柔指路)
+      if (i === trial.aIdx) {
+        hideHover();
+        walkInterval(trial);
+      } else {
+        speak('点红色出发小旗哦！');
       }
       return;
     }
-    if (button === 2) { // 放置(画布内空格, 不与玩家重叠)
-      const tx = hit.x + hit.nx; const ty = hit.y + hit.ny; const tz = hit.z + hit.nz;
-      if (tx < trial.x0 || tx >= trial.x0 + trial.w || tz < trial.z0 ||
-          tz >= trial.z0 + trial.d || ty <= W.groundY || ty > W.groundY + trial.h) {
-        hint('要摆在白色画布里哦');
-        return;
-      }
-      if (getBlock(tx, ty, tz) !== 0) return;
-      if (collidesAtPlayer(tx, ty, tz)) return;
-      const col = MATH_WORLD_COLS[Math.min(MATH_WORLD_COLS.length - 1, mathWorldHb.sel)];
-      trial.placed.set(wwKey(tx, ty, tz), {
-        x: tx - trial.x0 - (trial.ax || 0),
-        y: ty - (W.groundY + 1),
-        z: tz - trial.z0 - (trial.az || 0),
-        col});
-      editBlock(tx, ty, tz, W.colBlock[col]);
-      autoGrade();
+    /* pick-target: 一次点击定对错, 答错即时揭示正确落格再走过去 */
+    const target = trial.to !== undefined ? trial.to : trial.next;
+    const ok = i === target;
+    settle(ok);
+    if (!ok) {
+      showHover(target, 0x7cfc00);
+      speak('看，落在这里！');
     }
+    const from = cur;
+    T.after(ok ? 350 : 1200, () => {
+      hideHover();
+      startWalk(from, target, {
+        speed: countSpeed(),
+        count: (sq) => {
+          if (sq !== from) speak(plan.value(sq));
+        },
+        onDone: () => T.after(450, nextTrial),
+      });
+    });
   }
 
-  /* 摆对即时过关(少一步交卷, 儿童正反馈前置) */
-  function autoGrade() {
-    if (settled || stopped) return;
-    const cells = childCells();
-    const ok = trial.gradeBlueprint ?
-      PuzzleCore.gradeBlueprint(cells, trial.pz.blueprint) :
-      PuzzleCore.gradeSymmetry(cells, trial.pz);
-    if (ok) settle(true);
+  function onPointerMove(e) {
+    if (stopped) return;
+    if (phase !== 'pick-target' && phase !== 'pick-start') {
+      hideHover();
+      if (catcher) catcher.style.cursor = 'default';
+      return;
+    }
+    const i = squareFromScreen(e.clientX, e.clientY);
+    const wanted = phase === 'pick-start' ? trial.aIdx : null;
+    if (i === null || (wanted !== null && i !== wanted)) {
+      hideHover();
+      if (catcher) catcher.style.cursor = 'default';
+      return;
+    }
+    showHover(i);
+    if (catcher) catcher.style.cursor = 'pointer';
+  }
+  function onPointerLeave() {
+    hideHover();
   }
 
-  next();
-  if (typeof requestLock === 'function') requestLock(); // 进场即锁指针/触屏进行态
-  return {
-    stop() {
-      stopped = true;
-      T.stop();
-      trial = null;
-      mathWorldHb.hide();
-      if (typeof setTouchActions === 'function') setTouchActions(null);
-      if (wwHud) wwHud.style.display = 'none';
-    },
-    onMouse,
-  };
+  /* ===== 自持 rAF: 走子推进 + 姿态(相机/形象由主循环照常驱动) ===== */
+  function frame(t) {
+    if (stopped) return;
+    rafId = requestAnimationFrame(frame);
+    const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0.016;
+    lastT = t;
+    stepWalk(dt);
+    onGround = true; // 不锁指针主循环不跑物理: 姿态由本层自持
+    pitch = MATH_W_CAM_PITCH; // 俯视: 直路跟在身后(yaw 朝东), 蛇行朝北俯瞰
+    yaw = plan.line ? -Math.PI / 2 : 0;
+    if (!walk) vel.set(0, 0, 0);
+  }
+
+  /* ===== 生命周期 ===== */
+  function teardown() {
+    if (stopped) return;
+    stopped = true;
+    cancelAnimationFrame(rafId);
+    T.stop();
+    clearTimeout(flashT);
+    walk = null;
+    clearMarks();
+    hideHover();
+    for (const sp of sprites) {
+      scene.remove(sp);
+      mWDisposeSprite(sp);
+    }
+    sprites.length = 0;
+    if (hoverBox) {
+      scene.remove(hoverBox);
+      hoverBox.geometry.dispose();
+      hoverBox.material.dispose();
+      hoverBox = null;
+    }
+    vel.set(0, 0, 0);
+    teardownDom();
+    clearWorld(); // 场景装填纪律: 退出清场(幂等), 不写建造存档
+  }
+
+  /* ===== 起场 ===== */
+  buildScene();
+  buildDom();
+  const s0 = plan.at(0);
+  ModeKit.spawn(s0.x + 0.5, G + 2, s0.z + 0.5, {yaw: plan.line ? -Math.PI / 2 : 0});
+  vel.set(0, 0, 0);
+  onGround = true;
+  pitch = MATH_W_CAM_PITCH;
+  yaw = plan.line ? -Math.PI / 2 : 0;
+  rafId = requestAnimationFrame(frame);
+  nextTrial();
+  return {stop: teardown};
 }
 
-if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {runMathWorld, MATH_WORLD_FAMILIES};
-}
+if (typeof module !== 'undefined' && module.exports) module.exports = {runHopWorld};

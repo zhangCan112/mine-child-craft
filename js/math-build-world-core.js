@@ -1,9 +1,9 @@
 'use strict';
 /* ============================================================
-   数学世界轨纯核心 (MathWorldCore, 术语见 GLOSSARY.md「谜题纯核心」
-   「数学世界轨引擎」) — 应用层纯核心
+   摆与搭世界轨纯核心 (BuildWorldCore, 术语见 GLOSSARY.md「谜题纯核心」
+   「摆与搭世界引擎」) — 应用层纯核心
    ------------------------------------------------------------
-   一句话职责: 摆一摆/搭一搭两族世界变体的谜题形状与候选生成——
+   一句话职责: 摆一摆(mirror)/搭一搭(plan)两族世界变体的谜题形状与候选生成(T6)——
    把 mathParamsFor 的曲线参数(span/blocks/layerRate/hiddenRate/
    reasoning)翻译成 PuzzleCore 生成器入参与世界轨专属谜题(平移
    复制/拼组恰填/反向选图/隐藏块/数方块与露面/图纸像素/数字点阵/
@@ -20,10 +20,10 @@
    依赖(经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js,
    加载序在本文件之前, 见 index.html) — 生成与判分全部委托;
    随机种子注入: 同常数 LCG(同 seed 同输出, seed 缺省走 Math.random)。
-   可测性: 零 THREE · 零 DOM · 有单测 test/math-world-core.test.js
+   可测性: 零 THREE · 零 DOM · 有单测 test/math-build-world-core.test.js
    (Node 直测, PuzzleCore 挂 global 后调用期解析)
    ============================================================ */
-const MathWorldCore = (() => {
+const BuildWorldCore = (() => {
   /* 颜色号 1..3 → 图纸像素色与话术名(世界装配层的方块映射在
      math-world.js, 两处同表意: 红/蓝/黄) */
   const MATH_CELL_COLORS = {
@@ -360,4 +360,4 @@ const MathWorldCore = (() => {
     digitCells, worldNumChoices, boundsOf, keyOf};
 })();
 
-if (typeof module !== 'undefined' && module.exports) module.exports = MathWorldCore;
+if (typeof module !== 'undefined' && module.exports) module.exports = BuildWorldCore;
