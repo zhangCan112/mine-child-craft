@@ -9,12 +9,12 @@
    leadAim→stepShot 步进→命中政策回调, mesh/寿命/geo 缓存自持)、
    击杀观感、死亡复位; 战斗节拍状态(冷却/受击节流/弹数组)自持, 模式
    update 只转喂 tick(dt)。怪物 AI 骨架与阵营/供怪政策留在模式层。
-   mkHpBar 将于 C6-T3 随模式切换自 mode-kit 迁入(与本文件件套同票原子落地,
-   保证每票边界全绿)。
-   interface: mkFighter(policy)→ent · mkHurtAlarm(cfg)→{hit(r),tick(dt)} ·
-     mkMelee(cfg)→{aim(p),swing(p),tick(dt)} · mkArrows(cfg)→{shootFromMob
-     (m,tg,spec)·shootFromAim(spec)·update(dt)·clear()·count()} ·
-     killBurst(m,count,cfg?) · resetFighter(e)
+   mkHpBar 自 mode-kit 迁入(C6-T3 与模式切换同票原子落地 — S2 归一件
+   随战斗 vocabulary 归位)。
+   interface: mkFighter(policy)→ent · mkHurtAlarm(cfg)→{hit(r),tick(dt),reset()} ·
+     mkMelee(cfg)→{aim(p),swing(p),swingAction(p,spec),tick(dt),reset()} ·
+     mkArrows(cfg)→{shootFromMob(m,tg,spec)·shootFromAim(spec)·update(dt)·clear()·count()} ·
+     killBurst(m,count,cfg?) · resetFighter(e) · mkHpBar(opts)→{update,dispose}
    依赖(均经全局名, 调用期解析): CombatCore(js/combat-core.js — leadAim/
      hitBody/stepShot) · Mobs(js/mobs.js — list/hit/debrisColor) ·
      Avatar·Fx·SpeechKit·sfx·showToast · getBlock(js/voxel.js) ·
@@ -62,6 +62,9 @@ function mkHurtAlarm(cfg) {
     },
     tick(dt) {
       t = Math.max(0, t - dt);
+    },
+    reset() {
+      t = 0;
     },
   };
 }
@@ -111,8 +114,20 @@ function mkMelee(cfg) {
     if (r.freshDead && o.onKill) o.onKill(m);
     return true;
   }
-  return {aim, swing, tick(dt) {
+  /* 占冷却 + 出手观感 + 自定义动作(不扫近战目标) — 下界弓口径: 拉弓冷却
+     与剑同一条轨道(换武器不躲冷却), 弹由箭矢管线沿准星出膛 */
+  function swingAction(p, spec) {
+    const s = spec || {};
+    if (cd > 0) return false;
+    cd = s.cooldown !== undefined ? s.cooldown : cooldown;
+    Avatar.swing();
+    if (s.act) s.act();
+    return true;
+  }
+  return {aim, swing, swingAction, tick(dt) {
     cd = Math.max(0, cd - dt);
+  }, reset() {
+    cd = 0;
   }};
 }
 
@@ -238,5 +253,53 @@ function resetFighter(e) {
   e.dead = false; e.deadT = 0; e.flashT = 0; e.staggerT = 0; e.tintBase = [1, 1, 1];
 }
 
-const CombatKit = {mkFighter, mkHurtAlarm, mkMelee, mkArrows, killBurst, resetFighter};
+/* ---------- 头顶血条(mkHpBar, S2): canvas 贴图 Sprite 的深接口 ----------
+    探险/下界两模式的同形实现归一(自 mode-kit 迁入, C6-T3): 血量变化才重绘
+    (逐帧纹理上传是移动端掉帧源); update 惰性建条(THREE/DOM/scene 缺任一即
+    静默待命——Node 单测无渲染环境不参与行为断言), opts.visible() 可选回调
+    控制显隐(下界: 只在下界显示; 缺省恒显)。Sprite 挂 scene/位置随玩家都收
+    在 update 里, 调用方每帧只喂 {hp, maxHp, x, y, z}。128×16 贴图 →
+    世界尺寸 1.5×0.19, 头顶 y+2.2 的口径由调用方给坐标。 */
+function mkHpBar(opts) {
+  const o = opts || {};
+  let bar = null; let ctx = null; let tex = null; let last = -1;
+  function ensure() {
+    if (bar || typeof THREE === 'undefined' || typeof document === 'undefined' ||
+        typeof scene === 'undefined') return;
+    const cv = document.createElement('canvas');
+    cv.width = 128; cv.height = 16;
+    ctx = cv.getContext('2d');
+    tex = new THREE.CanvasTexture(cv);
+    bar = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent: true}));
+    bar.scale.set(1.5, 0.19, 1); /* 128×16 的等比世界尺寸 */
+    scene.add(bar);
+  }
+  function update(hp, maxHp, x, y, z) {
+    ensure();
+    if (!bar) return;
+    bar.visible = o.visible ? o.visible() : true;
+    if (!bar.visible) return;
+    const h = Math.max(0, Math.ceil(hp));
+    if (h !== last) {/* 血量变化才重绘 */
+      last = h;
+      const c = ctx; const W = 128;
+      c.clearRect(0, 0, W, 16);
+      c.fillStyle = 'rgba(16,16,20,0.82)'; c.fillRect(14, 3, W - 16, 10); /* 底槽 */
+      c.fillStyle = '#e83a3a'; c.fillRect(16, 5, Math.max(0, (W - 20) * h / maxHp), 6); /* 血量 */
+      c.strokeStyle = '#f0f0f0'; c.lineWidth = 1; c.strokeRect(14.5, 3.5, W - 17, 9);
+      drawArt(c, BTN_PIX.heart.art, BTN_PIX.heart.map); /* 像素红心(字体 ❤ 各平台渲染不可控) */
+      tex.needsUpdate = true;
+    }
+    bar.position.set(x, y, z); /* 头顶(身高 1.8 + 余量; billboard 正面视角也常读) */
+  }
+  function dispose() {
+    if (!bar) return;
+    if (typeof scene !== 'undefined') scene.remove(bar);
+    bar.material.dispose(); tex.dispose();
+    bar = null; ctx = null; tex = null; last = -1;
+  }
+  return {update, dispose};
+}
+
+const CombatKit = {mkFighter, mkHurtAlarm, mkMelee, mkArrows, killBurst, resetFighter, mkHpBar};
 if (typeof module !== 'undefined' && module.exports) module.exports = CombatKit;

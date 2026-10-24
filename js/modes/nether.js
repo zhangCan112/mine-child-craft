@@ -34,7 +34,7 @@ const NETHER_BASE = {x: 25.5, z: 30.5};
    弓 dmg 10 · 冷却 0.55s(比剑 0.38 慢, 拉弓的时间) · 箭速 22 + 重力 9.5
    (竞技场箭矢同款弹道) — 近战贴身强/远程放风筝, 各有场景 */
 const NETHER = {phase: 'overworld', wave: 0, waveInProgress: false,
-  killCount: 0, swingCd: 0, swingCdMax: 0.38, swingDmg: 16, meleeR: 3.0,
+  killCount: 0, swingCdMax: 0.38, swingDmg: 16, meleeR: 3.0,
   weapon: 'sword', bowCd: 0.55, bowDmg: 10, arrowSpeed: 22,
   player: {hp: 30, maxHp: 30}};
 const NETHER_ATTACK_T = 0.5; // 怪物挥击姿态时长(attackT 满时长, 近战/远程统一 — gait 第 4 参)
@@ -42,20 +42,31 @@ const NETHER_PORTAL_CD = 0.8; // 传送冷却(秒): 落地短暂"时空眩晕"�
 // 落地瞬间还推着摇杆前进会立刻弹回另一界(实测"回不到地下室"即此)
 let portalCd = 0; // >0 = 眩晕中, 两座门都不触发
 let pEnt = null; // 下界探险中的"主人公实体"(AI 索敌目标 + 受击/受死共用状态)
-const nArrows = []; // 下界怪物投射(烈焰人爆裂火球/恶魂恶魂火球 → 玩家受击)
-let hurtT = 0; // 受击语音节流计时(3 秒最多一句 — iOS TTS 频繁
-// cancel+speak 是掉帧源, 坦克表扬 praiseT 同款节流)
 
-/* ---------- 主人公实体: AI 索敌 + 受击状态共用(同一套 MobCore 状态机) ---------- */
+/* ---------- 主人公实体: AI 索敌 + 受击状态共用(同一套 MobCore 状态机, CombatKit 工厂) ---------- */
 function getPEnt() {
   if (pEnt) return pEnt;
-  pEnt = {pos, vel, cfg: {h: PLAYER.height, fly: false, ranged: false, dmg: NETHER.swingDmg,
-    range: NETHER.meleeR, cd: 0, hitR: 0.55, speed: PLAYER.speed,
-    hp: NETHER.player.hp, maxHp: NETHER.player.maxHp, dead: false, gone: false},
-  hp: NETHER.player.hp, maxHp: NETHER.player.maxHp, dead: false, deadT: 0,
-  flashT: 0, staggerT: 0, tintBase: [1, 1, 1]};
+  pEnt = CombatKit.mkFighter({hp: NETHER.player.hp, maxHp: NETHER.player.maxHp,
+    dmg: NETHER.swingDmg, range: NETHER.meleeR});
   return pEnt;
 }
+
+/* ---------- 玩家战斗壳(CombatKit, C6-T3): 受击提醒/近战(弓占同一冷却轨道)/
+    双箭矢管线(玩家箭打怪 · 怪火球打玩家)/击杀观色 — 冷却与话术节流自持在
+    kit(update 只喂 tick), 政策数值与击杀/死亡回调留模式层 ---------- */
+const netherHurt = CombatKit.mkHurtAlarm({setHp: (v) => {
+  NETHER.player.hp = v;
+}});
+const netherMelee = CombatKit.mkMelee({range: NETHER.meleeR, cooldown: NETHER.swingCdMax,
+  swingOnMiss: true, dmg: NETHER.swingDmg, onKill: (m) => netherOnKill(m)});
+const netherArrows = CombatKit.mkArrows({onHitMob: (m, res) => {
+  if (res.freshDead) netherOnKill(m);
+}});
+const netherBalls = CombatKit.mkArrows({mesh: 'sphere', color: 0xffa53c, lookAt: false,
+  player: getPEnt, onHitPlayer: (res) => {
+    if (res.freshDead) netherPlayerDied();
+    else netherHurt.hit(res);
+  }});
 
 /* ---------- 武器栏(mkHotbar 深接口): 剑/弓 两槽(item 槽型=像素物品图标) ----------
    数字键/滚轮/点选全自动(hotbar 样板吸收); 观感随手持物注册表走
@@ -164,13 +175,12 @@ function enterNether() {
   });
   applySky(NETHER_SKY); // 暗红天穹: 一眼就知道到了下界
   Mobs.clear();
-  while (nArrows.length) removeNetherArrow(0); // 投射物不跨维度: 门只渡人, 火球/箭留在原界
+  netherArrows.clear(); netherBalls.clear(); // 投射物不跨维度: 门只渡人, 火球/箭留在原界
   NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
   startNetherWave();
   ModeKit.spawn(NETHER_BASE.x, NETHER_GROUND + 1, NETHER_BASE.z, {yaw: Math.PI}); // 从回程门前走出(门在身后, 面朝下界)
   flyMode = false; // 冒险模式步行(不沿用建造的飞行)
-  NETHER.swingCd = 0; // 传送落地即可战斗(不留挥击锁)
-  hurtT = 0; // 受击语音节流复位
+  netherMelee.reset(); netherHurt.reset(); // 传送落地即可战斗(冷却/话术节流不留锁)
   weaponBar.show(); // 武器栏现身(上界不放武器)
   Avatar.setItem(NETHER.weapon); // 进下界自动武装(记住上次的选择)
   SpeechKit.speak('进了下界！回程传送门就在身后！怪物来了！');
@@ -183,12 +193,11 @@ function enterOverworld() {
   ModeKit.spawn(62.5, NETHER_HOME_GROUND + 1, 85.5, {yaw: 0}); // 家门口(门南侧几步); 面朝房子背对门 —
   flyMode = false; // 落地推"前进"只会走离门口, 不会一头弹回下界
   Mobs.clear();
-  while (nArrows.length) removeNetherArrow(0); // 投射物不跨维度: 残留火球追进门会在上界把人打死 → 重生点落进地下室土里(实测根因)
+  netherArrows.clear(); netherBalls.clear(); // 投射物不跨维度: 残留火球追进门会在上界把人打死 → 重生点落进地下室土里(实测根因)
   const e = getPEnt(); // 回家 = 安全休整: 生命回满(空血进下界 = 落地即死,
   e.hp = e.maxHp; NETHER.player.hp = NETHER.player.maxHp; // 又回基地又死 — "死亡循环"的另一半根因)
   NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
-  NETHER.swingCd = 0;
-  hurtT = 0; // 受击语音节流复位
+  netherMelee.reset(); netherHurt.reset();
   weaponBar.hide(); // 上界不放武器(回程即收)
   Avatar.setItem(PLAYER.heldItem); // 回上界换回默认手持物(锄头)
   SpeechKit.speak('回到上界啦');
@@ -221,51 +230,27 @@ function checkWaveClear() {
 /* ---------- 主人公攻击: 武器栏当前武器 — 剑=近战挥击(即时判定) / 弓=射箭(弹道飞行) ---------- */
 let netherHoldAtk = false; /* ⛏️ 主动作键按住中: update 里持续补刀(冷却自节流) */
 function netherAttack() {
-  if (NETHER.swingCd > 0) return;
-  const bow = NETHER.weapon === 'bow';
-  NETHER.swingCd = bow ? NETHER.bowCd : NETHER.swingCdMax;
-  Avatar.swing(); // 出手观感(桌面由 input 先行调用; 触屏 👾 按钮从这里补上; 弓=放箭短促前推, 随 def)
-  if (bow) {
-    netherShootArrow(); return;
+  if (NETHER.weapon === 'bow') {
+    /* 弓: 占近战件的同一条冷却轨道(拉弓 0.55s, 换武器不躲冷却 — 原 NETHER.swingCd
+       共享口径), 出手观感同拍, 弹由箭矢管线沿准星出膛 */
+    netherMelee.swingAction(getPEnt(), {cooldown: NETHER.bowCd, act() {
+      netherArrows.shootFromAim({speed: NETHER.arrowSpeed, dmg: NETHER.bowDmg,
+        kpow: 0.35, g: 9.5, life: 3});
+    }});
+    return;
   }
-  const p = getPEnt();
-  let best = null; let bd = NETHER.meleeR * NETHER.meleeR;
-  for (const m of Mobs.list()) {
-    if (m.dead || m.gone) continue;
-    const dx = m.pos.x - p.pos.x; const dz = m.pos.z - p.pos.z;
-    const d = dx*dx + dz*dz;
-    if (d > bd) continue;
-    if (Math.abs(m.pos.y - p.pos.y) > 2.5) continue;
-    if (d < bd) {
-      bd = d; best = m;
-    }
-  }
-  if (!best) return;
-  const r = Mobs.hit(best, NETHER.swingDmg, best.pos.x - p.pos.x, best.pos.z - p.pos.z, 0.35);
-  sfx('hit');
-  if (r.freshDead) netherOnKill(best);
+  netherMelee.swing(getPEnt());
 }
 
 function netherOnKill(m) {
   NETHER.killCount++;
-  Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 6, {color: Mobs.debrisColor(m.type), life: 0.6});
-  showToast('👾 消灭 ' + NETHER.killCount);
-  checkWaveClear();
+  CombatKit.killBurst(m, NETHER.killCount, {after: checkWaveClear}); /* 碎块+计数 toast(消灭) */
 }
 
-/* ---------- 受击提醒(非致命): 身体变红 + 受击音 + 震屏 + 节流语音 ----------
-   主提醒是 Avatar.flash 身体闪红(直观即见); 剩血不再走 toast — 头顶血条
-   常驻可见(每帧刷新)。致命一击不走这里 — 死亡路径已有专属文案/话术(引擎
-   death 音), 且 SpeechKit 是 cancel-then-speak, 后播的受击话术会把死亡话术顶掉 */
-function netherOnHurt(r) {
-  NETHER.player.hp = r.hp; // 账本同步(读侧都在 pEnt, NETHER.player 不落伍)
-  sfx('hurt'); // 受击专属音(与"主人公打怪"的 hit 区分)
-  Avatar.flash(0.4); // 主人公身体变红(主提醒)
-  Fx.kick(0.35); // 轻震屏(Fx 震屏入口, 主循环消费)
-  if (hurtT <= 0) {
-    hurtT = 3; SpeechKit.speak('哎呀被打中了！快躲开！');
-  } // 语音 3 秒节流
-}
+/* 受击提醒已收 CombatKit.mkHurtAlarm(C6-T3, netherHurt 实例): 账本同步+
+   受击音+闪红+震屏+3s 节流话术; 致命一击不走那里 — 死亡路径有专属文案
+   (引擎 death 音), 且 SpeechKit 是 cancel-then-speak, 后播受击话术会把
+   死亡话术顶掉 */
 
 /* ---------- 下界怪物 AI: 全部 hostile, 索敌=主人公 → 逼近/攻击/射击 ---------- */
 function netherAI(dt) {
@@ -293,7 +278,8 @@ function netherAI(dt) {
         }
         if (Math.abs(tg.pos.y - gp.y) < 3 && dist <= want && m.attackCd <= 0) {
           m.attackCd = m.cfg.cd; m.attackT = NETHER_ATTACK_T;
-          netherShoot(m, tg);
+          netherBalls.shootFromMob(m, tg, {speed: 17, dmg: Math.round(m.cfg.dmg),
+            kpow: 1.0, g: 6, life: 2.5}); /* 预测弹道在箭矢管线(战斗核心 leadAim) */
         }
       }
     } else {
@@ -302,7 +288,7 @@ function netherAI(dt) {
       } else if (Math.abs(tg.pos.y - gp.y) < 2.5 && m.attackCd <= 0) { // 近战攻击玩家
         m.attackCd = m.cfg.cd; m.attackT = NETHER_ATTACK_T;
         const r = Mobs.hit(p, Math.round(m.cfg.dmg*(m.dmgMult||1)), p.pos.x - gp.x, p.pos.z - gp.z, 0.4);
-        if (r.freshDead) netherPlayerDied(); else netherOnHurt(r);
+        if (r.freshDead) netherPlayerDied(); else netherHurt.hit(r);
       }
     }
     /* 步态+战斗姿态: 与竞技场同一条怪物库 gait 入口(此前下界只跑 AI 不喂步态 —
@@ -311,90 +297,10 @@ function netherAI(dt) {
   }
 }
 
-/* 飞行怪投射(烈焰人爆裂火球 / 恶魂恶魂火球): 预测弹道(战斗核心 leadAim,
-   与竞技场箭矢同一套提前量+重力补偿 — 原直线弹道对移动中的主人公常打空) */
-let nFireGeo = null; let nFireMat = null; // 火球几何/材质全局共用(移除只摘网格)
-function netherShoot(m, tg) {
-  sfx('shoot');
-  const from = {x: m.pos.x, y: m.pos.y + (m.cfg.h||1.8)*0.55, z: m.pos.z};
-  const dir = CombatCore.leadAim(from,
-      {x: tg.pos.x, y: tg.pos.y, z: tg.pos.z, vx: tg.vel.x, vz: tg.vel.z, h: tg.cfg.h},
-      17, 6, 0.5);
-  let mesh = null;
-  if (typeof THREE !== 'undefined' && typeof scene !== 'undefined') {
-    if (!nFireGeo) {
-      nFireGeo = new THREE.SphereGeometry(0.16, 6, 6); nFireMat = new THREE.MeshBasicMaterial({color: 0xffa53c});
-    }
-    mesh = new THREE.Mesh(nFireGeo, nFireMat);
-    mesh.position.set(from.x, from.y, from.z);
-    scene.add(mesh);
-  }
-  nArrows.push({owner: m, mesh, from, vel: {x: dir.x*17, y: dir.y*17, z: dir.z*17},
-    life: 2.5, dmg: Math.round(m.cfg.dmg), kpow: 1.0, g: 6});
-}
-/* 主人公射箭(弓): 沿统一瞄准射线(CameraRig.aim — 相机装置的唯一视线入口,
-   越肩视角下与准星严格一致), 竞技场箭矢同款重力弹道(箭速/伤害是 NETHER 政策常量)。
-   注: aim 返回复用对象, 这里即刻取标量, 不跨帧持有 */
-let nArrowGeo = null; let nArrowMat = null; // 玩家箭矢几何/材质全局共用(移除只摘网格)
-function netherShootArrow() {
-  sfx('shoot');
-  const a = CameraRig.aim(camera);
-  const dx = a.dir.x; const dy = a.dir.y; const dz = a.dir.z;
-  const from = {x: a.origin.x + dx*0.3, y: a.origin.y + dy*0.3, z: a.origin.z + dz*0.3}; // 沿准星前移 0.3: 第一人称不贴相机, 贴墙不误判撞块
-  let mesh = null;
-  if (typeof THREE !== 'undefined' && typeof scene !== 'undefined') {
-    if (!nArrowGeo) {
-      nArrowGeo = new THREE.BoxGeometry(0.06, 0.06, 0.62); nArrowMat = new THREE.MeshBasicMaterial({color: 0xd8d8d0});
-    }
-    mesh = new THREE.Mesh(nArrowGeo, nArrowMat);
-    mesh.position.set(from.x, from.y, from.z);
-    scene.add(mesh);
-  }
-  nArrows.push({fromPlayer: true, mesh, from,
-    vel: {x: dx*NETHER.arrowSpeed, y: dy*NETHER.arrowSpeed, z: dz*NETHER.arrowSpeed},
-    life: 3, dmg: NETHER.bowDmg, kpow: 0.35, g: 9.5});
-}
-function removeNetherArrow(i) {
-  const a = nArrows[i];
-  if (a.mesh && typeof scene !== 'undefined') scene.remove(a.mesh);
-  nArrows.splice(i, 1);
-}
-function updateNetherArrows(dt) {
-  const p = getPEnt();
-  for (let i=nArrows.length-1; i>=0; i--) {
-    const a = nArrows[i];
-    a.vel.y -= (a.g || 6)*dt;
-    a.life -= dt;
-    const px = a.from.x + a.vel.x*dt; const py = a.from.y + a.vel.y*dt; const pz = a.from.z + a.vel.z*dt;
-    a.from = {x: px, y: py, z: pz};
-    if (a.mesh) {
-      a.mesh.position.set(px, py, pz);
-      if (a.fromPlayer) a.mesh.lookAt(px + a.vel.x, py + a.vel.y, pz + a.vel.z); // 箭头朝飞行方向(火球是球, 不用转)
-    }
-    if (getBlock(Math.floor(px), Math.floor(py), Math.floor(pz)) !== 0 || a.life <= 0) {
-      removeNetherArrow(i); continue;
-    }
-    if (a.fromPlayer) { // 主人公的箭 → 打怪(同一套盒判定, 战斗核心)
-      let hitMob = null;
-      for (const m of Mobs.list()) {
-        if (m.dead || m.gone) continue;
-        if (CombatCore.hitBody({x: px, y: py, z: pz}, m)) {
-          hitMob = m; break;
-        }
-      }
-      if (hitMob) {
-        const r = Mobs.hit(hitMob, a.dmg, hitMob.pos.x - px, hitMob.pos.z - pz, a.kpow);
-        sfx('hit');
-        if (r.freshDead) netherOnKill(hitMob);
-        removeNetherArrow(i);
-      }
-    } else if (!p.dead && CombatCore.hitBody({x: px, y: py, z: pz}, p)) { // 怪的火球 → 命中主人公(与竞技场箭矢同一判定, 战斗核心)
-      const r = Mobs.hit(p, a.dmg, p.pos.x - px, p.pos.z - pz, a.kpow);
-      if (r.freshDead) netherPlayerDied(); else netherOnHurt(r);
-      removeNetherArrow(i);
-    }
-  }
-}
+/* 箭矢管线已收 CombatKit.mkArrows(C6-T3): 飞行怪火球=netherBalls 实例(预测弹道
+   在战斗核心 leadAim — 原直线弹道对移动中的主人公常打空), 主人公弓箭=
+   netherArrows 实例(沿统一瞄准射线 CameraRig.aim, 竞技场同款重力弹道,
+   箭头朝飞行方向/火球不转); 步进在战斗核心 stepShot, mesh/寿命/geo 缓存自持 */
 
 /* ---------- 玩家阵亡: 被送回家(地下室)满血重来 ----------
    用户拍板: 死亡不在下界原地挣扎(怪就在身边, 原地重生即再被围殴), 而是送回家 —
@@ -402,16 +308,17 @@ function updateNetherArrows(dt) {
    一并完成: 切地图/清怪/收投射物/回满血/收武器/落点背对门 */
 function netherPlayerDied() {
   const e = getPEnt();
-  e.dead = false; e.deadT = 0; e.flashT = 0; e.staggerT = 0; e.tintBase = [1, 1, 1];
+  CombatKit.resetFighter(e); /* 复活五字段不变量(阵亡去向政策在此) */
   enterOverworld();
   SpeechKit.speak('被怪物追上了！先回家休息，再回来冒险吧！'); // 后播顶掉"回到上界啦"(cancel-then-speak)
   showToast('💀 被怪物打死了，回家重来！');
 }
 
-/* ---------- 主人公头顶血条(下界常驻): mode-kit mkHpBar 深接口(S2 两模式归一) ----------
+/* ---------- 主人公头顶血条(下界常驻): CombatKit.mkHpBar 深接口(S2 两模式归一,
+    C6-T3 自 mode-kit 随战斗 vocabulary 迁入) ----------
     血量变化才重绘(逐帧纹理上传是移动端掉帧源); 上界不放血条(visible
     回调按阶段控制); Node 单测无 THREE/DOM 时 update 静默跳过 */
-const hpBar = ModeKit.mkHpBar({visible: () => NETHER.phase === 'nether'});
+const hpBar = CombatKit.mkHpBar({visible: () => NETHER.phase === 'nether'});
 function updateHpBar() {/* S2: 逐帧喂血量与世界坐标(头顶 2.2 格), 重绘/显隐收在深接口 */
   hpBar.update(getPEnt().hp, NETHER.player.maxHp, pos.x, pos.y + 2.2, pos.z);
 }
@@ -432,7 +339,7 @@ const NetherMode = mkMode({
 
   cleanup() {
     Mobs.clear();
-    while (nArrows.length) removeNetherArrow(0); // 火球/箭矢网格一并摘除
+    netherArrows.clear(); netherBalls.clear(); // 火球/箭矢网格一并摘除
     netherHoldAtk = false; /* ⛏️ 按住场随模式退出收起 */
     NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
     applySky(OVERWORLD_SKY); // 天空复位: 红天不渗进其他模式
@@ -445,9 +352,9 @@ const NetherMode = mkMode({
   },
 
   update(dt) {
-    if (NETHER.swingCd > 0) NETHER.swingCd = Math.max(0, NETHER.swingCd - dt);
+    netherMelee.tick(dt); /* 攻击冷却递减(剑/弓同一轨道, kit 自持) */
     if (netherHoldAtk) netherAttack(); /* ⛏️ 按住连打(挥击/射箭冷却自节流, 同探险按住连挖的节奏) */
-    hurtT = Math.max(0, hurtT - dt); // 受击语音节流递减
+    netherHurt.tick(dt); // 受击语音节流递减
     if (portalCd > 0) portalCd = Math.max(0, portalCd - dt); // 传送眩晕递减(本帧先扣再判 — 到点即刻可再触发)
     if (NETHER.phase === 'overworld') {
       if (portalCd <= 0 && inPortal(NETHER_HOME_GROUND, NETHER_HOME_PORTAL.px, NETHER_HOME_PORTAL.pz)) {
@@ -461,7 +368,7 @@ const NetherMode = mkMode({
     netherAI(dt);
     Mobs.update(dt);
     Mobs.render();
-    updateNetherArrows(dt);
+    netherArrows.update(dt); netherBalls.update(dt);
     updateHpBar();
     checkWaveClear();
   },

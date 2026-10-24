@@ -244,9 +244,7 @@ function nearestFoe(x, y, z) {
    逐怪碎块色收在怪物库(Mobs.debrisColor, 与竞技场共用), 缺省灰 */
 function onKill(m) {
   killCount++;
-  Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 6, {color: Mobs.debrisColor(m.type), life: 0.6});
-  showToast('👾 消灭 ' + killCount);
-  checkCleared();
+  CombatKit.killBurst(m, killCount, {after: checkCleared}); /* 击杀观感(CombatKit, C6-T3): 碎块+计数 toast, 清场表扬挂尾回调 */
 }
 
 function aliveCount() {

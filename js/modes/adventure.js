@@ -56,7 +56,8 @@
      的 CombatCore(节拍/弹道/盒判定) · effects.js 的 sfx/Fx(boom/arc/
      pop/debrisBurst 爆炸·引信·仪式观感) · input.js 的 Input.holdPt(触屏
      长按屏幕点, 进度环跟手) · mode-kit.js 的 mkMode/mkHotbar/mkCraftPanel/mkFurnacePanel/
-     mkChestPanel(大宝箱)/mkHpBar(头顶血条, S2) · sync.js 的 SyncDB.slot · speech.js 的
+     mkChestPanel(大宝箱)与 CombatKit 玩家战斗件套(mkFighter/mkHurtAlarm/
+     mkMelee/mkArrows/mkHpBar 头顶血条, C6-T3) · sync.js 的 SyncDB.slot · speech.js 的
      SpeechKit · avatar.js 的 Avatar(setItem/swing/flash)
    可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格/进度环), Node 测试可
      安全加载(test/adventure-mode.test.js, 真引擎件经 vm 装载)
@@ -241,21 +242,38 @@ function advPanelToggle() {/* 🎒/Tab 入口 */
   advFreeMouse();
 }
 
-/* ---------- 玩家实体(受击/受死共用状态, nether getPEnt 同款) ---------- */
+/* ---------- 玩家实体(受击/受死共用状态, CombatKit 工厂 — nether 同款归一) ---------- */
 let advPEnt = null;
 function advGetPEnt() {
   if (advPEnt) return advPEnt;
-  advPEnt = {pos, vel, cfg: {h: PLAYER.height, fly: false, ranged: false, dmg: 3, range: 3.0,
-    cd: 0, hitR: 0.55, speed: PLAYER.speed, hp: ADV.player.hp, maxHp: ADV.player.maxHp,
-    dead: false, gone: false},
-  hp: ADV.player.hp, maxHp: ADV.player.maxHp, dead: false, deadT: 0,
-  flashT: 0, staggerT: 0, tintBase: [1, 1, 1]};
+  advPEnt = CombatKit.mkFighter({hp: ADV.player.hp, maxHp: ADV.player.maxHp,
+    dmg: 3, range: ADV_MELEE_R});
   return advPEnt;
 }
 
-/* ---------- 头顶血条: mode-kit mkHpBar 深接口(S2, 探险/下界两模式同形归一) ----------
+/* ---------- 玩家战斗壳(CombatKit, C6-T3): 受击提醒/近战/骷髅箭管线/击杀观感 ----------
+   冷却与话术节流自持在 kit(update 只喂 tick); 伤害=手持工具 D9 表、
+   命中扣耐久、击杀记账与掉落政策留模式层 ---------- */
+const advHurt = CombatKit.mkHurtAlarm({setHp: (v) => {
+  ADV.player.hp = v;
+}});
+const advMelee = CombatKit.mkMelee({range: ADV_MELEE_R, cooldown: ADV_SWING_CD,
+  aimCos: ADV_AIM_COS, /* 准星锥门槛(纯方向, 不依赖相机 — lookDir 同式 yaw 朝向) */
+  dmg: () => {
+    const held = advInv.slots[advHb.sel];
+    return advSwingDmg(held ? held.id : '');
+  },
+  onWear: () => advWearHeld('hit'), /* 命中才扣耐久(空手/非工具不扣) */
+  onKill: (m) => advOnKill(m)});
+const advArrows = CombatKit.mkArrows({color: 0xd8d0b8, player: advGetPEnt,
+  onHitPlayer: (res) => {
+    if (res.freshDead) advPlayerDied();
+    else advHurt.hit(res);
+  }});
+
+/* ---------- 头顶血条: CombatKit.mkHpBar 深接口(S2, C6-T3 自 mode-kit 迁入) ----------
     每帧喂 {hp, maxHp, 世界坐标}(头顶 2.2 格), 重绘节流收在深接口 */
-const advHpBar = ModeKit.mkHpBar();
+const advHpBar = CombatKit.mkHpBar();
 
 /* ---------- 提醒账本(S4): 判据纯函数在 adventure-core, 这里只持账本与话术 ---------- */
 const advWarnLow = new Set(); /* 已低耐久预警的工具 id(advWearWarn 消费; 破板即 delete 重置) */
@@ -315,36 +333,14 @@ function advNestTick(dt) {
   }
 }
 
-/* 玩家挥击: 准星锥内最近怪(纯方向门槛, 不依赖相机 — 与 lookDir 同式的
-   yaw 朝向); 锥内无怪不出手不空挥, 点击留给挖掘/放置(T12 语义不抢) */
+/* 玩家挥击已收 CombatKit.mkMelee(C6-T3, advMelee 实例): 准星锥内最近怪
+   (锥内无怪不出手不空挥, 点击留给挖掘/放置 — T12 语义不抢), 冷却/伤害/
+   磨损/击杀经 cfg 注入; 两个名字保留为薄委托(调用点与测试缝零改动) */
 function advAimMob(p) {
-  let best = null; let bd = ADV_MELEE_R * ADV_MELEE_R;
-  const fx = -Math.sin(yaw); const fz = -Math.cos(yaw); /* 朝向(camera-rig lookDir 同式) */
-  for (const m of Mobs.list()) {
-    if (m.dead || m.gone) continue;
-    const dx = m.pos.x - p.pos.x; const dz = m.pos.z - p.pos.z;
-    const d2 = dx * dx + dz * dz;
-    if (d2 > bd) continue;
-    if (Math.abs(m.pos.y - p.pos.y) > 2.5) continue;
-    const d = Math.sqrt(d2) || 1e-9;
-    if ((dx / d) * fx + (dz / d) * fz < ADV_AIM_COS) continue; /* 不在准星锥内 */
-    bd = d2; best = m;
-  }
-  return best;
+  return advMelee.aim(p);
 }
 function advAttack() {
-  if (ADV.swingCd > 0) return;
-  const p = advGetPEnt();
-  const m = advAimMob(p);
-  if (!m) return; /* 锥内无怪: 不出手(挖掘/放置的点击政策归 T12) */
-  ADV.swingCd = ADV_SWING_CD;
-  Avatar.swing();
-  const held = advInv.slots[advHb.sel];
-  const r = Mobs.hit(m, advSwingDmg(held ? held.id : ''),
-      m.pos.x - p.pos.x, m.pos.z - p.pos.z, 0.35);
-  sfx('hit');
-  advWearHeld('hit'); /* 命中才扣耐久(空手/非工具不扣) */
-  if (r.freshDead) advOnKill(m);
+  advMelee.swing(advGetPEnt());
 }
 /* 手持工具耐久结算(S3 合一: 原 advWearTool(命中)/advDamageHeld(挖掘)两份
    同形实现合并, 来源参数 src 只剩标注用途——行为同一: damageTool 返 0 =
@@ -371,26 +367,16 @@ function advWearHeld(src) {
   }
   advSyncHotbar();
 }
-function advOnKill(m) {/* 击杀观感(nether 先例): 碎块+计数 toast; 掉落在 onDeath 回调;
-   任务记账只认亲手击杀(挥击/箭/TNT 三路都经此—— TNT 掀方块不算挖掘, 但炸死怪物算战果) */
+function advOnKill(m) {/* 击杀观感(CombatKit.killBurst, nether 同源): 碎块+计数 toast;
+   掉落在 onDeath 回调; 任务记账只认亲手击杀(挥击/箭/TNT 三路都经此——
+   TNT 掀方块不算挖掘, 但炸死怪物算战果) */
   ADV.killCount++;
   advTally('kill_mob', 1); /* 引导链 v2: 战斗教学步(铁镐后钻石前) */
-  Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 6, {color: Mobs.debrisColor(m.type), life: 0.6});
-  showToast('👾 击杀 ' + ADV.killCount);
+  CombatKit.killBurst(m, ADV.killCount, {verb: '击杀'});
 }
 
-/* 受击提醒(非致命, nether 全套): 账本同步 + 受击音 + 闪红 + 震屏 + 语音 3s 节流 */
-let advHurtT = 0; /* 受击语音节流计时(iOS TTS 频繁 cancel 是掉帧源, nether 同款) */
-function advOnHurt(r) {
-  ADV.player.hp = r.hp;
-  sfx('hurt');
-  Avatar.flash(0.4); /* 主提醒: 身体变红(剩血走头顶血条, 不再 toast) */
-  Fx.kick(0.35);
-  if (advHurtT <= 0) {
-    advHurtT = 3;
-    SpeechKit.speak('哎呀被打中了！快躲开！');
-  }
-}
+/* 受击提醒已收 CombatKit.mkHurtAlarm(C6-T3, advHurt 实例 — nether 全套同源):
+   账本同步 + 受击音 + 闪红 + 震屏 + 语音 3s 节流 */
 
 /* 怪物 AI(nether 同款骨架 + 巢穴收敛): 索敌=玩家且同巢; 超收队半径掉头回巢;
    近战逼近→贴身打, 骷髅(ranged)保持 7 格巡航放箭(leadAim 预测弹道) */
@@ -418,7 +404,8 @@ function advMobAI(dt) {
         }
         if (Math.abs(p.pos.y - m.pos.y) < 3 && distP <= want && m.attackCd <= 0) {
           m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
-          advShootArrow(m, p);
+          advArrows.shootFromMob(m, p, {speed: ADV_ARROW_SPEED, dmg: advMobDmg(m),
+            kpow: 0.6, g: 6, life: 2.5}); /* 骷髅箭(伤害封顶 ADV_DMG_CAP 在纯核心) */
         }
       } else if (distP > m.cfg.range) {/* 近战逼近 */
         Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
@@ -426,7 +413,7 @@ function advMobAI(dt) {
         m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
         const r = Mobs.hit(p, advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4);
         if (r.freshDead) advPlayerDied();
-        else advOnHurt(r);
+        else advHurt.hit(r);
       }
     } else if (distHome > ADV_NEST_HOME_R) {/* 收队: 慢步回巢(掉头不恋战) */
       Mobs.steer(m, Math.atan2(hx, hz));
@@ -437,66 +424,16 @@ function advMobAI(dt) {
   }
 }
 
-/* 骷髅箭矢(nether 投射先例): leadAim 预测弹道 + 重力, 命中玩家走受击/死亡 */
-const advArrows = []; /* 玩家近战无远程, 弹道单向(怪 → 玩家) */
-let advArrGeo = null; let advArrMat = null; /* 箭矢几何/材质全局共用(移除只摘网格) */
-function advShootArrow(m, tg) {
-  sfx('shoot');
-  const from = {x: m.pos.x, y: m.pos.y + (m.cfg.h || 1.8) * 0.55, z: m.pos.z};
-  const dir = CombatCore.leadAim(from,
-      {x: tg.pos.x, y: tg.pos.y, z: tg.pos.z, vx: tg.vel.x, vz: tg.vel.z, h: tg.cfg.h},
-      ADV_ARROW_SPEED, 6, 0.5);
-  let mesh = null;
-  if (typeof THREE !== 'undefined' && typeof scene !== 'undefined') {
-    if (!advArrGeo) {
-      advArrGeo = new THREE.BoxGeometry(0.06, 0.06, 0.62);
-      advArrMat = new THREE.MeshBasicMaterial({color: 0xd8d0b8});
-    }
-    mesh = new THREE.Mesh(advArrGeo, advArrMat);
-    mesh.position.set(from.x, from.y, from.z);
-    scene.add(mesh);
-  }
-  advArrows.push({owner: m, mesh, from,
-    vel: {x: dir.x * ADV_ARROW_SPEED, y: dir.y * ADV_ARROW_SPEED, z: dir.z * ADV_ARROW_SPEED},
-    life: 2.5, dmg: advMobDmg(m), kpow: 0.6, g: 6});
-}
-function advRemoveArrow(i) {
-  const a = advArrows[i];
-  if (a.mesh && typeof scene !== 'undefined') scene.remove(a.mesh);
-  advArrows.splice(i, 1);
-}
-function advUpdateArrows(dt) {
-  const p = advGetPEnt();
-  for (let i = advArrows.length - 1; i >= 0; i--) {
-    const a = advArrows[i];
-    a.vel.y -= a.g * dt;
-    a.life -= dt;
-    const px = a.from.x + a.vel.x * dt; const py = a.from.y + a.vel.y * dt;
-    const pz = a.from.z + a.vel.z * dt;
-    a.from = {x: px, y: py, z: pz};
-    if (a.mesh) {
-      a.mesh.position.set(px, py, pz);
-      a.mesh.lookAt(px + a.vel.x, py + a.vel.y, pz + a.vel.z); /* 箭头朝飞行方向 */
-    }
-    if (getBlock(Math.floor(px), Math.floor(py), Math.floor(pz)) !== 0 || a.life <= 0) {
-      advRemoveArrow(i);
-      continue;
-    }
-    if (!p.dead && CombatCore.hitBody({x: px, y: py, z: pz}, p)) {/* 命中玩家(战斗核心盒判定) */
-      const r = Mobs.hit(p, a.dmg, p.pos.x - px, p.pos.z - pz, a.kpow);
-      if (r.freshDead) advPlayerDied();
-      else advOnHurt(r);
-      advRemoveArrow(i);
-    }
-  }
-}
+/* 骷髅箭矢已收 CombatKit.mkArrows(C6-T3, advArrows 实例 — nether 投射同源):
+   leadAim 预测弹道 + 重力(stepShot 步进), 命中玩家走受击/死亡回调;
+   弹道单向(怪 → 玩家, 玩家近战无远程), mesh/寿命/geo 缓存自持 */
 
 /* 死亡结算(T14 致命一击/坠出世界共用): 政策纯函数 advDeathPlan(core);
    只动玩家状态与位置, 背包一个不动 */
 function advPlayerDied() {
   const e = advGetPEnt();
   const plan = advDeathPlan(e, ADV.spawn);
-  e.dead = false; e.deadT = 0; e.flashT = 0; e.staggerT = 0; e.tintBase = [1, 1, 1];
+  CombatKit.resetFighter(e); /* 复活五字段不变量(阵亡去向政策在此) */
   e.hp = plan.hp; ADV.player.hp = plan.hp;
   ModeKit.spawn(plan.x, plan.y, plan.z, {yaw: plan.yaw});
   advFurnaceReset(true); /* 死亡清炉(T13 合同): 炉内材料全额退背包, 满包余量掉在重生点脚边 */
@@ -1298,9 +1235,9 @@ const AdventureMode = mkMode({
     /* —— 巢穴战斗段(T14): 清残留 → 重挂引擎回调(clear 会解除, 每次进场重挂) → 三巢首刷 */
     Mobs.clear();
     Drops.clear(); /* 重进清残留掉落物(挖掘/击杀两链共用; 并解除旧收集回调) */
-    while (advArrows.length) advRemoveArrow(0); /* 上一场的箭不渗进来 */
-    ADV.killCount = 0; ADV.swingCd = 0;
-    advHurtT = 0;
+    advArrows.clear(); /* 上一场的箭不渗进来 */
+    ADV.killCount = 0;
+    advMelee.reset(); advHurt.reset(); /* 冷却/受击节流不复场 */
     advPickBuf.clear(); advPickT = 0;
     advNestT.fill(0);
     const pe = advGetPEnt(); /* 进场血量随世界档(重进保留残血); 老档/坏档 → 满血 */
@@ -1326,7 +1263,7 @@ const AdventureMode = mkMode({
     advSaveNow();
     Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
     Drops.clear(); /* 清掉落物+解除收集回调 */
-    while (advArrows.length) advRemoveArrow(0); /* 箭矢网格一并摘除 */
+    advArrows.clear(); /* 箭矢网格一并摘除 */
     ADV.panelOpen = false;
     ADV.furnaceOpen = false;
     ADV.chestOpen = false;
@@ -1361,12 +1298,12 @@ const AdventureMode = mkMode({
     advTntTapTick(dt); /* TNT 短按/按住判定(D3): 转蓄力需先于 advMineTick 同帧生效 */
     advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */
     advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
-    if (ADV.swingCd > 0) ADV.swingCd = Math.max(0, ADV.swingCd - dt); /* 挥击冷却(T14) */
-    advHurtT = Math.max(0, advHurtT - dt); /* 受击语音节流递减(T14) */
+    advMelee.tick(dt); /* 挥击冷却递减(kit 自持, T14 口径不变) */
+    advHurt.tick(dt); /* 受击语音节流递减(T14) */
     advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架) */
     Mobs.update(dt);
     Mobs.render();
-    advUpdateArrows(dt); /* 骷髅箭矢弹道 */
+    advArrows.update(dt); /* 骷髅箭矢弹道 */
     Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 真空拾取(挖掘/击杀两链共用, 玩家胸口点) */
     Drops.render();
     advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */

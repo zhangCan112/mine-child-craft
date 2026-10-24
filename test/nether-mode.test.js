@@ -90,6 +90,7 @@ globalThis.isSolid = () => false;
 globalThis.groundTop = () => 11;
 globalThis.MobCore = {stepMove() {}, hitState() {}};
 globalThis.CombatCore = require('../js/combat-core.js'); /* 战斗核心: 真模块(节拍/弹道/命中判定是纯函数) */
+globalThis.CombatKit = require('../js/combat-kit.js'); /* 玩家战斗壳: 真模块(C6-T3 — 受击/近战/箭矢/击杀观感) */
 const RealMobCore = require('../js/mob-core.js'); /* 受击状态机真模块: fake Mobs.hit 对玩家实体套用它(不改血量 → 血量断言无从谈起) */
 globalThis.hashRand = () => 0.13;
 globalThis.WORLD_W = 8;

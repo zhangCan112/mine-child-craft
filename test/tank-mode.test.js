@@ -37,6 +37,7 @@ globalThis.document = {
   getElementById: (id) => (elCache[id] = elCache[id] || fakeEl()),
 };
 const ModeKit = require('../js/mode-kit.js');
+globalThis.CombatKit = require('../js/combat-kit.js'); /* 玩家战斗壳(C6-T3): 击杀观感真模块 */
 globalThis.mkMode = ModeKit.mkMode; /* 浏览器经典脚本下 mkMode 是全局, Node 需桥接 */
 globalThis.ModeKit = ModeKit; /* 同上: tank-range 经 ModeKit.spawn 出生(不走裸全局名) */
 ModeKit.spawn = (x, y, z, o) => {

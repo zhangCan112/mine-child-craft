@@ -286,6 +286,7 @@ globalThis.Fx = {debrisBurst() {
   calls.push(['pop']);
 }}; /* T13 爆炸组合/引信火花观感走调用记录; T15 仪式冲击波/烟花再加 pop */
 globalThis.CombatCore = require('../js/combat-core.js'); /* 战斗核心: 真模块(弹道/盒判定是纯函数) */
+globalThis.CombatKit = require('../js/combat-kit.js'); /* 玩家战斗壳: 真模块(C6-T3) */
 globalThis.pos = {x: 61.5, y: 25, z: 76.5, set() {}};
 globalThis.vel = {set() {}};
 globalThis.yaw = 0;

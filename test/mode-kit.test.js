@@ -98,7 +98,6 @@ globalThis.ITEMS = {
 globalThis.iconOf = (id) => (id === 'planks' ? 'data:image/png;base64,AA' : '🥓');
 /* 按钮像素图标(button-icons.js)引用的自由变量 → 全局桩(面板标题/页签/徽标) */
 globalThis.btnImg = (n) => '<img class="bi" data-btn="' + n + '" alt="" src="data:image/png;base64,BB">';
-globalThis.BTN_PIX = {heart: {art: [], map: {}}}; /* mkHpBar 像素心(THREE 缺席时不触达) */
 globalThis.toolOf = (id) => (/^(pick|axe|sword|shovel)_/.test(id) ? {kind: 'pick', tier: 1, dur: 120} : null);
 globalThis.HOTBAR_SLOTS = 9; // inventory-core 常量桩
 let pausedN = 0;
@@ -692,16 +691,4 @@ test('confirmBtn: 首点武装, 再点执行, 超时还原', (t) => {
   assert.strictEqual(done, 2);
 });
 
-test('mkHpBar: 头顶血条深接口 — 形状齐全 + 无 THREE/DOM 渲染环境静默待命(S2)', () => {
-  assert.strictEqual(typeof ModeKit.mkHpBar, 'function', '深接口挂进 ModeKit 导出');
-  const bar = ModeKit.mkHpBar();
-  assert.strictEqual(typeof bar.update, 'function', 'update 入口');
-  assert.strictEqual(typeof bar.dispose, 'function', 'dispose 入口');
-  /* Node 单测无 THREE/scene: 惰性创建不炸、不参与行为断言(观感归浏览器) */
-  assert.doesNotThrow(() => bar.update(30, 30, 1.5, 27.2, 3.5), '无渲染环境 update 安全');
-  assert.doesNotThrow(() => bar.dispose(), '无渲染环境 dispose 安全');
-  const vis = ModeKit.mkHpBar({visible: () => false});
-  assert.doesNotThrow(() => vis.update(10, 30, 0, 0, 0), 'visible 回调口径同安全');
-  assert.doesNotThrow(() => vis.dispose());
-});
-/* mkHpBar 断言将随 C6-T3 模式切换迁入 test/combat-kit.test.js */
+/* mkHpBar 断言已随件迁 test/combat-kit.test.js(C6-T3) */

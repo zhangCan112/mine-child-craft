@@ -220,4 +220,17 @@ test('resetFighter: 复活五字段不变量(阵亡去向政策留模式)', () =
   assert.strictEqual(e.staggerT, 0);
   assert.deepStrictEqual([...e.tintBase], [1, 1, 1]);
 });
-/* mkHpBar 断言随 C6-T3(迁件+模式切换同票)入册 */
+
+test('mkHpBar: 头顶血条深接口 — 形状齐全 + 无 THREE/DOM 渲染环境静默待命(S2, 自 mode-kit 迁入)', () => {
+  const d = loadCombatKit();
+  assert.strictEqual(typeof d.ck.mkHpBar, 'function', '挂在 CombatKit 导出');
+  const bar = d.ck.mkHpBar();
+  assert.strictEqual(typeof bar.update, 'function', 'update 入口');
+  assert.strictEqual(typeof bar.dispose, 'function', 'dispose 入口');
+  /* Node 单测无 THREE/scene: 惰性创建不炸、不参与行为断言(观感归浏览器) */
+  assert.doesNotThrow(() => bar.update(30, 30, 1.5, 27.2, 3.5), '无渲染环境 update 安全');
+  assert.doesNotThrow(() => bar.dispose(), '无渲染环境 dispose 安全');
+  const vis = d.ck.mkHpBar({visible: () => false});
+  assert.doesNotThrow(() => vis.update(10, 30, 0, 0, 0), 'visible 回调口径同安全');
+  assert.doesNotThrow(() => vis.dispose());
+});
