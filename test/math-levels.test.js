@@ -61,14 +61,14 @@ function tierCurve(ml, family, key) {
   return Array.from({length: 19}, (_, k) => ml.mathParamsFor(family, k + 1)[key]);
 }
 
-/* ============ 100 关螺旋编排不变量(design §4.1 / plan §7) ============ */
+/* ============ 120 关螺旋编排不变量(design §4.1 / plan §7 / G4 扩容) ============ */
 
-test('MATH_LEVELS: 共 100 关 = 四带×25, 带 0 前六关教学(六族序), 带末 boss', () => {
+test('MATH_LEVELS: 共 120 关 = 四带×30, 带 0 前六关教学(六族序), 带末 boss', () => {
   const ml = loadMathLevels();
   const L = ml.MATH_LEVELS;
-  assert.strictEqual(L.length, 100);
-  for (let i = 0; i < 100; i++) {
-    const band = Math.floor(i/25);
+  assert.strictEqual(L.length, 120, 'G4 扩容: 100→120(用户拍板)');
+  for (let i = 0; i < 120; i++) {
+    const band = Math.floor(i/30);
     assert.strictEqual(L[i].i, i, '关卡号连续');
     assert.strictEqual(L[i].band, band, '第 ' + (i+1) + ' 关属带 ' + band);
     assert.ok(ml.MATH_FAMILIES.includes(L[i].family), '每关归属六族之一');
@@ -83,7 +83,7 @@ test('MATH_LEVELS: 共 100 关 = 四带×25, 带 0 前六关教学(六族序), �
     assert.strictEqual(lv.family, ml.MATH_FAMILIES[j], '教学关按六族顺序');
   }
   for (let b = 0; b < 4; b++) {
-    const boss = L[b*25 + 24];
+    const boss = L[b*30 + 29];
     assert.strictEqual(boss.kind, 'boss', '带 ' + b + ' 末关为 boss');
     assert.strictEqual(boss.band, b);
   }
@@ -97,58 +97,124 @@ test('MATH_LEVELS: 带 1~3 带首两关复习(kind=review, tier=上一带顶档)
   }
   for (let b = 1; b < 4; b++) {
     for (let j = 0; j < 2; j++) {
-      const rv = L[b*25 + j];
+      const rv = L[b*30 + j];
       assert.strictEqual(rv.kind, 'review', '带 ' + b + ' 第 ' + (j+1) + ' 关为复习');
       assert.strictEqual(rv.tier, b*4, '复习回访上一带顶档(tier=' + b*4 + ')');
       assert.ok(['craft', 'hop'].includes(rv.family), '复习落在数与运算主线族');
     }
   }
-  /* 全表 review 恰 6 关(带 1~3 各 2), 其余 kind 分布锁定 */
+  /* 全表 kind 分布锁定(G4): plan/mirror 双挑战 → challenge 29 = 4 族×4 带
+     单挑战 16 + mirror(1+2+2+2) 7 + plan(1+1+2+2) 6; 轮转 104 = 29+75 */
   const kinds = {};
   for (const lv of L) kinds[lv.kind] = (kinds[lv.kind] || 0) + 1;
   assert.strictEqual(kinds.review, 6);
   assert.strictEqual(kinds.tutorial, 6);
   assert.strictEqual(kinds.boss, 4);
-  assert.strictEqual(kinds.challenge, 24, '六族×四带各一挑战关');
-  assert.strictEqual(kinds.normal, 60);
+  assert.strictEqual(kinds.challenge, 29, '六族×四带挑战关, mirror/plan 双挑战变体各占一');
+  assert.strictEqual(kinds.normal, 75);
 });
 
-test('MATH_LEVELS: 六族配重 count/mirror/plan/pattern=15, craft/hop=20(主线略高)', () => {
+test('MATH_LEVELS: 六族配重 count/pattern=16, craft/hop=24, mirror/plan=20(G4 扩容拍板)', () => {
   const ml = loadMathLevels();
-  const want = {count: 15, craft: 20, hop: 20, mirror: 15, plan: 15, pattern: 15};
+  const want = {count: 16, craft: 24, hop: 24, mirror: 20, plan: 20, pattern: 16};
   const got = {};
   for (const f of ml.MATH_FAMILIES) got[f] = 0;
   for (const lv of ml.MATH_LEVELS) got[lv.family]++;
-  assert.deepStrictEqual(got, want, '配重口径: 教学/复习/挑战/boss 都计入族账(boss 记 sections 首族)');
+  assert.deepStrictEqual(got, want,
+      '配重口径: 教学/复习/挑战/boss 都计入族账(boss 记 sections 首族), 总和=120');
 });
 
-test('MATH_LEVELS: 每族每带末次轮转出现=挑战关(★★), tier=band*4+带内第几次出现', () => {
+/* 该族该带出场的挑战变体序列(带内末 N 次轮转按序填, 旧挑战在前) */
+function bandChallenges(ml, f, band) {
+  return ml.MATH_VARIANTS[f]
+      .filter((v) => v.kind === 'challenge' && (v.introBand || 0) <= band)
+      .map((v) => v.id);
+}
+
+test('MATH_LEVELS: 每族带内末 N 次轮转=挑战序列(N=带内解锁挑战数), tier=band*4+k', () => {
   const ml = loadMathLevels();
   const L = ml.MATH_LEVELS;
-  const challengeVariant = (f) => ml.MATH_VARIANTS[f].find((v) => v.kind === 'challenge').id;
   for (let b = 0; b < 4; b++) {
     for (const f of ml.MATH_FAMILIES) {
       /* 轮转流 = 教学关+normal+challenge(复习/boss 是带外加固, 不占轮转) */
       const occ = [];
-      for (let j = 0; j < 25; j++) {
-        const lv = L[b*25 + j];
+      for (let j = 0; j < 30; j++) {
+        const lv = L[b*30 + j];
         if (lv.family === f && lv.kind !== 'review' && lv.kind !== 'boss') occ.push(lv);
       }
-      assert.ok(occ.length >= 3 && occ.length <= 4,
-          f + ' 带 ' + b + ' 轮转出现 3~4 次, 实为 ' + occ.length);
-      const last = occ[occ.length - 1];
-      assert.strictEqual(last.kind, 'challenge', f + ' 带 ' + b + ' 末次出现=挑战');
-      assert.strictEqual(last.variant, challengeVariant(f), '挑战关用该族 ★★ 变体');
+      assert.ok(occ.length >= 3 && occ.length <= 5,
+          f + ' 带 ' + b + ' 轮转出现 3~5 次, 实为 ' + occ.length);
+      const chList = bandChallenges(ml, f, b);
+      /* 末 N 次出现按序=挑战序列(旧挑战在前, 新变体殿后) */
       for (let n = 0; n < occ.length; n++) {
+        const rem = occ.length - n; // 距末次的剩余出现数
+        if (rem <= chList.length) {
+          assert.strictEqual(occ[n].kind, 'challenge',
+              f + ' 带 ' + b + ' 倒数第 ' + rem + ' 次出现=挑战');
+          assert.strictEqual(occ[n].variant, chList[chList.length - rem],
+              f + ' 带 ' + b + ' 挑战序列位: ' + occ[n].variant);
+        } else {
+          assert.ok(occ[n].kind === 'normal' || occ[n].kind === 'tutorial',
+              f + ' 带 ' + b + ' 第 ' + (n+1) + ' 次出现为常规/教学');
+        }
         assert.strictEqual(occ[n].tier, Math.min(19, b*4 + n + 1),
             f + ' 带 ' + b + ' 第 ' + (n+1) + ' 次出现 tier=band*4+k');
       }
     }
   }
-  /* 挑战关自身 24 关全部 kind=challenge 且变体正确(上面已顺带断言变体) */
 });
 
-test('MATH_LEVELS: 常规关变体轮换 — 每族三个常规范型全部出场', () => {
+test('MATH_LEVELS: 新挑战变体带位约束 — dualview 只在带 2+, bridge 带 1+', () => {
+  const ml = loadMathLevels();
+  for (const lv of ml.MATH_LEVELS) {
+    if (lv.variant === 'dualview') {
+      assert.ok(lv.band >= 2, 'dualview 带 ' + lv.band + ' < 2(二年级观察物体同频)');
+      assert.strictEqual(lv.kind, 'challenge', 'dualview 只在挑战位');
+    }
+    if (lv.variant === 'bridge') {
+      assert.ok(lv.band >= 1, 'bridge 带 ' + lv.band + ' < 1');
+      assert.strictEqual(lv.kind, 'challenge', 'bridge 只在挑战位');
+    }
+  }
+  const dv = ml.MATH_LEVELS.filter((lv) => lv.variant === 'dualview');
+  const br = ml.MATH_LEVELS.filter((lv) => lv.variant === 'bridge');
+  assert.ok(dv.length >= 2, 'dualview 有出场(带 2/3 各至少一次)');
+  assert.ok(br.length >= 3, 'bridge 有出场(带 1~3 各至少一次)');
+});
+
+test('MATH_LEVELS: 轮转槽均匀交错 — 带内同族不相邻, 每带每族次数符合编排表', () => {
+  const ml = loadMathLevels();
+  const L = ml.MATH_LEVELS;
+  /* 每带每族轮转次数(G4 编排表: 轮转 104 槽, 配重见上) */
+  const want = [
+    {count: 3, craft: 4, hop: 4, mirror: 4, plan: 4, pattern: 4}, // 带 0: 6 教学+23 轮转
+    {count: 4, craft: 5, hop: 4, mirror: 5, plan: 5, pattern: 4}, // 带 1~3: 2 复习+27 轮转
+    {count: 4, craft: 4, hop: 5, mirror: 5, plan: 5, pattern: 4},
+    {count: 4, craft: 5, hop: 5, mirror: 5, plan: 5, pattern: 3},
+  ];
+  for (let b = 0; b < 4; b++) {
+    const seq = [];
+    const got = {};
+    for (const f of ml.MATH_FAMILIES) got[f] = 0;
+    for (let j = 0; j < 30; j++) {
+      const lv = L[b*30 + j];
+      if (lv.kind === 'review' || lv.kind === 'boss' || lv.kind === 'tutorial') continue;
+      seq.push(lv.family);
+      got[lv.family]++;
+    }
+    assert.deepStrictEqual(got, want[b], '带 ' + b + ' 每族轮转次数(编排表锁死)');
+    for (let k = 1; k < seq.length; k++) {
+      assert.ok(seq[k] !== seq[k-1],
+          '带 ' + b + ' 轮转槽 ' + seq[k] + ' 与前槽同族相邻(交错练习+间隔复习)');
+    }
+    /* 带 0: 首个轮转槽不与末关教学同族(教学期先见基础玩法) */
+    if (b === 0) {
+      assert.notStrictEqual(seq[0], ml.MATH_FAMILIES[5], '带 0 首槽不接 pattern 教学关');
+    }
+  }
+});
+
+test('MATH_LEVELS: 常规关变体轮换 — 每族三个常规范型全部出场, 挑战变体只在挑战位', () => {
   const ml = loadMathLevels();
   for (const f of ml.MATH_FAMILIES) {
     const regular = ml.MATH_VARIANTS[f].filter((v) => v.kind !== 'challenge').map((v) => v.id);
@@ -159,53 +225,69 @@ test('MATH_LEVELS: 常规关变体轮换 — 每族三个常规范型全部出�
     for (const id of regular) {
       assert.ok(seen.has(id), f + ' 常规变体 ' + id + ' 有出场');
     }
-    assert.ok(!seen.has(ml.MATH_VARIANTS[f].find((v) => v.kind === 'challenge').id),
-        f + ' 挑战变体只出现在挑战关');
+    for (const ch of ml.MATH_VARIANTS[f].filter((v) => v.kind === 'challenge')) {
+      const occ = ml.MATH_LEVELS.filter((lv) => lv.variant === ch.id);
+      assert.ok(occ.every((lv) => lv.kind === 'challenge' || lv.kind === 'boss'),
+          f + ' 挑战变体 ' + ch.id + ' 只出现在挑战位(挑战关/boss 节)');
+    }
   }
 });
 
 test('MATH_LEVELS: boss 三族★★串联 sections(对齐 focus 大师关先例), 名义族=首节族', () => {
   const ml = loadMathLevels();
-  const challengeVariant = (f) => ml.MATH_VARIANTS[f].find((v) => v.kind === 'challenge').id;
+  /* 各节 = 该族该带挑战序列的末位变体(新变体殿后=boss 节取同档):
+     带 2 偶带 mirror 节=bridge · 带 3 奇带 plan 节=dualview 自然落位 */
+  const lastChallenge = (f, b) => bandChallenges(ml, f, b).pop();
   for (let b = 0; b < 4; b++) {
-    const boss = ml.MATH_LEVELS[b*25 + 24];
+    const boss = ml.MATH_LEVELS[b*30 + 29];
     assert.ok(Array.isArray(boss.sections) && boss.sections.length === 3,
         '带 ' + b + ' boss 三段串联');
     const fams = boss.sections.map((s) => s.family);
     assert.strictEqual(new Set(fams).size, 3, '三节三族不重');
     assert.strictEqual(boss.family, fams[0], 'boss 记账在 sections 首族(配重口径)');
-    assert.ok(['craft', 'hop'].includes(boss.family), 'boss 名义族在主线族(配重 20 的两个)');
+    assert.ok(['craft', 'hop'].includes(boss.family), 'boss 名义族在主线族(配重 24 的两个)');
     for (const sec of boss.sections) {
-      assert.strictEqual(sec.variant, challengeVariant(sec.family), '各节=该族 ★★ 变体');
+      assert.strictEqual(sec.variant, lastChallenge(sec.family, b),
+          '各节=该族该带末次挑战变体: ' + sec.family + '/' + sec.variant);
       assert.ok(sec.params && typeof sec.params === 'object', '各节带参数');
-      /* 节 tier = 该族该带挑战关的 tier(同带同难度口径) */
-      const chal = ml.MATH_LEVELS.find((lv) =>
+      /* 节 tier = 该族该带末次挑战关的 tier(同带同难度口径) */
+      const chals = ml.MATH_LEVELS.filter((lv) =>
         lv.band === b && lv.family === sec.family && lv.kind === 'challenge');
-      assert.ok(chal, sec.family + ' 带 ' + b + ' 有挑战关(节参数取同档)');
-      assert.strictEqual(sec.tier, chal.tier);
+      assert.ok(chals.length >= 1, sec.family + ' 带 ' + b + ' 有挑战关(节参数取同档)');
+      const lastChal = chals[chals.length - 1];
+      assert.strictEqual(sec.variant, lastChal.variant, '节变体=带内末次挑战变体');
+      assert.strictEqual(sec.tier, lastChal.tier);
     }
     /* 偶带/奇带轮换覆盖全部六族(两带一轮) */
   }
-  const evenFams = ml.MATH_LEVELS[24].sections.map((s) => s.family).sort();
-  const oddFams = ml.MATH_LEVELS[49].sections.map((s) => s.family).sort();
+  const evenFams = ml.MATH_LEVELS[29].sections.map((s) => s.family).sort();
+  const oddFams = ml.MATH_LEVELS[59].sections.map((s) => s.family).sort();
   assert.deepStrictEqual([...evenFams, ...oddFams].sort(), [...ml.MATH_FAMILIES].sort(),
       '带 0/带 1 的 boss 六族全覆盖(后续两带重复该组合)');
+  /* G4: 带 2 boss 的 mirror 节走 bridge, 带 3 boss 的 plan 节走 dualview */
+  assert.ok(ml.MATH_LEVELS[89].sections.some((s) => s.family === 'mirror' && s.variant === 'bridge'),
+      '带 2 boss mirror 节=bridge(新变体接入 boss 串联)');
+  assert.ok(ml.MATH_LEVELS[119].sections.some((s) => s.family === 'plan' && s.variant === 'dualview'),
+      '带 3 boss plan 节=dualview');
 });
 
-test('MATH_LEVELS: 每关 params 由该族该 tier 曲线生成(与 mathParamsFor 同源)', () => {
+test('MATH_LEVELS: 每关 params = 族曲线 → 变体级覆写(trials/tune, 单一权威派生)', () => {
   const ml = loadMathLevels();
   for (const lv of ml.MATH_LEVELS) {
-    const p = ml.mathParamsFor(lv.family, lv.tier, lv.i);
-    /* 变体级 trials 覆写(移多补少搬动试错 2~3 题)是唯一合法偏离 —
-       除该字段外必须与曲线逐键一致 */
+    let p = ml.mathParamsFor(lv.family, lv.tier, lv.i);
+    /* 变体级覆写(变体表单一权威)是唯一合法偏离: trials 压次(G2 先例) ·
+        tune 曲线(G4 新变体推理档/候选/视图/预算) — 期望值按同一序应用 */
     const meta = (ml.MATH_VARIANTS[lv.family] || []).find((x) => x.id === lv.variant);
     const a = {...lv.params};
+    if (meta && meta.tune) {
+      p = meta.tune(p, lv.tier);
+    }
     if (meta && meta.trials) {
       delete a.trials;
       delete p.trials;
     }
     assert.deepStrictEqual(a, {...p},
-        '第 ' + (lv.i+1) + ' 关参数与曲线一致');
+        '第 ' + (lv.i+1) + ' 关参数 = 曲线+变体覆写');
   }
 });
 
@@ -415,33 +497,65 @@ test('rollMathLoot: boss 小节最小 {family, kind} 对象照常掷骰(按小�
 
 /* ============ 存档形状与迁移(design §4.3) ============ */
 
-test('MATH_SAVE_DEFAULTS/migrateMathSave: 形状齐全, 修形幂等, 存量进度保留', () => {
+test('MATH_SAVE_DEFAULTS/migrateMathSave: 形状齐全(含版本位 v), 修形幂等', () => {
   const ml = loadMathLevels();
-  for (const k of ['stars', 'challenge', 'ready', 'stamps', 'stampClaimed', 'stampKind', 'log']) {
+  for (const k of ['stars', 'challenge', 'ready', 'stamps', 'stampClaimed', 'stampKind', 'log', 'v']) {
     assert.ok(hasOwn(ml.MATH_SAVE_DEFAULTS, k), 'defaults 形状含 ' + k);
   }
   const dflt = ml.MATH_SAVE_DEFAULTS;
   assert.deepStrictEqual(Object.keys(dflt).sort(),
-      ['challenge', 'log', 'ready', 'stampClaimed', 'stampKind', 'stamps', 'stars']);
+      ['challenge', 'log', 'ready', 'stampClaimed', 'stampKind', 'stamps', 'stars', 'v']);
   for (const k of ['stars', 'challenge', 'ready', 'stamps', 'log']) {
     assert.ok(dflt[k] && typeof dflt[k] === 'object', 'defaults.' + k + ' 为对象');
   }
   assert.ok(Array.isArray(dflt.stampClaimed), 'defaults.stampClaimed 为数组(集章已领线)');
   assert.strictEqual(dflt.stampKind, 'gem', '缺省宝石章');
-  const old = {unlocked: 42, stars: {'3': 2}, challenge: {'craft:1': true},
-    stampKind: 7, log: 'broken', ready: 'broken'};
+  assert.strictEqual(dflt.v, 2, '存档版本位 v=2(G4: 关号语义 25/带→30/带)');
+  const null1 = ml.migrateMathSave(null, 1);
+  assert.ok(null1 && typeof null1 === 'object', '空档安全');
+  assert.strictEqual(null1.v, 2, '空档直接产 v2 形状');
+});
+
+test('migrateMathSave v2 一次性迁移: 旧档(无 v)清空 stars/challenge/ready, 保留 stamps/log — 幂等', () => {
+  const ml = loadMathLevels();
+  /* G4 扩容改动关号语义(每带 25→30 关, 关 i 的族/变体/带全变):
+     旧档的 stars(关号→星)/challenge(族:带)/ready(关号) 三表按新编排
+     全部失真, 一次性清空(数学岛上线仅一天, 损失可忽略 — 用户拍板);
+     stamps 图章与 log 家长日志按日期记账, 不受关号影响, 原样保留 */
+  const old = {unlocked: 42, v: undefined, stars: {'3': 2, '99': 1},
+    challenge: {'craft:1': true}, ready: {'7': true},
+    stamps: {'2026-10-23': 3}, stampKind: 7, stampClaimed: [3],
+    log: {'2026-10-23': {'count:0': {acc: 0.8, n: 2}}}};
   const once = ml.migrateMathSave(old, 1);
-  assert.strictEqual(once.unlocked, 42, '存量进度原样保留');
-  assert.strictEqual(once.stars['3'], 2, '星级原样保留');
-  assert.strictEqual(once.challenge['craft:1'], true, '挑战完成表原样保留');
+  assert.deepStrictEqual({...once.stars}, {}, '旧档 stars 清空(关号失真)');
+  assert.deepStrictEqual({...once.challenge}, {}, '旧档 challenge 清空');
+  assert.deepStrictEqual({...once.ready}, {}, '旧档 ready 清空');
+  assert.strictEqual(once.stamps['2026-10-23'], 3, 'stamps 图章按日期保留');
+  assert.strictEqual(once.log['2026-10-23']['count:0'].n, 2, 'log 家长日志按日期原样保留');
+  assert.strictEqual(once.unlocked, 42, '无关号语义的杂字段原样保留');
+  assert.strictEqual(once.v, 2, '迁移后打上 v=2');
+  const twice = ml.migrateMathSave(once, 1);
+  assert.deepStrictEqual(twice, once, 'v=2 再跑幂等(不再清空)');
+  /* v2 档的新进度不会被再次迁移清掉 */
+  const played = {...once, stars: {'0': 3}, challenge: {'count:0': true}};
+  const thrice = ml.migrateMathSave(played, 1);
+  assert.strictEqual(thrice.stars['0'], 3, 'v2 档星级保留');
+  assert.strictEqual(thrice.challenge['count:0'], true, 'v2 档挑战表保留');
+});
+
+test('migrateMathSave: v2 形内修形照旧 — 损坏字段补空, stampKind 白名单, 存量保留', () => {
+  const ml = loadMathLevels();
+  const broken = {v: 2, stars: {'3': 2}, challenge: {'craft:1': true},
+    stampKind: 7, log: 'broken', ready: 'broken'};
+  const once = ml.migrateMathSave(broken, 1);
+  assert.strictEqual(once.stars['3'], 2, 'v2 星级原样保留(只修形不清空)');
+  assert.strictEqual(once.challenge['craft:1'], true, 'v2 挑战表原样保留');
   assert.deepStrictEqual({...once.ready}, {}, '损坏 ready 修形为空对象(三星回溯档)');
   assert.strictEqual(typeof once.stampKind, 'string', '损坏 stampKind 修形为字符串');
-  assert.ok(Array.isArray(once.stampClaimed), 'T8 老档缺 stampClaimed 幂等补 []');
+  assert.ok(Array.isArray(once.stampClaimed), 'v2 档缺 stampClaimed 幂等补 []');
   assert.deepStrictEqual({...once.log}, {}, '损坏 log 修形为空对象');
   const twice = ml.migrateMathSave(once, 1);
   assert.deepStrictEqual(twice, once, '连跑幂等(已是好形状再跑原样)');
-  const null1 = ml.migrateMathSave(null, 1);
-  assert.ok(null1 && typeof null1 === 'object', '空档安全');
 });
 
 test('存档日志滚动 90 天: mathDayIndex/trimMathLog 裁剪窗口与非法键', () => {
@@ -690,20 +804,76 @@ test('MATH_META: 各族 tip 全档位有文案且不引用不存在参数', () =
   }
 });
 
-test('MATH_VARIANTS: 每族 3 常规 + 1 挑战(kind=challenge), 名称非空', () => {
+test('MATH_VARIANTS: 每族 3 常规 + 挑战(kind=challenge), 名称非空 — G4 起 plan/mirror 双挑战', () => {
   const ml = loadMathLevels();
+  /* G4 扩容: plan/dualview(双视角推理) 与 mirror/bridge(最省桥) 入册,
+     两族变 3 常规 + 2 挑战(带内末两次轮转各占一), 其余族保持 3+1 */
+  const chalWanted = {count: 1, craft: 1, hop: 1, mirror: 2, plan: 2, pattern: 1};
   for (const f of ml.MATH_FAMILIES) {
     const vs = ml.MATH_VARIANTS[f];
-    assert.strictEqual(vs.length, 4, f + ' 四个变体');
+    assert.strictEqual(vs.length, 3 + chalWanted[f], f + ' 变体数 = 3 常规 + ' + chalWanted[f] + ' 挑战');
     const regular = vs.filter((v) => v.kind !== 'challenge');
     const chal = vs.filter((v) => v.kind === 'challenge');
     assert.strictEqual(regular.length, 3, f + ' 三个常规范型');
-    assert.strictEqual(chal.length, 1, f + ' 一个思维挑战变体(★★)');
-    assert.strictEqual(chal[0].kind, 'challenge');
+    assert.strictEqual(chal.length, chalWanted[f], f + ' 思维挑战变体(★★) ' + chalWanted[f] + ' 个');
+    assert.ok(chal.every((v) => v.kind === 'challenge'));
     for (const v of vs) {
       assert.ok(v.id && v.name, f + ' 变体有 id 与中文名');
     }
   }
+  /* 新变体登记口径: dualview 只带 2+(二年级"观察物体"同频), bridge 带 1+ */
+  const dv = ml.MATH_VARIANTS.plan.find((v) => v.id === 'dualview');
+  const br = ml.MATH_VARIANTS.mirror.find((v) => v.id === 'bridge');
+  assert.ok(dv && dv.kind === 'challenge', 'plan/dualview 在册且为挑战');
+  assert.strictEqual(dv.introBand, 2, 'dualview 解锁带 2+(二年级观察物体)');
+  assert.ok(br && br.kind === 'challenge', 'mirror/bridge 在册且为挑战');
+  assert.strictEqual(br.introBand, 1, 'bridge 解锁带 1+');
+});
+
+/* ============ G4 新变体曲线(变体级 tune 覆写, 数值跟带/推理档重爬) ============ */
+
+test('plan/dualview 曲线: 推理档重置 single→two-step, 候选 2→4, 视图 1→2(正视→双视图)', () => {
+  const ml = loadMathLevels();
+  const dv = ml.MATH_VARIANTS.plan.find((v) => v.id === 'dualview');
+  assert.strictEqual(typeof dv.tune, 'function', '变体级曲线 = 变体表 tune 字段(单一权威)');
+  /* dualview 只出现在带 2+(tier 13/17 与 boss 节同档): 带 2 首遇 single,
+     带 3 two-step — 推理档在变体内重爬(族默认此处已是 multi-solve) */
+  const t13 = dv.tune(ml.mathParamsFor('plan', 13), 13);
+  const t17 = dv.tune(ml.mathParamsFor('plan', 17), 17);
+  assert.strictEqual(t13.reasoning, 'single', '带 2 首遇: 单步匹配(正视单视图)');
+  assert.strictEqual(t13.dualCands, 2, '候选 2 座(≤4 组块红线)');
+  assert.strictEqual(t13.dualViews, 1, '单视图谜面(只给正视图)');
+  assert.strictEqual(t17.reasoning, 'two-step', '带 3: 两步推理(先正视筛再侧视锁)');
+  assert.strictEqual(t17.dualCands, 4, '候选 4 座(恰 LIMITS.chunks)');
+  assert.strictEqual(t17.dualViews, 2, '双视图谜面(正+侧)');
+  /* tune 只覆写变体级键, 族数值轴(blocks/max)原样保留(数值跟带) */
+  const raw = ml.mathParamsFor('plan', 13);
+  assert.strictEqual(t13.blocks, raw.blocks, 'blocks 数值轴不动');
+  assert.strictEqual(t13.max, raw.max, 'max 数值轴不动');
+  /* 认知负荷红线: 候选 ≤4 全档成立 */
+  for (let tier = 13; tier <= 19; tier++) {
+    const p = dv.tune(ml.mathParamsFor('plan', tier), tier);
+    assert.ok(p.dualCands >= 2 && p.dualCands <= 4, 'tier' + tier + ' 候选 2..4');
+    assert.ok(p.dualViews >= 1 && p.dualViews <= 2, 'tier' + tier + ' 视图 1..2');
+  }
+});
+
+test('mirror/bridge 曲线: 推理档沿族轨 reverse→multi-solve, 预算宽松→par(先能过后最省)', () => {
+  const ml = loadMathLevels();
+  const br = ml.MATH_VARIANTS.mirror.find((v) => v.id === 'bridge');
+  assert.strictEqual(typeof br.tune, 'function', '变体级曲线 = 变体表 tune 字段');
+  /* bridge 出现档: 带 1 末次(tier9)=reverse · 带 2/3 末次(tier13/17)=multi-solve
+     —— 恰与族默认推理轨同段, tune 不覆写 reasoning, 只给预算宽松度 */
+  const t9 = br.tune(ml.mathParamsFor('mirror', 9), 9);
+  const t13 = br.tune(ml.mathParamsFor('mirror', 13), 13);
+  assert.strictEqual(t9.reasoning, 'reverse', '带 1 首遇: 先"能过"(reverse 档)');
+  assert.strictEqual(t9.budget, 3, 'reverse 档预算宽松: par+3(只提示不卡线)');
+  assert.strictEqual(t13.reasoning, 'multi-solve', '带 2+: 后"最省"(multi-solve 档)');
+  assert.strictEqual(t13.budget, 0, 'multi-solve 档预算收紧到 par(+0)');
+  const raw = ml.mathParamsFor('mirror', 13);
+  assert.strictEqual(t13.span, raw.span, 'span 数值轴不动');
+  /* trials 覆写(摆桥一座试次长, balance 同款变体级覆写先例) */
+  assert.ok(br.trials >= 2 && br.trials <= 3, 'bridge 每关 2~3 座桥');
 });
 
 /* ============ 情境挂载(T7): 商店/钟表/测距 — 挂族不独立成族 ============ */

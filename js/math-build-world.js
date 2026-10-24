@@ -5,11 +5,12 @@
    mirror/plan 世界分支; hop 世界轨在 js/math-world.js(T5, 混合宿主),
    本文件是指针锁宿主 — 两宿主经 MATH_WORLD_RUNNERS 注册表并列,
    统一与否留待后续票)
-   ------------------------------------------------------------   一句话职责: 摆一摆(mirror)/搭一搭(plan)两族 8 个世界变体的
+   ------------------------------------------------------------   一句话职责: 摆一摆(mirror)/搭一搭(plan)两族 10 个世界变体(G4 起
    "装场-点选-反馈"流程 — 每试次按 BuildWorldCore/PuzzleCore 的谜题
    数据装一个 ≤32×32 小场景(石英画布+玻璃标记+样品/候选/数字牌),
    瞄准射线点选放置/撤除(build.js 形态的关卡内临时放置)或点选
-   候选牌, 判分全部委托 PuzzleCore; 出题形状与候选生成在
+   候选牌, 判分全部委托 PuzzleCore(最省桥例外: 地形语义判分
+   BuildWorldCore.bridgeGrade + bridgeOk 推理档口径, G4); 出题形状与候选生成在
    js/math-build-world-core.js(纯核心, 有单测), 本文件不造第二套判分。
    interface: runBuildWorld(section, h) → {stop(), onMouse(b,hit)}|null
      section = {family 'mirror'|'plan', variant, tier?, kind?, params, seed?}
@@ -356,6 +357,111 @@ const MATH_WORLD_VARIANTS = {
         '这座建筑一共有几块方块？藏起来的也要数进去！点出数字！';
     },
   },
+  /* ---- G4 新变体: 双视角推理(点选) / 最省桥(放置) ---- */
+  'plan/dualview': {
+    make(sec, seed) {
+      return {pz: BuildWorldCore.mkWorldDualView({seed, blocks: sec.params.blocks,
+        cands: sec.params.dualCands, views: sec.params.dualViews})};
+    },
+    build(t) {
+      const p = t.pz; const W = MATH_WORLD;
+      const {x0, z0} = wwStage(26, 22);
+      /* 候选建筑北侧一排(间隔 2, 各坐石英底板=点选判定区):
+         底板嵌地面层, 点建筑本体任意块即选中该座 */
+      const boxes = p.candidates.map((c) => BuildWorldCore.boundsOf(c.cells));
+      const totalW = boxes.reduce((a, b) => a + b.w, 0) + 2 * (p.candidates.length - 1);
+      let bx = 64 - Math.floor(totalW / 2);
+      const boards = [];
+      p.candidates.forEach((c, k) => {
+        const b = boxes[k];
+        wwCellsToWorld(c.cells, bx - b.x0, z0 + 3 - b.z0, W.groundY + 1);
+        SceneKit.fill(bx - 1, W.groundY, z0 + 2, bx + b.w, W.groundY, z0 + 3 + b.d,
+            W.boardBlock);
+        boards.push({x0: bx - 1, z0: z0 + 2, x1: bx + b.w, z1: z0 + 3 + b.d, idx: k});
+        bx += b.w + 2;
+      });
+      /* 投影牌: 立式像素图(行 0 在底, blueprintPixels 同色表), 正/侧并排
+         立在南侧 — 牌与建筑同侧同视角, 谜面列序与建筑 x 序一致 */
+      const cards = [{w: p.front.w, h: p.front.h, top: p.front.front}];
+      if (p.views === 2) cards.push({w: p.side.d, h: p.side.h, top: p.side.side});
+      const tw = cards.reduce((a, c) => a + c.w, 0) + 4 * (cards.length - 1);
+      let cx = 64 - Math.floor(tw / 2);
+      for (const cd of cards) {
+        for (let r = 0; r < cd.h; r++) {
+          for (let col = 0; col < cd.w; col++) {
+            const v = cd.top[r * cd.w + col] || 0;
+            if (v) setBlockRaw(cx + col, W.groundY + 1 + r, z0 + 14, W.colBlock[v]);
+          }
+        }
+        cx += cd.w + 4;
+      }
+      return {mode: 'choice', pz: p, x0, z0, w: 26, d: 22, boards};
+    },
+    speak(p) {
+      return p.views === 2 ?
+        '正面看是山，侧面看是墙！两块图纸都一样的只有一座，点那座房子！' :
+        '看一看图纸，再看看每座房子——正面和图纸一样的就是它，点出来！';
+    },
+  },
+  'mirror/bridge': {
+    make(sec, seed) {
+      /* span(mirror 数值轴)驱动跨度; 预算牌 N = par + budget(变体曲线:
+         reverse 档宽松 +3, multi-solve 档收紧到 par) */
+      const pz = BuildWorldCore.mkBridgePuzzle({seed, blocks: sec.params.span,
+        max: sec.params.max});
+      return {pz, budgetN: pz.plan.par + (sec.params.budget || 0),
+        reasoning: sec.params.reasoning};
+    },
+    build(t) {
+      const p = t.pz; const W = MATH_WORLD;
+      const plan = p.plan;
+      const {x0, z0} = wwStage(plan.span + 8, 9);
+      /* 桥轴局部坐标 → 世界: 局部 x 0..span+1(两岸柱列), y 0=河床面,
+         z=zLane(0) — placed 坐标直接喂 bridgeGrade(同平面) */
+      const xB0 = 64 - Math.floor((plan.span + 2) / 2);
+      const zW = 64; // 桥线世界列(画布 9 深, 64 为中线)
+      const Y = W.groundY;
+      /* 河面: 空隙列(局部 1..span)×z ±1 挖去草皮露泥土(3 格宽的河) */
+      for (let x = 1; x <= plan.span; x++) {
+        for (let dz = -1; dz <= 1; dz++) {
+          setBlockRaw(xB0 + x, Y, zW + dz, 0);
+        }
+      }
+      /* 两岸柱+墩 = 地形(石英, 不可拆): 块占局部 y 0..顶-1, 站面=顶 */
+      const col = (wx, h) => {
+        for (let y = 0; y < h; y++) setBlockRaw(wx, Y + y, zW, W.canvasBlock);
+      };
+      col(xB0, plan.yL);
+      col(xB0 + plan.span + 1, plan.yR);
+      for (const pi of plan.piers) col(xB0 + pi.x, pi.top);
+      /* 预算牌: 「只用 N 块」数字点阵(多位逐位, 判定无关的展示牌) */
+      const ds = String(t.budgetN).split('').map(Number);
+      let nbx = 64 - Math.floor((ds.length * 3 + (ds.length - 1)) / 2);
+      for (let i = 0; i < ds.length; i++) {
+        for (const [dx, dy] of BuildWorldCore.digitCells(ds[i])) {
+          setBlockRaw(nbx + i * 4 + dx, Y + 1 + dy, zW + 6, W.digitBlock);
+        }
+      }
+      return {mode: 'place', pz: p, x0, z0, w: plan.span + 8, d: 9,
+        h: plan.capY + 1, budgetN: t.budgetN, reasoning: t.reasoning,
+        /* 建造区 = 河面桥线(局部 x 1..span · z=zLane · y 0..capY) */
+        canPlace(tx, ty, tz) {
+          return tx >= xB0 + 1 && tx <= xB0 + plan.span && tz === zW &&
+              ty >= Y && ty <= Y + plan.capY;
+        },
+        placeHint: '要搭在河面的桥线上哦',
+        /* 判分 = bridgeGrade 三判据 + bridgeOk 推理档口径(先能过后最省) */
+        gradeCells(cells) {
+          return BuildWorldCore.bridgeOk(
+              BuildWorldCore.bridgeGrade(cells, plan), t.reasoning);
+        }};
+    },
+    speak(p, t) {
+      return t && t.reasoning === 'multi-solve' ?
+        '用最少的积木搭一座能走通的桥！最多' + (t.budgetN || 0) + '块，搭好敲发光石！' :
+        '小河挡住路啦！搭一座桥，从这边走到那边！搭好就敲发光石！';
+    },
+  },
 };
 
 /* 隐藏块/数方块共用装场: 北侧建筑 + 南侧 4 张数字牌 */
@@ -442,12 +548,17 @@ function runBuildWorld(section, h) {
     T.after(1000, next);
   }
 
-  /* 放置类判分: 交卷或每次增删后自动对答案(摆对即时过关) */
-  function gradeNow(cells) {
-    const ok = trial.gradeBlueprint ?
+  /* 放置类判分: 交卷或每次增删后自动对答案(摆对即时过关)。
+     gradeCells = build 返回的自定义判分器(最省桥: bridgeGrade+bridgeOk,
+     G4) — 缺省走图纸/对称判分(PuzzleCore 单一出口) */
+  function gradeWith(cells) {
+    if (trial.gradeCells) return trial.gradeCells(cells);
+    return trial.gradeBlueprint ?
       PuzzleCore.gradeBlueprint(cells, trial.pz.blueprint) :
       PuzzleCore.gradeSymmetry(cells, trial.pz);
-    settle(ok);
+  }
+  function gradeNow(cells) {
+    settle(gradeWith(cells));
   }
   function childCells() {
     const out = [];
@@ -498,7 +609,7 @@ function runBuildWorld(section, h) {
     wwHudShow(titleHtml, (idx + 1) + ' / ' + n, !!trial.blueprint);
     wwHudProgress(idx, n);
     if (trial.blueprint) wwPaintBlueprint(trial.pz.blueprint);
-    wwSpeak(spec.speak(trial.pz));
+    wwSpeak(spec.speak(trial.pz, trial));
     idx++;
   }
 
@@ -538,7 +649,12 @@ function runBuildWorld(section, h) {
     }
     if (button === 2) { // 放置(画布内空格, 不与玩家重叠)
       const tx = hit.x + hit.nx; const ty = hit.y + hit.ny; const tz = hit.z + hit.nz;
-      if (tx < trial.x0 || tx >= trial.x0 + trial.w || tz < trial.z0 ||
+      if (trial.canPlace) { // 自定义建造区(最省桥: 河面桥线, G4)
+        if (!trial.canPlace(tx, ty, tz)) {
+          hint(trial.placeHint || '这里不能放哦');
+          return;
+        }
+      } else if (tx < trial.x0 || tx >= trial.x0 + trial.w || tz < trial.z0 ||
           tz >= trial.z0 + trial.d || ty <= W.groundY || ty > W.groundY + trial.h) {
         hint('要摆在白色画布里哦');
         return;
@@ -556,14 +672,11 @@ function runBuildWorld(section, h) {
     }
   }
 
-  /* 摆对即时过关(少一步交卷, 儿童正反馈前置) */
+  /* 摆对即时过关(少一步交卷, 儿童正反馈前置); 最省桥同理 — 放完最后
+     一块即达标的桥自动过关(reverse 档=能走通, multi-solve 档=最省) */
   function autoGrade() {
     if (settled || stopped) return;
-    const cells = childCells();
-    const ok = trial.gradeBlueprint ?
-      PuzzleCore.gradeBlueprint(cells, trial.pz.blueprint) :
-      PuzzleCore.gradeSymmetry(cells, trial.pz);
-    if (ok) settle(true);
+    if (gradeWith(childCells())) settle(true);
   }
 
   next();

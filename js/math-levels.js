@@ -5,8 +5,8 @@
    数学冒险岛的数值唯一权威: 六族与变体元数据(规则/tip 话术供 TTS,
    零文字依赖口径) · mathParamsFor 双轨难度曲线(数值轨带内微升永不
    越带, 推理轨 single→two-step→reverse→multi-solve 分段, 定性跳变
-   概率渐进——台阶变坡道, focus-levels 先例) · 100 关螺旋编排(四带×25,
-   教学关开局/带首复习/带内末次=挑战/带末 boss) · 通过门槛/三星(挑战
+   概率渐进——台阶变坡道, focus-levels 先例) · 120 关螺旋编排(G4 扩容, 四带×30,
+   教学关开局/带首复习/带内末 N 次=挑战序列/带末 boss) · 通过门槛/三星(挑战
    挂钩, 补过回溯) · 战利品表与掷骰(简单版) · 存档默认值/迁移。
    数值出处: docs/math-mode-design.md §4/§5 · docs/math-mode-plan.md
    §4~§7(难度双轨=数字跟着教材走, 思维跳到附加题)。
@@ -101,12 +101,21 @@ const MATH_META = {
     }},
 };
 
-/* 变体表(design §4.1 · plan §6): 每族 3 常规范型(★) + 1 思维挑战变体(★★,
-   kind='challenge', 附加题级——逆向/多解/隐藏/周期)。id 是关卡 variant 字段
-   与屏流/世界轨分发的键; 常规序即教学关与变体轮换的默认序。
+/* 变体表(design §4.1 · plan §6 · G4 扩容): 每族 3 常规范型(★) + 1~2
+   思维挑战变体(★★, kind='challenge', 附加题级——逆向/多解/隐藏/周期;
+   G4 起 plan/dualview 与 mirror/bridge 入册, 两族变 3+2)。id 是关卡
+   variant 字段与屏流/世界轨分发的键; 常规序即教学关与变体轮换的默认序。
    可选字段 trials = 变体级试次数覆写(关卡生成统一应用): 每题交互长的
    变体据此压住族曲线的 trials — 移多补少(count/balance)是搬动试错,
-   一次关卡 2~3 题(US6 纯探索口径)。 */
+   一次关卡 2~3 题(US6 纯探索口径); 最省桥(mirror/bridge)摆一座桥
+   改动+交卷, 一次关卡 2 座。
+   可选字段 tune(p, tier) = 变体级曲线覆写(G4): 挑战变体首遇档低于族
+   推理轨, 需要变体内重爬的维度(推理档/候选数/视图数/预算)登记在变体
+   条目上 — 数值轴(blocks/span/max)永远跟族曲线走, tune 不触碰(数值
+   跟带红线)。
+   可选字段 introBand = 挑战变体解锁带(dualview=2 二年级「观察物体」
+   同频 · bridge=1): 带内挑战序列 = 挑战变体按 introBand 升序过滤
+   introBand≤band 者, 占带内末 N 次轮转位(旧挑战在前, 新变体殿后)。 */
 const MATH_VARIANTS = {
   count: [ /* A 数一数: 感数与计数 → 对应与比较 (T1) */
     {id: 'snapshot', name: '怪物快照'},
@@ -132,12 +141,38 @@ const MATH_VARIANTS = {
     {id: 'translate', name: '平移复制'},
     {id: 'rotate', name: '旋转对称'},
     {id: 'tangram', name: '拼组与省料', kind: 'challenge'},
+    {id: 'bridge', name: '最省桥', kind: 'challenge', introBand: 1, trials: 2,
+      /* 曲线(G4, US20): 推理档沿族轨 reverse(带 1 首遇, 先「能过」→
+        multi-solve(带 2+, 后「最省」— 恰与 mathReasoningOf 同段, tune
+        不覆写 reasoning; 只给预算宽松度 budget: reverse 档 par+3
+        (预算牌提示不卡线, 判定=能走通即对) · multi-solve 档 par(+0,
+        判定=能走通且 ≤par — 一次最省=acc 满=三星, 改过再省=二星口径
+        由 acc 自然映射)。span 数值轴驱动跨度(mkBridgePuzzle 每 5 格
+        预算 ≈1 格跨度), 永不越带 */
+      tune(p) {
+        return {...p, budget: p.reasoning === 'multi-solve' ? 0 : 3};
+      },
+      rule: '最省桥：在河面上搭一座能走过去的桥！块数有限，越省越棒！'},
   ],
   plan: [ /* E 搭一搭: 按图搭建 → 空间计数与视角推理 (T4/T6) */
     {id: 'build', name: '看图施工'},
     {id: 'pick', name: '反向选图'},
     {id: 'hidden', name: '隐藏块推理'},
     {id: 'countall', name: '数方块', kind: 'challenge'},
+    {id: 'dualview', name: '双视角推理', kind: 'challenge', introBand: 2,
+      /* 曲线(G4, US24): dualview 首遇在带 2 末次(tier13) — 族推理轨此处
+        已是 multi-solve, 但视角推理是新技能, 推理档在变体内重爬:
+        带 2 single(单步匹配: 单正视图谜面 + 2 候选, 谜面与目标唯一
+        对应) → 带 3 two-step(两步推理: 双视图谜面 + 4 候选, 单视图
+        匹配数>1, 须先正视筛再侧视锁 — mkDualViewPuzzle 核心性质)。
+        候选/视图 ≤4 组块红线; blocks 数值轴驱动目标结构与画布尺寸
+        (mkWorldBuild 同口径), 永不越带 */
+      tune(p, tier) {
+        const twoStep = tier >= 16; // 带 3(二下)起双视图
+        return {...p, reasoning: twoStep ? 'two-step' : 'single',
+          dualCands: twoStep ? 4 : 2, dualViews: twoStep ? 2 : 1};
+      },
+      rule: '双视角推理：正面看是山，侧面看是墙——哪座建筑和图纸一样？点它！'},
   ],
   pattern: [ /* F 找一找: 接龙与分类 → 模式、周期与推理 (T3/T6) */
     {id: 'chain', name: '花纹接龙'},
@@ -298,53 +333,91 @@ function mathParamsFor(family, tier, li) {
   }
 }
 
-/* ---------- 100 关螺旋编排生成(plan §7) ----------
-   每带 25 关 = 带首复习(带 0 改为六族教学开局) + 六族轮转 + 带末 boss。
-   · 轮转流: 教学+normal+challenge 共 84 关, 全程严格按 MATH_FAMILIES
-     循环(84=6×14, 每族恰 14 次; 带 0 内各 3 次, 带 1~3 内 3~4 次) ——
-     交错练习+间隔复习合一(focus 编排先例)。
+/* ---------- 120 关螺旋编排生成(plan §7 · G4 扩容 100→120) ----------
+   每带 30 关 = 带首复习(带 0 改为六族教学开局) + 六族轮转 + 带末 boss。
+   · 轮转流: 教学+normal+challenge 共 104 关, 按每带每族目标次数表
+     (MATH_LEVEL_MIX)均匀交错排布——每步取「已排/目标」进度比最落后
+     的族, 平局按六族序(确定性): 同族永不相邻(交错练习+间隔复习合一,
+     focus 严格循环先例在非均匀配重下的推广)。
    · 配重口径(测试锁定): 族账 = 该族全部关(含教学/复习/挑战/boss 记账);
-     复习固定落 craft/hop(数与运算主线, 各 +3), boss 名义族 = sections
-     首族(偶带 craft·奇带 hop, 各 +2) → count/mirror/plan/pattern=15,
-     craft/hop=20(plan §7 "B/C 配重略高")。
-   · tier = min(19, band*4 + k), k = 带内轮转第几次出现(1..4); 复习关
+     轮转表 104 槽 = count 15 · craft 18 · hop 18 · mirror 19 · plan 19 ·
+     pattern 15; 复习固定落 craft/hop(数与运算主线, 各 +3), boss 名义族 =
+     sections 首族(偶带 craft·奇带 hop, 各 +2), 教学各 +1 → 终值
+     count/pattern=16, craft/hop=24, mirror/plan=20(plan §7 "B/C 配重略高",
+     mirror/plan 承载 G4 新挑战变体)。
+   · tier = min(19, band*4 + k), k = 带内轮转第几次出现(1..5); 复习关
      tier = band*4(回访上一带顶档), boss 关 tier = min(19, band*4+4)。
-   · 每族带内末次轮转出现 = 挑战关(★★变体); 常规关在该族 3 个常规范型
-     间轮换(全局计数, 每族 3 个都出场)。
+   · 挑战序列(G4): 每族带内末 N 次轮转出现 = 挑战关(N=该带解锁的挑战
+     变体数, 按 introBand 升序, 旧挑战在前新变体殿后); mirror 带 1~3 与
+     plan 带 2~3 末两次 = tangram+bridge / countall+dualview 各占一, 其余
+     族末次 = 唯一 ★★ 变体; 常规关在该族 3 个常规范型间轮换(全局计数,
+     每族 3 个都出场)。dualview 只在带 2+(二年级"观察物体"同频),
+     bridge 带带 1+(introBand 登记, 生成器不特判)。
    · 情境关(T7): 每情境族(shop→craft · clock→hop · measure→count)带内
      首个轮转位换情境皮肤(带 0 教学关占掉第 1 位, 落第 2 位) — 只换
-     variant, tier/kind/params 与族曲线同源(难度轴零扰动, 该档亦无定性
-     新事件); 四带各一关, 认钟/推算与算钱/付法的子型随推理档自然爬坡。
+     variant, tier/kind/params 与族曲线同源(难度轴零扰动); 四带各一关,
+     认钟/推算与算钱/付法的子型随推理档自然爬坡。
    · boss = 三族 ★★ 小任务串联(sections, focus 大师关先例): 偶带
-     [craft, mirror, pattern] · 奇带 [hop, plan, count] —— 两带一轮
-     覆盖全部六族, 各节参数取该族该带挑战关同档。 */
+     [craft, mirror, pattern] · 奇带 [hop, plan, count] —— 两带一轮覆盖
+     全部六族; 各节取该族该带挑战序列末位变体(新变体殿后=boss 节同档,
+     带 2 boss mirror 节=bridge · 带 3 boss plan 节=dualview 自然落位)。 */
 const MATH_LEVELS = [];
+/* 每带每族轮转次数表(单一权威, 测试锁死): 行=带 0..3, 带 0 23 槽/带 1~3
+   各 27 槽, 合 104 = 轮转流总数 */
+const MATH_LEVEL_MIX = [
+  {count: 3, craft: 4, hop: 4, mirror: 4, plan: 4, pattern: 4},
+  {count: 4, craft: 5, hop: 4, mirror: 5, plan: 5, pattern: 4},
+  {count: 4, craft: 4, hop: 5, mirror: 5, plan: 5, pattern: 4},
+  {count: 4, craft: 5, hop: 5, mirror: 5, plan: 5, pattern: 3},
+];
 (function generateMathLevels() {
   const regularOf = (f) => MATH_VARIANTS[f].filter((v) => v.kind !== 'challenge');
-  const challengeOf = (f) => MATH_VARIANTS[f].find((v) => v.kind === 'challenge');
+  /* 该族该带出场的挑战序列: introBand≤band 的挑战变体按 introBand 升序
+     (旧挑战在前, 新变体殿后 = 带内末次轮转位) */
+  const challengesOf = (f, band) => MATH_VARIANTS[f]
+      .filter((v) => v.kind === 'challenge' && (v.introBand || 0) <= band);
+  /* 带内槽序 = 目标次数的均匀交错: 每步取进度比 (placed+0.5)/target 最小
+     的族, 平局按六族序 — 确定性(同表同序), 同族永不相邻 */
+  const interleave = (mix) => {
+    const placed = {};
+    for (const f of MATH_FAMILIES) placed[f] = 0;
+    const total = MATH_FAMILIES.reduce((a, f) => a + mix[f], 0);
+    const seq = [];
+    for (let s = 0; s < total; s++) {
+      let best = null; let bestAt = Infinity;
+      for (const f of MATH_FAMILIES) {
+        if (placed[f] >= mix[f]) continue;
+        const at = (placed[f] + 0.5) / mix[f];
+        if (at < bestAt) {
+          bestAt = at;
+          best = f;
+        }
+      }
+      placed[best]++;
+      seq.push(best);
+    }
+    return seq;
+  };
   const turn = {}; // 每族常规变体轮换计数
   for (const f of MATH_FAMILIES) turn[f] = 0;
-  let rot = 0; // 全局轮转指针(0..83, 严格六族循环)
   let i = 0;
   for (let band = 0; band < 4; band++) {
-    /* 带内轮转槽的族分布预扫: 算每族本带轮转次数与末次槽号(末次=挑战) */
-    const slotCount = band === 0 ? 18 : 22; // 带 0: 6 教学+18 轮转; 带 1~3: 2 复习+22 轮转
-    const rotStart = rot;
-    const counts = {};
-    for (const f of MATH_FAMILIES) counts[f] = 0;
-    for (let s = 0; s < slotCount; s++) counts[MATH_FAMILIES[(rotStart+s) % 6]]++;
+    const counts = MATH_LEVEL_MIX[band]; // 每族本带轮转次数(表即权威)
+    const slotFamilies = interleave(counts); // 带内槽序(均匀交错)
     const seen = {}; // 本带已出现次数(带 0 教学关占掉第 1 次)
     if (band === 0) for (const f of MATH_FAMILIES) seen[f] = 1;
     else for (const f of MATH_FAMILIES) seen[f] = 0;
-    const chalTier = {}; // 本带该族挑战关(末次出现)的 tier — boss 各节取同档
+    const chalTier = {}; // 本带该族末次挑战关的 tier — boss 各节取同档
     const lastSeen = {}; // 本带该族轮转流总次数(带 0 含教学关的 1 次)
     for (const f of MATH_FAMILIES) lastSeen[f] = counts[f] + (band === 0 ? 1 : 0);
 
-    /* 变体级参数覆写(变体表单一权威): 族曲线出参后按变体表 trials 等可选
-       字段覆写 — 搬动试错关(count/balance)每题探索长, 一次关卡 2~3 题 */
+    /* 变体级参数覆写(变体表单一权威): 族曲线出参后按变体表 trials/tune
+       等可选字段覆写 — 搬动试错关(count/balance)每题探索长一次 2~3 题,
+       新挑战变体(dualview/bridge)的推理档/候选/视图/预算在变体内重爬 */
     const paramsOf = (family, variant, tier, idx) => {
-      const params = mathParamsFor(family, tier, idx);
       const meta = (MATH_VARIANTS[family] || []).find((x) => x.id === variant);
+      let params = mathParamsFor(family, tier, idx);
+      if (meta && meta.tune) params = meta.tune(params, tier);
       if (meta && meta.trials) params.trials = meta.trials;
       return params;
     };
@@ -364,15 +437,15 @@ const MATH_LEVELS = [];
         push(f, 'review', band*4, regularOf(f)[(band-1)%3].id);
       }
     }
-    for (let s = 0; s < slotCount; s++) { // 六族轮转
-      const f = MATH_FAMILIES[rot % 6];
-      rot++;
+    for (const f of slotFamilies) { // 六族轮转(均匀交错槽序)
       seen[f]++;
       const k = seen[f]; // 带内第几次轮转出现(带 0 含教学=1)
       const tier = Math.min(19, band*4 + k);
-      if (seen[f] === lastSeen[f]) { // 本带末次出现 = 挑战关(★★)
-        chalTier[f] = tier;
-        push(f, 'challenge', tier, challengeOf(f).id);
+      const chList = challengesOf(f, band);
+      const rem = lastSeen[f] - seen[f]; // 距带内末次的剩余出现数(含本次)
+      if (rem < chList.length) { // 带内末 N 次 = 挑战序列(旧挑战在前)
+        if (rem === 0) chalTier[f] = tier; // 末次挑战(新变体) — boss 节同档
+        push(f, 'challenge', tier, chList[chList.length - rem - 1].id);
       } else if (seen[f] === (band === 0 ? 2 : 1) && mathContextVariantOf(f)) {
         /* 情境关(T7): 每情境族带内首个轮转位换皮肤(带 0 教学关占掉第 1
            次出现, 情境落第 2 位) — 只换 variant, tier/kind/params 与族曲线
@@ -383,14 +456,16 @@ const MATH_LEVELS = [];
         push(f, 'normal', tier, regularOf(f)[turn[f]++ % 3].id);
       }
     }
-    /* 带末 boss: 三族 ★★ 串联; 名义族=首节族(偶带 craft·奇带 hop) */
+    /* 带末 boss: 三族 ★★ 串联; 名义族=首节族(偶带 craft·奇带 hop),
+       各节 = 该族该带挑战序列末位变体(与带内末次挑战同变体同档) */
     const bossFams = band % 2 === 0 ? ['craft', 'mirror', 'pattern'] : ['hop', 'plan', 'count'];
     const bossTier = Math.min(19, band*4 + 4);
-    const boss = {i: i++, band, family: bossFams[0], variant: challengeOf(bossFams[0]).id,
+    const bossChal = bossFams.map((f) => challengesOf(f, band).pop());
+    const boss = {i: i++, band, family: bossFams[0], variant: bossChal[0].id,
       kind: 'boss', tier: bossTier,
-      params: paramsOf(bossFams[0], challengeOf(bossFams[0]).id, bossTier, i)};
-    boss.sections = bossFams.map((f) => ({family: f, variant: challengeOf(f).id,
-      tier: chalTier[f], params: paramsOf(f, challengeOf(f).id, chalTier[f])}));
+      params: paramsOf(bossFams[0], bossChal[0].id, bossTier, i)};
+    boss.sections = bossFams.map((f, s) => ({family: f, variant: bossChal[s].id,
+      tier: chalTier[f], params: paramsOf(f, bossChal[s].id, chalTier[f])}));
     MATH_LEVELS.push(boss);
   }
 })();
@@ -734,15 +809,27 @@ function mathPanelTrend(log, family) {
   return recs.slice(-MATH_TREND_DAYS);
 }
 
-const MATH_SAVE_DEFAULTS = {stars: {}, challenge: {}, ready: {}, stamps: {},
-  stampClaimed: [], stampKind: 'gem', log: {}};
+/* 存档版本位: v=2 — G4 扩容(每带 25→30 关)改动关号语义, 旧档一次性
+   迁移见 migrateMathSave; stamps/log 按日期记账与关号无关, 不受影响 */
+const MATH_SAVE_VERSION = 2;
+const MATH_SAVE_DEFAULTS = {v: MATH_SAVE_VERSION, stars: {}, challenge: {},
+  ready: {}, stamps: {}, stampClaimed: [], stampKind: 'gem', log: {}};
 
-/* 存档迁移(save-slot 的 migrate 链调用, (s, from) 两参): 只做幂等修形 —
-   五个表字段缺/损坏补空对象(ready=三星回溯档), stampClaimed 非数组补
-   [](T8 集章已领线), stampKind 非字符串回落 'gem'; 存量进度原样保留;
-   90 天滚动裁剪由模式层在落账时调 trimMathLog/mathStampTrim(写入点单一) */
+/* 存档迁移(save-slot 的 migrate 链调用, (s, from) 两参): 版本位 + 幂等修形 —
+   v≠当前版(G4 关号语义 25/带→30/带): stars/challenge/ready 三表按新编排
+   全部失真, 一次性清空(数学岛上线仅一天损失可忽略, 用户拍板); stamps
+   图章与 log 家长日志按日期记账, 原样保留。v=2 后只做幂等修形: 五个表
+   字段缺/损坏补空对象(ready=三星回溯档), stampClaimed 非数组补 [](T8
+   集章已领线), stampKind 非字符串回落 'gem'; 存量进度原样保留; 90 天
+   滚动裁剪由模式层在落账时调 trimMathLog/mathStampTrim(写入点单一) */
 function migrateMathSave(s, from) {
   if (!s || typeof s !== 'object') return {...MATH_SAVE_DEFAULTS};
+  if (s.v !== MATH_SAVE_VERSION) { // 旧档(无 v)或异版: 关号语义变化, 三表清空
+    s.stars = {};
+    s.challenge = {};
+    s.ready = {};
+    s.v = MATH_SAVE_VERSION;
+  }
   for (const k of ['stars', 'challenge', 'ready', 'stamps', 'log']) {
     if (!s[k] || typeof s[k] !== 'object') s[k] = {};
   }

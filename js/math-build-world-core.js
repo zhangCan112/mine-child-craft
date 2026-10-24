@@ -20,6 +20,8 @@
      mkWorldTangram · mkWorldBuild · mkWorldPick · mkWorldHidden ·
      mkWorldCount · bridgePlan · bridgeGrade · mkBridgePuzzle(最省桥
      US20: 两岸地形+可证最少块数 par / 三判据判分 / 出题包装) ·
+     bridgeOk(G4: 推理档判分口径 — reverse 能过即对/multi-solve 要最省) ·
+     mkWorldDualView(G4: 双视角候选/视图裁剪, 曲线经 cands/views 注入) ·
      blueprintPixels · digitCells · worldNumChoices
    依赖(经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js,
    加载序在本文件之前, 见 index.html) — 生成与判分全部委托;
@@ -434,6 +436,49 @@ const BuildWorldCore = (() => {
     return {plan, budget: plan.par};
   }
 
+  /* bridgeOk(grade, reasoning)(G4 判分口径, 世界 runner 交卷判定):
+     变体曲线"先能过后最省"的纯函数面 — reverse 档(带 1 首遇)预算宽松
+     (par+3), 判定=三判据全过(能走通即对); multi-solve 档(带 2+)预算收
+     紧到 par, 判定=pass 且 count≤par(最省才对)。三星口径由关卡 acc 自然
+     映射: 一次最省=acc 满=三星, "能过不最省"重试后达成=二星口径。 */
+  function bridgeOk(g, reasoning) {
+    if (!g || !g.pass) return false;
+    return reasoning === 'multi-solve' ? g.best : true;
+  }
+
+  /* mkWorldDualView(t)(G4 世界装配裁剪): t = {seed, blocks, cands, views} —
+     出题委托 PuzzleCore.mkDualViewPuzzle(4 候选/双视图的完整构造), 再按
+     变体曲线(dualCands/dualViews)裁剪:
+     · cands=4(两步档): 原样 — 每干扰恰与目标共享一个视图, 单视图匹配
+       数>1, 双视图联合恰锁定目标(推理核心);
+     · cands=2(单步档): 目标 + 一个"正视互异"干扰(侧视孪生型, 投影重算
+       可证) — 单看正视图匹配数恰 1, 孩子一步对照即锁定(单步匹配);
+     · views 回显(1=装配层只画正视图牌, 2=正+侧两张)。
+     box 罩住裁剪后全部候选(装场定界)。 */
+  function mkWorldDualView(t) {
+    const o = t || {};
+    const rnd = mkRand(o.seed === undefined ? undefined : o.seed + 31);
+    const pz = PuzzleCore.mkDualViewPuzzle({seed: o.seed, blocks: o.blocks});
+    let cands = pz.candidates;
+    const cWanted = clamp(o.cands === undefined ? 4 : o.cands, 2, 4);
+    if (cWanted < cands.length) {
+      const truth = pz.candidates.find((c) => c.ok);
+      /* 正视互异干扰(单步档唯一解的构造保证): 投影重算, 不信构造内部状态 */
+      const odd = pz.candidates.find((c) => !c.ok && !frontSameAs(c.cells, pz.front));
+      cands = shuffle(rnd, [truth, odd || pz.candidates.find((c) => !c.ok)]);
+    }
+    const answer = cands.findIndex((c) => c.ok);
+    return {target: pz.target, front: pz.front, side: pz.side,
+      candidates: cands, answer, views: clamp(o.views === undefined ? 2 : o.views, 1, 2),
+      box: pz.box};
+  }
+  /* 正视图逐格对照(占用+颜色, 与判分同口径) */
+  function frontSameAs(cells, front) {
+    const f = PuzzleCore.projectFront(cells);
+    return f.w === front.w && f.h === front.h &&
+        f.front.every((v, i) => v === front.front[i]);
+  }
+
   /* ---------- 呈现件: 图纸像素 · 数字点阵 · 数值候选 ---------- */
 
   /* 图纸 → 像素色行列表(行主序 z 行 × x 列): 0=空(透明), 其余查
@@ -491,7 +536,7 @@ const BuildWorldCore = (() => {
 
   return {MATH_CELL_COLORS, mathWorldSymParams, mkWorldTranslate, mkWorldTangram,
     mkWorldBuild, mkWorldPick, mkWorldHidden, mkWorldCount, bridgePlan,
-    bridgeGrade, mkBridgePuzzle, blueprintPixels,
+    bridgeGrade, mkBridgePuzzle, bridgeOk, mkWorldDualView, blueprintPixels,
     digitCells, worldNumChoices, boundsOf, keyOf};
 })();
 

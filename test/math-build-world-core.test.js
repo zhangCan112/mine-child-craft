@@ -415,6 +415,23 @@ test('mkBridgePuzzle: 预算提示=par · 跨度跟 blocks 预算单调 · par �
   }
 });
 
+test('bridgeOk(G4 判分口径): reverse 档能过即对, multi-solve 档要最省', () => {
+  const mk = (over) => Object.assign({walk: true, inZone: true, supported: true,
+    count: 5, par: 5, pass: true, best: true}, over);
+  const gBest = mk({});
+  const gFat = mk({count: 7, best: false}); // 能过但不最省
+  const gFail = mk({walk: false, pass: false, best: false}); // 断桥
+  /* 先「能过」: 带 1 首遇(reverse)预算宽松, 判定=三判据全过 */
+  assert.strictEqual(BuildWorldCore.bridgeOk(gBest, 'reverse'), true, 'reverse: 最省必对');
+  assert.strictEqual(BuildWorldCore.bridgeOk(gFat, 'reverse'), true, 'reverse: 能过即对');
+  assert.strictEqual(BuildWorldCore.bridgeOk(gFail, 'reverse'), false, 'reverse: 断桥不对');
+  /* 后「最省」: 带 2+(multi-solve)预算收紧到 par, 判定=pass 且 ≤par */
+  assert.strictEqual(BuildWorldCore.bridgeOk(gBest, 'multi-solve'), true, 'multi-solve: 最省对');
+  assert.strictEqual(BuildWorldCore.bridgeOk(gFat, 'multi-solve'), false,
+      'multi-solve: 能过不最省不算对(二星口径由关卡 acc 映射)');
+  assert.strictEqual(BuildWorldCore.bridgeOk(gFail, 'multi-solve'), false, 'multi-solve: 断桥不对');
+});
+
 test('mkBridgePuzzle + bridgeGrade 端到端: 暴力最优桥搭出来必 pass+best(随机地形)', () => {
   for (let s = 0; s < 20; s++) {
     const pz = BuildWorldCore.mkBridgePuzzle({seed: 500 + s, blocks: 30, max: 60});
@@ -434,6 +451,73 @@ test('mkBridgePuzzle + bridgeGrade 端到端: 暴力最优桥搭出来必 pass+b
     assert.strictEqual(g.walk, true, 'seed' + (500 + s) + ' 最优桥逐格可走');
     assert.strictEqual(g.pass, true);
     assert.strictEqual(g.best, true, '搭出 par 桥判最省');
+  }
+});
+
+/* ============ plan/dualview 世界装配裁剪(G4): 候选/视图跟变体曲线 ============ */
+
+/* 视图匹配数: 候选投影与谜面逐格相等(occupancy-only 对照, 判分用同口径) */
+function frontMatches(cells, front) {
+  const f = PuzzleCore.projectFront(cells);
+  return f.w === front.w && f.h === front.h &&
+      f.front.every((v, i) => v === front.front[i]);
+}
+function sideMatches(cells, side) {
+  const sd = PuzzleCore.projectSide(cells);
+  return sd.d === side.d && sd.h === side.h &&
+      sd.side.every((v, i) => v === side.side[i]);
+}
+
+test('mkWorldDualView: cands=2 单正视图即唯一解(目标+正视互异干扰), views=1', () => {
+  for (let s = 0; s < 30; s++) {
+    const pz = BuildWorldCore.mkWorldDualView({seed: 700 + s, blocks: 60,
+      cands: 2, views: 1});
+    assert.strictEqual(pz.views, 1, 'views 回显');
+    assert.strictEqual(pz.candidates.length, 2, '候选恰 2(≤4 组块红线)');
+    assert.strictEqual(pz.candidates.filter((c) => c.ok).length, 1, '恰一真');
+    assert.ok(pz.answer >= 0 && pz.answer < 2, '答案下标有效');
+    /* single 档核心性质: 单看正视图匹配数恰 1 — 干扰必与目标正视互异
+       (取「侧视孪生」型), 孩子一步对照就能锁定(单步匹配) */
+    const n = pz.candidates.filter((c) => frontMatches(c.cells, pz.front)).length;
+    assert.strictEqual(n, 1, 'seed' + (700 + s) + ' 正视图匹配数=1(唯一解)');
+  }
+});
+
+test('mkWorldDualView: cands=4 双视图联合唯一解(单视图匹配数>1), views=2', () => {
+  for (let s = 0; s < 30; s++) {
+    const pz = BuildWorldCore.mkWorldDualView({seed: 800 + s, blocks: 60,
+      cands: 4, views: 2});
+    assert.strictEqual(pz.views, 2, 'views 回显');
+    assert.strictEqual(pz.candidates.length, 4, '候选恰 4');
+    assert.strictEqual(pz.candidates.filter((c) => c.ok).length, 1, '恰一真');
+    /* two-step 档核心性质(mkDualViewPuzzle 原构造): 每个干扰恰与目标
+       共享一个视图 — 单看任一视图匹配数 >1, 双视图联合恰 1 */
+    const nf = pz.candidates.filter((c) => frontMatches(c.cells, pz.front)).length;
+    const ns = pz.candidates.filter((c) => sideMatches(c.cells, pz.side)).length;
+    const both = pz.candidates.filter((c) =>
+      frontMatches(c.cells, pz.front) && sideMatches(c.cells, pz.side)).length;
+    assert.ok(nf > 1 && ns > 1, 'seed' + (800 + s) + ' 单视图匹配数>1(须两步)');
+    assert.strictEqual(both, 1, '双视图联合匹配恰 1(目标)');
+  }
+});
+
+test('mkWorldDualView: 同 seed 同输出 · 装场 box 罩住全部候选 · blocks 预算有界', () => {
+  assert.deepStrictEqual(
+      BuildWorldCore.mkWorldDualView({seed: 42, blocks: 60, cands: 4, views: 2}),
+      BuildWorldCore.mkWorldDualView({seed: 42, blocks: 60, cands: 4, views: 2}));
+  for (let s = 0; s < 15; s++) {
+    const pz = BuildWorldCore.mkWorldDualView({seed: 900 + s, blocks: 100,
+      cands: 4, views: 2});
+    let maxX = 0; let maxZ = 0; let maxY = 0;
+    for (const c of pz.candidates) {
+      for (const b of c.cells) {
+        if (b.x > maxX) maxX = b.x;
+        if (b.z > maxZ) maxZ = b.z;
+        if (b.y > maxY) maxY = b.y;
+      }
+    }
+    assert.ok(pz.box.w >= maxX + 1 && pz.box.d >= maxZ + 1 && pz.box.h >= maxY + 1,
+        'seed' + (900 + s) + ' box 罩住全部候选(装场定界)');
   }
 });
 

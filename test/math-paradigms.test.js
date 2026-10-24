@@ -192,6 +192,7 @@ function loadMathMode() {
       mathFamChallengeDone, mathLevelStars, mathBossPlan, mathAggStats, mathSettleSave,
       mathStampClaim, mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_CONTEXTS, mathLevelMeta,
       mathVariantName, MATH_META, MATH_SAVE_DEFAULTS, MATH_WORLD_RUNNERS,
+      MATH_WORLD_VARIANTS,
       MATH_STAMP_KINDS, MATH_STAMP_DAILY, MATH_STAMP_REWARDS, MATH_STAMP_REWARD_TEXT,
       rollMathLoot, grantMathLoot,
       runBuildWorld: (typeof runBuildWorld !== 'undefined' ? runBuildWorld : null) };
@@ -265,7 +266,7 @@ function autoPlay(d, ended, maxSteps) {
 
 /* ============ 分发判定(纯函数) ============ */
 
-/* 全变体键集(单一权威派生源): MATH_VARIANTS 每族 3 常规+1 挑战, 外加
+/* 全变体键集(单一权威派生源): MATH_VARIANTS 每族 3 常规+1~2 挑战, 外加
     MATH_CONTEXTS 三个情境变体(挂族皮肤) — 任何字面量清单都不得再抄写 */
 function allMathVariantKeys(mp) {
   const keys = [];
@@ -282,12 +283,14 @@ test('变体清单单一权威: dispatch engine 键集 ∪ MATH_WORLD_RUNNERS �
   const {mp} = loadMathParadigms();
   const {mm} = loadMathMode();
   const all = new Set(allMathVariantKeys(mp));
-  assert.strictEqual(all.size, 27, '六族×(3 常规+1 挑战) + 3 情境 = 27 变体, 实为 ' + all.size);
-  /* 每族恰 3 常规+1 挑战(变体表形状) */
+  assert.strictEqual(all.size, 29, '六族×(3 常规+1~2 挑战) + 3 情境 = 29 变体(G4: +dualview/bridge), 实为 ' + all.size);
+  /* 每族恰 3 常规 + 1~2 挑战(变体表形状, G4: plan/mirror 双挑战) */
+  const chalWanted = {count: 1, craft: 1, hop: 1, mirror: 2, plan: 2, pattern: 1};
   for (const f of mp.MATH_FAMILIES) {
-    assert.strictEqual(mp.MATH_VARIANTS[f].length, 4, f + ' 每族 3+1 变体');
-    assert.strictEqual(mp.MATH_VARIANTS[f].filter((v) => v.kind === 'challenge').length, 1,
-        f + ' 恰 1 个挑战变体');
+    assert.strictEqual(mp.MATH_VARIANTS[f].length, 3 + chalWanted[f],
+        f + ' 每族 3 常规 + ' + chalWanted[f] + ' 挑战');
+    assert.strictEqual(mp.MATH_VARIANTS[f].filter((v) => v.kind === 'challenge').length,
+        chalWanted[f], f + ' 恰 ' + chalWanted[f] + ' 个挑战变体');
   }
   /* engine 键集从 dispatch 派生(不抄清单); runner 键集来自注册表 */
   const engine = new Set(allMathVariantKeys(mp).filter((k) => {
@@ -1446,7 +1449,7 @@ test('接管完整性: hop 族全部关卡与 boss 的 hop 小节都有轨(屏�
       assert.ok(secOk, '第 ' + (lv.i + 1) + ' 关 boss 小节 hop/' + sec.variant + ' 无轨');
     }
   }
-  assert.ok(hopSeen >= 20, 'hop 配重 20 关都覆盖到: ' + hopSeen);
+  assert.ok(hopSeen >= 24, 'hop 配重 24 关都覆盖到(G4 扩容): ' + hopSeen);
 });
 
 test('mathLevelMeta: 情境关话术覆盖(场馆=情境名/规则/提示), 常规关走族元数据', () => {
@@ -1519,14 +1522,62 @@ test('mathAggStats: boss 聚合三段按单关口径(试次/正确求和, maxStr
 
 test('mathBossPlan: sections 带轨道标注, 带 0 boss=craft(屏)+mirror(世界)+pattern(屏)', () => {
   const {mm} = loadMathMode();
-  const boss = mm.MATH_LEVELS[24];
+  const boss = mm.MATH_LEVELS[29];
   assert.strictEqual(boss.kind, 'boss');
   const plan = mm.mathBossPlan(boss);
   assert.strictEqual(plan.length, 3);
   assert.deepStrictEqual([...plan.map((s) => s.track)], ['screen', 'world', 'screen']);
   assert.ok(plan.every((s) => s.family && s.variant && s.params));
-  const boss3 = mm.mathBossPlan(mm.MATH_LEVELS[99]);
+  const boss3 = mm.mathBossPlan(mm.MATH_LEVELS[119]);
   assert.deepStrictEqual([...boss3.map((s) => s.track)], ['world', 'world', 'screen']);
+});
+
+/* ============ G4 新变体的世界 runner 装配可测部分(make 派生, 无 DOM) ============ */
+
+test('G4 世界变体注册: mirror/bridge 与 plan/dualview 都派发 runBuildWorld(同族同宿主)', () => {
+  const {mm} = loadMathMode();
+  assert.strictEqual(mm.mathWorldRunner('mirror', 'bridge'), mm.runBuildWorld,
+      'mirror/bridge 已接管(世界轨放置形态)');
+  assert.strictEqual(mm.mathWorldRunner('plan', 'dualview'), mm.runBuildWorld,
+      'plan/dualview 已接管(世界轨点选形态)');
+});
+
+test('G4 plan/dualview make: 候选/视图按变体曲线注入(cands 2/4, views 1/2)', () => {
+  const {mm} = loadMathMode();
+  const spec = mm.MATH_WORLD_VARIANTS['plan/dualview'];
+  assert.ok(spec && spec.make && spec.build && spec.speak, 'spec 三件齐(出题/装场/话术)');
+  const sec2 = {family: 'plan', variant: 'dualview',
+    params: {blocks: 60, max: 100, dualCands: 2, dualViews: 1, reasoning: 'single'}};
+  const p2 = spec.make(sec2, 7).pz;
+  assert.strictEqual(p2.candidates.length, 2, 'single 档候选 2 座');
+  assert.strictEqual(p2.views, 1, 'single 档单视图');
+  assert.ok(p2.answer === 0 || p2.answer === 1, '答案下标有效');
+  const sec4 = {family: 'plan', variant: 'dualview',
+    params: {blocks: 100, max: 100, dualCands: 4, dualViews: 2, reasoning: 'two-step'}};
+  const p4 = spec.make(sec4, 7).pz;
+  assert.strictEqual(p4.candidates.length, 4, 'two-step 档候选 4 座');
+  assert.strictEqual(p4.views, 2, 'two-step 档双视图');
+  /* 话术按视图数分档(views=1 不提侧视) */
+  assert.ok(spec.speak(p2).includes('正面'), 'single 话术提正视图');
+  assert.ok(spec.speak(p4).length > 0, 'two-step 话术非空');
+});
+
+test('G4 mirror/bridge make: 地形+预算牌数值(mkBridgePuzzle 派生, 预算跟推理档)', () => {
+  const {mm} = loadMathMode();
+  const spec = mm.MATH_WORLD_VARIANTS['mirror/bridge'];
+  assert.ok(spec && spec.make && spec.build && spec.speak, 'spec 三件齐(出题/装场/话术)');
+  const secR = {family: 'mirror', variant: 'bridge',
+    params: {span: 20, max: 100, budget: 3, reasoning: 'reverse', trials: 2}};
+  const madeR = spec.make(secR, 9);
+  assert.ok(madeR.pz.plan.span >= 3 && madeR.pz.plan.span <= 8, '跨度有界 3..8');
+  assert.ok(madeR.pz.plan.par >= 1, 'par ≥1(有解地形)');
+  assert.strictEqual(madeR.budgetN, madeR.pz.plan.par + 3, 'reverse 档预算牌 = par+3(宽松)');
+  const secM = {family: 'mirror', variant: 'bridge',
+    params: {span: 64, max: 100, budget: 0, reasoning: 'multi-solve', trials: 2}};
+  const madeM = spec.make(secM, 9);
+  assert.strictEqual(madeM.budgetN, madeM.pz.plan.par, 'multi-solve 档预算牌 = par(最省口径)');
+  assert.ok(madeM.pz.plan.span >= madeR.pz.plan.span, 'span 数值轴驱动跨度不减(跟带)');
+  assert.ok(spec.speak(madeM).length > 0 && spec.speak(madeR).length > 0, '两档话术非空');
 });
 
 test('mathSettleSave: 通关记星/挑战表/图章/日志, 教学关 0 星占位, 未过不记星', () => {
