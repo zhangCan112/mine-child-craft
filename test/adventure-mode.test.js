@@ -1191,7 +1191,7 @@ test('T12 挖掘行为链: tier 不足 — 徒手/低阶镐挖铁矿只碎不掉
   clearAim();
 });
 
-test('T12 耐久政策: damageTool 归零 — remove 清槽 + 安抚 TTS + 观感回落锄头', () => {
+test('T12 耐久政策: damageTool 归零 — remove 清槽 + 安抚 TTS + 空手(槽已空, MC 口径)', () => {
   mem.clear();
   freshInit();
   holdOnly('shovel_wood', 1, 1); /* 剩 1 耐久: 再挖一块即破板 */
@@ -1202,9 +1202,23 @@ test('T12 耐久政策: damageTool 归零 — remove 清槽 + 安抚 TTS + 观�
   assert.strictEqual(cell(spot.x, 24, spot.z), 0, '破坏完成');
   assert.strictEqual(A.advGetInv().slots[0], null, '工具归零消失(remove 清槽)');
   assert.ok(spoken.some((s) => String(s).indexOf('再做一个') >= 0), '安抚 TTS(零惩罚哲学)');
-  assert.ok(calls.some((c) => c[0] === 'setItem' && c[1] === globalThis.PLAYER.heldItem),
-      '手持观感回落默认锄头');
+  assert.ok(calls.some((c) => c[0] === 'setItem' && c[1] === null),
+      '手持观感=空手(槽已空, 与 advHeldChanged 空槽同一口径)');
   clearAim();
+});
+
+test('手持一致: 选中槽 → Avatar 跟随(工具/方块/薄片 def, 空槽=空手)', () => {
+  mem.clear();
+  freshInit();
+  const lastSet = () => calls.filter((c) => c[0] === 'setItem').pop();
+  holdOnly('pick_wood', 1, 120); /* select(0) → onPick → advHeldChanged 全链 */
+  assert.strictEqual(lastSet()[1], 'pick_wood', '选中工具 → 手持工具');
+  holdOnly('planks', 5);
+  assert.strictEqual(lastSet()[1], 'planks', '选中方块 → 手持方块本体(不再回落锄头)');
+  holdOnly('apple', 2);
+  assert.strictEqual(lastSet()[1], 'apple', '选中食物 → 手持薄片(不再回落锄头)');
+  holdOnly(null);
+  assert.strictEqual(lastSet()[1], null, '空槽 → 空手(MC 口径)');
 });
 
 test('T12 放置行为链: 泥土/火把/树苗 — 落点+背包 −1+记账; thin 违规落点 toast 拒绝', () => {

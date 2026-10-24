@@ -1422,9 +1422,18 @@ function clearBattle() {
 /* ---------- 竞技场 UI ---------- */
 const arenaHb = mkHotbar({/* 选块由 kit 接管(digit/wheel/点选); 'shovel' 哨兵槽渲染铁锹物品图标 */
   items: HOTBAR.map((id)=> (typeof id === 'number' ? {block: id} : {item: 'shovel_iron'})),
-  onPick: () => arenaTouchMainSync()});
+  onPick: () => arenaHeldSync()});
 function arenaHeldIsBlock() {/* 手持感知判定(纯 seam): 选中数字方块槽才可放置, 'shovel' 槽 = 挖掘入口 */
   return typeof HOTBAR[arenaHb.sel] === 'number';
+}
+function arenaHeldItemId() {/* 选中槽的手持物 id(纯 seam): 方块槽 → 方块数字 id
+  (HeldItems.defFor 直认), 铁锹哨兵槽 → shovel_iron(工具 def 现成) */
+  const id = HOTBAR[arenaHb.sel];
+  return typeof id === 'number' ? id : 'shovel_iron';
+}
+function arenaHeldSync() {/* 手持观感与选中槽一致 + 主动作键观感随手持 */
+  Avatar.setItem(arenaHeldItemId());
+  arenaTouchMainSync();
 }
 function arenaTouchMainSync() {/* 主动作键观感随手持: 方块=砖(放置)/铲=铲(连挖) */
   if (typeof refreshTouchMain === 'function') {
@@ -1566,12 +1575,13 @@ const ArenaMode = mkMode({
     if (autoBalance) balanceTeams();
     updatePanel();
     arenaHb.select(1); /* 默认选中第 2 格方块: 第 1 格铁锹是显式挖掘入口, 拿方块进场即放置态 */
-    arenaTouchMainSync(); /* 主动作键观感对齐手持(setTouchActions 在 cfg.init 之前) */
+    arenaHeldSync(); /* 手持观感对齐选中槽(select 同格不触发 onPick, 显式兜底) */
   },
   cleanup() {
     resetBattleFx();
     battleState = 'idle';
     battleResult = '';
+    Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活, 照下界先例) */
   },
   update(dt) {
     deploySpawnQueue(); // 分帧部署先于一切战斗逻辑

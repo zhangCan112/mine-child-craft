@@ -6,8 +6,11 @@
    加载即建并挂入场景(clearWorld 只清区块网格, 本模型跨模式存活);
    每帧 update(dt, camDist) 由主循环驱动, camDist 传 CameraRig.apply
    的返回值: 第一人称(0)与贴墙收拢过近时自动隐藏(手持物随之隐藏)。
-   interface: update / setItem(id|null 装备手持物) / swing(挥一次右臂,
-   连点连挥, 对空也挥) / flash(受击闪红: 全身向红插值再淡出, 传秒数)。
+   interface: update / setItem(id|null 声明手持目标——观感经 HeldItems.defFor
+   解析: 工具/方块/薄片/空手; 换物走「下沉-换-抬起」装备动画, MC 口径
+   沉到底才换网格, 连续切换从当前高度续沉不跳变) / swing(挥一次右臂,
+   连点连挥, 对空也挥; 与装备动画独立叠加互不打断) / flash(受击闪红:
+   全身向红插值再淡出, 传秒数)。
    建模与动画全部是 implementation。
    人物面向 -Z, 与玩家视线一致。
    依赖: world.js 的 scene, voxel.js 的 pos/vel/yaw/pitch/onGround/
@@ -75,13 +78,24 @@ const Avatar = (()=>{
   /* ---------- 动画 ---------- */
   let walkT = 0;
 
-  /* ---------- 手持物 (HeldItems) + 挥击 ----------
-     setItem: 装配/更换(未知 id 按空手); swing: 触发一次右臂挥击。
+  /* ---------- 手持物 (HeldItems) + 挥击 + 装备动画 ----------
+     setItem: 声明目标手持物(id/null; 同目标幂等), 实际换网格在装备
+     动画沉底瞬间(mountItem); swing: 触发一次右臂挥击。
      握持姿态在 armR 手部枢轴上施加; mesh 是 Avatar 唯一外部可见物。 */
   let itemMesh = null; let itemDef = null;
   let swingT = -1; // <0 空闲; >=0 已挥出秒数
 
-  function setItem(id) {
+  /* 装备动画(MC 口径, docs/mc-held-item-render-research.md Q4):
+     高度 equipH 1→0 下沉, 沉底换物, 0→1 抬起; 目标变更从当前高度
+     续沉(mainHandHeight ±0.4/tick 的折算, 全程 ≈0.28s)。 */
+  const ARM_R_Y0 = armR.position.y; // 右臂基高(下沉基准)
+  const EQUIP_HALF = 0.14; // 半程秒数
+  const EQUIP_DIP = 0.2; // 下沉量(MC -0.6 格按本仓库手臂尺度折算)
+  let heldTarget = null; // 落定后的手持物 id; null=空手
+  let equipH = 1; // 装备高度 0..1: 1=持稳, 0=沉底(换物点)
+  let equipDown = false; // 下沉中(目标已变更)
+
+  function mountItem(id) {/* 沉底瞬间的实际装配: 旧网格释放, defFor 解析新 def */
     if (itemMesh) {
       armR.remove(itemMesh);
       itemMesh.traverse((o)=>{
@@ -91,13 +105,20 @@ const Avatar = (()=>{
       });
       itemMesh = null;
     }
-    itemDef = HeldItems.defs[id] || null;
+    itemDef = HeldItems.defFor(id);
     if (itemDef) {
       itemMesh = HeldItems.mount(itemDef);
       itemMesh.position.fromArray(itemDef.grip.pos);
       itemMesh.rotation.fromArray(itemDef.grip.rot);
       armR.add(itemMesh);
     }
+  }
+
+  function setItem(id) {/* 声明目标(空槽/未知 id 经 defFor 落空手) */
+    const t = id || null;
+    if (t === heldTarget) return;
+    heldTarget = t;
+    equipDown = true;
   }
 
   function swing() {
@@ -110,6 +131,20 @@ const Avatar = (()=>{
 
   function update(dt, camDist) {
     if (swingT >= 0) swingT += dt; // 隐藏期间也推进, 恢复可见不接旧挥击
+    /* 装备动画(隐藏期间也走完, 同 swing 口径) */
+    if (equipDown || equipH < 1) {
+      if (equipDown) {
+        equipH -= dt / EQUIP_HALF;
+        if (equipH <= 0) {
+          equipH = 0;
+          equipDown = false;
+          mountItem(heldTarget); // 沉底才换网格(MC 口径)
+        }
+      } else {
+        equipH = Math.min(1, equipH + dt / EQUIP_HALF);
+      }
+    }
+    armR.position.y = ARM_R_Y0 - EQUIP_DIP * (1 - equipH); // 下沉随进度加深, 归位精确回基高
     if (flashT >= 0) { // 闪红同理: 隐藏期间走完, 恢复即基色
       flashT -= dt;
       const k = Math.max(0, Math.min(1, flashT/0.3));

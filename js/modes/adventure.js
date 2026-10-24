@@ -128,15 +128,18 @@ for (let i = 0; i < HOTBAR_SLOTS; i++) {
   });
 }
 const advHb = ModeKit.mkHotbar({items: advHbItems, onPick: (i) => advHeldChanged(i)});
-function advHeldChanged(i) {/* 选中槽: 工具换观感(defs 与物品 id 同名, T4), 其余回落锄头 */
+function advSyncHeldVisual() {/* 手持观感 = 选中槽内容(「手持与物品栏一致」的单一出口):
+   工具/方块/食物/材料全经 HeldItems.defFor 解析, 空槽 = 空手(MC 口径) */
+  const s = advInv.slots[advHb.sel];
+  Avatar.setItem(s ? s.id : null);
+}
+function advHeldChanged(i) {/* 选中槽: 观感经 advSyncHeldVisual 跟随选中; 工具加播报 */
   const s = advInv.slots[i];
   const it = s ? ITEMS[s.id] : null;
   if (it && it.tool) {
-    Avatar.setItem(s.id);
     showToast(it.name + ' 在手！');
-  } else {
-    Avatar.setItem(PLAYER.heldItem); /* 放置/食物的点击政策归 T12 */
   }
+  advSyncHeldVisual();
   advHb.refresh();
   advTouchMainSync();
 }
@@ -346,7 +349,7 @@ function advWearHeld(src) {
     const q = ADV_QUESTS[ADV.quest.step];
     remove(advInv, slot);
     advWarnLow.delete(s.id); /* 断掉即重置: 再做一把同款还能再预警(S4①) */
-    Avatar.setItem(PLAYER.heldItem); /* 观感回落锄头(槽已空, 命中/挖掘两路同一政策) */
+    Avatar.setItem(null); /* 槽已空 = 空手(与 advSyncHeldVisual 空槽同一口径, MC 正典) */
     SpeechKit.speak(advBreakToolText(name, q ? q.hint : null));
     showToast('💔 ' + name + ' 用坏了，再做一把更棒的吧！');
   } else if (left != null && s) {/* 未破: 低耐久预警判据(S4①, 空手/非工具 left=null 不进) */
@@ -1267,7 +1270,7 @@ const AdventureMode = mkMode({
     });
     ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
     flyMode = false; /* 探险步行(不沿用建造的飞行) */
-    Avatar.setItem(PLAYER.heldItem);
+    advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
     ADV.panelOpen = false;
     ADV.furnaceOpen = false; /* T13 熔炉面板/炉态/引信全部复位 */
     ADV.chestOpen = false; /* 引导链 v2: 箱子面板一并复位 */

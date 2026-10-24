@@ -17,10 +17,20 @@ let buildSaveT = 0; let buildDirty = false;
 /* hotbar (kit 实例): 建造调色板, cls:'build' 换皮肤; 'shovel' 哨兵槽渲染铁锹物品图标 */
 const buildHb = mkHotbar({cls: 'build',
   items: BUILD_PALETTE.map((id)=> (typeof id === 'number' ? {block: id} : {item: 'shovel_iron'})),
-  onPick: () => buildTouchMainSync()});
+  onPick: () => buildHeldSync()});
 function buildHeldIsBlock() {/* 手持感知判定(纯 seam): 选中数字方块槽才可放置,
   'shovel' 槽 = 挖掘入口(智能主动作与桌面右键共用) */
   return typeof BUILD_PALETTE[buildHb.sel] === 'number';
+}
+function buildHeldItemId() {/* 选中槽的手持物 id(纯 seam): 方块槽 → 方块数字 id
+  (HeldItems.defFor 直认, 覆盖无物品条目的创造专属方块), 铁锹哨兵槽 →
+  shovel_iron(工具 def 现成) */
+  const id = BUILD_PALETTE[buildHb.sel];
+  return typeof id === 'number' ? id : 'shovel_iron';
+}
+function buildHeldSync() {/* 手持观感与选中槽一致 + 主动作键观感随手持 */
+  Avatar.setItem(buildHeldItemId());
+  buildTouchMainSync();
 }
 function buildTouchMainSync() {/* 主动作键观感随手持: 方块=砖(放置)/铲=铲(连挖) */
   if (typeof refreshTouchMain === 'function') {
@@ -496,12 +506,13 @@ const BuildMode = mkMode({
     buildLoadScene(buildSceneId);
     buildSceneMenu();
     buildHb.select(1); /* 默认选中第 2 格方块: 第 1 格铁锹是显式挖掘入口, 拿方块进场即放置态 */
-    buildTouchMainSync(); /* 主动作键观感对齐手持(setTouchActions 在 cfg.init 之前) */
+    buildHeldSync(); /* 手持观感对齐选中槽(select 同格不触发 onPick, 显式兜底) */
   },
   cleanup() {
     buildSaveNow();
     flyMode = false;
     buildHoldOn = false; /* 长按连挖场: 退出模式即收 */
+    Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活, 照下界先例) */
   },
   buildMenu() {
     buildSceneMenu();
