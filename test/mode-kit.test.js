@@ -704,3 +704,4 @@ test('mkHpBar: 头顶血条深接口 — 形状齐全 + 无 THREE/DOM 渲染环�
   assert.doesNotThrow(() => vis.update(10, 30, 0, 0, 0), 'visible 回调口径同安全');
   assert.doesNotThrow(() => vis.dispose());
 });
+/* mkHpBar 断言将随 C6-T3 模式切换迁入 test/combat-kit.test.js */
