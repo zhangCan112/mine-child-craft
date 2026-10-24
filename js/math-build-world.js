@@ -683,6 +683,7 @@ function runBuildWorld(section, h) {
   if (typeof requestLock === 'function') requestLock(); // 进场即锁指针/触屏进行态
   return {
     stop() {
+      if (stopped) return; // 幂等(hop teardown 同款): 重复 stop 不再收尾
       stopped = true;
       T.stop();
       trial = null;
@@ -690,6 +691,7 @@ function runBuildWorld(section, h) {
       if (typeof setTouchActions === 'function') setTouchActions(null);
       if (wwHud) wwHud.style.display = 'none';
       if (typeof mathRoot !== 'undefined' && mathRoot) mathRoot.style.display = 'block'; // 复明 DOM 屏
+      clearWorld(); // 场景装填纪律: 退出清场(幂等, 不写建造存档) — T1 缺陷修复, hop teardown 同款
     },
     onMouse,
   };

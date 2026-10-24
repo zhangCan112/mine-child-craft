@@ -904,8 +904,11 @@ function runMathBoss(level, areaEl, setProg) {
       statsList.push(st);
       doneTrials += st.trials || 0;
       si++;
+      /* 先离场再清柄(T1 缺陷修复): mathWorldLeave 内 if (mathCtrl) 才会
+         stop()(收热栏/触屏键/HUD + 退出清场); 原顺序先置 null 后离场,
+         boss 世界节的 stop() 成死路, 3D 残场与 HUD 挂到下一次装场 — hop 幂等无害 */
+      if (s.track === 'world') mathWorldLeave();
       mathCtrl = null;
-      if (s.track === 'world') mathWorldLeave(); /* T6 指针锁宿主离场(hop 幂等无害) */
       setTimeout(() => {
         if (!stopped) step();
       }, 400);
