@@ -1,0 +1,804 @@
+'use strict';
+/* ============================================================
+   Math Paradigms (数学屏流引擎, 术语见 GLOSSARY.md「数学屏流引擎」) — 应用层·库
+   ------------------------------------------------------------
+   一句话职责: 藏住 13 个屏流判别变体(count/craft/pattern 全变体 +
+   hop 站位比大小)的"呈现-点选-反馈"流程与小部件, 调度层(modes/math.js)
+   只给 section 与 handler, 拿回统计; 引擎不知道奖励/背包/图章/关卡编排。
+   出题优先调 PuzzleCore(算式谜/多解/天平=mkScalePuzzle/mkPartitionPuzzle,
+   数列/周期/线索排队=mkSeqPuzzle/mkPeriodPuzzle/mkClueOrderPuzzle);
+   count 族闪现/取物/比多少/移多补少与 craft 常规三变体无对应生成器,
+   引擎内用同常数 LCG 自行生成(种子注入, 同 seed 同输出)。
+   认知负荷红线(PuzzleCore.LIMITS): 一次呈现 ≤4 组块 · 线索 ≤3 条 —
+   mathGuardParams 渲染前校验参数, 越界 console.warn 并截断(测试锁)。
+   interface: mathScreenDispatch(family, variant) · mathGuardParams(params) ·
+     runMathScreen(section, area, h) → {stop()} | null(非屏流变体)
+     section = {family, variant, tier?, kind?, params, seed?} ·
+     h = {progress(k, n)?, onTrial({ok, streak})?, end(st)} —
+     st = {trials, correct, acc, maxStreakErr}(供 mathPassed/mathStars)
+   依赖(均经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js) ·
+     SpeechKit/sfx(js/speech.js·js/audio.js) · mcIcon(js/focus-icons.js) ·
+     Mobs.face(js/mobs.js, 怪物头像, 缺席回落 mcIcon) ·
+     mathPraiseLine/mathComfortLine(js/modes/math.js 应用层话术, 本文件
+     加载在其之前, 调用期解析 — focus-paradigms 同款分层口径)
+   可测性: DOM 惰性创建(仅 document) · 零 THREE · Node 测试注入假 doc
+     安全加载, 有驱动缝单测(test/math-paradigms.test.js, vm 直测)
+   ------------------------------------------------------------
+   变体子型随推理档(reasoning)混入(双轨的屏流侧):
+   count/compare single=谁多 · 其余=多几个 ·
+   craft/blank 恒有算式谜(x ? = z, 空位恒第二操作数) · reverse 起混入
+   天平代换 · multi-solve 起混入多解找齐 ·
+   pattern/chain single/两步=颜色接龙 · 其余混入数列 ·
+   pattern/sort reverse 起=线索排队(≤3 线索) ·
+   hop/position single=谁站得远 · 其余=相差几。
+   快照(count/snapshot)数量 ≤12: 感数与按群计数的主场, 大数走取物/比多少。
+   ============================================================ */
+
+/* ---------- 小工具(命名加 m 前缀, 避开共享词法环境的既有全局) ---------- */
+
+function mEl(tag, cls, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  return e;
+}
+
+/* 计时器收口: stop 一次清空(focus mkTimers 同构, 独立副本避免跨引擎耦合) */
+function mTimers() {
+  const ts = [];
+  return {
+    after(ms, fn) {
+      const id = setTimeout(() => {
+        const k = ts.indexOf(id);
+        if (k >= 0) ts.splice(k, 1);
+        fn();
+      }, ms);
+      ts.push(id);
+      return id;
+    },
+    stop() {
+      ts.forEach((id) => clearTimeout(id));
+      ts.length = 0;
+    },
+  };
+}
+
+/* 种子 LCG: 与 PuzzleCore.mkRand 同常数 — 同 seed 同输出, 缺省走 Math.random */
+function mRand(seed) {
+  let s = seed === undefined ? Math.floor(Math.random() * 2147483648) : seed;
+  return function() {
+    s = (s * 1103515245 + 12345) % 2147483648;
+    return s / 2147483648;
+  };
+}
+
+function mRi(rnd, lo, hi) {
+  if (hi < lo) hi = lo;
+  return lo + Math.floor(rnd() * (hi - lo + 1));
+}
+
+function mPick(rnd, arr) {
+  return arr[Math.floor(rnd() * arr.length)];
+}
+
+function mShuffle(rnd, arr) {
+  const a = arr.slice();
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    const t = a[i];
+    a[i] = a[j];
+    a[j] = t;
+  }
+  return a;
+}
+
+/* 像素图标出口: mcIcon 惰性拼接(零 DOM 画布) · 怪物头像走 Mobs.face 单一出口 */
+function mIconUrl(name) {
+  return (typeof mcIcon === 'function') ? mcIcon(name) : '';
+}
+
+function mIconImg(name, cls) {
+  return '<img class="m-ic' + (cls ? ' ' + cls : '') + '" draggable="false" alt="" src="' + mIconUrl(name) + '">';
+}
+
+function mFaceImg(mob, cls) {
+  const url = (typeof Mobs !== 'undefined' && Mobs && Mobs.face) ? Mobs.face(mob) : mIconUrl('cobble');
+  return '<img class="m-ic m-face' + (cls ? ' ' + cls : '') + '" draggable="false" alt="" src="' + url + '">';
+}
+
+/* 颜色号(PuzzleCore 周期谜题 1..3)→ 羊毛图标与话术名(键名避开 button-icons
+   防错网的 icon:'字面量' 收网口径, 那是按钮键的语义) */
+const MATH_COLORS = {
+  1: {ico: 'wool_red', name: '红色'},
+  2: {ico: 'wool_blue', name: '蓝色'},
+  3: {ico: 'wool_yellow', name: '黄色'},
+};
+
+/* ---------- 认知负荷红线(渲染前校验, 越界 warn + 截断) ---------- */
+
+function mathGuardParams(p) {
+  const o = Object.assign({}, p || {});
+  const cap = (k, want) => {
+    if (o[k] !== undefined && o[k] > want) {
+      console.warn('[math-paradigms] 认知负荷红线: ' + k + '=' + o[k] + ' 超上限 ' + want + ', 已截断(设计稿 §4.1)');
+      o[k] = want;
+    }
+  };
+  cap('chunks', PuzzleCore.LIMITS.chunks);
+  cap('unitLen', PuzzleCore.LIMITS.chunks);
+  cap('clueCount', PuzzleCore.LIMITS.clues);
+  return o;
+}
+
+/* ---------- 分发(纯函数, 单测锁住清单) ---------- */
+
+const MATH_SCREEN_KEYS = new Set([
+  'count/snapshot', 'count/fetch', 'count/compare', 'count/balance',
+  'craft/enough', 'craft/shortage', 'craft/order', 'craft/blank',
+  'pattern/chain', 'pattern/sort', 'pattern/odd', 'pattern/cycle',
+  'hop/position',
+]);
+
+function mathScreenDispatch(family, variant) {
+  const key = family + '/' + variant;
+  return MATH_SCREEN_KEYS.has(key) ? {kind: 'engine', key} : {kind: 'none'};
+}
+
+/* ---------- 通用小部件 ---------- */
+
+/* 可点选项按钮(统一 m-tap 可点语义 + data-v 值) */
+function mChoiceBtn(value, html, cls, onPick) {
+  const b = mEl('button', 'm-choice m-tap' + (cls ? ' ' + cls : ''), html);
+  b.dataset.v = value;
+  b.onclick = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    onPick(value, b);
+  };
+  return b;
+}
+
+/* 数量选择条: 答案 + 3 个邻近干扰, 恰 4 选项(≤4 组块红线) */
+function mNumChoices(stage, rnd, answer, onPick) {
+  const vals = [answer];
+  let guard = 0;
+  while (vals.length < 4 && guard++ < 80) {
+    const v = answer + mRi(rnd, -3, 3);
+    if (v >= 0 && !vals.includes(v)) vals.push(v);
+  }
+  let extra = 1;
+  while (vals.length < 4) vals.push(answer + 10 + extra++); // 干扰兜底(远离答案)
+  const row = mEl('div', 'm-nums');
+  for (const v of mShuffle(rnd, vals)) row.appendChild(mChoiceBtn(v, String(v), 'm-num', onPick));
+  stage.appendChild(row);
+  return row;
+}
+
+/* 图标选项条(颜色/材质类): items = 去重图标键数组(≤4) */
+function mIconChoices(stage, rnd, items, onPick) {
+  const row = mEl('div', 'm-nums');
+  for (const it of mShuffle(rnd, items.slice(0, 4))) {
+    row.appendChild(mChoiceBtn(it, mIconImg(it), 'm-iconc', onPick));
+  }
+  stage.appendChild(row);
+  return row;
+}
+
+/* 确认按钮(多选类变体收口): 零文字压力, 语音已说明玩法 */
+function mOkBtn(stage, onPick) {
+  const b = mEl('button', 'm-ok m-tap', '✔ 好啦');
+  b.onclick = (e) => {
+    if (e && e.preventDefault) e.preventDefault();
+    onPick(b);
+  };
+  stage.appendChild(b);
+  return b;
+}
+
+/* 序列槽排(接龙/周期/算式): 真元素+data 神谕, slots = 描述符数组 */
+function mSeqRow(stage, slots) {
+  const row = mEl('div', 'm-seq');
+  for (const s of slots) {
+    const el = mEl('span', 'm-slot' + (s.cls ? ' ' + s.cls : ''), s.html || '');
+    if (s.item !== undefined) el.dataset.item = s.item;
+    if (s.n !== undefined) el.dataset.n = s.n;
+    if (s.op !== undefined) el.dataset.op = s.op;
+    row.appendChild(el);
+  }
+  stage.appendChild(row);
+  return row;
+}
+
+function mItemSlot(icon) {
+  return {cls: 'm-itemslot', item: icon, html: mIconImg(icon)};
+}
+
+function mNumSlot(n) {
+  return {cls: 'm-numslot', n, html: String(n)};
+}
+
+function mOpSlot(op) {
+  return {cls: 'm-op', op, html: op};
+}
+
+const MATH_BLANK_SLOT = {cls: 'm-blank', html: '?'};
+const MATH_EQ_SLOT = {cls: 'm-eq', html: '='};
+
+/* 方块堆(点数用): n 枚图标 */
+function mPileIcons(n, icon) {
+  let s = '';
+  for (let k = 0; k < n; k++) s += mIconImg(icon);
+  return s;
+}
+
+/* ---------- count 族 A 数一数 ---------- */
+
+/* 怪物快照: 小客人闪现 → 藏起 → 点出数量(感数/按群计数; ≤12) */
+function mCountSnapshot(stage, p, rnd, ctx) {
+  const n = mRi(rnd, 3, Math.min(p.max || 10, 12));
+  const guest = mPick(rnd, ['zombie', 'slime', 'spider', 'skeleton']);
+  const group5 = (p.groupRate || 0) > 0 && rnd() < p.groupRate;
+  const one = (mob) => '<span class="m-mob">' + mFaceImg(mob) + '</span>';
+  const mobs = [];
+  for (let k = 0; k < n; k++) mobs.push(one(guest));
+  if ((p.mixRate || 0) > 0 && rnd() < p.mixRate) { // 相似干扰物(长得像, 不计数)
+    const other = mPick(rnd, ['zombie', 'slime', 'spider', 'skeleton'].filter((m) => m !== guest));
+    const d = mRi(rnd, 1, 2);
+    for (let k = 0; k < d; k++) mobs.push(one(other));
+  }
+  const ordered = mShuffle(rnd, mobs);
+  let html = '';
+  if (group5) { // 按群计数: 5 个一排(乘法前置)
+    for (let k = 0; k < ordered.length; k += 5) {
+      html += '<span class="m-g5row">' + ordered.slice(k, k + 5).join('') + '</span>';
+    }
+  } else {
+    html = ordered.join('');
+  }
+  const field = mEl('div', 'm-flash' + (group5 ? ' m-group5' : ''), html);
+  stage.appendChild(field);
+  ctx.speak('数一数，来了几位小客人？');
+  const flashMs = Math.max(600, p.flashMs || 1500);
+  ctx.T.after(flashMs, () => {
+    field.classList.add('m-hide');
+    mNumChoices(stage, rnd, n, (v, b) => ctx.settle(v === n, b));
+    ctx.speak('有几只？点数字！');
+  });
+}
+
+/* 按数取物: 听目标数, 点够方块入箱再确认 */
+function mCountFetch(stage, p, rnd, ctx) {
+  const n = mRi(rnd, 1, Math.min(p.max || 10, 10));
+  const m = n + mRi(rnd, 1, 3);
+  const box = mEl('div', 'm-box', '<span class="m-boxlabel">📦×' + n + '</span>');
+  box.dataset.n = n;
+  stage.appendChild(box);
+  const tray = mEl('div', 'm-tray');
+  for (let k = 0; k < m; k++) {
+    tray.appendChild(mChoiceBtn('blk' + k, mIconImg('cobble'), 'm-item', (v, b) => {
+      b.classList.toggle('in');
+      sfxSafe('click');
+    }));
+  }
+  stage.appendChild(tray);
+  mOkBtn(stage, () => {
+    const got = tray.children.filter((c) => c.classList.contains('in')).length;
+    ctx.settle(got === n, null);
+  });
+  ctx.speak('请搬 ' + n + ' 个方块进箱子，点够了按好啦。');
+}
+
+/* 比多少: 谁多(点堆) / 多几个(数字条) */
+function mCountCompare(stage, p, rnd, ctx) {
+  const cap = Math.max(4, Math.min(p.max || 10, 12));
+  let a = mRi(rnd, 1, cap);
+  let b = a;
+  while (b === a) b = mRi(rnd, 1, cap);
+  const diffMode = p.reasoning && p.reasoning !== 'single';
+  const wrap = mEl('div', 'm-piles');
+  if (!diffMode) {
+    for (const n of mShuffle(rnd, [a, b])) {
+      const pile = mChoiceBtn(n, mPileIcons(n, 'cobble'), 'm-pile', (v, el) => ctx.settle(+v === Math.max(a, b), el));
+      pile.dataset.n = n;
+      wrap.appendChild(pile);
+    }
+    stage.appendChild(wrap);
+    ctx.speak('哪边的方块多？点一点！');
+  } else {
+    for (const n of [a, b]) {
+      const pile = mEl('div', 'm-pile m-pilestat', mPileIcons(n, 'cobble'));
+      pile.dataset.n = n;
+      wrap.appendChild(pile);
+    }
+    stage.appendChild(wrap);
+    const ans = Math.abs(a - b);
+    mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
+    ctx.speak('多的一边比少的一边多几个？');
+  }
+}
+
+/* 移多补少(挑战): 从多的一边搬几个过去两边一样多 */
+function mCountBalance(stage, p, rnd, ctx) {
+  const cap = Math.max(6, Math.min(p.max || 10, 14));
+  const small = mRi(rnd, 1, cap - 4);
+  const big = small + 2 * mRi(rnd, 1, Math.floor((cap - small) / 2)); // 差恒偶数
+  const wrap = mEl('div', 'm-piles');
+  for (const n of [big, small]) {
+    const pile = mEl('div', 'm-pile m-pilestat', mPileIcons(n, 'wool_red'));
+    pile.dataset.n = n;
+    wrap.appendChild(pile);
+  }
+  stage.appendChild(wrap);
+  const ans = (big - small) / 2;
+  mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
+  ctx.speak('从多的一边搬几个到少的一边，两边就一样多？');
+}
+
+/* ---------- craft 族 B 算一算 ---------- */
+
+/* 材料位值堆: ≥10 且掷中捆扎率 → 10 根捆成 1 捆(bundleRate 位值渐入) */
+function mHavePile(stage, have, p, rnd) {
+  const bundled = (p.bundleRate || 0) > 0 && have >= 10 && rnd() < p.bundleRate;
+  let html = '';
+  if (bundled) {
+    const tens = Math.floor(have / 10);
+    const ones = have % 10;
+    for (let k = 0; k < tens; k++) html += '<span class="m-bundle">' + mIconImg('planks') + '<b>10</b></span>';
+    for (let k = 0; k < ones; k++) html += mIconImg('planks');
+  } else {
+    html = mPileIcons(have, 'planks');
+  }
+  const el = mEl('div', 'm-have' + (bundled ? ' m-bundled' : ''), html);
+  el.dataset.n = have;
+  stage.appendChild(el);
+  return el;
+}
+
+/* 材料配方行: 镐子 + need 块木板(enough/shortage 共用) */
+function mNeedRow(stage, need) {
+  const needEl = mEl('div', 'm-need',
+      mIconImg('pickaxe') + mPileIcons(need, 'planks') + '<span class="m-needtag">要 ' + need + ' 块</span>');
+  needEl.dataset.n = need;
+  stage.appendChild(needEl);
+  return needEl;
+}
+
+/* 材料够不够: need 与 have 比, 点 够/不够 */
+function mCraftEnough(stage, p, rnd, ctx) {
+  const need = mRi(rnd, 2, Math.min(p.max || 10, 10));
+  const have = Math.max(0, need + mRi(rnd, -3, 3));
+  mNeedRow(stage, need);
+  mHavePile(stage, have, p, rnd);
+  const row = mEl('div', 'm-nums');
+  row.appendChild(mChoiceBtn(1, '✔ 够', 'm-yes', (v, el) => ctx.settle((have >= need) === (v === 1), el)));
+  row.appendChild(mChoiceBtn(0, '✗ 不够', 'm-no', (v, el) => ctx.settle((have >= need) === (v === 1), el)));
+  stage.appendChild(row);
+  ctx.speak('做一把镐子要用 ' + need + ' 块木板，看看材料，够不够？');
+}
+
+/* 还差几个: 缺料减法 */
+function mCraftShortage(stage, p, rnd, ctx) {
+  const need = mRi(rnd, 3, Math.min(p.max || 12, 12));
+  const have = Math.max(0, need - mRi(rnd, 1, Math.min(4, need - 1)));
+  mNeedRow(stage, need);
+  mHavePile(stage, have, p, rnd);
+  const ans = need - have;
+  mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
+  ctx.speak('还差几块木板？');
+}
+
+/* 合成订单: k 件 × per 块(乘法先遇) */
+function mCraftOrder(stage, p, rnd, ctx) {
+  const per = mRi(rnd, 2, 4);
+  const kMax = Math.max(2, Math.min(4, Math.floor((p.max || 12) / per)));
+  const k = mRi(rnd, 2, kMax);
+  let html = '';
+  for (let j = 0; j < k; j++) {
+    html += '<span class="m-ogroup">' + mIconImg('pickaxe') + mPileIcons(per, 'planks') + '</span>';
+  }
+  const order = mEl('div', 'm-order', html);
+  order.dataset.k = k;
+  order.dataset.per = per;
+  stage.appendChild(order);
+  const ans = k * per;
+  mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
+  ctx.speak('做 ' + k + ' 把镐子，每把要 ' + per + ' 块木板，一共要几块？');
+}
+
+/* 魔法空格(挑战): 算式谜 / 天平代换 / 多解找齐, 按推理档混入 */
+function mCraftBlank(stage, p, rnd, ctx) {
+  const r = p.reasoning || 'single';
+  const roll = rnd();
+  if (r === 'multi-solve' && roll < 0.34) return mCraftBlankPartition(stage, p, rnd, ctx);
+  if ((r === 'reverse' || r === 'multi-solve') && roll < 0.67) return mCraftBlankScale(stage, p, rnd, ctx);
+  return mCraftBlankEq(stage, p, rnd, ctx);
+}
+
+/* 算式谜: x ? = z(空位恒第二操作数; reverse 起有减形) */
+function mCraftBlankEq(stage, p, rnd, ctx) {
+  const max = Math.max(8, Math.min(p.max || 20, 20));
+  const subForm = (p.reasoning === 'reverse' || p.reasoning === 'multi-solve') && rnd() < 0.5;
+  let x;
+  let z;
+  let ans;
+  let op;
+  if (subForm) {
+    ans = mRi(rnd, 1, Math.floor(max / 2) - 1);
+    z = mRi(rnd, ans + 2, max - 1);
+    x = z + ans;
+    op = '-';
+  } else {
+    ans = mRi(rnd, 1, Math.max(2, Math.floor(max / 2)));
+    x = mRi(rnd, 1, Math.max(1, max - ans - 1));
+    z = x + ans;
+    op = '+';
+  }
+  mSeqRow(stage, [mNumSlot(x), mOpSlot(op), MATH_BLANK_SLOT, MATH_EQ_SLOT, mNumSlot(z)]);
+  mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
+  ctx.speak('空格里是几？');
+}
+
+/* 天平代换(PuzzleCore.mkScalePuzzle): l 只 A = r 只 B, 问换算 */
+function mCraftBlankScale(stage, p, rnd, ctx) {
+  const pz = PuzzleCore.mkScalePuzzle({seed: Math.floor(rnd() * 2147483647), max: p.max || 20});
+  const iconOf = {a: 'diamond', b: 'emerald', c: 'coal'};
+  const nameOf = {a: '钻石', b: '绿宝石', c: '煤炭'};
+  for (const rel of pz.relations) {
+    const row = mEl('div', 'm-rel',
+        mPileIcons(rel.left, iconOf[rel.from]) + '<span class="m-rel-eq">=</span>' +
+        mPileIcons(rel.right, iconOf[rel.to]));
+    row.dataset.l = rel.left;
+    row.dataset.r = rel.right;
+    row.dataset.from = rel.from;
+    row.dataset.to = rel.to;
+    stage.appendChild(row);
+  }
+  const ask = mEl('div', 'm-ask',
+      mPileIcons(pz.ask.n, iconOf[pz.ask.from]) + '<span class="m-rel-eq">=</span>' +
+      '<span class="m-slot m-blank">?</span>');
+  ask.dataset.n = pz.ask.n;
+  ask.dataset.from = pz.ask.from;
+  ask.dataset.to = pz.ask.to;
+  stage.appendChild(ask);
+  mNumChoices(stage, rnd, pz.answer, (v, el) => ctx.settle(v === pz.answer, el));
+  const relText = pz.relations
+      .map((rel) => rel.left + ' 只' + nameOf[rel.from] + '和 ' + rel.right + ' 只' + nameOf[rel.to] + '一样重')
+      .join('，');
+  ctx.speak(relText + '。那 ' + pz.ask.n + ' 只' + nameOf[pz.ask.from] + '，能换几只' + nameOf[pz.ask.to] + '？');
+}
+
+/* 多解找齐(PuzzleCore.mkPartitionPuzzle): 合成 n 的数对全找齐 */
+function mCraftBlankPartition(stage, p, rnd, ctx) {
+  const pz = PuzzleCore.mkPartitionPuzzle({seed: Math.floor(rnd() * 2147483647),
+    max: Math.min(p.max || 12, 12), parts: 2});
+  const n = pz.n;
+  const q = mEl('div', 'm-q', '哪两个数合起来是 <b>' + n + '</b>？把对的都找出来！');
+  q.dataset.n = n;
+  stage.appendChild(q);
+  const goodKeys = new Set(pz.solutions.map((s) => s[0] + '+' + s[1]));
+  const options = [];
+  const nGood = 1 + (rnd() < 0.5 ? 1 : 0); // 1~2 个正确选项(≤4 组块)
+  for (const s of mShuffle(rnd, pz.solutions).slice(0, nGood)) options.push({x: s[0], y: s[1], ok: true});
+  let guard = 0;
+  while (options.length < 4 && guard++ < 60) {
+    const x = mRi(rnd, 1, Math.max(2, n - 1));
+    const y = mRi(rnd, 1, Math.max(2, n - 1));
+    if (x + y !== n && !options.some((o) => o.x === x && o.y === y)) options.push({x, y, ok: false});
+  }
+  const goodPresent = options.filter((o) => o.ok).length;
+  const chosen = new Set();
+  const row = mEl('div', 'm-nums');
+  for (const o of mShuffle(rnd, options).slice(0, 4)) {
+    const chip = mChoiceBtn(o.x + '+' + o.y, o.x + ' + ' + o.y, 'm-chip', (v, el) => {
+      el.classList.toggle('on');
+      if (el.classList.contains('on')) chosen.add(v);
+      else chosen.delete(v);
+      sfxSafe('click');
+    });
+    chip.dataset.x = o.x;
+    chip.dataset.y = o.y;
+    row.appendChild(chip);
+  }
+  stage.appendChild(row);
+  mOkBtn(stage, () => {
+    const ok = chosen.size === goodPresent && [...chosen].every((k) => goodKeys.has(k));
+    ctx.settle(ok, null);
+  });
+  ctx.speak('哪两个数合起来是 ' + n + '？把对的都找出来！');
+}
+
+/* ---------- pattern 族 F 找一找 ---------- */
+
+/* 花纹接龙: 颜色/混排单元 · 推理档起混入数列(mkSeqPuzzle) */
+function mPatternChain(stage, p, rnd, ctx) {
+  const r = p.reasoning || 'single';
+  const numericProb = r === 'single' ? 0 : (r === 'two-step' ? 0.5 : 0.75);
+  if (rnd() < numericProb) return mPatternChainSeq(stage, p, rnd, ctx);
+  return mPatternChainColor(stage, p, rnd, ctx);
+}
+
+function mPatternChainColor(stage, p, rnd, ctx) {
+  const len = Math.min(4, Math.max(2, p.unitLen || 2));
+  const dual = (p.dualRate || 0) > 0 && rnd() < p.dualRate;
+  const alphabet = dual ? ['wool_red', 'wool_blue', 'wool_yellow', 'planks', 'brick', 'cobble'] :
+    ['wool_red', 'wool_blue', 'wool_yellow'];
+  const unit = [];
+  for (let k = 0; k < len; k++) unit.push(mPick(rnd, alphabet));
+  if (new Set(unit).size < 2) unit[len - 1] = alphabet.find((a) => a !== unit[0]); // 全同不成规律
+  const r = mRi(rnd, 1, len - 1); // 展示 2 轮 + 不完整前缀, ? = unit[r]
+  const slots = unit.concat(unit, unit.slice(0, r)).map((it) => mItemSlot(it));
+  slots.push(MATH_BLANK_SLOT);
+  mSeqRow(stage, slots);
+  const distinct = [...new Set(unit)];
+  const ans = unit[r];
+  mIconChoices(stage, rnd, distinct, (v, el) => ctx.settle(v === ans, el));
+  ctx.speak('看一看花纹的规律，下一个是什么？');
+}
+
+function mPatternChainSeq(stage, p, rnd, ctx) {
+  const pz = PuzzleCore.mkSeqPuzzle({seed: Math.floor(rnd() * 2147483647), max: p.max || 20});
+  const slots = pz.seq.map((v) => mNumSlot(v));
+  slots.push(MATH_BLANK_SLOT);
+  mSeqRow(stage, slots);
+  mNumChoices(stage, rnd, pz.next, (v, el) => ctx.settle(v === pz.next, el));
+  ctx.speak('找找数的规律，下一个是几？');
+}
+
+/* 分装箱: 同款全挑出 · 推理档起=线索排队(mkClueOrderPuzzle, ≤3 线索) */
+function mPatternSort(stage, p, rnd, ctx) {
+  const r = p.reasoning || 'single';
+  if (r === 'reverse' || r === 'multi-solve') return mPatternSortClue(stage, p, rnd, ctx);
+  return mPatternSortBin(stage, p, rnd, ctx);
+}
+
+function mPatternSortBin(stage, p, rnd, ctx) {
+  const wools = ['wool_red', 'wool_blue', 'wool_yellow'];
+  const ruleIcon = mPick(rnd, wools);
+  const rule = mEl('div', 'm-binrule', '<span class="m-binlabel">放进箱子：</span>' + mIconImg(ruleIcon, 'm-big'));
+  rule.dataset.v = ruleIcon;
+  stage.appendChild(rule);
+  const k = mRi(rnd, 2, 3);
+  const othersPool = ['planks', 'brick', 'cobble', 'coal'].filter((i) => i !== ruleIcon);
+  const items = [];
+  for (let j = 0; j < k; j++) items.push(ruleIcon);
+  const total = mRi(rnd, 4, 6);
+  for (let j = k; j < total; j++) items.push(mPick(rnd, othersPool));
+  const wantCount = items.filter((it) => it === ruleIcon).length;
+  const tray = mEl('div', 'm-tray');
+  let idx = 0;
+  for (const it of mShuffle(rnd, items)) {
+    const el = mChoiceBtn('it' + idx++, mIconImg(it), 'm-item', (v, b) => {
+      b.classList.toggle('in');
+      sfxSafe('click');
+    });
+    el.dataset.v = it;
+    tray.appendChild(el);
+  }
+  stage.appendChild(tray);
+  mOkBtn(stage, () => {
+    const sel = tray.children.filter((c) => c.classList.contains('in'));
+    const ok = sel.length === wantCount && sel.every((c) => c.dataset.v === ruleIcon);
+    ctx.settle(ok, null);
+  });
+  ctx.speak('把和箱子上一样的都挑出来，点好了按好啦。');
+}
+
+function mPatternSortClue(stage, p, rnd, ctx) {
+  const pz = PuzzleCore.mkClueOrderPuzzle({seed: Math.floor(rnd() * 2147483647), max: p.max || 20});
+  const colorOf = {a: 'wool_red', b: 'wool_blue', c: 'wool_yellow'};
+  const nameOf = {a: '红色的', b: '蓝色的', c: '黄色的'};
+  const clueCount = Math.min(p.clueCount || 3, PuzzleCore.LIMITS.clues);
+  const clues = pz.clues.slice(0, clueCount);
+  const clueWrap = mEl('div', 'm-clues');
+  for (const c of clues) {
+    const row = mEl('div', 'm-clue',
+        mIconImg(colorOf[c.hi]) + '<span class="m-clue-hi">高</span><span class="m-clue-gt">＞</span>' +
+        mIconImg(colorOf[c.lo]));
+    row.dataset.hi = c.hi;
+    row.dataset.lo = c.lo;
+    clueWrap.appendChild(row);
+  }
+  stage.appendChild(clueWrap);
+  const picked = [];
+  const row = mEl('div', 'm-cards');
+  for (const k of mShuffle(rnd, ['a', 'b', 'c'])) {
+    const card = mChoiceBtn(k, mIconImg(colorOf[k]), 'm-card', (v, el) => {
+      if (el.classList.contains('picked')) return;
+      el.classList.add('picked');
+      picked.push(v);
+      sfxSafe('click');
+      if (picked.length >= 3) {
+        ctx.settle(picked.join(',') === pz.solution.join(','), null);
+      }
+    });
+    card.dataset.k = k;
+    row.appendChild(card);
+  }
+  stage.appendChild(row);
+  const clueText = clues.map((c) => nameOf[c.hi] + '比' + nameOf[c.lo] + '高').join('，');
+  ctx.speak(clueText + '。按从高到矮，把他们排一排！');
+}
+
+/* 找异类: 类别少数派 */
+const MATH_ODD_CATS = [
+  ['wool_red', 'wool_blue', 'wool_yellow'],
+  ['coal', 'iron', 'diamond'],
+  ['cobble', 'planks', 'brick', 'stone'],
+];
+
+function mPatternOdd(stage, p, rnd, ctx) {
+  const catIdx = mRi(rnd, 0, MATH_ODD_CATS.length - 1);
+  const otherIdx = (catIdx + mRi(rnd, 1, MATH_ODD_CATS.length - 1)) % MATH_ODD_CATS.length;
+  const total = (p.reasoning === 'single') ? 4 : 6;
+  const oddIcon = mPick(rnd, MATH_ODD_CATS[otherIdx]);
+  const items = [];
+  for (let k = 0; k < total - 1; k++) items.push(mPick(rnd, MATH_ODD_CATS[catIdx]));
+  items.push(oddIcon);
+  const row = mEl('div', 'm-oddrow');
+  for (const it of mShuffle(rnd, items)) {
+    row.appendChild(mChoiceBtn(it, mIconImg(it), 'm-iconc', (v, el) => ctx.settle(v === oddIcon, el)));
+  }
+  stage.appendChild(row);
+  ctx.speak('哪一个和其他的不一样？');
+}
+
+/* 周期问题(挑战): mkPeriodPuzzle, 问项必越过已展示(靠规律推) */
+function mPatternCycle(stage, p, rnd, ctx) {
+  const pz = PuzzleCore.mkPeriodPuzzle({seed: Math.floor(rnd() * 2147483647),
+    max: p.max || 20, unitLen: Math.min(4, Math.max(2, p.unitLen || 2))});
+  const icons = pz.unit.map((c) => MATH_COLORS[c].ico);
+  const names = pz.unit.map((c) => MATH_COLORS[c].name);
+  const slots = icons.concat(icons).map((it) => mItemSlot(it));
+  slots.push({cls: 'm-more', html: '…'});
+  slots.push(MATH_BLANK_SLOT);
+  mSeqRow(stage, slots);
+  const q = mEl('div', 'm-q', '一直这样排下去，第 <b>' + pz.n + '</b> 个是什么颜色？');
+  q.dataset.n = pz.n;
+  stage.appendChild(q);
+  const distinct = [...new Set(icons)];
+  const ans = MATH_COLORS[pz.answer.item].ico;
+  mIconChoices(stage, rnd, distinct, (v, el) => ctx.settle(v === ans, el));
+  ctx.speak('颜色这样排：' + names.join('、') + '。一直排下去，第 ' + pz.n + ' 个是什么颜色？');
+}
+
+/* ---------- hop 族 C 屏流变体: 站位比大小 ---------- */
+
+function mHopPosition(stage, p, rnd, ctx) {
+  const cap = Math.max(10, Math.min(p.max || 20, 100));
+  const a = mRi(rnd, 1, cap - 2);
+  const b = mRi(rnd, a + 1, cap);
+  const diffMode = p.reasoning && p.reasoning !== 'single';
+  const line = mEl('div', 'm-line');
+  const step = cap <= 20 ? 1 : ((p.landmark ? 10 : 5));
+  for (let v = 0; v <= cap; v += step) {
+    const tick = mEl('span', 'm-tick', v % step === 0 && (step === 1 ? v % 5 === 0 : true) ? String(v) : '');
+    tick.style.left = (v / cap * 100) + '%';
+    if (v === cap) tick.classList.add('m-tick-end');
+    line.appendChild(tick);
+  }
+  stage.appendChild(line);
+  const marks = [[a, 'zombie'], [b, 'skeleton']];
+  if (!diffMode) {
+    for (const [n, mob] of marks) {
+      const mk = mChoiceBtn(n, mFaceImg(mob) + '<b class="m-marknum">' + n + '</b>', 'm-mark',
+          (v, el) => ctx.settle(+v === b, el));
+      mk.dataset.n = n;
+      mk.style.left = 'calc(' + (n / cap * 100) + '% - 24px)';
+      stage.appendChild(mk);
+    }
+    ctx.speak('谁站得远？点出大的数！');
+  } else {
+    for (const [n, mob] of marks) {
+      const mk = mEl('div', 'm-mark m-markstat', mFaceImg(mob) + '<b class="m-marknum">' + n + '</b>');
+      mk.dataset.n = n;
+      mk.style.left = 'calc(' + (n / cap * 100) + '% - 24px)';
+      stage.appendChild(mk);
+    }
+    const ans = b - a;
+    mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
+    ctx.speak('两个数相差几？');
+  }
+}
+
+/* ---------- 试次驱动器 ---------- */
+
+function sfxSafe(name) {
+  if (typeof sfx === 'function') sfx(name);
+}
+
+const MATH_SCREEN_ENGINES = {
+  'count/snapshot': mCountSnapshot,
+  'count/fetch': mCountFetch,
+  'count/compare': mCountCompare,
+  'count/balance': mCountBalance,
+  'craft/enough': mCraftEnough,
+  'craft/shortage': mCraftShortage,
+  'craft/order': mCraftOrder,
+  'craft/blank': mCraftBlank,
+  'pattern/chain': mPatternChain,
+  'pattern/sort': mPatternSort,
+  'pattern/odd': mPatternOdd,
+  'pattern/cycle': mPatternCycle,
+  'hop/position': mHopPosition,
+};
+
+/* 主入口: 非屏流变体返回 null(模式层走占位屏); 逐试次 onTrial({ok, streak})
+   供 T8 挂 loot; 完成回调 st 供 mathPassed/mathStars(单关口径)。 */
+function runMathScreen(section, area, h) {
+  const d = mathScreenDispatch(section.family, section.variant);
+  if (d.kind !== 'engine') return null;
+  const p = mathGuardParams(section.params || {});
+  const rnd = mRand(section.seed !== undefined ? section.seed : p.seed);
+  const T = mTimers();
+  const hh = h || {};
+  const n = Math.max(1, Math.min(30, p.trials || 6));
+  const stats = {trials: 0, correct: 0, acc: 0, maxStreakErr: 0};
+  let idx = 0;
+  let streak = 0;
+  let errRun = 0;
+  let settled = false;
+  let stopped = false;
+
+  function settle(ok, el) {
+    if (settled || stopped) return;
+    settled = true;
+    stats.trials++;
+    if (ok) {
+      stats.correct++;
+      streak++;
+      errRun = 0;
+    } else {
+      streak = 0;
+      errRun++;
+      stats.maxStreakErr = Math.max(stats.maxStreakErr, errRun);
+    }
+    if (el) el.classList.add(ok ? 'good' : 'bad');
+    sfxSafe(ok ? 'pick' : 'click');
+    if (hh.onTrial) hh.onTrial({ok, streak});
+    /* 过程性表扬/安慰: 话术住模式层(modes/math.js), 经全局名调用期解析 */
+    const speakSafe = (s) => {
+      if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak(s);
+    };
+    if (ok && streak % 3 === 0 && typeof mathPraiseLine === 'function') {
+      speakSafe(mathPraiseLine());
+    }
+    if (!ok && errRun >= 3) {
+      errRun = 0;
+      if (typeof mathComfortLine === 'function') speakSafe(mathComfortLine());
+    }
+    T.after(700, next);
+  }
+
+  function next() {
+    if (stopped) return;
+    if (idx >= n) {
+      stats.acc = stats.trials ? stats.correct / stats.trials : 0;
+      if (hh.end) hh.end(stats);
+      return;
+    }
+    if (hh.progress) hh.progress(idx, n);
+    settled = false;
+    area.innerHTML = '';
+    const stage = mEl('div', 'm-stage');
+    area.appendChild(stage);
+    MATH_SCREEN_ENGINES[d.key](stage, p, rnd, {
+      T,
+      speak: (s) => {
+        if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak(s);
+      },
+      settle,
+    });
+    idx++;
+  }
+
+  next();
+  return {
+    stop() {
+      stopped = true;
+      T.stop();
+    },
+  };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {mathScreenDispatch, mathGuardParams, runMathScreen};
+}
