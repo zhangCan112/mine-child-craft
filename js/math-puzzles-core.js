@@ -122,7 +122,7 @@ const PuzzleCore = (() => {
     const twin = axis === 'x' ? mirrorPattern(half, 'x', k) :
       axis === 'z' ? mirrorPattern(half, 'z', kz) :
         rot180Pattern(half, k, kz);
-    const box = axis === 'z' ? {w: fw, d: 2 * hw, h: layers} :
+    const box = axis === 'z' ? {w: hw, d: 2 * fw, h: layers} :
       axis === 'c' ? {w: 2 * hw, d: 2 * fw, h: layers} :
         {w: 2 * hw, d: fw, h: layers};
     return {axis, k, kz, half, solution: half.concat(twin), box};

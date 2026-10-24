@@ -130,11 +130,14 @@ function loadMathParadigms(opts) {
   };
 }
 
-/* 模式层(modes/math.js)加载器: 屏流引擎之上再执行模式文件, 走流程纯函数 */
+/* 模式层(modes/math.js)加载器: 屏流引擎+世界轨之上再执行模式文件, 走流程纯函数
+   (文件清单镜像 index.html 加载序: math-levels → math-puzzles-core →
+   math-world-core → math-paradigms → math-world → modes/math) */
 function loadMathMode() {
   const d = loadMathParadigms();
   const sandboxExtra = {
     mkMode: (cfg) => cfg,
+    mkHotbar: () => ({sel: 0, show() {}, hide() {}, select() {}, refresh() {}, render() {}}),
     showToast: () => {},
     btnImg: (n) => '<img class="bi" data-btn="' + n + '" alt="" src="data:btn">',
     overlay: {style: {}},
@@ -175,13 +178,16 @@ function loadMathMode() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const vmCtx = vm.createContext(sandbox);
-  for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-paradigms.js', 'modes/math.js']) {
+  for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-world-core.js',
+    'math-paradigms.js', 'math-world.js', 'modes/math.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), vmCtx, {filename: f});
   }
   vm.runInContext(`
     globalThis.__mm = { mathVariantTrack, mathFrontier, mathLevelUnlocked,
       mathFamChallengeDone, mathBossPlan, mathAggStats, mathSettleSave,
-      MATH_LEVELS, MATH_VARIANTS, MATH_SAVE_DEFAULTS };
+      MATH_LEVELS, MATH_VARIANTS, MATH_SAVE_DEFAULTS,
+      runMathWorld: (typeof runMathWorld !== 'undefined' ? runMathWorld : null),
+      MATH_WORLD_FAMILIES: (typeof MATH_WORLD_FAMILIES !== 'undefined' ? MATH_WORLD_FAMILIES : null) };
   `, vmCtx);
   return {mm: sandbox.__mm, sandbox};
 }

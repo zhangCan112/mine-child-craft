@@ -16,6 +16,9 @@
      与 main.js setupBudgets 建立的 math 预算) · SyncDB(js/sync.js) ·
      MATH_*(js/math-levels.js) · PuzzleCore(js/math-puzzles-core.js) ·
      mathScreenDispatch/runMathScreen(js/math-paradigms.js) ·
+     runMathWorld/MATH_WORLD_FAMILIES/mathWorldHb(js/math-world.js, T6
+     世界轨引擎, 加载序在屏流引擎之后) · uiPause/touchPlaying(js/input.js,
+     mathWorldLeave 交还指针用) ·
      overlay/showPage(js/main.js 组合根, main.js 后加载, 调用期才解析 —
      与 FocusMode 同款)
    可测性: 纯 DOM 模式层; 流程纯函数经 vm 直测(见上), 本文件由
@@ -30,8 +33,8 @@
    ★ 分发缝(T5/T6 挂载点): mathVariantTrack(family, variant) 返回
    'screen' | 'world' — T4 只认上表的 13 个屏流变体, 其余(跳一跳世界
    变体/摆一摆/搭一搭)返回 'world', 入关显示"该玩法建设中"占位并跳过;
-   T5(跳一跳世界轨)/T6(摆与搭世界轨)合入后在 MATH_SCREEN_VARIANTS
-   清单里摘除对应变体即接管, 流程层零改动。
+   T5(跳一跳世界轨)合入后在 MATH_SCREEN_VARIANTS 清单摘除 hop 键即
+   接管; T6(摆与搭世界轨)已合入 — mirror/plan 走 runMathWorld。
    存档经 SyncDB.slot('math_camp_save')(focus 槽位惯例), defaults/
    migrate 用库层 MATH_SAVE_DEFAULTS/migrateMathSave; stars 表以
    "键存在"记通关(教学关 0 星入账=已通占位, 数学侧无 unlocked 字段的
@@ -69,8 +72,8 @@ function mathLocked() {
 
 /* ---------- 分发缝(★ T5/T6 的挂载点, 见头注释) ----------
    屏流变体清单一处权威: T4 交付 13 个(count/craft/pattern 全变体 +
-   hop 站位比大小); T5/T6 合入世界轨时从此清单摘除对应键, mathVariantTrack
-   返回 'world' 的关卡改走世界轨装配(本文件的占位屏同时退役)。 */
+   hop 站位比大小)。mirror/plan 两族从未入册(生而世界轨, T6 经
+   MATH_WORLD_FAMILIES 接管); T5 合入时摘除 hop/position 即接管跳一跳。 */
 const MATH_SCREEN_VARIANTS = new Set([
   'count/snapshot', 'count/fetch', 'count/compare', 'count/balance',
   'craft/enough', 'craft/shortage', 'craft/order', 'craft/blank',
@@ -332,8 +335,9 @@ function startMathLevel(i) {
     showMathMap();
     return;
   }
-  if (mathVariantTrack(level.family, level.variant) !== 'screen') {
-    showMathWip(level);
+  if (mathVariantTrack(level.family, level.variant) !== 'screen' &&
+      !MATH_WORLD_FAMILIES.has(level.family)) {
+    showMathWip(level); /* 世界轨未接管的族(目前仅剩 hop, T5 接管) */
     return;
   }
   const meta = MATH_META[level.family];
@@ -355,8 +359,36 @@ function startMathLevel(i) {
   document.getElementById('mGoBtn').onclick = () => beginMathRun(level);
 }
 
+/* 世界轨离场收口: 停引擎(清 HUD/热栏/触屏键) · 交还指针(uiPause 的
+   onLockChanged 会路由到 MathMode.onMenu, 彼时已无进行中关卡, 只收
+   overlay) · 恢复 DOM 屏显 — 屏流/世界共用结算路的桥 */
+function mathWorldLeave() {
+  mathStopRun();
+  if (document.pointerLockElement || (typeof touchPlaying !== 'undefined' && touchPlaying)) {
+    uiPause();
+  }
+  mathRoot.style.display = 'block';
+}
+
 function beginMathRun(level) {
   startMathTicker();
+  /* 世界轨分支(T6): mirror/plan 装场进 3D, DOM 屏隐去, HUD 由引擎自建 */
+  if (mathVariantTrack(level.family, level.variant) !== 'screen' &&
+      MATH_WORLD_FAMILIES.has(level.family)) {
+    mathRoot.style.display = 'none';
+    mathCtrl = runMathWorld({family: level.family, variant: level.variant, tier: level.tier,
+      kind: level.kind, params: level.params, seed: level.i * 7919 + 13}, {
+      onTrial(t) {
+        void t; /* T8 战利品回路挂点(rollMathLoot 逐试次掷骰), 本票不接 */
+      },
+      end(st) {
+        mathWorldLeave();
+        onMathLevelEnd(level, st);
+      },
+    });
+    if (mathCtrl) return;
+    mathRoot.style.display = 'block'; /* 引擎缺席兜底: 回占位屏 */
+  }
   const meta = MATH_META[level.family];
   const kindTag = mathKindTag(level.kind);
   mathScreen(`
@@ -393,19 +425,22 @@ function beginMathRun(level) {
   });
 }
 
-/* boss 串联: 按 sections 顺序连跑三小节, world 小节占位跳过(T5/T6 接管);
-   聚合 st 按单关口径结算(mathAggStats) */
+/* boss 串联: 按 sections 顺序连跑三小节; 小节可跑 = 屏流引擎变体或
+   已接管的世界族(T6 mirror/plan, 世界小节同样隐 DOM 进 3D), 未接管的
+   world 小节占位跳过(T5 接管 hop 后绝迹); 聚合 st 按单关口径结算
+   (mathAggStats) */
 function runMathBoss(level, areaEl, setProg) {
   const plan = mathBossPlan(level);
+  const runnable = (s) => s.track === 'screen' || MATH_WORLD_FAMILIES.has(s.family);
   const statsList = [];
-  const totalTrials = plan.filter((s) => s.track === 'screen')
+  const totalTrials = plan.filter(runnable)
       .reduce((a, s) => a + Math.max(1, Math.min(30, (s.params && s.params.trials) || 6)), 0);
   let si = 0;
   let doneTrials = 0;
   let stopped = false;
   function step() {
     if (stopped) return;
-    while (si < plan.length && plan[si].track !== 'screen') {
+    while (si < plan.length && !runnable(plan[si])) {
       showToast('该玩法建设中，先跳过这一小节');
       SpeechKit.speak('这个场馆还在建设中，我们去下一个！');
       si++;
@@ -416,9 +451,11 @@ function runMathBoss(level, areaEl, setProg) {
       return;
     }
     const s = plan[si];
+    const world = s.track !== 'screen';
     SpeechKit.speak('新挑战：' + MATH_META[s.family].game + '！');
-    mathCtrl = runMathScreen({family: s.family, variant: s.variant, tier: s.tier,
-      kind: 'challenge', params: s.params, seed: level.i * 7919 + si * 101}, areaEl, {
+    const sec = {family: s.family, variant: s.variant, tier: s.tier,
+      kind: 'challenge', params: s.params, seed: level.i * 7919 + si * 101};
+    const hh = {
       progress(k, n) {
         setProg(doneTrials + k, totalTrials);
       },
@@ -430,11 +467,18 @@ function runMathBoss(level, areaEl, setProg) {
         doneTrials += st.trials || 0;
         si++;
         mathCtrl = null;
+        if (world) mathWorldLeave(); /* 世界小节退场: 还指针/复明 DOM 屏 */
         setTimeout(() => {
           if (!stopped) step();
         }, 400);
       },
-    });
+    };
+    if (world) {
+      mathRoot.style.display = 'none';
+      mathCtrl = runMathWorld(sec, hh);
+    } else {
+      mathCtrl = runMathScreen(sec, areaEl, hh);
+    }
   }
   mathBossStop = () => {
     stopped = true;
@@ -534,12 +578,30 @@ function onMathLevelEnd(level, st) {
 /* ---------- 模式对象 ---------- */
 const MathMode = mkMode({
   id: 'math',
+  hotbar: mathWorldHb, /* 世界轨三色材料栏(T6): 屏流页 chrome 全关时隐藏,
+     世界试次由引擎自行 show/hide; digit/wheel/点选经 mkMode 全自动 */
   init() {
     ensureMathRoot();
     mathRoot.style.display = 'block';
     overlay.style.display = 'none';
     showMathToday();
-  }, // 纯点选全屏 UI: chrome 全关由 kit 默认处理(focus 同款)
+  }, // 屏流页纯点选全屏 UI: chrome 全关由 kit 默认处理(focus 同款)
+  /* 世界轨点选路由: 瞄准射线的 hit 由输入层算好喂入(准星/指尖即所操作) */
+  onMouse(button, hit) {
+    if (mathCtrl && mathCtrl.onMouse) mathCtrl.onMouse(button, hit);
+  },
+  /* 指针解锁(Esc/暂停/时限)只在世界轨发生: 有进行中关卡=中止回地图
+     (世界轨隐了 DOM 屏, 回图要复明), 无=纯收 overlay(结算屏即将接管,
+     不露主菜单) */
+  onMenu() {
+    if (mathCtrl) {
+      mathStopRun();
+      SpeechKit.cancel();
+      mathRoot.style.display = 'block';
+      showMathMap();
+    }
+    overlay.style.display = 'none';
+  },
   cleanup() {
     clearTimeout(mathAutoTimer);
     mathStopRun();

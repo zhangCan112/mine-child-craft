@@ -91,6 +91,19 @@ test('mkSymmetryPuzzle: solution = 半边 ∪ 镜像半边, 三种轴全覆盖',
       p.half.every((c) => c.z < (p.kz + 1) / 2) :
       p.half.every((c) => c.x < (p.k + 1) / 2);
     assert.ok(halfSide, axis + ' 半边不得跨镜面');
+    // box 是画布定界(世界轨 T6 装场用): 解集每个细胞都在 box 内且画布
+    // 有界 — z 轴 w/d 错位(旧缺陷)在 hw≠fw 的 seed 上必在此暴露
+    for (const seed of [1, 2, 3, 42, 77]) {
+      const q = PuzzleCore.mkSymmetryPuzzle({seed, axis});
+      let mxy = 0;
+      for (const c of q.solution) {
+        assert.ok(c.x >= 0 && c.x < q.box.w && c.z >= 0 && c.z < q.box.d &&
+            c.y >= 0 && c.y < q.box.h, axis + ' seed' + seed + ' 解集细胞都在 box 内');
+        mxy = Math.max(mxy, c.y);
+      }
+      assert.ok(q.box.w <= 8 && q.box.d <= 8 && q.box.h <= 2, axis + ' 画布 ≤8×8×2');
+      assert.ok(q.box.h >= mxy + 1, axis + ' box.h 罩住解集高');
+    }
   }
 });
 

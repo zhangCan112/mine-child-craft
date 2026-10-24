@@ -732,6 +732,74 @@ button.m-mark:hover {
   100% { transform: scale(1); }
 }
 
+/* ---------- 世界轨 HUD(T6, math-world.js 渲染): 任务卡 + 图纸覆层 ----------
+   指针锁定/触屏进行态下 DOM 按钮点不到 → 全卡 pointer-events:none,
+   确认走世界内的发光石; 图纸是 blueprintPixels 纯投影画的 2D 像素图 */
+#mathWorldHud {
+  position: fixed;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  pointer-events: none;
+  display: none;
+}
+
+#mathWorldHud .mw-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border-radius: 14px;
+  border: 3px solid rgb(255 255 255 / 45%);
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  text-shadow: 0 2px 4px #000;
+}
+
+#mathWorldHud .mw-title {
+  font-size: 19px;
+  font-weight: 800;
+}
+
+#mathWorldHud .mw-ico img {
+  width: 26px;
+  height: 26px;
+  vertical-align: -6px;
+  image-rendering: pixelated;
+}
+
+#mathWorldHud .mw-sub {
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+#mathWorldHud .mw-progress {
+  width: 220px;
+  height: 10px;
+  border-radius: 6px;
+  border: 2px solid rgb(255 255 255 / 45%);
+  background: rgb(0 0 0 / 40%);
+  overflow: hidden;
+}
+
+#mathWorldHud .mw-progress i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: linear-gradient(90deg, #7cfc00, #4ecb2e);
+  transition: width 0.3s;
+}
+
+#mathWorldHud .mw-blueprint {
+  image-rendering: pixelated;
+  border: 3px solid rgb(255 255 255 / 55%);
+  border-radius: 8px;
+  background: #2f353d;
+}
+
 /* ---------- 动画全关降级: 本层动画/过渡停跳 ---------- */
 @media (prefers-reduced-motion: reduce) {
   #mathRoot,
