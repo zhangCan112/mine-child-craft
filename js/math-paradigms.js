@@ -17,7 +17,9 @@
      section = {family, variant, tier?, kind?, params, seed?} ·
      mFrameLayout(n, seed) → 十格阵格位序列(呈现反泄漏纯函数, G5) ·
      h = {progress(k, n)?, onTrial({ok, streak})?, end(st)} —
-     st = {trials, correct, acc, maxStreakErr}(供 mathPassed/mathStars)
+     st = {trials, correct, acc, maxStreakErr}(供 mathPassed/mathStars) ·
+     钟部件族 mClockFace/mClockAngles/mClockSay(角度/报时口径纯函数,
+     谜题钟面与 modes/math.js G1 常驻昼夜大钟共用, 配单测)
    依赖(均经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js) ·
      SpeechKit/sfx(js/speech.js·js/audio.js) · mcIcon(js/focus-icons.js) ·
      Mobs.face(js/mobs.js, 怪物头像, 缺席回落 mcIcon) ·
@@ -854,20 +856,39 @@ function mShopPayWays(stage, p, rnd, ctx) {
 }
 
 /* 钟面小部件: DOM 指针钟(12/3/6/9 刻度 + 时/分针 transform 旋转);
-   dataset.h/dataset.m 为神 oracle 位, 12 时制 1..12, 零 DOM 画布 */
+   dataset.h/dataset.m 为神 oracle 位, 12 时制 1..12, 零 DOM 画布;
+   针角度出自 mClockAngles 单一出处(常驻钟面 G1 与谜题钟面同形态) */
 function mClockFace(stage, h, m) {
+  const a = mClockAngles(h, m);
   const el = mEl('div', 'm-clock',
       '<span class="m-clock-num m-clock-n12">12</span>' +
       '<span class="m-clock-num m-clock-n3">3</span>' +
       '<span class="m-clock-num m-clock-n6">6</span>' +
       '<span class="m-clock-num m-clock-n9">9</span>' +
-      '<span class="m-clock-hand m-hourhand" style="transform: rotate(' +
-          ((h % 12) * 30 + m * 0.5) + 'deg)"></span>' +
-      '<span class="m-clock-hand m-minhand" style="transform: rotate(' + (m * 6) + 'deg)"></span>');
+      '<span class="m-clock-hand m-hourhand" style="transform: rotate(' + a.hour + 'deg)"></span>' +
+      '<span class="m-clock-hand m-minhand" style="transform: rotate(' + a.min + 'deg)"></span>');
   el.dataset.h = h;
   el.dataset.m = m;
   stage.appendChild(el);
   return el;
+}
+
+/* 时刻→时/分针角度(纯函数, G1 常驻钟面与谜题钟面的单一直出处):
+   12 点制 — 12/0 时都指正上 0°(h%12); 分针角 = m×6(0..354, 59 分→0 分
+   顺接无回卷); 时针角随分推进 ((h%12)×30 + m×0.5) — 半时时针落在两个
+   数字中间, 正是"长针指 6 短针走过 x"的认钟教学点 */
+function mClockAngles(h, m) {
+  return {hour: (h % 12) * 30 + m * 0.5, min: m * 6};
+}
+
+/* 时刻→报时中文串(纯函数, 一年级教材口径): 整时「X 点整」· 半时「X 点半」·
+   其余「X 点 Y 分」; h 收 24 时制(0..23)内部归 12 点制 — 报的就是钟面针
+   指的; G1 常驻钟面点击 SpeechKit 报时用 */
+function mClockSay(h, m) {
+  const hh = (h % 12) || 12;
+  if (m === 0) return '现在是 ' + hh + ' 点整';
+  if (m === 30) return '现在是 ' + hh + ' 点半';
+  return '现在是 ' + hh + ' 点 ' + m + ' 分';
 }
 
 /* 分钟总数 → 'h:mm' 12 时制串(数字符号是学习对象, 允许出现; 负数入参

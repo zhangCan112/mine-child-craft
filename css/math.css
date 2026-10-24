@@ -21,6 +21,7 @@
 }
 
 #mathRoot .m-top {
+  position: relative; /* G1 常驻钟面挂载位: 右上角小钟(m-clockbox 绝对定位于此) */
   padding: 10px 14px;
 }
 
@@ -833,6 +834,39 @@ button.m-mark:hover {
   height: 52px;
   margin-left: -2px;
   background: #ffd83d;
+}
+
+/* ---------- G1 常驻昼夜大钟: 今日页/地图页右上一枚小钟面, 点击报时 ----------
+   复用谜题钟面 .m-clock 形态(150px content-box 原样 transform 缩到约
+   130px, 数字/针同比例); 每分钟整面重画走针, 无动画循环(reduced-motion
+   无需降级); 空槽不占位不挡点(:empty 隐藏 + 槽位 pointer-events 分层) */
+.m-clockbox {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  width: 130px; /* .m-clock content-box 总占位 162px(150+6×2 边框), ×0.8=129.6 */
+  height: 130px;
+  pointer-events: none; /* 空槽不挡底层点选, 钟面自身恢复可点 */
+}
+
+.m-clockbox:empty {
+  display: none;
+}
+
+.m-clock-live {
+  transform: scale(0.8);
+  transform-origin: top left;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 35%);
+}
+
+.m-clock-live:hover {
+  border-color: #ffd83d; /* 悬停高亮分针色: 提示可点 */
+}
+
+.m-clock-live:active {
+  transform: scale(0.76);
 }
 
 /* 测距步数: 格子路(带绝对序号, 起点小怪物/终点小旗) */
