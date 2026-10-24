@@ -8,8 +8,10 @@
    引擎不知道奖励/背包/图章/关卡编排。
    出题优先调 PuzzleCore(算式谜/多解/天平=mkScalePuzzle/mkPartitionPuzzle,
    数列/周期/线索排队=mkSeqPuzzle/mkPeriodPuzzle/mkClueOrderPuzzle);
-   count 族闪现/取物/比多少/移多补少与 craft 常规三变体无对应生成器,
-   引擎内用同常数 LCG 自行生成(种子注入, 同 seed 同输出)。
+   count 族闪现/取物/比多少与 craft 常规三变体无对应生成器,
+   引擎内用同常数 LCG 自行生成(种子注入, 同 seed 同输出);
+   移多补少(count/balance)为搬动试错(US6): mBalancePair 堆对生成
+   纯函数 + 两堆相等自动交卷 + mBalanceReveal 按实际差值语音点破。
    认知负荷红线(PuzzleCore.LIMITS): 一次呈现 ≤4 组块 · 线索 ≤3 条 —
    mathGuardParams 渲染前校验参数, 越界 console.warn 并截断(测试锁)。
    interface: mathScreenDispatch(family, variant) · mathGuardParams(params) ·
@@ -328,21 +330,74 @@ function mCountCompare(stage, p, rnd, ctx) {
   }
 }
 
-/* 移多补少(挑战): 从多的一边搬几个过去两边一样多 */
+/* 移多补少堆对生成(纯函数, 假 doc 单测直锁): 两堆各自 ≤6 且差为偶数 ≤4
+   —— 搬动试错要逐个点方块, 堆数守住感数与点数上限; 差恒偶数因为
+   "移 k 个差减 2k", 答案 k=差/2(一年级思考题口径, 奇数差不出现 —
+   spec 只说移到一样多); 数量跟带注入: max 经 min 钳 6, 挑战关思维
+   密度在搬动探索不在数字大小(带 0 首档 max=4 → 差恒 2, 先体会
+   "移 1 个差变 2") */
+function mBalancePair(rnd, p) {
+  const cap = Math.max(4, Math.min(p.max || 6, 6));
+  const small = mRi(rnd, 1, cap - 2);
+  const big = small + 2 * mRi(rnd, 1, Math.min(2, Math.floor((cap - small) / 2)));
+  return {small, big, diff: big - small, answer: (big - small) / 2};
+}
+
+/* 揭示话术(纯函数): 交卷后按本关实际差值点破规律 — 夸方法(过程性表扬)
+   + 点破"移 1 个差变 2"(US6 语音点破口径) */
+function mBalanceReveal(pair) {
+  return '你搬得很仔细！原来差 ' + pair.diff + ' 个，移 ' + pair.answer +
+      ' 个过去就一样多啦——移 1 个，差就变少 2！';
+}
+
+/* 移多补少(挑战, 搬动试错, US6): 两堆方块, 点某堆里的一个方块 → 搬到
+   另一堆, 两堆计数即时重显(CPA 具体→表象, 计数徽与堆同步); 来回搬
+   零惩罚, 两堆相等时自动交卷判对(探索式只有达成没有失败 — 只奖不罚
+   红线); 搬错方向(少 → 多)不判负, 让计数变化自己教育孩子, 每两次无效
+   搬动后 TTS 温和提示方向; 交卷后 mBalanceReveal 按本关实际差值语音
+   点破。多的一堆恒在前(与旧静态版同序, 话术仍要孩子自己比出哪边多)。 */
+const MATH_BALANCE_HINT = '想想哪边多，从多的往少的搬哦';
+
 function mCountBalance(stage, p, rnd, ctx) {
-  const cap = Math.max(6, Math.min(p.max || 10, 14));
-  const small = mRi(rnd, 1, cap - 4);
-  const big = small + 2 * mRi(rnd, 1, Math.floor((cap - small) / 2)); // 差恒偶数
+  const pair = mBalancePair(rnd, p);
+  const counts = [pair.big, pair.small];
   const wrap = mEl('div', 'm-piles');
-  for (const n of [big, small]) {
-    const pile = mEl('div', 'm-pile m-pilestat', mPileIcons(n, 'wool_red'));
-    pile.dataset.n = n;
+  const piles = [];
+  for (let j = 0; j < 2; j++) {
+    const pile = mEl('div', 'm-pile m-pilelive', '');
     wrap.appendChild(pile);
+    piles.push(pile);
   }
   stage.appendChild(wrap);
-  const ans = (big - small) / 2;
-  mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
-  ctx.speak('从多的一边搬几个到少的一边，两边就一样多？');
+  let ineff = 0; // 无效搬动(少 → 多)计数, 每满 2 提示一次方向
+  let done = false; // 交卷后锁交互(settle 已记账, 残点不再搬)
+  const renderPile = (j) => {
+    piles[j].dataset.n = counts[j]; // DOM 神 oracle 位 + CPA 即时重显
+    piles[j].innerHTML = '';
+    for (let k = 0; k < counts[j]; k++) {
+      piles[j].appendChild(mChoiceBtn(j + ':' + k, mIconImg('wool_red'), 'm-blk', () => move(j)));
+    }
+    piles[j].appendChild(mEl('b', 'm-pilecount', String(counts[j]))); // 可见计数徽(数字是学习对象)
+  };
+  const move = (j) => {
+    if (done || counts[j] <= 0) return; // 空堆无从搬
+    const wrongWay = counts[j] < counts[1 - j]; // 从少的一堆搬向多的一堆 = 无效方向
+    counts[j]--;
+    counts[1 - j]++;
+    sfxSafe('click');
+    renderPile(j);
+    renderPile(1 - j);
+    if (counts[0] === counts[1]) {
+      done = true;
+      ctx.settle(true, null); // 相等自动交卷, 恒判对(达成即成功)
+      ctx.speak(mBalanceReveal(pair));
+      return;
+    }
+    if (wrongWay && ++ineff % 2 === 0) ctx.speak(MATH_BALANCE_HINT);
+  };
+  renderPile(0);
+  renderPile(1);
+  ctx.speak('两堆不一样多，怎么移才一样多？点一个方块搬搬试试！');
 }
 
 /* ---------- craft 族 B 算一算 ---------- */

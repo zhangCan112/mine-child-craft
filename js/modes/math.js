@@ -672,14 +672,19 @@ function mathVariantName(family, variant) {
   return v ? v.name : variant;
 }
 
-/* 关卡话术元数据(T7): 情境关(shop/clock/measure)以情境名为场馆名,
+/* 关卡话术元数据(T7+G2): 情境关(shop/clock/measure)以情境名为场馆名,
    规则/提示换情境级话术(MATH_CONTEXTS), 图标沿用承载族 — 情境只换
-   皮肤, 配重/战利品/日志全随族; 常规关原样返回族元数据 */
+   皮肤, 配重/战利品/日志全随族; 变体表带 rule 的变体(移多补少搬动
+   试错)只覆盖规则话术, 名/场馆/提示仍走族元数据; 常规关原样返回族元数据 */
 function mathLevelMeta(level) {
   const fam = MATH_META[level.family];
   const ctx = MATH_CONTEXTS[level.variant];
   if (ctx && ctx.family === level.family) {
     return {name: fam.name, game: ctx.name, icon: fam.icon, rule: ctx.rule, tip: (p) => ctx.tip(p)};
+  }
+  const v = (MATH_VARIANTS[level.family] || []).find((x) => x.id === level.variant);
+  if (v && v.rule) {
+    return {name: fam.name, game: fam.game, icon: fam.icon, rule: v.rule, tip: fam.tip};
   }
   return fam;
 }

@@ -103,13 +103,17 @@ const MATH_META = {
 
 /* 变体表(design §4.1 · plan §6): 每族 3 常规范型(★) + 1 思维挑战变体(★★,
    kind='challenge', 附加题级——逆向/多解/隐藏/周期)。id 是关卡 variant 字段
-   与屏流/世界轨分发的键; 常规序即教学关与变体轮换的默认序。 */
+   与屏流/世界轨分发的键; 常规序即教学关与变体轮换的默认序。
+   可选字段 trials = 变体级试次数覆写(关卡生成统一应用): 每题交互长的
+   变体据此压住族曲线的 trials — 移多补少(count/balance)是搬动试错,
+   一次关卡 2~3 题(US6 纯探索口径)。 */
 const MATH_VARIANTS = {
   count: [ /* A 数一数: 感数与计数 → 对应与比较 (T1) */
     {id: 'snapshot', name: '怪物快照'},
     {id: 'fetch', name: '按数取物'},
     {id: 'compare', name: '比多少'},
-    {id: 'balance', name: '移多补少', kind: 'challenge'},
+    {id: 'balance', name: '移多补少', kind: 'challenge', trials: 3,
+      rule: '移多补少：两堆不一样多，点一个方块搬过去，让两边一样多！'},
   ],
   craft: [ /* B 算一算: 配方算术 → 逆向与代换 (T2/T5) */
     {id: 'enough', name: '材料够不够'},
@@ -336,10 +340,19 @@ const MATH_LEVELS = [];
     const lastSeen = {}; // 本带该族轮转流总次数(带 0 含教学关的 1 次)
     for (const f of MATH_FAMILIES) lastSeen[f] = counts[f] + (band === 0 ? 1 : 0);
 
+    /* 变体级参数覆写(变体表单一权威): 族曲线出参后按变体表 trials 等可选
+       字段覆写 — 搬动试错关(count/balance)每题探索长, 一次关卡 2~3 题 */
+    const paramsOf = (family, variant, tier, idx) => {
+      const params = mathParamsFor(family, tier, idx);
+      const meta = (MATH_VARIANTS[family] || []).find((x) => x.id === variant);
+      if (meta && meta.trials) params.trials = meta.trials;
+      return params;
+    };
+
     const push = (family, kind, tier, variant) => {
       const idx = i++;
       MATH_LEVELS.push({i: idx, band, family, variant, kind, tier,
-        params: mathParamsFor(family, tier, idx)});
+        params: paramsOf(family, variant, tier, idx)});
     };
 
     if (band === 0) { // 六族教学关开局(核心变体入门, tier1)
@@ -374,9 +387,10 @@ const MATH_LEVELS = [];
     const bossFams = band % 2 === 0 ? ['craft', 'mirror', 'pattern'] : ['hop', 'plan', 'count'];
     const bossTier = Math.min(19, band*4 + 4);
     const boss = {i: i++, band, family: bossFams[0], variant: challengeOf(bossFams[0]).id,
-      kind: 'boss', tier: bossTier, params: mathParamsFor(bossFams[0], bossTier, i)};
+      kind: 'boss', tier: bossTier,
+      params: paramsOf(bossFams[0], challengeOf(bossFams[0]).id, bossTier, i)};
     boss.sections = bossFams.map((f) => ({family: f, variant: challengeOf(f).id,
-      tier: chalTier[f], params: mathParamsFor(f, chalTier[f])}));
+      tier: chalTier[f], params: paramsOf(f, challengeOf(f).id, chalTier[f])}));
     MATH_LEVELS.push(boss);
   }
 })();

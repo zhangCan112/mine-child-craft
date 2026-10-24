@@ -427,6 +427,40 @@ button.m-pile {
   cursor: default;
 }
 
+/* 移多补少(搬动试错, G2): 活堆逐块可点, 计数徽即时重显 */
+.m-pilelive {
+  cursor: default;
+  min-width: 96px;
+}
+
+button.m-blk {
+  padding: 4px;
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  animation: m-blk-arrive 0.25s backwards; /* 搬来的方块轻落进场 */
+}
+
+button.m-blk:hover {
+  border-color: rgb(255 216 61 / 80%);
+}
+
+.m-pilecount {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+  color: #ffd83d;
+  text-shadow: 0 2px 0 rgb(0 0 0 / 40%);
+}
+
+@keyframes m-blk-arrive {
+  from {
+    transform: translateY(-16px) scale(1.15);
+    opacity: 0.4;
+  }
+}
+
 /* 按数取物: 箱子 + 托盘 + 确认 */
 .m-box {
   font-size: 20px;

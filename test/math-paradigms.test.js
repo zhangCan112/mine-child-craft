@@ -111,7 +111,8 @@ function loadMathParadigms(opts) {
     globalThis.__mp = { PuzzleCore, MATH_LEVELS, MATH_META, MATH_VARIANTS,
       MATH_FAMILIES, MATH_CONTEXTS, mathParamsFor, mathPassed, mathStars, MATH_SAVE_DEFAULTS,
       migrateMathSave, MATH_LOG_KEEP_DAYS, trimMathLog,
-      mathScreenDispatch, mathGuardParams, runMathScreen };
+      mathScreenDispatch, mathGuardParams, runMathScreen,
+      mBalancePair, mBalanceReveal, MATH_BALANCE_HINT };
   `, ctx);
   return {
     mp: sandbox.__mp, els, spoken, warns, sfxLog, clsLog, timers,
@@ -187,7 +188,7 @@ function loadMathMode() {
     globalThis.__mm = { mathVariantTrack, mathFrontier, mathLevelUnlocked,
       mathFamChallengeDone, mathLevelStars, mathBossPlan, mathAggStats, mathSettleSave,
       mathStampClaim, mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_CONTEXTS, mathLevelMeta,
-      mathVariantName, MATH_SAVE_DEFAULTS, MATH_WORLD_RUNNERS,
+      mathVariantName, MATH_META, MATH_SAVE_DEFAULTS, MATH_WORLD_RUNNERS,
       MATH_STAMP_KINDS, MATH_STAMP_DAILY, MATH_STAMP_REWARDS, MATH_STAMP_REWARD_TEXT,
       rollMathLoot, grantMathLoot,
       runBuildWorld: (typeof runBuildWorld !== 'undefined' ? runBuildWorld : null) };
@@ -454,21 +455,125 @@ test('count/compare: single 档点大堆→对; reverse 档走"多几个"数字�
   assert.strictEqual(ended[0].correct, 1);
 });
 
-test('count/balance(挑战): 移多补少答案 =(a-b)/2', () => {
+test('count/balance(挑战, 搬动试错): DOM 神谕 — 点多的一堆方块搬到相等自动判对, 语音点破差值规律', () => {
   const d = loadMathParadigms();
+  const trials = [];
   const ended = [];
-  play(d, 'count', 'balance', 4, {trials: 1, seed: 21}, {end: (s) => ended.push(s)});
+  play(d, 'count', 'balance', 4, {trials: 1, seed: 21}, {
+    onTrial: (t) => trials.push(t),
+    end: (s) => ended.push(s),
+  });
   d.flush(8);
-  const piles = sEls(d, 'm-pilestat');
-  const a = +piles[0].dataset.n;
-  const b = +piles[1].dataset.n;
-  const ans = Math.abs(a - b) / 2;
-  assert.ok(Number.isInteger(ans), '差为偶数(移 1 差变 2): ' + a + '/' + b);
-  const btn = sEls(d, 'm-num').find((el) => +el.dataset.v === ans);
-  assert.ok(btn, '数字条含 (a-b)/2=' + ans);
-  tap(btn);
+  assert.ok(d.spoken[0].includes('怎么移才一样多'), '题面语音引导搬动试错: ' + d.spoken[0]);
+  const piles = sEls(d, 'm-pilelive');
+  assert.strictEqual(piles.length, 2, '两堆方块');
+  const ns = piles.map((p) => +p.dataset.n);
+  const big = Math.max(...ns);
+  const small = Math.min(...ns);
+  const diff = big - small;
+  const k = diff / 2;
+  assert.ok(Number.isInteger(k) && k >= 1, '差为偶数(移 k 个差减 2k): ' + ns.join('/'));
+  assert.ok(big <= 6 && small >= 1 && diff <= 4, '红线: 两堆各自 ≤6 且差 ≤4, 实为 ' + ns.join('/'));
+  /* CPA: 搬动后两堆计数即时重显 — 逐块点多的一堆, dataset 与可见计数徽步进 */
+  const bigPile = piles[ns.indexOf(big)];
+  const smallPile = piles[ns.indexOf(small)];
+  const blocks = bigPile.children.filter(clickable);
+  assert.ok(blocks.length >= big, '堆里每个方块都可点');
+  for (let m = 1; m <= k; m++) {
+    tap(blocks[0]); // 同一神谕按钮(闭包恒指该堆), 每点一次搬 1 个过去
+    assert.strictEqual(+bigPile.dataset.n, big - m, '多的一堆即时少 1(第 ' + m + ' 次搬动)');
+    assert.strictEqual(+smallPile.dataset.n, small + m, '少的一堆即时多 1');
+    const badge = bigPile.children.filter((c) => String(c.className).split(' ').includes('m-pilecount')).pop();
+    assert.strictEqual(badge.innerHTML, String(big - m), '可见计数徽与堆数同步');
+  }
+  assert.strictEqual(trials.length, 1, '两堆相等自动交卷');
+  assert.strictEqual(trials[0].ok, true, '探索达成判对');
   d.flush(8);
   assert.strictEqual(ended[0].correct, 1);
+  assert.strictEqual(ended[0].acc, 1);
+  const want = '你搬得很仔细！原来差 ' + diff + ' 个，移 ' + k +
+      ' 个过去就一样多啦——移 1 个，差就变少 2！';
+  assert.ok(d.spoken.includes(want), '语音点破按本关实际差值生成: ' + d.spoken.join(' / '));
+});
+
+test('count/balance: 搬错方向不判负(计数变化自己教育), 两次无效搬动后温和提示方向', () => {
+  const d = loadMathParadigms();
+  const trials = [];
+  const ended = [];
+  play(d, 'count', 'balance', 6, {trials: 1, seed: 5}, {
+    onTrial: (t) => trials.push(t),
+    end: (s) => ended.push(s),
+  });
+  d.flush(8);
+  const piles = sEls(d, 'm-pilelive');
+  const ns = piles.map((p) => +p.dataset.n);
+  const bigIdx = ns.indexOf(Math.max(...ns));
+  const smallIdx = 1 - bigIdx;
+  assert.ok(ns[smallIdx] >= 2, '前置: 少的一堆至少 2 个(可连搬两次错向), 实为 ' + ns.join('/'));
+  const smallBlocks = piles[smallIdx].children.filter(clickable);
+  const hint = d.mp.MATH_BALANCE_HINT;
+  tap(smallBlocks[0]); // 无效搬动 1: 少 → 多, 差变大
+  assert.strictEqual(trials.length, 0, '不判负不交卷');
+  assert.strictEqual(+piles[smallIdx].dataset.n, ns[smallIdx] - 1, '少的堆少 1');
+  assert.strictEqual(+piles[bigIdx].dataset.n, ns[bigIdx] + 1, '多的堆多 1');
+  assert.ok(!d.spoken.includes(hint), '第一次无效搬动还不提示');
+  tap(smallBlocks[0]); // 无效搬动 2 → 温和提示
+  assert.ok(d.spoken.includes(hint), '两次无效搬动后提示: ' + hint);
+  assert.strictEqual(trials.length, 0, '仍不判负(只奖不罚)');
+  /* 回头从多的一堆搬到相等 → 判对, 错向搬动不入误账 */
+  const nowBig = +piles[bigIdx].dataset.n;
+  const nowSmall = +piles[smallIdx].dataset.n;
+  const kk = (nowBig - nowSmall) / 2;
+  const bigBlocks = piles[bigIdx].children.filter(clickable);
+  for (let m = 0; m < kk; m++) tap(bigBlocks[0]);
+  assert.strictEqual(trials.length, 1);
+  assert.strictEqual(trials[0].ok, true, '来回搬后达成仍判对');
+  d.flush(8);
+  assert.strictEqual(ended[0].maxStreakErr, 0, '零惩罚: 错向搬动不入误账');
+  assert.strictEqual(ended[0].acc, 1);
+});
+
+test('count/balance 堆对生成(纯函数 mBalancePair): 堆数/差值红线不变量 + 数量跟带注入', () => {
+  const d = loadMathParadigms();
+  const lcg = (s) => () => {
+    s = (s * 1103515245 + 12345) % 2147483648;
+    return s / 2147483648;
+  };
+  const seen = new Set();
+  for (let seed = 1; seed < 300; seed++) {
+    for (const max of [4, 9, 33, 1000]) { // 带 0 首档 → 高带: max 跟带注入
+      const pair = d.mp.mBalancePair(lcg(seed * 31 + max), {max});
+      assert.ok(pair.small >= 1 && pair.big >= 1, '正堆');
+      assert.ok(pair.small < pair.big, '两堆不相等(差为 0 不成题)');
+      assert.ok(pair.big <= 6 && pair.small <= 6, '两堆各自 ≤6(感数红线): ' + pair.big + '/' + pair.small);
+      const diff = pair.big - pair.small;
+      assert.ok(diff % 2 === 0 && diff <= 4, '差为偶数且 ≤4(答案 k=差/2): ' + diff);
+      assert.strictEqual(pair.answer, diff / 2, '答案 = 差/2');
+      assert.strictEqual(pair.diff, diff);
+      if (max === 4) assert.strictEqual(diff, 2, '带 0 首档(cap 4)差恒 2 — 先体会移 1 个差变 2');
+      if (max === 1000) assert.ok(pair.big <= 6, '高带注入被钳在 6(思维密度在搬动不在大数)');
+      seen.add(pair.small + ':' + pair.big);
+    }
+  }
+  assert.ok(seen.size >= 4, '堆对有多样性: ' + [...seen].join(' '));
+  const a = d.mp.mBalancePair(lcg(777), {max: 6});
+  const b = d.mp.mBalancePair(lcg(777), {max: 6});
+  assert.deepStrictEqual(a, b, '同 seed 同输出');
+});
+
+test('count/balance 关卡口径: 一次关卡 2~3 题(搬动探索长, US6), 关卡与 boss 节全走变体表覆写', () => {
+  const d = loadMathParadigms();
+  const seen = [];
+  for (const lv of d.mp.MATH_LEVELS) {
+    if (lv.variant === 'balance') seen.push(['关', lv.i, lv.params.trials]);
+    for (const s of lv.sections || []) {
+      if (s.variant === 'balance') seen.push(['boss 节', lv.i, s.params.trials]);
+    }
+  }
+  assert.strictEqual(seen.length, 6, '四带各 1 挑战关 + 奇两带 boss 节, 实为 ' + seen.length);
+  for (const [what, i, t] of seen) {
+    assert.ok(t === 2 || t === 3, what + '(第 ' + i + ' 关)试次数 2~3, 实为 ' + t);
+  }
 });
 
 /* ============ craft 族 ============ */
@@ -1234,6 +1339,19 @@ test('mathLevelMeta: 情境关话术覆盖(场馆=情境名/规则/提示), 常�
   const plain = mm.mathLevelMeta({family: ctxLv.family, variant: 'zzz'});
   assert.notStrictEqual(plain.game, ctx.name, '常规关场馆仍是族场馆');
   assert.ok(typeof plain.rule === 'string' && plain.rule.length > 0, '常规关规则走族话术');
+});
+
+test('mathLevelMeta: 变体级规则话术(移多补少搬动试错)覆盖族 rule, 名/提示仍走族', () => {
+  const {mm} = loadMathMode();
+  const bl = mm.MATH_LEVELS.find((l) => l.variant === 'balance');
+  assert.ok(bl, '编排里有移多补少关');
+  const v = mm.MATH_VARIANTS.count.find((x) => x.id === 'balance');
+  const meta = mm.mathLevelMeta(bl);
+  assert.strictEqual(meta.rule, v.rule, '规则话术取变体级');
+  assert.ok(meta.rule.includes('搬'), '话术讲搬动玩法(族 rule 的"点数字"口径不再适用)');
+  assert.strictEqual(meta.name, mm.MATH_META[bl.family].name, '族名不变');
+  assert.strictEqual(meta.game, mm.MATH_META[bl.family].game, '场馆仍是族场馆');
+  assert.strictEqual(meta.tip, mm.MATH_META[bl.family].tip, '提示仍走族曲线话术');
 });
 
 test('mathFrontier/mathLevelUnlocked: 最高已通+1, 空档 0 星入账可跳关', () => {
