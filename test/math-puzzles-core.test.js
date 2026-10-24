@@ -194,6 +194,117 @@ test('mkBlueprintPuzzle: 蓝图与结构互证, 同 seed 同输出, 组块红线
       PuzzleCore.mkBlueprintPuzzle({seed: 3}));
 });
 
+/* ============ 双视角投影: 正视 / 侧视(US24 视角推理的前置纯函数) ============ */
+
+/* 手工造 2×2×2 场景(四个视角各有一格被遮挡):
+   (0,0,0)红1 与 (0,0,1)蓝2 同一 (x=0,y=0) 视线 → 正视只见红;
+   (1,0,1)黄3 · (0,1,1)蓝2 独占各自视线 */
+const DV_CELLS = [
+  {x: 0, y: 0, z: 0, col: 1}, {x: 0, y: 0, z: 1, col: 2},
+  {x: 1, y: 0, z: 1, col: 3}, {x: 0, y: 1, z: 1, col: 2},
+];
+
+test('projectFront: 正视(观察者在 -z) 每条 (x,y) 视线取 z 最小可见块 — 手算对照', () => {
+  const r = PuzzleCore.projectFront(DV_CELLS);
+  assert.strictEqual(r.w, 2);
+  assert.strictEqual(r.h, 2);
+  // 行主序 y 行 × x 列(y 升序): y0 行 [x0=红1, x1=黄3], y1 行 [x0=蓝2, x1=空]
+  assert.deepStrictEqual(Array.from(r.front), [1, 3, 2, 0]);
+});
+
+test('projectSide: 侧视(观察者在 -x) 每条 (z,y) 视线取 x 最小可见块 — 手算对照', () => {
+  const r = PuzzleCore.projectSide(DV_CELLS);
+  assert.strictEqual(r.d, 2);
+  assert.strictEqual(r.h, 2);
+  // 行主序 y 行 × z 列(y 升序): y0 行 [z0=红1, z1=蓝2(x=0 挡住 x=1 的黄)],
+  // y1 行 [z0=空, z1=蓝2]
+  assert.deepStrictEqual(Array.from(r.side), [1, 2, 0, 2]);
+});
+
+test('projectFront/Side: 缺省颜色记 1 · 坐标归零到包围盒(平移不变) · 空结构空图', () => {
+  const r = PuzzleCore.projectFront([{x: 5, y: 7, z: 9}]);
+  assert.deepStrictEqual(r, {w: 1, h: 1, front: [1]}, '单块归一到 1×1, 缺省色 1');
+  assert.deepStrictEqual(PuzzleCore.projectSide([{x: 5, y: 7, z: 9}]),
+      {d: 1, h: 1, side: [1]});
+  assert.deepStrictEqual(PuzzleCore.projectFront([]), {w: 0, h: 0, front: []});
+  assert.deepStrictEqual(PuzzleCore.projectSide([]), {d: 0, h: 0, side: []});
+  // 平移不变口径与 projectTop 对齐: 视图是形状不是位置(装配层负责摆位)
+  const shifted = DV_CELLS.map((c) => ({...c, x: c.x + 10, y: c.y + 4, z: c.z + 7}));
+  assert.deepStrictEqual(PuzzleCore.projectFront(shifted), PuzzleCore.projectFront(DV_CELLS));
+  assert.deepStrictEqual(PuzzleCore.projectSide(shifted), PuzzleCore.projectSide(DV_CELLS));
+});
+
+/* ============ 双视角推理出题(US24 ★★): 必须综合两视图才能锁定 ============ */
+
+/* 视图相等判据(与 gradeBlueprint 同口径: 尺寸+逐格) — 同族视图 JSON 全等 */
+const viewEq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+/* 双视角细胞签名(含颜色: 同形异色是不同结构) */
+const dvSig = (c) => c.x + ',' + c.y + ',' + c.z + '#' + c.col;
+
+test('mkDualViewPuzzle 核心性质: 单视图匹配数>1 · 双视图匹配数==1 · 干扰至少贴一个视图', () => {
+  for (const seed of SEEDS) {
+    const p = PuzzleCore.mkDualViewPuzzle({seed});
+    assert.strictEqual(p.candidates.length, PuzzleCore.LIMITS.chunks, '候选恰 4(组块红线)');
+    assert.strictEqual(p.candidates.filter((c) => c.ok).length, 1, '恰一真(目标本身)');
+    assert.strictEqual(p.answer, p.candidates.findIndex((c) => c.ok), 'answer 指向真候选');
+    assert.ok(sameSet(p.candidates[p.answer].cells, p.target), '真候选=目标结构');
+    /* 单视图匹配数: 与目标同视图的候选个数(含目标) — 两个视图都必须 >1,
+       只看任一单视图都无法唯一锁定(推理的核心, 工单 G3 红线) */
+    const frontN = p.candidates.filter((c) =>
+      viewEq(PuzzleCore.projectFront(c.cells), p.front)).length;
+    const sideN = p.candidates.filter((c) =>
+      viewEq(PuzzleCore.projectSide(c.cells), p.side)).length;
+    const bothN = p.candidates.filter((c) =>
+      viewEq(PuzzleCore.projectFront(c.cells), p.front) &&
+      viewEq(PuzzleCore.projectSide(c.cells), p.side)).length;
+    assert.ok(frontN > 1, 'seed' + seed + ' 正视图单看匹配 ' + frontN + ' 个, 必须与干扰共享');
+    assert.ok(sideN > 1, 'seed' + seed + ' 侧视图单看匹配 ' + sideN + ' 个, 必须与干扰共享');
+    assert.strictEqual(bothN, 1, 'seed' + seed + ' 双视图综合恰锁定 1 个');
+    /* 每个干扰至少与目标在其中一个视图上相同(不许一眼全否的废干扰) */
+    for (const c of p.candidates) {
+      if (c.ok) continue;
+      const hit = viewEq(PuzzleCore.projectFront(c.cells), p.front) ||
+          viewEq(PuzzleCore.projectSide(c.cells), p.side);
+      assert.ok(hit, 'seed' + seed + ' 干扰必须至少贴一个视图');
+    }
+  }
+});
+
+test('mkDualViewPuzzle: 附带的两视图=目标投影 · 候选互异 · 全候选都在装场 box 内', () => {
+  for (const seed of SEEDS) {
+    const p = PuzzleCore.mkDualViewPuzzle({seed, blocks: 60});
+    assert.deepStrictEqual(p.front, PuzzleCore.projectFront(p.target));
+    assert.deepStrictEqual(p.side, PuzzleCore.projectSide(p.target));
+    const sigs = new Set(p.candidates.map((c) =>
+      JSON.stringify(c.cells.slice().sort((a, b) => key(a) < key(b) ? -1 : 1).map(dvSig))));
+    assert.strictEqual(sigs.size, 4, '四个候选结构互异');
+    assert.ok(p.target.length >= 4, '目标 ≥4 块(谜面成图)');
+    for (const c of p.candidates) {
+      for (const b of c.cells) {
+        assert.ok(b.x >= 0 && b.x < p.box.w && b.z >= 0 && b.z < p.box.d &&
+            b.y >= 0 && b.y < p.box.h, 'seed' + seed + ' 候选块都在 box 内');
+      }
+    }
+    assert.ok(p.box.w <= 5 && p.box.d <= 5 && p.box.h <= 2, '画布 ≤5×5×2(干扰外扩 1 格)');
+  }
+});
+
+test('mkDualViewPuzzle: 同 seed 同输出 · 跨 seed 有差异 · 结构块数跟 blocks 预算', () => {
+  assert.deepStrictEqual(PuzzleCore.mkDualViewPuzzle({seed: 42}),
+      PuzzleCore.mkDualViewPuzzle({seed: 42}));
+  const halves = new Set(SEEDS.map((s) => {
+    return JSON.stringify(PuzzleCore.mkDualViewPuzzle({seed: s}).target.map(dvSig).sort());
+  }));
+  assert.ok(halves.size >= 2, '不同 seed 应产出不同目标');
+  for (const blocks of [8, 12, 20, 60, 100]) {
+    for (let seed = 0; seed < 20; seed++) {
+      const p = PuzzleCore.mkDualViewPuzzle({seed, blocks});
+      assert.ok(p.target.length <= blocks,
+          'blocks=' + blocks + ' seed=' + seed + ' 目标 ' + p.target.length + ' 块越预算');
+    }
+  }
+});
+
 /* ============ 空间计数: 隐藏块与露在外面的面(E 族 ★★) ============ */
 
 /* 手工造 3×3×3 实心立方(27 块) 与 2×2×2(8 块) 与 2×2×1 板(4 块) */

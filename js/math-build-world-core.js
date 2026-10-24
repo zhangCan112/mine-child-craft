@@ -8,7 +8,9 @@
    reasoning)翻译成 PuzzleCore 生成器入参与世界轨专属谜题(平移
    复制/拼组恰填/反向选图/隐藏块/数方块与露面/图纸像素/数字点阵/
    数值候选条), 判分一律复用 PuzzleCore(gradeSymmetry/gradeBlueprint/
-   hiddenBlocks/exposedFaces), 本文件不造第二套判分。
+   hiddenBlocks/exposedFaces), 本文件不造第二套判分; 例外是最省桥(US20)
+   ——它的判分是地形语义(两岸步行连通/建造区/悬空), 收在本文件
+   bridgeGrade, 谜题生成(bridgePlan/mkBridgePuzzle)与判分成对。
    数值轨红线: 一切答案(块数/隐藏数/露面数)结构性 ≤ params.max,
    结构体积 ≤ params.blocks — 带内微升、永不越带(math-levels 口径)。
    认知负荷红线: 选答候选恰 4 个(≤ PuzzleCore.LIMITS.chunks)。
@@ -16,7 +18,9 @@
    坐标, 世界装配层负责平移到装场基面。
    interface: MATH_CELL_COLORS · mathWorldSymParams · mkWorldTranslate ·
      mkWorldTangram · mkWorldBuild · mkWorldPick · mkWorldHidden ·
-     mkWorldCount · blueprintPixels · digitCells · worldNumChoices
+     mkWorldCount · bridgePlan · bridgeGrade · mkBridgePuzzle(最省桥
+     US20: 两岸地形+可证最少块数 par / 三判据判分 / 出题包装) ·
+     blueprintPixels · digitCells · worldNumChoices
    依赖(经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js,
    加载序在本文件之前, 见 index.html) — 生成与判分全部委托;
    随机种子注入: 同常数 LCG(同 seed 同输出, seed 缺省走 Math.random)。
@@ -300,6 +304,136 @@ const BuildWorldCore = (() => {
     return {cells, mode, answer, cands: worldNumChoices(answer, rnd)};
   }
 
+  /* ---------- plan/bridge 最省桥(★★ US20): 两岸地形 + 可证最少块数 ---------- */
+
+  /* bridgePlan(t): t = {seed, span, yL, yR, dy, piers, max} — 生成两岸地形
+     规格与理论最少块数 par。地形语义(局部坐标, 世界装配层负责平移):
+     桥沿 x 轴 1 格宽(z=zLane=0), 左岸柱 x=0 顶面 yL · 右岸柱 x=span+1
+     顶面 yR · 河床面 y=bed=0 · 河面空隙列 x=1..span 无地形; piers 是给定
+     的中间墩(地形, 不计块数), 顶面 p.top — 墩列步行面 ≥ 墩顶, 墩顶白走。
+     孩子只能往空隙列放块(建造区), 自河床/墩顶向上码放(判分查悬空)。
+     par = 可证最少块数: 逐列步行高度 w 的最短路 DP — 每列块数
+     cost(x,w) = w-墩顶(墩列, ≥0) 或 w(普通列, ≥1), 相邻列高差 ≤1,
+     两端各与岸顶差 ≤1; 平低岸退化为"面板数=跨度+高差抬升和"(US20 口径)。
+     数值跟带: 跨度钳 3..min(8, floor(max/4)), par 结构性 ≤ max。 */
+  function bridgePlan(t) {
+    const o = t || {};
+    const rnd = mkRand(o.seed);
+    const max = o.max || 100;
+    const span = clamp(o.span === undefined ? 4 : o.span, 3,
+        Math.max(3, Math.min(8, Math.floor(max / 4))));
+    let yL; let yR;
+    if (o.yL !== undefined && o.yR !== undefined) {
+      yL = o.yL; yR = o.yR; // 教学关可显式钉住两岸(判分口径同)
+    } else {
+      const dyMax = Math.min(o.dy === undefined ? 2 : o.dy, span + 1);
+      const dy = ri(rnd, -dyMax, dyMax);
+      /* 岸高 1..3 且两岸都在界内: dy≥0 时 yR=yL+dy≤3, dy<0 时 yL≥1+|dy| */
+      yL = ri(rnd, 1 + Math.max(0, -dy), 3 - Math.max(0, dy));
+      yR = yL + dy;
+    }
+    let piers = [];
+    if (Array.isArray(o.piers)) {
+      piers = o.piers.map((p) => ({x: p.x, top: p.top}));
+    } else {
+      const n = clamp(o.piers === undefined ? (span >= 4 ? ri(rnd, 0, 1) : 0) : o.piers,
+          0, span);
+      for (const x of shuffle(rnd, Array.from({length: span}, (v, i) => i + 1)).slice(0, n)) {
+        piers.push({x, top: ri(rnd, 1, 2)});
+      }
+    }
+    const capY = Math.max(yL, yR, ...piers.map((p) => p.top), 0) + 2; // 建造上限=最高地形+2
+    const pierTop = {};
+    for (const p of piers) pierTop[p.x] = p.top;
+    /* 最短路 DP: dp[w] = 处理到当前列、以步行高 w 收尾的最小总块数 */
+    const INF = Infinity;
+    let dp = new Array(capY + 1).fill(INF);
+    for (let x = 1; x <= span; x++) {
+      const base = pierTop[x] === undefined ? 0 : pierTop[x];
+      const lo = Math.max(1, base); // 普通列至少 1 块; 墩列步行面 ≥ 墩顶
+      const ndp = new Array(capY + 1).fill(INF);
+      for (let w = lo; w <= capY; w++) {
+        let best = INF;
+        if (x === 1) {
+          if (Math.abs(w - yL) <= 1) best = 0; // 入口: 与左岸顶差 ≤1
+        } else {
+          for (let pw = Math.max(1, w - 1); pw <= Math.min(capY, w + 1); pw++) {
+            if (dp[pw] < best) best = dp[pw];
+          }
+        }
+        ndp[w] = best === INF ? INF : best + (w - base);
+      }
+      dp = ndp;
+    }
+    let par = INF;
+    for (let w = 1; w <= capY; w++) {
+      if (dp[w] !== INF && Math.abs(w - yR) <= 1 && dp[w] < par) par = dp[w];
+    }
+    if (par === INF) throw new Error('bridgePlan: 两岸高差超过跨度可步行范围');
+    return {x0: 1, x1: span, span, yL, yR, bed: 0, piers, capY, zLane: 0, par};
+  }
+
+  /* bridgeGrade(cells, plan): 三判据 + 包装判定(纯查询, 不改 plan)。
+     · walk 连通: 左岸(x0-1, 站面 yL) → 右岸(x1+1, 站面 yR) 逐列步行,
+       相邻步行面高度差 ≤1 — 空隙列站面 = max(墩顶, 该列所放块的最高顶),
+       没放块也没墩的列没有站面(断桥);
+     · inZone 不越界: 每块都在建造区(x0..x1 · z=zLane · bed ≤ y ≤ capY);
+     · supported 不悬空: 每块落在河床面(y=bed) / 墩顶(y=墩顶) / 正下方
+       另一块上(所以最优解永远是实心栈, par 的"实心码放"前提成立);
+     · pass = 三判据全过(能通行); best = pass 且 count ≤ par(最省,
+       >par 给"能过但不最省"中间判定, 供三星区分)。
+     count 按坐标集合去重(cells 视为坐标集合, 与 PuzzleCore 同口径)。 */
+  function bridgeGrade(cells, plan) {
+    const list = cells || [];
+    const inZone = list.every((c) => c.x >= plan.x0 && c.x <= plan.x1 &&
+        c.z === plan.zLane && c.y >= plan.bed && c.y <= plan.capY);
+    const cellSet = new Set(list.map(keyOf));
+    const supported = list.every((c) => {
+      if (c.y === plan.bed) return true; // 落在河床面
+      const pier = plan.piers.find((p) => p.x === c.x);
+      if (pier && c.y === pier.top) return true; // 落在墩顶
+      return cellSet.has(c.x + ',' + (c.y - 1) + ',' + c.z); // 正下方有块
+    });
+    /* 逐列步行面: 墩顶与所放块最高顶取 max */
+    const pierTop = {};
+    for (const p of plan.piers) pierTop[p.x] = p.top;
+    const tops = [];
+    for (let x = plan.x0; x <= plan.x1; x++) {
+      let top = pierTop[x] || 0;
+      for (const c of list) {
+        if (c.x === x && c.z === plan.zLane && c.y + 1 > top) top = c.y + 1;
+      }
+      tops.push(top);
+    }
+    let walk = true;
+    let prev = plan.yL;
+    for (let i = 0; i <= tops.length; i++) {
+      const cur = i === tops.length ? plan.yR : tops[i];
+      if (cur < 1 || Math.abs(cur - prev) > 1) {
+        walk = false; // 空列(无站面)或一步跨不上
+        break;
+      }
+      prev = cur;
+    }
+    const count = cellSet.size;
+    const pass = walk && inZone && supported;
+    return {walk, inZone, supported, count, par: plan.par, pass,
+      best: pass && count <= plan.par};
+  }
+
+  /* mkBridgePuzzle(t): t = {seed, blocks, max} — 出题包装: 跨度跟 blocks
+     预算走(每 5 块预算 ≈ 1 格跨度, 钳 3..min(8, floor(max/4))), 地形与
+     预算提示 par 来自 bridgePlan(同 seed 同输出)。世界装配(G4)负责画
+     两岸/墩与"只用 N 块"的预算牌; 判分走 bridgeGrade。 */
+  function mkBridgePuzzle(t) {
+    const o = t || {};
+    const max = o.max || 100;
+    const cap = Math.max(3, Math.min(8, Math.floor(max / 4)));
+    const span = clamp(Math.round((o.blocks || 20) / 5), 3, cap);
+    const plan = bridgePlan({seed: o.seed, span, max});
+    return {plan, budget: plan.par};
+  }
+
   /* ---------- 呈现件: 图纸像素 · 数字点阵 · 数值候选 ---------- */
 
   /* 图纸 → 像素色行列表(行主序 z 行 × x 列): 0=空(透明), 其余查
@@ -356,7 +490,8 @@ const BuildWorldCore = (() => {
   }
 
   return {MATH_CELL_COLORS, mathWorldSymParams, mkWorldTranslate, mkWorldTangram,
-    mkWorldBuild, mkWorldPick, mkWorldHidden, mkWorldCount, blueprintPixels,
+    mkWorldBuild, mkWorldPick, mkWorldHidden, mkWorldCount, bridgePlan,
+    bridgeGrade, mkBridgePuzzle, blueprintPixels,
     digitCells, worldNumChoices, boundsOf, keyOf};
 })();
 

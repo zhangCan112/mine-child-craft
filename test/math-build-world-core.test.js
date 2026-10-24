@@ -215,6 +215,228 @@ test('mkWorldCount: 答案永不越带(≤ max) · 候选恰 4 含答案 · 结�
   }
 });
 
+/* ============ plan/bridge 最省桥(★★ US20): 地形规格 + 可证最少块数 ============ */
+
+/* 暴力对拍神谕(与实现的最短路 DP 不同构): 枚举每列步行高度的全部分配,
+   取满足"相邻差 ≤1 · 两端各与岸顶差 ≤1 · 墩列步行面 ≥ 墩顶"的最小
+   总块数(河床 0: 普通列块数=步行高, 墩列块数=步行高-墩顶, 不设为负);
+   同时记下达到最小的桥面高数组(供端到端搭桥对账) */
+function brutePar(plan) {
+  const {span, yL, yR, piers, capY} = plan;
+  const pierTop = {};
+  for (const p of piers) pierTop[p.x] = p.top;
+  let best = Infinity;
+  let bestW = null;
+  const w = new Array(span).fill(0);
+  const rec = (i) => {
+    if (i === span) {
+      if (Math.abs(w[0] - yL) > 1 || Math.abs(w[span - 1] - yR) > 1) return;
+      let cost = 0;
+      for (let x = 0; x < span; x++) {
+        const px = x + 1;
+        cost += pierTop[px] !== undefined ? Math.max(0, w[x] - pierTop[px]) : w[x];
+      }
+      if (cost < best) {
+        best = cost;
+        bestW = w.slice();
+      }
+      return;
+    }
+    for (let hh = 1; hh <= capY; hh++) {
+      const px = i + 1;
+      if (pierTop[px] !== undefined && hh < pierTop[px]) continue;
+      if (i > 0 && Math.abs(hh - w[i - 1]) > 1) continue;
+      w[i] = hh;
+      rec(i + 1);
+    }
+  };
+  rec(0);
+  return {par: best, w: bestW};
+}
+
+test('bridgePlan: 教材口径手算对照 — 平岸 par=跨度, 抬岸加高差, 中间墩白走', () => {
+  /* 平岸低桥: 河床 0, 两岸高 1, 跨 3 → 每列 1 块, par=3(桥面板数=跨度) */
+  const flat = BuildWorldCore.bridgePlan({span: 3, yL: 1, yR: 1, piers: []});
+  assert.strictEqual(flat.par, 3);
+  /* 高岸平桥: 两岸高 3, 跨 4 → 桥面高 [2,1,1,2], par=4+2=6(面板+高差抬升) */
+  const high = BuildWorldCore.bridgePlan({span: 4, yL: 3, yR: 3, piers: []});
+  assert.strictEqual(high.par, 6);
+  /* 岸有高差: 左 1 右 3, 跨 3 → 桥面 [1,1,2], par=4 */
+  const slope = BuildWorldCore.bridgePlan({span: 3, yL: 1, yR: 3, piers: []});
+  assert.strictEqual(slope.par, 4);
+  /* 中间墩(顶高 1): 中列零块白走墩顶, par=1+0+1=2 */
+  const pier = BuildWorldCore.bridgePlan({span: 3, yL: 1, yR: 1, piers: [{x: 2, top: 1}]});
+  assert.strictEqual(pier.par, 2);
+});
+
+test('bridgePlan: 随机地形与暴力全枚举对拍 — par 是真最小值(可证性)', () => {
+  for (let s = 0; s < 40; s++) {
+    const plan = BuildWorldCore.bridgePlan({seed: 400 + s, max: 60});
+    assert.ok(plan.span >= 3 && plan.span <= 8, '跨度有界 3..8');
+    assert.ok(Math.abs(plan.yL - plan.yR) <= plan.span + 1, '两岸高差在可步行范围');
+    assert.strictEqual(plan.x0, 1, '空隙列从 1 起(左岸柱 x=0)');
+    assert.strictEqual(plan.x1, plan.span, 'x1=span(右岸柱 x=span+1)');
+    assert.ok(plan.piers.every((p) => p.x >= plan.x0 && p.x <= plan.x1),
+        '墩都在河面空隙列内');
+    assert.strictEqual(new Set(plan.piers.map((p) => p.x)).size, plan.piers.length, '墩位互异');
+    const capWant = Math.max(plan.yL, plan.yR, ...plan.piers.map((p) => p.top), 0) + 2;
+    assert.strictEqual(plan.capY, capWant, '建造上限 = 最高地形 +2');
+    assert.ok(plan.par >= plan.span - plan.piers.length, 'par ≥ 跨度-墩数(其余列至少 1 块)');
+    assert.ok(plan.par >= 1 && plan.par <= 60, 'par 跟带 1..max');
+    assert.strictEqual(brutePar(plan).par, plan.par, 'seed' + (400 + s) + ' 与暴力全枚举一致');
+  }
+});
+
+test('bridgePlan: 同 seed 同输出 · 显式地形回显 · 两岸不可步行直接拒绝', () => {
+  assert.deepStrictEqual(BuildWorldCore.bridgePlan({seed: 6, max: 100}),
+      BuildWorldCore.bridgePlan({seed: 6, max: 100}));
+  const echo = BuildWorldCore.bridgePlan({span: 5, yL: 2, yR: 2, piers: [{x: 3, top: 2}]});
+  assert.strictEqual(echo.span, 5);
+  assert.strictEqual(echo.yL, 2);
+  assert.strictEqual(echo.yR, 2);
+  assert.deepStrictEqual(echo.piers, [{x: 3, top: 2}]);
+  assert.strictEqual(echo.par, brutePar(echo).par);
+  /* 左右岸差 5 格, 跨 3 只有 4 步 — 每步升降 ≤1 永远走不通, 应抛错 */
+  assert.throws(() => BuildWorldCore.bridgePlan({span: 3, yL: 1, yR: 6, piers: []}), /bridgePlan/);
+});
+
+/* ============ plan/bridge 判分: 连通 · 不越界 · 不悬空 · 块数对账 ============ */
+
+/* 按桥面高数组造实心栈(cells): 列 x=x0+i 码 w[i] 块(z=zLane=0) */
+function bridgeStacks(plan, w) {
+  const out = [];
+  for (let i = 0; i < w.length; i++) {
+    for (let y = 0; y < w[i]; y++) out.push({x: plan.x0 + i, y, z: plan.zLane});
+  }
+  return out;
+}
+
+test('bridgeGrade 正例: 平岸/高岸/带墩的 par 桥都 pass+best(可达性对账)', () => {
+  /* 平岸低桥: 桥面 [1,1,1] = 3 块 = par */
+  const flat = BuildWorldCore.bridgePlan({span: 3, yL: 1, yR: 1, piers: []});
+  const g1 = BuildWorldCore.bridgeGrade(bridgeStacks(flat, [1, 1, 1]), flat);
+  assert.deepStrictEqual(
+      {walk: g1.walk, inZone: g1.inZone, supported: g1.supported, count: g1.count},
+      {walk: true, inZone: true, supported: true, count: 3});
+  assert.strictEqual(g1.par, flat.par);
+  assert.strictEqual(g1.pass, true, '通行');
+  assert.strictEqual(g1.best, true, '3 块恰达 par=最省');
+  /* 高岸桥: 桥面 [2,1,1,2] = 6 块 = par(DP 声称的最小值确实可搭) */
+  const high = BuildWorldCore.bridgePlan({span: 4, yL: 3, yR: 3, piers: []});
+  const g2 = BuildWorldCore.bridgeGrade(bridgeStacks(high, [2, 1, 1, 2]), high);
+  assert.strictEqual(g2.pass, true);
+  assert.strictEqual(g2.best, true, '6 块恰达 par');
+  /* 中间墩白走: 桥面 [1,墩顶,1], 中列 0 块 → 2 块 = par */
+  const pier = BuildWorldCore.bridgePlan({span: 3, yL: 1, yR: 1, piers: [{x: 2, top: 1}]});
+  const g3 = BuildWorldCore.bridgeGrade(bridgeStacks(pier, [1, 0, 1]), pier);
+  assert.strictEqual(g3.count, 2);
+  assert.strictEqual(g3.pass, true, '墩顶是地形, 直接踩过');
+  assert.strictEqual(g3.best, true);
+});
+
+test('bridgeGrade 中间判定: 能过但不最省(三星区分) — 多花 1 块仍通行', () => {
+  const plan = BuildWorldCore.bridgePlan({span: 4, yL: 3, yR: 3, piers: []});
+  const fat = BuildWorldCore.bridgeGrade(bridgeStacks(plan, [2, 2, 1, 2]), plan);
+  assert.strictEqual(fat.count, 7, '比 par(6) 多 1 块');
+  assert.strictEqual(fat.walk, true, '桥面 [2,2,1,2] 逐格可走');
+  assert.strictEqual(fat.pass, true, '能过');
+  assert.strictEqual(fat.best, false, '但不最省');
+});
+
+test('bridgeGrade 反例: 台阶差 2 / 断桥(缺列) — walk 必须为假', () => {
+  const plan = BuildWorldCore.bridgePlan({span: 3, yL: 1, yR: 1, piers: []});
+  /* 中列码 3 块: 相邻步行面差 |3-1|=2 > 1, 一步跨不上 */
+  const step = BuildWorldCore.bridgeGrade(bridgeStacks(plan, [1, 3, 1]), plan);
+  assert.strictEqual(step.walk, false, '台阶差 2 不可走');
+  assert.strictEqual(step.pass, false);
+  /* 缺中列: 没有站立面 */
+  const broken = BuildWorldCore.bridgeGrade(
+      [{x: 1, y: 0, z: 0}, {x: 3, y: 0, z: 0}], plan);
+  assert.strictEqual(broken.walk, false, '断桥不可走');
+});
+
+test('bridgeGrade 反例: 悬空桥 — 步行面齐但脚下没支撑, supported 为假', () => {
+  /* 两岸高 2, 桥面 [2,1,2]: 首末列只放 y=1 的浮板(下方 y=0 空) */
+  const plan = BuildWorldCore.bridgePlan({span: 3, yL: 2, yR: 2, piers: []});
+  const floating = [{x: 1, y: 1, z: 0}, {x: 2, y: 0, z: 0}, {x: 3, y: 1, z: 0}];
+  const g = BuildWorldCore.bridgeGrade(floating, plan);
+  assert.strictEqual(g.walk, true, '步行面高度齐(浮板也构成站立面)');
+  assert.strictEqual(g.supported, false, '但浮空块不算合规桥');
+  assert.strictEqual(g.pass, false);
+  assert.strictEqual(g.best, false);
+});
+
+test('bridgeGrade 反例: 越界 — 岸柱上放块 / 偏出桥线(z) / 超建造上限都算违建', () => {
+  const plan = BuildWorldCore.bridgePlan({span: 3, yL: 1, yR: 1, piers: []});
+  const good = bridgeStacks(plan, [1, 1, 1]);
+  const onBank = BuildWorldCore.bridgeGrade(good.concat([{x: 0, y: 1, z: 0}]), plan);
+  assert.strictEqual(onBank.inZone, false, '岸柱(x=0)不在建造区');
+  assert.strictEqual(onBank.pass, false);
+  const offLane = BuildWorldCore.bridgeGrade(good.concat([{x: 2, y: 1, z: 1}]), plan);
+  assert.strictEqual(offLane.inZone, false, 'z≠zLane 偏出桥线');
+  const tooHigh = BuildWorldCore.bridgeGrade(
+      good.concat([{x: 2, y: plan.capY + 1, z: 0}]), plan);
+  assert.strictEqual(tooHigh.inZone, false, '超过建造上限 capY');
+});
+
+test('bridgeGrade: 空手 = 不可通行 · count 按坐标集合去重', () => {
+  const plan = BuildWorldCore.bridgePlan({span: 3, yL: 1, yR: 1, piers: []});
+  const empty = BuildWorldCore.bridgeGrade([], plan);
+  assert.strictEqual(empty.walk, false, '没放块自然不通');
+  assert.strictEqual(empty.count, 0);
+  const dup = BuildWorldCore.bridgeGrade(
+      [{x: 1, y: 0, z: 0}, {x: 1, y: 0, z: 0}, {x: 2, y: 0, z: 0}, {x: 3, y: 0, z: 0}], plan);
+  assert.strictEqual(dup.count, 3, '重复坐标按一份计');
+  assert.strictEqual(dup.best, true);
+});
+
+/* ============ plan/bridge 出题包装: 跨度跟带 + 预算提示 ============ */
+
+test('mkBridgePuzzle: 预算提示=par · 跨度跟 blocks 预算单调 · par 永不越带', () => {
+  assert.deepStrictEqual(BuildWorldCore.mkBridgePuzzle({seed: 9, blocks: 20, max: 100}),
+      BuildWorldCore.mkBridgePuzzle({seed: 9, blocks: 20, max: 100}), '同 seed 同输出');
+  /* 跨度单调: 预算越大桥越长(同 seed 同 max 下) */
+  const spans = [8, 20, 40, 100, 600].map((b) => {
+    return BuildWorldCore.mkBridgePuzzle({seed: 3, blocks: b, max: 1000}).plan.span;
+  });
+  for (let i = 1; i < spans.length; i++) {
+    assert.ok(spans[i] >= spans[i - 1], '跨度随 blocks 不减: ' + spans.join(','));
+  }
+  assert.strictEqual(spans[0], 3, 'band0 小预算 = 最短桥');
+  /* 四带红线路径(plan 族 MATH_NUM_TRACK 口径): par ≤ max · 跨度有界 */
+  for (const [blocks, max] of [[8, 20], [20, 20], [60, 100], [100, 600], [600, 1000]]) {
+    for (let s = 0; s < 10; s++) {
+      const pz = BuildWorldCore.mkBridgePuzzle({seed: 600 + s, blocks, max});
+      assert.strictEqual(pz.budget, pz.plan.par, '预算提示就是 par');
+      assert.ok(pz.plan.par >= 1 && pz.plan.par <= max,
+          'blocks=' + blocks + ' max=' + max + ' par=' + pz.plan.par + ' 越带');
+      assert.ok(pz.plan.span >= 3 && pz.plan.span <= 8, '跨度有界 3..8');
+    }
+  }
+});
+
+test('mkBridgePuzzle + bridgeGrade 端到端: 暴力最优桥搭出来必 pass+best(随机地形)', () => {
+  for (let s = 0; s < 20; s++) {
+    const pz = BuildWorldCore.mkBridgePuzzle({seed: 500 + s, blocks: 30, max: 60});
+    const opt = brutePar(pz.plan);
+    assert.strictEqual(opt.par, pz.plan.par, 'seed' + (500 + s) + ' par 对拍');
+    /* 按最优桥面高实搭: 墩列从墩顶码起, 普通列从河床码起 */
+    const cells = [];
+    const pierTop = {};
+    for (const p of pz.plan.piers) pierTop[p.x] = p.top;
+    for (let i = 0; i < opt.w.length; i++) {
+      const x = pz.plan.x0 + i;
+      const from = pierTop[x] || 0;
+      for (let y = from; y < opt.w[i]; y++) cells.push({x, y, z: pz.plan.zLane});
+    }
+    const g = BuildWorldCore.bridgeGrade(cells, pz.plan);
+    assert.strictEqual(g.count, pz.plan.par, '最优桥块数=par');
+    assert.strictEqual(g.walk, true, 'seed' + (500 + s) + ' 最优桥逐格可走');
+    assert.strictEqual(g.pass, true);
+    assert.strictEqual(g.best, true, '搭出 par 桥判最省');
+  }
+});
+
 /* ============ 图纸像素投影 + 数字点阵 + 数值候选 ============ */
 
 test('blueprintPixels: 行列表尺寸=图纸 · 颜色查表 · 空格透明', () => {
