@@ -108,8 +108,9 @@ function runHopWorld(section, h) {
   const T = mWTimers();
   const G = MATH_W_GROUND;
   const pathMax = plan.value(plan.last);
-  const n = Math.max(1, Math.min(30, p.trials || 6));
-  const stats = {trials: 0, correct: 0, acc: 0, maxStreakErr: 0};
+  const n = MathTrackCore.clampTrials(p.trials);
+  const loop = MathTrackCore.mkTrialLoop(); /* 试次循环骨架(T3 并一): 记分与节拍决策在纯核心 */
+  const stats = loop.stats;
   const speak = (s) => {
     if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak(s);
   };
@@ -311,32 +312,20 @@ function runHopWorld(section, h) {
 
   /* ===== 试次循环 ===== */
   let idx = 0;
-  let streak = 0;
-  let errRun = 0;
   let stopped = false;
   let rafId = 0;
   let lastT = 0;
   let flashT = 0;
 
   function settle(ok) {
-    stats.trials++;
-    if (ok) {
-      stats.correct++;
-      streak++;
-      errRun = 0;
-    } else {
-      streak = 0;
-      errRun++;
-      stats.maxStreakErr = Math.max(stats.maxStreakErr, errRun);
-    }
-    sfxSafe(ok ? 'pick' : 'click');
-    if (hh.onTrial) hh.onTrial({ok, streak});
-    if (ok && streak % 3 === 0 && typeof mathPraiseLine === 'function') {
+    const ev = loop.settle(ok); /* 记分+节拍决策(表扬/安慰口径唯一在核心) */
+    sfxSafe(ev.ok ? 'pick' : 'click');
+    if (hh.onTrial) hh.onTrial({ok: ev.ok, streak: ev.streak});
+    if (ev.praise && typeof mathPraiseLine === 'function') {
       speak(mathPraiseLine()); // 过程性表扬(话术住模式层)
     }
-    if (!ok && errRun >= 3) {
-      errRun = 0;
-      if (typeof mathComfortLine === 'function') speak(mathComfortLine());
+    if (ev.comfort && typeof mathComfortLine === 'function') {
+      speak(mathComfortLine());
     }
     flashFeedback(ok);
   }
@@ -357,7 +346,7 @@ function runHopWorld(section, h) {
     hideHover();
     if (idx >= n) {
       phase = 'done';
-      stats.acc = stats.trials ? stats.correct / stats.trials : 0;
+      loop.end();
       T.after(500, () => {
         teardown();
         if (hh.end) hh.end(stats);

@@ -1079,40 +1079,29 @@ function runMathScreen(section, area, h) {
   const rnd = mRand(section.seed !== undefined ? section.seed : p.seed);
   const T = mTimers();
   const hh = h || {};
-  const n = Math.max(1, Math.min(30, p.trials || 6));
-  const stats = {trials: 0, correct: 0, acc: 0, maxStreakErr: 0};
+  const n = MathTrackCore.clampTrials(p.trials);
+  const loop = MathTrackCore.mkTrialLoop(); /* 试次循环骨架(T3 并一): 记分与节拍决策在纯核心 */
+  const stats = loop.stats;
   let idx = 0;
-  let streak = 0;
-  let errRun = 0;
   let settled = false;
   let stopped = false;
 
   function settle(ok, el) {
     if (settled || stopped) return;
     settled = true;
-    stats.trials++;
-    if (ok) {
-      stats.correct++;
-      streak++;
-      errRun = 0;
-    } else {
-      streak = 0;
-      errRun++;
-      stats.maxStreakErr = Math.max(stats.maxStreakErr, errRun);
-    }
+    const ev = loop.settle(ok); /* 记分+节拍决策(表扬/安慰口径唯一在核心) */
     if (el) el.classList.add(ok ? 'good' : 'bad');
-    sfxSafe(ok ? 'pick' : 'click');
-    if (hh.onTrial) hh.onTrial({ok, streak});
+    sfxSafe(ev.ok ? 'pick' : 'click');
+    if (hh.onTrial) hh.onTrial({ok: ev.ok, streak: ev.streak});
     /* 过程性表扬/安慰: 话术住模式层(modes/math.js), 经全局名调用期解析 */
     const speakSafe = (s) => {
       if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak(s);
     };
-    if (ok && streak % 3 === 0 && typeof mathPraiseLine === 'function') {
+    if (ev.praise && typeof mathPraiseLine === 'function') {
       speakSafe(mathPraiseLine());
     }
-    if (!ok && errRun >= 3) {
-      errRun = 0;
-      if (typeof mathComfortLine === 'function') speakSafe(mathComfortLine());
+    if (ev.comfort && typeof mathComfortLine === 'function') {
+      speakSafe(mathComfortLine());
     }
     T.after(700, next);
   }
@@ -1120,7 +1109,7 @@ function runMathScreen(section, area, h) {
   function next() {
     if (stopped) return;
     if (idx >= n) {
-      stats.acc = stats.trials ? stats.correct / stats.trials : 0;
+      loop.end();
       if (hh.end) hh.end(stats);
       return;
     }

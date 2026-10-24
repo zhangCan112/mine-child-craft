@@ -106,7 +106,7 @@ function loadMathParadigms(opts) {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-paradigms.js']) {
+  for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-track-core.js', 'math-paradigms.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
@@ -184,7 +184,7 @@ function loadMathMode() {
   sandbox.globalThis = sandbox;
   const vmCtx = vm.createContext(sandbox);
   for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-build-world-core.js', 'hop-world-core.js',
-    'math-paradigms.js', 'math-world.js', 'math-build-world.js', 'modes/math.js']) {
+    'math-track-core.js', 'math-paradigms.js', 'math-world.js', 'math-build-world.js', 'modes/math.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), vmCtx, {filename: f});
   }
   vm.runInContext(`
@@ -1695,12 +1695,15 @@ test('mathStampClaim: 集章达成线领取(差集幂等) — 越线即领, 已�
 
 /* ============ index.html 脚本序 ============ */
 
-test('index.html: 数学侧六个 script 全在册, 序=levels → puzzles → hop-core → paradigms → world → modes/math', () => {
+test('index.html: 数学侧八个 script 全在册且加载序即依赖序', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const at = (src) => html.indexOf('src="' + src + '"');
-  const order = ['js/math-levels.js', 'js/math-puzzles-core.js', 'js/hop-world-core.js',
-    'js/math-paradigms.js', 'js/math-world.js', 'js/modes/math.js'].map(at);
-  assert.ok(order.every((i) => i >= 0), '六个 script 全在册: ' + order.join(','));
-  const why = '加载序即依赖序: hop-core 依赖 puzzles, world 依赖 paradigms 的 mRand/mEl, modes/math 依赖 world 的 runHopWorld';
+  const order = ['js/math-levels.js', 'js/math-puzzles-core.js', 'js/math-build-world-core.js',
+    'js/hop-world-core.js', 'js/math-track-core.js', 'js/math-paradigms.js',
+    'js/math-world.js', 'js/math-build-world.js', 'js/modes/math.js'].map(at);
+  assert.ok(order.every((i) => i >= 0), '八个 script 全在册: ' + order.join(','));
+  const why = '加载序即依赖序: puzzles/build-core/hop-core 供三引擎出题, ' +
+      'track-core 供三引擎试次循环, world 依赖 paradigms 的 mRand/mEl, ' +
+      'build-world 依赖 track-core, modes/math 依赖 world/build-world 的 runner';
   assert.ok(order.every((v, k) => k === 0 || order[k - 1] < v), why);
 });

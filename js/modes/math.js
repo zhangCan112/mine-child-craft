@@ -887,7 +887,7 @@ function runMathBoss(level, areaEl, setProg) {
   const plan = mathBossPlan(level);
   const statsList = [];
   const totalTrials = plan
-      .reduce((a, s) => a + Math.max(1, Math.min(30, (s.params && s.params.trials) || 6)), 0);
+      .reduce((a, s) => a + MathTrackCore.clampTrials(s.params && s.params.trials), 0);
   let si = 0;
   let doneTrials = 0;
   let stopped = false;

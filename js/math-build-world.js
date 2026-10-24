@@ -494,13 +494,12 @@ function runBuildWorld(section, h) {
   const spec = MATH_WORLD_VARIANTS[section.family + '/' + section.variant];
   if (!spec) return null;
   const p = section.params || {};
-  const n = Math.max(1, Math.min(30, p.trials || 6));
+  const n = MathTrackCore.clampTrials(p.trials);
   const hh = h || {};
   const T = wwTimers();
-  const stats = {trials: 0, correct: 0, acc: 0, maxStreakErr: 0};
+  const loop = MathTrackCore.mkTrialLoop(); /* 试次循环骨架(T3 并一): 记分与节拍决策在纯核心 */
+  const stats = loop.stats;
   let idx = 0;
-  let streak = 0;
-  let errRun = 0;
   let settled = false;
   let stopped = false;
   let trial = null; // 当前试次现场(build 返回值)
@@ -521,30 +520,18 @@ function runBuildWorld(section, h) {
   function settle(ok) {
     if (settled || stopped) return;
     settled = true;
-    stats.trials++;
-    if (ok) {
-      stats.correct++;
-      streak++;
-      errRun = 0;
-    } else {
-      streak = 0;
-      errRun++;
-      stats.maxStreakErr = Math.max(stats.maxStreakErr, errRun);
-    }
-    wwSfx(ok ? 'pick' : 'click');
+    const ev = loop.settle(ok); /* 记分+节拍决策(表扬/安慰口径唯一在核心) */
+    wwSfx(ev.ok ? 'pick' : 'click');
     if (trial) { // 世界内视觉反馈: 对=画布绿环, 错=红闪
       const W = MATH_WORLD;
       if (typeof Fx !== 'undefined' && Fx && Fx.pop) {
         Fx.pop(trial.x0 + trial.w / 2 + 0.5, W.groundY + 2, trial.z0 + trial.d / 2 + 0.5,
-            {color: ok ? 0x7cfc00 : 0xd1483a, r0: 0.8, r1: 4.5, dur: 0.5});
+            {color: ev.ok ? 0x7cfc00 : 0xd1483a, r0: 0.8, r1: 4.5, dur: 0.5});
       }
     }
-    if (hh.onTrial) hh.onTrial({ok, streak});
-    if (ok && streak % 3 === 0) wwPraise(true); /* 过程性表扬(同屏流口径) */
-    if (!ok && errRun >= 3) {
-      errRun = 0;
-      wwPraise(false);
-    }
+    if (hh.onTrial) hh.onTrial({ok: ev.ok, streak: ev.streak});
+    if (ev.praise) wwPraise(true); /* 过程性表扬(同屏流口径) */
+    if (ev.comfort) wwPraise(false);
     T.after(1000, next);
   }
 
@@ -569,7 +556,7 @@ function runBuildWorld(section, h) {
   function next() {
     if (stopped) return;
     if (idx >= n) {
-      stats.acc = stats.trials ? stats.correct / stats.trials : 0;
+      loop.end();
       if (hh.end) hh.end(stats);
       return;
     }
