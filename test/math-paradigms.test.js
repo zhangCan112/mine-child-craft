@@ -9,6 +9,8 @@
    mathPraiseLine/mathComfortLine) · 种子确定性(同 seed 同输出, 异 seed 异题)
    · stop() 中止 · 模式层流程纯函数(mathVariantTrack 分发缝 / mathBossPlan
    / mathAggStats / mathFrontier / mathFamChallengeDone / mathSettleSave 落账)
+   · G1 常驻钟面纯函数(mClockAngles 时/分针角度 · mClockSay 报时口径
+   整时/半时/几时几分 · mClockFace 角度单一出处守卫)
    · index.html 脚本序(math-levels → math-puzzles-core → math-paradigms →
    modes/math, 加载序即依赖序)
    加载器: vm context 依次执行 math-levels.js + math-puzzles-core.js +
@@ -111,7 +113,9 @@ function loadMathParadigms(opts) {
     globalThis.__mp = { PuzzleCore, MATH_LEVELS, MATH_META, MATH_VARIANTS,
       MATH_FAMILIES, MATH_CONTEXTS, mathParamsFor, mathPassed, mathStars, MATH_SAVE_DEFAULTS,
       migrateMathSave, MATH_LOG_KEEP_DAYS, trimMathLog,
-      mathScreenDispatch, mathGuardParams, runMathScreen };
+      mathScreenDispatch, mathGuardParams, runMathScreen,
+      mBalancePair, mBalanceReveal, MATH_BALANCE_HINT,
+      mFrameLayout, mClockFace, mClockAngles, mClockSay };
   `, ctx);
   return {
     mp: sandbox.__mp, els, spoken, warns, sfxLog, clsLog, timers,
@@ -187,7 +191,7 @@ function loadMathMode() {
     globalThis.__mm = { mathVariantTrack, mathFrontier, mathLevelUnlocked,
       mathFamChallengeDone, mathLevelStars, mathBossPlan, mathAggStats, mathSettleSave,
       mathStampClaim, mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_CONTEXTS, mathLevelMeta,
-      mathVariantName, MATH_SAVE_DEFAULTS, MATH_WORLD_RUNNERS,
+      mathVariantName, MATH_META, MATH_SAVE_DEFAULTS, MATH_WORLD_RUNNERS,
       MATH_STAMP_KINDS, MATH_STAMP_DAILY, MATH_STAMP_REWARDS, MATH_STAMP_REWARD_TEXT,
       rollMathLoot, grantMathLoot,
       runBuildWorld: (typeof runBuildWorld !== 'undefined' ? runBuildWorld : null) };
@@ -329,6 +333,43 @@ test('mathGuardParams: chunks/unitLen >4 与 clueCount >3 越界即 warn+截断,
   assert.strictEqual(mp.mathGuardParams(null).trials, undefined, '空参防御');
 });
 
+/* ============ 呈现反泄漏(G5): 需求侧数字卡 + 两堆十格阵 ============ */
+
+/* 十格阵布局纯函数: 空格可见的一一对应 — 同十格区间的 n 与 n+1 阵框
+   占位同形(长度线索失效, 用户实测"比块的长度就知道够不够") */
+test('mFrameLayout: n∈1..20 格位总数=10×ceil(n/10), 恰 n 格 filled', () => {
+  const {mp} = loadMathParadigms();
+  for (let n = 1; n <= 20; n++) {
+    const cells = mp.mFrameLayout(n, 7);
+    assert.strictEqual(cells.length, Math.ceil(n / 10) * 10, 'n=' + n + ' 满阵框占位(2 行×5 格/组)');
+    assert.strictEqual(cells.filter((c) => c.f).length, n, 'n=' + n + ' filled 计数');
+  }
+  assert.strictEqual(mp.mFrameLayout(0, 7).length, 0, 'n=0 防御空布局');
+});
+
+test('mFrameLayout: 长度线索失效 — 同十格区间的 n 与 n+1 布局同长(7 与 8 阵框同形)', () => {
+  const {mp} = loadMathParadigms();
+  for (let n = 1; n <= 19; n++) {
+    if (n % 10 === 0) continue; // 区间边界(10/20)右邻进新阵, 框本就应多一个
+    for (const seed of [1, 42, 777]) {
+      assert.strictEqual(mp.mFrameLayout(n, seed).length, mp.mFrameLayout(n + 1, seed).length,
+          'n=' + n + ' 与 n+1 同框(比长短得不到谁多)');
+    }
+  }
+});
+
+test('mFrameLayout: 同 seed 同输出(确定性), seed 用在阵组顺序/填充起点上', () => {
+  const {mp} = loadMathParadigms();
+  for (let n = 1; n <= 20; n++) {
+    assert.deepStrictEqual(mp.mFrameLayout(n, 99), mp.mFrameLayout(n, 99), 'n=' + n + ' 同 seed 同输出');
+  }
+  /* 12 = 满阵+残阵: 阵组顺序(满阵在前/后)与每阵填充起点(左/右起)由
+     seed 派生, 20 个种子里至少出现两种不同布局(锁注入语义) */
+  const seen = new Set();
+  for (let s = 1; s <= 20; s++) seen.add(JSON.stringify(mp.mFrameLayout(12, s)));
+  assert.ok(seen.size >= 2, '异 seed 产出不同阵排列, 实为 ' + seen.size);
+});
+
 /* ============ count 族: 独立 DOM 神谕试次流 ============ */
 
 /* 快照神谕: m-flash 里出现次数最多的 img src = 小客人数(干扰物是另一副面孔) */
@@ -454,21 +495,150 @@ test('count/compare: single 档点大堆→对; reverse 档走"多几个"数字�
   assert.strictEqual(ended[0].correct, 1);
 });
 
-test('count/balance(挑战): 移多补少答案 =(a-b)/2', () => {
+test('count/compare(呈现反泄漏): 两堆铺十格阵 — filled=数量, 空格补足满阵框(两档)', () => {
   const d = loadMathParadigms();
+  /* single 档(点堆)与相差档(静态堆)都走阵框 */
+  for (const [tier, cls] of [[1, 'm-pile'], [9, 'm-pilestat']]) {
+    for (const seed of [5, 7, 31]) {
+      const ended = [];
+      play(d, 'count', 'compare', tier, {trials: 1, seed}, {end: (s) => ended.push(s)});
+      d.flush(8);
+      const piles = sEls(d, cls).filter((e) => e.dataset.n !== undefined);
+      assert.strictEqual(piles.length, 2, 'tier' + tier + ' 两堆方块');
+      for (const pile of piles) {
+        const n = +pile.dataset.n;
+        const html = String(pile.innerHTML);
+        const imgs = (html.match(/<img/g) || []).length;
+        const frames = (html.match(/class="m-frame"/g) || []).length;
+        const empties = (html.match(/class="m-frempty"/g) || []).length;
+        assert.strictEqual(imgs, n, 'tier' + tier + ' seed' + seed + ' filled 图标=数量(逐个点数合法)');
+        assert.strictEqual(frames, Math.ceil(n / 10), '阵框数=ceil(n/10): ' + frames);
+        assert.strictEqual(empties, Math.ceil(n / 10) * 10 - n, '空格补足满阵框(7 与 8 框同形)');
+      }
+      autoPlay(d, ended, 30);
+    }
+  }
+});
+
+test('count/balance(挑战, 搬动试错): DOM 神谕 — 点多的一堆方块搬到相等自动判对, 语音点破差值规律', () => {
+  const d = loadMathParadigms();
+  const trials = [];
   const ended = [];
-  play(d, 'count', 'balance', 4, {trials: 1, seed: 21}, {end: (s) => ended.push(s)});
+  play(d, 'count', 'balance', 4, {trials: 1, seed: 21}, {
+    onTrial: (t) => trials.push(t),
+    end: (s) => ended.push(s),
+  });
   d.flush(8);
-  const piles = sEls(d, 'm-pilestat');
-  const a = +piles[0].dataset.n;
-  const b = +piles[1].dataset.n;
-  const ans = Math.abs(a - b) / 2;
-  assert.ok(Number.isInteger(ans), '差为偶数(移 1 差变 2): ' + a + '/' + b);
-  const btn = sEls(d, 'm-num').find((el) => +el.dataset.v === ans);
-  assert.ok(btn, '数字条含 (a-b)/2=' + ans);
-  tap(btn);
+  assert.ok(d.spoken[0].includes('怎么移才一样多'), '题面语音引导搬动试错: ' + d.spoken[0]);
+  const piles = sEls(d, 'm-pilelive');
+  assert.strictEqual(piles.length, 2, '两堆方块');
+  const ns = piles.map((p) => +p.dataset.n);
+  const big = Math.max(...ns);
+  const small = Math.min(...ns);
+  const diff = big - small;
+  const k = diff / 2;
+  assert.ok(Number.isInteger(k) && k >= 1, '差为偶数(移 k 个差减 2k): ' + ns.join('/'));
+  assert.ok(big <= 6 && small >= 1 && diff <= 4, '红线: 两堆各自 ≤6 且差 ≤4, 实为 ' + ns.join('/'));
+  /* CPA: 搬动后两堆计数即时重显 — 逐块点多的一堆, dataset 与可见计数徽步进 */
+  const bigPile = piles[ns.indexOf(big)];
+  const smallPile = piles[ns.indexOf(small)];
+  const blocks = bigPile.children.filter(clickable);
+  assert.ok(blocks.length >= big, '堆里每个方块都可点');
+  for (let m = 1; m <= k; m++) {
+    tap(blocks[0]); // 同一神谕按钮(闭包恒指该堆), 每点一次搬 1 个过去
+    assert.strictEqual(+bigPile.dataset.n, big - m, '多的一堆即时少 1(第 ' + m + ' 次搬动)');
+    assert.strictEqual(+smallPile.dataset.n, small + m, '少的一堆即时多 1');
+    const badge = bigPile.children.filter((c) => String(c.className).split(' ').includes('m-pilecount')).pop();
+    assert.strictEqual(badge.innerHTML, String(big - m), '可见计数徽与堆数同步');
+  }
+  assert.strictEqual(trials.length, 1, '两堆相等自动交卷');
+  assert.strictEqual(trials[0].ok, true, '探索达成判对');
   d.flush(8);
   assert.strictEqual(ended[0].correct, 1);
+  assert.strictEqual(ended[0].acc, 1);
+  const want = '你搬得很仔细！原来差 ' + diff + ' 个，移 ' + k +
+      ' 个过去就一样多啦——移 1 个，差就变少 2！';
+  assert.ok(d.spoken.includes(want), '语音点破按本关实际差值生成: ' + d.spoken.join(' / '));
+});
+
+test('count/balance: 搬错方向不判负(计数变化自己教育), 两次无效搬动后温和提示方向', () => {
+  const d = loadMathParadigms();
+  const trials = [];
+  const ended = [];
+  play(d, 'count', 'balance', 6, {trials: 1, seed: 5}, {
+    onTrial: (t) => trials.push(t),
+    end: (s) => ended.push(s),
+  });
+  d.flush(8);
+  const piles = sEls(d, 'm-pilelive');
+  const ns = piles.map((p) => +p.dataset.n);
+  const bigIdx = ns.indexOf(Math.max(...ns));
+  const smallIdx = 1 - bigIdx;
+  assert.ok(ns[smallIdx] >= 2, '前置: 少的一堆至少 2 个(可连搬两次错向), 实为 ' + ns.join('/'));
+  const smallBlocks = piles[smallIdx].children.filter(clickable);
+  const hint = d.mp.MATH_BALANCE_HINT;
+  tap(smallBlocks[0]); // 无效搬动 1: 少 → 多, 差变大
+  assert.strictEqual(trials.length, 0, '不判负不交卷');
+  assert.strictEqual(+piles[smallIdx].dataset.n, ns[smallIdx] - 1, '少的堆少 1');
+  assert.strictEqual(+piles[bigIdx].dataset.n, ns[bigIdx] + 1, '多的堆多 1');
+  assert.ok(!d.spoken.includes(hint), '第一次无效搬动还不提示');
+  tap(smallBlocks[0]); // 无效搬动 2 → 温和提示
+  assert.ok(d.spoken.includes(hint), '两次无效搬动后提示: ' + hint);
+  assert.strictEqual(trials.length, 0, '仍不判负(只奖不罚)');
+  /* 回头从多的一堆搬到相等 → 判对, 错向搬动不入误账 */
+  const nowBig = +piles[bigIdx].dataset.n;
+  const nowSmall = +piles[smallIdx].dataset.n;
+  const kk = (nowBig - nowSmall) / 2;
+  const bigBlocks = piles[bigIdx].children.filter(clickable);
+  for (let m = 0; m < kk; m++) tap(bigBlocks[0]);
+  assert.strictEqual(trials.length, 1);
+  assert.strictEqual(trials[0].ok, true, '来回搬后达成仍判对');
+  d.flush(8);
+  assert.strictEqual(ended[0].maxStreakErr, 0, '零惩罚: 错向搬动不入误账');
+  assert.strictEqual(ended[0].acc, 1);
+});
+
+test('count/balance 堆对生成(纯函数 mBalancePair): 堆数/差值红线不变量 + 数量跟带注入', () => {
+  const d = loadMathParadigms();
+  const lcg = (s) => () => {
+    s = (s * 1103515245 + 12345) % 2147483648;
+    return s / 2147483648;
+  };
+  const seen = new Set();
+  for (let seed = 1; seed < 300; seed++) {
+    for (const max of [4, 9, 33, 1000]) { // 带 0 首档 → 高带: max 跟带注入
+      const pair = d.mp.mBalancePair(lcg(seed * 31 + max), {max});
+      assert.ok(pair.small >= 1 && pair.big >= 1, '正堆');
+      assert.ok(pair.small < pair.big, '两堆不相等(差为 0 不成题)');
+      assert.ok(pair.big <= 6 && pair.small <= 6, '两堆各自 ≤6(感数红线): ' + pair.big + '/' + pair.small);
+      const diff = pair.big - pair.small;
+      assert.ok(diff % 2 === 0 && diff <= 4, '差为偶数且 ≤4(答案 k=差/2): ' + diff);
+      assert.strictEqual(pair.answer, diff / 2, '答案 = 差/2');
+      assert.strictEqual(pair.diff, diff);
+      if (max === 4) assert.strictEqual(diff, 2, '带 0 首档(cap 4)差恒 2 — 先体会移 1 个差变 2');
+      if (max === 1000) assert.ok(pair.big <= 6, '高带注入被钳在 6(思维密度在搬动不在大数)');
+      seen.add(pair.small + ':' + pair.big);
+    }
+  }
+  assert.ok(seen.size >= 4, '堆对有多样性: ' + [...seen].join(' '));
+  const a = d.mp.mBalancePair(lcg(777), {max: 6});
+  const b = d.mp.mBalancePair(lcg(777), {max: 6});
+  assert.deepStrictEqual(a, b, '同 seed 同输出');
+});
+
+test('count/balance 关卡口径: 一次关卡 2~3 题(搬动探索长, US6), 关卡与 boss 节全走变体表覆写', () => {
+  const d = loadMathParadigms();
+  const seen = [];
+  for (const lv of d.mp.MATH_LEVELS) {
+    if (lv.variant === 'balance') seen.push(['关', lv.i, lv.params.trials]);
+    for (const s of lv.sections || []) {
+      if (s.variant === 'balance') seen.push(['boss 节', lv.i, s.params.trials]);
+    }
+  }
+  assert.strictEqual(seen.length, 6, '四带各 1 挑战关 + 奇两带 boss 节, 实为 ' + seen.length);
+  for (const [what, i, t] of seen) {
+    assert.ok(t === 2 || t === 3, what + '(第 ' + i + ' 关)试次数 2~3, 实为 ' + t);
+  }
 });
 
 /* ============ craft 族 ============ */
@@ -503,6 +673,26 @@ test('craft/shortage: 还差 = need-have', () => {
   tap(btn);
   d.flush(8);
   assert.strictEqual(ended[0].correct, 1);
+});
+
+test('craft 配方卡(呈现反泄漏): 需求侧不画方块行 — planks 图标恰 1 枚, 数字入卡', () => {
+  const d = loadMathParadigms();
+  for (const variant of ['enough', 'shortage']) {
+    for (const seed of [3, 5, 8, 13, 25, 34]) {
+      const ended = [];
+      play(d, 'craft', variant, 7, {trials: 1, seed}, {end: (s) => ended.push(s)});
+      d.flush(8);
+      const need = sEls(d, 'm-need').pop();
+      assert.ok(need, variant + ' 需求卡存在');
+      const html = String(need.innerHTML);
+      const planks = (html.match(/data:mc:planks/g) || []).length;
+      assert.strictEqual(planks, 1,
+          variant + ' seed' + seed + ' 需求卡 planks 图标恰 1 枚(数字卡, 不随 need 增长)');
+      assert.ok(html.includes('>' + need.dataset.n + '<'),
+          variant + ' seed' + seed + ' 数字入卡: ' + html.slice(0, 80));
+      autoPlay(d, ended, 30);
+    }
+  }
 });
 
 test('craft/order: 订单总量 = k×per(data-k/data-per 神谕)', () => {
@@ -927,6 +1117,44 @@ test('hop/clock: 时间推算 — 基时刻+delta 神oracle(过半小时/一小�
   }
 });
 
+/* ============ G1 常驻昼夜大钟: 角度/报时纯函数(钟部件族, 单一直出处) ============ */
+
+test('mClockAngles: 时/分针角度 — 12 点制归 0..360, 半时时针落两数字之间, 分针连续无跳变', () => {
+  const {mp} = loadMathParadigms();
+  /* {...} 展开: vm context 的对象原型与宿主不同, deepStrictEqual 前先落宿主对象(仓库惯例) */
+  const ang = (h, m) => ({...mp.mClockAngles(h, m)});
+  assert.deepStrictEqual(ang(12, 0), {hour: 0, min: 0}, '12 点制: 12 时不转 360°');
+  assert.deepStrictEqual(ang(0, 0), {hour: 0, min: 0}, '24 时制 0 点=12 点位置');
+  assert.deepStrictEqual(ang(3, 0), {hour: 90, min: 0});
+  assert.deepStrictEqual(ang(3, 30), {hour: 105, min: 180}, '半时时针在 3 与 4 中间(认钟教学点)');
+  assert.deepStrictEqual(ang(6, 15), {hour: 187.5, min: 90}, '时针随分推进(每分 0.5°)');
+  /* 分针连续性: 10:59→11:00 分针 354°→360°(≡0°) 顺接无回卷, 时针 329.5°→330° */
+  assert.deepStrictEqual(ang(10, 59), {hour: 329.5, min: 354});
+  assert.deepStrictEqual(ang(11, 0), {hour: 330, min: 0});
+});
+
+test('mClockSay: 报时中文串 — 整时「X 点整」/半时「X 点半」教材口径, 任意分「X 点 Y 分」, 24 时制归 12 点制', () => {
+  const {mp} = loadMathParadigms();
+  assert.strictEqual(mp.mClockSay(3, 0), '现在是 3 点整');
+  assert.strictEqual(mp.mClockSay(3, 30), '现在是 3 点半');
+  assert.strictEqual(mp.mClockSay(3, 7), '现在是 3 点 7 分', '任意分: 几时几分口径');
+  assert.strictEqual(mp.mClockSay(15, 30), '现在是 3 点半', '24 时制 15 时=下午 3 点');
+  assert.strictEqual(mp.mClockSay(0, 0), '现在是 12 点整', '0 时=12 点制 12 点');
+  assert.strictEqual(mp.mClockSay(12, 5), '现在是 12 点 5 分');
+  assert.strictEqual(mp.mClockSay(23, 59), '现在是 11 点 59 分');
+});
+
+test('mClockFace: 针角度出自 mClockAngles 单一出处 — 常驻钟面与谜题钟面同形态', () => {
+  const {mp} = loadMathParadigms();
+  const face = mp.mClockFace(mkFakeEl([], []), 2, 35);
+  const a = mp.mClockAngles(2, 35);
+  const html = String(face.innerHTML);
+  assert.ok(html.includes('rotate(' + a.hour + 'deg)'), '时针角度=纯函数值 ' + a.hour + '°');
+  assert.ok(html.includes('rotate(' + a.min + 'deg)'), '分针角度=纯函数值 ' + a.min + '°');
+  assert.strictEqual(face.dataset.h, 2, 'oracle 位 dataset.h 保持 12 时制原值');
+  assert.strictEqual(face.dataset.m, 35, 'oracle 位 dataset.m');
+});
+
 /* 测距神 oracle: m-path 的 a/b/mode/round → mkIntervalPuzzle 口径 */
 function measureAnswer(path) {
   const a = +path.dataset.a;
@@ -1234,6 +1462,19 @@ test('mathLevelMeta: 情境关话术覆盖(场馆=情境名/规则/提示), 常�
   const plain = mm.mathLevelMeta({family: ctxLv.family, variant: 'zzz'});
   assert.notStrictEqual(plain.game, ctx.name, '常规关场馆仍是族场馆');
   assert.ok(typeof plain.rule === 'string' && plain.rule.length > 0, '常规关规则走族话术');
+});
+
+test('mathLevelMeta: 变体级规则话术(移多补少搬动试错)覆盖族 rule, 名/提示仍走族', () => {
+  const {mm} = loadMathMode();
+  const bl = mm.MATH_LEVELS.find((l) => l.variant === 'balance');
+  assert.ok(bl, '编排里有移多补少关');
+  const v = mm.MATH_VARIANTS.count.find((x) => x.id === 'balance');
+  const meta = mm.mathLevelMeta(bl);
+  assert.strictEqual(meta.rule, v.rule, '规则话术取变体级');
+  assert.ok(meta.rule.includes('搬'), '话术讲搬动玩法(族 rule 的"点数字"口径不再适用)');
+  assert.strictEqual(meta.name, mm.MATH_META[bl.family].name, '族名不变');
+  assert.strictEqual(meta.game, mm.MATH_META[bl.family].game, '场馆仍是族场馆');
+  assert.strictEqual(meta.tip, mm.MATH_META[bl.family].tip, '提示仍走族曲线话术');
 });
 
 test('mathFrontier/mathLevelUnlocked: 最高已通+1, 空档 0 星入账可跳关', () => {

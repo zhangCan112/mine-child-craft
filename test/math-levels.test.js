@@ -196,7 +196,15 @@ test('MATH_LEVELS: 每关 params 由该族该 tier 曲线生成(与 mathParamsFo
   const ml = loadMathLevels();
   for (const lv of ml.MATH_LEVELS) {
     const p = ml.mathParamsFor(lv.family, lv.tier, lv.i);
-    assert.deepStrictEqual({...lv.params}, {...p},
+    /* 变体级 trials 覆写(移多补少搬动试错 2~3 题)是唯一合法偏离 —
+       除该字段外必须与曲线逐键一致 */
+    const meta = (ml.MATH_VARIANTS[lv.family] || []).find((x) => x.id === lv.variant);
+    const a = {...lv.params};
+    if (meta && meta.trials) {
+      delete a.trials;
+      delete p.trials;
+    }
+    assert.deepStrictEqual(a, {...p},
         '第 ' + (lv.i+1) + ' 关参数与曲线一致');
   }
 });

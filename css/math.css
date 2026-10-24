@@ -21,6 +21,7 @@
 }
 
 #mathRoot .m-top {
+  position: relative; /* G1 常驻钟面挂载位: 右上角小钟(m-clockbox 绝对定位于此) */
   padding: 10px 14px;
 }
 
@@ -345,11 +346,12 @@
   justify-content: center;
   gap: 6px;
   max-width: 560px;
-  transition: opacity 0.4s;
+  transition: opacity 0.4s, visibility 0s linear 0.4s;
 }
 
 .m-flash.m-hide {
   opacity: 0;
+  visibility: hidden; /* 闪没不留尾: 渐隐完成后彻底移出可见性与无障碍树 */
 }
 
 .m-flash.m-group5 {
@@ -403,7 +405,7 @@
   padding: 14px 30px;
 }
 
-/* 方块堆(比多少/移多补少) */
+/* 方块堆(比多少/移多补少) — 比多少两堆铺十格阵(呈现反泄漏) */
 .m-piles {
   display: flex;
   gap: 40px;
@@ -411,12 +413,30 @@
 }
 
 .m-pile {
-  max-width: 220px;
+  max-width: 240px;
   padding: 10px;
   border-radius: 12px;
   border: 3px solid rgb(255 255 255 / 45%);
   background: rgb(0 0 0 / 35%);
   line-height: 1.6;
+}
+
+/* 十格阵框(呈现反泄漏): 每行 5 格×两行一组, 空格占位可见 —
+   同十格区间数量阵框占位同形, 比长短得不到答案 */
+.m-frame {
+  display: grid;
+  grid-template-columns: repeat(5, 34px);
+  gap: 6px;
+  justify-items: center;
+  margin: 4px auto;
+}
+
+.m-frempty {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: 2px dashed rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 15%);
 }
 
 button.m-pile {
@@ -425,6 +445,40 @@ button.m-pile {
 
 .m-pilestat {
   cursor: default;
+}
+
+/* 移多补少(搬动试错, G2): 活堆逐块可点, 计数徽即时重显 */
+.m-pilelive {
+  cursor: default;
+  min-width: 96px;
+}
+
+button.m-blk {
+  padding: 4px;
+  border-radius: 8px;
+  border: 3px solid transparent;
+  background: transparent;
+  cursor: pointer;
+  animation: m-blk-arrive 0.25s backwards; /* 搬来的方块轻落进场 */
+}
+
+button.m-blk:hover {
+  border-color: rgb(255 216 61 / 80%);
+}
+
+.m-pilecount {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+  color: #ffd83d;
+  text-shadow: 0 2px 0 rgb(0 0 0 / 40%);
+}
+
+@keyframes m-blk-arrive {
+  from {
+    transform: translateY(-16px) scale(1.15);
+    opacity: 0.4;
+  }
 }
 
 /* 按数取物: 箱子 + 托盘 + 确认 */
@@ -482,6 +536,14 @@ button.m-pile {
 .m-needtag {
   font-size: 15px;
   margin-left: 6px;
+}
+
+/* 需求配方卡大数字(呈现反泄漏): 需求数不画方块行, 数字是学习对象 */
+.m-neednum {
+  font-size: 36px;
+  font-weight: 800;
+  color: #ffd83d;
+  margin: 0 6px;
 }
 
 .m-bundle {
@@ -806,6 +868,39 @@ button.m-mark:hover {
   height: 52px;
   margin-left: -2px;
   background: #ffd83d;
+}
+
+/* ---------- G1 常驻昼夜大钟: 今日页/地图页右上一枚小钟面, 点击报时 ----------
+   复用谜题钟面 .m-clock 形态(150px content-box 原样 transform 缩到约
+   130px, 数字/针同比例); 每分钟整面重画走针, 无动画循环(reduced-motion
+   无需降级); 空槽不占位不挡点(:empty 隐藏 + 槽位 pointer-events 分层) */
+.m-clockbox {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  width: 130px; /* .m-clock content-box 总占位 162px(150+6×2 边框), ×0.8=129.6 */
+  height: 130px;
+  pointer-events: none; /* 空槽不挡底层点选, 钟面自身恢复可点 */
+}
+
+.m-clockbox:empty {
+  display: none;
+}
+
+.m-clock-live {
+  transform: scale(0.8);
+  transform-origin: top left;
+  pointer-events: auto;
+  cursor: pointer;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 35%);
+}
+
+.m-clock-live:hover {
+  border-color: #ffd83d; /* 悬停高亮分针色: 提示可点 */
+}
+
+.m-clock-live:active {
+  transform: scale(0.76);
 }
 
 /* 测距步数: 格子路(带绝对序号, 起点小怪物/终点小旗) */

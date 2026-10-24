@@ -8,15 +8,20 @@
    引擎不知道奖励/背包/图章/关卡编排。
    出题优先调 PuzzleCore(算式谜/多解/天平=mkScalePuzzle/mkPartitionPuzzle,
    数列/周期/线索排队=mkSeqPuzzle/mkPeriodPuzzle/mkClueOrderPuzzle);
-   count 族闪现/取物/比多少/移多补少与 craft 常规三变体无对应生成器,
-   引擎内用同常数 LCG 自行生成(种子注入, 同 seed 同输出)。
+   count 族闪现/取物/比多少与 craft 常规三变体无对应生成器,
+   引擎内用同常数 LCG 自行生成(种子注入, 同 seed 同输出);
+   移多补少(count/balance)为搬动试错(US6): mBalancePair 堆对生成
+   纯函数 + 两堆相等自动交卷 + mBalanceReveal 按实际差值语音点破。
    认知负荷红线(PuzzleCore.LIMITS): 一次呈现 ≤4 组块 · 线索 ≤3 条 —
    mathGuardParams 渲染前校验参数, 越界 console.warn 并截断(测试锁)。
    interface: mathScreenDispatch(family, variant) · mathGuardParams(params) ·
      runMathScreen(section, area, h) → {stop()} | null(世界变体误调的防御返回)
      section = {family, variant, tier?, kind?, params, seed?} ·
+     mFrameLayout(n, seed) → 十格阵格位序列(呈现反泄漏纯函数, G5) ·
      h = {progress(k, n)?, onTrial({ok, streak})?, end(st)} —
-     st = {trials, correct, acc, maxStreakErr}(供 mathPassed/mathStars)
+     st = {trials, correct, acc, maxStreakErr}(供 mathPassed/mathStars) ·
+     钟部件族 mClockFace/mClockAngles/mClockSay(角度/报时口径纯函数,
+     谜题钟面与 modes/math.js G1 常驻昼夜大钟共用, 配单测)
    依赖(均经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js) ·
      SpeechKit/sfx(js/speech.js·js/audio.js) · mcIcon(js/focus-icons.js) ·
      Mobs.face(js/mobs.js, 怪物头像, 缺席回落 mcIcon) ·
@@ -242,6 +247,49 @@ function mPileIcons(n, icon) {
   return s;
 }
 
+/* ---------- 呈现反泄漏(G5): 十格阵布局(纯函数) ---------- */
+
+/* 十格阵布局: n 个物品铺进 ceil(n/10) 个 2×5 阵框, 每行 5 格(一年级
+   教材同款教具), 空格以占位格可见(一一对应/逐个点数是合法策略);
+   同十格区间的 n 与 n+1 格位总数相同 → 阵框占位同宽同高, 比长短
+   得不到答案(用户实测"对比块的长度就知道够不够", 呈现层修复)。
+   seed 注入阵组排列(满阵在前/后)与每阵填充起点(左起/右起),
+   同 seed 同输出; 输出 = 恒 10 的倍数格位序列, {f:1}实格/{f:0}空格 */
+function mFrameLayout(n, seed) {
+  const cnt = Math.max(0, Math.floor(n));
+  if (cnt === 0) return [];
+  const rnd = mRand(seed === undefined ? 0 : seed);
+  const groups = [];
+  let left = cnt;
+  while (left > 0) {
+    groups.push(Math.min(10, left));
+    left -= 10;
+  }
+  if (groups.length > 1 && rnd() < 0.5) groups.reverse(); // 阵组顺序由 seed 派生
+  const cells = [];
+  for (const g of groups) {
+    const fromRight = rnd() < 0.5; // 每阵填充起点由 seed 派生
+    for (let k = 0; k < 10; k++) {
+      cells.push({f: (fromRight ? 9 - k : k) < g ? 1 : 0});
+    }
+  }
+  return cells;
+}
+
+/* 十格阵堆 html(两堆比较呈现): 按组包阵框, 空格占位可见 */
+function mFramePileHtml(n, icon, seed) {
+  const cells = mFrameLayout(n, seed);
+  let html = '';
+  for (let g = 0; g < cells.length; g += 10) {
+    html += '<span class="m-frame">';
+    for (const c of cells.slice(g, g + 10)) {
+      html += c.f ? mIconImg(icon) : '<span class="m-frempty"></span>';
+    }
+    html += '</span>';
+  }
+  return html;
+}
+
 /* ---------- count 族 A 数一数 ---------- */
 
 /* 怪物快照: 小客人闪现 → 藏起 → 点出数量(感数/按群计数; ≤12) */
@@ -299,7 +347,9 @@ function mCountFetch(stage, p, rnd, ctx) {
   ctx.speak('请搬 ' + n + ' 个方块进箱子，点够了按好啦。');
 }
 
-/* 比多少: 谁多(点堆) / 多几个(数字条) */
+/* 比多少: 谁多(点堆) / 多几个(数字条) — 两堆铺十格阵(呈现反泄漏:
+   同十格区间阵框同形, 空格可见, 比长短得不到答案, 须逐个点数或
+   按空格一一对应) */
 function mCountCompare(stage, p, rnd, ctx) {
   const cap = Math.max(4, Math.min(p.max || 10, 12));
   let a = mRi(rnd, 1, cap);
@@ -307,9 +357,10 @@ function mCountCompare(stage, p, rnd, ctx) {
   while (b === a) b = mRi(rnd, 1, cap);
   const diffMode = p.reasoning && p.reasoning !== 'single';
   const wrap = mEl('div', 'm-piles');
+  const frameHtml = (n) => mFramePileHtml(n, 'cobble', Math.floor(rnd() * 2147483647));
   if (!diffMode) {
     for (const n of mShuffle(rnd, [a, b])) {
-      const pile = mChoiceBtn(n, mPileIcons(n, 'cobble'), 'm-pile', (v, el) => ctx.settle(+v === Math.max(a, b), el));
+      const pile = mChoiceBtn(n, frameHtml(n), 'm-pile', (v, el) => ctx.settle(+v === Math.max(a, b), el));
       pile.dataset.n = n;
       wrap.appendChild(pile);
     }
@@ -317,7 +368,7 @@ function mCountCompare(stage, p, rnd, ctx) {
     ctx.speak('哪边的方块多？点一点！');
   } else {
     for (const n of [a, b]) {
-      const pile = mEl('div', 'm-pile m-pilestat', mPileIcons(n, 'cobble'));
+      const pile = mEl('div', 'm-pile m-pilestat', frameHtml(n));
       pile.dataset.n = n;
       wrap.appendChild(pile);
     }
@@ -328,21 +379,74 @@ function mCountCompare(stage, p, rnd, ctx) {
   }
 }
 
-/* 移多补少(挑战): 从多的一边搬几个过去两边一样多 */
+/* 移多补少堆对生成(纯函数, 假 doc 单测直锁): 两堆各自 ≤6 且差为偶数 ≤4
+   —— 搬动试错要逐个点方块, 堆数守住感数与点数上限; 差恒偶数因为
+   "移 k 个差减 2k", 答案 k=差/2(一年级思考题口径, 奇数差不出现 —
+   spec 只说移到一样多); 数量跟带注入: max 经 min 钳 6, 挑战关思维
+   密度在搬动探索不在数字大小(带 0 首档 max=4 → 差恒 2, 先体会
+   "移 1 个差变 2") */
+function mBalancePair(rnd, p) {
+  const cap = Math.max(4, Math.min(p.max || 6, 6));
+  const small = mRi(rnd, 1, cap - 2);
+  const big = small + 2 * mRi(rnd, 1, Math.min(2, Math.floor((cap - small) / 2)));
+  return {small, big, diff: big - small, answer: (big - small) / 2};
+}
+
+/* 揭示话术(纯函数): 交卷后按本关实际差值点破规律 — 夸方法(过程性表扬)
+   + 点破"移 1 个差变 2"(US6 语音点破口径) */
+function mBalanceReveal(pair) {
+  return '你搬得很仔细！原来差 ' + pair.diff + ' 个，移 ' + pair.answer +
+      ' 个过去就一样多啦——移 1 个，差就变少 2！';
+}
+
+/* 移多补少(挑战, 搬动试错, US6): 两堆方块, 点某堆里的一个方块 → 搬到
+   另一堆, 两堆计数即时重显(CPA 具体→表象, 计数徽与堆同步); 来回搬
+   零惩罚, 两堆相等时自动交卷判对(探索式只有达成没有失败 — 只奖不罚
+   红线); 搬错方向(少 → 多)不判负, 让计数变化自己教育孩子, 每两次无效
+   搬动后 TTS 温和提示方向; 交卷后 mBalanceReveal 按本关实际差值语音
+   点破。多的一堆恒在前(与旧静态版同序, 话术仍要孩子自己比出哪边多)。 */
+const MATH_BALANCE_HINT = '想想哪边多，从多的往少的搬哦';
+
 function mCountBalance(stage, p, rnd, ctx) {
-  const cap = Math.max(6, Math.min(p.max || 10, 14));
-  const small = mRi(rnd, 1, cap - 4);
-  const big = small + 2 * mRi(rnd, 1, Math.floor((cap - small) / 2)); // 差恒偶数
+  const pair = mBalancePair(rnd, p);
+  const counts = [pair.big, pair.small];
   const wrap = mEl('div', 'm-piles');
-  for (const n of [big, small]) {
-    const pile = mEl('div', 'm-pile m-pilestat', mPileIcons(n, 'wool_red'));
-    pile.dataset.n = n;
+  const piles = [];
+  for (let j = 0; j < 2; j++) {
+    const pile = mEl('div', 'm-pile m-pilelive', '');
     wrap.appendChild(pile);
+    piles.push(pile);
   }
   stage.appendChild(wrap);
-  const ans = (big - small) / 2;
-  mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
-  ctx.speak('从多的一边搬几个到少的一边，两边就一样多？');
+  let ineff = 0; // 无效搬动(少 → 多)计数, 每满 2 提示一次方向
+  let done = false; // 交卷后锁交互(settle 已记账, 残点不再搬)
+  const renderPile = (j) => {
+    piles[j].dataset.n = counts[j]; // DOM 神 oracle 位 + CPA 即时重显
+    piles[j].innerHTML = '';
+    for (let k = 0; k < counts[j]; k++) {
+      piles[j].appendChild(mChoiceBtn(j + ':' + k, mIconImg('wool_red'), 'm-blk', () => move(j)));
+    }
+    piles[j].appendChild(mEl('b', 'm-pilecount', String(counts[j]))); // 可见计数徽(数字是学习对象)
+  };
+  const move = (j) => {
+    if (done || counts[j] <= 0) return; // 空堆无从搬
+    const wrongWay = counts[j] < counts[1 - j]; // 从少的一堆搬向多的一堆 = 无效方向
+    counts[j]--;
+    counts[1 - j]++;
+    sfxSafe('click');
+    renderPile(j);
+    renderPile(1 - j);
+    if (counts[0] === counts[1]) {
+      done = true;
+      ctx.settle(true, null); // 相等自动交卷, 恒判对(达成即成功)
+      ctx.speak(mBalanceReveal(pair));
+      return;
+    }
+    if (wrongWay && ++ineff % 2 === 0) ctx.speak(MATH_BALANCE_HINT);
+  };
+  renderPile(0);
+  renderPile(1);
+  ctx.speak('两堆不一样多，怎么移才一样多？点一个方块搬搬试试！');
 }
 
 /* ---------- craft 族 B 算一算 ---------- */
@@ -365,10 +469,13 @@ function mHavePile(stage, have, p, rnd) {
   return el;
 }
 
-/* 材料配方行: 镐子 + need 块木板(enough/shortage 共用) */
+/* 需求配方卡(呈现反泄漏, enough/shortage 共用): 需求数不画方块行 —
+   镐子 + 大数字 + 单枚物品图标, 数字是 CPA 的 A 层学习对象; 孩子
+   必须数库存方块(m-have 侧)再与数字比较, 两条长度不再可比 */
 function mNeedRow(stage, need) {
   const needEl = mEl('div', 'm-need',
-      mIconImg('pickaxe') + mPileIcons(need, 'planks') + '<span class="m-needtag">要 ' + need + ' 块</span>');
+      mIconImg('pickaxe') + '<b class="m-neednum">' + need + '</b>' + mIconImg('planks') +
+      '<span class="m-needtag">要 ' + need + ' 块</span>');
   needEl.dataset.n = need;
   stage.appendChild(needEl);
   return needEl;
@@ -804,20 +911,39 @@ function mShopPayWays(stage, p, rnd, ctx) {
 }
 
 /* 钟面小部件: DOM 指针钟(12/3/6/9 刻度 + 时/分针 transform 旋转);
-   dataset.h/dataset.m 为神 oracle 位, 12 时制 1..12, 零 DOM 画布 */
+   dataset.h/dataset.m 为神 oracle 位, 12 时制 1..12, 零 DOM 画布;
+   针角度出自 mClockAngles 单一出处(常驻钟面 G1 与谜题钟面同形态) */
 function mClockFace(stage, h, m) {
+  const a = mClockAngles(h, m);
   const el = mEl('div', 'm-clock',
       '<span class="m-clock-num m-clock-n12">12</span>' +
       '<span class="m-clock-num m-clock-n3">3</span>' +
       '<span class="m-clock-num m-clock-n6">6</span>' +
       '<span class="m-clock-num m-clock-n9">9</span>' +
-      '<span class="m-clock-hand m-hourhand" style="transform: rotate(' +
-          ((h % 12) * 30 + m * 0.5) + 'deg)"></span>' +
-      '<span class="m-clock-hand m-minhand" style="transform: rotate(' + (m * 6) + 'deg)"></span>');
+      '<span class="m-clock-hand m-hourhand" style="transform: rotate(' + a.hour + 'deg)"></span>' +
+      '<span class="m-clock-hand m-minhand" style="transform: rotate(' + a.min + 'deg)"></span>');
   el.dataset.h = h;
   el.dataset.m = m;
   stage.appendChild(el);
   return el;
+}
+
+/* 时刻→时/分针角度(纯函数, G1 常驻钟面与谜题钟面的单一直出处):
+   12 点制 — 12/0 时都指正上 0°(h%12); 分针角 = m×6(0..354, 59 分→0 分
+   顺接无回卷); 时针角随分推进 ((h%12)×30 + m×0.5) — 半时时针落在两个
+   数字中间, 正是"长针指 6 短针走过 x"的认钟教学点 */
+function mClockAngles(h, m) {
+  return {hour: (h % 12) * 30 + m * 0.5, min: m * 6};
+}
+
+/* 时刻→报时中文串(纯函数, 一年级教材口径): 整时「X 点整」· 半时「X 点半」·
+   其余「X 点 Y 分」; h 收 24 时制(0..23)内部归 12 点制 — 报的就是钟面针
+   指的; G1 常驻钟面点击 SpeechKit 报时用 */
+function mClockSay(h, m) {
+  const hh = (h % 12) || 12;
+  if (m === 0) return '现在是 ' + hh + ' 点整';
+  if (m === 30) return '现在是 ' + hh + ' 点半';
+  return '现在是 ' + hh + ' 点 ' + m + ' 分';
 }
 
 /* 分钟总数 → 'h:mm' 12 时制串(数字符号是学习对象, 允许出现; 负数入参
@@ -1026,5 +1152,5 @@ function runMathScreen(section, area, h) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {mathScreenDispatch, mathGuardParams, runMathScreen};
+  module.exports = {mathScreenDispatch, mathGuardParams, runMathScreen, mFrameLayout};
 }
