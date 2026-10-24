@@ -3,7 +3,8 @@
    谜题纯核心 (PuzzleCore, 术语见 GLOSSARY.md「谜题纯核心」) — 应用层纯核心
    ------------------------------------------------------------
    数学冒险岛全部谜题的出题与判分纯变换(是生成器, 不是题库): 图案
-   镜像/平移/旋转与对称补全 · 俯视图纸投影与反向判分 · 隐藏块与露面
+   镜像/平移/旋转与对称补全 · 俯视图纸投影与反向判分 · 正视/侧视
+   投影与双视角推理 · 隐藏块与露面
    计数 · 数列规律与周期取模 · 合成多解不重不漏枚举 · 天平代换链 ·
    线索排队 · 间隔问答。数值范围由调用方注入 max(四带数值轴,
    生成器结构性永不越界 — band0 传 20 后孩子读到的任何数 >20 都是 bug);
@@ -16,6 +17,8 @@
      translatePattern(图案变换)
      · mkSymmetryPuzzle · gradeSymmetry(对称补全出题/判分)
      · projectTop · gradeBlueprint · mkBlueprintPuzzle(俯视图纸)
+     · projectFront · projectSide · mkDualViewPuzzle(正视/侧视投影与双视角
+     推理, US24"正面看是山、侧面看是墙是哪座建筑")
      · hiddenBlocks · exposedFaces(空间计数)
      · mkSeqPuzzle(数列) · periodAt · mkPeriodPuzzle(周期)
      · partitionsOf · mkPartitionPuzzle(多解枚举)
@@ -203,6 +206,163 @@ const PuzzleCore = (() => {
       cells = [{x: 0, y: 0, z: 0, col: 1}, {x: w - 1, y: 0, z: d - 1, col: 1}];
     }
     return {cells, blueprint: projectTop(cells)};
+  }
+
+  /* ---------- 正视/侧视投影(US24 视角推理): 与俯视同族的正交投影 ---------- */
+
+  /* 正视投影: 观察者在 -z 侧迎面看(x 向右 · y 向上), 每条 (x,y) 视线
+      取最前(z 最小)可见块。返回 {w, h, front} — 行主序 y 行 × x 列
+      (y 升序, 装配层画图时上下翻转), 0=空, 其余=颜色号;
+      坐标归零到包围盒 → 视图是形状不是位置(与 projectTop 同口径)。 */
+  function projectFront(cells) {
+    if (!cells.length) return {w: 0, h: 0, front: []};
+    let minX = Infinity; let maxX = -Infinity;
+    let minY = Infinity; let maxY = -Infinity;
+    const best = new Map(); // "x,y" → 该视线最前(z 最小)块
+    for (const b of cells) {
+      if (b.x < minX) minX = b.x;
+      if (b.x > maxX) maxX = b.x;
+      if (b.y < minY) minY = b.y;
+      if (b.y > maxY) maxY = b.y;
+      const k = b.x + ',' + b.y;
+      const cur = best.get(k);
+      if (!cur || b.z < cur.z) best.set(k, {x: b.x, y: b.y, z: b.z, col: b.col || 1});
+    }
+    const w = maxX - minX + 1;
+    const h = maxY - minY + 1;
+    const front = new Array(w * h).fill(0);
+    for (const v of best.values()) front[(v.y - minY) * w + (v.x - minX)] = v.col;
+    return {w, h, front};
+  }
+
+  /* 侧视投影: 观察者在 -x 侧看(z 向右 · y 向上), 每条 (z,y) 视线取
+      最前(x 最小)可见块。返回 {d, h, side} — 行主序 y 行 × z 列。 */
+  function projectSide(cells) {
+    if (!cells.length) return {d: 0, h: 0, side: []};
+    let minZ = Infinity; let maxZ = -Infinity;
+    let minY = Infinity; let maxY = -Infinity;
+    const best = new Map(); // "z,y" → 该视线最前(x 最小)块
+    for (const b of cells) {
+      if (b.z < minZ) minZ = b.z;
+      if (b.z > maxZ) maxZ = b.z;
+      if (b.y < minY) minY = b.y;
+      if (b.y > maxY) maxY = b.y;
+      const k = b.z + ',' + b.y;
+      const cur = best.get(k);
+      if (!cur || b.x < cur.x) best.set(k, {x: b.x, y: b.y, z: b.z, col: b.col || 1});
+    }
+    const d = maxZ - minZ + 1;
+    const h = maxY - minY + 1;
+    const side = new Array(d * h).fill(0);
+    for (const v of best.values()) side[(v.y - minY) * d + (v.z - minZ)] = v.col;
+    return {d, h, side};
+  }
+
+  /* ---------- 双视角推理出题(US24 ★★): 正面看是山、侧面看是墙 ---------- */
+
+  /* 出题: t = {seed, blocks, w, d, h, colors} — 生成 1 个目标结构(实心柱,
+     与 mkBlueprintPuzzle 同口味, 尺寸随 blocks 预算封顶) + 3 个干扰候选
+     (总数恰 4, LIMITS.chunks)。干扰的两个可证孪生构造:
+     · 正视孪生 = 目标在最后方(z=maxZ+slot)加"尾巴"块 — 正视图必不变
+       (尾巴 z 最大, 不是任何 (x,y) 视线的最前块, 全程被遮), 侧视图必变
+       (深度 +slot 且新增占用列);
+     · 侧视孪生 = 目标在最右方(x=maxX+slot)加"外伸"块 — 侧视图必不变
+       (外伸块 x 最大, 不是任何 (z,y) 视线的最前块), 正视图必变(宽 +slot)。
+     于是每个干扰恰与目标共享一个视图、必异于另一个 — 单看任一视图
+     匹配数 >1(目标总与干扰共享视图), 双视图综合恰锁定目标(推理核心)。
+     返回 {target, front, side, candidates, answer, box} — front/side 即
+     谜面两视图(消费方直接画 2D 像素图, 同 blueprintPixels 口径),
+     box 罩住全部候选(世界轨装场定界, 干扰比目标至多外扩 1 格)。 */
+  function mkDualViewPuzzle(t) {
+    const o = t || {};
+    const rnd = mkRand(o.seed);
+    const blocks = o.blocks || 12;
+    const hi = Math.min(4, Math.max(2, 2 + Math.floor(blocks / 15))); // 同 mkWorldBuild 口径
+    const w = o.w || ri(rnd, 2, hi);
+    const d = o.d || ri(rnd, 2, hi);
+    const h = o.h || ri(rnd, 1, blocks >= 20 ? 2 : 1);
+    const colors = o.colors || ri(rnd, 1, 3);
+    let cells = [];
+    for (let tries = 0; tries < 8; tries++) {
+      cells = [];
+      let used = 0;
+      for (let z = 0; z < d; z++) {
+        for (let x = 0; x < w; x++) {
+          const hz = rnd() < 0.3 ? 0 : ri(rnd, 1, h);
+          if (hz > 0) used++;
+          const col = ri(rnd, 1, colors);
+          for (let y = 0; y < hz; y++) cells.push({x, y, z, col});
+        }
+      }
+      if (used >= 2 && cells.length >= 4) break; // 谜面成图: ≥2 列且 ≥4 块
+    }
+    if (cells.length < 4) { // 密度极端兜底: 2×2 满铺一层
+      cells = [{x: 0, y: 0, z: 0, col: 1}, {x: 1, y: 0, z: 0, col: 1},
+        {x: 0, y: 0, z: 1, col: 1}, {x: 1, y: 0, z: 1, col: 1}];
+    }
+    const front = projectFront(cells);
+    const side = projectSide(cells);
+    let maxX = 0; let maxZ = 0;
+    for (const c of cells) {
+      if (c.x > maxX) maxX = c.x;
+      if (c.z > maxZ) maxZ = c.z;
+    }
+    const groundXs = [...new Set(cells.filter((c) => c.y === 0).map((c) => c.x))];
+    const groundZs = [...new Set(cells.filter((c) => c.y === 0).map((c) => c.z))];
+    const cands = [{cells: cells.map((c) => Object.assign({}, c)), ok: true}];
+    const seen = new Set([cells.map(keyOf).sort().join(';')]);
+    /* 正视孪生: 尾巴加在 z=maxZ+slot(slot≥2 为互异兜底位), 偶尔两层尾 —
+       第二层只在目标该 (x, ·) 线已有 y=1 块时加(否则会撑出新的视图行) */
+    const frontTwin = (slot) => {
+      const x = pick(rnd, groundXs);
+      const tail = [{x, y: 0, z: maxZ + slot, col: ri(rnd, 1, colors)}];
+      if (rnd() < 0.5 && cells.some((c) => c.x === x && c.y === 1)) {
+        tail.push({x, y: 1, z: maxZ + slot, col: ri(rnd, 1, colors)});
+      }
+      return cells.concat(tail);
+    };
+    /* 侧视孪生: 外伸块加在 x=maxX+slot(第二层同理需目标已有 y=1 块) */
+    const sideTwin = (slot) => {
+      const z = pick(rnd, groundZs);
+      const ext = [{x: maxX + slot, y: 0, z, col: ri(rnd, 1, colors)}];
+      if (rnd() < 0.5 && cells.some((c) => c.z === z && c.y === 1)) {
+        ext.push({x: maxX + slot, y: 1, z, col: ri(rnd, 1, colors)});
+      }
+      return cells.concat(ext);
+    };
+    const addTwin = (maker) => {
+      for (let slot = 1; slot <= 2; slot++) {
+        for (let tries = 0; tries < 8; tries++) {
+          const twin = maker(slot);
+          const sig = twin.map(keyOf).sort().join(';');
+          if (seen.has(sig)) continue;
+          seen.add(sig);
+          cands.push({cells: twin, ok: false});
+          return;
+        }
+      }
+      // 兜底位仍撞形(理论上仅单列结构可达): 再退一格必互异
+      const twin = maker(3);
+      seen.add(twin.map(keyOf).sort().join(';'));
+      cands.push({cells: twin, ok: false});
+    };
+    addTwin(frontTwin);
+    addTwin(sideTwin);
+    addTwin(rnd() < 0.5 ? frontTwin : sideTwin);
+    const shuffled = shuffle(rnd, cands);
+    let bx0 = 0; let bx1 = maxX; let bz0 = 0; let bz1 = maxZ; let by1 = 0;
+    for (const c of cands) {
+      for (const b of c.cells) {
+        if (b.x < bx0) bx0 = b.x;
+        if (b.x > bx1) bx1 = b.x;
+        if (b.z < bz0) bz0 = b.z;
+        if (b.z > bz1) bz1 = b.z;
+        if (b.y > by1) by1 = b.y;
+      }
+    }
+    return {target: cells, front, side, candidates: shuffled,
+      answer: shuffled.findIndex((c) => c.ok),
+      box: {w: bx1 - bx0 + 1, d: bz1 - bz0 + 1, h: by1 + 1}};
   }
 
   /* ---------- 空间计数(E 族 ★★): 隐藏块与露面 — 纯邻接查询 ---------- */
@@ -453,6 +613,7 @@ const PuzzleCore = (() => {
 
   return {LIMITS, mirrorPattern, rot180Pattern, rotatePattern, translatePattern,
     mkSymmetryPuzzle, gradeSymmetry, projectTop, gradeBlueprint, mkBlueprintPuzzle,
+    projectFront, projectSide, mkDualViewPuzzle,
     hiddenBlocks, exposedFaces, mkSeqPuzzle, periodAt, mkPeriodPuzzle,
     partitionsOf, mkPartitionPuzzle, mkScalePuzzle, mkClueOrderPuzzle, solveClueOrder,
     mkIntervalPuzzle};

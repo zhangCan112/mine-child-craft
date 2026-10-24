@@ -130,4 +130,8 @@ mathStars(level, st, famChallengeDone): ⭐通过 ⭐⭐ acc≥85%
 | 家长面板未做"重置进度"按钮（focus 有） | spec 未要求；需要时 mathSlot.reset 现成可接 |
 | 连败 2 次换路：0 星占位推进（结算 moveOn 分支） | spec 外增量；focus 同构的抗卡死设计，保留 |
 | 图章奖励达成线（3/7/30 章观感奖励，MATH_STAMP_REWARDS） | spec 字面之外；focus 集章同构的观感回路，保留 |
-| 双视角推理（US24）/最省块数（US20）/昼夜大钟常驻（US30）/移多补少搬动试错（US6）未实现 | **待拍板缺口**（非偏差）：spec 有字面、实现未覆盖，等产品决策后再立票 |
+| 呈现反泄漏：需求侧数字卡（craft/enough·shortage 配方卡不画方块行）+ 两堆十格阵（count/compare 每行 5 格×两行一组、空格可见） | 用户实测发现"对比块的长度就知道够不够"——等宽单行方块条的长度线索直接等于答案；数字是 CPA 的 A 层学习对象（须数库存再比数字），十格阵同区间阵框同形（须逐个点数或按空格一一对应）。布局纯函数 mFrameLayout(n, seed) 配单测 |
+| 快照闪没加固：`.m-flash.m-hide` 在 opacity:0 之上补 visibility:hidden | "闪现后必须靠数"的彻底口径：渐隐完成后移出可见性与无障碍树，不留尾 |
+| 双视角推理（US24）/最省块数（US20）/移多补少搬动试错（US6）未实现 | **待拍板缺口**（非偏差）：spec 有字面、实现未覆盖，等产品决策后再立票 |
+| 昼夜大钟常驻（US30 前半）经 **G1** 落地：今日页/地图页右上常驻小钟面（真实本地时间，每分钟走针）+ 点击 SpeechKit 报时 | US30 后半（认时刻关卡）T7 hop/clock 已交，US30 全量闭合从缺口清单移除；角度/报时纯函数 **mClockAngles/mClockSay** 入 math-paradigms.js 钟部件族（mClockFace 改为消费同一角度函数=单一出处），装配与走针清理（mathClockTimer，mathScreen 统一收口）住 modes/math.js，样式 .m-clockbox 系入 css/math.css |
+| **G4 地图扩容 120 + 双视角/最省桥接线**（2026-10-24 用户拍板"这些都要做"+"扩到 120 关"）：MATH_LEVELS 100→120（四带 × 30，MATH_LEVEL_MIX 每带目标次数表 + 均匀交错替代严格六族循环），plan/dualview（US24 世界轨点选：候选建筑 + 立式投影牌，曲线 single→two-step/候选 2→4/视图 1→2）与 mirror/bridge（US20 世界轨放置：两岸地形 + 河面桥线 + bridgeOk 推理档口径——reverse 能过即对/multi-solve 要 ≤par）入册（变体表新增 tune 变体级曲线覆写与 introBand 解锁带字段）；mathFrontier/地图页/文案改按 MATH_LEVELS.length 求值 | 关号语义 25/带→30/带使旧档三表失真：**存档版本位 v=2 一次性清空 stars/challenge/ready**（上线仅一天损失可忽略；stamps 图章与 log 家长日志按日期记账不受影响，原样保留）——迁移幂等由 test 锁死 |

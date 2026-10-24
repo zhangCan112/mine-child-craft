@@ -24,6 +24,8 @@
      stampIcon(js/focus-icons.js, T8 数学自选章图案) ·
      MATH_*(js/math-levels.js) · PuzzleCore(js/math-puzzles-core.js) ·
      mathScreenDispatch/runMathScreen(js/math-paradigms.js) ·
+     mClockFace/mClockSay(js/math-paradigms.js, G1 常驻钟面复用
+     谜题钟部件渲染形态与报时口径纯函数) ·
      runHopWorld(js/math-world.js, 加载序在本文件之前 — hop 世界轨装场) ·
       runBuildWorld/mathWorldHb(js/math-build-world.js, 加载序在本文件
       之前 — T6 摆与搭世界轨装场, 指针锁宿主) ·
@@ -51,7 +53,7 @@
    ★ 分发缝(T5 已接管 hop 世界轨, T6 已接管 mirror/plan 世界轨):
    mathVariantTrack(family, variant) 返回 'screen' | 'world' — 屏流变体
    走 runMathScreen; 世界轨再查 MATH_WORLD_RUNNERS, 有 runner 的变体
-    3D 场景关卡(hop 三变体=js/math-world.js 混合宿主 · mirror/plan 八变体=
+    3D 场景关卡(hop 三变体=js/math-world.js 混合宿主 · mirror/plan 十变体=
     js/math-build-world.js 指针锁宿主, 两宿主并列统一留待后续票),
     六族世界变体已全部在册("建设中"占位屏已随全册退役; 未登记变体属
     清单漂移, 由 test 单一权威断言拦截)。
@@ -111,10 +113,12 @@ const MATH_WORLD_RUNNERS = {
   'mirror/translate': runBuildWorld, // 宿主并列, 经本注册表分发; 宿主统一
   'mirror/rotate': runBuildWorld, // 留待后续票)
   'mirror/tangram': runBuildWorld,
+  'mirror/bridge': runBuildWorld, // G4 最省桥: 两岸地形+河面桥线放置+发光石交卷
   'plan/build': runBuildWorld,
   'plan/pick': runBuildWorld,
   'plan/hidden': runBuildWorld,
   'plan/countall': runBuildWorld,
+  'plan/dualview': runBuildWorld, // G4 双视角: 候选建筑+立式投影牌点选
 };
 
 function mathWorldRunner(family, variant) {
@@ -154,14 +158,16 @@ let mathLastTap = null;
 /* ---------- 进度派生纯函数(存档无 unlocked 字段的口径) ---------- */
 
 /* 当前前沿 = 最高已通关 + 1: 世界轨关卡未建时可"跳过"(0 星占位),
-   前沿照常推进 — 存档形状不动, 派生规则单一出口 */
+   前沿照常推进 — 存档形状不动, 派生规则单一出口(G4 起上界跟
+   MATH_LEVELS.length 求值, 不留硬编码 — 扩容只动库层编排表) */
 function mathFrontier(save) {
+  const last = MATH_LEVELS.length - 1;
   let hi = -1;
   for (const k of Object.keys((save && save.stars) || {})) {
     const i = +k;
-    if (Number.isInteger(i) && i >= 0 && i <= 99 && i > hi) hi = i;
+    if (Number.isInteger(i) && i >= 0 && i <= last && i > hi) hi = i;
   }
-  return Math.min(99, hi + 1);
+  return Math.min(last, hi + 1);
 }
 
 function mathLevelUnlocked(save, i) {
@@ -461,7 +467,38 @@ let mathTicker = 0;
 let mathTickT0 = 0;
 let mathCtrl = null; // 进行中关卡的控制柄(引擎 {stop()})
 let mathAutoTimer = 0; // 结算屏自动续程计时
+let mathClockTimer = 0; // 常驻昼夜大钟走针计时(G1)
 const mathFailCount = {}; // 本关连续未通过次数 → 重试话术与"先玩别的"
+
+/* 常驻昼夜大钟(G1, spec US30 前半): 今日页/地图页右上一枚小钟面, 真实
+   本地时间驱动, 每分钟走针(mathAutoTimer 同款清理纪律 — mathScreen 统一
+   收口 + 出模式清理); 点击钟面 → SpeechKit 报时, 口径出自 mClockSay 纯
+   函数(整时「X 点整」/半时「X 点半」/其余「X 点 Y 分」, 一年级教材);
+   钟面渲染复用屏流引擎的谜题钟部件 mClockFace(12/3/6/9 刻度同形态) */
+function stopMathClock() {
+  if (mathClockTimer) {
+    clearInterval(mathClockTimer);
+    mathClockTimer = 0;
+  }
+}
+
+function mountMathClock() {
+  stopMathClock();
+  const box = document.getElementById('mClockBox');
+  if (!box) return;
+  const tick = () => {
+    const now = new Date();
+    box.innerHTML = ''; // 整面重画: 走针即换角度, 不留旧针
+    const face = mClockFace(box, (now.getHours() % 12) || 12, now.getMinutes());
+    face.classList.add('m-clock-live');
+    face.onclick = () => {
+      const t = new Date();
+      SpeechKit.speak(mClockSay(t.getHours(), t.getMinutes())); // 报点击当下时刻
+    };
+  };
+  tick();
+  mathClockTimer = setInterval(tick, 60000); // 每分钟走针(分针 6°/分)
+}
 
 /* 训练时长入账: 关卡进行中每秒 accrue 实际毫秒并落账(focus ticker 同款) —
    崩溃/关页损失 ≤1 秒; 今日页/地图页不计(口径与专注训练营一致) */
@@ -500,8 +537,9 @@ function ensureMathRoot() {
 
 function mathScreen(html) {
   clearTimeout(mathAutoTimer);
+  stopMathClock(); // 常驻钟面只在今日页/地图页挂(mathAutoTimer 同款收口)
   mathRoot.innerHTML = '<div class="m-top"><button class="m-back" id="mBackBtn" aria-label="返回">' +
-      btnImg('left') + '</button></div>' + html;
+      btnImg('left') + '</button><div class="m-clockbox" id="mClockBox"></div></div>' + html;
   document.getElementById('mBackBtn').onclick = mathExit;
   return mathRoot;
 }
@@ -520,6 +558,7 @@ function mathExit() {
   clearTimeout(mathAutoTimer);
   mathStopRun();
   stopMathTicker();
+  stopMathClock();
   SpeechKit.cancel();
   mathRoot.style.display = 'none';
   overlay.style.display = 'flex';
@@ -536,6 +575,7 @@ function showMathToday() {
   const total = Object.values(save.stars).reduce((s, x) => s + x, 0);
   const cur = mathFrontier(save);
   const curLv = MATH_LEVELS[cur];
+  const lvTotal = MATH_LEVELS.length; // G4: 总关数跟库层求值, 不留硬编码
   const curMeta = mathLevelMeta(curLv); // 情境关以情境名为场馆(T7)
   const dots = Array.from({length: MATH_DAILY_LEVELS}, (_, k) =>
     '<span class="dot ' + (k < played ? 'done' : '') + '"></span>').join('');
@@ -552,13 +592,14 @@ function showMathToday() {
       </div>`);
     document.getElementById('mHome2').onclick = mathExit;
     document.getElementById('mParentBtn').onclick = showMathParentGate;
+    mountMathClock(); // G1 常驻钟面: 锁定日也看钟
     if (mathStampRewardOn(save.stampClaimed, 'firework')) launchMathFirework(); // 集章烟花(观感恢复)
     return;
   }
   mathScreen(`
     <div class="m-screen m-today">
       <h1>数学冒险岛</h1>
-      <p class="m-sub">第 ${cur + 1} 关 / 100 · ⭐${total} · 每天 ${MATH_DAILY_LEVELS} 关 / ${MATH_DAILY_MIN} 分钟</p>
+      <p class="m-sub">第 ${cur + 1} 关 / ${lvTotal} · ⭐${total} · 每天 ${MATH_DAILY_LEVELS} 关 / ${MATH_DAILY_MIN} 分钟</p>
       <div class="m-dim-icon">${curMeta.icon}</div>
       <p class="m-sub">${curMeta.game} · ${mathVariantName(curLv.family, curLv.variant)}</p>
       <button class="m-start" id="mStartBtn">▶ 开始冒险</button>
@@ -570,6 +611,7 @@ function showMathToday() {
   SpeechKit.speak('欢迎来到数学冒险岛！今天我们来玩' + curMeta.game + '。');
   document.getElementById('mStartBtn').onclick = showMathMap;
   document.getElementById('mParentBtn').onclick = showMathParentGate;
+  mountMathClock(); // G1 常驻钟面: 看岛上的昼夜大钟(US30 前半)
 }
 
 /* ---------- 家长面板(T9): 算术门 → 六族×四带矩阵 + 思维挑战通过率 + CSV ----------
@@ -627,7 +669,7 @@ function showMathParent() {
       <h1>家长面板</h1>
       <div class="m-stat-row">
         <div class="m-stat">今日 <b>${played}</b>/${MATH_DAILY_LEVELS} 关 · <b>${mins}</b> 分钟</div>
-        <div class="m-stat">累计 <b>${cur + 1}</b>/100 关 · ⭐${total}</div>
+        <div class="m-stat">累计 <b>${cur + 1}</b>/${MATH_LEVELS.length} 关 · ⭐${total}</div>
         <div class="m-stat">思维挑战 <b>${chalN ? Math.round(chalOk / chalN * 100) : 0}%</b>（${chalOk}/${chalN}）</div>
       </div>
       <table class="m-table">
@@ -672,14 +714,19 @@ function mathVariantName(family, variant) {
   return v ? v.name : variant;
 }
 
-/* 关卡话术元数据(T7): 情境关(shop/clock/measure)以情境名为场馆名,
+/* 关卡话术元数据(T7+G2): 情境关(shop/clock/measure)以情境名为场馆名,
    规则/提示换情境级话术(MATH_CONTEXTS), 图标沿用承载族 — 情境只换
-   皮肤, 配重/战利品/日志全随族; 常规关原样返回族元数据 */
+   皮肤, 配重/战利品/日志全随族; 变体表带 rule 的变体(移多补少搬动
+   试错)只覆盖规则话术, 名/场馆/提示仍走族元数据; 常规关原样返回族元数据 */
 function mathLevelMeta(level) {
   const fam = MATH_META[level.family];
   const ctx = MATH_CONTEXTS[level.variant];
   if (ctx && ctx.family === level.family) {
     return {name: fam.name, game: ctx.name, icon: fam.icon, rule: ctx.rule, tip: (p) => ctx.tip(p)};
+  }
+  const v = (MATH_VARIANTS[level.family] || []).find((x) => x.id === level.variant);
+  if (v && v.rule) {
+    return {name: fam.name, game: fam.game, icon: fam.icon, rule: v.rule, tip: fam.tip};
   }
   return fam;
 }
@@ -690,11 +737,12 @@ function showMathMap() {
   const frontier = mathFrontier(save);
   let html = '<div class="m-screen m-map"><h1>关卡地图</h1>' +
       mathStampTodayHtml(save); /* T8: 地图页露出今日图章进度(与今日页同款) */
+  const perBand = MATH_LEVELS.length / 4; // G4 扩容: 30 关/带(跟库层求值)
   for (let band = 0; band < 4; band++) {
     html += '<div class="m-band"><div class="m-band-title">' + MATH_BAND_NAMES[band] +
         '</div><div class="m-band-grid">';
-    for (let k = 0; k < 25; k++) {
-      const i = band * 25 + k;
+    for (let k = 0; k < perBand; k++) {
+      const i = band * perBand + k;
       const lv = MATH_LEVELS[i];
       const unlocked = mathLevelUnlocked(save, i);
       /* 三星回溯: 应显星数经 mathLevelStars 重算(补过挑战点亮旧关第三星),
@@ -715,6 +763,7 @@ function showMathMap() {
   document.querySelectorAll('#mathRoot .m-node.open').forEach((btn) => {
     btn.onclick = () => startMathLevel(+btn.dataset.i);
   });
+  mountMathClock(); // G1 常驻钟面: 选关时也能看钟报时
   SpeechKit.speak('选一个关卡开始吧！');
 }
 
@@ -739,7 +788,7 @@ function startMathLevel(i) {
       '目标：正确 ' + (level.kind === 'challenge' ? '80' : '70') + '% 以上通过！';
   mathScreen(`
     <div class="m-screen m-intro">
-      <div class="m-progress-line">第 ${i + 1} / 100 关${mathKindTag(level.kind)}</div>
+      <div class="m-progress-line">第 ${i + 1} / ${MATH_LEVELS.length} 关${mathKindTag(level.kind)}</div>
       <div class="m-dim-icon">${meta.icon}</div>
       <h1>${meta.game}</h1>
       <p class="m-sub">${meta.name} · ${mathVariantName(level.family, level.variant)}</p>
@@ -985,7 +1034,7 @@ function onMathLevelEnd(level, st) {
       return;
     }
     if (passed) {
-      if (level.i >= 99) showMathMap();
+      if (level.i >= MATH_LEVELS.length - 1) showMathMap();
       else startMathLevel(level.i + 1);
       return;
     }
@@ -994,7 +1043,7 @@ function onMathLevelEnd(level, st) {
       const s2 = loadMathSave();
       s2.stars[level.i] = s2.stars[level.i] || 0;
       saveMathSave(s2);
-      startMathLevel(Math.min(level.i + 1, 99));
+      startMathLevel(Math.min(level.i + 1, MATH_LEVELS.length - 1));
       return;
     }
     startMathLevel(level.i);
@@ -1039,6 +1088,7 @@ const MathMode = mkMode({
     clearTimeout(mathAutoTimer);
     mathStopRun();
     stopMathTicker();
+    stopMathClock();
     SpeechKit.cancel();
     if (mathRoot) mathRoot.style.display = 'none';
   },
