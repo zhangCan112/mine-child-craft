@@ -87,7 +87,7 @@ _Avoid_: 武器表、物品系统（合称——物品核心/背包核心/合成
 _Avoid_: 物品表（散称）、把背包规则写进这里（归背包核心）
 
 **背包核心**:
-引擎层纯核心（js/inventory-core.js，有单测）：27 槽背包模型（槽 0~8 快捷栏直显 + 9~26 主格）与全部背包规则的单一权威——入包并堆/拒收、跨槽计数、按 cost 扣料（含任选材料）、槽级移除、工具耐久扣减、存档往返。耐久归零后的「消失+TTS 安抚」政策在模式层（D4/D9）。interface：mkInventory · add · count · canAfford · take · remove · damageTool · serialize · deserialize（附常量 HOTBAR_SLOTS/MAIN_SLOTS/INV_SLOTS）。
+引擎层纯核心（js/inventory-core.js，有单测）：27 槽背包模型（槽 0~8 快捷栏直显 + 9~26 主格）与全部背包规则的单一权威——入包并堆/拒收、跨槽计数、按 cost 扣料（含任选材料）、槽级移除、点选搬运（moveSlot：空位整摞搬家/同物并堆/异种对调，工具耐久随堆不重铸——背包面板快捷栏↔主格腾位与快捷栏换序的底座）、工具耐久扣减、存档往返。耐久归零后的「消失+TTS 安抚」政策在模式层（D4/D9）。interface：mkInventory · add · count · canAfford · take · remove · moveSlot · damageTool · serialize · deserialize（附常量 HOTBAR_SLOTS/MAIN_SLOTS/INV_SLOTS）。
 _Avoid_: 物品栏、inventory 对象（那是实现）、把扣料逻辑复制进合成（canAfford/take 的语义唯一权威在这里）
 
 **合成核心**:

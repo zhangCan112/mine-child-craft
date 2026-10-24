@@ -244,6 +244,90 @@ test('craft 面板: 🧹 整理按钮 → sortInv 就地合并 + onSort 通知 +
   panel.remove();
 });
 
+/* ============ 背包格点选搬运: 起手高亮 → 点目标格 onMove(无拖拽) ============ */
+
+test('craft 面板: 点非空格起手高亮(pick 类), 点目标格 → onMove(from,to) + 收高亮', () => {
+  const doc = mkDoc();
+  const inv = {slots: [
+    {id: 'planks', n: 12}, ...Array(26).fill(null), // 快捷栏槽 0 占位, 其余空
+  ]};
+  const moves = [];
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onMove(from, to) {
+    moves.push([from, to]);
+  }});
+  panel.show();
+  collect(panel.root, 'mkp-cell')[18].onclick(); // 快捷镜像首格 = 槽 0: 起手
+  let cells = collect(panel.root, 'mkp-cell'); // refresh 重建, 重取
+  assert.ok(cells[18]._cls.has('pick'), '起手格高亮');
+  cells[0].onclick(); // 主格首格 = 槽 9(空位): 搬去那里
+  assert.deepStrictEqual(moves, [[0, 9]], 'onMove 报模式层执行(空位/并堆/对调政策不在面板)');
+  cells = collect(panel.root, 'mkp-cell');
+  assert.ok(!cells[18]._cls.has('pick'), '搬运后收高亮');
+  panel.remove();
+});
+
+test('craft 面板: 搬运边界 — 再点原格=放下, 无起手点空格=无效, 均不触发 onMove', () => {
+  const doc = mkDoc();
+  const inv = {slots: [
+    {id: 'planks', n: 12}, ...Array(26).fill(null),
+  ]};
+  const moves = [];
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onMove(from, to) {
+    moves.push([from, to]);
+  }});
+  panel.show();
+  collect(panel.root, 'mkp-cell')[18].onclick(); // 槽 0 起手
+  collect(panel.root, 'mkp-cell')[18].onclick(); // 再点原格 → 放下
+  assert.deepStrictEqual(moves, []);
+  assert.ok(!collect(panel.root, 'mkp-cell')[18]._cls.has('pick'), '放下后无高亮');
+  collect(panel.root, 'mkp-cell')[3].onclick(); // 无起手 + 空格 → 无事
+  collect(panel.root, 'mkp-cell')[19].onclick(); // 无起手 + 空格(快捷镜像) → 无事
+  assert.deepStrictEqual(moves, []);
+  panel.remove();
+});
+
+test('craft 面板: onMove 后整幅重画反映搬移结果(面板只重读 inv, 搬移在模式层)', () => {
+  const doc = mkDoc();
+  const inv = {slots: [
+    ...Array(9).fill(null), {id: 'planks', n: 12}, ...Array(17).fill(null), // 槽 9 有货
+  ]};
+  /* 模式层口径的最小搬移(镜像 moveSlot 空位语义): 整摞搬去空位 */
+  const move = (from, to) => {
+    inv.slots[to] = inv.slots[from];
+    inv.slots[from] = null;
+  };
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onMove: move});
+  panel.show();
+  collect(panel.root, 'mkp-cell')[0].onclick(); // 槽 9 起手
+  collect(panel.root, 'mkp-cell')[5].onclick(); // 搬去槽 14
+  const cells = collect(panel.root, 'mkp-cell'); // DOM 序: 主格 18 格在前, 快捷镜像 9 格在后
+  assert.ok(!cells[0].innerHTML.includes('data:image'), '槽 9 已腾空');
+  assert.ok(cells[5].innerHTML.includes('data:image/png;base64,AA'), '槽 14 收到木板');
+  panel.remove();
+});
+
+test('craft 面板: 🧹 整理收起搬运起手(主格重排后起手槽号失义) + 关面板收手', () => {
+  const doc = mkDoc();
+  const inv = {slots: [ /* 槽 0/1 快捷栏 · 槽 18 主格(整理对象) */
+    {id: 'planks', n: 12}, {id: 'planks', n: 30}, ...Array(16).fill(null),
+    {id: 'planks', n: 30}, ...Array(8).fill(null),
+  ]};
+  const moves = [];
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onMove(from, to) {
+    moves.push([from, to]);
+  }});
+  panel.show();
+  collect(panel.root, 'mkp-cell')[18].onclick(); // 槽 0 起手
+  collect(panel.root, 'mkp-sort')[0].onclick(); // 整理 → 收起手
+  assert.ok(!collect(panel.root, 'mkp-cell')[18]._cls.has('pick'), '整理后无高亮');
+  assert.deepStrictEqual(moves, [], '整理不是搬运');
+  collect(panel.root, 'mkp-cell')[18].onclick(); // 重新起手
+  panel.close(); // 关面板 → 下次打开不带旧高亮
+  panel.show();
+  assert.ok(!collect(panel.root, 'mkp-cell')[18]._cls.has('pick'), '重开无残留高亮');
+  panel.remove();
+});
+
 /* ============ T10 配方卡: 形状 + 过滤 ============ */
 
 test('craft 面板: 卡片=产物大图+×数量+材料chip×数+站点徽标, 任选材料逐候选', () => {
