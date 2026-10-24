@@ -217,6 +217,7 @@ id 命名偏离见 §6。
 | 5 | CSS 关闭 no-descending-specificity | css 按加载顺序分层覆盖是既有架构 | stylelint.config.mjs |
 | 6 | HTML id 不含连字符（指南 id 条款） | 同 #4 | .htmlhintrc |
 | 7 | CSS 保留 `-webkit-appearance` 前缀版（与标准版并存，行内 disable property-no-vendor-prefix） | 旧 iPad Safari 只认前缀版外观属性；音量滑杆（A8）自绘 thumb 必须去默认外观 | css/touch.css 两处行内 |
+| 8 | math-build-world（摆与搭世界轨）采用指针锁定宿主，偏离 MISSION"无键盘/指针锁定"约束 | 放置类变体需要瞄准射线持续操作（MC 建造形态的关卡内临时放置）；hop 混合宿主仍保持纯点选不锁指针——仅此一宿主受限 | docs/math-mode-design.md §9 |
 
 新增偏离必须登记在此表并给理由；未登记的偏离视为违规。
 
@@ -229,3 +230,5 @@ id 命名偏离见 §6。
   入库时的旧账补记）。
 - 2026-10-23：§1.12 新增（移植伴生机制守则——方块级联一期的流程沉淀：移植机制须连
   状态伴生机制一起清点，不移植项登记设计稿附录 B）。
+- 2026-10-24：§6 登记 #8（math-build-world 指针锁宿主对 MISSION"无指针锁定"约束的
+  偏离——数学冒险岛 T6 收尾补记）。

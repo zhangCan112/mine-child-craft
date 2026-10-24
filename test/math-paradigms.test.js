@@ -109,7 +109,7 @@ function loadMathParadigms(opts) {
   }
   vm.runInContext(`
     globalThis.__mp = { PuzzleCore, MATH_LEVELS, MATH_META, MATH_VARIANTS,
-      MATH_FAMILIES, mathParamsFor, mathPassed, mathStars, MATH_SAVE_DEFAULTS,
+      MATH_FAMILIES, MATH_CONTEXTS, mathParamsFor, mathPassed, mathStars, MATH_SAVE_DEFAULTS,
       migrateMathSave, MATH_LOG_KEEP_DAYS, trimMathLog,
       mathScreenDispatch, mathGuardParams, runMathScreen };
   `, ctx);
@@ -185,9 +185,9 @@ function loadMathMode() {
   }
   vm.runInContext(`
     globalThis.__mm = { mathVariantTrack, mathFrontier, mathLevelUnlocked,
-      mathFamChallengeDone, mathBossPlan, mathAggStats, mathSettleSave,
+      mathFamChallengeDone, mathLevelStars, mathBossPlan, mathAggStats, mathSettleSave,
       mathStampClaim, mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_CONTEXTS, mathLevelMeta,
-      mathVariantName, MATH_SAVE_DEFAULTS,
+      mathVariantName, MATH_SAVE_DEFAULTS, MATH_WORLD_RUNNERS,
       MATH_STAMP_KINDS, MATH_STAMP_DAILY, MATH_STAMP_REWARDS, MATH_STAMP_REWARD_TEXT,
       rollMathLoot, grantMathLoot,
       runBuildWorld: (typeof runBuildWorld !== 'undefined' ? runBuildWorld : null) };
@@ -261,24 +261,47 @@ function autoPlay(d, ended, maxSteps) {
 
 /* ============ 分发判定(纯函数) ============ */
 
-test('mathScreenDispatch: 16 个屏流变体在册(13 基础+3 情境), 世界轨与未知返 none', () => {
+/* 全变体键集(单一权威派生源): MATH_VARIANTS 每族 3 常规+1 挑战, 外加
+    MATH_CONTEXTS 三个情境变体(挂族皮肤) — 任何字面量清单都不得再抄写 */
+function allMathVariantKeys(mp) {
+  const keys = [];
+  for (const f of mp.MATH_FAMILIES) {
+    for (const v of mp.MATH_VARIANTS[f]) keys.push(f + '/' + v.id);
+  }
+  for (const id of Object.keys(mp.MATH_CONTEXTS)) {
+    keys.push(mp.MATH_CONTEXTS[id].family + '/' + id);
+  }
+  return keys;
+}
+
+test('变体清单单一权威: dispatch engine 键集 ∪ MATH_WORLD_RUNNERS 键集 == 全变体, 互斥', () => {
   const {mp} = loadMathParadigms();
-  const screen = [
-    ['count', 'snapshot'], ['count', 'fetch'], ['count', 'compare'], ['count', 'balance'],
-    ['craft', 'enough'], ['craft', 'shortage'], ['craft', 'order'], ['craft', 'blank'],
-    ['pattern', 'chain'], ['pattern', 'sort'], ['pattern', 'odd'], ['pattern', 'cycle'],
-    ['hop', 'position'],
-    ['count', 'measure'], ['craft', 'shop'], ['hop', 'clock'],
-  ];
-  for (const [f, v] of screen) {
-    assert.deepStrictEqual({...mp.mathScreenDispatch(f, v)}, {kind: 'engine', key: f + '/' + v});
+  const {mm} = loadMathMode();
+  const all = new Set(allMathVariantKeys(mp));
+  assert.strictEqual(all.size, 27, '六族×(3 常规+1 挑战) + 3 情境 = 27 变体, 实为 ' + all.size);
+  /* 每族恰 3 常规+1 挑战(变体表形状) */
+  for (const f of mp.MATH_FAMILIES) {
+    assert.strictEqual(mp.MATH_VARIANTS[f].length, 4, f + ' 每族 3+1 变体');
+    assert.strictEqual(mp.MATH_VARIANTS[f].filter((v) => v.kind === 'challenge').length, 1,
+        f + ' 恰 1 个挑战变体');
   }
-  const world = [['hop', 'dice'], ['hop', 'jumps'], ['hop', 'gaps'],
-    ['mirror', 'reflect'], ['mirror', 'translate'], ['mirror', 'rotate'], ['mirror', 'tangram'],
-    ['plan', 'build'], ['plan', 'pick'], ['plan', 'hidden'], ['plan', 'countall']];
-  for (const [f, v] of world) {
-    assert.strictEqual(mp.mathScreenDispatch(f, v).kind, 'none', f + '/' + v + ' 归世界轨(T5/T6)');
+  /* engine 键集从 dispatch 派生(不抄清单); runner 键集来自注册表 */
+  const engine = new Set(allMathVariantKeys(mp).filter((k) => {
+    const [f, v] = k.split('/');
+    return mp.mathScreenDispatch(f, v).kind === 'engine';
+  }));
+  const world = new Set(Object.keys(mm.MATH_WORLD_RUNNERS));
+  for (const k of engine) {
+    assert.ok(!world.has(k), k + ' 不得同时在册屏流与世界轨(互斥)');
   }
+  for (const k of all) {
+    assert.ok(engine.has(k) || world.has(k),
+        k + ' 两边都不在册 — 变体清单漂移=运行时软锁');
+  }
+  for (const k of world) {
+    assert.ok(all.has(k), k + ' 不在变体表内(幽灵 runner)');
+  }
+  /* 未知键防御: dispatch 返 none */
   assert.strictEqual(mp.mathScreenDispatch('???', '???').kind, 'none');
   assert.strictEqual(mp.mathScreenDispatch('count', '???').kind, 'none');
 });
@@ -1137,37 +1160,38 @@ test('clueCount 越界(9): guard warn + 渲染线索卡 ≤3', () => {
 
 /* ============ 模式层流程纯函数(modes/math.js) ============ */
 
-test('mathVariantTrack(分发缝): 16 屏流变体 → screen, 其余 → world(T5/T6 挂载点)', () => {
+test('mathVariantTrack(分发缝): 派生自 mathScreenDispatch — engine ⟺ screen, 全变体恰居其一', () => {
+  const {mp} = loadMathParadigms();
   const {mm} = loadMathMode();
-  const screen = [
-    ['count', 'snapshot'], ['count', 'fetch'], ['count', 'compare'], ['count', 'balance'],
-    ['craft', 'enough'], ['craft', 'shortage'], ['craft', 'order'], ['craft', 'blank'],
-    ['pattern', 'chain'], ['pattern', 'sort'], ['pattern', 'odd'], ['pattern', 'cycle'],
-    ['hop', 'position'],
-    ['count', 'measure'], ['craft', 'shop'], ['hop', 'clock'],
-  ];
-  for (const [f, v] of screen) assert.strictEqual(mm.mathVariantTrack(f, v), 'screen');
-  for (const f of ['mirror', 'plan']) {
-    for (const v of ['a', 'b', 'c', 'd']) assert.strictEqual(mm.mathVariantTrack(f, v), 'world');
+  for (const k of allMathVariantKeys(mp)) {
+    const [f, v] = k.split('/');
+    assert.strictEqual(mm.mathVariantTrack(f, v),
+        mp.mathScreenDispatch(f, v).kind === 'engine' ? 'screen' : 'world', k);
   }
-  for (const v of ['dice', 'jumps', 'gaps', '???']) assert.strictEqual(mm.mathVariantTrack('hop', v), 'world');
+  assert.strictEqual(mm.mathVariantTrack('???', '???'), 'world', '未知键防御性归世界轨');
 });
 
-test('mathWorldRunner(T5+T6 接管): hop 三变体与 mirror/plan 八变体在册, 未知键归占位', () => {
+test('mathWorldRunner(T5+T6 接管): mirror/plan 全变体在册(派生), hop 三变体在册, 未知键 null', () => {
+  const {mp} = loadMathParadigms();
   const {mm} = loadMathMode();
   for (const v of ['dice', 'jumps', 'gaps']) {
     assert.strictEqual(typeof mm.mathWorldRunner('hop', v), 'function', 'hop/' + v + ' 已接管(T5)');
   }
   assert.strictEqual(mm.mathWorldRunner('hop', 'position'), null, '站位比大小留在屏流');
-  const byFam = {
-    mirror: ['reflect', 'translate', 'rotate', 'tangram'],
-    plan: ['build', 'pick', 'hidden', 'countall'],
-  };
-  for (const f of Object.keys(byFam)) {
-    for (const v of byFam[f]) {
-      assert.strictEqual(mm.mathWorldRunner(f, v), mm.runBuildWorld, f + '/' + v + ' 已接管(T6)');
+  /* mirror/plan 全部变体在册(全变体世界族, 同族同宿主) — 变体清单从
+     MATH_VARIANTS 派生, 不抄字面量; hop 是半分族(position 留屏流)不入此列 */
+  const worldFams = mp.MATH_FAMILIES.filter((f) =>
+    mp.MATH_VARIANTS[f].every((v) => mm.mathWorldRunner(f, v.id)));
+  assert.ok(worldFams.includes('mirror') && worldFams.includes('plan'), 'mirror/plan 已接管(T6)');
+  assert.ok(!worldFams.includes('hop'), 'hop/position 留屏流, hop 非全变体世界族');
+  for (const f of worldFams) {
+    const famRunner = mm.mathWorldRunner(f, mp.MATH_VARIANTS[f][0].id);
+    for (const v of mp.MATH_VARIANTS[f]) {
+      assert.strictEqual(mm.mathWorldRunner(f, v.id), famRunner, f + '/' + v.id + ' 已接管(同族同宿主)');
     }
   }
+  assert.strictEqual(mm.mathWorldRunner('mirror', 'reflect'), mm.runBuildWorld, 'mirror 宿主=runBuildWorld(T6)');
+  assert.strictEqual(mm.mathWorldRunner('plan', 'build'), mm.runBuildWorld, 'plan 宿主=runBuildWorld(T6)');
   assert.strictEqual(mm.mathWorldRunner('???', '???'), null);
   assert.strictEqual(mm.mathWorldRunner('mirror', '???'), null);
   assert.strictEqual(mm.mathWorldRunner('plan', '???'), null);
@@ -1313,6 +1337,37 @@ test('mathSettleSave: 通关记星/挑战表/图章/日志, 教学关 0 星占�
   mm.mathSettleSave(s, normal, {acc: 1, maxStreakErr: 0}, today);
   assert.ok(!s.log['2026-1-1'], '90 天外日志裁剪');
   assert.ok(s.log[today]);
+});
+
+/* 三星回溯点亮(spec US35/D4): 结算记 ready, 补过挑战后地图重算点亮第三星 */
+test('mathSettleSave→mathLevelStars: 素质线达标+挑战未过 → 2星+ready, 补过挑战回溯点亮', () => {
+  const {mm} = loadMathMode();
+  const normal = mm.MATH_LEVELS.find((l) => l.kind === 'normal');
+  const today = '2026-10-24';
+  const fresh = () => JSON.parse(JSON.stringify(mm.MATH_SAVE_DEFAULTS));
+  /* 素质线达标(100% 无连错)但族挑战未过: 存 2 星 + ready 记档 */
+  const s = fresh();
+  assert.ok(mm.mathSettleSave(s, normal, {acc: 1, maxStreakErr: 0}, today));
+  assert.strictEqual(s.stars[normal.i], 2, '挑战未过封顶 2 星');
+  assert.strictEqual(s.ready[normal.i], true, '素质线达标记 ready(回溯档)');
+  assert.strictEqual(mm.mathLevelStars(s, normal), 2, '地图仍显 2 星');
+  /* 补过同族同带挑战: stars 表不动(历史最高), mathLevelStars 重算点亮 */
+  s.challenge[normal.family + ':' + normal.band] = true;
+  assert.strictEqual(s.stars[normal.i], 2, 'stars 表不回写');
+  assert.strictEqual(mm.mathLevelStars(s, normal), 3, '补过挑战回溯点亮第三星');
+  /* 未达素质线(95% 差一口): 不记 ready, 补挑战不涨星 */
+  const s2 = fresh();
+  assert.ok(mm.mathSettleSave(s2, normal, {acc: 0.94, maxStreakErr: 0}, today));
+  assert.strictEqual(s2.stars[normal.i], 2);
+  assert.ok(!s2.ready[normal.i], '素质线未达不记 ready');
+  s2.challenge[normal.family + ':' + normal.band] = true;
+  assert.strictEqual(mm.mathLevelStars(s2, normal), 2, '补挑战星数不变');
+  /* 挑战关过关自成条件即时三星, 不走 ready */
+  const s3 = fresh();
+  const chal = mm.MATH_LEVELS.find((l) => l.kind === 'challenge');
+  assert.ok(mm.mathSettleSave(s3, chal, {acc: 1, maxStreakErr: 0}, today));
+  assert.strictEqual(s3.stars[chal.i], 3, '挑战关过关即时三星');
+  assert.ok(!s3.ready[chal.i], '挑战关不记 ready(自成条件)');
 });
 
 test('mathSettleSave: 图章落账走图章纯函数 — 滚动 90 天裁剪, 落账值不越日限', () => {

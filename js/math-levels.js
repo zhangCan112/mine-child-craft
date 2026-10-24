@@ -14,9 +14,12 @@
      MATH_RANGES ·
      mathParamsFor(family, tier, li) · MATH_LEVELS ·
      mathPassed(level, st) · mathStars(level, st, famChallengeDone) ·
+     mathFamChallengeDone(save, level) · mathThreeStarReady(level, st) ·
+     mathLevelStars(save, level)(三星回溯, 地图/结算星显单一出口) ·
      MATH_LOOT · rollMathLoot(level, {ok, streak, seed}) ·
      grantMathLoot(inv, ids) · MATH_LOG_KEEP_DAYS · mathTodayStr ·
      mathDayIndex · trimMathLog · mathPanelMatrix · mathPanelCsv ·
+     mathPanelTrend(US42 族趋势序列) · MATH_TREND_DAYS ·
      MATH_STAMP_KINDS/DAILY/REWARDS/REWARD_TEXT/KEEP_DAYS ·
      mathStampRecord(stamps, day, count) · mathStampTrim(stamps, today) ·
      mathStampCount · mathStampMilestones · mathStampRewardsDue ·
@@ -404,6 +407,31 @@ function mathStars(level, st, famChallengeDone) {
   return s;
 }
 
+/* 第三星挂钩判据(原住 modes/math.js, mathLevelStars 需要同一判据下沉至此):
+    挑战/boss 关自成条件; 常规关查存档 challenge 表的 'family:band' 键 */
+function mathFamChallengeDone(save, level) {
+  if (level.kind === 'challenge' || level.kind === 'boss') return true;
+  return !!(save && save.challenge && save.challenge[level.family + ':' + level.band]);
+}
+
+/* 三星素质线(第三星的纯表现侧条件, 与挂钩无关): 结算时据此记 ready */
+function mathThreeStarReady(level, st) {
+  return level.kind !== 'tutorial' && mathPassed(level, st) &&
+      (st.acc || 0) >= 0.95 && st.maxStreakErr < 3;
+}
+
+/* 该关当前应显星数(地图/结算展示的单一出口, spec US35/D4 三星回溯):
+    = max(已存星(历史最高), ready 且该族当带挑战已过 ? 3 : 0)。
+    ready 在结算时记素质线达标而挑战未过的关(mathSettleSave), 补过挑战
+    后这里重算即点亮第三星 — stars 表不回写(继续作历史最高)。 */
+function mathLevelStars(save, level) {
+  const got = (save && save.stars && save.stars[level.i]) || 0;
+  if (save && save.ready && save.ready[level.i] && mathFamChallengeDone(save, level)) {
+    return Math.max(got, 3);
+  }
+  return got;
+}
+
 /* ---------- 战利品表与掷骰(design §5 · ADR 0002 经济口径) ----------
    六族主题池: count→怪物掉落系 · craft→矿物系 · hop→染料系(染料物品
    未注册, 以骨粉=白色染料领衔过渡) · mirror→玻璃石英系(石英未注册,
@@ -554,6 +582,7 @@ function mathStampNextLine(count) {
 
 /* ---------- 存档形状与迁移(design §4.3, modes 层 slot 与单测共用) ----------
    math_camp_save: stars{关i:星} · challenge{'family:band':true} ·
+   ready{关i:true}(三星回溯档: 素质线达标而挑战未过, 见 mathLevelStars) ·
    stamps{日期:当日关数} · stampKind 自选章图案(缺省 'gem', 合法清单
    T8 激励票定义, 此处只修形不设白名单) · log{日期:{family:{acc, n,
    chalN, chalOk}}}(家长面板数据源, 滚动 90 天防膨胀)。 */
@@ -668,15 +697,39 @@ function mathPanelCsv(save) {
   return rows;
 }
 
-const MATH_SAVE_DEFAULTS = {stars: {}, challenge: {}, stamps: {}, stampClaimed: [], stampKind: 'gem', log: {}};
+/* 族近期趋势序列(US42 家长面板行尾迷你图数据源): log 按日聚合出该族
+    最近 MATH_TREND_DAYS 个有记录日的 acc 序列(升序, {day, acc, n});
+    键聚合与 mathPanelCsv 族列同口径(当日该族全部键含旧键, 按 n 加权);
+    非法日期键过滤; 该族无记录的日不进序列("有记录日"而非日历日)。 */
+const MATH_TREND_DAYS = 7;
+function mathPanelTrend(log, family) {
+  const days = log || {};
+  const recs = [];
+  for (const day of Object.keys(days)) {
+    if (!Number.isFinite(mathDayIndex(day))) continue; // 非法日期键丢弃
+    const d = days[day] || {};
+    let acc = 0; let n = 0;
+    for (const k of Object.keys(d)) {
+      if (mathLogFamBand(k).fam !== family) continue;
+      const r = d[k] || {};
+      acc += (r.acc || 0) * (r.n || 0); n += r.n || 0;
+    }
+    if (n > 0) recs.push({day, acc: acc / n, n});
+  }
+  recs.sort((a, b) => mathDayIndex(a.day) - mathDayIndex(b.day));
+  return recs.slice(-MATH_TREND_DAYS);
+}
+
+const MATH_SAVE_DEFAULTS = {stars: {}, challenge: {}, ready: {}, stamps: {},
+  stampClaimed: [], stampKind: 'gem', log: {}};
 
 /* 存档迁移(save-slot 的 migrate 链调用, (s, from) 两参): 只做幂等修形 —
-   四个表字段缺/损坏补空对象, stampClaimed 非数组补 [](T8 集章已领线),
-   stampKind 非字符串回落 'gem'; 存量进度原样保留; 90 天滚动裁剪由模式层
-   在落账时调 trimMathLog/mathStampTrim(写入点单一) */
+   五个表字段缺/损坏补空对象(ready=三星回溯档), stampClaimed 非数组补
+   [](T8 集章已领线), stampKind 非字符串回落 'gem'; 存量进度原样保留;
+   90 天滚动裁剪由模式层在落账时调 trimMathLog/mathStampTrim(写入点单一) */
 function migrateMathSave(s, from) {
   if (!s || typeof s !== 'object') return {...MATH_SAVE_DEFAULTS};
-  for (const k of ['stars', 'challenge', 'stamps', 'log']) {
+  for (const k of ['stars', 'challenge', 'ready', 'stamps', 'log']) {
     if (!s[k] || typeof s[k] !== 'object') s[k] = {};
   }
   if (!Array.isArray(s.stampClaimed)) s.stampClaimed = []; // T8: 集章已领达成线

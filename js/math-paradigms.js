@@ -13,7 +13,7 @@
    认知负荷红线(PuzzleCore.LIMITS): 一次呈现 ≤4 组块 · 线索 ≤3 条 —
    mathGuardParams 渲染前校验参数, 越界 console.warn 并截断(测试锁)。
    interface: mathScreenDispatch(family, variant) · mathGuardParams(params) ·
-     runMathScreen(section, area, h) → {stop()} | null(非屏流变体)
+     runMathScreen(section, area, h) → {stop()} | null(世界变体误调的防御返回)
      section = {family, variant, tier?, kind?, params, seed?} ·
      h = {progress(k, n)?, onTrial({ok, streak})?, end(st)} —
      st = {trials, correct, acc, maxStreakErr}(供 mathPassed/mathStars)
@@ -945,8 +945,10 @@ const MATH_SCREEN_ENGINES = {
   'hop/clock': mHopClock,
 };
 
-/* 主入口: 非屏流变体返回 null(模式层走占位屏); 逐试次 onTrial({ok, streak})
-   供 T8 挂 loot; 完成回调 st 供 mathPassed/mathStars(单关口径)。 */
+/* 主入口: 非屏流变体返回 null(防御分支 — 正常分发缝下模式层只对
+   dispatch=engine 的变体调这里, 世界变体误调时兜底不抛错); 逐试次
+   onTrial({ok, streak}) 供 T8 挂 loot; 完成回调 st 供
+   mathPassed/mathStars(单关口径)。 */
 function runMathScreen(section, area, h) {
   const d = mathScreenDispatch(section.family, section.variant);
   if (d.kind !== 'engine') return null;

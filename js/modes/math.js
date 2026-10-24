@@ -8,11 +8,13 @@
    interface: MathMode(mkMode 注册对象, id='math') ·
      纯流程函数(单测直测, test/math-paradigms.test.js 后半):
      mathVariantTrack(family, variant) · mathFrontier(save) ·
-     mathLevelUnlocked(save, i) · mathFamChallengeDone(save, level) ·
-     mathBossPlan(level) · mathAggStats(sts) · mathSettleSave(...) ·
+     mathLevelUnlocked(save, i) · mathBossPlan(level) · mathAggStats(sts) ·
+     mathSettleSave(...) ·
      mathStampClaim(save)(T8 集章达成线领取) ·
      mathWorldRunner(family, variant)(世界轨 runner 查表) ·
-     mathLevelMeta(level)(情境关话术覆盖, T7)
+     mathLevelMeta(level)(情境关话术覆盖, T7);
+     mathFamChallengeDone/mathLevelStars(第三星挂钩判据与三星回溯星显)住
+     库层 math-levels.js, 本文件只调用(判据与星表同源, 配单测)
    依赖(均经全局名, 调用期解析): mkMode(js/mode-kit.js) ·
      SpeechKit(js/speech.js) · showToast(js/effects.js) ·
      btnImg(js/button-icons.js) · Budgets/MATH_DAILY_*(js/daily-budget.js
@@ -51,7 +53,8 @@
    走 runMathScreen; 世界轨再查 MATH_WORLD_RUNNERS, 有 runner 的变体
     3D 场景关卡(hop 三变体=js/math-world.js 混合宿主 · mirror/plan 八变体=
     js/math-build-world.js 指针锁宿主, 两宿主并列统一留待后续票),
-    六族世界变体已全部在册(未知键防御性归占位)。
+    六族世界变体已全部在册("建设中"占位屏已随全册退役; 未登记变体属
+    清单漂移, 由 test 单一权威断言拦截)。
    migrate 用库层 MATH_SAVE_DEFAULTS/migrateMathSave; stars 表以
    "键存在"记通关(教学关 0 星入账=已通占位, 数学侧无 unlocked 字段的
    派生口径, 见 mathFrontier)。
@@ -87,22 +90,15 @@ function mathLocked() {
 }
 
 /* ---------- 分发缝(★ 世界轨接管点, 见头注释) ----------
-   屏流变体清单一处权威: T4 交付 13 个(count/craft/pattern 全变体 +
-   hop 站位比大小); T7 增 3 个情境变体(craft/shop 人民币商店 ·
-   hop/clock 钟表时刻 · count/measure 测距步数, 挂族不独立成族);
-   世界轨变体注册在 MATH_WORLD_RUNNERS — T5 交付 hop 三变体(掷骰
-   前进/跳格子任务/间隔问题+规律跳), T6 续入 mirror/plan; 两边都不
-   在册的变体维持"建设中"占位。 */
-const MATH_SCREEN_VARIANTS = new Set([
-  'count/snapshot', 'count/fetch', 'count/compare', 'count/balance',
-  'craft/enough', 'craft/shortage', 'craft/order', 'craft/blank',
-  'pattern/chain', 'pattern/sort', 'pattern/odd', 'pattern/cycle',
-  'hop/position',
-  'count/measure', 'craft/shop', 'hop/clock',
-]);
-
+   变体轨别单一权威派生: mathVariantTrack = mathScreenDispatch(family,
+   variant).kind === 'engine' ? 'screen' : 'world'(屏流键集在
+   math-paradigms.js 的 MATH_SCREEN_KEYS 一处维护, 本文件不再抄清单 —
+   两处漂移=运行时软锁, 由 test/math-paradigms.test.js 的单一权威
+   一致性断言守门); 世界轨变体注册在 MATH_WORLD_RUNNERS — T5 交付 hop
+   三变体, T6 续入 mirror/plan; math-paradigms.js 加载序在本文件之前
+   (见 index.html), 调用期解析安全。 */
 function mathVariantTrack(family, variant) {
-  return MATH_SCREEN_VARIANTS.has(family + '/' + variant) ? 'screen' : 'world';
+  return mathScreenDispatch(family, variant).kind === 'engine' ? 'screen' : 'world';
 }
 
 /* 世界轨 runner 清单: 变体键 → 装配入口(js/math-world.js, 加载序在
@@ -172,11 +168,8 @@ function mathLevelUnlocked(save, i) {
   return i <= mathFrontier(save);
 }
 
-/* 第三星挂钩: 挑战/boss 关过关自成条件; 常规关查族:带挑战表(补过回溯) */
-function mathFamChallengeDone(save, level) {
-  if (level.kind === 'challenge' || level.kind === 'boss') return true;
-  return !!(save && save.challenge && save.challenge[level.family + ':' + level.band]);
-}
+/* mathFamChallengeDone(第三星挂钩判据)与 mathLevelStars(三星回溯星显
+   单一出口)住库层 math-levels.js(判据与星表同源, 配单测) */
 
 /* ---------- boss 串联与聚合(纯函数) ---------- */
 
@@ -205,6 +198,12 @@ function mathSettleSave(save, level, st, today) {
   if (passed) {
     save.stars[level.i] = Math.max(save.stars[level.i] || 0,
         mathStars(level, st, mathFamChallengeDone(save, level))); // 教学关 0 星入账=已通占位
+    /* 三星回溯档(spec US35/D4): 素质线达标而族挑战未过 → stars 封顶 2 星,
+       同时记 ready — 补过挑战后地图经 mathLevelStars 重算点亮第三星
+       (stars 表不回写, 继续作历史最高; 挑战/boss 关自成条件不走 ready) */
+    if (mathThreeStarReady(level, st) && !mathFamChallengeDone(save, level)) {
+      save.ready[level.i] = true;
+    }
     if (level.kind === 'challenge') save.challenge[level.family + ':' + level.band] = true;
     if (level.kind === 'boss') {
       for (const sec of level.sections || []) save.challenge[sec.family + ':' + level.band] = true;
@@ -612,6 +611,17 @@ function showMathParent() {
     chalN += r.chalN; chalOk += r.chalOk;
   }
   const cell = (c) => c.n ? Math.round(c.acc * 100) + '% (' + c.n + ')' : '—';
+  /* 近 7 日正确率迷你折线(US42, focus 家长面板 spark 同形态): 数据源
+     mathPanelTrend(最近 7 个有记录日按 n 加权的族 acc 序列); <2 点显示 — */
+  function mathSpark(series) {
+    if (series.length < 2) return '—';
+    const W = 120; const H = 36;
+    const pts = series.map((x, k) =>
+      (k * (W / (series.length - 1))).toFixed(1) + ',' +
+      (H - 2 - (H - 6) * x.acc).toFixed(1)).join(' ');
+    return `<svg width="${W}" height="${H}" class="m-spark">` +
+        `<polyline points="${pts}" fill="none" stroke="#7cfc00" stroke-width="2"/></svg>`;
+  }
   mathScreen(`
     <div class="m-screen m-parent">
       <h1>家长面板</h1>
@@ -621,10 +631,12 @@ function showMathParent() {
         <div class="m-stat">思维挑战 <b>${chalN ? Math.round(chalOk / chalN * 100) : 0}%</b>（${chalOk}/${chalN}）</div>
       </div>
       <table class="m-table">
-        <tr><th>玩法</th>${MATH_BAND_NAMES.map((n) => '<th>' + n + '</th>').join('')}<th>合计</th><th>思维挑战</th></tr>
+        <tr><th>玩法</th>${MATH_BAND_NAMES.map((n) => '<th>' + n + '</th>').join('')}
+            <th>合计</th><th>思维挑战</th><th>趋势</th></tr>
         ${mx.rows.map((r) => '<tr><td>' + MATH_META[r.family].icon + ' ' + MATH_META[r.family].name + '</td>' +
             r.cells.map((c) => '<td>' + cell(c) + '</td>').join('') +
-            '<td>' + cell(r) + '</td><td>' + (r.chalN ? r.chalOk + '/' + r.chalN : '—') + '</td></tr>').join('')}
+            '<td>' + cell(r) + '</td><td>' + (r.chalN ? r.chalOk + '/' + r.chalN : '—') + '</td>' +
+            '<td>' + mathSpark(mathPanelTrend(save.log, r.family)) + '</td></tr>').join('')}
       </table>
       <div class="m-note">
         本模式是<b>数数、加减、找规律、推理与空间构造的结构化练习</b>（难度对齐教材扩展题/附加题水平）。
@@ -685,7 +697,9 @@ function showMathMap() {
       const i = band * 25 + k;
       const lv = MATH_LEVELS[i];
       const unlocked = mathLevelUnlocked(save, i);
-      const stars = save.stars[i] === undefined ? 0 : save.stars[i];
+      /* 三星回溯: 应显星数经 mathLevelStars 重算(补过挑战点亮旧关第三星),
+         stars 表本身仍是历史最高口径 */
+      const stars = mathLevelStars(save, lv);
       const cls = 'm-node ' + lv.kind + (unlocked ? ' open' : ' locked') + (i === frontier ? ' cur' : '');
       const starHtml = stars > 0 ? '<span class="m-nstars">' + '⭐'.repeat(stars) + '</span>' : '';
       const badge = lv.kind === 'boss' ? '<span class="m-nbadge">🏰</span>' :
@@ -704,21 +718,6 @@ function showMathMap() {
   SpeechKit.speak('选一个关卡开始吧！');
 }
 
-/* ---------- 世界轨占位屏(T5/T6 合入后退役) ---------- */
-function showMathWip(level) {
-  mathScreen(`
-    <div class="m-screen m-wip">
-      <div class="m-wip-sign">🚧</div>
-      <h1>该玩法建设中</h1>
-      <p class="m-sub">${MATH_META[level.family].name}·${mathVariantName(level.family, level.variant)} 很快就开放啦</p>
-      <button class="m-btn" id="mWipNext">先玩下一关 ▶</button>
-      <button class="m-btn" id="mWipMap">${btnImg('grid')} 回地图</button>
-    </div>`);
-  SpeechKit.speak('这个场馆还在建设中，先去玩别的吧！');
-  document.getElementById('mWipNext').onclick = () => startMathLevel(Math.min(level.i + 1, 99));
-  document.getElementById('mWipMap').onclick = showMathMap;
-}
-
 /* ---------- 关卡流程: 规则语音 → runner → 结算 ---------- */
 function mathKindTag(kind) {
   return kind === 'tutorial' ? ' · 教学关' : kind === 'review' ? ' · 复习' :
@@ -733,11 +732,8 @@ function startMathLevel(i) {
     showMathMap();
     return;
   }
-  if (mathVariantTrack(level.family, level.variant) !== 'screen' &&
-      !mathWorldRunner(level.family, level.variant)) { // 世界轨还没建(T6 的 mirror/plan)
-    showMathWip(level);
-    return;
-  }
+  /* 六族变体已全部在册(屏流或世界轨, test 单一权威断言守门) — 不再有
+     "建设中"占位分支; 未登记变体属清单漂移, 由测试拦截而非运行时兜底 */
   const meta = mathLevelMeta(level); // 情境关话术覆盖(T7)
   const target = level.kind === 'tutorial' ? '随便玩，学会就好！' :
       '目标：正确 ' + (level.kind === 'challenge' ? '80' : '70') + '% 以上通过！';
@@ -836,25 +832,18 @@ function beginMathRun(level) {
   });
 }
 
-/* boss 串联: 按 sections 顺序连跑三小节, world 小节查 MATH_WORLD_RUNNERS
-   (T5 起 hop 节进 3D 场景跑, 仍缺 runner 的 mirror/plan 跳过);
-   聚合 st 按单关口径结算(mathAggStats) */
+/* boss 串联: 按 sections 顺序连跑三小节, world 小节进 3D 场景(track 派生,
+   六族变体全在册无跳过分支); 聚合 st 按单关口径结算(mathAggStats) */
 function runMathBoss(level, areaEl, setProg) {
   const plan = mathBossPlan(level);
   const statsList = [];
-  const runnable = (s) => s.track === 'screen' || !!mathWorldRunner(s.family, s.variant);
-  const totalTrials = plan.filter(runnable)
+  const totalTrials = plan
       .reduce((a, s) => a + Math.max(1, Math.min(30, (s.params && s.params.trials) || 6)), 0);
   let si = 0;
   let doneTrials = 0;
   let stopped = false;
   function step() {
     if (stopped) return;
-    while (si < plan.length && !runnable(plan[si])) {
-      showToast('该玩法建设中，先跳过这一小节');
-      SpeechKit.speak('这个场馆还在建设中，我们去下一个！');
-      si++;
-    }
     if (si >= plan.length) {
       mathCtrl = null;
       onMathLevelEnd(level, mathAggStats(statsList));
@@ -922,7 +911,9 @@ function onMathLevelEnd(level, st) {
   const nowStamp = (save.stamps[today] || 0);
   const stampNew = prevStamp < MATH_STAMP_DAILY.min && nowStamp >= MATH_STAMP_DAILY.min;
   const stampBig = prevStamp < MATH_STAMP_DAILY.big && nowStamp >= MATH_STAMP_DAILY.big;
-  const stars = passed ? mathStars(level, st, mathFamChallengeDone(save, level)) : 0;
+  /* 星显走 mathLevelStars(三星回溯单一出口): stars 表已在 mathSettleSave
+     写过(历史最高), 此处按当前挑战状态重算展示(补过挑战=3 星即时可见) */
+  const stars = passed ? mathLevelStars(save, level) : 0;
   if (passed) {
     delete mathFailCount[level.i];
   } else {

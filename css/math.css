@@ -254,12 +254,6 @@
   height: 22px;
 }
 
-/* ---------- 世界轨占位屏(T5/T6 合入后退役) ---------- */
-.m-wip-sign {
-  font-size: 64px;
-  margin: 10px 0;
-}
-
 /* ---------- 关卡屏: 头部规则 + 进度条 + 训练区 ---------- */
 .m-level-head {
   width: min(900px, 96vw);
@@ -1597,6 +1591,12 @@ button.m-mark:hover {
 
 .m-table th {
   background: rgb(0 0 0 / 30%);
+}
+
+/* 家长面板族趋势迷你折线(US42, focus 的 .f-spark 同形态) */
+.m-spark {
+  background: rgb(0 0 0 / 35%);
+  border-radius: 6px;
 }
 
 .m-note {

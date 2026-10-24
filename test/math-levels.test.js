@@ -38,10 +38,11 @@ function loadMathLevels() {
   }
   vm.runInContext(`
     globalThis.__ml = { MATH_FAMILIES, MATH_META, MATH_VARIANTS, MATH_RANGES,
-      MATH_CONTEXTS, mathParamsFor, MATH_LEVELS, mathPassed, mathStars, MATH_LOOT,
+      MATH_CONTEXTS, mathParamsFor, MATH_LEVELS, mathPassed, mathStars, mathLevelStars,
+      mathFamChallengeDone, MATH_LOOT,
       rollMathLoot, grantMathLoot, MATH_LOG_KEEP_DAYS,
       mathTodayStr, mathDayIndex, trimMathLog,
-      mathLogFamBand, mathPanelMatrix, mathPanelCsv,
+      mathLogFamBand, mathPanelMatrix, mathPanelCsv, mathPanelTrend,
       MATH_STAMP_KINDS, MATH_STAMP_DAILY, MATH_STAMP_REWARDS, MATH_STAMP_REWARD_TEXT,
       MATH_STAMP_KEEP_DAYS, mathStampRecord, mathStampTrim, mathStampCount,
       mathStampMilestones, mathStampRewardsDue, mathStampRewardFor, mathStampNextLine,
@@ -240,6 +241,36 @@ test('mathStars: 1星通过 / 2星 85% / 3星 95%且无连续3错且该族当带
   assert.strictEqual(ml.mathStars(boss, {acc: 0.96, maxStreakErr: 0}, false), 3, 'boss 同');
 });
 
+/* ============ 三星回溯点亮(mathLevelStars, spec US35/D4) ============
+    结算时素质线达标但挑战未过 → stars 封顶 2 星 + ready 记档;
+    补过挑战后地图按 mathLevelStars 重算 → 第三星回溯点亮。 */
+test('mathLevelStars: ready 记素质线达标, 补过挑战后回溯点亮第三星(stars 不回写)', () => {
+  const ml = loadMathLevels();
+  const lv = ml.MATH_LEVELS.find((x) => x.kind === 'normal');
+  const save = () => JSON.parse(JSON.stringify(ml.MATH_SAVE_DEFAULTS));
+  /* 素质线达标+挑战未过: 结算已存 2 星并记 ready — 地图仍显 2 星 */
+  const s1 = save();
+  s1.stars[lv.i] = 2;
+  s1.ready[lv.i] = true;
+  assert.strictEqual(ml.mathLevelStars(s1, lv), 2, '挑战未过: 封顶 2 星');
+  /* 补过同族同带挑战: 重算 → 3 星(stars 表保持历史最高, 不回写) */
+  s1.challenge[lv.family + ':' + lv.band] = true;
+  assert.strictEqual(ml.mathLevelStars(s1, lv), 3, '补过挑战回溯点亮第三星');
+  assert.strictEqual(s1.stars[lv.i], 2, 'stars 表不回写(历史最高口径)');
+  /* 未达素质线(无 ready)补挑战: 星数不变 */
+  const s2 = save();
+  s2.stars[lv.i] = 2;
+  s2.challenge[lv.family + ':' + lv.band] = true;
+  assert.strictEqual(ml.mathLevelStars(s2, lv), 2, '无 ready 补挑战不涨星');
+  /* 已存 3 星: 恒 3(挑战表再怎么变不降星) */
+  const s3 = save();
+  s3.stars[lv.i] = 3;
+  assert.strictEqual(ml.mathLevelStars(s3, lv), 3, '历史最高保底');
+  /* 教学关不计星; 空 save 防御 */
+  assert.strictEqual(ml.mathLevelStars(save(), ml.MATH_LEVELS[0]), 0, '教学关 0 星');
+  assert.strictEqual(ml.mathLevelStars(null, lv), 0, '空 save 防御');
+});
+
 /* ============ 战利品表与掷骰(design §5, ADR 0002 经济口径) ============ */
 
 test('MATH_LOOT: 六族主题池概率和=1, id 全在 ITEMS 注册可入包, 稀有权重低', () => {
@@ -378,23 +409,24 @@ test('rollMathLoot: boss 小节最小 {family, kind} 对象照常掷骰(按小�
 
 test('MATH_SAVE_DEFAULTS/migrateMathSave: 形状齐全, 修形幂等, 存量进度保留', () => {
   const ml = loadMathLevels();
-  for (const k of ['stars', 'challenge', 'stamps', 'stampClaimed', 'stampKind', 'log']) {
+  for (const k of ['stars', 'challenge', 'ready', 'stamps', 'stampClaimed', 'stampKind', 'log']) {
     assert.ok(hasOwn(ml.MATH_SAVE_DEFAULTS, k), 'defaults 形状含 ' + k);
   }
   const dflt = ml.MATH_SAVE_DEFAULTS;
   assert.deepStrictEqual(Object.keys(dflt).sort(),
-      ['challenge', 'log', 'stampClaimed', 'stampKind', 'stamps', 'stars']);
-  for (const k of ['stars', 'challenge', 'stamps', 'log']) {
+      ['challenge', 'log', 'ready', 'stampClaimed', 'stampKind', 'stamps', 'stars']);
+  for (const k of ['stars', 'challenge', 'ready', 'stamps', 'log']) {
     assert.ok(dflt[k] && typeof dflt[k] === 'object', 'defaults.' + k + ' 为对象');
   }
   assert.ok(Array.isArray(dflt.stampClaimed), 'defaults.stampClaimed 为数组(集章已领线)');
   assert.strictEqual(dflt.stampKind, 'gem', '缺省宝石章');
   const old = {unlocked: 42, stars: {'3': 2}, challenge: {'craft:1': true},
-    stampKind: 7, log: 'broken'};
+    stampKind: 7, log: 'broken', ready: 'broken'};
   const once = ml.migrateMathSave(old, 1);
   assert.strictEqual(once.unlocked, 42, '存量进度原样保留');
   assert.strictEqual(once.stars['3'], 2, '星级原样保留');
   assert.strictEqual(once.challenge['craft:1'], true, '挑战完成表原样保留');
+  assert.deepStrictEqual({...once.ready}, {}, '损坏 ready 修形为空对象(三星回溯档)');
   assert.strictEqual(typeof once.stampKind, 'string', '损坏 stampKind 修形为字符串');
   assert.ok(Array.isArray(once.stampClaimed), 'T8 老档缺 stampClaimed 幂等补 []');
   assert.deepStrictEqual({...once.log}, {}, '损坏 log 修形为空对象');
@@ -783,4 +815,35 @@ test('mathPanelCsv: 表头 26 列, 行按日升序(无前导零日期), 族列�
   assert.strictEqual(rows[rows.length - 1][rows[0].length - 1], 6, '图章列=当日关数');
   const empty = ml.mathPanelCsv({});
   assert.strictEqual(empty.length, 1, '空档只有表头');
+});
+
+/* ============ 家长面板族趋势序列(US42 行尾迷你图数据源) ============ */
+
+test('mathPanelTrend: 近 7 个有记录日的族 acc 序列(按日聚合 n 加权, 升序)', () => {
+  const ml = loadMathLevels();
+  /* 9 个有记录日 → 只回最近 7 个, 升序, 逐日 acc/n */
+  const log = {};
+  for (let d = 1; d <= 9; d++) log['2026-10-' + d] = {'craft:0': {acc: d / 10, n: 2}};
+  const s = ml.mathPanelTrend(log, 'craft');
+  assert.strictEqual(s.length, 7, '9 日记录只回最近 7 个有记录日');
+  /* Array.from 拷回本 realm 再比(vm context 数组原型跨域, deepStrictEqual 不认) */
+  assert.deepStrictEqual(Array.from(s).map((x) => x.day),
+      ['2026-10-3', '2026-10-4', '2026-10-5', '2026-10-6', '2026-10-7', '2026-10-8', '2026-10-9'],
+      '截最近 7 日且升序');
+  assert.ok(Math.abs(s[6].acc - 0.9) < 1e-9, '末日 acc=0.9');
+  assert.strictEqual(s[6].n, 2);
+  /* 同日多带键按 n 加权(与 mathPanelCsv 族列同口径), 其他族/无记录日不入序列 */
+  const log2 = {
+    '2026-10-1': {'craft:0': {acc: 1, n: 3}, 'craft:2': {acc: 0.5, n: 1}, 'hop:0': {acc: 0, n: 9}},
+    '2026-10-2': {'hop:0': {acc: 1, n: 1}}, // 该日 craft 无记录 → 不进序列
+    '坏日期': {'craft:0': {acc: 1, n: 1}}, // 非法日期键过滤
+  };
+  const s2 = ml.mathPanelTrend(log2, 'craft');
+  assert.strictEqual(s2.length, 1, '只有 2026-10-1 有 craft 记录');
+  assert.ok(Math.abs(s2[0].acc - 0.875) < 1e-9, 'n 加权 (1×3+0.5×1)/4 = 0.875');
+  assert.strictEqual(s2[0].n, 4);
+  /* 空档/未知族 → 空序列 */
+  assert.strictEqual(ml.mathPanelTrend({}, 'craft').length, 0);
+  assert.strictEqual(ml.mathPanelTrend(null, 'craft').length, 0);
+  assert.strictEqual(ml.mathPanelTrend(log2, 'pattern').length, 0);
 });

@@ -128,3 +128,6 @@ mathStars(level, st, famChallengeDone): ⭐通过 ⭐⭐ acc≥85%
 | T6 顺修 PuzzleCore mkSymmetryPuzzle 的 z 轴 box 宽深错位 | 首个世界消费者发现；测试补"box 罩住解集"断言 |
 | T4 补登 math-puzzles-core.js 的 script 标签 | T3 票的范围纪律（只交库文件）留下的缝 |
 | 家长面板未做"重置进度"按钮（focus 有） | spec 未要求；需要时 mathSlot.reset 现成可接 |
+| 连败 2 次换路：0 星占位推进（结算 moveOn 分支） | spec 外增量；focus 同构的抗卡死设计，保留 |
+| 图章奖励达成线（3/7/30 章观感奖励，MATH_STAMP_REWARDS） | spec 字面之外；focus 集章同构的观感回路，保留 |
+| 双视角推理（US24）/最省块数（US20）/昼夜大钟常驻（US30）/移多补少搬动试错（US6）未实现 | **待拍板缺口**（非偏差）：spec 有字面、实现未覆盖，等产品决策后再立票 |
