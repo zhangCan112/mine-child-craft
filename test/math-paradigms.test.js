@@ -175,13 +175,14 @@ function loadMathMode() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const vmCtx = vm.createContext(sandbox);
-  for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-paradigms.js', 'modes/math.js']) {
+  for (const f of ['math-levels.js', 'math-puzzles-core.js', 'hop-world-core.js',
+    'math-paradigms.js', 'math-world.js', 'modes/math.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), vmCtx, {filename: f});
   }
   vm.runInContext(`
     globalThis.__mm = { mathVariantTrack, mathFrontier, mathLevelUnlocked,
       mathFamChallengeDone, mathBossPlan, mathAggStats, mathSettleSave,
-      MATH_LEVELS, MATH_VARIANTS, MATH_SAVE_DEFAULTS };
+      mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_SAVE_DEFAULTS };
   `, vmCtx);
   return {mm: sandbox.__mm, sandbox};
 }
@@ -925,6 +926,44 @@ test('mathVariantTrack(分发缝): 13 屏流变体 → screen, 其余 → world(
   for (const v of ['dice', 'jumps', 'gaps', '???']) assert.strictEqual(mm.mathVariantTrack('hop', v), 'world');
 });
 
+test('mathWorldRunner(T5 接管): hop 三世界变体在册, mirror/plan 与未知键归占位(T6)', () => {
+  const {mm} = loadMathMode();
+  for (const v of ['dice', 'jumps', 'gaps']) {
+    assert.strictEqual(typeof mm.mathWorldRunner('hop', v), 'function', 'hop/' + v + ' 已接管');
+  }
+  assert.strictEqual(mm.mathWorldRunner('hop', 'position'), null, '站位比大小留在屏流');
+  for (const f of ['mirror', 'plan']) {
+    for (const v of ['reflect', 'translate', 'rotate', 'tangram', 'build', 'pick', 'hidden', 'countall']) {
+      assert.strictEqual(mm.mathWorldRunner(f, v), null, f + '/' + v + ' 待 T6');
+    }
+  }
+  assert.strictEqual(mm.mathWorldRunner('???', '???'), null);
+});
+
+/* T5 接管后: hop 族的每一关(含 boss 的 hop 小节)都有轨可走, 不再卡占位 */
+test('接管完整性: hop 族全部关卡与 boss 的 hop 小节都有轨(屏流或世界 runner)', () => {
+  const {mm} = loadMathMode();
+  let hopSeen = 0;
+  for (const lv of mm.MATH_LEVELS) {
+    const hopLevel = lv.family === 'hop';
+    const hopSecs = (lv.sections || []).some((sec) => sec.family === 'hop');
+    if (!hopLevel && !hopSecs) continue;
+    hopSeen++;
+    if (hopLevel) {
+      const ok = mm.mathVariantTrack(lv.family, lv.variant) === 'screen' ||
+          mm.mathWorldRunner(lv.family, lv.variant) !== null;
+      assert.ok(ok, '第 ' + (lv.i + 1) + ' 关 hop/' + lv.variant + ' 无轨');
+    }
+    for (const sec of lv.sections || []) {
+      if (sec.family !== 'hop') continue;
+      const secOk = mm.mathVariantTrack(sec.family, sec.variant) === 'screen' ||
+          mm.mathWorldRunner(sec.family, sec.variant) !== null;
+      assert.ok(secOk, '第 ' + (lv.i + 1) + ' 关 boss 小节 hop/' + sec.variant + ' 无轨');
+    }
+  }
+  assert.ok(hopSeen >= 20, 'hop 配重 20 关都覆盖到: ' + hopSeen);
+});
+
 test('mathFrontier/mathLevelUnlocked: 最高已通+1, 空档 0 星入账可跳关', () => {
   const {mm} = loadMathMode();
   const save = () => JSON.parse(JSON.stringify(mm.MATH_SAVE_DEFAULTS));
@@ -1030,10 +1069,12 @@ test('mathSettleSave: 通关记星/挑战表/图章/日志, 教学关 0 星占�
 
 /* ============ index.html 脚本序 ============ */
 
-test('index.html: math-puzzles-core 与 math-paradigms 入册, 序=math-levels → puzzles → paradigms → modes/math', () => {
+test('index.html: 数学侧六个 script 全在册, 序=levels → puzzles → hop-core → paradigms → world → modes/math', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const at = (src) => html.indexOf('src="' + src + '"');
-  const order = ['js/math-levels.js', 'js/math-puzzles-core.js', 'js/math-paradigms.js', 'js/modes/math.js'].map(at);
-  assert.ok(order.every((i) => i >= 0), '四个 script 全在册: ' + order.join(','));
-  assert.ok(order[0] < order[1] && order[1] < order[2] && order[2] < order[3], '加载序即依赖序');
+  const order = ['js/math-levels.js', 'js/math-puzzles-core.js', 'js/hop-world-core.js',
+    'js/math-paradigms.js', 'js/math-world.js', 'js/modes/math.js'].map(at);
+  assert.ok(order.every((i) => i >= 0), '六个 script 全在册: ' + order.join(','));
+  const why = '加载序即依赖序: hop-core 依赖 puzzles, world 依赖 paradigms 的 mRand/mEl, modes/math 依赖 world 的 runHopWorld';
+  assert.ok(order.every((v, k) => k === 0 || order[k - 1] < v), why);
 });
