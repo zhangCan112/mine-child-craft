@@ -49,7 +49,7 @@
      backpack.js 的 Backpack · config.js 的 BLOCKS/PLAYER/B_* 常量 ·
      voxel.js 的 getBlock/blockKey/raycastVoxel/collidesAtPlayer ·
      world.js 的 loadScene/editBlock · items-core 的 ITEMS/isTool/toolOf ·
-     inventory-core 的 add/count/remove/take/damageTool · craft-core 的
+     inventory-core 的 add/count/remove/moveSlot/take/damageTool · craft-core 的
      breakTime/fuelUnits · drops.js 的 rollBlockDrop/rollDrops(纯)/
      spawn/update/onCollect/clear · mobs.js 的 spawn/hit/onDeath/update/
      render/steer/move/gait/debrisColor/clear(退出清场) · combat-core.js
@@ -174,6 +174,16 @@ function advSyncHotbar() {/* 背包变动后同步快捷栏: 换物重渲染, �
   advTouchMainSync(); /* 背包变动可能换了手上物(放光/吃光/拾取), 观感跟进 */
 }
 
+function advInvMove(from, to) {/* 背包面板点选搬运(2026-10-24 交互优化): moveSlot 纯核心
+  搬移(空位搬家/同物并堆/异种对调, 耐久随堆); 选中槽被搬换时手持观感安静跟进;
+  离散动作即做即存(大宝箱同口径)——快捷栏腾位/换序后想要的东西随手可用 */
+  if (!moveSlot(advInv, from, to)) return;
+  advSyncHotbar();
+  if (from === advHb.sel || to === advHb.sel) advSyncHeldVisual(); /* 选中槽被搬换: 观感安静跟进(不播「在手」) */
+  advBag.save();
+  sfx('pick');
+}
+
 /* ---------- 背包+配方书面板(T10 mkCraftPanel) + 熔炉面板(T13 实例化) ---------- */
 function advStationOk() {/* 站点解锁(D8 拍板④): 已放置工作台距玩家 ≤4 格(水平距离, 查站点缓存不扫全图) */
   return advNearStation(advStations.values(), pos.x, pos.z, ADV_STATION_R, B_CRAFT);
@@ -191,6 +201,7 @@ const advPanel = ModeKit.mkCraftPanel({
   inv: advInv,
   station: advStationOk,
   onCraft: advOnCraft,
+  onMove: (from, to) => advInvMove(from, to), /* 背包格点选搬运(政策在本层, 面板只管格子) */
   onClose: () => advPanelClose(), /* ✕/Esc 统一出口: 状态同步 + 指针回锁(修: 曾直 hide 卡 panelOpen=true) */
   onSort: () => {
     advSyncHotbar();
@@ -1468,7 +1479,7 @@ const AdventureMode = mkMode({
     advWearHeld=原 advWearTool/advDamageHeld 合一(S3)+低耐久预警(S4①)+
     破板指路(S4③); advBagTick=背包快满提醒(S4②, 放过箱子后话术指向收纳)) */
 AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advGetInv: () => advInv,
-  advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar, advQuestEl, advQuestPaint,
+  advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar, advInvMove, advQuestEl, advQuestPaint,
   advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText, advOnKill,
   advMineStep, advPlaceCheck, advEatPolicy, advSapDue, advMine, advSaplings, advBreakBlock,
   advCascadeApply, advExplode,

@@ -83,7 +83,7 @@ const api = vm.runInContext(`({
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST,
   ITEMS, isTool, toolOf, stackMax, mkStack, breakTime,
-  mkInventory, add, count, remove, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
+  mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
   RECIPES, canCraft, craft, take, costEntry, FUEL, fuelUnits, smeltOf, B_TNT,
 })`, eng);
@@ -1848,6 +1848,45 @@ test('大宝箱: 走近点击开面板(4 格门槛, 熔炉同款) → 存入并�
   freshInit();
   assert.deepStrictEqual(A.advGetChest().slots[0], {id: 'planks', n: 20}, '重进账户恢复(全局共享, 挖掉箱子也不丢)');
   A.advChestClose();
+});
+
+/* ============ 2026-10-24 背包面板点选搬运: 快捷栏腾位/换序(交互优化) ============ */
+
+test('背包点选搬运: 快捷栏↔主格腾位 + 同物并堆 + 快捷栏镜像同步 + 即时落盘', () => {
+  mem.clear();
+  freshInit();
+  const inv = A.advGetInv();
+  calls.length = 0;
+  /* 快捷栏杂物 → 主格空位: 腾出手上格 */
+  inv.slots[2] = {id: 'coal', n: 10};
+  A.advInvMove(2, 20);
+  assert.deepStrictEqual({...inv.slots[20]}, {id: 'coal', n: 10}, '煤搬去主格槽 20');
+  assert.strictEqual(inv.slots[2], null, '快捷栏槽 2 腾空');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'pick'), '搬运叮咚(与大宝箱存取同款)');
+  /* 同物并堆: 40+50 → 目标吃满 64, 余量 26 留原槽 */
+  inv.slots[9] = {id: 'coal', n: 40};
+  inv.slots[10] = {id: 'coal', n: 50};
+  A.advInvMove(10, 9);
+  assert.deepStrictEqual({...inv.slots[9]}, {id: 'coal', n: 64});
+  assert.deepStrictEqual({...inv.slots[10]}, {id: 'coal', n: 26});
+  /* 异种对调 = 快捷栏换序; 选中槽(槽 0)被搬换时快捷栏镜像同步 + 手持观感安静跟进 */
+  inv.slots[0] = {id: 'torch', n: 4};
+  inv.slots[1] = {id: 'planks', n: 3};
+  calls.length = 0;
+  A.advInvMove(0, 1);
+  assert.deepStrictEqual({...inv.slots[0]}, {id: 'planks', n: 3}, '换序: 木板进槽 0');
+  assert.deepStrictEqual({...inv.slots[1]}, {id: 'torch', n: 4});
+  assert.strictEqual(AdventureMode.hotbar.items[0].item, 'planks', '快捷栏镜像跟随(腾出的格立即可用)');
+  assert.ok(!calls.some((c) => c[0] === 'toast' && String(c[1]).includes('在手')), '安静跟进: 不播「在手」');
+  /* 原地/空搬运零副作用 */
+  calls.length = 0;
+  A.advInvMove(3, 3);
+  A.advInvMove(5, 7);
+  assert.ok(!calls.some((c) => c[0] === 'sfx'), '无变动不响不动包');
+  /* 即时落盘(离散动作即做即存): 再搬一步, 另开背包壳读同一介质, 布局已在档 */
+  A.advInvMove(20, 26);
+  const probe = Backpack.mkBackpack().load();
+  assert.deepStrictEqual({...probe.slots[26]}, {id: 'coal', n: 10}, '搬运动作已随档(不等 5s 节流)');
 });
 
 test('大宝箱扩容: 材料不够温和提示不动包 → 8 圆石扩到 18 格 → 4 铁锭顶格 27 → 顶格后无档', () => {
