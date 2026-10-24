@@ -10,7 +10,8 @@
    挂钩, 补过回溯) · 战利品表与掷骰(简单版) · 存档默认值/迁移。
    数值出处: docs/math-mode-design.md §4/§5 · docs/math-mode-plan.md
    §4~§7(难度双轨=数字跟着教材走, 思维跳到附加题)。
-   interface: MATH_FAMILIES · MATH_META · MATH_VARIANTS · MATH_RANGES ·
+   interface: MATH_FAMILIES · MATH_META · MATH_VARIANTS · MATH_CONTEXTS ·
+     MATH_RANGES ·
      mathParamsFor(family, tier, li) · MATH_LEVELS ·
      mathPassed(level, st) · mathStars(level, st, famChallengeDone) ·
      MATH_LOOT · rollMathLoot(level, {ok, streak, seed}) ·
@@ -133,6 +134,44 @@ const MATH_VARIANTS = {
     {id: 'cycle', name: '周期问题', kind: 'challenge'},
   ],
 };
+
+/* 情境变体登记(T7, plan §6 情境挂载): 挂在既有族上的皮肤变体, 不独立
+   成族 — 配重/战利品/日志/挑战表全记在承载族(family 字段), 排班由
+   编排生成器在每带首个轮转位换 variant 实现(tier/kind/params
+   与族曲线同源, 结构不变量零扰动)。rule/tip 为变体级话术, 模式层
+   mathLevelMeta 据此覆盖族元数据(TTS 零文字依赖)。id 即关卡 variant
+   与屏流分发键(math-paradigms MATH_SCREEN_KEYS 同步在册)。 */
+const MATH_CONTEXTS = {
+  shop: {family: 'craft', name: '人民币商店',
+    rule: '欢迎来到人民币商店！买材料、算找零，想一想付钱有几种付法！',
+    tip(p) {
+      let s = '商品价钱最多 ' + Math.min(p.max, 100) + ' 元';
+      if (p.reasoning === 'reverse' || p.reasoning === 'multi-solve') s += '，有的题要把付钱的方法都找齐哦';
+      return s + '。';
+    }},
+  clock: {family: 'hop', name: '钟表时刻',
+    rule: '看一看大钟：长针短针指向哪儿？读出时刻，再算算过一会儿是几点！',
+    tip(p) {
+      if (p.reasoning === 'single') return '先认整时和半时。';
+      if (p.reasoning === 'two-step') return '想一想，过半小时或过一小时是几点。';
+      return '过一刻钟是几点？想好了再点！';
+    }},
+  measure: {family: 'count', name: '测距步数',
+    rule: '数一数格子：从小怪物到小旗有几格？走过去再回来又是几格？',
+    tip(p) {
+      let s = '这次最多数到 ' + Math.min(p.max, 60) + ' 格';
+      if (p.reasoning === 'reverse' || p.reasoning === 'multi-solve') s += '，来回要走两趟，两倍别忘算';
+      return s + '。';
+    }},
+};
+
+/* family → 情境变体 id(mirror/plan/pattern 暂无情境, 返回 null 照常轮换) */
+function mathContextVariantOf(f) {
+  for (const id of Object.keys(MATH_CONTEXTS)) {
+    if (MATH_CONTEXTS[id].family === f) return id;
+  }
+  return null;
+}
 
 /* ---------- mathParamsFor 双轨难度曲线(design §4.1) ----------
    tier 1..19 = 关卡在族内的档位; band = min(3, floor((tier-1)/4)),
@@ -260,6 +299,10 @@ function mathParamsFor(family, tier, li) {
      tier = band*4(回访上一带顶档), boss 关 tier = min(19, band*4+4)。
    · 每族带内末次轮转出现 = 挑战关(★★变体); 常规关在该族 3 个常规范型
      间轮换(全局计数, 每族 3 个都出场)。
+   · 情境关(T7): 每情境族(shop→craft · clock→hop · measure→count)带内
+     首个轮转位换情境皮肤(带 0 教学关占掉第 1 位, 落第 2 位) — 只换
+     variant, tier/kind/params 与族曲线同源(难度轴零扰动, 该档亦无定性
+     新事件); 四带各一关, 认钟/推算与算钱/付法的子型随推理档自然爬坡。
    · boss = 三族 ★★ 小任务串联(sections, focus 大师关先例): 偶带
      [craft, mirror, pattern] · 奇带 [hop, plan, count] —— 两带一轮
      覆盖全部六族, 各节参数取该族该带挑战关同档。 */
@@ -309,6 +352,12 @@ const MATH_LEVELS = [];
       if (seen[f] === lastSeen[f]) { // 本带末次出现 = 挑战关(★★)
         chalTier[f] = tier;
         push(f, 'challenge', tier, challengeOf(f).id);
+      } else if (seen[f] === (band === 0 ? 2 : 1) && mathContextVariantOf(f)) {
+        /* 情境关(T7): 每情境族带内首个轮转位换皮肤(带 0 教学关占掉第 1
+           次出现, 情境落第 2 位) — 只换 variant, tier/kind/params 与族曲线
+           同源; 该档恰无定性新事件(每关只动一个维度), 轮换计数不消耗,
+           三常规范型出场覆盖不变 */
+        push(f, 'normal', tier, mathContextVariantOf(f));
       } else {
         push(f, 'normal', tier, regularOf(f)[turn[f]++ % 3].id);
       }

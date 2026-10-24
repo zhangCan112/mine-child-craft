@@ -38,7 +38,7 @@ function loadMathLevels() {
   }
   vm.runInContext(`
     globalThis.__ml = { MATH_FAMILIES, MATH_META, MATH_VARIANTS, MATH_RANGES,
-      mathParamsFor, MATH_LEVELS, mathPassed, mathStars, MATH_LOOT,
+      MATH_CONTEXTS, mathParamsFor, MATH_LEVELS, mathPassed, mathStars, MATH_LOOT,
       rollMathLoot, grantMathLoot, MATH_LOG_KEEP_DAYS,
       mathTodayStr, mathDayIndex, trimMathLog,
       MATH_SAVE_DEFAULTS, migrateMathSave,
@@ -563,5 +563,59 @@ test('MATH_VARIANTS: 每族 3 常规 + 1 挑战(kind=challenge), 名称非空', 
     for (const v of vs) {
       assert.ok(v.id && v.name, f + ' 变体有 id 与中文名');
     }
+  }
+});
+
+/* ============ 情境挂载(T7): 商店/钟表/测距 — 挂族不独立成族 ============ */
+
+test('MATH_CONTEXTS: 商店/钟表/测距三情境在册, 挂族/名称/话术齐全可 TTS', () => {
+  const ml = loadMathLevels();
+  const ctx = ml.MATH_CONTEXTS;
+  const want = {shop: 'craft', clock: 'hop', measure: 'count'};
+  assert.deepStrictEqual([...Object.keys(ctx)].sort(), ['clock', 'measure', 'shop'],
+      '三情境恰在册(多余/缺失都算漂移)');
+  for (const id of Object.keys(want)) {
+    assert.ok(ctx[id], '情境 ' + id + ' 在册');
+    assert.strictEqual(ctx[id].family, want[id], id + ' 挂在 ' + want[id] + ' 族(不独立成族)');
+    assert.ok(ctx[id].name, id + ' 有中文名');
+    assert.ok(typeof ctx[id].rule === 'string' && ctx[id].rule.length > 0, id + ' 规则话术非空');
+    assert.ok(typeof ctx[id].tip === 'function', id + ' 提示话术为函数');
+  }
+  /* tip 全档位有文案且不引用不存在参数(与族 tip 同口径) */
+  for (const id of Object.keys(want)) {
+    for (let tier = 1; tier <= 19; tier++) {
+      const s = ctx[id].tip(ml.mathParamsFor(want[id], tier));
+      assert.ok(typeof s === 'string' && s.length > 0, id + ' tier' + tier + ' tip 有文案');
+      assert.ok(!s.includes('undefined') && !s.includes('NaN'), id + ' tier' + tier + ' tip 疑似引用坏参数: ' + s);
+    }
+  }
+});
+
+test('MATH_LEVELS: 情境关 = 每情境族带内首个轮转位 ×4 带(带 0 落第 2 位), kind=normal', () => {
+  const ml = loadMathLevels();
+  const ctxOf = {};
+  for (const id of Object.keys(ml.MATH_CONTEXTS)) ctxOf[ml.MATH_CONTEXTS[id].family] = id;
+  const seen = {shop: [], clock: [], measure: []};
+  for (const lv of ml.MATH_LEVELS) {
+    const id = lv.variant;
+    if (!ml.MATH_CONTEXTS[id]) continue;
+    assert.strictEqual(ctxOf[lv.family], id, '情境变体挂在登记族上(配重/战利品/日志随族)');
+    assert.strictEqual(lv.kind, 'normal', '情境关为常规关(不占挑战/boss/复习/教学位)');
+    seen[id].push(lv);
+  }
+  for (const id of Object.keys(seen)) {
+    assert.strictEqual(seen[id].length, 4, id + ' 四关(每带各一), 实为 ' + seen[id].length);
+    assert.deepStrictEqual(seen[id].map((lv) => lv.band), [0, 1, 2, 3], id + ' 每带一关');
+    for (const lv of seen[id]) {
+      const firstK = lv.band === 0 ? 2 : 1; // 带 0 教学关占掉第 1 次出现
+      assert.strictEqual(lv.tier, lv.band * 4 + firstK,
+          id + ' 带 ' + lv.band + ' 首个轮转位(tier=' + (lv.band * 4 + firstK) + ')');
+      assert.deepStrictEqual({...lv.params}, {...ml.mathParamsFor(lv.family, lv.tier, lv.i)},
+          '情境关参数与族曲线同源(情境只换皮肤不动难度轴)');
+    }
+  }
+  /* 带 0 的情境关排在六族教学关之后(教学期先见基础玩法) */
+  for (const lv of seen.clock.concat(seen.shop, seen.measure)) {
+    if (lv.band === 0) assert.ok(lv.i >= 6, '带 0 情境关在教学关之后: i=' + lv.i);
   }
 });
