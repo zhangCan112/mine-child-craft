@@ -1,8 +1,9 @@
 'use strict';
 /* 手持物注册表 (js/held-item.js) 单测 — node --test (零依赖)
    运行: node --test test/held-item.test.js
-   加载器: 同一 vm context 依次执行 config.js + held-item.js — 精确镜像浏览器
-   <script defer> 的共享词法环境(held-item.js 顶层零 THREE, 见其文件头) */
+   加载器: 同一 vm context 依次执行 config.js + items-core.js + held-item.js —
+   精确镜像浏览器 <script defer> 的共享词法环境(held-item.js 顶层零 THREE;
+   defFor 调用期才读 BLOCKS/ITEMS, 故两件表模块同境先载, 见其文件头) */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -11,10 +12,10 @@ const vm = require('node:vm');
 
 function loadHeld() {
   const ctx = vm.createContext({console});
-  for (const f of ['config.js', 'held-item.js']) {
+  for (const f of ['config.js', 'items-core.js', 'held-item.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
-  vm.runInContext('globalThis.__h = { HeldItems, PLAYER };', ctx);
+  vm.runInContext('globalThis.__h = { HeldItems, PLAYER, BLOCKS, ITEMS };', ctx);
   return ctx.__h;
 }
 
@@ -123,4 +124,86 @@ test('swingPose 上升段向前加深(0.1 → 0.25 更大)', () => {
   const {HeldItems} = loadHeld();
   const def = HeldItems.defs['hoe'];
   assert.ok(HeldItems.swingPose(0.25, def).x > HeldItems.swingPose(0.1, def).x);
+});
+
+/* ============ 惰性 def (defFor): 方块本体 / 薄片 / 棒 / 空手 ============
+   MC 口径见 docs/mc-held-item-render-research.md: 方块=缩小的方块本体
+   (block model 单 16³ element, 顶/侧可异色), 非方块物品=挤出薄片,
+   木棍用工具握法(handheld, 按用途不按类目), 空槽=空手 */
+
+test('defFor: 工具/武器直通 defs(同一引用, 不另建)', () => {
+  const {HeldItems} = loadHeld();
+  assert.strictEqual(HeldItems.defFor('hoe'), HeldItems.defs['hoe']);
+  assert.strictEqual(HeldItems.defFor('sword_iron'), HeldItems.defs['sword_iron']);
+});
+
+test('defFor 方块: 木板 → 单 box 方块本体, 正方体且色取 BLOCKS.all', () => {
+  const {HeldItems, BLOCKS} = loadHeld();
+  const def = HeldItems.defFor('planks');
+  assert.ok(def, 'planks 应有 def');
+  assert.strictEqual(def.label, BLOCKS[6].name);
+  assert.strictEqual(def.parts.length, 1);
+  assert.strictEqual(def.parts[0].w, def.parts[0].h);
+  assert.strictEqual(def.parts[0].h, def.parts[0].d); /* 正方体 */
+  const c = BLOCKS[6].all;
+  assert.strictEqual(def.parts[0].color,
+      (Math.round(c[0]*255) << 16) | (Math.round(c[1]*255) << 8) | Math.round(c[2]*255));
+});
+
+test('defFor 方块双色: 原木(top≠side) → 侧面主体 + 顶/底端面盖三件', () => {
+  const {HeldItems, BLOCKS} = loadHeld();
+  const hex = (c) => (Math.round(c[0]*255) << 16) | (Math.round(c[1]*255) << 8) | Math.round(c[2]*255);
+  const def = HeldItems.defFor('log');
+  assert.strictEqual(def.parts.length, 3, '主体 + 顶盖 + 底盖');
+  assert.strictEqual(def.parts[0].color, hex(BLOCKS[5].side)); /* 主体=侧面色 */
+  assert.strictEqual(def.parts[1].color, hex(BLOCKS[5].top)); /* 顶盖=端面色 */
+  assert.strictEqual(def.parts[2].color, hex(BLOCKS[5].bottom)); /* 底盖=端面色 */
+});
+
+test('defFor 数字方块 id 直认: 建造调色板的创造专属方块(无物品条目)也能拿', () => {
+  const {HeldItems} = loadHeld();
+  const def = HeldItems.defFor(17); /* 石英(BUILD_PALETTE 在册, 无 ITEMS 条目) */
+  assert.ok(def, '数字方块 id 应有 def');
+  assert.strictEqual(def.label, '石英');
+});
+
+test('defFor 薄片: 苹果/煤/铁锭 → 单色薄板(厚远小于宽), label 取 ITEMS.name', () => {
+  const {HeldItems} = loadHeld();
+  for (const id of ['apple', 'coal', 'iron_ingot']) {
+    const def = HeldItems.defFor(id);
+    assert.ok(def, id + ' 应有 def');
+    assert.strictEqual(def.parts.length, 1);
+    assert.ok(def.parts[0].d < def.parts[0].w * 0.5, id + ' 应是薄片');
+  }
+  assert.strictEqual(HeldItems.defFor('apple').label, '苹果');
+});
+
+test('defFor 棒状: 木棍 → 细长棒(工具握法; vanilla 木棍用 handheld, 按用途不按类目)', () => {
+  const {HeldItems} = loadHeld();
+  const def = HeldItems.defFor('stick');
+  assert.ok(def, 'stick 应有 def');
+  assert.ok(def.parts[0].h > def.parts[0].w * 4, '细长棒');
+});
+
+test('defFor 空手: null/未注册 → null(MC 口径: 空槽=裸手)', () => {
+  const {HeldItems} = loadHeld();
+  assert.strictEqual(HeldItems.defFor(null), null);
+  assert.strictEqual(HeldItems.defFor('nope'), null);
+});
+
+test('惰性 def 形状: 工厂产物同样 parts/grip/swing/sway 四组齐全', () => {
+  const {HeldItems} = loadHeld();
+  const v3 = (a) => Array.isArray(a) && a.length === 3 && a.every((n) => typeof n === 'number');
+  for (const id of ['planks', 'log', 17, 'apple', 'stick', 'coal']) {
+    const def = HeldItems.defFor(id);
+    assert.ok(Array.isArray(def.parts) && def.parts.length > 0, id + ' parts 非空');
+    for (const p of def.parts) {
+      ['w', 'h', 'd'].forEach((k) => assert.ok(typeof p[k] === 'number' && p[k] > 0, id + ' part.' + k));
+      assert.ok(v3(p.pos), id + ' part.pos 三元数');
+      assert.strictEqual(typeof p.color, 'number', id + ' part.color');
+    }
+    assert.ok(v3(def.grip.pos) && v3(def.grip.rot), id + ' grip 三元数');
+    assert.ok(def.swing.dur > 0 && def.swing.amp > 0, id + ' swing 为正');
+    assert.ok(def.sway.idle >= 0, id + ' sway 非负');
+  }
 });

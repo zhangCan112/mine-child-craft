@@ -49,7 +49,7 @@
      backpack.js 的 Backpack · config.js 的 BLOCKS/PLAYER/B_* 常量 ·
      voxel.js 的 getBlock/blockKey/raycastVoxel/collidesAtPlayer ·
      world.js 的 loadScene/editBlock · items-core 的 ITEMS/isTool/toolOf ·
-     inventory-core 的 add/count/remove/take/damageTool · craft-core 的
+     inventory-core 的 add/count/remove/moveSlot/take/damageTool · craft-core 的
      breakTime/fuelUnits · drops.js 的 rollBlockDrop/rollDrops(纯)/
      spawn/update/onCollect/clear · mobs.js 的 spawn/hit/onDeath/update/
      render/steer/move/gait/debrisColor/clear(退出清场) · combat-core.js
@@ -128,16 +128,33 @@ for (let i = 0; i < HOTBAR_SLOTS; i++) {
   });
 }
 const advHb = ModeKit.mkHotbar({items: advHbItems, onPick: (i) => advHeldChanged(i)});
-function advHeldChanged(i) {/* 选中槽: 工具换观感(defs 与物品 id 同名, T4), 其余回落锄头 */
+function advSyncHeldVisual() {/* 手持观感 = 选中槽内容(「手持与物品栏一致」的单一出口):
+   工具/方块/食物/材料全经 HeldItems.defFor 解析, 空槽 = 空手(MC 口径) */
+  const s = advInv.slots[advHb.sel];
+  Avatar.setItem(s ? s.id : null);
+}
+function advHeldChanged(i) {/* 选中槽: 观感经 advSyncHeldVisual 跟随选中; 工具加播报 */
   const s = advInv.slots[i];
   const it = s ? ITEMS[s.id] : null;
   if (it && it.tool) {
-    Avatar.setItem(s.id);
     showToast(it.name + ' 在手！');
-  } else {
-    Avatar.setItem(PLAYER.heldItem); /* 放置/食物的点击政策归 T12 */
   }
+  advSyncHeldVisual();
   advHb.refresh();
+  advTouchMainSync();
+}
+function advMainPlaceable() {/* 智能主动作的手持判定(纯 seam, 单测直触): 选中
+   放置型物品(ITEMS.block 字段, D4)才走放置; 空手/工具/武器/食物/材料全走
+   挖/打(探险 onMouse(0) 已内建 TNT→站点→打怪→吃→蓄力 的次序, 无需改) */
+  const s = advInv.slots[advHb.sel];
+  return !!(s && ITEMS[s.id] && ITEMS[s.id].block != null);
+}
+function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/其余=镐,
+   2026-10-24 手持感知拍板); input.js 未加载(桌面/Node 单测)时静默 */
+  if (typeof refreshTouchMain === 'function') {
+    const place = advMainPlaceable();
+    refreshTouchMain(place ? 'brick' : 'pick', place ? '放置' : '挖/打');
+  }
 }
 let advHbSig = '';
 function advSyncHotbar() {/* 背包变动后同步快捷栏: 换物重渲染, 只变数量/耐久走轻刷新 */
@@ -154,6 +171,17 @@ function advSyncHotbar() {/* 背包变动后同步快捷栏: 换物重渲染, �
   if (sig !== advHbSig || changed) advHb.render();
   else advHb.refresh();
   advHbSig = sig;
+  advTouchMainSync(); /* 背包变动可能换了手上物(放光/吃光/拾取), 观感跟进 */
+}
+
+function advInvMove(from, to) {/* 背包面板点选搬运(2026-10-24 交互优化): moveSlot 纯核心
+  搬移(空位搬家/同物并堆/异种对调, 耐久随堆); 选中槽被搬换时手持观感安静跟进;
+  离散动作即做即存(大宝箱同口径)——快捷栏腾位/换序后想要的东西随手可用 */
+  if (!moveSlot(advInv, from, to)) return;
+  advSyncHotbar();
+  if (from === advHb.sel || to === advHb.sel) advSyncHeldVisual(); /* 选中槽被搬换: 观感安静跟进(不播「在手」) */
+  advBag.save();
+  sfx('pick');
 }
 
 /* ---------- 背包+配方书面板(T10 mkCraftPanel) + 熔炉面板(T13 实例化) ---------- */
@@ -173,6 +201,7 @@ const advPanel = ModeKit.mkCraftPanel({
   inv: advInv,
   station: advStationOk,
   onCraft: advOnCraft,
+  onMove: (from, to) => advInvMove(from, to), /* 背包格点选搬运(政策在本层, 面板只管格子) */
   onClose: () => advPanelClose(), /* ✕/Esc 统一出口: 状态同步 + 指针回锁(修: 曾直 hide 卡 panelOpen=true) */
   onSort: () => {
     advSyncHotbar();
@@ -331,7 +360,7 @@ function advWearHeld(src) {
     const q = ADV_QUESTS[ADV.quest.step];
     remove(advInv, slot);
     advWarnLow.delete(s.id); /* 断掉即重置: 再做一把同款还能再预警(S4①) */
-    Avatar.setItem(PLAYER.heldItem); /* 观感回落锄头(槽已空, 命中/挖掘两路同一政策) */
+    Avatar.setItem(null); /* 槽已空 = 空手(与 advSyncHeldVisual 空槽同一口径, MC 正典) */
     SpeechKit.speak(advBreakToolText(name, q ? q.hint : null));
     showToast('💔 ' + name + ' 用坏了，再做一把更棒的吧！');
   } else if (left != null && s) {/* 未破: 低耐久预警判据(S4①, 空手/非工具 left=null 不进) */
@@ -1252,7 +1281,7 @@ const AdventureMode = mkMode({
     });
     ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
     flyMode = false; /* 探险步行(不沿用建造的飞行) */
-    Avatar.setItem(PLAYER.heldItem);
+    advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
     ADV.panelOpen = false;
     ADV.furnaceOpen = false; /* T13 熔炉面板/炉态/引信全部复位 */
     ADV.chestOpen = false; /* 引导链 v2: 箱子面板一并复位 */
@@ -1418,9 +1447,10 @@ const AdventureMode = mkMode({
     ];
   },
 
-  touch: [ /* ⛏️ 主动作键(用户拍板): 有怪打怪/瞄准方块挖掘, 按住连挖;
+  touch: [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2026-10-24): 拿可放置物→放置
+     一次(mkMainAct 返 false 不连发), 空手/工具/食物→打/挖起步+按住连挖;
      🎒🏠 低频 → 顶部小键区, 不占拇指操作区 */
-    {icon: 'pick', label: '挖掘', holdAct: () => aimClick(0)},
+    {icon: 'pick', label: '挖/放', holdAct: mkMainAct(advMainPlaceable)},
     {icon: 'chest', label: '背包', act: () => advPanelToggle(), rare: true},
     {icon: 'house', label: '回家', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
   ],
@@ -1449,11 +1479,11 @@ const AdventureMode = mkMode({
     advWearHeld=原 advWearTool/advDamageHeld 合一(S3)+低耐久预警(S4①)+
     破板指路(S4③); advBagTick=背包快满提醒(S4②, 放过箱子后话术指向收纳)) */
 AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advGetInv: () => advInv,
-  advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar, advQuestEl, advQuestPaint,
+  advGetPEnt, advPlayerDied, advPanelToggle, advSyncHotbar, advInvMove, advQuestEl, advQuestPaint,
   advNestCount, advNestStep, advSwingDmg, advDeathDrops, advPickupText, advOnKill,
   advMineStep, advPlaceCheck, advEatPolicy, advSapDue, advMine, advSaplings, advBreakBlock,
   advCascadeApply, advExplode,
-  advGetTntTap: () => advTntTap, advMouseHeldOn, advMouseHeldOff,
+  advGetTntTap: () => advTntTap, advMouseHeldOn, advMouseHeldOff, advMainPlaceable,
   advTryPlace, advGrowTree, advMineStop, advWearHeld,
   advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,
   advTntRoll, advTntDmg, advFurnace, advFurnaceAutoFill, advFurnaceOpenPanel,

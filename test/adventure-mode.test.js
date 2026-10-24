@@ -83,7 +83,7 @@ const api = vm.runInContext(`({
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST,
   ITEMS, isTool, toolOf, stackMax, mkStack, breakTime,
-  mkInventory, add, count, remove, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
+  mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
   RECIPES, canCraft, craft, take, costEntry, FUEL, fuelUnits, smeltOf, B_TNT,
 })`, eng);
@@ -183,6 +183,8 @@ globalThis.showToast = (s) => calls.push(['toast', s]);
 globalThis.setTouchActions = (l) => {
   touchList = l;
 };
+globalThis.aimClick = (b) => calls.push(['aimClick', b]); /* 智能主动作(mkMainAct)的路由终点 */
+globalThis.refreshTouchMain = (icon, label) => calls.push(['touchMain', icon, label]); /* 主动作键观感刷新 */
 globalThis.showPage = (id) => calls.push(['showPage', id]);
 globalThis.uiPause = () => calls.push(['uiPause']);
 globalThis.iconOf = () => ''; /* 像素图标工坊未加载: 空串=跳过图标 */
@@ -293,6 +295,7 @@ globalThis.flyMode = false;
 
 const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;
+globalThis.mkMainAct = ModeKit.mkMainAct; /* 智能主动作分派(手持感知): touch 列表顶层即消费 */
 globalThis.ModeKit = ModeKit;
 ModeKit.spawn = (x, y, z, o) => {
   calls.push(['spawn', x, y, z, o]);
@@ -416,6 +419,35 @@ test('探险模式: init 建场 — 草原地层/出生小屋/出生点/快捷�
   assert.ok(!touchList.some((b) => b.hold === 'Space' || b.hold === 'ShiftLeft'),
       '跳跃/下降已收归引擎常驻键(直接触控改造), 模式列表不再自带');
   assert.ok(spoken.some((s) => String(s).indexOf('探险') >= 0 || String(s).indexOf('欢迎') >= 0), '进场欢迎语音');
+});
+
+test('智能主动作(手持感知, 2026-10-24): 拿放置物→aimClick(2)+返 false 不连发; 工具/食物/空手→aimClick(0); 图标随手持刷新', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  const main = touchList[0];
+  assert.strictEqual(typeof main.holdAct, 'function', '主动作键 holdAct 在位');
+  /* 木板: 放置型(ITEMS.block=6) → 放置一次, 不进连发 */
+  inv.slots[0] = {id: 'planks', n: 4};
+  AdventureMode.hotbar.select(0); /* 选中槽 0(advHeldChanged → 图标同步) */
+  assert.strictEqual(A.advMainPlaceable(), true, '手持木板判定可放置');
+  assert.strictEqual(main.holdAct(), false, '放置分支返 false → input.js 跳过 onHold 连发(一按一放)');
+  assert.ok(calls.some((c) => c[0] === 'aimClick' && c[1] === 2), '路由 aimClick(2) 放置/使用链');
+  assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'brick'), '图标切到砖块(放置态)');
+  calls.length = 0;
+  /* 木镐: 工具(非放置) → 挖/打起步, 进连发 */
+  inv.slots[0] = {id: 'pick_wood', n: 1, dur: 120};
+  assert.notStrictEqual(main.holdAct(), false, '挖打分支返回非 false → 进 onHold 连发');
+  assert.ok(calls.some((c) => c[0] === 'aimClick' && c[1] === 0), '路由 aimClick(0) 挖/打链');
+  /* 食物与空手: 0 分支(吃路径在 onMouse(0) 内建, 不回归) */
+  inv.slots[0] = {id: 'apple', n: 1};
+  assert.strictEqual(A.advMainPlaceable(), false, '食物非放置物');
+  inv.slots[0] = null;
+  assert.strictEqual(A.advMainPlaceable(), false, '空手非放置物');
+  /* 背包变动(放光/吃光/拾取)走 advSyncHotbar 的图标同步路径 */
+  calls.length = 0;
+  inv.slots[0] = {id: 'planks', n: 1};
+  A.advSyncHotbar();
+  assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'brick'), 'advSyncHotbar 同步放置态图标');
 });
 
 test('探险模式: 湖 — 水面 + 沙底 + 湖底黏土层(红砖链源头) 2~3 格厚', () => {
@@ -1159,7 +1191,7 @@ test('T12 挖掘行为链: tier 不足 — 徒手/低阶镐挖铁矿只碎不掉
   clearAim();
 });
 
-test('T12 耐久政策: damageTool 归零 — remove 清槽 + 安抚 TTS + 观感回落锄头', () => {
+test('T12 耐久政策: damageTool 归零 — remove 清槽 + 安抚 TTS + 空手(槽已空, MC 口径)', () => {
   mem.clear();
   freshInit();
   holdOnly('shovel_wood', 1, 1); /* 剩 1 耐久: 再挖一块即破板 */
@@ -1170,9 +1202,23 @@ test('T12 耐久政策: damageTool 归零 — remove 清槽 + 安抚 TTS + 观�
   assert.strictEqual(cell(spot.x, 24, spot.z), 0, '破坏完成');
   assert.strictEqual(A.advGetInv().slots[0], null, '工具归零消失(remove 清槽)');
   assert.ok(spoken.some((s) => String(s).indexOf('再做一个') >= 0), '安抚 TTS(零惩罚哲学)');
-  assert.ok(calls.some((c) => c[0] === 'setItem' && c[1] === globalThis.PLAYER.heldItem),
-      '手持观感回落默认锄头');
+  assert.ok(calls.some((c) => c[0] === 'setItem' && c[1] === null),
+      '手持观感=空手(槽已空, 与 advHeldChanged 空槽同一口径)');
   clearAim();
+});
+
+test('手持一致: 选中槽 → Avatar 跟随(工具/方块/薄片 def, 空槽=空手)', () => {
+  mem.clear();
+  freshInit();
+  const lastSet = () => calls.filter((c) => c[0] === 'setItem').pop();
+  holdOnly('pick_wood', 1, 120); /* select(0) → onPick → advHeldChanged 全链 */
+  assert.strictEqual(lastSet()[1], 'pick_wood', '选中工具 → 手持工具');
+  holdOnly('planks', 5);
+  assert.strictEqual(lastSet()[1], 'planks', '选中方块 → 手持方块本体(不再回落锄头)');
+  holdOnly('apple', 2);
+  assert.strictEqual(lastSet()[1], 'apple', '选中食物 → 手持薄片(不再回落锄头)');
+  holdOnly(null);
+  assert.strictEqual(lastSet()[1], null, '空槽 → 空手(MC 口径)');
 });
 
 test('T12 放置行为链: 泥土/火把/树苗 — 落点+背包 −1+记账; thin 违规落点 toast 拒绝', () => {
@@ -1802,6 +1848,45 @@ test('大宝箱: 走近点击开面板(4 格门槛, 熔炉同款) → 存入并�
   freshInit();
   assert.deepStrictEqual(A.advGetChest().slots[0], {id: 'planks', n: 20}, '重进账户恢复(全局共享, 挖掉箱子也不丢)');
   A.advChestClose();
+});
+
+/* ============ 2026-10-24 背包面板点选搬运: 快捷栏腾位/换序(交互优化) ============ */
+
+test('背包点选搬运: 快捷栏↔主格腾位 + 同物并堆 + 快捷栏镜像同步 + 即时落盘', () => {
+  mem.clear();
+  freshInit();
+  const inv = A.advGetInv();
+  calls.length = 0;
+  /* 快捷栏杂物 → 主格空位: 腾出手上格 */
+  inv.slots[2] = {id: 'coal', n: 10};
+  A.advInvMove(2, 20);
+  assert.deepStrictEqual({...inv.slots[20]}, {id: 'coal', n: 10}, '煤搬去主格槽 20');
+  assert.strictEqual(inv.slots[2], null, '快捷栏槽 2 腾空');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'pick'), '搬运叮咚(与大宝箱存取同款)');
+  /* 同物并堆: 40+50 → 目标吃满 64, 余量 26 留原槽 */
+  inv.slots[9] = {id: 'coal', n: 40};
+  inv.slots[10] = {id: 'coal', n: 50};
+  A.advInvMove(10, 9);
+  assert.deepStrictEqual({...inv.slots[9]}, {id: 'coal', n: 64});
+  assert.deepStrictEqual({...inv.slots[10]}, {id: 'coal', n: 26});
+  /* 异种对调 = 快捷栏换序; 选中槽(槽 0)被搬换时快捷栏镜像同步 + 手持观感安静跟进 */
+  inv.slots[0] = {id: 'torch', n: 4};
+  inv.slots[1] = {id: 'planks', n: 3};
+  calls.length = 0;
+  A.advInvMove(0, 1);
+  assert.deepStrictEqual({...inv.slots[0]}, {id: 'planks', n: 3}, '换序: 木板进槽 0');
+  assert.deepStrictEqual({...inv.slots[1]}, {id: 'torch', n: 4});
+  assert.strictEqual(AdventureMode.hotbar.items[0].item, 'planks', '快捷栏镜像跟随(腾出的格立即可用)');
+  assert.ok(!calls.some((c) => c[0] === 'toast' && String(c[1]).includes('在手')), '安静跟进: 不播「在手」');
+  /* 原地/空搬运零副作用 */
+  calls.length = 0;
+  A.advInvMove(3, 3);
+  A.advInvMove(5, 7);
+  assert.ok(!calls.some((c) => c[0] === 'sfx'), '无变动不响不动包');
+  /* 即时落盘(离散动作即做即存): 再搬一步, 另开背包壳读同一介质, 布局已在档 */
+  A.advInvMove(20, 26);
+  const probe = Backpack.mkBackpack().load();
+  assert.deepStrictEqual({...probe.slots[26]}, {id: 'coal', n: 10}, '搬运动作已随档(不等 5s 节流)');
 });
 
 test('大宝箱扩容: 材料不够温和提示不动包 → 8 圆石扩到 18 格 → 4 铁锭顶格 27 → 顶格后无档', () => {

@@ -17,7 +17,7 @@ function loadInv() {
   }
   const get = vm.runInContext('(k) => eval(k)', ctx); // 未实现符号 → undefined(红在断言处)
   const names = ['ITEMS', 'stackMax', 'mkStack', 'mkInventory', 'add', 'count', 'canAfford',
-    'take', 'remove', 'damageTool', 'serialize', 'deserialize', 'HOTBAR_SLOTS', 'MAIN_SLOTS', 'INV_SLOTS'];
+    'take', 'remove', 'moveSlot', 'damageTool', 'serialize', 'deserialize', 'HOTBAR_SLOTS', 'MAIN_SLOTS', 'INV_SLOTS'];
   const h = {};
   for (const n of names) {
     try {
@@ -194,6 +194,63 @@ test('remove: 空槽返回 null 不炸', () => {
   const h = loadInv();
   const inv = h.mkInventory();
   assert.strictEqual(h.remove(inv, 7), null);
+});
+
+/* ============ moveSlot: 点选搬运(空位搬家 · 同物并堆 · 异种对调) ============ */
+
+test('moveSlot: 目标空位=整摞搬家(快捷栏→主格/主格→快捷栏), 耐久随堆', () => {
+  const h = loadInv();
+  const inv = h.mkInventory();
+  inv.slots[2] = {id: 'coal', n: 10};
+  inv.slots[9] = h.mkStack('pick_iron'); // dur 500
+  assert.strictEqual(h.moveSlot(inv, 2, 20), true); // 快捷栏 → 主格空位
+  assert.deepStrictEqual(snap(inv.slots[20]), {id: 'coal', n: 10});
+  assert.strictEqual(inv.slots[2], null);
+  assert.strictEqual(h.moveSlot(inv, 9, 0), true); // 主格工具 → 快捷栏空位
+  assert.deepStrictEqual(snap(inv.slots[0]), {id: 'pick_iron', n: 1, dur: 500}); // 耐久不被重铸
+  assert.strictEqual(inv.slots[9], null);
+});
+
+test('moveSlot: 同物并堆——目标吃满, 余量留原槽; 全并下则源槽清空', () => {
+  const h = loadInv();
+  const inv = h.mkInventory();
+  inv.slots[0] = {id: 'coal', n: 40};
+  inv.slots[9] = {id: 'coal', n: 50}; // 64 上限: 只吃得下 24
+  assert.strictEqual(h.moveSlot(inv, 9, 0), true);
+  assert.deepStrictEqual(snap(inv.slots[0]), {id: 'coal', n: 64});
+  assert.deepStrictEqual(snap(inv.slots[9]), {id: 'coal', n: 26}); // 余量留原槽
+  inv.slots[10] = {id: 'log', n: 5};
+  inv.slots[11] = {id: 'log', n: 30};
+  assert.strictEqual(h.moveSlot(inv, 11, 10), true);
+  assert.deepStrictEqual(snap(inv.slots[10]), {id: 'log', n: 35});
+  assert.strictEqual(inv.slots[11], null); // 全并下 → 源槽清空
+});
+
+test('moveSlot: 异种=整摞对调(快捷栏换序的底座); 同物工具(上限1)也对调不并堆', () => {
+  const h = loadInv();
+  const inv = h.mkInventory();
+  inv.slots[0] = {id: 'coal', n: 10};
+  inv.slots[8] = {id: 'torch', n: 4};
+  assert.strictEqual(h.moveSlot(inv, 0, 8), true); // 异种对调 = 调整快捷栏顺序
+  assert.deepStrictEqual(snap(inv.slots[0]), {id: 'torch', n: 4});
+  assert.deepStrictEqual(snap(inv.slots[8]), {id: 'coal', n: 10});
+  inv.slots[1] = {id: 'pick_stone', n: 1, dur: 100}; // 同 id 两把工具, 耐久不同
+  inv.slots[2] = {id: 'pick_stone', n: 1, dur: 260};
+  assert.strictEqual(h.moveSlot(inv, 1, 2), true);
+  assert.deepStrictEqual(snap(inv.slots[1]), {id: 'pick_stone', n: 1, dur: 260}); // 对调, 耐久随堆
+  assert.deepStrictEqual(snap(inv.slots[2]), {id: 'pick_stone', n: 1, dur: 100});
+});
+
+test('moveSlot: 原地/源空/同物目标已满 均 false 且不动包', () => {
+  const h = loadInv();
+  const inv = h.mkInventory();
+  inv.slots[3] = {id: 'coal', n: 64};
+  assert.strictEqual(h.moveSlot(inv, 3, 3), false); // 原地
+  assert.strictEqual(h.moveSlot(inv, 5, 9), false); // 源空
+  inv.slots[9] = {id: 'coal', n: 64};
+  assert.strictEqual(h.moveSlot(inv, 3, 9), false); // 同物已满: 点了也白点
+  assert.deepStrictEqual(snap(inv.slots[3]), {id: 'coal', n: 64});
+  assert.deepStrictEqual(snap(inv.slots[9]), {id: 'coal', n: 64});
 });
 
 /* ============ damageTool: 耐久政策在本层, 归零只发信号 ============ */

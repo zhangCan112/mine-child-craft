@@ -484,7 +484,9 @@ const NetherMode = mkMode({
     ];
   },
 
-  touch: [ /* ⛏️ 主动作键与探险同款(用户拍板 2026-10-24): 按一下打怪, 按住连续攻击 */
+  touch: [ /* ⛏️ 智能主动作键与探险同款(用户拍板 2026-10-24): 按一下打怪, 按住连续攻击。
+     手持感知规则在此天然恒为攻击 — 剑/弓皆非放置物(放置分支永不触发),
+     与 MC「Attack/Destroy 同键、分派与手持无关」同构(docs/mc-held-item-action-research.md Q6) */
     {icon: 'sword', label: '攻击', holdAct: netherAttack},
   ],
   /* ⛏️ 按住=连续攻击(挥击冷却自节流, 弓按 bowCd 节奏) */

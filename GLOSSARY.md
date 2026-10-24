@@ -67,7 +67,7 @@ _Avoid_: fillB / plantTree / fxHash（历史名，已归并）
 _Avoid_: 自适应分辨率（历史名——现在管的是画质档决策）、dprCap/lowFpsStreak（被取代的内联实现）
 
 **触控手势核心（TouchCore）**:
-引擎层纯核心（js/touch-core.js，零 THREE·零 DOM，有单测）：触屏指针流 → tap（轻点=放置/交互，作用于指尖）· drag（拖动=视角）· hold（长按，分类保留防静置手指误判轻点——挖掘/攻击已收进显式 ⛏️ 主动作键，长按当前无动作）三分类状态机，判据=按时长 × 位移阈值，一指一局互不串扰；到点升级（due）由调用方定时询问——纯核心不持定时器。手势底座按 MC 基岩版新触控口径（调研在 docs/mc-touch-controls-research.md，按钮策略经用户 2026-10-24 pinpoint 备注调整）；input.js 把 tap 分发为 aimClick(2) 于触点（CameraRig.holdAim 瞬态注入）。主动作键（holdAct：按下打/挖、按住经 onHold 连挖）与低频键顶部小键区（rare）同在 input.js 的按钮系统里。
+引擎层纯核心（js/touch-core.js，零 THREE·零 DOM，有单测）：触屏指针流 → tap（轻点=放置/交互，作用于指尖）· drag（拖动=视角）· hold（长按，分类保留防静置手指误判轻点——挖掘/攻击已收进显式 ⛏️ 主动作键，长按当前无动作）三分类状态机，判据=按时长 × 位移阈值，一指一局互不串扰；到点升级（due）由调用方定时询问——纯核心不持定时器。手势底座按 MC 基岩版新触控口径（调研在 docs/mc-touch-controls-research.md，按钮策略经用户 2026-10-24 pinpoint 备注调整）；input.js 把 tap 分发为 aimClick(2) 于触点（CameraRig.holdAim 瞬态注入）。主动作键（holdAct：**手持感知智能分派**——手持可放置物按下=放置一次且返 false 不进连发（mode-kit 的 mkMainAct），空手/工具/铲子按下=打/挖起步、按住经 onHold 连挖；图标经 input.js 的 refreshTouchMain 随手持切换镐/铲↔砖块）与低频键顶部小键区（rare）同在 input.js 的按钮系统里。
 _Avoid_: 手势识别器（散称）、把定时器塞进纯核心（到点驱动归调用方）
 
 **相机装置（CameraRig）**:
@@ -79,7 +79,7 @@ _Avoid_: 相机跟随、第三人称开关（那是它的 implementation）
 _Avoid_: 玩家皮肤、人物模型（散称）
 
 **手持物注册表（HeldItems）**:
-手持物（工具/武器）的唯一数据源：部件表、握持姿态、挥击与待机参数，附两个无状态入口——挥击关节角纯函数、按 def 的网格装配。工具 16 条由 mkToolDef 加载期批量生成（该工厂供单测直调，非运行时按需入口——运行时一律读 defs）；加武器 = 加一份 def；肢体动画与握持施加收在玩家形象（Avatar）的 implementation 里。
+手持物的唯一数据源：部件表、握持姿态、挥击与待机参数。两级供给——**defs 注册表**（手工武器 + 工具 16 条由 mkToolDef 加载期批量生成，工厂供单测直调）+ **defFor 惰性出口**（运行时唯一取 def 通道：工具/武器→defs；方块〔物品 id 或数字方块 id，建造/竞技场调色板直传〕→mkBlockDef 方块本体；棒状材料→mkRodDef；其余注册物品→mkPlateDef 薄片；空槽/未注册→null=空手，MC 口径）；附无状态入口——挥击关节角纯函数、按 def 的网格装配。加武器 = 加一份 def；肢体动画与握持施加收在玩家形象（Avatar）的 implementation 里，Avatar.setItem 声明目标、换物走「下沉-换-抬起」装备动画（沉到底才换网格）。
 _Avoid_: 武器表、物品系统（合称——物品核心/背包核心/合成核心/掉落物实体库各归各词条）
 
 **物品核心**:
@@ -87,7 +87,7 @@ _Avoid_: 武器表、物品系统（合称——物品核心/背包核心/合成
 _Avoid_: 物品表（散称）、把背包规则写进这里（归背包核心）
 
 **背包核心**:
-引擎层纯核心（js/inventory-core.js，有单测）：27 槽背包模型（槽 0~8 快捷栏直显 + 9~26 主格）与全部背包规则的单一权威——入包并堆/拒收、跨槽计数、按 cost 扣料（含任选材料）、槽级移除、工具耐久扣减、存档往返。耐久归零后的「消失+TTS 安抚」政策在模式层（D4/D9）。interface：mkInventory · add · count · canAfford · take · remove · damageTool · serialize · deserialize（附常量 HOTBAR_SLOTS/MAIN_SLOTS/INV_SLOTS）。
+引擎层纯核心（js/inventory-core.js，有单测）：27 槽背包模型（槽 0~8 快捷栏直显 + 9~26 主格）与全部背包规则的单一权威——入包并堆/拒收、跨槽计数、按 cost 扣料（含任选材料）、槽级移除、点选搬运（moveSlot：空位整摞搬家/同物并堆/异种对调，工具耐久随堆不重铸——背包面板快捷栏↔主格腾位与快捷栏换序的底座）、工具耐久扣减、存档往返。耐久归零后的「消失+TTS 安抚」政策在模式层（D4/D9）。interface：mkInventory · add · count · canAfford · take · remove · moveSlot · damageTool · serialize · deserialize（附常量 HOTBAR_SLOTS/MAIN_SLOTS/INV_SLOTS）。
 _Avoid_: 物品栏、inventory 对象（那是实现）、把扣料逻辑复制进合成（canAfford/take 的语义唯一权威在这里）
 
 **合成核心**:

@@ -4,11 +4,11 @@
    ------------------------------------------------------------
    27 槽背包模型(9 快捷 + 18 主格, 设计稿 D10)与全部背包规则:
    入包并堆/拒收、跨槽计数、按 cost 扣料(含任选材料)、槽级移除、
-   工具耐久扣减、存档往返。模式层只拿这里的函数拼玩法(吃/放/合成/
-   掉落拾取), 耐久归零后的「消失+安抚」政策在模式层(D4/D9)。
+   点选搬运(槽间搬家/并堆/对调)、工具耐久扣减、存档往返。模式层只拿
+   这里的函数拼玩法(吃/放/合成/掉落拾取), 耐久归零后的「消失+安抚」政策在模式层(D4/D9)。
    零 THREE 零 DOM, 只依赖 items-core 的注册表门禁(stackMax=0 即拒收)。
    interface: mkInventory · add · count · canAfford · take · remove ·
-              damageTool · serialize · deserialize ·
+              moveSlot · damageTool · serialize · deserialize ·
               常量 HOTBAR_SLOTS/MAIN_SLOTS/INV_SLOTS
    依赖(均经全局名, 调用期解析): js/items-core.js 的 stackMax/mkStack/
      ITEMS(加载序: items-core 先于本文件)
@@ -128,6 +128,37 @@ function remove(inv, slot, n) {
   s.n -= got;
   if (s.n <= 0) inv.slots[slot] = null;
   return out;
+}
+
+/* ------------------------------------------------------------
+   点选搬运: 背包面板「点一格再点一格」的搬移底座(拍板② 无拖拽,
+   大宝箱点选搬运同口径)。目标空位=整摞搬家; 同物未满=并堆(余量
+   留原槽); 其余(异种/工具上限 1)=整摞对调——堆对象整体挪动, 工具
+   耐久随堆走, 绝不经 mkStack 重铸满耐久。
+   返回是否发生变动(from===to/源空/同物已满 均 false 且不动包)。
+   ------------------------------------------------------------ */
+function moveSlot(inv, from, to) {
+  if (from === to) return false;
+  const a = inv.slots[from];
+  if (!a) return false;
+  const b = inv.slots[to];
+  if (!b) { // 空位: 整摞搬家
+    inv.slots[to] = a;
+    inv.slots[from] = null;
+    return true;
+  }
+  const max = stackMax(a.id);
+  if (b.id === a.id && max > 1) { // 同物并堆: 目标吃满, 余量留原槽
+    const put = Math.min(a.n, max - b.n);
+    if (put <= 0) return false; // 目标已满: 不动(点了也白点)
+    b.n += put;
+    a.n -= put;
+    if (a.n <= 0) inv.slots[from] = null;
+    return true;
+  }
+  inv.slots[to] = a; // 异种/工具: 整摞对调(耐久随堆对象走)
+  inv.slots[from] = b;
+  return true;
 }
 
 /* ------------------------------------------------------------

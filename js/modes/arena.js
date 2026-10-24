@@ -11,8 +11,9 @@ const ARENA = {
   rOut: 40, // 外墙半径
   flyAlt: 7.8, // 飞行单位悬停高度(离地面)
 };
-/* 选块物品栏(本模式唯一消费者, 归位自 config.js) */
-const HOTBAR = [3, 4, 13, 5, 6, 17, 16, 15, 18];
+/* 选块物品栏(本模式唯一消费者, 归位自 config.js); 第 1 格铁锹哨兵=挖掘入口
+   (智能主动作手持感知, 用户拍板 2026-10-24: 选中方块→⛏️放置, 选中铲子→⛏️连挖) */
+const HOTBAR = ['shovel', 3, 4, 13, 5, 6, 17, 16, 15, 18];
 
 /* ---------- 竞技场配平战力(本模式唯一消费者, 归位自 config.js 的 MOB_TYPES.power) ----------
    综合命中/射程/技能的配平系数, 只喂给编队数量匹配; 其他模式(坦克演习场/
@@ -1419,7 +1420,26 @@ function clearBattle() {
 }
 
 /* ---------- 竞技场 UI ---------- */
-const arenaHb = mkHotbar({items: HOTBAR.map((id)=>({block: id}))}); // 选块由 kit 接管(digit/wheel/点选)
+const arenaHb = mkHotbar({/* 选块由 kit 接管(digit/wheel/点选); 'shovel' 哨兵槽渲染铁锹物品图标 */
+  items: HOTBAR.map((id)=> (typeof id === 'number' ? {block: id} : {item: 'shovel_iron'})),
+  onPick: () => arenaHeldSync()});
+function arenaHeldIsBlock() {/* 手持感知判定(纯 seam): 选中数字方块槽才可放置, 'shovel' 槽 = 挖掘入口 */
+  return typeof HOTBAR[arenaHb.sel] === 'number';
+}
+function arenaHeldItemId() {/* 选中槽的手持物 id(纯 seam): 方块槽 → 方块数字 id
+  (HeldItems.defFor 直认), 铁锹哨兵槽 → shovel_iron(工具 def 现成) */
+  const id = HOTBAR[arenaHb.sel];
+  return typeof id === 'number' ? id : 'shovel_iron';
+}
+function arenaHeldSync() {/* 手持观感与选中槽一致 + 主动作键观感随手持 */
+  Avatar.setItem(arenaHeldItemId());
+  arenaTouchMainSync();
+}
+function arenaTouchMainSync() {/* 主动作键观感随手持: 方块=砖(放置)/铲=铲(连挖) */
+  if (typeof refreshTouchMain === 'function') {
+    refreshTouchMain(arenaHeldIsBlock() ? 'brick' : 'shovel', arenaHeldIsBlock() ? '放置' : '挖掘');
+  }
+}
 
 const cntAEl = document.getElementById('cntA');
 const cntBEl = document.getElementById('cntB');
@@ -1543,8 +1563,10 @@ const ArenaMode = mkMode({
   id: 'arena',
   chrome: {score: 'flex', hotbar: 'flex'},
   hotbar: arenaHb,
-  touch: [ /* ⛏️ 主动作键(用户拍板 2026-10-24): 挖掘/攻击显式按钮, 放置走轻点手势 */
-    {icon: 'pick', label: '挖掘', holdAct: ()=>aimClick(0)},
+  touch: [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2026-10-24): 选中方块→放置一次
+     (不连发 — 儿童向刻意偏离, MC 按住实为连放, 见 docs/mc-held-item-action-
+     research.md Q3), 铲子槽→挖起步+按住连挖; 画布轻点仍是放置 */
+    {icon: 'shovel', label: '挖/放', holdAct: mkMainAct(arenaHeldIsBlock)},
   ],
   init() {
     loadScene(generate); // 场景装填 seam: 建 + 收尾重建一步到位
@@ -1552,11 +1574,14 @@ const ArenaMode = mkMode({
     buildPanel();
     if (autoBalance) balanceTeams();
     updatePanel();
+    arenaHb.select(1); /* 默认选中第 2 格方块: 第 1 格铁锹是显式挖掘入口, 拿方块进场即放置态 */
+    arenaHeldSync(); /* 手持观感对齐选中槽(select 同格不触发 onPick, 显式兜底) */
   },
   cleanup() {
     resetBattleFx();
     battleState = 'idle';
     battleResult = '';
+    Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活, 照下界先例) */
   },
   update(dt) {
     deploySpawnQueue(); // 分帧部署先于一切战斗逻辑
@@ -1577,6 +1602,7 @@ const ArenaMode = mkMode({
     if (button === 0) {
       editBlock(hit.x, hit.y, hit.z, 0);
     } else if (button === 2) {
+      if (typeof HOTBAR[arenaHb.sel] !== 'number') return; // 铲子槽不放置(手持感知: 拿铲子=挖)
       const px=hit.x+hit.nx; const py=hit.y+hit.ny; const pz=hit.z+hit.nz;
       if (getBlock(px, py, pz)!==0) return;
       if (collidesAtPlayer(px, py, pz)) return;
@@ -1588,7 +1614,7 @@ const ArenaMode = mkMode({
     return [
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
       `FPS: ${fps}`,
-      `手持: ${BLOCKS[HOTBAR[arenaHb.sel]].name}`,
+      `手持: ${typeof HOTBAR[arenaHb.sel] === 'number' ? BLOCKS[HOTBAR[arenaHb.sel]].name : '铁锹'}`,
       `注视: ${ModeKit.lookName(hit)}`,
       `R 重新开战 · B 面板`,
     ];

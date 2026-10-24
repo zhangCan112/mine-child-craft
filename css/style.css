@@ -1120,6 +1120,23 @@ canvas {
   text-shadow: 0 1px 2px #000;
 }
 
+/* ---------- 点选搬运(背包格可点): 指针 + 悬停微亮 + 起手格高亮 ---------- */
+.mkp-grid .mkp-cell,
+.mkp-hotrow .mkp-cell {
+  cursor: pointer; /* craft 面板点选搬运/大宝箱存取, 两处格子都可点 */
+}
+
+.mkp-grid .mkp-cell:hover,
+.mkp-hotrow .mkp-cell:hover {
+  border-color: rgb(255 255 255 / 45%);
+}
+
+.mkp-cell.pick {
+  border-color: #ffe27a;
+  box-shadow: 0 0 0 2px rgb(255 226 122 / 55%),
+    0 0 14px rgb(255 226 122 / 45%);
+}
+
 /* ---------- 分类页签: 图标式零文字 ---------- */
 .mkp-tabs {
   display: flex;

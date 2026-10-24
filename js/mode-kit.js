@@ -14,7 +14,8 @@
      · mkHotbar 第三种槽型 {item:id} — 像素图标(iconOf)+右上数量(>1 才显)
        +底部耐久条(dur 访问器返 0..1 比, 模式层算 dur/toolOf(id).dur)
      · mkCraftPanel — 背包网格+配方书卡片+分类页签+任务卡占位容器;
-       亮灰由 canCraft 驱动, 单击合成(onCraft)/长按 0.4s 连做 0.3s 一发
+       亮灰由 canCraft 驱动, 单击合成(onCraft)/长按 0.4s 连做 0.3s 一发;
+       背包格点选搬运(点非空格起手高亮→点目标格 onMove, 无拖拽)
      · mkFurnacePanel — 三槽+进度条的纯显示面板,「自动放入」只算
        plan 回调 onAutoFill(矿石全放+FUEL 序最省凑料), 不动背包
      · sortInv — 整理按钮底座: 主格区同项合并(快捷栏不动)
@@ -25,7 +26,7 @@
    引擎层(world/input)对本文件零依赖; 本文件属应用层
    引导链 v2: mkChestPanel — 大宝箱面板(箱子格/扩容行/背包格, 点选搬运;
      政策与存档在模式层回调, 顶格档隐藏扩容行)
-   interface: mkMode · mkHotbar · mkCraftPanel · mkFurnacePanel ·
+   interface: mkMode · mkHotbar · mkMainAct · mkCraftPanel · mkFurnacePanel ·
               mkChestPanel · mkHpBar · sortInv · spawn · lookName · confirmBtn
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax ·
      inventory-core 的 HOTBAR_SLOTS/costEntry · craft-core 的 RECIPES/
@@ -61,6 +62,22 @@ function lookName(hit) {
   if (!hit) return '无';
   const id = getBlock(hit.x, hit.y, hit.z);
   return BLOCKS[id] ? BLOCKS[id].name : '?';
+}
+
+/* ---------- 主动作键智能分派(2026-10-24 用户拍板: 手持感知) ----------
+   规则全模式统一: placeable() 为真(手持可放置物) → 放置一次并返 false
+   (input.js 据此不进 onHold 连发 — 一按一放, 防误连放); 其余(空手/工具/
+   武器/食物/材料) → 挖/打起步走 aimClick(0), 返 undefined 进按住连挖。
+   MC 口径同构: 拿方块点哪放哪、空手/工具按哪挖哪(docs/mc-touch-controls-
+   research.md §3.9; 手持分派详见 docs/touch-controls-design.md §3.2) */
+function mkMainAct(placeable) {
+  return () => {
+    if (placeable()) {
+      aimClick(2);
+      return false;
+    }
+    aimClick(0);
+  };
 }
 
 /* ---------- hotbar: 三种槽型 {block:id} | {icon,lbl,cnt()} | {item:id}(T10) ----------
@@ -208,13 +225,16 @@ const KIT_TABS = [
 
 /* ---------- 背包+配方书面板(D8/D10, T10): 自建遮罩挂 body 级, 不动 index.html ----------
    opts: inv(mkInventory 背包) · recipes(缺省 RECIPES 全表) · station()桌站点
-   判定(缺省恒 true) · allow(放开默认过滤的配方 id 数组) · onCraft(out)/onSort
+   判定(缺省恒 true) · allow(放开默认过滤的配方 id 数组) · onCraft(out)/onSort ·
+   onMove(from,to)(背包格点选搬运: 点非空格起手高亮, 再点目标格搬过去,
+   政策与存档在模式层; 大宝箱点选搬运同口径, 拍板② 无拖拽)
    挂载幂等: 同一遮罩节点反复 show 只挂一次, remove 可重复调 */
 function mkCraftPanel(opts) {
   const o = opts || {};
   const doc = o.doc || document;
   const inv = o.inv;
   const station = o.station || (() => true); // 站点规则归模式层(T13 传 Mobs.near 判定)
+  let pickIdx = -1; // 点选搬运的起手槽号(-1 无起手); 整理/关面板即收手
   const root = doc.createElement('div');
   root.className = 'mkp-mask';
   const box = doc.createElement('div');
@@ -233,6 +253,7 @@ function mkCraftPanel(opts) {
   const sortBtn = doc.createElement('button');
   sortBtn.className = 'mkp-sort';
   sortBtn.onclick = ()=>{
+    pickIdx = -1; // 整理会重排主格: 起手槽号失义, 先收手
     sortInv(inv);
     refresh();
     if (o.onSort) o.onSort();
@@ -281,8 +302,29 @@ function mkCraftPanel(opts) {
 
   function renderGrid() {
     grid.innerHTML = ''; hotrow.innerHTML = '';
-    for (let i = HOTBAR_SLOTS; i < inv.slots.length; i++) grid.appendChild(cellEl(inv.slots[i]));
-    for (let i = 0; i < HOTBAR_SLOTS; i++) hotrow.appendChild(cellEl(inv.slots[i]));
+    const wire = (i)=>{ // 格子 + 点选搬运接线(起手格重画后补高亮)
+      const d = cellEl(inv.slots[i]);
+      if (i === pickIdx) d.classList.add('pick');
+      d.onclick = ()=>cellClick(i);
+      return d;
+    };
+    for (let i = HOTBAR_SLOTS; i < inv.slots.length; i++) grid.appendChild(wire(i));
+    for (let i = 0; i < HOTBAR_SLOTS; i++) hotrow.appendChild(wire(i));
+  }
+
+  /* —— 点选搬运状态机(大宝箱同口径): 无起手时点非空格=起手(高亮),
+     有起手时点另一格=搬去那里(onMove 报模式层执行), 点原格=放下;
+     起手格被合成掏空则本次点击改当新起手 —— */
+  function cellClick(i) {
+    if (pickIdx >= 0 && pickIdx !== i && inv.slots[pickIdx]) {
+      const from = pickIdx;
+      pickIdx = -1;
+      if (o.onMove) o.onMove(from, i);
+      refresh(); // 搬运后整幅重画(模式层已动 inv)
+      return;
+    }
+    pickIdx = (pickIdx === i || !inv.slots[i]) ? -1 : i; // 起手/放下/空格无效
+    refresh();
   }
 
   /* —— 配方可见集: 一期过滤(bread/bone_meal/bow_item 不点亮) + allow 放开 —— */
@@ -420,6 +462,7 @@ function mkCraftPanel(opts) {
     if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
   }
   function close() {/* ✕/Esc 统一出口: 隐藏 + onClose(模式层做状态同步与指针回锁) */
+    pickIdx = -1; /* 收面板顺手收搬运起手(下次打开不带旧高亮) */
     hide();
     if (o.onClose) o.onClose();
   }
@@ -868,6 +911,6 @@ function mkMode(cfg) {
   return mode;
 }
 
-const ModeKit = {mkMode, mkHotbar, mkCraftPanel, mkFurnacePanel, mkChestPanel, mkHpBar, sortInv,
+const ModeKit = {mkMode, mkHotbar, mkMainAct, mkCraftPanel, mkFurnacePanel, mkChestPanel, mkHpBar, sortInv,
   spawn: kitSpawn, lookName, confirmBtn};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;

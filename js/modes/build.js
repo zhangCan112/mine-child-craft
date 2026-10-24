@@ -1,19 +1,42 @@
 'use strict';
 /* ============================================================
    建造模式:自由建造 · 精选初始场景(巨大地下室 / 二层小楼房)
-   - 全方块物品栏 · F 飞行 · R 重置场景 · 改动自动云同步存档
+   - 全方块物品栏(第 1 格铁锹=挖掘入口, 手持感知主动作) · F 飞行 · R 重置场景 · 改动自动云同步存档
    - 家具全部由现有方块拼搭(床/沙发/桌椅/电视/书架/厨台…)
 ============================================================ */
 
-/* ---------- 物品栏:全部基础方块 ---------- */
-const BUILD_PALETTE = [6, 5, 17, 3, 4, 13, 9, 18, 19, 15, 16, 12, 11, 8, 2, 1, 7, 14, 10];
+/* ---------- 物品栏:全部基础方块 + 第 1 格铁锹(挖掘入口, 2026-10-24 用户拍板:
+    智能主动作手持感知全模式统一 — 选中方块→⛏️放置, 选中铲子→⛏️连挖;
+    桌面左键恒挖不受影响, 右键拿铲子=无操作(MC 拿工具右键同构)) ---------- */
+const BUILD_PALETTE = ['shovel', 6, 5, 17, 3, 4, 13, 9, 18, 19, 15, 16, 12, 11, 8, 2, 1, 7, 14, 10];
 const BUILD_SAVE_KEY = 'build_world_save';
 
 let buildSceneId = null; // 当前场景 id
 const buildEdits = {}; // 各场景玩家改动 { sceneId: Map("x,y,z"→id) }
 let buildSaveT = 0; let buildDirty = false;
-/* hotbar (kit 实例): 建造调色板, cls:'build' 换皮肤 */
-const buildHb = mkHotbar({cls: 'build', items: BUILD_PALETTE.map((id)=>({block: id}))});
+/* hotbar (kit 实例): 建造调色板, cls:'build' 换皮肤; 'shovel' 哨兵槽渲染铁锹物品图标 */
+const buildHb = mkHotbar({cls: 'build',
+  items: BUILD_PALETTE.map((id)=> (typeof id === 'number' ? {block: id} : {item: 'shovel_iron'})),
+  onPick: () => buildHeldSync()});
+function buildHeldIsBlock() {/* 手持感知判定(纯 seam): 选中数字方块槽才可放置,
+  'shovel' 槽 = 挖掘入口(智能主动作与桌面右键共用) */
+  return typeof BUILD_PALETTE[buildHb.sel] === 'number';
+}
+function buildHeldItemId() {/* 选中槽的手持物 id(纯 seam): 方块槽 → 方块数字 id
+  (HeldItems.defFor 直认, 覆盖无物品条目的创造专属方块), 铁锹哨兵槽 →
+  shovel_iron(工具 def 现成) */
+  const id = BUILD_PALETTE[buildHb.sel];
+  return typeof id === 'number' ? id : 'shovel_iron';
+}
+function buildHeldSync() {/* 手持观感与选中槽一致 + 主动作键观感随手持 */
+  Avatar.setItem(buildHeldItemId());
+  buildTouchMainSync();
+}
+function buildTouchMainSync() {/* 主动作键观感随手持: 方块=砖(放置)/铲=铲(连挖) */
+  if (typeof refreshTouchMain === 'function') {
+    refreshTouchMain(buildHeldIsBlock() ? 'brick' : 'shovel', buildHeldIsBlock() ? '放置' : '挖掘');
+  }
+}
 
 /* ============================================================
    家具搭建辅助 (y 为家具底部所在层)
@@ -471,19 +494,25 @@ const BuildMode = mkMode({
   id: 'build',
   chrome: {score: 'none', hotbar: 'flex'},
   hotbar: buildHb,
-  touch: [ /* ⛏️ 主动作键: 按住连挖准星方块(250ms/块); 放置走轻点手势; ✈️ 飞行开关 */
-    {icon: 'pick', label: '挖掘', holdAct: ()=>aimClick(0)},
+  touch: [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2026-10-24): 选中方块→放置一次
+     (mkMainAct 返 false 不连发 — 儿童向刻意偏离: MC 按住实为连放, 见
+     docs/mc-held-item-action-research.md Q3), 铲子槽→挖起步+按住连挖
+     (250ms/块); 画布轻点仍是放置; ✈️ 飞行开关 */
+    {icon: 'shovel', label: '挖/放', holdAct: mkMainAct(buildHeldIsBlock)},
     {icon: 'fly', label: '飞行', act: ()=>buildToggleFly()},
   ],
   init() {
     if (!buildSceneId) buildSceneId = buildLoadSave() || BUILD_SCENES[0].id;
     buildLoadScene(buildSceneId);
     buildSceneMenu();
+    buildHb.select(1); /* 默认选中第 2 格方块: 第 1 格铁锹是显式挖掘入口, 拿方块进场即放置态 */
+    buildHeldSync(); /* 手持观感对齐选中槽(select 同格不触发 onPick, 显式兜底) */
   },
   cleanup() {
     buildSaveNow();
     flyMode = false;
     buildHoldOn = false; /* 长按连挖场: 退出模式即收 */
+    Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活, 照下界先例) */
   },
   buildMenu() {
     buildSceneMenu();
@@ -512,6 +541,7 @@ const BuildMode = mkMode({
       } // 底层保护, 防挖穿坠出世界
       x=hit.x; y=hit.y; z=hit.z; id=0;
     } else if (button === 2) { // 放
+      if (!buildHeldIsBlock()) return; // 铲子槽不放置(手持感知: 拿铲子=挖, MC 拿工具右键无操作同构)
       x=hit.x+hit.nx; y=hit.y+hit.ny; z=hit.z+hit.nz;
       if (getBlock(x, y, z)!==0) return;
       if (collidesAtPlayer(x, y, z)) return;
@@ -535,7 +565,7 @@ const BuildMode = mkMode({
       `场景: ${sc?sc.name:'-'} · 已建造 ${buildEdits[buildSceneId].size} 块`,
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
       `FPS: ${fps}${flyMode?' · <b>✈️ 飞行中</b>':''}`,
-      `手持: ${BLOCKS[BUILD_PALETTE[buildHb.sel]].name} · 注视: ${ModeKit.lookName(hit)}`,
+      `手持: ${buildHeldIsBlock() ? BLOCKS[BUILD_PALETTE[buildHb.sel]].name : '铁锹'} · 注视: ${ModeKit.lookName(hit)}`,
       `F 飞行 · R 重置场景 · B 菜单`,
     ];
   },
