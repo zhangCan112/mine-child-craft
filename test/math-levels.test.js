@@ -41,6 +41,7 @@ function loadMathLevels() {
       MATH_CONTEXTS, mathParamsFor, MATH_LEVELS, mathPassed, mathStars, MATH_LOOT,
       rollMathLoot, grantMathLoot, MATH_LOG_KEEP_DAYS,
       mathTodayStr, mathDayIndex, trimMathLog,
+      mathLogFamBand, mathPanelMatrix, mathPanelCsv,
       MATH_STAMP_KINDS, MATH_STAMP_DAILY, MATH_STAMP_REWARDS, MATH_STAMP_REWARD_TEXT,
       MATH_STAMP_KEEP_DAYS, mathStampRecord, mathStampTrim, mathStampCount,
       mathStampMilestones, mathStampRewardsDue, mathStampRewardFor, mathStampNextLine,
@@ -717,4 +718,69 @@ test('MATH_LEVELS: 情境关 = 每情境族带内首个轮转位 ×4 带(带 0 �
   for (const lv of seen.clock.concat(seen.shop, seen.measure)) {
     if (lv.band === 0) assert.ok(lv.i >= 6, '带 0 情境关在教学关之后: i=' + lv.i);
   }
+});
+
+/* ============ T9 家长面板聚合(矩阵按 n 加权 / 旧键兼容 / CSV 形状) ============ */
+
+test('mathPanelMatrix: 六族×四带按 n 加权聚合, 挑战单列, 未触族空态', () => {
+  const ml = loadMathLevels();
+  const mx = ml.mathPanelMatrix({'2026-10-24': {
+    'count:0': {acc: 0.5, n: 2}, 'count:2': {acc: 1, n: 2, chalN: 1, chalOk: 1},
+  }});
+  const count = mx.rows.find((r) => r.family === 'count');
+  assert.strictEqual(count.n, 4);
+  near(count.acc, 0.75, '族合计 = Σacc·n/Σn');
+  near(count.cells[0].acc, 0.5); assert.strictEqual(count.cells[0].n, 2);
+  near(count.cells[2].acc, 1); assert.strictEqual(count.cells[2].n, 2);
+  assert.strictEqual(count.cells[1].n, 0); assert.strictEqual(count.cells[3].n, 0);
+  assert.strictEqual(count.chalN, 1); assert.strictEqual(count.chalOk, 1);
+  for (const r of mx.rows) { // 六行齐, 其余族全空态
+    assert.strictEqual(typeof r.acc, 'number');
+    if (r.family !== 'count') {
+      assert.strictEqual(r.n, 0); assert.strictEqual(r.acc, 0);
+      for (const c of r.cells) assert.strictEqual(c.n, 0);
+    }
+  }
+  assert.strictEqual(mx.rows.length, ml.MATH_FAMILIES.length);
+});
+
+test('mathPanelMatrix: 无冒号旧键只入族合计不入带格, 损坏/未知键防御', () => {
+  const ml = loadMathLevels();
+  const mx = ml.mathPanelMatrix({'2026-9-5': {
+    'hop': {acc: 0.8, n: 5, chalN: 2, chalOk: 1}, // 开发期旧形状(键=族名)
+    'bogus:9': {acc: 1, n: 3}, // 未知族 → 整条丢弃
+    'broken': null, // 损坏记录跳过
+  }});
+  const hop = mx.rows.find((r) => r.family === 'hop');
+  assert.strictEqual(hop.n, 5); near(hop.acc, 0.8);
+  assert.strictEqual(hop.chalN, 2); assert.strictEqual(hop.chalOk, 1);
+  for (const c of hop.cells) assert.strictEqual(c.n, 0, '旧键不入学期带格');
+  assert.strictEqual(mx.rows.some((r) => r.family === 'bogus'), false, '未知族不入行');
+});
+
+test('mathPanelCsv: 表头 26 列, 行按日升序(无前导零日期), 族列含带键聚合, 图章列', () => {
+  const ml = loadMathLevels();
+  const save = {
+    log: {
+      '2026-10-24': {'craft:1': {acc: 0.9, n: 4}},
+      '2026-9-5': {'craft:1': {acc: 0.5, n: 2}, 'craft': {acc: 0.5, n: 2}},
+      '坏日期': {'craft:0': {acc: 1, n: 1}},
+    },
+    stamps: {'2026-10-24': 6, '2026-9-5': 3},
+  };
+  const rows = ml.mathPanelCsv(save);
+  assert.strictEqual(rows[0].length, 1 + 6 * 4 + 1, '日期 + 六族×4 列 + 图章');
+  assert.strictEqual(rows.length, 3, '表头 + 两个合法日期(坏日期过滤)');
+  assert.strictEqual(rows[1][0], '2026-9-5', '升序: 9-5 在 10-24 前(无前导零也正确)');
+  assert.strictEqual(rows[2][0], '2026-10-24');
+  const craftName = ml.MATH_META.craft.name;
+  const iAcc = rows[0].indexOf(craftName + '正确率%');
+  const iN = rows[0].indexOf(craftName + '次数');
+  assert.notStrictEqual(iAcc, -1, '表头含族正确率列');
+  assert.strictEqual(rows[1][iN], 4, '旧键+带键同族聚合: 2+2');
+  assert.strictEqual(rows[1][iAcc], 50, '聚合正确率 = 50%');
+  assert.strictEqual(rows[1][iN + 1], 0, '挑战遇到列');
+  assert.strictEqual(rows[rows.length - 1][rows[0].length - 1], 6, '图章列=当日关数');
+  const empty = ml.mathPanelCsv({});
+  assert.strictEqual(empty.length, 1, '空档只有表头');
 });

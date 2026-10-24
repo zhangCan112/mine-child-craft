@@ -198,25 +198,31 @@ _Avoid_: devil 字段名当物理名、鬼计算/n-back（招牌内核即 N-back
 _Avoid_: NPC/向导（散称）、把表情画散写在模式层（像素画归 focus-icons 管线）
 
 **数学冒险岛（MathMode）**:
-【实现中，T1 骨架已接线（注册表/主菜单卡/模式层/每日预算）, T2~T9 续建, 词条由 T9 转正】第一学段数学思维训练营模式（js/modes/math.js，训练营类同专注训练营：全屏接管 UI、独立每日预算 6 关/20 分钟、不计儿童时限、无菜单页）；100 关关卡地图 = 六族 × 四学期带螺旋混编，难度双轨（数值跟带不超前、思维跳到附加题级）。_Avoid_: 数学模式（散称）、数学游戏
+第一学段（1~2 年级）数学思维训练营模式（js/modes/math.js，训练营类同专注训练营：全屏接管 UI、独立每日预算 6 关/20 分钟、不计儿童时限、无菜单页）；100 关关卡地图 = 六族 × 四学期带螺旋混编，难度双轨（数值跟带不超前、思维跳到附加题级）；关卡流程（今日页→地图→屏流/世界轨关卡→结算）与家长面板（六族×四带矩阵/思维挑战通过率/CSV 导出/诚实口径说明）在此装配。_Avoid_: 数学模式（散称）、数学游戏
 
 **数学关卡参数表（MathLevels）**:
-【实现中，T2 交付】`js/math-levels.js`，数学关卡数值唯一权威：六族元数据、四带数值轴、双轨难度曲线、100 关编排、通过门槛/三星、战利品表与掷骰、存档默认值/迁移。_Avoid_: MATH_LEVELS 影子表
+`js/math-levels.js`，数学关卡数值唯一权威：六族元数据与情境变体登记（MATH_CONTEXTS）、四带数值轴、双轨难度曲线（**mathParamsFor**——不叫 paramsFor，focus-levels 已占用该全局名）、100 关编排、通过门槛/三星（挑战挂钩）、战利品表与掷骰、图章一本纯函数、家长面板聚合（mathPanelMatrix/mathPanelCsv）、存档默认值/迁移。_Avoid_: MATH_LEVELS 影子表、paramsFor 直呼（那是专注训练营的名字）
 
 **谜题纯核心（PuzzleCore）**:
-【实现中，T3 交付】`js/math-puzzles-core.js`，出题与判分的纯数据变换（种子注入，同 seed 同输出）。_Avoid_: 题库（不是题库，是生成器）
+`js/math-puzzles-core.js`，出题与判分的纯数据变换（种子注入，同 seed 同输出）：图案镜像/平移/旋转与对称补全、俯视图纸投影、隐藏块/露面计数、数列与周期、合成多解枚举、天平代换链、线索排队、间隔问答；呈现红线常数 LIMITS（组块≤4/线索≤3）。_Avoid_: 题库（不是题库，是生成器）
 
 **数学屏流引擎**:
-【实现中，T4 交付】`js/math-paradigms.js`，屏流族（数一数/算一算/找一找等）的呈现-点选-反馈流程与小部件（DOM 惰性、零渲染引擎）。_Avoid_: 数学范式（范式是专注训练营的词）
+`js/math-paradigms.js`，屏流族（数一数/算一算/找一找/站位比大小/情境三馆）的呈现-点选-反馈流程与小部件（DOM 惰性、零渲染引擎、假 doc 可测）；mathScreenDispatch 是"变体→引擎"的纯函数清单（测试锁）。_Avoid_: 数学范式（范式是专注训练营的词）
+
+**数学情境变体（MATH_CONTEXTS）**:
+挂在六族上的情境皮肤变体（登记表在 js/math-levels.js）：人民币商店（craft/shop）、钟表时刻（hop/clock）、测距步数（count/measure）——不独立成族，编排生成器在每情境族每带首个轮转位只换 variant（共 12 关），tier/kind/params 与承载族曲线同源，数值跟带。_Avoid_: 情境族（不是族）、独立模式
+
+**数学图章**:
+数学冒险岛独立的集章一本（纯函数在 js/math-levels.js：mathStampRecord/Trim/Count/Milestones/RewardsDue）：日历式记录（钳日限 1~6）、滚动 90 天、自选章图案（宝石/星星/加号）、集章达成线领奖纯观感永不解锁玩法；与专注训练营图章互不相通。_Avoid_: 与专注图章混称
 
 **跳一跳世界轨纯核心（HopWorld）**:
-【实现中，T5 交付】`js/hop-world-core.js`，hop 族世界变体（掷骰前进/跳格子任务/间隔问题+规律跳）的出题与判分纯函数：线性数路布局（蛇行只是视觉折行、数序沿路不变——Ramani & Siegler 线性数板口径，环形无效）、骰步、跳格试次、间隔/规律题的格空间包装（PuzzleCore 神谕 + 平移/换算）、恰 4 项数字选项条。_Avoid_: 把路径布局写进模式层（判分纯逻辑归此核心）
+`js/hop-world-core.js`，hop 族世界变体（掷骰前进/跳格子任务/间隔问题+规律跳）的出题与判分纯函数：线性数路布局（蛇行只是视觉折行、数序沿路不变——Ramani & Siegler 线性数板口径，环形无效）、骰步、跳格试次、间隔/规律题的格空间包装（PuzzleCore 神谕 + 平移/换算）、恰 4 项数字选项条。_Avoid_: 把路径布局写进模式层（判分纯逻辑归此核心）
 
 **数学世界轨（MathWorldTrack）**:
-【实现中，T5 交付 hop】`js/math-world.js`，世界族关卡的 3D 装配库：混合宿主（透明 mathRoot + 点选接球层 + 任务卡覆层，全程不锁指针、纯鼠标点选）、场景装填（≤32×32 草岛数字路，进场装场退出清场）、Avatar 走子逐格读数、相机跟随、试次循环与逐试次 onTrial 交回 T4 结算。_Avoid_: 世界轨渲染/交互写单测（判分已下沉纯核心，装配由 boot 冒烟兜底）
+`js/math-world.js`，hop 族世界关卡的 3D 装配库：混合宿主（透明 mathRoot + 点选接球层 + 任务卡覆层，全程不锁指针、纯鼠标点选）、场景装填（≤32×32 草岛数字路，进场装场退出清场）、Avatar 走子逐格读数、相机跟随、试次循环与逐试次 onTrial 交回关卡流程结算。_Avoid_: 世界轨渲染/交互写单测（判分已下沉纯核心，装配由 boot 冒烟兜底）
 
 **摆与搭世界引擎（BuildWorld）**:
-【实现中，T6 交付】`js/math-build-world.js`（THREE/DOM 装配，指针锁宿主）+ `js/math-build-world-core.js`（纯核心·有单测：谜题形状派生/候选与数字点阵/图纸像素投影）——摆一摆（mirror）/搭一搭（plan）两族世界变体的呈现-点选-反馈引擎：每试次经场景装填（loadScene）装一个 ≤32×32 小场景（石英画布+玻璃标记+世界内候选牌），放置类走瞄准射线点选放置/撤除（建造模式形态的关卡内临时放置）+发光石「好啦」交卷（摆对即时自动过关），选答类点世界内图纸牌/七段数字牌（指针锁定下 DOM 按钮点不到，答案牌长在世界里）；判分全部委托谜题纯核心（gradeSymmetry/gradeBlueprint/hiddenBlocks/exposedFaces）。进场装场·退出清场·不写建造存档。与 hop 的混合宿主（js/math-world.js，不锁指针）经 modes/math.js 的 MATH_WORLD_RUNNERS 注册表并列分发，宿主统一留待后续票。_Avoid_: 把摆与搭判分写进装配层（纯逻辑归 math-build-world-core）、math-world.js（那是 hop 世界轨的文件）
+`js/math-build-world.js`（THREE/DOM 装配，指针锁宿主）+ `js/math-build-world-core.js`（纯核心·有单测：谜题形状派生/候选与数字点阵/图纸像素投影）——摆一摆（mirror）/搭一搭（plan）两族世界变体的呈现-点选-反馈引擎：每试次经场景装填（loadScene）装一个 ≤32×32 小场景（石英画布+玻璃标记+世界内候选牌），放置类走瞄准射线点选放置/撤除（建造模式形态的关卡内临时放置）+发光石「好啦」交卷（摆对即时自动过关），选答类点世界内图纸牌/七段数字牌（指针锁定下 DOM 按钮点不到，答案牌长在世界里）；判分全部委托谜题纯核心（gradeSymmetry/gradeBlueprint/hiddenBlocks/exposedFaces）。进场装场·退出清场·不写建造存档。与 hop 的混合宿主（js/math-world.js，不锁指针）经 modes/math.js 的 MATH_WORLD_RUNNERS 注册表并列分发，宿主统一留待后续票。_Avoid_: 把摆与搭判分写进装配层（纯逻辑归 math-build-world-core）、math-world.js（那是 hop 世界轨的文件）
 
 
 **下界冒险（NetherMode）**:

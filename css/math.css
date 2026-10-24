@@ -1553,3 +1553,58 @@ button.m-mark:hover {
     transition: none !important;
   }
 }
+
+/* ---------- 家长面板(T9): 入口钮/算术门/矩阵表/诚实口径说明 ---------- */
+.m-today {
+  position: relative; /* 家长入口钮的定位锚 */
+}
+
+.m-today .m-parent-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+}
+
+.m-gate-row,
+.m-btn-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.m-stat-row {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+}
+
+.m-table {
+  border-collapse: collapse;
+  margin: 0 auto 12px;
+  font-size: 14px;
+}
+
+.m-table th,
+.m-table td {
+  border: 1px solid rgb(255 255 255 / 30%);
+  padding: 4px 10px;
+  text-align: center;
+}
+
+.m-table th {
+  background: rgb(0 0 0 / 30%);
+}
+
+.m-note {
+  max-width: 560px;
+  margin: 0 auto 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  background: rgb(0 0 0 / 22%);
+  border-radius: 10px;
+  padding: 10px 14px;
+}

@@ -1278,7 +1278,7 @@ test('mathSettleSave: 通关记星/挑战表/图章/日志, 教学关 0 星占�
   assert.ok(passed);
   assert.ok(s.stars[normal.i] >= 1, '通过至少 1 星');
   assert.strictEqual(s.stamps[today], 1, '图章=当日关数');
-  assert.ok(s.log[today][normal.family].n === 1);
+  assert.ok(s.log[today][normal.family + ':' + normal.band].n === 1, '日志键=族:带(T9 家长面板矩阵数据源)');
   const starsFirst = s.stars[normal.i];
   // 同日第二关: 50% 未过线, 星数不降(历史最高)
   passed = mm.mathSettleSave(s, normal, {acc: 0.5, maxStreakErr: 2}, today);
@@ -1291,8 +1291,8 @@ test('mathSettleSave: 通关记星/挑战表/图章/日志, 教学关 0 星占�
   passed = mm.mathSettleSave(s, chal, {acc: 0.85, maxStreakErr: 0}, today);
   assert.ok(passed, '85% 过挑战 80% 线');
   assert.strictEqual(s.challenge[chal.family + ':' + chal.band], true);
-  assert.strictEqual(s.log[today][chal.family].chalN, 1);
-  assert.strictEqual(s.log[today][chal.family].chalOk, 1);
+  assert.strictEqual(s.log[today][chal.family + ':' + chal.band].chalN, 1);
+  assert.strictEqual(s.log[today][chal.family + ':' + chal.band].chalOk, 1);
   // 教学关: 恒过, 0 星占位(地图完成标记)
   const tut = mm.MATH_LEVELS[0];
   s = save();

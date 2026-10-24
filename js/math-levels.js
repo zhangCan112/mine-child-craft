@@ -16,7 +16,7 @@
      mathPassed(level, st) · mathStars(level, st, famChallengeDone) ·
      MATH_LOOT · rollMathLoot(level, {ok, streak, seed}) ·
      grantMathLoot(inv, ids) · MATH_LOG_KEEP_DAYS · mathTodayStr ·
-     mathDayIndex · trimMathLog ·
+     mathDayIndex · trimMathLog · mathPanelMatrix · mathPanelCsv ·
      MATH_STAMP_KINDS/DAILY/REWARDS/REWARD_TEXT/KEEP_DAYS ·
      mathStampRecord(stamps, day, count) · mathStampTrim(stamps, today) ·
      mathStampCount · mathStampMilestones · mathStampRewardsDue ·
@@ -587,6 +587,85 @@ function trimMathLog(log, today, keepDays) {
     if (diff < keepDays) out[k] = log[k]; // NaN 比较为 false 自然丢弃
   }
   return out;
+}
+
+/* ---------- 家长面板聚合(T9, 纯函数, 模式层面板与单测共用) ----------
+    log 形状: {日期: {'族:带': {acc, n, chalN, chalOk}}}(T9 起, 写入点
+    mathSettleSave); 无冒号的旧键(开发期 T4~T8 形状, 键=族名)按"只入族
+    合计、不入学期带格"兼容读取, 不需要存档迁移。acc 是记录内运行均值,
+    聚合一律按 n 加权重算(Σacc·n / Σn)。 */
+function mathLogFamBand(key) {
+  const s = String(key);
+  const i = s.indexOf(':');
+  return i < 0 ? {fam: s, band: -1} : {fam: s.slice(0, i), band: Number(s.slice(i + 1))};
+}
+
+/* 六族×四带矩阵 + 族合计 + 思维挑战遇到/通过(跨日全量聚合):
+   返回 {rows: [{family, cells: [{acc, n}×4], acc, n, chalN, chalOk}]};
+   损坏记录/未知族键/带号越界(含旧键 band=-1)跳过或只入族合计 */
+function mathPanelMatrix(log) {
+  const rows = {};
+  for (const f of MATH_FAMILIES) {
+    rows[f] = {family: f, cells: [0, 1, 2, 3].map(() => ({acc: 0, n: 0})),
+      acc: 0, n: 0, chalN: 0, chalOk: 0};
+  }
+  const days = log || {};
+  for (const day of Object.keys(days)) {
+    const d = days[day] || {};
+    for (const k of Object.keys(d)) {
+      const r = d[k];
+      if (!r || typeof r !== 'object') continue; // 损坏记录防御
+      const fb = mathLogFamBand(k);
+      const row = rows[fb.fam];
+      if (!row) continue; // 未知族键兜底丢弃
+      row.acc += (r.acc || 0) * (r.n || 0); row.n += r.n || 0;
+      row.chalN += r.chalN || 0; row.chalOk += r.chalOk || 0;
+      if (fb.band >= 0 && fb.band < 4) { // 旧键(无冒号)只入族合计不入带格
+        const c = row.cells[fb.band];
+        c.acc += (r.acc || 0) * (r.n || 0); c.n += r.n || 0;
+      }
+    }
+  }
+  const fin = (c) => ({acc: c.n ? c.acc / c.n : 0, n: c.n});
+  return {rows: MATH_FAMILIES.map((f) => {
+    const row = rows[f];
+    return {family: f, cells: row.cells.map(fin), ...fin(row),
+      chalN: row.chalN, chalOk: row.chalOk};
+  })};
+}
+
+/* CSV 行集(BOM 与下载由模式层): 首行表头, 行=日期(升序, 非法日期键过滤),
+   列=日期 + 六族×{正确率%, 次数, 挑战遇到, 挑战通过} + 当日图章数;
+   族列聚合当日该族全部键(含带与旧键); 正确率四舍五入整数, 无记录留空 */
+function mathPanelCsv(save) {
+  const log = (save && save.log) || {};
+  const stamps = (save && save.stamps) || {};
+  const days = Object.keys(log).filter((k) => Number.isFinite(mathDayIndex(k)))
+      .sort((a, b) => mathDayIndex(a) - mathDayIndex(b));
+  const head = ['日期'];
+  for (const f of MATH_FAMILIES) {
+    head.push(MATH_META[f].name + '正确率%', MATH_META[f].name + '次数',
+        MATH_META[f].name + '挑战遇到', MATH_META[f].name + '挑战通过');
+  }
+  head.push('图章');
+  const rows = [head];
+  for (const day of days) {
+    const d = log[day] || {};
+    const line = [day];
+    for (const f of MATH_FAMILIES) {
+      let acc = 0; let n = 0; let chalN = 0; let chalOk = 0;
+      for (const k of Object.keys(d)) {
+        if (mathLogFamBand(k).fam !== f) continue;
+        const r = d[k] || {};
+        acc += (r.acc || 0) * (r.n || 0); n += r.n || 0;
+        chalN += r.chalN || 0; chalOk += r.chalOk || 0;
+      }
+      line.push(n ? Math.round(acc / n * 100) : '', n, chalN, chalOk);
+    }
+    line.push(stamps[day] || 0);
+    rows.push(line);
+  }
+  return rows;
 }
 
 const MATH_SAVE_DEFAULTS = {stars: {}, challenge: {}, stamps: {}, stampClaimed: [], stampKind: 'gem', log: {}};

@@ -215,7 +215,10 @@ function mathSettleSave(save, level, st, today) {
   save.stamps = mathStampTrim(mathStampRecord(save.stamps || {}, today, n), today);
   save.log = trimMathLog(save.log || {}, today, MATH_LOG_KEEP_DAYS);
   const day = save.log[today] = save.log[today] || {};
-  const fam = day[level.family] = day[level.family] || {acc: 0, n: 0, chalN: 0, chalOk: 0};
+  /* T9: 键升级 '族:带' — 家长面板六族×四带矩阵的数据源; 无冒号旧键
+     (开发期形状)由 mathPanelMatrix 兼容读取(只入族合计), 不需要迁移 */
+  const fk = level.family + ':' + level.band;
+  const fam = day[fk] = day[fk] || {acc: 0, n: 0, chalN: 0, chalOk: 0};
   fam.acc = (fam.acc * fam.n + (st.acc || 0)) / (fam.n + 1);
   fam.n++;
   if (level.kind === 'challenge' || level.kind === 'boss') {
@@ -545,9 +548,11 @@ function showMathToday() {
         <div class="m-dots">${dots}</div>
         ${mathStampTodayHtml(save)}
         ${mathStampCalendarHtml(save)}
+        <button class="m-parent-btn" id="mParentBtn">${btnImg('lock')} 家长</button>
         <button class="m-btn" id="mHome2">${btnImg('house')} 回主页</button>
       </div>`);
     document.getElementById('mHome2').onclick = mathExit;
+    document.getElementById('mParentBtn').onclick = showMathParentGate;
     if (mathStampRewardOn(save.stampClaimed, 'firework')) launchMathFirework(); // 集章烟花(观感恢复)
     return;
   }
@@ -561,9 +566,88 @@ function showMathToday() {
       <div class="m-dots">${dots}</div>
       ${mathStampTodayHtml(save)}
       ${mathStampCalendarHtml(save)}
+      <button class="m-parent-btn" id="mParentBtn">${btnImg('lock')} 家长</button>
     </div>`);
   SpeechKit.speak('欢迎来到数学冒险岛！今天我们来玩' + curMeta.game + '。');
   document.getElementById('mStartBtn').onclick = showMathMap;
+  document.getElementById('mParentBtn').onclick = showMathParentGate;
+}
+
+/* ---------- 家长面板(T9): 算术门 → 六族×四带矩阵 + 思维挑战通过率 + CSV ----------
+    口径纪律(spec 宣称边界): 只报过程指标(正确率/次数), 不做能力诊断,
+    不提成绩/智力提升; 形态对齐 focus 家长面板(门/表/CSV/免责) */
+function showMathParentGate() {
+  const a = 5 + Math.floor(Math.random() * 5); const b = 5 + Math.floor(Math.random() * 5);
+  const ans = a + b;
+  const opts = [ans, ans + 1 + Math.floor(Math.random() * 3),
+    Math.max(2, ans - 1 - Math.floor(Math.random() * 3))].sort(() => Math.random() - 0.5);
+  mathScreen(`
+    <div class="m-screen">
+      <h1>家长入口</h1>
+      <p class="m-sub">请回答：${a} + ${b} = ?</p>
+      <div class="m-gate-row">${opts.map((o) => '<button class="m-btn" data-a="' + o + '">' +
+          o + '</button>').join('')}</div>
+    </div>`);
+  document.querySelectorAll('#mathRoot .m-gate-row button').forEach((btn) => {
+    btn.onclick = () => {
+      if (parseInt(btn.dataset.a, 10) === ans) {
+        showMathParent();
+      } else {
+        showMathToday();
+      }
+    };
+  });
+}
+
+function showMathParent() {
+  const save = loadMathSave();
+  const mb = mathBudget();
+  const played = mb ? mb.spentCount() : 0;
+  const mins = Math.round((mb ? mb.spentMs() : 0) / 60000);
+  const total = Object.values(save.stars).reduce((s, x) => s + x, 0);
+  const cur = mathFrontier(save);
+  const mx = mathPanelMatrix(save.log);
+  let chalN = 0; let chalOk = 0;
+  for (const r of mx.rows) {
+    chalN += r.chalN; chalOk += r.chalOk;
+  }
+  const cell = (c) => c.n ? Math.round(c.acc * 100) + '% (' + c.n + ')' : '—';
+  mathScreen(`
+    <div class="m-screen m-parent">
+      <h1>家长面板</h1>
+      <div class="m-stat-row">
+        <div class="m-stat">今日 <b>${played}</b>/${MATH_DAILY_LEVELS} 关 · <b>${mins}</b> 分钟</div>
+        <div class="m-stat">累计 <b>${cur + 1}</b>/100 关 · ⭐${total}</div>
+        <div class="m-stat">思维挑战 <b>${chalN ? Math.round(chalOk / chalN * 100) : 0}%</b>（${chalOk}/${chalN}）</div>
+      </div>
+      <table class="m-table">
+        <tr><th>玩法</th>${MATH_BAND_NAMES.map((n) => '<th>' + n + '</th>').join('')}<th>合计</th><th>思维挑战</th></tr>
+        ${mx.rows.map((r) => '<tr><td>' + MATH_META[r.family].icon + ' ' + MATH_META[r.family].name + '</td>' +
+            r.cells.map((c) => '<td>' + cell(c) + '</td>').join('') +
+            '<td>' + cell(r) + '</td><td>' + (r.chalN ? r.chalOk + '/' + r.chalN : '—') + '</td></tr>').join('')}
+      </table>
+      <div class="m-note">
+        本模式是<b>数数、加减、找规律、推理与空间构造的结构化练习</b>（难度对齐教材扩展题/附加题水平）。
+        面板只展示过程指标（正确率与练习次数），<b>不是能力测评</b>；
+        不宣称提升数学成绩或智力（游戏化学习的整体效应小且证据不一）。
+        低年级孩子的数学表现随发育波动很大，偶尔出错完全正常；
+        如在<b>家庭和学校等多个场景</b>持续存在困难并影响生活，请与老师或儿科医生沟通。
+      </div>
+      <div class="m-btn-row">
+        <button class="m-btn" id="mCsvBtn">${btnImg('doc')} 导出记录 CSV</button>
+        <button class="m-btn" id="mParentBack">${btnImg('house')} 返回</button>
+      </div>
+    </div>`);
+  document.getElementById('mParentBack').onclick = showMathToday;
+  document.getElementById('mCsvBtn').onclick = () => {
+    const rows = mathPanelCsv(save);
+    const csv = '\uFEFF' + rows.map((r) => r.join(',')).join('\n');
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
+    a.download = '数学冒险岛记录.csv';
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  };
 }
 
 /* ---------- 关卡地图页: 四带分组 · 星显 · 锁定/解锁 · 当前关高亮 ---------- */
