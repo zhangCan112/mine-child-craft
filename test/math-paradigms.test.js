@@ -7,8 +7,10 @@
    正确答案再点击) · 逐试次事件缝 onTrial({ok, streak}) · 完成回调 st
    (trials/correct/acc/maxStreakErr) · 语音挂钩(题目话术/表扬/安慰经全局
    mathPraiseLine/mathComfortLine) · 种子确定性(同 seed 同输出, 异 seed 异题)
-   · stop() 中止 · 模式层流程纯函数(mathVariantTrack 分发缝 / mathBossPlan
-   / mathAggStats / mathFrontier / mathFamChallengeDone / mathSettleSave 落账)
+   · stop() 中止 · 驱动器分发与 boss 规划(MathTrack.dispatch ·
+   MathTrackCore.bossPlan/aggStats — js/math-track.js / js/math-track-core.js,
+   T4 迁入) · 模式层流程纯函数(mathFrontier / mathFamChallengeDone /
+   mathSettleSave 落账)
    · G1 常驻钟面纯函数(mClockAngles 时/分针角度 · mClockSay 报时口径
    整时/半时/几时几分 · mClockFace 角度单一出处守卫)
    · index.html 脚本序(math-levels → math-puzzles-core → math-paradigms →
@@ -184,14 +186,16 @@ function loadMathMode() {
   sandbox.globalThis = sandbox;
   const vmCtx = vm.createContext(sandbox);
   for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-build-world-core.js', 'hop-world-core.js',
-    'math-track-core.js', 'math-paradigms.js', 'math-world.js', 'math-build-world.js', 'modes/math.js']) {
+    'math-track-core.js', 'math-paradigms.js', 'math-world.js', 'math-build-world.js',
+    'math-track.js', 'modes/math.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), vmCtx, {filename: f});
   }
   vm.runInContext(`
-    globalThis.__mm = { mathVariantTrack, mathFrontier, mathLevelUnlocked,
-      mathFamChallengeDone, mathLevelStars, mathBossPlan, mathAggStats, mathSettleSave,
-      mathStampClaim, mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_CONTEXTS, mathLevelMeta,
-      mathVariantName, MATH_META, MATH_SAVE_DEFAULTS, MATH_WORLD_RUNNERS,
+    globalThis.__mm = { MathTrack, MathTrackCore,
+      mathFrontier, mathLevelUnlocked,
+      mathFamChallengeDone, mathLevelStars, mathSettleSave,
+      mathStampClaim, MATH_LEVELS, MATH_VARIANTS, MATH_CONTEXTS, mathLevelMeta,
+      mathVariantName, MATH_META, MATH_SAVE_DEFAULTS,
       MATH_WORLD_VARIANTS,
       MATH_STAMP_KINDS, MATH_STAMP_DAILY, MATH_STAMP_REWARDS, MATH_STAMP_REWARD_TEXT,
       rollMathLoot, grantMathLoot,
@@ -297,7 +301,7 @@ test('变体清单单一权威: dispatch engine 键集 ∪ MATH_WORLD_RUNNERS �
     const [f, v] = k.split('/');
     return mp.mathScreenDispatch(f, v).kind === 'engine';
   }));
-  const world = new Set(Object.keys(mm.MATH_WORLD_RUNNERS));
+  const world = new Set(Object.keys(mm.MathTrack.worldRunners));
   for (const k of engine) {
     assert.ok(!world.has(k), k + ' 不得同时在册屏流与世界轨(互斥)');
   }
@@ -1391,41 +1395,42 @@ test('clueCount 越界(9): guard warn + 渲染线索卡 ≤3', () => {
 
 /* ============ 模式层流程纯函数(modes/math.js) ============ */
 
-test('mathVariantTrack(分发缝): 派生自 mathScreenDispatch — engine ⟺ screen, 全变体恰居其一', () => {
+test('MathTrack.dispatch(驱动器分发缝): 派生自 mathScreenDispatch — engine ⟺ screen, 全变体恰居其一', () => {
   const {mp} = loadMathParadigms();
   const {mm} = loadMathMode();
   for (const k of allMathVariantKeys(mp)) {
     const [f, v] = k.split('/');
-    assert.strictEqual(mm.mathVariantTrack(f, v),
+    assert.strictEqual(mm.MathTrack.dispatch(f, v),
         mp.mathScreenDispatch(f, v).kind === 'engine' ? 'screen' : 'world', k);
   }
-  assert.strictEqual(mm.mathVariantTrack('???', '???'), 'world', '未知键防御性归世界轨');
+  assert.strictEqual(mm.MathTrack.dispatch('???', '???'), 'world', '未知键防御性归世界轨');
 });
 
-test('mathWorldRunner(T5+T6 接管): mirror/plan 全变体在册(派生), hop 三变体在册, 未知键 null', () => {
+test('MathTrack.worldRunners(T5+T6 接管): mirror/plan 全变体在册(派生), hop 三变体在册, 未知键不在册', () => {
   const {mp} = loadMathParadigms();
   const {mm} = loadMathMode();
+  const wr = (f, v) => mm.MathTrack.worldRunners[f + '/' + v] || null;
   for (const v of ['dice', 'jumps', 'gaps']) {
-    assert.strictEqual(typeof mm.mathWorldRunner('hop', v), 'function', 'hop/' + v + ' 已接管(T5)');
+    assert.strictEqual(typeof wr('hop', v), 'function', 'hop/' + v + ' 已接管(T5)');
   }
-  assert.strictEqual(mm.mathWorldRunner('hop', 'position'), null, '站位比大小留在屏流');
+  assert.strictEqual(wr('hop', 'position'), null, '站位比大小留在屏流');
   /* mirror/plan 全部变体在册(全变体世界族, 同族同宿主) — 变体清单从
      MATH_VARIANTS 派生, 不抄字面量; hop 是半分族(position 留屏流)不入此列 */
   const worldFams = mp.MATH_FAMILIES.filter((f) =>
-    mp.MATH_VARIANTS[f].every((v) => mm.mathWorldRunner(f, v.id)));
+    mp.MATH_VARIANTS[f].every((v) => wr(f, v.id)));
   assert.ok(worldFams.includes('mirror') && worldFams.includes('plan'), 'mirror/plan 已接管(T6)');
   assert.ok(!worldFams.includes('hop'), 'hop/position 留屏流, hop 非全变体世界族');
   for (const f of worldFams) {
-    const famRunner = mm.mathWorldRunner(f, mp.MATH_VARIANTS[f][0].id);
+    const famRunner = wr(f, mp.MATH_VARIANTS[f][0].id);
     for (const v of mp.MATH_VARIANTS[f]) {
-      assert.strictEqual(mm.mathWorldRunner(f, v.id), famRunner, f + '/' + v.id + ' 已接管(同族同宿主)');
+      assert.strictEqual(wr(f, v.id), famRunner, f + '/' + v.id + ' 已接管(同族同宿主)');
     }
   }
-  assert.strictEqual(mm.mathWorldRunner('mirror', 'reflect'), mm.runBuildWorld, 'mirror 宿主=runBuildWorld(T6)');
-  assert.strictEqual(mm.mathWorldRunner('plan', 'build'), mm.runBuildWorld, 'plan 宿主=runBuildWorld(T6)');
-  assert.strictEqual(mm.mathWorldRunner('???', '???'), null);
-  assert.strictEqual(mm.mathWorldRunner('mirror', '???'), null);
-  assert.strictEqual(mm.mathWorldRunner('plan', '???'), null);
+  assert.strictEqual(wr('mirror', 'reflect'), mm.runBuildWorld, 'mirror 宿主=runBuildWorld(T6)');
+  assert.strictEqual(wr('plan', 'build'), mm.runBuildWorld, 'plan 宿主=runBuildWorld(T6)');
+  assert.strictEqual(wr('???', '???'), null);
+  assert.strictEqual(wr('mirror', '???'), null);
+  assert.strictEqual(wr('plan', '???'), null);
 });
 
 /* T5 接管后: hop 族的每一关(含 boss 的 hop 小节)都有轨可走, 不再卡占位 */
@@ -1438,14 +1443,14 @@ test('接管完整性: hop 族全部关卡与 boss 的 hop 小节都有轨(屏�
     if (!hopLevel && !hopSecs) continue;
     hopSeen++;
     if (hopLevel) {
-      const ok = mm.mathVariantTrack(lv.family, lv.variant) === 'screen' ||
-          mm.mathWorldRunner(lv.family, lv.variant) !== null;
+      const ok = mm.MathTrack.dispatch(lv.family, lv.variant) === 'screen' ||
+          (mm.MathTrack.worldRunners[lv.family + '/' + lv.variant] || null) !== null;
       assert.ok(ok, '第 ' + (lv.i + 1) + ' 关 hop/' + lv.variant + ' 无轨');
     }
     for (const sec of lv.sections || []) {
       if (sec.family !== 'hop') continue;
-      const secOk = mm.mathVariantTrack(sec.family, sec.variant) === 'screen' ||
-          mm.mathWorldRunner(sec.family, sec.variant) !== null;
+      const secOk = mm.MathTrack.dispatch(sec.family, sec.variant) === 'screen' ||
+          (mm.MathTrack.worldRunners[sec.family + '/' + sec.variant] || null) !== null;
       assert.ok(secOk, '第 ' + (lv.i + 1) + ' 关 boss 小节 hop/' + sec.variant + ' 无轨');
     }
   }
@@ -1509,26 +1514,26 @@ test('mathFamChallengeDone: 挑战/boss 自成条件, 常规关查族:带挑战�
   assert.strictEqual(mm.mathFamChallengeDone(save, boss), true, 'boss 关自成条件');
 });
 
-test('mathAggStats: boss 聚合三段按单关口径(试次/正确求和, maxStreakErr 取最大)', () => {
+test('MathTrackCore.aggStats: boss 聚合三段按单关口径(试次/正确求和, maxStreakErr 取最大)', () => {
   const {mm} = loadMathMode();
-  const agg = mm.mathAggStats([
+  const agg = mm.MathTrackCore.aggStats([
     {trials: 4, correct: 3, maxStreakErr: 1},
     {trials: 6, correct: 5, maxStreakErr: 0},
     {trials: 5, correct: 2, maxStreakErr: 3},
   ]);
   assert.deepStrictEqual({...agg}, {trials: 15, correct: 10, acc: 10 / 15, maxStreakErr: 3});
-  assert.deepStrictEqual({...mm.mathAggStats([])}, {trials: 0, correct: 0, acc: 0, maxStreakErr: 0});
+  assert.deepStrictEqual({...mm.MathTrackCore.aggStats([])}, {trials: 0, correct: 0, acc: 0, maxStreakErr: 0});
 });
 
-test('mathBossPlan: sections 带轨道标注, 带 0 boss=craft(屏)+mirror(世界)+pattern(屏)', () => {
+test('MathTrackCore.bossPlan: sections 带轨道标注(真分发缝注入), 带 0 boss=craft(屏)+mirror(世界)+pattern(屏)', () => {
   const {mm} = loadMathMode();
   const boss = mm.MATH_LEVELS[29];
   assert.strictEqual(boss.kind, 'boss');
-  const plan = mm.mathBossPlan(boss);
+  const plan = mm.MathTrackCore.bossPlan(boss, mm.MathTrack.dispatch);
   assert.strictEqual(plan.length, 3);
   assert.deepStrictEqual([...plan.map((s) => s.track)], ['screen', 'world', 'screen']);
   assert.ok(plan.every((s) => s.family && s.variant && s.params));
-  const boss3 = mm.mathBossPlan(mm.MATH_LEVELS[119]);
+  const boss3 = mm.MathTrackCore.bossPlan(mm.MATH_LEVELS[119], mm.MathTrack.dispatch);
   assert.deepStrictEqual([...boss3.map((s) => s.track)], ['world', 'world', 'screen']);
 });
 
@@ -1536,9 +1541,9 @@ test('mathBossPlan: sections 带轨道标注, 带 0 boss=craft(屏)+mirror(世�
 
 test('G4 世界变体注册: mirror/bridge 与 plan/dualview 都派发 runBuildWorld(同族同宿主)', () => {
   const {mm} = loadMathMode();
-  assert.strictEqual(mm.mathWorldRunner('mirror', 'bridge'), mm.runBuildWorld,
+  assert.strictEqual(mm.MathTrack.worldRunners['mirror/bridge'], mm.runBuildWorld,
       'mirror/bridge 已接管(世界轨放置形态)');
-  assert.strictEqual(mm.mathWorldRunner('plan', 'dualview'), mm.runBuildWorld,
+  assert.strictEqual(mm.MathTrack.worldRunners['plan/dualview'], mm.runBuildWorld,
       'plan/dualview 已接管(世界轨点选形态)');
 });
 
@@ -1695,15 +1700,16 @@ test('mathStampClaim: 集章达成线领取(差集幂等) — 越线即领, 已�
 
 /* ============ index.html 脚本序 ============ */
 
-test('index.html: 数学侧八个 script 全在册且加载序即依赖序', () => {
+test('index.html: 数学侧九个 script 全在册且加载序即依赖序', () => {
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const at = (src) => html.indexOf('src="' + src + '"');
   const order = ['js/math-levels.js', 'js/math-puzzles-core.js', 'js/math-build-world-core.js',
     'js/hop-world-core.js', 'js/math-track-core.js', 'js/math-paradigms.js',
-    'js/math-world.js', 'js/math-build-world.js', 'js/modes/math.js'].map(at);
-  assert.ok(order.every((i) => i >= 0), '八个 script 全在册: ' + order.join(','));
+    'js/math-world.js', 'js/math-build-world.js', 'js/math-track.js', 'js/modes/math.js'].map(at);
+  assert.ok(order.every((i) => i >= 0), '九个 script 全在册: ' + order.join(','));
   const why = '加载序即依赖序: puzzles/build-core/hop-core 供三引擎出题, ' +
       'track-core 供三引擎试次循环, world 依赖 paradigms 的 mRand/mEl, ' +
-      'build-world 依赖 track-core, modes/math 依赖 world/build-world 的 runner';
+      'build-world 依赖 track-core, track(驱动器)消费三插件与 track-core, ' +
+      'modes/math 依赖 track 的 MathTrack';
   assert.ok(order.every((v, k) => k === 0 || order[k - 1] < v), why);
 });

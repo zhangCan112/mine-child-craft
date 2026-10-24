@@ -8,7 +8,8 @@
    表扬 / 连错 ≥3 安慰并清零), 话术/音效/观感/计时由引擎按事件施加;
    T3 起三处逐字同构副本并一于此(一份形状, 一处演化)。
    interface: mkTrialLoop() → {stats · settle(ok)→{ok,streak,praise,comfort}
-     · end()→stats(回填 acc)} · clampTrials(n)→1..30(缺省 6)
+     · end()→stats(回填 acc)} · clampTrials(n)→1..30(缺省 6) ·
+     bossPlan(level, dispatch)→sections 附 track · aggStats(list)→单关口径聚合
    依赖(均经全局名, 调用期解析): 无(零 THREE · 零 DOM · 零全局可变依赖)
    可测性: 纯函数, 有同名单测(test/math-track-core.test.js)
    ============================================================ */
@@ -50,8 +51,30 @@ function trackMkTrialLoop() {
   };
 }
 
-const MathTrackCore = {clampTrials: trackClampTrials, mkTrialLoop: trackMkTrialLoop};
+const MathTrackCore = {clampTrials: trackClampTrials, mkTrialLoop: trackMkTrialLoop,
+  bossPlan: trackBossPlan, aggStats: trackAggStats};
+
+/* boss 小节附轨道标注('screen'|'world'): 分发缝经参数注入 — 纯核心不依赖
+   驱动器/引擎清单(T4 从 modes/math.js 迁入, 判据与断言不变) */
+function trackBossPlan(level, dispatch) {
+  return (level.sections || []).map((s) => Object.assign({}, s,
+      {track: dispatch(s.family, s.variant)}));
+}
+
+/* boss 聚合按单关口径: 试次/正确求和, acc 重算, maxStreakErr 取最大
+   (T4 从 modes/math.js 的 mathAggStats 迁入) */
+function trackAggStats(list) {
+  const agg = {trials: 0, correct: 0, acc: 0, maxStreakErr: 0};
+  for (const st of list || []) {
+    agg.trials += st.trials || 0;
+    agg.correct += st.correct || 0;
+    agg.maxStreakErr = Math.max(agg.maxStreakErr, (st && st.maxStreakErr) || 0);
+  }
+  agg.acc = agg.trials ? agg.correct / agg.trials : 0;
+  return agg;
+}
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {MathTrackCore, trackClampTrials, trackMkTrialLoop};
+  module.exports = {MathTrackCore, trackClampTrials, trackMkTrialLoop,
+    trackBossPlan, trackAggStats};
 }

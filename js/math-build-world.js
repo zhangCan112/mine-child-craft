@@ -1,10 +1,9 @@
 'use strict';
 /* ============================================================
    Math Build World (摆与搭世界引擎, 术语见 GLOSSARY.md「摆与搭世界
-   引擎」「数学世界轨」) — 应用层·库(DOM/THREE 惰性, modes/math.js 的
-   mirror/plan 世界分支; hop 世界轨在 js/math-world.js(T5, 混合宿主),
-   本文件是指针锁宿主 — 两宿主经 MATH_WORLD_RUNNERS 注册表并列,
-   统一与否留待后续票)
+   引擎」「世界轨驱动器」) — 应用层·库(DOM/THREE 惰性, 世界轨驱动器
+   js/math-track.js 的 mirror/plan 交互插件 — 指针锁宿主; hop 混合宿主
+   插件在 js/math-world.js, 分发/生命周期/boss 串链由驱动器统一持有)
    ------------------------------------------------------------   一句话职责: 摆一摆(mirror)/搭一搭(plan)两族 10 个世界变体(G4 起
    "装场-点选-反馈"流程 — 每试次按 BuildWorldCore/PuzzleCore 的谜题
    数据装一个 ≤32×32 小场景(石英画布+玻璃标记+样品/候选/数字牌),

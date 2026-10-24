@@ -11,6 +11,11 @@
      只 display='none', 3D 残场挂到下一次装场), 重复 stop 幂等不再二次清场;
      收尾同时缴触屏键 setTouchActions(null) + 收材料热栏 + 不触发 end
    · hop(混合宿主) stop()=teardown 既有清场行为上锁(防回归)
+   覆盖(T4): 世界轨驱动器(js/math-track.js, MathTrack)的装配纪律 —
+   · run 单节「清完再发 end」: 离场(stop)先于消费方结算(end), 单一时间线断言
+   · leave/stop: 收当前节+复明 DOM+幂等; mouse 路由活动节; 中止不结算
+   · runBoss: 小节顺序接力(400ms) + 聚合按单关口径 + 整链中止(alive 旗)
+     不复活 — 假世界 runner 注入注册表(只发生在测试沙箱)
    加载器: vm context 依次执行 math-levels → math-puzzles-core →
    math-build-world-core → hop-world-core → math-paradigms → math-world →
    math-build-world(镜像 index.html 共享词法环境相对序); 世界/渲染依赖以
@@ -169,6 +174,7 @@ function loadTrackHosts() {
     aimClick() {},
     scene: {add() {}, remove() {}},
     camera: {},
+    mathRoot: {style: {display: 'none'}}, /* 驱动器离场复明 DOM 屏(math-track.js) */
     /* voxel.js 玩家状态(调用期解析的全局, 桩成可写绑定) */
     pos: {set() {}, x: 64, y: 30, z: 64},
     vel: {set() {}, x: 0, y: 0, z: 0},
@@ -180,13 +186,50 @@ function loadTrackHosts() {
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
   for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-build-world-core.js',
-    'hop-world-core.js', 'math-track-core.js', 'math-paradigms.js', 'math-world.js', 'math-build-world.js']) {
+    'hop-world-core.js', 'math-track-core.js', 'math-paradigms.js', 'math-world.js',
+    'math-build-world.js', 'math-track.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
-    globalThis.__t = { runHopWorld, runBuildWorld, mathParamsFor };
+    globalThis.__t = { runHopWorld, runBuildWorld, mathParamsFor, MathTrack };
   `, ctx);
-  return {t: sandbox.__t, clearCalls, touchLog, hbLog, spoken, timers, rafQueue};
+  return {t: sandbox.__t, sandbox, clearCalls, touchLog, hbLog, spoken, timers, rafQueue,
+    flush(max) {
+      let n = 0;
+      while (timers.length && n < (max || 400)) {
+        timers.shift()();
+        n++;
+      }
+      return n;
+    }};
+}
+
+/* 假世界 runner 注入(驱动器纪律测试用): 记录启停/事件序, 首计时器即结算 —
+   注册表对象可变(const 绑定不改), 注入只发生在测试沙箱内 */
+function injectFakeRunner(d, key, stats) {
+  vm.runInContext(`
+    globalThis.__fake = globalThis.__fake || {runs: [], stops: [], mice: []};
+    MATH_WORLD_RUNNERS[${JSON.stringify(key)}] = function (section, h) {
+      globalThis.__fake.runs.push({family: section.family, variant: section.variant,
+        seed: section.seed, kind: section.kind});
+      if (h.progress) h.progress(1, 1);
+      let stopped = false; /* 忠实契约: stop() 是中止, 残留计时器不得再结算(真引擎 T.stop 同款) */
+      setTimeout(() => {
+        if (!stopped) h.end(${JSON.stringify(stats)});
+      }, 0);
+      return {
+        stop() {
+          stopped = true;
+          globalThis.__fake.stops.push(${JSON.stringify(key)});
+          if (globalThis.__tl) globalThis.__tl.push('stop');
+        },
+        onMouse(b) {
+          globalThis.__fake.mice.push(b);
+        },
+      };
+    };
+  `, d.sandbox);
+  return d.sandbox.__fake;
 }
 
 /* 造一节(section): params 来自 mathParamsFor 再覆写 trials(与屏流测试同款) */
@@ -229,3 +272,119 @@ test('hop 世界轨: stop()=teardown 触发 clearWorld 退出清场(既有纪律
   h.stop();
   assert.strictEqual(d.clearCalls.length, 1, '重复 stop 幂等');
 });
+
+/* ============ T4 驱动器纪律: 时序 / 生命周期 / boss 串链 ============ */
+
+test('驱动器 run: 清完再发 end — 世界节的离场(stop)先于消费方结算(end)', () => {
+  const d = loadTrackHosts();
+  const fake = injectFakeRunner(d, 'hop/dice', {trials: 2, correct: 2, acc: 1, maxStreakErr: 0});
+  const tl = []; /* 单一时间线: stop(驱动器离场)与 end(消费方结算)的先后 */
+  d.sandbox.__tl = tl;
+  const ends = [];
+  const h = d.t.MathTrack.run({family: 'hop', variant: 'dice', tier: 1,
+    params: {trials: 2}, seed: 42}, null, {
+    end(st) {
+      tl.push('end');
+      ends.push(st);
+    },
+  });
+  assert.ok(h && typeof h.stop === 'function', '单节返回控制柄');
+  assert.strictEqual(d.t.MathTrack.active(), true, '节进行中 active()=true');
+  assert.strictEqual(fake.runs.length, 1, '世界 runner 已启动');
+  d.flush(); /* 驱动假 runner 的结算计时器 */
+  assert.deepStrictEqual(tl, ['stop', 'end'], '清完再发: 驱动器离场(stop)先于结算(end)');
+  assert.strictEqual(fake.stops.length, 1, 'stop 恰一次(离场收口不再依赖调用方补刀)');
+  assert.strictEqual(d.t.MathTrack.active(), false, '结算后 active()=false');
+  assert.strictEqual(ends.length, 1, '结算参数原样透传');
+  d.t.MathTrack.leave();
+  assert.strictEqual(fake.stops.length, 1, '结算后再 leave 幂等(不二次 stop)');
+});
+
+test('驱动器 leave/stop: 收当前节并复明 DOM; mouse 路由到活动节; 中止不结算', () => {
+  const d = loadTrackHosts();
+  const fake = injectFakeRunner(d, 'mirror/reflect', {trials: 1, correct: 1, acc: 1, maxStreakErr: 0});
+  const ends = [];
+  d.t.MathTrack.run({family: 'mirror', variant: 'reflect', tier: 1,
+    params: {trials: 1}, seed: 42}, null, {end: (st) => ends.push(st)});
+  d.t.MathTrack.mouse(0, {x: 1, y: 2, z: 3});
+  assert.deepStrictEqual([...fake.mice], [0], '活动节的 onMouse 被路由');
+  d.t.MathTrack.leave();
+  assert.deepStrictEqual([...fake.stops], ['mirror/reflect'], 'leave 收当前节');
+  assert.strictEqual(d.t.MathTrack.active(), false, 'leave 后无活动节');
+  assert.strictEqual(d.sandbox.mathRoot.style.display, 'block', '离场复明 DOM 屏');
+  d.t.MathTrack.mouse(0, null);
+  assert.strictEqual(fake.mice.length, 1, '无活动节时点选空转');
+  d.t.MathTrack.leave();
+  assert.strictEqual(fake.stops.length, 1, '重复 leave 幂等');
+  /* stop 路线: 再开一节, stop 整链一刀且不结算 */
+  d.t.MathTrack.run({family: 'mirror', variant: 'reflect', tier: 1,
+    params: {trials: 1}, seed: 43}, null, {end: (st) => ends.push(st)});
+  d.t.MathTrack.stop();
+  assert.strictEqual(fake.stops.length, 2, 'stop 收当前节');
+  assert.strictEqual(ends.length, 0, 'stop 是中止: 不触发 end(与屏流引擎同口径)');
+  d.flush();
+  assert.strictEqual(ends.length, 0, '中止后残留计时器不复活结算');
+});
+
+test('驱动器 runBoss: 小节顺序接力 + 聚合按单关口径 + 整链中止不复活', () => {
+  const d = loadTrackHosts();
+  const fake = injectFakeRunner(d, 'mirror/reflect', {trials: 2, correct: 2, acc: 1, maxStreakErr: 1});
+  injectFakeRunner(d, 'hop/dice', {trials: 3, correct: 1, acc: 1 / 3, maxStreakErr: 2});
+  const ends = [];
+  const spoken = [];
+  const prog = [];
+  const level = {i: 7, sections: [
+    {family: 'mirror', variant: 'reflect', tier: 1, params: {trials: 2}},
+    {family: 'hop', variant: 'dice', tier: 1, params: {trials: 3}},
+    {family: 'mirror', variant: 'reflect', tier: 1, params: {trials: 2}},
+  ]};
+  d.t.MathTrack.runBoss(level, null, {
+    progress(k, n) {
+      prog.push(k + '/' + n);
+    },
+    end(st) {
+      ends.push(st);
+    },
+    speak(l) {
+      spoken.push(l);
+    },
+  });
+  assert.strictEqual(fake.runs.length, 1, '首小节立即启动(链头同步)');
+  d.flush();
+  assert.strictEqual(fake.runs.length, 3, '400ms 接力三小节全跑');
+  assert.deepStrictEqual([...fake.runs.map((r) => r.family + '/' + r.variant)],
+      ['mirror/reflect', 'hop/dice', 'mirror/reflect'], '按 plan 顺序');
+  assert.ok(fake.runs.every((r) => r.kind === 'challenge' && typeof r.seed === 'number'),
+      '小节带 challenge 标记与派生 seed');
+  assert.strictEqual(spoken.length, 3, '每小节一句新挑战话术');
+  assert.strictEqual(fake.stops.length, 3, '每小节 end 前驱动器各离场一次(清完再发)');
+  assert.strictEqual(ends.length, 1, '链尾聚合结算恰一次');
+  assert.deepStrictEqual({...ends[0]}, {trials: 7, correct: 5, acc: 5 / 7, maxStreakErr: 2},
+      '聚合按单关口径: 求和/重算 acc/取最大连错');
+  assert.deepStrictEqual(prog, ['1/7', '3/7', '6/7'], '进度按累计试次(前节结余+节内 k)');
+  /* 整链中止: 首节结算后 stop, 余下小节不复活 */
+  const fake2 = injectFakeRunner2(d, 'plan/pick', {trials: 1, correct: 1, acc: 1, maxStreakErr: 0});
+  const ends2 = [];
+  d.t.MathTrack.runBoss({i: 8, sections: [
+    {family: 'plan', variant: 'pick', tier: 1, params: {trials: 1}},
+    {family: 'plan', variant: 'pick', tier: 1, params: {trials: 1}},
+  ]}, null, {end: (st) => ends2.push(st)});
+  d.flush(1); /* 只放首节的结算计时器: 小节已 end、接力计时器刚入队 */
+  d.t.MathTrack.stop();
+  d.flush();
+  assert.strictEqual(fake2.runs.length, 1, '中止后第二节不再启动(alive 旗掐死接力)');
+  assert.strictEqual(ends2.length, 0, '整链中止不触发聚合结算');
+});
+
+/* 同款注入的第二注册表键(独立记录器, 供中止用例分辨小节数) */
+function injectFakeRunner2(d, key, stats) {
+  vm.runInContext(`
+    globalThis.__fake2 = globalThis.__fake2 || {runs: []};
+    MATH_WORLD_RUNNERS[${JSON.stringify(key)}] = function (section, h) {
+      globalThis.__fake2.runs.push(1);
+      setTimeout(() => h.end(${JSON.stringify(stats)}), 0);
+      return {stop() {}};
+    };
+  `, d.sandbox);
+  return d.sandbox.__fake2;
+}
