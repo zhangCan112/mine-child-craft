@@ -55,8 +55,12 @@ _Avoid_: effects.js 的音效段（历史归属——sfx/engineHum/unlockAudio �
 _Avoid_: focusSpeak（历史名——语音已不属于专注子系统）
 
 **头顶血条（mkHpBar）**:
-mode-kit 的血条深接口（S2 归一）：canvas 贴图 Sprite，update(hp,maxHp,x,y,z) 惰性建条、血量变化才重绘（逐帧纹理上传是移动端掉帧源），可选 visible() 回调控制显隐（下界：只在下界显示）；dispose 收网格与纹理。下界与探险两模式的同形实现已归一至此，模式层只喂血量与世界坐标。
-_Avoid_: ensureHpBar/updateHpBar（历史名——两模式各自的内联实现已撤）
+玩家战斗 kit 的血条深接口（C6-T3 自 mode-kit 迁入 js/combat-kit.js）：canvas 贴图 Sprite，update(hp,maxHp,x,y,z) 惰性建条、血量变化才重绘（逐帧纹理上传是移动端掉帧源），可选 visible() 回调控制显隐（下界：只在下界显示）；dispose 收网格与纹理。下界与探险两模式的同形实现已归一至此，模式层只喂血量与世界坐标。
+_Avoid_: ensureHpBar/updateHpBar（历史名——两模式各自的内联实现已撤）、把它留在 mode-kit（战斗 vocabulary 已归 combat-kit）
+
+**玩家战斗 kit（CombatKit）**:
+应用层装配（js/combat-kit.js，THREE/DOM 惰性，有契约单测）：下界/探险（击杀观感另有坦克演习场消费）三模式各自复制的玩家战斗壳归一——mkFighter 玩家战斗实体（MobCore 状态字段 + 政策注入，原 getPEnt/advGetPEnt 同形）、mkHurtAlarm 受击提醒（账本同步 + 音 + 闪红 + 震屏 + 3s 话术节流，节流自持）、mkMelee 近战（准星锥门槛可选/swingOnMiss 下界无目标也出手口径/swingAction 弓占同一冷却轨道、冷却自持、伤害函数/耐久磨损/击杀经注入）、mkArrows 箭矢管线（一实例一弹种：发射 leadAim/沿准星 → 战斗核心 stepShot 步进 → 命中政策回调，弹数组与 geo 缓存自持）、killBurst 击杀观感（碎块 + 计数 toast + 尾回调，动词可注入）、resetFighter 复活五字段不变量、mkHpBar。interface：`CombatKit{mkFighter · mkHurtAlarm · mkMelee · mkArrows · killBurst · resetFighter · mkHpBar}`；行为面由 nether-mode/adventure-mode 既有断言兜底（interface 即测试面）。
+_Avoid_: getPEnt/advGetPEnt/netherOnHurt/advOnHurt/netherShoot/advShootArrow 等模式内联实现（历史名——已归一至 kit 实例）、把怪物 AI 骨架塞进来（激怒/归巢/飞行/封顶/供怪五维策略差异留模式层）、战斗冷却/节流状态放回模式顶层（kit 自持，update 只喂 tick）
 
 **SceneKit**:
 坐在体素模型之上的场景搭建工具：填充、种树、确定性散布。四个游玩模式（竞技场/建造/坦克演习场/探险）的场景构建共用它。
@@ -127,8 +131,8 @@ _Avoid_: 怪物系统（散称）、mob 数组（那是实现）
 _Avoid_: 怪物分类（散称）、怪物种族（单继承树的暗示——谱系是多标签组合）、按地域/维度分族（下界帮已撤——那是产地不是物种）、独行侠（兜底族已撤——每怪必归种族）
 
 **战斗核心（CombatCore）**:
-引擎层纯逻辑模块（js/combat-core.js，零全局依赖，有单测）：leadAim 预测弹道方向（目标移动提前量 + 重力补偿抬枪）、tickCadence 攻击节拍递减（attackCd/attackT，与 Mobs.spawn 置零配套）、hitBody 投射物对身体的盒判定（水平 hitR × 垂直身高段）。竞技场箭矢/巨石与下界火球都是它的调用方——下界原是自抄的直线弹道，对移动目标常打空。弹道观感与伤害政策留在模式层。
-_Avoid_: 弹道系统（散称）、AI 核心（它不懂战术与阵营）
+引擎层纯逻辑模块（js/combat-core.js，零全局依赖，有单测）：leadAim 预测弹道方向（目标移动提前量 + 重力补偿抬枪）、tickCadence 攻击节拍递减（attackCd/attackT，与 Mobs.spawn 置零配套）、hitBody 投射物对身体的盒判定（水平 hitR × 垂直身高段）、stepShot 弹道步进（C6-T1：重力/寿命/欧拉积分/撞块，非变更式返回 {vel,life,x,y,z,hitBlock,dead}，getBlock 注入保零全局——竞技场/下界/探险三份手写步进并一于此；hitBlock 单列保竞技场巨石口径：撞块触发 AoE、寿命尽只移除）。竞技场箭矢/巨石与下界火球、探险骷髅箭都是它的调用方。弹道观感与伤害政策留在模式层。
+_Avoid_: 弹道系统（散称）、AI 核心（它不懂战术与阵营）、把弹道步进写回模式层（三份曾各自手写）
 
 **应用层（Application）**:
 玩法与政策所在之处：游戏模式、每日预算、存档、语音、菜单。应用可依赖引擎，引擎不得依赖应用。
