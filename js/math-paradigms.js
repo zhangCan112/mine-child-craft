@@ -146,19 +146,14 @@ function mathGuardParams(p) {
   return o;
 }
 
-/* ---------- 分发(纯函数, 单测锁住清单) ---------- */
-
-const MATH_SCREEN_KEYS = new Set([
-  'count/snapshot', 'count/fetch', 'count/compare', 'count/balance',
-  'craft/enough', 'craft/shortage', 'craft/order', 'craft/blank',
-  'pattern/chain', 'pattern/sort', 'pattern/odd', 'pattern/cycle',
-  'hop/position',
-  'count/measure', 'craft/shop', 'hop/clock',
-]);
-
+/* ---------- 分发(纯函数, 单测锁住清单) ----------
+   清单唯一权威是文件尾的 MATH_SCREEN_ENGINES(变体键→引擎同表登记;
+   T2 并表: 原 MATH_SCREEN_KEYS 键集与引擎表各持一份, 增删变体要改两处,
+   漏一边即运行时软锁)。此处前向引用经共享词法环境调用期解析 —
+   分发只发生在全文件加载完成后, 无 TDZ 风险 */
 function mathScreenDispatch(family, variant) {
   const key = family + '/' + variant;
-  return MATH_SCREEN_KEYS.has(key) ? {kind: 'engine', key} : {kind: 'none'};
+  return MATH_SCREEN_ENGINES[key] ? {kind: 'engine', key} : {kind: 'none'};
 }
 
 /* ---------- 通用小部件 ---------- */
@@ -1052,6 +1047,8 @@ function sfxSafe(name) {
   if (typeof sfx === 'function') sfx(name);
 }
 
+/* 屏流变体清单唯一权威(T2 并表后): 键集即 mathScreenDispatch 的判定源,
+   增删屏流变体只改这一张表 — 「变体清单单一权威」测试对着它断言 */
 const MATH_SCREEN_ENGINES = {
   'count/snapshot': mCountSnapshot,
   'count/fetch': mCountFetch,
