@@ -16,7 +16,12 @@
      mathPassed(level, st) · mathStars(level, st, famChallengeDone) ·
      MATH_LOOT · rollMathLoot(level, {ok, streak, seed}) ·
      grantMathLoot(inv, ids) · MATH_LOG_KEEP_DAYS · mathTodayStr ·
-     mathDayIndex · trimMathLog · MATH_SAVE_DEFAULTS · migrateMathSave
+     mathDayIndex · trimMathLog ·
+     MATH_STAMP_KINDS/DAILY/REWARDS/REWARD_TEXT/KEEP_DAYS ·
+     mathStampRecord(stamps, day, count) · mathStampTrim(stamps, today) ·
+     mathStampCount · mathStampMilestones · mathStampRewardsDue ·
+     mathStampRewardFor · mathStampNextLine ·
+     MATH_SAVE_DEFAULTS · migrateMathSave
    依赖(均经全局名, 调用期解析): MATH_META 的图标字段在构造期调用
      mcIcon(js/focus-icons.js, 加载序在本文件之前, 惰性字符串拼接
      零 DOM); grantMathLoot 调用期解析 inventory-core 的 add(加载序
@@ -481,6 +486,72 @@ function grantMathLoot(inv, ids) {
   return {granted, full};
 }
 
+/* ---------- 图章一本纯函数(T8, 形态对齐 focus F7 但数据独立) ----------
+    数学岛独立图章日历(不与专注训练营共用账本): stamps 形状 {日期: 当日关数}
+    (键与 budgetDateStr 同款 'Y-M-D' 无前导零), 落账点在 modes/math.js 的
+    mathSettleSave(单一写入点); 全部无突变。口径与专注侧同构:
+    当日 ≥1 关盖普通章(图案 stampKind 三选一自选, 缺省宝石章), 满 3 关盖
+    大章; 集章数按天计(每天至多 1 枚, 普通/大章是同一枚章的两种大小);
+    集章达成线只发观感奖励, 永不解锁关卡/范式/难度(红线)。 */
+const MATH_STAMP_KEEP_DAYS = 90; // 滚动保留窗口(与日志窗口有意分立, focus 先例)
+const MATH_STAMP_DAILY = {min: 1, big: 3}; // 当日 ≥1 关普通章 / 满 3 关大章
+const MATH_STAMP_KINDS = ['gem', 'star', 'plus']; // 自选章图案三选一(stampIcon 合法 kind 子集)
+const MATH_STAMP_REWARDS = { // 达成线 → 观感奖励 id(纯观感, 不解锁玩法)
+  3: 'stamp_pattern', // 三选一图章图案
+  7: 'firework', // 今日页烟花彩蛋
+  30: 'gold_stamp', // 金图章
+};
+const MATH_STAMP_REWARD_TEXT = {
+  stamp_pattern: '自选图章图案', firework: '今日页烟花', gold_stamp: '金图章',
+};
+
+/* 落账: 当日计数钳 1~6(日限 MATH_DAILY_LEVELS=6, 按值拷贝免跨文件依赖),
+   当日取 max 不重复累加(重玩同日不叠章); 0/负/NaN 关不落账 */
+function mathStampRecord(stamps, day, count) {
+  if (!(count > 0)) return stamps;
+  const n = Math.max(1, Math.min(6, Math.round(count)));
+  const next = {...stamps};
+  next[day] = Math.max(next[day] || 0, n);
+  return next;
+}
+
+/* 裁剪: 只保留今天起 90 天窗口内的键(防存档膨胀), 机制复用 trimMathLog,
+   仅窗口常量分立 */
+function mathStampTrim(stamps, today) {
+  return trimMathLog(stamps, today, MATH_STAMP_KEEP_DAYS);
+}
+
+/* 集章总数 = 有章天数(每天至多 1 枚; 普通/大章是同一枚章的两种大小) */
+function mathStampCount(stamps) {
+  return Object.keys(stamps || {}).length;
+}
+
+/* 达成线: 表内 3/7/30 + 60/90/…每 30 章递进(都是金图章, 30 已在表内) */
+function mathStampMilestones(count) {
+  const lines = Object.keys(MATH_STAMP_REWARDS).map(Number).filter((k) => count >= k);
+  for (let m = 60; m <= count; m += 30) lines.push(m);
+  return lines.sort((a, b) => a - b);
+}
+
+/* 待领 = 已越线 − 已领(差集): 幂等, 领取方把线记进存档后不再重发 */
+function mathStampRewardsDue(count, claimed) {
+  const got = new Set(claimed || []);
+  return mathStampMilestones(count).filter((line) => !got.has(line));
+}
+
+/* 达成线 → 奖励 id: 递进线(60/90/…)不在表内, 沿用 30 的金图章 */
+function mathStampRewardFor(line) {
+  return MATH_STAMP_REWARDS[line] || MATH_STAMP_REWARDS[30];
+}
+
+/* 下一目标线(结算屏/日历的集章进度口径): 表内线优先, 过 30 后为 30 的倍数 */
+function mathStampNextLine(count) {
+  for (const k of Object.keys(MATH_STAMP_REWARDS).map(Number).sort((a, b) => a - b)) {
+    if (count < k) return k;
+  }
+  return Math.ceil((count + 1) / 30) * 30;
+}
+
 /* ---------- 存档形状与迁移(design §4.3, modes 层 slot 与单测共用) ----------
    math_camp_save: stars{关i:星} · challenge{'family:band':true} ·
    stamps{日期:当日关数} · stampKind 自选章图案(缺省 'gem', 合法清单
@@ -518,16 +589,18 @@ function trimMathLog(log, today, keepDays) {
   return out;
 }
 
-const MATH_SAVE_DEFAULTS = {stars: {}, challenge: {}, stamps: {}, stampKind: 'gem', log: {}};
+const MATH_SAVE_DEFAULTS = {stars: {}, challenge: {}, stamps: {}, stampClaimed: [], stampKind: 'gem', log: {}};
 
 /* 存档迁移(save-slot 的 migrate 链调用, (s, from) 两参): 只做幂等修形 —
-   四个表字段缺/损坏补空对象, stampKind 非字符串回落 'gem'; 存量进度
-   原样保留; 90 天滚动裁剪由模式层在落账时调 trimMathLog(写入点单一) */
+   四个表字段缺/损坏补空对象, stampClaimed 非数组补 [](T8 集章已领线),
+   stampKind 非字符串回落 'gem'; 存量进度原样保留; 90 天滚动裁剪由模式层
+   在落账时调 trimMathLog/mathStampTrim(写入点单一) */
 function migrateMathSave(s, from) {
   if (!s || typeof s !== 'object') return {...MATH_SAVE_DEFAULTS};
   for (const k of ['stars', 'challenge', 'stamps', 'log']) {
     if (!s[k] || typeof s[k] !== 'object') s[k] = {};
   }
-  if (typeof s.stampKind !== 'string' || !s.stampKind) s.stampKind = 'gem';
+  if (!Array.isArray(s.stampClaimed)) s.stampClaimed = []; // T8: 集章已领达成线
+  if (!MATH_STAMP_KINDS.includes(s.stampKind)) s.stampKind = 'gem'; // T8: 自选章图案白名单修形(focus 同款)
   return s;
 }

@@ -10,12 +10,16 @@
      mathVariantTrack(family, variant) · mathFrontier(save) ·
      mathLevelUnlocked(save, i) · mathFamChallengeDone(save, level) ·
      mathBossPlan(level) · mathAggStats(sts) · mathSettleSave(...) ·
+     mathStampClaim(save)(T8 集章达成线领取) ·
      mathWorldRunner(family, variant)(世界轨 runner 查表) ·
      mathLevelMeta(level)(情境关话术覆盖, T7)
    依赖(均经全局名, 调用期解析): mkMode(js/mode-kit.js) ·
      SpeechKit(js/speech.js) · showToast(js/effects.js) ·
      btnImg(js/button-icons.js) · Budgets/MATH_DAILY_*(js/daily-budget.js
      与 main.js setupBudgets 建立的 math 预算) · SyncDB(js/sync.js) ·
+     Backpack(js/backpack.js, ADR 0002 共享背包 — 数学岛是只产出的新消费方,
+     T8) · ITEMS(js/items-core.js) · iconOf(js/icons.js, 调用期解析) ·
+     stampIcon(js/focus-icons.js, T8 数学自选章图案) ·
      MATH_*(js/math-levels.js) · PuzzleCore(js/math-puzzles-core.js) ·
      mathScreenDispatch/runMathScreen(js/math-paradigms.js) ·
      runHopWorld(js/math-world.js, 加载序在本文件之前 — hop 世界轨装场) ·
@@ -28,11 +32,20 @@
      boot.test.js 全链冒烟兜底
    ------------------------------------------------------------
    会话(设计稿 docs/math-mode-design.md §5): 主菜单卡进入 →
-   init 全屏接管 → 今日页(进度概览/每日额度) → 关卡地图(四带分组/
+   init 全屏接管(共享背包 load 一次, focus 同款双消费方惯例, T8) →
+   今日页(进度概览/每日额度/图章日历) → 关卡地图(四带分组/
    星显/锁定) → 规则语音 → 关卡 runner(屏流引擎) → 结算(星显/
-   过程表扬/自动下一关); boss 关按 sections 连跑三小节聚合结算;
-   挑战关通过写 challenge 表(第三星挂钩); 额度尽 → 今日页锁定文案;
-   时长入账: 关卡进行中每秒 accrue(focus ticker 同款), 菜单/地图页不计。
+   过程表扬/战利品回顾/图章进度/自动下一关); boss 关按 sections
+   连跑三小节聚合单关口径; 挑战关通过写 challenge 表(第三星挂钩);
+   额度尽 → 今日页锁定文案; 时长入账: 关卡进行中每秒 accrue
+   (focus ticker 同款), 菜单/地图页不计。
+   T8 激励回路(设计稿 §5·ADR 0002): onTrial 逐试次掷骰
+   (rollMathLoot, 教学豁免/只奖不罚在纯函数)→ grantMathLoot 入共享
+   背包 → HUD 矿袋槽位飞入(贝塞尔观感归 css/math.css, 对齐 focus
+   F5 纪律; 飞行起点 mathLastTap 自记点击坐标 — 引擎事件缝不带
+   DOM 信息)→ 结算屏战利品列队回顾; 满包每关至多一次「背包满啦」
+   toast; 图章一本独立于专注训练营(日历/自选章图案/集章达成线
+   领奖, 纯函数在 math-levels.js, 奖励纯观感不解锁玩法)。
    ★ 分发缝(T5 已接管 hop 世界轨, T6 已接管 mirror/plan 世界轨):
    mathVariantTrack(family, variant) 返回 'screen' | 'world' — 屏流变体
    走 runMathScreen; 世界轨再查 MATH_WORLD_RUNNERS, 有 runner 的变体
@@ -126,6 +139,22 @@ function saveMathSave(s) {
   mathSlot.save(s);
 }
 
+/* ---------- 共享背包(T8, ADR 0002 / 设计稿 §5) ----------
+    数学岛是共享背包的新「只产出」消费方: 进岛 init() 时 load 一次
+    (双消费方共用存档介质, 重进必重读, 探险/专注同款); 只产出不消耗,
+    掉落以基础材料为主(池与掷骰政策在 math-levels.js 的 MATH_LOOT/
+    rollMathLoot, 可单测), 不得自开存档键(背包壳唯一持有)。 */
+const mathBag = Backpack.mkBackpack();
+
+/* 矿袋战利品会话状态(每关重置, focus F5 同款):
+    mathLootSession: 本关入包明细 {id: n}(结算回顾与 HUD 计数的唯一数据源);
+    mathBagFullSaid: 满包 toast 每关至多一次(政策在 grantMathLoot 纯函数,
+    toast 节流在此); mathLastTap: 最近一次点击坐标 — 战利品飞行起点
+    (引擎事件缝不带 DOM 信息, 模式层在 mathRoot 捕获期自记) */
+let mathLootSession = null;
+let mathBagFullSaid = false;
+let mathLastTap = null;
+
 /* ---------- 进度派生纯函数(存档无 unlocked 字段的口径) ---------- */
 
 /* 当前前沿 = 最高已通关 + 1: 世界轨关卡未建时可"跳过"(0 星占位),
@@ -169,7 +198,8 @@ function mathAggStats(list) {
 }
 
 /* ---------- 结算落账(单一写入点: 星表/挑战表/图章/家长日志 + 滚动裁剪) ----------
-   返回是否通过; 预算关数计数(b.count)由调用方先行, 图章取 spentCount */
+   返回是否通过; 预算关数计数(b.count)由调用方先行, 图章取 spentCount;
+   图章落账走库层纯函数(钳日限/同日 max/滚动 90 天, T8) */
 function mathSettleSave(save, level, st, today) {
   const passed = mathPassed(level, st);
   if (passed) {
@@ -181,7 +211,8 @@ function mathSettleSave(save, level, st, today) {
     }
   }
   const fb = mathBudget();
-  save.stamps[today] = fb ? fb.spentCount() : (save.stamps[today] || 0) + 1;
+  const n = fb ? fb.spentCount() : (save.stamps[today] || 0) + 1; // 无预算环境兜底(测试/离线)
+  save.stamps = mathStampTrim(mathStampRecord(save.stamps || {}, today, n), today);
   save.log = trimMathLog(save.log || {}, today, MATH_LOG_KEEP_DAYS);
   const day = save.log[today] = save.log[today] || {};
   const fam = day[level.family] = day[level.family] || {acc: 0, n: 0, chalN: 0, chalOk: 0};
@@ -192,6 +223,234 @@ function mathSettleSave(save, level, st, today) {
     if (passed) fam.chalOk++;
   }
   return passed;
+}
+
+/* 集章达成线领取(须在 mathSettleSave 之后、saveMathSave 之前调用, 就近写回
+   save): 返回本次新达成的集章达成线(差集幂等, 已领不重发), 供结算屏仪式;
+   奖励纯观感(图案三选一/烟花/金章), 永不解锁玩法(红线) */
+function mathStampClaim(save) {
+  const due = mathStampRewardsDue(mathStampCount(save.stamps || {}), save.stampClaimed || []);
+  if (due.length) save.stampClaimed = (save.stampClaimed || []).concat(due);
+  return due;
+}
+
+/* ---------- 战利品回路(T8): 政策纯函数在 math-levels.js, 此处只做装配与观感 ----------
+    onTrial → rollMathLoot(内拦教学关/错误试次) → grantMathLoot 入共享背包
+    + save → 飞入 HUD 矿袋槽位; 结算屏列队回顾; 满包每关至多一次 toast */
+
+/* 授予流: 入包成功即 save(频率低, 不批量); 余量>0 静默忽略 + 每关至多一次
+    toast「背包满啦」(零惩罚, 政策在 grantMathLoot 纯函数) */
+function grantMathLootIntoBag(ids) {
+  if (!mathLootSession) return {granted: [], full: false}; // 非关卡会话(防御)
+  const res = grantMathLoot(mathBag.inv, ids);
+  for (const id of res.granted) {
+    mathLootSession[id] = (mathLootSession[id] || 0) + 1;
+  }
+  if (res.granted.length) mathBag.save();
+  if (res.full && !mathBagFullSaid) {
+    mathBagFullSaid = true;
+    showToast('背包满啦', 2200);
+  }
+  return res;
+}
+
+/* 逐试次事件({ok, streak}, 引擎契约): streak 由引擎维护(答错清零),
+    连对每满 3 保底稀有在纯函数内; boss 世界节传各节族的小节对象 */
+function onMathTrialLoot(level, t) {
+  const e = t || {};
+  const id = rollMathLoot(level, {ok: e.ok, streak: e.streak});
+  if (!id) return;
+  if (grantMathLootIntoBag([id]).granted.length) flyMathLoot(id, mathLastTap);
+}
+
+/* 战利品飞行: iconOf 像素图标从点击位(缺省屏心 — 摆与搭指针锁宿主无
+    点击位可记)沿贝塞尔弧线飞入矿袋槽位 — 位移经 CSS 变量 --dx/--dy 传给
+    keyframes(样式在 css/math.css, 对齐 focus.css 纪律); 元素挂
+    document.body(#mathRoot 的动画全关降级块管不到, 飞行在
+    prefers-reduced-motion 下自退化为淡入); 落袋后更新 HUD 槽位 */
+function flyMathLoot(id, from) {
+  const hud = document.getElementById('mBagHud');
+  if (!hud) return; // 无 HUD(教学关/已切屏): 静默放弃观感, 入包已完成
+  const to0 = hud.getBoundingClientRect();
+  if (!to0.width) return; // HUD 隐藏(摆与搭指针锁宿主隐了 DOM 屏): 放弃观感
+  const fromPos = from || {x: innerWidth / 2, y: innerHeight / 2};
+  const slot = hud.querySelector('.m-bag-slot[data-item="' + id + '"]');
+  const r = (slot || hud).getBoundingClientRect(); // 已有槽飞向该槽, 新物品飞向收集条末端
+  const to = {x: r.left + r.width / 2, y: r.top + r.height / 2};
+  const el = document.createElement('img');
+  el.src = iconOf(id);
+  el.alt = '';
+  el.className = 'm-loot-fly';
+  el.style.left = (fromPos.x - 22) + 'px'; /* 中心点对齐(44px 图标) */
+  el.style.top = (fromPos.y - 22) + 'px';
+  el.style.setProperty('--dx', (to.x - fromPos.x) + 'px');
+  el.style.setProperty('--dy', (to.y - fromPos.y) + 'px');
+  document.body.appendChild(el);
+  setTimeout(() => {
+    el.remove();
+    addMathBagSlot(id); // 落袋: 计数 + 弹跳 + 叮咚
+  }, 620); // 与 keyframes 时长对齐(0.6s 弧线)
+}
+
+/* 矿袋 HUD 落袋: 同 id 并槽计数, 新物品开槽(槽满自动滚到最新), 槽位弹跳 +
+    叮咚 sfx('pick')(与引擎答对音叠成双声部, 观感对齐 drops 真空吸附) */
+function addMathBagSlot(id) {
+  const hud = document.getElementById('mBagHud');
+  if (!hud) return;
+  let slot = hud.querySelector('.m-bag-slot[data-item="' + id + '"]');
+  if (!slot) {
+    slot = document.createElement('div');
+    slot.className = 'm-bag-slot';
+    slot.dataset.item = id;
+    slot.title = ITEMS[id] ? ITEMS[id].name : id;
+    slot.innerHTML = '<img draggable="false" alt="" src="' + iconOf(id) + '"><span class="m-bag-n"></span>';
+    hud.appendChild(slot);
+  }
+  const n = mathLootSession ? (mathLootSession[id] || 1) : 1;
+  slot.querySelector('.m-bag-n').textContent = n > 1 ? '×' + n : '';
+  hud.scrollLeft = hud.scrollWidth; // 槽满滚动: 最新拾取始终可见
+  slot.classList.remove('bump');
+  void slot.offsetWidth;
+  slot.classList.add('bump');
+  sfx('pick');
+}
+
+/* 结算屏战利品回顾(设计稿 §5 D8): 本关获得列队 + 计数 — 级联进场逐件
+    pop(星星爆开之后), 无获得不渲染区块 */
+function mathLootRecapHtml() {
+  const n = Object.keys(mathLootSession || {}).length;
+  return n ? '<div class="m-loot-recap" id="mLootRecap"><span class="m-loot-title">🎒 本关收获</span></div>' : '';
+}
+function runMathLootRecap() {
+  const box = document.getElementById('mLootRecap');
+  if (!box) return;
+  Object.entries(mathLootSession || {}).forEach(([id, n], k) => {
+    setTimeout(() => {
+      if (!document.getElementById('mLootRecap')) return; // 已切屏: 中止列队
+      const nm = ITEMS[id] ? ITEMS[id].name : id;
+      const item = document.createElement('span');
+      item.className = 'm-loot-item';
+      item.title = nm;
+      item.innerHTML = '<img draggable="false" alt="' + nm + '" src="' + iconOf(id) + '">' +
+          (n > 1 ? '<b>×' + n + '</b>' : '');
+      box.appendChild(item);
+      if (k < 3) sfx('pick'); // 声音节流: 只前 3 件
+    }, 220 * k + 250);
+  });
+}
+
+/* ---------- 图章一本(T8): 纯函数在 math-levels.js, 此处只做呈现 ----------
+    当日 ≥1 关盖普通章(图案 stampKind 三选一自选, 缺省宝石章), 满 3 关盖
+    大章; 漏签空白无负面标记; 集章达成线只发观感奖励(图案/烟花/金章),
+    永不解锁关卡/难度(红线); 日历条挂在今日页, 今日进度行今日页/地图页共用 */
+const MATH_STAMP_KIND_NAMES = {gem: '宝石图章', star: '星星图章', plus: '加号图章'};
+
+function mathStampKindOf(save) { // 损坏/缺省回落宝石章(与 migrateMathSave 同一白名单)
+  return save && MATH_STAMP_KINDS.includes(save.stampKind) ? save.stampKind : 'gem';
+}
+
+/* 本月日历条(本月外不渲染) */
+function mathStampCalendarHtml(save) {
+  const now = new Date();
+  const month = now.getMonth();
+  const year = now.getFullYear();
+  const days = new Date(year, month + 1, 0).getDate(); // 本月总天数
+  const todayStr = mathTodayStr(now.getTime());
+  const kind = mathStampKindOf(save);
+  const total = mathStampCount(save.stamps);
+  let cells = '';
+  for (let d = 1; d <= days; d++) {
+    const key = mathTodayStr(new Date(year, month, d).getTime()); // 日期键单点出口
+    const n = save.stamps[key] || 0;
+    const ico = n >= MATH_STAMP_DAILY.big ? stampIcon('big') :
+        n >= MATH_STAMP_DAILY.min ? stampIcon(kind) : '';
+    cells += '<div class="m-stamp-cell' + (key === todayStr ? ' m-stamp-today' : '') + '">' +
+      (ico ? '<img draggable="false" alt="" src="' + ico + '">' : '') +
+      '<span>' + d + '</span></div>';
+  }
+  // 金图章: 30 章起日历头部常驻(纯观感, 不占章位)
+  const gold = total >= 30 ?
+      '<img class="m-stamp-gold" draggable="false" alt="" src="' + stampIcon('gold') + '">' : '';
+  return '<div class="m-stamp-cal"><div class="m-stamp-title">📅 ' + (month + 1) + ' 月的图章 · 已集 ' +
+      total + ' 枚' + gold + '</div><div class="m-stamp-grid">' + cells + '</div></div>';
+}
+
+/* 今日图章进度行(今日页/地图页共用露出): 今日盖章状态 + 集章进度 */
+function mathStampTodayHtml(save) {
+  const today = mathTodayStr();
+  const n = (save.stamps && save.stamps[today]) || 0;
+  const total = mathStampCount(save.stamps);
+  const next = mathStampNextLine(total);
+  const ico = n >= MATH_STAMP_DAILY.big ? stampIcon('big') :
+      n >= MATH_STAMP_DAILY.min ? stampIcon(mathStampKindOf(save)) : '';
+  const line = n >= MATH_STAMP_DAILY.big ? '今天的大图章盖好啦！' :
+      n >= MATH_STAMP_DAILY.min ? '图章盖上啦，再玩 ' + (MATH_STAMP_DAILY.big - n) + ' 关换大章！' :
+      '今天玩 1 关就能盖图章哦！';
+  const goal = next ? ' · 再集 ' + (next - total) + ' 枚有新奖励' : '';
+  return '<div class="m-stamp-row">' + (ico ? '<img draggable="false" alt="" src="' + ico + '">' : '') +
+      '<span>' + line + ' 已集 ' + total + ' 枚' + goal + '</span></div>';
+}
+
+/* 结算屏图章块: 今日图章(新盖弹跳) + 集章进度(下一达成线) */
+function mathStampBlockHtml(save, stampNew, stampBig) {
+  const total = mathStampCount(save.stamps);
+  const next = mathStampNextLine(total);
+  const ico = stampBig ? stampIcon('big') : stampIcon(mathStampKindOf(save));
+  const head = stampBig ? '今天集满 ' + MATH_STAMP_DAILY.big + ' 关，大图章！' :
+      stampNew ? '今天的图章盖上啦！' : '今天的图章已经盖好啦';
+  const goal = next ? ' · 再集 ' + (next - total) + ' 枚有新奖励' : '';
+  return '<div class="m-stamp-block' + ((stampNew || stampBig) ? ' pop' : '') + '">' +
+      '<img draggable="false" alt="图章" src="' + ico + '">' +
+      '<span>' + head + ' · 已集 ' + total + ' 枚' + goal + '</span></div>';
+}
+
+/* 集章授予仪式块: 奖励声明 + 三选一图案选择器(达成 stamp_pattern 线时) */
+function mathStampAwardHtml(lines, save) {
+  if (!lines || !lines.length) return '';
+  const items = lines.map((line) => '<div>🎖️ ' + MATH_STAMP_REWARD_TEXT[mathStampRewardFor(line)] + '</div>').join('');
+  const pattern = lines.some((line) => mathStampRewardFor(line) === 'stamp_pattern');
+  const picker = pattern ? '<div class="m-stamp-pick" id="mStampPick">' +
+      '<div class="m-stamp-pick-label">选一个你喜欢的图章</div>' +
+      MATH_STAMP_KINDS.map((kind) => '<button type="button" data-kind="' + kind + '"' +
+          (kind === mathStampKindOf(save) ? ' class="on"' : '') + ' title="' +
+          MATH_STAMP_KIND_NAMES[kind] + '" aria-label="' + MATH_STAMP_KIND_NAMES[kind] + '">' +
+          '<img draggable="false" alt="" src="' + stampIcon(kind) + '"></button>').join('') +
+      '</div>' : '';
+  return '<div class="m-award"><b>集齐 ' + lines[lines.length - 1] + ' 枚图章啦！</b>' + items + '</div>' + picker;
+}
+
+/* 三选一图案选择器接线: 选中即写存档并高亮, 日历下次渲染即用新图案 */
+function wireMathStampPicker(save) {
+  const box = document.getElementById('mStampPick');
+  if (!box) return;
+  const buttons = [...box.querySelectorAll('button')];
+  const mark = () => buttons.forEach((b) => b.classList.toggle('on', b.dataset.kind === mathStampKindOf(save)));
+  mark();
+  buttons.forEach((btn) => {
+    btn.onclick = () => {
+      save.stampKind = btn.dataset.kind;
+      saveMathSave(save);
+      mark();
+      sfx('pick');
+      SpeechKit.speak(MATH_STAMP_KIND_NAMES[btn.dataset.kind]);
+    };
+  });
+}
+
+/* 一次性 CSS 粒子迸发(firework 奖励, focus F9 box-shadow 粒子同款手法);
+    样式在 css/math.css, prefers-reduced-motion 下动画全关且基础 opacity=0 */
+function launchMathFirework() {
+  if (!mathRoot) return;
+  const el = document.createElement('div');
+  el.className = 'm-firework';
+  el.setAttribute('aria-hidden', 'true');
+  mathRoot.appendChild(el);
+  setTimeout(() => el.remove(), 1600);
+}
+
+/* 已领奖励判定(观感恢复用): 数学侧只查 firework — 今日页进场迸发一次 */
+function mathStampRewardOn(claimed, rid) {
+  return (claimed || []).some((line) => mathStampRewardFor(line) === rid);
 }
 
 /* ---------- 根容器与屏幕 ---------- */
@@ -227,6 +486,13 @@ function ensureMathRoot() {
   if (mathRoot) return;
   mathRoot = document.createElement('div');
   mathRoot.id = 'mathRoot';
+  /* 战利品飞行起点自记(T8): 捕获期挂在 mathRoot 上 — 屏流训练区与
+     世界轨接球层都在它内部, 一处监听两轨通用(focusLastTap 同款:
+     引擎事件缝不带 DOM 信息, 模式层自记); 指针锁宿主的点击不经过
+     DOM, mathLastTap 保持 null → 飞行回落屏心 */
+  mathRoot.addEventListener('pointerdown', (e) => {
+    mathLastTap = {x: e.clientX, y: e.clientY};
+  }, true);
   document.body.appendChild(mathRoot);
 }
 
@@ -258,8 +524,8 @@ function mathExit() {
   showPage('main');
 }
 
-/* ---------- 今日页: 进度概览 + 进入地图 ----------
-   村长/图章/家长面板入口由 T8/T9 票在此页续建 */
+/* ---------- 今日页: 进度概览 + 图章日历(T8) + 进入地图 ----------
+    家长面板入口由 T9 票在此页续建 */
 function showMathToday() {
   stopMathTicker();
   const save = loadMathSave();
@@ -277,9 +543,12 @@ function showMathToday() {
         <h1>今天的数学冒险完成啦！</h1>
         <p class="m-sub">小岛要休息了，明天再来吧 · ⭐${total}</p>
         <div class="m-dots">${dots}</div>
+        ${mathStampTodayHtml(save)}
+        ${mathStampCalendarHtml(save)}
         <button class="m-btn" id="mHome2">${btnImg('house')} 回主页</button>
       </div>`);
     document.getElementById('mHome2').onclick = mathExit;
+    if (mathStampRewardOn(save.stampClaimed, 'firework')) launchMathFirework(); // 集章烟花(观感恢复)
     return;
   }
   mathScreen(`
@@ -290,6 +559,8 @@ function showMathToday() {
       <p class="m-sub">${curMeta.game} · ${mathVariantName(curLv.family, curLv.variant)}</p>
       <button class="m-start" id="mStartBtn">▶ 开始冒险</button>
       <div class="m-dots">${dots}</div>
+      ${mathStampTodayHtml(save)}
+      ${mathStampCalendarHtml(save)}
     </div>`);
   SpeechKit.speak('欢迎来到数学冒险岛！今天我们来玩' + curMeta.game + '。');
   document.getElementById('mStartBtn').onclick = showMathMap;
@@ -321,7 +592,8 @@ function showMathMap() {
   stopMathTicker();
   const save = loadMathSave();
   const frontier = mathFrontier(save);
-  let html = '<div class="m-screen m-map"><h1>关卡地图</h1>';
+  let html = '<div class="m-screen m-map"><h1>关卡地图</h1>' +
+      mathStampTodayHtml(save); /* T8: 地图页露出今日图章进度(与今日页同款) */
   for (let band = 0; band < 4; band++) {
     html += '<div class="m-band"><div class="m-band-title">' + MATH_BAND_NAMES[band] +
         '</div><div class="m-band-grid">';
@@ -420,11 +692,16 @@ function mathWorldLeave() {
 
 function beginMathRun(level) {
   startMathTicker();
+  /* T8 矿袋会话状态: 每关一份新明细 / 满包 toast 节流计数 / 飞行起点 */
+  mathLootSession = {};
+  mathBagFullSaid = false;
+  mathLastTap = null;
   const meta = mathLevelMeta(level); // 情境关话术覆盖(T7)
   const kindTag = mathKindTag(level.kind);
   const world = level.kind !== 'boss' && mathVariantTrack(level.family, level.variant) === 'world';
   /* 世界轨关卡: 同一条头部(规则+进度), 训练区让给 3D 场景(装场与任务卡
-     覆层由 js/math-world.js 自管, mathRoot 切透明背景); 屏流关卡照旧 */
+     覆层由 js/math-world.js 自管, mathRoot 切透明背景); 屏流关卡照旧;
+     矿袋 HUD 教学关不渲染(教学豁免在纯函数, 观感上也零预期, focus 同款) */
   mathScreen(`
     <div class="m-level-head">
       <div class="m-lrule"><span class="m-rule-icon">${meta.icon}</span>
@@ -432,7 +709,8 @@ function beginMathRun(level) {
       <div class="m-rule-small">${meta.rule}</div>
       <div class="m-progress"><div class="m-progress-bar" id="mProg"></div></div>
     </div>
-    ${world ? '' : '<div class="m-area" id="mArea"></div>'}`);
+    ${world ? '' : '<div class="m-area" id="mArea"></div>'}
+    ${level.kind === 'tutorial' ? '' : '<div class="m-bag" id="mBagHud" aria-hidden="true"></div>'}`);
   document.getElementById('mBackBtn').onclick = () => {
     mathStopRun();
     SpeechKit.cancel();
@@ -453,7 +731,7 @@ function beginMathRun(level) {
       seed: level.i * 7919 + 13}, {
       progress: setProg,
       onTrial(t) {
-        void t; /* T8 战利品回路挂点(rollMathLoot 逐试次掷骰), 本票不接 */
+        onMathTrialLoot(level, t); /* T8: 逐试次掷骰入矿袋(教学豁免在纯函数) */
       },
       end(st) {
         mathWorldLeave(); /* T6 摆与搭指针锁宿主离场(hop 幂等无害) */
@@ -466,7 +744,7 @@ function beginMathRun(level) {
     kind: level.kind, params: level.params, seed: level.i * 7919 + 13}, areaEl, {
     progress: setProg,
     onTrial(t) {
-      void t; /* T8 战利品回路挂点(rollMathLoot 逐试次掷骰), 本票不接 */
+      onMathTrialLoot(level, t); /* T8: 逐试次掷骰入矿袋(教学豁免在纯函数) */
     },
     end(st) {
       onMathLevelEnd(level, st);
@@ -518,7 +796,7 @@ function runMathBoss(level, areaEl, setProg) {
           setProg(doneTrials + k, totalTrials);
         },
         onTrial(t) {
-          void t; /* T8 挂点(同上) */
+          onMathTrialLoot({family: s.family, kind: 'challenge'}, t); /* T8: 按小节族掷骰 */
         },
         end: secEnd,
       });
@@ -530,7 +808,7 @@ function runMathBoss(level, areaEl, setProg) {
         setProg(doneTrials + k, totalTrials);
       },
       onTrial(t) {
-        void t; /* T8 挂点(同上) */
+        onMathTrialLoot({family: s.family, kind: 'challenge'}, t); /* T8: 按小节族掷骰 */
       },
       end: secEnd,
     });
@@ -541,19 +819,25 @@ function runMathBoss(level, areaEl, setProg) {
   step();
 }
 
-/* ---------- 结算: 判定/星显/过程表扬/自动续程 ---------- */
+/* ---------- 结算: 判定/星显/过程表扬/战利品回顾/图章进度/自动续程 ---------- */
 function onMathLevelEnd(level, st) {
   mathCtrl = null;
   clearTimeout(mathAutoTimer);
   stopMathTicker();
   const save = loadMathSave();
+  const today = mathTodayStr();
   const fb = mathBudget();
   if (fb) {
     fb.count(1);
     fb.flush();
   } // 无论通过与否都计入每日额度(防疲劳刷, focus 同款)
-  const passed = mathSettleSave(save, level, st, mathTodayStr());
+  const prevStamp = save.stamps[today] || 0; // 结算前的今日关数(判新章/大章)
+  const passed = mathSettleSave(save, level, st, today);
+  const stampDue = mathStampClaim(save); // T8: 集章达成线领取(就近写回, 差集幂等)
   saveMathSave(save);
+  const nowStamp = (save.stamps[today] || 0);
+  const stampNew = prevStamp < MATH_STAMP_DAILY.min && nowStamp >= MATH_STAMP_DAILY.min;
+  const stampBig = prevStamp < MATH_STAMP_DAILY.big && nowStamp >= MATH_STAMP_DAILY.big;
   const stars = passed ? mathStars(level, st, mathFamChallengeDone(save, level)) : 0;
   if (passed) {
     delete mathFailCount[level.i];
@@ -565,6 +849,11 @@ function onMathLevelEnd(level, st) {
   const accPct = Math.round((st.acc || 0) * 100);
   const targetPct = level.kind === 'challenge' ? 80 : 70;
   const moveOn = !passed && (mathFailCount[level.i] || 0) >= 2; // 连败 2 次换路, 防卡死(focus 同款)
+  /* TTS 优先级: 集章仪式 > (通过=表扬+新章 / 未过=换路提示或安慰) — 结算屏只有一次开口 */
+  const stampNames = stampDue.map((line) => MATH_STAMP_REWARD_TEXT[mathStampRewardFor(line)]).join('、');
+  const spoken = stampDue.length ? '集齐图章啦！获得' + stampNames + '！' :
+      !passed && moveOn ? '你已经很努力了！我们先去玩别的，以后再来挑战这一关。' :
+      praise + (stampNew ? ' 今天的图章盖上啦！' : '');
 
   if (passed) {
     const starSpans = [1, 2, 3].map((n) =>
@@ -575,9 +864,12 @@ function onMathLevelEnd(level, st) {
         <h1>${level.kind === 'tutorial' ? '学会啦！' : '通过！'}</h1>
         <p class="m-sub">正确 ${accPct}%</p>
         <div class="m-result-bubble"><span class="m-bubble">${praise}</span></div>
+        ${mathLootRecapHtml()}
+        ${mathStampBlockHtml(save, stampNew, stampBig)}
+        ${mathStampAwardHtml(stampDue, save)}
         <button class="m-start" id="mNextBtn">继续 ▶</button>
       </div>`);
-    SpeechKit.speak(praise);
+    SpeechKit.speak(spoken);
     [1, 2, 3].forEach((n) => {
       if (n <= stars) {
         setTimeout(() => {
@@ -597,10 +889,20 @@ function onMathLevelEnd(level, st) {
         <p class="m-sub">正确 ${accPct}% · 目标 ${targetPct}%</p>
         <p class="m-sub">${moveOn ? '这关先记住感觉，我们去玩别的，以后再来挑战！' : '我们再试一次，慢慢想 😊'}</p>
         <div class="m-result-bubble"><span class="m-bubble">${praise}</span></div>
+        ${mathLootRecapHtml()}
+        ${mathStampBlockHtml(save, stampNew, stampBig)}
+        ${mathStampAwardHtml(stampDue, save)}
         <button class="m-start" id="mNextBtn">${moveOn ? '先玩下一关 ▶' : '再来一次 ↺'}</button>
         <button class="m-btn" id="mBackMap">${btnImg('grid')} 回地图</button>
       </div>`);
-    SpeechKit.speak(moveOn ? '你已经很努力了！我们先去玩别的，以后再来挑战这一关。' : '没关系，我们再试一次，慢慢想。');
+    SpeechKit.speak(spoken);
+  }
+  wireMathStampPicker(save); // 三选一图案(未达成时无节点, 自动 no-op)
+  if (stampDue.some((line) => mathStampRewardFor(line) === 'firework')) launchMathFirework();
+  runMathLootRecap(); // T8: 本关收获列队进场(星星之后, 无获得零渲染)
+  if (stampDue.length) { // 集章仪式: 奖励声明 toast + 晋升琶音(观感奖励, 与关卡解锁无关)
+    showToast('🎖️ 集章奖励：' + stampNames + '！', 2600);
+    sfx('level');
   }
   const next = () => {
     if (mathLocked()) {
@@ -655,6 +957,7 @@ const MathMode = mkMode({
     ensureMathRoot();
     mathRoot.style.display = 'block';
     overlay.style.display = 'none';
+    mathBag.load(); // 共享背包读档(T8, ADR 0002: 重进必重读, focus/探险同款)
     showMathToday();
   }, // 纯点选全屏 UI: chrome 全关由 kit 默认处理(focus 同款)
   cleanup() {

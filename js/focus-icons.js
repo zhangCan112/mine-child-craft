@@ -6,7 +6,7 @@
    interface: mcIcon(name) 刺激图标 · creeperFace(dir) 苦力怕头像 ·
      pigFace() 猪中立头像 · sheepFace() 羊中立头像(Flanker 中立行 D3) ·
      chiefFace(mood) 训练师村长(mood ∈ smile/cheer/sleepy/devil, 鬼化=devil) ·
-     stampIcon(kind) 图章(kind ∈ pick/gem/tnt/big/gold/devil) ·
+     stampIcon(kind) 图章(kind ∈ pick/gem/tnt/big/gold/devil + star/plus 数学岛自选, T8) ·
      flameIcon(level) 探险家火苗(level ∈ 1/2/3, CSS 摇曳底图)
    依赖(均经全局名, 调用期解析): 无 — 仅 document/canvas, 随用随建
    可测性: DOM 惰性创建, Node 测试可安全加载; 像素绘制无直测惯例,
@@ -276,7 +276,8 @@ function chiefFace(mood) {
 /* 集章图章 — 圆角方章面+亮内框+中央图案(设计稿 §8 B1 日历/B6 集章/B8 通关章)
    kind: pick ⛏ / gem 💎 / tnt 🧨 普通章(底色呼应材料) ·
          big 大图章(华蓝底+金镐, 当日 3 关) · gold 金图章(30 章) ·
-         devil 鬼图章(暗紫底+鬼面, 魔鬼特训通关) */
+         devil 鬼图章(暗紫底+鬼面, 魔鬼特训通关) ·
+         star 星星 / plus 加号(数学岛自选章, T8 — 图案库共用, 图章本各自独立) */
 const stampCache = {};
 function stampIcon(kind) {
   if (stampCache[kind]) return stampCache[kind];
@@ -293,6 +294,8 @@ function stampIcon(kind) {
     big: ['#35399d', '#282c7d', '#ffd83d'], // 华蓝底+金内框·大图章
     gold: ['#d9a334', '#bd921a', '#fff2a8'], // 金底奶白框·金图章
     devil: ['#3d2d4d', '#2a1e36', '#8a5cb0'], // 暗紫底·鬼图章
+    star: ['#7a5cc0', '#5d4494', '#c9b6f0'], // 紫底·星星章(数学岛自选, T8)
+    plus: ['#3f9e4d', '#2f7d3a', '#9fe0a8'], // 绿底·加号章(数学岛自选, T8)
   }[kind];
   const [base, edge, frame] = PAL;
   px(1, 0, 14, 1, edge); px(1, 15, 14, 1, edge); // 深色外缘(四角透光)
@@ -325,6 +328,14 @@ function stampIcon(kind) {
     px(8, 4, 1, 1, '#fff2a8'); px(8, 5, 1, 1, '#f4f4f4');
     px(5, 6, 7, 1, '#f4f4f4'); px(6, 7, 5, 1, '#f4f4f4');
     px(7, 8, 3, 1, '#f4f4f4'); px(6, 9, 1, 1, '#f4f4f4'); px(10, 9, 1, 1, '#f4f4f4');
+  } else if (kind === 'star') { // 金星(数学岛星星章, T8 — 五星同 gold 形, 金黄上紫底)
+    px(8, 4, 1, 1, '#fff2a8'); px(8, 5, 1, 1, '#ffd83d');
+    px(5, 6, 7, 1, '#ffd83d'); px(6, 7, 5, 1, '#ffd83d');
+    px(7, 8, 3, 1, '#ffd83d'); px(6, 9, 1, 1, '#ffd83d'); px(10, 9, 1, 1, '#ffd83d');
+  } else if (kind === 'plus') { // 白加号(数学岛加号章, T8 — 竖横两杠的十字)
+    px(7, 4, 2, 9, '#f4f4f4');
+    px(4, 7, 9, 2, '#f4f4f4');
+    px(7, 4, 1, 1, '#fff2a8'); px(4, 7, 1, 1, '#fff2a8'); // 左上高光
   } else { // devil 鬼面
     px(4, 4, 2, 1, '#a52c18'); px(10, 4, 2, 1, '#a52c18'); // 鬼角
     px(4, 5, 1, 1, '#a52c18'); px(11, 5, 1, 1, '#a52c18');

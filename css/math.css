@@ -1103,6 +1103,446 @@ button.m-mark:hover {
 }
 
 
+/* ============================================================
+   T8 · 激励回路样式 — 矿袋 HUD 槽位/战利品贝塞尔飞入/结算列队回顾
+   (focus.css F5 同款纪律: 像素图标 pixelated · 位移走 --dx/--dy 变量 ·
+   飞行元素挂 body 不受本层 reduced-motion 全关块牵制, 自退化淡入)
+   + 图章一本(日历条/今日进度/结算图章块/三选一/烟花)
+ ============================================================ */
+
+/* ---------- 矿袋收集条: 关卡界面底部, 本关拾取实时可见 ---------- */
+.m-bag {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  width: min(458px, 92vw); /* 至多可视 8 槽(8×54+边距), 超出滚动 */
+  box-sizing: border-box;
+  margin: 10px auto 16px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 35%);
+  border: 3px solid rgb(0 0 0 / 45%);
+  overflow-x: auto; /* 槽满滚动(JS 落袋时滚到最新拾取) */
+  scrollbar-width: none;
+}
+
+.m-bag::-webkit-scrollbar {
+  display: none;
+}
+
+/* 世界轨(hop 混合宿主): 训练区让位给 3D 场景, 收集条钉右下角
+   (任务卡占底部中央, 互不遮挡); 摆与搭指针锁宿主连 mathRoot 一起隐,
+   收集条自然不可见 — 飞行观感由 JS 侧宽度守卫放弃, 入包照常 */
+#mathRoot.m-world .m-bag {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 4;
+  margin: 0;
+}
+
+/* 槽位: 木箱 hotbar 质感 — 亮顶暗底 inset 棱线(对齐 MC 立体按钮口径) */
+.m-bag-slot {
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 3px solid #5d4a24;
+  background: linear-gradient(#a98950, #8a6d3b);
+  box-shadow:
+    inset 0 2px 0 rgb(255 235 190 / 30%),
+    inset 0 -3px 0 rgb(0 0 0 / 30%),
+    0 3px 0 rgb(0 0 0 / 35%);
+}
+
+.m-bag-slot img {
+  width: 40px;
+  height: 40px;
+  margin: 1px auto 0;
+  display: block;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%));
+}
+
+/* 数量角标(×2 起显示, 计数权威在 mathLootSession) */
+.m-bag-n {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #2c2c34;
+  border: 2px solid #ffd83d;
+  color: #ffd83d;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* 落袋弹跳: 与飞行 0.6s 尾牙衔接 */
+.m-bag-slot.bump {
+  animation: m-bag-bump 0.45s;
+}
+
+@keyframes m-bag-bump {
+  30% {
+    transform: scale(1.32) rotate(-6deg);
+  }
+
+  60% {
+    transform: scale(0.92) rotate(4deg);
+  }
+}
+
+/* ---------- 战利品飞行: 点击位→槽位贝塞尔弧线(真空吸附观感) ----------
+   元素挂 document.body(JS 侧 addMathBagSlot 的调用节奏与之对齐):
+   ① 不受 #mathRoot 的滚动/层叠上下文牵制, ② 下方 reduced-motion
+   降级要自管(fade 退化), 不被 #mathRoot 的动画全关块盖掉 */
+.m-loot-fly {
+  position: fixed;
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 55%));
+  animation: m-loot-arc 0.6s cubic-bezier(0.32, 0.08, 0.4, 1) forwards;
+}
+
+/* 弧线三关键帧: 原位→弧顶(半程上抛 90px 再放大, 抛起手)→槽位(收小入袋);
+   位移由 JS 写入 --dx/--dy(中心到中心位移) */
+@keyframes m-loot-arc {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+  45% {
+    transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5 - 90px)) scale(1.32) rotate(-10deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.45) rotate(8deg);
+    opacity: 0.95;
+  }
+}
+
+/* 动画敏感者: 飞行退化为中心淡入(JS 侧 620ms 后照常落袋入槽) */
+@media (prefers-reduced-motion: reduce) {
+  .m-loot-fly {
+    animation: m-loot-fade 0.35s ease-out forwards;
+  }
+}
+
+@keyframes m-loot-fade {
+  0% {
+    opacity: 0;
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.9;
+  }
+}
+
+/* ---------- 结算屏战利品回顾: 本关收获列队(级联 pop) ---------- */
+.m-loot-recap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 6px 0 2px;
+  padding: 8px 18px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 216 61 / 60%);
+  background: rgb(0 0 0 / 40%);
+}
+
+.m-loot-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffd83d;
+  text-shadow: 0 2px 4px #000;
+}
+
+.m-loot-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  animation: m-loot-pop 0.45s backwards; /* backwards: 级联进场不露形 */
+}
+
+.m-loot-item img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 50%));
+}
+
+.m-loot-item b {
+  font-size: 13px;
+  color: #ffd83d;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* 从收集条升起: 自下方 28px 抬起 + 回弹放大(列队进场, JS 逐件延迟插入) */
+@keyframes m-loot-pop {
+  0% {
+    transform: translateY(28px) scale(0.3);
+    opacity: 0;
+  }
+
+  60% {
+    transform: translateY(-4px) scale(1.18);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---------- 图章一本(T8): 日历条 + 今日进度 + 结算图章块 ----------
+   漏签空白无负面标记(零文字压力); 图案 stampIcon 三选一自选 */
+.m-stamp-cal {
+  margin-top: 14px;
+  max-width: 520px;
+  width: 100%;
+}
+
+.m-stamp-title {
+  font-size: 14px;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.m-stamp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 5px;
+}
+
+.m-stamp-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 2px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 22%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.m-stamp-cell img {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.m-stamp-cell span {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font-size: 10px;
+  opacity: 0.85;
+  text-shadow: 0 1px 2px #000;
+}
+
+.m-stamp-today {
+  border-color: #ffd83d;
+  box-shadow: 0 0 0 2px rgb(255 216 61 / 35%);
+}
+
+/* 金图章(30 章起日历头部常驻, 纯观感不占章位) */
+.m-stamp-gold {
+  width: 26px;
+  height: 26px;
+  margin-left: 6px;
+  vertical-align: -6px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 4px #ffd83d);
+}
+
+/* 今日图章进度行(今日页/地图页共用): 状态章 + 一句话 */
+.m-stamp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 14px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.m-stamp-row img {
+  width: 34px;
+  height: 34px;
+  image-rendering: pixelated;
+}
+
+/* 结算屏图章块: 今日图章(新盖弹跳) + 集章进度 */
+.m-stamp-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 2px;
+  padding: 6px 16px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 35%);
+  font-size: 14px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.m-stamp-block img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+
+.m-stamp-block.pop {
+  animation: m-stamp-pop 0.5s;
+}
+
+@keyframes m-stamp-pop {
+  0% {
+    transform: scale(0.5);
+  }
+
+  60% {
+    transform: scale(1.15);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 集章授予仪式块 + 三选一图案(stamp_pattern 奖励) */
+.m-award {
+  margin: 8px 0 2px;
+  padding: 8px 18px;
+  border-radius: 14px;
+  border: 3px solid #ffd83d;
+  background: rgb(0 0 0 / 40%);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.m-award b {
+  color: #ffd83d;
+  font-size: 17px;
+}
+
+.m-stamp-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border: 2px dashed rgb(255 216 61 / 70%);
+  border-radius: 14px;
+  background: rgb(0 0 0 / 38%);
+}
+
+.m-stamp-pick-label {
+  font-size: 14px;
+  color: #ffd83d;
+  text-shadow: 0 2px 4px #000;
+}
+
+.m-stamp-pick button {
+  width: 52px;
+  height: 52px;
+  padding: 2px;
+  border: 3px solid rgb(255 255 255 / 25%);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 30%);
+  cursor: pointer;
+}
+
+.m-stamp-pick button.on {
+  border-color: #ffd83d;
+  box-shadow: 0 0 0 3px rgb(255 216 61 / 30%);
+}
+
+.m-stamp-pick img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+
+/* 集章烟花(firework 奖励): box-shadow 粒子手法, 一次性迸发
+   (基础 opacity=0, prefers-reduced-motion 动画全关时自然不可见) */
+.m-firework {
+  position: fixed;
+  left: 50%;
+  top: 42%;
+  z-index: 70;
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  animation: m-firework-a 1.4s ease-out forwards;
+}
+
+.m-firework::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: m-firework-b 1.4s 0.12s ease-out forwards;
+}
+
+@keyframes m-firework-a {
+  0% {
+    opacity: 1;
+    box-shadow:
+      4px -3px 0 0 #ffd83d, -4px -3px 0 0 #7cfc00, 4px 3px 0 0 #fff2a8,
+      -4px 3px 0 0 #7cfc00, 0 -5px 0 0 #ffd83d, 0 5px 0 0 #fff2a8;
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      180px -130px 0 0 #ffd83d, -160px -150px 0 0 #fff2a8, 190px 120px 0 0 #7cfc00,
+      -180px 140px 0 0 #ffd83d, 20px -190px 0 0 #fff2a8, -30px 180px 0 0 #7cfc00,
+      -200px 10px 0 0 #ffd83d, 200px -10px 0 0 #fff2a8, 130px -190px 0 0 #7cfc00,
+      -120px -200px 0 0 #ffd83d;
+  }
+}
+
+@keyframes m-firework-b {
+  0% {
+    opacity: 1;
+    box-shadow:
+      4px 2px 0 0 #f4f4f4, -4px 2px 0 0 #ffd83d, 2px -4px 0 0 #fff2a8,
+      -2px -4px 0 0 #f4f4f4;
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      -150px -170px 0 0 #f4f4f4, 170px -140px 0 0 #ffd83d, -170px 130px 0 0 #fff2a8,
+      160px 160px 0 0 #f4f4f4, 200px 40px 0 0 #ffd83d, -200px -30px 0 0 #fff2a8;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m-firework,
+  .m-firework::after {
+    display: none;
+  }
+}
+
 /* ---------- 动画全关降级: 本层动画/过渡停跳 ---------- */
 @media (prefers-reduced-motion: reduce) {
   #mathRoot,

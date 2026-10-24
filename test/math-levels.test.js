@@ -41,6 +41,9 @@ function loadMathLevels() {
       MATH_CONTEXTS, mathParamsFor, MATH_LEVELS, mathPassed, mathStars, MATH_LOOT,
       rollMathLoot, grantMathLoot, MATH_LOG_KEEP_DAYS,
       mathTodayStr, mathDayIndex, trimMathLog,
+      MATH_STAMP_KINDS, MATH_STAMP_DAILY, MATH_STAMP_REWARDS, MATH_STAMP_REWARD_TEXT,
+      MATH_STAMP_KEEP_DAYS, mathStampRecord, mathStampTrim, mathStampCount,
+      mathStampMilestones, mathStampRewardsDue, mathStampRewardFor, mathStampNextLine,
       MATH_SAVE_DEFAULTS, migrateMathSave,
       add, mkInventory, count, INV_SLOTS, ITEMS, stackMax };
   `, ctx);
@@ -351,18 +354,39 @@ test('grantMathLoot: 空包逐件入包(granted 全记); 满包余量>0 静默�
   assert.strictEqual(ml.count(full, 'coal'), 0, '满包件确实没进');
 });
 
+test('rollMathLoot: boss 小节最小 {family, kind} 对象照常掷骰(按小节族取池); null 关防御', () => {
+  const ml = loadMathLevels();
+  /* runMathBoss 的调用形状(T8 接线): 小节族各自主题化掉落 */
+  const sec = {family: 'craft', kind: 'challenge'};
+  const pool = Object.keys(ml.MATH_LOOT.craft.pool);
+  let sawDrop = false;
+  for (let seed = 1; seed < 60; seed++) {
+    const got = ml.rollMathLoot(sec, {ok: true, streak: 0, seed});
+    if (got) {
+      sawDrop = true;
+      assert.ok(pool.includes(got), 'boss 小节产物∈小节族池: got=' + got);
+    }
+  }
+  assert.ok(sawDrop, '60 掷必有命中(p=0.45)');
+  const mir = ml.rollMathLoot({family: 'mirror', kind: 'challenge'}, {ok: true, streak: 3, seed: 7});
+  assert.strictEqual(mir, ml.MATH_LOOT.mirror.rare[0], '小节连对保底走小节族稀有件');
+  assert.strictEqual(ml.rollMathLoot(null, {ok: true, streak: 3, seed: 1}), null, 'null 关防御性无掉落');
+});
+
 /* ============ 存档形状与迁移(design §4.3) ============ */
 
 test('MATH_SAVE_DEFAULTS/migrateMathSave: 形状齐全, 修形幂等, 存量进度保留', () => {
   const ml = loadMathLevels();
-  for (const k of ['stars', 'challenge', 'stamps', 'stampKind', 'log']) {
+  for (const k of ['stars', 'challenge', 'stamps', 'stampClaimed', 'stampKind', 'log']) {
     assert.ok(hasOwn(ml.MATH_SAVE_DEFAULTS, k), 'defaults 形状含 ' + k);
   }
   const dflt = ml.MATH_SAVE_DEFAULTS;
-  assert.deepStrictEqual(Object.keys(dflt).sort(), ['challenge', 'log', 'stampKind', 'stamps', 'stars']);
+  assert.deepStrictEqual(Object.keys(dflt).sort(),
+      ['challenge', 'log', 'stampClaimed', 'stampKind', 'stamps', 'stars']);
   for (const k of ['stars', 'challenge', 'stamps', 'log']) {
     assert.ok(dflt[k] && typeof dflt[k] === 'object', 'defaults.' + k + ' 为对象');
   }
+  assert.ok(Array.isArray(dflt.stampClaimed), 'defaults.stampClaimed 为数组(集章已领线)');
   assert.strictEqual(dflt.stampKind, 'gem', '缺省宝石章');
   const old = {unlocked: 42, stars: {'3': 2}, challenge: {'craft:1': true},
     stampKind: 7, log: 'broken'};
@@ -371,6 +395,7 @@ test('MATH_SAVE_DEFAULTS/migrateMathSave: 形状齐全, 修形幂等, 存量进�
   assert.strictEqual(once.stars['3'], 2, '星级原样保留');
   assert.strictEqual(once.challenge['craft:1'], true, '挑战完成表原样保留');
   assert.strictEqual(typeof once.stampKind, 'string', '损坏 stampKind 修形为字符串');
+  assert.ok(Array.isArray(once.stampClaimed), 'T8 老档缺 stampClaimed 幂等补 []');
   assert.deepStrictEqual({...once.log}, {}, '损坏 log 修形为空对象');
   const twice = ml.migrateMathSave(once, 1);
   assert.deepStrictEqual(twice, once, '连跑幂等(已是好形状再跑原样)');
@@ -405,6 +430,80 @@ test('mathTodayStr: 委托 budgetDateStr 唯一拼装点, 注入时间戳且无�
   const ml = loadMathLevels();
   assert.strictEqual(ml.mathTodayStr(new Date(2026, 9, 5).getTime()), '2026-10-5');
   assert.strictEqual(ml.mathTodayStr(new Date(2030, 11, 31).getTime()), '2030-12-31');
+});
+
+/* ============ 图章一本(T8, 形态对齐 focus F7 但数据独立) ============ */
+
+test('MATH_STAMP_*: 自选章图案三选一含缺省 gem, 达成线升序且奖励文案齐(观感奖励, 不解锁玩法)', () => {
+  const ml = loadMathLevels();
+  assert.ok(Array.isArray(ml.MATH_STAMP_KINDS) && ml.MATH_STAMP_KINDS.length === 3,
+      '自选章图案三选一(与专注训练营的图章本独立)');
+  assert.ok(ml.MATH_STAMP_KINDS.includes(ml.MATH_SAVE_DEFAULTS.stampKind),
+      '缺省章图案在白名单内: ' + ml.MATH_SAVE_DEFAULTS.stampKind);
+  assert.ok(ml.MATH_STAMP_DAILY.min === 1 && ml.MATH_STAMP_DAILY.big === 3,
+      '当日 ≥1 关盖普通章, 满 3 关盖大章(与日限 6 关同量纲)');
+  const lines = Object.keys(ml.MATH_STAMP_REWARDS).map(Number);
+  assert.deepStrictEqual(lines, [...lines].sort((a, b) => a - b), '达成线升序');
+  assert.strictEqual(Math.min(...lines), 3, '首条达成线 = 3 章(三选一图案奖励)');
+  for (const rid of Object.values(ml.MATH_STAMP_REWARDS)) {
+    assert.ok(typeof ml.MATH_STAMP_REWARD_TEXT[rid] === 'string' && ml.MATH_STAMP_REWARD_TEXT[rid],
+        '奖励有人话文案: ' + rid);
+    assert.ok(!/关卡|解锁|难度/.test(ml.MATH_STAMP_REWARD_TEXT[rid]),
+        '奖励纯观感, 永不解锁关卡/难度(红线): ' + rid);
+  }
+});
+
+test('mathStampRecord: 当日计数钳 1~6, 同日取 max 不叠章, 0/负/NaN 不落账, 不突变', () => {
+  const ml = loadMathLevels();
+  const s0 = {};
+  const s1 = ml.mathStampRecord(s0, '2026-10-24', 2);
+  assert.strictEqual(s1['2026-10-24'], 2, '当日 2 关落账');
+  assert.deepStrictEqual(s0, {}, '不突变入参');
+  assert.strictEqual(ml.mathStampRecord(s1, '2026-10-24', 1)['2026-10-24'], 2,
+      '重放同日取 max(不回退不叠章)');
+  assert.strictEqual(ml.mathStampRecord(s1, '2026-10-24', 9)['2026-10-24'], 6,
+      '钳上限 = 日限 6 关');
+  assert.strictEqual(ml.mathStampRecord(s1, '2026-10-25', 3)['2026-10-24'], 2,
+      '别的日记账不动今天');
+  for (const bad of [0, -1, NaN, undefined]) {
+    assert.strictEqual(ml.mathStampRecord(s1, '2026-10-26', bad)['2026-10-26'], undefined,
+        '无效关数不落账: ' + bad);
+  }
+});
+
+test('mathStampTrim/mathStampCount: 90 天滚动窗口防膨胀, 集章数 = 有章天数(每天至多 1 枚)', () => {
+  const ml = loadMathLevels();
+  assert.strictEqual(ml.MATH_STAMP_KEEP_DAYS, 90, '与日志窗口同宽(防存档膨胀)');
+  const stamps = {};
+  stamps['2026-10-24'] = 3; // 今天
+  stamps['2026-7-27'] = 1; // 89 天前 — 保留
+  stamps['2026-7-26'] = 2; // 90 天前 — 裁掉
+  stamps['bad'] = 1; // 非法键 — 丢弃
+  const out = ml.mathStampTrim(stamps, '2026-10-24');
+  assert.deepStrictEqual([...Object.keys(out)].sort(), ['2026-10-24', '2026-7-27'], '窗口内外分界');
+  assert.strictEqual(ml.mathStampTrim(stamps, 'broken'), stamps, 'today 非法原样返回(不清档)');
+  assert.strictEqual(ml.mathStampCount(out), 2, '按天计数(值是关数不是章数)');
+  assert.strictEqual(ml.mathStampCount(null), 0, '空档安全');
+});
+
+test('mathStampMilestones/RewardsDue/RewardFor: 达成线差集幂等, 60/90…递进线沿用金图章', () => {
+  const ml = loadMathLevels();
+  assert.deepStrictEqual(ml.mathStampMilestones(2), [], '未到首线无达成');
+  assert.deepStrictEqual(ml.mathStampMilestones(7), [3, 7], '表内线升序');
+  assert.deepStrictEqual(ml.mathStampMilestones(65), [3, 7, 30, 60], '递进线 60/90…每 30 章');
+  assert.deepStrictEqual(ml.mathStampRewardsDue(7, [3]), [7], '已领差集');
+  assert.deepStrictEqual(ml.mathStampRewardsDue(7, [3, 7]), [], '全领后空集(幂等)');
+  assert.strictEqual(ml.mathStampRewardFor(3), 'stamp_pattern', '3 章 = 三选一图案');
+  assert.strictEqual(ml.mathStampRewardFor(60), 'gold_stamp', '递进线沿用金图章');
+});
+
+test('mathStampNextLine: 集章进度的下一目标(结算屏/日历头共用口径)', () => {
+  const ml = loadMathLevels();
+  assert.strictEqual(ml.mathStampNextLine(0), 3);
+  assert.strictEqual(ml.mathStampNextLine(3), 7);
+  assert.strictEqual(ml.mathStampNextLine(29), 30);
+  assert.strictEqual(ml.mathStampNextLine(30), 60, '过 30 后下一目标 = 递进线');
+  assert.strictEqual(ml.mathStampNextLine(61), 90);
 });
 
 /* ============ mathParamsFor 双轨曲线(design §4.1) ============ */

@@ -141,6 +141,9 @@ function loadMathMode() {
     overlay: {style: {}},
     showPage: () => {},
     SyncDB: {slot: () => ({load: () => ({}), save() {}, reset() {}})},
+    /* T8 共享背包桩: modes/math.js 顶层 mkBackpack, 规则真件在
+       test/backpack.test.js 与 test/math-levels.test.js 各自覆盖 */
+    Backpack: {mkBackpack: () => ({inv: {slots: []}, load() {}, save() {}})},
   };
   const ctx = d; // 复用同一 sandbox 的途径: 重开一个 context 更直接
   void ctx;
@@ -183,8 +186,10 @@ function loadMathMode() {
   vm.runInContext(`
     globalThis.__mm = { mathVariantTrack, mathFrontier, mathLevelUnlocked,
       mathFamChallengeDone, mathBossPlan, mathAggStats, mathSettleSave,
-      mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_CONTEXTS, mathLevelMeta,
-      mathVariantName, MATH_SAVE_DEFAULTS ,
+      mathStampClaim, mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_CONTEXTS, mathLevelMeta,
+      mathVariantName, MATH_SAVE_DEFAULTS,
+      MATH_STAMP_KINDS, MATH_STAMP_DAILY, MATH_STAMP_REWARDS, MATH_STAMP_REWARD_TEXT,
+      rollMathLoot, grantMathLoot,
       runBuildWorld: (typeof runBuildWorld !== 'undefined' ? runBuildWorld : null) };
   `, vmCtx);
   return {mm: sandbox.__mm, sandbox};
@@ -1308,6 +1313,37 @@ test('mathSettleSave: 通关记星/挑战表/图章/日志, 教学关 0 星占�
   mm.mathSettleSave(s, normal, {acc: 1, maxStreakErr: 0}, today);
   assert.ok(!s.log['2026-1-1'], '90 天外日志裁剪');
   assert.ok(s.log[today]);
+});
+
+test('mathSettleSave: 图章落账走图章纯函数 — 滚动 90 天裁剪, 落账值不越日限', () => {
+  const {mm} = loadMathMode();
+  const normal = mm.MATH_LEVELS.find((l) => l.kind === 'normal');
+  const today = '2026-10-24';
+  const s = JSON.parse(JSON.stringify(mm.MATH_SAVE_DEFAULTS));
+  s.stamps = {'2026-7-26': 2, '2026-7-27': 1}; // 90 天前裁掉 / 89 天前保留
+  mm.mathSettleSave(s, normal, {acc: 1, maxStreakErr: 0}, today);
+  assert.ok(!s.stamps['2026-7-26'], '90 天外图章裁剪(防存档膨胀)');
+  assert.strictEqual(s.stamps['2026-7-27'], 1, '窗口内历史章保留');
+  assert.strictEqual(s.stamps[today], 1, '今日关数入账');
+});
+
+test('mathStampClaim: 集章达成线领取(差集幂等) — 越线即领, 已领不重发', () => {
+  const {mm} = loadMathMode();
+  const mk = (n) => {
+    const s = JSON.parse(JSON.stringify(mm.MATH_SAVE_DEFAULTS));
+    for (let k = 1; k <= n; k++) s.stamps['2026-10-' + k] = 1; // n 个有章天
+    return s;
+  };
+  let s = mk(2);
+  assert.deepStrictEqual(mm.mathStampClaim(s), [], '未到首线无奖励');
+  s = mk(3);
+  assert.deepStrictEqual(mm.mathStampClaim(s), [3], '3 章线达成');
+  assert.deepStrictEqual(s.stampClaimed, [3], '已领线入档');
+  assert.deepStrictEqual(mm.mathStampClaim(s), [], '再领空集(幂等)');
+  s = mk(7);
+  s.stampClaimed = [3]; // 存量档: 3 章线已领过
+  assert.deepStrictEqual(mm.mathStampClaim(s), [7], '只补新越线(3 已领)');
+  assert.deepStrictEqual(s.stampClaimed, [3, 7]);
 });
 
 /* ============ index.html 脚本序 ============ */
