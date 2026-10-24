@@ -114,9 +114,8 @@ function loadMathParadigms(opts) {
       MATH_FAMILIES, MATH_CONTEXTS, mathParamsFor, mathPassed, mathStars, MATH_SAVE_DEFAULTS,
       migrateMathSave, MATH_LOG_KEEP_DAYS, trimMathLog,
       mathScreenDispatch, mathGuardParams, runMathScreen,
-      mathScreenDispatch, mathGuardParams, runMathScreen,
       mBalancePair, mBalanceReveal, MATH_BALANCE_HINT,
-      mClockFace, mClockAngles, mClockSay };
+      mFrameLayout, mClockFace, mClockAngles, mClockSay };
   `, ctx);
   return {
     mp: sandbox.__mp, els, spoken, warns, sfxLog, clsLog, timers,
@@ -334,6 +333,43 @@ test('mathGuardParams: chunks/unitLen >4 与 clueCount >3 越界即 warn+截断,
   assert.strictEqual(mp.mathGuardParams(null).trials, undefined, '空参防御');
 });
 
+/* ============ 呈现反泄漏(G5): 需求侧数字卡 + 两堆十格阵 ============ */
+
+/* 十格阵布局纯函数: 空格可见的一一对应 — 同十格区间的 n 与 n+1 阵框
+   占位同形(长度线索失效, 用户实测"比块的长度就知道够不够") */
+test('mFrameLayout: n∈1..20 格位总数=10×ceil(n/10), 恰 n 格 filled', () => {
+  const {mp} = loadMathParadigms();
+  for (let n = 1; n <= 20; n++) {
+    const cells = mp.mFrameLayout(n, 7);
+    assert.strictEqual(cells.length, Math.ceil(n / 10) * 10, 'n=' + n + ' 满阵框占位(2 行×5 格/组)');
+    assert.strictEqual(cells.filter((c) => c.f).length, n, 'n=' + n + ' filled 计数');
+  }
+  assert.strictEqual(mp.mFrameLayout(0, 7).length, 0, 'n=0 防御空布局');
+});
+
+test('mFrameLayout: 长度线索失效 — 同十格区间的 n 与 n+1 布局同长(7 与 8 阵框同形)', () => {
+  const {mp} = loadMathParadigms();
+  for (let n = 1; n <= 19; n++) {
+    if (n % 10 === 0) continue; // 区间边界(10/20)右邻进新阵, 框本就应多一个
+    for (const seed of [1, 42, 777]) {
+      assert.strictEqual(mp.mFrameLayout(n, seed).length, mp.mFrameLayout(n + 1, seed).length,
+          'n=' + n + ' 与 n+1 同框(比长短得不到谁多)');
+    }
+  }
+});
+
+test('mFrameLayout: 同 seed 同输出(确定性), seed 用在阵组顺序/填充起点上', () => {
+  const {mp} = loadMathParadigms();
+  for (let n = 1; n <= 20; n++) {
+    assert.deepStrictEqual(mp.mFrameLayout(n, 99), mp.mFrameLayout(n, 99), 'n=' + n + ' 同 seed 同输出');
+  }
+  /* 12 = 满阵+残阵: 阵组顺序(满阵在前/后)与每阵填充起点(左/右起)由
+     seed 派生, 20 个种子里至少出现两种不同布局(锁注入语义) */
+  const seen = new Set();
+  for (let s = 1; s <= 20; s++) seen.add(JSON.stringify(mp.mFrameLayout(12, s)));
+  assert.ok(seen.size >= 2, '异 seed 产出不同阵排列, 实为 ' + seen.size);
+});
+
 /* ============ count 族: 独立 DOM 神谕试次流 ============ */
 
 /* 快照神谕: m-flash 里出现次数最多的 img src = 小客人数(干扰物是另一副面孔) */
@@ -457,6 +493,31 @@ test('count/compare: single 档点大堆→对; reverse 档走"多几个"数字�
   tap(btn);
   d.flush(8);
   assert.strictEqual(ended[0].correct, 1);
+});
+
+test('count/compare(呈现反泄漏): 两堆铺十格阵 — filled=数量, 空格补足满阵框(两档)', () => {
+  const d = loadMathParadigms();
+  /* single 档(点堆)与相差档(静态堆)都走阵框 */
+  for (const [tier, cls] of [[1, 'm-pile'], [9, 'm-pilestat']]) {
+    for (const seed of [5, 7, 31]) {
+      const ended = [];
+      play(d, 'count', 'compare', tier, {trials: 1, seed}, {end: (s) => ended.push(s)});
+      d.flush(8);
+      const piles = sEls(d, cls).filter((e) => e.dataset.n !== undefined);
+      assert.strictEqual(piles.length, 2, 'tier' + tier + ' 两堆方块');
+      for (const pile of piles) {
+        const n = +pile.dataset.n;
+        const html = String(pile.innerHTML);
+        const imgs = (html.match(/<img/g) || []).length;
+        const frames = (html.match(/class="m-frame"/g) || []).length;
+        const empties = (html.match(/class="m-frempty"/g) || []).length;
+        assert.strictEqual(imgs, n, 'tier' + tier + ' seed' + seed + ' filled 图标=数量(逐个点数合法)');
+        assert.strictEqual(frames, Math.ceil(n / 10), '阵框数=ceil(n/10): ' + frames);
+        assert.strictEqual(empties, Math.ceil(n / 10) * 10 - n, '空格补足满阵框(7 与 8 框同形)');
+      }
+      autoPlay(d, ended, 30);
+    }
+  }
 });
 
 test('count/balance(挑战, 搬动试错): DOM 神谕 — 点多的一堆方块搬到相等自动判对, 语音点破差值规律', () => {
@@ -612,6 +673,26 @@ test('craft/shortage: 还差 = need-have', () => {
   tap(btn);
   d.flush(8);
   assert.strictEqual(ended[0].correct, 1);
+});
+
+test('craft 配方卡(呈现反泄漏): 需求侧不画方块行 — planks 图标恰 1 枚, 数字入卡', () => {
+  const d = loadMathParadigms();
+  for (const variant of ['enough', 'shortage']) {
+    for (const seed of [3, 5, 8, 13, 25, 34]) {
+      const ended = [];
+      play(d, 'craft', variant, 7, {trials: 1, seed}, {end: (s) => ended.push(s)});
+      d.flush(8);
+      const need = sEls(d, 'm-need').pop();
+      assert.ok(need, variant + ' 需求卡存在');
+      const html = String(need.innerHTML);
+      const planks = (html.match(/data:mc:planks/g) || []).length;
+      assert.strictEqual(planks, 1,
+          variant + ' seed' + seed + ' 需求卡 planks 图标恰 1 枚(数字卡, 不随 need 增长)');
+      assert.ok(html.includes('>' + need.dataset.n + '<'),
+          variant + ' seed' + seed + ' 数字入卡: ' + html.slice(0, 80));
+      autoPlay(d, ended, 30);
+    }
+  }
 });
 
 test('craft/order: 订单总量 = k×per(data-k/data-per 神谕)', () => {

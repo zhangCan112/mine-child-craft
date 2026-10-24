@@ -346,11 +346,12 @@
   justify-content: center;
   gap: 6px;
   max-width: 560px;
-  transition: opacity 0.4s;
+  transition: opacity 0.4s, visibility 0s linear 0.4s;
 }
 
 .m-flash.m-hide {
   opacity: 0;
+  visibility: hidden; /* 闪没不留尾: 渐隐完成后彻底移出可见性与无障碍树 */
 }
 
 .m-flash.m-group5 {
@@ -404,7 +405,7 @@
   padding: 14px 30px;
 }
 
-/* 方块堆(比多少/移多补少) */
+/* 方块堆(比多少/移多补少) — 比多少两堆铺十格阵(呈现反泄漏) */
 .m-piles {
   display: flex;
   gap: 40px;
@@ -412,12 +413,30 @@
 }
 
 .m-pile {
-  max-width: 220px;
+  max-width: 240px;
   padding: 10px;
   border-radius: 12px;
   border: 3px solid rgb(255 255 255 / 45%);
   background: rgb(0 0 0 / 35%);
   line-height: 1.6;
+}
+
+/* 十格阵框(呈现反泄漏): 每行 5 格×两行一组, 空格占位可见 —
+   同十格区间数量阵框占位同形, 比长短得不到答案 */
+.m-frame {
+  display: grid;
+  grid-template-columns: repeat(5, 34px);
+  gap: 6px;
+  justify-items: center;
+  margin: 4px auto;
+}
+
+.m-frempty {
+  width: 34px;
+  height: 34px;
+  border-radius: 6px;
+  border: 2px dashed rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 15%);
 }
 
 button.m-pile {
@@ -517,6 +536,14 @@ button.m-blk:hover {
 .m-needtag {
   font-size: 15px;
   margin-left: 6px;
+}
+
+/* 需求配方卡大数字(呈现反泄漏): 需求数不画方块行, 数字是学习对象 */
+.m-neednum {
+  font-size: 36px;
+  font-weight: 800;
+  color: #ffd83d;
+  margin: 0 6px;
 }
 
 .m-bundle {

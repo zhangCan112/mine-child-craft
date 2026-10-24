@@ -17,6 +17,7 @@
    interface: mathScreenDispatch(family, variant) · mathGuardParams(params) ·
      runMathScreen(section, area, h) → {stop()} | null(世界变体误调的防御返回)
      section = {family, variant, tier?, kind?, params, seed?} ·
+     mFrameLayout(n, seed) → 十格阵格位序列(呈现反泄漏纯函数, G5) ·
      h = {progress(k, n)?, onTrial({ok, streak})?, end(st)} —
      st = {trials, correct, acc, maxStreakErr}(供 mathPassed/mathStars) ·
      钟部件族 mClockFace/mClockAngles/mClockSay(角度/报时口径纯函数,
@@ -246,6 +247,49 @@ function mPileIcons(n, icon) {
   return s;
 }
 
+/* ---------- 呈现反泄漏(G5): 十格阵布局(纯函数) ---------- */
+
+/* 十格阵布局: n 个物品铺进 ceil(n/10) 个 2×5 阵框, 每行 5 格(一年级
+   教材同款教具), 空格以占位格可见(一一对应/逐个点数是合法策略);
+   同十格区间的 n 与 n+1 格位总数相同 → 阵框占位同宽同高, 比长短
+   得不到答案(用户实测"对比块的长度就知道够不够", 呈现层修复)。
+   seed 注入阵组排列(满阵在前/后)与每阵填充起点(左起/右起),
+   同 seed 同输出; 输出 = 恒 10 的倍数格位序列, {f:1}实格/{f:0}空格 */
+function mFrameLayout(n, seed) {
+  const cnt = Math.max(0, Math.floor(n));
+  if (cnt === 0) return [];
+  const rnd = mRand(seed === undefined ? 0 : seed);
+  const groups = [];
+  let left = cnt;
+  while (left > 0) {
+    groups.push(Math.min(10, left));
+    left -= 10;
+  }
+  if (groups.length > 1 && rnd() < 0.5) groups.reverse(); // 阵组顺序由 seed 派生
+  const cells = [];
+  for (const g of groups) {
+    const fromRight = rnd() < 0.5; // 每阵填充起点由 seed 派生
+    for (let k = 0; k < 10; k++) {
+      cells.push({f: (fromRight ? 9 - k : k) < g ? 1 : 0});
+    }
+  }
+  return cells;
+}
+
+/* 十格阵堆 html(两堆比较呈现): 按组包阵框, 空格占位可见 */
+function mFramePileHtml(n, icon, seed) {
+  const cells = mFrameLayout(n, seed);
+  let html = '';
+  for (let g = 0; g < cells.length; g += 10) {
+    html += '<span class="m-frame">';
+    for (const c of cells.slice(g, g + 10)) {
+      html += c.f ? mIconImg(icon) : '<span class="m-frempty"></span>';
+    }
+    html += '</span>';
+  }
+  return html;
+}
+
 /* ---------- count 族 A 数一数 ---------- */
 
 /* 怪物快照: 小客人闪现 → 藏起 → 点出数量(感数/按群计数; ≤12) */
@@ -303,7 +347,9 @@ function mCountFetch(stage, p, rnd, ctx) {
   ctx.speak('请搬 ' + n + ' 个方块进箱子，点够了按好啦。');
 }
 
-/* 比多少: 谁多(点堆) / 多几个(数字条) */
+/* 比多少: 谁多(点堆) / 多几个(数字条) — 两堆铺十格阵(呈现反泄漏:
+   同十格区间阵框同形, 空格可见, 比长短得不到答案, 须逐个点数或
+   按空格一一对应) */
 function mCountCompare(stage, p, rnd, ctx) {
   const cap = Math.max(4, Math.min(p.max || 10, 12));
   let a = mRi(rnd, 1, cap);
@@ -311,9 +357,10 @@ function mCountCompare(stage, p, rnd, ctx) {
   while (b === a) b = mRi(rnd, 1, cap);
   const diffMode = p.reasoning && p.reasoning !== 'single';
   const wrap = mEl('div', 'm-piles');
+  const frameHtml = (n) => mFramePileHtml(n, 'cobble', Math.floor(rnd() * 2147483647));
   if (!diffMode) {
     for (const n of mShuffle(rnd, [a, b])) {
-      const pile = mChoiceBtn(n, mPileIcons(n, 'cobble'), 'm-pile', (v, el) => ctx.settle(+v === Math.max(a, b), el));
+      const pile = mChoiceBtn(n, frameHtml(n), 'm-pile', (v, el) => ctx.settle(+v === Math.max(a, b), el));
       pile.dataset.n = n;
       wrap.appendChild(pile);
     }
@@ -321,7 +368,7 @@ function mCountCompare(stage, p, rnd, ctx) {
     ctx.speak('哪边的方块多？点一点！');
   } else {
     for (const n of [a, b]) {
-      const pile = mEl('div', 'm-pile m-pilestat', mPileIcons(n, 'cobble'));
+      const pile = mEl('div', 'm-pile m-pilestat', frameHtml(n));
       pile.dataset.n = n;
       wrap.appendChild(pile);
     }
@@ -422,10 +469,13 @@ function mHavePile(stage, have, p, rnd) {
   return el;
 }
 
-/* 材料配方行: 镐子 + need 块木板(enough/shortage 共用) */
+/* 需求配方卡(呈现反泄漏, enough/shortage 共用): 需求数不画方块行 —
+   镐子 + 大数字 + 单枚物品图标, 数字是 CPA 的 A 层学习对象; 孩子
+   必须数库存方块(m-have 侧)再与数字比较, 两条长度不再可比 */
 function mNeedRow(stage, need) {
   const needEl = mEl('div', 'm-need',
-      mIconImg('pickaxe') + mPileIcons(need, 'planks') + '<span class="m-needtag">要 ' + need + ' 块</span>');
+      mIconImg('pickaxe') + '<b class="m-neednum">' + need + '</b>' + mIconImg('planks') +
+      '<span class="m-needtag">要 ' + need + ' 块</span>');
   needEl.dataset.n = need;
   stage.appendChild(needEl);
   return needEl;
@@ -1102,5 +1152,5 @@ function runMathScreen(section, area, h) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {mathScreenDispatch, mathGuardParams, runMathScreen};
+  module.exports = {mathScreenDispatch, mathGuardParams, runMathScreen, mFrameLayout};
 }
