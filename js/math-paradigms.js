@@ -2,9 +2,10 @@
 /* ============================================================
    Math Paradigms (数学屏流引擎, 术语见 GLOSSARY.md「数学屏流引擎」) — 应用层·库
    ------------------------------------------------------------
-   一句话职责: 藏住 13 个屏流判别变体(count/craft/pattern 全变体 +
-   hop 站位比大小)的"呈现-点选-反馈"流程与小部件, 调度层(modes/math.js)
-   只给 section 与 handler, 拿回统计; 引擎不知道奖励/背包/图章/关卡编排。
+   一句话职责: 藏住 16 个屏流判别变体(count/craft/pattern 全变体 +
+   hop 站位比大小 + 商店/钟表/测距情境皮肤)的"呈现-点选-反馈"流程与
+   小部件, 调度层(modes/math.js)只给 section 与 handler, 拿回统计;
+   引擎不知道奖励/背包/图章/关卡编排。
    出题优先调 PuzzleCore(算式谜/多解/天平=mkScalePuzzle/mkPartitionPuzzle,
    数列/周期/线索排队=mkSeqPuzzle/mkPeriodPuzzle/mkClueOrderPuzzle);
    count 族闪现/取物/比多少/移多补少与 craft 常规三变体无对应生成器,
@@ -31,6 +32,16 @@
    pattern/chain single/两步=颜色接龙 · 其余混入数列 ·
    pattern/sort reverse 起=线索排队(≤3 线索) ·
    hop/position single=谁站得远 · 其余=相差几。
+   情境变体(T7, 挂族不独立成族, 专项小部件+话术皮肤):
+   craft/shop 人民币商店 — single=买两样算一共 · two-step 起混付整钞找零 ·
+   reverse 起"付钱有几种付法"多解找齐(mkPartitionPuzzle 钱币皮肤, 找齐才
+   算对); 金额跟带 min(max,100) 元, 面额按一年级教材常识;
+   hop/clock 钟表时刻 — single=认整时/半时(带 0~1 主场, 两步档起仍五成
+   复现) · two-step=过半小时/一小时(答案仍落整/半格) · reverse 起=
+   过一刻钟(时间推算); DOM 指针钟;
+   count/measure 测距步数 — single=两端都数(b-a+1) · two-step=跳几格
+   (b-a) · reverse 起六成往返(2×(b-a), ×2 萌芽); a/b 显式注入
+   mkIntervalPuzzle(跨度 ≤12 数格可数红线)。
    快照(count/snapshot)数量 ≤12: 感数与按群计数的主场, 大数走取物/比多少。
    ============================================================ */
 
@@ -137,6 +148,7 @@ const MATH_SCREEN_KEYS = new Set([
   'craft/enough', 'craft/shortage', 'craft/order', 'craft/blank',
   'pattern/chain', 'pattern/sort', 'pattern/odd', 'pattern/cycle',
   'hop/position',
+  'count/measure', 'craft/shop', 'hop/clock',
 ]);
 
 function mathScreenDispatch(family, variant) {
@@ -466,12 +478,12 @@ function mCraftBlankScale(stage, p, rnd, ctx) {
   ctx.speak(relText + '。那 ' + pz.ask.n + ' 只' + nameOf[pz.ask.from] + '，能换几只' + nameOf[pz.ask.to] + '？');
 }
 
-/* 多解找齐(PuzzleCore.mkPartitionPuzzle): 合成 n 的数对全找齐 */
-function mCraftBlankPartition(stage, p, rnd, ctx) {
-  const pz = PuzzleCore.mkPartitionPuzzle({seed: Math.floor(rnd() * 2147483647),
-    max: Math.min(p.max || 12, 12), parts: 2});
+/* 多解找齐共用体(T7 收口): craft/blank 数字对与 craft/shop 钱币对同构,
+   只差题面/chip 文案/话术 — qHtml=题面 html · chipOf(x,y)=chip 文案 ·
+   line=话术; 找齐(恰选全部对选项, 不多不漏)才算对 */
+function mSolveChips(stage, rnd, ctx, pz, qHtml, chipOf, line) {
   const n = pz.n;
-  const q = mEl('div', 'm-q', '哪两个数合起来是 <b>' + n + '</b>？把对的都找出来！');
+  const q = mEl('div', 'm-q', qHtml);
   q.dataset.n = n;
   stage.appendChild(q);
   const goodKeys = new Set(pz.solutions.map((s) => s[0] + '+' + s[1]));
@@ -488,7 +500,7 @@ function mCraftBlankPartition(stage, p, rnd, ctx) {
   const chosen = new Set();
   const row = mEl('div', 'm-nums');
   for (const o of mShuffle(rnd, options).slice(0, 4)) {
-    const chip = mChoiceBtn(o.x + '+' + o.y, o.x + ' + ' + o.y, 'm-chip', (v, el) => {
+    const chip = mChoiceBtn(o.x + '+' + o.y, chipOf(o.x, o.y), 'm-chip', (v, el) => {
       el.classList.toggle('on');
       if (el.classList.contains('on')) chosen.add(v);
       else chosen.delete(v);
@@ -503,7 +515,17 @@ function mCraftBlankPartition(stage, p, rnd, ctx) {
     const ok = chosen.size === goodPresent && [...chosen].every((k) => goodKeys.has(k));
     ctx.settle(ok, null);
   });
-  ctx.speak('哪两个数合起来是 ' + n + '？把对的都找出来！');
+  ctx.speak(line);
+}
+
+/* 多解找齐(PuzzleCore.mkPartitionPuzzle): 合成 n 的数对全找齐 */
+function mCraftBlankPartition(stage, p, rnd, ctx) {
+  const pz = PuzzleCore.mkPartitionPuzzle({seed: Math.floor(rnd() * 2147483647),
+    max: Math.min(p.max || 12, 12), parts: 2});
+  mSolveChips(stage, rnd, ctx, pz,
+      '哪两个数合起来是 <b>' + pz.n + '</b>？把对的都找出来！',
+      (x, y) => x + ' + ' + y,
+      '哪两个数合起来是 ' + pz.n + '？把对的都找出来！');
 }
 
 /* ---------- pattern 族 F 找一找 ---------- */
@@ -699,6 +721,205 @@ function mHopPosition(stage, p, rnd, ctx) {
   }
 }
 
+/* ---------- 情境变体(T7): 商店/钟表/测距 — 挂族不独立成族 ---------- */
+
+/* 商店货物册: mcIcon 物品系图标 + TTS 名(价签另挂, goods 项为只读描述符,
+   出题时克隆附 price — 不污染共享表) */
+const MATH_SHOP_GOODS = [
+  {ico: 'coal', name: '煤炭'},
+  {ico: 'iron', name: '铁锭'},
+  {ico: 'planks', name: '木板'},
+  {ico: 'brick', name: '砖块'},
+  {ico: 'torch', name: '火把'},
+  {ico: 'emerald', name: '绿宝石'},
+];
+
+/* 找零付款整钞序列(一年级教材常识: 5/10/20/50/100 元); 付款=大于价签的
+   最小整钞(找零恒非零) */
+const MATH_SHOP_BILLS = [5, 10, 20, 50, 100];
+
+/* 货架行: k 件货各自带价(≤4 组块), 神 oracle 在 dataset.price */
+function mShopGoods(stage, goods) {
+  const row = mEl('div', 'm-shoprow');
+  for (const g of goods) {
+    const el = mEl('div', 'm-shopgood',
+        mIconImg(g.ico, 'm-big') + '<span class="m-pricetag">' + g.price + ' 元</span>');
+    el.dataset.price = g.price;
+    el.dataset.ico = g.ico;
+    row.appendChild(el);
+  }
+  stage.appendChild(row);
+  return row;
+}
+
+/* 人民币商店(craft 皮肤): 买两样算一共 · 付整钞找零 · 付法找齐(挑战);
+   金额跟带 min(max,100) 元 — 人民币金额口径 ≤100 */
+function mCraftShop(stage, p, rnd, ctx) {
+  const r = p.reasoning || 'single';
+  const roll = rnd();
+  if ((r === 'reverse' || r === 'multi-solve') && roll < 0.5) return mShopPayWays(stage, p, rnd, ctx);
+  if (r !== 'single' && roll >= 0.5) return mShopChange(stage, p, rnd, ctx);
+  return mShopSum(stage, p, rnd, ctx);
+}
+
+/* 买两样算一共: 价签加法(高带约半数掷整十价签, 100 以内加减先遇) */
+function mShopSum(stage, p, rnd, ctx) {
+  const cap = Math.max(4, Math.min(p.max || 20, 100));
+  const tens = cap >= 50 && rnd() < 0.5;
+  const pair = mShuffle(rnd, MATH_SHOP_GOODS).slice(0, 2);
+  const p1 = tens ? mRi(rnd, 2, Math.min(9, Math.floor((cap - 9) / 10))) * 10 :
+      mRi(rnd, 1, Math.min(9, cap - 1));
+  const p2 = tens ? mRi(rnd, 1, 9) : mRi(rnd, 1, Math.min(9, cap - p1));
+  mShopGoods(stage, [Object.assign({}, pair[0], {price: p1}), Object.assign({}, pair[1], {price: p2})]);
+  const ans = p1 + p2;
+  mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
+  ctx.speak('买 ' + pair[0].name + '和' + pair[1].name + '，一共要付几元？');
+}
+
+/* 找零: 价签 price, 付款=大于价签的最小整钞, 找回 bill-price(减法真用途) */
+function mShopChange(stage, p, rnd, ctx) {
+  const cap = Math.max(4, Math.min(p.max || 20, 95));
+  const good = Object.assign({}, mPick(rnd, MATH_SHOP_GOODS), {price: mRi(rnd, 2, cap)});
+  mShopGoods(stage, [good]);
+  const bill = MATH_SHOP_BILLS.find((b) => b > good.price);
+  const pay = mEl('div', 'm-shoppay', '付：');
+  const billEl = mEl('span', 'm-bill', bill + ' 元');
+  billEl.dataset.v = bill;
+  pay.appendChild(billEl);
+  stage.appendChild(pay);
+  const ans = bill - good.price;
+  mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
+  ctx.speak('买 ' + good.price + ' 元的' + good.name + '，付 1 张 ' + bill + ' 元，要找回来几元？');
+}
+
+/* 付法找齐(挑战): 哪两张钱合起来正好 n 元 — 有序枚举找齐才算对
+   (mkPartitionPuzzle 钱币皮肤, 与 craft/blank 多解找齐同构) */
+function mShopPayWays(stage, p, rnd, ctx) {
+  const pz = PuzzleCore.mkPartitionPuzzle({seed: Math.floor(rnd() * 2147483647),
+    max: Math.min(p.max || 12, 12), parts: 2});
+  mSolveChips(stage, rnd, ctx, pz,
+      '买 <b>' + pz.n + ' 元</b>的东西，哪两张钱合起来正好？把对的都找出来！',
+      (x, y) => x + ' 元 + ' + y + ' 元',
+      '买 ' + pz.n + ' 元的东西，哪两张钱合起来正好 ' + pz.n + ' 元？把对的都找出来！');
+}
+
+/* 钟面小部件: DOM 指针钟(12/3/6/9 刻度 + 时/分针 transform 旋转);
+   dataset.h/dataset.m 为神 oracle 位, 12 时制 1..12, 零 DOM 画布 */
+function mClockFace(stage, h, m) {
+  const el = mEl('div', 'm-clock',
+      '<span class="m-clock-num m-clock-n12">12</span>' +
+      '<span class="m-clock-num m-clock-n3">3</span>' +
+      '<span class="m-clock-num m-clock-n6">6</span>' +
+      '<span class="m-clock-num m-clock-n9">9</span>' +
+      '<span class="m-clock-hand m-hourhand" style="transform: rotate(' +
+          ((h % 12) * 30 + m * 0.5) + 'deg)"></span>' +
+      '<span class="m-clock-hand m-minhand" style="transform: rotate(' + (m * 6) + 'deg)"></span>');
+  el.dataset.h = h;
+  el.dataset.m = m;
+  stage.appendChild(el);
+  return el;
+}
+
+/* 分钟总数 → 'h:mm' 12 时制串(数字符号是学习对象, 允许出现; 负数入参
+   先归正 — 干扰项偏移用) */
+function mClockStr(min) {
+  const t = ((min % 720) + 720) % 720;
+  return (Math.floor(t / 60) || 12) + ':' + String(t % 60).padStart(2, '0');
+}
+
+/* 时刻选项条: 答案 + 邻近时刻干扰(±一刻/半时/整时), 恰 4 选项(≤4 组块) */
+function mClockChoices(stage, rnd, ansMin, onPick) {
+  const answer = mClockStr(ansMin);
+  const vals = [answer];
+  for (const o of mShuffle(rnd, [15, -15, 30, -30, 60, -60, 120, -120])) {
+    if (vals.length >= 4) break;
+    const s = mClockStr(ansMin + o);
+    if (!vals.includes(s)) vals.push(s);
+  }
+  let extra = 1;
+  while (vals.length < 4 && extra < 40) {
+    const s = mClockStr(ansMin + 305 + 7 * extra++);
+    if (!vals.includes(s)) vals.push(s);
+  }
+  const row = mEl('div', 'm-nums');
+  for (const v of mShuffle(rnd, vals)) row.appendChild(mChoiceBtn(v, v, 'm-num', onPick));
+  stage.appendChild(row);
+}
+
+/* 钟表时刻(hop 皮肤): 认整时/半时(single, 带 0~1 主场 — two-step 起仍
+   五成复现) · 过半小时/过一小时(two-step, 答案仍落整/半格) · 过一刻钟
+   (reverse 起, 时间推算的挑战口径) */
+function mHopClock(stage, p, rnd, ctx) {
+  const r = p.reasoning || 'single';
+  const roll = rnd();
+  if (r === 'single') return mClockRead(stage, rnd, ctx, roll < 0.5 ? 0 : 30);
+  if (r === 'two-step') {
+    return roll < 0.5 ? mClockRead(stage, rnd, ctx, rnd() < 0.5 ? 0 : 30) :
+        mClockAfter(stage, rnd, ctx, rnd() < 0.5 ? 30 : 60);
+  }
+  return roll < 0.25 ? mClockRead(stage, rnd, ctx, rnd() < 0.5 ? 0 : 30) :
+      mClockAfter(stage, rnd, ctx, 15); // 过一刻钟(挑战口径)
+}
+
+/* 认时刻: 读指针钟(整时=短针指数字长针指 12; 半时=长针指 6) */
+function mClockRead(stage, rnd, ctx, minute) {
+  const h = mRi(rnd, 1, 12);
+  const t = (h % 12) * 60 + minute;
+  mClockFace(stage, h, minute);
+  mClockChoices(stage, rnd, t, (v, el) => ctx.settle(v === mClockStr(t), el));
+  ctx.speak(minute === 0 ? '看一看，钟上是几点整？' : '看一看，钟上是几点半？');
+}
+
+/* 时间推算: 基时刻(整/半)+delta, 答案可跨时进位(11:30 过半小时=12:00) */
+function mClockAfter(stage, rnd, ctx, delta) {
+  const h = mRi(rnd, 1, 12);
+  const minute = rnd() < 0.5 ? 0 : 30;
+  const base = (h % 12) * 60 + minute;
+  mClockFace(stage, h, minute);
+  const name = delta === 15 ? '一刻钟' : (delta === 30 ? '半小时' : '一小时');
+  const q = mEl('div', 'm-q', '再过 <b>' + name + '</b>是几点？');
+  q.dataset.delta = delta;
+  stage.appendChild(q);
+  mClockChoices(stage, rnd, base + delta, (v, el) => ctx.settle(v === mClockStr(base + delta), el));
+  ctx.speak('现在是 ' + (minute === 0 ? h + ' 时整' : h + ' 时半') + '，再过 ' + name + '是几点？');
+}
+
+/* 测距步数(count 皮肤): 数格子量距离 — single=两端都数(b-a+1) ·
+   two-step=跳几格(b-a) · reverse 起六成往返(2×(b-a), ×2 萌芽);
+   a/b 显式注入 mkIntervalPuzzle(跨度 ≤12 数格可数红线), 起点挂小怪物
+   终点挂小旗, 格子带绝对序号(大数跟带在格子号上) */
+function mCountMeasure(stage, p, rnd, ctx) {
+  const r = p.reasoning || 'single';
+  const cap = Math.max(6, Math.min(p.max || 20, 60));
+  const round = (r === 'reverse' || r === 'multi-solve') && rnd() < 0.6;
+  let mode;
+  if (round) mode = 'one';
+  else if (r === 'single') mode = 'both';
+  else mode = rnd() < 0.5 ? 'one' : 'both';
+  const span = mRi(rnd, 3, Math.min(12, cap - 2));
+  const a = mRi(rnd, 1, cap - span);
+  const b = a + span;
+  const pz = PuzzleCore.mkIntervalPuzzle({max: cap, a, b, mode});
+  const path = mEl('div', 'm-path');
+  path.dataset.a = a;
+  path.dataset.b = b;
+  path.dataset.mode = mode;
+  path.dataset.round = round ? '1' : '0';
+  for (let v = a; v <= b; v++) {
+    const mark = v === a ? mFaceImg('zombie') : (v === b ? mIconImg('flag', 'm-big') : '');
+    const cell = mEl('span', 'm-cell' + (mark ? ' m-cellend' : ''),
+        (mark || '') + '<b class="m-cellnum">' + v + '</b>');
+    cell.dataset.n = v;
+    path.appendChild(cell);
+  }
+  stage.appendChild(path);
+  const ans = pz.answer * (round ? 2 : 1);
+  mNumChoices(stage, rnd, ans, (v, el) => ctx.settle(v === ans, el));
+  ctx.speak(round ? '小怪物走到小旗再走回来，一共走了几格？' :
+      (mode === 'both' ? '从小怪物那里数到小旗，一共有几格？' : '小怪物跳到小旗那里，要跳几格？'));
+}
+
+
 /* ---------- 试次驱动器 ---------- */
 
 function sfxSafe(name) {
@@ -719,6 +940,9 @@ const MATH_SCREEN_ENGINES = {
   'pattern/odd': mPatternOdd,
   'pattern/cycle': mPatternCycle,
   'hop/position': mHopPosition,
+  'count/measure': mCountMeasure,
+  'craft/shop': mCraftShop,
+  'hop/clock': mHopClock,
 };
 
 /* 主入口: 非屏流变体返回 null(模式层走占位屏); 逐试次 onTrial({ok, streak})

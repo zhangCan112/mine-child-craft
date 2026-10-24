@@ -182,7 +182,8 @@ function loadMathMode() {
   vm.runInContext(`
     globalThis.__mm = { mathVariantTrack, mathFrontier, mathLevelUnlocked,
       mathFamChallengeDone, mathBossPlan, mathAggStats, mathSettleSave,
-      mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_SAVE_DEFAULTS };
+      mathWorldRunner, MATH_LEVELS, MATH_VARIANTS, MATH_CONTEXTS, mathLevelMeta,
+      mathVariantName, MATH_SAVE_DEFAULTS };
   `, vmCtx);
   return {mm: sandbox.__mm, sandbox};
 }
@@ -253,13 +254,14 @@ function autoPlay(d, ended, maxSteps) {
 
 /* ============ 分发判定(纯函数) ============ */
 
-test('mathScreenDispatch: 13 个屏流变体在册, 世界轨与未知返 none', () => {
+test('mathScreenDispatch: 16 个屏流变体在册(13 基础+3 情境), 世界轨与未知返 none', () => {
   const {mp} = loadMathParadigms();
   const screen = [
     ['count', 'snapshot'], ['count', 'fetch'], ['count', 'compare'], ['count', 'balance'],
     ['craft', 'enough'], ['craft', 'shortage'], ['craft', 'order'], ['craft', 'blank'],
     ['pattern', 'chain'], ['pattern', 'sort'], ['pattern', 'odd'], ['pattern', 'cycle'],
     ['hop', 'position'],
+    ['count', 'measure'], ['craft', 'shop'], ['hop', 'clock'],
   ];
   for (const [f, v] of screen) {
     assert.deepStrictEqual({...mp.mathScreenDispatch(f, v)}, {kind: 'engine', key: f + '/' + v});
@@ -764,14 +766,231 @@ test('hop/position: 单步档点大数标记→对; reverse 档走相差数字�
   assert.strictEqual(ended[0].correct, 1, '相差几答对');
 });
 
+/* ============ 情境变体(T7): 商店/钟表/测距 — 独立 DOM 神谕试次流 ============ */
+
+/* 商店货物神 oracle: m-shopgood 的价签(data-price)与整钞(data-v) */
+test('craft/shop: 买两样算一共 — 价签神 oracle Σ price, 金额跟带 ≤min(max,100)', () => {
+  const d = loadMathParadigms();
+  for (const tier of [5, 9, 13, 17]) {
+    for (const seed of [3, 8, 21, 34]) {
+      const p = d.mp.mathParamsFor('craft', tier);
+      const cap = Math.max(4, Math.min(p.max, 100));
+      const ended = [];
+      play(d, 'craft', 'shop', tier, {trials: 1, seed}, {end: (s) => ended.push(s)});
+      d.flush(8);
+      const goods = sEls(d, 'm-shopgood');
+      if (!goods.length || sEls(d, 'm-bill').length) continue; // 该试次掷到找零/付法子型
+      const sum = goods.reduce((a, g) => a + (+g.dataset.price), 0);
+      assert.ok(goods.length === 2, '两件商品(≤4 组块)');
+      assert.ok(sum <= cap, '总价跟带(tier' + tier + ' ≤ ' + cap + '): ' + sum);
+      const btn = sEls(d, 'm-num').find((b) => +b.dataset.v === sum);
+      assert.ok(btn, '数字条含总价 ' + goods.map((g) => g.dataset.price).join('+'));
+      tap(btn);
+      d.flush(8);
+      assert.strictEqual(ended[0].correct, 1);
+    }
+  }
+});
+
+test('craft/shop: 找零 = 整钞-价签(付款=大于价签的最小整钞, 面额教材口径)', () => {
+  const d = loadMathParadigms();
+  let found = 0;
+  for (let seed = 1; seed <= 30 && found < 3; seed++) {
+    const ended = [];
+    play(d, 'craft', 'shop', 9, {trials: 1, seed}, {end: (s) => ended.push(s)});
+    d.flush(8);
+    const bills = sEls(d, 'm-bill');
+    if (!bills.length) continue; // 该试次掷到算一共/付法子型
+    found++;
+    const price = +sEls(d, 'm-shopgood').pop().dataset.price;
+    const bill = +bills.pop().dataset.v;
+    assert.ok([5, 10, 20, 50, 100].includes(bill), '整钞面额在教材序列: ' + bill);
+    assert.ok(bill > price && bill - price >= 1, '付款大于价签(找零非零)');
+    const btn = sEls(d, 'm-num').find((b) => +b.dataset.v === bill - price);
+    assert.ok(btn, '数字条含找零 ' + bill + '-' + price);
+    tap(btn);
+    d.flush(8);
+    assert.strictEqual(ended[0].correct, 1);
+  }
+  assert.ok(found >= 3, '30 个种子内掷到 3 个找零子型, 实为 ' + found);
+});
+
+test('craft/shop: 付法找齐子型(m-chip) — 哪两张钱合起来正好 n 元, 选对全集→对', () => {
+  const d = loadMathParadigms();
+  let found = false;
+  for (let seed = 1; seed <= 40 && !found; seed++) {
+    const ended = [];
+    play(d, 'craft', 'shop', 13, {trials: 1, seed}, {end: (s) => ended.push(s)});
+    d.flush(8);
+    const chips = sEls(d, 'm-chip');
+    const qs = sEls(d, 'm-q');
+    if (!chips.length || !qs.length) continue;
+    found = true;
+    const n = +qs.pop().dataset.n;
+    assert.ok(chips.length <= 4, '付法选项 ≤4 组块');
+    const good = chips.filter((c) => +c.dataset.x + +c.dataset.y === n);
+    const bad = chips.filter((c) => +c.dataset.x + +c.dataset.y !== n);
+    assert.ok(good.length >= 1 && bad.length >= 1, '有对有错(找齐口径)');
+    assert.ok(d.spoken.some((s) => s.includes('付') || s.includes('钱')), '付法话术: ' + d.spoken.join('/'));
+    for (const c of good) tap(c);
+    tap(sEls(d, 'm-ok').pop());
+    d.flush(8);
+    assert.strictEqual(ended[0].correct, 1, '找齐全对');
+  }
+  assert.ok(found, 'tier13 40 个种子内掷到付法找齐子型');
+});
+
+/* 钟面神 oracle: 独立 h:mm 拼装(12 时制), 与实现解耦 */
+function clockStr(h, m) {
+  return h + ':' + String(m).padStart(2, '0');
+}
+function clockStrOfMin(t) {
+  const tt = ((t % 720) + 720) % 720;
+  return clockStr(Math.floor(tt / 60) || 12, tt % 60);
+}
+
+test('hop/clock: 认整时/半时 — 指针钟 dataset 神oracle(h/m→h:mm), 时限 1..12', () => {
+  const d = loadMathParadigms();
+  for (const seed of [4, 11, 23, 42]) {
+    const ended = [];
+    play(d, 'hop', 'clock', 1, {trials: 1, seed}, {end: (s) => ended.push(s)});
+    d.flush(8);
+    const face = sEls(d, 'm-clock').pop();
+    assert.ok(face, '钟面存在');
+    const h = +face.dataset.h;
+    const m = +face.dataset.m;
+    assert.ok(h >= 1 && h <= 12, '12 时制时针 1..12: ' + h);
+    assert.ok(m === 0 || m === 30, 'single 档认整时/半时: ' + m);
+    const want = clockStr(h, m);
+    const btn = sEls(d, 'm-num').find((b) => b.dataset.v === want);
+    assert.ok(btn, '时刻选项含 ' + want);
+    tap(btn);
+    d.flush(8);
+    assert.strictEqual(ended[0].correct, 1);
+  }
+});
+
+test('hop/clock: 时间推算 — 基时刻+delta 神oracle(过半小时/一小时/一刻钟), 跨时进位', () => {
+  const d = loadMathParadigms();
+  for (const [tier, deltas] of [[7, [30, 60]], [13, [15]], [17, [15]]]) {
+    let found = 0;
+    for (let seed = 1; seed <= 30 && found < 2; seed++) {
+      const ended = [];
+      play(d, 'hop', 'clock', tier, {trials: 1, seed}, {end: (s) => ended.push(s)});
+      d.flush(8);
+      const faces = sEls(d, 'm-clock');
+      const qs = sEls(d, 'm-q');
+      if (!faces.length || !qs.length) continue;
+      found++;
+      const face = faces.pop();
+      const base = (+face.dataset.h % 12) * 60 + (+face.dataset.m);
+      const delta = +qs.pop().dataset.delta;
+      assert.ok(deltas.includes(delta), 'tier' + tier + ' 推算口径 delta=' + delta);
+      const want = clockStrOfMin(base + delta);
+      const btn = sEls(d, 'm-num').find((b) => b.dataset.v === want);
+      assert.ok(btn, '选项含 ' + want + '(基 ' + clockStrOfMin(base) + ' +' + delta + '分)');
+      tap(btn);
+      d.flush(8);
+      assert.strictEqual(ended[0].correct, 1);
+    }
+    assert.ok(found >= 1, 'tier' + tier + ' 30 个种子内掷到推算子型');
+  }
+});
+
+/* 测距神 oracle: m-path 的 a/b/mode/round → mkIntervalPuzzle 口径 */
+function measureAnswer(path) {
+  const a = +path.dataset.a;
+  const b = +path.dataset.b;
+  const one = path.dataset.mode === 'both' ? b - a + 1 : (path.dataset.mode === 'neither' ? b - a - 1 : b - a);
+  return one * (path.dataset.round === '1' ? 2 : 1);
+}
+
+test('count/measure: 数格子量距离 — 路径 a/b 神oracle(both=b-a+1 / one=b-a), b 跟带', () => {
+  const d = loadMathParadigms();
+  for (const [tier, seed] of [[5, 6], [5, 19], [7, 12], [9, 27]]) {
+    const p = d.mp.mathParamsFor('count', tier);
+    const ended = [];
+    play(d, 'count', 'measure', tier, {trials: 1, seed}, {end: (s) => ended.push(s)});
+    d.flush(8);
+    const path = sEls(d, 'm-path').pop();
+    assert.ok(path, '格子路存在');
+    const a = +path.dataset.a;
+    const b = +path.dataset.b;
+    assert.ok(b <= Math.min(p.max, 60), '终点跟带(tier' + tier + ' ≤ ' + p.max + '): b=' + b);
+    assert.ok(b - a + 1 <= 13, '一次呈现格子 ≤13(数格可数红线): ' + (b - a + 1));
+    const cells = sEls(d, 'm-cell');
+    assert.strictEqual(cells.length, b - a + 1, '格子从 a 到 b 连续');
+    if (path.dataset.round !== '1') {
+      const want = measureAnswer(path);
+      const btn = sEls(d, 'm-num').find((el) => +el.dataset.v === want);
+      assert.ok(btn, '数字条含 ' + path.dataset.mode + ' 答案 ' + want + '(a=' + a + ' b=' + b + ')');
+      tap(btn);
+      d.flush(8);
+      assert.strictEqual(ended[0].correct, 1);
+    }
+  }
+});
+
+test('count/measure: 往返距离 = 2×(b-a)(×2 萌芽), reverse 档混入', () => {
+  const d = loadMathParadigms();
+  let found = 0;
+  for (let seed = 1; seed <= 40 && found < 2; seed++) {
+    const ended = [];
+    play(d, 'count', 'measure', 13, {trials: 1, seed}, {end: (s) => ended.push(s)});
+    d.flush(8);
+    const path = sEls(d, 'm-path').pop();
+    if (!path || path.dataset.round !== '1') continue;
+    found++;
+    const a = +path.dataset.a;
+    const b = +path.dataset.b;
+    const want = 2 * (b - a);
+    const btn = sEls(d, 'm-num').find((el) => +el.dataset.v === want);
+    assert.ok(btn, '数字条含往返 ' + want + '=2×' + (b - a));
+    tap(btn);
+    d.flush(8);
+    assert.strictEqual(ended[0].correct, 1);
+  }
+  assert.ok(found >= 1, 'reverse 档 40 个种子内掷到往返子型, 实为 ' + found);
+});
+
+test('种子确定性(情境变体): hop/clock 与 craft/shop 同 seed 同题序, 异 seed 异题', () => {
+  const run = (variant, seed) => {
+    const d = loadMathParadigms({randSeed: 4242});
+    const ended = [];
+    const sig = [];
+    let e0 = 0;
+    play(d, ...variant, 13, {trials: 3, seed}, {
+      onTrial() {
+        sig.push(d.els.slice(e0).map((el) => el.className + '#' + JSON.stringify(el.dataset) +
+            '#' + String(el.innerHTML).slice(0, 120)).join('|'));
+        e0 = d.els.length;
+      },
+      end: (s) => ended.push(s),
+    });
+    autoPlay(d, ended);
+    assert.strictEqual(ended.length, 1, variant.join('/') + ' 跑到完成');
+    assert.strictEqual(sig.length, 3, '三试次签名');
+    return sig;
+  };
+  for (const variant of [['hop', 'clock'], ['craft', 'shop']]) {
+    const a = run(variant, 77);
+    const b = run(variant, 77);
+    assert.deepStrictEqual(a, b, variant.join('/') + ' 同 seed 同题序');
+    let diff = false;
+    for (let seed = 78; seed < 90 && !diff; seed++) diff = JSON.stringify(run(variant, seed)) !== JSON.stringify(a);
+    assert.ok(diff, variant.join('/') + ' 异 seed 出不同题');
+  }
+});
+
 /* ============ 全变体冒烟 + 事件契约 + 红线静默 ============ */
 
-test('冒烟: 13 个屏流变体(tier1/tier19)自动玩到底不崩, 试次数=trials, 零 warn', () => {
+test('冒烟: 16 个屏流变体(tier1/tier19)自动玩到底不崩, 试次数=trials, 零 warn', () => {
   const variants = [
     ['count', 'snapshot'], ['count', 'fetch'], ['count', 'compare'], ['count', 'balance'],
     ['craft', 'enough'], ['craft', 'shortage'], ['craft', 'order'], ['craft', 'blank'],
     ['pattern', 'chain'], ['pattern', 'sort'], ['pattern', 'odd'], ['pattern', 'cycle'],
     ['hop', 'position'],
+    ['count', 'measure'], ['craft', 'shop'], ['hop', 'clock'],
   ];
   for (const [f, v] of variants) {
     for (const tier of [1, 19]) {
@@ -911,13 +1130,14 @@ test('clueCount 越界(9): guard warn + 渲染线索卡 ≤3', () => {
 
 /* ============ 模式层流程纯函数(modes/math.js) ============ */
 
-test('mathVariantTrack(分发缝): 13 屏流变体 → screen, 其余 → world(T5/T6 挂载点)', () => {
+test('mathVariantTrack(分发缝): 16 屏流变体 → screen, 其余 → world(T5/T6 挂载点)', () => {
   const {mm} = loadMathMode();
   const screen = [
     ['count', 'snapshot'], ['count', 'fetch'], ['count', 'compare'], ['count', 'balance'],
     ['craft', 'enough'], ['craft', 'shortage'], ['craft', 'order'], ['craft', 'blank'],
     ['pattern', 'chain'], ['pattern', 'sort'], ['pattern', 'odd'], ['pattern', 'cycle'],
     ['hop', 'position'],
+    ['count', 'measure'], ['craft', 'shop'], ['hop', 'clock'],
   ];
   for (const [f, v] of screen) assert.strictEqual(mm.mathVariantTrack(f, v), 'screen');
   for (const f of ['mirror', 'plan']) {
@@ -962,6 +1182,21 @@ test('接管完整性: hop 族全部关卡与 boss 的 hop 小节都有轨(屏�
     }
   }
   assert.ok(hopSeen >= 20, 'hop 配重 20 关都覆盖到: ' + hopSeen);
+});
+
+test('mathLevelMeta: 情境关话术覆盖(场馆=情境名/规则/提示), 常规关走族元数据', () => {
+  const {mm} = loadMathMode();
+  const ctxLv = mm.MATH_LEVELS.find((l) => mm.MATH_CONTEXTS[l.variant]);
+  assert.ok(ctxLv, '编排里有情境关(T7 接入)');
+  const ctx = mm.MATH_CONTEXTS[ctxLv.variant];
+  const meta = mm.mathLevelMeta(ctxLv);
+  assert.strictEqual(meta.game, ctx.name, '情境名=场馆名');
+  assert.strictEqual(meta.rule, ctx.rule, '规则话术取情境级');
+  assert.strictEqual(mm.mathVariantName(ctxLv.family, ctxLv.variant), ctx.name, '变体名查情境表');
+  /* 同族非情境变体 → 族元数据(覆盖只对情境关生效) */
+  const plain = mm.mathLevelMeta({family: ctxLv.family, variant: 'zzz'});
+  assert.notStrictEqual(plain.game, ctx.name, '常规关场馆仍是族场馆');
+  assert.ok(typeof plain.rule === 'string' && plain.rule.length > 0, '常规关规则走族话术');
 });
 
 test('mathFrontier/mathLevelUnlocked: 最高已通+1, 空档 0 星入账可跳关', () => {

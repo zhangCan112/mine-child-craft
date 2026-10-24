@@ -10,7 +10,8 @@
      mathVariantTrack(family, variant) · mathFrontier(save) ·
      mathLevelUnlocked(save, i) · mathFamChallengeDone(save, level) ·
      mathBossPlan(level) · mathAggStats(sts) · mathSettleSave(...) ·
-     mathWorldRunner(family, variant)(世界轨 runner 查表)
+     mathWorldRunner(family, variant)(世界轨 runner 查表) ·
+     mathLevelMeta(level)(情境关话术覆盖, T7)
    依赖(均经全局名, 调用期解析): mkMode(js/mode-kit.js) ·
      SpeechKit(js/speech.js) · showToast(js/effects.js) ·
      btnImg(js/button-icons.js) · Budgets/MATH_DAILY_*(js/daily-budget.js
@@ -70,15 +71,18 @@ function mathLocked() {
 }
 
 /* ---------- 分发缝(★ 世界轨接管点, 见头注释) ----------
-   屏流变体清单一处权威: 屏流侧 = count/craft/pattern 全变体 +
-   hop 站位比大小(13 个, T4); 世界轨变体注册在 MATH_WORLD_RUNNERS —
-   T5 交付 hop 三变体(掷骰前进/跳格子任务/间隔问题+规律跳), T6 续入
-   mirror/plan; 两边都不在册的变体维持"建设中"占位。 */
+   屏流变体清单一处权威: T4 交付 13 个(count/craft/pattern 全变体 +
+   hop 站位比大小); T7 增 3 个情境变体(craft/shop 人民币商店 ·
+   hop/clock 钟表时刻 · count/measure 测距步数, 挂族不独立成族);
+   世界轨变体注册在 MATH_WORLD_RUNNERS — T5 交付 hop 三变体(掷骰
+   前进/跳格子任务/间隔问题+规律跳), T6 续入 mirror/plan; 两边都不
+   在册的变体维持"建设中"占位。 */
 const MATH_SCREEN_VARIANTS = new Set([
   'count/snapshot', 'count/fetch', 'count/compare', 'count/balance',
   'craft/enough', 'craft/shortage', 'craft/order', 'craft/blank',
   'pattern/chain', 'pattern/sort', 'pattern/odd', 'pattern/cycle',
   'hop/position',
+  'count/measure', 'craft/shop', 'hop/clock',
 ]);
 
 function mathVariantTrack(family, variant) {
@@ -253,6 +257,7 @@ function showMathToday() {
   const total = Object.values(save.stars).reduce((s, x) => s + x, 0);
   const cur = mathFrontier(save);
   const curLv = MATH_LEVELS[cur];
+  const curMeta = mathLevelMeta(curLv); // 情境关以情境名为场馆(T7)
   const dots = Array.from({length: MATH_DAILY_LEVELS}, (_, k) =>
     '<span class="dot ' + (k < played ? 'done' : '') + '"></span>').join('');
   if (locked) {
@@ -270,12 +275,12 @@ function showMathToday() {
     <div class="m-screen m-today">
       <h1>数学冒险岛</h1>
       <p class="m-sub">第 ${cur + 1} 关 / 100 · ⭐${total} · 每天 ${MATH_DAILY_LEVELS} 关 / ${MATH_DAILY_MIN} 分钟</p>
-      <div class="m-dim-icon">${MATH_META[curLv.family].icon}</div>
-      <p class="m-sub">${MATH_META[curLv.family].game} · ${mathVariantName(curLv.family, curLv.variant)}</p>
+      <div class="m-dim-icon">${curMeta.icon}</div>
+      <p class="m-sub">${curMeta.game} · ${mathVariantName(curLv.family, curLv.variant)}</p>
       <button class="m-start" id="mStartBtn">▶ 开始冒险</button>
       <div class="m-dots">${dots}</div>
     </div>`);
-  SpeechKit.speak('欢迎来到数学冒险岛！今天我们来玩' + MATH_META[curLv.family].game + '。');
+  SpeechKit.speak('欢迎来到数学冒险岛！今天我们来玩' + curMeta.game + '。');
   document.getElementById('mStartBtn').onclick = showMathMap;
 }
 
@@ -283,8 +288,22 @@ function showMathToday() {
 const MATH_BAND_NAMES = ['一年级上', '一年级下', '二年级上', '二年级下'];
 
 function mathVariantName(family, variant) {
+  const ctx = MATH_CONTEXTS[variant];
+  if (ctx && ctx.family === family) return ctx.name; // 情境变体名住 MATH_CONTEXTS(T7)
   const v = (MATH_VARIANTS[family] || []).find((x) => x.id === variant);
   return v ? v.name : variant;
+}
+
+/* 关卡话术元数据(T7): 情境关(shop/clock/measure)以情境名为场馆名,
+   规则/提示换情境级话术(MATH_CONTEXTS), 图标沿用承载族 — 情境只换
+   皮肤, 配重/战利品/日志全随族; 常规关原样返回族元数据 */
+function mathLevelMeta(level) {
+  const fam = MATH_META[level.family];
+  const ctx = MATH_CONTEXTS[level.variant];
+  if (ctx && ctx.family === level.family) {
+    return {name: fam.name, game: ctx.name, icon: fam.icon, rule: ctx.rule, tip: (p) => ctx.tip(p)};
+  }
+  return fam;
 }
 
 function showMathMap() {
@@ -352,7 +371,7 @@ function startMathLevel(i) {
     showMathWip(level);
     return;
   }
-  const meta = MATH_META[level.family];
+  const meta = mathLevelMeta(level); // 情境关话术覆盖(T7)
   const target = level.kind === 'tutorial' ? '随便玩，学会就好！' :
       '目标：正确 ' + (level.kind === 'challenge' ? '80' : '70') + '% 以上通过！';
   mathScreen(`
@@ -373,7 +392,7 @@ function startMathLevel(i) {
 
 function beginMathRun(level) {
   startMathTicker();
-  const meta = MATH_META[level.family];
+  const meta = mathLevelMeta(level); // 情境关话术覆盖(T7)
   const kindTag = mathKindTag(level.kind);
   const world = level.kind !== 'boss' && mathVariantTrack(level.family, level.variant) === 'world';
   /* 世界轨关卡: 同一条头部(规则+进度), 训练区让给 3D 场景(装场与任务卡
