@@ -50,3 +50,35 @@ test('hitBody: 水平半径 × 垂直身高段的盒判定', () => {
   const bare = {pos: {x: 0, y: 0, z: 0}};
   assert.ok(CombatCore.hitBody({x: 0.5, y: 1, z: 0}, bare), '缺省 hitR 0.55 / h 1.8');
 });
+
+test('stepShot: 重力→寿命→欧拉积分一步(先扣重力再位移, 三份手写同序)', () => {
+  const s = {from: {x: 0, y: 10, z: 0}, vel: {x: 20, y: 0, z: 0}, life: 3, g: 10};
+  const r = CombatCore.stepShot(s, 0.5);
+  assert.strictEqual(r.vel.y, -5, '速度先扣重力(g·dt)');
+  assert.strictEqual(r.life, 2.5, '寿命递减');
+  assert.strictEqual(r.x, 10, '水平等速积分');
+  assert.strictEqual(r.y, 10 - 5 * 0.5, '垂直用扣完重力的速度积分(7.5)');
+  assert.ok(!r.dead, '寿命未尽且未撞块');
+  assert.strictEqual(s.from.y, 10, '非变更式: 原状态不被改写(调用方自决存储载体)');
+});
+
+test('stepShot: 撞块与寿命尽判死; g 缺省 6; getBlock 缺省不查块', () => {
+  const solid = () => CombatCore.stepShot(
+      {from: {x: 0, y: 0.5, z: 0}, vel: {x: 1, y: 0, z: 0}, life: 9, g: 0}, 1,
+      (x, y, z) => (y === 0 ? 1 : 0));
+  assert.ok(solid().dead, '落进实心块(y=0)判死');
+  assert.ok(solid().hitBlock, 'hitBlock 单列(竞技场巨石: 撞块触发 AoE, 寿命尽只移除)');
+  const through = CombatCore.stepShot(
+      {from: {x: 0, y: 5, z: 0}, vel: {x: 1, y: 0, z: 0}, life: 9, g: 0}, 1,
+      () => 0);
+  assert.ok(!through.dead, '空气与长寿命不判死');
+  const expired = CombatCore.stepShot(
+      {from: {x: 0, y: 5, z: 0}, vel: {x: 0, y: 0, z: 0}, life: 0.2, g: 0}, 1);
+  assert.ok(expired.dead && !expired.hitBlock, '寿命尽判死但不记撞块');
+  const noBlock = CombatCore.stepShot(
+      {from: {x: 0, y: 0, z: 0}, vel: {x: 0, y: 0, z: 0}, life: 9, g: 0}, 1);
+  assert.ok(!noBlock.dead, '未注入 getBlock 时不做撞块判定(纯核心零全局依赖)');
+  const gDefault = CombatCore.stepShot(
+      {from: {x: 0, y: 0, z: 0}, vel: {x: 0, y: 0, z: 0}, life: 9}, 0.1);
+  assert.ok(Math.abs(gDefault.vel.y - (-0.6)) < 1e-9, 'g 缺省 6(下界/探险火球口径)');
+});

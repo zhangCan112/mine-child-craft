@@ -6,6 +6,8 @@
    · leadAim      预测弹道方向(目标移动提前量 + 重力补偿抬枪)
    · tickCadence  攻击节拍递减(attackCd/attackT — 节拍字段由 Mobs.spawn 置零)
    · hitBody      投射物对实体身体的盒判定(水平半径 + 垂直身高段)
+   · stepShot     弹道步进(重力/寿命/欧拉积分/撞块, 非变更式 — C6-T1
+                  把竞技场/下界/探险三份手写步进并一于此)
    弹道观感(网格/特效)与伤害政策(阵营/衰减/话术)留在模式层。
    Node 可直接加载; 有单测(test/combat-core.test.js)。
    ============================================================ */
@@ -41,6 +43,25 @@ const CombatCore = (() => {
       p.y > t.pos.y - 0.3 && p.y < t.pos.y + h + 0.5;
   }
 
-  return {leadAim, tickCadence, hitBody};
+  /* 弹道步进(非变更式): 重力 → 寿命 → 欧拉积分一步, 顺带撞块判定。
+     s = {from {x,y,z} · vel {x,y,z} · life · g?}(g 缺省 6); getBlock 为
+     注入的整数坐标方块查询(纯核心零全局依赖), 缺省不做撞块判定。
+     返回 {vel, life, x, y, z, hitBlock, dead} — dead = 寿命尽或撞块
+     (竞技场巨石要区分: 撞块触发 AoE, 寿命尽只移除); 调用方自决存储
+     载体(nether/adventure 存 from, 竞技场 mesh.position 即源)。
+     竞技场/下界/探险三份手写步进并一于此(C6-T1)。 */
+  function stepShot(s, dt, getBlock) {
+    const g = s.g !== undefined ? s.g : 6;
+    const vel = {x: s.vel.x, y: s.vel.y - g * dt, z: s.vel.z};
+    const life = s.life - dt;
+    const x = s.from.x + vel.x * dt;
+    const y = s.from.y + vel.y * dt;
+    const z = s.from.z + vel.z * dt;
+    const hitBlock = getBlock ?
+      getBlock(Math.floor(x), Math.floor(y), Math.floor(z)) !== 0 : false;
+    return {vel, life, x, y, z, hitBlock, dead: life <= 0 || hitBlock};
+  }
+
+  return {leadAim, tickCadence, hitBody, stepShot};
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = CombatCore;

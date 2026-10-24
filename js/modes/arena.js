@@ -1200,25 +1200,28 @@ function updateMobs(dt) {
 function updateArrows(dt) {
   for (let i=arrows.length-1; i>=0; i--) {
     const a = arrows[i];
-    a.vel.y -= (a.g || 9.5)*dt; // 逐弹重力(箭9.5 · 火球6)
-    a.mesh.position.addScaledVector(a.vel, dt);
-    const p = a.mesh.position;
-    a.mesh.lookAt(p.x+a.vel.x, p.y+a.vel.y, p.z+a.vel.z);
-    a.life -= dt;
-    let hit = false;
-    if (getBlock(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)) !== 0) hit = true;
+    /* 弹道步进收战斗核心(C6-T1): 状态载体仍是 mesh.position, shim 适配
+       stepShot 的非变更式返回; 巨石口径保留 — 撞块触发 AoE, 寿命尽只移除 */
+    const p0 = a.mesh.position;
+    const r = CombatCore.stepShot({from: {x: p0.x, y: p0.y, z: p0.z},
+      vel: a.vel, life: a.life, g: a.g !== undefined ? a.g : 9.5}, dt, getBlock);
+    a.vel = r.vel;
+    a.life = r.life;
+    p0.set(r.x, r.y, r.z);
+    a.mesh.lookAt(r.x + r.vel.x, r.y + r.vel.y, r.z + r.vel.z);
+    let hit = r.hitBlock;
     if (!hit) {
       for (const t of mobs) {
         if (t.dead || t.gone || t.team===a.team) continue;
-        if (CombatCore.hitBody(p, t)) {
-          if (!a.aoe) damageMob(t, a.dmg, a.vel.x, a.vel.z, a.kpow||0.35, a.owner);
+        if (CombatCore.hitBody(r, t)) {
+          if (!a.aoe) damageMob(t, a.dmg, r.vel.x, r.vel.z, a.kpow||0.35, a.owner);
           sfx('hit');
           hit = true; break;
         }
       }
     }
-    if (hit && a.aoe) rockBlast(a, p); // 巨石:命中/落地即AoE
-    if (hit || a.life <= 0) {
+    if (hit && a.aoe) rockBlast(a, r); // 巨石:命中/落地即AoE
+    if (hit || r.life <= 0) {
       scene.remove(a.mesh);
       arrows.splice(i, 1);
     }
