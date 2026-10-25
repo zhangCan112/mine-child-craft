@@ -50,6 +50,11 @@
    · 昼夜(D1, mc-daylight-torch §2): 唯一置位 dayCycleOn 的模式——init
      恢复 dayTime 并 applyDaylight, cleanup 关循环复位白天观感(幂等);
      时间推进在 main.js 主循环; HUD 时段行(太阳/月亮两态, 不加时分)
+   · 昼夜夜怪(D5, mc-daylight-torch §6): 夜间 2s 一拍在 24~40 格出生环带
+     刷僵尸/苦力怕/蜘蛛(池 2:1:1 无骷髅; 上限 12 含巢穴怪的配额口径)·
+     火把圈(方块光 ≥1)即防刷怪圈·黎明 internalSky(15)≥12 上沿温和清场
+     (灰白烟+移除, advClearNightMobs——床跳夜 D6 同款复用)·入夜播报+
+     首夜火把引导(firstNight 一次性随任务档)
    · 防沉迷: 与竞技场/建造/坦克/下界共享儿童时限(gated, 不新增账本)
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
      onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面
@@ -369,6 +374,71 @@ function advNestTick(dt) {
   }
 }
 
+/* ============================================================
+   昼夜 D5 夜怪壳段(mc-daylight-torch §6.2) — 夜刷怪/防刷怪圈/黎明清场
+   (常数与节拍/光照/清场谓词纯函数在 adventure-core.js 的 ADV_NIGHT 段)
+   ============================================================ */
+let advNightT = 0; /* 夜怪节拍器(秒, advNightStep 的状态; init 复位) */
+let advWasNight = false; /* 入夜跨沿账本(isNight 上升沿 → 入夜播报) */
+let advDawnLit = true; /* 黎明跨沿账本(advDawnSweep 上升沿 → 清场; init 对齐当下防误触) */
+
+function advNightRead(x, z) {/* 落点光查询 seam: groundTop+1 的格(Mobs.spawn 落点同口径)
+   双通道读数交核心 advNightCanSpawn 复核目标格; 界外返 null(核心拒绝本拍) */
+  const bx = Math.floor(x); const bz = Math.floor(z);
+  if (bx < 0 || bz < 0 || bx >= WORLD_W || bz >= WORLD_D) return null;
+  const y = groundTop(bx, bz) + 1;
+  return {sky: lightSkyAt(bx, y, bz), block: lightBlockAt(bx, y, bz), y};
+}
+
+function advNightAlive() {/* 怪物存量(CAP 配额的分母, hud 同款口径: 尸体/已移除/牧场动物不算怪物) */
+  let n = 0;
+  for (const m of Mobs.list()) {
+    if (!m.dead && !m.gone && m.cfg && !m.cfg.passive) n++;
+  }
+  return n;
+}
+
+function advClearNightMobs(announce) {/* 夜怪清场(统一名, 床跳夜 D6 同款复用): 全部 __nightMob
+   原地灰白烟(Fx 碎屑色 0.9≈#e6e6e6) + Mobs.remove; 巢穴怪/牧场动物不清(脚本怪与昼夜
+   解耦)。announce=清场播报口径(黎明侧 true; 床侧自带话术可静默), 清掉 0 只不播报
+   (克制不唠叨); 返回清掉只数供调用方记账 */
+  let n = 0;
+  for (const m of Mobs.list()) {
+    if (m.gone || !m.__nightMob) continue;
+    Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 8, {color: 0xe6e6e6, life: 1});
+    Mobs.remove(m);
+    n++;
+  }
+  if (n > 0 && announce) SpeechKit.speak('天亮了，怪物回家啦');
+  return n;
+}
+
+function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿 §6.2): 夜间每 2s 一拍,
+   核心掷环带+光照门出单 → 壳层按配额(CAP−现存怪数, 含巢穴怪)落地并挂私有字段;
+   入夜播报(首夜并句火把引导, firstNight 一次性随任务档); 黎明上沿温和清场 */
+  const night = Daylight.isNight(dayTime);
+  if (night && !advWasNight) {/* 入夜上沿: SpeechKit 是 cancel-then-speak, 引导并句 */
+    if (!ADV.quest.firstNight) {
+      ADV.quest.firstNight = true;
+      advQuestSlot.save(ADV.quest); /* 一次性即时落盘(重进夜里不重教) */
+      SpeechKit.speak('天黑了，放个火把照亮周围吧！');
+    } else {
+      SpeechKit.speak('天黑了');
+    }
+  }
+  advWasNight = night;
+  const r = advNightStep(advNightT, dt, dayTime, advNightRead, pos, Math.random);
+  advNightT = r.t;
+  if (r.spawn && advNightAlive() < ADV_NIGHT.CAP) {
+    const m = Mobs.spawn(r.spawn.type, r.spawn.x, r.spawn.z, {yaw: 0});
+    m.__nightMob = true; /* 私有挂件(Mobs 许可): 黎明清场/床跳夜清场的唯一依据 */
+    m.__nightHome = {x: r.spawn.x, z: r.spawn.z}; /* 家锚=出生环点(AI 收敛同巢穴口径, 不归巢) */
+  }
+  const lit = advDawnSweep(dayTime);
+  if (lit && !advDawnLit) advClearNightMobs(true); /* 黎明上沿: 日出温和清场 */
+  advDawnLit = lit;
+}
+
 /* 玩家挥击已收 CombatKit.mkMelee(C6-T3, advMelee 实例): 准星锥内最近怪
    (锥内无怪不出手不空挥, 点击留给挖掘/放置 — T12 语义不抢), 冷却/伤害/
    磨损/击杀经 cfg 注入; 两个名字保留为薄委托(调用点与测试缝零改动) */
@@ -424,10 +494,11 @@ function advMobAI(dt) {
   for (const m of Mobs.list()) {
     if (m.dead || m.gone || m.cfg.passive) continue; /* F4 牧场动物走 advHerdTick(恐惧游荡), 不进战斗 AI */
     CombatCore.tickCadence(m, dt); /* 攻击节拍(战斗核心, 与竞技场/下界同一条) */
-    const nest = ADV_NESTS[m.nest != null ? m.nest : 0];
+    /* 家锚(收队/索敌的 leash 原点): 夜怪=出生环点(昼夜 D5, 不归巢穴), 巢穴怪=本巢 */
+    const home = m.__nightHome || ADV_NESTS[m.nest != null ? m.nest : 0];
     const dxP = p.pos.x - m.pos.x; const dzP = p.pos.z - m.pos.z;
     const distP = Math.hypot(dxP, dzP) || 1e-9;
-    const hx = nest.x - m.pos.x; const hz = nest.z - m.pos.z;
+    const hx = home.x - m.pos.x; const hz = home.z - m.pos.z;
     const distHome = Math.hypot(hx, hz) || 1e-9;
     const speed = m.cfg.speed || 2;
     let moved = 0; /* 本帧实际速度(喂步态) */
@@ -1364,6 +1435,11 @@ const AdventureMode = mkMode({
     dayTime = advLoad.dayTime;
     dayCycleOn = true;
     applyDaylight();
+    /* 夜怪账本复位并对齐当下(昼夜 D5): 节拍器归零 + 入夜/黎明跨沿账本取当下值
+       (重进夜里不补播「天黑了」, 重进明侧不误触黎明清场——上沿只认真跨沿) */
+    advNightT = 0;
+    advWasNight = Daylight.isNight(dayTime);
+    advDawnLit = advDawnSweep(dayTime);
     /* 位置与血量随世界档保留(2026-10 拍板): 老档/坏档无 pos/hp → 出生点/满血; hp 钳
        1~maxHp; 存的 pos 是退出时站的合法空腔(世界经 edits 重放同坐标系), 不必二次校验 */
     const svPos = advLoad.pos;
@@ -1523,6 +1599,7 @@ const AdventureMode = mkMode({
     Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 真空拾取(挖掘/击杀两链共用, 玩家胸口点) */
     Drops.render();
     advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */
+    advNightTick(dt); /* 夜怪节拍 + 入夜/黎明跨沿(昼夜 D5: 环带刷怪/配额/温和清场/播报) */
     advPickupTick(dt); /* 收集播报合并窗 */
     advHpBar.update(advGetPEnt().hp, ADV.player.maxHp, pos.x, pos.y + 2.2, pos.z); /* 头顶血条 */
   },
@@ -1633,6 +1710,10 @@ const AdventureMode = mkMode({
     并进 onDeath 掉落回调; 恐惧游荡=advHerdTick 挂 update, 决策纯函数
     advHerdStep/受击入口 advHerdPanic(挥击 onHit 与 TNT 波及两路);
     收获口径=advOnKill passive 分支 verb「收获」+kill_mob 不记账) ·
+    昼夜 D5 已落地(夜怪=advNightTick 挂 update(节拍纯函数 advNightStep+
+    落点光 seam advNightRead+配额 advNightAlive+实体挂 __nightMob/__nightHome,
+    AI 家锚在 advMobAI); 清场=advClearNightMobs(黎明上沿/床跳夜 D6 复用);
+    入夜播报+首夜火把引导 firstNight 随任务档一次性) ·
     code-review 修复轮已落地(纯函数段与任务表迁 adventure-core.js 经此转发;
     advWearHeld=原 advWearTool/advDamageHeld 合一(S3)+低耐久预警(S4①)+
     破板指路(S4③); advBagTick=背包快满提醒(S4②, 放过箱子后话术指向收纳)) */
@@ -1651,6 +1732,7 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advGetChest: () => advChest, advChestOpenPanel, advChestClose,
   advChestDeposit, advChestWithdraw, advChestExpand,
   advPanelClose, advGoHome, advHomeReady, ADV_HOME_CD,
-  advGetLivestock: () => advLivestock, advHerdPanic};
+  advGetLivestock: () => advLivestock, advHerdPanic,
+  advNightTick, advClearNightMobs, advNightRead, advNightAlive};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;

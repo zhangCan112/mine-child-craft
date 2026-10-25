@@ -81,6 +81,7 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
 }
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, hashRand, blockKey, world, worldCells, SceneKit,
+  groundTop, lightSkyAt, lightBlockAt,
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST,
@@ -245,6 +246,9 @@ globalThis.Mobs = {
     calls.push(['mobsClear']);
     mobsState.spawned.length = 0;
     mobsState.deathCbs.length = 0;
+  },
+  remove(m) {/* 镜像真库: 置 gone 交下帧回收(昼夜 D5 黎明清场消费) */
+    m.gone = true;
   },
   list() {
     return listResult;
@@ -2567,3 +2571,125 @@ test('F4 熟食链: 炉烧生肉→熟肉(SMELTS 四条, 与矿物同套节律) 
   assert.strictEqual(A.advGetPEnt().hp, 28, '牛排回 8 血(比生肉 3 好得多档)');
   assert.strictEqual(A.advGetInv().slots[0].n, 1, '吃掉 1 个');
 });
+
+/* ============ 昼夜 D5 夜怪壳层(mc-daylight-torch §6.2) ============ */
+
+test('昼夜 D5 夜怪刷怪: 夜间到拍环带出怪挂 __nightMob/__nightHome · 满配额封顶', () => {
+  mem.clear();
+  freshInit();
+  const before = mobsState.spawned.length; /* init 的巢穴+牧场存量(不进配额口径: list 才算) */
+  globalThis.dayTime = 18000; /* 午夜 */
+  listResult = []; /* 怪物存量 0 → 配额 = CAP − 0 */
+  for (let i = 0; i < 25; i++) AdventureMode.update(0.1); /* 2.5s > 一拍 */
+  const night = mobsState.spawned.slice(before).filter((m) => m.__nightMob);
+  assert.ok(night.length >= 1, '到拍至少出一只夜怪(测试世界光场全 0=暗)');
+  for (const m of night) {
+    assert.ok(ADV_NIGHT.POOL.some((p) => p[0] === m.type), '池内种: ' + m.type);
+    const d = Math.hypot(m.pos.x - pos.x, m.pos.z - pos.z);
+    assert.ok(d >= ADV_NIGHT.RING_LO - 1 && d <= ADV_NIGHT.RING_HI + 1, '落点在出生环带: ' + d.toFixed(1));
+    assert.ok(m.__nightHome && m.__nightHome.x === m.pos.x && m.__nightHome.z === m.pos.z,
+        '家锚=出生环点(挂实体私有字段)');
+  }
+  /* 满配额: 怪物存量 12(含巢穴怪口径) → 到拍不再出怪 */
+  listResult = Array.from({length: ADV_NIGHT.CAP}, () => mkAdvMob('zombie', 50, 25, 50));
+  const before2 = mobsState.spawned.length;
+  for (let i = 0; i < 25; i++) AdventureMode.update(0.1);
+  assert.strictEqual(mobsState.spawned.length, before2, '满配额(CAP=12)不再刷');
+});
+
+test('昼夜 D5 入夜播报: 首夜并句火把引导一次性落任务档 · 次夜只报天黑了', () => {
+  mem.clear();
+  freshInit(); /* dayTime 0(清晨档) */
+  globalThis.dayTime = 13000; /* 入夜上沿 */
+  AdventureMode.update(1 / 60);
+  assert.ok(spoken.some((s) => s === '天黑了，放个火把照亮周围吧！'), '首夜完整句(SpeechKit cancel-then-speak 并句)');
+  assert.strictEqual(JSON.parse(mem.get('adventure_quest_save')).firstNight, true,
+      'firstNight 一次性随任务档即时落盘');
+  spoken.length = 0;
+  globalThis.dayTime = 23600; /* 黎明上沿(无夜怪: 静默不播报) */
+  AdventureMode.update(1 / 60);
+  globalThis.dayTime = 12000; /* 白天: 账本回落 */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(spoken.filter((s) => s.indexOf('天黑了') >= 0).length, 0, '黎明/白天不再入夜句');
+  spoken.length = 0;
+  globalThis.dayTime = 13001; /* 第二夜 */
+  AdventureMode.update(1 / 60);
+  assert.ok(spoken.includes('天黑了'), '次夜简句');
+  assert.ok(!spoken.some((s) => s.indexOf('火把') >= 0), '火把引导只给首夜');
+});
+
+test('昼夜 D5 黎明清场: 上沿触发灰白烟+移除 · 巢穴怪/牧场动物不清 · 上沿只发一次', () => {
+  mem.clear();
+  freshInit();
+  globalThis.dayTime = 13000; /* 入夜(黎明账本落 false) */
+  AdventureMode.update(1 / 60);
+  const nm = mkAdvMob('zombie', 60, 25, 60, {__nightMob: true});
+  const nmDead = mkAdvMob('spider', 62, 25, 62, {__nightMob: true, dead: true}); /* 夜怪尸体一并收 */
+  const nestMob = mkAdvMob('zombie', 40, 25, 52); /* 巢穴怪(nest=0, 无 __nightMob) */
+  const cow = mkAdvMob('cow', 55, 25, 55); /* 牧场动物 */
+  listResult = [nm, nmDead, nestMob, cow];
+  calls.length = 0;
+  spoken.length = 0;
+  globalThis.dayTime = 23600; /* 日出折线跨沿(internalSky(15)≥12) */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(nm.gone, true, '夜怪被移除');
+  assert.strictEqual(nmDead.gone, true, '夜怪尸体一并收走');
+  assert.strictEqual(nestMob.gone, false, '巢穴怪不清(脚本怪与昼夜解耦)');
+  assert.strictEqual(cow.gone, false, '牧场动物不清');
+  assert.strictEqual(calls.filter((c) => c[0] === 'debris').length, 2, '每只夜怪一撮灰白烟(尸体也算)');
+  assert.ok(spoken.includes('天亮了，怪物回家啦'), '清场播报');
+  calls.length = 0;
+  spoken.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(calls.filter((c) => c[0] === 'debris').length, 0, '上沿只触发一次(不重复清)');
+  assert.ok(!spoken.includes('天亮了，怪物回家啦'), '不重复播报');
+});
+
+test('昼夜 D5 黎明账本对齐: 存档时刻已在明侧重进不误触发清场', () => {
+  mem.clear();
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: [], dayTime: 23600}));
+  freshInit(); /* init 账本对齐当下(明侧 true), 无上沿 */
+  listResult = [mkAdvMob('zombie', 60, 25, 60, {__nightMob: true})];
+  calls.length = 0;
+  spoken.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(calls.filter((c) => c[0] === 'debris').length, 0, '无上沿不清场');
+  assert.ok(!spoken.includes('天亮了，怪物回家啦'), '不播报');
+});
+
+test('昼夜 D5 防刷怪圈接线: advNightRead 读 groundTop+1 同格双通道 · 界外 null · 火把格拒绝', () => {
+  mem.clear();
+  freshInit();
+  const r1 = A.advNightRead(70, 70);
+  assert.ok(r1, '界内返回读数');
+  assert.strictEqual(r1.y, api.groundTop(70, 70) + 1, '落点格 = groundTop+1(Mobs.spawn 同口径)');
+  /* 火把方块光写入落点格 → 双通道读数随之(核心 advNightCanSpawn 拒绝 = 防刷怪圈) */
+  const gy = api.groundTop(70, 70) + 1;
+  vm.runInContext(`lightBlock[(${gy} * ${128} + 70) * ${128} + 70] = 14`, eng);
+  const r2 = A.advNightRead(70, 70);
+  assert.strictEqual(r2.block, 14, '方块光通道读数');
+  assert.strictEqual(advNightCanSpawn(r2.sky, r2.block, 18000), false, '火把格不可刷');
+  assert.strictEqual(A.advNightRead(-5, 70), null, '界外 null');
+  assert.strictEqual(A.advNightRead(500, 70), null, '界外 null(越 WORLD_W)');
+});
+
+test('昼夜 D5 夜怪 AI: 家锚=出生环点不归巢穴 · 玩家走近照常索敌', () => {
+  mem.clear();
+  freshInit();
+  globalThis.dayTime = 18000;
+  const m = mkAdvMob('zombie', 100, 25, 100, {__nightMob: true, __nightHome: {x: 110, z: 100}});
+  listResult = [m];
+  globalThis.pos.x = 61.5; /* 玩家远(45 格): 不索敌, 收队走向自家锚(东) */
+  globalThis.pos.z = 76.5;
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  const walk = moveLog.find((e) => e.m === m);
+  assert.ok(walk && walk.dx > 0, '收队走向出生环点(东)——巢穴 0 在西, 不被巢穴收编');
+  globalThis.pos.x = 96; /* 玩家逼近 4 格(≤索敌 12 且家锚内 16): 索敌 */
+  globalThis.pos.z = 100;
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  const chase = moveLog.find((e) => e.m === m);
+  assert.ok(chase && chase.dx < 0, '索敌逼近玩家(西)');
+});
+

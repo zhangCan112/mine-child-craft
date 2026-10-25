@@ -15,12 +15,12 @@ const vm = require('node:vm');
 /* ---------- 真引擎件: config + mob-registry + voxel + scene-kit + 四纯核心/库, 共享一个 vm 词法环境 ---------- */
 const ROOT = path.join(__dirname, '..');
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
-for (const f of ['js/config.js', 'js/mob-registry.js', 'js/voxel.js', 'js/scene-kit.js', 'js/items-core.js',
-  'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
+for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
+  'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
-  getBlock, setBlockRaw, blockKey, SceneKit,
+  getBlock, setBlockRaw, blockKey, SceneKit, Daylight,
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT,
@@ -361,3 +361,77 @@ test('F4 advHerdStep: 逃窜优先(3s 递减 ×2.2) · 贴近让开(≤2.5 ×0.8
   /* 逃窜优先于让开: 受击计时未到期时距离不影响速度档 */
   assert.strictEqual(Core.advHerdStep(8, 1.4, 2, 0.1).speed, 1.4 * 2.2, '逃窜中距离再远也是 ×2.2');
 });
+
+/* ============ 昼夜 D5 夜怪政策(mc-daylight-torch §6.1) ============ */
+
+test('昼夜 D5 夜怪常数表: ADV_NIGHT 上限/环带/节拍/池(设计稿 §6.1 拍板④)', () => {
+  assert.strictEqual(Core.ADV_NIGHT.CAP, 12, '夜怪上限 12(MC 70/200 → 儿童, 差异 #9)');
+  assert.strictEqual(Core.ADV_NIGHT.RING_LO, 24, '出生环带内沿 24 格(MC 24 格内不刷)');
+  assert.strictEqual(Core.ADV_NIGHT.RING_HI, 40, '出生环带外沿 40 格');
+  assert.strictEqual(Core.ADV_NIGHT.TRY_MS, 2000, '每 2 秒一次刷怪尝试(夜间才跑)');
+  assert.deepStrictEqual(Core.ADV_NIGHT.POOL, [['zombie', 2], ['creeper', 1], ['spider', 1]],
+      '池 2:1:1, 无骷髅(夜间无远程, 差异 #8)');
+});
+
+test('昼夜 D5 advNightCanSpawn: 单表达式 = 方块光 0 且 internalSky≤7(MC 1.18+ 语义)', () => {
+  const N = 18000; /* 午夜(skyDim 11) */
+  assert.strictEqual(Core.advNightCanSpawn(15, 0, N), true, '夜地表: internal 15-11=4 ≤7 → 可刷');
+  assert.strictEqual(Core.advNightCanSpawn(15, 1, N), false, '火把圈(方块光 ≥1)拒绝——防刷怪圈');
+  assert.strictEqual(Core.advNightCanSpawn(15, 14, N), false, '火把本格(光 14)拒绝');
+  assert.strictEqual(Core.advNightCanSpawn(15, 0, 6000), false, '白天地表: internal 15 >7 拒绝');
+  assert.strictEqual(Core.advNightCanSpawn(0, 0, 6000), true, '白天洞穴(sky 0): 暗处可刷(MC 语义, 时间门在节拍器)');
+  assert.strictEqual(Core.advNightCanSpawn(18, 0, N), true, '边界: internal 18-11=7 恰 ≤7 通过');
+  assert.strictEqual(Core.advNightCanSpawn(19, 0, N), false, 'internal 8 >7 拒绝');
+});
+
+test('昼夜 D5 advNightStep: 节拍 2s 一拍 · 白天归零 · 环带落位 · 池权重 · 光照/界外拒绝', () => {
+  const N = 18000; /* 午夜 */
+  const P = {x: 61.5, z: 76.5};
+  const dark = () => ({sky: 15, block: 0}); /* 夜地表可刷口径 */
+  const seq = (arr) => {/* 脚本 rnd: 按序耗尽(角度/半径/池各吃一次) */
+    let i = 0;
+    return () => arr[i++];
+  };
+  /* 白天: 不刷且计时归零(advNestStep 同构——前置不满足即复位) */
+  let r = Core.advNightStep(1.5, 0.6, 6000, dark, P, Math.random);
+  assert.strictEqual(r.spawn, null, '白天不出单');
+  assert.strictEqual(r.t, 0, '白天节拍器归零');
+  /* 未到拍: 只累计不出单 */
+  r = Core.advNightStep(1.5, 0.4, N, dark, P, Math.random);
+  assert.strictEqual(r.spawn, null, '累计 1.9s 未到 2s 拍');
+  assert.ok(Math.abs(r.t - 1.9) < 1e-9, '计时累计(秒)');
+  /* 到拍: 出单 + 计时归零; rnd=[0, 0.5, 0] → 角度 0 · 半径 24+8=32 · 池首 zombie */
+  r = Core.advNightStep(1.9, 0.2, N, dark, P, seq([0, 0.5, 0]));
+  assert.strictEqual(r.t, 0, '到拍后计时归零(逐拍独立)');
+  assert.ok(r.spawn, '到拍出刷怪令');
+  assert.strictEqual(r.spawn.type, 'zombie', '池权重 2/4 首段: 掷 0 → zombie');
+  const d = Math.hypot(r.spawn.x - P.x, r.spawn.z - P.z);
+  assert.ok(Math.abs(d - (24 + 0.5 * 16)) < 1e-9, '落点恰在环带上(半径 32 ∈ [24,40]): ' + d.toFixed(2));
+  /* 环带两端: rnd 半径 0 → 恰 24 · →1 → 恰 40(角度 90°) */
+  r = Core.advNightStep(1.9, 0.2, N, dark, P, seq([0.25, 0, 0]));
+  assert.ok(Math.abs(Math.hypot(r.spawn.x - P.x, r.spawn.z - P.z) - 24) < 1e-9, '内沿 24');
+  r = Core.advNightStep(1.9, 0.2, N, dark, P, seq([0.25, 1 - 1e-12, 0]));
+  assert.ok(Math.hypot(r.spawn.x - P.x, r.spawn.z - P.z) <= 40 + 1e-6, '外沿不越 40');
+  /* 池权重: 第三掷 0.5(总 4) → creeper · 0.99 → spider */
+  r = Core.advNightStep(1.9, 0.2, N, dark, P, seq([0, 0, 0.5]));
+  assert.strictEqual(r.spawn.type, 'creeper', '掷 2/4 落 creeper(权重 1)');
+  r = Core.advNightStep(1.9, 0.2, N, dark, P, seq([0, 0, 0.99]));
+  assert.strictEqual(r.spawn.type, 'spider', '掷 3.96/4 落 spider(权重 1)');
+  /* 光照拒绝: read 报火把格 → 本拍作废不出单(节拍照归零, 下一拍再掷) */
+  r = Core.advNightStep(1.9, 0.2, N, () => ({sky: 15, block: 3}), P, Math.random);
+  assert.strictEqual(r.spawn, null, '方块光 ≥1 的落点拒绝(防刷怪圈)');
+  assert.strictEqual(r.t, 0, '被拒的拍也归零(2s 后再试)');
+  /* 界外: read 返 null(壳层界外口径) → 不出单 */
+  r = Core.advNightStep(1.9, 0.2, N, () => null, P, Math.random);
+  assert.strictEqual(r.spawn, null, '界外/无效落点不出单');
+});
+
+test('昼夜 D5 advDawnSweep: internalSky(15)≥12(= skyDim≤3) 黎明谓词(跨沿归壳层账本)', () => {
+  assert.strictEqual(Core.advDawnSweep(0), true, '清晨: dim 0 → 天已亮');
+  assert.strictEqual(Core.advDawnSweep(18000), false, '午夜: dim 11 → 夜怪还在');
+  assert.strictEqual(Core.advDawnSweep(23000), false, 'isNight 出界(23000)但 dim≈6.5>3: 清场未到点');
+  assert.strictEqual(Core.advDawnSweep(23400), false, 'dim≈3.8 仍 >3');
+  assert.strictEqual(Core.advDawnSweep(23600), true, '日出折线下穿 3(≈23517): 清场时刻');
+  assert.strictEqual(Core.advDawnSweep(12400), true, '黄昏早期 dim≤3 也为 true——跨沿取上升沿归壳层, 此处只给谓词');
+});
+

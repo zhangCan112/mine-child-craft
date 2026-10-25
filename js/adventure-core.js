@@ -16,12 +16,14 @@
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
      advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advFurnaceValid/
      advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫)/advTntRoll/
-     advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · F4 牧场
+     advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 昼夜 D5 夜怪
+      政策 ADV_NIGHT/advNightCanSpawn/advNightStep/advDawnSweep · F4 牧场
      advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 任务表
      ADV_QUESTS/ADV_MINE_TALLY · 大宝箱政策 ADV_CHEST_START/ADV_CHEST_SLOTS/
      ADV_CHEST_TIERS/advChestNext/advChestPut · 节律常量 ADV_*
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界
-     尺寸 · voxel.js 的 getBlock/setBlockRaw · scene-kit.js 的
+     尺寸 · daylight-core 的 Daylight(昼夜 D5 夜怪判定) ·
+     voxel.js 的 getBlock/setBlockRaw · scene-kit.js 的
      SceneKit · items-core 的 ITEMS/toolOf/stackMax · inventory-core 的 add ·
      craft-core 的 fuelUnits/smeltOf · drops.js 的 rollDrops/
      rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件)
@@ -340,6 +342,65 @@ function advPickupText(buf) {
     parts.push(entry[1] + ' 个' + name);
   }
   return '捡到 ' + parts.join('、') + '！';
+}
+
+/* ============================================================
+   昼夜 D5 夜怪政策(mc-daylight-torch §6.1) — 常量与纯函数段
+   ------------------------------------------------------------
+   节拍器 advNightStep 与 advNestStep 同构(状态进 · {t, spawn} 出);
+   光照门 advNightCanSpawn 一条表达式(MC 1.18+ 口径: 方块光 0 且
+   internalSky≤7)——火把半径 13 菱形内方块光 ≥1, 天然防刷怪圈
+   (「放火把守家」成立); 上限配额(CAP−现存怪数)与实体记账在壳层
+   advNightTick(Mobs 是壳层依赖, 核心保持零实体耦合)。
+   ============================================================ */
+const ADV_NIGHT = {
+  CAP: 12, /* 夜怪上限(含巢穴怪在内的怪物总量口径: 配额 = CAP − 现存怪数, 壳层结算) */
+  RING_LO: 24, RING_HI: 40, /* 出生环带(MC 24 格内不刷——research TL;DR #5) */
+  TRY_MS: 2000, /* 每 2 秒一次刷怪尝试(夜间才跑) */
+  POOL: [['zombie', 2], ['creeper', 1], ['spider', 1]], /* 无骷髅: 夜间无远程(差异 #8) */
+};
+
+/* 夜怪出生格判定(单表达式, MC 1.18+ 语义): 方块光为 0(火把圈=防刷怪圈)
+   且内部天空光 ≤7(白天地表 15 自动拒绝; 洞穴与夜地表通过——时间维度
+   已折进 internalSky, 节拍器另有一道 isNight 硬门) */
+function advNightCanSpawn(skyAt, blockAt, dayTime) {
+  return blockAt === 0 && Daylight.internalSky(skyAt, dayTime) <= 7;
+}
+
+/* 夜怪节拍(advNestStep 同构: 前置不满足即归零 · 到拍出单): s 为秒累计,
+   read(x,z)→{sky,block}|null 是落点光查询 seam(壳层封装 groundTop+1
+   同一格的双通道读数, null=界外), rnd 可注入。到拍掷环带一点(角度/半径
+   均匀), 光照不过 → 本拍作废(2s 后再掷, MC 式逐拍独立); 过 → POOL 按
+   权重取种出刷怪令。返回 {t, spawn}(spawn=null 或 {type,x,z}) */
+function advNightStep(s, dt, dayTime, read, playerPos, rnd) {
+  if (!Daylight.isNight(dayTime)) return {t: 0, spawn: null}; /* 白天: 节拍器归零 */
+  const nt = s + dt;
+  if (nt < ADV_NIGHT.TRY_MS / 1000) return {t: nt, spawn: null};
+  const a = rnd() * Math.PI * 2;
+  const r = ADV_NIGHT.RING_LO + rnd() * (ADV_NIGHT.RING_HI - ADV_NIGHT.RING_LO);
+  const x = playerPos.x + Math.cos(a) * r;
+  const z = playerPos.z + Math.sin(a) * r;
+  const lt = read(x, z);
+  if (!lt || !advNightCanSpawn(lt.sky, lt.block, dayTime)) return {t: 0, spawn: null};
+  let total = 0;
+  for (const p of ADV_NIGHT.POOL) total += p[1];
+  let pick = rnd() * total;
+  let type = ADV_NIGHT.POOL[ADV_NIGHT.POOL.length - 1][0]; /* 浮点尽头兜底末段 */
+  for (const p of ADV_NIGHT.POOL) {
+    pick -= p[1];
+    if (pick < 0) {
+      type = p[0];
+      break;
+    }
+  }
+  return {t: 0, spawn: {type, x, z}};
+}
+
+/* 黎明清场谓词: internalSky(15) ≥12(= skyDim≤3)——夜末(skyDim 11)为
+   false, 日出折线下穿 3(≈tick 23517)翻 true; 上升沿(跨沿)由壳层账本
+   检测后触发清场, 本函数只给时刻不持状态 */
+function advDawnSweep(dayTime) {
+  return Daylight.internalSky(15, dayTime) >= 12;
 }
 
 /* ============================================================
@@ -779,6 +840,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,
     ADV_SWING_CD, ADV_FIST_DMG, ADV_AIM_COS, ADV_ATTACK_T, ADV_ARROW_SPEED, ADV_PICKUP_WINDOW,
     advNestCount, advNestStep, advSwingDmg, advMobDmg, advDeathDrops, advPickupText,
+    ADV_NIGHT, advNightCanSpawn, advNightStep, advDawnSweep,
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
     ADV_STATION_R, ADV_SMELT_T, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advSmeltStep,
