@@ -8,6 +8,9 @@
    依赖(均经全局名, 经典 script 顺序加载): js/ 全部引擎与应用模块 +
    js/modes/*.js 模式文件 — 后者必须先于本文件加载(由
    test/mode-registry.test.js 对着 index.html 断言, 手滑即红)。
+   清场消费(switchMode 兜底清场, C4-T2): mobs.js 的 Mobs · tank.js 的
+   Tank · drops.js 的 Drops · avatar.js 的 Avatar(实参 config.js 的 PLAYER);
+   并跨文件写 voxel.js 的 flyMode(conventions §2.1 先例: input.js 写 pitch)。
 ============================================================ */
 
 const MODES = {
@@ -125,6 +128,27 @@ function switchMode(id) {
   if (MODES.cur && MODES.cur.cleanup) MODES.cur.cleanup();
   Fx.clear(); // 特效清场收口在 Fx, 不再亲手 dispose 私有数组
   clearWorld();
+  /* —— 兜底清场(C4-T2): 旧 cleanup 与新 init 之间的单一收口 ——
+     为什么在这里: 各模式 cleanup 是散装清场, 漏写一件上一场状态就渗进
+     新模式(对孩子是不解释自愈的坏状态); 收进切换单一出口, 与 Fx.clear/
+     clearWorld 同拍。
+     为什么是这五件: 共享引擎层的实体账与跨模式存活的状态 — Mobs/Tank/
+     Drops 是共享模块, Avatar 跨模式存活, flyMode 是 voxel.js 的引擎级
+     飞行态; 模式私有物(自管投射物/面板/计时队列)仍归各模式 cleanup。
+     两个守恒契约:
+     ① Tank.clear 只清实体不解除模式钩子(钩子在 tank-range.js 加载期一次
+        注册, tank-range 自己就 cleanup+enterField 双清) — 无条件清安全
+        幂等, 非坦克模式清空列表是零成本空转(常态)。
+     ② Mobs/Drops 的 clear 会解除会话回调 — adventure init 本就是
+        "先 clear 再重挂", 兜底必须在新 init 之前, 放 init 之后会抹掉
+        新模式刚挂的回调。
+     保守版只加不删: 各模式 cleanup 的共性行原样保留为幂等双保险,
+     去重留给后续票评估。 */
+  Mobs.clear(); // 清怪+解除击杀回调(新模式 init 重挂, adventure 契约)
+  Tank.clear(); // 清载具实体(钩子常驻不解除 — Tank 契约, 见 tank.js clear 注释)
+  Drops.clear(); // 清掉落物+解除收集回调
+  Avatar.setItem(PLAYER.heldItem); // 手持物复位(剑/弓/铲不渗进其他模式)
+  flyMode = false; // 飞行态复位(不渗进新模式出生)
   MODES.cur = MODES[id];
   MODES.cur.init();
   /* BGM 情绪随模式走: 注册表 mood 字段是唯一权威(mode-registry.test 逐行
