@@ -369,7 +369,7 @@ function runHopWorld(section, h) {
     else trialGap();
   }
 
-  /* ---- 掷骰前进: 点骰子 → 骰值 → 走子逐格读数 → 报落格数字 ---- */
+  /* ---- 掷骰前进: 点骰子 → 骰值 → 走子逐格读数(落格除外) → 问落格数字 ---- */
   function trialDice() {
     phase = 'die';
     setCard('<div class="m-w-q">🎲 掷骰子，走一走！</div>' +
@@ -385,9 +385,15 @@ function runHopWorld(section, h) {
           T.after(750, () => {
             startWalk(st.from, st.to, {
               speed: countSpeed(),
-              count: (sq) => speak(plan.value(sq)),
+              /* 逐格读数但落格不读: 题面就是"现在站在哪", 念出落格数字
+                 等于报答案; 孩子数到最后一拍自己接上(或低头读脚下石板) */
+              count: (sq) => {
+                if (sq !== st.to) speak(plan.value(sq));
+              },
               onDone() {
-                askChoices('现在站在哪块石板？数字是几？', plan.value(st.to), pathMax, null);
+                const q = '现在站在哪块石板？数字是几？';
+                askChoices(q, plan.value(st.to), pathMax, null);
+                speak(q); // 零文字依赖: 题面随卡读出(jumps/gaps 变体同款)
               },
             });
           });

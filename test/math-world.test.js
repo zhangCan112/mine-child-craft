@@ -10,7 +10,8 @@
    runHopWorld 掷骰变体从点骰子一路开到关卡 end。
    覆盖: 掷骰全链(点骰→走子逐格读数→落格问题卡→作答→结算→
    下一试次→end) · 走子跨帧推进(修复回归, 直线/蛇行两布局) ·
-   落格坐标与逐格读数恰为骰值步数 */
+   落格坐标与逐格读数恰为骰值步数 · 落格数字不被念出(语音不得
+   报答案, 2026-10-25 修复回归) */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -244,8 +245,13 @@ test('掷骰走子(直线布局): 点骰后逐格前进读数, 落格停在该�
   assert.ok(Math.abs(p.z - 64.5) < 1e-9, '直线布局 z 不变, 实际 z=' + p.z);
   assert.ok(Math.abs(p.x - (59.5 + r.roll)) < 1e-9,
       '应停在骰值格中心, 期望 x=' + (59.5 + r.roll) + ' 实际 x=' + p.x);
-  assert.strictEqual(digitReads(d.spoke).length, r.roll,
-      '逐格读数恰为骰值步数: ' + JSON.stringify(digitReads(d.spoke)));
+  assert.strictEqual(digitReads(d.spoke).length, r.roll - 1,
+      '逐格读数=骰值-1(落格不读): ' + JSON.stringify(digitReads(d.spoke)));
+  const landed = Math.round(p.x - 59.5); // 落格数字 = 题面答案
+  assert.ok(!digitReads(d.spoke).includes(String(landed)),
+      '落格数字不得被念出(等于语音报答案), 落格=' + landed);
+  assert.ok(d.spoke.some((s) => s.includes('现在站在哪块石板')),
+      '题面应随卡 TTS 读出(零文字依赖)');
   assert.ok(Math.abs(p.x - r.start.x) >= 1, '走子应离开起点至少一格');
   assert.deepStrictEqual(d.errors, [], '链路无异常');
 });
@@ -258,7 +264,9 @@ test('掷骰走子(蛇行布局): 段内进度跨帧累积, 不再卡在首段 2
   const p = d.pos();
   assert.ok(Math.abs(p.x - (60.5 + r.roll)) < 1e-9,
       '应停在骰值格中心, 期望 x=' + (60.5 + r.roll) + ' 实际 x=' + p.x);
-  assert.strictEqual(digitReads(d.spoke).length, r.roll, '逐格读数恰为骰值步数');
+  assert.strictEqual(digitReads(d.spoke).length, r.roll - 1, '逐格读数=骰值-1(落格不读)');
+  assert.ok(!digitReads(d.spoke).includes(String(Math.round(p.x - 60.5))),
+      '落格数字不得被念出(等于语音报答案)');
   assert.deepStrictEqual(d.errors, [], '链路无异常');
 });
 
@@ -277,14 +285,17 @@ test('掷骰全链: 三试次点对答案逐次推进, 关卡 end 收口', () =>
     const card = d.card();
     const choices = card ? card.querySelectorAll('.m-choice') : [];
     assert.ok(choices.length === 4, '问题卡应给出恰 4 个数字选项');
-    const last = digitReads(d.spoke).pop(); // 落格读数 = 正确答案
-    const hit = choices.find((b) => +b.dataset.v === +last) || choices[0];
+    /* 答案 = 走子落格(直线 0-10 路: 落格 i 的世界 x = 59.5+i); 落格
+       数字不再被念出(防语音报答案), 正解从脚下位置推 */
+    const answer = Math.round(d.pos().x - 59.5);
+    const hit = choices.find((b) => +b.dataset.v === answer);
+    assert.ok(hit, '选项应含落格答案 ' + answer + ': ' + card._html);
     hit.onclick(); // 作答(点对)
     d.pump(3000); // 结算闪条 + 下一试次
   }
   const st = r.getEnded();
   assert.ok(st, '关卡应正常 end(死锁修复前永远到不了这里)');
   assert.strictEqual(st.trials, 3, '三试次全部结算');
-  assert.strictEqual(st.correct, 3, '落格读数即答案, 全部点对');
+  assert.strictEqual(st.correct, 3, '按落格位置作答全部点对');
   assert.deepStrictEqual(d.errors, [], '全链无异常');
 });
