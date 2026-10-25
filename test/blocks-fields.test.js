@@ -8,7 +8,9 @@
    (怪物掉落表 MOB_DROPS 段已随 mob-registry.js 拆分随迁 test/mob-registry.test.js,
    2026-10 候选 8 — 本文件只剩方块段。)
    数值口径(独立来源, 非从实现抄回): MC 硬度原值(研究稿 §1.5/§2.3 与 Wiki) ·
-   树叶/草丛概率与矿 tier 门槛(设计稿 §3.4/D5) · 方块掉落结构(设计稿 §3.3)。 */
+   树叶/草丛概率与矿 tier 门槛(设计稿 §3.4/D5) · 方块掉落结构(设计稿 §3.3) ·
+   光源等级(昼夜设计稿 §5.1: 火把 14 半径 13 菱形 · 灯块/发光岩/岩浆 15,
+   MC 数值依据 mc-daylight-torch-research TL;DR #7)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -24,6 +26,7 @@ function loadCfg() {
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_GRASS_TUFT, B_FARMLAND,
     B_WHEAT_0, B_WHEAT_1, B_WHEAT_2, B_WHEAT_3, B_CRAFT, B_FURNACE, B_TORCH,
     B_SAPLING, B_CLAY, B_CHEST, B_WOOL,
+    B_LAVA, B_GLOWSTONE,
   };`, ctx);
   return ctx.__c;
 }
@@ -203,4 +206,47 @@ test('只增不改: 存量方块 name 与颜色三元组保持原值', () => {
     }
   }
   assert.strictEqual(c.BLOCKS[18].glass, true, '玻璃 glass 旗标保留');
+});
+
+/* ============ 光源字段 light(昼夜设计稿 §5.1, D4) ============ */
+
+test('光源方块 light 四条(昼夜设计稿 §5.1): 火把 14 · 灯块/发光岩/岩浆 15; 光源面反白名单', () => {
+  const c = loadCfg();
+  assert.strictEqual(c.BLOCKS[c.B_TORCH].light, 14, '火把 14: 照亮半径 13 菱形(research TL;DR #7)');
+  assert.strictEqual(c.BLOCKS[19].light, 15, '灯块 15: 同级光源(MC 灯笼/萤石口径)');
+  assert.strictEqual(c.BLOCKS[c.B_GLOWSTONE].light, 15, '发光岩 15(MC 萤石)');
+  assert.strictEqual(c.BLOCKS[c.B_LAVA].light, 15, '岩浆 15(MC 岩浆)');
+  /* 反白名单: 光源清单 = 恰好这四个, 别的方块带 light 即手滑(改动即有意) */
+  const litIds = [String(c.B_TORCH), '19', String(c.B_GLOWSTONE), String(c.B_LAVA)];
+  for (const [id, b] of Object.entries(c.BLOCKS)) {
+    assert.ok(!b.light || litIds.includes(id),
+        id + '(' + b.name + ') 不在光源表(设计稿 §5.1), 不得带 light 字段');
+  }
+});
+
+test('光源四条只增不改: 火把全字段原样 · 灯块仍创造专属 · 发光岩/岩浆颜色旗标原样', () => {
+  const c = loadCfg();
+  /* 火把既有字段逐一钉死: thin 依附身份 + solid:false + 采集四字段 + 掉落自身 */
+  const t = c.BLOCKS[c.B_TORCH];
+  assert.strictEqual(t.name, '火把');
+  assert.deepEqual(t.all, [1.00, 0.70, 0.25], '火把颜色不变(嵌套数组跨 realm 用宽松比较)');
+  assert.strictEqual(t.thin, 0.5);
+  assert.strictEqual(t.solid, false);
+  assert.strictEqual(t.hard, 0);
+  assert.strictEqual(t.tool, null);
+  assert.strictEqual(t.tier, 0);
+  assert.deepEqual(t.drop, [['torch', 1, 0]], '火把掉落自身');
+  /* 灯块(19): 创造专属政策不变 —— 加 light 不加采集字段(探险不可得口径不动) */
+  assert.strictEqual(c.BLOCKS[19].name, '灯块');
+  assert.deepEqual(c.BLOCKS[19].all, [1.00, 0.92, 0.55]);
+  for (const f of ['hard', 'tool', 'tier', 'drop']) {
+    assert.ok(!(f in c.BLOCKS[19]), '灯块仍为创造专属, 不应加 ' + f);
+  }
+  /* 发光岩/岩浆: 名字/颜色/旗标原样(岩浆 lava 旗标 + solid:false 不可碰撞) */
+  assert.strictEqual(c.BLOCKS[c.B_GLOWSTONE].name, '发光岩');
+  assert.deepEqual(c.BLOCKS[c.B_GLOWSTONE].all, [1.00, 0.85, 0.45]);
+  assert.strictEqual(c.BLOCKS[c.B_LAVA].name, '岩浆');
+  assert.deepEqual(c.BLOCKS[c.B_LAVA].all, [1.00, 0.42, 0.08]);
+  assert.strictEqual(c.BLOCKS[c.B_LAVA].lava, true, '岩浆 lava 旗标保留');
+  assert.strictEqual(c.BLOCKS[c.B_LAVA].solid, false, '岩浆不可碰撞保留');
 });

@@ -153,6 +153,11 @@ const TANK_MODELS = {
 /* ============================================================
    方块定义
 ============================================================ */
+/* 光源字段(昼夜设计稿 mc-daylight-torch §5.1, D4): light = 方块光发射级
+   1..15 —— 火把 14(照亮半径 13 菱形) · 灯块/发光岩/岩浆 15(MC 口径,
+   research TL;DR #7); 无 light = 不发光。装场全量(loadScene 的 computeAll)
+   与编辑增量(world.js setBlockLit 的 updateEdit)共用本表 —— LightCore.
+   mkPolicy.lightOf 读此字段, 光源清单数据驱动零硬编码。 */
 const BLOCKS = {
   1: {name: '草地', top: [0.43, 0.74, 0.34], side: [0.56, 0.43, 0.30], bottom: [0.55, 0.40, 0.27]},
   2: {name: '泥土', all: [0.55, 0.40, 0.27]},
@@ -172,7 +177,7 @@ const BLOCKS = {
   16: {name: '红羊毛', all: [0.80, 0.32, 0.32]},
   17: {name: '石英', all: [0.90, 0.88, 0.82]},
   18: {name: '玻璃', all: [0.75, 0.90, 0.95], glass: true},
-  19: {name: '灯块', all: [1.00, 0.92, 0.55]},
+  19: {name: '灯块', all: [1.00, 0.92, 0.55], light: 15},
 };
 
 /* TNT 密室方块 (id 20~29) — 模式已下线, 保留者均为创意资产:
@@ -189,7 +194,7 @@ BLOCKS[B_FUSE] = {name: '引线', all: [0.92, 0.75, 0.30], fuse: true, thin: 0.1
 // B_FUSE 运行时死键(全仓 js 零读), 但 test/voxel.test.js / test/mesh-core.test.js 当
 // thin 块 fixture — 创意资产保留; 若复活须先找回消费方(候选 8 清偿口径)
 BLOCKS[B_WATER] = {name: '水', all: [0.25, 0.45, 0.85], glass: true, water: true, solid: false};
-BLOCKS[B_LAVA] = {name: '岩浆', all: [1.00, 0.42, 0.08], lava: true, solid: false};
+BLOCKS[B_LAVA] = {name: '岩浆', all: [1.00, 0.42, 0.08], lava: true, solid: false, light: 15};
 
 /* 下界模式新方块 (id 30~35) — 下界荒原主题: 下界岩/黑曜石/下界砖/发光岩/传送门面
    (B_SOUL_SAND 死键已清偿, docs/mining-gap-analysis.md:89 先行记账) */
@@ -198,7 +203,7 @@ const B_NETHER_BRICK=33; const B_GLOWSTONE=34; const B_PORTAL=35;
 BLOCKS[B_NETHERRACK]= {name: '下界岩', all: [0.52, 0.28, 0.16]};
 BLOCKS[B_OBSIDIAN] = {name: '黑曜石', all: [0.10, 0.08, 0.16]};
 BLOCKS[B_NETHER_BRICK]= {name: '下界砖', all: [0.48, 0.20, 0.16]};
-BLOCKS[B_GLOWSTONE] = {name: '发光岩', all: [1.00, 0.85, 0.45]};
+BLOCKS[B_GLOWSTONE] = {name: '发光岩', all: [1.00, 0.85, 0.45], light: 15};
 /* 传送门面: 门内口的紫色半透明门面。glass 走透明渲染通道(勿用 thin —
    LOD 降采样会跳过 thin 块, 远处门面会消失); solid:false 可直接走入
    (传送判定只看坐标区间, 不看点位); portal 旗标 = 门面唯一身份 */
@@ -237,8 +242,8 @@ BLOCKS[B_CRAFT] = {name: '工作台', top: [0.55, 0.42, 0.26], side: [0.66, 0.52
   hard: 2.5, tool: 'axe', tier: 0, drop: [['craft_table', 1, 0]]}; // 站点: table 级配方
 BLOCKS[B_FURNACE] = {name: '熔炉', top: [1.00, 0.45, 0.10], side: [0.35, 0.35, 0.38], bottom: [0.35, 0.35, 0.38],
   hard: 3.5, tool: 'pick', tier: 1, drop: [['furnace', 1, 0]]}; // 站点: 烧炼
-BLOCKS[B_TORCH] = {name: '火把', all: [1.00, 0.70, 0.25], thin: 0.5, solid: false,
-  hard: 0, tool: null, tier: 0, drop: [['torch', 1, 0]]}; // 装饰(无光照系统)
+BLOCKS[B_TORCH] = {name: '火把', all: [1.00, 0.70, 0.25], thin: 0.5, solid: false, light: 14,
+  hard: 0, tool: null, tier: 0, drop: [['torch', 1, 0]]}; // 光源 14 照亮半径 13(§5.1); 不烧完/不能当燃料(vanilla 维持项)
 BLOCKS[B_CLAY] = {name: '黏土', all: [0.58, 0.60, 0.68],
   hard: 0.6, tool: 'shovel', tier: 0, drop: [['clay_ball', 4, 0]]}; // 掉 4 黏土球(红砖链源头, §3.5); 湖底生成
 BLOCKS[B_SAPLING] = {name: '树苗', all: [0.30, 0.60, 0.25], thin: 0.4, solid: false,
