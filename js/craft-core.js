@@ -57,6 +57,8 @@ const RECIPES = [
   /* —— 站点件与补给包(§3.5 + §3.2) —— */
   {id: 'furnace', out: {item: 'furnace', n: 1}, cost: {cobble: 8}, station: 'table'}, // 8 圆石, 无需煤(§5.5)
   {id: 'chest', out: {item: 'chest', n: 1}, cost: {planks: 8}, station: 'table'}, // 8 木板(MC 正典); 只储物非站点
+  // 床(昼夜 D6 §7.1): 3 羊毛+3 木板(MC 正典); 羊毛来源 F4 牧场, 原料闭环; 夜里点击睡觉跳夜
+  {id: 'bed', out: {item: 'bed', n: 1}, cost: {wool: 3, planks: 3}, station: 'table'},
   {id: 'stone_bricks', out: {item: 'stone_bricks', n: 4}, cost: {stone: 4}, station: 'table'}, // 4 石→4 石砖(MC 口径, §3.5)
   {id: 'bricks', out: {item: 'bricks', n: 1}, cost: {brick: 4}, station: 'table'}, // 4 红砖→1 红砖块(黏土-红砖链, §3.5)
   {id: 'shears', out: {item: 'shears', n: 1}, cost: {iron_ingot: 2}, station: 'table'}, // 剪树叶得树叶方块(§3.5)
