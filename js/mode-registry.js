@@ -12,6 +12,9 @@
    必声明 — 未声明/拼错由 test/mode-registry.test.js 逐行断言即红。
    dev:true = 仅开发人员可见的调试模式(卡带 dev 身份类, CSS 默认隐藏,
    ?dev=1 解锁 — 三层派生与断言见 docs/showroom-design.md D1)。
+   组合口径: gated:false + dev:true = 不进儿童时限的调试模式(区别于同为
+   gated:false 的训练营类 focus/math — 后者另有每日预算, boot.test 的
+   预算契约以 !m.dev 把 dev 行从训练营清单剔除)。
    三重命名约定(id ↔ cardXxx ↔ menuXxx)由 test/mode-registry.test.js
    对着 index.html 逐条断言, 手滑即红。
    纯数据+纯函数, Node 可直接加载。

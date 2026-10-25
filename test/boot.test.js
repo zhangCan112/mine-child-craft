@@ -136,7 +136,9 @@ test('训练营预算契约: 注册表 !gated 的每个 id 在 Budgets 有可入
      blocked)断言最小充分集。vm 里 SyncDB.ready 的 then 挂在微任务,
      同步探针不等它, 自己建账(幂等, 之后微任务再建一次无害)。
      dev 行(体验馆)不入此契约: 调试不吃孩子的账(spec 用户故事 15),
-     不建预算账本 — !gated 阵营里它只共享"不进儿童时限"这一条 */
+     不建预算账本 — 组合口径 gated:false + dev:true = 只借「不进儿童
+     时限」的调试模式(区别于训练营类, 见 mode-registry.js 头注释),
+     训练营清单以 !m.dev 剔除 dev 行 */
   assert.doesNotThrow(() => vm.runInContext('setupBudgets()', ctx),
       'setupBudgets 应可在桩环境完整建账');
   const camps = ModeRegistry.all.filter((m) => !m.gated && !m.dev).map((m) => m.id);
