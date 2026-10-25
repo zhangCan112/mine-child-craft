@@ -22,6 +22,14 @@ _Avoid_: 倒树系统（树只是第一个消费者）、物理引擎（无刚�
 world.js 渲染 adapter 的建场 seam：loadScene(buildFn) = 清场 → 批量建 → 收尾入队一步到位。"建完必须 rebuildAll 否则整场不可见"的收尾纪律收在 seam 里（曾有模式漏调，进场一片天蓝）；收尾是渐进的——全部区块按距玩家距离入距离环队列（近处优先），由 pumpRemesh 每帧按预算构建，进场先见脚下、远景数帧铺满。清场幂等。编辑管线同理由 pumpRemesh 自动收口脏区块——漏调 flushDirty 最迟下帧入队，不再永远不可见。
 _Avoid_: clearWorld+build+rebuildAll 三连（历史惯用套路）、手动 flushDirty（即时提交的可选优化，不再是必需）
 
+**昼夜核心（DaylightCore）**:
+引擎层纯核心（js/daylight-core.js，零 THREE·零 DOM，有单测）：MC 同表的一日 24000 tick 时间轴（tick 0=06:00 · 6000=正午 · 12000=日落开始 · 18000=午夜）与全部派生量的纯函数单一权威——时间推进回绕 advance（dt 秒 ×20 tick/秒，一日回绕）· 天空暗度折线 skyDim（0..11，DIM_KEYS 五点分段线性：正午 0→夜 11→次日 0）· 夜晚判定 isNight（[13000, 23000) 简化口径，MC 精确值 13188/22812——差异 #15）· 内部天空光 internalSky（遮挡列天空等级随时间再衰减，负值钳 0）· 渲染亮度 renderBright（0.05+0.93·(l/15)^1.6 三锚点拟合 0→5% · 4→17% · 15→98%，差异 #14）· 天空染色 skyTint 与天色 skyColor（白日↔月光蓝/深夜蓝按 skyDim/11 插值，黄昏橙不做）· 睡觉窗口 sleepWindow（精确 tick 界 SLEEP_A/SLEEP_B=12542/23460——线性折线在 12542 处 dim≈3.39 取不到 4，skyDim 派生口径会偏约 45 秒，故入常量表不经折线派生）。常量表 DAYLIGHT（TICKS/NIGHT_A/NIGHT_B/SLEEP_A/SLEEP_B/DIM_KEYS）。数值权威 docs/mc-daylight-torch-design.md §2（MC 数值依据 docs/mc-daylight-torch-research.md）；消费方 world.js（场景驱动：天色/雾/日光强度/日月轨道）/main.js（主循环推进）/modes/adventure.js（dayTime 存档与 HUD 时段行）——时间何时推进（暂停不推进）、何时入夜刷怪是模式政策，核心只算数。
+_Avoid_: 昼夜系统（散称）、把折线/窗口判据散写回消费方（派生量语义单份在这里）、在核心里碰 THREE/DOM（场景接线在 world.js）
+
+**光照核心（LightCore）**:
+引擎层纯核心（js/light-core.js，零 THREE·零 DOM，有单测）：MC 双通道体素光场的算法唯一权威（docs/mc-daylight-torch-design.md §3）——方块光（光源发射级 1..15 六邻 BFS，曼哈顿每格 −1）与天空光（列顶直灌 15 至首个挡光块，横向/向上每格 −1——垂直下落不衰减已被列直灌包含）。挡光规则 opaque=实心且非玻璃（玻璃/水/薄块/十字片全透光不衰减，差异 #7）；挡光格两通道恒 0，唯光源格例外（自亮不透光，MC 灯口径）。interface：mkPolicy(BLOCKS)→{lightOf · opaque}（config 派生装配一次，world.js 与单测共用同一装配防两份漂移）· computeAll（全量：装场一次写满）· updateEdit（增量：方块通道增/撤两趟 BFS；天空通道 x±14 × z±14 列带区域重算——两趟扫描防读未处理列顶，返回脏格包围盒供脏盒记账；保不变量「增量累计 === 全量重算」）。光场契约：sky/block 为 Uint8Array(W·D·H)，布局 idx=(y·D+z)·W+x 与 voxel.js cellIdx 同式（布局即契约），updateEdit 直接读写一体（撤光必须读旧值）；光场存储在 voxel.js，经 packChunkData 光照圈喂网格化核心烘 aSky/aBlock 顶点光。逻辑亮度=max(internalSky, blockLight) 是消费侧口径，本核心只产出两个独立通道；依赖零全局（read/W·D·H/BLOCKS 全部参数注入）。
+_Avoid_: 光照系统/光照引擎（散称）、把传播/撤光算法写进 voxel 或 world（算法单份在这里：存储在 voxel、烘焙在网格化核心、场景接线在 world）、光衰减与挡光判据散写第二份（mkPolicy 是唯一装配缝）
+
 **网格化核心（MeshCore）**:
 区块数据 → 顶点裸数组 的纯变换（js/mesh-core.js，零 THREE · 零 DOM，有单测）：全细节四通道（实心/玻璃/TNT 贴图/贴图图集——atlas 布局经 opts.atlas 注入，与 tntTiles 同惯例，未注入时入集方块回落纯色通道）与 LOD 降采样粗网格（每 lodStep×lodStep 列合并采样，顶面+裙边）。输入是体素模型的 packChunkData 打包（含邻块边界圈供跨区块剔面），hashRand 由调用方注入——同一份代码在主线程（同步兜底）与网格 Worker（http 服务主路径）里运行，布局即跨线程契约。
 _Avoid_: 网格生成器（散称）、把 THREE 装配混进纯核心
@@ -269,7 +277,7 @@ _Avoid_: mathCtrl/mathBossStop（历史名——控制柄与链旗两条命已�
 
 **探险模式**:
 物品与合成系统的第一个消费者（壳 js/modes/adventure.js + 纯核心 js/adventure-core.js，见「探险核心」词条）：128×128 确定性草原（重进逐块复现，只存玩家差异）——树林 · 湖（湖底黏土，红砖链源头）· 2 露天矿坑（坑壁裸露煤/铁矿）· 山洞隧道通 y<10 钻石带 · 出生小屋 · 3 怪物巢穴（每巢限量 2~3 只、清空 60s 再刷、索敌收敛不追出巢区——儿童可控口径）。挖掘按住蓄力（breakTime 驱动，tier 不足只碎不掉+TTS 节流提示）→ 掉落真空拾取；放置型物品点准星面放置、树苗 20s 长成树（计时 Map 不落盘，重进重建）；食物点击吃、工具耐久归零消失+TTS 安抚并句当前任务步指路、低耐久比 <0.25 语音预警（每工具每命一次，破板重置）；工作台/熔炉走近 4 格解锁（MC 式放置解锁）——点选配方书合成（TTS 具体表扬+余量转脚下掉落物）+ 熔炉 2.5s/件自动烧炼·**每炉独立+炉态随世界档持久化**（重进接着烧、挖炉/TNT 掀炉三笔退包、炉口火焰观感+面板燃料余量条；旧「退世界/死亡全额退料」政策已退役——二期 F1/F2）；TNT 合成→放置→空手点燃→延时爆炸（半径 3.5、方块 70% 掉落、不伤玩家——儿童挖矿神器）；金苹果=金锭出口（8 金锭+1 苹果，吃了回满血，首获仪式挂合成侧——F3）；牧场（见专条）——草原散布牛猪鸡羊，击杀「收获」生肉/羊毛，熔炉烤成熟肉回血更多（F4）。任务链 QUESTS 数据表 15 步+终章（引导链 v2，插步依据见 docs/story-quest-research.md：安家章 原木→木板→工作台→箱子→树苗 / 挖矿章 木镐→圆石→石镐→煤→火把 / 冶炼章 铁矿→熔炉铁锭→铁镐 / 冒险章 战斗→钻石→钻石剑；5 原木=20 板恰好覆盖早期链）：事件挂点（挖掘/拾取/合成/放置/开箱/烧成/击杀）只向计数账本累计（只增不减=跳步防护，只认玩家亲手做——TNT 掀掉的不算，TNT 炸死怪物算战果），0.5s 节流查当前步谓词不越级；钻石首获专属仪式，终章合成钻石剑得「小小探险家」称号+烟花。死亡=背包保留+回出生点满血+TTS 安抚（零惩罚）。背包占用 ≥24/27 一次性 toast+TTS（回落再满才再提醒；放过箱子后话术指向收纳）。大宝箱见专条。四份存档：inventory_save（全局唯一背包，跨模式共享，经背包壳 Backpack 唯一持有——ADR 0002）/ adventure_world_save（确定性重建+edits 重放）/ adventure_quest_save（任务进度）/ adventure_chest_save（大宝箱账户）。与其它游玩模式共享儿童时限，不新增账本。
-_Avoid_: 生存模式（没有饥饿/昼夜，死亡零惩罚——非生存口径）
+_Avoid_: 生存模式（没有饥饿，死亡零惩罚——非生存口径；**有昼夜**：夜怪/床/灯笼/火把光照见 docs/mc-daylight-torch-design.md）
 
 **大宝箱（Chest Vault）**:
 探险模式的储物子系统（引导链 v2 拍板：只储物不解锁配方、全局共享账户、材料扩容）：箱子=8 木板·工作台级合成（MC 正典），放置后走近 4 格点击打开（熔炉同款门槛）mode-kit 的 mkChestPanel 面板——箱子格/背包格两栏**点选搬运**（无拖拽，拍板②），可堆叠并堆、工具连耐久整槽搬（不走 InventoryCore.add——add 经 mkStack 会把工具重铸满耐久）；满箱/满包只拒收不惩罚。**全局唯一账户**：所有放置的箱子打开同一份存储（存档键 adventure_chest_save，{size, slots}），挖掉箱子内容保留在账户里（零损失）；三档扩容 9→18 格（8 圆石）→27 格（4 铁锭），材料刻意取任务链产物（第 7/12 步自然到期），阶梯与入箱政策纯函数 advChestNext/advChestPut 在探险核心。联动：背包快满提醒在放置过箱子后话术升级为「把宝贝放进箱子里吧」（提醒复用已教过的机制）。

@@ -10,6 +10,16 @@
 > 基线：分支 `mc-daylight-torch-research` @ `8664ab7`（master `dff786f` + 调研两笔），970 测试全绿。
 > 本稿定稿全部数值与数据形状；伴生机制清账见 §1（conventions §1.12）；实现按 §11 工单切分，逐单 TDD。
 
+> **实施状态注记（2026-10-26）**：D1~D7 已全量落地于 daylight-impl 分支——1049 测试全绿（基线 970 → +79），lint 三工具（ESLint/Stylelint/htmlhint）零错，GLOSSARY 增「昼夜核心（DaylightCore）/光照核心（LightCore）」词条并修订「探险模式」（_Avoid_ 撤「没有昼夜」表述）。实施口径偏差逐单登记（各单实现者已报备，出处均标在代码注释）：
+>
+> **D1** sleepWindow 用精确 tick 界 `SLEEP_A/SLEEP_B=12542/23460`（线性折线在 12542 处 dim≈3.39 取不到 4，派生口径会偏约 45 秒——已回填 §2.1 常量表两键）；日月贴图 world.js 引擎本地绘制（图标工坊属应用层且加载序在后，引擎不得反向依赖）；暂停（菜单/未锁定）不推进时间（MC 单机口径）。
+> **D2** 光场注入形状=直接传 Uint8Array 读写一体（撤光必须读旧值，write 命名不副实）；天空区域重算改两趟扫描（单趟会读未处理列顶，开发期压测抓出并修复）；撤光触发=旧光>0 且（新格挡光或旧格是光源），透光互换零更新。
+> **D3** GLSL 替换点=meshlambert_vert 的 `#include <lights_lambert_vertex>`（×π 抵消 BRDF_RECIPROCAL_PI）；回退=替换点缺失时保持 stock 着色器、不注入不炸（非 §4.2 字面的「uDim 乘 vertexColor」——场景灯已同曲线衰减，再乘会双重变暗，深夜 ≈2% 过黑；已登记 §9 #14 脚注）；uGlowPos 逐帧跟随收在 applyDaylight（当前唯一消费方探险必开 dayCycle）；test/world-vertexlight.test.js 沿 §1.9 专题命名惯例、头注释注明对应模块。
+> **D4** 级联光照挂点=setBlockLit（setBlockRaw+updateEdit+脏盒记账）作为 write 回调传入 cascade-core 三入口（级联条目不回环 editBlock、落格旧值事后拿不到——单点全覆盖移除/放置/移动）。
+> **D5** 清夜怪归一为 advSweepNightMobs（D6 已入库命名）；语义取「尸体一并收」（§6.2 口径）。
+> **D6** 床边 8 格含等号（≤8，advNearStation 同口径）；passive 牧场动物不拦睡；出生点走 ADV.spawn 账本（床被挖不回退世界出生点——规格未列持久化，登记为已知边界）；床渲染分色已由 D3 兑现（pushThin 消费 faceColor）。
+> **D7** items-core 新增 durOf(id) 纯函数（可耗损物单一判据，五消费点归一）；damageTool/deserialize 守卫 isTool→durOf（顺带修「灯笼耐久不随存档往返」漏洞）；advWearHeld 模式侧补 isTool 门（防挥击/挖掘双重磨损）；advChestWithdraw 同改 durOf（防箱子取出重铸满耐久）；燃尽当帧仍亮次帧熄灭；耗秒借 5s 节流随存世界档防硬关窗丢耐久。
+
 ---
 
 ## 0. 现状资产盘点（全部复用，不重造）
@@ -65,6 +75,8 @@ const DAYLIGHT = {
   TICKS: 24000,            // 一天 = 24000 tick = 20 分钟（20 tick/秒，dt 秒 × 20）
   NIGHT_A: 13000,          // 夜晚开始（简化口径，MC 精确值 13188/22812——差异 #15）
   NIGHT_B: 23000,          // 夜晚结束
+  SLEEP_A: 12542,          // 睡觉窗口起（精确 tick 界，research §1.6 裁决——sleepWindow 不经 skyDim 派生）
+  SLEEP_B: 23460,          // 睡觉窗口止（23460 起不可睡；23459 是最后一刻可睡）
   DIM_KEYS: [[0,0],[12040,0],[13670,11],[22330,11],[23961,0]], // skyDim 折线（research §1.4 internal 表反推：dim = 15 − internal）
 };
 // interface（全纯函数）:
@@ -75,7 +87,7 @@ const DAYLIGHT = {
 //   renderBright(level) → 0.05 + 0.93 * (level/15)^1.6   // 三锚点拟合：0→5%、4→17%、15→98%（wiki 无公式，锚点见 research §2.4）
 //   skyTint(dayTime) → [r,g,b]  // 白天 [1,1,1] → 夜 [0.60,0.66,1.00] 按 skyDim/11 插值（月光偏蓝）
 //   skyColor(dayTime) → [r,g,b] // 天空/雾色：白日 #8fc7ff ↔ 夜 #0a1430 按 skyDim/11 插值（黄昏橙不做，差异 #16）
-//   sleepWindow(dayTime) → bool // skyDim ≥ 4 ⇔ 晴天 [12542, 23459]（补证裁决口径，research §1.6）
+//   sleepWindow(dayTime) → bool // 晴天 [12542, 23459]（SLEEP_A/SLEEP_B 精确 tick 界——折线在 12542 处 dim≈3.39 取不到 4，skyDim ≥ 4 派生会偏约 45 秒；research §1.6 裁决）
 ```
 
 - **tick 0 = 06:00、6000 = 正午、12000 = 日落开始、18000 = 午夜**——与 MC 完全同表（research TL;DR #1）。
@@ -301,13 +313,15 @@ BLOCKS[B_BED] = {name:'床', top:[0.90,0.30,0.30], all:[0.75,0.22,0.22], thin:0.
 | 11 | 天气/月相/幻翼 | 有 | 无 | 明确不做（research §5.4） |
 | 12 | 融雪融冰（光 ≥12） | 有 | 无雪/冰方块 | 不适用 |
 | 13 | 作物光 ≥9 | 有 | 麦/树苗纯时间生长 | 简化；不做光门槛 |
-| 14 | 渲染亮度曲线 | 源码 lightmap | `0.05+0.93·(l/15)^1.6` 锚点拟合 | wiki 无公式（补证翻史定案），5%/17%/98% 三锚点 |
+| 14 | 渲染亮度曲线 | 源码 lightmap | `0.05+0.93·(l/15)^1.6` 锚点拟合¹ | wiki 无公式（补证翻史定案），5%/17%/98% 三锚点 |
 | 15 | 夜窗口精确值 | 13188–22812 | 13000–23000 | 整千 tick 好记，边界差 <1 秒无感 |
 | 16 | 黄昏橙晕/星星/天球 | 有 | 无（天色/雾/日月两态插值） | 简版天体；后续观感票可加 |
 | 17 | 时钟物品 | 有（下界乱转） | HUD 太阳/月亮图标两态 | 零文字依赖；下界无昼夜无钟 |
 | 18 | 掉落物/特效 Sprite 夜间 | 受光 | 不受光（偏亮） | SpriteMaterial 无光照；登记限制后续 tint |
 | 19 | LOD 远景光照 | — | 仅天空二值通道，无火把点光 | 远处雾色兜底，性能取舍 |
 | 20 | 光照计算范围 | 玩家周边 | 全图常开（128×128×48 静态场） | 世界有限，装场一次算清零心跳 |
+
+注¹（#14 · D3 实施口径）：材质注入的回退=替换点缺失时保持 stock 着色器（不注入、不炸），非 §4.2 字面的「uDim 乘 vertexColor」——场景灯已随同曲线衰减，再乘 uDim 双重变暗、深夜 ≈2% 过黑（见头部实施状态注记 D3 条）。
 
 ---
 
