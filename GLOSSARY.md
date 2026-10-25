@@ -127,8 +127,8 @@ _Avoid_: 按钮用 emoji（观感业余且各平台字形漂移）、把按钮�
 _Avoid_: 把政策纯函数写回模式壳（S1 剥核先例：world→mesh-core / tank→tank-core / mobs→mob-core）
 
 **竞技场核心（ArenaCore）**:
-应用层纯核心（js/arena-core.js，零 THREE 零 DOM，有单测）：竞技场模式的政策与数值段——一期收常数表（ARENA 几何〔中心由 config 世界尺寸加载期派生〕· HOTBAR 选块物品栏 · ARENA_POWER 配平战力 · ID_* 地形方块别名 · TIER_MULT/TIER_NAME 晋升档位 · COUNTER 克制关系 · FLY_KNOCK_R/FLY_ORBIT_R 飞行边界两档 · MAX_MOBS 数量上限）与叶子纯函数（angleLerp 环形角度插值 · mobSpeed 移速修正 · tierStars/tierHot 晋升星级名牌 · comebackMult 翻盘系数〔入参为双方总血量占比〕 · fusingCreeperNear 苦力怕合体探测〔入参为读条清单〕）；技能 tick 族/索敌权重/配平逻辑后续票迁入。壳（js/modes/arena.js）保留战斗编排与观感，经共享词法环境消费。
-_Avoid_: 把观感挂件/弹道 mesh 写进 core（留壳）、与 mob-core/combat-core 重复建 vocabulary（身体本能/弹道步进在那边）
+应用层纯核心（js/arena-core.js，零 THREE 零 DOM，有单测）：竞技场模式的政策与数值段——一期收常数表（ARENA 几何〔中心由 config 世界尺寸加载期派生〕· HOTBAR 选块物品栏 · ARENA_POWER 配平战力 · ID_* 地形方块别名 · TIER_MULT/TIER_NAME 晋升档位 · COUNTER 克制关系 · FLY_KNOCK_R/FLY_ORBIT_R 飞行边界两档 · MAX_MOBS 数量上限）与叶子纯函数（angleLerp 环形角度插值 · mobSpeed 移速修正 · tierStars/tierHot 晋升星级名牌 · comebackMult 翻盘系数〔入参为双方总血量占比〕 · fusingCreeperNear 苦力怕合体探测〔入参为读条清单〕）；二期收参数化即纯段——配平三件套（unitPower/teamPower/balanceTeams，选边 lastEdited 与写回留壳）· 晋升阈值公式 promoThresholds · 击杀信用判定半 killCredit（观感半 levelUp 留壳）· 队伍血量占比 teamHpFrac · 编队池构造与抽取（mixPool/mixAvgPower/mixBuckets/pickMix，核心零 Mobs 依赖——spawnable 清单与 MOB_TYPES 由壳注入）· 地形段（floorBlock/wallBlock/generate，hashRand/setBlockRaw/SceneKit 经全局名 seam，adventure-core 档）；技能 tick 族/索敌权重后续票迁入。壳（js/modes/arena.js）保留战斗编排与观感，经共享词法环境消费。
+_Avoid_: 把观感挂件/弹道 mesh 写进 core（留壳）、与 mob-core/combat-core 重复建 vocabulary（身体本能/弹道步进在那边）、把 lastEdited/autoBalance/teamInitHp 等会话状态搬进 core（选边与写回归壳）
 
 **训练营机制核心（CampCore）**:
 应用层纯核心（js/camp-core.js，零 THREE·零 DOM·有单测）：两训练营家族逐字镜像机制的唯一实现——mkStampBook 图章一本工厂（rewards/keepDays/dailyCap 注入，30 步长递进线，八件 record/trim/count/milestones/rewardsDue/rewardFor/rewardClaimed/nextLine）、日期三件套 todayStr（委托 budgetDateStr 唯一拼装点）/dayIndex/trimLog（未来日期保留的零惩罚口径）、loot 基座 pickWeighted/grantLoot（余量静默+full 标记）；家族函数名（stampRecord/mathStampRecord 等）是 focus-levels/math-levels 的薄委托 interface；掷骰政策（段位变率 vs 族池）留各自 levels。

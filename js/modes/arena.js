@@ -2,57 +2,13 @@
 /* ============================================================
    竞技场模式:环形竞技场 + 双阵营怪物 PVP 对战
    ------------------------------------------------------------
-   依赖(均经全局名, 调用期解析): js/arena-core.js 的 ArenaCore(常数表
-   与叶子纯函数, 先于本文件加载, 见 index.html) · 怪物库 Mobs · config
+   依赖(均经全局名, 调用期解析): js/arena-core.js 的 ArenaCore(常数表/
+   纯函数段/配平与晋升判定半/编队池构造/地形段, 先于本文件加载, 见
+   index.html) · 怪物库 Mobs · config · voxel/scene-kit(经 ArenaCore 间接)
 ============================================================ */
 
-/* ---------- 竞技场地形生成(几何/选块/战力常数表在 js/arena-core.js) ---------- */
-function floorBlock(x, z, dx, dz, r) {
-  if (r < 8.6) return dx < 0 ? ArenaCore.ID_REDWOOL : ArenaCore.ID_BLUEWOOL; // 中央徽章 红西蓝东
-  if (Math.abs(r-9.5) < 0.6 || Math.abs(r-30) < 0.6) return ArenaCore.ID_QUARTZ; // 石英环
-  if (Math.hypot(dx+19, dz) < 3.3) return ArenaCore.ID_REDWOOL; // 红方出生垫
-  if (Math.hypot(dx-19, dz) < 3.3) return ArenaCore.ID_BLUEWOOL; // 蓝方出生垫
-  const t = hashRand(x*5+z, z*7+x);
-  return t < 0.8 ? ArenaCore.ID_STONE : (t < 0.95 ? ArenaCore.ID_COBBLE : ArenaCore.ID_MOSS);
-}
-function wallBlock(x, y, z) {
-  const t = hashRand(x*7+z*3, y*13+z);
-  return t < 0.7 ? ArenaCore.ID_BRICK : (t < 0.9 ? ArenaCore.ID_COBBLE : ArenaCore.ID_MOSS);
-}
-function generate() {
-  const AR = ArenaCore.ARENA;
-  const G = AR.floorY;
-  for (let x=0; x<WORLD_W; x++) {
-    for (let z=0; z<WORLD_D; z++) {
-      const dx = x+0.5-AR.cx; const dz = z+0.5-AR.cz;
-      const r = Math.hypot(dx, dz);
-      for (let y=0; y<=G; y++) setBlockRaw(x, y, z, ArenaCore.ID_STONE); // 地基
-      if (r < AR.rIn-0.5) setBlockRaw(x, G, z, floorBlock(x, z, dx, dz, r));
-      else if (r <= AR.rOut+0.5) setBlockRaw(x, G, z, wallBlock(x, G, z));
-      else setBlockRaw(x, G, z, ArenaCore.ID_GRASS); // 外部草原
-      if (r >= AR.rIn-0.5 && r <= AR.rOut+0.5) { // 环形墙 + 看台
-        for (let y=G+1; y<=G+7; y++) setBlockRaw(x, y, z, wallBlock(x, y, z));
-        setBlockRaw(x, G+8, z, hashRand(x*3, z) < 0.88 ? ArenaCore.ID_BRICK : ArenaCore.ID_COBBLE);
-      }
-      if (r >= AR.rIn-0.6 && r <= AR.rIn+0.6) { // 内侧玻璃护栏(1格,不挡视线)
-        setBlockRaw(x, G+9, z, ArenaCore.ID_GLASS);
-      }
-      if (r >= AR.rOut-0.6 && r <= AR.rOut+0.6) { // 外侧玻璃护栏(2格)
-        setBlockRaw(x, G+9, z, ArenaCore.ID_GLASS);
-        setBlockRaw(x, G+10, z, ArenaCore.ID_GLASS);
-      }
-      if (r > AR.rOut+7 && x>2 && z>2 && x<WORLD_W-3 && z<WORLD_D-3 &&
-         hashRand(x+31, z+17) > 0.988) SceneKit.tree(x, G+1, z);
-    }
-  }
-  for (let i=0; i<12; i++) { // 看台立柱 + 灯
-    const a = i*Math.PI/6 + Math.PI/12;
-    const px = Math.round(AR.cx + Math.cos(a)*(AR.rOut-1.4));
-    const pz = Math.round(AR.cz + Math.sin(a)*(AR.rOut-1.4));
-    for (let y=G+9; y<=G+11; y++) setBlockRaw(px, y, pz, ArenaCore.ID_BRICK);
-    setBlockRaw(px, G+12, pz, ArenaCore.ID_LAMP);
-  }
-}
+/* ---------- 竞技场地形段(floorBlock/wallBlock/generate)与几何/选块/战力
+   常数表均在 js/arena-core.js — 建场经 loadScene(ArenaCore.generate) 装填 ---------- */
 function spawnPlayer() {
   const AR = ArenaCore.ARENA;
   const sx = AR.cx; // 南侧看台正中
@@ -63,26 +19,12 @@ function spawnPlayer() {
 
 /* ---------- 怪物类型 ----------
    数值表 MOB_TYPES 在 config.js(怪物库 js/mobs.js 与竞技场/演习场共用) */
-/* 混合编队池: 全部常规怪(Boss 与飞行单位除外 — 混编要贴脸互殴才热闹);
-   spawnable() 是怪物库的"可部署清单"(排除 mix 伪类型), 伪类型过滤归引擎 */
-const MIX_POOL = Mobs.spawnable().filter((k) =>
-  !MOB_TYPES[k].boss && !MOB_TYPES[k].fly);
-const MIX_AVG_POWER = Math.round(MIX_POOL.reduce((s, k)=>s+ArenaCore.ARENA_POWER[k], 0) / MIX_POOL.length);
-/* 混编按族等权分桶(谱系第一期机制消费): 先均匀抽主族再族内均匀抽成员 —
-   成员均匀会让大家族(僵尸一家 4 只)挤掉小家族(软软族 2 只)的出场名额 */
-const MIX_BUCKETS = (()=>{
-  const b = {lone: []};
-  for (const k of MIX_POOL) {
-    const fam = ((MOB_TYPES[k].family)||[])[0] || 'lone';
-    (b[fam] = b[fam] || []).push(k);
-  }
-  return b;
-})();
+/* 混合编队池: 加载期一次性求值(构造纯函数在 js/arena-core.js, 核心零
+   Mobs 依赖 — spawnable() 的加载期调用与 Boss/fly 过滤口径的注释在那边) */
+const MIX_POOL = ArenaCore.mixPool(Mobs.spawnable(), MOB_TYPES);
+const MIX_AVG_POWER = ArenaCore.mixAvgPower(MIX_POOL);
+const MIX_BUCKETS = ArenaCore.mixBuckets(MIX_POOL, MOB_TYPES);
 const MIX_FAMS = Object.keys(MIX_BUCKETS);
-function pickMix() {
-  const fam = MIX_BUCKETS[MIX_FAMS[Math.floor(Math.random()*MIX_FAMS.length)]];
-  return fam[Math.floor(Math.random()*fam.length)];
-}
 
 /* ---------- 升级系统 ----------
    个人击杀累积信用(劣势方×加成), 达标晋升:
@@ -372,20 +314,15 @@ function explode(x, y, z, team, owner, ratio) {
     dmg: 33*ratio*(owner?owner.dmgMult:1), fallOff: 0.75, kpow: 2.0, stagger: 0.5, use3D: true});
 }
 
-/* ---------- 升级系统逻辑 ---------- */
-function teamHpFrac(team) {
-  const init = teamInitHp[team];
-  if (!init) return 1;
-  let hp = 0;
-  for (const t of mobs) if (t.team===team && !t.dead && !t.gone) hp += t.hp;
-  return Math.min(1, hp/init);
-}
+/* ---------- 升级系统逻辑(阈值/信用/占比的判定半在 js/arena-core.js) ---------- */
 /* 劣势方击杀信用加成(1~2, 纯函数在 js/arena-core.js): 入参为击杀方/另一方
-   的总血量占比, 核心不读 mobs 全局 */
+   的总血量占比(队清单与开战基准由壳传入, 核心不读 mobs 全局) */
 function awardKill(killer, victim) {
   if (battleState !== 'fighting') return;
   const kt = victim.team==='A' ? 'B' : 'A';
-  const mult = ArenaCore.comebackMult(teamHpFrac(kt), teamHpFrac(kt==='A' ? 'B' : 'A'));
+  const ot = kt==='A' ? 'B' : 'A';
+  const mult = ArenaCore.comebackMult(ArenaCore.teamHpFrac(mobs, kt, teamInitHp[kt]),
+      ArenaCore.teamHpFrac(mobs, ot, teamInitHp[ot]));
   if (killer && killer.team!==victim.team && !killer.dead && !killer.gone) {
     addKillCredit(killer, mult);
   }
@@ -398,11 +335,13 @@ function awardKill(killer, victim) {
     addKillCredit(creeps[Math.floor(Math.random()*creeps.length)], 0.5*mult);
   }
 }
+/* 击杀信用入账(判定半在 js/arena-core.js): 信用照累计(死者也不清零),
+   存活口径与 levelUp 循环(观感半)留壳 — 同帧多杀可连跳级 */
 function addKillCredit(m, credit) {
-  m.kills += credit;
-  while (m.level < 3 && !m.dead && !m.gone && m.kills >= (m.level===1 ? m.k2 : m.k3)) {
-    levelUp(m);
-  } // 同帧多杀可连跳级
+  const r = ArenaCore.killCredit(m.kills, credit, m.level, m.k2, m.k3);
+  m.kills = r.kills;
+  if (m.dead || m.gone) return;
+  for (let i=0; i<r.ups; i++) levelUp(m);
 }
 function levelUp(m) {
   m.level++;
@@ -1272,18 +1211,18 @@ const cfgB = {type: 'skeleton', count: 8};
 let autoBalance = true; // 开启后两队总战力自动一致
 let lastEdited = 'A'; // 最后编辑的一侧，另一侧随之配平
 
-/* 单只战力: 混编按池内平均值(伪类型不落盘到共享表, 见文件头 MIX_AVG_POWER) */
+/* 单只战力/队战力/配平: 算术在 js/arena-core.js(混编均值经入参传入;
+   伪类型不落盘到共享表, 见 mixAvgPower) — 薄委托保住 UI 侧调用点 */
 function unitPower(cfg) {
-  return cfg.type==='mix' ? MIX_AVG_POWER : ArenaCore.ARENA_POWER[cfg.type];
+  return ArenaCore.unitPower(cfg, MIX_AVG_POWER);
 }
 function teamPower(cfg) {
-  return cfg.count * unitPower(cfg);
+  return ArenaCore.teamPower(cfg, MIX_AVG_POWER);
 }
 function balanceTeams() {
   const from = lastEdited==='A' ? cfgA : cfgB;
   const to = lastEdited==='A' ? cfgB : cfgA;
-  const n = Math.round(from.count * unitPower(from) / unitPower(to));
-  to.count = Math.min(ArenaCore.MAX_MOBS, Math.max(1, n));
+  to.count = ArenaCore.balanceTeams(from, to, MIX_AVG_POWER); // 选边与写回归壳
 }
 
 /* ---------- 部署队列: 大兵团分帧生成 ----------
@@ -1300,7 +1239,7 @@ function queueTeam(team, cfg) {
   for (let i=0; i<cfg.count; i++) {
     const a = Math.random()*Math.PI*2; const rr = 0.6+Math.random()*spread;
     const x = ax + Math.cos(a)*rr; const z = az + Math.sin(a)*rr;
-    const type = cfg.type==='mix' ? pickMix() : cfg.type;
+    const type = cfg.type==='mix' ? ArenaCore.pickMix(MIX_BUCKETS, MIX_FAMS) : cfg.type;
     out.push({team, type, x, z});
   }
   return out;
@@ -1312,8 +1251,8 @@ function deploySpawnQueue() {
     const s = spawnQueue[spawnCursor++];
     const m = spawnMob(s.team, s.type, s.x, s.z);
     const ec = s.team==='A' ? cfgB.count : cfgA.count; // 升级阈值随敌方规模缩放
-    m.k2 = Math.max(1, Math.min(6, Math.ceil(ec*0.25)));
-    m.k3 = Math.max(m.k2+1, Math.min(14, Math.ceil(ec*0.6)));
+    const th = ArenaCore.promoThresholds(ec); // k2=25% 钳 1..6 · k3=60% 钳 k2+1..14
+    m.k2 = th.k2; m.k3 = th.k3;
     teamInitHp[m.team] += m.maxHp;
   } while (spawnCursor < spawnQueue.length && performance.now() - t0 < 6);
   if (spawnCursor >= spawnQueue.length) {
@@ -1509,7 +1448,7 @@ const ArenaMode = mkMode({
     {icon: 'shovel', label: '挖/放', holdAct: mkMainAct(arenaHeldIsBlock)},
   ],
   init() {
-    loadScene(generate); // 场景装填 seam: 建 + 收尾重建一步到位
+    loadScene(ArenaCore.generate); // 场景装填 seam: 建 + 收尾重建一步到位
     spawnPlayer();
     buildPanel();
     if (autoBalance) balanceTeams();

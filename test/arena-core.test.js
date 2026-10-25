@@ -2,11 +2,12 @@
 /* 竞技场核心 (js/arena-core.js) 单测 — node --test (零依赖)
    运行: node --test test/arena-core.test.js
    C3-T1 剥核后的同名单测(conventions §1.2 守门), 装载器走 adventure-core 档:
-   本核心只在加载期读 config 的 WORLD_W/WORLD_D, 故 vm 只装真 config.js 一件,
-   全局名桥到主域后 require 被测核心(经典 script 词法环境的 Node 侧镜像);
-   几何派生断言用换桩重载(vm 新环境注入不同世界尺寸)证明「派生而非硬编码」。
-   战斗编排/技能 tick/索敌权重的行为面由 test/boot.test.js 全链冒烟守着,
-   两份互不重复。 */
+   C3-T2 起核心的地形段经全局名消费 voxel(hashRand/setBlockRaw)与
+   scene-kit(SceneKit), vm 装齐 config+voxel+scene-kit 三件(adventure-core
+   同款), 全局名桥到主域后 require 被测核心(经典 script 词法环境的
+   Node 侧镜像); 几何派生断言用换桩重载(vm 新环境注入不同世界尺寸)证明
+   「派生而非硬编码」。战斗编排/技能 tick/索敌权重的行为面由
+   test/boot.test.js 全链冒烟守着, 两份互不重复。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -15,11 +16,14 @@ const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
 
-/* ---------- 装载器(adventure-core 档): config 先载 vm, 全局名桥主域, 再 require 被测核心 ---------- */
-const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
-vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/config.js'), 'utf8'), eng, {filename: 'js/config.js'});
+/* ---------- 装载器(adventure-core 档): 真引擎件先载 vm, 全局名桥主域, 再 require 被测核心 ---------- */
+const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
+for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js']) {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
+}
 const cfg = vm.runInContext('({WORLD_W, WORLD_D, MOB_TYPES, BLOCKS})', eng);
-Object.assign(globalThis, {WORLD_W: cfg.WORLD_W, WORLD_D: cfg.WORLD_D});
+Object.assign(globalThis, vm.runInContext(
+    '({WORLD_W, WORLD_D, hashRand, setBlockRaw, SceneKit})', eng));
 const ArenaCore = require('../js/arena-core.js');
 
 /* 换桩重载: 新 vm 环境注入不同世界尺寸, 证明 ARENA 中心是加载期派生 */
@@ -29,6 +33,10 @@ function loadWithSize(w, d) {
       sandbox, {filename: 'js/arena-core.js'});
   return sandbox.module.exports;
 }
+
+/* 世界快照助手(对真 worldCells 断言, 与 adventure-core.test.js 同款) */
+const cell = (x, y, z) => vm.runInContext('worldCells', eng)[(y * cfg.WORLD_D + z) * cfg.WORLD_W + x];
+const snapshot = () => Buffer.from(vm.runInContext('worldCells', eng));
 
 /* ============ 常数表 ============ */
 
@@ -184,4 +192,130 @@ test('合体探测: fusingCreeperNear 距离边界与例外口径(清单参数�
   assert.strictEqual(ArenaCore.fusingCreeperNear(self, [creep(1, 3)]), null, '自己读条中不逃');
   const archer = Object.assign({}, m, {cfg: {ranged: true, range: 14, dmg: 6}});
   assert.strictEqual(ArenaCore.fusingCreeperNear(archer, [creep(1, 3)]).pos.x, 1, '远程不吃两击例外');
+});
+
+/* ============ 二期纯段: 配平 / 晋升 / 信用 / 占比 ============ */
+
+test('配平三件套: unitPower/teamPower 算术照搬, balanceTeams 返回新 count 不改入参', () => {
+  assert.strictEqual(ArenaCore.unitPower({type: 'zombie'}, 585), 170);
+  assert.strictEqual(ArenaCore.unitPower({type: 'mix'}, 585), 585); // 混编吃池均值
+  assert.strictEqual(ArenaCore.teamPower({type: 'zombie', count: 8}, 585), 1360);
+  /* 配平: round(from 战力 / to 单体战力), 钳 1..MAX_MOBS; lastEdited 选边与
+     写回 to.count 的状态语义在壳侧(薄委托), 此处只钉算术与钳位 */
+  assert.strictEqual(ArenaCore.balanceTeams({type: 'zombie', count: 8}, {type: 'skeleton'}, 585), 8);
+  assert.strictEqual(ArenaCore.balanceTeams({type: 'zombie', count: 8}, {type: 'warden'}, 585), 1,
+      'round(1360/4800)=0 → 下钳 1');
+  assert.strictEqual(ArenaCore.balanceTeams({type: 'warden', count: 480}, {type: 'zombie'}, 585),
+      ArenaCore.MAX_MOBS, '海量弱旅顶上钳');
+  const from = {type: 'zombie', count: 8}; const to = {type: 'skeleton', count: 3};
+  ArenaCore.balanceTeams(from, to, 585);
+  assert.deepStrictEqual([from.count, to.count], [8, 3], '纯函数不改入参(写回归壳)');
+});
+
+test('晋升阈值: promoThresholds 在 ec=1/4/7/10/100 的缩放与钳位, k3 恒大于 k2', () => {
+  assert.deepStrictEqual(ArenaCore.promoThresholds(1), {k2: 1, k3: 2}); // ceil(0.25)=1, ceil(0.6)=1→k2+1 兜底
+  assert.deepStrictEqual(ArenaCore.promoThresholds(4), {k2: 1, k3: 3}); // ceil(1)/ceil(2.4)
+  assert.deepStrictEqual(ArenaCore.promoThresholds(7), {k2: 2, k3: 5}); // ceil(1.75)/ceil(4.2)
+  assert.deepStrictEqual(ArenaCore.promoThresholds(10), {k2: 3, k3: 6}); // ceil(2.5)/ceil(6)
+  assert.deepStrictEqual(ArenaCore.promoThresholds(100), {k2: 6, k3: 14}); // 封顶 6/14 杀
+  for (let ec = 1; ec <= 40; ec++) {
+    const th = ArenaCore.promoThresholds(ec);
+    assert.ok(th.k2 >= 1 && th.k2 <= 6, 'ec=' + ec + ' k2 钳 1..6');
+    assert.ok(th.k3 > th.k2 && th.k3 <= 14, 'ec=' + ec + ' k3 钳 k2+1..14');
+  }
+});
+
+test('击杀信用: killCredit 累计信用并数连跳档数(存活口径留壳, 判定纯算术)', () => {
+  assert.deepStrictEqual(ArenaCore.killCredit(0, 1, 1, 2, 5), {kills: 1, ups: 0}); // 未到 k2
+  assert.deepStrictEqual(ArenaCore.killCredit(1.75, 0.25, 1, 2, 5), {kills: 2, ups: 1}); // 过 k2 停在 k3 前
+  assert.deepStrictEqual(ArenaCore.killCredit(5.5, 0.5, 1, 2, 5), {kills: 6, ups: 2}, '同帧多杀连跳两级');
+  assert.deepStrictEqual(ArenaCore.killCredit(10, 5, 3, 2, 5), {kills: 15, ups: 0}, '满级不再升');
+  assert.deepStrictEqual(ArenaCore.killCredit(4.75, 0.25, 2, 2, 5), {kills: 5, ups: 1}, '精英位过 k3 升王者');
+});
+
+test('队伍血量占比: teamHpFrac 排除死/走, 无基准=1, 超基准钳 1', () => {
+  assert.strictEqual(ArenaCore.teamHpFrac([], 'A', 100), 0, '空 roster(全灭)');
+  const alive = {team: 'A', hp: 60, dead: false, gone: false};
+  const dead = {team: 'A', hp: 40, dead: true, gone: false};
+  const gone = {team: 'A', hp: 50, dead: false, gone: true};
+  const other = {team: 'B', hp: 30, dead: false, gone: false};
+  assert.strictEqual(ArenaCore.teamHpFrac([alive, dead, gone, other], 'A', 100), 0.6);
+  assert.strictEqual(ArenaCore.teamHpFrac([{team: 'A', hp: 100, dead: false, gone: false}], 'A', 100), 1, '满血');
+  assert.strictEqual(ArenaCore.teamHpFrac([{team: 'A', hp: 120, dead: false, gone: false}], 'A', 100), 1,
+      '回血超基准钳 1');
+  assert.strictEqual(ArenaCore.teamHpFrac([alive], 'A', 0), 1, '开战前无基准');
+});
+
+/* ============ 二期纯段: 编队池 ============ */
+
+test('编队池: mixPool 滤掉 Boss/飞行, mixBuckets 按主族分桶(无族落 lone)', () => {
+  const spawnable = ['zombie', 'stray', 'golem', 'warden', 'phantom'];
+  const fakeTypes = {
+    zombie: {family: ['zombie_line']},
+    stray: {family: ['skeleton_line']},
+    golem: {}, // 无族标签 → lone(独行侠桶天然存在)
+    warden: {boss: true},
+    phantom: {fly: true},
+  };
+  const pool = ArenaCore.mixPool(spawnable, fakeTypes);
+  assert.deepStrictEqual(pool, ['zombie', 'stray', 'golem']);
+  const buckets = ArenaCore.mixBuckets(pool, fakeTypes);
+  assert.deepStrictEqual(buckets.zombie_line, ['zombie']);
+  assert.deepStrictEqual(buckets.skeleton_line, ['stray']);
+  assert.deepStrictEqual(buckets.lone, ['golem']);
+  assert.deepStrictEqual(Object.keys(buckets).sort(), ['lone', 'skeleton_line', 'zombie_line']);
+});
+
+test('混编均值: mixAvgPower 按 ARENA_POWER 池内平均(四舍五入)', () => {
+  assert.strictEqual(ArenaCore.mixAvgPower(['zombie', 'golem']), 585); // (170+1000)/2
+  assert.strictEqual(ArenaCore.mixAvgPower(['zombie']), 170);
+});
+
+test('混编抽取: pickMix 两段随机(先族后成员), rand 注入确定性 + 缺省落在池内', () => {
+  const buckets = {lone: ['golem'], zombie_line: ['zombie'], skeleton_line: ['stray']};
+  const fams = Object.keys(buckets);
+  assert.strictEqual(ArenaCore.pickMix(buckets, fams, () => 0), 'golem'); // 首族首员
+  assert.strictEqual(ArenaCore.pickMix(buckets, fams, () => 0.99), 'stray'); // 末族首员
+  assert.strictEqual(ArenaCore.pickMix(buckets, fams, () => 0.5), buckets[fams[1]][0], '中段族');
+  for (let i = 0; i < 20; i++) { // 缺省 rand: 结果必在桶成员并集内
+    assert.ok([].concat(...Object.values(buckets)).includes(ArenaCore.pickMix(buckets, fams)));
+  }
+});
+
+/* ============ 二期纯段: 地形段(对真 worldCells 断言) ============ */
+
+test('选块纯函数: floorBlock 分区/出生垫与 wallBlock 拌料都确定性', () => {
+  assert.strictEqual(ArenaCore.floorBlock(0, 0, -1, 0, 1), ArenaCore.ID_REDWOOL, '中央徽章红侧');
+  assert.strictEqual(ArenaCore.floorBlock(0, 0, 1, 0, 1), ArenaCore.ID_BLUEWOOL, '中央徽章蓝侧');
+  assert.strictEqual(ArenaCore.floorBlock(0, 0, 9.5, 0, 9.5), ArenaCore.ID_QUARTZ, '石英环 r≈9.5');
+  assert.strictEqual(ArenaCore.floorBlock(0, 0, -19, 0, 19), ArenaCore.ID_REDWOOL, '红方出生垫');
+  assert.strictEqual(ArenaCore.floorBlock(0, 0, 19, 0, 19), ArenaCore.ID_BLUEWOOL, '蓝方出生垫');
+  const fillers = [ArenaCore.ID_STONE, ArenaCore.ID_COBBLE, ArenaCore.ID_MOSS];
+  for (let x = 12; x < 64; x += 7) { // 环内拌料区: 只出三种石且逐点可复现
+    const r = 15; const v1 = ArenaCore.floorBlock(x, 40, 0, 0, r);
+    assert.ok(fillers.includes(v1));
+    assert.strictEqual(ArenaCore.floorBlock(x, 40, 0, 0, r), v1, '同参同值');
+  }
+  const wallFillers = [ArenaCore.ID_BRICK, ArenaCore.ID_COBBLE, ArenaCore.ID_MOSS];
+  for (let y = 15; y < 40; y += 5) {
+    const v1 = ArenaCore.wallBlock(10, y, 30);
+    assert.ok(wallFillers.includes(v1));
+    assert.strictEqual(ArenaCore.wallBlock(10, y, 30), v1, '同参同值');
+  }
+});
+
+test('建场: generate 全图确定性(两次生成逐字节一致) + 地基/徽章/石英环/外圈草原落位', () => {
+  ArenaCore.generate();
+  const a = snapshot();
+  ArenaCore.generate(); // 二次建场(重进复现口径)
+  const b = snapshot();
+  assert.ok(a.equals(b), '两次生成 worldCells 逐字节一致');
+  const G = ArenaCore.ARENA.floorY;
+  const cx = ArenaCore.ARENA.cx; const cz = ArenaCore.ARENA.cz;
+  assert.strictEqual(cell(cx - 1, G, cz - 1), ArenaCore.ID_REDWOOL, '中心偏西一格红徽章');
+  assert.strictEqual(cell(cx, G, cz), ArenaCore.ID_BLUEWOOL, '中心偏东一格蓝徽章');
+  assert.strictEqual(cell(cx + 9, G, cz - 1), ArenaCore.ID_QUARTZ, '石英环 r≈9.5');
+  assert.strictEqual(cell(0, G, 0), ArenaCore.ID_GRASS, '外圈草原(远角)');
+  assert.strictEqual(cell(0, 0, 0), ArenaCore.ID_STONE, 'y0 地基');
+  assert.strictEqual(cell(cx, G + 12, cz), 0, '场地中央无看台灯(立柱在 rOut 圈上)');
 });
