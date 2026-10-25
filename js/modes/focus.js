@@ -99,13 +99,17 @@ let focusAutoTimer = 0; let focusTicker = 0; let focusTickT0 = 0;
 
 /* 训练时长入账: 关卡进行中每秒 accrue 实际毫秒并落账 —
    崩溃/关页损失 ≤1 秒(原为关卡结束才入账, 丢整关 2~3 分钟); 菜单/说明页不计(口径不变) */
+const FOCUS_TICK_MAX_MS = 2000; /* 单拍入账上限: 只认连续在场的真实训练时长 */
+
 function startFocusTicker() {
   stopFocusTicker();
   focusTickT0 = Date.now();
   focusTicker = setInterval(()=>{
     const b = focusBudget(); if (!b) return;
     const nowT = Date.now();
-    b.accrue(nowT - focusTickT0);
+    /* 单拍钳制(≤2s, math ticker 同款): 后台挂机时长不灌入每日预算 —
+       iPad 锁屏过夜曾把数学账灌爆(墙钟差一次性入账), 同源防线 */
+    b.accrue(Math.min(nowT - focusTickT0, FOCUS_TICK_MAX_MS));
     focusTickT0 = nowT;
     b.flush();
   }, 1000);
