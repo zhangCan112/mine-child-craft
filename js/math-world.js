@@ -369,7 +369,7 @@ function runHopWorld(section, h) {
     else trialGap();
   }
 
-  /* ---- 掷骰前进: 点骰子 → 骰值 → 走子逐格读数 → 报落格数字 ---- */
+  /* ---- 掷骰前进: 点骰子 → 骰值+出发点 → 走子念步数(1格2格…) → 问落格数字 ---- */
   function trialDice() {
     phase = 'die';
     setCard('<div class="m-w-q">🎲 掷骰子，走一走！</div>' +
@@ -381,13 +381,23 @@ function runHopWorld(section, h) {
         const st = HopWorld.hopDiceStep(plan, rnd, cur);
         const rollDie = () => {
           paintPips(st.roll);
-          speak('掷出了 ' + st.roll + '！');
-          T.after(750, () => {
+          speak('掷出了 ' + st.roll + '！从第 ' + plan.value(st.from) + ' 格出发！');
+          T.after(2000, () => {
             startWalk(st.from, st.to, {
               speed: countSpeed(),
-              count: (sq) => speak(plan.value(sq)),
+              /* 念步数不念格号(用户 2026-10-25 建议): 题面是"站在哪格",
+                 念格号(哪怕少最后一拍)仍是变相报答案; 念"从第 4 格出发,
+                 走 1 格、2 格、3 格"把加法结构 4+3 唱给孩子听, 落格由
+                 孩子自己算。大数带(unit=10)念累计数 10/20/30(整十数加减
+                 同款脚手架), 不带"格"字 — 走 3 块石板不是 10 格 */
+              count: (sq) => {
+                const k = sq - st.from;
+                speak(plan.unit === 1 ? k + ' 格' : String(k * plan.unit));
+              },
               onDone() {
-                askChoices('现在站在哪块石板？数字是几？', plan.value(st.to), pathMax, null);
+                const q = '现在站在哪块石板？数字是几？';
+                askChoices(q, plan.value(st.to), pathMax, null);
+                speak(q); // 零文字依赖: 题面随卡读出(jumps/gaps 变体同款)
               },
             });
           });
