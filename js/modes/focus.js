@@ -10,7 +10,8 @@
      chiefFace/stampIcon/flameIcon(mcIcon 族, focus-icons.js) ·
      SpeechKit(js/speech.js) · sfx(js/audio.js) · Backpack/ITEMS/iconOf ·
      Budgets(js/daily-budget.js) · SyncDB(js/sync.js) · ModeKit(js/mode-kit.js) ·
-     CampKit(js/camp-kit.js — 战利品回路五件套 C1-T1 收编, 加载序在本文件之前)
+     CampKit(js/camp-kit.js — 战利品回路五件套(C1-T1)与图章仪式四件套
+     (C1-T2)收编, 加载序在本文件之前)
    可测性: 纯 DOM 模式层; 决策纯函数在 focus-levels.js 有单测,
      本文件由 boot.test.js 全链冒烟兜底
    ------------------------------------------------------------
@@ -171,47 +172,43 @@ function focusExit() {
   showPage('main');
 }
 
-/* ---------- 图章日历条 + 集章仪式(F7/B6): 纯函数在 focus-levels.js, 此处只做呈现 ----------
-   当日 ≥1 关盖普通章(图案由 save.stampKind 三选自选, 缺省镐), 满 3 关盖大章;
-   魔鬼特训日另有鬼图章角标(B8, 与普通章并存、不改 stamps 计数口径);
-   漏签空白无任何负面标记; 集章里程碑(3/7/14/30…章)达成时村长喝彩授予
-   观感奖励 —— 永不解锁关卡/范式/难度(红线); 皮肤/烟花等持久观感钩子
-   在仪式或今日页恢复时应用, 落账函数 settleFocusStamps 保持无 DOM 副作用 */
+/* ---------- 图章日历条 + 集章仪式(F7/B6 → C1-T2 收编 CampKit): 纯函数在
+    focus-levels.js, 呈现件(日历条/仪式块/三选一/烟花)住 focusStampRites 实例 ----------
+    当日 ≥1 关盖普通章(图案由 save.stampKind 三选自选, 缺省镐), 满 3 关盖大章;
+    魔鬼特训日另有鬼图章角标(B8, 与普通章并存、不改 stamps 计数口径 — 经 kit
+    的 badge 缝注入); 漏签空白无任何负面标记; 集章里程碑(3/7/14/30…章)达成时
+    村长喝彩授予观感奖励(喝彩图经 awardIcon 缝注入) —— 永不解锁关卡/范式/
+    难度(红线); 皮肤/烟花等持久观感钩子在仪式或今日页恢复时应用,
+    落账函数 settleFocusStamps 保持无 DOM 副作用 */
 const FOCUS_STAMP_KIND_NAMES = {pick: '镐图章', gem: '宝石图章', tnt: '炸药图章'};
-const FOCUS_STAMP_REWARD_TEXT = {
+const FOCUS_STAMP_REWARD_TEXT = { // 结算屏集章 toast(onFocusLevelEnd)也查此表, kit 侧经 rewardText 注入
   stamp_pattern: '自选图章图案', bag_skin: '矿袋新皮肤', firework: '宝物柜烟花', gold_stamp: '金图章',
 };
+const focusStampRites = CampKit.mkStampRites({
+  prefix: 'f',
+  kinds: FOCUS_STAMP_KINDS,
+  kindNames: FOCUS_STAMP_KIND_NAMES,
+  kindDefault: 'pick',
+  daily: FOCUS_STAMP_DAILY,
+  dayKey: focusTodayStr, // 日期键单点出口(库层)
+  count: stampCount,
+  rewardFor: stampRewardFor,
+  rewardText: (rid) => FOCUS_STAMP_REWARD_TEXT[rid],
+  save: saveFocusSave, // 三选一选中即写存档
+  root: () => focusRoot, // 烟花挂根容器
+  badge(key, save) { // B8: 当日有魔鬼特训记录 → 角标鬼图章(与普通章并存, 集章数不另计)
+    const devil = !!(save.devil && save.devil.days && save.devil.days[key]);
+    return devil ? '<img class="f-stamp-devil" draggable="false" alt="" src="' + stampIcon('devil') + '">' : '';
+  },
+  awardIcon: () => '<img class="f-award-chief" draggable="false" alt="村长" src="' + chiefFace('cheer') + '">',
+});
 
 function focusStampKind(save) { // 损坏/缺省回落镐章(与 migrateFocusSave 同一白名单)
-  return save && FOCUS_STAMP_KINDS.includes(save.stampKind) ? save.stampKind : 'pick';
+  return focusStampRites.kindOf(save);
 }
 
 function focusStampCalendarHtml(save) { // 本月日历条(本月外不渲染)
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-  const days = new Date(year, month+1, 0).getDate(); // 本月总天数
-  const todayStr = focusTodayStr(now.getTime());
-  const kind = focusStampKind(save);
-  const totalStamps = stampCount(save.stamps);
-  let cells = '';
-  for (let d = 1; d <= days; d++) {
-    const key = focusTodayStr(new Date(year, month, d).getTime()); // 日期键单点出口
-    const n = save.stamps[key] || 0;
-    const ico = n >= FOCUS_STAMP_DAILY.big ? stampIcon('big') :
-                n >= FOCUS_STAMP_DAILY.min ? stampIcon(kind) : '';
-    // B8: 当日有魔鬼特训记录 → 角标鬼图章(与普通章并存, 集章数不另计)
-    const devil = !!(save.devil && save.devil.days && save.devil.days[key]);
-    cells += '<div class="f-stamp-cell' + (key === todayStr ? ' f-stamp-today' : '') + '">' +
-      (ico ? '<img draggable="false" alt="" src="' + ico + '">' : '') +
-      (devil ? '<img class="f-stamp-devil" draggable="false" alt="" src="' + stampIcon('devil') + '">' : '') +
-      '<span>' + d + '</span></div>';
-  }
-  // B6 金图章: 30 章起日历头部常驻金章标记(纯观感, 不占章位)
-  const gold = totalStamps >= 30 ?
-      '<img class="f-stamp-gold" draggable="false" alt="" src="' + stampIcon('gold') + '">' : '';
-  return '<div class="f-stamp-cal"><div class="f-stamp-title">📅 ' + (month+1) + ' 月的图章 · 已集 ' +
-      totalStamps + ' 枚' + gold + '</div><div class="f-stamp-grid">' + cells + '</div></div>';
+  return focusStampRites.calendarHtml(save);
 }
 
 /* 结算落账(须在 saveFocusSave 之前调用, 就近写回 save): 当日计数与预算 dots 同口径;
@@ -229,15 +226,11 @@ function applyFocusBagSkin(claimed) {
   document.body.classList.toggle('f-bag-iron', stampRewardClaimed(claimed, 'bag_skin'));
 }
 
-/* 一次性 CSS 粒子迸发(B6 烟花): 元素沿用 F9 box-shadow 粒子手法;
-   样式在 css/focus.css, prefers-reduced-motion 下动画全关且基础 opacity=0 */
+/* 一次性 CSS 粒子迸发(B6 烟花, C1-T2 起住 CampKit 实例): 元素沿用 F9
+    box-shadow 粒子手法; 样式在 css/focus.css, prefers-reduced-motion 下
+    动画全关且基础 opacity=0 */
 function launchFocusFirework() {
-  if (!focusRoot) return;
-  const el = document.createElement('div');
-  el.className = 'f-firework';
-  el.setAttribute('aria-hidden', 'true');
-  focusRoot.appendChild(el);
-  setTimeout(()=>el.remove(), 1600);
+  focusStampRites.firework();
 }
 
 /* 集章奖励的观感应用(落账后调用): 皮肤恢复 + 首次领到烟花奖励时迸发一次 */
@@ -246,39 +239,14 @@ function celebrateFocusStampAwards(save, due) {
   if (due.some((line) => stampRewardFor(line) === 'firework')) launchFocusFirework();
 }
 
-function focusStampAwardHtml(lines, save) { // 集章授予仪式块: 村长喝彩 + 观感奖励声明
-  if (!lines || !lines.length) return '';
-  const items = lines.map((line) => '<div>🎖️ ' + FOCUS_STAMP_REWARD_TEXT[stampRewardFor(line)] + '</div>').join('');
-  const pattern = lines.some((line) => stampRewardFor(line) === 'stamp_pattern');
-  const picker = pattern ? '<div class="f-stamp-pick" id="fStampPick">' +
-      '<div class="f-stamp-pick-label">选一个你喜欢的图章</div>' +
-      FOCUS_STAMP_KINDS.map((kind) => '<button type="button" data-kind="' + kind + '"' +
-          (kind === focusStampKind(save) ? ' class="on"' : '') + ' title="' +
-          FOCUS_STAMP_KIND_NAMES[kind] + '" aria-label="' + FOCUS_STAMP_KIND_NAMES[kind] + '">' +
-          '<img draggable="false" alt="" src="' + stampIcon(kind) + '"></button>').join('') +
-      '</div>' : '';
-  return '<div class="f-award"><img class="f-award-chief" draggable="false" alt="村长" src="' +
-      chiefFace('cheer') + '">' +
-      '<div class="f-award-text"><b>集齐 ' + lines[lines.length-1] + ' 枚图章啦！</b>' + items + '</div></div>' +
-      picker;
+function focusStampAwardHtml(lines, save) { // 集章授予仪式块(kit 实例): 村长喝彩(awardIcon 缝) + 观感奖励声明
+  return focusStampRites.awardHtml(lines, save);
 }
 
-/* 三选一图案选择器接线: 选中即写存档并高亮, 日历下次渲染即用新图案 */
+/* 三选一图案选择器接线(C1-T2 起住 CampKit 实例): 选中即写存档并高亮,
+    日历下次渲染即用新图案 */
 function wireFocusStampPicker(save) {
-  const box = document.getElementById('fStampPick');
-  if (!box) return;
-  const buttons = [...box.querySelectorAll('button')];
-  const mark = ()=> buttons.forEach((b)=>b.classList.toggle('on', b.dataset.kind === focusStampKind(save)));
-  mark();
-  buttons.forEach((btn)=>{
-    btn.onclick = ()=>{
-      save.stampKind = btn.dataset.kind;
-      saveFocusSave(save);
-      mark();
-      sfx('pick');
-      SpeechKit.speak(FOCUS_STAMP_KIND_NAMES[btn.dataset.kind]);
-    };
-  });
+  focusStampRites.wirePicker(save);
 }
 
 /* ---------- 今日页 ---------- */

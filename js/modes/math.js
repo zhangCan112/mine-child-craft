@@ -21,8 +21,8 @@
      与 main.js setupBudgets 建立的 math 预算) · SyncDB(js/sync.js) ·
      Backpack(js/backpack.js, ADR 0002 共享背包 — 数学岛是只产出的新消费方,
      T8) · ITEMS(js/items-core.js) · iconOf(js/icons.js, 调用期解析) ·
-     CampKit(js/camp-kit.js — 战利品回路五件套 C1-T1 收编, 加载序在
-     本文件之前) ·
+     CampKit(js/camp-kit.js — 战利品回路五件套(C1-T1)与图章仪式四件套
+     (C1-T2)收编, 加载序在本文件之前) ·
      stampIcon(js/focus-icons.js, T8 数学自选章图案) ·
      MATH_*(js/math-levels.js) · PuzzleCore(js/math-puzzles-core.js) ·
      RandCore(js/rand-core.js, 关卡种子派生 seedAt) ·
@@ -253,40 +253,33 @@ function runMathLootRecap() {
   mathLootHud.runRecap();
 }
 
-/* ---------- 图章一本(T8): 纯函数在 math-levels.js, 此处只做呈现 ----------
+/* ---------- 图章一本(T8 → C1-T2 收编 CampKit): 纯函数在 math-levels.js,
+    呈现件(日历条/仪式块/三选一/烟花)住 mathStampRites 实例 ----------
     当日 ≥1 关盖普通章(图案 stampKind 三选一自选, 缺省宝石章), 满 3 关盖
     大章; 漏签空白无负面标记; 集章达成线只发观感奖励(图案/烟花/金章),
     永不解锁关卡/难度(红线); 日历条挂在今日页, 今日进度行今日页/地图页共用 */
 const MATH_STAMP_KIND_NAMES = {gem: '宝石图章', star: '星星图章', plus: '加号图章'};
+const mathStampRites = CampKit.mkStampRites({
+  prefix: 'm',
+  kinds: MATH_STAMP_KINDS,
+  kindNames: MATH_STAMP_KIND_NAMES,
+  kindDefault: 'gem',
+  daily: MATH_STAMP_DAILY,
+  dayKey: mathTodayStr, // 日期键单点出口(库层)
+  count: mathStampCount,
+  rewardFor: mathStampRewardFor,
+  rewardText: (rid) => MATH_STAMP_REWARD_TEXT[rid], // 文案表在库层 math-levels(位置漂移不治理, 各自传参)
+  save: saveMathSave, // 三选一选中即写存档
+  root: () => mathRoot, // 烟花挂根容器
+});
 
-function mathStampKindOf(save) { // 损坏/缺省回落宝石章(与 migrateMathSave 同一白名单)
-  return save && MATH_STAMP_KINDS.includes(save.stampKind) ? save.stampKind : 'gem';
+function mathStampKindOf(save) { // 损坏/缺省回落宝石章(与 migrateMathSave 同一白名单; 今日行/图章块共用)
+  return mathStampRites.kindOf(save);
 }
 
 /* 本月日历条(本月外不渲染) */
 function mathStampCalendarHtml(save) {
-  const now = new Date();
-  const month = now.getMonth();
-  const year = now.getFullYear();
-  const days = new Date(year, month + 1, 0).getDate(); // 本月总天数
-  const todayStr = mathTodayStr(now.getTime());
-  const kind = mathStampKindOf(save);
-  const total = mathStampCount(save.stamps);
-  let cells = '';
-  for (let d = 1; d <= days; d++) {
-    const key = mathTodayStr(new Date(year, month, d).getTime()); // 日期键单点出口
-    const n = save.stamps[key] || 0;
-    const ico = n >= MATH_STAMP_DAILY.big ? stampIcon('big') :
-        n >= MATH_STAMP_DAILY.min ? stampIcon(kind) : '';
-    cells += '<div class="m-stamp-cell' + (key === todayStr ? ' m-stamp-today' : '') + '">' +
-      (ico ? '<img draggable="false" alt="" src="' + ico + '">' : '') +
-      '<span>' + d + '</span></div>';
-  }
-  // 金图章: 30 章起日历头部常驻(纯观感, 不占章位)
-  const gold = total >= 30 ?
-      '<img class="m-stamp-gold" draggable="false" alt="" src="' + stampIcon('gold') + '">' : '';
-  return '<div class="m-stamp-cal"><div class="m-stamp-title">📅 ' + (month + 1) + ' 月的图章 · 已集 ' +
-      total + ' 枚' + gold + '</div><div class="m-stamp-grid">' + cells + '</div></div>';
+  return mathStampRites.calendarHtml(save);
 }
 
 /* 今日图章进度行(今日页/地图页共用露出): 今日盖章状态 + 集章进度 */
@@ -318,48 +311,23 @@ function mathStampBlockHtml(save, stampNew, stampBig) {
       '<span>' + head + ' · 已集 ' + total + ' 枚' + goal + '</span></div>';
 }
 
-/* 集章授予仪式块: 奖励声明 + 三选一图案选择器(达成 stamp_pattern 线时) */
+/* 集章授予仪式块(kit 实例): 奖励声明(math 无喝彩图, awardIcon 缺省裸文本)
+    + 三选一图案选择器(达成 stamp_pattern 线时) */
 function mathStampAwardHtml(lines, save) {
-  if (!lines || !lines.length) return '';
-  const items = lines.map((line) => '<div>🎖️ ' + MATH_STAMP_REWARD_TEXT[mathStampRewardFor(line)] + '</div>').join('');
-  const pattern = lines.some((line) => mathStampRewardFor(line) === 'stamp_pattern');
-  const picker = pattern ? '<div class="m-stamp-pick" id="mStampPick">' +
-      '<div class="m-stamp-pick-label">选一个你喜欢的图章</div>' +
-      MATH_STAMP_KINDS.map((kind) => '<button type="button" data-kind="' + kind + '"' +
-          (kind === mathStampKindOf(save) ? ' class="on"' : '') + ' title="' +
-          MATH_STAMP_KIND_NAMES[kind] + '" aria-label="' + MATH_STAMP_KIND_NAMES[kind] + '">' +
-          '<img draggable="false" alt="" src="' + stampIcon(kind) + '"></button>').join('') +
-      '</div>' : '';
-  return '<div class="m-award"><b>集齐 ' + lines[lines.length - 1] + ' 枚图章啦！</b>' + items + '</div>' + picker;
+  return mathStampRites.awardHtml(lines, save);
 }
 
-/* 三选一图案选择器接线: 选中即写存档并高亮, 日历下次渲染即用新图案 */
+/* 三选一图案选择器接线(C1-T2 起住 CampKit 实例): 选中即写存档并高亮,
+    日历下次渲染即用新图案 */
 function wireMathStampPicker(save) {
-  const box = document.getElementById('mStampPick');
-  if (!box) return;
-  const buttons = [...box.querySelectorAll('button')];
-  const mark = () => buttons.forEach((b) => b.classList.toggle('on', b.dataset.kind === mathStampKindOf(save)));
-  mark();
-  buttons.forEach((btn) => {
-    btn.onclick = () => {
-      save.stampKind = btn.dataset.kind;
-      saveMathSave(save);
-      mark();
-      sfx('pick');
-      SpeechKit.speak(MATH_STAMP_KIND_NAMES[btn.dataset.kind]);
-    };
-  });
+  mathStampRites.wirePicker(save);
 }
 
-/* 一次性 CSS 粒子迸发(firework 奖励, focus F9 box-shadow 粒子同款手法);
-    样式在 css/math.css, prefers-reduced-motion 下动画全关且基础 opacity=0 */
+/* 一次性 CSS 粒子迸发(firework 奖励, C1-T2 起住 CampKit 实例; focus F9
+    box-shadow 粒子同款手法); 样式在 css/math.css, prefers-reduced-motion
+    下动画全关且基础 opacity=0 */
 function launchMathFirework() {
-  if (!mathRoot) return;
-  const el = document.createElement('div');
-  el.className = 'm-firework';
-  el.setAttribute('aria-hidden', 'true');
-  mathRoot.appendChild(el);
-  setTimeout(() => el.remove(), 1600);
+  mathStampRites.firework();
 }
 
 /* 已领奖励判定(观感恢复用): 数学侧只查 firework — 今日页进场迸发一次 */

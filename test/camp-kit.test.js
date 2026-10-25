@@ -6,10 +6,13 @@
    缺预算拍不入账也不推 t0 · start 幂等 / stop 复位) · mkLootHud 的
    grantIntoBag(CampCore.grantLoot 入包 + 会话明细累计 + 入包即 save +
    满包节流 onFull 每关至多一次 + 非关卡会话防御)与 recapHtml 前缀契约;
-   DOM 观感件(fly/addSlot/runRecap)不直测(仓库惯例), 行为面由 boot 冒烟 +
-   math-paradigms 流程断言兜底。
-   加载器: vm context 执行 camp-core.js + camp-kit.js, 时钟/定时器/入包
-   以记录桩注入(combat-kit.test.js 同款分层口径) */
+   C1-T2 mkStampRites(kindOf 损坏回落家族缺省章 · awardHtml 喝彩图缝两
+   分支与 picker 条件渲染 · calendarHtml 本月网格/今日高亮/badge 角标缝
+   与金章阈值);
+   DOM 观感件(fly/addSlot/runRecap/wirePicker/firework)不直测(仓库惯例),
+   行为面由 boot 冒烟 + math-paradigms 流程断言兜底。
+   加载器: vm context 执行 camp-core.js + camp-kit.js, 时钟(可拨今天的
+   Date 桩)/定时器/入包/章图标以记录桩注入(combat-kit.test.js 同款分层口径) */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -19,13 +22,22 @@ const vm = require('node:vm');
 function loadCampKit() {
   const log = {accrued: [], flushed: 0, cleared: 0};
   let nowMs = 1000000;
+  /* 可拨"今天"的 Date 桩: 无参构造落到受控 nowMs(calendarHtml 的
+     new Date()/new Date(y,m,d) 与 ticker 的 Date.now() 同源可控) */
+  class FixedNowDate extends Date {
+    constructor(...args) {
+      super(...(args.length ? args : [nowMs]));
+    }
+  }
+  FixedNowDate.now = () => nowMs;
   let tickCb = null;
   let tickMs = 0;
   let addOverflow = 0; /* >0 时 add 返回余量(满包拒收), 0 = 全收 */
   const sandbox = {
     console: {warn() {}, log() {}, error() {}},
     Math, JSON, Object, Array, Set, Number, String,
-    Date: Object.assign(Object.create(Date), {now: () => nowMs}),
+    Date: FixedNowDate,
+    stampIcon: (k) => 'data:stamp:' + k,
     setInterval(fn, ms) {
       tickCb = fn;
       tickMs = ms;
@@ -51,6 +63,9 @@ function loadCampKit() {
     armed: () => !!tickCb,
     advance: (ms) => {
       nowMs += ms;
+    },
+    setNow: (t) => {
+      nowMs = t;
     },
     setOverflow: (v) => {
       addOverflow = v;
@@ -135,4 +150,54 @@ test('mkLootHud.grantIntoBag: CampCore.grantLoot 入包 + 明细累计 + 入包�
   hud.begin(); /* 下一关会话开张: 节流旗复位 */
   hud.grantIntoBag(['diamond']);
   assert.strictEqual(fulls, 2, '每关重置后可再提示一次');
+});
+
+test('mkStampRites: kindOf 损坏回落家族缺省章; awardHtml 喝彩图缝(focus 包装/math 裸文本)与 picker 条件渲染', () => {
+  const d = loadCampKit();
+  const base = {prefix: 'f', kinds: ['pick', 'gem', 'tnt'],
+    kindNames: {pick: '镐图章', gem: '宝石图章', tnt: '炸药图章'}, kindDefault: 'pick',
+    daily: {min: 1, big: 3}, dayKey: () => 'k', count: () => 0,
+    rewardFor: () => 'stamp_pattern', rewardText: (rid) => ({stamp_pattern: '自选图章图案'})[rid],
+    save: () => {}, root: () => null};
+  const focusRites = d.ck.mkStampRites(Object.assign({}, base,
+      {awardIcon: () => '<img class="f-award-chief" src="cheer">'}));
+  assert.strictEqual(focusRites.kindOf(null), 'pick', '缺省回落家族缺省章');
+  assert.strictEqual(focusRites.kindOf({stampKind: 'gem'}), 'gem');
+  assert.strictEqual(focusRites.kindOf({stampKind: 'bad'}), 'pick', '白名单外回落');
+  const fh = focusRites.awardHtml([30], {stampKind: 'gem'});
+  assert.ok(fh.includes('f-award-chief') && fh.includes('f-award-text'), '有喝彩图: 奖励文本包进 award-text(focus 现状)');
+  assert.ok(fh.includes('id="fStampPick"') && fh.includes('镐图章'), 'stamp_pattern 线渲染三选一 picker');
+  assert.ok(/data-kind="gem" class="on"/.test(fh), '当前章按钮高亮');
+  const mathRites = d.ck.mkStampRites(Object.assign({}, base, {prefix: 'm', kinds: ['gem'],
+    kindNames: {gem: '宝石图章'}, kindDefault: 'gem',
+    rewardFor: () => 'gold_stamp', rewardText: () => '金图章'}));
+  const mh = mathRites.awardHtml([60], {});
+  assert.ok(!mh.includes('award-chief') && !mh.includes('m-award-text'), '无喝彩图: 裸文本(math 现状)');
+  assert.ok(!mh.includes('mStampPick'), '非 stamp_pattern 线无 picker');
+  assert.strictEqual(mathRites.awardHtml([], {}), '', '空达成线零渲染');
+});
+
+test('mkStampRites.calendarHtml: 本月网格与今日高亮; 魔鬼角标经 badge 缝(缺省零角标); 30 章金章阈值', () => {
+  const d = loadCampKit();
+  d.setNow(new Date(2026, 2, 15, 12, 0, 0).getTime()); /* "今天"=2026-03-15 本地正午 */
+  const dayKey = (t) => {
+    const dt = new Date(t);
+    return dt.getFullYear() + '-' + (dt.getMonth() + 1) + '-' + dt.getDate();
+  };
+  const stamps = {};
+  stamps[dayKey(new Date(2026, 2, 15).getTime())] = 2; /* 今天盖普通章 */
+  const devilDay = dayKey(new Date(2026, 2, 10).getTime());
+  stamps[devilDay] = 1;
+  const mk = (badge) => d.ck.mkStampRites({prefix: 'f', kinds: ['pick'], kindNames: {pick: '镐图章'},
+    kindDefault: 'pick', daily: {min: 1, big: 3}, dayKey,
+    count: (s) => Object.keys(s).length, rewardFor: () => '', rewardText: () => '',
+    save: () => {}, root: () => null, badge});
+  const html = mk((key, save) => key === devilDay && save.devil ?
+      '<img class="f-stamp-devil" src="devil">' : '').calendarHtml({stamps, devil: {days: {}}});
+  assert.ok(html.includes('📅 3 月的图章 · 已集 2 枚'), '月名与集章数(计数经注入派生)');
+  assert.ok(html.includes('f-stamp-today'), '今日单元格高亮');
+  assert.ok(html.includes('f-stamp-devil'), '角标经 badge 缝注入(focus 魔鬼章口径)');
+  assert.ok(!html.includes('f-stamp-gold'), '未达 30 章无金章');
+  const plain = mk().calendarHtml({stamps}); /* math 侧缺省无 badge */
+  assert.ok(!plain.includes('f-stamp-devil'), '缺省零角标(math 现状)');
 });
