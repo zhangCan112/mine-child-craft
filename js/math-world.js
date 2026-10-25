@@ -267,7 +267,7 @@ function runHopWorld(section, h) {
   }
 
   /* ===== 走子: 沿 hopRoute 逐格推进, 逐格读数 ===== */
-  let walk = null; // {pts:[{x,z,sq}], i, speed, count(fn?), onDone, to}
+  let walk = null; // {pts:[{x,z,sq}], i, prog(段内已走,跨帧记账), speed, count(fn?), onDone, to}
   let cur = 0; // 当前所在格下标(试次间延续, 走满一条路的数序)
   let phase = 'idle'; // idle|die|pick-target|pick-start|choice|walking|done
   let trial = null; // 当前试次数据(HopWorld 纯核心产物)
@@ -278,13 +278,16 @@ function runHopWorld(section, h) {
     const pts = route.map((c) => ({x: c.x + 0.5, z: c.z + 0.5,
       sq: squareAt.get(c.x + ',' + c.z)}));
     phase = 'walking';
-    walk = {pts, i: 0, speed: o.speed || MATH_W_FAST,
+    walk = {pts, i: 0, prog: 0, speed: o.speed || MATH_W_FAST,
       count: o.count || null, onDone: o.onDone || null, to: toIdx};
     pos.set(pts[0].x, G + 2, pts[0].z);
   }
   function stepWalk(dt) {
     if (!walk) return;
-    let dist = walk.speed * dt;
+    /* 本帧预算并入段内已走 prog: dt 被 frame() 钳到 ≤0.05s, 单帧
+       speed×dt 凑不足一格, 段内进度必须跨帧记账 — 否则每帧从段起点
+       重算, 走子永远停在首段一小截(掷骰后不前进的死锁根源) */
+    let dist = walk.speed * dt + walk.prog;
     while (dist > 0 && walk.i < walk.pts.length - 1) {
       const a = walk.pts[walk.i];
       const b = walk.pts[walk.i + 1];
@@ -293,11 +296,13 @@ function runHopWorld(section, h) {
       if (dist >= len) { // 走完这一段
         dist -= len;
         walk.i++;
+        walk.prog = 0;
         const hitSq = walk.pts[walk.i];
         pos.set(hitSq.x, G + 2, hitSq.z);
         if (hitSq.sq !== undefined && walk.count) walk.count(hitSq.sq);
         continue;
       }
+      walk.prog = dist; // 残余进度留在段内, 下帧续走
       pos.set(a.x + dx / len * dist, G + 2, a.z + dz / len * dist);
       vel.set(dx / len * 2.6, 0, dz / len * 2.6); // 走路动画喂数(玩家形象)
       dist = 0;
