@@ -578,6 +578,27 @@ const STEPS_ART = [
   '................',
 ];
 
+/* ---------- 烧瓶(体验馆卡 — 锥形瓶绿液起泡, 调试/试验语义; 像素全部自绘,
+      版权口径 D13, 与 tree 同绿系沿用仓内物品色板) ---------- */
+const FLASK_ART = [
+  '................',
+  '......KKKK......',
+  '......KWWK......',
+  '......KWWK......',
+  '......KWWK......',
+  '......KWWK......',
+  '.....KLWWWK.....',
+  '....KLWWWWWK....',
+  '...KLWWWWWWWK...',
+  '..KLWWWWWWWWWK..',
+  '..KWGGGGGGGGWK..',
+  '.KWggggggggggWK.',
+  '.KWgggGggGgggWK.',
+  '.KWggggggggggWK.',
+  '.KKKKKKKKKKKKKK.',
+  '................',
+];
+
 /* ---------- 派生: 左右箭头(纯箭头基画几何派生防手抖; 跳跃/下降因带
    地面线/顶线, 各自手绘不参与旋转派生) ---------- */
 const ARROW_RIGHT_ART = rotCW(ARROW_UP_ART);
@@ -624,6 +645,7 @@ const BTN_PIX = {
   tree: {art: TREE_ART, map: {g: '#3f8f3f', G: '#5abf5a', t: '#7d5730'}},
   basement: {art: BASEMENT_ART, map: {S: '#8a8f98', L: '#c8cdd4', K: '#14161a'}},
   steps: {art: STEPS_ART, map: {K: '#14161a', G: '#5abf5a', g: '#3f8f3f'}}, /* 数学冒险岛卡(草方块阶梯, 与 tree 同绿系) */
+  flask: {art: FLASK_ART, map: {...BTN_GLYPH, g: '#3f8f3f', G: '#5abf5a'}}, /* 体验馆卡(锥形瓶绿液; G 覆写为亮绿=液面/气泡) */
 };
 
 /* 交叉剑色板: 与物品工坊铁剑同源(字符画直接 ⊕ 自那里, 色板也一并) */
@@ -678,7 +700,7 @@ function btnImg(name, cls) {
    元素(滑杆行的 input 监听在 audio-vol-ui.js 早已挂上, 只做"文本节点
    前插图 + 去 emoji"的手术, 不动子元素)。 */
 const BTN_CARD_ICON = {arena: 'swords', focus: 'brain', math: 'steps', build: 'hammer',
-  tank: 'tank', nether: 'portal', adventure: 'tree'};
+  tank: 'tank', nether: 'portal', adventure: 'tree', showroom: 'flask'};
 
 /* 首个文本节点的 emoji 前缀 → 像素图(保留中文文案; 无 emoji 则原样) */
 function btnSwapLeadEmoji(el, key) {
