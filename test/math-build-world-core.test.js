@@ -66,6 +66,69 @@ test('mathWorldSymParams → mkSymmetryPuzzle 端到端: 解有界(≤40 块) ·
   assert.deepStrictEqual(a, b, '同 seed 同输出');
 });
 
+/* ============ mirror/reflect 装场参数: 镜面独占正中一列 ============ */
+
+test('mirrorStage: 镜面列在画布正中(两侧等宽) · 样品与镜像关于镜子列严格对称 · 解不压镜子', () => {
+  for (const axis of ['x', 'z']) {
+    for (const seed of [9, 21, 33]) {
+      const q = BuildWorldCore.mathWorldSymParams({span: 16, layerRate: 0});
+      const p = PuzzleCore.mkSymmetryPuzzle(Object.assign({seed, axis}, q));
+      const st = BuildWorldCore.mirrorStage(p, axis);
+      if (axis === 'x') {
+        assert.strictEqual(st.w, p.box.w + 1, 'x 轴画布加宽一列');
+        assert.strictEqual(st.d, p.box.d, 'z 向不加宽');
+        assert.strictEqual(st.laneX, (p.k + 1) / 2, '镜面列 = 样品与镜像的交界');
+        assert.strictEqual(st.laneX, (st.w - 1) / 2, '镜子在画布正中: 左右等宽');
+        assert.strictEqual(st.ax, 1);
+        assert.strictEqual(st.az, 0);
+      } else {
+        assert.strictEqual(st.d, p.box.d + 1, 'z 轴画布加深一列');
+        assert.strictEqual(st.w, p.box.w, 'x 向不加宽');
+        assert.strictEqual(st.laneZ, (p.kz + 1) / 2, '镜面行 = 样品与镜像的交界');
+        assert.strictEqual(st.laneZ, (st.d - 1) / 2, '镜子在画布正中: 前后等宽');
+        assert.strictEqual(st.az, 1);
+        assert.strictEqual(st.ax, 0);
+      }
+      /* 镜像格的摆放偏移(谜题系 k-x + 判分偏移 ax)不落在镜面列上(镜子
+         不被块压住), 且与样品偏移之和 = 2×镜面列 — 关于镜子列严格对称 */
+      const lane = axis === 'x' ? st.laneX : st.laneZ;
+      const twin = p.solution.filter((c) => !p.half.some((h) => key(h) === key(c)));
+      for (const c of twin) {
+        const pos = axis === 'x' ? c.x + st.ax : c.z + st.az;
+        assert.notStrictEqual(pos, lane, '镜像块不落在镜面列上');
+      }
+      for (const h of p.half) {
+        const mirrorPos = axis === 'x' ? p.k - h.x + st.ax : p.kz - h.z + st.az;
+        const mine = axis === 'x' ? h.x : h.z;
+        assert.strictEqual(mine + mirrorPos, 2 * lane,
+            axis + ' 样品与镜像关于镜面列对称(直觉摆位=判分位置)');
+      }
+    }
+  }
+});
+
+test('mirrorStage: 端到端 — 孩子按"贴着镜子两侧对称"的直觉摆位, 经判分偏移换算后判对', () => {
+  for (const axis of ['x', 'z']) {
+    const q = BuildWorldCore.mathWorldSymParams({span: 16, layerRate: 0});
+    const p = PuzzleCore.mkSymmetryPuzzle(Object.assign({seed: 21, axis}, q));
+    const st = BuildWorldCore.mirrorStage(p, axis);
+    const lane = axis === 'x' ? st.laneX : st.laneZ;
+    const off = axis === 'x' ? st.ax : st.az;
+    /* 孩子把块摆在"与样品关于镜子列对称"的摆放系格子(pos),
+       装配层记录的判分局部 = pos - off — 应恰为谜题系镜像坐标 */
+    const placed = p.half.map((h) => {
+      const mine = axis === 'x' ? h.x : h.z;
+      const pos = 2 * lane - mine; // 直觉: 关于镜面列对称
+      const local = pos - off; // placed 记录机制(onMouse)的换算
+      return axis === 'x' ?
+        Object.assign({}, h, {x: local}) :
+        Object.assign({}, h, {z: local});
+    });
+    assert.strictEqual(PuzzleCore.gradeSymmetry(placed, p), true,
+        axis + ' 直觉对称摆位判对(镜子正中, 无一格偏差)');
+  }
+});
+
 /* ============ mirror/translate: 平移复制 ============ */
 
 test('mkWorldTranslate: 解=样本∪平移像 · 照解摆判对(gradeSymmetry) · 多摆/挪位判错', () => {

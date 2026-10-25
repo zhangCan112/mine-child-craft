@@ -16,7 +16,8 @@
    认知负荷红线: 选答候选恰 4 个(≤ PuzzleCore.LIMITS.chunks)。
    图案细胞 = {x, y, z, col?}(col 1..3 颜色号), 坐标系为谜题局部
    坐标, 世界装配层负责平移到装场基面。
-   interface: MATH_CELL_COLORS · mathWorldSymParams · mkWorldTranslate ·
+   interface: MATH_CELL_COLORS · mathWorldSymParams · mirrorStage(reflect
+     装场参数: 镜面独占正中一列, 两侧摆放区紧贴对称) · mkWorldTranslate ·
      mkWorldTangram · mkWorldBuild · mkWorldPick · mkWorldHidden ·
      mkWorldCount · bridgePlan · bridgeGrade · mkBridgePuzzle(最省桥
      US20: 两岸地形+可证最少块数 par / 三判据判分 / 出题包装) ·
@@ -97,6 +98,28 @@ const BuildWorldCore = (() => {
     const fw = clamp(Math.round(area / hw), 2, 4);
     const density = Math.min(0.62, 0.5 + span / 300);
     return {hw, fw, layers, density};
+  }
+
+  /* ---------- mirror/reflect 装场参数: 镜面独占正中一列 ---------- */
+
+  /* mirrorStage(p, axis): 谜题对称轴在两列之间的格线上(k=2*hw-1 → 轴
+     x=hw-0.5), 若把玻璃"镜子"画在交界列会占掉镜像区第一格 — 左右不等宽、
+     直觉摆法差一格(曾致"分配不镜像"迷惑)。本函数给镜面留一条专属空列:
+     对应轴画布 +1 格, 镜子嵌在 (k+1)/2 恰为画布正中, 样品区与摆放区
+     紧贴镜子两侧严格对称(摆放系 half 与 twin 偏移之和 = 2*镜面列)。
+     返回 {w, d(画布尺寸) · ax, az(判分偏移: 孩子摆的世界块喂 gradeSymmetry
+     前平移回谜题局部系, 与 tangram 的 ax/az 同机制) · laneX/laneZ
+     (镜面列的画布局部坐标, 非该轴时 null)}。 */
+  function mirrorStage(p, axis) {
+    const laneX = axis === 'x' ? (p.k + 1) / 2 : null;
+    const laneZ = axis === 'z' ? (p.kz + 1) / 2 : null;
+    return {
+      w: p.box.w + (laneX === null ? 0 : 1),
+      d: p.box.d + (laneZ === null ? 0 : 1),
+      ax: laneX === null ? 0 : 1,
+      az: laneZ === null ? 0 : 1,
+      laneX, laneZ,
+    };
   }
 
   /* ---------- mirror/translate 平移复制 ---------- */
@@ -534,10 +557,10 @@ const BuildWorldCore = (() => {
     return shuffle(rnd, vals);
   }
 
-  return {MATH_CELL_COLORS, mathWorldSymParams, mkWorldTranslate, mkWorldTangram,
-    mkWorldBuild, mkWorldPick, mkWorldHidden, mkWorldCount, bridgePlan,
-    bridgeGrade, mkBridgePuzzle, bridgeOk, mkWorldDualView, blueprintPixels,
-    digitCells, worldNumChoices, boundsOf, keyOf};
+  return {MATH_CELL_COLORS, mathWorldSymParams, mirrorStage, mkWorldTranslate,
+    mkWorldTangram, mkWorldBuild, mkWorldPick, mkWorldHidden, mkWorldCount,
+    bridgePlan, bridgeGrade, mkBridgePuzzle, bridgeOk, mkWorldDualView,
+    blueprintPixels, digitCells, worldNumChoices, boundsOf, keyOf};
 })();
 
 if (typeof module !== 'undefined' && module.exports) module.exports = BuildWorldCore;

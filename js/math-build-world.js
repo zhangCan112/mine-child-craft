@@ -219,17 +219,29 @@ const MATH_WORLD_VARIANTS = {
         axisLine: axis};
     },
     build(t) {
-      const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
-      wwCellsToWorld(p.half, x0, z0, MATH_WORLD.groundY + 1);
-      const Y = MATH_WORLD.groundY;
-      if (t.axisLine === 'x') { // 镜面缝: 样品与空侧的交界列(嵌地面)
-        const mx = x0 + (p.k + 1) / 2;
-        SceneKit.fill(mx, Y, z0 - 1, mx, Y, z0 + p.box.d, MATH_WORLD.markerBlock);
-      } else {
-        const mz = z0 + (p.kz + 1) / 2;
-        SceneKit.fill(x0 - 1, Y, mz, x0 + p.box.w, Y, mz, MATH_WORLD.markerBlock);
+      const p = t.pz; const W = MATH_WORLD;
+      /* 镜面独占画布正中一列(mirrorStage): 样品与摆放区紧贴镜子两侧
+         严格对称 — 镜子不占镜像区的格子, 孩子直觉摆位与判分一致 */
+      const st = BuildWorldCore.mirrorStage(p, t.axisLine);
+      const {x0, z0} = wwStage(st.w, st.d);
+      wwCellsToWorld(p.half, x0, z0, W.groundY + 1);
+      const Y = W.groundY;
+      const laneX = st.laneX === null ? null : x0 + st.laneX;
+      const laneZ = st.laneZ === null ? null : z0 + st.laneZ;
+      if (laneX !== null) { // 镜面线: 专属空列嵌地面
+        SceneKit.fill(laneX, Y, z0 - 1, laneX, Y, z0 + st.d, W.markerBlock);
       }
-      return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h};
+      if (laneZ !== null) {
+        SceneKit.fill(x0 - 1, Y, laneZ, x0 + st.w, Y, laneZ, W.markerBlock);
+      }
+      return {mode: 'place', pz: p, x0, z0, w: st.w, d: st.d, h: p.box.h,
+        ax: st.ax, az: st.az, // 判分偏移: 孩子摆的世界块平移回谜题局部系
+        canPlace(tx, ty, tz) { // 建造区 = 画布内且不在镜面列(canPlace 替代默认边界)
+          if (tx < x0 || tx >= x0 + st.w || tz < z0 || tz >= z0 + st.d ||
+              ty <= W.groundY || ty > W.groundY + p.box.h) return false;
+          return tx !== laneX && tz !== laneZ;
+        },
+        placeHint: '要摆在魔法镜的另一边哦'};
     },
     speak() {
       return '魔法镜照一照，把另一边摆得一模一样！' + MATH_WORLD.askS;
