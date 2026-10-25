@@ -134,10 +134,12 @@ test('训练营预算契约: 注册表 !gated 的每个 id 在 Budgets 有可入
      不会报错: camp-kit 的 ticker 拿到 null 静默不入账、入口锁永假
      (不限量) — 静默降级。按真实消费面(camp-kit 壳的 accrue/flush/
      blocked)断言最小充分集。vm 里 SyncDB.ready 的 then 挂在微任务,
-     同步探针不等它, 自己建账(幂等, 之后微任务再建一次无害) */
+     同步探针不等它, 自己建账(幂等, 之后微任务再建一次无害)。
+     dev 行(体验馆)不入此契约: 调试不吃孩子的账(spec 用户故事 15),
+     不建预算账本 — !gated 阵营里它只共享"不进儿童时限"这一条 */
   assert.doesNotThrow(() => vm.runInContext('setupBudgets()', ctx),
       'setupBudgets 应可在桩环境完整建账');
-  const camps = ModeRegistry.all.filter((m) => !m.gated).map((m) => m.id);
+  const camps = ModeRegistry.all.filter((m) => !m.gated && !m.dev).map((m) => m.id);
   assert.ok(camps.length > 0, '注册表应含训练营类模式(!gated)');
   const bad = vm.runInContext(
       '(' + JSON.stringify(camps) + ').filter((id) => {' +

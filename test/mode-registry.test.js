@@ -7,7 +7,9 @@
    权威在此(每行必声明), audio-registry 的 MOODS 已收窄为仅 menu。
    覆盖面: 注册表 ↔ index.html(卡/页/按钮/脚本序) ↔ main.js 的 MODES
    影子清单(源文本逐行在场)三方一致; 执行期动态面(键集等价/每键 init
-   可调/switchMode 全 id 不抛)在 test/boot.test.js — 双道防线。 */
+   可调/switchMode 全 id 不抛)在 test/boot.test.js — 双道防线;
+   dev 行(体验馆类)另守三层派生产物: 卡带 dev 类 · 样式表隐藏/还原 ·
+   main.js ?dev=1 解锁(docs/showroom-design.md D1)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -71,11 +73,36 @@ test('模式注册表: 儿童时限成员 = gated 模式(专注训练营独立�
   assert.ok(!ModeRegistry.playModeIds().includes('focus'));
 });
 
-test('模式注册表: 训练营类模式(gated:false 接管全屏 UI)清单 = focus + math', () => {
+test('模式注册表: gated:false 清单 = 两训练营 + 体验馆(dev 调试场)', () => {
   /* 数学冒险岛与专注训练营同形态: 独立每日预算/无菜单页/不计儿童时限;
-     手滑把 math 改成 gated 会把它错并进儿童时限, 这里当场红 */
+     体验馆同走 gated:false(孩子任何情况下看不到入口, 也不进儿童时限)。
+     手滑把任何一员改成 gated 会把它错并进儿童时限, 这里当场红 */
   const camps = ModeRegistry.all.filter((m) => !m.gated).map((m) => m.id);
-  assert.deepStrictEqual(camps, ['focus', 'math']);
+  assert.deepStrictEqual(camps, ['focus', 'math', 'showroom']);
+});
+
+test('模式注册表: dev 行三层派生产物一致 — 卡在场带 dev 类 · 样式表默认隐藏+解锁还原 · main.js 读 ?dev=1', () => {
+  /* dev 可见性(docs/showroom-design.md D1): 注册表 dev:true 是唯一权威,
+     HTML 卡声明身份(class 含 dev)、CSS 拥有默认隐藏(构造性防闪现, 弱网下
+     也不露脸)、JS 只做解锁(?dev=1 → body.dev-on)。三方都是派生产物,
+     这里对着派生端逐条断言(三重命名同款守门路径) — 后来者加 dev 模式
+     忘带 dev 类/样式表被删/解锁接线丢, 任一漂移当场红 */
+  const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'style.css'), 'utf8');
+  const devs = ModeRegistry.all.filter((m) => m.dev);
+  assert.ok(devs.length > 0, 'dev 行清单非空(体验馆应在册, 注册表漏行=功能不存在)');
+  for (const m of devs) {
+    const card = new RegExp('<div class="([^"]*)" id="' + ModeRegistry.cardId(m) + '">').exec(html);
+    assert.ok(card, '缺 dev 模式卡: ' + ModeRegistry.cardId(m));
+    const cls = card[1].split(/\s+/);
+    assert.ok(cls.includes('mode-card'), ModeRegistry.cardId(m) + ' 须保留常规卡类 mode-card');
+    assert.ok(cls.includes('dev'), ModeRegistry.cardId(m) + ' 的 class 缺 dev 身份类(HTML 身份层)');
+  }
+  assert.ok(/\.mode-card\.dev\s*\{\s*display:\s*none;\s*\}/.test(css),
+      '样式表缺 .mode-card.dev 默认隐藏规则(构造性防闪现的 CSS 层)');
+  assert.ok(/body\.dev-on\s+\.mode-card\.dev\s*\{\s*display:\s*block;\s*\}/.test(css),
+      '样式表缺 body.dev-on .mode-card.dev 还原规则(还原值须与常规卡显示模型一致)');
+  assert.ok(mainSrc.includes('dev=1') && mainSrc.includes('dev-on'),
+      'main.js 缺 ?dev=1 → body.dev-on 解锁接线(JS 只做解锁, config.js ?touch=1 同款惯例)');
 });
 
 test('模式注册表: 限额文案的模式名由表派生(漏一个模式不再是手滑)', () => {
