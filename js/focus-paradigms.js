@@ -70,13 +70,8 @@ function fEl(tag, cls, html) {
 function pickRand(arr) {
   return arr[Math.floor(Math.random()*arr.length)];
 }
-function shuffleArr(a) {
-  for (let i=a.length-1; i>0; i--) {
-    const j = Math.floor(Math.random()*(i+1));
-    const t = a[i]; a[i] = a[j]; a[j] = t;
-  }
-  return a;
-}
+/* 洗牌已归一 RandCore.shuffle(js/rand-core.js, 加载序在本文件之前):
+   非突变拷贝式 — 原地用法的调用点赋值回原变量 */
 function mkTimers() {
   const ts = [];
   return {
@@ -161,7 +156,7 @@ function runDiscrimination(area, params, adapt, h, framing) {
      避免逐次独立随机导致极端情况下整局一个 TNT 都不出 */
   const minNo = framing==='gonogo' ? Math.max(1, Math.ceil(params.trials*0.2)) : 1;
   const nGo = Math.max(0, Math.min(params.trials - minNo, Math.round(params.trials*goRate)));
-  const plan = shuffleArr(Array.from({length: params.trials}, (_, k)=> k < nGo));
+  const plan = RandCore.shuffle(Math.random, Array.from({length: params.trials}, (_, k)=> k < nGo));
   let comfortSaid = false;
 
   function showStim(iconName, hinted) {
@@ -311,11 +306,11 @@ function runFlanker(area, params, adapt, h) {
     if (isDemo === undefined) {
       neutralRow = Math.random() < (params.neutralRate || 0);
       if (!neutralRow && params.mobMix > 0 && Math.random() < params.mobMix) {
-        const flankers = [];
+        let flankers = [];
         for (let k=0; k<params.len; k++) {
           if (k !== Math.floor(params.len/2)) flankers.push(k);
         }
-        shuffleArr(flankers);
+        flankers = RandCore.shuffle(Math.random, flankers);
         const cnt = 1 + (Math.random()<0.5 ? 0 : 1); // 混入 1~2 只(知觉噪声)
         for (let k=0; k<cnt; k++) mixSet.push(flankers[k]);
       }
@@ -488,7 +483,7 @@ function runCorsi(area, params, adapt, h) {
        (格位互异不丢格), "哪些格子按什么顺序亮"不变故序列仍可解,
        只阻断"记位置组合"的组块化取巧 */
     if (!isDemo && params.antiChunk > 0 && Math.random() < params.antiChunk) {
-      shuffleArr(tiles).forEach((t)=>grid.appendChild(t));
+      RandCore.shuffle(Math.random, tiles).forEach((t)=>grid.appendChild(t));
     }
     const pool = tiles.map((_, k)=>k);
     const seq = [];

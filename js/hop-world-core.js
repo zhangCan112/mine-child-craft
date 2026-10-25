@@ -19,7 +19,9 @@
    依赖(均经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js,
    加载序在本文件之前 — mkIntervalPuzzle/mkSeqPuzzle 是间隔/规律跳的
    出题神谕, 本核心只做"格空间"包装: 间隔题跨度钳到可走范围后整体
-   平移到大数位置, 答案与两端点同增减、计数不变)。
+   平移到大数位置, 答案与两端点同增减、计数不变);
+   RandCore(js/rand-core.js, 加载序在本文件之前) — childSeed 从注入
+   rnd 派生子种子(同 rnd 序列决定同题)。
    可测性: 零 THREE · 零 DOM · 有单测 test/hop-world-core.test.js
    ============================================================ */
 const HopWorld = (() => {
@@ -29,11 +31,6 @@ const HopWorld = (() => {
   const HOP_LINE_MAX = 21;
   /* 场景草岛外扩边距(格): 路界外再铺一圈草, 幅面仍 ≤32×32 由测试锁定 */
   const HOP_MARGIN = 4;
-
-  /* 种子取值辅助: 从注入的 rnd 派生一个 PuzzleCore 种子(同 rnd 序列决定同题) */
-  function pzSeed(rnd) {
-    return Math.floor(rnd() * 2147483647);
-  }
 
   /* ---------- 路径布局: params.max → 线性方块路的格坐标 ---------- */
 
@@ -136,7 +133,7 @@ const HopWorld = (() => {
      中间格数 = 答案, 与原题严格一致(植树/爬楼问题的具身口径)。 */
   function hopGapInterval(plan, rnd) {
     const cap = Math.min(12, plan.last);
-    const pz = PuzzleCore.mkIntervalPuzzle({seed: pzSeed(rnd), max: cap});
+    const pz = PuzzleCore.mkIntervalPuzzle({seed: RandCore.childSeed(rnd), max: cap});
     const off = Math.floor(rnd() * (plan.last - pz.b));
     return {sub: 'interval', mode: pz.mode, aIdx: pz.a + off, bIdx: pz.b + off, answer: pz.answer};
   }
@@ -144,7 +141,7 @@ const HopWorld = (() => {
   /* 规律跳: mkSeqPuzzle 直接在下标空间出题(等差/交替), 展示项即落格点,
      问下一落格(点击答); 大数带显示值 ×unit(整十数序列) */
   function hopGapSeq(plan, rnd) {
-    const pz = PuzzleCore.mkSeqPuzzle({seed: pzSeed(rnd), max: plan.last});
+    const pz = PuzzleCore.mkSeqPuzzle({seed: RandCore.childSeed(rnd), max: plan.last});
     return {sub: 'seq', seq: pz.seq.slice(), next: pz.next, rule: pz.rule};
   }
 

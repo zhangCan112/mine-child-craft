@@ -26,6 +26,7 @@
      (不用引擎相机远拍)。
    依赖(均经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js) ·
      BuildWorldCore(js/math-build-world-core.js) · MATH_META(js/math-levels.js) ·
+     RandCore(js/rand-core.js, 试次种子派生 seedAt) ·
      loadScene/setBlockRaw/getBlock/editBlock/collidesAtPlayer(js/world.js
      与 voxel.js) · SceneKit(js/scene-kit.js) · mkHotbar/mode-kit.js ·
      ModeKit.spawn · requestLock/setTouchActions/aimClick/touchPlaying
@@ -573,7 +574,7 @@ function runBuildWorld(section, h) {
     }
     if (hh.progress) hh.progress(idx, n);
     settled = false;
-    const seed = (section.seed === undefined ? 0 : section.seed) * 31 + idx * 101 + 7;
+    const seed = RandCore.seedAt(section.seed === undefined ? 0 : section.seed, idx);
     const made = spec.make(section, seed);
     /* 装场 seam: 清场 → 建场 → 收尾入队一步到位(退出/换关清场幂等,
        不写建造存档 — 世界轨纪律 design §3) */

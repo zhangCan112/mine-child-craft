@@ -20,6 +20,7 @@
      (js/math-paradigms.js) · runHopWorld(js/math-world.js) ·
      runBuildWorld(js/math-build-world.js) · MathTrackCore(js/math-track-core.js) ·
      MATH_META(js/math-levels.js) · uiPause/touchPlaying(js/input.js) ·
+     RandCore(js/rand-core.js, boss 小节种子派生 seedAt) ·
      mathRoot(js/modes/math.js, 加载序在本文件之后)
    可测性: THREE/DOM 惰性消费(装场在插件); 分发/时序/串链/离场纪律由
      test/math-track.test.js vm 桩直测(world-integrity 先例)
@@ -151,7 +152,7 @@ function trackRunBoss(level, areaEl, h) {
       }, 400);
     };
     trackRun({family: s.family, variant: s.variant, tier: s.tier, kind: 'challenge',
-      params: s.params, seed: level.i * 7919 + si * 101}, areaEl, {
+      params: s.params, seed: RandCore.seedAt(level.i, si)}, areaEl, {
       progress(k, n) {
         if (hh.progress) hh.progress(doneTrials + k, totalTrials);
       },

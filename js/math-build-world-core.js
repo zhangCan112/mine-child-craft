@@ -26,9 +26,11 @@
      blueprintPixels · digitCells · worldNumChoices
    依赖(经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js,
    加载序在本文件之前, 见 index.html) — 生成与判分全部委托;
-   随机种子注入: 同常数 LCG(同 seed 同输出, seed 缺省走 Math.random)。
+   RandCore(js/rand-core.js, 加载序在本文件之前, 见 index.html) —
+   mkRand 同常数 LCG(同 seed 同输出, seed 缺省走 Math.random)与
+   shuffle 非突变洗牌的全仓唯一实现。
    可测性: 零 THREE · 零 DOM · 有单测 test/math-build-world-core.test.js
-   (Node 直测, PuzzleCore 挂 global 后调用期解析)
+   (Node 直测, PuzzleCore/RandCore 挂 global 后调用期解析)
    ============================================================ */
 const BuildWorldCore = (() => {
   /* 颜色号 1..3 → 图纸像素色与话术名(世界装配层的方块映射在
@@ -39,29 +41,14 @@ const BuildWorldCore = (() => {
     3: {css: '#e8c547', name: '黄色'},
   };
 
-  /* 种子随机: 与 PuzzleCore.mkRand 同常数的独立 LCG(共享词法环境
-     不互抄内部状态, math-levels mathLootRand 同款口径) */
-  function mkRand(seed) {
-    let s = seed === undefined ? Math.floor(Math.random() * 2147483648) : seed;
-    return function() {
-      s = (s * 1103515245 + 12345) % 2147483648;
-      return s / 2147483648;
-    };
-  }
+  /* 随机流与洗牌已归一 RandCore(js/rand-core.js, 加载序在本文件之前,
+     经全局名调用期解析): mkRand 同常数 LCG · shuffle 非突变拷贝式 */
   function ri(rnd, lo, hi) {
     if (hi < lo) hi = lo;
     return lo + Math.floor(rnd() * (hi - lo + 1));
   }
   const pick = (rnd, arr) => arr[Math.floor(rnd() * arr.length)];
   const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
-  function shuffle(rnd, arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      const t = a[i]; a[i] = a[j]; a[j] = t;
-    }
-    return a;
-  }
   const keyOf = (b) => b.x + ',' + b.y + ',' + b.z;
 
   /* 细胞集包围盒(装场定界): 返回 {x0, y0, z0, w, d, h} */
@@ -88,7 +75,7 @@ const BuildWorldCore = (() => {
   function mathWorldSymParams(p) {
     const o = p || {};
     const span = o.span || 12;
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     let layers = 1;
     if (span >= 40) layers = 2;
     else if ((o.layerRate || 0) > 0 && rnd() < o.layerRate) layers = 2;
@@ -131,7 +118,7 @@ const BuildWorldCore = (() => {
     const o = t || {};
     const q = mathWorldSymParams({seed: o.seed, span: o.span, layerRate: o.layerRate});
     const base = PuzzleCore.mkSymmetryPuzzle(Object.assign({seed: o.seed, axis: 'x'}, q));
-    const rnd = mkRand(o.seed === undefined ? undefined : o.seed + 7777);
+    const rnd = RandCore.mkRand(o.seed === undefined ? undefined : o.seed + 7777);
     const sample = base.half;
     const dx = base.box.w + 1 + ri(rnd, 0, 2);
     const dz = ri(rnd, 0, 1);
@@ -149,7 +136,7 @@ const BuildWorldCore = (() => {
      复用 gradeSymmetry(恰填=对, 缺格/多摆全错 — "恰好拼出"的纪律)。 */
   function mkWorldTangram(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const want = clamp(Math.round((o.span || 12) / 2), 4, 12);
     const cells = new Map(); // "x,z" → {x, y:0, z}
     const addRect = (x0, z0, w, h) => {
@@ -184,7 +171,7 @@ const BuildWorldCore = (() => {
      (俯视投影逐格相等: 平铺一层同色即对, 高度自由, 换色/缺列即错)。 */
   function mkWorldBuild(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const blocks = o.blocks || 12;
     const hi = clamp(2 + Math.floor(blocks / 15), 2, 4);
     const w = ri(rnd, 2, hi);
@@ -202,7 +189,7 @@ const BuildWorldCore = (() => {
      (认知负荷红线), 恰一真, answer = 真图下标。 */
   function mkWorldPick(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const blocks = o.blocks || 12;
     const hi = clamp(2 + Math.floor(blocks / 15), 2, 4);
     const w = ri(rnd, 2, hi);
@@ -225,7 +212,7 @@ const BuildWorldCore = (() => {
         cands.push({w: truth.w, d: truth.d, top, ok: false});
       }
     }
-    const shuffled = shuffle(rnd, cands);
+    const shuffled = RandCore.shuffle(rnd, cands);
     return {cells: p.cells, candidates: shuffled,
       answer: shuffled.findIndex((c) => c.ok)};
   }
@@ -249,7 +236,7 @@ const BuildWorldCore = (() => {
      answer 由 PuzzleCore.hiddenBlocks 重算(真值单一出口)。 */
   function mkWorldHidden(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const blocks = o.blocks || 20;
     const max = o.max || blocks;
     let cells;
@@ -290,7 +277,7 @@ const BuildWorldCore = (() => {
      结构性 ≤ max/blocks。 */
   function mkWorldCount(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const blocks = o.blocks || 12;
     const max = o.max || blocks;
     const deep = o.reasoning === 'reverse' || o.reasoning === 'multi-solve';
@@ -343,7 +330,7 @@ const BuildWorldCore = (() => {
      数值跟带: 跨度钳 3..min(8, floor(max/4)), par 结构性 ≤ max。 */
   function bridgePlan(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const max = o.max || 100;
     const span = clamp(o.span === undefined ? 4 : o.span, 3,
         Math.max(3, Math.min(8, Math.floor(max / 4))));
@@ -363,7 +350,7 @@ const BuildWorldCore = (() => {
     } else {
       const n = clamp(o.piers === undefined ? (span >= 4 ? ri(rnd, 0, 1) : 0) : o.piers,
           0, span);
-      for (const x of shuffle(rnd, Array.from({length: span}, (v, i) => i + 1)).slice(0, n)) {
+      for (const x of RandCore.shuffle(rnd, Array.from({length: span}, (v, i) => i + 1)).slice(0, n)) {
         piers.push({x, top: ri(rnd, 1, 2)});
       }
     }
@@ -480,7 +467,7 @@ const BuildWorldCore = (() => {
      box 罩住裁剪后全部候选(装场定界)。 */
   function mkWorldDualView(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed === undefined ? undefined : o.seed + 31);
+    const rnd = RandCore.mkRand(o.seed === undefined ? undefined : o.seed + 31);
     const pz = PuzzleCore.mkDualViewPuzzle({seed: o.seed, blocks: o.blocks});
     let cands = pz.candidates;
     const cWanted = clamp(o.cands === undefined ? 4 : o.cands, 2, 4);
@@ -488,7 +475,7 @@ const BuildWorldCore = (() => {
       const truth = pz.candidates.find((c) => c.ok);
       /* 正视互异干扰(单步档唯一解的构造保证): 投影重算, 不信构造内部状态 */
       const odd = pz.candidates.find((c) => !c.ok && !frontSameAs(c.cells, pz.front));
-      cands = shuffle(rnd, [truth, odd || pz.candidates.find((c) => !c.ok)]);
+      cands = RandCore.shuffle(rnd, [truth, odd || pz.candidates.find((c) => !c.ok)]);
     }
     const answer = cands.findIndex((c) => c.ok);
     return {target: pz.target, front: pz.front, side: pz.side,
@@ -554,7 +541,7 @@ const BuildWorldCore = (() => {
     }
     let extra = 1;
     while (vals.length < 4) vals.push(answer + 10 + extra++); // 干扰兜底(远离答案)
-    return shuffle(rnd, vals);
+    return RandCore.shuffle(rnd, vals);
   }
 
   return {MATH_CELL_COLORS, mathWorldSymParams, mirrorStage, mkWorldTranslate,

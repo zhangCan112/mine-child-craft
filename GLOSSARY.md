@@ -46,6 +46,10 @@ _Avoid_: SFX_DEFS（历史名——effects.js 的音效段自带合成定义表�
 音频系统的纯决策核心（js/audio-core.js，零 THREE·零 DOM·零全局可变依赖，时间与随机由调用方注入，有同名单测），藏住「何时允许一声 / 何时起停音乐」：mkVoiceGate 发声准入——活跃数未满放行（触屏 ≤8 / 桌面 ≤12）、满员时新声 prio 严格大于最老活跃声才抢占（victim 恒为最老、供停声）、同类冷却窗内忽略；mkMusicDirector BGM 稀疏调度状态机——tick 吐 start/stop/gain 纯数据事件（解锁后 5~30s 起曲、曲毕随机 60~180s 静默、换情绪 1.2s 淡出后 15~45s 起曲、同 mood 续播不打断、duck 让路）；mkVolState 音量滑杆状态（baseline() 双端基线快照是装配层取基准的统一口径）；musicBusTarget 音乐总线目标换算——duck 让路只降不升（上限 0.08，不把压低/静音的总线抬响）；AUDIO_MIX 儿童保守响度常数表。WebAudio 节点的真实启停不在此——在 AudioMixer。
 _Avoid_: 限声器/调度器（散称——准入与调度是两个工厂一个核心）、把决策逻辑写进 audio.js（那是执行层 adapter）
 
+**确定性随机核心（RandCore）**:
+全仓种子确定随机的唯一实现（js/rand-core.js，引擎层纯核心，零 THREE·零 DOM·有单测）：mkRand 同常数 LCG（seed 缺省回落 Math.random 的既定口径——不回落则首步 NaN、掉率虚涨 100%，NaN 回归防线）；shuffle 非突变拷贝式 Fisher–Yates（rnd 注入，入参不动、返回洗好的新数组，原地用法赋值回原变量）；seedAt 索引派生（base*7919+i*101+(j||0)+13，j 缺省 0——关卡/小节种子统一口径，2026-10 归一三套历史公式：math.js 的 i*7919+13、math-track.js 的 i*7919+si*101、math-build-world.js 的 seed*31+idx*101+7）；childSeed 从父随机流派生子种子（值域 [0, 2147483646]，喂给 PuzzleCore/BuildWorldCore 等以 seed 为入参的生成器）。interface：mkRand(seed?) · shuffle(rnd, arr) · seedAt(base, i, j?) · childSeed(rnd)。
+_Avoid_: mkLootRand/mathLootRand/mRand/pzSeed/shuffleArr 等各文件本地副本（历史名——五份 LCG 四份洗牌已归一）、把派生公式散写回消费方
+
 **AudioMixer**:
 js/audio.js 的引擎层门面，全部声音的唯一出口：AudioContext 生命周期（手势解锁、interrupted/回前台恢复、挂起不排队）、双总线音频图（音效/音乐分账，触屏音效前置 ~160Hz 高通——音乐低频是内容不滤）、样本懒加载缓存与合成兜底解释器、坦克引擎嗡鸣、MusicDirector 事件流到真实节点的执行、duck。interface：`AudioMixer{sfx, engineHum, setMood, setMusicVol, setSfxVol, duck, tick, preload}`；全局 `sfx(kind)`/`engineHum(level)` 签名不变（60+ 调用点零改动）。决策在音频核心、清单在声音清单注册表，本门面只装配与执行。
 _Avoid_: effects.js 的音效段（历史归属——sfx/engineHum/unlockAudio 原住在那里，A4 已整体迁出，effects.js 只剩视觉特效与 toast）、音频系统（散称）

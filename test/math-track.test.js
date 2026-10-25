@@ -16,7 +16,7 @@
    · leave/stop: 收当前节+复明 DOM+幂等; mouse 路由活动节; 中止不结算
    · runBoss: 小节顺序接力(400ms) + 聚合按单关口径 + 整链中止(alive 旗)
      不复活 — 假世界 runner 注入注册表(只发生在测试沙箱)
-   加载器: vm context 依次执行 math-levels → math-puzzles-core →
+   加载器: vm context 依次执行 rand-core → math-levels → math-puzzles-core →
    math-build-world-core → hop-world-core → math-paradigms → math-world →
    math-build-world(镜像 index.html 共享词法环境相对序); 世界/渲染依赖以
    记录桩注入(loadScene 直跑 buildFn/clearWorld 计数/SceneKit·setBlockRaw
@@ -185,7 +185,7 @@ function loadTrackHosts() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-build-world-core.js',
+  for (const f of ['rand-core.js', 'math-levels.js', 'math-puzzles-core.js', 'math-build-world-core.js',
     'hop-world-core.js', 'math-track-core.js', 'math-paradigms.js', 'math-world.js',
     'math-build-world.js', 'math-track.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});

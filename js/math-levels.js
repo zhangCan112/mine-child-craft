@@ -25,7 +25,9 @@
      mathStampCount · mathStampMilestones · mathStampRewardsDue ·
      mathStampRewardFor · mathStampNextLine ·
      MATH_SAVE_DEFAULTS · migrateMathSave
-   依赖(均经全局名, 调用期解析): MATH_META 的图标字段在构造期调用
+   依赖(均经全局名, 调用期解析): rollMathLoot 调用期解析 RandCore.mkRand
+     (js/rand-core.js, 加载序在本文件之前 — 种子 LCG 全仓唯一实现);
+     MATH_META 的图标字段在构造期调用
      mcIcon(js/focus-icons.js, 加载序在本文件之前, 惰性字符串拼接
      零 DOM); grantMathLoot 调用期解析 inventory-core 的 add(加载序
      先于本文件, 见 index.html); mathTodayStr 调用期解析 daily-budget.js
@@ -553,17 +555,6 @@ const MATH_LOOT = {
     rare: ['apple']},
 };
 
-/* 种子可注入的 LCG(与 focus mkLootRand 同常数, 独立副本避免共享词法
-   环境重名): seed 缺省回落 Math.random —— 不回落则首步得 NaN, NaN>=p
-   恒假=掉率虚涨 100%, 池内比较全假=恒掉最后一键 */
-function mathLootRand(seed) {
-  let s = seed === undefined ? Math.floor(Math.random() * 2147483648) : seed;
-  return function() {
-    s = (s*1103515245 + 12345) % 2147483648;
-    return s/2147483648;
-  };
-}
-
 /* 骰值落累积区间取件(池概率和=1 由测试锁死); 浮点尾差兜底最后一键 */
 function pickMathPool(pool, r) {
   let acc = 0;
@@ -582,7 +573,7 @@ function rollMathLoot(level, t) {
   if (!level || level.kind === 'tutorial' || !e.ok) return null; // 教学豁免 + 只奖不罚
   const fam = MATH_LOOT[level.family];
   if (!fam) return null; // 未知族(防御)
-  const rnd = mathLootRand(e.seed);
+  const rnd = RandCore.mkRand(e.seed);
   if (e.streak >= MATH_LOOT_STREAK && e.streak % MATH_LOOT_STREAK === 0) {
     return fam.rare[Math.min(fam.rare.length - 1, Math.floor(rnd() * fam.rare.length))];
   }

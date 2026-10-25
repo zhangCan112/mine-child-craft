@@ -119,7 +119,7 @@ function loadMathWorld() {
   }
   const sandbox = {
     console: {log() {}, warn() {}, error() {}},
-    Math: Math, /* 走子/布局只用 Math 静态件, 随机全部走种子 mRand */
+    Math: Math, /* 走子/布局只用 Math 静态件, 随机全部走种子 RandCore.mkRand */
     performance: {now: () => vNow},
     innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
     requestAnimationFrame(cb) {
@@ -191,7 +191,7 @@ function loadMathWorld() {
     let vel = {x: 0, y: 0, z: 0, set(x, y, z) { this.x = x; this.y = y; this.z = z; }};
     let yaw = 0; let pitch = 0; let onGround = false;
   `, ctx, {filename: 'prelude.js'});
-  for (const f of ['math-puzzles-core.js', 'hop-world-core.js', 'math-track-core.js',
+  for (const f of ['rand-core.js', 'math-puzzles-core.js', 'hop-world-core.js', 'math-track-core.js',
     'math-paradigms.js', 'math-world.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }

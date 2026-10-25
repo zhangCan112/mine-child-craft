@@ -7,7 +7,7 @@
    的步长与答案算术) · 间隔问题(答案与两端点模式算术独立对照 · 跨度可走
    · 平移后答案不变) · 规律跳(等差/交替步长结构外推) · 数值选项(恰 4 项
    不重复/含答案/在界内) · 种子确定性(同 seed 同输出)。
-   加载器: vm context 依次执行 math-puzzles-core.js + math-levels.js +
+   加载器: vm context 依次执行 rand-core.js + math-puzzles-core.js + math-levels.js +
    hop-world-core.js, 镜像浏览器共享词法环境(相对序同 index.html);
    真实难度曲线经 mathParamsFor('hop', tier) 注入(测的是带内真实参数,
    不是合成参数); 图标以 stub 注入(math-levels.test.js 同款) */
@@ -25,7 +25,7 @@ function loadHopCore() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['math-puzzles-core.js', 'math-levels.js', 'hop-world-core.js']) {
+  for (const f of ['rand-core.js', 'math-puzzles-core.js', 'math-levels.js', 'hop-world-core.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`

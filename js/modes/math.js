@@ -23,6 +23,7 @@
      T8) · ITEMS(js/items-core.js) · iconOf(js/icons.js, 调用期解析) ·
      stampIcon(js/focus-icons.js, T8 数学自选章图案) ·
      MATH_*(js/math-levels.js) · PuzzleCore(js/math-puzzles-core.js) ·
+     RandCore(js/rand-core.js, 关卡种子派生 seedAt) ·
      MathTrack(js/math-track.js, 世界轨驱动器 — 分发/单节生命周期/boss
      串链, T4 起关卡 runner 一律经它启动; 本文件不再直调 runMathScreen/
      runHopWorld/runBuildWorld, 也不持 mathCtrl/mathBossStop 两条命) ·
@@ -799,7 +800,7 @@ function beginMathRun(level) {
     return;
   }
   MathTrack.run({family: level.family, variant: level.variant, tier: level.tier,
-    kind: level.kind, params: level.params, seed: level.i * 7919 + 13}, areaEl, {
+    kind: level.kind, params: level.params, seed: RandCore.seedAt(level.i, 0)}, areaEl, {
     progress: setProg,
     onTrial(t) {
       onMathTrialLoot(level, t); /* T8: 逐试次掷骰入矿袋(教学豁免在纯函数) */

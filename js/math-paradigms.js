@@ -9,7 +9,7 @@
    出题优先调 PuzzleCore(算式谜/多解/天平=mkScalePuzzle/mkPartitionPuzzle,
    数列/周期/线索排队=mkSeqPuzzle/mkPeriodPuzzle/mkClueOrderPuzzle);
    count 族闪现/取物/比多少与 craft 常规三变体无对应生成器,
-   引擎内用同常数 LCG 自行生成(种子注入, 同 seed 同输出);
+   引擎内用 RandCore.mkRand 同常数 LCG 自行生成(种子注入, 同 seed 同输出);
    移多补少(count/balance)为搬动试错(US6): mBalancePair 堆对生成
    纯函数 + 两堆相等自动交卷 + mBalanceReveal 按实际差值语音点破。
    认知负荷红线(PuzzleCore.LIMITS): 一次呈现 ≤4 组块 · 线索 ≤3 条 —
@@ -22,7 +22,9 @@
      st = {trials, correct, acc, maxStreakErr}(供 mathPassed/mathStars) ·
      钟部件族 mClockFace/mClockAngles/mClockSay(角度/报时口径纯函数,
      谜题钟面与 modes/math.js G1 常驻昼夜大钟共用, 配单测)
-   依赖(均经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js) ·
+   依赖(均经全局名, 调用期解析): RandCore(js/rand-core.js, 加载序在本
+     文件之前 — mkRand 随机流/shuffle 洗牌/childSeed 子种子全仓唯一实现)
+     · PuzzleCore(js/math-puzzles-core.js) ·
      SpeechKit/sfx(js/speech.js·js/audio.js) · mcIcon(js/focus-icons.js) ·
      Mobs.face(js/mobs.js, 怪物头像, 缺席回落 mcIcon) ·
      mathPraiseLine/mathComfortLine(js/modes/math.js 应用层话术, 本文件
@@ -79,15 +81,8 @@ function mTimers() {
   };
 }
 
-/* 种子 LCG: 与 PuzzleCore.mkRand 同常数 — 同 seed 同输出, 缺省走 Math.random */
-function mRand(seed) {
-  let s = seed === undefined ? Math.floor(Math.random() * 2147483648) : seed;
-  return function() {
-    s = (s * 1103515245 + 12345) % 2147483648;
-    return s / 2147483648;
-  };
-}
-
+/* 种子随机流与洗牌已归一 RandCore(js/rand-core.js, 加载序在本文件之前):
+   mkRand 同常数 LCG · shuffle 非突变拷贝式 · childSeed 派生子种子 */
 function mRi(rnd, lo, hi) {
   if (hi < lo) hi = lo;
   return lo + Math.floor(rnd() * (hi - lo + 1));
@@ -95,17 +90,6 @@ function mRi(rnd, lo, hi) {
 
 function mPick(rnd, arr) {
   return arr[Math.floor(rnd() * arr.length)];
-}
-
-function mShuffle(rnd, arr) {
-  const a = arr.slice();
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(rnd() * (i + 1));
-    const t = a[i];
-    a[i] = a[j];
-    a[j] = t;
-  }
-  return a;
 }
 
 /* 像素图标出口: mcIcon 惰性拼接(零 DOM 画布) · 怪物头像走 Mobs.face 单一出口 */
@@ -180,7 +164,7 @@ function mNumChoices(stage, rnd, answer, onPick) {
   let extra = 1;
   while (vals.length < 4) vals.push(answer + 10 + extra++); // 干扰兜底(远离答案)
   const row = mEl('div', 'm-nums');
-  for (const v of mShuffle(rnd, vals)) row.appendChild(mChoiceBtn(v, String(v), 'm-num', onPick));
+  for (const v of RandCore.shuffle(rnd, vals)) row.appendChild(mChoiceBtn(v, String(v), 'm-num', onPick));
   stage.appendChild(row);
   return row;
 }
@@ -188,7 +172,7 @@ function mNumChoices(stage, rnd, answer, onPick) {
 /* 图标选项条(颜色/材质类): items = 去重图标键数组(≤4) */
 function mIconChoices(stage, rnd, items, onPick) {
   const row = mEl('div', 'm-nums');
-  for (const it of mShuffle(rnd, items.slice(0, 4))) {
+  for (const it of RandCore.shuffle(rnd, items.slice(0, 4))) {
     row.appendChild(mChoiceBtn(it, mIconImg(it), 'm-iconc', onPick));
   }
   stage.appendChild(row);
@@ -253,7 +237,7 @@ function mPileIcons(n, icon) {
 function mFrameLayout(n, seed) {
   const cnt = Math.max(0, Math.floor(n));
   if (cnt === 0) return [];
-  const rnd = mRand(seed === undefined ? 0 : seed);
+  const rnd = RandCore.mkRand(seed === undefined ? 0 : seed);
   const groups = [];
   let left = cnt;
   while (left > 0) {
@@ -300,7 +284,7 @@ function mCountSnapshot(stage, p, rnd, ctx) {
     const d = mRi(rnd, 1, 2);
     for (let k = 0; k < d; k++) mobs.push(one(other));
   }
-  const ordered = mShuffle(rnd, mobs);
+  const ordered = RandCore.shuffle(rnd, mobs);
   let html = '';
   if (group5) { // 按群计数: 5 个一排(乘法前置)
     for (let k = 0; k < ordered.length; k += 5) {
@@ -352,9 +336,9 @@ function mCountCompare(stage, p, rnd, ctx) {
   while (b === a) b = mRi(rnd, 1, cap);
   const diffMode = p.reasoning && p.reasoning !== 'single';
   const wrap = mEl('div', 'm-piles');
-  const frameHtml = (n) => mFramePileHtml(n, 'cobble', Math.floor(rnd() * 2147483647));
+  const frameHtml = (n) => mFramePileHtml(n, 'cobble', RandCore.childSeed(rnd));
   if (!diffMode) {
-    for (const n of mShuffle(rnd, [a, b])) {
+    for (const n of RandCore.shuffle(rnd, [a, b])) {
       const pile = mChoiceBtn(n, frameHtml(n), 'm-pile', (v, el) => ctx.settle(+v === Math.max(a, b), el));
       pile.dataset.n = n;
       wrap.appendChild(pile);
@@ -553,7 +537,7 @@ function mCraftBlankEq(stage, p, rnd, ctx) {
 
 /* 天平代换(PuzzleCore.mkScalePuzzle): l 只 A = r 只 B, 问换算 */
 function mCraftBlankScale(stage, p, rnd, ctx) {
-  const pz = PuzzleCore.mkScalePuzzle({seed: Math.floor(rnd() * 2147483647), max: p.max || 20});
+  const pz = PuzzleCore.mkScalePuzzle({seed: RandCore.childSeed(rnd), max: p.max || 20});
   const iconOf = {a: 'diamond', b: 'emerald', c: 'coal'};
   const nameOf = {a: '钻石', b: '绿宝石', c: '煤炭'};
   for (const rel of pz.relations) {
@@ -591,7 +575,7 @@ function mSolveChips(stage, rnd, ctx, pz, qHtml, chipOf, line) {
   const goodKeys = new Set(pz.solutions.map((s) => s[0] + '+' + s[1]));
   const options = [];
   const nGood = 1 + (rnd() < 0.5 ? 1 : 0); // 1~2 个正确选项(≤4 组块)
-  for (const s of mShuffle(rnd, pz.solutions).slice(0, nGood)) options.push({x: s[0], y: s[1], ok: true});
+  for (const s of RandCore.shuffle(rnd, pz.solutions).slice(0, nGood)) options.push({x: s[0], y: s[1], ok: true});
   let guard = 0;
   while (options.length < 4 && guard++ < 60) {
     const x = mRi(rnd, 1, Math.max(2, n - 1));
@@ -601,7 +585,7 @@ function mSolveChips(stage, rnd, ctx, pz, qHtml, chipOf, line) {
   const goodPresent = options.filter((o) => o.ok).length;
   const chosen = new Set();
   const row = mEl('div', 'm-nums');
-  for (const o of mShuffle(rnd, options).slice(0, 4)) {
+  for (const o of RandCore.shuffle(rnd, options).slice(0, 4)) {
     const chip = mChoiceBtn(o.x + '+' + o.y, chipOf(o.x, o.y), 'm-chip', (v, el) => {
       el.classList.toggle('on');
       if (el.classList.contains('on')) chosen.add(v);
@@ -622,7 +606,7 @@ function mSolveChips(stage, rnd, ctx, pz, qHtml, chipOf, line) {
 
 /* 多解找齐(PuzzleCore.mkPartitionPuzzle): 合成 n 的数对全找齐 */
 function mCraftBlankPartition(stage, p, rnd, ctx) {
-  const pz = PuzzleCore.mkPartitionPuzzle({seed: Math.floor(rnd() * 2147483647),
+  const pz = PuzzleCore.mkPartitionPuzzle({seed: RandCore.childSeed(rnd),
     max: Math.min(p.max || 12, 12), parts: 2});
   mSolveChips(stage, rnd, ctx, pz,
       '哪两个数合起来是 <b>' + pz.n + '</b>？把对的都找出来！',
@@ -659,7 +643,7 @@ function mPatternChainColor(stage, p, rnd, ctx) {
 }
 
 function mPatternChainSeq(stage, p, rnd, ctx) {
-  const pz = PuzzleCore.mkSeqPuzzle({seed: Math.floor(rnd() * 2147483647), max: p.max || 20});
+  const pz = PuzzleCore.mkSeqPuzzle({seed: RandCore.childSeed(rnd), max: p.max || 20});
   const slots = pz.seq.map((v) => mNumSlot(v));
   slots.push(MATH_BLANK_SLOT);
   mSeqRow(stage, slots);
@@ -689,7 +673,7 @@ function mPatternSortBin(stage, p, rnd, ctx) {
   const wantCount = items.filter((it) => it === ruleIcon).length;
   const tray = mEl('div', 'm-tray');
   let idx = 0;
-  for (const it of mShuffle(rnd, items)) {
+  for (const it of RandCore.shuffle(rnd, items)) {
     const el = mChoiceBtn('it' + idx++, mIconImg(it), 'm-item', (v, b) => {
       b.classList.toggle('in');
       sfxSafe('click');
@@ -707,7 +691,7 @@ function mPatternSortBin(stage, p, rnd, ctx) {
 }
 
 function mPatternSortClue(stage, p, rnd, ctx) {
-  const pz = PuzzleCore.mkClueOrderPuzzle({seed: Math.floor(rnd() * 2147483647), max: p.max || 20});
+  const pz = PuzzleCore.mkClueOrderPuzzle({seed: RandCore.childSeed(rnd), max: p.max || 20});
   const colorOf = {a: 'wool_red', b: 'wool_blue', c: 'wool_yellow'};
   const nameOf = {a: '红色的', b: '蓝色的', c: '黄色的'};
   const clueCount = Math.min(p.clueCount || 3, PuzzleCore.LIMITS.clues);
@@ -724,7 +708,7 @@ function mPatternSortClue(stage, p, rnd, ctx) {
   stage.appendChild(clueWrap);
   const picked = [];
   const row = mEl('div', 'm-cards');
-  for (const k of mShuffle(rnd, ['a', 'b', 'c'])) {
+  for (const k of RandCore.shuffle(rnd, ['a', 'b', 'c'])) {
     const card = mChoiceBtn(k, mIconImg(colorOf[k]), 'm-card', (v, el) => {
       if (el.classList.contains('picked')) return;
       el.classList.add('picked');
@@ -758,7 +742,7 @@ function mPatternOdd(stage, p, rnd, ctx) {
   for (let k = 0; k < total - 1; k++) items.push(mPick(rnd, MATH_ODD_CATS[catIdx]));
   items.push(oddIcon);
   const row = mEl('div', 'm-oddrow');
-  for (const it of mShuffle(rnd, items)) {
+  for (const it of RandCore.shuffle(rnd, items)) {
     row.appendChild(mChoiceBtn(it, mIconImg(it), 'm-iconc', (v, el) => ctx.settle(v === oddIcon, el)));
   }
   stage.appendChild(row);
@@ -767,7 +751,7 @@ function mPatternOdd(stage, p, rnd, ctx) {
 
 /* 周期问题(挑战): mkPeriodPuzzle, 问项必越过已展示(靠规律推) */
 function mPatternCycle(stage, p, rnd, ctx) {
-  const pz = PuzzleCore.mkPeriodPuzzle({seed: Math.floor(rnd() * 2147483647),
+  const pz = PuzzleCore.mkPeriodPuzzle({seed: RandCore.childSeed(rnd),
     max: p.max || 20, unitLen: Math.min(4, Math.max(2, p.unitLen || 2))});
   const icons = pz.unit.map((c) => MATH_COLORS[c].ico);
   const names = pz.unit.map((c) => MATH_COLORS[c].name);
@@ -868,7 +852,7 @@ function mCraftShop(stage, p, rnd, ctx) {
 function mShopSum(stage, p, rnd, ctx) {
   const cap = Math.max(4, Math.min(p.max || 20, 100));
   const tens = cap >= 50 && rnd() < 0.5;
-  const pair = mShuffle(rnd, MATH_SHOP_GOODS).slice(0, 2);
+  const pair = RandCore.shuffle(rnd, MATH_SHOP_GOODS).slice(0, 2);
   const p1 = tens ? mRi(rnd, 2, Math.min(9, Math.floor((cap - 9) / 10))) * 10 :
       mRi(rnd, 1, Math.min(9, cap - 1));
   const p2 = tens ? mRi(rnd, 1, 9) : mRi(rnd, 1, Math.min(9, cap - p1));
@@ -897,7 +881,7 @@ function mShopChange(stage, p, rnd, ctx) {
 /* 付法找齐(挑战): 哪两张钱合起来正好 n 元 — 有序枚举找齐才算对
    (mkPartitionPuzzle 钱币皮肤, 与 craft/blank 多解找齐同构) */
 function mShopPayWays(stage, p, rnd, ctx) {
-  const pz = PuzzleCore.mkPartitionPuzzle({seed: Math.floor(rnd() * 2147483647),
+  const pz = PuzzleCore.mkPartitionPuzzle({seed: RandCore.childSeed(rnd),
     max: Math.min(p.max || 12, 12), parts: 2});
   mSolveChips(stage, rnd, ctx, pz,
       '买 <b>' + pz.n + ' 元</b>的东西，哪两张钱合起来正好？把对的都找出来！',
@@ -952,7 +936,7 @@ function mClockStr(min) {
 function mClockChoices(stage, rnd, ansMin, onPick) {
   const answer = mClockStr(ansMin);
   const vals = [answer];
-  for (const o of mShuffle(rnd, [15, -15, 30, -30, 60, -60, 120, -120])) {
+  for (const o of RandCore.shuffle(rnd, [15, -15, 30, -30, 60, -60, 120, -120])) {
     if (vals.length >= 4) break;
     const s = mClockStr(ansMin + o);
     if (!vals.includes(s)) vals.push(s);
@@ -963,7 +947,7 @@ function mClockChoices(stage, rnd, ansMin, onPick) {
     if (!vals.includes(s)) vals.push(s);
   }
   const row = mEl('div', 'm-nums');
-  for (const v of mShuffle(rnd, vals)) row.appendChild(mChoiceBtn(v, v, 'm-num', onPick));
+  for (const v of RandCore.shuffle(rnd, vals)) row.appendChild(mChoiceBtn(v, v, 'm-num', onPick));
   stage.appendChild(row);
 }
 
@@ -1076,7 +1060,7 @@ function runMathScreen(section, area, h) {
   const d = mathScreenDispatch(section.family, section.variant);
   if (d.kind !== 'engine') return null;
   const p = mathGuardParams(section.params || {});
-  const rnd = mRand(section.seed !== undefined ? section.seed : p.seed);
+  const rnd = RandCore.mkRand(section.seed !== undefined ? section.seed : p.seed);
   const T = mTimers();
   const hh = h || {};
   const n = MathTrackCore.clampTrials(p.trials);

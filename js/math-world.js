@@ -25,7 +25,8 @@
      section = {family:'hop', variant 'dice'|'jumps'|'gaps', tier, kind,
      params, seed} · h = {progress(k,n)?, onTrial({ok,streak})?, end(st)}
    依赖(均经全局名, 调用期解析): HopWorld(js/hop-world-core.js) ·
-     mRand/mEl(js/math-paradigms.js, 加载序在本文件之前) ·
+     mEl(js/math-paradigms.js, 加载序在本文件之前) ·
+     RandCore.mkRand(js/rand-core.js, 加载序在本文件之前) ·
      loadScene/clearWorld/scene/camera(js/world.js) ·
      setBlockRaw/getBlock/raycastVoxel/pos/vel/yaw/pitch/onGround
      (js/voxel.js) · SceneKit(js/scene-kit.js) · ModeKit(js/mode-kit.js) ·
@@ -106,7 +107,7 @@ function runHopWorld(section, h) {
   const hh = h || {};
   const p = Object.assign({}, section.params || {});
   const plan = HopWorld.hopPathPlan(p);
-  const rnd = mRand(section.seed !== undefined ? section.seed : p.seed);
+  const rnd = RandCore.mkRand(section.seed !== undefined ? section.seed : p.seed);
   const T = mWTimers();
   const G = MATH_W_GROUND;
   const pathMax = plan.value(plan.last);

@@ -13,9 +13,9 @@
    mathSettleSave 落账)
    · G1 常驻钟面纯函数(mClockAngles 时/分针角度 · mClockSay 报时口径
    整时/半时/几时几分 · mClockFace 角度单一出处守卫)
-   · index.html 脚本序(math-levels → math-puzzles-core → math-paradigms →
-   modes/math, 加载序即依赖序)
-   加载器: vm context 依次执行 math-levels.js + math-puzzles-core.js +
+   · index.html 脚本序(rand-core → math-levels → math-puzzles-core →
+   math-paradigms → modes/math, 加载序即依赖序)
+   加载器: vm context 依次执行 rand-core.js + math-levels.js + math-puzzles-core.js +
    math-paradigms.js(+ modes/math.js), 镜像浏览器共享词法环境(相对序同
    index.html); DOM/语音/图标以记录桩注入(focus-paradigms.test.js 同款) */
 const test = require('node:test');
@@ -108,7 +108,8 @@ function loadMathParadigms(opts) {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-track-core.js', 'math-paradigms.js']) {
+  for (const f of ['rand-core.js', 'math-levels.js', 'math-puzzles-core.js',
+    'math-track-core.js', 'math-paradigms.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
@@ -185,7 +186,8 @@ function loadMathMode() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const vmCtx = vm.createContext(sandbox);
-  for (const f of ['math-levels.js', 'math-puzzles-core.js', 'math-build-world-core.js', 'hop-world-core.js',
+  for (const f of ['rand-core.js', 'math-levels.js', 'math-puzzles-core.js',
+    'math-build-world-core.js', 'hop-world-core.js',
     'math-track-core.js', 'math-paradigms.js', 'math-world.js', 'math-build-world.js',
     'math-track.js', 'modes/math.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), vmCtx, {filename: f});
@@ -1708,8 +1710,8 @@ test('index.html: 数学侧九个 script 全在册且加载序即依赖序', () 
     'js/math-world.js', 'js/math-build-world.js', 'js/math-track.js', 'js/modes/math.js'].map(at);
   assert.ok(order.every((i) => i >= 0), '九个 script 全在册: ' + order.join(','));
   const why = '加载序即依赖序: puzzles/build-core/hop-core 供三引擎出题, ' +
-      'track-core 供三引擎试次循环, world 依赖 paradigms 的 mRand/mEl, ' +
-      'build-world 依赖 track-core, track(驱动器)消费三插件与 track-core, ' +
-      'modes/math 依赖 track 的 MathTrack';
+      'track-core 供三引擎试次循环, world 依赖 RandCore 的 mkRand 与 ' +
+      'paradigms 的 mEl, build-world 依赖 track-core, track(驱动器)消费' +
+      '三插件与 track-core, modes/math 依赖 track 的 MathTrack';
   assert.ok(order.every((v, k) => k === 0 || order[k - 1] < v), why);
 });

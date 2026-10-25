@@ -12,6 +12,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
+global.RandCore = require('../js/rand-core.js'); /* 随机流唯一实现(加载序先于两个核心) */
 global.PuzzleCore = require('../js/math-puzzles-core.js');
 const BuildWorldCore = require('../js/math-build-world-core.js');
 

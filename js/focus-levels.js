@@ -25,7 +25,9 @@
      devilDimFor · focusCheckEntry · checkBaseline · devilEntry · devilTierFor ·
      focusTodayStr(now) · focusTodayDims · focusDimStars · focusLastBreakthrough ·
      FOCUS_SAVE_DEFAULTS · migrateFocusSave
-   依赖(均经全局名, 调用期解析): 掷骰/结算纯函数无依赖; grantFocusLoot 调用期
+   依赖(均经全局名, 调用期解析): rollFocusLoot/levelBonusLoot 调用期解析
+     RandCore.mkRand(js/rand-core.js, 加载序先于本文件, 见 index.html —
+     种子 LCG 全仓唯一实现); grantFocusLoot 调用期
      解析 inventory-core 的 add(加载序先于本文件, 见 index.html); FOCUS_META
      的图标字段在构造期调用 mcIcon/creeperFace(js/focus-icons.js, 加载序在
      本文件之前); focusTodayStr 调用期解析 daily-budget.js 的 budgetDateStr
@@ -253,16 +255,6 @@ function rewardTrialCount(level, dim) {
   return p.trials || p.seqs || FOCUS_REWARD_TRIAL_REF;
 }
 
-function mkLootRand(seed) {
-  // seed 缺省回落 Math.random(头部注释的既定口径): 不回落则 LCG 首步
-  // 得 NaN, NaN>=p 恒假=掉率虚涨到 100%, 池内比较全假=恒掉最后一键
-  let s = seed === undefined ? Math.floor(Math.random() * 2147483648) : seed;
-  return function() {
-    s = (s*1103515245 + 12345) % 2147483648;
-    return s/2147483648;
-  };
-}
-
 /* 骰值落累积区间取件(池概率和=1 由既有测试锁死); 浮点尾差兜底最后一键 */
 function pickLootWeighted(pool, r) {
   let acc = 0;
@@ -280,7 +272,7 @@ function rollFocusLoot(level, t) {
   if (level.kind === 'tutorial' || !e.ok) return null; // 教学豁免 + 只奖不罚
   const st = rewardStageFor(level.tier);
   if (!st) return null; // 无奖励段(防御)
-  const rnd = mkLootRand(e.seed);
+  const rnd = RandCore.mkRand(e.seed);
   // 试次归一: corsi 6 序列 vs cpt 28 试次, 不归一则记忆维度关恒穷
   const pEff = st.p * FOCUS_REWARD_TRIAL_REF / rewardTrialCount(level, e.dim);
   if (!(e.dry >= FOCUS_REWARD_DRY) && rnd() >= pEff) return null; // 未中
@@ -303,7 +295,7 @@ function levelBonusLoot(passed, stars, level, opts) {
   if (!passed || !level || level.kind === 'tutorial') return [];
   const st = rewardStageFor(level.tier);
   if (!st) return [];
-  const rnd = mkLootRand(o.seed);
+  const rnd = RandCore.mkRand(o.seed);
   const out = expandRewardEntries(st.bonus, rnd);
   if (stars >= 3) out.push(...expandRewardEntries(st.star3, rnd));
   return out;

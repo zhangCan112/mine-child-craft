@@ -7,7 +7,7 @@
    (四带×25 · 配重 15/20 · 带内末次=挑战 · 带末 boss · 带首复习) ·
    通过门槛/三星(挑战挂钩与回溯) · 战利品池合法性/掷骰概率边界
    (池概率和=1 · 教学豁免 · 连对保底 · 同 seed 同输出) · 存档迁移幂等
-   加载器: vm context 依次执行 items-core.js + inventory-core.js +
+   加载器: vm context 依次执行 rand-core.js + items-core.js + inventory-core.js +
    math-levels.js, 镜像浏览器 <script defer> 共享词法环境(相对序同
    index.html); 图标/日期串以 stub 注入(focus-paradigms.test.js 同款) */
 const test = require('node:test');
@@ -32,8 +32,8 @@ function loadMathLevels() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  /* inventory-core(授予流语义)排在 math-levels 之前 — 与 index.html 相对序一致 */
-  for (const f of ['items-core.js', 'inventory-core.js', 'math-levels.js']) {
+  /* rand-core(掷骰 LCG)与 inventory-core(授予流语义)排在 math-levels 之前 — 与 index.html 相对序一致 */
+  for (const f of ['rand-core.js', 'items-core.js', 'inventory-core.js', 'math-levels.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
@@ -447,7 +447,7 @@ test('rollMathLoot: seed 缺省回落 Math.random — 有掉有不掉且产物�
   const distinct = new Set();
   for (let i = 0; i < 200; i++) {
     // 不传 seed = 运行时真实路径(modes 层调用点); 缺省不回落则 LCG 产 NaN:
-    // 掉率虚涨 100% 且取件恒掉池末一键(focus mkLootRand 同款回归)
+    // 掉率虚涨 100% 且取件恒掉池末一键(RandCore.mkRand 缺省回落同款回归)
     const got = ml.rollMathLoot(norm, {ok: true, streak: 1});
     if (got === null) sawNull++;
     else {

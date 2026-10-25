@@ -10,6 +10,9 @@
    · 多解枚举不重不漏; 镜像/周期判分含平移/旋转轴。 */
 const test = require('node:test');
 const assert = require('node:assert');
+/* RandCore 挂 global 先于 PuzzleCore require(加载器先例:
+   test/math-build-world-core.test.js 对 PuzzleCore 的做法) */
+global.RandCore = require('../js/rand-core.js');
 const PuzzleCore = require('../js/math-puzzles-core.js');
 
 /* 跨 seed 扫描用的种子组(覆盖小值/大值/边界) */

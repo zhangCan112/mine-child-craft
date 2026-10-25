@@ -9,8 +9,8 @@
    线索排队 · 间隔问答。数值范围由调用方注入 max(四带数值轴,
    生成器结构性永不越界 — band0 传 20 后孩子读到的任何数 >20 都是 bug);
    认知负荷红线写成常数 LIMITS(一次呈现 ≤4 组块 · 线索 ≤3 条);
-   随机种子注入: LCG 与 focus-levels mkLootRand 同常数, 同 seed 同输出,
-   seed 缺省走 Math.random(运行时口径同 focus)。
+   随机种子注入: 随机流经全局 RandCore.mkRand(同常数 LCG, 同 seed 同输出,
+   seed 缺省走 Math.random 的既定口径), 谜题纯变换本身仍零全局。
    图案细胞 = {x, y, z, col?} 对象数组(col 1..N 颜色号, 可缺省);
    镜像/旋转用整数常数 k 表达镜面/中心(x'=k-x 型, 允许落在两格之间)。
    interface: mirrorPattern · rot180Pattern · rotatePattern ·
@@ -24,24 +24,16 @@
      · partitionsOf · mkPartitionPuzzle(多解枚举)
      · mkScalePuzzle(天平代换链) · mkClueOrderPuzzle · solveClueOrder
      (线索排队) · mkIntervalPuzzle(间隔问答) · LIMITS(呈现红线常数)
-   依赖(零全局, 全部经参数注入): 无 — seed/max/pattern 均为入参,
-     加载零副作用, 浏览器 <script defer> 与 Node require 同构。
+   依赖(经全局名, 调用期解析): RandCore(js/rand-core.js, 加载序在本文件
+     之前) — mkRand 随机流与 shuffle 洗牌的全仓唯一实现; 谜题纯变换
+     零全局(seed/max/pattern 均为入参), 加载零副作用, 浏览器
+     <script defer> 与 Node require 同构。
    可测性: 零 THREE · 零 DOM · 有单测 test/math-puzzles-core.test.js
    ============================================================ */
 const PuzzleCore = (() => {
   /* 认知负荷红线(设计稿 §4.1): 一次呈现 ≤4 组块 · 线索 ≤3 条
      (组块=孩子一眼要持有的单元: 序列已展示项/周期单元长/线索条数) */
   const LIMITS = {chunks: 4, clues: 3};
-
-  /* 种子随机: 与 focus-levels mkLootRand 同常数的 LCG — 同 seed 同输出,
-     概率与谜题边界可断言; seed 缺省回落 Math.random(focus 既定口径) */
-  function mkRand(seed) {
-    let s = seed === undefined ? Math.floor(Math.random() * 2147483648) : seed;
-    return function() {
-      s = (s * 1103515245 + 12345) % 2147483648;
-      return s / 2147483648;
-    };
-  }
 
   /* [lo, hi] 闭区间整数(hi<lo 时钳回 lo, 生成器结构保证不触发) */
   function ri(rnd, lo, hi) {
@@ -51,14 +43,6 @@ const PuzzleCore = (() => {
   const pick = (rnd, arr) => arr[Math.floor(rnd() * arr.length)];
   /* 细胞坐标键(判分集合比较用) */
   const keyOf = (b) => b.x + ',' + b.y + ',' + b.z;
-  function shuffle(rnd, arr) {
-    const a = arr.slice();
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      const t = a[i]; a[i] = a[j]; a[j] = t;
-    }
-    return a;
-  }
 
   /* ---------- 图案变换(D 族): 细胞 {x,y,z,col?} 的纯坐标变换 ---------- */
 
@@ -100,7 +84,7 @@ const PuzzleCore = (() => {
      (半边 ∪ 变换半边), box 供世界轨装场定界。 */
   function mkSymmetryPuzzle(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const hw = o.hw || ri(rnd, 2, 4);
     const fw = o.fw || ri(rnd, 2, 4);
     const layers = o.layers || (rnd() < 0.3 ? 2 : 1);
@@ -183,7 +167,7 @@ const PuzzleCore = (() => {
      看图施工的孩子只要搭出同投影即判对(内部藏块不露头则投影不变)。 */
   function mkBlueprintPuzzle(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const w = o.w || ri(rnd, 2, 4);
     const d = o.d || ri(rnd, 2, 4);
     const h = o.h || ri(rnd, 1, 2);
@@ -275,7 +259,7 @@ const PuzzleCore = (() => {
      box 罩住全部候选(世界轨装场定界, 干扰比目标至多外扩 1 格)。 */
   function mkDualViewPuzzle(t) {
     const o = t || {};
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const blocks = o.blocks || 12;
     const hi = Math.min(4, Math.max(2, 2 + Math.floor(blocks / 15))); // 同 mkWorldBuild 口径
     const w = o.w || ri(rnd, 2, hi);
@@ -349,7 +333,7 @@ const PuzzleCore = (() => {
     addTwin(frontTwin);
     addTwin(sideTwin);
     addTwin(rnd() < 0.5 ? frontTwin : sideTwin);
-    const shuffled = shuffle(rnd, cands);
+    const shuffled = RandCore.shuffle(rnd, cands);
     let bx0 = 0; let bx1 = maxX; let bz0 = 0; let bz1 = maxZ; let by1 = 0;
     for (const c of cands) {
       for (const b of c.cells) {
@@ -409,7 +393,7 @@ const PuzzleCore = (() => {
   function mkSeqPuzzle(t) {
     const o = t || {};
     const max = o.max || 20;
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const dMax = Math.min(4, Math.floor((max - 1) / 3));
     if (dMax < 2) throw new Error('mkSeqPuzzle: max 至少 7(摆不下 3 项等差)');
     const kind = o.kind || (rnd() < 0.55 ? 'arith' : 'alt');
@@ -456,7 +440,7 @@ const PuzzleCore = (() => {
   function mkPeriodPuzzle(t) {
     const o = t || {};
     const max = o.max || 20;
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const len = o.unitLen || ri(rnd, 2, 4);
     const nLo = 2 * len + 1;
     if (nLo > max) throw new Error('mkPeriodPuzzle: max 至少 ' + nLo);
@@ -501,7 +485,7 @@ const PuzzleCore = (() => {
     const o = t || {};
     const max = o.max || 20;
     const parts = o.parts || 2;
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const n = parts === 3 ? ri(rnd, 6, Math.min(max, 12)) : ri(rnd, 4, max);
     return {n, parts, solutions: partitionsOf(n, {parts})};
   }
@@ -516,9 +500,9 @@ const PuzzleCore = (() => {
   function mkScalePuzzle(t) {
     const o = t || {};
     const max = o.max || 20;
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const chain = o.chain === true || (o.chain !== false && rnd() < 0.35);
-    const names = shuffle(rnd, ['a', 'b', 'c']).slice(0, chain ? 3 : 2);
+    const names = RandCore.shuffle(rnd, ['a', 'b', 'c']).slice(0, chain ? 3 : 2);
     const relations = [];
     let answer;
     let ask;
@@ -576,15 +560,15 @@ const PuzzleCore = (() => {
   function mkClueOrderPuzzle(t) {
     const o = t || {};
     const max = o.max || 20;
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const hi = Math.min(max, 10);
     if (hi < 3) throw new Error('mkClueOrderPuzzle: max 至少 3');
-    const vals = shuffle(rnd, Array.from({length: hi}, (v, i) => i + 1)).slice(0, 3);
+    const vals = RandCore.shuffle(rnd, Array.from({length: hi}, (v, i) => i + 1)).slice(0, 3);
     const entities = ['a', 'b', 'c'].map((k, i) => ({key: k, value: vals[i]}));
     const order = entities.slice().sort((x, y) => y.value - x.value).map((e) => e.key);
     let clues = [{hi: order[0], lo: order[1]}, {hi: order[1], lo: order[2]}];
     if (rnd() < 0.35) clues.push({hi: order[0], lo: order[2]});
-    return {entities, clues: shuffle(rnd, clues), solution: order};
+    return {entities, clues: RandCore.shuffle(rnd, clues), solution: order};
   }
 
   /* ---------- 间隔问答(C ★★ 植树/爬楼问题的具身版) ---------- */
@@ -596,7 +580,7 @@ const PuzzleCore = (() => {
   function mkIntervalPuzzle(t) {
     const o = t || {};
     const max = o.max || 20;
-    const rnd = mkRand(o.seed);
+    const rnd = RandCore.mkRand(o.seed);
     const mode = o.mode || pick(rnd, ['both', 'neither', 'one']);
     let a = o.a;
     let b = o.b;

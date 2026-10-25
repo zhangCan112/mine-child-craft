@@ -12,7 +12,7 @@
    F5 矿袋战利品政策(设计稿 §3 L3): rollFocusLoot 概率边界(种子锁定)/保底
    触发/教学豁免 · levelBonusLoot 通关二选一+三星钻石 · grantFocusLoot 满包
    余量语义(inventory-core 一并入 vm 缝, 相对序同 index.html)
-   加载器: vm context 依次执行 items-core.js + inventory-core.js +
+   加载器: vm context 依次执行 rand-core.js + items-core.js + inventory-core.js +
    focus-levels.js + focus-paradigms.js, 镜像浏览器 <script defer> 共享词法
    环境(相对序同 index.html); DOM/语音/图标以 stub 注入 */
 const test = require('node:test');
@@ -64,8 +64,8 @@ function loadFocus() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  /* inventory-core(F5 授予流语义)排在 focus-levels 之前 — 与 index.html 相对序一致 */
-  for (const f of ['items-core.js', 'inventory-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
+  /* rand-core(种子 LCG)与 inventory-core(F5 授予流语义)排在 focus-levels 之前 — 与 index.html 相对序一致 */
+  for (const f of ['rand-core.js', 'items-core.js', 'inventory-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
@@ -308,7 +308,7 @@ function loadFocusDrv(opts) {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['items-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
+  for (const f of ['rand-core.js', 'items-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext('globalThis.__fp = {focusDispatch, runFocusLevel, mkAdapt, paramsFor, ' +
