@@ -7,14 +7,15 @@
    interface: loadScene(建场 seam: 清场→批量建→光场全量→渐进收尾入队) / markDirty /
      pumpRemesh(每帧按预算构建, 编辑优先于环填充) / maintainRings(距离环:
      近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
-      级联清单, 设计稿 block-lifecycle D3) / applySweep(世界卫生清扫, P14/D9)
+      级联清单, 设计稿 block-lifecycle D3; 编辑经 setBlockLit 连带双通道光场
+      增量, 昼夜 §3.3/D4) / applySweep(世界卫生清扫, P14/D9)
       / applyDaylight(昼夜场景驱动: 天色/雾/光强/日月轨道 + 顶点光材质
       uniforms uDim/uSkyFloor 节拍, 设计稿 mc-daylight-torch §2.3/§4.2)
-      / setPlayerGlow(玩家随身光机制缝: 方块侧 uniform + 实体侧 PointLight, 政策归 D7)
-      mc-daylight-torch §2.3) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件
+      / setPlayerGlow(玩家随身光机制缝: 方块侧 uniform + 实体侧 PointLight,
+      政策归 D7) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件
       可写: main.js 推进·模式层换装) / raycast / camera / renderer / scene。
    依赖(均经全局名, 调用期解析): voxel.js(体素数据+光场数组) · cascade-core.js(方块级联) ·
-   light-core.js(光照核心, 装场全量 computeAll) · mesh-core.js(网格化核心, 同一份代码在
+   light-core.js(光照核心: 装场全量 computeAll + 编辑增量 updateEdit) · mesh-core.js(网格化核心, 同一份代码在
    Worker 里跑) · daylight-core.js(Daylight/DAYLIGHT 昼夜纯函数) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
    THREE/DOM 惰性创建, Node 测试环境可安全加载(经 boot.test.js 冒烟)。
 ============================================================ */
@@ -534,7 +535,8 @@ function rebuildAll() {
    不可能忘(曾有模式建场漏调收尾, 进场一片天蓝 — ca3ac43)。
    光场全量计算(设计稿 §3.3): 装场必算 — 光照永远是方块场的纯派生
    (差异 #14 不落盘), buildFn 建完地形一次写满 sky/block 两通道
-   (方块光此刻全 0: BLOCKS.light 字段 D4 才补, 天空通道即刻生效)。
+   (方块光源(火把/灯块/发光岩/岩浆, D4 光源表)与天空通道一并生效;
+   buildFn 内的写入(地形/存档重放/装场清扫)不必管光 — 全量在最后兜底)。
    clearWorld 幂等(switchMode 已清过再清无害)。 */
 function loadScene(buildFn) {
   clearWorld();
@@ -552,7 +554,7 @@ function loadScene(buildFn) {
    既有调用方忽略返回值则行为不变(级联自动生效), 向后兼容 */
 function editBlock(x, y, z, id, opt) {
   const old = getBlock(x, y, z);
-  setBlockRaw(x, y, z, id);
+  setBlockLit(x, y, z, id); /* 写格连带双通道光场增量(昼夜 §3.3, 级联结算前光先就位) */
   let removed = [];
   if (id === 0 && old !== 0) {
     if (!(opt && opt.debris === false)) { // 挖除反馈: 同色碎屑(唯一入口经 Fx, 见 GLOSSARY)
@@ -565,7 +567,7 @@ function editBlock(x, y, z, id, opt) {
     }
   } else if (id !== 0) {
     /* 放置触发仅 fall 旗标(P9); 原木/树叶/thin 放置零触发(建造装饰保护) */
-    removed = CascadeCore.cascadePlace(getBlock, setBlockRaw, x, y, z, id, CASCADE_POLICY);
+    removed = CascadeCore.cascadePlace(getBlock, setBlockLit, x, y, z, id, CASCADE_POLICY);
     if (removed.length && !(opt && opt.debris === false)) cascadeVisuais(removed);
   }
   markDirty(x, z); // 单块编辑与批量同走队列(连续挖掘同样摊平)
@@ -581,13 +583,39 @@ function editBlock(x, y, z, id, opt) {
    新的破坏路径必须走这两入口——绕过=世界不变量破洞(world-integrity 兜底)。 */
 const CASCADE_POLICY = CascadeCore.mkPolicy(BLOCKS);
 /* 光照政策(BLOCKS 派生, 装配一次 — LightCore.mkPolicy 与单测共用同一装配
-   防两份漂移, CASCADE_POLICY 同款缝制): lightOf 读 light 字段(D4 才补,
-   此刻全 0), opaque 镜像 isOpaque。编辑期增量 updateEdit 的接线在 D4
-   (editBlock/editBlockDirty choke point), 本文件 D2 只做装场全量 */
+   防两份漂移, CASCADE_POLICY 同款缝制): lightOf 读 light 字段(火把 14/
+   灯块·发光岩·岩浆 15, config 光源表), opaque 镜像 isOpaque */
 const LIGHT_POLICY = LightCore.mkPolicy(BLOCKS);
+/* ---------- 编辑期光照增量(设计稿 §3.3, D4): 唯一编辑 choke point 的光场缝制 ----------
+   setBlockLit = setBlockRaw + LightCore.updateEdit: 写格(setBlockRaw 之后、
+   applyCascade 之前)即增量更新双通道光场, 返回脏格包围盒 → 覆盖区块与既有
+   编辑同一 dirtyChunks 队列(pumpRemesh 同一消费, 编辑优先于距离环的既有
+   纪律自然生效)。级联连带: cascadeRemove/cascadePlace/cascadeSweep 的级联
+   条目不回环 editBlock, 而是经 write 回调直写 setBlockRaw —— 把本包装作为
+   write 传入即全覆盖(移动条目落点的旧值在写入前读得, 逐条目事后补账拿
+   不到); 火把失撑脱落撤光、落沙沉底遮光由此白送。装场期(buildFn 内, 全量
+   computeAll 之前)同走本包装无害: 干净世界清扫零写入, 脏档多付的区域重算
+   随全量覆盖 —— 光场恒为方块场的纯派生(差异 #14)。 */
+function setBlockLit(x, y, z, id) {
+  const old = getBlock(x, y, z);
+  setBlockRaw(x, y, z, id);
+  if (old === id) return; /* 方块场无变化 → 光场不动(省一次区域重算) */
+  const box = LightCore.updateEdit(getBlock, WORLD_W, WORLD_D, WORLD_H, LIGHT_POLICY,
+      x, y, z, old, lightSky, lightBlock);
+  if (box) markLightDirty(box);
+}
+/* 光照脏格包围盒 → 覆盖区块记脏: 光传播半径至多 14(15 级逐格衰减), ±1
+   边界圈对齐 markDirty 的跨区块剔面口径(packChunkData 含邻块边界圈) */
+function markLightDirty(b) {
+  const cx0 = Math.floor((b.x0 - 1) / CHUNK); const cx1 = Math.floor((b.x1 + 1) / CHUNK);
+  const cz0 = Math.floor((b.z0 - 1) / CHUNK); const cz1 = Math.floor((b.z1 + 1) / CHUNK);
+  for (let cx = cx0; cx <= cx1; cx++) {
+    for (let cz = cz0; cz <= cz1; cz++) dirtyChunks.add(chunkKey(cx, cz));
+  }
+}
 function applyCascade(x, y, z, oldId) {
   if (oldId === 0) return [];
-  const removed = CascadeCore.cascadeRemove(getBlock, setBlockRaw, x, y, z, oldId, CASCADE_POLICY);
+  const removed = CascadeCore.cascadeRemove(getBlock, setBlockLit, x, y, z, oldId, CASCADE_POLICY);
   for (const r of removed) markDirty(r.x, r.z); // 级联块各自区块入脏(同区块多块由 Set 去重)
   return removed;
 }
@@ -598,7 +626,7 @@ function applyCascade(x, y, z, oldId) {
    带 to)。本入口不是运行期破坏路径——玩家破坏仍必须走 editBlock/editBlockDirty
    两入口(D3 纪律不变)。 */
 function applySweep() {
-  const removed = CascadeCore.cascadeSweep(getBlock, setBlockRaw, CASCADE_POLICY,
+  const removed = CascadeCore.cascadeSweep(getBlock, setBlockLit, CASCADE_POLICY,
       WORLD_W, WORLD_H, WORLD_D);
   for (const r of removed) {
     markDirty(r.x, r.z);
@@ -663,12 +691,12 @@ function markDirty(x, z) {
 }
 function editBlockDirty(x, y, z, id) {
   const old = getBlock(x, y, z);
-  setBlockRaw(x, y, z, id);
+  setBlockLit(x, y, z, id); /* 写格连带双通道光场增量(昼夜 §3.3, 级联结算前光先就位) */
   let removed = [];
   if (id === 0 && old !== 0) {
     removed = applyCascade(x, y, z, old);
   } else if (id !== 0) {
-    removed = CascadeCore.cascadePlace(getBlock, setBlockRaw, x, y, z, id, CASCADE_POLICY);
+    removed = CascadeCore.cascadePlace(getBlock, setBlockLit, x, y, z, id, CASCADE_POLICY);
   }
   markDirty(x, z);
   return removed; // 坦克批量链注入此入口: 级联已生效(炸林区整树倒), 返回值按需消费; 批量路径不放动画(自带爆风观感)

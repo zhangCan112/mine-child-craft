@@ -838,6 +838,24 @@ const WOOL_ART = [ // 羊毛团(F4): 蓬松云团状(暗点勾边 + 亮斑起绒
   '................',
   '................',
 ];
+const BED_ART = [ // 床(昼夜 D6): 侧视 — 白枕红毯木框四脚(§7.1 顶红毯/侧深红同语言)
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+  '..W...........W.',
+  '..WPPpppprrrrrrW',
+  '..wPpppRRRRRRRw.',
+  '..wmmdRRRRRRRmw.',
+  '..wmmmmmmmmmmmw.',
+  '..wW.......wW.w.',
+  '.dwW.......wW.wd',
+  '................',
+  '................',
+  '................',
+];
 
 /* ------------------------------------------------------------
    ITEM_PIX 字符画数据表 — 键集与 ITEMS 完全一致(test 防错网断言),
@@ -890,6 +908,8 @@ const ITEM_PIX = {
   craft_table: {art: TABLE_ART, map: {g: '#6b451f', m: '#b1804f', s: '#8a5a2b', l: '#caa06e', d: '#7d5432'}},
   furnace: {art: FURNACE_ART, map: {s: '#8a8f98', L: '#a3a8b0', d: '#6e737c', k: '#1a1a1a', F: '#ffc04d', f: '#ff8c1a'}},
   chest: {art: CHEST_ART, map: {m: '#b1804f', l: '#caa06e', d: '#6b451f', k: '#4a4f57', K: '#d8dde5'}},
+  bed: {art: BED_ART, map: {P: '#ffffff', p: '#ececec', r: '#e05545', R: '#b83a30',
+    W: '#96693c', w: '#7d5730', m: '#5d3f21', d: '#46301c'}}, // 昼夜 D6: 白枕红毯 + 原木系框脚(log 色板)
   tnt: {art: TNT_ART, map: {r: '#d0342c', R: '#f05545', w: '#ececec', k: '#1a1a1a', d: '#a02018'}},
   /* 二期占位 */
   bow_item: {art: BOW_ART, map: {W: PIX_HANDLE.light, w: PIX_HANDLE.dark, s: '#e0ded4'}},

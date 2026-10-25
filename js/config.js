@@ -153,6 +153,11 @@ const TANK_MODELS = {
 /* ============================================================
    方块定义
 ============================================================ */
+/* 光源字段(昼夜设计稿 mc-daylight-torch §5.1, D4): light = 方块光发射级
+   1..15 —— 火把 14(照亮半径 13 菱形) · 灯块/发光岩/岩浆 15(MC 口径,
+   research TL;DR #7); 无 light = 不发光。装场全量(loadScene 的 computeAll)
+   与编辑增量(world.js setBlockLit 的 updateEdit)共用本表 —— LightCore.
+   mkPolicy.lightOf 读此字段, 光源清单数据驱动零硬编码。 */
 const BLOCKS = {
   1: {name: '草地', top: [0.43, 0.74, 0.34], side: [0.56, 0.43, 0.30], bottom: [0.55, 0.40, 0.27]},
   2: {name: '泥土', all: [0.55, 0.40, 0.27]},
@@ -172,7 +177,7 @@ const BLOCKS = {
   16: {name: '红羊毛', all: [0.80, 0.32, 0.32]},
   17: {name: '石英', all: [0.90, 0.88, 0.82]},
   18: {name: '玻璃', all: [0.75, 0.90, 0.95], glass: true},
-  19: {name: '灯块', all: [1.00, 0.92, 0.55]},
+  19: {name: '灯块', all: [1.00, 0.92, 0.55], light: 15},
 };
 
 /* TNT 密室方块 (id 20~29) — 模式已下线, 保留者均为创意资产:
@@ -189,7 +194,7 @@ BLOCKS[B_FUSE] = {name: '引线', all: [0.92, 0.75, 0.30], fuse: true, thin: 0.1
 // B_FUSE 运行时死键(全仓 js 零读), 但 test/voxel.test.js / test/mesh-core.test.js 当
 // thin 块 fixture — 创意资产保留; 若复活须先找回消费方(候选 8 清偿口径)
 BLOCKS[B_WATER] = {name: '水', all: [0.25, 0.45, 0.85], glass: true, water: true, solid: false};
-BLOCKS[B_LAVA] = {name: '岩浆', all: [1.00, 0.42, 0.08], lava: true, solid: false};
+BLOCKS[B_LAVA] = {name: '岩浆', all: [1.00, 0.42, 0.08], lava: true, solid: false, light: 15};
 
 /* 下界模式新方块 (id 30~35) — 下界荒原主题: 下界岩/黑曜石/下界砖/发光岩/传送门面
    (B_SOUL_SAND 死键已清偿, docs/mining-gap-analysis.md:89 先行记账) */
@@ -198,7 +203,7 @@ const B_NETHER_BRICK=33; const B_GLOWSTONE=34; const B_PORTAL=35;
 BLOCKS[B_NETHERRACK]= {name: '下界岩', all: [0.52, 0.28, 0.16]};
 BLOCKS[B_OBSIDIAN] = {name: '黑曜石', all: [0.10, 0.08, 0.16]};
 BLOCKS[B_NETHER_BRICK]= {name: '下界砖', all: [0.48, 0.20, 0.16]};
-BLOCKS[B_GLOWSTONE] = {name: '发光岩', all: [1.00, 0.85, 0.45]};
+BLOCKS[B_GLOWSTONE] = {name: '发光岩', all: [1.00, 0.85, 0.45], light: 15};
 /* 传送门面: 门内口的紫色半透明门面。glass 走透明渲染通道(勿用 thin —
    LOD 降采样会跳过 thin 块, 远处门面会消失); solid:false 可直接走入
    (传送判定只看坐标区间, 不看点位); portal 旗标 = 门面唯一身份 */
@@ -217,6 +222,7 @@ const B_WHEAT_0=42; const B_WHEAT_1=43; const B_WHEAT_2=44; const B_WHEAT_3=45;
 const B_CRAFT=46; const B_FURNACE=47; const B_TORCH=48; const B_CLAY=49; const B_SAPLING=50;
 const B_CHEST=51;
 const B_WOOL=52; /* F4 羊毛(二期设计稿 §4.7): 号段顺延同款(B_SAPLING/B_CHEST 先例) */
+const B_BED=53; /* 床(昼夜 D6, mc-daylight-torch §7.1): 号段顺延同款 */
 BLOCKS[B_COAL_ORE] = {name: '煤矿', all: [0.36, 0.36, 0.38], hard: 3.0, tool: 'pick', tier: 1, drop: [['coal', 1, 0]]};
 BLOCKS[B_IRON_ORE] = {name: '铁矿', all: [0.55, 0.44, 0.36], hard: 3.0, tool: 'pick', tier: 2, drop: [['iron_ore', 1, 0]]};
 BLOCKS[B_GOLD_ORE] = {name: '金矿', all: [0.62, 0.52, 0.28], hard: 3.0, tool: 'pick', tier: 3, drop: [['gold_ore', 1, 0]]};
@@ -237,8 +243,8 @@ BLOCKS[B_CRAFT] = {name: '工作台', top: [0.55, 0.42, 0.26], side: [0.66, 0.52
   hard: 2.5, tool: 'axe', tier: 0, drop: [['craft_table', 1, 0]]}; // 站点: table 级配方
 BLOCKS[B_FURNACE] = {name: '熔炉', top: [1.00, 0.45, 0.10], side: [0.35, 0.35, 0.38], bottom: [0.35, 0.35, 0.38],
   hard: 3.5, tool: 'pick', tier: 1, drop: [['furnace', 1, 0]]}; // 站点: 烧炼
-BLOCKS[B_TORCH] = {name: '火把', all: [1.00, 0.70, 0.25], thin: 0.5, solid: false,
-  hard: 0, tool: null, tier: 0, drop: [['torch', 1, 0]]}; // 装饰(无光照系统)
+BLOCKS[B_TORCH] = {name: '火把', all: [1.00, 0.70, 0.25], thin: 0.5, solid: false, light: 14,
+  hard: 0, tool: null, tier: 0, drop: [['torch', 1, 0]]}; // 光源 14 照亮半径 13(§5.1); 不烧完/不能当燃料(vanilla 维持项)
 BLOCKS[B_CLAY] = {name: '黏土', all: [0.58, 0.60, 0.68],
   hard: 0.6, tool: 'shovel', tier: 0, drop: [['clay_ball', 4, 0]]}; // 掉 4 黏土球(红砖链源头, §3.5); 湖底生成
 BLOCKS[B_SAPLING] = {name: '树苗', all: [0.30, 0.60, 0.25], thin: 0.4, solid: false,
@@ -249,6 +255,12 @@ BLOCKS[B_CHEST] = {name: '箱子', top: [0.72, 0.55, 0.30], side: [0.62, 0.44, 0
    蓝/红羊毛(15/16)维持创造专属, 只开白羊毛(染料 Out of Scope) */
 BLOCKS[B_WOOL] = {name: '羊毛', all: [0.92, 0.92, 0.92], hard: 0.8, tool: null, tier: 0,
   drop: [['wool', 1, 0]]};
+/* 床(昼夜 D6 §7.1): 1 格半高薄块(差异 #1: MC 2 格×0.5625 简化) — thin 旗标白送
+   顶面限定放置(advPlaceCheck thin 路径)与失撑脱落(cascade); hard 0 徒手秒碎回收。
+   颜色: top=红毯(亮) / all=床架深红 — 注: 实心通道 pushThin 现取 b.all 单色,
+   top 字段按规格 §7.1 原样入表(mesh-core thin 路径分色归 D3/后续观感票) */
+BLOCKS[B_BED] = {name: '床', top: [0.90, 0.30, 0.30], all: [0.75, 0.22, 0.22], thin: 0.55,
+  solid: false, hard: 0, tool: null, tier: 0, drop: [['bed', 1, 0]]};
 
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段

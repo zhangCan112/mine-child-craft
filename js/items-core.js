@@ -88,6 +88,7 @@ const ITEMS = {
   craft_table: {name: '工作台', icon: '🛠️', block: 46}, // 附录 A: B_CRAFT(46); 解锁 table 级配方
   furnace: {name: '熔炉', icon: '♨️', block: 47}, // 附录 A: B_FURNACE(47); 烧炼站点
   chest: {name: '箱子', icon: '📦', block: 51}, // B_CHEST(51); 只储物不解锁配方(合成仍要工作台); 8 木板合成(引导链 v2)
+  bed: {name: '床', icon: '🛏️', block: 53}, // B_BED(53, 昼夜 D6 §7.1); 夜里点击睡觉跳夜+设床边出生点(政策在模式层)
   tnt: {name: 'TNT', icon: '🧨', block: 20}, // 既有 B_TNT(config.js); 5 火药+4 沙合成
 
   /* —— 二期占位(§3.2 配方书全表引用 bow_item, 一期卡片不点亮) —— */

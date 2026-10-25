@@ -63,8 +63,8 @@ test('条目形状: 每个物品必备 name/icon, 类别字段(block/food/fuel/t
     assert.strictEqual(typeof it.icon, 'string', id + ' icon');
     assert.ok(it.icon.length > 0, id + ' icon 非空(emoji 占位, 正式图标归 icons.js/T8)');
     if ('block' in it) {
-      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 52,
-          id + ' block 应为 1~52 整数(F4 羊毛 B_WOOL=52 顺延号段), 实际 ' + it.block);
+      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 53,
+          id + ' block 应为 1~53 整数(昼夜 D6 床 B_BED=53 顺延号段), 实际 ' + it.block);
     }
     if ('food' in it) assert.ok(typeof it.food === 'number' && it.food > 0, id + ' food 应为正数');
     if ('fuel' in it) assert.ok(typeof it.fuel === 'number' && it.fuel > 0, id + ' fuel 应为正数');
@@ -92,6 +92,9 @@ test('放置型 block 挂点: 与方块注册表既有 id / 附录 A 规划 id �
   }
   // 树苗: B_SAPLING=50(T2 落定, 号段 36~50 顺延)
   assert.strictEqual(ITEMS.sapling.block, 50, 'sapling block 应为 B_SAPLING=50');
+  // 床(昼夜 D6 §7.1): B_BED=53 放置型 — 睡觉跳夜+设床边出生点(政策在模式层)
+  assert.strictEqual(ITEMS.bed.name, '床');
+  assert.strictEqual(ITEMS.bed.block, 53, 'bed block 应为 B_BED=53');
 });
 
 test('工具 16 条数值表: 4 阶 × 镐斧剑锹 与设计稿 D9 逐格一致', () => {
