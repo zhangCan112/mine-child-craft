@@ -20,7 +20,8 @@
       政策 ADV_NIGHT/advNightCanSpawn/advNightStep/advDawnSweep · F4 牧场
      advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 床·睡觉
      政策(昼夜 D6 §7.2) advSleepCheck(两条件)/advSleepStep(转场时间账) 与
-     常量 ADV_BED_MOB_R/ADV_SLEEP_* · 任务表
+     常量 ADV_BED_MOB_R/ADV_SLEEP_* · 灯笼耗秒政策(昼夜 D7 §8.2)
+     ADV_LANTERN/advLanternStep(天黑才亮才耗三前置+持满 1 秒节拍) · 任务表
      ADV_QUESTS/ADV_MINE_TALLY · 大宝箱政策 ADV_CHEST_START/ADV_CHEST_SLOTS/
      ADV_CHEST_TIERS/advChestNext/advChestPut · 节律常量 ADV_*
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界
@@ -883,6 +884,33 @@ function advSleepStep(t, dt) {
   return {t: nt, phase, opacity, wake};
 }
 
+/* ============================================================
+   昼夜 D7 灯笼耗秒政策(mc-daylight-torch §8.2) — 常量与纯函数段
+   ------------------------------------------------------------
+   节拍器 advLanternStep 与 advNightStep 同构(状态进 · {t, 决策} 出);
+   三前置「选中灯笼 且 耐久>0 且 skyDim>0」= 天黑才亮才耗(白天/手持
+   别物/燃尽全不亮不耗, 耗秒器归零)。扣耐久(damageTool 管线)/归零
+   消失+TTS 安抚/setPlayerGlow 双通道光照开关(引擎机制缝, D3 备好)
+   全在壳 modes/adventure.js 的 advLanternTick——核心保持零实体耦合。
+   ============================================================ */
+const ADV_LANTERN = {
+  ID: 'lantern', /* 灯笼物品键(items-core 注册, 可耗损物 dur=300) */
+  DRAIN_S: 1, /* 每持满 1 秒扣 1 耐久(dt 累计器, §8.2) */
+};
+
+/* 灯笼耗秒节拍: s 为秒累计, heldId 为快捷栏选中物品 id, dur 为灯笼
+   当前耐久, skyDim 为天空暗度(壳层从 Daylight.skyDim(dayTime) 取)。
+   返回 {t, glow, drain} — t=新累计秒 · glow=是否点亮(壳层喂
+   setPlayerGlow) · drain=本步是否持满 1 秒(壳层 damageTool 扣 1) */
+function advLanternStep(s, dt, heldId, dur, skyDim) {
+  if (heldId !== ADV_LANTERN.ID || dur <= 0 || skyDim <= 0) {
+    return {t: 0, glow: false, drain: false}; /* 前置不满足: 不亮不耗且累计器归零 */
+  }
+  const nt = s + dt;
+  if (nt < ADV_LANTERN.DRAIN_S) return {t: nt, glow: true, drain: false};
+  return {t: nt - ADV_LANTERN.DRAIN_S, glow: true, drain: true}; /* 余时结转下一秒 */
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
@@ -906,5 +934,6 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,
     advBreakToolText,
     ADV_BED_MOB_R, ADV_SLEEP_FADE, ADV_SLEEP_HOLD, ADV_SLEEP_TOTAL,
-    advSleepCheck, advSleepStep};
+    advSleepCheck, advSleepStep,
+    ADV_LANTERN, advLanternStep};
 }

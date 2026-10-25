@@ -3,22 +3,24 @@
    物品核心 (ItemsCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
    物品注册表 ITEMS 是全游戏物品的唯一数据源(材料/放置型/食物/工具四类
-   条目, 加物品 = 加一行纯数据); 外加四个无状态纯函数: stackMax 堆叠
+   条目, 加物品 = 加一行纯数据); 外加五个无状态纯函数: stackMax 堆叠
    上限 · mkStack 造一摞(工具带满耐久) · isTool 工具判定 · toolOf 工具
-   参数查询。icon 为 emoji 占位(正式像素图标归 icons.js 的 itemIcon/T8)。
+   参数查询 · durOf 可耗损物满耐久查询(工具/灯笼, 昼夜 D7 §8.1)。
+   icon 为 emoji 占位(正式像素图标归 icons.js 的 itemIcon/T8)。
    零 THREE 零 DOM, 且不依赖 config.js — 放置型的 block 字段存方块 id
    数字, 号段断言在单测, 与方块表的交叉校验归 test/drops.test.js。
-   interface: ITEMS · stackMax(id) · mkStack(id, n=1) · isTool(id) · toolOf(id)
+   interface: ITEMS · stackMax(id) · mkStack(id, n=1) · isTool(id) · toolOf(id) · durOf(id)
    依赖: 无(纯数据+纯函数; 数值出处 docs/item-crafting-design.md §3.1/§3.5/D9)
    可测性: 零 THREE·零 DOM·有单测(test/items-core.test.js, vm 直测)
    ============================================================ */
 
 /* ------------------------------------------------------------
    ITEMS 物品注册表 — snake_case 键(与 mob-registry.js 的 MOB_TYPES/HeldItems 键同惯例, 设计稿 §2)
-   条目形状(设计稿 §3.1):
+   条目形状(设计稿 §3.1 + 昼夜 D7 §8.1):
      name 中文名 · icon emoji 占位 · block 放置型=放置成的方块 id
      · fuel 燃料热值(能烧几件) · food 回血值
      · full 旗标=吃了直接回满血(F3 金苹果, 二期设计稿 §3)
+     · dur 满耐久秒数=可耗损物(D7 灯笼: 不可堆叠+mkStack 满耐久, isTool 不动)
      · tool {kind, tier, dmg, dur, speed} 工具五元组(D9 数值表)
    ------------------------------------------------------------ */
 const ITEMS = {
@@ -89,6 +91,7 @@ const ITEMS = {
   furnace: {name: '熔炉', icon: '♨️', block: 47}, // 附录 A: B_FURNACE(47); 烧炼站点
   chest: {name: '箱子', icon: '📦', block: 51}, // B_CHEST(51); 只储物不解锁配方(合成仍要工作台); 8 木板合成(引导链 v2)
   bed: {name: '床', icon: '🛏️', block: 53}, // B_BED(53, 昼夜 D6 §7.1); 夜里点击睡觉跳夜+设床边出生点(政策在模式层)
+  lantern: {name: '灯笼', icon: '🏮', dur: 300}, // 原创手持光源(昼夜 D7 §8.1, 拍板⑤): dur=可耗损物满耐久 300 秒; 天黑手持才亮才耗(政策在模式层)
   tnt: {name: 'TNT', icon: '🧨', block: 20}, // 既有 B_TNT(config.js); 5 火药+4 沙合成
 
   /* —— 二期占位(§3.2 配方书全表引用 bow_item, 一期卡片不点亮) —— */
@@ -119,20 +122,22 @@ const ITEMS = {
    纯函数 — 无状态; 背包核心/合成核心/掉落物实体库与模式层共用
    ------------------------------------------------------------ */
 
-/* 堆叠上限(设计稿 §2: 64/1 两档, 不设 16 档): 工具(含剪刀) 1 · 已注册
-   材料 64 · 未注册 0(=拒收, 入包门禁供背包核心判断) */
+/* 堆叠上限(设计稿 §2: 64/1 两档, 不设 16 档): 可耗损物(工具含剪刀/
+   D7 灯笼, durOf>0) 1 · 已注册材料 64 · 未注册 0(=拒收, 入包门禁供背包核心判断) */
 function stackMax(id) {
   const it = ITEMS[id];
-  return it ? (it.tool ? 1 : 64) : 0;
+  return it ? (durOf(id) > 0 ? 1 : 64) : 0;
 }
 
-/* 造一摞: 未注册返回 null; n 钳制进 [1, 上限]; 工具附带满耐久 dur
-   (槽形状 {id, n, dur} 见设计稿 D10; 耐久扣减与归零消失的政策在模式层) */
+/* 造一摞: 未注册返回 null; n 钳制进 [1, 上限]; 可耗损物(工具/D7 灯笼)
+   附带满耐久 dur(槽形状 {id, n, dur} 见设计稿 D10; 耐久扣减与归零消失
+   的政策在模式层) */
 function mkStack(id, n) {
   const max = stackMax(id);
   if (!max) return null;
   const stack = {id, n: Math.max(1, Math.min(n || 1, max))};
-  if (ITEMS[id].tool) stack.dur = ITEMS[id].tool.dur;
+  const dur = durOf(id);
+  if (dur > 0) stack.dur = dur;
   return stack;
 }
 
@@ -144,4 +149,14 @@ function isTool(id) {
 /* 工具参数查询: 返回 {kind, tier, dmg, dur, speed}; 非工具/未注册返回 null */
 function toolOf(id) {
   return (ITEMS[id] && ITEMS[id].tool) || null;
+}
+
+/* 可耗损物满耐久查询(昼夜 D7 §8.1): 工具取 tool.dur, 带 dur 字段的
+   耗损物(灯笼)取 dur, 其余/未注册返回 0 — 「可扣耐久」与「不可堆叠」
+   两判定的单一权威; isTool 语义不动(灯笼不挖不砍, 无工具五元组) */
+function durOf(id) {
+  const it = ITEMS[id];
+  if (!it) return 0;
+  if (it.tool) return it.tool.dur;
+  return typeof it.dur === 'number' ? it.dur : 0;
 }

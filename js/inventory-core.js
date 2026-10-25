@@ -4,14 +4,15 @@
    ------------------------------------------------------------
    27 槽背包模型(9 快捷 + 18 主格, 设计稿 D10)与全部背包规则:
    入包并堆/拒收、跨槽计数、按 cost 扣料(含任选材料)、槽级移除、
-   点选搬运(槽间搬家/并堆/对调)、工具耐久扣减、存档往返。模式层只拿
-   这里的函数拼玩法(吃/放/合成/掉落拾取), 耐久归零后的「消失+安抚」政策在模式层(D4/D9)。
+   点选搬运(槽间搬家/并堆/对调)、耐久扣减(工具与可耗损物)、存档往返。
+   模式层只拿这里的函数拼玩法(吃/放/合成/掉落拾取), 耐久归零后的
+   「消失+安抚」政策在模式层(D4/D9; 灯笼燃尽口径昼夜 D7 §8.2)。
    零 THREE 零 DOM, 只依赖 items-core 的注册表门禁(stackMax=0 即拒收)。
    interface: mkInventory · add · count · canAfford · take · remove ·
               moveSlot · damageTool · serialize · deserialize ·
               常量 HOTBAR_SLOTS/MAIN_SLOTS/INV_SLOTS
    依赖(均经全局名, 调用期解析): js/items-core.js 的 stackMax/mkStack/
-     ITEMS(加载序: items-core 先于本文件)
+     durOf(可耗损物判定, 昼夜 D7)/ITEMS(加载序: items-core 先于本文件)
    可测性: 零 THREE·零 DOM·有单测(test/inventory-core.test.js, vm 直测)
    ============================================================ */
 
@@ -162,14 +163,15 @@ function moveSlot(inv, from, to) {
 }
 
 /* ------------------------------------------------------------
-   工具耐久扣减(耐久政策在本层, D10): 槽内工具 dur-1, 返回剩余
-   耐久;返回 0 = 破板信号——「归零消失 + 安抚话术」归模式层(D4/D9),
-   本函数不清槽; 非工具槽/空槽返回 null 且不动包。已归零的工具
-   重复敲不产生负耐久(钳在 0, 信号持续为 0)。
+   可耗损物耐久扣减(耐久政策在本层, D10 + 昼夜 D7 扩可耗损物): 槽内
+   工具(tool.dur)或耗损物(dur 字段, 灯笼)dur-1, 返回剩余耐久;
+   返回 0 = 破板/燃尽信号——「归零消失 + 安抚话术」归模式层
+   (D4/D9; 灯笼 §8.2), 本函数不清槽; 不可耗损物槽/空槽返回 null
+   且不动包。已归零的重复敲不产生负耐久(钳在 0, 信号持续为 0)。
    ------------------------------------------------------------ */
 function damageTool(inv, slot) {
   const s = inv.slots[slot];
-  if (!s || !isTool(s.id)) return null;
+  if (!s || !durOf(s.id)) return null;
   s.dur = Math.max(0, (s.dur || 0) - 1);
   return s.dur;
 }
@@ -195,7 +197,7 @@ function deserialize(save) {
     const max = s && typeof s === 'object' && typeof s.id === 'string' ? stackMax(s.id) : 0;
     if (!max || typeof s.n !== 'number' || s.n < 1) continue; // 单槽非法 → 留 null
     const st = {id: s.id, n: Math.min(Math.floor(s.n), max)}; // 数量钳回堆叠上限
-    if (isTool(s.id) && typeof s.dur === 'number') st.dur = Math.max(0, s.dur);
+    if (durOf(s.id) && typeof s.dur === 'number') st.dur = Math.max(0, s.dur); // 可耗损物耐久随槽往返(工具/D7 灯笼)
     inv.slots[i] = st;
   }
   return inv;

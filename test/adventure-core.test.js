@@ -498,3 +498,52 @@ test('D6 睡觉转场: advSleepStep — 渐黑 1.5s → 停 2s(唤醒沿) → �
   assert.strictEqual(Math.round(s.opacity * 100) / 100, 0.5, '4.25s(渐亮中点)半透明');
   assert.strictEqual(S.ADV_SLEEP_TOTAL, 5, '总时长常量 ≈ MC 101 tick=5.05s(差异 #2 观感等价)');
 });
+
+/* ============ 昼夜 D7: 灯笼耗秒政策纯函数(设计稿 §8.2) ============ */
+
+test('D7 灯笼常数表: ADV_LANTERN 物品 id 与耗秒节拍(设计稿 §8.2 拍板)', () => {
+  assert.strictEqual(Core.ADV_LANTERN.ID, 'lantern', '物品键 = items-core 注册的 lantern');
+  assert.strictEqual(Core.ADV_LANTERN.DRAIN_S, 1, '每持满 1 秒扣 1 耐久(dt 累计器)');
+});
+
+test('D7 advLanternStep: 三前置(选中灯笼·耐久>0·skyDim>0)才亮才耗 · 前置不满足累计器归零', () => {
+  const L = Core;
+  /* 白天(skyDim 0): 不亮不耗, 且累计器归零(advNightStep 白天同构) */
+  let r = L.advLanternStep(0.9, 0.2, 'lantern', 300, 0);
+  assert.strictEqual(r.glow, false, '白天不亮');
+  assert.strictEqual(r.drain, false, '白天不耗(孩子不会白浪费)');
+  assert.strictEqual(r.t, 0, '白天累计器归零');
+  /* 手持别物/空手: 不亮不耗归零 */
+  r = L.advLanternStep(0.9, 0.2, 'torch', 300, 11);
+  assert.strictEqual(r.glow, false, '非灯笼不亮');
+  assert.strictEqual(r.t, 0, '换下手累计器归零(半秒进度不白送也不白扣)');
+  r = L.advLanternStep(0.9, 0.2, '', 300, 11);
+  assert.strictEqual(r.glow, false, '空手不亮');
+  /* 耐久归零: 不亮不耗(燃尽灯笼静默, 消失政策在壳层) */
+  r = L.advLanternStep(0.9, 0.2, 'lantern', 0, 11);
+  assert.strictEqual(r.glow, false, '燃尽不亮');
+  assert.strictEqual(r.drain, false, '燃尽不耗');
+  /* 黄昏沿(skyDim 恰 >0)即亮: 判据是 skyDim 而非 isNight(§8.2 字面口径) */
+  r = L.advLanternStep(0, 0.2, 'lantern', 300, 0.5);
+  assert.strictEqual(r.glow, true, '天微暗(skyDim 0.5>0)灯笼已亮');
+});
+
+test('D7 advLanternStep: 持满 1 秒出扣单 · 余时结转下一秒 · 未满只累计', () => {
+  const L = Core;
+  /* 未满 1 秒: 只累计不出扣单 */
+  let r = L.advLanternStep(0, 0.6, 'lantern', 300, 11);
+  assert.strictEqual(r.drain, false, '0.6s 未持满');
+  assert.ok(Math.abs(r.t - 0.6) < 1e-9, '累计器推进');
+  assert.strictEqual(r.glow, true, '点亮中');
+  /* 跨过 1 秒: 出扣单, 余时结转(不整段清零) */
+  r = L.advLanternStep(0.9, 0.3, 'lantern', 300, 11);
+  assert.strictEqual(r.drain, true, '1.2s 持满出扣单(damageTool 扣 1)');
+  assert.ok(Math.abs(r.t - 0.2) < 1e-9, '余时 0.2s 结转下一秒');
+  /* 恰满 1 秒整: 出扣单 */
+  r = L.advLanternStep(0.5, 0.5, 'lantern', 300, 11);
+  assert.strictEqual(r.drain, true, '恰 1.0s 也算持满');
+  assert.strictEqual(r.t, 0, '无余时');
+  /* 低帧率大步: 钳 0.05 的 dt 单步最多跨一拍, 状态机自身仍按余时结转 */
+  r = L.advLanternStep(0.99, 0.05, 'lantern', 300, 11);
+  assert.strictEqual(r.drain, true, '大步跨沿也恰一扣单');
+});

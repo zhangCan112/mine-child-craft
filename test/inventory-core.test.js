@@ -281,6 +281,17 @@ test('damageTool: 非工具槽/空槽返回 null 且不动包', () => {
   assert.strictEqual(h.damageTool(inv, 5), null); // 空槽
 });
 
+test('damageTool: 可耗损物(昼夜 D7 灯笼, dur 字段非工具)同管线扣耐久 — 归零只发信号', () => {
+  const h = loadInv();
+  const inv = h.mkInventory();
+  inv.slots[0] = h.mkStack('lantern'); // dur 300(items-core 可耗损物产栈满耐久)
+  assert.strictEqual(h.damageTool(inv, 0), 299, '灯笼 dur-1(每持满 1 秒一扣, 模式层节拍)');
+  assert.strictEqual(inv.slots[0].dur, 299, '槽内同步');
+  inv.slots[0].dur = 1;
+  assert.strictEqual(h.damageTool(inv, 0), 0, '归零恰返回 0(燃尽信号, 消失+安抚在模式层 §8.2)');
+  assert.deepStrictEqual(snap(inv.slots[0]), {id: 'lantern', n: 1, dur: 0}, '槽不自动清(同工具口径)');
+});
+
 /* ============ serialize / deserialize: D12 存档形状往返 ============ */
 
 test('serialize: 产出 D12 存档形状 {slots:27, _v:1}, 深拷贝不与背包共享引用', () => {
@@ -307,6 +318,15 @@ test('deserialize: serialize 往返逐槽一致(含空槽与耐久)', () => {
   for (let i = 0; i < 27; i++) {
     assert.deepStrictEqual(snap(back.slots[i]), snap(inv.slots[i]), '槽 ' + i);
   }
+});
+
+test('deserialize: 灯笼耐久随槽往返(昼夜 D7 — 重进不重铸满耐久, 与 dayTime 连续同哲学)', () => {
+  const h = loadInv();
+  const inv = h.mkInventory();
+  h.add(inv, 'lantern', 1); // 满耐久 300 入包
+  inv.slots[0].dur = 117; // 夜里用掉一截
+  const back = h.deserialize(h.serialize(inv));
+  assert.deepStrictEqual(snap(back.slots[0]), {id: 'lantern', n: 1, dur: 117}, '剩余耐久原样保留');
 });
 
 test('deserialize: 损坏回落空包(整包非对象/槽数不对/单槽非法 → 该槽置 null)', () => {

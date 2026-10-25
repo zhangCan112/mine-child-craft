@@ -16,16 +16,16 @@ function loadItems() {
   vm.runInContext(
       fs.readFileSync(path.join(__dirname, '..', 'js', 'items-core.js'), 'utf8'),
       ctx, {filename: 'items-core.js'});
-  vm.runInContext('globalThis.__i = { ITEMS, stackMax, mkStack, isTool, toolOf };', ctx);
+  vm.runInContext('globalThis.__i = { ITEMS, stackMax, mkStack, isTool, toolOf, durOf };', ctx);
   return ctx.__i;
 }
 
 /* ============ 加载: 共享词法环境的顶层接口 ============ */
 
-test('加载: 顶层暴露 ITEMS + 四个纯函数(不加载 config.js 也能独立成立)', () => {
+test('加载: 顶层暴露 ITEMS + 五个纯函数(不加载 config.js 也能独立成立)', () => {
   const h = loadItems();
   assert.strictEqual(typeof h.ITEMS, 'object');
-  ['stackMax', 'mkStack', 'isTool', 'toolOf'].forEach((f) => assert.strictEqual(typeof h[f], 'function', f));
+  ['stackMax', 'mkStack', 'isTool', 'toolOf', 'durOf'].forEach((f) => assert.strictEqual(typeof h[f], 'function', f));
 });
 
 /* ============ 注册表防错网: 以后加物品漏字段/漏注册当场红 ============ */
@@ -68,6 +68,10 @@ test('条目形状: 每个物品必备 name/icon, 类别字段(block/food/fuel/t
     }
     if ('food' in it) assert.ok(typeof it.food === 'number' && it.food > 0, id + ' food 应为正数');
     if ('fuel' in it) assert.ok(typeof it.fuel === 'number' && it.fuel > 0, id + ' fuel 应为正数');
+    if ('dur' in it) {
+      assert.ok(Number.isInteger(it.dur) && it.dur > 0,
+          id + ' dur 应为正整数(可耗损物满耐久, 昼夜 D7 灯笼口径)');
+    }
     if ('tool' in it) {
       const t = it.tool;
       ['kind', 'tier', 'dmg', 'dur', 'speed'].forEach((k) => assert.ok(k in t, id + ' tool.' + k + ' 必备'));
@@ -183,6 +187,26 @@ test('F4 农场链 11 件: 名/food 数值表逐条 · 熟肉 6~8 档 · wool bl
   /* 羊毛: 放置型 block=52(B_WOOL, F4 §4.7 羊掉毛转入采集) */
   assert.strictEqual(ITEMS.wool.name, '羊毛');
   assert.strictEqual(ITEMS.wool.block, 52, 'wool block 应为 B_WOOL=52');
+});
+
+test('昼夜 D7 灯笼: dur=300 可耗损物 — stackMax 1 不可堆叠 · mkStack 自带满耐久 · isTool 语义不动(设计稿 §8.1)', () => {
+  const {ITEMS, stackMax, mkStack, isTool, durOf} = loadItems();
+  const it = ITEMS.lantern;
+  assert.ok(it, 'lantern 应注册(原创手持光源, 拍板⑤)');
+  assert.strictEqual(it.name, '灯笼');
+  assert.strictEqual(it.dur, 300, '耐久 300 秒 ≈ 5 分钟(一夜 8 分 20 秒, 省着用撑大半夜)');
+  assert.ok(it.block == null && !it.tool, '非放置型非工具: 不挖不砍, 无工具五元组(§8.1)');
+  assert.strictEqual(typeof it.icon, 'string', 'icon emoji 占位(像素图标归 icons.js)');
+  assert.strictEqual(stackMax('lantern'), 1, '可耗损物不可堆叠(工具同款管线)');
+  assert.deepStrictEqual({...mkStack('lantern')}, {id: 'lantern', n: 1, dur: 300}, '产栈自带满耐久');
+  assert.deepStrictEqual({...mkStack('lantern', 9)}, {id: 'lantern', n: 1, dur: 300}, 'n 钳到上限 1');
+  assert.strictEqual(isTool('lantern'), false, 'isTool 语义不动: 灯笼不是工具');
+  /* durOf: 可耗损物满耐久查询的单一权威(工具取 tool.dur · 耗损物取 dur · 其余 0) */
+  assert.strictEqual(durOf('lantern'), 300);
+  assert.strictEqual(durOf('pick_wood'), 120, '工具取 tool.dur');
+  assert.strictEqual(durOf('shears'), 500, '剪刀同口径');
+  assert.strictEqual(durOf('log'), 0, '普通材料 0');
+  assert.strictEqual(durOf('not_registered'), 0);
 });
 
 test('名字抽查: TTS 播报与任务链引用的键名/中文名稳定', () => {

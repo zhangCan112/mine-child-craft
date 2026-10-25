@@ -54,24 +54,24 @@ test('加载: 顶层暴露三张表(FUEL 从 ITEMS 派生, 加载序在 items-co
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 手搓 4 条 + 工作台级(工具16/站点件/补给包/箱子/金苹果/床)共 31 条, id 唯一', () => {
+test('配方全量: 手搓 4 条 + 工作台级(工具16/站点件/补给包/箱子/金苹果/床/灯笼)共 32 条, id 唯一', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 31, '全表 4+16+11 条(引导链 v2 加箱子, F3 加金苹果, 昼夜 D6 加床), 实际 ' + RECIPES.length);
+  assert.strictEqual(RECIPES.length, 32, '全表 4+16+12 条(引导链 v2 加箱子, F3 加金苹果, 昼夜 D6 加床, D7 加灯笼), 实际 ' + RECIPES.length);
   // 手搓级(设计稿 §3.2): 随时可做
   for (const id of ['planks', 'stick', 'craft_table', 'torch']) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '手搓配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
   }
-  // 工作台级: 工具 16 + furnace/stone_bricks/bricks/shears/golden_apple/tnt/bow_item/bread/bone_meal/chest/bed
+  // 工作台级: 工具 16 + furnace/stone_bricks/bricks/shears/golden_apple/tnt/bow_item/bread/bone_meal/chest/bed/lantern
   const tableIds = ['pick_wood', 'pick_stone', 'pick_iron', 'pick_diamond',
     'axe_wood', 'axe_stone', 'axe_iron', 'axe_diamond',
     'sword_wood', 'sword_stone', 'sword_iron', 'sword_diamond',
     'shovel_wood', 'shovel_stone', 'shovel_iron', 'shovel_diamond',
     'furnace', 'stone_bricks', 'bricks', 'shears', 'golden_apple', 'tnt', 'bow_item', 'bread',
-    'bone_meal', 'chest', 'bed'];
+    'bone_meal', 'chest', 'bed', 'lantern'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');
@@ -192,6 +192,37 @@ test('昼夜 D6 床配方: MC 正典 3 羊毛+3 木板(台级) — 缺料分开�
   assert.deepStrictEqual({...inv.slots[0]}, {id: 'wool', n: 1}, '羊毛 4→1');
   assert.deepStrictEqual({...inv.slots[1]}, {id: 'planks', n: 2}, '木板 5→2');
   assert.deepStrictEqual({...inv.slots[2]}, {id: 'bed', n: 1}, '产床开新堆');
+});
+
+test('昼夜 D7 灯笼配方: 原创 2 铁锭+1 火把(台级) — 缺料分开报 / 扣料产栈满耐久(设计稿 §8.1)', () => {
+  const h = loadCraft();
+  const {canCraft, craft, RECIPES} = h;
+  const r = RECIPES.find((x) => x.id === 'lantern');
+  assert.ok(r, '灯笼配方应注册');
+  assert.deepStrictEqual({...r.out}, {item: 'lantern', n: 1}, '产物 1 盏灯笼');
+  const c = {}; // 展开回宿主 realm(vm 跨 realm 先例, 上方 bed 同款)
+  for (const [k, v] of Object.entries(r.cost)) c[k] = v;
+  assert.deepStrictEqual(c, {iron_ingot: 2, torch: 1},
+      '材料计费: 2 铁锭+1 火把(MC 灯笼 8 铁粒+火把的原创折算, 差异 #6: 铁粒不存在)');
+  /* 缺铁锭(火把够): missing 只报铁锭一条 */
+  let res = canCraft(invWith(h, [['torch', 1]]), r, true);
+  assert.strictEqual(res.ok, false);
+  assert.deepStrictEqual(normMissing(res.missing), [{id: 'iron_ingot', need: 2, have: 0}]);
+  /* 缺火把(铁锭够): 单条带已有量 */
+  res = canCraft(invWith(h, [['iron_ingot', 2]]), r, true);
+  assert.strictEqual(res.ok, false);
+  assert.deepStrictEqual(normMissing(res.missing), [{id: 'torch', need: 1, have: 0}]);
+  /* 站点: 工作台级, 远台不可做 */
+  res = canCraft(invWith(h, [['iron_ingot', 2], ['torch', 1]]), r, false);
+  assert.strictEqual(res.ok, false, '灯笼是 table 级配方');
+  /* 材料齐: craft 扣 2+1, 产 1 灯笼入包且自带满耐久(可耗损物 mkStack 管线) */
+  const inv = invWith(h, [['iron_ingot', 3], ['torch', 2]]);
+  res = craft(inv, r, true);
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.leftover, 0);
+  assert.deepStrictEqual({...inv.slots[0]}, {id: 'iron_ingot', n: 1}, '铁锭 3→1');
+  assert.deepStrictEqual({...inv.slots[1]}, {id: 'torch', n: 1}, '火把 2→1');
+  assert.deepStrictEqual({...inv.slots[2]}, {id: 'lantern', n: 1, dur: 300}, '产灯笼开新堆带满耐久 300');
 });
 
 test('工具 16 条配方: 镐斧 3材+2棍 · 剑 2材+1棍 · 锹 1材+2棍, 材质按阶替换', () => {

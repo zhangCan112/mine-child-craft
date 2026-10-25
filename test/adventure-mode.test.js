@@ -85,7 +85,7 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
-  ITEMS, isTool, toolOf, stackMax, mkStack, breakTime,
+  ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
   RECIPES, canCraft, craft, take, costEntry, FUEL, fuelUnits, smeltOf, B_TNT,
@@ -180,10 +180,13 @@ globalThis.loadScene = (fn) => {
   fn();
 }; /* 场景装填 seam: 清场+建场(收尾重建归渲染层, 行为断言不需要) */
 /* 昼夜 seam(world.js 未装, 昼夜 D1): dayTime/dayCycleOn 是 world.js 顶层
-   可写绑定, 模式经全局名读写; applyDaylight 只记账不观感(场景驱动归渲染层) */
+   可写绑定, 模式经全局名读写; applyDaylight 只记账不观感(场景驱动归渲染层);
+   setPlayerGlow 是玩家随身光机制缝(昼夜 D7 灯笼消费, 方块 uniform+PointLight
+   归 world.js)——同样只记账 */
 globalThis.dayTime = 0;
 globalThis.dayCycleOn = false;
 globalThis.applyDaylight = () => calls.push(['applyDaylight']);
+globalThis.setPlayerGlow = (on) => calls.push(['glow', on]);
 globalThis.SpeechKit = {speak(s) {
   spoken.push(s);
 }, cancel() {}};
@@ -2832,4 +2835,85 @@ test('昼夜 D6 床·转场退出复位: cleanup 中断睡觉 — 遮罩归零/�
   assert.strictEqual(+globalThis.document.getElementById('fade').style.opacity, 0, '遮罩归零');
   assert.strictEqual(globalThis.dayTime, 20000, '未到唤醒沿不改时间(中断不跳清晨)');
   A.ADV.spawn = ADV_SPAWN; /* 测试隔离 */
+});
+
+/* ============ 昼夜 D7 灯笼壳层(mc-daylight-torch §8.2) ============ */
+
+test('昼夜 D7 灯笼点亮政策: 夜里选中才 glow(skyDim>0) · 白天/换手/燃尽即灭', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('lantern', 1, 300);
+  calls.length = 0;
+  globalThis.dayTime = 18000; /* 午夜(skyDim 11) */
+  AdventureMode.update(1 / 60);
+  assert.deepStrictEqual(calls.filter((c) => c[0] === 'glow'), [['glow', true]],
+      '夜+选中+有耐久 → 开随身光(方块 uniform+PointLight 同缝)');
+  /* 白天(skyDim 0): 立刻关(不亮不耗, 孩子不会白浪费) */
+  globalThis.dayTime = 6000;
+  AdventureMode.update(1 / 60);
+  assert.deepStrictEqual(calls.filter((c) => c[0] === 'glow').slice(-1), [['glow', false]], '白天熄灭');
+  /* 换手火把: 熄灭(手持火把不发光, vanilla 口径拍板⑤) */
+  globalThis.dayTime = 18000;
+  holdOnly('torch', 2);
+  AdventureMode.update(1 / 60);
+  assert.deepStrictEqual(calls.filter((c) => c[0] === 'glow').slice(-1), [['glow', false]], '手持别物不亮');
+  /* 白天持满再久也不耗耐久 */
+  globalThis.dayTime = 6000;
+  holdOnly('lantern', 1, 300);
+  for (let i = 0; i < 60; i++) AdventureMode.update(0.5); /* 30 秒白天 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 300, '白天不耗秒');
+});
+
+test('昼夜 D7 灯笼耗秒: 夜里每持满 1 秒扣 1 耐久(damageTool 管线) · 半秒进度不丢', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('lantern', 1, 300);
+  globalThis.dayTime = 18000;
+  AdventureMode.update(0.5); /* 0.5s: 未持满 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 300, '未满 1 秒不扣');
+  AdventureMode.update(0.5); /* 恰 1.0s: 扣 1 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 299, '持满 1 秒扣 1(damageTool)');
+  for (let i = 0; i < 8; i++) AdventureMode.update(0.25); /* 再 2 秒: 扣 2 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 297, '累计跨秒连续扣(余时结转)');
+  /* 熄灭窗口不计时: 白天停 3 秒再入夜, 从 0 重新累计 */
+  globalThis.dayTime = 6000;
+  for (let i = 0; i < 6; i++) AdventureMode.update(0.5);
+  globalThis.dayTime = 18000;
+  AdventureMode.update(0.9); /* 熄灭期后首步 0.9s 不扣(累计器已归零) */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 297, '重新累计不白扣');
+  AdventureMode.update(0.2); /* 1.1s: 扣 1 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 296);
+});
+
+test('昼夜 D7 灯笼燃尽: 耐久归零整槽消失 + TTS 安抚「灯笼用完了，我们再做一个吧」+ 随身光即灭', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('lantern', 1, 1); /* 下一秒燃尽 */
+  globalThis.dayTime = 18000;
+  spoken.length = 0;
+  calls.length = 0;
+  AdventureMode.update(1.05); /* 持满 1 秒: dur 1→0 */
+  assert.strictEqual(A.advGetInv().slots[0], null, '燃尽: 灯笼整槽消失(remove)');
+  assert.ok(spoken.includes('灯笼用完了，我们再做一个吧'), 'TTS 安抚话术(§8.2 拍板句, D4/D9 安抚惯例)');
+  assert.ok(calls.some((c) => c[0] === 'toast'), 'toast 同句并线');
+  /* 燃尽帧内 glow 决策先于扣耐久(当帧仍亮), 下一帧起熄灭 */
+  assert.strictEqual(calls.filter((c) => c[0] === 'glow').slice(-1)[0][1], true, '燃尽当帧仍亮(决策先于扣耐久)');
+  AdventureMode.update(1 / 60); /* 燃尽后: 不再说话不复活 */
+  assert.strictEqual(calls.filter((c) => c[0] === 'glow').slice(-1)[0][1], false, '随后帧随身光关闭');
+  assert.strictEqual(spoken.filter((s) => s.indexOf('灯笼用完了') >= 0).length, 1, '安抚只说一次');
+  assert.strictEqual(A.advGetInv().slots[0], null, '槽保持空');
+  /* 破灯笼不会误伤工具预警账本: 再做一盏满耐久(合成管线) */
+  api.add(A.advGetInv(), 'lantern', 1);
+  assert.deepStrictEqual({...A.advGetInv().slots[0]}, {id: 'lantern', n: 1, dur: 300}, '新灯笼满耐久入包(回填首个空位)');
+});
+
+test('昼夜 D7 灯笼退场复位: cleanup 关随身光(PointLight 不渗入其他模式)', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('lantern', 1, 300);
+  globalThis.dayTime = 18000;
+  AdventureMode.update(1 / 60); /* 点亮中 */
+  calls.length = 0;
+  AdventureMode.cleanup();
+  assert.deepStrictEqual(calls.filter((c) => c[0] === 'glow'), [['glow', false]], 'cleanup 兜底熄灭(幂等复位)');
 });

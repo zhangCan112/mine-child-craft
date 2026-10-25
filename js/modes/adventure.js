@@ -61,6 +61,14 @@
      渐黑+2s 停+1.5s 渐亮≈5s) → 唤醒沿 dayTime=0+夜怪温和清场(__nightMob
      过滤缝, D5 黎明清场同调 advSweepNightMobs)+出生点设床边(ADV.spawn
      账本+ModeKit.spawn 记忆, MC 口径)
+   · 灯笼(昼夜 D7, mc-daylight-torch §8): 原创手持光源 2 铁锭+1 火把台级
+     合成(耐久 300 秒可耗损物, items-core dur 字段/mkStack 满耐久管线);
+     政策=天黑(skyDim>0)且选中且耐久>0 才亮才耗(纯函数 advLanternStep),
+     每持满 1 秒 damageTool 扣 1, 燃尽整槽消失+TTS 安抚「灯笼用完了，
+     我们再做一个吧」(D4/D9 惯例); 光照呈现双通道走 world.setPlayerGlow
+     机制缝(方块侧 uGlowPos/uGlowR 顶点衰减+实体侧 PointLight, D3 备好);
+     退场 cleanup 兜底熄灭不渗其他模式; 快捷栏耐久条/手持薄片观感
+     (mkPlateDef 缺省)全走现成管线
    · 防沉迷: 与竞技场/建造/坦克/下界共享儿童时限(gated, 不新增账本)
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
      onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面
@@ -69,7 +77,7 @@
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
      backpack.js 的 Backpack · config.js 的 BLOCKS/PLAYER/B_* 常量 ·
      voxel.js 的 getBlock/blockKey/raycastVoxel/collidesAtPlayer ·
-     world.js 的 loadScene/editBlock · items-core 的 ITEMS/isTool/toolOf ·
+     world.js 的 loadScene/editBlock · items-core 的 ITEMS/isTool/toolOf/durOf ·
      inventory-core 的 add/count/remove/moveSlot/take/damageTool · craft-core 的
      breakTime/fuelUnits · drops.js 的 rollBlockDrop/rollDrops(纯)/
      spawn/update/onCollect/clear · mobs.js 的 spawn/hit/onDeath/update/
@@ -163,9 +171,8 @@ for (let i = 0; i < HOTBAR_SLOTS; i++) {
     cnt: () => (advInv.slots[i] ? advInv.slots[i].n : 0),
     dur: () => {
       const s = advInv.slots[i];
-      if (!s || !isTool(s.id)) return 0; /* 非工具不画耐久条 */
-      const t = toolOf(s.id);
-      return t ? (s.dur || 0) / t.dur : 0;
+      const d = s ? durOf(s.id) : 0;
+      return d > 0 ? (s.dur || 0) / d : 0; /* 可耗损物画耐久条(工具/D7 灯笼, 满耐久 durOf 单一权威) */
     },
   });
 }
@@ -430,6 +437,40 @@ function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿
   advDawnLit = lit;
 }
 
+/* ============================================================
+   昼夜 D7 灯笼壳段(mc-daylight-torch §8.2) — 手持光源/耗秒/燃尽消失
+   (三前置与持满 1 秒节拍纯函数 advLanternStep 在 adventure-core.js)
+   ============================================================ */
+let advLanternT = 0; /* 耗秒累计器(秒, advLanternStep 的状态; init 复位) */
+
+function advLanternTick(dt) {/* 灯笼政策(§8.2): 纯函数出三决策(累计/点亮/扣单)
+  → setPlayerGlow 开关随身光(world.js 机制缝: 方块侧 uGlowPos/uGlowR 顶点衰减
+  + 实体侧 PointLight 同位, 政策全在此) · 持满 1 秒走 advLanternWear 扣耐久 */
+  const s = advInv.slots[advHb.sel];
+  const r = advLanternStep(advLanternT, dt, s ? s.id : '', s ? (s.dur || 0) : 0,
+      Daylight.skyDim(dayTime));
+  advLanternT = r.t;
+  setPlayerGlow(r.glow);
+  if (r.drain) advLanternWear();
+}
+
+function advLanternWear() {/* 持满 1 秒扣 1 耐久(背包耐久管线 damageTool); 归零 =
+  灯笼整槽消失 + TTS 安抚「灯笼用完了，我们再做一个吧」(§8.2 拍板句, D4/D9
+  破板安抚惯例) + 手持观感回落空手; 燃尽是时间驱动的持续消耗, 顺路置脏档
+  (与 dayTime 连续同哲学, 5s 节流落盘)。低耐久预警不做(S4① 工具专属口径) */
+  const slot = advHb.sel;
+  const s = advInv.slots[slot];
+  const left = damageTool(advInv, slot);
+  if (left === 0 && s) {/* 燃尽: n=1 整槽消失, 安抚话术 */
+    remove(advInv, slot);
+    Avatar.setItem(null); /* 槽已空 = 空手(advWearHeld 破板同口径, MC 正典) */
+    SpeechKit.speak('灯笼用完了，我们再做一个吧');
+    showToast('🏮 灯笼用完了，我们再做一个吧');
+  }
+  advDirty = true; /* 耐久变化随 5s 节流世界档落盘(退出兜底即时存) */
+  advSyncHotbar();
+}
+
 /* 玩家挥击已收 CombatKit.mkMelee(C6-T3, advMelee 实例): 准星锥内最近怪
    (锥内无怪不出手不空挥, 点击留给挖掘/放置 — T12 语义不抢), 冷却/伤害/
    磨损/击杀经 cfg 注入; 两个名字保留为薄委托(调用点与测试缝零改动) */
@@ -447,6 +488,7 @@ function advAttack() {
 function advWearHeld(src) {
   const slot = advHb.sel;
   const s = advInv.slots[slot];
+  if (!s || !isTool(s.id)) return; /* 空手/非工具不扣耐久(灯笼耗秒走 advLanternTick 专属管线, 昼夜 D7 §8.2) */
   const left = damageTool(advInv, slot);
   if (left === 0) {/* 破板: 工具 n=1 整槽消失(D4/D9), 话术并句任务指路 */
     const name = (ITEMS[s.id] && ITEMS[s.id].name) || s.id;
@@ -1326,12 +1368,13 @@ function advChestDeposit(slotIdx) {
   advSyncHotbar();
   sfx('pick');
 }
-/* 取出(账户槽整摞搬回背包): 可堆叠走 add 并堆; 工具连耐久找空位整槽搬
-   (add 会经 mkStack 把工具重铸满耐久, 工具禁走); 背包满整摞留在箱里 */
+/* 取出(账户槽整摞搬回背包): 可堆叠走 add 并堆; 可耗损物(工具/D7 灯笼)连
+   耐久找空位整槽搬(add 会经 mkStack 重铸满耐久, 可耗损物禁走——灯笼放箱
+   一晚再取不能白得新耐久); 背包满整摞留在箱里 */
 function advChestWithdraw(i) {
   const st = advChest.slots[i];
   if (!st) return;
-  if (!isTool(st.id)) {
+  if (!durOf(st.id)) {
     const left = add(advInv, st.id, st.n);
     if (left >= st.n) {
       showToast('🎒 背包满啦');
@@ -1606,6 +1649,7 @@ const AdventureMode = mkMode({
     advMelee.reset(); advHurt.reset(); /* 冷却/受击节流不复场 */
     advPickBuf.clear(); advPickT = 0;
     advNestT.fill(0);
+    advLanternT = 0; /* 灯笼耗秒累计器归零(昼夜 D7: 重进从整秒重新累计) */
     const pe = advGetPEnt(); /* 进场血量随世界档(重进保留残血); 老档/坏档 → 满血 */
     pe.hp = advHpIn; ADV.player.hp = advHpIn;
     Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8)。
@@ -1644,6 +1688,8 @@ const AdventureMode = mkMode({
        与下界换天(applySky)都不再被每帧昼夜驱动打扰 */
     dayCycleOn = false;
     applyDaylight();
+    setPlayerGlow(false); /* 灯笼随身光一并熄灭(昼夜 D7): PointLight 不渗入其他模式 */
+    advLanternT = 0; /* 耗秒累计器复位(重进从整秒重新累计) */
     Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
     Drops.clear(); /* 清掉落物+解除收集回调 */
     advArrows.clear(); /* 箭矢网格一并摘除 */
@@ -1697,6 +1743,7 @@ const AdventureMode = mkMode({
     Drops.render();
     advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */
     advNightTick(dt); /* 夜怪节拍 + 入夜/黎明跨沿(昼夜 D5: 环带刷怪/配额/温和清场/播报) */
+    advLanternTick(dt); /* 灯笼政策(昼夜 D7): 天黑手持才亮才耗, 持满 1 秒扣耐久 */
     advPickupTick(dt); /* 收集播报合并窗 */
     advHpBar.update(advGetPEnt().hp, ADV.player.maxHp, pos.x, pos.y + 2.2, pos.z); /* 头顶血条 */
   },
@@ -1834,6 +1881,7 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advPanelClose, advGoHome, advHomeReady, ADV_HOME_CD,
   advGetLivestock: () => advLivestock, advHerdPanic,
   advNightTick, advNightRead, advNightAlive,
-  advSleep, advBedSpot, advSweepNightMobs, advTrySleep};
+  advSleep, advBedSpot, advSweepNightMobs, advTrySleep,
+  advLanternTick, advLanternWear};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;
