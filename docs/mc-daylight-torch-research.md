@@ -2,19 +2,19 @@
 
 > 调研问题：为 my-craft-demo 上「昼夜循环 + 火把光照」机制取证——Minecraft（Java 版为主、Bedrock 版差异为辅）的一天多长、天空光怎么随时间变、光怎么传播、火把怎么放怎么生效、刷怪与阳光燃烧的光照规则是什么。
 > 来源性质：以下事实性论断均来自 minecraft.wiki 各条目原文（2026-10-25 用 `index.php?title=…&action=raw` 抓取的 wikitext 一手原文，标注为「已抓取」），关键数值引英文原文并附中文翻译；Java / Bedrock 差异按 wiki 标注保留；随版本变化的规则（尤其 Java 1.18 刷怪光照改动、1.21.11 gamerule 改名）写明版本分界。抓取失败或 wiki 无直接原文的点，明确标注「未能核实」或「推断」（推断仅在 §5 落地启示展开）。
-> 调研日期：2026-10-25。
+> 调研日期：2026-10-25。补证日期：2026-10-25（第二轮：逐条补证「未能核实」与矛盾挂账，见各节【补证】标记与文末终态清单）。
 
 ## 0. 结论先行（TL;DR）
 
 1. **一天 = 24000 game tick = 20 分钟**（20 tick/秒），游戏时间流速是现实 72 倍；**tick 0 对应早上 06:00**（不是午夜），6000 = 正午，12000 = 日落开始，13000 = 夜晚开始，18000 = 午夜，23000 = 日出开始。白天 10 分钟、夜晚 8 分 20 秒、日出/日落各 50 秒。（来源：[Daylight cycle](https://minecraft.wiki/w/Daylight_cycle)，已抓取）
 2. **天空光（sky light）本身不随夜晚衰减**——夜晚变暗发生在「internal sky light（暗化天空光）」和渲染亮度曲线上：正午晴天 internal sky light = 15，**夜晚最低降到 4**（tick 13670 起）；下雨/降雪时正午上限 12，**雷暴时正午只有 10**（且刷怪系统按更暗处理，白天也刷怪）。（来源：[Light](https://minecraft.wiki/w/Light)、[Weather](https://minecraft.wiki/w/Weather)，已抓取）
 3. **光等级 0–15，方块光每传播 1 格（曼哈顿距离）衰减 1**；天空光在 heightmap 顶为 15，**垂直向下传播不衰减、横向/向上每格 −1**；游戏计算用的最终值 = `max(internal sky light, block light)`（主世界）。（来源：[Light](https://minecraft.wiki/w/Light)，已抓取）
-4. **刷怪规则以 Java 1.18 为分界**：1.18 起（2021-11-30 发布）「**Block light level now must be 0** for many hostile mobs to spawn（天空光仍照旧阻止刷怪）」+ internal sky light ≤ 7；**1.18 之前是"光照 ≤ 7 即可刷"**（Mob 条目历史：v1.2.1 "back to light level 7 or lower"）。Bedrock 现行规则：「天空光 < 7 **且** block light = 0」才能刷大多数主世界怪物。（来源：[Light](https://minecraft.wiki/w/Light)、[Mob spawning](https://minecraft.wiki/w/Mob_spawning)、[Mob](https://minecraft.wiki/w/Mob)，已抓取）
+4. **刷怪规则以 Java 1.18 为分界**：1.18 起（2021-11-30 发布）「**Block light level now must be 0** for many hostile mobs to spawn（天空光仍照旧阻止刷怪）」+ internal sky light ≤ 7；**1.18 之前是"光照 ≤ 7 即可刷"**（Mob 条目历史：v1.2.1 "back to light level 7 or lower"）。Bedrock 现行规则：「天空光 < 7 **且** block light = 0」才能刷大多数主世界怪物；【补证】该规则 Bedrock 自 **1.18.0 起（2021-11-30，与 Java 同日）**转正，实验性先行于 1.17.30 周期的 beta 1.17.20.22（Caves and Cliffs 实验开关，见 §2.3）。（来源：[Light](https://minecraft.wiki/w/Light)、[Mob spawning](https://minecraft.wiki/w/Mob_spawning)、[Mob](https://minecraft.wiki/w/Mob)、[Bedrock Edition 1.18.0](https://minecraft.wiki/w/Bedrock_Edition_1.18.0)，已抓取）
 5. **距玩家 24 格（球形）内不刷怪**；Java 怪物上限 70，Bedrock 全局上限 200；Java 大多数怪每 game tick 一个刷怪周期；离玩家 >128 格立即消失。（来源：[Mob spawning](https://minecraft.wiki/w/Mob_spawning)，已抓取）
 6. **阳光燃烧的判定**：「sunlight 可视为 internal sky light ≥ 12 且 sky light = 15 同时成立」；僵尸/骷髅在水中、戴头盔、阴凉处、抗火效果下不烧，**玻璃不挡燃烧**；晴天 tick 12542 停止燃烧、23460 恢复燃烧。（来源：[Sun](https://minecraft.wiki/w/Sun)、[Zombie](https://minecraft.wiki/w/Zombie)、[Skeleton](https://minecraft.wiki/w/Skeleton)、[Daylight cycle](https://minecraft.wiki/w/Daylight_cycle)，已抓取）
-7. **火把：木棍 + 煤/木炭 → 4 支，光等级 14**；以曼哈顿距离每格 −1，即照亮半径 13 格（菱形）；**融化 2 格内雪层、3 格内冰**；作物生长需光 ≥ 9（火把光算数）；**火把不会烧完/熄灭**（vanilla 从未实现 Notch 2010 年的"火把烧完"计划）；**火把不能当熔炉燃料**（已对照 wiki 完整燃料表）。**手持火把（主手/副手）不发光**——此点 wiki 无直接原文，属据光源定义得出的推断（见 §3.3）。（来源：[Torch](https://minecraft.wiki/w/Torch)、[Light](https://minecraft.wiki/w/Light)、[Smelting](https://minecraft.wiki/w/Smelting)，已抓取）
+7. **火把：木棍 + 煤/木炭 → 4 支，光等级 14**；以曼哈顿距离每格 −1，即照亮半径 13 格（菱形）；**融化 2 格内雪层、3 格内冰**；作物生长需光 ≥ 9（火把光算数）；**火把不会烧完/熄灭**（vanilla 从未实现 Notch 2010 年的"火把烧完"计划）；**火把不能当熔炉燃料**（已对照 wiki 完整燃料表）。**手持火把（主手/副手）不发光**——【补证】升级为 wiki 一手结构性证据：Light 页光源清单全部是放置态方块，且其渲染亮度定义明确把 "player hand/item on the HUD"（手持物）列为**被照亮对象**而非光源；「手持动态光照」在 Mojang 官方拒绝想法清单中（见 §3.3）。（来源：[Torch](https://minecraft.wiki/w/Torch)、[Light](https://minecraft.wiki/w/Light)、[Smelting](https://minecraft.wiki/w/Smelting)，已抓取）
 8. **灵魂火把：煤/木炭 + 木棍 + 灵魂土/灵魂沙 → 4 支，光等级 10**，驱赶猪灵（不含猪灵蛮兵）；因光 < 12 不融雪融冰。（来源：[Soul Torch](https://minecraft.wiki/w/Soul_Torch)，已抓取）
-9. **床**：internal sky light ≤ 11 才能睡（晴天 12523–23477 tick、雨天 12002–23998、**雷暴全天可睡**）；床头 8×5 格内有敌对怪则不能睡；睡 101 tick（5.05 秒）后**时间跳到 tick 0（日出）并清空天气**。（来源：[Bed](https://minecraft.wiki/w/Bed)，已抓取）
+9. **床**：internal sky light ≤ 11 才能睡（晴天 12523–23477 tick、雨天 12002–23998、**雷暴全天可睡**——此为 Bed 页现行数字；【补证】Daylight cycle 表为 12542–23460，与 Light 页逐 tick 图表精确自洽，Bed 页的数字系后期偏离、相差 <1 秒，见 §1.6 裁决）；床头 8×5 格内有敌对怪则不能睡；睡 101 tick（5.05 秒）后**时间跳到 tick 0（日出）并清空天气**。（来源：[Bed](https://minecraft.wiki/w/Bed)，已抓取）
 10. **gamerule**：`doDaylightCycle`（Java 1.6.1/13w24a 引入）在 **Java 1.21.11（快照 25w44a）改名 `advance_time`**，Bedrock 仍叫 `dodaylightcycle`；`/time set day` 设的是 **1000**（不是 0）。（来源：[Game rule](https://minecraft.wiki/w/Game_rule)、[Daylight cycle](https://minecraft.wiki/w/Daylight_cycle)，已抓取）
 11. **时钟 = 4 金锭 + 1 红石**，主世界任何界面/物品形态都显示当前昼夜；**下界/末地乱转**（那两维没有昼夜循环）。（来源：[Clock](https://minecraft.wiki/w/Clock)，已抓取）
 12. **月相 8 个，`phase = (day mod 8) + 1`**，每天日出时换相；确认的效果只有：沼泽史莱姆数量与月圆度成正比（新月不刷）、区域难度（影响怪装备/附魔/蜘蛛 buff）、满月黑猫 1/11 概率；**没有潮汐系统**。（来源：[Moon](https://minecraft.wiki/w/Moon)，已抓取）
@@ -95,7 +95,11 @@ internal sky light 关键值（wiki 原表，来源：[Light](https://minecraft.
 - 雨天：白天的上限是 12（23992–12009 区间为 12）；雷暴：正午也只剩 10，且 60–11940 期间为 10。
 - 若所在处天空光 s < 15，公式：`internal = L − (15 − s)`（L 是上表 15 处的值）。（原文："take the internal level L at 15 and subtract from it the difference between 15 and s"，已抓取）
 - Bedrock 的 tick 边界与 Java 有 ±1 tick 的出入（如 22812 vs 22813、23460–23623 vs 23460–23624），wiki 在表内逐格标注了 `{{Only|java}} / {{Only|bedrock}}`；量级上两版一致。
-- 雷暴刷怪：[Weather](https://minecraft.wiki/w/Weather) 雷暴节原文 "At noon the internal sky light level at surface is only 10. However, in mob spawning system, the light level from the sky is treated as if it were 0, allowing hostile mobs to spawn at any time of the day."（译：正午地表 internal sky light 只有 10；但刷怪系统把天空光当作 0 处理，允许敌对生物在一天中任何时候生成。）注意 [Light](https://minecraft.wiki/w/Light) 页脚注说的是"当作 5"，两页措辞略有出入（0 vs 5），**效果一致：雷暴白天也能刷怪**。
+- 雷暴刷怪：[Weather](https://minecraft.wiki/w/Weather) 雷暴节原文 "At noon the internal sky light level at surface is only 10. However, in mob spawning system, the light level from the sky is treated as if it were 0, allowing hostile mobs to spawn at any time of the day."（译：正午地表 internal sky light 只有 10；但刷怪系统把天空光当作 0 处理，允许敌对生物在一天中任何时候生成。）而 [Light](https://minecraft.wiki/w/Light) 页脚注原文是 "During thunderstorms, hostile mobs are allowed to spawn **as if the internal sky light level were actually 5**."（译：雷暴时敌对生物被允许生成，如同 internal sky light 实际上是 5。）——两页 0 vs 5 措辞矛盾。
+- 【补证 2026-10-25】**矛盾裁决（雷暴折减按 0 还是 5）**：
+  - **等价性分析**：刷怪总则要求 internal sky light ≤ 7（§2.3）。雷暴正午真实值是 10 > 7，正常应被阻止；无论"视作 0"还是"视作 5"，代入后都 ≤ 7，**在总则层面效果等价——都放行白天刷怪**。仅在 Java 的随机化检定细节上不等价（"仅当光照 ≤ 一个 0–7 的随机数才生成"）：视作 0 时恒通过，视作 5 时只在随机数 ≥ 5（3/8 概率）时通过——即"当作 5"意味着白天雷暴刷怪尝试仍会部分失败，与"允许在一天中任何时候生成"（Weather 页的强表述）有细微出入。
+  - **版本历史**：Light 页脚注的"5"至少自 2014 年（oldid [759556](https://minecraft.wiki/index.php?oldid=759556&action=raw)："as if the light level were actually 5"）→ 2019 年（oldid [1382952](https://minecraft.wiki/index.php?oldid=1382952&action=raw)："as if the sky light level were actually 5"）→ 现行（"as if the **internal** sky light level were actually 5"）表述稳定、仅措辞随术语演进而精化；Weather 页的"当作 0"是少数派。交叉页 [Mob spawning](https://minecraft.wiki/w/Mob_spawning) 无雷暴特殊表述（转引 Light#Mobs），不构成第三方仲裁。
+  - **统一后的正确表述（建议）**：「雷暴时刷怪检定对天空光做额外折减——等效按 internal sky light ≤ 5（远低于 7 的阈值）处理，因此敌对生物在白天也能生成」。数值口径取 Light 页的 **5**（历史稳定 + 与现行 internal sky light 术语一致）；Weather 页"当作 0"宜理解为行文夸张，行为结论（白天可刷怪）两页一致。
 
 ### 1.5 gamerule 与 /time 命令
 
@@ -109,7 +113,8 @@ internal sky light 关键值（wiki 原表，来源：[Light](https://minecraft.
 （来源：[Bed](https://minecraft.wiki/w/Bed) Sleeping 节，已抓取）
 
 - **可睡条件**：原文 "A player sleeps by using a bed when the internal sky light is 11 or below. This occurs between 12523 and 23477 ticks in clear weather … between 12002 and 23998 ticks in rainy weather, and at any time of day during thunderstorms."（译：当 internal sky light ≤ 11 时可以用床睡觉——晴天 12523–23477 tick、雨天 12002–23998 tick、雷暴全天。）
-  - 注意 [Daylight cycle](https://minecraft.wiki/w/Daylight_cycle) 的 24 小时表给出的是"晴天 12542 起 / 12010 雨天起"，两页相差约 20 tick（判定口径不同），量级一致。
+  - 【补证 2026-10-25】**与 Daylight cycle 表的差异裁决（12523 vs 12542）**：[Daylight cycle](https://minecraft.wiki/w/Daylight_cycle) 24 小时表给出"晴天 12542 起可睡 / 23460 起不可睡、雨天 12010 起 / 23992 止"。这**不是两个不同的量**（两页描述的都是"床可用的首/末 tick"），关键在于：Light 页的逐 tick internal sky light 图表里，晴天 internal sky light 降到 11 的首 tick 恰是 **12,542**、回升到 12 的首 tick 恰是 **23,460**（雨天 12,010–23,991 为 ≤11 区间）——**Daylight cycle 表与 Light 图表精确自洽**。而 Bed 页现行数字（12523–23477 / 12002–23998）与图表的任何级别边界都对不上（落在 internal=12 的区间内，各宽约 19/18 与 8/7 tick）。翻 Bed 页历史：2023-02-28 版本（oldid [2228105](https://minecraft.wiki/index.php?oldid=2228105&action=raw)）原文还是 "**between 12542 and 23459 ticks in clear weather** … between 12010 and 23991 ticks in rainy weather"——与 Daylight cycle 完全一致；现行 12523/23477 是**分叉后后期编辑改出来的**（疑按游戏内实测或另一取整口径，无编辑注释说明）。
+  - **结论**：两页写的是同一件事；以 **Daylight cycle + Light 图表口径（晴天 12542–23459 可睡、23460 起不可睡；雨天 12010–23991）为准**，Bed 页现行数字疑似后期偏离（两端合计差 <1 秒，实际游戏无感知差异；上一版报告"判定口径不同"的解释不成立）。
 - **周围无怪**：原文 "If a monster is within 8 blocks of the bed head horizontally (in the X- and Z-axis), and 5 blocks vertically (in the Y-axis) … the player is prevented from sleeping until the monsters leave or are killed."（译：床头水平 8 格、垂直 5 格内有怪物则不能睡，直到怪物离开或被杀。）多数敌对/中立怪都算（Java/Bedrock 名单略有差异：如岩浆怪/史莱姆 BE 算 JE 不算）。
 - **睡醒时间**：原文 "A player sleeps in a bed for 101 in-game ticks, or 5.05 seconds before the time skips to the next day." 与 "after 5 seconds (100 ticks) the time of day changes to sunrise. (time 0)"（译：睡 101 tick 后时间直接跳到下一天日出 = tick 0）。**睡觉同时清空天气**："Sleeping changes the time of day to sunrise and resets the weather cycle, changing the weather to clear conditions."（Java 仅在雨/雪天重置天气循环。）
 - **睡觉不加速世界过程**："Sleeping does not accelerate processes that take place over time such as the growth of crops or smelting."（译：睡觉不加速作物生长、熔炼等随时间进行的过程。）
@@ -172,7 +177,11 @@ internal sky light 关键值（wiki 原表，来源：[Light](https://minecraft.
 
 **Bedrock 版现行**（来源：[Mob spawning](https://minecraft.wiki/w/Mob_spawning) Bedrock spawn conditions，已抓取）：
 
-- 原文："Most Overworld monsters cannot spawn if the sky light level is greater than or equal to 7 or the block light level is greater than 0."（译：大多数主世界怪物在 天空光 ≥ 7 **或** 方块光 > 0 时不能生成。）——即同样要求"天空光 < 7 且方块光 = 0"。**Bedrock 何时从"光照 ≤ 7"改为该规则的准确版本号，现行 wiki 未记载（未能核实）**；以现行 wiki 口径为准。
+- 原文："Most Overworld monsters cannot spawn if the sky light level is greater than or equal to 7 or the block light level is greater than 0."（译：大多数主世界怪物在 天空光 ≥ 7 **或** 方块光 > 0 时不能生成。）——即同样要求"天空光 < 7 且方块光 = 0"。
+- 【补证 2026-10-25】**Bedrock 改版版本号已核实：1.18.0（2021-11-30，与 Java 1.18 同日）**。两处一手证据：
+  1. [Light](https://minecraft.wiki/w/Light) 页 Bedrock History 原文："**1.17.30** (beta 1.17.20.22, Caves and Cliffs 实验)："Block light level now must be 0 for many hostile mobs to spawn."；**1.18.0** (beta 1.18.0.20)："New light level requirements for mob spawning are now available through normal gameplay.""（译：该规则先在 1.17.30 周期以 Caves and Cliffs 实验开关引入（beta 1.17.20.22），1.18.0 的 beta 1.18.0.20 起在正常玩法中生效转正。）
+  2. [Bedrock Edition 1.18.0](https://minecraft.wiki/w/Bedrock_Edition_1.18.0) 官方变更日志（Changes → Mobs → General）原文："Block light level now must be 0 for many hostile mobs to spawn (the sky light can still prevent these mobs from spawning like before)."，并附 Mojang 开发者 Ulraf 的推文说明（"This only affects block-light, not sky-light"）。
+  即：**Bedrock 从 1.18.0 起正式执行"天空光 <7 且 block light=0"**（Java 侧同语义同日落地）；此前的"光照 ≤7"旧规则终止于 1.17.x。注意 [Mob spawning](https://minecraft.wiki/w/Mob_spawning) 页自己的 Bedrock History 至今没有这条变更（其 Bedrock 历史仅一条 1.21.0 记录）——上一轮只查了该页所以挂账，权威记载在 Light 页 History 与 1.18.0 日志页。
 - 动物（对比用）：Java "require a block light level of 9 or higher when the block is not exposed to the sky"；Bedrock "most animals can spawn at light level 7 or higher rather than 9 or higher"（Bedrock 动物看合并光 ≥ 7）。（来源：[Light](https://minecraft.wiki/w/Light) Mobs 节 + [Mob spawning](https://minecraft.wiki/w/Mob_spawning)，已抓取）
 
 **个别怪物的光照/条件差异**（来源：[Light](https://minecraft.wiki/w/Light) 两张 Mobs 表——主世界表按 block light 0–15 列、下界表同，已抓取）：
@@ -197,7 +206,8 @@ internal sky light 关键值（wiki 原表，来源：[Light](https://minecraft.
 - 原文："the game uses the light level (instead of internal light level), time, and weather to compute the rendered brightness of a given object"；"sky light is not reduced at night, instead, **the brightness curve itself changes based on the time**"（译：渲染亮度由光等级 + 时间 + 天气共同计算；夜晚不是天空光变小，而是亮度曲线本身随时间变暗）。
 - 数值锚点（最低亮度档/gamma=0）：原文 "In the Overworld with the lowest brightness setting, full daylight reaches 98% brightness, while at night brightness is reduced to about 17% and is shaded blue. Full darkness is about 5% brightness."（译：最低亮度设置下，主世界满日照约 98% 亮度，夜晚降到约 17% 且偏蓝；全黑约 5%。）Bedrock 日出日落有动态橙色染色（"brightness during sunrise and sunset is dynamically tinted orange"）。
 - 方块光偏橙："Light due to blocks also tends toward orange in the middle ranges, while sky light in the Overworld daytime is white."（译：中等档位的方块光偏橙，白天主世界天空光为白色。）
-- **具体的亮度曲线/gamma 公式现行 wiki 已不再给出**（仅有 lightmap 纹理截图与上述百分比锚点）——旧版 wiki 的显式公式**未能核实**（现行页面无此内容）。
+- 【补证 2026-10-25】**亮度曲线显式公式：已尽力翻史，结论为「wiki 历史上从未刊载」**。用 API 抽查 Light 页历史版本的 Rendered brightness/Brightness 节 raw 全文：2014-11-28（oldid [759556](https://minecraft.wiki/index.php?oldid=759556&action=raw)）、2019-05-28（oldid [1382952](https://minecraft.wiki/index.php?oldid=1382952&action=raw)）、2021-03-02（oldid [1867765](https://minecraft.wiki/index.php?oldid=1867765&action=raw)，即修订注释 "Added brightness table" 那一版——加的只是 CSS 渐变**可视化**表，非数值公式）、2025-03-09（oldid [2890480](https://minecraft.wiki/index.php?oldid=2890480&action=raw)）与现行版：**均无 f(x)=x/(4−3x) 一类的显式曲线公式**；98%/17%/5% 锚点文字至少自 2019 年起一字未变。2014 年版对曲线的仅有定量描述是 Alpha 时代的史述（"Level 0 still has 0.8^15·100% = 3.5%"，即每级 −20% 的旧模型），并非现行曲线。
+- **据此修正上一版表述**：「旧版 wiki 曾有显式公式、后被删除」的前提**不成立**——社区流传的 f(x)=x/(4−3x) 归一化曲线是**从游戏源码（Java 版 LightTexture 亮度表）反推**的产物，wiki 正文（可查历史范围内）从未记载。本报告维持锚点表述（98%/17%/5% + lightmap 纹理截图），不引公式。
 
 ### 2.5 与夜间玩法直接相关的其他刷怪约束
 
@@ -229,7 +239,11 @@ internal sky light 关键值（wiki 原表，来源：[Light](https://minecraft.
 - 触发：原文 "When the moon can no longer be seen (Dawn) and the sun is above 15°, skeletons can burn."（译：黎明月亮消失且太阳升到 15° 以上时骷髅开始燃烧。）
 - 抑制条件（原文列表）：头顶有非空气方块（**Java 版要求该方块挡光**）；"in a sufficiently shaded area: a **sunlight level of 11 or less**"（足够阴凉处：sunlight level ≤ 11）；在水中（骷髅会主动找水）；戴头盔；抗火；蜘蛛网。
 - 原文 "Transparent and translucent blocks, including glass and ice, do not prevent them from burning.{{only|java}}"（玻璃/冰不挡燃烧，Java 标注）；与僵尸不同，骷髅白天会主动找掩体。
-- **注意**：僵尸页抑制阈值写 ≤14、骷髅页写 ≤11，两页原文不一致（见附录·未能核实 4）；但"需要近似满日照直射 + 水中/头盔/阴凉豁免 + 玻璃不挡"的结论两版两页一致。
+- 【补证 2026-10-25】**阈值矛盾（≤14 vs ≤11）裁决**：两页 2026-10-25 现行原句复核无误——僵尸页（[Zombie](https://minecraft.wiki/w/Zombie) Burning under daylight 节）"under an area with a sunlight level of **14 or less**"（sunlight level ≤14 即抑制 → 需要满值 15）；骷髅页（[Skeleton](https://minecraft.wiki/w/Skeleton) Sunlight 节）"a sunlight level of **11 or less**"（≤11 即抑制 → 需要 ≥12）。交叉核查：
+  - [Sun](https://minecraft.wiki/w/Sun) 页 Sunlight 节（已抓取复核）："Strictly speaking, sunlight can be considered as the presence of both an **internal sky light level of at least 12** and a **sky light level of 15**."——"阳光"是**双条件**：internal ≥ 12（时间/天气够亮）**且** sky light = 15（几何直射）。
+  - [Daylight cycle](https://minecraft.wiki/w/Daylight_cycle) 24 小时表：晴天 **12542 停止燃烧 / 23460 恢复燃烧**——恰是 internal sky light 12↔11 的级别边界（与 Light 页逐 tick 图表精确自洽），即燃烧窗口与「internal ≥ 12」语义吻合。
+  - [Light](https://minecraft.wiki/w/Light) 页 Mobs 表的历史版本：2014 版与 2019 版（oldid [759556](https://minecraft.wiki/index.php?oldid=759556&action=raw) / [1382952](https://minecraft.wiki/index.php?oldid=1382952&action=raw)）都把僵尸&骷髅"Burns in sunlight"标在**光级 12–15** 列（≥12 口径）；现行表则只标在 15 一列（向"满值"口径漂移）。
+  - **裁决**：多数口径 + 版本历史倾向「**internal sky light ≥ 12**」语义——骷髅页的 ≤11 与之（以及 Sun 页双条件、Daylight cycle 时间锚点、2014/2019 Light 表）自洽；僵尸页的 ≤14（需满值 15）对应的其实是 Sun 页双条件中「sky light = 15」的**几何直射半边**（头顶有任何挡光方块即低于 15），单独拿出来当"燃烧阈值"便与骷髅页矛盾。**倾向性结论：以 Sun 页双条件为准（internal ≥ 12 且 sky light 15），骷髅页口径为时间维阈值、僵尸页口径为几何维阈值，两页各执一半而非其中一页单纯写错**；若实现只需单阈值，取 ≥12（与停烧/复烧 tick 自洽）。豁免项结论（水/雨/头盔/阴凉/抗火/蜘蛛网；玻璃不挡）两页一致，不受影响。
 
 **Bedrock 差异**：燃烧规则与 Java 基本一致；[Weather](https://minecraft.wiki/w/Weather) 雨水一节明确 "Mobs that are on fire are extinguished on contact with rain; **this prevents skeletons and zombies from burning during the day**."（译：接触雨水会浇灭身上的火，白天骷髅/僵尸因此不燃烧。）（已抓取）时间锚点：晴天 12542 停止燃烧（黄昏）、23460 恢复（黎明），雨天顺延（§1.2 表）。
 
@@ -250,11 +264,14 @@ internal sky light 关键值（wiki 原表，来源：[Light](https://minecraft.
 - [Torch](https://minecraft.wiki/w/Torch) 全文（已抓取）无任何"作为燃料/Fuel"章节；wiki 权威燃料总表（[Smelting](https://minecraft.wiki/w/Smelting) 的 `{{Smelting table}}` 完整模板，已抓取并全文检索）**不含火把/灵魂火把**。0.5 件燃料的是碗、木按钮、杜鹃花等（web 检索核对，非火把）。
 - 结论：**两个版本火把都不能当熔炉燃料**。（这是常见误区，例如把"火柴"直觉带进 MC。）
 
-### 3.3 手持火把是否发光：**不发光（推断，wiki 无直接原文）**
+### 3.3 手持火把是否发光：**不发光（补证后：wiki 一手结构性证据，不再是纯推断）**
 
-- **未能核实项**：现行 wiki（Torch / Light / Soul Torch 各条目，均已抓取全文）**没有一句"手持火把发光/不发光"的直接原文**——因为 vanilla 根本不存在"手持光源"概念，wiki 不为"不存在的东西"写条目。
-- 推断链（明确标注为推断，非 wiki 原文）：[Light](https://minecraft.wiki/w/Light) 把 block light 定义为来自"**light-emitting blocks**（发光方块）"，光源清单全部是**放置后的方块**（见 §4 表）；手持/掉落的火把是 **item** 形态，不在任何光源清单中。因此 Java 与 Bedrock 的 vanilla 行为都是：**主手/副手持火把不产生光照**。
-- 二手佐证：CurseForge/Modrinth 的 Dynamic Lights、Bedrock 的 Dynamic Light addon 等模组/附加包的存在意义就是补上这个能力（web 检索，2026-10-25）。
+- 【补证 2026-10-25】**三页 raw 全文复核**（[Torch](https://minecraft.wiki/w/Torch)、[Soul Torch](https://minecraft.wiki/w/Soul_Torch)、[Light](https://minecraft.wiki/w/Light)，逐一检索 hand/held/holding）：仍无一句"手持火把发光/不发光"的直接陈述——wiki 确实不为"不存在的东西"写条目；但拿到了两条**正面的一手结构性证据**，使结论从"推断"升格：
+  1. [Light](https://minecraft.wiki/w/Light) 页 §Rendered brightness 的注释原文把手持物明确列为**被照亮对象**而非光源："An 'object' here refers to any [[block]], [[entity]], [[particle]], or **player hand/item on the HUD**."（译：此处的"对象"指任何方块、实体、粒子、或 HUD 上的玩家手/手持物——它们是渲染亮度的**接受者**。）光源侧，§Light-emitting blocks 清单穷举的全部是**放置态方块**（火把、灵魂火把均在列，为方块形态）。
+  2. 同页 §Vibrant Visuals 的 point lights 也只"assigned to the center of a **block**"（分配给方块中心）——即便最新的渲染技术，光源仍然只挂在方块上，不存在实体/物品光源。
+- **官方口径**：bugs.mojang.com 未检索到"held torch emits no light"类工单（Mojira 站内检索被反爬拦截，websearch 多组关键词命中的都是"放置的火把不发光"类 bug，与此无关）——工单级直引**未取得**。可引的最近似官方口径是社区维护的 [r/minecraftsuggestions 官方拒绝想法清单](https://www.reddit.com/r/minecraftsuggestions/wiki/rejected/)：**"Dynamic lighting (e.g., torches light up surroundings when held in hand)"明确列在"Mojang 官方拒绝"条目下**（二手转述官方拒绝，2026-10-25 检索）。
+- **Bedrock 单独确认**：Bedrock vanilla 从未有过手持发光行为或实验开关——Dynamic Light 全靠第三方 addon（CurseForge/mcpedl 的 Dynamic Light 系列即为此而生），Mojira 上 MCPE-225360 等 "Dynamic Light" 工单均为**某 addon 的 bug 报告**（反证 vanilla 无此特性）。Bedrock 1.21.80+ 的 Vibrant Visuals 点光也是方块级且属实验特性（见上）。
+- **证据等级终评**：结论不变——**Java 与 Bedrock 的 vanilla 中，主手/副手持火把均不产生光照**；证据等级 = wiki 一手（结构性：手持物为被照亮对象 + 光源清单全为方块）+ 官方拒绝清单（二手）+ 双版本模组生态反证。较纯推断已实质增强，但"官方工单直引"仍缺（已尽力：Mojira 反爬）。
 - **副手持火把的实际意义**是通用副手机制：另一只手拿镐/剑的同时可以用副手放置火把（wiki 手持物动作调研详见本仓库 [mc-held-item-action-research.md](mc-held-item-action-research.md)），与光照无关。
 
 ### 3.4 放置规则
@@ -388,10 +405,11 @@ internal sky light 关键值（wiki 原表，来源：[Light](https://minecraft.
 
 ---
 
-## 附：未能核实清单
+## 附：未能核实清单（2026-10-25 补证后终态）
 
-1. **手持火把不发光**：wiki 无直接原文（§3.3 按光源定义推断 + 二手佐证）；若需"官方口径"级别的证据，只能引 Mojang 源码反编译（超出本次调研范围）。
-2. **渲染亮度曲线的显式公式**（旧 wiki 曾有的 brightness/gamma 公式）：现行 [Light](https://minecraft.wiki/w/Light) 页已删除，仅存百分比锚点，未能核实原公式。
-3. **Bedrock 从"光照 ≤7"改为"天空光 <7 且方块光 =0"的准确版本号**：[Mob spawning](https://minecraft.wiki/w/Mob_spawning) 的 Bedrock History 未记载该变动条目（现行规则本身有原文）。
-4. **僵尸页"sunlight level ≤14 抑制燃烧"与骷髅页"≤11 抑制燃烧"的阈值差异**：两页原文各自如此（§2.6 引用原句），wiki 未解释差异原因，未能进一步核实。
-5. Minecraft 官网帮助中心无这些数值的官方文档（本次调研以 minecraft.wiki 为唯一一手信源，未发现可用的官方数值页面）。
+1. **手持火把不发光**：**已补证**（wiki 一手结构性证据：[Light](https://minecraft.wiki/w/Light) 页把手持物列为渲染亮度的**被照亮对象**、光源清单全为放置态方块、Vibrant Visuals 点光仅挂方块；+ [r/minecraftsuggestions 官方拒绝想法清单](https://www.reddit.com/r/minecraftsuggestions/wiki/rejected/) 列"手持动态光照"为 Mojang 拒绝项[二手]）。§3.3 已改写。仍缺：Mojang 工单直引——已尝试 4 组 websearch + Mojira REST/导航页均被反爬拦截，未取得工单号。
+2. **渲染亮度曲线的显式公式**：**已补证翻史，结论为「不存在于 wiki 历史」**——抽查 2014-11（oldid 759556）、2019-05（oldid 1382952）、2021-03（oldid 1867765，"Added brightness table" 实为可视化渐变表）、2025-03（oldid 2890480）与现行版，均无 f(x)=x/(4−3x) 类公式；「旧 wiki 曾有公式、后被删」的前提**不成立**（该曲线系社区从源码反推，wiki 未刊载）。§2.4 已改写，维持 98%/17%/5% 锚点表述。已尝试路径：api.php 修订列表 + 5 个 oldid raw 抽查 + websearch 公式关键词（无结果）。
+3. **Bedrock 改版准确版本号**：**已补证**（wiki 原文 ×2）——[Light](https://minecraft.wiki/w/Light) 页 Bedrock History：beta 1.17.20.22（1.17.30 周期，Caves and Cliffs 实验）引入"block light must be 0"，**1.18.0**（beta 1.18.0.20）转正（2021-11-30，与 Java 同日）；[Bedrock Edition 1.18.0](https://minecraft.wiki/w/Bedrock_Edition_1.18.0) 官方日志页同句 + Ulraf 推文。上一轮挂账原因：只查了 [Mob spawning](https://minecraft.wiki/w/Mob_spawning) 页的 Bedrock History（该页确无此条目）。§2.3 已改写。
+4. **僵尸页 ≤14 vs 骷髅页 ≤11 燃烧阈值矛盾**：**已补证裁决**（未定唯一真值，已判倾向）——两页现行原句复核；[Sun](https://minecraft.wiki/w/Sun) 页双条件定义（internal sky light ≥ 12 **且** sky light 15）+ [Daylight cycle](https://minecraft.wiki/w/Daylight_cycle) 停烧/复烧 tick（12542/23460，恰为 internal 12↔11 边界）+ Light 页 Mobs 表 2014/2019 旧版（燃烧列在光级 12–15）构成多数口径；裁决：**骷髅页 ≤11 = 时间维阈值（internal ≥ 12），僵尸页 ≤14 = 几何维阈值（sky light 15），两页各执 Sun 页双条件的一半**，非单纯笔误；实现取单阈值时用 ≥12。§2.6 已改写。
+5. **Minecraft 官网帮助中心无数值文档**：快速复核**维持原结论**——minecraft.net / feedback.minecraft.net 检索仅命中变更日志式的零散提及（例：[1.21.11 变更日志](https://feedback.minecraft.net/hc/en-us/articles/41809981427213-Minecraft-Java-Edition-1-21-11-Mounts-of-Mayhem) 新增环境属性 `minecraft:gameplay/sky_light_level`，官方描述 "The effective light level of the sky used by mechanics such as mob spawning or Daylight Detectors"——恰为 wiki「internal sky light」概念的官方命名，可作概念侧官方佐证），不存在系统的昼夜/光照数值帮助文档。
+6. **（加分项，已查未写入）光照增量/撤量传播算法**：minecraft.wiki 无 Light engine 词条（[404](https://minecraft.wiki/index.php?title=Light_engine&action=raw)），[Light](https://minecraft.wiki/w/Light) 页对传播仅有一句 "spreads using a flood fill algorithm"，无 increase/decrease 两趟 BFS 的算法描述——按约定**无一手来源不写**，不凭记忆补进 §2。
