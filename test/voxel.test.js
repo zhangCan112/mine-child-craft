@@ -20,7 +20,7 @@ function loadVoxel() {
   vm.runInContext(`
     globalThis.__v = {
       world, getBlock, setBlockRaw, isSolid, isOpaque, groundTop, hashRand, blockKey,
-      packChunkData,
+      packChunkData, lightSky, lightBlock, lightSkyAt, lightBlockAt,
       raycastVoxel, pos, vel, collides, physics, collidesAtPlayer, worldEvents,
       setFly,
       keys, touchMove, touchSprint,
@@ -136,6 +136,64 @@ test('packChunkData: border=0 时 16×16(LOD 用), 顶点行走不带边界圈',
   const p = v.packChunkData(1, 1, 0);
   assert.strictEqual(p.w, 16);
   assert.strictEqual(p.bx, 16);
+});
+
+/* ============ 双通道光场存储 (D2, docs/mc-daylight-torch-design.md §3.3/§3.4) ============ */
+
+test('lightSkyAt/lightBlockAt: 界内默认 0, 越界口径 sky 15 / block 0', () => {
+  const v = loadVoxel();
+  assert.strictEqual(v.lightSkyAt(10, 20, 30), 0); // 界内未算光照 = 0
+  assert.strictEqual(v.lightBlockAt(10, 20, 30), 0);
+  assert.strictEqual(v.lightSkyAt(-1, 20, 30), 15); // x<0
+  assert.strictEqual(v.lightSkyAt(v.WORLD_W, 20, 30), 15); // x≥W
+  assert.strictEqual(v.lightSkyAt(10, 20, -1), 15); // z<0
+  assert.strictEqual(v.lightSkyAt(10, 20, v.WORLD_D), 15); // z≥D
+  assert.strictEqual(v.lightSkyAt(10, -1, 30), 15); // y<0(界外=天光全亮, 与空气口径一致)
+  assert.strictEqual(v.lightSkyAt(10, v.WORLD_H, 30), 15); // y≥H
+  assert.strictEqual(v.lightBlockAt(-1, 20, 30), 0); // block 越界一律 0
+  assert.strictEqual(v.lightBlockAt(10, -1, 30), 0);
+  assert.strictEqual(v.lightBlockAt(10, v.WORLD_H, 30), 0);
+});
+
+test('光场存取: lightSky/lightBlock 与 worldCells 同址编号(cellIdx)', () => {
+  const v = loadVoxel();
+  const i = (10 * v.WORLD_D + 30) * v.WORLD_W + 10; // cellIdx 同式
+  v.lightSky[i] = 7;
+  v.lightBlock[i] = 12;
+  assert.strictEqual(v.lightSkyAt(10, 10, 30), 7);
+  assert.strictEqual(v.lightBlockAt(10, 10, 30), 12);
+});
+
+test('packChunkData: 载荷含 sky/block 光照圈(与 cells 同形状同布局, 界外圈 sky 15/block 0)', () => {
+  const v = loadVoxel();
+  const i = (x, y, z) => (y * v.WORLD_D + z) * v.WORLD_W + x;
+  v.lightSky[i(15, 5, 20)] = 9; // 边界圈格(x=15 是区块(1,1)左邻)
+  v.lightBlock[i(15, 5, 20)] = 3;
+  v.lightSky[i(16, 5, 20)] = 14; // 区块内部首列
+  v.lightBlock[i(16, 5, 20)] = 6;
+  const p = v.packChunkData(1, 1, 1);
+  assert.strictEqual(p.sky[(5 * 18 + 5) * 18 + 0], 9); // lz=20-16+1=5, lx=0 → 边界圈
+  assert.strictEqual(p.block[(5 * 18 + 5) * 18 + 0], 3);
+  assert.strictEqual(p.sky[(5 * 18 + 5) * 18 + 1], 14); // lx=1 → 内部
+  assert.strictEqual(p.block[(5 * 18 + 5) * 18 + 1], 6);
+  assert.strictEqual(p.sky.length, 18 * 18 * v.WORLD_H); // 与 cells 同形状
+  assert.strictEqual(p.block.length, 18 * 18 * v.WORLD_H);
+  const p00 = v.packChunkData(0, 0, 1); // 区块(0,0) 的 -X/-Z 邻是界外
+  assert.strictEqual(p00.sky[(5 * 18 + 5) * 18 + 0], 15); // 界外圈 = 天光全亮
+  assert.strictEqual(p00.block[(5 * 18 + 5) * 18 + 0], 0); // 界外圈无方块光
+  assert.strictEqual(p00.sky[(5 * 18 + 0) * 18 + 5], 15); // z 界外同理
+  assert.strictEqual(p00.block[(5 * 18 + 0) * 18 + 5], 0);
+});
+
+test('world.clear: 连带清空双通道光场(直清数据必须整体)', () => {
+  const v = loadVoxel();
+  const i = (x, y, z) => (y * v.WORLD_D + z) * v.WORLD_W + x;
+  v.setBlockRaw(8, 8, 8, 3);
+  v.lightSky[i(8, 8, 8)] = 15;
+  v.lightBlock[i(8, 8, 8)] = 14;
+  v.world.clear();
+  assert.strictEqual(v.lightSkyAt(8, 8, 8), 0); // 不得残留清场前的光值
+  assert.strictEqual(v.lightBlockAt(8, 8, 8), 0);
 });
 
 /* ============ 碰撞与物理 ============ */

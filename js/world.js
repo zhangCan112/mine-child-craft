@@ -3,16 +3,17 @@
    渲染 adapter（World · 术语见 GLOSSARY.md 的"场景装填/距离环"）— 引擎层
    ------------------------------------------------------------
    体素模型的渲染端: 场景/灯光/贴图/区块网格(全细节+LOD)/编辑管线/高亮。
-   纯体素数据(存取/碰撞/物理/射线)在 js/voxel.js — 本文件不定义游戏规则。
-   interface: loadScene(建场 seam: 清场→批量建→渐进收尾入队) / markDirty /
+   纯体素数据(存取/碰撞/物理/射线/光场存储)在 js/voxel.js — 本文件不定义游戏规则。
+   interface: loadScene(建场 seam: 清场→批量建→光场全量→渐进收尾入队) / markDirty /
      pumpRemesh(每帧按预算构建, 编辑优先于环填充) / maintainRings(距离环:
      近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
       级联清单, 设计稿 block-lifecycle D3) / applySweep(世界卫生清扫, P14/D9)
       / applyDaylight(昼夜场景驱动: 天色/雾/光强/日月轨道, 设计稿
       mc-daylight-torch §2.3) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件
       可写: main.js 推进·模式层换装) / raycast / camera / renderer / scene。
-   依赖(均经全局名, 调用期解析): voxel.js(体素数据) · cascade-core.js(方块级联) · mesh-core.js(网格化
-   核心, 同一份代码在 Worker 里跑) · daylight-core.js(Daylight/DAYLIGHT 昼夜纯函数) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
+   依赖(均经全局名, 调用期解析): voxel.js(体素数据+光场数组) · cascade-core.js(方块级联) ·
+   light-core.js(光照核心, 装场全量 computeAll) · mesh-core.js(网格化核心, 同一份代码在
+   Worker 里跑) · daylight-core.js(Daylight/DAYLIGHT 昼夜纯函数) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
    THREE/DOM 惰性创建, Node 测试环境可安全加载(经 boot.test.js 冒烟)。
 ============================================================ */
 
@@ -424,13 +425,17 @@ function rebuildAll() {
   }
 }
 
-/* 场景装填 seam: 清场 → 批量建 → 收尾入队, 一步到位。
+/* 场景装填 seam: 清场 → 批量建 → 光场全量 → 收尾入队, 一步到位。
    "建完必须 rebuildAll 否则整场不可见"的收尾纪律收在此处, 调用方
    不可能忘(曾有模式建场漏调收尾, 进场一片天蓝 — ca3ac43)。
+   光场全量计算(设计稿 §3.3): 装场必算 — 光照永远是方块场的纯派生
+   (差异 #14 不落盘), buildFn 建完地形一次写满 sky/block 两通道
+   (方块光此刻全 0: BLOCKS.light 字段 D4 才补, 天空通道即刻生效)。
    clearWorld 幂等(switchMode 已清过再清无害)。 */
 function loadScene(buildFn) {
   clearWorld();
   buildFn();
+  LightCore.computeAll(getBlock, WORLD_W, WORLD_D, WORLD_H, LIGHT_POLICY, lightSky, lightBlock);
   rebuildAll();
 }
 
@@ -471,6 +476,11 @@ function editBlock(x, y, z, id, opt) {
    逐一核实: 探险挖掘·探险 TNT·建造·竞技场→editBlock, 坦克炮击→editBlockDirty);
    新的破坏路径必须走这两入口——绕过=世界不变量破洞(world-integrity 兜底)。 */
 const CASCADE_POLICY = CascadeCore.mkPolicy(BLOCKS);
+/* 光照政策(BLOCKS 派生, 装配一次 — LightCore.mkPolicy 与单测共用同一装配
+   防两份漂移, CASCADE_POLICY 同款缝制): lightOf 读 light 字段(D4 才补,
+   此刻全 0), opaque 镜像 isOpaque。编辑期增量 updateEdit 的接线在 D4
+   (editBlock/editBlockDirty choke point), 本文件 D2 只做装场全量 */
+const LIGHT_POLICY = LightCore.mkPolicy(BLOCKS);
 function applyCascade(x, y, z, oldId) {
   if (oldId === 0) return [];
   const removed = CascadeCore.cascadeRemove(getBlock, setBlockRaw, x, y, z, oldId, CASCADE_POLICY);
