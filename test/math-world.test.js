@@ -8,10 +8,11 @@
    单测与 boot 加载冒烟都够不到这条链, 本测试以行为级驱动兜底:
    vm 桩 DOM/THREE + 虚拟 rAF/时钟, 镜像 index.html 相对加载序, 把
    runHopWorld 掷骰变体从点骰子一路开到关卡 end。
-   覆盖: 掷骰全链(点骰→走子逐格读数→落格问题卡→作答→结算→
+   覆盖: 掷骰全链(点骰→走子念步数→落格问题卡→作答→结算→
    下一试次→end) · 走子跨帧推进(修复回归, 直线/蛇行两布局) ·
-   落格坐标与逐格读数恰为骰值步数 · 落格数字不被念出(语音不得
-   报答案, 2026-10-25 修复回归) */
+   步数读法恰为 1..骰值 且全程不念格号(语音不得报答案,
+   2026-10-25 修复: 念格号哪怕少一拍仍变相报答案, 改念
+   "从第 4 格出发, 走 1 格 2 格 3 格"做加法脚手架) */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -207,8 +208,8 @@ function loadMathWorld() {
 
 /* ============ 驱动小工具 ============ */
 
-/* 纯数字播报 = 逐格读数(plan.value 落格数字, 区别于「掷出了 N！」话术) */
-const digitReads = (spoke) => spoke.filter((s) => /^\d+$/.test(s));
+/* 掷骰走子的步数播报 = "N 格"(1..骰值), 区别于「掷出了 N！」话术 */
+const stepReads = (spoke) => spoke.filter((s) => /^\d+ 格$/.test(s)).map((s) => +s.slice(0, -2));
 /* 从「掷出了 N！」解析骰值 */
 const rollOf = (spoke) => {
   const m = spoke.join('|').match(/掷出了 (\d+)/);
@@ -245,10 +246,14 @@ test('掷骰走子(直线布局): 点骰后逐格前进读数, 落格停在该�
   assert.ok(Math.abs(p.z - 64.5) < 1e-9, '直线布局 z 不变, 实际 z=' + p.z);
   assert.ok(Math.abs(p.x - (59.5 + r.roll)) < 1e-9,
       '应停在骰值格中心, 期望 x=' + (59.5 + r.roll) + ' 实际 x=' + p.x);
-  assert.strictEqual(digitReads(d.spoke).length, r.roll - 1,
-      '逐格读数=骰值-1(落格不读): ' + JSON.stringify(digitReads(d.spoke)));
+  /* 步数读法(加法脚手架): 念"1 格…骰值 格", 全程不念任何格号 */
+  assert.deepStrictEqual(stepReads(d.spoke),
+      Array.from({length: r.roll}, (_, i) => i + 1),
+      '走子应念步数 1..骰值: ' + JSON.stringify(d.spoke));
+  assert.ok(d.spoke.some((s) => s.includes('从第 0 格出发')),
+      '应播报出发点(加法的被加数): ' + JSON.stringify(d.spoke));
   const landed = Math.round(p.x - 59.5); // 落格数字 = 题面答案
-  assert.ok(!digitReads(d.spoke).includes(String(landed)),
+  assert.ok(!d.spoke.includes(String(landed)),
       '落格数字不得被念出(等于语音报答案), 落格=' + landed);
   assert.ok(d.spoke.some((s) => s.includes('现在站在哪块石板')),
       '题面应随卡 TTS 读出(零文字依赖)');
@@ -264,8 +269,9 @@ test('掷骰走子(蛇行布局): 段内进度跨帧累积, 不再卡在首段 2
   const p = d.pos();
   assert.ok(Math.abs(p.x - (60.5 + r.roll)) < 1e-9,
       '应停在骰值格中心, 期望 x=' + (60.5 + r.roll) + ' 实际 x=' + p.x);
-  assert.strictEqual(digitReads(d.spoke).length, r.roll - 1, '逐格读数=骰值-1(落格不读)');
-  assert.ok(!digitReads(d.spoke).includes(String(Math.round(p.x - 60.5))),
+  assert.deepStrictEqual(stepReads(d.spoke),
+      Array.from({length: r.roll}, (_, i) => i + 1), '走子应念步数 1..骰值');
+  assert.ok(!d.spoke.includes(String(Math.round(p.x - 60.5))),
       '落格数字不得被念出(等于语音报答案)');
   assert.deepStrictEqual(d.errors, [], '链路无异常');
 });
