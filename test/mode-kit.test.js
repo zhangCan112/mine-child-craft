@@ -598,6 +598,32 @@ test('furnace 面板: 自动放料 plan — 矿石全放 + FUEL 序最省凑料,
   p2.remove();
 });
 
+/* ============ F2 熔炉面板: 燃料余量条(设计稿 §2.2) ============ */
+
+test('furnace 面板: setFuel 燃料余量条 — 宽度百分比 + 越界钳制 + 熄灭灰显切换', () => {
+  const doc = mkDoc();
+  const inv = {slots: new Array(27).fill(null)};
+  const panel = mkFurnacePanel({doc, inv, onAutoFill() {}});
+  panel.show();
+  const fire = collect(panel.root, 'mkp-fire')[0];
+  const ffill = collect(panel.root, 'mkp-ffill')[0];
+  assert.ok(fire && ffill, '火焰复合件在位(火焰图 + 余量条)');
+  panel.setFuel(0.5);
+  assert.strictEqual(ffill.style.width, '50%');
+  assert.strictEqual(fire.classList.contains('mkp-fire-out'), false, '燃烧中不灰显');
+  panel.setFuel(2); // 越界钳制(热值可超单件: 换料残留)
+  assert.strictEqual(ffill.style.width, '100%');
+  panel.setFuel(0);
+  assert.strictEqual(ffill.style.width, '0%');
+  assert.strictEqual(fire.classList.contains('mkp-fire-out'), true, 'r≤0 熄灭灰显(无热且无燃料)');
+  panel.setFuel(-1);
+  assert.strictEqual(ffill.style.width, '0%'); // 负值同熄灭(钳制)
+  assert.strictEqual(fire.classList.contains('mkp-fire-out'), true, '负值维持灰显');
+  panel.setFuel(0.03); // 复燃
+  assert.strictEqual(fire.classList.contains('mkp-fire-out'), false, '复燃去灰显');
+  panel.remove();
+});
+
 /* ============ mkMode 默认行为 ============ */
 
 test('KeyB 默认暂停(不转发), 其余键转发给模式', () => {

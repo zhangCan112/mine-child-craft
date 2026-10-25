@@ -1580,6 +1580,42 @@ test('F1 挖炉退料: 挖掉熔炉 → 三笔全额入包 + 炉状态删除 + �
   assert.strictEqual(A.ADV.furnaceOpen, false, '绑定面板连带关闭');
 });
 
+test('F2 炉口火焰差异增删: 燃烧=heat>0且有料在列 · 无料/熄灭出列 · 挖炉即清 · 退出全清', () => {
+  mem.clear();
+  freshInit();
+  /* 炉态直灌 Map(F1 多炉口径, T15 记账先例)——观感层不进方块数据/存档,
+     Node 无 THREE 只断言差异增删节律(advFlameCount 只读计数 seam) */
+  const fk = api.blockKey(12, 25, 12);
+  A.advFurnaces.set(fk, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1}, out: null, heat: 4, prog: 0});
+  assert.strictEqual(A.advFlameCount(), 0, '未起烧(计数前提)');
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 1, '燃烧中(heat>0 且有料) → 火焰在列');
+  /* 无料有热不算烧(与 advSmeltStep 推进条件一致——设计稿 §2.1 燃烧判定) */
+  A.advFurnaceState(fk).input = null;
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 0, '无料(余热尚在) → 差异删');
+  A.advFurnaceState(fk).input = {id: 'iron_ore', n: 1};
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 1, '补料复烧 → 差异加');
+  /* 热值耗尽(无热无燃料): 熄灭出列(advSmeltStep 每步写回新对象, 改前须重取) */
+  const fx = A.advFurnaceState(fk);
+  fx.heat = 0; fx.fuel = null;
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 0, '热值耗尽 → 熄灭出列');
+  /* 挖炉(advFurnaceDrop 钩子, 挖掘/TNT 同路): 不等下一帧即时清 */
+  A.advFurnaceState(fk).heat = 4;
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 1, '再燃(前提)');
+  A.advFurnaceDrop(fk);
+  assert.strictEqual(A.advFlameCount(), 0, '挖炉 → 火焰即时清(场景对象不渗漏)');
+  /* 退出模式: 全清 */
+  A.advFurnaces.set(fk, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1}, out: null, heat: 4, prog: 0});
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 1, '燃烧中(前提)');
+  AdventureMode.cleanup();
+  assert.strictEqual(A.advFlameCount(), 0, 'cleanup → 火焰全清');
+});
+
 test('T13 TNT 行为链: 放置 → 空手短按点燃 → 引信延时 → 爆炸破坏记账 + 波及怪物受击', () => {
   mem.clear();
   freshInit();

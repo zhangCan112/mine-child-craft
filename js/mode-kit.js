@@ -16,7 +16,8 @@
      · mkCraftPanel — 背包网格+配方书卡片+分类页签+任务卡占位容器;
        亮灰由 canCraft 驱动, 单击合成(onCraft)/长按 0.4s 连做 0.3s 一发;
        背包格点选搬运(点非空格起手高亮→点目标格 onMove, 无拖拽)
-     · mkFurnacePanel — 三槽+进度条的纯显示面板,「自动放入」只算
+     · mkFurnacePanel — 三槽+进度条+燃料余量条的纯显示面板(F2: setFuel 喂
+       r=heat/fuelUnits, r≤0 熄灭灰显),「自动放入」只算
        plan 回调 onAutoFill(矿石全放+FUEL 序最省凑料), 不动背包
      · sortInv — 整理按钮底座: 主格区同项合并(快捷栏不动)
      code-review 修复轮(S2): mkHpBar — 头顶血条深接口; C6-T3 已随玩家战斗
@@ -546,8 +547,19 @@ function mkFurnacePanel(opts) {
   const cellFuel = fslot('燃料');
   const prog = doc.createElement('div');
   prog.className = 'mkp-pbar';
-  const fire = doc.createElement('span');
+  /* F2 火焰复合件(设计稿 §2.2): 火焰图(工坊注入) + 脚下燃料余量条;
+     余量经 setFuel 喂 r=heat/fuelUnits(0..1), 模式层与 setSlots 同节拍 */
+  const fire = doc.createElement('div');
   fire.className = 'mkp-fire';
+  const fireIcon = doc.createElement('span');
+  fireIcon.className = 'mkp-fireicon';
+  const fgauge = doc.createElement('span');
+  fgauge.className = 'mkp-fgauge';
+  const ffill = doc.createElement('i');
+  ffill.className = 'mkp-ffill';
+  fgauge.appendChild(ffill);
+  fire.appendChild(fireIcon);
+  fire.appendChild(fgauge);
   const fill = doc.createElement('i');
   fill.className = 'mkp-pfill';
   prog.appendChild(fill);
@@ -570,7 +582,7 @@ function mkFurnacePanel(opts) {
   function paintChrome() {
     titleEl.innerHTML = btnImg('furnace') + ' 熔炉';
     closeBtn.innerHTML = btnImg('close');
-    fire.innerHTML = btnImg('flame');
+    fireIcon.innerHTML = btnImg('flame');
     autoBtn.innerHTML = btnImg('autofill') + '自动放入';
   }
 
@@ -590,6 +602,12 @@ function mkFurnacePanel(opts) {
   }
   function setProgress(r) { // 0..1 进度条(越界钳制)
     fill.style.width = Math.round(Math.max(0, Math.min(1, r || 0)) * 100) + '%';
+  }
+  function setFuel(r) { // F2 燃料余量条(设计稿 §2.2): r=heat/fuelUnits 单件剩余比(0..1 越界钳制);
+    // r≤0 = 无热(必然无燃料可烧) → 熄灭灰显, 复燃去灰显(CSS opacity/滤镜接管)
+    const c = Math.max(0, Math.min(1, r || 0));
+    ffill.style.width = Math.round(c * 100) + '%';
+    fire.classList.toggle('mkp-fire-out', c <= 0);
   }
   function autoPlan() { // 意图计算: 矿石全放(首现序聚合) + FUEL 序最省凑料
     const load = [];
@@ -641,7 +659,7 @@ function mkFurnacePanel(opts) {
     if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
     if (root.parentNode === doc.body) doc.body.removeChild(root);
   }
-  return {root, show, hide, close, remove, setSlots, setProgress, autoPlan};
+  return {root, show, hide, close, remove, setSlots, setProgress, setFuel, autoPlan};
 }
 
 /* ---------- 大宝箱面板(mkChestPanel, 引导链 v2): 点选搬运的纯格子面板 ----------

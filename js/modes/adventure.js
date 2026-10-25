@@ -19,8 +19,9 @@
    · 合成与烧炼(T13, D8): 工作台/熔炉放置后走近 4 格解锁(站点坐标缓存);
      合成成功 TTS 具体表扬 + leftover 转脚下掉落物; 熔炉 2.5s/件自动烧炼,
      每炉独立 + 炉态随世界档持久化(F1 拍板①, 2026-10-25: 多炉各有内容/
-     重进接着烧/挖炉退料, 旧「退世界死亡全额退料」政策退役); TNT 合成→
-     放置→点燃→延时爆炸(不伤玩家——儿童挖矿神器)
+     重进接着烧/挖炉退料, 旧「退世界死亡全额退料」政策退役); 炉口火焰
+     Sprite 随烧炼起灭 + 面板燃料余量条(F2 点燃观感, 不进方块数据/存档);
+     TNT 合成→放置→点燃→延时爆炸(不伤玩家——儿童挖矿神器)
    · 巢穴战斗(T14, D6/D11/D9): 每巢限量 2~3 只 · 清空 60s 再刷 · 索敌
      收敛不追出巢区; 击杀掉落(rollDrops) + 收集 3s 合并播报; 玩家战斗
      (nether 同骨架 AI, 单击伤害封顶 10)
@@ -59,8 +60,10 @@
      长按屏幕点, 进度环跟手) · mode-kit.js 的 mkMode/mkHotbar/mkCraftPanel/mkFurnacePanel/
      mkChestPanel(大宝箱)与 CombatKit 玩家战斗件套(mkFighter/mkHurtAlarm/
      mkMelee/mkArrows/mkHpBar 头顶血条, C6-T3) · sync.js 的 SyncDB.slot · speech.js 的
-     SpeechKit · avatar.js 的 Avatar(setItem/swing/flash)
-   可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格/进度环), Node 测试可
+     SpeechKit · avatar.js 的 Avatar(setItem/swing/flash) · icons 的 drawArt 与
+     button-icons 的 BTN_PIX.flame(炉口火焰贴图, 两者加载序在本文件之后,
+     运行期才取——F2)
+   可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格/进度环/炉口火焰), Node 测试可
      安全加载(test/adventure-mode.test.js, 真引擎件经 vm 装载)
    ============================================================ */
 
@@ -815,10 +818,11 @@ function advFurnaceEnsure(posKey) {/* 取/建炉状态(首次交互才建) */
   }
   return s;
 }
-function advFurnacePaint() {/* 面板回显: 绑定炉三槽现状 + 当前进度(0..1) */
+function advFurnacePaint() {/* 面板回显: 绑定炉三槽现状 + 当前进度(0..1) + 燃料余量(F2) */
   const f = advFurnaceAt ? advFurnaces.get(advFurnaceAt) : null;
   advFurnacePanel.setSlots(f || {input: null, fuel: null, output: null});
   advFurnacePanel.setProgress((f ? f.prog : 0) / ADV_SMELT_T);
+  advFurnacePanel.setFuel(advFurnaceFuelR(f));
 }
 function advFurnaceOpenPanel(posKey) {/* 走近熔炉点击打开: 绑定这台炉, 先取走产物(即时回报)再回显 */
   advFurnaceAt = posKey;
@@ -879,12 +883,13 @@ function advFurnaceDrop(posKey) {
   const [dx, dy, dz] = posKey.split(',').map(Number);
   for (const it of advFurnaceRefund(advInv, f)) Drops.spawn(it.id, it.n, dx + 0.5, dy + 0.5, dz + 0.5);
   advFurnaces.delete(posKey);
+  advFlameOff(posKey); /* F2: 炉口火焰即时清(不等下一帧差异增删) */
   if (advFurnaceAt === posKey && ADV.furnaceOpen) advFurnaceClose();
   advSyncHotbar();
 }
 /* 烧炼节律(update 常开, 面板只是回显——烧炼中可关面板走人): 多炉逐炉推进,
    smelt_* 记账逐炉累计; TTS 完成播报与面板回显只对绑定炉(多炉不合唱);
-   ✕ 直关面板不经模式层 → 以 root.display 对账收状态 */
+   ✕ 直关面板不经模式层 → 以 root.display 对账收状态; 尾部挂炉口火焰(F2) */
 function advFurnaceTick(dt) {
   advSmeltTtsT = Math.max(0, advSmeltTtsT - dt);
   for (const [k, f] of advFurnaces) {
@@ -902,6 +907,7 @@ function advFurnaceTick(dt) {
   if (ADV.furnaceOpen) {
     const f = advFurnaceAt ? advFurnaces.get(advFurnaceAt) : null;
     advFurnacePanel.setProgress((f ? f.prog : 0) / ADV_SMELT_T);
+    advFurnacePanel.setFuel(advFurnaceFuelR(f)); /* F2 余量条与进度条同拍(热值逐帧衰减, 逐帧喂) */
     const sig = f ? [f.input, f.fuel, f.out].map((s) => (s ? s.id + '×' + s.n : '-')).join('|') : '';
     if (sig !== advFurnSig) {
       advFurnSig = sig;
@@ -909,6 +915,75 @@ function advFurnaceTick(dt) {
     }
     if (advFurnacePanel.root.style.display === 'none') advFurnaceClose(); /* ✕ 对账 */
   }
+  advFlameTick(dt); /* F2 炉口火焰: 差异增删 + 脉动(设计稿 §2.1) */
+}
+
+/* ---------- 炉口火焰(F2 点燃观感, 设计稿 §2.1): 纯观感层, 不进方块数据/存档 ----------
+   燃烧判定 heat>0 && input(与 advSmeltStep 推进条件一致——无料有热不算烧);
+   advFlames 差异增删挂在 advFurnaceTick 尾部(起燃加/熄灭删), Sprite 惰性
+   创建(mkHpBar 同款守卫: THREE/DOM/scene 缺任一不建观感, 逻辑集照记 null——
+   Node 单测经 advFlameCount() 断言增删节律); 明确不采用「燃烧换方块 id」
+   (lit furnace 会污染 edits 账本, plan 决策 7) */
+const advFlames = new Map(); /* posKey → THREE.Sprite(无渲染环境值为 null) */
+let advFlameTex = null; /* 共享贴图: 全部火焰一个 16×16 CanvasTexture(drops.texCache 口径, 不随实例销毁) */
+let advFlamePhase = 0; /* 脉动相位(update 的 dt 累计, 全炉同相) */
+const ADV_FLAME_T = 0.9; /* 脉动周期(秒, 设计稿 §2.1 参数表) */
+const ADV_FLAME_SIZE = 0.38; const ADV_FLAME_AMP = 0.07; /* 基准尺寸与振幅 */
+const ADV_FLAME_COLOR = 0xffa040; /* 加色混合暖色 */
+
+function advFlameTexture() {/* 贴图惰性建一次: 按钮工坊 flame 字符画 16×16 画布 → CanvasTexture
+  (button-icons 加载序在本文件之后, 故运行期才取 BTN_PIX——mkHpBar 用 heart 同款) */
+  if (advFlameTex || typeof THREE === 'undefined' || typeof document === 'undefined') return advFlameTex;
+  const cv = document.createElement('canvas');
+  cv.width = cv.height = 16;
+  drawArt(cv.getContext('2d'), BTN_PIX.flame.art, BTN_PIX.flame.map);
+  advFlameTex = new THREE.CanvasTexture(cv);
+  return advFlameTex;
+}
+function advFlameMount(posKey) {/* 起燃建 Sprite 挂场景: 炉顶(x+0.5, y+1.05, z+0.5), 加色混合
+  暖色, renderOrder 高于方块(设计稿 §2.1 参数表); 无渲染环境返 null */
+  const tex = advFlameTexture();
+  if (!tex || typeof scene === 'undefined') return null;
+  const p = posKey.split(',');
+  const sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent: true,
+    depthWrite: false, blending: THREE.AdditiveBlending, color: ADV_FLAME_COLOR}));
+  sp.renderOrder = 10;
+  sp.position.set(+p[0] + 0.5, +p[1] + 1.05, +p[2] + 0.5);
+  sp.scale.set(ADV_FLAME_SIZE, ADV_FLAME_SIZE, 1);
+  scene.add(sp);
+  return sp;
+}
+function advFlameOff(posKey) {/* 熄灭/消失单清: 摘场景销毁材质(贴图共享不销), 逻辑集出列 */
+  const sp = advFlames.get(posKey);
+  if (sp && typeof scene !== 'undefined') {
+    scene.remove(sp);
+    sp.material.dispose();
+  }
+  advFlames.delete(posKey);
+}
+function advFlamesClear() {/* 全清(退出模式/init 复位): 场景对象不渗漏 */
+  for (const k of [...advFlames.keys()]) advFlameOff(k);
+}
+function advFlameTick(dt) {/* 节律: 相位累计 → 差异增删(燃烧判定逐炉) → 尺寸正弦脉动 */
+  advFlamePhase += dt * Math.PI * 2 / ADV_FLAME_T;
+  for (const [k, f] of advFurnaces) {
+    const lit = f.heat > 0 && f.input;
+    if (lit && !advFlames.has(k)) advFlames.set(k, advFlameMount(k)); /* 起燃加 */
+    if (!lit) advFlameOff(k); /* 熄灭删(不在列时 delete 幂等) */
+  }
+  for (const k of [...advFlames.keys()]) {
+    if (!advFurnaces.has(k)) advFlameOff(k); /* 炉没了(挖/TNT 兜底): 火焰必须没了 */
+  }
+  const sz = ADV_FLAME_SIZE + ADV_FLAME_AMP * Math.sin(advFlamePhase); /* 0.38 ± 0.07 */
+  for (const sp of advFlames.values()) if (sp) sp.scale.set(sz, sz, 1);
+}
+/* F2 余量比(设计稿 §2.2): r = heat/fuelUnits(炉内燃料单件热值), 燃料槽空(末件已
+   折算)按最高热值锚估——条随热值衰减(MC 口径); 没在烧(与世界火焰同判定)一律 0 */
+function advFurnaceFuelR(f) {
+  if (!f || !(f.heat > 0) || !f.input) return 0;
+  if (!f.fuel) return Math.min(1, f.heat / fuelUnits(FUEL[0]));
+  const per = fuelUnits(f.fuel.id);
+  return per ? Math.min(1, f.heat / per) : 1;
 }
 
 /* ---------- TNT 链(D4): 放置走 advTryPlace → 点击点燃 → 引信 → 爆炸 ---------- */
@@ -1247,6 +1322,7 @@ const AdventureMode = mkMode({
     ADV.furnaceOpen = false; /* T13 熔炉面板复位; 炉态不在此清——档里有什么恢复什么(F1) */
     ADV.chestOpen = false; /* 引导链 v2: 箱子面板一并复位 */
     advFurnaces.clear(); /* 引用跨 init 稳定(面板闭包不脱钩), clear 复位 */
+    advFlamesClear(); /* F2: 炉口火焰一并复位(上一场的观感不渗进来) */
     advFurnaceAt = null;
     advFurnSig = '';
     for (const [k, s] of advLoad.furnaces) advFurnaces.set(k, s); /* F1: 每炉独立炉态重进照旧(decode 已过滤非法) */
@@ -1290,6 +1366,7 @@ const AdventureMode = mkMode({
     Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
     Drops.clear(); /* 清掉落物+解除收集回调 */
     advArrows.clear(); /* 箭矢网格一并摘除 */
+    advFlamesClear(); /* F2: 炉口火焰 Sprite 一并摘除(炉态随档保留, 观感重建) */
     ADV.panelOpen = false;
     ADV.furnaceOpen = false;
     ADV.chestOpen = false;
@@ -1451,7 +1528,8 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,
   advTntRoll, advTntDmg, advFurnaces, advGetFurnaceAt: () => advFurnaceAt,
   advFurnaceState, advFurnaceDrop, advFurnaceAutoFill, advFurnaceOpenPanel,
-  advFurnaceClose, advIgnite, advFuses, advStations,
+  advFurnaceClose, advIgnite, advFuses, advStations, advFlames,
+  advFlameCount: () => advFlames.size,
   advGetChest: () => advChest, advChestOpenPanel, advChestClose,
   advChestDeposit, advChestWithdraw, advChestExpand,
   advPanelClose, advGoHome, advHomeReady, ADV_HOME_CD};

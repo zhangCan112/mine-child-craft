@@ -1385,9 +1385,43 @@ canvas {
   gap: 6px;
 }
 
+/* F2 火焰复合件(设计稿 §2.2): 火焰图(.bi 16×16 沿用分档) + 脚下燃料余量条 */
 .mkp-fire {
-  font-size: 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  transition: opacity 0.25s, filter 0.25s;
+}
+
+.mkp-fireicon {
+  display: block;
   line-height: 1;
+}
+
+/* 熄灭灰显(无热且无燃料): 降不透明度 + 去色, 复燃经 transition 缓回 */
+.mkp-fire-out {
+  opacity: 0.4;
+  filter: grayscale(1);
+}
+
+/* 余量条: 进度条(.mkp-pbar)同款槽形缩小版, 暖色渐变 */
+.mkp-fgauge {
+  width: 26px;
+  height: 5px;
+  border-radius: 2px;
+  background: rgb(0 0 0 / 55%);
+  border: 1px solid rgb(255 255 255 / 25%);
+  overflow: hidden;
+}
+
+.mkp-ffill {
+  display: block;
+  width: 0;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #ff7a2e, #ffd23c);
+  transition: width 0.15s linear;
 }
 
 .mkp-pbar {
