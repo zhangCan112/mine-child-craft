@@ -298,6 +298,10 @@ globalThis.yaw = 0;
 globalThis.pitch = 0;
 globalThis.onGround = false;
 globalThis.flyMode = false;
+globalThis.setFly = (v)=> {
+  globalThis.flyMode = v;
+  globalThis.vel.y = 0;
+}; /* 镜像 voxel.js setFly: 模式经意图入口写飞行态 */
 
 const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;

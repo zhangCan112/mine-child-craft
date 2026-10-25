@@ -22,6 +22,7 @@ function loadVoxel() {
       world, getBlock, setBlockRaw, isSolid, isOpaque, groundTop, hashRand, blockKey,
       packChunkData,
       raycastVoxel, pos, vel, collides, physics, collidesAtPlayer, worldEvents,
+      setFly,
       keys, touchMove, touchSprint,
       get onGround(){ return onGround; }, set onGround(v){ onGround = v; },
       get yaw(){ return yaw; }, set yaw(v){ yaw = v; },
@@ -197,6 +198,17 @@ test('physics: flyMode 无重力, 空格升/Shift 降', () => {
   v.keys['ShiftLeft'] = true;
   v.physics(DT);
   assert.strictEqual(v.vel.y, -7);
+});
+
+test('setFly: 飞行态意图入口 — 置位并清垂直速度(切档不带残留升/坠速)', () => {
+  const v = loadVoxel();
+  v.vel.y = -12.5; // 预置残留坠速
+  v.setFly(true);
+  assert.strictEqual(v.flyMode, true);
+  assert.strictEqual(v.vel.y, 0); // 清垂直速度是 setFly 的语义(照 build F 键既有行为)
+  v.setFly(false); // 复位场景 vel.y 本就近 0, 清之无害
+  assert.strictEqual(v.flyMode, false);
+  assert.strictEqual(v.vel.y, 0);
 });
 
 test('physics: 落地状态下跳跃获得向上速度', () => {

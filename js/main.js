@@ -148,7 +148,7 @@ function switchMode(id) {
   Tank.clear(); // 清载具实体(钩子常驻不解除 — Tank 契约, 见 tank.js clear 注释)
   Drops.clear(); // 清掉落物+解除收集回调
   Avatar.setItem(PLAYER.heldItem); // 手持物复位(剑/弓/铲不渗进其他模式)
-  flyMode = false; // 飞行态复位(不渗进新模式出生)
+  setFly(false); // 飞行态复位(不渗进新模式出生; 走意图入口)
   MODES.cur = MODES[id];
   MODES.cur.init();
   /* BGM 情绪随模式走: 注册表 mood 字段是唯一权威(mode-registry.test 逐行

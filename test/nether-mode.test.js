@@ -164,6 +164,10 @@ globalThis.Mobs = {
 globalThis.pos = {x: 62.5, y: 25, z: 85.5, set() {}};
 globalThis.vel = {set() {}};
 globalThis.flyMode = false;
+globalThis.setFly = (v)=> {
+  globalThis.flyMode = v;
+  globalThis.vel.y = 0;
+}; /* 镜像 voxel.js setFly: 模式经意图入口写飞行态 */
 
 /* 真 CameraRig(独立 vm 桥接挂全局): 射箭曾用富 fake(自造 lookDir)藏住
    "真模块没导出该方法"的接口谎言 → 实机一点就抛异常箭没射出。改挂真模块:

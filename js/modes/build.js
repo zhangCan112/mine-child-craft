@@ -387,7 +387,7 @@ const BUILD_SCENES = [
 ];
 function buildSpawnAt(sc) {
   ModeKit.spawn(sc.spawn.x, sc.spawn.y, sc.spawn.z, {yaw: sc.spawn.yaw}); // 经 kit 记住出生点
-  flyMode = false;
+  setFly(false); // 出生步行(飞行态走意图入口, 白名单见 voxel.js 玩家段)
 }
 
 /* 存档: 当前场景 + 各场景改动表 (跨设备云同步); Map↔entries 编解码收进槽 */
@@ -467,7 +467,7 @@ function buildSceneMenu() {
 
 /* 飞行开关 (键盘 F 与触屏 ✈️ 按钮共用, 不再自引用 BuildMode) */
 function buildToggleFly() {
-  flyMode = !flyMode; vel.y = 0;
+  setFly(!flyMode); // 读旧值定新态(读不是写), 清坠速语义收在意图入口
   showToast(flyMode ? '✈️ 飞行开启：空格上升 · Shift 下降' : '🚶 飞行关闭', 2200);
   if (typeof refreshTouchUI === 'function') refreshTouchUI(); /* 触屏下降键随飞行亮出(MC: 下箭头飞行中变下降) */
 }
@@ -510,7 +510,7 @@ const BuildMode = mkMode({
   },
   cleanup() {
     buildSaveNow();
-    flyMode = false;
+    setFly(false); /* 飞行态复位走意图入口 */
     buildHoldOn = false; /* 长按连挖场: 退出模式即收 */
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活, 照下界先例) */
   },

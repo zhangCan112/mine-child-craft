@@ -142,7 +142,18 @@ function raycastVoxel(origin, dir, maxDist, filter) {
 
 /* ---------- 玩家 & 物理 ----------
    pos/vel 为带 set() 的普通对象(仅 .set 被调用), 保持零 THREE;
-   raycastVoxel 只读 .x/.y/.z, 与 THREE.Vector3 鸭子类型兼容 */
+   raycastVoxel 只读 .x/.y/.z, 与 THREE.Vector3 鸭子类型兼容
+   玩家六绑定(pos/vel/onGround/yaw/pitch/flyMode)可写白名单(对齐 mobs.js
+   判例: 逐类给理由, 白名单之外零裸写):
+   · physics           本模块自身 — 每帧物理结算的唯一写者
+   · input.js          鼠标/触屏热路径直写 yaw/pitch — 视角唯一属主 +
+     事件频率高于帧率, 性能口径例外(登记不改)
+   · math-world.js     自持 rAF 直写 pos/vel/pitch/onGround — 根因: 主循环
+     以指针锁为门跑 physics, 不锁指针宿主只能自持驱动(该文件头已自白;
+     治理归引擎「非锁定宿主驱动入口」的未来票)
+   · tank.js           引擎同侪直写(驾驶锁舱姿态/上下车视角对齐, 引擎层内部)
+   其余写者一律走意图入口: 传送/出生 → ModeKit.spawn(mode-kit.js),
+   飞行态 → setFly(下方); 模式文件与组合根(main.js)零裸写。 */
 const pos = {x: 0, y: 0, z: 0, set(x, y, z) {
   this.x=x; this.y=y; this.z=z; return this;
 }};
@@ -152,6 +163,15 @@ const vel = {x: 0, y: 0, z: 0, set(x, y, z) {
 let onGround = false;
 let yaw = 0; let pitch = 0;
 let flyMode = false; // 建造模式:飞行(空格升 · Shift 降, 无重力)
+/* 飞行态意图入口: 模式/组合根切换飞行一律经此, 禁止裸写 flyMode(白名单
+   见本段头注释)。语义: 切换时清垂直速度 — 关飞行瞬间不被残留升/坠速
+   拖着走(照 build.js F 键开关的既有语义), 复位场景 vel.y 本就近 0,
+   清之无害。只原地改 vel.y 字段: vel 是共享对象(combat-kit 的 mkFighter
+   把 pos/vel 可变引用别名进战斗实体), 不得替换绑定 */
+function setFly(v) {
+  flyMode = v;
+  vel.y = 0;
+}
 
 function collides(px, py, pz) {
   /* ε 收缩: 视"恰好贴面"为不重叠, 消除浮点擦边导致的穿墙/假落地 */
