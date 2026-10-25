@@ -34,7 +34,7 @@ T1 骨架贯通+dev可见性 ──▶ T2 材料台+守门测试 ──▶ T3 �
 
 ## T2 · 材料台 + 守门测试
 
-状态：`open` · 前置：T1 · 分支/提交：—
+状态：`done` · 前置：T1 · 分支/提交：`showroom-t2` @ `fcbac2baceca3f75211daff9f31ff6411cb6d032`
 
 **做什么**：
 - showroom.js 顶部 `SHOWROOM_STOCK` 数据表（行形状 `{id, n}`）：初始清单=SMELTS 全原料+代表燃料（煤/木板/木棍）+各产物对照样，总数 ≤27
