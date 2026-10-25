@@ -126,6 +126,10 @@ _Avoid_: 按钮用 emoji（观感业余且各平台字形漂移）、把按钮�
 应用层纯核心（js/adventure-core.js，零 THREE 零 DOM，有单测）：探险模式的政策与地形段——地图常量表（湖/矿坑/山洞/巢穴/矿带）、确定性建场一族（advBuildWorld）、政策纯函数（死亡计划/巢穴节拍/挥击与怪物伤害/击杀掉落清单/收集播报/蓄力步进/放置合法性/食物政策/树苗计时/站点判定/烧炼单步/退炉/TNT 掷骰与衰减/大宝箱阶梯与入箱 advChestNext·advChestPut）、任务表 ADV_QUESTS 与计数键口径、提醒政策三件（低耐久预警/背包快满/工具坏话术）。壳（js/modes/adventure.js）只留 mkMode 装配/THREE·DOM 观感/话术/生命周期，经共享词法环境消费。
 _Avoid_: 把政策纯函数写回模式壳（S1 剥核先例：world→mesh-core / tank→tank-core / mobs→mob-core）
 
+**竞技场核心（ArenaCore）**:
+应用层纯核心（js/arena-core.js，零 THREE 零 DOM，有单测）：竞技场模式的政策与数值段——一期收常数表（ARENA 几何〔中心由 config 世界尺寸加载期派生〕· HOTBAR 选块物品栏 · ARENA_POWER 配平战力 · ID_* 地形方块别名 · TIER_MULT/TIER_NAME 晋升档位 · COUNTER 克制关系 · FLY_KNOCK_R/FLY_ORBIT_R 飞行边界两档 · MAX_MOBS 数量上限）与叶子纯函数（angleLerp 环形角度插值 · mobSpeed 移速修正 · tierStars/tierHot 晋升星级名牌 · comebackMult 翻盘系数〔入参为双方总血量占比〕 · fusingCreeperNear 苦力怕合体探测〔入参为读条清单〕）；技能 tick 族/索敌权重/配平逻辑后续票迁入。壳（js/modes/arena.js）保留战斗编排与观感，经共享词法环境消费。
+_Avoid_: 把观感挂件/弹道 mesh 写进 core（留壳）、与 mob-core/combat-core 重复建 vocabulary（身体本能/弹道步进在那边）
+
 **训练营机制核心（CampCore）**:
 应用层纯核心（js/camp-core.js，零 THREE·零 DOM·有单测）：两训练营家族逐字镜像机制的唯一实现——mkStampBook 图章一本工厂（rewards/keepDays/dailyCap 注入，30 步长递进线，八件 record/trim/count/milestones/rewardsDue/rewardFor/rewardClaimed/nextLine）、日期三件套 todayStr（委托 budgetDateStr 唯一拼装点）/dayIndex/trimLog（未来日期保留的零惩罚口径）、loot 基座 pickWeighted/grantLoot（余量静默+full 标记）；家族函数名（stampRecord/mathStampRecord 等）是 focus-levels/math-levels 的薄委托 interface；掷骰政策（段位变率 vs 族池）留各自 levels。
 _Avoid_: 把两家族函数当独立实现（历史认知——机制已同源）、把掷骰政策塞进 CampCore（政策不对称是有意设计）、在 levels 之外再复制图章/裁剪逻辑
@@ -178,7 +182,7 @@ _Avoid_: 游玩限制、防沉迷开关
 ### 游戏模式
 
 **竞技场（Arena）**:
-双阵营怪物对战玩法。怪物由怪物库（Mobs）提供，本层只保留战斗 AI、阵营对抗与晋升；技能按怪物谱系发放——家传技能走 FAMILY_SKILLS 族模板（主族折算），个体特化每怪至多一招。
+双阵营怪物对战玩法。怪物由怪物库（Mobs）提供，本层只保留战斗 AI、阵营对抗与晋升；技能按怪物谱系发放——家传技能走 FAMILY_SKILLS 族模板（主族折算），个体特化每怪至多一招。政策与数值段纯核心见「竞技场核心」词条。
 
 **建造模式**:
 自由建造玩法，改动按场景云同步保存。
