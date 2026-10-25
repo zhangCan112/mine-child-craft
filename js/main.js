@@ -325,7 +325,9 @@ function init() {
      (config.js 读 ?touch=1 的 try/catch 同款防御式惯例) */
   try {
     if ((location.search || '').includes('dev=1')) document.body.classList.add('dev-on');
-  } catch (e) { /* 参数不可读时保持隐藏 — dev 可见性宁缺勿滥 */ }
+  } catch (e) {
+    /* 参数不可读时保持隐藏 — dev 可见性宁缺勿滥(卡本就默认隐藏) */
+  }
   buildMenu();
   Avatar.setItem(PLAYER.heldItem); // 组合根装配默认手持物(参数表驱动, 见 config.js)
   SyncDB.ready.then(setupBudgets); // 服务器镜像完成后再建账本/迁移(进度零丢失的时序保证)
