@@ -74,6 +74,10 @@ _Avoid_: 把两训练营的 HUD/计时/授予复制体当独立实现（历史�
 应用层 shell 服务（js/mode-kit.js，DOM 惰性、假 doc 可注入单测）：服务面向引擎 chrome/HUD/物品面板族的**游玩模式**（竞技场/建造/坦克演习场/探险）——mkMode 模式壳装配（chrome 显隐/每帧 HUD 文本（hit 由主循环注入）/触屏动作声明/KeyB 默认暂停/坠虚回最近出生点兜底）、mkHotbar 快捷栏（digit/wheel/点选选块全自动 + 物品槽像素图标+计数+耐久条）、mkMainAct 触屏主动作键（手持感知分派：手持可放置物按下=放置一次且不进连发、空手/工具=打/挖起步连挖）、mkCraftPanel 合成面板（配方书卡片 + 背包格点选搬运，无拖拽）、mkFurnacePanel 熔炉纯显示面板（三槽 + 进度/燃料条）、mkChestPanel 大宝箱面板（全局账户点选搬运 + 三档扩容行）、sortInv 整理底座（主格区同项合并）、spawn/lookName/confirmBtn 工具件。mkHpBar 已随战斗 vocabulary 迁 CombatKit。interface：`ModeKit{mkMode · mkHotbar · mkMainAct · mkCraftPanel · mkFurnacePanel · mkChestPanel · sortInv · spawn · lookName · confirmBtn}`。
 _Avoid_: 把训练营壳件塞回 mode-kit（壳机器在 camp-kit——两 kit 分工：mode-kit 服务引擎 chrome/物品面板族的游玩模式，camp-kit 收两训练营壳）、kitSpawn（内部名——不占共享全局最裸的 spawn 一词，对外经 ModeKit.spawn）
 
+**熔炉装配 kit（FurnaceKit）**:
+应用层装配（js/furnace-kit.js，DOM 惰性、假 doc 可测，有契约单测）：探险与体验馆两模式熔炉装配段的共享 kit（T4 票抽取——134 行镜像超 80 行升级扳机触发）——mkFurnaceStation 一工厂收编面板开合/取产物/自动放料/逐炉推进喂显（三槽签名节流 + 产物槽 out→output 桥接——探险侧历史错位「产物槽有锭不显示」随抽取修复，契约测试锁回归）/挖炉退料/退场退炉/燃料余量比；烧炼状态机与退炉政策不在此——走探险核心纯函数（探险的炉与体验馆的炉是同一缝上的两个 adapter，不造第二份实现）。消费方政策全走回调缝：onOpen/onClose（指针配套）/onCollect/onCollectFull（儿童提示）/onRefundLeft（挖炉余量掉炉位）/onDrop（火焰观感）/onMade（烧成记账+TTS）/onInvChange（快捷栏刷新）；inv 两供给形态等价：背包对象（探险，引用跨 load 稳定）或取数器（体验馆，进场换新实例）。interface：`FurnaceKit.mkFurnaceStation(opts) → {map · panel · open · close · isOpen · at · state · ensure · autoFill(plan?, posKey?) · tick · drop · refundAll · reset · dispose}`。
+_Avoid_: 把熔炉装配写回模式层（两模式镜像的旧形态已收编）、为 kit 造第二份烧炼实现（状态机归探险核心）、把探险持久化塞进 kit（世界档 encode/decode 留消费方）
+
 **SceneKit**:
 坐在体素模型之上的场景搭建工具：填充、种树、确定性散布。四个游玩模式（竞技场/建造/坦克演习场/探险）的场景构建共用它。
 _Avoid_: fillB / plantTree / fxHash（历史名，已归并）
@@ -280,8 +284,8 @@ _Avoid_: 箱子系统（散称）、把箱子做成合成站点（拍板：合�
 _Avoid_: 把动物当怪物（不反击/不进战斗部署面板/不算击杀任务）、动物重生（MC 也不刷——牧场会空是「保护动物」的隐性教育）、给牧场开第二份存档键（死畜账在世界档里，与 furnaces 同一份）
 
 **体验馆**:
-仅开发人员可见的调试模式（js/modes/showroom.js；注册表 dev:true 字段——卡在 index.html 在场但默认隐藏，URL ?dev=1 解锁显示）：**真游戏场景去掉跑图与挖掘**——平地空场 + 预置道具 + 满材料背包，一切触手可及；做出来的东西在这里上手玩一遍找 bug（开发者亲手玩，不是自动化测试管线）。v1 预置熔炉——烧炼交互复用探险同源件（adventure-core 烧炼纯函数 + ModeKit.mkFurnacePanel 显示，模式消费它模式核心的第一案），炉态仅内存不落任何存档。材料清单是 showroom.js 顶部数据表，加材料=加一行。红线：不计儿童时限（gated:false）、不读不写任何孩子存档键（含共享背包 inventory_save——ADR 0002，体验馆背包是自建内存实例）；体验馆是常驻工具，没有"毕业进正式模式"的概念。
-_Avoid_: 实验室（已废弃名——2026-10-25 正名：它是体验场景不是科研场景）、把体验馆当玩法模式（不进孩子限额清单、无菜单页）、体验馆自开存档键（数据隔离红线）、为体验馆造第二份烧炼实现（复用探险核心）
+仅开发人员可见的调试模式（js/modes/showroom.js；注册表 dev:true 字段——卡在 index.html 在场但默认隐藏，URL ?dev=1 解锁显示）：**真游戏场景去掉跑图与挖掘**——平地空场 + 预置道具 + 满材料背包，一切触手可及；做出来的东西在这里上手玩一遍找 bug（开发者亲手玩，不是自动化测试管线）。v1 预置熔炉——烧炼交互走共享熔炉 kit（FurnaceKit，探险同款两消费者：探险的炉与这里的炉是同一缝上的两个 adapter；kit 内部消费探险核心烧炼纯函数 + ModeKit.mkFurnacePanel 显示），体验馆侧差异只有供给形态（inv 取数器，进场照表重铸新实例）与政策降噪（零儿童提示/零掉落物/退出余量静默丢弃），炉态仅内存不落任何存档。材料清单是 showroom.js 顶部数据表，加材料=加一行。红线：不计儿童时限（gated:false）、不读不写任何孩子存档键（含共享背包 inventory_save——ADR 0002，体验馆背包是自建内存实例）；体验馆是常驻工具，没有"毕业进正式模式"的概念。
+_Avoid_: 实验室（已废弃名——2026-10-25 正名：它是体验场景不是科研场景）、把体验馆当玩法模式（不进孩子限额清单、无菜单页）、体验馆自开存档键（数据隔离红线）、为体验馆造第二份烧炼实现（走共享熔炉 kit）
 
 ### 玩法时间预算
 - 每日儿童时限（每日预算 DailyBudget）: 所有游玩模式（含下界冒险）共用同一份 play 预算，不新增账本。

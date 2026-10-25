@@ -124,6 +124,7 @@ globalThis.setTouchActions = () => {}; /* 触屏按钮接线(input.js, mkMode in
 const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;
 globalThis.ModeKit = ModeKit;
+globalThis.FurnaceKit = require('../js/furnace-kit.js'); /* 共享熔炉 kit(T4): 模式顶层即构造 station */
 ModeKit.spawn = (x, y, z, o) => {
   calls.push(['spawn', x, y, z, o]);
 }; /* 出生点记账(不写真玩家状态, 进场断言只需要调用记录) */

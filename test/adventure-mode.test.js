@@ -321,6 +321,7 @@ ModeKit.spawn = (x, y, z, o) => {
    显式铺到全局再 require 壳——壳顶层即消费这些全局名 */
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore);
+globalThis.FurnaceKit = require('../js/furnace-kit.js'); /* 熔炉装配 kit(T4): 壳顶层即构造 station */
 globalThis.Backpack = require('../js/backpack.js');
 
 const AdventureMode = require('../js/modes/adventure.js');

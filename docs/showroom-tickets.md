@@ -63,7 +63,7 @@ T1 骨架贯通+dev可见性 ──▶ T2 材料台+守门测试 ──▶ T3 �
 
 ## T4 · 共享熔炉 kit 抽取（spec 升级触发器已燃）
 
-状态：`open` · 来源：spec「实现决策·升级触发器」——若熔炉接线与探险的镜像超约 80 行、或炉行为改动需要两处同步，立即开票。
+状态：`done` · 分支/提交：`t4-furnace-kit` @ 见合并后 master（2026-10-25 完工）
 
 **触发事实**：T3 落地后 `js/modes/showroom.js` 熔炉段与 `js/modes/adventure.js` 熔炉段的镜像接线约 134 代码行（T3 段函数体，不含 mkMode 钩子/测试挂点），超约 80 行阈值。烧炼状态机本身已同源（adventure-core 纯函数），重复的是模式层装配（面板开合/取产物/自动放料/逐炉推进喂显/退炉）。
 
@@ -75,12 +75,14 @@ T1 骨架贯通+dev可见性 ──▶ T2 材料台+守门测试 ──▶ T3 �
 
 **验收**：两模式熔炉行为测试零改动全绿；镜像重复段归零；接口注释（==== 五要素）落在 kit 侧。
 
+**落地记录（2026-10-25）**：`js/furnace-kit.js`（mkFurnaceStation 一工厂，消费方政策全走回调缝）+ 契约单测 `test/furnace-kit.test.js`（13 条，含产物槽桥接回归锁/adventure 历史错位随抽取修复）；adventure.js 与 showroom.js 熔炉装配段归零为薄委托 + 政策回调（两模式既有行为断言零改动，仅各自引导段加一行 FurnaceKit 全局铺装——与浏览器 script 序同义）。落点取舍：独立 `-kit` 文件而非并入 mode-kit（mode-kit 不引探险核心、面板显示件与交互装配分离，§1.2 后缀语义本位）。
+
 ---
 
 ## 后续票池（只登记不抽码，不入本 spec 关单范围）
 
 - **fakeEl 测试桩已 6 份拷贝**：adventure-mode / focus-paradigms / mode-kit / nether-mode / showroom-mode / tank-mode 各持一份同构假 DOM 桩——test-kit 共享候选，攒到过 conventions §1.10 升格判据再动，本票不动测试基建。
-- **showroomFuelR 显示层小镜像**：归 T4（共享熔炉 kit 抽取）一并上收，见 T4 附记。
+- **showroomFuelR 显示层小镜像**：已随 T4 上收为共享熔炉 kit 的 furnaceFuelR（2026-10-25 完工）。
 - **`includes('dev=1')` 宽匹配**：main.js 解锁参数用子串匹配（理论上命中 `?xdev=1` 之类），与 config.js `?touch=1` 的防御式读取惯例同款口径一致——仅记录不改；要收紧就两个参数一起过 §1.10，单改一处反而不一致。
 
 ---
