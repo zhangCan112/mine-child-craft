@@ -119,7 +119,7 @@ _Avoid_: 配方系统（散称）、网格拖拽合成（拍板②：点选配�
 _Avoid_: 战利品系统（散称）、把掉落表掷骰写在模式层（语义归这里）
 
 **像素图标工坊**:
-手绘像素图标的工坊（js/icons.js）：16×16 字符画（字符查表上色，'.'=透明）→ 关平滑放大 64×64 → dataURL。tankIcon（主菜单坦克卡入口图标——emoji 各平台渲染不可控）+ 物品图标扩展 itemIcon/iconOf：ITEM_PIX 字符画数据表覆盖 ITEMS 全量（工具 16 条共用 4 张字符画，'#'主/'+'亮/'-'暗 三字符按木/石/铁/钻四阶色板替换，色板与 mkToolDef 同源），一期已全量替换 emoji 占位；iconOf 是物品图标统一出口——有像素图返 dataURL、未手绘返 emoji 文本、未注册返空串，掉落物 Sprite/快捷栏 item 槽/配方书卡片共用。怪物头像在怪物库，专注图标在 focus-icons.js。
+手绘像素图标的工坊（js/icons.js）：16×16 字符画（字符查表上色，'.'=透明）→ 关平滑放大 64×64 → dataURL。tankIcon（主菜单坦克卡入口图标——emoji 各平台渲染不可控）+ 物品图标扩展 itemIcon/iconOf：ITEM_PIX 字符画数据表覆盖 ITEMS 全量（工具 16 条共用 4 张字符画，'#'主/'+'亮/'-'暗 三字符按木/石/铁/钻四阶色板替换，色板与 mkToolDef 同源），一期已全量替换 emoji 占位；iconOf 是物品图标统一出口——有像素图返 dataURL、未手绘返 emoji 文本、未注册返空串，掉落物 Sprite/快捷栏 item 槽/配方书卡片共用。怪物头像在怪物库，专注图标在 focus-icons.js。管线同形内联（mobs.face/tank icon 的放大尾、focus-icons 的 to96）是工坊声明的分地而非失控散写——底座化已裁决不做（2026-10，证据与重开条件见 docs/pixel-pipeline-design.md）。
 _Avoid_: emoji 图标（各平台渲染不可控）、把图标绘制散写在各消费方
 
 **按钮像素图标工坊**:

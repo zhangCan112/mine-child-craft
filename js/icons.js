@@ -9,7 +9,9 @@
    怪物头像在怪物库(Mobs.face), 坦克型号图标在载具(Tank.icon),
    专注图标在 focus-icons.js。
    ============================================================ */
+let tankIconCache = null; // 模块级 memo: 同图只画一次(实调 2 处——入口卡 IIFE + button-icons 委托, 曾是全清单唯一真重复绘制)
 function tankIcon() {
+  if (tankIconCache) return tankIconCache;
   const c = document.createElement('canvas');
   c.width = c.height = 16;
   const g = c.getContext('2d');
@@ -26,12 +28,9 @@ function tankIcon() {
   px(3, 7, 2, 1, GREEN2); // 斜甲高光
   px(2, 10, 13, 4, TRACK); // 履带
   for (const x of [3, 5, 7, 9, 11, 13]) px(x, 11, 1, 2, WHEEL); // 负重轮
-  const big = document.createElement('canvas');
-  big.width = big.height = 64;
-  const bg = big.getContext('2d');
-  bg.imageSmoothingEnabled = false;
-  bg.drawImage(c, 0, 0, 64, 64);
-  return big.toDataURL();
+  // 放大尾收敛自家管线 pixToURL64(函数声明提升, 文件内先调后定义安全——C9 裁决微修)
+  tankIconCache = pixToURL64(c);
+  return tankIconCache;
 }
 (function() { // 入口卡换标(main.js 组合根之前的独立装配)
   const big = document.querySelector('#cardTank .big');
@@ -48,7 +47,7 @@ function tankIcon() {
    替换 — 色板与 held-item.js mkToolDef 同源(木/石/铁/钻), 视觉
    口径单一。风格参考 MC 观感语言, 全部程序自绘(版权口径 D13)。
    interface: itemIcon(itemId)·iconOf(itemId)·ITEM_PIX(字符画数据表)
-   依赖: ITEMS(items-core.js, index.html 238 行先于本文件 258 行)
+   依赖: ITEMS(items-core.js, 加载序先于本文件(见 index.html))
    可测性: 绘制走 document.createElement, Node 单测注入 canvas 桩
    (test/icons-item.test.js); 字符画数据段零依赖可直接断言。
    ============================================================ */
