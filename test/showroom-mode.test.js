@@ -108,8 +108,8 @@ globalThis.loadScene = (fn) => {
   fn();
 }; /* 场景装填 seam: 清场+建场(收尾重建归渲染层, 行为断言不需要) */
 globalThis.showToast = (s) => calls.push(['toast', s]);
-const dropCalls = []; /* 满包余量掉落记账(退炉零损耗口径的旁证) */
-globalThis.Drops = {spawn: (id, n) => dropCalls.push([id, n])}; /* 掉落物库 stub: 体验馆只消费 spawn */
+const dropCalls = []; /* 掉落物调用记账: 体验馆退出收场应为零(满包余量静默丢弃口径) */
+globalThis.Drops = {spawn: (id, n) => dropCalls.push([id, n])}; /* 掉落物库 stub: 防错网 — 退出链谁落掉落物当场红 */
 globalThis.switchMode = (id) => calls.push(['switchMode', id]);
 globalThis.showPage = (id) => calls.push(['showPage', id]);
 globalThis.overlay = fakeEl();
@@ -410,9 +410,30 @@ test('体验馆: 退出收场 — cleanup 三笔全额退包(零损耗) + 炉态
   assert.strictEqual(api.count(ShowroomMode.getInv(), 'iron_ingot'), 6, '产物退回背包(5 + 炉内 1)');
   assert.strictEqual(ShowroomMode.sr.furnaces.size, 0, '炉态 Map 清空(纯内存, 退出即清)');
   assert.ok(!ShowroomMode.sr.isOpen(), '面板状态收起');
-  assert.strictEqual(dropCalls.length, 0, '退包装得下: 零余量掉落(满包才 Drops.spawn)');
+  assert.strictEqual(dropCalls.length, 0, '常规路径三笔零损耗全额入包, 不落任何掉落物');
   /* 再进场: 干净初始态(炉态/背包照表重铸, spec 故事 17) */
   freshEnter();
   assert.strictEqual(ShowroomMode.sr.furnaces.size, 0, '重进场炉态干净');
   assert.strictEqual(api.count(ShowroomMode.getInv(), 'iron_ore'), 16, '背包照表重铸');
+});
+
+test('体验馆: 满包退出 — 余量静默丢弃不落掉落物(主循环切模同拍清场, 落地即蒸发)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  /* 铺满背包: 三笔相关堆叠顶到 64 上限 + 剩余空槽塞杂项 → 退炉任何一笔都无处可去 */
+  api.add(inv, 'iron_ore', 64 - 16);
+  api.add(inv, 'coal', 64 - 16);
+  api.add(inv, 'iron_ingot', 64 - 4);
+  for (const id of ['diamond', 'apple', 'bread', 'bone']) api.add(inv, id, 1);
+  assert.strictEqual(inv.slots.filter(Boolean).length, api.INV_SLOTS, '满包前提: 27 槽全占');
+  const key = api.blockKey(SR_FURNACE.x, SR_FURNACE.y, SR_FURNACE.z);
+  ShowroomMode.sr.furnaces.set(key, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1},
+    out: {id: 'iron_ingot', n: 1}, heat: 3, prog: 1});
+  dropCalls.length = 0;
+  ShowroomMode.cleanup();
+  assert.strictEqual(api.count(inv, 'iron_ore'), 64, '满包: 待烧料无处入包 → 静默丢弃(数量不动)');
+  assert.strictEqual(api.count(inv, 'coal'), 64, '满包: 燃料无处入包 → 静默丢弃');
+  assert.strictEqual(api.count(inv, 'iron_ingot'), 64, '满包: 产物无处入包 → 静默丢弃');
+  assert.strictEqual(dropCalls.length, 0, '余量不产生任何掉落物调用(dev 调试场降噪口径, 与取产物满包静默留炉同款)');
+  assert.strictEqual(ShowroomMode.sr.furnaces.size, 0, '炉态 Map 照清(退出即清)');
 });

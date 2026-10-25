@@ -35,7 +35,7 @@
      advSmeltStep/advFurnaceRefund/advNearStation/ADV_STATION_R/ADV_SMELT_T
      (js/adventure-core.js 探险核心纯函数, 加载序: adventure.js 在本文件
      之前, 其核心更早) · pos(js/voxel.js 玩家位置, 近距判定/HUD 只读) ·
-     Drops.spawn(js/drops.js 满包余量掉炉位) · showToast(js/effects.js
+     showToast(js/effects.js
      走近提示) · touchPlaying(js/input.js "进行中"态, main.js 跨文件写
      先例) · fps/overlay/switchMode/showPage(js/main.js, 加载序在后、
      调用期已就绪)
@@ -254,14 +254,15 @@ function showroomFurnaceTick(dt) {
   if (showroomFurnacePanel.root.style.display === 'none') showroomFurnaceClose();
 }
 /* 退出退料(spec 故事 12 零损耗收场): 逐炉三笔全额入包(advFurnaceRefund),
-   满包余量掉炉位上方(探险挖炉同口径 Drops.spawn); 炉态随之清空(纯内存,
-   每次进场干净初始态) */
+   满包余量静默丢弃; 炉态随之清空(纯内存, 每次进场干净初始态) */
 function showroomFurnaceRefundAll() {
-  for (const [k, f] of showroomFurnaces) {
-    const [dx, dy, dz] = k.split(',').map(Number);
-    for (const it of advFurnaceRefund(showroomInv, f)) {
-      Drops.spawn(it.id, it.n, dx + 0.5, dy + 0.5, dz + 0.5);
-    }
+  for (const f of showroomFurnaces.values()) {
+    /* 满包余量不落地: cleanup 之后主循环切模兜底清场(掉落物账同拍清),
+       落地的余量玩家永远捡不到 = 白造必蒸发的实体; dev 调试场不沿用探险
+       挖炉的掉炉位口径(Drops.spawn), 也不学满包 toast(儿童提示口径) —
+       与 T3「取产物满包静默留炉」同款降噪。常规路径背包装得下, 三笔
+       零损耗全额入包(spec 故事 12 主口径)不受影响 */
+    advFurnaceRefund(showroomInv, f);
   }
   showroomFurnaces.clear();
 }
