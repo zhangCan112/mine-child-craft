@@ -4,7 +4,8 @@
    ------------------------------------------------------------
    一句话职责: 藏住 16 个屏流判别变体(count/craft/pattern 全变体 +
    hop 站位比大小 + 商店/钟表/测距情境皮肤)的"呈现-点选-反馈"流程与
-   小部件, 调度层(modes/math.js)只给 section 与 handler, 拿回统计;
+   小部件, 调度层(T5 起经世界轨驱动器 js/math-track.js 的统一注册表派发)
+   只给 section 与 handler, 拿回统计;
    引擎不知道奖励/背包/图章/关卡编排。
    出题优先调 PuzzleCore(算式谜/多解/天平=mkScalePuzzle/mkPartitionPuzzle,
    数列/周期/线索排队=mkSeqPuzzle/mkPeriodPuzzle/mkClueOrderPuzzle);
