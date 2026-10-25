@@ -457,6 +457,8 @@ function mountMathClock() {
 
 /* 训练时长入账: 关卡进行中每秒 accrue 实际毫秒并落账(focus ticker 同款) —
    崩溃/关页损失 ≤1 秒; 今日页/地图页不计(口径与专注训练营一致) */
+const MATH_TICK_MAX_MS = 2000; /* 单拍入账上限: 只认连续在场的真实训练时长 */
+
 function startMathTicker() {
   stopMathTicker();
   mathTickT0 = Date.now();
@@ -464,7 +466,10 @@ function startMathTicker() {
     const b = mathBudget();
     if (!b) return;
     const nowT = Date.now();
-    b.accrue(nowT - mathTickT0);
+    /* 单拍钳制(≤2s, focus ticker 同款): iPad 锁屏/切后台时系统把 timer 冻结,
+       恢复后第一拍的墙钟差是整段挂机时长 — 曾把 20 分钟日限一夜灌成 20.6 小时,
+       当日入口直接锁死(played=0 也 blocked)。后台时间不入账 */
+    b.accrue(Math.min(nowT - mathTickT0, MATH_TICK_MAX_MS));
     mathTickT0 = nowT;
     b.flush();
   }, 1000);
