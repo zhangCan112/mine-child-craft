@@ -7,10 +7,13 @@
    统一时序(场景装填纪律由驱动器担保, 不再依赖各引擎自觉); 原两条命
    (mathCtrl 控制柄 + mathBossStop 链旗)在内部合一。交互插件实现:
    js/math-world.js(hop 混合宿主) · js/math-build-world.js(摆与搭指针锁
-   宿主) · js/math-paradigms.js(屏流引擎, 迁入驱动器留待后续票);
+   宿主) · js/math-paradigms.js(屏流引擎, T5-a 起经 trackScreenRunner
+   命名缝直调 — 中间态, T5-b dispatch 反转后并入统一注册表);
    记分/节拍/boss 规划在 js/math-track-core.js(纯核心, 有单测)。
    interface: dispatch(family,variant)→'screen'|'world' ·
      run(section, areaEl, h)→{stop(),onMouse?}|null(单节; end 前先离场) ·
+     trackScreenRunner(section, areaEl, h)(屏流命名缝: T5-a 中间态仍
+     直调 runMathScreen, T5-b 与世界插件并入统一注册表) ·
      runBoss(level, areaEl, h)(串链, h={progress?,onTrial(sec,t)?,end(agg)?,speak?}) ·
      leave()(单节离场: stop+交还指针+复明 DOM, 幂等) ·
      stop()(整链一刀: 当前节+boss 链) · active()→bool ·
@@ -94,6 +97,12 @@ function trackMouse(button, hit) {
 
 /* ---------- 单节启动(屏流/世界同一入口) ---------- */
 
+/* 屏流命名缝(T5-a): 屏流节经此命名出口进 math-paradigms 的 runMathScreen —
+   目前是直调等价包装(中间态), T5-b dispatch 反转后与世界插件同表分发 */
+function trackScreenRunner(section, areaEl, h) {
+  return runMathScreen(section, areaEl, h);
+}
+
 function trackRun(section, areaEl, h) {
   if (!section) return null;
   if (trackCur) trackLeave(); /* 防御性离场: 上一节未收即开新节(幂等) */
@@ -110,7 +119,7 @@ function trackRun(section, areaEl, h) {
     const runner = trackWorldRunner(section.family, section.variant);
     if (runner) handle = runner(section, hh); /* 未注册变体: 保持 null 契约(防御) */
   } else {
-    handle = runMathScreen(section, areaEl, hh);
+    handle = trackScreenRunner(section, areaEl, hh); /* 屏流经命名缝(T5-a) */
   }
   if (!handle) return null;
   trackCur = {handle};

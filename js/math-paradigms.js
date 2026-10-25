@@ -1055,7 +1055,8 @@ const MATH_SCREEN_ENGINES = {
 /* 主入口: 非屏流变体返回 null(防御分支 — 正常分发缝下模式层只对
    dispatch=engine 的变体调这里, 世界变体误调时兜底不抛错); 逐试次
    onTrial({ok, streak}) 供 T8 挂 loot; 完成回调 st 供
-   mathPassed/mathStars(单关口径)。 */
+   mathPassed/mathStars(单关口径); stop()=中止: 断计时器闸并清 area
+   (Q11「清完再发 end」的 DOM 项, 与 next() 每试次清场同款)。 */
 function runMathScreen(section, area, h) {
   const d = mathScreenDispatch(section.family, section.variant);
   if (d.kind !== 'engine') return null;
@@ -1117,6 +1118,10 @@ function runMathScreen(section, area, h) {
     stop() {
       stopped = true;
       T.stop();
+      /* Q11「清完再发 end」的 DOM 项收进 seam: 最后试次的 .m-stage 不再
+         残留到模式层换屏(stopped 闸先判幂等; boss 400ms 接力窗内下一节
+         next() 的每试次清场与这里双清无害) */
+      area.innerHTML = '';
     },
   };
 }

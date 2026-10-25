@@ -16,6 +16,10 @@
    · leave/stop: 收当前节+复明 DOM+幂等; mouse 路由活动节; 中止不结算
    · runBoss: 小节顺序接力(400ms) + 聚合按单关口径 + 整链中止(alive 旗)
      不复活 — 假世界 runner 注入注册表(只发生在测试沙箱)
+   覆盖(T5-a): 屏流节纪律(真 runMathScreen 过 MathTrack.run, count/snapshot
+     代表变体) — 清完再发时间线(stop 先清 area 再 end)/试次进行中 stop
+     中止(闸断+计时器链断)/boss 混链(两屏流节夹一假世界节注入)实跑:
+     每节 end 恰一次、聚合在链尾、area 装配/清场交替
    加载器: vm context 依次执行 rand-core → math-levels → math-puzzles-core →
    math-build-world-core → hop-world-core → math-paradigms → math-world →
    math-build-world(镜像 index.html 共享词法环境相对序); 世界/渲染依赖以
@@ -191,7 +195,7 @@ function loadTrackHosts() {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
-    globalThis.__t = { runHopWorld, runBuildWorld, mathParamsFor, MathTrack };
+    globalThis.__t = { runHopWorld, runBuildWorld, mathParamsFor, MathTrack, MathTrackCore };
   `, ctx);
   return {t: sandbox.__t, sandbox, clearCalls, touchLog, hbLog, spoken, timers, rafQueue,
     flush(max) {
@@ -388,3 +392,165 @@ function injectFakeRunner2(d, key, stats) {
   `, d.sandbox);
   return d.sandbox.__fake2;
 }
+
+/* ============ T5-a 屏流节纪律: 真 runMathScreen 过 MathTrack.run ============ */
+
+/* area 假件(mkFakeEl 先例 + 清场观察窗): innerHTML 置空时同步清 children 并
+   计数 — 屏流引擎的清场(innerHTML='')在假 DOM 上是纯字符串赋值, 不加
+   观察窗则「area 已清空」断言失效(children 残留旧舞台) */
+function mkAreaEl() {
+  const el = mkFakeEl([]);
+  let html = '';
+  let clears = 0;
+  Object.defineProperty(el, 'innerHTML', {
+    configurable: true,
+    get: () => html,
+    set: (v) => {
+      html = v;
+      if (v === '') {
+        clears++;
+        el.children.length = 0; /* 清场观察: 置空即卸下全部子件 */
+      }
+    },
+  });
+  el.__clears = () => clears;
+  return el;
+}
+
+/* 深搜假 DOM 树找类名(引擎件散在 stage/数字条两层, 不止一级 children) */
+function findByCls(root, cls, out) {
+  out = out || [];
+  for (const c of root.children || []) {
+    if (typeof c.className === 'string' && c.className.split(' ').includes(cls)) out.push(c);
+    if (c.children) findByCls(c, cls, out);
+  }
+  return out;
+}
+
+const clickable = (el) => typeof el.onclick === 'function';
+
+/* 快照自动玩(tier 1 无相似干扰物: m-flash 的 img 计数=小客人数): 放计时器
+   到数字条出现, 按神谕点对答案 — 与 math-paradigms.test.js 同款口径 */
+function autoPlaySnapshot(d, area, done, maxSteps) {
+  let guard = 0;
+  while (!done() && guard++ < (maxSteps || 300)) {
+    d.flush(8);
+    const nums = findByCls(area, 'm-num').filter(clickable)
+        .filter((b) => !b._cls.has('good') && !b._cls.has('bad'));
+    if (nums.length) {
+      const field = findByCls(area, 'm-flash')[0];
+      assert.ok(field, '闪现场存在');
+      const ans = [...String(field.innerHTML).matchAll(/<img/g)].length;
+      const btn = nums.find((b) => +b.dataset.v === ans);
+      assert.ok(btn, '数字条含答案 ' + ans);
+      btn.onclick({preventDefault() {}});
+    }
+  }
+  assert.ok(done(), '自动玩应在限额内完成(guard=' + guard + ')');
+}
+
+test('驱动器 run(屏流节): 清完再发 end — 离场 stop(含 area 清场)先于结算 end', () => {
+  const d = loadTrackHosts();
+  const area = mkAreaEl();
+  const tl = []; /* 单一时间线: 屏流句柄 stop 与消费方 end 的先后(对照世界节同款) */
+  const ends = [];
+  const h = d.t.MathTrack.run(sec(d.t, 'count', 'snapshot', 1), area, {
+    end(st) {
+      tl.push('end');
+      assert.strictEqual(area.children.length, 0, 'end 到达时 area 已清空(清完再发的 DOM 面)');
+      ends.push(st);
+    },
+  });
+  assert.ok(h && typeof h.stop === 'function', '屏流单节同样返回控制柄');
+  assert.strictEqual(d.t.MathTrack.active(), true, '节进行中 active()=true');
+  assert.strictEqual(area.children.length, 1, '首试次装配 m-stage(进场装场)');
+  /* 屏流句柄包一层记轨(真引擎照跑, 只观察 stop 时刻 — 假世界 runner 同口径) */
+  const s0 = h.stop;
+  h.stop = () => {
+    tl.push('stop');
+    return s0();
+  };
+  autoPlaySnapshot(d, area, () => ends.length > 0);
+  assert.deepStrictEqual(tl, ['stop', 'end'], '清完再发: 屏流离场(stop)先于结算(end)');
+  assert.strictEqual(ends.length, 1, '结算恰一次');
+  assert.deepStrictEqual({...ends[0]}, {trials: 2, correct: 2, acc: 1, maxStreakErr: 0},
+      '真引擎统计原样透传(两试次点满对)');
+  assert.strictEqual(area.__clears(), 3, '清场计数: 每试次 next() 清 2 + 离场 stop 清 1');
+  assert.strictEqual(d.t.MathTrack.active(), false, '结算后 active()=false');
+  d.t.MathTrack.leave();
+  assert.deepStrictEqual(tl, ['stop', 'end'], '结算后再 leave 幂等(不二次 stop)');
+});
+
+test('驱动器 stop(屏流节): 试次进行中整链一刀 — 不结算/计时器链断/area 清场', () => {
+  const d = loadTrackHosts();
+  const area = mkAreaEl();
+  const ends = [];
+  const trials = [];
+  d.t.MathTrack.run(sec(d.t, 'count', 'snapshot', 1), area, {
+    onTrial: (t) => trials.push(t),
+    end: (st) => ends.push(st),
+  });
+  const stage = findByCls(area, 'm-stage')[0]; /* 闪现窗口内(计时器未到): 试次进行中 */
+  assert.ok(stage && findByCls(stage, 'm-flash').length === 1, '首试次闪现场已装配');
+  assert.strictEqual(d.timers.length, 1, '闪现计时器挂起中(记录型 setTimeout 桩可数)');
+  d.t.MathTrack.stop(); /* 闪现窗口内整链一刀 */
+  assert.strictEqual(area.children.length, 0, 'stop 清场: 最后试次 m-stage 不残留(Q11 DOM 项收进 seam)');
+  assert.strictEqual(d.t.MathTrack.active(), false, '无活动节');
+  /* 残留计时器放完: 闪现回调仍跑(引擎内层不设闸), 但不得再排新计时器 */
+  const ran = d.flush(400);
+  assert.strictEqual(ran, 1, '闪现计时器恰一条, 已被放掉');
+  assert.strictEqual(d.timers.length, 0, '计时器链断: 放完后无新计时器入队');
+  const nums = findByCls(stage, 'm-num').filter(clickable);
+  assert.ok(nums.length >= 2, '闪现回调已出数字条(孤儿舞台上, settle 才设闸)');
+  nums[0].onclick({preventDefault() {}}); /* stop 后再点: settle 闸已断 */
+  assert.strictEqual(trials.length, 0, 'stop 后点选不入账(settled|stopped 闸)');
+  assert.strictEqual(ends.length, 0, '中止不结算: 不触发 end');
+  assert.strictEqual(d.timers.length, 0, '点选不复活计时器链');
+});
+
+test('驱动器 runBoss(混链): 两屏流节夹一世界节实跑 — 每节 end 恰一次, 聚合在链尾', () => {
+  const d = loadTrackHosts();
+  /* 世界节注入假 runner(真世界节依赖 rAF/装场驱动过重 — T5-a 口径: 屏流节
+     走真引擎, 世界节以注入混链断言驱动器侧时序) */
+  const fake = injectFakeRunner(d, 'mirror/reflect', {trials: 2, correct: 1, acc: 1 / 2, maxStreakErr: 2});
+  const area = mkAreaEl();
+  const ends = [];
+  const prog = [];
+  const spoken = [];
+  const level = {i: 30, sections: [
+    {family: 'count', variant: 'snapshot', tier: 1, params: {trials: 2}},
+    {family: 'mirror', variant: 'reflect', tier: 1, params: {trials: 2}},
+    {family: 'count', variant: 'snapshot', tier: 1, params: {trials: 2}},
+  ]};
+  /* 规划先行(bossPlan 经真 dispatch 缝标注): 屏-世界-屏三小节 */
+  assert.deepStrictEqual(d.t.MathTrackCore.bossPlan(level, d.t.MathTrack.dispatch)
+      .map((s) => s.track), ['screen', 'world', 'screen']);
+  d.t.MathTrack.runBoss(level, area, {
+    progress(k, n) {
+      prog.push(k + '/' + n);
+    },
+    end(st) {
+      ends.push(st);
+    },
+    speak(l) {
+      spoken.push(l);
+    },
+  });
+  autoPlaySnapshot(d, area, () => ends.length > 0, 400);
+  assert.strictEqual(ends.length, 1, '链尾聚合结算恰一次');
+  assert.deepStrictEqual({...ends[0]}, {trials: 6, correct: 5, acc: 5 / 6, maxStreakErr: 2},
+      '聚合按单关口径: 屏流两节真统计(2+2 全对)+假世界节注入(2 试 1 对)');
+  assert.strictEqual(fake.runs.length, 1, '世界节恰启动一次');
+  assert.ok(fake.runs[0].kind === 'challenge' && typeof fake.runs[0].seed === 'number',
+      '世界节带 challenge 标记与派生 seed');
+  assert.strictEqual(fake.stops.length, 1, '世界节离场恰一次(清完再发)');
+  assert.strictEqual(spoken.length, 3, '每小节一句新挑战话术');
+  assert.deepStrictEqual(prog, ['0/6', '1/6', '3/6', '4/6', '5/6'],
+      '进度按累计试次(屏流节 0/1 基, 假世界节 progress(1,1) 落 3/6)');
+  /* 屏流节 area 装配/清场交替: 2 节 × (每试次 next() 清 1 + 离场 stop 清 1)
+     = 6 清, 世界节不碰 area(0 清) — 数目对上即混链下的进出场纪律;
+     每节 end 恰一次由聚合账目精确匹配反证(多/漏一次小节 end 即改账) */
+  assert.strictEqual(area.__clears(), 6, '清场计数: 屏流 next()×4 + stop×2, 世界节 0');
+  assert.strictEqual(area.children.length, 0, '链尾 area 已清空(末节 stop 先于聚合 end)');
+  assert.strictEqual(d.t.MathTrack.active(), false, '链尾无活动节');
+});
