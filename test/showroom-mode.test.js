@@ -373,7 +373,7 @@ test('体验馆: update 逐炉推进 — 2.5s/件出锭 · 面板开着喂进度
      (mode-kit 契约) — 桥接后烧出的锭在产物槽露脸(修复前喂错字段, 产物槽
      即使有锭也永远空白) */
   const cells = collectByClass(ShowroomMode.sr.panel.root, 'mkp-cell');
-  assert.strictEqual(cells.length, 3, '面板三槽(料/燃料/产物)');
+  assert.strictEqual(cells.length, 3 + 27, '炉三槽(料/燃料/产物) + 背包 27 格(手动放入常驻区)');
   assert.ok(String(cells[0].innerHTML).indexOf('🟠') >= 0, '料槽显示铁矿石图标');
   assert.ok(String(cells[2].innerHTML).indexOf('⬜') >= 0, '产物槽显示铁锭图标(out→output 桥接喂显)');
   /* 关面板: 顺带取走产物入包(探险同款即时回报), 烧炼照跑(面板只是回显) */

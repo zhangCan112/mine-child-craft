@@ -249,7 +249,7 @@ const advFurnace = FurnaceKit.mkFurnaceStation({
     advSyncHotbar();
     sfx('pick');
   },
-  onCollectFull: () => showToast('🎒 背包满啦，产物先躺在炉里'),
+  onCollectFull: () => showToast('🎒 背包满啦，东西先躺在炉里'),
   onRefundLeft: (posKey, left) => {/* 挖炉满包余量: 掉在炉位上方(零损失口径) */
     const [dx, dy, dz] = posKey.split(',').map(Number);
     for (const it of left) Drops.spawn(it.id, it.n, dx + 0.5, dy + 0.5, dz + 0.5);
@@ -899,15 +899,17 @@ function advRescanStations() {
 }
 
 /* 熔炉状态机(F1 拍板①: 每炉独立 + 随世界档持久化) — T4 起装配收编共享熔炉
-   kit(js/furnace-kit.js, 体验馆同款): 面板开合/取产物/自动放料/逐炉推进/
-   签名节流喂显(产物槽 out→output 桥接随 kit 修复)/挖炉退料/燃料余量比全在
-   kit; 此处只留名号薄委托(既有调用点与单测触达面零改动) + 探险特有的完成
-   播报节流计时(原 advFurnaceTick 的节律尾钩拆归 update)。 */
+   kit(js/furnace-kit.js, 体验馆同款): 面板开合/取产物/自动+手动放料/炉槽
+   取回/逐炉推进/签名节流喂显(产物槽 out→output 桥接随 kit 修复)/挖炉退料/
+   燃料余量比全在 kit; 此处只留名号薄委托(既有调用点与单测触达面零改动) +
+   探险特有的完成播报节流计时(原 advFurnaceTick 的节律尾钩拆归 update)。 */
 const advFurnaces = advFurnace.map; /* 炉态 Map(引用即 kit 的 Map, 测试直写口径不变) */
 const advFurnaceState = advFurnace.state; /* 炉状态只读查询(未建返回 null——单测触达面) */
 const advFurnaceOpenPanel = advFurnace.open; /* 走近熔炉点击打开(advUseStation 入口) */
 const advFurnaceClose = advFurnace.close; /* 收面板(✕/Tab/Esc/onClose 共用): 顺带取走产物, 烧炼照跑 */
 const advFurnaceAutoFill = advFurnace.autoFill; /* 自动放料(面板 📥 意图出口, plan 缺省自算) */
+const advFurnaceManualPut = advFurnace.manualPut; /* 手动放料(面板背包格意图出口, 整摞路由归 kit) */
+const advFurnaceSlotClick = advFurnace.slotClick; /* 炉槽点击(料/燃料取回·产物即收, 意图执行归 kit) */
 const advFurnaceDrop = advFurnace.drop; /* 挖炉/TNT 掀炉退料(advMarkEdit 钩子单一入口) */
 const advGetFurnaceAt = advFurnace.at; /* 面板绑定炉 posKey(单测触达面) */
 let advSmeltTtsT = 0; /* 完成播报节流计时(update 递减, kit onMade 消费) */
@@ -1546,7 +1548,8 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advTryPlace, advGrowTree, advMineStop, advWearHeld,
   advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,
   advTntRoll, advTntDmg, advFurnaces, advGetFurnaceAt,
-  advFurnaceState, advFurnaceDrop, advFurnaceAutoFill, advFurnaceOpenPanel,
+  advFurnaceState, advFurnaceDrop, advFurnaceAutoFill, advFurnaceManualPut,
+  advFurnaceSlotClick, advFurnaceOpenPanel,
   advFurnaceClose, advIgnite, advFuses, advStations, advFlames,
   advFlameCount: () => advFlames.size,
   advGetChest: () => advChest, advChestOpenPanel, advChestClose,

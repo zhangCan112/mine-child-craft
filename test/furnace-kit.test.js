@@ -305,3 +305,81 @@ test('熔炉装配: 面板三槽签名节流 — 槽不变不重喂(DOM 省 redr
   st.tick(0.001);
   assert.notStrictEqual(cellIn.innerHTML, before, '签名变才重画');
 });
+
+/* ---------- 手动放料 + 炉槽取回(2026-10-25 交互优化) ---------- */
+
+test('熔炉装配: 手动放料 — 背包槽整摞路由(可烧→料槽·燃料→燃料槽), 不可入炉原样放回', () => {
+  const {st, inv, log} = mkStation();
+  inv.slots[9] = {id: 'iron_ore', n: 5};
+  inv.slots[10] = {id: 'coal', n: 2};
+  inv.slots[11] = {id: 'apple', n: 3}; /* 既不可烧也非燃料 */
+  st.open(KEY);
+  st.manualPut(9); /* 可烧: 整摞入料槽 */
+  st.manualPut(10); /* 燃料: 整摞入燃料槽 */
+  st.manualPut(11); /* 不可入炉: 原样放回 */
+  const f = st.state(KEY);
+  assert.deepStrictEqual(f.input, {id: 'iron_ore', n: 5}, '铁矿整摞入料槽');
+  assert.deepStrictEqual(f.fuel, {id: 'coal', n: 2}, '煤整摞入燃料槽');
+  assert.strictEqual(inv.slots[9], null, '料槽源格已空');
+  assert.strictEqual(inv.slots[10], null, '燃料源格已空');
+  assert.deepStrictEqual(inv.slots[11], {id: 'apple', n: 3}, '不可入炉物原样放回(苹果: 不可烧非燃料)');
+  assert.strictEqual(log.filter((e) => e[0] === 'invchange').length, 2, '恰两次成功放料通知(放回不动包不误报)');
+});
+
+test('熔炉装配: 手动放料异种对调 — 炉内整摞回源槽(无损不走 add), 同种并堆', () => {
+  const {st, inv} = mkStation();
+  setState(st, {input: {id: 'sand', n: 2}});
+  inv.slots[9] = {id: 'iron_ore', n: 3};
+  st.open(KEY);
+  st.manualPut(9); /* 异种: 沙子整摞回源槽, 铁矿入炉 */
+  assert.deepStrictEqual(st.state(KEY).input, {id: 'iron_ore', n: 3}, '铁矿接管料槽');
+  assert.deepStrictEqual(inv.slots[9], {id: 'sand', n: 2}, '炉内原料整摞回源槽(腾出的槽必容得下)');
+  inv.slots[9] = {id: 'iron_ore', n: 4};
+  st.manualPut(9); /* 同种并堆 3+4(不限堆叠上限, autoFill 全量同口径) */
+  assert.deepStrictEqual(st.state(KEY).input, {id: 'iron_ore', n: 7}, '同种并堆');
+  assert.strictEqual(inv.slots[9], null, '并堆后源格空');
+});
+
+test('熔炉装配: 炉槽取回 — 料/燃料整摞回包, 满包整摞留炉走 onCollectFull', () => {
+  const {st, inv, log} = mkStation();
+  fillInv(inv); /* 满包: 取回必拒收 */
+  setState(st, {input: {id: 'iron_ore', n: 2}});
+  st.open(KEY);
+  st.slotClick('input');
+  assert.deepStrictEqual(st.state(KEY).input, {id: 'iron_ore', n: 2}, '满包整摞留炉(拒收口径)');
+  assert.ok(log.some((e) => e[0] === 'full'), '满包回调(儿童提示与取产物同缝)');
+  inv.slots[26] = null; /* 腾一格 */
+  st.slotClick('input');
+  assert.strictEqual(st.state(KEY).input, null, '取回后料槽空');
+  assert.strictEqual(count(inv, 'iron_ore'), 2, '整摞回包');
+  assert.ok(log.some((e) => e[0] === 'collect'), '成功回调(快捷栏刷新+音效)');
+});
+
+test('熔炉装配: 产物槽点击即收 — 面板开着烧成的新产物点一下入包(自动收的手动补发)', () => {
+  const {st, inv} = mkStation();
+  setState(st, {input: {id: 'iron_ore', n: 1}, fuel: {id: 'coal', n: 1}});
+  st.open(KEY);
+  st.tick(ADV_SMELT_T + 0.1); /* 烧成 1 件躺在炉里(面板开着不自动收) */
+  assert.deepStrictEqual(st.state(KEY).out, {id: 'iron_ingot', n: 1}, '前提: 产物在炉');
+  st.slotClick('out');
+  assert.strictEqual(st.state(KEY).out, null, '点击产物槽即收');
+  assert.strictEqual(count(inv, 'iron_ingot'), 1, '产物入包');
+});
+
+test('熔炉装配: 面板背包格点击全链 — onPut/onSlot 意图出口接线(手动放入入口)', () => {
+  const {st, inv} = mkStation();
+  inv.slots[9] = {id: 'iron_ore', n: 3};
+  inv.slots[10] = {id: 'coal', n: 1};
+  st.open(KEY);
+  const cells = collectByClass(st.panel.root, 'mkp-cell');
+  assert.strictEqual(cells.length, 3 + 27, '炉三槽(DOM 序前 3) + 背包 27 格(18 主格+9 快捷镜像)');
+  cells[3].onclick(); /* 主格首格 = 背包槽 9: 铁矿整摞入炉 */
+  cells[4].onclick(); /* 背包槽 10: 煤入燃料槽 */
+  const f = st.state(KEY);
+  assert.deepStrictEqual(f.input, {id: 'iron_ore', n: 3}, '经面板点击: 料入炉');
+  assert.deepStrictEqual(f.fuel, {id: 'coal', n: 1}, '经面板点击: 燃料入炉');
+  collectByClass(st.panel.root, 'mkp-cell')[1].onclick(); /* 炉燃料槽(cells[1]): 点击取回 */
+  assert.strictEqual(st.state(KEY).fuel, null, '点击燃料槽整摞取回');
+  assert.strictEqual(count(inv, 'coal'), 1, '煤回包');
+  assert.ok(st.isOpen(), '取回不开合面板(开态不变)');
+});

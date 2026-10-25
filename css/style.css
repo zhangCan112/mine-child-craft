@@ -1365,9 +1365,9 @@ body.dev-on .mode-card.dev {
   text-decoration-color: rgb(255 120 120 / 70%);
 }
 
-/* ---------- 熔炉面板: 三槽 + 进度条 ---------- */
+/* ---------- 熔炉面板: 三槽 + 进度条 + 背包区(手动放入) ---------- */
 .mkp-furnace {
-  width: min(420px, 94vw);
+  width: min(480px, 94vw);
   flex-direction: column;
   gap: 14px;
 }
@@ -1384,6 +1384,28 @@ body.dev-on .mode-card.dev {
   flex-direction: column;
   align-items: center;
   gap: 5px;
+}
+
+/* 炉三槽可点(料/燃料取回·产物收取): 与背包格同款指针与悬停微亮 */
+.mkp-fslot .mkp-cell {
+  cursor: pointer;
+}
+
+.mkp-fslot .mkp-cell:hover {
+  border-color: rgb(255 255 255 / 45%);
+}
+
+/* 背包区标签(手动放入引导, 大宝箱背包标签同款观感) */
+.mkp-invlbl {
+  font-size: 12px;
+  color: rgb(255 255 255 / 78%);
+  text-shadow: 0 1px 2px #000;
+}
+
+/* 不可入炉物(不可烧也非燃料)灰显: 点了原样放回的路由前视觉预告 */
+.mkp-cell.dim {
+  opacity: 0.42;
+  filter: saturate(0.35);
 }
 
 .mkp-flbl {

@@ -5,8 +5,8 @@
    探险(js/modes/adventure.js)与体验馆(js/modes/showroom.js)熔炉装配段
    的共享 kit(票据 T4, showroom-tickets): 状态机/退炉政策不在此——烧炼
    单步/退炉是探险核心(adventure-core.js)的纯函数, 本 kit 只收编两模式
-   镜像的模式层装配(面板开合/取产物/自动放料/逐炉推进喂显/挖炉退料/
-   燃料余量比/槽形桥接), 两消费者经注入的消费方政策相区分(记账/TTS/
+   镜像的模式层装配(面板开合/取产物/自动+手动放料/炉槽取回/逐炉推进喂
+   显/挖炉退料/燃料余量比/槽形桥接), 两消费者经注入的消费方政策相区分(记账/TTS/
    掉落物/观感/快捷栏刷新全部走 opts 回调缝)。
    产物槽桥接(out→output): 核心炉态产物字段是 out, mode-kit 面板 setSlots
    读 output(其单测锁的契约) — 喂显前在本 kit 桥接(探险侧历史错位
@@ -25,14 +25,19 @@
        直写=测线口径) · panel(mkFurnacePanel 实例, ✕/Esc 统一出口回
        station.close) · open(posKey) · close() · isOpen() · at() 绑定炉
        · state(posKey) 只读 · ensure(posKey) 取/建 · autoFill(plan?, posKey?)
-       面板意图的执行权(plan 缺省自算; posKey 缺省=绑定炉, 单炉固定 key
-       形态〔体验馆〕可无面板直调) · tick(dt) 逐炉推进+面板开着喂显(三槽
-       签名节流+✕ 对账) · drop(posKey) 挖炉退料三笔入包 · refundAll()
-       退出收场(尽力入包·余量静默丢弃·炉态清空) · reset() 重进场复位
-       · dispose() 卸面板复位
+       面板「自动放入」意图的执行权(plan 缺省自算; posKey 缺省=绑定炉,
+       单炉固定 key 形态〔体验馆〕可无面板直调) · manualPut(idx, posKey?)
+       面板背包格「手动放入」意图的执行权(槽整摞路由: 可烧物入料槽·燃料
+       入燃料槽·两性物如原木优先当料烧; 空槽整摞入炉·同种并堆·异种整摞
+       对调(炉内那摞回源槽, 无损不走 add)·不可入炉原样放回) · slotClick
+       (name, posKey?) 炉槽点击意图的执行权(料/燃料整摞取回包, 满包整摞
+       留炉走 onCollectFull; 'out'=立即收取产物) · tick(dt) 逐炉推进+
+       面板开着喂显(三槽签名节流+✕ 对账) · drop(posKey) 挖炉退料三笔入包
+       · refundAll() 退出收场(尽力入包·余量静默丢弃·炉态清空) · reset()
+       重进场复位 · dispose() 卸面板复位
    依赖(均经全局名, 调用期解析): mkFurnacePanel/ModeKit(js/mode-kit.js,
-     构造期即用——加载序在本文件之前) · add/take/count(js/inventory-core.js)
-     · fuelUnits/FUEL(js/craft-core.js) · advSmeltStep/advFurnaceRefund/
+     构造期即用——加载序在本文件之前) · add/take/count/remove(js/inventory-core.js)
+     · fuelUnits/FUEL/smeltOf(js/craft-core.js) · advSmeltStep/advFurnaceRefund/
      ADV_SMELT_T(js/adventure-core.js 纯函数, 探险的炉与体验馆的炉是
      同一缝上的两个 adapter — 不造第二份烧炼实现)
    可测性: THREE/DOM 全经 mode-kit 惰性路径, 假 doc 可注入; 行为由
@@ -66,6 +71,8 @@ function mkFurnaceStation(opts) {
   let st; /* 面板回调经闭包引用 station(构造完成即就绪) */
   const panel = ModeKit.mkFurnacePanel({inv: invView,
     onAutoFill: (plan) => st.autoFill(plan),
+    onPut: (i) => st.manualPut(i), /* 手动放入(背包格点击): 路由/扣加归本 kit */
+    onSlot: (name) => st.slotClick(name), /* 炉槽点击: 取回(料/燃料)/收取(产物) */
     onClose: () => st.close()});
   const furnaces = new Map(); /* posKey → 炉态 {input,fuel,out,heat,prog}; 引用跨 init 稳定, reset() 复位不换 Map */
   let at = null; /* 面板绑定的炉 posKey(面板开着时非 null) */
@@ -83,11 +90,16 @@ function mkFurnaceStation(opts) {
     }
     return s;
   }
-  function paint() {/* 面板回显: 绑定炉三槽现状(桥接槽形) + 当前进度(0..1) + 燃料余量 */
+  function slotSig(f) {/* 三槽签名(与 tick 喂显节流同一口径, 手动动作后 paint 同步) */
+    return f ? [f.input, f.fuel, f.out].map((x) => (x ? x.id + '×' + x.n : '-')).join('|') : '';
+  }
+  function paint() {/* 面板回显: 绑定炉三槽现状(桥接槽形) + 当前进度(0..1) + 燃料余量;
+    顺带同步三槽签名(手动放料/取回即时喂显后, tick 不再重复喂同一内容) */
     const f = at ? furnaces.get(at) : null;
     panel.setSlots(furnaceSlots(f));
     panel.setProgress((f ? f.prog : 0) / ADV_SMELT_T);
     panel.setFuel(furnaceFuelR(f));
+    sig = slotSig(f);
   }
   /* 取产物入包(绑定炉): 满包一件都放不下则整撮留炉(拒收口径), 部分放不下留余量在炉 */
   function collectOut() {
@@ -145,6 +157,61 @@ function mkFurnaceStation(opts) {
     paint();
     if (o.onInvChange) o.onInvChange();
   }
+  /* 手动放料(面板背包格意图出口, 2026-10-25 交互优化): 点击背包槽整摞路由
+     ——可烧物入料槽(两性物如原木优先当料烧, 与 autoPlan「矿石全放」同判据
+     smeltOf), 燃料入燃料槽(fuelUnits>0); 目标槽空=整摞入炉, 同种并堆(不设
+     堆叠上限——autoFill 全量同口径), 异种=整摞对调(炉内那摞回源槽——源槽刚
+     腾出必容得下, 无损不走 add、满包零风险); 不可入炉(不可烧也非燃料)整摞
+     原样放回(面板侧该格 dim 灰显)。posKey 缺省=面板绑定炉(autoFill 同口径) */
+  function manualPut(idx, posKey) {
+    const key = (posKey != null) ? posKey : at;
+    if (key == null || idx == null || idx < 0) return;
+    const inv = invOf();
+    const raw = remove(inv, idx); /* 槽级整摞移除(背包核心, 返回拷贝) */
+    if (!raw) return;
+    const pile = (raw.dur != null) ? {id: raw.id, n: raw.n, dur: raw.dur} :
+      {id: raw.id, n: raw.n}; /* 归一为本域纯栈形状(炉态/回写槽统一) */
+    const slot = smeltOf(pile.id) ? 'input' : (fuelUnits(pile.id) > 0 ? 'fuel' : null);
+    if (!slot) {
+      inv.slots[idx] = pile; /* 不可入炉: 原样放回 */
+      return;
+    }
+    const f = ensure(key);
+    const cur = f[slot];
+    if (!cur) f[slot] = pile; /* 空槽: 整摞入炉 */
+    else if (cur.id === pile.id) f[slot] = {id: cur.id, n: cur.n + pile.n}; /* 同种并堆 */
+    else {
+      inv.slots[idx] = cur; /* 异种对调: 炉内整摞回源槽(腾出的槽必容得下) */
+      f[slot] = pile;
+    }
+    paint();
+    if (o.onInvChange) o.onInvChange();
+  }
+  /* 炉槽点击意图(面板三槽): 料/燃料=整摞取回背包(满包整摞留炉走 onCollectFull
+     儿童提示——与取产物同缝); 'out'=立即收取产物(开/关面板自动收的手动补发,
+     烧炼中面板开着也能即点即得) */
+  function slotClick(name, posKey) {
+    if (name === 'out') {
+      collectOut();
+      paint();
+      return;
+    }
+    if (name !== 'input' && name !== 'fuel') return;
+    const key = (posKey != null) ? posKey : at;
+    if (key == null) return;
+    const f = furnaces.get(key);
+    if (!f || !f[name]) return;
+    const st0 = f[name];
+    const left = add(invOf(), st0.id, st0.n);
+    if (left >= st0.n) {
+      if (o.onCollectFull) o.onCollectFull(); /* 满包拒收: 整摞留炉 */
+      return;
+    }
+    f[name] = left > 0 ? {id: st0.id, n: left} : null;
+    if (o.onCollect) o.onCollect();
+    paint();
+    if (o.onInvChange) o.onInvChange();
+  }
   /* 挖炉/TNT 掀炉退料: 炉内三笔全额入包, 满包余量经 onRefundLeft(消费方决定
      落地/丢弃); 炉状态删除; 面板正绑定这台炉则连带关闭; onDrop 收尾(观感/栏) */
   function drop(posKey) {
@@ -172,7 +239,7 @@ function mkFurnaceStation(opts) {
     const f = at ? furnaces.get(at) : null;
     panel.setProgress((f ? f.prog : 0) / ADV_SMELT_T);
     panel.setFuel(furnaceFuelR(f)); /* 余量条与进度条同拍(热值逐帧衰减, 逐帧喂) */
-    const s = f ? [f.input, f.fuel, f.out].map((x) => (x ? x.id + '×' + x.n : '-')).join('|') : '';
+    const s = slotSig(f);
     if (s !== sig) {
       sig = s;
       panel.setSlots(furnaceSlots(f));
@@ -196,8 +263,8 @@ function mkFurnaceStation(opts) {
     panel.remove();
   }
   st = {map: furnaces, panel, open: openPanel, close: closePanel,
-    isOpen: () => open, at: () => at, state, ensure, autoFill, tick, drop,
-    refundAll, reset, dispose};
+    isOpen: () => open, at: () => at, state, ensure, autoFill, manualPut,
+    slotClick, tick, drop, refundAll, reset, dispose};
   return st;
 }
 

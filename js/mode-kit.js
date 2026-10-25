@@ -16,9 +16,13 @@
      · mkCraftPanel — 背包网格+配方书卡片+分类页签+任务卡占位容器;
        亮灰由 canCraft 驱动, 单击合成(onCraft)/长按 0.4s 连做 0.3s 一发;
        背包格点选搬运(点非空格起手高亮→点目标格 onMove, 无拖拽)
-     · mkFurnacePanel — 三槽+进度条+燃料余量条的纯显示面板(F2: setFuel 喂
+     · mkFurnacePanel — 三槽+进度条+燃料余量条的显示面板(F2: setFuel 喂
        r=heat/fuelUnits, r≤0 熄灭灰显),「自动放入」只算
-       plan 回调 onAutoFill(矿石全放+FUEL 序最省凑料), 不动背包
+       plan 回调 onAutoFill(矿石全放+FUEL 序最省凑料), 不动背包;
+       手动放入(2026-10-25 交互优化): 面板常驻背包区(18 主格+9 快捷
+       镜像, 点击格报 onPut(槽号) 意图——路由/扣加归模式层), 点击炉三槽
+       报 onSlot('input'|'fuel'|'out') 意图(取回/收取); 可烧或燃料物
+       亮显, 其余 dim 灰显(判据 smeltOf/fuelUnits, 纯预告不打扰)
      · sortInv — 整理按钮底座: 主格区同项合并(快捷栏不动)
      code-review 修复轮(S2): mkHpBar — 头顶血条深接口; C6-T3 已随玩家战斗
        vocabulary 迁入 js/combat-kit.js(CombatKit.mkHpBar, 交接零行为变化)
@@ -503,11 +507,16 @@ function confirmBtn(btn, o) {
   };
 }
 
-/* ---------- 熔炉面板(D8, T10): 三槽(料/燃料/产物)+进度条+自动放料意图 ----------
+/* ---------- 熔炉面板(D8, T10): 三槽(料/燃料/产物)+进度条+放料意图(自动+手动) ----------
    面板是纯显示+意图出口: 烧炼状态(槽内容/进度)由模式层经 setSlots/
    setProgress 喂入(烧炼计时与扣加归 T13 模式层, 经 inventory-core);
    「自动放入」只算 plan(矿石全放 + FUEL 序最省凑料)回调 onAutoFill,
-   不动背包 — 实际扣加由模式层执行 */
+   不动背包 — 实际扣加由模式层执行;
+   手动放入(2026-10-25 交互优化): 面板常驻背包区(18 主格+9 快捷镜像,
+   mkCraftPanel/mkChestPanel 同款观感), 点击格 → onPut(槽号) 意图,
+   点击炉三槽 → onSlot('input'|'fuel'|'out') 意图 — 路由/扣加/取回
+   政策全归模式层(furnace-kit); 可烧或燃料物亮显、其余 dim 灰显
+   (判据 smeltOf/fuelUnits, 交互期才求值——craft-core 彼时已加载) */
 function mkFurnacePanel(opts) {
   const o = opts || {};
   const doc = o.doc || document;
@@ -530,11 +539,15 @@ function mkFurnacePanel(opts) {
 
   const row = doc.createElement('div');
   row.className = 'mkp-frow';
-  function fslot(label) {
+  function fslot(label, name) {/* name = 炉槽意图键, 点击报模式层(取回/收取) */
     const wrap = doc.createElement('div');
     wrap.className = 'mkp-fslot';
     const cell = doc.createElement('div');
     cell.className = 'mkp-cell';
+    cell.onclick = ()=>{
+      if (o.onSlot) o.onSlot(name);
+      refreshGrid(); /* 取回/收取动了包: 背包格跟随重画 */
+    };
     const lbl = doc.createElement('span');
     lbl.className = 'mkp-flbl';
     lbl.textContent = label;
@@ -543,8 +556,8 @@ function mkFurnacePanel(opts) {
     row.appendChild(wrap);
     return cell;
   }
-  const cellIn = fslot('要烧的');
-  const cellFuel = fslot('燃料');
+  const cellIn = fslot('要烧的', 'input');
+  const cellFuel = fslot('燃料', 'fuel');
   const prog = doc.createElement('div');
   prog.className = 'mkp-pbar';
   /* F2 火焰复合件(设计稿 §2.2): 火焰图(工坊注入) + 脚下燃料余量条;
@@ -568,15 +581,53 @@ function mkFurnacePanel(opts) {
   mid.appendChild(fire);
   mid.appendChild(prog);
   row.appendChild(mid);
-  const cellOut = fslot('产物');
+  const cellOut = fslot('产物', 'out');
   box.appendChild(row);
 
   const autoBtn = doc.createElement('button');
   autoBtn.className = 'mkp-autofill';
   autoBtn.onclick = ()=>{
     if (o.onAutoFill) o.onAutoFill(autoPlan());
+    refreshGrid(); /* 自动放料动了包: 背包格跟随重画 */
   };
   box.appendChild(autoBtn);
+
+  /* —— 背包区(手动放入, 2026-10-25 交互优化): 标签 + 18 主格 + 9 快捷
+     镜像(mkChestPanel 同款布局) — 点击格报 onPut(槽号) 意图, 路由与
+     扣加归模式层; 不可入炉物(不可烧也非燃料)dim 灰显作视觉预告 —— */
+  const bpLabel = doc.createElement('div');
+  bpLabel.className = 'mkp-invlbl';
+  const grid = doc.createElement('div');
+  grid.className = 'mkp-grid';
+  const hotrow = doc.createElement('div');
+  hotrow.className = 'mkp-hotrow';
+  box.appendChild(bpLabel); box.appendChild(grid); box.appendChild(hotrow);
+
+  function cellEl(stack) {/* 背包格: 与 mkChestPanel 同观感 + 不可入炉物 dim */
+    const d = doc.createElement('div');
+    d.className = 'mkp-cell';
+    if (stack) {
+      const ic = iconOf(stack.id);
+      d.innerHTML = (ic.startsWith('data:') ? '<img class="pic" alt="" src="' + ic + '">' :
+        (ic ? '<span class="icon">' + ic + '</span>' : '')) +
+        (stack.n > 1 ? '<span class="cnt">' + stack.n + '</span>' : '');
+      if (!smeltOf(stack.id) && !fuelUnits(stack.id)) d.classList.add('dim');
+    }
+    return d;
+  }
+  function refreshGrid() {/* 动作后整幅重画(格子数 ≤30, 无性能顾虑) */
+    grid.innerHTML = ''; hotrow.innerHTML = '';
+    const wire = (i)=>{
+      const d = cellEl(inv.slots[i]);
+      d.onclick = ()=>{
+        if (o.onPut) o.onPut(i);
+        refreshGrid(); /* 放入动了包: 背包格跟随重画 */
+      };
+      return d;
+    };
+    for (let i = HOTBAR_SLOTS; i < inv.slots.length; i++) grid.appendChild(wire(i));
+    for (let i = 0; i < HOTBAR_SLOTS; i++) hotrow.appendChild(wire(i));
+  }
 
   /* chrome 像素图标 show 期注入(同 mkCraftPanel 口径: 构造期工坊可能未加载) */
   function paintChrome() {
@@ -584,6 +635,7 @@ function mkFurnacePanel(opts) {
     closeBtn.innerHTML = btnImg('close');
     fireIcon.innerHTML = btnImg('flame');
     autoBtn.innerHTML = btnImg('autofill') + '自动放入';
+    bpLabel.innerHTML = btnImg('grid') + ' 背包（点一下放进熔炉）';
   }
 
   function paint(cell, stack) {
@@ -638,6 +690,7 @@ function mkFurnacePanel(opts) {
   }
   function show() {
     paintChrome();
+    refreshGrid(); /* 背包区常驻: 开面板即画当前包(手动放入入口) */
     root.style.display = 'flex'; /* hide 后重开要复明(mkCraftPanel.refresh 同口径) */
     if (root.parentNode !== doc.body) doc.body.appendChild(root);
     if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板 */
@@ -659,7 +712,8 @@ function mkFurnacePanel(opts) {
     if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
     if (root.parentNode === doc.body) doc.body.removeChild(root);
   }
-  return {root, show, hide, close, remove, setSlots, setProgress, setFuel, autoPlan};
+  return {root, show, hide, close, remove, refresh: refreshGrid, setSlots,
+    setProgress, setFuel, autoPlan};
 }
 
 /* ---------- 大宝箱面板(mkChestPanel, 引导链 v2): 点选搬运的纯格子面板 ----------

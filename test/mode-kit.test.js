@@ -624,6 +624,79 @@ test('furnace 面板: setFuel 燃料余量条 — 宽度百分比 + 越界钳制
   panel.remove();
 });
 
+/* ============ 熔炉面板: 背包区手动放入(2026-10-25 交互优化) ============ */
+
+test('furnace 面板: 背包区常驻 — 27 格(18 主格+9 快捷镜像), 点击格报 onPut 意图不动包', () => {
+  const doc = mkDoc();
+  globalThis.smeltOf = (id) => (id === 'iron_ore' ? 'iron_ingot' : null);
+  globalThis.fuelUnits = (id) => (id === 'coal' ? 8 : 0);
+  const inv = {slots: [...Array(9).fill(null), {id: 'iron_ore', n: 3},
+    ...Array(17).fill(null)]};
+  const puts = [];
+  const panel = mkFurnacePanel({doc, inv, onAutoFill() {}, onPut: (i) => puts.push(i)});
+  panel.show();
+  const cells = collect(panel.root, 'mkp-cell');
+  assert.strictEqual(cells.length, 3 + 27, '炉三槽(DOM 序前 3) + 背包 27 格');
+  cells[3].onclick(); /* 主格首格 = 背包槽 9 */
+  cells[21].onclick(); /* 快捷镜像首格 = 背包槽 0(空格点击也报意图, 路由归模式层) */
+  assert.deepStrictEqual(puts, [9, 0], '点击格报 onPut(槽号) 意图');
+  assert.deepStrictEqual(inv.slots[9], {id: 'iron_ore', n: 3}, '面板不动包(意图口径)');
+  panel.remove();
+});
+
+test('furnace 面板: 不可入炉物 dim 灰显 — 可烧/燃料亮显, 其余灰显(路由前视觉预告)', () => {
+  const doc = mkDoc();
+  globalThis.smeltOf = (id) => (id === 'iron_ore' ? 'iron_ingot' : null);
+  globalThis.fuelUnits = (id) => (id === 'coal' ? 8 : 0);
+  const inv = {slots: [...Array(9).fill(null), {id: 'iron_ore', n: 3},
+    {id: 'coal', n: 2}, {id: 'apple', n: 1}, ...Array(14).fill(null)]};
+  const panel = mkFurnacePanel({doc, inv, onAutoFill() {}, onPut() {}});
+  panel.show();
+  const cells = collect(panel.root, 'mkp-cell');
+  assert.ok(!cells[3]._cls.has('dim'), '可烧物亮显');
+  assert.ok(!cells[4]._cls.has('dim'), '燃料亮显');
+  assert.ok(cells[5]._cls.has('dim'), '不可烧也非燃料 → dim 灰显');
+  panel.remove();
+});
+
+test('furnace 面板: 点击炉三槽报 onSlot 意图 — 料/燃料取回·产物收取的政策归模式层', () => {
+  const doc = mkDoc();
+  const slots = [];
+  const panel = mkFurnacePanel({doc, inv: {slots: new Array(27).fill(null)},
+    onAutoFill() {}, onSlot: (n) => slots.push(n)});
+  panel.show();
+  const cells = collect(panel.root, 'mkp-cell');
+  cells[0].onclick(); cells[1].onclick(); cells[2].onclick();
+  assert.deepStrictEqual(slots, ['input', 'fuel', 'out'], 'DOM 序三槽各报自己的意图键');
+  panel.remove();
+});
+
+test('furnace 面板: 放料后背包格跟随重画 — onPut/onAutoFill 动包, 面板重读当前包', () => {
+  const doc = mkDoc();
+  globalThis.smeltOf = (id) => (id === 'iron_ore' ? 'iron_ingot' : null);
+  globalThis.FUEL = ['coal'];
+  globalThis.fuelUnits = (id) => (id === 'coal' ? 8 : 0);
+  const inv = {slots: [...Array(9).fill(null), {id: 'iron_ore', n: 5},
+    {id: 'coal', n: 1}, ...Array(16).fill(null)]};
+  const panel = mkFurnacePanel({doc, inv,
+    /* 模式层桩: onAutoFill 扣包(furnace-kit autoFill) / onPut 整摞入炉(manualPut) */
+    onAutoFill() {
+      inv.slots[9] = null;
+    },
+    onPut(i) {
+      inv.slots[i] = null;
+    }});
+  panel.show();
+  let cells = collect(panel.root, 'mkp-cell');
+  cells[4].onclick(); /* 背包槽 10(煤): 意图后模式层清格 */
+  cells = collect(panel.root, 'mkp-cell'); /* 格子已重画: 重取 */
+  assert.ok(!String(cells[4].innerHTML).includes('cnt'), '手动放料后背包格重画(煤格已空)');
+  collect(panel.root, 'mkp-autofill')[0].onclick(); /* 自动放入: 模式层扣包 */
+  cells = collect(panel.root, 'mkp-cell');
+  assert.ok(!String(cells[3].innerHTML).includes('cnt'), '自动放料后背包格重画(铁矿格随扣包清空)');
+  panel.remove();
+});
+
 /* ============ mkMode 默认行为 ============ */
 
 test('KeyB 默认暂停(不转发), 其余键转发给模式', () => {
