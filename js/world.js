@@ -8,7 +8,9 @@
      pumpRemesh(每帧按预算构建, 编辑优先于环填充) / maintainRings(距离环:
      近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
       级联清单, 设计稿 block-lifecycle D3) / applySweep(世界卫生清扫, P14/D9)
-      / applyDaylight(昼夜场景驱动: 天色/雾/光强/日月轨道, 设计稿
+      / applyDaylight(昼夜场景驱动: 天色/雾/光强/日月轨道 + 顶点光材质
+      uniforms uDim/uSkyFloor 节拍, 设计稿 mc-daylight-torch §2.3/§4.2)
+      / setPlayerGlow(玩家随身光机制缝: 方块侧 uniform + 实体侧 PointLight, 政策归 D7)
       mc-daylight-torch §2.3) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件
       可写: main.js 推进·模式层换装) / raycast / camera / renderer / scene。
    依赖(均经全局名, 调用期解析): voxel.js(体素数据+光场数组) · cascade-core.js(方块级联) ·
@@ -137,6 +139,11 @@ function applyDaylight() {
     sun.intensity = 0.75 * (1 - dim / 11);
     const spots = dim < 8; /* 装饰光斑: dim ≥ 8 收起(§2.3) */
     for (const s of sunSprites) s.visible = spots;
+    /* 顶点光材质 uniforms(D3 §4.2/§4.4): 与天色同一比较键节拍(50 tick 量化,
+       夜色阶进无感); uSkyFloor 两态 — 探险(dayCycleOn)真实洞穴/夜, 其余模式
+       恒 15 ≈ 现状观感(向后兼容, 关循环复位幂等) */
+    VOXEL_LIGHT.uDim.value = dim;
+    VOXEL_LIGHT.uSkyFloor.value = dayCycleOn ? 0 : 15;
   }
   /* 日月轨道(§2.4): a = dayTime/24000 × 2π; tick 0 太阳在东方地平线,
      6000 当顶(MC 同相位); 月在太阳对侧; 地平线下(sin a < −0.15)隐藏 */
@@ -145,6 +152,12 @@ function applyDaylight() {
   moonSprite.position.set(pos.x - Math.cos(a) * 170, pos.y - Math.sin(a) * 170, pos.z + 40);
   sunSprite.visible = dayCycleOn && Math.sin(a) >= -0.15;
   moonSprite.visible = dayCycleOn && -Math.sin(a) >= -0.15;
+  /* 灯笼随身光逐帧跟随(§8.3 机制缝, setPlayerGlow 开启时): 挂点取玩家胸口
+     高度 — 方块侧 uniform 顶点衰减 + 实体侧 PointLight 同位 */
+  if (playerGlowOn) {
+    VOXEL_LIGHT.uGlowPos.value.set(pos.x, pos.y + 1.2, pos.z);
+    playerGlowLight.position.set(pos.x, pos.y + 1.2, pos.z);
+  }
 }
 
 /* 材质侧面: 网格生成已剔除实心邻面且法线一律朝外, 实心/TNT 几何的
@@ -215,6 +228,92 @@ function makeAtlasTexture() {
 const atlasMat = new THREE.MeshLambertMaterial({map: ATLAS_LAYOUT ? makeAtlasTexture() : null,
   alphaTest: 0.5, side: THREE.FrontSide});
 
+/* ---------- 顶点光烘焙材质注入 (昼夜 D3, 设计稿 mc-daylight-torch §4.2) ----------
+   四材质(blockMat/atlasMat/tntMat/glassMat)统一 onBeforeCompile 注入:
+   顶点属性 aSky/aBlock(mesh-core 每顶点产出, 值=等级/15) + 共享 uniforms
+   uDim(当前 skyDim)/uTorch(火把暖色)/uSkyFloor(天空下限)/uGlowPos·uGlowR(灯笼)。
+   光照替换 r128 Lambert 的 #include <lights_lambert_vertex>: 块几何不再消费
+   场景灯(实体/怪/Avatar/掉落物仍走 ambient/sun, §4.3), 改两通道叠加
+     outgoing = albedo × ( skyTint·bright(max(aSky·15 − uDim, uSkyFloor))
+                          + uTorch · bright(aBlock·15 + glowTerm) )
+   skyTint 由 uDim 派生(= daylight-core skyTint 的 GLSL 镜像), bright(x) =
+   0.05+0.93·pow(x/15,1.6)(= renderBright 镜像); ×PI 抵消片元侧
+   BRDF_Diffuse_Lambert 的 RECIPROCAL_PI。uniform 对象四材质共享同一份引用
+   — 每帧只写 value, 已编译的全部程序同时生效。
+   回退: 目标 three 版本 chunk 改名(r155+ Lambert 改逐片元)找不到替换点时
+   保持 stock 着色器不注入(不炸优先)。全局夜暗由 applyDaylight 对 ambient/
+   sun 的同曲线衰减兜底 — 不再叠"uDim 乘 vertexColor"(场景灯已按同一曲线
+   变暗, 顶点色再乘会双重变暗过黑; 对规格回退条目的字面偏离, 见差异登记) */
+const LIGHT_CHUNK = '#include <lights_lambert_vertex>';
+const VOXEL_GLSL_HEAD = `
+/* === 顶点光烘焙注入(D3) === */
+attribute float aSky;
+attribute float aBlock;
+uniform float uDim;
+uniform vec3 uTorch;
+uniform float uSkyFloor;
+uniform vec3 uGlowPos;
+uniform float uGlowR;
+float voxBright( float x ) { return 0.05 + 0.93 * pow( max( x, 0.0 ) / 15.0, 1.6 ); }
+`;
+const VOXEL_GLSL_BODY = `
+{ /* === 顶点光烘焙注入(D3): 两通道叠加, 替换 lights_lambert_vertex === */
+  float glowTerm = ( uGlowR > 0.001 ) ?
+      max( 0.0, 1.0 - distance( position, uGlowPos ) / uGlowR ) * 9.0 : 0.0; /* 灯笼(§8.3): 半径 6·等效 9 级 */
+  float dimK = uDim / 11.0;
+  vec3 skyTint = vec3( 1.0 - 0.40 * dimK, 1.0 - 0.34 * dimK, 1.0 ); /* daylight-core skyTint 镜像(月光偏蓝) */
+  vLightFront = PI * ( skyTint * voxBright( max( aSky * 15.0 - uDim, uSkyFloor ) )
+      + uTorch * voxBright( aBlock * 15.0 + glowTerm ) );
+  vIndirectFront = vec3( 0.0 );
+  #ifdef DOUBLE_SIDED
+    vLightBack = vLightFront;
+    vIndirectBack = vec3( 0.0 );
+  #endif
+}
+`;
+/* 四材质共享的一份 uniform(单一更新点; 初始=白天全亮口径, 非 dayCycle 模式零感受) */
+const VOXEL_LIGHT = {
+  uDim: {value: 0},
+  uTorch: {value: new THREE.Vector3(1.0, 0.60, 0.37)}, /* 火把暖色 ≈ #f39a5e(§4.2) */
+  uSkyFloor: {value: 15},
+  uGlowPos: {value: new THREE.Vector3(0, -1024, 0)}, /* 停机位: 远离地面, uGlowR=0 时光项恒 0 */
+  uGlowR: {value: 0},
+};
+function injectVoxelLight(mat) {
+  mat.onBeforeCompile = (shader)=>{
+    if (shader.vertexShader.indexOf(LIGHT_CHUNK) === -1) return; /* 回退: stock 着色器 */
+    Object.assign(shader.uniforms, VOXEL_LIGHT);
+    shader.vertexShader = VOXEL_GLSL_HEAD + shader.vertexShader.replace(LIGHT_CHUNK, VOXEL_GLSL_BODY);
+  };
+}
+injectVoxelLight(blockMat);
+injectVoxelLight(glassMat);
+injectVoxelLight(tntMat);
+injectVoxelLight(atlasMat);
+
+/* 玩家随身光机制缝(§8.3, 政策"何时亮"归模式层 D7 灯笼): setPlayerGlow 只开关
+   机制 — 方块侧=uGlowPos/uGlowR 顶点衰减项(上方注入), 实体侧=PointLight
+   (#f39a5e·1.1·距离 7)同步照亮怪/Avatar。PointLight 惰性创建、常驻隐藏;
+   每帧位置跟随收在 applyDaylight 的逐帧段(其唯一消费方探险必开 dayCycle) */
+let playerGlowOn = false;
+let playerGlowLight = null;
+function setPlayerGlow(on) {
+  playerGlowOn = on;
+  VOXEL_LIGHT.uGlowR.value = on ? 6 : 0; /* 半径 6 · 等效 9 级(§8.3) */
+  if (on) {
+    if (!playerGlowLight) {
+      playerGlowLight = new THREE.PointLight(0xf39a5e, 1.1, 7);
+      scene.add(playerGlowLight);
+    }
+    playerGlowLight.visible = true;
+    /* 即刻挂到玩家胸口(挂点口径与 applyDaylight 逐帧段同一处), 免首帧在原点 */
+    VOXEL_LIGHT.uGlowPos.value.set(pos.x, pos.y + 1.2, pos.z);
+    playerGlowLight.position.set(pos.x, pos.y + 1.2, pos.z);
+  } else if (playerGlowLight) {
+    playerGlowLight.visible = false;
+  }
+}
+
 /* ---------- 区块网格装配 (纯几何在 MeshCore, 此处只做 THREE 装配与场景挂载) ----------
    四通道: solid(不透明)/glass(玻璃)/tnt(TNT贴图)/atlas(方块图集); LOD 通道单网格。
    几何生成走 js/mesh-core.js 纯核心 — 同一份代码在主线程(同步兜底)与
@@ -230,6 +329,8 @@ const makeGeo = (b)=>{
   g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(b.normals, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(b.colors, 3));
+  g.setAttribute('aSky', new THREE.Float32BufferAttribute(b.sky, 1)); /* 顶点光(D3): 每顶点等级/15 */
+  g.setAttribute('aBlock', new THREE.Float32BufferAttribute(b.block, 1));
   // 显式包装: Worker 回传的 Uint32Array 不是 BufferAttribute, setIndex 直接塞会炸渲染
   g.setIndex(new THREE.Uint32BufferAttribute(b.indices, 1));
   return g;
@@ -239,6 +340,8 @@ const makeTexGeo = (b)=>{
   g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(b.normals, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(b.uvs, 2));
+  g.setAttribute('aSky', new THREE.Float32BufferAttribute(b.sky, 1)); /* 顶点光(D3): 同步主线程/Worker 两路径 */
+  g.setAttribute('aBlock', new THREE.Float32BufferAttribute(b.block, 1));
   g.setIndex(new THREE.Uint32BufferAttribute(b.indices, 1));
   return g;
 };
@@ -312,7 +415,7 @@ function desiredState(cx, cz) {
 /* ---------- 网格 Worker (http 服务主路径; file:// 直开自动降级同步构建) ----------
    同源 http 下 Worker 规范保证合法(MDN Worker: same-origin); file:// 下
    构造抛错 → try/catch 兜底走同步路径(同一队列, 只是消费者不同)。
-   协议: 请求 {gen,cx,cz,token,kind,cells(ArrayBuffer 转移),pack 元数据} →
+   协议: 请求 {gen,cx,cz,token,kind,cells(ArrayBuffer 转移),sky·block(光照圈 D3 同款转移),pack 元数据} →
    响应 {gen,cx,cz,token,kind,res}。gen=清场次号(旧响应整体作废);
    token=同区块递增(在途期间再入队, 旧响应丢弃)。 */
 let meshWorker = null;
@@ -368,8 +471,9 @@ function serveChunkKey(k) {
     inFlight.set(k, {token, gen: meshGen});
     meshWorker.postMessage(
         {gen: meshGen, cx, cz, token, kind: st, cells: pack.cells.buffer,
+          sky: pack.sky.buffer, block: pack.block.buffer, /* 光照圈(D3, §3.4): 与 cells 同形, 布局即契约 */
           w: pack.w, d: pack.d, h: pack.h, border: pack.border, bx: pack.bx, bz: pack.bz, yMax: pack.yMax},
-        [pack.cells.buffer]); // transferable: 所有权零拷贝转移
+        [pack.cells.buffer, pack.sky.buffer, pack.block.buffer]); // transferable: 所有权零拷贝转移
   } else if (st === 'full') {
     mountChunk(cx, cz, MeshCore.meshChunk(packChunkData(cx, cz, 1), MESH_OPTS));
   } else {

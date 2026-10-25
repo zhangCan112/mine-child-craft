@@ -288,6 +288,9 @@ Object.assign(BLOCKS[8], {fall: true}); // 沙子: 重力方块(MC 口径, 二�
 
 function faceColor(id, dir) {
   const b = BLOCKS[id];
+  /* 顶面显式 top 优先于 all(昼夜 D3: 床=红毯顶/深红架, mc-daylight-torch
+     §7.1 — D6 的 top 字段由此生效; 存量方块 top 与 all 不同存, 零变化) */
+  if (dir[1] === 1 && b.top) return b.top;
   if (b.all) return b.all;
   if (dir[1] === 1) return b.top;
   if (dir[1] === -1) return b.bottom;

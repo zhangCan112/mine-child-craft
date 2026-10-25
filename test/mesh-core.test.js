@@ -5,7 +5,10 @@
    (浏览器 <script defer> / Worker importScripts / Node vm 三者同构)。
    被测 seam: MeshCore.meshChunk(全细节三通道) / MeshCore.meshChunkLod(降采样)。
    输入 pack 由测试手工构造(与 voxel.js packChunkData 的输出同构),
-   hashRand 由调用方注入(纯核心零全局依赖, 与 combat-core 同惯例)。 */
+   hashRand 由调用方注入(纯核心零全局依赖, 与 combat-core 同惯例)。
+   D3 顶点光: 四通道每顶点 sky/block 属性(等级/15) — 普通面取面朝向邻格,
+   十字片/薄块取自身格, LOD 仅天空二值 0/15; 无光照载荷的 pack 回落全亮
+   (docs/mc-daylight-torch-design.md §4.1)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -17,7 +20,7 @@ function loadMeshCore() {
   for (const f of ['config.js', 'mesh-core.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
-  vm.runInContext('globalThis.__m = { MeshCore, BLOCKS, TNT_TILES, B_TNT, B_FUSE };', ctx);
+  vm.runInContext('globalThis.__m = { MeshCore, BLOCKS, TNT_TILES, B_TNT, B_FUSE, B_TORCH, faceColor };', ctx);
   return ctx.__m;
 }
 
@@ -32,6 +35,19 @@ function mkPack(border) {
       if (id !== 0 && y > this.yMax) this.yMax = y;
     },
   };
+}
+
+/* 带光照载荷的 pack(D3): sky/block 与 cells 同形同布局(voxel.js packChunkData
+   的 D2 契约), 光值由测试逐格显式写入 — 断言不经生产代码派生 */
+function mkPackL(border) {
+  const p = mkPack(border);
+  p.sky = new Uint8Array(p.w*p.d*48); // 缺省 0: 被遮蔽(取样格全由测试显式给值)
+  p.block = new Uint8Array(p.w*p.d*48);
+  p.setL = (lx, y, lz, s, b) => {
+    p.sky[(y*p.d + lz)*p.w + lx] = s;
+    p.block[(y*p.d + lz)*p.w + lx] = b;
+  };
+  return p;
 }
 /* 固定 hashRand → tint 恒定 0.92+hr*0.12, 断言可精确到常数 */
 const HR_HALF = () => 0.5; const HR_ZERO = () => 0;
@@ -177,4 +193,182 @@ test('meshChunkLod: 薄块不算表面 — 引线塔不抬升格高', () => {
   assert.strictEqual(quads(r.solid), n*n + perim, '引线不产生裙边/抬升');
   const c = m.BLOCKS[2].all;
   assert.ok(Math.abs(r.solid.colors[0] - c[0]) < 1e-9, '表面色仍是泥土(引线被跳过)');
+});
+
+/* ============ 顶点光属性 (D3, 设计稿 §4.1) ============ */
+/* 断言口径: 通道的 sky/block 数组与顶点等长, 值 = 等级/15;
+   普通面取面朝向邻格光, 十字片/薄块取自身格, LOD 合并列天空二值 */
+
+/* 按面法线收集四边形的 4 顶点序号(sky/block 是单标量属性, 下标=顶点序) */
+function quadsByNormal(ch) {
+  const map = new Map();
+  for (let q=0; q<ch.indices.length; q+=6) {
+    const v0 = ch.indices[q];
+    const key = ch.normals[v0*3] + ',' + ch.normals[v0*3+1] + ',' + ch.normals[v0*3+2];
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push([0, 1, 2, 3].map((i) => ch.indices[q+i]));
+  }
+  return map;
+}
+/* 同法线的全部四边形 × 全部顶点都必须等于期望值 */
+const faceSkyEq = (ch, quads, want) => quads.every((qs) => qs.every((v) => Math.abs(ch.sky[v] - want) < 1e-9));
+const faceBlkEq = (ch, quads, want) => quads.every((qs) => qs.every((v) => Math.abs(ch.block[v] - want) < 1e-9));
+const s15 = (lvl) => lvl/15;
+
+test('顶点光: 实心通道普通面取面朝向邻格光 — 六面各自取邻格的 sky/block', () => {
+  const m = loadMeshCore();
+  const p = mkPackL(1);
+  p.set(1, 5, 1, 3); // 石头(内部左下角)
+  /* 六个采样邻格给互异的光值(与剔面邻格同坐标): +Y 上 / −Y 下 / ±X / ±Z */
+  p.setL(1, 6, 1, 10, 7); // 顶面邻格
+  p.setL(1, 4, 1, 1, 2); // 底面邻格
+  p.setL(0, 5, 1, 3, 4); // −X 邻格(border 圈内, 可读)
+  p.setL(2, 5, 1, 5, 0); // +X 邻格
+  p.setL(1, 5, 0, 6, 1); // −Z 邻格
+  p.setL(1, 5, 2, 0, 9); // +Z 邻格(sky=0 = 深洞)
+  const r = m.MeshCore.meshChunk(p, OPT);
+  assert.strictEqual(r.solid.sky.length, 24, '每顶点一份天空光');
+  assert.strictEqual(r.solid.block.length, 24);
+  const byN = quadsByNormal(r.solid);
+  assert.ok(faceSkyEq(r.solid, byN.get('0,1,0'), s15(10)), '顶面取上邻格 sky=10');
+  assert.ok(faceBlkEq(r.solid, byN.get('0,1,0'), s15(7)), '顶面取上邻格 block=7');
+  assert.ok(faceSkyEq(r.solid, byN.get('0,-1,0'), s15(1)), '底面取下邻格 sky=1');
+  assert.ok(faceBlkEq(r.solid, byN.get('0,-1,0'), s15(2)), '底面取下邻格 block=2');
+  assert.ok(faceSkyEq(r.solid, byN.get('-1,0,0'), s15(3)), '−X 面取 border 圈邻格 sky=3');
+  assert.ok(faceSkyEq(r.solid, byN.get('1,0,0'), s15(5)), '+X 面取邻格 sky=5');
+  assert.ok(faceSkyEq(r.solid, byN.get('0,0,-1'), s15(6)), '−Z 面取邻格 sky=6');
+  assert.ok(faceSkyEq(r.solid, byN.get('0,0,1'), s15(0)), '+Z 面取深洞邻格 sky=0');
+  assert.ok(faceBlkEq(r.solid, byN.get('0,0,1'), s15(9)), '+Z 面取邻格 block=9');
+});
+
+test('顶点光: 玻璃/TNT/图集立方体面同样取邻格光(四通道同口径)', () => {
+  const m = loadMeshCore();
+  /* 玻璃 */
+  let p = mkPackL(1);
+  p.set(1, 5, 1, 18);
+  p.setL(1, 6, 1, 12, 0); // 顶面邻格
+  let r = m.MeshCore.meshChunk(p, OPT);
+  assert.ok(faceSkyEq(r.glass, quadsByNormal(r.glass).get('0,1,0'), s15(12)), '玻璃顶面取邻格 sky=12');
+  /* TNT */
+  p = mkPackL(1);
+  p.set(1, 5, 1, m.B_TNT);
+  p.setL(1, 6, 1, 0, 13); // 顶面邻格: 火把级方块光
+  r = m.MeshCore.meshChunk(p, OPT);
+  assert.ok(faceBlkEq(r.tnt, quadsByNormal(r.tnt).get('0,1,0'), s15(13)), 'TNT 顶面取邻格 block=13');
+  /* 图集立方体(石头入图集, 同 mesh-worker 口径) */
+  p = mkPackL(1);
+  p.set(1, 5, 1, 3);
+  p.setL(1, 6, 1, 8, 6);
+  r = m.MeshCore.meshChunk(p, {hashRand: HR_HALF, tntTiles: 4, atlas: {cols: 16, rows: 16, tiles: {3: 5}}});
+  assert.ok(faceSkyEq(r.atlas, quadsByNormal(r.atlas).get('0,1,0'), s15(8)), '图集面取邻格 sky=8');
+  assert.ok(faceBlkEq(r.atlas, quadsByNormal(r.atlas).get('0,1,0'), s15(6)), '图集面取邻格 block=6');
+});
+
+test('顶点光: 十字片与薄块取自身格 — 火把自身格 block=14 夜间自亮', () => {
+  const m = loadMeshCore();
+  /* 十字片: 火把(48, thin)走图集十字通道 */
+  let p = mkPackL(1);
+  p.set(1, 5, 1, m.B_TORCH);
+  p.setL(1, 5, 1, 6, 14); // 自身格: 洞内 sky=6 · 火把自亮 block=14
+  let r = m.MeshCore.meshChunk(p, {hashRand: HR_HALF, tntTiles: 4, atlas: {cols: 16, rows: 16, tiles: {48: 26}}});
+  assert.ok(r.atlas && quads(r.atlas) === 4, '十字片 4 面');
+  assert.strictEqual(r.atlas.sky.length, 16);
+  for (const v of r.atlas.sky) assert.ok(Math.abs(v - s15(6)) < 1e-9, '十字片全部顶点取自身格 sky=6');
+  for (const v of r.atlas.block) assert.ok(Math.abs(v - s15(14)) < 1e-9, '十字片全部顶点取自身格 block=14');
+  /* 薄块: 引线走实心通道 pushThin */
+  p = mkPackL(1);
+  p.set(3, 5, 3, m.B_FUSE);
+  p.setL(3, 5, 3, 4, 11); // 自身格
+  r = m.MeshCore.meshChunk(p, OPT);
+  assert.strictEqual(r.solid.sky.length, 20); // 5 面 × 4 顶点
+  for (const v of r.solid.sky) assert.ok(Math.abs(v - s15(4)) < 1e-9, '薄块全部顶点取自身格 sky=4');
+  for (const v of r.solid.block) assert.ok(Math.abs(v - s15(11)) < 1e-9, '薄块全部顶点取自身格 block=11');
+});
+
+test('顶点光: 无光照载荷的 pack 回落全亮(sky=15/block=0) — 既有调用缺省兼容', () => {
+  const m = loadMeshCore();
+  const p = mkPack(1); // 不带 sky/block 字段
+  p.set(1, 5, 1, 3);
+  p.set(2, 5, 2, 18);
+  p.set(3, 5, 3, m.B_TNT);
+  const r = m.MeshCore.meshChunk(p, {hashRand: HR_HALF, tntTiles: 4, atlas: {cols: 16, rows: 16, tiles: {3: 5}}});
+  for (const ch of [r.solid, r.glass, r.tnt, r.atlas]) {
+    if (!ch) continue;
+    assert.strictEqual(ch.sky.length, ch.positions.length/3, '每顶点一份');
+    assert.strictEqual(ch.block.length, ch.positions.length/3);
+    for (const v of ch.sky) assert.ok(Math.abs(v - 1) < 1e-9, '回落 sky 全亮=1');
+    for (const v of ch.block) assert.strictEqual(v, 0, '回落 block=0');
+  }
+});
+
+test('顶点光: LOD 通道仅天空二值 0/15 + block 恒 0 — 远处夜色统一变暗', () => {
+  const m = loadMeshCore();
+  /* 平地: 顶面之上的格 sky=15 → 二值 15 */
+  const p = mkPack(0);
+  p.sky = new Uint8Array(p.w*p.d*48);
+  for (let lx=0; lx<16; lx++) {
+    for (let lz=0; lz<16; lz++) {
+      p.set(lx, 0, lz, 2);
+      p.sky[(1*p.d + lz)*p.w + lx] = 15; // 地表之上
+    }
+  }
+  /* 模拟一格被顶棚罩住(浮空顶棚的阴影落在地表之上): 该合并格的采样列
+     (合并格首列 (4,4), §4.1 一格一值)地表之上格 sky=3 → 二值 0 */
+  p.set(5, 0, 5, 3);
+  p.sky[(1*p.d + 4)*p.w + 4] = 3;
+  const r = m.MeshCore.meshChunkLod(p, {step: 2});
+  assert.strictEqual(r.solid.block.length, r.solid.positions.length/3);
+  for (const v of r.solid.block) assert.strictEqual(v, 0, 'LOD aBlock 恒 0(火把点光不进 LOD)');
+  /* 按四边形断言(顶点坐标在格边界与邻格裙边共点, 不能按位置归属): 每面
+     内部四顶点同值(一格一值), 被罩合并格的顶面恰一面全暗, 其余全亮 */
+  let dark = 0; let lit = 0;
+  for (let q=0; q<r.solid.indices.length; q+=6) {
+    const vs = [0, 1, 2, 3].map((i) => r.solid.sky[r.solid.indices[q+i]]);
+    assert.ok(vs.every((v) => Math.abs(v - vs[0]) < 1e-9), '同一四边形顶点必须同值(合并列一格一值)');
+    if (vs[0] < 1e-9) dark++; else if (Math.abs(vs[0] - 1) < 1e-9) lit++;
+    else assert.fail('LOD 天空光必须二值 0/15, 实得 ' + vs[0]);
+  }
+  assert.strictEqual(dark, 1, '被罩格顶面恰一面全暗(该格无裙边: 邻格同高)');
+  assert.ok(lit >= 90, '其余面全亮: ' + lit);
+  /* 无载荷 LOD 同样回落全亮 */
+  const p2 = mkPack(0);
+  for (let lx=0; lx<16; lx++) for (let lz=0; lz<16; lz++) p2.set(lx, 0, lz, 2);
+  const r2 = m.MeshCore.meshChunkLod(p2, {step: 2});
+  for (const v of r2.solid.sky) assert.ok(Math.abs(v - 1) < 1e-9, 'LOD 无载荷回落全亮');
+});
+
+/* ============ 薄块分色 (D3 兑现 D6 惰性 top 字段, 设计稿 §7.1) ============ */
+
+test('faceColor: 顶面优先取显式 top(覆盖 all), 其余面仍取 all — 床红毯/床架分色的单一权威', () => {
+  const m = loadMeshCore();
+  /* 合成"床形"数据(D6 的 B_BED 同构: top=亮红毯 / all=深红床架), 测试自带
+     不依赖集成分支的方块表; 既有方块(如引线)只有 all → 行为零变化 */
+  m.BLOCKS[99] = {name: '试床', top: [0.90, 0.30, 0.30], all: [0.75, 0.22, 0.22], thin: 0.55, solid: false};
+  assert.strictEqual(m.faceColor(99, [0, 1, 0]), m.BLOCKS[99].top, '顶面 → top(红毯)');
+  assert.strictEqual(m.faceColor(99, [0, 0, 1]), m.BLOCKS[99].all, '侧面 → all(床架)');
+  assert.strictEqual(m.faceColor(99, [0, -1, 0]), m.BLOCKS[99].all, '底面 → all(薄块无底面, 数据口径统一)');
+  assert.strictEqual(m.faceColor(m.B_FUSE, [0, 1, 0]), m.BLOCKS[m.B_FUSE].all, '无 top 的方块顶面仍取 all(存量零变化)');
+});
+
+test('薄块分色: pushThin 顶面画 top(红毯) · 侧面画 all(床架), tint 照乘', () => {
+  const m = loadMeshCore();
+  m.BLOCKS[99] = {name: '试床', top: [0.90, 0.30, 0.30], all: [0.75, 0.22, 0.22], thin: 0.55, solid: false};
+  const p = mkPack(1);
+  p.set(1, 5, 1, 99);
+  const r = m.MeshCore.meshChunk(p, OPT);
+  assert.strictEqual(quads(r.solid), 5, '扁盒 5 面(跳底)');
+  const tint = 0.98; // HR_HALF → 0.92 + 0.5*0.12
+  const cEq = (v, c) => Math.abs(v - c*tint) < 1e-9;
+  for (const [key, want] of [['0,1,0', m.BLOCKS[99].top], ['1,0,0', m.BLOCKS[99].all],
+    ['-1,0,0', m.BLOCKS[99].all], ['0,0,1', m.BLOCKS[99].all], ['0,0,-1', m.BLOCKS[99].all]]) {
+    const qs = quadsByNormal(r.solid).get(key);
+    assert.ok(qs && qs.length === 1, '该向恰一面: ' + key);
+    for (const q of qs) {
+      for (const v of q) {
+        const label = key + ' 面色 = ' + (want === m.BLOCKS[99].top ? 'top' : 'all') + '×tint';
+        assert.ok(cEq(r.solid.colors[v*3], want[0]) && cEq(r.solid.colors[v*3+1], want[1]) &&
+            cEq(r.solid.colors[v*3+2], want[2]), label);
+      }
+    }
+  }
 });
