@@ -3,7 +3,7 @@
    像素图标工坊 — 手绘像素图标(16×16 字符画 → 64×64 dataURL)
    tankIcon: 主菜单坦克演习场卡的入口图标 — emoji 🚙 各平台渲染不可控
    (有的机器上像救护车), 换成与游戏内军绿/履带同配色的像素坦克。
-   itemIcon/iconOf (T8): ITEMS 全 54 键物品图标, 一期替换全部 emoji
+   itemIcon/iconOf (T8): ITEMS 全量键物品图标(F3 金苹果入册后 55 键), 一期替换全部 emoji
    占位(设计稿 D13) — 掉落物 Sprite/快捷栏槽/配方书卡片共用 iconOf
    统一出口(有像素图返 dataURL, 未画返 emoji 文本, 未注册返空串)。
    怪物头像在怪物库(Mobs.face), 坦克型号图标在载具(Tank.icon),
@@ -479,6 +479,24 @@ const APPLE_ART = [ // 苹果: 红果 + 柄 + 叶
   '................',
   '................',
 ];
+const GOLD_APPLE_ART = [ // 金苹果(F3): 苹果同构换金板, 果面缀红高光(r, 二期设计稿 §3)
+  '................',
+  '.......st.......',
+  '.......st.EEE...',
+  '.....mmmmm......',
+  '....mlrmmmm.....',
+  '....mlmmmmmd....',
+  '...mmmrmmmmdd...',
+  '...mmmmmmmmdd...',
+  '...mmmmrmmmmmd..',
+  '...mmmmmmmmmmd..',
+  '....mmmrmmmdd...',
+  '....mmmmmmddd...',
+  '.....ddddd......',
+  '................',
+  '................',
+  '................',
+];
 const BREAD_ART = [ // 面包: 长圆条 + 斜切纹
   '................',
   '................',
@@ -768,6 +786,7 @@ const ITEM_PIX = {
   shears: {art: SHEARS_ART, map: {i: PIX_TIER.iron.main, I: PIX_TIER.iron.light, d: '#5c6169'}},
   /* 食物 */
   apple: {art: APPLE_ART, map: {m: '#d83a2e', l: '#f06a4f', d: '#a02418', s: '#5d3f21', t: '#7a5228', E: '#4a8f35'}},
+  golden_apple: {art: GOLD_APPLE_ART, map: {m: '#f0c53a', l: '#f8e08a', d: '#c79a22', r: '#d83a2e', s: '#5d3f21', t: '#7a5228', E: '#4a8f35'}}, // 金体与 gold_ingot 同板, 红高光取苹果主色(F3)
   bread: {art: BREAD_ART, map: {m: '#c68e4e', l: '#e0b072', d: '#9c6a34'}},
   /* 放置型方块物品 */
   dirt: {art: DIRT_ART, map: {m: '#866043', l: '#a07b56', d: '#6b4a33'}},

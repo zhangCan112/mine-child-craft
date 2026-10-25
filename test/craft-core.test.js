@@ -54,24 +54,24 @@ test('加载: 顶层暴露三张表(FUEL 从 ITEMS 派生, 加载序在 items-co
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 手搓 4 条 + 工作台级(工具16/站点件/补给包/箱子)共 29 条, id 唯一', () => {
+test('配方全量: 手搓 4 条 + 工作台级(工具16/站点件/补给包/箱子/金苹果)共 30 条, id 唯一', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 29, '全表 4+16+9 条(引导链 v2 加箱子), 实际 ' + RECIPES.length);
+  assert.strictEqual(RECIPES.length, 30, '全表 4+16+10 条(引导链 v2 加箱子, F3 加金苹果), 实际 ' + RECIPES.length);
   // 手搓级(设计稿 §3.2): 随时可做
   for (const id of ['planks', 'stick', 'craft_table', 'torch']) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '手搓配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
   }
-  // 工作台级: 工具 16 + furnace/stone_bricks/bricks/shears/tnt/bow_item/bread/bone_meal/chest
+  // 工作台级: 工具 16 + furnace/stone_bricks/bricks/shears/golden_apple/tnt/bow_item/bread/bone_meal/chest
   const tableIds = ['pick_wood', 'pick_stone', 'pick_iron', 'pick_diamond',
     'axe_wood', 'axe_stone', 'axe_iron', 'axe_diamond',
     'sword_wood', 'sword_stone', 'sword_iron', 'sword_diamond',
     'shovel_wood', 'shovel_stone', 'shovel_iron', 'shovel_diamond',
-    'furnace', 'stone_bricks', 'bricks', 'shears', 'tnt', 'bow_item', 'bread', 'bone_meal',
-    'chest'];
+    'furnace', 'stone_bricks', 'bricks', 'shears', 'golden_apple', 'tnt', 'bow_item', 'bread',
+    'bone_meal', 'chest'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');
@@ -131,6 +131,37 @@ test('配方数值抽查: 与设计稿 §3.2/§3.5 逐条一致(研究稿 MC 口
   assert.deepStrictEqual(cost('bread'), {wheat: 3}); // 原料二期, 卡片不点亮
   assert.deepStrictEqual(cost('bone_meal'), {bone: 1}); // 用途二期催熟
   assert.deepStrictEqual(out('bone_meal'), {item: 'bone_meal', n: 3});
+});
+
+test('F3 金苹果配方: MC 正典 8 金锭+1 苹果 — 缺料分开报 / 扣料产栈(二期设计稿 §3)', () => {
+  const h = loadCraft();
+  const {canCraft, craft, RECIPES} = h;
+  const r = RECIPES.find((x) => x.id === 'golden_apple');
+  assert.ok(r, '金苹果配方应注册');
+  assert.deepStrictEqual({...r.out}, {item: 'golden_apple', n: 1}, '产物 1 个');
+  const c = {}; // 展开回宿主 realm(vm 跨 realm 先例, 上方 cost() 同款)
+  for (const [k, v] of Object.entries(r.cost)) c[k] = v;
+  assert.deepStrictEqual(c, {gold_ingot: 8, apple: 1}, '材料计费: 8 金锭+1 苹果(MC 正典)');
+  /* 缺金锭(有苹果): missing 只报金锭一条 */
+  let res = canCraft(invWith(h, [['apple', 1]]), r, true);
+  assert.strictEqual(res.ok, false);
+  assert.deepStrictEqual(normMissing(res.missing), [{id: 'gold_ingot', need: 8, have: 0}]);
+  /* 缺苹果(金锭够): missing 只报苹果一条 */
+  res = canCraft(invWith(h, [['gold_ingot', 8]]), r, true);
+  assert.strictEqual(res.ok, false);
+  assert.deepStrictEqual(normMissing(res.missing), [{id: 'apple', need: 1, have: 0}]);
+  /* 金锭不足量(有 3 要 8): 单条带已有量(配方卡灰显口径) */
+  res = canCraft(invWith(h, [['gold_ingot', 3], ['apple', 1]]), r, true);
+  assert.strictEqual(res.ok, false);
+  assert.deepStrictEqual(normMissing(res.missing), [{id: 'gold_ingot', need: 8, have: 3}]);
+  /* 材料齐: craft 扣 8 金锭+1 苹果, 产 1 金苹果入包 */
+  const inv = invWith(h, [['gold_ingot', 10], ['apple', 2]]);
+  res = craft(inv, r, true);
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.leftover, 0);
+  assert.deepStrictEqual({...inv.slots[0]}, {id: 'gold_ingot', n: 2}, '金锭 10→2');
+  assert.deepStrictEqual({...inv.slots[1]}, {id: 'apple', n: 1}, '苹果 2→1');
+  assert.deepStrictEqual({...inv.slots[2]}, {id: 'golden_apple', n: 1}, '产物金苹果开新堆');
 });
 
 test('工具 16 条配方: 镐斧 3材+2棍 · 剑 2材+1棍 · 锹 1材+2棍, 材质按阶替换', () => {

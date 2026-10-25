@@ -28,7 +28,7 @@
    · 任务链(引导链 v2): 15 步+终章(安家/挖矿/冶炼/冒险四章, 12 步版与
      插步依据见 docs/story-quest-research.md), 事件挂点只往计数账本累计
      (只增不减=跳步防护), update 内 0.5s 节流查当前步谓词(不越级);
-     钻石首获仪式; 终章合成钻石剑 → 「小小探险家」称号+烟花;
+     钻石首获仪式 · 金苹果首获仪式(F3, 合成侧); 终章合成钻石剑 → 「小小探险家」称号+烟花;
      任务卡挂 advPanel.questEl
    · 大宝箱(引导链 v2 拍板): 全局共享账户——所有放置的箱子同一份存储
      (adventure_chest_save), 只储物不解锁配方(合成仍要工作台); 点击放置
@@ -200,13 +200,16 @@ function advStationOk() {/* 站点解锁(D8 拍板④): 已放置工作台距玩
   return advNearStation(advStations.values(), pos.x, pos.z, ADV_STATION_R, B_CRAFT);
 }
 function advOnCraft(out) {/* 合成成功(T13, D8): TTS 具体表扬(产物名入句, 夸努力口径) +
-  leftover 转脚下掉落物(背包满零惩罚) — T15 任务进度在此挂合成事件 */
+  leftover 转脚下掉落物(背包满零惩罚) — T15 任务进度在此挂合成事件;
+  F3 金苹果首获仪式也挂此(合成入包侧, 与钻石首获在挖掘侧各归其位) */
+  const firstGold = out.item === 'golden_apple' && !ADV.quest.counts.craft_golden_apple;
   const name = (ITEMS[out.item] && ITEMS[out.item].name) || out.item;
   SpeechKit.speak(name + '做好啦！你真会想办法！');
   if (out.leftover > 0) Drops.spawn(out.item, out.leftover, pos.x, pos.y + 0.5, pos.z);
   advSyncHotbar();
   showToast('✅ ' + name + ' 做好啦！');
   advTally('craft_' + out.item, out.n); /* T15: 合成件数记账(事件处只 +=, 推进归节流查) */
+  if (firstGold) advGoldRite(); /* F3: 首获判据取自记账前的 counts(与钻石同口径); 仪式放最后, TTS 压过常规表扬 */
 }
 const advPanel = ModeKit.mkCraftPanel({
   inv: advInv,
@@ -673,14 +676,16 @@ function advRescanSaplings() {
 }
 
 /* 吃食物: 点击手持食物(D4) — 满血不吃; 回血走 advEatPolicy(腐肉同口径),
-   remove 吃一口返堆拷贝(inventory-core 口径), 头顶血条随 hp 变化自动重绘 */
+   remove 吃一口返堆拷贝(inventory-core 口径), 头顶血条随 hp 变化自动重绘;
+   full 旗标(金苹果)由 advEatPolicy 解读=直接回满(F3, 二期设计稿 §3),
+   此处只透传不判断 */
 function advTryEat() {
   const slot = advHb.sel;
   const s = advInv.slots[slot];
   const it = s ? ITEMS[s.id] : null;
   if (!it || it.food == null) return false;
   const e = advGetPEnt();
-  const pol = advEatPolicy(e.hp, e.maxHp, it.food);
+  const pol = advEatPolicy(e.hp, e.maxHp, it.food, it.full);
   if (!pol.canEat) {
     showToast('现在饱饱的，还不饿哦！');
     return true; /* 吃过 attempt 但没吃: 不进入蓄力 */
@@ -1163,6 +1168,18 @@ function advDiamondRite(x, y, z) {
   }
   SpeechKit.speak('哇！挖到钻石啦！亮晶晶的宝贝！你找得真仔细！');
   showToast('💎 第一颗钻石！一共要挖 3 颗哦！');
+}
+
+/* F3 金苹果首获仪式(advDiamondRite 轻量版, 二期设计稿 §3): 金光双层冲击波 +
+   gem 琶音 + 专属 TTS/toast——挂 advOnCraft 合成入包侧首获(钻石在挖掘侧,
+   口径各归其位); 位置取玩家(合成发生在面板前, 无方块坐标可挂), 现成件
+   组合约 1s 收场, 克制不抢戏 */
+function advGoldRite() {
+  sfx('gem');
+  Fx.pop(pos.x, pos.y + 1.1, pos.z, {color: 0xffd23f, r0: 0.3, r1: 2.4, dur: 0.7});
+  Fx.pop(pos.x, pos.y + 1.1, pos.z, {color: 0xfff3b0, r0: 0.2, r1: 1.6, dur: 0.9, opacity: 0.7});
+  SpeechKit.speak('哇！金灿灿的苹果！挖到的金子变成宝贝啦！');
+  showToast('🍎 第一个金苹果！吃一口就能回满血！');
 }
 
 /* 通关烟花(D11 终章): 玩家四周四色礼花(pop 冲击波球+碎块), 不震屏不轰鸣 */

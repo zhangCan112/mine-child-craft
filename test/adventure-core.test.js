@@ -134,6 +134,20 @@ test('核心政策: 蓄力步进/放置合法性/食物/树苗计时', () => {
   assert.ok(!map.has('1,25,1') && map.has('2,25,2'), '到期移出, 未到期留队');
 });
 
+test('F3 金苹果食物政策: advEatPolicy full 旗标 — 半血吃直接回满, 满血不吃口径不回归(二期设计稿 §3)', () => {
+  /* full 语义收进政策纯函数: 设计稿原写在模式层 advTryEat 解读, 收编后
+     消费方只吃结果(seam 级偏差, 见 F3 报告; 食物回血政策已有本单测先例) */
+  assert.deepStrictEqual(Core.advEatPolicy(12, 30, 30, true), {hp: 30, healed: 18, canEat: true},
+      'full → hp 直接 maxHp(无饥饿系统: MC 饥饿+吸收+再生折算一次回满)');
+  assert.deepStrictEqual(Core.advEatPolicy(10, 30, 4, true), {hp: 30, healed: 20, canEat: true},
+      'food 名义值被 full 覆盖: 缺口 20>food 4 也回满(与不加旗标的 14 区分)');
+  assert.strictEqual(Core.advEatPolicy(30, 30, 30, true).canEat, false, '满血不吃(旗标不破既有口径)');
+  assert.strictEqual(Core.advEatPolicy(30, 30, 30, true).healed, 0, '满血 healed=0');
+  /* 无旗标(缺省)走既有口径 — 三参调用方零改动 */
+  assert.deepStrictEqual(Core.advEatPolicy(28, 30, 4), {hp: 30, healed: 2, canEat: true});
+  assert.deepStrictEqual(Core.advEatPolicy(10, 30, 4), {hp: 14, healed: 4, canEat: true});
+});
+
 test('核心政策: 站点判定/烧炼单步/退炉/TNT 掷骰与衰减', () => {
   const sts = [{x: 10, y: 25, z: 10, id: api.B_CRAFT}];
   assert.strictEqual(Core.advNearStation(sts, 14.5, 10.5, 4, api.B_CRAFT), true, '恰 4 格解锁(含等号)');

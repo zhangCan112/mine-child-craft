@@ -1293,6 +1293,24 @@ test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + �
   assert.strictEqual(A.advGetInv().slots[0].n, 1, '满血不吃不扣');
 });
 
+test('F3 金苹果行为链: 半血点击吃 — 回满血 + 扣 1 个, 满血不吃不扣(full 旗标经 advEatPolicy)', () => {
+  mem.clear();
+  freshInit();
+  A.advGetPEnt().hp = 12;
+  A.ADV.player.hp = 12; /* 账本与实体同源(死亡政策口径) */
+  holdOnly('golden_apple', 2);
+  spoken.length = 0;
+  AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0}); /* 手持食物: 点击=吃 */
+  assert.strictEqual(A.advGetPEnt().hp, 30, '金苹果回满血(full → maxHp, 无饥饿系统折算)');
+  assert.strictEqual(A.ADV.player.hp, 30, '账本同步(头顶血条重绘依据)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '吃掉 1 个');
+  assert.ok(spoken.some((s) => String(s).indexOf('真好吃') >= 0), 'TTS 吃货播报');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('金苹果') >= 0), '吃掉 toast 带食物名');
+  AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '满血不吃不扣');
+  assert.strictEqual(A.advGetPEnt().hp, 30, '满血血量不动');
+});
+
 /* ============ T13 合成与烧炼接线 ============ */
 
 test('T13 站点判定纯函数: advNearStation — 4 格边界(含等号)/按 id 过滤/空缓存', () => {
@@ -1889,6 +1907,27 @@ test('T15 钻石首获仪式: 首次挖到钻石矿触发一次(专属 TTS+音�
   assert.strictEqual(spoken.filter((s) => /亮晶晶/.test(String(s))).length, riteTts, '仪式 TTS 不重播');
   assert.strictEqual(A.ADV.quest.counts.mine_diamond_ore, 2, '计数照累计(仪式≠记账)');
   assert.strictEqual(A.ADV.quest.step, 0, '仪式≠步进(第 15 步要凑满 3 颗)');
+});
+
+test('F3 金苹果首获仪式: 首次合成触发一次(金光冲击波+gem 琶音+专属 TTS), 第二次不再', () => {
+  mem.clear();
+  freshInit();
+  spoken.length = 0;
+  calls.length = 0;
+  A.advOnCraft({item: 'golden_apple', n: 1, leftover: 0});
+  assert.ok(spoken.some((s) => /金灿灿/.test(String(s)) && /金子/.test(String(s))),
+      '专属 TTS(首获话术; cancel-then-speak 压过常规合成表扬)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'gem'), '专属音效 gem 琶音(钻石首获同款)');
+  assert.ok(calls.filter((x) => x[0] === 'pop').length >= 2, '金光双层冲击波(Fx.pop)');
+  assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('第一个金苹果') >= 0), '仪式 toast');
+  assert.strictEqual(A.ADV.quest.counts.craft_golden_apple, 1, '合成记账照走(仪式≠记账)');
+  assert.strictEqual(A.ADV.quest.step, 0, '仪式≠步进(金苹果不加任务步, 自由玩出口)');
+  const pops = calls.filter((x) => x[0] === 'pop').length;
+  const riteTts = spoken.filter((s) => /金灿灿/.test(String(s))).length;
+  A.advOnCraft({item: 'golden_apple', n: 1, leftover: 0}); /* 再合一个 */
+  assert.strictEqual(calls.filter((x) => x[0] === 'pop').length, pops, '第二次合成不再仪式(首获专属)');
+  assert.strictEqual(spoken.filter((s) => /金灿灿/.test(String(s))).length, riteTts, '仪式 TTS 不重播');
+  assert.strictEqual(A.ADV.quest.counts.craft_golden_apple, 2, '计数照累计');
 });
 
 test('T15 终章: 合成钻石剑 → 「小小探险家」称号+烟花+入档; 只触发一次, 重进不重复', () => {

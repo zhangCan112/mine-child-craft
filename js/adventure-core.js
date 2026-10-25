@@ -375,9 +375,13 @@ function advPlaceCheck(hit, blockId, lookId, targetId) {
 }
 
 /* 食物回血政策(纯函数, D7 腐肉同口径): 回复钳制在 maxHp, 满血 canEat=false
-   (交互层据此不扣物品); healed = 实际回复量(血条动画消费) */
-function advEatPolicy(hp, maxHp, food) {
-  const capped = Math.min(maxHp, hp + food);
+   (交互层据此不扣物品); healed = 实际回复量(血条动画消费)。
+   full 旗标(F3 金苹果, 二期设计稿 §3): 直接回 maxHp——本游戏无饥饿系统,
+   MC 金苹果的饥饿+吸收+再生折算成一次回满; 设计稿原写在模式层 advTryEat
+   解读, 收编进本政策纯函数(seam 级偏差: 食物政策已有单测先例, 消费方
+   只吃结果), 缺省不传走既有口径 */
+function advEatPolicy(hp, maxHp, food, full) {
+  const capped = full ? maxHp : Math.min(maxHp, hp + food);
   return {hp: capped, healed: Math.max(0, capped - hp), canEat: hp < maxHp};
 }
 

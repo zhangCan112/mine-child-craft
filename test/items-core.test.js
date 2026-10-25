@@ -141,6 +141,20 @@ test('食物回血: apple 4 / bread 8 / rotten_flesh 2(设计稿 §3.1, 儿童�
   assert.strictEqual(ITEMS.rotten_flesh.food, 2);
 });
 
+test('F3 金苹果: 形状 — food 名义值 30=maxHp 锚点 · full 旗标=吃了回满血(二期设计稿 §3)', () => {
+  const {ITEMS, stackMax} = loadItems();
+  const it = ITEMS.golden_apple;
+  assert.ok(it, 'golden_apple 应注册(加物品=加一行纯数据)');
+  assert.strictEqual(it.name, '金苹果');
+  assert.strictEqual(typeof it.icon, 'string');
+  assert.ok(it.icon.length > 0, 'icon 非空(emoji 占位)');
+  assert.ok(it.food > 0, 'food 应为正数(既有形状守门同口径)');
+  assert.strictEqual(it.food, 30, 'food 名义值 30(玩家 maxHp 锚点)');
+  assert.strictEqual(it.full, true, 'full 旗标: 吃了直接回满(无饥饿系统的一次性折算)');
+  assert.ok(!it.tool && it.block == null, '非工具非放置型: 纯食物条目');
+  assert.strictEqual(stackMax('golden_apple'), 64, '可堆叠 64(材料档)');
+});
+
 test('名字抽查: TTS 播报与任务链引用的键名/中文名稳定', () => {
   const {ITEMS} = loadItems();
   assert.strictEqual(ITEMS.pick_wood.name, '木镐');

@@ -18,6 +18,7 @@
    条目形状(设计稿 §3.1):
      name 中文名 · icon emoji 占位 · block 放置型=放置成的方块 id
      · fuel 燃料热值(能烧几件) · food 回血值
+     · full 旗标=吃了直接回满血(F3 金苹果, 二期设计稿 §3)
      · tool {kind, tier, dmg, dur, speed} 工具五元组(D9 数值表)
    ------------------------------------------------------------ */
 const ITEMS = {
@@ -58,6 +59,7 @@ const ITEMS = {
   /* —— 食物(点击吃回血, 政策在模式层) —— */
   apple: {name: '苹果', icon: '🍎', food: 4}, // 树叶 4% 掉(D7)
   bread: {name: '面包', icon: '🍞', food: 8}, // 3 小麦合成(二期农田)
+  golden_apple: {name: '金苹果', icon: '🍎', food: 30, full: true}, // 8 金锭+1 苹果合成(金锭出口, 二期设计稿 §3/F3); food 名义值 30=maxHp 锚点, full 旗标=吃了回满血(本游戏无饥饿系统, MC 饥饿+吸收+再生折算成一次回满)
 
   /* —— 放置型方块物品(挖掘获得, 可放回世界) —— */
   dirt: {name: '泥土', icon: '🟫', block: 2},
