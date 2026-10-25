@@ -8,9 +8,11 @@
      pumpRemesh(每帧按预算构建, 编辑优先于环填充) / maintainRings(距离环:
      近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
       级联清单, 设计稿 block-lifecycle D3) / applySweep(世界卫生清扫, P14/D9)
-      / raycast / camera / renderer / scene。
+      / applyDaylight(昼夜场景驱动: 天色/雾/光强/日月轨道, 设计稿
+      mc-daylight-torch §2.3) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件
+      可写: main.js 推进·模式层换装) / raycast / camera / renderer / scene。
    依赖(均经全局名, 调用期解析): voxel.js(体素数据) · cascade-core.js(方块级联) · mesh-core.js(网格化
-   核心, 同一份代码在 Worker 里跑) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
+   核心, 同一份代码在 Worker 里跑) · daylight-core.js(Daylight/DAYLIGHT 昼夜纯函数) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
    THREE/DOM 惰性创建, Node 测试环境可安全加载(经 boot.test.js 冒烟)。
 ============================================================ */
 
@@ -35,7 +37,8 @@ scene.fog = new THREE.Fog(sky, VIEW.fogNear, VIEW.fogFar); // 雾即渲染边界
 // far 只到雾终点+余量 — 雾外顶点不再参与变换与深度精度(原 1000 白交)
 const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, VIEW.far);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.65); /* 具名: applyDaylight 随昼夜调强度(实体暗化) */
+scene.add(ambientLight);
 const sun = new THREE.DirectionalLight(0xfff4e0, 0.75);
 sun.position.set(60, 120, 40);
 scene.add(sun);
@@ -67,6 +70,80 @@ for (let i=0; i<3; i++) {
     sunSprites.push(s);
     scene.add(s);
   }
+}
+
+/* ---------- 昼夜场景驱动(设计稿 mc-daylight-torch §2.2/§2.3, 消费 daylight-core) ----------
+   时间本体 dayTime 与开关 dayCycleOn 是引擎级顶层绑定(跨文件可写 → let,
+   conventions §2.1 先例): main.js 主循环推进与调用, modes/adventure.js
+   从存档换装/复位。nether 的 applySky 是另一套静态换天(不置位 dayCycleOn,
+   两边互不干扰 — applyDaylight 只在 dayCycleOn 时被主循环调用)。 */
+let dayTime = 0;
+let dayCycleOn = false;
+let daylightKey = null; /* 上次已写入的颜色比较键(dayTime 量化 50 tick); null=首帧必写 */
+
+/* 日/月天体(§2.4): 像素方块贴图(太阳=暖黄方块, 月亮=灰白方块带缺口),
+   与按钮像素图标工坊同色板(HUD 时段图标在那边, 图形单一权威归应用层);
+   轨道恒以玩家为参照, 地平线下隐藏。装饰光斑 sunSprites 是另一族(固定
+   坐标不随轨道, 夜间整体收起)。 */
+function makeCelestialTexture(isSun) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 16;
+  const g = c.getContext('2d');
+  if (isSun) {
+    g.fillStyle = '#f2b93b'; /* 暖黄底 */
+    g.fillRect(2, 2, 12, 12);
+    g.fillStyle = '#ffdf6b';
+    g.fillRect(3, 3, 10, 10);
+    g.fillStyle = '#fff3b0'; /* 亮芯 */
+    g.fillRect(5, 5, 4, 4);
+  } else {
+    g.fillStyle = '#e6eaf2'; /* 灰白方块, 右上斜切缺口 */
+    const rowW = [6, 8, 10, 12, 12, 12, 12, 12, 12, 12, 12, 12];
+    for (let i = 0; i < 12; i++) g.fillRect(2, 2 + i, rowW[i], 1);
+    g.fillStyle = '#b9c2d4'; /* 底缘暗一档 */
+    g.fillRect(2, 13, 12, 1);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter; /* 近处保持像素颗粒 */
+  return tex;
+}
+function makeCelestialSprite(isSun) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map: makeCelestialTexture(isSun),
+    fog: false, transparent: true, depthWrite: false}));
+  s.scale.set(14, 14, 1);
+  s.visible = false; /* dayCycleOn 关闭的模式不显示天体(其余模式观感恒白天) */
+  scene.add(s);
+  return s;
+}
+const sunSprite = makeCelestialSprite(true);
+const moonSprite = makeCelestialSprite(false);
+
+/* 每帧昼夜驱动(§2.3 驱动表): 天色/雾/AmbientLight/sun 强度/光斑显隐按
+   颜色比较键值变化才写(量化 50 tick ≈ 2.5s, 颜色阶进无感); 日月轨道逐帧
+   连续跟随。dayCycleOn=false 时以 tick 0 口径复位白天观感(幂等, 探险
+   cleanup/switchMode 兜底调用)。 */
+function applyDaylight() {
+  const t = dayCycleOn ? dayTime : 0;
+  const key = dayCycleOn ? Math.floor(t / 50) : -1;
+  if (key !== daylightKey) {
+    daylightKey = key;
+    const dim = Daylight.skyDim(t);
+    const c = Daylight.skyColor(t);
+    scene.background.setRGB(c[0], c[1], c[2]);
+    scene.fog.color.setRGB(c[0], c[1], c[2]);
+    /* 实体变暗: 怪/Avatar/掉落物走 Lambert, 环境光随时间衰减自动生效(§4.3) */
+    ambientLight.intensity = 0.65 * Daylight.renderBright(15 - dim);
+    sun.intensity = 0.75 * (1 - dim / 11);
+    const spots = dim < 8; /* 装饰光斑: dim ≥ 8 收起(§2.3) */
+    for (const s of sunSprites) s.visible = spots;
+  }
+  /* 日月轨道(§2.4): a = dayTime/24000 × 2π; tick 0 太阳在东方地平线,
+     6000 当顶(MC 同相位); 月在太阳对侧; 地平线下(sin a < −0.15)隐藏 */
+  const a = (t / DAYLIGHT.TICKS) * Math.PI * 2;
+  sunSprite.position.set(pos.x + Math.cos(a) * 170, pos.y + Math.sin(a) * 170, pos.z + 40);
+  moonSprite.position.set(pos.x - Math.cos(a) * 170, pos.y - Math.sin(a) * 170, pos.z + 40);
+  sunSprite.visible = dayCycleOn && Math.sin(a) >= -0.15;
+  moonSprite.visible = dayCycleOn && -Math.sin(a) >= -0.15;
 }
 
 /* 材质侧面: 网格生成已剔除实心邻面且法线一律朝外, 实心/TNT 几何的

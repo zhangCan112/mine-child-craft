@@ -73,14 +73,15 @@ globalThis.document = {
 const ROOT = path.join(__dirname, '..');
 /* groundTop 桩: drops 壳段 restY 用(world.js 太重不装) */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
-for (const f of ['js/config.js', 'js/mob-registry.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js',
+for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js',
+  'js/cascade-core.js', 'js/scene-kit.js',
   'js/items-core.js',
   'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, hashRand, blockKey, world, worldCells, SceneKit,
-  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH,
+  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST,
   ITEMS, isTool, toolOf, stackMax, mkStack, breakTime,
@@ -177,6 +178,11 @@ globalThis.loadScene = (fn) => {
   api.world.clear();
   fn();
 }; /* 场景装填 seam: 清场+建场(收尾重建归渲染层, 行为断言不需要) */
+/* 昼夜 seam(world.js 未装, 昼夜 D1): dayTime/dayCycleOn 是 world.js 顶层
+   可写绑定, 模式经全局名读写; applyDaylight 只记账不观感(场景驱动归渲染层) */
+globalThis.dayTime = 0;
+globalThis.dayCycleOn = false;
+globalThis.applyDaylight = () => calls.push(['applyDaylight']);
 globalThis.SpeechKit = {speak(s) {
   spoken.push(s);
 }, cancel() {}};
@@ -609,6 +615,28 @@ test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 
   freshInit();
   assert.strictEqual(cell(90, 24, 90), 3, '重进: 玩家改动重放');
   assert.strictEqual(cell(91, 24, 91), 0, '重进: 玩家挖开的洞还在');
+});
+
+test('昼夜 D1: dayTime 随世界档往返 + dayCycleOn 进场置位/退场复位 + 坏档兜底清晨', () => {
+  mem.clear();
+  /* 夜晚时刻的世界档: 重进时间连续(否则退出重进永远白天, 火把与床失去意义) */
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: [], dayTime: 21000}));
+  freshInit();
+  assert.strictEqual(globalThis.dayTime, 21000, '重进恢复昼夜时刻');
+  assert.strictEqual(globalThis.dayCycleOn, true, '探险是唯一置位昼夜循环的模式');
+  assert.ok(calls.some((c) => c[0] === 'applyDaylight'), '进场即刷一次天色(夜晚重进当帧即夜)');
+  AdventureMode.cleanup();
+  assert.strictEqual(globalThis.dayCycleOn, false, '退场关循环(其余模式观感恒白天)');
+  const saved = JSON.parse(mem.get('adventure_world_save'));
+  assert.strictEqual(saved.dayTime, 21000, 'cleanup 落盘带 dayTime(5s 节流同一出口)');
+  /* 老档无 dayTime → 缺省清晨 0: 首个夜晚必然可经历(教学价值, 设计稿 §2.5) */
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: []}));
+  freshInit();
+  assert.strictEqual(globalThis.dayTime, 0, '老档缺省清晨 0');
+  /* 越界坏档 → decode 拒收兜底 0 */
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: [], dayTime: 99999}));
+  freshInit();
+  assert.strictEqual(globalThis.dayTime, 0, '越界坏档兜底清晨');
 });
 
 test('探险模式: 位置与血量随世界档保留 — 重进原地续命; 老档无 pos/hp 回出生点满血(不回归)', () => {

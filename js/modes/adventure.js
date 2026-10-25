@@ -44,8 +44,12 @@
      advWearWarn/advBagFullStep/advBreakToolText
    · 四份存档: 全局唯一背包存档键经背包壳 js/backpack.js 唯一持有
      (ADR 0002, 跨模式共享背包) / adventure_world_save(场景确定性重建+
-     edits 重放, build 模式同款; 另带玩家位置/朝向+血量) / adventure_quest_save({step,counts,title?})
+     edits 重放, build 模式同款; 另带玩家位置/朝向+血量+昼夜时刻 dayTime,
+     昼夜 D1: 重进时间连续, 老档缺省清晨 0) / adventure_quest_save({step,counts,title?})
      / adventure_chest_save({size, slots} 大宝箱全局账户)
+   · 昼夜(D1, mc-daylight-torch §2): 唯一置位 dayCycleOn 的模式——init
+     恢复 dayTime 并 applyDaylight, cleanup 关循环复位白天观感(幂等);
+     时间推进在 main.js 主循环; HUD 时段行(太阳/月亮两态, 不加时分)
    · 防沉迷: 与竞技场/建造/坦克/下界共享儿童时限(gated, 不新增账本)
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
      onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面
@@ -65,8 +69,9 @@
      mkChestPanel(大宝箱)与 CombatKit 玩家战斗件套(mkFighter/mkHurtAlarm/
      mkMelee/mkArrows/mkHpBar 头顶血条, C6-T3) · sync.js 的 SyncDB.slot · speech.js 的
      SpeechKit · avatar.js 的 Avatar(setItem/swing/flash) · icons 的 drawArt 与
-     button-icons 的 BTN_PIX.flame(炉口火焰贴图, 两者加载序在本文件之后,
-     运行期才取——F2)
+     button-icons 的 BTN_PIX.flame(炉口火焰贴图)与 btnImg(时段图标, 两者加载序
+     在本文件之后, 运行期才取——F2/昼夜 D1) · world.js 的 dayTime/dayCycleOn/
+     applyDaylight 与 daylight-core 的 Daylight(昼夜, 跨文件可写绑定)
    可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格/进度环/炉口火焰), Node 测试可
      安全加载(test/adventure-mode.test.js, 真引擎件经 vm 装载)
    ============================================================ */
@@ -84,16 +89,21 @@ const ADV_WORLD_KEY = 'adventure_world_save';
 const ADV_QUEST_KEY = 'adventure_quest_save';
 const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
   /* pos(含 yaw)/hp: 玩家状态随世界档; furnaces: 每炉独立炉态(F1 拍板①, 老档补空=无炉);
-     livestock: F4 死畜索引账(只存已杀——初始清单可推导, 老档补空=无死畜) */
-  defaults: {edits: [], pos: null, hp: null, furnaces: [], livestock: {dead: []}},
+     livestock: F4 死畜索引账(只存已杀——初始清单可推导, 老档补空=无死畜);
+     dayTime: 昼夜时刻(昼夜 D1, mc-daylight-torch §2.5——世界重进时间连续,
+     老档缺省 0=清晨起, 首个夜晚必然可经历, 火把与床才有教学意义) */
+  defaults: {edits: [], pos: null, hp: null, furnaces: [], livestock: {dead: []}, dayTime: 0},
   encode: (st) => ({edits: [...st.edits.entries()], pos: st.pos || null,
     hp: (typeof st.hp === 'number') ? st.hp : null,
     furnaces: advFurnaceClean(st.furnaces), /* 空炉条目清扫(存档防膨胀) */
-    livestock: st.livestock || {dead: []}}),
+    livestock: st.livestock || {dead: []},
+    dayTime: (typeof st.dayTime === 'number') ? st.dayTime : 0}),
   decode: (sv) => ({edits: new Map(sv.edits || []), pos: sv.pos || null,
     hp: (typeof sv.hp === 'number') ? sv.hp : null,
     furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1]))), /* 非法炉态整条拒收 */
-    livestock: {dead: (sv.livestock && Array.isArray(sv.livestock.dead)) ? sv.livestock.dead : []}}), /* 坏档兜底空账 */
+    livestock: {dead: (sv.livestock && Array.isArray(sv.livestock.dead)) ? sv.livestock.dead : []}, /* 坏档兜底空账 */
+    dayTime: (typeof sv.dayTime === 'number' && sv.dayTime >= 0 && sv.dayTime < DAYLIGHT.TICKS) ?
+      sv.dayTime : 0}), /* 越界/坏档兜底清晨 */
 });
 /* T15 任务进度: mkSaveSlot defaults 只补缺失字段——老档 {step:N} 自动补空 counts */
 const advQuestSlot = SyncDB.slot(ADV_QUEST_KEY, {defaults: {step: 0, counts: {}}});
@@ -122,9 +132,10 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
   advDirty = true;
 }
 function advSaveNow() {/* 全量落盘(5s 节流/退出兜底/死亡·回家即时): 世界档带上玩家位置+朝向与血量(重进保留),
-   炉态经 encode 清扫后随档(F1: 退出不退料, 炉内物品原地保留); 死畜索引账随档(F4: 牧场不重生) */
+   炉态经 encode 清扫后随档(F1: 退出不退料, 炉内物品原地保留); 死畜索引账随档(F4: 牧场不重生);
+   昼夜时刻随档(昼夜 D1: 重进时间连续, 退出重进不会永远白天) */
   advWorldSlot.save({edits: advEdits, pos: {x: pos.x, y: pos.y, z: pos.z, yaw}, hp: ADV.player.hp,
-    furnaces: advFurnaces, livestock: advLivestock});
+    furnaces: advFurnaces, livestock: advLivestock, dayTime});
   advBag.save(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
   advQuestSlot.save(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   advDirty = false;
@@ -1347,6 +1358,12 @@ const AdventureMode = mkMode({
     advEdits = advLoad.edits;
     /* 空存档时 load() 返回 defaults 深拷贝(edits 是数组, 不经 decode) → 归一化成 Map */
     if (!(advEdits instanceof Map)) advEdits = new Map(advEdits || []);
+    /* 昼夜时刻随世界档恢复(昼夜 D1, mc-daylight-torch §2.2/§2.5): decode 已兜底
+       清晨 0; 探险是唯一置位 dayCycleOn 的模式, 天色/雾/光强/日月轨道由
+       world.applyDaylight 每帧驱动(进场先刷一次, 夜晚重进当帧即夜) */
+    dayTime = advLoad.dayTime;
+    dayCycleOn = true;
+    applyDaylight();
     /* 位置与血量随世界档保留(2026-10 拍板): 老档/坏档无 pos/hp → 出生点/满血; hp 钳
        1~maxHp; 存的 pos 是退出时站的合法空腔(世界经 edits 重放同坐标系), 不必二次校验 */
     const svPos = advLoad.pos;
@@ -1454,6 +1471,10 @@ const AdventureMode = mkMode({
   cleanup() {
     /* F1 拍板①: 退世界不清炉不退料——炉态随下方 advSaveNow 落盘, 重进原样接着烧 */
     advSaveNow();
+    /* 昼夜复位(昼夜 D1, 设计稿 §2.2): 关循环 + 白天观感复位(幂等)——其余模式
+       与下界换天(applySky)都不再被每帧昼夜驱动打扰 */
+    dayCycleOn = false;
+    applyDaylight();
     Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
     Drops.clear(); /* 清掉落物+解除收集回调 */
     advArrows.clear(); /* 箭矢网格一并摘除 */
@@ -1572,6 +1593,7 @@ const AdventureMode = mkMode({
     return [
       `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
+      Daylight.isNight(dayTime) ? btnImg('moon') + ' 夜晚' : btnImg('sun') + ' 白天', /* 时段两态(昼夜 D1 §2.4): 太阳/月亮像素图, 不加时分 */
       `👾 怪物: ${alive} · ☠️ 击杀: ${ADV.killCount}`,
       `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
       `📖 任务: ${qTxt}`,
