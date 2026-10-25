@@ -159,8 +159,12 @@ _Avoid_: 弹道系统（散称）、AI 核心（它不懂战术与阵营）、�
 _Avoid_: 上层、业务层、游戏逻辑层
 
 **模式注册表（ModeRegistry）**:
-游玩模式清单的唯一权威（js/mode-registry.js，纯数据+纯函数）：一行派生模式卡/菜单页/返回/出发按钮的 DOM id、脚本路径、儿童时限成员、限额文案里的模式名。main.js 只消费不另持影子；命名约定（id ↔ cardXxx ↔ menuXxx）由 test/mode-registry.test.js 对着 index.html 逐条断言。
+游玩模式清单的唯一权威（js/mode-registry.js，纯数据+纯函数）：一行派生模式卡/菜单页/返回/出发按钮的 DOM id、脚本路径、儿童时限成员、限额文案里的模式名。main.js 只消费不另持影子——唯一存留是 MODES 手写映射：它是注册表的**仅存合法影子**（模式对象是经典 script 顶层 const，纯数据 registry 反射不到；2026-10 模式切换收口已上双道断言——boot 探针动态键集等价/每键 init 可调 + registry 测试静态源断言，漏行在 CI 当场红，而不是等孩子点新卡炸 undefined.init()）；命名约定（id ↔ cardXxx ↔ menuXxx）由 test/mode-registry.test.js 对着 index.html 逐条断言。
 _Avoid_: MODE_CARDS（历史名——三份影子表达已归一）、模式列表散称
+
+**切换清场（switchMode 兜底）**:
+模式切换的共享层单一收口（js/main.js switchMode，位于旧模式 cleanup 之后、新模式 init 之前，与 Fx.clear/clearWorld 同拍）：清 Mobs/Tank/Drops 三本共享实体账 + 复位 Avatar 手持物（PLAYER.heldItem）与 voxel.js 的 flyMode——只收共享引擎层的实体账与跨模式存活状态；模式私有物（自管投射物/面板/计时队列）仍归各模式 cleanup，兜底不是其替代（保守版各模式 cleanup 共性行保留为幂等双保险）。两个守恒契约定时序：① Tank.clear 只清实体不解除模式钩子（钩子会话级常驻，tank-range 加载期一次注册）→ 无条件清安全幂等；② Mobs/Drops 的 clear 解除会话回调、由新模式 init 重挂 → 兜底必须在新 init 之前，放之后会抹掉刚挂的回调。拍板记录见 docs/mode-switch-unification-design.md（候选 4，2026-10）。
+_Avoid_: 把兜底当模式 cleanup 的替代（私有物不清）、在兜底里解除 Tank 钩子（不存在该 API，契约禁）
 
 ### 政策与进度
 
