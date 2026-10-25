@@ -29,13 +29,19 @@
    引擎层(world/input)对本文件零依赖; 本文件属应用层
    引导链 v2: mkChestPanel — 大宝箱面板(箱子格/扩容行/背包格, 点选搬运;
      政策与存档在模式层回调, 顶格档隐藏扩容行)
+   物品提示(ItemHint, 设计定稿 docs/item-hint-design.md): 点到什么读什么 —
+     话术唯一权威在 item-hint-registry.js, 本文件只做装配: 触发点(mkHotbar
+     选槽 / 三面板格子点击 / 灰配方卡点击) + kitHint 气泡(div.hint-bubble
+     挂 body, 3.2s 淡出, 与 #toast 互不抢占) + SpeechKit 语音
    interface: mkMode · mkHotbar · mkMainAct · mkCraftPanel · mkFurnacePanel ·
               mkChestPanel · sortInv · spawn · lookName · confirmBtn
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax ·
      inventory-core 的 HOTBAR_SLOTS/costEntry · craft-core 的 RECIPES/
      canCraft/craft/FUEL/fuelUnits/smeltOf · icons 的 iconOf 与
      button-icons 的 btnImg/BTN_PIX(两者加载序在本文件之后, 但全部
-     调用发生在用户交互期, 彼时已加载完毕)
+     调用发生在用户交互期, 彼时已加载完毕) · item-hint-registry 的
+     hintForItem/hintForSlot 与 speech 的 SpeechKit(后两者经 typeof 守卫:
+     精简装载的 Node 单测可缺装, 静默无提示 — 先例 math-world 守卫)
    可测性: DOM 惰性创建(doc 可注入), Node 单测注入假 document
      (test/mode-kit.test.js); mkHpBar 的 THREE/DOM 惰性创建,
      Node 无渲染环境时 update/dispose 静默跳过(不参与行为断言)
@@ -65,6 +71,41 @@ function lookName(hit) {
   if (!hit) return '无';
   const id = getBlock(hit.x, hit.y, hit.z);
   return BLOCKS[id] ? BLOCKS[id].name : '?';
+}
+
+/* ---------- 物品提示(ItemHint): 点到什么读什么 — 装配缝 ----------
+   话术与三型槽解析的唯一权威在 item-hint-registry.js; 本段只做装配:
+   ① 解析经全局名 + typeof 守卫(精简装载的 Node 单测里注册表可能未加载
+      → 静默无提示, 先例 math-world 的 SpeechKit 守卫);
+   ② 气泡 = 单例 div.hint-bubble 挂 body(名字金色大字 + 说明白色小字,
+      3.2s 淡出; z-index 高于面板遮罩, 面板开着也可见 —— 与 #toast 两条
+      通道互不抢占: toast 承载系统消息, 气泡承载物品认知);
+   ③ 语音经 SpeechKit(自带 cancel-then-speak 与 BGM 让路, 守卫同①)。 */
+let kitHintEl = null; let kitHintDoc = null; let kitHintT = 0;
+function kitHintSlot(it) {
+  return (typeof hintForSlot === 'function') ? hintForSlot(it) : null;
+}
+function kitHintItem(id) {
+  return (typeof hintForItem === 'function') ? hintForItem(id) : null;
+}
+function kitHint(h, doc) {
+  if (!h) return;
+  if (doc && doc.body) {
+    if (!kitHintEl || kitHintDoc !== doc) {/* 单例: 换 doc(测试环境)才重建 */
+      kitHintEl = doc.createElement('div');
+      kitHintEl.className = 'hint-bubble';
+      kitHintEl.style.opacity = 0;
+      doc.body.appendChild(kitHintEl);
+      kitHintDoc = doc;
+    }
+    kitHintEl.innerHTML = '<b>' + h.name + '</b>' + (h.desc ? '<i>' + h.desc + '</i>' : '');
+    kitHintEl.style.opacity = 1;
+    clearTimeout(kitHintT);
+    kitHintT = setTimeout(()=> {
+      if (kitHintEl) kitHintEl.style.opacity = 0; /* 3.2s 淡出(CSS transition) */
+    }, 3200);
+  }
+  if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak(h.tts);
 }
 
 /* ---------- 主动作键智能分派(2026-10-24 用户拍板: 手持感知) ----------
@@ -153,6 +194,9 @@ function mkHotbar(opts) {
     if (i < 0 || i >= items.length) return;
     sel = i;
     sync();
+    /* 物品提示: 点选/数字键/滚轮统一走 select — 点到什么读什么;
+       空槽(注册表判空)静默, 同格重点 = 再读一遍(孩子主动问的天然手势) */
+    kitHint(kitHintSlot(items[i]), o.doc);
     if (o.onPick) o.onPick(i);
   }
   return {
@@ -321,12 +365,15 @@ function mkCraftPanel(opts) {
   function cellClick(i) {
     if (pickIdx >= 0 && pickIdx !== i && inv.slots[pickIdx]) {
       const from = pickIdx;
+      const moved = inv.slots[from]; /* 先取引用: onMove 后原格内容可能已换 */
       pickIdx = -1;
       if (o.onMove) o.onMove(from, i);
+      kitHint(kitHintItem(moved ? moved.id : ''), o.doc); /* 读搬走的那摞 */
       refresh(); // 搬运后整幅重画(模式层已动 inv)
       return;
     }
     pickIdx = (pickIdx === i || !inv.slots[i]) ? -1 : i; // 起手/放下/空格无效
+    if (inv.slots[i]) kitHint(kitHintItem(inv.slots[i].id), o.doc); /* 读被点的物品 */
     refresh();
   }
 
@@ -414,6 +461,13 @@ function mkCraftPanel(opts) {
     refresh(); // 数量/灰显实时重读
     return true;
   }
+  /* —— 灰卡点击(缺料/站点未解锁, 合成未执行): 读产物提示 + 尾句 ——
+      亮卡不抢话(合成成功自有模式层表扬 TTS「X做好啦」), 静默无反馈
+      对孩子是谜题, 这是纯增益通道(docs/item-hint-design.md §3.5) —— */
+  function dimCardHint(r) {
+    const h = kitHintItem(r.out.item);
+    if (h) kitHint({name: h.name, desc: h.desc, tts: h.tts + '，现在还做不了哦'}, o.doc);
+  }
   /* —— 按压状态机(D8): 长按 0.4s 进入连做(立即一发+0.3s/发), 松开/离开/
      材料尽停; 面板同时至多一个活动按压(新按压让位, 多指互斥) —— */
   let active = null; // {el, repeating, stop}
@@ -434,6 +488,7 @@ function mkCraftPanel(opts) {
         if (active && active.el === d) active.repeating = true;
         if (!craftOnce(r)) {
           stop(); // 材料尽 → 不进连做
+          dimCardHint(r); // 灰卡长按也提示(与单击同口径)
           return;
         }
         repT = setInterval(()=>{ // 0.3s/发, 缺料自动停
@@ -446,7 +501,7 @@ function mkCraftPanel(opts) {
       if (!a || a.el !== d) return;
       const rep = a.repeating;
       a.stop();
-      if (!rep) craftOnce(r);
+      if (!rep && !craftOnce(r)) dimCardHint(r); // 灰卡单击: 提示代替静默
     });
     d.addEventListener('pointerleave', ()=>{
       if (active && active.el === d) active.stop();
@@ -539,13 +594,16 @@ function mkFurnacePanel(opts) {
 
   const row = doc.createElement('div');
   row.className = 'mkp-frow';
+  let furnaceState = null; /* 最近一次 setSlots 的三槽现状: 炉槽点击时报"点到什么" */
   function fslot(label, name) {/* name = 炉槽意图键, 点击报模式层(取回/收取) */
     const wrap = doc.createElement('div');
     wrap.className = 'mkp-fslot';
     const cell = doc.createElement('div');
     cell.className = 'mkp-cell';
     cell.onclick = ()=>{
+      const st = furnaceState && furnaceState[name]; /* 先取: onSlot 后模式层会取走 */
       if (o.onSlot) o.onSlot(name);
+      kitHint(kitHintItem(st ? st.id : ''), o.doc); /* 读点击瞬间炉槽里的物品 */
       refreshGrid(); /* 取回/收取动了包: 背包格跟随重画 */
     };
     const lbl = doc.createElement('span');
@@ -620,7 +678,9 @@ function mkFurnacePanel(opts) {
     const wire = (i)=>{
       const d = cellEl(inv.slots[i]);
       d.onclick = ()=>{
+        const st = inv.slots[i]; /* 先取: onPut 后模式层会扣包 */
         if (o.onPut) o.onPut(i);
+        kitHint(kitHintItem(st ? st.id : ''), o.doc); /* 读放进炉子的那摞(空格静默) */
         refreshGrid(); /* 放入动了包: 背包格跟随重画 */
       };
       return d;
@@ -648,6 +708,7 @@ function mkFurnacePanel(opts) {
     }
   }
   function setSlots(s) { // 烧炼三槽现状(模式层每态变化时喂)
+    furnaceState = s || null; /* 炉槽点击提示的记忆面(空态置 null) */
     paint(cellIn, s && s.input);
     paint(cellFuel, s && s.fuel);
     paint(cellOut, s && s.output);
@@ -794,7 +855,9 @@ function mkChestPanel(opts) {
       const d = cellEl(ch.slots[i]);
       const idx = i;
       d.onclick = ()=>{
+        const st = ch.slots[idx]; /* 先取: onTake 后模式层会取走 */
         o.onTake(idx);
+        kitHint(kitHintItem(st ? st.id : ''), o.doc); /* 读从箱子拿起的物品 */
         refresh();
       };
       chestGrid.appendChild(d);
@@ -821,7 +884,9 @@ function mkChestPanel(opts) {
       const d = cellEl(inv.slots[i]);
       const idx = i;
       d.onclick = ()=>{
+        const st = inv.slots[idx]; /* 先取: onPut 后模式层会扣包 */
         o.onPut(idx);
+        kitHint(kitHintItem(st ? st.id : ''), o.doc); /* 读存进箱子的物品 */
         refresh();
       };
       grid.appendChild(d);
@@ -830,7 +895,9 @@ function mkChestPanel(opts) {
       const d = cellEl(inv.slots[i]);
       const idx = i;
       d.onclick = ()=>{
+        const st = inv.slots[idx]; /* 先取: onPut 后模式层会扣包 */
         o.onPut(idx);
+        kitHint(kitHintItem(st ? st.id : ''), o.doc); /* 读存进箱子的物品 */
         refresh();
       };
       hotrow.appendChild(d);

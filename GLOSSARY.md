@@ -110,6 +110,10 @@ _Avoid_: 武器表、物品系统（合称——物品核心/背包核心/合成
 引擎层纯核心（js/items-core.js，零 THREE 零 DOM，有单测）：物品注册表 ITEMS 是全游戏物品的唯一数据源（材料/放置型/食物/工具四类条目，加物品=加一行纯数据），外加四个无状态纯函数——stackMax 堆叠上限（未注册=0，即入包拒收门禁）· mkStack 造一摞（工具自带满耐久）· isTool 工具判定 · toolOf 工具五元组查询（D9 数值表）。icon 字段只是 emoji 占位，正式图标归像素图标工坊的 itemIcon/iconOf。不依赖 config——放置型的 block 字段存方块 id 数字，号段交叉校验在单测。
 _Avoid_: 物品表（散称）、把背包规则写进这里（归背包核心）
 
+**物品提示（ItemHint）**:
+全游戏「这个物品是什么」儿童提示语清单的唯一权威（js/item-hint-registry.js，应用层·清单注册表，纯数据+纯函数，有单测）：点到什么读什么（语音+文字气泡）的话术数据与解析。ITEM_HINTS 物品键→一句儿童说明（键集必须与 ITEMS 全键一致，单测守门——新增物品忘写提示即红）+ BLOCK_HINTS 方块 id→说明（覆盖建造/竞技场调色板号段 1~19）；名字唯一权威在 ITEMS/BLOCKS，本表只补说明不复述名字；tts 拼装口径（有说明=名字+'，'+说明）收在此处。出口：hintForItem(id) · hintForSlot(槽描述符)（三型槽分支 + 空槽判空——item 型 cnt()≤0=没东西可介绍）→ {name, desc, tts} | null。触发面与装配在 mode-kit（模式层零接线免费获得）：mkHotbar.select（点选/数字键/滚轮统一漏斗）+ 合成/熔炉/宝箱三面板格子点击 + 灰配方卡点击（读产物+「现在还做不了哦」尾句，替代原先的静默无反馈）→ kitHint 气泡（div.hint-bubble 挂 body，3.2s 淡出，与 #toast 两条通道互不抢占）+ SpeechKit 语音（cancel-then-speak，最新一句优先）；解析与语音均经 typeof 守卫（精简装载的 Node 单测可缺装，静默无提示）。设计定稿 docs/item-hint-design.md。
+_Avoid_: 在手播报（历史形态——探险模式仅工具仅文字的「X 在手！」toast，已随统一提示撤除）、把儿童话术写进 items-core（话术属应用层，引擎层不知道玩法的分层红线）
+
 **背包核心**:
 引擎层纯核心（js/inventory-core.js，有单测）：27 槽背包模型（槽 0~8 快捷栏直显 + 9~26 主格）与全部背包规则的单一权威——入包并堆/拒收、跨槽计数、按 cost 扣料（含任选材料）、槽级移除、点选搬运（moveSlot：空位整摞搬家/同物并堆/异种对调，工具耐久随堆不重铸——背包面板快捷栏↔主格腾位与快捷栏换序的底座）、工具耐久扣减、存档往返。耐久归零后的「消失+TTS 安抚」政策在模式层（D4/D9）。interface：mkInventory · add · count · canAfford · take · remove · moveSlot · damageTool · serialize · deserialize（附常量 HOTBAR_SLOTS/MAIN_SLOTS/INV_SLOTS）。
 _Avoid_: 物品栏、inventory 对象（那是实现）、把扣料逻辑复制进合成（canAfford/take 的语义唯一权威在这里）

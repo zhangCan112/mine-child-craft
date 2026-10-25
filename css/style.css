@@ -767,6 +767,40 @@ body.dev-on .mode-card.dev {
   white-space: nowrap;
 }
 
+/* 物品提示气泡(ItemHint, mode-kit 的 kitHint): 点到什么读什么 — 名字金色大字
+   +说明白色小字, 3.2s 淡出; z-index 高于面板遮罩 .mkp-mask(40), 面板开着也可见;
+   位于 #toast(hotbar 顶约 90px · toast 96px 起)上方不遮挡, 两条通道互不抢占 */
+.hint-bubble {
+  position: fixed;
+  left: 50%;
+  bottom: 140px;
+  transform: translateX(-50%);
+  z-index: 45;
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  max-width: 86vw;
+  padding: 8px 18px;
+  color: #fff;
+  font-size: 15px;
+  text-shadow: 0 1px 3px #000;
+  background: rgb(0 0 0 / 55%);
+  border-radius: 8px;
+  opacity: 0;
+  transition: opacity 0.3s;
+  pointer-events: none;
+}
+
+.hint-bubble b {
+  font-size: 19px;
+  color: #ffd54a;
+}
+
+.hint-bubble i {
+  font-style: normal;
+  color: rgb(255 255 255 / 92%);
+}
+
 /* 昏迷/关卡切换黑场 */
 #fade {
   position: fixed;

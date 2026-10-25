@@ -153,12 +153,9 @@ function advSyncHeldVisual() {/* 手持观感 = 选中槽内容(「手持与物�
   const s = advInv.slots[advHb.sel];
   Avatar.setItem(s ? s.id : null);
 }
-function advHeldChanged(i) {/* 选中槽: 观感经 advSyncHeldVisual 跟随选中; 工具加播报 */
-  const s = advInv.slots[i];
-  const it = s ? ITEMS[s.id] : null;
-  if (it && it.tool) {
-    showToast(it.name + ' 在手！');
-  }
+function advHeldChanged(i) {/* 选中槽: 观感经 advSyncHeldVisual 跟随选中;
+  「X在手」播报已随 ItemHint 统一提示撤除(mkHotbar.select 对全部槽型读提示,
+  docs/item-hint-design.md §4) */
   advSyncHeldVisual();
   advHb.refresh();
   advTouchMainSync();

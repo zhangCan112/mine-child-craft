@@ -100,6 +100,11 @@ globalThis.iconOf = (id) => (id === 'planks' ? 'data:image/png;base64,AA' : '�
 globalThis.btnImg = (n) => '<img class="bi" data-btn="' + n + '" alt="" src="data:image/png;base64,BB">';
 globalThis.toolOf = (id) => (/^(pick|axe|sword|shovel)_/.test(id) ? {kind: 'pick', tier: 1, dur: 120} : null);
 globalThis.HOTBAR_SLOTS = 9; // inventory-core 常量桩
+
+/* 物品提示(item-hint-registry.js)引用的自由变量 → 全局桩: 缺省 null = 静默
+   (镜像 mode-kit 的 typeof 守卫缺装口径), 提示行为断言用例内临时覆写后还原 */
+globalThis.hintForSlot = () => null;
+globalThis.hintForItem = () => null;
 let pausedN = 0;
 globalThis.uiPause = ()=>{
   pausedN++;
@@ -788,6 +793,63 @@ test('confirmBtn: 首点武装, 再点执行, 超时还原', (t) => {
   assert.strictEqual(btn.textContent, '重置 ↺');
   btn.onclick(); btn.onclick(); // 超时后需重新武装两步
   assert.strictEqual(done, 2);
+});
+
+/* ============ 物品提示(ItemHint): 点到什么读什么(docs/item-hint-design.md) ============ */
+
+test('物品提示: hotbar 点选 → 气泡显名字+说明; 空槽静默不改写气泡', (t) => {
+  t.mock.timers.enable({apis: ['setTimeout']}); /* 气泡 3.2s 淡出走 mock */
+  const doc = mkDoc();
+  const mount = fakeEl();
+  globalThis.hintForSlot = (it) => (!it || it.item !== 'planks' ? null :
+      {name: '木板', desc: '原木锯成的板子', tts: '木板，原木锯成的板子'});
+  try {
+    const hb = mkHotbar({doc, mount,
+      items: [{item: 'planks', cnt: () => 3}, {item: 'planks', cnt: () => 0}]});
+    hb.show();
+    hb.select(0); /* 有货槽: 读提示 */
+    const bubble = collect(doc.body, 'hint-bubble')[0];
+    assert.ok(bubble, '气泡已建(挂 body)');
+    assert.ok(String(bubble.innerHTML).includes('木板'), '名字');
+    assert.ok(String(bubble.innerHTML).includes('原木锯成的板子'), '说明');
+    assert.strictEqual(bubble.style.opacity, 1);
+    hb.select(1); /* 空槽(cnt≤0): kitHint(null) 早退, 气泡内容不动 */
+    assert.strictEqual(collect(doc.body, 'hint-bubble')[0], bubble, '气泡单例不重建');
+    assert.ok(String(bubble.innerHTML).includes('原木锯成的板子'), '空槽不改写气泡');
+  } finally {
+    globalThis.hintForSlot = () => null;
+  }
+});
+
+test('物品提示: 背包格点击读被点物品; 灰卡单击 → 不合成且提示代替静默', (t) => {
+  t.mock.timers.enable({apis: ['setTimeout']});
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'planks', n: 12}, ...Array(17).fill(null)]};
+  globalThis.hintForItem = (id) => (id === 'planks' ?
+      {name: '木板', desc: '原木锯成的板子', tts: '木板，原木锯成的板子'} :
+      (id === 'pick_wood' ? {name: '木镐', desc: '能挖石头的木头镐', tts: '木镐，能挖石头的木头镐'} : null));
+  craftOk = false; /* 转缺料: 配方卡全灰 */
+  craftN = 0;
+  try {
+    const panel = mkCraftPanel({doc, inv, recipes: [
+      R_PLANKS, {id: 'pick_wood', out: {item: 'pick_wood', n: 1}, cost: {planks: 3, stick: 2}, station: 'hand'},
+    ], onCraft() {}});
+    panel.show();
+    collect(panel.root, 'mkp-cell')[0].onclick(); /* 槽 9 起手: 读木板 */
+    let bubble = collect(doc.body, 'hint-bubble')[0];
+    assert.ok(String(bubble.innerHTML).includes('原木锯成的板子'), '背包格点击出提示');
+    const card = collect(panel.root, 'mkp-card')[1]; /* 木镐卡(灰) */
+    card._ev.pointerdown({preventDefault() {}});
+    card._ev.pointerup(); /* 灰卡单击: 不执行合成 + 读产物提示 */
+    assert.strictEqual(craftN, 0, '灰卡不动包');
+    bubble = collect(doc.body, 'hint-bubble')[0];
+    assert.ok(String(bubble.innerHTML).includes('木镐'), '灰卡点击读产物提示(名字)');
+    assert.ok(String(bubble.innerHTML).includes('能挖石头的木头镐'), '灰卡点击读产物提示(说明)');
+    panel.remove();
+  } finally {
+    globalThis.hintForItem = () => null;
+    craftOk = true;
+  }
 });
 
 /* mkHpBar 断言已随件迁 test/combat-kit.test.js(C6-T3) */
