@@ -61,6 +61,18 @@ T1 骨架贯通+dev可见性 ──▶ T2 材料台+守门测试 ──▶ T3 �
 
 ---
 
+## T4 · 共享熔炉 kit 抽取（spec 升级触发器已燃）
+
+状态：`open` · 来源：spec「实现决策·升级触发器」——若熔炉接线与探险的镜像超约 80 行、或炉行为改动需要两处同步，立即开票。
+
+**触发事实**：T3 落地后 `js/modes/showroom.js` 熔炉段与 `js/modes/adventure.js` 熔炉段的镜像接线约 134 代码行（T3 段函数体，不含 mkMode 钩子/测试挂点），超约 80 行阈值。烧炼状态机本身已同源（adventure-core 纯函数），重复的是模式层装配（面板开合/取产物/自动放料/逐炉推进喂显/退炉）。
+
+**做什么**：两个真实消费者（adventure/showroom）共同塑形接口，把装配段抽成共享熔炉 kit（归 mode-kit 或独立 -kit 文件，按 conventions §1.10 升格判据定）；行为零变化——两边既有测试（adventure-mode.test / showroom-mode.test）与 adventure-core.test 全程守门。
+
+**验收**：两模式熔炉行为测试零改动全绿；镜像重复段归零；接口注释（==== 五要素）落在 kit 侧。
+
+---
+
 ## 完工（非票据）
 
 - code-review skill 过集成分支，问题一次性修复

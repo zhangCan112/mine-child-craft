@@ -12,7 +12,11 @@
      堆叠上限 · 全 id ∈ 物品核心注册表(vm 装真件校验) · 覆盖 SMELTS 全原料/
      全产物 + 代表燃料(煤/木板/木棍);
    ④ 进场预装与快捷栏: init 照表重铸内存背包满材料(每次进场干净初始态) +
-     mkHotbar 快捷栏 9 槽镜像背包前 9 槽, 数字键/滚轮/点选全自动。 */
+     mkHotbar 快捷栏 9 槽镜像背包前 9 槽, 数字键/滚轮/点选全自动。
+   票据 T3 的行为线(熔炉展品, 只测编排不重测纯函数——烧炼单步/退炉在
+   adventure-core.test 已有): 装场预置熔炉+出生圈内 · 走近点击开面板/远距拒 ·
+   自动放料经背包核心扣加 · update 逐炉推进+面板开着喂显 · 关面板烧炼照跑 ·
+   cleanup 三笔全额退包清炉态。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -76,14 +80,26 @@ globalThis.document = {
   getElementById: (id) => (elCache[id] = elCache[id] || fakeEl()),
 };
 
-/* ---------- 真引擎件: 物品核心+背包核心+合成核心(SMELTS), 共享一个 vm 词法环境 ---------- */
+/* ---------- 真引擎件: 体素底座+四纯核心(vm), 共享一个 vm 词法环境 ----------
+   T3 起 vm 装真体素底座(config/voxel/scene-kit, adventure-mode.test 同款): 装场
+   预置熔炉要对着真 fill/getBlock 断言, fake SceneKit 会把「方块真的在场」变成
+   同义反复。烧炼同源纯函数走 require(adventure-core, adventure-mode.test 同款
+   — Node realm 创建的对象与断言字面量同原型, vm realm 会因原型不同而
+   deepStrictEqual 误红); 其全局名依赖(getBlock/fuelUnits…)在调用期经
+   globalThis 解析, 已由 vm 件的 Object.assign 就位 */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
-for (const f of ['js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js']) {
+for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/items-core.js',
+  'js/inventory-core.js', 'js/craft-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({ITEMS, stackMax, isTool, toolOf, mkInventory, add, count, remove,
-  HOTBAR_SLOTS, INV_SLOTS, SMELTS, FUEL, fuelUnits, smeltOf})`, eng);
+  take, HOTBAR_SLOTS, INV_SLOTS, SMELTS, FUEL, fuelUnits, smeltOf,
+  BLOCKS, B_FURNACE, B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER,
+  B_CRAFT, B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_TNT,
+  getBlock, setBlockRaw, blockKey, SceneKit})`, eng);
 Object.assign(globalThis, api); /* 模式文件经全局名消费这些真件(经典 script 词法环境) */
+const AdventureCore = require('../js/adventure-core.js');
+Object.assign(globalThis, AdventureCore); /* advSmeltStep/advFurnaceRefund/advNearStation/ADV_* */
 
 /* ---------- 假应用层(调用期解析的全局名, nether-mode.test 先例) ---------- */
 const calls = [];
@@ -91,8 +107,9 @@ globalThis.loadScene = (fn) => {
   calls.push(['loadScene']);
   fn();
 }; /* 场景装填 seam: 清场+建场(收尾重建归渲染层, 行为断言不需要) */
-globalThis.SceneKit = {fill() {}};
 globalThis.showToast = (s) => calls.push(['toast', s]);
+const dropCalls = []; /* 满包余量掉落记账(退炉零损耗口径的旁证) */
+globalThis.Drops = {spawn: (id, n) => dropCalls.push([id, n])}; /* 掉落物库 stub: 体验馆只消费 spawn */
 globalThis.switchMode = (id) => calls.push(['switchMode', id]);
 globalThis.showPage = (id) => calls.push(['showPage', id]);
 globalThis.overlay = fakeEl();
@@ -101,6 +118,7 @@ globalThis.pos = {x: 64.5, y: 13, z: 64.5, set() {}};
 globalThis.vel = {set() {}};
 globalThis.touchPlaying = false; /* input.js 顶层绑定, showroom init 写"进行中"态(跨文件写先例) */
 globalThis.iconOf = (id) => (globalThis.ITEMS[id] && globalThis.ITEMS[id].icon) || ''; /* 像素图标工坊未加载: emoji 兜底 */
+globalThis.btnImg = () => ''; /* 按钮像素图标工坊未加载: 空串=面板 chrome 无图(adventure-mode.test 同款) */
 globalThis.setTouchActions = () => {}; /* 触屏按钮接线(input.js, mkMode init 必经; 体验馆无按钮 → null 照收) */
 
 const ModeKit = require('../js/mode-kit.js');
@@ -255,4 +273,146 @@ test('体验馆: 材料快捷栏 — mkHotbar 9 槽镜像背包前 9 槽, 数字
   assert.strictEqual(hb.sel, api.HOTBAR_SLOTS - 1, '滚轮在槽 0 上继续上滚 → 环回末槽');
   /* 进场可见(T1 默认隐藏, 装满材料后现身) */
   assert.strictEqual(elCache['hotbar'].style.display, 'flex', '进场快捷栏可见');
+});
+
+/* ============ ⑤ 熔炉展品(票据 T3) ============ */
+
+/* 装场预置位(外部可见规格): 出生点世界中心(64.5, 64.5), yaw=0 面朝 -Z(camera-rig
+   口径), 熔炉放在面前 2 格的 (64, 13, 62) — 站立面 y=13(草地顶层 12 + 1),
+   炉中心 (64.5, 62.5) 距出生点水平 2 格, 落在探险同款 4 格解锁圈内(spec 故事 4/7) */
+const SR_FURNACE = {x: 64, y: 13, z: 62};
+
+test('体验馆: 装场预置熔炉 — 中心方块在场(真件 getBlock) + 出生点落在 4 格解锁圈内', () => {
+  freshEnter(); /* init → loadScene → showroomBuild: 真 SceneKit.fill 写真体素 */
+  assert.strictEqual(api.getBlock(SR_FURNACE.x, SR_FURNACE.y, SR_FURNACE.z), api.B_FURNACE,
+      '场中心预置熔炉方块(B_FURNACE, 装场即在场不靠玩家放置)');
+  const d = Math.hypot(SR_FURNACE.x + 0.5 - 64.5, SR_FURNACE.z + 0.5 - 64.5);
+  assert.ok(d <= 4, '炉中心距出生点水平 ' + d.toFixed(2) + ' 格 ≤ 4(零走动立刻开测)');
+});
+
+test('体验馆: 走近点击熔炉开面板(左右键同达) · 太远 toast 拒不误开 · ✕ 统一出口收面板', () => {
+  freshEnter();
+  const hit = {x: SR_FURNACE.x, y: SR_FURNACE.y, z: SR_FURNACE.z}; /* 准星/指尖命中炉方块 */
+  /* 远距拒: 玩家站到圈外(水平距离 8 > 4), 点击只提示不开(探险 advUseStation 同款口径) */
+  const sx = pos.x; const sz = pos.z;
+  pos.x = 64.5; pos.z = 72.5;
+  ShowroomMode.onMouse(2, hit);
+  assert.ok(!ShowroomMode.sr.isOpen(), '圈外点击不开面板');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('走近')),
+      '圈外点击给走近提示(toast)');
+  /* 走近开: 回到出生点(圈内 2 格), 左键/右键都达使用交互(探险同款) */
+  pos.x = sx; pos.z = sz;
+  ShowroomMode.onMouse(2, hit);
+  assert.ok(ShowroomMode.sr.isOpen(), '圈内轻点(右键口径)开熔炉面板');
+  ShowroomMode.sr.panel.close(); /* ✕/Esc 统一出口: hide + onClose → 模式层收状态 */
+  assert.ok(!ShowroomMode.sr.isOpen(), '✕ 统一出口后面板状态同步收起');
+  /* 左键同达(桌面 mousedown 口径) */
+  ShowroomMode.onMouse(0, hit);
+  assert.ok(ShowroomMode.sr.isOpen(), '圈内左键同样开面板');
+  ShowroomMode.sr.panel.close();
+});
+
+test('体验馆: 自动放入 — 矿石首现全量入炉 + 最省燃料凑热值, 扣加全经背包核心', () => {
+  freshEnter();
+  const hit = {x: SR_FURNACE.x, y: SR_FURNACE.y, z: SR_FURNACE.z};
+  ShowroomMode.onMouse(2, hit); /* 开面板(自动放料是面板意图出口) */
+  ShowroomMode.sr.autoFill(); /* 无参 = 面板 autoPlan 自算真 plan(读真包) */
+  const key = api.blockKey(SR_FURNACE.x, SR_FURNACE.y, SR_FURNACE.z);
+  const f = ShowroomMode.sr.furnaces.get(key);
+  /* 独立推演: 材料表首现矿种 = iron_ore×16(SHOWROOM_STOCK 第一行) → 全量入炉;
+     热值缺口 16 件, FUEL 择优序首是煤(热值 8 件/块) → ceil(16/8)=2 块煤 */
+  assert.deepStrictEqual(f.input, {id: 'iron_ore', n: 16}, '待烧料 = 首现矿种全量');
+  assert.deepStrictEqual(f.fuel, {id: 'coal', n: 2}, '燃料 = 最省凑料(煤 2 块覆盖 16 件)');
+  const inv = ShowroomMode.getInv();
+  assert.strictEqual(api.count(inv, 'iron_ore'), 0, '背包铁矿全额扣减(经 take)');
+  assert.strictEqual(api.count(inv, 'coal'), 14, '背包煤扣 2 块(16−2)');
+  assert.strictEqual(f.out, null, '产物槽尚空(2.5s/件还没烧)');
+  assert.strictEqual(f.heat, 0, '放料不点火: 热值在首次烧炼步进才折算(advSmeltStep 语义, 与探险一致)');
+});
+
+/* 面板 DOM 面读喂显结果: 递归找类名(进度/燃料填充条), 只断言「被喂过」
+   (钳制/灰显等渲染语义归 mode-kit.test, 这里不重测) */
+function findByClass(el, cls) {
+  if (String(el.className || '').split(/\s+/).includes(cls)) return el;
+  for (const c of el.children || []) {
+    const r = findByClass(c, cls);
+    if (r) return r;
+  }
+  return null;
+}
+
+test('体验馆: update 逐炉推进 — 2.5s/件出锭 · 面板开着喂进度条 · 关面板烧炼照跑(进度保留)', () => {
+  freshEnter();
+  const hit = {x: SR_FURNACE.x, y: SR_FURNACE.y, z: SR_FURNACE.z};
+  ShowroomMode.onMouse(2, hit);
+  ShowroomMode.sr.autoFill(); /* iron_ore×16 + coal×2 入炉 */
+  const key = api.blockKey(SR_FURNACE.x, SR_FURNACE.y, SR_FURNACE.z);
+  /* 第一步 2.6s: 首步折算煤热值 8 件 → 烧 1 件出锭, 余 0.1s 结转下一件;
+     heat = 8 − 2.6/2.5 = 6.96; 燃料首步耗 1 块(剩 1) */
+  ShowroomMode.update(2.6);
+  let f = ShowroomMode.sr.furnaces.get(key);
+  assert.deepStrictEqual(f.out, {id: 'iron_ingot', n: 1}, '烧满 2.5s 出 1 锭(真实速率口径)');
+  assert.deepStrictEqual(f.input, {id: 'iron_ore', n: 15}, '待烧料 −1');
+  assert.deepStrictEqual(f.fuel, {id: 'coal', n: 1}, '煤首步折算耗 1 块');
+  assert.ok(Math.abs(f.heat - 6.96) < 1e-9, '热值余 6.96(8−1.04, 不白烧)');
+  assert.ok(Math.abs(f.prog - 0.1) < 1e-9, '余 0.1s 结转下一件(半件不丢)');
+  /* 面板开着 → 进度条被喂过(0.1/2.5 = 4%) */
+  const fill = findByClass(ShowroomMode.sr.panel.root, 'mkp-pfill');
+  assert.ok(fill, '面板 DOM 有进度填充条');
+  assert.strictEqual(fill.style.width, '4%', '进度条喂显 4%(0.1/2.5)');
+  /* 关面板: 顺带取走产物入包(探险同款即时回报), 烧炼照跑(面板只是回显) */
+  ShowroomMode.sr.panel.close();
+  assert.ok(!ShowroomMode.sr.isOpen(), '面板收起');
+  f = ShowroomMode.sr.furnaces.get(key);
+  assert.strictEqual(f.out, null, '关面板取走产物(炉内不积压)');
+  assert.strictEqual(api.count(ShowroomMode.getInv(), 'iron_ingot'), 5, '产物入包(对照样 4 + 新锭 1)');
+  ShowroomMode.update(2.5);
+  f = ShowroomMode.sr.furnaces.get(key);
+  assert.deepStrictEqual(f.out, {id: 'iron_ingot', n: 1}, '面板关着照烧: 结转的 0.1s+2.5s 再出 1 锭');
+  assert.deepStrictEqual(f.input, {id: 'iron_ore', n: 14}, '待烧料继续 −1');
+});
+
+test('体验馆: 边界口径与探险一致 — 无热无料暂停进度保留(不白烧) · 产物槽异 id 占满停炉待取', () => {
+  freshEnter();
+  const key = api.blockKey(SR_FURNACE.x, SR_FURNACE.y, SR_FURNACE.z);
+  /* 断档: 半件在手 + 炉冷无燃料 → 暂停, prog/heat 原样保留(spec 故事 11) */
+  ShowroomMode.sr.furnaces.set(key, {input: {id: 'iron_ore', n: 2}, fuel: null,
+    out: null, heat: 0, prog: 1.2});
+  ShowroomMode.update(0.1);
+  let f = ShowroomMode.sr.furnaces.get(key);
+  assert.ok(Math.abs(f.prog - 1.2) < 1e-9, '暂停期进度原样(1.2s 不清零不白烧)');
+  assert.deepStrictEqual(f.input, {id: 'iron_ore', n: 2}, '暂停不耗料');
+  /* 补燃料后从原进度续烧(断档续烧边界, 复现的就是探险行为) */
+  f.fuel = {id: 'coal', n: 1};
+  ShowroomMode.update(0.5);
+  f = ShowroomMode.sr.furnaces.get(key);
+  assert.ok(f.prog > 1.2, '复燃后续烧(进度接上, prog=' + f.prog.toFixed(2) + ')');
+  /* 异 id 占满: 产物槽躺着铁锭, 金矿烧满也不出锭(MC 阻塞口径, spec 故事 10) */
+  ShowroomMode.sr.furnaces.set(key, {input: {id: 'gold_ore', n: 1}, fuel: {id: 'coal', n: 1},
+    out: {id: 'iron_ingot', n: 1}, heat: 4, prog: 0});
+  ShowroomMode.update(3);
+  f = ShowroomMode.sr.furnaces.get(key);
+  assert.deepStrictEqual(f.input, {id: 'gold_ore', n: 1}, '产物槽被异 id 占满: 停炉待取, 金矿不耗');
+  assert.deepStrictEqual(f.out, {id: 'iron_ingot', n: 1}, '产物槽不被顶掉');
+});
+
+test('体验馆: 退出收场 — cleanup 三笔全额退包(零损耗) + 炉态清空 + 再进场干净初始态', () => {
+  freshEnter();
+  const hit = {x: SR_FURNACE.x, y: SR_FURNACE.y, z: SR_FURNACE.z};
+  ShowroomMode.onMouse(2, hit);
+  ShowroomMode.sr.autoFill(); /* iron_ore×16 + coal×2 入炉 */
+  ShowroomMode.update(2.6); /* 烧 1 锭: 炉内 input 15 / fuel 1 / out 1 */
+  ShowroomMode.sr.panel.close(); /* 产物即时入包: 包 iron_ingot 5, 炉 out 清空 */
+  ShowroomMode.update(2.5); /* 再烧 1 锭在炉: input 14 / fuel 1 / out 1 */
+  ShowroomMode.cleanup(); /* 退出: 三笔(14 铁 + 1 煤 + 1 锭)全额退包 */
+  assert.strictEqual(api.count(ShowroomMode.getInv(), 'iron_ore'), 14, '待烧料退回背包');
+  assert.strictEqual(api.count(ShowroomMode.getInv(), 'coal'), 15, '燃料退回背包(14 + 炉内 1)');
+  assert.strictEqual(api.count(ShowroomMode.getInv(), 'iron_ingot'), 6, '产物退回背包(5 + 炉内 1)');
+  assert.strictEqual(ShowroomMode.sr.furnaces.size, 0, '炉态 Map 清空(纯内存, 退出即清)');
+  assert.ok(!ShowroomMode.sr.isOpen(), '面板状态收起');
+  assert.strictEqual(dropCalls.length, 0, '退包装得下: 零余量掉落(满包才 Drops.spawn)');
+  /* 再进场: 干净初始态(炉态/背包照表重铸, spec 故事 17) */
+  freshEnter();
+  assert.strictEqual(ShowroomMode.sr.furnaces.size, 0, '重进场炉态干净');
+  assert.strictEqual(api.count(ShowroomMode.getInv(), 'iron_ore'), 16, '背包照表重铸');
 });
