@@ -7,9 +7,11 @@
    adventure→adventure-core)。一期: 常数表(几何/战力/档位/克制/选块)与
    叶子纯函数(角度插值/移速修正/星级/翻盘系数/苦力怕合体探测);
    二期: 参数化即纯段——配平三件套/晋升阈值公式/击杀信用判定半/
-   队伍血量占比/编队池构造与抽取/地形段; 技能 tick 族/索敌后续票迁入。
-   壳(战斗编排/THREE·DOM 观感/技能 tick/索敌权重/配平 UI 与状态)留在
-   js/modes/arena.js, 在本文件之后加载并经共享词法环境消费。
+   队伍血量占比/编队池构造与抽取/地形段; 三期: 快照→意图段——索敌
+   权重/协同计数/分裂决策/计时递减/判负判定/节奏/克制判定(输入快照→
+   输出意图, core 不碰 Mobs 实例与观感); 技能 tick 族其余件后续票迁入。
+   壳(战斗编排/THREE·DOM 观感/技能 tick 观感半/索敌权重外的移动/配平
+   UI 与状态)留在 js/modes/arena.js, 在本文件之后加载并经共享词法环境消费。
    interface: 常数表 ARENA(几何)/HOTBAR(选块物品栏)/ARENA_POWER(编队
      配平战力)/ID_GRASS..ID_LAMP(地形方块别名)/TIER_MULT·TIER_NAME
      (晋升档位)/COUNTER(克制关系)/FLY_KNOCK_R·FLY_ORBIT_R(飞行边界
@@ -21,7 +23,11 @@
      状态留壳)/promoThresholds(晋升杀数阈值)/killCredit(击杀信用判定半,
      观感半留壳)/teamHpFrac(队伍总血量占比)/mixPool·mixAvgPower·
      mixBuckets·pickMix(编队池构造与抽取, 核心零 Mobs 依赖)/floorBlock·
-     wallBlock·generate(地形段)
+     wallBlock·generate(地形段) · 三期快照→意图段 retarget(索敌权重, 入参
+     候选快照+rand 注入)/raidTick(袭击协同计数与 dmgMult)/splitReq(分裂
+     决策半, 返回延迟队列条目)/decayTimers(13 计时字段递减)/battleEnd
+     (判负判定半)/volleyDiv·skeletonHeavySwing(骷髅节奏两件)/ghostChill
+     (阴风判定) — 统一意图形状: 返回纯数据, 壳负责落回字段与观感
    依赖(全局名): WORLD_W/WORLD_D(config.js)加载期求 ARENA 几何 ·
      hashRand/setBlockRaw(voxel.js)与 SceneKit(scene-kit.js)在地形段
      调用期解析(加载序均在前, 见 index.html; Node 测试先载这些再
@@ -245,11 +251,121 @@ const ArenaCore = (() => {
     return Math.min(1, hp/initHp);
   }
 
+  /* ---------- 三期: 快照→意图段(壳建快照/落意图, core 不碰 Mobs 实例与观感) ---------- */
+
+  /* 索敌(距离 × 战术权重): snap={retargetT, target(现目标的 {dead,gone} 快照或
+     null), targetId, id, team, type, fly, ranged, x, z}; candidates=全体现望
+     {id,team,type,mfam,dead,gone,hp,maxHp,fly,ranged,x,z}(壳每帧收集一次
+     共用, collectFusing 同款避免逐怪建表)。权重序: 确定性个体偏好(hashRand
+     0.75~1.25) · 目标粘性 ×0.75 · 收割残血(<30%) ×0.55 · 克制 ×0.65/被克
+     ×1.5 · 地面近战摸不到飞行 ×4 · 龙的猎杀偏好 ×0.6/×1.3 — 权重全玩法
+     概念, 归应用层 core。返回 {retargetT}(未到重索敌窗, 目标不变)或
+     {targetId, retargetT}(重索敌; targetId=null=全场无候选清空目标)。
+     rand 注入(缺省 Math.random, 喂重索敌节拍抖动)。 */
+  function retarget(snap, candidates, dt, rand) {
+    const r = rand || Math.random;
+    const t = snap.retargetT - dt;
+    const tg = snap.target;
+    if (tg && !tg.dead && !tg.gone && t > 0) return {retargetT: t};
+    let bestId = null; let bd = 1e9;
+    for (const c of candidates) {
+      if (c.id === snap.id || c.dead || c.gone || c.team === snap.team) continue;
+      let w = 0.75 + hashRand(snap.id*97 + c.id*13, c.id*29 + snap.id*7)*0.5;
+      if (snap.targetId != null && c.id === snap.targetId) w *= 0.75; // 目标粘性:不频繁切换
+      if (c.hp < c.maxHp*0.3) w *= 0.55; // 优先收割残血
+      if (COUNTER[snap.type] === c.type) w *= 0.65; // 优先进攻克制对象
+      else if (COUNTER[c.type] === snap.type) w *= 1.5; // 回避克制自己的对手
+      if (c.fly && !snap.fly && !snap.ranged) w *= 4; // 地面近战摸不到飞行
+      if (snap.fly && !c.fly) {
+        if (!c.ranged) w *= 0.6; // 龙:优先收割无法还手的近战
+        else w *= 1.3; // 龙:优先清除远程威胁
+      }
+      const d = ((c.x-snap.x)*(c.x-snap.x) + (c.z-snap.z)*(c.z-snap.z)) * w;
+      if (d < bd) {
+        bd = d; bestId = c.id;
+      }
+    }
+    return {targetId: bestId, retargetT: 0.5 + r()*0.4};
+  }
+
+  /* 灾厄帮·袭击协同(家传): 每 0.4s 重数 10 格内同族同阵营, 每多一只 +6% 伤害
+     (至多 4 只)。snap={raidT, team, level, x, z}, roster=候选快照(含 mfam,
+     壳每帧收集共用)。未到拍返回 {raidT}; 到拍返回 {raidT: 0.4, dmgMult} —
+     晋升系数 × 协同加成(levelUp 直写下一拍自愈, 语义一致)。已知缺陷(照搬
+     不修, 修复归后续票): TIER_MULT 只有 2/3 档, level=1 到拍会 TypeError */
+  function raidTick(snap, roster, dt) {
+    const t = snap.raidT - dt;
+    if (t > 0) return {raidT: t};
+    let n = 0;
+    for (const a of roster) {
+      if (a.mfam === 'illager' && a.team === snap.team && !a.dead && !a.gone &&
+         Math.hypot(a.x-snap.x, a.z-snap.z) < 10) n++;
+    }
+    return {raidT: 0.4, dmgMult: TIER_MULT[snap.level].dmg * (1 + 0.06*Math.min(4, n-1))};
+  }
+
+  /* 软软族·分裂决策半(家传亡语): snap={splitChild, fighting, team, type, x,
+     z, k2, k3}, aliveCount=当前存活数。返回 spawnReq(延迟队列条目形状, 壳
+     push 进 pendingSplits)或 null — 小只不再分裂 / 未开战 / 团战 600 只后
+     停(防爆仓)。落场(flushSplits)留壳 */
+  function splitReq(snap, aliveCount) {
+    if (snap.splitChild || !snap.fighting || aliveCount > 600) return null;
+    return {team: snap.team, type: snap.type, x: snap.x, z: snap.z, k2: snap.k2, k3: snap.k3};
+  }
+
+  /* 计时递减半: 13 个冷却/效果计时字段各减 dt(已 ≤0 的不动, 可过零负 —
+     门控都在消费侧的 >0 判定, CombatCore.tickCadence 同风格)。字段族谱:
+     slamCd/pounceCd 跃起砸地/扑袭 · rageBuffT 僵尸一家·群体冲锋 ·
+     burstCd/burstT 虫虫族·疾爬突进 · chargeCd/chargeT 猪猪一家·蛮冲 ·
+     tpCd 末影人·颤栗瞬移(个体特化) · stoneT/stoneCd 守卫组·磐石 ·
+     slowT 鬼一族·阴风减速 · invulnT 晋升金身 · rockCd 王者巨石。s 为
+     这些字段的只读快照视图(壳直接传 m, 本函数只读不写), 返回新对象由
+     壳落回; 光环呼吸动画(tierNode)留壳 */
+  function decayTimers(s, dt) {
+    const o = {};
+    for (const k of ['slamCd', 'pounceCd', 'rageBuffT', 'burstCd', 'burstT', 'chargeCd',
+      'chargeT', 'tpCd', 'stoneT', 'stoneCd', 'slowT', 'invulnT', 'rockCd']) {
+      o[k] = s[k] > 0 ? s[k] - dt : s[k];
+    }
+    return o;
+  }
+
+  /* 判负判定半: aAlive/bAlive=两侧是否仍有存活, queueLen=部署队列余量
+     (未到场≠全灭) — 返回胜方 'A'/'B'、'draw'(两败俱伤)或 null(继续打);
+     battleState 门与胜负播报留壳 */
+  function battleEnd(aAlive, bAlive, queueLen) {
+    if (queueLen > 0) return null;
+    if (aAlive && bAlive) return null;
+    if (aAlive) return 'A';
+    if (bAlive) return 'B';
+    return 'draw';
+  }
+
+  /* 强力箭节奏: 除数 2/3 — 骷髅一家基础即每 2 箭(D7 族版更密), 其余族
+     精英起加密; 发射观感(shootArrow)留壳 */
+  function volleyDiv(skeletonLine, level) {
+    return (skeletonLine || level >= 2) ? 2 : 3;
+  }
+
+  /* 骷髅一家家传的近战表达(凋灵骷髅·节奏重斩): 按挥击计数取重斩拍
+     (精英每 2 击, 基础每 3 击); 伤害/击退加成与挥击观感留壳 */
+  function skeletonHeavySwing(meleeCnt, level) {
+    return meleeCnt % (level >= 2 ? 2 : 3) === 0;
+  }
+
+  /* 鬼一族·阴风(家传): 攻击方主族是鬼 → 返回减速时长, 否则 0 — 受击者写
+     slowT=max(现值, 时长) 与 Fx 观感留壳 */
+  function ghostChill(srcFam) {
+    return srcFam === 'ghost' ? 1.5 : 0;
+  }
+
   return {ARENA, HOTBAR, ARENA_POWER, ID_GRASS, ID_STONE, ID_COBBLE, ID_BRICK, ID_MOSS,
     ID_BLUEWOOL, ID_REDWOOL, ID_QUARTZ, ID_GLASS, ID_LAMP, TIER_MULT, TIER_NAME, COUNTER,
     FLY_KNOCK_R, FLY_ORBIT_R, MAX_MOBS, angleLerp, mobSpeed, tierStars, tierHot,
     comebackMult, fusingCreeperNear,
     floorBlock, wallBlock, generate, mixPool, mixAvgPower, mixBuckets, pickMix,
-    unitPower, teamPower, balanceTeams, promoThresholds, killCredit, teamHpFrac};
+    unitPower, teamPower, balanceTeams, promoThresholds, killCredit, teamHpFrac,
+    retarget, raidTick, splitReq, decayTimers, battleEnd, volleyDiv, skeletonHeavySwing,
+    ghostChill};
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = ArenaCore;

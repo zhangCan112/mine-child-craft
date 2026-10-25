@@ -6,8 +6,10 @@
    scene-kit(SceneKit), vm 装齐 config+voxel+scene-kit 三件(adventure-core
    同款), 全局名桥到主域后 require 被测核心(经典 script 词法环境的
    Node 侧镜像); 几何派生断言用换桩重载(vm 新环境注入不同世界尺寸)证明
-   「派生而非硬编码」。战斗编排/技能 tick/索敌权重的行为面由
-   test/boot.test.js 全链冒烟守着, 两份互不重复。 */
+   「派生而非硬编码」。C3-T3 的快照→意图段用小假 roster/候选快照直测,
+   索敌权重的距离用与 core 同源的 hashRand 个体偏好自适应构造(把被测
+   权重放进「无加成必输、有加成必赢」区间)。战斗编排/技能 tick 观感半的
+   行为面由 test/boot.test.js 全链冒烟守着, 两份互不重复。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -318,4 +320,132 @@ test('建场: generate 全图确定性(两次生成逐字节一致) + 地基/徽
   assert.strictEqual(cell(0, G, 0), ArenaCore.ID_GRASS, '外圈草原(远角)');
   assert.strictEqual(cell(0, 0, 0), ArenaCore.ID_STONE, 'y0 地基');
   assert.strictEqual(cell(cx, G + 12, cz), 0, '场地中央无看台灯(立柱在 rOut 圈上)');
+});
+
+/* ============ 三期: 快照→意图段(索敌/协同/分裂/计时/判负/节奏/阴风) ============ */
+
+test('索敌权重: 窗口内不换目标; 克制/残血/可达/粘性权重序确定, rand 抖动可注入', () => {
+  const w = (mid, cid) => 0.75 + hashRand(mid*97 + cid*13, cid*29 + mid*7)*0.5; // 与 core 同源的确定性个体偏好
+  const snap = (o) => Object.assign({retargetT: 0, target: null, targetId: null,
+    id: 1, team: 'A', type: 'zombie', fly: false, ranged: false, x: 0, z: 0}, o);
+  const cand = (o) => Object.assign({id: 0, team: 'B', type: 'creeper', mfam: null,
+    dead: false, gone: false, hp: 100, maxHp: 100, fly: false, ranged: false, x: 0, z: 0}, o);
+  /* 窗口内(目标活着且计时>0): 只递减 retargetT, 不出 targetId */
+  assert.deepStrictEqual(
+      ArenaCore.retarget(snap({retargetT: 1, target: {dead: false, gone: false}, targetId: 7}),
+          [], 0.25),
+      {retargetT: 0.75});
+  /* 目标死亡/计时到窗都立即重索敌 */
+  const one = [cand({id: 2, x: 5, z: 0})];
+  assert.strictEqual(ArenaCore.retarget(snap({retargetT: 5, target: {dead: true, gone: false}}),
+      one, 0.25).targetId, 2, '目标阵亡立即重索敌');
+  assert.strictEqual(ArenaCore.retarget(snap({retargetT: 0.1, target: {dead: false, gone: false}}),
+      one, 0.25).targetId, 2, '计时到窗重索敌');
+  /* 过滤: 自身/同阵营/死者/逃逸者不进候选; 全滤空 → 清空目标 */
+  const junk = [cand({id: 1}), cand({team: 'A', id: 3}), cand({id: 4, dead: true}),
+    cand({id: 5, gone: true})];
+  assert.strictEqual(ArenaCore.retarget(snap({}), junk, 0.25).targetId, null);
+  /* 克制(COUNTER.zombie→skeleton ×0.65): 把克制对象放远到「无加成必输、有加成必赢」区间 */
+  const dCounter = (10*Math.sqrt(0.65*w(1, 2)/w(1, 3)) + 10*Math.sqrt(w(1, 2)/w(1, 3))) / 2;
+  const pair = [cand({id: 2, type: 'skeleton', x: 10}), cand({id: 3, x: dCounter})];
+  assert.strictEqual(ArenaCore.retarget(snap({type: 'zombie'}), pair, 0.25).targetId, 2, '克制对象胜');
+  assert.strictEqual(ArenaCore.retarget(snap({type: 'witch'}), pair, 0.25).targetId, 3, '无克制关系近者胜');
+  /* 收割残血(×0.55): 把残血者放远到「无加成必输、有加成必赢」区间 */
+  const dWound = (10*Math.sqrt(w(1, 4)/w(1, 5)) + 10*Math.sqrt(w(1, 4)/(0.55*w(1, 5)))) / 2;
+  const wounded = [cand({id: 4, x: 10}), cand({id: 5, x: dWound, hp: 10, maxHp: 100})];
+  assert.strictEqual(ArenaCore.retarget(snap({}), wounded, 0.25).targetId, 5, '残血优先');
+  wounded[1].hp = 100; // 对照: 不残血时近者胜
+  assert.strictEqual(ArenaCore.retarget(snap({}), wounded, 0.25).targetId, 4);
+  /* 可达性(地面近战对飞行 ×4) */
+  /* 可达性(地面近战对飞行 ×4): 地面目标放在「近战必选它、远程必选更近飞行」区间 */
+  const dReach = 7.5*Math.sqrt(w(1, 6)/w(1, 7));
+  const flyPair = [cand({id: 6, fly: true, x: 5}), cand({id: 7, x: dReach})];
+  assert.strictEqual(ArenaCore.retarget(snap({}), flyPair, 0.25).targetId, 7, '地面近战弃近处飞行选地面');
+  assert.strictEqual(ArenaCore.retarget(snap({ranged: true}), flyPair, 0.25).targetId, 6, '远程无 ×4 惩罚选更近的飞行');
+  /* 目标粘性(×0.75): 现任目标在「无粘性必输、有粘性必赢」区间留任 */
+  const dSticky = (8*Math.sqrt(0.75*w(1, 8)/w(1, 9)) + 8*Math.sqrt(w(1, 8)/w(1, 9))) / 2;
+  const sticky = [cand({id: 8, x: 8}), cand({id: 9, x: dSticky})];
+  assert.strictEqual(ArenaCore.retarget(snap({targetId: 8, target: {dead: true, gone: false}}),
+      sticky, 0.25).targetId, 8, '粘性留任');
+  assert.strictEqual(ArenaCore.retarget(snap({}), sticky, 0.25).targetId, 9, '无粘性近者胜');
+  /* rand 抖动: 重索敌节拍 0.5+rand*0.4 可注入 */
+  assert.strictEqual(ArenaCore.retarget(snap({}), one, 0.25, () => 0).retargetT, 0.5);
+  assert.strictEqual(ArenaCore.retarget(snap({}), one, 0.25, () => 1).retargetT, 0.9);
+});
+
+test('袭击协同: 未到拍只递减; 到拍按 10 格内同族同阵营计数出 dmgMult(至多 +24%)', () => {
+  assert.deepStrictEqual(ArenaCore.raidTick({raidT: 1, team: 'A', level: 2, x: 0, z: 0}, [], 0.25),
+      {raidT: 0.75}, '未到拍不出 dmgMult');
+  const roster = [
+    {mfam: 'illager', team: 'A', dead: false, gone: false, x: 0, z: 0}, // 自己口径(计入 n)
+    {mfam: 'illager', team: 'A', dead: false, gone: false, x: 5, z: 0}, // 队友 +1
+    {mfam: 'illager', team: 'A', dead: true, gone: false, x: 1, z: 0}, // 死者不计
+    {mfam: 'illager', team: 'B', dead: false, gone: false, x: 1, z: 0}, // 敌队不计
+    {mfam: 'zombie_line', team: 'A', dead: false, gone: false, x: 1, z: 0}, // 异族不计
+    {mfam: 'illager', team: 'A', dead: false, gone: false, x: 50, z: 0}, // 超距不计
+  ]; // n=2
+  const due = ArenaCore.raidTick({raidT: 0.1, team: 'A', level: 2, x: 0, z: 0}, roster, 0.25);
+  assert.strictEqual(due.raidT, 0.4);
+  assert.ok(Math.abs(due.dmgMult - 1.4*1.06) < 1e-9, 'TIER_MULT[2].dmg × (1+0.06×1)');
+  assert.ok(Math.abs(ArenaCore.raidTick({raidT: -1, team: 'A', level: 3, x: 0, z: 0},
+      roster.slice(0, 1), 0.25).dmgMult - 2.0) < 1e-9, '独狼无加成');
+  const pack = roster.slice(0, 1).concat([1, 2, 3, 4, 5, 6].map((i) =>
+    ({mfam: 'illager', team: 'A', dead: false, gone: false, x: i, z: 0}))); // n=7
+  assert.ok(Math.abs(ArenaCore.raidTick({raidT: 0, team: 'A', level: 2, x: 0, z: 0},
+      pack, 0.25).dmgMult - 1.4*1.24) < 1e-9, '协同封顶 +24%(min(4, n-1))');
+});
+
+test('袭击协同·已知缺陷登记: level=1 到拍时 TIER_MULT 缺 1 档会 TypeError(照搬现状, 修复归后续票)', () => {
+  assert.throws(() => ArenaCore.raidTick({raidT: 0, team: 'A', level: 1, x: 0, z: 0}, [], 0.25),
+      TypeError, 'TIER_MULT[1] 为 undefined — e160d46 起的存量缺陷, 机械迁移不夹带修复');
+});
+
+test('分裂决策: 开战且未超限才出延迟队列条目; 小只/未开战/存活超 600 停(防爆仓)', () => {
+  const snap = {splitChild: false, fighting: true, team: 'A', type: 'slime',
+    x: 3.5, z: -2, k2: 2, k3: 5};
+  assert.deepStrictEqual(ArenaCore.splitReq(snap, 600),
+      {team: 'A', type: 'slime', x: 3.5, z: -2, k2: 2, k3: 5});
+  assert.strictEqual(ArenaCore.splitReq(snap, 601), null, '存活超 600 停');
+  assert.strictEqual(ArenaCore.splitReq(Object.assign({}, snap, {splitChild: true}), 10), null, '小只不再分裂');
+  assert.strictEqual(ArenaCore.splitReq(Object.assign({}, snap, {fighting: false}), 10), null, '未开战不分裂');
+});
+
+test('计时递减: 13 字段各减 dt、已≤0 不动(可过零负), 攻节拍字段不在册且入参只读', () => {
+  const s = {slamCd: 1, pounceCd: 0.5, rageBuffT: 2, burstCd: 0.25, burstT: 0,
+    chargeCd: -1, chargeT: 0.75, tpCd: 5, stoneT: 0.25, stoneCd: 12, slowT: 1.5,
+    invulnT: 0.5, rockCd: 4, attackCd: 9, attackT: 1};
+  const o = ArenaCore.decayTimers(s, 0.25);
+  assert.deepStrictEqual(o, {slamCd: 0.75, pounceCd: 0.25, rageBuffT: 1.75, burstCd: 0,
+    burstT: 0, chargeCd: -1, chargeT: 0.5, tpCd: 4.75, stoneT: 0, stoneCd: 11.75,
+    slowT: 1.25, invulnT: 0.25, rockCd: 3.75});
+  assert.strictEqual(o.attackCd, undefined, '攻节拍归 CombatCore.tickCadence');
+  assert.strictEqual(o.attackT, undefined);
+  assert.strictEqual(s.slamCd, 1, '入参只读(落回归壳)');
+});
+
+test('判负判定: 部署中/双方存活=继续打; 单侧存活=胜方; 双灭=平', () => {
+  assert.strictEqual(ArenaCore.battleEnd(true, true, 0), null);
+  assert.strictEqual(ArenaCore.battleEnd(true, false, 0), 'A');
+  assert.strictEqual(ArenaCore.battleEnd(false, true, 0), 'B');
+  assert.strictEqual(ArenaCore.battleEnd(false, false, 0), 'draw');
+  assert.strictEqual(ArenaCore.battleEnd(false, false, 3), null, '部署未完不判负(未到场≠全灭)');
+  assert.strictEqual(ArenaCore.battleEnd(false, true, 1), null);
+});
+
+test('骷髅节奏: 强力箭除数(族版基础 2/其余基础 3·精英起 2) 与 节奏重斩拍(基础每 3 击·精英每 2 击)', () => {
+  assert.strictEqual(ArenaCore.volleyDiv(true, 1), 2, '骷髅一家基础即密(D7)');
+  assert.strictEqual(ArenaCore.volleyDiv(false, 1), 3, '其余族基础每 3 箭');
+  assert.strictEqual(ArenaCore.volleyDiv(false, 2), 2, '精英起加密');
+  assert.strictEqual(ArenaCore.volleyDiv(false, 3), 2);
+  assert.strictEqual(ArenaCore.volleyDiv(true, 3), 2);
+  assert.deepStrictEqual([1, 2, 3, 4, 5, 6].map((n) => ArenaCore.skeletonHeavySwing(n, 1)),
+      [false, false, true, false, false, true], '基础每 3 击重斩');
+  assert.deepStrictEqual([1, 2, 3, 4].map((n) => ArenaCore.skeletonHeavySwing(n, 2)),
+      [false, true, false, true], '精英每 2 击重斩');
+});
+
+test('阴风判定: 攻击方主族是鬼返回 1.5 秒减速时长, 其余 0', () => {
+  assert.strictEqual(ArenaCore.ghostChill('ghost'), 1.5);
+  assert.strictEqual(ArenaCore.ghostChill('zombie_line'), 0);
+  assert.strictEqual(ArenaCore.ghostChill(null), 0);
 });

@@ -3,8 +3,9 @@
    竞技场模式:环形竞技场 + 双阵营怪物 PVP 对战
    ------------------------------------------------------------
    依赖(均经全局名, 调用期解析): js/arena-core.js 的 ArenaCore(常数表/
-   纯函数段/配平与晋升判定半/编队池构造/地形段, 先于本文件加载, 见
-   index.html) · 怪物库 Mobs · config · voxel/scene-kit(经 ArenaCore 间接)
+   纯函数段/配平与晋升判定半/编队池构造/地形段/索敌与协同等快照→意图段,
+   先于本文件加载, 见 index.html) · 怪物库 Mobs · config ·
+   voxel/scene-kit(经 ArenaCore 间接)
 ============================================================ */
 
 /* ---------- 竞技场地形段(floorBlock/wallBlock/generate)与几何/选块/战力
@@ -169,9 +170,12 @@ function damageMob(m, dmg, kdx, kdz, kpow, src) {
     dmg = Math.max(1, Math.ceil(dmg*0.5));
   }
   const r = Mobs.hit(m, dmg, kdx, kdz, kpow);
-  if (!m.dead && !m.gone && src && src.mfam === 'ghost' && src !== m) {
-    m.slowT = Math.max(m.slowT, 1.5); // 鬼一族·阴风(家传): 被鬼打中短时变慢
-    Fx.pop(m.pos.x, m.pos.y+1, m.pos.z, {color: 0x8fd8e8, r0: 0.2, r1: 1.1, dur: 0.25, opacity: 0.6});
+  if (!m.dead && !m.gone && src && src !== m) {
+    const chill = ArenaCore.ghostChill(src.mfam); // 鬼一族·阴风(家传): 被鬼打中短时变慢(判定在 core)
+    if (chill > 0) {
+      m.slowT = Math.max(m.slowT, chill);
+      Fx.pop(m.pos.x, m.pos.y+1, m.pos.z, {color: 0x8fd8e8, r0: 0.2, r1: 1.1, dur: 0.25, opacity: 0.6});
+    }
   }
   if (r.freshDead) {
     awardKill(src, m);
@@ -208,11 +212,11 @@ function aoeDamage(x, y, z, r, o) {
 }
 
 /* 强力箭节奏 + 王者箭雨(全部远程怪共用: 精英每第2箭强力, 王者三连散射)
-   骷髅一家·族版更密(D7): 基础即每 2 箭(其余族精英才加密) */
+   骷髅一家·族版更密(D7): 基础即每 2 箭(其余族精英才加密) — 节奏除数在
+   js/arena-core.js, 发射观感在这里 */
 function rangedVolley(m, tg) {
   m.shotCnt++;
-  const div = (m.mfam==='skeleton_line' || m.level>=2) ? 2 : 3;
-  const pw = m.shotCnt % div === 0;
+  const pw = m.shotCnt % ArenaCore.volleyDiv(m.mfam==='skeleton_line', m.level) === 0;
   shootArrow(m, tg, pw);
   if (pw && m.level>=3) {
     shootArrow(m, tg, true, 0.16); shootArrow(m, tg, true, -0.16);
@@ -492,14 +496,15 @@ function clearTongues() {
   tongueFx.length = 0;
 }
 
+/* 判负(判定半在 js/arena-core.js): 这里读状态/清单并落结果与播报 */
 function checkBattleEnd() {
   if (battleState !== 'fighting') return;
-  if (spawnQueue.length) return; // 部署未完: 不判负(未到场≠全灭)
   const a = mobs.some((m)=>m.team==='A' && !m.dead && !m.gone);
   const b = mobs.some((m)=>m.team==='B' && !m.dead && !m.gone);
-  if (a && b) return;
+  const r = ArenaCore.battleEnd(a, b, spawnQueue.length);
+  if (r == null) return;
   battleState = 'over';
-  battleResult = a ? '红方获胜！' : (b ? '蓝方获胜！' : '两败俱伤！');
+  battleResult = r==='A' ? '红方获胜！' : (r==='B' ? '蓝方获胜！' : '两败俱伤！');
   showToast(battleResult + '  按 R 再来一场', 4000);
   sfx('win');
 }
@@ -517,22 +522,11 @@ function collectFusing() {
   }
 }
 
-/* 冷却/计时器递减 + 阶级光环呼吸(攻击节拍递减在战斗核心, 与下界共用) */
+/* 冷却/计时器递减(13 字段的递减半在 js/arena-core.js, 快照→意图落回) +
+   阶级光环呼吸(攻击节拍递减在战斗核心 CombatCore.tickCadence, 与下界共用) */
 function tickTimers(m, dt) {
   CombatCore.tickCadence(m, dt);
-  if (m.slamCd > 0) m.slamCd -= dt;
-  if (m.pounceCd > 0) m.pounceCd -= dt;
-  if (m.rageBuffT > 0) m.rageBuffT -= dt;
-  if (m.burstCd > 0) m.burstCd -= dt; // 虫虫族·疾爬突进冷却
-  if (m.burstT > 0) m.burstT -= dt;
-  if (m.chargeCd > 0) m.chargeCd -= dt; // 猪猪一家·蛮冲冷却/冲刺计时
-  if (m.chargeT > 0) m.chargeT -= dt;
-  if (m.tpCd > 0) m.tpCd -= dt; // 末影人·颤栗瞬移冷却(个体特化)
-  if (m.stoneT > 0) m.stoneT -= dt; // 守卫组·磐石坚守计时
-  if (m.stoneCd > 0) m.stoneCd -= dt;
-  if (m.slowT > 0) m.slowT -= dt; // 被鬼一族·阴风打中的减速计时
-  if (m.invulnT > 0) m.invulnT -= dt;
-  if (m.rockCd > 0) m.rockCd -= dt;
+  Object.assign(m, ArenaCore.decayTimers(m, dt));
   if (m.tierNode && m.tierNode.userData.aura) {
     const as = 1 + Math.sin(performance.now()*0.004 + m.id)*0.12;
     m.tierNode.userData.aura.scale.set(as, as, as);
@@ -595,17 +589,13 @@ function tickGuard(m, gp) {
 }
 
 /* 灾厄帮·袭击协同(家传): 每 0.4s 重数 10 格内同族同阵营, 每多一只 +6% 伤害(至多 4 只);
-   dmgMult 每拍重算 = 晋升系数 × 协同加成(levelUp 直写下一拍自愈, 语义一致) */
+   dmgMult 每拍重算 = 晋升系数 × 协同加成(levelUp 直写下一拍自愈, 语义一致) —
+   决策半(计数与公式)在 js/arena-core.js, 这里建快照落意图(候选共用 scanCands) */
 function tickRaid(m, gp, dt) {
-  m.raidT -= dt;
-  if (m.raidT > 0) return;
-  m.raidT = 0.4;
-  let n = 0;
-  for (const t of mobs) {
-    if (t.mfam==='illager' && t.team===m.team && !t.dead && !t.gone &&
-       Math.hypot(t.pos.x-gp.x, t.pos.z-gp.z) < 10) n++;
-  }
-  m.dmgMult = ArenaCore.TIER_MULT[m.level].dmg * (1 + 0.06*Math.min(4, n-1));
+  const r = ArenaCore.raidTick({raidT: m.raidT, team: m.team, level: m.level, x: gp.x, z: gp.z},
+      scanCands, dt);
+  m.raidT = r.raidT;
+  if (r.dmgMult !== undefined) m.dmgMult = r.dmgMult;
 }
 
 /* 守卫者系·蓄力激光(个体特化): 起手在 moveRanged(m.laserT=0), 此处推进蓄力(白闪渐强+锁定转向)
@@ -664,13 +654,14 @@ function tickBlink(m, gp) {
    走延迟队列: damageMob 的调用方可能正迭代 mobs(aoeDamage 爆炸环), 同帧落地会
    边迭代边追加 + 同一爆炸立刻打死新生儿 — 下一帧 flush 干净落场 */
 const pendingSplits = [];
+/* 决策半在 js/arena-core.js: 小只不再分裂/未开战/团战 600 只后停(防爆仓);
+   返回的队列条目形状也在那边(splitReq), 这里只数存活并 push */
 function splitDeath(m) {
-  if (m.splitChild || battleState !== 'fighting') return;
   let alive = 0;
   for (const t of mobs) if (!t.dead && !t.gone) alive++;
-  if (alive > 600) return;
-  pendingSplits.push({team: m.team, type: m.type, x: m.pos.x, z: m.pos.z,
-    k2: m.k2, k3: m.k3});
+  const req = ArenaCore.splitReq({splitChild: m.splitChild, fighting: battleState==='fighting',
+    team: m.team, type: m.type, x: m.pos.x, z: m.pos.z, k2: m.k2, k3: m.k3}, alive);
+  if (req) pendingSplits.push(req);
 }
 function flushSplits() {
   while (pendingSplits.length) {
@@ -685,30 +676,30 @@ function flushSplits() {
   }
 }
 
-/* 索敌: 距离 × 战术权重 — 个体偏好 + 目标粘性 + 收割残血 + 克制关系 + 可达性 */
+/* 每帧收集: 索敌/袭击协同共用的候选快照(视角无关字段 — retarget 与
+   raidTick 消费同一份, 避免逐怪逐帧建表 O(n²); collectFusing 同款) */
+const scanCands = [];
+function collectCandidates() {
+  scanCands.length = 0;
+  for (const t of mobs) {
+    scanCands.push({id: t.id, team: t.team, type: t.type, mfam: t.mfam,
+      dead: t.dead, gone: t.gone, hp: t.hp, maxHp: t.maxHp,
+      fly: !!t.cfg.fly, ranged: !!t.cfg.ranged, x: t.pos.x, z: t.pos.z});
+  }
+}
+
+/* 索敌: 距离 × 战术权重 — 权重序在 js/arena-core.js(快照→意图), 这里建
+   快照、把 targetId 落回实例引用 */
 function retarget(m, gp, dt) {
-  m.retargetT -= dt;
-  if (!m.target || m.target.dead || m.target.gone || m.retargetT <= 0) {
-    m.retargetT = 0.5 + Math.random()*0.4;
-    let best=null; let bd=1e9;
-    for (const t of mobs) {
-      if (t===m || t.dead || t.gone || t.team===m.team) continue;
-      let w = 0.75 + hashRand(m.id*97 + t.id*13, t.id*29 + m.id*7)*0.5;
-      if (t === m.target) w *= 0.75; // 目标粘性:不频繁切换
-      if (t.hp < t.maxHp*0.3) w *= 0.55; // 优先收割残血
-      if (ArenaCore.COUNTER[m.type] === t.type) w *= 0.65; // 优先进攻克制对象
-      else if (ArenaCore.COUNTER[t.type] === m.type) w *= 1.5; // 回避克制自己的对手
-      if (t.cfg.fly && !m.cfg.fly && !m.cfg.ranged) w *= 4; // 地面近战摸不到飞行
-      if (m.cfg.fly && !t.cfg.fly) {
-        if (!t.cfg.ranged) w *= 0.6; // 龙:优先收割无法还手的近战
-        else w *= 1.3; // 龙:优先清除远程威胁
-      }
-      const d = ((t.pos.x-gp.x)*(t.pos.x-gp.x) + (t.pos.z-gp.z)*(t.pos.z-gp.z)) * w;
-      if (d<bd) {
-        bd=d; best=t;
-      }
-    }
-    m.target = best;
+  const snap = {retargetT: m.retargetT,
+    target: m.target ? {dead: m.target.dead, gone: m.target.gone} : null,
+    targetId: m.target ? m.target.id : null,
+    id: m.id, team: m.team, type: m.type,
+    fly: !!m.cfg.fly, ranged: !!m.cfg.ranged, x: gp.x, z: gp.z};
+  const r = ArenaCore.retarget(snap, scanCands, dt);
+  m.retargetT = r.retargetT;
+  if (r.targetId !== undefined) {
+    m.target = r.targetId == null ? null : (mobs.find((t) => t.id === r.targetId) || null);
   }
 }
 
@@ -888,9 +879,9 @@ function moveMelee(m, dt, gp, tg, dist, dx, dz) {
   if (!m.air && dist <= m.cfg.range && Math.abs(tg.pos.y-gp.y) < 3 && m.attackCd <= 0) {
     m.attackCd = m.cfg.cd * (m.raged ? 0.55 : 1); m.attackT = 0.45; // 狂暴攻速
     let dmg = m.cfg.dmg; let kpow = 0.45;
-    if (m.mfam === 'skeleton_line') { // 凋灵骷髅·节奏重斩(骷髅一家家传的近战表达)
+    if (m.mfam === 'skeleton_line') { // 凋灵骷髅·节奏重斩(骷髅一家家传的近战表达, 拍判定在 core)
       m.meleeCnt++;
-      if (m.meleeCnt % (m.level>=2?2:3) === 0) {
+      if (ArenaCore.skeletonHeavySwing(m.meleeCnt, m.level)) {
         dmg *= 1.6; kpow = 1.0;
       }
     }
@@ -995,6 +986,7 @@ function updateMobs(dt) {
   updateTongues(dt);
   collectFusing();
   flushSplits(); // 家传亡语落场(软软族·分裂, 上一帧排队的)
+  collectCandidates(); // 索敌/协同共用的候选快照(retarget/raidTick 消费, 分裂新生儿也入册)
   for (const m of mobs) {
     if (m.gone || m.dead) continue; // 名牌/计时/死亡动画/尸体回收归怪物库 Mobs.update
     const gp = m.pos;
