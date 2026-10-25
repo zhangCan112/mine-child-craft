@@ -84,6 +84,59 @@ test('meshChunk: 玻璃走独立通道; 玻璃面对实心邻居剔面', () => {
   assert.strictEqual(quads(r.solid), 6); // 实心面对玻璃不剔(现状语义)
 });
 
+/* ============ 流体通道(docs/liquid-design.md D7: 部分高度水面) ============ */
+
+test('meshChunk: 水源(无 levels 通道)走玻璃通道, 顶面 8/9 高 — 存量调用方缺省源', () => {
+  const m = loadMeshCore();
+  const p = mkPack(1);
+  p.set(1, 5, 1, 24); // 水(B_WATER)
+  const r = m.MeshCore.meshChunk(p, OPT);
+  assert.strictEqual(r.solid, null, '水不进实心通道');
+  assert.strictEqual(quads(r.glass), 6, '孤立方 6 面全画');
+  let maxY = 0;
+  for (let i = 1; i < r.glass.positions.length; i += 3) maxY = Math.max(maxY, r.glass.positions[i]);
+  assert.ok(Math.abs(maxY - (5 + 8 / 9)) < 1e-9, '顶面高度 = 5 + 8/9, 实测 ' + maxY);
+});
+
+test('meshChunk: 流动水按水位缩放(lv7 → 1/9 高), levels 通道驱动', () => {
+  const m = loadMeshCore();
+  const p = mkPack(1);
+  p.levels = new Uint8Array(p.w * p.d * p.h); // 手工水位通道(与 packChunkData 输出同构)
+  p.set(1, 5, 1, 24);
+  p.levels[(5 * p.d + 1) * p.w + 1] = 7;
+  const r = m.MeshCore.meshChunk(p, OPT);
+  let maxY = 0;
+  for (let i = 1; i < r.glass.positions.length; i += 3) maxY = Math.max(maxY, r.glass.positions[i]);
+  assert.ok(Math.abs(maxY - (5 + 1 / 9)) < 1e-9, '最弱流动水位 1/9, 实测 ' + maxY);
+});
+
+test('meshChunk: 上方同流体 → 本格整格高且顶面剔除(下落柱整格观感)', () => {
+  const m = loadMeshCore();
+  const p = mkPack(1);
+  p.set(1, 5, 1, 24);
+  p.set(1, 6, 1, 24);
+  const r = m.MeshCore.meshChunk(p, OPT);
+  assert.strictEqual(quads(r.glass), 10, '下格 4 侧+底(顶被剔), 上格 4 侧+顶(底被剔)');
+  let maxY = 0;
+  for (let i = 1; i < r.glass.positions.length; i += 3) maxY = Math.max(maxY, r.glass.positions[i]);
+  assert.ok(Math.abs(maxY - (6 + 8 / 9)) < 1e-9, '上格顶面 8/9');
+});
+
+test('meshChunk: 岩浆走实心通道, 高度按水位(lv4 → 4/9)', () => {
+  const m = loadMeshCore();
+  const p = mkPack(1);
+  p.levels = new Uint8Array(p.w * p.d * p.h);
+  p.set(1, 5, 1, 25); // 岩浆(B_LAVA)
+  p.levels[(5 * p.d + 1) * p.w + 1] = 4;
+  const r = m.MeshCore.meshChunk(p, OPT);
+  assert.strictEqual(r.glass, null, '岩浆不透明');
+  assert.strictEqual(quads(r.solid), 6);
+  let maxY = 0;
+  for (let i = 1; i < r.solid.positions.length; i += 3) maxY = Math.max(maxY, r.solid.positions[i]);
+  assert.ok(Math.abs(maxY - (5 + 4 / 9)) < 1e-9, '岩浆水位 4/9, 实测 ' + maxY);
+});
+
+
 test('meshChunk: TNT 走贴图通道, UV 行按 顶/底/侧 落格', () => {
   const m = loadMeshCore();
   const p = mkPack(1);

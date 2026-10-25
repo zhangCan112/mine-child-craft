@@ -8,7 +8,8 @@
 /* ---------- 物品栏:全部基础方块 + 第 1 格铁锹(挖掘入口, 2026-10-24 用户拍板:
     智能主动作手持感知全模式统一 — 选中方块→⛏️放置, 选中铲子→⛏️连挖;
     桌面左键恒挖不受影响, 右键拿铲子=无操作(MC 拿工具右键同构)) ---------- */
-const BUILD_PALETTE = ['shovel', 6, 5, 17, 3, 4, 13, 9, 18, 19, 15, 16, 12, 11, 8, 2, 1, 7, 14, 10];
+const BUILD_PALETTE = ['shovel', 6, 5, 17, 3, 4, 13, 9, 18, 19, 15, 16, 12, 11, 8, 2, 1, 7, 14, 10, 24, 25];
+// ↑ 末两格 = 水/岩浆源(liquid 共识 Q17): 创造场直摆源方块, 放下即流(桶与物品链列后续票)
 const BUILD_SAVE_KEY = 'build_world_save';
 
 let buildSceneId = null; // 当前场景 id
@@ -428,7 +429,12 @@ function buildLoadScene(id) {
     sc.build();
     for (const [k, v] of buildEdits[sc.id]) {
       const p = k.split(',');
-      setBlockRaw(+p[0], +p[1], +p[2], v);
+      if (v && typeof v === 'object') {/* 流体格带水位(liquid D8): 双通道重放, 不走排程 */
+        setBlockRaw(+p[0], +p[1], +p[2], v.id);
+        setFluidLv(+p[0], +p[1], +p[2], v.lv || 0);
+      } else {
+        setBlockRaw(+p[0], +p[1], +p[2], v);
+      }
     }
   });
   buildSpawnAt(sc);
@@ -503,6 +509,12 @@ const BuildMode = mkMode({
   ],
   init() {
     if (!buildSceneId) buildSceneId = buildLoadSave() || BUILD_SCENES[0].id;
+    /* 流体账本缝(liquid D8): 流体写格(流动/消退/混合/冲毁)即时入当前场景 edits
+       账本——逐格最后写赢, 重进精确恢复水位; 流体格带 {id,lv}, 其余保持数字 */
+    setFluidEditSink((x, y, z, id, lv) => {
+      buildEdits[buildSceneId].set(blockKey(x, y, z),
+          (BLOCKS[id] && BLOCKS[id].fluid) ? {id, lv: lv || 0} : id);
+    });
     buildLoadScene(buildSceneId);
     buildSceneMenu();
     buildHb.select(1); /* 默认选中第 2 格方块: 第 1 格铁锹是显式挖掘入口, 拿方块进场即放置态 */
@@ -510,6 +522,7 @@ const BuildMode = mkMode({
   },
   cleanup() {
     buildSaveNow();
+    setFluidEditSink(null); /* 流体账本缝解除(liquid D8: 不渗进其他模式) */
     setFly(false); /* 飞行态复位走意图入口 */
     buildHoldOn = false; /* 长按连挖场: 退出模式即收 */
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活, 照下界先例) */
@@ -548,7 +561,9 @@ const BuildMode = mkMode({
       id = BUILD_PALETTE[buildHb.sel];
     } else return;
     const removed = editBlock(x, y, z, id);
-    buildEdits[buildSceneId].set(blockKey(x, y, z), id); // 记录改动供存档
+    /* 记账供存档(liquid D8): 流体格带 {id,lv}(放置=源 lv0), 其余保持数字(旧档零迁移) */
+    buildEdits[buildSceneId].set(blockKey(x, y, z),
+        (BLOCKS[id] && BLOCKS[id].fluid) ? {id, lv: 0} : id);
     for (const r of removed) {/* 级联同记(D5/D7): 移动两格(原格 0+落格 id), 移除一格 */
       buildEdits[buildSceneId].set(blockKey(r.x, r.y, r.z), 0);
       if (r.to) buildEdits[buildSceneId].set(blockKey(r.to.x, r.to.y, r.to.z), r.id);

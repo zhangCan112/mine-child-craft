@@ -111,6 +111,8 @@ flash() {
   calls.push(['flash']);
 }}; /* 受击闪红(观感, 只记录调用) */
 globalThis.NETHER_GROUND = 20;
+globalThis.worldEvents = {drownTick: false, lavaTick: false, splash: false}; /* 引擎事件通道(liquid D9): 桩恒静默——物理不在 Node 跑 */
+globalThis.FLUID = {lavaDps: 4}; /* 流体参数表(liquid D3): 只取 nether.update 消费的字段 */
 
 /* ---------- fake 怪物库 ---------- */
 const mobsState = {spawned: []};

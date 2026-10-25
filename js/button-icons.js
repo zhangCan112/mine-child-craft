@@ -590,6 +590,26 @@ const SWORDS_ART = overlayArt(SWORD_ART, mirrorX(SWORD_ART));
    BTN_PIX 字符画数据表 — 键集=全游戏按钮图标清单(test 防错网:
    消费端 icon/btnImg 字面量必须 ⊆ 此处键集)
    ------------------------------------------------------------ */
+/* ---------- 溺气泡(liquid D10: MC 氧气泡语义 — 圆泡左上高光, 无描边) ---------- */
+const BUBBLE_ART = [
+  '................',
+  '.....oooooo.....',
+  '...oooooooooo...',
+  '..ooWWoooooooo..',
+  '..oWWoooooooooo.',
+  '.ooWWoooooooooo.',
+  '.ooWooooooooooo.',
+  '.oooooooooooooo.',
+  '.oooooooooooooo.',
+  '.oooooooooooooo.',
+  '..oooooooooooo..',
+  '..oooooooooooo..',
+  '...oooooooooo...',
+  '.....oooooo.....',
+  '................',
+  '................',
+];
+
 const BTN_PIX = {
   /* 方向与播放 */
   left: {art: ARROW_LEFT_ART, map: BTN_GLYPH},
@@ -611,6 +631,7 @@ const BTN_PIX = {
   sort: {art: SORT_ART, map: {'K': '#14161a', 'A': '#c9a06b', 'B': '#8a8f98', 'C': '#d83a2e', '#': '#3a4149'}},
   autofill: {art: AUTOFILL_ART, map: {...BTN_GLYPH, d: '#3a4149'}},
   heart: {art: HEART_ART, map: {R: '#ff1313', W: '#ffc8c8', D: '#bb1313'}},
+  bubble: {art: BUBBLE_ART, map: {o: '#5f9ee8', W: '#e8f4ff'}}, /* 溺气泡(MC 氧气泡语义, liquid D10) */
   /* 功能动作 */
   flame: {art: FLAME_ART, map: {f: '#e8632c', 2: '#ff9d2e', 3: '#ffd83d'}},
   fly: {art: FLY_ART, map: BTN_GLYPH},

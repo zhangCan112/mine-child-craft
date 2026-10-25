@@ -18,6 +18,7 @@ self.onmessage = (e)=>{
   const m = e.data;
   const pack = {
     cells: new Uint8Array(m.cells), // 转移来的 ArrayBuffer → 视图
+    levels: m.levels ? new Uint8Array(m.levels) : null, // 水位通道(liquid D7, 老消息缺省=源)
     w: m.w, d: m.d, h: m.h,
     border: m.border, bx: m.bx, bz: m.bz, yMax: m.yMax,
   };

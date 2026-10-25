@@ -10,6 +10,9 @@
      · onHold(active)          触屏长按起止钩子(手势分类在 input.js/touch-core)
      · KeyB 默认暂停 · 无 hud 配置则清空并跳过 · onVoidFall 默认回最近出生点
    工具: spawn(对外经 ModeKit.spawn) / lookName / confirmBtn
+   液体扩展(设计稿 liquid D10):
+     · mkBubbleBar — 溺气 HUD(10 泡像素条挂快捷栏上方), update(airFrac),
+       剩 3 泡 TTS 一次性提醒(节流自持), dispose 收 DOM
    T10 扩展(设计稿 D8/D10):
      · mkHotbar 第三种槽型 {item:id} — 像素图标(iconOf)+右上数量(>1 才显)
        +底部耐久条(dur 访问器返 0..1 比, 模式层算 dur/toolOf(id).dur)
@@ -812,6 +815,51 @@ function mkChestPanel(opts) {
 /* ---------- 头顶血条已迁 js/combat-kit.js(C6-T3, CombatKit.mkHpBar) ----------
     玩家战斗 vocabulary 归一处; 本文件保留 UI/chrome/面板族服务 */
 
+/* ---------- 气泡条(liquid D10): 溺气 HUD, HP 模式挂快捷栏上方 ----------
+    10 泡像素图标(按钮图标工坊自绘 bubble, 禁 emoji); update(airFrac 0..1)
+    点亮 ceil(10×frac) 泡, 气满整条隐藏; 剩 3 泡 TTS 轻提醒恰一次(每次
+    下潜至多一次, 节流自持——危险意识但不惊吓, 共识 Q16); visible() 回调
+    是额外显隐门(如只在某阶段显示)。 */
+function mkBubbleBar(opts) {
+  const o = opts || {};
+  const doc = o.doc || document;
+  const mount = o.mount || doc.body;
+  const root = doc.createElement('div');
+  root.className = 'bubblebar';
+  const url = (typeof btnIcon === 'function') ? btnIcon('bubble') : '';
+  const bubbles = [];
+  for (let i = 0; i < 10; i++) {
+    const b = doc.createElement('span');
+    b.className = 'bub';
+    if (url) b.style.backgroundImage = 'url(' + url + ')';
+    root.appendChild(b);
+    bubbles.push(b);
+  }
+  mount.appendChild(root);
+  let shown = 10;
+  let warned = false;
+  return {
+    update(frac) {
+      const n = Math.max(0, Math.min(10, Math.ceil((frac || 0) * 10)));
+      const vis = (o.visible ? o.visible() : true) && n < 10; /* 气满藏条 */
+      root.style.display = vis ? 'flex' : 'none';
+      if (!vis) return;
+      if (n !== shown) {
+        shown = n;
+        for (let i = 0; i < 10; i++) bubbles[i].classList.toggle('off', i >= n);
+      }
+      if (n <= 3 && !warned) {
+        warned = true;
+        if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak('要抬头换气啦');
+      }
+      if (n >= 10) warned = false; /* 回满气: 下次下潜再提醒 */
+    },
+    dispose() {
+      if (root.parentNode) root.parentNode.removeChild(root);
+    },
+  };
+}
+
 /* ---------- 模式工厂: 模式只声明差异, 样板在此吸收 ---------- */
 function mkMode(cfg) {
   const hb = cfg.hotbar || null;
@@ -882,6 +930,6 @@ function mkMode(cfg) {
   return mode;
 }
 
-const ModeKit = {mkMode, mkHotbar, mkMainAct, mkCraftPanel, mkFurnacePanel, mkChestPanel, sortInv,
+const ModeKit = {mkMode, mkHotbar, mkMainAct, mkCraftPanel, mkFurnacePanel, mkChestPanel, mkBubbleBar, sortInv,
   spawn: kitSpawn, lookName, confirmBtn};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;

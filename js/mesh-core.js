@@ -123,10 +123,15 @@ const MeshCore = (() => {
     const atlas = opts.atlas || null; // 图集布局可选: 缺省全走纯色通道(存量行为)
     const S = mkCh(); const G = mkCh(); const T = mkTexCh(); const A = mkTexCh();
     const cells = pack.cells; const w = pack.w; const d = pack.d; const h = pack.h;
+    const levels = pack.levels || null; // 水位通道(liquid D7): 缺省视为源(lv0)——存量调用方零侵入
     const border = pack.border; const bx = pack.bx; const bz = pack.bz; const yMax = pack.yMax;
     const lget = (lx, y, lz)=>{
       if (y<0 || y>=h || lx<0 || lz<0 || lx>=w || lz>=d) return 0;
       return cells[(y*d+lz)*w+lx];
+    };
+    const lgetLv = (lx, y, lz)=>{
+      if (!levels || y<0 || y>=h || lx<0 || lz<0 || lx>=w || lz>=d) return 0;
+      return levels[(y*d+lz)*w+lx];
     };
     for (let lx=border; lx<border+CHUNK; lx++) {
       for (let lz=border; lz<border+CHUNK; lz++) {
@@ -135,6 +140,24 @@ const MeshCore = (() => {
           const id = lget(lx, y, lz);
           if (id===0) continue;
           const b = BLOCKS[id];
+          if (b.fluid) { // 流体通道(设计稿 liquid D7): 顶面高度=水量/9(上方同流体=整格),
+            // 水入玻璃通道(透渲), 岩浆入实心通道(不透明); 同流体邻接/不透明实心邻接剔面,
+            // 玻璃相邻保留面(水族箱观感)。侧面按本格高度画满, 邻格 1/9 高差呈台阶(MC 同款近似)
+            const lv = lgetLv(lx, y, lz);
+            const sameAbove = lget(lx, y+1, lz) === id;
+            const hh = sameAbove ? 1 : (lv===8 ? 8 : 8-lv) / FLUID.renderDiv;
+            const target = b.fluid === 'water' ? G : S;
+            const fcol = faceColor(id, [0, 1, 0]);
+            for (let f=0; f<6; f++) {
+              const face = FACES[f];
+              const nid = lget(lx+face.dir[0], y+face.dir[1], lz+face.dir[2]);
+              if (nid === id) continue; // 同流体邻接: 剔面
+              const nb = nid!==0 ? BLOCKS[nid] : null;
+              if (nb && !nb.glass && !nb.thin) continue; // 不透明实心遮挡
+              pushQuad(target, f, wx, y, wz, 1, hh, 1, fcol);
+            }
+            continue;
+          }
           const ae = atlas ? atlas.tiles[id] : undefined;
           if (ae) { // 图集方块: 第 4 通道(薄块走十字面片, 立方体按面取格)
             if (b.thin) {

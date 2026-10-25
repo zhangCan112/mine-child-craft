@@ -57,7 +57,7 @@ function mkHurtAlarm(cfg) {
       Fx.kick(0.35);
       if (t <= 0) {
         t = 3;
-        SpeechKit.speak(line); /* 语音 3 秒节流(iOS TTS 频繁 cancel 是掉帧源) */
+        SpeechKit.speak((r && r.line) || line); /* 语音 3 秒节流(iOS TTS 频繁 cancel 是掉帧源); r.line=来源话术(liquid D9 环境伤害) */
       }
     },
     tick(dt) {

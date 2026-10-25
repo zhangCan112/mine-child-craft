@@ -79,8 +79,8 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/voxel.js', 'js/cascad
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
-  getBlock, setBlockRaw, hashRand, blockKey, world, worldCells, SceneKit,
-  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH,
+  getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, world, worldCells, SceneKit,
+  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, FLUID,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST,
   ITEMS, isTool, toolOf, stackMax, mkStack, breakTime,
@@ -307,7 +307,10 @@ globalThis.setFly = (v)=> {
 const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;
 globalThis.mkMainAct = ModeKit.mkMainAct; /* 智能主动作分派(手持感知): touch 列表顶层即消费 */
+globalThis.mkBubbleBar = ModeKit.mkBubbleBar; /* 溺气泡条(liquid D10): 真件, 假 DOM 惰性渲染 */
 globalThis.ModeKit = ModeKit;
+globalThis.setFluidEditSink = () => {}; /* 流体账本缝(liquid D8): world.js 太重——空桩(账本入档断言不涉流体) */
+globalThis.playerAirS = 15; /* 溺气余秒(liquid D9): voxel 真件在 vm, 物理不在 Node 跑——恒满气(气泡条藏) */
 ModeKit.spawn = (x, y, z, o) => {
   calls.push(['spawn', x, y, z, o]);
   /* 镜像真 kitSpawn 写 pos/yaw: 位置+血量入档链(死亡·回家即时落盘)依赖

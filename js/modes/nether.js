@@ -355,6 +355,16 @@ const NetherMode = mkMode({
     netherMelee.tick(dt); /* 攻击冷却递减(剑/弓同一轨道, kit 自持) */
     if (netherHoldAtk) netherAttack(); /* ⛏️ 按住连打(挥击/射箭冷却自节流, 同探险按住连挖的节奏) */
     netherHurt.tick(dt); // 受击语音节流递减
+    /* 岩浆接触伤害(liquid D9): 引擎计息到点的事件在此结算 HP(下界有 HP 账本;
+       溺水不结算——下界无水, MC 下界蒸发口径附录 B #29) */
+    if (worldEvents.lavaTick) {
+      worldEvents.lavaTick = false;
+      const pe = getPEnt();
+      pe.hp = Math.max(0, pe.hp - FLUID.lavaDps);
+      NETHER.player.hp = pe.hp;
+      if (pe.hp <= 0) netherPlayerDied();
+      else netherHurt.hit({hp: pe.hp, line: '好烫！快离开岩浆！'});
+    }
     if (portalCd > 0) portalCd = Math.max(0, portalCd - dt); // 传送眩晕递减(本帧先扣再判 — 到点即刻可再触发)
     if (NETHER.phase === 'overworld') {
       if (portalCd <= 0 && inPortal(NETHER_HOME_GROUND, NETHER_HOME_PORTAL.px, NETHER_HOME_PORTAL.pz)) {

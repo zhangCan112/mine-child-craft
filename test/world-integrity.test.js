@@ -7,8 +7,10 @@
      ① need — 每片树叶 taxicab 4 内有原木;
      ② thin — 每个依附块脚下是实心支撑;
      ③ fell — 每个原木组件有成员接地。
+   液体系统(设计稿 liquid D11)追加流体不变量:
+     ④ fluid — 非流体格 lv=0 · lv≤8 · 流动块必有更强供电源(无孤儿悬挂水)。
    身份原则的防手滑面: 地形方块(石头/泥土)无旗标, 极端交互后纹丝不动。
-   扫描直读 worldCells(免逐格跨 vm 边界)。 */
+   扫描直读 worldCells/fluidLv(免逐格跨 vm 边界)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -59,14 +61,14 @@ function mkH() {
   };
   sandbox.window = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['config.js', 'voxel.js', 'cascade-core.js', 'mesh-core.js',
+  for (const f of ['config.js', 'voxel.js', 'cascade-core.js', 'fluid-core.js', 'mesh-core.js',
     'texture-atlas.js', 'scene-kit.js', 'world.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   const h = vm.runInContext(`globalThis.__h = {
     editBlock, editBlockDirty, getBlock, setBlockRaw, SceneKit, clearWorld,
-    applySweep,
-    BLOCKS, worldCells, W: WORLD_W, H: WORLD_H, D: WORLD_D,
+    applySweep, pumpFluids, getFluidLv,
+    BLOCKS, worldCells, fluidLv, W: WORLD_W, H: WORLD_H, D: WORLD_D,
   }; __h;`, ctx);
   h.at = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= h.W || y >= h.H || z >= h.D) ?
     0 : h.worldCells[(y * h.D + z) * h.W + x];
@@ -138,6 +140,44 @@ function scanViolations(h) {
           }
           if (!grounded) for (const m of comp) bad.push({k: 'fell', x: m[0], y: m[1], z: m[2], id});
         }
+      }
+    }
+  }
+  return bad;
+}
+
+/* 流体不变量扫描(liquid D11, 独立复核不调用核心函数):
+   ① 非流体格 lv 恒 0(写纪律, ADR 0004) · ② lv ≤ 8(9+ 保留段不得出现)
+   ③ 流动块(lv>0)必有更强供电源: 上方同流体, 或水平同流体邻居水量严格更强
+   (局部必要条件——孤儿悬挂水在此即露馅, 全链追踪留给 fluid-core 确定性单测) */
+function scanFluidViolations(h) {
+  const bad = [];
+  const amt = (lv) => (lv === 8 ? 8 : 8 - lv);
+  const kindOf = (id) => (h.BLOCKS[id] && h.BLOCKS[id].fluid) || null;
+  const lvAt = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= h.W || y >= h.H || z >= h.D) ?
+    0 : h.fluidLv[(y * h.D + z) * h.W + x];
+  for (let y = 0; y < h.H; y++) {
+    for (let z = 0; z < h.D; z++) {
+      for (let x = 0; x < h.W; x++) {
+        const id = h.at(x, y, z);
+        const lv = lvAt(x, y, z);
+        const kind = kindOf(id);
+        if (!kind) {
+          if (lv !== 0) bad.push({k: 'fluid-lv-dirty', x, y, z, id, lv});
+          continue;
+        }
+        if (lv > 8) bad.push({k: 'fluid-lv-range', x, y, z, id, lv});
+        if (lv === 0) continue; // 源: 无供电源要求
+        if (kindOf(h.at(x, y + 1, z)) === kind) continue; // 上方同流体(下落链)
+        let fed = false;
+        for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nid = h.at(x + d[0], y, z + d[1]);
+          if (kindOf(nid) === kind && amt(lvAt(x + d[0], y, z + d[1])) > amt(lv)) {
+            fed = true;
+            break;
+          }
+        }
+        if (!fed) bad.push({k: 'fluid-orphan', x, y, z, id, lv});
       }
     }
   }
@@ -308,3 +348,66 @@ test('放置永不触发级联(fell/need 口径): 浮空原木/树叶放上去�
     {k: 'need', x: 30, y: 6, z: 20, id: 7},
   ]);
 });
+
+/* ============ 流体不变量(liquid 设计稿 D11): 极端交互后全图扫描 ============ */
+
+test('流体: 完好湖(源阵+同高岸沿)经装场激活零违例——既有静态水面是不动点', () => {
+  const h = mkH();
+  for (let x = 20; x <= 26; x++) {
+    for (let z = 20; z <= 26; z++) h.setBlockRaw(x, 2, z, 3); /* 湖底 */
+  }
+  for (let x = 20; x <= 26; x++) {
+    for (let z = 20; z <= 26; z++) {
+      if (x === 20 || x === 26 || z === 20 || z === 26) h.setBlockRaw(x, 3, z, 8); /* 沙岸 */
+      else h.editBlock(x, 3, z, 24); /* 源(走编辑入口: 放置即排程) */
+    }
+  }
+  for (let i = 0; i < 600; i++) h.pumpFluids(1 / 20); /* 泵到不动点 */
+  assert.deepStrictEqual(scanFluidViolations(h), [], '零违例');
+  assert.strictEqual(h.countIn(24, 20, 26, 3, 3, 20, 26), 25, '水量不变(激活 no-op)');
+});
+
+test('流体: 挖开湖岸放水漫开 → 不变量仍立(无孤儿流动块/无脏水位/编码合法)', () => {
+  const h = mkH();
+  for (let x = 18; x <= 28; x++) {
+    for (let z = 18; z <= 28; z++) h.setBlockRaw(x, 2, z, 3); /* 大底板 */
+  }
+  for (let x = 20; x <= 26; x++) {
+    for (let z = 20; z <= 26; z++) {
+      if (x === 20 || x === 26 || z === 20 || z === 26) h.setBlockRaw(x, 3, z, 8);
+      else h.editBlock(x, 3, z, 24);
+    }
+  }
+  h.editBlock(23, 3, 20, 0); /* 挖开岸沿: 湖水外流 */
+  for (let i = 0; i < 1200; i++) h.pumpFluids(1 / 20); /* 60 游戏秒, 足够漫到不动点 */
+  const water = h.countIn(24, 0, h.W - 1, 0, h.H - 1, 0, h.D - 1);
+  assert.ok(water > 25, '水确实流出了: ' + water + ' 格');
+  assert.deepStrictEqual(scanFluidViolations(h), [], '全图流体不变量零违例');
+});
+
+test('流体: 掏源断供全退净 + 掏底穿世界不放水(界外不可渗)', () => {
+  const h = mkH();
+  for (let x = 18; x <= 28; x++) {
+    for (let z = 18; z <= 28; z++) h.setBlockRaw(x, 2, z, 3);
+  }
+  for (let x = 20; x <= 26; x++) {
+    for (let z = 20; z <= 26; z++) {
+      if (x === 20 || x === 26 || z === 20 || z === 26) h.setBlockRaw(x, 3, z, 8);
+      else h.editBlock(x, 3, z, 24);
+    }
+  }
+  h.editBlock(23, 3, 20, 0); /* 放水 */
+  for (let i = 0; i < 1200; i++) h.pumpFluids(1 / 20);
+  const spread = h.countIn(24, 0, h.W - 1, 0, h.H - 1, 0, h.D - 1);
+  assert.ok(spread > 25, '已外流');
+  /* 掏全部源(湖心阵): 外流水断供逐刻退净(湖仍在漫——源清了流动块全干) */
+  for (let x = 21; x <= 25; x++) {
+    for (let z = 21; z <= 25; z++) {
+      if (h.at(x, 3, z) === 24) h.editBlock(x, 3, z, 0);
+    }
+  }
+  for (let i = 0; i < 1200; i++) h.pumpFluids(1 / 20);
+  assert.strictEqual(h.countIn(24, 0, h.W - 1, 0, h.H - 1, 0, h.D - 1), 0, '断供全退净');
+  assert.deepStrictEqual(scanFluidViolations(h), [], '退净后零违例');
+});
+

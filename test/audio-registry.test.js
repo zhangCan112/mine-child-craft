@@ -57,13 +57,13 @@ test('声音清单: js/** 每处 sfx(…) 字面量都在 SFX_KINDS 登记(漏�
   }
 });
 
-test('声音清单: 只收活着的 kind — 12 活键齐备, TNT 死键(fss/door/splash)不迁', () => {
+test('声音清单: 只收活着的 kind — 14 活键齐备, TNT 死键(fss/door)不迁', () => {
   const keys = Object.keys(AudioRegistry.SFX_KINDS);
   for (const k of ['zap', 'boom', 'pick', 'click', 'death', 'hit', 'hurt',
-    'shoot', 'level', 'win', 'roar', 'breath']) {
-    assert.ok(keys.includes(k), '缺活键: ' + k + '(工单 A2 基线)');
+    'shoot', 'level', 'win', 'roar', 'breath', 'splash', 'lava_hiss']) {
+    assert.ok(keys.includes(k), '缺活键: ' + k + '(splash/lava_hiss 为液体系统活键, 设计稿 liquid D10)');
   }
-  for (const dead of ['fss', 'door', 'splash']) {
+  for (const dead of ['fss', 'door']) {
     assert.ok(!keys.includes(dead), '死键不迁(TNT 密室已下线, 复活时再登记): ' + dead);
   }
 });

@@ -296,9 +296,23 @@ const advArrows = CombatKit.mkArrows({color: 0xd8d0b8, player: advGetPEnt,
     else advHurt.hit(res);
   }});
 
+/* 环境伤害(liquid D9): 溺水/岩浆计息事件到点 → 扣血走受击观感(音/闪红/
+   节流话术与战斗伤害同源, r.line 换来源话术), 致死走既有死亡计划 */
+function advEnvHurt(dmg, line) {
+  const pe = advGetPEnt();
+  pe.hp = Math.max(0, pe.hp - dmg);
+  ADV.player.hp = pe.hp;
+  if (pe.hp <= 0) {
+    advPlayerDied();
+    return;
+  }
+  advHurt.hit({hp: pe.hp, line});
+}
+
 /* ---------- 头顶血条: CombatKit.mkHpBar 深接口(S2, C6-T3 自 mode-kit 迁入) ----------
     每帧喂 {hp, maxHp, 世界坐标}(头顶 2.2 格), 重绘节流收在深接口 */
 const advHpBar = CombatKit.mkHpBar();
+let advBubbles = null; /* 溺气泡条(liquid D10, init 建/cleanup 收) */
 
 /* ---------- 提醒账本(S4): 判据纯函数在 adventure-core, 这里只持账本与话术 ---------- */
 const advWarnLow = new Set(); /* 已低耐久预警的工具 id(advWearWarn 消费; 破板即 delete 重置) */
@@ -1371,11 +1385,23 @@ const AdventureMode = mkMode({
     advQuestT = ADV_QUEST_CHECK_T; /* 谓词检查节流复位(进场半秒后首查) */
     advQuestPaint();
     advBag.load(); /* 全局背包经背包壳读档(原地换槽, 面板/快捷栏闭包不脱钩) */
+    /* 流体账本缝(liquid D8): 流体写格(流动/消退/混合/冲毁)即时入 edits 账本——
+       逐格最后写赢, 重进精确恢复水位; 流体格带 {id,lv}, 其余保持数字(旧档零迁移) */
+    setFluidEditSink((x, y, z, id, lv) => {
+      advEdits.set(x + ',' + y + ',' + z,
+          (BLOCKS[id] && BLOCKS[id].fluid) ? {id, lv: lv || 0} : id);
+    });
+    advBubbles = mkBubbleBar(); /* 溺气泡条(liquid D10): 剩 3 泡 TTS 提醒, 气满藏条 */
     loadScene(() => {/* 场景装填 seam: 清场→建场→收尾入队一步到位 */
       advBuildWorld();
       for (const [k, v] of advEdits) {
         const p = k.split(',');
-        setBlockRaw(+p[0], +p[1], +p[2], v);
+        if (v && typeof v === 'object') {/* 流体格带水位(liquid D8): 双通道重放, 不走排程 */
+          setBlockRaw(+p[0], +p[1], +p[2], v.id);
+          setFluidLv(+p[0], +p[1], +p[2], v.lv || 0);
+        } else {
+          setBlockRaw(+p[0], +p[1], +p[2], v);
+        }
       }
       /* P14 世界卫生清扫(设计稿 D9): 级联合并前的旧档浮空(孤儿冠/悬浮树/浮沙/
          悬空依附块)在重进时一次性治愈——静默结算(装场期迁移不是游戏事件:
@@ -1454,6 +1480,10 @@ const AdventureMode = mkMode({
   cleanup() {
     /* F1 拍板①: 退世界不清炉不退料——炉态随下方 advSaveNow 落盘, 重进原样接着烧 */
     advSaveNow();
+    setFluidEditSink(null); /* 流体账本缝解除(liquid D8: 不渗进其他模式) */
+    if (advBubbles) {
+      advBubbles.dispose(); advBubbles = null; /* 溺气泡条收 DOM(liquid D10) */
+    }
     Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
     Drops.clear(); /* 清掉落物+解除收集回调 */
     advArrows.clear(); /* 箭矢网格一并摘除 */
@@ -1494,6 +1524,16 @@ const AdventureMode = mkMode({
     advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
     advMelee.tick(dt); /* 挥击冷却递减(kit 自持, T14 口径不变) */
     advHurt.tick(dt); /* 受击语音节流递减(T14) */
+    /* 流体环境伤害(liquid D9): 引擎计息到点的事件在此结算 HP(探险有 HP 账本) */
+    if (worldEvents.drownTick) {
+      worldEvents.drownTick = false;
+      advEnvHurt(FLUID.drownDps, '呛水啦，快抬头换气！');
+    }
+    if (worldEvents.lavaTick) {
+      worldEvents.lavaTick = false;
+      advEnvHurt(FLUID.lavaDps, '好烫！快离开岩浆！');
+    }
+    if (advBubbles) advBubbles.update(playerAirS / FLUID.airMaxS); /* 溺气泡条(liquid D10) */
     advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架; passive 动物在此排除) */
     advHerdTick(dt); /* F4 牧场动物: 恐惧游荡/闲逛(与战斗 AI 互斥的两条驱动) */
     Mobs.update(dt);

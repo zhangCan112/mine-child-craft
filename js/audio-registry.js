@@ -35,8 +35,8 @@
      1 高频打击与UI反馈(混战中最可丢的一档)。
    - coolMs: 同类冷却窗(防大混战同声叠加爆音), 沿用现 sfx() 的
      60ms; win 仪式音豁免冷却(现实现即如此) — 0。
-   TNT 密室下线后的死键(fss 引线嘶声/door 铁门/splash 水花)无
-   调用点, 不迁入; 若复活 TNT 模式, 重新登记而非默认保留。 */
+   TNT 密室下线后的死键(fss 引线嘶声/door 铁门)无调用点, 不迁入; 若复活 TNT
+   模式, 重新登记而非默认保留。splash 水花死键已随液体系统复活(2026-10, 设计稿 liquid D10)。 */
 const SFX_KINDS = {
   boom: {file: 'impactplate-heavy-000.m4a', synth: {noise: {type: 'lowpass', freq: 420, dur: 0.5}, g: 0.2}, g: 1, gTouch: 1, prio: 2, coolMs: 60}, // g 0.4→0.2: 与其他音效重新配平, 给压限器留余量
   hit: {file: 'impactpunch-medium-000.m4a', synth: {type: 'square', f0: 170, f1: 80, fT: 0.08, dur: 0.09, g: 0.08}, g: 1, gTouch: 1, prio: 1, coolMs: 60},
@@ -51,6 +51,8 @@ const SFX_KINDS = {
   level: {synth: {type: 'sine', steps: [660, 880, 1320], stepT: 0.08, dur: 0.42, g: 0.12}, g: 1, gTouch: 1, prio: 4, coolMs: 60}, // 晋升琶音(仪式音保持合成: 琶音比打击样本更贴)
   gem: {synth: {type: 'sine', steps: [1318, 1760, 2637], stepT: 0.09, dur: 0.5, g: 0.12}, g: 1, gTouch: 1, prio: 4, coolMs: 60}, // 钻石首获琶音(T15 仪式, 三音上行更闪; 2026-10-23 随 master 并入——定义原在 effects.js SFX_DEFS, 表迁册于此)
   win: {synth: {special: 'win'}, g: 1, gTouch: 1, prio: 4, coolMs: 0}, // 胜利和弦: 双振荡器琶音特例(解释器内联), 仪式音豁免同类冷却
+  splash: {synth: {noise: {type: 'bandpass', freq: 900, dur: 0.25}, g: 0.12}, g: 1, gTouch: 1, prio: 1, coolMs: 120}, // 入水水花(液体系统复活死键, 设计稿 liquid D10; 带通白噪拟水声)
+  lava_hiss: {synth: {noise: {type: 'highpass', freq: 2400, dur: 0.5}, g: 0.10}, g: 1, gTouch: 1, prio: 2, coolMs: 200}, // 水岩混合嘶嘶声(MC extinguish 口径, liquid D4.4)
 };
 
 /* ---------- BGM 曲目表 ----------
