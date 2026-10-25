@@ -1431,50 +1431,153 @@ test('T13 熔炉行为链: 走近点击开面板 → 自动放料(扣包) → 2.
   pos.x = spot.x + 0.5; pos.z = spot.z + 2.5; /* 距炉 2 格 */
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(A.ADV.furnaceOpen, true, '走近 4 格内点击熔炉 → 打开烧炼面板');
+  const fk = api.blockKey(spot.x, 25, spot.z);
+  assert.strictEqual(A.advGetFurnaceAt(), fk, '面板绑定这台炉(F1 拍板①)');
   /* 自动放料: 面板只报意图, 模式层执行 take — 矿石全入炉 + 最省凑料 1 块煤(热值 8 ≥ 5 件) */
   api.add(A.advGetInv(), 'iron_ore', 5);
   api.add(A.advGetInv(), 'coal', 2);
   A.advFurnaceAutoFill();
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '矿石全入炉(take 扣包)');
   assert.strictEqual(api.count(A.advGetInv(), 'coal'), 1, '最省凑料: 1 块煤已覆盖 5 件热值');
-  assert.strictEqual(A.advFurnace.input.n, 5, '炉内待烧 5 件');
-  assert.strictEqual(A.advFurnace.fuel.n, 1, '炉内燃料 1 块煤');
+  assert.strictEqual(A.advFurnaceState(fk).input.n, 5, '炉内待烧 5 件');
+  assert.strictEqual(A.advFurnaceState(fk).fuel.n, 1, '炉内燃料 1 块煤');
   /* 烧炼 12.5s+: 5 件铁锭 + 完成播报(产物名入句) */
   spoken.length = 0;
   for (let i = 0; i < 340; i++) AdventureMode.update(0.05); /* 17s > 12.5s */
-  assert.deepStrictEqual(A.advFurnace.out, {id: 'iron_ingot', n: 5}, '5 件全部烧成');
+  assert.deepStrictEqual(A.advFurnaceState(fk).out, {id: 'iron_ingot', n: 5}, '5 件全部烧成');
   assert.ok(spoken.some((s) => String(s).indexOf('铁锭') >= 0 && String(s).indexOf('烧好') >= 0),
       '完成播报(产物名入句)');
   A.advFurnaceClose();
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 5, '关面板取产入包');
   assert.strictEqual(A.ADV.furnaceOpen, false, '面板收起');
-  assert.strictEqual(A.advFurnace.out, null, '产物槽清空');
+  assert.strictEqual(A.advFurnaceState(fk).out, null, '产物槽清空');
 });
 
-test('T13 死亡清炉: 炉内材料全额退背包 + 状态归零(退世界同一政策)', () => {
+test('F1 死亡不动炉: 阵亡回出生点满血, 炉内容原样保留(拍板①持久化——旧清炉政策退役)', () => {
   mem.clear();
   freshInit();
-  A.advFurnace.input = {id: 'iron_ore', n: 3};
-  A.advFurnace.fuel = {id: 'coal', n: 1};
-  A.advFurnace.out = {id: 'iron_ingot', n: 2};
-  AdventureMode.onVoidFall(); /* 死亡类事件 → advPlayerDied → 清炉 */
-  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '待烧料退包');
-  assert.strictEqual(api.count(A.advGetInv(), 'coal'), 1, '燃料退包');
-  assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 2, '产物退包');
-  assert.strictEqual(A.advFurnace.input, null, '炉清空(状态归零)');
-  assert.strictEqual(A.advFurnace.heat, 0, '热值清零');
+  const s = findGrassSpot();
+  api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
+  A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  const fk = api.blockKey(s.x, 25, s.z);
+  api.add(A.advGetInv(), 'iron_ore', 3);
+  api.add(A.advGetInv(), 'coal', 1);
+  pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 0.5;
+  AdventureMode.onMouse(0, {x: s.x, y: 25, z: s.z, nx: 0, ny: 1, nz: 0});
+  A.advFurnaceAutoFill();
+  const f = A.advFurnaceState(fk);
+  assert.ok(f && f.input, '料已入炉(前提)');
+  f.out = {id: 'iron_ingot', n: 2};
+  AdventureMode.onVoidFall(); /* 死亡类事件 → advPlayerDied */
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '炉料不退包(留在炉里)');
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 0, '产物不退包');
+  const f2 = A.advFurnaceState(fk);
+  assert.deepStrictEqual(f2.input, {id: 'iron_ore', n: 3}, '炉态原样保留');
+  assert.deepStrictEqual(f2.fuel, {id: 'coal', n: 1});
+  assert.deepStrictEqual(f2.out, {id: 'iron_ingot', n: 2});
 });
 
-test('T13 退世界清炉: cleanup 先退料落盘再清场(重进熔炉是空的, 材料在背包)', () => {
+test('F1 炉态持久化: cleanup 只落盘不退料(旧 D8 退料退役) — 重进炉内物品/进度照旧继续烧', () => {
   mem.clear();
   freshInit();
-  A.advFurnace.input = {id: 'iron_ore', n: 3};
+  const s = findGrassSpot();
+  api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
+  A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  const fk = api.blockKey(s.x, 25, s.z);
+  api.add(A.advGetInv(), 'iron_ore', 3);
+  api.add(A.advGetInv(), 'coal', 1);
+  pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 0.5;
+  AdventureMode.onMouse(0, {x: s.x, y: 25, z: s.z, nx: 0, ny: 1, nz: 0});
+  A.advFurnaceAutoFill();
+  for (let i = 0; i < 24; i++) AdventureMode.update(0.05); /* 1.2s: 首件烧到半程 */
+  const f = A.advFurnaceState(fk);
+  assert.ok(f.prog > 0.5 && f.prog < 2.5, '首件半程进度(断点前提)');
+  A.advFurnaceClose();
   AdventureMode.cleanup();
-  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '退炉材料进背包');
-  const invSave = JSON.parse(mem.get('inventory_save'));
-  assert.ok(invSave.slots.some((s) => s && s.id === 'iron_ore' && s.n === 3), '退料随 inventory_save 落盘');
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '不退料——炉态随世界档走');
+  const wsv = JSON.parse(mem.get('adventure_world_save'));
+  assert.ok(Array.isArray(wsv.furnaces) &&
+      wsv.furnaces.some((e) => e[0] === fk && e[1].input && e[1].input.n === 3),
+      '炉内三笔进 furnaces 字段');
+  /* 重进: 炉态恢复(物品/热值/进度), 接着烧完——煤在开烧瞬间整件折成热值,
+     断点时燃料槽空、热值在档是正确状态(燃料按件计费口径) */
   freshInit();
-  assert.strictEqual(A.advFurnace.input, null, '重进熔炉是空的(炉态不进存档, D8 口径)');
+  const f2 = A.advFurnaceState(fk);
+  assert.ok(f2, '重进炉态恢复');
+  assert.deepStrictEqual({id: f2.input.id, n: f2.input.n}, {id: 'iron_ore', n: 3});
+  assert.strictEqual(f2.fuel, null, '煤已折成热值(燃料槽空)');
+  assert.ok(f2.heat > 7 && f2.heat <= 8, '热值随档(8 − 已烧 0.48)');
+  assert.ok(Math.abs(f2.prog - f.prog) < 0.01, '烧炼进度原样(接着烧)');
+  for (let i = 0; i < 140; i++) AdventureMode.update(0.05); /* 7s > 余下 6.3s */
+  assert.deepStrictEqual(A.advFurnaceState(fk).out, {id: 'iron_ingot', n: 3}, '恢复后继续烧成');
+});
+
+test('F1 多炉独立: 两炉异料并烧各产各的 + 面板绑定哪台看哪台 + TTS 只报绑定炉', () => {
+  mem.clear();
+  freshInit();
+  const spots = [];
+  outer: for (let x = 3; x < 50; x++) {
+    for (let z = 3; z < 50; z++) {
+      if (cell(x, 24, z) === 1 && cell(x, 25, z) === 0 && cell(x, 26, z) === 0) {
+        spots.push({x, z});
+        if (spots.length === 2) break outer;
+      }
+    }
+  }
+  assert.strictEqual(spots.length, 2, '两块干净草地(前提)');
+  for (const s of spots) {
+    api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
+    A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  }
+  const k1 = api.blockKey(spots[0].x, 25, spots[0].z);
+  const k2 = api.blockKey(spots[1].x, 25, spots[1].z);
+  api.add(A.advGetInv(), 'iron_ore', 3);
+  api.add(A.advGetInv(), 'sand', 2);
+  api.add(A.advGetInv(), 'coal', 2);
+  /* 炉1: 吃首现矿种铁(单槽单矿种), 沙子留包 */
+  pos.x = spots[0].x + 0.5; pos.y = 25; pos.z = spots[0].z + 0.5;
+  AdventureMode.onMouse(0, {x: spots[0].x, y: 25, z: spots[0].z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetFurnaceAt(), k1, '点击炉1 绑定炉1');
+  A.advFurnaceAutoFill();
+  assert.deepStrictEqual(A.advFurnaceState(k1).input, {id: 'iron_ore', n: 3}, '炉1 吃铁矿');
+  assert.strictEqual(api.count(A.advGetInv(), 'sand'), 2, '沙子留在包里(单槽单矿种口径)');
+  A.advFurnaceClose();
+  /* 炉2: 吃沙 */
+  pos.x = spots[1].x + 0.5; pos.z = spots[1].z + 0.5;
+  AdventureMode.onMouse(0, {x: spots[1].x, y: 25, z: spots[1].z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetFurnaceAt(), k2, '点击炉2 绑定切换');
+  A.advFurnaceAutoFill();
+  assert.deepStrictEqual(A.advFurnaceState(k2).input, {id: 'sand', n: 2}, '炉2 吃沙子');
+  /* 双炉并烧 8s(炉1 3 件 7.5s / 炉2 2 件 5s): 面板开着的是炉2 —
+     炉2 完成播报玻璃; 炉1 完成不播(非绑定炉不合唱) */
+  spoken.length = 0;
+  for (let i = 0; i < 160; i++) AdventureMode.update(0.05); /* 8s */
+  assert.deepStrictEqual(A.advFurnaceState(k1).out, {id: 'iron_ingot', n: 3}, '炉1 各烧各的(铁锭×3)');
+  assert.deepStrictEqual(A.advFurnaceState(k2).out, {id: 'glass', n: 2}, '炉2 各烧各的(玻璃×2)');
+  assert.ok(spoken.some((t) => String(t).indexOf('玻璃') >= 0 && String(t).indexOf('烧好') >= 0),
+      '绑定炉(炉2)完成播报');
+  assert.ok(!spoken.some((t) => String(t).indexOf('铁锭') >= 0), '非绑定炉(炉1)烧成不播报');
+});
+
+test('F1 挖炉退料: 挖掉熔炉 → 三笔全额入包 + 炉状态删除 + 绑定面板连带关闭(挖掘/TNT 同一钩子)', () => {
+  mem.clear();
+  freshInit();
+  const s = findGrassSpot();
+  api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
+  A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  const fk = api.blockKey(s.x, 25, s.z);
+  api.add(A.advGetInv(), 'iron_ore', 3);
+  api.add(A.advGetInv(), 'coal', 2);
+  pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 0.5;
+  AdventureMode.onMouse(0, {x: s.x, y: 25, z: s.z, nx: 0, ny: 1, nz: 0});
+  A.advFurnaceAutoFill();
+  assert.strictEqual(A.advFurnaceState(fk).fuel.n, 1, '1 块煤入炉(前提)');
+  /* 蓄力链有专测 — 直接走破坏 seam(退炉钩在 advMarkEdit, 挖掘/TNT 爆炸同路) */
+  A.advBreakBlock(s.x, 25, s.z, api.B_FURNACE, {time: 0.5, drops: true});
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '待烧料全额退包');
+  assert.strictEqual(api.count(A.advGetInv(), 'coal'), 2, '燃料退包(炉内 1 + 背包余 1)');
+  assert.strictEqual(A.advFurnaceState(fk), null, '炉状态删除');
+  assert.strictEqual(A.ADV.furnaceOpen, false, '绑定面板连带关闭');
 });
 
 test('T13 TNT 行为链: 放置 → 空手短按点燃 → 引信延时 → 爆炸破坏记账 + 波及怪物受击', () => {
@@ -1656,9 +1759,10 @@ test('事件计数累计链: 挖→拾取→合成→放置→烧成→开箱→
   A.advChestOpenPanel();
   assert.strictEqual(c().open_chest, 1, '打开箱子 → open_chest 1(引导链 v2)');
   A.advChestClose();
-  /* 烧成: advFurnaceTick 产出分支(3 件铁锭 = 7.5s+) */
-  A.advFurnace.input = {id: 'iron_ore', n: 3};
-  A.advFurnace.fuel = {id: 'coal', n: 1};
+  /* 烧成: advFurnaceTick 产出分支(3 件铁锭 = 7.5s+) — 炉态直灌 Map(F1 多炉口径) */
+  spot = findGrassSpot();
+  A.advFurnaces.set(api.blockKey(spot.x, 25, spot.z), {input: {id: 'iron_ore', n: 3},
+    fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
   for (let i = 0; i < 170; i++) AdventureMode.update(0.05); /* 8.5s */
   assert.strictEqual(c().smelt_iron_ingot, 3, '烧成 3 件铁锭 → smelt_iron_ingot 3');
   /* 击杀: advOnKill 挂点(挥击/箭/TNT 三路共用) */

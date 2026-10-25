@@ -13,7 +13,8 @@
      ORES/TREES) · 地形生成 advBuildWorld 一族 · 政策纯函数
      advDeathPlan/advNestCount/advNestStep/advSwingDmg/advMobDmg/
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
-     advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advTntRoll/
+     advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advFurnaceValid/
+     advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫)/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 任务表
      ADV_QUESTS/ADV_MINE_TALLY · 大宝箱政策 ADV_CHEST_START/ADV_CHEST_SLOTS/
      ADV_CHEST_TIERS/advChestNext/advChestPut · 节律常量 ADV_*
@@ -457,6 +458,28 @@ function advFurnaceRefund(inv, f) {
   return leftover;
 }
 
+/* F1 炉状态形状校验(拍板①: 每炉独立+持久化): 世界档 decode 侧逐条防错,
+   非法整条拒收(不炸模式, 材料随损坏档损失——mkSaveSlot 损坏回落先例)。
+   槽形状 {id,n}(id 在 ITEMS 注册且 n≥1) · heat ≥0 · prog ∈[0, ADV_SMELT_T] */
+function advFurnaceValid(s) {
+  if (!s || typeof s !== 'object') return false;
+  const slot = (v) => v === null || (typeof v === 'object' && v !== null &&
+      !!ITEMS[v.id] && Number.isFinite(v.n) && v.n >= 1);
+  if (!slot(s.input) || !slot(s.fuel) || !slot(s.out)) return false;
+  return Number.isFinite(s.heat) && s.heat >= 0 &&
+      Number.isFinite(s.prog) && s.prog >= 0 && s.prog <= ADV_SMELT_T;
+}
+
+/* F1 空炉条目清扫(encode 侧): 三槽全空且无余热的炉不进存档(长期游玩防膨胀);
+   返回 [posKey, state] entries 数组(世界档 furnaces 字段的存档形状) */
+function advFurnaceClean(map) {
+  const out = [];
+  for (const [k, s] of map) {
+    if (s.input || s.fuel || s.out || s.heat > 0) out.push([k, s]);
+  }
+  return out;
+}
+
 /* TNT 爆炸掉落掷骰(D4): 方块先掷 70% 门槛, 中签才走 rollBlockDrop(保底+
    概率条目原样掷, 不传工具=默认表)。rand 可注入; tnt 旗标守卫恒空手 —
    TNT 不经爆炸自掉(圈内 TNT 走链式点燃分支本就不进掷骰, 守卫与 drop
@@ -661,7 +684,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
     ADV_STATION_R, ADV_SMELT_T, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advSmeltStep,
-    advFurnaceRefund, advTntRoll, advTntDmg,
+    advFurnaceRefund, advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut,
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,

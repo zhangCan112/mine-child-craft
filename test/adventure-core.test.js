@@ -243,3 +243,41 @@ test('S4③ 工具坏话术纯函数: 安抚句 + 任务步 hint 并句(无 hint
   const done = Core.advBreakToolText('木镐', null);
   assert.ok(done.indexOf('接下来') < 0, '任务全部完成(hint 空)不拼引导');
 });
+
+/* ============ F1 每炉独立 + 持久化(furnace-plan 拍板①) ============ */
+
+test('F1 炉状态纯函数: advFurnaceValid — 五元组形状校验, 非法整条拒收(decode 防错)', () => {
+  assert.strictEqual(Core.advFurnaceValid(null), false, 'null 拒收');
+  assert.strictEqual(Core.advFurnaceValid({}), false, '缺字段拒收');
+  assert.strictEqual(Core.advFurnaceValid({input: null, fuel: null, out: null, heat: 0, prog: 0}),
+      true, '空炉合法');
+  assert.strictEqual(Core.advFurnaceValid(
+      {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 1}, out: {id: 'iron_ingot', n: 2}, heat: 5, prog: 1.2}),
+      true, '满炉合法');
+  assert.strictEqual(Core.advFurnaceValid(
+      {input: {id: 'nope_item', n: 1}, fuel: null, out: null, heat: 0, prog: 0}),
+      false, '未注册物品拒收(交叉校验归 ITEMS)');
+  assert.strictEqual(Core.advFurnaceValid(
+      {input: {id: 'iron_ore', n: 0}, fuel: null, out: null, heat: 0, prog: 0}),
+      false, '零数量槽拒收');
+  assert.strictEqual(Core.advFurnaceValid({input: null, fuel: null, out: null, heat: -1, prog: 0}),
+      false, '负热值拒收');
+  assert.strictEqual(Core.advFurnaceValid({input: null, fuel: null, out: null, heat: 0, prog: 3}),
+      false, '进度越界拒收(钳制界 ADV_SMELT_T)');
+  assert.strictEqual(Core.advFurnaceValid({input: 'iron_ore', fuel: null, out: null, heat: 0, prog: 0}),
+      false, '槽形状必须是对象拒收');
+});
+
+test('F1 炉状态纯函数: advFurnaceClean — 空炉条目清扫(三槽全空且无余热), 有料条目保留', () => {
+  const m = new Map([
+    ['1,25,1', {input: null, fuel: null, out: null, heat: 0, prog: 0}], /* 空炉 → 清 */
+    ['2,25,2', {input: {id: 'iron_ore', n: 2}, fuel: null, out: null, heat: 0, prog: 0}], /* 有料 → 留 */
+    ['3,25,3', {input: null, fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0}], /* 有燃料 → 留 */
+    ['4,25,4', {input: null, fuel: null, out: null, heat: 3, prog: 0}], /* 有余热 → 留(下批料免烧) */
+    ['5,25,5', {input: null, fuel: null, out: {id: 'glass', n: 1}, heat: 0, prog: 0}], /* 有产物 → 留 */
+  ]);
+  const kept = Core.advFurnaceClean(m);
+  assert.deepStrictEqual(kept.map(([k]) => k), ['2,25,2', '3,25,3', '4,25,4', '5,25,5'],
+      '只清空炉, 存档不膨胀');
+  assert.strictEqual(Core.advFurnaceClean(new Map()).length, 0, '空 Map 照跑');
+});

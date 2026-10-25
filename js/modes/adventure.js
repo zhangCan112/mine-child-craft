@@ -17,9 +17,10 @@
      树苗 20s 长成(计时 Map 不落盘, 重进重建); 食物点击吃; 工具耐久归零
      消失 + 安抚 TTS 并句当前任务步指路(S4③)
    · 合成与烧炼(T13, D8): 工作台/熔炉放置后走近 4 格解锁(站点坐标缓存);
-     合成成功 TTS 具体表扬 + leftover 转脚下掉落物; 熔炉 2.5s/件自动
-     烧炼(关面板进度保留, 退世界/死亡全额退料); TNT 合成→放置→点燃→
-     延时爆炸(不伤玩家——儿童挖矿神器)
+     合成成功 TTS 具体表扬 + leftover 转脚下掉落物; 熔炉 2.5s/件自动烧炼,
+     每炉独立 + 炉态随世界档持久化(F1 拍板①, 2026-10-25: 多炉各有内容/
+     重进接着烧/挖炉退料, 旧「退世界死亡全额退料」政策退役); TNT 合成→
+     放置→点燃→延时爆炸(不伤玩家——儿童挖矿神器)
    · 巢穴战斗(T14, D6/D11/D9): 每巢限量 2~3 只 · 清空 60s 再刷 · 索敌
      收敛不追出巢区; 击杀掉落(rollDrops) + 收集 3s 合并播报; 玩家战斗
      (nether 同骨架 AI, 单击伤害封顶 10)
@@ -75,11 +76,13 @@ const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
 const ADV_WORLD_KEY = 'adventure_world_save';
 const ADV_QUEST_KEY = 'adventure_quest_save';
 const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
-  defaults: {edits: [], pos: null, hp: null}, /* pos(含 yaw)/hp: 玩家状态随世界档, 老档补 null → 出生点/满血 */
+  defaults: {edits: [], pos: null, hp: null, furnaces: []}, /* pos(含 yaw)/hp: 玩家状态随世界档; furnaces: 每炉独立炉态(F1 拍板①, 老档补空=无炉) */
   encode: (st) => ({edits: [...st.edits.entries()], pos: st.pos || null,
-    hp: (typeof st.hp === 'number') ? st.hp : null}),
+    hp: (typeof st.hp === 'number') ? st.hp : null,
+    furnaces: advFurnaceClean(st.furnaces)}), /* 空炉条目清扫(存档防膨胀) */
   decode: (sv) => ({edits: new Map(sv.edits || []), pos: sv.pos || null,
-    hp: (typeof sv.hp === 'number') ? sv.hp : null}),
+    hp: (typeof sv.hp === 'number') ? sv.hp : null,
+    furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1])))}), /* 非法炉态整条拒收 */
 });
 /* T15 任务进度: mkSaveSlot defaults 只补缺失字段——老档 {step:N} 自动补空 counts */
 const advQuestSlot = SyncDB.slot(ADV_QUEST_KEY, {defaults: {step: 0, counts: {}}});
@@ -99,13 +102,17 @@ const advStations = new Map();
 
 function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此记账(build 同款); T13 顺路维护站点缓存 */
   const k = blockKey(x, y, z);
+  const prev = advStations.get(k);
   advEdits.set(k, id);
   if (id === B_CRAFT || id === B_FURNACE) advStations.set(k, {x, y, z, id});
   else advStations.delete(k); /* 挖除/覆盖皆注销(爆炸掀掉站点同样走此 seam) */
+  if (prev && prev.id === B_FURNACE && id !== B_FURNACE) advFurnaceDrop(k); /* F1: 炉子消失(挖/TNT/覆盖) → 炉内三笔退包 */
   advDirty = true;
 }
-function advSaveNow() {/* 全量落盘(5s 节流/退出兜底/死亡·回家即时): 世界档带上玩家位置+朝向与血量(重进保留) */
-  advWorldSlot.save({edits: advEdits, pos: {x: pos.x, y: pos.y, z: pos.z, yaw}, hp: ADV.player.hp});
+function advSaveNow() {/* 全量落盘(5s 节流/退出兜底/死亡·回家即时): 世界档带上玩家位置+朝向与血量(重进保留),
+   炉态经 encode 清扫后随档(F1: 退出不退料, 炉内物品原地保留) */
+  advWorldSlot.save({edits: advEdits, pos: {x: pos.x, y: pos.y, z: pos.z, yaw}, hp: ADV.player.hp,
+    furnaces: advFurnaces});
   advBag.save(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
   advQuestSlot.save(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   advDirty = false;
@@ -436,8 +443,8 @@ function advPlayerDied() {
   CombatKit.resetFighter(e); /* 复活五字段不变量(阵亡去向政策在此) */
   e.hp = plan.hp; ADV.player.hp = plan.hp;
   ModeKit.spawn(plan.x, plan.y, plan.z, {yaw: plan.yaw});
-  advFurnaceReset(true); /* 死亡清炉(T13 合同): 炉内材料全额退背包, 满包余量掉在重生点脚边 */
-  advSaveNow(); /* 重生态即时落盘: 防 5s 节流窗口内关页面 → 重进在死亡点残血(与死亡语义矛盾) */
+  advSaveNow(); /* 重生态即时落盘: 防 5s 节流窗口内关页面 → 重进在死亡点残血(与死亡语义矛盾);
+     炉态不动也不退(F1 拍板①: 炉内物品随档保留, 死亡零惩罚不碰炉子) */
   SpeechKit.speak('不怕不怕，回到小屋休息好啦，背包里的宝贝都在！');
   showToast('💀 回到出生小屋，满血再来！');
 }
@@ -789,16 +796,32 @@ function advRescanStations() {
   }
 }
 
-/* 熔炉状态机(挂模式层, 不进存档——D8: 重进世界熔炉清空材料退回背包) */
-const advFurnace = {input: null, fuel: null, out: null, heat: 0, prog: 0};
-let advFurnSig = ''; /* 三槽签名(变化才喂 setSlots, 省 DOM) */
+/* 熔炉状态机(F1 拍板①: 每炉独立 + 随世界档持久化): Map<posKey, 五元组>,
+   posKey 与站点缓存同口径('x,y,z'); 面板经 advFurnaceAt 绑定某台炉。
+   旧全局单炉与「退世界/死亡全额退料」政策退役(2026-10-25 拍板) */
+const advFurnaces = new Map(); /* 引用跨 init 稳定: init 里 clear() 复位, 不换 Map */
+let advFurnaceAt = null; /* 面板绑定的炉 posKey(面板开着时非 null) */
+let advFurnSig = ''; /* 绑定炉三槽签名(变化才喂 setSlots, 省 DOM) */
 let advSmeltTtsT = 0; /* 完成播报节流计时 */
 
-function advFurnacePaint() {/* 面板回显: 三槽现状 + 当前进度(0..1) */
-  advFurnacePanel.setSlots({input: advFurnace.input, fuel: advFurnace.fuel, output: advFurnace.out});
-  advFurnacePanel.setProgress(advFurnace.prog / ADV_SMELT_T);
+function advFurnaceState(posKey) {/* 炉状态只读查询(未建返回 null——单测触达面) */
+  return advFurnaces.get(posKey) || null;
 }
-function advFurnaceOpenPanel() {/* 走近熔炉点击打开: 先取走产物(即时回报)再回显 */
+function advFurnaceEnsure(posKey) {/* 取/建炉状态(首次交互才建) */
+  let s = advFurnaces.get(posKey);
+  if (!s) {
+    s = {input: null, fuel: null, out: null, heat: 0, prog: 0};
+    advFurnaces.set(posKey, s);
+  }
+  return s;
+}
+function advFurnacePaint() {/* 面板回显: 绑定炉三槽现状 + 当前进度(0..1) */
+  const f = advFurnaceAt ? advFurnaces.get(advFurnaceAt) : null;
+  advFurnacePanel.setSlots(f || {input: null, fuel: null, output: null});
+  advFurnacePanel.setProgress((f ? f.prog : 0) / ADV_SMELT_T);
+}
+function advFurnaceOpenPanel(posKey) {/* 走近熔炉点击打开: 绑定这台炉, 先取走产物(即时回报)再回显 */
+  advFurnaceAt = posKey;
   ADV.furnaceOpen = true;
   advFurnaceCollectOut();
   advFurnacePanel.show();
@@ -809,25 +832,27 @@ function advFurnaceClose() {/* 收面板(✕/Tab/Esc/onClose 共用): 顺带取�
   ADV.furnaceOpen = false;
   advFurnacePanel.hide();
   advFurnaceCollectOut();
+  advFurnaceAt = null; /* 解绑(多炉口径: 下次点击重新绑定) */
   advRelock();
 }
-/* 取产物入包: 满包一件都放不下则整撮留炉(拒收口径), 部分放不下留余量在炉 */
+/* 取产物入包(绑定炉): 满包一件都放不下则整撮留炉(拒收口径), 部分放不下留余量在炉 */
 function advFurnaceCollectOut() {
-  if (!advFurnace.out) return;
-  const left = add(advInv, advFurnace.out.id, advFurnace.out.n);
-  if (left >= advFurnace.out.n) {
+  const f = advFurnaceAt ? advFurnaces.get(advFurnaceAt) : null;
+  if (!f || !f.out) return;
+  const left = add(advInv, f.out.id, f.out.n);
+  if (left >= f.out.n) {
     showToast('🎒 背包满啦，产物先躺在炉里');
     return;
   }
-  advFurnace.out = left > 0 ? {id: advFurnace.out.id, n: left} : null;
+  f.out = left > 0 ? {id: f.out.id, n: left} : null;
   advSyncHotbar();
   sfx('pick');
 }
-/* 自动放料(面板 📥 意图出口): 先取产物腾槽 → 入料(单槽单矿种, 只收首现
-   矿种全量) → 热值不足以覆盖剩余件数时补最省燃料(炉内已有则同种加码)。
+/* 自动放料(面板 📥 意图出口, 绑定炉): 先取产物腾槽 → 入料(单槽单矿种, 只收
+   首现矿种全量) → 热值不足以覆盖剩余件数时补最省燃料(炉内已有则同种加码)。
    plan 缺省自算(面板回调会喂, 直调/测试可省) */
 function advFurnaceAutoFill(plan) {
-  const f = advFurnace;
+  const f = advFurnaceEnsure(advFurnaceAt);
   advFurnaceCollectOut();
   plan = plan || advFurnacePanel.autoPlan();
   if (!f.input && plan.load.length) {
@@ -846,43 +871,41 @@ function advFurnaceAutoFill(plan) {
   }
   advFurnacePaint();
 }
-/* 清炉(退世界/死亡共用, D8): 三笔全额退背包, 满包余量掉脚边(spill=true) */
-function advFurnaceReset(spill) {
-  for (const it of advFurnaceRefund(advInv, advFurnace)) {
-    if (spill) Drops.spawn(it.id, it.n, pos.x, pos.y + 0.5, pos.z);
-  }
-  advFurnaceZero();
+/* 挖炉/TNT 掀炉退料(F1): advMarkEdit 钩子单一入口——炉内三笔全额入包,
+   满包余量掉在炉位上方; 炉状态删除; 面板正绑定这台炉则连带关闭 */
+function advFurnaceDrop(posKey) {
+  const f = advFurnaces.get(posKey);
+  if (!f) return;
+  const [dx, dy, dz] = posKey.split(',').map(Number);
+  for (const it of advFurnaceRefund(advInv, f)) Drops.spawn(it.id, it.n, dx + 0.5, dy + 0.5, dz + 0.5);
+  advFurnaces.delete(posKey);
+  if (advFurnaceAt === posKey && ADV.furnaceOpen) advFurnaceClose();
   advSyncHotbar();
 }
-function advFurnaceZero() {/* 炉状态归零(不退料——init 防御性复位用) */
-  advFurnace.input = null;
-  advFurnace.fuel = null;
-  advFurnace.out = null;
-  advFurnace.heat = 0;
-  advFurnace.prog = 0;
-  advFurnSig = '';
-}
-/* 烧炼节律(update 常开, 面板只是回显——烧炼中可关面板走人):
-   产出完成且面板开着 → TTS 完成播报(产物名入句, 3s 节流); ✕ 直关面板
-   不经模式层 → 以 root.display 对账收状态 */
+/* 烧炼节律(update 常开, 面板只是回显——烧炼中可关面板走人): 多炉逐炉推进,
+   smelt_* 记账逐炉累计; TTS 完成播报与面板回显只对绑定炉(多炉不合唱);
+   ✕ 直关面板不经模式层 → 以 root.display 对账收状态 */
 function advFurnaceTick(dt) {
-  const hadOut = advFurnace.out ? advFurnace.out.n : 0;
-  Object.assign(advFurnace, advSmeltStep(advFurnace, dt));
-  const made = (advFurnace.out ? advFurnace.out.n : 0) - hadOut;
-  if (made > 0) advTally('smelt_' + advFurnace.out.id, made); /* T15: 烧成件数记账(炉内产出即算, 不等入包) */
   advSmeltTtsT = Math.max(0, advSmeltTtsT - dt);
-  if (made > 0 && ADV.furnaceOpen && advSmeltTtsT <= 0) {
-    advSmeltTtsT = ADV_SMELT_TTS_T;
-    const name = (ITEMS[advFurnace.out.id] && ITEMS[advFurnace.out.id].name) || advFurnace.out.id;
-    SpeechKit.speak(name + '烧好啦！继续加油！');
+  for (const [k, f] of advFurnaces) {
+    const hadOut = f.out ? f.out.n : 0;
+    const n = advSmeltStep(f, dt); /* 纯函数返回新对象——写回 Map */
+    advFurnaces.set(k, n);
+    const made = (n.out ? n.out.n : 0) - hadOut;
+    if (made > 0) advTally('smelt_' + n.out.id, made); /* T15: 烧成件数记账(炉内产出即算, 不等入包) */
+    if (made > 0 && ADV.furnaceOpen && advFurnaceAt === k && advSmeltTtsT <= 0) {
+      advSmeltTtsT = ADV_SMELT_TTS_T;
+      const name = (ITEMS[n.out.id] && ITEMS[n.out.id].name) || n.out.id;
+      SpeechKit.speak(name + '烧好啦！继续加油！');
+    }
   }
   if (ADV.furnaceOpen) {
-    advFurnacePanel.setProgress(advFurnace.prog / ADV_SMELT_T);
-    const sig = [advFurnace.input, advFurnace.fuel, advFurnace.out]
-        .map((s) => (s ? s.id + '×' + s.n : '-')).join('|');
+    const f = advFurnaceAt ? advFurnaces.get(advFurnaceAt) : null;
+    advFurnacePanel.setProgress((f ? f.prog : 0) / ADV_SMELT_T);
+    const sig = f ? [f.input, f.fuel, f.out].map((s) => (s ? s.id + '×' + s.n : '-')).join('|') : '';
     if (sig !== advFurnSig) {
       advFurnSig = sig;
-      advFurnacePanel.setSlots(advFurnace);
+      advFurnacePanel.setSlots(f);
     }
     if (advFurnacePanel.root.style.display === 'none') advFurnaceClose(); /* ✕ 对账 */
   }
@@ -1139,8 +1162,9 @@ function advQuestEl() {/* 任务卡容器只读引用(单测触达面) */
 function advUseStation(hit, lookId) {
   if (!hit) return false;
   if (lookId === B_FURNACE) {
-    if (advNearStation(advStations.values(), pos.x, pos.z, ADV_STATION_R, B_FURNACE)) {
-      advFurnaceOpenPanel();
+    /* F1: 对点击的这台炉直算距离(箱子同款)并绑定它——多炉各有各的内容 */
+    if (hit && Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z) <= ADV_STATION_R) {
+      advFurnaceOpenPanel(blockKey(hit.x, hit.y, hit.z));
     } else {
       showToast('♨️ 走近一点就能用熔炉啦');
     }
@@ -1220,9 +1244,12 @@ const AdventureMode = mkMode({
     flyMode = false; /* 探险步行(不沿用建造的飞行) */
     advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
     ADV.panelOpen = false;
-    ADV.furnaceOpen = false; /* T13 熔炉面板/炉态/引信全部复位 */
+    ADV.furnaceOpen = false; /* T13 熔炉面板复位; 炉态不在此清——档里有什么恢复什么(F1) */
     ADV.chestOpen = false; /* 引导链 v2: 箱子面板一并复位 */
-    advFurnaceZero();
+    advFurnaces.clear(); /* 引用跨 init 稳定(面板闭包不脱钩), clear 复位 */
+    advFurnaceAt = null;
+    advFurnSig = '';
+    for (const [k, s] of advLoad.furnaces) advFurnaces.set(k, s); /* F1: 每炉独立炉态重进照旧(decode 已过滤非法) */
     advFuses.length = 0;
     advTableNear = false;
     advMineStop(); /* 蓄力状态复位(上次退出可能按住) */
@@ -1258,8 +1285,7 @@ const AdventureMode = mkMode({
   },
 
   cleanup() {
-    advFurnaceReset(true); /* 退世界清炉(D8): 材料全额退背包并随下方落盘; 满包余量掉脚边,
-       随 Drops.clear 清场不跨模式渗漏(背包仍满属极端角例, 弃损不渗漏) */
+    /* F1 拍板①: 退世界不清炉不退料——炉态随下方 advSaveNow 落盘, 重进原样接着烧 */
     advSaveNow();
     Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
     Drops.clear(); /* 清掉落物+解除收集回调 */
@@ -1423,7 +1449,8 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advGetTntTap: () => advTntTap, advMouseHeldOn, advMouseHeldOff, advMainPlaceable,
   advTryPlace, advGrowTree, advMineStop, advWearHeld,
   advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,
-  advTntRoll, advTntDmg, advFurnace, advFurnaceAutoFill, advFurnaceOpenPanel,
+  advTntRoll, advTntDmg, advFurnaces, advGetFurnaceAt: () => advFurnaceAt,
+  advFurnaceState, advFurnaceDrop, advFurnaceAutoFill, advFurnaceOpenPanel,
   advFurnaceClose, advIgnite, advFuses, advStations,
   advGetChest: () => advChest, advChestOpenPanel, advChestClose,
   advChestDeposit, advChestWithdraw, advChestExpand,
