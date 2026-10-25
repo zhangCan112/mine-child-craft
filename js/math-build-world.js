@@ -18,9 +18,10 @@
        非 mirror/plan 变体返回 null(模式层走占位屏)
      · MATH_WORLD_FAMILIES(接管族清单, modes/math.js 分发用)
      · mathWorldHb(三色材料热栏, MathMode 经 mkMode 挂 digit/wheel)
-   交互(纯鼠标/触屏, 无键盘依赖): 放置类右键/轻点=对准画布放置,
-     ⛏️/左键=撤除自己摆的块(样品与场地不可拆), 发光石=「好啦」
-     交卷(摆对自动过关, 交卷判错计一次试次); 选答类点数字牌/图纸牌。
+   交互(纯鼠标/触屏, 无键盘依赖): 放置类右键/轻点/触屏放置主键=对准
+     画布放置, 左键/触屏撤除键=撤除自己摆的块(样品与场地不可拆),
+     发光石=「好啦」交卷(摆对自动过关, 交卷判错计一次试次); 选答类
+     点数字牌/图纸牌。
    世界轨纪律(design §3): 进场装场 · 退出清场(经 stop/模式切换),
      不写建造存档; 图纸由 blueprintPixels 纯投影画 2D 像素图
      (不用引擎相机远拍)。
@@ -592,9 +593,19 @@ function runBuildWorld(section, h) {
       trial.check = wwCheckBlock(trial.x0, trial.z0, trial.w, trial.d);
       mathWorldHb.show();
       if (typeof setTouchActions === 'function') {
-        setTouchActions([{icon: 'pick', label: '撤除', holdAct() {
-          if (typeof aimClick === 'function') aimClick(0);
-        }}]);
+        /* 触屏双键(build 智能主动作同口径): 主键=放置一次 — 本关恒持
+           三色方块, 一按一放不连发(holdAct 返 false 契约); 次键=撤除
+           自己摆的块。曾只声明撤除镐一键, 摆一摆在 iPad 上"唯一按钮
+           恒是挖"无法放置(2026-10-25 修); 画布轻点=放置通道保持不变 */
+        setTouchActions([
+          {icon: 'brick', label: '放置', holdAct() {
+            if (typeof aimClick === 'function') aimClick(2);
+            return false;
+          }},
+          {icon: 'pick', label: '撤除', act() {
+            if (typeof aimClick === 'function') aimClick(0);
+          }},
+        ]);
       }
     } else {
       /* 出生在牌阵正南(贴最近一张牌, 远排走两步即到; 判分点击无键盘依赖) */

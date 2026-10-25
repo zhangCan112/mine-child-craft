@@ -73,7 +73,8 @@ globalThis.document = {
 const ROOT = path.join(__dirname, '..');
 /* groundTop 桩: drops 壳段 restY 用(world.js 太重不装) */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
-for (const f of ['js/config.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js', 'js/items-core.js',
+for (const f of ['js/config.js', 'js/mob-registry.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js',
+  'js/items-core.js',
   'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
@@ -206,7 +207,7 @@ const hitLog = [];
 const moveLog = [];
 let listResult = [];
 let nextHit = {hp: 10, dead: false, freshDead: false};
-const ADV_MOB_CFG = {/* 四怪数值摘自 config.js MOB_TYPES(巢穴池, 行为断言所需最小集)
+const ADV_MOB_CFG = {/* 四怪数值摘自 mob-registry.js MOB_TYPES(巢穴池, 行为断言所需最小集)
    + F4 农场四怪(牧场生成断言所需, passive 旗标照抄表) */
   zombie: {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55},
   skeleton: {name: '骷髅', hp: 26, dmg: 6, speed: 2.6, range: 14, cd: 2.6, h: 1.9, ranged: true, hitR: 0.55},
@@ -298,6 +299,10 @@ globalThis.yaw = 0;
 globalThis.pitch = 0;
 globalThis.onGround = false;
 globalThis.flyMode = false;
+globalThis.setFly = (v)=> {
+  globalThis.flyMode = v;
+  globalThis.vel.y = 0;
+}; /* 镜像 voxel.js setFly: 模式经意图入口写飞行态 */
 
 const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;

@@ -1393,7 +1393,7 @@ const AdventureMode = mkMode({
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
     ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
-    flyMode = false; /* 探险步行(不沿用建造的飞行) */
+    setFly(false); /* 探险步行(不沿用建造的飞行; 走意图入口) */
     advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
     ADV.panelOpen = false;
     ADV.furnaceOpen = false; /* T13 熔炉面板复位; 炉态不在此清——档里有什么恢复什么(F1) */

@@ -14,7 +14,7 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   ITEMS 物品注册表 — snake_case 键(与 MOB_TYPES/HeldItems 键同惯例, 设计稿 §2)
+   ITEMS 物品注册表 — snake_case 键(与 mob-registry.js 的 MOB_TYPES/HeldItems 键同惯例, 设计稿 §2)
    条目形状(设计稿 §3.1):
      name 中文名 · icon emoji 占位 · block 放置型=放置成的方块 id
      · fuel 燃料热值(能烧几件) · food 回血值

@@ -1,167 +1,107 @@
 'use strict';
 /* ============================================================
    竞技场模式:环形竞技场 + 双阵营怪物 PVP 对战
+   ------------------------------------------------------------
+   依赖(均经全局名, 调用期解析): js/arena-core.js 的 ArenaCore(常数表/
+   纯函数段/配平与晋升判定半/编队池构造/地形段/索敌与协同等快照→意图段/
+   家传技能 tick 族与技能表·分发, 先于本文件加载, 见 index.html) ·
+   怪物库 Mobs · config · voxel/scene-kit(经 ArenaCore 间接)
 ============================================================ */
 
-/* ---------- 竞技场几何参数(本模式唯一消费者, 归位自 config.js) ---------- */
-const ARENA = {
-  cx: WORLD_W/2, cz: WORLD_D/2, // 中心 (64,64)
-  floorY: 14, // 场地地面顶层方块 y
-  rIn: 36, // 内墙半径
-  rOut: 40, // 外墙半径
-  flyAlt: 7.8, // 飞行单位悬停高度(离地面)
-};
-/* 选块物品栏(本模式唯一消费者, 归位自 config.js); 第 1 格铁锹哨兵=挖掘入口
-   (智能主动作手持感知, 用户拍板 2026-10-24: 选中方块→⛏️放置, 选中铲子→⛏️连挖) */
-const HOTBAR = ['shovel', 3, 4, 13, 5, 6, 17, 16, 15, 18];
-
-/* ---------- 竞技场配平战力(本模式唯一消费者, 归位自 config.js 的 MOB_TYPES.power) ----------
-   综合命中/射程/技能的配平系数, 只喂给编队数量匹配; 其他模式(坦克演习场/
-   下界冒险)不感知战力。菜单页的战力示例文案由本表派生(fillPowerNote)。 */
-const ARENA_POWER = {
-  zombie: 170, skeleton: 165, creeper: 195, golem: 1000, dragon: 2000, spider: 110,
-  cave_spider: 85, silverfish: 40, endermite: 55, slime: 130, enderman: 480, witch: 300,
-  husk: 160, drowned: 160, stray: 170, bogged: 150, phantom: 190, vex: 260, creaking: 200,
-  zombified_piglin: 230, piglin: 200, piglin_brute: 950, hoglin: 420, zoglin: 430,
-  wither_skeleton: 350, blaze: 280, ghast: 320, magma_cube: 190, guardian: 330,
-  elder_guardian: 1000, shulker: 200, vindicator: 560, evoker: 300, pillager: 210,
-  ravager: 1150, wither: 3000, warden: 4800,
-};
-
-/* ---------- 竞技场地形生成 ---------- */
-/* 地形方块别名(config 的 BLOCKS id, 名字见注册表): 免魔法数字散在地形代码里 */
-const ID_GRASS=1; const ID_STONE=3; const ID_COBBLE=4; const ID_BRICK=13; const ID_MOSS=14;
-const ID_BLUEWOOL=15; const ID_REDWOOL=16; const ID_QUARTZ=17; const ID_GLASS=18; const ID_LAMP=19;
-function floorBlock(x, z, dx, dz, r) {
-  if (r < 8.6) return dx < 0 ? ID_REDWOOL : ID_BLUEWOOL; // 中央徽章 红西蓝东
-  if (Math.abs(r-9.5) < 0.6 || Math.abs(r-30) < 0.6) return ID_QUARTZ; // 石英环
-  if (Math.hypot(dx+19, dz) < 3.3) return ID_REDWOOL; // 红方出生垫
-  if (Math.hypot(dx-19, dz) < 3.3) return ID_BLUEWOOL; // 蓝方出生垫
-  const t = hashRand(x*5+z, z*7+x);
-  return t < 0.8 ? ID_STONE : (t < 0.95 ? ID_COBBLE : ID_MOSS);
-}
-function wallBlock(x, y, z) {
-  const t = hashRand(x*7+z*3, y*13+z);
-  return t < 0.7 ? ID_BRICK : (t < 0.9 ? ID_COBBLE : ID_MOSS);
-}
-function generate() {
-  const G = ARENA.floorY;
-  for (let x=0; x<WORLD_W; x++) {
-    for (let z=0; z<WORLD_D; z++) {
-      const dx = x+0.5-ARENA.cx; const dz = z+0.5-ARENA.cz;
-      const r = Math.hypot(dx, dz);
-      for (let y=0; y<=G; y++) setBlockRaw(x, y, z, ID_STONE); // 地基
-      if (r < ARENA.rIn-0.5) setBlockRaw(x, G, z, floorBlock(x, z, dx, dz, r));
-      else if (r <= ARENA.rOut+0.5) setBlockRaw(x, G, z, wallBlock(x, G, z));
-      else setBlockRaw(x, G, z, ID_GRASS); // 外部草原
-      if (r >= ARENA.rIn-0.5 && r <= ARENA.rOut+0.5) { // 环形墙 + 看台
-        for (let y=G+1; y<=G+7; y++) setBlockRaw(x, y, z, wallBlock(x, y, z));
-        setBlockRaw(x, G+8, z, hashRand(x*3, z) < 0.88 ? ID_BRICK : ID_COBBLE);
-      }
-      if (r >= ARENA.rIn-0.6 && r <= ARENA.rIn+0.6) { // 内侧玻璃护栏(1格,不挡视线)
-        setBlockRaw(x, G+9, z, ID_GLASS);
-      }
-      if (r >= ARENA.rOut-0.6 && r <= ARENA.rOut+0.6) { // 外侧玻璃护栏(2格)
-        setBlockRaw(x, G+9, z, ID_GLASS);
-        setBlockRaw(x, G+10, z, ID_GLASS);
-      }
-      if (r > ARENA.rOut+7 && x>2 && z>2 && x<WORLD_W-3 && z<WORLD_D-3 &&
-         hashRand(x+31, z+17) > 0.988) SceneKit.tree(x, G+1, z);
-    }
-  }
-  for (let i=0; i<12; i++) { // 看台立柱 + 灯
-    const a = i*Math.PI/6 + Math.PI/12;
-    const px = Math.round(ARENA.cx + Math.cos(a)*(ARENA.rOut-1.4));
-    const pz = Math.round(ARENA.cz + Math.sin(a)*(ARENA.rOut-1.4));
-    for (let y=G+9; y<=G+11; y++) setBlockRaw(px, y, pz, ID_BRICK);
-    setBlockRaw(px, G+12, pz, ID_LAMP);
-  }
-}
+/* ---------- 竞技场地形段(floorBlock/wallBlock/generate)与几何/选块/战力
+   常数表均在 js/arena-core.js — 建场经 loadScene(ArenaCore.generate) 装填 ---------- */
 function spawnPlayer() {
-  const sx = ARENA.cx; // 南侧看台正中
-  const sz = ARENA.cz + (ARENA.rIn + ARENA.rOut)/2; // 走道中心
+  const AR = ArenaCore.ARENA;
+  const sx = AR.cx; // 南侧看台正中
+  const sz = AR.cz + (AR.rIn + AR.rOut)/2; // 走道中心
   const sy = groundTop(sx, sz);
   ModeKit.spawn(sx+0.5, sy+1.0, sz+0.5, {pitch: -0.22}); // 面朝 -Z 俯瞰全场
 }
 
 /* ---------- 怪物类型 ----------
-   数值表 MOB_TYPES 在 config.js(怪物库 js/mobs.js 与竞技场/演习场共用) */
-/* 混合编队池: 全部常规怪(Boss 与飞行单位除外 — 混编要贴脸互殴才热闹);
-   spawnable() 是怪物库的"可部署清单"(排除 mix 伪类型), 伪类型过滤归引擎 */
-const MIX_POOL = Mobs.spawnable().filter((k) =>
-  !MOB_TYPES[k].boss && !MOB_TYPES[k].fly);
-const MIX_AVG_POWER = Math.round(MIX_POOL.reduce((s, k)=>s+ARENA_POWER[k], 0) / MIX_POOL.length);
-/* 混编按族等权分桶(谱系第一期机制消费): 先均匀抽主族再族内均匀抽成员 —
-   成员均匀会让大家族(僵尸一家 4 只)挤掉小家族(软软族 2 只)的出场名额 */
-const MIX_BUCKETS = (()=>{
-  const b = {lone: []};
-  for (const k of MIX_POOL) {
-    const fam = ((MOB_TYPES[k].family)||[])[0] || 'lone';
-    (b[fam] = b[fam] || []).push(k);
-  }
-  return b;
-})();
+   数值表 MOB_TYPES 在 js/mob-registry.js(怪物库 js/mobs.js 与竞技场/演习场共用) */
+/* 混合编队池: 加载期一次性求值(构造纯函数在 js/arena-core.js, 核心零
+   Mobs 依赖 — spawnable() 的加载期调用与 Boss/fly 过滤口径的注释在那边) */
+const MIX_POOL = ArenaCore.mixPool(Mobs.spawnable(), MOB_TYPES);
+const MIX_AVG_POWER = ArenaCore.mixAvgPower(MIX_POOL);
+const MIX_BUCKETS = ArenaCore.mixBuckets(MIX_POOL, MOB_TYPES);
 const MIX_FAMS = Object.keys(MIX_BUCKETS);
-function pickMix() {
-  const fam = MIX_BUCKETS[MIX_FAMS[Math.floor(Math.random()*MIX_FAMS.length)]];
-  return fam[Math.floor(Math.random()*fam.length)];
-}
 
 /* ---------- 升级系统 ----------
    个人击杀累积信用(劣势方×加成), 达标晋升:
    2级精英=属性暴涨+现有技能强化  3级王者=解锁新技能
-   阈值随敌方初始数量缩放(25%/60%), 封顶 6/14 杀 */
-const TIER_MULT = {2: {hp: 1.6, dmg: 1.4, spd: 1.1}, 3: {hp: 2.5, dmg: 2.0, spd: 1.2}};
-const TIER_NAME = {2: '精英', 3: '王者'};
-/* 克制关系(索敌偏好: 优先进攻自己克制的对手, 回避克制自己的)。龙另行特判 */
-const COUNTER = {
-  zombie: 'skeleton', skeleton: 'creeper', creeper: 'golem', golem: 'zombie', // 经典环
-  enderman: 'skeleton', // 末影人瞬移闪箭, 专猎弓手
-  blaze: 'stray', stray: 'magma_cube', // 火克冰, 冰克熔岩
-  warden: 'ravager', // 监守者的蛮力无视巨兽冲撞
-};
+   阈值随敌方初始数量缩放(25%/60%), 封顶 6/14 杀
+   (档位系数表 TIER_MULT/TIER_NAME 与克制表 COUNTER 在 js/arena-core.js) */
 
-/* ---------- 怪物谱系: 家传技能表 + 个体特化表(术语见 GLOSSARY「怪物谱系」) ----------
-   种族=长相接近的血统组(守卫组是唯一职责组例外), 家传技能=族共享模板
-   (FAMILY_SKILLS), 按主族(config 的 family 首位)发放; 无近亲的怪(独行侠)不领家传。
-   个体特化=每怪至多一招(MOB_QUIRKS): 节拍型特化挂 tick(末影人颤栗瞬移),
-   蓄力激光声明 laser:true(起手在 moveRanged, 放束在 tickLaserCharge);
-   扑袭(苦力怕)/震地·巨石(铁傀儡)/龙息(末影龙)是移动一体型特化, 留在各自原型分支。
-   家传技能手感数字全部集中在这两张表 + 各 tick 函数头, 试玩改数即改这里。 */
-const MOB_QUIRKS = {
-  guardian: {laser: true}, // 特化=蓄力激光(守卫者)
-  elder_guardian: {laser: true}, // 特化=蓄力激光(远古守卫者, 威慑咆哮三期补)
-  enderman: {tick: tickBlink}, // 特化=颤栗瞬移(鬼一族成员, 瞬移是末影人个性不是全族的)
+/* ---------- 怪物谱系: 家传技能表 + 个体特化表(声明式, 已整体迁 js/arena-core.js;
+   术语见 GLOSSARY「怪物谱系」「竞技场核心」) — 这里只留分发薄壳与意图落回 ----------
+   种族=长相接近的血统组, 家传技能按主族发放(ArenaCore.familyMain 折算);
+   个体特化每怪至多一招: 节拍型挂 tick(末影人颤栗瞬移), 蓄力激光声明
+   laser:true(壳查旗标调本地 tickLaserCharge); 扑袭(苦力怕)/震地·巨石
+   (铁傀儡)/龙息(末影龙)是移动一体型特化, 留在各自原型分支。
+   家传技能手感数字全部集中在 core 两张表 + 各 tick 头, 试玩改数即改那里。 */
+/* 意图落回(统一信封): writes=字段直写 · tint=持久色(白名单) · buff/buffT=按 id
+   清单群体写 rageBuffT · shock=王者冲击波 AoE(core 出参数, 此处施放) ·
+   tp/steerYaw=瞬移三连(意图 API) · fx/sfx=观感标签(参数表在此, 决策不进 core) */
+const SKILL_FX = {
+  rage: (gp) => Fx.pop(gp.x, gp.y+1, gp.z, {color: 0xff6a4a, r0: 0.5, r1: 5, dur: 0.4, opacity: 0.8}),
+  burst: (gp) => Fx.pop(gp.x, gp.y+0.2, gp.z, {color: 0x9fbf6a, r0: 0.3, r1: 1.6, dur: 0.3, opacity: 0.7}),
+  charge: (gp) => Fx.pop(gp.x, gp.y+0.3, gp.z, {color: 0xff8856, r0: 0.3, r1: 1.8, dur: 0.3, opacity: 0.7}),
+  guard: (gp) => Fx.pop(gp.x, gp.y+1, gp.z, {color: 0x9fb6c8, r0: 0.6, r1: 3.2, dur: 0.5, opacity: 0.85}),
 };
-/* 主族折算(家传发放单位); familySkill:false 可声明个体豁免("族给默认值、个体可覆盖") */
-function familyMain(type) {
-  const q = MOB_QUIRKS[type];
-  if (q && q.familySkill === false) return null;
-  return ((MOB_TYPES[type] || {}).family || [])[0] || null;
+function landSkill(m, gp, it) {
+  if (!it) return;
+  if (it.raidT !== undefined) { // 袭击协同(T3 快照→意图形状, 非信封): 写回节拍与伤害系数
+    m.raidT = it.raidT;
+    if (it.dmgMult !== undefined) m.dmgMult = it.dmgMult;
+    return;
+  }
+  if (it.writes) Object.assign(m, it.writes);
+  if (it.tint) m.tintBase = it.tint;
+  if (it.buff) {
+    for (const t of mobs) if (it.buff.includes(t.id)) t.rageBuffT = it.buffT;
+  }
+  if (it.fx && SKILL_FX[it.fx]) SKILL_FX[it.fx](gp);
+  if (it.sfx) sfx(it.sfx);
+  if (it.shock) { // 王者·狂暴冲击波(fx 标签已随 shock 挂)
+    aoeDamage(it.shock.x, it.shock.y, it.shock.z, it.shock.r, {skip: m, team: m.team, owner: m,
+      dmg: it.shock.dmg, fallOff: it.shock.fallOff, kpow: it.shock.kpow,
+      stagger: it.shock.stagger, dyGate: it.shock.dyGate});
+  }
+  if (it.tp) { // 颤栗瞬移: 起点粒子 → 落点三连(位移/贴地/面向) → 落点粒子
+    Fx.pop(gp.x, gp.y+1, gp.z, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
+    Mobs.setPos(m, it.tp.x, it.tp.z);
+    Mobs.settle(m); // 贴地回站
+    Mobs.steer(m, it.steerYaw);
+    Fx.pop(it.tp.x, gp.y+1, it.tp.z, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
+  }
 }
-const FAMILY_SKILLS = {
-  zombie_line: {name: '狂暴', tick: tickRage},
-  skeleton_line: {name: '强力节奏', tick: null}, // 节拍型: 射击/挥击处直接读族(rangedVolley/moveMelee)
-  arthropod: {name: '疾爬突进', tick: tickBurst},
-  pig_line: {name: '蛮冲', tick: tickCharge},
-  ghost: {name: '阴风', tick: null}, // 命中型: 打中的敌人短时减速(结算在 damageMob 的 src 判定)
-  guard: {name: '磐石', tick: tickGuard},
-  illager: {name: '袭击协同', tick: tickRaid},
-  slime_line: {name: '分裂', tick: null, onDead: splitDeath},
-};
-/* 技能分发: 家传按主族一张表 + 个体特化按种类一张表(两处挂点, updateMobs 每怪一调) */
+/* 技能分发: 家传按主族一张表 + 个体特化按种类一张表(两处挂点, updateMobs
+   每怪一调) — 建 tick 快照, core 出意图, landSkill 落回与观感 */
 function familyTick(m, gp, dt) {
-  const fs = FAMILY_SKILLS[m.mfam];
-  if (fs && fs.tick) fs.tick(m, gp, dt);
-  const q = MOB_QUIRKS[m.type];
+  const snap = {id: m.id, team: m.team, mfam: m.mfam, type: m.type, level: m.level,
+    hp: m.hp, maxHp: m.maxHp, dmgMult: m.dmgMult, x: gp.x, y: gp.y, z: gp.z,
+    raged: m.raged, burstCd: m.burstCd, burstT: m.burstT, chargeCd: m.chargeCd,
+    chargeT: m.chargeT, stoneCd: m.stoneCd, stoneT: m.stoneT, tpCd: m.tpCd, raidT: m.raidT,
+    target: m.target ? {dead: m.target.dead, gone: m.target.gone,
+      x: m.target.pos.x, z: m.target.pos.z} : null};
+  const entry = ArenaCore.FAMILY_SKILLS[m.mfam];
+  if (entry && entry.tick) landSkill(m, gp, ArenaCore.familyTick(entry, snap, scanCands, dt));
+  const q = ArenaCore.MOB_QUIRKS[m.type];
   if (q) {
-    if (q.tick) q.tick(m, gp, dt);
+    if (q.tick) landSkill(m, gp, ArenaCore.familyTick(q, snap, scanCands, dt));
     if (q.laser) tickLaserCharge(m, gp, dt); // 蓄力激光: 起手(移动层)与放束(节拍层)分离
   }
 }
+/* 家传亡语分发(决策半在 core): 软软族·分裂走延迟队列 — 调用方可能正迭代
+   mobs(aoeDamage 爆炸环), 同帧落地会边迭代边追加, 下一帧 flushSplits 干净落场 */
 function familyOnDead(m) {
-  const fs = FAMILY_SKILLS[m.mfam];
-  if (fs && fs.onDead) fs.onDead(m);
+  let alive = 0;
+  for (const t of mobs) if (!t.dead && !t.gone) alive++;
+  const req = ArenaCore.familyOnDead(m.mfam, {splitChild: m.splitChild,
+    fighting: battleState==='fighting', team: m.team, type: m.type,
+    x: m.pos.x, z: m.pos.z, k2: m.k2, k3: m.k3}, alive);
+  if (req) pendingSplits.push(req);
 }
 
 let teamInitHp = {A: 1, B: 1}; // 劣势加成基准(开战时总HP)
@@ -169,24 +109,6 @@ const pendingBooms = []; // 王者苦力怕·连环爆破二段
 const beams = []; // 升级光柱
 const beamGeo = new THREE.CylinderGeometry(0.22, 0.34, 6, 10, 1, true); // 共享: 逐实例只有透明度(在材质)
 
-function angleLerp(a, b, t) {
-  let d = (b - a) % (Math.PI*2);
-  if (d > Math.PI) d -= Math.PI*2;
-  if (d < -Math.PI) d += Math.PI*2;
-  return a + d*Math.min(1, t);
-}
-/* 狂暴/群体冲锋/疾爬突进/蛮冲/阴风减速 速度系数 */
-function mobSpeed(m) {
-  let s = m.cfg.speed;
-  if (m.raged) s *= 1.5;
-  if (m.rageBuffT > 0) s *= 1.25;
-  if (m.burstT > 0) s *= 1.8; // 虫虫族·疾爬突进(家传)
-  if (m.chargeT > 0) s *= 2.2; // 猪猪一家·蛮冲(家传)
-  if (m.slowT > 0) s *= 0.6; // 被鬼一族·阴风打中(减速)
-  if (m.level===2) s *= 1.1;
-  else if (m.level===3) s *= 1.2;
-  return s;
-}
 /* ---------- 建模/合批渲染/名牌/受击/游荡 已归怪物库 js/mobs.js(Mobs) ---------- */
 
 /* ---------- 怪物实例 / 战斗 ---------- */
@@ -204,16 +126,15 @@ const breathBalls = [];
 const clouds = [];
 
 /* 部署: 怪物库造身体, 竞技场挂战斗字段(阵营/索敌/技能/晋升); extra 透传 hpMult 等(分裂小只用) */
-/* 晋升星级的名牌呈现(语义归模式层): 名牌渲染归怪物库(labelCfg.suffix/hot) */
-const tierStars = (m) => m.level>1 ? '★'.repeat(m.level-1) : '';
-const tierHot = (m) => m.level>1;
+/* 晋升星级的名牌呈现(语义归模式层): 纯函数 tierStars/tierHot 在 js/arena-core.js,
+   名牌渲染归怪物库(labelCfg.suffix/hot) */
 function spawnMob(team, type, x, z, extra) {
   const m = Mobs.spawn(type, x, z, {
     yaw: team==='A' ? Math.PI/2 : -Math.PI/2,
-    flyY: ARENA.floorY + ARENA.flyAlt,
+    flyY: ArenaCore.ARENA.floorY + ArenaCore.ARENA.flyAlt,
     label: team==='A' ?
-      {prefix: '红方·', color: '#ff6055', suffix: tierStars, hot: tierHot} :
-      {prefix: '蓝方·', color: '#5ab0ff', suffix: tierStars, hot: tierHot},
+      {prefix: '红方·', color: '#ff6055', suffix: ArenaCore.tierStars, hot: ArenaCore.tierHot} :
+      {prefix: '蓝方·', color: '#5ab0ff', suffix: ArenaCore.tierStars, hot: ArenaCore.tierHot},
     clamp: arenaFlyClamp,
     ...(extra || {}),
   });
@@ -228,7 +149,7 @@ function spawnMob(team, type, x, z, extra) {
     shotCnt: 0, raged: false, rageBuffT: 0,
     /* 家传/特化技能节拍字段(各族只消费自己的): burst 疾爬突进 · raid 协同重数 ·
        laser 蓄力(-1=空闲) · blink 瞬移 · charge 蛮冲 · stone 磐石 · slow 被阴风 · split 小只标记 */
-    mfam: familyMain(type),
+    mfam: ArenaCore.familyMain(type),
     burstCd: 2+Math.random()*3, burstT: 0,
     raidT: Math.random()*0.4,
     laserT: -1,
@@ -247,25 +168,25 @@ function spawnMob(team, type, x, z, extra) {
 }
 
 /* 飞行单位场地边界(圆形): 击退回调(半径 FLY_KNOCK_R)与巡飞约束(FLY_ORBIT_R)两档,
-   均收在 clampToArena 一处 — 怪物库 hit 的 clamp 回调与战斗巡飞共用 */
-const FLY_KNOCK_R = 2; const FLY_ORBIT_R = 2.5;
+   均收在 clampToArena 一处 — 两档半径在 js/arena-core.js, 怪物库 hit 的
+   clamp 回调与战斗巡飞共用 */
 function clampToArena(m, margin) {
-  const cdx = m.pos.x-ARENA.cx; const cdz = m.pos.z-ARENA.cz;
+  const cdx = m.pos.x-ArenaCore.ARENA.cx; const cdz = m.pos.z-ArenaCore.ARENA.cz;
   const cd = Math.hypot(cdx, cdz);
-  const rMax = ARENA.rIn - margin;
+  const rMax = ArenaCore.ARENA.rIn - margin;
   if (cd > rMax) {
-    const k=rMax/cd; Mobs.setPos(m, ARENA.cx+cdx*k, ARENA.cz+cdz*k);
+    const k=rMax/cd; Mobs.setPos(m, ArenaCore.ARENA.cx+cdx*k, ArenaCore.ARENA.cz+cdz*k);
   }
 }
 function arenaFlyClamp(m) {
-  clampToArena(m, FLY_KNOCK_R);
+  clampToArena(m, ArenaCore.FLY_KNOCK_R);
 }
 
 /* 移动: 圆形边界约束 + 怪物核心的台阶规则 */
 function stepMove(m, mx, mz) {
   const nx = m.pos.x+mx; const nz = m.pos.z+mz;
-  const ddx = nx-ARENA.cx; const ddz = nz-ARENA.cz;
-  if (Math.hypot(ddx, ddz) > ARENA.rIn-1.2) return;
+  const ddx = nx-ArenaCore.ARENA.cx; const ddz = nz-ArenaCore.ARENA.cz;
+  if (Math.hypot(ddx, ddz) > ArenaCore.ARENA.rIn-1.2) return;
   MobCore.stepMove(m, mx, mz, groundTop);
 }
 
@@ -277,9 +198,12 @@ function damageMob(m, dmg, kdx, kdz, kpow, src) {
     dmg = Math.max(1, Math.ceil(dmg*0.5));
   }
   const r = Mobs.hit(m, dmg, kdx, kdz, kpow);
-  if (!m.dead && !m.gone && src && src.mfam === 'ghost' && src !== m) {
-    m.slowT = Math.max(m.slowT, 1.5); // 鬼一族·阴风(家传): 被鬼打中短时变慢
-    Fx.pop(m.pos.x, m.pos.y+1, m.pos.z, {color: 0x8fd8e8, r0: 0.2, r1: 1.1, dur: 0.25, opacity: 0.6});
+  if (!m.dead && !m.gone && src && src !== m) {
+    const chill = ArenaCore.ghostChill(src.mfam); // 鬼一族·阴风(家传): 被鬼打中短时变慢(判定在 core)
+    if (chill > 0) {
+      m.slowT = Math.max(m.slowT, chill);
+      Fx.pop(m.pos.x, m.pos.y+1, m.pos.z, {color: 0x8fd8e8, r0: 0.2, r1: 1.1, dur: 0.25, opacity: 0.6});
+    }
   }
   if (r.freshDead) {
     awardKill(src, m);
@@ -316,11 +240,11 @@ function aoeDamage(x, y, z, r, o) {
 }
 
 /* 强力箭节奏 + 王者箭雨(全部远程怪共用: 精英每第2箭强力, 王者三连散射)
-   骷髅一家·族版更密(D7): 基础即每 2 箭(其余族精英才加密) */
+   骷髅一家·族版更密(D7): 基础即每 2 箭(其余族精英才加密) — 节奏除数在
+   js/arena-core.js, 发射观感在这里 */
 function rangedVolley(m, tg) {
   m.shotCnt++;
-  const div = (m.mfam==='skeleton_line' || m.level>=2) ? 2 : 3;
-  const pw = m.shotCnt % div === 0;
+  const pw = m.shotCnt % ArenaCore.volleyDiv(m.mfam==='skeleton_line', m.level) === 0;
   shootArrow(m, tg, pw);
   if (pw && m.level>=3) {
     shootArrow(m, tg, true, 0.16); shootArrow(m, tg, true, -0.16);
@@ -422,54 +346,48 @@ function explode(x, y, z, team, owner, ratio) {
     dmg: 33*ratio*(owner?owner.dmgMult:1), fallOff: 0.75, kpow: 2.0, stagger: 0.5, use3D: true});
 }
 
-/* ---------- 升级系统逻辑 ---------- */
-function teamHpFrac(team) {
-  const init = teamInitHp[team];
-  if (!init) return 1;
-  let hp = 0;
-  for (const t of mobs) if (t.team===team && !t.dead && !t.gone) hp += t.hp;
-  return Math.min(1, hp/init);
-}
-function comebackMult(team) { // 劣势方击杀信用加成(1~2)
-  const mine = teamHpFrac(team); const theirs = teamHpFrac(team==='A'?'B':'A');
-  return Math.min(2, Math.max(1, 1 + 0.8*(theirs - mine)));
-}
+/* ---------- 升级系统逻辑(阈值/信用/占比/结算的判定半在 js/arena-core.js) ---------- */
+/* 击杀结算(决策半 awardKillPlan 在 core): 翻盘系数按双方占比, 苦力怕特权
+   (每击杀随机挑一只存活敌队苦力怕分半信用, 避免全群同步晋升) */
 function awardKill(killer, victim) {
   if (battleState !== 'fighting') return;
-  const mult = comebackMult(victim.team==='A' ? 'B' : 'A');
-  if (killer && killer.team!==victim.team && !killer.dead && !killer.gone) {
-    addKillCredit(killer, mult);
-  }
-  // 苦力怕特权:每击杀随机挑一只存活苦力怕分得经验(避免全群同步晋升)
-  const creeps = [];
-  for (const c of mobs) {
-    if (c!==killer && c.type==='creeper' && c.team!==victim.team && !c.dead && !c.gone) creeps.push(c);
-  }
-  if (creeps.length) {
-    addKillCredit(creeps[Math.floor(Math.random()*creeps.length)], 0.5*mult);
+  const kt = victim.team==='A' ? 'B' : 'A';
+  const ot = kt==='A' ? 'B' : 'A';
+  const plan = ArenaCore.awardKillPlan(
+      killer ? {id: killer.id, team: killer.team, dead: killer.dead, gone: killer.gone} : null,
+      victim.team, scanCands,
+      {killer: ArenaCore.teamHpFrac(mobs, kt, teamInitHp[kt]),
+        other: ArenaCore.teamHpFrac(mobs, ot, teamInitHp[ot])});
+  if (killer && plan.credit > 0) addKillCredit(killer, plan.credit);
+  if (plan.creeperPickId != null) {
+    const c = mobs.find((t) => t.id === plan.creeperPickId) || null;
+    if (c) addKillCredit(c, 0.5*plan.mult);
   }
 }
+/* 击杀信用入账(判定半在 js/arena-core.js): 信用照累计(死者也不清零),
+   存活口径与 levelUp 循环(观感半)留壳 — 同帧多杀可连跳级 */
 function addKillCredit(m, credit) {
-  m.kills += credit;
-  while (m.level < 3 && !m.dead && !m.gone && m.kills >= (m.level===1 ? m.k2 : m.k3)) {
-    levelUp(m);
-  } // 同帧多杀可连跳级
+  const r = ArenaCore.killCredit(m.kills, credit, m.level, m.k2, m.k3);
+  m.kills = r.kills;
+  if (m.dead || m.gone) return;
+  for (let i=0; i<r.ups; i++) levelUp(m);
 }
 function levelUp(m) {
-  m.level++;
-  const tm = TIER_MULT[m.level];
-  Mobs.setMaxHp(m, Math.round(m.baseMaxHp*tm.hp)); // 晋升改上限(意图 API, 怪物库截断现血)
-  Mobs.heal(m, Math.round(m.maxHp*0.2)); // 升级回复20%最大生命
-  m.dmgMult = tm.dmg;
-  m.invulnT = 0.5; // 金身免死(名牌随 hp 变化由怪物库节流重绘)
-  applyTierVisual(m);
+  const it = ArenaCore.levelUpIntent(m.level); // 数值半在 core(档位系数/体型/名牌放大)
+  m.level = it.level;
+  m.dmgMult = it.dmgMult;
+  m.invulnT = it.invulnT; // 金身免死(名牌随 hp 变化由怪物库节流重绘)
+  Mobs.setMaxHp(m, Math.round(m.baseMaxHp*it.hpMult)); // 晋升改上限(意图 API, 怪物库截断现血)
+  Mobs.heal(m, Math.round(m.maxHp*0.2)); // 升级回复20%最大生命(基数=新上限)
+  applyTierVisual(m, it);
   levelUpFx(m);
-  showToast((m.team==='A'?'红方 ':'蓝方 ')+TIER_NAME[m.level]+m.cfg.name+' 晋升！', 2000);
+  showToast((m.team==='A'?'红方 ':'蓝方 ')+ArenaCore.TIER_NAME[m.level]+m.cfg.name+' 晋升！', 2000);
 }
 /* 外形:体型放大 + 脚下光环(精英蓝/王者金) + 标志性附件
-   挂件是独立普通 mesh(稀有物), 怪物库 render 每帧对齐实例位姿 */
-function applyTierVisual(m) {
-  m.tierScale = m.level===2 ? 1.3 : (m.level===3 ? 1.6 : 1); // 体型明显变大(体积≈2.2×/4×)
+   挂件是独立普通 mesh(稀有物), 怪物库 render 每帧对齐实例位姿;
+   tierScale/labelScale 数值半在 core(levelUpIntent), 这里只装配观感 */
+function applyTierVisual(m, it) {
+  m.tierScale = it.tierScale;
   Mobs.scaleTo(m, m.tierScale); // 原 group.scale → 位姿数值(怪物库 render 组矩阵)
   if (m.tierNode) {
     scene.remove(m.tierNode);
@@ -480,7 +398,7 @@ function applyTierVisual(m) {
   }
   m.tierNode = null;
   if (m.level < 2) return;
-  m.labelScale = m.level===3 ? 1.5 : 1.25; // 升级后名牌放大(怪物库 update 每帧套用)
+  m.labelScale = it.labelScale; // 升级后名牌放大(怪物库 update 每帧套用)
   const fx = new THREE.Group();
   const mat = (col) => {
     const mt = new THREE.MeshBasicMaterial({color: col}); m.tierMats.push(mt); return mt;
@@ -604,31 +522,21 @@ function clearTongues() {
   tongueFx.length = 0;
 }
 
+/* 判负(判定半在 js/arena-core.js): 这里读状态/清单并落结果与播报 */
 function checkBattleEnd() {
   if (battleState !== 'fighting') return;
-  if (spawnQueue.length) return; // 部署未完: 不判负(未到场≠全灭)
   const a = mobs.some((m)=>m.team==='A' && !m.dead && !m.gone);
   const b = mobs.some((m)=>m.team==='B' && !m.dead && !m.gone);
-  if (a && b) return;
+  const r = ArenaCore.battleEnd(a, b, spawnQueue.length);
+  if (r == null) return;
   battleState = 'over';
-  battleResult = a ? '红方获胜！' : (b ? '蓝方获胜！' : '两败俱伤！');
+  battleResult = r==='A' ? '红方获胜！' : (r==='B' ? '蓝方获胜！' : '两败俱伤！');
   showToast(battleResult + '  按 R 再来一场', 4000);
   sfx('win');
 }
 
-/* 附近有正在读条的敌方苦力怕则返回之(自己读条中,或贴脸两击能反杀时除外) */
-function fusingCreeperNear(m) {
-  if (m.type==='creeper' && m.fuse >= 0) return null;
-  for (const t of fusingCreeps) {
-    if (t.team===m.team) continue;
-    const fd = Math.hypot(t.pos.x-m.pos.x, t.pos.z-m.pos.z);
-    if (fd < 5.5) {
-      if (!m.cfg.ranged && fd < m.cfg.range && m.cfg.dmg*m.dmgMult*2 >= t.hp) return null;
-      return t;
-    }
-  }
-  return null;
-}
+/* 附近有正在读条的敌方苦力怕则返回之(自己读条中,或贴脸两击能反杀时除外) —
+   纯函数在 js/arena-core.js(入参: 探测怪 m + collectFusing 每帧收集的清单) */
 
 /* ---------- 战斗 AI: 按职责拆分, updateMobs 只留编排(与旧版逐字等价的机械抽取) ---------- */
 
@@ -640,99 +548,25 @@ function collectFusing() {
   }
 }
 
-/* 冷却/计时器递减 + 阶级光环呼吸(攻击节拍递减在战斗核心, 与下界共用) */
+/* 冷却/计时器递减(13 字段的递减半在 js/arena-core.js, 快照→意图落回) +
+   阶级光环呼吸(攻击节拍递减在战斗核心 CombatCore.tickCadence, 与下界共用) */
 function tickTimers(m, dt) {
   CombatCore.tickCadence(m, dt);
-  if (m.slamCd > 0) m.slamCd -= dt;
-  if (m.pounceCd > 0) m.pounceCd -= dt;
-  if (m.rageBuffT > 0) m.rageBuffT -= dt;
-  if (m.burstCd > 0) m.burstCd -= dt; // 虫虫族·疾爬突进冷却
-  if (m.burstT > 0) m.burstT -= dt;
-  if (m.chargeCd > 0) m.chargeCd -= dt; // 猪猪一家·蛮冲冷却/冲刺计时
-  if (m.chargeT > 0) m.chargeT -= dt;
-  if (m.tpCd > 0) m.tpCd -= dt; // 末影人·颤栗瞬移冷却(个体特化)
-  if (m.stoneT > 0) m.stoneT -= dt; // 守卫组·磐石坚守计时
-  if (m.stoneCd > 0) m.stoneCd -= dt;
-  if (m.slowT > 0) m.slowT -= dt; // 被鬼一族·阴风打中的减速计时
-  if (m.invulnT > 0) m.invulnT -= dt;
-  if (m.rockCd > 0) m.rockCd -= dt;
+  Object.assign(m, ArenaCore.decayTimers(m, dt));
   if (m.tierNode && m.tierNode.userData.aura) {
     const as = 1 + Math.sin(performance.now()*0.004 + m.id)*0.12;
     m.tierNode.userData.aura.scale.set(as, as, as);
   }
 }
 
-/* 僵尸一家·狂暴(家传): 血量触发(精英70%/基础50%), 自身加速+攻速, 附近同族群体冲锋; 王者附冲击波
-   (原僵尸专属技, 谱系化推广到僵尸/尸壳/溺尸/僵尸疣猪兽 — 僵尸猪灵主族=猪灵系领战吼, D6) */
-function tickRage(m, gp) {
-  if (m.raged || m.hp >= m.maxHp*(m.level>=2?0.7:0.5)) return;
-  m.raged = true;
-  m.tintBase = [1.4, 0.5, 0.5]; // 狂暴红晕(持久色, 怪物库着色)
-  sfx('roar');
-  const rr = m.level>=2 ? 9 : 6;
-  for (const t of mobs) {
-    if (t!==m && t.mfam==='zombie_line' && !t.dead && !t.gone &&
-       Math.hypot(t.pos.x-gp.x, t.pos.z-gp.z) < rr) t.rageBuffT = m.level>=3?5:4;
-  }
-  if (m.level>=3) { // 王者·狂暴冲击波
-    Fx.pop(gp.x, gp.y+1, gp.z, {color: 0xff6a4a, r0: 0.5, r1: 5, dur: 0.4, opacity: 0.8});
-    aoeDamage(gp.x, gp.y, gp.z, 5, {skip: m, team: m.team, owner: m,
-      dmg: 10*m.dmgMult, fallOff: 0.5, kpow: 1.2, stagger: 0.8, dyGate: 4});
-  }
-}
-
-/* 虫虫族·疾爬突进(家传): 距目标 3~10 格短促加速贴脸(1.1s ×1.8), 冷却 6s/精英 4.5s */
-function tickBurst(m, gp) {
-  if (m.burstCd > 0 || m.burstT > 0) return;
-  const tg = m.target;
-  if (!tg || tg.dead || tg.gone) return;
-  const d = Math.hypot(tg.pos.x-gp.x, tg.pos.z-gp.z);
-  if (d < 3 || d > 10) return;
-  m.burstCd = m.level>=2 ? 4.5 : 6;
-  m.burstT = 1.1;
-  Fx.pop(gp.x, gp.y+0.2, gp.z, {color: 0x9fbf6a, r0: 0.3, r1: 1.6, dur: 0.3, opacity: 0.7});
-}
-
-/* 猪猪一家·蛮冲(家传): 距目标 3~9 格发起直线冲刺(0.8s ×2.2), 撞到第一个敌人
-   重击+大击退+硬直; 冲刺位移在 moveMelee 的蛮冲分支(方向锁定起手瞬间) */
-function tickCharge(m, gp) {
-  if (m.chargeT > 0 || m.chargeCd > 0) return;
-  const tg = m.target;
-  if (!tg || tg.dead || tg.gone) return;
-  const d = Math.hypot(tg.pos.x-gp.x, tg.pos.z-gp.z);
-  if (d < 3 || d > 9) return;
-  m.chargeCd = m.level>=2 ? 5 : 7;
-  m.chargeT = 0.8;
-  m.chargeYaw = Math.atan2(tg.pos.x-gp.x, tg.pos.z-gp.z);
-  sfx('roar');
-  Fx.pop(gp.x, gp.y+0.3, gp.z, {color: 0xff8856, r0: 0.3, r1: 1.8, dur: 0.3, opacity: 0.7});
-}
-
-/* 守卫组·磐石(家传): 血量跌破 40% 进入坚守 3s(受伤减半, 结算在 damageMob), 冷却 12s/精英 9s */
-function tickGuard(m, gp) {
-  if (m.stoneCd > 0 || m.stoneT > 0 || m.hp >= m.maxHp*0.4) return;
-  m.stoneT = 3;
-  m.stoneCd = m.level>=2 ? 9 : 12;
-  sfx('roar');
-  Fx.pop(gp.x, gp.y+1, gp.z, {color: 0x9fb6c8, r0: 0.6, r1: 3.2, dur: 0.5, opacity: 0.85});
-}
-
-/* 灾厄帮·袭击协同(家传): 每 0.4s 重数 10 格内同族同阵营, 每多一只 +6% 伤害(至多 4 只);
-   dmgMult 每拍重算 = 晋升系数 × 协同加成(levelUp 直写下一拍自愈, 语义一致) */
-function tickRaid(m, gp, dt) {
-  m.raidT -= dt;
-  if (m.raidT > 0) return;
-  m.raidT = 0.4;
-  let n = 0;
-  for (const t of mobs) {
-    if (t.mfam==='illager' && t.team===m.team && !t.dead && !t.gone &&
-       Math.hypot(t.pos.x-gp.x, t.pos.z-gp.z) < 10) n++;
-  }
-  m.dmgMult = TIER_MULT[m.level].dmg * (1 + 0.06*Math.min(4, n-1));
-}
+/* ---------- 家传技能 tick 族(狂暴/疾爬突进/蛮冲/磐石/袭击协同)决策半已迁
+   js/arena-core.js(rageTick/burstTick/chargeTick/guardTick/raidTick, 快照→
+   意图信封) — 意图落回在 familyTick 的 landSkill, 观感参数在 SKILL_FX ---------- */
 
 /* 守卫者系·蓄力激光(个体特化): 起手在 moveRanged(m.laserT=0), 此处推进蓄力(白闪渐强+锁定转向)
-   → 蓄满放束(Fx.beam 直线, cfg.dmg×1.5); 被硬直打断即取消 */
+   → 蓄满放束(Fx.beam 直线, cfg.dmg×1.5); 被硬直打断即取消。
+   拍板永久留壳(C3-T4 登记): 状态机(laserT 三态)×三类意图(位移/伤害/观感)×
+   逐帧观感(脉冲着色)交织, 剥离收益/风险比最差 — 表内以 laser:true 旗标引用 */
 function tickLaserCharge(m, gp, dt) {
   if (m.laserT < 0) return;
   if (m.staggerT > 0) {
@@ -744,7 +578,7 @@ function tickLaserCharge(m, gp, dt) {
   Mobs.pulseTint(m, v, v, v);
   const tg = m.target;
   if (tg && !tg.dead && !tg.gone) {
-    Mobs.steer(m, angleLerp(m.yaw, Math.atan2(tg.pos.x-gp.x, tg.pos.z-gp.z), dt*6));
+    Mobs.steer(m, ArenaCore.angleLerp(m.yaw, Math.atan2(tg.pos.x-gp.x, tg.pos.z-gp.z), dt*6));
   }
   if (m.laserT < charge) return;
   m.laserT = -1;
@@ -762,39 +596,15 @@ function tickLaserCharge(m, gp, dt) {
   if (hit) damageMob(hit, Math.round(m.cfg.dmg*1.5*m.dmgMult), tx-gp.x, tz-gp.z, 0.6, m);
 }
 
-/* 末影人·颤栗瞬移(个体特化): 距目标 8 格外闪现贴身(目标旁 2.5~3.5 格), 冷却 5s/精英 3.5s */
-function tickBlink(m, gp) {
-  if (m.tpCd > 0) return;
-  const tg = m.target;
-  if (!tg || tg.dead || tg.gone) return;
-  if (Math.hypot(tg.pos.x-gp.x, tg.pos.z-gp.z) < 8) return;
-  m.tpCd = m.level>=2 ? 3.5 : 5;
-  Fx.pop(gp.x, gp.y+1, gp.z, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
-  const a = Math.random()*Math.PI*2; const r = 2.5 + Math.random();
-  let nx = tg.pos.x + Math.sin(a)*r; let nz = tg.pos.z + Math.cos(a)*r;
-  const cdx = nx-ARENA.cx; const cdz = nz-ARENA.cz; const cd = Math.hypot(cdx, cdz);
-  if (cd > ARENA.rIn-1.5) {
-    const k=(ARENA.rIn-1.5)/cd; nx = ARENA.cx+cdx*k; nz = ARENA.cz+cdz*k;
-  }
-  Mobs.setPos(m, nx, nz);
-  Mobs.settle(m); // 贴地回站
-  Mobs.steer(m, Math.atan2(tg.pos.x-nx, tg.pos.z-nz));
-  Fx.pop(nx, gp.y+1, nz, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
-  sfx('hit');
-}
+/* ---------- 末影人·颤栗瞬移(个体特化)决策半已迁 js/arena-core.js(blinkTick:
+   rand×2 + 场内圆钳制 + 朝向算式) — 落点三连(Mobs.setPos/settle/steer)与
+   两次 Fx.pop 在 familyTick 的 landSkill ---------- */
 
 /* 软软族·分裂(家传): 死亡生 2 只小只(血量 30% · 体型 0.6, 小只不再分裂); 团战 600 只后停(防爆仓)。
    走延迟队列: damageMob 的调用方可能正迭代 mobs(aoeDamage 爆炸环), 同帧落地会
-   边迭代边追加 + 同一爆炸立刻打死新生儿 — 下一帧 flush 干净落场 */
+   边迭代边追加 + 同一爆炸立刻打死新生儿 — 下一帧 flush 干净落场
+   (决策半 splitReq 与亡语分发 familyOnDead 在 js/arena-core.js) */
 const pendingSplits = [];
-function splitDeath(m) {
-  if (m.splitChild || battleState !== 'fighting') return;
-  let alive = 0;
-  for (const t of mobs) if (!t.dead && !t.gone) alive++;
-  if (alive > 600) return;
-  pendingSplits.push({team: m.team, type: m.type, x: m.pos.x, z: m.pos.z,
-    k2: m.k2, k3: m.k3});
-}
 function flushSplits() {
   while (pendingSplits.length) {
     const s = pendingSplits.shift();
@@ -808,37 +618,37 @@ function flushSplits() {
   }
 }
 
-/* 索敌: 距离 × 战术权重 — 个体偏好 + 目标粘性 + 收割残血 + 克制关系 + 可达性 */
+/* 每帧收集: 索敌/袭击协同共用的候选快照(视角无关字段 — retarget 与
+   raidTick 消费同一份, 避免逐怪逐帧建表 O(n²); collectFusing 同款) */
+const scanCands = [];
+function collectCandidates() {
+  scanCands.length = 0;
+  for (const t of mobs) {
+    scanCands.push({id: t.id, team: t.team, type: t.type, mfam: t.mfam,
+      dead: t.dead, gone: t.gone, hp: t.hp, maxHp: t.maxHp,
+      fly: !!t.cfg.fly, ranged: !!t.cfg.ranged, x: t.pos.x, z: t.pos.z});
+  }
+}
+
+/* 索敌: 距离 × 战术权重 — 权重序在 js/arena-core.js(快照→意图), 这里建
+   快照、把 targetId 落回实例引用 */
 function retarget(m, gp, dt) {
-  m.retargetT -= dt;
-  if (!m.target || m.target.dead || m.target.gone || m.retargetT <= 0) {
-    m.retargetT = 0.5 + Math.random()*0.4;
-    let best=null; let bd=1e9;
-    for (const t of mobs) {
-      if (t===m || t.dead || t.gone || t.team===m.team) continue;
-      let w = 0.75 + hashRand(m.id*97 + t.id*13, t.id*29 + m.id*7)*0.5;
-      if (t === m.target) w *= 0.75; // 目标粘性:不频繁切换
-      if (t.hp < t.maxHp*0.3) w *= 0.55; // 优先收割残血
-      if (COUNTER[m.type] === t.type) w *= 0.65; // 优先进攻克制对象
-      else if (COUNTER[t.type] === m.type) w *= 1.5; // 回避克制自己的对手
-      if (t.cfg.fly && !m.cfg.fly && !m.cfg.ranged) w *= 4; // 地面近战摸不到飞行
-      if (m.cfg.fly && !t.cfg.fly) {
-        if (!t.cfg.ranged) w *= 0.6; // 龙:优先收割无法还手的近战
-        else w *= 1.3; // 龙:优先清除远程威胁
-      }
-      const d = ((t.pos.x-gp.x)*(t.pos.x-gp.x) + (t.pos.z-gp.z)*(t.pos.z-gp.z)) * w;
-      if (d<bd) {
-        bd=d; best=t;
-      }
-    }
-    m.target = best;
+  const snap = {retargetT: m.retargetT,
+    target: m.target ? {dead: m.target.dead, gone: m.target.gone} : null,
+    targetId: m.target ? m.target.id : null,
+    id: m.id, team: m.team, type: m.type,
+    fly: !!m.cfg.fly, ranged: !!m.cfg.ranged, x: gp.x, z: gp.z};
+  const r = ArenaCore.retarget(snap, scanCands, dt);
+  m.retargetT = r.retargetT;
+  if (r.targetId !== undefined) {
+    m.target = r.targetId == null ? null : (mobs.find((t) => t.id === r.targetId) || null);
   }
 }
 
 /* AI:逃离正在读条的敌方苦力怕(远程单位边退边射它) */
 function fleeCreeper(m, dt, gp, fleeC) {
   const fa = Math.atan2(gp.x-fleeC.pos.x, gp.z-fleeC.pos.z);
-  const fs = mobSpeed(m)*1.05;
+  const fs = ArenaCore.mobSpeed(m)*1.05;
   stepMove(m, Math.sin(fa)*fs*dt, 0);
   stepMove(m, 0, Math.cos(fa)*fs*dt);
   if (m.cfg.ranged && m.attackCd <= 0 &&
@@ -868,7 +678,7 @@ function moveFly(m, dt, gp, tg, dist) {
   const dx = tg.pos.x-gp.x; const dz = tg.pos.z-gp.z;
   if (tg.cfg.fly) {
     const d3 = Math.hypot(dx, dz, tg.pos.y-gp.y);
-    const spd = mobSpeed(m);
+    const spd = ArenaCore.mobSpeed(m);
     Mobs.shift(m, Math.sin(m.yaw)*spd*dt, Math.cos(m.yaw)*spd*dt);
     gp.y += Math.max(-6, Math.min(6, tg.pos.y-gp.y))*dt*1.2;
     if (d3 < 4.5 && m.attackCd <= 0) {
@@ -881,12 +691,12 @@ function moveFly(m, dt, gp, tg, dist) {
     const orbR = m.cfg.ranged ? 9 : 2.4; // 炮台远环 · 掠食者贴脸
     const px = tg.pos.x + Math.sin(m.orbitA)*orbR;
     const pz = tg.pos.z + Math.cos(m.orbitA)*orbR;
-    const py = ARENA.floorY + (m.cfg.ranged ? ARENA.flyAlt : 2.2); // 掠食者低飞掠袭
+    const py = ArenaCore.ARENA.floorY + (m.cfg.ranged ? ArenaCore.ARENA.flyAlt : 2.2); // 掠食者低飞掠袭
     const mx = px-gp.x; const mz = pz-gp.z;
     const ml = Math.hypot(mx, mz);
-    Mobs.steer(m, angleLerp(m.yaw, Math.atan2(mx, mz), dt*2.5));
+    Mobs.steer(m, ArenaCore.angleLerp(m.yaw, Math.atan2(mx, mz), dt*2.5));
     if (ml > 0.05) {
-      const spd = mobSpeed(m);
+      const spd = ArenaCore.mobSpeed(m);
       Mobs.shift(m, mx/ml*spd*dt, mz/ml*spd*dt);
     }
     gp.y += (py-gp.y)*Math.min(1, dt*1.5);
@@ -908,7 +718,7 @@ function moveFly(m, dt, gp, tg, dist) {
       }
     }
   }
-  clampToArena(m, FLY_ORBIT_R);
+  clampToArena(m, ArenaCore.FLY_ORBIT_R);
   return 0;
 }
 
@@ -938,7 +748,7 @@ function moveBoom(m, dt, gp, tg, dist, dx, dz) {
       const hv = Math.min(10, dist*1.3);
       m.jumpVX = dx/hl*hv; m.jumpVZ = dz/hl*hv;
     } else {
-      speed = mobSpeed(m);
+      speed = ArenaCore.mobSpeed(m);
     }
   }
   return speed;
@@ -950,9 +760,9 @@ function moveRanged(m, dt, tg, dist) {
   if (m.laserT >= 0) return 0; // 守卫者系: 蓄力中站桩(放束在 tickLaserCharge)
   const shootDist = Math.min(m.cfg.range, 9); // 有效射程:超过就压上,避免远距离干瞪眼
   if (dist > shootDist) {
-    speed = mobSpeed(m);
+    speed = ArenaCore.mobSpeed(m);
   } else if (dist < 4.5) {
-    speed = -mobSpeed(m)*0.65;
+    speed = -ArenaCore.mobSpeed(m)*0.65;
   } else {
     m.strafeT -= dt; // 保持距离时横向走位
     if (m.strafeT <= 0) {
@@ -963,7 +773,7 @@ function moveRanged(m, dt, tg, dist) {
     stepMove(m, 0, -Math.sin(m.yaw)*m.strafeDir*0.9*dt);
   }
   if (dist <= shootDist && m.attackCd <= 0 && m.laserT < 0) {
-    if ((MOB_QUIRKS[m.type] || {}).laser) {
+    if ((ArenaCore.MOB_QUIRKS[m.type] || {}).laser) {
       m.laserT = 0; // 守卫者系: 蓄激光起手(个体特化, 替代箭矢)
     } else {
       m.attackCd = m.cfg.cd; m.attackT = 0.35;
@@ -978,7 +788,7 @@ function moveMelee(m, dt, gp, tg, dist, dx, dz) {
   let speed = 0;
   if (m.chargeT > 0) { // 猪猪一家·蛮冲(家传): 方向锁定的直线冲刺
     Mobs.steer(m, m.chargeYaw);
-    const cs = mobSpeed(m)*dt;
+    const cs = ArenaCore.mobSpeed(m)*dt;
     stepMove(m, Math.sin(m.chargeYaw)*cs, 0);
     stepMove(m, 0, Math.cos(m.chargeYaw)*cs);
     for (const t of Mobs.near(gp.x, gp.z, m.cfg.hitR+1.1, gp.y, 2.5)) { // 撞到第一个敌人
@@ -991,7 +801,7 @@ function moveMelee(m, dt, gp, tg, dist, dx, dz) {
     }
     return 0;
   }
-  if (dist > m.cfg.range*0.85) speed = mobSpeed(m);
+  if (dist > m.cfg.range*0.85) speed = ArenaCore.mobSpeed(m);
   if (m.type==='golem' && m.level>=3 && m.rockCd<=0 && dist>4.5 && dist<14) {
     // 王者·巨石投掷
     m.rockCd = 4 + Math.random()*2;
@@ -1011,9 +821,9 @@ function moveMelee(m, dt, gp, tg, dist, dx, dz) {
   if (!m.air && dist <= m.cfg.range && Math.abs(tg.pos.y-gp.y) < 3 && m.attackCd <= 0) {
     m.attackCd = m.cfg.cd * (m.raged ? 0.55 : 1); m.attackT = 0.45; // 狂暴攻速
     let dmg = m.cfg.dmg; let kpow = 0.45;
-    if (m.mfam === 'skeleton_line') { // 凋灵骷髅·节奏重斩(骷髅一家家传的近战表达)
+    if (m.mfam === 'skeleton_line') { // 凋灵骷髅·节奏重斩(骷髅一家家传的近战表达, 拍判定在 core)
       m.meleeCnt++;
-      if (m.meleeCnt % (m.level>=2?2:3) === 0) {
+      if (ArenaCore.skeletonHeavySwing(m.meleeCnt, m.level)) {
         dmg *= 1.6; kpow = 1.0;
       }
     }
@@ -1052,14 +862,14 @@ function wanderTick(m, dt, gp) {
   }
   if (m.cfg.fly) {
     m.orbitA += dt*0.5;
-    const px = ARENA.cx + Math.sin(m.orbitA)*14;
-    const pz = ARENA.cz + Math.cos(m.orbitA)*14;
+    const px = ArenaCore.ARENA.cx + Math.sin(m.orbitA)*14;
+    const pz = ArenaCore.ARENA.cz + Math.cos(m.orbitA)*14;
     const mx = px-gp.x; const mz = pz-gp.z; const ml = Math.hypot(mx, mz);
-    Mobs.steer(m, angleLerp(m.yaw, Math.atan2(mx, mz), dt*2));
+    Mobs.steer(m, ArenaCore.angleLerp(m.yaw, Math.atan2(mx, mz), dt*2));
     if (ml > 0.05) {
       Mobs.shift(m, mx/ml*m.cfg.speed*0.7*dt, mz/ml*m.cfg.speed*0.7*dt);
     }
-    gp.y += (ARENA.floorY+ARENA.flyAlt-gp.y)*Math.min(1, dt);
+    gp.y += (ArenaCore.ARENA.floorY+ArenaCore.ARENA.flyAlt-gp.y)*Math.min(1, dt);
     return 0;
   }
   m.wanderT -= dt;
@@ -1118,6 +928,7 @@ function updateMobs(dt) {
   updateTongues(dt);
   collectFusing();
   flushSplits(); // 家传亡语落场(软软族·分裂, 上一帧排队的)
+  collectCandidates(); // 索敌/协同共用的候选快照(retarget/raidTick 消费, 分裂新生儿也入册)
   for (const m of mobs) {
     if (m.gone || m.dead) continue; // 名牌/计时/死亡动画/尸体回收归怪物库 Mobs.update
     const gp = m.pos;
@@ -1135,9 +946,9 @@ function updateMobs(dt) {
     } else if (m.staggerT <= 0 && tg) {
       const dx = tg.pos.x-gp.x; const dz = tg.pos.z-gp.z;
       const dist = Math.hypot(dx, dz);
-      Mobs.steer(m, angleLerp(m.yaw, Math.atan2(dx, dz), dt*5));
+      Mobs.steer(m, ArenaCore.angleLerp(m.yaw, Math.atan2(dx, dz), dt*5));
 
-      const fleeC = m.cfg.fly ? null : fusingCreeperNear(m);
+      const fleeC = m.cfg.fly ? null : ArenaCore.fusingCreeperNear(m, fusingCreeps);
       if (fleeC) {
         speed = fleeCreeper(m, dt, gp, fleeC);
       } else if (m.cfg.fly) {
@@ -1333,20 +1144,19 @@ const cfgA = {type: 'zombie', count: 8};
 const cfgB = {type: 'skeleton', count: 8};
 let autoBalance = true; // 开启后两队总战力自动一致
 let lastEdited = 'A'; // 最后编辑的一侧，另一侧随之配平
-const MAX_MOBS = 1000;
 
-/* 单只战力: 混编按池内平均值(伪类型不落盘到共享表, 见文件头 MIX_AVG_POWER) */
+/* 单只战力/队战力/配平: 算术在 js/arena-core.js(混编均值经入参传入;
+   伪类型不落盘到共享表, 见 mixAvgPower) — 薄委托保住 UI 侧调用点 */
 function unitPower(cfg) {
-  return cfg.type==='mix' ? MIX_AVG_POWER : ARENA_POWER[cfg.type];
+  return ArenaCore.unitPower(cfg, MIX_AVG_POWER);
 }
 function teamPower(cfg) {
-  return cfg.count * unitPower(cfg);
+  return ArenaCore.teamPower(cfg, MIX_AVG_POWER);
 }
 function balanceTeams() {
   const from = lastEdited==='A' ? cfgA : cfgB;
   const to = lastEdited==='A' ? cfgB : cfgA;
-  const n = Math.round(from.count * unitPower(from) / unitPower(to));
-  to.count = Math.min(MAX_MOBS, Math.max(1, n));
+  to.count = ArenaCore.balanceTeams(from, to, MIX_AVG_POWER); // 选边与写回归壳
 }
 
 /* ---------- 部署队列: 大兵团分帧生成 ----------
@@ -1356,14 +1166,14 @@ function balanceTeams() {
 const spawnQueue = [];
 let spawnCursor = 0;
 function queueTeam(team, cfg) {
-  const ax = team==='A' ? ARENA.cx-19 : ARENA.cx+19;
-  const az = ARENA.cz;
+  const ax = team==='A' ? ArenaCore.ARENA.cx-19 : ArenaCore.ARENA.cx+19;
+  const az = ArenaCore.ARENA.cz;
   const spread = Math.min(15, 1.2 + Math.sqrt(cfg.count)*0.6);
   const out = [];
   for (let i=0; i<cfg.count; i++) {
     const a = Math.random()*Math.PI*2; const rr = 0.6+Math.random()*spread;
     const x = ax + Math.cos(a)*rr; const z = az + Math.sin(a)*rr;
-    const type = cfg.type==='mix' ? pickMix() : cfg.type;
+    const type = cfg.type==='mix' ? ArenaCore.pickMix(MIX_BUCKETS, MIX_FAMS) : cfg.type;
     out.push({team, type, x, z});
   }
   return out;
@@ -1375,8 +1185,8 @@ function deploySpawnQueue() {
     const s = spawnQueue[spawnCursor++];
     const m = spawnMob(s.team, s.type, s.x, s.z);
     const ec = s.team==='A' ? cfgB.count : cfgA.count; // 升级阈值随敌方规模缩放
-    m.k2 = Math.max(1, Math.min(6, Math.ceil(ec*0.25)));
-    m.k3 = Math.max(m.k2+1, Math.min(14, Math.ceil(ec*0.6)));
+    const th = ArenaCore.promoThresholds(ec); // k2=25% 钳 1..6 · k3=60% 钳 k2+1..14
+    m.k2 = th.k2; m.k3 = th.k3;
     teamInitHp[m.team] += m.maxHp;
   } while (spawnCursor < spawnQueue.length && performance.now() - t0 < 6);
   if (spawnCursor >= spawnQueue.length) {
@@ -1424,14 +1234,14 @@ function clearBattle() {
 
 /* ---------- 竞技场 UI ---------- */
 const arenaHb = mkHotbar({/* 选块由 kit 接管(digit/wheel/点选); 'shovel' 哨兵槽渲染铁锹物品图标 */
-  items: HOTBAR.map((id)=> (typeof id === 'number' ? {block: id} : {item: 'shovel_iron'})),
+  items: ArenaCore.HOTBAR.map((id)=> (typeof id === 'number' ? {block: id} : {item: 'shovel_iron'})),
   onPick: () => arenaHeldSync()});
 function arenaHeldIsBlock() {/* 手持感知判定(纯 seam): 选中数字方块槽才可放置, 'shovel' 槽 = 挖掘入口 */
-  return typeof HOTBAR[arenaHb.sel] === 'number';
+  return typeof ArenaCore.HOTBAR[arenaHb.sel] === 'number';
 }
 function arenaHeldItemId() {/* 选中槽的手持物 id(纯 seam): 方块槽 → 方块数字 id
   (HeldItems.defFor 直认), 铁锹哨兵槽 → shovel_iron(工具 def 现成) */
-  const id = HOTBAR[arenaHb.sel];
+  const id = ArenaCore.HOTBAR[arenaHb.sel];
   return typeof id === 'number' ? id : 'shovel_iron';
 }
 function arenaHeldSync() {/* 手持观感与选中槽一致 + 主动作键观感随手持 */
@@ -1458,8 +1268,8 @@ function fillPowerNote() {
   const el = document.getElementById('arenaPowerNote');
   if (!el) return;
   const byPower = {};
-  for (const k of Object.keys(ARENA_POWER)) {
-    const p = ARENA_POWER[k];
+  for (const k of Object.keys(ArenaCore.ARENA_POWER)) {
+    const p = ArenaCore.ARENA_POWER[k];
     (byPower[p] = byPower[p] || []).push(MOB_TYPES[k].name);
   }
   el.textContent = Object.keys(byPower).map(Number).sort((a, b)=>b-a)
@@ -1507,7 +1317,7 @@ function buildPanel() {
     b.addEventListener('click', ()=>{
       const cfg = b.dataset.cnt==='A' ? cfgA : cfgB;
       lastEdited = b.dataset.cnt;
-      cfg.count = Math.min(MAX_MOBS, Math.max(1, cfg.count + parseInt(b.dataset.d)));
+      cfg.count = Math.min(ArenaCore.MAX_MOBS, Math.max(1, cfg.count + parseInt(b.dataset.d)));
       if (autoBalance) balanceTeams();
       updatePanel();
     });
@@ -1572,7 +1382,7 @@ const ArenaMode = mkMode({
     {icon: 'shovel', label: '挖/放', holdAct: mkMainAct(arenaHeldIsBlock)},
   ],
   init() {
-    loadScene(generate); // 场景装填 seam: 建 + 收尾重建一步到位
+    loadScene(ArenaCore.generate); // 场景装填 seam: 建 + 收尾重建一步到位
     spawnPlayer();
     buildPanel();
     if (autoBalance) balanceTeams();
@@ -1605,11 +1415,11 @@ const ArenaMode = mkMode({
     if (button === 0) {
       editBlock(hit.x, hit.y, hit.z, 0);
     } else if (button === 2) {
-      if (typeof HOTBAR[arenaHb.sel] !== 'number') return; // 铲子槽不放置(手持感知: 拿铲子=挖)
+      if (typeof ArenaCore.HOTBAR[arenaHb.sel] !== 'number') return; // 铲子槽不放置(手持感知: 拿铲子=挖)
       const px=hit.x+hit.nx; const py=hit.y+hit.ny; const pz=hit.z+hit.nz;
       if (getBlock(px, py, pz)!==0) return;
       if (collidesAtPlayer(px, py, pz)) return;
-      editBlock(px, py, pz, HOTBAR[arenaHb.sel]);
+      editBlock(px, py, pz, ArenaCore.HOTBAR[arenaHb.sel]);
     }
   },
   hud(hit) {
@@ -1617,7 +1427,7 @@ const ArenaMode = mkMode({
     return [
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
       `FPS: ${fps}`,
-      `手持: ${typeof HOTBAR[arenaHb.sel] === 'number' ? BLOCKS[HOTBAR[arenaHb.sel]].name : '铁锹'}`,
+      `手持: ${typeof ArenaCore.HOTBAR[arenaHb.sel] === 'number' ? BLOCKS[ArenaCore.HOTBAR[arenaHb.sel]].name : '铁锹'}`,
       `注视: ${ModeKit.lookName(hit)}`,
       `R 重新开战 · B 面板`,
     ];

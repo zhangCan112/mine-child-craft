@@ -4,7 +4,7 @@
    ------------------------------------------------------------
    全游戏唯一的怪物实体模块(竞技场与坦克演习场共用):
    · 建模: MOB_RIG 骨架注册表 → (类型×关节槽) InstancedMesh 合批渲染
-   · 数值: config.js 的 MOB_TYPES(血量/速度/身高/碰撞半径/旗标)
+   · 数值: mob-registry.js 的 MOB_TYPES(血量/速度/身高/碰撞半径/旗标)
    · 本能: 血量/受击(闪白·踉跄·击退)/死亡(倒地沉没; 存活→死亡瞬间逐
      onDeath 回调报事件, 引擎不解释死因不做掉落)/游荡(wander 可关)
    interface: spawn / update / render / hit / near / clear / onDeath /
@@ -1261,7 +1261,7 @@ const Mobs = (() => {
         continue;
       }
       if (!PROTOS.includes(def.proto)) {
-        console.warn('[Mobs] ' + k + ' 的 proto 非法(合法值见 config.js PROTOS):', def.proto);
+        console.warn('[Mobs] ' + k + ' 的 proto 非法(合法值见 mob-registry.js PROTOS):', def.proto);
       }
       for (const f of (def.family || [])) {
         if (!famKeys.includes(f)) console.warn('[Mobs] ' + k + ' 引用未注册族:', f);

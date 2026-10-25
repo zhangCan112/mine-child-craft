@@ -2,7 +2,8 @@
 /* 工程规范守门单测 — node --test
    运行: node --test test/conventions.test.js
    把 docs/conventions.md 的结构性约定从"文档"变成"断言"——文件命名语法、
-   头注释契约、纯核心必配单测、文本卫生(LF/无 BOM/收尾换行)。手滑即红,
+   头注释契约、纯核心必配单测、文本卫生(LF/无 BOM/收尾换行)、模式层玩家
+   状态零直写。手滑即红,
    与 mode-registry.test.js 的"注册表断言"同属一套执行哲学:
    口头约定 → 唯一权威数据源 → 测试对着产物逐条断言。 */
 const test = require('node:test');
@@ -77,5 +78,32 @@ test('规范: 源文件文本卫生 — LF 行尾 · 无 BOM · 收尾换行 · 
         assert.ok(!/[ \t]$/.test(L), rel(p) + ':' + (i + 1) + ' 行尾空白');
       });
     }
+  }
+});
+
+/* ---------- 玩家状态守门(C7-T2) ----------
+   玩家六绑定(pos/vel/onGround/yaw/pitch/flyMode, 定义在 voxel.js 玩家段)
+   的可写白名单与例外登记, 唯一权威是 js/voxel.js 玩家段头注释: physics 自身 /
+   input.js 视角热路径 / math-world.js 自持 rAF / tank.js 引擎同侪——四类例外
+   文件都不在本断言扫描范围, 本断言只管模式层 js/modes/*.js(玩家状态的
+   消费方): 传送/出生一律 ModeKit.spawn, 飞行态一律 setFly(voxel.js)。
+   正则的 (?<!\.) 排除属性访问: m.yaw/T.onGround 是怪物/载具字段, 不是玩家
+   绑定(arena.js m.yaw 判例); 正则曾对全仓 js/ 预检, modes 目录零误报命中。 */
+test('规范: 模式文件零直写玩家六绑定 — 传送/出生走 ModeKit.spawn, 飞行态走 setFly', () => {
+  const rules = [
+    ['顶层绑定直写', /(?<!\.)\b(yaw|pitch|onGround|flyMode)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/],
+    ['成员直写', /(?<!\.)\b(pos|vel)\.(?:x|y|z)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/],
+    ['鸭子 set 直调', /(?<!\.)\b(pos|vel)\.set\(/],
+  ];
+  const modeFiles = jsModules.filter((p) => rel(p).startsWith('js/modes/'));
+  assert.ok(modeFiles.length >= 7, 'js/modes 应至少 7 个模式文件 — 扫描空集 = 守门静默失效');
+  for (const p of modeFiles) {
+    fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+      for (const [name, re] of rules) {
+        assert.ok(!re.test(line), rel(p) + ':' + (i + 1) + ' [' + name + '] ' + line.trim() +
+            ' — 玩家状态传送/出生走 ModeKit.spawn, 飞行态走 setFly(js/voxel.js);' +
+            ' 例外白名单唯一权威在 voxel.js 玩家段头注释');
+      }
+    });
   }
 });

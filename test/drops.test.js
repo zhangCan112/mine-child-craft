@@ -1,7 +1,7 @@
 'use strict';
 /* 掉落物实体库 (js/drops.js) 单测 — node --test (零依赖)
    运行: node --test test/drops.test.js
-   加载器: 同一 vm context 依次执行 config.js + items-core.js + held-item.js + drops.js —
+   加载器: 同一 vm context 依次执行 config.js + mob-registry.js + items-core.js + held-item.js + drops.js —
    精确镜像浏览器 <script defer> 的共享词法环境(drops.js 顶层纯函数段零 THREE 零 DOM,
    壳段 THREE/DOM 惰性创建, 无桩时 spawn 不建 Sprite、实体逻辑照跑, 见其文件头)。
    groundTop 以平地桩注入(恒 11, 与 test/mobs.test.js 同口径 → 悬浮线 = 12.35)。
@@ -16,7 +16,7 @@ const vm = require('node:vm');
 
 function loadDrops(extra) {
   const ctx = vm.createContext(Object.assign({console, groundTop: () => 11}, extra));
-  for (const f of ['config.js', 'items-core.js', 'held-item.js', 'drops.js']) {
+  for (const f of ['config.js', 'mob-registry.js', 'items-core.js', 'held-item.js', 'drops.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext('globalThis.__d = {Drops, rollDrops, rollBlockDrop, pickupCheck, resolveIcon,' +

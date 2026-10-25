@@ -94,6 +94,10 @@ _Avoid_: 相机跟随、第三人称开关（那是它的 implementation）
 玩家的小探险家模型与动画：建模、走路摆臂、头部俯仰、随相机距离显隐、受击闪红（flash：全身材质向红插值再淡出，模式层意图 API，观感能力不漏玩法知识）。加载即挂场景、跨模式存活；每帧由主循环喂 dt 与 CameraRig.apply 的返回距离，其余不可见。
 _Avoid_: 玩家皮肤、人物模型（散称）
 
+**玩家状态（PlayerState）**:
+voxel.js 玩家段的六绑定 pos/vel（const 对象、成员可写、与 THREE.Vector3 鸭子类型兼容）与 onGround/yaw/pitch/flyMode（顶层 let）——共享词法环境里全仓可读。可写白名单的唯一权威在 voxel.js 玩家段头注释：physics 自身 · input.js 视角热路径（唯一属主+事件频率高于帧率）· math-world.js 自持 rAF（主循环物理门控的已知症状，治理归引擎「非锁定宿主驱动入口」未来票）· tank.js 引擎同侪四类例外。意图入口：传送/出生走 ModeKit.spawn（mode-kit.js，顺带记住出生点供 onVoidFall 兜底），飞行态走 setFly（voxel.js，切换清垂直速度）；模式文件零直写由 test/conventions.test.js 守门断言把口。combat-kit 的 mkFighter 把 pos/vel 可变引用别名进战斗实体——意图入口只原地改字段、不替换绑定。
+_Avoid_: 把六绑定当模式可写状态（模式层直写已被守门断言拦）、给 setFly 加第二实现（语义单份在 voxel.js）
+
 **手持物注册表（HeldItems）**:
 手持物的唯一数据源：部件表、握持姿态、挥击与待机参数。两级供给——**defs 注册表**（手工武器 + 工具 16 条由 mkToolDef 加载期批量生成，工厂供单测直调）+ **defFor 惰性出口**（运行时唯一取 def 通道：工具/武器→defs；方块〔物品 id 或数字方块 id，建造/竞技场调色板直传〕→mkBlockDef 方块本体；棒状材料→mkRodDef；其余注册物品→mkPlateDef 薄片；空槽/未注册→null=空手，MC 口径）；附无状态入口——挥击关节角纯函数、按 def 的网格装配。加武器 = 加一份 def；肢体动画与握持施加收在玩家形象（Avatar）的 implementation 里，Avatar.setItem 声明目标、换物走「下沉-换-抬起」装备动画（沉到底才换网格）。
 _Avoid_: 武器表、物品系统（合称——物品核心/背包核心/合成核心/掉落物实体库各归各词条）
@@ -111,11 +115,11 @@ _Avoid_: 物品栏、inventory 对象（那是实现）、把扣料逻辑复制�
 _Avoid_: 配方系统（散称）、网格拖拽合成（拍板②：点选配方书，不做拖拽）
 
 **掉落物实体库**:
-引擎层的掉落物实体模块（js/drops.js）：顶层纯函数段——rollDrops 读 config 的 MOB_DROPS 掷骰（保底必得、50% 加成次数、rare 独立掷）· rollBlockDrop 读 BLOCKS.drop 三元组（可选第三参手持工具：剪刀 × shearDrop 存在时掷专属表——剪树叶得树叶方块，爆炸路径不传天然走默认表）· pickupCheck 拾取距离（≤0.6 收集 · ≤2.5 真空吸附），掷骰语义收在这里、表只存数据；壳段管实体生命周期——落地弹跳一次 → 贴地浮动+缓旋 → 2.5 格内加速飞向玩家 → 0.6 格触发收集回调（返回 false=背包满拒收，停在地上稍后再试）→ 3 分钟到期静默消失。图标经全局 iconOf（存在像素图标工坊则优先像素图）、emoji 兜底，本模块只消费不定义。
+引擎层的掉落物实体模块（js/drops.js）：顶层纯函数段——rollDrops 读 mob-registry 的 MOB_DROPS 掷骰（保底必得、50% 加成次数、rare 独立掷）· rollBlockDrop 读 BLOCKS.drop 三元组（可选第三参手持工具：剪刀 × shearDrop 存在时掷专属表——剪树叶得树叶方块，爆炸路径不传天然走默认表）· pickupCheck 拾取距离（≤0.6 收集 · ≤2.5 真空吸附），掷骰语义收在这里、表只存数据；壳段管实体生命周期——落地弹跳一次 → 贴地浮动+缓旋 → 2.5 格内加速飞向玩家 → 0.6 格触发收集回调（返回 false=背包满拒收，停在地上稍后再试）→ 3 分钟到期静默消失。图标经全局 iconOf（存在像素图标工坊则优先像素图）、emoji 兜底，本模块只消费不定义。
 _Avoid_: 战利品系统（散称）、把掉落表掷骰写在模式层（语义归这里）
 
 **像素图标工坊**:
-手绘像素图标的工坊（js/icons.js）：16×16 字符画（字符查表上色，'.'=透明）→ 关平滑放大 64×64 → dataURL。tankIcon（主菜单坦克卡入口图标——emoji 各平台渲染不可控）+ 物品图标扩展 itemIcon/iconOf：ITEM_PIX 字符画数据表覆盖 ITEMS 全量（工具 16 条共用 4 张字符画，'#'主/'+'亮/'-'暗 三字符按木/石/铁/钻四阶色板替换，色板与 mkToolDef 同源），一期已全量替换 emoji 占位；iconOf 是物品图标统一出口——有像素图返 dataURL、未手绘返 emoji 文本、未注册返空串，掉落物 Sprite/快捷栏 item 槽/配方书卡片共用。怪物头像在怪物库，专注图标在 focus-icons.js。
+手绘像素图标的工坊（js/icons.js）：16×16 字符画（字符查表上色，'.'=透明）→ 关平滑放大 64×64 → dataURL。tankIcon（主菜单坦克卡入口图标——emoji 各平台渲染不可控）+ 物品图标扩展 itemIcon/iconOf：ITEM_PIX 字符画数据表覆盖 ITEMS 全量（工具 16 条共用 4 张字符画，'#'主/'+'亮/'-'暗 三字符按木/石/铁/钻四阶色板替换，色板与 mkToolDef 同源），一期已全量替换 emoji 占位；iconOf 是物品图标统一出口——有像素图返 dataURL、未手绘返 emoji 文本、未注册返空串，掉落物 Sprite/快捷栏 item 槽/配方书卡片共用。怪物头像在怪物库，专注图标在 focus-icons.js。管线同形内联（mobs.face/tank icon 的放大尾、focus-icons 的 to96）是工坊声明的分地而非失控散写——底座化已裁决不做（2026-10，证据与重开条件见 docs/pixel-pipeline-design.md）。
 _Avoid_: emoji 图标（各平台渲染不可控）、把图标绘制散写在各消费方
 
 **按钮像素图标工坊**:
@@ -125,6 +129,10 @@ _Avoid_: 按钮用 emoji（观感业余且各平台字形漂移）、把按钮�
 **探险核心（AdventureCore）**:
 应用层纯核心（js/adventure-core.js，零 THREE 零 DOM，有单测）：探险模式的政策与地形段——地图常量表（湖/矿坑/山洞/巢穴/矿带）、确定性建场一族（advBuildWorld）、政策纯函数（死亡计划/巢穴节拍/挥击与怪物伤害/击杀掉落清单/收集播报/蓄力步进/放置合法性/食物政策/树苗计时/站点判定/烧炼单步/退炉/TNT 掷骰与衰减/大宝箱阶梯与入箱 advChestNext·advChestPut）、任务表 ADV_QUESTS 与计数键口径、提醒政策三件（低耐久预警/背包快满/工具坏话术）。壳（js/modes/adventure.js）只留 mkMode 装配/THREE·DOM 观感/话术/生命周期，经共享词法环境消费。
 _Avoid_: 把政策纯函数写回模式壳（S1 剥核先例：world→mesh-core / tank→tank-core / mobs→mob-core）
+
+**竞技场核心（ArenaCore）**:
+应用层纯核心（js/arena-core.js，零 THREE 零 DOM，有单测）：竞技场模式的政策与数值段唯一权威——常数表（ARENA 几何〔中心由 config 世界尺寸加载期派生〕· HOTBAR 选块物品栏 · ARENA_POWER 配平战力 · ID_* 地形方块别名 · TIER_MULT/TIER_NAME 晋升档位〔1 档基础系数 2026-10 补齐〕· COUNTER 克制关系 · FLY_KNOCK_R/FLY_ORBIT_R 飞行边界两档 · MAX_MOBS 数量上限）· 叶子纯函数（angleLerp 环形角度插值 · mobSpeed 移速修正 · tierStars/tierHot 晋升星级名牌 · comebackMult 翻盘系数〔入参为双方总血量占比〕 · fusingCreeperNear 苦力怕合体探测〔入参为读条清单〕）· 配平三件套（unitPower/teamPower/balanceTeams，选边 lastEdited 与写回归壳）· 晋升阈值公式 promoThresholds · 击杀信用判定半 killCredit（观感半 levelUp 留壳）· 队伍血量占比 teamHpFrac · 编队池构造与抽取（mixPool/mixAvgPower/mixBuckets/pickMix，核心零 Mobs 依赖——spawnable 清单与 MOB_TYPES 由壳注入）· 地形段（floorBlock/wallBlock/generate）· 快照→意图段——索敌权重 retarget（输入候选快照+rand 注入；权重全玩法概念归应用层，不进 mob-core/combat-core）· 袭击协同计数 raidTick · 分裂决策半 splitReq（返回延迟队列条目）· 计时递减半 decayTimers（13 字段，光环呼吸留壳）· 判负判定半 battleEnd · 骷髅节奏两件 volleyDiv/skeletonHeavySwing · 阴风判定 ghostChill · 家传技能 tick 族（rageTick/burstTick/chargeTick/guardTick/blinkTick，统一信封意图 writes/tint/buff/shock/tp/fx·sfx 标签）· 晋升数值半 levelUpIntent（heal 基数=新上限，壳按 m.maxHp 算）· 击杀结算决策半 awardKillPlan（苦力怕特权转投）· 技能表 FAMILY_SKILLS/MOB_QUIRKS（声明式，tick 直引 core 函数；laser 旗标型 tickLaserCharge **拍板永久留壳**——它是壳的 vocabulary）· 分发 familyMain/familyTick/familyOnDead。统一口径：**输入快照→输出纯数据（字段新值、队列条目或意图信封），core 不碰 Mobs 实例与观感**，壳负责落回字段与 fx/sfx。依赖走 adventure-core 档：config（WORLD_W/WORLD_D 加载期求几何）· mob-registry（MOB_TYPES 调用期折算，2026-10 自 config 拆出）· voxel 的 hashRand/setBlockRaw 与 scene-kit 的 SceneKit 经全局名调用期解析，加载序在前，Node 测试先载四件再 require。壳（js/modes/arena.js）只留观感/编排/装配（战斗编排与移动段 · SKILL_FX 观感参数表与 landSkill 意图落回 · tickLaserCharge · 弹道与挂件 · 配平 UI 与会话状态 autoBalance/lastEdited/teamInitHp），经共享词法环境消费。
+_Avoid_: 把观感挂件/弹道 mesh 写进 core（留壳）、tickLaserCharge 迁入 core（拍板永久留壳——状态机×三类意图×观感交织，它是壳的 vocabulary）、与 mob-core/combat-core 重复建 vocabulary（身体本能/弹道步进在那边，索敌权重是玩法概念归本 core）、把 lastEdited/autoBalance/teamInitHp 等会话状态搬进 core（选边与写回归壳）、core 反向写 Mobs 实例（快照进、意图出）
 
 **训练营机制核心（CampCore）**:
 应用层纯核心（js/camp-core.js，零 THREE·零 DOM·有单测）：两训练营家族逐字镜像机制的唯一实现——mkStampBook 图章一本工厂（rewards/keepDays/dailyCap 注入，30 步长递进线，八件 record/trim/count/milestones/rewardsDue/rewardFor/rewardClaimed/nextLine）、日期三件套 todayStr（委托 budgetDateStr 唯一拼装点）/dayIndex/trimLog（未来日期保留的零惩罚口径）、loot 基座 pickWeighted/grantLoot（余量静默+full 标记）；家族函数名（stampRecord/mathStampRecord 等）是 focus-levels/math-levels 的薄委托 interface；掷骰政策（段位变率 vs 族池）留各自 levels。
@@ -139,11 +147,11 @@ _Avoid_: inventory_save 直开（消费方自建存档槽违反 ADR 0002）、�
 _Avoid_: 坦克实体、载具系统、坦克皮肤（型号不止换色，性能/炮弹/建模整套不同）
 
 **怪物库（Mobs）**:
-引擎层的怪物实体模块：全怪物建模（37 种，按 Minecraft 原版数值等比映射；骨架表——人形/四足参数化生成器 + 特殊骨架，实例化合批渲染）、数值表驱动（config 的 MOB_TYPES，旗标 ranged/boom/fly/boss 决定行为模式）、血量/受击（闪白·踉跄·击退）/死亡（倒地沉没）/游荡的通用本能。interface：spawn / update / render / hit / near / clear / onDeath（击杀事件：hit 判定存活→死亡的瞬间逐回调恰一次、参数为怪物实体，引擎只报事件不解释死因不做掉落，掷骰归消费方，clear 一并解除注册）（附 list / face / hasSlot / families 谱系分组查询（面板分组唯一入口：按主族归组、无族落独行侠、FAMILIES 未定义时退化单桶）/ gait 步态+战斗姿态（第 4 参 attackT 窗口 → 通用挥臂——挥击手=持械手：骨架表 weaponArm 声明持械臂（hum 的 held → armL），缺省抡右拳/头前扑，竞技场与下界同一条入口）/ debrisColor 击杀碎块色，以及意图 API——stagger 硬直 / pulseTint 着色 / scaleTo 体型 / move·shift·setPos 水平位移 / steer 面向 / heal·setMaxHp 生命 / remove 立即移除 / settle 贴地回巡航，模式不直写引擎的位移/生命/硬直/着色/体型字段，战斗节拍字段（attackCd/attackT/target）由 spawn 置零、模式读写（曾因模式漏初始化 attackCd 致下界怪物永不攻击，初始化已收归引擎），可写字段白名单见 mobs.js 头注释）。战斗 AI、阵营、晋升、表扬话术在模式层，模式可在 spawn 返回的怪物上挂私有字段；竞技场与坦克演习场都是它的调用方，实例数组归它私有。
+引擎层的怪物实体模块：全怪物建模（37 种，按 Minecraft 原版数值等比映射；骨架表——人形/四足参数化生成器 + 特殊骨架，实例化合批渲染）、数值表驱动（js/mob-registry.js 的 MOB_TYPES——-registry 契约，2026-10 自 config 拆出；旗标 ranged/boom/fly/boss 决定行为模式）、血量/受击（闪白·踉跄·击退）/死亡（倒地沉没）/游荡的通用本能。interface：spawn / update / render / hit / near / clear / onDeath（击杀事件：hit 判定存活→死亡的瞬间逐回调恰一次、参数为怪物实体，引擎只报事件不解释死因不做掉落，掷骰归消费方，clear 一并解除注册）（附 list / face / hasSlot / families 谱系分组查询（面板分组唯一入口：按主族归组、无族落独行侠、FAMILIES 未定义时退化单桶）/ gait 步态+战斗姿态（第 4 参 attackT 窗口 → 通用挥臂——挥击手=持械手：骨架表 weaponArm 声明持械臂（hum 的 held → armL），缺省抡右拳/头前扑，竞技场与下界同一条入口）/ debrisColor 击杀碎块色，以及意图 API——stagger 硬直 / pulseTint 着色 / scaleTo 体型 / move·shift·setPos 水平位移 / steer 面向 / heal·setMaxHp 生命 / remove 立即移除 / settle 贴地回巡航，模式不直写引擎的位移/生命/硬直/着色/体型字段，战斗节拍字段（attackCd/attackT/target）由 spawn 置零、模式读写（曾因模式漏初始化 attackCd 致下界怪物永不攻击，初始化已收归引擎），可写字段白名单见 mobs.js 头注释）。战斗 AI、阵营、晋升、表扬话术在模式层，模式可在 spawn 返回的怪物上挂私有字段；竞技场与坦克演习场都是它的调用方，实例数组归它私有。
 _Avoid_: 怪物系统（散称）、mob 数组（那是实现）
 
 **怪物谱系（Mob Taxonomy）**:
-怪物种类的双层分类体系：行为原型（proto，战斗 AI 模板位：冲锋/弹道/自爆/伏击/俯冲/炮台/分裂/游击 + 闲逛 grazer=无战斗占位）× 种族（family 标签数组，**种族=长相接近的血统组**，守卫组是唯一职责组例外；不按地域/维度分族；**无兜底族**——每怪必归种族，单员族合法（龙族/海族））。数据在 config.js 的 MOB_TYPES（family 有序多标签，首位=主族；多族合法——僵尸猪灵/僵尸疣猪兽=猪物种+僵尸血统）+ FAMILIES/PROTOS 注册表；主族折算与家传技能表（FAMILY_SKILLS）/个体特化表（MOB_QUIRKS，tick 钩子型（末影人颤栗瞬移）、laser 声明型（守卫者系蓄力激光）、familySkill:false 豁免型）在竞技场模式层；面板分组走怪物库 families()（内联簇式：组头+组员成簇随行流动，未注册键兜底键名不丢桶）。12 个种族：僵尸一家（狂暴）/骷髅一家（强力节奏）/虫虫族（疾爬突进）/猪猪一家（蛮冲）/鬼一族（阴风）/守卫组（磐石）/灾厄帮（袭击协同）/软软族（分裂）/草木族/龙族/海族（后三族家传三期补）/农场一家（passive 牧场动物，见「牧场」词条——不进战斗面板）；个体特化=每怪至多一招；新怪按变体公式"同族骨架⊕环境特化⊕一招专属⊕数值微调"扩展。
+怪物种类的双层分类体系：行为原型（proto，战斗 AI 模板位：冲锋/弹道/自爆/伏击/俯冲/炮台/分裂/游击 + 闲逛 grazer=无战斗占位）× 种族（family 标签数组，**种族=长相接近的血统组**，守卫组是唯一职责组例外；不按地域/维度分族；**无兜底族**——每怪必归种族，单员族合法（龙族/海族））。数据在 js/mob-registry.js（-registry 契约，2026-10 自 config 拆出）：MOB_TYPES（family 有序多标签，首位=主族；多族合法——僵尸猪灵/僵尸疣猪兽=猪物种+僵尸血统）+ FAMILIES/PROTOS 注册表；主族折算与家传技能表（FAMILY_SKILLS）/个体特化表（MOB_QUIRKS，tick 钩子型（末影人颤栗瞬移）、laser 声明型（守卫者系蓄力激光）、familySkill:false 豁免型）在 js/arena-core.js（2026-10 随竞技场剥核迁入，见「竞技场核心」词条）；面板分组走怪物库 families()（内联簇式：组头+组员成簇随行流动，未注册键兜底键名不丢桶）。12 个种族：僵尸一家（狂暴）/骷髅一家（强力节奏）/虫虫族（疾爬突进）/猪猪一家（蛮冲）/鬼一族（阴风）/守卫组（磐石）/灾厄帮（袭击协同）/软软族（分裂）/草木族/龙族/海族（后三族家传三期补）/农场一家（passive 牧场动物，见「牧场」词条——不进战斗面板）；个体特化=每怪至多一招；新怪按变体公式"同族骨架⊕环境特化⊕一招专属⊕数值微调"扩展。
 _Avoid_: 怪物分类（散称）、怪物种族（单继承树的暗示——谱系是多标签组合）、按地域/维度分族（下界帮已撤——那是产地不是物种）、独行侠（兜底族已撤——每怪必归种族）
 
 **战斗核心（CombatCore）**:
@@ -155,8 +163,12 @@ _Avoid_: 弹道系统（散称）、AI 核心（它不懂战术与阵营）、�
 _Avoid_: 上层、业务层、游戏逻辑层
 
 **模式注册表（ModeRegistry）**:
-游玩模式清单的唯一权威（js/mode-registry.js，纯数据+纯函数）：一行派生模式卡/菜单页/返回/出发按钮的 DOM id、脚本路径、儿童时限成员、限额文案里的模式名。main.js 只消费不另持影子；命名约定（id ↔ cardXxx ↔ menuXxx）由 test/mode-registry.test.js 对着 index.html 逐条断言。
+游玩模式清单的唯一权威（js/mode-registry.js，纯数据+纯函数）：一行派生模式卡/菜单页/返回/出发按钮的 DOM id、脚本路径、儿童时限成员、限额文案里的模式名。main.js 只消费不另持影子——唯一存留是 MODES 手写映射：它是注册表的**仅存合法影子**（模式对象是经典 script 顶层 const，纯数据 registry 反射不到；2026-10 模式切换收口已上双道断言——boot 探针动态键集等价/每键 init 可调 + registry 测试静态源断言，漏行在 CI 当场红，而不是等孩子点新卡炸 undefined.init()）；命名约定（id ↔ cardXxx ↔ menuXxx）由 test/mode-registry.test.js 对着 index.html 逐条断言。
 _Avoid_: MODE_CARDS（历史名——三份影子表达已归一）、模式列表散称
+
+**切换清场（switchMode 兜底）**:
+模式切换的共享层单一收口（js/main.js switchMode，位于旧模式 cleanup 之后、新模式 init 之前，与 Fx.clear/clearWorld 同拍）：清 Mobs/Tank/Drops 三本共享实体账 + 复位 Avatar 手持物（PLAYER.heldItem）与 voxel.js 的 flyMode——只收共享引擎层的实体账与跨模式存活状态；模式私有物（自管投射物/面板/计时队列）仍归各模式 cleanup，兜底不是其替代（保守版各模式 cleanup 共性行保留为幂等双保险）。两个守恒契约定时序：① Tank.clear 只清实体不解除模式钩子（钩子会话级常驻，tank-range 加载期一次注册）→ 无条件清安全幂等；② Mobs/Drops 的 clear 解除会话回调、由新模式 init 重挂 → 兜底必须在新 init 之前，放之后会抹掉刚挂的回调。拍板记录见 docs/mode-switch-unification-design.md（候选 4，2026-10）。
+_Avoid_: 把兜底当模式 cleanup 的替代（私有物不清）、在兜底里解除 Tank 钩子（不存在该 API，契约禁）
 
 ### 政策与进度
 
@@ -178,7 +190,7 @@ _Avoid_: 游玩限制、防沉迷开关
 ### 游戏模式
 
 **竞技场（Arena）**:
-双阵营怪物对战玩法。怪物由怪物库（Mobs）提供，本层只保留战斗 AI、阵营对抗与晋升；技能按怪物谱系发放——家传技能走 FAMILY_SKILLS 族模板（主族折算），个体特化每怪至多一招。
+双阵营怪物对战玩法。怪物由怪物库（Mobs）提供，本层只保留战斗 AI、阵营对抗与晋升；技能按怪物谱系发放——家传技能走 FAMILY_SKILLS 族模板（主族折算），个体特化每怪至多一招。政策与数值段（常数表/配平/晋升/索敌权重/家传技能 tick/技能表）在 js/arena-core.js（见「竞技场核心」词条，2026-10 剥核），壳只留观感/编排/装配。
 
 **建造模式**:
 自由建造玩法，改动按场景云同步保存。
@@ -227,7 +239,7 @@ _Avoid_: NPC/向导（散称）、把表情画散写在模式层（像素画归 
 `js/math-puzzles-core.js`，出题与判分的纯数据变换（种子注入，同 seed 同输出）：图案镜像/平移/旋转与对称补全、俯视图纸投影、正视/侧视投影与双视角推理（US24：任一单视图与干扰共享、综合两视图才唯一锁定）、隐藏块/露面计数、数列与周期、合成多解枚举、天平代换链、线索排队、间隔问答；呈现红线常数 LIMITS（组块≤4/线索≤3）。_Avoid_: 题库（不是题库，是生成器）
 
 **数学屏流引擎**:
-`js/math-paradigms.js`，屏流族（数一数/算一算/找一找/站位比大小/情境三馆）的呈现-点选-反馈流程与小部件（DOM 惰性、零渲染引擎、假 doc 可测）；mathScreenDispatch 是"变体→引擎"的纯函数清单（测试锁）。_Avoid_: 数学范式（范式是专注训练营的词）
+`js/math-paradigms.js`，屏流族（数一数/算一算/找一找/站位比大小/情境三馆）的呈现-点选-反馈流程与小部件（DOM 惰性、零渲染引擎、假 doc 可测）；世界轨驱动器的**第三交互插件**（T5 迁入，2026-10——16 屏流变体在统一注册表 MATH_TRACK_RUNNERS 注册，键集加载期自本文件 MATH_SCREEN_ENGINES 引擎表派生；清完再发 end 的 DOM 项由 stop 清 area 担保）；mathScreenDispatch 仍是引擎内部的"变体→引擎"纯函数表（测试锁）——清单存在性权威在驱动器注册表，两表互锁由测试担保。_Avoid_: 数学范式（范式是专注训练营的词）
 
 **数学情境变体（MATH_CONTEXTS）**:
 挂在六族上的情境皮肤变体（登记表在 js/math-levels.js）：人民币商店（craft/shop）、钟表时刻（hop/clock）、测距步数（count/measure）——不独立成族，编排生成器在每情境族每带首个轮转位只换 variant（共 12 关），tier/kind/params 与承载族曲线同源，数值跟带。_Avoid_: 情境族（不是族）、独立模式
@@ -242,11 +254,11 @@ _Avoid_: NPC/向导（散称）、把表情画散写在模式层（像素画归 
 `js/math-world.js`，世界轨驱动器（js/math-track.js）的 **hop 交互插件**（混合宿主）：混合宿主（透明 mathRoot + 点选接球层 + 任务卡覆层，全程不锁指针、纯鼠标点选）、场景装填（≤32×32 草岛数字路，进场装场退出清场）、Avatar 走子逐格读数、相机跟随、试次循环与逐试次 onTrial 交回驱动器（记分/节拍在 MathTrackCore，生命周期与清完再发 end 由驱动器担保）。_Avoid_: 世界轨渲染/交互写单测（判分已下沉纯核心，装配由 boot 冒烟兜底）
 
 **摆与搭世界引擎（BuildWorld）**:
-`js/math-build-world.js`（THREE/DOM 装配，指针锁宿主）+ `js/math-build-world-core.js`（纯核心·有单测：谜题形状派生/候选与数字点阵/图纸像素投影/最省桥 US20——bridgePlan 两岸地形+可证最少块数 par（逐列步行高度最短路 DP）、bridgeGrade 三判据判分（步行连通/建造区/不悬空，≤par 判"最省"、>par 给"能过但不最省"）、bridgeOk 推理档判分口径（G4：reverse 档能过即对/multi-solve 档要最省）、mkBridgePuzzle 出题包装（跨度跟 blocks 预算）、mkWorldDualView 双视角装配裁剪（G4：候选 2/4 与视图 1/2 按变体曲线注入，single 档单正视图即唯一解））——摆一摆（mirror）/搭一搭（plan）两族世界变体的呈现-点选-反馈引擎：每试次经场景装填（loadScene）装一个 ≤32×32 小场景（石英画布+玻璃标记+世界内候选牌/立式投影牌），放置类走瞄准射线点选放置/撤除（建造模式形态的关卡内临时放置，最省桥经 canPlace 缝限定河面桥线）+发光石「好啦」交卷（摆对即时自动过关，判分经 gradeCells 缝可定制），选答类点世界内图纸牌/七段数字牌/候选建筑（指针锁定下 DOM 按钮点不到，答案牌长在世界里）；判分全部委托谜题纯核心（gradeSymmetry/gradeBlueprint/hiddenBlocks/exposedFaces），最省桥例外（地形语义判分收在 BuildWorldCore.bridgeGrade）。进场装场·退出清场·不写建造存档。与 hop 的混合宿主（js/math-world.js，不锁指针）并列，同为世界轨驱动器（js/math-track.js）的交互插件，分发/生命周期/boss 串链由驱动器统一持有（原「宿主统一留待后续票」已随 T4 交付）。_Avoid_: 把摆与搭判分写进装配层（纯逻辑归 math-build-world-core）、math-world.js（那是 hop 世界轨的文件）
+`js/math-build-world.js`（THREE/DOM 装配，指针锁宿主）+ `js/math-build-world-core.js`（纯核心·有单测：谜题形状派生/候选与数字点阵/图纸像素投影/最省桥 US20——bridgePlan 两岸地形+可证最少块数 par（逐列步行高度最短路 DP）、bridgeGrade 三判据判分（步行连通/建造区/不悬空，≤par 判"最省"、>par 给"能过但不最省"）、bridgeOk 推理档判分口径（G4：reverse 档能过即对/multi-solve 档要最省）、mkBridgePuzzle 出题包装（跨度跟 blocks 预算）、mkWorldDualView 双视角装配裁剪（G4：候选 2/4 与视图 1/2 按变体曲线注入，single 档单正视图即唯一解））——摆一摆（mirror）/搭一搭（plan）两族世界变体的呈现-点选-反馈引擎：每试次经场景装填（loadScene）装一个 ≤32×32 小场景（石英画布+玻璃标记+世界内候选牌/立式投影牌），放置类走瞄准射线点选放置/撤除（建造模式形态的关卡内临时放置，最省桥经 canPlace 缝限定河面桥线）+发光石「好啦」交卷（摆对即时自动过关，判分经 gradeCells 缝可定制），选答类点世界内图纸牌/七段数字牌/候选建筑（指针锁定下 DOM 按钮点不到，答案牌长在世界里）；判分全部委托谜题纯核心（gradeSymmetry/gradeBlueprint/hiddenBlocks/exposedFaces），最省桥例外（地形语义判分收在 BuildWorldCore.bridgeGrade）。进场装场·退出清场·不写建造存档。与 hop 的混合宿主（js/math-world.js，不锁指针）并列，同为世界轨驱动器（js/math-track.js）的交互插件，分发/生命周期/boss 串链由驱动器统一持有（原「宿主统一留待后续票」已随 T4 交付；T5 屏流迁入，三插件终态达成）。_Avoid_: 把摆与搭判分写进装配层（纯逻辑归 math-build-world-core）、math-world.js（那是 hop 世界轨的文件）
 
 **世界轨驱动器（WorldTrackDriver）**:
-数学冒险岛关卡节的唯一运行 seam（`js/math-track.js` 应用层装配 + `js/math-track-core.js` 纯核心，均有单测）：变体分发（dispatch(family,variant)→'screen'|'world'，屏流键集唯一权威在 math-paradigms 的引擎表、世界插件注册表 MATH_WORLD_RUNNERS 收在驱动器内）、单节生命周期（run：屏流/世界同一入口，**清完再发 end**——离场含 clearWorld/HUD/指针收口先于消费方结算，时序由 seam 担保不靠各引擎自觉）、boss 小节串链（runBoss：400ms 接力 + alive 旗整链中止，原 mathCtrl/mathBossStop 两条命合一）、退出收口（leave=单节离场 / stop=整链一刀，幂等）。交互插件实现：js/math-world.js（hop 混合宿主）、js/math-build-world.js（摆与搭指针锁宿主）、js/math-paradigms.js（屏流引擎，迁为第三插件留待后续票）；试次循环骨架（记分账本/连对连错节拍/试次钳制/boss 规划/聚合）在 MathTrackCore 纯核心。interface：`MathTrack{dispatch · run · runBoss · leave · stop · active · mouse · worldRunners}`。
-_Avoid_: mathCtrl/mathBossStop（历史名——控制柄与链旗两条命已合一）、mathWorldLeave/mathStopRun（历史名——退出收口已收进驱动器）、把「清完再发 end」时序下放回引擎或模式层（纪律归 seam）、在世界插件里自持清场以外的退出收口（HUD/触屏键/指针归 stop 统一收）
+数学冒险岛关卡节的唯一运行 seam（`js/math-track.js` 应用层装配 + `js/math-track-core.js` 纯核心，均有单测）：变体分发（dispatch(family,variant)→'screen'|'world'|null 纯查表，未册键返 null——T5-b 废除「未知键归世界轨」）、单节生命周期（run：屏流/世界同一入口，**清完再发 end**——离场含 clearWorld/HUD/指针收口先于消费方结算，时序由 seam 担保不靠各引擎自觉）、boss 小节串链（runBoss：400ms 接力 + alive 旗整链中止，原 mathCtrl/mathBossStop 两条命合一）、退出收口（leave=单节离场 / stop=整链一刀，幂等）。三交互插件经统一注册表 **MATH_TRACK_RUNNERS**（{kind:'screen'|'world', run} 形状，29 键=16 屏流+13 世界；屏流键集加载期自 MATH_SCREEN_ENGINES 引擎表派生，两表互锁由测试担保）收在驱动器：js/math-world.js（hop 混合宿主）、js/math-build-world.js（摆与搭指针锁宿主）、js/math-paradigms.js（屏流引擎，T5 迁入——三插件终态达成）；试次循环骨架（记分账本/连对连错节拍/试次钳制/boss 规划/聚合）在 MathTrackCore 纯核心。interface：`MathTrack{dispatch · run · runBoss · leave · stop · active · mouse · runners}`。
+_Avoid_: mathCtrl/mathBossStop（历史名——控制柄与链旗两条命已合一）、mathWorldLeave/mathStopRun（历史名——退出收口已收进驱动器）、MATH_WORLD_RUNNERS（历史名——统一注册表已改名 MATH_TRACK_RUNNERS，屏流 T5 并入后 29 键）、把「清完再发 end」时序下放回引擎或模式层（纪律归 seam）、在世界插件里自持清场以外的退出收口（HUD/触屏键/指针归 stop 统一收）
 
 
 **下界冒险（NetherMode）**:

@@ -22,7 +22,7 @@
    interface: keys/touchMove/touchSprint · Input{route,onLockChange,
    holdPt,icon} · requestLock/uiPause/setTouchActions/refreshTouchUI/refreshTouchMain
    依赖(均经全局名, 调用期解析): config.js 的 IS_TOUCH/PLAYER ·
-   world.js 的 renderer/yaw/pitch · voxel.js 的 flyMode ·
+   world.js 的 renderer · voxel.js 的 yaw/pitch/flyMode ·
    camera-rig.js 的 CameraRig · touch-core.js 的 mkTouchGestures ·
    effects.js 的 showToast(挥击反馈) · avatar.js 的 Avatar
 ============================================================ */

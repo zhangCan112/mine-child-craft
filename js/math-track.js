@@ -5,19 +5,22 @@
    一句话职责: 数学冒险岛关卡节的唯一驱动器 — 变体分发(screen|world)、
    单节生命周期(启动/离场/中止)、boss 小节串链与聚合、「清完再发 end」的
    统一时序(场景装填纪律由驱动器担保, 不再依赖各引擎自觉); 原两条命
-   (mathCtrl 控制柄 + mathBossStop 链旗)在内部合一。交互插件实现:
+   (mathCtrl 控制柄 + mathBossStop 链旗)在内部合一。三交互插件经统一
+   注册表 MATH_TRACK_RUNNERS 入册(T5-b: 屏流并入, dispatch 反转纯查表):
    js/math-world.js(hop 混合宿主) · js/math-build-world.js(摆与搭指针锁
-   宿主) · js/math-paradigms.js(屏流引擎, 迁入驱动器留待后续票);
+   宿主) · js/math-paradigms.js(屏流引擎, 键集加载期自引擎表派生);
    记分/节拍/boss 规划在 js/math-track-core.js(纯核心, 有单测)。
-   interface: dispatch(family,variant)→'screen'|'world' ·
+   interface: dispatch(family,variant)→'screen'|'world'|null(纯查表: 未册键
+     返 null — 原「未知键归世界轨」语义随 T5-b 废除) ·
      run(section, areaEl, h)→{stop(),onMouse?}|null(单节; end 前先离场) ·
      runBoss(level, areaEl, h)(串链, h={progress?,onTrial(sec,t)?,end(agg)?,speak?}) ·
      leave()(单节离场: stop+交还指针+复明 DOM, 幂等) ·
      stop()(整链一刀: 当前节+boss 链) · active()→bool ·
      mouse(button,hit)(路由活动节 onMouse) ·
-     worldRunners(世界插件注册表 — 「变体清单单一权威」测试对着它断言)
-   依赖(均经全局名, 调用期解析): mathScreenDispatch/runMathScreen
-     (js/math-paradigms.js) · runHopWorld(js/math-world.js) ·
+     runners(统一插件注册表 {kind:'screen'|'world', run} — 「变体清单单一权威」测试对着它断言)
+   依赖(均经全局名, 调用期解析): MATH_SCREEN_ENGINES/runMathScreen
+     (js/math-paradigms.js, 引擎表在加载期被本注册表派生消费 — index.html
+     脚本序 math-paradigms 先于本文件) · runHopWorld(js/math-world.js) ·
      runBuildWorld(js/math-build-world.js) · MathTrackCore(js/math-track-core.js) ·
      MATH_META(js/math-levels.js) · uiPause/touchPlaying(js/input.js) ·
      RandCore(js/rand-core.js, boss 小节种子派生 seedAt) ·
@@ -26,32 +29,42 @@
      test/math-track.test.js vm 桩直测(world-integrity 先例)
    ============================================================ */
 
-/* ---------- 变体分发(唯一缝): 屏流键在 math-paradigms 的引擎表, 其余=世界 ---------- */
+/* ---------- 统一插件注册(变体键 → {kind:'screen'|'world', run}; 增删变体只改这一张表) ---------- */
 
-function trackDispatch(family, variant) {
-  return mathScreenDispatch(family, variant).kind === 'engine' ? 'screen' : 'world';
+/* 世界宿主适配层(T5-b): 注册表统一 (section, areaEl, h) 三参形状, 世界宿主
+   保持两参 (section, h) 签名零改动 — 每宿主一份适配函数, 同宿主键按 run
+   身份可断言; 宿主经全局名调用期解析 */
+const trackHopRun = (section, areaEl, h) => runHopWorld(section, h);
+const trackBuildRun = (section, areaEl, h) => runBuildWorld(section, h);
+
+const MATH_TRACK_RUNNERS = {
+  'hop/dice': {kind: 'world', run: trackHopRun},
+  'hop/jumps': {kind: 'world', run: trackHopRun},
+  'hop/gaps': {kind: 'world', run: trackHopRun},
+  'mirror/reflect': {kind: 'world', run: trackBuildRun}, // 摆与搭: 指针锁宿主插件(与 hop 混合宿主并列)
+  'mirror/translate': {kind: 'world', run: trackBuildRun},
+  'mirror/rotate': {kind: 'world', run: trackBuildRun},
+  'mirror/tangram': {kind: 'world', run: trackBuildRun},
+  'mirror/bridge': {kind: 'world', run: trackBuildRun}, // G4 最省桥: 两岸地形+河面桥线放置+发光石交卷
+  'plan/build': {kind: 'world', run: trackBuildRun},
+  'plan/pick': {kind: 'world', run: trackBuildRun},
+  'plan/hidden': {kind: 'world', run: trackBuildRun},
+  'plan/countall': {kind: 'world', run: trackBuildRun},
+  'plan/dualview': {kind: 'world', run: trackBuildRun}, // G4 双视角: 候选建筑+立式投影牌点选
+};
+/* 屏流 16 键: 组合期接线 — 加载期从 math-paradigms 的清单唯一权威
+   (MATH_SCREEN_ENGINES 引擎表)派生注册, 不在驱动器抄第二份清单;
+   驱动器不再在 dispatch 时询问屏流引擎: 清单存在性权威=本表, 与引擎表
+   的一致性由测试互锁断言(test/math-paradigms.test.js 单一权威) */
+for (const k of Object.keys(MATH_SCREEN_ENGINES)) {
+  MATH_TRACK_RUNNERS[k] = {kind: 'screen', run: runMathScreen};
 }
 
-/* ---------- 世界插件注册(变体键 → 装配入口; 增删世界变体只改这一张表) ---------- */
+/* ---------- 变体分发(纯查表): 在册键返 entry.kind, 未册键返 null ---------- */
 
-const MATH_WORLD_RUNNERS = {
-  'hop/dice': runHopWorld,
-  'hop/jumps': runHopWorld,
-  'hop/gaps': runHopWorld,
-  'mirror/reflect': runBuildWorld, // 摆与搭: 指针锁宿主插件(与 hop 混合宿主并列)
-  'mirror/translate': runBuildWorld,
-  'mirror/rotate': runBuildWorld,
-  'mirror/tangram': runBuildWorld,
-  'mirror/bridge': runBuildWorld, // G4 最省桥: 两岸地形+河面桥线放置+发光石交卷
-  'plan/build': runBuildWorld,
-  'plan/pick': runBuildWorld,
-  'plan/hidden': runBuildWorld,
-  'plan/countall': runBuildWorld,
-  'plan/dualview': runBuildWorld, // G4 双视角: 候选建筑+立式投影牌点选
-};
-
-function trackWorldRunner(family, variant) {
-  return MATH_WORLD_RUNNERS[family + '/' + variant] || null;
+function trackDispatch(family, variant) {
+  const entry = MATH_TRACK_RUNNERS[family + '/' + variant];
+  return entry ? entry.kind : null;
 }
 
 /* ---------- 活动节状态(控制柄与链旗合一的单一命, 引擎句柄不外泄) ---------- */
@@ -105,13 +118,9 @@ function trackRun(section, areaEl, h) {
     trackLeave();
     if (userEnd) userEnd(st);
   };
-  let handle = null;
-  if (trackDispatch(section.family, section.variant) === 'world') {
-    const runner = trackWorldRunner(section.family, section.variant);
-    if (runner) handle = runner(section, hh); /* 未注册变体: 保持 null 契约(防御) */
-  } else {
-    handle = runMathScreen(section, areaEl, hh);
-  }
+  const entry = MATH_TRACK_RUNNERS[section.family + '/' + section.variant];
+  if (!entry) return null; /* 未注册变体: 保持 null 契约(防御 — 单一权威测试下不可达) */
+  const handle = entry.run(section, areaEl, hh);
   if (!handle) return null;
   trackCur = {handle};
   return handle;
@@ -173,7 +182,7 @@ const MathTrack = {
   stop: trackStop,
   active: () => !!trackCur,
   mouse: trackMouse,
-  worldRunners: MATH_WORLD_RUNNERS,
+  runners: MATH_TRACK_RUNNERS,
 };
 
 if (typeof module !== 'undefined' && module.exports) module.exports = {MathTrack};

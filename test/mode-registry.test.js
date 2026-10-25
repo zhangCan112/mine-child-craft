@@ -4,7 +4,10 @@
    把"三重命名约定"(注册表 id ↔ cardXxx ↔ menuXxx ↔ 脚本顺序)从口头约定
    变成断言: 注册表加行而 index.html 忘加卡/页/script, 这里立刻红。
    另断言各行 mood 字段(BGM 情绪)值 ∈ 合法情绪集 — 模式情绪的唯一
-   权威在此(每行必声明), audio-registry 的 MOODS 已收窄为仅 menu。 */
+   权威在此(每行必声明), audio-registry 的 MOODS 已收窄为仅 menu。
+   覆盖面: 注册表 ↔ index.html(卡/页/按钮/脚本序) ↔ main.js 的 MODES
+   影子清单(源文本逐行在场)三方一致; 执行期动态面(键集等价/每键 init
+   可调/switchMode 全 id 不抛)在 test/boot.test.js — 双道防线。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -12,6 +15,7 @@ const path = require('node:path');
 
 const ModeRegistry = require('../js/mode-registry.js');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+const mainSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'main.js'), 'utf8');
 
 test('模式注册表: 派生 id 符合命名约定(cardXxx / menuXxx / xxxBackBtn / xxxEnterBtn)', () => {
   for (const m of ModeRegistry.all) {
@@ -44,6 +48,22 @@ test('模式注册表: 每个模式的 script 在 main.js 之前加载(经典脚
     assert.ok(at > 0, '缺 script: ' + tag);
     assert.ok(at < mainAt, tag + ' 必须先于 main.js 加载');
   }
+});
+
+test('模式注册表: main.js 的 MODES 影子清单与表零漂移(漏行=点新卡 undefined.init() TypeError)', () => {
+  /* "影子清单上锁"的静态源文本面: 只读 main.js 源、不执行代码, 防动态
+     探针(test/boot.test.js 的 boot vm)被误删后失守。MODES 手写清单是
+     d6fa3c0 合一因技术限制保留的最后一处影子 — 模式对象是经典 script
+     顶层 const, 纯数据 registry 反射不到, 只能由 main.js 手写接线;
+     注册表加行而忘加键, 本文件其余断言仍全绿, 事故要到用户点新卡才炸,
+     这里对着源文本逐键断言(排版: 两空格缩进, 值以 Mode 结尾, 行尾逗号) */
+  for (const m of ModeRegistry.all) {
+    assert.ok(new RegExp('^ {2}' + m.id + ': \\w+Mode,$', 'm').test(mainSrc),
+        'main.js MODES 缺键行: ' + m.id + ': XxxMode,(组合根漏接线, 点卡即 TypeError)');
+  }
+  const ids = [...mainSrc.matchAll(/^ {2}(\w+): \w+Mode,$/gm)].map((x) => x[1]).sort();
+  assert.deepStrictEqual(ids, ModeRegistry.all.map((m) => m.id).sort(),
+      'MODES 键行应与注册表键集一致(注册表之外多出的键同样是影子滋生)');
 });
 
 test('模式注册表: 儿童时限成员 = gated 模式(专注训练营独立预算不入列)', () => {

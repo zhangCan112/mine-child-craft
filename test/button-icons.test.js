@@ -2,7 +2,7 @@
 /* 按钮像素图标工坊 (js/button-icons.js) 单测 — node --test (零依赖)
    运行: node --test test/button-icons.test.js
    加载器: 同一 vm context 依次执行 items-core.js → icons.js →
-   button-icons.js(镜像 index.html 258→265→266 行共享词法环境顺序);
+   button-icons.js(镜像 index.html script 序的共享词法环境顺序);
    document/canvas 桩注入(icons-item.test.js 先例)。
    防错网: 扫 js/** 全部 icon:'…' / btnImg('…') / btnGlyph('…','…')
    字面量 ⊆ 工坊键集(漏登记即红) — audio-registry.test.js 同款口径。 */

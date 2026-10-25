@@ -179,7 +179,7 @@ function enterNether() {
   NETHER.wave = 0; NETHER.killCount = 0; NETHER.waveInProgress = false;
   startNetherWave();
   ModeKit.spawn(NETHER_BASE.x, NETHER_GROUND + 1, NETHER_BASE.z, {yaw: Math.PI}); // 从回程门前走出(门在身后, 面朝下界)
-  flyMode = false; // 冒险模式步行(不沿用建造的飞行)
+  setFly(false); // 冒险模式步行(不沿用建造的飞行; 走意图入口)
   netherMelee.reset(); netherHurt.reset(); // 传送落地即可战斗(冷却/话术节流不留锁)
   weaponBar.show(); // 武器栏现身(上界不放武器)
   Avatar.setItem(NETHER.weapon); // 进下界自动武装(记住上次的选择)
@@ -191,7 +191,7 @@ function enterOverworld() {
   loadScene(buildOverworldWorld); // 场景装填 seam: 清下界残留, 家原样重建
   applySky(OVERWORLD_SKY);
   ModeKit.spawn(62.5, NETHER_HOME_GROUND + 1, 85.5, {yaw: 0}); // 家门口(门南侧几步); 面朝房子背对门 —
-  flyMode = false; // 落地推"前进"只会走离门口, 不会一头弹回下界
+  setFly(false); // 落地推"前进"只会走离门口, 不会一头弹回下界(走意图入口)
   Mobs.clear();
   netherArrows.clear(); netherBalls.clear(); // 投射物不跨维度: 残留火球追进门会在上界把人打死 → 重生点落进地下室土里(实测根因)
   const e = getPEnt(); // 回家 = 安全休整: 生命回满(空血进下界 = 落地即死,

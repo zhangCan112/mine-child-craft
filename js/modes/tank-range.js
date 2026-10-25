@@ -26,7 +26,7 @@ const TANK_RANGE = {
   targetId: 16, // 靶方块 id(红羊毛): 建靶与命中判定, 演习场专属玩法
 };
 /* 坦克打怪物伤害表(本模式唯一消费者, 归位自 config.js; 怪物血量沿用
-   MOB_TYPES 原值) direct=直击(炮弹碰身体或近爆心) splash=波及起点
+   MOB_TYPES(js/mob-registry.js)原值) direct=直击(炮弹碰身体或近爆心) splash=波及起点
    edge=波及边缘(线性递减) crush=碾压
    调参依据真机试玩: 近弹必须一炮一个脆怪(僵尸30), 否则像"没伤害" */
 const TANK_VS_MOBS = {

@@ -121,7 +121,7 @@ mathStars(level, st, famChallengeDone): ⭐通过 ⭐⭐ acc≥85%
 | 偏差 | 理由 |
 | --- | --- |
 | 曲线函数名 **mathParamsFor**（非 paramsFor） | focus-levels.js 已占用该全局名（经典 script 共享词法环境，重名静默覆盖） |
-| 世界轨拆两宿主：math-world.js（hop·混合宿主不锁指针）+ math-build-world.js（摆与搭·指针锁宿主），经 modes/math.js 的 **MATH_WORLD_RUNNERS** 注册表分发 | T5/T6 并行开发撞名（原设计为单文件装配）；两宿主交互形态本就不同（走子 vs 放置），注册表即分发缝，宿主统一留待后续 |
+| 世界轨拆两宿主：math-world.js（hop·混合宿主不锁指针）+ math-build-world.js（摆与搭·指针锁宿主），经 modes/math.js 的 **MATH_WORLD_RUNNERS** 注册表分发（历史名——已改名 MATH_TRACK_RUNNERS 并迁至驱动器 js/math-track.js，屏流 T5 并入后 29 键，见 math-track-unification-design.md） | T5/T6 并行开发撞名（原设计为单文件装配）；两宿主交互形态本就不同（走子 vs 放置），注册表即分发缝，宿主统一留待后续 |
 | 情境挂载落地为 **MATH_CONTEXTS 情境变体**（craft/shop·hop/clock·count/measure），编排生成器在每情境族每带首个轮转位只换 variant（共 12 关） | §5"情境皮肤挂载"的具体化：挂族不独立成族，tier/kind/params 与族曲线同源 |
 | 家长日志 log 键升级 **'族:带'**（T9） | 六族×四带矩阵的数据源；无冒号旧键（开发期形状）由 mathPanelMatrix 兼容读取（只入族合计），不做存档迁移 |
 | 图纸 = blueprintPixels 纯投影画 canvas | 与 §3"不用引擎相机远拍"一致，补记实现位 |

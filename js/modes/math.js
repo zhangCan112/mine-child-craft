@@ -54,12 +54,15 @@
    toast; 图章一本独立于专注训练营(日历/自选章图案/集章达成线
    领奖, 纯函数在 math-levels.js, 奖励纯观感不解锁玩法)。
    ★ 分发与生命周期(T4 起收进世界轨驱动器 js/math-track.js):
-   MathTrack.dispatch(family, variant) 返回 'screen' | 'world', 关卡节
+   MathTrack.dispatch(family, variant) 返回 'screen' | 'world' | null
+   (T5-b 纯查表: 未册键 null), 关卡节
    一律经 MathTrack.run/runBoss 启动 — 驱动器担保「清完再发 end」的统一
-   时序与离场收口(leave/stop), boss 串链/聚合在 MathTrackCore; 世界轨
-   插件: hop 三变体=js/math-world.js 混合宿主 · mirror/plan 十变体=
-   js/math-build-world.js 指针锁宿主; 六族变体已全部在册("建设中"
-   占位屏已随全册退役; 未登记变体属清单漂移, 由 test 单一权威断言拦截)。
+   时序与离场收口(leave/stop), boss 串链/聚合在 MathTrackCore; 三交互
+   插件经统一注册表 MATH_TRACK_RUNNERS 入册(T5-b): hop 三变体=
+   js/math-world.js 混合宿主 · mirror/plan 十变体=js/math-build-world.js
+   指针锁宿主 · 屏流 16 变体=js/math-paradigms.js 屏流引擎; 29 变体已
+   全部在册("建设中"占位屏已随全册退役; 未登记变体属清单漂移, 由 test
+   单一权威断言拦截)。
    migrate 用库层 MATH_SAVE_DEFAULTS/migrateMathSave; stars 表以
    "键存在"记通关(教学关 0 星入账=已通占位, 数学侧无 unlocked 字段的
    派生口径, 见 mathFrontier)。
@@ -95,10 +98,11 @@ function mathLocked() {
 }
 
 /* 分发与生命周期已收进世界轨驱动器 js/math-track.js(T4): MathTrack.dispatch
-   (family, variant)→'screen'|'world', 关卡节一律经 MathTrack.run/runBoss
-   启动, 退出走 MathTrack.leave/stop — 本文件不再持 mathCtrl/mathBossStop
-   两条命; 世界轨插件注册表(MATH_WORLD_RUNNERS)与单一权威断言随之迁至
-   驱动器侧 */
+   (family, variant)→'screen'|'world'|null(T5-b 纯查表, 未册键 null), 关卡节
+   一律经 MathTrack.run/runBoss 启动, 退出走 MathTrack.leave/stop — 本文件
+   不再持 mathCtrl/mathBossStop 两条命; 插件注册表(T5-b 起为统一注册表
+   MATH_TRACK_RUNNERS, 历史名 MATH_WORLD_RUNNERS 已废止)与单一权威断言
+   随之迁至驱动器侧 */
 
 /* ---------- 共享背包(T8, ADR 0002 / 设计稿 §5) ----------
     数学岛是共享背包的新「只产出」消费方: 进岛 init() 时 load 一次

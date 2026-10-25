@@ -4,7 +4,8 @@
    ------------------------------------------------------------
    一句话职责: 藏住 16 个屏流判别变体(count/craft/pattern 全变体 +
    hop 站位比大小 + 商店/钟表/测距情境皮肤)的"呈现-点选-反馈"流程与
-   小部件, 调度层(modes/math.js)只给 section 与 handler, 拿回统计;
+   小部件, 调度层(T5 起经世界轨驱动器 js/math-track.js 的统一注册表派发)
+   只给 section 与 handler, 拿回统计;
    引擎不知道奖励/背包/图章/关卡编排。
    出题优先调 PuzzleCore(算式谜/多解/天平=mkScalePuzzle/mkPartitionPuzzle,
    数列/周期/线索排队=mkSeqPuzzle/mkPeriodPuzzle/mkClueOrderPuzzle);
@@ -15,7 +16,7 @@
    认知负荷红线(PuzzleCore.LIMITS): 一次呈现 ≤4 组块 · 线索 ≤3 条 —
    mathGuardParams 渲染前校验参数, 越界 console.warn 并截断(测试锁)。
    interface: mathScreenDispatch(family, variant) · mathGuardParams(params) ·
-     runMathScreen(section, area, h) → {stop()} | null(世界变体误调的防御返回)
+     runMathScreen(section, area, h) → {stop()}(T5-b 起经 MathTrack.runners 派发)
      section = {family, variant, tier?, kind?, params, seed?} ·
      mFrameLayout(n, seed) → 十格阵格位序列(呈现反泄漏纯函数, G5) ·
      h = {progress(k, n)?, onTrial({ok, streak})?, end(st)} —
@@ -1032,7 +1033,8 @@ function sfxSafe(name) {
 }
 
 /* 屏流变体清单唯一权威(T2 并表后): 键集即 mathScreenDispatch 的判定源,
-   增删屏流变体只改这一张表 — 「变体清单单一权威」测试对着它断言 */
+   T5-b 起也是驱动器统一注册表(MATH_TRACK_RUNNERS)屏流键的派生源 —
+   增删屏流变体只改这一张表, 与注册表的一致性由「单一权威」测试互锁 */
 const MATH_SCREEN_ENGINES = {
   'count/snapshot': mCountSnapshot,
   'count/fetch': mCountFetch,
@@ -1052,13 +1054,14 @@ const MATH_SCREEN_ENGINES = {
   'hop/clock': mHopClock,
 };
 
-/* 主入口: 非屏流变体返回 null(防御分支 — 正常分发缝下模式层只对
-   dispatch=engine 的变体调这里, 世界变体误调时兜底不抛错); 逐试次
+/* 主入口: 屏流节的引擎出口(T5-b 起经驱动器统一注册表 MathTrack.runners
+   派发, 注册表键集即本文件引擎表派生 — 误调防御随 dispatch 反转消亡,
+   世界变体键在此查不到引擎, 直接抛错即编程错误); 逐试次
    onTrial({ok, streak}) 供 T8 挂 loot; 完成回调 st 供
-   mathPassed/mathStars(单关口径)。 */
+   mathPassed/mathStars(单关口径); stop()=中止: 断计时器闸并清 area
+   (Q11「清完再发 end」的 DOM 项, 与 next() 每试次清场同款)。 */
 function runMathScreen(section, area, h) {
-  const d = mathScreenDispatch(section.family, section.variant);
-  if (d.kind !== 'engine') return null;
+  const key = section.family + '/' + section.variant; /* 引擎键(注册表派生源) */
   const p = mathGuardParams(section.params || {});
   const rnd = RandCore.mkRand(section.seed !== undefined ? section.seed : p.seed);
   const T = mTimers();
@@ -1102,7 +1105,7 @@ function runMathScreen(section, area, h) {
     area.innerHTML = '';
     const stage = mEl('div', 'm-stage');
     area.appendChild(stage);
-    MATH_SCREEN_ENGINES[d.key](stage, p, rnd, {
+    MATH_SCREEN_ENGINES[key](stage, p, rnd, {
       T,
       speak: (s) => {
         if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak(s);
@@ -1117,6 +1120,10 @@ function runMathScreen(section, area, h) {
     stop() {
       stopped = true;
       T.stop();
+      /* Q11「清完再发 end」的 DOM 项收进 seam: 最后试次的 .m-stage 不再
+         残留到模式层换屏(stopped 闸先判幂等; boss 400ms 接力窗内下一节
+         next() 的每试次清场与这里双清无害) */
+      area.innerHTML = '';
     },
   };
 }

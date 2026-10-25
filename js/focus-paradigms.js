@@ -95,7 +95,8 @@ function median(nums) {
 /* ---------- 刺激图标出口(F2 素材升级): 干扰物/宝石像素图统一走物品系统 ----------
    iconOf 有像素图返 data: 前缀直接用; 未注册/未画(如 emerald/羊毛——物品系统没有)
    回落训练营自有管线 mcIcon, 保证任何刺激名都有图可渲染;
-   调用期解析: icons.js/focus-icons.js 均先于本文件加载(见 index.html) */
+   调用期解析: mcIcon 所在 focus-icons.js 先于本文件; iconOf 所在 icons.js
+   加载序在本文件之后——运行期取用时已加载, typeof 守卫兜底(见 index.html) */
 function stimIcon(name) {
   if (typeof iconOf === 'function') {
     const url = iconOf(name);
