@@ -267,6 +267,10 @@ _Avoid_: 箱子系统（散称）、把箱子做成合成站点（拍板：合�
 探险模式的被动动物子系统（二期设计稿 §4，拍板④）：草原确定性散布 2 群 10 只（牛×2+羊×2 / 猪×3+鸡×3）——清单纯函数 advLivestockSpots/advLivestockPlan 在探险核心（**零世界读**：树位复用 advTreeSpots 纯清单，同 seed 同清单、玩家改动不漂移）；存活记账=世界档 livestock 死畜索引账（击杀并进既有 onDeath 掉落回调落账，只存已杀——初始清单可推导，**不重生** MC 口径；游荡位置不存档，重进回散布原位）。引擎侧：MOB_TYPES 农场四怪（牛 15/猪 15/羊 12/鸡 6=MC×1.5）带 **passive 旗标** + grazer 原型（无战斗占位）+ farm_line「农场一家」种族；**spawnable() 收窄为「可战斗部署」**（排除 mix 伪类型与 passive——竞技场 MIX_POOL/坦克演习场 RANGE_MOB_KEYS 零改动自然排除）。行为全在模式层 advHerdTick（不进 advMobAI）：受击逃窜（实体私有字段 __fleeT 3 秒 ×2.2 背向玩家；入口两路=挥击经 combat-kit mkMelee 的 onHit seam/TNT 波及）> 玩家贴近 ≤2.5 格让开（×0.8）> 闲逛吃草（__ambleT/__ambleDir 自持计时，六成时间缓步）；决策纯函数 advHerdStep。击杀走**「收获」口径**（killBurst verb=收获，kill_mob 任务记账排除——动物是收获不是战斗），掉落生肉/皮革/羽毛/羊毛接**熟食链**（SMELTS 烤肉 4 条，熟肉回血镜像 MC 饥饿值：生 3→熟 8）。
 _Avoid_: 把动物当怪物（不反击/不进战斗部署面板/不算击杀任务）、动物重生（MC 也不刷——牧场会空是「保护动物」的隐性教育）、给牧场开第二份存档键（死畜账在世界档里，与 furnaces 同一份）
 
+**体验馆**:
+仅开发人员可见的调试模式（js/modes/showroom.js；注册表 dev:true 字段——卡在 index.html 在场但默认隐藏，URL ?dev=1 解锁显示）：**真游戏场景去掉跑图与挖掘**——平地空场 + 预置道具 + 满材料背包，一切触手可及；做出来的东西在这里上手玩一遍找 bug（开发者亲手玩，不是自动化测试管线）。v1 预置熔炉——烧炼交互复用探险同源件（adventure-core 烧炼纯函数 + ModeKit.mkFurnacePanel 显示，模式消费它模式核心的第一案），炉态仅内存不落任何存档。材料清单是 showroom.js 顶部数据表，加材料=加一行。红线：不计儿童时限（gated:false）、不读不写任何孩子存档键（含共享背包 inventory_save——ADR 0002，体验馆背包是自建内存实例）；体验馆是常驻工具，没有"毕业进正式模式"的概念。
+_Avoid_: 实验室（已废弃名——2026-10-25 正名：它是体验场景不是科研场景）、把体验馆当玩法模式（不进孩子限额清单、无菜单页）、体验馆自开存档键（数据隔离红线）、为体验馆造第二份烧炼实现（复用探险核心）
+
 ### 玩法时间预算
 - 每日儿童时限（每日预算 DailyBudget）: 所有游玩模式（含下界冒险）共用同一份 play 预算，不新增账本。
 - 家长加时（play_extra_save）: 为单台设备当日叠加的儿童时限额度 `{date, ms}`。服务器权威：家长写 `data/play-extra.json`（`{设备ID:{date,ms}}`），`GET /progress` 读时注入、客户端回写冲不掉；客户端读时求值（纯函数 readExtraMs 在 daily-budget.js，接线在 main.js setupBudgets），次日自动回落默认限额。
