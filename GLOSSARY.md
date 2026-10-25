@@ -94,6 +94,10 @@ _Avoid_: 相机跟随、第三人称开关（那是它的 implementation）
 玩家的小探险家模型与动画：建模、走路摆臂、头部俯仰、随相机距离显隐、受击闪红（flash：全身材质向红插值再淡出，模式层意图 API，观感能力不漏玩法知识）。加载即挂场景、跨模式存活；每帧由主循环喂 dt 与 CameraRig.apply 的返回距离，其余不可见。
 _Avoid_: 玩家皮肤、人物模型（散称）
 
+**玩家状态（PlayerState）**:
+voxel.js 玩家段的六绑定 pos/vel（const 对象、成员可写、与 THREE.Vector3 鸭子类型兼容）与 onGround/yaw/pitch/flyMode（顶层 let）——共享词法环境里全仓可读。可写白名单的唯一权威在 voxel.js 玩家段头注释：physics 自身 · input.js 视角热路径（唯一属主+事件频率高于帧率）· math-world.js 自持 rAF（主循环物理门控的已知症状，治理归引擎「非锁定宿主驱动入口」未来票）· tank.js 引擎同侪四类例外。意图入口：传送/出生走 ModeKit.spawn（mode-kit.js，顺带记住出生点供 onVoidFall 兜底），飞行态走 setFly（voxel.js，切换清垂直速度）；模式文件零直写由 test/conventions.test.js 守门断言把口。combat-kit 的 mkFighter 把 pos/vel 可变引用别名进战斗实体——意图入口只原地改字段、不替换绑定。
+_Avoid_: 把六绑定当模式可写状态（模式层直写已被守门断言拦）、给 setFly 加第二实现（语义单份在 voxel.js）
+
 **手持物注册表（HeldItems）**:
 手持物的唯一数据源：部件表、握持姿态、挥击与待机参数。两级供给——**defs 注册表**（手工武器 + 工具 16 条由 mkToolDef 加载期批量生成，工厂供单测直调）+ **defFor 惰性出口**（运行时唯一取 def 通道：工具/武器→defs；方块〔物品 id 或数字方块 id，建造/竞技场调色板直传〕→mkBlockDef 方块本体；棒状材料→mkRodDef；其余注册物品→mkPlateDef 薄片；空槽/未注册→null=空手，MC 口径）；附无状态入口——挥击关节角纯函数、按 def 的网格装配。加武器 = 加一份 def；肢体动画与握持施加收在玩家形象（Avatar）的 implementation 里，Avatar.setItem 声明目标、换物走「下沉-换-抬起」装备动画（沉到底才换网格）。
 _Avoid_: 武器表、物品系统（合称——物品核心/背包核心/合成核心/掉落物实体库各归各词条）
