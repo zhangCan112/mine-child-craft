@@ -69,7 +69,19 @@ T1 骨架贯通+dev可见性 ──▶ T2 材料台+守门测试 ──▶ T3 �
 
 **做什么**：两个真实消费者（adventure/showroom）共同塑形接口，把装配段抽成共享熔炉 kit（归 mode-kit 或独立 -kit 文件，按 conventions §1.10 升格判据定）；行为零变化——两边既有测试（adventure-mode.test / showroom-mode.test）与 adventure-core.test 全程守门。
 
+**附记（code-review 修复期 2026-10-25 落）**：
+- **adventure 侧产物槽喂显错位（既有行为，未越界改）**：`js/modes/adventure.js` 把核心炉态直喂 `setSlots(f)`（产物字段 `out`），而 mkFurnacePanel 契约读 `s.output`（mode-kit.test 锁形状）——产物槽有锭也不显示。showroom 侧已在模式层桥接（`showroomFurnSlots`，out→output）；kit 抽取时应把桥接收进 kit（或面板改读 `out`），adventure 侧随抽取一并消化并补断言。
+- **showroomFuelR 显示层小镜像归本票**：镜像探险 `advFurnaceFuelR` 的纯显示计算（热值余量比），kit 抽取时一并上收，不单开票。
+
 **验收**：两模式熔炉行为测试零改动全绿；镜像重复段归零；接口注释（==== 五要素）落在 kit 侧。
+
+---
+
+## 后续票池（只登记不抽码，不入本 spec 关单范围）
+
+- **fakeEl 测试桩已 6 份拷贝**：adventure-mode / focus-paradigms / mode-kit / nether-mode / showroom-mode / tank-mode 各持一份同构假 DOM 桩——test-kit 共享候选，攒到过 conventions §1.10 升格判据再动，本票不动测试基建。
+- **showroomFuelR 显示层小镜像**：归 T4（共享熔炉 kit 抽取）一并上收，见 T4 附记。
+- **`includes('dev=1')` 宽匹配**：main.js 解锁参数用子串匹配（理论上命中 `?xdev=1` 之类），与 config.js `?touch=1` 的防御式读取惯例同款口径一致——仅记录不改；要收紧就两个参数一起过 §1.10，单改一处反而不一致。
 
 ---
 
