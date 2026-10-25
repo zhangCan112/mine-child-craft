@@ -19,7 +19,7 @@ function spawnPlayer() {
 }
 
 /* ---------- 怪物类型 ----------
-   数值表 MOB_TYPES 在 config.js(怪物库 js/mobs.js 与竞技场/演习场共用) */
+   数值表 MOB_TYPES 在 js/mob-registry.js(怪物库 js/mobs.js 与竞技场/演习场共用) */
 /* 混合编队池: 加载期一次性求值(构造纯函数在 js/arena-core.js, 核心零
    Mobs 依赖 — spawnable() 的加载期调用与 Boss/fly 过滤口径的注释在那边) */
 const MIX_POOL = ArenaCore.mixPool(Mobs.spawnable(), MOB_TYPES);

@@ -1,6 +1,8 @@
 'use strict';
 /* ============================================================
    配置与方块注册表
+   (怪物四表 MOB_TYPES/FAMILIES/PROTOS/MOB_DROPS 已拆往 js/mob-registry.js,
+   2026-10 架构治理候选 8 — 怪物种类清单唯一权威, -registry 契约)
 ============================================================ */
 const CHUNK = 16;
 const NCX = 8; const NCZ = 8;
@@ -46,7 +48,8 @@ const CAM = {
 /* 单消费者常量已归位: ARENA/HOTBAR(竞技场) · TANK_VS_MOBS
    (坦克演习场) — 政策常量属应用层, 不在引擎共享命名空间里放着( ambient 可见
    会诱惑跨层乱读); 引擎真正的共享注册表只剩: 世界尺寸/PLAYER/CAM/VIEW/BLOCKS/
-   TANK/TANK_MODELS/MOB_TYPES/IS_TOUCH/faceColor */
+   TANK/TANK_MODELS/IS_TOUCH/faceColor — 怪物四表(MOB_TYPES/FAMILIES/PROTOS/
+   MOB_DROPS)已迁往 js/mob-registry.js(-registry 契约, 2026-10 候选 8) */
 
 /* ---------- 远景与距离环 (world.js 渲染 adapter 用) ----------
    雾即渲染边界(Minecraft 官方同款语义: render distance 别名 fog):
@@ -141,161 +144,10 @@ const TANK_MODELS = {
   },
 };
 
-/* ---------- 怪物数值表 (js/mobs.js 怪物库用; 竞技场与坦克演习场共用) ----------
-   数值按 Minecraft 原版等比映射(与初代五怪同口径):
-   hp≈原版生命×1.5 · dmg≈原版普通难度伤害×1.6 · speed≈原版移速属性×10
-   h/hitR≈原版碰撞箱(高/半宽) — 竞技场配平战力已归位 modes/arena.js(ARENA_POWER)
-   旗标: ranged 远程 · boom 自爆 · fly 飞行 · boss Boss级(不进混合编队池) ·
-   passive 被动牧场动物(F4 农场一家: spawnable 排除, 不进战斗面板)
-   谱系(术语见 GLOSSARY「怪物谱系」): **种族=长相接近的血统组**(用户拍板),
-   另允许职责组(守卫组: 不长相近但都是"守卫"); 不按地域/维度分族。
-   proto 行为原型(AI 模板位) · family 物种族(有序多标签: 首位=主族=面板归组+
-   家传技能发放; 每怪必归种族, 单员族合法; 多族合法 — 僵尸猪灵/僵尸疣猪兽=猪物种+僵尸血统)。
-   特有技能: 家传=族共享模板(竞技场 FAMILY_SKILLS) · 个体特化每怪至多一招
-   (竞技场 MOB_QUIRKS: 守卫者系蓄力激光 · 末影人颤栗瞬移; 苦力怕扑袭/
-   铁傀儡震地/末影龙龙息是移动一体型特化, 留在原型分支) */
-const MOB_TYPES = {
-  /* —— 僵尸一家(主族 zombie_line, 家传·狂暴) —— */
-  zombie: {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55,
-    proto: 'charger', family: ['zombie_line']},
-  husk: {name: '尸壳', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55,
-    proto: 'charger', family: ['zombie_line']},
-  drowned: {name: '溺尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55,
-    proto: 'archer', family: ['zombie_line']},
-  /* —— 骷髅一家(主族 skeleton_line, 家传·强力箭节奏/节奏重斩) —— */
-  skeleton: {name: '骷髅', hp: 26, dmg: 6, speed: 2.6, range: 14, cd: 2.6, h: 1.9, ranged: true, hitR: 0.55,
-    proto: 'archer', family: ['skeleton_line']},
-  stray: {name: '流浪者', hp: 30, dmg: 6, speed: 2.5, range: 14, cd: 2.8, h: 1.9, ranged: true, hitR: 0.55,
-    proto: 'archer', family: ['skeleton_line']},
-  bogged: {name: '沼骸', hp: 24, dmg: 6, speed: 2.5, range: 14, cd: 2.8, h: 1.9, ranged: true, hitR: 0.55,
-    proto: 'archer', family: ['skeleton_line']},
-  wither_skeleton: {name: '凋灵骷髅', hp: 30, dmg: 13, speed: 2.5, range: 2.4, cd: 1.3, h: 2.4, hitR: 0.6,
-    proto: 'charger', family: ['skeleton_line']},
-  /* —— 虫虫族(主族 arthropod, 家传·疾爬突进) —— */
-  spider: {name: '蜘蛛', hp: 24, dmg: 3, speed: 3.0, range: 2.2, cd: 1.2, h: 0.9, hitR: 0.65,
-    proto: 'ambusher', family: ['arthropod']},
-  cave_spider: {name: '洞穴蜘蛛', hp: 18, dmg: 3, speed: 3.0, range: 2.0, cd: 1.1, h: 0.5, hitR: 0.35,
-    proto: 'ambusher', family: ['arthropod']},
-  silverfish: {name: '蠹虫', hp: 12, dmg: 2, speed: 2.6, range: 1.6, cd: 0.9, h: 0.35, hitR: 0.25,
-    proto: 'ambusher', family: ['arthropod']},
-  endermite: {name: '末影螨', hp: 12, dmg: 3, speed: 2.6, range: 1.6, cd: 1.0, h: 0.35, hitR: 0.25,
-    proto: 'ambusher', family: ['arthropod']},
-  /* —— 软软族(主族 slime_line, 家传·分裂) —— */
-  slime: {name: '史莱姆', hp: 24, dmg: 6, speed: 2.0, range: 2.2, cd: 1.4, h: 2.0, hitR: 0.55,
-    proto: 'splitter', family: ['slime_line']},
-  magma_cube: {name: '岩浆怪', hp: 24, dmg: 9, speed: 2.1, range: 2.2, cd: 1.5, h: 2.0, hitR: 0.55,
-    proto: 'splitter', family: ['slime_line']},
-  /* —— 猪猪一家(主族 pig_line, 家传·蛮冲): 人形猪+野兽猪, 都是猪 —— */
-  piglin: {name: '猪灵', hp: 24, dmg: 8, speed: 2.7, range: 2.2, cd: 1.1, h: 1.9, hitR: 0.55,
-    proto: 'charger', family: ['pig_line']},
-  piglin_brute: {name: '猪灵蛮兵', hp: 75, dmg: 20, speed: 2.6, range: 2.4, cd: 1.3, h: 2.0, hitR: 0.6,
-    proto: 'charger', family: ['pig_line']},
-  zombified_piglin: {name: '僵尸猪灵', hp: 30, dmg: 8, speed: 2.3, range: 2.2, cd: 1.1, h: 1.9, hitR: 0.55,
-    proto: 'charger', family: ['pig_line', 'zombie_line']}, // 双物种血统: 主族领家传, 副族只领分组
-  hoglin: {name: '疣猪兽', hp: 60, dmg: 9, speed: 2.8, range: 2.6, cd: 1.5, h: 1.4, hitR: 0.7,
-    proto: 'charger', family: ['pig_line']},
-  zoglin: {name: '僵尸疣猪兽', hp: 60, dmg: 9, speed: 2.8, range: 2.6, cd: 1.5, h: 1.4, hitR: 0.7,
-    proto: 'charger', family: ['pig_line', 'zombie_line']}, // 双物种血统(同僵尸猪灵)
-  /* —— 鬼一族(主族 ghost, 家传·阴风): 长相/气质是幽灵飘忽的 —— */
-  ghast: {name: '恶魂', hp: 15, dmg: 14, speed: 3.2, range: 16, cd: 3.4, h: 3.4, fly: true, ranged: true, hitR: 1.8,
-    proto: 'turret', family: ['ghost']},
-  phantom: {name: '幻翼', hp: 30, dmg: 6, speed: 3.5, range: 3.5, cd: 1.3, h: 0.6, fly: true, hitR: 0.45,
-    proto: 'diver', family: ['ghost']},
-  blaze: {name: '烈焰人', hp: 30, dmg: 8, speed: 2.3, range: 15, cd: 2.4, h: 1.8, fly: true, ranged: true, hitR: 0.45,
-    proto: 'turret', family: ['ghost']},
-  wither: {name: '凋灵', hp: 450, dmg: 13, speed: 3.8, range: 15, cd: 2.2, h: 3.5, fly: true,
-    ranged: true, hitR: 0.9, boss: true, proto: 'turret', family: ['ghost']},
-  enderman: {name: '末影人', hp: 60, dmg: 11, speed: 3.0, range: 2.6, cd: 1.2, h: 2.9, hitR: 0.35,
-    proto: 'skirmisher', family: ['ghost']}, // 个体特化=颤栗瞬移(模式层 MOB_QUIRKS)
-  vex: {name: '恼鬼', hp: 21, dmg: 8, speed: 3.4, range: 3.0, cd: 1.0, h: 0.8, fly: true, hitR: 0.25,
-    proto: 'diver', family: ['ghost']},
-  /* —— 守卫组(主族 guard, 职责组: 不长相近但都是"守卫"; 家传·磐石) —— */
-  golem: {name: '铁傀儡', hp: 110, dmg: 15, speed: 2.0, range: 3.0, cd: 1.6, h: 2.8, hitR: 1.0,
-    proto: 'charger', family: ['guard']}, // 个体特化=震地/巨石(原型分支)
-  warden: {name: '监守者', hp: 750, dmg: 45, speed: 2.7, range: 3.2, cd: 1.8, h: 2.9, hitR: 0.9, boss: true,
-    proto: 'charger', family: ['guard']},
-  guardian: {name: '守卫者', hp: 45, dmg: 8, speed: 2.0, range: 13, cd: 2.8, h: 0.9, ranged: true, hitR: 0.6,
-    proto: 'turret', family: ['guard']}, // 个体特化=蓄力激光(模式层 MOB_QUIRKS)
-  elder_guardian: {name: '远古守卫者', hp: 120, dmg: 13, speed: 1.9, range: 15, cd: 3.2, h: 2.0, ranged: true,
-    hitR: 1.0, boss: true, proto: 'turret', family: ['guard']},
-  /* —— 灾厄帮(主族 illager, 家传·袭击协同) —— */
-  vindicator: {name: '卫道士', hp: 36, dmg: 20, speed: 2.9, range: 2.2, cd: 1.2, h: 1.9, hitR: 0.55,
-    proto: 'charger', family: ['illager']},
-  evoker: {name: '唤魔者', hp: 36, dmg: 9, speed: 2.2, range: 13, cd: 3.0, h: 1.9, ranged: true, hitR: 0.55,
-    proto: 'charger', family: ['illager']},
-  pillager: {name: '掠夺者', hp: 36, dmg: 6, speed: 2.4, range: 14, cd: 2.7, h: 1.9, ranged: true, hitR: 0.55,
-    proto: 'archer', family: ['illager']},
-  ravager: {name: '劫掠兽', hp: 150, dmg: 18, speed: 2.7, range: 2.8, cd: 1.6, h: 2.2, hitR: 1.0,
-    proto: 'charger', family: ['illager']},
-  witch: {name: '女巫', hp: 39, dmg: 9, speed: 2.5, range: 14, cd: 3.0, h: 2.0, ranged: true, hitR: 0.45,
-    proto: 'archer', family: ['illager']}, // raider 圈: 村民的邪恶亲戚(物种归帮, 原版亦此划分)
-  /* —— 独行侠已撤销(用户拍板"不要不伦不类的兜底族"): 每怪必归种族, 单员族合法 —— */
-  /* —— 草木族(主族 plant): 植物身子的怪(家传三期补) —— */
-  creeper: {name: '苦力怕', hp: 28, dmg: 33, speed: 3.1, range: 2.0, cd: 9, h: 1.7, boom: true, hitR: 0.5,
-    proto: 'bomber', family: ['plant']}, // 个体特化=扑袭+读条取消(原型分支)
-  creaking: {name: '嘎枝', hp: 30, dmg: 5, speed: 3.0, range: 2.2, cd: 1.1, h: 1.7, hitR: 0.5,
-    proto: 'skirmisher', family: ['plant']},
-  /* —— 龙族(主族 dragon, 单员族): 家传无(龙息即本体特化, 原型分支) —— */
-  dragon: {name: '末影龙', hp: 300, dmg: 7, speed: 4.4, range: 17, cd: 4.5, h: 3.0, fly: true, hitR: 2.2, boss: true,
-    proto: 'diver', family: ['dragon']},
-  /* —— 海族(主族 sea, 单员族): 贝壳身子(家传无, 追踪弹特化三期补) —— */
-  shulker: {name: '潜影贝', hp: 45, dmg: 6, speed: 0.3, range: 15, cd: 3.0, h: 1.0, ranged: true, hitR: 0.5,
-    proto: 'turret', family: ['sea']},
-  /* —— 农场一家(主族 farm_line, 二期设计稿 §4.1): 被动牧场动物 —
-     passive 旗标=不可战斗部署(spawnable 收窄排除, 竞技场/演习场零影响);
-     数值 hp≈MC 生命×1.5 同折算惯例 · range/cd 归零(不攻击) ·
-     恐惧游荡归模式层(advHerdTick), 游荡归 Mobs 通用本能 —— */
-  cow: {name: '牛', hp: 15, dmg: 0, speed: 1.4, range: 0, cd: 0, h: 1.3, hitR: 0.7,
-    passive: true, proto: 'grazer', family: ['farm_line']},
-  pig: {name: '猪', hp: 15, dmg: 0, speed: 1.3, range: 0, cd: 0, h: 0.9, hitR: 0.6,
-    passive: true, proto: 'grazer', family: ['farm_line']},
-  sheep: {name: '羊', hp: 12, dmg: 0, speed: 1.2, range: 0, cd: 0, h: 1.2, hitR: 0.65,
-    passive: true, proto: 'grazer', family: ['farm_line']},
-  chicken: {name: '鸡', hp: 6, dmg: 0, speed: 1.5, range: 0, cd: 0, h: 0.7, hitR: 0.35,
-    passive: true, proto: 'grazer', family: ['farm_line']},
-  /* —— 伪类型: 竞技场混合编队按钮(种类池在 modes/arena.js 动态生成, 不带谱系) —— */
-  mix: {name: '混合编队', hp: 0, dmg: 0, speed: 0, range: 0, cd: 0, h: 2},
-};
-
-/* ---------- 怪物谱系注册表(数值表的两张维度表, 术语见 GLOSSARY「怪物谱系」) ----------
-   FAMILIES: 种族展示注册表 — 种族=长相接近的血统组(守卫组是唯一职责组例外);
-             name=孩子叫法(面板组头) · order=展示顺序; **无兜底族**(独行侠已撤):
-             每怪必归种族, 单员族合法(龙族/海族); 未注册键由怪物库兜底键名不丢桶。
-   PROTOS: 行为原型合法值(战斗 AI 模板位, 分期③的原型化分发键)。 */
-const FAMILIES = {
-  zombie_line: {name: '僵尸一家', order: 1},
-  skeleton_line: {name: '骷髅一家', order: 2},
-  arthropod: {name: '虫虫族', order: 3},
-  pig_line: {name: '猪猪一家', order: 4},
-  ghost: {name: '鬼一族', order: 5},
-  guard: {name: '守卫组', order: 6},
-  illager: {name: '灾厄帮', order: 7},
-  slime_line: {name: '软软族', order: 8},
-  plant: {name: '草木族', order: 9},
-  dragon: {name: '龙族', order: 10},
-  sea: {name: '海族', order: 11},
-  farm_line: {name: '农场一家', order: 12}, /* F4 被动动物: spawnable 排除 passive → 面板无桶, 注册仅供谱系完整性 */
-};
-/* grazer = 「无战斗」原型占位(F4 牧场动物): 游荡归 Mobs 通用本能, 竞技场族技能表无 farm_line 条目即不发技能 */
-const PROTOS = ['charger', 'archer', 'bomber', 'ambusher', 'diver', 'turret', 'splitter', 'skirmisher', 'grazer'];
-
-/* ---------- 怪物掉落表 (物品与合成一期, 设计稿 §3.3) ----------
-   儿童配平: 击杀必得保底数, 再以 50% 掷「加成次数」次(替代 MC 66%×0-2 的空手可能)。
-   rolls: [itemId, 保底, 加成次数] · rare: [itemId, 概率](独立小概率额外掉落)。
-   一期: 战斗四怪 + 史莱姆; 二期补下界四条/三期动物(设计稿 §3.3 注释口径)。
-   消费者: Drops.rollDrops(T7) — 掷骰语义在此表, 表只存数据。 */
-const MOB_DROPS = {
-  zombie: {rolls: [['rotten_flesh', 1, 1]], rare: [['iron_ingot', 0.05]]}, // MC 稀有铁锭 0.83% → 5%(§3.1)
-  skeleton: {rolls: [['bone', 1, 1]]}, // 箭二期(弓物品化)
-  creeper: {rolls: [['gunpowder', 1, 1]]},
-  spider: {rolls: [['string', 1, 1]]},
-  slime: {rolls: [['slimeball', 1, 1]]}, // MC 需玩家击杀口径: 本游戏击杀者只有玩家, 天然满足
-  /* F4 农场一家(二期设计稿 §4.5, 儿童配平「保底 1+50%+1」沿用): 生肉+副产物 */
-  cow: {rolls: [['raw_beef', 1, 1], ['leather', 1, 1]]},
-  pig: {rolls: [['raw_porkchop', 1, 1]]},
-  chicken: {rolls: [['raw_chicken', 1, 1], ['feather', 1, 1]]},
-  sheep: {rolls: [['wool', 1, 1], ['raw_mutton', 1, 1]]},
-};
+/* ---------- 怪物数值表/谱系两维表/掉落表(MOB_TYPES/FAMILIES/PROTOS/MOB_DROPS) ----------
+   已整段迁往 js/mob-registry.js(-registry 契约, 2026-10 候选 8): 怪物种类清单
+   唯一权威纯数据表; 消费方(mobs.js/modes/arena.js/drops.js)经共享词法环境照旧
+   读全局名 — index.html 里本文件之后紧邻加载, 加载序安全。 */
 
 
 /* ============================================================
@@ -323,29 +175,28 @@ const BLOCKS = {
   19: {name: '灯块', all: [1.00, 0.92, 0.55]},
 };
 
-/* TNT 密室方块 (id 20~29) — 模式已下线, 定义保留为创意资产:
-   B_TNT 仍被物品/合成的 tnt 条目引用, B_WATER/B_LAVA 为建造/下界地形件
-   solid:false 不可碰撞 · thin:N 贴地薄块高度 · soft 可被炸毁 · crack 必被炸毁 */
-const B_TNT=20; const B_FUSE=21; const B_CRACK=22; const B_SWITCH=23; const B_WATER=24;
-const B_LAVA=25; const B_PLATE=26; const B_DOOR=27; const B_SUPPORT=28; const B_WEIGHT=29;
+/* TNT 密室方块 (id 20~29) — 模式已下线, 保留者均为创意资产:
+   B_TNT 仍被物品/合成的 tnt 条目引用, B_WATER/B_LAVA 为建造/下界地形件;
+   七死键已清偿(B_CRACK/B_SWITCH/B_PLATE/B_DOOR/B_SUPPORT/B_WEIGHT +
+   下界段 B_SOUL_SAND — 全仓 js+html+test 零消费, 2026-10 候选 8 逐键 grep 佐证;
+   soft 死旗标同批删除 — forEach 全仓零读者)。
+   solid:false 不可碰撞 · thin:N 贴地薄块高度 */
+const B_TNT=20; const B_FUSE=21; const B_WATER=24;
+const B_LAVA=25;
 BLOCKS[B_TNT] = {name: 'TNT', all: [0.82, 0.28, 0.22], tnt: true,
   hard: 0, tool: null, tier: 0, drop: [['tnt', 1, 0]]}; // 可回收(挖掘硬度修正 D3, MC 硬度 0): 短按点燃/按住挖走
 BLOCKS[B_FUSE] = {name: '引线', all: [0.92, 0.75, 0.30], fuse: true, thin: 0.14, solid: false};
-BLOCKS[B_CRACK] = {name: '裂纹砖', all: [0.74, 0.68, 0.58], crack: true};
-BLOCKS[B_SWITCH] = {name: '转辙器', top: [0.78, 0.62, 0.36], side: [0.46, 0.36, 0.22], bottom: [0.46, 0.36, 0.22], switch: true};
+// B_FUSE 运行时死键(全仓 js 零读), 但 test/voxel.test.js / test/mesh-core.test.js 当
+// thin 块 fixture — 创意资产保留; 若复活须先找回消费方(候选 8 清偿口径)
 BLOCKS[B_WATER] = {name: '水', all: [0.25, 0.45, 0.85], glass: true, water: true, solid: false};
 BLOCKS[B_LAVA] = {name: '岩浆', all: [1.00, 0.42, 0.08], lava: true, solid: false};
-BLOCKS[B_PLATE] = {name: '压力板', all: [0.58, 0.36, 0.20], plate: true, thin: 0.16, solid: false};
-BLOCKS[B_DOOR] = {name: '铁门', all: [0.58, 0.64, 0.70], door: true};
-BLOCKS[B_SUPPORT]= {name: '支架', all: [0.42, 0.32, 0.20], support: true};
-BLOCKS[B_WEIGHT] = {name: '重物块', all: [0.33, 0.34, 0.40], weight: true};
 
-/* 下界模式新方块 (id 30~35) — 下界荒原主题: 下界岩/黑曜石/灵魂沙/下界砖/发光岩/传送门面 */
-const B_NETHERRACK=30; const B_OBSIDIAN=31; const B_SOUL_SAND=32;
+/* 下界模式新方块 (id 30~35) — 下界荒原主题: 下界岩/黑曜石/下界砖/发光岩/传送门面
+   (B_SOUL_SAND 死键已清偿, docs/mining-gap-analysis.md:89 先行记账) */
+const B_NETHERRACK=30; const B_OBSIDIAN=31;
 const B_NETHER_BRICK=33; const B_GLOWSTONE=34; const B_PORTAL=35;
 BLOCKS[B_NETHERRACK]= {name: '下界岩', all: [0.52, 0.28, 0.16]};
 BLOCKS[B_OBSIDIAN] = {name: '黑曜石', all: [0.10, 0.08, 0.16]};
-BLOCKS[B_SOUL_SAND] = {name: '灵魂沙', all: [0.38, 0.30, 0.22]};
 BLOCKS[B_NETHER_BRICK]= {name: '下界砖', all: [0.48, 0.20, 0.16]};
 BLOCKS[B_GLOWSTONE] = {name: '发光岩', all: [1.00, 0.85, 0.45]};
 /* 传送门面: 门内口的紫色半透明门面。glass 走透明渲染通道(勿用 thin —
@@ -399,12 +250,9 @@ BLOCKS[B_CHEST] = {name: '箱子', top: [0.72, 0.55, 0.30], side: [0.62, 0.44, 0
 BLOCKS[B_WOOL] = {name: '羊毛', all: [0.92, 0.92, 0.92], hard: 0.8, tool: null, tier: 0,
   drop: [['wool', 1, 0]]};
 
-/* 可被爆炸破坏的软方块(TNT 密室时期的爆炸口径, 保留为创意资产) */
-[5, 6, 8, 9].forEach((id)=> BLOCKS[id].soft = true);
-
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段
-   (soft 旗标先例同款赋值式)。hard = MC 硬度原值(徒手石头 7.5s 口径的来源) ·
+   (Object.assign 赋值式, 原 soft 旗标先例已随死旗标清偿删除)。hard = MC 硬度原值(徒手石头 7.5s 口径的来源) ·
    tool = 加速工具(null = 徒手同速, 如树叶/玻璃) ·
    tier = 掉落所需镐等级(手0/木1/石2/铁3/钻4; 不足可挖但慢且不掉落) ·
    drop 条目 [itemId, 保底, 概率]: 保底=破坏必得数量, 概率=额外再得 1 个的几率。

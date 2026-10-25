@@ -1,13 +1,14 @@
 'use strict';
-/* 方块注册表采集字段与怪物掉落表 (js/config.js) 单测 — node --test (零依赖)
+/* 方块注册表采集字段 (js/config.js) 单测 — node --test (零依赖)
    运行: node --test test/blocks-fields.test.js
    加载器: vm context 单独执行 config.js — 精确镜像浏览器 <script defer> 的
    共享词法环境(config.js 顶层零依赖, IS_TOUCH 的 window 探测自带 try/catch 兜底)。
    防错网: hard/tool/tier/drop 四字段是挖掘规则(craft-core.breakTime)与方块
-   掉落(Drops.rollBlockDrop)的单一数据源; MOB_DROPS 是击杀掉落(Drops.rollDrops)
-   的单一数据源 — 改表漏字段/抄错数值当场红。
+   掉落(Drops.rollBlockDrop)的单一数据源 — 改表漏字段/抄错数值当场红。
+   (怪物掉落表 MOB_DROPS 段已随 mob-registry.js 拆分随迁 test/mob-registry.test.js,
+   2026-10 候选 8 — 本文件只剩方块段。)
    数值口径(独立来源, 非从实现抄回): MC 硬度原值(研究稿 §1.5/§2.3 与 Wiki) ·
-   树叶/草丛概率与矿 tier 门槛(设计稿 §3.4/D5) · 掉落表结构(设计稿 §3.3)。 */
+   树叶/草丛概率与矿 tier 门槛(设计稿 §3.4/D5) · 方块掉落结构(设计稿 §3.3)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -19,7 +20,7 @@ function loadCfg() {
   vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', 'config.js'), 'utf8'),
       ctx, {filename: 'config.js'});
   vm.runInContext(`globalThis.__c = {
-    BLOCKS, MOB_DROPS, MOB_TYPES,
+    BLOCKS,
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_GRASS_TUFT, B_FARMLAND,
     B_WHEAT_0, B_WHEAT_1, B_WHEAT_2, B_WHEAT_3, B_CRAFT, B_FURNACE, B_TORCH,
     B_SAPLING, B_CLAY, B_CHEST, B_WOOL,
@@ -163,7 +164,7 @@ test('drop 条目结构: [itemId 非空字符串, 保底≥0 整数, 概率 0~1 
 
 test('关键掉落口径: 石掉圆石/草掉泥土/树叶三概率 12%-4%-8%/黏土掉 4 球/麦熟掉麦(设计稿 §3.4/§3.5/D7)', () => {
   const c = loadCfg();
-  /* 嵌套数组来自 vm context, 用宽松 deepEqual(跨 realm 原型不同, mob-taxonomy 先例) */
+  /* 嵌套数组来自 vm context, 用宽松 deepEqual(跨 realm 原型不同, mob-registry 先例) */
   assert.deepEqual(c.BLOCKS[3].drop, [['cobble', 1, 0]], '石头掉圆石');
   assert.deepEqual(c.BLOCKS[1].drop, [['dirt', 1, 0]], '草地掉泥土(MC 口径)');
   assert.deepEqual(c.BLOCKS[7].drop,
@@ -202,59 +203,4 @@ test('只增不改: 存量方块 name 与颜色三元组保持原值', () => {
     }
   }
   assert.strictEqual(c.BLOCKS[18].glass, true, '玻璃 glass 旗标保留');
-  assert.strictEqual(c.BLOCKS[5].soft, true, 'soft 旗标保留(爆炸破坏口径的创意资产)');
-});
-
-/* ============ MOB_DROPS(设计稿 §3.3: 保底 1 + 50% 加成 1) ============ */
-
-test('MOB_DROPS: 一期怪物齐全且键都是 MOB_TYPES 里的真实怪', () => {
-  const c = loadCfg();
-  for (const m of ['zombie', 'skeleton', 'creeper', 'spider', 'slime']) {
-    assert.ok(c.MOB_DROPS[m], 'MOB_DROPS 缺 ' + m);
-    assert.ok(c.MOB_TYPES[m], 'MOB_DROPS.' + m + ' 必须对应 MOB_TYPES 里的怪');
-  }
-});
-
-test('MOB_DROPS F4 农场四条: 生肉+副产物逐条与设计稿 §4.5 一致(儿童配平「保底1+50%+1」沿用)', () => {
-  const c = loadCfg();
-  const expectRolls = {
-    cow: [['raw_beef', 1, 1], ['leather', 1, 1]],
-    pig: [['raw_porkchop', 1, 1]],
-    chicken: [['raw_chicken', 1, 1], ['feather', 1, 1]],
-    sheep: [['wool', 1, 1], ['raw_mutton', 1, 1]],
-  };
-  for (const [m, rolls] of Object.entries(expectRolls)) {
-    const d = c.MOB_DROPS[m];
-    assert.ok(d, 'MOB_DROPS 缺农场怪 ' + m);
-    assert.deepEqual(d.rolls, rolls, m + ' rolls 照设计稿 §4.5 表'); /* 宽松比较: vm 跨 realm */
-    assert.ok(c.MOB_TYPES[m] && c.MOB_TYPES[m].passive, m + ' 应是 MOB_TYPES 里的被动牧场动物');
-  }
-});
-
-test('MOB_DROPS 结构: rolls=[itemId,保底,加成次数], rare=[itemId,概率]; 僵尸 5% 稀有铁锭', () => {
-  const c = loadCfg();
-  const expectRolls = {zombie: [['rotten_flesh', 1, 1]], skeleton: [['bone', 1, 1]],
-    creeper: [['gunpowder', 1, 1]], spider: [['string', 1, 1]], slime: [['slimeball', 1, 1]]};
-  for (const [m, rolls] of Object.entries(expectRolls)) {
-    const d = c.MOB_DROPS[m];
-    assert.deepEqual(d.rolls, rolls, m + ' rolls 应为保底 1 + 50% 加成 1'); /* 宽松比较: vm 跨 realm */
-    assert.ok(Array.isArray(d.rolls) && d.rolls.length > 0, m + ' rolls 非空');
-  }
-  for (const d of Object.values(c.MOB_DROPS)) {
-    for (const e of d.rolls) {
-      assert.strictEqual(typeof e[0], 'string');
-      assert.ok(e[0].length > 0, '掉落物 id 应非空');
-      assert.ok(Number.isInteger(e[1]) && e[1] >= 1, '保底至少 1(儿童配平: 不空手)');
-      assert.ok(Number.isInteger(e[2]) && e[2] >= 0, '加成掷骰次数应为非负整数');
-    }
-    if (d.rare) {
-      for (const e of d.rare) {
-        assert.strictEqual(typeof e[0], 'string');
-        assert.ok(e[0].length > 0, '稀有掉落物 id 应非空');
-        assert.ok(typeof e[1] === 'number' && e[1] > 0 && e[1] <= 1, '稀有概率应在 0~1');
-      }
-    }
-  }
-  assert.deepEqual(c.MOB_DROPS.zombie.rare, [['iron_ingot', 0.05]],
-      '僵尸稀有铁锭: MC 0.83% → 5%(设计稿 §3.3)');
 });

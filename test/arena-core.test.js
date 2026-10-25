@@ -3,8 +3,9 @@
    运行: node --test test/arena-core.test.js
    C3-T1 剥核后的同名单测(conventions §1.2 守门), 装载器走 adventure-core 档:
    C3-T2 起核心的地形段经全局名消费 voxel(hashRand/setBlockRaw)与
-   scene-kit(SceneKit), vm 装齐 config+voxel+scene-kit 三件(adventure-core
-   同款), 全局名桥到主域后 require 被测核心(经典 script 词法环境的
+   scene-kit(SceneKit), vm 装齐 config+mob-registry+voxel+scene-kit 四件
+   (adventure-core 档 + mob-registry: MOB 四表自 config 拆出, 2026-10 候选 8,
+   ARENA_POWER 键集与编队池折算读 MOB_TYPES), 全局名桥到主域后 require 被测核心(经典 script 词法环境的
    Node 侧镜像); 几何派生断言用换桩重载(vm 新环境注入不同世界尺寸)证明
    「派生而非硬编码」。C3-T3/C3-T4 的快照→意图段用小假 roster/候选快照直测,
    索敌权重的距离用与 core 同源的 hashRand 个体偏好自适应构造(把被测
@@ -20,7 +21,7 @@ const ROOT = path.join(__dirname, '..');
 
 /* ---------- 装载器(adventure-core 档): 真引擎件先载 vm, 全局名桥主域, 再 require 被测核心 ---------- */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
-for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js']) {
+for (const f of ['js/config.js', 'js/mob-registry.js', 'js/voxel.js', 'js/scene-kit.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const cfg = vm.runInContext('({WORLD_W, WORLD_D, MOB_TYPES, BLOCKS})', eng);
@@ -65,7 +66,7 @@ test('选块: HOTBAR 铁锹哨兵在第 1 格, 其余槽全是注册方块 id �
   for (const id of nums) assert.ok(cfg.BLOCKS[id], '方块 id ' + id + ' 已在 config 注册');
 });
 
-test('战力: ARENA_POWER 键集都在 config MOB_TYPES(菜单文案直读 name), 数值为正', () => {
+test('战力: ARENA_POWER 键集都在 mob-registry MOB_TYPES(菜单文案直读 name), 数值为正', () => {
   const keys = Object.keys(ArenaCore.ARENA_POWER);
   assert.ok(keys.length >= 30, '全怪物配平表(非抽样)');
   for (const k of keys) {

@@ -3,7 +3,7 @@
    掉落物实体库 (Drops, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层
    ------------------------------------------------------------
    全游戏唯一的掉落物实体模块(探险挖掘与巢穴战斗共用):
-   · 掷骰: rollDrops 读 config.js 的 MOB_DROPS(保底必得, 再以 50% 掷
+   · 掷骰: rollDrops 读 mob-registry.js 的 MOB_DROPS(保底必得, 再以 50% 掷
      「加成次数」次, rare 独立掷骰) · rollBlockDrop 读 BLOCKS.drop 三元组
      [itemId, 保底, 概率](概率=额外再得 1 个的几率; 剪刀 × shearDrop 存在
      时掷专属表, 挖掘硬度修正 D2) — 掷骰语义在此, 表只存数据
@@ -16,8 +16,9 @@
               pickupCheck(dropPos, playerPos) · resolveIcon(itemId) /
               Drops.spawn(itemId, n, x, y, z) · Drops.update(dt, playerPos) ·
               Drops.render · Drops.clear · Drops.list · Drops.onCollect(cb)
-   依赖(均经全局名, 调用期解析): config.js 的 MOB_DROPS(+测试交叉断言用
-     BLOCKS/MOB_TYPES) · items-core.js 的 ITEMS(resolveIcon 兜底) ·
+   依赖(均经全局名, 调用期解析): mob-registry.js 的 MOB_DROPS(+测试交叉断言用
+     MOB_TYPES) · config.js 的 BLOCKS(rollBlockDrop 读 drop/shearDrop) ·
+     items-core.js 的 ITEMS(resolveIcon 兜底) ·
      world.js 的 scene/groundTop · THREE/DOM(壳段惰性创建) ·
      可选全局 iconOf(icons.js, 不存在则 emoji 兜底)
    可测性: 顶层纯函数段零 THREE·零 DOM(vm 直测, test/drops.test.js);

@@ -38,7 +38,7 @@
      familyMain(主族折算)/familyTick·familyOnDead(分发, laser 旗标型
      留壳施放)
    依赖(全局名): WORLD_W/WORLD_D(config.js)加载期求 ARENA 几何 ·
-     MOB_TYPES(config.js, familyMain 主族折算调用期解析)·
+     MOB_TYPES(mob-registry.js, familyMain 主族折算调用期解析)·
      hashRand/setBlockRaw(voxel.js)与 SceneKit(scene-kit.js)在地形段
      调用期解析(加载序均在前, 见 index.html; Node 测试先载这些再
      require 本文件, adventure-core 档)
@@ -57,7 +57,7 @@ const ArenaCore = (() => {
      (智能主动作手持感知, 用户拍板 2026-10-24: 选中方块→⛏️放置, 选中铲子→⛏️连挖) */
   const HOTBAR = ['shovel', 3, 4, 13, 5, 6, 17, 16, 15, 18];
 
-  /* ---------- 竞技场配平战力(本模式唯一消费者, 归位自 config.js 的 MOB_TYPES.power) ----------
+  /* ---------- 竞技场配平战力(本模式唯一消费者, 归位自 config.js 的 MOB_TYPES.power — 表今居 mob-registry.js) ----------
      综合命中/射程/技能的配平系数, 只喂给编队数量匹配; 其他模式(坦克演习场/
      下界冒险)不感知战力。菜单页的战力示例文案由本表派生(fillPowerNote)。 */
   const ARENA_POWER = {
