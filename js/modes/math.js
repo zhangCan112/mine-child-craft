@@ -76,22 +76,22 @@ const MATH_PRAISE = [
 const MATH_COMFORT = [
   '没关系，我们慢慢想。', '再想一想，你可以的。', '差一点点啦，再试一次！', '换个方法试试看。',
 ];
-function mathPraiseLine() {
-  return MATH_PRAISE[Math.floor(Math.random() * MATH_PRAISE.length)];
+function mathPraiseLine() { // 随机取行件自 C1-T4 起住 CampKit; 全局名是三引擎 typeof 守卫调用契约, 不改不删
+  return CampKit.pickLine(MATH_PRAISE);
 }
 function mathComfortLine() {
-  return MATH_COMFORT[Math.floor(Math.random() * MATH_COMFORT.length)];
+  return CampKit.pickLine(MATH_COMFORT);
 }
 
 /* ---------- 每日预算(每日关数/时长): 记在 js/daily-budget.js 的 math 预算 ----------
    main.js setupBudgets 建立(并入 ADR 0001 单一存档键账本);
-   锁定体验同 focus: 额度尽 → 今日页锁定文案 + 明天再来 */
+   锁定体验同 focus: 额度尽 → 今日页锁定文案 + 明天再来;
+   访问器自 C1-T4 起经壳骨架(budgetName 注入) */
 function mathBudget() {
-  return (typeof Budgets !== 'undefined' && Budgets) ? Budgets.math : null;
+  return mathShell.budget();
 }
 function mathLocked() {
-  const b = mathBudget();
-  return !!(b && b.blocked());
+  return mathShell.locked();
 }
 
 /* 分发与生命周期已收进世界轨驱动器 js/math-track.js(T4): MathTrack.dispatch
@@ -99,20 +99,6 @@ function mathLocked() {
    启动, 退出走 MathTrack.leave/stop — 本文件不再持 mathCtrl/mathBossStop
    两条命; 世界轨插件注册表(MATH_WORLD_RUNNERS)与单一权威断言随之迁至
    驱动器侧 */
-
-/* ---------- 存档槽(focus 槽位惯例): defaults/migrate 住库层可单测 ---------- */
-const mathSlot = SyncDB.slot('math_camp_save', {
-  defaults: MATH_SAVE_DEFAULTS,
-  migrate(s, from) {
-    return migrateMathSave(s, from);
-  },
-});
-function loadMathSave() {
-  return mathSlot.load();
-}
-function saveMathSave(s) {
-  mathSlot.save(s);
-}
 
 /* ---------- 共享背包(T8, ADR 0002 / 设计稿 §5) ----------
     数学岛是共享背包的新「只产出」消费方: 进岛 init() 时 load 一次
@@ -383,37 +369,55 @@ function stopMathTicker() {
   mathCampTicker.stop();
 }
 
+/* 壳骨架实例(C1-T4, 候选 1 收官): ensureRoot/screen/exit/init/cleanup +
+   停止钩子注册表(退出收口权); math 的根级 pointerdown 捕获期自记点击
+   (战利品飞行起点 — 屏流训练区与世界轨接球层都在根内, 一处监听两轨
+   通用; 指针锁宿主的点击不经过 DOM, 无记录 → 飞行回落屏心); 挂屏期
+   停常驻钟(onScreen — 常驻钟只在今日页/地图页挂, mountMathClock 重挂)
+   与屏头钟面容器(headerExtra)是 math 家族件; bindRoot 回写 mathRoot
+   (跨文件契约: math-world/track/build-world 三处 typeof 守卫直读) */
+const mathShell = CampKit.mkCampShell({
+  prefix: 'm',
+  rootId: 'mathRoot',
+  bindRoot: (el) => {
+    mathRoot = el;
+  },
+  ticker: mathCampTicker,
+  loot: mathLootHud,
+  settle: mathSettle,
+  bag: mathBag,
+  saveKey: 'math_camp_save',
+  saveDefaults: MATH_SAVE_DEFAULTS,
+  saveMigrate: migrateMathSave,
+  budgetName: 'math',
+  onRootPointerDown: (e) => mathLootHud.noteTap(e.clientX, e.clientY),
+  onScreen: stopMathClock,
+  headerExtra: () => '<div class="m-clockbox" id="mClockBox"></div>',
+  initPost: showMathToday,
+});
+mathShell.onStop(() => mathSettle.clear()); // math 退出现状清续程(exit 面; cleanup 面骨架也有, 幂等)
+mathShell.onStop(() => MathTrack.stop()); // 世界轨驱动器收口(进行中节离场, 幂等)
+mathShell.onStop(stopMathClock);
+
+/* 存档槽三件套(C1-T4 起经壳骨架收编): 家族键名/defaults/migrate 经 opts
+   注入(SyncDB.slot 同构件), defaults/migrate 住库层可单测 */
+const mathSlot = mathShell.slot;
+function loadMathSave() {
+  return mathSlot.load();
+}
+function saveMathSave(s) {
+  mathSlot.save(s);
+}
+
 function ensureMathRoot() {
-  if (mathRoot) return;
-  mathRoot = document.createElement('div');
-  mathRoot.id = 'mathRoot';
-  /* 战利品飞行起点自记(T8 → C1-T1 改记录通道): 捕获期挂在 mathRoot 上 —
-     屏流训练区与世界轨接球层都在它内部, 一处监听两轨通用(focus 侧同款:
-     引擎事件缝不带 DOM 信息, 坐标经 mathLootHud.noteTap 入账, 挂点 T4
-     再收); 指针锁宿主的点击不经过 DOM, 无记录 → 飞行回落屏心 */
-  mathRoot.addEventListener('pointerdown', (e) => {
-    mathLootHud.noteTap(e.clientX, e.clientY);
-  }, true);
-  document.body.appendChild(mathRoot);
+  mathShell.ensureRoot();
 }
 
 function mathScreen(html) {
-  mathSettle.clear(); // 换屏即收自动续程(C1-T3)
-  stopMathClock(); // 常驻钟面只在今日页/地图页挂(mathSettle 同款收口)
-  mathRoot.innerHTML = '<div class="m-top"><button class="m-back" id="mBackBtn" aria-label="返回">' +
-      btnImg('left') + '</button><div class="m-clockbox" id="mClockBox"></div></div>' + html;
-  document.getElementById('mBackBtn').onclick = mathExit;
-  return mathRoot;
+  return mathShell.screen(html); // 换屏清续程/停常驻钟/屏头返回钮+钟面容器在壳骨架
 }
 function mathExit() {
-  mathSettle.clear(); // 自动续程收口(C1-T3)
-  MathTrack.stop();
-  stopMathTicker();
-  stopMathClock();
-  SpeechKit.cancel();
-  mathRoot.style.display = 'none';
-  overlay.style.display = 'flex';
-  showPage('main');
+  mathShell.exit(); // 停止钩子(续程/世界轨/常驻钟) → 停 ticker → 静音 → 藏根 → 收 overlay 回主菜单
 }
 
 /* ---------- 今日页: 进度概览 + 图章日历(T8) + 进入地图 ----------
@@ -826,19 +830,9 @@ const MathMode = mkMode({
     overlay.style.display = 'none';
   },
   init() {
-    ensureMathRoot();
-    mathRoot.style.display = 'block';
-    overlay.style.display = 'none';
-    mathBag.load(); // 共享背包读档(T8, ADR 0002: 重进必重读, focus/探险同款)
-    showMathToday();
+    mathShell.init(); // 壳骨架: 建根→显示→收 overlay→背包读档→今日页
   }, // 纯点选全屏 UI: chrome 全关由 kit 默认处理(focus 同款)
   cleanup() {
-    mathSettle.clear(); // 自动续程收口(C1-T3)
-    MathTrack.stop();
-    stopMathTicker();
-    mathLootHud.clear(); // 战利品回路清场: 飞行件/HUD 槽位/会话状态(C1-T1)
-    stopMathClock();
-    SpeechKit.cancel();
-    if (mathRoot) mathRoot.style.display = 'none';
+    mathShell.cleanup(); // 壳骨架: 停止钩子(世界轨/常驻钟)→ticker→战利品清场→续程收口→静音→藏根
   },
 });

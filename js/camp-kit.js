@@ -5,13 +5,16 @@
    一句话职责: focus/math 两训练营模式壳机器的收编地 — 已收: T1 战利品
    回路五件套(时长 ticker/授予入包/战利品飞行/落袋槽/结算回顾, 矿袋会话
    状态自持实例) + T2 图章仪式四件套(日历条/授予仪式块/三选一 picker/
-   烟花) + T3 家长门/迷你折线/CSV 下载仪式/结算星显+自动续程; 家族差异
-   (预算访问器 · f-/m- DOM 前缀 · 缺省飞行起点 · 满包回调 · 章白名单/
-   章名表/缺省章 · 日期键与计数派生 · 奖励线→文案 · 存档与根容器访问器 ·
-   折线数值域与空态 · 自动续程时长)全部经工厂入参注入, 掷骰政策(段位
-   变率/族池)、图章与关卡数值表、家长面板数据聚合与布局(家族面)留在
-   各自 levels/modes 不进本 kit; 家族观感分叉(focus 魔鬼角标/村长喝彩图
-   ↔ math 无)经 badge/awardIcon 缝注入。
+   烟花) + T3 家长门/迷你折线/CSV 下载仪式/结算星显+自动续程 + T4 壳骨架
+   (ensureRoot/screen 挂屏/exit/init/cleanup + 停止钩子注册表 + 存档槽
+   与预算访问器 + 话术随机取行件) — 候选 1 收官; 家族差异(预算访问器 ·
+   f-/m- DOM 前缀 · 缺省飞行起点 · 满包回调 · 章白名单/章名表/缺省章 ·
+   日期键与计数派生 · 奖励线→文案 · 存档与根容器访问器 · 折线数值域与
+   空态 · 自动续程时长 · 根级点击挂点/挂屏钩子/屏头附加/进模式前后插步)
+   全部经工厂入参注入, 掷骰政策(段位变率/族池)、图章与关卡数值表、话术
+   内容、家长面板/今日页/结算流程的数据聚合与布局(家族面)留在各自
+   levels/modes 不进本 kit; 家族观感分叉(focus 魔鬼角标/村长喝彩图 ↔
+   math 无)经 badge/awardIcon 缝注入。
    interface: mkCampTicker({budget})→{start(),stop()} ·
      mkLootHud({prefix, bag, hud, defaultOrigin, onFull})→{begin() ·
      grantIntoBag(ids) · noteTap(x,y) · fly(id,from?) · addSlot(id) ·
@@ -23,20 +26,29 @@
      mkParentGate({prefix, scope, screen, onPass, onFail})→{open()} ·
      sparkSvg(series,{cls,max,noData}) · downloadCsv(filename,rows) ·
      mkSettleBits({prefix, autoMs})→{starSpans(stars) · popStars(stars) ·
-     armAuto(fn,ms?) · clear()}
-   依赖(均经全局名, 调用期解析): CampCore(js/camp-core.js — grantLoot
-     授予基座) · RandCore(js/rand-core.js — shuffle 家长门干扰项洗牌) ·
-     sfx(js/audio.js)与 ITEMS(js/items-core.js)/iconOf(js/icons.js)
-     (落袋音与像素图标, icons 在模式文件之后加载, 调用期才解析) ·
-     stampIcon(js/focus-icons.js, 章图案 big/gold/家族自选) ·
-     SpeechKit(js/speech.js, 三选一选中读章名) · Backpack 实例与满包
-     toast 回调经入参注入(ADR 0002: 背包只经壳, 入包即 save) ·
-     document/URL/Blob(DOM 惰性, 方法调用时才取), Node 测试可安全加载;
+     armAuto(fn,ms?) · clear()} ·
+     mkCampShell({prefix, rootId, bindRoot, ticker, loot, settle, bag,
+     saveKey, saveDefaults, saveMigrate, budgetName, onRootPointerDown?,
+     onScreen?, headerExtra?, initPre?, initPost?})→{ensureRoot() ·
+     screen(html) · exit() · init() · cleanup() · onStop(fn) · budget() ·
+     locked() · slot} · pickLine(table)
+   依赖(均经全局名, 调用期解析; mkCampShell 的存档槽在构造期即用):
+     CampCore(js/camp-core.js — grantLoot 授予基座) ·
+     RandCore(js/rand-core.js — shuffle 家长门干扰项洗牌) ·
+     SyncDB(js/sync.js — mkCampShell 构造期建存档槽, sync 在模式文件
+     之前加载) · sfx(js/audio.js)与 ITEMS(js/items-core.js)/iconOf
+     (js/icons.js)(落袋音与像素图标, icons 在模式文件之后加载, 调用期
+     才解析) · stampIcon(js/focus-icons.js, 章图案 big/gold/家族自选) ·
+     SpeechKit(js/speech.js, 三选一读章名/壳骨架静音) ·
+     btnImg/js/button-icons.js 与 overlay/showPage(js/main.js 组合根,
+     均调用期解析) · Backpack 实例与满包 toast 回调经入参注入
+     (ADR 0002: 背包只经壳, 入包即 save); document/URL/Blob(DOM 惰性,
+     方法调用时才取), Node 测试可安全加载;
      加载序: camp-core/rand-core 之后 · 两训练营模式文件之前
    可测性: THREE/DOM 惰性创建, Node 测试可安全加载; ticker 钳制与
      授予/节流账目、图章 kindOf/仪式块两分支与角标缝、家长门题面/接线、
      折线数值域、星显与自动续程时长有单测(test/camp-kit.test.js vm 桩
-     直测), 其余 DOM 观感件不直测(仓库惯例), 行为面由 boot 冒烟 +
+     直测), 其余 DOM 观感件与壳骨架不直测(仓库惯例), 行为面由 boot 冒烟 +
      math-paradigms 流程断言兜底
    ============================================================ */
 
@@ -427,5 +439,102 @@ function mkSettleBits(cfg) {
   return {starSpans, popStars, armAuto, clear};
 }
 
-const CampKit = {mkCampTicker, mkLootHud, mkStampRites, mkParentGate, sparkSvg, downloadCsv, mkSettleBits};
+/* ---------- 话术随机取行件(focus praise/comfort ↔ math 数学向, C1-T4) ----------
+   两侧现状均为均匀随机取一行(无防重复/游标逻辑); 话术表本体是家族面
+   (应用层文案), 留在各自 modes */
+function pickLine(table) {
+  return table[Math.floor(Math.random() * table.length)];
+}
+
+/* ---------- 训练营壳骨架(focus/math 镜像复制体收编, C1-T4, 候选 1 收官) ----------
+   一实例一家族的屏幕流生命周期: ensureRoot(惰性建根, id=rootId; math 的
+   根级 pointerdown 捕获期自记点击(战利品飞行起点, 屏流/世界轨两轨通用)
+   经 onRootPointerDown 注入, focus 无 — 其挂点在每关 areaEl) ·
+   screen 挂屏(换屏清自动续程 → 挂屏钩子 onScreen(math 停常驻钟) →
+   屏头=返回钮+家族附加头 headerExtra(math 的钟面容器) → 返回钮接线
+   exit) · exit(跑停止钩子 → 停 ticker → 静音 → 藏根 → 收 overlay 回
+   主菜单) · init(建根 → 前插步 initPre(focus 矿洞皮肤) → 显示 → 收
+   overlay → 共享背包读档(ADR 0002: 双消费方共用存档介质, 重进必重读,
+   探险同款) → 后插步 initPost(首屏/focus 存量档补授)) · cleanup(跑
+   停止钩子 → 停 ticker → 战利品回路清场 → 自动续程收口 → 静音 → 藏根)。
+   停止钩子注册表 onStop 是本件核心 vocabulary(「退出收口权」): 模式
+   专属停止件自注册(exit 与 cleanup 都跑 — 挂钩件的可达状态保证恒等:
+   focus 的 abortDevilRun 在退营返回键路径不可达必为 no-op, 特训进行中
+   返回钮已改结算), 注册动作在 modes 顶层一次完成; bindRoot 把根元素
+   回写模式层变量(mathRoot 是跨文件契约: math-world/track/build-world
+   三处 typeof 守卫直读); 存档槽三件套与预算访问器一并收编(家族键名/
+   defaults/migrate/budgetName 注入, SyncDB.slot 同构件)。 */
+function mkCampShell(opts) {
+  const o = opts || {};
+  const pfx = o.prefix || 'f';
+  let root = null;
+  const stops = []; /* 停止钩子注册表(退出收口权) */
+  function onStop(fn) {
+    if (fn) stops.push(fn);
+  }
+  function runStops() {
+    for (const fn of stops) fn();
+  }
+  /* 存档槽(家族键名/defaults/migrate 经 opts 注入; 迁移链与单测共用库层实现) */
+  const slot = o.saveKey ? SyncDB.slot(o.saveKey, {
+    defaults: o.saveDefaults,
+    migrate(s, from) {
+      return o.saveMigrate(s, from);
+    },
+  }) : null;
+  /* 每日预算访问器(budgetName 注入): Budgets 缺席时 null(两侧现状防御) */
+  function budget() {
+    return (typeof Budgets !== 'undefined' && Budgets) ? Budgets[o.budgetName] : null;
+  }
+  function locked() {
+    const b = budget();
+    return !!(b && b.blocked());
+  }
+  function ensureRoot() {
+    if (root) return root;
+    root = document.createElement('div');
+    root.id = o.rootId || (pfx + 'Root');
+    if (o.onRootPointerDown) root.addEventListener('pointerdown', o.onRootPointerDown, true);
+    document.body.appendChild(root);
+    if (o.bindRoot) o.bindRoot(root);
+    return root;
+  }
+  function screen(html) {
+    o.settle.clear(); // 换屏即收自动续程
+    if (o.onScreen) o.onScreen();
+    const extra = o.headerExtra ? (o.headerExtra() || '') : '';
+    root.innerHTML = '<div class="' + pfx + '-top"><button class="' + pfx + '-back" id="' + pfx +
+        'BackBtn" aria-label="返回">' + btnImg('left') + '</button>' + extra + '</div>' + html;
+    document.getElementById(pfx + 'BackBtn').onclick = exit;
+    return root;
+  }
+  function exit() {
+    runStops(); // 模式专属停止件(关卡 runner/世界轨/常驻钟/魔鬼特训…)
+    o.ticker.stop();
+    SpeechKit.cancel();
+    root.style.display = 'none';
+    overlay.style.display = 'flex';
+    showPage('main');
+  }
+  function init() {
+    ensureRoot();
+    if (o.initPre) o.initPre();
+    root.style.display = 'block';
+    overlay.style.display = 'none';
+    o.bag.load(); // 共享背包读档(ADR 0002: 双消费方重进必重读)
+    if (o.initPost) o.initPost();
+  }
+  function cleanup() {
+    runStops();
+    o.ticker.stop();
+    o.loot.clear();
+    o.settle.clear();
+    SpeechKit.cancel();
+    if (root) root.style.display = 'none';
+  }
+  return {ensureRoot, screen, exit, init, cleanup, onStop, budget, locked, slot};
+}
+
+const CampKit = {mkCampTicker, mkLootHud, mkStampRites, mkParentGate, sparkSvg, downloadCsv,
+  mkSettleBits, mkCampShell, pickLine};
 if (typeof module !== 'undefined' && module.exports) module.exports = CampKit;

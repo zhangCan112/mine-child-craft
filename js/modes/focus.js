@@ -39,31 +39,11 @@ const FOCUS_PRAISE = [
 const FOCUS_COMFORT = [
   '没关系，我们慢慢来。', '深呼吸，再看仔细一点。', '差一点点啦，再试一次！', '休息一下眼睛，我们继续。',
 ];
-function praiseLine() {
-  return FOCUS_PRAISE[Math.floor(Math.random()*FOCUS_PRAISE.length)];
+function praiseLine() { // 随机取行件自 C1-T4 起住 CampKit; 全局名是引擎调用期解析契约, 不改不删
+  return CampKit.pickLine(FOCUS_PRAISE);
 }
 function comfortLine() {
-  return FOCUS_COMFORT[Math.floor(Math.random()*FOCUS_COMFORT.length)];
-}
-
-const FOCUS_SAVE_KEY = 'focus_camp_save';
-const focusSlot = SyncDB.slot(FOCUS_SAVE_KEY, {
-  /* 存档形状唯一权威在 focus-levels.js 的 FOCUS_SAVE_DEFAULTS/migrateFocusSave
-     (库层可单测): stamps={日期:当日关数}(图章日历, 滚动 90 天)、
-     stampClaimed=[已领集章达成线](F7)、stampKind=自选章图案(B6)、
-     tools=[已授里程碑工具 id](F6)、checks={日期:{acc,flame}}(F8 每日体检)、
-     devil={levels:{维度:鬼等级}, days:{日期:训况}}(F8, 均滚动 90 天);
-     缺字段由 save-slot 的 defaults 浅并入幂等补默认, 存量进度字段原样保留 */
-  defaults: FOCUS_SAVE_DEFAULTS,
-  migrate(s, from) { // 迁移链与单测共用库层实现(摘 v0 daily / 补 tools / 修 stampKind)
-    return migrateFocusSave(s, from);
-  },
-});
-function loadFocusSave() {
-  return focusSlot.load();
-}
-function saveFocusSave(s) {
-  focusSlot.save(s);
+  return CampKit.pickLine(FOCUS_COMFORT);
 }
 
 /* ---------- 共享背包(F6 接入, ADR 0002 / F3 核定口径) ----------
@@ -97,12 +77,13 @@ const focusLootHud = CampKit.mkLootHud({
   onFull: () => showToast('背包满啦', 2200),
 });
 
-/* 每日预算(每日关数/时长)记在 js/daily-budget.js 的 focus 预算里(main.js setupBudgets 建立) */
+/* 每日预算(每日关数/时长)记在 js/daily-budget.js 的 focus 预算里(main.js
+   setupBudgets 建立); 访问器自 C1-T4 起经壳骨架(budgetName 注入) */
 function focusBudget() {
-  return (typeof Budgets !== 'undefined' && Budgets) ? Budgets.focus : null;
+  return focusShell.budget();
 }
 function focusLocked() {
-  const b = focusBudget(); return !!(b && b.blocked());
+  return focusShell.locked();
 }
 /* 通过门槛/三星的判定是纯函数, 已移居 js/focus-levels.js(与关卡数据同层, 可单测) */
 const focusFailCount = {}; // 本关连续未通过次数 → 重试自动放宽
@@ -125,11 +106,53 @@ function stopFocusTicker() {
   focusCampTicker.stop();
 }
 
+/* 壳骨架实例(C1-T4, 候选 1 收官): ensureRoot/screen/exit/init/cleanup +
+   停止钩子注册表(退出收口权); focus 无根级点击挂点 — 战利品飞行起点在
+   每关 #fArea 捕获期自记(与 math 的根级挂点现状分叉保真); 进模式前插步
+   =矿洞皮肤(须在建根后), 后插步=存量档补授仪式(串播完进今日页);
+   bindRoot 回写 focusRoot(矿洞皮肤/烟花等模式层多处直读) */
+const focusShell = CampKit.mkCampShell({
+  prefix: 'f',
+  rootId: 'focusRoot',
+  bindRoot: (el) => {
+    focusRoot = el;
+  },
+  ticker: focusCampTicker,
+  loot: focusLootHud,
+  settle: focusSettle,
+  bag: focusBag,
+  saveKey: 'focus_camp_save',
+  saveDefaults: FOCUS_SAVE_DEFAULTS,
+  saveMigrate: migrateFocusSave,
+  budgetName: 'focus',
+  initPre: ensureFocusCaveSkin, // F9: 矿洞贴图雪碧进训练营只生成一次
+  initPost: () => focusBackfillMilestones(showFocusToday), // F6: 存量档按进度一次性补授后进今日页
+});
+focusShell.onStop(() => { // 进行中关卡的 runner(退营/切模式都停)
+  if (focusCtrl) {
+    focusCtrl.stop(); focusCtrl = null;
+  }
+});
+focusShell.onStop(abortDevilRun); // 魔鬼特训静默终止(cleanup 路径; 特训中返回键已改结算, 退营路径必为 no-op)
+
+/* 存档槽三件套(C1-T4 起经壳骨架收编): 家族键名/defaults/migrate 经 opts
+   注入(SyncDB.slot 同构件); 存档形状唯一权威在 focus-levels.js 的
+   FOCUS_SAVE_DEFAULTS/migrateFocusSave(库层可单测): stamps={日期:当日关数}
+   (图章日历, 滚动 90 天)、stampClaimed=[已领集章达成线](F7)、stampKind=
+   自选章图案(B6)、tools=[已授里程碑工具 id](F6)、checks={日期:{acc,flame}}
+   (F8 每日体检)、devil={levels:{维度:鬼等级}, days:{日期:训况}}(F8, 均
+   滚动 90 天); 缺字段由 save-slot 的 defaults 浅并入幂等补默认, 存量进度
+   字段原样保留; 家长面板重置用槽实例(focusSlot.reset)故保留命名绑定 */
+const focusSlot = focusShell.slot;
+function loadFocusSave() {
+  return focusSlot.load();
+}
+function saveFocusSave(s) {
+  focusSlot.save(s);
+}
+
 function ensureFocusRoot() {
-  if (focusRoot) return;
-  focusRoot = fEl('div');
-  focusRoot.id = 'focusRoot';
-  document.body.appendChild(focusRoot);
+  focusShell.ensureRoot();
 }
 
 /* ---------- 矿洞皮肤(F9): TextureAtlas 单格雪碧 → #focusRoot 的 CSS 变量 ----------
@@ -157,21 +180,10 @@ function ensureFocusCaveSkin() {
   s.setProperty('--f-tile-dirt', tileURL(tileIdx(2)));
 }
 function focusScreen(html) {
-  focusSettle.clear(); // 换屏即收自动续程(原 clearTimeout(focusAutoTimer), C1-T3)
-  focusRoot.innerHTML = '<div class="f-top"><button class="f-back" id="fBackBtn" aria-label="返回">' +
-      btnImg('left') + '</button></div>' + html;
-  document.getElementById('fBackBtn').onclick = focusExit;
-  return focusRoot;
+  return focusShell.screen(html); // 换屏清续程/屏头返回钮接线在壳骨架
 }
 function focusExit() {
-  stopFocusTicker();
-  if (focusCtrl) {
-    focusCtrl.stop(); focusCtrl = null;
-  }
-  SpeechKit.cancel();
-  focusRoot.style.display = 'none';
-  overlay.style.display = 'flex';
-  showPage('main');
+  focusShell.exit(); // 停止钩子 → 停 ticker → 静音 → 藏根 → 收 overlay 回主菜单
 }
 
 /* ---------- 图章日历条 + 集章仪式(F7/B6 → C1-T2 收编 CampKit): 纯函数在
@@ -1051,26 +1063,12 @@ function showFocusParent() {
   });
 }
 
-/* ---------- 模式对象 ---------- */
 const FocusMode = mkMode({
   id: 'focus',
   init() {
-    ensureFocusRoot();
-    ensureFocusCaveSkin(); // F9: 矿洞贴图雪碧进训练营只生成一次
-    focusRoot.style.display = 'block';
-    overlay.style.display = 'none';
-    focusBag.load(); // 共享背包读档(F3 口径: 重进必重读, 探险同款)
-    focusBackfillMilestones(showFocusToday); // F6: 存量档按进度一次性补授(仪式串播)后进今日页
+    focusShell.init(); // 壳骨架: 建根→矿洞皮肤→显示→收 overlay→背包读档→补授仪式+今日页
   }, // 纯点选全屏 UI: chrome 全关由 kit 默认处理
   cleanup() {
-    stopFocusTicker();
-    focusLootHud.clear(); // 战利品回路清场: 飞行件/HUD 槽位/会话状态(C1-T1)
-    focusSettle.clear(); // 结算自动续程收口(C1-T3)
-    abortDevilRun(); // 魔鬼特训静默终止(不弹结算屏, 见函数注释)
-    if (focusCtrl) {
-      focusCtrl.stop(); focusCtrl = null;
-    }
-    SpeechKit.cancel();
-    if (focusRoot) focusRoot.style.display = 'none';
+    focusShell.cleanup(); // 壳骨架: 停止钩子(runner/魔鬼特训)→ticker→战利品清场→续程收口→静音→藏根
   },
 });

@@ -10,13 +10,15 @@
    分支与 picker 条件渲染 · calendarHtml 本月网格/今日高亮/badge 角标缝
    与金章阈值); C1-T3 mkParentGate(题面两数∈[5,9]/三键含正解与 ±1..3
    干扰/答对答错接线) · sparkSvg(数值域 max=100↔1 与空态) · mkSettleBits
-   (三星 spans 行/armAuto 时长参数化与重挂先清);
+   (三星 spans 行/armAuto 时长参数化与重挂先清); C1-T4 mkCampShell(
+   生命周期骨架: 挂屏=清续程+钩子+屏头附加缝/exit 与 cleanup 都跑停止
+   钩子/init 前后插步/bindRoot 回写/预算访问器缺席防御) · pickLine;
    DOM 观感件(fly/addSlot/runRecap/wirePicker/firework/popStars 落点/
    downloadCsv)不直测(仓库惯例),
    行为面由 boot 冒烟 + math-paradigms 流程断言兜底。
    加载器: vm context 执行 rand-core.js + camp-core.js + camp-kit.js,
-   时钟(可拨今天的 Date 桩)/定时器/入包/章图标/按钮查询以记录桩注入
-   (combat-kit.test.js 同款分层口径) */
+   时钟(可拨今天的 Date 桩)/定时器/入包/章图标/按钮查询/极简元素与
+   overlay·showPage·SpeechKit 以记录桩注入(combat-kit.test.js 同款分层口径) */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -24,7 +26,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 function loadCampKit() {
-  const log = {accrued: [], flushed: 0, cleared: 0, tocleared: 0};
+  const log = {accrued: [], flushed: 0, cleared: 0, tocleared: 0, cancelled: 0, pages: []};
   let nowMs = 1000000;
   /* 可拨"今天"的 Date 桩: 无参构造落到受控 nowMs(calendarHtml 的
      new Date()/new Date(y,m,d) 与 ticker 的 Date.now() 同源可控) */
@@ -39,11 +41,33 @@ function loadCampKit() {
   let addOverflow = 0; /* >0 时 add 返回余量(满包拒收), 0 = 全收 */
   const timeouts = []; /* setTimeout 桩队列(自动续程/逐星 pop 的到点驱动) */
   let qsaImpl = () => []; /* 家长门按钮查询桩(测试里从渲染 html 捞按钮面) */
+  /* 极简元素桩: 壳骨架的建根/挂屏只碰这些面 */
+  const mkEl = () => ({
+    style: {}, dataset: {}, className: '', id: '', title: '', innerHTML: '', listeners: {},
+    addEventListener(t, fn) {
+      this.listeners[t] = fn;
+    },
+    appendChild(c) {
+      return c;
+    },
+    remove() {},
+  });
   const sandbox = {
     console: {warn() {}, log() {}, error() {}},
     Math, JSON, Object, Array, Set, Number, String,
     Date: FixedNowDate,
     stampIcon: (k) => 'data:stamp:' + k,
+    SpeechKit: {
+      speak() {},
+      cancel() {
+        log.cancelled++;
+      },
+    },
+    overlay: {style: {}},
+    showPage: (p) => {
+      log.pages.push(p);
+    },
+    btnImg: (n) => '<img data-btn="' + n + '">',
     setTimeout(fn, ms) {
       timeouts.push({fn, ms});
       return timeouts.length;
@@ -52,8 +76,11 @@ function loadCampKit() {
       log.tocleared++;
     },
     document: {
+      createElement: mkEl,
       querySelectorAll: (sel) => qsaImpl(sel),
       querySelector: () => null,
+      getElementById: () => mkEl(), /* 挂屏返回钮接线用(丢弃桩) */
+      body: {appendChild() {}},
     },
     setInterval(fn, ms) {
       tickCb = fn;
@@ -89,6 +116,9 @@ function loadCampKit() {
     },
     setQSA: (fn) => {
       qsaImpl = fn;
+    },
+    setGlobal: (k, v) => {
+      sandbox[k] = v;
     },
   };
 }
@@ -286,4 +316,51 @@ test('mkParentGate: 题面两数∈[5,9] 加法, 三键含正解与 ±1..3 干�
   for (const btn of btns) btn.onclick(); /* 点遍三键: 正解恰好 onPass 一次 */
   assert.strictEqual(passed, 1);
   assert.strictEqual(failed, 2);
+});
+
+test('mkCampShell: 生命周期骨架 + 停止钩子注册表(exit/cleanup 都跑) + 预算访问器', () => {
+  const d = loadCampKit();
+  const calls = [];
+  const ticker = {stop: () => calls.push('ticker')};
+  const loot = {clear: () => calls.push('loot')};
+  const settle = {clear: () => calls.push('settle')};
+  const bag = {load: () => calls.push('bag')};
+  let bound = null;
+  const shell = d.ck.mkCampShell({prefix: 'f', rootId: 'focusRoot',
+    bindRoot: (el) => {
+      bound = el;
+    }, ticker, loot, settle, bag,
+    budgetName: 'focus', onScreen: () => calls.push('onscreen'),
+    headerExtra: () => '<i class="f-x"></i>', initPre: () => calls.push('pre'),
+    initPost: () => calls.push('post')});
+  shell.onStop(() => calls.push('stop1'));
+  assert.strictEqual(shell.budget(), null, 'Budgets 缺席返回 null(两侧现状防御)');
+  assert.ok(!shell.locked());
+  d.setGlobal('Budgets', {focus: {blocked: () => true}});
+  assert.ok(shell.locked(), '预算到位经 budgetName 取并判锁定');
+  const root = shell.ensureRoot();
+  assert.strictEqual(root.id, 'focusRoot', '根容器 id=rootId');
+  assert.strictEqual(bound, root, 'bindRoot 回写模式层变量(mathRoot 是跨文件契约)');
+  shell.screen('<b>hi</b>');
+  assert.ok(root.innerHTML.includes('id="fBackBtn"') && root.innerHTML.includes('<i class="f-x"></i>') &&
+      root.innerHTML.endsWith('<b>hi</b>'), '屏头=返回钮+家族附加头(headerExtra 缝)');
+  assert.deepStrictEqual(calls, ['settle', 'onscreen'], '挂屏: 清自动续程→挂屏钩子(math 停常驻钟)');
+  calls.length = 0;
+  shell.exit();
+  assert.deepStrictEqual(calls, ['stop1', 'ticker'], 'exit: 停止钩子→停 ticker(静音/藏根/收 overlay 在桩上)');
+  assert.ok(d.log.cancelled >= 1 && d.log.pages.includes('main'), '静音 + 回主菜单');
+  calls.length = 0;
+  shell.init();
+  assert.deepStrictEqual(calls, ['pre', 'bag', 'post'], 'init: 前插步(focus 矿洞皮肤)→背包读档→后插步(首屏)');
+  calls.length = 0;
+  shell.cleanup();
+  assert.deepStrictEqual(calls, ['stop1', 'ticker', 'loot', 'settle'],
+      'cleanup: 停止钩子→ticker→战利品清场→续程收口');
+});
+
+test('pickLine: 均匀随机取一行(两侧现状语义, 无防重复/游标)', () => {
+  const d = loadCampKit();
+  assert.strictEqual(d.ck.pickLine(['唯一']), '唯一');
+  const table = ['a', 'b', 'c'];
+  for (let k = 0; k < 20; k++) assert.ok(table.includes(d.ck.pickLine(table)));
 });
