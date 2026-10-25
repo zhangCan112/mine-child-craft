@@ -217,6 +217,7 @@ const B_WHEAT_0=42; const B_WHEAT_1=43; const B_WHEAT_2=44; const B_WHEAT_3=45;
 const B_CRAFT=46; const B_FURNACE=47; const B_TORCH=48; const B_CLAY=49; const B_SAPLING=50;
 const B_CHEST=51;
 const B_WOOL=52; /* F4 羊毛(二期设计稿 §4.7): 号段顺延同款(B_SAPLING/B_CHEST 先例) */
+const B_BED=53; /* 床(昼夜 D6, mc-daylight-torch §7.1): 号段顺延同款 */
 BLOCKS[B_COAL_ORE] = {name: '煤矿', all: [0.36, 0.36, 0.38], hard: 3.0, tool: 'pick', tier: 1, drop: [['coal', 1, 0]]};
 BLOCKS[B_IRON_ORE] = {name: '铁矿', all: [0.55, 0.44, 0.36], hard: 3.0, tool: 'pick', tier: 2, drop: [['iron_ore', 1, 0]]};
 BLOCKS[B_GOLD_ORE] = {name: '金矿', all: [0.62, 0.52, 0.28], hard: 3.0, tool: 'pick', tier: 3, drop: [['gold_ore', 1, 0]]};
@@ -249,6 +250,12 @@ BLOCKS[B_CHEST] = {name: '箱子', top: [0.72, 0.55, 0.30], side: [0.62, 0.44, 0
    蓝/红羊毛(15/16)维持创造专属, 只开白羊毛(染料 Out of Scope) */
 BLOCKS[B_WOOL] = {name: '羊毛', all: [0.92, 0.92, 0.92], hard: 0.8, tool: null, tier: 0,
   drop: [['wool', 1, 0]]};
+/* 床(昼夜 D6 §7.1): 1 格半高薄块(差异 #1: MC 2 格×0.5625 简化) — thin 旗标白送
+   顶面限定放置(advPlaceCheck thin 路径)与失撑脱落(cascade); hard 0 徒手秒碎回收。
+   颜色: top=红毯(亮) / all=床架深红 — 注: 实心通道 pushThin 现取 b.all 单色,
+   top 字段按规格 §7.1 原样入表(mesh-core thin 路径分色归 D3/后续观感票) */
+BLOCKS[B_BED] = {name: '床', top: [0.90, 0.30, 0.30], all: [0.75, 0.22, 0.22], thin: 0.55,
+  solid: false, hard: 0, tool: null, tier: 0, drop: [['bed', 1, 0]]};
 
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段

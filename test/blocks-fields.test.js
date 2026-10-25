@@ -23,7 +23,7 @@ function loadCfg() {
     BLOCKS,
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_GRASS_TUFT, B_FARMLAND,
     B_WHEAT_0, B_WHEAT_1, B_WHEAT_2, B_WHEAT_3, B_CRAFT, B_FURNACE, B_TORCH,
-    B_SAPLING, B_CLAY, B_CHEST, B_WOOL,
+    B_SAPLING, B_CLAY, B_CHEST, B_WOOL, B_BED,
   };`, ctx);
   return ctx.__c;
 }
@@ -36,25 +36,25 @@ const CREATIVE_ONLY_IDS = [10, 11, 12, 15, 16, 17, 19];
 
 /* ============ 新方块 id 段(附录 A) ============ */
 
-test('新方块常量与 id 一一对应: 36~49 按附录 A, B_SAPLING 顺延 50, B_CHEST 引导链 v2 顺延 51, B_WOOL F4 顺延 52', () => {
+test('新方块常量与 id 一一对应: 36~49 按附录 A, B_SAPLING 顺延 50, B_CHEST 引导链 v2 顺延 51, B_WOOL F4 顺延 52, B_BED 昼夜 D6 顺延 53', () => {
   const c = loadCfg();
   const expect = {B_COAL_ORE: 36, B_IRON_ORE: 37, B_GOLD_ORE: 38, B_DIAMOND_ORE: 39,
     B_GRASS_TUFT: 40, B_FARMLAND: 41, B_WHEAT_0: 42, B_WHEAT_1: 43, B_WHEAT_2: 44,
     B_WHEAT_3: 45, B_CRAFT: 46, B_FURNACE: 47, B_TORCH: 48, B_CLAY: 49, B_SAPLING: 50,
-    B_CHEST: 51, B_WOOL: 52};
+    B_CHEST: 51, B_WOOL: 52, B_BED: 53};
   for (const [k, id] of Object.entries(expect)) {
     assert.strictEqual(c[k], id, k + ' 应为 ' + id);
     assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
     assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
   /* 附录 A 里 36~49 已被 14 个编号方块占满, 树苗行 id 栏是「—」;
-     存档按数字 id 记, 顺延 50/51 不与任何号段(1-19/20-29/30-35/36-49)冲突 */
+     存档按数字 id 记, 顺延 50/51/52/53 不与任何号段(1-19/20-29/30-35/36-49)冲突 */
 });
 
-test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗(B_FUSE 同款口径)', () => {
+test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗/床(B_FUSE 同款口径)', () => {
   const c = loadCfg();
   const thinIds = [c.B_GRASS_TUFT, c.B_WHEAT_0, c.B_WHEAT_1, c.B_WHEAT_2,
-    c.B_WHEAT_3, c.B_TORCH, c.B_SAPLING];
+    c.B_WHEAT_3, c.B_TORCH, c.B_SAPLING, c.B_BED];
   for (const id of thinIds) {
     const b = c.BLOCKS[id];
     assert.ok(typeof b.thin === 'number' && b.thin > 0, id + ' 应有 thin 高度');
@@ -70,7 +70,7 @@ test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗(B_FUS
 
 test('存量探险方块 13 个补齐四字段(TNT 可回收 D3); 创造专属 7 个保持无采集字段', () => {
   const c = loadCfg();
-  const newIds = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52];
+  const newIds = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53];
   for (const id of [...GATHER_IDS, ...newIds]) {
     const b = c.BLOCKS[id];
     for (const f of ['hard', 'tool', 'tier', 'drop']) {
@@ -94,7 +94,8 @@ test('hard 数值 = MC 硬度原值(徒手石头 7.5s 的口径来源, 研究稿
     36: 3.0, 37: 3.0, 38: 3.0, 39: 3.0, /* 四矿 MC 硬度 3 */
     41: 0.6, 46: 2.5, 47: 3.5, 49: 0.6, /* 耕地/工作台/熔炉/黏土 */
     40: 0, 42: 0, 43: 0, 44: 0, 45: 0, 48: 0, 50: 0, /* 草丛/麦/火把/树苗 = 秒碎 */
-    52: 0.8}; /* F4 羊毛(MC 硬度 0.8, 二期设计稿 §4.7) */
+    52: 0.8, /* F4 羊毛(MC 硬度 0.8, 二期设计稿 §4.7) */
+    53: 0}; /* 床(昼夜 D6 §7.1: hard 0 徒手秒碎回收, MC 硬度 0.2 观感等价) */
   for (const [id, hard] of Object.entries(expect)) {
     assert.strictEqual(c.BLOCKS[id].hard, hard,
         'BLOCKS[' + id + '](' + c.BLOCKS[id].name + ') hard 应为 ' + hard);
@@ -104,7 +105,7 @@ test('hard 数值 = MC 硬度原值(徒手石头 7.5s 的口径来源, 研究稿
 test('tool 取值只许 pick/axe/shovel/shears/null(树叶=剪刀品类 D2; 玻璃等徒手方块用 null)', () => {
   const c = loadCfg();
   const legal = ['pick', 'axe', 'shovel', 'shears', null];
-  const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52];
+  const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53];
   for (const id of checked) {
     assert.ok(legal.includes(c.BLOCKS[id].tool),
         'BLOCKS[' + id + '].tool 取值非法: ' + String(c.BLOCKS[id].tool));
@@ -149,7 +150,7 @@ test('方块级联身份旗标(设计稿 D1/D7): fell/need/fall 形状 + 地形�
 
 test('drop 条目结构: [itemId 非空字符串, 保底≥0 整数, 概率 0~1 数值]', () => {
   const c = loadCfg();
-  const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52];
+  const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53];
   for (const id of checked) {
     for (const e of c.BLOCKS[id].drop) {
       assert.ok(Array.isArray(e), 'BLOCKS[' + id + '] drop 条目应为数组');
@@ -184,6 +185,11 @@ test('关键掉落口径: 石掉圆石/草掉泥土/树叶三概率 12%-4%-8%/�
   assert.deepEqual(c.BLOCKS[c.B_WOOL].drop, [['wool', 1, 0]], '羊毛掉自身');
   assert.strictEqual(c.BLOCKS[c.B_WOOL].tool, null, '羊毛无品类(徒手同速)');
   assert.strictEqual(c.BLOCKS[c.B_WOOL].tier, 0, '羊毛无镐门槛');
+  /* 床(昼夜 D6 §7.1): 徒手秒碎掉自身(回收再放置), thin 旗标白送顶面限定+失撑脱落 */
+  assert.deepEqual(c.BLOCKS[c.B_BED].drop, [['bed', 1, 0]], '床掉自身(整床回收)');
+  assert.strictEqual(c.BLOCKS[c.B_BED].tool, null, '床无品类(徒手同速)');
+  assert.strictEqual(c.BLOCKS[c.B_BED].tier, 0, '床无门槛');
+  assert.strictEqual(c.BLOCKS[c.B_BED].thin, 0.55, '床=半高薄块 0.55(差异 #1: 1 格简化)');
 });
 
 /* ============ 只增不改(存量键的既有字段原样) ============ */

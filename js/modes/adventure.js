@@ -53,8 +53,14 @@
    · 昼夜夜怪(D5, mc-daylight-torch §6): 夜间 2s 一拍在 24~40 格出生环带
      刷僵尸/苦力怕/蜘蛛(池 2:1:1 无骷髅; 上限 12 含巢穴怪的配额口径)·
      火把圈(方块光 ≥1)即防刷怪圈·黎明 internalSky(15)≥12 上沿温和清场
-     (灰白烟+移除, advClearNightMobs——床跳夜 D6 同款复用)·入夜播报+
-     首夜火把引导(firstNight 一次性随任务档)
+     (灰白烟+移除, advSweepNightMobs——清夜怪唯一实现, 床跳夜 D6 同款复用)·
+     入夜播报+首夜火把引导(firstNight 一次性随任务档)
+   · 床·睡觉(昼夜 D6, mc-daylight-torch §7): 床=薄块 53(3 羊毛+3 木板台级
+     合成, thin 顶面放置路径现成); 夜里点击两条件(advSleepCheck 夜窗+床边
+     8 格无怪, 纯函数在 adventure-core) → #fade 转场(advSleepStep 1.5s
+     渐黑+2s 停+1.5s 渐亮≈5s) → 唤醒沿 dayTime=0+夜怪温和清场(__nightMob
+     过滤缝, D5 黎明清场同调 advSweepNightMobs)+出生点设床边(ADV.spawn
+     账本+ModeKit.spawn 记忆, MC 口径)
    · 防沉迷: 与竞技场/建造/坦克/下界共享儿童时限(gated, 不新增账本)
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
      onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面
@@ -398,21 +404,6 @@ function advNightAlive() {/* 怪物存量(CAP 配额的分母, hud 同款口径:
   return n;
 }
 
-function advClearNightMobs(announce) {/* 夜怪清场(统一名, 床跳夜 D6 同款复用): 全部 __nightMob
-   原地灰白烟(Fx 碎屑色 0.9≈#e6e6e6) + Mobs.remove; 巢穴怪/牧场动物不清(脚本怪与昼夜
-   解耦)。announce=清场播报口径(黎明侧 true; 床侧自带话术可静默), 清掉 0 只不播报
-   (克制不唠叨); 返回清掉只数供调用方记账 */
-  let n = 0;
-  for (const m of Mobs.list()) {
-    if (m.gone || !m.__nightMob) continue;
-    Fx.debrisBurst(m.pos.x, m.pos.y + 0.8, m.pos.z, 8, {color: 0xe6e6e6, life: 1});
-    Mobs.remove(m);
-    n++;
-  }
-  if (n > 0 && announce) SpeechKit.speak('天亮了，怪物回家啦');
-  return n;
-}
-
 function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿 §6.2): 夜间每 2s 一拍,
    核心掷环带+光照门出单 → 壳层按配额(CAP−现存怪数, 含巢穴怪)落地并挂私有字段;
    入夜播报(首夜并句火把引导, firstNight 一次性随任务档); 黎明上沿温和清场 */
@@ -435,7 +426,7 @@ function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿
     m.__nightHome = {x: r.spawn.x, z: r.spawn.z}; /* 家锚=出生环点(AI 收敛同巢穴口径, 不归巢) */
   }
   const lit = advDawnSweep(dayTime);
-  if (lit && !advDawnLit) advClearNightMobs(true); /* 黎明上沿: 日出温和清场 */
+  if (lit && !advDawnLit) advSweepNightMobs(); /* 黎明上沿: 日出温和清场(advSweepNightMobs=清夜怪唯一实现, 床跳夜 D6 同调) */
   advDawnLit = lit;
 }
 
@@ -615,6 +606,108 @@ function advGoHome() {
   advSaveNow(); /* 回家态即时落盘(与死亡同口径): 满血+小屋位置即刻入档, 防节流窗口 */
   SpeechKit.speak('回家咯！休息一下再出发！');
   showToast('🏠 回到小屋');
+}
+
+/* ============================================================
+   床·睡觉转场 (昼夜 D6, mc-daylight-torch §7.2) — 观感与接线段
+   ------------------------------------------------------------
+   判据与时间账纯函数在 adventure-core(advSleepCheck 两条件/
+   advSleepStep 转场状态机); 这里只做观感与落地: #fade 全屏遮罩
+   (index.html 既有 DOM, 本工单前零消费)逐帧直驱 + TTS 鼾声/睡饱
+   播报 + 唤醒沿三连(dayTime=0 + 夜怪温和清场 + 出生点设床边)。
+   出生点沿既有缝: ADV.spawn 账本换床边(死亡/回家同缝消费) +
+   ModeKit.spawn 落位顺带记忆(onVoidFall 兜底), 不开第二实现。
+   ============================================================ */
+const advSleep = {on: false, t: 0, x: 0, y: 0, z: 0}; /* 转场状态: on=转场中, x/y/z=床方块坐标 */
+
+function advFadeEl() {/* #fade 全屏遮罩(index.html 既有 DOM; Node 测试取 document 桩) */
+  return (typeof document !== 'undefined' && document.getElementById) ?
+    document.getElementById('fade') : null;
+}
+function advFadeSet(op) {/* 直驱遮罩透明度: 关掉 CSS 自带 0.45s transition, 由状态机逐帧接管(§7.2 的 1.5s 渐变) */
+  const el = advFadeEl();
+  if (!el) return;
+  el.style.transition = 'none';
+  el.style.opacity = op;
+}
+function advSleepFadeReset() {/* 收尾/中断: 遮罩归零, transition 还回 CSS(昏迷/关卡切换黑场的既有语义) */
+  const el = advFadeEl();
+  if (!el) return;
+  el.style.transition = '';
+  el.style.opacity = 0;
+}
+
+function advSweepNightMobs() {/* 夜怪温和清场(§6.2 观感; 黎明清场与床跳夜共用的唯一实现, D6 命名归一——
+   D5 原实现 advClearNightMobs 已并入本函数): 按 __nightMob 私有字段过滤(D5 夜怪节拍
+   advNightTick 出生时挂上; 尸体一并收=「全部 __nightMob」口径), 原地灰白烟
+   碎屑 + Mobs.remove + 一句 TTS; 巢穴怪/牧场动物不带该字段天然不清(脚本怪与昼夜解耦) */
+  let n = 0;
+  for (const m of Mobs.list()) {
+    if (m.gone || !m.__nightMob) continue;
+    Fx.debrisBurst(m.pos.x, m.pos.y + 0.6, m.pos.z, 8, {color: 0xe6e6e6, life: 0.9}); /* 灰白烟(色阶 0.9, §6.2) */
+    Mobs.remove(m);
+    n++;
+  }
+  if (n > 0) SpeechKit.speak('天亮了，怪物回家啦');
+  return n;
+}
+
+function advBedSpot(bx, by, bz) {/* 床边出生位(§7.2 MC 口径): 床四水平邻取「两格净空+脚下实心支承」的
+   首格格心(advPlaceCheck 同款支承判); 四邻全堵回落玩家当前位——点得到床必在触达内, 人本就在床边 */
+  for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const nx = bx + d[0]; const nz = bz + d[1];
+    if (getBlock(nx, by, nz) !== 0 || getBlock(nx, by + 1, nz) !== 0) continue; /* 站位两格净空 */
+    const sup = BLOCKS[getBlock(nx, by - 1, nz)];
+    if (!sup || sup.solid === false || sup.thin != null) continue; /* 脚下实心(薄块/无定义当不了支承) */
+    return {x: nx + 0.5, y: by, z: nz + 0.5, yaw: 0};
+  }
+  return {x: pos.x, y: pos.y, z: pos.z, yaw};
+}
+
+function advSleepWake() {/* 唤醒沿三连(§7.2): 跳清晨 + 夜怪清场 + 出生点设床边; 顺带即时落盘
+   (清晨时刻与床边位即刻入档——死亡/回家同口径, 防 5s 节流窗口内关页面回到黑夜) */
+  dayTime = 0;
+  advSweepNightMobs(); /* 清场 TTS 若发声会被下一句「睡饱啦」顶掉(SpeechKit cancel-then-speak);
+     D5 黎明清场单独调用时整句完整——睡醒链听「睡饱啦」即可 */
+  const spot = advBedSpot(advSleep.x, advSleep.y, advSleep.z);
+  ADV.spawn = spot; /* 出生点账本换床边: 死亡(advDeathPlan)/回家/坠虚同缝消费 */
+  ModeKit.spawn(spot.x, spot.y, spot.z, {yaw: spot.yaw}); /* 落位+记忆(顺带把黑屏期游走的玩家拉回床边醒来) */
+  SpeechKit.speak('睡饱啦，天亮了！');
+  showToast('☀️ 睡饱啦，天亮了！');
+  advSaveNow();
+}
+
+function advSleepTick(dt) {/* 转场推进(update 每帧): 纯函数时间账 + 遮罩直驱 + 唤醒沿/收尾 */
+  if (!advSleep.on) return;
+  const s = advSleepStep(advSleep.t, dt);
+  advSleep.t = s.t;
+  advFadeSet(s.opacity);
+  if (s.wake) advSleepWake();
+  if (s.phase === 'done') {
+    advSleep.on = false;
+    advSleepFadeReset();
+  }
+}
+
+function advTrySleep(hit, lookId) {/* 点击床(§7.2, 挖掘左键与轻点/右键共用入口): 两条件纯函数
+   advSleepCheck(夜窗+床边无怪)不过 → 对应 toast; 过 → 开转场(黑屏后唤醒沿跳清晨+设床边出生点)。
+   返回 true=消费了本次点击(不放不挖) */
+  if (!hit || lookId !== B_BED) return false;
+  if (advSleep.on) return true; /* 转场中重复点击吞掉(输入另由 onMouse 顶层门挡) */
+  const mobs = Mobs.list().map((m) => ({x: m.pos.x, z: m.pos.z, dead: m.dead, gone: m.gone,
+    passive: !!(m.cfg && m.cfg.passive)})); /* 快照采集: 牧场动物 passive 不拦(F4 口径) */
+  const chk = advSleepCheck(dayTime, mobs, hit.x + 0.5, hit.z + 0.5);
+  if (!chk.ok) {
+    showToast(chk.why === 'night' ? '🌙 晚上才能睡哦' : '👾 附近有怪物，睡不着');
+    return true;
+  }
+  advSleep.on = true;
+  advSleep.t = 0;
+  advSleep.x = hit.x; advSleep.y = hit.y; advSleep.z = hit.z;
+  advMineStop(); /* 蓄力中则收手(黑屏期不再挖) */
+  SpeechKit.speak('呼——呼——'); /* 鼾声(§7.2) */
+  advFadeSet(0); /* 接管遮罩: 从全透开始渐黑 */
+  return true;
 }
 
 /* ============================================================
@@ -1565,6 +1658,9 @@ const AdventureMode = mkMode({
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活) */
     advMouseListeners(false);
     advMineStop(); /* 蓄力清零 + 进度环收起 */
+    advSleep.on = false; /* 睡觉转场中断复位(昼夜 D6): 未到唤醒沿不跳清晨 */
+    advSleep.t = 0;
+    advSleepFadeReset(); /* 遮罩归零还 CSS transition, 不渗入其他模式 */
     advTntTap = null; /* TNT 短按判定一并复位 */
     advSaplings.clear(); /* 计时不落盘, 重进经全图扫描重建 */
     advFuses.length = 0; /* 引信不落盘 */
@@ -1587,6 +1683,7 @@ const AdventureMode = mkMode({
     advFurnaceTick(dt); /* 烧炼节律常开(面板只是回显), ✕ 关闭对账(T13) */
     advFuseTick(dt); /* TNT 引信倒计时到点起爆(T13, 先于怪物 AI——当帧爆炸位置不漂移) */
     advTntTapTick(dt); /* TNT 短按/按住判定(D3): 转蓄力需先于 advMineTick 同帧生效 */
+    advSleepTick(dt); /* 床·睡觉转场推进(昼夜 D6): 遮罩直驱+唤醒沿跳清晨/设床边出生点 */
     advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */
     advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
     advMelee.tick(dt); /* 挥击冷却递减(kit 自持, T14 口径不变) */
@@ -1606,8 +1703,9 @@ const AdventureMode = mkMode({
 
   onMouse(button, hit) {/* 左键并线(T12×T13×T14): TNT 短按点燃/按住挖走(D3)/熔炉走近点击开面板(T13, 准星块
     精确命中故在最前)/箱子走近点击开面板(引导链 v2, 站点缓存外故按点击块直算距离), 准星锥内有
-    活怪→挥击(T14), 否则吃/挖掘蓄力(T12); 右键放置 */
-    if (ADV.panelOpen || ADV.furnaceOpen || ADV.chestOpen) return; /* 面板遮罩兜底: 开面板不挖不放不打 */
+    活怪→挥击(T14), 否则吃/挖掘蓄力(T12); 右键放置; 床=点击睡觉(昼夜 D6, 两条件与
+    转场在 advTrySleep) */
+    if (ADV.panelOpen || ADV.furnaceOpen || ADV.chestOpen || advSleep.on) return; /* 面板/睡觉黑屏遮罩兜底: 不挖不放不打 */
     if (button === 0) {
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
       if (lookId === B_TNT) {/* TNT(D3): 短按=点燃(松手<0.25s 在 advTntTapTick 判定),
@@ -1616,6 +1714,7 @@ const AdventureMode = mkMode({
         return;
       }
       if (advUseStation(hit, lookId)) return; /* 熔炉/箱子: 走近开面板(见下) */
+      if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6, 使用先于打/挖) */
       if (advAimMob(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖) */
         advAttack();
         return;
@@ -1628,6 +1727,7 @@ const AdventureMode = mkMode({
          ⛏️ 键短按点燃/按住挖走(onMouse(0) 的 advTntTap 二分) */
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
       if (advUseStation(hit, lookId)) return;
+      if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6 §7.2, 使用先于吃/放) */
       if (advTryEat()) return;
       advTryPlace(hit);
     }
@@ -1712,7 +1812,7 @@ const AdventureMode = mkMode({
     收获口径=advOnKill passive 分支 verb「收获」+kill_mob 不记账) ·
     昼夜 D5 已落地(夜怪=advNightTick 挂 update(节拍纯函数 advNightStep+
     落点光 seam advNightRead+配额 advNightAlive+实体挂 __nightMob/__nightHome,
-    AI 家锚在 advMobAI); 清场=advClearNightMobs(黎明上沿/床跳夜 D6 复用);
+    AI 家锚在 advMobAI); 清场=advSweepNightMobs(黎明上沿/床跳夜共用, D6 命名归一);
     入夜播报+首夜火把引导 firstNight 随任务档一次性) ·
     code-review 修复轮已落地(纯函数段与任务表迁 adventure-core.js 经此转发;
     advWearHeld=原 advWearTool/advDamageHeld 合一(S3)+低耐久预警(S4①)+
@@ -1733,6 +1833,7 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advChestDeposit, advChestWithdraw, advChestExpand,
   advPanelClose, advGoHome, advHomeReady, ADV_HOME_CD,
   advGetLivestock: () => advLivestock, advHerdPanic,
-  advNightTick, advClearNightMobs, advNightRead, advNightAlive};
+  advNightTick, advNightRead, advNightAlive,
+  advSleep, advBedSpot, advSweepNightMobs, advTrySleep};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;
