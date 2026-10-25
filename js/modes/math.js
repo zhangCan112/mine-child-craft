@@ -337,12 +337,12 @@ function mathStampRewardOn(claimed, rid) {
 
 /* ---------- 根容器与屏幕 ---------- */
 let mathRoot = null;
-let mathAutoTimer = 0; // 结算屏自动续程计时
+const mathSettle = CampKit.mkSettleBits({prefix: 'm', autoMs: 4500}); // 结算件(C1-T3): 星显 + 自动续程(4500ms 家族现状, TTS 更长是刻意)
 let mathClockTimer = 0; // 常驻昼夜大钟走针计时(G1)
 const mathFailCount = {}; // 本关连续未通过次数 → 重试话术与"先玩别的"
 
 /* 常驻昼夜大钟(G1, spec US30 前半): 今日页/地图页右上一枚小钟面, 真实
-   本地时间驱动, 每分钟走针(mathAutoTimer 同款清理纪律 — mathScreen 统一
+   本地时间驱动, 每分钟走针(mathSettle 同款清理纪律 — mathScreen 统一
    收口 + 出模式清理); 点击钟面 → SpeechKit 报时, 口径出自 mClockSay 纯
    函数(整时「X 点整」/半时「X 点半」/其余「X 点 Y 分」, 一年级教材);
    钟面渲染复用屏流引擎的谜题钟部件 mClockFace(12/3/6/9 刻度同形态) */
@@ -398,15 +398,15 @@ function ensureMathRoot() {
 }
 
 function mathScreen(html) {
-  clearTimeout(mathAutoTimer);
-  stopMathClock(); // 常驻钟面只在今日页/地图页挂(mathAutoTimer 同款收口)
+  mathSettle.clear(); // 换屏即收自动续程(C1-T3)
+  stopMathClock(); // 常驻钟面只在今日页/地图页挂(mathSettle 同款收口)
   mathRoot.innerHTML = '<div class="m-top"><button class="m-back" id="mBackBtn" aria-label="返回">' +
       btnImg('left') + '</button><div class="m-clockbox" id="mClockBox"></div></div>' + html;
   document.getElementById('mBackBtn').onclick = mathExit;
   return mathRoot;
 }
 function mathExit() {
-  clearTimeout(mathAutoTimer);
+  mathSettle.clear(); // 自动续程收口(C1-T3)
   MathTrack.stop();
   stopMathTicker();
   stopMathClock();
@@ -467,30 +467,19 @@ function showMathToday() {
 
 /* ---------- 家长面板(T9): 算术门 → 六族×四带矩阵 + 思维挑战通过率 + CSV ----------
     口径纪律(spec 宣称边界): 只报过程指标(正确率/次数), 不做能力诊断,
-    不提成绩/智力提升; 形态对齐 focus 家长面板(门/表/CSV/免责) */
+    不提成绩/智力提升; 形态对齐 focus 家长面板(门/表/CSV/免责);
+    算术门(C1-T3)住 CampKit 的 mathParentGate 实例 — 题面生成/干扰项
+    洗牌/比对在 kit 单份, 面板本体是家族面留在此处 */
+const mathParentGate = CampKit.mkParentGate({
+  prefix: 'm',
+  scope: '#mathRoot',
+  screen: mathScreen,
+  onPass: showMathParent, // 答对开家长面板
+  onFail: showMathToday, // 答错静默回今日页(不重试不提示, 零羞辱)
+});
 function showMathParentGate() {
-  const a = 5 + Math.floor(Math.random() * 5); const b = 5 + Math.floor(Math.random() * 5);
-  const ans = a + b;
-  const opts = [ans, ans + 1 + Math.floor(Math.random() * 3),
-    Math.max(2, ans - 1 - Math.floor(Math.random() * 3))].sort(() => Math.random() - 0.5);
-  mathScreen(`
-    <div class="m-screen">
-      <h1>家长入口</h1>
-      <p class="m-sub">请回答：${a} + ${b} = ?</p>
-      <div class="m-gate-row">${opts.map((o) => '<button class="m-btn" data-a="' + o + '">' +
-          o + '</button>').join('')}</div>
-    </div>`);
-  document.querySelectorAll('#mathRoot .m-gate-row button').forEach((btn) => {
-    btn.onclick = () => {
-      if (parseInt(btn.dataset.a, 10) === ans) {
-        showMathParent();
-      } else {
-        showMathToday();
-      }
-    };
-  });
+  mathParentGate.open();
 }
-
 function showMathParent() {
   const save = loadMathSave();
   const mb = mathBudget();
@@ -504,16 +493,11 @@ function showMathParent() {
     chalN += r.chalN; chalOk += r.chalOk;
   }
   const cell = (c) => c.n ? Math.round(c.acc * 100) + '% (' + c.n + ')' : '—';
-  /* 近 7 日正确率迷你折线(US42, focus 家长面板 spark 同形态): 数据源
-     mathPanelTrend(最近 7 个有记录日按 n 加权的族 acc 序列); <2 点显示 — */
+  /* 近 7 日正确率迷你折线(US42, focus 家长面板 spark 同形态; C1-T3 起住
+     CampKit): 数据源 mathPanelTrend(最近 7 个有记录日按 n 加权的族 acc
+     序列, 域 acc∈0..1 → max=1); <2 点显示 —(数值域与空态经 cfg 保真) */
   function mathSpark(series) {
-    if (series.length < 2) return '—';
-    const W = 120; const H = 36;
-    const pts = series.map((x, k) =>
-      (k * (W / (series.length - 1))).toFixed(1) + ',' +
-      (H - 2 - (H - 6) * x.acc).toFixed(1)).join(' ');
-    return `<svg width="${W}" height="${H}" class="m-spark">` +
-        `<polyline points="${pts}" fill="none" stroke="#7cfc00" stroke-width="2"/></svg>`;
+    return CampKit.sparkSvg(series, {cls: 'm-spark', max: 1, noData: '—'});
   }
   mathScreen(`
     <div class="m-screen m-parent">
@@ -546,12 +530,7 @@ function showMathParent() {
   document.getElementById('mParentBack').onclick = showMathToday;
   document.getElementById('mCsvBtn').onclick = () => {
     const rows = mathPanelCsv(save);
-    const csv = '\uFEFF' + rows.map((r) => r.join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
-    a.download = '数学冒险岛记录.csv';
-    a.click();
-    setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+    CampKit.downloadCsv('数学冒险岛记录.csv', rows); // BOM+Blob+click+5s revoke 仪式件(C1-T3), 行构造走库层 mathPanelCsv
   };
 }
 
@@ -625,7 +604,7 @@ function mathKindTag(kind) {
 }
 
 function startMathLevel(i) {
-  clearTimeout(mathAutoTimer);
+  mathSettle.clear(); // 自动续程收口(C1-T3)
   MathTrack.stop();
   const level = MATH_LEVELS[i];
   if (!level) {
@@ -724,7 +703,7 @@ function beginMathRun(level) {
 /* ---------- 结算: 判定/星显/过程表扬/战利品回顾/图章进度/自动续程 ---------- */
 function onMathLevelEnd(level, st) {
   /* 进行中节已在驱动器的 end 包装里离场(T4 清完再发), 此处不再收 runner */
-  clearTimeout(mathAutoTimer);
+  mathSettle.clear(); // 自动续程收口(C1-T3)
   stopMathTicker();
   const save = loadMathSave();
   const today = mathTodayStr();
@@ -760,8 +739,7 @@ function onMathLevelEnd(level, st) {
       praise + (stampNew ? ' 今天的图章盖上啦！' : '');
 
   if (passed) {
-    const starSpans = [1, 2, 3].map((n) =>
-      '<span class="st ' + (n <= stars ? 'on' : '') + '" data-n="' + n + '">⭐</span>').join('');
+    const starSpans = mathSettle.starSpans(stars); // 三星 span 行(C1-T3 kit 实例)
     mathScreen(`
       <div class="m-screen m-result">
         <div class="m-stars" id="mStars">${starSpans}</div>
@@ -774,17 +752,7 @@ function onMathLevelEnd(level, st) {
         <button class="m-start" id="mNextBtn">继续 ▶</button>
       </div>`);
     SpeechKit.speak(spoken);
-    [1, 2, 3].forEach((n) => {
-      if (n <= stars) {
-        setTimeout(() => {
-          const el = document.querySelector('#mStars .st[data-n="' + n + '"]');
-          if (el) {
-            el.classList.add('pop');
-            sfx('pick');
-          }
-        }, 350 * n);
-      }
-    });
+    mathSettle.popStars(stars); // 350ms*n 逐星 pop + 叮咚(C1-T3 kit 实例)
   } else {
     mathScreen(`
       <div class="m-screen m-result">
@@ -831,9 +799,9 @@ function onMathLevelEnd(level, st) {
   document.getElementById('mNextBtn').onclick = next;
   const backMap = document.getElementById('mBackMap');
   if (backMap) backMap.onclick = showMathMap;
-  mathAutoTimer = setTimeout(() => {
+  mathSettle.armAuto(() => { // 自动续程 4500ms(math 家族现状 — 结算屏 TTS 更长); 继续按钮在场自检留回调
     if (document.getElementById('mNextBtn')) next();
-  }, 4500);
+  });
 }
 
 /* ---------- 模式对象 ---------- */
@@ -865,7 +833,7 @@ const MathMode = mkMode({
     showMathToday();
   }, // 纯点选全屏 UI: chrome 全关由 kit 默认处理(focus 同款)
   cleanup() {
-    clearTimeout(mathAutoTimer);
+    mathSettle.clear(); // 自动续程收口(C1-T3)
     MathTrack.stop();
     stopMathTicker();
     mathLootHud.clear(); // 战利品回路清场: 飞行件/HUD 槽位/会话状态(C1-T1)

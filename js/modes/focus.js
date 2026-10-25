@@ -109,7 +109,9 @@ const focusFailCount = {}; // 本关连续未通过次数 → 重试自动放宽
 
 /* ---------- 根容器与屏幕 ---------- */
 let focusRoot = null; let focusCtrl = null; let focusCurLevel = null;
-let focusAutoTimer = 0;
+/* 结算件实例(C1-T3): 三星 spans/逐星 pop + 自动续程计时(4000ms 家族现状);
+   focusScreen 每次换屏 clear, 里程碑串播经 armAuto(fn, 4500) 复用同一轨道 */
+const focusSettle = CampKit.mkSettleBits({prefix: 'f', autoMs: 4000});
 
 /* 训练时长入账(F5 → C1-T1 收编 CampKit.mkCampTicker): 关卡进行中每秒
    accrue 实际毫秒并落账 — 崩溃/关页损失 ≤1 秒(原为关卡结束才入账, 丢整关
@@ -155,7 +157,7 @@ function ensureFocusCaveSkin() {
   s.setProperty('--f-tile-dirt', tileURL(tileIdx(2)));
 }
 function focusScreen(html) {
-  clearTimeout(focusAutoTimer);
+  focusSettle.clear(); // 换屏即收自动续程(原 clearTimeout(focusAutoTimer), C1-T3)
   focusRoot.innerHTML = '<div class="f-top"><button class="f-back" id="fBackBtn" aria-label="返回">' +
       btnImg('left') + '</button></div>' + html;
   document.getElementById('fBackBtn').onclick = focusExit;
@@ -536,9 +538,7 @@ function onFocusLevelEnd(level, st) {
   if (passed) {
     focusScreen(`
       <div class="f-screen f-result">
-        <div class="f-stars" id="fStars">
-          ${[1, 2, 3].map((n)=>'<span class="st '+(n<=stars?'on':'')+'" data-n="'+n+'">⭐</span>').join('')}
-        </div>
+        <div class="f-stars" id="fStars">${focusSettle.starSpans(stars)}</div>
         <h1>${level.kind==='tutorial' ? '学会啦！' : '通过！'}</h1>
         <p class="f-sub">正确 ${Math.round(st.acc*100)}%</p>
         <div class="f-result-chief"><img draggable="false" alt="村长爷爷" src="${chiefFace('cheer')}">
@@ -548,16 +548,7 @@ function onFocusLevelEnd(level, st) {
         <button class="f-start" id="fNextBtn">继续 ▶</button>
       </div>`);
     SpeechKit.speak(stampDue.length ? '集齐图章啦！获得' + stampNames + '！' : praise);
-    [1, 2, 3].forEach((n)=>{
-      if (n<=stars) {
-        setTimeout(()=>{
-          const el = document.querySelector('#fStars .st[data-n="'+n+'"]');
-          if (el) {
-            el.classList.add('pop'); sfx('pick');
-          }
-        }, 350*n);
-      }
-    });
+    focusSettle.popStars(stars); // 350ms*n 逐星 pop + 叮咚(C1-T3 kit 实例)
   } else {
     const moveOn = (focusFailCount[level.i]||0) >= 2; // 连败 2 次后换下一个游戏, 避免整段时间卡死在同一关
     focusScreen(`
@@ -588,9 +579,9 @@ function onFocusLevelEnd(level, st) {
   };
   const proceed = () => (award.length ? showFocusAward(award, next) : next()); // 有新授先仪式再续程
   document.getElementById('fNextBtn').onclick = proceed;
-  focusAutoTimer = setTimeout(()=>{
+  focusSettle.armAuto(()=>{ // 自动续程 4000ms(focus 家族现状); 继续按钮在场自检留回调
     if (document.getElementById('fNextBtn')) proceed();
-  }, 4000);
+  });
 }
 
 /* ---------- 里程碑授予仪式(设计稿 §3 L4) ----------
@@ -614,7 +605,7 @@ function showFocusAward(ids, after) {
       </div>`);
     document.getElementById('fBackBtn').onclick = step; // 返回=跳过剩余串播(授予已落账)
     document.getElementById('fAwardNext').onclick = step;
-    focusAutoTimer = setTimeout(step, 4500); // TTS 报名+琶音留足时间
+    focusSettle.armAuto(step, 4500); // TTS 报名+琶音留足时间(串播复用结算轨道)
     sfx('level');
     SpeechKit.speak('你获得了' + name + '！挖矿越来越厉害啦！');
   };
@@ -982,25 +973,18 @@ function abortDevilRun() {
   devilRun = null;
 }
 
-/* ---------- 家长面板 ---------- */
+/* ---------- 家长面板(C1-T3 起算术门住 CampKit 实例): 题面生成/干扰项洗牌/比对收编,
+    面板本体(数据聚合与布局)是家族面留在此处 ---------- */
+const focusParentGate = CampKit.mkParentGate({
+  prefix: 'f',
+  scope: '#focusRoot',
+  screen: focusScreen,
+  onPass: showFocusParent, // 答对开家长面板
+  onFail: showFocusToday, // 答错静默回今日页(不重试不提示, 零羞辱)
+});
 function showFocusParentGate() {
-  const a = 5 + Math.floor(Math.random()*5); const b = 5 + Math.floor(Math.random()*5);
-  const ans = a + b;
-  const opts = [ans, ans + 1 + Math.floor(Math.random()*3), Math.max(2, ans - 1 - Math.floor(Math.random()*3))]
-      .sort(()=>Math.random()-0.5);
-  focusScreen(`
-    <div class="f-screen">
-      <h1>家长入口</h1>
-      <p class="f-sub">请回答：${a} + ${b} = ?</p>
-      <div class="f-gate-row">${opts.map((o)=>'<button class="f-btn" data-a="'+o+'">'+o+'</button>').join('')}</div>
-    </div>`);
-  document.querySelectorAll('#focusRoot .f-gate-row button').forEach((btn)=>{
-    btn.onclick = ()=>{
- parseInt(btn.dataset.a, 10)===ans ? showFocusParent() : showFocusToday();
-    };
-  });
+  focusParentGate.open();
 }
-
 function showFocusParent() {
   const save = loadFocusSave();
   const fb = focusBudget();
@@ -1014,12 +998,10 @@ function showFocusParent() {
     const mrt = h.length ? Math.round(h.reduce((s, x)=>s+x.mrt, 0)/h.length) : null;
     return {d, n: h.length, acc, mrt, h};
   });
-  function spark(h) { // 迷你正确率折线(SVG)
-    if (h.length < 2) return '<span class="f-nodata">数据不足</span>';
-    const W=120; const H=36;
-    const pts = h.map((x, k)=>(k*(W/(h.length-1))).toFixed(1)+','+(H-2-(H-6)*x.acc/100).toFixed(1)).join(' ');
-    return `<svg width="${W}" height="${H}" class="f-spark">
-        <polyline points="${pts}" fill="none" stroke="#7cfc00" stroke-width="2"/></svg>`;
+  /* 迷你正确率折线(SVG, C1-T3 起住 CampKit): focus 域 acc∈0–100(max=100),
+     <2 点显「数据不足」(f-nodata 样式) — 数值域与空态经 cfg 保真 */
+  function spark(h) {
+    return CampKit.sparkSvg(h, {cls: 'f-spark', max: 100, noData: '<span class="f-nodata">数据不足</span>'});
   }
   focusScreen(`
     <div class="f-screen f-parent">
@@ -1054,12 +1036,7 @@ function showFocusParent() {
       rows.push([h.d, h.i+1, lv.stage, FOCUS_META[h.dim] ? FOCUS_META[h.dim].name : h.dim,
         h.kind, h.passed===false ? '否' : '是', h.acc, h.mrt, h.trials, h.stars]);
     }
-    const csv = '\uFEFF' + rows.map((r)=>r.join(',')).join('\n');
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
-    a.download = '专注训练营记录.csv';
-    a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href), 5000);
+    CampKit.downloadCsv('专注训练营记录.csv', rows); // BOM+Blob+click+5s revoke 仪式件(C1-T3), 行构造留模式层
   };
   ModeKit.confirmBtn(document.getElementById('fResetBtn'), {
     label: '↺ 重置进度', confirm: '⚠ 再点一次确认',
@@ -1088,11 +1065,11 @@ const FocusMode = mkMode({
   cleanup() {
     stopFocusTicker();
     focusLootHud.clear(); // 战利品回路清场: 飞行件/HUD 槽位/会话状态(C1-T1)
+    focusSettle.clear(); // 结算自动续程收口(C1-T3)
     abortDevilRun(); // 魔鬼特训静默终止(不弹结算屏, 见函数注释)
     if (focusCtrl) {
       focusCtrl.stop(); focusCtrl = null;
     }
-    clearTimeout(focusAutoTimer);
     SpeechKit.cancel();
     if (focusRoot) focusRoot.style.display = 'none';
   },

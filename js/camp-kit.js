@@ -5,11 +5,13 @@
    一句话职责: focus/math 两训练营模式壳机器的收编地 — 已收: T1 战利品
    回路五件套(时长 ticker/授予入包/战利品飞行/落袋槽/结算回顾, 矿袋会话
    状态自持实例) + T2 图章仪式四件套(日历条/授予仪式块/三选一 picker/
-   烟花); 家族差异(预算访问器 · f-/m- DOM 前缀 · 缺省飞行起点 · 满包
-   回调 · 章白名单/章名表/缺省章 · 日期键与计数派生 · 奖励线→文案 · 存档
-   与根容器访问器)全部经工厂入参注入, 掷骰政策(段位变率/族池)与图章
-   数值表留在各自 levels 不进本 kit; 家族观感分叉(focus 魔鬼角标/村长
-   喝彩图 ↔ math 无)经 badge/awardIcon 缝注入。
+   烟花) + T3 家长门/迷你折线/CSV 下载仪式/结算星显+自动续程; 家族差异
+   (预算访问器 · f-/m- DOM 前缀 · 缺省飞行起点 · 满包回调 · 章白名单/
+   章名表/缺省章 · 日期键与计数派生 · 奖励线→文案 · 存档与根容器访问器 ·
+   折线数值域与空态 · 自动续程时长)全部经工厂入参注入, 掷骰政策(段位
+   变率/族池)、图章与关卡数值表、家长面板数据聚合与布局(家族面)留在
+   各自 levels/modes 不进本 kit; 家族观感分叉(focus 魔鬼角标/村长喝彩图
+   ↔ math 无)经 badge/awardIcon 缝注入。
    interface: mkCampTicker({budget})→{start(),stop()} ·
      mkLootHud({prefix, bag, hud, defaultOrigin, onFull})→{begin() ·
      grantIntoBag(ids) · noteTap(x,y) · fly(id,from?) · addSlot(id) ·
@@ -17,19 +19,25 @@
      mkStampRites({prefix, kinds, kindNames, kindDefault, daily, dayKey,
      count, rewardFor, rewardText, save, root, badge?, awardIcon?})→
      {kindOf(save) · calendarHtml(save) · awardHtml(lines,save) ·
-     wirePicker(save) · firework()}
+     wirePicker(save) · firework()} ·
+     mkParentGate({prefix, scope, screen, onPass, onFail})→{open()} ·
+     sparkSvg(series,{cls,max,noData}) · downloadCsv(filename,rows) ·
+     mkSettleBits({prefix, autoMs})→{starSpans(stars) · popStars(stars) ·
+     armAuto(fn,ms?) · clear()}
    依赖(均经全局名, 调用期解析): CampCore(js/camp-core.js — grantLoot
-     授予基座) · sfx(js/audio.js)与 ITEMS(js/items-core.js)/iconOf
-     (js/icons.js)(落袋音与像素图标, icons 在模式文件之后加载, 调用期
-     才解析) · stampIcon(js/focus-icons.js, 章图案 big/gold/家族自选) ·
+     授予基座) · RandCore(js/rand-core.js — shuffle 家长门干扰项洗牌) ·
+     sfx(js/audio.js)与 ITEMS(js/items-core.js)/iconOf(js/icons.js)
+     (落袋音与像素图标, icons 在模式文件之后加载, 调用期才解析) ·
+     stampIcon(js/focus-icons.js, 章图案 big/gold/家族自选) ·
      SpeechKit(js/speech.js, 三选一选中读章名) · Backpack 实例与满包
-     toast 回调经入参注入(ADR 0002: 背包只经壳, 入包即 save); DOM 全惰性
-     (方法调用时才取), Node 测试可安全加载; 加载序: camp-core 之后 ·
-     两训练营模式文件之前
+     toast 回调经入参注入(ADR 0002: 背包只经壳, 入包即 save) ·
+     document/URL/Blob(DOM 惰性, 方法调用时才取), Node 测试可安全加载;
+     加载序: camp-core/rand-core 之后 · 两训练营模式文件之前
    可测性: THREE/DOM 惰性创建, Node 测试可安全加载; ticker 钳制与
-     授予/节流账目、图章 kindOf/仪式块两分支与角标缝有单测
-     (test/camp-kit.test.js vm 桩直测), 其余 DOM 观感件不直测(仓库惯例),
-     行为面由 boot 冒烟 + math-paradigms 流程断言兜底
+     授予/节流账目、图章 kindOf/仪式块两分支与角标缝、家长门题面/接线、
+     折线数值域、星显与自动续程时长有单测(test/camp-kit.test.js vm 桩
+     直测), 其余 DOM 观感件不直测(仓库惯例), 行为面由 boot 冒烟 +
+     math-paradigms 流程断言兜底
    ============================================================ */
 
 /* ---------- 训练时长 ticker(focus/math 镜像复制体收编): 每秒 accrue 实际毫秒 ----------
@@ -315,5 +323,109 @@ function mkStampRites(opts) {
   return {kindOf, calendarHtml, awardHtml, wirePicker, firework};
 }
 
-const CampKit = {mkCampTicker, mkLootHud, mkStampRites};
+/* ---------- 家长门(focus/math 镜像复制体收编, C1-T3): 算术题门一实例一家族 ----------
+   防幼童误入的轻量门: 两随机数 ∈[5,9] 的加法, 干扰项 ans+1..3 与
+   ans-1..3(下限钳 2, 与正解恒不撞), RandCore.shuffle 洗牌(替换原
+   .sort(random-0.5) 手写洗牌 — Fisher-Yates 单件实现且不偏分布);
+   parseInt 比对: 答对 onPass(各自家长面板), 答错 onFail(各自今日页,
+   不重试不提示 — 零羞辱静默回落); 渲染经 screen 缝注入(家族屏函数:
+   换屏清自动续程/带返回条), 按钮查询范围经 scope 注入(#focusRoot/
+   #mathRoot, 防跨模式误配); 面板本体(数据聚合与布局)是家族面, 留 modes */
+function mkParentGate(cfg) {
+  const o = cfg || {};
+  const pfx = o.prefix || 'f';
+  function open() {
+    const a = 5 + Math.floor(Math.random() * 5); const b = 5 + Math.floor(Math.random() * 5);
+    const ans = a + b;
+    const opts = RandCore.shuffle(Math.random, [ans,
+      ans + 1 + Math.floor(Math.random() * 3),
+      Math.max(2, ans - 1 - Math.floor(Math.random() * 3))]);
+    const buttons = opts.map((x) => '<button class="' + pfx + '-btn" data-a="' + x + '">' + x + '</button>').join('');
+    o.screen(`
+    <div class="${pfx}-screen">
+      <h1>家长入口</h1>
+      <p class="${pfx}-sub">请回答：${a} + ${b} = ?</p>
+      <div class="${pfx}-gate-row">${buttons}</div>
+    </div>`);
+    document.querySelectorAll((o.scope || '') + ' .' + pfx + '-gate-row button').forEach((btn) => {
+      btn.onclick = () => {
+        parseInt(btn.dataset.a, 10) === ans ? o.onPass() : o.onFail();
+      };
+    });
+  }
+  return {open};
+}
+
+/* ---------- 迷你折线(家长面板 spark, C1-T3): SVG polyline 纯 html 构造件 ----------
+   W120×H36/stroke #7cfc00/2px 两侧现状同参; 数值域与空态经 cfg 注入保真:
+   max=100(focus 喂 save.history 尾 20 条, acc∈0–100)或 1(math 喂
+   mathPanelTrend 序列, acc∈0..1); noData 为 <2 点空态(focus「数据不足」
+   带 f-nodata 样式 / math「—」); cls 为 svg 类名(f-spark/m-spark) */
+function sparkSvg(series, cfg) {
+  const o = cfg || {};
+  const list = series || [];
+  if (list.length < 2) return o.noData !== undefined ? o.noData : '—';
+  const W = 120; const H = 36;
+  const max = o.max !== undefined ? o.max : 1;
+  const pts = list.map((x, k) => (k * (W / (list.length - 1))).toFixed(1) + ',' +
+      (H - 2 - (H - 6) * x.acc / max).toFixed(1)).join(' ');
+  return `<svg width="${W}" height="${H}" class="${o.cls || 'f-spark'}">` +
+      `<polyline points="${pts}" fill="none" stroke="#7cfc00" stroke-width="2"/></svg>`;
+}
+
+/* ---------- CSV 下载仪式(家长面板导出, C1-T3): BOM + Blob + a.click + 5s revoke ----------
+   '\uFEFF' 前置防 Excel 中文乱码; 行构造不在此件(focus 模式层内联拼行 /
+   math 走库层 mathPanelCsv — 数据聚合是家族面) */
+function downloadCsv(filename, rows) {
+  const csv = '\uFEFF' + rows.map((r) => r.join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([csv], {type: 'text/csv'}));
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+
+/* ---------- 结算件(星显+自动续程, C1-T3): 一实例一家族 ----------
+   starSpans: 三星 span 行(⭐ + on 类 + data-n, 结算屏模板注入);
+   popStars: 350ms*n 逐星 pop + sfx('pick')(星容器 #{p}Stars, 已切屏
+   查不到即静默); armAuto/clear: 结算屏自动续程计时 — 时长经 autoMs
+   注入保真两侧现状(focus 4000 / math 4500 — math 结算屏 TTS 更长是
+   刻意), armAuto 可带 ms 覆盖(focus 里程碑串播复用同一轨道, 4500ms);
+   到点是否续程的自检(继续按钮是否在场)是调用方政策, 留在回调里;
+   clear 供换屏收口(家族 screen 函数)与模式 cleanup */
+function mkSettleBits(cfg) {
+  const o = cfg || {};
+  const pfx = o.prefix || 'f';
+  let timer = 0;
+  function starSpans(stars) {
+    return [1, 2, 3].map((n) =>
+      '<span class="st ' + (n <= stars ? 'on' : '') + '" data-n="' + n + '">⭐</span>').join('');
+  }
+  function popStars(stars) {
+    [1, 2, 3].forEach((n) => {
+      if (n <= stars) {
+        setTimeout(() => {
+          const el = document.querySelector('#' + pfx + 'Stars .st[data-n="' + n + '"]');
+          if (el) {
+            el.classList.add('pop');
+            sfx('pick');
+          }
+        }, 350 * n);
+      }
+    });
+  }
+  function armAuto(fn, ms) {
+    clear();
+    timer = setTimeout(fn, ms !== undefined ? ms : o.autoMs);
+  }
+  function clear() {
+    if (timer) {
+      clearTimeout(timer);
+      timer = 0;
+    }
+  }
+  return {starSpans, popStars, armAuto, clear};
+}
+
+const CampKit = {mkCampTicker, mkLootHud, mkStampRites, mkParentGate, sparkSvg, downloadCsv, mkSettleBits};
 if (typeof module !== 'undefined' && module.exports) module.exports = CampKit;

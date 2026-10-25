@@ -8,11 +8,15 @@
    满包节流 onFull 每关至多一次 + 非关卡会话防御)与 recapHtml 前缀契约;
    C1-T2 mkStampRites(kindOf 损坏回落家族缺省章 · awardHtml 喝彩图缝两
    分支与 picker 条件渲染 · calendarHtml 本月网格/今日高亮/badge 角标缝
-   与金章阈值);
-   DOM 观感件(fly/addSlot/runRecap/wirePicker/firework)不直测(仓库惯例),
+   与金章阈值); C1-T3 mkParentGate(题面两数∈[5,9]/三键含正解与 ±1..3
+   干扰/答对答错接线) · sparkSvg(数值域 max=100↔1 与空态) · mkSettleBits
+   (三星 spans 行/armAuto 时长参数化与重挂先清);
+   DOM 观感件(fly/addSlot/runRecap/wirePicker/firework/popStars 落点/
+   downloadCsv)不直测(仓库惯例),
    行为面由 boot 冒烟 + math-paradigms 流程断言兜底。
-   加载器: vm context 执行 camp-core.js + camp-kit.js, 时钟(可拨今天的
-   Date 桩)/定时器/入包/章图标以记录桩注入(combat-kit.test.js 同款分层口径) */
+   加载器: vm context 执行 rand-core.js + camp-core.js + camp-kit.js,
+   时钟(可拨今天的 Date 桩)/定时器/入包/章图标/按钮查询以记录桩注入
+   (combat-kit.test.js 同款分层口径) */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -20,7 +24,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 function loadCampKit() {
-  const log = {accrued: [], flushed: 0, cleared: 0};
+  const log = {accrued: [], flushed: 0, cleared: 0, tocleared: 0};
   let nowMs = 1000000;
   /* 可拨"今天"的 Date 桩: 无参构造落到受控 nowMs(calendarHtml 的
      new Date()/new Date(y,m,d) 与 ticker 的 Date.now() 同源可控) */
@@ -33,11 +37,24 @@ function loadCampKit() {
   let tickCb = null;
   let tickMs = 0;
   let addOverflow = 0; /* >0 时 add 返回余量(满包拒收), 0 = 全收 */
+  const timeouts = []; /* setTimeout 桩队列(自动续程/逐星 pop 的到点驱动) */
+  let qsaImpl = () => []; /* 家长门按钮查询桩(测试里从渲染 html 捞按钮面) */
   const sandbox = {
     console: {warn() {}, log() {}, error() {}},
     Math, JSON, Object, Array, Set, Number, String,
     Date: FixedNowDate,
     stampIcon: (k) => 'data:stamp:' + k,
+    setTimeout(fn, ms) {
+      timeouts.push({fn, ms});
+      return timeouts.length;
+    },
+    clearTimeout() {
+      log.tocleared++;
+    },
+    document: {
+      querySelectorAll: (sel) => qsaImpl(sel),
+      querySelector: () => null,
+    },
     setInterval(fn, ms) {
       tickCb = fn;
       tickMs = ms;
@@ -52,12 +69,12 @@ function loadCampKit() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['camp-core.js', 'camp-kit.js']) {
+  for (const f of ['rand-core.js', 'camp-core.js', 'camp-kit.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext('globalThis.__ck = CampKit;', ctx);
   return {
-    ck: sandbox.__ck, log,
+    ck: sandbox.__ck, log, timeouts,
     tick: () => tickCb && tickCb(),
     tickMs: () => tickMs,
     armed: () => !!tickCb,
@@ -69,6 +86,9 @@ function loadCampKit() {
     },
     setOverflow: (v) => {
       addOverflow = v;
+    },
+    setQSA: (fn) => {
+      qsaImpl = fn;
     },
   };
 }
@@ -200,4 +220,70 @@ test('mkStampRites.calendarHtml: 本月网格与今日高亮; 魔鬼角标经 ba
   assert.ok(!html.includes('f-stamp-gold'), '未达 30 章无金章');
   const plain = mk().calendarHtml({stamps}); /* math 侧缺省无 badge */
   assert.ok(!plain.includes('f-stamp-devil'), '缺省零角标(math 现状)');
+});
+
+test('mkSettleBits: 三星 spans 行; armAuto 时长参数化(缺省 autoMs/逐次覆盖) + 重挂先清', () => {
+  const d = loadCampKit();
+  const s = d.ck.mkSettleBits({prefix: 'f', autoMs: 4000});
+  assert.strictEqual(s.starSpans(2),
+      '<span class="st on" data-n="1">⭐</span><span class="st on" data-n="2">⭐</span>' +
+      '<span class="st " data-n="3">⭐</span>', 'on 类只到已得星');
+  let fired = 0;
+  s.armAuto(() => fired++);
+  assert.strictEqual(d.timeouts[0].ms, 4000, '缺省 autoMs(focus 家族现状)');
+  s.armAuto(() => fired++, 4500); /* focus 里程碑串播复用同一轨道(现状 4500) */
+  assert.strictEqual(d.timeouts[1].ms, 4500, 'ms 逐次覆盖');
+  assert.strictEqual(d.log.tocleared, 1, '重挂先清旧轨道');
+  d.timeouts[1].fn();
+  assert.strictEqual(fired, 1, '到点触发回调(按钮在场自检在回调侧, 不在件内)');
+  s.clear();
+  assert.strictEqual(d.log.tocleared, 2, 'clear 收口');
+});
+
+test('sparkSvg: 数值域参数化(focus acc∈0–100 ÷ max=100 ↔ math acc∈0..1 ÷ max=1)与空态文案', () => {
+  const d = loadCampKit();
+  const noData = '<span class="f-nodata">数据不足</span>';
+  const fh = d.ck.sparkSvg([{acc: 50}, {acc: 100}], {cls: 'f-spark', max: 100, noData});
+  const svgOk = fh.includes('class="f-spark"') && fh.includes('stroke="#7cfc00"') &&
+      fh.includes('stroke-width="2"') && fh.includes('width="120"') && fh.includes('height="36"');
+  assert.ok(svgOk, 'W120×H36/#7cfc00/2px 两侧现状同参');
+  const mh = d.ck.sparkSvg([{acc: 0.5}, {acc: 1}], {cls: 'm-spark', max: 1, noData: '—'});
+  assert.ok(mh.includes('class="m-spark"'));
+  assert.ok(fh.includes('19.0') && mh.includes('19.0') && fh.includes('4.0') && mh.includes('4.0'),
+      '换算恒等: focus 50/100 与 math 0.5/1 落同一点位');
+  assert.strictEqual(d.ck.sparkSvg([{acc: 1}], {max: 1, noData: '—'}), '—', '<2 点空态');
+  assert.strictEqual(d.ck.sparkSvg([], {max: 100, noData}), noData);
+});
+
+test('mkParentGate: 题面两数∈[5,9] 加法, 三键含正解与 ±1..3 干扰; 答对 onPass/答错 onFail', () => {
+  const d = loadCampKit();
+  let html = '';
+  let passed = 0;
+  let failed = 0;
+  let btns = [];
+  /* screen 缝先渲染, 按钮面从 html 捞出(data-a 值) */
+  d.setQSA(() => {
+    btns = [...html.matchAll(/data-a="(\d+)"/g)].map((m) => ({dataset: {a: m[1]}}));
+    return btns;
+  });
+  const gate = d.ck.mkParentGate({prefix: 'f', scope: '#focusRoot',
+    screen: (h) => {
+      html = h;
+    }, onPass: () => passed++, onFail: () => failed++});
+  gate.open();
+  const m = /请回答：(\d+) \+ (\d+) = \?/.exec(html);
+  assert.ok(m, '题面渲染');
+  const a = +m[1];
+  const b = +m[2];
+  assert.ok(a >= 5 && a <= 9 && b >= 5 && b <= 9, '两随机数 ∈[5,9]');
+  const ans = a + b;
+  const vals = btns.map((x) => +x.dataset.a);
+  assert.strictEqual(vals.length, 3, '三键');
+  assert.ok(vals.includes(ans), '含正解');
+  assert.ok(vals.filter((v) => v !== ans).every((v) => Math.abs(v - ans) >= 1 && Math.abs(v - ans) <= 3 && v >= 2),
+      '干扰项 ans±1..3 且下限钳 2(与正解恒不撞)');
+  assert.ok(html.includes('f-gate-row') && html.includes('家长入口'), '前缀拼门行类名');
+  for (const btn of btns) btn.onclick(); /* 点遍三键: 正解恰好 onPass 一次 */
+  assert.strictEqual(passed, 1);
+  assert.strictEqual(failed, 2);
 });
