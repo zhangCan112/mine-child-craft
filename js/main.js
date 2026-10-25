@@ -247,6 +247,13 @@ function loop(now) {
       if (MODES.cur && MODES.cur.onVoidFall) MODES.cur.onVoidFall();
     }
     if (MODES.cur && MODES.cur.update) MODES.cur.update(dt);
+    /* 昼夜推进(引擎机制, 何时走表=模式政策, 设计稿 mc-daylight-torch §2.2):
+       暂停(菜单/未锁定)不推进; dayTime/dayCycleOn 是 world.js 顶层绑定
+       (跨文件可写), 场景驱动收在 world.applyDaylight */
+    if (dayCycleOn) {
+      dayTime = Daylight.advance(dayTime, dt);
+      applyDaylight();
+    }
     Fx.update(dt);
     /* 儿童时限: 游玩模式实际游玩时累计入每日预算 */
     if (Budgets && PLAY_LIMIT_MODES.indexOf(curModeId()) >= 0) {
