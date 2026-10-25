@@ -68,7 +68,11 @@ const ArenaCore = (() => {
      个人击杀累积信用(劣势方×加成), 达标晋升:
      2级精英=属性暴涨+现有技能强化  3级王者=解锁新技能
      阈值随敌方初始数量缩放(25%/60%), 封顶 6/14 杀 */
-  const TIER_MULT = {2: {hp: 1.6, dmg: 1.4, spd: 1.1}, 3: {hp: 2.5, dmg: 2.0, spd: 1.2}};
+  const TIER_MULT = {1: {hp: 1, dmg: 1, spd: 1}, 2: {hp: 1.6, dmg: 1.4, spd: 1.1}, 3: {hp: 2.5, dmg: 2.0, spd: 1.2}};
+  /* 第 1 档 = 基础档(无加成): 2026-10-25 补 — e160d46 起 tickRaid 协同重数在
+     level=1 到拍时 TIER_MULT[1] 为 undefined 必 TypeError(raidT 初值
+     Math.random()*0.4, 开战 0.4s 内必炸), 补齐后 raidTick 的 dmgMult
+     晋升系数底座与 dmgMult 初值 1 对齐; levelUp 只在 ++ 后读 ≥2 档不受影响 */
   const TIER_NAME = {2: '精英', 3: '王者'};
   /* 克制关系(索敌偏好: 优先进攻自己克制的对手, 回避克制自己的)。龙另行特判 */
   const COUNTER = {
@@ -291,8 +295,8 @@ const ArenaCore = (() => {
   /* 灾厄帮·袭击协同(家传): 每 0.4s 重数 10 格内同族同阵营, 每多一只 +6% 伤害
      (至多 4 只)。snap={raidT, team, level, x, z}, roster=候选快照(含 mfam,
      壳每帧收集共用)。未到拍返回 {raidT}; 到拍返回 {raidT: 0.4, dmgMult} —
-     晋升系数 × 协同加成(levelUp 直写下一拍自愈, 语义一致)。已知缺陷(照搬
-     不修, 修复归后续票): TIER_MULT 只有 2/3 档, level=1 到拍会 TypeError */
+     晋升系数 × 协同加成(levelUp 直写下一拍自愈, 语义一致; 第 1 档基础
+     系数 1 已补齐, level=1 到拍不再 TypeError) */
   function raidTick(snap, roster, dt) {
     const t = snap.raidT - dt;
     if (t > 0) return {raidT: t};

@@ -84,9 +84,10 @@ test('地形别名: ID_* 恒等 config 的 BLOCKS id(免魔法数字的口径没
   }
 });
 
-test('晋升档位: TIER_MULT 恰有 2/3 两档且逐档增强, TIER_NAME 键同构', () => {
-  assert.deepStrictEqual(Object.keys(ArenaCore.TIER_MULT).map(Number).sort(), [2, 3]);
+test('晋升档位: TIER_MULT 恰有 1/2/3 三档且逐档增强(1=基础档无加成), TIER_NAME 键为 2/3', () => {
+  assert.deepStrictEqual(Object.keys(ArenaCore.TIER_MULT).map(Number).sort(), [1, 2, 3]);
   assert.deepStrictEqual(Object.keys(ArenaCore.TIER_NAME).map(Number).sort(), [2, 3]);
+  assert.deepStrictEqual(ArenaCore.TIER_MULT[1], {hp: 1, dmg: 1, spd: 1}, '基础档系数全 1');
   for (const f of ['hp', 'dmg', 'spd']) {
     assert.ok(ArenaCore.TIER_MULT[3][f] > ArenaCore.TIER_MULT[2][f], f + ' 王者档强于精英档');
     assert.ok(ArenaCore.TIER_MULT[2][f] > 1, f + ' 精英档是加成不是削弱');
@@ -395,9 +396,15 @@ test('袭击协同: 未到拍只递减; 到拍按 10 格内同族同阵营计数
       pack, 0.25).dmgMult - 1.4*1.24) < 1e-9, '协同封顶 +24%(min(4, n-1))');
 });
 
-test('袭击协同·已知缺陷登记: level=1 到拍时 TIER_MULT 缺 1 档会 TypeError(照搬现状, 修复归后续票)', () => {
-  assert.throws(() => ArenaCore.raidTick({raidT: 0, team: 'A', level: 1, x: 0, z: 0}, [], 0.25),
-      TypeError, 'TIER_MULT[1] 为 undefined — e160d46 起的存量缺陷, 机械迁移不夹带修复');
+test('袭击协同·缺陷修复: level=1 到拍不再 TypeError, 基础档 dmgMult=1×协同加成', () => {
+  // e160d46 起 TIER_MULT 缺 1 档, 灾厄帮 level=1 到拍必炸(raidT 初值 0~0.4s);
+  // 2026-10-25 补基础档 {1,1,1} 后: 独狼 1.0, 双人组 1.06 — 与 dmgMult 初值对齐
+  const solo = [{mfam: 'illager', team: 'A', dead: false, gone: false, x: 0, z: 0}];
+  assert.ok(Math.abs(ArenaCore.raidTick({raidT: 0, team: 'A', level: 1, x: 0, z: 0},
+      solo, 0.25).dmgMult - 1.0) < 1e-9, '独狼基础档无加成');
+  const duo = solo.concat([{mfam: 'illager', team: 'A', dead: false, gone: false, x: 5, z: 0}]);
+  assert.ok(Math.abs(ArenaCore.raidTick({raidT: 0, team: 'A', level: 1, x: 0, z: 0},
+      duo, 0.25).dmgMult - 1.06) < 1e-9, '双人组 +6%');
 });
 
 test('分裂决策: 开战且未超限才出延迟队列条目; 小只/未开战/存活超 600 停(防爆仓)', () => {
