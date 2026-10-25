@@ -209,11 +209,12 @@ function loadTrackHosts() {
 }
 
 /* 假世界 runner 注入(驱动器纪律测试用): 记录启停/事件序, 首计时器即结算 —
-   注册表对象可变(const 绑定不改), 注入只发生在测试沙箱内 */
+   注册表对象可变(const 绑定不改), 注入只发生在测试沙箱内;
+   T5-b 形状: {kind:'world', run(section, areaEl, h)} 统一注册表口径 */
 function injectFakeRunner(d, key, stats) {
   vm.runInContext(`
     globalThis.__fake = globalThis.__fake || {runs: [], stops: [], mice: []};
-    MATH_WORLD_RUNNERS[${JSON.stringify(key)}] = function (section, h) {
+    MATH_TRACK_RUNNERS[${JSON.stringify(key)}] = {kind: 'world', run(section, areaEl, h) {
       globalThis.__fake.runs.push({family: section.family, variant: section.variant,
         seed: section.seed, kind: section.kind});
       if (h.progress) h.progress(1, 1);
@@ -231,7 +232,7 @@ function injectFakeRunner(d, key, stats) {
           globalThis.__fake.mice.push(b);
         },
       };
-    };
+    }};
   `, d.sandbox);
   return d.sandbox.__fake;
 }
@@ -384,11 +385,11 @@ test('驱动器 runBoss: 小节顺序接力 + 聚合按单关口径 + 整链中�
 function injectFakeRunner2(d, key, stats) {
   vm.runInContext(`
     globalThis.__fake2 = globalThis.__fake2 || {runs: []};
-    MATH_WORLD_RUNNERS[${JSON.stringify(key)}] = function (section, h) {
+    MATH_TRACK_RUNNERS[${JSON.stringify(key)}] = {kind: 'world', run(section, areaEl, h) {
       globalThis.__fake2.runs.push(1);
       setTimeout(() => h.end(${JSON.stringify(stats)}), 0);
       return {stop() {}};
-    };
+    }};
   `, d.sandbox);
   return d.sandbox.__fake2;
 }
@@ -553,4 +554,50 @@ test('驱动器 runBoss(混链): 两屏流节夹一世界节实跑 — 每节 en
   assert.strictEqual(area.__clears(), 6, '清场计数: 屏流 next()×4 + stop×2, 世界节 0');
   assert.strictEqual(area.children.length, 0, '链尾 area 已清空(末节 stop 先于聚合 end)');
   assert.strictEqual(d.t.MathTrack.active(), false, '链尾无活动节');
+});
+
+/* ============ T5-b 统一注册表: 形状 / 世界适配层 / 查表 dispatch ============ */
+
+test('统一注册表 MATH_TRACK_RUNNERS: 29 键(16 屏流+13 世界), 世界适配层透传两参宿主签名', () => {
+  const d = loadTrackHosts();
+  const rt = d.t.MathTrack.runners;
+  assert.strictEqual(Object.keys(rt).length, 29, '统一注册表 29 键 = 全变体');
+  const kinds = {screen: 0, world: 0};
+  for (const k of Object.keys(rt)) {
+    const e = rt[k];
+    assert.ok(e && (e.kind === 'screen' || e.kind === 'world') && typeof e.run === 'function',
+        k + ' entry 形状 {kind, run}');
+    kinds[e.kind]++;
+  }
+  assert.deepStrictEqual(kinds, {screen: 16, world: 13}, 'kind 分布: 16 屏流 + 13 世界');
+  /* 屏流组合期接线: entry.run 即引擎出口本体(非包装) */
+  assert.strictEqual(rt['count/snapshot'].run, d.sandbox.runMathScreen,
+      '屏流 entry.run 即 runMathScreen(键集加载期自引擎表派生)');
+  /* 世界适配层契约: entry.run 统一三参 (section, areaEl, h), 世界宿主保持
+     两参 (section, h) 签名零改动 — areaEl 不得漏进 h; 宿主柄透传。
+     经宿主全局名打桩验证路由(适配层调用期解析) */
+  const hopSeen = [];
+  const origHop = d.sandbox.runHopWorld;
+  d.sandbox.runHopWorld = (section, h) => {
+    hopSeen.push({fam: section.family, hIsHandler: h && typeof h.end === 'function'});
+    return {stop() {}};
+  };
+  const handle = rt['hop/dice'].run({family: 'hop', variant: 'dice', tier: 1,
+    params: {trials: 1}, seed: 1}, null, {end() {}});
+  d.sandbox.runHopWorld = origHop;
+  assert.deepStrictEqual(hopSeen, [{fam: 'hop', hIsHandler: true}],
+      '宿主收到 (section, h) 两参, h 即 handler(不含 areaEl)');
+  assert.ok(handle && typeof handle.stop === 'function', '宿主控制柄透传');
+  assert.strictEqual(rt['mirror/reflect'].run, rt['plan/build'].run,
+      'mirror/plan 同宿主(buildWorld 适配, run 同身份)');
+  assert.notStrictEqual(rt['hop/dice'].run, rt['mirror/reflect'].run, 'hop 是另一宿主');
+  /* dispatch 纯查表(T5-b): 在册键返 kind, 未册键返 null */
+  assert.strictEqual(d.t.MathTrack.dispatch('count', 'snapshot'), 'screen');
+  assert.strictEqual(d.t.MathTrack.dispatch('hop', 'dice'), 'world');
+  assert.strictEqual(d.t.MathTrack.dispatch('???', '???'), null,
+      '未知键返 null(原「未知键归世界轨」语义随 T5-b 废除)');
+  assert.strictEqual(d.t.MathTrack.dispatch('count', '???'), null, '族内未知变体同样返 null');
+  /* 未册键 run 防御: 保持 null 契约(单一权威测试下不可达) */
+  assert.strictEqual(d.t.MathTrack.run({family: '???', variant: '???', tier: 1,
+    params: {trials: 1}, seed: 1}, null, {}), null, '未注册变体 run 返 null(防御)');
 });

@@ -1,15 +1,16 @@
 'use strict';
 /* 数学冒险岛屏流引擎单测 — node --test (零依赖)
    运行: node --test test/math-paradigms.test.js
-   覆盖: 分发判定(13 屏流变体在册, 世界轨/未知返 none) · 认知负荷红线
+   覆盖: 分发判定(16 屏流变体在册引擎表, 未知返 none) · 认知负荷红线
    (chunks/unitLen ≤4 · clueCount ≤3, 越界 console.warn+截断) · 假 doc 试次流
    (呈现-点选-settle-下一试次, 独立 DOM 神谕: 从 data-* 属性与 img 计数反推
    正确答案再点击) · 逐试次事件缝 onTrial({ok, streak}) · 完成回调 st
    (trials/correct/acc/maxStreakErr) · 语音挂钩(题目话术/表扬/安慰经全局
    mathPraiseLine/mathComfortLine) · 种子确定性(同 seed 同输出, 异 seed 异题)
-   · stop() 中止 · 驱动器分发与 boss 规划(MathTrack.dispatch ·
-   MathTrackCore.bossPlan/aggStats — js/math-track.js / js/math-track-core.js,
-   T4 迁入) · 模式层流程纯函数(mathFrontier / mathFamChallengeDone /
+   · stop() 中止 · 驱动器分发与 boss 规划(T5-b: MathTrack.dispatch 纯查表 ·
+   MathTrack.runners 统一注册表单一权威(16 屏流+13 世界, 与引擎表互锁) ·
+   MathTrackCore.bossPlan/aggStats — js/math-track.js / js/math-track-core.js) ·
+   模式层流程纯函数(mathFrontier / mathFamChallengeDone /
    mathSettleSave 落账)
    · G1 常驻钟面纯函数(mClockAngles 时/分针角度 · mClockSay 报时口径
    整时/半时/几时几分 · mClockFace 角度单一出处守卫)
@@ -287,7 +288,7 @@ function allMathVariantKeys(mp) {
   return keys;
 }
 
-test('变体清单单一权威: dispatch engine 键集 ∪ MATH_WORLD_RUNNERS 键集 == 全变体, 互斥', () => {
+test('变体清单单一权威: MathTrack.runners 统一注册表 29 键(16 屏流+13 世界), screen 键集与引擎表互锁', () => {
   const {mp} = loadMathParadigms();
   const {mm} = loadMathMode();
   const all = new Set(allMathVariantKeys(mp));
@@ -300,33 +301,35 @@ test('变体清单单一权威: dispatch engine 键集 ∪ MATH_WORLD_RUNNERS �
     assert.strictEqual(mp.MATH_VARIANTS[f].filter((v) => v.kind === 'challenge').length,
         chalWanted[f], f + ' 恰 ' + chalWanted[f] + ' 个挑战变体');
   }
-  /* engine 键集从 dispatch 派生(不抄清单); runner 键集来自注册表 */
+  /* T5-b 统一注册表: 全覆盖、无幽灵、形状 {kind, run}, kind 分布 16+13 */
+  const rt = mm.MathTrack.runners;
+  const regKeys = new Set(Object.keys(rt));
+  let screenN = 0;
+  let worldN = 0;
+  for (const k of regKeys) {
+    const e = rt[k];
+    assert.ok(e && (e.kind === 'screen' || e.kind === 'world') && typeof e.run === 'function',
+        k + ' entry 形状 {kind, run}');
+    assert.ok(all.has(k), k + ' 不在变体表内(幽灵 entry)');
+    if (e.kind === 'screen') screenN++;
+    else worldN++;
+  }
+  assert.deepStrictEqual([screenN, worldN], [16, 13], 'kind 分布: 16 屏流 + 13 世界');
+  for (const k of all) {
+    assert.ok(regKeys.has(k), k + ' 不在注册表 — 变体清单漂移=运行时软锁');
+  }
+  /* 互锁: 注册表 screen 键集 == mathScreenDispatch engine 键集(键集加载期
+     自引擎表派生, 两表漂移在此拦截) */
   const engine = new Set(allMathVariantKeys(mp).filter((k) => {
     const [f, v] = k.split('/');
     return mp.mathScreenDispatch(f, v).kind === 'engine';
   }));
-  const world = new Set(Object.keys(mm.MathTrack.worldRunners));
-  for (const k of engine) {
-    assert.ok(!world.has(k), k + ' 不得同时在册屏流与世界轨(互斥)');
-  }
-  for (const k of all) {
-    assert.ok(engine.has(k) || world.has(k),
-        k + ' 两边都不在册 — 变体清单漂移=运行时软锁');
-  }
-  for (const k of world) {
-    assert.ok(all.has(k), k + ' 不在变体表内(幽灵 runner)');
-  }
-  /* 未知键防御: dispatch 返 none */
+  const regScreen = new Set([...regKeys].filter((k) => rt[k].kind === 'screen'));
+  assert.deepStrictEqual([...regScreen].sort(), [...engine].sort(),
+      'screen 键集与引擎表互锁(派生关系不漂移)');
+  /* 未知键防御: 引擎表 dispatch 返 none(纯函数口径不变) */
   assert.strictEqual(mp.mathScreenDispatch('???', '???').kind, 'none');
   assert.strictEqual(mp.mathScreenDispatch('count', '???').kind, 'none');
-});
-
-test('runMathScreen: 世界轨变体返回 null(模式层据此走占位屏)', () => {
-  const {mp} = loadMathParadigms();
-  const ended = [];
-  const ctrl = mp.runMathScreen(sec(mp, 'mirror', 'reflect', 5), mkFakeEl([], []), {end: (s) => ended.push(s)});
-  assert.strictEqual(ctrl, null);
-  assert.strictEqual(ended.length, 0);
 });
 
 /* ============ 认知负荷红线 ============ */
@@ -1399,39 +1402,46 @@ test('clueCount 越界(9): guard warn + 渲染线索卡 ≤3', () => {
 
 /* ============ 模式层流程纯函数(modes/math.js) ============ */
 
-test('MathTrack.dispatch(驱动器分发缝): 派生自 mathScreenDispatch — engine ⟺ screen, 全变体恰居其一', () => {
+test('MathTrack.dispatch(T5-b 纯查表): 在册键返注册表 kind, 未知键返 null', () => {
   const {mp} = loadMathParadigms();
   const {mm} = loadMathMode();
+  const rt = mm.MathTrack.runners;
   for (const k of allMathVariantKeys(mp)) {
     const [f, v] = k.split('/');
-    assert.strictEqual(mm.MathTrack.dispatch(f, v),
-        mp.mathScreenDispatch(f, v).kind === 'engine' ? 'screen' : 'world', k);
+    assert.strictEqual(mm.MathTrack.dispatch(f, v), rt[k].kind, k);
   }
-  assert.strictEqual(mm.MathTrack.dispatch('???', '???'), 'world', '未知键防御性归世界轨');
+  assert.strictEqual(mm.MathTrack.dispatch('???', '???'), null,
+      '未知键返 null(原「防御性归世界轨」语义随 T5-b 废除)');
+  assert.strictEqual(mm.MathTrack.dispatch('count', '???'), null, '族内未知变体同样返 null');
 });
 
-test('MathTrack.worldRunners(T5+T6 接管): mirror/plan 全变体在册(派生), hop 三变体在册, 未知键不在册', () => {
+test('MathTrack.runners(T5+T6 接管): mirror/plan 全变体在册世界, hop 三变体在册世界/站位留屏流', () => {
   const {mp} = loadMathParadigms();
   const {mm} = loadMathMode();
-  const wr = (f, v) => mm.MathTrack.worldRunners[f + '/' + v] || null;
+  const wr = (f, v) => mm.MathTrack.runners[f + '/' + v] || null;
+  const isWorld = (f, v) => {
+    const e = wr(f, v);
+    return !!e && e.kind === 'world';
+  };
   for (const v of ['dice', 'jumps', 'gaps']) {
-    assert.strictEqual(typeof wr('hop', v), 'function', 'hop/' + v + ' 已接管(T5)');
+    assert.ok(isWorld('hop', v), 'hop/' + v + ' 已接管(T5)');
   }
-  assert.strictEqual(wr('hop', 'position'), null, '站位比大小留在屏流');
-  /* mirror/plan 全部变体在册(全变体世界族, 同族同宿主) — 变体清单从
+  assert.strictEqual(wr('hop', 'position').kind, 'screen', '站位比大小留在屏流(屏流入册 T5-b)');
+  /* mirror/plan 全部变体在册世界(全变体世界族, 同族同宿主适配) — 变体清单从
      MATH_VARIANTS 派生, 不抄字面量; hop 是半分族(position 留屏流)不入此列 */
   const worldFams = mp.MATH_FAMILIES.filter((f) =>
-    mp.MATH_VARIANTS[f].every((v) => wr(f, v.id)));
+    mp.MATH_VARIANTS[f].every((v) => isWorld(f, v.id)));
   assert.ok(worldFams.includes('mirror') && worldFams.includes('plan'), 'mirror/plan 已接管(T6)');
   assert.ok(!worldFams.includes('hop'), 'hop/position 留屏流, hop 非全变体世界族');
   for (const f of worldFams) {
-    const famRunner = wr(f, mp.MATH_VARIANTS[f][0].id);
+    const famRun = wr(f, mp.MATH_VARIANTS[f][0].id).run;
     for (const v of mp.MATH_VARIANTS[f]) {
-      assert.strictEqual(wr(f, v.id), famRunner, f + '/' + v.id + ' 已接管(同族同宿主)');
+      assert.strictEqual(wr(f, v.id).run, famRun, f + '/' + v.id + ' 同族同宿主(适配 run 同身份)');
     }
   }
-  assert.strictEqual(wr('mirror', 'reflect'), mm.runBuildWorld, 'mirror 宿主=runBuildWorld(T6)');
-  assert.strictEqual(wr('plan', 'build'), mm.runBuildWorld, 'plan 宿主=runBuildWorld(T6)');
+  assert.strictEqual(wr('mirror', 'reflect').run, wr('plan', 'build').run,
+      'mirror/plan 同宿主(buildWorld 适配)');
+  assert.notStrictEqual(wr('hop', 'dice').run, wr('mirror', 'reflect').run, 'hop 是另一宿主');
   assert.strictEqual(wr('???', '???'), null);
   assert.strictEqual(wr('mirror', '???'), null);
   assert.strictEqual(wr('plan', '???'), null);
@@ -1448,13 +1458,13 @@ test('接管完整性: hop 族全部关卡与 boss 的 hop 小节都有轨(屏�
     hopSeen++;
     if (hopLevel) {
       const ok = mm.MathTrack.dispatch(lv.family, lv.variant) === 'screen' ||
-          (mm.MathTrack.worldRunners[lv.family + '/' + lv.variant] || null) !== null;
+          (mm.MathTrack.runners[lv.family + '/' + lv.variant] || null) !== null;
       assert.ok(ok, '第 ' + (lv.i + 1) + ' 关 hop/' + lv.variant + ' 无轨');
     }
     for (const sec of lv.sections || []) {
       if (sec.family !== 'hop') continue;
       const secOk = mm.MathTrack.dispatch(sec.family, sec.variant) === 'screen' ||
-          (mm.MathTrack.worldRunners[sec.family + '/' + sec.variant] || null) !== null;
+          (mm.MathTrack.runners[sec.family + '/' + sec.variant] || null) !== null;
       assert.ok(secOk, '第 ' + (lv.i + 1) + ' 关 boss 小节 hop/' + sec.variant + ' 无轨');
     }
   }
@@ -1543,12 +1553,15 @@ test('MathTrackCore.bossPlan: sections 带轨道标注(真分发缝注入), 带 
 
 /* ============ G4 新变体的世界 runner 装配可测部分(make 派生, 无 DOM) ============ */
 
-test('G4 世界变体注册: mirror/bridge 与 plan/dualview 都派发 runBuildWorld(同族同宿主)', () => {
+test('G4 世界变体注册: mirror/bridge 与 plan/dualview 都在册 buildWorld 宿主(同族同宿主)', () => {
   const {mm} = loadMathMode();
-  assert.strictEqual(mm.MathTrack.worldRunners['mirror/bridge'], mm.runBuildWorld,
-      'mirror/bridge 已接管(世界轨放置形态)');
-  assert.strictEqual(mm.MathTrack.worldRunners['plan/dualview'], mm.runBuildWorld,
-      'plan/dualview 已接管(世界轨点选形态)');
+  const rt = mm.MathTrack.runners;
+  assert.strictEqual(rt['mirror/bridge'].kind, 'world', 'mirror/bridge 在册世界轨(放置形态)');
+  assert.strictEqual(rt['mirror/bridge'].run, rt['mirror/reflect'].run,
+      'mirror/bridge 走 buildWorld 适配(同 mirror 族宿主)');
+  assert.strictEqual(rt['plan/dualview'].kind, 'world', 'plan/dualview 在册世界轨(点选形态)');
+  assert.strictEqual(rt['plan/dualview'].run, rt['plan/build'].run,
+      'plan/dualview 走 buildWorld 适配(同 plan 族宿主)');
 });
 
 test('G4 plan/dualview make: 候选/视图按变体曲线注入(cands 2/4, views 1/2)', () => {
