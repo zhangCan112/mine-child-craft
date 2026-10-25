@@ -3,7 +3,7 @@
    像素图标工坊 — 手绘像素图标(16×16 字符画 → 64×64 dataURL)
    tankIcon: 主菜单坦克演习场卡的入口图标 — emoji 🚙 各平台渲染不可控
    (有的机器上像救护车), 换成与游戏内军绿/履带同配色的像素坦克。
-   itemIcon/iconOf (T8): ITEMS 全 54 键物品图标, 一期替换全部 emoji
+   itemIcon/iconOf (T8): ITEMS 全量键物品图标(F4 农场链入册后 67 键), 一期替换全部 emoji
    占位(设计稿 D13) — 掉落物 Sprite/快捷栏槽/配方书卡片共用 iconOf
    统一出口(有像素图返 dataURL, 未画返 emoji 文本, 未注册返空串)。
    怪物头像在怪物库(Mobs.face), 坦克型号图标在载具(Tank.icon),
@@ -479,6 +479,24 @@ const APPLE_ART = [ // 苹果: 红果 + 柄 + 叶
   '................',
   '................',
 ];
+const GOLD_APPLE_ART = [ // 金苹果(F3): 苹果同构换金板, 果面缀红高光(r, 二期设计稿 §3)
+  '................',
+  '.......st.......',
+  '.......st.EEE...',
+  '.....mmmmm......',
+  '....mlrmmmm.....',
+  '....mlmmmmmd....',
+  '...mmmrmmmmdd...',
+  '...mmmmmmmmdd...',
+  '...mmmmrmmmmmd..',
+  '...mmmmmmmmmmd..',
+  '....mmmrmmmdd...',
+  '....mmmmmmddd...',
+  '.....ddddd......',
+  '................',
+  '................',
+  '................',
+];
 const BREAD_ART = [ // 面包: 长圆条 + 斜切纹
   '................',
   '................',
@@ -731,6 +749,96 @@ const BOW_ART = [ // 弓: 左弧木弓臂 + 右侧竖弦
   '................',
   '................',
 ];
+const MEAT_ART = [ // 肉排(F4 农场链): 生熟牛/猪/羊共用形, 色板区分生(红粉)熟(焦褐)
+  '................',
+  '................',
+  '................',
+  '...llllllll.....',
+  '..lmmmmmmmmd....',
+  '..lmldmmmmmd....',
+  '..lmmmmmldmd....',
+  '..lmmdmmmmmd....',
+  '..lmmmmmmdmd....',
+  '..ldmmmmmmml....',
+  '...lddddddl.....',
+  '................',
+  '................',
+  '................',
+  '................',
+  '................',
+];
+const DRUMSTICK_ART = [ // 鸡腿(F4): 生熟鸡肉共用形(骨柄白色不换板)
+  '................',
+  '................',
+  '....llll........',
+  '...lmmmml.......',
+  '..lmmmmmml......',
+  '..lmmmmmml......',
+  '..ldmmmmml......',
+  '...ldmmml.......',
+  '....ldwl........',
+  '.....ww.........',
+  '.....ww.........',
+  '......ww........',
+  '......ww........',
+  '.......wb.......',
+  '................',
+  '................',
+];
+const LEATHER_ART = [ // 皮革(F4): 摊开的兽皮(四角圆润 + 皮纹暗斑)
+  '................',
+  '................',
+  '................',
+  '..lllllllllll...',
+  '.lmmmmmmmmmmml..',
+  '.lmmdmmmmmmdml..',
+  '.lmmmmmmmmmmml..',
+  '.lmmmmmldmmmml..',
+  '.lmmmmmmmmmmml..',
+  '.lmldmmmmmmdml..',
+  '.lmmmmmmmmmmml..',
+  '..llddllllddl...',
+  '................',
+  '................',
+  '................',
+  '................',
+];
+const FEATHER_ART = [ // 羽毛(F4): 斜 45° 羽片 + 根部羽柄
+  '................',
+  '..........lll...',
+  '.........lmdl...',
+  '........lmmml...',
+  '........lmmml...',
+  '.......lmmml....',
+  '......lmmml.....',
+  '.....lmmml......',
+  '....lmmml.......',
+  '...lmmdl........',
+  '...ldml.........',
+  '...lwl..........',
+  '..lww...........',
+  '..ww............',
+  '................',
+  '................',
+];
+const WOOL_ART = [ // 羊毛团(F4): 蓬松云团状(暗点勾边 + 亮斑起绒)
+  '................',
+  '................',
+  '.....llllll.....',
+  '...llmmmmmmll...',
+  '..lmmmmmdmmml...',
+  '..lmmdmmmmmml...',
+  '.lmmmmmmmmdmml..',
+  '.lmdmmmmmmmmml..',
+  '.lmmmmmdmmmml...',
+  '..lmmmmmmmmml...',
+  '..ldmmmdmmmml...',
+  '...lldmdllll....',
+  '................',
+  '................',
+  '................',
+  '................',
+];
 
 /* ------------------------------------------------------------
    ITEM_PIX 字符画数据表 — 键集与 ITEMS 完全一致(test 防错网断言),
@@ -768,6 +876,7 @@ const ITEM_PIX = {
   shears: {art: SHEARS_ART, map: {i: PIX_TIER.iron.main, I: PIX_TIER.iron.light, d: '#5c6169'}},
   /* 食物 */
   apple: {art: APPLE_ART, map: {m: '#d83a2e', l: '#f06a4f', d: '#a02418', s: '#5d3f21', t: '#7a5228', E: '#4a8f35'}},
+  golden_apple: {art: GOLD_APPLE_ART, map: {m: '#f0c53a', l: '#f8e08a', d: '#c79a22', r: '#d83a2e', s: '#5d3f21', t: '#7a5228', E: '#4a8f35'}}, // 金体与 gold_ingot 同板, 红高光取苹果主色(F3)
   bread: {art: BREAD_ART, map: {m: '#c68e4e', l: '#e0b072', d: '#9c6a34'}},
   /* 放置型方块物品 */
   dirt: {art: DIRT_ART, map: {m: '#866043', l: '#a07b56', d: '#6b4a33'}},
@@ -785,6 +894,18 @@ const ITEM_PIX = {
   tnt: {art: TNT_ART, map: {r: '#d0342c', R: '#f05545', w: '#ececec', k: '#1a1a1a', d: '#a02018'}},
   /* 二期占位 */
   bow_item: {art: BOW_ART, map: {W: PIX_HANDLE.light, w: PIX_HANDLE.dark, s: '#e0ded4'}},
+  /* 农场链(F4, 二期设计稿 §4.6): 生熟肉同画异色板 · 皮革/羽毛/羊毛团 */
+  raw_beef: {art: MEAT_ART, map: {m: '#c23b2e', l: '#e06a52', d: '#8a2418'}},
+  cooked_beef: {art: MEAT_ART, map: {m: '#a8643c', l: '#c98c60', d: '#7a4526'}},
+  raw_porkchop: {art: MEAT_ART, map: {m: '#e8938e', l: '#f5b8b0', d: '#c46a64'}},
+  cooked_porkchop: {art: MEAT_ART, map: {m: '#c98a5a', l: '#e0ac7c', d: '#a06638'}},
+  raw_chicken: {art: DRUMSTICK_ART, map: {m: '#f0d5b8', l: '#f8e8d4', d: '#d0b088', w: '#ece4d4', b: '#d8ccb8'}},
+  cooked_chicken: {art: DRUMSTICK_ART, map: {m: '#d8a050', l: '#e8c078', d: '#a87830', w: '#ece4d4', b: '#d8ccb8'}},
+  raw_mutton: {art: MEAT_ART, map: {m: '#d8604a', l: '#ec8a70', d: '#a03a28'}},
+  cooked_mutton: {art: MEAT_ART, map: {m: '#b87848', l: '#d09a68', d: '#8a5428'}},
+  leather: {art: LEATHER_ART, map: {m: '#a8794a', l: '#c49a68', d: '#7a5530'}},
+  feather: {art: FEATHER_ART, map: {m: '#f0f0ea', l: '#ffffff', d: '#c8c8bd', w: '#e0c8a0'}},
+  wool: {art: WOOL_ART, map: {m: '#ececec', l: '#fafafa', d: '#d0d0d0'}},
 };
 
 /* 工具 16 条 = 4 种字符画 × 四阶色板('#'主/'+'亮/'-'暗), 柄色固定 */

@@ -72,7 +72,8 @@ function mkHurtAlarm(cfg) {
 /* ---------- 近战攻击: 冷却自持 · 方向门槛可选 · 伤害/磨损/击杀经注入 ----------
    aim(p) 单独导出(探险「锥内有怪也占住点击不落挖」的占位判定);
    swingOnMiss=下界口径(无目标也出手观感并占冷却 — 剑/弓点击即反馈);
-   aimCos 给准星锥门槛(缺省纯最近 — 下界口径) */
+   aimCos 给准星锥门槛(缺省纯最近 — 下界口径);
+   onHit(m,res)=命中即报的受击回调(存活/死亡都报 — F4 牧场受击逃窜用, 缺省不挂) */
 function mkMelee(cfg) {
   const o = cfg || {};
   const range = o.range !== undefined ? o.range : 3;
@@ -111,6 +112,7 @@ function mkMelee(cfg) {
         m.pos.x - p.pos.x, m.pos.z - p.pos.z, 0.35);
     sfx('hit');
     if (o.onWear) o.onWear(); /* 命中才扣耐久(探险; 非工具不扣在模式侧判) */
+    if (o.onHit) o.onHit(m, r); /* 受击回调(存活/死亡都报, 携 hit 结果——F4 牧场受击逃窜用) */
     if (r.freshDead && o.onKill) o.onKill(m);
     return true;
   }

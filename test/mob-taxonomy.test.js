@@ -109,6 +109,68 @@ test('谱系语义钉: 苦力怕/嘎枝归草木族; 铁傀儡归守卫组(职�
   assert.deepEqual(MOB_TYPES.golem.family, ['guard'], '铁傀儡=守卫组(与监守者同守卫)');
 });
 
+/* ============ F4 农场一家(二期设计稿 §4.1/§4.2): 被动牧场动物入册口径 ============ */
+
+test('F4 谱系入册: 农场四怪必归种族 farm_line + PROTOS 含 grazer + 数值表逐格', () => {
+  /* 每怪必归种族: 全 MOB_TYPES 口径(含 passive——spawnable 收窄后它们不在可部署清单,
+     谱系完整性仍要守住) */
+  for (const k of Object.keys(MOB_TYPES)) {
+    if (k === 'mix') continue;
+    const def = MOB_TYPES[k];
+    assert.ok(Array.isArray(def.family) && def.family.length > 0,
+        k + ' 必须归种族(含被动动物, 每怪必归种族)');
+    for (const f of def.family) assert.ok(famKeys.includes(f), k + ' 引用了未注册族 ' + f);
+  }
+  assert.ok(famKeys.includes('farm_line'), 'FAMILIES 应注册 farm_line');
+  assert.deepEqual(MOB_TYPES.cow.family, ['farm_line']);
+  assert.deepEqual(MOB_TYPES.pig.family, ['farm_line']);
+  assert.deepEqual(MOB_TYPES.sheep.family, ['farm_line']);
+  assert.deepEqual(MOB_TYPES.chicken.family, ['farm_line']);
+  assert.ok(PROTOS.includes('grazer'), 'PROTOS 应含 grazer(无战斗原型占位)');
+  for (const k of ['cow', 'pig', 'sheep', 'chicken']) {
+    const d = MOB_TYPES[k];
+    assert.strictEqual(d.proto, 'grazer', k + ' proto=grazer');
+    assert.strictEqual(d.passive, true, k + ' passive 旗标');
+    assert.strictEqual(d.dmg, 0, k + ' 不攻击(dmg 0)');
+    assert.strictEqual(d.range, 0, k + ' range 0');
+    assert.strictEqual(d.cd, 0, k + ' cd 0');
+    assert.ok(!d.ranged && !d.fly && !d.boss && !d.boom, k + ' 无战斗旗标');
+  }
+  /* 数值表逐格(设计稿 §4.1: hp≈MC 生命×1.5 折算惯例) */
+  assert.deepEqual(
+      [MOB_TYPES.cow.hp, MOB_TYPES.cow.speed, MOB_TYPES.cow.h, MOB_TYPES.cow.hitR], [15, 1.4, 1.3, 0.7]);
+  assert.deepEqual(
+      [MOB_TYPES.pig.hp, MOB_TYPES.pig.speed, MOB_TYPES.pig.h, MOB_TYPES.pig.hitR], [15, 1.3, 0.9, 0.6]);
+  assert.deepEqual(
+      [MOB_TYPES.sheep.hp, MOB_TYPES.sheep.speed, MOB_TYPES.sheep.h, MOB_TYPES.sheep.hitR], [12, 1.2, 1.2, 0.65]);
+  assert.deepEqual(
+      [MOB_TYPES.chicken.hp, MOB_TYPES.chicken.speed, MOB_TYPES.chicken.h, MOB_TYPES.chicken.hitR],
+      [6, 1.5, 0.7, 0.35]);
+});
+
+test('F4 spawnable 收窄: 可部署=可战斗部署 — 排除 passive 四键, 战斗怪清单不增不减', () => {
+  const dep = Mobs.spawnable();
+  for (const k of ['cow', 'pig', 'sheep', 'chicken']) {
+    assert.ok(!dep.includes(k), '农场动物 ' + k + ' 不进可战斗部署清单');
+  }
+  /* 既有 37 战斗怪一只不少(竞技场 MIX_POOL/演习场 RANGE_MOB_KEYS 零改动的前提) */
+  assert.strictEqual(dep.length, 37, '战斗部署清单仍为 37 怪');
+  for (const k of ['zombie', 'skeleton', 'creeper', 'spider', 'slime', 'shulker', 'dragon']) {
+    assert.ok(dep.includes(k), '战斗怪 ' + k + ' 仍在清单');
+  }
+  assert.ok(!dep.includes('mix'), 'mix 伪类型照旧排除');
+});
+
+test('F4 families 无农场桶: 被动动物不进展示分组(面板归组走 spawnable 同源)', () => {
+  const groups = Mobs.families();
+  assert.ok(!groups.find((g) => g.key === 'farm_line'), '农场一家无展示桶(不进竞技场/演习场面板)');
+  const seen = groups.flatMap((g) => g.members);
+  for (const k of ['cow', 'pig', 'sheep', 'chicken']) {
+    assert.ok(!seen.includes(k), k + ' 不落任何展示桶');
+  }
+  assert.strictEqual(groups.length, 11, '展示分组仍是 11 个战斗种族');
+});
+
 test('families(): 11 种族各归一桶 · 37 怪全覆盖 · 无兜底桶 · 顺序按 FAMILIES.order', () => {
   const groups = Mobs.families();
   assert.equal(groups.length, 11, '展示分组 = 11 个种族, 实为 ' + groups.length);

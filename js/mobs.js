@@ -58,7 +58,8 @@ const Mobs = (() => {
        hum: 人形(亡灵/灾厄村民/猪灵/嘎枝…) — tall 高个系数 · held 左手持物
             (→ rig 声明 weaponArm, gait 挥持械手) · eye 眼色 · ears 猪灵耳 ·
             hat 尖帽(女巫) · chest 胸前饰块(监守者光纹)
-       quad: 四足(蜘蛛/疣猪兽/劫掠兽) — 体+前伸头(带眼/獠牙)+对角腿(八足可选) */
+       quad: 四足(蜘蛛/疣猪兽/劫掠兽/农场动物) — 体+前伸头(带眼/獠牙)+
+             对角腿(八足可选); comb 家禽肉冠(鸡: 头顶冠+颌下红髯, F4) */
     function hum(o) {
       const t = o.tall || 1;
       const armBoxes = [box(0.2, 0.72, 0.2, o.skin, 0, -0.34, 0)];
@@ -109,6 +110,11 @@ const Mobs = (() => {
       if (o.tusk) {
         headBoxes.push(box(0.06, 0.18, 0.06, o.tusk, -0.18, o.headY-0.12, o.headZ+o.headS/2),
             box(0.06, 0.18, 0.06, o.tusk, 0.18, o.headY-0.12, o.headZ+o.headS/2));
+      }
+      /* F4 家禽冠髯: 头顶肉冠+颌下肉髯(鸡的辨识件, 偏移随 headY 同口径) */
+      if (o.comb) {
+        headBoxes.push(box(0.08, 0.1, 0.2, o.comb, 0, o.headY+o.headS/2+0.05, o.headZ-0.02));
+        headBoxes.push(box(0.08, 0.14, 0.05, o.comb, 0, o.headY-o.headS/2+0.04, o.headZ+o.headS/2));
       }
       const rootBoxes = [box(o.w, o.h, o.d, o.hex, 0, o.bodyY, 0)];
       if (o.saddle) rootBoxes.push(box(o.w*0.8, 0.18, o.d*0.7, o.saddle, 0, o.bodyY+o.h/2+0.09, -0.1));
@@ -361,6 +367,25 @@ const Mobs = (() => {
         legW: 0.32, legH: 0.7, legD: 0.34, legHex: 0x3a3a42, legY: 0.7,
         headS: 0.85, headHex: 0x54545e, headY: 1.2, headZ: 1.15,
         eye: 0xd8b028, tusk: 0xf0e8d8}),
+      /* ---- 农场一家(F4 被动动物, 二期设计稿 §4.1): 体色锚 牛棕/猪粉/羊白/鸡米黄+红髯 ----
+         尺寸随 MOB_TYPES.h 配平(hoglin 四足先例): legY=legH 贴地 · 头盒中心=2×headY
+         (生成器既有口径) · 鸡=小体型贴地短腿变体(参数缩放, 无需特殊骨架条目) */
+      cow: quad({w: 0.85, h: 0.65, d: 1.25, hex: 0x8c664d, bodyY: 0.85,
+        legW: 0.2, legH: 0.5, legD: 0.2, legHex: 0x6b4f3a, legY: 0.5,
+        headS: 0.55, headHex: 0x8c664d, headY: 0.7, headZ: 0.8,
+        eye: 0x1c1410, tusk: 0xf0e8d8}), // 白色小弯角(借 tusk 槽位, 观感同件)
+      pig: quad({w: 0.6, h: 0.5, d: 0.95, hex: 0xe69ea8, bodyY: 0.65,
+        legW: 0.16, legH: 0.35, legD: 0.16, legHex: 0xd48a94, legY: 0.35,
+        headS: 0.45, headHex: 0xe69ea8, headY: 0.5, headZ: 0.6,
+        eye: 0x2a1a1a}),
+      sheep: quad({w: 0.8, h: 0.65, d: 1.15, hex: 0xebebeb, bodyY: 0.85,
+        legW: 0.18, legH: 0.5, legD: 0.18, legHex: 0xd8d4cc, legY: 0.5,
+        headS: 0.5, headHex: 0xe8e0d0, headY: 0.68, headZ: 0.72,
+        eye: 0x2a1a1a}), // 绒白身+浅奶油脸(羊毛团观感)
+      chicken: quad({w: 0.4, h: 0.4, d: 0.55, hex: 0xf2e5bf, bodyY: 0.5,
+        legW: 0.06, legH: 0.3, legD: 0.06, legHex: 0xd8a04a, legY: 0.3,
+        headS: 0.34, headHex: 0xf2e5bf, headY: 0.4, headZ: 0.32,
+        eye: 0x2a1a1a, comb: 0xd82a2a}), // 小体型短腿+橙脚+红冠髯
       /* ---- Boss ---- */
       wither: {slots: { // 脊柱肋骨+三骷髅头(臂槽=肩双头)
         root: {joint: [0, 0, 0], boxes: [
@@ -787,6 +812,7 @@ const Mobs = (() => {
     guardian: 0x5a8a6a, elder_guardian: 0x8a8a9a, shulker: 0x8a5a9a,
     vindicator: 0x3a5a3a, evoker: 0xd8d8c8, pillager: 0x5a5a4a, ravager: 0x4a4a52,
     wither: 0x1c1c1c, warden: 0x182a3a,
+    cow: 0x8c664d, pig: 0xe69ea8, sheep: 0xebebeb, chicken: 0xf2e5bf, /* F4 农场一家(体色锚) */
   };
   function debrisColor(type) {
     return MOB_DEBRIS[type] || 0x8a8f98;
@@ -835,10 +861,11 @@ const Mobs = (() => {
     return out;
   }
 
-  /* 可部署清单: 全部真实怪种(排除 mix 伪类型 — 它只是竞技场的编队按钮,
-   "什么算真怪"的过滤归引擎, 调用方不再各自 k!=='mix') */
+  /* 可部署清单=可战斗部署(排除 mix 伪类型与 passive 牧场动物, F4 二期设计稿 §4.2):
+     竞技场 MIX_POOL 与坦克演习场 RANGE_MOB_KEYS 都读本清单——农场一家零改动自然排除;
+     "什么算可战斗部署"的过滤归引擎, 调用方不再各自判 */
   function spawnable() {
-    return Object.keys(MOB_TYPES).filter((k) => k !== 'mix');
+    return Object.keys(MOB_TYPES).filter((k) => k !== 'mix' && !MOB_TYPES[k].passive);
   }
 
   /* 谱系分组查询: 面板分组渲染的唯一入口(竞技场/演习场共用, 与 spawnable 同地位)。
@@ -1150,6 +1177,33 @@ const Mobs = (() => {
         px(2, 3, 4, 1, '#2c2c33'); px(10, 3, 4, 1, '#2c2c33'); // 怒眉
         px(5, 9, 6, 4, '#3a3a42'); // 方颚
         px(4, 12, 2, 3, '#f0e8d8'); px(10, 12, 2, 3, '#f0e8d8'); // 獠牙
+        break;
+      }
+      /* ---- 农场一家(F4): 温和无害脸(牛角/猪鼻/羊绒/鸡冠各带一个辨识件) ---- */
+      case 'cow': {
+        stdFace('#8c664d', '#6b4f3a', '#1c1410', null);
+        px(3, 1, 2, 2, '#f0e8d8'); px(11, 1, 2, 2, '#f0e8d8'); // 小弯角
+        px(5, 9, 6, 4, '#e8dcc8'); // 白鼻梁
+        px(6, 10, 1, 2, '#3a2a20'); px(9, 10, 1, 2, '#3a2a20'); // 鼻孔
+        break;
+      }
+      case 'pig': {
+        stdFace('#e69ea8', '#d48a94', '#2a1a1a', null);
+        px(5, 9, 6, 4, '#d97b88'); // 猪鼻
+        px(6, 10, 1, 2, '#8a4a56'); px(9, 10, 1, 2, '#8a4a56'); // 鼻孔
+        break;
+      }
+      case 'sheep': {
+        stdFace('#ece7db', '#d8d2c4', '#2a1a1a', null);
+        px(0, 0, 16, 3, '#faf8f4'); // 绒毛刘海
+        px(6, 9, 4, 3, '#d8b8a8'); // 粉鼻
+        break;
+      }
+      case 'chicken': {
+        stdFace('#f2e5bf', '#e0d0a0', '#2a1a1a', null);
+        px(0, 0, 16, 3, '#d82a2a'); // 鸡冠
+        px(6, 9, 4, 3, '#e8a030'); // 黄喙
+        px(6, 12, 4, 2, '#d82a2a'); // 红髯
         break;
       }
       /* ---- Boss ---- */

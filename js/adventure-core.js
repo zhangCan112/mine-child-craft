@@ -10,11 +10,14 @@
    生命周期)留在 js/modes/adventure.js, 在本文件之后加载并经共享
    词法环境消费。
    interface: 地图常量表(ADV_GROUND/HUT/SPAWN/LAKE/PITS/CAVE/NESTS/
-     ORES/TREES) · 地形生成 advBuildWorld 一族 · 政策纯函数
+     ORES/TREES) · 地形生成 advBuildWorld 一族(树落位清单 advTreeSpots
+     与 F4 牧场共用) · 政策纯函数
      advDeathPlan/advNestCount/advNestStep/advSwingDmg/advMobDmg/
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
-     advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advTntRoll/
-     advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 任务表
+     advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advFurnaceValid/
+     advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫)/advTntRoll/
+     advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · F4 牧场
+     advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 任务表
      ADV_QUESTS/ADV_MINE_TALLY · 大宝箱政策 ADV_CHEST_START/ADV_CHEST_SLOTS/
      ADV_CHEST_TIERS/advChestNext/advChestPut · 节律常量 ADV_*
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界
@@ -217,7 +220,9 @@ function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含�
   const c = ADV_CAVE;
   return x >= c.x1 - 3 && x <= c.x2 + 3 && z >= c.zEnd - 4 && z <= c.zStart + 5;
 }
-function advPlantTrees() {/* 树林 ~40: 候选按散列值排序取前 N(空间无偏且确定性) */
+function advTreeSpots() {/* 树林落位清单(advPlantTrees 的唯一权威): 候选按散列值排序取
+  前 ADV_TREES——纯函数零世界读; F4 牧场群位避树复用同一清单(设计稿 §4.4 的
+  「重进完全复现」要求清单不随玩家改动漂移, 故不走 getBlock) */
   const cands = [];
   for (let x = 2; x < WORLD_W - 2; x++) {
     for (let z = 2; z < WORLD_D - 2; z++) {
@@ -227,7 +232,10 @@ function advPlantTrees() {/* 树林 ~40: 候选按散列值排序取前 N(空间
     }
   }
   cands.sort((a, b) => (a.r - b.r) || (a.x - b.x) || (a.z - b.z));
-  for (const cd of cands.slice(0, ADV_TREES)) SceneKit.tree(cd.x, ADV_GROUND + 1, cd.z);
+  return cands.slice(0, ADV_TREES);
+}
+function advPlantTrees() {/* 树林 ~40: 落位清单逐棵种(advTreeSpots) */
+  for (const cd of advTreeSpots()) SceneKit.tree(cd.x, ADV_GROUND + 1, cd.z);
 }
 
 function advScatterTufts() {/* 草丛散布(T11 缺口, D7 草丛链): 确定性掷点, 只长
@@ -335,6 +343,93 @@ function advPickupText(buf) {
 }
 
 /* ============================================================
+   F4 牧场(二期设计稿 §4.4/§4.3) — 确定性散布清单 + 恐惧游荡决策
+   ------------------------------------------------------------
+   散布=纯函数零世界读(树避让复用 advTreeSpots 清单): 重进完全复现,
+   玩家挖掘/放块不改变清单; 世界档只存已杀索引 livestock.dead(初始
+   清单可推导, 存档最小)。恐惧游荡只做标量决策(方向/位移归壳的
+   advHerdTick, 走 Mobs.move/steer 意图 API)。
+   ============================================================ */
+const ADV_LIVESTOCK_SPAWN_R = 15; /* 群位离出生点最小距离(设计稿 §4.4: ≥15 格) */
+const ADV_LIVESTOCK_HERD_R = 10; /* 两群彼此最小间距(群位互斥, 不叠群) */
+const ADV_LIVESTOCK_RING_LO = 0.8; const ADV_LIVESTOCK_RING_HI = 1.8; /* 群内散布环带(≤1.8 保证不撞 ±3 避树盒外的树干列) */
+const ADV_LIVESTOCK_HERDS = [ /* 2 群共 10 只(设计稿 §4.4) */
+  {kinds: ['cow', 'cow', 'sheep', 'sheep']}, /* 群位 A: 牛×2+羊×2 */
+  {kinds: ['pig', 'pig', 'pig', 'chicken', 'chicken', 'chicken']}, /* 群位 B: 猪×3+鸡×3 */
+];
+const ADV_HERD_AVOID_R = 2.5; /* 玩家贴近让开距离(设计稿 §4.3: ≤2.5 格) */
+const ADV_HERD_AVOID_MULT = 0.8; /* 让开速度系数(speed×0.8, 缓步) */
+const ADV_HERD_FLEE_T = 3; /* 受击逃窜秒数(设计稿 §4.3: 3 秒) */
+const ADV_HERD_FLEE_MULT = 2.2; /* 逃窜速度系数(speed×2.2) */
+const ADV_HERD_AMBLE_MULT = 0.5; /* 闲逛速度系数(吃草步, 六成时间在走) */
+
+function advLivestockHerdOk(x, z, trees) {/* 群位约束(设计稿 §4.4): 离出生点 ≥15 · 避湖/
+  矿坑/巢穴/山洞/小屋(外扩裕量盖过群内环带) · 避树干 ±3 盒; 零世界读——基础草原面
+  在禁区外天然是整块平草地(advBaseTerrain), 不必逐格验草 */
+  if (Math.hypot(x - ADV_SPAWN.x, z - ADV_SPAWN.z) < ADV_LIVESTOCK_SPAWN_R) return false;
+  if (Math.hypot(x - ADV_LAKE.cx, z - ADV_LAKE.cz) <= ADV_LAKE.r + 4) return false;
+  for (const p of ADV_PITS) {
+    if (Math.hypot(x - p.cx, z - p.cz) <= p.r + 4) return false;
+  }
+  for (const n of ADV_NESTS) {
+    if (Math.hypot(x - n.x, z - n.z) < 6) return false; /* 怪物窝边不放牧场 */
+  }
+  const h = ADV_HUT;
+  if (x >= h.x1 - 5 && x <= h.x2 + 5 && z >= h.z1 - 5 && z <= h.z2 + 5) return false;
+  const c = ADV_CAVE;
+  if (x >= c.x1 - 5 && x <= c.x2 + 5 && z >= c.zEnd - 5 && z <= c.zStart + 6) return false;
+  for (const t of trees) {
+    if (Math.abs(t.x - x) <= 3 && Math.abs(t.z - z) <= 3) return false;
+  }
+  return true;
+}
+
+function advLivestockSpots() {/* 群位清单(advLivestockPlan 的位点权威, 单测直触): 候选全图
+  收集按散列值排序(advPlantTrees 同款空间无偏), 依次取满足约束且两群 ≥HERD_R 的前两个 */
+  const trees = advTreeSpots();
+  const cands = [];
+  for (let x = 4; x < WORLD_W - 4; x++) {
+    for (let z = 4; z < WORLD_D - 4; z++) {
+      if (!advLivestockHerdOk(x, z, trees)) continue;
+      cands.push({x, z, r: SceneKit.rand(x, z, 7301)});
+    }
+  }
+  cands.sort((a, b) => (a.r - b.r) || (a.x - b.x) || (a.z - b.z));
+  const spots = [];
+  for (const c of cands) {
+    if (spots.length >= ADV_LIVESTOCK_HERDS.length) break;
+    if (spots.every((s) => Math.hypot(s.x - c.x, s.z - c.z) >= ADV_LIVESTOCK_HERD_R)) spots.push(c);
+  }
+  return spots;
+}
+
+function advLivestockPlan() {/* 确定性散布清单(设计稿 §4.4, SceneKit.rand 同种子口径):
+  群内条目按环带确定性散布。条目 {idx,type,x,y,z}, idx 0..9 稳定——世界档
+  livestock.dead 只存索引, 重进按本清单对账 */
+  const out = [];
+  let idx = 0;
+  advLivestockSpots().forEach((s, herd) => {
+    for (const type of ADV_LIVESTOCK_HERDS[herd].kinds) {
+      const a = SceneKit.rand(s.x + idx, s.z - idx, 7400 + idx) * Math.PI * 2;
+      const rr = ADV_LIVESTOCK_RING_LO +
+          SceneKit.rand(s.x - idx, s.z + idx, 7500 + idx) * (ADV_LIVESTOCK_RING_HI - ADV_LIVESTOCK_RING_LO);
+      out.push({idx: idx++, type, x: s.x + 0.5 + Math.cos(a) * rr, y: ADV_GROUND + 1,
+        z: s.z + 0.5 + Math.sin(a) * rr});
+    }
+  });
+  return out;
+}
+
+/* 恐惧游荡决策(纯函数, 设计稿 §4.3): 返回 {fleeT, speed} — 受击逃窜计时优先
+   (3 秒 speed×2.2), 到期回落玩家贴近判定(≤2.5 格 speed×0.8 缓步让开),
+   否则不动(闲逛归壳的换向计时)。方向由调用方算(背向玩家), 这里只管标量 */
+function advHerdStep(dist, speed, fleeT, dt) {
+  if (fleeT > 0) return {fleeT: Math.max(0, fleeT - dt), speed: speed * ADV_HERD_FLEE_MULT};
+  if (dist <= ADV_HERD_AVOID_R) return {fleeT: 0, speed: speed * ADV_HERD_AVOID_MULT};
+  return {fleeT: 0, speed: 0};
+}
+
+/* ============================================================
    挖掘与采集政策 (T12, 设计稿 D4/D7) — 常量与纯函数段
    ============================================================ */
 const ADV_MINE_SWING = 0.28; /* 蓄力期间挥动节拍(秒/挥, Avatar.swing 循环喂 HeldItems.swingPose) */
@@ -374,9 +469,13 @@ function advPlaceCheck(hit, blockId, lookId, targetId) {
 }
 
 /* 食物回血政策(纯函数, D7 腐肉同口径): 回复钳制在 maxHp, 满血 canEat=false
-   (交互层据此不扣物品); healed = 实际回复量(血条动画消费) */
-function advEatPolicy(hp, maxHp, food) {
-  const capped = Math.min(maxHp, hp + food);
+   (交互层据此不扣物品); healed = 实际回复量(血条动画消费)。
+   full 旗标(F3 金苹果, 二期设计稿 §3): 直接回 maxHp——本游戏无饥饿系统,
+   MC 金苹果的饥饿+吸收+再生折算成一次回满; 设计稿原写在模式层 advTryEat
+   解读, 收编进本政策纯函数(seam 级偏差: 食物政策已有单测先例, 消费方
+   只吃结果), 缺省不传走既有口径 */
+function advEatPolicy(hp, maxHp, food, full) {
+  const capped = full ? maxHp : Math.min(maxHp, hp + food);
   return {hp: capped, healed: Math.max(0, capped - hp), canEat: hp < maxHp};
 }
 
@@ -455,6 +554,28 @@ function advFurnaceRefund(inv, f) {
     if (left > 0) leftover.push({id: st.id, n: left});
   }
   return leftover;
+}
+
+/* F1 炉状态形状校验(拍板①: 每炉独立+持久化): 世界档 decode 侧逐条防错,
+   非法整条拒收(不炸模式, 材料随损坏档损失——mkSaveSlot 损坏回落先例)。
+   槽形状 {id,n}(id 在 ITEMS 注册且 n≥1) · heat ≥0 · prog ∈[0, ADV_SMELT_T] */
+function advFurnaceValid(s) {
+  if (!s || typeof s !== 'object') return false;
+  const slot = (v) => v === null || (typeof v === 'object' && v !== null &&
+      !!ITEMS[v.id] && Number.isFinite(v.n) && v.n >= 1);
+  if (!slot(s.input) || !slot(s.fuel) || !slot(s.out)) return false;
+  return Number.isFinite(s.heat) && s.heat >= 0 &&
+      Number.isFinite(s.prog) && s.prog >= 0 && s.prog <= ADV_SMELT_T;
+}
+
+/* F1 空炉条目清扫(encode 侧): 三槽全空且无余热的炉不进存档(长期游玩防膨胀);
+   返回 [posKey, state] entries 数组(世界档 furnaces 字段的存档形状) */
+function advFurnaceClean(map) {
+  const out = [];
+  for (const [k, s] of map) {
+    if (s.input || s.fuel || s.out || s.heat > 0) out.push([k, s]);
+  }
+  return out;
 }
 
 /* TNT 爆炸掉落掷骰(D4): 方块先掷 70% 门槛, 中签才走 rollBlockDrop(保底+
@@ -653,7 +774,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
     advBuildPit, advTryOre, advBuildCave, advBuildHut, advBuildNest, advTreeBlocked,
-    advPlantTrees, advScatterTufts, advBuildWorld, advDeathPlan,
+    advPlantTrees, advTreeSpots, advScatterTufts, advBuildWorld, advDeathPlan,
     ADV_NEST_MIN, ADV_NEST_MAX, ADV_NEST_RESPAWN_T, ADV_NEST_AGGRO_R, ADV_NEST_LEASH_R,
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,
     ADV_SWING_CD, ADV_FIST_DMG, ADV_AIM_COS, ADV_ATTACK_T, ADV_ARROW_SPEED, ADV_PICKUP_WINDOW,
@@ -661,7 +782,11 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
     ADV_STATION_R, ADV_SMELT_T, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advSmeltStep,
-    advFurnaceRefund, advTntRoll, advTntDmg,
+    advFurnaceRefund, advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
+    ADV_LIVESTOCK_SPAWN_R, ADV_LIVESTOCK_HERD_R, ADV_LIVESTOCK_RING_LO,
+    ADV_LIVESTOCK_RING_HI, ADV_LIVESTOCK_HERDS, ADV_HERD_AVOID_R, ADV_HERD_AVOID_MULT,
+    ADV_HERD_FLEE_T, ADV_HERD_FLEE_MULT, ADV_HERD_AMBLE_MULT,
+    advLivestockHerdOk, advLivestockSpots, advLivestockPlan, advHerdStep,
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut,
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,

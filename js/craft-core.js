@@ -2,7 +2,7 @@
 /* ============================================================
    合成核心 (CraftCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
-   合成系统的唯一数据源: RECIPES 一期全表(手搓 4 + 工作台级 24, 站点
+   合成系统的唯一数据源: RECIPES 全表(手搓 4 + 工作台级 26, 站点
    'hand' 随时可做 / 'table' 需走近工作台 4 格, 拍板④) · SMELTS 烧炼
    映射 · FUEL 燃料择优序(从 ITEMS fuel 字段按热值降序派生)。外加五个
    无状态纯函数: canCraft 缺失清单(驱动配方卡亮灰) · craft 扣料+产栈 ·
@@ -22,7 +22,8 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 28 条(设计稿 §3.2 + §3.5) + 箱子(引导链 v2, story-quest-research)
+   RECIPES 配方表 — 29 条(设计稿 §3.2 + §3.5) + 箱子(引导链 v2, story-quest-research)
+   + 金苹果(F3, 二期设计稿 §3)
    条目形状: id 配方卡键 · out {item, n} 产物 · cost 材料计费
    (值=数量; 值=[候选id数组,数量]=任选其一, 键名仅占位) · station 'hand'|'table'
    ------------------------------------------------------------ */
@@ -59,6 +60,8 @@ const RECIPES = [
   {id: 'stone_bricks', out: {item: 'stone_bricks', n: 4}, cost: {stone: 4}, station: 'table'}, // 4 石→4 石砖(MC 口径, §3.5)
   {id: 'bricks', out: {item: 'bricks', n: 1}, cost: {brick: 4}, station: 'table'}, // 4 红砖→1 红砖块(黏土-红砖链, §3.5)
   {id: 'shears', out: {item: 'shears', n: 1}, cost: {iron_ingot: 2}, station: 'table'}, // 剪树叶得树叶方块(§3.5)
+  // 金苹果: 8 金锭+1 苹果(MC 正典, 金锭出口——二期设计稿 §3/F3)
+  {id: 'golden_apple', out: {item: 'golden_apple', n: 1}, cost: {gold_ingot: 8, apple: 1}, station: 'table'},
   {id: 'tnt', out: {item: 'tnt', n: 1}, cost: {gunpowder: 5, sand: 4}, station: 'table'}, // MC 口径(§3.2); 火药→炸矿出口(D4)
   {id: 'bow_item', out: {item: 'bow_item', n: 1}, cost: {stick: 3, string: 3}, station: 'table'}, // 二期弓物品化启用, 一期不点亮
   {id: 'bread', out: {item: 'bread', n: 1}, cost: {wheat: 3}, station: 'table'}, // 原料二期(农田链): 一期卡片不点亮
@@ -67,7 +70,8 @@ const RECIPES = [
 
 /* ------------------------------------------------------------
    SMELTS 烧炼表 — 原料→产物映射(研究稿 §5.3 + 任务合同)
-   铁/金为粗矿口径(挖出矿石物品, 需熔炼); 圆石烧回石头成建材循环
+   铁/金为粗矿口径(挖出矿石物品, 需熔炼); 圆石烧回石头成建材循环;
+   生→熟肉四条(F4 二期设计稿 §4.6): 烧炼时长/燃料与矿物同套(MC 全配方同速)
    ------------------------------------------------------------ */
 const SMELTS = {
   iron_ore: 'iron_ingot', // 粗矿→锭(D5)
@@ -76,6 +80,10 @@ const SMELTS = {
   cobble: 'stone', // 圆石↔石头建材循环(§3.5)
   sand: 'glass', // 烧沙得玻璃
   clay_ball: 'brick', // 黏土球→红砖(§3.5 红砖链)
+  raw_beef: 'cooked_beef', // F4: 生牛肉→牛排
+  raw_porkchop: 'cooked_porkchop', // F4: 生猪排→熟猪排
+  raw_chicken: 'cooked_chicken', // F4: 生鸡肉→熟鸡肉
+  raw_mutton: 'cooked_mutton', // F4: 生羊肉→熟羊肉
 };
 
 /* ------------------------------------------------------------

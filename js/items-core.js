@@ -18,6 +18,7 @@
    条目形状(设计稿 §3.1):
      name 中文名 · icon emoji 占位 · block 放置型=放置成的方块 id
      · fuel 燃料热值(能烧几件) · food 回血值
+     · full 旗标=吃了直接回满血(F3 金苹果, 二期设计稿 §3)
      · tool {kind, tier, dmg, dur, speed} 工具五元组(D9 数值表)
    ------------------------------------------------------------ */
 const ITEMS = {
@@ -58,6 +59,20 @@ const ITEMS = {
   /* —— 食物(点击吃回血, 政策在模式层) —— */
   apple: {name: '苹果', icon: '🍎', food: 4}, // 树叶 4% 掉(D7)
   bread: {name: '面包', icon: '🍞', food: 8}, // 3 小麦合成(二期农田)
+  golden_apple: {name: '金苹果', icon: '🍎', food: 30, full: true}, // 8 金锭+1 苹果合成(金锭出口, 二期设计稿 §3/F3); food 名义值 30=maxHp 锚点, full 旗标=吃了回满血(本游戏无饥饿系统, MC 饥饿+吸收+再生折算成一次回满)
+
+  /* —— 农场链(F4, 二期设计稿 §4.6): 生肉可直接吃(软引导), 熟肉 6~8 落「比生肉好得多」档 —— */
+  raw_beef: {name: '生牛肉', icon: '🥩', food: 3}, // 牛; 烧成牛排(镜像 MC 饥饿值, 研究稿 §5)
+  cooked_beef: {name: '牛排', icon: '🍖', food: 8},
+  raw_porkchop: {name: '生猪排', icon: '🥓', food: 3}, // 猪; 烧成熟猪排
+  cooked_porkchop: {name: '熟猪排', icon: '🍖', food: 8},
+  raw_chicken: {name: '生鸡肉', icon: '🍗', food: 2}, // 鸡; MC 生鸡中毒 debuff → 儿童版无(回 2 血)
+  cooked_chicken: {name: '熟鸡肉', icon: '🍗', food: 6},
+  raw_mutton: {name: '生羊肉', icon: '🍖', food: 2}, // 羊; 烧成熟羊肉
+  cooked_mutton: {name: '熟羊肉', icon: '🍖', food: 6},
+  leather: {name: '皮革', icon: '🟤'}, // 收集品(出口三期护甲, Out of Scope)
+  feather: {name: '羽毛', icon: '🪶'}, // 收集品(出口三期箭, Out of Scope)
+  wool: {name: '羊毛', icon: '☁️', block: 52}, // B_WOOL=52(F4 §4.7); 羊掉毛转入采集, 只开白羊毛(染料 Out of Scope)
 
   /* —— 放置型方块物品(挖掘获得, 可放回世界) —— */
   dirt: {name: '泥土', icon: '🟫', block: 2},

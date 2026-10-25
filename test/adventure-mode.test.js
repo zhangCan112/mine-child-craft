@@ -206,11 +206,16 @@ const hitLog = [];
 const moveLog = [];
 let listResult = [];
 let nextHit = {hp: 10, dead: false, freshDead: false};
-const ADV_MOB_CFG = {/* 四怪数值摘自 config.js MOB_TYPES(巢穴池, 行为断言所需最小集) */
+const ADV_MOB_CFG = {/* 四怪数值摘自 config.js MOB_TYPES(巢穴池, 行为断言所需最小集)
+   + F4 农场四怪(牧场生成断言所需, passive 旗标照抄表) */
   zombie: {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55},
   skeleton: {name: '骷髅', hp: 26, dmg: 6, speed: 2.6, range: 14, cd: 2.6, h: 1.9, ranged: true, hitR: 0.55},
   spider: {name: '蜘蛛', hp: 24, dmg: 3, speed: 3.0, range: 2.2, cd: 1.2, h: 0.9, hitR: 0.65},
   creeper: {name: '苦力怕', hp: 28, dmg: 33, speed: 3.1, range: 2.0, cd: 9, h: 1.7, hitR: 0.5},
+  cow: {name: '牛', hp: 15, dmg: 0, speed: 1.4, range: 0, cd: 0, h: 1.3, hitR: 0.7, passive: true},
+  pig: {name: '猪', hp: 15, dmg: 0, speed: 1.3, range: 0, cd: 0, h: 0.9, hitR: 0.6, passive: true},
+  sheep: {name: '羊', hp: 12, dmg: 0, speed: 1.2, range: 0, cd: 0, h: 1.2, hitR: 0.65, passive: true},
+  chicken: {name: '鸡', hp: 6, dmg: 0, speed: 1.5, range: 0, cd: 0, h: 0.7, hitR: 0.35, passive: true},
 };
 globalThis.Mobs = {
   spawn(type, x, z, opts) {
@@ -535,9 +540,11 @@ test('探险模式: 3 个怪物巢穴 — 土丘洞穴地形就位 + init 每巢
     assert.strictEqual(cell(n.x, 25, n.z), 2, '巢穴 ' + i + ' 是土丘(泥土穹顶)');
     assert.strictEqual(cell(n.x, 25, n.z + 2), 0, '巢穴 ' + i + ' 有洞口');
   });
-  /* init 首刷: 每巢 2~3 只, 种类取自本巢 kinds 池, 落位在土丘洞口附近环带(不贴脸) */
+  /* init 首刷: 每巢 2~3 只, 种类取自本巢 kinds 池, 落位在土丘洞口附近环带(不贴脸);
+     F4 牧场动物也在 spawned 里(无 nest 归属), 按挂件滤出巢穴怪再断言 */
   const byNest = [[], [], []];
   for (const m of mobsState.spawned) {
+    if (m.__livestockIdx != null) continue; /* F4 牧场动物不是巢穴怪 */
     assert.ok(m.nest >= 0 && m.nest < 3, '刷出的怪挂巢穴归属(m.nest)');
     byNest[m.nest].push(m);
   }
@@ -1293,6 +1300,24 @@ test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + �
   assert.strictEqual(A.advGetInv().slots[0].n, 1, '满血不吃不扣');
 });
 
+test('F3 金苹果行为链: 半血点击吃 — 回满血 + 扣 1 个, 满血不吃不扣(full 旗标经 advEatPolicy)', () => {
+  mem.clear();
+  freshInit();
+  A.advGetPEnt().hp = 12;
+  A.ADV.player.hp = 12; /* 账本与实体同源(死亡政策口径) */
+  holdOnly('golden_apple', 2);
+  spoken.length = 0;
+  AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0}); /* 手持食物: 点击=吃 */
+  assert.strictEqual(A.advGetPEnt().hp, 30, '金苹果回满血(full → maxHp, 无饥饿系统折算)');
+  assert.strictEqual(A.ADV.player.hp, 30, '账本同步(头顶血条重绘依据)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '吃掉 1 个');
+  assert.ok(spoken.some((s) => String(s).indexOf('真好吃') >= 0), 'TTS 吃货播报');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('金苹果') >= 0), '吃掉 toast 带食物名');
+  AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '满血不吃不扣');
+  assert.strictEqual(A.advGetPEnt().hp, 30, '满血血量不动');
+});
+
 /* ============ T13 合成与烧炼接线 ============ */
 
 test('T13 站点判定纯函数: advNearStation — 4 格边界(含等号)/按 id 过滤/空缓存', () => {
@@ -1431,50 +1456,189 @@ test('T13 熔炉行为链: 走近点击开面板 → 自动放料(扣包) → 2.
   pos.x = spot.x + 0.5; pos.z = spot.z + 2.5; /* 距炉 2 格 */
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(A.ADV.furnaceOpen, true, '走近 4 格内点击熔炉 → 打开烧炼面板');
+  const fk = api.blockKey(spot.x, 25, spot.z);
+  assert.strictEqual(A.advGetFurnaceAt(), fk, '面板绑定这台炉(F1 拍板①)');
   /* 自动放料: 面板只报意图, 模式层执行 take — 矿石全入炉 + 最省凑料 1 块煤(热值 8 ≥ 5 件) */
   api.add(A.advGetInv(), 'iron_ore', 5);
   api.add(A.advGetInv(), 'coal', 2);
   A.advFurnaceAutoFill();
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '矿石全入炉(take 扣包)');
   assert.strictEqual(api.count(A.advGetInv(), 'coal'), 1, '最省凑料: 1 块煤已覆盖 5 件热值');
-  assert.strictEqual(A.advFurnace.input.n, 5, '炉内待烧 5 件');
-  assert.strictEqual(A.advFurnace.fuel.n, 1, '炉内燃料 1 块煤');
+  assert.strictEqual(A.advFurnaceState(fk).input.n, 5, '炉内待烧 5 件');
+  assert.strictEqual(A.advFurnaceState(fk).fuel.n, 1, '炉内燃料 1 块煤');
   /* 烧炼 12.5s+: 5 件铁锭 + 完成播报(产物名入句) */
   spoken.length = 0;
   for (let i = 0; i < 340; i++) AdventureMode.update(0.05); /* 17s > 12.5s */
-  assert.deepStrictEqual(A.advFurnace.out, {id: 'iron_ingot', n: 5}, '5 件全部烧成');
+  assert.deepStrictEqual(A.advFurnaceState(fk).out, {id: 'iron_ingot', n: 5}, '5 件全部烧成');
   assert.ok(spoken.some((s) => String(s).indexOf('铁锭') >= 0 && String(s).indexOf('烧好') >= 0),
       '完成播报(产物名入句)');
   A.advFurnaceClose();
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 5, '关面板取产入包');
   assert.strictEqual(A.ADV.furnaceOpen, false, '面板收起');
-  assert.strictEqual(A.advFurnace.out, null, '产物槽清空');
+  assert.strictEqual(A.advFurnaceState(fk).out, null, '产物槽清空');
 });
 
-test('T13 死亡清炉: 炉内材料全额退背包 + 状态归零(退世界同一政策)', () => {
+test('F1 死亡不动炉: 阵亡回出生点满血, 炉内容原样保留(拍板①持久化——旧清炉政策退役)', () => {
   mem.clear();
   freshInit();
-  A.advFurnace.input = {id: 'iron_ore', n: 3};
-  A.advFurnace.fuel = {id: 'coal', n: 1};
-  A.advFurnace.out = {id: 'iron_ingot', n: 2};
-  AdventureMode.onVoidFall(); /* 死亡类事件 → advPlayerDied → 清炉 */
-  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '待烧料退包');
-  assert.strictEqual(api.count(A.advGetInv(), 'coal'), 1, '燃料退包');
-  assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 2, '产物退包');
-  assert.strictEqual(A.advFurnace.input, null, '炉清空(状态归零)');
-  assert.strictEqual(A.advFurnace.heat, 0, '热值清零');
+  const s = findGrassSpot();
+  api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
+  A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  const fk = api.blockKey(s.x, 25, s.z);
+  api.add(A.advGetInv(), 'iron_ore', 3);
+  api.add(A.advGetInv(), 'coal', 1);
+  pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 0.5;
+  AdventureMode.onMouse(0, {x: s.x, y: 25, z: s.z, nx: 0, ny: 1, nz: 0});
+  A.advFurnaceAutoFill();
+  const f = A.advFurnaceState(fk);
+  assert.ok(f && f.input, '料已入炉(前提)');
+  f.out = {id: 'iron_ingot', n: 2};
+  AdventureMode.onVoidFall(); /* 死亡类事件 → advPlayerDied */
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '炉料不退包(留在炉里)');
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 0, '产物不退包');
+  const f2 = A.advFurnaceState(fk);
+  assert.deepStrictEqual(f2.input, {id: 'iron_ore', n: 3}, '炉态原样保留');
+  assert.deepStrictEqual(f2.fuel, {id: 'coal', n: 1});
+  assert.deepStrictEqual(f2.out, {id: 'iron_ingot', n: 2});
 });
 
-test('T13 退世界清炉: cleanup 先退料落盘再清场(重进熔炉是空的, 材料在背包)', () => {
+test('F1 炉态持久化: cleanup 只落盘不退料(旧 D8 退料退役) — 重进炉内物品/进度照旧继续烧', () => {
   mem.clear();
   freshInit();
-  A.advFurnace.input = {id: 'iron_ore', n: 3};
+  const s = findGrassSpot();
+  api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
+  A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  const fk = api.blockKey(s.x, 25, s.z);
+  api.add(A.advGetInv(), 'iron_ore', 3);
+  api.add(A.advGetInv(), 'coal', 1);
+  pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 0.5;
+  AdventureMode.onMouse(0, {x: s.x, y: 25, z: s.z, nx: 0, ny: 1, nz: 0});
+  A.advFurnaceAutoFill();
+  for (let i = 0; i < 24; i++) AdventureMode.update(0.05); /* 1.2s: 首件烧到半程 */
+  const f = A.advFurnaceState(fk);
+  assert.ok(f.prog > 0.5 && f.prog < 2.5, '首件半程进度(断点前提)');
+  A.advFurnaceClose();
   AdventureMode.cleanup();
-  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '退炉材料进背包');
-  const invSave = JSON.parse(mem.get('inventory_save'));
-  assert.ok(invSave.slots.some((s) => s && s.id === 'iron_ore' && s.n === 3), '退料随 inventory_save 落盘');
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '不退料——炉态随世界档走');
+  const wsv = JSON.parse(mem.get('adventure_world_save'));
+  assert.ok(Array.isArray(wsv.furnaces) &&
+      wsv.furnaces.some((e) => e[0] === fk && e[1].input && e[1].input.n === 3),
+  '炉内三笔进 furnaces 字段');
+  /* 重进: 炉态恢复(物品/热值/进度), 接着烧完——煤在开烧瞬间整件折成热值,
+     断点时燃料槽空、热值在档是正确状态(燃料按件计费口径) */
   freshInit();
-  assert.strictEqual(A.advFurnace.input, null, '重进熔炉是空的(炉态不进存档, D8 口径)');
+  const f2 = A.advFurnaceState(fk);
+  assert.ok(f2, '重进炉态恢复');
+  assert.deepStrictEqual({id: f2.input.id, n: f2.input.n}, {id: 'iron_ore', n: 3});
+  assert.strictEqual(f2.fuel, null, '煤已折成热值(燃料槽空)');
+  assert.ok(f2.heat > 7 && f2.heat <= 8, '热值随档(8 − 已烧 0.48)');
+  assert.ok(Math.abs(f2.prog - f.prog) < 0.01, '烧炼进度原样(接着烧)');
+  for (let i = 0; i < 140; i++) AdventureMode.update(0.05); /* 7s > 余下 6.3s */
+  assert.deepStrictEqual(A.advFurnaceState(fk).out, {id: 'iron_ingot', n: 3}, '恢复后继续烧成');
+});
+
+test('F1 多炉独立: 两炉异料并烧各产各的 + 面板绑定哪台看哪台 + TTS 只报绑定炉', () => {
+  mem.clear();
+  freshInit();
+  const spots = [];
+  outer: for (let x = 3; x < 50; x++) {
+    for (let z = 3; z < 50; z++) {
+      if (cell(x, 24, z) === 1 && cell(x, 25, z) === 0 && cell(x, 26, z) === 0) {
+        spots.push({x, z});
+        if (spots.length === 2) break outer;
+      }
+    }
+  }
+  assert.strictEqual(spots.length, 2, '两块干净草地(前提)');
+  for (const s of spots) {
+    api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
+    A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  }
+  const k1 = api.blockKey(spots[0].x, 25, spots[0].z);
+  const k2 = api.blockKey(spots[1].x, 25, spots[1].z);
+  api.add(A.advGetInv(), 'iron_ore', 3);
+  api.add(A.advGetInv(), 'sand', 2);
+  api.add(A.advGetInv(), 'coal', 2);
+  /* 炉1: 吃首现矿种铁(单槽单矿种), 沙子留包 */
+  pos.x = spots[0].x + 0.5; pos.y = 25; pos.z = spots[0].z + 0.5;
+  AdventureMode.onMouse(0, {x: spots[0].x, y: 25, z: spots[0].z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetFurnaceAt(), k1, '点击炉1 绑定炉1');
+  A.advFurnaceAutoFill();
+  assert.deepStrictEqual(A.advFurnaceState(k1).input, {id: 'iron_ore', n: 3}, '炉1 吃铁矿');
+  assert.strictEqual(api.count(A.advGetInv(), 'sand'), 2, '沙子留在包里(单槽单矿种口径)');
+  A.advFurnaceClose();
+  /* 炉2: 吃沙 */
+  pos.x = spots[1].x + 0.5; pos.z = spots[1].z + 0.5;
+  AdventureMode.onMouse(0, {x: spots[1].x, y: 25, z: spots[1].z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetFurnaceAt(), k2, '点击炉2 绑定切换');
+  A.advFurnaceAutoFill();
+  assert.deepStrictEqual(A.advFurnaceState(k2).input, {id: 'sand', n: 2}, '炉2 吃沙子');
+  /* 双炉并烧 8s(炉1 3 件 7.5s / 炉2 2 件 5s): 面板开着的是炉2 —
+     炉2 完成播报玻璃; 炉1 完成不播(非绑定炉不合唱) */
+  spoken.length = 0;
+  for (let i = 0; i < 160; i++) AdventureMode.update(0.05); /* 8s */
+  assert.deepStrictEqual(A.advFurnaceState(k1).out, {id: 'iron_ingot', n: 3}, '炉1 各烧各的(铁锭×3)');
+  assert.deepStrictEqual(A.advFurnaceState(k2).out, {id: 'glass', n: 2}, '炉2 各烧各的(玻璃×2)');
+  assert.ok(spoken.some((t) => String(t).indexOf('玻璃') >= 0 && String(t).indexOf('烧好') >= 0),
+      '绑定炉(炉2)完成播报');
+  assert.ok(!spoken.some((t) => String(t).indexOf('铁锭') >= 0), '非绑定炉(炉1)烧成不播报');
+});
+
+test('F1 挖炉退料: 挖掉熔炉 → 三笔全额入包 + 炉状态删除 + 绑定面板连带关闭(挖掘/TNT 同一钩子)', () => {
+  mem.clear();
+  freshInit();
+  const s = findGrassSpot();
+  api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
+  A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  const fk = api.blockKey(s.x, 25, s.z);
+  api.add(A.advGetInv(), 'iron_ore', 3);
+  api.add(A.advGetInv(), 'coal', 2);
+  pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 0.5;
+  AdventureMode.onMouse(0, {x: s.x, y: 25, z: s.z, nx: 0, ny: 1, nz: 0});
+  A.advFurnaceAutoFill();
+  assert.strictEqual(A.advFurnaceState(fk).fuel.n, 1, '1 块煤入炉(前提)');
+  /* 蓄力链有专测 — 直接走破坏 seam(退炉钩在 advMarkEdit, 挖掘/TNT 爆炸同路) */
+  A.advBreakBlock(s.x, 25, s.z, api.B_FURNACE, {time: 0.5, drops: true});
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '待烧料全额退包');
+  assert.strictEqual(api.count(A.advGetInv(), 'coal'), 2, '燃料退包(炉内 1 + 背包余 1)');
+  assert.strictEqual(A.advFurnaceState(fk), null, '炉状态删除');
+  assert.strictEqual(A.ADV.furnaceOpen, false, '绑定面板连带关闭');
+});
+
+test('F2 炉口火焰差异增删: 燃烧=heat>0且有料在列 · 无料/熄灭出列 · 挖炉即清 · 退出全清', () => {
+  mem.clear();
+  freshInit();
+  /* 炉态直灌 Map(F1 多炉口径, T15 记账先例)——观感层不进方块数据/存档,
+     Node 无 THREE 只断言差异增删节律(advFlameCount 只读计数 seam) */
+  const fk = api.blockKey(12, 25, 12);
+  A.advFurnaces.set(fk, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1}, out: null, heat: 4, prog: 0});
+  assert.strictEqual(A.advFlameCount(), 0, '未起烧(计数前提)');
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 1, '燃烧中(heat>0 且有料) → 火焰在列');
+  /* 无料有热不算烧(与 advSmeltStep 推进条件一致——设计稿 §2.1 燃烧判定) */
+  A.advFurnaceState(fk).input = null;
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 0, '无料(余热尚在) → 差异删');
+  A.advFurnaceState(fk).input = {id: 'iron_ore', n: 1};
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 1, '补料复烧 → 差异加');
+  /* 热值耗尽(无热无燃料): 熄灭出列(advSmeltStep 每步写回新对象, 改前须重取) */
+  const fx = A.advFurnaceState(fk);
+  fx.heat = 0; fx.fuel = null;
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 0, '热值耗尽 → 熄灭出列');
+  /* 挖炉(advFurnaceDrop 钩子, 挖掘/TNT 同路): 不等下一帧即时清 */
+  A.advFurnaceState(fk).heat = 4;
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 1, '再燃(前提)');
+  A.advFurnaceDrop(fk);
+  assert.strictEqual(A.advFlameCount(), 0, '挖炉 → 火焰即时清(场景对象不渗漏)');
+  /* 退出模式: 全清 */
+  A.advFurnaces.set(fk, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1}, out: null, heat: 4, prog: 0});
+  AdventureMode.update(0.05);
+  assert.strictEqual(A.advFlameCount(), 1, '燃烧中(前提)');
+  AdventureMode.cleanup();
+  assert.strictEqual(A.advFlameCount(), 0, 'cleanup → 火焰全清');
 });
 
 test('T13 TNT 行为链: 放置 → 空手短按点燃 → 引信延时 → 爆炸破坏记账 + 波及怪物受击', () => {
@@ -1656,9 +1820,10 @@ test('事件计数累计链: 挖→拾取→合成→放置→烧成→开箱→
   A.advChestOpenPanel();
   assert.strictEqual(c().open_chest, 1, '打开箱子 → open_chest 1(引导链 v2)');
   A.advChestClose();
-  /* 烧成: advFurnaceTick 产出分支(3 件铁锭 = 7.5s+) */
-  A.advFurnace.input = {id: 'iron_ore', n: 3};
-  A.advFurnace.fuel = {id: 'coal', n: 1};
+  /* 烧成: advFurnaceTick 产出分支(3 件铁锭 = 7.5s+) — 炉态直灌 Map(F1 多炉口径) */
+  spot = findGrassSpot();
+  A.advFurnaces.set(api.blockKey(spot.x, 25, spot.z), {input: {id: 'iron_ore', n: 3},
+    fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
   for (let i = 0; i < 170; i++) AdventureMode.update(0.05); /* 8.5s */
   assert.strictEqual(c().smelt_iron_ingot, 3, '烧成 3 件铁锭 → smelt_iron_ingot 3');
   /* 击杀: advOnKill 挂点(挥击/箭/TNT 三路共用) */
@@ -1749,6 +1914,27 @@ test('T15 钻石首获仪式: 首次挖到钻石矿触发一次(专属 TTS+音�
   assert.strictEqual(spoken.filter((s) => /亮晶晶/.test(String(s))).length, riteTts, '仪式 TTS 不重播');
   assert.strictEqual(A.ADV.quest.counts.mine_diamond_ore, 2, '计数照累计(仪式≠记账)');
   assert.strictEqual(A.ADV.quest.step, 0, '仪式≠步进(第 15 步要凑满 3 颗)');
+});
+
+test('F3 金苹果首获仪式: 首次合成触发一次(金光冲击波+gem 琶音+专属 TTS), 第二次不再', () => {
+  mem.clear();
+  freshInit();
+  spoken.length = 0;
+  calls.length = 0;
+  A.advOnCraft({item: 'golden_apple', n: 1, leftover: 0});
+  assert.ok(spoken.some((s) => /金灿灿/.test(String(s)) && /金子/.test(String(s))),
+      '专属 TTS(首获话术; cancel-then-speak 压过常规合成表扬)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'gem'), '专属音效 gem 琶音(钻石首获同款)');
+  assert.ok(calls.filter((x) => x[0] === 'pop').length >= 2, '金光双层冲击波(Fx.pop)');
+  assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('第一个金苹果') >= 0), '仪式 toast');
+  assert.strictEqual(A.ADV.quest.counts.craft_golden_apple, 1, '合成记账照走(仪式≠记账)');
+  assert.strictEqual(A.ADV.quest.step, 0, '仪式≠步进(金苹果不加任务步, 自由玩出口)');
+  const pops = calls.filter((x) => x[0] === 'pop').length;
+  const riteTts = spoken.filter((s) => /金灿灿/.test(String(s))).length;
+  A.advOnCraft({item: 'golden_apple', n: 1, leftover: 0}); /* 再合一个 */
+  assert.strictEqual(calls.filter((x) => x[0] === 'pop').length, pops, '第二次合成不再仪式(首获专属)');
+  assert.strictEqual(spoken.filter((s) => /金灿灿/.test(String(s))).length, riteTts, '仪式 TTS 不重播');
+  assert.strictEqual(A.ADV.quest.counts.craft_golden_apple, 2, '计数照累计');
 });
 
 test('T15 终章: 合成钻石剑 → 「小小探险家」称号+烟花+入档; 只触发一次, 重进不重复', () => {
@@ -2215,4 +2401,136 @@ test('方块级联⑦(三期 P14 红线): 旧档浮空冠重进治愈 — 治愈
   AdventureMode.cleanup();
   const saved2 = JSON.parse(mem.get('adventure_world_save'));
   assert.strictEqual(saved2.edits.length, saved.edits.length, '幂等: 二次进世界零新增治愈记账');
+});
+
+/* ============ F4 牧场(二期设计稿 §4): 散布在场 / 收获链 / 恐惧游荡 / 死畜账 / 熟食链 ============ */
+
+test('F4 牧场: init 动物在场 — 确定性清单 10 只(牛2羊2猪3鸡3)挂 __livestockIdx, 重进原位复现', () => {
+  mem.clear();
+  freshInit();
+  const herd = () => mobsState.spawned.filter((m) => m.__livestockIdx != null);
+  const h1 = herd();
+  assert.strictEqual(h1.length, 10, '2 群共 10 只');
+  assert.deepStrictEqual(h1.map((m) => m.__livestockIdx).sort((a, b) => a - b),
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], '索引 0..9 各一只(死畜账的对账键)');
+  const byType = {};
+  for (const m of h1) {
+    assert.strictEqual(m.cfg.passive, true, m.type + ' 带 passive 旗标(表照抄)');
+    byType[m.type] = (byType[m.type] || 0) + 1;
+  }
+  assert.deepStrictEqual(byType, {cow: 2, sheep: 2, pig: 3, chicken: 3}, '群位 A 牛羊 / 群位 B 猪鸡');
+  /* 不贴脸: 群位离出生 ≥15(环带 ≤1.8, 条目至少 13 格外) */
+  for (const m of h1) {
+    assert.ok(Math.hypot(m.pos.x - A.ADV.spawn.x, m.pos.z - A.ADV.spawn.z) > 13,
+        '牧场离出生小屋足够远(群位 ≥15 的推论)');
+  }
+  /* 重进复现: 位置不存档, 重进回散布原位(确定性清单, 设计稿 §6 差异清单) */
+  const snap1 = h1.map((m) => [m.__livestockIdx, m.type, +m.pos.x.toFixed(6), +m.pos.z.toFixed(6)])
+      .sort((a, b) => a[0] - b[0]);
+  freshInit();
+  const snap2 = herd().map((m) => [m.__livestockIdx, m.type, +m.pos.x.toFixed(6), +m.pos.z.toFixed(6)])
+      .sort((a, b) => a[0] - b[0]);
+  assert.deepStrictEqual(snap2, snap1, '重进散布原位逐字段复现');
+});
+
+test('F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 + kill_mob 不记账(战斗步只认怪物)', () => {
+  mem.clear();
+  freshInit();
+  dropsState.spawned.length = 0;
+  /* 掉落链: init 挂的 onDeath 回调掷骰(收获与怪物击杀同一管线, 零新逻辑) */
+  mobsState.deathCbs[0]({type: 'cow', pos: {x: 45, y: 25, z: 45}, __livestockIdx: 0});
+  assert.deepStrictEqual(dropsState.spawned.map((d) => d.id).sort(), ['leather', 'raw_beef'],
+      '牛掉生牛肉+皮革(MOB_DROPS 表)');
+  assert.ok(dropsState.spawned.every((d) => d.y === 25.8 && d.x === 45), '落点=尸体上方 0.8(击杀观感同款)');
+  assert.deepStrictEqual(A.advGetLivestock(), {dead: [0]}, '死畜索引顺手落账(同一回调)');
+  /* 收获观感 + 不记账 */
+  calls.length = 0;
+  A.advOnKill(mkAdvMob('cow', 40, 25, 47));
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('收获') >= 0),
+      'killBurst verb=收获(温和口径替代「击杀」)');
+  assert.strictEqual(A.ADV.quest.counts.kill_mob, undefined, 'kill_mob 不记动物(收获不是战斗)');
+  assert.strictEqual(A.ADV.killCount, 1, '击杀计数照走(toast 口径共用)');
+  /* 对照: 怪物击杀照旧「击杀」+记账 */
+  calls.length = 0;
+  A.advOnKill(mkAdvMob('zombie', 40, 25, 47));
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('击杀') >= 0), '怪物照旧 verb=击杀');
+  assert.strictEqual(A.ADV.quest.counts.kill_mob, 1, '战斗教学步只认怪物');
+});
+
+test('F4 恐惧游荡: 玩家靠近 ≤2.5 让开(×0.8 背向) · 受击存活 3 秒逃窜(×2.2) · 不进战斗 AI 不反击', () => {
+  mem.clear();
+  freshInit();
+  const cow = mkAdvMob('cow', 40, 25, 48.4); /* 玩家正北 2.5 格(恰让开圈沿, 含等号) */
+  globalThis.yaw = 0; /* 面朝 -Z */
+  globalThis.pos.x = 40; globalThis.pos.y = 25; globalThis.pos.z = 50.9;
+  listResult = [cow];
+  moveLog.length = 0;
+  hitLog.length = 0;
+  AdventureMode.update(1 / 60);
+  const avoid = moveLog.find((e) => e.m === cow);
+  assert.ok(avoid && avoid.dz < 0 && Math.abs(avoid.dx) < 1e-9, '缓步让开: 背向玩家(dz<0)');
+  assert.ok(Math.abs(Math.abs(avoid.dz) - 1.4 * 0.8 / 60) < 1e-9,
+      '让开速度 = speed×0.8(牛 1.4): ' + avoid.dz.toFixed(5));
+  assert.strictEqual(hitLog.length, 0, '不反击(动物零伤害也不出手)');
+  /* 受击存活 → 逃窜计时挂实体私有字段, 随后 3 秒 ×2.2 背向 */
+  nextHit = {hp: 10, dead: false, freshDead: false};
+  AdventureMode.onMouse(0); /* 挥击命中: 动物是 Mobs 实体, 准星锥内最近怪天然在列 */
+  assert.strictEqual(cow.__fleeT, 3, '受击存活 → __fleeT=3(私有字段挂受击时刻)');
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  const flee = moveLog.find((e) => e.m === cow);
+  assert.ok(flee && flee.dz < 0, '逃窜方向背向玩家');
+  assert.ok(Math.abs(Math.abs(flee.dz) - 1.4 * 2.2 / 60) < 1e-9,
+      '逃窜速度 = speed×2.2: ' + flee.dz.toFixed(5));
+  /* 计时到期 + 玩家在 2.5 格外 → 原地平静(关掉闲逛便于断言) */
+  cow.__fleeT = 0;
+  cow.__ambleT = 999;
+  cow.__ambleWalk = false;
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.ok(!moveLog.some((e) => e.m === cow), '逃窜结束且玩家在圈外: 不动(不追击不恋战)');
+  assert.ok(!hitLog.some((h) => h.m.pos === globalThis.pos), '全程不反击(hitLog 里只有玩家挥击的那一记)');
+});
+
+test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索引不复活(牧场不重生, MC 口径)', () => {
+  mem.clear();
+  freshInit();
+  const herd = mobsState.spawned.filter((m) => m.__livestockIdx != null);
+  assert.strictEqual(herd.length, 10, '前提: 满员牧场');
+  const victim = herd[4]; /* 群位 B 首只猪 */
+  dropsState.spawned.length = 0;
+  mobsState.deathCbs[0](victim); /* 走真实 onDeath 回调(掉落+落账同帧) */
+  assert.deepStrictEqual(A.advGetLivestock(), {dead: [victim.__livestockIdx]}, '死畜账在内存');
+  assert.ok(dropsState.spawned.length >= 1, '掉落照常(收获链不断)');
+  AdventureMode.cleanup();
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  assert.deepStrictEqual(sv.livestock, {dead: [victim.__livestockIdx]}, '死畜索引随世界档落盘');
+  freshInit();
+  const again = mobsState.spawned.filter((m) => m.__livestockIdx != null);
+  assert.strictEqual(again.length, 9, '重进 9 只(死畜不复活)');
+  assert.ok(!again.some((m) => m.__livestockIdx === victim.__livestockIdx), '被杀索引不再生成');
+  assert.strictEqual(again.filter((m) => m.type === 'pig').length, 2, '猪少一只(不重生)');
+  assert.strictEqual(again.filter((m) => m.type === 'cow').length, 2, '别的群原样');
+});
+
+test('F4 熟食链: 炉烧生肉→熟肉(SMELTS 四条, 与矿物同套节律) + 吃熟肉回血走 advEatPolicy 普通口径', () => {
+  /* 纯表复核(逐条钉口径在 craft-core.test; 此处验探险消费面) */
+  assert.strictEqual(smeltOf('raw_beef'), 'cooked_beef');
+  assert.strictEqual(smeltOf('raw_porkchop'), 'cooked_porkchop');
+  assert.strictEqual(smeltOf('raw_chicken'), 'cooked_chicken');
+  assert.strictEqual(smeltOf('raw_mutton'), 'cooked_mutton');
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  const fk = api.blockKey(spot.x, 25, spot.z);
+  A.advFurnaces.set(fk, {input: {id: 'raw_beef', n: 1}, fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
+  for (let i = 0; i < 60; i++) AdventureMode.update(0.05); /* 3s > 2.5s 烧成一件 */
+  assert.deepStrictEqual(A.advFurnaceState(fk).out, {id: 'cooked_beef', n: 1}, '生牛肉烧成牛排');
+  /* 吃熟肉: food 8 普通口径(无 full 旗标, 不碰政策——回血钳制同腐肉/苹果) */
+  A.advGetPEnt().hp = 20;
+  A.ADV.player.hp = 20; /* 账本与实体同源(死亡政策口径) */
+  holdOnly('cooked_beef', 2);
+  AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0}); /* 手持食物: 点击=吃 */
+  assert.strictEqual(A.advGetPEnt().hp, 28, '牛排回 8 血(比生肉 3 好得多档)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '吃掉 1 个');
 });
