@@ -15,15 +15,15 @@ const vm = require('node:vm');
 /* ---------- 真引擎件: config + mob-registry + voxel + scene-kit + 四纯核心/库, 共享一个 vm 词法环境 ---------- */
 const ROOT = path.join(__dirname, '..');
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
-for (const f of ['js/config.js', 'js/mob-registry.js', 'js/voxel.js', 'js/scene-kit.js', 'js/items-core.js',
-  'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
+for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
+  'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, blockKey, SceneKit,
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
-  B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT,
+  B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
   ITEMS, isTool, toolOf, breakTime, stackMax,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf,
@@ -360,4 +360,68 @@ test('F4 advHerdStep: 逃窜优先(3s 递减 ×2.2) · 贴近让开(≤2.5 ×0.8
   assert.deepStrictEqual(Core.advHerdStep(8, 1.2, 0, 1), {fleeT: 0, speed: 0}, '远距平静(闲逛归壳层)');
   /* 逃窜优先于让开: 受击计时未到期时距离不影响速度档 */
   assert.strictEqual(Core.advHerdStep(8, 1.4, 2, 0.1).speed, 1.4 * 2.2, '逃窜中距离再远也是 ×2.2');
+});
+
+/* ============ 昼夜 D6: 床·睡觉政策纯函数(设计稿 §7.2) ============ */
+
+test('D6 睡觉政策: advSleepCheck — 夜窗(sleepWindow)优先 + 床 8 格内无活怪(passive 不算怪)', () => {
+  /* 夜窗判定直连 Daylight.sleepWindow(skyDim≥4 ⇔ [12542,23460)); 边界细节归 daylight-core 单测 */
+  assert.deepStrictEqual(Core.advSleepCheck(6000, [], 10.5, 20.5), {ok: false, why: 'night'},
+      '正午不可睡(why=night → toast「晚上才能睡哦」)');
+  assert.deepStrictEqual(Core.advSleepCheck(12541, [], 10.5, 20.5), {ok: false, why: 'night'},
+      '窗口起 12542 前一 tick 仍不可睡');
+  assert.deepStrictEqual(Core.advSleepCheck(20000, [], 10.5, 20.5), {ok: true, why: ''},
+      '深夜无怪可睡');
+  /* 床边无怪: 水平 8 格(MC 口径 research §1.6); 床坐标取格心 */
+  const nightMobs = (mobs) => Core.advSleepCheck(20000, mobs, 10.5, 20.5);
+  assert.deepStrictEqual(nightMobs([{x: 13, z: 23}]), {ok: false, why: 'mob'},
+      '3 格内有活怪(why=mob → toast「附近有怪物，睡不着」)');
+  assert.deepStrictEqual(nightMobs([{x: 18.5, z: 20.5}]), {ok: false, why: 'mob'},
+      '恰 8 格整也算「8 格内」(advNearStation 同含等号口径)');
+  assert.deepStrictEqual(nightMobs([{x: 19.2, z: 20.5}]), {ok: true, why: ''},
+      '8.7 格外的怪不拦');
+  /* 尸体/已移除/牧场动物(passive)不拦(F4 口径: 动物不算怪) */
+  assert.deepStrictEqual(nightMobs([{x: 11, z: 21, dead: true}]), {ok: true, why: ''}, '尸体不拦');
+  assert.deepStrictEqual(nightMobs([{x: 11, z: 21, gone: true}]), {ok: true, why: ''}, '已移除不拦');
+  assert.deepStrictEqual(nightMobs([{x: 11, z: 21, passive: true}]), {ok: true, why: ''},
+      '牧场动物贴床也不拦(MC 口径: 动物不妨碍睡觉)');
+  /* 夜窗不过时连怪都不看(先决条件次序 = toast 优先级) */
+  assert.deepStrictEqual(Core.advSleepCheck(6000, [{x: 11, z: 21}], 10.5, 20.5),
+      {ok: false, why: 'night'}, '白天有怪也先报「晚上才能睡哦」');
+  assert.strictEqual(Core.ADV_BED_MOB_R, 8, '床边无怪半径 = 8 格(常量表)');
+});
+
+test('D6 睡觉转场: advSleepStep — 渐黑 1.5s → 停 2s(唤醒沿) → 渐亮 1.5s ≈ 5s(MC 101 tick 观感)', () => {
+  const S = Core;
+  /* 渐黑段: opacity 线性升, phase='out' */
+  let s = S.advSleepStep(0, 0.75);
+  assert.strictEqual(s.phase, 'out');
+  assert.strictEqual(Math.round(s.opacity * 100) / 100, 0.5, '半程半黑');
+  assert.strictEqual(s.wake, false);
+  assert.strictEqual(s.t, 0.75);
+  /* 停段: opacity=1, phase='hold' */
+  s = S.advSleepStep(1.5, 1.0);
+  assert.strictEqual(s.phase, 'hold');
+  assert.strictEqual(s.opacity, 1, '全黑停留');
+  assert.strictEqual(s.wake, false, '停段未到唤醒沿');
+  /* 唤醒沿: 跨过 3.5s(1.5+2)恰一帧 wake=true — 渐亮起点 = 跳清晨+清场+设出生点 */
+  s = S.advSleepStep(3.4, 0.2);
+  assert.strictEqual(s.phase, 'in');
+  assert.strictEqual(s.wake, true, '跨 3.5s 的这一步恰一次唤醒沿');
+  assert.strictEqual(Math.round(s.opacity * 100) / 100, 0.93, '渐亮起点近全黑(3.6s → (5-3.6)/1.5)');
+  s = S.advSleepStep(3.6, 0.1);
+  assert.strictEqual(s.wake, false, '沿只发一次(后续帧不重发)');
+  /* 大步跨沿也只发一次(后台标签页回来 dt 被主循环钳 0.05, 但状态机自身鲁棒) */
+  s = S.advSleepStep(2.0, 2.0);
+  assert.strictEqual(s.wake, true, '一步跨过 3.5s 也发沿');
+  assert.strictEqual(s.phase, 'in');
+  /* 收尾: 5s 到点 done, opacity 归 0 */
+  s = S.advSleepStep(4.9, 0.2);
+  assert.strictEqual(s.phase, 'done');
+  assert.strictEqual(s.opacity, 0);
+  assert.strictEqual(s.t, 5, 't 钳在总时长');
+  /* 渐亮中点透明度对称 */
+  s = S.advSleepStep(4.25, 0);
+  assert.strictEqual(Math.round(s.opacity * 100) / 100, 0.5, '4.25s(渐亮中点)半透明');
+  assert.strictEqual(S.ADV_SLEEP_TOTAL, 5, '总时长常量 ≈ MC 101 tick=5.05s(差异 #2 观感等价)');
 });

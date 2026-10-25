@@ -17,11 +17,14 @@
      advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advFurnaceValid/
      advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫)/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · F4 牧场
-     advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 任务表
+     advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 床·睡觉
+     政策(昼夜 D6 §7.2) advSleepCheck(两条件)/advSleepStep(转场时间账) 与
+     常量 ADV_BED_MOB_R/ADV_SLEEP_* · 任务表
      ADV_QUESTS/ADV_MINE_TALLY · 大宝箱政策 ADV_CHEST_START/ADV_CHEST_SLOTS/
      ADV_CHEST_TIERS/advChestNext/advChestPut · 节律常量 ADV_*
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界
-     尺寸 · voxel.js 的 getBlock/setBlockRaw · scene-kit.js 的
+     尺寸 · daylight-core 的 Daylight(睡觉夜窗判定, 昼夜 D6) · voxel.js 的
+     getBlock/setBlockRaw · scene-kit.js 的
      SceneKit · items-core 的 ITEMS/toolOf/stackMax · inventory-core 的 add ·
      craft-core 的 fuelUnits/smeltOf · drops.js 的 rollDrops/
      rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件)
@@ -770,6 +773,56 @@ function advBreakToolText(name, hint) {
       (hint ? ' 接下来：' + hint : '');
 }
 
+/* ============================================================
+   床·睡觉政策 (昼夜 D6, mc-daylight-torch §7.2) — 常量与纯函数段
+   ------------------------------------------------------------
+   两条件(设计稿 §7.2 表): 夜晚窗口 Daylight.sleepWindow(skyDim≥4 ⇔
+   晴天 [12542,23460], research §1.6 裁决口径) + 床 8 格(水平)内无
+   活怪(MC 口径; passive 牧场动物不算怪——F4「动物不算怪」同口径)。
+   转场观感(#fade 遮罩/TTS/跳清晨/出生点设床边)在壳 modes/adventure.js,
+   这里只有判据与时间账。
+   ============================================================ */
+const ADV_BED_MOB_R = 8; /* 床边无怪判定半径(水平格, 含等号——advNearStation 同口径) */
+const ADV_SLEEP_FADE = 1.5; /* 渐黑秒数(§7.2) */
+const ADV_SLEEP_HOLD = 2; /* 全黑停留秒数(§7.2) */
+const ADV_SLEEP_TOTAL = 5; /* 总时长 ≈ MC 101 tick=5.05s 观感等价(差异 #2) */
+
+/* 睡觉条件: mobs 为怪物快照([{x,z,dead?,gone?,passive?}] 壳层从 Mobs.list()
+   采集成), bx/bz 为床格心坐标。返回 {ok, why}: 'night'(→toast「晚上才能睡哦」)
+   优先于 'mob'(→toast「附近有怪物，睡不着」)— 次序 = §7.2 表条件次序 */
+function advSleepCheck(dayTime, mobs, bx, bz) {
+  if (!Daylight.sleepWindow(dayTime)) return {ok: false, why: 'night'};
+  for (const m of mobs) {
+    if (m.dead || m.gone || m.passive) continue; /* 尸体/已移除/牧场动物不拦 */
+    if (Math.hypot(m.x - bx, m.z - bz) <= ADV_BED_MOB_R) return {ok: false, why: 'mob'};
+  }
+  return {ok: true, why: ''};
+}
+
+/* 睡觉转场时间账(纯函数): t 为已进行秒, 返回 {t, phase, opacity, wake} —
+   phase: 'out' 渐黑(opacity=t/1.5) → 'hold' 全黑停 → 'in' 渐亮
+   (opacity=(5−t)/1.5) → 'done'; wake=true 恰在跨过 1.5+2=3.5s 的一步
+   (渐亮起沿, 壳层在此做 dayTime=0 + 夜怪清场 + 出生点设床边), 大步跨沿
+   也只发一次; t 钳在总时长 */
+function advSleepStep(t, dt) {
+  const nt = Math.min(ADV_SLEEP_TOTAL, t + dt);
+  const edge = ADV_SLEEP_FADE + ADV_SLEEP_HOLD; /* 唤醒沿 = 渐黑+停留 */
+  const wake = t < edge && nt >= edge;
+  let phase = 'out';
+  let opacity = nt / ADV_SLEEP_FADE;
+  if (nt >= ADV_SLEEP_TOTAL) {
+    phase = 'done';
+    opacity = 0;
+  } else if (nt >= edge) {
+    phase = 'in';
+    opacity = (ADV_SLEEP_TOTAL - nt) / ADV_SLEEP_FADE;
+  } else if (nt >= ADV_SLEEP_FADE) {
+    phase = 'hold';
+    opacity = 1;
+  }
+  return {t: nt, phase, opacity, wake};
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
@@ -790,5 +843,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut,
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,
-    advBreakToolText};
+    advBreakToolText,
+    ADV_BED_MOB_R, ADV_SLEEP_FADE, ADV_SLEEP_HOLD, ADV_SLEEP_TOTAL,
+    advSleepCheck, advSleepStep};
 }
