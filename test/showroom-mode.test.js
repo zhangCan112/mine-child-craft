@@ -341,6 +341,14 @@ function findByClass(el, cls) {
   return null;
 }
 
+/* 同上, 但收全清单(DOM 序): 熔炉三槽 cell 顺序 = 料/燃料/产物 */
+function collectByClass(el, cls, acc) {
+  acc = acc || [];
+  if (String(el.className || '').split(/\s+/).includes(cls)) acc.push(el);
+  for (const c of el.children || []) collectByClass(c, cls, acc);
+  return acc;
+}
+
 test('体验馆: update 逐炉推进 — 2.5s/件出锭 · 面板开着喂进度条 · 关面板烧炼照跑(进度保留)', () => {
   freshEnter();
   const hit = {x: SR_FURNACE.x, y: SR_FURNACE.y, z: SR_FURNACE.z};
@@ -360,6 +368,13 @@ test('体验馆: update 逐炉推进 — 2.5s/件出锭 · 面板开着喂进度
   const fill = findByClass(ShowroomMode.sr.panel.root, 'mkp-pfill');
   assert.ok(fill, '面板 DOM 有进度填充条');
   assert.strictEqual(fill.style.width, '4%', '进度条喂显 4%(0.1/2.5)');
+  /* 三槽喂显(字段桥接): 核心炉态产物字段是 out, 面板 setSlots 读 output
+     (mode-kit 契约) — 桥接后烧出的锭在产物槽露脸(修复前喂错字段, 产物槽
+     即使有锭也永远空白) */
+  const cells = collectByClass(ShowroomMode.sr.panel.root, 'mkp-cell');
+  assert.strictEqual(cells.length, 3, '面板三槽(料/燃料/产物)');
+  assert.ok(String(cells[0].innerHTML).indexOf('🟠') >= 0, '料槽显示铁矿石图标');
+  assert.ok(String(cells[2].innerHTML).indexOf('⬜') >= 0, '产物槽显示铁锭图标(out→output 桥接喂显)');
   /* 关面板: 顺带取走产物入包(探险同款即时回报), 烧炼照跑(面板只是回显) */
   ShowroomMode.sr.panel.close();
   assert.ok(!ShowroomMode.sr.isOpen(), '面板收起');

@@ -174,9 +174,16 @@ function showroomFuelR(f) {/* 燃料余量比(镜像探险 advFurnaceFuelR, F2 �
   const per = fuelUnits(f.fuel.id);
   return per ? Math.min(1, f.heat / per) : 1;
 }
+/* 炉态 → 面板槽形状: 核心炉态(adventure-core)的产物字段是 out, 面板
+   setSlots 读 output(mode-kit 契约, 其单测锁的形状) — 喂显前桥接一个
+   字段名, 其余槽位同形直传(adventure 侧同错位是既有行为, 归 T4 附记) */
+function showroomFurnSlots(f) {
+  return f ? {input: f.input, fuel: f.fuel, output: f.out} :
+    {input: null, fuel: null, output: null};
+}
 function showroomFurnacePaint() {/* 面板回显: 三槽现状 + 进度(0..1) + 燃料余量 */
   const f = showroomFurnOpen ? showroomFurnaces.get(showroomFurnaceKey()) : null;
-  showroomFurnacePanel.setSlots(f || {input: null, fuel: null, output: null});
+  showroomFurnacePanel.setSlots(showroomFurnSlots(f));
   showroomFurnacePanel.setProgress((f ? f.prog : 0) / ADV_SMELT_T);
   showroomFurnacePanel.setFuel(showroomFuelR(f));
 }
@@ -249,7 +256,7 @@ function showroomFurnaceTick(dt) {
   const sig = f ? [f.input, f.fuel, f.out].map((s) => (s ? s.id + '×' + s.n : '-')).join('|') : '';
   if (sig !== showroomFurnSig) {
     showroomFurnSig = sig;
-    showroomFurnacePanel.setSlots(f);
+    showroomFurnacePanel.setSlots(showroomFurnSlots(f));
   }
   if (showroomFurnacePanel.root.style.display === 'none') showroomFurnaceClose();
 }
