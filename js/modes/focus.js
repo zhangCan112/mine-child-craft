@@ -9,7 +9,8 @@
      体检/特训纯函数) · runFocusLevel(focus-paradigms.js) ·
      chiefFace/stampIcon/flameIcon(mcIcon 族, focus-icons.js) ·
      SpeechKit(js/speech.js) · sfx(js/audio.js) · Backpack/ITEMS/iconOf ·
-     Budgets(js/daily-budget.js) · SyncDB(js/sync.js) · ModeKit(js/mode-kit.js)
+     Budgets(js/daily-budget.js) · SyncDB(js/sync.js) · ModeKit(js/mode-kit.js) ·
+     CampKit(js/camp-kit.js — 战利品回路五件套 C1-T1 收编, 加载序在本文件之前)
    可测性: 纯 DOM 模式层; 决策纯函数在 focus-levels.js 有单测,
      本文件由 boot.test.js 全链冒烟兜底
    ------------------------------------------------------------
@@ -22,7 +23,8 @@
    F5 增·奖励调优(2026-10): 矿袋战利品回路 — onTrial 逐试次段位掷骰入共享
    背包(教学关豁免, 体检/魔鬼特训不挂回调天然免; 幅度/品质随关卡 tier 分四
    段递增, 见 docs/focus-reward-tuning-design.md), 矿袋 HUD 槽位飞入(贝塞尔
-   弧线观感归 css/focus.css), 结算屏战利品列队回顾, 满包每关至多一次
+   弧线观感归 css/focus.css; 授予/飞行/落袋/回顾观感件自 C1-T1 起住
+   CampKit 的 focusLootHud 实例), 结算屏战利品列队回顾, 满包每关至多一次
    「背包满啦」toast; 掉落政策纯函数(rollFocusLoot/levelBonusLoot/
    grantFocusLoot)在 js/focus-levels.js(可单测), 本文件只做流程装配与观感
 ============================================================ */
@@ -70,18 +72,29 @@ function saveFocusSave(s) {
    记账进训练营存档 tools 字段, 宝物柜工具组从该字段渲染 */
 const focusBag = Backpack.mkBackpack();
 
-/* ---------- 矿袋战利品状态(F5): 本关会话内数据, 每关重置 ----------
-   focusLootSession: 本关入包明细 {id: n}(结算回顾与 HUD 计数的唯一数据源);
-   focusBagFullSaid: 满包 toast 每关至多一次(政策在 grantFocusLoot 纯函数,
-   toast 节流在此); focusStreakChimes: 连对琶音每关至多 3 次防轰炸;
+/* ---------- 矿袋战利品回路(F5 → C1-T1 收编 CampKit): 会话明细/满包节流旗/
+   飞行起点的状态与观感件住在 focusLootHud 实例(每关 begin() 重置);
+   此处只留 focus 奖励调优专属的两份计数 —
+   focusStreakChimes: 连对琶音每关至多 3 次防轰炸;
    focusLootDry: 关内连续答对未掉计数(奖励调优干燥兜底, 答错/掉落即清零,
-   达阈值由纯函数必得, 防整关空手挫败); focusLastTap: 最近一次点击坐标 —
-   战利品飞行起点(复刻 drops 真空吸附, 引擎事件缝不带 DOM 信息, 模式层自记) */
-let focusLootSession = null;
-let focusBagFullSaid = false;
+   达阈值由纯函数必得, 防整关空手挫败) */
 let focusStreakChimes = 0;
 let focusLootDry = 0;
-let focusLastTap = null;
+/* 战利品回路 kit 实例: prefix 'f' 拼 HUD 槽位/飞行件/回顾块的 id 与类名
+   (css/focus.css 契约不变); 缺省飞行起点=训练区 #fArea 矩心(引擎缺席时
+   兜底常量, F5 现状口径参数化保真); 满包 toast 每关至多一次(onFull 注入,
+   授予基座在 CampCore.grantLoot, 家族掷骰在 focus-levels 纯函数) */
+const focusLootHud = CampKit.mkLootHud({
+  prefix: 'f',
+  bag: focusBag,
+  hud: () => document.getElementById('fBagHud'),
+  defaultOrigin() {
+    const area = document.getElementById('fArea');
+    const ar = area ? area.getBoundingClientRect() : {left: 0, top: 0, width: 640, height: 380};
+    return {x: ar.left + ar.width / 2, y: ar.top + ar.height / 2};
+  },
+  onFull: () => showToast('背包满啦', 2200),
+});
 
 /* 每日预算(每日关数/时长)记在 js/daily-budget.js 的 focus 预算里(main.js setupBudgets 建立) */
 function focusBudget() {
@@ -95,29 +108,18 @@ const focusFailCount = {}; // 本关连续未通过次数 → 重试自动放宽
 
 /* ---------- 根容器与屏幕 ---------- */
 let focusRoot = null; let focusCtrl = null; let focusCurLevel = null;
-let focusAutoTimer = 0; let focusTicker = 0; let focusTickT0 = 0;
+let focusAutoTimer = 0;
 
-/* 训练时长入账: 关卡进行中每秒 accrue 实际毫秒并落账 —
-   崩溃/关页损失 ≤1 秒(原为关卡结束才入账, 丢整关 2~3 分钟); 菜单/说明页不计(口径不变) */
-const FOCUS_TICK_MAX_MS = 2000; /* 单拍入账上限: 只认连续在场的真实训练时长 */
-
+/* 训练时长入账(F5 → C1-T1 收编 CampKit.mkCampTicker): 关卡进行中每秒
+   accrue 实际毫秒并落账 — 崩溃/关页损失 ≤1 秒(原为关卡结束才入账, 丢整关
+   2~3 分钟); 菜单/说明页不计(口径不变); 单拍钳制 2s(f3c1fee 修复语义,
+   只认连续在场的真实训练时长)在 kit 单份保真 */
+const focusCampTicker = CampKit.mkCampTicker({budget: focusBudget});
 function startFocusTicker() {
-  stopFocusTicker();
-  focusTickT0 = Date.now();
-  focusTicker = setInterval(()=>{
-    const b = focusBudget(); if (!b) return;
-    const nowT = Date.now();
-    /* 单拍钳制(≤2s, math ticker 同款): 后台挂机时长不灌入每日预算 —
-       iPad 锁屏过夜曾把数学账灌爆(墙钟差一次性入账), 同源防线 */
-    b.accrue(Math.min(nowT - focusTickT0, FOCUS_TICK_MAX_MS));
-    focusTickT0 = nowT;
-    b.flush();
-  }, 1000);
+  focusCampTicker.start();
 }
 function stopFocusTicker() {
-  if (focusTicker) {
-    clearInterval(focusTicker); focusTicker = 0;
-  }
+  focusCampTicker.stop();
 }
 
 function ensureFocusRoot() {
@@ -426,20 +428,11 @@ function updateFocusStreak(streak) {
   }
 }
 
-/* 授予流(F3 核定口径): 入包成功即 save(频率低, 不批量); 余量>0 静默忽略 +
-   每关至多一次 toast「背包满啦」(零惩罚, 政策在 grantFocusLoot 纯函数) */
+/* 授予流(F3 核定口径, C1-T1 起住 CampKit 实例): 入包成功即 save(频率低,
+   不批量); 余量>0 静默忽略 + 每关至多一次 toast「背包满啦」(零惩罚,
+   授予基座在 CampCore.grantLoot, 家族薄委托 grantFocusLoot 同源) */
 function grantFocusLootIntoBag(ids) {
-  if (!focusLootSession) return {granted: [], full: false}; // 非关卡会话(防御)
-  const res = grantFocusLoot(focusBag.inv, ids);
-  for (const id of res.granted) {
-    focusLootSession[id] = (focusLootSession[id] || 0) + 1;
-  }
-  if (res.granted.length) focusBag.save();
-  if (res.full && !focusBagFullSaid) {
-    focusBagFullSaid = true;
-    showToast('背包满啦', 2200);
-  }
-  return res;
+  return focusLootHud.grantIntoBag(ids);
 }
 
 /* 逐试次事件(F2 契约 {ok, streak, dim}): dim 取事件补注值(master 关每小节
@@ -450,93 +443,43 @@ function onFocusTrialLoot(level, t) {
   const id = rollFocusLoot(level, {ok: t.ok, dry: focusLootDry, dim: t.dim});
   focusLootDry = id ? 0 : (t.ok ? focusLootDry + 1 : 0);
   if (!id) return;
-  if (grantFocusLootIntoBag([id]).granted.length) flyFocusLoot(id, focusLastTap);
+  /* 飞行起点=最近点击(kit 实例 noteTap 记录, 挂点在下方 areaEl)再缺省
+     defaultOrigin(训练区矩心) */
+  if (grantFocusLootIntoBag([id]).granted.length) flyFocusLoot(id);
 }
 
-/* 战利品飞行: iconOf 像素图标从刺激位置(最近点击, 缺省训练区中心)沿贝塞尔
-   弧线飞入矿袋槽位 — 位移经 CSS 变量 --dx/--dy 传给 keyframes(样式在
-   css/focus.css); 元素挂 document.body(#focusRoot 的动画全关降级块管不到,
-   飞行在 prefers-reduced-motion 下自退化为淡入); 落袋后更新 HUD 槽位 */
+/* 战利品飞行(C1-T1 起住 CampKit 实例): 贝塞尔弧线观感与 HUD 宽度守卫
+   (隐藏即放弃观感, 入包已完成)在 kit 单份; 位移经 CSS 变量 --dx/--dy 传给
+   keyframes(样式在 css/focus.css); 元素挂 document.body(#focusRoot 的
+   动画全关降级块管不到, 飞行在 prefers-reduced-motion 下自退化为淡入) */
 function flyFocusLoot(id, from) {
-  const hud = document.getElementById('fBagHud');
-  if (!hud) return; // 无 HUD(教学关/已切屏): 静默放弃观感, 入包已完成
-  const area = document.getElementById('fArea');
-  const ar = area ? area.getBoundingClientRect() : {left: 0, top: 0, width: 640, height: 380};
-  const fromPos = from || {x: ar.left + ar.width/2, y: ar.top + ar.height/2};
-  const slot = hud.querySelector('.f-bag-slot[data-item="' + id + '"]');
-  const r = (slot || hud).getBoundingClientRect(); // 已有槽飞向该槽, 新物品飞向收集条末端
-  const to = {x: r.left + r.width/2, y: r.top + r.height/2};
-  const el = document.createElement('img');
-  el.src = iconOf(id);
-  el.alt = '';
-  el.className = 'f-loot-fly';
-  el.style.left = (fromPos.x - 22) + 'px'; /* 中心点对齐(44px 图标) */
-  el.style.top = (fromPos.y - 22) + 'px';
-  el.style.setProperty('--dx', (to.x - fromPos.x) + 'px');
-  el.style.setProperty('--dy', (to.y - fromPos.y) + 'px');
-  document.body.appendChild(el);
-  setTimeout(()=>{
-    el.remove();
-    addFocusBagSlot(id); // 落袋: 计数 + 弹跳 + 叮咚
-  }, 620); // 与 keyframes 时长对齐(0.6s 弧线)
+  focusLootHud.fly(id, from);
 }
 
-/* 矿袋 HUD 落袋: 同 id 并槽计数, 新物品开槽(槽满自动滚到最新), 槽位弹跳 +
-   叮咚 sfx('pick')(与引擎答对音叠成双声部, 观感对齐 drops 真空吸附) */
+/* 矿袋 HUD 落袋(C1-T1 起住 CampKit 实例): 同 id 并槽计数, 新物品开槽
+   (槽满自动滚到最新), 槽位弹跳 + 叮咚 sfx('pick')(与引擎答对音叠成
+   双声部, 观感对齐 drops 真空吸附) */
 function addFocusBagSlot(id) {
-  const hud = document.getElementById('fBagHud');
-  if (!hud) return;
-  let slot = hud.querySelector('.f-bag-slot[data-item="' + id + '"]');
-  if (!slot) {
-    slot = document.createElement('div');
-    slot.className = 'f-bag-slot';
-    slot.dataset.item = id;
-    slot.title = ITEMS[id] ? ITEMS[id].name : id;
-    slot.innerHTML = '<img draggable="false" alt="" src="' + iconOf(id) + '"><span class="f-bag-n"></span>';
-    hud.appendChild(slot);
-  }
-  const n = focusLootSession ? (focusLootSession[id] || 1) : 1;
-  slot.querySelector('.f-bag-n').textContent = n > 1 ? '×' + n : '';
-  hud.scrollLeft = hud.scrollWidth; // 槽满滚动: 最新拾取始终可见
-  slot.classList.remove('bump');
-  void slot.offsetWidth;
-  slot.classList.add('bump');
-  sfx('pick');
+  focusLootHud.addSlot(id);
 }
 
-/* 结算屏战利品回顾(设计稿 §3 L5): 本关获得从矿袋飞出列队 + 计数 —
-   级联进场逐件 pop(星星爆开之后), 无获得不渲染区块 */
+/* 结算屏战利品回顾(C1-T1 起住 CampKit 实例, 设计稿 §3 L5): 本关获得
+   从矿袋飞出列队 + 计数 — 级联进场逐件 pop(星星爆开之后), 无获得
+   不渲染区块 */
 function focusLootRecapHtml() {
-  const n = Object.keys(focusLootSession || {}).length;
-  return n ? '<div class="f-loot-recap" id="fLootRecap"><span class="f-loot-title">🎒 本关收获</span></div>' : '';
+  return focusLootHud.recapHtml();
 }
 function runFocusLootRecap() {
-  const box = document.getElementById('fLootRecap');
-  if (!box) return;
-  Object.entries(focusLootSession || {}).forEach(([id, n], k)=>{
-    setTimeout(()=>{
-      if (!document.getElementById('fLootRecap')) return; // 已切屏: 中止列队
-      const nm = ITEMS[id] ? ITEMS[id].name : id;
-      const item = document.createElement('span');
-      item.className = 'f-loot-item';
-      item.title = nm;
-      item.innerHTML = '<img draggable="false" alt="' + nm + '" src="' + iconOf(id) + '">' +
-          (n > 1 ? '<b>×' + n + '</b>' : '');
-      box.appendChild(item);
-      if (k < 3) sfx('pick'); // 声音节流: 只前 3 件
-    }, 220*k + 250);
-  });
+  focusLootHud.runRecap();
 }
 
 function beginFocusRun(level) {
   startFocusTicker();
-  /* F5 矿袋会话状态: 每关一份新明细 / 满包 toast 与琶音节流计数 / 飞行起点
-     / 干燥计数(奖励调优) */
-  focusLootSession = {};
-  focusBagFullSaid = false;
+  /* F5 矿袋会话状态: 每关一份新明细 / 满包 toast 节流旗 / 飞行起点(kit
+     实例自持, begin 一并复位) + 琶音节流与干燥计数(奖励调优, 模式层自持) */
+  focusLootHud.begin();
   focusStreakChimes = 0;
   focusLootDry = 0;
-  focusLastTap = null;
   const meta = FOCUS_META[level.dim];
   const kindTag = level.kind==='tutorial' ? '· 教学' :
       level.kind==='review' ? '· 复习' :
@@ -566,7 +509,7 @@ function beginFocusRun(level) {
   document.getElementById('fBackBtn').onclick = showFocusToday;
   const areaEl = document.getElementById('fArea');
   areaEl.addEventListener('pointerdown', (e)=>{
-    focusLastTap = {x: e.clientX, y: e.clientY}; // 战利品飞行起点(刺激位置代理)
+    focusLootHud.noteTap(e.clientX, e.clientY); // 战利品飞行起点(刺激位置代理; 挂点 T4 再收)
   }, true);
   focusCtrl = runFocusLevel(level, areaEl, {
     progress(k, n) {
@@ -1176,6 +1119,7 @@ const FocusMode = mkMode({
   }, // 纯点选全屏 UI: chrome 全关由 kit 默认处理
   cleanup() {
     stopFocusTicker();
+    focusLootHud.clear(); // 战利品回路清场: 飞行件/HUD 槽位/会话状态(C1-T1)
     abortDevilRun(); // 魔鬼特训静默终止(不弹结算屏, 见函数注释)
     if (focusCtrl) {
       focusCtrl.stop(); focusCtrl = null;

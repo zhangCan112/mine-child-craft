@@ -66,6 +66,10 @@ _Avoid_: ensureHpBar/updateHpBar（历史名——两模式各自的内联实现
 应用层装配（js/combat-kit.js，THREE/DOM 惰性，有契约单测）：下界/探险（击杀观感另有坦克演习场消费）三模式各自复制的玩家战斗壳归一——mkFighter 玩家战斗实体（MobCore 状态字段 + 政策注入，原 getPEnt/advGetPEnt 同形）、mkHurtAlarm 受击提醒（账本同步 + 音 + 闪红 + 震屏 + 3s 话术节流，节流自持）、mkMelee 近战（准星锥门槛可选/swingOnMiss 下界无目标也出手口径/swingAction 弓占同一冷却轨道、冷却自持、伤害函数/耐久磨损/击杀经注入）、mkArrows 箭矢管线（一实例一弹种：发射 leadAim/沿准星 → 战斗核心 stepShot 步进 → 命中政策回调，弹数组与 geo 缓存自持）、killBurst 击杀观感（碎块 + 计数 toast + 尾回调，动词可注入）、resetFighter 复活五字段不变量、mkHpBar。interface：`CombatKit{mkFighter · mkHurtAlarm · mkMelee · mkArrows · killBurst · resetFighter · mkHpBar}`；行为面由 nether-mode/adventure-mode 既有断言兜底（interface 即测试面）。
 _Avoid_: getPEnt/advGetPEnt/netherOnHurt/advOnHurt/netherShoot/advShootArrow 等模式内联实现（历史名——已归一至 kit 实例）、把怪物 AI 骨架塞进来（激怒/归巢/飞行/封顶/供怪五维策略差异留模式层）、战斗冷却/节流状态放回模式顶层（kit 自持，update 只喂 tick）
 
+**训练营壳 kit（CampKit）**:
+应用层装配（js/camp-kit.js，THREE/DOM 惰性，Node 测试可安全加载）：focus/math 两训练营模式壳机器的收编地——两模式文件 ≈500+ 行换前缀镜像复制的归一（治理候选 1，分五票收编）。**T1 已收战利品回路五件套，后续票扩展**（T2 图章仪式、T3 家长面板件+结算星显+自动续程、T4 壳骨架 ensureRoot/screen/exit/init/cleanup）：mkCampTicker 训练时长 ticker（每秒 accrue 实际毫秒 + 单拍钳制 2s——f3c1fee 修复语义单份保真：只认连续在场的真实训练时长，后台挂机不灌入每日预算；start 幂等/stop 复位）；mkLootHud 矿袋战利品 HUD 一实例一家族（grantIntoBag 经 CampCore.grantLoot 入包 + 入包即 save（ADR 0002）+ 满包每关至多一次 onFull 回调、noteTap 飞行起点记录、fly 贝塞尔弧线飞入（含 HUD 宽度守卫——隐藏即放弃观感，入包已完成）、addSlot 落袋并槽计数、recapHtml/runRecap 结算列队回顾、begin 每关会话开张、clear 模式 cleanup 清场），会话状态（入包明细/满包节流旗/最近点击）自持实例。家族差异全部经工厂入参注入：budget 预算访问器、f-/m- DOM 前缀（CSS 契约不变）、defaultOrigin 缺省飞行起点（focus=训练区矩心兜底常量/math=屏心，参数化保真两侧现状）、onFull 满包回调。interface：`CampKit{mkCampTicker · mkLootHud}`；ticker 钳制与授予/节流账目有单测（test/camp-kit.test.js），DOM 观感件不直测（仓库惯例），行为面由 boot 冒烟 + math-paradigms 流程断言兜底。
+_Avoid_: 把两训练营的 HUD/计时/授予复制体当独立实现（历史形态——已收编 kit 实例，模式层家族名是薄委托）、在 kit 里写家族政策（段位变率/族池掷骰留各自 levels；focusStreakChimes/focusLootDry 奖励调优专属计数留 focus 模式层）
+
 **SceneKit**:
 坐在体素模型之上的场景搭建工具：填充、种树、确定性散布。四个游玩模式（竞技场/建造/坦克演习场/探险）的场景构建共用它。
 _Avoid_: fillB / plantTree / fxHash（历史名，已归并）
@@ -182,7 +186,7 @@ _Avoid_: 游玩限制、防沉迷开关
 基于五维实证范式的百关注意力训练；拥有独立的每日预算（时长 + 关数）。2.0 增量（难度坡道/战利品回路/脑锻炼结构层）的数值唯一权威在 js/focus-levels.js（纯函数+数据表，有单测），屏幕流与观感装配在 js/modes/focus.js——子系统词条见下方：矿袋 · 宝物柜 · 图章日历 · 集章里程碑 · 每日体检 · 魔鬼特训 · 训练师村长。
 
 **矿袋（Loot Bag）**:
-训练营的战利品回路 HUD（modes/focus.js 装配 + css/focus.css 观感）：正式试次答对按段位奖励表掷骰（FOCUS_REWARD_STAGES 四段递增，奖励调优 2026-10：品质镜像探险深度带——段1 煤带→段4 钻带，钻石仅段4 出现、金段3 首见、铁锭全程不发（烧炼教学归探险）；变率 p 0.06→0.15 随 tier 递增并乘试次归一（corsi 6 序列与 cpt 20+ 试次每关期望产次趋同）；连对保底已退役（预期的实物工资形态，动机研究 d=−0.36），防空关挫败改关内干燥兜底（连续 10 个答对未掉必得，dry 计数模式层维护、关开始/答错/掉落即清零）；教学关豁免；通关/三星按段位表展开（三星追加段4 才有钻石）），战利品沿贝塞尔弧线飞入矿袋槽位（复刻掉落物真空吸附观感）+ 落袋音，结算页列队回顾；掉落最终进共享背包。满包静默忽略 + 每关至多一次「背包满啦」toast。掷骰/结算/授予政策是种子可注入的纯函数（rollFocusLoot · levelBonusLoot · grantFocusLoot，focus-levels.js，有单测）——掷骰政策在 focus-levels，机制基座（pickWeighted/grantLoot）在训练营机制核心；DOM 动画不直测。集章奖励的矿袋皮肤挂 body.f-bag-iron 类钩子。数值依据与后续模式复用契约见 docs/focus-reward-tuning-design.md。
+训练营的战利品回路 HUD（观感件自 C1-T1 起住 CampKit.mkLootHud 的 focusLootHud 实例，css/focus.css 观感）：正式试次答对按段位奖励表掷骰（FOCUS_REWARD_STAGES 四段递增，奖励调优 2026-10：品质镜像探险深度带——段1 煤带→段4 钻带，钻石仅段4 出现、金段3 首见、铁锭全程不发（烧炼教学归探险）；变率 p 0.06→0.15 随 tier 递增并乘试次归一（corsi 6 序列与 cpt 20+ 试次每关期望产次趋同）；连对保底已退役（预期的实物工资形态，动机研究 d=−0.36），防空关挫败改关内干燥兜底（连续 10 个答对未掉必得，dry 计数模式层维护、关开始/答错/掉落即清零）；教学关豁免；通关/三星按段位表展开（三星追加段4 才有钻石）），战利品沿贝塞尔弧线飞入矿袋槽位（复刻掉落物真空吸附观感）+ 落袋音，结算页列队回顾；掉落最终进共享背包。满包静默忽略 + 每关至多一次「背包满啦」toast。掷骰/结算/授予政策是种子可注入的纯函数（rollFocusLoot · levelBonusLoot · grantFocusLoot，focus-levels.js，有单测）——掷骰政策在 focus-levels，机制基座（pickWeighted/grantLoot）在训练营机制核心；DOM 动画不直测。集章奖励的矿袋皮肤挂 body.f-bag-iron 类钩子。数值依据与后续模式复用契约见 docs/focus-reward-tuning-design.md。
 _Avoid_: f-bag（那是 HUD 的 CSS 类名）、把矿袋当第二背包（它只是共享背包的会话级观感，无独立存档）
 
 **宝物柜（FocusCabinet）**:

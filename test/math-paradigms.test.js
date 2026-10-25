@@ -16,7 +16,8 @@
    · index.html 脚本序(rand-core → camp-core → math-levels → math-puzzles-core →
    math-paradigms → modes/math, 加载序即依赖序)
    加载器: vm context 依次执行 rand-core.js + camp-core.js + math-levels.js + math-puzzles-core.js +
-   math-paradigms.js(+ modes/math.js), 镜像浏览器共享词法环境(相对序同
+   math-paradigms.js(+ camp-kit.js 与 modes/math.js — 战利品回路 kit 实例在
+   模式文件顶层建立, C1-T1), 镜像浏览器共享词法环境(相对序同
    index.html); DOM/语音/图标以记录桩注入(focus-paradigms.test.js 同款) */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -190,7 +191,7 @@ function loadMathMode() {
   for (const f of ['rand-core.js', 'camp-core.js', 'math-levels.js', 'math-puzzles-core.js',
     'math-build-world-core.js', 'hop-world-core.js',
     'math-track-core.js', 'math-paradigms.js', 'math-world.js', 'math-build-world.js',
-    'math-track.js', 'modes/math.js']) {
+    'math-track.js', 'camp-kit.js', 'modes/math.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), vmCtx, {filename: f});
   }
   vm.runInContext(`
@@ -1709,12 +1710,14 @@ test('index.html: 数学侧链路 script 全在册且加载序即依赖序', () 
   const order = ['js/camp-core.js', 'js/math-levels.js', 'js/math-puzzles-core.js',
     'js/math-build-world-core.js',
     'js/hop-world-core.js', 'js/math-track-core.js', 'js/math-paradigms.js',
-    'js/math-world.js', 'js/math-build-world.js', 'js/math-track.js', 'js/modes/math.js'].map(at);
+    'js/math-world.js', 'js/math-build-world.js', 'js/math-track.js', 'js/camp-kit.js',
+    'js/modes/math.js'].map(at);
   assert.ok(order.every((i) => i >= 0), '链路 script 全在册: ' + order.join(','));
   const why = '加载序即依赖序: camp-core 供 math-levels 图章/日期/loot 机制基座' +
       '(MathStampBook 顶层实例化, 构造期即用), puzzles/build-core/hop-core ' +
       '供三引擎出题, track-core 供三引擎试次循环, world 依赖 RandCore 的 ' +
       'mkRand 与 paradigms 的 mEl, build-world 依赖 track-core, track(驱动器)' +
-      '消费三插件与 track-core, modes/math 依赖 track 的 MathTrack';
+      '消费三插件与 track-core, camp-kit 供 modes/math 顶层建战利品回路实例' +
+      '(C1-T1), modes/math 依赖 track 的 MathTrack';
   assert.ok(order.every((v, k) => k === 0 || order[k - 1] < v), why);
 });

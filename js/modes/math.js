@@ -21,6 +21,8 @@
      与 main.js setupBudgets 建立的 math 预算) · SyncDB(js/sync.js) ·
      Backpack(js/backpack.js, ADR 0002 共享背包 — 数学岛是只产出的新消费方,
      T8) · ITEMS(js/items-core.js) · iconOf(js/icons.js, 调用期解析) ·
+     CampKit(js/camp-kit.js — 战利品回路五件套 C1-T1 收编, 加载序在
+     本文件之前) ·
      stampIcon(js/focus-icons.js, T8 数学自选章图案) ·
      MATH_*(js/math-levels.js) · PuzzleCore(js/math-puzzles-core.js) ·
      RandCore(js/rand-core.js, 关卡种子派生 seedAt) ·
@@ -46,8 +48,9 @@
    T8 激励回路(设计稿 §5·ADR 0002): onTrial 逐试次掷骰
    (rollMathLoot, 教学豁免/只奖不罚在纯函数)→ grantMathLoot 入共享
    背包 → HUD 矿袋槽位飞入(贝塞尔观感归 css/math.css, 对齐 focus
-   F5 纪律; 飞行起点 mathLastTap 自记点击坐标 — 引擎事件缝不带
-   DOM 信息)→ 结算屏战利品列队回顾; 满包每关至多一次「背包满啦」
+   F5 纪律; 授予/飞行/落袋/回顾观感件自 C1-T1 起住 CampKit 的
+   mathLootHud 实例, 飞行起点经 noteTap 自记点击坐标 — 引擎事件缝
+   不带 DOM 信息)→ 结算屏战利品列队回顾; 满包每关至多一次「背包满啦」
    toast; 图章一本独立于专注训练营(日历/自选章图案/集章达成线
    领奖, 纯函数在 math-levels.js, 奖励纯观感不解锁玩法)。
    ★ 分发与生命周期(T4 起收进世界轨驱动器 js/math-track.js):
@@ -118,14 +121,19 @@ function saveMathSave(s) {
     rollMathLoot, 可单测), 不得自开存档键(背包壳唯一持有)。 */
 const mathBag = Backpack.mkBackpack();
 
-/* 矿袋战利品会话状态(每关重置, focus F5 同款):
-    mathLootSession: 本关入包明细 {id: n}(结算回顾与 HUD 计数的唯一数据源);
-    mathBagFullSaid: 满包 toast 每关至多一次(政策在 grantMathLoot 纯函数,
-    toast 节流在此); mathLastTap: 最近一次点击坐标 — 战利品飞行起点
-    (引擎事件缝不带 DOM 信息, 模式层在 mathRoot 捕获期自记) */
-let mathLootSession = null;
-let mathBagFullSaid = false;
-let mathLastTap = null;
+/* 矿袋战利品回路(T8 → C1-T1 收编 CampKit): 会话明细/满包节流旗/飞行起点
+    的状态与观感件住在 mathLootHud 实例(每关 begin() 重置); prefix 'm' 拼
+    HUD 槽位/飞行件/回顾块的 id 与类名(css/math.css 契约不变); 缺省飞行
+    起点=屏心(摆与搭指针锁宿主无点击位可记, 现状口径参数化保真); 满包
+    toast 每关至多一次(onFull 注入, 授予基座在 CampCore.grantLoot,
+    家族掷骰在 math-levels 的 rollMathLoot 纯函数) */
+const mathLootHud = CampKit.mkLootHud({
+  prefix: 'm',
+  bag: mathBag,
+  hud: () => document.getElementById('mBagHud'),
+  defaultOrigin: () => ({x: innerWidth / 2, y: innerHeight / 2}),
+  onFull: () => showToast('背包满啦', 2200),
+});
 
 /* ---------- 进度派生纯函数(存档无 unlocked 字段的口径) ---------- */
 
@@ -202,20 +210,11 @@ function mathStampClaim(save) {
     onTrial → rollMathLoot(内拦教学关/错误试次) → grantMathLoot 入共享背包
     + save → 飞入 HUD 矿袋槽位; 结算屏列队回顾; 满包每关至多一次 toast */
 
-/* 授予流: 入包成功即 save(频率低, 不批量); 余量>0 静默忽略 + 每关至多一次
-    toast「背包满啦」(零惩罚, 政策在 grantMathLoot 纯函数) */
+/* 授予流(C1-T1 起住 CampKit 实例): 入包成功即 save(频率低, 不批量);
+    余量>0 静默忽略 + 每关至多一次 toast「背包满啦」(零惩罚, 授予基座在
+    CampCore.grantLoot, 家族薄委托 grantMathLoot 同源) */
 function grantMathLootIntoBag(ids) {
-  if (!mathLootSession) return {granted: [], full: false}; // 非关卡会话(防御)
-  const res = grantMathLoot(mathBag.inv, ids);
-  for (const id of res.granted) {
-    mathLootSession[id] = (mathLootSession[id] || 0) + 1;
-  }
-  if (res.granted.length) mathBag.save();
-  if (res.full && !mathBagFullSaid) {
-    mathBagFullSaid = true;
-    showToast('背包满啦', 2200);
-  }
-  return res;
+  return mathLootHud.grantIntoBag(ids);
 }
 
 /* 逐试次事件({ok, streak}, 引擎契约): streak 由引擎维护(答错清零),
@@ -224,83 +223,34 @@ function onMathTrialLoot(level, t) {
   const e = t || {};
   const id = rollMathLoot(level, {ok: e.ok, streak: e.streak});
   if (!id) return;
-  if (grantMathLootIntoBag([id]).granted.length) flyMathLoot(id, mathLastTap);
+  /* 飞行起点=最近点击(kit 实例 noteTap 记录, 挂点在 ensureMathRoot)
+     再缺省 defaultOrigin(屏心) */
+  if (grantMathLootIntoBag([id]).granted.length) flyMathLoot(id);
 }
 
-/* 战利品飞行: iconOf 像素图标从点击位(缺省屏心 — 摆与搭指针锁宿主无
-    点击位可记)沿贝塞尔弧线飞入矿袋槽位 — 位移经 CSS 变量 --dx/--dy 传给
-    keyframes(样式在 css/math.css, 对齐 focus.css 纪律); 元素挂
+/* 战利品飞行(C1-T1 起住 CampKit 实例): 贝塞尔弧线观感与 HUD 宽度守卫
+    (隐藏即放弃观感, 入包已完成)在 kit 单份; 位移经 CSS 变量 --dx/--dy
+    传给 keyframes(样式在 css/math.css, 对齐 focus.css 纪律); 元素挂
     document.body(#mathRoot 的动画全关降级块管不到, 飞行在
-    prefers-reduced-motion 下自退化为淡入); 落袋后更新 HUD 槽位 */
+    prefers-reduced-motion 下自退化为淡入) */
 function flyMathLoot(id, from) {
-  const hud = document.getElementById('mBagHud');
-  if (!hud) return; // 无 HUD(教学关/已切屏): 静默放弃观感, 入包已完成
-  const to0 = hud.getBoundingClientRect();
-  if (!to0.width) return; // HUD 隐藏(摆与搭指针锁宿主隐了 DOM 屏): 放弃观感
-  const fromPos = from || {x: innerWidth / 2, y: innerHeight / 2};
-  const slot = hud.querySelector('.m-bag-slot[data-item="' + id + '"]');
-  const r = (slot || hud).getBoundingClientRect(); // 已有槽飞向该槽, 新物品飞向收集条末端
-  const to = {x: r.left + r.width / 2, y: r.top + r.height / 2};
-  const el = document.createElement('img');
-  el.src = iconOf(id);
-  el.alt = '';
-  el.className = 'm-loot-fly';
-  el.style.left = (fromPos.x - 22) + 'px'; /* 中心点对齐(44px 图标) */
-  el.style.top = (fromPos.y - 22) + 'px';
-  el.style.setProperty('--dx', (to.x - fromPos.x) + 'px');
-  el.style.setProperty('--dy', (to.y - fromPos.y) + 'px');
-  document.body.appendChild(el);
-  setTimeout(() => {
-    el.remove();
-    addMathBagSlot(id); // 落袋: 计数 + 弹跳 + 叮咚
-  }, 620); // 与 keyframes 时长对齐(0.6s 弧线)
+  mathLootHud.fly(id, from);
 }
 
-/* 矿袋 HUD 落袋: 同 id 并槽计数, 新物品开槽(槽满自动滚到最新), 槽位弹跳 +
-    叮咚 sfx('pick')(与引擎答对音叠成双声部, 观感对齐 drops 真空吸附) */
+/* 矿袋 HUD 落袋(C1-T1 起住 CampKit 实例): 同 id 并槽计数, 新物品开槽
+    (槽满自动滚到最新), 槽位弹跳 + 叮咚 sfx('pick')(与引擎答对音叠成
+    双声部, 观感对齐 drops 真空吸附) */
 function addMathBagSlot(id) {
-  const hud = document.getElementById('mBagHud');
-  if (!hud) return;
-  let slot = hud.querySelector('.m-bag-slot[data-item="' + id + '"]');
-  if (!slot) {
-    slot = document.createElement('div');
-    slot.className = 'm-bag-slot';
-    slot.dataset.item = id;
-    slot.title = ITEMS[id] ? ITEMS[id].name : id;
-    slot.innerHTML = '<img draggable="false" alt="" src="' + iconOf(id) + '"><span class="m-bag-n"></span>';
-    hud.appendChild(slot);
-  }
-  const n = mathLootSession ? (mathLootSession[id] || 1) : 1;
-  slot.querySelector('.m-bag-n').textContent = n > 1 ? '×' + n : '';
-  hud.scrollLeft = hud.scrollWidth; // 槽满滚动: 最新拾取始终可见
-  slot.classList.remove('bump');
-  void slot.offsetWidth;
-  slot.classList.add('bump');
-  sfx('pick');
+  mathLootHud.addSlot(id);
 }
 
-/* 结算屏战利品回顾(设计稿 §5 D8): 本关获得列队 + 计数 — 级联进场逐件
-    pop(星星爆开之后), 无获得不渲染区块 */
+/* 结算屏战利品回顾(C1-T1 起住 CampKit 实例, 设计稿 §5 D8): 本关获得
+    列队 + 计数 — 级联进场逐件 pop(星星爆开之后), 无获得不渲染区块 */
 function mathLootRecapHtml() {
-  const n = Object.keys(mathLootSession || {}).length;
-  return n ? '<div class="m-loot-recap" id="mLootRecap"><span class="m-loot-title">🎒 本关收获</span></div>' : '';
+  return mathLootHud.recapHtml();
 }
 function runMathLootRecap() {
-  const box = document.getElementById('mLootRecap');
-  if (!box) return;
-  Object.entries(mathLootSession || {}).forEach(([id, n], k) => {
-    setTimeout(() => {
-      if (!document.getElementById('mLootRecap')) return; // 已切屏: 中止列队
-      const nm = ITEMS[id] ? ITEMS[id].name : id;
-      const item = document.createElement('span');
-      item.className = 'm-loot-item';
-      item.title = nm;
-      item.innerHTML = '<img draggable="false" alt="' + nm + '" src="' + iconOf(id) + '">' +
-          (n > 1 ? '<b>×' + n + '</b>' : '');
-      box.appendChild(item);
-      if (k < 3) sfx('pick'); // 声音节流: 只前 3 件
-    }, 220 * k + 250);
-  });
+  mathLootHud.runRecap();
 }
 
 /* ---------- 图章一本(T8): 纯函数在 math-levels.js, 此处只做呈现 ----------
@@ -419,8 +369,6 @@ function mathStampRewardOn(claimed, rid) {
 
 /* ---------- 根容器与屏幕 ---------- */
 let mathRoot = null;
-let mathTicker = 0;
-let mathTickT0 = 0;
 let mathAutoTimer = 0; // 结算屏自动续程计时
 let mathClockTimer = 0; // 常驻昼夜大钟走针计时(G1)
 const mathFailCount = {}; // 本关连续未通过次数 → 重试话术与"先玩别的"
@@ -455,42 +403,28 @@ function mountMathClock() {
   mathClockTimer = setInterval(tick, 60000); // 每分钟走针(分针 6°/分)
 }
 
-/* 训练时长入账: 关卡进行中每秒 accrue 实际毫秒并落账(focus ticker 同款) —
-   崩溃/关页损失 ≤1 秒; 今日页/地图页不计(口径与专注训练营一致) */
-const MATH_TICK_MAX_MS = 2000; /* 单拍入账上限: 只认连续在场的真实训练时长 */
-
+/* 训练时长入账(→ C1-T1 收编 CampKit.mkCampTicker, focus 同款): 关卡进行中
+   每秒 accrue 实际毫秒并落账 — 崩溃/关页损失 ≤1 秒; 今日页/地图页不计
+   (口径与专注训练营一致); 单拍钳制 2s(f3c1fee 修复语义, 数学侧曾一夜
+   灌爆 — 后台时间不入账)在 kit 单份保真 */
+const mathCampTicker = CampKit.mkCampTicker({budget: mathBudget});
 function startMathTicker() {
-  stopMathTicker();
-  mathTickT0 = Date.now();
-  mathTicker = setInterval(() => {
-    const b = mathBudget();
-    if (!b) return;
-    const nowT = Date.now();
-    /* 单拍钳制(≤2s, focus ticker 同款): iPad 锁屏/切后台时系统把 timer 冻结,
-       恢复后第一拍的墙钟差是整段挂机时长 — 曾把 20 分钟日限一夜灌成 20.6 小时,
-       当日入口直接锁死(played=0 也 blocked)。后台时间不入账 */
-    b.accrue(Math.min(nowT - mathTickT0, MATH_TICK_MAX_MS));
-    mathTickT0 = nowT;
-    b.flush();
-  }, 1000);
+  mathCampTicker.start();
 }
 function stopMathTicker() {
-  if (mathTicker) {
-    clearInterval(mathTicker);
-    mathTicker = 0;
-  }
+  mathCampTicker.stop();
 }
 
 function ensureMathRoot() {
   if (mathRoot) return;
   mathRoot = document.createElement('div');
   mathRoot.id = 'mathRoot';
-  /* 战利品飞行起点自记(T8): 捕获期挂在 mathRoot 上 — 屏流训练区与
-     世界轨接球层都在它内部, 一处监听两轨通用(focusLastTap 同款:
-     引擎事件缝不带 DOM 信息, 模式层自记); 指针锁宿主的点击不经过
-     DOM, mathLastTap 保持 null → 飞行回落屏心 */
+  /* 战利品飞行起点自记(T8 → C1-T1 改记录通道): 捕获期挂在 mathRoot 上 —
+     屏流训练区与世界轨接球层都在它内部, 一处监听两轨通用(focus 侧同款:
+     引擎事件缝不带 DOM 信息, 坐标经 mathLootHud.noteTap 入账, 挂点 T4
+     再收); 指针锁宿主的点击不经过 DOM, 无记录 → 飞行回落屏心 */
   mathRoot.addEventListener('pointerdown', (e) => {
-    mathLastTap = {x: e.clientX, y: e.clientY};
+    mathLootHud.noteTap(e.clientX, e.clientY);
   }, true);
   document.body.appendChild(mathRoot);
 }
@@ -758,10 +692,9 @@ function startMathLevel(i) {
 
 function beginMathRun(level) {
   startMathTicker();
-  /* T8 矿袋会话状态: 每关一份新明细 / 满包 toast 节流计数 / 飞行起点 */
-  mathLootSession = {};
-  mathBagFullSaid = false;
-  mathLastTap = null;
+  /* T8 矿袋会话状态: 每关一份新明细 / 满包 toast 节流旗 / 飞行起点
+     (kit 实例自持, begin 一并复位) */
+  mathLootHud.begin();
   const meta = mathLevelMeta(level); // 情境关话术覆盖(T7)
   const kindTag = mathKindTag(level.kind);
   const world = level.kind !== 'boss' && MathTrack.dispatch(level.family, level.variant) === 'world';
@@ -967,6 +900,7 @@ const MathMode = mkMode({
     clearTimeout(mathAutoTimer);
     MathTrack.stop();
     stopMathTicker();
+    mathLootHud.clear(); // 战利品回路清场: 飞行件/HUD 槽位/会话状态(C1-T1)
     stopMathClock();
     SpeechKit.cancel();
     if (mathRoot) mathRoot.style.display = 'none';
