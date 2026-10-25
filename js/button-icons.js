@@ -395,6 +395,45 @@ const ROCKET_ART = [
   '................',
 ];
 
+/* ---------- 太阳/月亮(昼夜时段 HUD 图标, 昼夜循环 D1 — 太阳=暖黄方块、
+      月亮=灰白方块带缺口, 色板与 world.js 日月天体贴图同源) ---------- */
+const SUN_ART = [
+  '................',
+  '................',
+  '..yyyyyyyyyyyy..',
+  '..yYYYYYYYYYYy..',
+  '..yYYYYYYYYYYy..',
+  '..yYYYYYYYYYYy..',
+  '..yYYYYWWYYYYy..',
+  '..yYYYWWWWYYYy..',
+  '..yYYYWWWWYYYy..',
+  '..yYYYYWWYYYYy..',
+  '..yYYYYYYYYYYy..',
+  '..yYYYYYYYYYYy..',
+  '..yyyyyyyyyyyy..',
+  '................',
+  '................',
+  '................',
+];
+const MOON_ART = [
+  '................',
+  '................',
+  '..MMMMMM........',
+  '..MMMMMMMM......',
+  '..MMMMMMMMMM....',
+  '..MMMMMMMMMMMm..',
+  '..MMMMMMMMMMMm..',
+  '..MMMMMMMMMMMm..',
+  '..MMMMMMMMMMMm..',
+  '..MMMMMMMMMMMm..',
+  '..MMMMMMMMMMMm..',
+  '..MMMMMMMMMMMm..',
+  '..MMMMMMMMMMMm..',
+  '..mmmmmmmmmmmm..',
+  '................',
+  '................',
+];
+
 /* ---------- 整理(一键归位 — 物品归槽: 三块散物落回槽位条, 调研稿建议
    的"物品归槽"语义, MC 无官方对应(trash=丢弃不是整理)) ---------- */
 const SORT_ART = [
@@ -616,6 +655,8 @@ const BTN_PIX = {
   fly: {art: FLY_ART, map: BTN_GLYPH},
   boom: {art: BOOM_ART, map: {y: '#ff9d2e', Y: '#ffd83d', W: '#ffffff'}},
   rocket: {art: ROCKET_ART, map: {K: '#14161a', R: '#d0342c', W: '#ffffff', L: '#eef1f5', G: '#8a8f98', y: '#ffd83d'}},
+  sun: {art: SUN_ART, map: {y: '#f2b93b', Y: '#ffdf6b', W: '#fff3b0'}}, /* 昼夜时段 HUD(探险, D1) */
+  moon: {art: MOON_ART, map: {M: '#e6eaf2', m: '#b9c2d4'}},
   swords: {art: SWORDS_ART, map: null}, /* 色板经委托装配(见下, 与物品工坊剑同源) */
   /* 模式卡 */
   brain: {art: BRAIN_ART, map: {K: '#14161a', P: '#f08a9b', l: '#ffb8c4', p: '#c05a6e'}},
