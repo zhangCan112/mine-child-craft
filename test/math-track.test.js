@@ -185,7 +185,7 @@ function loadTrackHosts() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['rand-core.js', 'math-levels.js', 'math-puzzles-core.js', 'math-build-world-core.js',
+  for (const f of ['rand-core.js', 'camp-core.js', 'math-levels.js', 'math-puzzles-core.js', 'math-build-world-core.js',
     'hop-world-core.js', 'math-track-core.js', 'math-paradigms.js', 'math-world.js',
     'math-build-world.js', 'math-track.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});

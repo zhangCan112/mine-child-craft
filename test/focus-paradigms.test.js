@@ -13,7 +13,7 @@
    触发/教学豁免 · levelBonusLoot 通关二选一+三星钻石 · grantFocusLoot 满包
    余量语义(inventory-core 一并入 vm 缝, 相对序同 index.html)
    加载器: vm context 依次执行 rand-core.js + items-core.js + inventory-core.js +
-   focus-levels.js + focus-paradigms.js, 镜像浏览器 <script defer> 共享词法
+   camp-core.js + focus-levels.js + focus-paradigms.js, 镜像浏览器 <script defer> 共享词法
    环境(相对序同 index.html); DOM/语音/图标以 stub 注入 */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -64,8 +64,10 @@ function loadFocus() {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  /* rand-core(种子 LCG)与 inventory-core(F5 授予流语义)排在 focus-levels 之前 — 与 index.html 相对序一致 */
-  for (const f of ['rand-core.js', 'items-core.js', 'inventory-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
+  /* rand-core(种子 LCG)与 inventory-core(F5 授予流语义)排在 focus-levels 之前 — 与 index.html 相对序一致;
+     camp-core(图章/日期/loot 机制基座)排在 focus-levels 之前 — FocusStampBook 构造期即用 */
+  for (const f of ['rand-core.js', 'items-core.js', 'inventory-core.js', 'camp-core.js',
+    'focus-levels.js', 'focus-paradigms.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`
@@ -308,7 +310,7 @@ function loadFocusDrv(opts) {
   sandbox.window = sandbox;
   sandbox.globalThis = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['rand-core.js', 'items-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
+  for (const f of ['rand-core.js', 'items-core.js', 'camp-core.js', 'focus-levels.js', 'focus-paradigms.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext('globalThis.__fp = {focusDispatch, runFocusLevel, mkAdapt, paramsFor, ' +
@@ -1445,7 +1447,7 @@ test('rollFocusLoot: seed 缺省回落 Math.random — 有掉有不掉且产物�
   const distinct = new Set();
   for (let i = 0; i < 200; i++) {
     // 不传 seed = 运行时真实路径(modes/focus.js 调用点); 曾因缺省不回落
-    // 致 LCG 产 NaN: 掉率虚涨 100% 且 pickLootWeighted 恒掉池末一键
+    // 致 LCG 产 NaN: 掉率虚涨 100% 且 CampCore.pickWeighted 恒掉池末一键
     const got = fp.rollFocusLoot(L, {ok: true, dry: 0});
     if (got === null) sawNull++;
     else {

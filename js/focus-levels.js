@@ -25,13 +25,15 @@
      devilDimFor · focusCheckEntry · checkBaseline · devilEntry · devilTierFor ·
      focusTodayStr(now) · focusTodayDims · focusDimStars · focusLastBreakthrough ·
      FOCUS_SAVE_DEFAULTS · migrateFocusSave
-   依赖(均经全局名, 调用期解析): rollFocusLoot/levelBonusLoot 调用期解析
+     (图章/日期/授予机制同源 CampCore(js/camp-core.js), 此处家族名为薄委托)
+   依赖(均经全局名, 调用期解析): CampCore(js/camp-core.js, 加载序先于本文件,
+     见 index.html — 图章/日期/授予机制基座, FocusStampBook 在本文件顶层
+     实例化, 构造期即用); rollFocusLoot/levelBonusLoot 调用期解析
      RandCore.mkRand(js/rand-core.js, 加载序先于本文件, 见 index.html —
-     种子 LCG 全仓唯一实现); grantFocusLoot 调用期
-     解析 inventory-core 的 add(加载序先于本文件, 见 index.html); FOCUS_META
+     种子 LCG 全仓唯一实现); FOCUS_META
      的图标字段在构造期调用 mcIcon/creeperFace(js/focus-icons.js, 加载序在
-     本文件之前); focusTodayStr 调用期解析 daily-budget.js 的 budgetDateStr
-     (加载序先于本文件, 见 index.html; 'Y-M-D' 拼装全库只留那唯一一处)
+     本文件之前); grantFocusLoot/focusTodayStr 的 add/budgetDateStr 解析
+     随机制移居 CampCore(其头注释登记: 经全局名调用期解析)
    可测性: 零 THREE·零 DOM(图标为惰性字符串拼接)·有单测
      (test/focus-paradigms.test.js, vm 直测)
    ============================================================ */
@@ -255,18 +257,9 @@ function rewardTrialCount(level, dim) {
   return p.trials || p.seqs || FOCUS_REWARD_TRIAL_REF;
 }
 
-/* 骰值落累积区间取件(池概率和=1 由既有测试锁死); 浮点尾差兜底最后一键 */
-function pickLootWeighted(pool, r) {
-  let acc = 0;
-  for (const id of Object.keys(pool)) {
-    acc += pool[id];
-    if (r < acc) return id;
-  }
-  return Object.keys(pool).pop();
-}
-
 /* t = {ok, dry, dim, seed} → itemId|null; dry = 关内连续答对未掉计数
-   (模式层维护, 关开始清零, 答错清零), 达 FOCUS_REWARD_DRY 跳过掷骰必得 */
+   (模式层维护, 关开始清零, 答错清零), 达 FOCUS_REWARD_DRY 跳过掷骰必得;
+   骰值取件机制在 CampCore.pickWeighted(骰值落累积区间取件+浮点尾差兜底) */
 function rollFocusLoot(level, t) {
   const e = t || {};
   if (level.kind === 'tutorial' || !e.ok) return null; // 教学豁免 + 只奖不罚
@@ -276,7 +269,7 @@ function rollFocusLoot(level, t) {
   // 试次归一: corsi 6 序列 vs cpt 28 试次, 不归一则记忆维度关恒穷
   const pEff = st.p * FOCUS_REWARD_TRIAL_REF / rewardTrialCount(level, e.dim);
   if (!(e.dry >= FOCUS_REWARD_DRY) && rnd() >= pEff) return null; // 未中
-  return pickLootWeighted(st.pool, rnd());
+  return CampCore.pickWeighted(st.pool, rnd());
 }
 
 /* 段位表条目展开(纯函数): [[a,b],[c]] → 掷骰选一 + 固定 c 的 id 清单 */
@@ -301,17 +294,11 @@ function levelBonusLoot(passed, stars, level, opts) {
   return out;
 }
 
-/* 战利品入包授予流(F3 核定口径): 逐件 add 进背包本体, 余量>0 静默忽略
-   (不入 granted 清单, 无容量预检)并标 full — 每关至多一次「背包满啦」
-   toast 与 save 时机归模式层; add 经全局名调用期解析(inventory-core
-   加载序先于本文件, 见 index.html) */
+/* 战利品入包授予流(F3 核定口径): 机制基座在 CampCore.grantLoot(逐件 add
+   进背包本体, 余量>0 静默忽略不入 granted 清单并标 full), 此处家族名为
+   薄委托 — 每关至多一次「背包满啦」toast 与 save 时机归模式层 */
 function grantFocusLoot(inv, ids) {
-  const granted = []; let full = false;
-  for (const id of ids || []) {
-    if (add(inv, id, 1) > 0) full = true;
-    else granted.push(id);
-  }
-  return {granted, full};
+  return CampCore.grantLoot(inv, ids);
 }
 
 /* ---------- 里程碑工具表(设计稿 §3 L4 · spec 实现决策 9/17): 进度阶梯 ----------
@@ -388,38 +375,27 @@ const FOCUS_LOG_KEEP_DAYS = 90;
 /* 魔鬼特训 5 分钟硬顶(到点当前小节打完即强制结束, B8) */
 const FOCUS_DEVIL_TIME_MS = 5*60*1000;
 
-/* 今日日期串(单点出口, focus-levels 的日期工具族): 委托 budgetDateStr
-   (daily-budget.js, 加载序先于本文件, 调用期解析) — 模式层一律经此取
-   'Y-M-D' 键, 全库日期串拼装只留在 budgetDateStr 一处; now 可注入
-   (毫秒时间戳)供日历单元格与单测复用 */
+/* 今日日期串(单点出口, focus-levels 的日期工具族): 薄委托 CampCore.todayStr
+   (其内再委托 budgetDateStr — 'Y-M-D' 拼装全库只留在 daily-budget.js 那一处)
+   — 模式层一律经此取 'Y-M-D' 键; now 可注入(毫秒时间戳)供日历单元格与单测复用 */
 function focusTodayStr(now) {
-  return budgetDateStr(now === undefined ? Date.now() : now);
+  return CampCore.todayStr(now);
 }
 
 /* 日期串(年-月-日 无前导零, budgetDateStr 同款)→本地日序数:
-   近 7 天均值与 90 天滚动的日差全部基于它; 损坏串返回 NaN(调用方按"无记录"处理) */
+   近 7 天均值与 90 天滚动的日差全部基于它; 损坏串返回 NaN(调用方按"无记录"处理);
+   机制在 CampCore.dayIndex, 此处家族名为薄委托 */
 function focusDayIndex(dateStr) {
-  const m = /^(\d+)-(\d+)-(\d+)$/.exec(String(dateStr));
-  if (!m) return NaN;
-  const d = new Date(+m[1], +m[2]-1, +m[3]);
-  return Math.round((d.getTime() - new Date(1970, 0, 1).getTime())/86400000);
+  return CampCore.dayIndex(dateStr);
 }
 
-/* 按日记录滚动裁剪(共享工具, F8 与 F7 图章同一实现): 返回只保留最近
-   keepDays 天(含今天)的新对象, 不改原; 未来日期(时钟回拨产物)保留 —
+/* 按日记录滚动裁剪(机制在 CampCore.trimLog, 此处家族名为薄委托): 返回只保留
+   最近 keepDays 天(含今天)的新对象, 不改原; 未来日期(时钟回拨产物)保留 —
    零惩罚哲学不因设备时钟惩罚孩子; 非法键丢弃(防死数据); today 本身
    非法时原样返回(防御: 不清档)。checks/devil.days 与 stamps 只差窗口
    常量(两个 KEEP_DAYS 有意分立, 见 tickets F10 收口②), 机制不并概念 */
 function trimFocusLog(log, today, keepDays) {
-  const t0 = focusDayIndex(today);
-  if (!Number.isFinite(t0)) return log || {};
-  const out = {};
-  if (!log) return out;
-  for (const k of Object.keys(log)) {
-    const diff = t0 - focusDayIndex(k);
-    if (diff < keepDays) out[k] = log[k]; // NaN(非法键)比较为 false 自然丢弃, 未来日期 diff<0 保留
-  }
-  return out;
+  return CampCore.trimLog(log, today, keepDays);
 }
 
 /* 魔鬼特训维度按日严格轮换(设计稿 B8 "天数%5"): 日序数(focusDayIndex 派生)
@@ -494,51 +470,52 @@ const FOCUS_STAMP_KEEP_DAYS = 90; // 滚动保留窗口(含今天), 防存档膨
    子集; 存档字段 stampKind 记孩子选择(缺省 'pick'), 选择器只渲这三个 */
 const FOCUS_STAMP_KINDS = ['pick', 'gem', 'tnt'];
 
+/* 图章一本工厂实例: 机制单份在 CampCore.mkStampBook(八件 record/trim/count/
+   milestones/rewardsDue/rewardFor/rewardClaimed/nextLine), 家族差异只注入
+   三参 — 达成线表/滚动窗口/日限; dailyCap 按值 6(FOCUS_DAILY_LEVELS=6,
+   按值拷贝免跨文件依赖), 下方七个家族名为薄委托 */
+const FocusStampBook = CampCore.mkStampBook(
+    {rewards: FOCUS_STAMP_REWARDS, keepDays: FOCUS_STAMP_KEEP_DAYS, dailyCap: 6});
+
 /* 落账: 当日计数钳 1~6(日限 FOCUS_DAILY_LEVELS=6, 按值拷贝免跨文件依赖),
    当日取 max 不重复累加(重玩同日不叠章); 0/负/NaN 关不落账 */
 function stampRecord(stamps, day, count) {
-  if (!(count > 0)) return stamps;
-  const n = Math.max(1, Math.min(6, Math.round(count)));
-  const next = {...stamps};
-  next[day] = Math.max(next[day] || 0, n);
-  return next;
+  return FocusStampBook.record(stamps, day, count);
 }
 
 /* 裁剪: 只保留今天起 90 天窗口内的键(含今天), 更老与非法键丢弃(防存档膨胀);
    today 本身非法时原样返回(防御: 不清档) — 机制与 trimFocusLog 同一实现
    (共享工具), 仅窗口常量分立 */
 function stampTrim(stamps, today) {
-  return trimFocusLog(stamps, today, FOCUS_STAMP_KEEP_DAYS);
+  return FocusStampBook.trim(stamps, today);
 }
 
-/* 集章总数 = 有章天数(每天至多 1 章; 普通/大章是同一枚章的两种大小, 不双计) */
+/* 集章总数 = 有章天数(每天至多 1 章; 普通/大章是同一枚章的两种大小, 不双计)。
+   统一为防御版: null/undefined 入参从抛错变为 0(空账本按无章处理, math 侧口径) */
 function stampCount(stamps) {
-  return Object.keys(stamps).length;
+  return FocusStampBook.count(stamps);
 }
 
 /* 达成线: 表内 3/7/14/30 + 60/90/…每 30 章递进(都是金图章, 30 已在表内) */
 function stampMilestones(count) {
-  const lines = Object.keys(FOCUS_STAMP_REWARDS).map(Number).filter((k) => count >= k);
-  for (let m = 60; m <= count; m += 30) lines.push(m);
-  return lines.sort((a, b) => a - b);
+  return FocusStampBook.milestones(count);
 }
 
 /* 待领 = 已越线 − 已领(差集): 幂等, 领取方把线记进存档后不再重发;
    存量档首次落账时一次性补授全部已越线(观感奖励, 无重复入账风险) */
 function stampRewardsDue(count, claimed) {
-  const got = new Set(claimed || []);
-  return stampMilestones(count).filter((line) => !got.has(line));
+  return FocusStampBook.rewardsDue(count, claimed);
 }
 
 /* 达成线 → 奖励 id: 递进线(60/90/…)不在表内, 沿用 30 的金图章 */
 function stampRewardFor(line) {
-  return FOCUS_STAMP_REWARDS[line] || FOCUS_STAMP_REWARDS[30];
+  return FocusStampBook.rewardFor(line);
 }
 
 /* 已领奖励判定(纯函数): claimed 线集合里是否领过某奖励 id — 矿袋皮肤/
    烟花等持久观感奖励的"进场恢复"与"触发迸发"共用同一口径 */
 function stampRewardClaimed(claimed, rid) {
-  return (claimed || []).some((line) => stampRewardFor(line) === rid);
+  return FocusStampBook.rewardClaimed(claimed, rid);
 }
 
 /* ---------- 今日任务单/我的进步(B2/B5 最小呈现)的派生纯函数 ----------

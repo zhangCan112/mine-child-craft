@@ -118,6 +118,10 @@ _Avoid_: 按钮用 emoji（观感业余且各平台字形漂移）、把按钮�
 应用层纯核心（js/adventure-core.js，零 THREE 零 DOM，有单测）：探险模式的政策与地形段——地图常量表（湖/矿坑/山洞/巢穴/矿带）、确定性建场一族（advBuildWorld）、政策纯函数（死亡计划/巢穴节拍/挥击与怪物伤害/击杀掉落清单/收集播报/蓄力步进/放置合法性/食物政策/树苗计时/站点判定/烧炼单步/退炉/TNT 掷骰与衰减/大宝箱阶梯与入箱 advChestNext·advChestPut）、任务表 ADV_QUESTS 与计数键口径、提醒政策三件（低耐久预警/背包快满/工具坏话术）。壳（js/modes/adventure.js）只留 mkMode 装配/THREE·DOM 观感/话术/生命周期，经共享词法环境消费。
 _Avoid_: 把政策纯函数写回模式壳（S1 剥核先例：world→mesh-core / tank→tank-core / mobs→mob-core）
 
+**训练营机制核心（CampCore）**:
+应用层纯核心（js/camp-core.js，零 THREE·零 DOM·有单测）：两训练营家族逐字镜像机制的唯一实现——mkStampBook 图章一本工厂（rewards/keepDays/dailyCap 注入，30 步长递进线，八件 record/trim/count/milestones/rewardsDue/rewardFor/rewardClaimed/nextLine）、日期三件套 todayStr（委托 budgetDateStr 唯一拼装点）/dayIndex/trimLog（未来日期保留的零惩罚口径）、loot 基座 pickWeighted/grantLoot（余量静默+full 标记）；家族函数名（stampRecord/mathStampRecord 等）是 focus-levels/math-levels 的薄委托 interface；掷骰政策（段位变率 vs 族池）留各自 levels。
+_Avoid_: 把两家族函数当独立实现（历史认知——机制已同源）、把掷骰政策塞进 CampCore（政策不对称是有意设计）、在 levels 之外再复制图章/裁剪逻辑
+
 **背包壳（Backpack）**:
 应用层薄壳（js/backpack.js）：全游戏唯一背包存档键的唯一持有者（ADR 0002——专注训练营接入物品系统后升格为跨模式共享背包，未来消费方必须经此壳，不得自开存档键；test/backpack.test.js 以键字面量守门）。interface：mkBackpack() → {inv（27 槽本体，引用跨 load 稳定）· load（原地换槽）· save}；背包规则全部归背包核心，本壳不复制。
 _Avoid_: inventory_save 直开（消费方自建存档槽违反 ADR 0002）、背包存档服务（散称）
@@ -178,7 +182,7 @@ _Avoid_: 游玩限制、防沉迷开关
 基于五维实证范式的百关注意力训练；拥有独立的每日预算（时长 + 关数）。2.0 增量（难度坡道/战利品回路/脑锻炼结构层）的数值唯一权威在 js/focus-levels.js（纯函数+数据表，有单测），屏幕流与观感装配在 js/modes/focus.js——子系统词条见下方：矿袋 · 宝物柜 · 图章日历 · 集章里程碑 · 每日体检 · 魔鬼特训 · 训练师村长。
 
 **矿袋（Loot Bag）**:
-训练营的战利品回路 HUD（modes/focus.js 装配 + css/focus.css 观感）：正式试次答对按段位奖励表掷骰（FOCUS_REWARD_STAGES 四段递增，奖励调优 2026-10：品质镜像探险深度带——段1 煤带→段4 钻带，钻石仅段4 出现、金段3 首见、铁锭全程不发（烧炼教学归探险）；变率 p 0.06→0.15 随 tier 递增并乘试次归一（corsi 6 序列与 cpt 20+ 试次每关期望产次趋同）；连对保底已退役（预期的实物工资形态，动机研究 d=−0.36），防空关挫败改关内干燥兜底（连续 10 个答对未掉必得，dry 计数模式层维护、关开始/答错/掉落即清零）；教学关豁免；通关/三星按段位表展开（三星追加段4 才有钻石）），战利品沿贝塞尔弧线飞入矿袋槽位（复刻掉落物真空吸附观感）+ 落袋音，结算页列队回顾；掉落最终进共享背包。满包静默忽略 + 每关至多一次「背包满啦」toast。掷骰/结算/授予政策是种子可注入的纯函数（rollFocusLoot · levelBonusLoot · grantFocusLoot，focus-levels.js，有单测）；DOM 动画不直测。集章奖励的矿袋皮肤挂 body.f-bag-iron 类钩子。数值依据与后续模式复用契约见 docs/focus-reward-tuning-design.md。
+训练营的战利品回路 HUD（modes/focus.js 装配 + css/focus.css 观感）：正式试次答对按段位奖励表掷骰（FOCUS_REWARD_STAGES 四段递增，奖励调优 2026-10：品质镜像探险深度带——段1 煤带→段4 钻带，钻石仅段4 出现、金段3 首见、铁锭全程不发（烧炼教学归探险）；变率 p 0.06→0.15 随 tier 递增并乘试次归一（corsi 6 序列与 cpt 20+ 试次每关期望产次趋同）；连对保底已退役（预期的实物工资形态，动机研究 d=−0.36），防空关挫败改关内干燥兜底（连续 10 个答对未掉必得，dry 计数模式层维护、关开始/答错/掉落即清零）；教学关豁免；通关/三星按段位表展开（三星追加段4 才有钻石）），战利品沿贝塞尔弧线飞入矿袋槽位（复刻掉落物真空吸附观感）+ 落袋音，结算页列队回顾；掉落最终进共享背包。满包静默忽略 + 每关至多一次「背包满啦」toast。掷骰/结算/授予政策是种子可注入的纯函数（rollFocusLoot · levelBonusLoot · grantFocusLoot，focus-levels.js，有单测）——掷骰政策在 focus-levels，机制基座（pickWeighted/grantLoot）在训练营机制核心；DOM 动画不直测。集章奖励的矿袋皮肤挂 body.f-bag-iron 类钩子。数值依据与后续模式复用契约见 docs/focus-reward-tuning-design.md。
 _Avoid_: f-bag（那是 HUD 的 CSS 类名）、把矿袋当第二背包（它只是共享背包的会话级观感，无独立存档）
 
 **宝物柜（FocusCabinet）**:
@@ -186,8 +190,8 @@ _Avoid_: f-bag（那是 HUD 的 CSS 类名）、把矿袋当第二背包（它�
 _Avoid_: 收集柜/宝物箱（散称）、把工具组改从共享背包渲染（双记账来源，违反选型 B）
 
 **图章日历（Stamps Calendar）**:
-训练营的习惯打卡记录（F7，设计稿 §8 B1）：当日完成 ≥1 关得像素图章、满 3 关得大图章，漏签无任何负面标记；今日页本月日历条渲染。存档形状 `stamps={日期: 当日关数}`（1~6 钳制、同日取 max——鬼章同落不双计），滚动保留 90 天（FOCUS_STAMP_KEEP_DAYS）。落账/裁剪/计数是纯函数（stampRecord · stampTrim · stampCount，focus-levels.js，有单测）。
-_Avoid_: stamps 字段名当模块名（那是训练营存档字段，纯函数在 focus-levels.js）、断签/补签（没有这个概念——漏签零惩罚）
+训练营的习惯打卡记录（F7，设计稿 §8 B1）：当日完成 ≥1 关得像素图章、满 3 关得大图章，漏签无任何负面标记；今日页本月日历条渲染。存档形状 `stamps={日期: 当日关数}`（1~6 钳制、同日取 max——鬼章同落不双计），滚动保留 90 天（FOCUS_STAMP_KEEP_DAYS）。落账/裁剪/计数机制在训练营机制核心（CampCore.mkStampBook），stampRecord · stampTrim · stampCount 是 focus-levels.js 的薄委托（有单测）。
+_Avoid_: stamps 字段名当模块名（那是训练营存档字段，机制在训练营机制核心）、断签/补签（没有这个概念——漏签零惩罚）
 
 **集章里程碑（Stamp Milestones）**:
 习惯阶梯的奖励线（F7，与里程碑工具的进度阶梯双轨独立计数、互不折算）：3/7/14/30 章四条达成线（FOCUS_STAMP_REWARDS），奖励只发观感/收集类（自选图章图案 · 矿袋皮肤 · 宝物柜烟花 · 金图章），30 章起每 30 章递进金图章；领取记账 `stampClaimed=[达成线]`，到期判定 stampRewardsDue。红线：永不解锁关卡/范式/难度。
@@ -209,7 +213,7 @@ _Avoid_: NPC/向导（散称）、把表情画散写在模式层（像素画归 
 第一学段（1~2 年级）数学思维训练营模式（js/modes/math.js，训练营类同专注训练营：全屏接管 UI、独立每日预算 6 关/20 分钟、不计儿童时限、无菜单页）；120 关关卡地图（G4 扩容，四带 × 30）= 六族 × 四学期带螺旋混编，难度双轨（数值跟带不超前、思维跳到附加题级）；关卡流程（今日页→地图→屏流/世界轨关卡→结算）与家长面板（六族×四带矩阵/思维挑战通过率/近 7 日趋势迷你图/CSV 导出/诚实口径说明）在此装配。_Avoid_: 数学模式（散称）、数学游戏
 
 **数学关卡参数表（MathLevels）**:
-`js/math-levels.js`，数学关卡数值唯一权威：六族元数据与情境变体登记（MATH_CONTEXTS）、四带数值轴、双轨难度曲线（**mathParamsFor**——不叫 paramsFor，focus-levels 已占用该全局名；变体级曲线覆写 = 变体表 **tune(p, tier)** 字段，G4 起 dualview/bridge 的推理档/候选/视图/预算在变体内重爬）、120 关编排（**MATH_LEVEL_MIX** 每带目标次数表 + 均匀交错）、通过门槛/三星（挑战挂钩 + **mathLevelStars** 三星回溯：素质线达标记 ready，补过挑战后地图重算点亮，stars 表只作历史最高）、战利品表与掷骰、图章一本纯函数、家长面板聚合（mathPanelMatrix/mathPanelCsv/mathPanelTrend）、存档默认值/迁移（**版本位 v**：关号语义变化时一次性清空关号三表）。_Avoid_: MATH_LEVELS 影子表、paramsFor 直呼（那是专注训练营的名字）
+`js/math-levels.js`，数学关卡数值唯一权威：六族元数据与情境变体登记（MATH_CONTEXTS）、四带数值轴、双轨难度曲线（**mathParamsFor**——不叫 paramsFor，focus-levels 已占用该全局名；变体级曲线覆写 = 变体表 **tune(p, tier)** 字段，G4 起 dualview/bridge 的推理档/候选/视图/预算在变体内重爬）、120 关编排（**MATH_LEVEL_MIX** 每带目标次数表 + 均匀交错）、通过门槛/三星（挑战挂钩 + **mathLevelStars** 三星回溯：素质线达标记 ready，补过挑战后地图重算点亮，stars 表只作历史最高）、战利品表与掷骰、图章一本（机制同源训练营机制核心 CampCore，家族名薄委托）、家长面板聚合（mathPanelMatrix/mathPanelCsv/mathPanelTrend）、存档默认值/迁移（**版本位 v**：关号语义变化时一次性清空关号三表）。_Avoid_: MATH_LEVELS 影子表、paramsFor 直呼（那是专注训练营的名字）
 
 **谜题纯核心（PuzzleCore）**:
 `js/math-puzzles-core.js`，出题与判分的纯数据变换（种子注入，同 seed 同输出）：图案镜像/平移/旋转与对称补全、俯视图纸投影、正视/侧视投影与双视角推理（US24：任一单视图与干扰共享、综合两视图才唯一锁定）、隐藏块/露面计数、数列与周期、合成多解枚举、天平代换链、线索排队、间隔问答；呈现红线常数 LIMITS（组块≤4/线索≤3）。_Avoid_: 题库（不是题库，是生成器）
@@ -221,7 +225,7 @@ _Avoid_: NPC/向导（散称）、把表情画散写在模式层（像素画归 
 挂在六族上的情境皮肤变体（登记表在 js/math-levels.js）：人民币商店（craft/shop）、钟表时刻（hop/clock）、测距步数（count/measure）——不独立成族，编排生成器在每情境族每带首个轮转位只换 variant（共 12 关），tier/kind/params 与承载族曲线同源，数值跟带。_Avoid_: 情境族（不是族）、独立模式
 
 **数学图章**:
-数学冒险岛独立的集章一本（纯函数在 js/math-levels.js：mathStampRecord/Trim/Count/Milestones/RewardsDue）：日历式记录（钳日限 1~6）、滚动 90 天、自选章图案（宝石/星星/加号）、集章达成线领奖纯观感永不解锁玩法；与专注训练营图章互不相通。_Avoid_: 与专注图章混称
+数学冒险岛独立的集章一本（家族名 mathStampRecord/Trim/Count/Milestones/RewardsDue 在 js/math-levels.js）：日历式记录（钳日限 1~6）、滚动 90 天、自选章图案（宝石/星星/加号）、集章达成线领奖纯观感永不解锁玩法；与专注训练营图章互不相通——账本独立、机制同源：纯函数机制在训练营机制核心（CampCore.mkStampBook），math-levels 家族名为薄委托。_Avoid_: 与专注图章混称
 
 **跳一跳世界轨纯核心（HopWorld）**:
 `js/hop-world-core.js`，hop 族世界变体（掷骰前进/跳格子任务/间隔问题+规律跳）的出题与判分纯函数：线性数路布局（蛇行只是视觉折行、数序沿路不变——Ramani & Siegler 线性数板口径，环形无效）、骰步、跳格试次、间隔/规律题的格空间包装（PuzzleCore 神谕 + 平移/换算）、恰 4 项数字选项条。_Avoid_: 把路径布局写进模式层（判分纯逻辑归此核心）

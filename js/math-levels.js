@@ -25,13 +25,15 @@
      mathStampCount · mathStampMilestones · mathStampRewardsDue ·
      mathStampRewardFor · mathStampNextLine ·
      MATH_SAVE_DEFAULTS · migrateMathSave
-   依赖(均经全局名, 调用期解析): rollMathLoot 调用期解析 RandCore.mkRand
+     (图章/日期/授予机制同源 CampCore(js/camp-core.js), 此处家族名为薄委托)
+   依赖(均经全局名, 调用期解析): CampCore(js/camp-core.js, 加载序在本文件
+     之前, 见 index.html — 图章/日期/授予机制基座, MathStampBook 在本文件
+     顶层实例化, 构造期即用); rollMathLoot 调用期解析 RandCore.mkRand
      (js/rand-core.js, 加载序在本文件之前 — 种子 LCG 全仓唯一实现);
      MATH_META 的图标字段在构造期调用
      mcIcon(js/focus-icons.js, 加载序在本文件之前, 惰性字符串拼接
-     零 DOM); grantMathLoot 调用期解析 inventory-core 的 add(加载序
-     先于本文件, 见 index.html); mathTodayStr 调用期解析 daily-budget.js
-     的 budgetDateStr('Y-M-D' 拼装全库只留那唯一一处)。
+     零 DOM); grantMathLoot/mathTodayStr 的 add/budgetDateStr 解析随机制
+     移居 CampCore(其头注释登记: 经全局名调用期解析)。
      命名偏离设计稿: 曲线函数叫 mathParamsFor 而非 paramsFor ——
      focus-levels.js 已占用该全局名(经典 script 共享词法环境, 顶层
      重名会静默覆盖, AGENTS.md 加载序即依赖序), 侧工具同前缀避开。
@@ -555,19 +557,10 @@ const MATH_LOOT = {
     rare: ['apple']},
 };
 
-/* 骰值落累积区间取件(池概率和=1 由测试锁死); 浮点尾差兜底最后一键 */
-function pickMathPool(pool, r) {
-  let acc = 0;
-  for (const id of Object.keys(pool)) {
-    acc += pool[id];
-    if (r < acc) return id;
-  }
-  return Object.keys(pool).pop();
-}
-
 /* t = {ok, streak, seed} → itemId|null; ok=该试次答对 · streak=当前连对
    计数(模式层维护, 答错清零) — 连对每满 3 跳过 p 掷骰必得本族稀有件,
-   其余答对按 p=0.45 掷骰取本族池 */
+   其余答对按 p=0.45 掷骰取本族池; 骰值取件机制在 CampCore.pickWeighted
+   (骰值落累积区间取件+浮点尾差兜底) */
 function rollMathLoot(level, t) {
   const e = t || {};
   if (!level || level.kind === 'tutorial' || !e.ok) return null; // 教学豁免 + 只奖不罚
@@ -578,20 +571,14 @@ function rollMathLoot(level, t) {
     return fam.rare[Math.min(fam.rare.length - 1, Math.floor(rnd() * fam.rare.length))];
   }
   if (rnd() >= MATH_LOOT_P) return null; // 未中
-  return pickMathPool(fam.pool, rnd());
+  return CampCore.pickWeighted(fam.pool, rnd());
 }
 
-/* 战利品入包授予流(grantFocusLoot 同形态): 逐件 add 进背包本体,
-   余量>0 静默忽略(不入 granted 清单)并标 full — 「背包满啦」toast 与
-   save 时机归模式层; add 经全局名调用期解析(inventory-core 加载序
-   先于本文件, 见 index.html) */
+/* 战利品入包授予流(grantFocusLoot 同形态): 机制基座在 CampCore.grantLoot
+   (逐件 add 进背包本体, 余量>0 静默忽略不入 granted 清单并标 full), 此处
+   家族名为薄委托 — 「背包满啦」toast 与 save 时机归模式层 */
 function grantMathLoot(inv, ids) {
-  const granted = []; let full = false;
-  for (const id of ids || []) {
-    if (add(inv, id, 1) > 0) full = true;
-    else granted.push(id);
-  }
-  return {granted, full};
+  return CampCore.grantLoot(inv, ids);
 }
 
 /* ---------- 图章一本纯函数(T8, 形态对齐 focus F7 但数据独立) ----------
@@ -613,51 +600,47 @@ const MATH_STAMP_REWARD_TEXT = {
   stamp_pattern: '自选图章图案', firework: '今日页烟花', gold_stamp: '金图章',
 };
 
+/* 图章一本工厂实例: 机制单份在 CampCore.mkStampBook(八件 record/trim/count/
+   milestones/rewardsDue/rewardFor/rewardClaimed/nextLine), 家族差异只注入
+   三参 — 达成线表/滚动窗口/日限; dailyCap 按值 6(MATH_DAILY_LEVELS=6,
+   按值拷贝免跨文件依赖), 下方七个家族名为薄委托 */
+const MathStampBook = CampCore.mkStampBook({rewards: MATH_STAMP_REWARDS, keepDays: MATH_STAMP_KEEP_DAYS, dailyCap: 6});
+
 /* 落账: 当日计数钳 1~6(日限 MATH_DAILY_LEVELS=6, 按值拷贝免跨文件依赖),
    当日取 max 不重复累加(重玩同日不叠章); 0/负/NaN 关不落账 */
 function mathStampRecord(stamps, day, count) {
-  if (!(count > 0)) return stamps;
-  const n = Math.max(1, Math.min(6, Math.round(count)));
-  const next = {...stamps};
-  next[day] = Math.max(next[day] || 0, n);
-  return next;
+  return MathStampBook.record(stamps, day, count);
 }
 
 /* 裁剪: 只保留今天起 90 天窗口内的键(防存档膨胀), 机制复用 trimMathLog,
    仅窗口常量分立 */
 function mathStampTrim(stamps, today) {
-  return trimMathLog(stamps, today, MATH_STAMP_KEEP_DAYS);
+  return MathStampBook.trim(stamps, today);
 }
 
 /* 集章总数 = 有章天数(每天至多 1 枚; 普通/大章是同一枚章的两种大小) */
 function mathStampCount(stamps) {
-  return Object.keys(stamps || {}).length;
+  return MathStampBook.count(stamps);
 }
 
 /* 达成线: 表内 3/7/30 + 60/90/…每 30 章递进(都是金图章, 30 已在表内) */
 function mathStampMilestones(count) {
-  const lines = Object.keys(MATH_STAMP_REWARDS).map(Number).filter((k) => count >= k);
-  for (let m = 60; m <= count; m += 30) lines.push(m);
-  return lines.sort((a, b) => a - b);
+  return MathStampBook.milestones(count);
 }
 
 /* 待领 = 已越线 − 已领(差集): 幂等, 领取方把线记进存档后不再重发 */
 function mathStampRewardsDue(count, claimed) {
-  const got = new Set(claimed || []);
-  return mathStampMilestones(count).filter((line) => !got.has(line));
+  return MathStampBook.rewardsDue(count, claimed);
 }
 
 /* 达成线 → 奖励 id: 递进线(60/90/…)不在表内, 沿用 30 的金图章 */
 function mathStampRewardFor(line) {
-  return MATH_STAMP_REWARDS[line] || MATH_STAMP_REWARDS[30];
+  return MathStampBook.rewardFor(line);
 }
 
 /* 下一目标线(结算屏/日历的集章进度口径): 表内线优先, 过 30 后为 30 的倍数 */
 function mathStampNextLine(count) {
-  for (const k of Object.keys(MATH_STAMP_REWARDS).map(Number).sort((a, b) => a - b)) {
-    if (count < k) return k;
-  }
-  return Math.ceil((count + 1) / 30) * 30;
+  return MathStampBook.nextLine(count);
 }
 
 /* ---------- 存档形状与迁移(design §4.3, modes 层 slot 与单测共用) ----------
@@ -668,34 +651,24 @@ function mathStampNextLine(count) {
    chalN, chalOk}}}(家长面板数据源, 滚动 90 天防膨胀)。 */
 const MATH_LOG_KEEP_DAYS = 90;
 
-/* 今日日期串(单点出口): 委托 budgetDateStr(daily-budget.js, 加载序先
-   于本文件, 调用期解析) — 'Y-M-D' 拼装全库只留那唯一一处; now 可注入 */
+/* 今日日期串(单点出口): 薄委托 CampCore.todayStr(其内再委托 budgetDateStr
+   — 'Y-M-D' 拼装全库只留在 daily-budget.js 那一处); now 可注入 */
 function mathTodayStr(now) {
-  return budgetDateStr(now === undefined ? Date.now() : now);
+  return CampCore.todayStr(now);
 }
 
 /* 日期串(年-月-日 无前导零)→本地日序数: 滚动窗口的日差基于它;
-   损坏串返回 NaN(调用方按"无记录"处理) */
+   损坏串返回 NaN(调用方按"无记录"处理); 机制在 CampCore.dayIndex */
 function mathDayIndex(dateStr) {
-  const m = /^(\d+)-(\d+)-(\d+)$/.exec(String(dateStr));
-  if (!m) return NaN;
-  const d = new Date(+m[1], +m[2]-1, +m[3]);
-  return Math.round((d.getTime() - new Date(1970, 0, 1).getTime())/86400000);
+  return CampCore.dayIndex(dateStr);
 }
 
-/* 按日记录滚动裁剪: 返回只保留最近 keepDays 天(含今天)的新对象, 不改原;
-   未来日期(时钟回拨产物)保留 — 零惩罚哲学不因设备时钟惩罚孩子; 非法键
-   丢弃(防死数据); today 非法时原样返回(防御: 不清档) */
+/* 按日记录滚动裁剪(机制在 CampCore.trimLog, 此处家族名为薄委托): 返回只
+   保留最近 keepDays 天(含今天)的新对象, 不改原; 未来日期(时钟回拨产物)
+   保留 — 零惩罚哲学不因设备时钟惩罚孩子; 非法键丢弃(防死数据); today
+   非法时原样返回(防御: 不清档) */
 function trimMathLog(log, today, keepDays) {
-  const t0 = mathDayIndex(today);
-  if (!Number.isFinite(t0)) return log || {};
-  const out = {};
-  if (!log) return out;
-  for (const k of Object.keys(log)) {
-    const diff = t0 - mathDayIndex(k);
-    if (diff < keepDays) out[k] = log[k]; // NaN 比较为 false 自然丢弃
-  }
-  return out;
+  return CampCore.trimLog(log, today, keepDays);
 }
 
 /* ---------- 家长面板聚合(T9, 纯函数, 模式层面板与单测共用) ----------
