@@ -145,7 +145,8 @@ const TANK_MODELS = {
    数值按 Minecraft 原版等比映射(与初代五怪同口径):
    hp≈原版生命×1.5 · dmg≈原版普通难度伤害×1.6 · speed≈原版移速属性×10
    h/hitR≈原版碰撞箱(高/半宽) — 竞技场配平战力已归位 modes/arena.js(ARENA_POWER)
-   旗标: ranged 远程 · boom 自爆 · fly 飞行 · boss Boss级(不进混合编队池)
+   旗标: ranged 远程 · boom 自爆 · fly 飞行 · boss Boss级(不进混合编队池) ·
+   passive 被动牧场动物(F4 农场一家: spawnable 排除, 不进战斗面板)
    谱系(术语见 GLOSSARY「怪物谱系」): **种族=长相接近的血统组**(用户拍板),
    另允许职责组(守卫组: 不长相近但都是"守卫"); 不按地域/维度分族。
    proto 行为原型(AI 模板位) · family 物种族(有序多标签: 首位=主族=面板归组+
@@ -240,6 +241,18 @@ const MOB_TYPES = {
   /* —— 海族(主族 sea, 单员族): 贝壳身子(家传无, 追踪弹特化三期补) —— */
   shulker: {name: '潜影贝', hp: 45, dmg: 6, speed: 0.3, range: 15, cd: 3.0, h: 1.0, ranged: true, hitR: 0.5,
     proto: 'turret', family: ['sea']},
+  /* —— 农场一家(主族 farm_line, 二期设计稿 §4.1): 被动牧场动物 —
+     passive 旗标=不可战斗部署(spawnable 收窄排除, 竞技场/演习场零影响);
+     数值 hp≈MC 生命×1.5 同折算惯例 · range/cd 归零(不攻击) ·
+     恐惧游荡归模式层(advHerdTick), 游荡归 Mobs 通用本能 —— */
+  cow: {name: '牛', hp: 15, dmg: 0, speed: 1.4, range: 0, cd: 0, h: 1.3, hitR: 0.7,
+    passive: true, proto: 'grazer', family: ['farm_line']},
+  pig: {name: '猪', hp: 15, dmg: 0, speed: 1.3, range: 0, cd: 0, h: 0.9, hitR: 0.6,
+    passive: true, proto: 'grazer', family: ['farm_line']},
+  sheep: {name: '羊', hp: 12, dmg: 0, speed: 1.2, range: 0, cd: 0, h: 1.2, hitR: 0.65,
+    passive: true, proto: 'grazer', family: ['farm_line']},
+  chicken: {name: '鸡', hp: 6, dmg: 0, speed: 1.5, range: 0, cd: 0, h: 0.7, hitR: 0.35,
+    passive: true, proto: 'grazer', family: ['farm_line']},
   /* —— 伪类型: 竞技场混合编队按钮(种类池在 modes/arena.js 动态生成, 不带谱系) —— */
   mix: {name: '混合编队', hp: 0, dmg: 0, speed: 0, range: 0, cd: 0, h: 2},
 };
@@ -261,8 +274,10 @@ const FAMILIES = {
   plant: {name: '草木族', order: 9},
   dragon: {name: '龙族', order: 10},
   sea: {name: '海族', order: 11},
+  farm_line: {name: '农场一家', order: 12}, /* F4 被动动物: spawnable 排除 passive → 面板无桶, 注册仅供谱系完整性 */
 };
-const PROTOS = ['charger', 'archer', 'bomber', 'ambusher', 'diver', 'turret', 'splitter', 'skirmisher'];
+/* grazer = 「无战斗」原型占位(F4 牧场动物): 游荡归 Mobs 通用本能, 竞技场族技能表无 farm_line 条目即不发技能 */
+const PROTOS = ['charger', 'archer', 'bomber', 'ambusher', 'diver', 'turret', 'splitter', 'skirmisher', 'grazer'];
 
 /* ---------- 怪物掉落表 (物品与合成一期, 设计稿 §3.3) ----------
    儿童配平: 击杀必得保底数, 再以 50% 掷「加成次数」次(替代 MC 66%×0-2 的空手可能)。
@@ -275,6 +290,11 @@ const MOB_DROPS = {
   creeper: {rolls: [['gunpowder', 1, 1]]},
   spider: {rolls: [['string', 1, 1]]},
   slime: {rolls: [['slimeball', 1, 1]]}, // MC 需玩家击杀口径: 本游戏击杀者只有玩家, 天然满足
+  /* F4 农场一家(二期设计稿 §4.5, 儿童配平「保底 1+50%+1」沿用): 生肉+副产物 */
+  cow: {rolls: [['raw_beef', 1, 1], ['leather', 1, 1]]},
+  pig: {rolls: [['raw_porkchop', 1, 1]]},
+  chicken: {rolls: [['raw_chicken', 1, 1], ['feather', 1, 1]]},
+  sheep: {rolls: [['wool', 1, 1], ['raw_mutton', 1, 1]]},
 };
 
 
@@ -345,6 +365,7 @@ const B_GRASS_TUFT=40; const B_FARMLAND=41;
 const B_WHEAT_0=42; const B_WHEAT_1=43; const B_WHEAT_2=44; const B_WHEAT_3=45;
 const B_CRAFT=46; const B_FURNACE=47; const B_TORCH=48; const B_CLAY=49; const B_SAPLING=50;
 const B_CHEST=51;
+const B_WOOL=52; /* F4 羊毛(二期设计稿 §4.7): 号段顺延同款(B_SAPLING/B_CHEST 先例) */
 BLOCKS[B_COAL_ORE] = {name: '煤矿', all: [0.36, 0.36, 0.38], hard: 3.0, tool: 'pick', tier: 1, drop: [['coal', 1, 0]]};
 BLOCKS[B_IRON_ORE] = {name: '铁矿', all: [0.55, 0.44, 0.36], hard: 3.0, tool: 'pick', tier: 2, drop: [['iron_ore', 1, 0]]};
 BLOCKS[B_GOLD_ORE] = {name: '金矿', all: [0.62, 0.52, 0.28], hard: 3.0, tool: 'pick', tier: 3, drop: [['gold_ore', 1, 0]]};
@@ -373,6 +394,10 @@ BLOCKS[B_SAPLING] = {name: '树苗', all: [0.30, 0.60, 0.25], thin: 0.4, solid: 
   hard: 0, tool: null, tier: 0, drop: [['sapling', 1, 0]]}; // 20s 长成树(T12 模式层计时)
 BLOCKS[B_CHEST] = {name: '箱子', top: [0.72, 0.55, 0.30], side: [0.62, 0.44, 0.22], bottom: [0.55, 0.38, 0.20],
   hard: 2.5, tool: 'axe', tier: 0, drop: [['chest', 1, 0]]}; // 引导链 v2: 点击开大宝箱面板(走近 4 格, 熔炉同款); 全局共享账户, 挖掉不丢内容
+/* F4 羊毛(二期设计稿 §4.7): 羊掉毛转入采集 — 徒手可挖掉自身(零惩罚);
+   蓝/红羊毛(15/16)维持创造专属, 只开白羊毛(染料 Out of Scope) */
+BLOCKS[B_WOOL] = {name: '羊毛', all: [0.92, 0.92, 0.92], hard: 0.8, tool: null, tier: 0,
+  drop: [['wool', 1, 0]]};
 
 /* 可被爆炸破坏的软方块(TNT 密室时期的爆炸口径, 保留为创意资产) */
 [5, 6, 8, 9].forEach((id)=> BLOCKS[id].soft = true);

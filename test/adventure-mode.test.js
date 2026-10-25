@@ -206,11 +206,16 @@ const hitLog = [];
 const moveLog = [];
 let listResult = [];
 let nextHit = {hp: 10, dead: false, freshDead: false};
-const ADV_MOB_CFG = {/* 四怪数值摘自 config.js MOB_TYPES(巢穴池, 行为断言所需最小集) */
+const ADV_MOB_CFG = {/* 四怪数值摘自 config.js MOB_TYPES(巢穴池, 行为断言所需最小集)
+   + F4 农场四怪(牧场生成断言所需, passive 旗标照抄表) */
   zombie: {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55},
   skeleton: {name: '骷髅', hp: 26, dmg: 6, speed: 2.6, range: 14, cd: 2.6, h: 1.9, ranged: true, hitR: 0.55},
   spider: {name: '蜘蛛', hp: 24, dmg: 3, speed: 3.0, range: 2.2, cd: 1.2, h: 0.9, hitR: 0.65},
   creeper: {name: '苦力怕', hp: 28, dmg: 33, speed: 3.1, range: 2.0, cd: 9, h: 1.7, hitR: 0.5},
+  cow: {name: '牛', hp: 15, dmg: 0, speed: 1.4, range: 0, cd: 0, h: 1.3, hitR: 0.7, passive: true},
+  pig: {name: '猪', hp: 15, dmg: 0, speed: 1.3, range: 0, cd: 0, h: 0.9, hitR: 0.6, passive: true},
+  sheep: {name: '羊', hp: 12, dmg: 0, speed: 1.2, range: 0, cd: 0, h: 1.2, hitR: 0.65, passive: true},
+  chicken: {name: '鸡', hp: 6, dmg: 0, speed: 1.5, range: 0, cd: 0, h: 0.7, hitR: 0.35, passive: true},
 };
 globalThis.Mobs = {
   spawn(type, x, z, opts) {
@@ -535,9 +540,11 @@ test('探险模式: 3 个怪物巢穴 — 土丘洞穴地形就位 + init 每巢
     assert.strictEqual(cell(n.x, 25, n.z), 2, '巢穴 ' + i + ' 是土丘(泥土穹顶)');
     assert.strictEqual(cell(n.x, 25, n.z + 2), 0, '巢穴 ' + i + ' 有洞口');
   });
-  /* init 首刷: 每巢 2~3 只, 种类取自本巢 kinds 池, 落位在土丘洞口附近环带(不贴脸) */
+  /* init 首刷: 每巢 2~3 只, 种类取自本巢 kinds 池, 落位在土丘洞口附近环带(不贴脸);
+     F4 牧场动物也在 spawned 里(无 nest 归属), 按挂件滤出巢穴怪再断言 */
   const byNest = [[], [], []];
   for (const m of mobsState.spawned) {
+    if (m.__livestockIdx != null) continue; /* F4 牧场动物不是巢穴怪 */
     assert.ok(m.nest >= 0 && m.nest < 3, '刷出的怪挂巢穴归属(m.nest)');
     byNest[m.nest].push(m);
   }
@@ -1516,7 +1523,7 @@ test('F1 炉态持久化: cleanup 只落盘不退料(旧 D8 退料退役) — �
   const wsv = JSON.parse(mem.get('adventure_world_save'));
   assert.ok(Array.isArray(wsv.furnaces) &&
       wsv.furnaces.some((e) => e[0] === fk && e[1].input && e[1].input.n === 3),
-      '炉内三笔进 furnaces 字段');
+  '炉内三笔进 furnaces 字段');
   /* 重进: 炉态恢复(物品/热值/进度), 接着烧完——煤在开烧瞬间整件折成热值,
      断点时燃料槽空、热值在档是正确状态(燃料按件计费口径) */
   freshInit();
@@ -2394,4 +2401,136 @@ test('方块级联⑦(三期 P14 红线): 旧档浮空冠重进治愈 — 治愈
   AdventureMode.cleanup();
   const saved2 = JSON.parse(mem.get('adventure_world_save'));
   assert.strictEqual(saved2.edits.length, saved.edits.length, '幂等: 二次进世界零新增治愈记账');
+});
+
+/* ============ F4 牧场(二期设计稿 §4): 散布在场 / 收获链 / 恐惧游荡 / 死畜账 / 熟食链 ============ */
+
+test('F4 牧场: init 动物在场 — 确定性清单 10 只(牛2羊2猪3鸡3)挂 __livestockIdx, 重进原位复现', () => {
+  mem.clear();
+  freshInit();
+  const herd = () => mobsState.spawned.filter((m) => m.__livestockIdx != null);
+  const h1 = herd();
+  assert.strictEqual(h1.length, 10, '2 群共 10 只');
+  assert.deepStrictEqual(h1.map((m) => m.__livestockIdx).sort((a, b) => a - b),
+      [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], '索引 0..9 各一只(死畜账的对账键)');
+  const byType = {};
+  for (const m of h1) {
+    assert.strictEqual(m.cfg.passive, true, m.type + ' 带 passive 旗标(表照抄)');
+    byType[m.type] = (byType[m.type] || 0) + 1;
+  }
+  assert.deepStrictEqual(byType, {cow: 2, sheep: 2, pig: 3, chicken: 3}, '群位 A 牛羊 / 群位 B 猪鸡');
+  /* 不贴脸: 群位离出生 ≥15(环带 ≤1.8, 条目至少 13 格外) */
+  for (const m of h1) {
+    assert.ok(Math.hypot(m.pos.x - A.ADV.spawn.x, m.pos.z - A.ADV.spawn.z) > 13,
+        '牧场离出生小屋足够远(群位 ≥15 的推论)');
+  }
+  /* 重进复现: 位置不存档, 重进回散布原位(确定性清单, 设计稿 §6 差异清单) */
+  const snap1 = h1.map((m) => [m.__livestockIdx, m.type, +m.pos.x.toFixed(6), +m.pos.z.toFixed(6)])
+      .sort((a, b) => a[0] - b[0]);
+  freshInit();
+  const snap2 = herd().map((m) => [m.__livestockIdx, m.type, +m.pos.x.toFixed(6), +m.pos.z.toFixed(6)])
+      .sort((a, b) => a[0] - b[0]);
+  assert.deepStrictEqual(snap2, snap1, '重进散布原位逐字段复现');
+});
+
+test('F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 + kill_mob 不记账(战斗步只认怪物)', () => {
+  mem.clear();
+  freshInit();
+  dropsState.spawned.length = 0;
+  /* 掉落链: init 挂的 onDeath 回调掷骰(收获与怪物击杀同一管线, 零新逻辑) */
+  mobsState.deathCbs[0]({type: 'cow', pos: {x: 45, y: 25, z: 45}, __livestockIdx: 0});
+  assert.deepStrictEqual(dropsState.spawned.map((d) => d.id).sort(), ['leather', 'raw_beef'],
+      '牛掉生牛肉+皮革(MOB_DROPS 表)');
+  assert.ok(dropsState.spawned.every((d) => d.y === 25.8 && d.x === 45), '落点=尸体上方 0.8(击杀观感同款)');
+  assert.deepStrictEqual(A.advGetLivestock(), {dead: [0]}, '死畜索引顺手落账(同一回调)');
+  /* 收获观感 + 不记账 */
+  calls.length = 0;
+  A.advOnKill(mkAdvMob('cow', 40, 25, 47));
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('收获') >= 0),
+      'killBurst verb=收获(温和口径替代「击杀」)');
+  assert.strictEqual(A.ADV.quest.counts.kill_mob, undefined, 'kill_mob 不记动物(收获不是战斗)');
+  assert.strictEqual(A.ADV.killCount, 1, '击杀计数照走(toast 口径共用)');
+  /* 对照: 怪物击杀照旧「击杀」+记账 */
+  calls.length = 0;
+  A.advOnKill(mkAdvMob('zombie', 40, 25, 47));
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('击杀') >= 0), '怪物照旧 verb=击杀');
+  assert.strictEqual(A.ADV.quest.counts.kill_mob, 1, '战斗教学步只认怪物');
+});
+
+test('F4 恐惧游荡: 玩家靠近 ≤2.5 让开(×0.8 背向) · 受击存活 3 秒逃窜(×2.2) · 不进战斗 AI 不反击', () => {
+  mem.clear();
+  freshInit();
+  const cow = mkAdvMob('cow', 40, 25, 48.4); /* 玩家正北 2.5 格(恰让开圈沿, 含等号) */
+  globalThis.yaw = 0; /* 面朝 -Z */
+  globalThis.pos.x = 40; globalThis.pos.y = 25; globalThis.pos.z = 50.9;
+  listResult = [cow];
+  moveLog.length = 0;
+  hitLog.length = 0;
+  AdventureMode.update(1 / 60);
+  const avoid = moveLog.find((e) => e.m === cow);
+  assert.ok(avoid && avoid.dz < 0 && Math.abs(avoid.dx) < 1e-9, '缓步让开: 背向玩家(dz<0)');
+  assert.ok(Math.abs(Math.abs(avoid.dz) - 1.4 * 0.8 / 60) < 1e-9,
+      '让开速度 = speed×0.8(牛 1.4): ' + avoid.dz.toFixed(5));
+  assert.strictEqual(hitLog.length, 0, '不反击(动物零伤害也不出手)');
+  /* 受击存活 → 逃窜计时挂实体私有字段, 随后 3 秒 ×2.2 背向 */
+  nextHit = {hp: 10, dead: false, freshDead: false};
+  AdventureMode.onMouse(0); /* 挥击命中: 动物是 Mobs 实体, 准星锥内最近怪天然在列 */
+  assert.strictEqual(cow.__fleeT, 3, '受击存活 → __fleeT=3(私有字段挂受击时刻)');
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  const flee = moveLog.find((e) => e.m === cow);
+  assert.ok(flee && flee.dz < 0, '逃窜方向背向玩家');
+  assert.ok(Math.abs(Math.abs(flee.dz) - 1.4 * 2.2 / 60) < 1e-9,
+      '逃窜速度 = speed×2.2: ' + flee.dz.toFixed(5));
+  /* 计时到期 + 玩家在 2.5 格外 → 原地平静(关掉闲逛便于断言) */
+  cow.__fleeT = 0;
+  cow.__ambleT = 999;
+  cow.__ambleWalk = false;
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.ok(!moveLog.some((e) => e.m === cow), '逃窜结束且玩家在圈外: 不动(不追击不恋战)');
+  assert.ok(!hitLog.some((h) => h.m.pos === globalThis.pos), '全程不反击(hitLog 里只有玩家挥击的那一记)');
+});
+
+test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索引不复活(牧场不重生, MC 口径)', () => {
+  mem.clear();
+  freshInit();
+  const herd = mobsState.spawned.filter((m) => m.__livestockIdx != null);
+  assert.strictEqual(herd.length, 10, '前提: 满员牧场');
+  const victim = herd[4]; /* 群位 B 首只猪 */
+  dropsState.spawned.length = 0;
+  mobsState.deathCbs[0](victim); /* 走真实 onDeath 回调(掉落+落账同帧) */
+  assert.deepStrictEqual(A.advGetLivestock(), {dead: [victim.__livestockIdx]}, '死畜账在内存');
+  assert.ok(dropsState.spawned.length >= 1, '掉落照常(收获链不断)');
+  AdventureMode.cleanup();
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  assert.deepStrictEqual(sv.livestock, {dead: [victim.__livestockIdx]}, '死畜索引随世界档落盘');
+  freshInit();
+  const again = mobsState.spawned.filter((m) => m.__livestockIdx != null);
+  assert.strictEqual(again.length, 9, '重进 9 只(死畜不复活)');
+  assert.ok(!again.some((m) => m.__livestockIdx === victim.__livestockIdx), '被杀索引不再生成');
+  assert.strictEqual(again.filter((m) => m.type === 'pig').length, 2, '猪少一只(不重生)');
+  assert.strictEqual(again.filter((m) => m.type === 'cow').length, 2, '别的群原样');
+});
+
+test('F4 熟食链: 炉烧生肉→熟肉(SMELTS 四条, 与矿物同套节律) + 吃熟肉回血走 advEatPolicy 普通口径', () => {
+  /* 纯表复核(逐条钉口径在 craft-core.test; 此处验探险消费面) */
+  assert.strictEqual(smeltOf('raw_beef'), 'cooked_beef');
+  assert.strictEqual(smeltOf('raw_porkchop'), 'cooked_porkchop');
+  assert.strictEqual(smeltOf('raw_chicken'), 'cooked_chicken');
+  assert.strictEqual(smeltOf('raw_mutton'), 'cooked_mutton');
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  const fk = api.blockKey(spot.x, 25, spot.z);
+  A.advFurnaces.set(fk, {input: {id: 'raw_beef', n: 1}, fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
+  for (let i = 0; i < 60; i++) AdventureMode.update(0.05); /* 3s > 2.5s 烧成一件 */
+  assert.deepStrictEqual(A.advFurnaceState(fk).out, {id: 'cooked_beef', n: 1}, '生牛肉烧成牛排');
+  /* 吃熟肉: food 8 普通口径(无 full 旗标, 不碰政策——回血钳制同腐肉/苹果) */
+  A.advGetPEnt().hp = 20;
+  A.ADV.player.hp = 20; /* 账本与实体同源(死亡政策口径) */
+  holdOnly('cooked_beef', 2);
+  AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0}); /* 手持食物: 点击=吃 */
+  assert.strictEqual(A.advGetPEnt().hp, 28, '牛排回 8 血(比生肉 3 好得多档)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '吃掉 1 个');
 });

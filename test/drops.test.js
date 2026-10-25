@@ -87,6 +87,20 @@ test('rollDrops 未注册怪种返回空数组(掉落表未收录 = 不掉落, �
   eq(rollDrops('no_such_mob', seqRand([])), []);
 });
 
+test('rollDrops F4 农场四怪: 牛/羊双条目按序掷, 猪/鸡单肉+副产物(设计稿 §4.5)', () => {
+  const h = loadDrops();
+  /* 牛: 生牛肉保底+加成中, 皮革保底不中加成 */
+  eq(h.rollDrops('cow', seqRand([0.3, 0.9])),
+      [{id: 'raw_beef', n: 2}, {id: 'leather', n: 1}], '牛肉 1+1 · 皮革保底 1');
+  /* 羊: 羊毛与生羊肉双保底, 加成全不中 */
+  eq(h.rollDrops('sheep', seqRand([0.9, 0.9])),
+      [{id: 'wool', n: 1}, {id: 'raw_mutton', n: 1}]);
+  /* 猪/鸡: 单条肉 + 副产物(鸡) */
+  eq(h.rollDrops('pig', seqRand([0.9])), [{id: 'raw_porkchop', n: 1}]);
+  eq(h.rollDrops('chicken', seqRand([0.1, 0.1])),
+      [{id: 'raw_chicken', n: 2}, {id: 'feather', n: 2}], '双条目各保底 1+加成 1');
+});
+
 /* ============ rollBlockDrop: BLOCKS.drop 三元组(保底 + 概率额外 +1) ============ */
 
 test('rollBlockDrop 保底: 概率 0 的条组(rand=0 下界也不加成) · 黏土一次掉 4', () => {

@@ -63,8 +63,8 @@ test('条目形状: 每个物品必备 name/icon, 类别字段(block/food/fuel/t
     assert.strictEqual(typeof it.icon, 'string', id + ' icon');
     assert.ok(it.icon.length > 0, id + ' icon 非空(emoji 占位, 正式图标归 icons.js/T8)');
     if ('block' in it) {
-      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 51,
-          id + ' block 应为 1~51 整数(引导链 v2 箱子 B_CHEST=51 顺延号段), 实际 ' + it.block);
+      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 52,
+          id + ' block 应为 1~52 整数(F4 羊毛 B_WOOL=52 顺延号段), 实际 ' + it.block);
     }
     if ('food' in it) assert.ok(typeof it.food === 'number' && it.food > 0, id + ' food 应为正数');
     if ('fuel' in it) assert.ok(typeof it.fuel === 'number' && it.fuel > 0, id + ' fuel 应为正数');
@@ -153,6 +153,33 @@ test('F3 金苹果: 形状 — food 名义值 30=maxHp 锚点 · full 旗标=吃
   assert.strictEqual(it.full, true, 'full 旗标: 吃了直接回满(无饥饿系统的一次性折算)');
   assert.ok(!it.tool && it.block == null, '非工具非放置型: 纯食物条目');
   assert.strictEqual(stackMax('golden_apple'), 64, '可堆叠 64(材料档)');
+});
+
+test('F4 农场链 11 件: 名/food 数值表逐条 · 熟肉 6~8 档 · wool block=52(二期设计稿 §4.6)', () => {
+  const {ITEMS, stackMax} = loadItems();
+  /* 生熟肉 food 数值表逐条(镜像 MC 饥饿值, 研究稿 §5; 熟肉落在「比生肉好得多」档) */
+  const foods = {
+    raw_beef: ['生牛肉', 3], cooked_beef: ['牛排', 8],
+    raw_porkchop: ['生猪排', 3], cooked_porkchop: ['熟猪排', 8],
+    raw_chicken: ['生鸡肉', 2], cooked_chicken: ['熟鸡肉', 6],
+    raw_mutton: ['生羊肉', 2], cooked_mutton: ['熟羊肉', 6],
+  };
+  for (const [id, [name, food]] of Object.entries(foods)) {
+    const it = ITEMS[id];
+    assert.ok(it, id + ' 应注册(F4 农场链)');
+    assert.strictEqual(it.name, name, id + ' 中文名照设计稿 §4.6');
+    assert.strictEqual(it.food, food, id + ' food=' + food);
+    assert.ok(!it.full && !it.tool && it.block == null, id + ' 纯食物条目(普通口径, 不碰 full 政策)');
+    assert.strictEqual(stackMax(id), 64, id + ' 可堆叠 64');
+  }
+  /* 收集品两件: 无 food 无 block(三期出口的占位材料) */
+  assert.strictEqual(ITEMS.leather.name, '皮革');
+  assert.strictEqual(ITEMS.feather.name, '羽毛');
+  assert.ok(ITEMS.leather.food == null && ITEMS.leather.block == null && !ITEMS.leather.tool, '皮革纯材料');
+  assert.ok(ITEMS.feather.food == null && ITEMS.feather.block == null && !ITEMS.feather.tool, '羽毛纯材料');
+  /* 羊毛: 放置型 block=52(B_WOOL, F4 §4.7 羊掉毛转入采集) */
+  assert.strictEqual(ITEMS.wool.name, '羊毛');
+  assert.strictEqual(ITEMS.wool.block, 52, 'wool block 应为 B_WOOL=52');
 });
 
 test('名字抽查: TTS 播报与任务链引用的键名/中文名稳定', () => {

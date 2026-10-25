@@ -25,6 +25,10 @@
    · 巢穴战斗(T14, D6/D11/D9): 每巢限量 2~3 只 · 清空 60s 再刷 · 索敌
      收敛不追出巢区; 击杀掉落(rollDrops) + 收集 3s 合并播报; 玩家战斗
      (nether 同骨架 AI, 单击伤害封顶 10)
+   · 牧场(F4, 二期设计稿 §4): 确定性散布 2 群 10 只(牛羊/猪鸡, 清单纯函数
+     advLivestockPlan 在 adventure-core) · 死畜索引随世界档, 不重生(MC 口径);
+     恐惧游荡 advHerdTick(贴近让开/受击逃窜/闲逛吃草——不进战斗 AI, 不反击
+     不追击) · 击杀走「收获」口径(kill_mob 不记账), 掉落生肉+副产物接熟食链
    · 任务链(引导链 v2): 15 步+终章(安家/挖矿/冶炼/冒险四章, 12 步版与
      插步依据见 docs/story-quest-research.md), 事件挂点只往计数账本累计
      (只增不减=跳步防护), update 内 0.5s 节流查当前步谓词(不越级);
@@ -79,13 +83,17 @@ const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
 const ADV_WORLD_KEY = 'adventure_world_save';
 const ADV_QUEST_KEY = 'adventure_quest_save';
 const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
-  defaults: {edits: [], pos: null, hp: null, furnaces: []}, /* pos(含 yaw)/hp: 玩家状态随世界档; furnaces: 每炉独立炉态(F1 拍板①, 老档补空=无炉) */
+  /* pos(含 yaw)/hp: 玩家状态随世界档; furnaces: 每炉独立炉态(F1 拍板①, 老档补空=无炉);
+     livestock: F4 死畜索引账(只存已杀——初始清单可推导, 老档补空=无死畜) */
+  defaults: {edits: [], pos: null, hp: null, furnaces: [], livestock: {dead: []}},
   encode: (st) => ({edits: [...st.edits.entries()], pos: st.pos || null,
     hp: (typeof st.hp === 'number') ? st.hp : null,
-    furnaces: advFurnaceClean(st.furnaces)}), /* 空炉条目清扫(存档防膨胀) */
+    furnaces: advFurnaceClean(st.furnaces), /* 空炉条目清扫(存档防膨胀) */
+    livestock: st.livestock || {dead: []}}),
   decode: (sv) => ({edits: new Map(sv.edits || []), pos: sv.pos || null,
     hp: (typeof sv.hp === 'number') ? sv.hp : null,
-    furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1])))}), /* 非法炉态整条拒收 */
+    furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1]))), /* 非法炉态整条拒收 */
+    livestock: {dead: (sv.livestock && Array.isArray(sv.livestock.dead)) ? sv.livestock.dead : []}}), /* 坏档兜底空账 */
 });
 /* T15 任务进度: mkSaveSlot defaults 只补缺失字段——老档 {step:N} 自动补空 counts */
 const advQuestSlot = SyncDB.slot(ADV_QUEST_KEY, {defaults: {step: 0, counts: {}}});
@@ -98,6 +106,7 @@ let advChest = {size: ADV_CHEST_START, slots: []}; /* 账户本体(init 换装) 
 let advEdits = new Map(); /* 玩家方块改动 "x,y,z"→id(只存差异, 重进重放) */
 let advDirty = false;
 let advSaveT = 0;
+let advLivestock = {dead: []}; /* F4 死畜索引账(init 从世界档换装): 索引清单见 advLivestockPlan, 只增不减 */
 /* 站点坐标缓存(T13): "x,y,z"→{x,y,z,id}——B_CRAFT/B_FURNACE 只可能来自玩家
    放置(edits 全量差异), 重进由 advRescanStations 重放收集, 增删经 advMarkEdit
    顺路维护——advStationOk 只查缓存, 不每帧扫全图 */
@@ -113,9 +122,9 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
   advDirty = true;
 }
 function advSaveNow() {/* 全量落盘(5s 节流/退出兜底/死亡·回家即时): 世界档带上玩家位置+朝向与血量(重进保留),
-   炉态经 encode 清扫后随档(F1: 退出不退料, 炉内物品原地保留) */
+   炉态经 encode 清扫后随档(F1: 退出不退料, 炉内物品原地保留); 死畜索引账随档(F4: 牧场不重生) */
   advWorldSlot.save({edits: advEdits, pos: {x: pos.x, y: pos.y, z: pos.z, yaw}, hp: ADV.player.hp,
-    furnaces: advFurnaces});
+    furnaces: advFurnaces, livestock: advLivestock});
   advBag.save(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
   advQuestSlot.save(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   advDirty = false;
@@ -277,6 +286,9 @@ const advMelee = CombatKit.mkMelee({range: ADV_MELEE_R, cooldown: ADV_SWING_CD,
     return advSwingDmg(held ? held.id : '');
   },
   onWear: () => advWearHeld('hit'), /* 命中才扣耐久(空手/非工具不扣) */
+  onHit: (m, r) => {/* F4: 受击存活的牧场动物开逃窜(怪/死畜不动作) */
+    if (!r.freshDead) advHerdPanic(m);
+  },
   onKill: (m) => advOnKill(m)});
 const advArrows = CombatKit.mkArrows({color: 0xd8d0b8, player: advGetPEnt,
   onHitPlayer: (res) => {
@@ -382,10 +394,13 @@ function advWearHeld(src) {
 }
 function advOnKill(m) {/* 击杀观感(CombatKit.killBurst, nether 同源): 碎块+计数 toast;
    掉落在 onDeath 回调; 任务记账只认亲手击杀(挥击/箭/TNT 三路都经此——
-   TNT 掀方块不算挖掘, 但炸死怪物算战果) */
+   TNT 掀方块不算挖掘, 但炸死怪物算战果)。
+   F4(二期设计稿 §4.5): passive 动物 verb 用「收获」(温和口径替代「击杀」),
+   kill_mob 记账排除——冒险章战斗步只认怪物, 动物是收获不是战斗 */
   ADV.killCount++;
-  advTally('kill_mob', 1); /* 引导链 v2: 战斗教学步(铁镐后钻石前) */
-  CombatKit.killBurst(m, ADV.killCount, {verb: '击杀'});
+  const passive = !!(m.cfg && m.cfg.passive);
+  if (!passive) advTally('kill_mob', 1); /* 引导链 v2: 战斗教学步(铁镐后钻石前) */
+  CombatKit.killBurst(m, ADV.killCount, {verb: passive ? '收获' : '击杀'});
 }
 
 /* 受击提醒已收 CombatKit.mkHurtAlarm(C6-T3, advHurt 实例 — nether 全套同源):
@@ -396,7 +411,7 @@ function advOnKill(m) {/* 击杀观感(CombatKit.killBurst, nether 同源): 碎�
 function advMobAI(dt) {
   const p = advGetPEnt();
   for (const m of Mobs.list()) {
-    if (m.dead || m.gone) continue;
+    if (m.dead || m.gone || m.cfg.passive) continue; /* F4 牧场动物走 advHerdTick(恐惧游荡), 不进战斗 AI */
     CombatCore.tickCadence(m, dt); /* 攻击节拍(战斗核心, 与竞技场/下界同一条) */
     const nest = ADV_NESTS[m.nest != null ? m.nest : 0];
     const dxP = p.pos.x - m.pos.x; const dzP = p.pos.z - m.pos.z;
@@ -434,6 +449,50 @@ function advMobAI(dt) {
       Mobs.move(m, hx / distHome * sp * dt, hz / distHome * sp * dt); moved = sp;
     }
     Mobs.gait(m, dt, moved, ADV_ATTACK_T); /* 步态+战斗姿态(引擎同一入口) */
+  }
+}
+
+/* ============================================================
+   F4 牧场动物(二期设计稿 §4.3/§4.4) — 恐惧游荡 + 散布/存活记账
+   ------------------------------------------------------------
+   动物不反击不追击不索敌(不进 advMobAI); 位移全走 Mobs.move/steer
+   意图 API(引擎帧序契约); 受击逃窜计时挂实体私有字段 __fleeT(Mobs
+   「模式可挂私有字段」许可), 闲逛换向计时 __ambleT/__ambleDir 同款。
+   ============================================================ */
+function advHerdPanic(m) {/* 受击存活 → 3 秒逃窜(挥击 onHit / TNT 波及两路都进这) */
+  if (!m.cfg || !m.cfg.passive) return; /* 怪物/死畜不动作 */
+  m.__fleeT = ADV_HERD_FLEE_T;
+}
+
+function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 adventure-core(advHerdStep);
+   受击逃窜(3s, speed×2.2 背向玩家) > 玩家贴近让开(≤2.5 格, speed×0.8) > 闲逛吃草
+   (换向计时自持, 六成时间缓步); 出逃不设界——草原无墙, 游荡半径自然收敛 */
+  const p = advGetPEnt();
+  for (const m of Mobs.list()) {
+    if (m.dead || m.gone || !m.cfg || !m.cfg.passive) continue;
+    const dx = m.pos.x - p.pos.x; const dz = m.pos.z - p.pos.z;
+    const dist = Math.hypot(dx, dz) || 1e-9;
+    const st = advHerdStep(dist, m.cfg.speed || 1, m.__fleeT || 0, dt);
+    m.__fleeT = st.fleeT;
+    if (st.speed > 0) {/* 恐惧: 背向玩家让开/逃窜(模型面朝 +Z, steer 同 wanderStep 口径) */
+      Mobs.steer(m, Math.atan2(dx, dz));
+      Mobs.move(m, dx / dist * st.speed * dt, dz / dist * st.speed * dt);
+      Mobs.gait(m, dt, st.speed);
+      continue;
+    }
+    /* 闲逛: 换向计时自持(私有字段不落盘——动物位置本就不存档, 设计稿 §6 差异清单) */
+    m.__ambleT = (m.__ambleT || 0) - dt;
+    if (m.__ambleT <= 0) {
+      m.__ambleDir = Math.random() * Math.PI * 2;
+      m.__ambleT = 2 + Math.random() * 3;
+      m.__ambleWalk = Math.random() < 0.6; /* 四成时间站着吃草 */
+    }
+    if (m.__ambleWalk) {
+      const sp = (m.cfg.speed || 1) * ADV_HERD_AMBLE_MULT;
+      Mobs.steer(m, Math.atan2(Math.cos(m.__ambleDir), Math.sin(m.__ambleDir)));
+      Mobs.move(m, Math.cos(m.__ambleDir) * sp * dt, Math.sin(m.__ambleDir) * sp * dt);
+      Mobs.gait(m, dt, sp);
+    }
   }
 }
 
@@ -1054,6 +1113,7 @@ function advExplode(x, y, z) {
     if (dist > ADV_TNT_HURT_R || Math.abs(m.pos.y - cy) > 3) continue;
     const r2 = Mobs.hit(m, advTntDmg(dist), dx, dz, 0.8);
     if (r2.freshDead) advOnKill(m);
+    else advHerdPanic(m); /* F4: 受击存活的牧场动物逃窜(怪物 no-op) */
   }
 }
 
@@ -1362,7 +1422,12 @@ const AdventureMode = mkMode({
     advNestT.fill(0);
     const pe = advGetPEnt(); /* 进场血量随世界档(重进保留残血); 老档/坏档 → 满血 */
     pe.hp = advHpIn; ADV.player.hp = advHpIn;
-    Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8) */
+    Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8)。
+      F4 死畜记账并进同一回调: 掉落与落账同帧, 挂清单索引(初始清单可推导, 存档最小) */
+      if (m.__livestockIdx != null && advLivestock.dead.indexOf(m.__livestockIdx) < 0) {
+        advLivestock.dead.push(m.__livestockIdx);
+        advDirty = true;
+      }
       for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
     });
     Drops.onCollect((id, n) => {/* 收集并线(T12×T14): 入包/镜像/逐件 toast(T12) → 3s 合并播报窗(T14) */
@@ -1371,6 +1436,15 @@ const AdventureMode = mkMode({
       advPickT = ADV_PICKUP_WINDOW;
     });
     for (let i = 0; i < ADV_NESTS.length; i++) advSpawnNest(i);
+    /* F4 牧场(设计稿 §4.4): 确定性清单按死畜账跳过已杀索引生成——不重生(MC 口径
+       动物也不刷, 牧场会空是「保护动物」的隐性教育); 游荡位置不存档(重进回散布
+       原位); 实体挂 __livestockIdx 是记账唯一依据 */
+    advLivestock = advLoad.livestock; /* 世界档 decode 已兜底 {dead:[]} */
+    for (const e of advLivestockPlan()) {
+      if (advLivestock.dead.indexOf(e.idx) >= 0) continue;
+      const m = Mobs.spawn(e.type, e.x, e.z, {yaw: 0});
+      m.__livestockIdx = e.idx; /* 模式私有挂件(Mobs 许可) */
+    }
     const qNow = ADV_QUESTS[ADV.quest.step]; /* 进场欢迎句带上当前步引导(hint 并句, 防 cancel 打断;
         「小小探险家」字样留给终章称号的仪式感) */
     SpeechKit.speak('欢迎来到探险草原！' + (qNow ? qNow.hint : '任务全部完成啦，自由探险咯！'));
@@ -1420,7 +1494,8 @@ const AdventureMode = mkMode({
     advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
     advMelee.tick(dt); /* 挥击冷却递减(kit 自持, T14 口径不变) */
     advHurt.tick(dt); /* 受击语音节流递减(T14) */
-    advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架) */
+    advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架; passive 动物在此排除) */
+    advHerdTick(dt); /* F4 牧场动物: 恐惧游荡/闲逛(与战斗 AI 互斥的两条驱动) */
     Mobs.update(dt);
     Mobs.render();
     advArrows.update(dt); /* 骷髅箭矢弹道 */
@@ -1493,7 +1568,7 @@ const AdventureMode = mkMode({
     const q = ADV_QUESTS[ADV.quest.step];
     const qTxt = q ? q.icon + ' ' + q.goal + ' ' + Math.min(q.prog(ADV.quest.counts), q.target) + '/' + q.target :
         (ADV.quest.title ? '🏅 ' + ADV.quest.title : '全部完成 🎉');
-    const alive = Mobs.list().filter((m) => !m.dead && !m.gone).length;
+    const alive = Mobs.list().filter((m) => !m.dead && !m.gone && !m.cfg.passive).length; /* F4: 牧场动物不算怪物 */
     return [
       `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
@@ -1532,6 +1607,10 @@ const AdventureMode = mkMode({
     放置 · advChestOpenPanel 的 open_chest · advOnKill 的 kill_mob;
     大宝箱=全局共享账户 advChest+advChestPanel 点选搬运+材料扩容,
     政策纯函数 advChestNext/advChestPut 在 adventure-core) ·
+    F4 已落地(牧场=advLivestockPlan 散布+init 按 dead 账生成+死畜记账
+    并进 onDeath 掉落回调; 恐惧游荡=advHerdTick 挂 update, 决策纯函数
+    advHerdStep/受击入口 advHerdPanic(挥击 onHit 与 TNT 波及两路);
+    收获口径=advOnKill passive 分支 verb「收获」+kill_mob 不记账) ·
     code-review 修复轮已落地(纯函数段与任务表迁 adventure-core.js 经此转发;
     advWearHeld=原 advWearTool/advDamageHeld 合一(S3)+低耐久预警(S4①)+
     破板指路(S4③); advBagTick=背包快满提醒(S4②, 放过箱子后话术指向收纳)) */
@@ -1549,6 +1628,7 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advFlameCount: () => advFlames.size,
   advGetChest: () => advChest, advChestOpenPanel, advChestClose,
   advChestDeposit, advChestWithdraw, advChestExpand,
-  advPanelClose, advGoHome, advHomeReady, ADV_HOME_CD};
+  advPanelClose, advGoHome, advHomeReady, ADV_HOME_CD,
+  advGetLivestock: () => advLivestock, advHerdPanic};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;

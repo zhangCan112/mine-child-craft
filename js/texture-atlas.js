@@ -2,8 +2,8 @@
 /* ============================================================
    贴图图集 (TextureAtlas) — 引擎层 (术语见 GLOSSARY.md 的"网格化核心")
    ------------------------------------------------------------
-   程序化 16×16 像素画风方块贴图图集: 新方块 36~51 全量(四矿嵌斑/草丛/
-   耕地/麦四阶段/工作台/熔炉/火把/树苗/黏土/箱子) + 存量基础方块升级款(草顶/
+   程序化 16×16 像素画风方块贴图图集: 新方块 36~52 全量(四矿嵌斑/草丛/
+   耕地/麦四阶段/工作台/熔炉/火把/树苗/黏土/箱子/羊毛) + 存量基础方块升级款(草顶/
    泥土/石头颗粒/圆石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒)。风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
@@ -20,7 +20,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 31 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 32 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -49,6 +49,7 @@ const TextureAtlas = (() => {
   const T_FURNACE_TOP = 23; const T_FURNACE_SIDE = 24; const T_FURNACE_BOTTOM = 25;
   const T_TORCH = 26; const T_CLAY = 27; const T_SAPLING = 28;
   const T_CHEST_SIDE = 29; const T_CHEST_TOP = 30;
+  const T_WOOL = 31;
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -323,6 +324,12 @@ const TextureAtlas = (() => {
       setP(px, 0, i, [96, 66, 36]); setP(px, 15, i, [96, 66, 36]);
     }
   };
+  /* 羊毛(F4 二期设计稿 §4.7): 绒毛噪点纹理 — 白底微噪 + 暗点绒团 + 蓬松亮点 */
+  PAINTERS[T_WOOL] = (px, rng)=>{
+    noiseFill(px, rng, [235, 235, 235], 0.05); // 锚定 faceColor 羊毛白, 观感连续
+    for (let i=0; i<12; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [218, 218, 221]);
+    for (let i=0; i<8; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [248, 248, 250]);
+  };
 
   /* ---------- 布局: 方块 id → 格号(MeshCore opts.atlas 载荷) ----------
      number = 全格同图; {top,side,bottom} = 分面。底面共享泥土/木板格是
@@ -335,7 +342,7 @@ const TextureAtlas = (() => {
       2: T_DIRT, 3: T_STONE, 4: T_COBBLE,
       5: {top: T_LOG_TOP, side: T_LOG_SIDE, bottom: T_LOG_TOP},
       6: T_PLANKS, 7: T_LEAVES, 8: T_SAND,
-      /* 新方块 36~50(附录 A): 纯色近似升级为像素贴图 */
+      /* 新方块 36~50(附录 A): 纯色近似升级为像素贴图; 51 箱子/52 羊毛号段顺延入集 */
       [B_COAL_ORE]: T_COAL_ORE, [B_IRON_ORE]: T_IRON_ORE,
       [B_GOLD_ORE]: T_GOLD_ORE, [B_DIAMOND_ORE]: T_DIAMOND_ORE,
       [B_GRASS_TUFT]: T_TUFT,
@@ -346,6 +353,7 @@ const TextureAtlas = (() => {
       [B_FURNACE]: {top: T_FURNACE_TOP, side: T_FURNACE_SIDE, bottom: T_FURNACE_BOTTOM},
       [B_TORCH]: T_TORCH, [B_CLAY]: T_CLAY, [B_SAPLING]: T_SAPLING,
       [B_CHEST]: {top: T_CHEST_TOP, side: T_CHEST_SIDE, bottom: T_PLANKS},
+      [B_WOOL]: T_WOOL, /* F4 羊毛(52) */
     },
   };
 

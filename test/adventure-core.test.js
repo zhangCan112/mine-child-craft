@@ -267,13 +267,13 @@ test('F1 炉状态纯函数: advFurnaceValid — 五元组形状校验, 非法�
       true, '空炉合法');
   assert.strictEqual(Core.advFurnaceValid(
       {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 1}, out: {id: 'iron_ingot', n: 2}, heat: 5, prog: 1.2}),
-      true, '满炉合法');
+  true, '满炉合法');
   assert.strictEqual(Core.advFurnaceValid(
       {input: {id: 'nope_item', n: 1}, fuel: null, out: null, heat: 0, prog: 0}),
-      false, '未注册物品拒收(交叉校验归 ITEMS)');
+  false, '未注册物品拒收(交叉校验归 ITEMS)');
   assert.strictEqual(Core.advFurnaceValid(
       {input: {id: 'iron_ore', n: 0}, fuel: null, out: null, heat: 0, prog: 0}),
-      false, '零数量槽拒收');
+  false, '零数量槽拒收');
   assert.strictEqual(Core.advFurnaceValid({input: null, fuel: null, out: null, heat: -1, prog: 0}),
       false, '负热值拒收');
   assert.strictEqual(Core.advFurnaceValid({input: null, fuel: null, out: null, heat: 0, prog: 3}),
@@ -294,4 +294,70 @@ test('F1 炉状态纯函数: advFurnaceClean — 空炉条目清扫(三槽全空
   assert.deepStrictEqual(kept.map(([k]) => k), ['2,25,2', '3,25,3', '4,25,4', '5,25,5'],
       '只清空炉, 存档不膨胀');
   assert.strictEqual(Core.advFurnaceClean(new Map()).length, 0, '空 Map 照跑');
+});
+
+/* ============ F4 牧场(二期设计稿 §4.4/§4.3): 散布清单 + 恐惧游荡决策 ============ */
+
+test('F4 advLivestockPlan: 确定性 — 同种子同清单, 玩家改动不漂移(零世界读)', () => {
+  Core.advBuildWorld();
+  const a = Core.advLivestockPlan();
+  assert.strictEqual(a.length, 10, '2 群共 10 只');
+  assert.deepStrictEqual(Core.advLivestockPlan(), a, '两次生成逐字段一致(SceneKit.rand 同种子口径)');
+  /* 挖掉群位草皮/放块: 清单不变(重进完全复现的前提——清单不读世界现状) */
+  api.setBlockRaw(Math.floor(a[0].x), Core.ADV_GROUND, Math.floor(a[0].z), 0);
+  api.setBlockRaw(Math.floor(a[5].x), Core.ADV_GROUND, Math.floor(a[5].z), 3);
+  assert.deepStrictEqual(Core.advLivestockPlan(), a, '世界被玩家改动后清单原样');
+});
+
+test('F4 advLivestockSpots/Plan: 群位约束成立 — 离出生 ≥15 · 避湖/避坑/避巢 · 平地草地 · 两群 ≥10 · 10 只构成', () => {
+  Core.advBuildWorld(); /* 对真生成世界断言(清单本身不读世界) */
+  const spots = Core.advLivestockSpots();
+  assert.strictEqual(spots.length, 2, '两个群位');
+  const spawn = Core.ADV_SPAWN;
+  const lake = Core.ADV_LAKE;
+  for (const s of spots) {
+    assert.ok(Math.hypot(s.x - spawn.x, s.z - spawn.z) >= Core.ADV_LIVESTOCK_SPAWN_R,
+        '群位离出生点 ≥15: ' + Math.hypot(s.x - spawn.x, s.z - spawn.z).toFixed(1));
+    assert.ok(Math.hypot(s.x - lake.cx, s.z - lake.cz) > lake.r + 4, '避湖(含外扩裕量)');
+    for (const p of Core.ADV_PITS) {
+      assert.ok(Math.hypot(s.x - p.cx, s.z - p.cz) > p.r + 4, '避矿坑漏斗');
+    }
+    for (const n of Core.ADV_NESTS) {
+      assert.ok(Math.hypot(s.x - n.x, s.z - n.z) >= 6, '避巢穴(怪物窝边不放牧场)');
+    }
+    /* 平地贴地: 群位脚下是整块草地且上方净空(基础草原面在禁区外天然平坦) */
+    assert.strictEqual(api.getBlock(s.x, Core.ADV_GROUND, s.z), 1, '脚下是草地');
+    assert.strictEqual(api.getBlock(s.x, Core.ADV_GROUND + 1, s.z), 0, '上方净空(不撞树干)');
+  }
+  assert.ok(Math.hypot(spots[0].x - spots[1].x, spots[0].z - spots[1].z) >= Core.ADV_LIVESTOCK_HERD_R,
+      '两群彼此 ≥10 格(不叠群)');
+  /* 清单构成: idx 0..9 稳定 · 群 A 牛2羊2 + 群 B 猪3鸡3 · 条目在群位环带内贴地 */
+  const plan = Core.advLivestockPlan();
+  assert.deepStrictEqual(plan.map((e) => e.idx), [0, 1, 2, 3, 4, 5, 6, 7, 8, 9], '索引稳定(死畜账的对账键)');
+  const byType = {};
+  for (const e of plan) {
+    byType[e.type] = (byType[e.type] || 0) + 1;
+    const near = spots.find((s) => Math.hypot(e.x - s.x - 0.5, e.z - s.z - 0.5) <= Core.ADV_LIVESTOCK_RING_HI + 1e-9);
+    assert.ok(near, '条目落在某群位环带内: ' + e.type);
+    assert.strictEqual(e.y, Core.ADV_GROUND + 1, '贴地锚点 y=地表+1');
+    assert.strictEqual(api.getBlock(Math.floor(e.x), Core.ADV_GROUND, Math.floor(e.z)), 1,
+        '条目脚下是草地(平地贴地)');
+    assert.strictEqual(api.getBlock(Math.floor(e.x), Core.ADV_GROUND + 1, Math.floor(e.z)), 0,
+        '条目落位上方净空');
+  }
+  assert.deepStrictEqual(byType, {cow: 2, sheep: 2, pig: 3, chicken: 3}, '群 A 牛×2+羊×2 / 群 B 猪×3+鸡×3');
+});
+
+test('F4 advHerdStep: 逃窜优先(3s 递减 ×2.2) · 贴近让开(≤2.5 ×0.8) · 平静不动(设计稿 §4.3)', () => {
+  assert.deepStrictEqual(Core.advHerdStep(1.0, 1.4, 3, 0.1), {fleeT: 2.9, speed: 1.4 * 2.2},
+      '逃窜中: 计时递减, 速度 ×2.2');
+  assert.deepStrictEqual(Core.advHerdStep(1.0, 1.4, 0.05, 0.1), {fleeT: 0, speed: 1.4 * 2.2},
+      '到期帧仍按逃窜(下一帧回落)');
+  assert.deepStrictEqual(Core.advHerdStep(5, 1.4, 0, 0.1), {fleeT: 0, speed: 0}, '逃窜结束且玩家不在圈内: 停');
+  assert.deepStrictEqual(Core.advHerdStep(2.5, 1.4, 0, 1 / 60), {fleeT: 0, speed: 1.4 * 0.8},
+      '恰 2.5 格让开(含等号, ×0.8 缓步)');
+  assert.deepStrictEqual(Core.advHerdStep(2.51, 1.4, 0, 1 / 60), {fleeT: 0, speed: 0}, '2.51 格不动');
+  assert.deepStrictEqual(Core.advHerdStep(8, 1.2, 0, 1), {fleeT: 0, speed: 0}, '远距平静(闲逛归壳层)');
+  /* 逃窜优先于让开: 受击计时未到期时距离不影响速度档 */
+  assert.strictEqual(Core.advHerdStep(8, 1.4, 2, 0.1).speed, 1.4 * 2.2, '逃窜中距离再远也是 ×2.2');
 });

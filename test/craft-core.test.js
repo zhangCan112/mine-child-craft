@@ -182,7 +182,7 @@ test('工具 16 条配方: 镐斧 3材+2棍 · 剑 2材+1棍 · 锹 1材+2棍, �
   }
 });
 
-test('烧炼表: 六条映射与任务合同逐条一致(铁/金粗矿·木炭·石→圆石循环·玻璃·红砖)', () => {
+test('烧炼表: 十条映射与任务合同逐条一致(铁/金粗矿·木炭·石→圆石循环·玻璃·红砖·F4 生→熟肉四条)', () => {
   const {SMELTS} = loadCraft();
   assert.deepStrictEqual({...SMELTS}, {
     iron_ore: 'iron_ingot',
@@ -191,6 +191,10 @@ test('烧炼表: 六条映射与任务合同逐条一致(铁/金粗矿·木炭·
     cobble: 'stone',
     sand: 'glass',
     clay_ball: 'brick',
+    raw_beef: 'cooked_beef',
+    raw_porkchop: 'cooked_porkchop',
+    raw_chicken: 'cooked_chicken',
+    raw_mutton: 'cooked_mutton',
   });
 });
 
@@ -212,7 +216,7 @@ test('fuelUnits: 煤/木炭 8 件 · 木质 1.5 · 木棍 0.5 · 非燃料与未
   assert.strictEqual(fuelUnits('not_registered'), 0, '未注册不炸, 返回 0');
 });
 
-test('smeltOf: 六条烧炼映射逐条命中, 未登记原料返回 null', () => {
+test('smeltOf: 十条烧炼映射逐条命中, 未登记原料返回 null', () => {
   const {smeltOf} = loadCraft();
   assert.strictEqual(smeltOf('iron_ore'), 'iron_ingot');
   assert.strictEqual(smeltOf('gold_ore'), 'gold_ingot');
@@ -220,6 +224,12 @@ test('smeltOf: 六条烧炼映射逐条命中, 未登记原料返回 null', () =
   assert.strictEqual(smeltOf('cobble'), 'stone');
   assert.strictEqual(smeltOf('sand'), 'glass');
   assert.strictEqual(smeltOf('clay_ball'), 'brick');
+  /* F4 生→熟肉四条(二期设计稿 §4.6): 烧炼时长/燃料与矿物同套 */
+  assert.strictEqual(smeltOf('raw_beef'), 'cooked_beef');
+  assert.strictEqual(smeltOf('raw_porkchop'), 'cooked_porkchop');
+  assert.strictEqual(smeltOf('raw_chicken'), 'cooked_chicken');
+  assert.strictEqual(smeltOf('raw_mutton'), 'cooked_mutton');
+  assert.strictEqual(smeltOf('cooked_beef'), null, '熟肉不可再烧');
   assert.strictEqual(smeltOf('bread'), null, '食物不可烧');
   assert.strictEqual(smeltOf('not_registered'), null);
 });
