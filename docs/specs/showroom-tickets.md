@@ -16,7 +16,7 @@ T1 骨架贯通+dev可见性 ──▶ T2 材料台+守门测试 ──▶ T3 �
 
 ## T1 · 骨架贯通 + dev 可见性机制
 
-状态：`open` · 分支/提交：—
+状态：`done` · 分支/提交：`showroom-t1` @ `8314977ad5d4e437180a09ebc45fdf70848fcb11`
 
 **做什么**：体验馆从"URL 参数"到"能进一个平地空场"的最小贯通：
 - 模式注册表加行 `{id:'showroom', name:'体验馆', gated:false, page:false, dev:true, mood:'none'}`（dev 为新字段）
