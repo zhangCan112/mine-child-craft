@@ -6,7 +6,7 @@
    scene-kit(SceneKit), vm 装齐 config+voxel+scene-kit 三件(adventure-core
    同款), 全局名桥到主域后 require 被测核心(经典 script 词法环境的
    Node 侧镜像); 几何派生断言用换桩重载(vm 新环境注入不同世界尺寸)证明
-   「派生而非硬编码」。C3-T3 的快照→意图段用小假 roster/候选快照直测,
+   「派生而非硬编码」。C3-T3/C3-T4 的快照→意图段用小假 roster/候选快照直测,
    索敌权重的距离用与 core 同源的 hashRand 个体偏好自适应构造(把被测
    权重放进「无加成必输、有加成必赢」区间)。战斗编排/技能 tick 观感半的
    行为面由 test/boot.test.js 全链冒烟守着, 两份互不重复。 */
@@ -25,7 +25,7 @@ for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js']) {
 }
 const cfg = vm.runInContext('({WORLD_W, WORLD_D, MOB_TYPES, BLOCKS})', eng);
 Object.assign(globalThis, vm.runInContext(
-    '({WORLD_W, WORLD_D, hashRand, setBlockRaw, SceneKit})', eng));
+    '({WORLD_W, WORLD_D, MOB_TYPES, hashRand, setBlockRaw, SceneKit})', eng));
 const ArenaCore = require('../js/arena-core.js');
 
 /* 换桩重载: 新 vm 环境注入不同世界尺寸, 证明 ARENA 中心是加载期派生 */
@@ -455,4 +455,158 @@ test('阴风判定: 攻击方主族是鬼返回 1.5 秒减速时长, 其余 0', 
   assert.strictEqual(ArenaCore.ghostChill('ghost'), 1.5);
   assert.strictEqual(ArenaCore.ghostChill('zombie_line'), 0);
   assert.strictEqual(ArenaCore.ghostChill(null), 0);
+});
+
+/* ============ 四期: 家传技能 tick 族(信封意图) + 晋升/击杀结算 + 技能表/分发 ============ */
+
+test('狂暴: 血线阈值按档位(基础 50%/精英 70%), 群体冲锋跨阵营照搬, 王者冲击波参数', () => {
+  const snap = (o) => Object.assign({id: 1, raged: false, hp: 100, maxHp: 100, level: 1,
+    dmgMult: 1, x: 0, y: 0, z: 0}, o);
+  const roster = [
+    {id: 1, mfam: 'zombie_line', dead: false, gone: false, x: 1, z: 0}, // 自己(排除)
+    {id: 2, mfam: 'zombie_line', team: 'B', dead: false, gone: false, x: 5, z: 0}, // 敌队同族也吃(原口径)
+    {id: 3, mfam: 'skeleton_line', dead: false, gone: false, x: 1, z: 0}, // 异族
+    {id: 4, mfam: 'zombie_line', dead: true, gone: false, x: 1, z: 0}, // 死者
+    {id: 5, mfam: 'zombie_line', dead: false, gone: true, x: 1, z: 0}, // 逃逸者
+    {id: 6, mfam: 'zombie_line', dead: false, gone: false, x: 7, z: 0}, // 环外(基础 rr=6)
+  ];
+  assert.strictEqual(ArenaCore.rageTick(snap({hp: 60}), roster), null, '基础档血线 50% 未到');
+  assert.strictEqual(ArenaCore.rageTick(snap({level: 2, hp: 75}), roster), null, '精英档血线 70% 未到');
+  assert.strictEqual(ArenaCore.rageTick(snap({raged: true, hp: 10}), roster), null, '已狂暴不重入');
+  const it = ArenaCore.rageTick(snap({hp: 49}), roster);
+  assert.strictEqual(it.writes.raged, true);
+  assert.deepStrictEqual(it.tint, [1.4, 0.5, 0.5]);
+  assert.deepStrictEqual(it.buff, [2], '环内同族(敌队照吃), 排除自己/死者/逃逸/异族/环外');
+  assert.strictEqual(it.buffT, 4); // 基础冲锋 4s
+  assert.strictEqual(it.fx, undefined, '非王者无冲击波观感');
+  assert.strictEqual(it.shock, undefined);
+  assert.strictEqual(it.sfx, 'roar');
+  const elite = ArenaCore.rageTick(snap({level: 2, hp: 49}), roster);
+  assert.deepStrictEqual(elite.buff, [2, 6], '精英 rr=9 收编环外同族');
+  const king = ArenaCore.rageTick(snap({level: 3, hp: 49, dmgMult: 2}), roster);
+  assert.strictEqual(king.buffT, 5); // 王者冲锋 5s
+  assert.strictEqual(king.fx, 'rage');
+  assert.deepStrictEqual(king.shock, {x: 0, y: 0, z: 0, r: 5, dmg: 20, fallOff: 0.5,
+    kpow: 1.2, stagger: 0.8, dyGate: 4}, '冲击波参数 dmg=10×dmgMult');
+});
+
+test('疾爬突进/蛮冲: 距离门(3~10 / 3~9)与档位冷却, 起手字段', () => {
+  const bs = (o) => Object.assign({id: 1, burstCd: 0, burstT: 0, chargeCd: 0, chargeT: 0,
+    level: 1, x: 0, z: 0, target: {dead: false, gone: false, x: 5, z: 0}}, o);
+  assert.deepStrictEqual(ArenaCore.burstTick(bs()),
+      {writes: {burstCd: 6, burstT: 1.1}, fx: 'burst'});
+  assert.strictEqual(ArenaCore.burstTick(bs({level: 2})).writes.burstCd, 4.5, '精英冷却减档');
+  assert.strictEqual(ArenaCore.burstTick(bs({target: {dead: false, gone: false, x: 2.9, z: 0}})), null, '贴脸不用突进');
+  assert.strictEqual(ArenaCore.burstTick(bs({target: {dead: false, gone: false, x: 10.1, z: 0}})), null, '超距够不着');
+  assert.strictEqual(ArenaCore.burstTick(bs({burstCd: 1})), null, '冷却中');
+  assert.strictEqual(ArenaCore.burstTick(bs({burstT: 1})), null, '突进中');
+  assert.strictEqual(ArenaCore.burstTick(bs({target: null})), null);
+  assert.strictEqual(ArenaCore.burstTick(bs({target: {dead: true, gone: false, x: 5, z: 0}})), null);
+  const cs = bs();
+  assert.deepStrictEqual(ArenaCore.chargeTick(cs),
+      {writes: {chargeCd: 7, chargeT: 0.8, chargeYaw: Math.PI/2}, fx: 'charge', sfx: 'roar'},
+      'chargeYaw 锁定目标方向(东=π/2)');
+  assert.strictEqual(ArenaCore.chargeTick(bs({level: 2})).writes.chargeCd, 5);
+  assert.strictEqual(ArenaCore.chargeTick(bs({target: {dead: false, gone: false, x: 9.1, z: 0}})), null, '蛮冲门 3~9');
+});
+
+test('磐石: 血量跌破 40% 才坚守 3s, 档位冷却', () => {
+  const gs = (o) => Object.assign({id: 1, stoneCd: 0, stoneT: 0, hp: 100, maxHp: 100,
+    level: 1, x: 0, z: 0}, o);
+  assert.strictEqual(ArenaCore.guardTick(gs({hp: 40})), null, '恰好 40% 不触发(跌破口径)');
+  assert.deepStrictEqual(ArenaCore.guardTick(gs({hp: 39.9})),
+      {writes: {stoneT: 3, stoneCd: 12}, fx: 'guard', sfx: 'roar'});
+  assert.strictEqual(ArenaCore.guardTick(gs({level: 2, hp: 39.9})).writes.stoneCd, 9, '精英冷却减档');
+  assert.strictEqual(ArenaCore.guardTick(gs({hp: 39.9, stoneCd: 1})), null, '冷却中');
+  assert.strictEqual(ArenaCore.guardTick(gs({hp: 39.9, stoneT: 1})), null, '坚守中');
+});
+
+test('颤栗瞬移: 距离门与档位冷却, rand 注入确定性与场内圆钳制(rIn-1.5)', () => {
+  const AR = ArenaCore.ARENA;
+  const bs = (o) => Object.assign({id: 1, tpCd: 0, level: 1, x: AR.cx, z: AR.cz,
+    target: {dead: false, gone: false, x: AR.cx+20, z: AR.cz}}, o);
+  assert.strictEqual(ArenaCore.blinkTick(bs({tpCd: 1})), null, '冷却中');
+  assert.strictEqual(ArenaCore.blinkTick(bs({target: null})), null);
+  assert.strictEqual(ArenaCore.blinkTick(bs({target: {dead: false, gone: false,
+    x: AR.cx+7, z: AR.cz}})), null, '8 格内不闪');
+  const it = ArenaCore.blinkTick(bs(), null, 0.1, () => 0); // a=0, rr=2.5: 正北落点
+  assert.strictEqual(it.writes.tpCd, 5);
+  assert.ok(Math.abs(it.tp.x - (AR.cx+20)) < 1e-9);
+  assert.ok(Math.abs(it.tp.z - (AR.cz+2.5)) < 1e-9);
+  assert.ok(Math.abs(it.steerYaw - Math.atan2(0, -2.5)) < 1e-9, '落点回望目标');
+  assert.strictEqual(it.sfx, 'hit');
+  assert.strictEqual(ArenaCore.blinkTick(bs({level: 2}), null, 0.1, () => 0).writes.tpCd, 3.5, '精英冷却减档');
+  const wall = ArenaCore.blinkTick(bs({target: {dead: false, gone: false, x: AR.cx+40, z: AR.cz}}),
+      null, 0.1, () => 0.5); // a=π, rr=3: 落点越墙 → 圆钳制
+  const cd = Math.hypot(wall.tp.x-AR.cx, wall.tp.z-AR.cz);
+  assert.ok(Math.abs(cd - (AR.rIn-1.5)) < 1e-9, '钳到内墙内沿');
+});
+
+test('晋升数值半: levelUpIntent 两跳(1→2 / 2→3)的档位公式与体型/名牌放大', () => {
+  assert.deepStrictEqual(ArenaCore.levelUpIntent(1),
+      {level: 2, hpMult: 1.6, dmgMult: 1.4, invulnT: 0.5, tierScale: 1.3, labelScale: 1.25});
+  assert.deepStrictEqual(ArenaCore.levelUpIntent(2),
+      {level: 3, hpMult: 2.5, dmgMult: 2, invulnT: 0.5, tierScale: 1.6, labelScale: 1.5});
+});
+
+test('击杀结算决策半: 翻盘信用/敌对口径/苦力怕特权 rand 注入', () => {
+  const roster = [
+    {id: 1, type: 'zombie', team: 'A', dead: false, gone: false}, // 击杀者本人
+    {id: 2, type: 'creeper', team: 'A', dead: false, gone: false}, // 敌队苦力怕(victim=B)
+    {id: 3, type: 'creeper', team: 'B', dead: false, gone: false}, // 同队苦力怕(排除)
+    {id: 4, type: 'creeper', team: 'A', dead: true, gone: false}, // 死者(排除)
+    {id: 5, type: 'skeleton', team: 'A', dead: false, gone: false}, // 非苦力怕
+    {id: 6, type: 'creeper', team: 'A', dead: false, gone: false}, // 第二只候选
+  ];
+  const fracs = {killer: 0.5, other: 1}; // mult = 1+0.8×0.5 = 1.4
+  const k = {id: 1, team: 'A', dead: false, gone: false};
+  const p0 = ArenaCore.awardKillPlan(k, 'B', roster, fracs, () => 0);
+  assert.strictEqual(p0.mult, 1.4);
+  assert.strictEqual(p0.credit, 1.4, '敌对击杀全额信用');
+  assert.strictEqual(p0.creeperPickId, 2, 'rand=0 选清单首只(排除击杀者/同队/死者/非苦力怕)');
+  assert.strictEqual(ArenaCore.awardKillPlan(k, 'B', roster, fracs, () => 0.999999).creeperPickId,
+      6, 'rand→1 选清单末只');
+  assert.strictEqual(
+      ArenaCore.awardKillPlan({id: 9, team: 'B', dead: false, gone: false}, 'B', roster, fracs, () => 0).credit,
+      0, '击杀者与受害者同队不给信用');
+  assert.strictEqual(ArenaCore.awardKillPlan(null, 'B', roster, fracs, () => 0).credit, 0, '无击杀者(环境杀)');
+  assert.strictEqual(
+      ArenaCore.awardKillPlan({id: 1, team: 'A', dead: true, gone: false}, 'B', roster, fracs, () => 0).credit,
+      0, '阵亡击杀者不给');
+  assert.strictEqual(ArenaCore.awardKillPlan(k, 'A', [roster[0]], fracs, () => 0).creeperPickId,
+      undefined, '无候选苦力怕不出转投键');
+});
+
+test('技能表与分发: 表完整性(tick 直引 core 函数/laser 旗标/豁免形) + familyTick 路由 + familyMain 折算', () => {
+  assert.strictEqual(ArenaCore.FAMILY_SKILLS.zombie_line.tick, ArenaCore.rageTick);
+  assert.strictEqual(ArenaCore.FAMILY_SKILLS.arthropod.tick, ArenaCore.burstTick);
+  assert.strictEqual(ArenaCore.FAMILY_SKILLS.pig_line.tick, ArenaCore.chargeTick);
+  assert.strictEqual(ArenaCore.FAMILY_SKILLS.guard.tick, ArenaCore.guardTick);
+  assert.strictEqual(ArenaCore.FAMILY_SKILLS.illager.tick, ArenaCore.raidTick);
+  assert.strictEqual(ArenaCore.FAMILY_SKILLS.slime_line.onDead, ArenaCore.splitReq);
+  assert.strictEqual(ArenaCore.FAMILY_SKILLS.skeleton_line.tick, null, '节拍型: 节奏两件在发射/挥击处');
+  assert.strictEqual(ArenaCore.FAMILY_SKILLS.ghost.tick, null, '命中型: damageMob 的 src 判定');
+  assert.strictEqual(ArenaCore.MOB_QUIRKS.guardian.laser, true, '蓄力激光旗标型(施放留壳)');
+  assert.strictEqual(ArenaCore.MOB_QUIRKS.elder_guardian.laser, true);
+  assert.strictEqual(typeof ArenaCore.MOB_QUIRKS.enderman.tick, 'function');
+  for (const [k, q] of Object.entries(ArenaCore.MOB_QUIRKS)) { // 豁免形保留: 条目键集只许这三类
+    for (const f of Object.keys(q)) assert.ok(['laser', 'tick', 'familySkill'].includes(f), k + ' 出现未约定键 ' + f);
+  }
+  /* familyTick 路由: 真 entry 走对应 tick, tick:null 与空 entry 短路 */
+  const rageSnap = {id: 1, raged: true, hp: 10, maxHp: 100, level: 1, x: 0, y: 0, z: 0};
+  assert.strictEqual(ArenaCore.familyTick(ArenaCore.FAMILY_SKILLS.zombie_line, rageSnap, [], 0.1), null);
+  const burstSnap = {id: 1, burstCd: 0, burstT: 0, level: 1, x: 0, z: 0,
+    target: {dead: false, gone: false, x: 5, z: 0}};
+  assert.deepStrictEqual(ArenaCore.familyTick(ArenaCore.FAMILY_SKILLS.arthropod, burstSnap, [], 0.1),
+      {writes: {burstCd: 6, burstT: 1.1}, fx: 'burst'});
+  assert.strictEqual(ArenaCore.familyTick(ArenaCore.FAMILY_SKILLS.skeleton_line, burstSnap, [], 0.1), null);
+  assert.strictEqual(ArenaCore.familyTick(null, burstSnap, [], 0.1), null);
+  /* familyOnDead: 软软族出分裂条目(分发进 core), 其余族 null */
+  const dSnap = {splitChild: false, fighting: true, team: 'A', type: 'slime', x: 1, z: 2, k2: 2, k3: 5};
+  assert.deepStrictEqual(ArenaCore.familyOnDead('slime_line', dSnap, 10),
+      {team: 'A', type: 'slime', x: 1, z: 2, k2: 2, k3: 5});
+  assert.strictEqual(ArenaCore.familyOnDead('zombie_line', dSnap, 10), null);
+  /* familyMain: 主族折算经全局 MOB_TYPES, 未注册回落 null */
+  assert.strictEqual(ArenaCore.familyMain('zombie'), 'zombie_line');
+  assert.strictEqual(ArenaCore.familyMain('no_such_type'), null);
 });

@@ -3,9 +3,9 @@
    竞技场模式:环形竞技场 + 双阵营怪物 PVP 对战
    ------------------------------------------------------------
    依赖(均经全局名, 调用期解析): js/arena-core.js 的 ArenaCore(常数表/
-   纯函数段/配平与晋升判定半/编队池构造/地形段/索敌与协同等快照→意图段,
-   先于本文件加载, 见 index.html) · 怪物库 Mobs · config ·
-   voxel/scene-kit(经 ArenaCore 间接)
+   纯函数段/配平与晋升判定半/编队池构造/地形段/索敌与协同等快照→意图段/
+   家传技能 tick 族与技能表·分发, 先于本文件加载, 见 index.html) ·
+   怪物库 Mobs · config · voxel/scene-kit(经 ArenaCore 间接)
 ============================================================ */
 
 /* ---------- 竞技场地形段(floorBlock/wallBlock/generate)与几何/选块/战力
@@ -33,47 +33,75 @@ const MIX_FAMS = Object.keys(MIX_BUCKETS);
    阈值随敌方初始数量缩放(25%/60%), 封顶 6/14 杀
    (档位系数表 TIER_MULT/TIER_NAME 与克制表 COUNTER 在 js/arena-core.js) */
 
-/* ---------- 怪物谱系: 家传技能表 + 个体特化表(术语见 GLOSSARY「怪物谱系」) ----------
-   种族=长相接近的血统组(守卫组是唯一职责组例外), 家传技能=族共享模板
-   (FAMILY_SKILLS), 按主族(config 的 family 首位)发放; 无近亲的怪(独行侠)不领家传。
-   个体特化=每怪至多一招(MOB_QUIRKS): 节拍型特化挂 tick(末影人颤栗瞬移),
-   蓄力激光声明 laser:true(起手在 moveRanged, 放束在 tickLaserCharge);
-   扑袭(苦力怕)/震地·巨石(铁傀儡)/龙息(末影龙)是移动一体型特化, 留在各自原型分支。
-   家传技能手感数字全部集中在这两张表 + 各 tick 函数头, 试玩改数即改这里。 */
-const MOB_QUIRKS = {
-  guardian: {laser: true}, // 特化=蓄力激光(守卫者)
-  elder_guardian: {laser: true}, // 特化=蓄力激光(远古守卫者, 威慑咆哮三期补)
-  enderman: {tick: tickBlink}, // 特化=颤栗瞬移(鬼一族成员, 瞬移是末影人个性不是全族的)
+/* ---------- 怪物谱系: 家传技能表 + 个体特化表(声明式, 已整体迁 js/arena-core.js;
+   术语见 GLOSSARY「怪物谱系」「竞技场核心」) — 这里只留分发薄壳与意图落回 ----------
+   种族=长相接近的血统组, 家传技能按主族发放(ArenaCore.familyMain 折算);
+   个体特化每怪至多一招: 节拍型挂 tick(末影人颤栗瞬移), 蓄力激光声明
+   laser:true(壳查旗标调本地 tickLaserCharge); 扑袭(苦力怕)/震地·巨石
+   (铁傀儡)/龙息(末影龙)是移动一体型特化, 留在各自原型分支。
+   家传技能手感数字全部集中在 core 两张表 + 各 tick 头, 试玩改数即改那里。 */
+/* 意图落回(统一信封): writes=字段直写 · tint=持久色(白名单) · buff/buffT=按 id
+   清单群体写 rageBuffT · shock=王者冲击波 AoE(core 出参数, 此处施放) ·
+   tp/steerYaw=瞬移三连(意图 API) · fx/sfx=观感标签(参数表在此, 决策不进 core) */
+const SKILL_FX = {
+  rage: (gp) => Fx.pop(gp.x, gp.y+1, gp.z, {color: 0xff6a4a, r0: 0.5, r1: 5, dur: 0.4, opacity: 0.8}),
+  burst: (gp) => Fx.pop(gp.x, gp.y+0.2, gp.z, {color: 0x9fbf6a, r0: 0.3, r1: 1.6, dur: 0.3, opacity: 0.7}),
+  charge: (gp) => Fx.pop(gp.x, gp.y+0.3, gp.z, {color: 0xff8856, r0: 0.3, r1: 1.8, dur: 0.3, opacity: 0.7}),
+  guard: (gp) => Fx.pop(gp.x, gp.y+1, gp.z, {color: 0x9fb6c8, r0: 0.6, r1: 3.2, dur: 0.5, opacity: 0.85}),
 };
-/* 主族折算(家传发放单位); familySkill:false 可声明个体豁免("族给默认值、个体可覆盖") */
-function familyMain(type) {
-  const q = MOB_QUIRKS[type];
-  if (q && q.familySkill === false) return null;
-  return ((MOB_TYPES[type] || {}).family || [])[0] || null;
+function landSkill(m, gp, it) {
+  if (!it) return;
+  if (it.raidT !== undefined) { // 袭击协同(T3 快照→意图形状, 非信封): 写回节拍与伤害系数
+    m.raidT = it.raidT;
+    if (it.dmgMult !== undefined) m.dmgMult = it.dmgMult;
+    return;
+  }
+  if (it.writes) Object.assign(m, it.writes);
+  if (it.tint) m.tintBase = it.tint;
+  if (it.buff) {
+    for (const t of mobs) if (it.buff.includes(t.id)) t.rageBuffT = it.buffT;
+  }
+  if (it.fx && SKILL_FX[it.fx]) SKILL_FX[it.fx](gp);
+  if (it.sfx) sfx(it.sfx);
+  if (it.shock) { // 王者·狂暴冲击波(fx 标签已随 shock 挂)
+    aoeDamage(it.shock.x, it.shock.y, it.shock.z, it.shock.r, {skip: m, team: m.team, owner: m,
+      dmg: it.shock.dmg, fallOff: it.shock.fallOff, kpow: it.shock.kpow,
+      stagger: it.shock.stagger, dyGate: it.shock.dyGate});
+  }
+  if (it.tp) { // 颤栗瞬移: 起点粒子 → 落点三连(位移/贴地/面向) → 落点粒子
+    Fx.pop(gp.x, gp.y+1, gp.z, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
+    Mobs.setPos(m, it.tp.x, it.tp.z);
+    Mobs.settle(m); // 贴地回站
+    Mobs.steer(m, it.steerYaw);
+    Fx.pop(it.tp.x, gp.y+1, it.tp.z, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
+  }
 }
-const FAMILY_SKILLS = {
-  zombie_line: {name: '狂暴', tick: tickRage},
-  skeleton_line: {name: '强力节奏', tick: null}, // 节拍型: 射击/挥击处直接读族(rangedVolley/moveMelee)
-  arthropod: {name: '疾爬突进', tick: tickBurst},
-  pig_line: {name: '蛮冲', tick: tickCharge},
-  ghost: {name: '阴风', tick: null}, // 命中型: 打中的敌人短时减速(结算在 damageMob 的 src 判定)
-  guard: {name: '磐石', tick: tickGuard},
-  illager: {name: '袭击协同', tick: tickRaid},
-  slime_line: {name: '分裂', tick: null, onDead: splitDeath},
-};
-/* 技能分发: 家传按主族一张表 + 个体特化按种类一张表(两处挂点, updateMobs 每怪一调) */
+/* 技能分发: 家传按主族一张表 + 个体特化按种类一张表(两处挂点, updateMobs
+   每怪一调) — 建 tick 快照, core 出意图, landSkill 落回与观感 */
 function familyTick(m, gp, dt) {
-  const fs = FAMILY_SKILLS[m.mfam];
-  if (fs && fs.tick) fs.tick(m, gp, dt);
-  const q = MOB_QUIRKS[m.type];
+  const snap = {id: m.id, team: m.team, mfam: m.mfam, type: m.type, level: m.level,
+    hp: m.hp, maxHp: m.maxHp, dmgMult: m.dmgMult, x: gp.x, y: gp.y, z: gp.z,
+    raged: m.raged, burstCd: m.burstCd, burstT: m.burstT, chargeCd: m.chargeCd,
+    chargeT: m.chargeT, stoneCd: m.stoneCd, stoneT: m.stoneT, tpCd: m.tpCd, raidT: m.raidT,
+    target: m.target ? {dead: m.target.dead, gone: m.target.gone,
+      x: m.target.pos.x, z: m.target.pos.z} : null};
+  const entry = ArenaCore.FAMILY_SKILLS[m.mfam];
+  if (entry && entry.tick) landSkill(m, gp, ArenaCore.familyTick(entry, snap, scanCands, dt));
+  const q = ArenaCore.MOB_QUIRKS[m.type];
   if (q) {
-    if (q.tick) q.tick(m, gp, dt);
+    if (q.tick) landSkill(m, gp, ArenaCore.familyTick(q, snap, scanCands, dt));
     if (q.laser) tickLaserCharge(m, gp, dt); // 蓄力激光: 起手(移动层)与放束(节拍层)分离
   }
 }
+/* 家传亡语分发(决策半在 core): 软软族·分裂走延迟队列 — 调用方可能正迭代
+   mobs(aoeDamage 爆炸环), 同帧落地会边迭代边追加, 下一帧 flushSplits 干净落场 */
 function familyOnDead(m) {
-  const fs = FAMILY_SKILLS[m.mfam];
-  if (fs && fs.onDead) fs.onDead(m);
+  let alive = 0;
+  for (const t of mobs) if (!t.dead && !t.gone) alive++;
+  const req = ArenaCore.familyOnDead(m.mfam, {splitChild: m.splitChild,
+    fighting: battleState==='fighting', team: m.team, type: m.type,
+    x: m.pos.x, z: m.pos.z, k2: m.k2, k3: m.k3}, alive);
+  if (req) pendingSplits.push(req);
 }
 
 let teamInitHp = {A: 1, B: 1}; // 劣势加成基准(开战时总HP)
@@ -121,7 +149,7 @@ function spawnMob(team, type, x, z, extra) {
     shotCnt: 0, raged: false, rageBuffT: 0,
     /* 家传/特化技能节拍字段(各族只消费自己的): burst 疾爬突进 · raid 协同重数 ·
        laser 蓄力(-1=空闲) · blink 瞬移 · charge 蛮冲 · stone 磐石 · slow 被阴风 · split 小只标记 */
-    mfam: familyMain(type),
+    mfam: ArenaCore.familyMain(type),
     burstCd: 2+Math.random()*3, burstT: 0,
     raidT: Math.random()*0.4,
     laserT: -1,
@@ -318,25 +346,22 @@ function explode(x, y, z, team, owner, ratio) {
     dmg: 33*ratio*(owner?owner.dmgMult:1), fallOff: 0.75, kpow: 2.0, stagger: 0.5, use3D: true});
 }
 
-/* ---------- 升级系统逻辑(阈值/信用/占比的判定半在 js/arena-core.js) ---------- */
-/* 劣势方击杀信用加成(1~2, 纯函数在 js/arena-core.js): 入参为击杀方/另一方
-   的总血量占比(队清单与开战基准由壳传入, 核心不读 mobs 全局) */
+/* ---------- 升级系统逻辑(阈值/信用/占比/结算的判定半在 js/arena-core.js) ---------- */
+/* 击杀结算(决策半 awardKillPlan 在 core): 翻盘系数按双方占比, 苦力怕特权
+   (每击杀随机挑一只存活敌队苦力怕分半信用, 避免全群同步晋升) */
 function awardKill(killer, victim) {
   if (battleState !== 'fighting') return;
   const kt = victim.team==='A' ? 'B' : 'A';
   const ot = kt==='A' ? 'B' : 'A';
-  const mult = ArenaCore.comebackMult(ArenaCore.teamHpFrac(mobs, kt, teamInitHp[kt]),
-      ArenaCore.teamHpFrac(mobs, ot, teamInitHp[ot]));
-  if (killer && killer.team!==victim.team && !killer.dead && !killer.gone) {
-    addKillCredit(killer, mult);
-  }
-  // 苦力怕特权:每击杀随机挑一只存活苦力怕分得经验(避免全群同步晋升)
-  const creeps = [];
-  for (const c of mobs) {
-    if (c!==killer && c.type==='creeper' && c.team!==victim.team && !c.dead && !c.gone) creeps.push(c);
-  }
-  if (creeps.length) {
-    addKillCredit(creeps[Math.floor(Math.random()*creeps.length)], 0.5*mult);
+  const plan = ArenaCore.awardKillPlan(
+      killer ? {id: killer.id, team: killer.team, dead: killer.dead, gone: killer.gone} : null,
+      victim.team, scanCands,
+      {killer: ArenaCore.teamHpFrac(mobs, kt, teamInitHp[kt]),
+        other: ArenaCore.teamHpFrac(mobs, ot, teamInitHp[ot])});
+  if (killer && plan.credit > 0) addKillCredit(killer, plan.credit);
+  if (plan.creeperPickId != null) {
+    const c = mobs.find((t) => t.id === plan.creeperPickId) || null;
+    if (c) addKillCredit(c, 0.5*plan.mult);
   }
 }
 /* 击杀信用入账(判定半在 js/arena-core.js): 信用照累计(死者也不清零),
@@ -348,20 +373,21 @@ function addKillCredit(m, credit) {
   for (let i=0; i<r.ups; i++) levelUp(m);
 }
 function levelUp(m) {
-  m.level++;
-  const tm = ArenaCore.TIER_MULT[m.level];
-  Mobs.setMaxHp(m, Math.round(m.baseMaxHp*tm.hp)); // 晋升改上限(意图 API, 怪物库截断现血)
-  Mobs.heal(m, Math.round(m.maxHp*0.2)); // 升级回复20%最大生命
-  m.dmgMult = tm.dmg;
-  m.invulnT = 0.5; // 金身免死(名牌随 hp 变化由怪物库节流重绘)
-  applyTierVisual(m);
+  const it = ArenaCore.levelUpIntent(m.level); // 数值半在 core(档位系数/体型/名牌放大)
+  m.level = it.level;
+  m.dmgMult = it.dmgMult;
+  m.invulnT = it.invulnT; // 金身免死(名牌随 hp 变化由怪物库节流重绘)
+  Mobs.setMaxHp(m, Math.round(m.baseMaxHp*it.hpMult)); // 晋升改上限(意图 API, 怪物库截断现血)
+  Mobs.heal(m, Math.round(m.maxHp*0.2)); // 升级回复20%最大生命(基数=新上限)
+  applyTierVisual(m, it);
   levelUpFx(m);
   showToast((m.team==='A'?'红方 ':'蓝方 ')+ArenaCore.TIER_NAME[m.level]+m.cfg.name+' 晋升！', 2000);
 }
 /* 外形:体型放大 + 脚下光环(精英蓝/王者金) + 标志性附件
-   挂件是独立普通 mesh(稀有物), 怪物库 render 每帧对齐实例位姿 */
-function applyTierVisual(m) {
-  m.tierScale = m.level===2 ? 1.3 : (m.level===3 ? 1.6 : 1); // 体型明显变大(体积≈2.2×/4×)
+   挂件是独立普通 mesh(稀有物), 怪物库 render 每帧对齐实例位姿;
+   tierScale/labelScale 数值半在 core(levelUpIntent), 这里只装配观感 */
+function applyTierVisual(m, it) {
+  m.tierScale = it.tierScale;
   Mobs.scaleTo(m, m.tierScale); // 原 group.scale → 位姿数值(怪物库 render 组矩阵)
   if (m.tierNode) {
     scene.remove(m.tierNode);
@@ -372,7 +398,7 @@ function applyTierVisual(m) {
   }
   m.tierNode = null;
   if (m.level < 2) return;
-  m.labelScale = m.level===3 ? 1.5 : 1.25; // 升级后名牌放大(怪物库 update 每帧套用)
+  m.labelScale = it.labelScale; // 升级后名牌放大(怪物库 update 每帧套用)
   const fx = new THREE.Group();
   const mat = (col) => {
     const mt = new THREE.MeshBasicMaterial({color: col}); m.tierMats.push(mt); return mt;
@@ -533,73 +559,14 @@ function tickTimers(m, dt) {
   }
 }
 
-/* 僵尸一家·狂暴(家传): 血量触发(精英70%/基础50%), 自身加速+攻速, 附近同族群体冲锋; 王者附冲击波
-   (原僵尸专属技, 谱系化推广到僵尸/尸壳/溺尸/僵尸疣猪兽 — 僵尸猪灵主族=猪灵系领战吼, D6) */
-function tickRage(m, gp) {
-  if (m.raged || m.hp >= m.maxHp*(m.level>=2?0.7:0.5)) return;
-  m.raged = true;
-  m.tintBase = [1.4, 0.5, 0.5]; // 狂暴红晕(持久色, 怪物库着色)
-  sfx('roar');
-  const rr = m.level>=2 ? 9 : 6;
-  for (const t of mobs) {
-    if (t!==m && t.mfam==='zombie_line' && !t.dead && !t.gone &&
-       Math.hypot(t.pos.x-gp.x, t.pos.z-gp.z) < rr) t.rageBuffT = m.level>=3?5:4;
-  }
-  if (m.level>=3) { // 王者·狂暴冲击波
-    Fx.pop(gp.x, gp.y+1, gp.z, {color: 0xff6a4a, r0: 0.5, r1: 5, dur: 0.4, opacity: 0.8});
-    aoeDamage(gp.x, gp.y, gp.z, 5, {skip: m, team: m.team, owner: m,
-      dmg: 10*m.dmgMult, fallOff: 0.5, kpow: 1.2, stagger: 0.8, dyGate: 4});
-  }
-}
-
-/* 虫虫族·疾爬突进(家传): 距目标 3~10 格短促加速贴脸(1.1s ×1.8), 冷却 6s/精英 4.5s */
-function tickBurst(m, gp) {
-  if (m.burstCd > 0 || m.burstT > 0) return;
-  const tg = m.target;
-  if (!tg || tg.dead || tg.gone) return;
-  const d = Math.hypot(tg.pos.x-gp.x, tg.pos.z-gp.z);
-  if (d < 3 || d > 10) return;
-  m.burstCd = m.level>=2 ? 4.5 : 6;
-  m.burstT = 1.1;
-  Fx.pop(gp.x, gp.y+0.2, gp.z, {color: 0x9fbf6a, r0: 0.3, r1: 1.6, dur: 0.3, opacity: 0.7});
-}
-
-/* 猪猪一家·蛮冲(家传): 距目标 3~9 格发起直线冲刺(0.8s ×2.2), 撞到第一个敌人
-   重击+大击退+硬直; 冲刺位移在 moveMelee 的蛮冲分支(方向锁定起手瞬间) */
-function tickCharge(m, gp) {
-  if (m.chargeT > 0 || m.chargeCd > 0) return;
-  const tg = m.target;
-  if (!tg || tg.dead || tg.gone) return;
-  const d = Math.hypot(tg.pos.x-gp.x, tg.pos.z-gp.z);
-  if (d < 3 || d > 9) return;
-  m.chargeCd = m.level>=2 ? 5 : 7;
-  m.chargeT = 0.8;
-  m.chargeYaw = Math.atan2(tg.pos.x-gp.x, tg.pos.z-gp.z);
-  sfx('roar');
-  Fx.pop(gp.x, gp.y+0.3, gp.z, {color: 0xff8856, r0: 0.3, r1: 1.8, dur: 0.3, opacity: 0.7});
-}
-
-/* 守卫组·磐石(家传): 血量跌破 40% 进入坚守 3s(受伤减半, 结算在 damageMob), 冷却 12s/精英 9s */
-function tickGuard(m, gp) {
-  if (m.stoneCd > 0 || m.stoneT > 0 || m.hp >= m.maxHp*0.4) return;
-  m.stoneT = 3;
-  m.stoneCd = m.level>=2 ? 9 : 12;
-  sfx('roar');
-  Fx.pop(gp.x, gp.y+1, gp.z, {color: 0x9fb6c8, r0: 0.6, r1: 3.2, dur: 0.5, opacity: 0.85});
-}
-
-/* 灾厄帮·袭击协同(家传): 每 0.4s 重数 10 格内同族同阵营, 每多一只 +6% 伤害(至多 4 只);
-   dmgMult 每拍重算 = 晋升系数 × 协同加成(levelUp 直写下一拍自愈, 语义一致) —
-   决策半(计数与公式)在 js/arena-core.js, 这里建快照落意图(候选共用 scanCands) */
-function tickRaid(m, gp, dt) {
-  const r = ArenaCore.raidTick({raidT: m.raidT, team: m.team, level: m.level, x: gp.x, z: gp.z},
-      scanCands, dt);
-  m.raidT = r.raidT;
-  if (r.dmgMult !== undefined) m.dmgMult = r.dmgMult;
-}
+/* ---------- 家传技能 tick 族(狂暴/疾爬突进/蛮冲/磐石/袭击协同)决策半已迁
+   js/arena-core.js(rageTick/burstTick/chargeTick/guardTick/raidTick, 快照→
+   意图信封) — 意图落回在 familyTick 的 landSkill, 观感参数在 SKILL_FX ---------- */
 
 /* 守卫者系·蓄力激光(个体特化): 起手在 moveRanged(m.laserT=0), 此处推进蓄力(白闪渐强+锁定转向)
-   → 蓄满放束(Fx.beam 直线, cfg.dmg×1.5); 被硬直打断即取消 */
+   → 蓄满放束(Fx.beam 直线, cfg.dmg×1.5); 被硬直打断即取消。
+   拍板永久留壳(C3-T4 登记): 状态机(laserT 三态)×三类意图(位移/伤害/观感)×
+   逐帧观感(脉冲着色)交织, 剥离收益/风险比最差 — 表内以 laser:true 旗标引用 */
 function tickLaserCharge(m, gp, dt) {
   if (m.laserT < 0) return;
   if (m.staggerT > 0) {
@@ -629,40 +596,15 @@ function tickLaserCharge(m, gp, dt) {
   if (hit) damageMob(hit, Math.round(m.cfg.dmg*1.5*m.dmgMult), tx-gp.x, tz-gp.z, 0.6, m);
 }
 
-/* 末影人·颤栗瞬移(个体特化): 距目标 8 格外闪现贴身(目标旁 2.5~3.5 格), 冷却 5s/精英 3.5s */
-function tickBlink(m, gp) {
-  if (m.tpCd > 0) return;
-  const tg = m.target;
-  if (!tg || tg.dead || tg.gone) return;
-  if (Math.hypot(tg.pos.x-gp.x, tg.pos.z-gp.z) < 8) return;
-  m.tpCd = m.level>=2 ? 3.5 : 5;
-  Fx.pop(gp.x, gp.y+1, gp.z, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
-  const a = Math.random()*Math.PI*2; const r = 2.5 + Math.random();
-  let nx = tg.pos.x + Math.sin(a)*r; let nz = tg.pos.z + Math.cos(a)*r;
-  const cdx = nx-ArenaCore.ARENA.cx; const cdz = nz-ArenaCore.ARENA.cz; const cd = Math.hypot(cdx, cdz);
-  if (cd > ArenaCore.ARENA.rIn-1.5) {
-    const k=(ArenaCore.ARENA.rIn-1.5)/cd; nx = ArenaCore.ARENA.cx+cdx*k; nz = ArenaCore.ARENA.cz+cdz*k;
-  }
-  Mobs.setPos(m, nx, nz);
-  Mobs.settle(m); // 贴地回站
-  Mobs.steer(m, Math.atan2(tg.pos.x-nx, tg.pos.z-nz));
-  Fx.pop(nx, gp.y+1, nz, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
-  sfx('hit');
-}
+/* ---------- 末影人·颤栗瞬移(个体特化)决策半已迁 js/arena-core.js(blinkTick:
+   rand×2 + 场内圆钳制 + 朝向算式) — 落点三连(Mobs.setPos/settle/steer)与
+   两次 Fx.pop 在 familyTick 的 landSkill ---------- */
 
 /* 软软族·分裂(家传): 死亡生 2 只小只(血量 30% · 体型 0.6, 小只不再分裂); 团战 600 只后停(防爆仓)。
    走延迟队列: damageMob 的调用方可能正迭代 mobs(aoeDamage 爆炸环), 同帧落地会
-   边迭代边追加 + 同一爆炸立刻打死新生儿 — 下一帧 flush 干净落场 */
+   边迭代边追加 + 同一爆炸立刻打死新生儿 — 下一帧 flush 干净落场
+   (决策半 splitReq 与亡语分发 familyOnDead 在 js/arena-core.js) */
 const pendingSplits = [];
-/* 决策半在 js/arena-core.js: 小只不再分裂/未开战/团战 600 只后停(防爆仓);
-   返回的队列条目形状也在那边(splitReq), 这里只数存活并 push */
-function splitDeath(m) {
-  let alive = 0;
-  for (const t of mobs) if (!t.dead && !t.gone) alive++;
-  const req = ArenaCore.splitReq({splitChild: m.splitChild, fighting: battleState==='fighting',
-    team: m.team, type: m.type, x: m.pos.x, z: m.pos.z, k2: m.k2, k3: m.k3}, alive);
-  if (req) pendingSplits.push(req);
-}
 function flushSplits() {
   while (pendingSplits.length) {
     const s = pendingSplits.shift();
@@ -831,7 +773,7 @@ function moveRanged(m, dt, tg, dist) {
     stepMove(m, 0, -Math.sin(m.yaw)*m.strafeDir*0.9*dt);
   }
   if (dist <= shootDist && m.attackCd <= 0 && m.laserT < 0) {
-    if ((MOB_QUIRKS[m.type] || {}).laser) {
+    if ((ArenaCore.MOB_QUIRKS[m.type] || {}).laser) {
       m.laserT = 0; // 守卫者系: 蓄激光起手(个体特化, 替代箭矢)
     } else {
       m.attackCd = m.cfg.cd; m.attackT = 0.35;
