@@ -21,6 +21,7 @@ const MODES = {
   tank: TankRangeMode,
   nether: NetherMode,
   adventure: AdventureMode,
+  showroom: ShowroomMode,
 };
 MODES.cur = null;
 /* 组合根接线: 触屏按钮像素图标解析器(button-icons.js 工坊)注入引擎
@@ -319,6 +320,12 @@ function netDead() {
 function init() {
   const sp = document.getElementById('splash');
   if (sp) sp.remove();
+  /* dev 解锁: ?dev=1 给 body 加 dev-on — 体验馆等 dev 向模式卡的可见开关。
+     CSS 默认隐藏是构造性防闪现(样式表先于脚本生效), 这里只做解锁
+     (config.js 读 ?touch=1 的 try/catch 同款防御式惯例) */
+  try {
+    if ((location.search || '').includes('dev=1')) document.body.classList.add('dev-on');
+  } catch (e) { /* 参数不可读时保持隐藏 — dev 可见性宁缺勿滥 */ }
   buildMenu();
   Avatar.setItem(PLAYER.heldItem); // 组合根装配默认手持物(参数表驱动, 见 config.js)
   SyncDB.ready.then(setupBudgets); // 服务器镜像完成后再建账本/迁移(进度零丢失的时序保证)

@@ -10,6 +10,8 @@
    各行的 mood 字段 = 该模式的 BGM 情绪(calm/battle/dark/none), 是模式
    情绪的唯一权威(audio-registry 的 MOODS 已收窄为仅 menu 键); 每行
    必声明 — 未声明/拼错由 test/mode-registry.test.js 逐行断言即红。
+   dev:true = 仅开发人员可见的调试模式(卡带 dev 身份类, CSS 默认隐藏,
+   ?dev=1 解锁 — 三层派生与断言见 docs/showroom-design.md D1)。
    三重命名约定(id ↔ cardXxx ↔ menuXxx)由 test/mode-registry.test.js
    对着 index.html 逐条断言, 手滑即红。
    纯数据+纯函数, Node 可直接加载。
@@ -22,6 +24,7 @@ const MODE_REGISTRY = [
   {id: 'tank', name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js', mood: 'battle'},
   {id: 'nether', name: '下界冒险', gated: true, menu: true, enter: true, mood: 'dark'}, /* enter: 出发页有"进入"按钮(锁指针) */
   {id: 'adventure', name: '探险模式', gated: true, enter: true, mood: 'dark'}, /* 物品与合成一期的第一个消费者(T11 骨架) */
+  {id: 'showroom', name: '体验馆', gated: false, page: false, dev: true, mood: 'none'}, /* dev 调试场: 卡默认隐藏(?dev=1 解锁), 不计儿童时限; none=无 BGM */
 ];
 
 const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);

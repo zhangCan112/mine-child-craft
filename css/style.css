@@ -314,6 +314,20 @@ canvas {
   font-weight: 700;
 }
 
+/* ---------- dev 向模式卡(注册表 dev:true): 默认隐藏 + ?dev=1 解锁 ----------
+   构造性防闪现: CSS 先于任何脚本生效, 弱网/慢加载下 dev 卡也从不满帧露脸;
+   三层分工(docs/showroom-design.md D1): HTML 声明身份(class 含 dev)、
+   CSS 拥有默认隐藏、JS 只做解锁(main.js 读 ?dev=1 给 body 加 dev-on)。
+   还原值 display:block 与 .mode-card 常规显示模型一致(基类不设 display,
+   div 天然块级 — 不经 flex 改写卡内布局) */
+.mode-card.dev {
+  display: none;
+}
+
+body.dev-on .mode-card.dev {
+  display: block;
+}
+
 /* ---------- 音量面板(A8): 主菜单 🎵 展开音乐/音效两滑杆; 触屏加大档在 touch.css ---------- */
 #volWrap {
   margin-top: 14px;

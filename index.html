@@ -71,6 +71,12 @@
             <h2>探险模式</h2>
             <small>挖矿 · 合成 · 做任务</small>
           </div>
+          <!-- 体验馆: dev 专属调试场, class 的 dev 是身份层(CSS 默认隐藏, ?dev=1 由 main.js 解锁) -->
+          <div class="mode-card showroom dev" id="cardShowroom">
+            <div class="big">🧪</div>
+            <h2>体验馆</h2>
+            <small>开发者调试场 · ?dev=1 可见</small>
+          </div>
         </div>
         <!-- 音量面板(A8): 🎵 开关 + 音乐/音效滑杆, 接线在 js/audio-vol-ui.js -->
         <div id="volWrap">
@@ -283,6 +289,7 @@
     <script src="js/modes/nether.js" defer></script>
     <script src="js/adventure-core.js" defer></script>
 <script src="js/modes/adventure.js" defer></script>
+<script src="js/modes/showroom.js" defer></script>
     <script src="js/mode-registry.js" defer></script>
     <script src="js/icons.js" defer></script>
     <script src="js/button-icons.js" defer></script>
