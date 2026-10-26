@@ -16,7 +16,7 @@
 > **D2** 光场注入形状=直接传 Uint8Array 读写一体（撤光必须读旧值，write 命名不副实）；天空区域重算改两趟扫描（单趟会读未处理列顶，开发期压测抓出并修复）；撤光触发=旧光>0 且（新格挡光或旧格是光源），透光互换零更新。
 > **D3** GLSL 替换点=meshlambert_vert 的 `#include <lights_lambert_vertex>`（×π 抵消 BRDF_RECIPROCAL_PI）；回退=替换点缺失时保持 stock 着色器、不注入不炸（非 §4.2 字面的「uDim 乘 vertexColor」——场景灯已同曲线衰减，再乘会双重变暗，深夜 ≈2% 过黑；已登记 §9 #14 脚注）；uGlowPos 逐帧跟随收在 applyDaylight（当前唯一消费方探险必开 dayCycle）；test/world-vertexlight.test.js 沿 §1.9 专题命名惯例、头注释注明对应模块。
 > **D4** 级联光照挂点=setBlockLit（setBlockRaw+updateEdit+脏盒记账）作为 write 回调传入 cascade-core 三入口（级联条目不回环 editBlock、落格旧值事后拿不到——单点全覆盖移除/放置/移动）。
-> **D5** 清夜怪归一为 advSweepNightMobs（D6 已入库命名）；语义取「尸体一并收」（§6.2 口径）。
+> **D5** 清夜怪归一为 advSweepNightMobs（D6 已入库命名）；语义取「尸体一并收」（§6.2 口径）；入夜 TTS「天黑了」与首夜引导「放个火把照亮周围吧」并作单句（SpeechKit cancel-then-speak 会截断前句，机制约束下并句、语义等价；首夜标志随任务档一次性落盘，后续夜仅播「天黑了」）。
 > **D6** 床边 8 格含等号（≤8，advNearStation 同口径）；passive 牧场动物不拦睡；出生点走 ADV.spawn 账本（床被挖不回退世界出生点——规格未列持久化，登记为已知边界）；床渲染分色已由 D3 兑现（pushThin 消费 faceColor）。
 > **D7** items-core 新增 durOf(id) 纯函数（可耗损物单一判据，五消费点归一）；damageTool/deserialize 守卫 isTool→durOf（顺带修「灯笼耐久不随存档往返」漏洞）；advWearHeld 模式侧补 isTool 门（防挥击/挖掘双重磨损）；advChestWithdraw 同改 durOf（防箱子取出重铸满耐久）；燃尽当帧仍亮次帧熄灭；耗秒借 5s 节流随存世界档防硬关窗丢耐久。
 

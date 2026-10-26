@@ -16,7 +16,8 @@
       可写: main.js 推进·模式层换装) / raycast / camera / renderer / scene。
    依赖(均经全局名, 调用期解析): voxel.js(体素数据+光场数组) · cascade-core.js(方块级联) ·
    light-core.js(光照核心: 装场全量 computeAll + 编辑增量 updateEdit) · mesh-core.js(网格化核心, 同一份代码在
-   Worker 里跑) · daylight-core.js(Daylight/DAYLIGHT 昼夜纯函数) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
+   Worker 里跑) · daylight-core.js(Daylight/DAYLIGHT 昼夜纯函数; DAYLIGHT 常数
+   在加载期插值进 GLSL 模板, 单源) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
    THREE/DOM 惰性创建, Node 测试环境可安全加载(经 boot.test.js 冒烟)。
 ============================================================ */
 
@@ -237,8 +238,8 @@ const atlasMat = new THREE.MeshLambertMaterial({map: ATLAS_LAYOUT ? makeAtlasTex
    场景灯(实体/怪/Avatar/掉落物仍走 ambient/sun, §4.3), 改两通道叠加
      outgoing = albedo × ( skyTint·bright(max(aSky·15 − uDim, uSkyFloor))
                           + uTorch · bright(aBlock·15 + glowTerm) )
-   skyTint 由 uDim 派生(= daylight-core skyTint 的 GLSL 镜像), bright(x) =
-   0.05+0.93·pow(x/15,1.6)(= renderBright 镜像); ×PI 抵消片元侧
+   skyTint 由 uDim 派生(幅度与 daylight-core TINT_DROP 单源), bright(x) =
+   FLOOR+SPAN·pow(x/15,POW)(= renderBright, 常数经 DAYLIGHT.BRIGHT 单源); ×PI 抵消片元侧
    BRDF_Diffuse_Lambert 的 RECIPROCAL_PI。uniform 对象四材质共享同一份引用
    — 每帧只写 value, 已编译的全部程序同时生效。
    回退: 目标 three 版本 chunk 改名(r155+ Lambert 改逐片元)找不到替换点时
@@ -246,6 +247,11 @@ const atlasMat = new THREE.MeshLambertMaterial({map: ATLAS_LAYOUT ? makeAtlasTex
    sun 的同曲线衰减兜底 — 不再叠"uDim 乘 vertexColor"(场景灯已按同一曲线
    变暗, 顶点色再乘会双重变暗过黑; 对规格回退条目的字面偏离, 见差异登记) */
 const LIGHT_CHUNK = '#include <lights_lambert_vertex>';
+/* 单源(昼夜评审修复): 注入 GLSL 的 voxBright 多项式与夜色染色常数不手抄 —
+   由 daylight-core 的 DAYLIGHT 常数模板插值同一份, 重调曲线只改 daylight-core
+   一处(模板在加载期求值 → 本文件加载须晚于 daylight-core, 与 index.html 序一致)。
+   glF: 整值常数补成 float 字面量(GLSL ES 的 int/float 不混算, 防未来取整常数编译炸) */
+const glF = (x)=>Number.isInteger(x) ? x + '.0' : String(x);
 const VOXEL_GLSL_HEAD = `
 /* === 顶点光烘焙注入(D3) === */
 attribute float aSky;
@@ -255,14 +261,17 @@ uniform vec3 uTorch;
 uniform float uSkyFloor;
 uniform vec3 uGlowPos;
 uniform float uGlowR;
-float voxBright( float x ) { return 0.05 + 0.93 * pow( max( x, 0.0 ) / 15.0, 1.6 ); }
+float voxBright( float x )
+{ return ${glF(DAYLIGHT.BRIGHT.FLOOR)} + ${glF(DAYLIGHT.BRIGHT.SPAN)}
+    * pow( max( x, 0.0 ) / 15.0, ${glF(DAYLIGHT.BRIGHT.POW)} ); }
 `;
 const VOXEL_GLSL_BODY = `
 { /* === 顶点光烘焙注入(D3): 两通道叠加, 替换 lights_lambert_vertex === */
   float glowTerm = ( uGlowR > 0.001 ) ?
       max( 0.0, 1.0 - distance( position, uGlowPos ) / uGlowR ) * 9.0 : 0.0; /* 灯笼(§8.3): 半径 6·等效 9 级 */
   float dimK = uDim / 11.0;
-  vec3 skyTint = vec3( 1.0 - 0.40 * dimK, 1.0 - 0.34 * dimK, 1.0 ); /* daylight-core skyTint 镜像(月光偏蓝) */
+  vec3 skyTint = vec3( 1.0 - ${glF(DAYLIGHT.TINT_DROP[0])} * dimK,
+      1.0 - ${glF(DAYLIGHT.TINT_DROP[1])} * dimK, 1.0 ); /* daylight-core skyTint 同源(月光偏蓝) */
   vLightFront = PI * ( skyTint * voxBright( max( aSky * 15.0 - uDim, uSkyFloor ) )
       + uTorch * voxBright( aBlock * 15.0 + glowTerm ) );
   vIndirectFront = vec3( 0.0 );

@@ -63,7 +63,7 @@ function mkH() {
   };
   sandbox.window = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['config.js', 'light-core.js', 'voxel.js', 'cascade-core.js', 'mesh-core.js',
+  for (const f of ['config.js', 'daylight-core.js', 'light-core.js', 'voxel.js', 'cascade-core.js', 'mesh-core.js',
     'texture-atlas.js', 'scene-kit.js', 'world.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }

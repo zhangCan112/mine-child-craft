@@ -14,7 +14,8 @@
    可测性: 零 THREE·零 DOM·有单测(test/daylight-core.test.js)
    ============================================================ */
 
-/* 常量表: 一日节奏与折线关键点(设计稿 §2.1) */
+/* 常量表: 一日节奏与折线关键点(设计稿 §2.1) + 渲染亮度多项式/夜色染色幅度
+   (world.js 的 GLSL 镜像同源插值同一份 — 重调曲线只改这里, 两端零手抄漂移) */
 const DAYLIGHT = {
   TICKS: 24000, // 一天 = 24000 tick = 20 分钟(20 tick/秒, dt 秒 × 20)
   NIGHT_A: 13000, // 夜晚开始(简化口径, MC 精确值 13188/22812——差异 #15)
@@ -23,6 +24,11 @@ const DAYLIGHT = {
   SLEEP_B: 23460, // 睡觉窗口止(23460 起不可睡; 23459 是最后一刻可睡)
   /* skyDim 折线 = research §1.4 internal 表反推(dim = 15 − internal) */
   DIM_KEYS: [[0, 0], [12040, 0], [13670, 11], [22330, 11], [23961, 0]],
+  /* 渲染亮度多项式(renderBright 消费): FLOOR=全暗底亮 · SPAN=跨度 · POW=拟合幂 */
+  BRIGHT: {FLOOR: 0.05, SPAN: 0.93, POW: 1.6},
+  /* 夜色天空光染色幅度(skyTint 消费): 白天 [1,1,1] 各通道减 DROP×(skyDim/11)
+     → 夜 [0.60, 0.66, 1.00](月光偏蓝; 蓝通道不掉, 恒 1) */
+  TINT_DROP: [0.40, 0.34],
 };
 
 /* 相位归一到 [0, 24000): 折线/窗口查询共用的第一步(越界/负值输入防御) */
@@ -57,17 +63,18 @@ const Daylight = {
     return Math.max(0, skyLevel - Daylight.skyDim(dayTime));
   },
 
-  /* 渲染亮度 0..15 → 0.05..0.98: 0.05 + 0.93 × (level/15)^1.6。
+  /* 渲染亮度 0..15 → 0.05..0.98: FLOOR + SPAN × (level/15)^POW(常数 = DAYLIGHT.BRIGHT, 与 world.js 的 GLSL 镜像单源)。
      wiki 无显式公式(补证翻史定案, research §2.4), 本曲线为三锚点拟合:
      0→5% · 4→17% · 15→98%(幂 1.6 过三锚的经验值, 差异 #14) */
   renderBright(level) {
-    return 0.05 + 0.93 * Math.pow(Math.max(0, level) / 15, 1.6);
+    const b = DAYLIGHT.BRIGHT;
+    return b.FLOOR + b.SPAN * Math.pow(Math.max(0, level) / 15, b.POW);
   },
 
-  /* 天空光染色: 白天 [1,1,1] → 夜 [0.60,0.66,1.00] 按 skyDim/11 插值(月光偏蓝) */
+  /* 天空光染色: 白天 [1,1,1] → 夜 [0.60,0.66,1.00](幅度 = DAYLIGHT.TINT_DROP, 与 world.js 的 GLSL 镜像单源) 按 skyDim/11 插值(月光偏蓝) */
   skyTint(dayTime) {
     const k = Daylight.skyDim(dayTime) / 11;
-    return [1 - 0.40 * k, 1 - 0.34 * k, 1];
+    return [1 - DAYLIGHT.TINT_DROP[0] * k, 1 - DAYLIGHT.TINT_DROP[1] * k, 1];
   },
 
   /* 天空/雾色: 白日 #8fc7ff(world.js 现状值) ↔ 夜 #0a1430 按 skyDim/11 插值
