@@ -150,3 +150,18 @@ test('工具色板: 木/石/铁/钻四阶基色出现在对应工具绘制(held-
     assert.ok(colors.includes(want), id + ' 应含基色 ' + want);
   }
 });
+
+/* ============ 生态地图件(冒险模式生态地图 T1): 共用形换色板 ============ */
+
+test('生态地图件: 三花共用一张 FLOWER_ART 换三套色板; 雪球/冰复用 BALL/GLASS 既有形', () => {
+  const {h} = loadIcons();
+  assert.strictEqual(h.ITEM_PIX.orchid.art, h.ITEM_PIX.flower_y.art, '兰花与蒲公英共用字符画');
+  assert.strictEqual(h.ITEM_PIX.flower_y.art, h.ITEM_PIX.flower_w.art, '蒲公英与雏菊共用字符画(FLOWER_ART)');
+  assert.notStrictEqual(h.ITEM_PIX.orchid.map, h.ITEM_PIX.flower_y.map, '三花色板各异');
+  assert.notStrictEqual(h.ITEM_PIX.flower_y.map, h.ITEM_PIX.flower_w.map);
+  assert.strictEqual(h.ITEM_PIX.snowball.art, h.ITEM_PIX.clay_ball.art, '雪球复用 BALL_ART(黏土球同形)');
+  assert.strictEqual(h.ITEM_PIX.ice.art, h.ITEM_PIX.glass.art, '冰复用 GLASS_ART(玻璃同形)');
+  /* 色板走色: 雪球白 / 冰青蓝 — 三者主色互不相同(换板不是换键) */
+  assert.strictEqual(h.ITEM_PIX.snowball.map.m, '#eceff2', '雪球白色板');
+  assert.strictEqual(h.ITEM_PIX.ice.map.f, '#a8cbe8', '冰冰色板');
+});

@@ -19,7 +19,8 @@ function loadAtlas() {
   }
   vm.runInContext(
       'globalThis.__t = { TextureAtlas, MeshCore, BLOCKS,' +
-      ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING };', ctx);
+      ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING,' +
+      ' B_BED, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID };', ctx);
   return ctx.__t;
 }
 
@@ -56,18 +57,27 @@ function tilePixels(t, all, idx) {
 
 /* ============ 布局 · 覆盖面 ============ */
 
-test('布局: 新方块 36~52 每个都有格子且格号合法(未入集方块走纯色兜底)', () => {
+test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块走纯色兜底)', () => {
   const t = loadAtlas();
   const count = t.TextureAtlas.count;
-  /* 51=B_CHEST(引导链 v2, 号段顺延) · 52=B_WOOL(F4 农场链, 号段顺延同款) */
-  for (let id=36; id<=52; id++) {
+  /* 51=B_CHEST(引导链 v2) · 52=B_WOOL(F4) · 54~62=生态地图(冒险模式设计稿 §6) *
+   * 不入集例外: 53=B_BED(半高薄块走实心通道 pushThin 纯色, 昼夜 D6 既定) ·
+   * 56=B_ICE(glass 透光透渲走纯色通道, 玻璃同款, 票据 T1 红线) */
+  for (let id=36; id<=62; id++) {
+    if (id === t.B_BED || id === t.B_ICE) {
+      assert.ok(!(id in t.TextureAtlas.layout.tiles),
+          '方块 ' + id + '(' + t.BLOCKS[id].name + ') 不入图集 — 走纯色兜底通道');
+      continue;
+    }
     assert.ok(t.BLOCKS[id], 'id ' + id + ' 应在 BLOCKS 注册');
     for (const idx of tileSet(t, id)) {
       assert.ok(Number.isInteger(idx) && idx >= 0 && idx < count,
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 32, '已绘制格数 = 32(29+箱子正/顶两格+羊毛一格)');
+  assert.strictEqual(t.TextureAtlas.count, 40, '已绘制格数 = 40(32+生态地图 8 格: 雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花)');
+  const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
+  assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
 });
 
 test('布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格)', () => {
@@ -137,9 +147,10 @@ test('像素: 每个被引用格至少有一个非透明像素; 植物类有透�
     const s = alphaStats(idx);
     assert.ok(s.opaque > 0, '格 ' + idx + ' 不该全透明(手滑空格子)');
   }
-  /* 十字面片方块(草丛/火把/树苗)与树叶孔洞: 贴图带 alpha=0 区域,
+  /* 十字面片方块(草丛/火把/树苗/枯灌木/三花)与树叶孔洞: 贴图带 alpha=0 区域,
      alphaTest 裁切后才呈"镂空植物"观感 — 全不透明即退化成实心纸片 */
-  for (const id of [t.B_GRASS_TUFT, t.B_TORCH, t.B_SAPLING, 7]) {
+  for (const id of [t.B_GRASS_TUFT, t.B_TORCH, t.B_SAPLING, 7,
+    t.B_DEAD_BUSH, t.B_ORCHID]) {
     const idx = tileSet(t, id)[0];
     assert.ok(alphaStats(idx).hole > 0, '方块 ' + id + ' 的贴图应有透明像素');
   }
@@ -225,6 +236,21 @@ test('meshChunk: 薄块图集走十字面片 — 草丛 2 面×正反共 4 面, 
     const u = r.atlas.uvs[i]; const v = r.atlas.uvs[i+1];
     assert.ok(u >= rect[0]-1e-12 && u <= rect[2]+1e-12 && v >= rect[1]-1e-12 && v <= rect[3]+1e-12,
         'UV(' + u + ',' + v + ') 应落在草丛格 ' + rect);
+  }
+});
+
+test('meshChunk: 生态地图薄块(兰花)同走十字面片 — 4 面 UV 全落兰花格', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_ORCHID); // thin 0.65 的兰花
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(r.solid, null, '新薄块与草丛同通道');
+  assert.strictEqual(quads(r.atlas), 4);
+  const rect = t.TextureAtlas.tileUV(t.TextureAtlas.layout.tiles[t.B_ORCHID]);
+  for (let i=0; i<r.atlas.uvs.length; i+=2) {
+    const u = r.atlas.uvs[i]; const v = r.atlas.uvs[i+1];
+    assert.ok(u >= rect[0]-1e-12 && u <= rect[2]+1e-12 && v >= rect[1]-1e-12 && v <= rect[3]+1e-12,
+        'UV(' + u + ',' + v + ') 应落在兰花格 ' + rect);
   }
 });
 

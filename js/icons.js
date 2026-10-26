@@ -3,7 +3,7 @@
    像素图标工坊 — 手绘像素图标(16×16 字符画 → 64×64 dataURL)
    tankIcon: 主菜单坦克演习场卡的入口图标 — emoji 🚙 各平台渲染不可控
    (有的机器上像救护车), 换成与游戏内军绿/履带同配色的像素坦克。
-   itemIcon/iconOf (T8): ITEMS 全量键物品图标(F4 农场链入册后 67 键), 一期替换全部 emoji
+   itemIcon/iconOf (T8): ITEMS 全量键物品图标(F4 农场链入册 67 键 + 生态地图 8 件 = 75 键), 一期替换全部 emoji
    占位(设计稿 D13) — 掉落物 Sprite/快捷栏槽/配方书卡片共用 iconOf
    统一出口(有像素图返 dataURL, 未画返 emoji 文本, 未注册返空串)。
    怪物头像在怪物库(Mobs.face), 坦克型号图标在载具(Tank.icon),
@@ -892,6 +892,78 @@ const LANTERN_ART = [ // 灯笼(昼夜 D7): 提梁挂环+深色骨架+暖黄光�
   '................',
   '................',
 ];
+const SNOW_ART = [ // 雪块(生态地图): 雪白块面 + 深浅噪点 + 亮闪双像素(S=闪点)
+  '................',
+  '................',
+  '..mlmmmmmmmlmm..',
+  '..mmmmmdmmmmmm..',
+  '..mdmmmmmmmmdm..',
+  '..mmmmmmlmmmmm..',
+  '..mmmSmmmmdmmm..',
+  '..mmmdmmmmmlmm..',
+  '..mlmmmmSmmmmm..',
+  '..mmmmmmmmmdmm..',
+  '..mdmmmlmmmmmm..',
+  '..mmmmmdmmmmlm..',
+  '..mlmmmmmmmmdm..',
+  '..mmmdmmmlmmmm..',
+  '................',
+  '................',
+];
+const CACTUS_ART = [ // 仙人掌(生态地图): 竖棱柱 — 亮棱(l)/暗缝(d)相间 + 棱尖刺点(n), 上下缘暗收
+  '................',
+  '....llllllll....',
+  '....dmlmmlmd....',
+  '....dmlmmlmd....',
+  '....dnlmmlnd....',
+  '....dmlmmlmd....',
+  '....dmlmmlmd....',
+  '....dmlmmlmd....',
+  '....dnlmmlnd....',
+  '....dmlmmlmd....',
+  '....dmlmmlmd....',
+  '....dmlmmlmd....',
+  '....dnlmmlnd....',
+  '....dmlmmlmd....',
+  '....dddddddd....',
+  '................',
+];
+const SANDSTONE_ART = [ // 砂岩(生态地图): 沉积层带 — 亮层(l)/砂面(m)/层间缝(d)三段循环 + 噪斑
+  '................',
+  '................',
+  '..llllllllllll..',
+  '..mmmmmmmmmmmm..',
+  '..mmmdmmmmmmmm..',
+  '..dddddddddddd..',
+  '..llllllllllll..',
+  '..mmmmmmmdmmmm..',
+  '..mmmmmmmmmmmm..',
+  '..dddddddddddd..',
+  '..llllllllllll..',
+  '..mmmmmmmmmmmm..',
+  '..mmmmmmmmdmmm..',
+  '..dddddddddddd..',
+  '................',
+  '................',
+];
+const FLOWER_ART = [ // 花共用形(生态地图): 绿茎双叶 + 花头外圈瓣(p/P 亮)/中心(c) — 兰花/蒲公英/雏菊换色板
+  '................',
+  '................',
+  '................',
+  '.....pppppp.....',
+  '....pPppppPp....',
+  '....ppccccpp....',
+  '....pPccccPp....',
+  '.....pppppp.....',
+  '.......ss.......',
+  '.......ss.......',
+  '.......ss.......',
+  '.....ggss.......',
+  '.......ss.gg....',
+  '.......ss.......',
+  '.......ss.......',
+  '................',
+];
 
 /* ------------------------------------------------------------
    ITEM_PIX 字符画数据表 — 键集与 ITEMS 完全一致(test 防错网断言),
@@ -951,6 +1023,16 @@ const ITEM_PIX = {
     W: '#fff3b0', F: '#ffd83d', f: '#ff9d2e'}}, // 昼夜 D7: 深色铁骨架 + 暖黄光芯(焰色与火把/太阳亮心同板)
   tnt: {art: TNT_ART, map: {r: '#d0342c', R: '#f05545', w: '#ececec', k: '#1a1a1a', d: '#a02018'}},
   nether_portal: {art: PORTAL_ART, map: {o: '#2e2242', O: '#1b1426', l: '#8b3fd9', m: '#a86ef2', d: '#5c239c', s: '#e3c8ff'}}, // 下界并入探险 D3: 深色门框(B_OBSIDIAN 同调) + 紫色漩涡门面(B_PORTAL 同调)
+  /* 生态地图件(冒险模式生态地图设计稿 §6): 三花共用 FLOWER_ART 换色板 ·
+     雪球复用 BALL_ART 换白色板 · 冰复用 GLASS_ART 形换冰色板(票据 T1) */
+  snow: {art: SNOW_ART, map: {m: '#e8edf2', l: '#f8fafc', d: '#c8d2dc', S: '#ffffff'}},
+  snowball: {art: BALL_ART, map: {m: '#eceff2', l: '#ffffff', d: '#c5ccd3'}},
+  ice: {art: GLASS_ART, map: {f: '#a8cbe8', g: 'rgba(168,205,235,0.32)', h: '#ffffff', d: '#7fb0d8'}},
+  cactus: {art: CACTUS_ART, map: {m: '#4e8a2e', l: '#6fae4a', d: '#37661f', n: '#e8e8d0'}},
+  sandstone: {art: SANDSTONE_ART, map: {m: '#d8c896', l: '#eaddb4', d: '#b5a377'}},
+  orchid: {art: FLOWER_ART, map: {p: '#4aa8d8', P: '#8ecff0', c: '#2b6f96', s: '#3f8f3f', g: '#57a34a'}}, // 兰花(沼泽): 蓝瓣深心
+  flower_y: {art: FLOWER_ART, map: {p: '#f0cf30', P: '#f8e878', c: '#d8a020', s: '#3f8f3f', g: '#57a34a'}}, // 蒲公英: 黄瓣
+  flower_w: {art: FLOWER_ART, map: {p: '#f4f4f0', P: '#ffffff', c: '#e8c832', s: '#3f8f3f', g: '#57a34a'}}, // 雏菊: 白瓣黄心
   /* 二期占位 */
   bow_item: {art: BOW_ART, map: {W: PIX_HANDLE.light, w: PIX_HANDLE.dark, s: '#e0ded4'}},
   /* 农场链(F4, 二期设计稿 §4.6): 生熟肉同画异色板 · 皮革/羽毛/羊毛团 */
