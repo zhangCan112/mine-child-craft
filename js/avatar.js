@@ -23,11 +23,16 @@
    零输入 · 零玩法知识。
    ============================================================ */
 const Avatar = (() => {
-  /* ---------- 建模: 官方等比人形傀儡(造型档案 player) ---------- */
+  /* ---------- 建模: 官方等比人形傀儡(造型档案 player) ----------
+     骨架名 ≠ 解剖学左右: 官方 bedrock 数据把 armR/legR 建在 −X 侧, 怪物
+     路径经 z 镜像(+Z 朝向)后 −X 恰是解剖学右手; 玩家傀儡 −Z 原生不镜像,
+     解剖学右手在 +X = 骨架名 armL(腿同理)。装配处按解剖学交换绑定
+     (2026-10-26 用户反馈: 迁官方骨架后手持物落到左手), 动画/握持代码
+     零改动即回右手观感; 皮肤左右对称(双臂/双腿同图), 交换无观感差。 */
   const puppet = MobLookKit.puppet('player');
   const root = puppet.root;
-  const legL = puppet.bones.legL; const legR = puppet.bones.legR;
-  const armL = puppet.bones.armL; const armR = puppet.bones.armR;
+  const legL = puppet.bones.legR; const legR = puppet.bones.legL;
+  const armL = puppet.bones.armR; const armR = puppet.bones.armL;
   const head = puppet.bones.head;
   scene.add(root); // 加载即挂: 跨模式存活, 主菜单背景也可见
 
