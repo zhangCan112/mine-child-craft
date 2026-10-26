@@ -151,8 +151,8 @@ function inPortal(by, px, pz) {
       Math.abs(p.z - pz) < 1.5;
 }
 
-/* ---------- 下界氛围: 暗红天穹 + 近雾 + 收起太阳(回上界恢复 world.js 默认天蓝) ----------
-   纯渲染态切换, Node 单测无渲染场景时静默跳过 */
+/* ---------- 下界氛围: 暗红天穹 + 近雾 + 压暗日光(回上界恢复 world.js 默认天蓝) ----------
+   纯渲染态切换, Node 单测无渲染场景时静默跳过; 日月天体显隐归 dayCycleOn(下界不置位即隐藏) */
 const NETHER_SKY = {color: 0x2a0a08, fogNear: 26, fogFar: 120, sunI: 0.3};
 const OVERWORLD_SKY = {color: 0x8fc7ff, fogNear: 90, fogFar: 230, sunI: 0.75}; // 与 world.js 初始值一致
 function applySky(k) {
@@ -162,7 +162,6 @@ function applySky(k) {
   scene.fog.near = k.fogNear;
   scene.fog.far = k.fogFar;
   if (typeof sun !== 'undefined') sun.intensity = k.sunI;
-  if (typeof sunSprites !== 'undefined') for (const s of sunSprites) s.visible = (k === OVERWORLD_SKY); // 下界收起太阳
 }
 
 /* ---------- 阶段切换: 上界 ↔ 下界 ---------- */

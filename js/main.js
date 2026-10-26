@@ -285,12 +285,6 @@ function loop(now) {
   highlight.visible = hlShow;
   if (hlShow) highlight.position.set(hit.x+0.5, hit.y+0.5, hit.z+0.5);
 
-  const tNow = now/1000;
-  for (const s of sunSprites) {
-    const k = 1 + Math.sin(tNow*1.5 + s.userData.phase)*0.08;
-    s.scale.set(s.userData.base*k, s.userData.base*k, 1);
-  }
-
   renderer.render(scene, camera);
 
   fpsAcc+=dt; fpsCnt++;

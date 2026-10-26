@@ -137,13 +137,12 @@ function mkThree() {
   return T;
 }
 
-/* 画布 2d 桩: 太阳光斑/TNT 图集/天体贴图的绘制表面(产物无人读, 记形不记色) */
+/* 画布 2d 桩: TNT 图集/天体贴图的绘制表面(产物无人读, 记形不记色) */
 function mkCanvas() {
-  const grad = {addColorStop() {}};
   return {
     width: 0, height: 0,
     getContext: () => ({fillStyle: null, font: '', textAlign: '', textBaseline: '',
-      fillRect() {}, fillText() {}, createRadialGradient: () => grad}),
+      fillRect() {}, fillText() {}}),
   };
 }
 

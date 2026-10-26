@@ -52,34 +52,6 @@ const sun = new THREE.DirectionalLight(0xfff4e0, 0.75);
 sun.position.set(60, 120, 40);
 scene.add(sun);
 
-function makeSunTexture() {
-  const c = document.createElement('canvas');
-  c.width = c.height = 128;
-  const g = c.getContext('2d');
-  const grad = g.createRadialGradient(64, 64, 0, 64, 64, 64);
-  grad.addColorStop(0, 'rgba(255,255,235,1)');
-  grad.addColorStop(0.22, 'rgba(255,235,140,1)');
-  grad.addColorStop(0.45, 'rgba(255,195,70,0.55)');
-  grad.addColorStop(1, 'rgba(255,160,40,0)');
-  g.fillStyle = grad;
-  g.fillRect(0, 0, 128, 128);
-  return new THREE.CanvasTexture(c);
-}
-const sunTex = makeSunTexture();
-const sunSprites = [];
-for (let i=0; i<3; i++) {
-  for (let j=0; j<3; j++) {
-    const m = new THREE.SpriteMaterial({map: sunTex, fog: false, transparent: true, depthWrite: false});
-    const s = new THREE.Sprite(m);
-    const size = 16 + ((i*3+j)%3)*5;
-    s.position.set(24 + i*38, 95 + j*24, -110);
-    s.scale.set(size, size, 1);
-    s.userData.base = size;
-    s.userData.phase = (i*3+j) * 0.7;
-    sunSprites.push(s);
-    scene.add(s);
-  }
-}
 
 /* ---------- 昼夜场景驱动(设计稿 mc-daylight-torch §2.2/§2.3, 消费 daylight-core) ----------
    时间本体 dayTime 与开关 dayCycleOn 是引擎级顶层绑定(跨文件可写 → let,
@@ -92,8 +64,7 @@ let daylightKey = null; /* 上次已写入的颜色比较键(dayTime 量化 50 t
 
 /* 日/月天体(§2.4): 像素方块贴图(太阳=暖黄方块, 月亮=灰白方块带缺口),
    与按钮像素图标工坊同色板(HUD 时段图标在那边, 图形单一权威归应用层);
-   轨道恒以玩家为参照, 地平线下隐藏。装饰光斑 sunSprites 是另一族(固定
-   坐标不随轨道, 夜间整体收起)。 */
+   轨道恒以玩家为参照, 地平线下隐藏(装饰光斑已随真日上场而移除)。 */
 function makeCelestialTexture(isSun) {
   const c = document.createElement('canvas');
   c.width = c.height = 16;
@@ -143,8 +114,6 @@ function applyDaylight() {
     /* 实体变暗: 怪/Avatar/掉落物走 Lambert, 环境光随时间衰减自动生效(§4.3) */
     ambientLight.intensity = 0.65 * Daylight.renderBright(15 - dim);
     sun.intensity = 0.75 * (1 - dim / 11);
-    const spots = dim < 8; /* 装饰光斑: dim ≥ 8 收起(§2.3) */
-    for (const s of sunSprites) s.visible = spots;
     /* 顶点光材质 uniforms(D3 §4.2/§4.4): 与天色同一比较键节拍(50 tick 量化,
        夜色阶进无感); uSkyFloor 两态 — 探险(dayCycleOn)真实洞穴/夜, 其余模式
        恒 15 ≈ 现状观感(向后兼容, 关循环复位幂等) */

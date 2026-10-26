@@ -109,7 +109,6 @@ const DAYLIGHT = {
 | `scene.background` / `scene.fog.color` | `#8fc7ff`（现状值） | `skyColor()` 插值至 `#0a1430` |
 | `AmbientLight.intensity` | 0.65（现状） | `0.65 × renderBright(15−dim)` ≈ 0.11（实体变暗：怪/Avatar/掉落物走 Lambert） |
 | `sun`（DirectionalLight） | 0.75（现状） | `0.75 × (1 − dim/11)` → 0 |
-| 装饰光斑 `sunSprites`（9 个） | 可见（现状呼吸动画） | `dim ≥ 8` 隐藏 |
 | 日/月 Sprite（新增 2 个） | 太阳沿轨道 | 月亮在太阳对侧；轨道见 §2.4 |
 
 ### 2.4 日月天体（简版）
