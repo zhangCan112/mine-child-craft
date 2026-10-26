@@ -107,8 +107,13 @@
    ============================================================ */
 
 /* ---------- 模式状态账本(常量表与政策纯函数在 adventure-core.js) ---------- */
+/* 当前地图行(冒险地图 T2 池参数化): 巢穴池/夜怪池的读取权威——壳层一切池
+   消费经此行, 不再直读 ADV_NESTS/ADV_NIGHT 常量; 缺省 home 行与常量同一
+   引用, home 池行为逐字节不变(本票红线)。T4 的 ADV_MAPS 各行以替换语义
+   自带 nests/nightPool, T6 切图在此换装 */
+let advMapRow = ADV_HOME_ROW;
 const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
-  pits: ADV_PITS, cave: ADV_CAVE, nests: ADV_NESTS,
+  pits: ADV_PITS, cave: ADV_CAVE, nests: advMapRow.nests,
   player: {hp: 30, maxHp: 30}, quest: {step: 0, counts: {}}, panelOpen: false,
   chestOpen: false, killCount: 0, swingCd: 0, homeCd: -1e9};
 
@@ -447,7 +452,7 @@ function advBagTick(dt) {/* 背包快满提醒(S4②): 占用槽经纯函数判 
    巢穴战斗壳段 (T14) — 刷怪节律 / 玩家战斗 / 怪物 AI / 箭矢 / 收集
    (常量与节拍/伤害/掉落/播报纯函数在 adventure-core.js)
    ============================================================ */
-const advNestT = ADV_NESTS.map(() => 0); /* 各巢独立计时器(秒): 全清后累计 */
+const advNestT = advMapRow.nests.map(() => 0); /* 各巢独立计时器(秒): 全清后累计 */
 function advNestAlive(i) {/* 巢内存活数(m.nest 挂件是归属唯一依据; 尸体不计) */
   let n = 0;
   for (const m of Mobs.list()) {
@@ -456,7 +461,7 @@ function advNestAlive(i) {/* 巢内存活数(m.nest 挂件是归属唯一依据;
   return n;
 }
 function advSpawnNest(i) {/* 本巢首刷/再刷: 池内取种, 洞口环带落位 */
-  const nest = ADV_NESTS[i];
+  const nest = advMapRow.nests[i];
   const count = advNestCount();
   for (let k = 0; k < count; k++) {
     const type = nest.kinds[Math.floor(Math.random() * nest.kinds.length)];
@@ -467,7 +472,7 @@ function advSpawnNest(i) {/* 本巢首刷/再刷: 池内取种, 洞口环带落�
   }
 }
 function advNestTick(dt) {
-  for (let i = 0; i < ADV_NESTS.length; i++) {
+  for (let i = 0; i < advMapRow.nests.length; i++) {
     const step = advNestStep(advNestAlive(i), advNestT[i], dt); /* 节拍纯函数段 */
     advNestT[i] = step.t;
     if (step.spawn) advSpawnNest(i);
@@ -512,7 +517,7 @@ function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿
     }
   }
   advWasNight = night;
-  const r = advNightStep(advNightT, dt, dayTime, advNightRead, pos, Math.random);
+  const r = advNightStepPool(advNightT, dt, dayTime, advNightRead, pos, Math.random, advMapRow.nightPool);
   advNightT = r.t;
   if (r.spawn && advNightAlive() < ADV_NIGHT.CAP) {
     const m = Mobs.spawn(r.spawn.type, r.spawn.x, r.spawn.z, {yaw: 0});
@@ -608,7 +613,7 @@ function advMobAI(dt) {
     if (m.dead || m.gone || m.cfg.passive) continue; /* F4 牧场动物走 advHerdTick(恐惧游荡), 不进战斗 AI */
     CombatCore.tickCadence(m, dt); /* 攻击节拍(战斗核心, 与竞技场/下界同一条) */
     /* 家锚(收队/索敌的 leash 原点): 夜怪=出生环点(昼夜 D5, 不归巢穴), 巢穴怪=本巢 */
-    const home = m.__nightHome || ADV_NESTS[m.nest != null ? m.nest : 0];
+    const home = m.__nightHome || advMapRow.nests[m.nest != null ? m.nest : 0];
     const dxP = p.pos.x - m.pos.x; const dzP = p.pos.z - m.pos.z;
     const distP = Math.hypot(dxP, dzP) || 1e-9;
     const hx = home.x - m.pos.x; const hz = home.z - m.pos.z;
@@ -915,7 +920,7 @@ function advHookEntityCbs() {
 }
 function advSeedOverworldMobs() {/* 上界怪播种(内容逐字自 init): 三巢首刷 + 牲畜清单
     按死畜账跳过已杀索引(不重生, MC 口径); 切回上界时重播(init 同款) */
-  for (let i = 0; i < ADV_NESTS.length; i++) advSpawnNest(i);
+  for (let i = 0; i < advMapRow.nests.length; i++) advSpawnNest(i);
   for (const e of advLivestockPlan()) {
     if (advLivestock.dead.indexOf(e.idx) >= 0) continue;
     const m = Mobs.spawn(e.type, e.x, e.z, {yaw: 0});
