@@ -1237,8 +1237,8 @@ const arenaHb = mkHotbar({/* 选块由 kit 接管(digit/wheel/点选); 'shovel' 
   items: ArenaCore.HOTBAR.map((id)=> (typeof id === 'number' ? {block: id} : {item: 'shovel_iron'})),
   onPick: () => arenaHeld.sync()});
 /* 手持感知五件套收编 ModeKit.mkHeldSync(评审候选 6): 哨兵槽语义/数字方块
-   判定/Avatar.setItem/主动作键图标切换全在 kit — build.js 的逐字镜像由
-   后续票收口; 模式层只消费 isBlock/itemId/sync 三个纯问题 */
+   判定/Avatar.setItem/主动作键图标切换全在 kit, 建造同款; 模式层只消费
+   isBlock/itemId/sync 三个纯问题 */
 const arenaHeld = mkHeldSync(ArenaCore.HOTBAR, arenaHb);
 
 const cntAEl = document.getElementById('cntA');
@@ -1353,6 +1353,10 @@ function updateScoreboard() {
 }
 
 /* ---------- 模式对象 ---------- */
+/* 触屏按住连挖(250ms/块): 驱动收编 mode-kit 的 mkHoldMine(2026-10-26 建造/
+   竞技场镜像收编) — 此前竞技场只实现单击挖, 注释宣称的"按住连挖"缺口
+   随收编补齐, 与建造同款 */
+const arenaHoldMine = mkHoldMine((hit) => ArenaMode.onMouse(0, hit));
 const ArenaMode = mkMode({
   id: 'arena',
   chrome: {score: 'flex', hotbar: 'flex'},
@@ -1375,9 +1379,11 @@ const ArenaMode = mkMode({
     resetBattleFx();
     battleState = 'idle';
     battleResult = '';
+    arenaHoldMine.hold(false); /* 长按连挖场: 退出模式即收 */
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活, 照下界先例) */
   },
   update(dt) {
+    arenaHoldMine.step(dt); /* 触屏长按连挖(桌面不触发: hold 恒 false) */
     deploySpawnQueue(); // 分帧部署先于一切战斗逻辑
     Mobs.update(dt); // 怪物本能: 名牌/计时/死亡动画/回收
     updateMobs(dt); // 战斗 AI(索敌/技能/晋升)
@@ -1391,17 +1397,14 @@ const ArenaMode = mkMode({
   onKey(code) {
     if (code==='KeyR') startBattle();
   },
+  /* 触屏长按起止(input.js 手势路由): 连挖计时器复位 */
+  onHold(active) {
+    arenaHoldMine.hold(active);
+  },
+  /* 挖/放编辑原语走 mode-kit 的 editHit(2026-10-26 镜像收编): 底层守卫/
+     手持感知/空置/玩家碰撞在 kit; 竞技场无存档政策, 返回值直接丢弃 */
   onMouse(button, hit) {
-    if (!hit) return;
-    if (button === 0) {
-      editBlock(hit.x, hit.y, hit.z, 0);
-    } else if (button === 2) {
-      if (!arenaHeld.isBlock()) return; // 铲子槽不放置(手持感知: 拿铲子=挖)
-      const px=hit.x+hit.nx; const py=hit.y+hit.ny; const pz=hit.z+hit.nz;
-      if (getBlock(px, py, pz)!==0) return;
-      if (collidesAtPlayer(px, py, pz)) return;
-      editBlock(px, py, pz, arenaHeld.itemId());
-    }
+    editHit(button, hit, () => arenaHeld.itemId());
   },
   hud(hit) {
     updateScoreboard();

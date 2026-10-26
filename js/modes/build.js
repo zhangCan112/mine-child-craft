@@ -463,21 +463,10 @@ function buildToggleFly() {
 }
 
 /* ---------- 触屏长按连挖(每 250ms 一块; 与桌面单击同路) ----------
-    目标跟随指尖(CameraRig.aim 在长按期间被 holdAim 覆盖); 基岩层静默跳过
-    (单击仍有"挖不动"提示, 连挖不刷屏)。防误触不在连挖上加延迟(MC 创造
-    800ms 的目的): 本作轻点=放置(可逆无损) 而非破坏, 且长按需静止满
-    250ms 才成手势 — 门槛本身即防误触, 见 docs/touch-controls-design.md §6。 */
-let buildHoldOn = false; let buildHoldT = 0;
-function buildHoldStep(dt) {
-  if (!buildHoldOn) return;
-  buildHoldT += dt;
-  if (buildHoldT < 0.25) return;
-  buildHoldT = 0;
-  const aim = CameraRig.aim(camera);
-  const hit = raycastVoxel(aim.origin, aim.dir, PLAYER.reach);
-  if (!hit || hit.y === 0) return; /* 指空/基岩: 静默等下一拍 */
-  BuildMode.onMouse(0, hit);
-}
+    驱动收编 mode-kit 的 mkHoldMine(2026-10-26 建造/竞技场镜像收编):
+    计时/准星跟随指尖/底层静默守卫在 kit, 本模式只注入 fire=onMouse(0)
+    的挖路径(防误触门槛论证见 docs/touch-controls-design.md §6)。 */
+const buildHoldMine = mkHoldMine((hit) => BuildMode.onMouse(0, hit));
 
 /* ---------- 模式对象 ---------- */
 const BuildMode = mkMode({
@@ -513,45 +502,33 @@ const BuildMode = mkMode({
     buildJournal.flush();
     setFluidEditSink(null); /* 流体账本缝解除(liquid D8: 不渗进其他模式) */
     setFly(false); /* 飞行态复位走意图入口 */
-    buildHoldOn = false; /* 长按连挖场: 退出模式即收 */
+    buildHoldMine.hold(false); /* 长按连挖场: 退出模式即收 */
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活, 照下界先例) */
   },
   buildMenu() {
     buildSceneMenu();
   }, // 打开菜单页时刷新高亮
   update(dt) {
-    buildHoldStep(dt); /* 触屏长按连挖(桌面不触发: buildHoldOn 恒 false) */
+    buildHoldMine.step(dt); /* 触屏长按连挖(桌面不触发: hold 恒 false) */
     buildJournal.tick(); /* 世界存档节流 5s(探险同款, 时序收编 journal) */
   },
   /* 触屏长按起止(input.js 手势路由): 连挖计时器复位 */
   onHold(active) {
-    buildHoldOn = active;
-    buildHoldT = 0;
+    buildHoldMine.hold(active);
   },
   onKey(code) {
     if (code==='KeyF') buildToggleFly();
     if (code==='KeyR') buildResetScene();
   },
+  /* 挖/放编辑原语走 mode-kit 的 editHit(2026-10-26 镜像收编): 底层守卫/
+     手持感知/空置/玩家碰撞在 kit, 本模式只做建造私有政策——记账 */
   onMouse(button, hit) {
-    if (!hit) return;
-    let x; let y; let z; let id;
-    if (button === 0) { // 挖
-      if (hit.y === 0) {
-        showToast('🪨 底层基岩挖不动哦'); return;
-      } // 底层保护, 防挖穿坠出世界
-      x=hit.x; y=hit.y; z=hit.z; id=0;
-    } else if (button === 2) { // 放
-      if (!buildHeld.isBlock()) return; // 铲子槽不放置(手持感知: 拿铲子=挖, MC 拿工具右键无操作同构)
-      x=hit.x+hit.nx; y=hit.y+hit.ny; z=hit.z+hit.nz;
-      if (getBlock(x, y, z)!==0) return;
-      if (collidesAtPlayer(x, y, z)) return;
-      id = BUILD_PALETTE[buildHb.sel];
-    } else return;
-    const removed = editBlock(x, y, z, id);
+    const e = editHit(button, hit, () => buildHeld.itemId());
+    if (!e) return;
     /* 记账供存档(liquid D8): 流体格带 {id,lv}(放置=源 lv0), 其余保持数字
        (编码判据单份在 world-journal-core 的 fluidCell); mark 自带置脏 */
-    buildJournal.mark(blockKey(x, y, z), fluidCell(id, 0, BLOCKS));
-    for (const r of removed) {/* 级联同记(D5/D7): 移动两格(原格 0+落格 id), 移除一格 */
+    buildJournal.mark(blockKey(e.x, e.y, e.z), fluidCell(e.id, 0, BLOCKS));
+    for (const r of e.removed) {/* 级联同记(D5/D7): 移动两格(原格 0+落格 id), 移除一格 */
       buildJournal.mark(blockKey(r.x, r.y, r.z), 0);
       if (r.to) buildJournal.mark(blockKey(r.to.x, r.to.y, r.to.z), r.id);
     }

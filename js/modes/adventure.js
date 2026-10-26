@@ -197,10 +197,11 @@ function advMainPlaceable() {/* 智能主动作的手持判定(纯 seam, 单测�
   return !!(s && ITEMS[s.id] && ITEMS[s.id].block != null);
 }
 function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/其余=镐,
-   2026-10-24 手持感知拍板); input.js 未加载(桌面/Node 单测)时静默 */
-  if (typeof refreshTouchMain === 'function') {
+   2026-10-24 手持感知拍板); input.js 未加载(桌面/Node 单测)时静默
+   (2026-10-26 别名收口: 过渡名 refreshTouchMain 已撤, 走 Input.refreshMain) */
+  if (typeof Input !== 'undefined' && Input && typeof Input.refreshMain === 'function') {
     const place = advMainPlaceable();
-    refreshTouchMain(place ? 'brick' : 'pick', place ? '放置' : '挖/打');
+    Input.refreshMain(place ? 'brick' : 'pick', place ? '放置' : '挖/打');
   }
 }
 let advHbSig = '';

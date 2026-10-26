@@ -65,7 +65,8 @@
    interface: mkMode · mkHotbar · mkMainAct · mkHeldSync(手持感知同步件) ·
               mkMobPicker(选怪按钮组) · mkCraftPanel · mkFurnacePanel ·
               mkChestPanel(三者=内部底座 mkPanelShell+差异段, 均含 cellAt
-              查询面) · sortInv · spawn · lookName · confirmBtn
+              查询面) · sortInv · spawn · lookName · confirmBtn ·
+              editHit(挖/放编辑原语) · mkHoldMine(触屏按住连挖驱动)
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax/durOf ·
      inventory-core 的 HOTBAR_SLOTS/costEntry/remove/add · craft-core 的
      RECIPES/canCraft/matchGrid/gridCraft/fillGrid/FUEL/fuelUnits/smeltOf ·
@@ -73,6 +74,11 @@
      mkMode 的触屏声明走 input 的 Input.setActions — 缺装时回落过渡别名) ·
      avatar 的 Avatar 与 input 的 Input(mkHeldSync 的同步面, 均经
      typeof 守卫: 精简装载的 Node 单测可缺装, 静默跳过) ·
+     world 的 editBlock/getBlock/camera 与 voxel 的 collidesAtPlayer/
+     raycastVoxel · camera-rig 的 CameraRig · config 的 PLAYER ·
+     effects 的 showToast(editHit 底层守卫话术, 经 typeof 守卫)——
+     editHit/mkHoldMine 两件(2026-10-26 建造/竞技场镜像收编)全部
+     交互期调用, 精简装载的 Node 单测不触发即不依赖 ·
      icons 的 iconOf 与
      button-icons 的 btnImg/BTN_PIX(两者加载序在本文件之后, 但全部
      调用发生在用户交互期, 彼时已加载完毕) · item-hint-registry 的
@@ -163,7 +169,7 @@ function mkMainAct(placeable) {
 /* ---------- mkHeldSync: 手持感知同步件(评审候选 6, 跨模式样板收编) ----------
    竞技场与建造逐字镜像的五件套样板(调色板数组 + 'shovel' 哨兵槽渲染铁锹
    物品图标 + typeof number 手持判定 + Avatar.setItem 同步 + 主动作键图标
-   切换 镐/铲↔砖块)收编一处: 竞技场先接, 建造镜像由后续票收口。
+   切换 镐/铲↔砖块)收编一处, 两消费方均已接入。
    调色板形状: 数字=方块槽(可放置), 哨兵串('shovel')=挖掘入口槽;
    哨兵语义与判定逻辑藏在本实现, 消费方只见三个纯问题:
      isBlock()  选中槽是否可放置方块
@@ -187,6 +193,65 @@ function mkHeldSync(palette, hb) {
     }
   }
   return {isBlock, itemId, sync};
+}
+
+/* ---------- editHit: 挖/放编辑原语(2026-10-26 建造/竞技场镜像收编) ----------
+   button 0=挖(世界底层 y0 保护: 挖穿=坠出世界, 儿童话术提示; 原建造私有
+   守卫升格共享——竞技场补齐, 两模式同口径) · 2=放置(手持感知 placeId +
+   目标格空置 + 不与玩家碰撞三重守卫, 沿命中面法线落位)。
+   placeId() 返回可放置的方块数字 id(铲子槽/空手经 mkHeldSync.itemId
+   天然返 null=无操作)。
+   返回 {x, y, z, id, removed}(removed=editBlock 的级联清单)或 null
+   (未发生编辑); 存档记账/掉落等模式政策留在消费方。 */
+function editHit(button, hit, placeId) {
+  if (!hit) return null;
+  if (button === 0) {
+    /* 世界底层保护(儿童口径, 建造既有守卫) */
+    if (hit.y === 0) {
+      if (typeof showToast === 'function') showToast('🪨 底层基岩挖不动哦');
+      return null;
+    }
+    return {x: hit.x, y: hit.y, z: hit.z, id: 0,
+      removed: editBlock(hit.x, hit.y, hit.z, 0)};
+  }
+  if (button === 2) {
+    const id = placeId ? placeId() : null;
+    if (id == null) return null; /* 手持不可放置: 无操作(MC 拿工具右键同构) */
+    const x = hit.x + hit.nx; const y = hit.y + hit.ny; const z = hit.z + hit.nz;
+    if (getBlock(x, y, z) !== 0) return null; /* 目标格非空 */
+    if (collidesAtPlayer(x, y, z)) return null; /* 不把自己埋进去 */
+    return {x, y, z, id, removed: editBlock(x, y, z, id)};
+  }
+  return null;
+}
+
+/* ---------- mkHoldMine: 触屏按住连挖驱动(2026-10-26 建造样板收编) ----------
+   input.js 主动作键的 onHold(active) 起止 + 每帧 step(dt) 步进
+   (250ms/块, 与桌面单击同路), 目标跟随准星(CameraRig.aim 长按期间被
+   holdAim 覆盖=挖跟手); 命中空/世界底层静默跳过(单击仍有提示, 连挖
+   不刷屏)。防误触不在连挖上加延迟: 长按需静止满 250ms 才成手势,
+   门槛本身即防误触(docs/touch-controls-design.md §6)。
+   fire(hit) 由消费方注入(通常=模式 onMouse(0, hit) 的挖路径);
+   桌面不触发(hold 恒 false); 引擎件缺装(Node 单测)静默跳过。 */
+function mkHoldMine(fire) {
+  let on = false; let t = 0;
+  return {
+    hold(active) {
+      on = active; t = 0; // 起止都复位: 下一轮从满 250ms 计起
+    },
+    step(dt) {
+      if (!on) return;
+      if (typeof CameraRig === 'undefined' || !CameraRig ||
+          typeof raycastVoxel !== 'function' || typeof camera === 'undefined') return;
+      t += dt;
+      if (t < 0.25) return;
+      t = 0;
+      const aim = CameraRig.aim(camera);
+      const hit = raycastVoxel(aim.origin, aim.dir, PLAYER.reach);
+      if (!hit || hit.y === 0) return; /* 指空/底层: 静默等下一拍 */
+      fire(hit);
+    },
+  };
 }
 
 /* ---------- hotbar: 三种槽型 {block:id} | {icon,lbl,cnt()} | {item:id}(T10) ----------
@@ -1381,7 +1446,8 @@ function mkMode(cfg) {
   return mode;
 }
 
-const ModeKit = {mkMode, mkHotbar, mkMainAct, mkHeldSync, mkMobPicker, mkCraftPanel,
+const ModeKit = {mkMode, mkHotbar, mkMainAct, mkHeldSync, editHit, mkHoldMine,
+  mkMobPicker, mkCraftPanel,
   mkFurnacePanel, mkChestPanel, mkBubbleBar, sortInv,
   spawn: kitSpawn, lookName, confirmBtn};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;

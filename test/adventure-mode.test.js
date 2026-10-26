@@ -195,7 +195,11 @@ globalThis.setTouchActions = (l) => {
   touchList = l;
 };
 globalThis.aimClick = (b) => calls.push(['aimClick', b]); /* 智能主动作(mkMainAct)的路由终点 */
-globalThis.refreshTouchMain = (icon, label) => calls.push(['touchMain', icon, label]); /* 主动作键观感刷新 */
+globalThis.Input = {refreshMain(icon, label) {
+  calls.push(['touchMain', icon, label]);
+}}; /* 主动作键观感刷新(2026-10-26 别名收口: 过渡名 refreshTouchMain 已撤,
+     adventure 走 Input.refreshMain 正式名; 无 setActions — mkMode 触屏
+     声明回落 setTouchActions 走上面的假桩) */
 globalThis.showPage = (id) => calls.push(['showPage', id]);
 globalThis.uiPause = () => calls.push(['uiPause']);
 globalThis.iconOf = () => ''; /* 像素图标工坊未加载: 空串=跳过图标 */

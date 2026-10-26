@@ -22,8 +22,7 @@
    interface: keys/touchMove/touchSprint · Input{route,onLockChange,
    holdPt,icon,setActions,refreshUI,refreshMain}(后三=模式面消费的按钮
    声明与观感刷新, 命名空间是正式名) · requestLock/uiPause ·
-   过渡别名(一行转发, build.js/adventure.js 收口后撤):
-   setTouchActions/refreshTouchUI/refreshTouchMain
+   过渡别名(一行转发, math-build-world 收口后撤): setTouchActions
    依赖(均经全局名, 调用期解析): config.js 的 IS_TOUCH/PLAYER ·
    world.js 的 renderer · voxel.js 的 yaw/pitch/flyMode ·
    camera-rig.js 的 CameraRig · touch-core.js 的 mkTouchGestures ·
@@ -403,13 +402,9 @@ Input.setActions = function(list) {
 };
 
 /* —— 过渡别名(评审候选 Input 收口): 旧散全局名一行转发进命名空间 ——
-    build.js / adventure.js / math-build-world.js 的散全局调用收口后撤 —— */
+    refreshTouchUI/refreshTouchMain 已随消费方收口撤销(build.js 先前走
+    Input.refreshUI, adventure.js 2026-10-26 走 Input.refreshMain);
+    setTouchActions 待 math-build-world.js 与 mkMode 回落路径收口后撤 —— */
 function setTouchActions(list) {
   Input.setActions(list);
-}
-function refreshTouchUI() {
-  Input.refreshUI();
-}
-function refreshTouchMain(icon, label) {
-  Input.refreshMain(icon, label);
 }

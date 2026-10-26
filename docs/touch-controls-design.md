@@ -42,7 +42,7 @@ MC 基岩版 1.19.50+ 的新触控（调研稿 §2/§4）用**直接触摸世界
 
 | 按钮 | 位置 | 语义 |
 |---|---|---|
-| ⛏️ 智能主动作键 | 右缘动作条底部主位（88px，最大最顺手） | **手持感知**（用户拍板 2026-10-24，全模式统一；mode-kit 的 `mkMainAct(placeable)`）：手持可放置物→**放置一次**（`aimClick(2)`，返 false 让 input.js 跳过 onHold——一按一放防误连放，见 §6.8）；空手/工具/食物/铲子→**打/挖起步**（`aimClick(0)`）+按住连挖，松手停。图标随手持切换（镐/铲↔砖块，input.js `refreshTouchMain`）。探险 TNT 例外不变：空手/工具短按=点燃/按住=挖走（D3）；建造/竞技场第 1 格常驻铁锹=显式挖掘入口（选中铲子→⛏️=连挖；桌面右键拿铲子=无操作，MC 拿工具右键同构） |
+| ⛏️ 智能主动作键 | 右缘动作条底部主位（88px，最大最顺手） | **手持感知**（用户拍板 2026-10-24，全模式统一；mode-kit 的 `mkMainAct(placeable)`）：手持可放置物→**放置一次**（`aimClick(2)`，返 false 让 input.js 跳过 onHold——一按一放防误连放，见 §6.8）；空手/工具/食物/铲子→**打/挖起步**（`aimClick(0)`）+按住连挖，松手停。图标随手持切换（镐/铲↔砖块，input.js `Input.refreshMain`——旧散全局名 `refreshTouchMain` 已收口撤销）。探险 TNT 例外不变：空手/工具短按=点燃/按住=挖走（D3）；建造/竞技场第 1 格常驻铁锹=显式挖掘入口（选中铲子→⛏️=连挖（驱动=mode-kit `mkHoldMine`，2026-10-26 建造/竞技场同款收编）；桌面右键拿铲子=无操作，MC 拿工具右键同构） |
 | ⬆️ 跳跃 | 右下（64px，次位偏下——挖掘为主、跳跃次之，用户拍板 2026-10-24） | 按住=Space 连跳；飞行中=上升（MC Jump↔Flying Ascend） |
 | ⬇️ 下降 | 跳跃左侧，飞行时与跳跃并排（64px） | **仅飞行时出现**（refreshTouchUI，建造模式切飞行即亮出）：按住=Shift 下降 |
 | 模式动作条 | 右缘竖排（62px，主键上方叠放） | 模式 `touch:` 声明的常用键（✈️ 🚙 💥 等） |
@@ -70,7 +70,7 @@ MC 基岩版 1.19.50+ 的新触控（调研稿 §2/§4）用**直接触摸世界
 | 文件 | 职责 |
 |---|---|
 | `js/touch-core.js`（新，纯核心） | tap/hold/drag 三分类状态机（到点 due 由调用方定时） |
-| `js/input.js` | 手势接线与分发（tap=放置/交互 · drag=视角，长按无动作）、动态摇杆、跳跃/下降/主动作键(holdAct，返 false=一次性动作跳过 onHold)/动作条+顶部小键区(rare)/顶部按钮、`holdClear` 场、`refreshTouchMain` 主动作键观感随手持刷新 |
+| `js/input.js` | 手势接线与分发（tap=放置/交互 · drag=视角，长按无动作）、动态摇杆、跳跃/下降/主动作键(holdAct，返 false=一次性动作跳过 onHold)/动作条+顶部小键区(rare)/顶部按钮、`holdClear` 场、`Input.refreshMain` 主动作键观感随手持刷新 |
 | `js/camera-rig.js` | `holdAim(pt|null)`：轻点屏幕点瞬态接管 `aim()`（眼睛穿过指尖，触达距离口径不变） |
 | `js/voxel.js` + `js/config.js` | `PLAYER.autoJump`（=IS_TOUCH，默认触屏开）：贴地撞 1 格台阶且前上净空 → 自动起跳；2 格墙/屋檐不跳 |
 | `js/mode-kit.js` | mkMode 转发 `onHold(active)`；`mkMainAct(placeable)` 智能主动作分派（放置→`aimClick(2)`+返 false 不进连发；其余→`aimClick(0)` 进连挖） |

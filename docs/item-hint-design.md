@@ -74,7 +74,8 @@ mkHotbar/mkCraftPanel/mkFurnacePanel/mkChestPanel 既有行为之上的免费增
 - `index.html` 加载序：`items-core.js → … → item-hint-registry.js`（插在 craft-core.js
   之后，物品数据一家挨着）→ … → `speech.js` → … → `mode-kit.js`。mode-kit 经全局名
   **调用期解析** + `typeof` 守卫（先例：math-world 的 SpeechKit 守卫、adventure 的
-  `refreshTouchMain` 守卫）——精简装载的 Node 单测不加载注册表也不炸，静默无提示。
+  `Input.refreshMain` 守卫——旧 `refreshTouchMain` 过渡别名已收口撤销）——精简装载的
+  Node 单测不加载注册表也不炸，静默无提示。
 - 气泡不进 index.html（mode-kit 惰性创建挂 body，同 mkp-mask 口径）；样式进
   css/style.css（`.hint-bubble`，z-index 45 高于面板遮罩 mkp-mask 的 40，面板开着也
   可见；位于 hotbar 与 #toast 上方不遮挡）。**与 #toast 两条通道互不抢占**：toast 承载

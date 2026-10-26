@@ -214,7 +214,7 @@ canvas {
 
 #touchDown {
   right: 100px;
-  display: none; /* 飞行时由 refreshTouchUI 亮出 */
+  display: none; /* 飞行时由 Input.refreshUI 亮出 */
 }
 
 /* 暂停/视角: 固定顶部一行(MC: 菜单类按钮永远在顶部) */

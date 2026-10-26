@@ -117,16 +117,13 @@ test('Input 命名空间: 按钮声明与观感刷新三件挂进键集(正式�
   }
 });
 
-test('Input 命名空间: 旧散全局名保留为过渡薄别名(一行转发, 收口后撤)', () => {
-  const alias = vm.runInContext('({setTouchActions, refreshTouchUI, refreshTouchMain})', ctx);
-  for (const k of Object.keys(alias)) {
-    assert.strictEqual(typeof alias[k], 'function',
-        '过渡别名 ' + k + ' 在位(build.js/adventure.js/math-build-world 仍经散全局名调用)');
-  }
-  /* 转发等价: 同入参落进同名命名空间成员(以 refreshMain 的静默早退路径验证
-     — document.querySelector 无主键按钮 → 两侧都无副作用地返回) */
-  doc.querySelector = () => null;
-  assert.doesNotThrow(()=>alias.refreshTouchMain('brick', '放置'));
-  assert.doesNotThrow(()=>api.Input.refreshMain('brick', '放置'));
-  delete doc.querySelector;
+test('Input 命名空间: 旧散全局名仅剩 setTouchActions 过渡薄别名(refreshTouch* 已收口撤销)', () => {
+  const alias = vm.runInContext(
+      '({setTouchActions, hasUI: typeof refreshTouchUI, hasMain: typeof refreshTouchMain})', ctx);
+  assert.strictEqual(typeof alias.setTouchActions, 'function',
+      '过渡别名 setTouchActions 在位(math-build-world 仍经散全局名调用)');
+  assert.strictEqual(alias.hasUI, 'undefined',
+      'refreshTouchUI 已随消费方收口撤销(build.js 走 Input.refreshUI)');
+  assert.strictEqual(alias.hasMain, 'undefined',
+      'refreshTouchMain 已随消费方收口撤销(adventure.js 走 Input.refreshMain)');
 });
