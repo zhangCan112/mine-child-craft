@@ -35,45 +35,31 @@ MobLookKit.declare('piglin_brute', {
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], SKIN, 0.06);
     g.mul(R.head.bottom, 0.8);
     /* 吻部: 深粉 + 鼻孔 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], SKIN2, 0.05);
-    }
+    g.noiseAll(R.head2, SKIN2, 0.05);
     const SN = R.head2.front;
     g.px(SN[0] + 1, SN[1] + 2, DARK); g.px(SN[0] + 2, SN[1] + 2, DARK);
     /* 双耳: 粉肤 */
     for (const part of [R.head3, R.head4]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], SKIN, 0.06);
-      }
+      g.noiseAll(part, SKIN, 0.06);
     }
     /* 身: 裸肤 + 外套(root2) 皮甲胸(皮革+金扣) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], SKIN, 0.06);
-    }
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root2[f], LEATHER, 0.06);
-    }
+    g.noiseAll(R.root, SKIN, 0.06);
+    g.noiseAll(R.root2, LEATHER, 0.06);
     const J = R.root2.front;
     g.fill([J[0] + 2, J[1] + 2, 4, 2], LEATHER2); /* 胸甲缝 */
     g.fill([J[0] + 3, J[1] + 1, 2, 2], GOLD); /* 金扣 */
     /* 臂: 肤+皮护腕 · 腿: 皮裤 */
     for (const arm of [R.armR, R.armL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(arm[f], SKIN, 0.06);
-      }
+      g.noiseAll(arm, SKIN, 0.06);
       g.fill([arm.right[0], arm.right[1], arm.right[2], 3], LEATHER); /* 皮护腕 */
       g.mul(arm.bottom, 0.85);
     }
     for (const leg of [R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], LEATHER, 0.06);
-      }
+      g.noiseAll(leg, LEATHER, 0.06);
       g.mul(leg.bottom, 0.8);
     }
     /* 金斧(追加骨 armL2): 上段金刃 下段木柄 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL2[f], GOLD);
-    }
+    g.fillAll(R.armL2, GOLD);
     for (const f of ['front', 'left', 'right']) {
       g.fill([R.armL2[f][0], R.armL2[f][1] + 8, R.armL2[f][2], 6], LEATHER2); /* 柄段 */
     }

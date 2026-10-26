@@ -37,35 +37,25 @@ MobLookKit.declare('witch', {
     for (const f of ['back', 'left', 'right', 'top']) g.noise(R.head[f], SKIN, 0.05);
     g.noise(R.head.bottom, SKIN, 0.05); g.mul(R.head.bottom, 0.8);
     /* 鼻(head2): 深肤+鼻头痣 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], SKIN2, 0.05);
-    }
+    g.noiseAll(R.head2, SKIN2, 0.05);
     g.px(R.head2.front[0] + 1, R.head2.front[1] + 3, DARK); /* 鼻痣(女巫辨识件) */
     g.mul(R.head2.bottom, 0.85);
     /* 四级歪帽(head3~6): 深紫呢+帽褶阴影 */
     for (const part of [R.head3, R.head4, R.head5, R.head6]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], HAT, 0.06);
-      }
+      g.noiseAll(part, HAT, 0.06);
     }
     g.fill([R.head3.front[0], R.head3.front[1], R.head3.front[2], 1], HAT2); /* 檐口阴影 */
     g.fill([R.head4.front[0] + 2, R.head4.front[1] + 2, 3, 1], HAT2); /* 帽褶 */
     g.fill([R.head5.front[0] + 1, R.head5.front[1] + 1, 2, 1], HAT2); /* 帽褶 */
     /* 身: 紫袍双件 · 领口+下摆压暗 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], ROBE, 0.05);
-    }
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root2[f], ROBE, 0.05);
-    }
+    g.noiseAll(R.root, ROBE, 0.05);
+    g.noiseAll(R.root2, ROBE, 0.05);
     const B = R.root2.front;
     g.fill([B[0] + 2, B[1], 4, 1], ROBE2); /* 领口 */
     g.fill([B[0] + 1, B[1] + 11, 6, 1], ROBE2); /* 下摆纹 */
     /* 臂(共区): 紫袍宽袖+灰手 · 腿(共区): 深紫裙靴 */
     for (const arm of [R.armR, R.armL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(arm[f], ROBE, 0.05);
-      }
+      g.noiseAll(arm, ROBE, 0.05);
       for (const f of ['front', 'back', 'left', 'right']) {
         g.fill([arm[f][0], arm[f][1] + 5, arm[f][2], 7], SKIN);
         g.noise([arm[f][0], arm[f][1] + 5, arm[f][2], 7], SKIN, 0.05);
@@ -73,15 +63,11 @@ MobLookKit.declare('witch', {
       g.noise(arm.bottom, SKIN, 0.05); g.mul(arm.bottom, 0.85);
     }
     for (const leg of [R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], ROBE2, 0.05);
-      }
+      g.noiseAll(leg, ROBE2, 0.05);
       g.mul(leg.bottom, 0.8);
     }
     /* 毒药瓶(追加骨 armL2): 荧绿药水+深木塞 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL2[f], POTION);
-    }
+    g.fillAll(R.armL2, POTION);
     g.fill([R.armL2.top[0], R.armL2.top[1], R.armL2.top[2], R.armL2.top[3]], [74, 58, 40]); /* 木塞 */
   }},
 });

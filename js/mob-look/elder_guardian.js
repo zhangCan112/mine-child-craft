@@ -46,9 +46,7 @@ MobLookKit.declare('elder_guardian', {
     const DARK = [42, 42, 52]; const SPIKE = [106, 106, 122];
     const WHT = [216, 216, 208]; const RED = [216, 42, 42];
     /* 主盒: 灰紫噪底 · 老年斑(种子化深斑) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], GREY, 0.07);
-    }
+    g.noiseAll(R.root, GREY, 0.07);
     for (const f of ['top', 'back']) {
       const r = R.root[f];
       for (let i = 0; i < r[2] * r[3] / 10; i++) {
@@ -57,9 +55,7 @@ MobLookKit.declare('elder_guardian', {
     }
     /* 四鳍(两两共区): 深灰紫 */
     for (const part of [R.root2, R.root4]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], GREY2, 0.07);
-      }
+      g.noiseAll(part, GREY2, 0.07);
     }
     /* 尾三节: 逐节压暗 */
     [R.root6, R.root7, R.root8].forEach((seg, i) => {
@@ -69,15 +65,11 @@ MobLookKit.declare('elder_guardian', {
       }
     });
     /* 独眼: 白底红瞳 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.head[f], WHT);
-    }
+    g.fillAll(R.head, WHT);
     g.fill([R.head.front[0], R.head.front[1], 1, 1], RED);
     /* 12 侧刺(两两共区): 深灰刺+刺尖亮 */
     for (const part of [R.armL, R.armL4, R.armR, R.armR4]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], SPIKE, 0.08);
-      }
+      g.noiseAll(part, SPIKE, 0.08);
       g.fill([part.front[0], part.front[1], part.front[2], 1], DARK);
     }
   }},

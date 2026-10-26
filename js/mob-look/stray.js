@@ -34,9 +34,7 @@ MobLookKit.declare('stray', {
     g.mul(R.head.bottom, 0.8);
     /* 躯干四肢: 青灰罩袍通体 · 磨损横纹(袍摆压暗两道) */
     const robe = (part) => {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], ROBE, 0.05);
-      }
+      g.noiseAll(part, ROBE, 0.05);
       for (const f of ['front', 'back', 'left', 'right']) {
         g.fill([part[f][0], part[f][1] + part[f][3] - 2, part[f][2], 1], ROBE2);
       }
@@ -47,8 +45,6 @@ MobLookKit.declare('stray', {
     g.fill([B[0] + 1, B[1] + 2, 6, 1], ROBE2);
     g.fill([B[0] + 1, B[1] + 4, 6, 1], ROBE2);
     /* 弓(追加骨 armL2): 木色通体 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL2[f], WOOD);
-    }
+    g.fillAll(R.armL2, WOOD);
   }},
 });

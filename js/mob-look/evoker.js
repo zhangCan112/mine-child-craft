@@ -27,26 +27,18 @@ MobLookKit.declare('evoker', {
     for (const f of ['back', 'left', 'right', 'top']) g.noise(R.head[f], SKIN, 0.05);
     g.noise(R.head.bottom, SKIN, 0.05); g.mul(R.head.bottom, 0.8);
     /* 鼻: 灰肤 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], SKIN2, 0.05);
-    }
+    g.noiseAll(R.head2, SKIN2, 0.05);
     g.mul(R.head2.bottom, 0.85);
     /* 身: 白袍双件 · 金滚边(领口/下摆) · 金腰带 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], ROBE, 0.04);
-    }
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root2[f], ROBE, 0.04);
-    }
+    g.noiseAll(R.root, ROBE, 0.04);
+    g.noiseAll(R.root2, ROBE, 0.04);
     const B = R.root2.front;
     g.fill([B[0] + 2, B[1], 4, 1], GOLD); /* 领口金边 */
     g.fill([B[0] + 1, B[1] + 8, 6, 1], GOLD); /* 金腰带 */
     g.fill([B[0] + 1, B[1] + 11, 6, 1], ROBE2); /* 下摆纹 */
     /* 臂(共区): 白袍宽袖(袖口敞开) · 腿(共区): 白袍长靴 */
     for (const arm of [R.armR, R.armL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(arm[f], ROBE, 0.04);
-      }
+      g.noiseAll(arm, ROBE, 0.04);
       for (const f of ['front', 'back', 'left', 'right']) {
         g.fill([arm[f][0], arm[f][1] + 5, arm[f][2], 7], SKIN); /* 前臂露手(施法手势) */
         g.noise([arm[f][0], arm[f][1] + 5, arm[f][2], 7], SKIN, 0.05);
@@ -54,9 +46,7 @@ MobLookKit.declare('evoker', {
       g.noise(arm.bottom, SKIN, 0.05); g.mul(arm.bottom, 0.85);
     }
     for (const leg of [R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], ROBE2, 0.04);
-      }
+      g.noiseAll(leg, ROBE2, 0.04);
       g.mul(leg.bottom, 0.8);
     }
   }},

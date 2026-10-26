@@ -40,23 +40,17 @@ MobLookKit.declare('wither', {
     g.mul(R.head.bottom, 0.8);
     /* 双肩头(共区 armL/armR): 黑骨 + 白瞳小脸 */
     for (const part of [R.armL, R.armR]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], DARKB, 0.06);
-      }
+      g.noiseAll(part, DARKB, 0.06);
       const SF = part.front;
       g.fill([SF[0] + 1, SF[1] + 2, 1, 1], BONE); g.fill([SF[0] + 4, SF[1] + 2, 1, 1], BONE);
       g.fill([SF[0] + 1, SF[1] + 4, 4, 1], BONE2); /* 小牙床 */
     }
     /* 脊横向(root) · 脊柱(root2) · 颈桩(root6): 黑骨; 肋骨(root3~5): 骨白 */
     for (const part of [R.root, R.root2, R.root6]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], DARKB, 0.06);
-      }
+      g.noiseAll(part, DARKB, 0.06);
     }
     for (const part of [R.root3, R.root4, R.root5]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], BONE, 0.05);
-      }
+      g.noiseAll(part, BONE, 0.05);
     }
   }},
 });

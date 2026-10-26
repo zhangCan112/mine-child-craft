@@ -52,16 +52,12 @@ MobLookKit.declare('zombified_piglin', {
       g.mul(arm.bottom, 0.85);
     }
     for (const leg of [R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], [138, 106, 58], 0.06);
-      }
+      g.noiseAll(leg, [138, 106, 58], 0.06);
       g.fill([leg.front[0] + 1, leg.front[1] + 5, 2, 2], ROT2); /* 裤洞露绿 */
       g.mul(leg.bottom, 0.8);
     }
     /* 金剑(追加骨 armL2): 金刃 + 深柄 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL2[f], GOLD);
-    }
+    g.fillAll(R.armL2, GOLD);
     for (const f of ['front', 'left', 'right']) {
       g.fill([R.armL2[f][0], R.armL2[f][1] + 11, R.armL2[f][2], 3], GOLD2); /* 柄段 */
     }

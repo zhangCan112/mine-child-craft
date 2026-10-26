@@ -42,17 +42,13 @@ MobLookKit.declare('phantom', {
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], BLUE, 0.06);
     /* 体+尾+尾尖: 蓝灰底 · 背脊纹 */
     for (const part of [R.root, R.root2, R.root3]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], BLUE, 0.06);
-      }
+      g.noiseAll(part, BLUE, 0.06);
     }
     g.fill([R.root.top[0] + 2, R.root.top[1], 1, R.root.top[3]], BLUE2); /* 背脊线 */
     g.mul(R.root3.front, 0.9); /* 尾尖压暗 */
     /* 双翼(共区)+翼尖(共区): 深蓝翼面 · 翼骨线 */
     for (const wing of [R.wingL, R.wingL2, R.wingR, R.wingR2]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(wing[f], BLUE2, 0.06);
-      }
+      g.noiseAll(wing, BLUE2, 0.06);
       g.fill([wing.top[0], wing.top[1], wing.top[2], 1], BLUE); /* 翼骨 */
     }
   }},

@@ -33,15 +33,11 @@ MobLookKit.declare('drowned', {
     const TRI = [58, 106, 138];
     /* 内层(头/身/四肢基座盒): 泡水肤 — 大半被 overlay 罩住, 只露边角 */
     for (const part of [R.head, R.root, R.armR, R.armL, R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], SKIN, 0.06);
-      }
+      g.noiseAll(part, SKIN, 0.06);
     }
     /* 帽层(head2, 可见脸): 深青肤 + 藻斑 + 黑眼窝 + 凹嘴 */
     const H = R.head2;
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(H[f], SKIN2, 0.07);
-    }
+    g.noiseAll(H, SKIN2, 0.07);
     for (const f of ['top', 'back']) {
       const r = H[f];
       for (let i = 0; i < r[2] * r[3] / 6; i++) {
@@ -53,23 +49,17 @@ MobLookKit.declare('drowned', {
     g.fill([F[0] + 3, F[1] + 5, 2, 2], [40, 84, 76]); /* 鼻影 */
     g.fill([F[0] + 2, F[1] + 7, 4, 1], DARK); /* 凹嘴 */
     /* 外套(root2): 破烂青布 · 下摆破口 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root2[f], CLOTH, 0.07);
-    }
+    g.noiseAll(R.root2, CLOTH, 0.07);
     for (const f of ['front', 'left', 'right']) {
       const r = R.root2[f];
       g.fill([r[0], r[1] + r[3] - 2, r[2], 2], CLOTH2); /* 破口下摆 */
     }
     /* 袖/裤(共区): 破布色 */
     for (const part of [R.armR2, R.armL2, R.legR2, R.legL2]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], CLOTH, 0.07);
-      }
+      g.noiseAll(part, CLOTH, 0.07);
     }
     /* 三叉戟(armL3): 青蓝杆 + 亮尖 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL3[f], TRI);
-    }
+    g.fillAll(R.armL3, TRI);
     g.fill([R.armL3.top[0], R.armL3.top[1], R.armL3.top[2], R.armL3.top[3]], [120, 190, 224]); /* 亮尖 */
   }},
 });

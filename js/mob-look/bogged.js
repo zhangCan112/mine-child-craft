@@ -48,8 +48,6 @@ MobLookKit.declare('bogged', {
     g.fill([B[0] + 1, B[1] + 2, 6, 1], BONE2);
     g.fill([B[0] + 1, B[1] + 4, 6, 1], BONE2);
     /* 弓(追加骨 armL2): 木色通体 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL2[f], WOOD);
-    }
+    g.fillAll(R.armL2, WOOD);
   }},
 });

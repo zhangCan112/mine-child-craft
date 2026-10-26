@@ -31,18 +31,14 @@ MobLookKit.declare('enderman', {
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], BLACK, 0.08);
     g.mul(R.head.bottom, 0.7);
     /* 身: 更深黑影 · 微紫斑(虚空粒子感) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], BLACK2, 0.08);
-    }
+    g.noiseAll(R.root, BLACK2, 0.08);
     for (let i = 0; i < 6; i++) {
       g.px(R.root.front[0] + Math.floor(g.rng() * R.root.front[2]),
           R.root.front[1] + Math.floor(g.rng() * R.root.front[3]), PURP);
     }
     /* 四肢(共区): 黑影长肢 */
     for (const part of [R.armR, R.armL, R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], BLACK, 0.08);
-      }
+      g.noiseAll(part, BLACK, 0.08);
       g.mul(part.bottom, 0.7);
     }
   }},

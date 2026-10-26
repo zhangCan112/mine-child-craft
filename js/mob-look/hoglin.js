@@ -40,9 +40,7 @@ MobLookKit.declare('hoglin', {
     const MANE = [96, 56, 36]; const DARK = [36, 22, 14];
     const TUSK = [240, 232, 216]; const PINK = [196, 128, 112];
     /* 身: 棕皮噪底 · 背脊深棕 · 肚浅 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], BROWN, 0.06);
-    }
+    g.noiseAll(R.root, BROWN, 0.06);
     g.mul([R.root.top[0], R.root.top[1], R.root.top[2], R.root.top[3]], 0.92);
     g.mul(R.root.bottom, 0.88);
     /* 鬃毛(root2): 深棕硬毛噪点 */
@@ -60,21 +58,15 @@ MobLookKit.declare('hoglin', {
     g.mul(R.head.bottom, 0.85);
     /* 獠牙(共区 head2/head3): 米白 */
     for (const part of [R.head2, R.head3]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.fill(part[f], TUSK);
-      }
+      g.fillAll(part, TUSK);
     }
     /* 双耳(共区 head4/head5): 棕皮+耳廓影 */
     for (const part of [R.head4, R.head5]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], BROWN2, 0.06);
-      }
+      g.noiseAll(part, BROWN2, 0.06);
     }
     /* 前腿(共区 legL/legR 首盒) · 后腿(次盒): 深棕+黑蹄 */
     for (const leg of [R.legL, R.legR, R.legL2, R.legR2]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], BROWN2, 0.06);
-      }
+      g.noiseAll(leg, BROWN2, 0.06);
       g.fill([leg.front[0], leg.front[1] + leg.front[3] - 2, leg.front[2], 2], DARK); /* 蹄 */
     }
   }},

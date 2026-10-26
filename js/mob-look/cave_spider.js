@@ -45,16 +45,12 @@ MobLookKit.declare('cave_spider', {
     }
     /* 体两节(root=前体, root2=腹): 蓝黑底 + 腹背纹 */
     for (const part of [R.root, R.root2]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], BODY, 0.08);
-      }
+      g.noiseAll(part, BODY, 0.08);
     }
     g.fill([R.root2.back[0] + 4, R.root2.back[1], 2, R.root2.back[3]], BODY2); /* 腹尾纹 */
     /* 八腿杆(左右共区): 通体深蓝 */
     for (const leg of [R.legL, R.legL2, R.legL3, R.legL4, R.legR, R.legR2, R.legR3, R.legR4]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], LEG, 0.06);
-      }
+      g.noiseAll(leg, LEG, 0.06);
     }
   }},
 });

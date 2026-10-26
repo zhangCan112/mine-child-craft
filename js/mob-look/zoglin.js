@@ -36,9 +36,7 @@ MobLookKit.declare('zoglin', {
     const MANE = [66, 80, 48]; const DARK = [28, 34, 20];
     const TUSK = [224, 220, 200]; const PINK = [158, 128, 108];
     /* 身: 腐肉绿噪底 · 背脊压暗 · 肚下肉粉 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], ROTT, 0.07);
-    }
+    g.noiseAll(R.root, ROTT, 0.07);
     g.mul([R.root.top[0], R.root.top[1], R.root.top[2], R.root.top[3]], 0.9);
     g.mul(R.root.bottom, 0.9);
     /* 鬃毛(root2): 暗绿硬毛 */
@@ -56,21 +54,15 @@ MobLookKit.declare('zoglin', {
     g.mul(R.head.bottom, 0.85);
     /* 獠牙(共区): 暗米白 */
     for (const part of [R.head2, R.head3]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.fill(part[f], TUSK);
-      }
+      g.fillAll(part, TUSK);
     }
     /* 双耳(共区): 腐绿 */
     for (const part of [R.head4, R.head5]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], ROTT2, 0.07);
-      }
+      g.noiseAll(part, ROTT2, 0.07);
     }
     /* 前后腿: 深绿+黑蹄 */
     for (const leg of [R.legL, R.legR, R.legL2, R.legR2]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], ROTT2, 0.07);
-      }
+      g.noiseAll(leg, ROTT2, 0.07);
       g.fill([leg.front[0], leg.front[1] + leg.front[3] - 2, leg.front[2], 2], DARK); /* 蹄 */
     }
   }},

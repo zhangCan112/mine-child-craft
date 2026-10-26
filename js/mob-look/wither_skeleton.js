@@ -30,18 +30,14 @@ MobLookKit.declare('wither_skeleton', {
     g.mul(R.head.bottom, 0.8);
     /* 躯干四肢: 黑骨通体 · 肋纹(身正面两道) */
     for (const part of [R.root, R.armR, R.armL, R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], CHAR, 0.05);
-      }
+      g.noiseAll(part, CHAR, 0.05);
       g.mul(part.bottom, 0.8);
     }
     const B = R.root.front;
     g.fill([B[0] + 1, B[1] + 2, 6, 1], CHAR2);
     g.fill([B[0] + 1, B[1] + 4, 6, 1], CHAR2);
     /* 石剑(追加骨 armL2): 石刃+深柄 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL2[f], STONE);
-    }
+    g.fillAll(R.armL2, STONE);
     for (const f of ['front', 'left', 'right']) {
       g.fill([R.armL2[f][0], R.armL2[f][1] + 11, R.armL2[f][2], 3], STONE2); /* 柄段 */
     }

@@ -40,9 +40,7 @@ MobLookKit.declare('cow', {
     };
     /* 身(六面白斑牛皮) · 乳(root2): 粉 */
     for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) hide(R.root[f]);
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root2[f], PINK, 0.05);
-    }
+    g.noiseAll(R.root2, PINK, 0.05);
     /* 头: 白斑底 · 白鼻梁 · 眼 · 浅鼻镜 */
     const F = R.head.front;
     hide(F);
@@ -54,15 +52,11 @@ MobLookKit.declare('cow', {
     g.noise(R.head.bottom, PINK, 0.05); g.mul(R.head.bottom, 0.85);
     /* 双角(共区 head2): 米白 */
     for (const part of [R.head2, R.head3]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], HORN, 0.05);
-      }
+      g.noiseAll(part, HORN, 0.05);
     }
     /* 四腿(共区): 棕腿+深蹄 */
     for (const leg of [R.legL, R.legL2, R.legR, R.legR2]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], BROWN2, 0.06);
-      }
+      g.noiseAll(leg, BROWN2, 0.06);
       g.fill([leg.front[0], leg.front[1] + leg.front[3] - 2, leg.front[2], 2], DARK); /* 蹄 */
     }
   }},

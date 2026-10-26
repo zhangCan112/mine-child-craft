@@ -35,9 +35,7 @@ MobLookKit.declare('chicken', {
     const DARK = [32, 22, 18]; const RED = [216, 42, 42];
     const BEAK = [216, 160, 74];
     /* 身: 米白羽噪底 · 尾羽压暗(后端) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], CREAM, 0.05);
-    }
+    g.noiseAll(R.root, CREAM, 0.05);
     g.mul([R.root.back[0], R.root.back[1], R.root.back[2], 4], 0.9); /* 尾羽 */
     g.mul(R.root.bottom, 0.85);
     /* 头: 米白 · 眼(两颗侧位) */
@@ -50,26 +48,18 @@ MobLookKit.declare('chicken', {
     }
     /* 冠/肉髯(head2/head4): 正红 */
     for (const part of [R.head2, R.head4]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.fill(part[f], RED);
-      }
+      g.fillAll(part, RED);
     }
     /* 喙(head3): 橙黄 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.head3[f], BEAK);
-    }
+    g.fillAll(R.head3, BEAK);
     /* 双腿(共区): 橙腿+深爪 */
     for (const leg of [R.legL, R.legR]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], BEAK, 0.05);
-      }
+      g.noiseAll(leg, BEAK, 0.05);
       g.fill([leg.front[0], leg.front[1] + leg.front[3] - 1, leg.front[2], 1], DARK); /* 爪 */
     }
     /* 双翼(共区 wingL/wingR): 米白+羽尖压暗 */
     for (const wing of [R.wingL, R.wingR]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(wing[f], CREAM2, 0.05);
-      }
+      g.noiseAll(wing, CREAM2, 0.05);
       g.mul([wing.front[0], wing.front[1], wing.front[2], 2], 0.88); /* 翼尖羽 */
     }
   }},

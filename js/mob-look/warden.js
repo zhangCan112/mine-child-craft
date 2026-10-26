@@ -31,9 +31,7 @@ MobLookKit.declare('warden', {
     const DARKT = [24, 42, 58]; const DARK2 = [18, 32, 46];
     const GLOW = [74, 224, 200]; const GLOW2 = [36, 128, 116];
     /* 桶胸: 深青噪底 · 鳞纹 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], DARKT, 0.07);
-    }
+    g.noiseAll(R.root, DARKT, 0.07);
     const B = R.root.front;
     for (let y = 2; y < B[3] - 1; y += 4) {
       for (let x = 1 + (y % 8 === 2 ? 0 : 2); x < B[2] - 1; x += 4) {
@@ -67,17 +65,13 @@ MobLookKit.declare('warden', {
     }
     /* 双臂(共区): 深青 · 臂纹两道 · 巨拳压暗; 双腿(共区): 深青 */
     for (const arm of [R.armL, R.armR]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(arm[f], [24, 50, 74], 0.07);
-      }
+      g.noiseAll(arm, [24, 50, 74], 0.07);
       g.fill([arm.front[0] + 1, arm.front[1] + 6, arm.front[2] - 2, 1], GLOW2); /* 臂纹 */
       g.fill([arm.front[0] + 1, arm.front[1] + 14, arm.front[2] - 2, 1], GLOW2);
       g.fill([arm.front[0], arm.front[1] + arm.front[3] - 4, arm.front[2], 4], DARK2); /* 巨拳 */
     }
     for (const leg of [R.legL, R.legR]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], DARK2, 0.07);
-      }
+      g.noiseAll(leg, DARK2, 0.07);
       g.mul(leg.bottom, 0.8);
     }
   }},

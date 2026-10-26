@@ -32,25 +32,17 @@ MobLookKit.declare('pillager', {
     }
     g.noise(R.head.bottom, SKIN, 0.05); g.mul(R.head.bottom, 0.8);
     /* 鼻: 灰肤 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], SKIN2, 0.05);
-    }
+    g.noiseAll(R.head2, SKIN2, 0.05);
     g.mul(R.head2.bottom, 0.85);
     /* 身: 土褐袍双件 · 肩带(弩药袋) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], ROBE, 0.05);
-    }
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root2[f], ROBE, 0.05);
-    }
+    g.noiseAll(R.root, ROBE, 0.05);
+    g.noiseAll(R.root2, ROBE, 0.05);
     const B = R.root2.front;
     g.fill([B[0] + 2, B[1] + 2, 1, 8], HOOD2); /* 肩带 */
     g.fill([B[0] + 5, B[1] + 2, 2, 3], HOOD2); /* 药袋 */
     /* 臂(共区): 袍袖+灰手 · 腿(共区): 深靴 */
     for (const arm of [R.armR, R.armL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(arm[f], ROBE, 0.05);
-      }
+      g.noiseAll(arm, ROBE, 0.05);
       for (const f of ['front', 'back', 'left', 'right']) {
         g.fill([arm[f][0], arm[f][1] + 5, arm[f][2], 7], SKIN);
         g.noise([arm[f][0], arm[f][1] + 5, arm[f][2], 7], SKIN, 0.05);
@@ -58,14 +50,10 @@ MobLookKit.declare('pillager', {
       g.noise(arm.bottom, SKIN, 0.05); g.mul(arm.bottom, 0.85);
     }
     for (const leg of [R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], HOOD2, 0.05);
-      }
+      g.noiseAll(leg, HOOD2, 0.05);
       g.mul(leg.bottom, 0.8);
     }
     /* 弩(追加骨 armL2): 木色横臂 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.armL2[f], WOOD, 0.06);
-    }
+    g.noiseAll(R.armL2, WOOD, 0.06);
   }},
 });

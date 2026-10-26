@@ -52,9 +52,7 @@ MobLookKit.declare('creaking', {
     }
     /* 头+冠: 树皮 · 冠压暗 */
     for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) bark(R.head[f]);
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], BARK2, 0.08);
-    }
+    g.noiseAll(R.head2, BARK2, 0.08);
     /* 长臂/短臂+双腿(臂腿同形共区): 树皮+节疤 */
     for (const part of [R.armL, R.armR, R.legL, R.legR]) {
       for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {

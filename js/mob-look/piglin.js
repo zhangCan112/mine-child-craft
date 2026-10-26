@@ -35,48 +35,34 @@ MobLookKit.declare('piglin', {
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], SKIN, 0.05);
     g.mul(R.head.bottom, 0.8);
     /* 吻部: 深粉 + 双鼻孔 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], SKIN2, 0.05);
-    }
+    g.noiseAll(R.head2, SKIN2, 0.05);
     const SN = R.head2.front;
     g.px(SN[0] + 1, SN[1] + 2, DARK); g.px(SN[0] + 2, SN[1] + 2, DARK);
     g.px(SN[0] + 1, SN[1] + 3, DARK); g.px(SN[0] + 2, SN[1] + 3, DARK);
     /* 双耳(共区 head3/head4): 粉肤+耳廓阴影 */
     const E = R.head3.front;
     for (const part of [R.head3, R.head4]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], SKIN, 0.05);
-      }
+      g.noiseAll(part, SKIN, 0.05);
     }
     g.fill([E[0], E[1] + E[3] - 1, E[2], 1], SKIN2);
     /* 身: 裸上身(粉) + 外套 overlay(root2) 粉皮+金胸扣 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], SKIN, 0.05);
-    }
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root2[f], SKIN2, 0.05);
-    }
+    g.noiseAll(R.root, SKIN, 0.05);
+    g.noiseAll(R.root2, SKIN2, 0.05);
     const J = R.root2.front;
     g.fill([J[0] + 3, J[1] + 2, 2, 2], GOLD); /* 金胸扣 */
     g.fill([J[0] + 1, J[1] + 10, 6, 2], GOLD2); /* 腰带 */
     /* 臂: 粉肤(右手金护腕) · 腿: 深褲 */
     for (const arm of [R.armR, R.armL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(arm[f], SKIN, 0.05);
-      }
+      g.noiseAll(arm, SKIN, 0.05);
       g.fill([arm.right[0], arm.right[1], arm.right[2], 2], GOLD2); /* 外侧金环 */
       g.mul(arm.bottom, 0.85);
     }
     for (const leg of [R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], PANTS, 0.05);
-      }
+      g.noiseAll(leg, PANTS, 0.05);
       g.mul(leg.bottom, 0.8);
     }
     /* 金剑(追加骨 armL2): 金刃 + 深柄 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL2[f], GOLD);
-    }
+    g.fillAll(R.armL2, GOLD);
     for (const f of ['front', 'left', 'right']) {
       g.fill([R.armL2[f][0], R.armL2[f][1] + 11, R.armL2[f][2], 3], GOLD2); /* 柄段 */
     }

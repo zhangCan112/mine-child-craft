@@ -35,16 +35,12 @@ MobLookKit.declare('ravager', {
     const TEETH = [230, 226, 214]; const EYE = [216, 176, 40];
     const SADDLE = [44, 44, 51];
     /* 身: 灰皮噪底 · 背上鞍区(深色) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], GREY, 0.05);
-    }
+    g.noiseAll(R.root, GREY, 0.05);
     const T = R.root.top;
     g.fill([T[0] + 1, T[1] + 1, T[2] - 2, T[3] - 2], SADDLE); /* 鞍 */
     g.mul(R.root.bottom, 0.88);
     /* 胸(root2): 深灰胸甲 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root2[f], GREY2, 0.05);
-    }
+    g.noiseAll(R.root2, GREY2, 0.05);
     /* 头: 灰底 · 金眼 · 眉骨 */
     const F = R.head.front;
     g.noise(F, GREY, 0.05);
@@ -53,33 +49,23 @@ MobLookKit.declare('ravager', {
     for (const f of ['back', 'left', 'right', 'top']) g.noise(R.head[f], GREY, 0.05);
     g.noise(R.head.bottom, GREY, 0.05); g.mul(R.head.bottom, 0.85);
     /* 颈(head2): 灰皮 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], GREY, 0.05);
-    }
+    g.noiseAll(R.head2, GREY, 0.05);
     /* 嘴(head3): 深口鼻 + 白牙列(上下缘) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head3[f], GREY2, 0.05);
-    }
+    g.noiseAll(R.head3, GREY2, 0.05);
     const M = R.head3.front;
     g.fill([M[0], M[1], M[2], M[3]], DARK); /* 口鼻暗区 */
     for (let i = 0; i < 4; i++) {
       g.fill([M[0] + 1 + i * 4, M[1], 2, 2], TEETH); /* 牙 */
     }
     /* 鼻瘤(head4): 深灰 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head4[f], DARK, 0.15);
-    }
+    g.noiseAll(R.head4, DARK, 0.15);
     /* 双角(共区 head5/head6): 米白 */
     for (const part of [R.head5, R.head6]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.fill(part[f], HORN);
-      }
+      g.fillAll(part, HORN);
     }
     /* 四腿(共区): 灰腿+深爪 */
     for (const leg of [R.legL, R.legL2, R.legR, R.legR2]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], GREY2, 0.05);
-      }
+      g.noiseAll(leg, GREY2, 0.05);
       g.fill([leg.front[0], leg.front[1] + leg.front[3] - 3, leg.front[2], 3], DARK); /* 爪 */
     }
   }},

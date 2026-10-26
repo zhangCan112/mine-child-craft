@@ -54,7 +54,11 @@ const MobLookKit = (() => {
   /* ---------- 画师: 纯数据 RGBA 缓冲, 零 DOM ----------
      g.fill(rect, c) 整区填色 · g.noise(rect, c, amp) 明暗噪底 ·
      g.px(x, y, c) 单像素 · g.mul(rect, f) 区内明暗乘 · g.rng 种子随机。
+     六面批量(评审收口: 替代声明文件里 130+ 处六面枚举循环):
+     g.fillAll(part, c) / g.noiseAll(part, c, amp) — part = regions 的
+     单部件六面组(如 R.head)。
      rect = [u, v, w, h](贴图像素矩形, 一般取自 regions()); c = [r,g,b] 0..255 */
+  const FACES = ['front', 'back', 'left', 'right', 'top', 'bottom'];
   function mkSheet(size, seed) {
     const buf = new Uint8ClampedArray(size * size * 4);
     const rng = mulberry32(seed);
@@ -82,6 +86,19 @@ const MobLookKit = (() => {
         buf[o] *= f; buf[o + 1] *= f; buf[o + 2] *= f;
       }),
       px: put,
+      fillAll: (part, c) => {
+        for (const f of FACES) {
+          each(part[f], (x, y) => put(x, y, c));
+        }
+      },
+      noiseAll: (part, c, amp) => {
+        for (const f of FACES) {
+          each(part[f], (x, y) => {
+            const v = 1 + (rng() * 2 - 1) * amp;
+            put(x, y, [c[0] * v, c[1] * v, c[2] * v]);
+          });
+        }
+      },
     };
   }
 
@@ -180,7 +197,8 @@ const MobLookKit = (() => {
     if (look.bones) {
       for (const name of Object.keys(look.bones)) {
         const spec = look.bones[name] || {};
-        if (!base[name]) base[name] = {pivot: spec.pivot || [0, 0, 0], axis: spec.axis, cubes: []};
+        if (!base[name]) base[name] = {pivot: spec.pivot || [0, 0, 0], cubes: []};
+        if (spec.axis) base[name].axis = spec.axis; /* 新建/既有骨均可声明 axis(翼槽) */
         if (spec.add) base[name].cubes = base[name].cubes.concat(spec.add);
       }
     }

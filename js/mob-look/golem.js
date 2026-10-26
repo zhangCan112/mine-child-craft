@@ -51,9 +51,7 @@ MobLookKit.declare('golem', {
     for (const f of ['back', 'left', 'right', 'top']) iron(R.head[f]);
     iron(R.head.bottom); g.mul(R.head.bottom, 0.8);
     /* 鼻: 深铁 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], DARK, 0.08);
-    }
+    g.noiseAll(R.head2, DARK, 0.08);
     /* 长臂+双腿: 铁皮 · 指节压暗 */
     for (const arm of [R.armL, R.armR]) {
       for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) iron(arm[f]);

@@ -47,18 +47,14 @@ MobLookKit.declare('guardian', {
     const DARK = [30, 46, 36]; const SPIKE = [138, 106, 74];
     const WHT = [216, 216, 208]; const RED = [216, 42, 42];
     /* 主盒: 海绿噪底 · 背纹菱格 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], SEA, 0.06);
-    }
+    g.noiseAll(R.root, SEA, 0.06);
     const T = R.root.top;
     for (let y = 2; y < T[3] - 1; y += 4) {
       for (let x = 2; x < T[2] - 1; x += 4) g.px(T[0] + x, T[1] + y, SEA2);
     }
     /* 四鳍(root2~5, 两两共区): 深海绿 */
     for (const part of [R.root2, R.root4]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], SEA2, 0.06);
-      }
+      g.noiseAll(part, SEA2, 0.06);
     }
     /* 尾三节(root6~8): 逐节压暗 */
     [R.root6, R.root7, R.root8].forEach((seg, i) => {
@@ -68,15 +64,11 @@ MobLookKit.declare('guardian', {
       }
     });
     /* 独眼(head): 白底红瞳 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.head[f], WHT);
-    }
+    g.fillAll(R.head, WHT);
     g.fill([R.head.front[0], R.head.front[1], 1, 1], RED); /* 红瞳 */
     /* 12 侧刺(两两共区): 木刺色 */
     for (const part of [R.armL, R.armL4, R.armR, R.armR4]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], SPIKE, 0.08);
-      }
+      g.noiseAll(part, SPIKE, 0.08);
       g.fill([part.front[0], part.front[1], part.front[2], 1], DARK); /* 刺根影 */
     }
   }},

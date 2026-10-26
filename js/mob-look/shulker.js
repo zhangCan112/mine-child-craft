@@ -23,15 +23,11 @@ MobLookKit.declare('shulker', {
     const SHELL = [138, 90, 154]; const SHELL2 = [106, 63, 122];
     const LIP = [216, 176, 255]; const DARK = [42, 26, 48];
     /* 底座: 紫壳噪底 · 顶环压暗 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], SHELL, 0.06);
-    }
+    g.noiseAll(R.root, SHELL, 0.06);
     g.fill([R.root.top[0], R.root.top[1], R.root.top[2], 2], SHELL2); /* 顶环 */
     g.mul(R.root.bottom, 0.7);
     /* 盖(head): 紫壳 · 口沿亮唇(底两行) · 螺旋纹(顶面) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head[f], SHELL, 0.06);
-    }
+    g.noiseAll(R.head, SHELL, 0.06);
     for (const f of ['front', 'back', 'left', 'right']) {
       g.fill([R.head[f][0], R.head[f][1] + R.head[f][3] - 2, R.head[f][2], 2], LIP); /* 口沿 */
     }
@@ -40,9 +36,7 @@ MobLookKit.declare('shulker', {
       g.fill([T[0] + 2 + i * 2, T[1] + 2 + i * 2, T[2] - 4 - i * 4, 1], SHELL2);
     }
     /* 探头(head2): 亮紫+脸(眼+嘴) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], LIP, 0.05);
-    }
+    g.noiseAll(R.head2, LIP, 0.05);
     const F = R.head2.front;
     g.fill([F[0] + 1, F[1] + 2, 1, 1], DARK); g.fill([F[0] + 4, F[1] + 2, 1, 1], DARK); /* 眼 */
     g.fill([F[0] + 2, F[1] + 4, 2, 1], DARK); /* 嘴 */

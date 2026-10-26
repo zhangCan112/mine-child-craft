@@ -23,9 +23,7 @@ MobLookKit.declare('pig', {
     const PINK = [230, 158, 168]; const PINK2 = [204, 130, 142];
     const DARK = [42, 26, 26];
     /* 身: 粉肤噪底(六面) */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], PINK, 0.05);
-    }
+    g.noiseAll(R.root, PINK, 0.05);
     g.mul(R.root.bottom, 0.85);
     /* 头: 粉肤 · 眼(两颗) · 大鼻盘区 */
     const F = R.head.front;
@@ -34,16 +32,12 @@ MobLookKit.declare('pig', {
     for (const f of ['back', 'left', 'right', 'top']) g.noise(R.head[f], PINK, 0.05);
     g.noise(R.head.bottom, PINK, 0.05); g.mul(R.head.bottom, 0.8);
     /* 鼻(head2): 深粉盘 + 双鼻孔 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], PINK2, 0.05);
-    }
+    g.noiseAll(R.head2, PINK2, 0.05);
     const SN = R.head2.front;
     g.px(SN[0] + 1, SN[1] + 1, DARK); g.px(SN[0] + 2, SN[1] + 1, DARK); /* 鼻孔 */
     /* 四腿(共区): 粉腿+深蹄 */
     for (const leg of [R.legL, R.legL2, R.legR, R.legR2]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], PINK2, 0.05);
-      }
+      g.noiseAll(leg, PINK2, 0.05);
       g.fill([leg.front[0], leg.front[1] + leg.front[3] - 1, leg.front[2], 1], DARK); /* 蹄 */
     }
   }},

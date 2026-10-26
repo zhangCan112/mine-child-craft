@@ -36,18 +36,12 @@ MobLookKit.declare('vex', {
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], HEAD, 0.04);
     g.mul(R.head.bottom, 0.85);
     /* 体: 淡蓝 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], BODY, 0.04);
-    }
+    g.noiseAll(R.root, BODY, 0.04);
     /* 双臂(共区): 淡蓝 · 铁剑(armL2) */
     for (const arm of [R.armR, R.armL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(arm[f], BODY, 0.04);
-      }
+      g.noiseAll(arm, BODY, 0.04);
     }
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL2[f], IRON);
-    }
+    g.fillAll(R.armL2, IRON);
     /* 双翼(共区, 平面盒): 半透白观感(实色浅白) */
     for (const wing of [R.wingL, R.wingR]) {
       for (const f of ['front', 'back']) g.fill(wing[f], WING);

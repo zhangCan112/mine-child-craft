@@ -48,9 +48,7 @@ MobLookKit.declare('ghast', {
     /* 9 触手: 米白+环纹 */
     for (const part of [R.legL, R.legL2, R.legL3, R.legL4, R.legL5,
       R.legR, R.legR2, R.legR3, R.legR4]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], WHT2, 0.05);
-      }
+      g.noiseAll(part, WHT2, 0.05);
       const r = part.front;
       for (let y = 6; y < r[3]; y += 8) {/* 环纹 */
         g.mul([r[0], r[1] + y, r[2], 1], 0.85);

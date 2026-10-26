@@ -37,17 +37,11 @@ MobLookKit.declare('silverfish', {
     g.px(F[0], F[1], DARK); g.px(F[0] + 2, F[1], DARK);
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], STONE, 0.06);
     /* 次节: 石灰压暗 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head2[f], STONE2, 0.06);
-    }
+    g.noiseAll(R.head2, STONE2, 0.06);
     /* 前刚毛层(head3): 深刚毛 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.head3[f], BRIS, 0.15);
-    }
+    g.noiseAll(R.head3, BRIS, 0.15);
     /* 主节(root): 石灰 · 其余尾节逐节压暗 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.noise(R.root[f], STONE, 0.06);
-    }
+    g.noiseAll(R.root, STONE, 0.06);
     const shades = [0.92, 0.85, 0.78, 0.7];
     [R.root2, R.root3, R.root4, R.root5].forEach((seg, i) => {
       for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
@@ -57,9 +51,7 @@ MobLookKit.declare('silverfish', {
     });
     /* 大刚毛裙(root6) · 后刚毛层(root7): 深刚毛 */
     for (const part of [R.root6, R.root7]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], BRIS, 0.15);
-      }
+      g.noiseAll(part, BRIS, 0.15);
     }
   }},
 });

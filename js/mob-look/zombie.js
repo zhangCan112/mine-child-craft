@@ -31,15 +31,11 @@ MobLookKit.declare('zombie', {
     g.noise(R.root.top, SHIRT, 0.05);
     g.noise(R.root.bottom, PANTS, 0.05); g.mul(R.root.bottom, 0.85);
     for (const arm of [R.armR, R.armL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(arm[f], SKIN, 0.06);
-      }
+      g.noiseAll(arm, SKIN, 0.06);
       g.mul(arm.bottom, 0.85);
     }
     for (const leg of [R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(leg[f], PANTS, 0.05);
-      }
+      g.noiseAll(leg, PANTS, 0.05);
       g.mul(leg.bottom, 0.8);
     }
   }},

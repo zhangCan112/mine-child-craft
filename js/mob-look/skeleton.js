@@ -39,14 +39,10 @@ MobLookKit.declare('skeleton', {
     g.fill([B[0] + 1, B[1] + 6, 6, 1], BONE2);
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.root[f], BONE, 0.04);
     for (const part of [R.armR, R.armL, R.legR, R.legL]) {
-      for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-        g.noise(part[f], BONE, 0.04);
-      }
+      g.noiseAll(part, BONE, 0.04);
       g.mul(part.bottom, 0.8);
     }
     /* 弓(追加骨 armL2): 木色通体 */
-    for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      g.fill(R.armL2[f], WOOD);
-    }
+    g.fillAll(R.armL2, WOOD);
   }},
 });
