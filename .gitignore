@@ -1,2 +1,4 @@
 data/
 node_modules/
+# Added by code-review-graph
+.code-review-graph/
