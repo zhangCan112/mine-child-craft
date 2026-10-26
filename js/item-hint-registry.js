@@ -30,6 +30,7 @@ const ITEM_HINTS = {
   charcoal: '烧原木得到的，和煤一样棒',
   iron_ore: '放进熔炉烧一烧，变铁锭',
   iron_ingot: '结实的铁，能做好多工具',
+  iron_nugget: '小小的铁粒，做灯笼要用',
   gold_ore: '金色的矿石，烧出金锭',
   gold_ingot: '黄澄澄的金子，能做金苹果',
   diamond: '亮晶晶的宝贝，能做最棒的工具',

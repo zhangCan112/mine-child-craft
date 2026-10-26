@@ -5,7 +5,10 @@
    craft-core.js — 镜像浏览器 <script defer> 共享词法环境(craft-core 的
    背包操作经 inventory-core 的 count/take/add 接口)。craft-core 顶层从
    ITEMS 派生 FUEL 择优序, 加载序「items-core 之后」由此测试守护;
-   不加载 config.js — breakTime 收 blockDef 纯数据, 交叉验证单列一节。 */
+   不加载 config.js — breakTime 收 blockDef 纯数据, 交叉验证单列一节。
+   九宫格改造(crafting-grid 设计稿): shape 图案数据防错网 + matchGrid
+   匹配引擎(平移/镜像/候选/无序) + gridCraft/fillGrid 编排, 与旧
+   cost 计费自动合成(craft 已退役)的对照语义全部翻到摆放口径。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -22,7 +25,11 @@ function loadCraft() {
       RECIPES: typeof RECIPES === 'undefined' ? undefined : RECIPES,
       SMELTS: typeof SMELTS === 'undefined' ? undefined : SMELTS,
       FUEL: typeof FUEL === 'undefined' ? undefined : FUEL,
+      shapeCost: typeof shapeCost === 'undefined' ? undefined : shapeCost,
       canCraft: typeof canCraft === 'undefined' ? undefined : canCraft,
+      matchGrid: typeof matchGrid === 'undefined' ? undefined : matchGrid,
+      gridCraft: typeof gridCraft === 'undefined' ? undefined : gridCraft,
+      fillGrid: typeof fillGrid === 'undefined' ? undefined : fillGrid,
       craft: typeof craft === 'undefined' ? undefined : craft,
       fuelUnits: typeof fuelUnits === 'undefined' ? undefined : fuelUnits,
       smeltOf: typeof smeltOf === 'undefined' ? undefined : smeltOf,
@@ -31,6 +38,7 @@ function loadCraft() {
       mkStack: typeof mkStack === 'undefined' ? undefined : mkStack,
       mkInventory: typeof mkInventory === 'undefined' ? undefined : mkInventory,
       add: typeof add === 'undefined' ? undefined : add,
+      count: typeof count === 'undefined' ? undefined : count,
       canAfford: typeof canAfford === 'undefined' ? undefined : canAfford,
     };`, ctx);
   return ctx.__c;
@@ -43,35 +51,66 @@ function invWith(h, fills) {
   return inv;
 }
 
+/* 造摆放: 9 格(3×3 台)槽堆数组, [[下标, id, n], ...] 占位 */
+function cellsWith(entries) {
+  const cells = new Array(9).fill(null);
+  for (const [i, id, n] of entries) cells[i] = {id, n: n || 1};
+  return cells;
+}
+
+/* 配方图案 → 顶格摆放在 3×3 台的槽堆(候选取首位 id); 两两不同构测试用 */
+function cellsOfRecipe(r) {
+  const cells = new Array(9).fill(null);
+  const one = (spec) => ({id: Array.isArray(spec) ? spec[0] : spec, n: 1});
+  if (r.shape.any) r.shape.any.forEach((spec, i) => (cells[i] = one(spec)));
+  else {
+    r.shape.rows.forEach((row, ri) => row.forEach((spec, ci) => {
+      if (spec != null) cells[ri * 3 + ci] = one(spec);
+    }));
+  }
+  return cells;
+}
+
+/* 图案最小包围盒 [宽, 高](无序按材料数粗判: >4 必然 3×3 才放得下) */
+function bboxOf(r) {
+  if (r.shape.any) return r.shape.any.length > 4 ? [3, 3] : [2, 2];
+  const rows = r.shape.rows;
+  return [Math.max(...rows.map((row) => row.length)), rows.length];
+}
+
 /* ============ 加载: 共享词法环境的顶层接口 ============ */
 
-test('加载: 顶层暴露三张表(FUEL 从 ITEMS 派生, 加载序在 items-core 之后)', () => {
+test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派生), 旧 craft 已退役', () => {
   const h = loadCraft();
   assert.strictEqual(typeof h.RECIPES, 'object');
   assert.strictEqual(typeof h.SMELTS, 'object');
   assert.strictEqual(Array.isArray(h.FUEL), true);
+  for (const f of ['shapeCost', 'canCraft', 'matchGrid', 'gridCraft', 'fillGrid']) {
+    assert.strictEqual(typeof h[f], 'function', f + ' 应为顶层函数');
+  }
+  assert.strictEqual(h.craft, undefined, 'cost 计费自动合成 craft() 已随九宫格改造退役(gridCraft 接棒)');
 });
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 手搓 4 条 + 工作台级(工具16/站点件/补给包/箱子/金苹果/床/灯笼)共 32 条, id 唯一', () => {
+test('配方全量: 随身 9 + 工作台级 24 共 33 条, id 唯一(crafting-grid §3)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 32, '全表 4+16+12 条(引导链 v2 加箱子, F3 加金苹果, 昼夜 D6 加床, D7 加灯笼), 实际 ' + RECIPES.length);
-  // 手搓级(设计稿 §3.2): 随时可做
-  for (const id of ['planks', 'stick', 'craft_table', 'torch']) {
+  assert.strictEqual(RECIPES.length, 33, '全表 9+16+8 条(随身 4 正典例 + 4 条迁回 + 铁粒 + 工具 16 + 站点件 8), 实际 ' + RECIPES.length);
+  // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒)
+  for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
+    'bone_meal', 'iron_nuggets']) {
     const r = RECIPES.find((x) => x.id === id);
-    assert.ok(r, '手搓配方 ' + id + ' 应存在');
+    assert.ok(r, '随身配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
   }
-  // 工作台级: 工具 16 + furnace/stone_bricks/bricks/shears/golden_apple/tnt/bow_item/bread/bone_meal/chest/bed/lantern
+  // 工作台级: 工具 16 + furnace/chest/bed/lantern/golden_apple/tnt/bow_item/bread
   const tableIds = ['pick_wood', 'pick_stone', 'pick_iron', 'pick_diamond',
     'axe_wood', 'axe_stone', 'axe_iron', 'axe_diamond',
     'sword_wood', 'sword_stone', 'sword_iron', 'sword_diamond',
     'shovel_wood', 'shovel_stone', 'shovel_iron', 'shovel_diamond',
-    'furnace', 'stone_bricks', 'bricks', 'shears', 'golden_apple', 'tnt', 'bow_item', 'bread',
-    'bone_meal', 'chest', 'bed', 'lantern'];
+    'furnace', 'chest', 'bed', 'lantern', 'golden_apple', 'tnt', 'bow_item', 'bread'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');
@@ -79,165 +118,130 @@ test('配方全量: 手搓 4 条 + 工作台级(工具16/站点件/补给包/箱
   }
 });
 
-test('条目形状: out{n≥1}·cost 值合法(数字|[候选数组,数字])·引用物品全在 ITEMS 注册', () => {
+test('条目形状: out{n≥1}·shape 合法(rows/any 二选一, 规约=id|候选数组且全在 ITEMS)', () => {
   const {RECIPES, ITEMS} = loadCraft();
   for (const r of RECIPES) {
     assert.strictEqual(typeof r.id, 'string', 'id 应为字符串');
     assert.ok(r.out && typeof r.out.item === 'string', r.id + ' out.item');
     assert.ok(Number.isInteger(r.out.n) && r.out.n >= 1, r.id + ' out.n 应为 ≥1 整数');
     assert.ok(ITEMS[r.out.item], r.id + ' 产物 ' + r.out.item + ' 应在 ITEMS 注册(防改表漏注册)');
-    for (const [key, val] of Object.entries(r.cost)) {
-      if (Array.isArray(val)) {
-        // 任选材料: [候选 id 数组, 数量] — 设计稿 §3.2 cost 值为数组 = 任选其一
-        assert.ok(Array.isArray(val[0]) && val[0].length >= 2, r.id + '·' + key + ' 候选数组应 ≥2 个');
-        for (const c of val[0]) assert.ok(ITEMS[c], r.id + '·' + key + ' 候选 ' + c + ' 应在 ITEMS 注册');
-        assert.ok(Number.isInteger(val[1]) && val[1] >= 1, r.id + '·' + key + ' 任选数量应 ≥1');
+    assert.ok(r.shape, r.id + ' 应带 shape 图案(crafting-grid §3)');
+    const specs = [];
+    if (r.shape.rows) {
+      assert.ok(Array.isArray(r.shape.rows) && r.shape.rows.length >= 1, r.id + ' rows 应为非空行数组');
+      for (const row of r.shape.rows) {
+        assert.ok(Array.isArray(row), r.id + ' rows 行应为数组');
+        for (const spec of row) {
+          if (spec != null) specs.push(spec);
+        }
+      }
+    } else if (r.shape.any) {
+      assert.ok(Array.isArray(r.shape.any) && r.shape.any.length >= 1, r.id + ' any 应为非空数组');
+      r.shape.any.forEach((spec) => specs.push(spec));
+    } else {
+      assert.fail(r.id + ' shape 应为 {rows} 或 {any} 之一');
+    }
+    for (const spec of specs) {
+      if (typeof spec === 'string') {
+        assert.ok(ITEMS[spec], r.id + ' 材料 ' + spec + ' 应在 ITEMS 注册');
       } else {
-        assert.ok(Number.isInteger(val) && val >= 1, r.id + '·' + key + ' 数量应 ≥1 整数');
-        assert.ok(ITEMS[key], r.id + ' 材料 ' + key + ' 应在 ITEMS 注册(防改表漏注册)');
+        assert.ok(Array.isArray(spec) && spec.length >= 2, r.id + ' 候选规约应为 ≥2 的 id 数组');
+        for (const c of spec) assert.ok(ITEMS[c], r.id + ' 候选 ' + c + ' 应在 ITEMS 注册');
       }
     }
   }
 });
 
-test('配方数值抽查: 与设计稿 §3.2/§3.5 逐条一致(研究稿 MC 口径)', () => {
+test('正典归属不变式: station hand ⇔ 图案 ≤2×2(随身格放得下), table ⇔ 越界(研究稿 §1)', () => {
   const {RECIPES} = loadCraft();
+  for (const r of RECIPES) {
+    const [w, hh] = bboxOf(r);
+    if (r.station === 'hand') {
+      assert.ok(w <= 2 && hh <= 2, r.id + ' hand 级图案应 ≤2×2, 实际 ' + w + '×' + hh);
+    } else {
+      assert.ok(w > 2 || hh > 2, r.id + ' table 级图案应 >2×2(否则随身可做, 迁 hand)');
+    }
+  }
+});
+
+test('两两不同构: 任一配方的顶格摆放不误中其它配方(同摆多配兜底的防错网, §2.6)', () => {
+  const {RECIPES, matchGrid} = loadCraft();
+  for (const a of RECIPES) {
+    const cells = cellsOfRecipe(a);
+    assert.strictEqual(matchGrid(cells, a), true, a.id + ' 自身图案应命中自身');
+    for (const b of RECIPES) {
+      if (b !== a) {
+        assert.strictEqual(matchGrid(cells, b), false,
+            a.id + ' 的摆放不应误中 ' + b.id + '(图案同构或包含, 需改图案或登记例外)');
+      }
+    }
+  }
+});
+
+test('shapeCost 派生: 图案→计费表与正典材料量逐条一致(候选组=任选形状)', () => {
+  const h = loadCraft();
+  const {RECIPES, shapeCost} = h;
   const by = {};
   for (const r of RECIPES) by[r.id] = r;
   /* vm context 对象跨 realm 原型不同, deepStrictEqual 会误判(items-core.test.js 先例):
-     cost/out 展开回宿主 realm 再比; 任选值嵌套数组一并展开 */
+     cost 展开回宿主 realm 再比; 任选值嵌套数组一并展开 */
   const cost = (id) => {
     const o = {};
-    for (const [k, v] of Object.entries(by[id].cost)) o[k] = Array.isArray(v) ? [[...v[0]], v[1]] : v;
+    for (const [k, v] of Object.entries(shapeCost(by[id]))) o[k] = Array.isArray(v) ? [[...v[0]], v[1]] : v;
     return o;
   };
-  const out = (id) => ({...by[id].out});
-  // 手搓 4 条(§3.2)
+  // 随身级(§3.2 + 拍板②迁移 + 拍板⑤铁粒)
   assert.deepStrictEqual(cost('planks'), {log: 1});
-  assert.deepStrictEqual(out('planks'), {item: 'planks', n: 4});
   assert.deepStrictEqual(cost('stick'), {planks: 2});
-  assert.deepStrictEqual(out('stick'), {item: 'stick', n: 4});
-  assert.deepStrictEqual(cost('craft_table'), {planks: 4}); // §5.5 工作台 4 板
-  assert.deepStrictEqual(cost('torch'), {fuel: [['coal', 'charcoal'], 1], stick: 1}); // §5.2 煤/木炭任选
-  assert.deepStrictEqual(out('torch'), {item: 'torch', n: 4});
-  // 站点件与补给包(§3.5 + §3.2)
-  assert.deepStrictEqual(cost('furnace'), {cobble: 8}); // §5.5 8 圆石无需煤
-  assert.deepStrictEqual(cost('stone_bricks'), {stone: 4}); // 4 石→4 石砖(MC 口径)
-  assert.deepStrictEqual(out('stone_bricks'), {item: 'stone_bricks', n: 4});
-  assert.deepStrictEqual(cost('bricks'), {brick: 4}); // 4 红砖→1 红砖块(黏土链)
-  assert.deepStrictEqual(cost('shears'), {iron_ingot: 2}); // 2 铁锭(§3.5)
-  assert.deepStrictEqual(cost('tnt'), {gunpowder: 5, sand: 4}); // MC 口径(§3.2)
-  assert.deepStrictEqual(cost('bow_item'), {stick: 3, string: 3}); // 二期启用占位(§5.4)
-  assert.deepStrictEqual(cost('bread'), {wheat: 3}); // 原料二期, 卡片不点亮
-  assert.deepStrictEqual(cost('bone_meal'), {bone: 1}); // 用途二期催熟
-  assert.deepStrictEqual(out('bone_meal'), {item: 'bone_meal', n: 3});
+  assert.deepStrictEqual(cost('craft_table'), {planks: 4});
+  assert.deepStrictEqual(cost('torch'), {'stick': 1, 'charcoal|coal': [['coal', 'charcoal'], 1]}); // 煤/木炭任选
+  assert.deepStrictEqual(cost('stone_bricks'), {stone: 4});
+  assert.deepStrictEqual(cost('bricks'), {brick: 4});
+  assert.deepStrictEqual(cost('shears'), {iron_ingot: 2});
+  assert.deepStrictEqual(cost('bone_meal'), {bone: 1}); // 无序单材料
+  assert.deepStrictEqual(cost('iron_nuggets'), {iron_ingot: 1}); // 1 铁锭→9 铁粒
+  // 站点件(§3.5 口径不变 + 灯笼回正典)
+  assert.deepStrictEqual(cost('furnace'), {cobble: 8});
+  assert.deepStrictEqual(cost('chest'), {planks: 8});
+  assert.deepStrictEqual(cost('bed'), {wool: 3, planks: 3});
+  assert.deepStrictEqual(cost('lantern'), {iron_nugget: 8, torch: 1}); // 拍板⑤回正典(旧 2 铁锭折算闭环)
+  assert.deepStrictEqual(cost('golden_apple'), {gold_ingot: 8, apple: 1});
+  assert.deepStrictEqual(cost('tnt'), {gunpowder: 5, sand: 4});
+  assert.deepStrictEqual(cost('bow_item'), {stick: 3, string: 3});
+  assert.deepStrictEqual(cost('bread'), {wheat: 3});
 });
 
-test('F3 金苹果配方: MC 正典 8 金锭+1 苹果 — 缺料分开报 / 扣料产栈(二期设计稿 §3)', () => {
-  const h = loadCraft();
-  const {canCraft, craft, RECIPES} = h;
-  const r = RECIPES.find((x) => x.id === 'golden_apple');
-  assert.ok(r, '金苹果配方应注册');
-  assert.deepStrictEqual({...r.out}, {item: 'golden_apple', n: 1}, '产物 1 个');
-  const c = {}; // 展开回宿主 realm(vm 跨 realm 先例, 上方 cost() 同款)
-  for (const [k, v] of Object.entries(r.cost)) c[k] = v;
-  assert.deepStrictEqual(c, {gold_ingot: 8, apple: 1}, '材料计费: 8 金锭+1 苹果(MC 正典)');
-  /* 缺金锭(有苹果): missing 只报金锭一条 */
-  let res = canCraft(invWith(h, [['apple', 1]]), r, true);
-  assert.strictEqual(res.ok, false);
-  assert.deepStrictEqual(normMissing(res.missing), [{id: 'gold_ingot', need: 8, have: 0}]);
-  /* 缺苹果(金锭够): missing 只报苹果一条 */
-  res = canCraft(invWith(h, [['gold_ingot', 8]]), r, true);
-  assert.strictEqual(res.ok, false);
-  assert.deepStrictEqual(normMissing(res.missing), [{id: 'apple', need: 1, have: 0}]);
-  /* 金锭不足量(有 3 要 8): 单条带已有量(配方卡灰显口径) */
-  res = canCraft(invWith(h, [['gold_ingot', 3], ['apple', 1]]), r, true);
-  assert.strictEqual(res.ok, false);
-  assert.deepStrictEqual(normMissing(res.missing), [{id: 'gold_ingot', need: 8, have: 3}]);
-  /* 材料齐: craft 扣 8 金锭+1 苹果, 产 1 金苹果入包 */
-  const inv = invWith(h, [['gold_ingot', 10], ['apple', 2]]);
-  res = craft(inv, r, true);
-  assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.leftover, 0);
-  assert.deepStrictEqual({...inv.slots[0]}, {id: 'gold_ingot', n: 2}, '金锭 10→2');
-  assert.deepStrictEqual({...inv.slots[1]}, {id: 'apple', n: 1}, '苹果 2→1');
-  assert.deepStrictEqual({...inv.slots[2]}, {id: 'golden_apple', n: 1}, '产物金苹果开新堆');
-});
-
-test('昼夜 D6 床配方: MC 正典 3 羊毛+3 木板(台级) — 缺料分开报 / 扣料产栈(设计稿 §7.1)', () => {
-  const h = loadCraft();
-  const {canCraft, craft, RECIPES} = h;
-  const r = RECIPES.find((x) => x.id === 'bed');
-  assert.ok(r, '床配方应注册');
-  assert.deepStrictEqual({...r.out}, {item: 'bed', n: 1}, '产物 1 张床');
-  const c = {}; // 展开回宿主 realm(vm 跨 realm 先例, 上方 cost() 同款)
-  for (const [k, v] of Object.entries(r.cost)) c[k] = v;
-  assert.deepStrictEqual(c, {wool: 3, planks: 3}, '材料计费: 3 羊毛+3 木板(MC 正典, 羊毛来源 F4 牧场)');
-  /* 缺羊毛(木板够): missing 只报羊毛一条 */
-  let res = canCraft(invWith(h, [['planks', 3]]), r, true);
-  assert.strictEqual(res.ok, false);
-  assert.deepStrictEqual(normMissing(res.missing), [{id: 'wool', need: 3, have: 0}]);
-  /* 木板不足量(羊毛够): 单条带已有量(配方卡灰显口径) */
-  res = canCraft(invWith(h, [['wool', 3], ['planks', 1]]), r, true);
-  assert.strictEqual(res.ok, false);
-  assert.deepStrictEqual(normMissing(res.missing), [{id: 'planks', need: 3, have: 1}]);
-  /* 站点: 工作台级, 远台不可做 */
-  res = canCraft(invWith(h, [['wool', 3], ['planks', 3]]), r, false);
-  assert.strictEqual(res.ok, false, '床是 table 级配方');
-  /* 材料齐: craft 扣 3+3, 产 1 床入包 */
-  const inv = invWith(h, [['wool', 4], ['planks', 5]]);
-  res = craft(inv, r, true);
-  assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.leftover, 0);
-  assert.deepStrictEqual({...inv.slots[0]}, {id: 'wool', n: 1}, '羊毛 4→1');
-  assert.deepStrictEqual({...inv.slots[1]}, {id: 'planks', n: 2}, '木板 5→2');
-  assert.deepStrictEqual({...inv.slots[2]}, {id: 'bed', n: 1}, '产床开新堆');
-});
-
-test('昼夜 D7 灯笼配方: 原创 2 铁锭+1 火把(台级) — 缺料分开报 / 扣料产栈满耐久(设计稿 §8.1)', () => {
-  const h = loadCraft();
-  const {canCraft, craft, RECIPES} = h;
-  const r = RECIPES.find((x) => x.id === 'lantern');
-  assert.ok(r, '灯笼配方应注册');
-  assert.deepStrictEqual({...r.out}, {item: 'lantern', n: 1}, '产物 1 盏灯笼');
-  const c = {}; // 展开回宿主 realm(vm 跨 realm 先例, 上方 bed 同款)
-  for (const [k, v] of Object.entries(r.cost)) c[k] = v;
-  assert.deepStrictEqual(c, {iron_ingot: 2, torch: 1},
-      '材料计费: 2 铁锭+1 火把(MC 灯笼 8 铁粒+火把的原创折算, 差异 #6: 铁粒不存在)');
-  /* 缺铁锭(火把够): missing 只报铁锭一条 */
-  let res = canCraft(invWith(h, [['torch', 1]]), r, true);
-  assert.strictEqual(res.ok, false);
-  assert.deepStrictEqual(normMissing(res.missing), [{id: 'iron_ingot', need: 2, have: 0}]);
-  /* 缺火把(铁锭够): 单条带已有量 */
-  res = canCraft(invWith(h, [['iron_ingot', 2]]), r, true);
-  assert.strictEqual(res.ok, false);
-  assert.deepStrictEqual(normMissing(res.missing), [{id: 'torch', need: 1, have: 0}]);
-  /* 站点: 工作台级, 远台不可做 */
-  res = canCraft(invWith(h, [['iron_ingot', 2], ['torch', 1]]), r, false);
-  assert.strictEqual(res.ok, false, '灯笼是 table 级配方');
-  /* 材料齐: craft 扣 2+1, 产 1 灯笼入包且自带满耐久(可耗损物 mkStack 管线) */
-  const inv = invWith(h, [['iron_ingot', 3], ['torch', 2]]);
-  res = craft(inv, r, true);
-  assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.leftover, 0);
-  assert.deepStrictEqual({...inv.slots[0]}, {id: 'iron_ingot', n: 1}, '铁锭 3→1');
-  assert.deepStrictEqual({...inv.slots[1]}, {id: 'torch', n: 1}, '火把 2→1');
-  assert.deepStrictEqual({...inv.slots[2]}, {id: 'lantern', n: 1, dur: 300}, '产灯笼开新堆带满耐久 300');
-});
-
-test('工具 16 条配方: 镐斧 3材+2棍 · 剑 2材+1棍 · 锹 1材+2棍, 材质按阶替换', () => {
+test('图案抽查: 工具四模板 × 镐 3×3 十字 · 斧 2×3 缺角 · 剑/锹 1×3 竖排(研究稿 §3.2)', () => {
   const {RECIPES} = loadCraft();
   const by = {};
   for (const r of RECIPES) by[r.id] = r;
+  const rows = (id) => JSON.parse(JSON.stringify(by[id].shape.rows)); // 跨 realm 深拷回宿主再比
+  assert.deepStrictEqual(rows('pick_wood'),
+      [['planks', 'planks', 'planks'], [null, 'stick', null], [null, 'stick', null]]);
+  assert.deepStrictEqual(rows('axe_iron'), [['iron_ingot', 'iron_ingot'], ['iron_ingot', 'stick'], [null, 'stick']]);
+  assert.deepStrictEqual(rows('sword_diamond'), [['diamond'], ['diamond'], ['stick']]);
+  assert.deepStrictEqual(rows('shovel_stone'), [['cobble'], ['stick'], ['stick']]);
+  // 站点件图案要点(研究稿 §3.3)
+  assert.deepStrictEqual(rows('shears'), [[null, 'iron_ingot'], ['iron_ingot', null]], '剪刀=对角两铁锭');
+  assert.deepStrictEqual(rows('bed'), [['wool', 'wool', 'wool'], ['planks', 'planks', 'planks']], '床=羊毛上排+木板下排');
+  assert.deepStrictEqual(rows('lantern')[1], ['iron_nugget', 'torch', 'iron_nugget'], '灯笼=8 铁粒环形+中心火把');
+  assert.deepStrictEqual(rows('bread'), [['wheat', 'wheat', 'wheat']], '面包=3 小麦一横排');
+  assert.deepStrictEqual(rows('bow_item')[1], ['stick', null, 'string'], '弓=棍蛇形+线列');
+});
+
+test('工具 16 条: 4 模板 × 4 材质阶, 材料计费随阶替换(shapeCost 派生)', () => {
+  const {RECIPES, shapeCost} = loadCraft();
+  const by = {};
+  for (const r of RECIPES) by[r.id] = r;
   const mats = {wood: 'planks', stone: 'cobble', iron: 'iron_ingot', diamond: 'diamond'};
-  const shape = {pick: [3, 2], axe: [3, 2], sword: [2, 1], shovel: [1, 2]}; // §5.4 镐=3材+2棍, 同构余三类
+  const cnt = {pick: [3, 2], axe: [3, 2], sword: [2, 1], shovel: [1, 2]}; // §5.4 材+棍
   for (const [mat, itemId] of Object.entries(mats)) {
-    for (const [kind, [m, s]] of Object.entries(shape)) {
+    for (const [kind, [m, s]] of Object.entries(cnt)) {
       const r = by[kind + '_' + mat];
       assert.ok(r, kind + '_' + mat + ' 配方应存在');
       assert.deepStrictEqual({...r.out}, {item: kind + '_' + mat, n: 1}, '工具产物 1 件(不可堆叠)');
-      const c = {}; // 工具配方无任选材料, 展开回宿主 realm 即可
-      for (const [k, v] of Object.entries(r.cost)) c[k] = v;
+      const c = {};
+      for (const [k, v] of Object.entries(shapeCost(r))) c[k] = v;
       assert.deepStrictEqual(c, {[itemId]: m, stick: s}, kind + '_' + mat + ' 材料计费');
     }
   }
@@ -293,6 +297,187 @@ test('smeltOf: 十条烧炼映射逐条命中, 未登记原料返回 null', () =
   assert.strictEqual(smeltOf('cooked_beef'), null, '熟肉不可再烧');
   assert.strictEqual(smeltOf('bread'), null, '食物不可烧');
   assert.strictEqual(smeltOf('not_registered'), null);
+});
+
+/* ============ matchGrid: 摆放→配方匹配(口径全正典, 研究稿 §2) ============ */
+
+test('matchGrid 有序: 顶格命中 · 图案可在格内平移(Wiki 面包任意一行的例)', () => {
+  const {RECIPES, matchGrid} = loadCraft();
+  const by = (id) => RECIPES.find((r) => r.id === id);
+  // 木镐顶格
+  const pickTop = cellsWith([[0, 'planks'], [1, 'planks'], [2, 'planks'], [4, 'stick'], [7, 'stick']]);
+  assert.strictEqual(matchGrid(pickTop, by('pick_wood')), true);
+  // 面包 3×1: 上/中/下三行皆可(平移语义)
+  const row = (r) => cellsWith([[r * 3, 'wheat'], [r * 3 + 1, 'wheat'], [r * 3 + 2, 'wheat']]);
+  assert.strictEqual(matchGrid(row(0), by('bread')), true);
+  assert.strictEqual(matchGrid(row(1), by('bread')), true);
+  assert.strictEqual(matchGrid(row(2), by('bread')), true);
+  // 木板 1×1: 任意一格
+  assert.strictEqual(matchGrid(cellsWith([[8, 'log']]), by('planks')), true);
+});
+
+test('matchGrid 镜像: 水平翻转自动重试(斧/弓/剪刀左右手版), 垂直翻转不中', () => {
+  const {RECIPES, matchGrid} = loadCraft();
+  const by = (id) => RECIPES.find((r) => r.id === id);
+  // 铁斧原向(M M / M S / · S)与镜像(每行逆序 = 左撇子版)
+  const axeA = cellsWith([[0, 'iron_ingot'], [1, 'iron_ingot'], [3, 'iron_ingot'], [4, 'stick'], [7, 'stick']]);
+  assert.strictEqual(matchGrid(axeA, by('axe_iron')), true);
+  const axeM = cellsWith([[1, 'iron_ingot'], [2, 'iron_ingot'], [4, 'stick'], [5, 'iron_ingot'], [7, 'stick']]);
+  assert.strictEqual(matchGrid(axeM, by('axe_iron')), true, '斧镜像(左撇子版, 平移到右两列)');
+  // 剪刀对角两方向
+  assert.strictEqual(matchGrid(cellsWith([[1, 'iron_ingot'], [3, 'iron_ingot']]), by('shears')), true);
+  assert.strictEqual(matchGrid(cellsWith([[0, 'iron_ingot'], [2, 'iron_ingot']]), by('shears')), false, '上下对角≠水平镜像');
+  const fourCorners = cellsWith([[0, 'iron_ingot'], [2, 'iron_ingot'], [6, 'iron_ingot'], [8, 'iron_ingot']]);
+  assert.strictEqual(matchGrid(fourCorners, by('shears')), false, '四角更不中');
+  // 剑倒摆 = 垂直翻转 → 不中
+  assert.strictEqual(matchGrid(cellsWith([[0, 'stick'], [3, 'planks'], [6, 'planks']]), by('sword_wood')), false);
+});
+
+test('matchGrid 候选规约: 火把煤/木炭任一(MC tag 口径), 混摆亦中', () => {
+  const {RECIPES, matchGrid} = loadCraft();
+  const torch = RECIPES.find((r) => r.id === 'torch');
+  assert.strictEqual(matchGrid(cellsWith([[0, 'coal'], [3, 'stick']]), torch), true);
+  assert.strictEqual(matchGrid(cellsWith([[0, 'charcoal'], [3, 'stick']]), torch), true);
+  assert.strictEqual(matchGrid(cellsWith([[2, 'charcoal'], [5, 'stick']]), torch), true, '右列竖排(平移+候选)');
+  assert.strictEqual(matchGrid(cellsWith([[0, 'iron_ingot'], [3, 'stick']]), torch), false, '异种不中');
+});
+
+test('matchGrid 无序: 骨粉任意格, 多一件不中, 空格随意', () => {
+  const {RECIPES, matchGrid} = loadCraft();
+  const bone = RECIPES.find((r) => r.id === 'bone_meal');
+  assert.strictEqual(matchGrid(cellsWith([[3, 'bone']]), bone), true, '2×2 随身格中任意格');
+  assert.strictEqual(matchGrid(cellsWith([[8, 'bone']]), bone), true);
+  assert.strictEqual(matchGrid(cellsWith([[0, 'bone'], [4, 'stone']]), bone), false, '多一件不中');
+  assert.strictEqual(matchGrid(new Array(9).fill(null), bone), false, '全空不中');
+});
+
+test('matchGrid 负例: 图案外多余物 · 3 宽图案进 2×2 台 · 空格数组', () => {
+  const {RECIPES, matchGrid} = loadCraft();
+  const by = (id) => RECIPES.find((r) => r.id === id);
+  assert.strictEqual(matchGrid(cellsWith([[0, 'coal'], [3, 'stick'], [6, 'stone']]), by('torch')), false, '图案外多余物品');
+  const pickTop = cellsWith([[0, 'planks'], [1, 'planks'], [2, 'planks'], [4, 'stick'], [7, 'stick']]);
+  assert.strictEqual(matchGrid(pickTop, by('pick_wood')), true);
+  // 3×3 台图案进 2×2: 用 4 格数组摆不下镐(宽 3)
+  const four = cellsWith([[0, 'planks'], [1, 'planks'], [2, 'planks'], [3, 'stick']]);
+  assert.strictEqual(matchGrid(four, by('pick_wood')), false, '长 9 判 3×3, 4 格数组按 2×2 规格: 宽 3 放不下');
+  assert.strictEqual(matchGrid(null, by('planks')), false, '防御: cells 空');
+  assert.strictEqual(matchGrid(new Array(9).fill(null), null), false, '防御: recipe 空');
+});
+
+/* ============ gridCraft: 摆放台合成执行(每占用格扣 1 + 产栈入包) ============ */
+
+test('gridCraft: 木镐一发 — 每占用格扣 1(扣空清格) + 产物带满耐久入包', () => {
+  const h = loadCraft();
+  const {gridCraft, count} = h;
+  const inv = h.mkInventory();
+  const cells = cellsWith([[0, 'planks', 2], [1, 'planks'], [2, 'planks'], [4, 'stick', 2], [7, 'stick']]);
+  const res = gridCraft(cells, inv, true);
+  assert.strictEqual(res.ok, true);
+  assert.deepStrictEqual({...res.out}, {item: 'pick_wood', n: 1});
+  assert.strictEqual(res.leftover, 0);
+  assert.strictEqual(cells[0].n, 1, '占用格各扣 1');
+  assert.strictEqual(cells[1], null, '单件格扣空清位');
+  assert.strictEqual(cells[4].n, 1);
+  assert.strictEqual(count(inv, 'pick_wood'), 1);
+  const made = inv.slots.find((s) => s && s.id === 'pick_wood');
+  assert.strictEqual(made.dur, 120, '产物工具带满耐久(add 经 mkStack)');
+});
+
+test('gridCraft: 连做两发(格内备两套) → 第三发料尽 nomatch 不动包', () => {
+  const h = loadCraft();
+  const {gridCraft} = h;
+  const inv = h.mkInventory();
+  const cells = cellsWith([[0, 'planks', 2], [1, 'planks', 2], [2, 'planks', 2], [4, 'stick', 2], [7, 'stick', 2]]);
+  assert.strictEqual(gridCraft(cells, inv, true).ok, true);
+  assert.strictEqual(gridCraft(cells, inv, true).ok, true);
+  const snap = inv.slots.map((s) => (s ? {...s} : null));
+  const res = gridCraft(cells, inv, true);
+  assert.deepStrictEqual([res.ok, res.reason], [false, 'nomatch']);
+  inv.slots.forEach((s, i) => assert.deepStrictEqual(s ? {...s} : s, snap[i], '槽 ' + i + ' 不动'));
+  assert.strictEqual(cells.filter(Boolean).length, 0, '两套扣完格全空');
+});
+
+test('gridCraft: 站点门禁 — table 级图案 stationOk=false 拒绝(面板侧由锁定格保证, 此为防线)', () => {
+  const h = loadCraft();
+  const {gridCraft} = h;
+  const ring = [0, 1, 2, 3, 5, 6, 7, 8]; // 8 圆石环形(中心空)
+  const cells = cellsWith(ring.map((i) => [i, 'cobble']));
+  const res = gridCraft(cells, h.mkInventory(), false);
+  assert.deepStrictEqual([res.ok, res.reason], [false, 'station']);
+  assert.strictEqual(cells[0].n, 1, '拒绝时格内材料不动');
+  assert.strictEqual(gridCraft(cells, h.mkInventory(), true).out.item, 'furnace');
+});
+
+test('gridCraft: 满背包余量 leftover 返回(零惩罚: 模式层掉地上)', () => {
+  const h = loadCraft();
+  const {gridCraft, mkStack} = h;
+  const inv = h.mkInventory();
+  for (let i = 0; i < 27; i++) inv.slots[i] = mkStack('planks', 64); // 全满
+  const cells = cellsWith([[0, 'log']]);
+  const res = gridCraft(cells, inv, true);
+  assert.strictEqual(res.ok, true);
+  assert.strictEqual(res.leftover, 4, '产物 4 个全放不下');
+  assert.strictEqual(cells[0], null, '材料照扣');
+});
+
+/* ============ fillGrid: BE 口径一键摆入(拍板③) ============ */
+
+test('fillGrid: 一套装入(逐规约格取 1) · 重复调用=再备一套(连做备料)', () => {
+  const h = loadCraft();
+  const {fillGrid, RECIPES} = h;
+  const pick = RECIPES.find((r) => r.id === 'pick_wood');
+  const inv = invWith(h, [['planks', 6], ['stick', 4]]);
+  const cells = new Array(9).fill(null);
+  const f1 = fillGrid(inv, pick, cells);
+  assert.deepStrictEqual([...f1.placed], ['planks', 'planks', 'planks', 'stick', 'stick']);
+  assert.deepStrictEqual([...f1.missing], []);
+  assert.strictEqual(cells[0].n, 1, '图案顶格摆入');
+  assert.strictEqual(cells[4].id, 'stick');
+  const f2 = fillGrid(inv, pick, cells); // 再点一张卡: 备第二套
+  assert.strictEqual(cells[0].n, 2, '并堆+1');
+  assert.strictEqual(cells[7].n, 2);
+  assert.strictEqual(h.count(inv, 'planks'), 0, '6 板两套刚好用完');
+  assert.strictEqual(h.count(inv, 'stick'), 0);
+  assert.deepStrictEqual([...f2.missing], []);
+});
+
+test('fillGrid: 缺料留空(部分摆入) + missing 报缺什么(候选报首位)', () => {
+  const h = loadCraft();
+  const {fillGrid, RECIPES} = h;
+  const torch = RECIPES.find((r) => r.id === 'torch');
+  const inv = invWith(h, [['coal', 1]]); // 只有煤, 缺棍
+  const cells = new Array(9).fill(null);
+  const f = fillGrid(inv, torch, cells);
+  assert.deepStrictEqual([...f.placed], ['coal']);
+  assert.deepStrictEqual([...f.missing], ['stick']);
+  assert.strictEqual(cells[0].id, 'coal');
+  assert.strictEqual(cells[3], null, '缺料格留空');
+});
+
+test('fillGrid: 异物清扫 — 格内非本配方材料整摞退包(含图案空位上的), 再摆入', () => {
+  const h = loadCraft();
+  const {fillGrid, RECIPES} = h;
+  const shears = RECIPES.find((r) => r.id === 'shears');
+  const inv = invWith(h, [['iron_ingot', 2]]);
+  const cells = cellsWith([[0, 'stone', 2], [1, 'wool']]); // 两格异物(含剪刀图案空位 0)
+  const f = fillGrid(inv, shears, cells);
+  assert.deepStrictEqual([...f.placed], ['iron_ingot', 'iron_ingot']);
+  assert.strictEqual(cells[0], null, '图案空位(0,0)的石头被清走');
+  assert.strictEqual(cells[1].id, 'iron_ingot', '对角位收铁锭');
+  assert.strictEqual(cells[3].id, 'iron_ingot');
+  assert.strictEqual(h.count(inv, 'stone'), 2, '石头退回背包');
+  assert.strictEqual(h.count(inv, 'wool'), 1);
+});
+
+test('fillGrid: hand 配方在 2×2 站点摆位天然落在激活区(索引 r*3+c, 行列 <2)', () => {
+  const h = loadCraft();
+  const {fillGrid, RECIPES} = h;
+  const torch = RECIPES.find((r) => r.id === 'torch');
+  const inv = invWith(h, [['charcoal', 1], ['stick', 1]]);
+  const cells = new Array(9).fill(null); // 面板恒 9 格, 2×2 站点锁外圈
+  fillGrid(inv, torch, cells);
+  assert.strictEqual(cells[0].id, 'charcoal', '火把竖排落在 (0,0)');
+  assert.strictEqual(cells[3].id, 'stick', '木棍落在 (1,0) — 2×2 激活区(0/1/3/4)内');
 });
 
 /* missing 数组规范化: Array.from 收口跨 realm 数组(map 沿 receiver 的 realm
@@ -368,122 +553,18 @@ test('canCraft: 任选材料煤/木炭两键可互换, 全缺报 any 候选组',
 
 test('canCraft: 任选判定与 canAfford 同口径(候选合计), 不留语义裂缝', () => {
   const h = loadCraft();
-  const {canCraft, canAfford} = h;
-  // 手造 cost: 任选需求 2(表内一期均为 1, 此处专测口径对齐)
-  const recipe = {id: 'probe', out: {item: 'torch', n: 1},
-    cost: {fuel: [['coal', 'charcoal'], 2], stick: 9}, station: 'hand'};
-  const inv = invWith(h, [['coal', 1], ['charcoal', 1], ['stick', 9]]);
-  assert.strictEqual(canAfford(inv, recipe.cost), true, '背包核心: 候选合计 1+1 ≥ 2');
+  const {canCraft, canAfford, shapeCost} = h;
+  // 手造图案: 无序 2 煤/炭候选 + 7 木棍(=9 格上限内)
+  const recipe = {id: 'probe', out: {item: 'torch', n: 1}, station: 'hand',
+    shape: {any: [['coal', 'charcoal'], ['coal', 'charcoal'],
+      'stick', 'stick', 'stick', 'stick', 'stick', 'stick', 'stick']}};
+  const cost = shapeCost(recipe);
+  const inv = invWith(h, [['coal', 1], ['charcoal', 1], ['stick', 7]]);
+  assert.strictEqual(canAfford(inv, cost), true, '背包核心: 候选合计 1+1 ≥ 2');
   assert.strictEqual(canCraft(inv, recipe, true).ok, true, '合成核心口径应与之一致');
-  const invShort = invWith(h, [['coal', 1], ['stick', 9]]);
-  assert.strictEqual(canAfford(invShort, recipe.cost), false);
+  const invShort = invWith(h, [['coal', 1], ['stick', 7]]);
+  assert.strictEqual(canAfford(invShort, cost), false);
   assert.strictEqual(canCraft(invShort, recipe, true).ok, false);
-});
-
-/* ============ craft: 扣料 + 产栈(经 inventory-core 的 take/add) ============ */
-
-test('craft: 手搓木板 — 扣 1 原木, 产物 4 木板并入背包', () => {
-  const h = loadCraft();
-  const {craft, RECIPES} = h;
-  const planks = RECIPES.find((r) => r.id === 'planks');
-  const inv = invWith(h, [['log', 3]]);
-  const res = craft(inv, planks, false);
-  assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.out.item, 'planks');
-  assert.strictEqual(res.out.n, 4);
-  assert.strictEqual(res.leftover, 0);
-  assert.deepStrictEqual({...inv.slots[0]}, {id: 'log', n: 2}, '原木 3→2');
-  assert.deepStrictEqual({...inv.slots[1]}, {id: 'planks', n: 4}, '木板开新堆');
-});
-
-test('craft: 木镐 — 跨槽扣料(planks 拆两堆)+ 产物带满耐久', () => {
-  const h = loadCraft();
-  const {craft, RECIPES, mkStack} = h;
-  const pick = RECIPES.find((r) => r.id === 'pick_wood');
-  const inv = h.mkInventory(); // 手造多堆: add 会并堆, 跨槽场景绕过它
-  inv.slots[0] = mkStack('planks', 2);
-  inv.slots[1] = mkStack('planks', 2);
-  inv.slots[2] = mkStack('stick', 5);
-  const res = craft(inv, pick, true);
-  assert.strictEqual(res.ok, true);
-  assert.strictEqual(res.out.item, 'pick_wood');
-  assert.strictEqual(res.leftover, 0);
-  assert.ok(inv.slots[0] && inv.slots[0].id === 'pick_wood', '产物落进扣空的首个空位(并堆→首空位语义)');
-  assert.strictEqual(inv.slots[1].n, 1, 'planks 跨槽扣: 第二堆 2→1(第一堆 2 已扣空)');
-  assert.strictEqual(inv.slots[2].n, 3, 'stick 5→3');
-  assert.strictEqual(inv.slots[0].dur, 120, '产物工具带满耐久(add 经 mkStack)');
-});
-
-test('craft: 扣空的槽清位(材料堆 2/2 全扣, 产物并堆不占新位)', () => {
-  const h = loadCraft();
-  const {craft, RECIPES, mkStack} = h;
-  const stick = RECIPES.find((r) => r.id === 'stick');
-  const inv = h.mkInventory();
-  inv.slots[0] = mkStack('planks', 2); // 恰好够扣且扣空
-  inv.slots[1] = mkStack('stick', 1);
-  const res = craft(inv, stick, false);
-  assert.strictEqual(res.ok, true);
-  assert.strictEqual(inv.slots[0], null, 'planks 堆扣空 → 槽清位为 null');
-  assert.deepStrictEqual({...inv.slots[1]}, {id: 'stick', n: 5}, '产物并堆 1+4(不占扣空槽)');
-});
-
-test('craft: 材料不足不动背包, 返回与 canCraft 一致的 missing', () => {
-  const h = loadCraft();
-  const {craft, RECIPES} = h;
-  const tnt = RECIPES.find((r) => r.id === 'tnt');
-  const inv = invWith(h, [['gunpowder', 2], ['sand', 4]]);
-  const snapshot = inv.slots.map((s) => (s ? {...s} : null));
-  const res = craft(inv, tnt, true);
-  assert.strictEqual(res.ok, false);
-  assert.deepStrictEqual(normMissing(res.missing), [{id: 'gunpowder', need: 5, have: 2}]);
-  inv.slots.forEach((s, i) => assert.deepStrictEqual(s ? {...s} : s, snapshot[i], '槽位 ' + i + ' 不应被动'));
-});
-
-test('craft: 任选材料扣「够量的那键」— 有木炭无煤不碰煤, 两键都有先扣煤', () => {
-  const h = loadCraft();
-  const {craft, RECIPES, mkStack} = h;
-  const torch = RECIPES.find((r) => r.id === 'torch');
-  // 只有木炭: 扣木炭(inventory-core take 候选序 coal → charcoal, coal 无货走炭)
-  const invA = h.mkInventory();
-  invA.slots[0] = mkStack('charcoal', 2);
-  invA.slots[1] = mkStack('stick', 1);
-  const resA = craft(invA, torch, false);
-  assert.strictEqual(resA.ok, true);
-  assert.strictEqual(invA.slots[0].n, 1, '木炭 2→1');
-  assert.strictEqual(invA.slots[1] && invA.slots[1].id, 'torch', 'stick 扣空清位后成为首个空位, 火把落此');
-  assert.strictEqual(invA.slots[1].n, 4, '火把×4');
-  assert.strictEqual(invA.slots[2], null);
-  // 两键都有且都够: take 候选序优先扣煤(coal 在前)
-  const invB = h.mkInventory();
-  invB.slots[0] = mkStack('coal', 2);
-  invB.slots[1] = mkStack('charcoal', 2);
-  invB.slots[2] = mkStack('stick', 1);
-  craft(invB, torch, false);
-  assert.strictEqual(invB.slots[0].n, 1, '扣煤');
-  assert.strictEqual(invB.slots[1].n, 2, '木炭不动');
-});
-
-test('craft: 产物优先并堆, 背包满则余量 leftover 返回(零惩罚: 模式层掉地上)', () => {
-  const h = loadCraft();
-  const {craft, RECIPES, mkStack} = h;
-  const planks = RECIPES.find((r) => r.id === 'planks');
-  // 已有 60 木板: 产物并堆至上限, 不开新堆
-  const invA = h.mkInventory();
-  invA.slots[0] = mkStack('log', 1);
-  invA.slots[1] = mkStack('planks', 60);
-  const resA = craft(invA, planks, false);
-  assert.strictEqual(resA.ok, true);
-  assert.strictEqual(resA.leftover, 0);
-  assert.deepStrictEqual({...invA.slots[1]}, {id: 'planks', n: 64}, '60+4 并到 64');
-  assert.strictEqual(invA.slots[2], null, '有空位时不新开堆');
-  // 27 槽全满: 产物 4 个全放不下 → leftover 4, 材料照扣(合成已成功)
-  const invB = h.mkInventory();
-  invB.slots[0] = mkStack('log', 64);
-  for (let i = 1; i < 27; i++) invB.slots[i] = mkStack('planks', 64);
-  const resB = craft(invB, planks, false);
-  assert.strictEqual(resB.ok, true);
-  assert.strictEqual(resB.leftover, 4, '满背包余量 4');
-  assert.strictEqual(invB.slots[0].n, 63, '原木照扣');
 });
 
 /* ============ breakTime: 破坏时间公式(挖掘硬度修正 D1, JE 正交口径) ============ */
