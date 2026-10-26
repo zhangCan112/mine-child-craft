@@ -3,8 +3,9 @@
    贴图图集 (TextureAtlas) — 引擎层 (术语见 GLOSSARY.md 的"网格化核心")
    ------------------------------------------------------------
    程序化 16×16 像素画风方块贴图图集: 新方块 36~52 全量(四矿嵌斑/草丛/
-   耕地/麦四阶段/工作台/熔炉/火把/树苗/黏土/箱子/羊毛) + 存量基础方块升级款(草顶/
-   泥土/石头颗粒/圆石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒)。风格参考
+   耕地/麦四阶段/工作台/熔炉/火把/树苗/黏土/箱子/羊毛) + 生态地图 54~62
+   (雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花; B_ICE 不入集走纯色透渲) +
+   存量基础方块升级款(草顶/泥土/石头颗粒/圆石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒)。风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
    创建) — Node 可逐像素直测; 噪点/斑点全用种子化伪随机, 同 seed 同图。
@@ -20,7 +21,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 32 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 40 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -50,6 +51,9 @@ const TextureAtlas = (() => {
   const T_TORCH = 26; const T_CLAY = 27; const T_SAPLING = 28;
   const T_CHEST_SIDE = 29; const T_CHEST_TOP = 30;
   const T_WOOL = 31;
+  const T_SNOW = 32; const T_SNOWY_SIDE = 33; const T_CACTUS = 34; const T_SANDSTONE = 35;
+  const T_DEAD_BUSH = 36;
+  const T_ORCHID = 37; const T_FLOWER_Y = 38; const T_FLOWER_W = 39;
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -114,6 +118,19 @@ const TextureAtlas = (() => {
         setP(px, x - 1, top + 1, head); setP(px, x + 1, top + 1, head);
       }
     }
+  }
+  /* 花: 绿茎双叶 + 7×5 花头(外圈瓣/中心), 三花共用形换色板(票据 T1) */
+  function flowerBase(px, rng, petal, petalLight, center) {
+    const stem = [63, 143, 63]; const leaf = [88, 164, 75];
+    for (let y=8; y<16; y++) setP(px, 8, y, stem); // 茎
+    for (const p of [[6, 11], [7, 11], [10, 12], [9, 12]]) setP(px, p[0], p[1], leaf); // 双叶
+    for (let y=3; y<=7; y++) {
+      for (let x=5; x<=11; x++) {
+        const inCenter = x>=7 && x<=9 && y>=4 && y<=6;
+        if (!inCenter) setP(px, x, y, rng() < 0.25 ? petalLight : petal); // 花瓣(带亮斑)
+      }
+    }
+    for (let y=4; y<=6; y++) for (let x=7; x<=9; x++) setP(px, x, y, center); // 花心
   }
 
   /* ---------- 逐格画师: PAINTERS[格号] = (px, rng) => void ---------- */
@@ -330,6 +347,71 @@ const TextureAtlas = (() => {
     for (let i=0; i<12; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [218, 218, 221]);
     for (let i=0; i<8; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [248, 248, 250]);
   };
+  /* ---------- 生态地图(冒险模式生态地图设计稿 §6, 票据 T1): 雪原/沙漠/沼泽 ---------- */
+  /* 雪块: 低噪雪白底 + 阴影微点 + 对角双像素亮闪(锚定 faceColor 雪白) */
+  PAINTERS[T_SNOW] = (px, rng)=>{
+    noiseFill(px, rng, [237, 242, 250], 0.02);
+    for (let i=0; i<9; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [214, 222, 234]);
+    for (let i=0; i<4; i++) { // 亮闪: 主闪点 + 斜下残影
+      const x = 1 + Math.floor(rng() * 14); const y = 1 + Math.floor(rng() * 14);
+      setP(px, x, y, [255, 255, 255]);
+      setP(px, x + 1, y + 1, [248, 250, 252]);
+    }
+  };
+  /* 雪覆草侧: 泥土壁(草地侧同底) + 顶 4 行雪被 + 雪沿下垂的牙齿 */
+  PAINTERS[T_SNOWY_SIDE] = (px, rng)=>{
+    noiseFill(px, rng, [140, 102, 69], 0.09);
+    for (let x=0; x<TILE; x++) {
+      for (let y=0; y<4; y++) {
+        const v = 1 + (rng() * 2 - 1) * 0.04;
+        setP(px, x, y, [237 * v, 242 * v, 250 * v]);
+      }
+      if (rng() < 0.5) setP(px, x, 4, [220, 228, 238]);
+    }
+  };
+  /* 仙人掌: 仙人掌绿底 + 亮竖棱/棱间暗缝相间 + 棱尖刺点 + 上下缘暗收 */
+  PAINTERS[T_CACTUS] = (px, rng)=>{
+    noiseFill(px, rng, [74, 135, 56], 0.05); // 锚定 faceColor 仙人掌绿
+    for (const x of [2, 6, 10, 14]) { // 亮棱柱
+      for (let y=1; y<15; y++) {
+        const v = 1 + (rng() * 2 - 1) * 0.05;
+        setP(px, x, y, [104 * v, 168 * v, 72 * v]);
+      }
+    }
+    for (const x of [4, 8, 12]) for (let y=0; y<16; y++) setP(px, x, y, [46, 92, 30]); // 棱间暗缝
+    for (let i=0; i<8; i++) { // 棱尖刺点(米白)
+      const x = [2, 6, 10, 14][Math.floor(rng() * 4)]; const y = 2 + Math.floor(rng() * 12);
+      setP(px, x + (rng() < 0.5 ? -1 : 1), y, [228, 230, 210]);
+    }
+    for (let x=0; x<16; x++) { // 上下缘暗收
+      setP(px, x, 0, [46, 92, 30]); setP(px, x, 15, [46, 92, 30]);
+    }
+  };
+  /* 砂岩: 沉积层带 — 四带基调微差 + 层间缝横线(MC 砂岩分层观感) */
+  PAINTERS[T_SANDSTONE] = (px, rng)=>{
+    const bands = [[224, 206, 152], [214, 195, 139], [220, 201, 146], [208, 188, 132]];
+    for (let b=0; b<4; b++) {
+      for (let y=b*4; y<b*4+4; y++) {
+        for (let x=0; x<16; x++) {
+          const v = 1 + (rng() * 2 - 1) * 0.04;
+          setP(px, x, y, [bands[b][0] * v, bands[b][1] * v, bands[b][2] * v]);
+        }
+      }
+      for (let x=0; x<16; x++) setP(px, x, b*4+3, [182, 162, 112]); // 层间缝
+    }
+  };
+  /* 枯灌木: 透明底 + 褐色枯枝(主茎 + 双上叉 + 横叉, 色深浅随 rng 抖动) */
+  PAINTERS[T_DEAD_BUSH] = (px, rng)=>{
+    const twig = ()=> rng() < 0.35 ? [96, 66, 30] : [128, 90, 46];
+    for (let y=8; y<16; y++) setP(px, 8, y, twig()); // 主茎
+    for (let i=1; i<=5; i++) setP(px, 8 - i, 8 - i, twig()); // 左上分叉
+    for (let i=1; i<=4; i++) setP(px, 8 + i, 9 - i, twig()); // 右上分叉
+    for (const p of [[9, 11], [10, 11], [11, 10]]) setP(px, p[0], p[1], twig()); // 右横小叉
+    for (const p of [[6, 4], [4, 2], [12, 5]]) setP(px, p[0], p[1], twig()); // 梢头延长
+  };
+  PAINTERS[T_ORCHID] = (px, rng)=>flowerBase(px, rng, [74, 168, 216], [142, 207, 240], [43, 111, 150]); // 兰花: 蓝瓣深心
+  PAINTERS[T_FLOWER_Y] = (px, rng)=>flowerBase(px, rng, [240, 207, 48], [248, 232, 120], [216, 160, 32]); // 蒲公英: 黄瓣
+  PAINTERS[T_FLOWER_W] = (px, rng)=>flowerBase(px, rng, [244, 244, 240], [255, 255, 255], [232, 200, 50]); // 雏菊: 白瓣黄心
 
   /* ---------- 布局: 方块 id → 格号(MeshCore opts.atlas 载荷) ----------
      number = 全格同图; {top,side,bottom} = 分面。底面共享泥土/木板格是
@@ -354,6 +436,13 @@ const TextureAtlas = (() => {
       [B_TORCH]: T_TORCH, [B_CLAY]: T_CLAY, [B_SAPLING]: T_SAPLING,
       [B_CHEST]: {top: T_CHEST_TOP, side: T_CHEST_SIDE, bottom: T_PLANKS},
       [B_WOOL]: T_WOOL, /* F4 羊毛(52) */
+      /* 生态地图新方块 54~62(冒险模式设计稿 §6): 雪覆草顶复用雪块格/底共享泥土格
+         (面朝下几乎不可见, 省格即少一处 mipmap 串色面); B_ICE 不入集(glass 纯色透渲) */
+      [B_SNOW]: T_SNOW,
+      [B_SNOWY_GRASS]: {top: T_SNOW, side: T_SNOWY_SIDE, bottom: T_DIRT},
+      [B_CACTUS]: T_CACTUS, [B_SANDSTONE]: T_SANDSTONE,
+      [B_DEAD_BUSH]: T_DEAD_BUSH,
+      [B_ORCHID]: T_ORCHID, [B_FLOWER_Y]: T_FLOWER_Y, [B_FLOWER_W]: T_FLOWER_W,
     },
   };
 
