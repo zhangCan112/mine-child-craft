@@ -56,8 +56,9 @@ scene.add(sun);
 /* ---------- 昼夜场景驱动(设计稿 mc-daylight-torch §2.2/§2.3, 消费 daylight-core) ----------
    时间本体 dayTime 与开关 dayCycleOn 是引擎级顶层绑定(跨文件可写 → let,
    conventions §2.1 先例): main.js 主循环推进与调用, modes/adventure.js
-   从存档换装/复位。nether 的 applySky 是另一套静态换天(不置位 dayCycleOn,
-   两边互不干扰 — applyDaylight 只在 dayCycleOn 时被主循环调用)。 */
+   从存档换装/复位。探险下界相位的 advApplySky(modes/adventure.js)是另一套
+   静态换天(不置位 dayCycleOn, 两边互不干扰 — applyDaylight 只在 dayCycleOn
+   时被主循环调用; 曾是独立 nether 模式的 applySky, 随下界并入迁壳)。 */
 let dayTime = 0;
 let dayCycleOn = false;
 let daylightKey = null; /* 上次已写入的颜色比较键(dayTime 量化 50 tick); null=首帧必写 */

@@ -32,10 +32,15 @@
      edits 账本的记账编排, 编辑动作经 sink 注入——存档红线件) · advGrowMark
      (树苗长成足迹记账, y..y+7/±2 界限——重进幂等关键) · advExplodeCells
      (TNT 半径遍历编排)/advTntWave(波及怪物清单, 线性衰减) ·
-     ADV_HERD_AMBLE_WALK_P/advAmbleStep(闲逛吃草节拍, 随机注入)
+     ADV_HERD_AMBLE_WALK_P/advAmbleStep(闲逛吃草节拍, 随机注入) ·
+     下界段(nether 模式退役迁入, docs/nether-merge-design.md §3.2):
+     ADV_PORTAL/ADV_NETHER 常量 · advNetherBuild(平地下界岩+3×3 成片
+     熔岩池, hashRand 种子化) · advPortalFrame(整座门, set 注入) ·
+     advInPortal(内口判定, read 注入) · advPortalSiteOk(放置校验,
+     read 注入) · advPortalExit(传送出口, 来向退 2.5 格+yaw 反向)
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界
      尺寸 · daylight-core 的 Daylight(昼夜 D5 夜怪判定与 D6 睡觉夜窗) ·
-     voxel.js 的 getBlock/setBlockRaw · scene-kit.js 的
+     voxel.js 的 getBlock/setBlockRaw/hashRand · scene-kit.js 的
      SceneKit · items-core 的 ITEMS/toolOf/stackMax/durOf · inventory-core
      的 add · craft-core 的 fuelUnits/smeltOf/SMELT_T · drops.js 的 rollDrops/
      rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件)
@@ -1048,6 +1053,106 @@ function advLanternStep(s, dt, heldId, dur, skyDim) {
   return {t: nt - ADV_LANTERN.DRAIN_S, glow: true, drain: true}; /* 余时结转下一秒 */
 }
 
+/* ============================================================
+   下界段 (docs/nether-merge-design.md §3.2) — nether 模式退役迁入
+   ------------------------------------------------------------
+   下界 = 探险模式内部 phase(设计稿 D1): 与上界同规则、暂无资源无怪物、
+   改动记账落盘的远征地图, 唯一危险 = 岩浆(D2)。此处只收纯政策与地形核
+   (D15): 建场直用全局 setBlockRaw/hashRand(advBuildWorld 同款惯例),
+   判定/校验经注入 seam(2026-10 政策下沉包口径); 波次/AI/武器段不迁,
+   随模式退役。切界装配(换桶/天空/冷却/话术)在壳 modes/adventure.js。
+   ============================================================ */
+const ADV_PORTAL = {w: 6, h: 7, cd: 0.8};
+/*   门框宽×高(内口 4×5) + 传送冷却秒(落地时空眩晕, 两界门都不触发) */
+const ADV_NETHER = {ground: 20, portal: {px: 24, pz: 24}, base: {x: 25.5, z: 30.5}};
+/*   下界平地顶层 y(脚踩 21; 下界地面是平的) / 回程门框位置(门基 by 用
+     ground 派生) / 下界落点(离门数格, 在无熔岩的出生区内) */
+
+/* 下界建场: 平整下界岩地面 + 3×3 成片熔岩池 —— 迁自 nether 模式
+   buildNetherWorld。确定性重放红线: SceneKit.rand 种子化, 零 Math.random;
+   出生区(x,z<44, 回程门与落点所在)不铺熔岩。2026-10-27 修活: 原版
+   hashRand(...) > 0.93 恒假(hashRand 输出域截断 [0,0.5), scene-kit 头注释
+   登记的特性, 散布应走 SceneKit.rand)——退役前的下界从未长出过熔岩,
+   与「平地上的可见障碍」原意/共识「唯一危险=岩浆」相悖, 本次随合并修正 */
+function advNetherBuild() {
+  for (let x = 0; x < WORLD_W; x++) {
+    for (let z = 0; z < WORLD_D; z++) {
+      for (let y = 0; y <= ADV_NETHER.ground; y++) setBlockRaw(x, y, z, B_NETHERRACK); /* 平整地面 */
+      if (x < 44 && z < 44) continue; /* 出生区/回程门: 不铺熔岩 */
+      if (SceneKit.rand(Math.floor(x / 3), Math.floor(z / 3), 7) > 0.93) {
+        setBlockRaw(x, ADV_NETHER.ground, z, B_LAVA);
+      } /* 3×3 成片的熔岩池(同 3×3 索引喂 rand, 格内同池成片) */
+    }
+  }
+}
+
+/* 整座下界传送门: 黑曜石框 + 紫色内口门面 + 塔楼 + 门楣 + 发光岩 + 前后
+   步道 —— 逐字迁自 nether 模式 buildPortalFrame(行为逐字等价)。
+   set(x,y,z,id) 注入缝: 场景基座传 setBlockRaw, 玩家放置传「setBlockRaw+
+   逐格记账」sink(结构以 edits 形态存在, 重放即重建——与 journal 互锁
+   红线同构) */
+function advPortalFrame(set, by, px, pz) {
+  const W = ADV_PORTAL.w; const H = ADV_PORTAL.h;
+  for (let x = px; x <= px + W - 1; x++) set(x, by, pz, B_OBSIDIAN); /* 底边 */
+  for (let x = px; x <= px + W - 1; x++) set(x, by + H - 1, pz, B_OBSIDIAN); /* 顶边 */
+  for (let y = by + 1; y <= by + H - 2; y++) {
+    set(px, y, pz, B_OBSIDIAN); /* 侧柱 */
+    set(px + W - 1, y, pz, B_OBSIDIAN);
+    for (let x = px + 1; x <= px + W - 2; x++) set(x, y, pz, B_PORTAL); /* 内口 = 紫色门面 */
+  }
+  for (const gx of [px, px + W - 1]) {/* 开口四角发光岩 */
+    for (const gy of [by + 1, by + H - 2]) set(gx, gy, pz, B_GLOWSTONE);
+  }
+  for (const tx of [px - 1, px + W]) {/* 两侧塔楼 + 发光岩压顶 */
+    for (let y = by; y <= by + H; y++) set(tx, y, pz, B_OBSIDIAN);
+    set(tx, by + H + 1, pz, B_GLOWSTONE);
+  }
+  for (let x = px; x <= px + W - 1; x++) set(x, by + H, pz, B_OBSIDIAN); /* 门楣: 逐层收窄 */
+  for (let x = px + 1; x <= px + W - 2; x++) set(x, by + H + 1, pz, B_OBSIDIAN);
+  for (let x = px + 2; x <= px + W - 3; x++) set(x, by + H + 2, pz, B_GLOWSTONE); /* 顶心发光岩 */
+  for (const dz of [-1, 1]) {/* 前后步道(与地表齐平) */
+    for (let x = px - 1; x <= px + W; x++) set(x, by, pz + dz, B_NETHER_BRICK);
+  }
+}
+
+/* 传送门内口判定(O(1), 免门位注册表): 玩家浮点坐标 → 脚格(floor x,
+   floor y, floor z)与头格(+1)任一为 B_PORTAL 即在门内——玩家放置的门
+   与下界回程门同一条判据; read 为方块读 seam(壳传 getBlock) */
+function advInPortal(read, x, y, z) {
+  const fx = Math.floor(x); const fy = Math.floor(y); const fz = Math.floor(z);
+  return read(fx, fy, fz) === B_PORTAL || read(fx, fy + 1, fz) === B_PORTAL;
+}
+
+/* 传送门放置校验: 结构包围盒(x: px-1..px+ADV_PORTAL.w, y: by..by+
+   ADV_PORTAL.h+2, z: pz-1..pz+1——塔楼/门楣/步道外沿全含)内全部格为
+   空气, 且玩家(浮点 {x,y,z}, 按脚格判)不入盒(放置瞬间不被结构罩住)。
+   返回 {ok:true} | {ok:false, reason:'blocked'|'inside'} */
+function advPortalSiteOk(read, p, by, px, pz) {
+  const x1 = px - 1; const x2 = px + ADV_PORTAL.w;
+  const y1 = by; const y2 = by + ADV_PORTAL.h + 2;
+  const z1 = pz - 1; const z2 = pz + 1;
+  for (let x = x1; x <= x2; x++) {
+    for (let y = y1; y <= y2; y++) {
+      for (let z = z1; z <= z2; z++) {
+        if (read(x, y, z) !== 0) return {ok: false, reason: 'blocked'};
+      }
+    }
+  }
+  const inside = Math.floor(p.x) >= x1 && Math.floor(p.x) <= x2 &&
+      Math.floor(p.y) >= y1 && Math.floor(p.y) <= y2 &&
+      Math.floor(p.z) >= z1 && Math.floor(p.z) <= z2;
+  if (inside) return {ok: false, reason: 'inside'};
+  return {ok: true};
+}
+
+/* 传送出口: 沿玩家来向退 2.5 格、yaw 反向(落地推前进=离开门)——yaw 约定
+   forward=(sin yaw, cos yaw), 与 Mobs.steer 的 atan2(dx,dz) 同源, 单测
+   钉死数值; y 原样(来向地面已知安全)。回上界出生点用进门时刻记录的
+   本函数结果(设计稿 §3.3) */
+function advPortalExit(x, y, z, yaw) {
+  return {x: x - Math.sin(yaw) * 2.5, y, z: z - Math.cos(yaw) * 2.5, yaw: yaw + Math.PI};
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
@@ -1074,5 +1179,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advSleepCheck, advSleepStep, advBedSpot,
     ADV_LANTERN, advLanternStep,
     ADV_TNT_TAP_T, advTntTapStep, advCascadeLedger, advGrowMark,
-    advExplodeCells, advTntWave, ADV_HERD_AMBLE_WALK_P, advAmbleStep};
+    advExplodeCells, advTntWave, ADV_HERD_AMBLE_WALK_P, advAmbleStep,
+    ADV_PORTAL, ADV_NETHER, advNetherBuild, advPortalFrame,
+    advInPortal, advPortalSiteOk, advPortalExit};
 }

@@ -536,26 +536,6 @@ const HAMMER_ART = [
   '................',
 ];
 
-/* ---------- 传送门涡(下界卡/出发 — 紫涡白芯) ---------- */
-const PORTAL_ART = [
-  '................',
-  '................',
-  '......pppp......',
-  '....ppPPPPpp....',
-  '...pPPPPPPPPp...',
-  '..pPPPmmmmPPPp..',
-  '..pPPmmWWmmPPp..',
-  '.pPPPmmWWmmPPPp.',
-  '.pPPPPmmmmPPPPp.',
-  '..pPPPPPPPPPPp..',
-  '...pPPPPPPPPp...',
-  '....ppPPPPpp....',
-  '......pppp......',
-  '................',
-  '................',
-  '................',
-];
-
 /* ---------- 松树(探险模式卡 — 三层塔冠) ---------- */
 const TREE_ART = [
   '................',
@@ -703,7 +683,6 @@ const BTN_PIX = {
   /* 模式卡 */
   brain: {art: BRAIN_ART, map: {K: '#14161a', P: '#f08a9b', l: '#ffb8c4', p: '#c05a6e'}},
   hammer: {art: HAMMER_ART, map: {K: '#14161a', I: '#b0b7c0', l: '#d8dde4', i: '#8a9198', h: '#a0703c', w: '#7a5228'}},
-  portal: {art: PORTAL_ART, map: {p: '#5a1f8f', P: '#8a3fd4', m: '#6a2ba8', W: '#e8d5ff'}},
   tree: {art: TREE_ART, map: {g: '#3f8f3f', G: '#5abf5a', t: '#7d5730'}},
   basement: {art: BASEMENT_ART, map: {S: '#8a8f98', L: '#c8cdd4', K: '#14161a'}},
   steps: {art: STEPS_ART, map: {K: '#14161a', G: '#5abf5a', g: '#3f8f3f'}}, /* 数学冒险岛卡(草方块阶梯, 与 tree 同绿系) */
@@ -716,7 +695,6 @@ BTN_PIX.swords.map = ITEM_PIX.sword_iron.map;
 /* 委托表: 复用既有图标库, 单一像素来源不二画(未加载的库返 '' 静默) */
 const BTN_DELEGATE = {
   pick: () => itemIcon('pick_iron'), /* 主动作键(挖/打): 铁镐 */
-  sword: () => itemIcon('sword_iron'), /* 下界攻击键: 铁剑 */
   shovel: () => itemIcon('shovel_iron'), /* 智能主动作·铲子态: 建造/竞技场挖掘入口 */
   apple: () => itemIcon('apple'), /* 配方书·食物页签 */
   brick: () => itemIcon('brick'), /* 配方书·方块页签 */
@@ -762,7 +740,7 @@ function btnImg(name, cls) {
    元素(滑杆行的 input 监听在 audio-vol-ui.js 早已挂上, 只做"文本节点
    前插图 + 去 emoji"的手术, 不动子元素)。 */
 const BTN_CARD_ICON = {arena: 'swords', focus: 'brain', math: 'steps', build: 'hammer',
-  tank: 'tank', nether: 'portal', adventure: 'tree', showroom: 'flask'};
+  tank: 'tank', adventure: 'tree', showroom: 'flask'};
 
 /* 首个文本节点的 emoji 前缀 → 像素图(保留中文文案; 无 emoji 则原样) */
 function btnSwapLeadEmoji(el, key) {
@@ -817,13 +795,13 @@ function btnSwapTrailPlay(el) {
   /* 按钮 emoji 前缀 → 像素图标(文案保留) */
   [['#volBtn', 'note'],
     ['#arenaBackBtn', 'left'], ['#buildBackBtn', 'left'], ['#tankBackBtn', 'left'],
-    ['#netherBackBtn', 'left'], ['#adventureBackBtn', 'left'],
-    ['#tankGoBtn', 'rocket'], ['#netherEnterBtn', 'portal'], ['#adventureEnterBtn', 'tree'],
+    ['#adventureBackBtn', 'left'],
+    ['#tankGoBtn', 'rocket'], ['#adventureEnterBtn', 'tree'],
     ['#playTimeHomeBtn', 'house'], ['#pkGo', 'rocket'], ['#pkClose', 'close'],
     ['.pk-title', 'creeper'],
     ['#volMusicRow', 'note'], ['#volSfxRow', 'bell'],
     ['#tankPickTitle', 'tank'], ['#mobPickTitle', 'creeper'],
   ].forEach(([sel, key]) => btnSwapLeadEmoji(q(sel), key));
   /* 尾缀 ▶ → 像素三角 */
-  ['#buildEnterBtn', '#netherEnterBtn', '#adventureEnterBtn'].forEach((sel) => btnSwapTrailPlay(q(sel)));
+  ['#buildEnterBtn', '#adventureEnterBtn'].forEach((sel) => btnSwapTrailPlay(q(sel)));
 })();

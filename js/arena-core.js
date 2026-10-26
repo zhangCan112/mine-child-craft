@@ -58,8 +58,8 @@ const ArenaCore = (() => {
   const HOTBAR = ['shovel', 3, 4, 13, 5, 6, 17, 16, 15, 18];
 
   /* ---------- 竞技场配平战力(本模式唯一消费者, 归位自 config.js 的 MOB_TYPES.power — 表今居 mob-registry.js) ----------
-     综合命中/射程/技能的配平系数, 只喂给编队数量匹配; 其他模式(坦克演习场/
-     下界冒险)不感知战力。菜单页的战力示例文案由本表派生(fillPowerNote)。 */
+     综合命中/射程/技能的配平系数, 只喂给编队数量匹配; 其他模式(坦克演习场
+     等——下界冒险已随模式退役)不感知战力。菜单页的战力示例文案由本表派生(fillPowerNote)。 */
   const ARENA_POWER = {
     zombie: 170, skeleton: 165, creeper: 195, golem: 1000, dragon: 2000, spider: 110,
     cave_spider: 85, silverfish: 40, endermite: 55, slime: 130, enderman: 480, witch: 300,

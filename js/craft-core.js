@@ -2,7 +2,7 @@
 /* ============================================================
    合成核心 (CraftCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
-   合成系统的唯一数据源: RECIPES 全表(随身 9 + 工作台级 24, 九宫格
+   合成系统的唯一数据源: RECIPES 全表(随身 9 + 工作台级 25, 九宫格
    改造 crafting-grid 设计稿 §3; 站点 'hand'=2×2 随身摆放格随时可摆 /
    'table'=3×3 摆放台需走近工作台 4 格, 拍板①④) · SMELTS 烧炼
    映射 · FUEL 燃料择优序(从 ITEMS fuel 字段按热值降序派生)。
@@ -16,7 +16,8 @@
    迁入——步进政策与烧炼表同一权威) · furnaceRefund 退炉政策(同批迁入) ·
    breakTime 破坏时间(MC JE 正交口径: 品类对即吃速度乘数, canHarvest
    管 ×1.5/×5 与掉落; 封顶 8s 下限 0.15s, tier 不足可挖慢速但不掉落
-   — 挖掘硬度修正 D1)。
+   — 挖掘硬度修正 D1; 无 hard = 声明式不可破坏(含 TNT 免疫判据,
+   下界并入探险 D5): time Infinity + drops false)。
    背包操作全部经背包核心接口(count/take/add, 扣料与任选判定的语义
    单一权威归 inventory-core, 本文件不做第二份实现); 旧 cost 计费
    自动合成 craft() 已随九宫格改造退役(gridCraft 接棒)。
@@ -33,8 +34,8 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 33 条(crafting-grid 设计稿 §3, 图案全部逐条
-   查证自 minecraft.wiki, 见 docs/mc-crafting-grid-research.md §3)
+   RECIPES 配方表 — 34 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条,
+   图案全部逐条查证自 minecraft.wiki, 见 docs/mc-crafting-grid-research.md §3)
    条目形状: id 配方卡键 · out {item, n} 产物 · station 'hand'|'table'
    · shape 图案(crafting-grid §3):
        {rows: [[格子规约|null, ...], ...]}  有序(行列=图案最小包围盒,
@@ -130,6 +131,9 @@ const RECIPES = [
   // 面包: 3 小麦一横排(当前版本仍是有序, Wiki 平移例); 原料二期(农田链), 一期不点亮
   {id: 'bread', out: {item: 'bread', n: 1}, station: 'table',
     shape: {rows: [['wheat', 'wheat', 'wheat']]}},
+  // 下界传送门(下界并入探险 D3): 8 金锭环形+中心钻石, 全表最贵合成压轴; 放下长出整座门(结构放置, 探险壳拦截)
+  {id: 'nether_portal', out: {item: 'nether_portal', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', 'diamond', 'gold_ingot'], ['gold_ingot', 'gold_ingot', 'gold_ingot']]}},
 ];
 
 /* ------------------------------------------------------------
@@ -433,10 +437,15 @@ function fillGrid(inv, recipe, cells) {
    t = hard × (canHarvest ? 1.5 : 5) / 速度乘数
    封顶 8s(儿童去绝望感) · 下限 0.15s · tier 不足 → 可挖慢速但 drops:false
    (掉落不触发, 模式层负责提示与图标闪烁)。
+   无 hard(null/undefined)= 声明式不可破坏(含 TNT 免疫判据, 下界并入探险
+   D5): 直接返回 {time: Infinity, drops: false}, 与工具无关; 消费侧语义
+   !isFinite(bt.time) = 不可破坏(替代旧 NaN 意外——NaN 比较恒假只是碰巧
+   挖不动, Infinity 是白纸黑字的声明)。
    blockDef 形状对齐 config.js BLOCKS(hard/tool/tier/drop);
    toolStack 为槽形状 {id,n,dur} 或 null=徒手; 手持非工具物品视为徒手。
    ------------------------------------------------------------ */
 function breakTime(blockDef, toolStack) {
+  if (blockDef.hard == null) return {time: Infinity, drops: false}; // 无 hard = 声明式不可破坏(含 TNT 免疫判据)
   const tool = toolStack ? toolOf(toolStack.id) : null; // 非工具物品 → null → 徒手口径
   const kindMatch = !!(tool && blockDef.tool && tool.kind === blockDef.tool); // 品类匹配, 等级不看
   const speedMult = kindMatch ? tool.speed : 1; // 品类对 → 速度生效(JE: 等级不够也生效)

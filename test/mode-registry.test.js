@@ -69,7 +69,7 @@ test('模式注册表: main.js 的 MODES 影子清单与表零漂移(漏行=点�
 });
 
 test('模式注册表: 儿童时限成员 = gated 模式(专注训练营独立预算不入列)', () => {
-  assert.deepStrictEqual(ModeRegistry.playModeIds(), ['arena', 'build', 'tank', 'nether', 'adventure']);
+  assert.deepStrictEqual(ModeRegistry.playModeIds(), ['arena', 'build', 'tank', 'adventure']);
   assert.ok(!ModeRegistry.playModeIds().includes('focus'));
 });
 
@@ -107,9 +107,9 @@ test('模式注册表: dev 行三层派生产物一致 — 卡在场带 dev 类 
 
 test('模式注册表: 限额文案的模式名由表派生(漏一个模式不再是手滑)', () => {
   const names = ModeRegistry.playModeNames();
-  assert.deepStrictEqual(names, ['竞技场', '建造', '坦克演习场', '下界冒险', '探险模式']);
+  assert.deepStrictEqual(names, ['竞技场', '建造', '坦克演习场', '探险模式']);
   assert.ok(!ModeRegistry.playModeNames('build').includes('建造'), '建造页文案排除自身');
-  assert.strictEqual(ModeRegistry.playModeNames('build').length, 4);
+  assert.strictEqual(ModeRegistry.playModeNames('build').length, 3);
 });
 
 test('模式注册表: mood 字段值 ∈ 合法情绪集且每行必声明(BGM 接线数据源, 模式情绪唯一权威在此)', () => {

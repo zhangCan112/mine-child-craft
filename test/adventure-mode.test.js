@@ -1,7 +1,8 @@
 'use strict';
 /* 探险模式 (js/modes/adventure.js) 单测 — node --test (零依赖)
    运行: node --test test/adventure-mode.test.js
-   形态镜像 test/nether-mode.test.js: 引擎全局以 fake 注入(replace-don't-layer),
+   形态镜像 test/nether-mode.test.js(该文件已随下界模式退役删除; 此处存录其
+   测试形态出处): 引擎全局以 fake 注入(replace-don't-layer),
    但体素底座(config/voxel/scene-kit/items-core/inventory-core)用 vm 装真件——
    地形生成(矿带/密度/湖黏土/矿坑界内/重进复现)必须对着真散布函数断言,
    fake SceneKit 会把「确定性」断言变成同义反复。

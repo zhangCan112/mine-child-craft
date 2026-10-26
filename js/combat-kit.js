@@ -2,9 +2,10 @@
 /* ============================================================
    CombatKit(玩家战斗 kit, 术语见 GLOSSARY.md「玩家战斗 kit」)
    — 应用层·装配(mkHpBar 同款 THREE/DOM 惰性观感)
-   一句话职责: 下界/探险两模式(击杀观感另有坦克演习场消费)各自复制的
-   玩家战斗壳归一 —— 玩家战斗实体(MobCore 状态字段)、受击提醒(音+闪红+
-   震屏+3s 节流话术)、近战攻击(方向门槛/伤害源/耐久磨损经 cfg 注入,
+   一句话职责: 玩家战斗壳的归一 —— 曾为下界/探险(击杀观感另有坦克演习场
+   消费)三模式各自复制的实现, 下界并入探险后消费方 = 探险(唯一玩家战斗
+   消费者) + 坦克演习场(仅击杀观感)。玩家战斗实体(MobCore 状态字段)、
+   受击提醒(音+闪红+震屏+3s 节流话术)、近战攻击(方向门槛/伤害源/耐久磨损经 cfg 注入,
    下界「无目标也出手占冷却」经 swingOnMiss 保留)、箭矢管线(发射→
    leadAim→stepShot 步进→命中政策回调, mesh/寿命/geo 缓存自持)、
    击杀观感、死亡复位; 战斗节拍状态(冷却/受击节流/弹数组)自持, 模式
@@ -23,7 +24,7 @@
      drawArt(js/icons.js)·BTN_PIX(js/button-icons.js — mkHpBar 像素心)
    可测性: THREE/DOM 惰性(mkHpBar 先例); 判定与步进在 combat-core 纯核心
      (有单测); 本文件形状与契约由 test/combat-kit.test.js vm 桩直测,
-     行为面由 test/nether-mode/adventure-mode 既有断言兜底(interface 即测试面)
+     行为面由 test/adventure-mode 既有断言兜底(interface 即测试面, nether-mode 断言已随下界模式退役删除)
    ============================================================ */
 
 /* ---------- 玩家战斗实体(nether getPEnt / adventure advGetPEnt 同形归一) ----------
@@ -43,8 +44,8 @@ function mkFighter(policy) {
 }
 
 /* ---------- 受击提醒(非致命): 账本同步 + 受击音 + 闪红 + 轻震屏 + 3s 节流话术 ----------
-   setHp 回调同步模式自己的血量账本(下界 NETHER.player / 探险 ADV.player);
-   话术默认与两模式现行一致, 可经 line 覆盖 */
+   setHp 回调同步模式自己的血量账本(探险 ADV.player; 下界 NETHER.player
+   已随模式退役); 话术默认与探险现行一致, 可经 line 覆盖 */
 function mkHurtAlarm(cfg) {
   const o = cfg || {};
   const line = o.line || '哎呀被打中了！快躲开！';
@@ -135,8 +136,8 @@ function mkMelee(cfg) {
 
 /* ---------- 箭矢管线: 发射(leadAim/沿准星) → stepShot 步进 → 命中政策回调 ----------
    一实例一弹种: mesh('box' 箭|'sphere' 火球)·lookAt·targets 分开配 ——
-   下界=两实例(玩家箭 hitMobs / 怪火球 hitPlayer 不 lookAt), 探险=一实例
-   (骷髅箭 hitPlayer); spec 逐发给 {speed, dmg, kpow, g, life};
+   现行探险=一实例(骷髅箭 hitPlayer); 历史口径: 下界曾两实例(玩家箭
+   hitMobs / 怪火球 hitPlayer 不 lookAt, 已随模式退役); spec 逐发给 {speed, dmg, kpow, g, life};
    onHitMob(m,res)/onHitPlayer(res) 携 Mobs.hit 结果(含 freshDead),
    死亡/受击政策归模式; clear() 收全部在场弹(进场/清场纪律) */
 function mkArrows(cfg) {
@@ -239,8 +240,8 @@ function mkArrows(cfg) {
   return {shootFromMob, shootFromAim, update, clear, count: () => shots.length};
 }
 
-/* ---------- 击杀观感(下界/探险/坦克演习场三份同形): 碎块 + 计数 toast + 尾回调 ----------
-   尾回调挂模式政策(下界波次判定 / 探险任务记账 / 演习场清场表扬);
+/* ---------- 击杀观感(曾下界/探险/坦克演习场三份同形归一): 碎块 + 计数 toast + 尾回调 ----------
+   尾回调挂模式政策(探险任务记账 / 演习场清场表扬; 下界波次判定已随模式退役);
    verb 缺省「消灭」, 探险传「击杀」 */
 function killBurst(m, count, cfg) {
   const o = cfg || {};
@@ -256,10 +257,12 @@ function resetFighter(e) {
 }
 
 /* ---------- 头顶血条(mkHpBar, S2): canvas 贴图 Sprite 的深接口 ----------
-    探险/下界两模式的同形实现归一(自 mode-kit 迁入, C6-T3): 血量变化才重绘
+    曾为探险/下界两模式的同形实现归一(自 mode-kit 迁入, C6-T3; 下界并入后
+    探险是唯一消费方): 血量变化才重绘
     (逐帧纹理上传是移动端掉帧源); update 惰性建条(THREE/DOM/scene 缺任一即
     静默待命——Node 单测无渲染环境不参与行为断言), opts.visible() 可选回调
-    控制显隐(下界: 只在下界显示; 缺省恒显)。Sprite 挂 scene/位置随玩家都收
+    控制显隐(能力面保留——历史口径「下界只在下界显示」已随模式退役; 缺省
+    恒显)。Sprite 挂 scene/位置随玩家都收
     在 update 里, 调用方每帧只喂 {hp, maxHp, x, y, z}。128×16 贴图 →
     世界尺寸 1.5×0.19, 头顶 y+2.2 的口径由调用方给坐标。 */
 function mkHpBar(opts) {

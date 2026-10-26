@@ -214,7 +214,7 @@ function damageMob(m, dmg, kdx, kdz, kpow, src) {
 
 /* ---------- 弹道与 AoE 助手(箭/巨石/火球三套近似弹道与三套伤害环归一) ---------- */
 /* 预测弹道方向: 预测/提前量/重力补偿的数学在战斗核心(CombatCore.leadAim,
-   与下界火球共用), 这里只做 THREE 包装 */
+   竞技场箭矢与探险骷髅箭共用; 曾与下界火球共用, 已随模式退役), 这里只做 THREE 包装 */
 function aimDir(from, tg, v0, g, hFrac) {
   const d = CombatCore.leadAim({x: from.x, y: from.y, z: from.z},
       {x: tg.pos.x, y: tg.pos.y, z: tg.pos.z, vx: tg.vx||0, vz: tg.vz||0, h: tg.cfg.h}, v0, g, hFrac);
@@ -549,7 +549,7 @@ function collectFusing() {
 }
 
 /* 冷却/计时器递减(13 字段的递减半在 js/arena-core.js, 快照→意图落回) +
-   阶级光环呼吸(攻击节拍递减在战斗核心 CombatCore.tickCadence, 与下界共用) */
+   阶级光环呼吸(攻击节拍递减在战斗核心 CombatCore.tickCadence, 与探险共用) */
 function tickTimers(m, dt) {
   CombatCore.tickCadence(m, dt);
   Object.assign(m, ArenaCore.decayTimers(m, dt));
@@ -977,7 +977,7 @@ function updateMobs(dt) {
 
     /* 步态+战斗姿态归怪物库 gait(第 4 参=攻击姿态窗口 0.45s, 与下方专有公式的
        /0.45 同值): 通用挥臂(挥击手=持械手, 骨架表 weaponArm)/无臂头前扑已在
-       引擎收口 — 卫道士/女巫/掠夺者等持械怪与下界同一条挥击公式;
+       引擎收口 — 卫道士/女巫/掠夺者等持械怪与探险怪物同一条挥击公式;
        以下仅保留本模式专有公式(僵尸下劈/骷髅瞄准/龙·苦力怕头扑/傀儡双臂) */
     const sw = Mobs.gait(m, dt, speedNow, 0.45);
     const J = m.pose;

@@ -221,6 +221,9 @@ BLOCKS[B_LAVA] = {name: '岩浆', all: [1.00, 0.42, 0.08], lava: true, fluid: 'l
 
 /* 下界模式新方块 (id 30~35) — 下界荒原主题: 下界岩/黑曜石/下界砖/发光岩/传送门面
    (B_SOUL_SAND 死键已清偿, docs/mining-gap-analysis.md:89 先行记账) */
+/* 无 hard = 声明式不可破坏(craft-core breakTime 挖掘侧返 time Infinity + drops
+   false, 含 TNT 免疫判据): 本段方块均未登记 hard——门框/门面永不可破坏(下界
+   并入探险 D5), 下界岩系挖不动(D7 接受), 配套话术在模式层 */
 const B_NETHERRACK=30; const B_OBSIDIAN=31;
 const B_NETHER_BRICK=33; const B_GLOWSTONE=34; const B_PORTAL=35;
 BLOCKS[B_NETHERRACK]= {name: '下界岩', all: [0.52, 0.28, 0.16]};

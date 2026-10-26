@@ -25,8 +25,7 @@ const MODE_REGISTRY = [
   {id: 'math', name: '数学冒险岛', gated: false, page: false, mood: 'none'}, /* 训练营类同 focus: 独立预算/无菜单页; none=无 BGM(TTS 主导) */
   {id: 'build', name: '建造', gated: true, menu: true, mood: 'calm'},
   {id: 'tank', name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js', mood: 'battle'},
-  {id: 'nether', name: '下界冒险', gated: true, menu: true, enter: true, mood: 'dark'}, /* enter: 出发页有"进入"按钮(锁指针) */
-  {id: 'adventure', name: '探险模式', gated: true, enter: true, mood: 'dark'}, /* 物品与合成一期的第一个消费者(T11 骨架) */
+  {id: 'adventure', name: '探险模式', gated: true, enter: true, mood: 'dark'}, /* enter: 出发页有"进入"按钮(锁指针); 下界是它的内部阶段 */
   {id: 'showroom', name: '体验馆', gated: false, page: false, dev: true, mood: 'none'}, /* dev 调试场: 卡默认隐藏(?dev=1 解锁) */
 ];
 

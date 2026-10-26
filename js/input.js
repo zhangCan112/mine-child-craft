@@ -157,7 +157,7 @@ function clearHeldInput() {
   touchMove.x = touchMove.y = 0;
   touchSprint = false;
   holdActive = false;
-  const M = Input.route; /* 按住场无条件收(模式侧幂等): 探险连挖/建造连挖/下界连击 */
+  const M = Input.route; /* 按住场无条件收(模式侧幂等): 探险连挖/建造连挖 */
   if (M && M.cur && M.cur.onHold) M.cur.onHold(false);
 }
 addEventListener('blur', clearHeldInput);

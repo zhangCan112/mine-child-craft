@@ -6,7 +6,7 @@
    击杀回调) · mkArrows(发射→leadAim→stepShot 步进→命中政策回调,
    无 THREE 时无 mesh 纯数据跑) · killBurst(碎块+计数 toast+尾回调) ·
    resetFighter(复活五字段不变量); mkHpBar 断言随 C6-T3 迁件后入册。
-   行为面由 test/nether-mode/adventure-mode 既有断言兜底(interface 即
+   行为面由 test/adventure-mode 既有断言兜底(interface 即
    测试面, C6-T3 切换后零改动即安全网); 判定/步进在 combat-core(另有单测)。
    加载器: vm context 执行 combat-core.js + combat-kit.js, 战斗观感以
    记录桩注入(math-paradigms.test.js 同款分层口径) */

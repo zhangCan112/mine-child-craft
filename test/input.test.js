@@ -6,7 +6,7 @@
    只测输入账本的生命周期兜底: keydown 记账 / keyup 清账 /
    窗口失焦全清(Alt+Tab 丢 keyup 的卡走修复) / 切后台全清 /
    指针锁丢失同拍全清 / 失焦收按住场(onHold(false) 无条件路由,
-   探险连挖·建造连挖·下界连击的失焦自愈)。 */
+   探险连挖·建造连挖的失焦自愈)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');

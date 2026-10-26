@@ -96,11 +96,11 @@ test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派�
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 随身 9 + 工作台级 24 共 33 条, id 唯一(crafting-grid §3)', () => {
+test('配方全量: 随身 9 + 工作台级 25 共 34 条, id 唯一(crafting-grid §3 + 下界并入探险 D3)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 33, '全表 9+16+8 条(随身 4 正典例 + 4 条迁回 + 铁粒 + 工具 16 + 站点件 8), 实际 ' + RECIPES.length);
+  assert.strictEqual(RECIPES.length, 34, '全表 34 条(随身 9 + 工具 16 + 站点件 8 + 传送门 1), 实际 ' + RECIPES.length);
   // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒)
   for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
     'bone_meal', 'iron_nuggets']) {
@@ -704,4 +704,41 @@ test('交叉: config.js BLOCKS 实表驱动 — 石头 7.5 · 铁矿封顶 8 · 
   assert.strictEqual(breakTime(BLOCKS[18], mkStack('sword_diamond')).time, 0.45, '玻璃 tool:null: 任何工具 0.45s');
   assert.strictEqual(breakTime(BLOCKS[20], null).time, 0.15, 'TNT hard 0 可挖走回收(D3)');
   assert.strictEqual(breakTime(BLOCKS[20], null).drops, true, 'TNT 掉自身');
+});
+
+/* ============ 下界传送门(下界并入探险设计稿 §3.1/D3/D5): 配方压轴 + 声明式不可破坏 ============ */
+
+test('下界传送门配方: RECIPES 最末压轴 — station table · shapeCost 派生 8 金锭+1 钻石(D3)', () => {
+  const h = loadCraft();
+  const {RECIPES, shapeCost} = h;
+  const r = RECIPES[RECIPES.length - 1];
+  assert.strictEqual(r.id, 'nether_portal', '契约 §3.1: 追加在 RECIPES 最末(配方书压轴)');
+  assert.strictEqual(r.station, 'table');
+  assert.deepStrictEqual({...r.out}, {item: 'nether_portal', n: 1});
+  /* cost 展开回宿主 realm 再比(shapeCost 测试同款, 无候选组全为纯数值) */
+  const c = {};
+  for (const [k, v] of Object.entries(shapeCost(r))) c[k] = v;
+  assert.deepStrictEqual(c, {gold_ingot: 8, diamond: 1}, '全表最贵: 8 金锭环形 + 中心 1 钻石');
+});
+
+test('breakTime: 无 hard = 声明式不可破坏 — time Infinity · drops false(D5, 替代旧 NaN 意外)', () => {
+  const {breakTime, mkStack} = loadCraft();
+  /* 纯数据对齐 config.js BLOCKS[B_OBSIDIAN] 形状(name/all, 无 hard/tool/tier/drop);
+     craft-core 不依赖 config(模块头契约), 测试手写同形 */
+  const obsidian = {name: '黑曜石', all: [0.10, 0.08, 0.16]};
+  assert.deepStrictEqual({...breakTime(obsidian, null)}, {time: Infinity, drops: false}, '徒手: 挖不动且不掉');
+  assert.strictEqual(breakTime(obsidian, mkStack('pick_diamond')).time, Infinity, '钻镐同样挖不动(声明式, 与工具无关)');
+  assert.strictEqual(breakTime(obsidian, mkStack('pick_diamond')).drops, false);
+  assert.strictEqual(breakTime({name: '传送门面', portal: true}, null).time, Infinity, 'hard 字段缺失同判(== null)');
+  assert.strictEqual(breakTime({name: '显式空', hard: null}, null).drops, false, 'hard:null 显式声明同口径');
+});
+
+test('breakTime: 有 hard 的可挖方块行为不变(声明式改造零回归)', () => {
+  const {breakTime, mkStack} = loadCraft();
+  assert.strictEqual(breakTime(stone, null).time, 7.5, '石头徒手 7.5s(既有口径)');
+  assert.strictEqual(breakTime(stone, null).drops, false, 'tier 1 徒手不掉');
+  assert.strictEqual(breakTime(stone, mkStack('pick_wood')).time, 1.125, '木镐石头加速');
+  assert.strictEqual(breakTime(dirt, null).time, 0.9, '泥土徒手 0.9s');
+  assert.strictEqual(breakTime(tuft, null).time, 0.15, 'hard 0 触下限');
+  assert.strictEqual(breakTime(stone, mkStack('pick_diamond')).drops, true, '钻镐石头掉圆石');
 });

@@ -48,7 +48,7 @@ const CombatCore = (() => {
      注入的整数坐标方块查询(纯核心零全局依赖), 缺省不做撞块判定。
      返回 {vel, life, x, y, z, hitBlock, dead} — dead = 寿命尽或撞块
      (竞技场巨石要区分: 撞块触发 AoE, 寿命尽只移除); 调用方自决存储
-     载体(nether/adventure 存 from, 竞技场 mesh.position 即源)。
+     载体(CombatKit 箭矢管线存 from, 竞技场 mesh.position 即源)。
      竞技场/下界/探险三份手写步进并一于此(C6-T1)。 */
   function stepShot(s, dt, getBlock) {
     const g = s.g !== undefined ? s.g : 6;

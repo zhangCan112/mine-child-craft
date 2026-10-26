@@ -2,7 +2,8 @@
 /* 战斗核心 (js/combat-core.js) 单测 — node --test (零依赖)
    运行: node --test test/combat-core.test.js
    三个纯入口: 预测弹道 / 攻击节拍 / 身体命中判定
-   (竞技场箭矢与下界火球共用 — 抽取前下界是直线弹道, 对移动目标常打空)。 */
+   (竞技场箭矢与探险骷髅箭共用 — 历史口径: 与下界火球曾共用, 抽取前下界
+   是直线弹道, 对移动目标常打空)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const CombatCore = require('../js/combat-core.js');

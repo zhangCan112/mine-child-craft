@@ -84,7 +84,7 @@ test('hintForSlot: 三型槽 — item(含空槽判空) / block / icon 名字-onl
   assert.strictEqual(h.hintForSlot({item: 'nope'}), null, '未注册物品 → null');
   /* block 型: 建造/竞技场调色板槽 */
   assert.strictEqual(h.hintForSlot({block: 18}).name, '玻璃');
-  /* icon 型: 名字即说明(下界武器槽一类) — 逐字段断言(vm realm 对象不走 deepStrictEqual) */
+  /* icon 型: 名字即说明(存量槽型——消费先例为已退役的下界武器栏) — 逐字段断言(vm realm 对象不走 deepStrictEqual) */
   const sw = h.hintForSlot({icon: '🗡️', lbl: '剑'});
   assert.strictEqual(sw.name, '剑');
   assert.strictEqual(sw.desc, '');

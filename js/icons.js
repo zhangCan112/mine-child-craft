@@ -730,6 +730,24 @@ const TNT_ART = [ // TNT: 红柱 + 白标带 + 三个黑字块(16px 画不下字
   '................',
   '................',
 ];
+const PORTAL_ART = [ // 下界传送门(下界并入探险 D3): 黑曜石深色门框 + 紫色漩涡门面(同心涡环+亮心, 门框色对齐 B_OBSIDIAN, 门面紫对齐 B_PORTAL)
+  '................',
+  '..oooooooooooo..',
+  '..OlllllllsllO..',
+  '..OllllllllllO..',
+  '..OlmmmmmmmmlO..',
+  '..OlmddddddmlO..',
+  '..OlmdlllldmlO..',
+  '..OlmdlmmldmlO..',
+  '..OlmdlssldmlO..',
+  '..OlmdlssldmlO..',
+  '..OlmdlmmldmlO..',
+  '..OlmdlllldmlO..',
+  '..OlmddddddmlO..',
+  '..OlsmmmmmmmlO..',
+  '..OOOOOOOOOOOO..',
+  '................',
+];
 const BOW_ART = [ // 弓: 左弧木弓臂 + 右侧竖弦
   '................',
   '................',
@@ -932,6 +950,7 @@ const ITEM_PIX = {
   lantern: {art: LANTERN_ART, map: {h: '#4a5058', K: '#3d434c', k: '#23272e',
     W: '#fff3b0', F: '#ffd83d', f: '#ff9d2e'}}, // 昼夜 D7: 深色铁骨架 + 暖黄光芯(焰色与火把/太阳亮心同板)
   tnt: {art: TNT_ART, map: {r: '#d0342c', R: '#f05545', w: '#ececec', k: '#1a1a1a', d: '#a02018'}},
+  nether_portal: {art: PORTAL_ART, map: {o: '#2e2242', O: '#1b1426', l: '#8b3fd9', m: '#a86ef2', d: '#5c239c', s: '#e3c8ff'}}, // 下界并入探险 D3: 深色门框(B_OBSIDIAN 同调) + 紫色漩涡门面(B_PORTAL 同调)
   /* 二期占位 */
   bow_item: {art: BOW_ART, map: {W: PIX_HANDLE.light, w: PIX_HANDLE.dark, s: '#e0ded4'}},
   /* 农场链(F4, 二期设计稿 §4.6): 生熟肉同画异色板 · 皮革/羽毛/羊毛团 */

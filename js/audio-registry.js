@@ -66,7 +66,7 @@ const SFX_KINDS = {
     执行器另有 AudioBuffer.duration 解码预填兜底(audio.js), 此处静态值保首拍即准。 */
 const MUSIC_TRACKS = {
   'happy-adventure': {file: 'bgm-happy-adventure.m4a', mood: 'calm', g: 1, durMs: 46900}, // 00:00:46.90 轻快芯片冒险(主菜单/建造)
-  'trip-to-mars': {file: 'bgm-trip-to-mars.m4a', mood: 'dark', g: 1, durMs: 38400}, // 00:00:38.40 欢快火星之旅(下界/探险)
+  'trip-to-mars': {file: 'bgm-trip-to-mars.m4a', mood: 'dark', g: 1, durMs: 38400}, // 00:00:38.40 欢快火星之旅(探险; 曾供下界)
   'we-are-prophet': {file: 'bgm-we-are-prophet.m4a', mood: 'battle', g: 1, durMs: 34600}, // 00:00:34.60 欢快能量曲(竞技场/坦克)
 };
 

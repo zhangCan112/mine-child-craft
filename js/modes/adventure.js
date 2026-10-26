@@ -69,9 +69,18 @@
      机制缝(方块侧 uGlowPos/uGlowR 顶点衰减+实体侧 PointLight, D3 备好);
      退场 cleanup 兜底熄灭不渗其他模式; 快捷栏耐久条/手持薄片观感
      (mkPlateDef 缺省)全走现成管线
+    · 下界相位(docs/nether-merge-design.md): 下界传送门=全表最贵合成物
+      (8 金锭环形+中心 1 钻石, 台级) → 放置长出整座 6×7 门(advPlacePortal,
+      结构逐格记账=重放即重建) → 踏入紫色门面切下界(advSetDim: journal edits
+      两界分桶换装/暗红天穹恒夜/清场/回程门光束重锚); 下界与上界同规则,
+      改动记账落盘(D8) 唯一危险=岩浆; 死亡/回家在下界先切回上界(D11),
+      维度不进档(D9: 下界退出 pos 存 null), 炉态键界前缀 'n|'(D14),
+      上界专属子系统 update 内门禁(树苗/巢穴/夜怪/牧场/灯笼);
+      门框建场与判定纯核心在 adventure-core 下界段(ADV_PORTAL/ADV_NETHER/
+      advNetherBuild/advPortalFrame/advInPortal/advPortalSiteOk/advPortalExit)
    · 防沉迷: 与竞技场/建造/坦克/下界共享儿童时限(gated, 不新增账本)
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
-     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(20 键:
+     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(25 键:
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口;
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
@@ -113,13 +122,15 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
      livestock: F4 死畜索引账(只存已杀——初始清单可推导, 老档补空=无死畜);
      dayTime: 昼夜时刻(昼夜 D1, mc-daylight-torch §2.5——世界重进时间连续,
      老档缺省 0=清晨起, 首个夜晚必然可经历, 火把与床才有教学意义) */
-  defaults: {edits: [], pos: null, hp: null, furnaces: [], livestock: {dead: []}, dayTime: 0},
-  encode: (st) => ({edits: [...st.edits.entries()], pos: st.pos || null,
+  defaults: {edits: [], netherEdits: [], pos: null, hp: null, furnaces: [], livestock: {dead: []}, dayTime: 0},
+  encode: (st) => ({edits: [...st.edits.entries()], netherEdits: [...st.netherEdits.entries()],
+    pos: st.pos || null,
     hp: (typeof st.hp === 'number') ? st.hp : null,
     furnaces: advFurnaceClean(st.furnaces), /* 空炉条目清扫(存档防膨胀) */
     livestock: st.livestock || {dead: []},
     dayTime: (typeof st.dayTime === 'number') ? st.dayTime : 0}),
   decode: (sv) => ({edits: new Map(sv.edits || []), pos: sv.pos || null,
+    netherEdits: sv.netherEdits || [], /* 下界桶透传(数组/Map 皆可, 收养归一在 init——journal.load 只认 edits 键) */
     hp: (typeof sv.hp === 'number') ? sv.hp : null,
     furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1]))), /* 非法炉态整条拒收 */
     livestock: {dead: (sv.livestock && Array.isArray(sv.livestock.dead)) ? sv.livestock.dead : []}, /* 坏档兜底空账 */
@@ -134,13 +145,27 @@ const ADV_CHEST_KEY = 'adventure_chest_save';
 const advChestSlot = SyncDB.slot(ADV_CHEST_KEY, {defaults: {size: ADV_CHEST_START, slots: []}});
 let advChest = {size: ADV_CHEST_START, slots: []}; /* 账户本体(init 换装) */
 
+/* ---------- 下界相位·维度态与两界 edits 分桶(D8, docs/nether-merge-design.md §3.3) ----------
+     切界 = advJournal.edits 换装当前桶(build 模式 buildEdits[id] 同款缝):
+     journal 的 mark()/flush() 动态查 J.edits, 记账/重放/落盘全自动跟桶。
+     overworld 桶在 init 里换成 load 收养后的 Map, nether 桶从档 netherEdits
+     收养(旧档缺省空 Map); pos 在下界期间存 null(D9: 维度不进档, 重进回上界) */
+let advDim = 'overworld'; /* 当前维度(切界唯一入口 advSetDim) */
+let advPortalCd = 0; /* 传送冷却秒(ADV_PORTAL.cd): 落地空眩晕, 两界门都不触发 */
+let advExitSpot = null; /* 回上界落点(进门时刻 advPortalExit 的记录, 最后进入者优先 D6) */
+const advSceneEdits = {overworld: null, nether: new Map()}; /* 两界桶(init 装桶) */
+
 /* 世界改动日志(WorldJournal, js/world-journal-core.js): edits 账本/脏标/5s 节流/
    关页兜底/双通道重放五件事收编深模块(两模式互锁); 探险适配器只出档形政策——
-   payload 五键随读随装, 背包+任务档在主档之后联写; 全量落盘时机(节流/退出兜底/
-   死亡·回家·睡醒即时)由 journal 的 flush/tick/pageHide 统一驱动 */
+   payload 键随读随装(两界桶各归各键), 背包+任务档在主档之后联写; 全量落盘时机
+   (节流/退出兜底/死亡·回家·睡醒即时)由 journal 的 flush/tick/pageHide 统一驱动 */
 const advJournal = mkWorldJournal(advWorldSlot, {
-  payload: (edits) => ({edits, pos: {x: pos.x, y: pos.y, z: pos.z, yaw}, hp: ADV.player.hp,
-    furnaces: advFurnaces, livestock: advLivestock, dayTime}),
+  payload: (edits) => ({/* edits 参数 = J.edits(当前桶): 下界期间它是下界桶, 档的
+      edits 字段必须恒为上界桶——按 advDim 各归各键, 防串桶(D8) */
+    edits: advDim === 'nether' ? advSceneEdits.overworld : edits,
+    netherEdits: advDim === 'nether' ? edits : advSceneEdits.nether,
+    pos: advDim === 'nether' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw}, /* D9 */
+    hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestock, dayTime}),
   onFlush: () => {
     advBag.save(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
     advQuestSlot.save(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
@@ -158,7 +183,8 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
   advJournal.mark(k, id); /* 记账+置脏(世界改动日志); 站点缓存/挖炉退包是探险私事, 留在本函数 */
   if (id === B_CRAFT || id === B_FURNACE) advStations.set(k, {x, y, z, id});
   else advStations.delete(k); /* 挖除/覆盖皆注销(爆炸掀掉站点同样走此 seam) */
-  if (prev && prev.id === B_FURNACE && id !== B_FURNACE) advFurnace.drop(k); /* F1: 炉子消失(挖/TNT/覆盖) → 炉内三笔退包 */
+  /* F1: 炉子消失(挖/TNT/覆盖) → 炉内三笔退包; 炉态键带界前缀(D14) */
+  if (prev && prev.id === B_FURNACE && id !== B_FURNACE) advFurnace.drop(advFurnKey(x, y, z));
 }
 
 /* ---------- 全局唯一背包(Backpack 壳, ADR 0002) + 快捷栏镜像(9 item 型槽, D10) ----------
@@ -194,7 +220,8 @@ function advMainPlaceable() {/* 智能主动作的手持判定(纯 seam, 单测�
    放置型物品(ITEMS.block 字段, D4)才走放置; 空手/工具/武器/食物/材料全走
    挖/打(探险 onMouse(0) 已内建 TNT→站点→打怪→吃→蓄力 的次序, 无需改) */
   const s = advInv.slots[advHb.sel];
-  return !!(s && ITEMS[s.id] && ITEMS[s.id].block != null);
+  /* nether_portal 无 block 字段但也是放置型(整座门由 advTryPlace 拦截分支放置, §3.3) */
+  return !!(s && ITEMS[s.id] && (ITEMS[s.id].block != null || s.id === 'nether_portal'));
 }
 function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/其余=镐,
    2026-10-24 手持感知拍板); input.js 未加载(桌面/Node 单测)时静默
@@ -294,9 +321,10 @@ const advFurnace = FurnaceKit.mkFurnaceStation({
     advSyncHotbar(); /* collect/autofill/manual-put: 快捷栏镜像刷新 */
     if (reason === 'collect') sfx('pick'); /* 东西入包: 拾取音 */
   },
-  onRefundLeft: (posKey, left) => {/* 挖炉满包余量: 掉在炉位上方(零损失口径) */
-    const [dx, dy, dz] = posKey.split(',').map(Number);
-    for (const it of left) Drops.spawn(it.id, it.n, dx + 0.5, dy + 0.5, dz + 0.5);
+  onRefundLeft: (posKey, left) => {/* 挖炉满包余量: 掉在炉位上方(零损失口径); 炉键
+      带界前缀(D14), 坐标解析统一走 advFurnPos(剥 'n|' 再拆三段) */
+    const p = advFurnPos(posKey);
+    for (const it of left) Drops.spawn(it.id, it.n, p.x + 0.5, p.y + 0.5, p.z + 0.5);
   },
   onMade: (k, n, made) => {/* T15 烧成件数记账(炉内产出即算, 不等入包) + 完成播报(只对绑定炉, 节流) */
     advTally('smelt_' + n.out.id, made);
@@ -667,6 +695,11 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
 /* 死亡结算(T14 致命一击/坠出世界共用): 政策纯函数 advDeathPlan(core);
    只动玩家状态与位置, 背包一个不动 */
 function advPlayerDied() {
+  if (advDim === 'nether') {/* D11: 下界死亡顺带切回上界(小屋语义, 不用 advPortalExit);
+      advExitSpot 作废——人已死, 回程记录无意义 */
+    advExitSpot = null;
+    advSetDim('overworld', ADV.spawn);
+  }
   const e = advGetPEnt();
   const plan = advDeathPlan(e, ADV.spawn);
   CombatKit.resetFighter(e); /* 复活五字段不变量(阵亡去向政策在此) */
@@ -687,6 +720,7 @@ function advGoHome() {
     showToast('🏠 小屋还在休息, 稍等一下哦'); return;
   }
   ADV.homeCd = now;
+  if (advDim === 'nether') advSetDim('overworld', ADV.spawn); /* 下界回家: 先切回上界再落小屋(与死亡同语义, 不走门) */
   const e = advGetPEnt();
   e.hp = e.maxHp; ADV.player.hp = ADV.player.maxHp; /* 顺带回满血(回家=安全休整, nether 先例) */
   ModeKit.spawn(ADV.spawn.x, ADV.spawn.y, ADV.spawn.z, {yaw: ADV.spawn.yaw});
@@ -787,6 +821,210 @@ function advTrySleep(hit, lookId) {/* 点击床(§7.2, 挖掘左键与轻点/右
 }
 
 /* ============================================================
+   下界相位 (docs/nether-merge-design.md §3.3) — 切界/天空/光束/传送触发
+   ------------------------------------------------------------
+   nether 模式退役后, 下界 = 探险模式内部 phase(D1)。维度态与两界 edits
+   分桶在文件头 advSceneEdits 段; 门框建场/内口判定/放置校验/出口折算
+   纯核心在 adventure-core 下界段(ADV_PORTAL/ADV_NETHER 等)。本段只做
+   装配: 换桶→重装场景→换天→清场→出生→站点重扫→光束重锚一条链, 以及
+   update 内的传送触发节拍。
+   ============================================================ */
+
+/* ---------- 下界方块段 id 集中解析(精简装载守卫, mode-kit typeof 先例) ----------
+     旧 Node 装载序(test/adventure-mode.test.js 的 vm api)可能没铺下界常量——
+     typeof 取值缺省 0(方块 id ≥1, 永不命中=传送机制整体静默停用), 浏览器与
+     全量装载(test/adventure-nether.test.js)拿到真值 */
+const ADV_B = {
+  portal: (typeof B_PORTAL !== 'undefined') ? B_PORTAL : 0,
+  obsidian: (typeof B_OBSIDIAN !== 'undefined') ? B_OBSIDIAN : 0,
+  netherrack: (typeof B_NETHERRACK !== 'undefined') ? B_NETHERRACK : 0,
+  glowstone: (typeof B_GLOWSTONE !== 'undefined') ? B_GLOWSTONE : 0,
+  brick: (typeof B_NETHER_BRICK !== 'undefined') ? B_NETHER_BRICK : 0,
+};
+
+/* ---------- 天空(观感逐字迁自退役 nether.js, 改名对齐本文件 ADV_ 前缀) ----------
+     暗红天穹+近雾+压暗日光一眼是下界, 回上界恢复 world.js 初始天蓝; 纯渲染态,
+     Node/无渲染场景静默跳过; 日月天体显隐归 dayCycleOn(下界不置位即隐藏) */
+const ADV_SKY_NETHER = {color: 0x2a0a08, fogNear: 26, fogFar: 120, sunI: 0.3};
+const ADV_SKY_OVER = {color: 0x8fc7ff, fogNear: 90, fogFar: 230, sunI: 0.75};
+function advApplySky(k) {
+  if (typeof scene === 'undefined' || !scene.fog) return;
+  scene.background.set(k.color);
+  scene.fog.color.set(k.color);
+  scene.fog.near = k.fogNear;
+  scene.fog.far = k.fogFar;
+  if (typeof sun !== 'undefined') sun.intensity = k.sunI;
+}
+
+/* ---------- 传送门紫色光束(常驻动效): 特效唯一入口 Fx.portalBeam ----------
+     多门多束(advBeamHs 句柄清单); 锚定 = 下界回程门(固定坐标) + 当前桶 edits
+     里值===B_PORTAL 的格子(玩家门只以 edits 形态存在)——按 z 分组、同 z 相邻
+     x 连续段为一个内口(内口 4×5 全格是门面, min-x/min-y 各退 1 即门基)。
+     切界先全清再重锚; Node/fake Fx 无入口时句柄为 null 占位, remove 无害 */
+let advBeamHs = []; /* 当前界的光束句柄(Fx.portalBeam 返回值; null=无渲染环境) */
+function advBeamAdd(by, px, pz) {/* 单门一束(原版句式: 束心=门基宽中点/内口底/门面 z+0.5) */
+  advBeamHs.push(Fx.portalBeam ? Fx.portalBeam(px + ADV_PORTAL.w / 2, by + 1, pz + 0.5,
+      {w: ADV_PORTAL.w - 2, h: ADV_PORTAL.h - 2}) : null);
+}
+function advBeamsClear() {/* 全清(切界/cleanup): 悬空句柄再 remove 无害 */
+  for (const h of advBeamHs) if (h && Fx.removeBeam) Fx.removeBeam(h);
+  advBeamHs.length = 0;
+}
+function advBeamsRelayout() {/* 重锚当前界全部门: 下界回程门(基座, 不在 edits) + edits 扫描 */
+  if (advDim === 'nether') {
+    advBeamAdd(ADV_NETHER.ground, ADV_NETHER.portal.px, ADV_NETHER.portal.pz);
+  }
+  const cols = new Map(); /* z → 门面格清单 [{x,y}...] */
+  for (const [k, v] of advJournal.edits) {
+    if (v !== ADV_B.portal) continue;
+    const p = k.split(',');
+    const z = +p[2];
+    if (!cols.has(z)) cols.set(z, []);
+    cols.get(z).push({x: +p[0], y: +p[1]});
+  }
+  for (const [z, pts] of cols) {
+    const xs = [...new Set(pts.map((q) => q.x))].sort((a, b) => a - b); /* 同列 5 格去重 */
+    let start = 0;
+    for (let i = 1; i <= xs.length; i++) {/* 相邻 x 连续段 = 一个内口(两门紧贴时正确分束) */
+      if (i < xs.length && xs[i] === xs[i - 1] + 1) continue;
+      let minY = Infinity;
+      for (const q of pts) if (q.x >= xs[start] && q.x <= xs[i - 1] && q.y < minY) minY = q.y;
+      advBeamAdd(minY - 1, xs[start] - 1, z); /* 门基 = 内口 min-x/min-y 各退 1 */
+      start = i;
+    }
+  }
+}
+
+/* ---------- 上界怪播种/实体回调重挂(init 与切界共用) ----------
+     Mobs.clear/Drops.clear 会解除死亡/收集回调(与实例同生命周期)——切界清场
+     后必须重挂, 回挂在 init 与 advSetDim 是同一份(单一实现) */
+function advHookEntityCbs() {
+  Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8)。
+      F4 死畜记账并进同一回调: 掉落与落账同帧, 挂清单索引(初始清单可推导, 存档最小) */
+    if (m.__livestockIdx != null && advLivestock.dead.indexOf(m.__livestockIdx) < 0) {
+      advLivestock.dead.push(m.__livestockIdx);
+      advJournal.touch();
+    }
+    for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
+  });
+  Drops.onCollect((id, n) => {/* 收集并线(T12×T14): 入包/镜像/逐件 toast(T12) → 3s 合并播报窗(T14) */
+    if (!advOnCollect(id, n)) return false; /* 满包拒返 false → 1.2s 冷却重试(D6) */
+    advPickBuf.set(id, (advPickBuf.get(id) || 0) + n); /* 并入 3s 合并播报窗 */
+    advPickT = ADV_PICKUP_WINDOW;
+  });
+}
+function advSeedOverworldMobs() {/* 上界怪播种(内容逐字自 init): 三巢首刷 + 牲畜清单
+    按死畜账跳过已杀索引(不重生, MC 口径); 切回上界时重播(init 同款) */
+  for (let i = 0; i < ADV_NESTS.length; i++) advSpawnNest(i);
+  for (const e of advLivestockPlan()) {
+    if (advLivestock.dead.indexOf(e.idx) >= 0) continue;
+    const m = Mobs.spawn(e.type, e.x, e.z, {yaw: 0});
+    m.__livestockIdx = e.idx; /* 模式私有挂件(Mobs 许可) */
+  }
+}
+function advNightReset() {/* 夜怪账本对齐当下(昼夜 D5): 节拍器归零 + 入夜/黎明跨沿
+    账本取当下值(重进/回上界夜里不补播「天黑了」, 明侧不误触黎明清场) */
+  advNightT = 0;
+  advWasNight = Daylight.isNight(dayTime);
+  advDawnLit = advDawnSweep(dayTime);
+}
+
+/* ---------- 熔炉界键(D14): 下界 posKey 加 'n|' 前缀, 上界键不前缀(旧档天然兼容) ---------- */
+function advFurnKey(x, y, z) {/* 方块坐标 → 当前界的炉态键(开炉/建炉/退炉全走此) */
+  return advDim === 'nether' ? 'n|' + blockKey(x, y, z) : blockKey(x, y, z);
+}
+function advFurnPos(k) {/* 炉态键 → 方块坐标(退料落点/火焰挂点解析; 'n|' 剥掉再拆三段) */
+  const p = (k.slice(0, 2) === 'n|' ? k.slice(2) : k).split(',');
+  return {x: +p[0], y: +p[1], z: +p[2]};
+}
+function advFurnKeyDim(k) {/* 炉态键属于哪界(火焰挂载门禁消费) */
+  return k.slice(0, 2) === 'n|' ? 'nether' : 'overworld';
+}
+function advFurnaceSettle(dim) {/* 炉态核销(参照 decode 侧 advFurnaceValid「非法整条
+    拒收」口径): 该界炉键在场景重放后块已不是 B_FURNACE(手工改档/旧档错位)
+    → 炉态丢弃; 'n|' 键在下界建场后才有块可对, init 只核上界键 */
+  for (const k of [...advFurnaces.keys()]) {
+    if (advFurnKeyDim(k) !== dim) continue;
+    const p = advFurnPos(k);
+    if (getBlock(p.x, p.y, p.z) !== B_FURNACE) advFurnaces.delete(k);
+  }
+}
+
+/* ---------- 切界(D8/D10/D11, §3.3) ---------- */
+function advSetDim(dim, spot) {/* 换桶 → 重装场景(基座+当前桶重放) → 换天/昼夜门 →
+    清场(怪/掉落/箭/炉面板/光束/火焰) → 出生 → 站点重扫 → 光束重锚。
+    spot 显式出生点: 死亡/回家传小屋(ADV.spawn 账本, 与 advPortalExit 无关),
+    正常回上界缺省用 advExitSpot(最后进入的门, D6), 再兜底 ADV.spawn */
+  if (dim === advDim) return;
+  advDim = dim;
+  advJournal.edits = advSceneEdits[dim]; /* 换桶: mark/flush 动态查 J.edits, 记账/重放/落盘自动跟桶 */
+  advMineStop(); /* 蓄力目标在旧世界: 清零(准星跨世界无意义) */
+  if (advFurnace.isOpen()) advFurnace.close(); /* 炉面板绑定旧界炉: 先收 */
+  advBeamsClear(); /* 光束句柄全清再重锚(旧世界的束不跨场) */
+  advFlamesClear(); /* 炉口火焰 Sprite 同理(炉态随档跨界保留, 观感不跨) */
+  Mobs.clear(); /* 怪/掉落/箭不跨维: 门只渡人(下界无怪, 回上界重播) */
+  Drops.clear();
+  advArrows.clear();
+  advHookEntityCbs(); /* clear 解除回调: 重挂(击杀掉落/收集并线, init 同一份) */
+  if (dim === 'nether') {
+    loadScene(() => {/* 下界基座: 平地+熔岩池+固定回程门(不记账——互锁红线) + 下界桶重放 */
+      advNetherBuild();
+      advPortalFrame(setBlockRaw, ADV_NETHER.ground, ADV_NETHER.portal.px, ADV_NETHER.portal.pz);
+      advJournal.replay({block: setBlockRaw, fluid: setFluidLv});
+      advFurnaceSettle('nether'); /* 'n|' 炉键此时才有块可对(D14) */
+      advRescanStations(); /* 站点缓存只反映当前界(读当前桶) */
+    });
+    advApplySky(ADV_SKY_NETHER); /* 暗红天穹: 一眼就知道到了下界 */
+    dayCycleOn = false; /* D10: dayTime 暂停 + 恒夜(日月天体随之隐藏) */
+    setPlayerGlow(false); /* 灯笼随身光熄灭(下界不亮不耗, 门禁见 update) */
+    advLanternT = 0; /* 耗秒累计器归零(回上界从整秒重新累计) */
+    ModeKit.spawn(ADV_NETHER.base.x, ADV_NETHER.ground + 1, ADV_NETHER.base.z,
+        {yaw: Math.PI}); /* 落点在回程门前数格, 面朝下界背对门(走出即离开门) */
+    setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
+  } else {
+    loadScene(() => {/* 上界基座确定性重建 + 上界桶重放; 不跑 applySweep——那是
+        init 旧档治愈专用, 切界回来的世界本来就是干净的 */
+      advBuildWorld();
+      advJournal.replay({block: setBlockRaw, fluid: setFluidLv});
+      advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
+      advRescanStations();
+      advFurnaceSettle('overworld');
+    });
+    advApplySky(ADV_SKY_OVER); /* 天蓝复位(雾距在此恢复; 天色随后由昼夜驱动接管) */
+    dayCycleOn = true;
+    applyDaylight(); /* 恢复到暂停时刻的天色/光强/日月 */
+    advNightReset(); /* 夜怪节拍与跨沿账本对齐暂停后的当下 */
+    advNestT.fill(0); /* 巢穴节律从头计(世界重播=全清后 60s 再刷口径) */
+    const sp = spot || advExitSpot || ADV.spawn; /* 显式点 > 回程记录 > 出生账本 */
+    ModeKit.spawn(sp.x, sp.y, sp.z, {yaw: (sp.yaw != null) ? sp.yaw : 0});
+    setFly(false);
+    advSeedOverworldMobs(); /* 上界怪重播(巢穴+牲畜, init 同款) */
+  }
+  advBeamsRelayout();
+}
+
+function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/头格任一在紫色
+    门面内(advInPortal, 玩家门与回程门同一条判据) → 切界。进下界前把
+    advPortalExit 落点记账(回上界出生用, 最后进入者优先 D6); 下界任意门
+    (回程门/玩家放的门)回上界语义统一。y 用 pos.y 原样(来向地面已知安全)。
+    ADV_B.portal=0(精简装载守卫)时整体静默——判据纯核心引用下界方块常量 */
+  if (advPortalCd > 0) advPortalCd = Math.max(0, advPortalCd - dt);
+  if (advPortalCd > 0 || !ADV_B.portal || advSleep.on) return; /* 冷却/睡觉转场/无下界段不触发 */
+  if (!advInPortal(getBlock, pos.x, pos.y, pos.z)) return;
+  advPortalCd = ADV_PORTAL.cd;
+  if (advDim === 'overworld') {
+    advExitSpot = advPortalExit(pos.x, pos.y, pos.z, yaw);
+    advSetDim('nether');
+    SpeechKit.speak('进了下界！回到紫色门里就能回家啦！');
+    showToast('🌌 进了下界！回到紫色门里就能回家啦！');
+  } else {
+    advSetDim('overworld');
+    SpeechKit.speak('回到上界啦');
+    showToast('🏡 回到上界啦');
+  }
+}
+
+/* ============================================================
    T12 挖掘与采集 — 交互段(挂 onMouse/update)
    (蓄力步进/放置合法性/食物政策/树苗计时纯函数在 adventure-core.js)
    ============================================================ */
@@ -870,6 +1108,18 @@ function advBreakBlock(x, y, z, id, bt) {
   advQuestMine(id, x, y, z); /* T15: 挖到矿记账+钻石首获仪式(只认蓄力挖掘, TNT 链不挂) */
 }
 
+/* 「挖不动」话术(微默认3, D5/D7): 无 hard 方块 = 声明式不可破坏, 蓄力链不起
+   进度, 改给 3s 节流的儿童话术(节流账本 advHardT 与 advTierT 同款); 判据用
+   ADV_B 集中解析(精简装载守卫), 其余无 hard 方块(水等)保持静默 */
+let advHardT = 0; /* 「挖不动」话术节流计时(3s, update 递减) */
+function advMineHardText(id) {/* 目标格 → 话术(纯 seam, 单测直触); 空串 = 不出声 */
+  if (id === ADV_B.portal || id === ADV_B.obsidian) return '传送门是魔法做的，挖不动哦';
+  if (id === ADV_B.netherrack || id === ADV_B.glowstone || id === ADV_B.brick) {
+    return '这块石头太硬啦，挖不动哦';
+  }
+  return '';
+}
+
 /* 蓄力推进(update 每帧): 准星指住可挖方块才累计; 换目标/指空清零;
    松手态换目标熄火(单击只认起步那块, 不跟准星漂); 到点破坏 —
    桌面按住连挖(advMouseHeld), 触屏单击政策本块完成即停 */
@@ -882,6 +1132,14 @@ function advMineTick(dt) {
   const id = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
   const def = id ? BLOCKS[id] : null;
   if (!def || def.hard == null) {/* 空气/水/创造专属(字段缺失即不可采集, T2 判据) */
+    if (def) {/* 有实体定义但无 hard = 声明式不可破坏: 节流话术, 不起蓄力 */
+      const hardTxt = advMineHardText(id);
+      if (hardTxt && advHardT <= 0) {
+        advHardT = 3;
+        SpeechKit.speak(hardTxt);
+        showToast('⛏️ ' + hardTxt);
+      }
+    }
     advMineStop();
     return;
   }
@@ -909,11 +1167,13 @@ function advMineTick(dt) {
 }
 
 /* 放置交互: 选中放置型物品(ITEMS.block 字段)点击准星面 → editBlock+记账+
-   背包 −1(D4); 树苗额外挂 20s 计时; thin 块非法落点给节流 toast */
+   背包 −1(D4); 树苗额外挂 20s 计时; thin 块非法落点给节流 toast;
+   nether_portal 无 block 字段, 在旧判断之前拦截走 advPlacePortal(§3.3) */
 function advTryPlace(hit) {
   const slot = advHb.sel;
   const s = advInv.slots[slot];
   const it = s ? ITEMS[s.id] : null;
+  if (s && s.id === 'nether_portal') return advPlacePortal(hit); /* 整座门放置, 不走单格 editHit */
   if (!hit || !it || it.block == null) return false;
   const lookId = getBlock(hit.x, hit.y, hit.z);
   const targetId = getBlock(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz);
@@ -939,6 +1199,35 @@ function advTryPlace(hit) {
   advSyncHotbar();
   sfx('click');
   showToast('放下 ' + it.name + '！');
+  return true;
+}
+
+/* 下界传送门放置(拦截分支, D4/D13): 点击面外一格为门基(by,px,pz) → 纯核心
+   advPortalSiteOk 校验(结构包围盒全空气+玩家不入盒) → 失败给儿童话术不扣
+   物品; 成功 advPortalFrame 经「setBlockRaw+逐格记账」sink 长出整座门
+   (结构只以 edits 形态存在, 重放即重建——互锁红线) + 扣 1 + 顺路锚这扇门
+   的光束。放置朝向固定(门面朝 ±z), 不随视角(D13) */
+function advPlacePortal(hit) {
+  if (!hit) return false;
+  const slot = advHb.sel;
+  const tx = hit.x + hit.nx;
+  const ty = hit.y + hit.ny;
+  const tz = hit.z + hit.nz; /* 与单格放置同款目标格(点击面外一格) */
+  const ok = advPortalSiteOk(getBlock, pos, ty, tx, tz); /* 参数序 by,px,pz */
+  if (!ok.ok) {
+    showToast(ok.reason === 'inside' ? '🌀 站远一点再放哦！' : '🌀 这里太挤啦，找一块大空地！');
+    return false; /* 不扣物品, 换个地方再试 */
+  }
+  advPortalFrame((x, y, z, id) => {
+    setBlockRaw(x, y, z, id); /* 直写不走 editBlock: 整座门是原子结构, 不触发级联/掉落 */
+    advMarkEdit(x, y, z, id); /* 逐格记账 = 重放即重建 */
+  }, ty, tx, tz);
+  remove(advInv, slot, 1);
+  advSyncHotbar();
+  sfx('click');
+  advBeamAdd(ty, tx, tz); /* 这扇门的光束顺路锚上(切界时随全量重锚) */
+  SpeechKit.speak('下界传送门立起来啦！走进紫色门面去下界！');
+  showToast('🌀 下界传送门立起来啦！走进紫色门面去下界！');
   return true;
 }
 
@@ -1136,7 +1425,7 @@ function advFlameMount(posKey) {/* 起燃建 Sprite 挂场景: 炉顶(x+0.5, y+1
   暖色, renderOrder 高于方块(设计稿 §2.1 参数表); 无渲染环境返 null */
   const tex = advFlameTexture();
   if (!tex || typeof scene === 'undefined') return null;
-  const p = posKey.split(',');
+  const p = advFurnPos(posKey); /* 炉键解析统一走界键助手(剥 'n|', D14) */
   const sp = new THREE.Sprite(new THREE.SpriteMaterial({map: tex, transparent: true,
     depthWrite: false, blending: THREE.AdditiveBlending, color: ADV_FLAME_COLOR}));
   sp.renderOrder = 10;
@@ -1156,11 +1445,12 @@ function advFlameOff(posKey) {/* 熄灭/消失单清: 摘场景销毁材质(贴�
 function advFlamesClear() {/* 全清(退出模式/init 复位): 场景对象不渗漏 */
   for (const k of [...advFlames.keys()]) advFlameOff(k);
 }
-function advFlameTick(dt) {/* 节律: 相位累计 → 差异增删(燃烧判定逐炉) → 尺寸正弦脉动 */
+function advFlameTick(dt) {/* 节律: 相位累计 → 差异增删(燃烧判定逐炉) → 尺寸正弦脉动;
+  异界键不挂 Sprite(D14): 炉照烧(advFurnace.tick 不门禁)但火焰只属于玩家所在界 */
   advFlamePhase += dt * Math.PI * 2 / ADV_FLAME_T;
   for (const [k, f] of advFurnaces) {
     const lit = f.heat > 0 && f.input;
-    if (lit && !advFlames.has(k)) advFlames.set(k, advFlameMount(k)); /* 起燃加 */
+    if (lit && !advFlames.has(k) && advFurnKeyDim(k) === advDim) advFlames.set(k, advFlameMount(k)); /* 起燃加(本界键) */
     if (!lit) advFlameOff(k); /* 熄灭删(不在列时 delete 幂等) */
   }
   for (const k of [...advFlames.keys()]) {
@@ -1410,7 +1700,7 @@ function advUseStation(hit, lookId) {
   if (lookId === B_FURNACE) {
     /* F1: 对点击的这台炉直算距离(箱子同款)并绑定它——多炉各有各的内容 */
     if (hit && Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z) <= ADV_STATION_R) {
-      advFurnace.open(blockKey(hit.x, hit.y, hit.z));
+      advFurnace.open(advFurnKey(hit.x, hit.y, hit.z)); /* 界键(D14): 下界炉与上界同坐标炉互不串档 */
     } else {
       showToast('♨️ 走近一点就能用熔炉啦');
     }
@@ -1427,6 +1717,36 @@ function advUseStation(hit, lookId) {
   return false;
 }
 
+/* HUD 行构造(具名提出: mkMode 把 cfg.hud 收进帧循环不外露, 挂点经此触达——
+   查询 seam 口径, 下界态分支见内注释) */
+function advHudLines(hit) {
+  const s = advInv.slots[advHb.sel];
+  const q = ADV_QUESTS[ADV.quest.step];
+  const qTxt = q ? q.icon + ' ' + q.goal + ' ' + Math.min(q.prog(ADV.quest.counts), q.target) + '/' + q.target :
+      (ADV.quest.title ? '🏅 ' + ADV.quest.title : '全部完成 🎉');
+  const alive = Mobs.list().filter((m) => !m.dead && !m.gone && !m.cfg.passive).length; /* F4: 牧场动物不算怪物 */
+  if (advDim === 'nether') {/* 下界态(§3.3/D10): 首行换下界横幅; 不显白日/夜历(恒夜,
+      dayTime 已暂停, 时段行无信息); 怪物行也隐——下界无怪, 恒 0 徒增困惑 */
+    return [
+      '🌌 下界 · 黑漆漆亮晶晶',
+      `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
+      `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
+      `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
+      `📖 任务: ${qTxt}`,
+      `注视: ${ModeKit.lookName(hit)} · B 菜单`,
+    ];
+  }
+  return [
+    `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
+    `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
+    Daylight.isNight(dayTime) ? btnImg('moon') + ' 夜晚' : btnImg('sun') + ' 白天', /* 时段两态(昼夜 D1 §2.4): 太阳/月亮像素图, 不加时分 */
+    `👾 怪物: ${alive} · ☠️ 击杀: ${ADV.killCount}`,
+    `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
+    `📖 任务: ${qTxt}`,
+    `注视: ${ModeKit.lookName(hit)} · B 菜单`,
+  ];
+}
+
 /* ============================================================
    模式对象
    ============================================================ */
@@ -1438,17 +1758,22 @@ const AdventureMode = mkMode({
 
   init() {
     const advLoad = advJournal.load(); /* 读档+decode; edits Map 顺带收养归一化(空档 defaults 数组→Map) */
+    /* 下界相位装桶(D8/D9): 维度不进档——重进恒上界(下界退出时 pos 存 null →
+       小屋出生); 上界桶 = load 收养后的 Map, 下界桶从档 netherEdits 收养
+       (Map 原样/数组转 Map/旧档缺省空——零迁移) */
+    advDim = 'overworld';
+    advPortalCd = 0;
+    advExitSpot = null;
+    advSceneEdits.overworld = advJournal.edits;
+    advSceneEdits.nether = (advLoad.netherEdits instanceof Map) ? advLoad.netherEdits :
+        new Map(advLoad.netherEdits || []);
     /* 昼夜时刻随世界档恢复(昼夜 D1, mc-daylight-torch §2.2/§2.5): decode 已兜底
        清晨 0; 探险是唯一置位 dayCycleOn 的模式, 天色/雾/光强/日月轨道由
        world.applyDaylight 每帧驱动(进场先刷一次, 夜晚重进当帧即夜) */
     dayTime = advLoad.dayTime;
     dayCycleOn = true;
     applyDaylight();
-    /* 夜怪账本复位并对齐当下(昼夜 D5): 节拍器归零 + 入夜/黎明跨沿账本取当下值
-       (重进夜里不补播「天黑了」, 重进明侧不误触黎明清场——上沿只认真跨沿) */
-    advNightT = 0;
-    advWasNight = Daylight.isNight(dayTime);
-    advDawnLit = advDawnSweep(dayTime);
+    advNightReset(); /* 夜怪账本复位并对齐当下(昼夜 D5; 切回上界共用) */
     /* 位置与血量随世界档保留(2026-10 拍板): 老档/坏档无 pos/hp → 出生点/满血; hp 钳
        1~maxHp; 存的 pos 是退出时站的合法空腔(世界经 edits 重放同坐标系), 不必二次校验 */
     const svPos = advLoad.pos;
@@ -1506,6 +1831,7 @@ const AdventureMode = mkMode({
     advFurnace.reset(); /* T4: 炉态/绑定/开态/签名复位(kit Map 引用不变, 开态真值在 kit 不设镜像); 档里有什么恢复什么(F1) */
     advFlamesClear(); /* F2: 炉口火焰一并复位(上一场的观感不渗进来) */
     for (const [k, s] of advLoad.furnaces) advFurnaces.set(k, s); /* F1: 每炉独立炉态重进照旧(decode 已过滤非法) */
+    advFurnaceSettle('overworld'); /* D14: 上界炉键对重放后的世界核销(块没了炉态丢); 'n|' 键进下界建场后再核 */
     advFuses.length = 0;
     advTableNear = false;
     advMineStop(); /* 蓄力状态复位(上次退出可能按住) */
@@ -1526,29 +1852,12 @@ const AdventureMode = mkMode({
     advLanternT = 0; /* 灯笼耗秒累计器归零(昼夜 D7: 重进从整秒重新累计) */
     const pe = advGetPEnt(); /* 进场血量随世界档(重进保留残血); 老档/坏档 → 满血 */
     pe.hp = advHpIn; ADV.player.hp = advHpIn;
-    Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8)。
-      F4 死畜记账并进同一回调: 掉落与落账同帧, 挂清单索引(初始清单可推导, 存档最小) */
-      if (m.__livestockIdx != null && advLivestock.dead.indexOf(m.__livestockIdx) < 0) {
-        advLivestock.dead.push(m.__livestockIdx);
-        advJournal.touch();
-      }
-      for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
-    });
-    Drops.onCollect((id, n) => {/* 收集并线(T12×T14): 入包/镜像/逐件 toast(T12) → 3s 合并播报窗(T14) */
-      if (!advOnCollect(id, n)) return false; /* 满包拒返 false → 1.2s 冷却重试(D6) */
-      advPickBuf.set(id, (advPickBuf.get(id) || 0) + n); /* 并入 3s 合并播报窗 */
-      advPickT = ADV_PICKUP_WINDOW;
-    });
-    for (let i = 0; i < ADV_NESTS.length; i++) advSpawnNest(i);
-    /* F4 牧场(设计稿 §4.4): 确定性清单按死畜账跳过已杀索引生成——不重生(MC 口径
-       动物也不刷, 牧场会空是「保护动物」的隐性教育); 游荡位置不存档(重进回散布
-       原位); 实体挂 __livestockIdx 是记账唯一依据 */
+    advHookEntityCbs(); /* 击杀掉落/收集并线两回调(Mobs/Drops.clear 解除后重挂, 切界共用同一份) */
+    /* F4 牧场(设计稿 §4.4): 死畜账先换装再播种——确定性清单按死畜账跳过已杀索引
+        生成, 不重生(MC 口径动物也不刷, 牧场会空是「保护动物」的隐性教育);
+        游荡位置不存档(重进回散布原位); 实体挂 __livestockIdx 是记账唯一依据 */
     advLivestock = advLoad.livestock; /* 世界档 decode 已兜底 {dead:[]} */
-    for (const e of advLivestockPlan()) {
-      if (advLivestock.dead.indexOf(e.idx) >= 0) continue;
-      const m = Mobs.spawn(e.type, e.x, e.z, {yaw: 0});
-      m.__livestockIdx = e.idx; /* 模式私有挂件(Mobs 许可) */
-    }
+    advSeedOverworldMobs(); /* 三巢首刷 + 牧场清单(切回上界的怪物重播共用同一份, §3.3) */
     const qNow = ADV_QUESTS[ADV.quest.step]; /* 进场欢迎句带上当前步引导(hint 并句, 防 cancel 打断;
         「小小探险家」字样留给终章称号的仪式感) */
     SpeechKit.speak('欢迎来到探险草原！' + (qNow ? qNow.hint : '任务全部完成啦，自由探险咯！'));
@@ -1570,6 +1879,14 @@ const AdventureMode = mkMode({
        与下界换天(applySky)都不再被每帧昼夜驱动打扰 */
     dayCycleOn = false;
     applyDaylight();
+    /* 下界相位复位(D9/D10): 维度/冷却/回程点归零, 天空雾距复位(applyDaylight 只管
+       天色, fog near/far 是 advApplySky 的私产), 光束句柄摘除, journal 桶换回上界 */
+    advDim = 'overworld';
+    advPortalCd = 0;
+    advExitSpot = null;
+    advApplySky(ADV_SKY_OVER);
+    advBeamsClear(); /* 红天光束不渗进其他模式 */
+    if (advSceneEdits.overworld) advJournal.edits = advSceneEdits.overworld;
     setPlayerGlow(false); /* 灯笼随身光一并熄灭(昼夜 D7): PointLight 不渗入其他模式 */
     advLanternT = 0; /* 耗秒累计器复位(重进从整秒重新累计) */
     setFluidEditSink(null); /* 流体账本缝解除(liquid D8: 不渗进其他模式) */
@@ -1605,20 +1922,23 @@ const AdventureMode = mkMode({
   update(dt) {
     advJournal.tick(); /* 世界存档节流 5s(build 同款, 时序收编 journal) */
     advTierT = Math.max(0, advTierT - dt); /* tier 提示节流递减(T12) */
+    advHardT = Math.max(0, advHardT - dt); /* 「挖不动」话术节流递减(微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */
     advBagTick(dt); /* 背包快满提醒(S4②): 0.5s 节流查占用槽 */
     advSmeltTtsT = Math.max(0, advSmeltTtsT - dt); /* 完成播报节流递减(T13) */
-    advFurnace.tick(dt); /* 烧炼节律常开(面板只是回显, 烧成经 kit onMade 回调), ✕ 关闭对账(T13) */
+    advFurnace.tick(dt); /* 烧炼节律常开(面板只是回显, 烧成经 kit onMade 回调), ✕ 关闭对账(T13);
+      下界照烧不门禁(MC 口径, 炉态键已分界 D14) */
     advFlameTick(dt); /* F2 炉口火焰: 差异增删 + 脉动(原烧炼节律尾钩, T4 起独立挂 update) */
     advFuseTick(dt); /* TNT 引信倒计时到点起爆(T13, 先于怪物 AI——当帧爆炸位置不漂移) */
     advTntTapTick(dt); /* TNT 短按/按住判定(D3): 转蓄力需先于 advMineTick 同帧生效 */
     advSleepTick(dt); /* 床·睡觉转场推进(昼夜 D6): 遮罩直驱+唤醒沿跳清晨/设床边出生点 */
+    advPortalTick(dt); /* 下界传送触发(§3.3): 冷却递减 + 门内口判定 → 切界 */
     advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */
-    advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
     advMelee.tick(dt); /* 挥击冷却递减(kit 自持, T14 口径不变) */
     advHurt.tick(dt); /* 受击语音节流递减(T14) */
-    /* 流体环境伤害(liquid D9): 引擎计息到点的事件在此结算 HP(探险有 HP 账本) */
+    /* 流体环境伤害(liquid D9): 引擎计息到点的事件在此结算 HP(探险有 HP 账本);
+       下界不门禁——岩浆是下界唯一危险(D2) */
     if (worldEvents.drownTick) {
       worldEvents.drownTick = false;
       advEnvHurt(FLUID.drownDps, '呛水啦，快抬头换气！');
@@ -1628,16 +1948,22 @@ const AdventureMode = mkMode({
       advEnvHurt(FLUID.lavaDps, '好烫！快离开岩浆！');
     }
     if (advBubbles) advBubbles.update(playerAirS / FLUID.airMaxS); /* 溺气泡条(liquid D10) */
-    advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架; passive 动物在此排除) */
-    advHerdTick(dt); /* F4 牧场动物: 恐惧游荡/闲逛(与战斗 AI 互斥的两条驱动) */
+    if (advDim === 'overworld') {/* 维度门禁(§3.3): 人在下界时停掉上界专属子系统——
+        树苗计时若在下界跑, 树会长在「当前世界」且足迹记账进下界桶(串档事故);
+        巢穴节律/夜怪刷怪/牧场 AI 是上界怪的系统(下界无怪); 灯笼耗秒是上界夜晚
+        机制(D10 下界恒夜由天穹呈现, 不亮不耗)。任务/背包提醒两界照旧 */
+      advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
+      advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架; passive 动物在此排除) */
+      advHerdTick(dt); /* F4 牧场动物: 恐惧游荡/闲逛(与战斗 AI 互斥的两条驱动) */
+      advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */
+      advNightTick(dt); /* 夜怪节拍 + 入夜/黎明跨沿(昼夜 D5: 环带刷怪/配额/温和清场/播报) */
+      advLanternTick(dt); /* 灯笼政策(昼夜 D7): 天黑手持才亮才耗, 持满 1 秒扣耐久 */
+    }
     Mobs.update(dt);
     Mobs.render();
     advArrows.update(dt); /* 骷髅箭矢弹道 */
     Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 真空拾取(挖掘/击杀两链共用, 玩家胸口点) */
     Drops.render();
-    advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */
-    advNightTick(dt); /* 夜怪节拍 + 入夜/黎明跨沿(昼夜 D5: 环带刷怪/配额/温和清场/播报) */
-    advLanternTick(dt); /* 灯笼政策(昼夜 D7): 天黑手持才亮才耗, 持满 1 秒扣耐久 */
     advPickupTick(dt); /* 收集播报合并窗 */
     advHpBar.update(advGetPEnt().hp, ADV.player.maxHp, pos.x, pos.y + 2.2, pos.z); /* 头顶血条 */
   },
@@ -1702,22 +2028,7 @@ const AdventureMode = mkMode({
     showPage('adventure');
   },
 
-  hud(hit) {
-    const s = advInv.slots[advHb.sel];
-    const q = ADV_QUESTS[ADV.quest.step];
-    const qTxt = q ? q.icon + ' ' + q.goal + ' ' + Math.min(q.prog(ADV.quest.counts), q.target) + '/' + q.target :
-        (ADV.quest.title ? '🏅 ' + ADV.quest.title : '全部完成 🎉');
-    const alive = Mobs.list().filter((m) => !m.dead && !m.gone && !m.cfg.passive).length; /* F4: 牧场动物不算怪物 */
-    return [
-      `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
-      `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
-      Daylight.isNight(dayTime) ? btnImg('moon') + ' 夜晚' : btnImg('sun') + ' 白天', /* 时段两态(昼夜 D1 §2.4): 太阳/月亮像素图, 不加时分 */
-      `👾 怪物: ${alive} · ☠️ 击杀: ${ADV.killCount}`,
-      `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
-      `📖 任务: ${qTxt}`,
-      `注视: ${ModeKit.lookName(hit)} · B 菜单`,
-    ];
-  },
+  hud: advHudLines, /* HUD 行构造(下界态分支在内; 具名提出供挂点触达) */
 
   touch: [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2026-10-24): 拿可放置物→放置
      一次(mkMainAct 返 false 不连发), 空手/工具/食物→打/挖起步+按住连挖;
@@ -1733,22 +2044,29 @@ const AdventureMode = mkMode({
 });
 
 /* T12~T15 的接线挂点(内部接口, 不进模式公共行为; 2026-10 评审候选 5 收敛为 20 键测试面,
-    键清单即 interface——adventure-core 常量表与纯函数经 core 直调不再转发):
+    下界相位装配追加 5 键成 25 键; 键清单即 interface——adventure-core 常量表与纯函数
+    经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
+      · advNetherState(下界相位只读快照: dim/portalCd/exitSpot)
     · 存档面: advJournal(世界档记账 seam) · getSaveView(四份存档只读快照)
     · 布置缝: advGetInv · advGetPEnt · advFurnace(熔炉站点直达: map/state/at/open/
       close/isOpen/autoFill/manualPut/slotClick/drop) · advFlameCount
+    · 下界相位: advSetDim(切界唯一入口) · advSceneEdits(两界桶) · advNetherState
     · 交互链入口: advBreakBlock · advOnCraft · advInvMove · advChest{Deposit,Withdraw,Expand}
-      · advPanelClose(幂等守卫回归锚点)
-    · 查询 seam: advStationOk · advNightRead · advQuestPaint(重画并返回任务卡)
+      · advPanelClose(幂等守卫回归锚点) · advMineHardText(挖不动话术判据)
+    · 查询 seam: advStationOk · advNightRead · advQuestPaint(重画并返回任务卡) · advHudLines(HUD 行)
     已删键的行为面等价物: advPlayerDied→onVoidFall · advGoHome→onKey('KeyH') ·
     advChestOpenPanel/advChestClose→点击与 onKey('Tab') · advExplode→TNT 引信行为链 ·
     advGetTntTap/advMouseHeldOn/Off→onHold+advMine.down · advMainPlaceable→holdAct ·
-    advOnKill/advWearHeld→挥击行为链 · advMarkEdit→advJournal.mark(非站点格) */
-function advSaveView() {/* 四份存档的可断言快照(只读缝): 与 journal payload 同构的 world 五键 +
-    任务档 + 大宝箱账户 + 背包 serialize; 槽/清单为浅拷贝, 调用方改不动壳内状态 */
+    advOnKill/advWearHeld→挥击行为链 · advMarkEdit→advJournal.mark(非站点格) ·
+    advPlacePortal→onMouse(2) 手持 nether_portal */
+function advSaveView() {/* 四份存档的可断言快照(只读缝): 与 journal payload 同构的 world 键
+    (两界桶/维度感知 pos) + 任务档 + 大宝箱账户 + 背包 serialize; 槽/清单为浅拷贝,
+    调用方改不动壳内状态 */
   return {
-    world: {edits: [...advJournal.edits.entries()], pos: {x: pos.x, y: pos.y, z: pos.z, yaw},
+    world: {edits: [...(advDim === 'nether' ? advSceneEdits.overworld : advJournal.edits).entries()],
+      netherEdits: [...(advDim === 'nether' ? advJournal.edits : advSceneEdits.nether).entries()],
+      pos: advDim === 'nether' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw},
       hp: ADV.player.hp, furnaces: advFurnaceClean(advFurnaces), livestock: advLivestock, dayTime},
     quest: {step: ADV.quest.step, counts: ADV.quest.counts, title: ADV.quest.title,
       firstNight: ADV.quest.firstNight},
@@ -1761,6 +2079,8 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advFurnace, advFlameCount: () => advFlames.size,
   advBreakBlock, advOnCraft, advInvMove,
   advChestDeposit, advChestWithdraw, advChestExpand, advPanelClose,
-  advStationOk, advNightRead, advQuestPaint};
+  advStationOk, advNightRead, advQuestPaint,
+  advSetDim, advSceneEdits, advNetherState: () => ({dim: advDim, portalCd: advPortalCd, exitSpot: advExitSpot}),
+  advMineHardText, advHudLines};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;
