@@ -253,6 +253,14 @@ const advPanel = ModeKit.mkCraftPanel({
   station: advStationOk,
   onCraft: advOnCraft,
   onMove: (from, to) => advInvMove(from, to), /* 背包格点选搬运(政策在本层, 面板只管格子) */
+  onGridMove: () => {/* 摆放台动了背包(摆入/退回/摆入卡备料): 快捷栏+在手表征同步 + 存档 */
+    advSyncHotbar();
+    advSyncHeldVisual(); /* 起手槽可能是选中槽: 数量变化观感安静跟进 */
+    advBag.save();
+  },
+  onReturnLeft: (left) => {/* 关面板退料装不下的余量 → 脚下掉落物(零惩罚, crafting-grid §5) */
+    for (const it of left) Drops.spawn(it.id, it.n, pos.x, pos.y + 0.5, pos.z);
+  },
   onClose: () => advPanelClose(), /* ✕/Esc 统一出口: 状态同步 + 指针回锁(修: 曾直 hide 卡 panelOpen=true) */
   onSort: () => {
     advSyncHotbar();

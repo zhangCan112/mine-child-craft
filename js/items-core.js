@@ -35,6 +35,7 @@ const ITEMS = {
   charcoal: {name: '木炭', icon: '🌑', fuel: 8}, // 烧原木得; 与煤等效(任选材料)
   iron_ore: {name: '铁矿石', icon: '🟠'}, // 粗矿口径: 需熔炼(研究稿 §2.2)
   iron_ingot: {name: '铁锭', icon: '⬜'},
+  iron_nugget: {name: '铁粒', icon: '🔩'}, // 铁锭 1/9 小件(九宫格设计稿 §2 拍板⑤): 灯笼正典材料; 1 铁锭→9 铁粒(hand 1×1)
   gold_ore: {name: '金矿石', icon: '🟡'}, // 粗矿口径: 需熔炼
   gold_ingot: {name: '金锭', icon: '🟨'},
   diamond: {name: '钻石', icon: '💎'},

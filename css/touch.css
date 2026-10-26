@@ -427,6 +427,21 @@ canvas {
     width: 190px;
   }
 
+  /* 摆放台同档放大(crafting-grid §5): 3×3 格跟背包格同尺寸, 产出槽更好按 */
+  .mkp-bgrid {
+    grid-template-columns: repeat(3, 62px);
+  }
+
+  .mkp-oslot {
+    width: 72px;
+    height: 72px;
+  }
+
+  .mkp-oslot .pic {
+    width: 50px;
+    height: 50px;
+  }
+
   .mkp-out .big,
   .mkp-out img.big {
     width: 54px;

@@ -316,7 +316,7 @@ const BONE_ART = [ // 骨头: 两端球 + 中间亮杆
   '................',
   '................',
 ];
-const PILE_ART = [ // 粉堆共用形: gunpowder 灰 / bone_meal 白
+const PILE_ART = [ // 粉堆共用形: gunpowder 灰 / bone_meal 白 / iron_nugget 铁阶
   '................',
   '................',
   '................',
@@ -890,6 +890,7 @@ const ITEM_PIX = {
   charcoal: {art: COAL_ART, map: {c: '#3a2a1e', L: '#7d746a', d: '#1f140c'}},
   iron_ore: {art: ORE_ART, map: {s: '#8a8f98', L: '#a3a8b0', d: '#6e737c', o: '#d8af93', O: '#e8cbb5'}},
   iron_ingot: {art: INGOT_ART, map: {'#': PIX_TIER.iron.main, '+': PIX_TIER.iron.light, '-': PIX_TIER.iron.dark}},
+  iron_nugget: {art: PILE_ART, map: {m: PIX_TIER.iron.main, l: PIX_TIER.iron.light, d: PIX_TIER.iron.dark}}, // 铁粒小堆(crafting-grid 拍板⑤: 铁锭 1/9, 粉堆共用形换铁阶色板)
   gold_ore: {art: ORE_ART, map: {s: '#8a8f98', L: '#a3a8b0', d: '#6e737c', o: '#f0c53a', O: '#f8e08a'}},
   gold_ingot: {art: INGOT_ART, map: {'#': '#f0c53a', '+': '#f8e08a', '-': '#c79a22'}},
   diamond: {art: DIAMOND_ART, map: {'#': PIX_TIER.diamond.main, 'l': '#a5f3ea', 'd': '#2fb8aa', 'm': '#3ac4b4'}},

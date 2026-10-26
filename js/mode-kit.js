@@ -18,11 +18,15 @@
    T10 扩展(设计稿 D8/D10):
      · mkHotbar 第三种槽型 {item:id} — 像素图标(iconOf)+右上数量(>1 才显)
        +底部耐久条(dur 访问器返 0..1 比, 模式层算 dur/toolOf(id).dur)
-     · mkCraftPanel — 背包网格+配方书卡片+分类页签+任务卡占位容器;
-       亮灰由 canCraft 驱动; 合成两步制(2026-10-26 防误合): 点卡=选中
-       (sel 高亮+ItemHint 读产物) → 底部「合成」钮确认才执行(单击一发/
-       长按 0.4s 连做 0.3s 一发, 按压状态机在合成钮上);
-       背包格点选搬运(点非空格起手高亮→点目标格 onMove, 无拖拽)
+     · mkCraftPanel — 背包网格+摆放台+配方书卡片+任务卡占位容器
+       (九宫格改造 crafting-grid 设计稿 §5): 3×3 摆放台站点外锁外圈
+       (左上 2×2 随身格), 摆对图案 matchGrid 命中→产出槽亮(点击一发/
+       长按 0.4s 连做 0.3s 一发, 按压状态机在产出槽上; 防误合由「摆错
+       不产出」天然承担); 配方卡=BE 口径一键摆入(fillGrid 自动摆材料,
+       缺料留空, 重复点=再备一套), 亮灰仍由 canCraft 驱动; 背包格点选
+       搬运(点非空格起手高亮→点目标格 onMove, 无拖拽; 摆放格同口径
+       入格/退回, 动背包经 onGridMove 通知缝); 关面板格内材料退回背包
+       (装不下的余量经 onReturnLeft 报模式层转掉落物)
      · mkFurnacePanel — 三槽+进度条+燃料余量条的显示面板(F2: setFuel 喂
        r=heat/fuelUnits, r≤0 熄灭灰显),「自动放入」只算
        plan 回调 onAutoFill(矿石全放+FUEL 序最省凑料), 不动背包;
@@ -42,9 +46,10 @@
      挂 body, 3.2s 淡出, 与 #toast 互不抢占) + SpeechKit 语音
    interface: mkMode · mkHotbar · mkMainAct · mkCraftPanel · mkFurnacePanel ·
               mkChestPanel · sortInv · spawn · lookName · confirmBtn
-   依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax ·
-     inventory-core 的 HOTBAR_SLOTS/costEntry · craft-core 的 RECIPES/
-     canCraft/craft/FUEL/fuelUnits/smeltOf · icons 的 iconOf 与
+   依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax/durOf ·
+     inventory-core 的 HOTBAR_SLOTS/costEntry/remove/add · craft-core 的
+     RECIPES/canCraft/matchGrid/gridCraft/fillGrid/FUEL/fuelUnits/smeltOf ·
+     icons 的 iconOf 与
      button-icons 的 btnImg/BTN_PIX(两者加载序在本文件之后, 但全部
      调用发生在用户交互期, 彼时已加载完毕) · item-hint-registry 的
      hintForItem/hintForSlot 与 speech 的 SpeechKit(后两者经 typeof 守卫:
@@ -277,21 +282,31 @@ const KIT_TABS = [
   {key: 'block', icon: 'brick'},
 ];
 
-/* ---------- 背包+配方书面板(D8/D10, T10): 自建遮罩挂 body 级, 不动 index.html ----------
+/* ---------- 背包+摆放台+配方书面板(crafting-grid 设计稿 §5, T10 改造) ----------
+   自建遮罩挂 body 级, 不动 index.html。
    opts: inv(mkInventory 背包) · recipes(缺省 RECIPES 全表) · station()桌站点
    判定(缺省恒 true) · allow(放开默认过滤的配方 id 数组) · onCraft(out)/onSort ·
    onMove(from,to)(背包格点选搬运: 点非空格起手高亮, 再点目标格搬过去,
    政策与存档在模式层; 大宝箱点选搬运同口径, 拍板② 无拖拽)
-   合成两步制(2026-10-26 用户拍板防误合): 点配方卡=选中(sel 高亮+ItemHint
-   读产物) → 底部「合成」钮确认才执行; 钮单击一发/长按 0.4s 连做 0.3s 一发
+   · onGridMove()(摆放台动了背包(摆入/退回/合成)后的通知缝——模式层
+   存档/同步快捷栏; 不传则只刷面板) · onReturnLeft([{id,n}])(关面板
+   退料装不下的余量, 模式层转掉落物, 零惩罚口径)
+   摆放台: 3×3 常驻渲染, 站点外仅左上 2×2 激活(锁定格锁图标+TTS 指路);
+   点背包格→摆放格=整摞入格(同 id 并堆, 异种拒绝收手不散, 工具不入格),
+   点摆放格→背包格=整摞退回(经 add); 摆对图案→产出槽亮, 点击合成一发,
+   长按 0.4s 连做 0.3s/发至材料尽(拍板④; 防误合由「摆错不产出」天然承担,
+   旧两步制确认钮退役)。配方卡=BE 口径一键摆入(拍板③): fillGrid 自动
+   摆材料, 缺料格留空, 重复点卡=再备一套; 站点外只列 hand 级卡(正典配方
+   书口径)。关面板格内材料退回背包(MC 工作台口径)。
    挂载幂等: 同一遮罩节点反复 show 只挂一次, remove 可重复调 */
 function mkCraftPanel(opts) {
   const o = opts || {};
   const doc = o.doc || document;
   const inv = o.inv;
   const station = o.station || (() => true); // 站点规则归模式层(T13 传 Mobs.near 判定)
-  let pickIdx = -1; // 点选搬运的起手槽号(-1 无起手); 整理/关面板即收手
-  let selRecipe = null; // 选中配方(两步制确认步): 点卡选中(sel 高亮), 点「合成」钮才执行
+  let pickIdx = -1; // 点选搬运的起手背包槽号(-1 无起手); 整理/关面板即收手
+  let pickCell = -1; // 摆放格起手下标(-1 无起手); 与 pickIdx 互斥
+  const cells = new Array(9).fill(null); // 摆放台 9 格槽堆({id,n}|null), 面板持有(2×2 站点为 UI 锁格)
   const root = doc.createElement('div');
   root.className = 'mkp-mask';
   const box = doc.createElement('div');
@@ -310,7 +325,7 @@ function mkCraftPanel(opts) {
   const sortBtn = doc.createElement('button');
   sortBtn.className = 'mkp-sort';
   sortBtn.onclick = ()=>{
-    pickIdx = -1; // 整理会重排主格: 起手槽号失义, 先收手
+    pickIdx = -1; pickCell = -1; // 整理会重排主格: 起手槽号失义, 先收手
     sortInv(inv);
     refresh();
     if (o.onSort) o.onSort();
@@ -336,6 +351,20 @@ function mkCraftPanel(opts) {
   const hotrow = doc.createElement('div');
   hotrow.className = 'mkp-hotrow';
   main.appendChild(grid); main.appendChild(hotrow);
+
+  /* —— 摆放台(crafting-grid §5): 3×3 常驻, 站点外仅左上 2×2 激活;
+     产出槽 = matchGrid 命中亮起, 点击一发/长按连做(拍板④) —— */
+  const bench = doc.createElement('div');
+  bench.className = 'mkp-bench';
+  const bgrid = doc.createElement('div');
+  bgrid.className = 'mkp-bgrid';
+  const barrow = doc.createElement('div');
+  barrow.className = 'mkp-barrow';
+  const outBtn = doc.createElement('button');
+  outBtn.className = 'mkp-oslot off';
+  outBtn.type = 'button';
+  bench.appendChild(bgrid); bench.appendChild(barrow); bench.appendChild(outBtn);
+  main.appendChild(bench);
 
   /* —— 配方书区: 页签 + 卡片列表(卡片渲染在下方 renderCards) —— */
   const tabs = doc.createElement('div');
@@ -373,6 +402,10 @@ function mkCraftPanel(opts) {
      有起手时点另一格=搬去那里(onMove 报模式层执行), 点原格=放下;
      起手格被合成掏空则本次点击改当新起手 —— */
   function cellClick(i) {
+    if (pickCell >= 0) { // 摆放格起手 → 点背包格: 整摞退回(经 add, 零损失)
+      backCell(pickCell, i);
+      return;
+    }
     if (pickIdx >= 0 && pickIdx !== i && inv.slots[pickIdx]) {
       const from = pickIdx;
       const moved = inv.slots[from]; /* 先取引用: onMove 后原格内容可能已换 */
@@ -387,10 +420,150 @@ function mkCraftPanel(opts) {
     refresh();
   }
 
-  /* —— 配方可见集: 一期过滤(bread/bone_meal/bow_item 不点亮) + allow 放开 —— */
+  /* —— 摆放台交互(crafting-grid §5) —— */
+
+  /* 站点外的锁定格: 3×3 下标 2/5/6/7/8(左上 2×2 = 0/1/3/4 激活) */
+  function cellLocked(c) {
+    return !station() && c !== 0 && c !== 1 && c !== 3 && c !== 4;
+  }
+
+  /* 摆放格点击: 背包起手→入格(整摞/并堆, 异种拒绝收手不散, 工具不入格);
+     摆放格起手→格间搬(空/并/换); 无起手点非空格=起手 */
+  function benchClick(c) {
+    if (cellLocked(c)) { // 锁定格指路: 教「走近工作台解锁大格子」
+      pickIdx = -1; pickCell = -1;
+      kitHint({name: '工作台', desc: '走近工作台就能摆大配方啦', tts: '走近工作台就能摆大配方啦'}, o.doc);
+      refresh();
+      return;
+    }
+    if (pickIdx >= 0 && inv.slots[pickIdx]) { // 背包格 → 摆放格
+      const stack = inv.slots[pickIdx];
+      const cur = cells[c];
+      if (durOf(stack.id) > 0) { // 工具/可耗损物不入格(图案永不引用, 避开耐久重铸)
+        kitHint({name: '工具', desc: '工具不用放进格子哦', tts: '工具不用放进格子哦'}, o.doc);
+        refresh();
+        return;
+      }
+      if (cur && cur.id !== stack.id) { // 异种: 拒绝并保留起手(孩子换格再点)
+        kitHint({name: '格子', desc: '格子里已经有别的材料啦', tts: '格子里已经有别的材料啦'}, o.doc);
+        refresh();
+        return;
+      }
+      const free = cur ? 64 - cur.n : 64;
+      /* 槽级取走(inventory-core): 本函数域内的 remove 是面板生命周期卸载
+         (同名遮蔽), 经 globalThis 显式取背包原语(经典 script 顶层函数
+         = 全局属性, 测试桩同口径挂 globalThis) */
+      const got = free > 0 ? globalThis.remove(inv, pickIdx, free) : null;
+      pickIdx = -1;
+      if (got) {
+        if (cur) cur.n += got.n;
+        else cells[c] = got;
+        if (o.onGridMove) o.onGridMove();
+        kitHint(kitHintItem(got.id), o.doc);
+      }
+      refresh();
+      return;
+    }
+    if (pickCell >= 0 && pickCell !== c) { // 摆放格 → 摆放格(搬/并/换)
+      const from = pickCell;
+      pickCell = -1;
+      const a = cells[from];
+      if (!a) {
+        refresh(); return;
+      }
+      const b = cells[c];
+      if (!b) {
+        cells[c] = a; cells[from] = null;
+      } else if (b.id === a.id && b.n < 64) {
+        const put = Math.min(a.n, 64 - b.n);
+        b.n += put; a.n -= put;
+        if (a.n <= 0) cells[from] = null;
+      } else {
+        cells[c] = a; cells[from] = b; // 整摞对调
+      }
+      refresh();
+      return;
+    }
+    pickCell = (pickCell === c || !cells[c]) ? -1 : c; // 起手/放下/空格无效
+    if (cells[c]) kitHint(kitHintItem(cells[c].id), o.doc);
+    refresh();
+  }
+
+  /* 摆放格 → 背包: 整摞退回经 add(并堆/找空位, 装不下留格零损失) */
+  function backCell(c, slot) {
+    const s = cells[c];
+    pickCell = -1;
+    if (!s) {
+      refresh(); return;
+    }
+    const left = add(inv, s.id, s.n);
+    if (left > 0) s.n = left;
+    else cells[c] = null;
+    if (o.onGridMove) o.onGridMove();
+    kitHint(kitHintItem(s.id), o.doc);
+    refresh();
+  }
+
+  /* 当前摆放命中的配方(visibleRecipes 集 = 站点过滤+allow 放开; 隐藏配方
+     (bread/bone_meal/bow_item 二期)不参与匹配——二期门禁随卡片走) */
+  function matchNow() {
+    return visibleRecipes().find((r) => matchGrid(cells, r)) || null;
+  }
+
+  /* 摆放台渲染: 9 格 + 锁定态 + 产出槽(命中亮起, 图案×数量) */
+  function renderBench() {
+    bgrid.innerHTML = '';
+    for (let c = 0; c < 9; c++) {
+      const d = cellEl(cells[c]);
+      if (cellLocked(c)) {
+        d.classList.add('lock');
+        d.innerHTML = '<span class="icon">🔒</span>';
+      } else {
+        if (c === pickCell) d.classList.add('pick');
+        d.onclick = ()=>benchClick(c);
+      }
+      bgrid.appendChild(d);
+    }
+    paintOut();
+  }
+
+  /* 产出槽: 命中显示产物预览(icon ×n)可点; 未命中灰显引导 */
+  function paintOut() {
+    const r = matchNow();
+    if (r) {
+      outBtn.className = 'mkp-oslot on';
+      outBtn.innerHTML = iconHtml(r.out.item, 'big') + (r.out.n > 1 ? '<b class="mkp-n">×' + r.out.n + '</b>' : '');
+    } else {
+      outBtn.className = 'mkp-oslot off';
+      outBtn.innerHTML = '<span class="mkp-outq">?</span>';
+    }
+  }
+
+  /* 合成执行: 产出槽点击/连做共用; visibleRecipes 作匹配集(与预览同口径) */
+  function craftOnce() {
+    const res = gridCraft(cells, inv, station(), visibleRecipes());
+    if (!res.ok) return false;
+    if (o.onCraft) o.onCraft({item: res.out.item, n: res.out.n, leftover: res.leftover});
+    refresh(); // 格内数量/产出槽实时重读
+    return true;
+  }
+
+  /* 摆错无产出(防误合由图案承担): 点灰产出槽读指路提示, 不静默 */
+  function dimOutHint() {
+    kitHint({name: '摆放台', desc: '摆对了才会出现做法哦', tts: '再照着卡片摆一摆，摆对了就能做啦'}, o.doc);
+  }
+
+  /* 产出槽按压状态机(拍板④, 自旧「合成」钮平移): 长按 0.4s 进连做
+     (立即一发+0.3s/发), 松开/离开/摆空停; 未命中按压只读提示 */
+
+  /* —— 配方可见集: 一期过滤(bread/bone_meal/bow_item 不点亮) + allow 放开
+     + 站点口径(站点外只列 hand 级卡——正典: 2×2 配方才进随身配方书);
+     站点是动态判定, 求值期算 —— */
   const recipes = o.recipes || (typeof RECIPES !== 'undefined' ? RECIPES : []);
-  const visible = recipes.filter((r) => !KIT_HIDDEN_RECIPES.includes(r.id) ||
-    (o.allow && o.allow.includes(r.id)));
+  function visibleRecipes() {
+    return recipes.filter((r) => (!KIT_HIDDEN_RECIPES.includes(r.id) ||
+      (o.allow && o.allow.includes(r.id))) && (r.station === 'hand' || station()));
+  }
   let tab = 'all'; // 当前分类页签
   function cardTab(r) {
     if (toolOf(r.out.item)) return 'tool';
@@ -401,7 +574,7 @@ function mkCraftPanel(opts) {
   }
   function renderCards() {
     cards.innerHTML = '';
-    visible.filter((r) => tab === 'all' || cardTab(r) === tab) // 未归类只随「全部」
+    visibleRecipes().filter((r) => tab === 'all' || cardTab(r) === tab) // 未归类只随「全部」
         .forEach((r) => cards.appendChild(cardEl(r)));
   }
   function renderTabs() {
@@ -442,10 +615,9 @@ function mkCraftPanel(opts) {
       else if (m.id != null) lackHave[m.id] = m.have;
       else if (m.any) m.any.forEach((c) => lackAny.add(c));
     }
-    d.className = 'mkp-card' + (check.ok ? '' : ' dim') +
-        (selRecipe && selRecipe.id === r.id ? ' sel' : '');
+    d.className = 'mkp-card' + (check.ok ? '' : ' dim');
     let chips = '';
-    for (const [key, val] of Object.entries(r.cost)) {
+    for (const [key, val] of Object.entries(shapeCost(r))) {/* 派生计费(crafting-grid §4) */
       const e = costEntry(key, val); // 候选数组+数量(inventory-core 统一形状)
       if (!e) continue;
       e.cands.forEach((c) => {
@@ -459,99 +631,70 @@ function mkCraftPanel(opts) {
       '<div class="mkp-out">' + iconHtml(r.out.item, 'big') +
       (r.out.n > 1 ? '<b class="mkp-n">×' + r.out.n + '</b>' : '') + '</div>' +
       '<div class="mkp-chips">' + chips + '</div>';
-    d.onclick = ()=>selectRecipe(r); /* 点卡=选中(两步制确认步), 不直接合成 */
+    d.onclick = ()=>tapCard(r); /* 点卡=BE 一键摆入(拍板③), 合成走产出槽 */
     return d;
   }
 
-  /* —— 合成执行: canCraft 预检过才 craft(不坏包), 成功 → onCraft + 刷新 —— */
-  function craftOnce(r) {
-    if (!canCraft(inv, r, station()).ok) return false;
-    const res = craft(inv, r, station());
-    if (!res.ok) return false;
-    if (o.onCraft) o.onCraft({item: res.out.item, n: res.out.n, leftover: res.leftover});
-    refresh(); // 数量/灰显实时重读
-    return true;
-  }
-  /* —— 灰配方按「合成」未执行(缺料/站点未解锁): 读产物提示 + 尾句 ——
-      亮选不抢话(合成成功自有模式层表扬 TTS「X做好啦」), 静默无反馈
-      对孩子是谜题, 这是纯增益通道(docs/item-hint-design.md §3.5);
-      选中灰卡时 selectRecipe 已读同一句, 这里是按钮确认失败的第二通道 —— */
+  /* —— 配方卡 = BE 口径一键摆入(拍板③): fillGrid 自动摆材料(异种清扫
+      +逐规约格并堆+1, 缺料留空, 重复点=再备一套); 亮卡读产物提示,
+      灰卡加「现在还做不了哦」尾句(静默对孩子是谜题, 纯增益通道
+      docs/item-hint-design.md §3.5) —— */
   function dimCardHint(r) {
     const h = kitHintItem(r.out.item);
     if (h) kitHint({name: h.name, desc: h.desc, tts: h.tts + '，现在还做不了哦'}, o.doc);
   }
-  /* —— 两步制确认步: 点卡=选中(sel 高亮 + ItemHint 读产物; 灰卡加
-      「现在还做不了哦」尾句), 不直接合成 —— */
-  function selectRecipe(r) {
-    selRecipe = r;
-    refresh(); /* 重画卡片 sel 高亮 + 合成钮随动 */
-    const h = kitHintItem(r.out.item);
-    if (h) {
-      const dim = !canCraft(inv, r, station()).ok;
-      kitHint({name: h.name, desc: h.desc, tts: h.tts + (dim ? '，现在还做不了哦' : '')}, o.doc);
+  function tapCard(r) {
+    const check = canCraft(inv, r, station());
+    fillGrid(inv, r, cells);
+    if (o.onGridMove) o.onGridMove();
+    refresh();
+    if (check.ok) {
+      const h = kitHintItem(r.out.item);
+      if (h) kitHint({name: h.name, desc: h.desc, tts: h.tts}, o.doc);
+    } else {
+      dimCardHint(r);
     }
   }
 
-  /* —— 底部合成钮: 未选中=引导文案灰显; 选中=产物图标+名字(灰选灰显,
-      仍可点 — 按下走 dimCardHint 反馈, 不静默) —— */
-  const bar = doc.createElement('div');
-  bar.className = 'mkp-craftbar';
-  const goBtn = doc.createElement('button');
-  goBtn.className = 'mkp-go off';
-  bar.appendChild(goBtn);
-  main.appendChild(bar); /* 构造期执行, DOM 序在 cards 之后 */
-  function paintGo() {
-    const r = selRecipe;
-    if (!r) {
-      goBtn.className = 'mkp-go off';
-      goBtn.innerHTML = '先点一个要做的';
-      return;
-    }
-    const it = ITEMS[r.out.item];
-    goBtn.className = 'mkp-go' + (canCraft(inv, r, station()).ok ? '' : ' off');
-    goBtn.innerHTML = iconHtml(r.out.item, 'mini') + ' 合成 ' + ((it && it.name) || r.out.item) +
-        (r.out.n > 1 ? ' ×' + r.out.n : '');
-  }
-
-  /* —— 按压状态机(D8, 随两步制移到合成钮): 长按 0.4s 进入连做(立即一发+
-      0.3s/发), 松开/离开/材料尽停; 未选中按压无效 —— */
+  /* —— 产出槽按压状态机(拍板④, 自旧「合成」钮平移): 长按 0.4s 进入连做
+      (立即一发+0.3s/发), 松开/离开/图案散了停; 未命中按压读指路提示 —— */
   let active = null; // {el, repeating, stop}
   function stopPress() {
     if (active) active.stop();
   }
-  goBtn.addEventListener('pointerdown', (ev)=>{
-    if (!selRecipe) return;
+  outBtn.addEventListener('pointerdown', (ev)=>{
+    if (!matchNow()) {
+      dimOutHint();
+      return;
+    }
     ev.preventDefault();
     stopPress(); // 旧按压让位
-    const r = selRecipe;
     let holdT = 0; let repT = 0;
     const stop = ()=>{
       clearTimeout(holdT); clearInterval(repT);
-      if (active && active.el === goBtn) active = null;
+      if (active && active.el === outBtn) active = null;
     };
-    active = {el: goBtn, repeating: false, stop};
+    active = {el: outBtn, repeating: false, stop};
     holdT = setTimeout(()=>{ // 0.4s 判定线
-      if (active && active.el === goBtn) active.repeating = true;
-      if (!craftOnce(r)) {
-        stop(); // 材料尽/灰选 → 不进连做
-        dimCardHint(r);
+      if (active && active.el === outBtn) active.repeating = true;
+      if (!craftOnce()) {
+        stop(); // 摆空/装不下 → 不进连做
         return;
       }
-      repT = setInterval(()=>{ // 0.3s/发, 缺料自动停
-        if (!craftOnce(r)) stop();
+      repT = setInterval(()=>{ // 0.3s/发, 图案散了自动停
+        if (!craftOnce()) stop();
       }, 300);
     }, 400);
   });
-  goBtn.addEventListener('pointerup', ()=>{ // 松开: 未进连做→补单击; 连做中→只停
+  outBtn.addEventListener('pointerup', ()=>{ // 松开: 未进连做→补单击; 连做中→只停
     const a = active;
-    if (!a || a.el !== goBtn) return;
+    if (!a || a.el !== outBtn) return;
     const rep = a.repeating;
-    const r = selRecipe;
     a.stop();
-    if (!rep && r && !craftOnce(r)) dimCardHint(r); // 灰选确认: 提示代替静默
+    if (!rep && !craftOnce()) dimOutHint(); // 未命中点击: 提示代替静默
   });
-  goBtn.addEventListener('pointerleave', ()=>{
-    if (active && active.el === goBtn) active.stop();
+  outBtn.addEventListener('pointerleave', ()=>{
+    if (active && active.el === outBtn) active.stop();
   });
 
   /* —— 生命周期: show 幂等挂载, remove 幂等卸载并停连做计时 —— */
@@ -565,8 +708,29 @@ function mkCraftPanel(opts) {
     root.style.display = 'none';
     if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
   }
-  function close() {/* ✕/Esc 统一出口: 隐藏 + onClose(模式层做状态同步与指针回锁) */
-    pickIdx = -1; /* 收面板顺手收搬运起手(下次打开不带旧高亮) */
+  /* 关面板退料(crafting-grid §5, MC 工作台口径): 格内材料退回背包;
+     装不下的余量经 onReturnLeft 报模式层(转掉落物零损失), 无处理方留格不丢 */
+  function stashCells() {
+    const stuck = [];
+    for (let i = 0; i < cells.length; i++) {
+      const s = cells[i];
+      if (!s) continue;
+      const rem = add(inv, s.id, s.n);
+      if (rem > 0) {
+        s.n = rem;
+        stuck.push(i); // 装不下的格
+      } else {
+        cells[i] = null;
+      }
+    }
+    if (stuck.length && o.onReturnLeft) {
+      o.onReturnLeft(stuck.map((i) => ({id: cells[i].id, n: cells[i].n})));
+      stuck.forEach((i) => (cells[i] = null)); // 余量已交模式层(掉落物), 清格
+    }
+  }
+  function close() {/* ✕/Esc 统一出口: 退料 + 隐藏 + onClose(模式层做状态同步与指针回锁) */
+    pickIdx = -1; pickCell = -1; /* 收面板顺手收起手(下次打开不带旧高亮) */
+    stashCells();
     hide();
     if (o.onClose) o.onClose();
   }
@@ -584,8 +748,8 @@ function mkCraftPanel(opts) {
     root.style.display = 'flex';
     renderTabs();
     renderGrid();
+    renderBench(); /* 摆放台(锁定态/起手高亮/产出槽)随站点与摆放实时重读 */
     renderCards();
-    paintGo(); /* 合成钮随选中态/亮灰实时重读 */
   }
   return {root, questEl: quest, show, hide, close, remove, refresh};
 }

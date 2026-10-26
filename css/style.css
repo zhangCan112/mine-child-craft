@@ -1260,54 +1260,86 @@ body.dev-on .mode-card.dev {
   filter: grayscale(0.55); /* 缺什么灰什么(D8) */
 }
 
-/* ---------- 合成两步制(2026-10-26 防误合): 点卡选中 → 底部「合成」钮确认 ---------- */
-.mkp-card.sel {
-  border-color: #ffd54a; /* 选中金框(与物品提示气泡的名字同色系) */
-  box-shadow: 0 0 10px rgb(255 213 74 / 55%);
-}
-
-.mkp-craftbar {
-  position: sticky; /* 吸底: 配方列表再长, 合成钮始终可见 */
-  bottom: 0;
+/* ---------- 摆放台(crafting-grid 设计稿 §5): 3×3 格 + 箭头 + 产出槽 ----------
+   产出槽单击一发/长按连做(拍板④); 防误合由「摆错不产出」天然承担 */
+.mkp-bench {
   display: flex;
-  justify-content: center;
-  padding: 10px 0 2px;
-  background: rgb(20 26 34 / 95%); /* 与 .mkp-box 同底色: 滚动时盖住下方卡片 */
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0 4px;
 }
 
-.mkp-go {
-  display: inline-flex;
+.mkp-bgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 54px);
+  gap: 6px;
+}
+
+.mkp-bgrid .mkp-cell {
+  cursor: pointer;
+}
+
+.mkp-bgrid .mkp-cell.lock {
+  cursor: default;
+  background: rgb(0 0 0 / 45%);
+  border-color: rgb(255 255 255 / 12%);
+}
+
+.mkp-bgrid .mkp-cell.lock .icon {
+  font-size: 22px;
+  opacity: 0.55;
+}
+
+.mkp-barrow {
+  font-size: 26px;
+  font-weight: 700;
+  color: rgb(255 255 255 / 55%);
+}
+
+.mkp-oslot {
+  position: relative;
+  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  min-width: 240px;
-  padding: 10px 26px;
-  font-size: 18px;
-  font-weight: 700;
-  line-height: 1;
-  color: #fff;
+  width: 64px;
+  height: 64px;
   cursor: pointer;
-  background: rgb(46 125 50 / 85%);
-  border: 3px solid rgb(255 255 255 / 40%);
-  border-radius: 10px;
+  background: rgb(0 0 0 / 25%);
+  border: 3px solid rgb(255 255 255 / 22%);
+  border-radius: 8px;
 }
 
-.mkp-go.off {
-  font-weight: 400;
-  color: rgb(255 255 255 / 55%);
-  background: rgb(0 0 0 / 32%);
+.mkp-oslot .pic {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
 }
 
-.mkp-go:active {
-  background: rgb(124 252 0 / 35%);
+.mkp-oslot .icon {
+  font-size: 34px;
+  line-height: 1;
+}
+
+.mkp-oslot .mkp-n {
+  position: absolute;
+  top: 1px;
+  right: 4px;
+}
+
+.mkp-oslot.on {
+  background: rgb(46 125 50 / 55%);
+  border-color: #9dff6a;
+  box-shadow: 0 0 12px rgb(157 255 106 / 45%);
+}
+
+.mkp-oslot.on:active {
   transform: translateY(1px); /* MC 按钮四态口径: 按下整钮下沉 1px */
 }
 
-.mkp-go .mini {
-  width: 24px;
-  height: 24px;
-  font-size: 20px;
-  line-height: 1;
+.mkp-oslot.off .mkp-outq {
+  font-size: 26px;
+  font-weight: 700;
+  color: rgb(255 255 255 / 30%);
 }
 
 .mkp-out {
