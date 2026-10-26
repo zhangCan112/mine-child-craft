@@ -1205,6 +1205,35 @@ test('T12 挖掘行为链: 蓄力到点破坏 — 记账/掉落物 spawn/耐久 
   clearAim();
 });
 
+test('T12 挖掘行为链: 松手态换目标熄火 — 单击的蓄力不跟准星漂到别的方块', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shovel_wood', 1, 120); /* 木锹 matched 草地: 0.45s/块 */
+  const spot = findGrassSpot();
+  aimDownAt(spot);
+  AdventureMode.onMouse(0, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0}); /* 单击起蓄(未按住 = 桌面已松手/触屏单击的净状态) */
+  AdventureMode.update(0.15);
+  assert.ok(A.advMine.t > 0, '单击蓄力已起步(本块完成即停政策不变)');
+  /* 第二块干净草地: 准星移过去(单击意图只认起步那块, 不是"此后扫过的任何一块") */
+  let spot2 = null;
+  for (let x = 3; x < 50 && !spot2; x++) {
+    for (let z = 3; z < 50; z++) {
+      if ((x !== spot.x || z !== spot.z) && cell(x, 24, z) === 1 && cell(x, 25, z) === 0 && cell(x, 26, z) === 0) {
+        spot2 = {x, z};
+        break;
+      }
+    }
+  }
+  assert.ok(spot2, '找到第二块草地');
+  aimDownAt(spot2);
+  AdventureMode.update(0.15);
+  assert.strictEqual(A.advMine.down, false, '松手态换目标即熄火(不跟准星连敲)');
+  for (let i = 0; i < 6; i++) AdventureMode.update(0.15); /* 0.9s: 若未熄火, 0.45s 的方块早已挖穿 */
+  assert.strictEqual(cell(spot2.x, 24, spot2.z), 1, '新目标不被挖穿');
+  assert.strictEqual(cell(spot.x, 24, spot.z), 1, '原目标也不被挖穿(熄火不是转移)');
+  clearAim();
+});
+
 test('T12 挖掘行为链: 掉落物真空拾取 — update 喂玩家胸口点 → onCollect 入包', () => {
   mem.clear();
   freshInit();

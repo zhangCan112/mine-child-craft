@@ -805,7 +805,8 @@ function advTrySleep(hit, lookId) {/* 点击床(§7.2, 挖掘左键与轻点/右
 let advTierT = 0; /* 「需要更硬的镐子」TTS 节流(3s) */
 const advSaplings = new Map(); /* 树苗计时 "x,y,z"→{x,y,z,left}; 重进经全图扫描重建 */
 const advMine = {down: false, t: 0, key: '', need: 0, drops: true, swingT: 0}; /* 蓄力状态机 */
-let advMouseHeld = false; /* 桌面按住标志(document mousedown/up 维护): 按住连挖, 触屏单击挖一块 */
+let advMouseHeld = false; /* 桌面按住标志(document mousedown/up 维护; 失焦/解锁经 onHold(false) 自愈 —
+  丢 mouseup 不再卡连挖): 按住连挖, 触屏单击挖一块 */
 
 /* TNT 短按/按住二分(D3, 挖掘硬度修正): mousedown 只记账不点燃 — 松手
    <0.25s = 点燃(现状口径), 按住 ≥0.25s = 转蓄力挖走回收(hard 0)。
@@ -897,7 +898,8 @@ function advBreakBlock(x, y, z, id, bt) {
 }
 
 /* 蓄力推进(update 每帧): 准星指住可挖方块才累计; 换目标/指空清零;
-   到点破坏 — 桌面按住连挖(advMouseHeld), 触屏单击政策本块完成即停 */
+   松手态换目标熄火(单击只认起步那块, 不跟准星漂); 到点破坏 —
+   桌面按住连挖(advMouseHeld), 触屏单击政策本块完成即停 */
 function advMineTick(dt) {
   if (!advMine.down || ADV.panelOpen || ADV.furnaceOpen) {
     advMineStop();
@@ -910,9 +912,15 @@ function advMineTick(dt) {
     advMineStop();
     return;
   }
+  const aimKey = blockKey(hit.x, hit.y, hit.z);
+  if (!advMouseHeld && advMine.key && advMine.key !== aimKey) {/* 松手态(桌面已松手/
+    触屏单击)只认起步那块: 单击的意图是"挖这块", 不是"此后准星扫过的每一块"都跟着敲 */
+    advMineStop();
+    return;
+  }
   const held = advInv.slots[advHb.sel];
   const bt = breakTime(def, held && isTool(held.id) ? held : null); /* 非工具手持 = 徒手口径 */
-  Object.assign(advMine, advMineStep(advMine, blockKey(hit.x, hit.y, hit.z), bt, dt));
+  Object.assign(advMine, advMineStep(advMine, aimKey, bt, dt));
   advMine.swingT += dt; /* 挥动循环: 节拍触发 Avatar.swing(swingPose 纯函数在 Avatar 内循环) */
   if (advMine.swingT >= ADV_MINE_SWING) {
     advMine.swingT = 0;

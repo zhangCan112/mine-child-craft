@@ -45,7 +45,7 @@ const Input = {route: null, onLockChange: null, holdPt: null, icon: null};
 function requestLock() {
   if (IS_TOUCH) {
     touchPlaying = true;
-    holdClear();
+    clearHeldInput(); /* 进场即清残留(卡键/按住场自愈) */
     document.getElementById('overlay').style.display = 'none';
     return;
   }
@@ -53,9 +53,9 @@ function requestLock() {
 }
 /* 暂停/回菜单 (Esc 等价, 触屏可用) */
 function uiPause() {
-  holdClear();
+  clearHeldInput();
   if (document.pointerLockElement) {
-    document.exitPointerLock();
+    document.exitPointerLock(); /* 解锁事件里 clearHeldInput 幂等再清一次 */
   } else {
     touchPlaying = false;
     if (Input.onLockChange) Input.onLockChange(false);
@@ -64,6 +64,7 @@ function uiPause() {
 
 document.addEventListener('pointerlockchange', ()=>{
   locked = (document.pointerLockElement === renderer.domElement);
+  if (!locked) clearHeldInput(); /* 卡键兜底: 解锁即清(失焦丢 keyup/mouseup 等不到; Esc 开面板同拍清移动键) */
   if (Input.onLockChange) Input.onLockChange(locked);
 });
 
@@ -136,7 +137,7 @@ renderer.domElement.addEventListener('mousedown', (e)=>{
    (🎒🏠 等低频键不占操作区)。
 ============================================================ */
 const tGest = mkTouchGestures({holdMs: 250, moveTolPx: 12}); /* 250ms 对齐探险 TNT 短按窗口 */
-let holdActive = false; /* 主动作键按住中(holdClear 幂等用) */
+let holdActive = false; /* 主动作键按住中(clearHeldInput 收场幂等用) */
 
 function viewportPt(x, y) {
   return {x, y, w: innerWidth, h: innerHeight};
@@ -146,13 +147,21 @@ function setHoldPt(pt) {
   Input.holdPt = pt;
   CameraRig.holdAim(pt ? viewportPt(pt.x, pt.y) : null);
 }
-/* 收按钮按住的场(暂停/退出模式兜底; 未激活时静默) */
-function holdClear() {
-  if (!holdActive) return;
+/* 卡键兜底: 按住键/鼠标时窗口失焦(Alt+Tab · 系统通知 · 输入法 · 切后台),
+   keyup/mouseup 永远等不到 — 账本残留 true, 回游戏表现为人物自己走、
+   连敲停不下来。失焦即全清是唯一可靠兜底(MC 同款口径)。 */
+function clearHeldInput() {
+  for (const k of Object.keys(keys)) keys[k] = false;
+  touchMove.x = touchMove.y = 0;
+  touchSprint = false;
   holdActive = false;
-  const M = Input.route;
+  const M = Input.route; /* 按住场无条件收(模式侧幂等): 探险连挖/建造连挖/下界连击 */
   if (M && M.cur && M.cur.onHold) M.cur.onHold(false);
 }
+addEventListener('blur', clearHeldInput);
+document.addEventListener('visibilitychange', ()=>{
+  if (document.hidden) clearHeldInput();
+});
 
 /* 手势事件 → 行为: 轻点=放置/交互(指尖) · 拖动=视角;
    长按三事件(holdstart/holdmove/holdend)当前无动作, 显式忽略 */
