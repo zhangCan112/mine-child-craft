@@ -4,6 +4,8 @@
 > Q6 人物一并做；D1 接受 index.html 逐怪 script 标签 / D2 目录声明模块类型+测试断言键集 /
 > D3 贴图三档 32/64/128（票②启用大怪档）/ D4 玩家保留小探险家身份、比例改官方 8/12/12px /
 > D5 三票分期。调研底座：`docs/mc-mob-models-research.md`（Mojang bedrock-samples 逐文件核对）。
+> 票②档位扩记（2026-10-26 用户拍板）：恶魂官方 72³ 主盒 UV 十字宽 288 → 512 档；末影龙
+> 身 24×24×64 十字宽 176 → 256 档（128 数学上不可行）。档位定为 32/64/128/256/512 五档。
 
 ## 1. 深模块与缝
 
@@ -77,7 +79,11 @@ MobLookKit.declare('zombie', {
 | test/mob-look.test.js | 换算/UV/贴图覆盖/确定性/头像/键集白名单 |
 | 文档 | GLOSSARY「造型档案」词条 · conventions §1.1 目录行 |
 
-票②：按族铺完 42 怪（白名单断言翻转为全覆盖）+ 大怪 128 档 + scale 变体；
+票②（2026-10-26 完成）：42 怪全量铺完（41 档案 + player，白名单断言已翻转为注册表派生的
+全覆盖）；新增 illager 基座 + humanoid headW/quad UV 覆写 + 立方体级 rz 旋转 + 骨槽 axis
+透传；scale 变体（wither_skeleton 1.2 / cave_spider 0.7 / piglin_brute 1.1 / elder_guardian
+2.0 / wither 1.7）；贴图五档 32/64/128/256/512。已知取舍：illager 交叉臂与挥击摆臂互斥
+取摆臂；slime/magma 薄片层理改贴图表达；hoglin 前后腿异规格走自有骨架。
 票③：拆旧（删 mobs.js MOB_RIG/face 内联 ~700 行、hum/quad 生成器）、Avatar 老建模清理。
 
 ## 5. 测试策略

@@ -221,6 +221,7 @@ id 命名偏离见 §6。
 | 6 | HTML id 不含连字符（指南 id 条款） | 同 #4 | .htmlhintrc |
 | 7 | CSS 保留 `-webkit-appearance` 前缀版（与标准版并存，行内 disable property-no-vendor-prefix） | 旧 iPad Safari 只认前缀版外观属性；音量滑杆（A8）自绘 thumb 必须去默认外观 | css/touch.css 两处行内 |
 | 8 | math-build-world（摆与搭世界轨）采用指针锁定宿主，偏离 MISSION"无键盘/指针锁定"约束 | 放置类变体需要瞄准射线持续操作（MC 建造形态的关卡内临时放置）；hop 混合宿主仍保持纯点选不锁指针——仅此一宿主受限 | docs/math-mode-design.md §9 |
+| 9 | js/mob-look/ 文件名带下划线（如 zombified_piglin.js），不合 kebab-case | 造型档案文件名=declare 键=MOB_TYPES id（票②拍板：文件名与注册表键零变换，防第二条映射规则漂移）；与 modes/（文件名=模式 id）同理按注册表管，test/mob-look.test.js 断言文件名=键集 | test/conventions.test.js 命名断言豁免 js/mob-look/ |
 
 新增偏离必须登记在此表并给理由；未登记的偏离视为违规。
 
@@ -241,3 +242,5 @@ id 命名偏离见 §6。
 - 2026-10-26：§1.9 存量命名偏差清单补收 world-integrity 与 world-vertexlight——昼夜
   D2/D3 落地的两个专题测试（js/world.js 的全图不变量扫描与顶点光材质注入），同款口径：
   不改名，测试头注释写明对应哪个模块文件（双轴评审跟进补账）。
+- 2026-10-26：§6 登记 #9（js/mob-look/ 文件名=declare 键带下划线——造型档案票②铺开
+  36 怪时落地：键集与文件名零变换由 test/mob-look.test.js 断言，命名守卫豁免该目录）。

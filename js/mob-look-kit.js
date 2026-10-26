@@ -87,15 +87,22 @@ const MobLookKit = (() => {
 
   /* ---------- 基座: 官方像素骨架(研究笔记 §3/§4; 脸朝 −Z, origin=角点) ----------
      humanoid: 人形(玩家/僵尸系) — 玩家版 64×64 UV 布局(左右肢各有独立区,
-     不用官方 mirror 共区——自绘贴图无需省位); 官方腿位 ±1.9 取整 ±2(0.2 缝贴地无感)
+     不用官方 mirror 共区——自绘贴图无需省位); 官方腿位 ±1.9 取整 ±2(0.2 缝贴地无感);
+     headW 参数 = 头半宽覆写(猪灵官方宽头 10×8×8 → 5)
      skeleton: 细骨(骷髅系) — 同布局, 四肢 2×12×2
+     illager: 灾厄村民(卫道士系) — 头 8×10×8+鼻 2×4×2 前突+身 8×12×6 加厚+
+     长袍 overlay(inflate 0.5, 下摆收到 y6 让腿露一段——引擎步态可见优先,
+     官方下摆 y0 会把摆腿动画整个罩没); 官方交叉臂是 idle 姿态语言, 与引擎
+     挥击摆臂互斥, 取摆臂(持械怪持械手必须垂臂)
      quad: 四足(牛/猪/羊…) — 官方「竖模 bind_pose 90°」的等价水平盒(预躺平,
-     推导注引研究笔记 §5); wool 参数 = 身/头同盒 + inflate 的 overlay(羊) */
+     推导注引研究笔记 §5); wool 参数 = 身/头同盒 + inflate 的 overlay(羊);
+     bodyUV/headUV/legUVs 参数 = 大怪 128 档的布局重排覆写 */
   const BASES = {
     humanoid(o) {
       o = o || {};
+      const hw = o.headW || 4; /* 头半宽(px) */
       return {
-        head: {pivot: [0, 24, 0], cubes: [{origin: [-4, 24, -4], size: [8, 8, 8], uv: [0, 0]}]},
+        head: {pivot: [0, 24, 0], cubes: [{origin: [-hw, 24, -4], size: [hw * 2, 8, 8], uv: [0, 0]}]},
         root: {pivot: [0, 24, 0], cubes: [{origin: [-4, 12, -2], size: [8, 12, 4], uv: [16, 16]}]},
         armR: {pivot: [-5, 22, 0], cubes: [{origin: [-8, 12, -2], size: [4, 12, 4], uv: [40, 16]}]},
         armL: {pivot: [5, 22, 0], cubes: [{origin: [4, 12, -2], size: [4, 12, 4], uv: [32, 48]}]},
@@ -111,15 +118,36 @@ const MobLookKit = (() => {
       b.legL.cubes[0] = {origin: [1, 0, -1], size: [2, 12, 2], uv: [16, 48]};
       return b;
     },
+    illager(o) {
+      o = o || {};
+      return {
+        head: {pivot: [0, 24, 0], cubes: [
+          {origin: [-4, 24, -4], size: [8, 10, 8], uv: [0, 0]},
+          {origin: [-1, 23, -6], size: [2, 4, 2], uv: [40, 0]}, /* 鼻(前突, 官方立体脸件) */
+        ]},
+        root: {pivot: [0, 24, 0], cubes: [
+          {origin: [-4, 12, -3], size: [8, 12, 6], uv: [0, 20]},
+          {origin: [-4, 6, -3], size: [8, 12, 6], inflate: 0.5, uv: [32, 20]}, /* 长袍 overlay */
+        ]},
+        armR: {pivot: [-5, 22, 0], cubes: [{origin: [-8, 12, -2], size: [4, 12, 4], uv: [48, 0]}]},
+        armL: {pivot: [5, 22, 0], cubes: [
+          {origin: [4, 12, -2], size: [4, 12, 4], uv: [48, 0]}, /* 与右臂共区(对称袖) */
+        ]},
+        legR: {pivot: [-2, 12, 0], cubes: [{origin: [-4, 0, -2], size: [4, 12, 4], uv: [0, 40]}]},
+        legL: {pivot: [2, 12, 0], cubes: [
+          {origin: [0, 0, -2], size: [4, 12, 4], uv: [0, 40]}, /* 与右腿共区(同色靴) */
+        ]},
+      };
+    },
     quad(o) {
       const body = {
         origin: [-o.w / 2, o.bodyCY - o.h / 2, o.bodyCZ - o.len / 2],
-        size: [o.w, o.h, o.len], uv: [0, 16],
+        size: [o.w, o.h, o.len], uv: o.bodyUV || [0, 16],
       };
       const bodyCubes = [body];
       const head = {
         origin: [-o.headW / 2, o.headCY - o.headH / 2, o.headCZ - o.headD / 2],
-        size: [o.headW, o.headH, o.headD], uv: [0, 0],
+        size: [o.headW, o.headH, o.headD], uv: o.headUV || [0, 0],
       };
       const headCubes = [head];
       /* 羊毛 overlay: 身/头同盒 + inflate(官方手法, 研究笔记 §5 农场一家) */
@@ -127,7 +155,8 @@ const MobLookKit = (() => {
         bodyCubes.push({...body, inflate: o.wool.inflate, uv: o.wool.bodyUV});
         headCubes.push({...head, inflate: o.wool.headInflate, uv: o.wool.headUV});
       }
-      const legUVs = [[32, 0], [48, 0], [32, 16], [48, 16]]; /* 四腿各一区(左前/左后/右前/右后) */
+      const legUVs = o.legUVs || /* 四腿各一区(左前/左后/右前/右后) */
+        [[32, 0], [48, 0], [32, 16], [48, 16]];
       const leg = (x, z, uv) => ({
         origin: [x - o.legW / 2, 0, z - o.legW / 2], size: [o.legW, o.legH, o.legW], uv,
       });
@@ -151,7 +180,7 @@ const MobLookKit = (() => {
     if (look.bones) {
       for (const name of Object.keys(look.bones)) {
         const spec = look.bones[name] || {};
-        if (!base[name]) base[name] = {pivot: spec.pivot || [0, 0, 0], cubes: []};
+        if (!base[name]) base[name] = {pivot: spec.pivot || [0, 0, 0], axis: spec.axis, cubes: []};
         if (spec.add) base[name].cubes = base[name].cubes.concat(spec.add);
       }
     }
@@ -180,7 +209,9 @@ const MobLookKit = (() => {
         const cy = (c.origin[1] + h / 2 - bone.pivot[1]) * s;
         const cz = nz(((c.origin[2] + d / 2) - bone.pivot[2]) * s * mz);
         slot.boxes.push({w: w * s, h: h * s, d: d * s, hex: 0xffffff,
-          x: cx, y: cy, z: cz, rx: c.rx ? (mirror ? -c.rx : c.rx) : 0});
+          x: cx, y: cy, z: cz,
+          rx: c.rx ? (mirror ? -c.rx : c.rx) : 0,
+          rz: c.rz || 0}); /* rz 与 z 镜像交换不变(绕 z 轴), 不取负 */
       }
       slots[name] = slot;
     }
@@ -251,6 +282,7 @@ const MobLookKit = (() => {
       const g = new THREE.BoxGeometry(c.size[0] * s + inf * 2, c.size[1] * s + inf * 2,
           c.size[2] * s + inf * 2);
       if (c.rx) g.rotateX(c.rx);
+      if (c.rz) g.rotateZ(c.rz); /* 立方体级倾斜(猪灵耳/劫掠兽角/幻翼翼尖) */
       const off = slot.boxes[slot.cubes.indexOf(c)];
       g.translate(off.x, off.y, off.z);
       const rects = faceRects(c);

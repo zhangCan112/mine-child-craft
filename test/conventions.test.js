@@ -28,12 +28,17 @@ const SUFFIXES = ['-core', '-registry', '-kit', '-levels', '-icons', '-worker'];
 
 test('规范: 模块文件名一律 kebab-case, 后缀只许语义表内的几种', () => {
   for (const p of jsModules) {
+    const relp = rel(p);
     const name = path.basename(p, '.js');
-    assert.match(name, /^[a-z0-9]+(-[a-z0-9]+)*$/, rel(p) + ' 不合 kebab-case');
-    if (rel(p).startsWith('js' + path.sep) || rel(p).startsWith('js/')) {
-      if (rel(p).includes('modes')) continue; // 模式文件 = 模式 id, 由注册表管
+    /* mob-look/ = 造型档案, 文件名=declare 键(= MOB_TYPES id, 带下划线) —
+       与 modes/(文件名=模式 id) 同理按注册表管, 豁免 kebab 断言
+       (偏离登记见 docs/conventions.md §6) */
+    if (relp.startsWith('js/mob-look/')) continue;
+    assert.match(name, /^[a-z0-9]+(-[a-z0-9]+)*$/, relp + ' 不合 kebab-case');
+    if (relp.startsWith('js' + path.sep) || relp.startsWith('js/')) {
+      if (relp.includes('modes')) continue; // 模式文件 = 模式 id, 由注册表管
       const suffix = SUFFIXES.find((s) => name.endsWith(s));
-      if (suffix && !SUFFIXES.includes(suffix)) assert.fail(rel(p)); // 恒假, 保持结构清晰
+      if (suffix && !SUFFIXES.includes(suffix)) assert.fail(relp); // 恒假, 保持结构清晰
     }
   }
 });

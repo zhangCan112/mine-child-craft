@@ -26,8 +26,10 @@ function declareAll(kit) {
 }
 declareAll(MobLookKit);
 
-/* 票① 打样白名单(票② 铺开后翻转为 MOB_TYPES 全覆盖断言, 漏迁即红) */
-const MIGRATED = ['creeper', 'player', 'sheep', 'skeleton', 'spider', 'zombie'];
+/* 票②收尾翻转: 白名单 = MOB_TYPES 全怪(除 mix 伪类型) + player —
+   注册表新增怪而漏建档案文件时, 键集断言直接红(设计文档 §5) */
+const MIGRATED = Object.keys(MOB_TYPES).filter((k) => k !== 'mix')
+    .concat(['player']).sort();
 
 /* ============ 测试 ============ */
 
@@ -81,6 +83,24 @@ test('造型档案: 自有骨架 — 苦力怕无臂四腿 · 蜘蛛八杆腿与
   assert.ok(Math.abs(bar.w - 1) < 1e-9 && Math.abs(bar.h - 2/16) < 1e-9,
       '官方腿 = 16×2×2px 水平长杆');
   assert.ok(sp.slots.head.boxes[0].z > 0, '头在 +Z 前侧(官方 −11px 前置镜像)');
+});
+
+test('造型档案: 票②基座扩展 — 灾厄基座 · 宽头参数 · 翼槽 axis · scale 变体', () => {
+  const vd = MobLookKit.rig('vindicator');
+  const head = vd.slots.head.boxes[0];
+  assert.ok(Math.abs(head.h - 10/16) < 1e-9, '灾厄头高官方 10px');
+  assert.strictEqual(vd.slots.head.cubes.length, 2, '头+鼻追加骨(官方立体鼻)');
+  assert.strictEqual(vd.slots.root.cubes.length, 2, '身+长袍 overlay(inflate 0.5)');
+  const pg = MobLookKit.rig('piglin');
+  assert.ok(Math.abs(pg.slots.head.boxes[0].w - 10/16) < 1e-9, '猪灵宽头 10px(headW 参数)');
+  const ch = MobLookKit.rig('chicken');
+  assert.strictEqual(ch.slots.wingL.axis, 'z', '自有翼骨 axis 透传(扇翅)');
+  assert.strictEqual(ch.slots.wingL.cubes.length, 1, '翼骨一盒');
+  const ws = MobLookKit.rig('wither_skeleton');
+  const wsArm = ws.slots.armR.boxes[0];
+  assert.ok(Math.abs(wsArm.h - 12*1.2/16) < 1e-9, '凋灵骷髅 scale 1.2(官方 2×12×2×1.2)');
+  const cs = MobLookKit.rig('cave_spider');
+  assert.ok(Math.abs(cs.slots.legL.boxes[0].w - 0.7) < 1e-9, '洞穴蜘蛛 scale 0.7(蜘蛛骨×0.7)');
 });
 
 test('造型档案: UV 区域公式 — 玩家布局(官方 64×64) · overlay 第二盒', () => {
@@ -146,12 +166,13 @@ test('造型档案: 头像裁切 — 16×16 网居中 · 中心像素非空且�
   const s = MobLookKit.facePixels('sheep');
   const sc = s[8 * 16 + 8];
   assert.ok(sc, '羊脸中心非空(6×6 头区居中放置)');
-  assert.strictEqual(MobLookKit.facePixels('golem'), null, '未迁移怪返 null(face 走手绘兜底)');
+  assert.strictEqual(MobLookKit.facePixels('mix'), null, 'mix 伪类型无档案返 null(face 走手绘兜底)');
 });
 
 test('造型档案: 碎块色声明 — 优先于 mobs.js MOB_DEBRIS', () => {
   assert.strictEqual(MobLookKit.debrisOf('zombie'), 0x5e9440, '僵尸碎块色(配色锚延续)');
-  assert.strictEqual(MobLookKit.debrisOf('golem'), null, '未声明返 null(回落内联表)');
+  assert.strictEqual(MobLookKit.debrisOf('golem'), 0xcdd0d8, '铁傀儡碎块色(配色锚延续)');
+  assert.strictEqual(MobLookKit.debrisOf('mix'), null, 'mix 伪类型无声明返 null(回落内联表)');
 });
 
 test('造型档案: 确定性 — 同 type 两次声明+绘制逐字节一致(种子化)', () => {
