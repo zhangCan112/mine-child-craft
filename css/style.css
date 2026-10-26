@@ -1261,28 +1261,72 @@ body.dev-on .mode-card.dev {
 }
 
 /* ---------- 摆放台(crafting-grid 设计稿 §5): 3×3 格 + 箭头 + 产出槽 ----------
-   产出槽单击一发/长按连做(拍板④); 防误合由「摆错不产出」天然承担 */
+   观感对齐 MC 工作台: 木质台面(工作台方块色板+板条纹) + 内嵌凹槽格
+   (MC 槽口: 上左暗/下右亮) + 粗像素箭头(摆中点亮) + 正典产出槽。
+   产出槽单击一发/长按连做(拍板④); 防误合由「摆错不产出」天然承担。
+   --mkp-cell/--mkp-bgap 是格子步进变量(触屏档 touch.css 覆写,
+   激活 2×2 金框尺寸随变量派生) */
 .mkp-bench {
+  --mkp-cell: 60px;
+  --mkp-bgap: 6px;
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 8px 0 4px;
+  gap: 14px;
+  padding: 10px 14px;
+  background-color: #74552c; /* 工作台方块木质色板(橡木板顶面) */
+  background-image:
+    repeating-linear-gradient(180deg, rgb(0 0 0 / 14%) 0 2px, transparent 2px 16px),
+    repeating-linear-gradient(90deg, rgb(0 0 0 / 9%) 0 2px, transparent 2px 64px);
+  border: 3px solid #40300f;
+  border-radius: 8px;
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 14%),
+    inset 0 -3px 0 rgb(0 0 0 / 32%),
+    0 2px 6px rgb(0 0 0 / 30%);
+}
+
+/* 站点外(2×2 随身模式): 台面整体压暗示意「工作台未解锁」 */
+.mkp-bench.away {
+  background-color: #5b4523;
+  border-color: #32230c;
 }
 
 .mkp-bgrid {
+  position: relative; /* 激活 2×2 金框(::after)的定位锚 */
   display: grid;
-  grid-template-columns: repeat(3, 54px);
-  gap: 6px;
+  grid-template-columns: repeat(3, var(--mkp-cell));
+  gap: var(--mkp-bgap);
 }
 
+/* MC 槽口: 内嵌凹槽观感(border-color 序=上右下左: 上左暗、下右亮) */
 .mkp-bgrid .mkp-cell {
+  box-sizing: border-box;
+  width: var(--mkp-cell);
+  height: var(--mkp-cell);
   cursor: pointer;
+  background: #8b8b8b;
+  border: 3px solid;
+  border-color: #373737 rgb(255 255 255 / 38%) rgb(255 255 255 / 38%) #373737;
+  border-radius: 2px;
 }
 
+.mkp-bgrid .mkp-cell:hover {
+  background: #a0a0a0; /* MC 悬停白罩的暗面板适配 */
+}
+
+/* 起手格: 金框 + 微金底(在凹槽色上仍可辨) */
+.mkp-bgrid .mkp-cell.pick {
+  background: #a5975f;
+  border-color: #ffd54a;
+  box-shadow: 0 0 0 2px rgb(255 213 74 / 55%),
+    0 0 12px rgb(255 213 74 / 45%);
+}
+
+/* 锁定格: 深一档的凹槽 + 🔒(排在 :hover 后, 悬停不变亮不误导) */
 .mkp-bgrid .mkp-cell.lock {
   cursor: default;
-  background: rgb(0 0 0 / 45%);
-  border-color: rgb(255 255 255 / 12%);
+  background: #5f5f5f;
+  border-color: #262626 rgb(255 255 255 / 15%) rgb(255 255 255 / 15%) #262626;
 }
 
 .mkp-bgrid .mkp-cell.lock .icon {
@@ -1290,23 +1334,52 @@ body.dev-on .mode-card.dev {
   opacity: 0.55;
 }
 
-.mkp-barrow {
-  font-size: 26px;
-  font-weight: 700;
-  color: rgb(255 255 255 / 55%);
+/* 站点外激活区指路: 左上 2×2 金色圆角框 — 孩子一眼看见「这四格能用」 */
+.mkp-bgrid.locked::after {
+  content: '';
+  position: absolute;
+  top: -6px;
+  left: -6px;
+  box-sizing: border-box;
+  width: calc(var(--mkp-cell) * 2 + var(--mkp-bgap) + 12px);
+  height: calc(var(--mkp-cell) * 2 + var(--mkp-bgap) + 12px);
+  pointer-events: none;
+  border: 3px solid rgb(255 226 122 / 85%);
+  border-radius: 8px;
+  box-shadow: 0 0 10px rgb(255 226 122 / 35%),
+    inset 0 0 8px rgb(255 226 122 / 18%);
 }
 
+/* 像素箭头: MC「摆入 → 产出」的粗箭头(clip-path 画形); 摆中点亮引导点击 */
+.mkp-barrow {
+  width: 44px;
+  height: 26px;
+  background: #c8c8c8;
+  clip-path: polygon(0 8px, 24px 8px, 24px 0, 100% 50%, 24px 26px, 24px 18px, 0 18px);
+  filter: drop-shadow(1px 1px 0 rgb(0 0 0 / 40%));
+  transition: background 0.15s;
+}
+
+.mkp-bench.has-out .mkp-barrow {
+  background: #ffe27a;
+  filter: drop-shadow(0 0 6px rgb(255 226 122 / 65%));
+}
+
+/* 产出槽: 同款 MC 凹槽, 略大于摆入格(点击/长按的奖励感) */
 .mkp-oslot {
   position: relative;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 64px;
-  height: 64px;
+  width: 70px;
+  height: 70px;
+  padding: 0;
   cursor: pointer;
-  background: rgb(0 0 0 / 25%);
-  border: 3px solid rgb(255 255 255 / 22%);
-  border-radius: 8px;
+  background: #8b8b8b;
+  border: 3px solid;
+  border-color: #373737 rgb(255 255 255 / 38%) rgb(255 255 255 / 38%) #373737;
+  border-radius: 2px;
 }
 
 .mkp-oslot .pic {
@@ -1324,12 +1397,15 @@ body.dev-on .mode-card.dev {
   position: absolute;
   top: 1px;
   right: 4px;
+  text-shadow: 0 1px 2px #000; /* 数量徽标在灰槽上加投影保对比 */
 }
 
+/* 命中: 绿光圈点亮「可以拿啦」(MC 槽口底色不动, 光圈是我们的儿童反馈) */
 .mkp-oslot.on {
-  background: rgb(46 125 50 / 55%);
+  background: #97a67e;
   border-color: #9dff6a;
-  box-shadow: 0 0 12px rgb(157 255 106 / 45%);
+  box-shadow: 0 0 14px rgb(157 255 106 / 55%),
+    inset 0 0 10px rgb(157 255 106 / 22%);
 }
 
 .mkp-oslot.on:active {
@@ -1339,7 +1415,7 @@ body.dev-on .mode-card.dev {
 .mkp-oslot.off .mkp-outq {
   font-size: 26px;
   font-weight: 700;
-  color: rgb(255 255 255 / 30%);
+  color: rgb(0 0 0 / 30%); /* 灰槽上的暗「?」= MC 空槽观感 */
 }
 
 .mkp-out {

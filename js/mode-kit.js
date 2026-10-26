@@ -510,8 +510,12 @@ function mkCraftPanel(opts) {
     return visibleRecipes().find((r) => matchGrid(cells, r)) || null;
   }
 
-  /* 摆放台渲染: 9 格 + 锁定态 + 产出槽(命中亮起, 图案×数量) */
+  /* 摆放台渲染: 9 格 + 锁定态 + 产出槽(命中亮起, 图案×数量); 台面状态类
+     随站点切换(away=不在工作台: 木框变暗 + bgrid 金框圈出激活 2×2) */
   function renderBench() {
+    const at = station();
+    bench.classList.toggle('away', !at);
+    bgrid.classList.toggle('locked', !at);
     bgrid.innerHTML = '';
     for (let c = 0; c < 9; c++) {
       const d = cellEl(cells[c]);
@@ -527,9 +531,10 @@ function mkCraftPanel(opts) {
     paintOut();
   }
 
-  /* 产出槽: 命中显示产物预览(icon ×n)可点; 未命中灰显引导 */
+  /* 产出槽: 命中显示产物预览(icon ×n)可点 + 箭头点亮(has-out); 未命中灰显引导 */
   function paintOut() {
     const r = matchNow();
+    bench.classList.toggle('has-out', !!r);
     if (r) {
       outBtn.className = 'mkp-oslot on';
       outBtn.innerHTML = iconHtml(r.out.item, 'big') + (r.out.n > 1 ? '<b class="mkp-n">×' + r.out.n + '</b>' : '');
