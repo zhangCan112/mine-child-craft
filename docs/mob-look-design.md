@@ -88,6 +88,7 @@ MobLookKit.declare('zombie', {
 顶点色几何/mobMat 共享材质分支/MOB_DEBRIS 内联表（41 键 debris 前移 look 文件，迁移前逐键
 对账零漂移）/face() 手绘 switch 319 行（贴图裁切 + 问号兜底两分支保留）；rigOf 直查
 MobLookKit；mobs.test.js 桩环境装载真 kit+声明文件；GLOSSARY 双轨字样消名。
+Avatar 老建模清理随票①傀儡重建一并完成（无遗留引用，票③核验）。
 
 ## 5. 测试策略
 

@@ -230,7 +230,7 @@ test('怪物库: gait 攻击姿态窗口(第 4 参) — 挥臂(人形)/头前扑
   Mobs.gait(b, 1/60, 2, 0.5);
   assert.ok(Math.abs(b.pose.armR) < 0.25, 'attackT 归零: 回步态摆臂基线');
 
-  const p = Mobs.spawn('piglin', 16, 16, {}); /* 持械人形(hum 的 held → 武器挂 armL) */
+  const p = Mobs.spawn('piglin', 16, 16, {}); /* 持械人形(造型档案 weaponArm → 武器挂 armL) */
   p.attackT = 0.25; /* 相位中点 → 挥幅峰值 */
   Mobs.gait(p, 1/60, 0, 0.5);
   assert.ok(Math.abs(p.pose.armL - (-1.9)) < 1e-9, '持械人形: 相位中点持械臂(armL)抡到峰值 -1.9, 不再空手挥拳');
