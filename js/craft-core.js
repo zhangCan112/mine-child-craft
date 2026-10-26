@@ -2,7 +2,7 @@
 /* ============================================================
    合成核心 (CraftCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
-   合成系统的唯一数据源: RECIPES 全表(手搓 4 + 工作台级 26, 站点
+   合成系统的唯一数据源: RECIPES 全表(手搓 4 + 工作台级 28, 站点
    'hand' 随时可做 / 'table' 需走近工作台 4 格, 拍板④) · SMELTS 烧炼
    映射 · FUEL 燃料择优序(从 ITEMS fuel 字段按热值降序派生)。外加五个
    无状态纯函数: canCraft 缺失清单(驱动配方卡亮灰) · craft 扣料+产栈 ·
@@ -22,8 +22,8 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 29 条(设计稿 §3.2 + §3.5) + 箱子(引导链 v2, story-quest-research)
-   + 金苹果(F3, 二期设计稿 §3)
+   RECIPES 配方表 — 32 条(设计稿 §3.2 + §3.5) + 箱子(引导链 v2, story-quest-research)
+   + 金苹果(F3, 二期设计稿 §3) + 床/灯笼(昼夜 D6/D7)
    条目形状: id 配方卡键 · out {item, n} 产物 · cost 材料计费
    (值=数量; 值=[候选id数组,数量]=任选其一, 键名仅占位) · station 'hand'|'table'
    ------------------------------------------------------------ */
@@ -57,6 +57,11 @@ const RECIPES = [
   /* —— 站点件与补给包(§3.5 + §3.2) —— */
   {id: 'furnace', out: {item: 'furnace', n: 1}, cost: {cobble: 8}, station: 'table'}, // 8 圆石, 无需煤(§5.5)
   {id: 'chest', out: {item: 'chest', n: 1}, cost: {planks: 8}, station: 'table'}, // 8 木板(MC 正典); 只储物非站点
+  // 床(昼夜 D6 §7.1): 3 羊毛+3 木板(MC 正典); 羊毛来源 F4 牧场, 原料闭环; 夜里点击睡觉跳夜
+  {id: 'bed', out: {item: 'bed', n: 1}, cost: {wool: 3, planks: 3}, station: 'table'},
+  // 灯笼(昼夜 D7 §8.1): 原创手持光源 — MC 灯笼 8 铁粒+火把, 铁粒本游戏不存在折算 2 铁锭(差异 #6);
+  // dur 300 秒天黑才亮才耗, 耐久政策在模式层(§8.2)
+  {id: 'lantern', out: {item: 'lantern', n: 1}, cost: {iron_ingot: 2, torch: 1}, station: 'table'},
   {id: 'stone_bricks', out: {item: 'stone_bricks', n: 4}, cost: {stone: 4}, station: 'table'}, // 4 石→4 石砖(MC 口径, §3.5)
   {id: 'bricks', out: {item: 'bricks', n: 1}, cost: {brick: 4}, station: 'table'}, // 4 红砖→1 红砖块(黏土-红砖链, §3.5)
   {id: 'shears', out: {item: 'shears', n: 1}, cost: {iron_ingot: 2}, station: 'table'}, // 剪树叶得树叶方块(§3.5)

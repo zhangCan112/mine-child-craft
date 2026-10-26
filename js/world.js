@@ -3,14 +3,21 @@
    渲染 adapter（World · 术语见 GLOSSARY.md 的"场景装填/距离环"）— 引擎层
    ------------------------------------------------------------
    体素模型的渲染端: 场景/灯光/贴图/区块网格(全细节+LOD)/编辑管线/高亮。
-   纯体素数据(存取/碰撞/物理/射线)在 js/voxel.js — 本文件不定义游戏规则。
-   interface: loadScene(建场 seam: 清场→批量建→渐进收尾入队) / markDirty /
+   纯体素数据(存取/碰撞/物理/射线/光场存储)在 js/voxel.js — 本文件不定义游戏规则。
+   interface: loadScene(建场 seam: 清场→批量建→光场全量→渐进收尾入队) / markDirty /
      pumpRemesh(每帧按预算构建, 编辑优先于环填充) / maintainRings(距离环:
      近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
-      级联清单, 设计稿 block-lifecycle D3) / applySweep(世界卫生清扫, P14/D9)
-      / raycast / camera / renderer / scene。
-   依赖(均经全局名, 调用期解析): voxel.js(体素数据) · cascade-core.js(方块级联) · mesh-core.js(网格化
-   核心, 同一份代码在 Worker 里跑) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
+      级联清单, 设计稿 block-lifecycle D3; 编辑经 setBlockLit 连带双通道光场
+      增量, 昼夜 §3.3/D4) / applySweep(世界卫生清扫, P14/D9)
+      / applyDaylight(昼夜场景驱动: 天色/雾/光强/日月轨道 + 顶点光材质
+      uniforms uDim/uSkyFloor 节拍, 设计稿 mc-daylight-torch §2.3/§4.2)
+      / setPlayerGlow(玩家随身光机制缝: 方块侧 uniform + 实体侧 PointLight,
+      政策归 D7) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件
+      可写: main.js 推进·模式层换装) / raycast / camera / renderer / scene。
+   依赖(均经全局名, 调用期解析): voxel.js(体素数据+光场数组) · cascade-core.js(方块级联) ·
+   light-core.js(光照核心: 装场全量 computeAll + 编辑增量 updateEdit) · mesh-core.js(网格化核心, 同一份代码在
+   Worker 里跑) · daylight-core.js(Daylight/DAYLIGHT 昼夜纯函数; DAYLIGHT 常数
+   在加载期插值进 GLSL 模板, 单源) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
    THREE/DOM 惰性创建, Node 测试环境可安全加载(经 boot.test.js 冒烟)。
 ============================================================ */
 
@@ -35,7 +42,8 @@ scene.fog = new THREE.Fog(sky, VIEW.fogNear, VIEW.fogFar); // 雾即渲染边界
 // far 只到雾终点+余量 — 雾外顶点不再参与变换与深度精度(原 1000 白交)
 const camera = new THREE.PerspectiveCamera(72, innerWidth/innerHeight, 0.1, VIEW.far);
 
-scene.add(new THREE.AmbientLight(0xffffff, 0.65));
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.65); /* 具名: applyDaylight 随昼夜调强度(实体暗化) */
+scene.add(ambientLight);
 const sun = new THREE.DirectionalLight(0xfff4e0, 0.75);
 sun.position.set(60, 120, 40);
 scene.add(sun);
@@ -66,6 +74,91 @@ for (let i=0; i<3; i++) {
     s.userData.phase = (i*3+j) * 0.7;
     sunSprites.push(s);
     scene.add(s);
+  }
+}
+
+/* ---------- 昼夜场景驱动(设计稿 mc-daylight-torch §2.2/§2.3, 消费 daylight-core) ----------
+   时间本体 dayTime 与开关 dayCycleOn 是引擎级顶层绑定(跨文件可写 → let,
+   conventions §2.1 先例): main.js 主循环推进与调用, modes/adventure.js
+   从存档换装/复位。nether 的 applySky 是另一套静态换天(不置位 dayCycleOn,
+   两边互不干扰 — applyDaylight 只在 dayCycleOn 时被主循环调用)。 */
+let dayTime = 0;
+let dayCycleOn = false;
+let daylightKey = null; /* 上次已写入的颜色比较键(dayTime 量化 50 tick); null=首帧必写 */
+
+/* 日/月天体(§2.4): 像素方块贴图(太阳=暖黄方块, 月亮=灰白方块带缺口),
+   与按钮像素图标工坊同色板(HUD 时段图标在那边, 图形单一权威归应用层);
+   轨道恒以玩家为参照, 地平线下隐藏。装饰光斑 sunSprites 是另一族(固定
+   坐标不随轨道, 夜间整体收起)。 */
+function makeCelestialTexture(isSun) {
+  const c = document.createElement('canvas');
+  c.width = c.height = 16;
+  const g = c.getContext('2d');
+  if (isSun) {
+    g.fillStyle = '#f2b93b'; /* 暖黄底 */
+    g.fillRect(2, 2, 12, 12);
+    g.fillStyle = '#ffdf6b';
+    g.fillRect(3, 3, 10, 10);
+    g.fillStyle = '#fff3b0'; /* 亮芯 */
+    g.fillRect(5, 5, 4, 4);
+  } else {
+    g.fillStyle = '#e6eaf2'; /* 灰白方块, 右上斜切缺口 */
+    const rowW = [6, 8, 10, 12, 12, 12, 12, 12, 12, 12, 12, 12];
+    for (let i = 0; i < 12; i++) g.fillRect(2, 2 + i, rowW[i], 1);
+    g.fillStyle = '#b9c2d4'; /* 底缘暗一档 */
+    g.fillRect(2, 13, 12, 1);
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter; /* 近处保持像素颗粒 */
+  return tex;
+}
+function makeCelestialSprite(isSun) {
+  const s = new THREE.Sprite(new THREE.SpriteMaterial({map: makeCelestialTexture(isSun),
+    fog: false, transparent: true, depthWrite: false}));
+  s.scale.set(14, 14, 1);
+  s.visible = false; /* dayCycleOn 关闭的模式不显示天体(其余模式观感恒白天) */
+  scene.add(s);
+  return s;
+}
+const sunSprite = makeCelestialSprite(true);
+const moonSprite = makeCelestialSprite(false);
+
+/* 每帧昼夜驱动(§2.3 驱动表): 天色/雾/AmbientLight/sun 强度/光斑显隐按
+   颜色比较键值变化才写(量化 50 tick ≈ 2.5s, 颜色阶进无感); 日月轨道逐帧
+   连续跟随。dayCycleOn=false 时以 tick 0 口径复位白天观感(幂等, 探险
+   cleanup/switchMode 兜底调用)。 */
+function applyDaylight() {
+  const t = dayCycleOn ? dayTime : 0;
+  const key = dayCycleOn ? Math.floor(t / 50) : -1;
+  if (key !== daylightKey) {
+    daylightKey = key;
+    const dim = Daylight.skyDim(t);
+    const c = Daylight.skyColor(t);
+    scene.background.setRGB(c[0], c[1], c[2]);
+    scene.fog.color.setRGB(c[0], c[1], c[2]);
+    /* 实体变暗: 怪/Avatar/掉落物走 Lambert, 环境光随时间衰减自动生效(§4.3) */
+    ambientLight.intensity = 0.65 * Daylight.renderBright(15 - dim);
+    sun.intensity = 0.75 * (1 - dim / 11);
+    const spots = dim < 8; /* 装饰光斑: dim ≥ 8 收起(§2.3) */
+    for (const s of sunSprites) s.visible = spots;
+    /* 顶点光材质 uniforms(D3 §4.2/§4.4): 与天色同一比较键节拍(50 tick 量化,
+       夜色阶进无感); uSkyFloor 两态 — 探险(dayCycleOn)真实洞穴/夜, 其余模式
+       恒 15 ≈ 现状观感(向后兼容, 关循环复位幂等) */
+    VOXEL_LIGHT.uDim.value = dim;
+    VOXEL_LIGHT.uSkyFloor.value = dayCycleOn ? 0 : 15;
+  }
+  /* 日月轨道(§2.4): a = dayTime/24000 × 2π; tick 0 太阳在东方地平线,
+     6000 当顶(MC 同相位); 月在太阳对侧; 地平线下(sin a < −0.15)隐藏 */
+  const a = (t / DAYLIGHT.TICKS) * Math.PI * 2;
+  sunSprite.position.set(pos.x + Math.cos(a) * 170, pos.y + Math.sin(a) * 170, pos.z + 40);
+  moonSprite.position.set(pos.x - Math.cos(a) * 170, pos.y - Math.sin(a) * 170, pos.z + 40);
+  sunSprite.visible = dayCycleOn && Math.sin(a) >= -0.15;
+  moonSprite.visible = dayCycleOn && -Math.sin(a) >= -0.15;
+  /* 灯笼随身光逐帧跟随(§8.3 机制缝, setPlayerGlow 开启时): 挂点取玩家胸口
+     高度 — 方块侧 uniform 顶点衰减 + 实体侧 PointLight 同位 */
+  if (playerGlowOn) {
+    VOXEL_LIGHT.uGlowPos.value.set(pos.x, pos.y + 1.2, pos.z);
+    playerGlowLight.position.set(pos.x, pos.y + 1.2, pos.z);
   }
 }
 
@@ -137,6 +230,100 @@ function makeAtlasTexture() {
 const atlasMat = new THREE.MeshLambertMaterial({map: ATLAS_LAYOUT ? makeAtlasTexture() : null,
   alphaTest: 0.5, side: THREE.FrontSide});
 
+/* ---------- 顶点光烘焙材质注入 (昼夜 D3, 设计稿 mc-daylight-torch §4.2) ----------
+   四材质(blockMat/atlasMat/tntMat/glassMat)统一 onBeforeCompile 注入:
+   顶点属性 aSky/aBlock(mesh-core 每顶点产出, 值=等级/15) + 共享 uniforms
+   uDim(当前 skyDim)/uTorch(火把暖色)/uSkyFloor(天空下限)/uGlowPos·uGlowR(灯笼)。
+   光照替换 r128 Lambert 的 #include <lights_lambert_vertex>: 块几何不再消费
+   场景灯(实体/怪/Avatar/掉落物仍走 ambient/sun, §4.3), 改两通道叠加
+     outgoing = albedo × ( skyTint·bright(max(aSky·15 − uDim, uSkyFloor))
+                          + uTorch · bright(aBlock·15 + glowTerm) )
+   skyTint 由 uDim 派生(幅度与 daylight-core TINT_DROP 单源), bright(x) =
+   FLOOR+SPAN·pow(x/15,POW)(= renderBright, 常数经 DAYLIGHT.BRIGHT 单源); ×PI 抵消片元侧
+   BRDF_Diffuse_Lambert 的 RECIPROCAL_PI。uniform 对象四材质共享同一份引用
+   — 每帧只写 value, 已编译的全部程序同时生效。
+   回退: 目标 three 版本 chunk 改名(r155+ Lambert 改逐片元)找不到替换点时
+   保持 stock 着色器不注入(不炸优先)。全局夜暗由 applyDaylight 对 ambient/
+   sun 的同曲线衰减兜底 — 不再叠"uDim 乘 vertexColor"(场景灯已按同一曲线
+   变暗, 顶点色再乘会双重变暗过黑; 对规格回退条目的字面偏离, 见差异登记) */
+const LIGHT_CHUNK = '#include <lights_lambert_vertex>';
+/* 单源(昼夜评审修复): 注入 GLSL 的 voxBright 多项式与夜色染色常数不手抄 —
+   由 daylight-core 的 DAYLIGHT 常数模板插值同一份, 重调曲线只改 daylight-core
+   一处(模板在加载期求值 → 本文件加载须晚于 daylight-core, 与 index.html 序一致)。
+   glF: 整值常数补成 float 字面量(GLSL ES 的 int/float 不混算, 防未来取整常数编译炸) */
+const glF = (x)=>Number.isInteger(x) ? x + '.0' : String(x);
+const VOXEL_GLSL_HEAD = `
+/* === 顶点光烘焙注入(D3) === */
+attribute float aSky;
+attribute float aBlock;
+uniform float uDim;
+uniform vec3 uTorch;
+uniform float uSkyFloor;
+uniform vec3 uGlowPos;
+uniform float uGlowR;
+float voxBright( float x )
+{ return ${glF(DAYLIGHT.BRIGHT.FLOOR)} + ${glF(DAYLIGHT.BRIGHT.SPAN)}
+    * pow( max( x, 0.0 ) / 15.0, ${glF(DAYLIGHT.BRIGHT.POW)} ); }
+`;
+const VOXEL_GLSL_BODY = `
+{ /* === 顶点光烘焙注入(D3): 两通道叠加, 替换 lights_lambert_vertex === */
+  float glowTerm = ( uGlowR > 0.001 ) ?
+      max( 0.0, 1.0 - distance( position, uGlowPos ) / uGlowR ) * 9.0 : 0.0; /* 灯笼(§8.3): 半径 6·等效 9 级 */
+  float dimK = uDim / 11.0;
+  vec3 skyTint = vec3( 1.0 - ${glF(DAYLIGHT.TINT_DROP[0])} * dimK,
+      1.0 - ${glF(DAYLIGHT.TINT_DROP[1])} * dimK, 1.0 ); /* daylight-core skyTint 同源(月光偏蓝) */
+  vLightFront = PI * ( skyTint * voxBright( max( aSky * 15.0 - uDim, uSkyFloor ) )
+      + uTorch * voxBright( aBlock * 15.0 + glowTerm ) );
+  vIndirectFront = vec3( 0.0 );
+  #ifdef DOUBLE_SIDED
+    vLightBack = vLightFront;
+    vIndirectBack = vec3( 0.0 );
+  #endif
+}
+`;
+/* 四材质共享的一份 uniform(单一更新点; 初始=白天全亮口径, 非 dayCycle 模式零感受) */
+const VOXEL_LIGHT = {
+  uDim: {value: 0},
+  uTorch: {value: new THREE.Vector3(1.0, 0.60, 0.37)}, /* 火把暖色 ≈ #f39a5e(§4.2) */
+  uSkyFloor: {value: 15},
+  uGlowPos: {value: new THREE.Vector3(0, -1024, 0)}, /* 停机位: 远离地面, uGlowR=0 时光项恒 0 */
+  uGlowR: {value: 0},
+};
+function injectVoxelLight(mat) {
+  mat.onBeforeCompile = (shader)=>{
+    if (shader.vertexShader.indexOf(LIGHT_CHUNK) === -1) return; /* 回退: stock 着色器 */
+    Object.assign(shader.uniforms, VOXEL_LIGHT);
+    shader.vertexShader = VOXEL_GLSL_HEAD + shader.vertexShader.replace(LIGHT_CHUNK, VOXEL_GLSL_BODY);
+  };
+}
+injectVoxelLight(blockMat);
+injectVoxelLight(glassMat);
+injectVoxelLight(tntMat);
+injectVoxelLight(atlasMat);
+
+/* 玩家随身光机制缝(§8.3, 政策"何时亮"归模式层 D7 灯笼): setPlayerGlow 只开关
+   机制 — 方块侧=uGlowPos/uGlowR 顶点衰减项(上方注入), 实体侧=PointLight
+   (#f39a5e·1.1·距离 7)同步照亮怪/Avatar。PointLight 惰性创建、常驻隐藏;
+   每帧位置跟随收在 applyDaylight 的逐帧段(其唯一消费方探险必开 dayCycle) */
+let playerGlowOn = false;
+let playerGlowLight = null;
+function setPlayerGlow(on) {
+  playerGlowOn = on;
+  VOXEL_LIGHT.uGlowR.value = on ? 6 : 0; /* 半径 6 · 等效 9 级(§8.3) */
+  if (on) {
+    if (!playerGlowLight) {
+      playerGlowLight = new THREE.PointLight(0xf39a5e, 1.1, 7);
+      scene.add(playerGlowLight);
+    }
+    playerGlowLight.visible = true;
+    /* 即刻挂到玩家胸口(挂点口径与 applyDaylight 逐帧段同一处), 免首帧在原点 */
+    VOXEL_LIGHT.uGlowPos.value.set(pos.x, pos.y + 1.2, pos.z);
+    playerGlowLight.position.set(pos.x, pos.y + 1.2, pos.z);
+  } else if (playerGlowLight) {
+    playerGlowLight.visible = false;
+  }
+}
+
 /* ---------- 区块网格装配 (纯几何在 MeshCore, 此处只做 THREE 装配与场景挂载) ----------
    四通道: solid(不透明)/glass(玻璃)/tnt(TNT贴图)/atlas(方块图集); LOD 通道单网格。
    几何生成走 js/mesh-core.js 纯核心 — 同一份代码在主线程(同步兜底)与
@@ -152,6 +339,8 @@ const makeGeo = (b)=>{
   g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(b.normals, 3));
   g.setAttribute('color', new THREE.Float32BufferAttribute(b.colors, 3));
+  g.setAttribute('aSky', new THREE.Float32BufferAttribute(b.sky, 1)); /* 顶点光(D3): 每顶点等级/15 */
+  g.setAttribute('aBlock', new THREE.Float32BufferAttribute(b.block, 1));
   // 显式包装: Worker 回传的 Uint32Array 不是 BufferAttribute, setIndex 直接塞会炸渲染
   g.setIndex(new THREE.Uint32BufferAttribute(b.indices, 1));
   return g;
@@ -161,6 +350,8 @@ const makeTexGeo = (b)=>{
   g.setAttribute('position', new THREE.Float32BufferAttribute(b.positions, 3));
   g.setAttribute('normal', new THREE.Float32BufferAttribute(b.normals, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(b.uvs, 2));
+  g.setAttribute('aSky', new THREE.Float32BufferAttribute(b.sky, 1)); /* 顶点光(D3): 同步主线程/Worker 两路径 */
+  g.setAttribute('aBlock', new THREE.Float32BufferAttribute(b.block, 1));
   g.setIndex(new THREE.Uint32BufferAttribute(b.indices, 1));
   return g;
 };
@@ -234,7 +425,7 @@ function desiredState(cx, cz) {
 /* ---------- 网格 Worker (http 服务主路径; file:// 直开自动降级同步构建) ----------
    同源 http 下 Worker 规范保证合法(MDN Worker: same-origin); file:// 下
    构造抛错 → try/catch 兜底走同步路径(同一队列, 只是消费者不同)。
-   协议: 请求 {gen,cx,cz,token,kind,cells(ArrayBuffer 转移),pack 元数据} →
+   协议: 请求 {gen,cx,cz,token,kind,cells(ArrayBuffer 转移),sky·block(光照圈 D3 同款转移),pack 元数据} →
    响应 {gen,cx,cz,token,kind,res}。gen=清场次号(旧响应整体作废);
    token=同区块递增(在途期间再入队, 旧响应丢弃)。 */
 let meshWorker = null;
@@ -290,8 +481,9 @@ function serveChunkKey(k) {
     inFlight.set(k, {token, gen: meshGen});
     meshWorker.postMessage(
         {gen: meshGen, cx, cz, token, kind: st, cells: pack.cells.buffer,
+          sky: pack.sky.buffer, block: pack.block.buffer, /* 光照圈(D3, §3.4): 与 cells 同形, 布局即契约 */
           w: pack.w, d: pack.d, h: pack.h, border: pack.border, bx: pack.bx, bz: pack.bz, yMax: pack.yMax},
-        [pack.cells.buffer]); // transferable: 所有权零拷贝转移
+        [pack.cells.buffer, pack.sky.buffer, pack.block.buffer]); // transferable: 所有权零拷贝转移
   } else if (st === 'full') {
     mountChunk(cx, cz, MeshCore.meshChunk(packChunkData(cx, cz, 1), MESH_OPTS));
   } else {
@@ -347,13 +539,18 @@ function rebuildAll() {
   }
 }
 
-/* 场景装填 seam: 清场 → 批量建 → 收尾入队, 一步到位。
+/* 场景装填 seam: 清场 → 批量建 → 光场全量 → 收尾入队, 一步到位。
    "建完必须 rebuildAll 否则整场不可见"的收尾纪律收在此处, 调用方
    不可能忘(曾有模式建场漏调收尾, 进场一片天蓝 — ca3ac43)。
+   光场全量计算(设计稿 §3.3): 装场必算 — 光照永远是方块场的纯派生
+   (差异 #14 不落盘), buildFn 建完地形一次写满 sky/block 两通道
+   (方块光源(火把/灯块/发光岩/岩浆, D4 光源表)与天空通道一并生效;
+   buildFn 内的写入(地形/存档重放/装场清扫)不必管光 — 全量在最后兜底)。
    clearWorld 幂等(switchMode 已清过再清无害)。 */
 function loadScene(buildFn) {
   clearWorld();
   buildFn();
+  LightCore.computeAll(getBlock, WORLD_W, WORLD_D, WORLD_H, LIGHT_POLICY, lightSky, lightBlock);
   rebuildAll();
 }
 
@@ -366,7 +563,7 @@ function loadScene(buildFn) {
    既有调用方忽略返回值则行为不变(级联自动生效), 向后兼容 */
 function editBlock(x, y, z, id, opt) {
   const old = getBlock(x, y, z);
-  setBlockRaw(x, y, z, id);
+  setBlockLit(x, y, z, id); /* 写格连带双通道光场增量(昼夜 §3.3, 级联结算前光先就位) */
   let removed = [];
   if (id === 0 && old !== 0) {
     if (!(opt && opt.debris === false)) { // 挖除反馈: 同色碎屑(唯一入口经 Fx, 见 GLOSSARY)
@@ -379,7 +576,7 @@ function editBlock(x, y, z, id, opt) {
     }
   } else if (id !== 0) {
     /* 放置触发仅 fall 旗标(P9); 原木/树叶/thin 放置零触发(建造装饰保护) */
-    removed = CascadeCore.cascadePlace(getBlock, setBlockRaw, x, y, z, id, CASCADE_POLICY);
+    removed = CascadeCore.cascadePlace(getBlock, setBlockLit, x, y, z, id, CASCADE_POLICY);
     if (removed.length && !(opt && opt.debris === false)) cascadeVisuais(removed);
   }
   markDirty(x, z); // 单块编辑与批量同走队列(连续挖掘同样摊平)
@@ -394,9 +591,40 @@ function editBlock(x, y, z, id, opt) {
    逐一核实: 探险挖掘·探险 TNT·建造·竞技场→editBlock, 坦克炮击→editBlockDirty);
    新的破坏路径必须走这两入口——绕过=世界不变量破洞(world-integrity 兜底)。 */
 const CASCADE_POLICY = CascadeCore.mkPolicy(BLOCKS);
+/* 光照政策(BLOCKS 派生, 装配一次 — LightCore.mkPolicy 与单测共用同一装配
+   防两份漂移, CASCADE_POLICY 同款缝制): lightOf 读 light 字段(火把 14/
+   灯块·发光岩·岩浆 15, config 光源表), opaque 镜像 isOpaque */
+const LIGHT_POLICY = LightCore.mkPolicy(BLOCKS);
+/* ---------- 编辑期光照增量(设计稿 §3.3, D4): 唯一编辑 choke point 的光场缝制 ----------
+   setBlockLit = setBlockRaw + LightCore.updateEdit: 写格(setBlockRaw 之后、
+   applyCascade 之前)即增量更新双通道光场, 返回脏格包围盒 → 覆盖区块与既有
+   编辑同一 dirtyChunks 队列(pumpRemesh 同一消费, 编辑优先于距离环的既有
+   纪律自然生效)。级联连带: cascadeRemove/cascadePlace/cascadeSweep 的级联
+   条目不回环 editBlock, 而是经 write 回调直写 setBlockRaw —— 把本包装作为
+   write 传入即全覆盖(移动条目落点的旧值在写入前读得, 逐条目事后补账拿
+   不到); 火把失撑脱落撤光、落沙沉底遮光由此白送。装场期(buildFn 内, 全量
+   computeAll 之前)同走本包装无害: 干净世界清扫零写入, 脏档多付的区域重算
+   随全量覆盖 —— 光场恒为方块场的纯派生(差异 #14)。 */
+function setBlockLit(x, y, z, id) {
+  const old = getBlock(x, y, z);
+  setBlockRaw(x, y, z, id);
+  if (old === id) return; /* 方块场无变化 → 光场不动(省一次区域重算) */
+  const box = LightCore.updateEdit(getBlock, WORLD_W, WORLD_D, WORLD_H, LIGHT_POLICY,
+      x, y, z, old, lightSky, lightBlock);
+  if (box) markLightDirty(box);
+}
+/* 光照脏格包围盒 → 覆盖区块记脏: 光传播半径至多 14(15 级逐格衰减), ±1
+   边界圈对齐 markDirty 的跨区块剔面口径(packChunkData 含邻块边界圈) */
+function markLightDirty(b) {
+  const cx0 = Math.floor((b.x0 - 1) / CHUNK); const cx1 = Math.floor((b.x1 + 1) / CHUNK);
+  const cz0 = Math.floor((b.z0 - 1) / CHUNK); const cz1 = Math.floor((b.z1 + 1) / CHUNK);
+  for (let cx = cx0; cx <= cx1; cx++) {
+    for (let cz = cz0; cz <= cz1; cz++) dirtyChunks.add(chunkKey(cx, cz));
+  }
+}
 function applyCascade(x, y, z, oldId) {
   if (oldId === 0) return [];
-  const removed = CascadeCore.cascadeRemove(getBlock, setBlockRaw, x, y, z, oldId, CASCADE_POLICY);
+  const removed = CascadeCore.cascadeRemove(getBlock, setBlockLit, x, y, z, oldId, CASCADE_POLICY);
   for (const r of removed) markDirty(r.x, r.z); // 级联块各自区块入脏(同区块多块由 Set 去重)
   return removed;
 }
@@ -407,7 +635,7 @@ function applyCascade(x, y, z, oldId) {
    带 to)。本入口不是运行期破坏路径——玩家破坏仍必须走 editBlock/editBlockDirty
    两入口(D3 纪律不变)。 */
 function applySweep() {
-  const removed = CascadeCore.cascadeSweep(getBlock, setBlockRaw, CASCADE_POLICY,
+  const removed = CascadeCore.cascadeSweep(getBlock, setBlockLit, CASCADE_POLICY,
       WORLD_W, WORLD_H, WORLD_D);
   for (const r of removed) {
     markDirty(r.x, r.z);
@@ -472,12 +700,12 @@ function markDirty(x, z) {
 }
 function editBlockDirty(x, y, z, id) {
   const old = getBlock(x, y, z);
-  setBlockRaw(x, y, z, id);
+  setBlockLit(x, y, z, id); /* 写格连带双通道光场增量(昼夜 §3.3, 级联结算前光先就位) */
   let removed = [];
   if (id === 0 && old !== 0) {
     removed = applyCascade(x, y, z, old);
   } else if (id !== 0) {
-    removed = CascadeCore.cascadePlace(getBlock, setBlockRaw, x, y, z, id, CASCADE_POLICY);
+    removed = CascadeCore.cascadePlace(getBlock, setBlockLit, x, y, z, id, CASCADE_POLICY);
   }
   markDirty(x, z);
   return removed; // 坦克批量链注入此入口: 级联已生效(炸林区整树倒), 返回值按需消费; 批量路径不放动画(自带爆风观感)

@@ -16,9 +16,13 @@ const vm = require('node:vm');
 
 function loadWorker() {
   const out = [];
+  const transfers = [];
   const sandbox = {
     console,
-    postMessage: (msg) => out.push(msg), // Worker 出站信箱
+    postMessage: (msg, transfer) => {
+      out.push(msg);
+      transfers.push(transfer || []);
+    }, // Worker 出站信箱(含 transfer 清单)
   };
   sandbox.self = sandbox; // DedicatedWorkerGlobalScope.self
   sandbox.importScripts = function(...files) { // 同目录经典脚本, 共享词法环境
@@ -30,7 +34,7 @@ function loadWorker() {
   vm.runInContext(
       fs.readFileSync(path.join(__dirname, '..', 'js', 'mesh-worker.js'), 'utf8'),
       ctx, {filename: 'mesh-worker.js'});
-  return {onmessage: sandbox.onmessage, out};
+  return {onmessage: sandbox.onmessage, out, transfers};
 }
 
 /* 请求消息构造: 与 voxel.js packChunkData 输出同构(cells 随消息转移) */
@@ -78,4 +82,42 @@ test('mesh-worker: lod 请求 → 降采样粗网格(step 取 config 的 VIEW.lo
   assert.ok(r.res.solid, '平地必有粗网格');
   const n = 16/2; const perim = 4*n;
   assert.strictEqual(r.res.solid.indices.length/6, n*n + perim); // 64 顶面+32 周界裙边
+});
+
+/* ============ 光照圈协议 (D3, 设计稿 §3.4/§4.1) ============ */
+
+test('mesh-worker: 请求携 sky/block 光照圈 → 顶点光随网格回传(火把自身格 block=14)', () => {
+  const w = loadWorker();
+  const m = mkMsg('full');
+  /* 火把(48, thin)入图集十字通道 — 自身格光照 sky=6 · block=14(§4.1 取自身格) */
+  const w18 = 18; const d18 = 18;
+  const sky = new Uint8Array(w18*d18*48);
+  const blk = new Uint8Array(w18*d18*48);
+  const base = (5*d18 + (1+1))*w18 + (1+1);
+  sky[base] = 6; blk[base] = 14;
+  m.cells = new Uint8Array(m.cells); // mkMsg 的 buffer → 视图后重写该格
+  m.cells[base] = 48;
+  m.sky = sky.buffer; m.block = blk.buffer;
+  w.onmessage({data: m});
+  const r = w.out[0];
+  assert.ok(r.res.atlas, '火把走图集十字面片通道');
+  const isF32 = (a) => Object.prototype.toString.call(a) === '[object Float32Array]';
+  assert.ok(isF32(r.res.atlas.sky) && isF32(r.res.atlas.block), '顶点光是 Float32Array(transfer 回传)');
+  assert.strictEqual(r.res.atlas.sky.length, 16, '十字片 4 面 × 4 顶点');
+  /* Float32Array 传输量化(6/15 → 0.400000006): 容差 1e-6, 与精度无关的口径断言 */
+  for (const v of r.res.atlas.sky) assert.ok(Math.abs(v - 6/15) < 1e-6, '十字片全部顶点取自身格 sky=6');
+  for (const v of r.res.atlas.block) assert.ok(Math.abs(v - 14/15) < 1e-6, '十字片全部顶点取自身格 block=14(夜间自亮)');
+  /* transfer 清单含顶点光缓冲(回传网格 sky/block 的 backing buffer, 与 positions 同款零拷贝口径) */
+  const bufs = w.transfers[0];
+  assert.ok(bufs.includes(r.res.atlas.sky.buffer) && bufs.includes(r.res.atlas.block.buffer),
+      'sky/block 缓冲随 transfer 清单零拷贝回传');
+});
+
+test('mesh-worker: 旧协议消息(无 sky/block) → 回落全亮, 不炸', () => {
+  const w = loadWorker();
+  w.onmessage({data: mkMsg('full')}); // 不带 sky/block 字段
+  const r = w.out[0];
+  assert.ok(r.res.atlas, '网格照常产出');
+  for (const v of r.res.atlas.sky) assert.ok(Math.abs(v - 1) < 1e-9, '无载荷回落 sky 全亮=1');
+  for (const v of r.res.atlas.block) assert.strictEqual(v, 0, '无载荷回落 block=0');
 });

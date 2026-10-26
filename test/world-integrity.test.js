@@ -8,7 +8,11 @@
      ② thin — 每个依附块脚下是实心支撑;
      ③ fell — 每个原木组件有成员接地。
    身份原则的防手滑面: 地形方块(石头/泥土)无旗标, 极端交互后纹丝不动。
-   扫描直读 worldCells(免逐格跨 vm 边界)。 */
+   扫描直读 worldCells(免逐格跨 vm 边界)。
+   昼夜设计稿 D4 追加光照防线(mc-daylight-torch §10): 同一条真接线事后
+   扫描光场三不变量 —— 光源格 block 光=发射级 · 每列首个挡光块以上 sky=15 ·
+   编辑序列累计(含级联连带)与 computeAll 全量重算逐格相等; 级联脱落撤光与
+   光照脏区块记账(与既有编辑同一 dirtyChunks 队列)各有专项。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -59,13 +63,14 @@ function mkH() {
   };
   sandbox.window = sandbox;
   const ctx = vm.createContext(sandbox);
-  for (const f of ['config.js', 'voxel.js', 'cascade-core.js', 'mesh-core.js',
+  for (const f of ['config.js', 'daylight-core.js', 'light-core.js', 'voxel.js', 'cascade-core.js', 'mesh-core.js',
     'texture-atlas.js', 'scene-kit.js', 'world.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   const h = vm.runInContext(`globalThis.__h = {
     editBlock, editBlockDirty, getBlock, setBlockRaw, SceneKit, clearWorld,
-    applySweep,
+    applySweep, loadScene, LightCore, LIGHT_POLICY,
+    lightSky, lightBlock, dirtyChunks, CHUNK,
     BLOCKS, worldCells, W: WORLD_W, H: WORLD_H, D: WORLD_D,
   }; __h;`, ctx);
   h.at = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= h.W || y >= h.H || z >= h.D) ?
@@ -80,6 +85,63 @@ function mkH() {
     return n;
   };
   return h;
+}
+
+/* ---------- 光照不变量助手(昼夜设计稿 §10 D4 行; 判据独立复核, 不调 LightCore) ----------
+   光场读取直读 vm 数组(cellIdx 同式), 免逐格函数边界。 */
+function litAt(h, x, y, z) {
+  return h.lightBlock[(y * h.D + z) * h.W + x];
+}
+/* ①光源格自亮 ②列首个挡光块以上天光满级 —— 挡光口径镜像 isOpaque(实心且
+   非玻璃, 未知 id 按实心兜底), 与 LightCore.mkPolicy.opaque 同判据独立实现 */
+function scanLightViolations(h) {
+  const bad = [];
+  const opaqueAt = (x, y, z) => {
+    const id = h.at(x, y, z);
+    if (id === 0) return false;
+    const b = h.BLOCKS[id];
+    return b ? (b.solid !== false && !b.glass) : true;
+  };
+  for (let y = 0; y < h.H; y++) {
+    for (let z = 0; z < h.D; z++) {
+      for (let x = 0; x < h.W; x++) {
+        const id = h.at(x, y, z);
+        const e = id ? h.BLOCKS[id].light : 0;
+        if (e > 0 && litAt(h, x, y, z) !== e) {
+          bad.push({k: 'emit', x, y, z, id, lv: litAt(h, x, y, z), e});
+        }
+      }
+    }
+  }
+  for (let z = 0; z < h.D; z++) {
+    for (let x = 0; x < h.W; x++) {
+      let y = h.H - 1;
+      for (; y >= 0; y--) if (opaqueAt(x, y, z)) break;
+      for (let yy = y + 1; yy < h.H; yy++) {
+        const sv = h.lightSky[(yy * h.D + z) * h.W + x];
+        if (sv !== 15) bad.push({k: 'sky', x, y: yy, z, sv});
+      }
+    }
+  }
+  return bad;
+}
+/* ③增量===全量: 编辑序列累计的双通道光场, 与全新数组上 computeAll 重算
+   逐格相等(全量是参考算法, 增量是另一条代码路径 —— 收敛即接线不变量) */
+function assertLightBake(h) {
+  const n = h.W * h.D * h.H;
+  const sky = new Uint8Array(n);
+  const blk = new Uint8Array(n);
+  h.LightCore.computeAll(h.getBlock, h.W, h.D, h.H, h.LIGHT_POLICY, sky, blk);
+  for (let i = 0; i < n; i++) {
+    if (h.lightSky[i] !== sky[i] || h.lightBlock[i] !== blk[i]) {
+      const x = i % h.W;
+      const z = Math.floor(i / h.W) % h.D;
+      const y = Math.floor(i / (h.W * h.D));
+      assert.fail('光场增量≠全量 @(' + x + ',' + y + ',' + z + ') 增量 sky=' +
+          h.lightSky[i] + ' block=' + h.lightBlock[i] +
+          ' 重算 sky=' + sky[i] + ' block=' + blk[i]);
+    }
+  }
 }
 
 /* 全图三不变量扫描(设计稿 D2 语义的独立复核, 不调用核心函数) */
@@ -307,4 +369,96 @@ test('放置永不触发级联(fell/need 口径): 浮空原木/树叶放上去�
     {k: 'fell', x: 20, y: 6, z: 20, id: 5},
     {k: 'need', x: 30, y: 6, z: 20, id: 7},
   ]);
+});
+
+/* ============ 光照不变量(昼夜设计稿 §10 D4 行: 真 editBlock/editBlockDirty 接线) ============ */
+
+test('光照编辑增量(昼夜 D4): editBlock 放/挖光源即时增撤光, 装场全量为基线', () => {
+  const h = mkH();
+  h.loadScene(() => {
+    for (let z = 14; z <= 46; z++) {
+      for (let x = 14; x <= 46; x++) h.setBlockRaw(x, 1, z, 2); /* 泥地面板 */
+    }
+  });
+  h.editBlock(20, 2, 20, 48); /* 放火把(运行期编辑路径) */
+  assert.strictEqual(litAt(h, 20, 2, 20), 14, '源格自亮 14');
+  assert.strictEqual(litAt(h, 21, 2, 20), 13, '曼哈顿 1 格 −1');
+  assert.strictEqual(litAt(h, 33, 2, 20), 1, '半径 13 菱形边缘 = 1');
+  assert.strictEqual(litAt(h, 34, 2, 20), 0, '半径外零光');
+  h.editBlock(20, 2, 20, 0); /* 直挖火把(非级联路径) */
+  assert.strictEqual(litAt(h, 20, 2, 20), 0, '撤源归零');
+  assert.strictEqual(litAt(h, 21, 2, 20), 0, '撤光扩散归零');
+  assertLightBake(h);
+});
+
+test('级联连带撤光(昼夜 D4 关键路径): 挖火把底座 → 级联脱落(setBlockRaw 直写) → 光场同步归零', () => {
+  const h = mkH();
+  h.loadScene(() => {
+    for (let z = 14; z <= 46; z++) {
+      for (let x = 14; x <= 46; x++) h.setBlockRaw(x, 1, z, 2);
+    }
+    h.setBlockRaw(20, 2, 20, 48); /* 装场期火把: 全量烘焙已含其光 */
+  });
+  assert.strictEqual(litAt(h, 21, 2, 20), 13, '装场全量含火把光');
+  const removed = h.editBlock(20, 1, 20, 0); /* 挖泥土底座: 火把失撑脱落 */
+  assert.strictEqual(removed.length, 1);
+  assert.strictEqual(removed[0].id, 48, '火把经级联脱落(移除不经 editBlock 主格)');
+  assert.strictEqual(litAt(h, 20, 2, 20), 0, '脱落即撤光(级联写入层的光照连带)');
+  assert.strictEqual(litAt(h, 21, 2, 20), 0, '撤光扩散归零');
+  assertLightBake(h);
+});
+
+test('光照脏区与既有编辑同队列(昼夜 D4 §3.3): 光照包围盒覆盖区块入 dirtyChunks 同一队列', () => {
+  const h = mkH();
+  h.loadScene(() => {
+    for (let z = 0; z <= 63; z++) {
+      for (let x = 0; x <= 63; x++) h.setBlockRaw(x, 1, z, 2); /* 大泥地板(编辑区距板缘 >28: 区域重算带不触板下侧渗光) */
+    }
+  });
+  /* 无光放置(泥土, 区块 1 内部): 光变化仅本列 → 只记所在区块(±1 边界圈不跨块) */
+  h.editBlockDirty(20, 5, 20, 2);
+  assert.strictEqual(h.dirtyChunks.size, 1, '普通编辑只脏本区块');
+  assert.ok(h.dirtyChunks.has('1,1'), '板内半空放置泥土: 本列天光变化仅区块 1,1');
+  /* 放火把((24,24) 属区块 1,1): 菱形半径 13 → 包围盒 x/z∈[11,37], ±1 边界圈后跨区块 0~2 共九块 */
+  h.editBlockDirty(24, 2, 24, 48);
+  for (let cx = 0; cx <= 2; cx++) {
+    for (let cz = 0; cz <= 2; cz++) {
+      assert.ok(h.dirtyChunks.has(cx + ',' + cz),
+          '光照覆盖区块 ' + cx + ',' + cz + ' 应与既有编辑同队列入脏');
+    }
+  }
+});
+
+test('光照三不变量(昼夜 D4 §10): 光源=发射级 · 列首个挡光块以上 sky=15 · 混合编辑序列后增量===全量', () => {
+  const h = mkH();
+  h.loadScene(() => {
+    for (let z = 10; z <= 50; z++) {
+      for (let x = 10; x <= 50; x++) h.setBlockRaw(x, 1, z, 2); /* 泥地面板 */
+    }
+    for (let z = 20; z <= 26; z++) {
+      for (let x = 20; x <= 26; x++) {
+        for (let y = 2; y <= 5; y++) h.setBlockRaw(x, y, z, 3); /* 石山(挡光投阴影) */
+      }
+    }
+    for (let y = 2; y <= 4; y++) h.setBlockRaw(35, y, 35, 18); /* 玻璃塔(透光不挡) */
+    h.setBlockRaw(30, 2, 30, 34); /* 发光岩 15 */
+    h.setBlockRaw(40, 2, 40, 25); /* 岩浆 15 */
+    h.setBlockRaw(23, 6, 23, 48); /* 山顶火把 14 */
+    for (let y = 2; y <= 5; y++) h.setBlockRaw(45, y, 20, 8); /* 沙柱(重力移动路径) */
+  });
+  assert.deepStrictEqual(scanLightViolations(h), [], '装场全量即满足两不变量');
+  /* 混合编辑序列: 单块(editBlock)/批量(editBlockDirty)/光源增撤/遮挡开合/
+     级联脱落/沙沉移动全路径交织(确定性伪随机 minstd, 失败可复现) */
+  let s = 20261025;
+  const rnd = () => (s = (s * 48271) % 2147483647) / 2147483647;
+  const pool = [0, 3, 8, 19, 34, 48]; /* 挖除/石头/沙(沉)/灯块/发光岩/火把 */
+  for (let i = 0; i < 60; i++) {
+    const x = 12 + Math.floor(rnd() * 36);
+    const y = 2 + Math.floor(rnd() * 8);
+    const z = 12 + Math.floor(rnd() * 36);
+    const id = pool[Math.floor(rnd() * pool.length)];
+    (i % 3 === 0 ? h.editBlockDirty : h.editBlock)(x, y, z, id);
+  }
+  assert.deepStrictEqual(scanLightViolations(h), [], '编辑后光源自亮 + 列顶天光两不变量成立');
+  assertLightBake(h); /* 增量累计 === computeAll 全量重算, 双通道逐格相等 */
 });

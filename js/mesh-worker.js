@@ -18,6 +18,10 @@ self.onmessage = (e)=>{
   const m = e.data;
   const pack = {
     cells: new Uint8Array(m.cells), // 转移来的 ArrayBuffer → 视图
+    /* 光照圈(D3, 设计稿 §3.4): 与 cells 同形同布局, 布局即跨线程契约;
+       旧协议消息(无 sky/block 字段)回落全亮 — mesh-core 容忍缺省 */
+    sky: m.sky ? new Uint8Array(m.sky) : undefined,
+    block: m.block ? new Uint8Array(m.block) : undefined,
     w: m.w, d: m.d, h: m.h,
     border: m.border, bx: m.bx, bz: m.bz, yMax: m.yMax,
   };
@@ -42,8 +46,10 @@ self.onmessage = (e)=>{
       };
       if (c.colors) t.colors = new Float32Array(c.colors);
       if (c.uvs) t.uvs = new Float32Array(c.uvs);
+      if (c.sky) t.sky = new Float32Array(c.sky); // 顶点光(D3): 每顶点标量, 同款零拷贝
+      if (c.block) t.block = new Float32Array(c.block);
       out[ch] = t;
-      for (const key of ['positions', 'normals', 'indices', 'colors', 'uvs']) {
+      for (const key of ['positions', 'normals', 'indices', 'colors', 'uvs', 'sky', 'block']) {
         if (t[key]) transfer.push(t[key].buffer);
       }
     }

@@ -119,7 +119,7 @@ interface: 入口函数/对象一行清单
 - 默认 `test/<模块同名>.test.js`；`-core`/`-registry` 必须同名（§1.2，有守门测试）。
 - THREE/DOM adapter 不强制直测：boot.test.js 按 index.html 真实顺序在共享 vm 全链冒烟，
   专抓共享词法环境的顶层重名/炸错；要直测就先剥 `-core`。
-- 存量命名偏差（world-rings、nether-mode、tank-mode）不改名，测试头注释
+- 存量命名偏差（world-rings、world-integrity、world-vertexlight、nether-mode、tank-mode）不改名，测试头注释
   写明对应哪个模块文件。（mob-taxonomy 原列于此，2026-10-25 随 mob-registry.js
   落地 git mv 改名收编为 test/mob-registry.test.js，偏差消名。）
 
@@ -236,3 +236,6 @@ id 命名偏离见 §6。
 - 2026-10-25：§1.9 存量命名偏差清单删「mob-taxonomy」行——随 mob-registry.js 落地
   （架构治理候选 8 T1：MOB 四表自 config.js 拆出，-registry 契约），测试 git mv
   改名收编为 test/mob-registry.test.js，偏差消名。
+- 2026-10-26：§1.9 存量命名偏差清单补收 world-integrity 与 world-vertexlight——昼夜
+  D2/D3 落地的两个专题测试（js/world.js 的全图不变量扫描与顶点光材质注入），同款口径：
+  不改名，测试头注释写明对应哪个模块文件（双轴评审跟进补账）。

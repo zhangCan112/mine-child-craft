@@ -2,7 +2,7 @@
 /* ============================================================
    体素模型 (VoxelModel, 术语见 GLOSSARY.md) — 引擎层的纯核心
    ------------------------------------------------------------
-   方块世界的数据与规则: 存取 / 碰撞 / 物理 / 射线。
+   方块世界的数据与规则: 存取 / 光场存储 / 碰撞 / 物理 / 射线。
    零 THREE · 零 DOM · 加载零副作用 → Node 可直接加载单测。
    渲染(场景/网格/贴图)是它之上的 adapter, 见 world.js。
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/PLAYER/WORLD_*,
@@ -25,9 +25,26 @@ function hashRand(x, z) {
    blockKey(字符串) 保留为存档/转辙器等外部格式专用, 与内部布局无关。 */
 const topCache = new Map(); // 按列高度缓存 (x,z)→顶层 y
 const worldCells = new Uint8Array(WORLD_W * WORLD_D * WORLD_H);
+/* 双通道光场(D2, docs/mc-daylight-torch-design.md §3.3): sky=天空光(列顶
+   直灌 15 · 横向 −1), block=方块光(光源 BFS 曼哈顿 −1) — 算法在
+   js/light-core.js(纯核心), 这里只是存储侧; 与 worldCells 同址编号
+   cellIdx, 装场 loadScene 全量算一次写满(编辑期增量属 D4)。越界 getter
+   口径: sky 返 15(界外=天光全亮, 与 getBlock 越界空气口径一致), block
+   返 0(界外无光源) — 消费方(网格化取邻格光/刷怪判定)免再判界 */
+const lightSky = new Uint8Array(WORLD_W * WORLD_D * WORLD_H);
+const lightBlock = new Uint8Array(WORLD_W * WORLD_D * WORLD_H);
+function lightSkyAt(x, y, z) {
+  if (x<0||y<0||z<0||x>=WORLD_W||y>=WORLD_H||z>=WORLD_D) return 15;
+  return lightSky[(y*WORLD_D + z)*WORLD_W + x];
+}
+function lightBlockAt(x, y, z) {
+  if (x<0||y<0||z<0||x>=WORLD_W||y>=WORLD_H||z>=WORLD_D) return 0;
+  return lightBlock[(y*WORLD_D + z)*WORLD_W + x];
+}
 const world = { // 门面: 只留 clear(直清数据必须连带
   clear() {
     worldCells.fill(0); topCache.clear();
+    lightSky.fill(0); lightBlock.fill(0); // 光场是方块场派生态, 清场一并归零
   }, // 失效高度缓存; world.js 清场 与 单测共用此入口)
 };
 const blockKey = (x, y, z)=> x + ',' + y + ',' + z;
@@ -66,9 +83,11 @@ function groundTop(x, z) {
 }
 
 /* ---------- 区块数据打包 (体素模型 → 网格化核心 的数据边界) ----------
-   pack = { cells, w, d, h, border, bx, bz, yMax }:
+   pack = { cells, sky, block, w, d, h, border, bx, bz, yMax }:
    cells 布局 (y*d+lz)*w+lx (y 行优先), border=1 时含邻块边界一圈供跨
-   区块剔面(界外恒 0, 与 getBlock 越界语义一致)。bx/bz 是 pack 原点的
+   区块剔面(界外恒 0, 与 getBlock 越界语义一致)。sky/block 光照圈与
+   cells 同形状同布局(界外圈 sky 15 / block 0, 与 lightSkyAt/lightBlockAt
+   越界口径一致 — Worker 侧取光免判界)。bx/bz 是 pack 原点的
    世界坐标 — 网格化核心据此生成世界坐标顶点。yMax 只统计内部列
    (行走上界; 边界圈高于它的块只影响 y≤yMax 的剔面, 与原实现一致)。
    这是主线程兜底路径与 Worker 消息(transferable)共用的打包格式 —
@@ -76,15 +95,20 @@ function groundTop(x, z) {
 function packChunkData(cx, cz, border) {
   const w = CHUNK + 2*border; const d = CHUNK + 2*border;
   const cells = new Uint8Array(w*d*WORLD_H);
+  const sky = new Uint8Array(w*d*WORLD_H); sky.fill(15); // 缺省=界外天光全亮
+  const block = new Uint8Array(w*d*WORLD_H); // 缺省 0(界外无方块光)
   const bx = cx*CHUNK - border; const bz = cz*CHUNK - border;
   for (let lx=0; lx<w; lx++) {
     for (let lz=0; lz<d; lz++) {
       const x = bx+lx; const z = bz+lz;
-      if (x<0||z<0||x>=WORLD_W||z>=WORLD_D) continue; // 界外列保持 0
+      if (x<0||z<0||x>=WORLD_W||z>=WORLD_D) continue; // 界外列: cells/block 0 · sky 15
       const base = lz*w + lx; // 逐列竖扫, 列内步进 w
       for (let y=0; y<WORLD_H; y++) {
-        const id = worldCells[(y*WORLD_D + z)*WORLD_W + x];
+        const src = (y*WORLD_D + z)*WORLD_W + x;
+        const id = worldCells[src];
         if (id !== 0) cells[y*d*w + base] = id;
+        sky[y*d*w + base] = lightSky[src];
+        block[y*d*w + base] = lightBlock[src];
       }
     }
   }
@@ -95,7 +119,7 @@ function packChunkData(cx, cz, border) {
       if (t > yMax) yMax = t;
     }
   }
-  return {cells, w, d, h: WORLD_H, border, bx, bz, yMax};
+  return {cells, sky, block, w, d, h: WORLD_H, border, bx, bz, yMax};
 }
 
 /* ---------- 体素射线 (Amanatides-Woo) ----------

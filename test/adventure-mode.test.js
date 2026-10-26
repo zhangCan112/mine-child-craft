@@ -73,17 +73,19 @@ globalThis.document = {
 const ROOT = path.join(__dirname, '..');
 /* groundTop 桩: drops 壳段 restY 用(world.js 太重不装) */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
-for (const f of ['js/config.js', 'js/mob-registry.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js',
+for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js',
+  'js/cascade-core.js', 'js/scene-kit.js',
   'js/items-core.js',
   'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, hashRand, blockKey, world, worldCells, SceneKit,
-  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH,
+  groundTop, lightSkyAt, lightBlockAt,
+  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
-  B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST,
-  ITEMS, isTool, toolOf, stackMax, mkStack, breakTime,
+  B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
+  ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
   RECIPES, canCraft, craft, take, costEntry, FUEL, fuelUnits, smeltOf, B_TNT,
@@ -177,6 +179,14 @@ globalThis.loadScene = (fn) => {
   api.world.clear();
   fn();
 }; /* 场景装填 seam: 清场+建场(收尾重建归渲染层, 行为断言不需要) */
+/* 昼夜 seam(world.js 未装, 昼夜 D1): dayTime/dayCycleOn 是 world.js 顶层
+   可写绑定, 模式经全局名读写; applyDaylight 只记账不观感(场景驱动归渲染层);
+   setPlayerGlow 是玩家随身光机制缝(昼夜 D7 灯笼消费, 方块 uniform+PointLight
+   归 world.js)——同样只记账 */
+globalThis.dayTime = 0;
+globalThis.dayCycleOn = false;
+globalThis.applyDaylight = () => calls.push(['applyDaylight']);
+globalThis.setPlayerGlow = (on) => calls.push(['glow', on]);
 globalThis.SpeechKit = {speak(s) {
   spoken.push(s);
 }, cancel() {}};
@@ -240,8 +250,15 @@ globalThis.Mobs = {
     mobsState.spawned.length = 0;
     mobsState.deathCbs.length = 0;
   },
+  remove(m) {/* 镜像真库: 置 gone 交下帧回收(昼夜 D5 黎明清场消费) */
+    m.gone = true;
+  },
   list() {
     return listResult;
+  },
+  remove(m) {/* 昼夜 D6: 夜怪温和清场消费(真库口径=立即移除; fake 标 gone 记账) */
+    m.gone = true;
+    calls.push(['mobsRemove', m]);
   },
   steer(m, y) {
     m.yaw = y;
@@ -610,6 +627,28 @@ test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 
   freshInit();
   assert.strictEqual(cell(90, 24, 90), 3, '重进: 玩家改动重放');
   assert.strictEqual(cell(91, 24, 91), 0, '重进: 玩家挖开的洞还在');
+});
+
+test('昼夜 D1: dayTime 随世界档往返 + dayCycleOn 进场置位/退场复位 + 坏档兜底清晨', () => {
+  mem.clear();
+  /* 夜晚时刻的世界档: 重进时间连续(否则退出重进永远白天, 火把与床失去意义) */
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: [], dayTime: 21000}));
+  freshInit();
+  assert.strictEqual(globalThis.dayTime, 21000, '重进恢复昼夜时刻');
+  assert.strictEqual(globalThis.dayCycleOn, true, '探险是唯一置位昼夜循环的模式');
+  assert.ok(calls.some((c) => c[0] === 'applyDaylight'), '进场即刷一次天色(夜晚重进当帧即夜)');
+  AdventureMode.cleanup();
+  assert.strictEqual(globalThis.dayCycleOn, false, '退场关循环(其余模式观感恒白天)');
+  const saved = JSON.parse(mem.get('adventure_world_save'));
+  assert.strictEqual(saved.dayTime, 21000, 'cleanup 落盘带 dayTime(5s 节流同一出口)');
+  /* 老档无 dayTime → 缺省清晨 0: 首个夜晚必然可经历(教学价值, 设计稿 §2.5) */
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: []}));
+  freshInit();
+  assert.strictEqual(globalThis.dayTime, 0, '老档缺省清晨 0');
+  /* 越界坏档 → decode 拒收兜底 0 */
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: [], dayTime: 99999}));
+  freshInit();
+  assert.strictEqual(globalThis.dayTime, 0, '越界坏档兜底清晨');
 });
 
 test('探险模式: 位置与血量随世界档保留 — 重进原地续命; 老档无 pos/hp 回出生点满血(不回归)', () => {
@@ -2539,4 +2578,343 @@ test('F4 熟食链: 炉烧生肉→熟肉(SMELTS 四条, 与矿物同套节律) 
   AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0}); /* 手持食物: 点击=吃 */
   assert.strictEqual(A.advGetPEnt().hp, 28, '牛排回 8 血(比生肉 3 好得多档)');
   assert.strictEqual(A.advGetInv().slots[0].n, 1, '吃掉 1 个');
+});
+
+/* ============ 昼夜 D5 夜怪壳层(mc-daylight-torch §6.2) ============ */
+
+test('昼夜 D5 夜怪刷怪: 夜间到拍环带出怪挂 __nightMob/__nightHome · 满配额封顶', () => {
+  mem.clear();
+  freshInit();
+  const before = mobsState.spawned.length; /* init 的巢穴+牧场存量(不进配额口径: list 才算) */
+  globalThis.dayTime = 18000; /* 午夜 */
+  listResult = []; /* 怪物存量 0 → 配额 = CAP − 0 */
+  for (let i = 0; i < 25; i++) AdventureMode.update(0.1); /* 2.5s > 一拍 */
+  const night = mobsState.spawned.slice(before).filter((m) => m.__nightMob);
+  assert.ok(night.length >= 1, '到拍至少出一只夜怪(测试世界光场全 0=暗)');
+  for (const m of night) {
+    assert.ok(ADV_NIGHT.POOL.some((p) => p[0] === m.type), '池内种: ' + m.type);
+    const d = Math.hypot(m.pos.x - pos.x, m.pos.z - pos.z);
+    assert.ok(d >= ADV_NIGHT.RING_LO - 1 && d <= ADV_NIGHT.RING_HI + 1, '落点在出生环带: ' + d.toFixed(1));
+    assert.ok(m.__nightHome && m.__nightHome.x === m.pos.x && m.__nightHome.z === m.pos.z,
+        '家锚=出生环点(挂实体私有字段)');
+  }
+  /* 满配额: 怪物存量 12(含巢穴怪口径) → 到拍不再出怪 */
+  listResult = Array.from({length: ADV_NIGHT.CAP}, () => mkAdvMob('zombie', 50, 25, 50));
+  const before2 = mobsState.spawned.length;
+  for (let i = 0; i < 25; i++) AdventureMode.update(0.1);
+  assert.strictEqual(mobsState.spawned.length, before2, '满配额(CAP=12)不再刷');
+});
+
+test('昼夜 D5 入夜播报: 首夜并句火把引导一次性落任务档 · 次夜只报天黑了', () => {
+  mem.clear();
+  freshInit(); /* dayTime 0(清晨档) */
+  globalThis.dayTime = 13000; /* 入夜上沿 */
+  AdventureMode.update(1 / 60);
+  assert.ok(spoken.some((s) => s === '天黑了，放个火把照亮周围吧！'), '首夜完整句(SpeechKit cancel-then-speak 并句)');
+  assert.strictEqual(JSON.parse(mem.get('adventure_quest_save')).firstNight, true,
+      'firstNight 一次性随任务档即时落盘');
+  spoken.length = 0;
+  globalThis.dayTime = 23600; /* 黎明上沿(无夜怪: 静默不播报) */
+  AdventureMode.update(1 / 60);
+  globalThis.dayTime = 12000; /* 白天: 账本回落 */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(spoken.filter((s) => s.indexOf('天黑了') >= 0).length, 0, '黎明/白天不再入夜句');
+  spoken.length = 0;
+  globalThis.dayTime = 13001; /* 第二夜 */
+  AdventureMode.update(1 / 60);
+  assert.ok(spoken.includes('天黑了'), '次夜简句');
+  assert.ok(!spoken.some((s) => s.indexOf('火把') >= 0), '火把引导只给首夜');
+});
+
+test('昼夜 D5 黎明清场: 上沿触发灰白烟+移除 · 巢穴怪/牧场动物不清 · 上沿只发一次', () => {
+  mem.clear();
+  freshInit();
+  globalThis.dayTime = 13000; /* 入夜(黎明账本落 false) */
+  AdventureMode.update(1 / 60);
+  const nm = mkAdvMob('zombie', 60, 25, 60, {__nightMob: true});
+  const nmDead = mkAdvMob('spider', 62, 25, 62, {__nightMob: true, dead: true}); /* 夜怪尸体一并收 */
+  const nestMob = mkAdvMob('zombie', 40, 25, 52); /* 巢穴怪(nest=0, 无 __nightMob) */
+  const cow = mkAdvMob('cow', 55, 25, 55); /* 牧场动物 */
+  listResult = [nm, nmDead, nestMob, cow];
+  calls.length = 0;
+  spoken.length = 0;
+  globalThis.dayTime = 23600; /* 日出折线跨沿(internalSky(15)≥12) */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(nm.gone, true, '夜怪被移除');
+  assert.strictEqual(nmDead.gone, true, '夜怪尸体一并收走');
+  assert.strictEqual(nestMob.gone, false, '巢穴怪不清(脚本怪与昼夜解耦)');
+  assert.strictEqual(cow.gone, false, '牧场动物不清');
+  assert.strictEqual(calls.filter((c) => c[0] === 'debris').length, 2, '每只夜怪一撮灰白烟(尸体也算)');
+  assert.ok(spoken.includes('天亮了，怪物回家啦'), '清场播报');
+  calls.length = 0;
+  spoken.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(calls.filter((c) => c[0] === 'debris').length, 0, '上沿只触发一次(不重复清)');
+  assert.ok(!spoken.includes('天亮了，怪物回家啦'), '不重复播报');
+});
+
+test('昼夜 D5 黎明账本对齐: 存档时刻已在明侧重进不误触发清场', () => {
+  mem.clear();
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: [], dayTime: 23600}));
+  freshInit(); /* init 账本对齐当下(明侧 true), 无上沿 */
+  listResult = [mkAdvMob('zombie', 60, 25, 60, {__nightMob: true})];
+  calls.length = 0;
+  spoken.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(calls.filter((c) => c[0] === 'debris').length, 0, '无上沿不清场');
+  assert.ok(!spoken.includes('天亮了，怪物回家啦'), '不播报');
+});
+
+test('昼夜 D5 防刷怪圈接线: advNightRead 读 groundTop+1 同格双通道 · 界外 null · 火把格拒绝', () => {
+  mem.clear();
+  freshInit();
+  const r1 = A.advNightRead(70, 70);
+  assert.ok(r1, '界内返回读数');
+  assert.strictEqual(r1.y, api.groundTop(70, 70) + 1, '落点格 = groundTop+1(Mobs.spawn 同口径)');
+  /* 火把方块光写入落点格 → 双通道读数随之(核心 advNightCanSpawn 拒绝 = 防刷怪圈) */
+  const gy = api.groundTop(70, 70) + 1;
+  vm.runInContext(`lightBlock[(${gy} * ${128} + 70) * ${128} + 70] = 14`, eng);
+  const r2 = A.advNightRead(70, 70);
+  assert.strictEqual(r2.block, 14, '方块光通道读数');
+  assert.strictEqual(advNightCanSpawn(r2.sky, r2.block, 18000), false, '火把格不可刷');
+  assert.strictEqual(A.advNightRead(-5, 70), null, '界外 null');
+  assert.strictEqual(A.advNightRead(500, 70), null, '界外 null(越 WORLD_W)');
+});
+
+test('昼夜 D5 夜怪 AI: 家锚=出生环点不归巢穴 · 玩家走近照常索敌', () => {
+  mem.clear();
+  freshInit();
+  globalThis.dayTime = 18000;
+  const m = mkAdvMob('zombie', 100, 25, 100, {__nightMob: true, __nightHome: {x: 110, z: 100}});
+  listResult = [m];
+  globalThis.pos.x = 61.5; /* 玩家远(45 格): 不索敌, 收队走向自家锚(东) */
+  globalThis.pos.z = 76.5;
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  const walk = moveLog.find((e) => e.m === m);
+  assert.ok(walk && walk.dx > 0, '收队走向出生环点(东)——巢穴 0 在西, 不被巢穴收编');
+  globalThis.pos.x = 96; /* 玩家逼近 4 格(≤索敌 12 且家锚内 16): 索敌 */
+  globalThis.pos.z = 100;
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  const chase = moveLog.find((e) => e.m === m);
+  assert.ok(chase && chase.dx < 0, '索敌逼近玩家(西)');
+});
+
+/* ============ 昼夜 D6: 床·放置/睡觉链路(设计稿 §7) ============ */
+
+test('昼夜 D6 床·放置: thin 顶面路径现成 — 草地顶可放/实心块侧面拒(零新政策)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('bed', 1);
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5;
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_BED, '床放上草地顶(B_BED 带 thin 旗标, 顶面限定自动生效)');
+  assert.strictEqual(A.advGetInv().slots[0], null, '放置扣 1 张床');
+  /* 侧面拒: 净空区立一格泥土, 点它 +z 侧面(落点是空气) — thin 块只认实心面顶 */
+  const qx = spot.x + 2; const qz = spot.z + 2;
+  for (let y = 25; y <= 27; y++) {
+    setBlockRaw(qx, y, qz, 0);
+    setBlockRaw(qx, y, qz + 1, 0);
+  }
+  setBlockRaw(qx, 25, qz, 2); /* 独立泥土块 */
+  holdOnly('bed', 1);
+  calls.length = 0;
+  AdventureMode.onMouse(2, {x: qx, y: 25, z: qz, nx: 0, ny: 0, nz: 1});
+  assert.ok(!cell(qx, 25, qz + 1), '实心块侧面不放床(advPlaceCheck thin 路径现成)');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('放不了') >= 0), '非法落点 toast');
+});
+
+test('昼夜 D6 床·睡觉条件: 白天「晚上才能睡哦」 · 床边有怪「附近有怪物，睡不着」 · 动物不拦(§7.2)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  setBlockRaw(spot.x, 25, spot.z, api.B_BED);
+  globalThis.dayTime = 6000; /* 正午 */
+  listResult = [];
+  calls.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('晚上才能睡哦') >= 0), '白天拒睡 toast');
+  assert.strictEqual(A.advSleep.on, false, '不开转场');
+  /* 深夜 + 床边 ~2 格有怪 */
+  globalThis.dayTime = 20000;
+  listResult = [mkAdvMob('zombie', spot.x + 2.5, 25, spot.z + 0.5, {})];
+  calls.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('附近有怪物') >= 0), '床边有怪拒睡 toast');
+  assert.strictEqual(A.advSleep.on, false, '不开转场');
+  /* 牧场动物贴床不拦(passive 口径, F4「动物不算怪」) → 可入睡 */
+  listResult = [mkAdvMob('sheep', spot.x + 1, 25, spot.z + 1, {})];
+  calls.length = 0;
+  spoken.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advSleep.on, true, '动物在旁可入睡(转场开启)');
+  assert.ok(spoken.some((s) => s.indexOf('呼——呼——') >= 0), '鼾声起(§7.2)');
+  A.advSleep.on = false; /* 手动复位, 不渗入后续测试 */
+});
+
+test('昼夜 D6 床·睡着转场: 渐黑1.5s→停2s→唤醒沿(跳清晨+夜怪清场缝+出生点设床边)→渐亮≈5s(§7.2)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  setBlockRaw(spot.x, 25, spot.z, api.B_BED);
+  globalThis.dayTime = 20000; /* 深夜 */
+  listResult = [];
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5; /* 站床边点击 */
+  calls.length = 0;
+  spoken.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advSleep.on, true, '转场开启');
+  /* 黑屏期输入被门挡: 挖掘不启动 */
+  AdventureMode.onMouse(0, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advMine.down, false, '转场期不进蓄力(onMouse 顶层门)');
+  /* 渐黑推进 1s: 遮罩半透明(状态机逐帧直驱, 非 CSS transition) */
+  for (let i = 0; i < 20; i++) AdventureMode.update(0.05);
+  const fade = globalThis.document.getElementById('fade');
+  const op1 = +fade.style.opacity;
+  assert.ok(op1 > 0.55 && op1 < 0.75, '渐黑半程遮罩 ≈0.67, 实际 ' + op1);
+  /* 唤醒沿前布怪: 夜怪(带 __nightMob 私有字段, D5 刷怪时挂)与巢穴怪(不带)各一 */
+  const nightMob = mkAdvMob('zombie', spot.x + 1.5, 25, spot.z + 0.5, {});
+  nightMob.__nightMob = true;
+  const nestMob = mkAdvMob('zombie', spot.x - 2.5, 25, spot.z - 2.5, {nest: 1});
+  listResult = [nightMob, nestMob];
+  calls.length = 0;
+  spoken.length = 0;
+  /* 推过唤醒沿(总 3.5s): dayTime=0 + 夜怪清场 + 出生点设床边 */
+  for (let i = 0; i < 54; i++) AdventureMode.update(0.05); /* +2.7s → 3.7s */
+  assert.strictEqual(globalThis.dayTime, 0, '唤醒沿跳清晨(dayTime=0)');
+  assert.strictEqual(nightMob.gone, true, '__nightMob 夜怪被清(D5 黎明清场复用同缝, 现在起向前兼容)');
+  assert.notStrictEqual(nestMob.gone, true, '巢穴怪不清(脚本怪与昼夜解耦, §6.2 口径)');
+  assert.ok(calls.some((c) => c[0] === 'debris'), '清场灰白烟碎屑观感');
+  assert.ok(spoken.some((s) => s.indexOf('睡饱啦，天亮了') >= 0), '睡饱 TTS(§7.2)');
+  /* 出生点设床边: ADV.spawn 换床四邻格心(距床心 ≤1.5 格) + ModeKit.spawn 同参落位 */
+  const sp = A.ADV.spawn;
+  const dSp = Math.hypot(sp.x - (spot.x + 0.5), sp.z - (spot.z + 0.5));
+  assert.ok(dSp > 0.01 && dSp <= 1.5, '出生点=床四邻格心, 距床心 ' + dSp);
+  assert.strictEqual(sp.y, 25, '床同层站姿(邻格脚下支承顶面)');
+  const spawnCall = calls.filter((c) => c[0] === 'spawn').pop();
+  assert.deepStrictEqual([spawnCall[1], spawnCall[2], spawnCall[3]], [sp.x, sp.y, sp.z],
+      '唤醒落位=出生点(ModeKit.spawn 记忆, MC 口径)');
+  /* 即时落盘: 清晨+床边位即刻入档(死亡/回家同口径防 5s 节流窗口) */
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  assert.strictEqual(sv.dayTime, 0, 'dayTime=0 即刻入档(重进是清晨)');
+  assert.deepStrictEqual([sv.pos.x, sv.pos.y, sv.pos.z], [sp.x, sp.y, sp.z], '床边位入档');
+  /* 推过 5s: 遮罩归零收尾 */
+  for (let i = 0; i < 30; i++) AdventureMode.update(0.05);
+  assert.strictEqual(+fade.style.opacity, 0, '渐亮收尾遮罩归零');
+  assert.strictEqual(A.advSleep.on, false, '转场结束');
+  /* 死亡出生点已换床边: 同缝消费不另开实现 */
+  A.advPlayerDied();
+  const dieSpawn = calls.filter((c) => c[0] === 'spawn').pop();
+  assert.deepStrictEqual([dieSpawn[1], dieSpawn[3]], [sp.x, sp.z], '死亡也回床边(ADV.spawn 同缝)');
+  /* 当晚可再睡(状态复位可重入) */
+  globalThis.dayTime = 20000;
+  listResult = []; /* 巢穴怪仍在床边会拦睡(条件纯函数照常生效), 清场后再点 */
+  spoken.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advSleep.on, true, '可再睡');
+  assert.ok(spoken.some((s) => s.indexOf('呼——呼——') >= 0), '新一轮鼾声');
+  /* 测试隔离: 手动复位睡觉态与出生点账本 */
+  A.advSleep.on = false;
+  A.ADV.spawn = ADV_SPAWN;
+  globalThis.document.getElementById('fade').style.opacity = 0;
+});
+
+test('昼夜 D6 床·转场退出复位: cleanup 中断睡觉 — 遮罩归零/状态复位(不渗入其他模式)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  setBlockRaw(spot.x, 25, spot.z, api.B_BED);
+  globalThis.dayTime = 20000;
+  listResult = [];
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advSleep.on, true, '转场开启');
+  AdventureMode.update(0.5); /* 渐黑中 */
+  AdventureMode.cleanup();
+  assert.strictEqual(A.advSleep.on, false, 'cleanup 复位转场');
+  assert.strictEqual(+globalThis.document.getElementById('fade').style.opacity, 0, '遮罩归零');
+  assert.strictEqual(globalThis.dayTime, 20000, '未到唤醒沿不改时间(中断不跳清晨)');
+  A.ADV.spawn = ADV_SPAWN; /* 测试隔离 */
+});
+
+/* ============ 昼夜 D7 灯笼壳层(mc-daylight-torch §8.2) ============ */
+
+test('昼夜 D7 灯笼点亮政策: 夜里选中才 glow(skyDim>0) · 白天/换手/燃尽即灭', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('lantern', 1, 300);
+  calls.length = 0;
+  globalThis.dayTime = 18000; /* 午夜(skyDim 11) */
+  AdventureMode.update(1 / 60);
+  assert.deepStrictEqual(calls.filter((c) => c[0] === 'glow'), [['glow', true]],
+      '夜+选中+有耐久 → 开随身光(方块 uniform+PointLight 同缝)');
+  /* 白天(skyDim 0): 立刻关(不亮不耗, 孩子不会白浪费) */
+  globalThis.dayTime = 6000;
+  AdventureMode.update(1 / 60);
+  assert.deepStrictEqual(calls.filter((c) => c[0] === 'glow').slice(-1), [['glow', false]], '白天熄灭');
+  /* 换手火把: 熄灭(手持火把不发光, vanilla 口径拍板⑤) */
+  globalThis.dayTime = 18000;
+  holdOnly('torch', 2);
+  AdventureMode.update(1 / 60);
+  assert.deepStrictEqual(calls.filter((c) => c[0] === 'glow').slice(-1), [['glow', false]], '手持别物不亮');
+  /* 白天持满再久也不耗耐久 */
+  globalThis.dayTime = 6000;
+  holdOnly('lantern', 1, 300);
+  for (let i = 0; i < 60; i++) AdventureMode.update(0.5); /* 30 秒白天 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 300, '白天不耗秒');
+});
+
+test('昼夜 D7 灯笼耗秒: 夜里每持满 1 秒扣 1 耐久(damageTool 管线) · 半秒进度不丢', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('lantern', 1, 300);
+  globalThis.dayTime = 18000;
+  AdventureMode.update(0.5); /* 0.5s: 未持满 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 300, '未满 1 秒不扣');
+  AdventureMode.update(0.5); /* 恰 1.0s: 扣 1 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 299, '持满 1 秒扣 1(damageTool)');
+  for (let i = 0; i < 8; i++) AdventureMode.update(0.25); /* 再 2 秒: 扣 2 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 297, '累计跨秒连续扣(余时结转)');
+  /* 熄灭窗口不计时: 白天停 3 秒再入夜, 从 0 重新累计 */
+  globalThis.dayTime = 6000;
+  for (let i = 0; i < 6; i++) AdventureMode.update(0.5);
+  globalThis.dayTime = 18000;
+  AdventureMode.update(0.9); /* 熄灭期后首步 0.9s 不扣(累计器已归零) */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 297, '重新累计不白扣');
+  AdventureMode.update(0.2); /* 1.1s: 扣 1 */
+  assert.strictEqual(A.advGetInv().slots[0].dur, 296);
+});
+
+test('昼夜 D7 灯笼燃尽: 耐久归零整槽消失 + TTS 安抚「灯笼用完了，我们再做一个吧」+ 随身光即灭', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('lantern', 1, 1); /* 下一秒燃尽 */
+  globalThis.dayTime = 18000;
+  spoken.length = 0;
+  calls.length = 0;
+  AdventureMode.update(1.05); /* 持满 1 秒: dur 1→0 */
+  assert.strictEqual(A.advGetInv().slots[0], null, '燃尽: 灯笼整槽消失(remove)');
+  assert.ok(spoken.includes('灯笼用完了，我们再做一个吧'), 'TTS 安抚话术(§8.2 拍板句, D4/D9 安抚惯例)');
+  assert.ok(calls.some((c) => c[0] === 'toast'), 'toast 同句并线');
+  /* 燃尽帧内 glow 决策先于扣耐久(当帧仍亮), 下一帧起熄灭 */
+  assert.strictEqual(calls.filter((c) => c[0] === 'glow').slice(-1)[0][1], true, '燃尽当帧仍亮(决策先于扣耐久)');
+  AdventureMode.update(1 / 60); /* 燃尽后: 不再说话不复活 */
+  assert.strictEqual(calls.filter((c) => c[0] === 'glow').slice(-1)[0][1], false, '随后帧随身光关闭');
+  assert.strictEqual(spoken.filter((s) => s.indexOf('灯笼用完了') >= 0).length, 1, '安抚只说一次');
+  assert.strictEqual(A.advGetInv().slots[0], null, '槽保持空');
+  /* 破灯笼不会误伤工具预警账本: 再做一盏满耐久(合成管线) */
+  api.add(A.advGetInv(), 'lantern', 1);
+  assert.deepStrictEqual({...A.advGetInv().slots[0]}, {id: 'lantern', n: 1, dur: 300}, '新灯笼满耐久入包(回填首个空位)');
+});
+
+test('昼夜 D7 灯笼退场复位: cleanup 关随身光(PointLight 不渗入其他模式)', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('lantern', 1, 300);
+  globalThis.dayTime = 18000;
+  AdventureMode.update(1 / 60); /* 点亮中 */
+  calls.length = 0;
+  AdventureMode.cleanup();
+  assert.deepStrictEqual(calls.filter((c) => c[0] === 'glow'), [['glow', false]], 'cleanup 兜底熄灭(幂等复位)');
 });

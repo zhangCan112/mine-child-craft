@@ -16,12 +16,17 @@
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
      advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advFurnaceValid/
      advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫)/advTntRoll/
-     advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · F4 牧场
-     advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 任务表
+     advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 昼夜 D5 夜怪
+      政策 ADV_NIGHT/advNightCanSpawn/advNightStep/advDawnSweep · F4 牧场
+     advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 床·睡觉
+     政策(昼夜 D6 §7.2) advSleepCheck(两条件)/advSleepStep(转场时间账) 与
+     常量 ADV_BED_MOB_R/ADV_SLEEP_* · 灯笼耗秒政策(昼夜 D7 §8.2)
+     ADV_LANTERN/advLanternStep(天黑才亮才耗三前置+持满 1 秒节拍) · 任务表
      ADV_QUESTS/ADV_MINE_TALLY · 大宝箱政策 ADV_CHEST_START/ADV_CHEST_SLOTS/
      ADV_CHEST_TIERS/advChestNext/advChestPut · 节律常量 ADV_*
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界
-     尺寸 · voxel.js 的 getBlock/setBlockRaw · scene-kit.js 的
+     尺寸 · daylight-core 的 Daylight(昼夜 D5 夜怪判定与 D6 睡觉夜窗) ·
+     voxel.js 的 getBlock/setBlockRaw · scene-kit.js 的
      SceneKit · items-core 的 ITEMS/toolOf/stackMax · inventory-core 的 add ·
      craft-core 的 fuelUnits/smeltOf · drops.js 的 rollDrops/
      rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件)
@@ -340,6 +345,65 @@ function advPickupText(buf) {
     parts.push(entry[1] + ' 个' + name);
   }
   return '捡到 ' + parts.join('、') + '！';
+}
+
+/* ============================================================
+   昼夜 D5 夜怪政策(mc-daylight-torch §6.1) — 常量与纯函数段
+   ------------------------------------------------------------
+   节拍器 advNightStep 与 advNestStep 同构(状态进 · {t, spawn} 出);
+   光照门 advNightCanSpawn 一条表达式(MC 1.18+ 口径: 方块光 0 且
+   internalSky≤7)——火把半径 13 菱形内方块光 ≥1, 天然防刷怪圈
+   (「放火把守家」成立); 上限配额(CAP−现存怪数)与实体记账在壳层
+   advNightTick(Mobs 是壳层依赖, 核心保持零实体耦合)。
+   ============================================================ */
+const ADV_NIGHT = {
+  CAP: 12, /* 夜怪上限(含巢穴怪在内的怪物总量口径: 配额 = CAP − 现存怪数, 壳层结算) */
+  RING_LO: 24, RING_HI: 40, /* 出生环带(MC 24 格内不刷——research TL;DR #5) */
+  TRY_MS: 2000, /* 每 2 秒一次刷怪尝试(夜间才跑) */
+  POOL: [['zombie', 2], ['creeper', 1], ['spider', 1]], /* 无骷髅: 夜间无远程(差异 #8) */
+};
+
+/* 夜怪出生格判定(单表达式, MC 1.18+ 语义): 方块光为 0(火把圈=防刷怪圈)
+   且内部天空光 ≤7(白天地表 15 自动拒绝; 洞穴与夜地表通过——时间维度
+   已折进 internalSky, 节拍器另有一道 isNight 硬门) */
+function advNightCanSpawn(skyAt, blockAt, dayTime) {
+  return blockAt === 0 && Daylight.internalSky(skyAt, dayTime) <= 7;
+}
+
+/* 夜怪节拍(advNestStep 同构: 前置不满足即归零 · 到拍出单): s 为秒累计,
+   read(x,z)→{sky,block}|null 是落点光查询 seam(壳层封装 groundTop+1
+   同一格的双通道读数, null=界外), rnd 可注入。到拍掷环带一点(角度/半径
+   均匀), 光照不过 → 本拍作废(2s 后再掷, MC 式逐拍独立); 过 → POOL 按
+   权重取种出刷怪令。返回 {t, spawn}(spawn=null 或 {type,x,z}) */
+function advNightStep(s, dt, dayTime, read, playerPos, rnd) {
+  if (!Daylight.isNight(dayTime)) return {t: 0, spawn: null}; /* 白天: 节拍器归零 */
+  const nt = s + dt;
+  if (nt < ADV_NIGHT.TRY_MS / 1000) return {t: nt, spawn: null};
+  const a = rnd() * Math.PI * 2;
+  const r = ADV_NIGHT.RING_LO + rnd() * (ADV_NIGHT.RING_HI - ADV_NIGHT.RING_LO);
+  const x = playerPos.x + Math.cos(a) * r;
+  const z = playerPos.z + Math.sin(a) * r;
+  const lt = read(x, z);
+  if (!lt || !advNightCanSpawn(lt.sky, lt.block, dayTime)) return {t: 0, spawn: null};
+  let total = 0;
+  for (const p of ADV_NIGHT.POOL) total += p[1];
+  let pick = rnd() * total;
+  let type = ADV_NIGHT.POOL[ADV_NIGHT.POOL.length - 1][0]; /* 浮点尽头兜底末段 */
+  for (const p of ADV_NIGHT.POOL) {
+    pick -= p[1];
+    if (pick < 0) {
+      type = p[0];
+      break;
+    }
+  }
+  return {t: 0, spawn: {type, x, z}};
+}
+
+/* 黎明清场谓词: internalSky(15) ≥12(= skyDim≤3)——夜末(skyDim 11)为
+   false, 日出折线下穿 3(≈tick 23517)翻 true; 上升沿(跨沿)由壳层账本
+   检测后触发清场, 本函数只给时刻不持状态 */
+function advDawnSweep(dayTime) {
+  return Daylight.internalSky(15, dayTime) >= 12;
 }
 
 /* ============================================================
@@ -770,6 +834,83 @@ function advBreakToolText(name, hint) {
       (hint ? ' 接下来：' + hint : '');
 }
 
+/* ============================================================
+   床·睡觉政策 (昼夜 D6, mc-daylight-torch §7.2) — 常量与纯函数段
+   ------------------------------------------------------------
+   两条件(设计稿 §7.2 表): 夜晚窗口 Daylight.sleepWindow(skyDim≥4 ⇔
+   晴天 [12542,23460], research §1.6 裁决口径) + 床 8 格(水平)内无
+   活怪(MC 口径; passive 牧场动物不算怪——F4「动物不算怪」同口径)。
+   转场观感(#fade 遮罩/TTS/跳清晨/出生点设床边)在壳 modes/adventure.js,
+   这里只有判据与时间账。
+   ============================================================ */
+const ADV_BED_MOB_R = 8; /* 床边无怪判定半径(水平格, 含等号——advNearStation 同口径) */
+const ADV_SLEEP_FADE = 1.5; /* 渐黑秒数(§7.2) */
+const ADV_SLEEP_HOLD = 2; /* 全黑停留秒数(§7.2) */
+const ADV_SLEEP_TOTAL = 5; /* 总时长 ≈ MC 101 tick=5.05s 观感等价(差异 #2) */
+
+/* 睡觉条件: mobs 为怪物快照([{x,z,dead?,gone?,passive?}] 壳层从 Mobs.list()
+   采集成), bx/bz 为床格心坐标。返回 {ok, why}: 'night'(→toast「晚上才能睡哦」)
+   优先于 'mob'(→toast「附近有怪物，睡不着」)— 次序 = §7.2 表条件次序 */
+function advSleepCheck(dayTime, mobs, bx, bz) {
+  if (!Daylight.sleepWindow(dayTime)) return {ok: false, why: 'night'};
+  for (const m of mobs) {
+    if (m.dead || m.gone || m.passive) continue; /* 尸体/已移除/牧场动物不拦 */
+    if (Math.hypot(m.x - bx, m.z - bz) <= ADV_BED_MOB_R) return {ok: false, why: 'mob'};
+  }
+  return {ok: true, why: ''};
+}
+
+/* 睡觉转场时间账(纯函数): t 为已进行秒, 返回 {t, phase, opacity, wake} —
+   phase: 'out' 渐黑(opacity=t/1.5) → 'hold' 全黑停 → 'in' 渐亮
+   (opacity=(5−t)/1.5) → 'done'; wake=true 恰在跨过 1.5+2=3.5s 的一步
+   (渐亮起沿, 壳层在此做 dayTime=0 + 夜怪清场 + 出生点设床边), 大步跨沿
+   也只发一次; t 钳在总时长 */
+function advSleepStep(t, dt) {
+  const nt = Math.min(ADV_SLEEP_TOTAL, t + dt);
+  const edge = ADV_SLEEP_FADE + ADV_SLEEP_HOLD; /* 唤醒沿 = 渐黑+停留 */
+  const wake = t < edge && nt >= edge;
+  let phase = 'out';
+  let opacity = nt / ADV_SLEEP_FADE;
+  if (nt >= ADV_SLEEP_TOTAL) {
+    phase = 'done';
+    opacity = 0;
+  } else if (nt >= edge) {
+    phase = 'in';
+    opacity = (ADV_SLEEP_TOTAL - nt) / ADV_SLEEP_FADE;
+  } else if (nt >= ADV_SLEEP_FADE) {
+    phase = 'hold';
+    opacity = 1;
+  }
+  return {t: nt, phase, opacity, wake};
+}
+
+/* ============================================================
+   昼夜 D7 灯笼耗秒政策(mc-daylight-torch §8.2) — 常量与纯函数段
+   ------------------------------------------------------------
+   节拍器 advLanternStep 与 advNightStep 同构(状态进 · {t, 决策} 出);
+   三前置「选中灯笼 且 耐久>0 且 skyDim>0」= 天黑才亮才耗(白天/手持
+   别物/燃尽全不亮不耗, 耗秒器归零)。扣耐久(damageTool 管线)/归零
+   消失+TTS 安抚/setPlayerGlow 双通道光照开关(引擎机制缝, D3 备好)
+   全在壳 modes/adventure.js 的 advLanternTick——核心保持零实体耦合。
+   ============================================================ */
+const ADV_LANTERN = {
+  ID: 'lantern', /* 灯笼物品键(items-core 注册, 可耗损物 dur=300) */
+  DRAIN_S: 1, /* 每持满 1 秒扣 1 耐久(dt 累计器, §8.2) */
+};
+
+/* 灯笼耗秒节拍: s 为秒累计, heldId 为快捷栏选中物品 id, dur 为灯笼
+   当前耐久, skyDim 为天空暗度(壳层从 Daylight.skyDim(dayTime) 取)。
+   返回 {t, glow, drain} — t=新累计秒 · glow=是否点亮(壳层喂
+   setPlayerGlow) · drain=本步是否持满 1 秒(壳层 damageTool 扣 1) */
+function advLanternStep(s, dt, heldId, dur, skyDim) {
+  if (heldId !== ADV_LANTERN.ID || dur <= 0 || skyDim <= 0) {
+    return {t: 0, glow: false, drain: false}; /* 前置不满足: 不亮不耗且累计器归零 */
+  }
+  const nt = s + dt;
+  if (nt < ADV_LANTERN.DRAIN_S) return {t: nt, glow: true, drain: false};
+  return {t: nt - ADV_LANTERN.DRAIN_S, glow: true, drain: true}; /* 余时结转下一秒 */
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
@@ -779,6 +920,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,
     ADV_SWING_CD, ADV_FIST_DMG, ADV_AIM_COS, ADV_ATTACK_T, ADV_ARROW_SPEED, ADV_PICKUP_WINDOW,
     advNestCount, advNestStep, advSwingDmg, advMobDmg, advDeathDrops, advPickupText,
+    ADV_NIGHT, advNightCanSpawn, advNightStep, advDawnSweep,
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
     ADV_STATION_R, ADV_SMELT_T, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advSmeltStep,
@@ -790,5 +932,8 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut,
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,
-    advBreakToolText};
+    advBreakToolText,
+    ADV_BED_MOB_R, ADV_SLEEP_FADE, ADV_SLEEP_HOLD, ADV_SLEEP_TOTAL,
+    advSleepCheck, advSleepStep,
+    ADV_LANTERN, advLanternStep};
 }
