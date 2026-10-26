@@ -18,7 +18,10 @@
      advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫; 进度钳制界读
      craft-core 的 SMELT_T)/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 昼夜 D5 夜怪
-      政策 ADV_NIGHT/advNightCanSpawn/advNightStep/advDawnSweep · F4 牧场
+      政策 ADV_NIGHT/advNightCanSpawn/advNightStep(缺省池薄壳, 签名冻结)/
+      advNightStepPool(池经入参注入通道)/advDawnSweep · home 地图行缺省
+      ADV_HOME_ROW(巢穴池/夜怪池的行缺省权威, 冒险地图 T2——壳与 T4 注册
+      表各行经它换池, 常量本体不动) · F4 牧场
      advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 床·睡觉
      政策(昼夜 D6 §7.2) advSleepCheck(两条件)/advSleepStep(转场时间账) 与
      常量 ADV_BED_MOB_R/ADV_SLEEP_* · 灯笼耗秒政策(昼夜 D7 §8.2)
@@ -387,6 +390,13 @@ const ADV_NIGHT = {
   POOL: [['zombie', 2], ['creeper', 1], ['spider', 1]], /* 无骷髅: 夜间无远程(差异 #8) */
 };
 
+/* home 地图行缺省数据(冒险地图 T2 池参数化): 巢穴池/夜怪池从「模块常量被壳
+   直读」改为「行缺省」——壳经当前地图行读取(缺省即本行, 同一引用), T4 的
+   ADV_MAPS 注册表各行以替换语义自带池, T6 壳换装当前行即成覆盖; 常量本体
+   与导出口径不动(home 池行为逐字节不变是本票红线) */
+const ADV_HOME_ROW = {id: 'home', nests: ADV_NESTS, nightPool: ADV_NIGHT.POOL};
+
+
 /* 夜怪出生格判定(单表达式, MC 1.18+ 语义): 方块光为 0(火把圈=防刷怪圈)
    且内部天空光 ≤7(白天地表 15 自动拒绝; 洞穴与夜地表通过——时间维度
    已折进 internalSky, 节拍器另有一道 isNight 硬门) */
@@ -394,12 +404,12 @@ function advNightCanSpawn(skyAt, blockAt, dayTime) {
   return blockAt === 0 && Daylight.internalSky(skyAt, dayTime) <= 7;
 }
 
-/* 夜怪节拍(advNestStep 同构: 前置不满足即归零 · 到拍出单): s 为秒累计,
-   read(x,z)→{sky,block}|null 是落点光查询 seam(壳层封装 groundTop+1
-   同一格的双通道读数, null=界外), rnd 可注入。到拍掷环带一点(角度/半径
-   均匀), 光照不过 → 本拍作废(2s 后再掷, MC 式逐拍独立); 过 → POOL 按
-   权重取种出刷怪令。返回 {t, spawn}(spawn=null 或 {type,x,z}) */
-function advNightStep(s, dt, dayTime, read, playerPos, rnd) {
+/* 夜怪节拍·池注入版(冒险地图 T2 通道): 第 7 参 pool = [种, 权重] 二元组清单,
+   缺省回落 ADV_NIGHT.POOL(home 行缺省口径); 节拍/环带/光照门仍取 ADV_NIGHT
+   常量, 不随池换。其余口径同 advNightStep(其签名冻结, 本函数是它的全参实现,
+   供壳层喂当前地图行池, T4/T6 替换语义的注入缝) */
+function advNightStepPool(s, dt, dayTime, read, playerPos, rnd, pool) {
+  const P = pool || ADV_NIGHT.POOL;
   if (!Daylight.isNight(dayTime)) return {t: 0, spawn: null}; /* 白天: 节拍器归零 */
   const nt = s + dt;
   if (nt < ADV_NIGHT.TRY_MS / 1000) return {t: nt, spawn: null};
@@ -410,10 +420,10 @@ function advNightStep(s, dt, dayTime, read, playerPos, rnd) {
   const lt = read(x, z);
   if (!lt || !advNightCanSpawn(lt.sky, lt.block, dayTime)) return {t: 0, spawn: null};
   let total = 0;
-  for (const p of ADV_NIGHT.POOL) total += p[1];
+  for (const p of P) total += p[1];
   let pick = rnd() * total;
-  let type = ADV_NIGHT.POOL[ADV_NIGHT.POOL.length - 1][0]; /* 浮点尽头兜底末段 */
-  for (const p of ADV_NIGHT.POOL) {
+  let type = P[P.length - 1][0]; /* 浮点尽头兜底末段 */
+  for (const p of P) {
     pick -= p[1];
     if (pick < 0) {
       type = p[0];
@@ -421,6 +431,16 @@ function advNightStep(s, dt, dayTime, read, playerPos, rnd) {
     }
   }
   return {t: 0, spawn: {type, x, z}};
+}
+
+/* 夜怪节拍(advNestStep 同构: 前置不满足即归零 · 到拍出单): s 为秒累计,
+   read(x,z)→{sky,block}|null 是落点光查询 seam(壳层封装 groundTop+1
+   同一格的双通道读数, null=界外), rnd 可注入。到拍掷环带一点(角度/半径
+   均匀), 光照不过 → 本拍作废(2s 后再掷, MC 式逐拍独立); 过 → POOL 按
+   权重取种出刷怪令。返回 {t, spawn}(spawn=null 或 {type,x,z})。
+   签名冻结(T2 红线): 缺省池薄壳, 全参实现见 advNightStepPool */
+function advNightStep(s, dt, dayTime, read, playerPos, rnd) {
+  return advNightStepPool(s, dt, dayTime, read, playerPos, rnd);
 }
 
 /* 黎明清场谓词: internalSky(15) ≥12(= skyDim≤3)——夜末(skyDim 11)为
@@ -1162,7 +1182,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,
     ADV_SWING_CD, ADV_FIST_DMG, ADV_AIM_COS, ADV_ATTACK_T, ADV_ARROW_SPEED, ADV_PICKUP_WINDOW,
     advNestCount, advNestStep, advSwingDmg, advMobDmg, advDeathDrops, advPickupText,
-    ADV_NIGHT, advNightCanSpawn, advNightStep, advDawnSweep,
+    ADV_NIGHT, ADV_HOME_ROW, advNightCanSpawn, advNightStep, advNightStepPool, advDawnSweep,
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
     ADV_STATION_R, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation,
