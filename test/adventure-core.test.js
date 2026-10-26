@@ -420,6 +420,42 @@ test('昼夜 D5 advNightStep: 节拍 2s 一拍 · 白天归零 · 环带落位 �
   assert.strictEqual(r.spawn, null, '界外/无效落点不出单');
 });
 
+test('T2 池参数化: ADV_HOME_ROW 缺省口径 + advNightStepPool 池注入(冒险地图票据 T2)', () => {
+  const N = 18000; /* 午夜(与 advNightStep 测试同时刻口径) */
+  const P = {x: 61.5, z: 76.5};
+  const dark = () => ({sky: 15, block: 0}); /* 夜地表可刷口径 */
+  const seq = (arr) => {
+    let i = 0;
+    return () => arr[i++];
+  };
+  /* home 地图行缺省数据 = 常量本体(同一引用): T4 地图行/T6 壳换装以行为池权威时,
+     home 行为与既有常量逐字节一致(导出口径不变红线) */
+  assert.strictEqual(Core.ADV_HOME_ROW.id, 'home', '行 id: home');
+  assert.strictEqual(Core.ADV_HOME_ROW.nests, Core.ADV_NESTS, '巢穴池缺省 = ADV_NESTS 本体');
+  assert.strictEqual(Core.ADV_HOME_ROW.nightPool, Core.ADV_NIGHT.POOL, '夜怪池缺省 = ADV_NIGHT.POOL 本体');
+  /* 池经入参注入(T4 替换语义的可行性证明): 沙漠味池 2:1 → 掷 0 落首段 husk,
+     节拍/环带/光照门口径与缺省池完全同构 */
+  const desertPool = [['husk', 2], ['creeper', 1]];
+  let r = Core.advNightStepPool(1.9, 0.2, N, dark, P, seq([0, 0.5, 0]), desertPool);
+  assert.ok(r.spawn, '注入池同样到拍出单');
+  assert.strictEqual(r.spawn.type, 'husk', '掷 0 → 注入池首段 husk(权重 2/3)');
+  assert.strictEqual(r.t, 0, '计时口径同缺省版(到拍归零)');
+  r = Core.advNightStepPool(1.9, 0.2, N, dark, P, seq([0, 0.5, 0.99]), desertPool);
+  assert.strictEqual(r.spawn.type, 'creeper', '掷 2.97/3 → 注入池末段 creeper(浮点尽头兜底)');
+  assert.ok(Math.abs(Math.hypot(r.spawn.x - P.x, r.spawn.z - P.z) - 32) < 1e-9,
+      '落点仍在缺省环带(环带/节拍常量不随池换)');
+  /* 池缺省回落: 不传第 7 参 = ADV_NIGHT.POOL 口径, 与 advNightStep 同 rnd 序输出逐字节一致
+     (advNightStep 是签名冻结的缺省薄壳, 行为等价由本断言锚定) */
+  const a = Core.advNightStep(1.9, 0.2, N, dark, P, seq([0, 0.5, 0.5]));
+  const b = Core.advNightStepPool(1.9, 0.2, N, dark, P, seq([0, 0.5, 0.5]));
+  assert.deepStrictEqual(b, a, '缺省池回落: 两版同 rnd 序输出逐字节一致');
+  /* 注入池不影响光照门/白天归零(拒绝路径先于池选种, 池零消费) */
+  assert.strictEqual(Core.advNightStepPool(1.9, 0.2, 6000, dark, P, Math.random, desertPool).spawn,
+      null, '白天归零口径不随池变');
+  assert.strictEqual(Core.advNightStepPool(1.9, 0.2, N, () => ({sky: 15, block: 3}), P,
+      Math.random, desertPool).spawn, null, '火把格拒绝口径不随池变');
+});
+
 test('昼夜 D5 advDawnSweep: internalSky(15)≥12(= skyDim≤3) 黎明谓词(跨沿归壳层账本)', () => {
   assert.strictEqual(Core.advDawnSweep(0), true, '清晨: dim 0 → 天已亮');
   assert.strictEqual(Core.advDawnSweep(18000), false, '午夜: dim 11 → 夜怪还在');
