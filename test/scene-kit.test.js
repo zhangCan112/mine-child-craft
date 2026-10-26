@@ -38,6 +38,14 @@ test('幅度界 ±3: 全域 |h| ≤ 3, amp 越界(10)被钳制', () => {
       }
     }
   }
+  /* amp 函数返回越界也逐格钳(引擎红线对函数通道同样生效) */
+  const big = () => 10;
+  for (let x = 0; x < 128; x += 4) {
+    for (let z = 0; z < 128; z += 4) {
+      const h = sk.heightAt(x, z, {amp: big});
+      assert.ok(h >= -3 && h <= 3, 'amp 函数越界钳制: (' + x + ',' + z + ') → ' + h);
+    }
+  }
   /* amp 可调小: amp=0 全图归零(核心圈平地, T5 消费口径);
      Math.round 可能产 -0, 消费者比较用 === 口径 */
   for (let x = 0; x < 128; x += 5) {
@@ -93,6 +101,33 @@ test('坡度红线: 全图任意相邻格高差 ≤1(含压平区边缘与负象
         assert.ok(Math.abs(hz - h) <= 1,
             sc.name + ' 垂直相邻 ≤1: (' + x + ',' + z + ') ' + h + '→' + hz);
       }
+    }
+  }
+});
+
+test('每控制格幅度: amp 支持函数 (i,j)=>幅度 — 西平东起伏 + 坡度仍 ≤1', () => {
+  const {sk} = loadSceneKit();
+  /* 控制格 i<8 幅度 0, i≥8 幅度 3(T5 圈层「核心圈 0 → 深险圈 ±3」口径) */
+  const amp = (i) => i >= 8 ? 3 : 0;
+  for (let x = 0; x <= 110; x += 3) { /* 插值只碰控制点 i≤7 → 全平 */
+    for (let z = 0; z < 128; z += 5) {
+      assert.ok(sk.heightAt(x, z, {amp}) === 0,
+          '西半场幅度 0 应平地: (' + x + ',' + z + ') → ' + sk.heightAt(x, z, {amp}));
+    }
+  }
+  let rugged = 0;
+  for (let x = 140; x <= 200; x += 3) { /* 东半场确有起伏(幅度生效) */
+    for (let z = 0; z < 128; z += 5) {
+      if (sk.heightAt(x, z, {amp}) !== 0) rugged++;
+    }
+  }
+  assert.ok(rugged > 0, '东半场幅度 3 应有起伏');
+  /* 幅度跳变发生在控制值层面, 插值摊平 → 坡度红线仍立 */
+  for (let x = 100; x < 150; x++) {
+    for (let z = 0; z < 64; z++) {
+      const h = sk.heightAt(x, z, {amp});
+      assert.ok(Math.abs(sk.heightAt(x + 1, z, {amp}) - h) <= 1,
+          '幅度过渡带相邻 ≤1: (' + x + ',' + z + ')');
     }
   }
 });
