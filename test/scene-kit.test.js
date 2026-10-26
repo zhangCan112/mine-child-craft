@@ -48,6 +48,30 @@ test('幅度界 ±3: 全域 |h| ≤ 3, amp 越界(10)被钳制', () => {
   }
 });
 
+test('压平区归基准: 圆心邻域回落 base, base 可调, 多圆并集', () => {
+  const {sk} = loadSceneKit();
+  const flats = [{cx: 100, cz: 100, r: 24}];
+  /* 圆心 ±2 的四角控制格点全在圆内(最远 17 < 24) → 双线性精确 base */
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      assert.ok(sk.heightAt(100 + dx, 100 + dz, {flats}) === 0,
+          '压平区圆心邻域应归基准 0: (' + (100 + dx) + ',' + (100 + dz) + ') → ' +
+          sk.heightAt(100 + dx, 100 + dz, {flats}));
+    }
+  }
+  /* base 可调: 基准抬 2, 圆心邻域跟随(高度场是相对偏移, 消费者加地基) */
+  for (let dx = -2; dx <= 2; dx += 2) {
+    for (let dz = -2; dz <= 2; dz += 2) {
+      assert.ok(sk.heightAt(100 + dx, 100 + dz, {flats, base: 2}) === 2,
+          '压平区基准可调: base=2 圆心 → ' +
+          sk.heightAt(100 + dx, 100 + dz, {flats, base: 2}));
+    }
+  }
+  /* 多圆并集: 第二个圆心也归基准(遮罩取并集) */
+  const two = [{cx: 100, cz: 100, r: 24}, {cx: 208, cz: 48, r: 24}];
+  assert.ok(sk.heightAt(208, 48, {flats: two}) === 0, '第二圆心也归基准');
+});
+
 test('确定性: 同参同值, 整格阶梯化, salt 换地形', () => {
   const {sk} = loadSceneKit();
   let saltDiff = 0;

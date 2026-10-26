@@ -43,17 +43,35 @@ const SceneKit = {
     n = (n ^ (n>>>16)) >>> 0;
     return n / 4294967295;
   },
-  /* 确定性高度场: 世界按 16×16 分控制格, 格点值 = rand 散布到 [-amp,amp],
-     四格点双线性插值后 Math.round 整格阶梯化。同参同值, 零 Math.random。
-     opts: {salt 哈希盐, amp 幅度} */
+  /* 确定性高度场: 世界按 16×16 分控制格, 格点值 = rand 散布到 [-amp,amp]
+     再按压平圆向 base 过渡, 四格点双线性插值后 Math.round 整格阶梯化。
+     同参同值, 零 Math.random。opts: {salt 哈希盐, amp 幅度(钳 [0,3]),
+     base 压平基准(钳 [-3,3]), flats 压平圆列表 [{cx,cz,r}]} */
   heightAt(x, z, opts) {
     const o = opts || {};
     const salt = o.salt || 0;
-    /* 幅度界红线 ±3: 越界一律钳回, 防调用方破坏全图相邻高差 ≤1 的坡度保证 */
+    /* 幅度界红线 ±3: amp/base 越界一律钳回。相邻控制值差恒 ≤ 2×3 →
+       插值斜率 ≤ 6/16 < 1 → 全图相邻高差 ≤ 1(坡度红线) */
     const amp = Math.max(0, Math.min(3, o.amp === undefined ? 3 : o.amp));
+    const base = Math.max(-3, Math.min(3, o.base || 0));
+    const flats = o.flats || [];
     const i = Math.floor(x / 16); const j = Math.floor(z / 16);
     const t = (x - i * 16) / 16; const s = (z - j * 16) / 16;
-    const v = (ci, cj) => (SceneKit.rand(ci, cj, salt) * 2 - 1) * amp;
+    /* 格点值: 散布 ±amp; 压平圆心距 ≤r 的格点回落 base, 圆外 16 格
+       渐变带线性过渡 —— 平滑全发生在控制值层面, 边缘斜坡由双线性
+       天然摊平, 压平区边缘不出 2 格断崖; 多圆逐次混合 = 并集向 base */
+    const v = (ci, cj) => {
+      let out = (SceneKit.rand(ci, cj, salt) * 2 - 1) * amp;
+      const px = ci * 16; const pz = cj * 16;
+      for (let k = 0; k < flats.length; k++) {
+        const c = flats[k];
+        const dx = px - c.cx; const dz = pz - c.cz;
+        const w = Math.max(0, Math.min(1,
+            (c.r + 16 - Math.sqrt(dx * dx + dz * dz)) / 16));
+        out = out * (1 - w) + base * w;
+      }
+      return out;
+    };
     const a = v(i, j); const b = v(i + 1, j);
     const c = v(i, j + 1); const d = v(i + 1, j + 1);
     const f = (1 - t) * ((1 - s) * a + s * c) + t * ((1 - s) * b + s * d);
