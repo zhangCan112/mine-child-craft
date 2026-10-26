@@ -1269,6 +1269,7 @@ body.dev-on .mode-card.dev {
 .mkp-bench {
   --mkp-cell: 60px;
   --mkp-bgap: 6px;
+
   display: flex;
   align-items: center;
   gap: 14px;
