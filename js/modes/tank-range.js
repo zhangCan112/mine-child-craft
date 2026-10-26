@@ -50,11 +50,10 @@ let deployed = false; let clearPraised = false;
    面板选种类和数量 → 一次性部署; R 随时按当前配置再来一批
    种类清单来自怪物库的 spawnable()(mix 伪类型已在引擎侧排除):
    以后加怪自动出现 */
-const RANGE_MOB_KEYS = Mobs.spawnable();
 const mobCfg = {type: 'zombie', count: 6};
 const RANGE_MOBS_MAX = 30;
 let pickerBuilt = false; let pickerOpen = false;
-const pkTypeBtns = [];
+let pkPicker = null; /* 选怪按钮组(mkMobPicker 实例: 分组渲染与选中态重读收编 kit) */
 let pkCntEl = null; let pkEl = null;
 
 function buildPicker() {
@@ -63,27 +62,17 @@ function buildPicker() {
   }
   pickerBuilt = true;
   pkEl = document.getElementById('mobPicker');
-  const btns = document.getElementById('pkMobBtns');
-  btns.innerHTML = ''; // 幂等: 先清空(类名撞车的历史教训, 双保险)
-  for (const g of Mobs.families()) { // 谱系分组: 内联簇(组头+组员成簇, 簇随行流动 — 不整行断组)
-    const grp = document.createElement('div');
-    grp.className = 'fam-group';
-    const head = document.createElement('span');
-    head.className = 'fam-head';
-    head.textContent = g.name;
-    grp.appendChild(head);
-    for (const k of g.members) {
-      const b = document.createElement('button');
-      b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${Mobs.types[k].name}`;
-      b.dataset.type = k;
-      b.onclick = ()=>{
-        mobCfg.type = k; updatePicker();
-      };
-      grp.appendChild(b);
-      pkTypeBtns.push(b);
-    }
-    btns.appendChild(grp);
-  }
+  /* 选怪按钮族收编 ModeKit.mkMobPicker(评审候选 6): 头像+名字+谱系分组簇
+     +active 高亮在 kit, 键清单动态来自怪物库(families→spawnable,
+     以后加怪自动出现); 整组重画自带幂等(类名撞车的历史教训不再是双保险) */
+  pkPicker = mkMobPicker({
+    mount: document.getElementById('pkMobBtns'),
+    activeOf: () => mobCfg.type,
+    onPick(k) {
+      mobCfg.type = k; updatePicker();
+    },
+  });
+  pkPicker.render();
   pkCntEl = document.getElementById('pkCnt');
   document.getElementById('pkCntM').onclick = ()=>{
     mobCfg.count = Math.max(1, mobCfg.count - 1); updatePicker();
@@ -97,7 +86,7 @@ function buildPicker() {
 }
 function updatePicker() {
   if (!pickerBuilt) return;
-  pkTypeBtns.forEach((b) => b.classList.toggle('active', b.dataset.type === mobCfg.type));
+  if (pkPicker) pkPicker.sync(); /* 选中态经按钮组重读(activeOf→mobCfg.type) */
   if (pkCntEl) pkCntEl.textContent = mobCfg.count;
 }
 function togglePicker(open) {
@@ -141,22 +130,23 @@ function buildTankMenu() {
       grid.appendChild(div);
     }
   }
-  /* 怪物行: 与游戏内 👾 面板同一份 mobCfg(选的种类即出发部署的第一批) */
+  /* 怪物行: 与游戏内 👾 面板同一份 mobCfg(选的种类即出发部署的第一批) —
+     按钮族同走 mkMobPicker, 差异经 opts: 卡片流平铺(groupOf 恒 null, 不建
+     谱系组头) + scene-card 卡片结构(itemTag/itemCls/itemHtml) */
   const mrow = document.getElementById('tankMobPick');
   if (mrow) {
-    mrow.innerHTML = '';
-    for (const k of RANGE_MOB_KEYS) {
-      const b = document.createElement('div');
-      b.className = 'scene-card';
-      b.classList.toggle('active', k === mobCfg.type);
-      b.dataset.mob = k;
-      b.innerHTML = '<div class="big"><img alt="" src="' + Mobs.face(k) + '"></div>' +
-        '<h2>' + Mobs.types[k].name + '</h2>';
-      b.onclick = ()=>{
-        mobCfg.type = k; buildTankMenu();
-      };
-      mrow.appendChild(b);
-    }
+    mkMobPicker({
+      mount: mrow,
+      groupOf: () => null,
+      itemTag: 'div',
+      itemCls: 'scene-card',
+      itemHtml: (k) => '<div class="big"><img alt="" src="' + Mobs.face(k) + '"></div>' +
+        '<h2>' + Mobs.types[k].name + '</h2>',
+      activeOf: () => mobCfg.type,
+      onPick(k) {
+        mobCfg.type = k; buildTankMenu(); // 重画刷新高亮(与选坦克卡同法)
+      },
+    }).render();
   }
   const go = document.getElementById('tankGoBtn');
   if (go) go.onclick = ()=> launchField();

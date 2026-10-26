@@ -341,18 +341,29 @@ ModeKit.spawn = (x, y, z, o) => {
    显式铺到全局再 require 壳——壳顶层即消费这些全局名 */
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore);
+/* 烧炼三件(SMELT_T/smeltStep/furnaceRefund)已迁 craft-core(2026-10 归属错位修复):
+   Node 侧 require 真模块铺到全局, 浏览器侧 index.html 里 craft-core 先于本批加载同构 */
+const CraftCore = require('../js/craft-core.js');
+Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
+  furnaceRefund: CraftCore.furnaceRefund});
 globalThis.FurnaceKit = require('../js/furnace-kit.js'); /* 熔炉装配 kit(T4): 壳顶层即构造 station */
 globalThis.Backpack = require('../js/backpack.js');
+/* 世界改动日志(index.html 加载序在模式之前; Node 侧显式铺全局同构):
+   真模块直测在 test/world-journal-core.test.js, 这里只供壳经全局名消费 */
+globalThis.WorldJournal = require('../js/world-journal-core.js');
+globalThis.mkWorldJournal = WorldJournal.mkWorldJournal;
+globalThis.fluidCell = WorldJournal.fluidCell;
 
 const AdventureMode = require('../js/modes/adventure.js');
-const A = AdventureMode.adv; /* 内部挂点(常量表/政策纯函数/存档记账), 报告里给 T12~T15 的接线面 */
+const A = AdventureMode.adv; /* 内部挂点(20 键: 状态账本/存档 seam getSaveView/布置缝/
+  交互链入口/查询 seam——清单见 adventure.js 尾部注释); adventure-core 的常量表与
+  纯函数经上方 Object.assign(globalThis, AdventureCore) 直调, 不再经挂点转发 */
 
 /* ---------- 世界快照与统计助手(对真 worldCells 断言) ---------- */
 const W = api.WORLD_W;
 const D = api.WORLD_D;
 const H = api.WORLD_H;
 const cell = (x, y, z) => api.worldCells[(y * D + z) * W + x];
-const snapshot = () => Buffer.from(api.worldCells); /* 逐字节复现比对 */
 function countId(id, pred) {
   let n = 0;
   for (let y = 0; y < H; y++) {
@@ -458,11 +469,10 @@ test('智能主动作(手持感知, 2026-10-24): 拿放置物→aimClick(2)+返 
   const inv = A.advGetInv();
   const main = touchList[0];
   assert.strictEqual(typeof main.holdAct, 'function', '主动作键 holdAct 在位');
-  /* 木板: 放置型(ITEMS.block=6) → 放置一次, 不进连发 */
+  /* 木板: 放置型(ITEMS.block=6) → 放置一次, 不进连发(holdAct 返 false = 放置分支的行为面) */
   inv.slots[0] = {id: 'planks', n: 4};
   AdventureMode.hotbar.select(0); /* 选中槽 0(advHeldChanged → 图标同步) */
-  assert.strictEqual(A.advMainPlaceable(), true, '手持木板判定可放置');
-  assert.strictEqual(main.holdAct(), false, '放置分支返 false → input.js 跳过 onHold 连发(一按一放)');
+  assert.strictEqual(main.holdAct(), false, '手持木板判定可放置(返 false → input.js 跳过 onHold 连发)');
   assert.ok(calls.some((c) => c[0] === 'aimClick' && c[1] === 2), '路由 aimClick(2) 放置/使用链');
   assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'brick'), '图标切到砖块(放置态)');
   calls.length = 0;
@@ -472,14 +482,14 @@ test('智能主动作(手持感知, 2026-10-24): 拿放置物→aimClick(2)+返 
   assert.ok(calls.some((c) => c[0] === 'aimClick' && c[1] === 0), '路由 aimClick(0) 挖/打链');
   /* 食物与空手: 0 分支(吃路径在 onMouse(0) 内建, 不回归) */
   inv.slots[0] = {id: 'apple', n: 1};
-  assert.strictEqual(A.advMainPlaceable(), false, '食物非放置物');
+  assert.notStrictEqual(main.holdAct(), false, '食物非放置物(0 分支)');
   inv.slots[0] = null;
-  assert.strictEqual(A.advMainPlaceable(), false, '空手非放置物');
-  /* 背包变动(放光/吃光/拾取)走 advSyncHotbar 的图标同步路径 */
+  assert.notStrictEqual(main.holdAct(), false, '空手非放置物(0 分支)');
+  /* 背包变动(拾取入包)走 advSyncHotbar 的图标同步路径(放置态重申) */
   calls.length = 0;
   inv.slots[0] = {id: 'planks', n: 1};
-  A.advSyncHotbar();
-  assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'brick'), 'advSyncHotbar 同步放置态图标');
+  dropsState.cbs[0]('planks', 1); /* 收集回调: add 入包 → advSyncHotbar → 图标刷新 */
+  assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'brick'), '拾取入包同步放置态图标');
 });
 
 test('探险模式: 湖 — 水面 + 沙底 + 湖底黏土层(红砖链源头) 2~3 格厚', () => {
@@ -603,15 +613,9 @@ test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞', (
   assert.strictEqual(total, outside, '保护区内一棵树都不种(生成时就避开, 不靠后清理)');
 });
 
-test('探险模式: 重进完全复现 — 同一地图两次生成逐字节一致(确定性散布)', () => {
-  mem.clear(); /* 排除存档差异, 只比地形函数本身 */
-  freshInit();
-  const a = snapshot();
-  AdventureMode.cleanup();
-  freshInit();
-  const b = snapshot();
-  assert.deepStrictEqual(a, b, '两次建场 worldCells 逐块一致(SceneKit.rand/hashRand 确定性)');
-});
+/* 地形确定性(两次 init 逐字节一致)的直测在 adventure-core.test.js(advBuildWorld
+   逐字节复现); 模式侧的重进一致性由存档往返/级联/牧场各行为链的 cleanup→freshInit
+   比对覆盖 */
 
 test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 重放(build 模式同款架构)', () => {
   mem.clear();
@@ -619,9 +623,10 @@ test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 
   freshInit();
   assert.strictEqual(cell(61, 24, 80), 0, 'edits 重放: 小屋地板被玩家挖开(覆盖生成结果)');
   assert.strictEqual(cell(70, 25, 80), 4, 'edits 重放: 旷野上玩家放的圆石');
-  /* 挖掘记账(T12 的挖掘/放置将调 advMarkEdit) → cleanup 落盘 → 重进重放 */
-  A.advMarkEdit(90, 24, 90, 3);
-  A.advMarkEdit(91, 24, 91, 0);
+  /* 挖掘记账(T12 的挖掘/放置将记 journal) → cleanup 落盘 → 重进重放
+     (非站点格与 advMarkEdit 等价: journal.mark 是世界档记账的深层入口) */
+  A.advJournal.mark('90,24,90', 3);
+  A.advJournal.mark('91,24,91', 0);
   AdventureMode.cleanup();
   const saved = JSON.parse(mem.get('adventure_world_save'));
   assert.ok(saved._v === 1, '存档带版本号');
@@ -630,6 +635,31 @@ test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 
   freshInit();
   assert.strictEqual(cell(90, 24, 90), 3, '重进: 玩家改动重放');
   assert.strictEqual(cell(91, 24, 91), 0, '重进: 玩家挖开的洞还在');
+});
+
+test('世界改动日志: 流体格旧档重放 — {id,lv} 双通道(方块+水位) + 落盘形状逐键回写(world-journal-core 互锁的真链路侧)', () => {
+  mem.clear();
+  /* 旧档字面量(liquid D8 起的既有形状, encode 对照 git HEAD 一字未动):
+     edits 里流体格带 {id,lv}, 裸值照旧 */
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: [
+    ['61,24,80', 0], ['70,25,80', 4], ['80,25,80', {id: api.B_WATER, lv: 3}],
+  ]}));
+  freshInit();
+  assert.strictEqual(cell(61, 24, 80), 0, '裸值挖除重放');
+  assert.strictEqual(cell(70, 25, 80), 4, '裸值放置重放');
+  assert.strictEqual(cell(80, 25, 80), api.B_WATER, '流体格: 方块通道重放');
+  assert.strictEqual(api.getFluidLv(80, 25, 80), 3, '流体格: 水位通道重放(双通道, 不走排程)');
+  /* 记账一笔流体格(流体缝在测试里是空桩, 直走 journal.mark) → 落盘 → 形状逐键回写 */
+  A.advJournal.mark('81,25,81', {id: api.B_WATER, lv: 2});
+  AdventureMode.cleanup();
+  const saved = JSON.parse(mem.get('adventure_world_save'));
+  assert.ok(saved.edits.some((e) => e[0] === '80,25,80' && e[1] && e[1].id === api.B_WATER && e[1].lv === 3),
+      '旧档流体格原样回写 {id,lv}(encode 形状一字不改)');
+  assert.ok(saved.edits.some((e) => e[0] === '81,25,81' && e[1] && e[1].lv === 2), 'mark 的流体格入档');
+  freshInit(); /* 重进: 水位精确恢复(逐格最后写赢) */
+  assert.strictEqual(api.getFluidLv(80, 25, 80), 3, '重进水位恢复');
+  assert.strictEqual(api.getFluidLv(81, 25, 81), 2, '重进新记的水位恢复');
+  assert.strictEqual(cell(81, 25, 81), api.B_WATER, '重进流体方块在场');
 });
 
 test('昼夜 D1: dayTime 随世界档往返 + dayCycleOn 进场置位/退场复位 + 坏档兜底清晨', () => {
@@ -684,7 +714,7 @@ test('探险模式: 死亡即时落盘 — 5s 节流窗口内重进也是出生�
   freshInit();
   A.advGetPEnt().hp = 3; A.ADV.player.hp = 3; /* 残血 */
   globalThis.pos.x = 8; globalThis.pos.y = 8; globalThis.pos.z = 8; /* 「死亡点」远离出生小屋 */
-  A.advPlayerDied();
+  AdventureMode.onVoidFall(); /* 死亡类事件唯一行为入口(坠出世界与致命一击同缝) */
   const sv = JSON.parse(mem.get('adventure_world_save'));
   assert.strictEqual(sv.hp, 30, '死亡落盘: 回满血');
   assert.deepStrictEqual([sv.pos.x, sv.pos.y, sv.pos.z], [A.ADV.spawn.x, A.ADV.spawn.y, A.ADV.spawn.z],
@@ -702,7 +732,7 @@ test('探险模式: 回家即时落盘 — 满血+小屋位置即刻入档(5s �
   A.advGetPEnt().hp = 5; A.ADV.player.hp = 5;
   globalThis.pos.x = 10; globalThis.pos.y = 10; globalThis.pos.z = 10; /* 受困点 */
   A.ADV.homeCd = -1e9; /* 就绪(冷却是跨测试的全局账本, 用完还原) */
-  A.advGoHome();
+  AdventureMode.onKey('KeyH'); /* 🏠 回家键(桌面行为入口) */
   const sv = JSON.parse(mem.get('adventure_world_save'));
   assert.strictEqual(sv.hp, A.ADV.player.maxHp, '回家落盘: 满血');
   assert.deepStrictEqual([sv.pos.x, sv.pos.y, sv.pos.z], [A.ADV.spawn.x, A.ADV.spawn.y, A.ADV.spawn.z],
@@ -739,8 +769,8 @@ test('探险模式: 死亡政策 — 背包保留 + 回出生点满血 + TTS 安
   api.add(A.advGetInv(), 'log', 7);
   const before = api.serialize(A.advGetInv());
   const birthSpawn = calls.find((c) => c[0] === 'spawn').slice(1);
-  /* 政策纯函数段: 结算=满血 + 回出生点 + 背包不动 */
-  const plan = A.advDeathPlan({hp: 2, maxHp: 30}, A.ADV.spawn);
+  /* 政策纯函数段(core 直调): 结算=满血 + 回出生点 + 背包不动 */
+  const plan = advDeathPlan({hp: 2, maxHp: 30}, A.ADV.spawn);
   assert.strictEqual(plan.hp, 30, '血量回满');
   assert.strictEqual(plan.keepInv, true, '背包保留(零惩罚哲学)');
   assert.strictEqual(plan.x, A.ADV.spawn.x, '回出生点');
@@ -777,22 +807,8 @@ test('探险模式: 🎒/Tab 开关背包配方书面板(本单只挂上, 合成
 });
 
 /* ============ T14 巢穴战斗掉落 ============ */
-
-test('T14 巢穴节律: 纯函数 — 每巢 2~3 只 + 全清 60s 发刷怪令(有活怪计时归零)', () => {
-  assert.strictEqual(A.advNestCount(() => 0), 2, '数量下限 2');
-  assert.strictEqual(A.advNestCount(() => 0.5), 3, '掷到上半区 3');
-  assert.strictEqual(A.advNestCount(() => 0.999), 3, '数量上限 3');
-  const dt = 1 / 60;
-  let s = A.advNestStep(3, 37.2, dt); /* 巢里有活怪: 不刷且计时清零 */
-  assert.strictEqual(s.spawn, false, '有活怪不刷');
-  assert.strictEqual(s.t, 0, '有活怪计时归零(全清才起表)');
-  s = A.advNestStep(0, 59.9, dt); /* 全清累计: 差一点不到 60s */
-  assert.strictEqual(s.spawn, false, '60s 内不刷');
-  assert.ok(Math.abs(s.t - (59.9 + dt)) < 1e-9, '计时累计');
-  s = A.advNestStep(0, 59.999, dt); /* 到 60s: 发刷怪令并归零 */
-  assert.strictEqual(s.spawn, true, '到 60s 发刷怪令');
-  assert.strictEqual(s.t, 0, '发令后计时归零');
-});
+/* 巢穴节律纯函数(advNestCount/advNestStep)与 D9 挥击伤害表、掉落清单纯函数的
+   直测在 test/adventure-core.test.js——此处只留行为链 */
 
 test('T14 巢穴节律: 行为 — 全清 60 秒后三巢各再刷 2~3 只', () => {
   freshInit();
@@ -813,17 +829,6 @@ test('T14 巢穴节律: 计时逐巢独立 — B/C 巢有活怪不重刷, A 巢�
   const got = mobsState.spawned;
   assert.ok(got.length >= 2 && got.length <= 3, '只有 A 巢再刷 2~3 只: ' + got.length);
   assert.ok(got.every((m) => m.nest === 0), '再刷的都归 A 巢(B/C 巢没跟着刷)');
-});
-
-test('T14 玩家伤害: 手持工具按 D9 表取值(剑镐斧锹四阶), 空手/非工具 3', () => {
-  const D9 = {sword: [7, 9, 11, 13], pick: [3, 4, 6, 8], axe: [5, 6, 8, 10], shovel: [2, 3, 4, 5]};
-  const tiers = ['wood', 'stone', 'iron', 'diamond'];
-  for (const kind of Object.keys(D9)) {
-    tiers.forEach((t, i) => assert.strictEqual(A.advSwingDmg(kind + '_' + t), D9[kind][i],
-        kind + ' ' + t + ' = ' + D9[kind][i] + '(设计稿 D9 表)'));
-  }
-  assert.strictEqual(A.advSwingDmg(''), 3, '空手 3');
-  assert.strictEqual(A.advSwingDmg('coal'), 3, '非工具物品当空手 3');
 });
 
 test('T14 玩家挥击: 点击 → 准星方向最近怪按工具伤害受击 + 命中扣耐久 + 冷却节拍', () => {
@@ -873,20 +878,6 @@ test('T14 工具耐久: 归零即消失 + 安抚 TTS(与 T12 共用政策, 独�
   assert.ok(spoken.some((s) => /[再做|不哭|别难过|陪]/.test(String(s))), '安抚 TTS');
 });
 
-test('T14 掉落链路(纯): onDeath 实体 → rollDrops 种子化 → spawn 清单(击杀点上方 0.8)', () => {
-  const m = {type: 'zombie', pos: {x: 10, y: 25, z: 20}};
-  const none = A.advDeathDrops(m, () => 0.9); /* 无加成无稀有 */
-  assert.deepStrictEqual(none, [{id: 'rotten_flesh', n: 1, x: 10, y: 25.8, z: 20}], '保底 1 腐肉');
-  const both = A.advDeathDrops(m, () => 0.01); /* 加成与稀有都掷中 */
-  assert.strictEqual(both[0].id, 'rotten_flesh');
-  assert.strictEqual(both[0].n, 2, '50% 加成 +1');
-  assert.strictEqual(both[1].id, 'iron_ingot');
-  assert.strictEqual(both[1].n, 1, '稀有 5% 铁锭 +1');
-  assert.strictEqual(both[1].y, 25.8, '掉落点 = 尸体落点 y+0.8(碎块中蹦出)');
-  const sk = A.advDeathDrops({type: 'skeleton', pos: {x: 0, y: 24, z: 0}}, () => 0.99);
-  assert.deepStrictEqual(sk.map((s) => [s.id, s.n]), [['bone', 1]], '骷髅保底骨头');
-});
-
 test('T14 掉落链路(行为): 击杀回调 → Drops.spawn 逐条落地(表与掷骰一致)', () => {
   freshInit();
   assert.strictEqual(mobsState.deathCbs.length, 1, 'onDeath 回调在 init 注册');
@@ -934,9 +925,7 @@ test('T14 收集: 入包+快捷栏镜像; 背包满拒收返 false + toast「�
 });
 
 test('T14 收集播报: 3 秒合并窗 — 同项合数量, 到期一句播报(防刷屏)', () => {
-  assert.strictEqual(A.advPickupText(new Map([['coal', 2], ['bone', 1]])),
-      '捡到 2 个煤炭、1 个骨头！', '合并文案(同项数量相加, 进账序; 量词照设计稿例句「捡到 2 个煤炭！」)');
-  assert.strictEqual(A.advPickupText(new Map([['diamond', 1]])), '捡到 1 个钻石！', '单件播报');
+  /* 合并文案纯函数 advPickupText 的直测在 adventure-core.test.js */
   mem.clear();
   freshInit();
   spoken.length = 0; /* 进场欢迎语音不计入播报断言 */
@@ -1045,30 +1034,8 @@ test('T14 骷髅远程: 索敌内保持距离放箭, 箭沿预测弹道命中玩
 
 /* ============ T12 挖掘与采集交互 ============ */
 
-test('T12 蓄力纯函数: advMineStep — 时间累积/换目标清零/breakTime 驱动', () => {
-  const step = A.advMineStep;
-  /* 时间累积: 同目标逐帧累加, 到点 done 且 t 钳在 need */
-  const bt = {time: 1.125, drops: true};
-  let m = step({t: 0, key: '', need: 0, drops: true}, '10,24,10', bt, 0.5);
-  assert.strictEqual(m.t, 0.5, '第一帧累计 0.5');
-  assert.strictEqual(m.key, '10,24,10', '锁定目标 key');
-  assert.strictEqual(m.need, bt.time, 'need 由 breakTime 驱动');
-  assert.strictEqual(m.done, false, '未到点');
-  m = step(m, '10,24,10', bt, 0.5);
-  assert.strictEqual(m.t, 1.0, '第二帧累计 1.0');
-  m = step(m, '10,24,10', bt, 0.5);
-  assert.strictEqual(m.done, true, '累计到 1.125 → done');
-  assert.strictEqual(m.t, bt.time, 't 钳在 need(不外漏超额)');
-  /* 换目标清零: 新 key 从头累计, need 换新目标的时长 */
-  m = step({t: 5, key: '10,24,10', need: 7.5, drops: false}, '20,24,20', {time: 0.9, drops: true}, 0.3);
-  assert.strictEqual(m.t, 0.3, '换目标进度清零重新累计');
-  assert.strictEqual(m.need, 0.9, 'need 换成新目标时长');
-  assert.strictEqual(m.drops, true, 'drops 标志随新目标刷新');
-  /* 准星指空(key 空) → 完全清零待命 */
-  m = step({t: 5, key: '10,24,10', need: 7.5, drops: true}, '', {time: 1, drops: true}, 0.3);
-  assert.strictEqual(m.t, 0, '指空清零');
-  assert.strictEqual(m.key, '', 'key 清空');
-  assert.strictEqual(m.done, false, '不触发破坏');
+test('T12 蓄力纯函数: advMineStep — breakTime 真值驱动(时间累积/换目标/清零直测在 adventure-core.test.js)', () => {
+  const step = advMineStep;
   /* breakTime 真值驱动: 徒手石头 7.5s(§0 现状口径) · 木镐匹配 1.125s · tier 不足 drops:false */
   const bare = api.breakTime(api.BLOCKS[3], null);
   assert.strictEqual(bare.time, 7.5, '徒手石头 7.5s');
@@ -1081,61 +1048,7 @@ test('T12 蓄力纯函数: advMineStep — 时间累积/换目标清零/breakTim
   assert.strictEqual(m2.drops, false, 'drops 透传(徒手石头只碎不掉)');
 });
 
-test('T12 放置合法性纯函数: advPlaceCheck — 实心块贴面/thin 只放顶面/树苗限草地泥土', () => {
-  const chk = A.advPlaceCheck;
-  /* 实心块(泥土): 任意朝向面都可贴放(目标位空气) */
-  const side = chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, 1, 0);
-  assert.ok(side.ok, '泥土放草地顶面 ok');
-  assert.deepStrictEqual([side.x, side.y, side.z], [10, 25, 10], '落点 = 命中格 + 面法线');
-  const wall = chk({x: 10, y: 24, z: 10, nx: 1, ny: 0, nz: 0}, 2, 1, 0);
-  assert.ok(wall.ok, '实心块贴侧面也可');
-  /* 目标位非空气 → 拒(叠块) */
-  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, 1, 5).ok, false,
-      '目标位已有方块 → 拒');
-  /* thin 块(火把): 只放实心面顶(点击面法线朝上), 草丛等薄块顶不可当支承 */
-  assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, 1, 0).ok, '火把放草地顶面 ok');
-  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 1, ny: 0, nz: 0}, api.B_TORCH, 1, 0).ok, false,
-      '火把贴侧面 → 拒(thin 只放顶面)');
-  assert.strictEqual(chk({x: 10, y: 25, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, api.B_GRASS_TUFT, 0).ok,
-      false, '草丛(solid:false)顶上放火把 → 拒');
-  /* 树苗: 顶面 + 支承限草地/泥土 */
-  assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 1, 0).ok, '树苗放草地 ok');
-  assert.ok(chk({x: 10, y: 23, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 2, 0).ok, '树苗放泥土 ok');
-  assert.strictEqual(chk({x: 10, y: 22, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 3, 0).ok, false,
-      '树苗放石头上 → 拒');
-  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 0, nz: 1}, api.B_SAPLING, 1, 0).ok, false,
-      '树苗贴侧面 → 拒');
-  /* 非放置型物品(无 block 方块定义)与无效输入 → 拒 */
-  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 9999, 1, 0).ok, false,
-      '未注册方块 id → 拒');
-  assert.strictEqual(chk(null, 2, 1, 0).ok, false, '无命中 → 拒');
-});
-
-test('T12 食物回血政策纯函数: advEatPolicy — 钳制上限/满血不吃/腐肉同口径', () => {
-  const pol = A.advEatPolicy;
-  assert.deepStrictEqual(pol(28, 30, 4), {hp: 30, healed: 2, canEat: true}, '回复钳制在 maxHp');
-  assert.deepStrictEqual(pol(10, 30, 4), {hp: 14, healed: 4, canEat: true}, '未满血按 food 全回');
-  assert.strictEqual(pol(30, 30, 4).canEat, false, '满血不饿(canEat=false)');
-  /* 腐肉也走食物口径(儿童版无饥饿 debuff, D7): 注册表 food=2 同一函数消化 */
-  assert.strictEqual(api.ITEMS.rotten_flesh.food, 2, '腐肉注册表 food=2');
-  assert.strictEqual(pol(10, 30, api.ITEMS.rotten_flesh.food).hp, 12, '腐肉回 2 血(同口径)');
-});
-
-test('T12 树苗计时纯函数: advSapDue — dt 递减/到期出清单/未到期留队', () => {
-  const due = A.advSapDue;
-  const map = new Map([
-    ['10,25,10', {x: 10, y: 25, z: 10, left: 0.5}],
-    ['20,25,20', {x: 20, y: 25, z: 20, left: 3}],
-  ]);
-  const out = due(map, 1.0);
-  assert.strictEqual(out.length, 1, '只有到期的进清单');
-  assert.strictEqual(out[0].x, 10, '到期项坐标完整');
-  assert.ok(!map.has('10,25,10'), '到期项移出计时 Map');
-  assert.strictEqual(map.get('20,25,20').left, 2, '未到期递减留队');
-  const out2 = due(map, 2.0);
-  assert.strictEqual(out2.length, 1, '第二轮到期出清单');
-  assert.strictEqual(map.size, 0, 'Map 清空');
-});
+/* advPlaceCheck/advEatPolicy/advSapDue 的纯函数直测全簇在 adventure-core.test.js */
 
 /* ---------- 行为链共用: 动态找一块干净的草地(避开树/草丛/小屋), 准星 fake 指向它 ---------- */
 function findGrassSpot() {
@@ -1433,17 +1346,9 @@ test('F3 金苹果行为链: 半血点击吃 — 回满血 + 扣 1 个, 满血�
 });
 
 /* ============ T13 合成与烧炼接线 ============ */
-
-test('T13 站点判定纯函数: advNearStation — 4 格边界(含等号)/按 id 过滤/空缓存', () => {
-  const near = A.advNearStation;
-  const sts = [{x: 10, y: 25, z: 10, id: api.B_CRAFT}, {x: 30, y: 25, z: 30, id: api.B_FURNACE}];
-  assert.strictEqual(near(sts, 14.5, 10.5, 4, api.B_CRAFT), true, '水平距离恰 4 格 → 解锁(含等号)');
-  assert.strictEqual(near(sts, 14.6, 10.5, 4, api.B_CRAFT), false, '4.1 格 → 不解锁');
-  assert.strictEqual(near(sts, 10.5, 10.5, 4, api.B_CRAFT), true, '贴身解锁');
-  assert.strictEqual(near(sts, 10.5, 10.5, 4, api.B_FURNACE), false, '按 id 过滤: 工作台位点不点亮熔炉判定');
-  assert.strictEqual(near(sts, 33.5, 30.5, 4, api.B_FURNACE), true, '熔炉位点命中(缓存里两种站点并存)');
-  assert.strictEqual(near([], 10, 10, 4, api.B_CRAFT), false, '空缓存(一个站点都没放过)');
-});
+/* advNearStation 纯函数直测在 adventure-core.test.js; smeltStep/furnaceRefund 的
+   暂停保进度/8 件热值/大步结转/满包余量清单等丰富口径在本文件(烧炼表同款
+   断言的权威地点是消费面, craft-core.test.js 只钉基础节拍)——经 CraftCore 直调 */
 
 test('T13 站点行为链: 放置工作台 → 走近 4 格解锁 + 首次靠近一句 TTS 引导 + 重进缓存重建', () => {
   mem.clear();
@@ -1491,8 +1396,8 @@ test('T13 onCraft 链路: TTS 具体表扬(产物名入句) + leftover 转脚下
   assert.ok(inv, '背包对象稳定(面板闭包不脱钩)');
 });
 
-test('T13 烧炼节律纯函数: advSmeltStep — 2.5s/件 · 煤热值 8 件 · 无热暂停进度保留 · 余时结转', () => {
-  const step = A.advSmeltStep;
+test('T13 烧炼节律纯函数: smeltStep — 2.5s/件 · 煤热值 8 件 · 无热暂停进度保留 · 余时结转', () => {
+  const step = CraftCore.smeltStep;
   const mk = (n) => ({input: {id: 'iron_ore', n}, fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
   /* 一件: 恰 2.5s 烧成; 唯一一块煤折成热值入炉(自动燃料), 烧 1 件后余 7 */
   const s = step(mk(1), 2.5);
@@ -1518,9 +1423,9 @@ test('T13 烧炼节律纯函数: advSmeltStep — 2.5s/件 · 煤热值 8 件 ·
   assert.ok(big.prog <= 2.5, '进度钳制(显示层再钳一次)');
 });
 
-test('T13 退炉政策纯函数: advFurnaceRefund — 炉内三笔全额退包 + 满包转余量清单', () => {
+test('T13 退炉政策纯函数: furnaceRefund — 炉内三笔全额退包 + 满包转余量清单', () => {
   const inv = api.mkInventory();
-  const left = A.advFurnaceRefund(inv, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
+  const left = CraftCore.furnaceRefund(inv, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
     out: {id: 'iron_ingot', n: 2}, heat: 1.5, prog: 0.8});
   assert.deepStrictEqual(left, [], '有空位: 三笔全退(零惩罚口径)');
   assert.strictEqual(api.count(inv, 'iron_ore'), 3, '待烧料退回');
@@ -1528,30 +1433,13 @@ test('T13 退炉政策纯函数: advFurnaceRefund — 炉内三笔全额退包 +
   assert.strictEqual(api.count(inv, 'iron_ingot'), 2, '产物退回');
   const full = api.mkInventory();
   for (let i = 0; i < api.INV_SLOTS; i++) full.slots[i] = {id: 'stone', n: 64};
-  const left2 = A.advFurnaceRefund(full, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
+  const left2 = CraftCore.furnaceRefund(full, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
     out: {id: 'iron_ingot', n: 2}, heat: 0, prog: 0});
   assert.deepStrictEqual(left2, [{id: 'iron_ore', n: 3}, {id: 'coal', n: 2}, {id: 'iron_ingot', n: 2}],
       '满包容纳不下 → 逐笔转掉落清单(调用方 Drops.spawn 脚下)');
 });
 
-test('T13 TNT 掷骰纯函数: advTntRoll — 70% 门槛种子化 + 中签才走掉落表', () => {
-  /* rollBlockDrop 产自 vm 语境(数组/原型与宿主不同), 展开映射进宿主数组再比对 */
-  const roll = (id, r) => [...A.advTntRoll(id, r).map((d) => [d.id, d.n])];
-  assert.deepStrictEqual(roll(3, () => 0.69), [['cobble', 1]], '0.69 < 0.7 中签 → 石头掉圆石');
-  assert.strictEqual(roll(3, () => 0.7).length, 0, '恰 0.7 不中签(MC 30% → 儿童加倍 70%)');
-  assert.strictEqual(roll(3, () => 0.99).length, 0, '远不中签 → 只碎不掉');
-  /* 树叶: 中签后掉落表条目照掷(rand 恒 0 → 三样概率全中, 无保底) */
-  assert.deepStrictEqual(roll(7, () => 0).map((e) => e[0]), ['sapling', 'apple', 'stick'],
-      '中签后 rollBlockDrop 原样掷(保底+概率)');
-  assert.strictEqual(roll(20, () => 0).length, 0, 'tnt 旗标守卫恒空手(不自掉, D3 与 drop 字段解耦)');
-});
-
-test('T13 TNT 伤害纯函数: advTntDmg — 爆心 30 · 波及边缘 12 · 线性衰减', () => {
-  assert.strictEqual(A.advTntDmg(0), 30, '爆心最痛(僵尸 30 一击清场)');
-  assert.strictEqual(A.advTntDmg(1.5), 24, '中途线性衰减 24');
-  assert.strictEqual(A.advTntDmg(4.5), 12, '波及边缘 12');
-  assert.strictEqual(A.advTntDmg(9), 12, '越界钳制(调用方已按半径过滤)');
-});
+/* advTntRoll/advTntDmg 纯函数直测在 adventure-core.test.js */
 
 test('T13 熔炉行为链: 走近点击开面板 → 自动放料(扣包) → 2.5s/件烧成 → 关面板取产入包', () => {
   mem.clear();
@@ -1565,52 +1453,52 @@ test('T13 熔炉行为链: 走近点击开面板 → 自动放料(扣包) → 2.
   pos.x = spot.x + 20; pos.z = spot.z + 20;
   calls.length = 0;
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(A.ADV.furnaceOpen, false, '离炉 20 格: 点击不开面板(4 格门槛)');
+  assert.strictEqual(A.advFurnace.at(), null, '离炉 20 格: 点击不开面板(4 格门槛)');
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('走近') >= 0), '给走近提示');
   pos.x = spot.x + 0.5; pos.z = spot.z + 2.5; /* 距炉 2 格 */
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(A.ADV.furnaceOpen, true, '走近 4 格内点击熔炉 → 打开烧炼面板');
+  assert.notStrictEqual(A.advFurnace.at(), null, '走近 4 格内点击熔炉 → 打开烧炼面板(开态真值= kit 绑定)');
   const fk = api.blockKey(spot.x, 25, spot.z);
-  assert.strictEqual(A.advGetFurnaceAt(), fk, '面板绑定这台炉(F1 拍板①)');
+  assert.strictEqual(A.advFurnace.at(), fk, '面板绑定这台炉(F1 拍板①)');
   /* 自动放料: 面板只报意图, 模式层执行 take — 矿石全入炉 + 最省凑料 1 块煤(热值 8 ≥ 5 件) */
   api.add(A.advGetInv(), 'iron_ore', 5);
   api.add(A.advGetInv(), 'coal', 2);
-  A.advFurnaceAutoFill();
+  A.advFurnace.autoFill();
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '矿石全入炉(take 扣包)');
   assert.strictEqual(api.count(A.advGetInv(), 'coal'), 1, '最省凑料: 1 块煤已覆盖 5 件热值');
-  assert.strictEqual(A.advFurnaceState(fk).input.n, 5, '炉内待烧 5 件');
-  assert.strictEqual(A.advFurnaceState(fk).fuel.n, 1, '炉内燃料 1 块煤');
+  assert.strictEqual(A.advFurnace.state(fk).input.n, 5, '炉内待烧 5 件');
+  assert.strictEqual(A.advFurnace.state(fk).fuel.n, 1, '炉内燃料 1 块煤');
   /* 烧炼 12.5s+: 5 件铁锭 + 完成播报(产物名入句) */
   spoken.length = 0;
   for (let i = 0; i < 340; i++) AdventureMode.update(0.05); /* 17s > 12.5s */
-  assert.deepStrictEqual(A.advFurnaceState(fk).out, {id: 'iron_ingot', n: 5}, '5 件全部烧成');
+  assert.deepStrictEqual(A.advFurnace.state(fk).out, {id: 'iron_ingot', n: 5}, '5 件全部烧成');
   assert.ok(spoken.some((s) => String(s).indexOf('铁锭') >= 0 && String(s).indexOf('烧好') >= 0),
       '完成播报(产物名入句)');
-  A.advFurnaceClose();
+  A.advFurnace.close();
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 5, '关面板取产入包');
-  assert.strictEqual(A.ADV.furnaceOpen, false, '面板收起');
-  assert.strictEqual(A.advFurnaceState(fk).out, null, '产物槽清空');
+  assert.strictEqual(A.advFurnace.at(), null, '面板收起');
+  assert.strictEqual(A.advFurnace.state(fk).out, null, '产物槽清空');
 });
 
 test('F1 死亡不动炉: 阵亡回出生点满血, 炉内容原样保留(拍板①持久化——旧清炉政策退役)', () => {
   mem.clear();
   freshInit();
   const s = findGrassSpot();
-  api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
-  A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  holdOnly('furnace', 1);
+  AdventureMode.onMouse(2, {x: s.x, y: 24, z: s.z, nx: 0, ny: 1, nz: 0}); /* 放置链布炉(editBlock+记账) */
   const fk = api.blockKey(s.x, 25, s.z);
   api.add(A.advGetInv(), 'iron_ore', 3);
   api.add(A.advGetInv(), 'coal', 1);
   pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 0.5;
   AdventureMode.onMouse(0, {x: s.x, y: 25, z: s.z, nx: 0, ny: 1, nz: 0});
-  A.advFurnaceAutoFill();
-  const f = A.advFurnaceState(fk);
+  A.advFurnace.autoFill();
+  const f = A.advFurnace.state(fk);
   assert.ok(f && f.input, '料已入炉(前提)');
   f.out = {id: 'iron_ingot', n: 2};
   AdventureMode.onVoidFall(); /* 死亡类事件 → advPlayerDied */
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '炉料不退包(留在炉里)');
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 0, '产物不退包');
-  const f2 = A.advFurnaceState(fk);
+  const f2 = A.advFurnace.state(fk);
   assert.deepStrictEqual(f2.input, {id: 'iron_ore', n: 3}, '炉态原样保留');
   assert.deepStrictEqual(f2.fuel, {id: 'coal', n: 1});
   assert.deepStrictEqual(f2.out, {id: 'iron_ingot', n: 2});
@@ -1620,18 +1508,18 @@ test('F1 炉态持久化: cleanup 只落盘不退料(旧 D8 退料退役) — �
   mem.clear();
   freshInit();
   const s = findGrassSpot();
-  api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
-  A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  holdOnly('furnace', 1);
+  AdventureMode.onMouse(2, {x: s.x, y: 24, z: s.z, nx: 0, ny: 1, nz: 0}); /* 放置链布炉(editBlock+记账) */
   const fk = api.blockKey(s.x, 25, s.z);
   api.add(A.advGetInv(), 'iron_ore', 3);
   api.add(A.advGetInv(), 'coal', 1);
   pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 0.5;
   AdventureMode.onMouse(0, {x: s.x, y: 25, z: s.z, nx: 0, ny: 1, nz: 0});
-  A.advFurnaceAutoFill();
+  A.advFurnace.autoFill();
   for (let i = 0; i < 24; i++) AdventureMode.update(0.05); /* 1.2s: 首件烧到半程 */
-  const f = A.advFurnaceState(fk);
+  const f = A.advFurnace.state(fk);
   assert.ok(f.prog > 0.5 && f.prog < 2.5, '首件半程进度(断点前提)');
-  A.advFurnaceClose();
+  A.advFurnace.close();
   AdventureMode.cleanup();
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '不退料——炉态随世界档走');
   const wsv = JSON.parse(mem.get('adventure_world_save'));
@@ -1641,14 +1529,14 @@ test('F1 炉态持久化: cleanup 只落盘不退料(旧 D8 退料退役) — �
   /* 重进: 炉态恢复(物品/热值/进度), 接着烧完——煤在开烧瞬间整件折成热值,
      断点时燃料槽空、热值在档是正确状态(燃料按件计费口径) */
   freshInit();
-  const f2 = A.advFurnaceState(fk);
+  const f2 = A.advFurnace.state(fk);
   assert.ok(f2, '重进炉态恢复');
   assert.deepStrictEqual({id: f2.input.id, n: f2.input.n}, {id: 'iron_ore', n: 3});
   assert.strictEqual(f2.fuel, null, '煤已折成热值(燃料槽空)');
   assert.ok(f2.heat > 7 && f2.heat <= 8, '热值随档(8 − 已烧 0.48)');
   assert.ok(Math.abs(f2.prog - f.prog) < 0.01, '烧炼进度原样(接着烧)');
   for (let i = 0; i < 140; i++) AdventureMode.update(0.05); /* 7s > 余下 6.3s */
-  assert.deepStrictEqual(A.advFurnaceState(fk).out, {id: 'iron_ingot', n: 3}, '恢复后继续烧成');
+  assert.deepStrictEqual(A.advFurnace.state(fk).out, {id: 'iron_ingot', n: 3}, '恢复后继续烧成');
 });
 
 test('F1 多炉独立: 两炉异料并烧各产各的 + 面板绑定哪台看哪台 + TTS 只报绑定炉', () => {
@@ -1665,8 +1553,8 @@ test('F1 多炉独立: 两炉异料并烧各产各的 + 面板绑定哪台看哪
   }
   assert.strictEqual(spots.length, 2, '两块干净草地(前提)');
   for (const s of spots) {
-    api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
-    A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+    holdOnly('furnace', 1);
+    AdventureMode.onMouse(2, {x: s.x, y: 24, z: s.z, nx: 0, ny: 1, nz: 0}); /* 放置链布炉(editBlock+记账) */
   }
   const k1 = api.blockKey(spots[0].x, 25, spots[0].z);
   const k2 = api.blockKey(spots[1].x, 25, spots[1].z);
@@ -1676,23 +1564,23 @@ test('F1 多炉独立: 两炉异料并烧各产各的 + 面板绑定哪台看哪
   /* 炉1: 吃首现矿种铁(单槽单矿种), 沙子留包 */
   pos.x = spots[0].x + 0.5; pos.y = 25; pos.z = spots[0].z + 0.5;
   AdventureMode.onMouse(0, {x: spots[0].x, y: 25, z: spots[0].z, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(A.advGetFurnaceAt(), k1, '点击炉1 绑定炉1');
-  A.advFurnaceAutoFill();
-  assert.deepStrictEqual(A.advFurnaceState(k1).input, {id: 'iron_ore', n: 3}, '炉1 吃铁矿');
+  assert.strictEqual(A.advFurnace.at(), k1, '点击炉1 绑定炉1');
+  A.advFurnace.autoFill();
+  assert.deepStrictEqual(A.advFurnace.state(k1).input, {id: 'iron_ore', n: 3}, '炉1 吃铁矿');
   assert.strictEqual(api.count(A.advGetInv(), 'sand'), 2, '沙子留在包里(单槽单矿种口径)');
-  A.advFurnaceClose();
+  A.advFurnace.close();
   /* 炉2: 吃沙 */
   pos.x = spots[1].x + 0.5; pos.z = spots[1].z + 0.5;
   AdventureMode.onMouse(0, {x: spots[1].x, y: 25, z: spots[1].z, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(A.advGetFurnaceAt(), k2, '点击炉2 绑定切换');
-  A.advFurnaceAutoFill();
-  assert.deepStrictEqual(A.advFurnaceState(k2).input, {id: 'sand', n: 2}, '炉2 吃沙子');
+  assert.strictEqual(A.advFurnace.at(), k2, '点击炉2 绑定切换');
+  A.advFurnace.autoFill();
+  assert.deepStrictEqual(A.advFurnace.state(k2).input, {id: 'sand', n: 2}, '炉2 吃沙子');
   /* 双炉并烧 8s(炉1 3 件 7.5s / 炉2 2 件 5s): 面板开着的是炉2 —
      炉2 完成播报玻璃; 炉1 完成不播(非绑定炉不合唱) */
   spoken.length = 0;
   for (let i = 0; i < 160; i++) AdventureMode.update(0.05); /* 8s */
-  assert.deepStrictEqual(A.advFurnaceState(k1).out, {id: 'iron_ingot', n: 3}, '炉1 各烧各的(铁锭×3)');
-  assert.deepStrictEqual(A.advFurnaceState(k2).out, {id: 'glass', n: 2}, '炉2 各烧各的(玻璃×2)');
+  assert.deepStrictEqual(A.advFurnace.state(k1).out, {id: 'iron_ingot', n: 3}, '炉1 各烧各的(铁锭×3)');
+  assert.deepStrictEqual(A.advFurnace.state(k2).out, {id: 'glass', n: 2}, '炉2 各烧各的(玻璃×2)');
   assert.ok(spoken.some((t) => String(t).indexOf('玻璃') >= 0 && String(t).indexOf('烧好') >= 0),
       '绑定炉(炉2)完成播报');
   assert.ok(!spoken.some((t) => String(t).indexOf('铁锭') >= 0), '非绑定炉(炉1)烧成不播报');
@@ -1702,21 +1590,21 @@ test('F1 挖炉退料: 挖掉熔炉 → 三笔全额入包 + 炉状态删除 + �
   mem.clear();
   freshInit();
   const s = findGrassSpot();
-  api.setBlockRaw(s.x, 25, s.z, api.B_FURNACE);
-  A.advMarkEdit(s.x, 25, s.z, api.B_FURNACE);
+  holdOnly('furnace', 1);
+  AdventureMode.onMouse(2, {x: s.x, y: 24, z: s.z, nx: 0, ny: 1, nz: 0}); /* 放置链布炉(editBlock+记账) */
   const fk = api.blockKey(s.x, 25, s.z);
   api.add(A.advGetInv(), 'iron_ore', 3);
   api.add(A.advGetInv(), 'coal', 2);
   pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 0.5;
   AdventureMode.onMouse(0, {x: s.x, y: 25, z: s.z, nx: 0, ny: 1, nz: 0});
-  A.advFurnaceAutoFill();
-  assert.strictEqual(A.advFurnaceState(fk).fuel.n, 1, '1 块煤入炉(前提)');
+  A.advFurnace.autoFill();
+  assert.strictEqual(A.advFurnace.state(fk).fuel.n, 1, '1 块煤入炉(前提)');
   /* 蓄力链有专测 — 直接走破坏 seam(退炉钩在 advMarkEdit, 挖掘/TNT 爆炸同路) */
   A.advBreakBlock(s.x, 25, s.z, api.B_FURNACE, {time: 0.5, drops: true});
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '待烧料全额退包');
   assert.strictEqual(api.count(A.advGetInv(), 'coal'), 2, '燃料退包(炉内 1 + 背包余 1)');
-  assert.strictEqual(A.advFurnaceState(fk), null, '炉状态删除');
-  assert.strictEqual(A.ADV.furnaceOpen, false, '绑定面板连带关闭');
+  assert.strictEqual(A.advFurnace.state(fk), null, '炉状态删除');
+  assert.strictEqual(A.advFurnace.at(), null, '绑定面板连带关闭');
 });
 
 test('F2 炉口火焰差异增删: 燃烧=heat>0且有料在列 · 无料/熄灭出列 · 挖炉即清 · 退出全清', () => {
@@ -1725,30 +1613,30 @@ test('F2 炉口火焰差异增删: 燃烧=heat>0且有料在列 · 无料/熄灭
   /* 炉态直灌 Map(F1 多炉口径, T15 记账先例)——观感层不进方块数据/存档,
      Node 无 THREE 只断言差异增删节律(advFlameCount 只读计数 seam) */
   const fk = api.blockKey(12, 25, 12);
-  A.advFurnaces.set(fk, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1}, out: null, heat: 4, prog: 0});
+  A.advFurnace.map.set(fk, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1}, out: null, heat: 4, prog: 0});
   assert.strictEqual(A.advFlameCount(), 0, '未起烧(计数前提)');
   AdventureMode.update(0.05);
   assert.strictEqual(A.advFlameCount(), 1, '燃烧中(heat>0 且有料) → 火焰在列');
-  /* 无料有热不算烧(与 advSmeltStep 推进条件一致——设计稿 §2.1 燃烧判定) */
-  A.advFurnaceState(fk).input = null;
+  /* 无料有热不算烧(与 smeltStep 推进条件一致——设计稿 §2.1 燃烧判定) */
+  A.advFurnace.state(fk).input = null;
   AdventureMode.update(0.05);
   assert.strictEqual(A.advFlameCount(), 0, '无料(余热尚在) → 差异删');
-  A.advFurnaceState(fk).input = {id: 'iron_ore', n: 1};
+  A.advFurnace.state(fk).input = {id: 'iron_ore', n: 1};
   AdventureMode.update(0.05);
   assert.strictEqual(A.advFlameCount(), 1, '补料复烧 → 差异加');
-  /* 热值耗尽(无热无燃料): 熄灭出列(advSmeltStep 每步写回新对象, 改前须重取) */
-  const fx = A.advFurnaceState(fk);
+  /* 热值耗尽(无热无燃料): 熄灭出列(smeltStep 每步写回新对象, 改前须重取) */
+  const fx = A.advFurnace.state(fk);
   fx.heat = 0; fx.fuel = null;
   AdventureMode.update(0.05);
   assert.strictEqual(A.advFlameCount(), 0, '热值耗尽 → 熄灭出列');
   /* 挖炉(advFurnaceDrop 钩子, 挖掘/TNT 同路): 不等下一帧即时清 */
-  A.advFurnaceState(fk).heat = 4;
+  A.advFurnace.state(fk).heat = 4;
   AdventureMode.update(0.05);
   assert.strictEqual(A.advFlameCount(), 1, '再燃(前提)');
-  A.advFurnaceDrop(fk);
+  A.advFurnace.drop(fk);
   assert.strictEqual(A.advFlameCount(), 0, '挖炉 → 火焰即时清(场景对象不渗漏)');
   /* 退出模式: 全清 */
-  A.advFurnaces.set(fk, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1}, out: null, heat: 4, prog: 0});
+  A.advFurnace.map.set(fk, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1}, out: null, heat: 4, prog: 0});
   AdventureMode.update(0.05);
   assert.strictEqual(A.advFlameCount(), 1, '燃烧中(前提)');
   AdventureMode.cleanup();
@@ -1767,19 +1655,20 @@ test('T13 TNT 行为链: 放置 → 空手短按点燃 → 引信延时 → 爆�
   calls.length = 0;
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
   AdventureMode.update(0.05); /* 短按判定(D3): 测试环境无按住 → 松手即点燃 */
-  assert.strictEqual(A.advFuses.length, 1, '短按点燃引信(advTntTapTick 松手判定)');
+  AdventureMode.update(0.05); /* 引信首帧: 火花弧观感(点燃发生在上一帧的 tap 判定内) */
+  assert.ok(calls.some((c) => c[0] === 'arc'), '短按点燃引信(advTntTapTick 松手判定, 火花弧观感在列)');
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('点燃') >= 0), '点燃提示');
   /* 玩家走远(TNT 不伤玩家 — 儿童挖矿神器口径), 引信 1.45s 后布一只静止的怪在波及圈 */
   pos.x = spot.x + 20; pos.z = spot.z + 20;
   listResult = [];
-  for (let i = 0; i < 29; i++) AdventureMode.update(0.05);
+  for (let i = 0; i < 28; i++) AdventureMode.update(0.05); /* 与点燃帧合计烧掉 1.45s 引信 */
   const still = {name: '僵尸', hp: 30, dmg: 5, speed: 0, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55};
   const mob = mkAdvMob('zombie', spot.x + 2.0, 25, spot.z + 0.5, {nest: 0, cfg: still}); /* 距爆心 1.5 格 */
   listResult = [mob];
   nextHit = {hp: 6, dead: false, freshDead: false};
   hitLog.length = 0;
   for (let i = 0; i < 3; i++) AdventureMode.update(0.05); /* 引信到点起爆 */
-  assert.strictEqual(A.advFuses.length, 0, '引信烧完');
+  assert.ok(calls.some((c) => c[0] === 'boom'), '引信烧完起爆(Fx.boom, 引信清单已清)');
   assert.strictEqual(cell(spot.x, 25, spot.z), 0, 'TNT 源块清除');
   assert.ok(calls.some((c) => c[0] === 'boom'), 'Fx.boom 爆炸观感(旧 TNT 模式口径)');
   assert.ok(hitLog.some((h) => h.m === mob && h.dmg === 24), '波及怪物受击(距爆心 1.5 格 → 伤害 24)');
@@ -1799,15 +1688,15 @@ test('T13 TNT 短按/按住二分(D3): 按住 0.25s+ 转蓄力挖走回收, 短�
   assert.strictEqual(cell(spot.x, 25, spot.z), api.B_TNT, 'TNT 放进世界');
   holdOnly(null); /* 空手挖(手持任意口径) */
   aimDownAt(spot); /* 准星 fake: 射线打最高块 = y25 的 TNT */
-  A.advMouseHeldOn(); /* 模拟桌面 mousedown 按住 */
+  AdventureMode.onHold(true); /* 模拟桌面按住(触屏连挖路由与桌面 mousedown 同一标志) */
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
   for (let i = 0; i < 5; i++) AdventureMode.update(0.05); /* 0.25s: 短按窗口耗尽 */
-  assert.strictEqual(A.advGetTntTap(), null, 'tap 已转蓄力');
-  assert.strictEqual(A.advFuses.length, 0, '按住不点燃');
+  assert.strictEqual(A.advMine.down, true, 'tap 已转蓄力(蓄力状态机在挖)');
+  assert.ok(!calls.some((c) => c[0] === 'arc'), '按住不点燃(无火花弧)');
   for (let i = 0; i < 6 && cell(spot.x, 25, spot.z) !== 0; i++) AdventureMode.update(0.05); /* 0.15s 蓄满 */
   assert.strictEqual(cell(spot.x, 25, spot.z), 0, 'TNT 挖走(editBlock 破坏, MC 硬度 0 可回收)');
   assert.ok(globalThis.Drops.list().some((d) => d.id === 'tnt'), '掉 tnt 物品回收');
-  A.advMouseHeldOff();
+  AdventureMode.onHold(false);
   /* 短按回路: 再放一块 → 点按松手 → 点燃(现状口径回归锚点) */
   holdOnly('tnt', 1);
   AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
@@ -1815,7 +1704,8 @@ test('T13 TNT 短按/按住二分(D3): 按住 0.25s+ 转蓄力挖走回收, 短�
   calls.length = 0;
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
   AdventureMode.update(0.05); /* 无按住 → 松手即点燃 */
-  assert.strictEqual(A.advFuses.length, 1, '短按=点燃(现状口径不变)');
+  AdventureMode.update(0.05); /* 引信首帧: 火花弧观感 */
+  assert.ok(calls.some((c) => c[0] === 'arc'), '短按=点燃(现状口径不变, 引信火花在列)');
   clearAim();
 });
 
@@ -1838,8 +1728,8 @@ test('T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落�
 
 /* ============ 引导链 v2: 15 步主线 + 终章 + 大宝箱 ============ */
 
-test('QUESTS 数据表: 15 步主线 + 终章 — 步序照引导链 v2, 形状齐, id 唯一', () => {
-  const qs = A.ADV_QUESTS;
+test('QUESTS 数据表: 15 步主线 + 终章 — 步序照引导链 v2, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
+  const qs = ADV_QUESTS; /* 任务表常量经 core 全局直取 */
   assert.strictEqual(qs.length, 16, '15 步主线 + 终章');
   assert.deepStrictEqual(qs.map((q) => q.id),
       ['q1_log', 'q2_planks', 'q3_table', 'q4_chest', 'q5_sapling', 'q6_pick_wood',
@@ -1848,23 +1738,11 @@ test('QUESTS 数据表: 15 步主线 + 终章 — 步序照引导链 v2, 形状�
       '步序 = 引导链 v2(砍树→木板→工作台→箱子→树苗→木镐→圆石→石镐→煤→火把→铁矿→熔炉铁锭→铁镐→战斗→钻石→钻石剑, docs/story-quest-research.md)');
   assert.strictEqual(qs[15].finale, true, '第 16 条是终章(主线 15 条不带 finale 标记)');
   assert.ok(qs.slice(0, 15).every((q) => !q.finale), '主线步骤无 finale 标记');
-  qs.forEach((q, i) => {
-    assert.ok(typeof q.id === 'string' && q.id, '步 ' + i + ' 有 id');
-    assert.ok(typeof q.icon === 'string' && q.icon, '步 ' + i + ' 有图标(emoji)');
-    assert.ok(typeof q.goal === 'string' && q.goal, '步 ' + i + ' 有目标文案');
-    assert.ok(q.target >= 1, '步 ' + i + ' target ≥ 1');
-    assert.strictEqual(typeof q.hint, 'string', '步 ' + i + ' 有语音引导');
-    assert.ok(q.hint.length > 0, '步 ' + i + ' 引导非空');
-    assert.strictEqual(typeof q.praise, 'string', '步 ' + i + ' 有完成表扬');
-    assert.ok(q.praise.length > 0, '步 ' + i + ' 表扬非空');
-    assert.strictEqual(typeof q.prog, 'function', '步 ' + i + ' prog 纯函数(进度分子)');
-    assert.strictEqual(typeof q.check, 'function', '步 ' + i + ' check 纯函数(触发谓词)');
-  });
   assert.strictEqual(new Set(qs.map((q) => q.id)).size, 16, 'id 唯一');
 });
 
 test('T15 谓词逐条: 最小满足触发 / 空账本或差一不触发 / 复合步条件缺一不可', () => {
-  const qs = A.ADV_QUESTS;
+  const qs = ADV_QUESTS;
   const ck = (i, c) => qs[i].check(c);
   assert.strictEqual(ck(0, {collect_log: 5}), true, '步1: 捡 5 原木(v2 原木预算: 5 根=20 板恰好覆盖早期链)');
   assert.strictEqual(ck(0, {collect_log: 4}), false, '步1: 差一根');
@@ -1926,22 +1804,28 @@ test('事件计数累计链: 挖→拾取→合成→放置→烧成→开箱→
   holdOnly('chest', 1);
   AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(c().place_chest, 1, '放置箱子 → place_chest 1(引导链 v2)');
+  const chestAt = spot; /* 箱位记住(后续布景顺延净地) */
   spot = findGrassSpot();
   holdOnly('sapling', 1);
   AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(c().place_sapling, 1, '种下树苗 → place_sapling 1(引导链 v2)');
-  /* 开箱: advChestOpenPanel 挂点(开箱即记账, 不等搬运) */
-  A.advChestOpenPanel();
+  /* 开箱: 点击箱子行为链(开箱即记账, 不等搬运)——走近 4 格内点击 */
+  pos.x = chestAt.x + 0.5; pos.z = chestAt.z + 0.5;
+  AdventureMode.onMouse(0, {x: chestAt.x, y: 25, z: chestAt.z, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(c().open_chest, 1, '打开箱子 → open_chest 1(引导链 v2)');
-  A.advChestClose();
+  AdventureMode.onKey('Tab'); /* 箱子开着先收箱子 */
   /* 烧成: advFurnaceTick 产出分支(3 件铁锭 = 7.5s+) — 炉态直灌 Map(F1 多炉口径) */
   spot = findGrassSpot();
-  A.advFurnaces.set(api.blockKey(spot.x, 25, spot.z), {input: {id: 'iron_ore', n: 3},
+  A.advFurnace.map.set(api.blockKey(spot.x, 25, spot.z), {input: {id: 'iron_ore', n: 3},
     fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
   for (let i = 0; i < 170; i++) AdventureMode.update(0.05); /* 8.5s */
   assert.strictEqual(c().smelt_iron_ingot, 3, '烧成 3 件铁锭 → smelt_iron_ingot 3');
-  /* 击杀: advOnKill 挂点(挥击/箭/TNT 三路共用) */
-  A.advOnKill({pos: {x: 60, y: 25, z: 60}, type: 'zombie'});
+  /* 击杀: 挥击行为链(mkMelee onKill——挥击/箭/TNT 三路共用的击杀挂点) */
+  globalThis.yaw = 0;
+  listResult = [mkAdvMob('zombie', pos.x, 25, pos.z - 2.4, {attackCd: 99})];
+  nextHit = {hp: 0, dead: true, freshDead: true};
+  AdventureMode.onMouse(0);
+  listResult = [];
   assert.strictEqual(c().kill_mob, 1, '击杀怪物 → kill_mob 1(引导链 v2)');
   /* 未发生的事件不预置键(账本从零长出来) */
   assert.strictEqual(c().mine_diamond_ore, undefined, '没挖钻石就没有键');
@@ -1979,7 +1863,7 @@ test('T15 步进链(行为): 捡齐 5 原木 → 表扬 TTS+完成 toast+音效+
   assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'level'), '完成音效 level 琶音');
   assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('完成') >= 0), '完成 toast');
   assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('新任务') >= 0), '新任务图标 toast');
-  assert.ok(String(A.advQuestEl().innerHTML).indexOf('木板') >= 0, '任务卡刷新显示当前步(木板)');
+  assert.ok(String(A.advQuestPaint().innerHTML).indexOf('木板') >= 0, '任务卡刷新显示当前步(木板)');
   /* 落盘: step+counts 都进 adventure_quest_save */
   AdventureMode.cleanup();
   const saved = JSON.parse(mem.get('adventure_quest_save'));
@@ -2088,7 +1972,7 @@ test('T15 终章: 合成钻石剑 → 「小小探险家」称号+烟花+入档;
 test('T15 任务卡 UI: 打开背包即见 — 当前步目标+进度, 完成步划线, 称号置顶, 不剧透未来步', () => {
   mem.clear();
   freshInit();
-  const html = () => String(A.advQuestEl().innerHTML);
+  const html = () => String(A.advQuestPaint().innerHTML);
   assert.ok(html().indexOf('原木') >= 0, '进场任务卡显示第 1 步(原木)');
   assert.ok(!html().includes('钻石'), '不剧透未来步骤');
   assert.ok(!html().includes('<s>'), '还没有完成史(无划线区)');
@@ -2135,20 +2019,20 @@ test('大宝箱: 走近点击开面板(4 格门槛, 熔炉同款) → 存入并�
   inv.slots[5] = {id: 'planks', n: 20};
   A.advChestDeposit(5);
   assert.strictEqual(inv.slots[5], null, '背包槽清空(整摞搬走)');
-  assert.deepStrictEqual(A.advGetChest().slots[0], {id: 'planks', n: 20}, '入箱落首格');
-  assert.strictEqual(A.advGetChest().size, 9, '初始 9 格');
+  assert.deepStrictEqual(A.getSaveView().chest.slots[0], {id: 'planks', n: 20}, '入箱落首格');
+  assert.strictEqual(A.getSaveView().chest.size, 9, '初始 9 格');
   /* 工具连耐久整槽搬: 磨损铁镐入箱再取出, 耐久不被重铸满(add 会满耐久, 禁走) */
   inv.slots[6] = {id: 'pick_iron', n: 1, dur: 111};
   A.advChestDeposit(6);
   A.advChestWithdraw(1);
   assert.strictEqual(inv.slots[0].dur, 111, '取出落首个空位(槽0), 耐久原样 111(不重铸 500)');
-  assert.strictEqual(A.advGetChest().slots[1], null, '箱格清空');
+  assert.strictEqual(A.getSaveView().chest.slots[1], null, '箱格清空');
   /* 账户随档: cleanup → 重进, 存进去的还在 */
   AdventureMode.cleanup();
   assert.strictEqual(A.ADV.chestOpen, false, '收面板');
   freshInit();
-  assert.deepStrictEqual(A.advGetChest().slots[0], {id: 'planks', n: 20}, '重进账户恢复(全局共享, 挖掉箱子也不丢)');
-  A.advChestClose();
+  assert.deepStrictEqual(A.getSaveView().chest.slots[0], {id: 'planks', n: 20}, '重进账户恢复(全局共享, 挖掉箱子也不丢)');
+  AdventureMode.onKey('Tab'); /* 箱子开着, Tab 先收箱子 */
 });
 
 /* ============ 2026-10-24 背包面板点选搬运: 快捷栏腾位/换序(交互优化) ============ */
@@ -2196,30 +2080,31 @@ test('大宝箱扩容: 材料不够温和提示不动包 → 8 圆石扩到 18 �
   spoken.length = 0;
   calls.length = 0;
   const inv = A.advGetInv();
+  const chest = () => A.getSaveView().chest;
   /* 没材料: 温和提示(零惩罚), 格数不动 */
   A.advChestExpand();
-  assert.strictEqual(A.advGetChest().size, 9, '材料不够不扩容');
+  assert.strictEqual(chest().size, 9, '材料不够不扩容');
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('材料') >= 0), '温和提示');
   /* 8 圆石 → 18 格(第一档, 第 7 步挖圆石即凑齐) */
   api.add(inv, 'cobble', 8);
   calls.length = 0;
   A.advChestExpand();
-  assert.strictEqual(A.advGetChest().size, 18, '扩到 18 格');
+  assert.strictEqual(chest().size, 18, '扩到 18 格');
   assert.strictEqual(api.count(inv, 'cobble'), 0, '8 圆石已扣');
   assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'level'), '扩容晋升琶音');
   /* 4 铁锭 → 27 格顶格 */
   api.add(inv, 'iron_ingot', 4);
   A.advChestExpand();
-  assert.strictEqual(A.advGetChest().size, 27, '顶格 27 格(与背包同宽)');
+  assert.strictEqual(chest().size, 27, '顶格 27 格(与背包同宽)');
   assert.strictEqual(api.count(inv, 'iron_ingot'), 0, '4 铁锭已扣');
   /* 顶格后再扩: 静默无档 */
-  const size = A.advGetChest().size;
+  const size = chest().size;
   A.advChestExpand();
-  assert.strictEqual(A.advGetChest().size, size, '顶格不再扩');
+  assert.strictEqual(chest().size, size, '顶格不再扩');
   /* 档位随档: cleanup → 重进 size 不回落(扩容不可逆) */
   AdventureMode.cleanup();
   freshInit();
-  assert.strictEqual(A.advGetChest().size, 27, '重进档位保持');
+  assert.strictEqual(chest().size, 27, '重进档位保持');
 });
 
 test('大宝箱联动: 背包快满提醒在做过箱子步后指向收纳(话术升级不改触发口径)', () => {
@@ -2241,20 +2126,31 @@ test('S4① 低耐久预警行为链: 首次 <0.25 提醒一次, 同命不唠叨
   freshInit();
   spoken.length = 0;
   const warnCount = () => spoken.filter((s) => String(s).indexOf('快没劲') >= 0).length;
+  /* 挥击磨损的行为入口: 准星锥内命中怪 → mkMelee onWear → advWearHeld('hit')
+     (蓄力挖掘同缝, S3 合一后单一实现) */
+  const swingWear = () => {
+    globalThis.yaw = 0;
+    listResult = [mkAdvMob('zombie', pos.x, 25, pos.z - 2.4, {attackCd: 99})];
+    nextHit = {hp: 20, dead: false, freshDead: false};
+    AdventureMode.onMouse(0);
+    listResult = [];
+    for (let i = 0; i < 30; i++) AdventureMode.update(1 / 60); /* 烧掉 0.38s 挥击冷却 */
+  };
   holdOnly('pick_wood', 1, 31); /* 31/120≈0.258: 下一击 30/120=0.25 恰在线上 */
-  A.advWearHeld();
+  swingWear();
+  assert.strictEqual(A.advGetInv().slots[0].dur, 30, '命中扣耐久(挥击路径)');
   assert.strictEqual(warnCount(), 0, '0.25 恰在线上不提醒(严小于口径)');
   A.advGetInv().slots[0].dur = 29; /* 下一击 28/120≈0.233 跌破线 */
-  A.advWearHeld();
+  swingWear();
   assert.strictEqual(warnCount(), 1, '首次跌破提醒一次');
-  A.advWearHeld(); /* 仍 <0.25 但本命已提醒过 */
+  swingWear(); /* 仍 <0.25 但本命已提醒过 */
   assert.strictEqual(warnCount(), 1, '同命第二次不唠叨(节流=账本)');
   A.advGetInv().slots[0].dur = 1; /* 下一击破板 */
-  A.advWearHeld();
+  swingWear();
   assert.ok(!A.advGetInv().slots[0], '破板清槽(remove)');
   assert.ok(spoken.some((s) => String(s).indexOf('用坏了') >= 0), '破板安抚话术仍在');
   holdOnly('pick_wood', 1, 29); /* 再做一把同款(破板已重置账本) */
-  A.advWearHeld();
+  swingWear();
   assert.strictEqual(warnCount(), 2, '破板重置: 新一把重新预警(每工具每命一次)');
 });
 
@@ -2348,22 +2244,22 @@ test('修复②: 面板关闭状态同步 — ✕/Esc 走 onClose 后 panelOpen 
 test('修复③: 🏠 回小屋逃生口 — 满血传送 + 60s 冷却拒绝(受困自救, 不播死亡安抚)', () => {
   mem.clear();
   freshInit();
-  /* 纯函数口径: 冷却判据(60s 窗口, 边界恰 60 算就绪) */
-  assert.strictEqual(A.advHomeReady(-1e9, 0), true, '从未用过: 立即可用');
-  assert.strictEqual(A.advHomeReady(0, 59.9), false, '冷却内拒绝');
-  assert.strictEqual(A.advHomeReady(0, 60), true, '边界 60s 恰就绪');
+  /* 纯函数口径(core 直调): 冷却判据(60s 窗口, 边界恰 60 算就绪) */
+  assert.strictEqual(advHomeReady(-1e9, 0), true, '从未用过: 立即可用');
+  assert.strictEqual(advHomeReady(0, 59.9), false, '冷却内拒绝');
+  assert.strictEqual(advHomeReady(0, 60), true, '边界 60s 恰就绪');
   /* 行为链: 残血受困 → 回家满血 + 传送出生点; 冷却内再按不传送 */
   const e = A.advGetPEnt();
   e.hp = 7; A.ADV.player.hp = 7;
   A.ADV.homeCd = -1e9;
   calls.length = 0;
-  A.advGoHome();
+  AdventureMode.onKey('KeyH');
   assert.strictEqual(A.ADV.player.hp, A.ADV.player.maxHp, '回家满血');
   assert.ok(calls.some((c) => c[0] === 'spawn' && c[1] === A.ADV.spawn.x && c[4] &&
       c[4].yaw === A.ADV.spawn.yaw), '传送回出生小屋(带朝向)');
   const cdAfter = A.ADV.homeCd;
   e.hp = 7; A.ADV.player.hp = 7;
-  A.advGoHome(); /* 假时钟恒 0: 冷却未过 */
+  AdventureMode.onKey('KeyH'); /* 假时钟恒 0: 冷却未过 */
   assert.strictEqual(A.ADV.player.hp, 7, '冷却内不回血');
   assert.strictEqual(A.ADV.homeCd, cdAfter, '冷却时间不被刷新');
   assert.strictEqual(calls.filter((c) => c[0] === 'spawn').length, 1, '冷却内不传送');
@@ -2453,7 +2349,13 @@ test('方块级联④: TNT 波及原木 → 整树级联倒 — 默认表掉落,
   freshInit();
   const spot = findGrassSpot();
   for (let y = 25; y <= 32; y++) api.setBlockRaw(spot.x, y, spot.z, 5); /* 8 节高原木柱 */
-  A.advExplode(spot.x, 25, spot.z);
+  api.setBlockRaw(spot.x, 25, spot.z, api.B_TNT); /* 爆源=柱基换装 TNT(走引信行为链起爆) */
+  holdOnly(null); /* 空手短按点燃(手持任意口径) */
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5;
+  AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  AdventureMode.update(0.05); /* 松手即点燃 */
+  listResult = [];
+  for (let i = 0; i < 32; i++) AdventureMode.update(0.05); /* 1.6s > 引信 1.5s 起爆 */
   for (let y = 25; y <= 32; y++) assert.strictEqual(cell(spot.x, y, spot.z), 0, '整柱清空');
   const logs = dropsState.spawned.filter((d) => d.id === 'log').length;
   assert.ok(logs >= 4, '级联原木默认表必得(源块破坏即掀整柱), 实际 ' + logs);
@@ -2556,17 +2458,26 @@ test('F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 
   assert.deepStrictEqual(dropsState.spawned.map((d) => d.id).sort(), ['leather', 'raw_beef'],
       '牛掉生牛肉+皮革(MOB_DROPS 表)');
   assert.ok(dropsState.spawned.every((d) => d.y === 25.8 && d.x === 45), '落点=尸体上方 0.8(击杀观感同款)');
-  assert.deepStrictEqual(A.advGetLivestock(), {dead: [0]}, '死畜索引顺手落账(同一回调)');
-  /* 收获观感 + 不记账 */
+  assert.deepStrictEqual(A.getSaveView().world.livestock, {dead: [0]}, '死畜索引顺手落账(同一回调)');
+  /* 收获观感 + 不记账(挥击行为链: 准星锥内命中, 脚本 freshDead) */
+  globalThis.yaw = 0;
+  pos.x = 40; pos.y = 25; pos.z = 50;
   calls.length = 0;
-  A.advOnKill(mkAdvMob('cow', 40, 25, 47));
+  listResult = [mkAdvMob('cow', 40, 25, 47.4)];
+  nextHit = {hp: 0, dead: true, freshDead: true};
+  AdventureMode.onMouse(0);
+  listResult = [];
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('收获') >= 0),
       'killBurst verb=收获(温和口径替代「击杀」)');
   assert.strictEqual(A.ADV.quest.counts.kill_mob, undefined, 'kill_mob 不记动物(收获不是战斗)');
   assert.strictEqual(A.ADV.killCount, 1, '击杀计数照走(toast 口径共用)');
-  /* 对照: 怪物击杀照旧「击杀」+记账 */
+  /* 对照: 怪物击杀照旧「击杀」+记账(先烧掉 0.38s 挥击冷却再补一击) */
   calls.length = 0;
-  A.advOnKill(mkAdvMob('zombie', 40, 25, 47));
+  for (let i = 0; i < 30; i++) AdventureMode.update(1 / 60);
+  listResult = [mkAdvMob('zombie', 40, 25, 47.4)];
+  nextHit = {hp: 0, dead: true, freshDead: true};
+  AdventureMode.onMouse(0);
+  listResult = [];
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('击杀') >= 0), '怪物照旧 verb=击杀');
   assert.strictEqual(A.ADV.quest.counts.kill_mob, 1, '战斗教学步只认怪物');
 });
@@ -2614,7 +2525,7 @@ test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索
   const victim = herd[4]; /* 群位 B 首只猪 */
   dropsState.spawned.length = 0;
   mobsState.deathCbs[0](victim); /* 走真实 onDeath 回调(掉落+落账同帧) */
-  assert.deepStrictEqual(A.advGetLivestock(), {dead: [victim.__livestockIdx]}, '死畜账在内存');
+  assert.deepStrictEqual(A.getSaveView().world.livestock, {dead: [victim.__livestockIdx]}, '死畜账在内存');
   assert.ok(dropsState.spawned.length >= 1, '掉落照常(收获链不断)');
   AdventureMode.cleanup();
   const sv = JSON.parse(mem.get('adventure_world_save'));
@@ -2637,9 +2548,9 @@ test('F4 熟食链: 炉烧生肉→熟肉(SMELTS 四条, 与矿物同套节律) 
   freshInit();
   const spot = findGrassSpot();
   const fk = api.blockKey(spot.x, 25, spot.z);
-  A.advFurnaces.set(fk, {input: {id: 'raw_beef', n: 1}, fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
+  A.advFurnace.map.set(fk, {input: {id: 'raw_beef', n: 1}, fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
   for (let i = 0; i < 60; i++) AdventureMode.update(0.05); /* 3s > 2.5s 烧成一件 */
-  assert.deepStrictEqual(A.advFurnaceState(fk).out, {id: 'cooked_beef', n: 1}, '生牛肉烧成牛排');
+  assert.deepStrictEqual(A.advFurnace.state(fk).out, {id: 'cooked_beef', n: 1}, '生牛肉烧成牛排');
   /* 吃熟肉: food 8 普通口径(无 full 旗标, 不碰政策——回血钳制同腐肉/苹果) */
   A.advGetPEnt().hp = 20;
   A.ADV.player.hp = 20; /* 账本与实体同源(死亡政策口径) */
@@ -2874,7 +2785,7 @@ test('昼夜 D6 床·睡着转场: 渐黑1.5s→停2s→唤醒沿(跳清晨+夜�
   assert.strictEqual(+fade.style.opacity, 0, '渐亮收尾遮罩归零');
   assert.strictEqual(A.advSleep.on, false, '转场结束');
   /* 死亡出生点已换床边: 同缝消费不另开实现 */
-  A.advPlayerDied();
+  AdventureMode.onVoidFall(); /* 死亡类事件唯一行为入口 */
   const dieSpawn = calls.filter((c) => c[0] === 'spawn').pop();
   assert.deepStrictEqual([dieSpawn[1], dieSpawn[3]], [sp.x, sp.z], '死亡也回床边(ADV.spawn 同缝)');
   /* 当晚可再睡(状态复位可重入) */

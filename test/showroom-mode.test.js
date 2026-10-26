@@ -99,7 +99,12 @@ const api = vm.runInContext(`({ITEMS, stackMax, isTool, toolOf, mkInventory, add
   getBlock, setBlockRaw, blockKey, SceneKit})`, eng);
 Object.assign(globalThis, api); /* 模式文件经全局名消费这些真件(经典 script 词法环境) */
 const AdventureCore = require('../js/adventure-core.js');
-Object.assign(globalThis, AdventureCore); /* advSmeltStep/advFurnaceRefund/advNearStation/ADV_* */
+Object.assign(globalThis, AdventureCore); /* advNearStation/ADV_* 等(经全局名消费) */
+/* 烧炼三件(SMELT_T/smeltStep/furnaceRefund)已迁 craft-core(2026-10 归属错位修复):
+   Node 侧 require 真模块铺到全局(furnace-kit 经全局名调用期解析) */
+const CraftCore = require('../js/craft-core.js');
+Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
+  furnaceRefund: CraftCore.furnaceRefund});
 
 /* ---------- 假应用层(调用期解析的全局名, nether-mode.test 先例) ---------- */
 const calls = [];
@@ -328,7 +333,7 @@ test('体验馆: 自动放入 — 矿石首现全量入炉 + 最省燃料凑热�
   assert.strictEqual(api.count(inv, 'iron_ore'), 0, '背包铁矿全额扣减(经 take)');
   assert.strictEqual(api.count(inv, 'coal'), 14, '背包煤扣 2 块(16−2)');
   assert.strictEqual(f.out, null, '产物槽尚空(2.5s/件还没烧)');
-  assert.strictEqual(f.heat, 0, '放料不点火: 热值在首次烧炼步进才折算(advSmeltStep 语义, 与探险一致)');
+  assert.strictEqual(f.heat, 0, '放料不点火: 热值在首次烧炼步进才折算(smeltStep 语义, 与探险一致)');
 });
 
 /* 面板 DOM 面读喂显结果: 递归找类名(进度/燃料填充条), 只断言「被喂过」

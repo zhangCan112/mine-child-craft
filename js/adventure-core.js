@@ -14,8 +14,9 @@
      与 F4 牧场共用) · 政策纯函数
      advDeathPlan/advNestCount/advNestStep/advSwingDmg/advMobDmg/
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
-     advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advFurnaceValid/
-     advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫)/advTntRoll/
+     advSapDue/advNearStation/advFurnaceValid/
+     advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫; 进度钳制界读
+     craft-core 的 SMELT_T)/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 昼夜 D5 夜怪
       政策 ADV_NIGHT/advNightCanSpawn/advNightStep/advDawnSweep · F4 牧场
      advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 床·睡觉
@@ -23,12 +24,20 @@
      常量 ADV_BED_MOB_R/ADV_SLEEP_* · 灯笼耗秒政策(昼夜 D7 §8.2)
      ADV_LANTERN/advLanternStep(天黑才亮才耗三前置+持满 1 秒节拍) · 任务表
      ADV_QUESTS/ADV_MINE_TALLY · 大宝箱政策 ADV_CHEST_START/ADV_CHEST_SLOTS/
-     ADV_CHEST_TIERS/advChestNext/advChestPut · 节律常量 ADV_*
+     ADV_CHEST_TIERS/advChestNext/advChestPut/advChestTake(整摞出箱, 与 Put
+     镜像) · 节律常量 ADV_* · 政策下沉包(评审候选 5, 2026-10 自壳迁入;
+     世界读/随机/动作全经注入 seam): advHomeReady/ADV_HOME_CD(回家冷却
+     判据) · advBedSpot(床边出生位选址, 方块读注入) · ADV_TNT_TAP_T/
+     advTntTapStep(TNT 短按/按住二分纯步进) · advCascadeLedger(级联清单→
+     edits 账本的记账编排, 编辑动作经 sink 注入——存档红线件) · advGrowMark
+     (树苗长成足迹记账, y..y+7/±2 界限——重进幂等关键) · advExplodeCells
+     (TNT 半径遍历编排)/advTntWave(波及怪物清单, 线性衰减) ·
+     ADV_HERD_AMBLE_WALK_P/advAmbleStep(闲逛吃草节拍, 随机注入)
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界
      尺寸 · daylight-core 的 Daylight(昼夜 D5 夜怪判定与 D6 睡觉夜窗) ·
      voxel.js 的 getBlock/setBlockRaw · scene-kit.js 的
-     SceneKit · items-core 的 ITEMS/toolOf/stackMax · inventory-core 的 add ·
-     craft-core 的 fuelUnits/smeltOf · drops.js 的 rollDrops/
+     SceneKit · items-core 的 ITEMS/toolOf/stackMax/durOf · inventory-core
+     的 add · craft-core 的 fuelUnits/smeltOf/SMELT_T · drops.js 的 rollDrops/
      rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件)
    可测性: 零 THREE·零 DOM·有单测(test/adventure-core.test.js,
      vm 装真引擎件直测, 地形确定性对着真散布函数断言)
@@ -273,6 +282,16 @@ function advDeathPlan(player, spawn) {
   return {hp: player.maxHp, x: spawn.x, y: spawn.y, z: spawn.z, yaw: spawn.yaw, keepInv: true};
 }
 
+/* ---------- 回小屋逃生口(2026-10-23 玩法实测补): 冷却判据纯函数 ----------
+    自挖竖井/TNT 弹坑可能困住玩家(跳跃 1.42 格 < 2 格直壁), 与死亡同一传送
+    口径但零惩罚措辞; 60s 冷却防滥用(躲怪用)。壳 advGoHome 只做传送/回血/
+    落盘/话术, 判据在此。 */
+const ADV_HOME_CD = 60; /* 回家冷却秒数(窗口内拒绝) */
+function advHomeReady(cd, now) {/* 冷却判据(边界恰 ADV_HOME_CD 秒算就绪); cd 为上次
+    使用的时刻账(壳持有, 初始 -1e9=从未用过), now 为当前秒 */
+  return now - cd >= ADV_HOME_CD;
+}
+
 /* ============================================================
    巢穴战斗掉落 (T14, 设计稿 D6/D11/D9) — 常量与纯函数段
    ------------------------------------------------------------
@@ -426,6 +445,7 @@ const ADV_HERD_AVOID_MULT = 0.8; /* 让开速度系数(speed×0.8, 缓步) */
 const ADV_HERD_FLEE_T = 3; /* 受击逃窜秒数(设计稿 §4.3: 3 秒) */
 const ADV_HERD_FLEE_MULT = 2.2; /* 逃窜速度系数(speed×2.2) */
 const ADV_HERD_AMBLE_MULT = 0.5; /* 闲逛速度系数(吃草步, 六成时间在走) */
+const ADV_HERD_AMBLE_WALK_P = 0.6; /* 闲逛掷点在走概率(四成时间站着吃草, 设计稿 §4.3) */
 
 function advLivestockHerdOk(x, z, trees) {/* 群位约束(设计稿 §4.4): 离出生点 ≥15 · 避湖/
   矿坑/巢穴/山洞/小屋(外扩裕量盖过群内环带) · 避树干 ±3 盒; 零世界读——基础草原面
@@ -493,6 +513,19 @@ function advHerdStep(dist, speed, fleeT, dt) {
   return {fleeT: 0, speed: 0};
 }
 
+/* 闲逛吃草节拍(纯函数, 随机经 rnd 注入——rand-core 口径: 随机源由调用方供给):
+   t 递减, 归零即重掷——方向均匀 0..2π · 时长 2~5s · ADV_HERD_AMBLE_WALK_P
+   概率在走(四成站着吃草); 重掷三掷的次序 dir→t→walk 与历史壳实现逐字一致
+   (同 rnd 序列同行为)。方向/位移的施加归壳 advHerdTick(Mobs.move/steer 意图 API) */
+function advAmbleStep(t, dir, walk, dt, rnd) {
+  const nt = t - dt;
+  if (nt > 0) return {t: nt, dir, walk}; /* 未到期: 只递减, 方向/在走原样续期 */
+  const nd = rnd() * Math.PI * 2;
+  const ntt = 2 + rnd() * 3;
+  const nw = rnd() < ADV_HERD_AMBLE_WALK_P;
+  return {t: ntt, dir: nd, walk: nw};
+}
+
 /* ============================================================
    挖掘与采集政策 (T12, 设计稿 D4/D7) — 常量与纯函数段
    ============================================================ */
@@ -557,11 +590,54 @@ function advSapDue(map, dt) {
   return due;
 }
 
+/* 树苗长成足迹记账(纯政策段, D7): y..y+7 / ±2 的粗扫界限是**重进幂等关键**——
+   SceneKit.tree 冠幅不超过此盒, 盒内逐格非空即记 edits(重放同值幂等, 邻居
+   地形冗余记账无害); read/mark 全注入, 壳 advGrowTree 只管种树与 toast */
+function advGrowMark(x, y, z, read, mark) {
+  for (let yy = y; yy <= y + 7; yy++) {
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -2; dz <= 2; dz++) {
+        const id = read(x + dx, yy, z + dz);
+        if (id !== 0) mark(x + dx, yy, z + dz, id);
+      }
+    }
+  }
+}
+
 /* ============================================================
-   合成与烧炼政策 (T13, 设计稿 D8/D4) — 常量与纯函数段
+   方块级联记账政策(设计稿 D4/D5/P6) — 级联清单 → edits 账本的编排
+   ------------------------------------------------------------
+   存档红线件: editBlock 返回的级联清单逐块入账, 顺序即契约——
+   · 移动项(r.to, 落沙 D7)两格记账: 先原格 0 后落格 id(漏格/错序重进即错位);
+   · 移除项: 记 0 + 树苗撤计时表 + fell 旗标(整树倒话术依据) + 默认表掉落
+     (不传工具=砸倒不是剪, 零惩罚) + quest 旗标(蓄力链视同亲手挖; TNT 链
+     传 false——「TNT 掀掉的不算」既有口径)。
+   编辑/撤表/掉落/任务动作全经 sink 注入({mark, sapling, drop, questMine}),
+   观感(fell 话术/Fx)留壳回调; 返回 {felled} 供壳决定是否喊话。
+   确定性重放红线: 同一 removed 清单+同一 sink 必产生同一动作序(测试锁)。 */
+function advCascadeLedger(removed, quest, sink) {
+  let felled = false;
+  for (const r of removed) {
+    if (r.to) {/* 移动(落沙, D7): 方块存活——不掉落不进任务, 记账两格(漏一格重进错位) */
+      sink.mark(r.x, r.y, r.z, 0);
+      sink.mark(r.to.x, r.to.y, r.to.z, r.id);
+      continue;
+    }
+    sink.mark(r.x, r.y, r.z, 0);
+    if (r.id === B_SAPLING) sink.sapling(r.x, r.y, r.z);
+    if (BLOCKS[r.id] && BLOCKS[r.id].fell) felled = true;
+    for (const d of rollBlockDrop(BLOCKS[r.id], null, null)) sink.drop(d.id, d.n, r.x + 0.5, r.y + 0.8, r.z + 0.5);
+    if (quest) sink.questMine(r.id, r.x, r.y, r.z);
+  }
+  return {felled};
+}
+
+/* ============================================================
+   站点解锁·炉存档防错·TNT 政策 (T13/F1, 设计稿 D8/D4) — 常量与纯函数段
+   (烧炼单步 smeltStep/退炉 furnaceRefund/节拍 SMELT_T 已迁 craft-core
+   与烧炼表同居; ADV_SMELT_TTS_T 是探险话术政策, 留守此地)
    ============================================================ */
 const ADV_STATION_R = 4; /* 站点解锁半径(拍板④: 走近 4 格; 水平距离口径与巢穴 AI 一致) */
-const ADV_SMELT_T = 2.5; /* 每件烧炼秒数(D8: MC 10s → 儿童缩短; 附录 B 差异清单) */
 const ADV_TNT_FUSE = 1.5; /* TNT 引信秒数(旧 TNT 模式 1.0 → 儿童留足走开时间) */
 const ADV_TNT_R = 3.5; /* 爆炸破坏半径(旧 TNT 模式 radius 先例口径) */
 const ADV_TNT_HURT_R = 4.5; /* 波及怪物半径(旧 TNT 模式 hurtR 先例口径) */
@@ -580,56 +656,16 @@ function advNearStation(stations, px, pz, r, wantId) {
   return false;
 }
 
-/* 烧炼单步: s 为炉状态 {input, fuel, out, heat, prog}, heat 单位=件(1 件=
-   ADV_SMELT_T 秒, 燃料热值经 fuelUnits 折算), prog 为当前这件已烧秒数。
-   无料停炉; 无热且无燃料暂停(进度与热值保留——关面板/断档都不清零不白烧);
-   有热折算可烧秒数推进, 满 2.5s 产一件(产物槽同 id 叠加, 异 id 占满则停炉
-   待取——MC 阻塞口径), 余时结转下一件, 料尽 prog 归零。返回新状态不改入参。 */
-function advSmeltStep(s, dt) {
-  const n = {input: s.input, fuel: s.fuel, out: s.out, heat: s.heat, prog: s.prog};
-  if (!n.input) return n;
-  if (n.heat <= 0) {
-    if (!n.fuel) return n; /* 暂停: 等燃料(自动放料)或玩家回来 */
-    n.heat += fuelUnits(n.fuel.id); /* 自动燃料: 热值烧尽才耗下一件燃料 */
-    n.fuel = n.fuel.n > 1 ? {id: n.fuel.id, n: n.fuel.n - 1} : null;
-  }
-  const burn = Math.min(dt, n.heat * ADV_SMELT_T); /* 热值折秒, 本步不白烧 */
-  n.heat = Math.max(0, n.heat - burn / ADV_SMELT_T);
-  n.prog += burn;
-  while (n.prog >= ADV_SMELT_T && n.input) {
-    const pid = smeltOf(n.input.id);
-    if (!pid || (n.out && n.out.id !== pid)) break; /* 非法料/产物槽被占: 停炉待取 */
-    n.out = n.out ? {id: pid, n: n.out.n + 1} : {id: pid, n: 1};
-    n.input = n.input.n > 1 ? {id: n.input.id, n: n.input.n - 1} : null;
-    n.prog -= ADV_SMELT_T;
-  }
-  if (!n.input) n.prog = 0; /* 料尽: 半件进度清零, 下一炉从头烧 */
-  n.prog = Math.min(n.prog, ADV_SMELT_T); /* 进度钳制(显示层 setProgress 再钳一次) */
-  return n;
-}
-
-/* 退炉政策(D8): 炉内三笔(待烧料/燃料/产物)全额入包, 返回满包容纳不下的
-   余量清单——调用方 Drops.spawn 脚下(零惩罚口径); 不动炉状态(清炉归调用方) */
-function advFurnaceRefund(inv, f) {
-  const leftover = [];
-  for (const st of [f.input, f.fuel, f.out]) {
-    if (!st) continue;
-    const left = add(inv, st.id, st.n);
-    if (left > 0) leftover.push({id: st.id, n: left});
-  }
-  return leftover;
-}
-
 /* F1 炉状态形状校验(拍板①: 每炉独立+持久化): 世界档 decode 侧逐条防错,
    非法整条拒收(不炸模式, 材料随损坏档损失——mkSaveSlot 损坏回落先例)。
-   槽形状 {id,n}(id 在 ITEMS 注册且 n≥1) · heat ≥0 · prog ∈[0, ADV_SMELT_T] */
+   槽形状 {id,n}(id 在 ITEMS 注册且 n≥1) · heat ≥0 · prog ∈[0, SMELT_T] */
 function advFurnaceValid(s) {
   if (!s || typeof s !== 'object') return false;
   const slot = (v) => v === null || (typeof v === 'object' && v !== null &&
       !!ITEMS[v.id] && Number.isFinite(v.n) && v.n >= 1);
   if (!slot(s.input) || !slot(s.fuel) || !slot(s.out)) return false;
   return Number.isFinite(s.heat) && s.heat >= 0 &&
-      Number.isFinite(s.prog) && s.prog >= 0 && s.prog <= ADV_SMELT_T;
+      Number.isFinite(s.prog) && s.prog >= 0 && s.prog <= SMELT_T;
 }
 
 /* F1 空炉条目清扫(encode 侧): 三槽全空且无余热的炉不进存档(长期游玩防膨胀);
@@ -657,6 +693,72 @@ function advTntRoll(id, rand) {
 function advTntDmg(d) {
   const t = Math.max(0, Math.min(1, d / ADV_TNT_HURT_R));
   return Math.round(ADV_TNT_DMG_HI - (ADV_TNT_DMG_HI - ADV_TNT_DMG_LO) * t);
+}
+
+/* ---------- TNT 短按/按住二分(D3, 挖掘硬度修正) — 纯步进 ----------
+   mousedown 只记账不点燃: 松手 <窗口 = 点燃, 按住 ≥窗口 = 转蓄力挖走回收
+   (hard 0)。触屏单击天然走「松手」分支。壳 advTntTapTick 持状态与面板守卫,
+   步进在此: state 为 {x,y,z,held}|null, held 为当前是否按住(桌面鼠标/
+   触屏 onHold), blocked 为面板期取消旗标, dt 为帧步。返回 {state, act} —
+   act 为 null / {ignite:true,x,y,z}(松手短按, 块还在与否由壳验) /
+   {mine:true}(按住转蓄力, 准星已移开则蓄力链自清)。 */
+const ADV_TNT_TAP_T = 0.25; /* 短按窗口(秒) */
+function advTntTapStep(state, held, blocked, dt) {
+  if (!state) return {state: null, act: null};
+  if (blocked) return {state: null, act: null}; /* 面板期取消不点燃 */
+  const h2 = state.held + dt;
+  if (!held) {/* 松手: 短按=点燃(块还在才点), 长按已转蓄力不在此 */
+    if (h2 < ADV_TNT_TAP_T) return {state: null, act: {ignite: true, x: state.x, y: state.y, z: state.z}};
+    return {state: null, act: null};
+  }
+  if (h2 >= ADV_TNT_TAP_T) return {state: null, act: {mine: true}}; /* 按住转蓄力 */
+  return {state: {x: state.x, y: state.y, z: state.z, held: h2}, act: null};
+}
+
+/* TNT 爆炸半径遍历编排(纯政策段): 圈内逐格分派——圈内 TNT 链式点燃接力
+   (旧模式 chainR 口径) · 可采集方块破坏(hard 缺失=空气/水/创造专属免疫)
+   · 掀掉的树苗撤计时 · 70% 掷骰掉落(advTntRoll, rand 注入保可测)。
+   read 为方块读 seam, 动作全经 sink({ignite, edit, sapling, drop}) 注入——
+   edit 对应「触发格先记账+editBlock+级联记账」的整段(壳接线), 爆炸观感
+   (Fx.boom)与怪物波及(advTntWave)不在此。遍历序 dx→dy→dz 与历史壳实现
+   逐字一致(同世界同破坏序=同 edits 账本, 确定性重放红线)。 */
+function advExplodeCells(x, y, z, read, sink, rand) {
+  const cx = x + 0.5; const cy = y + 0.5; const cz = z + 0.5;
+  const r = Math.ceil(ADV_TNT_R);
+  for (let dx = -r; dx <= r; dx++) {
+    for (let dy = -r; dy <= r; dy++) {
+      for (let dz = -r; dz <= r; dz++) {
+        const bx = x + dx; const by = y + dy; const bz = z + dz;
+        if (Math.hypot(bx + 0.5 - cx, by + 0.5 - cy, bz + 0.5 - cz) > ADV_TNT_R) continue;
+        const id = read(bx, by, bz);
+        if (id === B_TNT) {
+          sink.ignite(bx, by, bz); /* 链式引爆: 圈内 TNT 接力点燃 */
+          continue;
+        }
+        const def = id ? BLOCKS[id] : null;
+        if (!def || def.hard == null) continue; /* 空气/水/创造专属免疫(字段缺失判据) */
+        sink.edit(bx, by, bz);
+        if (id === B_SAPLING) sink.sapling(bx, by, bz);
+        for (const d of advTntRoll(id, rand)) sink.drop(d.id, d.n, bx + 0.5, by + 0.8, bz + 0.5);
+      }
+    }
+  }
+}
+
+/* TNT 波及怪物清单(纯函数): 水平距离 ≤HURT_R 且垂距 ≤3 的活怪逐只附线性衰减
+   伤害与击退向量(爆心指向怪); 空间筛与算伤在此, Mobs.hit/击杀/逃窜观感归壳
+   (快照进、决策出——mob 实体只读不改, 与 advMobDmg 同口径) */
+function advTntWave(mobs, x, y, z) {
+  const cx = x + 0.5; const cy = y + 0.5; const cz = z + 0.5;
+  const out = [];
+  for (const m of mobs) {
+    if (m.dead || m.gone) continue;
+    const dx = m.pos.x - cx; const dz = m.pos.z - cz;
+    const dist = Math.hypot(dx, dz);
+    if (dist > ADV_TNT_HURT_R || Math.abs(m.pos.y - cy) > 3) continue;
+    out.push({m, dmg: advTntDmg(dist), kdx: dx, kdz: dz});
+  }
+  return out;
 }
 
 /* ============================================================
@@ -800,6 +902,26 @@ function advChestPut(chest, stack) {
   return n;
 }
 
+/* 整摞出箱(advChestPut 的镜像): 可堆叠走 add 并堆; 可耗损物(工具/D7 灯笼)
+   连耐久找空位整槽搬——add 经 mkStack 会把工具重铸满耐久, 可耗损物禁走
+   (灯笼放箱一晚再取不能白得新耐久); 背包满整摞留在箱里。返回 'ok'(已搬)/
+   'full'(满包拒收, 箱格原样)/'empty'(空槽无动作); 掉落/存档/观感归壳 */
+function advChestTake(chest, inv, i) {
+  const st = chest.slots[i];
+  if (!st) return 'empty';
+  if (!durOf(st.id)) {
+    const left = add(inv, st.id, st.n);
+    if (left >= st.n) return 'full';
+    if (left > 0) st.n = left; else chest.slots[i] = null;
+    return 'ok';
+  }
+  const j = inv.slots.findIndex((t) => !t);
+  if (j < 0) return 'full';
+  inv.slots[j] = st;
+  chest.slots[i] = null;
+  return 'ok';
+}
+
 /* ============================================================
    提醒政策 (code-review 修复轮 S4) — 纯函数段
    ============================================================ */
@@ -884,6 +1006,21 @@ function advSleepStep(t, dt) {
   return {t: nt, phase, opacity, wake};
 }
 
+/* 床边出生位选址(§7.2 MC 口径, 纯函数): 床四水平邻(取序 +x/−x/+z/−z)取
+   「两格净空+脚下实心支承」的首格格心(advPlaceCheck 同款支承判: 薄块/
+   无定义当不了支承); 四邻全堵回落 fb(壳传玩家当前位——点得到床必在触达内,
+   人本就在床边)。方块读经 getB 注入(seam 先例: advNightStep 的 read)。 */
+function advBedSpot(bx, by, bz, getB, fb) {
+  for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const nx = bx + d[0]; const nz = bz + d[1];
+    if (getB(nx, by, nz) !== 0 || getB(nx, by + 1, nz) !== 0) continue; /* 站位两格净空 */
+    const sup = BLOCKS[getB(nx, by - 1, nz)];
+    if (!sup || sup.solid === false || sup.thin != null) continue; /* 脚下实心 */
+    return {x: nx + 0.5, y: by, z: nz + 0.5, yaw: 0};
+  }
+  return fb;
+}
+
 /* ============================================================
    昼夜 D7 灯笼耗秒政策(mc-daylight-torch §8.2) — 常量与纯函数段
    ------------------------------------------------------------
@@ -922,18 +1059,20 @@ if (typeof module !== 'undefined' && module.exports) {
     advNestCount, advNestStep, advSwingDmg, advMobDmg, advDeathDrops, advPickupText,
     ADV_NIGHT, advNightCanSpawn, advNightStep, advDawnSweep,
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
-    ADV_STATION_R, ADV_SMELT_T, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
-    ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advSmeltStep,
-    advFurnaceRefund, advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
+    ADV_STATION_R, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
+    ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation,
+    advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
     ADV_LIVESTOCK_SPAWN_R, ADV_LIVESTOCK_HERD_R, ADV_LIVESTOCK_RING_LO,
     ADV_LIVESTOCK_RING_HI, ADV_LIVESTOCK_HERDS, ADV_HERD_AVOID_R, ADV_HERD_AVOID_MULT,
     ADV_HERD_FLEE_T, ADV_HERD_FLEE_MULT, ADV_HERD_AMBLE_MULT,
     advLivestockHerdOk, advLivestockSpots, advLivestockPlan, advHerdStep,
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS,
-    ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut,
+    ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut, advChestTake,
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,
-    advBreakToolText,
+    advBreakToolText, ADV_HOME_CD, advHomeReady,
     ADV_BED_MOB_R, ADV_SLEEP_FADE, ADV_SLEEP_HOLD, ADV_SLEEP_TOTAL,
-    advSleepCheck, advSleepStep,
-    ADV_LANTERN, advLanternStep};
+    advSleepCheck, advSleepStep, advBedSpot,
+    ADV_LANTERN, advLanternStep,
+    ADV_TNT_TAP_T, advTntTapStep, advCascadeLedger, advGrowMark,
+    advExplodeCells, advTntWave, ADV_HERD_AMBLE_WALK_P, advAmbleStep};
 }

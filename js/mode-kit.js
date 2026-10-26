@@ -6,7 +6,7 @@
      · chrome {score,hotbar}   进入模式时施加 DOM 显隐(cleanup 无需还原)
      · hotbar (mkHotbar 实例)  digit/wheel/点选 选块全自动
      · hud(hit) → string[]     每帧 HUD 文本(hit 由主循环注入, 模式不再自行 raycast)
-     · touch [...]             setTouchActions 声明 (缺省=null 隐藏)
+     · touch [...]             Input.setActions 声明 (缺省=null 隐藏)
      · onHold(active)          触屏长按起止钩子(手势分类在 input.js/touch-core)
      · onPageHide()            关页兜底存档钩子(main.js pagehide 收口分发,
                                白名单透传; 世界档 5s 节流的模式借此同步落盘)
@@ -37,6 +37,15 @@
      · sortInv — 整理按钮底座: 主格区同项合并(快捷栏不动)
      code-review 修复轮(S2): mkHpBar — 头顶血条深接口; C6-T3 已随玩家战斗
        vocabulary 迁入 js/combat-kit.js(CombatKit.mkHpBar, 交接零行为变化)
+   手持件与选怪件(评审候选 6, 跨模式样板收编):
+     · mkHeldSync(palette, hb) — 手持感知五件套(调色板 + 'shovel' 哨兵槽
+       + typeof number 判定 + Avatar.setItem + 主动作键图标切换)收编;
+       哨兵语义藏实现, 消费方只见 isBlock/itemId/sync(竞技场先接,
+       建造镜像由后续票收口)
+     · mkMobPicker(opts) — 选怪按钮族(Mobs.face 头像 + 名字 + families()
+       谱系分组簇 + data-type + active 高亮)三处誊写收编; 差异经 opts
+       (headKeys 前置功能位 / groupOf 组覆写(返 null=平铺) / itemTag·
+       itemCls·itemHtml 卡片观感 / titleOf 悬停)
    引擎层(world/input)对本文件零依赖; 本文件属应用层
    引导链 v2: mkChestPanel — 大宝箱面板(箱子格/扩容行/背包格, 点选搬运;
      政策与存档在模式层回调, 顶格档隐藏扩容行)
@@ -44,11 +53,26 @@
      话术唯一权威在 item-hint-registry.js, 本文件只做装配: 触发点(mkHotbar
      选槽 / 三面板格子点击 / 灰配方卡点击) + kitHint 气泡(div.hint-bubble
      挂 body, 3.2s 淡出, 与 #toast 互不抢占) + SpeechKit 语音
-   interface: mkMode · mkHotbar · mkMainAct · mkCraftPanel · mkFurnacePanel ·
-              mkChestPanel · sortInv · spawn · lookName · confirmBtn
+   面板族底座(评审候选 2 收编): craft/furnace/chest 三面板誊写的公共骨架
+     (遮罩/头/✕/背包格区双循环/格子渲染/Esc/生命周期)收进内部底座
+     mkPanelShell(不对外), 面板退化为「底座+差异段」; refresh 语义统一=
+     重画内容不碰开合态(craft 的无条件 display='flex' 已撤, 复明归 show);
+     内部卸载函数名 unmount(对外成员仍叫 remove), 摆放台槽级取走回归裸调
+     remove(背包核心, 不再被同名遮蔽); 摆放堆叠上限经 stackMax(64 魔数
+     清零); 三面板同吐 cellAt(背包槽号→栈快照)只读查询面; 图标/格子/材料
+     chip 渲染知识单份收口 kitIconHtml/kitCellHtml/kitChipHtml(iconOf 的
+     'data:'→img / 文本→icon span 二合一出口)
+   interface: mkMode · mkHotbar · mkMainAct · mkHeldSync(手持感知同步件) ·
+              mkMobPicker(选怪按钮组) · mkCraftPanel · mkFurnacePanel ·
+              mkChestPanel(三者=内部底座 mkPanelShell+差异段, 均含 cellAt
+              查询面) · sortInv · spawn · lookName · confirmBtn
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax/durOf ·
      inventory-core 的 HOTBAR_SLOTS/costEntry/remove/add · craft-core 的
      RECIPES/canCraft/matchGrid/gridCraft/fillGrid/FUEL/fuelUnits/smeltOf ·
+     mobs 的 Mobs(mkMobPicker 的分组唯一入口 families() 与 face/types,
+     mkMode 的触屏声明走 input 的 Input.setActions — 缺装时回落过渡别名) ·
+     avatar 的 Avatar 与 input 的 Input(mkHeldSync 的同步面, 均经
+     typeof 守卫: 精简装载的 Node 单测可缺装, 静默跳过) ·
      icons 的 iconOf 与
      button-icons 的 btnImg/BTN_PIX(两者加载序在本文件之后, 但全部
      调用发生在用户交互期, 彼时已加载完毕) · item-hint-registry 的
@@ -136,6 +160,35 @@ function mkMainAct(placeable) {
   };
 }
 
+/* ---------- mkHeldSync: 手持感知同步件(评审候选 6, 跨模式样板收编) ----------
+   竞技场与建造逐字镜像的五件套样板(调色板数组 + 'shovel' 哨兵槽渲染铁锹
+   物品图标 + typeof number 手持判定 + Avatar.setItem 同步 + 主动作键图标
+   切换 镐/铲↔砖块)收编一处: 竞技场先接, 建造镜像由后续票收口。
+   调色板形状: 数字=方块槽(可放置), 哨兵串('shovel')=挖掘入口槽;
+   哨兵语义与判定逻辑藏在本实现, 消费方只见三个纯问题:
+     isBlock()  选中槽是否可放置方块
+     itemId()   方块数字 id(哨兵槽 → null, 铁锹物品映射不外泄)
+     sync()     手持观感对齐选中槽(Avatar 换物 + 主动作键图标随手持切换)
+   Avatar/Input 均经 typeof 守卫(精简装载的 Node 单测可缺装, 静默跳过)。 */
+function mkHeldSync(palette, hb) {
+  const SENTINEL_ITEM = 'shovel_iron'; /* 哨兵槽的手持物: 铁锹(工具 def 现成) */
+  function isBlock() {
+    return typeof palette[hb.sel] === 'number';
+  }
+  function itemId() {
+    return isBlock() ? palette[hb.sel] : null;
+  }
+  function sync() {
+    if (typeof Avatar !== 'undefined' && Avatar) {
+      Avatar.setItem(isBlock() ? palette[hb.sel] : SENTINEL_ITEM);
+    }
+    if (typeof Input !== 'undefined' && Input && typeof Input.refreshMain === 'function') {
+      Input.refreshMain(isBlock() ? 'brick' : 'shovel', isBlock() ? '放置' : '挖掘');
+    }
+  }
+  return {isBlock, itemId, sync};
+}
+
 /* ---------- hotbar: 三种槽型 {block:id} | {icon,lbl,cnt()} | {item:id}(T10) ----------
    cls:'build' 附加类名; cnt 为函数, refresh/show 时重读;
    item 型: 像素图标(iconOf 的 dataURL/emoji 二合一) + 右上数量(>1 才显) +
@@ -158,10 +211,8 @@ function mkHotbar(opts) {
         html += '<div class="cube" style="background:rgb(' + col.map((c)=>Math.round(c*255)).join(',') + ')"></div>' +
              '<span class="lbl">' + b.name + '</span>';
       } else if (it.item !== undefined) {
-        /* 图标统一出口(iconOf): 'data:' 前缀喂 img.src · emoji 文本喂 icon · '' 跳过 */
-        const ic = iconOf(it.item);
-        html += (ic.startsWith('data:') ? '<img class="pic" alt="" src="' + ic + '">' :
-              (ic ? '<span class="icon">' + ic + '</span>' : '')) +
+        /* 图标统一出口(kitIconHtml 小件): 像素图喂 img · emoji 喂 icon · '' 跳过 */
+        html += kitIconHtml(it.item, 'pic', 'icon') +
              '<span class="cnt">' + ((it.cnt && it.cnt() > 1) ? it.cnt() : '') + '</span>' +
              (it.dur ? '<i class="dur"><i></i></i>' : '') + // 耐久条骨架, 宽/档位由 sync 填
              '<span class="lbl">' + (ITEMS[it.item] ? ITEMS[it.item].name : '') + '</span>';
@@ -282,8 +333,166 @@ const KIT_TABS = [
   {key: 'block', icon: 'brick'},
 ];
 
+/* ---------- 面板族渲染小件: iconOf 二合一出口 → 图标/格子内容/材料 chip ----------
+   渲染知识单份收口(原 hotbar/三面板七处誊写): 'data:' 前缀喂 img.src ·
+   文本喂 icon span · '' 跳过; img 与 span 的 class 由调用方成对给出
+   (格子 'pic'/icon · 卡片 'big'/icon big · chip 'mini'/icon mini —— 与
+   CSS 观感契约对齐, 不设默认值) */
+function kitIconHtml(id, imgCls, iconCls) {
+  const ic = iconOf(id);
+  return ic.startsWith('data:') ?
+    '<img class="' + imgCls + '" alt="" src="' + ic + '">' :
+    (ic ? '<span class="' + iconCls + '">' + ic + '</span>' : '');
+}
+
+/* 槽堆 → 格子内容 HTML(像素图/emoji 二合一 + 数量>1 才显); 空栈空串 */
+function kitCellHtml(stack) {
+  return stack ? kitIconHtml(stack.id, 'pic', 'icon') +
+      (stack.n > 1 ? '<span class="cnt">' + stack.n + '</span>' : '') : '';
+}
+
+/* 材料 chip(配方卡缺料 / 宝箱扩容账单同观感): 比例模式(ratio 立显或缺料且
+   有 have 数)显 have/need, 其余显 ×n; lack 附灰显类 */
+function kitChipHtml(id, need, have, lack, ratio) {
+  const b = (ratio || (lack && have != null)) ? '<b>' + have + '/' + need + '</b>' :
+    '<b>×' + need + '</b>';
+  return '<span class="mkp-chip' + (lack ? ' lack' : '') + '" data-id="' + id + '">' +
+      kitIconHtml(id, 'mini', 'icon mini') + b + '</span>';
+}
+
+/* ---------- mkPanelShell — 面板族公共骨架的内部底座(评审候选 2, 不对外) ----------
+   craft/furnace/chest 三面板誊写的公共骨架收编为一处: 遮罩/box/头部(标题+
+   可选头钮+✕)/背包格区(18 主格+9 快捷镜像双循环)/格子渲染/Esc 与开合
+   生命周期。DOM 组装序仍归各面板(头/背包区挂哪由面板自己 append), 底座
+   只管创建与行为。
+   cfg: doc(文档注入, Node 单测) · inv(背包引用, 背包区读数与 cellAt 查询)
+        · boxCls(box 附加类, 如 'mkp-furnace') · headBtns(✕ 前的头钮
+        [{cls, onClick}], craft 的整理钮) · preClose(close 前置钩子, craft
+        退料收手) · onClose(✕/Esc 统一出口尾钩, 模式层做状态同步与回锁)
+        · onUnmount(卸载前置钩子, craft 停连做计时)
+   吐出: {doc, root, box, head, titleEl, headBtnEls, closeBtn, grid, hotrow,
+        cellEl, cellAt, renderInv, wirePut, paintChrome, show, hide, close,
+        unmount, onEsc} —— 内部卸载函数名 unmount(各面板返回对象负责别名
+        成 remove): 底座域不占用 remove 一词, 面板体内裸调 remove 即解析到
+        inventory-core 的槽级移除(不再同名遮蔽); refresh 不在底座(各面板
+        的重画范围不同), 但语义统一: 只重画内容, 开合态只有 show/hide 碰 */
+function mkPanelShell(cfg) {
+  const o = cfg || {};
+  const doc = o.doc || document;
+  const inv = o.inv;
+  const root = doc.createElement('div');
+  root.className = 'mkp-mask';
+  const box = doc.createElement('div');
+  box.className = 'mkp-box' + (o.boxCls ? ' ' + o.boxCls : '');
+  root.appendChild(box);
+
+  /* —— 头部: 标题 + 可选头钮(✕ 前) + 关闭 —— */
+  const head = doc.createElement('div');
+  head.className = 'mkp-head';
+  const titleEl = doc.createElement('span');
+  titleEl.className = 'mkp-title';
+  head.appendChild(titleEl);
+  const headBtnEls = (o.headBtns || []).map((b) => {
+    const btn = doc.createElement('button');
+    btn.className = b.cls;
+    btn.onclick = b.onClick;
+    head.appendChild(btn);
+    return btn;
+  });
+  const closeBtn = doc.createElement('button');
+  closeBtn.className = 'mkp-x';
+  closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
+  head.appendChild(closeBtn);
+
+  /* —— 背包格区骨架: 18 主格(槽 9~26) + 9 快捷栏镜像(槽 0~8), 挂载位置归面板 —— */
+  const grid = doc.createElement('div');
+  grid.className = 'mkp-grid';
+  const hotrow = doc.createElement('div');
+  hotrow.className = 'mkp-hotrow';
+
+  /* 槽堆 → 格子元素(像素图标/数量>1 才显; dim 灰显可选: 熔炉不可入炉物预告) */
+  function cellEl(stack, dim) {
+    const d = doc.createElement('div');
+    d.className = 'mkp-cell';
+    if (stack) {
+      d.innerHTML = kitCellHtml(stack);
+      if (dim) d.classList.add('dim');
+    }
+    return d;
+  }
+  /* 查询面(测试/模式层只读): 背包槽号 → 栈快照|null, 断言格子内容不用爬 DOM 序 */
+  function cellAt(i) {
+    const s = inv.slots[i];
+    if (!s) return null;
+    const c = {id: s.id, n: s.n};
+    if (s.dur != null) c.dur = s.dur;
+    return c;
+  }
+  /* 背包区整幅重画: 双循环(主格 9~26 + 快捷镜像 0~8), wire(i)→格子元素由面板给 */
+  function renderInv(wire) {
+    grid.innerHTML = ''; hotrow.innerHTML = '';
+    for (let i = HOTBAR_SLOTS; i < inv.slots.length; i++) grid.appendChild(wire(i));
+    for (let i = 0; i < HOTBAR_SLOTS; i++) hotrow.appendChild(wire(i));
+  }
+  /* 意图接线(熔炉/宝箱同口径): 点击背包格报 onPut(槽号) 意图 + 读被点物品
+     提示 + 重画; dimIf 可选(熔炉: 不可入炉物灰显预告) */
+  function wirePut(onPut, redraw, dimIf) {
+    return (i)=>{
+      const d = cellEl(inv.slots[i], dimIf && dimIf(inv.slots[i]));
+      d.onclick = ()=>{
+        const st = inv.slots[i]; /* 先取: onPut 后模式层会扣包 */
+        if (onPut) onPut(i);
+        kitHint(kitHintItem(st ? st.id : ''), doc); /* 读被点的那摞(空格静默) */
+        redraw();
+      };
+      return d;
+    };
+  }
+
+  /* chrome 像素图标 show 期才注入: 构造可能发生在模式加载序早期(adventure.js
+     顶层建面板), button-icons.js 排在本文件之后未就位 — 运行期首次 show 必已
+     加载(与 iconOf 同一延迟解析口径); 底座填标题/✕, extra() 填面板自己的件 */
+  function paintChrome(titleHtml, extra) {
+    titleEl.innerHTML = titleHtml;
+    closeBtn.innerHTML = btnImg('close');
+    if (extra) extra();
+  }
+
+  /* —— 生命周期: show=复明+幂等挂载+Esc 监听(内容重画归面板 paint 回调);
+     hide/close 不卸载; unmount 幂等卸载(面板对外别名 remove) —— */
+  function show(paint) {
+    if (paint) paint();
+    root.style.display = 'flex'; /* hide 后重开要复明(refresh 不再碰开合态) */
+    if (root.parentNode !== doc.body) doc.body.appendChild(root);
+    if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板, 不走菜单链 */
+  }
+  function hide() {
+    root.style.display = 'none';
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
+  }
+  function close() {/* ✕/Esc 统一出口: preClose(退料类) + 隐藏 + onClose */
+    if (o.preClose) o.preClose();
+    hide();
+    if (o.onClose) o.onClose();
+  }
+  function onEsc(e) {
+    if (e.code !== 'Escape') return;
+    e.preventDefault();
+    close();
+  }
+  function unmount() {
+    if (o.onUnmount) o.onUnmount();
+    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
+    if (root.parentNode === doc.body) doc.body.removeChild(root);
+  }
+  return {doc, root, box, head, titleEl, headBtnEls, closeBtn, grid, hotrow,
+    cellEl, cellAt, renderInv, wirePut, paintChrome, show, hide, close, unmount, onEsc};
+}
+
 /* ---------- 背包+摆放台+配方书面板(crafting-grid 设计稿 §5, T10 改造) ----------
    自建遮罩挂 body 级, 不动 index.html。
+   公共骨架(遮罩/头/✕/背包格区/Esc/生命周期)在内部底座 mkPanelShell,
+   本函数=底座+差异段(摆放台/配方书/整理钮/关面板退料)。
    opts: inv(mkInventory 背包) · recipes(缺省 RECIPES 全表) · station()桌站点
    判定(缺省恒 true) · allow(放开默认过滤的配方 id 数组) · onCraft(out)/onSort ·
    onMove(from,to)(背包格点选搬运: 点非空格起手高亮, 再点目标格搬过去,
@@ -307,50 +516,38 @@ function mkCraftPanel(opts) {
   let pickIdx = -1; // 点选搬运的起手背包槽号(-1 无起手); 整理/关面板即收手
   let pickCell = -1; // 摆放格起手下标(-1 无起手); 与 pickIdx 互斥
   const cells = new Array(9).fill(null); // 摆放台 9 格槽堆({id,n}|null), 面板持有(2×2 站点为 UI 锁格)
-  const root = doc.createElement('div');
-  root.className = 'mkp-mask';
-  const box = doc.createElement('div');
-  box.className = 'mkp-box';
+  /* 公共骨架(遮罩/box/头/✕/背包格区/Esc/生命周期)吃差异配置: 整理头钮 +
+     关面板退料收手 + 卸载停连做; 组装序(main/quest/摆放台/配方书)归本段 */
+  const shell = mkPanelShell({doc, inv,
+    headBtns: [{cls: 'mkp-sort', onClick: onSortClick}],
+    preClose: onPreClose, onClose: o.onClose, onUnmount: stopPress});
+  const root = shell.root;
   const main = doc.createElement('div');
   main.className = 'mkp-main';
   const quest = doc.createElement('aside'); // 任务卡占位容器(T15 填内容)
   quest.className = 'mkp-quest';
-  root.appendChild(box); box.appendChild(main); box.appendChild(quest);
+  shell.box.appendChild(main); shell.box.appendChild(quest);
+  main.appendChild(shell.head);
+  const sortBtn = shell.headBtnEls[0]; /* 整理钮(✕ 前的头钮, 图标 show 期注入) */
 
-  /* —— 头部: 标题 + 整理按钮 + 关闭 —— */
-  const head = doc.createElement('div');
-  head.className = 'mkp-head';
-  const titleEl = doc.createElement('span');
-  titleEl.className = 'mkp-title';
-  const sortBtn = doc.createElement('button');
-  sortBtn.className = 'mkp-sort';
-  sortBtn.onclick = ()=>{
-    pickIdx = -1; pickCell = -1; // 整理会重排主格: 起手槽号失义, 先收手
+  /* 整理按钮: 起手收手(整理会重排主格, 起手槽号失义) + sortInv + 重画 + onSort */
+  function onSortClick() {
+    pickIdx = -1; pickCell = -1;
     sortInv(inv);
     refresh();
     if (o.onSort) o.onSort();
-  };
-  const closeBtn = doc.createElement('button');
-  closeBtn.className = 'mkp-x';
-  closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
-  head.appendChild(titleEl); head.appendChild(sortBtn); head.appendChild(closeBtn);
-  main.appendChild(head);
-
-  /* 面板 chrome 像素图标 show 期才注入: 构造可能发生在模式加载序早期
-     (adventure.js 顶层建面板), button-icons.js 排在本文件之后未就位 —
-     运行期首次 show 必已加载(与 iconOf 同一延迟解析口径) */
-  function paintChrome() {
-    titleEl.innerHTML = btnImg('grid') + ' 背包与配方书';
-    sortBtn.innerHTML = btnImg('sort') + '整理';
-    closeBtn.innerHTML = btnImg('close');
   }
 
-  /* —— 背包网格: 18 主格(槽 9~26, 6 列×3 行) + 9 快捷栏镜像(槽 0~8) —— */
-  const grid = doc.createElement('div');
-  grid.className = 'mkp-grid';
-  const hotrow = doc.createElement('div');
-  hotrow.className = 'mkp-hotrow';
-  main.appendChild(grid); main.appendChild(hotrow);
+  /* chrome 像素图标 show 期注入(标题/✕ 在底座, 整理钮在此补; 延迟注入的
+     加载序口径见底座 paintChrome 注释) */
+  function paintChrome() {
+    shell.paintChrome(btnImg('grid') + ' 背包与配方书', ()=>{
+      sortBtn.innerHTML = btnImg('sort') + '整理';
+    });
+  }
+
+  /* —— 背包网格(18 主格 槽 9~26 + 9 快捷栏镜像 槽 0~8): 骨架在底座 —— */
+  main.appendChild(shell.grid); main.appendChild(shell.hotrow);
 
   /* —— 摆放台(crafting-grid §5): 3×3 常驻, 站点外仅左上 2×2 激活;
      产出槽 = matchGrid 命中亮起, 点击一发/长按连做(拍板④) —— */
@@ -373,29 +570,13 @@ function mkCraftPanel(opts) {
   cards.className = 'mkp-cards';
   main.appendChild(tabs); main.appendChild(cards);
 
-  /* 槽堆 → 格子元素(像素图标/emoji 二合一 + 数量>1 才显) */
-  function cellEl(stack) {
-    const d = doc.createElement('div');
-    d.className = 'mkp-cell';
-    if (stack) {
-      const ic = iconOf(stack.id);
-      d.innerHTML = (ic.startsWith('data:') ? '<img class="pic" alt="" src="' + ic + '">' :
-        (ic ? '<span class="icon">' + ic + '</span>' : '')) +
-        (stack.n > 1 ? '<span class="cnt">' + stack.n + '</span>' : '');
-    }
-    return d;
-  }
-
-  function renderGrid() {
-    grid.innerHTML = ''; hotrow.innerHTML = '';
-    const wire = (i)=>{ // 格子 + 点选搬运接线(起手格重画后补高亮)
-      const d = cellEl(inv.slots[i]);
+  function renderGrid() {/* 背包区双循环在底座, 本段只给点选搬运接线 */
+    shell.renderInv((i)=>{ // 格子 + 点选搬运接线(起手格重画后补高亮)
+      const d = shell.cellEl(inv.slots[i]);
       if (i === pickIdx) d.classList.add('pick');
       d.onclick = ()=>cellClick(i);
       return d;
-    };
-    for (let i = HOTBAR_SLOTS; i < inv.slots.length; i++) grid.appendChild(wire(i));
-    for (let i = 0; i < HOTBAR_SLOTS; i++) hotrow.appendChild(wire(i));
+    });
   }
 
   /* —— 点选搬运状态机(大宝箱同口径): 无起手时点非空格=起手(高亮),
@@ -449,11 +630,12 @@ function mkCraftPanel(opts) {
         refresh();
         return;
       }
-      const free = cur ? 64 - cur.n : 64;
-      /* 槽级取走(inventory-core): 本函数域内的 remove 是面板生命周期卸载
-         (同名遮蔽), 经 globalThis 显式取背包原语(经典 script 顶层函数
-         = 全局属性, 测试桩同口径挂 globalThis) */
-      const got = free > 0 ? globalThis.remove(inv, pickIdx, free) : null;
+      const max = stackMax(stack.id); /* 堆叠上限经 items-core(未注册 0=门禁拒收) */
+      const free = cur ? max - cur.n : max;
+      /* 槽级取走(inventory-core): 内部卸载函数已改名 unmount, 本域不再
+         遮蔽 remove —— 裸调即解析到共享全局的背包原语(经典 script 顶层
+         函数 = 全局属性, 测试桩同口径挂 globalThis, 晚绑定不变) */
+      const got = free > 0 ? remove(inv, pickIdx, free) : null;
       pickIdx = -1;
       if (got) {
         if (cur) cur.n += got.n;
@@ -474,8 +656,8 @@ function mkCraftPanel(opts) {
       const b = cells[c];
       if (!b) {
         cells[c] = a; cells[from] = null;
-      } else if (b.id === a.id && b.n < 64) {
-        const put = Math.min(a.n, 64 - b.n);
+      } else if (b.id === a.id && b.n < stackMax(b.id)) {
+        const put = Math.min(a.n, stackMax(b.id) - b.n);
         b.n += put; a.n -= put;
         if (a.n <= 0) cells[from] = null;
       } else {
@@ -518,7 +700,7 @@ function mkCraftPanel(opts) {
     bgrid.classList.toggle('locked', !at);
     bgrid.innerHTML = '';
     for (let c = 0; c < 9; c++) {
-      const d = cellEl(cells[c]);
+      const d = shell.cellEl(cells[c]);
       if (cellLocked(c)) {
         d.classList.add('lock');
         d.innerHTML = '<span class="icon">🔒</span>';
@@ -537,7 +719,8 @@ function mkCraftPanel(opts) {
     bench.classList.toggle('has-out', !!r);
     if (r) {
       outBtn.className = 'mkp-oslot on';
-      outBtn.innerHTML = iconHtml(r.out.item, 'big') + (r.out.n > 1 ? '<b class="mkp-n">×' + r.out.n + '</b>' : '');
+      outBtn.innerHTML = kitIconHtml(r.out.item, 'big', 'icon big') +
+        (r.out.n > 1 ? '<b class="mkp-n">×' + r.out.n + '</b>' : '');
     } else {
       outBtn.className = 'mkp-oslot off';
       outBtn.innerHTML = '<span class="mkp-outq">?</span>';
@@ -596,17 +779,6 @@ function mkCraftPanel(opts) {
       tabs.appendChild(b);
     });
   }
-  function iconHtml(id, cls) {
-    const ic = iconOf(id);
-    return ic.startsWith('data:') ? '<img class="' + cls + '" alt="" src="' + ic + '">' :
-      (ic ? '<span class="icon ' + cls + '">' + ic + '</span>' : '');
-  }
-  function chipHtml(id, n, lack, have) {
-    /* 缺料单候选显示 have/need(如 0/1), 齐料显示 ×n */
-    const b = (lack && have != null) ? '<b>' + have + '/' + n + '</b>' : '<b>×' + n + '</b>';
-    return '<span class="mkp-chip' + (lack ? ' lack' : '') + '" data-id="' + id + '">' +
-      iconHtml(id, 'mini') + b + '</span>';
-  }
   function cardEl(r) {
     const d = doc.createElement('div');
     d.dataset.recipe = r.id;
@@ -626,14 +798,14 @@ function mkCraftPanel(opts) {
       const e = costEntry(key, val); // 候选数组+数量(inventory-core 统一形状)
       if (!e) continue;
       e.cands.forEach((c) => {
-        chips += chipHtml(c, e.n, c in lackHave || lackAny.has(c), lackHave[c]);
+        chips += kitChipHtml(c, e.n, lackHave[c], c in lackHave || lackAny.has(c));
       }); // 任选=逐候选一枚(需求量同一份)
     }
     const badge = KIT_STATION_BADGE[r.station] || '';
     const badgeHtml = badge ?
       '<span class="mkp-badge' + (stationLack ? ' lack' : '') + '">' + btnImg(badge) + '</span>' : '';
     d.innerHTML = badgeHtml +
-      '<div class="mkp-out">' + iconHtml(r.out.item, 'big') +
+      '<div class="mkp-out">' + kitIconHtml(r.out.item, 'big', 'icon big') +
       (r.out.n > 1 ? '<b class="mkp-n">×' + r.out.n + '</b>' : '') + '</div>' +
       '<div class="mkp-chips">' + chips + '</div>';
     d.onclick = ()=>tapCard(r); /* 点卡=BE 一键摆入(拍板③), 合成走产出槽 */
@@ -702,17 +874,8 @@ function mkCraftPanel(opts) {
     if (active && active.el === outBtn) active.stop();
   });
 
-  /* —— 生命周期: show 幂等挂载, remove 幂等卸载并停连做计时 —— */
-  function show() {
-    paintChrome();
-    refresh();
-    if (root.parentNode !== doc.body) doc.body.appendChild(root);
-    if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板, 不走菜单链 */
-  }
-  function hide() {
-    root.style.display = 'none';
-    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
-  }
+  /* —— 生命周期(show/hide/close/unmount)在底座, 本段只剩 craft 差异:
+     关面板退料 + refresh 重画内容(不碰开合态, 复明归 show) —— */
   /* 关面板退料(crafting-grid §5, MC 工作台口径): 格内材料退回背包;
      装不下的余量经 onReturnLeft 报模式层(转掉落物零损失), 无处理方留格不丢 */
   function stashCells() {
@@ -733,30 +896,23 @@ function mkCraftPanel(opts) {
       stuck.forEach((i) => (cells[i] = null)); // 余量已交模式层(掉落物), 清格
     }
   }
-  function close() {/* ✕/Esc 统一出口: 退料 + 隐藏 + onClose(模式层做状态同步与指针回锁) */
-    pickIdx = -1; pickCell = -1; /* 收面板顺手收起手(下次打开不带旧高亮) */
+  function onPreClose() {/* 底座 close 前置: 收面板顺手收起手(下次打开不带旧高亮)+退料 */
+    pickIdx = -1; pickCell = -1;
     stashCells();
-    hide();
-    if (o.onClose) o.onClose();
   }
-  function onEsc(e) {
-    if (e.code !== 'Escape') return;
-    e.preventDefault();
-    close();
-  }
-  function remove() {
-    stopPress(); // 停掉在飞的连做计时
-    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
-    if (root.parentNode === doc.body) doc.body.removeChild(root);
-  }
-  function refresh() {
-    root.style.display = 'flex';
+  function refresh() {/* 重画内容不碰开合态(语义统一): 关着时调 refresh 不再弹面板 */
     renderTabs();
     renderGrid();
     renderBench(); /* 摆放台(锁定态/起手高亮/产出槽)随站点与摆放实时重读 */
     renderCards();
   }
-  return {root, questEl: quest, show, hide, close, remove, refresh};
+  function show() {
+    paintChrome();
+    refresh();
+    shell.show(); /* 复明 + 幂等挂载 + Esc 监听 */
+  }
+  return {root, questEl: quest, show, hide: shell.hide, close: shell.close,
+    remove: shell.unmount, refresh, cellAt: shell.cellAt};
 }
 
 
@@ -792,21 +948,11 @@ function mkFurnacePanel(opts) {
   const o = opts || {};
   const doc = o.doc || document;
   const inv = o.inv;
-  const root = doc.createElement('div');
-  root.className = 'mkp-mask';
-  const box = doc.createElement('div');
-  box.className = 'mkp-box mkp-furnace';
-  root.appendChild(box);
-
-  const head = doc.createElement('div');
-  head.className = 'mkp-head';
-  const titleEl = doc.createElement('span');
-  titleEl.className = 'mkp-title';
-  const closeBtn = doc.createElement('button');
-  closeBtn.className = 'mkp-x';
-  closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
-  head.appendChild(titleEl); head.appendChild(closeBtn);
-  box.appendChild(head);
+  /* 公共骨架(遮罩/头/✕/背包格区/Esc/生命周期)在底座, 本段只剩炉子差异段 */
+  const shell = mkPanelShell({doc, inv, boxCls: 'mkp-furnace', onClose: o.onClose});
+  const root = shell.root;
+  const box = shell.box;
+  box.appendChild(shell.head);
 
   const row = doc.createElement('div');
   row.className = 'mkp-frow';
@@ -814,8 +960,7 @@ function mkFurnacePanel(opts) {
   function fslot(label, name) {/* name = 炉槽意图键, 点击报模式层(取回/收取) */
     const wrap = doc.createElement('div');
     wrap.className = 'mkp-fslot';
-    const cell = doc.createElement('div');
-    cell.className = 'mkp-cell';
+    const cell = shell.cellEl(null); /* 空格起步, 内容由 setSlots/paint 喂 */
     cell.onclick = ()=>{
       const st = furnaceState && furnaceState[name]; /* 先取: onSlot 后模式层会取走 */
       if (o.onSlot) o.onSlot(name);
@@ -871,57 +1016,25 @@ function mkFurnacePanel(opts) {
      扣加归模式层; 不可入炉物(不可烧也非燃料)dim 灰显作视觉预告 —— */
   const bpLabel = doc.createElement('div');
   bpLabel.className = 'mkp-invlbl';
-  const grid = doc.createElement('div');
-  grid.className = 'mkp-grid';
-  const hotrow = doc.createElement('div');
-  hotrow.className = 'mkp-hotrow';
-  box.appendChild(bpLabel); box.appendChild(grid); box.appendChild(hotrow);
+  box.appendChild(bpLabel); box.appendChild(shell.grid); box.appendChild(shell.hotrow);
 
-  function cellEl(stack) {/* 背包格: 与 mkChestPanel 同观感 + 不可入炉物 dim */
-    const d = doc.createElement('div');
-    d.className = 'mkp-cell';
-    if (stack) {
-      const ic = iconOf(stack.id);
-      d.innerHTML = (ic.startsWith('data:') ? '<img class="pic" alt="" src="' + ic + '">' :
-        (ic ? '<span class="icon">' + ic + '</span>' : '')) +
-        (stack.n > 1 ? '<span class="cnt">' + stack.n + '</span>' : '');
-      if (!smeltOf(stack.id) && !fuelUnits(stack.id)) d.classList.add('dim');
-    }
-    return d;
-  }
-  function refreshGrid() {/* 动作后整幅重画(格子数 ≤30, 无性能顾虑) */
-    grid.innerHTML = ''; hotrow.innerHTML = '';
-    const wire = (i)=>{
-      const d = cellEl(inv.slots[i]);
-      d.onclick = ()=>{
-        const st = inv.slots[i]; /* 先取: onPut 后模式层会扣包 */
-        if (o.onPut) o.onPut(i);
-        kitHint(kitHintItem(st ? st.id : ''), o.doc); /* 读放进炉子的那摞(空格静默) */
-        refreshGrid(); /* 放入动了包: 背包格跟随重画 */
-      };
-      return d;
-    };
-    for (let i = HOTBAR_SLOTS; i < inv.slots.length; i++) grid.appendChild(wire(i));
-    for (let i = 0; i < HOTBAR_SLOTS; i++) hotrow.appendChild(wire(i));
+  function refreshGrid() {/* 动作后整幅重画(格子数 ≤30, 无性能顾虑); 双循环与
+    点击意图接线在底座, 本段只给差异: 不可入炉物(不可烧也非燃料)dim 灰显 */
+    shell.renderInv(shell.wirePut(o.onPut, refreshGrid,
+        (s)=> s && !smeltOf(s.id) && !fuelUnits(s.id)));
   }
 
-  /* chrome 像素图标 show 期注入(同 mkCraftPanel 口径: 构造期工坊可能未加载) */
+  /* chrome 像素图标 show 期注入(标题/✕ 在底座, 炉子件在此补) */
   function paintChrome() {
-    titleEl.innerHTML = btnImg('furnace') + ' 熔炉';
-    closeBtn.innerHTML = btnImg('close');
-    fireIcon.innerHTML = btnImg('flame');
-    autoBtn.innerHTML = btnImg('autofill') + '自动放入';
-    bpLabel.innerHTML = btnImg('grid') + ' 背包（点一下放进熔炉）';
+    shell.paintChrome(btnImg('furnace') + ' 熔炉', ()=>{
+      fireIcon.innerHTML = btnImg('flame');
+      autoBtn.innerHTML = btnImg('autofill') + '自动放入';
+      bpLabel.innerHTML = btnImg('grid') + ' 背包（点一下放进熔炉）';
+    });
   }
 
-  function paint(cell, stack) {
-    cell.innerHTML = '';
-    if (stack) {
-      const ic = iconOf(stack.id);
-      cell.innerHTML = (ic.startsWith('data:') ? '<img class="pic" alt="" src="' + ic + '">' :
-        (ic ? '<span class="icon">' + ic + '</span>' : '')) +
-        (stack.n > 1 ? '<span class="cnt">' + stack.n + '</span>' : '');
-    }
+  function paint(cell, stack) {/* 炉槽回显: 格子内容 HTML 收口在 kitCellHtml 小件 */
+    cell.innerHTML = kitCellHtml(stack);
   }
   function setSlots(s) { // 烧炼三槽现状(模式层每态变化时喂)
     furnaceState = s || null; /* 炉槽点击提示的记忆面(空态置 null) */
@@ -965,32 +1078,15 @@ function mkFurnacePanel(opts) {
     }
     return {load, fuel, units}; // 执行权在模式层(T13): take/add 经 inventory-core
   }
+  /* 生命周期(show/hide/close/unmount)全在底座; refresh 保持既有口径=重画背包区 */
   function show() {
-    paintChrome();
-    refreshGrid(); /* 背包区常驻: 开面板即画当前包(手动放入入口) */
-    root.style.display = 'flex'; /* hide 后重开要复明(mkCraftPanel.refresh 同口径) */
-    if (root.parentNode !== doc.body) doc.body.appendChild(root);
-    if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板 */
+    shell.show(() => {/* 背包区常驻: 开面板即画当前包(手动放入入口) */
+      paintChrome();
+      refreshGrid();
+    });
   }
-  function hide() {
-    root.style.display = 'none';
-    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
-  }
-  function close() {/* ✕/Esc 统一出口: 隐藏 + onClose(模式层做状态同步与指针回锁) */
-    hide();
-    if (o.onClose) o.onClose();
-  }
-  function onEsc(e) {
-    if (e.code !== 'Escape') return;
-    e.preventDefault();
-    close();
-  }
-  function remove() {
-    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
-    if (root.parentNode === doc.body) doc.body.removeChild(root);
-  }
-  return {root, show, hide, close, remove, refresh: refreshGrid, setSlots,
-    setProgress, setFuel, autoPlan};
+  return {root, show, hide: shell.hide, close: shell.close, remove: shell.unmount,
+    refresh: refreshGrid, cellAt: shell.cellAt, setSlots, setProgress, setFuel, autoPlan};
 }
 
 /* ---------- 大宝箱面板(mkChestPanel, 引导链 v2): 点选搬运的纯格子面板 ----------
@@ -1005,21 +1101,11 @@ function mkChestPanel(opts) {
   const o = opts || {};
   const doc = o.doc || document;
   const inv = o.inv;
-  const root = doc.createElement('div');
-  root.className = 'mkp-mask';
-  const box = doc.createElement('div');
-  box.className = 'mkp-box mkp-chest';
-  root.appendChild(box);
-
-  const head = doc.createElement('div');
-  head.className = 'mkp-head';
-  const titleEl = doc.createElement('span');
-  titleEl.className = 'mkp-title';
-  const closeBtn = doc.createElement('button');
-  closeBtn.className = 'mkp-x';
-  closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
-  head.appendChild(titleEl); head.appendChild(closeBtn);
-  box.appendChild(head);
+  /* 公共骨架(遮罩/头/✕/背包格区/Esc/生命周期)在底座, 本段只剩箱格/扩容行 */
+  const shell = mkPanelShell({doc, inv, boxCls: 'mkp-chest', onClose: o.onClose});
+  const root = shell.root;
+  const box = shell.box;
+  box.appendChild(shell.head);
 
   const chestGrid = doc.createElement('div');
   chestGrid.className = 'mkp-grid mkp-chestgrid';
@@ -1032,48 +1118,25 @@ function mkChestPanel(opts) {
   const bpLabel = doc.createElement('div');
   bpLabel.className = 'mkp-chestlbl';
   box.appendChild(bpLabel);
+  box.appendChild(shell.grid); box.appendChild(shell.hotrow);
 
-  /* chrome 像素图标 show 期注入(同 mkCraftPanel 口径: 构造期工坊可能未加载) */
+  /* chrome 像素图标 show 期注入(标题/✕ 在底座, 背包标签在此补) */
   function paintChrome() {
-    titleEl.innerHTML = btnImg('chest') + ' 我的宝箱';
-    closeBtn.innerHTML = btnImg('close');
-    bpLabel.innerHTML = btnImg('grid') + ' 背包（点一下放进箱子）';
-  }
-  const grid = doc.createElement('div');
-  grid.className = 'mkp-grid';
-  const hotrow = doc.createElement('div');
-  hotrow.className = 'mkp-hotrow';
-  box.appendChild(grid); box.appendChild(hotrow);
-
-  function cellEl(stack) {/* 槽堆→格子(与 mkCraftPanel 同观感: 像素图标+数量) */
-    const d = doc.createElement('div');
-    d.className = 'mkp-cell';
-    if (stack) {
-      const ic = iconOf(stack.id);
-      d.innerHTML = (ic.startsWith('data:') ? '<img class="pic" alt="" src="' + ic + '">' :
-        (ic ? '<span class="icon">' + ic + '</span>' : '')) +
-        (stack.n > 1 ? '<span class="cnt">' + stack.n + '</span>' : '');
-    }
-    return d;
-  }
-  function chipHtml(id, need, have) {/* 扩容材料 chip: 缺料显 have/need(配方卡同口径) */
-    const ic = iconOf(id);
-    const img = ic.startsWith('data:') ? '<img class="mini" alt="" src="' + ic + '">' :
-      '<span class="icon mini">' + ic + '</span>';
-    return '<span class="mkp-chip' + (have < need ? ' lack' : '') + '">' + img +
-        '<b>' + have + '/' + need + '</b></span>';
+    shell.paintChrome(btnImg('chest') + ' 我的宝箱', ()=>{
+      bpLabel.innerHTML = btnImg('grid') + ' 背包（点一下放进箱子）';
+    });
   }
 
-  function refresh() {/* 每次动作后整幅重画(格子数 ≤27+27, 无性能顾虑) */
+  function refresh() {/* 每次动作后整幅重画(格子数 ≤27+27, 无性能顾虑); 背包区
+    双循环与点击接线在底座(主格/快捷镜像同一段 onPut 意图, 收编前两份逐字誊写) */
     const ch = o.chest();
     chestGrid.innerHTML = '';
     for (let i = 0; i < ch.size; i++) {
-      const d = cellEl(ch.slots[i]);
-      const idx = i;
+      const d = shell.cellEl(ch.slots[i]);
       d.onclick = ()=>{
-        const st = ch.slots[idx]; /* 先取: onTake 后模式层会取走 */
-        o.onTake(idx);
-        kitHint(kitHintItem(st ? st.id : ''), o.doc); /* 读从箱子拿起的物品 */
+        const st = ch.slots[i]; /* 先取: onTake 后模式层会取走 */
+        o.onTake(i);
+        kitHint(kitHintItem(st ? st.id : ''), doc); /* 读从箱子拿起的物品 */
         refresh();
       };
       chestGrid.appendChild(d);
@@ -1083,7 +1146,8 @@ function mkChestPanel(opts) {
     if (nx) {
       for (const key of Object.keys(nx.cost)) {
         const chip = doc.createElement('span'); /* 材料账单 chip(配方卡同观感) */
-        chip.innerHTML = chipHtml(key, nx.cost[key], o.have(key));
+        chip.innerHTML = kitChipHtml(key, nx.cost[key], o.have(key),
+            o.have(key) < nx.cost[key], true); /* 账单恒显 have/need, 缺料附 lack */
         expandRow.appendChild(chip);
       }
       const btn = doc.createElement('button');
@@ -1095,55 +1159,16 @@ function mkChestPanel(opts) {
       };
       expandRow.appendChild(btn);
     }
-    grid.innerHTML = ''; hotrow.innerHTML = '';
-    for (let i = HOTBAR_SLOTS; i < inv.slots.length; i++) {
-      const d = cellEl(inv.slots[i]);
-      const idx = i;
-      d.onclick = ()=>{
-        const st = inv.slots[idx]; /* 先取: onPut 后模式层会扣包 */
-        o.onPut(idx);
-        kitHint(kitHintItem(st ? st.id : ''), o.doc); /* 读存进箱子的物品 */
-        refresh();
-      };
-      grid.appendChild(d);
-    }
-    for (let i = 0; i < HOTBAR_SLOTS; i++) {
-      const d = cellEl(inv.slots[i]);
-      const idx = i;
-      d.onclick = ()=>{
-        const st = inv.slots[idx]; /* 先取: onPut 后模式层会扣包 */
-        o.onPut(idx);
-        kitHint(kitHintItem(st ? st.id : ''), o.doc); /* 读存进箱子的物品 */
-        refresh();
-      };
-      hotrow.appendChild(d);
-    }
+    shell.renderInv(shell.wirePut(o.onPut, refresh));
   }
 
+  /* 生命周期(show/hide/close/unmount)全在底座; show 不重画内容——消费方
+    adventure.js 开面板后自调 refresh(既有契约, 面板行为不变) */
   function show() {
-    paintChrome();
-    root.style.display = 'flex'; /* hide 后重开要复明(mkCraftPanel 同口径) */
-    if (root.parentNode !== doc.body) doc.body.appendChild(root);
-    if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板 */
+    shell.show(()=> paintChrome());
   }
-  function hide() {
-    root.style.display = 'none';
-    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
-  }
-  function close() {/* ✕/Esc 统一出口: 隐藏 + onClose(模式层做状态同步与指针回锁) */
-    hide();
-    if (o.onClose) o.onClose();
-  }
-  function onEsc(e) {
-    if (e.code !== 'Escape') return;
-    e.preventDefault();
-    close();
-  }
-  function remove() {
-    if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
-    if (root.parentNode === doc.body) doc.body.removeChild(root);
-  }
-  return {root, show, hide, close, remove, refresh};
+  return {root, show, hide: shell.hide, close: shell.close, remove: shell.unmount,
+    refresh, cellAt: shell.cellAt};
 }
 
 /* ---------- 头顶血条已迁 js/combat-kit.js(C6-T3, CombatKit.mkHpBar) ----------
@@ -1194,6 +1219,88 @@ function mkBubbleBar(opts) {
   };
 }
 
+/* ---------- mkMobPicker: 选怪按钮组(评审候选 6, 三处誊写收编) ----------
+   「Mobs.face(k) 头像 img + 名字 + families() 谱系分组簇(组头+组员) +
+   data-type + active 高亮」的按钮制造术在竞技场双队面板(.mob-btns)/
+   演习场 👾 浮动面板(#pkMobBtns)/出发配置页怪物行(#tankMobPick)写了三遍,
+   收进一处; 分组唯一入口怪物库 families()(主族归组), Mobs 经全局名调用期
+   解析(与 BLOCKS/ITEMS 同口径), 键清单随之动态 — 以后加怪自动出现。
+   opts:
+     doc         文档注入(Node 单测)
+     mount       容器元素(竞技场传 .mob-btns 双队各自建一组)
+     onPick(k)   点击回调 — 配置写入/配平/重画政策全归消费方
+     activeOf()→k|null  选中态供给(缺省无高亮; 点击后自动重读)
+     headKeys[]  组前置平铺键(不归族 — 竞技场 mix 功能位排最前)
+     groupOf(k)→组名|null  键的组归属覆写: 缺省主族; 返 null=平铺不建组
+                 (出发配置页怪物行的卡片流口径)
+     itemTag/itemCls/itemHtml(k)  按钮观感差异(缺省 button + 头像+名字;
+                 配置页卡片 div.scene-card + .big/h2 结构)
+     titleOf(k)  悬停提示(竞技场战力/Boss/族名)
+   吐出 {render(整组重画, 幂等) · sync(仅选中态重读)}; 未注册键兜底显
+   键名不静默丢(面板分组「不丢桶」同款口径)。 */
+function mkMobPicker(opts) {
+  const o = opts || {};
+  const doc = o.doc || document;
+  const mount = o.mount;
+  const items = []; /* 本组全部按钮(含 headKeys), sync 精确重读不爬 DOM 序 */
+  function nameOf(k) {
+    const t = (typeof Mobs !== 'undefined' && Mobs.types) ? Mobs.types[k] : null;
+    return (t && t.name) || k;
+  }
+  function itemEl(k) {
+    const b = doc.createElement(o.itemTag || 'button');
+    if (o.itemCls) b.className = o.itemCls;
+    b.innerHTML = (o.itemHtml ? o.itemHtml(k) :
+      '<img src="' + Mobs.face(k) + '" alt="">' + nameOf(k));
+    if (o.titleOf) b.title = o.titleOf(k);
+    b.dataset.type = k;
+    /* onclick 属性接线(被收编三处的两处先例; 每按钮恰一个 click 监听,
+       与 addEventListener 语义等价) */
+    b.onclick = ()=>{
+      if (o.onPick) o.onPick(k);
+      sync(); /* 点击后重读选中态(activeOf 是消费方口径) */
+    };
+    items.push(b);
+    return b;
+  }
+  function render() {
+    mount.innerHTML = '';
+    items.length = 0;
+    (o.headKeys || []).forEach((k)=> mount.appendChild(itemEl(k))); /* 前置功能位(不归族) */
+    const flat = []; /* groupOf 覆写为 null 的键 → 平铺不建组头 */
+    const buckets = {}; const order = [];
+    for (const g of Mobs.families()) {
+      for (const k of g.members) {
+        const gv = o.groupOf ? o.groupOf(k) : g.name;
+        if (gv == null) {
+          flat.push(k); continue;
+        }
+        if (!buckets[gv]) {
+          buckets[gv] = {name: gv, members: []}; order.push(gv);
+        }
+        buckets[gv].members.push(k);
+      }
+    }
+    flat.forEach((k)=> mount.appendChild(itemEl(k)));
+    for (const name of order) {/* 谱系分组簇: 组头+组员成簇随行流动(不整行断组) */
+      const grp = doc.createElement('div');
+      grp.className = 'fam-group';
+      const head = doc.createElement('span');
+      head.className = 'fam-head';
+      head.textContent = buckets[name].name;
+      grp.appendChild(head);
+      for (const k of buckets[name].members) grp.appendChild(itemEl(k));
+      mount.appendChild(grp);
+    }
+    sync();
+  }
+  function sync() {
+    const act = o.activeOf ? o.activeOf() : null;
+    items.forEach((b)=> b.classList.toggle('active', b.dataset.type === act));
+  }
+  return {render, sync};
+}
+
 /* ---------- 模式工厂: 模式只声明差异, 样板在此吸收 ---------- */
 function mkMode(cfg) {
   const hb = cfg.hotbar || null;
@@ -1210,7 +1317,13 @@ function mkMode(cfg) {
     hotbar: hb,
     init() {
       applyChrome();
-      setTouchActions(cfg.touch || null);
+      /* 触屏动作声明走 Input 命名空间(input.js 引擎缝收口); typeof 守卫保持:
+         精简装载的 Node 单测可缺装 input.js, 回落旧散全局名(过渡别名) */
+      if (typeof Input !== 'undefined' && Input && typeof Input.setActions === 'function') {
+        Input.setActions(cfg.touch || null);
+      } else if (typeof setTouchActions === 'function') {
+        setTouchActions(cfg.touch || null);
+      }
       if (cfg.init) cfg.init();
     },
     cleanup() {
@@ -1268,6 +1381,7 @@ function mkMode(cfg) {
   return mode;
 }
 
-const ModeKit = {mkMode, mkHotbar, mkMainAct, mkCraftPanel, mkFurnacePanel, mkChestPanel, mkBubbleBar, sortInv,
+const ModeKit = {mkMode, mkHotbar, mkMainAct, mkHeldSync, mkMobPicker, mkCraftPanel,
+  mkFurnacePanel, mkChestPanel, mkBubbleBar, sortInv,
   spawn: kitSpawn, lookName, confirmBtn};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;

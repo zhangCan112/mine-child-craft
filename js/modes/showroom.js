@@ -134,8 +134,8 @@ function showroomSyncBar() {/* 槽内容 → 槽型 item 字段(图标/名字跟
    ============================================================ */
 const showroomFurnace = FurnaceKit.mkFurnaceStation({
   inv: () => showroomInv, /* 取数器供给: 进场换新实例, kit/面板永远读到当前包 */
-  onCollect: showroomSyncBar, /* 取产物成功: 快捷栏刷新(dev 场无音效/无满包提示) */
-  onInvChange: showroomSyncBar, /* 自动放料动包后: 快捷栏刷新 */
+  onInvTouched: () => showroomSyncBar(), /* 背包被 kit 动过(收产物/放料/取回/退料, 不分 reason 一律刷新快捷栏;
+    政策降噪: 不接 onPanel/onRefundLeft/onMade——dev 场零提示零音效零掉落物) */
 });
 
 function showroomFurnaceKey() {/* 预置炉 posKey('x,y,z', 与探险站点缓存同口径) */

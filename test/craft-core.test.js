@@ -33,6 +33,9 @@ function loadCraft() {
       craft: typeof craft === 'undefined' ? undefined : craft,
       fuelUnits: typeof fuelUnits === 'undefined' ? undefined : fuelUnits,
       smeltOf: typeof smeltOf === 'undefined' ? undefined : smeltOf,
+      SMELT_T: typeof SMELT_T === 'undefined' ? undefined : SMELT_T,
+      smeltStep: typeof smeltStep === 'undefined' ? undefined : smeltStep,
+      furnaceRefund: typeof furnaceRefund === 'undefined' ? undefined : furnaceRefund,
       breakTime: typeof breakTime === 'undefined' ? undefined : breakTime,
       ITEMS: typeof ITEMS === 'undefined' ? undefined : ITEMS,
       mkStack: typeof mkStack === 'undefined' ? undefined : mkStack,
@@ -297,6 +300,26 @@ test('smeltOf: 十条烧炼映射逐条命中, 未登记原料返回 null', () =
   assert.strictEqual(smeltOf('cooked_beef'), null, '熟肉不可再烧');
   assert.strictEqual(smeltOf('bread'), null, '食物不可烧');
   assert.strictEqual(smeltOf('not_registered'), null);
+});
+
+/* ============ 烧炼步进与退炉政策(2026-10 自 adventure-core 迁入, 直测随迁) ============ */
+
+test('smeltStep: 2.5s 产一件 · 煤热值 8 件烧 1 件余 7(政策与表同居)', () => {
+  const h = loadCraft();
+  assert.strictEqual(h.SMELT_T, 2.5, '每件烧炼秒数常量(D8: MC 10s → 儿童缩短)');
+  const s = h.smeltStep({input: {id: 'iron_ore', n: 1}, fuel: {id: 'coal', n: 1},
+    out: null, heat: 0, prog: 0}, 2.5);
+  /* 产自 vm 语境的对象先展开进宿主再比对(数组/原型与宿主不同, gridCraft 同款) */
+  assert.deepStrictEqual({...s.out}, {id: 'iron_ingot', n: 1}, '2.5s 产一件');
+  assert.strictEqual(s.heat, 7, '煤热值 8 件, 烧 1 件余 7');
+});
+
+test('furnaceRefund: 炉内三笔全额退包(零惩罚口径)', () => {
+  const h = loadCraft();
+  const inv = h.mkInventory();
+  assert.deepStrictEqual([...h.furnaceRefund(inv,
+      {input: {id: 'iron_ore', n: 3}, fuel: null, out: null, heat: 0, prog: 0})], [], '三笔全退');
+  assert.strictEqual(h.count(inv, 'iron_ore'), 3, '退包入账');
 });
 
 /* ============ matchGrid: 摆放→配方匹配(口径全正典, 研究稿 §2) ============ */

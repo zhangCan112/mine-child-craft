@@ -930,7 +930,7 @@ function updateMobs(dt) {
   flushSplits(); // 家传亡语落场(软软族·分裂, 上一帧排队的)
   collectCandidates(); // 索敌/协同共用的候选快照(retarget/raidTick 消费, 分裂新生儿也入册)
   for (const m of mobs) {
-    if (m.gone || m.dead) continue; // 名牌/计时/死亡动画/尸体回收归怪物库 Mobs.update
+    if (m.gone || m.dead) continue; // 帧序契约见 mobs.js 头注释: 本能与 AI 相对顺序宽容, dead||gone 双侧自兜底
     const gp = m.pos;
     const prevX = gp.x; const prevZ = gp.z;
 
@@ -1005,7 +1005,7 @@ function updateMobs(dt) {
   }
 
   separateMobs(dt);
-  // 尸体回收与 gone 清理归怪物库 Mobs.update(每帧先于战斗逻辑执行)
+  // 尸体回收与 gone 清理归怪物库 Mobs.update(帧序契约见 mobs.js 头注释: 本能与 AI 相对顺序宽容)
 }
 
 function updateArrows(dt) {
@@ -1235,24 +1235,11 @@ function clearBattle() {
 /* ---------- 竞技场 UI ---------- */
 const arenaHb = mkHotbar({/* 选块由 kit 接管(digit/wheel/点选); 'shovel' 哨兵槽渲染铁锹物品图标 */
   items: ArenaCore.HOTBAR.map((id)=> (typeof id === 'number' ? {block: id} : {item: 'shovel_iron'})),
-  onPick: () => arenaHeldSync()});
-function arenaHeldIsBlock() {/* 手持感知判定(纯 seam): 选中数字方块槽才可放置, 'shovel' 槽 = 挖掘入口 */
-  return typeof ArenaCore.HOTBAR[arenaHb.sel] === 'number';
-}
-function arenaHeldItemId() {/* 选中槽的手持物 id(纯 seam): 方块槽 → 方块数字 id
-  (HeldItems.defFor 直认), 铁锹哨兵槽 → shovel_iron(工具 def 现成) */
-  const id = ArenaCore.HOTBAR[arenaHb.sel];
-  return typeof id === 'number' ? id : 'shovel_iron';
-}
-function arenaHeldSync() {/* 手持观感与选中槽一致 + 主动作键观感随手持 */
-  Avatar.setItem(arenaHeldItemId());
-  arenaTouchMainSync();
-}
-function arenaTouchMainSync() {/* 主动作键观感随手持: 方块=砖(放置)/铲=铲(连挖) */
-  if (typeof refreshTouchMain === 'function') {
-    refreshTouchMain(arenaHeldIsBlock() ? 'brick' : 'shovel', arenaHeldIsBlock() ? '放置' : '挖掘');
-  }
-}
+  onPick: () => arenaHeld.sync()});
+/* 手持感知五件套收编 ModeKit.mkHeldSync(评审候选 6): 哨兵槽语义/数字方块
+   判定/Avatar.setItem/主动作键图标切换全在 kit — build.js 的逐字镜像由
+   后续票收口; 模式层只消费 isBlock/itemId/sync 三个纯问题 */
+const arenaHeld = mkHeldSync(ArenaCore.HOTBAR, arenaHb);
 
 const cntAEl = document.getElementById('cntA');
 const cntBEl = document.getElementById('cntB');
@@ -1262,6 +1249,7 @@ const unitAEl = document.getElementById('unitA');
 const unitBEl = document.getElementById('unitB');
 const balBtn = document.getElementById('balBtn');
 let panelBuilt = false;
+const teamPickers = []; /* 双队选怪按钮组(mkMobPicker 实例, updatePanel 重读选中态) */
 /* 战力示例文案由 ARENA_POWER 派生(配平改数值, 菜单说明自动跟上 —
    这段数字曾第三次手抄在 index.html, 必然漂移) */
 function fillPowerNote() {
@@ -1284,34 +1272,30 @@ function buildPanel() {
   }
   panelBuilt = true;
   fillPowerNote();
+  /* 选怪按钮族收编 ModeKit.mkMobPicker(评审候选 6): 头像+名字+谱系分组簇+
+     data-type+active 高亮在 kit — 双队差异经 mount/onPick 闭包(读容器的
+     data-team), 战力悬停提示经 titleOf */
   document.querySelectorAll('.mob-btns').forEach((el)=>{
-    const mkBtn = (parent, k, v)=>{
-      const b = document.createElement('button');
-      b.innerHTML = `<img src="${Mobs.face(k)}" alt="">${v.name}`;
-      const fam = ((v.family)||[])[0];
-      b.title = '战力 ' + unitPower({type: k}) + (v.boss ? ' · Boss' : '') +
-        (fam ? ' · ' + (FAMILIES[fam] ? FAMILIES[fam].name : fam) : ' · 独行侠');
-      b.dataset.type = k;
-      b.addEventListener('click', ()=>{
+    const picker = mkMobPicker({
+      mount: el,
+      headKeys: ['mix'], // 混合编队: 功能位排最前(不归族)
+      activeOf: () => (el.dataset.team==='A' ? cfgA : cfgB).type,
+      titleOf(k) {
+        const v = MOB_TYPES[k];
+        const fam = ((v && v.family) || [])[0];
+        return '战力 ' + unitPower({type: k}) + (v && v.boss ? ' · Boss' : '') +
+          (fam ? ' · ' + (FAMILIES[fam] ? FAMILIES[fam].name : fam) : ' · 独行侠');
+      },
+      onPick(k) {
         const cfg = el.dataset.team==='A' ? cfgA : cfgB;
         cfg.type = k;
         lastEdited = el.dataset.team;
         if (autoBalance) balanceTeams();
         updatePanel();
-      });
-      parent.appendChild(b);
-    };
-    mkBtn(el, 'mix', MOB_TYPES.mix); // 混合编队: 功能位排最前(不归族)
-    for (const g of Mobs.families()) { // 谱系分组: 内联簇(组头+组员成簇, 簇随行流动 — 不整行断组)
-      const grp = document.createElement('div');
-      grp.className = 'fam-group';
-      const head = document.createElement('span');
-      head.className = 'fam-head';
-      head.textContent = g.name;
-      grp.appendChild(head);
-      for (const k of g.members) mkBtn(grp, k, MOB_TYPES[k]);
-      el.appendChild(grp);
-    }
+      },
+    });
+    picker.render();
+    teamPickers.push(picker);
   });
   document.querySelectorAll('.count-row:not(.pw) button').forEach((b)=>{
     b.addEventListener('click', ()=>{
@@ -1334,10 +1318,7 @@ function buildPanel() {
   };
 }
 function updatePanel() {
-  document.querySelectorAll('.mob-btns').forEach((el)=>{
-    const cfg = el.dataset.team==='A' ? cfgA : cfgB;
-    [...el.children].forEach((b)=> b.classList.toggle('active', b.dataset.type===cfg.type));
-  });
+  teamPickers.forEach((p)=> p.sync()); /* 选中态经按钮组重读(activeOf→各队 cfg.type) */
   cntAEl.textContent = cfgA.count;
   cntBEl.textContent = cfgB.count;
   unitAEl.textContent = unitPower(cfgA);
@@ -1379,7 +1360,7 @@ const ArenaMode = mkMode({
   touch: [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2026-10-24): 选中方块→放置一次
      (不连发 — 儿童向刻意偏离, MC 按住实为连放, 见 docs/mc-held-item-action-
      research.md Q3), 铲子槽→挖起步+按住连挖; 画布轻点仍是放置 */
-    {icon: 'shovel', label: '挖/放', holdAct: mkMainAct(arenaHeldIsBlock)},
+    {icon: 'shovel', label: '挖/放', holdAct: mkMainAct(arenaHeld.isBlock)},
   ],
   init() {
     loadScene(ArenaCore.generate); // 场景装填 seam: 建 + 收尾重建一步到位
@@ -1388,7 +1369,7 @@ const ArenaMode = mkMode({
     if (autoBalance) balanceTeams();
     updatePanel();
     arenaHb.select(1); /* 默认选中第 2 格方块: 第 1 格铁锹是显式挖掘入口, 拿方块进场即放置态 */
-    arenaHeldSync(); /* 手持观感对齐选中槽(select 同格不触发 onPick, 显式兜底) */
+    arenaHeld.sync(); /* 手持观感对齐选中槽(select 同格不触发 onPick, 显式兜底) */
   },
   cleanup() {
     resetBattleFx();
@@ -1415,11 +1396,11 @@ const ArenaMode = mkMode({
     if (button === 0) {
       editBlock(hit.x, hit.y, hit.z, 0);
     } else if (button === 2) {
-      if (typeof ArenaCore.HOTBAR[arenaHb.sel] !== 'number') return; // 铲子槽不放置(手持感知: 拿铲子=挖)
+      if (!arenaHeld.isBlock()) return; // 铲子槽不放置(手持感知: 拿铲子=挖)
       const px=hit.x+hit.nx; const py=hit.y+hit.ny; const pz=hit.z+hit.nz;
       if (getBlock(px, py, pz)!==0) return;
       if (collidesAtPlayer(px, py, pz)) return;
-      editBlock(px, py, pz, ArenaCore.HOTBAR[arenaHb.sel]);
+      editBlock(px, py, pz, arenaHeld.itemId());
     }
   },
   hud(hit) {
@@ -1427,7 +1408,7 @@ const ArenaMode = mkMode({
     return [
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
       `FPS: ${fps}`,
-      `手持: ${typeof ArenaCore.HOTBAR[arenaHb.sel] === 'number' ? BLOCKS[ArenaCore.HOTBAR[arenaHb.sel]].name : '铁锹'}`,
+      `手持: ${arenaHeld.itemId() !== null ? BLOCKS[arenaHeld.itemId()].name : '铁锹'}`,
       `注视: ${ModeKit.lookName(hit)}`,
       `R 重新开战 · B 面板`,
     ];
