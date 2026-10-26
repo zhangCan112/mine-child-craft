@@ -24,7 +24,7 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
-  ITEMS, isTool, toolOf, breakTime, stackMax,
+  ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf, SMELT_T,
 })`, eng);
@@ -540,4 +540,322 @@ test('D7 advLanternStep: 持满 1 秒出扣单 · 余时结转下一秒 · 未�
   /* 低帧率大步: 钳 0.05 的 dt 单步最多跨一拍, 状态机自身仍按余时结转 */
   r = L.advLanternStep(0.99, 0.05, 'lantern', 300, 11);
   assert.strictEqual(r.drain, true, '大步跨沿也恰一扣单');
+});
+
+/* ============ 政策下沉包(评审候选 5, 2026-10) — 自壳迁入的八件政策直测 ============ */
+
+test('下沉包① advHomeReady: 60s 冷却窗口(边界恰 60 算就绪)', () => {
+  assert.strictEqual(Core.ADV_HOME_CD, 60, '冷却窗口常量 60s');
+  assert.strictEqual(Core.advHomeReady(-1e9, 0), true, '从未用过: 立即可用');
+  assert.strictEqual(Core.advHomeReady(0, 59.9), false, '冷却内拒绝');
+  assert.strictEqual(Core.advHomeReady(0, 60), true, '边界 60s 恰就绪');
+});
+
+test('下沉包② advBedSpot: 床四邻取「两格净空+实心支承」首格, 全堵回落注入位', () => {
+  /* 假世界经 getB 注入(seam 先例: advNightStep 的 read); 床占 (10,25,20), 邻取序 +x/−x/+z/−z */
+  const w = new Map();
+  const g = (x, y, z) => w.get(x + ',' + y + ',' + z) || 0;
+  const fb = {x: 61.5, y: 25, z: 76.5, yaw: 2};
+  const clear = (x, z) => {/* 站位两格净空 + 脚下泥支承 */
+    w.set(x + ',25,' + z, 0); w.set(x + ',26,' + z, 0); w.set(x + ',24,' + z, 2);
+  };
+  clear(11, 20); /* 仅 +x 合格 */
+  assert.deepStrictEqual(Core.advBedSpot(10, 25, 20, g, fb), {x: 11.5, y: 25, z: 20.5, yaw: 0},
+      '+x 邻合格取首格(格心, yaw 归零)');
+  w.set('11,26,20', 7); /* +x 头顶被叶堵 */
+  clear(9, 20); /* −x 合格 */
+  assert.deepStrictEqual(Core.advBedSpot(10, 25, 20, g, fb), {x: 9.5, y: 25, z: 20.5, yaw: 0},
+      '+x 堵 → 按取序落 −x');
+  w.set('9,24,20', api.B_TORCH); /* −x 支承是薄块(火把): 当不了支承 */
+  clear(10, 21); /* +z 合格 */
+  assert.deepStrictEqual(Core.advBedSpot(10, 25, 20, g, fb), {x: 10.5, y: 25, z: 21.5, yaw: 0},
+      '薄块支承跳过 → +z');
+  w.set('10,24,21', api.B_GRASS_TUFT); /* +z 支承 solid:false(草丛) */
+  w.set('11,25,20', 0); w.set('11,26,20', 0); w.set('11,24,20', api.B_TORCH); /* +x 薄块支承 */
+  w.set('9,25,20', 7); /* −x 堵死 */
+  clear(10, 19); /* −z 合格 */
+  assert.deepStrictEqual(Core.advBedSpot(10, 25, 20, g, fb), {x: 10.5, y: 25, z: 19.5, yaw: 0},
+      '草丛支承(solid:false)跳过 → −z');
+  w.set('10,24,19', api.B_TORCH); /* −z 支承也薄: 四邻全堵 */
+  assert.strictEqual(Core.advBedSpot(10, 25, 20, g, fb), fb, '四邻全堵回落调用方位(原样引用)');
+});
+
+test('下沉包③ advTntTapStep: 短按点燃/按住转蓄力/面板期取消/无状态直过', () => {
+  const st = (held) => ({x: 1, y: 2, z: 3, held});
+  assert.deepStrictEqual(Core.advTntTapStep(null, false, false, 0.1), {state: null, act: null},
+      '无状态直过');
+  assert.deepStrictEqual(Core.advTntTapStep(st(0.1), false, true, 0.1), {state: null, act: null},
+      '面板期取消不点燃(状态清)');
+  let r = Core.advTntTapStep(st(0), true, false, 0.1);
+  assert.ok(r.state && r.state.held === 0.1 && r.state.x === 1, '按住窗口内累计');
+  assert.strictEqual(r.act, null, '窗口内无动作');
+  r = Core.advTntTapStep(st(0.2), false, false, 0.01);
+  assert.deepStrictEqual(r, {state: null, act: {ignite: true, x: 1, y: 2, z: 3}},
+      '松手短按(累计 0.21 < 0.25)出点燃令(块在不在由壳验)');
+  r = Core.advTntTapStep(st(0.25), false, false, 0.01);
+  assert.strictEqual(r.act, null, '松手长按(0.26 ≥ 0.25)无令');
+  assert.strictEqual(r.state, null, '状态照常消费');
+  assert.strictEqual(Core.ADV_TNT_TAP_T, 0.25, '短按窗口常量 0.25s');
+  r = Core.advTntTapStep(st(0.24), true, false, 0.02);
+  assert.deepStrictEqual(r, {state: null, act: {mine: true}}, '按住跨 0.25s 转蓄力挖走回收');
+});
+
+test('下沉包④(红线) advCascadeLedger: 移动两格先原格后落格/移除链动作序/fell 与 quest 旗标', () => {
+  const log = [];
+  const sink = {
+    mark: (x, y, z, id) => log.push(['mark', x, y, z, id]),
+    sapling: (x, y, z) => log.push(['sap', x, y, z]),
+    drop: (id, n) => log.push(['drop', id, n]),
+    questMine: (id) => log.push(['quest', id]),
+  };
+  /* 移动项(落沙 D7): 记账两格且键序即契约——原格 0 在前, 落格 id 在后
+     (确定性重放红线: 漏格/错序 → edits 逐格最后写赢口径下重进即错位) */
+  let r = Core.advCascadeLedger([{x: 5, y: 20, z: 6, id: 8, to: {x: 5, y: 19, z: 6}}], false, sink);
+  assert.deepStrictEqual(log, [['mark', 5, 20, 6, 0], ['mark', 5, 19, 6, 8]],
+      '移动两格记账, 先原格后落格');
+  assert.strictEqual(r.felled, false, '移动不置 fell(不掉落不喊话)');
+  /* 移除项动作序: mark 0 → 树苗撤表 → 默认表掉落(保底) → quest 旗标门控 */
+  log.length = 0;
+  r = Core.advCascadeLedger([
+    {x: 1, y: 25, z: 2, id: api.B_SAPLING},
+    {x: 3, y: 25, z: 4, id: 5}, /* 原木(fell 旗标) */
+    {x: 7, y: 25, z: 8, id: 2}, /* 泥土(保底掉泥土) */
+  ], true, sink);
+  assert.deepStrictEqual(log, [
+    ['mark', 1, 25, 2, 0], ['sap', 1, 25, 2], ['drop', 'sapling', 1], ['quest', api.B_SAPLING],
+    ['mark', 3, 25, 4, 0], ['drop', 'log', 1], ['quest', 5],
+    ['mark', 7, 25, 8, 0], ['drop', 'dirt', 1], ['quest', 2],
+  ], '同清单必同动作序(清单序驱动, 逐项 mark→撤表→掉落→任务)');
+  assert.strictEqual(r.felled, true, '含原木(fell)置整树倒旗标(壳据此喊话)');
+  /* quest=false(TNT 链): 任务挂点整段静默, 记账/掉落照走 */
+  log.length = 0;
+  Core.advCascadeLedger([{x: 3, y: 25, z: 4, id: 5}], false, sink);
+  assert.deepStrictEqual(log, [['mark', 3, 25, 4, 0], ['drop', 'log', 1]],
+      'TNT 链不进任务计数(P6: TNT 掀掉的不算)');
+});
+
+test('下沉包⑤(红线) advGrowMark: 足迹界限恰为 y..y+7 × ±2, 盒内非空才记', () => {
+  const marks = [];
+  const world = new Map();
+  world.set('10,25,10', 5); /* 树干基(盒角 y 起点) */
+  world.set('12,32,12', 7); /* 盒角(y+7, ±2) inclusive */
+  world.set('13,25,10', 7); /* 越界 ±3 → 不扫 */
+  world.set('10,33,10', 5); /* 越界 y+8 → 不扫 */
+  Core.advGrowMark(10, 25, 10, (x, y, z) => world.get(x + ',' + y + ',' + z) || 0,
+      (x, y, z, id) => marks.push([x, y, z, id]));
+  assert.deepStrictEqual(marks, [[10, 25, 10, 5], [12, 32, 12, 7]],
+      '盒内非空逐格记账, 界外不扫(y..y+7 / ±2 的粗扫界限=重进幂等关键)');
+  /* 重进一致性: 记账键值即重放账本(同编辑序必同终态——树完整, 不复活半棵树) */
+  const ledger = new Map(marks.map(([x, y, z, id]) => [x + ',' + y + ',' + z, id]));
+  assert.strictEqual(ledger.get('10,25,10'), 5, '树干格入账');
+  assert.ok(!ledger.has('13,25,10') && !ledger.has('10,33,10'), '界外格不入账(冗余记账只限盒内)');
+});
+
+test('下沉包⑥ advChestTake: 可堆叠 add 并堆/可耗损物整槽搬耐久不重铸/满包拒收箱格原样', () => {
+  /* 可堆叠: 箱 40 煤取回并入包(20+40) */
+  let chest = {size: 9, slots: Array(9).fill(null)};
+  chest.slots[0] = {id: 'coal', n: 40};
+  let inv = api.mkInventory();
+  api.add(inv, 'coal', 20);
+  assert.strictEqual(Core.advChestTake(chest, inv, 0), 'ok', '搬运成功');
+  assert.strictEqual(api.count(inv, 'coal'), 60, '并堆入包');
+  assert.strictEqual(chest.slots[0], null, '箱格清空');
+  /* 可耗损物(工具): 连耐久整槽搬首个空位——不走 add(mkStack 会重铸满耐久) */
+  chest = {size: 9, slots: Array(9).fill(null)};
+  chest.slots[1] = {id: 'pick_iron', n: 1, dur: 111};
+  inv = api.mkInventory();
+  assert.strictEqual(Core.advChestTake(chest, inv, 1), 'ok');
+  assert.deepStrictEqual({...inv.slots[0]}, {id: 'pick_iron', n: 1, dur: 111},
+      '耐久原样 111(不重铸满 500)');
+  assert.strictEqual(chest.slots[1], null, '箱格清空');
+  /* 满包: 可堆叠物放不下 → 整摞留在箱里, 箱格原样 */
+  chest = {size: 9, slots: Array(9).fill(null)};
+  chest.slots[0] = {id: 'coal', n: 5};
+  inv = api.mkInventory();
+  for (let i = 0; i < api.INV_SLOTS; i++) inv.slots[i] = {id: 'stone', n: 64};
+  assert.strictEqual(Core.advChestTake(chest, inv, 0), 'full', '满包拒收');
+  assert.deepStrictEqual({...chest.slots[0]}, {id: 'coal', n: 5}, '箱格原样不动');
+  /* 满包 + 可耗损物无空位: 同拒收 */
+  chest.slots[0] = {id: 'shears', n: 1, dur: 30};
+  assert.strictEqual(Core.advChestTake(chest, inv, 0), 'full', '无空位整槽搬也拒收');
+  /* 空槽: 无动作 */
+  assert.strictEqual(Core.advChestTake({size: 9, slots: Array(9).fill(null)}, api.mkInventory(), 3),
+      'empty', '空槽返 empty(壳据此不 toast)');
+});
+
+test('下沉包⑦ advExplodeCells: 半径界/TNT 链式点燃不破坏/树苗撤表/掷骰 rand 注入', () => {
+  const ignite = []; const edits = []; const saps = []; const drops = [];
+  const sink = {
+    ignite: (x, y, z) => ignite.push([x, y, z]),
+    edit: (x, y, z) => edits.push([x, y, z]),
+    sapling: (x, y, z) => saps.push([x, y, z]),
+    drop: (id, n) => drops.push([id, n]),
+  };
+  /* 假世界(爆心 0,0,0, 半径 3.5): (3,1,1) 格心距 √(2.5²+0.5²+0.5²)≈2.6 界内;
+     (3,3,3) 格心距 √(3×2.5²)≈4.33 越界——立方角天然出球 */
+  const w = new Map();
+  w.set('3,1,1', 3); /* 石头: 界内破坏 */
+  w.set('3,3,3', 3); /* 立方角: 越界不进遍历 */
+  w.set('2,0,0', api.B_TNT); /* 圈内 TNT: 只点燃不破坏 */
+  w.set('1,0,0', api.B_SAPLING); /* 树苗: 破坏+撤表 */
+  const read = (x, y, z) => w.get(x + ',' + y + ',' + z) || 0;
+  Core.advExplodeCells(0, 0, 0, read, sink, () => 0); /* rand 恒 0: 70% 门槛必中签 */
+  assert.deepStrictEqual(ignite, [[2, 0, 0]], '圈内 TNT 只链式点燃不走破坏链');
+  assert.ok(edits.some((e) => e[0] === 1 && e[1] === 0 && e[2] === 0) &&
+      edits.some((e) => e[0] === 3 && e[1] === 1 && e[2] === 1), '界内可采集格逐块破坏');
+  assert.ok(!edits.some((e) => e[0] === 3 && e[1] === 3 && e[2] === 3), '立方角越界不破坏(球半径判据)');
+  assert.ok(!edits.some((e) => e[0] === 2 && e[1] === 0 && e[2] === 0), 'TNT 格不进 edit');
+  assert.deepStrictEqual(saps, [[1, 0, 0]], '掀掉的树苗撤计时');
+  assert.ok(drops.some((d) => d[0] === 'sapling'), '掉落经 advTntRoll(rand 注入恒中签)');
+  /* rand 恒 0.99: 门槛不中 → 只碎不掉 */
+  drops.length = 0;
+  Core.advExplodeCells(0, 0, 0, read, sink, () => 0.99);
+  assert.strictEqual(drops.length, 0, '不中签只碎不掉(D4 掉落率 70%)');
+  /* 同 read+sink+rand 重放: 动作序逐条一致(确定性重放红线) */
+  const snap = () => JSON.stringify([ignite, edits, saps, drops]);
+  ignite.length = 0; edits.length = 0; saps.length = 0; drops.length = 0;
+  Core.advExplodeCells(0, 0, 0, read, sink, () => 0);
+  const a = snap();
+  ignite.length = 0; edits.length = 0; saps.length = 0; drops.length = 0;
+  Core.advExplodeCells(0, 0, 0, read, sink, () => 0);
+  assert.strictEqual(snap(), a, '同输入必同动作序(遍历序 dx→dy→dz 即契约)');
+});
+
+test('下沉包⑦b advTntWave: 水平半径+垂距过滤 · 线性衰减伤害与击退向量 · 尸体不计', () => {
+  const mk = (x, y, z, extra) => Object.assign({pos: {x, y, z}, dead: false, gone: false}, extra || {});
+  /* 爆心格 (0,0,0) → 心 (0.5,0.5,0.5) */
+  const mobs = [
+    mk(2.5, 0.5, 0.5), /* 距 2.0: 界内 */
+    mk(4.4, 0.5, 0.5), /* 距 3.9: 界内边缘 */
+    mk(6, 0.5, 0.5), /* 距 5.5: 越水平界 */
+    mk(0.5, 5.5, 0.5), /* 垂距 5 > 3: 越垂直界 */
+    mk(0.5, 0.5, 0.5, {dead: true}), /* 尸体不计 */
+    mk(0.5, 0.5, 0.5, {gone: true}), /* 已移除不计 */
+  ];
+  const out = Core.advTntWave(mobs, 0, 0, 0);
+  assert.strictEqual(out.length, 2, '只圈内存活怪入清单');
+  assert.strictEqual(out[0].m, mobs[0], '实体引用原样带回(壳喂 Mobs.hit)');
+  assert.strictEqual(out[0].dmg, Core.advTntDmg(2.0), '伤害 = 线性衰减(距 2.0)');
+  assert.ok(Math.abs(out[0].kdx - 2) < 1e-9 && Math.abs(out[0].kdz) < 1e-9, '击退向量 = 爆心指向怪');
+  assert.strictEqual(out[1].dmg, Core.advTntDmg(3.9), '边缘伤害 = 衰减到 12 档');
+});
+
+test('下沉包⑧ advAmbleStep: 递减续期不掷随机/到期三掷 dir→t→walk(次序锁)/在走概率严小于', () => {
+  let n = 0;
+  const rnd = () => {
+    n++; return 0.5;
+  };
+  assert.deepStrictEqual(Core.advAmbleStep(2, 1.2, true, 0.1, rnd), {t: 1.9, dir: 1.2, walk: true},
+      '未到期只递减, 方向/在走原样续期');
+  assert.strictEqual(n, 0, '未到期不掷随机');
+  assert.deepStrictEqual(Core.advAmbleStep(0.1, 0, false, 0.2, rnd),
+      {t: 3.5, dir: 0.5 * Math.PI * 2, walk: true}, '到期重掷: dir=0.5·2π · t=2+0.5·3 · walk(0.5<0.6)');
+  assert.strictEqual(n, 3, '恰三掷(方向/时长/在走)');
+  assert.strictEqual(Core.ADV_HERD_AMBLE_WALK_P, 0.6, '在走概率常量(六成在走四成吃草)');
+  const pick = (a) => {
+    let i = 0;
+    return () => a[i++];
+  };
+  assert.strictEqual(Core.advAmbleStep(0.05, 0, false, 0.05, pick([0, 0, 0.59])).walk, true,
+      '第三掷 0.59 < 0.6 → 在走');
+  assert.strictEqual(Core.advAmbleStep(0.05, 0, false, 0.05, pick([0, 0, 0.6])).walk, false,
+      '恰 0.6 站着吃草(严小于口径)');
+  assert.deepStrictEqual(Core.advAmbleStep(0.05, 0, false, 0.05, pick([0, 0.2, 0])).t, 2.6,
+      '时长 = 2 + rnd·3(2~5s 窗口)');
+});
+
+/* ============ 自壳测副本迁入的纯函数簇(adventure-mode.test.js 删重复) ============ */
+
+test('挥击伤害全表: 手持工具按 D9 表取值(剑镐斧锹四阶), 空手/非工具 3', () => {
+  const D9 = {sword: [7, 9, 11, 13], pick: [3, 4, 6, 8], axe: [5, 6, 8, 10], shovel: [2, 3, 4, 5]};
+  const tiers = ['wood', 'stone', 'iron', 'diamond'];
+  for (const kind of Object.keys(D9)) {
+    tiers.forEach((t, i) => assert.strictEqual(Core.advSwingDmg(kind + '_' + t), D9[kind][i],
+        kind + ' ' + t + ' = ' + D9[kind][i] + '(设计稿 D9 表)'));
+  }
+  assert.strictEqual(Core.advSwingDmg(''), Core.ADV_FIST_DMG, '空手 3');
+  assert.strictEqual(Core.advSwingDmg('coal'), Core.ADV_FIST_DMG, '非工具物品当空手 3');
+});
+
+test('击杀掉落清单变体: 加成与稀有都掷中/骷髅保底骨头/未收录怪种空清单', () => {
+  const m = {type: 'zombie', pos: {x: 10, y: 25, z: 20}};
+  const both = Core.advDeathDrops(m, () => 0.01);
+  assert.strictEqual(both[0].id, 'rotten_flesh');
+  assert.strictEqual(both[0].n, 2, '50% 加成 +1');
+  assert.strictEqual(both[1].id, 'iron_ingot');
+  assert.strictEqual(both[1].n, 1, '稀有 5% 铁锭 +1');
+  assert.strictEqual(both[1].y, 25.8, '掉落点 = 尸体落点 y+0.8(碎块中蹦出)');
+  const sk = Core.advDeathDrops({type: 'skeleton', pos: {x: 0, y: 24, z: 0}}, () => 0.99);
+  assert.deepStrictEqual(sk.map((s) => [s.id, s.n]), [['bone', 1]], '骷髅保底骨头');
+  assert.deepStrictEqual(Core.advDeathDrops({type: 'dragon', pos: {x: 0, y: 10, z: 0}}, () => 0.5), [],
+      '掉落表没写就是没有(不抛错)');
+});
+
+test('放置合法性全簇: 实心贴面/thin 只放实心顶/树苗限草地泥土/叠放与无效输入拒', () => {
+  const chk = Core.advPlaceCheck;
+  const side = chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, 1, 0);
+  assert.ok(side.ok, '泥土放草地顶面 ok');
+  assert.deepStrictEqual([side.x, side.y, side.z], [10, 25, 10], '落点 = 命中格 + 面法线');
+  assert.ok(chk({x: 10, y: 24, z: 10, nx: 1, ny: 0, nz: 0}, 2, 1, 0).ok, '实心块贴侧面也可');
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, 1, 5).ok, false,
+      '目标位已有方块 → 拒(叠放)');
+  assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, 1, 0).ok, '火把放草地顶面 ok');
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 1, ny: 0, nz: 0}, api.B_TORCH, 1, 0).ok, false,
+      '火把贴侧面 → 拒(thin 只放顶面)');
+  assert.strictEqual(chk({x: 10, y: 25, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, api.B_GRASS_TUFT, 0).ok,
+      false, '草丛(solid:false)顶上放火把 → 拒');
+  assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 1, 0).ok, '树苗放草地 ok');
+  assert.ok(chk({x: 10, y: 23, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 2, 0).ok, '树苗放泥土 ok');
+  assert.strictEqual(chk({x: 10, y: 22, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 3, 0).ok, false,
+      '树苗放石头上 → 拒');
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 0, nz: 1}, api.B_SAPLING, 1, 0).ok, false,
+      '树苗贴侧面 → 拒');
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 9999, 1, 0).ok, false,
+      '未注册方块 id → 拒');
+  assert.strictEqual(chk(null, 2, 1, 0).ok, false, '无命中 → 拒');
+});
+
+test('食物回血补充: 腐肉注册表 food=2 走同一政策口径(儿童版无饥饿 debuff)', () => {
+  assert.strictEqual(api.ITEMS.rotten_flesh.food, 2, '腐肉注册表 food=2(D7)');
+  assert.strictEqual(Core.advEatPolicy(10, 30, api.ITEMS.rotten_flesh.food).hp, 12, '腐肉回 2 血(同口径)');
+});
+
+test('树苗计时第二轮: 到期逐轮出清单直至 Map 清空', () => {
+  const map = new Map([
+    ['10,25,10', {x: 10, y: 25, z: 10, left: 0.5}],
+    ['20,25,20', {x: 20, y: 25, z: 20, left: 3}],
+  ]);
+  const out = Core.advSapDue(map, 1.0);
+  assert.strictEqual(out.length, 1, '只有到期的进清单');
+  assert.strictEqual(out[0].x, 10, '到期项坐标完整');
+  assert.ok(!map.has('10,25,10'), '到期项移出计时 Map');
+  assert.strictEqual(map.get('20,25,20').left, 2, '未到期递减留队');
+  const out2 = Core.advSapDue(map, 2.0);
+  assert.strictEqual(out2.length, 1, '第二轮到期出清单');
+  assert.strictEqual(map.size, 0, 'Map 清空');
+});
+
+test('站点判定补充: 按 id 过滤/贴身/两站点并存/空缓存', () => {
+  const near = Core.advNearStation;
+  const sts = [{x: 10, y: 25, z: 10, id: api.B_CRAFT}, {x: 30, y: 25, z: 30, id: api.B_FURNACE}];
+  assert.strictEqual(near(sts, 10.5, 10.5, 4, api.B_CRAFT), true, '贴身解锁');
+  assert.strictEqual(near(sts, 10.5, 10.5, 4, api.B_FURNACE), false,
+      '按 id 过滤: 工作台位点不点亮熔炉判定');
+  assert.strictEqual(near(sts, 33.5, 30.5, 4, api.B_FURNACE), true, '熔炉位点命中(两种站点并存)');
+  assert.strictEqual(near([], 10, 10, 4, api.B_CRAFT), false, '空缓存(一个站点都没放过)');
+});
+
+test('TNT 掷骰补充: 中签后掉落表原样掷(保底+概率)/tnt 旗标守卫恒空手', () => {
+  const roll = (id, r) => [...Core.advTntRoll(id, r).map((d) => [d.id, d.n])];
+  assert.deepStrictEqual(roll(7, () => 0).map((e) => e[0]), ['sapling', 'apple', 'stick'],
+      '树叶中签后 rollBlockDrop 原样掷(rand 恒 0 → 三样概率全中, 无保底)');
+  assert.strictEqual(roll(api.B_TNT, () => 0).length, 0,
+      'tnt 旗标守卫恒空手(不自掉, D3 与 drop 字段解耦)');
+});
+
+test('TNT 衰减补充: 中途 24 与波及边缘 12(线性内插)', () => {
+  assert.strictEqual(Core.advTntDmg(0), Core.ADV_TNT_DMG_HI, '爆心 30');
+  assert.strictEqual(Core.advTntDmg(1.5), 24, '中途线性衰减 24');
+  assert.strictEqual(Core.advTntDmg(4.5), Core.ADV_TNT_DMG_LO, '波及边缘 12');
+  assert.strictEqual(Core.advTntDmg(9), Core.ADV_TNT_DMG_LO, '越界钳制(调用方已按半径过滤)');
 });
