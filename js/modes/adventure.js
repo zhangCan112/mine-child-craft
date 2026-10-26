@@ -100,7 +100,7 @@
 /* ---------- 模式状态账本(常量表与政策纯函数在 adventure-core.js) ---------- */
 const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
   pits: ADV_PITS, cave: ADV_CAVE, nests: ADV_NESTS,
-  player: {hp: 30, maxHp: 30}, quest: {step: 0, counts: {}}, panelOpen: false, furnaceOpen: false,
+  player: {hp: 30, maxHp: 30}, quest: {step: 0, counts: {}}, panelOpen: false,
   chestOpen: false, killCount: 0, swingCd: 0, homeCd: -1e9};
 
 /* ---------- 世界/任务两份存档(D12): mkSaveSlot 语义, SyncDB 槽创建即注册回填 ----------
@@ -269,41 +269,42 @@ const advPanel = ModeKit.mkCraftPanel({
   },
 });
 /* 熔炉装配(T4): 面板开合/取产物/自动放料/逐炉推进/挖炉退料收编共享熔炉 kit
-   (js/furnace-kit.js, 体验馆同款两消费者), 探险的政策全走回调缝——指针配套/
-   儿童满包提示/挖炉余量掉炉位/炉口火焰观感/烧成记账+完成播报; 炉态 Map 引用
-   即 kit 的 Map(F1 持久化照旧, encode/decode 在本文件世界档段) */
+   (js/furnace-kit.js, 体验馆同款两消费者), 探险的政策全走 4 语义事件缝——
+   onPanel 指针配套/onInvTouched 背包分派(儿童满包提示·拾取音·挖炉火焰
+   即时清)/onRefundLeft 余量掉炉位/onMade 烧成记账+完成播报; 开态唯一
+   真值= advFurnace.isOpen()(无镜像旗标); 炉态 Map 引用即 kit 的 Map
+   (F1 持久化照旧, encode/decode 在本文件世界档段) */
 const advFurnace = FurnaceKit.mkFurnaceStation({
   inv: advInv, /* 探险背包: 引用跨 load 稳定(对象供给形态) */
-  onOpen: () => {
-    ADV.furnaceOpen = true; /* 旗标镜像(本模式多处读: 挖/放/菜单守卫) */
-    advFreeMouse(); /* 放鼠标点面板(解锁不弹菜单: onMenu 守卫) */
+  onPanel: (isOpen) => {/* 开合配套: 开=放鼠标点面板(解锁不弹菜单: onMenu 守卫), 收=回锁 */
+    if (isOpen) advFreeMouse();
+    else advRelock();
   },
-  onClose: () => {
-    ADV.furnaceOpen = false;
-    advRelock();
+  onInvTouched: (reason, posKey) => {/* kit 动了背包: 按 reason 分派(同一动作只来一次) */
+    if (reason === 'drop') {/* 挖炉收尾: 炉口火焰即时清(不等下一帧差异增删) + 快捷栏刷新 */
+      advFlameOff(posKey);
+      advSyncHotbar();
+      return;
+    }
+    if (reason === 'collect-full') {/* 满包拒收: 产物/整摞留在炉里(儿童提示) */
+      showToast('🎒 背包满啦，东西先躺在炉里');
+      return;
+    }
+    advSyncHotbar(); /* collect/autofill/manual-put: 快捷栏镜像刷新 */
+    if (reason === 'collect') sfx('pick'); /* 东西入包: 拾取音 */
   },
-  onCollect: () => {/* 取产物成功: 快捷栏刷新 + 拾取音 */
-    advSyncHotbar();
-    sfx('pick');
-  },
-  onCollectFull: () => showToast('🎒 背包满啦，东西先躺在炉里'),
   onRefundLeft: (posKey, left) => {/* 挖炉满包余量: 掉在炉位上方(零损失口径) */
     const [dx, dy, dz] = posKey.split(',').map(Number);
     for (const it of left) Drops.spawn(it.id, it.n, dx + 0.5, dy + 0.5, dz + 0.5);
   },
-  onDrop: (posKey) => {/* 挖炉收尾: 火焰即时清(不等下一帧差异增删) + 快捷栏刷新 */
-    advFlameOff(posKey);
-    advSyncHotbar();
-  },
   onMade: (k, n, made) => {/* T15 烧成件数记账(炉内产出即算, 不等入包) + 完成播报(只对绑定炉, 节流) */
     advTally('smelt_' + n.out.id, made);
-    if (ADV.furnaceOpen && advFurnace.at() === k && advSmeltTtsT <= 0) {
+    if (advFurnace.isOpen() && advFurnace.at() === k && advSmeltTtsT <= 0) {
       advSmeltTtsT = ADV_SMELT_TTS_T;
       const name = (ITEMS[n.out.id] && ITEMS[n.out.id].name) || n.out.id;
       SpeechKit.speak(name + '烧好啦！继续加油！');
     }
   },
-  onInvChange: () => advSyncHotbar(), /* 自动/手动放料动包后: 快捷栏镜像刷新(体验馆同款) */
 });
 const advFurnacePanel = advFurnace.panel; /* 既有名号保留(cleanup 卸载/守门测试触达面) */
 /* 大宝箱面板(引导链 v2): 政策与存档在本文件下方箱子段, 面板只管格子 */
@@ -827,7 +828,7 @@ let advTntTap = null; /* {x, y, z, held} | null */
 const ADV_TNT_TAP_T = 0.25; /* 短按窗口(秒) */
 function advTntTapTick(dt) {
   if (!advTntTap) return;
-  if (ADV.panelOpen || ADV.furnaceOpen) {
+  if (ADV.panelOpen || advFurnace.isOpen()) {
     advTntTap = null; return; /* 面板期取消不点燃 */
   }
   advTntTap.held += dt;
@@ -913,7 +914,7 @@ function advBreakBlock(x, y, z, id, bt) {
    松手态换目标熄火(单击只认起步那块, 不跟准星漂); 到点破坏 —
    桌面按住连挖(advMouseHeld), 触屏单击政策本块完成即停 */
 function advMineTick(dt) {
-  if (!advMine.down || ADV.panelOpen || ADV.furnaceOpen) {
+  if (!advMine.down || ADV.panelOpen || advFurnace.isOpen()) {
     advMineStop();
     return;
   }
@@ -1582,9 +1583,8 @@ const AdventureMode = mkMode({
     setFly(false); /* 探险步行(不沿用建造的飞行; 走意图入口) */
     advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
     ADV.panelOpen = false;
-    ADV.furnaceOpen = false; /* T13 熔炉面板复位; 炉态不在此清——档里有什么恢复什么(F1) */
     ADV.chestOpen = false; /* 引导链 v2: 箱子面板一并复位 */
-    advFurnace.reset(); /* T4: 炉态/绑定/签名复位(kit Map 引用不变); 档里有什么恢复什么(F1) */
+    advFurnace.reset(); /* T4: 炉态/绑定/开态/签名复位(kit Map 引用不变, 开态真值在 kit 不设镜像); 档里有什么恢复什么(F1) */
     advFlamesClear(); /* F2: 炉口火焰一并复位(上一场的观感不渗进来) */
     for (const [k, s] of advLoad.furnaces) advFurnaces.set(k, s); /* F1: 每炉独立炉态重进照旧(decode 已过滤非法) */
     advFuses.length = 0;
@@ -1662,7 +1662,6 @@ const AdventureMode = mkMode({
     advArrows.clear(); /* 箭矢网格一并摘除 */
     advFlamesClear(); /* F2: 炉口火焰 Sprite 一并摘除(炉态随档保留, 观感重建) */
     ADV.panelOpen = false;
-    ADV.furnaceOpen = false;
     ADV.chestOpen = false;
     advPanel.remove(); /* 卸载面板 DOM */
     advFurnacePanel.remove(); /* T13: 熔炉面板一并卸载 */
@@ -1728,7 +1727,7 @@ const AdventureMode = mkMode({
     精确命中故在最前)/箱子走近点击开面板(引导链 v2, 站点缓存外故按点击块直算距离), 准星锥内有
     活怪→挥击(T14), 否则吃/挖掘蓄力(T12); 右键放置; 床=点击睡觉(昼夜 D6, 两条件与
     转场在 advTrySleep) */
-    if (ADV.panelOpen || ADV.furnaceOpen || ADV.chestOpen || advSleep.on) return; /* 面板/睡觉黑屏遮罩兜底: 不挖不放不打 */
+    if (ADV.panelOpen || advFurnace.isOpen() || ADV.chestOpen || advSleep.on) return; /* 面板/睡觉黑屏遮罩兜底: 不挖不放不打 */
     if (button === 0) {
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
       if (lookId === B_TNT) {/* TNT(D3): 短按=点燃(松手<0.25s 在 advTntTapTick 判定),
@@ -1762,7 +1761,7 @@ const AdventureMode = mkMode({
         advChestClose();
         return;
       }
-      if (ADV.furnaceOpen) {/* 熔炉开着先收熔炉(两块 body 级遮罩不叠层) */
+      if (advFurnace.isOpen()) {/* 熔炉开着先收熔炉(两块 body 级遮罩不叠层) */
         advFurnaceClose();
         return;
       }
@@ -1778,7 +1777,7 @@ const AdventureMode = mkMode({
   onMenu() {/* 解锁回调(Esc/✕开面板期的 exitPointerLock 都会到这): 面板开着 =
       放鼠标不是回菜单 — 收掉 onLockChanged 弹起的 overlay 即可(修: 曾在此
       强收面板+翻出发页, 表现为「关背包弹出发菜单」); 面板全关时才是真回菜单 */
-    if (ADV.panelOpen || ADV.furnaceOpen || ADV.chestOpen) {
+    if (ADV.panelOpen || advFurnace.isOpen() || ADV.chestOpen) {
       overlay.style.display = 'none'; return;
     }
     showPage('adventure');

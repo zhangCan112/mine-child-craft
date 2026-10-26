@@ -1600,11 +1600,11 @@ test('T13 熔炉行为链: 走近点击开面板 → 自动放料(扣包) → 2.
   pos.x = spot.x + 20; pos.z = spot.z + 20;
   calls.length = 0;
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(A.ADV.furnaceOpen, false, '离炉 20 格: 点击不开面板(4 格门槛)');
+  assert.strictEqual(A.advGetFurnaceAt(), null, '离炉 20 格: 点击不开面板(4 格门槛)');
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('走近') >= 0), '给走近提示');
   pos.x = spot.x + 0.5; pos.z = spot.z + 2.5; /* 距炉 2 格 */
   AdventureMode.onMouse(0, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(A.ADV.furnaceOpen, true, '走近 4 格内点击熔炉 → 打开烧炼面板');
+  assert.notStrictEqual(A.advGetFurnaceAt(), null, '走近 4 格内点击熔炉 → 打开烧炼面板(开态真值= kit 绑定)');
   const fk = api.blockKey(spot.x, 25, spot.z);
   assert.strictEqual(A.advGetFurnaceAt(), fk, '面板绑定这台炉(F1 拍板①)');
   /* 自动放料: 面板只报意图, 模式层执行 take — 矿石全入炉 + 最省凑料 1 块煤(热值 8 ≥ 5 件) */
@@ -1623,7 +1623,7 @@ test('T13 熔炉行为链: 走近点击开面板 → 自动放料(扣包) → 2.
       '完成播报(产物名入句)');
   A.advFurnaceClose();
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 5, '关面板取产入包');
-  assert.strictEqual(A.ADV.furnaceOpen, false, '面板收起');
+  assert.strictEqual(A.advGetFurnaceAt(), null, '面板收起');
   assert.strictEqual(A.advFurnaceState(fk).out, null, '产物槽清空');
 });
 
@@ -1751,7 +1751,7 @@ test('F1 挖炉退料: 挖掉熔炉 → 三笔全额入包 + 炉状态删除 + �
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 3, '待烧料全额退包');
   assert.strictEqual(api.count(A.advGetInv(), 'coal'), 2, '燃料退包(炉内 1 + 背包余 1)');
   assert.strictEqual(A.advFurnaceState(fk), null, '炉状态删除');
-  assert.strictEqual(A.ADV.furnaceOpen, false, '绑定面板连带关闭');
+  assert.strictEqual(A.advGetFurnaceAt(), null, '绑定面板连带关闭');
 });
 
 test('F2 炉口火焰差异增删: 燃烧=heat>0且有料在列 · 无料/熄灭出列 · 挖炉即清 · 退出全清', () => {

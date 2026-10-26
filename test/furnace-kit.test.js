@@ -4,7 +4,8 @@
    票据 T4(showroom-tickets): 探险/体验馆两模式熔炉装配段的共享 kit —
    只测 kit 外显行为(接口即测试面), 不重测纯函数(烧炼单步/退炉在
    craft-core.test 已有), 只测编排:
-   ① 开合生命周期: open 绑炉取产物亮面板, panel.close() ✕ 统一出口收状态;
+   ① 开合生命周期: open 绑炉取产物亮面板, panel.close() ✕ 统一出口收状态
+     (开合事件走 onPanel(open));
    ② 产物槽桥接(out→output): 核心炉态产物字段是 out, 面板 setSlots 读
      output(mode-kit 契约) — kit 喂显前桥接, 产物槽有锭必显示
      (探险侧历史错位随抽取修复的回归锁);
@@ -12,13 +13,15 @@
      燃料补热值缺口);
    ④ 烧炼推进: tick 逐炉 smeltStep 写回, 烧成件数经 onMade 回调(记账/
      TTS/观感归消费方);
-   ⑤ 满包政策: 取产物满包拒收留炉(onCollectFull), 腾位后可收;
+   ⑤ 满包政策: 取产物满包拒收留炉(onInvTouched 'collect-full'), 腾位后可收;
    ⑥ 挖炉退料 drop: 三笔入包 + 余量经 onRefundLeft + 删炉 + 绑定面板连带关;
    ⑦ refundAll(退出收场): 三笔尽力入包、余量静默丢弃(dev 口径)、炉态清空;
    ⑧ 燃料余量比 fuelR 上收: 无燃料按最高热值锚估、没在烧一律 0;
    ⑨ inv 两种供给形态: 背包对象(探险, 引用稳定) 与取数器(体验馆, 进场换
      新实例) 等价;
-   ⑩ reset/dispose 生命周期复位。 */
+   ⑩ reset/dispose 生命周期复位;
+   ⑪ onInvTouched reason 全集: 逐触发点→reason 语义锁(collect/collect-full/
+     autofill/manual-put/drop, 同一动作只发一次; refundAll 静默)——防缝漂移。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -122,14 +125,10 @@ function mkStation(over) {
   const inv = mkInventory();
   const st = FurnaceKit.mkFurnaceStation(Object.assign({
     inv,
-    onOpen: (k) => log.push(['open', k]),
-    onClose: () => log.push(['close']),
-    onCollect: () => log.push(['collect']),
-    onCollectFull: () => log.push(['full']),
+    onPanel: (isOpen) => log.push([isOpen ? 'open' : 'close']),
+    onInvTouched: (reason, posKey) => log.push(['inv', reason, posKey]),
     onRefundLeft: (k, left) => log.push(['left', k, left]),
-    onDrop: (k) => log.push(['drop', k]),
     onMade: (k, n, made) => log.push(['made', k, made]),
-    onInvChange: () => log.push(['invchange']),
   }, over));
   return {st, inv, log};
 }
@@ -152,11 +151,11 @@ test('熔炉装配: 开合生命周期 — open 绑炉取产物亮面板, ✕ �
   st.open(KEY);
   assert.ok(st.isOpen(), '开后开');
   assert.strictEqual(st.at(), KEY, '面板绑定这台炉');
-  assert.deepStrictEqual(log[0], ['open', KEY], 'onOpen 恰一次');
+  assert.deepStrictEqual(log[0], ['open'], 'onPanel(true) 恰一次');
   st.panel.close(); /* ✕/Esc 统一出口: hide + onClose → kit 收状态 */
   assert.ok(!st.isOpen(), '✕ 后关');
   assert.strictEqual(st.at(), null, '解绑(多炉口径)');
-  assert.deepStrictEqual(log.filter((e) => e[0] === 'close').length, 1, 'onClose 恰一次');
+  assert.deepStrictEqual(log.filter((e) => e[0] === 'close').length, 1, 'onPanel(false) 恰一次');
 });
 
 test('熔炉装配: 产物槽桥接(out→output) — 满包留炉的产物在面板上有显示(T4 回归锁)', () => {
@@ -181,7 +180,7 @@ test('熔炉装配: 自动放料 — autoPlan 意图经背包核心扣加(首现
   assert.deepStrictEqual(f.fuel, {id: 'coal', n: 1}, '燃料 1 块煤(缺口 5/热值 8 → 1 块)');
   assert.strictEqual(count(inv, 'iron_ore'), 0, '料已扣');
   assert.strictEqual(count(inv, 'coal'), 0, '燃料已扣');
-  assert.ok(log.some((e) => e[0] === 'invchange'), '库存变动通知(快捷栏刷新缝)');
+  assert.ok(log.some((e) => e[0] === 'inv' && e[1] === 'autofill'), '库存变动通知(onInvTouched autofill, 快捷栏刷新缝)');
 });
 
 test('熔炉装配: autoFill 显式 posKey — 未开面板也能装炉(体验馆单炉固定 key 形态)', () => {
@@ -204,18 +203,18 @@ test('熔炉装配: tick 逐炉推进 — 烧成经 onMade 回调(件数增量),
   assert.deepStrictEqual(st.state(KEY).out, {id: 'iron_ingot', n: 2}, '第二件烧成');
 });
 
-test('熔炉装配: 满包政策 — 取产物拒收留炉(onCollectFull), 腾位后关面板即收', () => {
+test('熔炉装配: 满包政策 — 取产物拒收留炉(collect-full), 腾位后关面板即收', () => {
   const {st, inv, log} = mkStation();
   fillInv(inv);
   setState(st, {out: {id: 'iron_ingot', n: 2}});
   st.open(KEY); /* 开面板先取产物: 满包拒收 */
   assert.deepStrictEqual(st.state(KEY).out, {id: 'iron_ingot', n: 2}, '产物整撮留炉');
-  assert.ok(log.some((e) => e[0] === 'full'), '满包回调(儿童提示归消费方)');
+  assert.ok(log.some((e) => e[0] === 'inv' && e[1] === 'collect-full'), '满包回调(儿童提示归消费方)');
   inv.slots[26] = null; /* 腾一格 */
   st.close();
   assert.strictEqual(st.state(KEY).out, null, '关面板顺带取走产物');
   assert.strictEqual(count(inv, 'iron_ingot'), 2, '产物入包');
-  assert.ok(log.some((e) => e[0] === 'collect'), '成功收取回调');
+  assert.ok(log.some((e) => e[0] === 'inv' && e[1] === 'collect'), '成功收取回调');
 });
 
 test('熔炉装配: 挖炉退料 drop — 三笔入包·余量回调·删炉·绑定面板连带关', () => {
@@ -229,7 +228,8 @@ test('熔炉装配: 挖炉退料 drop — 三笔入包·余量回调·删炉·�
   assert.strictEqual(count(inv, 'coal'), 1, '燃料退包');
   assert.strictEqual(count(inv, 'iron_ingot'), 1, '产物退包');
   assert.ok(!st.isOpen(), '绑定面板连带关闭');
-  assert.ok(log.some((e) => e[0] === 'drop'), 'onDrop(观感/快捷栏收口缝)');
+  assert.ok(log.some((e) => e[0] === 'inv' && e[1] === 'drop' && e[2] === KEY),
+      'onInvTouched drop 附带 posKey(炉位观感/快捷栏收口缝)');
 });
 
 test('熔炉装配: 挖炉余量 — 满包装不下的走 onRefundLeft(探险掉炉位口径)', () => {
@@ -326,7 +326,8 @@ test('熔炉装配: 手动放料 — 背包槽整摞路由(可烧→料槽·燃�
   assert.strictEqual(inv.slots[9], null, '料槽源格已空');
   assert.strictEqual(inv.slots[10], null, '燃料源格已空');
   assert.deepStrictEqual(inv.slots[11], {id: 'apple', n: 3}, '不可入炉物原样放回(苹果: 不可烧非燃料)');
-  assert.strictEqual(log.filter((e) => e[0] === 'invchange').length, 2, '恰两次成功放料通知(放回不动包不误报)');
+  assert.strictEqual(log.filter((e) => e[0] === 'inv' && e[1] === 'manual-put').length, 2,
+      '恰两次成功放料通知(放回不动包不误报)');
 });
 
 test('熔炉装配: 手动放料异种对调 — 炉内整摞回源槽(无损不走 add), 同种并堆', () => {
@@ -343,19 +344,19 @@ test('熔炉装配: 手动放料异种对调 — 炉内整摞回源槽(无损不
   assert.strictEqual(inv.slots[9], null, '并堆后源格空');
 });
 
-test('熔炉装配: 炉槽取回 — 料/燃料整摞回包, 满包整摞留炉走 onCollectFull', () => {
+test('熔炉装配: 炉槽取回 — 料/燃料整摞回包, 满包整摞留炉发 collect-full', () => {
   const {st, inv, log} = mkStation();
   fillInv(inv); /* 满包: 取回必拒收 */
   setState(st, {input: {id: 'iron_ore', n: 2}});
   st.open(KEY);
   st.slotClick('input');
   assert.deepStrictEqual(st.state(KEY).input, {id: 'iron_ore', n: 2}, '满包整摞留炉(拒收口径)');
-  assert.ok(log.some((e) => e[0] === 'full'), '满包回调(儿童提示与取产物同缝)');
+  assert.ok(log.some((e) => e[0] === 'inv' && e[1] === 'collect-full'), '满包回调(儿童提示与取产物同 reason)');
   inv.slots[26] = null; /* 腾一格 */
   st.slotClick('input');
   assert.strictEqual(st.state(KEY).input, null, '取回后料槽空');
   assert.strictEqual(count(inv, 'iron_ore'), 2, '整摞回包');
-  assert.ok(log.some((e) => e[0] === 'collect'), '成功回调(快捷栏刷新+音效)');
+  assert.ok(log.some((e) => e[0] === 'inv' && e[1] === 'collect'), '成功回调(快捷栏刷新+音效)');
 });
 
 test('熔炉装配: 产物槽点击即收 — 面板开着烧成的新产物点一下入包(自动收的手动补发)', () => {
@@ -385,4 +386,44 @@ test('熔炉装配: 面板背包格点击全链 — onPut/onSlot 意图出口接
   assert.strictEqual(st.state(KEY).fuel, null, '点击燃料槽整摞取回');
   assert.strictEqual(count(inv, 'coal'), 1, '煤回包');
   assert.ok(st.isOpen(), '取回不开合面板(开态不变)');
+});
+
+/* ---------- onInvTouched reason 全集(语义锁, 防缝漂移) ---------- */
+
+test('熔炉装配: onInvTouched reason 全集 — 逐触发点发什么 reason, 同一动作只发一次', () => {
+  const {st, inv, log} = mkStation();
+  const invLog = () => log.filter((e) => e[0] === 'inv');
+  /* collect-full: 开面板收产物满包 + 炉槽取回满包(两个触发点同 reason 同政策) */
+  fillInv(inv);
+  setState(st, {out: {id: 'iron_ingot', n: 2}, input: {id: 'iron_ore', n: 2}});
+  st.open(KEY);
+  st.slotClick('input');
+  assert.deepStrictEqual(invLog(), [['inv', 'collect-full', undefined], ['inv', 'collect-full', undefined]],
+      '开面板收产物满包 + 料槽取回满包 → 各一次 collect-full');
+  /* collect: 腾位后关面板顺带收产物成功 */
+  inv.slots[26] = null;
+  st.close();
+  assert.deepStrictEqual(invLog().slice(2), [['inv', 'collect', undefined]], '关面板收产物成功 → collect');
+  /* manual-put: 整摞入炉恰一次; 不可入炉原样放回不动包不发(显式 posKey=体验馆口径) */
+  inv.slots[9] = {id: 'iron_ore', n: 1};
+  inv.slots[10] = {id: 'apple', n: 1}; /* 既不可烧也非燃料 */
+  st.manualPut(9, KEY); /* 炉内还有 2 件: 同种并堆 */
+  st.manualPut(10, KEY);
+  assert.deepStrictEqual(invLog().slice(3), [['inv', 'manual-put', undefined]],
+      '手动放料动包 → manual-put 恰一次(放回不动包不发)');
+  /* autofill: 料槽已占 → 只走燃料分支动包 */
+  inv.slots[9] = {id: 'coal', n: 1};
+  st.autoFill({load: [], fuel: [{id: 'coal', n: 1}]}, KEY);
+  assert.deepStrictEqual(invLog().slice(4), [['inv', 'autofill', undefined]], '自动放料动包 → autofill');
+  /* collect: 炉槽取回成功恰一次(旧缝 onCollect+onInvChange 双发在此收口) */
+  st.slotClick('fuel', KEY);
+  assert.deepStrictEqual(invLog().slice(5), [['inv', 'collect', undefined]], '燃料整摞取回成功 → collect 恰一次');
+  /* drop: 挖炉退料已入包+炉已删, 唯一附带 posKey 的 reason */
+  inv.slots[8] = null; /* 腾位: 退料全额入包, 不触发 onRefundLeft */
+  st.drop(KEY);
+  assert.deepStrictEqual(invLog().slice(6), [['inv', 'drop', KEY]], '挖炉退料 → drop 附带 posKey(炉位观感政策用)');
+  /* refundAll: 退出收场动包但静默(dev 口径, 不发任何事件) */
+  setState(st, {input: {id: 'iron_ore', n: 1}});
+  st.refundAll();
+  assert.deepStrictEqual(invLog().slice(7), [], 'refundAll 动包不发事件(退出收场静默)');
 });

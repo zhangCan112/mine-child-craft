@@ -15,24 +15,41 @@
    interface: FurnaceKit.mkFurnaceStation(opts) → station
      opts.inv: 背包对象(引用稳定, 探险形态) 或 () => 背包(进场换新实例,
        体验馆形态) — 内部一律经取数器读当前包
-     opts 回调缝(全部可选, 消费方政策): onOpen(posKey) 开面板后(指针
-       解锁类) · onClose() 收面板后(指针回锁/开态旗标同步) · onCollect()
-       取产物成功(快捷栏刷新+音效) · onCollectFull() 满包拒收(儿童提示)
-       · onRefundLeft(posKey, leftover) 挖炉余量(探险掉炉位; 退出收场
-       refundAll 不走此缝=dev 静默口径) · onDrop(posKey) 挖炉收尾(火焰
-       观感/快捷栏) · onMade(posKey, 新炉态, 件数增量) 烧成记账(任务
-       计数/TTS/观感归消费方) · onInvChange() 自动放料动包后(快捷栏刷新)
-     station: map(炉态 Map<posKey,{input,fuel,out,heat,prog}>, 消费方
-       直写=测线口径) · panel(mkFurnacePanel 实例, ✕/Esc 统一出口回
-       station.close) · open(posKey) · close() · isOpen() · at() 绑定炉
-       · state(posKey) 只读 · ensure(posKey) 取/建 · autoFill(plan?, posKey?)
+     opts 回调缝(全部可选, 消费方政策, 4 个语义事件; 同一动作/同一
+       reason 至多发一次——缝按语义分事件, 不随内部调用点重复发):
+       onPanel(open) 面板开合后(open=true 开·false 收; 指针配套等开合
+         政策收口在此——开态唯一真值是 station.isOpen(), 消费方勿自抄
+         镜像旗标) ·
+       onInvTouched(reason, posKey?) kit 动过背包后, 逐 reason 语义
+         (触发点→reason 全集由契约测试锁死, 改前先改测试):
+         'collect' 东西成功入包(开/收面板顺带收产物·产物槽点击即收·
+           料/燃料整摞取回——快捷栏刷新+拾取音类)
+         'collect-full' 满包拒收(产物整撮/料燃料整摞留在炉里——儿童
+           提示类)
+         'autofill' 自动放料动了包
+         'manual-put' 手动放料动了包(含异种对调回写源槽; 不可入炉
+           原样放回不动包, 不发)
+         'drop' 挖炉退料三笔已入包+炉已删(唯一附带 posKey 的 reason
+           ——炉位收尾观感〔火焰即时清〕+快捷栏刷新归消费方) ·
+       onRefundLeft(posKey, leftover) 挖炉满包余量(掉落物政策, 与背包
+         政策分缝独立; 退出收场 refundAll 静默——不走此缝也不发
+         onInvTouched=dev 口径) ·
+       onMade(posKey, 新炉态, 件数增量) 烧成记账(任务计数/TTS/观感
+         归消费方)
+     station: map(炉态 Map<posKey,{input,fuel,out,heat,prog}>, 裸形状
+       直写=持久化(消费方 encode/decode)+测线既定口径; 运行时读炉态
+       唯一推荐读法是 state() 只读视图) · panel(mkFurnacePanel 实例,
+       ✕/Esc 统一出口回 station.close) · open(posKey) · close() ·
+       isOpen() · at() 绑定炉 · state(posKey) 只读查询(返回炉态活引用,
+       运行时改炉态请走 ensure/autoFill 等意图入口——经引用直写属测线
+       口径) · ensure(posKey) 取/建 · autoFill(plan?, posKey?)
        面板「自动放入」意图的执行权(plan 缺省自算; posKey 缺省=绑定炉,
        单炉固定 key 形态〔体验馆〕可无面板直调) · manualPut(idx, posKey?)
        面板背包格「手动放入」意图的执行权(槽整摞路由: 可烧物入料槽·燃料
        入燃料槽·两性物如原木优先当料烧; 空槽整摞入炉·同种并堆·异种整摞
        对调(炉内那摞回源槽, 无损不走 add)·不可入炉原样放回) · slotClick
        (name, posKey?) 炉槽点击意图的执行权(料/燃料整摞取回包, 满包整摞
-       留炉走 onCollectFull; 'out'=立即收取产物) · tick(dt) 逐炉推进+
+       留炉发 'collect-full'; 'out'=立即收取产物) · tick(dt) 逐炉推进+
        面板开着喂显(三槽签名节流+✕ 对账) · drop(posKey) 挖炉退料三笔入包
        · refundAll() 退出收场(尽力入包·余量静默丢弃·炉态清空) · reset()
        重进场复位 · dispose() 卸面板复位
@@ -108,11 +125,11 @@ function mkFurnaceStation(opts) {
     if (!f || !f.out) return;
     const left = add(invOf(), f.out.id, f.out.n);
     if (left >= f.out.n) {
-      if (o.onCollectFull) o.onCollectFull();
+      if (o.onInvTouched) o.onInvTouched('collect-full');
       return;
     }
     f.out = left > 0 ? {id: f.out.id, n: left} : null;
-    if (o.onCollect) o.onCollect();
+    if (o.onInvTouched) o.onInvTouched('collect');
   }
   function openPanel(posKey) {/* 走近熔炉点击打开: 绑定这台炉, 先取走产物(即时回报)再回显 */
     at = posKey;
@@ -120,15 +137,15 @@ function mkFurnaceStation(opts) {
     collectOut();
     panel.show();
     paint();
-    if (o.onOpen) o.onOpen(posKey);
+    if (o.onPanel) o.onPanel(true);
   }
-  function closePanel() {/* 收面板(✕/Esc/onClose 共用): 顺带取走产物, 烧炼照跑(进度保留) */
+  function closePanel() {/* 收面板(✕/Esc 面板钩与消费方直调共用): 顺带取走产物, 烧炼照跑(进度保留) */
     if (!open) return;
     open = false;
     panel.hide();
     collectOut();
     at = null; /* 解绑(多炉口径: 下次点击重新绑定) */
-    if (o.onClose) o.onClose();
+    if (o.onPanel) o.onPanel(false);
   }
   /* 自动放料(面板 📥 意图出口): 先取产物腾槽 → 入料(单槽单矿种, 只收首现
      矿种全量) → 热值不足以覆盖剩余件数时补最省燃料(炉内已有则同种加码)。
@@ -156,7 +173,7 @@ function mkFurnaceStation(opts) {
       }
     }
     paint();
-    if (o.onInvChange) o.onInvChange();
+    if (o.onInvTouched) o.onInvTouched('autofill');
   }
   /* 手动放料(面板背包格意图出口, 2026-10-25 交互优化): 点击背包槽整摞路由
      ——可烧物入料槽(两性物如原木优先当料烧, 与 autoPlan「矿石全放」同判据
@@ -186,11 +203,11 @@ function mkFurnaceStation(opts) {
       f[slot] = pile;
     }
     paint();
-    if (o.onInvChange) o.onInvChange();
+    if (o.onInvTouched) o.onInvTouched('manual-put');
   }
-  /* 炉槽点击意图(面板三槽): 料/燃料=整摞取回背包(满包整摞留炉走 onCollectFull
-     儿童提示——与取产物同缝); 'out'=立即收取产物(开/关面板自动收的手动补发,
-     烧炼中面板开着也能即点即得) */
+  /* 炉槽点击意图(面板三槽): 料/燃料=整摞取回背包(满包整摞留炉发
+     'collect-full' 儿童提示——与取产物同 reason 同政策); 'out'=立即收取
+     产物(开/关面板自动收的手动补发, 烧炼中面板开着也能即点即得) */
   function slotClick(name, posKey) {
     if (name === 'out') {
       collectOut();
@@ -205,16 +222,16 @@ function mkFurnaceStation(opts) {
     const st0 = f[name];
     const left = add(invOf(), st0.id, st0.n);
     if (left >= st0.n) {
-      if (o.onCollectFull) o.onCollectFull(); /* 满包拒收: 整摞留炉 */
+      if (o.onInvTouched) o.onInvTouched('collect-full'); /* 满包拒收: 整摞留炉 */
       return;
     }
     f[name] = left > 0 ? {id: st0.id, n: left} : null;
-    if (o.onCollect) o.onCollect();
+    if (o.onInvTouched) o.onInvTouched('collect'); /* 取回成功: 恰一次(旧缝 onCollect+onInvChange 双发已收口) */
     paint();
-    if (o.onInvChange) o.onInvChange();
   }
   /* 挖炉/TNT 掀炉退料: 炉内三笔全额入包, 满包余量经 onRefundLeft(消费方决定
-     落地/丢弃); 炉状态删除; 面板正绑定这台炉则连带关闭; onDrop 收尾(观感/栏) */
+     落地/丢弃); 炉状态删除; 面板正绑定这台炉则连带关闭; onInvTouched('drop',
+     posKey) 收尾(炉位观感/快捷栏归消费方) */
   function drop(posKey) {
     const f = furnaces.get(posKey);
     if (!f) return;
@@ -222,7 +239,7 @@ function mkFurnaceStation(opts) {
     if (left.length && o.onRefundLeft) o.onRefundLeft(posKey, left);
     furnaces.delete(posKey);
     if (at === posKey && open) closePanel();
-    if (o.onDrop) o.onDrop(posKey);
+    if (o.onInvTouched) o.onInvTouched('drop', posKey);
   }
   /* 烧炼节律(update 常开, 面板只是回显——烧炼中可关面板走人): 多炉逐炉推进
      (纯函数返新对象写回), 烧成件数经 onMade(记账/TTS 归消费方); 面板开着喂
@@ -248,7 +265,7 @@ function mkFurnaceStation(opts) {
     if (panel.root.style.display === 'none') closePanel(); /* ✕ 对账 */
   }
   /* 退出收场(体验馆口径): 逐炉三笔尽力入包, 满包余量静默丢弃(不走 onRefundLeft
-     ——掉落物会在世界清场同拍蒸发, 白造必蒸发的实体); 炉态清空 */
+     也不发 onInvTouched——掉落物会在世界清场同拍蒸发, 白造必蒸发的实体); 炉态清空 */
   function refundAll() {
     for (const f of furnaces.values()) furnaceRefund(invOf(), f);
     furnaces.clear();
