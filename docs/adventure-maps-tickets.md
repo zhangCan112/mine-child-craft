@@ -4,7 +4,16 @@
 > · 计划：[adventure-maps-plan.md](adventure-maps-plan.md)。
 > 本文件是**本地任务图**（issue tracker 未配置，仓库先例 item-crafting-tickets.md 同款）：
 > 状态随票据推进更新；implement-spec 流程以本图为准——frontier = 无未完成依赖的票。
-> 集成分支：`adventure-maps`。每票 = 独立 worktree + 独立分支 + tdd 流程。
+> 集成分支：`adventure-maps`（基于 master 8b98676）。
+>
+> **修订记录（2026-10-27，变基吸收 master 8b98676「下界并入探险」）**：探险模式已自带
+> 两界机制——`advDim('overworld'|'nether')` + `advSetDim` 切界（换桶→loadScene→applySky→
+> 清怪清箭→站点重扫→光束重锚）+ journal 两界分桶（`advSceneEdits` + 档键 `netherEdits` +
+> 炉键 `n|` 前缀）+ `advInPortal` O(1) 门判定（B_PORTAL 脚/头格）+ `advPortalExit` 出口
+> 计算 + 死亡统一回家（D11）+ 玩家放置门物品 `nether_portal`（见 docs/nether-merge-design.md）。
+> 本特性据此改道：**T6 = 把两界机制泛化为 N 图机制**（nether 保持特殊维度，不进 ADV_MAPS
+> 行；advDim 之上的 advMap 层管四张主世界图）；T7 的门判定/出口/冷却复用既有件，只新增
+> 站桩与遮罩。nether 门传送保持「即时 + 冷却」已交付口径，不套站桩。
 
 ## 任务图总览
 
@@ -77,7 +86,9 @@ world-rings 先例）。
   雪屋圆顶+地下宝箱；女巫小屋高脚木屋+宝箱——宝箱全部用既有 B_CHEST 接大宝箱阶梯）+
   专属资源（仙人掌/枯灌木/雪/冰/兰花）。
 - 政策纯函数：门解锁判定（任务档 counts 键）· 站桩步进（2s 可反悔，纯数据进出）· 落点
-  计算（回程门内侧、面朝外）· 死亡回家计划（远征图死亡 → 满血+home 门口）。
+  计算（回程门内侧、面朝外——复用 adventure-core 的 `advPortalExit` 口径）· 死亡回家
+  计划（远征图死亡 → 满血+home 门口——nether 合并 D11 已统一回家，本票只补地图行化）。
+  门几何常量复用 adventure-core 的 `ADV_PORTAL`（6×7/内口 4×5/冷却），不另定义。
 - index.html 加 script 行（adventure-core 之后、modes/adventure.js 之前）。
 - 新建 test/adventure-maps-core.test.js（S1 缝，镜像 adventure-core.test.js 的 vm 惯例）。
 
@@ -100,29 +111,38 @@ world-rings 先例）。
 
 **验收**：单测全绿；湖心/坑底/洞室等关键坐标断言过；`npm test` 全绿。
 
-## T6 存档分桶 + 壳切图装配（依赖 T4+T5）
+## T6 存档分桶泛化 + 壳切图装配（依赖 T4+T5）
 
-**内容**：modes/adventure.js：
-- advWorldSlot 五键扩展：edits/furnaces/livestock 按 mapId 分桶 + map 当前图键；老档 decode
-  补 home 桶（零迁移）；pos/hp 随当前图；dayTime 全局单钟。
-- 切图函数 advSwitchMap(mapId)：清场契约清单（Mobs/Drops/箭矢/flyMode/站点重扫/树苗重挂/
-  节拍器复位——mode-switch 收口契约的图内版）+ loadScene(地图行建场+分桶账本重放) +
-  applyMapPalette（天/雾/水色，nether applySky 同款缝）+ spawn 落点 + HUD 图名行。
-- 壳对 ADV_NESTS/ADV_NIGHT 的消费改走当前地图行（T2 通道）。
+**内容**：modes/adventure.js（在既有两界机制上泛化，**不推倒**）：
+- 状态层：`advDim` 之上引入 `advMap`（home/desert/snow/swamp，nether 期间保持最后主世界
+  图）；`advSceneEdits` 从两桶泛化为按图分桶（含 nether 桶——旧档 `netherEdits` 迁入，
+  decode 兼容）。切图/切界统一经泛化后的 `advSetMap`/`advSetDim`（换桶→loadScene(地图行
+  建场+当前桶重放)→applyMapPalette→清怪清箭→站点重扫→节拍器复位→光束重锚）。
+- 档形：payload 的 edits 按图分桶 + `map` 当前图键（老档裸 edits/两界档自动迁移）；pos
+  仅在主世界图随当前图存（nether 沿用 D9 pos=null；退出时在 nether → map 保持最后图、
+  pos=null → 该图回程门出生）；dayTime 全局单钟（nether 暂停口径 D10 不变）。
+- applyMapPalette：天/雾/水色基准从 ADV_MAPS 行取（NETHER_SKY/OVERWORLD_SKY 迁壳后的
+  applySky 同款缝扩展）。
+- 壳对 ADV_NESTS/ADV_NIGHT 的消费改走当前地图行（T2 通道）；巢穴/牲畜 seeding 重调函数
+  复用（nether 合并既有件）。
+- HUD 图名行随地图行。
 
-**验收**：壳测试扩展——分桶 encode/decode 往返一致 · 老档迁移 · **切走再切回世界逐字节
-一致**（分桶账本互锁红线）· 重进幂等；`npm test` 全绿。
+**验收**：壳测试扩展——分桶 encode/decode 往返一致 · 老档迁移（裸 edits 档与 netherEdits
+档两代）· **切走再切回世界逐字节一致**（分桶账本互锁红线）· 重进幂等；既有
+test/adventure-nether.test.js 全绿（nether 行为零回归）；`npm test` 全绿。
 
 ## T7 传送门阵 + 站桩 + 遮罩（依赖 T6）
 
 **内容**：modes/adventure.js + 必要的 css：
-- home 门阵建场（三扇 6×7 黑曜石门，nether buildPortalFrame 口径复用/移植）；目标图回程
-  门常驻。
-- 站桩状态机壳装配（消费 T4 核心步进）：portalAt 坐标区间触发 + 2s 站桩 + 可反悔 + 0.8s
-  冷却。
+- home 门阵建场：三扇 6×7 门经 `advPortalFrame(setBlockRaw 基座版)`（T5 广场位），门框/
+  门面走 nether 合并的「声明式不可破坏」口径；**门→目标图**的绑定 = 门阵固定坐标表
+  （ADV_MAPS 各行 gatePos）；玩家放置的 nether 门（非门阵坐标）→ nether，即门面格落在
+  门阵包围盒内查表、否则 nether（保持「任何下界的门回最后进入的主世界门旁」D6 语义）。
+- 站桩状态机壳装配（消费 T4 核心步进，只对**地图门**生效；nether 门保持即时+0.8s 冷却）：
+  门面内 2s 站桩可反悔 + 冷却复用 ADV_PORTAL.cd。
 - 遮罩观感：CSS 渐晕（紫白，忌纯黑）400ms 双段 + audio-registry 两段音效（synth 回退）+
   TTS 到达播报。
-- 切图全链：站满→遮罩满→advSwitchMap→spawn 回程门内→遮罩收。
+- 切图全链：站满→遮罩满→advSetMap(目标图)→spawn 回程门内（advPortalExit 口径）→遮罩收。
 
 **验收**：boot 全链过；audio-registry sfx 字面量守门绿；`npm test` + `npm run lint` 全绿。
 手玩项（站桩反悔/≤5s/无黑帧）留 T10 清单。
