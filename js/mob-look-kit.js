@@ -274,22 +274,31 @@ const MobLookKit = (() => {
 
   /* ---------- 几何(THREE 惰性): 逐立方体盒 + as-seen UV → 合并 BufferGeometry ---------- */
   function asSeen(x, y, z, nx, ny, nz, ex, ey, ez, rects, mirror) {
+    /* 平面盒(w/h/d=0 的装饰件)退化面分母为 0 → NaN; 换 1 保有限值
+       (退化面零面积不栅格化, 取值无观感, 但 NaN 会污染顶点属性) */
+    const dx = 2 * ex || 1; const dy = 2 * ey || 1; const dz = 2 * ez || 1;
     let r; let u; let v;
     if (nz > 0.5 || nz < -0.5) {
       const front = (mirror ? nz > 0.5 : nz < -0.5); /* 镜像后 +Z 面=官方北面(脸) */
       r = front ? rects.front : rects.back;
-      u = front ? (x + ex) / (2 * ex) : (ex - x) / (2 * ex);
-      v = (ey - y) / (2 * ey);
+      u = front ? (x + ex) / dx : (ex - x) / dx;
+      v = (ey - y) / dy;
     } else if (nx > 0.5 || nx < -0.5) {
       r = nx > 0.5 ? rects.right : rects.left; /* +X 面=官方 +X 区(研究笔记 §2 的官方坐标) */
-      u = nx > 0.5 ? (ez - z) / (2 * ez) : (z + ez) / (2 * ez);
-      v = (ey - y) / (2 * ey);
+      u = nx > 0.5 ? (ez - z) / dz : (z + ez) / dz;
+      v = (ey - y) / dy;
     } else {
       r = ny > 0.5 ? rects.top : rects.bottom;
-      u = ny > 0.5 ? (x + ex) / (2 * ex) : (ex - x) / (2 * ex);
-      v = mirror ? (ez - z) / (2 * ez) : (z + ez) / (2 * ez); /* 区顶边=官方北缘(镜像后=+Z 缘) */
+      u = ny > 0.5 ? (x + ex) / dx : (ex - x) / dx;
+      v = mirror ? (ez - z) / dz : (z + ez) / dz; /* 区顶边=官方北缘(镜像后=+Z 缘) */
     }
-    return [r[0] + u * r[2], r[1] + v * r[3]];
+    /* 半纹素内缩: 顶点 u/v∈[0,1] 的端点恰好压在矩形外缘(t=r[0]+r[2]),
+       NearestFilter 会采到邻区/未涂间隙(黑缝/串色); 收进半个 texel 使
+       采样始终落在矩形内纹素中心, 每纹素恰好显示一次。
+       u/v 夹 [0,1]: 旋转装饰件(劫掠兽角 rx)的面投影可越出盒半宽,
+       夹回后采矩形边缘纹素(纯色 fillAll 件无感), 不再外溢采间隙 */
+    const cu = Math.min(1, Math.max(0, u)); const cv = Math.min(1, Math.max(0, v));
+    return [r[0] + 0.5 + cu * (r[2] - 1), r[1] + 0.5 + cv * (r[3] - 1)];
   }
   function slotGeo(slot, texSize, mirror, scale) {
     const positions = []; const normals = []; const uvs = []; const indices = [];
@@ -310,7 +319,9 @@ const MobLookKit = (() => {
       for (let i = 0; i < pos.count; i++) {
         positions.push(pos.getX(i), pos.getY(i), pos.getZ(i));
         normals.push(nor.getX(i), nor.getY(i), nor.getZ(i));
-        const t = asSeen(pos.getX(i), pos.getY(i), pos.getZ(i),
+        /* UV 用立方体中心系坐标(减枢轴偏移): asSeen 的 [0,1] 映射以盒中心为原点,
+           喂平移后坐标会把整面 UV 推出矩形 → 采到未涂间隙 = 模型黑块 */
+        const t = asSeen(pos.getX(i) - off.x, pos.getY(i) - off.y, pos.getZ(i) - off.z,
             nor.getX(i), nor.getY(i), nor.getZ(i), ex, ey, ez, rects, mirror);
         uvs.push(t[0] / texSize, 1 - t[1] / texSize); /* canvas 顶行 = v 大(THREE flipY) */
       }
