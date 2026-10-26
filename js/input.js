@@ -20,7 +20,10 @@
    依赖应用层的 MODES/onLockChanged — main.js 加载时注入
    Input.route / Input.onLockChange, 未注入时静默(可独立加载)。
    interface: keys/touchMove/touchSprint · Input{route,onLockChange,
-   holdPt,icon} · requestLock/uiPause/setTouchActions/refreshTouchUI/refreshTouchMain
+   holdPt,icon,setActions,refreshUI,refreshMain}(后三=模式面消费的按钮
+   声明与观感刷新, 命名空间是正式名) · requestLock/uiPause ·
+   过渡别名(一行转发, build.js/adventure.js 收口后撤):
+   setTouchActions/refreshTouchUI/refreshTouchMain
    依赖(均经全局名, 调用期解析): config.js 的 IS_TOUCH/PLAYER ·
    world.js 的 renderer · voxel.js 的 yaw/pitch/flyMode ·
    camera-rig.js 的 CameraRig · touch-core.js 的 mkTouchGestures ·
@@ -312,16 +315,20 @@ function buildJoy() {
   joyHome();
 }
 
+/* —— Input 命名空间收口(评审候选): 模式面消费的按钮声明与两处观感刷新。
+   正式名 Input.setActions/refreshUI/refreshMain(实现在此, 引擎缝单一份);
+   旧散全局名保留为文件尾的过渡薄别名(build.js/adventure.js/
+   math-build-world.js 的散全局调用收口后撤) —— */
 /* 上下文刷新: 飞行时才亮下降键(MC: 潜行键飞行中变下降;
    建造模式切飞行后调用; 其余时刻两键状态不变) */
-function refreshTouchUI() {
+Input.refreshUI = function() {
   if (!touchBuilt) return;
   const down = document.getElementById('touchDown');
   if (down) down.style.display = flyMode ? 'flex' : 'none';
-}
+};
 /* 智能主动作键观感刷新(手持感知, 2026-10-24 拍板): 模式在手持物变化时调用,
    icon=按钮像素图标工坊键名, label=无障碍名; 主动作键未建/触屏未开 → 静默 */
-function refreshTouchMain(icon, label) {
+Input.refreshMain = function(icon, label) {
   const b = document.querySelector('#touchActs .main');
   if (!b) return;
   const url = (icon && Input.icon && Input.icon(icon)) || '';
@@ -331,7 +338,7 @@ function refreshTouchMain(icon, label) {
   } else {
     b.textContent = label; /* 回落: 文案按钮(图标工坊缺席时) */
   }
-}
+};
 /* 模式设置动作按钮, 两区分布(用户拍板 2026-10-24):
    · 常用动作条(右缘 #touchActs, 拇指区): [{icon, label, act:fn} | {icon, label, holdAct:fn}]
      holdAct = 主动作键: 按下=fn() 打/挖起步 + 按住连挖(onHold), 松手=停;
@@ -339,7 +346,7 @@ function refreshTouchMain(icon, label) {
    · 顶部小键区(#touchTop, 低频不占操作区): {icon, label, act:fn, rare: true}
    icon = 按钮像素图标键名(经 Input.icon seam 解析, button-icons.js 工坊);
    label = 无障碍名与像素图缺失时的文案回落。null = 全部隐藏 */
-function setTouchActions(list) {
+Input.setActions = function(list) {
   buildTouchUI();
   const root = document.getElementById('touchUI');
   if (!list || !IS_TOUCH) {
@@ -392,5 +399,17 @@ function setTouchActions(list) {
     (a.rare ? top : strip).appendChild(b);
   }
   top.style.display = top.children.length ? 'flex' : 'none';
-  refreshTouchUI();
+  Input.refreshUI();
+};
+
+/* —— 过渡别名(评审候选 Input 收口): 旧散全局名一行转发进命名空间 ——
+    build.js / adventure.js / math-build-world.js 的散全局调用收口后撤 —— */
+function setTouchActions(list) {
+  Input.setActions(list);
+}
+function refreshTouchUI() {
+  Input.refreshUI();
+}
+function refreshTouchMain(icon, label) {
+  Input.refreshMain(icon, label);
 }

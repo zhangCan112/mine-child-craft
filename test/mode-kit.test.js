@@ -116,6 +116,33 @@ globalThis.uiPause = ()=>{
 let touchList = 'unset';
 globalThis.setTouchActions = (l)=>{
   touchList = l;
+}; /* 过渡别名回落路径桩(Input 桩缺装时 mkMode 才走到) */
+/* input.js 的 Input 命名空间桩: mkMode 触屏声明与 mkHeldSync 图标刷新的
+   正式路径(引擎缝收口); refreshMain 记录主动作键图标切换供断言 */
+const mainIconLog = [];
+globalThis.Input = {
+  setActions(l) {
+    touchList = l;
+  },
+  refreshMain(icon, label) {
+    mainIconLog.push([icon, label]);
+  },
+};
+
+/* 怪物库桩(mkMobPicker 经全局名调用期解析; 口径同 test/tank-mode.test.js
+   的 fake 怪物库: types/face/families 三件, families 镜像真库主族归组) */
+globalThis.Mobs = {
+  types: {zombie: {name: '僵尸', family: ['zombie_line']}, husk: {name: '尸壳', family: ['zombie_line']},
+    skeleton: {name: '骷髅', family: ['skeleton_line']}, creeper: {name: '苦力怕'}},
+  face: (k) => 'data:face:' + k,
+  families() {
+    const buckets = {};
+    for (const k of Object.keys(this.types)) {
+      const fam = (this.types[k].family || [])[0] || 'lone';
+      (buckets[fam] = buckets[fam] || []).push(k);
+    }
+    return Object.keys(buckets).map((key) => ({key, name: key, members: buckets[key]}));
+  },
 };
 
 /* ============ hotbar 选块状态机 ============ */
@@ -960,6 +987,61 @@ test('mkMainAct: 空手/工具/食物 → aimClick(0) 挖打起步, 返回值非
   delete globalThis.aimClick;
 });
 
+/* ============ mkHeldSync: 手持感知同步件(评审候选 6, 五件套收编) ============ */
+
+test('mkHeldSync: 哨兵槽/数字方块判定 — isBlock() 与 itemId()(铁锹映射不外泄)', () => {
+  const mount = fakeEl();
+  const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: 'a'}, {icon: 'b'}, {icon: 'c'}]});
+  const held = ModeKit.mkHeldSync(['shovel', 6, 5], hb);
+  hb.select(0); // 'shovel' 哨兵槽
+  assert.strictEqual(held.isBlock(), false, '哨兵槽不是方块');
+  assert.strictEqual(held.itemId(), null, '非方块槽 itemId=null(铁锹物品映射藏在实现)');
+  hb.select(1); // 数字方块槽
+  assert.strictEqual(held.isBlock(), true, '数字槽是方块');
+  assert.strictEqual(held.itemId(), 6, '方块槽数字 id 直读');
+  hb.select(2);
+  assert.strictEqual(held.itemId(), 5);
+});
+
+test('mkHeldSync: sync 调 Avatar.setItem 与主动作键图标切换(铲↔砖块)', () => {
+  const mount = fakeEl();
+  const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: 'a'}, {icon: 'b'}]});
+  const held = ModeKit.mkHeldSync(['shovel', 6], hb);
+  const setItems = [];
+  globalThis.Avatar = {setItem(id) {
+    setItems.push(id);
+  }}; /* Avatar 桩: mode-kit 经 typeof 守卫, 缺装静默(下一用例断言) */
+  mainIconLog.length = 0;
+  try {
+    hb.select(0);
+    held.sync(); // 铁锹槽
+    hb.select(1);
+    held.sync(); // 方块槽
+    assert.deepStrictEqual(setItems, ['shovel_iron', 6],
+        'Avatar.setItem: 哨兵槽→铁锹物品, 方块槽→方块数字 id');
+    assert.deepStrictEqual(mainIconLog, [['shovel', '挖掘'], ['brick', '放置']],
+        '主动作键图标随手持切换(铲=连挖 / 砖=放置, 经 Input.refreshMain)');
+  } finally {
+    delete globalThis.Avatar; /* 还原缺装态, 不外溢 */
+  }
+});
+
+test('mkHeldSync: Avatar/Input 缺装时 sync 静默不炸(精简装载守卫)', () => {
+  const mount = fakeEl();
+  const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: 'a'}, {icon: 'b'}]});
+  const savedInput = globalThis.Input;
+  delete globalThis.Input;
+  try {
+    const held = ModeKit.mkHeldSync(['shovel', 3], hb);
+    hb.select(1);
+    held.sync(); /* Avatar 与 Input 都不在 → 静默跳过 */
+    assert.strictEqual(held.isBlock(), true, '判定面不依赖外部件');
+    assert.strictEqual(held.itemId(), 3);
+  } finally {
+    globalThis.Input = savedInput;
+  }
+});
+
 /* ============ 出生点与 onVoidFall ============ */
 
 test('spawn 记住出生点, 默认 onVoidFall 回到出生点', () => {
@@ -1068,3 +1150,76 @@ test('物品提示: 背包格点击读被点物品; 点灰卡=一键摆入+读�
 });
 
 /* mkHpBar 断言已随件迁 test/combat-kit.test.js(C6-T3) */
+
+/* ============ mkMobPicker: 选怪按钮组(评审候选 6, 三处誊写收编) ============ */
+
+test('mkMobPicker: 谱系分组渲染 — 组头+组员簇, 头像与名字, data-type', () => {
+  const doc = mkDoc();
+  const mount = fakeEl();
+  ModeKit.mkMobPicker({doc, mount, onPick() {}}).render();
+  const grps = mount.children.filter((c) => c._cls.has('fam-group'));
+  assert.strictEqual(grps.length, 3, '三族簇: zombie_line / skeleton_line / lone');
+  assert.deepStrictEqual(collect(mount, 'fam-head').map((h) => h.textContent),
+      ['zombie_line', 'skeleton_line', 'lone'], '组头文本=族名');
+  const btns = [];
+  (function walk(el) {
+    (el.children || []).forEach((c) => {
+      if (c.dataset && c.dataset.type) btns.push(c);
+      walk(c);
+    });
+  })(mount);
+  assert.deepStrictEqual(btns.map((b) => b.dataset.type),
+      ['zombie', 'husk', 'skeleton', 'creeper'], '组员按钮按族序展开');
+  assert.ok(String(btns[0].innerHTML).includes('src="data:face:zombie"'), 'Mobs.face 头像');
+  assert.ok(String(btns[0].innerHTML).includes('僵尸'), '名字取 Mobs.types');
+});
+
+test('mkMobPicker: headKeys 前置功能位(不归族) + 点击 onPick + 选中态自动重读', () => {
+  const doc = mkDoc();
+  const mount = fakeEl();
+  let cur = 'zombie'; const picks = [];
+  ModeKit.mkMobPicker({
+    doc, mount, headKeys: ['mix'], activeOf: () => cur,
+    onPick(k) {
+      picks.push(k);
+    },
+  }).render();
+  assert.strictEqual(mount.children[0].dataset.type, 'mix', 'mix 按钮平铺在最前(不进族簇)');
+  assert.ok(String(mount.children[0].innerHTML).includes('data:face:mix'), '功能位同款头像渲染');
+  assert.ok(!mount.children[0]._cls.has('active'), '初始选中僵尸, mix 未高亮');
+  cur = 'mix'; // 消费方口径: onPick 里写配置, 此处以同效直改模拟
+  mount.children[0].onclick();
+  assert.deepStrictEqual(picks, ['mix'], '点击报 onPick(键)');
+  assert.ok(mount.children[0]._cls.has('active'), '点击后经 activeOf 重读 → mix 高亮');
+});
+
+test('mkMobPicker: 未注册键兜底显键名(不静默丢, 面板分组「不丢桶」同款口径)', () => {
+  const doc = mkDoc();
+  const mount = fakeEl();
+  ModeKit.mkMobPicker({doc, mount, headKeys: ['ghost'], onPick() {}}).render();
+  const b = mount.children[0];
+  assert.strictEqual(b.dataset.type, 'ghost');
+  assert.ok(String(b.innerHTML).includes('ghost'), 'types 无此键 → 名字回落键名');
+  b.onclick(); // 未注册键点击也不炸
+});
+
+test('mkMobPicker: groupOf 恒 null 平铺(出发配置页卡片流) + itemTag/itemCls/itemHtml 观感差异', () => {
+  const doc = mkDoc();
+  const mount = fakeEl();
+  ModeKit.mkMobPicker({
+    doc, mount,
+    groupOf: () => null,
+    itemTag: 'div',
+    itemCls: 'scene-card',
+    itemHtml: (k) => '<div class="big"><img alt="" src="' + Mobs.face(k) + '"></div>' +
+      '<h2>' + Mobs.types[k].name + '</h2>',
+    activeOf: () => 'skeleton',
+    onPick() {},
+  }).render();
+  assert.strictEqual(collect(mount, 'fam-group').length, 0, '平铺口径: 不建谱系组头');
+  assert.strictEqual(mount.children.length, 4, '四怪四卡直接挂容器');
+  assert.ok(mount.children.every((c) => c._cls.has('scene-card')), 'itemCls 附加类');
+  assert.ok(String(mount.children[0].innerHTML).includes('<h2>僵尸</h2>'), 'itemHtml 卡片结构(.big + h2)');
+  const sk = mount.children.find((c) => c.dataset.type === 'skeleton');
+  assert.ok(sk._cls.has('active'), 'activeOf 供给的键高亮');
+});

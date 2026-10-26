@@ -39,6 +39,7 @@ globalThis.document = {
 const ModeKit = require('../js/mode-kit.js');
 globalThis.CombatKit = require('../js/combat-kit.js'); /* 玩家战斗壳(C6-T3): 击杀观感真模块 */
 globalThis.mkMode = ModeKit.mkMode; /* 浏览器经典脚本下 mkMode 是全局, Node 需桥接 */
+globalThis.mkMobPicker = ModeKit.mkMobPicker; /* 同上: 选怪按钮组(mkMobPicker) */
 globalThis.ModeKit = ModeKit; /* 同上: tank-range 经 ModeKit.spawn 出生(不走裸全局名) */
 ModeKit.spawn = (x, y, z, o) => {
   calls.push(['spawn', x, y, z, o]);
@@ -495,11 +496,11 @@ test('出发配置页: 怪物一行 6 卡(fake 7 种, mix 排除)与 👾 面板
   mrow.children.length = 0;
   TankRangeMode.buildMenu();
   assert.strictEqual(mrow.children.length, 5 + 1, '怪物一行动态生成全部怪种卡(fake 6 种, mix 排除)');
-  const sk = mrow.children.find((c) => c.dataset.mob === 'skeleton');
+  const sk = mrow.children.find((c) => c.dataset.type === 'skeleton');
   assert.ok(sk && !sk._cls.has('active'), '默认僵尸, 骷髅卡未高亮');
   mobsState.spawned.length = 0;
   sk.onclick(); /* 选骷髅 */
-  const sk2 = [...mrow.children].reverse().find((c) => c.dataset.mob === 'skeleton');
+  const sk2 = [...mrow.children].reverse().find((c) => c.dataset.type === 'skeleton');
   assert.ok(sk2._cls.has('active'), '选后骷髅卡高亮');
   calls.length = 0;
   elCache['tankGoBtn'].onclick(); /* 出发: 怪种变了 → 重建并部署骷髅 */

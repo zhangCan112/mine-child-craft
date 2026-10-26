@@ -348,6 +348,11 @@ Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smel
   furnaceRefund: CraftCore.furnaceRefund});
 globalThis.FurnaceKit = require('../js/furnace-kit.js'); /* 熔炉装配 kit(T4): 壳顶层即构造 station */
 globalThis.Backpack = require('../js/backpack.js');
+/* 世界改动日志(index.html 加载序在模式之前; Node 侧显式铺全局同构):
+   真模块直测在 test/world-journal-core.test.js, 这里只供壳经全局名消费 */
+globalThis.WorldJournal = require('../js/world-journal-core.js');
+globalThis.mkWorldJournal = WorldJournal.mkWorldJournal;
+globalThis.fluidCell = WorldJournal.fluidCell;
 
 const AdventureMode = require('../js/modes/adventure.js');
 const A = AdventureMode.adv; /* 内部挂点(常量表/政策纯函数/存档记账), 报告里给 T12~T15 的接线面 */
@@ -635,6 +640,31 @@ test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 
   freshInit();
   assert.strictEqual(cell(90, 24, 90), 3, '重进: 玩家改动重放');
   assert.strictEqual(cell(91, 24, 91), 0, '重进: 玩家挖开的洞还在');
+});
+
+test('世界改动日志: 流体格旧档重放 — {id,lv} 双通道(方块+水位) + 落盘形状逐键回写(world-journal-core 互锁的真链路侧)', () => {
+  mem.clear();
+  /* 旧档字面量(liquid D8 起的既有形状, encode 对照 git HEAD 一字未动):
+     edits 里流体格带 {id,lv}, 裸值照旧 */
+  mem.set('adventure_world_save', JSON.stringify({_v: 1, edits: [
+    ['61,24,80', 0], ['70,25,80', 4], ['80,25,80', {id: api.B_WATER, lv: 3}],
+  ]}));
+  freshInit();
+  assert.strictEqual(cell(61, 24, 80), 0, '裸值挖除重放');
+  assert.strictEqual(cell(70, 25, 80), 4, '裸值放置重放');
+  assert.strictEqual(cell(80, 25, 80), api.B_WATER, '流体格: 方块通道重放');
+  assert.strictEqual(api.getFluidLv(80, 25, 80), 3, '流体格: 水位通道重放(双通道, 不走排程)');
+  /* 记账一笔流体格(流体缝在测试里是空桩, 直走 journal.mark) → 落盘 → 形状逐键回写 */
+  A.advJournal.mark('81,25,81', {id: api.B_WATER, lv: 2});
+  AdventureMode.cleanup();
+  const saved = JSON.parse(mem.get('adventure_world_save'));
+  assert.ok(saved.edits.some((e) => e[0] === '80,25,80' && e[1] && e[1].id === api.B_WATER && e[1].lv === 3),
+      '旧档流体格原样回写 {id,lv}(encode 形状一字不改)');
+  assert.ok(saved.edits.some((e) => e[0] === '81,25,81' && e[1] && e[1].lv === 2), 'mark 的流体格入档');
+  freshInit(); /* 重进: 水位精确恢复(逐格最后写赢) */
+  assert.strictEqual(api.getFluidLv(80, 25, 80), 3, '重进水位恢复');
+  assert.strictEqual(api.getFluidLv(81, 25, 81), 2, '重进新记的水位恢复');
+  assert.strictEqual(cell(81, 25, 81), api.B_WATER, '重进流体方块在场');
 });
 
 test('昼夜 D1: dayTime 随世界档往返 + dayCycleOn 进场置位/退场复位 + 坏档兜底清晨', () => {

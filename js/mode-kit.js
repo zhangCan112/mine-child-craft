@@ -6,7 +6,7 @@
      · chrome {score,hotbar}   进入模式时施加 DOM 显隐(cleanup 无需还原)
      · hotbar (mkHotbar 实例)  digit/wheel/点选 选块全自动
      · hud(hit) → string[]     每帧 HUD 文本(hit 由主循环注入, 模式不再自行 raycast)
-     · touch [...]             setTouchActions 声明 (缺省=null 隐藏)
+     · touch [...]             Input.setActions 声明 (缺省=null 隐藏)
      · onHold(active)          触屏长按起止钩子(手势分类在 input.js/touch-core)
      · onPageHide()            关页兜底存档钩子(main.js pagehide 收口分发,
                                白名单透传; 世界档 5s 节流的模式借此同步落盘)
@@ -37,6 +37,15 @@
      · sortInv — 整理按钮底座: 主格区同项合并(快捷栏不动)
      code-review 修复轮(S2): mkHpBar — 头顶血条深接口; C6-T3 已随玩家战斗
        vocabulary 迁入 js/combat-kit.js(CombatKit.mkHpBar, 交接零行为变化)
+   手持件与选怪件(评审候选 6, 跨模式样板收编):
+     · mkHeldSync(palette, hb) — 手持感知五件套(调色板 + 'shovel' 哨兵槽
+       + typeof number 判定 + Avatar.setItem + 主动作键图标切换)收编;
+       哨兵语义藏实现, 消费方只见 isBlock/itemId/sync(竞技场先接,
+       建造镜像由后续票收口)
+     · mkMobPicker(opts) — 选怪按钮族(Mobs.face 头像 + 名字 + families()
+       谱系分组簇 + data-type + active 高亮)三处誊写收编; 差异经 opts
+       (headKeys 前置功能位 / groupOf 组覆写(返 null=平铺) / itemTag·
+       itemCls·itemHtml 卡片观感 / titleOf 悬停)
    引擎层(world/input)对本文件零依赖; 本文件属应用层
    引导链 v2: mkChestPanel — 大宝箱面板(箱子格/扩容行/背包格, 点选搬运;
      政策与存档在模式层回调, 顶格档隐藏扩容行)
@@ -53,12 +62,17 @@
      清零); 三面板同吐 cellAt(背包槽号→栈快照)只读查询面; 图标/格子/材料
      chip 渲染知识单份收口 kitIconHtml/kitCellHtml/kitChipHtml(iconOf 的
      'data:'→img / 文本→icon span 二合一出口)
-   interface: mkMode · mkHotbar · mkMainAct · mkCraftPanel · mkFurnacePanel ·
+   interface: mkMode · mkHotbar · mkMainAct · mkHeldSync(手持感知同步件) ·
+              mkMobPicker(选怪按钮组) · mkCraftPanel · mkFurnacePanel ·
               mkChestPanel(三者=内部底座 mkPanelShell+差异段, 均含 cellAt
               查询面) · sortInv · spawn · lookName · confirmBtn
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax/durOf ·
      inventory-core 的 HOTBAR_SLOTS/costEntry/remove/add · craft-core 的
      RECIPES/canCraft/matchGrid/gridCraft/fillGrid/FUEL/fuelUnits/smeltOf ·
+     mobs 的 Mobs(mkMobPicker 的分组唯一入口 families() 与 face/types,
+     mkMode 的触屏声明走 input 的 Input.setActions — 缺装时回落过渡别名) ·
+     avatar 的 Avatar 与 input 的 Input(mkHeldSync 的同步面, 均经
+     typeof 守卫: 精简装载的 Node 单测可缺装, 静默跳过) ·
      icons 的 iconOf 与
      button-icons 的 btnImg/BTN_PIX(两者加载序在本文件之后, 但全部
      调用发生在用户交互期, 彼时已加载完毕) · item-hint-registry 的
@@ -144,6 +158,35 @@ function mkMainAct(placeable) {
     }
     aimClick(0);
   };
+}
+
+/* ---------- mkHeldSync: 手持感知同步件(评审候选 6, 跨模式样板收编) ----------
+   竞技场与建造逐字镜像的五件套样板(调色板数组 + 'shovel' 哨兵槽渲染铁锹
+   物品图标 + typeof number 手持判定 + Avatar.setItem 同步 + 主动作键图标
+   切换 镐/铲↔砖块)收编一处: 竞技场先接, 建造镜像由后续票收口。
+   调色板形状: 数字=方块槽(可放置), 哨兵串('shovel')=挖掘入口槽;
+   哨兵语义与判定逻辑藏在本实现, 消费方只见三个纯问题:
+     isBlock()  选中槽是否可放置方块
+     itemId()   方块数字 id(哨兵槽 → null, 铁锹物品映射不外泄)
+     sync()     手持观感对齐选中槽(Avatar 换物 + 主动作键图标随手持切换)
+   Avatar/Input 均经 typeof 守卫(精简装载的 Node 单测可缺装, 静默跳过)。 */
+function mkHeldSync(palette, hb) {
+  const SENTINEL_ITEM = 'shovel_iron'; /* 哨兵槽的手持物: 铁锹(工具 def 现成) */
+  function isBlock() {
+    return typeof palette[hb.sel] === 'number';
+  }
+  function itemId() {
+    return isBlock() ? palette[hb.sel] : null;
+  }
+  function sync() {
+    if (typeof Avatar !== 'undefined' && Avatar) {
+      Avatar.setItem(isBlock() ? palette[hb.sel] : SENTINEL_ITEM);
+    }
+    if (typeof Input !== 'undefined' && Input && typeof Input.refreshMain === 'function') {
+      Input.refreshMain(isBlock() ? 'brick' : 'shovel', isBlock() ? '放置' : '挖掘');
+    }
+  }
+  return {isBlock, itemId, sync};
 }
 
 /* ---------- hotbar: 三种槽型 {block:id} | {icon,lbl,cnt()} | {item:id}(T10) ----------
@@ -1176,6 +1219,88 @@ function mkBubbleBar(opts) {
   };
 }
 
+/* ---------- mkMobPicker: 选怪按钮组(评审候选 6, 三处誊写收编) ----------
+   「Mobs.face(k) 头像 img + 名字 + families() 谱系分组簇(组头+组员) +
+   data-type + active 高亮」的按钮制造术在竞技场双队面板(.mob-btns)/
+   演习场 👾 浮动面板(#pkMobBtns)/出发配置页怪物行(#tankMobPick)写了三遍,
+   收进一处; 分组唯一入口怪物库 families()(主族归组), Mobs 经全局名调用期
+   解析(与 BLOCKS/ITEMS 同口径), 键清单随之动态 — 以后加怪自动出现。
+   opts:
+     doc         文档注入(Node 单测)
+     mount       容器元素(竞技场传 .mob-btns 双队各自建一组)
+     onPick(k)   点击回调 — 配置写入/配平/重画政策全归消费方
+     activeOf()→k|null  选中态供给(缺省无高亮; 点击后自动重读)
+     headKeys[]  组前置平铺键(不归族 — 竞技场 mix 功能位排最前)
+     groupOf(k)→组名|null  键的组归属覆写: 缺省主族; 返 null=平铺不建组
+                 (出发配置页怪物行的卡片流口径)
+     itemTag/itemCls/itemHtml(k)  按钮观感差异(缺省 button + 头像+名字;
+                 配置页卡片 div.scene-card + .big/h2 结构)
+     titleOf(k)  悬停提示(竞技场战力/Boss/族名)
+   吐出 {render(整组重画, 幂等) · sync(仅选中态重读)}; 未注册键兜底显
+   键名不静默丢(面板分组「不丢桶」同款口径)。 */
+function mkMobPicker(opts) {
+  const o = opts || {};
+  const doc = o.doc || document;
+  const mount = o.mount;
+  const items = []; /* 本组全部按钮(含 headKeys), sync 精确重读不爬 DOM 序 */
+  function nameOf(k) {
+    const t = (typeof Mobs !== 'undefined' && Mobs.types) ? Mobs.types[k] : null;
+    return (t && t.name) || k;
+  }
+  function itemEl(k) {
+    const b = doc.createElement(o.itemTag || 'button');
+    if (o.itemCls) b.className = o.itemCls;
+    b.innerHTML = (o.itemHtml ? o.itemHtml(k) :
+      '<img src="' + Mobs.face(k) + '" alt="">' + nameOf(k));
+    if (o.titleOf) b.title = o.titleOf(k);
+    b.dataset.type = k;
+    /* onclick 属性接线(被收编三处的两处先例; 每按钮恰一个 click 监听,
+       与 addEventListener 语义等价) */
+    b.onclick = ()=>{
+      if (o.onPick) o.onPick(k);
+      sync(); /* 点击后重读选中态(activeOf 是消费方口径) */
+    };
+    items.push(b);
+    return b;
+  }
+  function render() {
+    mount.innerHTML = '';
+    items.length = 0;
+    (o.headKeys || []).forEach((k)=> mount.appendChild(itemEl(k))); /* 前置功能位(不归族) */
+    const flat = []; /* groupOf 覆写为 null 的键 → 平铺不建组头 */
+    const buckets = {}; const order = [];
+    for (const g of Mobs.families()) {
+      for (const k of g.members) {
+        const gv = o.groupOf ? o.groupOf(k) : g.name;
+        if (gv == null) {
+          flat.push(k); continue;
+        }
+        if (!buckets[gv]) {
+          buckets[gv] = {name: gv, members: []}; order.push(gv);
+        }
+        buckets[gv].members.push(k);
+      }
+    }
+    flat.forEach((k)=> mount.appendChild(itemEl(k)));
+    for (const name of order) {/* 谱系分组簇: 组头+组员成簇随行流动(不整行断组) */
+      const grp = doc.createElement('div');
+      grp.className = 'fam-group';
+      const head = doc.createElement('span');
+      head.className = 'fam-head';
+      head.textContent = buckets[name].name;
+      grp.appendChild(head);
+      for (const k of buckets[name].members) grp.appendChild(itemEl(k));
+      mount.appendChild(grp);
+    }
+    sync();
+  }
+  function sync() {
+    const act = o.activeOf ? o.activeOf() : null;
+    items.forEach((b)=> b.classList.toggle('active', b.dataset.type === act));
+  }
+  return {render, sync};
+}
+
 /* ---------- 模式工厂: 模式只声明差异, 样板在此吸收 ---------- */
 function mkMode(cfg) {
   const hb = cfg.hotbar || null;
@@ -1192,7 +1317,13 @@ function mkMode(cfg) {
     hotbar: hb,
     init() {
       applyChrome();
-      setTouchActions(cfg.touch || null);
+      /* 触屏动作声明走 Input 命名空间(input.js 引擎缝收口); typeof 守卫保持:
+         精简装载的 Node 单测可缺装 input.js, 回落旧散全局名(过渡别名) */
+      if (typeof Input !== 'undefined' && Input && typeof Input.setActions === 'function') {
+        Input.setActions(cfg.touch || null);
+      } else if (typeof setTouchActions === 'function') {
+        setTouchActions(cfg.touch || null);
+      }
       if (cfg.init) cfg.init();
     },
     cleanup() {
@@ -1250,6 +1381,7 @@ function mkMode(cfg) {
   return mode;
 }
 
-const ModeKit = {mkMode, mkHotbar, mkMainAct, mkCraftPanel, mkFurnacePanel, mkChestPanel, mkBubbleBar, sortInv,
+const ModeKit = {mkMode, mkHotbar, mkMainAct, mkHeldSync, mkMobPicker, mkCraftPanel,
+  mkFurnacePanel, mkChestPanel, mkBubbleBar, sortInv,
   spawn: kitSpawn, lookName, confirmBtn};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;

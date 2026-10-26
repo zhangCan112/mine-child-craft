@@ -105,3 +105,28 @@ test('失焦收按住场: onHold(false) 无条件路由(模式连挖/连击自�
   assert.deepStrictEqual(got, [false], '失焦通知当前模式收按住场');
   api.Input.route = null;
 });
+
+/* ============ Input 命名空间收口(评审候选 6): 键集与过渡别名 ============ */
+
+test('Input 命名空间: 按钮声明与观感刷新三件挂进键集(正式名)', () => {
+  assert.deepStrictEqual(Object.keys(api.Input).sort(),
+      ['holdPt', 'icon', 'onLockChange', 'refreshMain', 'refreshUI', 'route', 'setActions'],
+      '七件套: 原 seam 四件 + setActions/refreshUI/refreshMain');
+  for (const k of ['setActions', 'refreshUI', 'refreshMain']) {
+    assert.strictEqual(typeof api.Input[k], 'function', k + ' 应为函数成员');
+  }
+});
+
+test('Input 命名空间: 旧散全局名保留为过渡薄别名(一行转发, 收口后撤)', () => {
+  const alias = vm.runInContext('({setTouchActions, refreshTouchUI, refreshTouchMain})', ctx);
+  for (const k of Object.keys(alias)) {
+    assert.strictEqual(typeof alias[k], 'function',
+        '过渡别名 ' + k + ' 在位(build.js/adventure.js/math-build-world 仍经散全局名调用)');
+  }
+  /* 转发等价: 同入参落进同名命名空间成员(以 refreshMain 的静默早退路径验证
+     — document.querySelector 无主键按钮 → 两侧都无副作用地返回) */
+  doc.querySelector = () => null;
+  assert.doesNotThrow(()=>alias.refreshTouchMain('brick', '放置'));
+  assert.doesNotThrow(()=>api.Input.refreshMain('brick', '放置'));
+  delete doc.querySelector;
+});

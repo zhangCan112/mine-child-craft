@@ -2,6 +2,8 @@
 /* ============================================================
    建造模式:自由建造 · 精选初始场景(巨大地下室 / 二层小楼房)
    - 全方块物品栏(第 1 格铁锹=挖掘入口, 手持感知主动作) · F 飞行 · R 重置场景 · 改动自动云同步存档
+     (账本/脏标/5s 节流/关页兜底/双通道重放收编 js/world-journal-core.js 的
+      mkWorldJournal; 本文件只剩档形政策——分桶 edits+当前场景+200KB 守卫)
    - 家具全部由现有方块拼搭(床/沙发/桌椅/电视/书架/厨台…)
 ============================================================ */
 
@@ -13,31 +15,14 @@ const BUILD_PALETTE = ['shovel', 6, 5, 17, 3, 4, 13, 9, 18, 19, 15, 16, 12, 11, 
 const BUILD_SAVE_KEY = 'build_world_save';
 
 let buildSceneId = null; // 当前场景 id
-const buildEdits = {}; // 各场景玩家改动 { sceneId: Map("x,y,z"→id) }
-let buildSaveT = 0; let buildDirty = false;
+const buildEdits = {}; // 各场景玩家改动 { sceneId: Map("x,y,z"→id) } — 分桶形状是建造私有, journal 只认当前桶
 /* hotbar (kit 实例): 建造调色板, cls:'build' 换皮肤; 'shovel' 哨兵槽渲染铁锹物品图标 */
 const buildHb = mkHotbar({cls: 'build',
   items: BUILD_PALETTE.map((id)=> (typeof id === 'number' ? {block: id} : {item: 'shovel_iron'})),
-  onPick: () => buildHeldSync()});
-function buildHeldIsBlock() {/* 手持感知判定(纯 seam): 选中数字方块槽才可放置,
-  'shovel' 槽 = 挖掘入口(智能主动作与桌面右键共用) */
-  return typeof BUILD_PALETTE[buildHb.sel] === 'number';
-}
-function buildHeldItemId() {/* 选中槽的手持物 id(纯 seam): 方块槽 → 方块数字 id
-  (HeldItems.defFor 直认, 覆盖无物品条目的创造专属方块), 铁锹哨兵槽 →
-  shovel_iron(工具 def 现成) */
-  const id = BUILD_PALETTE[buildHb.sel];
-  return typeof id === 'number' ? id : 'shovel_iron';
-}
-function buildHeldSync() {/* 手持观感与选中槽一致 + 主动作键观感随手持 */
-  Avatar.setItem(buildHeldItemId());
-  buildTouchMainSync();
-}
-function buildTouchMainSync() {/* 主动作键观感随手持: 方块=砖(放置)/铲=铲(连挖) */
-  if (typeof refreshTouchMain === 'function') {
-    refreshTouchMain(buildHeldIsBlock() ? 'brick' : 'shovel', buildHeldIsBlock() ? '放置' : '挖掘');
-  }
-}
+  onPick: () => buildHeld.sync()});
+/* 手持感知五件套收编 ModeKit.mkHeldSync(评审候选 6): 哨兵槽语义/数字方块判定/
+   Avatar.setItem/主动作键图标切换藏 kit 实现, 本模式与竞技场同款 */
+const buildHeld = mkHeldSync(BUILD_PALETTE, buildHb);
 
 /* ============================================================
    家具搭建辅助 (y 为家具底部所在层)
@@ -399,21 +384,25 @@ const buildSlot = SyncDB.slot(BUILD_SAVE_KEY, {
   decode: (sv) => ({scene: sv.scene,
     edits: Object.fromEntries(Object.keys(sv.edits || {}).map((id) => [id, new Map(sv.edits[id])]))}),
 });
-function buildSaveNow() {
-  /* 服务端 POST 上限 200KB(server.js): 超限会被静默拒收 — 存前粗测并提示,
-     免得重度建造的进度"看起来存了其实没存" */
-  const payload = {scene: buildSceneId, edits: buildEdits};
-  try {
-    if (JSON.stringify(payload).length > 190000) {
-      showToast('⚠ 存档太大了，试试按 R 重置场景', 3000);
-      return;
-    }
-  } catch (e) {}
-  buildSlot.save(payload);
-  buildDirty = false;
-}
+/* 世界改动日志(WorldJournal, js/world-journal-core.js): 账本/脏标/5s 节流/
+   关页兜底/双通道重放收编深模块; 建造适配器只出档形政策——payload 带当前
+   场景与全部分桶, 超限守卫(toast)拦下则不落盘不清脏(下个节流窗重试) */
+const buildJournal = mkWorldJournal(buildSlot, {
+  payload: () => ({scene: buildSceneId, edits: buildEdits}),
+  overSize: (p) => {
+    /* 服务端 POST 上限 200KB(server.js): 超限会被静默拒收 — 存前粗测并提示,
+       免得重度建造的进度"看起来存了其实没存" */
+    try {
+      if (JSON.stringify(p).length > 190000) {
+        showToast('⚠ 存档太大了，试试按 R 重置场景', 3000);
+        return true;
+      }
+    } catch (e) {}
+    return false;
+  },
+});
 function buildLoadSave() {
-  const s = buildSlot.load();
+  const s = buildJournal.load(); /* edits 是分桶对象 → journal 不收养, 这里合并各桶 */
   if (s && s.edits) {
     for (const id of Object.keys(s.edits)) buildEdits[id] = s.edits[id]; return s.scene || null;
   }
@@ -425,27 +414,20 @@ function buildLoadScene(id) {
   const sc = BUILD_SCENES.find((s)=>s.id===id) || BUILD_SCENES[0];
   buildSceneId = sc.id;
   if (!buildEdits[sc.id]) buildEdits[sc.id] = new Map();
+  buildJournal.edits = buildEdits[sc.id]; /* 当前桶换装进 journal(记账/重放/尺寸全走它) */
   loadScene(()=>{
     sc.build();
-    for (const [k, v] of buildEdits[sc.id]) {
-      const p = k.split(',');
-      if (v && typeof v === 'object') {/* 流体格带水位(liquid D8): 双通道重放, 不走排程 */
-        setBlockRaw(+p[0], +p[1], +p[2], v.id);
-        setFluidLv(+p[0], +p[1], +p[2], v.lv || 0);
-      } else {
-        setBlockRaw(+p[0], +p[1], +p[2], v);
-      }
-    }
+    buildJournal.replay({block: setBlockRaw, fluid: setFluidLv}); /* 双通道重放(liquid D8): 流体格→方块+水位 */
   });
   buildSpawnAt(sc);
-  buildDirty = true; // 记住当前场景
+  buildJournal.touch(); // 记住当前场景(scene 随档走, 脏标驱动 5s 节流)
 }
 function buildResetScene() {
-  buildEdits[buildSceneId].clear();
+  buildJournal.edits.clear();
   const sc = BUILD_SCENES.find((s)=>s.id===buildSceneId);
   loadScene(()=> sc.build()); buildSpawnAt(sc);
-  buildDirty = true;
-  buildSaveNow();
+  buildJournal.touch();
+  buildJournal.flush();
   showToast('已重置「' + sc.name + '」', 2000);
 }
 
@@ -461,7 +443,7 @@ function buildSceneMenu() {
     div.innerHTML = `<div class="big">${btnImg(sc.icon)}</div><h2>${sc.name}</h2><small>${sc.desc}</small>`;
     div.onclick = ()=>{
       if (buildSceneId !== sc.id) {
-        buildLoadScene(sc.id); buildSaveNow();
+        buildLoadScene(sc.id); buildJournal.flush();
       }
       requestLock();
     };
@@ -475,7 +457,9 @@ function buildSceneMenu() {
 function buildToggleFly() {
   setFly(!flyMode); // 读旧值定新态(读不是写), 清坠速语义收在意图入口
   showToast(flyMode ? '✈️ 飞行开启：空格上升 · Shift 下降' : '🚶 飞行关闭', 2200);
-  if (typeof refreshTouchUI === 'function') refreshTouchUI(); /* 触屏下降键随飞行亮出(MC: 下箭头飞行中变下降) */
+  if (typeof Input !== 'undefined' && Input && typeof Input.refreshUI === 'function') {
+    Input.refreshUI(); /* 触屏下降键随飞行亮出(MC: 下箭头飞行中变下降) */
+  }
 }
 
 /* ---------- 触屏长按连挖(每 250ms 一块; 与桌面单击同路) ----------
@@ -504,7 +488,7 @@ const BuildMode = mkMode({
      (mkMainAct 返 false 不连发 — 儿童向刻意偏离: MC 按住实为连放, 见
      docs/mc-held-item-action-research.md Q3), 铲子槽→挖起步+按住连挖
      (250ms/块); 画布轻点仍是放置; ✈️ 飞行开关 */
-    {icon: 'shovel', label: '挖/放', holdAct: mkMainAct(buildHeldIsBlock)},
+    {icon: 'shovel', label: '挖/放', holdAct: mkMainAct(buildHeld.isBlock)},
     {icon: 'fly', label: '飞行', act: ()=>buildToggleFly()},
   ],
   init() {
@@ -512,22 +496,21 @@ const BuildMode = mkMode({
     /* 流体账本缝(liquid D8): 流体写格(流动/消退/混合/冲毁)即时入当前场景 edits
        账本——逐格最后写赢, 重进精确恢复水位; 流体格带 {id,lv}, 其余保持数字 */
     setFluidEditSink((x, y, z, id, lv) => {
-      buildEdits[buildSceneId].set(blockKey(x, y, z),
-          (BLOCKS[id] && BLOCKS[id].fluid) ? {id, lv: lv || 0} : id);
-      buildDirty = true; /* 流体写格入节流窗: 漏置位 → 只动水时永不触发 5s 落盘, 关页即丢水位 */
+      buildJournal.mark(blockKey(x, y, z), fluidCell(id, lv, BLOCKS));
+      /* 流体写格入节流窗: 漏置位 → 只动水时永不触发 5s 落盘, 关页即丢水位(mark 自带置脏) */
     });
     buildLoadScene(buildSceneId);
     buildSceneMenu();
     buildHb.select(1); /* 默认选中第 2 格方块: 第 1 格铁锹是显式挖掘入口, 拿方块进场即放置态 */
-    buildHeldSync(); /* 手持观感对齐选中槽(select 同格不触发 onPick, 显式兜底) */
+    buildHeld.sync(); /* 手持观感对齐选中槽(select 同格不触发 onPick, 显式兜底) */
   },
   onPageHide() {/* 关页兜底存档(main.js pagehide 收口, 2026-10 树苗丢档修复同款):
       世界档 5s 节流窗口内直接关页/刷新 → 窗口内的建造改动全丢; 这里同步落盘
       (localStorage 同步写, pagehide 内安全), 服务器 push 由 main.js 统一补发 */
-    if (buildDirty) buildSaveNow();
+    buildJournal.pageHide();
   },
   cleanup() {
-    buildSaveNow();
+    buildJournal.flush();
     setFluidEditSink(null); /* 流体账本缝解除(liquid D8: 不渗进其他模式) */
     setFly(false); /* 飞行态复位走意图入口 */
     buildHoldOn = false; /* 长按连挖场: 退出模式即收 */
@@ -538,9 +521,7 @@ const BuildMode = mkMode({
   }, // 打开菜单页时刷新高亮
   update(dt) {
     buildHoldStep(dt); /* 触屏长按连挖(桌面不触发: buildHoldOn 恒 false) */
-    if (buildDirty && performance.now() - buildSaveT > 5000) {
-      buildSaveT = performance.now(); buildSaveNow();
-    }
+    buildJournal.tick(); /* 世界存档节流 5s(探险同款, 时序收编 journal) */
   },
   /* 触屏长按起止(input.js 手势路由): 连挖计时器复位 */
   onHold(active) {
@@ -560,21 +541,20 @@ const BuildMode = mkMode({
       } // 底层保护, 防挖穿坠出世界
       x=hit.x; y=hit.y; z=hit.z; id=0;
     } else if (button === 2) { // 放
-      if (!buildHeldIsBlock()) return; // 铲子槽不放置(手持感知: 拿铲子=挖, MC 拿工具右键无操作同构)
+      if (!buildHeld.isBlock()) return; // 铲子槽不放置(手持感知: 拿铲子=挖, MC 拿工具右键无操作同构)
       x=hit.x+hit.nx; y=hit.y+hit.ny; z=hit.z+hit.nz;
       if (getBlock(x, y, z)!==0) return;
       if (collidesAtPlayer(x, y, z)) return;
       id = BUILD_PALETTE[buildHb.sel];
     } else return;
     const removed = editBlock(x, y, z, id);
-    /* 记账供存档(liquid D8): 流体格带 {id,lv}(放置=源 lv0), 其余保持数字(旧档零迁移) */
-    buildEdits[buildSceneId].set(blockKey(x, y, z),
-        (BLOCKS[id] && BLOCKS[id].fluid) ? {id, lv: 0} : id);
+    /* 记账供存档(liquid D8): 流体格带 {id,lv}(放置=源 lv0), 其余保持数字
+       (编码判据单份在 world-journal-core 的 fluidCell); mark 自带置脏 */
+    buildJournal.mark(blockKey(x, y, z), fluidCell(id, 0, BLOCKS));
     for (const r of removed) {/* 级联同记(D5/D7): 移动两格(原格 0+落格 id), 移除一格 */
-      buildEdits[buildSceneId].set(blockKey(r.x, r.y, r.z), 0);
-      if (r.to) buildEdits[buildSceneId].set(blockKey(r.to.x, r.to.y, r.to.z), r.id);
+      buildJournal.mark(blockKey(r.x, r.y, r.z), 0);
+      if (r.to) buildJournal.mark(blockKey(r.to.x, r.to.y, r.to.z), r.id);
     }
-    buildDirty = true;
   },
   onVoidFall() { // 保留自定义: 回出生点时需同时关飞行
     const sc = BUILD_SCENES.find((s)=>s.id===buildSceneId);
@@ -586,7 +566,7 @@ const BuildMode = mkMode({
       `场景: ${sc?sc.name:'-'} · 已建造 ${buildEdits[buildSceneId].size} 块`,
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
       `FPS: ${fps}${flyMode?' · <b>✈️ 飞行中</b>':''}`,
-      `手持: ${buildHeldIsBlock() ? BLOCKS[BUILD_PALETTE[buildHb.sel]].name : '铁锹'} · 注视: ${ModeKit.lookName(hit)}`,
+      `手持: ${buildHeld.isBlock() ? BLOCKS[buildHeld.itemId()].name : '铁锹'} · 注视: ${ModeKit.lookName(hit)}`,
       `F 飞行 · R 重置场景 · B 菜单`,
     ];
   },
