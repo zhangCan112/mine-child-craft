@@ -109,14 +109,16 @@ test('每控制格幅度: amp 支持函数 (i,j)=>幅度 — 西平东起伏 + �
   const {sk} = loadSceneKit();
   /* 控制格 i<8 幅度 0, i≥8 幅度 3(T5 圈层「核心圈 0 → 深险圈 ±3」口径) */
   const amp = (i) => i >= 8 ? 3 : 0;
-  for (let x = 0; x <= 110; x += 3) { /* 插值只碰控制点 i≤7 → 全平 */
+  /* 西半场插值只碰控制点 i≤7 → 全平 */
+  for (let x = 0; x <= 110; x += 3) {
     for (let z = 0; z < 128; z += 5) {
       assert.ok(sk.heightAt(x, z, {amp}) === 0,
           '西半场幅度 0 应平地: (' + x + ',' + z + ') → ' + sk.heightAt(x, z, {amp}));
     }
   }
   let rugged = 0;
-  for (let x = 140; x <= 200; x += 3) { /* 东半场确有起伏(幅度生效) */
+  /* 东半场确有起伏(幅度生效) */
+  for (let x = 140; x <= 200; x += 3) {
     for (let z = 0; z < 128; z += 5) {
       if (sk.heightAt(x, z, {amp}) !== 0) rugged++;
     }
