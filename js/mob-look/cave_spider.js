@@ -31,8 +31,8 @@ MobLookKit.declare('cave_spider', {
     ], pivot: [4, 9, 0]},
   },
   tex: {size: 64, paint: (g, R) => {
-    const BODY = [26, 58, 74]; const BODY2 = [18, 40, 51];
-    const LEG = [18, 40, 51]; const RED = [216, 58, 42]; const DARKR = [128, 26, 16];
+    const BODY = [40, 82, 100]; const BODY2 = [30, 60, 73];
+    const LEG = [30, 60, 73]; const RED = [216, 58, 42]; const DARKR = [128, 26, 16];
     /* 头: 蓝黑噪底 · 多眼簇(大红对 + 暗红小对) · 螯肢 */
     const F = R.head.front;
     g.noise(F, BODY, 0.08);

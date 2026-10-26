@@ -31,8 +31,8 @@ MobLookKit.declare('spider', {
     ], pivot: [4, 9, 0]},
   },
   tex: {size: 64, paint: (g, R) => {
-    const BODY = [42, 34, 38]; const BODY2 = [28, 23, 26];
-    const LEG = [28, 23, 26]; const RED = [216, 58, 42]; const DARKR = [138, 30, 18];
+    const BODY = [66, 52, 56]; const BODY2 = [46, 36, 40];
+    const LEG = [44, 34, 38]; const RED = [216, 58, 42]; const DARKR = [138, 30, 18];
     /* 头: 深绒噪底 · 多眼簇(大红对 + 暗红小对, 官方八眼语义) · 螯肢 */
     const F = R.head.front;
     g.noise(F, BODY, 0.08);

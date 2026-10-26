@@ -31,7 +31,7 @@ MobLookKit.declare('phantom', {
     ]},
   },
   tex: {size: 64, paint: (g, R) => {
-    const BLUE = [58, 90, 122]; const BLUE2 = [44, 68, 96];
+    const BLUE = [88, 122, 152]; const BLUE2 = [68, 94, 122];
     const DARK = [18, 28, 40]; const EYE = [154, 216, 60];
     /* 头: 蓝灰底 · 绿瞳(两颗) · 尖牙嘴 */
     const F = R.head.front;

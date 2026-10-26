@@ -21,24 +21,25 @@ MobLookKit.declare('enderman', {
     legR: {pivot: [-2, 30, 0], add: [{origin: [-3, 0, -1], size: [2, 30, 2], uv: [40, 0]}]},
   },
   tex: {size: 64, paint: (g, R) => {
-    const BLACK = [16, 16, 24]; const BLACK2 = [10, 10, 18];
+    const BLACK = [42, 42, 56]; const BLACK2 = [30, 30, 44];
     const PURP = [208, 107, 255]; const WHT = [235, 220, 245];
-    /* 头: 黑影底 · 横紫瞳(官方长目) + 白高光 */
+    /* 头: 深黑影底 · 横紫瞳(官方长目, 上行提亮) + 白高光 */
     const F = R.head.front;
-    g.noise(F, BLACK, 0.08);
+    g.noise(F, BLACK, 0.12);
     g.fill([F[0], F[1] + 3, 8, 2], PURP);
+    g.fill([F[0] + 1, F[1] + 3, 6, 1], [232, 150, 255]);
     g.px(F[0] + 1, F[1] + 3, WHT); g.px(F[0] + 6, F[1] + 4, WHT);
-    for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], BLACK, 0.08);
+    for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], BLACK, 0.12);
     g.mul(R.head.bottom, 0.7);
-    /* 身: 更深黑影 · 微紫斑(虚空粒子感) */
-    g.noiseAll(R.root, BLACK2, 0.08);
-    for (let i = 0; i < 6; i++) {
+    /* 身: 深黑影 · 微紫斑(虚空粒子感) */
+    g.noiseAll(R.root, BLACK2, 0.12);
+    for (let i = 0; i < 8; i++) {
       g.px(R.root.front[0] + Math.floor(g.rng() * R.root.front[2]),
           R.root.front[1] + Math.floor(g.rng() * R.root.front[3]), PURP);
     }
-    /* 四肢(共区): 黑影长肢 */
+    /* 四肢(共区): 深黑长肢 */
     for (const part of [R.armR, R.armL, R.legR, R.legL]) {
-      g.noiseAll(part, BLACK, 0.08);
+      g.noiseAll(part, BLACK, 0.12);
       g.mul(part.bottom, 0.7);
     }
   }},

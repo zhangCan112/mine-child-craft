@@ -13,7 +13,7 @@
    ============================================================ */
 MobLookKit.declare('wither', {
   scale: 1.7,
-  debris: 0x1c1c1c,
+  debris: 0x343230,
   bones: {
     root: {pivot: [0, 17, 0], add: [
       {origin: [-10, 17.1, -0.5], size: [20, 3, 3], uv: [0, 16]}, /* 脊横向 */
@@ -28,24 +28,26 @@ MobLookKit.declare('wither', {
     armR: {pivot: [-9, 18, -1], add: [{origin: [-12, 18, -4], size: [6, 6, 6], uv: [32, 0]}]},
   },
   tex: {size: 64, paint: (g, R) => {
-    const DARKB = [28, 28, 28]; const DARK2 = [20, 20, 20];
-    const BONE = [216, 216, 210]; const BONE2 = [168, 168, 160];
-    /* 中头: 黑骨底 · 白瞳(两颗) · 白牙床咧嘴 */
+    const DARKB = [58, 58, 58]; const DARK2 = [42, 42, 42];
+    const BONE = [222, 222, 216]; const BONE2 = [176, 176, 168];
+    /* 中头: 深骨底 · 白眉带 · 白瞳(两颗) · 宽白牙床(官方三头大白脸纹口径) */
     const F = R.head.front;
     g.noise(F, DARKB, 0.06);
+    g.fill([F[0] + 1, F[1] + 1, 6, 1], BONE); /* 眉带 */
     g.fill([F[0] + 1, F[1] + 3, 2, 2], BONE); g.fill([F[0] + 5, F[1] + 3, 2, 2], BONE);
-    g.fill([F[0] + 2, F[1] + 6, 4, 2], BONE2); /* 牙床 */
-    g.px(F[0] + 2, F[1] + 6, DARK2); g.px(F[0] + 4, F[1] + 6, DARK2); /* 牙缝 */
+    g.fill([F[0] + 1, F[1] + 5, 6, 2], BONE2); /* 牙床 */
+    g.px(F[0] + 3, F[1] + 5, DARK2); g.px(F[0] + 2, F[1] + 6, DARK2);
+    g.px(F[0] + 4, F[1] + 6, DARK2); /* 牙缝 */
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], DARKB, 0.06);
     g.mul(R.head.bottom, 0.8);
-    /* 双肩头(共区 armL/armR): 黑骨 + 白瞳小脸 */
+    /* 双肩头(共区 armL/armR): 深骨 + 长白瞳小脸(白脸纹口径) */
     for (const part of [R.armL, R.armR]) {
       g.noiseAll(part, DARKB, 0.06);
       const SF = part.front;
-      g.fill([SF[0] + 1, SF[1] + 2, 1, 1], BONE); g.fill([SF[0] + 4, SF[1] + 2, 1, 1], BONE);
-      g.fill([SF[0] + 1, SF[1] + 4, 4, 1], BONE2); /* 小牙床 */
+      g.fill([SF[0] + 1, SF[1] + 2, 1, 2], BONE); g.fill([SF[0] + 4, SF[1] + 2, 1, 2], BONE);
+      g.fill([SF[0], SF[1] + 5, 6, 1], BONE2); /* 小牙床 */
     }
-    /* 脊横向(root) · 脊柱(root2) · 颈桩(root6): 黑骨; 肋骨(root3~5): 骨白 */
+    /* 脊横向(root) · 脊柱(root2) · 颈桩(root6): 深骨; 肋骨(root3~5): 骨白 */
     for (const part of [R.root, R.root2, R.root6]) {
       g.noiseAll(part, DARKB, 0.06);
     }

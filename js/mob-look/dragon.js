@@ -44,17 +44,17 @@ MobLookKit.declare('dragon', {
     ]},
   },
   tex: {size: 256, paint: (g, R) => {
-    const BODY = [22, 22, 31]; const BODY2 = [38, 32, 85];
-    const DARK = [10, 10, 16]; const EYE = [208, 107, 255];
-    const MEMB = [58, 32, 85]; const MEMB2 = [44, 24, 66];
-    /* 漆黑鳞底笔触: 深噪 + 紫斑(末影血统) */
+    const BODY = [58, 52, 78]; const BODY2 = [92, 76, 128];
+    const DARK = [32, 28, 46]; const EYE = [216, 120, 255];
+    const MEMB = [98, 66, 132]; const MEMB2 = [76, 50, 104];
+    /* 深紫灰鳞底笔触: 噪底 + 亮紫斑(末影血统, 官方深紫灰口径) */
     const scale = (r) => {
       g.noise(r, BODY, 0.07);
       for (let i = 0; i < Math.max(2, r[2] * r[3] / 30); i++) {
         g.px(r[0] + Math.floor(g.rng() * r[2]), r[1] + Math.floor(g.rng() * r[3]), BODY2);
       }
     };
-    /* 身颈尾: 漆黑鳞 + 背脊亮线 · 腹板压暗 */
+    /* 身颈尾: 深紫灰鳞 + 背脊亮线 · 腹板压暗 */
     for (const part of [R.root, R.root2, R.root3, R.root4, R.root5]) {
       for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
         scale(part[f]);
@@ -63,7 +63,7 @@ MobLookKit.declare('dragon', {
     g.fill([R.root.top[0] + 11, R.root.top[1], 2, R.root.top[3]], BODY2); /* 背脊线 */
     g.mul(R.root.bottom, 0.75); /* 腹板 */
     g.mul(R.root5.back, 0.85); /* 尾尖 */
-    /* 后腿(两两共区): 漆黑 */
+    /* 后腿(两两共区): 深紫灰 */
     for (const part of [R.root6, R.root7, R.root8, R.root9]) {
       for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
         scale(part[f]);
@@ -80,7 +80,7 @@ MobLookKit.declare('dragon', {
     const SN = R.head2.front;
     g.px(SN[0] + 2, SN[1] + 3, DARK); g.px(SN[0] + 9, SN[1] + 3, DARK); /* 鼻孔 */
     g.fill([SN[0], SN[1] + SN[3] - 1, SN[2], 1], DARK); /* 嘴缝 */
-    /* 双翼(左右共区): 骨杆漆黑 · 膜深紫(血管纹) · 翼尖漆黑 */
+    /* 双翼(左右共区): 骨杆/翼尖深紫灰 · 膜亮紫(血管纹) */
     for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
       scale(R.wingL[f]); /* 骨杆 */
       scale(R.wingL3[f]); /* 翼尖 */

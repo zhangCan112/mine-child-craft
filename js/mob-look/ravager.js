@@ -30,10 +30,10 @@ MobLookKit.declare('ravager', {
     ]},
   },
   tex: {size: 128, paint: (g, R) => {
-    const GREY = [74, 74, 82]; const GREY2 = [58, 58, 66];
-    const DARK = [26, 26, 32]; const HORN = [240, 232, 216];
+    const GREY = [98, 98, 106]; const GREY2 = [80, 80, 88];
+    const DARK = [46, 46, 52]; const HORN = [240, 232, 216];
     const TEETH = [230, 226, 214]; const EYE = [216, 176, 40];
-    const SADDLE = [44, 44, 51];
+    const SADDLE = [72, 72, 80];
     /* 身: 灰皮噪底 · 背上鞍区(深色) */
     g.noiseAll(R.root, GREY, 0.05);
     const T = R.root.top;
@@ -55,7 +55,8 @@ MobLookKit.declare('ravager', {
     const M = R.head3.front;
     g.fill([M[0], M[1], M[2], M[3]], DARK); /* 口鼻暗区 */
     for (let i = 0; i < 4; i++) {
-      g.fill([M[0] + 1 + i * 4, M[1], 2, 2], TEETH); /* 牙 */
+      g.fill([M[0] + 1 + i * 4, M[1], 2, 2], TEETH); /* 上牙 */
+      g.px(M[0] + 2 + i * 4, M[1] + M[3] - 1, TEETH); /* 下牙 */
     }
     /* 鼻瘤(head4): 深灰 */
     g.noiseAll(R.head4, DARK, 0.15);

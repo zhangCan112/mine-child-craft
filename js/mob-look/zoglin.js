@@ -33,12 +33,12 @@ MobLookKit.declare('zoglin', {
   },
   tex: {size: 128, paint: (g, R) => {
     const ROTT = [122, 138, 90]; const ROTT2 = [96, 110, 68];
-    const MANE = [66, 80, 48]; const DARK = [28, 34, 20];
+    const MANE = [98, 112, 64]; const DARK = [46, 54, 32];
     const TUSK = [224, 220, 200]; const PINK = [158, 128, 108];
     /* 身: 腐肉绿噪底 · 背脊压暗 · 肚下肉粉 */
     g.noiseAll(R.root, ROTT, 0.07);
-    g.mul([R.root.top[0], R.root.top[1], R.root.top[2], R.root.top[3]], 0.9);
-    g.mul(R.root.bottom, 0.9);
+    g.mul([R.root.top[0], R.root.top[1], R.root.top[2], R.root.top[3]], 0.95);
+    g.mul(R.root.bottom, 0.95);
     /* 鬃毛(root2): 暗绿硬毛 */
     for (const f of ['left', 'right']) {
       g.noise(R.root2[f], MANE, 0.12);
@@ -51,7 +51,7 @@ MobLookKit.declare('zoglin', {
     g.fill([F[0] + 4, F[1] + 4, 6, 2], PINK); /* 鼻盘 */
     g.px(F[0] + 5, F[1] + 4, DARK); g.px(F[0] + 8, F[1] + 4, DARK); /* 鼻孔 */
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], ROTT, 0.07);
-    g.mul(R.head.bottom, 0.85);
+    g.mul(R.head.bottom, 0.9);
     /* 獠牙(共区): 暗米白 */
     for (const part of [R.head2, R.head3]) {
       g.fillAll(part, TUSK);

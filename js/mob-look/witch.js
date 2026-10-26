@@ -26,8 +26,8 @@ MobLookKit.declare('witch', {
   tex: {size: 64, paint: (g, R) => {
     const SKIN = [154, 138, 154]; const SKIN2 = [128, 112, 128];
     const DARK = [30, 24, 32]; const EYE = [64, 92, 138];
-    const ROBE = [90, 58, 106]; const ROBE2 = [66, 42, 78];
-    const HAT = [42, 28, 48]; const HAT2 = [28, 18, 32];
+    const ROBE = [112, 74, 130]; const ROBE2 = [88, 58, 100];
+    const HAT = [66, 46, 74]; const HAT2 = [48, 34, 54];
     const POTION = [138, 216, 74];
     /* 头(8×10): 灰紫肤 · 鹰钩鼻区 · 蓝瞳 · 鼻痣 */
     const F = R.head.front;

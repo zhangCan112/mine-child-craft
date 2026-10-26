@@ -37,12 +37,12 @@ MobLookKit.declare('hoglin', {
   },
   tex: {size: 128, paint: (g, R) => {
     const BROWN = [168, 106, 74]; const BROWN2 = [140, 84, 58];
-    const MANE = [96, 56, 36]; const DARK = [36, 22, 14];
+    const MANE = [132, 86, 56]; const DARK = [56, 38, 24];
     const TUSK = [240, 232, 216]; const PINK = [196, 128, 112];
     /* 身: 棕皮噪底 · 背脊深棕 · 肚浅 */
     g.noiseAll(R.root, BROWN, 0.06);
-    g.mul([R.root.top[0], R.root.top[1], R.root.top[2], R.root.top[3]], 0.92);
-    g.mul(R.root.bottom, 0.88);
+    g.mul([R.root.top[0], R.root.top[1], R.root.top[2], R.root.top[3]], 0.96);
+    g.mul(R.root.bottom, 0.92);
     /* 鬃毛(root2): 深棕硬毛噪点 */
     for (const f of ['left', 'right']) {
       g.noise(R.root2[f], MANE, 0.12);
@@ -55,7 +55,7 @@ MobLookKit.declare('hoglin', {
     g.fill([F[0] + 4, F[1] + 4, 6, 2], PINK); /* 鼻盘 */
     g.px(F[0] + 5, F[1] + 4, DARK); g.px(F[0] + 8, F[1] + 4, DARK); /* 鼻孔 */
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], BROWN, 0.06);
-    g.mul(R.head.bottom, 0.85);
+    g.mul(R.head.bottom, 0.9);
     /* 獠牙(共区 head2/head3): 米白 */
     for (const part of [R.head2, R.head3]) {
       g.fillAll(part, TUSK);

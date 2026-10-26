@@ -27,8 +27,8 @@ MobLookKit.declare('creaking', {
     legR: {pivot: [-1.5, 13, 0], add: [{origin: [-3, 0, -1.5], size: [3, 16, 3], uv: [14, 38]}]},
   },
   tex: {size: 64, paint: (g, R) => {
-    const BARK = [84, 64, 46]; const BARK2 = [64, 48, 34];
-    const DARK = [30, 22, 14]; const GLOW = [255, 138, 42];
+    const BARK = [110, 88, 64]; const BARK2 = [86, 68, 48];
+    const DARK = [66, 50, 34]; const GLOW = [255, 138, 42];
     /* 树皮笔触: 棕噪底 + 竖纹理 */
     const bark = (r) => {
       g.noise(r, BARK, 0.08);
@@ -40,7 +40,7 @@ MobLookKit.declare('creaking', {
     for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) bark(R.root[f]);
     const F = R.root2.front;
     g.fill(F, DARK);
-    g.fill([F[0] + 1, F[1] + 3, 2, 3], GLOW); g.fill([F[0] + 6, F[1] + 3, 2, 3], GLOW); /* 光瞳 */
+    g.fill([F[0] + 1, F[1] + 3, 2, 4], GLOW); g.fill([F[0] + 6, F[1] + 3, 2, 4], GLOW); /* 光瞳 */
     g.fill([F[0] + 2, F[1] + 10, 5, 2], BARK2); /* 歪嘴 */
     const FB = R.root2.back;
     g.fill(FB, BARK2);

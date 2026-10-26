@@ -28,8 +28,8 @@ MobLookKit.declare('warden', {
     legR: {pivot: [-4, 13, 0], add: [{origin: [-7, 0, -3], size: [6, 13, 6], uv: [96, 0]}]},
   },
   tex: {size: 128, paint: (g, R) => {
-    const DARKT = [24, 42, 58]; const DARK2 = [18, 32, 46];
-    const GLOW = [74, 224, 200]; const GLOW2 = [36, 128, 116];
+    const DARKT = [46, 76, 100]; const DARK2 = [32, 56, 74];
+    const GLOW = [74, 224, 200]; const GLOW2 = [46, 152, 138];
     /* 桶胸: 深青噪底 · 鳞纹 */
     g.noiseAll(R.root, DARKT, 0.07);
     const B = R.root.front;
@@ -41,10 +41,10 @@ MobLookKit.declare('warden', {
     /* 胸口光纹板(root2, 平面盒): sculk 符纹(幽蓝纹路+亮核) — 两面同绘 */
     const P = R.root2.front;
     g.fill(P, DARK2);
-    for (let i = 0; i < 3; i++) {/* 三道符纹 */
-      g.fill([P[0] + 3, P[1] + 4 + i * 4, P[2] - 6, 1], GLOW2);
+    for (let i = 0; i < 3; i++) {/* 三道符纹(双行加粗) */
+      g.fill([P[0] + 3, P[1] + 4 + i * 4, P[2] - 6, 2], GLOW2);
     }
-    g.fill([P[0] + 6, P[1] + 6, 4, 3], GLOW); /* 亮核(魂心) */
+    g.fill([P[0] + 6, P[1] + 5, 4, 4], GLOW); /* 亮核(魂心) */
     g.fill([P[0] + 7, P[1] + 3, 2, 2], GLOW);
     const PB = R.root2.back;
     g.fill(PB, DARK2);
@@ -52,7 +52,7 @@ MobLookKit.declare('warden', {
     const F = R.head.front;
     g.noise(F, DARKT, 0.07);
     for (let i = 0; i < 4; i++) {/* 额纹 */
-      g.fill([F[0] + 3 + i * 3, F[1] + 2, 1, 3], GLOW2);
+      g.fill([F[0] + 3 + i * 3, F[1] + 2, 1, 4], GLOW2);
     }
     g.fill([F[0] + 5, F[1] + 9, 6, 1], DARK2); /* 鼻缝 */
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) g.noise(R.head[f], DARKT, 0.07);
@@ -63,10 +63,11 @@ MobLookKit.declare('warden', {
         g.fill([part[f][0], part[f][1], part[f][2], 1], GLOW); /* 亮梢 */
       }
     }
-    /* 双臂(共区): 深青 · 臂纹两道 · 巨拳压暗; 双腿(共区): 深青 */
+    /* 双臂(共区): 深青 · 臂纹三道 · 巨拳压暗; 双腿(共区): 深青 */
     for (const arm of [R.armL, R.armR]) {
-      g.noiseAll(arm, [24, 50, 74], 0.07);
+      g.noiseAll(arm, [42, 72, 96], 0.07);
       g.fill([arm.front[0] + 1, arm.front[1] + 6, arm.front[2] - 2, 1], GLOW2); /* 臂纹 */
+      g.fill([arm.front[0] + 1, arm.front[1] + 10, arm.front[2] - 2, 1], GLOW2);
       g.fill([arm.front[0] + 1, arm.front[1] + 14, arm.front[2] - 2, 1], GLOW2);
       g.fill([arm.front[0], arm.front[1] + arm.front[3] - 4, arm.front[2], 4], DARK2); /* 巨拳 */
     }
