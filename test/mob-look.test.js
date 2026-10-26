@@ -169,7 +169,7 @@ test('造型档案: 头像裁切 — 16×16 网居中 · 中心像素非空且�
   assert.strictEqual(MobLookKit.facePixels('mix'), null, 'mix 伪类型无档案返 null(face 走手绘兜底)');
 });
 
-test('造型档案: 碎块色声明 — 优先于 mobs.js MOB_DEBRIS', () => {
+test('造型档案: 碎块色声明 — mobs.js debrisColor 的唯一权威', () => {
   assert.strictEqual(MobLookKit.debrisOf('zombie'), 0x5e9440, '僵尸碎块色(配色锚延续)');
   assert.strictEqual(MobLookKit.debrisOf('golem'), 0xcdd0d8, '铁傀儡碎块色(配色锚延续)');
   assert.strictEqual(MobLookKit.debrisOf('mix'), null, 'mix 伪类型无声明返 null(回落内联表)');

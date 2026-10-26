@@ -3,9 +3,25 @@
    运行: node --test test/mobs.test.js
    通过 interface 驱动(spawn/update/hit/near/clear/onDeath — 界面即测试面):
    出厂契约(战斗节拍置零)/ 数值 / 受击死亡 / 击杀事件 / 圆域查询 / 尸体回收。
-   THREE 以最小桩注入: 加载期只 new 矩阵临时量, 断言不依赖其语义。 */
+   THREE 以最小桩注入: 加载期只 new 矩阵临时量, 断言不依赖其语义。
+   造型档案(票③起 mobs.js 硬依赖): 装载真 kit+42 份声明(与浏览器共享词法
+   环境同构 — vm 注入); 测试只走纯逻辑路径(clear 先清表再 render, 批次
+   几何/材质的 THREE·document 段不被触达)。 */
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+
+/* ---- 造型档案: 真 kit + 声明文件(经典脚本共享词法环境复刻) ---- */
+globalThis.MobLookKit = require('../js/mob-look-kit.js');
+{
+  const lookDir = path.join(__dirname, '..', 'js', 'mob-look');
+  const ctx = vm.createContext({MobLookKit: globalThis.MobLookKit});
+  for (const f of fs.readdirSync(lookDir).filter((x) => x.endsWith('.js')).sort()) {
+    vm.runInContext(fs.readFileSync(path.join(lookDir, f), 'utf8'), ctx, {filename: f});
+  }
+}
 
 /* ---- 最小 THREE 桩(链式 no-op: render 的临时量, 不参与断言) ---- */
 function mk() {

@@ -66,11 +66,17 @@ const sandbox = {
   scene: {add() {}, remove() {}},
   sfx() {}, performance: {now: () => 0},
   MobCore: require('../js/mob-core.js'),
+  MobLookKit: require('../js/mob-look-kit.js'),
   groundTop: () => 11, getBlock: () => 0, isSolid: () => false,
 };
 sandbox.window = sandbox;
 const ctx = vm.createContext(sandbox);
 const ROOT = path.join(__dirname, '..');
+/* 造型档案声明(票③起 mobs.js 硬依赖): 先于 mobs.js 装载(镜像 index.html 序) */
+const lookDir = path.join(ROOT, 'js', 'mob-look');
+for (const f of fs.readdirSync(lookDir).filter((x) => x.endsWith('.js')).sort()) {
+  vm.runInContext(fs.readFileSync(path.join(lookDir, f), 'utf8'), ctx, {filename: 'js/mob-look/' + f});
+}
 for (const f of ['js/mob-registry.js', 'js/mobs.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
 }

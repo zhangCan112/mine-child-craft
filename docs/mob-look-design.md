@@ -22,8 +22,8 @@ js/mob-look/<type>.js ──declare(type, def)──┐
                             └ debrisOf(type)                   → 击杀碎块色
 ```
 
-- **缝的位置**：mobs.js 的 `MOB_RIG[type]` 查找点收窄为 `rigOf(type) = MobLookKit.rig(t) || MOB_RIG[t]`
-  ——已迁移怪走造型档案，未迁移怪回落内联骨架（三票过渡期的双轨）。`Mobs` 对模式的 interface 零变化。
+- **缝的位置**：mobs.js 的骨架查找点收窄为 `rigOf(type) = MobLookKit.rig(t)`
+  ——造型档案是唯一骨架权威（票③已拆内联 MOB_RIG 与三票过渡双轨）。`Mobs` 对模式的 interface 零变化。
 - **删除检验**：删掉 kit，42 份声明无处消费、贴图/UV/镜像换算散回每怪文件——复杂度在缝后集中，成立。
 - **两个真实 adapter**：mobs（+Z 镜像、合批实例）与 avatar（−Z 原生、Group 傀儡）同一份 rig 数据，
   证明 z 镜像缝是真的，不是假缝。
@@ -35,7 +35,7 @@ MobLookKit.declare('zombie', {
   base: ['humanoid'],            // 基座生成器 + 参数（票①: humanoid / skeleton / quad；蜘蛛苦力怕自绘骨）
   armStyle: 'zombie',            // 步态风格（mobs.js gait 既有词汇，原样透传）
   weaponArm: 'armL',             // 挥击手=持械手（可选）
-  debris: 0x5e9440,              // 击杀碎块色（回落 mobs.js MOB_DEBRIS）
+  debris: 0x5e9440,              // 击杀碎块色（唯一权威; 缺省灰由 mobs.js 兜底）
   scale: 1,                      // 整体缩放（凋灵骷髅 1.2 / 洞穴蜘蛛 0.7，票②用）
   tex: {size: 64, paint: (g, R) => {...}},  // 自绘贴图：画师 g + 区域表 R
   bones: {                       // 基座追加/新建骨（可选，官方 px，脸朝 −Z）
@@ -84,7 +84,10 @@ MobLookKit.declare('zombie', {
 透传；scale 变体（wither_skeleton 1.2 / cave_spider 0.7 / piglin_brute 1.1 / elder_guardian
 2.0 / wither 1.7）；贴图五档 32/64/128/256/512。已知取舍：illager 交叉臂与挥击摆臂互斥
 取摆臂；slime/magma 薄片层理改贴图表达；hoglin 前后腿异规格走自有骨架。
-票③：拆旧（删 mobs.js MOB_RIG/face 内联 ~700 行、hum/quad 生成器）、Avatar 老建模清理。
+票③（2026-10-26 完成）：拆旧——mobs.js 删 MOB_RIG IIFE/hum·quad·box 生成器/buildRigGeo
+顶点色几何/mobMat 共享材质分支/MOB_DEBRIS 内联表（41 键 debris 前移 look 文件，迁移前逐键
+对账零漂移）/face() 手绘 switch 319 行（贴图裁切 + 问号兜底两分支保留）；rigOf 直查
+MobLookKit；mobs.test.js 桩环境装载真 kit+声明文件；GLOSSARY 双轨字样消名。
 
 ## 5. 测试策略
 

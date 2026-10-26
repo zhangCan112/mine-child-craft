@@ -407,7 +407,7 @@ const MobLookKit = (() => {
     return out;
   }
 
-  /* ---------- 碎块色(可选声明, 回落 mobs.js MOB_DEBRIS) ---------- */
+  /* ---------- 碎块色(可选声明; 缺省由 mobs.js debrisColor 灰兜底) ---------- */
   function debrisOf(type) {
     return (looks[type] && looks[type].debris) || null;
   }
