@@ -1551,6 +1551,7 @@ const AdventureMode = mkMode({
     setFluidEditSink((x, y, z, id, lv) => {
       advEdits.set(x + ',' + y + ',' + z,
           (BLOCKS[id] && BLOCKS[id].fluid) ? {id, lv: lv || 0} : id);
+      advDirty = true; /* 流体写格入节流窗: 漏置位 → 只动水时永不触发 5s 落盘, 关页即丢水位 */
     });
     advBubbles = mkBubbleBar(); /* 溺气泡条(liquid D10): 剩 3 泡 TTS 提醒, 气满藏条 */
     loadScene(() => {/* 场景装填 seam: 清场→建场→收尾入队一步到位 */
@@ -1635,6 +1636,14 @@ const AdventureMode = mkMode({
         「小小探险家」字样留给终章称号的仪式感) */
     SpeechKit.speak('欢迎来到探险草原！' + (qNow ? qNow.hint : '任务全部完成啦，自由探险咯！'));
     showToast('🌲 探险草原 · 按 Tab 或点 🎒 打开背包');
+  },
+
+  onPageHide() {/* 关页兜底存档(main.js pagehide 收口, 2026-10 树苗丢档修复):
+      世界档 5s 节流窗口内直接关页/刷新 → 窗口内的世界改动(种下的树苗/挖掘/
+      放置/水位)全丢, 而任务档步进是即时落盘 → 重进出现「任务说树苗种过了、
+      世界里却没有」的错位。这里同步落盘(localStorage 同步写, pagehide 内
+      安全); 服务器 push 由 main.js 统一补发 */
+    if (advDirty) advSaveNow();
   },
 
   cleanup() {

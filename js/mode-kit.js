@@ -8,6 +8,8 @@
      · hud(hit) → string[]     每帧 HUD 文本(hit 由主循环注入, 模式不再自行 raycast)
      · touch [...]             setTouchActions 声明 (缺省=null 隐藏)
      · onHold(active)          触屏长按起止钩子(手势分类在 input.js/touch-core)
+     · onPageHide()            关页兜底存档钩子(main.js pagehide 收口分发,
+                               白名单透传; 世界档 5s 节流的模式借此同步落盘)
      · KeyB 默认暂停 · 无 hud 配置则清空并跳过 · onVoidFall 默认回最近出生点
    工具: spawn(对外经 ModeKit.spawn) / lookName / confirmBtn
    液体扩展(设计稿 liquid D10):
@@ -1075,6 +1077,10 @@ function mkMode(cfg) {
   if (cfg.onHighlight) mode.onHighlight = cfg.onHighlight;
   if (cfg.onMenu) mode.onMenu = cfg.onMenu;
   if (cfg.buildMenu) mode.buildMenu = cfg.buildMenu;
+  /* 关页兜底存档钩子(main.js pagehide 收口, 2026-10 树苗丢档修复):
+     与 onHighlight/onMenu 同款白名单透传——mkMode 不过滤已知钩子之外的
+     语义, 世界档 5s 节流的模式(build/adventure)借此在关页时同步落盘 */
+  if (cfg.onPageHide) mode.onPageHide = cfg.onPageHide;
   if (cfg.hud && MK.hud) {
     /* HUD 节流: 主循环每帧调用, 但文本至多 10Hz 变化 — 先限频再比对,
        内容相同直接跳过 innerHTML 写入(省去每帧 DOM 重建/布局/重绘,

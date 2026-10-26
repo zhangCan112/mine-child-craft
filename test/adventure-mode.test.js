@@ -1355,6 +1355,24 @@ test('T12 放置行为链: 泥土/火把/树苗 — 落点+背包 −1+记账; t
   assert.strictEqual(A.advSaplings.size, 1, '树苗挂上 20s 计时');
 });
 
+test('T12 树苗关页兜底: 5s 节流窗口内关页 → onPageHide 落盘 → 重进树苗还在(2026-10 丢档修复)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('sapling', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_SAPLING, '树苗种下');
+  AdventureMode.update(0.016); /* 关页前最后一帧: 时钟桩恒 0 → 5s 节流不触发 */
+  assert.ok(!mem.has('adventure_world_save'), '节流窗口内世界档未落盘(关页丢档前提成立)');
+  AdventureMode.onPageHide(); /* main.js pagehide 收口分发(不走 cleanup) */
+  const saved = JSON.parse(mem.get('adventure_world_save'));
+  assert.ok((saved.edits || []).some((e) => e[0] === spot.x + ',25,' + spot.z && e[1] === api.B_SAPLING),
+      'onPageHide 已把树苗格落进世界档');
+  freshInit(); /* 重进 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_SAPLING, '重进树苗还在(不再丢档)');
+  assert.strictEqual(A.advSaplings.size, 1, '计时重挂(重进重计 20s)');
+});
+
 test('T12 树苗生长链: 20s 到期长成树 + 逐块记账 + 重进树还在(计时不落盘不重挂)', () => {
   mem.clear();
   freshInit();

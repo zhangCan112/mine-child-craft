@@ -159,6 +159,19 @@ function switchMode(id) {
   AudioMixer.setMood(ModeRegistry.all.find((m) => m.id === id).mood);
 }
 
+/* ---------- 关页兜底存档 ----------
+   世界档是 5s 节流落盘(build/adventure 同款), 窗口内直接关页/刷新会丢最后
+   几秒的世界改动——而任务/背包等即时档已落盘, 重进就出现「任务完成了、世界
+   里却没发生」的错位(2026-10 探险树苗丢失排查)。模式可声明 onPageHide 同步
+   落盘; 随后立即补发 push: sync.js 的 pagehide 监听先注册先跑, 推的是 save
+   之前的旧缓存, 这里 save 已把新档写进 SyncDB.cache, 再 push 一发让服务器
+   收到新档(按设备整份覆盖, 后到者赢)。localStorage 同步写在 pagehide 内
+   安全; file:// 离线形态 push 为空转, 本地档已落。 */
+addEventListener('pagehide', () => {
+  if (MODES.cur && MODES.cur.onPageHide) MODES.cur.onPageHide();
+  SyncDB.push();
+});
+
 /* ---------- 指针锁 / 遮罩 ---------- */
 function onLockChanged(l) {
   overlay.style.display = l ? 'none' : 'flex';

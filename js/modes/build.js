@@ -514,11 +514,17 @@ const BuildMode = mkMode({
     setFluidEditSink((x, y, z, id, lv) => {
       buildEdits[buildSceneId].set(blockKey(x, y, z),
           (BLOCKS[id] && BLOCKS[id].fluid) ? {id, lv: lv || 0} : id);
+      buildDirty = true; /* 流体写格入节流窗: 漏置位 → 只动水时永不触发 5s 落盘, 关页即丢水位 */
     });
     buildLoadScene(buildSceneId);
     buildSceneMenu();
     buildHb.select(1); /* 默认选中第 2 格方块: 第 1 格铁锹是显式挖掘入口, 拿方块进场即放置态 */
     buildHeldSync(); /* 手持观感对齐选中槽(select 同格不触发 onPick, 显式兜底) */
+  },
+  onPageHide() {/* 关页兜底存档(main.js pagehide 收口, 2026-10 树苗丢档修复同款):
+      世界档 5s 节流窗口内直接关页/刷新 → 窗口内的建造改动全丢; 这里同步落盘
+      (localStorage 同步写, pagehide 内安全), 服务器 push 由 main.js 统一补发 */
+    if (buildDirty) buildSaveNow();
   },
   cleanup() {
     buildSaveNow();

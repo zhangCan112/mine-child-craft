@@ -153,6 +153,22 @@ test('训练营预算契约: 注册表 !gated 的每个 id 在 Budgets 有可入
       '训练营预算漏写只会静默降级(不入账+不限量), 这里必须红');
 });
 
+test('关页兜底存档接线: main.js pagehide 分发 + mkMode 白名单透传可达', () => {
+  const ctx = boot();
+  /* 2026-10 探险树苗丢档修复的接线防线: 世界档 5s 节流窗口内直接关页,
+     最后几秒的世界改动(树苗/挖掘/水位)靠 pagehide 同步落盘兜底。
+     双道断言: 源文本静态(main.js 真挂了监听且分发给当前模式——addEventListener
+     是空桩收不到事件, 只能静态扫) + 行为(mkMode 白名单透传后 adventure/build
+     两模式的钩子在组合根真实可达——漏登记 mode-kit 白名单时此处红) */
+  const mainSrc = fs.readFileSync(path.join(__dirname, '..', 'js/main.js'), 'utf8');
+  assert.ok(/addEventListener\('pagehide'/.test(mainSrc), 'main.js 应挂 pagehide 兜底监听');
+  assert.ok(mainSrc.indexOf('MODES.cur.onPageHide') >= 0, 'pagehide 应分发给 MODES.cur.onPageHide');
+  assert.strictEqual(vm.runInContext('typeof MODES.adventure.onPageHide', ctx), 'function',
+      'adventure 的 onPageHide 经 mkMode 白名单透传可达');
+  assert.strictEqual(vm.runInContext('typeof MODES.build.onPageHide', ctx), 'function',
+      'build 的 onPageHide 经 mkMode 白名单透传可达(build 同为 5s 节流世界档)');
+});
+
 test('switchMode 全 id 不抛: 注册表每个模式可切换且 MODES.cur 落位(尾探针, 不恢复现场)', () => {
   const ctx = boot();
   /* 全链: 离场落账(Budgets.play.flush, 上一个 test 已建账) →
