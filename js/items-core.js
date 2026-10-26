@@ -99,6 +99,18 @@ const ITEMS = {
      字段, 放下长出整座 6×7 门(结构放置由探险壳拦截, 不走单格放置路径) —— */
   nether_portal: {name: '下界传送门', icon: '🌀'},
 
+  /* —— 生态地图件(冒险模式生态地图设计稿 §6): 雪原/沙漠/沼泽三图资源 ——
+     雪球是投掷物纯材料(右键掷出/雪仗零伤害+击退, 壳接线归 T9);
+     雪块合成反向(雪球×4=雪块, 配方归 T9); 花掉落自身可放回(收藏) */
+  snow: {name: '雪块', icon: '⬜', block: 54}, // B_SNOW(54); 挖掉得 4 雪球
+  snowball: {name: '雪球', icon: '⚪'}, // 投掷物(T9); 打雪仗专用
+  ice: {name: '冰', icon: '🧊', block: 56}, // B_ICE(56); glass 透光透渲
+  cactus: {name: '仙人掌', icon: '🌵', block: 57}, // B_CACTUS(57); 儿童版无触碰伤害
+  sandstone: {name: '砂岩', icon: '🟫', block: 58}, // B_SANDSTONE(58); 沙漠地下层
+  orchid: {name: '兰花', icon: '🌸', block: 60}, // B_ORCHID(60); 沼泽唯一产地
+  flower_y: {name: '蒲公英', icon: '🌼', block: 61}, // B_FLOWER_Y(61); 家园花丛草场
+  flower_w: {name: '雏菊', icon: '🌼', block: 62}, // B_FLOWER_W(62)
+
   /* —— 二期占位(§3.2 配方书全表引用 bow_item, 一期卡片不点亮) —— */
   bow_item: {name: '弓', icon: '🏹'},
 

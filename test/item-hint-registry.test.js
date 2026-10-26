@@ -62,6 +62,9 @@ test('hintForItem: 名字取 ITEMS, tts = 名字+逗号+说明; 未注册/空键
   assert.strictEqual(h.hintForItem('apple').name, '苹果');
   assert.strictEqual(h.hintForItem('apple').desc, '香香甜甜，吃了能回血');
   assert.strictEqual(h.hintForItem('apple').tts, '苹果，香香甜甜，吃了能回血');
+  /* 生态地图件(设计稿 §6): 新提示走同一 tts 拼装口径 */
+  assert.strictEqual(h.hintForItem('snowball').name, '雪球');
+  assert.strictEqual(h.hintForItem('cactus').tts, '仙人掌，沙漠里的绿刺柱，不扎手');
 });
 
 test('hintForBlock: 未收录说明的方块回落名字-only(名字唯一权威在 BLOCKS)', () => {

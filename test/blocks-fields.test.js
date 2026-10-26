@@ -26,6 +26,8 @@ function loadCfg() {
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_GRASS_TUFT, B_FARMLAND,
     B_WHEAT_0, B_WHEAT_1, B_WHEAT_2, B_WHEAT_3, B_CRAFT, B_FURNACE, B_TORCH,
     B_SAPLING, B_CLAY, B_CHEST, B_WOOL, B_BED,
+    B_SNOW, B_SNOWY_GRASS, B_ICE, B_CACTUS, B_SANDSTONE,
+    B_DEAD_BUSH, B_ORCHID, B_FLOWER_Y, B_FLOWER_W,
     B_LAVA, B_GLOWSTONE,
   };`, ctx);
   return ctx.__c;
@@ -54,6 +56,37 @@ test('新方块常量与 id 一一对应: 36~49 按附录 A, B_SAPLING 顺延 50
      存档按数字 id 记, 顺延 50/51/52/53 不与任何号段(1-19/20-29/30-35/36-49)冲突 */
 });
 
+/* ============ 生态地图新方块 id 段(54~62, 冒险模式生态地图设计稿 §6) ============ */
+
+test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽三图资源); 号段红线 — BLOCKS 不占 id 63+', () => {
+  const c = loadCfg();
+  const expect = {B_SNOW: 54, B_SNOWY_GRASS: 55, B_ICE: 56, B_CACTUS: 57,
+    B_SANDSTONE: 58, B_DEAD_BUSH: 59, B_ORCHID: 60, B_FLOWER_Y: 61, B_FLOWER_W: 62};
+  for (const [k, id] of Object.entries(expect)) {
+    assert.strictEqual(c[k], id, k + ' 应为 ' + id);
+    assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
+    assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
+  }
+  /* 红线: 存档按数字 id 记, 63+ 是后续号段预留(票据 T1), 现有表不得越界 */
+  for (const id of Object.keys(c.BLOCKS)) {
+    assert.ok(Number(id) <= 62, 'BLOCKS 出现 63+ 方块 id: ' + id + '(号段红线)');
+  }
+});
+
+test('生态地图薄块: 枯灌木/三花 thin 十字片一律 solid:false; 雪块/雪覆草/冰/仙人掌/砂岩是整块', () => {
+  const c = loadCfg();
+  for (const k of ['B_DEAD_BUSH', 'B_ORCHID', 'B_FLOWER_Y', 'B_FLOWER_W']) {
+    const b = c.BLOCKS[c[k]];
+    assert.ok(typeof b.thin === 'number' && b.thin > 0, c[k] + ' 应有 thin 高度');
+    assert.strictEqual(b.solid, false, c[k] + '(' + b.name + ') thin 块必须 solid:false');
+  }
+  for (const k of ['B_SNOW', 'B_SNOWY_GRASS', 'B_ICE', 'B_CACTUS', 'B_SANDSTONE']) {
+    assert.ok(!c.BLOCKS[c[k]].thin, c[k] + ' 是整块, 不应有 thin');
+  }
+  assert.strictEqual(c.BLOCKS[c.B_ICE].glass, true, '冰 glass 透光透渲(与玻璃同通道, 不入图集)');
+});
+
+
 test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗/床(B_FUSE 同款口径)', () => {
   const c = loadCfg();
   const thinIds = [c.B_GRASS_TUFT, c.B_WHEAT_0, c.B_WHEAT_1, c.B_WHEAT_2,
@@ -73,7 +106,8 @@ test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗/床(B
 
 test('存量探险方块 13 个补齐四字段(TNT 可回收 D3); 创造专属 7 个保持无采集字段', () => {
   const c = loadCfg();
-  const newIds = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53];
+  const newIds = [36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53,
+    54, 55, 56, 57, 58, 59, 60, 61, 62];
   for (const id of [...GATHER_IDS, ...newIds]) {
     const b = c.BLOCKS[id];
     for (const f of ['hard', 'tool', 'tier', 'drop']) {
@@ -98,7 +132,9 @@ test('hard 数值 = MC 硬度原值(徒手石头 7.5s 的口径来源, 研究稿
     41: 0.6, 46: 2.5, 47: 3.5, 49: 0.6, /* 耕地/工作台/熔炉/黏土 */
     40: 0, 42: 0, 43: 0, 44: 0, 45: 0, 48: 0, 50: 0, /* 草丛/麦/火把/树苗 = 秒碎 */
     52: 0.8, /* F4 羊毛(MC 硬度 0.8, 二期设计稿 §4.7) */
-    53: 0}; /* 床(昼夜 D6 §7.1: hard 0 徒手秒碎回收, MC 硬度 0.2 观感等价) */
+    53: 0, /* 床(昼夜 D6 §7.1: hard 0 徒手秒碎回收, MC 硬度 0.2 观感等价) */
+    54: 0.2, 55: 0.6, 56: 0.5, 57: 0.4, 58: 0.8, /* 生态地图: 雪块/雪覆草/冰/仙人掌/砂岩 = MC 硬度原值 */
+    59: 0, 60: 0, 61: 0, 62: 0}; /* 枯灌木/三花 = 秒碎 */
   for (const [id, hard] of Object.entries(expect)) {
     assert.strictEqual(c.BLOCKS[id].hard, hard,
         'BLOCKS[' + id + '](' + c.BLOCKS[id].name + ') hard 应为 ' + hard);
@@ -108,7 +144,8 @@ test('hard 数值 = MC 硬度原值(徒手石头 7.5s 的口径来源, 研究稿
 test('tool 取值只许 pick/axe/shovel/shears/null(树叶=剪刀品类 D2; 玻璃等徒手方块用 null)', () => {
   const c = loadCfg();
   const legal = ['pick', 'axe', 'shovel', 'shears', null];
-  const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53];
+  const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53,
+    54, 55, 56, 57, 58, 59, 60, 61, 62];
   for (const id of checked) {
     assert.ok(legal.includes(c.BLOCKS[id].tool),
         'BLOCKS[' + id + '].tool 取值非法: ' + String(c.BLOCKS[id].tool));
@@ -144,8 +181,10 @@ test('方块级联身份旗标(设计稿 D1/D7): fell/need/fall 形状 + 地形�
   assert.strictEqual(c.BLOCKS[7].need.id, 5, '树叶依赖原木');
   assert.strictEqual(c.BLOCKS[7].need.dist, 4, 'taxicab 4(BE 口径 P4)');
   assert.strictEqual(c.BLOCKS[8].fall, true, '沙子 = fall 重力方块(二期 D7)');
-  /* 地形采集方块不得携带任何级联旗标——身份即白名单: 在哪挖都不塌 */
-  for (const id of [1, 2, 3, 4, 6, 9, 13, 14, 18, 36, 37, 38, 39, 41, 46, 47, 49]) {
+  /* 地形采集方块不得携带任何级联旗标——身份即白名单: 在哪挖都不塌
+     (生态地图整块 54~58 同口径: 雪块/雪覆草/冰/仙人掌/砂岩都是地形采集件) */
+  for (const id of [1, 2, 3, 4, 6, 9, 13, 14, 18, 36, 37, 38, 39, 41, 46, 47, 49,
+    54, 55, 56, 57, 58]) {
     const b = c.BLOCKS[id];
     assert.ok(!b.fell && !b.need && !b.fall, id + '(' + b.name + ') 地形方块不得带级联旗标');
   }
@@ -153,7 +192,8 @@ test('方块级联身份旗标(设计稿 D1/D7): fell/need/fall 形状 + 地形�
 
 test('drop 条目结构: [itemId 非空字符串, 保底≥0 整数, 概率 0~1 数值]', () => {
   const c = loadCfg();
-  const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53];
+  const checked = [...GATHER_IDS, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 52, 53,
+    54, 55, 56, 57, 58, 59, 60, 61, 62];
   for (const id of checked) {
     for (const e of c.BLOCKS[id].drop) {
       assert.ok(Array.isArray(e), 'BLOCKS[' + id + '] drop 条目应为数组');
@@ -193,6 +233,21 @@ test('关键掉落口径: 石掉圆石/草掉泥土/树叶三概率 12%-4%-8%/�
   assert.strictEqual(c.BLOCKS[c.B_BED].tool, null, '床无品类(徒手同速)');
   assert.strictEqual(c.BLOCKS[c.B_BED].tier, 0, '床无门槛');
   assert.strictEqual(c.BLOCKS[c.B_BED].thin, 0.55, '床=半高薄块 0.55(差异 #1: 1 格简化)');
+  /* 生态地图(设计稿 §6): 雪块掉 4 雪球(黏土 4 球同款, 雪仗弹药归 T9) · 雪覆草掉泥土(MC 口径)
+     冰/仙人掌/砂岩/三花掉自身(零惩罚哲学, 玻璃同款) · 枯灌木掉木棍 1~2(MC 0~2 → 儿童保底 1) */
+  assert.deepEqual(c.BLOCKS[c.B_SNOW].drop, [['snowball', 4, 0]], '雪块挖掉得 4 雪球');
+  assert.strictEqual(c.BLOCKS[c.B_SNOW].tool, 'shovel', '雪块铲系');
+  assert.deepEqual(c.BLOCKS[c.B_SNOWY_GRASS].drop, [['dirt', 1, 0]], '雪覆草掉泥土(草地同款)');
+  assert.deepEqual(c.BLOCKS[c.B_ICE].drop, [['ice', 1, 0]], '冰掉自身(MC 掉无 → 零惩罚哲学)');
+  assert.strictEqual(c.BLOCKS[c.B_ICE].tool, null, '冰无品类(徒手同速)');
+  assert.deepEqual(c.BLOCKS[c.B_CACTUS].drop, [['cactus', 1, 0]], '仙人掌掉自身(儿童版无触碰伤害)');
+  assert.deepEqual(c.BLOCKS[c.B_SANDSTONE].drop, [['sandstone', 1, 0]], '砂岩掉自身');
+  assert.strictEqual(c.BLOCKS[c.B_SANDSTONE].tool, 'pick', '砂岩镐系');
+  assert.strictEqual(c.BLOCKS[c.B_SANDSTONE].tier, 1, '砂岩需木镐+(票据 T1: pick tier1)');
+  assert.deepEqual(c.BLOCKS[c.B_DEAD_BUSH].drop, [['stick', 1, 0.5]], '枯灌木: 保底 1 木棍 + 50% 再得 1');
+  assert.deepEqual(c.BLOCKS[c.B_ORCHID].drop, [['orchid', 1, 0]], '兰花掉自身');
+  assert.deepEqual(c.BLOCKS[c.B_FLOWER_Y].drop, [['flower_y', 1, 0]], '蒲公英掉自身');
+  assert.deepEqual(c.BLOCKS[c.B_FLOWER_W].drop, [['flower_w', 1, 0]], '雏菊掉自身');
 });
 
 /* ============ 只增不改(存量键的既有字段原样) ============ */
