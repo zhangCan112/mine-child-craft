@@ -5,7 +5,7 @@
    方块世界的数据与规则: 存取 / 光场存储 / 碰撞 / 物理 / 射线。
    零 THREE · 零 DOM · 加载零副作用 → Node 可直接加载单测。
    渲染(场景/网格/贴图)是它之上的 adapter, 见 world.js。
-   依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/PLAYER/WORLD_*,
+   依赖(均经全局名, 调用期解析): config.js 的 BLOCKS·PLAYER·WORLD_*·FLUID(流体物理参数),
    input.js 的 keys/touchMove/touchSprint(仅 physics 读取)。
    ============================================================ */
 
@@ -26,11 +26,11 @@ function hashRand(x, z) {
 const topCache = new Map(); // 按列高度缓存 (x,z)→顶层 y
 const worldCells = new Uint8Array(WORLD_W * WORLD_D * WORLD_H);
 /* 双通道光场(D2, docs/mc-daylight-torch-design.md §3.3): sky=天空光(列顶
-   直灌 15 · 横向 −1), block=方块光(光源 BFS 曼哈顿 −1) — 算法在
-   js/light-core.js(纯核心), 这里只是存储侧; 与 worldCells 同址编号
-   cellIdx, 装场 loadScene 全量算一次写满(编辑期增量属 D4)。越界 getter
+   直灌 15 · 横向 BFS), block=方块光(光源 BFS 曼哈顿)。算法在
+   js/light-core.js(纯核心), 这里只是存储面。与 worldCells 同址编号
+   cellIdx, 装场 loadScene 全量算一次写入(编辑期增量属 D4)。越界 getter
    口径: sky 返 15(界外=天光全亮, 与 getBlock 越界空气口径一致), block
-   返 0(界外无光源) — 消费方(网格化取邻格光/刷怪判定)免再判界 */
+   返 0(界外无光) — 消费方(网格化取邻格/刷怪判定)免再判界 */
 const lightSky = new Uint8Array(WORLD_W * WORLD_D * WORLD_H);
 const lightBlock = new Uint8Array(WORLD_W * WORLD_D * WORLD_H);
 function lightSkyAt(x, y, z) {
@@ -41,10 +41,15 @@ function lightBlockAt(x, y, z) {
   if (x<0||y<0||z<0||x>=WORLD_W||y>=WORLD_H||z>=WORLD_D) return 0;
   return lightBlock[(y*WORLD_D + z)*WORLD_W + x];
 }
+/* 并行水位面(ADR 0004, 设计稿 liquid D2): 与 worldCells 同布局同下标, 只在
+   流体格上有意义——0=源 · 1~7 流动(8-lv=水量) · 8=下落柱; 非流体格恒 0
+   (写纪律: setFluidLv 原样写, 编辑入口负责清; world-integrity 扫描守卫) */
+const fluidLv = new Uint8Array(WORLD_W * WORLD_D * WORLD_H);
 const world = { // 门面: 只留 clear(直清数据必须连带
   clear() {
     worldCells.fill(0); topCache.clear();
-    lightSky.fill(0); lightBlock.fill(0); // 光场是方块场派生态, 清场一并归零
+    lightSky.fill(0); lightBlock.fill(0); // 光场是方块场派生面, 清场一并归零
+    fluidLv.fill(0); // 水位面同理(液体是方块场伴生面)
   }, // 失效高度缓存; world.js 清场 与 单测共用此入口)
 };
 const blockKey = (x, y, z)=> x + ',' + y + ',' + z;
@@ -57,6 +62,21 @@ function getBlock(x, y, z) {
 function setBlockRaw(x, y, z, id) {
   worldCells[(y*WORLD_D + z)*WORLD_W + x] = id;
   topCache.delete(x*WORLD_D + z); // 本列高度缓存失效, 读时惰性重算
+}
+function getFluidLv(x, y, z) {
+  if (y<0 || y>=WORLD_H) return 0;
+  if (x<0||z<0||x>=WORLD_W||z>=WORLD_D) return 0;
+  return fluidLv[(y*WORLD_D + z)*WORLD_W + x];
+}
+function setFluidLv(x, y, z, lv) {
+  if (y<0 || y>=WORLD_H) return;
+  if (x<0||z<0||x>=WORLD_W||z>=WORLD_D) return;
+  fluidLv[(y*WORLD_D + z)*WORLD_W + x] = lv;
+}
+/* 液体身份查询(主循环雾色/D9 物理采样共用): 返回 'water'|'lava'|null */
+function fluidAt(x, y, z) {
+  const b = BLOCKS[getBlock(Math.floor(x), Math.floor(y), Math.floor(z))];
+  return (b && b.fluid) || null;
 }
 function isSolid(id) {
   if (id===0) return false;
@@ -97,6 +117,7 @@ function packChunkData(cx, cz, border) {
   const cells = new Uint8Array(w*d*WORLD_H);
   const sky = new Uint8Array(w*d*WORLD_H); sky.fill(15); // 缺省=界外天光全亮
   const block = new Uint8Array(w*d*WORLD_H); // 缺省 0(界外无方块光)
+  const levels = new Uint8Array(w*d*WORLD_H); // 水位通道(液体渲染高度): 与 cells 同布局, 跨线程契约
   const bx = cx*CHUNK - border; const bz = cz*CHUNK - border;
   for (let lx=0; lx<w; lx++) {
     for (let lz=0; lz<d; lz++) {
@@ -104,11 +125,14 @@ function packChunkData(cx, cz, border) {
       if (x<0||z<0||x>=WORLD_W||z>=WORLD_D) continue; // 界外列: cells/block 0 · sky 15
       const base = lz*w + lx; // 逐列竖扫, 列内步进 w
       for (let y=0; y<WORLD_H; y++) {
-        const src = (y*WORLD_D + z)*WORLD_W + x;
-        const id = worldCells[src];
-        if (id !== 0) cells[y*d*w + base] = id;
-        sky[y*d*w + base] = lightSky[src];
-        block[y*d*w + base] = lightBlock[src];
+        const idx = (y*WORLD_D + z)*WORLD_W + x;
+        const id = worldCells[idx];
+        if (id !== 0) {
+          cells[y*d*w + base] = id;
+          if (fluidLv[idx] !== 0) levels[y*d*w + base] = fluidLv[idx];
+        }
+        sky[y*d*w + base] = lightSky[idx];
+        block[y*d*w + base] = lightBlock[idx];
       }
     }
   }
@@ -119,7 +143,7 @@ function packChunkData(cx, cz, border) {
       if (t > yMax) yMax = t;
     }
   }
-  return {cells, sky, block, w, d, h: WORLD_H, border, bx, bz, yMax};
+  return {cells, sky, block, levels, w, d, h: WORLD_H, border, bx, bz, yMax};
 }
 
 /* ---------- 体素射线 (Amanatides-Woo) ----------
@@ -187,6 +211,10 @@ const vel = {x: 0, y: 0, z: 0, set(x, y, z) {
 let onGround = false;
 let yaw = 0; let pitch = 0;
 let flyMode = false; // 建造模式:飞行(空格升 · Shift 降, 无重力)
+/* 流体玩家态(liquid 设计稿 D9): 溺力气泡余秒(头出水即刻回满, HUD 气泡条读它)
+   与接触计息器——模式层只读 playerAirS/消费 worldEvents 事件, 不直写 */
+let playerAirS = 15; // 满值在 physics 首帧经 FLUID.airMaxS 校准(config 加载序在前)
+let drownAcc = 0; let lavaAcc = 0; let prevBodyFluid = null;
 /* 飞行态意图入口: 模式/组合根切换飞行一律经此, 禁止裸写 flyMode(白名单
    见本段头注释)。语义: 切换时清垂直速度 — 关飞行瞬间不被残留升/坠速
    拖着走(照 build.js F 键开关的既有语义), 复位场景 vel.y 本就近 0,
@@ -230,21 +258,85 @@ function physics(dt) {
   if (len>0) {
     dx/=len; dz/=len;
   }
-  if (flyMode) { // 飞行: 恒速平移 + 垂直控制
+  if (flyMode) { // 飞行: 恒速平移 + 垂直控制(流体不生效——MC 创造飞行同口径)
     vel.x = dx*PLAYER.sprint; vel.z = dz*PLAYER.sprint;
     vel.y = 0;
     if (keys['Space']) vel.y = PLAYER.flyVert;
     if (keys['ShiftLeft']||keys['ShiftRight']) vel.y = -PLAYER.flyVert;
     onGround = false;
+    prevBodyFluid = null; // 出入水状态不跨飞行态
   } else {
-    const spd = (keys['ShiftLeft']||keys['ShiftRight']||touchSprint) ? PLAYER.sprint : PLAYER.speed;
+    /* 流体采样(liquid D9): 身体=脚上 0.5 格 · 头=眼点; 浅水豁免=脚在水 ·
+       上一格净空(水深 ≤1) · 贴地 → 按蹚水走(近常速可正常跳), 不进游泳物理 */
+    const bodyF = fluidAt(pos.x, pos.y + 0.5, pos.z);
+    const headF = fluidAt(pos.x, pos.y + PLAYER.eye, pos.z);
+    const feetF = fluidAt(pos.x, pos.y + 0.05, pos.z);
+    const wade = feetF && onGround && !fluidAt(pos.x, pos.y + 1.2, pos.z);
+    const swim = bodyF && !wade;
+    const spd0 = (keys['ShiftLeft']||keys['ShiftRight']||touchSprint) ? PLAYER.sprint : PLAYER.speed;
+    const spd = swim ? spd0 * (bodyF === 'lava' ? FLUID.lavaMult : FLUID.swimMult) :
+      (feetF ? spd0 * 0.75 : spd0);
     vel.x = dx*spd; vel.z = dz*spd;
-    vel.y -= PLAYER.gravity*dt;
-    if (vel.y < PLAYER.fallCap) vel.y = PLAYER.fallCap; // 坠落限速: 防止高坠穿透薄楼板
-    if ((keys['Space']) && onGround) {
-      vel.y = PLAYER.jump; onGround=false;
+    if (swim && bodyF === 'water') {
+      vel.y -= PLAYER.gravity * FLUID.gravMul * dt;
+      if (vel.y < -FLUID.sinkSpeed) vel.y = -FLUID.sinkSpeed; // 缓沉; 坠落截断=入水免摔伤
+      if (keys['Space']) vel.y = headF === 'water' ? FLUID.swimUp : PLAYER.jump * 0.62; // 上浮/水面跃出
+    } else if (swim && bodyF === 'lava') {
+      vel.y -= PLAYER.gravity * 0.35 * dt;
+      vel.y *= FLUID.lavaVert; // 垂直阻尼(MC 每刻 -20% 口径的帧化)
+      if (vel.y < -FLUID.lavaSink) vel.y = -FLUID.lavaSink;
+      if (keys['Space']) vel.y = FLUID.lavaRise; // 岩浆中弱上浮(稠)
+    } else {
+      vel.y -= PLAYER.gravity*dt;
+      if (vel.y < PLAYER.fallCap) vel.y = PLAYER.fallCap; // 坠落限速: 防止高坠穿透薄楼板
+      if ((keys['Space']) && onGround) {
+        vel.y = PLAYER.jump; onGround=false;
+      }
+    }
+    /* 水流推力(liquid D9): 身处流动水(1-7 级, 源/下落柱无横向流)按水位梯度
+       被推向下游——向量合成四邻水位差, pushSpeed 封顶(MC 1.39 格/秒) */
+    if (bodyF === 'water') {
+      const bx = Math.floor(pos.x); const by = Math.floor(pos.y + 0.5); const bz = Math.floor(pos.z);
+      const lv = getFluidLv(bx, by, bz);
+      if (lv >= 1 && lv <= 7) {
+        const myAmt = 8 - lv;
+        let px = 0; let pz = 0;
+        const dirs4 = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        for (const d of dirs4) {
+          const nb = BLOCKS[getBlock(bx + d[0], by, bz + d[1])];
+          if (nb && nb.fluid === 'water') {
+            const g = myAmt - (8 - getFluidLv(bx + d[0], by, bz + d[1]));
+            px += g * d[0]; pz += g * d[1];
+          }
+        }
+        const pl = Math.hypot(px, pz);
+        if (pl > 0.01) {
+          vel.x += px / pl * FLUID.pushSpeed; vel.z += pz / pl * FLUID.pushSpeed;
+        }
+      }
     }
     onGround = false;
+    /* 溺气(head 口径, 15s 耗尽后每秒发 drownTick——HP 结算在模式层) ·
+       岩浆接触(每 0.5s 发 lavaTick) · 高速入水水花事件(sfx 在主循环分发) */
+    if (headF === 'water') {
+      playerAirS = Math.max(0, playerAirS - dt);
+      if (playerAirS <= 0) {
+        drownAcc += dt;
+        if (drownAcc >= 1) {
+          drownAcc -= 1; worldEvents.drownTick = true;
+        }
+      }
+    } else {
+      playerAirS = FLUID.airMaxS; drownAcc = 0; // 头出水即刻回满(MC 口径)
+    }
+    if (bodyF === 'lava') {
+      lavaAcc += dt;
+      if (lavaAcc >= FLUID.lavaTickS) {
+        lavaAcc -= FLUID.lavaTickS; worldEvents.lavaTick = true;
+      }
+    } else lavaAcc = 0;
+    if (bodyF && bodyF !== prevBodyFluid && vel.y < -4) worldEvents.splash = true;
+    prevBodyFluid = bodyF;
   }
   /* 轴向子步进移动(每步≤PLAYER.substep 格): 防止斜向贴角/高速一步跨过碰撞判定穿墙
      返回 null=畅通走完; 否则返回受阻的子步目标坐标(供贴齐吸附) */
@@ -315,7 +407,10 @@ function physics(dt) {
   }
   if (pos.y < PLAYER.voidY) worldEvents.voidFall = true; // 掉出世界: 引擎只报事件, 处理由应用层分发(main loop)
 }
-const worldEvents = {voidFall: false}; // 引擎→应用 的单向事件通道(分层规则见 GLOSSARY.md)
+const worldEvents = {voidFall: false, drownTick: false, lavaTick: false, splash: false};
+// 引擎→应用 的单向事件通道(分层规则见 GLOSSARY.md): voidFall 坠出世界 ·
+// drownTick/lavaTick 溺水与岩浆接触的计息到点(HP 结算在模式层, liquid D9) ·
+// splash 高速入水(音效分发在主循环); 消费方读完置回 false
 
 function collidesAtPlayer(bx, by, bz) {
   const minX=pos.x-PLAYER.hx; const maxX=pos.x+PLAYER.hx;

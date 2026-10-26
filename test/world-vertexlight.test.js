@@ -171,7 +171,7 @@ function loadWorld(opts) {
   /* 不含 texture-atlas.js: 走 world.js 的 typeof 守卫分支(ATLAS_LAYOUT=null),
      该路径顺带被测; 图集布局对材质注入无影响 */
   for (const f of ['config.js', 'daylight-core.js', 'light-core.js', 'voxel.js',
-    'cascade-core.js', 'mesh-core.js', 'world.js']) {
+    'cascade-core.js', 'fluid-core.js', 'mesh-core.js', 'world.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`

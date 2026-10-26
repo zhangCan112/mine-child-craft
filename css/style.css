@@ -71,6 +71,31 @@ canvas {
   z-index: 16; /* 高于触屏控件层 #touchUI(14): 摇杆区不挡快捷栏点选(MC: 快捷栏始终可点) */
 }
 
+/* 溺气泡条(liquid D10): 挂快捷栏上方, 气满整条隐藏(元素级 display 由 kit 控制) */
+.bubblebar {
+  position: fixed;
+  left: 50%;
+  bottom: 96px;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 3px;
+  z-index: 16; /* 与快捷栏同层(不叠触控) */
+}
+
+.bubblebar .bub {
+  width: 20px;
+  height: 20px;
+  background-size: contain;
+  background-repeat: no-repeat;
+  background-position: center;
+  image-rendering: pixelated;
+  transition: opacity 0.15s;
+}
+
+.bubblebar .bub.off {
+  opacity: 0.18; /* 耗掉的泡: 熄灭而非消失——孩子能读出余量刻度 */
+}
+
 .slot {
   width: 54px;
   height: 54px;

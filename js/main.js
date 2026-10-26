@@ -243,9 +243,14 @@ function loop(now) {
   if (locked || touchPlaying) {
     if (!Tank.driving()) physics(dt);
     Tank.update(dt); // 载具: 驾驶步进 · 在飞炮弹 · 履带动画, 每帧推进
+    pumpFluids(dt); // 流体计划刻泵(liquid D5): 20tps 累积, 空队列零成本
     if (worldEvents.voidFall) { // 引擎事件 → 分发给当前模式的 onVoidFall
       worldEvents.voidFall = false;
       if (MODES.cur && MODES.cur.onVoidFall) MODES.cur.onVoidFall();
+    }
+    if (worldEvents.splash) { // 高速入水水花(liquid D10): 音效经声音清单注册表
+      worldEvents.splash = false;
+      sfx('splash');
     }
     if (MODES.cur && MODES.cur.update) MODES.cur.update(dt);
     /* 昼夜推进(引擎机制, 何时走表=模式政策, 设计稿 mc-daylight-torch §2.2):
@@ -267,6 +272,7 @@ function loop(now) {
   pumpRemesh(2); // 编辑+距离环收尾: 每帧出队(编辑优先,近处优先); http 下经 Worker 后台建网格, file:// 兜底同步每帧 2 块(暂停时也要追平; 泵自动收口脏区块)
 
   const camDist = CameraRig.apply(camera, dt); // 相机装置: 视角模式/轨道/防穿墙
+  updateFluidFog(); // 头没水/岩浆的雾色切换(liquid D10, 出水复原)
   Avatar.update(dt, camDist); // 玩家形象同步+动画(近距自动隐藏)
   Fx.wobble(dt, camera); // 震屏消费(衰减+抖动)收在 Fx, 须在相机位姿设定之后
 

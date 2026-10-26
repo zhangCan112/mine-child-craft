@@ -3,21 +3,25 @@
    渲染 adapter（World · 术语见 GLOSSARY.md 的"场景装填/距离环"）— 引擎层
    ------------------------------------------------------------
    体素模型的渲染端: 场景/灯光/贴图/区块网格(全细节+LOD)/编辑管线/高亮。
-   纯体素数据(存取/碰撞/物理/射线/光场存储)在 js/voxel.js — 本文件不定义游戏规则。
-   interface: loadScene(建场 seam: 清场→批量建→光场全量→渐进收尾入队) / markDirty /
+   纯体素数据(存取/碰撞/物理/射线/光场存储/水位面)在 js/voxel.js — 本文件不定义游戏规则。
+   interface: loadScene(建场 seam: 清场→批量建→流体激活→光场全量→渐进收尾入队) / markDirty /
      pumpRemesh(每帧按预算构建, 编辑优先于环填充) / maintainRings(距离环:
      近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
       级联清单, 设计稿 block-lifecycle D3; 编辑经 setBlockLit 连带双通道光场
       增量, 昼夜 §3.3/D4) / applySweep(世界卫生清扫, P14/D9)
-      / applyDaylight(昼夜场景驱动: 天色/雾/光强/日月轨道 + 顶点光材质
+      / applyDaylight(昼夜场景驱动: 天色/平行光强/日月轨道 + 顶点光材质
       uniforms uDim/uSkyFloor 节拍, 设计稿 mc-daylight-torch §2.3/§4.2)
-      / setPlayerGlow(玩家随身光机制缝: 方块侧 uniform + 实体侧 PointLight,
-      政策归 D7) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件
-      可写: main.js 推进·模式层换装) / raycast / camera / renderer / scene。
-   依赖(均经全局名, 调用期解析): voxel.js(体素数据+光场数组) · cascade-core.js(方块级联) ·
-   light-core.js(光照核心: 装场全量 computeAll + 编辑增量 updateEdit) · mesh-core.js(网格化核心, 同一份代码在
-   Worker 里跑) · daylight-core.js(Daylight/DAYLIGHT 昼夜纯函数; DAYLIGHT 常数
-   在加载期插值进 GLSL 模板, 单源) · config.js(VIEW/CAM/BLOCKS) · lib/three.min.js。
+      / setPlayerGlow(玩家随身光机制缝: 方块光 uniform + 实体侧 PointLight,
+      政策归 D7) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件可写:
+      main.js 推进·模式层换景) / pumpFluids(流体计划刻泵, 设计稿 liquid D5)
+      / activateFluids(装场全场激活) / setFluidEditSink(流体写格→模式账本
+      的缝, Tank 钩子先例) / raycast / camera / renderer / scene。
+   依赖(均经全局名, 调用期解析): voxel.js(体素数据+光场数组+水位面) ·
+   cascade-core.js(方块级联) · fluid-core.js(流体核心) ·
+   light-core.js(光照核心: 装场全量 computeAll + 编辑增量 updateEdit) ·
+   mesh-core.js(网格化核心, 同一份代码在 Worker 里跑) · daylight-core.js
+   (Daylight/DAYLIGHT 昼夜纯函数, DAYLIGHT 常数在加载期插值进 GLSL 模板,
+   单源) · config.js(VIEW/CAM/BLOCKS/FLUIDS/FLUID) · lib/three.min.js。
    THREE/DOM 惰性创建, Node 测试环境可安全加载(经 boot.test.js 冒烟)。
 ============================================================ */
 
@@ -482,8 +486,9 @@ function serveChunkKey(k) {
     meshWorker.postMessage(
         {gen: meshGen, cx, cz, token, kind: st, cells: pack.cells.buffer,
           sky: pack.sky.buffer, block: pack.block.buffer, /* 光照圈(D3, §3.4): 与 cells 同形, 布局即契约 */
+          levels: pack.levels.buffer, /* 水位通道(liquid D7): 与 cells 同形 */
           w: pack.w, d: pack.d, h: pack.h, border: pack.border, bx: pack.bx, bz: pack.bz, yMax: pack.yMax},
-        [pack.cells.buffer, pack.sky.buffer, pack.block.buffer]); // transferable: 所有权零拷贝转移
+        [pack.cells.buffer, pack.sky.buffer, pack.block.buffer, pack.levels.buffer]); // transferable: 所有权零拷贝转移
   } else if (st === 'full') {
     mountChunk(cx, cz, MeshCore.meshChunk(packChunkData(cx, cz, 1), MESH_OPTS));
   } else {
@@ -539,17 +544,21 @@ function rebuildAll() {
   }
 }
 
-/* 场景装填 seam: 清场 → 批量建 → 光场全量 → 收尾入队, 一步到位。
+/* 场景装填 seam: 清场 → 批量建 → 流体激活 → 光场全量 → 收尾入队, 一步到位。
    "建完必须 rebuildAll 否则整场不可见"的收尾纪律收在此处, 调用方
    不可能忘(曾有模式建场漏调收尾, 进场一片天蓝 — ca3ac43)。
+   流体激活在建场后、光场前(共识 Q4a): 重放账本恢复的水位先结算到不动点
+   (混合产物/干涸会改方块), 光场全量再对终态一次算清 — 两层派生面的顺序
+   即依存关系(光照是方块场的派生, 方块场又含流体的伴生写入)。
    光场全量计算(设计稿 §3.3): 装场必算 — 光照永远是方块场的纯派生
    (差异 #14 不落盘), buildFn 建完地形一次写满 sky/block 两通道
-   (方块光源(火把/灯块/发光岩/岩浆, D4 光源表)与天空通道一并生效;
-   buildFn 内的写入(地形/存档重放/装场清扫)不必管光 — 全量在最后兜底)。
+   (方块光源(火把/灯块/发光岩/岩浆, D4 光源表)与天空通道一并生成),
+   buildFn 内的写入(地形/存档重放/装场清扫)不必管光 — 全量在最后兜底。
    clearWorld 幂等(switchMode 已清过再清无害)。 */
 function loadScene(buildFn) {
   clearWorld();
   buildFn();
+  activateFluids();
   LightCore.computeAll(getBlock, WORLD_W, WORLD_D, WORLD_H, LIGHT_POLICY, lightSky, lightBlock);
   rebuildAll();
 }
@@ -563,7 +572,8 @@ function loadScene(buildFn) {
    既有调用方忽略返回值则行为不变(级联自动生效), 向后兼容 */
 function editBlock(x, y, z, id, opt) {
   const old = getBlock(x, y, z);
-  setBlockLit(x, y, z, id); /* 写格连带双通道光场增量(昼夜 §3.3, 级联结算前光先就位) */
+  setBlockLit(x, y, z, id); /* 写格连带双通道光场增量(昼夜 §3.3, 级联结算前光先就绪) */
+  setFluidLv(x, y, z, 0); // 编辑入口水位纪律(liquid D2: 放置流体=源 lv0, 其余写格清水位)
   let removed = [];
   if (id === 0 && old !== 0) {
     if (!(opt && opt.debris === false)) { // 挖除反馈: 同色碎屑(唯一入口经 Fx, 见 GLOSSARY)
@@ -579,6 +589,7 @@ function editBlock(x, y, z, id, opt) {
     removed = CascadeCore.cascadePlace(getBlock, setBlockLit, x, y, z, id, CASCADE_POLICY);
     if (removed.length && !(opt && opt.debris === false)) cascadeVisuais(removed);
   }
+  FLUID_SIM.notifyEdit(x, y, z); // 流体挂点: 邻接排程(与方块级联同一触发面, liquid D5)
   markDirty(x, z); // 单块编辑与批量同走队列(连续挖掘同样摊平)
   flushDirty();
   return removed;
@@ -683,6 +694,67 @@ function cascadeVisuais(removed) {
   }
 }
 
+/* ---------- 流体装配(docs/liquid-design.md D5, 机制在 fluid-core 纯核心) ----------
+   与方块级联同一挂点哲学: 机制在核心, 身份旗标在 config BLOCKS(fluid 字段),
+   这里只做装配——sim 实例 + 编辑挂点 + 每帧计划刻泵 + 装场全场激活 + 事件分发。
+   流体写格统一走 fluidWrite(id+水位双写 + 脏区块记账 + 模式账本缝),
+   掉落(冲毁 thin)与音效(混合嘶嘶)是引擎内消费, 任务计数/话术不经过这里。 */
+const FLUID_POLICY = FluidCore.mkPolicy(BLOCKS);
+let fluidEditSink = null; // 流体写格 → 模式 edits 账本(探险/建造 init 注册, Tank 钩子先例)
+function setFluidEditSink(fn) {
+  fluidEditSink = fn;
+}
+const fluidWrite = (x, y, z, id, lv) => {
+  const lv2 = FLUID_POLICY.kindOf(id) ? lv : 0; // 非流体格水位纪律(ADR 0004)
+  setBlockLit(x, y, z, id); /* 写格连带光场增量(昼夜 §3.3): 混合产物/干涸改透光性 */
+  setFluidLv(x, y, z, lv2);
+  markDirty(x, z);
+  if (fluidEditSink) fluidEditSink(x, y, z, id, lv2);
+};
+const FLUID_SIM = FluidCore.mkSim({
+  read: getBlock, write: fluidWrite, readLv: getFluidLv, policy: FLUID_POLICY, params: FLUIDS,
+  ids: {water: B_WATER, lava: B_LAVA}, mixIds: {obsidian: B_OBSIDIAN, cobble: 4, stone: 3},
+  w: WORLD_W, h: WORLD_H, d: WORLD_D,
+});
+/* 事件分发: mix=水岩混合(嘶嘶+产物碎屑) · wash=冲毁依附块(掉落物照发, 儿童拾取乐趣) */
+function handleFluidEvents(evs) {
+  for (const ev of evs) {
+    if (ev.type === 'mix') {
+      sfx('lava_hiss');
+      Fx.debrisBurst(ev.x + 0.5, ev.y + 0.5, ev.z + 0.5, 4, {color: packColor(ev.to), life: 0.5});
+    } else if (ev.type === 'wash') {
+      const def = BLOCKS[ev.id];
+      if (def) {
+        const drops = rollBlockDrop(def);
+        for (const d of drops) Drops.spawn(d.id, d.n, ev.x + 0.5, ev.y + 0.5, ev.z + 0.5);
+      }
+    }
+  }
+}
+/* 每帧计划刻泵(主循环调用): dt 累积成 20tps 游戏刻, 每刻步进 FLUID.budgetCells 格,
+   空队列零成本; 一帧至多追 8 刻(掉帧防螺旋)。传播速率=MC 口径(水 0.25s/格) */
+let fluidAcc = 0;
+let fluidTick = 0;
+function pumpFluids(dt) {
+  fluidAcc += dt;
+  const stepLen = 1 / FLUID.tickHz;
+  let guard = 8;
+  while (fluidAcc >= stepLen && guard-- > 0) {
+    fluidAcc -= stepLen;
+    fluidTick++;
+    if (FLUID_SIM.pending()) handleFluidEvents(FLUID_SIM.step(fluidTick, FLUID.budgetCells));
+  }
+}
+/* 装场全场激活(共识 Q4a): 全部流体格入列并同步结算到不动点——进场即终态,
+   零流动噪声; 既有场景是稳定源阵, 实测 no-op。迭代上限 2000 刻(等价 100s
+   传播, 远超全图任何可达路径), 超限余量留给运行时泵继续(优雅降级不丢) */
+function activateFluids() {
+  FLUID_SIM.activate(WORLD_W, WORLD_H, WORLD_D);
+  for (let t = 1; t <= 2000 && FLUID_SIM.pending(); t++) {
+    handleFluidEvents(FLUID_SIM.step(t, FLUID.settleCap));
+  }
+}
+
 /* ---------- 编辑管线: 单块/批量统一走重建队列 ----------
    重建一个 16×16×48 区块在移动端要数毫秒, 爆炸(1~4 区块)或连续挖掘
    同帧全量重建会顶爆帧预算(pad 真机开炮顿挫的主因) → 统一入队,
@@ -700,13 +772,15 @@ function markDirty(x, z) {
 }
 function editBlockDirty(x, y, z, id) {
   const old = getBlock(x, y, z);
-  setBlockLit(x, y, z, id); /* 写格连带双通道光场增量(昼夜 §3.3, 级联结算前光先就位) */
+  setBlockLit(x, y, z, id); /* 写格连带双通道光场增量(昼夜 §3.3) */
+  setFluidLv(x, y, z, 0); // 编辑入口水位纪律(与 editBlock 同款)
   let removed = [];
   if (id === 0 && old !== 0) {
     removed = applyCascade(x, y, z, old);
   } else if (id !== 0) {
     removed = CascadeCore.cascadePlace(getBlock, setBlockLit, x, y, z, id, CASCADE_POLICY);
   }
+  FLUID_SIM.notifyEdit(x, y, z); // 流体挂点(批量链注入此入口, 级联已生效同拍)
   markDirty(x, z);
   return removed; // 坦克批量链注入此入口: 级联已生效(炸林区整树倒), 返回值按需消费; 批量路径不放动画(自带爆风观感)
 }
@@ -740,6 +814,7 @@ function pumpRemesh(n) { // 每帧出队(主循环每帧调用; 同步预算 n, 
 /* 清空世界(切换模式/重置关卡用) */
 function clearWorld() {
   world.clear();
+  FLUID_SIM.reset(); // 流体队列与时间基归零(世界数据已清, 残留条目作废)
   meshGen++; // 在途 Worker 响应整体作废
   inFlight.clear();
   meshToken.clear();
@@ -752,6 +827,27 @@ function clearWorld() {
   for (const k of chunkMeshes.keys()) unloadChunk(k);
   chunkMeshes.clear();
   lodMeshes.clear();
+}
+
+/* ---------- 水下/岩浆内雾色(liquid D10, 头部口径) ----------
+   头没水 → 雾与天色切水下蓝(近距浓雾, 孩子读得出"我在水里"); 头入岩浆 →
+   橙红浓雾; 出水复原。状态机三态防逐帧重设(仅切换时写) */
+let fluidFogState = '';
+function updateFluidFog() {
+  const f = fluidAt(pos.x, pos.y + PLAYER.eye, pos.z);
+  const want = f === 'water' ? 'water' : (f === 'lava' ? 'lava' : '');
+  if (want === fluidFogState) return;
+  fluidFogState = want;
+  if (want === 'water') {
+    scene.fog.color.setHex(0x1e4f92); scene.background.setHex(0x1e4f92);
+    scene.fog.near = 1; scene.fog.far = 26;
+  } else if (want === 'lava') {
+    scene.fog.color.setHex(0x9c3a00); scene.background.setHex(0x9c3a00);
+    scene.fog.near = 0.1; scene.fog.far = 4.5;
+  } else {
+    scene.fog.color.copy(sky); scene.background.copy(sky);
+    scene.fog.near = VIEW.fogNear; scene.fog.far = VIEW.fogFar;
+  }
 }
 
 /* ---------- 方块高亮 ---------- */

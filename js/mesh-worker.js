@@ -22,6 +22,7 @@ self.onmessage = (e)=>{
        旧协议消息(无 sky/block 字段)回落全亮 — mesh-core 容忍缺省 */
     sky: m.sky ? new Uint8Array(m.sky) : undefined,
     block: m.block ? new Uint8Array(m.block) : undefined,
+    levels: m.levels ? new Uint8Array(m.levels) : null, // 水位通道(liquid D7, 老消息缺省=源)
     w: m.w, d: m.d, h: m.h,
     border: m.border, bx: m.bx, bz: m.bz, yMax: m.yMax,
   };

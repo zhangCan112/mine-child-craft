@@ -71,6 +71,26 @@ const VIEW = {
    除数三处共用(world.js 画布与 MeshCore UV 各读一次, 单一来源) */
 const TNT_TILES = 4;
 
+/* ---------- 液体参数表 (docs/liquid-design.md D3, 调研 docs/mc-liquid-research.md §3.1) ----------
+   每种流体一行, MC 参数表直抄: ticks 计划刻延迟(游戏刻) · dropOff 每格水量
+   衰减 · maxEmpty 停流水位(到 7/6 不再外铺) · slopeSteps 坡向找洞搜索步数 ·
+   regen 源再生(水可=MC 默认口径, 岩浆不可)。岩浆全球一套主世界参数,
+   下界加速不移植(设计稿附录 B #33)。 */
+const FLUIDS = {
+  water: {ticks: 5, dropOff: 1, maxEmpty: 7, slopeSteps: 4, regen: true},
+  lava: {ticks: 30, dropOff: 2, maxEmpty: 6, slopeSteps: 2, regen: false},
+};
+/* 液体全局段: 模拟预算与玩家物理数值(D9/D10)——budgetCells 每帧流体步进
+   格数上限 · settleCap 装场激活结算上限 · tickHz 游戏刻频率(排程序时间基,
+   与墙钟解耦=确定性) · pushSpeed 水流推力(MC 1.39 格/秒) · swim/sink/lava
+   物理乘数 · airMaxS 气泡秒数(MC 15s) · drown/lava 伤害口径(MC 2/秒 · 4/0.5s) */
+const FLUID = {
+  budgetCells: 128, settleCap: 200000, tickHz: 20,
+  pushSpeed: 1.39, swimMult: 0.55, sinkSpeed: 1.6, swimUp: 3.2, gravMul: 0.4,
+  lavaMult: 0.5, lavaVert: 0.8, lavaSink: 1.2, lavaRise: 1.6,
+  airMaxS: 15, drownDps: 2, lavaDps: 4, lavaTickS: 0.5, renderDiv: 9,
+};
+
 
 /* 坦克载具参数 (tank-core/tank.js 用, 见 js/tank-core.js) */
 const TANK = {
@@ -193,8 +213,11 @@ BLOCKS[B_TNT] = {name: 'TNT', all: [0.82, 0.28, 0.22], tnt: true,
 BLOCKS[B_FUSE] = {name: '引线', all: [0.92, 0.75, 0.30], fuse: true, thin: 0.14, solid: false};
 // B_FUSE 运行时死键(全仓 js 零读), 但 test/voxel.test.js / test/mesh-core.test.js 当
 // thin 块 fixture — 创意资产保留; 若复活须先找回消费方(候选 8 清偿口径)
-BLOCKS[B_WATER] = {name: '水', all: [0.25, 0.45, 0.85], glass: true, water: true, solid: false};
-BLOCKS[B_LAVA] = {name: '岩浆', all: [1.00, 0.42, 0.08], lava: true, solid: false, light: 15};
+/* fluid 旗标 = 液体身份(设计稿 liquid D2): id 恒为 B_WATER/B_LAVA, 水位在
+   voxel.js 的并行水位面 fluidLv(ADR 0004)——水 glass 走透渲通道, 岩浆不透明实心通道;
+   light:15 = 岩浆自发光(昼夜光照系统, docs/mc-daylight-torch-design.md) */
+BLOCKS[B_WATER] = {name: '水', all: [0.25, 0.45, 0.85], glass: true, water: true, fluid: 'water', solid: false};
+BLOCKS[B_LAVA] = {name: '岩浆', all: [1.00, 0.42, 0.08], lava: true, fluid: 'lava', solid: false, light: 15};
 
 /* 下界模式新方块 (id 30~35) — 下界荒原主题: 下界岩/黑曜石/下界砖/发光岩/传送门面
    (B_SOUL_SAND 死键已清偿, docs/mining-gap-analysis.md:89 先行记账) */

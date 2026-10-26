@@ -121,3 +121,24 @@ test('mesh-worker: 旧协议消息(无 sky/block) → 回落全亮, 不炸', () 
   for (const v of r.res.atlas.sky) assert.ok(Math.abs(v - 1) < 1e-9, '无载荷回落 sky 全亮=1');
   for (const v of r.res.atlas.block) assert.strictEqual(v, 0, '无载荷回落 block=0');
 });
+
+test('mesh-worker: levels 水位通道随消息转移, 流动水顶面按水位缩放(liquid D7 协议)', () => {
+  const w = loadWorker();
+  const msg = mkMsg('full');
+  const border = 1;
+  const wCells = new Uint8Array(msg.cells);
+  const levels = new Uint8Array(wCells.length);
+  const ww = msg.w; const dd = msg.d;
+  const at = (lx, y, lz)=> (y*dd+lz)*ww+lx;
+  wCells[at(border+3, 5, border+3)] = 24; // 水 lv7(最弱流动)
+  levels[at(border+3, 5, border+3)] = 7;
+  wCells[at(border+8, 5, border+8)] = 24; // 水 lv0(源, levels 缺 0)
+  msg.cells = wCells.buffer;
+  msg.levels = levels.buffer;
+  w.onmessage({data: msg});
+  const r = w.out[0];
+  assert.ok(r.res.glass, '水走玻璃通道');
+  let maxY = 0;
+  for (let i = 1; i < r.res.glass.positions.length; i += 3) maxY = Math.max(maxY, r.res.glass.positions[i]);
+  assert.ok(Math.abs(maxY - (5 + 8 / 9)) < 1e-6, '源顶面 8/9(上格), lv7 那格只到 1/9, 实测 ' + maxY);
+});
