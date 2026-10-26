@@ -39,6 +39,29 @@ package.json 只装开发期 lint 工具。
 图谱查询比全量扫文件省 token，还能给出文件搜索给不了的结构上下文
 （调用方、依赖方、测试覆盖）。
 
+### 切入 worktree 后：先建图谱（必做第一步，不用再查）
+
+图谱 DB 存在仓库内 `.code-review-graph/graph.db`（已 gitignore），新 worktree 里没有。
+MCP server（`uvx code-review-graph serve`）的 cwd 固定在主仓库，`repo_root` 省略时
+自动探测会指到主仓库的图谱。所以 worktree 会话里**每次调用图谱工具都要显式传
+`repo_root`（worktree 绝对路径）**，且进会话第一件事是全量构建（本仓库约几秒）：
+
+```js
+// execute 工具内调用；repo_root 换成 worktree 绝对路径
+await tools["code-review-graph"].build_or_update_graph_tool({
+  repo_root: "<worktree 绝对路径>",
+  full_rebuild: true, // 新 worktree 没有旧图谱，必须全量
+});
+```
+
+等价 CLI：`code-review-graph build --repo <worktree 绝对路径>`。
+
+- 就绪检查：`get_minimal_context_tool({ repo_root })` 返回 `status: "ok"` 即可用；
+  `not_ready` + `missing_graph` = 还没建；`not_ready` 但有图 = 落后于当前 HEAD，
+  再跑一次 `build_or_update_graph_tool({ repo_root })`（不带 full_rebuild）增量补齐。
+- worktree 里没有主仓库那套 hook 自动增量更新，改动多了就手动跑一次增量（同上，不带 full_rebuild）。
+- 删 worktree 时 `.code-review-graph/` 属未跟踪文件，`git worktree remove` 需加 `--force`。
+
 ### 优先用图谱工具的场景
 
 - **探索代码**：`semantic_search_nodes_tool` 或 `query_graph_tool`，代替 Grep。
@@ -70,7 +93,7 @@ package.json 只装开发期 lint 工具。
 
 ### 工作流
 
-1. 文件变更后图谱自动增量更新（hook 驱动）。
+1. 主仓库：文件变更后图谱自动增量更新（hook 驱动）；worktree：先全量建（见上小节），之后手动增量。
 2. 代码审查用 `detect_changes_tool`。
 3. 看影响面用 `get_affected_flows_tool`。
 4. 查测试覆盖用 `query_graph_tool` 的 pattern="tests_for"。
