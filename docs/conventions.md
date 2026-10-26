@@ -25,6 +25,8 @@
 index.html        # 唯一入口；经典 <script defer> 按依赖顺序加载全部 js
 js/               # 引擎与应用模块，平铺，一文件一模块
 js/modes/         # 游玩模式层（<modeId>.js，清单权威在 mode-registry.js）
+js/mob-look/      # 造型档案声明（<type>.js 一怪一文件，文件名=declare 键 ∈ MOB_TYPES∪{player}；
+                  #   基座/换算/贴图的缝在 mob-look-kit.js，键集与布局合法性由 test/mob-look.test.js 断言）
 css/              # 按端拆分：style(桌面) → focus(训练营) → touch(触屏)，按此顺序覆盖
 test/             # node --test 单测，与 js 模块镜像命名
 docs/             # <topic>-research / -design / -plan 三段式 + adr/NNNN-slug.md

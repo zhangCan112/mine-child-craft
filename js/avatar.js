@@ -3,6 +3,10 @@
    玩家形象 (Avatar, 术语见 GLOSSARY.md) — 引擎层
    ------------------------------------------------------------
    玩家的小探险家模型 + 行走/腾空动画 + 手持物装配与挥击 + 随相机距离显隐。
+   建模 = 造型档案(MobLookKit.puppet('player'), js/mob-look/player.js):
+   官方 8/12/12px 等比人形(旧 Q 版盒子建模退役), 身份件(橙帽/背包/蓝衫/
+   五官)全部画进 64×64 皮肤 — 傀儡 −Z 原生朝向与玩家视线一致, 怪物走
+   +Z 镜像合批, 同一份数据源的两个 adapter(docs/mob-look-design.md)。
    加载即建并挂入场景(clearWorld 只清区块网格, 本模型跨模式存活);
    每帧 update(dt, camDist) 由主循环驱动, camDist 传 CameraRig.apply
    的返回值: 第一人称(0)与贴墙收拢过近时自动隐藏(手持物随之隐藏)。
@@ -14,65 +18,23 @@
    建模与动画全部是 implementation。
    人物面向 -Z, 与玩家视线一致。
    依赖: world.js 的 scene, voxel.js 的 pos/vel/yaw/pitch/onGround/
-   flyMode, config.js 的 PLAYER/CAM, held-item.js 的 HeldItems。
+   flyMode, config.js 的 PLAYER/CAM, held-item.js 的 HeldItems,
+   mob-look-kit.js 的 MobLookKit(player 造型须先声明)。
    零输入 · 零玩法知识。
    ============================================================ */
-const Avatar = (()=>{
-  const box = (w, h, d, color)=> new THREE.Mesh(
-      new THREE.BoxGeometry(w, h, d), new THREE.MeshLambertMaterial({color}));
-  /* 枢轴在顶端的肢体: 盒子垂挂 -y, 摆动绕肩/髋 */
-  const limb = (w, h, d, color)=>{
-    const g = new THREE.Group();
-    const m = box(w, h, d, color); m.position.y = -h/2; g.add(m);
-    return g;
-  };
-
-  /* ---------- 建模: 小探险家 ----------
-     肤 0xf0c297 · 发 0x5a3a22 · 帽 0xe8642c/檐 0xc44f1f · 衫 0x4f8fdd
-     裤 0x2e4a8f · 鞋 0x2f3238 · 背包 0xd94f4f · 五官 0x2a2a33 */
-  const root = new THREE.Group();
-
-  const legL = limb(0.21, 0.52, 0.22, 0x2e4a8f); legL.position.set(-0.13, 0.72, 0);
-  const legR = limb(0.21, 0.52, 0.22, 0x2e4a8f); legR.position.set( 0.13, 0.72, 0);
-  for (const leg of [legL, legR]) { // 鞋: 随腿摆动, 略前突
-    const s = box(0.23, 0.18, 0.26, 0x2f3238); s.position.set(0, -0.62, -0.02); leg.add(s);
-  }
-  const body = box(0.52, 0.68, 0.30, 0x4f8fdd); body.position.y = 1.04;
-
-  const armL = new THREE.Group(); armL.position.set(-0.34, 1.32, 0);
-  const armR = new THREE.Group(); armR.position.set( 0.34, 1.32, 0);
-  for (const arm of [armL, armR]) { // 蓝袖 + 肤色小手
-    const sleeve = box(0.17, 0.36, 0.19, 0x4f8fdd); sleeve.position.y = -0.18; arm.add(sleeve);
-    const hand = box(0.15, 0.26, 0.16, 0xf0c297); hand.position.y = -0.47; arm.add(hand);
-  }
-  /* 背包(背面 +Z) + 背带 */
-  const bag = box(0.34, 0.40, 0.15, 0xd94f4f); bag.position.set(0, 1.10, 0.245); root.add(bag);
-  const strap = box(0.46, 0.06, 0.02, 0x8a3232); strap.position.set(0, 1.30, 0.16); root.add(strap);
-
-  /* 头(枢轴在颈 1.38): 脸朝 -Z */
-  const head = new THREE.Group(); head.position.y = 1.38;
-  const skull = box(0.46, 0.46, 0.46, 0xf0c297); skull.position.y = 0.23; head.add(skull);
-  const eL = box(0.09, 0.10, 0.03, 0x2a2a33); eL.position.set(-0.10, 0.27, -0.235); head.add(eL);
-  const eR = box(0.09, 0.10, 0.03, 0x2a2a33); eR.position.set( 0.10, 0.27, -0.235); head.add(eR);
-  const smile = box(0.12, 0.035, 0.03, 0x2a2a33); smile.position.set(0, 0.13, -0.235); head.add(smile);
-  const cL = box(0.07, 0.05, 0.02, 0xf5a08c); cL.position.set(-0.165, 0.19, -0.235); head.add(cL);
-  const cR = box(0.07, 0.05, 0.02, 0xf5a08c); cR.position.set( 0.165, 0.19, -0.235); head.add(cR);
-  const hairBack = box(0.48, 0.30, 0.12, 0x5a3a22); hairBack.position.set(0, 0.28, 0.20); head.add(hairBack);
-  const hairFront = box(0.48, 0.10, 0.08, 0x5a3a22); hairFront.position.set(0, 0.40, -0.22); head.add(hairFront);
-  const capTop = box(0.50, 0.15, 0.50, 0xe8642c); capTop.position.set(0, 0.46, 0); head.add(capTop);
-  const capBrim = box(0.44, 0.05, 0.20, 0xc44f1f); capBrim.position.set(0, 0.40, -0.31); head.add(capBrim);
-
-  root.add(legL, legR, body, armL, armR, head);
+const Avatar = (() => {
+  /* ---------- 建模: 官方等比人形傀儡(造型档案 player) ---------- */
+  const puppet = MobLookKit.puppet('player');
+  const root = puppet.root;
+  const legL = puppet.bones.legL; const legR = puppet.bones.legR;
+  const armL = puppet.bones.armL; const armR = puppet.bones.armR;
+  const head = puppet.bones.head;
   scene.add(root); // 加载即挂: 跨模式存活, 主菜单背景也可见
 
-  /* ---------- 受击闪红: 全身材质向红插值再淡出 ----------
-     建模期收集身体材质与基色(手持物后挂载, 不在收集之列 → 不闪);
-     端点从基色出发精确还原, 无累计漂移。 */
+  /* ---------- 受击闪红: 材质向红插值再淡出 ----------
+     傀儡共用一张皮肤材质(贴图 × color), 端点从白精确还原, 无累计漂移。 */
   const FLASH_RED = new THREE.Color(0xe83a2a);
-  const bodyMats = [];
-  root.traverse((o) => {
-    if (o.isMesh) bodyMats.push({mat: o.material, base: o.material.color.clone()});
-  });
+  const bodyMats = [{mat: puppet.material, base: puppet.material.color.clone()}];
   let flashT = -1; // <0 空闲; >=0 剩余闪红秒数
 
   /* ---------- 动画 ---------- */
@@ -81,14 +43,16 @@ const Avatar = (()=>{
   /* ---------- 手持物 (HeldItems) + 挥击 + 装备动画 ----------
      setItem: 声明目标手持物(id/null; 同目标幂等), 实际换网格在装备
      动画沉底瞬间(mountItem); swing: 触发一次右臂挥击。
-     握持姿态在 armR 手部枢轴上施加; mesh 是 Avatar 唯一外部可见物。 */
+     握持姿态在 armR 手部枢轴上施加; mesh 是 Avatar 唯一外部可见物。
+     官方臂长 12px(旧 Q 版 ~10px), 握持点随之下移补偿(ITEM_GRIP_DY)。 */
+  const ITEM_GRIP_DY = -0.16; // 手部枢轴下移补偿(官方等比手臂更长)
   let itemMesh = null; let itemDef = null;
   let swingT = -1; // <0 空闲; >=0 已挥出秒数
 
   /* 装备动画(MC 口径, docs/mc-held-item-render-research.md Q4):
      高度 equipH 1→0 下沉, 沉底换物, 0→1 抬起; 目标变更从当前高度
      续沉(mainHandHeight ±0.4/tick 的折算, 全程 ≈0.28s)。 */
-  const ARM_R_Y0 = armR.position.y; // 右臂基高(下沉基准)
+  const ARM_R_Y0 = armR.position.y; // 右臂基高(下沉基准, 官方肩枢轴 22px)
   const EQUIP_HALF = 0.14; // 半程秒数
   const EQUIP_DIP = 0.2; // 下沉量(MC -0.6 格按本仓库手臂尺度折算)
   let heldTarget = null; // 落定后的手持物 id; null=空手
@@ -109,6 +73,7 @@ const Avatar = (()=>{
     if (itemDef) {
       itemMesh = HeldItems.mount(itemDef);
       itemMesh.position.fromArray(itemDef.grip.pos);
+      itemMesh.position.y += ITEM_GRIP_DY;
       itemMesh.rotation.fromArray(itemDef.grip.rot);
       armR.add(itemMesh);
     }

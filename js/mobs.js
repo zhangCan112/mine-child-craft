@@ -3,7 +3,10 @@
    怪物库 (Mobs, 术语见 GLOSSARY.md) — 引擎层
    ------------------------------------------------------------
    全游戏唯一的怪物实体模块(竞技场与坦克演习场共用):
-   · 建模: MOB_RIG 骨架注册表 → (类型×关节槽) InstancedMesh 合批渲染
+   · 建模: 造型档案优先(MobLookKit, js/mob-look/<type>.js 一怪一文件 —
+     官方像素骨架+自绘贴图, docs/mob-look-design.md) → 未迁移怪回落内联
+     MOB_RIG 骨架注册表(三票过渡双轨, 票②铺完拆旧) → (类型×关节槽)
+     InstancedMesh 合批渲染(造型怪每型一份贴图材质, 其余共享顶点色材质)
    · 数值: mob-registry.js 的 MOB_TYPES(血量/速度/身高/碰撞半径/旗标)
    · 本能: 血量/受击(闪白·踉跄·击退)/死亡(倒地沉没; 存活→死亡瞬间逐
      onDeath 回调报事件, 引擎不解释死因不做掉落)/游荡(wander 可关)
@@ -425,6 +428,15 @@ const Mobs = (() => {
     };
   })();
 
+  /* 骨架解析的唯一入口(双轨): 造型档案(MobLookKit · 一怪一文件, 官方像素
+     骨架+自绘贴图)优先, 未迁移怪回落内联 MOB_RIG — 消费点(render/gait/
+     hasSlot/自检)一律经此, 不再直读 MOB_RIG。Node 测试无 MobLookKit
+     全局时 typeof 守卫自然回落(mobs.test.js 环境照旧)。 */
+  function rigOf(type) {
+    const lk = (typeof MobLookKit !== 'undefined') ? MobLookKit.rig(type) : null;
+    return lk || MOB_RIG[type];
+  }
+
   /* 槽部件盒子合并为一份带顶点色的几何(逐槽一份, 全类型共享材质) */
   function buildRigGeo(boxes) {
     const positions=[]; const normals=[]; const colors=[]; const indices=[];
@@ -456,12 +468,18 @@ const Mobs = (() => {
      全量重写, 扩容无需搬运); 空批次 count=0 不产生绘制 ---------- */
   let mobMat = null; // 惰性创建: 引导桩环境不建材质
   const mobBatches = [];
-  function getMobBatch(slot) {
+  function getMobBatch(slot, rig) {
     let b = slot.batch;
     if (b) return b;
     if (!mobMat) mobMat = new THREE.MeshLambertMaterial({vertexColors: true});
-    if (!slot.geo) slot.geo = buildRigGeo(slot.boxes);
-    const mesh = new THREE.InstancedMesh(slot.geo, mobMat, 16);
+    /* 造型档案怪: 逐槽 UV 几何 + 每型一份贴图材质(slot.cubes 带 px 原始数据);
+       内联骨架怪: 顶点色几何 + 共享材质(旧路径不动) */
+    const mat = (rig && rig.mat) ? rig.mat() : null;
+    if (!slot.geo) {
+      slot.geo = (rig && slot.cubes) ?
+          MobLookKit.slotGeoOf(rig.look, slot) : buildRigGeo(slot.boxes);
+    }
+    const mesh = new THREE.InstancedMesh(slot.geo, mat || mobMat, 16);
     mesh.frustumCulled = false; // 实例散布全场, 按几何包围球剔除会误裁
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.setColorAt(0, _tintCol.setRGB(1, 1, 1)); // 预建 instanceColor, 避免首次着色才编译变体
@@ -476,7 +494,7 @@ const Mobs = (() => {
     while (cap < need) cap *= 2;
     scene.remove(b.mesh);
     if (b.mesh.dispose) b.mesh.dispose(); // 几何/材质共享不在此动
-    const mesh = new THREE.InstancedMesh(b.mesh.geometry, mobMat, cap);
+    const mesh = new THREE.InstancedMesh(b.mesh.geometry, b.mesh.material, cap);
     mesh.frustumCulled = false;
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.setColorAt(0, _tintCol.setRGB(1, 1, 1));
@@ -501,7 +519,7 @@ const Mobs = (() => {
         if (m.tierNode) m.tierNode.visible = false; // 挂件随尸体一起隐去
         continue;
       }
-      const rig = MOB_RIG[m.type];
+      const rig = rigOf(m.type);
       const s = m.drawScale;
       const sink = (m.dead && m.deadT > DEAD_FADE_T) ?
         Math.min(1, (m.deadT-DEAD_FADE_T)/DEAD_SINK_DUR)*DEAD_SINK_DEPTH : 0; // 原"透明淡出"的实例化等价: 下沉入地
@@ -510,7 +528,7 @@ const Mobs = (() => {
       _wm.compose(_wp.set(m.pos.x, m.pos.y - sink, m.pos.z), _wq, _ws.set(s, s, s));
       for (const name of Object.keys(rig.slots)) {
         const slot = rig.slots[name];
-        const b = getMobBatch(slot);
+        const b = getMobBatch(slot, rig);
         if (b.n >= b.cap) growMobBatch(b, b.n+1);
         _jq.setFromAxisAngle(slot.axis==='z' ? _axisZ : _axisX, name==='root' ? 0 : (m.pose[name]||0));
         _jm.compose(_jp.fromArray(slot.joint), _jq, _one);
@@ -721,7 +739,7 @@ const Mobs = (() => {
     m.walkPhase += sp*dt*3.4;
     const sw = Math.sin(m.walkPhase)*0.5*Math.min(1, sp/2.2);
     const J = m.pose;
-    const rig = MOB_RIG[m.type];
+    const rig = rigOf(m.type);
     if (rig.slots.legL) {
       J.legL = sw; J.legR = -sw;
     }
@@ -819,7 +837,8 @@ const Mobs = (() => {
     cow: 0x8c664d, pig: 0xe69ea8, sheep: 0xebebeb, chicken: 0xf2e5bf, /* F4 农场一家(体色锚) */
   };
   function debrisColor(type) {
-    return MOB_DEBRIS[type] || 0x8a8f98;
+    const look = (typeof MobLookKit !== 'undefined') ? MobLookKit.debrisOf(type) : null;
+    return look || MOB_DEBRIS[type] || 0x8a8f98;
   }
 
   /* 受击: 扣血/闪白/踉跄(MobCore) + 击退(地面走台阶规则, 飞行直线+clamp)
@@ -908,6 +927,16 @@ const Mobs = (() => {
       g.fillStyle = col; g.fillRect(x, y, w, h, col);
     };
     const mottle = (col, pts)=>pts.forEach(([x, y])=>px(x, y, 1, 1, col));
+    /* 16→64 最近邻放大(手绘/贴图裁切两分支共用出口) */
+    const faceUpscale = ()=>{
+      const big = document.createElement('canvas');
+      big.width = big.height = 64;
+      const bg = big.getContext('2d');
+      bg.imageSmoothingEnabled = false;
+      bg.drawImage(c, 0, 0, 64, 64);
+      mobFaceCache[type] = big.toDataURL();
+      return mobFaceCache[type];
+    };
     /* 标准怪脸: 底色+斑驳+黑眼+嘴(僵尸/骷髅系换色复用, 特征可随后补画) */
     const stdFace = (bg, mot, eye, mouth) => {
       px(0, 0, 16, 16, bg);
@@ -915,6 +944,18 @@ const Mobs = (() => {
       px(3, 5, 3, 3, eye); px(10, 5, 3, 3, eye);
       if (mouth) px(5, 12, 6, 2, mouth);
     };
+    /* 造型档案怪: 头贴图正面裁切居中 → 16×16(皮肤与头像同源, 面板自动跟皮肤) */
+    const lookPix = (typeof MobLookKit !== 'undefined' && MobLookKit.facePixels) ?
+        MobLookKit.facePixels(type) : null;
+    if (lookPix) {
+      for (let y = 0; y < 16; y++) {
+        for (let x = 0; x < 16; x++) {
+          const p = lookPix[y*16+x];
+          if (p) px(x, y, 1, 1, 'rgb(' + p[0] + ',' + p[1] + ',' + p[2] + ')');
+        }
+      }
+      return faceUpscale();
+    }
     switch (type) {
       case 'zombie': {
         px(0, 0, 16, 16, '#5e9440');
@@ -1234,17 +1275,12 @@ const Mobs = (() => {
         break;
       }
     }
-    const big = document.createElement('canvas');
-    big.width = big.height = 64;
-    const bg = big.getContext('2d');
-    bg.imageSmoothingEnabled = false;
-    bg.drawImage(c, 0, 0, 64, 64);
-    mobFaceCache[type] = big.toDataURL();
-    return mobFaceCache[type];
+    return faceUpscale();
   }
 
   function hasSlot(type, name) {
-    return !!MOB_RIG[type].slots[name];
+    const r = rigOf(type);
+    return !!(r && r.slots[name]);
   }
 
   /* 注册表一致性自检: MOB_TYPES(非伪类型) ↔ MOB_RIG — 漏配 RIG 的怪 render 会
@@ -1252,7 +1288,8 @@ const Mobs = (() => {
      漏配 face 则由 default 分支画显眼问号兜底) */
   (function() {
     if (typeof MOB_TYPES === 'undefined' || typeof console === 'undefined') return;
-    const missing = Object.keys(MOB_TYPES).filter((k) => k!=='mix' && !MOB_RIG[k]);
+    const hasLook = (k) => (typeof MobLookKit !== 'undefined') && MobLookKit.has(k);
+    const missing = Object.keys(MOB_TYPES).filter((k) => k!=='mix' && !MOB_RIG[k] && !hasLook(k));
     if (missing.length) console.warn('[Mobs] MOB_TYPES 有而 MOB_RIG 缺(渲染会崩):', missing.join(','));
     /* 谱系自检: family 引用未注册键 / proto 不在合法值表 / mix 带谱系 —
        新怪加行时漏声明或拼错键在这里即报(与 RIG 自检同一道理) */

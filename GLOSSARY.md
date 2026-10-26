@@ -111,8 +111,8 @@ _Avoid_: 手势识别器（散称）、把定时器塞进纯核心（到点驱�
 _Avoid_: 相机跟随、第三人称开关（那是它的 implementation）
 
 **玩家形象（Avatar）**:
-玩家的小探险家模型与动画：建模、走路摆臂、头部俯仰、随相机距离显隐、受击闪红（flash：全身材质向红插值再淡出，模式层意图 API，观感能力不漏玩法知识）。加载即挂场景、跨模式存活；每帧由主循环喂 dt 与 CameraRig.apply 的返回距离，其余不可见。
-_Avoid_: 玩家皮肤、人物模型（散称）
+玩家的小探险家模型与动画：建模走造型档案（MobLookKit.puppet('player')——官方 8/12/12px 等比人形 + 64×64 自绘皮肤，身份件〔橙帽/背包/蓝衫/五官〕全画进贴图，旧 Q 版盒子建模已退役）、走路摆臂、头部俯仰、随相机距离显隐、受击闪红（flash：皮肤材质向红插值再淡出，模式层意图 API，观感能力不漏玩法知识）。加载即挂场景、跨模式存活；每帧由主循环喂 dt 与 CameraRig.apply 的返回距离，其余不可见。
+_Avoid_: 玩家皮肤（那是官方素材概念，本项目皮肤程序自绘归造型档案）、人物模型（散称）
 
 **玩家状态（PlayerState）**:
 voxel.js 玩家段的六绑定 pos/vel（const 对象、成员可写、与 THREE.Vector3 鸭子类型兼容）与 onGround/yaw/pitch/flyMode（顶层 let）——共享词法环境里全仓可读。可写白名单的唯一权威在 voxel.js 玩家段头注释：physics 自身 · input.js 视角热路径（唯一属主+事件频率高于帧率）· math-world.js 自持 rAF（主循环物理门控的已知症状，治理归引擎「非锁定宿主驱动入口」未来票）· tank.js 引擎同侪四类例外。意图入口：传送/出生走 ModeKit.spawn（mode-kit.js，顺带记住出生点供 onVoidFall 兜底），飞行态走 setFly（voxel.js，切换清垂直速度）；模式文件零直写由 test/conventions.test.js 守门断言把口。combat-kit 的 mkFighter 把 pos/vel 可变引用别名进战斗实体——意图入口只原地改字段、不替换绑定。
@@ -171,12 +171,16 @@ _Avoid_: inventory_save 直开（消费方自建存档槽违反 ADR 0002）、�
 _Avoid_: 坦克实体、载具系统、坦克皮肤（型号不止换色，性能/炮弹/建模整套不同）
 
 **怪物库（Mobs）**:
-引擎层的怪物实体模块：全怪物建模（37 种，按 Minecraft 原版数值等比映射；骨架表——人形/四足参数化生成器 + 特殊骨架，实例化合批渲染）、数值表驱动（js/mob-registry.js 的 MOB_TYPES——-registry 契约，2026-10 自 config 拆出；旗标 ranged/boom/fly/boss 决定行为模式）、血量/受击（闪白·踉跄·击退）/死亡（倒地沉没）/游荡的通用本能。interface：spawn / update / render / hit / near / clear / onDeath（击杀事件：hit 判定存活→死亡的瞬间逐回调恰一次、参数为怪物实体，引擎只报事件不解释死因不做掉落，掷骰归消费方，clear 一并解除注册）（附 list / face / hasSlot / families 谱系分组查询（面板分组唯一入口：按主族归组、无族落独行侠、FAMILIES 未定义时退化单桶；帧序契约在 mobs.js 头注释——update 与模式 AI 相对顺序宽容（dead||gone 双侧自兜底），render 必须最后，壳内不再各自立顺序纪律）/ gait 步态+战斗姿态（第 4 参 attackT 窗口 → 通用挥臂——挥击手=持械手：骨架表 weaponArm 声明持械臂（hum 的 held → armL），缺省抡右拳/头前扑，竞技场与下界同一条入口）/ debrisColor 击杀碎块色，以及意图 API——stagger 硬直 / pulseTint 着色 / scaleTo 体型 / move·shift·setPos 水平位移 / steer 面向 / heal·setMaxHp 生命 / remove 立即移除 / settle 贴地回巡航，模式不直写引擎的位移/生命/硬直/着色/体型字段，战斗节拍字段（attackCd/attackT/target）由 spawn 置零、模式读写（曾因模式漏初始化 attackCd 致下界怪物永不攻击，初始化已收归引擎），可写字段白名单见 mobs.js 头注释）。战斗 AI、阵营、晋升、表扬话术在模式层，模式可在 spawn 返回的怪物上挂私有字段；竞技场与坦克演习场都是它的调用方，实例数组归它私有。
+引擎层的怪物实体模块：全怪物建模（造型档案优先——js/mob-look/&lt;type&gt;.js 一怪一文件〔官方像素骨架+自绘贴图，见「造型档案」词条〕，未迁移怪回落内联骨架表〔人形/四足参数化生成器 + 特殊骨架〕的三票过渡双轨，消费点一律走 rigOf；实例化合批渲染——造型怪每型一份贴图材质）、数值表驱动（js/mob-registry.js 的 MOB_TYPES——-registry 契约，2026-10 自 config 拆出；旗标 ranged/boom/fly/boss 决定行为模式）、血量/受击（闪白·踉跄·击退）/死亡（倒地沉没）/游荡的通用本能。interface：spawn / update / render / hit / near / clear / onDeath（击杀事件：hit 判定存活→死亡的瞬间逐回调恰一次、参数为怪物实体，引擎只报事件不解释死因不做掉落，掷骰归消费方，clear 一并解除注册）（附 list / face / hasSlot / families 谱系分组查询（面板分组唯一入口：按主族归组、无族落独行侠、FAMILIES 未定义时退化单桶；帧序契约在 mobs.js 头注释——update 与模式 AI 相对顺序宽容（dead||gone 双侧自兜底），render 必须最后，壳内不再各自立顺序纪律）/ gait 步态+战斗姿态（第 4 参 attackT 窗口 → 通用挥臂——挥击手=持械手：骨架表 weaponArm 声明持械臂（hum 的 held → armL），缺省抡右拳/头前扑，竞技场与下界同一条入口）/ debrisColor 击杀碎块色，以及意图 API——stagger 硬直 / pulseTint 着色 / scaleTo 体型 / move·shift·setPos 水平位移 / steer 面向 / heal·setMaxHp 生命 / remove 立即移除 / settle 贴地回巡航，模式不直写引擎的位移/生命/硬直/着色/体型字段，战斗节拍字段（attackCd/attackT/target）由 spawn 置零、模式读写（曾因模式漏初始化 attackCd 致下界怪物永不攻击，初始化已收归引擎），可写字段白名单见 mobs.js 头注释）。战斗 AI、阵营、晋升、表扬话术在模式层，模式可在 spawn 返回的怪物上挂私有字段；竞技场与坦克演习场都是它的调用方，实例数组归它私有。
 _Avoid_: 怪物系统（散称）、mob 数组（那是实现）
 
 **怪物谱系（Mob Taxonomy）**:
 怪物种类的双层分类体系：行为原型（proto，战斗 AI 模板位：冲锋/弹道/自爆/伏击/俯冲/炮台/分裂/游击 + 闲逛 grazer=无战斗占位）× 种族（family 标签数组，**种族=长相接近的血统组**，守卫组是唯一职责组例外；不按地域/维度分族；**无兜底族**——每怪必归种族，单员族合法（龙族/海族））。数据在 js/mob-registry.js（-registry 契约，2026-10 自 config 拆出）：MOB_TYPES（family 有序多标签，首位=主族；多族合法——僵尸猪灵/僵尸疣猪兽=猪物种+僵尸血统）+ FAMILIES/PROTOS 注册表；主族折算与家传技能表（FAMILY_SKILLS）/个体特化表（MOB_QUIRKS，tick 钩子型（末影人颤栗瞬移）、laser 声明型（守卫者系蓄力激光）、familySkill:false 豁免型）在 js/arena-core.js（2026-10 随竞技场剥核迁入，见「竞技场核心」词条）；面板分组走怪物库 families()（内联簇式：组头+组员成簇随行流动，未注册键兜底键名不丢桶）。12 个种族：僵尸一家（狂暴）/骷髅一家（强力节奏）/虫虫族（疾爬突进）/猪猪一家（蛮冲）/鬼一族（阴风）/守卫组（磐石）/灾厄帮（袭击协同）/软软族（分裂）/草木族/龙族/海族（后三族家传三期补）/农场一家（passive 牧场动物，见「牧场」词条——不进战斗面板）；个体特化=每怪至多一招；新怪按变体公式"同族骨架⊕环境特化⊕一招专属⊕数值微调"扩展。
 _Avoid_: 怪物分类（散称）、怪物种族（单继承树的暗示——谱系是多标签组合）、按地域/维度分族（下界帮已撤——那是产地不是物种）、独行侠（兜底族已撤——每怪必归种族）
+
+**造型档案（MobLook）**:
+怪物/人物「一怪一对象」的造型唯一权威（js/mob-look-kit.js 缝 + js/mob-look/&lt;type&gt;.js 一怪一文件声明，2026-10 立项 docs/mob-look-design.md）：声明 = {base 基座骨 · bones 追加骨 · tex 自绘贴图 · armStyle 步态 · weaponArm · debris 碎块色 · scale}，几何全部**官方模型像素**（1px=1/16 格，数据源与逐怪规格见 docs/mc-mob-models-research.md——bedrock-samples 核对，D13 版权口径：只取结构比例，像素自绘）。三种基座生成器（人形 humanoid / 细骨 skeleton / 四足 quad——官方「共享基座+逐怪文件」的同构物）+ 自有骨架（苦力怕/蜘蛛式全量 bones）。kit 负责：px→世界换算（怪物 z 镜像成 +Z / 玩家傀儡 −Z 原生——同一份数据的两个 adapter）· 六面 UV 铺展（区域自外部看，inflate overlay 一等字段）· 程序贴图（纯数据缓冲+种子化随机，画布惰性，texture-atlas 同惯例）· 头像裁切（head 正面→16×16，Mobs.face 自动跟皮肤）· 碎块色。消费方：mobs.js（rigOf 双轨——造型优先回落内联 MOB_RIG，三票过渡）· avatar.js（puppet 傀儡）。票①白名单 player/zombie/skeleton/creeper/spider/sheep，test/mob-look.test.js 断言键集/布局合法性（不出界+无部分重叠）/贴图全覆盖/确定性。
+_Avoid_: 皮肤文件（那是官方素材概念，这里全部程序自绘）、把贴图/UV/镜像换算散写回消费方（语义单份在 kit）、MOB_RIG 直读（消费点一律走 rigOf 双轨入口）
 
 **战斗核心（CombatCore）**:
 引擎层纯逻辑模块（js/combat-core.js，零全局依赖，有单测）：leadAim 预测弹道方向（目标移动提前量 + 重力补偿抬枪）、tickCadence 攻击节拍递减（attackCd/attackT，与 Mobs.spawn 置零配套）、hitBody 投射物对身体的盒判定（水平 hitR × 垂直身高段）、stepShot 弹道步进（C6-T1：重力/寿命/欧拉积分/撞块，非变更式返回 {vel,life,x,y,z,hitBlock,dead}，getBlock 注入保零全局——竞技场/下界/探险三份手写步进并一于此；hitBlock 单列保竞技场巨石口径：撞块触发 AoE、寿命尽只移除）。竞技场箭矢/巨石与下界火球、探险骷髅箭都是它的调用方。弹道观感与伤害政策留在模式层。
