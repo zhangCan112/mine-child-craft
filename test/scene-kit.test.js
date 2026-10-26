@@ -72,6 +72,31 @@ test('压平区归基准: 圆心邻域回落 base, base 可调, 多圆并集', (
   assert.ok(sk.heightAt(208, 48, {flats: two}) === 0, '第二圆心也归基准');
 });
 
+test('坡度红线: 全图任意相邻格高差 ≤1(含压平区边缘与负象限)', () => {
+  const {sk} = loadSceneKit();
+  /* 三场景: 裸场 / 压平圆(边缘斜坡) / 大半径压平(圆内全场为基准) */
+  const scenes = [
+    {name: '裸场', opts: undefined},
+    {name: '压平圆', opts: {flats: [{cx: 130, cz: 130, r: 24}]}},
+    {name: '双圆+盐', opts: {salt: 7, flats: [
+      {cx: 64, cz: 64, r: 32}, {cx: 200, cz: 40, r: 20},
+    ]}},
+  ];
+  for (const sc of scenes) {
+    for (let x = -64; x < 256; x++) {
+      for (let z = -64; z < 256; z++) {
+        const h = sk.heightAt(x, z, sc.opts);
+        const hx = sk.heightAt(x + 1, z, sc.opts);
+        const hz = sk.heightAt(x, z + 1, sc.opts);
+        assert.ok(Math.abs(hx - h) <= 1,
+            sc.name + ' 水平相邻 ≤1: (' + x + ',' + z + ') ' + h + '→' + hx);
+        assert.ok(Math.abs(hz - h) <= 1,
+            sc.name + ' 垂直相邻 ≤1: (' + x + ',' + z + ') ' + h + '→' + hz);
+      }
+    }
+  }
+});
+
 test('确定性: 同参同值, 整格阶梯化, salt 换地形', () => {
   const {sk} = loadSceneKit();
   let saltDiff = 0;
