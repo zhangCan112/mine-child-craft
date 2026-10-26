@@ -217,7 +217,9 @@ function advSyncHotbar() {/* 背包变动后同步快捷栏: 换物重渲染, �
   if (sig !== advHbSig || changed) advHb.render();
   else advHb.refresh();
   advHbSig = sig;
-  advTouchMainSync(); /* 背包变动可能换了手上物(放光/吃光/拾取), 观感跟进 */
+  advSyncHeldVisual(); /* 背包变动可能换了手上物: 放光/吃光/被搬换 → 手上观感跟进
+    (Avatar.setItem 同目标幂等, 无变化零开销; 修: 放完最后一个方块人物仍举着方块) */
+  advTouchMainSync(); /* 主动作键观感同口径跟进(放置=砖/其余=镐) */
 }
 
 function advInvMove(from, to) {/* 背包面板点选搬运(2026-10-24 交互优化): moveSlot 纯核心

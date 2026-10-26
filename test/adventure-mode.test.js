@@ -1306,6 +1306,25 @@ test('手持一致: 选中槽 → Avatar 跟随(工具/方块/薄片 def, 空槽
   assert.strictEqual(lastSet()[1], null, '空槽 → 空手(MC 口径)');
 });
 
+test('手持一致: 放完最后一个方块 → 空手(advSyncHotbar 观感跟进, 修「人物仍举着已用完的方块」)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  const hitTop = {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0};
+  holdOnly('dirt', 2);
+  calls.length = 0; /* 滤掉选中链的 setItem, 只看放置后的观感 */
+  AdventureMode.onMouse(2, hitTop);
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '还剩 1 个');
+  assert.ok(calls.some((c) => c[0] === 'setItem' && c[1] === 'dirt'),
+      '未放光: 手上仍是泥土(advSyncHotbar 重申, 同目标幂等)');
+  calls.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0}); /* 瞄刚放的泥土顶 */
+  assert.strictEqual(cell(spot.x, 26, spot.z), 2, '第二个泥土叠上去');
+  assert.strictEqual(A.advGetInv().slots[0], null, '放光: 槽清空');
+  assert.ok(calls.some((c) => c[0] === 'setItem' && c[1] === null),
+      '放光: 手持观感回落空手(MC 口径, 不再举着已用完的方块)');
+});
+
 test('T12 放置行为链: 泥土/火把/树苗 — 落点+背包 −1+记账; thin 违规落点 toast 拒绝', () => {
   mem.clear();
   freshInit();
