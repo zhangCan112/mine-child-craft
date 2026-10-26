@@ -27,6 +27,27 @@ function loadSceneKit() {
   return {sk: sandbox.__sk};
 }
 
+test('幅度界 ±3: 全域 |h| ≤ 3, amp 越界(10)被钳制', () => {
+  const {sk} = loadSceneKit();
+  for (const opts of [undefined, {}, {salt: 9}, {amp: 10}, {amp: 10, salt: 3}]) {
+    for (let x = -64; x <= 256; x += 3) {
+      for (let z = -64; z <= 256; z += 3) {
+        const h = sk.heightAt(x, z, opts);
+        assert.ok(h >= -3 && h <= 3,
+            '幅度界红线: (' + x + ',' + z + ') ' + JSON.stringify(opts) + ' → ' + h);
+      }
+    }
+  }
+  /* amp 可调小: amp=0 全图归零(核心圈平地, T5 消费口径);
+     Math.round 可能产 -0, 消费者比较用 === 口径 */
+  for (let x = 0; x < 128; x += 5) {
+    for (let z = 0; z < 128; z += 5) {
+      assert.ok(sk.heightAt(x, z, {amp: 0}) === 0,
+          'amp=0 → 平地: (' + x + ',' + z + ')');
+    }
+  }
+});
+
 test('确定性: 同参同值, 整格阶梯化, salt 换地形', () => {
   const {sk} = loadSceneKit();
   let saltDiff = 0;

@@ -49,7 +49,8 @@ const SceneKit = {
   heightAt(x, z, opts) {
     const o = opts || {};
     const salt = o.salt || 0;
-    const amp = o.amp === undefined ? 3 : o.amp;
+    /* 幅度界红线 ±3: 越界一律钳回, 防调用方破坏全图相邻高差 ≤1 的坡度保证 */
+    const amp = Math.max(0, Math.min(3, o.amp === undefined ? 3 : o.amp));
     const i = Math.floor(x / 16); const j = Math.floor(z / 16);
     const t = (x - i * 16) / 16; const s = (z - j * 16) / 16;
     const v = (ci, cj) => (SceneKit.rand(ci, cj, salt) * 2 - 1) * amp;
