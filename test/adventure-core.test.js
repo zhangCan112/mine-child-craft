@@ -26,7 +26,7 @@ const api = vm.runInContext(`({
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
   ITEMS, isTool, toolOf, breakTime, stackMax,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
-  rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf,
+  rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf, SMELT_T,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 
@@ -148,18 +148,12 @@ test('F3 金苹果食物政策: advEatPolicy full 旗标 — 半血吃直接回�
   assert.deepStrictEqual(Core.advEatPolicy(10, 30, 4), {hp: 14, healed: 4, canEat: true});
 });
 
-test('核心政策: 站点判定/烧炼单步/退炉/TNT 掷骰与衰减', () => {
+test('核心政策: 站点判定/TNT 掷骰与衰减', () => {
   const sts = [{x: 10, y: 25, z: 10, id: api.B_CRAFT}];
   assert.strictEqual(Core.advNearStation(sts, 14.5, 10.5, 4, api.B_CRAFT), true, '恰 4 格解锁(含等号)');
   assert.strictEqual(Core.advNearStation(sts, 14.6, 10.5, 4, api.B_CRAFT), false, '4.1 格不解锁');
-  const s = Core.advSmeltStep({input: {id: 'iron_ore', n: 1}, fuel: {id: 'coal', n: 1},
-    out: null, heat: 0, prog: 0}, 2.5);
-  assert.deepStrictEqual(s.out, {id: 'iron_ingot', n: 1}, '2.5s 产一件');
-  assert.strictEqual(s.heat, 7, '煤热值 8 件, 烧 1 件余 7');
-  const inv = api.mkInventory();
-  assert.deepStrictEqual(Core.advFurnaceRefund(inv,
-      {input: {id: 'iron_ore', n: 3}, fuel: null, out: null, heat: 0, prog: 0}), [], '三笔全退');
-  assert.strictEqual(api.count(inv, 'iron_ore'), 3, '退包入账');
+  /* 烧炼单步 smeltStep/退炉 furnaceRefund 已迁 craft-core, 直测随迁
+     test/craft-core.test.js(节拍常量 SMELT_T 同批迁入) */
   assert.strictEqual(Core.advTntRoll(3, () => 0.69).length, 1, '中签掉落');
   assert.strictEqual(Core.advTntRoll(3, () => 0.7).length, 0, '恰 0.7 不中签');
   assert.strictEqual(Core.advTntDmg(0), Core.ADV_TNT_DMG_HI, '爆心 30');
@@ -277,7 +271,7 @@ test('F1 炉状态纯函数: advFurnaceValid — 五元组形状校验, 非法�
   assert.strictEqual(Core.advFurnaceValid({input: null, fuel: null, out: null, heat: -1, prog: 0}),
       false, '负热值拒收');
   assert.strictEqual(Core.advFurnaceValid({input: null, fuel: null, out: null, heat: 0, prog: 3}),
-      false, '进度越界拒收(钳制界 ADV_SMELT_T)');
+      false, '进度越界拒收(钳制界 SMELT_T——常量在 craft-core, 经全局名消费)');
   assert.strictEqual(Core.advFurnaceValid({input: 'iron_ore', fuel: null, out: null, heat: 0, prog: 0}),
       false, '槽形状必须是对象拒收');
 });

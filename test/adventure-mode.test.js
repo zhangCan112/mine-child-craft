@@ -341,6 +341,11 @@ ModeKit.spawn = (x, y, z, o) => {
    显式铺到全局再 require 壳——壳顶层即消费这些全局名 */
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore);
+/* 烧炼三件(SMELT_T/smeltStep/furnaceRefund)已迁 craft-core(2026-10 归属错位修复):
+   Node 侧 require 真模块铺到全局, 浏览器侧 index.html 里 craft-core 先于本批加载同构 */
+const CraftCore = require('../js/craft-core.js');
+Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
+  furnaceRefund: CraftCore.furnaceRefund});
 globalThis.FurnaceKit = require('../js/furnace-kit.js'); /* 熔炉装配 kit(T4): 壳顶层即构造 station */
 globalThis.Backpack = require('../js/backpack.js');
 
@@ -1491,8 +1496,8 @@ test('T13 onCraft 链路: TTS 具体表扬(产物名入句) + leftover 转脚下
   assert.ok(inv, '背包对象稳定(面板闭包不脱钩)');
 });
 
-test('T13 烧炼节律纯函数: advSmeltStep — 2.5s/件 · 煤热值 8 件 · 无热暂停进度保留 · 余时结转', () => {
-  const step = A.advSmeltStep;
+test('T13 烧炼节律纯函数: smeltStep — 2.5s/件 · 煤热值 8 件 · 无热暂停进度保留 · 余时结转', () => {
+  const step = A.smeltStep;
   const mk = (n) => ({input: {id: 'iron_ore', n}, fuel: {id: 'coal', n: 1}, out: null, heat: 0, prog: 0});
   /* 一件: 恰 2.5s 烧成; 唯一一块煤折成热值入炉(自动燃料), 烧 1 件后余 7 */
   const s = step(mk(1), 2.5);
@@ -1518,9 +1523,9 @@ test('T13 烧炼节律纯函数: advSmeltStep — 2.5s/件 · 煤热值 8 件 ·
   assert.ok(big.prog <= 2.5, '进度钳制(显示层再钳一次)');
 });
 
-test('T13 退炉政策纯函数: advFurnaceRefund — 炉内三笔全额退包 + 满包转余量清单', () => {
+test('T13 退炉政策纯函数: furnaceRefund — 炉内三笔全额退包 + 满包转余量清单', () => {
   const inv = api.mkInventory();
-  const left = A.advFurnaceRefund(inv, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
+  const left = A.furnaceRefund(inv, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
     out: {id: 'iron_ingot', n: 2}, heat: 1.5, prog: 0.8});
   assert.deepStrictEqual(left, [], '有空位: 三笔全退(零惩罚口径)');
   assert.strictEqual(api.count(inv, 'iron_ore'), 3, '待烧料退回');
@@ -1528,7 +1533,7 @@ test('T13 退炉政策纯函数: advFurnaceRefund — 炉内三笔全额退包 +
   assert.strictEqual(api.count(inv, 'iron_ingot'), 2, '产物退回');
   const full = api.mkInventory();
   for (let i = 0; i < api.INV_SLOTS; i++) full.slots[i] = {id: 'stone', n: 64};
-  const left2 = A.advFurnaceRefund(full, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
+  const left2 = A.furnaceRefund(full, {input: {id: 'iron_ore', n: 3}, fuel: {id: 'coal', n: 2},
     out: {id: 'iron_ingot', n: 2}, heat: 0, prog: 0});
   assert.deepStrictEqual(left2, [{id: 'iron_ore', n: 3}, {id: 'coal', n: 2}, {id: 'iron_ingot', n: 2}],
       '满包容纳不下 → 逐笔转掉落清单(调用方 Drops.spawn 脚下)');
@@ -1729,14 +1734,14 @@ test('F2 炉口火焰差异增删: 燃烧=heat>0且有料在列 · 无料/熄灭
   assert.strictEqual(A.advFlameCount(), 0, '未起烧(计数前提)');
   AdventureMode.update(0.05);
   assert.strictEqual(A.advFlameCount(), 1, '燃烧中(heat>0 且有料) → 火焰在列');
-  /* 无料有热不算烧(与 advSmeltStep 推进条件一致——设计稿 §2.1 燃烧判定) */
+  /* 无料有热不算烧(与 smeltStep 推进条件一致——设计稿 §2.1 燃烧判定) */
   A.advFurnaceState(fk).input = null;
   AdventureMode.update(0.05);
   assert.strictEqual(A.advFlameCount(), 0, '无料(余热尚在) → 差异删');
   A.advFurnaceState(fk).input = {id: 'iron_ore', n: 1};
   AdventureMode.update(0.05);
   assert.strictEqual(A.advFlameCount(), 1, '补料复烧 → 差异加');
-  /* 热值耗尽(无热无燃料): 熄灭出列(advSmeltStep 每步写回新对象, 改前须重取) */
+  /* 热值耗尽(无热无燃料): 熄灭出列(smeltStep 每步写回新对象, 改前须重取) */
   const fx = A.advFurnaceState(fk);
   fx.heat = 0; fx.fuel = null;
   AdventureMode.update(0.05);

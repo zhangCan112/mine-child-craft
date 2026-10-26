@@ -14,8 +14,9 @@
      与 F4 牧场共用) · 政策纯函数
      advDeathPlan/advNestCount/advNestStep/advSwingDmg/advMobDmg/
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
-     advSapDue/advNearStation/advSmeltStep/advFurnaceRefund/advFurnaceValid/
-     advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫)/advTntRoll/
+     advSapDue/advNearStation/advFurnaceValid/
+     advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫; 进度钳制界读
+     craft-core 的 SMELT_T)/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 昼夜 D5 夜怪
       政策 ADV_NIGHT/advNightCanSpawn/advNightStep/advDawnSweep · F4 牧场
      advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 床·睡觉
@@ -28,7 +29,7 @@
      尺寸 · daylight-core 的 Daylight(昼夜 D5 夜怪判定与 D6 睡觉夜窗) ·
      voxel.js 的 getBlock/setBlockRaw · scene-kit.js 的
      SceneKit · items-core 的 ITEMS/toolOf/stackMax · inventory-core 的 add ·
-     craft-core 的 fuelUnits/smeltOf · drops.js 的 rollDrops/
+     craft-core 的 fuelUnits/smeltOf/SMELT_T · drops.js 的 rollDrops/
      rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件)
    可测性: 零 THREE·零 DOM·有单测(test/adventure-core.test.js,
      vm 装真引擎件直测, 地形确定性对着真散布函数断言)
@@ -558,10 +559,11 @@ function advSapDue(map, dt) {
 }
 
 /* ============================================================
-   合成与烧炼政策 (T13, 设计稿 D8/D4) — 常量与纯函数段
+   站点解锁·炉存档防错·TNT 政策 (T13/F1, 设计稿 D8/D4) — 常量与纯函数段
+   (烧炼单步 smeltStep/退炉 furnaceRefund/节拍 SMELT_T 已迁 craft-core
+   与烧炼表同居; ADV_SMELT_TTS_T 是探险话术政策, 留守此地)
    ============================================================ */
 const ADV_STATION_R = 4; /* 站点解锁半径(拍板④: 走近 4 格; 水平距离口径与巢穴 AI 一致) */
-const ADV_SMELT_T = 2.5; /* 每件烧炼秒数(D8: MC 10s → 儿童缩短; 附录 B 差异清单) */
 const ADV_TNT_FUSE = 1.5; /* TNT 引信秒数(旧 TNT 模式 1.0 → 儿童留足走开时间) */
 const ADV_TNT_R = 3.5; /* 爆炸破坏半径(旧 TNT 模式 radius 先例口径) */
 const ADV_TNT_HURT_R = 4.5; /* 波及怪物半径(旧 TNT 模式 hurtR 先例口径) */
@@ -580,56 +582,16 @@ function advNearStation(stations, px, pz, r, wantId) {
   return false;
 }
 
-/* 烧炼单步: s 为炉状态 {input, fuel, out, heat, prog}, heat 单位=件(1 件=
-   ADV_SMELT_T 秒, 燃料热值经 fuelUnits 折算), prog 为当前这件已烧秒数。
-   无料停炉; 无热且无燃料暂停(进度与热值保留——关面板/断档都不清零不白烧);
-   有热折算可烧秒数推进, 满 2.5s 产一件(产物槽同 id 叠加, 异 id 占满则停炉
-   待取——MC 阻塞口径), 余时结转下一件, 料尽 prog 归零。返回新状态不改入参。 */
-function advSmeltStep(s, dt) {
-  const n = {input: s.input, fuel: s.fuel, out: s.out, heat: s.heat, prog: s.prog};
-  if (!n.input) return n;
-  if (n.heat <= 0) {
-    if (!n.fuel) return n; /* 暂停: 等燃料(自动放料)或玩家回来 */
-    n.heat += fuelUnits(n.fuel.id); /* 自动燃料: 热值烧尽才耗下一件燃料 */
-    n.fuel = n.fuel.n > 1 ? {id: n.fuel.id, n: n.fuel.n - 1} : null;
-  }
-  const burn = Math.min(dt, n.heat * ADV_SMELT_T); /* 热值折秒, 本步不白烧 */
-  n.heat = Math.max(0, n.heat - burn / ADV_SMELT_T);
-  n.prog += burn;
-  while (n.prog >= ADV_SMELT_T && n.input) {
-    const pid = smeltOf(n.input.id);
-    if (!pid || (n.out && n.out.id !== pid)) break; /* 非法料/产物槽被占: 停炉待取 */
-    n.out = n.out ? {id: pid, n: n.out.n + 1} : {id: pid, n: 1};
-    n.input = n.input.n > 1 ? {id: n.input.id, n: n.input.n - 1} : null;
-    n.prog -= ADV_SMELT_T;
-  }
-  if (!n.input) n.prog = 0; /* 料尽: 半件进度清零, 下一炉从头烧 */
-  n.prog = Math.min(n.prog, ADV_SMELT_T); /* 进度钳制(显示层 setProgress 再钳一次) */
-  return n;
-}
-
-/* 退炉政策(D8): 炉内三笔(待烧料/燃料/产物)全额入包, 返回满包容纳不下的
-   余量清单——调用方 Drops.spawn 脚下(零惩罚口径); 不动炉状态(清炉归调用方) */
-function advFurnaceRefund(inv, f) {
-  const leftover = [];
-  for (const st of [f.input, f.fuel, f.out]) {
-    if (!st) continue;
-    const left = add(inv, st.id, st.n);
-    if (left > 0) leftover.push({id: st.id, n: left});
-  }
-  return leftover;
-}
-
 /* F1 炉状态形状校验(拍板①: 每炉独立+持久化): 世界档 decode 侧逐条防错,
    非法整条拒收(不炸模式, 材料随损坏档损失——mkSaveSlot 损坏回落先例)。
-   槽形状 {id,n}(id 在 ITEMS 注册且 n≥1) · heat ≥0 · prog ∈[0, ADV_SMELT_T] */
+   槽形状 {id,n}(id 在 ITEMS 注册且 n≥1) · heat ≥0 · prog ∈[0, SMELT_T] */
 function advFurnaceValid(s) {
   if (!s || typeof s !== 'object') return false;
   const slot = (v) => v === null || (typeof v === 'object' && v !== null &&
       !!ITEMS[v.id] && Number.isFinite(v.n) && v.n >= 1);
   if (!slot(s.input) || !slot(s.fuel) || !slot(s.out)) return false;
   return Number.isFinite(s.heat) && s.heat >= 0 &&
-      Number.isFinite(s.prog) && s.prog >= 0 && s.prog <= ADV_SMELT_T;
+      Number.isFinite(s.prog) && s.prog >= 0 && s.prog <= SMELT_T;
 }
 
 /* F1 空炉条目清扫(encode 侧): 三槽全空且无余热的炉不进存档(长期游玩防膨胀);
@@ -922,9 +884,9 @@ if (typeof module !== 'undefined' && module.exports) {
     advNestCount, advNestStep, advSwingDmg, advMobDmg, advDeathDrops, advPickupText,
     ADV_NIGHT, advNightCanSpawn, advNightStep, advDawnSweep,
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
-    ADV_STATION_R, ADV_SMELT_T, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
-    ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advSmeltStep,
-    advFurnaceRefund, advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
+    ADV_STATION_R, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
+    ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation,
+    advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
     ADV_LIVESTOCK_SPAWN_R, ADV_LIVESTOCK_HERD_R, ADV_LIVESTOCK_RING_LO,
     ADV_LIVESTOCK_RING_HI, ADV_LIVESTOCK_HERDS, ADV_HERD_AVOID_R, ADV_HERD_AVOID_MULT,
     ADV_HERD_FLEE_T, ADV_HERD_FLEE_MULT, ADV_HERD_AMBLE_MULT,

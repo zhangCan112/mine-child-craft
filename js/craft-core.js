@@ -11,7 +11,9 @@
    摆放→配方匹配(裁剪外圈平移 + 每行逆序水平镜像重试 + 无序多重集
    恰好相等) · gridCraft 每占用格扣 1 件+产栈入包 · fillGrid BE 口径
    一键摆入(先退格再逐规约格取 1, 缺料留空, 重复调=再备一套)。
-   外加烧炼/挖掘纯函数: fuelUnits 热值查询 · smeltOf 烧炼产物 ·
+   外加烧炼步进/退炉/挖掘纯函数: fuelUnits 热值查询 · smeltOf 烧炼产物 ·
+   smeltStep 烧炼单步(节拍常量 SMELT_T 与表同居, 2026-10 自 adventure-core
+   迁入——步进政策与烧炼表同一权威) · furnaceRefund 退炉政策(同批迁入) ·
    breakTime 破坏时间(MC JE 正交口径: 品类对即吃速度乘数, canHarvest
    管 ×1.5/×5 与掉落; 封顶 8s 下限 0.15s, tier 不足可挖慢速但不掉落
    — 挖掘硬度修正 D1)。
@@ -22,6 +24,7 @@
    interface: RECIPES · SMELTS · FUEL · shapeCost(recipe) · canCraft(inv,recipe,stationOk)
               · matchGrid(cells,recipe) · gridCraft(cells,inv,stationOk,recipes=RECIPES)
               · fillGrid(inv,recipe,cells) · fuelUnits(itemId) · smeltOf(itemId)
+              · SMELT_T · smeltStep(s,dt) · furnaceRefund(inv,f)
               · breakTime(blockDef,toolStack)
    依赖(均经全局名, 调用期解析): js/items-core.js 的 ITEMS(FUEL 在本文件顶层
      从 ITEMS 派生, 加载序必须在 items-core 之后) · js/inventory-core.js 的
@@ -147,6 +150,10 @@ const SMELTS = {
   raw_mutton: 'cooked_mutton', // F4: 生羊肉→熟羊肉
 };
 
+const SMELT_T = 2.5; /* 每件烧炼秒数(D8: MC 10s → 儿童缩短; 附录 B 差异清单)。
+  2026-10 自 adventure-core 迁入(原 ADV_SMELT_T)——步进政策与烧炼表同居,
+  炉态存档校验的进度钳制界(adventure-core advFurnaceValid)也读这里 */
+
 /* ------------------------------------------------------------
    FUEL 燃料择优序 — 从 ITEMS 的 fuel 字段(热值=能烧几件)按值降序派生,
    同值保持注册表原序; 熔炉「自动放料」按此序挑最省的(D8: 煤→木炭→原木→木板→木棍)
@@ -168,6 +175,51 @@ function fuelUnits(itemId) {
 /* 烧炼产物查询: 未登记原料返回 null(熔炉面板据此不放料) */
 function smeltOf(itemId) {
   return SMELTS[itemId] || null;
+}
+
+/* ------------------------------------------------------------
+   烧炼步进与退炉政策(2026-10 自 adventure-core 迁入, 原
+   advSmeltStep/advFurnaceRefund——政策与表同居; 函数体逐字搬运)
+   ------------------------------------------------------------ */
+
+/* 烧炼单步: s 为炉状态 {input, fuel, out, heat, prog}, heat 单位=件(1 件=
+   SMELT_T 秒, 燃料热值经 fuelUnits 折算), prog 为当前这件已烧秒数。
+   无料停炉; 无热且无燃料暂停(进度与热值保留——关面板/断档都不清零不白烧);
+   有热折算可烧秒数推进, 满 2.5s 产一件(产物槽同 id 叠加, 异 id 占满则停炉
+   待取——MC 阻塞口径), 余时结转下一件, 料尽 prog 归零。返回新状态不改入参。 */
+function smeltStep(s, dt) {
+  const n = {input: s.input, fuel: s.fuel, out: s.out, heat: s.heat, prog: s.prog};
+  if (!n.input) return n;
+  if (n.heat <= 0) {
+    if (!n.fuel) return n; /* 暂停: 等燃料(自动放料)或玩家回来 */
+    n.heat += fuelUnits(n.fuel.id); /* 自动燃料: 热值烧尽才耗下一件燃料 */
+    n.fuel = n.fuel.n > 1 ? {id: n.fuel.id, n: n.fuel.n - 1} : null;
+  }
+  const burn = Math.min(dt, n.heat * SMELT_T); /* 热值折秒, 本步不白烧 */
+  n.heat = Math.max(0, n.heat - burn / SMELT_T);
+  n.prog += burn;
+  while (n.prog >= SMELT_T && n.input) {
+    const pid = smeltOf(n.input.id);
+    if (!pid || (n.out && n.out.id !== pid)) break; /* 非法料/产物槽被占: 停炉待取 */
+    n.out = n.out ? {id: pid, n: n.out.n + 1} : {id: pid, n: 1};
+    n.input = n.input.n > 1 ? {id: n.input.id, n: n.input.n - 1} : null;
+    n.prog -= SMELT_T;
+  }
+  if (!n.input) n.prog = 0; /* 料尽: 半件进度清零, 下一炉从头烧 */
+  n.prog = Math.min(n.prog, SMELT_T); /* 进度钳制(显示层 setProgress 再钳一次) */
+  return n;
+}
+
+/* 退炉政策(D8): 炉内三笔(待烧料/燃料/产物)全额入包, 返回满包容纳不下的
+   余量清单——调用方 Drops.spawn 脚下(零惩罚口径); 不动炉状态(清炉归调用方) */
+function furnaceRefund(inv, f) {
+  const leftover = [];
+  for (const st of [f.input, f.fuel, f.out]) {
+    if (!st) continue;
+    const left = add(inv, st.id, st.n);
+    if (left > 0) leftover.push({id: st.id, n: left});
+  }
+  return leftover;
 }
 
 /* ------------------------------------------------------------
@@ -396,4 +448,9 @@ function breakTime(blockDef, toolStack) {
     time: Math.round(time * 1e5) / 1e5,
     drops: harvest, // tier 0 = 无门槛恒掉; 否则要品类对且等级够
   };
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {RECIPES, SMELTS, FUEL, SMELT_T, shapeCost, canCraft, matchGrid,
+    gridCraft, fillGrid, fuelUnits, smeltOf, smeltStep, furnaceRefund, breakTime};
 }

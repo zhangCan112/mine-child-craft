@@ -1161,7 +1161,7 @@ const advGetFurnaceAt = advFurnace.at; /* 面板绑定炉 posKey(单测触达面
 let advSmeltTtsT = 0; /* 完成播报节流计时(update 递减, kit onMade 消费) */
 
 /* ---------- 炉口火焰(F2 点燃观感, 设计稿 §2.1): 纯观感层, 不进方块数据/存档 ----------
-   燃烧判定 heat>0 && input(与 advSmeltStep 推进条件一致——无料有热不算烧);
+   燃烧判定 heat>0 && input(与 smeltStep 推进条件一致——无料有热不算烧);
    advFlames 差异增删挂在 advFurnaceTick 尾部(起燃加/熄灭删), Sprite 惰性
    创建(mkHpBar 同款守卫: THREE/DOM/scene 缺任一不建观感, 逻辑集照记 null——
    Node 单测经 advFlameCount() 断言增删节律); 明确不采用「燃烧换方块 id」
@@ -1860,7 +1860,7 @@ AdventureMode.adv = {ADV, ADV_NESTS, ADV_QUESTS, advDeathPlan, advMarkEdit, advG
   advCascadeApply, advExplode,
   advGetTntTap: () => advTntTap, advMouseHeldOn, advMouseHeldOff, advMainPlaceable,
   advTryPlace, advGrowTree, advMineStop, advWearHeld,
-  advNearStation, advStationOk, advOnCraft, advSmeltStep, advFurnaceRefund,
+  advNearStation, advStationOk, advOnCraft, smeltStep, furnaceRefund,
   advTntRoll, advTntDmg, advFurnaces, advGetFurnaceAt,
   advFurnaceState, advFurnaceDrop, advFurnaceAutoFill, advFurnaceManualPut,
   advFurnaceSlotClick, advFurnaceOpenPanel,

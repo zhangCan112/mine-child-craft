@@ -3,14 +3,14 @@
    运行: node --test test/furnace-kit.test.js
    票据 T4(showroom-tickets): 探险/体验馆两模式熔炉装配段的共享 kit —
    只测 kit 外显行为(接口即测试面), 不重测纯函数(烧炼单步/退炉在
-   adventure-core.test 已有), 只测编排:
+   craft-core.test 已有), 只测编排:
    ① 开合生命周期: open 绑炉取产物亮面板, panel.close() ✕ 统一出口收状态;
    ② 产物槽桥接(out→output): 核心炉态产物字段是 out, 面板 setSlots 读
      output(mode-kit 契约) — kit 喂显前桥接, 产物槽有锭必显示
      (探险侧历史错位随抽取修复的回归锁);
    ③ 自动放料: 面板 autoPlan 意图 → 经背包核心扣加(首现矿种全量 + 最省
      燃料补热值缺口);
-   ④ 烧炼推进: tick 逐炉 advSmeltStep 写回, 烧成件数经 onMade 回调(记账/
+   ④ 烧炼推进: tick 逐炉 smeltStep 写回, 烧成件数经 onMade 回调(记账/
      TTS/观感归消费方);
    ⑤ 满包政策: 取产物满包拒收留炉(onCollectFull), 腾位后可收;
    ⑥ 挖炉退料 drop: 三笔入包 + 余量经 onRefundLeft + 删炉 + 绑定面板连带关;
@@ -86,15 +86,18 @@ const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
 for (const f of ['js/config.js', 'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
-/* 点名提取(vm 顶层 const 不上 globalThis, showroom-mode.test 同款手法; adventure-core
-   require 期即读 config 的 B_* 与 ITEMS 等顶层名) */
+/* 点名提取(vm 顶层 const 不上 globalThis, showroom-mode.test 同款手法) */
 const api = vm.runInContext(`({ITEMS, stackMax, isTool, toolOf, mkInventory, add, count, remove,
   take, HOTBAR_SLOTS, INV_SLOTS, SMELTS, FUEL, fuelUnits, smeltOf,
   BLOCKS, B_FURNACE, B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER,
   B_CRAFT, B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_TNT})`, eng);
 Object.assign(globalThis, api);
-const AdventureCore = require('../js/adventure-core.js');
-Object.assign(globalThis, AdventureCore); /* advSmeltStep/advFurnaceRefund/ADV_SMELT_T */
+/* 烧炼三件(SMELT_T/smeltStep/furnaceRefund)已迁 craft-core: Node 侧 require 真模块
+   铺到全局——浏览器侧 index.html 里 craft-core(L260) 先于本 kit(L295) 加载, 同构;
+   adventure-core 不再是本 kit 的依赖(2026-10 归属错位修复), 不加载 */
+const CraftCore = require('../js/craft-core.js');
+Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
+  furnaceRefund: CraftCore.furnaceRefund});
 globalThis.iconOf = (id) => (globalThis.ITEMS[id] && globalThis.ITEMS[id].icon) || ''; /* emoji 兜底(工坊未加载) */
 globalThis.btnImg = () => ''; /* 面板 chrome 无图(工坊未加载) */
 const ModeKit = require('../js/mode-kit.js');
@@ -193,11 +196,11 @@ test('熔炉装配: autoFill 显式 posKey — 未开面板也能装炉(体验�
 test('熔炉装配: tick 逐炉推进 — 烧成经 onMade 回调(件数增量), 炉态写回', () => {
   const {st, log} = mkStation();
   setState(st, {input: {id: 'iron_ore', n: 2}, fuel: {id: 'coal', n: 1}});
-  st.tick(ADV_SMELT_T + 0.1); /* 2.6s: 首件烧成 */
+  st.tick(SMELT_T + 0.1); /* 2.6s: 首件烧成 */
   const f = st.state(KEY);
   assert.deepStrictEqual(f.out, {id: 'iron_ingot', n: 1}, '首件烧成');
   assert.deepStrictEqual(log.filter((e) => e[0] === 'made'), [['made', KEY, 1]], 'onMade 恰一次·增量 1');
-  st.tick(ADV_SMELT_T);
+  st.tick(SMELT_T);
   assert.deepStrictEqual(st.state(KEY).out, {id: 'iron_ingot', n: 2}, '第二件烧成');
 });
 
@@ -359,7 +362,7 @@ test('熔炉装配: 产物槽点击即收 — 面板开着烧成的新产物点�
   const {st, inv} = mkStation();
   setState(st, {input: {id: 'iron_ore', n: 1}, fuel: {id: 'coal', n: 1}});
   st.open(KEY);
-  st.tick(ADV_SMELT_T + 0.1); /* 烧成 1 件躺在炉里(面板开着不自动收) */
+  st.tick(SMELT_T + 0.1); /* 烧成 1 件躺在炉里(面板开着不自动收) */
   assert.deepStrictEqual(st.state(KEY).out, {id: 'iron_ingot', n: 1}, '前提: 产物在炉');
   st.slotClick('out');
   assert.strictEqual(st.state(KEY).out, null, '点击产物槽即收');

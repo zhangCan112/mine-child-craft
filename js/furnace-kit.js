@@ -4,7 +4,8 @@
    ------------------------------------------------------------
    探险(js/modes/adventure.js)与体验馆(js/modes/showroom.js)熔炉装配段
    的共享 kit(票据 T4, showroom-tickets): 状态机/退炉政策不在此——烧炼
-   单步/退炉是探险核心(adventure-core.js)的纯函数, 本 kit 只收编两模式
+   单步/退炉是合成核心(craft-core.js)的纯函数(2026-10 自 adventure-core
+   迁入, 政策与烧炼表同居), 本 kit 只收编两模式
    镜像的模式层装配(面板开合/取产物/自动+手动放料/炉槽取回/逐炉推进喂
    显/挖炉退料/燃料余量比/槽形桥接), 两消费者经注入的消费方政策相区分(记账/TTS/
    掉落物/观感/快捷栏刷新全部走 opts 回调缝)。
@@ -37,16 +38,16 @@
        重进场复位 · dispose() 卸面板复位
    依赖(均经全局名, 调用期解析): mkFurnacePanel/ModeKit(js/mode-kit.js,
      构造期即用——加载序在本文件之前) · add/take/count/remove(js/inventory-core.js)
-     · fuelUnits/FUEL/smeltOf(js/craft-core.js) · advSmeltStep/advFurnaceRefund/
-     ADV_SMELT_T(js/adventure-core.js 纯函数, 探险的炉与体验馆的炉是
-     同一缝上的两个 adapter — 不造第二份烧炼实现)
+     · fuelUnits/FUEL/smeltOf/smeltStep/furnaceRefund/SMELT_T(js/craft-core.js
+     纯函数, 探险的炉与体验馆的炉是同一缝上的两个 adapter — 不造第二份烧炼实现)
    可测性: THREE/DOM 全经 mode-kit 惰性路径, 假 doc 可注入; 行为由
      test/furnace-kit.test.js 契约测试守门(只测接口外显行为, 纯函数
-     单测在 adventure-core.test 不重测)
+     单测在 craft-core.test 不重测)
    ============================================================ */
 
-/* 炉态 → 面板槽形状: 核心炉态(adventure-core)产物字段是 out, 面板 setSlots
-   读 output(mode-kit 契约) — 喂显前桥接一个字段名, 其余槽位同形直传 */
+/* 炉态 → 面板槽形状: 核心炉态(craft-core smeltStep 的状态形状)产物字段是
+   out, 面板 setSlots 读 output(mode-kit 契约) — 喂显前桥接一个字段名,
+   其余槽位同形直传 */
 function furnaceSlots(f) {
   return f ? {input: f.input, fuel: f.fuel, output: f.out} :
     {input: null, fuel: null, output: null};
@@ -97,7 +98,7 @@ function mkFurnaceStation(opts) {
     顺带同步三槽签名(手动放料/取回即时喂显后, tick 不再重复喂同一内容) */
     const f = at ? furnaces.get(at) : null;
     panel.setSlots(furnaceSlots(f));
-    panel.setProgress((f ? f.prog : 0) / ADV_SMELT_T);
+    panel.setProgress((f ? f.prog : 0) / SMELT_T);
     panel.setFuel(furnaceFuelR(f));
     sig = slotSig(f);
   }
@@ -217,7 +218,7 @@ function mkFurnaceStation(opts) {
   function drop(posKey) {
     const f = furnaces.get(posKey);
     if (!f) return;
-    const left = advFurnaceRefund(invOf(), f);
+    const left = furnaceRefund(invOf(), f);
     if (left.length && o.onRefundLeft) o.onRefundLeft(posKey, left);
     furnaces.delete(posKey);
     if (at === posKey && open) closePanel();
@@ -230,14 +231,14 @@ function mkFurnaceStation(opts) {
   function tick(dt) {
     for (const [k, f] of furnaces) {
       const hadOut = f.out ? f.out.n : 0;
-      const n = advSmeltStep(f, dt);
+      const n = smeltStep(f, dt);
       furnaces.set(k, n);
       const made = (n.out ? n.out.n : 0) - hadOut;
       if (made > 0 && o.onMade) o.onMade(k, n, made);
     }
     if (!open) return;
     const f = at ? furnaces.get(at) : null;
-    panel.setProgress((f ? f.prog : 0) / ADV_SMELT_T);
+    panel.setProgress((f ? f.prog : 0) / SMELT_T);
     panel.setFuel(furnaceFuelR(f)); /* 余量条与进度条同拍(热值逐帧衰减, 逐帧喂) */
     const s = slotSig(f);
     if (s !== sig) {
@@ -249,7 +250,7 @@ function mkFurnaceStation(opts) {
   /* 退出收场(体验馆口径): 逐炉三笔尽力入包, 满包余量静默丢弃(不走 onRefundLeft
      ——掉落物会在世界清场同拍蒸发, 白造必蒸发的实体); 炉态清空 */
   function refundAll() {
-    for (const f of furnaces.values()) advFurnaceRefund(invOf(), f);
+    for (const f of furnaces.values()) furnaceRefund(invOf(), f);
     furnaces.clear();
   }
   function reset() {/* 重进场复位: 炉态清空 + 解绑 + 签名复位(存档重灌归消费方) */

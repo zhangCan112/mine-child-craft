@@ -8,7 +8,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const ModeKit = require('../js/mode-kit.js');
-const {mkMode, mkHotbar, mkCraftPanel, mkFurnacePanel, sortInv, confirmBtn, spawn} = ModeKit;
+const {mkMode, mkHotbar, mkCraftPanel, mkFurnacePanel, mkChestPanel, sortInv, confirmBtn, spawn} = ModeKit;
 
 function fakeEl() {
   const el = {
@@ -199,19 +199,24 @@ test('item 槽: refresh 重读数量(>1 才显)与耐久条宽/档位, 归零 em
 /* ============ T10 sortInv: 一键整理(同项合并·首现序) ============ */
 
 test('sortInv: 主格内同项合并·首现序稳定·工具耐久保留·快捷栏不动', () => {
+  const realStackMax = globalThis.stackMax;
   globalThis.stackMax = (id) => ({planks: 64, cobble: 64, pick_wood: 1}[id] || 0);
-  const inv = {slots: [
-    ...Array(8).fill(null),
-    {id: 'cobble', n: 5}, // 槽 8(快捷栏尾) — 快捷栏不参与整理
-    {id: 'planks', n: 30}, {id: 'planks', n: 30}, // 槽 9/10 跨槽同项
-    {id: 'pick_wood', n: 1, dur: 77}, // 槽 11 工具带耐久
-    ...Array(15).fill(null),
-  ]};
-  sortInv(inv);
-  assert.deepStrictEqual(inv.slots[8], {id: 'cobble', n: 5}); // 快捷栏原位不动
-  assert.deepStrictEqual(inv.slots[9], {id: 'planks', n: 60}); // 主格首格合并一整堆
-  assert.deepStrictEqual(inv.slots[10], {id: 'pick_wood', n: 1, dur: 77}); // 耐久随堆保留
-  assert.strictEqual(inv.slots.filter((x) => x).length, 3); // 主格空槽压到尾部
+  try {
+    const inv = {slots: [
+      ...Array(8).fill(null),
+      {id: 'cobble', n: 5}, // 槽 8(快捷栏尾) — 快捷栏不参与整理
+      {id: 'planks', n: 30}, {id: 'planks', n: 30}, // 槽 9/10 跨槽同项
+      {id: 'pick_wood', n: 1, dur: 77}, // 槽 11 工具带耐久
+      ...Array(15).fill(null),
+    ]};
+    sortInv(inv);
+    assert.deepStrictEqual(inv.slots[8], {id: 'cobble', n: 5}); // 快捷栏原位不动
+    assert.deepStrictEqual(inv.slots[9], {id: 'planks', n: 60}); // 主格首格合并一整堆
+    assert.deepStrictEqual(inv.slots[10], {id: 'pick_wood', n: 1, dur: 77}); // 耐久随堆保留
+    assert.strictEqual(inv.slots.filter((x) => x).length, 3); // 主格空槽压到尾部
+  } finally {
+    globalThis.stackMax = realStackMax; /* 还真件: 桩不外溢(摆放台上限用例走真 stackMax) */
+  }
 });
 
 /* ============ T10 mkCraftPanel: 挂载/网格 ============ */
@@ -476,10 +481,16 @@ test('craft 面板: 摆放格→背包格整摞退回(真 add 收包); 格→格
   collect(panel.root, 'mkp-cell')[5].onclick(); // 点背包格 → 整摞退回
   assert.deepStrictEqual({...inv.slots[0]}, {id: 'planks', n: 12}, 'add 收包落首个空位(快捷栏槽 0)');
   assert.strictEqual(collect(panel.root, 'mkp-cell')[27].innerHTML, '', '格 0 已腾空');
-  // 格→格并堆: 再入两格后互搬
+  // 同种并堆: 先入一摞, 再从背包入第二摞(堆叠上限经 stackMax(items-core), 12+12=24)
+  inv.slots[9] = {id: 'planks', n: 12}; /* 模式层等价直改回填 */
   collect(panel.root, 'mkp-cell')[0].onclick(); // 槽 9 起手
-  collect(panel.root, 'mkp-cell')[27].onclick(); // 入格 0(12)
-  collect(panel.root, 'mkp-cell')[0].onclick(); // 槽 9 起手(此时槽 9 已空 → 无效)
+  collect(panel.root, 'mkp-cell')[27].onclick(); // 入格 0(12 件)
+  inv.slots[10] = {id: 'planks', n: 12};
+  collect(panel.root, 'mkp-cell')[1].onclick(); // 槽 10 起手
+  collect(panel.root, 'mkp-cell')[27].onclick(); // 再入格 0 → 并堆
+  assert.ok(collect(panel.root, 'mkp-cell')[27].innerHTML.includes('24'),
+      '同种并堆到 24(入格容量走 stackMax, 64 魔数已清零)');
+  assert.strictEqual(panel.cellAt(9), null, '查询面 cellAt: 槽 9 已整摞入格');
   panel.remove();
 });
 
@@ -775,6 +786,129 @@ test('furnace 面板: 放料后背包格跟随重画 — onPut/onAutoFill 动包
   cells = collect(panel.root, 'mkp-cell');
   assert.ok(!String(cells[3].innerHTML).includes('cnt'), '自动放料后背包格重画(铁矿格随扣包清空)');
   panel.remove();
+});
+
+/* ============ 面板族底座(mkPanelShell, 评审候选 2): 公共骨架契约 ============ */
+
+/* 带事件记录的 doc: 捕获底座挂的 keydown 监听(fakeDoc 无 addEventListener,
+   Esc 用例在此手动派发) */
+function mkDocEv() {
+  const downs = [];
+  const doc = {createElement: () => fakeEl(), body: fakeEl(),
+    addEventListener(type, fn) {
+      /* 同真 DOM 口径: 同回调重复注册去重(面板幂等 show 依赖此语义) */
+      if (type === 'keydown' && !downs.includes(fn)) downs.push(fn);
+    },
+    removeEventListener(type, fn) {
+      const i = downs.indexOf(fn);
+      if (i >= 0) downs.splice(i, 1);
+    }};
+  doc.esc = ()=>downs.forEach((fn)=>fn({code: 'Escape', preventDefault() {}}));
+  doc.keydownCount = ()=>downs.length;
+  return doc;
+}
+
+/* 三面板同形的生命周期契约(收编前各面板誊写一遍, 收敛为一组断言跑三家):
+   挂卸幂等 · Esc 监听随开合挂摘 · 重开复明 · refresh 不碰开合态 */
+function panelLifecycle(name, make) {
+  test(`面板生命周期契约(${name}): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态`, () => {
+    const doc = mkDocEv();
+    let closed = 0;
+    const p = make(doc, ()=>closed++);
+    p.show();
+    p.show(); // 再挂 → 不重复
+    assert.strictEqual(doc.body.children.length, 1, '挂载幂等');
+    assert.strictEqual(p.root.style.display, 'flex', 'show 复明');
+    assert.strictEqual(doc.keydownCount(), 1, 'Esc 监听恰一条');
+    p.hide();
+    assert.strictEqual(p.root.style.display, 'none', 'hide 收起');
+    assert.strictEqual(doc.keydownCount(), 0, 'hide 摘 Esc 监听');
+    p.refresh(); /* refresh 语义统一: 重画内容, 不改变开合状态 */
+    assert.strictEqual(p.root.style.display, 'none', '关着时 refresh 不弹面板');
+    p.show(); /* hide 后重开复明 */
+    assert.strictEqual(p.root.style.display, 'flex', '重开复明');
+    doc.esc(); /* Esc → close: 隐藏 + onClose 恰一次 */
+    assert.strictEqual(p.root.style.display, 'none', 'Esc 关面板');
+    assert.strictEqual(closed, 1, 'onClose 恰一次');
+    p.remove();
+    p.remove(); // 再卸 → 幂等
+    assert.strictEqual(doc.body.children.length, 0, '卸载幂等');
+    assert.strictEqual(doc.keydownCount(), 0, '卸载摘 Esc 监听');
+  });
+}
+panelLifecycle('craft', (doc, onClose)=> mkCraftPanel({doc,
+  inv: {slots: new Array(27).fill(null)}, recipes: [R_PLANKS], onCraft() {}, onClose}));
+panelLifecycle('furnace', (doc, onClose)=> mkFurnacePanel({doc,
+  inv: {slots: new Array(27).fill(null)}, onAutoFill() {}, onClose}));
+panelLifecycle('chest', (doc, onClose)=> mkChestPanel({doc,
+  inv: {slots: new Array(27).fill(null)},
+  chest: () => ({size: 9, slots: new Array(9).fill(null)}),
+  next: () => null, have: () => 0, onPut() {}, onTake() {}, onExpand() {}, onClose}));
+
+/* ============ mkChestPanel 契约(引导链 v2, 收编前零测试) ============ */
+
+test('chest 面板: 箱格点击报 onTake(箱槽号)/背包格点击报 onPut(背包槽号)意图, 面板不动数据', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'planks', n: 12}, ...Array(17).fill(null)]};
+  const chest = {size: 9, slots: [{id: 'log', n: 3}, ...Array(8).fill(null)]};
+  const puts = []; const takes = [];
+  const p = mkChestPanel({doc, inv, chest: ()=>chest, next: ()=>null, have: ()=>0,
+    onPut: (i)=>puts.push(i), onTake: (i)=>takes.push(i), onExpand() {}, onClose() {}});
+  p.show();
+  p.refresh(); /* 消费方口径: adventure.js 开面板后自调 refresh(show 不重画内容) */
+  const cells = collect(p.root, 'mkp-cell');
+  assert.strictEqual(cells.length, 9 + 27, '箱格 9 + 背包 27(18 主格+9 快捷镜像)');
+  cells[0].onclick(); /* 箱格 0(log) */
+  cells[9].onclick(); /* 背包主格首格 = 槽 9 */
+  cells[27].onclick(); /* 快捷镜像首格 = 槽 0(空格点击也报意图, 路由归模式层) */
+  assert.deepStrictEqual(takes, [0], '箱格点击报 onTake(箱槽号)意图');
+  assert.deepStrictEqual(puts, [9, 0], '背包格点击报 onPut(背包槽号)意图');
+  assert.deepStrictEqual(chest.slots[0], {id: 'log', n: 3}, '面板不动箱(政策归模式层)');
+  assert.deepStrictEqual(p.cellAt(9), {id: 'planks', n: 12}, '查询面 cellAt: 槽 9 内容');
+  assert.strictEqual(p.cellAt(0), null, '查询面 cellAt: 空槽 null');
+  p.remove();
+});
+
+test('chest 面板: 扩容行 — 材料账单 chip have/need + 缺料 lack + 扩容钮报 onExpand; 顶格档隐藏', () => {
+  const doc = mkDoc();
+  const inv = {slots: new Array(27).fill(null)};
+  let nx = {size: 18, cost: {cobble: 8}};
+  let expanded = 0;
+  const p = mkChestPanel({doc, inv,
+    chest: ()=>({size: 9, slots: new Array(9).fill(null)}),
+    next: ()=>nx, have: (id)=> (id === 'cobble' ? 3 : 0),
+    onPut() {}, onTake() {}, onExpand: ()=>expanded++, onClose() {}});
+  p.show(); p.refresh();
+  /* chip 的 mkp-chip 类名在 innerHTML 字符串里(fakeEl 不解析), 经扩容行
+     子元素断言: children[0]=账单 chip, [1]=扩容钮 */
+  const row = collect(p.root, 'mkp-chestrow')[0];
+  assert.strictEqual(row.children.length, 2, '一档: 账单 chip + 扩容钮');
+  const chipHtml = String(row.children[0].innerHTML);
+  assert.ok(chipHtml.includes('3/8'), '账单恒显 have/need');
+  assert.ok(chipHtml.includes('mkp-chip lack'), '缺料 lack 灰显');
+  row.children[1].onclick();
+  assert.strictEqual(expanded, 1, '扩容钮报 onExpand 意图(扣料归模式层)');
+  nx = null; /* 顶格档: next()=null */
+  p.refresh();
+  assert.strictEqual(collect(p.root, 'mkp-chestrow')[0].children.length, 0, '顶格后扩容行清空');
+  p.remove();
+});
+
+test('chest 面板: 存取意图后面板重读现状 — onPut 动包后背包格跟随重画', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'log', n: 3}, ...Array(17).fill(null)]};
+  const p = mkChestPanel({doc, inv,
+    chest: ()=>({size: 9, slots: new Array(9).fill(null)}), next: ()=>null, have: ()=>0,
+    onPut: (i)=> {
+      inv.slots[i] = null; /* 模式层桩: 存入即扣槽 */
+    }, onTake() {}, onExpand() {}, onClose() {}});
+  p.show(); p.refresh();
+  let cells = collect(p.root, 'mkp-cell');
+  assert.ok(String(cells[9].innerHTML).includes('🥓'), '槽 9 原木(emoji 图标桩)');
+  cells[9].onclick(); /* 存入 → 模式层清槽 → 面板重画 */
+  cells = collect(p.root, 'mkp-cell');
+  assert.strictEqual(String(cells[9].innerHTML), '', '背包格跟随重画(格已空)');
+  p.remove();
 });
 
 /* ============ mkMode 默认行为 ============ */
