@@ -1235,6 +1235,56 @@ body.dev-on .mode-card.dev {
   filter: grayscale(0.55); /* 缺什么灰什么(D8) */
 }
 
+/* ---------- 合成两步制(2026-10-26 防误合): 点卡选中 → 底部「合成」钮确认 ---------- */
+.mkp-card.sel {
+  border-color: #ffd54a; /* 选中金框(与物品提示气泡的名字同色系) */
+  box-shadow: 0 0 10px rgb(255 213 74 / 55%);
+}
+
+.mkp-craftbar {
+  position: sticky; /* 吸底: 配方列表再长, 合成钮始终可见 */
+  bottom: 0;
+  display: flex;
+  justify-content: center;
+  padding: 10px 0 2px;
+  background: rgb(20 26 34 / 95%); /* 与 .mkp-box 同底色: 滚动时盖住下方卡片 */
+}
+
+.mkp-go {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-width: 240px;
+  padding: 10px 26px;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  color: #fff;
+  cursor: pointer;
+  background: rgb(46 125 50 / 85%);
+  border: 3px solid rgb(255 255 255 / 40%);
+  border-radius: 10px;
+}
+
+.mkp-go.off {
+  font-weight: 400;
+  color: rgb(255 255 255 / 55%);
+  background: rgb(0 0 0 / 32%);
+}
+
+.mkp-go:active {
+  background: rgb(124 252 0 / 35%);
+  transform: translateY(1px); /* MC 按钮四态口径: 按下整钮下沉 1px */
+}
+
+.mkp-go .mini {
+  width: 24px;
+  height: 24px;
+  font-size: 20px;
+  line-height: 1;
+}
+
 .mkp-out {
   display: flex;
   align-items: center;

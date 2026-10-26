@@ -14,7 +14,9 @@
      · mkHotbar 第三种槽型 {item:id} — 像素图标(iconOf)+右上数量(>1 才显)
        +底部耐久条(dur 访问器返 0..1 比, 模式层算 dur/toolOf(id).dur)
      · mkCraftPanel — 背包网格+配方书卡片+分类页签+任务卡占位容器;
-       亮灰由 canCraft 驱动, 单击合成(onCraft)/长按 0.4s 连做 0.3s 一发;
+       亮灰由 canCraft 驱动; 合成两步制(2026-10-26 防误合): 点卡=选中
+       (sel 高亮+ItemHint 读产物) → 底部「合成」钮确认才执行(单击一发/
+       长按 0.4s 连做 0.3s 一发, 按压状态机在合成钮上);
        背包格点选搬运(点非空格起手高亮→点目标格 onMove, 无拖拽)
      · mkFurnacePanel — 三槽+进度条+燃料余量条的显示面板(F2: setFuel 喂
        r=heat/fuelUnits, r≤0 熄灭灰显),「自动放入」只算
@@ -275,6 +277,8 @@ const KIT_TABS = [
    判定(缺省恒 true) · allow(放开默认过滤的配方 id 数组) · onCraft(out)/onSort ·
    onMove(from,to)(背包格点选搬运: 点非空格起手高亮, 再点目标格搬过去,
    政策与存档在模式层; 大宝箱点选搬运同口径, 拍板② 无拖拽)
+   合成两步制(2026-10-26 用户拍板防误合): 点配方卡=选中(sel 高亮+ItemHint
+   读产物) → 底部「合成」钮确认才执行; 钮单击一发/长按 0.4s 连做 0.3s 一发
    挂载幂等: 同一遮罩节点反复 show 只挂一次, remove 可重复调 */
 function mkCraftPanel(opts) {
   const o = opts || {};
@@ -282,6 +286,7 @@ function mkCraftPanel(opts) {
   const inv = o.inv;
   const station = o.station || (() => true); // 站点规则归模式层(T13 传 Mobs.near 判定)
   let pickIdx = -1; // 点选搬运的起手槽号(-1 无起手); 整理/关面板即收手
+  let selRecipe = null; // 选中配方(两步制确认步): 点卡选中(sel 高亮), 点「合成」钮才执行
   const root = doc.createElement('div');
   root.className = 'mkp-mask';
   const box = doc.createElement('div');
@@ -432,7 +437,8 @@ function mkCraftPanel(opts) {
       else if (m.id != null) lackHave[m.id] = m.have;
       else if (m.any) m.any.forEach((c) => lackAny.add(c));
     }
-    d.className = 'mkp-card' + (check.ok ? '' : ' dim');
+    d.className = 'mkp-card' + (check.ok ? '' : ' dim') +
+        (selRecipe && selRecipe.id === r.id ? ' sel' : '');
     let chips = '';
     for (const [key, val] of Object.entries(r.cost)) {
       const e = costEntry(key, val); // 候选数组+数量(inventory-core 统一形状)
@@ -448,7 +454,7 @@ function mkCraftPanel(opts) {
       '<div class="mkp-out">' + iconHtml(r.out.item, 'big') +
       (r.out.n > 1 ? '<b class="mkp-n">×' + r.out.n + '</b>' : '') + '</div>' +
       '<div class="mkp-chips">' + chips + '</div>';
-    wireCard(d, r); // 单击合成 / 长按连做
+    d.onclick = ()=>selectRecipe(r); /* 点卡=选中(两步制确认步), 不直接合成 */
     return d;
   }
 
@@ -461,52 +467,87 @@ function mkCraftPanel(opts) {
     refresh(); // 数量/灰显实时重读
     return true;
   }
-  /* —— 灰卡点击(缺料/站点未解锁, 合成未执行): 读产物提示 + 尾句 ——
-      亮卡不抢话(合成成功自有模式层表扬 TTS「X做好啦」), 静默无反馈
-      对孩子是谜题, 这是纯增益通道(docs/item-hint-design.md §3.5) —— */
+  /* —— 灰配方按「合成」未执行(缺料/站点未解锁): 读产物提示 + 尾句 ——
+      亮选不抢话(合成成功自有模式层表扬 TTS「X做好啦」), 静默无反馈
+      对孩子是谜题, 这是纯增益通道(docs/item-hint-design.md §3.5);
+      选中灰卡时 selectRecipe 已读同一句, 这里是按钮确认失败的第二通道 —— */
   function dimCardHint(r) {
     const h = kitHintItem(r.out.item);
     if (h) kitHint({name: h.name, desc: h.desc, tts: h.tts + '，现在还做不了哦'}, o.doc);
   }
-  /* —— 按压状态机(D8): 长按 0.4s 进入连做(立即一发+0.3s/发), 松开/离开/
-     材料尽停; 面板同时至多一个活动按压(新按压让位, 多指互斥) —— */
+  /* —— 两步制确认步: 点卡=选中(sel 高亮 + ItemHint 读产物; 灰卡加
+      「现在还做不了哦」尾句), 不直接合成 —— */
+  function selectRecipe(r) {
+    selRecipe = r;
+    refresh(); /* 重画卡片 sel 高亮 + 合成钮随动 */
+    const h = kitHintItem(r.out.item);
+    if (h) {
+      const dim = !canCraft(inv, r, station()).ok;
+      kitHint({name: h.name, desc: h.desc, tts: h.tts + (dim ? '，现在还做不了哦' : '')}, o.doc);
+    }
+  }
+
+  /* —— 底部合成钮: 未选中=引导文案灰显; 选中=产物图标+名字(灰选灰显,
+      仍可点 — 按下走 dimCardHint 反馈, 不静默) —— */
+  const bar = doc.createElement('div');
+  bar.className = 'mkp-craftbar';
+  const goBtn = doc.createElement('button');
+  goBtn.className = 'mkp-go off';
+  bar.appendChild(goBtn);
+  main.appendChild(bar); /* 构造期执行, DOM 序在 cards 之后 */
+  function paintGo() {
+    const r = selRecipe;
+    if (!r) {
+      goBtn.className = 'mkp-go off';
+      goBtn.innerHTML = '先点一个要做的';
+      return;
+    }
+    const it = ITEMS[r.out.item];
+    goBtn.className = 'mkp-go' + (canCraft(inv, r, station()).ok ? '' : ' off');
+    goBtn.innerHTML = iconHtml(r.out.item, 'mini') + ' 合成 ' + ((it && it.name) || r.out.item) +
+        (r.out.n > 1 ? ' ×' + r.out.n : '');
+  }
+
+  /* —— 按压状态机(D8, 随两步制移到合成钮): 长按 0.4s 进入连做(立即一发+
+      0.3s/发), 松开/离开/材料尽停; 未选中按压无效 —— */
   let active = null; // {el, repeating, stop}
   function stopPress() {
     if (active) active.stop();
   }
-  function wireCard(d, r) {
-    d.addEventListener('pointerdown', (ev)=>{
-      ev.preventDefault();
-      stopPress(); // 旧按压让位
-      let holdT = 0; let repT = 0;
-      const stop = ()=>{
-        clearTimeout(holdT); clearInterval(repT);
-        if (active && active.el === d) active = null;
-      };
-      active = {el: d, repeating: false, stop};
-      holdT = setTimeout(()=>{ // 0.4s 判定线
-        if (active && active.el === d) active.repeating = true;
-        if (!craftOnce(r)) {
-          stop(); // 材料尽 → 不进连做
-          dimCardHint(r); // 灰卡长按也提示(与单击同口径)
-          return;
-        }
-        repT = setInterval(()=>{ // 0.3s/发, 缺料自动停
-          if (!craftOnce(r)) stop();
-        }, 300);
-      }, 400);
-    });
-    d.addEventListener('pointerup', ()=>{ // 松开: 未进连做→补单击; 连做中→只停
-      const a = active;
-      if (!a || a.el !== d) return;
-      const rep = a.repeating;
-      a.stop();
-      if (!rep && !craftOnce(r)) dimCardHint(r); // 灰卡单击: 提示代替静默
-    });
-    d.addEventListener('pointerleave', ()=>{
-      if (active && active.el === d) active.stop();
-    });
-  }
+  goBtn.addEventListener('pointerdown', (ev)=>{
+    if (!selRecipe) return;
+    ev.preventDefault();
+    stopPress(); // 旧按压让位
+    const r = selRecipe;
+    let holdT = 0; let repT = 0;
+    const stop = ()=>{
+      clearTimeout(holdT); clearInterval(repT);
+      if (active && active.el === goBtn) active = null;
+    };
+    active = {el: goBtn, repeating: false, stop};
+    holdT = setTimeout(()=>{ // 0.4s 判定线
+      if (active && active.el === goBtn) active.repeating = true;
+      if (!craftOnce(r)) {
+        stop(); // 材料尽/灰选 → 不进连做
+        dimCardHint(r);
+        return;
+      }
+      repT = setInterval(()=>{ // 0.3s/发, 缺料自动停
+        if (!craftOnce(r)) stop();
+      }, 300);
+    }, 400);
+  });
+  goBtn.addEventListener('pointerup', ()=>{ // 松开: 未进连做→补单击; 连做中→只停
+    const a = active;
+    if (!a || a.el !== goBtn) return;
+    const rep = a.repeating;
+    const r = selRecipe;
+    a.stop();
+    if (!rep && r && !craftOnce(r)) dimCardHint(r); // 灰选确认: 提示代替静默
+  });
+  goBtn.addEventListener('pointerleave', ()=>{
+    if (active && active.el === goBtn) active.stop();
+  });
 
   /* —— 生命周期: show 幂等挂载, remove 幂等卸载并停连做计时 —— */
   function show() {
@@ -539,6 +580,7 @@ function mkCraftPanel(opts) {
     renderTabs();
     renderGrid();
     renderCards();
+    paintGo(); /* 合成钮随选中态/亮灰实时重读 */
   }
   return {root, questEl: quest, show, hide, close, remove, refresh};
 }

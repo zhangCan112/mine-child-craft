@@ -419,9 +419,9 @@ test('craft 面板: 站点未解锁 → 徽标灰显(missing {station} 形状)',
   }
 });
 
-/* ============ T10 单击合成 ============ */
+/* ============ T10 合成两步制: 点卡选中 → 「合成」钮确认(2026-10-26 防误合) ============ */
 
-test('craft 面板: 单击亮卡 → craft + onCraft({item,n,leftover}) + 刷新; 灰卡不动包', () => {
+test('craft 面板: 点卡=选中不合成; 点「合成」钮 → craft + onCraft({item,n,leftover}); 灰选不动包', () => {
   const doc = mkDoc();
   const inv = {slots: new Array(27).fill(null)};
   const outs = [];
@@ -430,47 +430,53 @@ test('craft 面板: 单击亮卡 → craft + onCraft({item,n,leftover}) + 刷新
     outs.push(out);
   }});
   panel.show();
+  const go = collect(panel.root, 'mkp-go')[0];
+  assert.ok(String(go.innerHTML).includes('先点一个要做的'), '未选中: 合成钮引导文案');
   let card = collect(panel.root, 'mkp-card')[0];
-  card._ev.pointerdown({preventDefault() {}});
-  card._ev.pointerup(); // 短按 = 单击合成
+  card.onclick(); /* 点卡 = 选中(不合成) */
+  assert.strictEqual(craftN, 0, '点卡不合成(确认步)');
+  card = collect(panel.root, 'mkp-card')[0]; /* refresh 已重建卡片, 重新取 */
+  assert.ok(card._cls.has('sel'), '选中高亮(sel)');
+  assert.ok(String(go.innerHTML).includes('木板'), '合成钮显示产物名');
+  go._ev.pointerdown({preventDefault() {}});
+  go._ev.pointerup(); /* 短按确认 → 一发 */
   assert.strictEqual(craftN, 1);
   assert.deepStrictEqual(outs, [{item: 'planks', n: 4, leftover: 0}]);
   craftOk = false; // 转缺料
   panel.refresh();
-  card = collect(panel.root, 'mkp-card')[0];
-  assert.ok(card._cls.has('dim'));
-  card._ev.pointerdown({preventDefault() {}});
-  card._ev.pointerup(); // 灰卡点击 → 不执行
+  assert.ok(collect(panel.root, 'mkp-card')[0]._cls.has('dim'));
+  go._ev.pointerdown({preventDefault() {}});
+  go._ev.pointerup(); /* 灰选确认 → 不执行 */
   assert.strictEqual(craftN, 1);
   assert.strictEqual(outs.length, 1);
   panel.remove();
 });
 
-/* ============ T10 长按连做(0.4s 进入 · 0.3s/发 · 松开/材料尽停) ============ */
+/* ============ T10 合成钮长按连做(0.4s 进入 · 0.3s/发 · 松开/材料尽停) ============ */
 
-test('craft 面板: 短按 0.4s 内松开=单击一发; 长按进入连做 0.3s/发, 松开停', (t) => {
+test('craft 面板: 合成钮短按 0.4s 内松开=一发; 长按进入连做 0.3s/发, 松开停', (t) => {
   t.mock.timers.enable({apis: ['setTimeout', 'setInterval']});
   const doc = mkDoc();
   const inv = {slots: new Array(27).fill(null)};
   craftOk = true; craftN = 0;
   const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {}});
   panel.show();
-  let card = collect(panel.root, 'mkp-card')[0];
-  card._ev.pointerdown({preventDefault() {}});
+  collect(panel.root, 'mkp-card')[0].onclick(); /* 先选中 */
+  const go = collect(panel.root, 'mkp-go')[0]; /* 合成钮不随 refresh 重建 */
+  go._ev.pointerdown({preventDefault() {}});
   t.mock.timers.tick(399); // 不足 0.4s: 不合成
   assert.strictEqual(craftN, 0);
-  card._ev.pointerup(); // 短按松开 → 单击一发
+  go._ev.pointerup(); // 短按松开 → 一发
   assert.strictEqual(craftN, 1);
 
-  card = collect(panel.root, 'mkp-card')[0]; // refresh 已重建卡片, 重新取
-  card._ev.pointerdown({preventDefault() {}});
+  go._ev.pointerdown({preventDefault() {}});
   t.mock.timers.tick(400); // 0.4s → 连做启动: 立即一发
   assert.strictEqual(craftN, 2);
   t.mock.timers.tick(300);
   assert.strictEqual(craftN, 3);
   t.mock.timers.tick(600); // 两发
   assert.strictEqual(craftN, 5);
-  card._ev.pointerup(); // 松开 → 停
+  go._ev.pointerup(); // 松开 → 停
   t.mock.timers.tick(1200);
   assert.strictEqual(craftN, 5);
   panel.remove();
@@ -487,8 +493,9 @@ test('craft 面板: 连做中材料尽 → 自动停', (t) => {
   try {
     panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {}});
     panel.show();
-    const card = collect(panel.root, 'mkp-card')[0];
-    card._ev.pointerdown({preventDefault() {}});
+    collect(panel.root, 'mkp-card')[0].onclick(); /* 先选中 */
+    const go = collect(panel.root, 'mkp-go')[0];
+    go._ev.pointerdown({preventDefault() {}});
     t.mock.timers.tick(400); // 连做启动(第 1 发)
     t.mock.timers.tick(300); // 第 2 发
     assert.strictEqual(craftN, 2);
@@ -496,7 +503,7 @@ test('craft 面板: 连做中材料尽 → 自动停', (t) => {
     assert.strictEqual(craftN, 2);
     t.mock.timers.tick(900); // 不再连发
     assert.strictEqual(craftN, 2);
-    card._ev.pointerup();
+    go._ev.pointerup();
     panel.remove();
   } finally {
     globalThis.canCraft = defaultCanCraft;
@@ -821,7 +828,7 @@ test('物品提示: hotbar 点选 → 气泡显名字+说明; 空槽静默不改
   }
 });
 
-test('物品提示: 背包格点击读被点物品; 灰卡单击 → 不合成且提示代替静默', (t) => {
+test('物品提示: 背包格点击读被点物品; 点选灰卡=选中+读提示不合成', (t) => {
   t.mock.timers.enable({apis: ['setTimeout']});
   const doc = mkDoc();
   const inv = {slots: [...Array(9).fill(null), {id: 'planks', n: 12}, ...Array(17).fill(null)]};
@@ -839,12 +846,18 @@ test('物品提示: 背包格点击读被点物品; 灰卡单击 → 不合成�
     let bubble = collect(doc.body, 'hint-bubble')[0];
     assert.ok(String(bubble.innerHTML).includes('原木锯成的板子'), '背包格点击出提示');
     const card = collect(panel.root, 'mkp-card')[1]; /* 木镐卡(灰) */
-    card._ev.pointerdown({preventDefault() {}});
-    card._ev.pointerup(); /* 灰卡单击: 不执行合成 + 读产物提示 */
-    assert.strictEqual(craftN, 0, '灰卡不动包');
+    card.onclick(); /* 点选灰卡 = 选中(sel 高亮) + 读产物提示, 不合成 */
+    assert.strictEqual(craftN, 0, '灰卡选中不动包');
+    assert.ok(collect(panel.root, 'mkp-card')[1]._cls.has('sel'), '灰卡也可选中(高亮)');
     bubble = collect(doc.body, 'hint-bubble')[0];
-    assert.ok(String(bubble.innerHTML).includes('木镐'), '灰卡点击读产物提示(名字)');
-    assert.ok(String(bubble.innerHTML).includes('能挖石头的木头镐'), '灰卡点击读产物提示(说明)');
+    assert.ok(String(bubble.innerHTML).includes('木镐'), '选中灰卡读产物提示(名字)');
+    assert.ok(String(bubble.innerHTML).includes('能挖石头的木头镐'), '选中灰卡读产物提示(说明)');
+    const go = collect(panel.root, 'mkp-go')[0];
+    go._ev.pointerdown({preventDefault() {}});
+    go._ev.pointerup(); /* 灰选按「合成」: 不执行, 提示代替静默 */
+    assert.strictEqual(craftN, 0, '灰选确认不动包');
+    bubble = collect(doc.body, 'hint-bubble')[0];
+    assert.ok(String(bubble.innerHTML).includes('木镐'), '灰选确认再读一次提示');
     panel.remove();
   } finally {
     globalThis.hintForItem = () => null;
