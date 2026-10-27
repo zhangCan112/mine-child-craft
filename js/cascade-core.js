@@ -4,7 +4,9 @@
    ------------------------------------------------------------
    编辑后世界自洽的级联结算(docs/block-lifecycle-design.md): 破坏一个
    方块后, 依身份旗标连锁结算失撑方块——
-   · thin 脱落  依附块随底座脱落(火把/树苗/草丛/麦, 柱状链式上行)
+   · thin 脱落  依附块随底座脱落(火把/树苗/草丛/麦, 柱状链式上行);
+                 wall 旗标薄块(墙火把)额外认四水平实心邻为支承——底座或
+                 任一贴墙在即活, 全无则落
    · fell 接地  结构组件失去接地 → 整组件倒(接地判定而非位置启发式:
                 砍树底=整树倒/砍中段=树桩连带整树倒(P15)/双柱桥断一
                 柱仍立/挖脚=结构倒)
@@ -33,6 +35,7 @@
    ============================================================ */
 const CascadeCore = (() => {
   const NEIGH6 = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
+  const NEIGH_HOR = [[1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]]; /* 四水平邻(墙火把依附查) */
 
   /* 身份旗标 → 判定函数(config BLOCKS 派生, 装配一次; 调用期热路径只查闭包)。
      isSupport: 非空气且 solid(旗标缺省=实心)——thin 族/水面 solid:false 不承重,
@@ -41,12 +44,25 @@ const CascadeCore = (() => {
     return {
       isFell: (id) => !!(BLOCKS[id] && BLOCKS[id].fell),
       isThin: (id) => !!(BLOCKS[id] && BLOCKS[id].thin != null),
+      isWall: (id) => !!(BLOCKS[id] && BLOCKS[id].wall),
       isFall: (id) => !!(BLOCKS[id] && BLOCKS[id].fall),
       isSupport: (id) => !!(BLOCKS[id] && BLOCKS[id].solid !== false),
       needOf: (id) => (BLOCKS[id] && BLOCKS[id].need) || null,
       needRules: Object.keys(BLOCKS).filter((bid) => BLOCKS[bid] && BLOCKS[bid].need)
           .map((bid) => Object.assign({block: +bid}, BLOCKS[bid].need)),
     };
+  }
+
+  /* thin 依附块当前是否仍有支承: 底座实心必活; wall 旗标(墙火把)四水平
+     实心邻也算支承(MC 墙火把同款)。取向不存档——级联与渲染(mesh-core
+     pushCross lean)都从邻块现况按同一判据派生, 水平查序固定保证确定性 */
+  function thinSupported(read, x, y, z, id, policy) {
+    if (policy.isSupport(read(x, y - 1, z))) return true; /* 底座(界外=0 天然非支承) */
+    if (!policy.isWall(id)) return false;
+    for (const d of NEIGH_HOR) {
+      if (policy.isSupport(read(x + d[0], y, z + d[2]))) return true;
+    }
+    return false;
   }
 
   /* 依赖某方块的全部 need 规则里的最大距离(决定重查盒半径; 0=无规则) */
@@ -158,7 +174,11 @@ const CascadeCore = (() => {
         const c = queue.shift();
         const up = read(c.x, c.y + 1, c.z);
         if (up !== 0 && policy.isThin(up)) {
-          take(c.x, c.y + 1, c.z); /* ① 依附块随底座脱落(链式上行由队列完成) */
+          /* ① 依附块失撑脱落(链式上行由队列完成); wall 旗标(墙火把)按
+             新口径全查——底座没了但贴墙还在则活(地面火把挖底座转依) */
+          if (!thinSupported(read, c.x, c.y + 1, c.z, up, policy)) {
+            take(c.x, c.y + 1, c.z);
+          }
         } else if (up !== 0 && policy.isFell(up)) {
           /* ② 六邻里的结构组件逐一重查(删格只可能影响贴着它的组件)。
              同组件占多个邻里位 → 本格去重; 组件仍接地则不动 */
@@ -175,6 +195,17 @@ const CascadeCore = (() => {
         } else if (up !== 0 && policy.isFall(up)) {
           /* ④ 重力段整体下沉(移动语义); 段顶空位入队 → 连锁①②④ */
           settleFallRun(read, write, take, enqueue, c.x, c.y + 1, c.z, policy, removed);
+        }
+        /* ①b 贴墙依附(wall 旗标, 墙火把): 被移除格可能正是旁列火把的支承墙
+           ——四水平邻的 wall 薄块重查支承, 底座与四墙全无才落(确定性: 定序
+           遍历即脱落记账序)。非 wall 薄块(草丛/麦/床)不进此路径, 维持底座
+           单查口径 */
+        for (const d of NEIGH_HOR) {
+          const sid = read(c.x + d[0], c.y, c.z + d[2]);
+          if (sid !== 0 && policy.isThin(sid) && policy.isWall(sid) &&
+              !thinSupported(read, c.x + d[0], c.y, c.z + d[2], sid, policy)) {
+            take(c.x + d[0], c.y, c.z + d[2]);
+          }
         }
         /* ⑤ 树桩连带(P15): 被移除的是 fell 且正下方仍是同柱 fell(残余树桩) →
            下方连续段整段移除——砍任何一节=整树倒(P1 口径), 树桩不再撑起残余
@@ -236,8 +267,8 @@ const CascadeCore = (() => {
      · need 违例(叶 4 格内无原木) → 直接移除(依赖早已不在, 破坏触发面无机会)
      · fell 违例(组件无接地) → 整组件移除(成员入队后规则③照常重查伴生块
        ——邻树互保的叶按 P4 口径存活)
-     · fall/thin 违例(脚下非支撑) → 以脚下合成空格入队, 交规则④/①按既有
-       语义下沉/脱落(砸碎沿途 thin/穿水等连锁照常)
+     · fall/thin 违例(脚下非支撑; wall 薄块按全支撑口径) → 以脚下合成空格
+       入队, 交规则④/①按既有语义下沉/脱落(砸碎沿途 thin/穿水等连锁照常)
      不动点迭代: 一轮治愈可能揭出新违例(如沙沉后骑沙结构失撑——多由队列
      链当场结算, 扫描仅兜底斜邻等漏网), 扫到无违例止。终止性: 每轮净移除
      或净下移至少一格(take 减块数, settle 降重心不增块), 总量有界; 干净
@@ -250,12 +281,14 @@ const CascadeCore = (() => {
        免 needOf/isSupport 等函数调用; id 域=Uint8Array 0..255 */
     const needRule = [];
     const thinId = [];
+    const wallId = [];
     const fallId = [];
     const fellId = [];
     const supportId = [];
     for (let id = 0; id < 256; id++) {
       needRule[id] = policy.needOf(id);
       thinId[id] = policy.isThin(id);
+      wallId[id] = policy.isWall(id);
       fallId[id] = policy.isFall(id);
       fellId[id] = policy.isFell(id);
       supportId[id] = policy.isSupport(id);
@@ -274,10 +307,17 @@ const CascadeCore = (() => {
             const id = read(x, y, z);
             if (id !== 0) {
               if (needRule[id] && !hasDepWithin(read, x, y, z, needRule[id])) needSeeds.push([x, y, z]);
-              if (y > 0 && (below === 0 || !supportId[below])) {
-                if (thinId[id]) thinSeeds.push([x, y - 1, z]);
-                if (fallId[id]) fallSeeds.push([x, y - 1, z]);
+              const bottomGone = y > 0 && (below === 0 || !supportId[below]);
+              if (thinId[id]) {
+                /* wall 旗标(墙火把): 底座或任一水平实心邻在即活——若只认底座,
+                   贴墙火把会被误判悬空且种子空转(规则①全查留块, 下轮再扫同
+                   一种子)不动点永不收敛; 其余 thin 维持底座单查(below 直复用,
+                   零额外读) */
+                if (wallId[id] ? !thinSupported(read, x, y, z, id, policy) : bottomGone) {
+                  thinSeeds.push([x, y - 1, z]);
+                }
               }
+              if (fallId[id] && bottomGone) fallSeeds.push([x, y - 1, z]);
               if (fellId[id] && !fellSeen.has(x + ',' + y + ',' + z)) {
                 const comp = fellComponent(read, x, y, z, policy, fellSeen);
                 if (!compGrounded(read, comp, policy)) {

@@ -4,7 +4,7 @@
    守门线(docs/showroom-design.md §8, 只测编排不重测纯函数——合法性/结构/
    级联/掉落/蓄力步进纯函数各有 -core 单测):
    ① 单格放置: 落点在场+扣件+journal 序(含 fall 移动两格)+放置钩+观感;
-   ② thin 规则(火把): 侧面拒/顶面收——规则在 advPlaceCheck, 这里验 kit 走通;
+   ② thin 规则(火把): 侧面收(墙火把)/顶面收/叠放拒——规则在 advPlaceCheck, 这里验 kit 走通;
    ③ 门: 结构放置两格+开关成对换 id+门口站人拒关+门配对破坏(挖一半整扇回收
      +掉 1 扇经 cascade.drop);
    ④ 传送门: 结构长出(门面在场)+mesh touch/flush 收口+扣件;
@@ -128,17 +128,21 @@ test('place-kit: 单格放置 — 落点在场+扣件+journal 序(含放置与 f
   assert.ok(says.some((m) => String(m).includes('放下')), '放置话术');
 });
 
-test('place-kit: thin 规则(火把) — 侧面拒/顶面收(规则在纯函数, kit 走通不扣错件)', () => {
+test('place-kit: thin 规则(火把贴墙) — 侧面收(墙火把)/顶面收/叠放拒(规则在纯函数, kit 走通不扣错件)', () => {
   reset();
   sel = slotOf('torch');
   const side = {x: 10, y: 13, z: 20, nx: 1, ny: 0, nz: 0}; /* 木板块侧面 */
-  assert.strictEqual(ed.tryPlace(side), false, '侧面放火把拒');
-  assert.strictEqual(api.count(inv, 'torch'), 5, '拒绝不扣件');
-  assert.ok(says.some((m) => String(m).includes('放不了')), '给指路话术');
+  assert.strictEqual(ed.tryPlace(side), true, '侧面放火把收(墙火把, wall 旗标)');
+  assert.strictEqual(api.getBlock(11, 13, 20), api.B_TORCH, '火把贴在侧面');
+  assert.strictEqual(api.count(inv, 'torch'), 4, '扣 1 支');
   const top = {x: 10, y: 13, z: 20, nx: 0, ny: 1, nz: 0}; /* 木板块顶面 */
   assert.strictEqual(ed.tryPlace(top), true, '顶面放火把收');
   assert.strictEqual(api.getBlock(10, 14, 20), api.B_TORCH, '火把在顶');
-  assert.strictEqual(api.count(inv, 'torch'), 4, '扣 1 支');
+  assert.strictEqual(api.count(inv, 'torch'), 3, '再扣 1 支');
+  const dup = {x: 10, y: 13, z: 20, nx: 1, ny: 0, nz: 0}; /* 侧面格已有火把 */
+  assert.strictEqual(ed.tryPlace(dup), false, '落点非空气拒(叠放)');
+  assert.strictEqual(api.count(inv, 'torch'), 3, '拒绝不扣件');
+  assert.ok(says.some((m) => String(m).includes('放不了')), '给指路话术');
 });
 
 /* ============ ② 门: 放置/开关/配对破坏 ============ */

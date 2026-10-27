@@ -970,7 +970,8 @@ function advMineStep(m, key, bt, dt) {
 /* 放置合法性(纯函数): hit 为准星命中 {x,y,z,nx,ny,nz}, blockId 为物品的
    block 字段, lookId 为命中格方块 id, targetId 为落点格现有方块 id。
    规则(D4): 落点必须空气 · thin 块(火把/树苗)只放实心面顶(点击面法线
-   朝上, 支承块 solid) · 树苗支承限草地/泥土(D7)。返回 {ok,x,y,z} 或
+   朝上, 支承块 solid) · wall 旗标薄块(火把)额外认实心侧面(墙火把, 支承
+   口径同顶面) · 树苗支承限草地/泥土(D7)。返回 {ok,x,y,z} 或
    {ok:false}(不可放置的旗标语义: 草丛/麦等薄块自身 solid:false, 天然
    当不了支承; 草丛/麦物品不存在 block 字段, 进不了本函数)。 */
 function advPlaceCheck(hit, blockId, lookId, targetId) {
@@ -980,10 +981,15 @@ function advPlaceCheck(hit, blockId, lookId, targetId) {
   const x = hit.x + hit.nx;
   const y = hit.y + hit.ny;
   const z = hit.z + hit.nz;
-  if (def.thin != null) {/* 薄块贴地口径(B_FUSE 同款): 只认实心面顶 */
+  if (def.thin != null) {/* 薄块依附口径(B_FUSE 同款): 顶面认实心支承;
+      wall 旗标(火把)额外认实心侧面——点击侧面时支承=被点格, 取向由
+      邻块派生不存档(cascade/mesh 同判据, 见 config B_TORCH 注) */
     const support = lookId != null ? BLOCKS[lookId] : null;
-    const solidTop = hit.ny === 1 && support && support.solid !== false && support.thin == null;
-    if (!solidTop) return {ok: false};
+    const solidSup = support && support.solid !== false && support.thin == null;
+    const sideFace = hit.ny === 0 && (hit.nx !== 0 || hit.nz !== 0);
+    const attached = sideFace ?
+      (def.wall === true && solidSup) : (hit.ny === 1 && solidSup);
+    if (!attached) return {ok: false};
     if (blockId === B_SAPLING && lookId !== 1 && lookId !== 2) return {ok: false}; /* 树苗限草地/泥土 */
   }
   return {ok: true, x, y, z};

@@ -350,6 +350,7 @@ test('光源四条只增不改: 火把全字段原样 · 灯块仍创造专属 �
   assert.deepEqual(t.all, [1.00, 0.70, 0.25], '火把颜色不变(嵌套数组跨 realm 用宽松比较)');
   assert.strictEqual(t.thin, 0.5);
   assert.strictEqual(t.solid, false);
+  assert.strictEqual(t.wall, true, 'wall 贴墙旗标(2026-10-28 贴墙票): 放置/依附/渲染共用');
   assert.strictEqual(t.hard, 0);
   assert.strictEqual(t.tool, null);
   assert.strictEqual(t.tier, 0);

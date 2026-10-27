@@ -278,7 +278,10 @@ BLOCKS[B_CRAFT] = {name: '工作台', top: [0.55, 0.42, 0.26], side: [0.66, 0.52
 BLOCKS[B_FURNACE] = {name: '熔炉', top: [1.00, 0.45, 0.10], side: [0.35, 0.35, 0.38], bottom: [0.35, 0.35, 0.38],
   hard: 3.5, tool: 'pick', tier: 1, drop: [['furnace', 1, 0]]}; // 站点: 烧炼
 BLOCKS[B_TORCH] = {name: '火把', all: [1.00, 0.70, 0.25], thin: 0.5, solid: false, light: 14,
-  hard: 0, tool: null, tier: 0, drop: [['torch', 1, 0]]}; // 光源 14 照亮半径 13(§5.1); 不烧完/不能当燃料(vanilla 维持项)
+  wall: true, hard: 0, tool: null, tier: 0, drop: [['torch', 1, 0]]}; // 光源 14 照亮半径 13(§5.1);
+// 不烧完/不能当燃料(vanilla 维持项); wall:true 唯一贴墙薄块——放置认实心侧面
+// (advPlaceCheck)·依附认四水平实心邻(cascade)·渲染顶边斜倚支承墙(pushCross lean)
+// ——取向不存档, 级联/渲染从邻块现况派生(确定性重放红线)
 BLOCKS[B_CLAY] = {name: '黏土', all: [0.58, 0.60, 0.68],
   hard: 0.6, tool: 'shovel', tier: 0, drop: [['clay_ball', 4, 0]]}; // 掉 4 黏土球(红砖链源头, §3.5); 湖底生成
 BLOCKS[B_SAPLING] = {name: '树苗', all: [0.30, 0.60, 0.25], thin: 0.4, solid: false,

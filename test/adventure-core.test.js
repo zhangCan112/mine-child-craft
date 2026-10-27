@@ -531,7 +531,7 @@ test('核心政策: 蓄力步进/放置合法性/食物/树苗计时', () => {
   assert.strictEqual(Core.advPlaceCheck({x: 5, y: 24, z: 5, nx: 0, ny: 1, nz: 0}, 2, 1, 0).ok, true,
       '实心块贴顶面 ok');
   assert.strictEqual(Core.advPlaceCheck({x: 5, y: 24, z: 5, nx: 1, ny: 0, nz: 0}, api.B_TORCH, 1, 0).ok,
-      false, 'thin 块贴侧面拒');
+      true, '墙火把: wall 薄块贴实心侧面 ok');
   assert.deepStrictEqual(Core.advEatPolicy(28, 30, 4), {hp: 30, healed: 2, canEat: true}, '回复钳制');
   assert.strictEqual(Core.advEatPolicy(30, 30, 4).canEat, false, '满血不吃');
   const map = new Map([['1,25,1', {x: 1, y: 25, z: 1, left: 0.5}], ['2,25,2', {x: 2, y: 25, z: 2, left: 3}]]);
@@ -1276,7 +1276,7 @@ test('击杀掉落清单变体: 加成与稀有都掷中/骷髅保底骨头/未�
       '掉落表没写就是没有(不抛错)');
 });
 
-test('放置合法性全簇: 实心贴面/thin 只放实心顶/树苗限草地泥土/叠放与无效输入拒', () => {
+test('放置合法性全簇: 实心贴面/thin 只放实心顶+墙火把贴墙/树苗限草地泥土/叠放与无效输入拒', () => {
   const chk = Core.advPlaceCheck;
   const side = chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, 1, 0);
   assert.ok(side.ok, '泥土放草地顶面 ok');
@@ -1285,8 +1285,10 @@ test('放置合法性全簇: 实心贴面/thin 只放实心顶/树苗限草地�
   assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, 1, 5).ok, false,
       '目标位已有方块 → 拒(叠放)');
   assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, 1, 0).ok, '火把放草地顶面 ok');
-  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 1, ny: 0, nz: 0}, api.B_TORCH, 1, 0).ok, false,
-      '火把贴侧面 → 拒(thin 只放顶面)');
+  assert.ok(chk({x: 10, y: 24, z: 10, nx: 1, ny: 0, nz: 0}, api.B_TORCH, 1, 0).ok,
+      '墙火把: 火把贴实心侧面 ok(wall 旗标)');
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 0, nz: 1}, api.B_TORCH, api.B_GRASS_TUFT, 0).ok,
+      false, '火把贴草丛侧面 → 拒(solid:false 当不了支承)');
   assert.strictEqual(chk({x: 10, y: 25, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, api.B_GRASS_TUFT, 0).ok,
       false, '草丛(solid:false)顶上放火把 → 拒');
   assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, 1, 0).ok, '树苗放草地 ok');

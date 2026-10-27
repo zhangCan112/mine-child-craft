@@ -92,6 +92,8 @@ test('mkPolicy: 身份判定从 config 真件派生 — fell/need/thin/support �
   assert.strictEqual(p.isFell(6), false, '木板不参与(原木房子承重墙不受牵连, 设计稿 D1)');
   assert.strictEqual(p.isFell(3), false, '石头无旗标');
   assert.strictEqual(p.isThin(48), true, '火把 = thin 依附块');
+  assert.strictEqual(p.isWall(48), true, '火把 = wall 贴墙薄块(全表唯一)');
+  assert.strictEqual(p.isWall(50), false, '树苗 thin 但无 wall 旗标(只认底座)');
   assert.strictEqual(p.isThin(7), false, '树叶是整块');
   assert.strictEqual(p.isFall(8), true, '沙子 = fall 重力方块(二期 D7)');
   assert.strictEqual(p.isFall(5), false, '原木无重力');
@@ -393,6 +395,39 @@ test('清扫: 悬空 thin 脱落 + 孤儿叶上的火把连锁脱落', () => {
   assert.ok(removed.some((r) => r.id === 7), '孤儿叶清除');
   assert.ok(removed.some((r) => r.id === 48 && r.y === 7), '叶上的火把随叶连锁脱落(规则①)');
   assert.strictEqual(h.count(7, 26, 34, 1, 12, 26, 34), 0, '区域无残留');
+});
+
+test('墙火把: 贴墙生存(无底座有墙) · 挖支承墙规则①b 脱落', () => {
+  const h = mkH();
+  h.fill(18, 1, 20, 18, 3, 20, 3); /* 石墙列(x18, y1..3) */
+  h.e.setBlockRaw(19, 2, 20, 48); /* 墙火把(x19, 无底座, 贴 -x 墙) */
+  assert.deepStrictEqual(sweepWorld(h), [], '贴墙火把清扫不动(全支撑口径)');
+  assert.strictEqual(h.e.getBlock(19, 2, 20), 48, '墙火把存活');
+  const removed = h.fell(18, 2, 20); /* 挖掉支承墙那格 */
+  assert.ok(removed.some((r) => r.id === 48 && r.x === 19 && r.y === 2),
+      '支承墙被挖 → 规则①b 贴墙重查, 火把脱落');
+  assert.strictEqual(h.e.getBlock(19, 2, 20), 0, '墙火把已除');
+});
+
+test('墙火把转依: 地面火把贴墙站着, 挖底座 → 贴墙还在 → 存活(清扫同口径)', () => {
+  const h = mkH();
+  h.fill(18, 1, 20, 18, 3, 20, 3); /* 石墙列 */
+  h.e.setBlockRaw(19, 1, 20, 2); /* 泥土底座(贴墙) */
+  h.e.setBlockRaw(19, 2, 20, 48); /* 地面火把(底座上, -x 侧是墙) */
+  const removed = h.fell(19, 1, 20); /* 挖底座 */
+  assert.deepStrictEqual(removed.filter((r) => r.id === 48), [],
+      '火把不落(规则①: 底座没了但贴墙还在 → 转依墙火把)');
+  assert.strictEqual(h.e.getBlock(19, 2, 20), 48, '火把原地存活');
+  assert.deepStrictEqual(sweepWorld(h), [], '清扫同口径不动(全支撑判据单份)');
+});
+
+test('墙火把旗标收窄: 树苗无 wall 旗标 — 悬空时贴墙也不救命', () => {
+  const h = mkH();
+  h.fill(18, 1, 20, 18, 3, 20, 3); /* 石墙列 */
+  h.e.setBlockRaw(19, 5, 20, 50); /* 悬空树苗(贴 -x 墙, 无底座) */
+  const removed = sweepWorld(h);
+  assert.ok(removed.some((r) => r.id === 50 && r.x === 19 && r.y === 5),
+      '树苗脱落(无 wall 旗标, 支承只认底座——身份原则)');
 });
 
 test('清扫: 干净世界零动作(幂等) — 接地树/地面火把/实地沙全不动', () => {

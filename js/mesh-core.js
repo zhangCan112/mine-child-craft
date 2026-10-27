@@ -101,12 +101,18 @@ const MeshCore = (() => {
      FrontSide 材质下双面可见; 几何占满格高, 视觉高度由贴图 alpha 裁切
      (world.js atlasMat 的 alphaTest), 麦四阶段的"渐高"画在像素里而非
      压扁几何(压扁会让植株比例失真)。
-     顶点光取自身格(设计稿 §4.1: 火把自身格 block=14, 夜间自亮) */
-  function pushCross(t, x, y, z, tile, cols, rows, lvSky, lvBlk) {
+     顶点光取自身格(设计稿 §4.1: 火把自身格 block=14, 夜间自亮)。
+     lean(墙火把): {ax, d} = 支承墙方位(ax 0=x 轴/1=z 轴, d=墙在 ± 向)——
+     顶边(py=1 角点)朝墙平移 LEAN_TAN 的剪切变换(MC 墙火把斜倚同款),
+     底边原位; null=立式(插地)。剪切不改法线: 十字面片双绘, 观感不变 */
+  const LEAN_TAN = 0.3; /* 斜倚幅度(顶边位移/格高) */
+  function pushCross(t, x, y, z, tile, cols, rows, lvSky, lvBlk, lean) {
     const c = tile % cols; const r = Math.floor(tile / cols);
     const u0 = c/cols; const u1 = (c+1)/cols;
     const v0 = (rows-1-r)/rows; const v1 = (rows-r)/rows;
     const s = 0.7071; // 对角面法线水平分量(1/√2)
+    const kx = lean && lean.ax === 0 ? lean.d * LEAN_TAN : 0; /* 顶边剪切量 */
+    const kz = lean && lean.ax === 1 ? lean.d * LEAN_TAN : 0;
     /* corners 序 [bl, br, tl, tr]; 反向面角点镜像(UV 随之镜像, 背面图案不反) */
     const planes = [
       {p: [[0.1, 0, 0.1], [0.9, 0, 0.9], [0.1, 1, 0.1], [0.9, 1, 0.9]], n: [-s, 0, s], mirror: false},
@@ -117,7 +123,8 @@ const MeshCore = (() => {
     for (const pl of planes) {
       const us = pl.mirror ? [u1, u0, u1, u0] : [u0, u1, u0, u1];
       for (let i=0; i<4; i++) {
-        t.positions.push(x+pl.p[i][0], y+pl.p[i][1], z+pl.p[i][2]);
+        const py = pl.p[i][1]; /* 顶点高度 0/1: 剪切随高度线性(底不动顶斜倚) */
+        t.positions.push(x+pl.p[i][0]+kx*py, y+pl.p[i][1], z+pl.p[i][2]+kz*py);
         t.normals.push(pl.n[0], pl.n[1], pl.n[2]);
         t.uvs.push(us[i], i < 2 ? v0 : v1);
         t.sky.push(lvSky);
@@ -272,8 +279,23 @@ const MeshCore = (() => {
           }
           if (ae) { // 图集方块: 第 4 通道(薄块走十字面片, 立方体按面取格)
             if (b.thin) {
+              /* 贴墙取向(墙火把, config B_TORCH wall 旗标): 底下无实心支承 →
+                 按固定优先级(+x/-x/+z/-z, 与 cascade NEIGH_HOR 同序)取首个
+                 实心水平邻, 十字片顶边斜倚该墙; 支承判据镜像 CascadeCore
+                 mkPolicy.isSupport(单一权威在彼处, 此处只读同一 BLOCKS 派生)。
+                 取向不存档——同世界状态必同取向(确定性重放红线) */
+              let lean = null;
+              if (b.wall) {
+                const sup = (nid) => !!(nid !== 0 && BLOCKS[nid] && BLOCKS[nid].solid !== false);
+                if (!sup(lget(lx, y - 1, lz))) {
+                  if (sup(lget(lx + 1, y, lz))) lean = {ax: 0, d: 1};
+                  else if (sup(lget(lx - 1, y, lz))) lean = {ax: 0, d: -1};
+                  else if (sup(lget(lx, y, lz + 1))) lean = {ax: 1, d: 1};
+                  else if (sup(lget(lx, y, lz - 1))) lean = {ax: 1, d: -1};
+                }
+              }
               pushCross(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows,
-                  lsky(lx, y, lz)/15, lblk(lx, y, lz)/15);
+                  lsky(lx, y, lz)/15, lblk(lx, y, lz)/15, lean);
               continue;
             }
             for (let f=0; f<6; f++) {

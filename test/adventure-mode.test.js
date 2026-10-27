@@ -1292,7 +1292,7 @@ test('手持一致: 放完最后一个方块 → 空手(advSyncHotbar 观感跟�
       '放光: 手持观感回落空手(MC 口径, 不再举着已用完的方块)');
 });
 
-test('T12 放置行为链: 泥土/火把/树苗 — 落点+背包 −1+记账; thin 违规落点 toast 拒绝', () => {
+test('T12 放置行为链: 泥土/火把(顶+贴墙)/树苗 — 落点+背包 −1+记账; 违规落点 toast 拒绝', () => {
   mem.clear();
   freshInit();
   const spot = findGrassSpot();
@@ -1303,19 +1303,26 @@ test('T12 放置行为链: 泥土/火把/树苗 — 落点+背包 −1+记账; t
   assert.strictEqual(cell(spot.x, 25, spot.z), 2, '泥土放草地顶(实心块贴面)');
   assert.strictEqual(A.advGetInv().slots[0].n, 2, '背包 −1');
   assert.ok(calls.some((c) => c[0] === 'edit' && c[4] === 2), '放置记账走 editBlock seam');
-  /* 火把 thin: 放在刚放的泥土顶 ok / 贴侧面拒 */
-  holdOnly('torch', 2);
+  /* 火把 thin: 放在刚放的泥土顶 ok / 贴侧面也 ok(墙火把, wall 旗标) */
+  holdOnly('torch', 3);
   AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0}); /* 泥土块顶面 */
   assert.strictEqual(cell(spot.x, 26, spot.z), api.B_TORCH, '火把放泥土顶 ok');
-  assert.strictEqual(A.advGetInv().slots[0].n, 1, '火把 −1');
+  assert.strictEqual(A.advGetInv().slots[0].n, 2, '火把 −1');
   calls.length = 0;
-  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 1, ny: 0, nz: 0}); /* 贴侧面 → 拒 */
-  assert.ok(!calls.some((c) => c[0] === 'edit'), 'thin 贴侧面不落块');
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 1, ny: 0, nz: 0}); /* 贴侧面 → 墙火把收 */
+  assert.strictEqual(cell(spot.x + 1, 25, spot.z), api.B_TORCH, '墙火把贴侧面落块');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '火把再 −1');
+  assert.ok(calls.some((c) => c[0] === 'edit'), '贴墙放置同样记账');
+  /* 拒绝路径: 落点非空气(叠放) → toast 拒绝不扣件 */
+  calls.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 1, ny: 0, nz: 0});
+  assert.ok(!calls.some((c) => c[0] === 'edit'), '落点非空气不落块');
   assert.strictEqual(A.advGetInv().slots[0].n, 1, '被拒不扣物品');
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('放不了') >= 0), '拒绝 toast');
   /* 收拾布景, 树苗放置走干净草地 */
   api.setBlockRaw(spot.x, 25, spot.z, 0);
   api.setBlockRaw(spot.x, 26, spot.z, 0);
+  api.setBlockRaw(spot.x + 1, 25, spot.z, 0);
   holdOnly('sapling', 1);
   AdventureMode.onMouse(2, hitTop);
   assert.strictEqual(cell(spot.x, 25, spot.z), api.B_SAPLING, '树苗放草地顶');

@@ -339,6 +339,43 @@ test('顶点光: 十字片与薄块取自身格 — 火把自身格 block=14 夜
   for (const v of r.solid.block) assert.ok(Math.abs(v - s15(11)) < 1e-9, '薄块全部顶点取自身格 block=11');
 });
 
+test('贴墙取向(墙火把): 底下无支承+侧有实心墙 → 十字片顶边斜倚该墙, 底边原位', () => {
+  const m = loadMeshCore();
+  const ATLAS = {hashRand: HR_HALF, tntTiles: 4, atlas: {cols: 16, rows: 16, tiles: {48: 26}}};
+  const topBotX = (r) => {/* 十字片顶点 y∈{5,6}(wx=100): 顶边最小 x / 底边最大 x(相对格原点) */
+    let topMin = Infinity; let botMax = -Infinity;
+    for (let i = 0; i < r.atlas.positions.length; i += 3) {
+      const vx = r.atlas.positions[i] - 100; const vy = r.atlas.positions[i + 1];
+      if (vy === 6) topMin = Math.min(topMin, vx);
+      if (vy === 5) botMax = Math.max(botMax, vx);
+    }
+    return {topMin, botMax};
+  };
+  /* 对照: 插地火把(底下实心) → 立式, 顶边不位移 */
+  let p = mkPackL(1);
+  p.set(1, 5, 1, m.B_TORCH);
+  p.set(1, 4, 1, 2); // 底座
+  let r = m.MeshCore.meshChunk(p, ATLAS);
+  let tb = topBotX(r);
+  assert.ok(Math.abs(tb.topMin - 0.1) < 1e-9, '插地火把顶边原位(立式)');
+  /* 墙火把: 无底座, +x 侧实心墙(优先级首位) → 顶边整体 +0.3(LEAN_TAN) */
+  p = mkPackL(1);
+  p.set(1, 5, 1, m.B_TORCH);
+  p.set(2, 5, 1, 3); // +x 实心墙
+  r = m.MeshCore.meshChunk(p, ATLAS);
+  assert.ok(quads(r.atlas) === 4, '剪切不改面数(仍 4 面)');
+  tb = topBotX(r);
+  assert.ok(Math.abs(tb.topMin - 0.4) < 1e-9, '顶边斜倚 +x 墙(顶边最小 x=+0.4)');
+  assert.ok(Math.abs(tb.botMax - 0.9) < 1e-9, '底边原位(底边最大 x=+0.9)');
+  /* 双侧墙 → 固定优先级取 +x(确定性) */
+  p = mkPackL(1);
+  p.set(1, 5, 1, m.B_TORCH);
+  p.set(2, 5, 1, 3); // +x 墙
+  p.set(0, 5, 1, 3); // -x 墙
+  r = m.MeshCore.meshChunk(p, ATLAS);
+  assert.ok(Math.abs(topBotX(r).topMin - 0.4) < 1e-9, '双侧墙取 +x(优先序首位, 与 cascade 同序)');
+});
+
 test('顶点光: 无光照载荷的 pack 回落全亮(sky=15/block=0) — 既有调用缺省兼容', () => {
   const m = loadMeshCore();
   const p = mkPack(1); // 不带 sky/block 字段
