@@ -29,7 +29,8 @@ const api = vm.runInContext(`({
   B_CHEST, B_PORTAL, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
-Object.assign(globalThis, require('../js/adventure-core.js')); /* 上一层共享词法: ADV_GROUND/ADV_SPAWN/ADV_PORTAL/ADV_HOME_ROW/advPortalExit/advBuildWorld */
+/* 上一层共享词法: ADV_GROUND/ADV_SPAWN/ADV_PORTAL/ADV_HOME_ROW/advPortalExit/advBuildWorld */
+Object.assign(globalThis, require('../js/adventure-core.js'));
 
 const Maps = require('../js/adventure-maps-core.js');
 
@@ -50,13 +51,13 @@ function countId(id, pred) {
   }
   return n;
 }
-const colTop = (x, z) => { /* 列最高非空格 y(地表抽样用) */
+const colTop = (x, z) => {/* 列最高非空格 y(地表抽样用) */
   for (let y = H - 1; y >= 0; y--) if (cell(x, y, z) !== 0) return y;
   return -1;
 };
 const clearWorld = () => vm.runInContext('worldCells.fill(0)', eng); /* 空场起建(生产 loadScene
   的 world.clear 同义; 不清则上一张图的高处残留, snow 顶面低于 desert 处会读到旧砂岩) */
-function assertSameWorld(a, b, msg) { /* Buffer 不等时给首差异坐标(不走 deepStrictEqual 的
+function assertSameWorld(a, b, msg) {/* Buffer 不等时给首差异坐标(不走 deepStrictEqual 的
   myers diff——两个 786KB Buffer 的差异报告会爆内存, 2026-10-27 实测教训) */
   if (a.equals(b)) return;
   for (let i = 0; i < a.length; i++) {
@@ -101,7 +102,7 @@ test('注册表: 四行齐 · id 唯一 · 每行字段齐 · home 行引用 ADV
   assert.strictEqual(home.build, advBuildWorld, 'home 建场=advBuildWorld(T5 前不动 home)');
 });
 
-test('注册表: 替换语义红线 — desert 双池无 zombie 有 husk; snow 无 skeleton 有 stray; swamp 无 skeleton 有 bogged(+女巫小屋常驻+夜池 slime)', () => {
+test('注册表: 替换语义红线 — 三张远征图双池换防(desert/husk, snow/stray, swamp/bogged)', () => {
   const row = (id) => Maps.ADV_MAPS.find((r) => r.id === id);
   const kindsOf = (nests) => [].concat(...nests.map((n) => n.kinds));
   const poolOf = (pool) => pool.map((p) => p[0]);
@@ -270,7 +271,9 @@ test('沙漠建场: 仙人掌 2-3 高柱 · 枯灌木散布 · 只长沙上', ()
         if (cell(x, y, z) !== api.B_CACTUS) continue;
         if (cell(x, y + 1, z) === api.B_CACTUS) continue; /* 只看柱顶格 */
         let h = 0; let yy = y;
-        while (cell(x, yy, z) === api.B_CACTUS) { h++; yy--; }
+        while (cell(x, yy, z) === api.B_CACTUS) {
+          h++; yy--;
+        }
         heights.push(h);
       }
     }

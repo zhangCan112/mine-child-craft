@@ -38,7 +38,7 @@
    两处写; 布局口径: 回程门统一 (58,70), 落点在门南侧开阔区——
    advMapArrive 的面朝外前提; 远征图无床无熔炉, 死了回家 §2.2)
    ============================================================ */
-const ADV_DESERT = { /* 黄沙沙漠: 沙丘地形 + 砂岩神殿 + 绿洲 + 尸壳替换僵尸 */
+const ADV_DESERT = {/* 黄沙沙漠: 沙丘地形 + 砂岩神殿 + 绿洲 + 尸壳替换僵尸 */
   gate: {px: 58, pz: 70}, /* 回程门框位(门体 T7 经 advPortalFrame 建, 此处只登记) */
   temple: {cx: 64, cz: 40, r: 7}, /* 沙漠神殿: 金字塔底半径 7(15×15) + 地下宝箱室 */
   oasis: [ /* 小绿洲水泊: 水面齐 y24, 沙岸环绕 */
@@ -53,7 +53,7 @@ const ADV_DESERT = { /* 黄沙沙漠: 沙丘地形 + 砂岩神殿 + 绿洲 + 尸
   salt: 6201, /* 本图散布盐(与别图/别类散布分层, 互不踩) */
 };
 
-const ADV_SNOW = { /* 白雪雪原: 雪堆地形 + 冰面湖 + 雪屋 + 流浪者替换骷髅 */
+const ADV_SNOW = {/* 白雪雪原: 雪堆地形 + 冰面湖 + 雪屋 + 流浪者替换骷髅 */
   gate: {px: 58, pz: 70},
   hut: {cx: 40, cz: 40, r: 4}, /* 雪屋: 雪块圆顶(球半径 4) + 地下宝箱室 */
   lakes: [ /* 冰封小湖: 冰面 + 冰下水体 */
@@ -68,7 +68,7 @@ const ADV_SNOW = { /* 白雪雪原: 雪堆地形 + 冰面湖 + 雪屋 + 流浪�
   salt: 6301,
 };
 
-const ADV_SWAMP = { /* 青苔沼泽: 平地浅水洼 + 垂藤橡树 + 沼骸替换骷髅 + 女巫小屋 */
+const ADV_SWAMP = {/* 青苔沼泽: 平地浅水洼 + 垂藤橡树 + 沼骸替换骷髅 + 女巫小屋 */
   gate: {px: 58, pz: 70},
   hut: {x: 90, z: 42}, /* 女巫小屋: 高脚木屋(原木柱脚+木板屋体), witch 常驻位 */
   pools: [ /* 浅水洼: 水面齐 y24 可趟, 泥岸环绕 */
@@ -111,7 +111,7 @@ function advMapNest(n, top, rock) {
 
 /* ---------- 黄沙沙漠 ---------- */
 
-function advDesertFlats() { /* 压平区清单: 回程门/神殿/绿洲/巢穴(Snow/swamp 同款手法) */
+function advDesertFlats() {/* 压平区清单: 回程门/神殿/绿洲/巢穴(Snow/swamp 同款手法) */
   const f = [
     {cx: ADV_DESERT.gate.px + 2, cz: ADV_DESERT.gate.pz, r: 12}, /* 门区+落点开阔带 */
     {cx: ADV_DESERT.temple.cx, cz: ADV_DESERT.temple.cz, r: 18},
@@ -121,7 +121,7 @@ function advDesertFlats() { /* 压平区清单: 回程门/神殿/绿洲/巢穴(S
   return f;
 }
 
-function advDesertTerrain() { /* 沙丘地层: heightAt 幅度 2 起伏 + 九成沙面/一成砂岩露头
+function advDesertTerrain() {/* 沙丘地层: heightAt 幅度 2 起伏 + 九成沙面/一成砂岩露头
     + 砂岩垫层 3 格 + 绿洲水泊(压平区内水面齐 y24, home 湖同款)。
     门区+落点走廊强制沙面(砂岩露头散布不进门位——门体的落位前提) */
   const gt = ADV_DESERT.gate;
@@ -136,7 +136,7 @@ function advDesertTerrain() { /* 沙丘地层: heightAt 幅度 2 起伏 + 九成
       setBlockRaw(x, top, z, bare ? B_SANDSTONE : 8);
     }
   }
-  for (const o of ADV_DESERT.oasis) { /* 绿洲: 湖心水+沙底, 沙岸环绕 */
+  for (const o of ADV_DESERT.oasis) {/* 绿洲: 湖心水+沙底, 沙岸环绕 */
     for (let dx = -o.r; dx <= o.r; dx++) {
       for (let dz = -o.r; dz <= o.r; dz++) {
         const d = Math.hypot(dx, dz);
@@ -154,7 +154,7 @@ function advDesertTerrain() { /* 沙丘地层: heightAt 幅度 2 起伏 + 九成
   }
 }
 
-function advDesertTemple() { /* 沙漠神殿: 砂岩金字塔+南面外楼梯 + 地下宝箱室
+function advDesertTemple() {/* 沙漠神殿: 砂岩金字塔+南面外楼梯 + 地下宝箱室
     (B_CHEST 接大宝箱阶梯) + 可疑地板(沙色, 踩塌/挖开滑落入口——MC TNT
     陷阱的儿童版, 附录 B #5: 无爆炸无致死) + 东侧出路楼梯(矿坑 1 格级
     教训, 不困人) */
@@ -185,7 +185,7 @@ function advDesertTemple() { /* 沙漠神殿: 砂岩金字塔+南面外楼梯 + 
   }
 }
 
-function advDesertBlocked(x, z) { /* 植被禁区: 门区/神殿(含楼梯出口)/绿洲/巢穴 */
+function advDesertBlocked(x, z) {/* 植被禁区: 门区/神殿(含楼梯出口)/绿洲/巢穴 */
   const d = ADV_DESERT;
   if (Math.abs(x - d.gate.px - 2) <= 10 && Math.abs(z - d.gate.pz) <= 10) return true;
   if (Math.abs(x - d.temple.cx) <= d.temple.r + 2 && Math.abs(z - d.temple.cz) <= d.temple.r + 2) return true;
@@ -194,7 +194,7 @@ function advDesertBlocked(x, z) { /* 植被禁区: 门区/神殿(含楼梯出口
   return false;
 }
 
-function advDesertPlants() { /* 仙人掌 2-3 高柱 + 枯灌木散布(确定性, 只长
+function advDesertPlants() {/* 仙人掌 2-3 高柱 + 枯灌木散布(确定性, 只长
     沙面——列顶 getBlock 判定, 砂岩露头/水泊/结构天然排除) */
   const d = ADV_DESERT;
   for (let x = 2; x < WORLD_W - 2; x++) {
@@ -204,17 +204,17 @@ function advDesertPlants() { /* 仙人掌 2-3 高柱 + 枯灌木散布(确定性
       if (r <= 0.988) continue;
       const y = groundTop(x, z);
       if (getBlock(x, y, z) !== 8) continue; /* 只长沙面 */
-      if (r > 0.995) { /* 仙人掌柱(~0.5% 列) */
+      if (r > 0.995) {/* 仙人掌柱(~0.5% 列) */
         const h = 2 + (SceneKit.rand(x, z, d.salt + 3) > 0.5 ? 1 : 0);
         for (let i = 1; i <= h; i++) setBlockRaw(x, y + i, z, B_CACTUS);
-      } else { /* 枯灌木(~0.7% 列) */
+      } else {/* 枯灌木(~0.7% 列) */
         setBlockRaw(x, y + 1, z, B_DEAD_BUSH);
       }
     }
   }
 }
 
-function advDesertBuild() { /* 沙漠建场总装 */
+function advDesertBuild() {/* 沙漠建场总装 */
   advDesertTerrain();
   advDesertTemple();
   for (const n of ADV_DESERT.nests) advMapNest(n, 8, B_SANDSTONE);
@@ -223,7 +223,7 @@ function advDesertBuild() { /* 沙漠建场总装 */
 
 /* ---------- 白雪雪原 ---------- */
 
-function advSnowFlats() { /* 压平区: 回程门/雪屋/冰湖/巢穴 */
+function advSnowFlats() {/* 压平区: 回程门/雪屋/冰湖/巢穴 */
   const f = [
     {cx: ADV_SNOW.gate.px + 2, cz: ADV_SNOW.gate.pz, r: 12},
     {cx: ADV_SNOW.hut.cx, cz: ADV_SNOW.hut.cz, r: 12},
@@ -233,7 +233,7 @@ function advSnowFlats() { /* 压平区: 回程门/雪屋/冰湖/巢穴 */
   return f;
 }
 
-function advSnowTerrain() { /* 雪堆地层: heightAt 幅度 2 起伏 + 全铺雪覆草 +
+function advSnowTerrain() {/* 雪堆地层: heightAt 幅度 2 起伏 + 全铺雪覆草 +
     冰封小湖(冰面 y24 + 冰下 2 格水 + 泥底; 湖岸雪覆草——雪原一切雪白) */
   const opts = {salt: ADV_SNOW.salt, amp: 2, base: 0, flats: advSnowFlats()};
   for (let x = 0; x < WORLD_W; x++) {
@@ -258,7 +258,7 @@ function advSnowTerrain() { /* 雪堆地层: heightAt 幅度 2 起伏 + 全铺�
   }
 }
 
-function advSnowTree(x, baseY, z) { /* 云杉: 原木 4-6 高 + 锥形叶冠——「现有树形
+function advSnowTree(x, baseY, z) {/* 云杉: 原木 4-6 高 + 锥形叶冠——「现有树形
     换色口径」: 复用原木(5)/树叶(7) 两方块, 尖塔轮廓(下宽上尖+顶帽)与
     橡树圆冠(SceneKit.tree)拉开辨识; 叶贴干 ≤2 格, need:dist4 内不失撑 */
   const th = 4 + Math.floor(SceneKit.rand(x + 7, z + 3, ADV_SNOW.salt + 5) * 3);
@@ -277,7 +277,7 @@ function advSnowTree(x, baseY, z) { /* 云杉: 原木 4-6 高 + 锥形叶冠—�
   setBlockRaw(x, top + 1, z, 7); /* 顶帽 */
 }
 
-function advSnowHut() { /* 雪屋: 雪块圆顶(球壳 r4, 室内掏空) + 南门洞 + 地下宝箱室
+function advSnowHut() {/* 雪屋: 雪块圆顶(球壳 r4, 室内掏空) + 南门洞 + 地下宝箱室
     (屋内雪面挖开即入——雪块硬度 0.2, 儿童三四下; 宝箱+火把+东侧出路楼梯) */
   const h = ADV_SNOW.hut;
   for (let dx = -4; dx <= 4; dx++) {
@@ -297,14 +297,14 @@ function advSnowHut() { /* 雪屋: 雪块圆顶(球壳 r4, 室内掏空) + 南�
   SceneKit.fill(h.cx - 2, 22, h.cz - 2, h.cx + 2, 23, h.cz + 2, B_SNOW); /* 室顶(屋内地面下) */
   setBlockRaw(h.cx, 20, h.cz, B_CHEST);
   setBlockRaw(h.cx - 1, 21, h.cz - 1, B_TORCH);
-  for (let i = 0; i <= 5; i++) { /* 东侧 1 宽出路台阶 y19→y24 */
+  for (let i = 0; i <= 5; i++) {/* 东侧 1 宽出路台阶 y19→y24 */
     const x = h.cx + 3 + i; const y = 19 + i;
     for (let yy = y; yy <= y + 2; yy++) setBlockRaw(x, yy, h.cz, 0);
     if (getBlock(x, y - 1, h.cz) === 0) setBlockRaw(x, y - 1, h.cz, B_SNOW);
   }
 }
 
-function advSnowBlocked(x, z) { /* 植被禁区: 门区/雪屋(含出路外延)/冰湖/巢穴 */
+function advSnowBlocked(x, z) {/* 植被禁区: 门区/雪屋(含出路外延)/冰湖/巢穴 */
   const d = ADV_SNOW;
   if (Math.abs(x - d.gate.px - 2) <= 10 && Math.abs(z - d.gate.pz) <= 10) return true;
   if (Math.abs(x - d.hut.cx) <= d.hut.r + 9 && Math.abs(z - d.hut.cz) <= d.hut.r + 3) return true;
@@ -313,7 +313,7 @@ function advSnowBlocked(x, z) { /* 植被禁区: 门区/雪屋(含出路外延)/
   return false;
 }
 
-function advSnowScatter() { /* 云杉 ~22(候选按散列值排序取前 N, advTreeSpots 同法
+function advSnowScatter() {/* 云杉 ~22(候选按散列值排序取前 N, advTreeSpots 同法
     ——空间无偏) + 雪堆点缀(单块雪, 挖掉得雪球=雪仗弹药) */
   const d = ADV_SNOW;
   const cands = [];
@@ -336,7 +336,7 @@ function advSnowScatter() { /* 云杉 ~22(候选按散列值排序取前 N, advT
   }
 }
 
-function advSnowBuild() { /* 雪原建场总装 */
+function advSnowBuild() {/* 雪原建场总装 */
   advSnowTerrain();
   advSnowHut();
   for (const n of ADV_SNOW.nests) advMapNest(n, B_SNOW, 3);
@@ -345,7 +345,7 @@ function advSnowBuild() { /* 雪原建场总装 */
 
 /* ---------- 青苔沼泽 ---------- */
 
-function advSwampTerrain() { /* 沼泽地层: 平地草/泥/石(home 口径, 无丘——票据
+function advSwampTerrain() {/* 沼泽地层: 平地草/泥/石(home 口径, 无丘——票据
     只给沙丘/雪堆轻用高度场) + 浅水洼(水面齐 y24 可趟+泥底) + 泥岸环绕 */
   for (let x = 0; x < WORLD_W; x++) {
     for (let z = 0; z < WORLD_D; z++) {
@@ -360,10 +360,10 @@ function advSwampTerrain() { /* 沼泽地层: 平地草/泥/石(home 口径, 无
         const d = Math.hypot(dx, dz);
         if (d > p.r + 1.2) continue;
         const x = p.cx + dx; const z = p.cz + dz;
-        if (d < p.r - 0.5) { /* 洼心: 水 + 泥底 */
+        if (d < p.r - 0.5) {/* 洼心: 水 + 泥底 */
           setBlockRaw(x, ADV_GROUND, z, B_WATER);
           setBlockRaw(x, ADV_GROUND - 1, z, 2);
-        } else { /* 泥岸 */
+        } else {/* 泥岸 */
           setBlockRaw(x, ADV_GROUND, z, 2);
         }
       }
@@ -371,7 +371,7 @@ function advSwampTerrain() { /* 沼泽地层: 平地草/泥/石(home 口径, 无
   }
 }
 
-function advSwampHut() { /* 女巫小屋(MC 沼泽小屋同款位): 高脚木屋——原木柱脚
+function advSwampHut() {/* 女巫小屋(MC 沼泽小屋同款位): 高脚木屋——原木柱脚
     y25~27 撑起木板屋体(地板 y28/墙 y29~30/顶 y31), 南门洞+台阶进门;
     屋内宝箱+火把。witch 常驻位在图常量(ADV_SWAMP.hut), spawn 归壳 T6 */
   const h = ADV_SWAMP.hut;
@@ -379,7 +379,7 @@ function advSwampHut() { /* 女巫小屋(MC 沼泽小屋同款位): 高脚木屋
     for (let y = ADV_GROUND + 1; y <= ADV_GROUND + 3; y++) setBlockRaw(cn[0], y, cn[1], 5); /* 柱脚 */
   }
   SceneKit.fill(h.x - 2, ADV_GROUND + 4, h.z - 1, h.x + 2, ADV_GROUND + 4, h.z + 2, 6); /* 地板 */
-  for (const y of [ADV_GROUND + 5, ADV_GROUND + 6]) { /* 墙(留南门洞) */
+  for (const y of [ADV_GROUND + 5, ADV_GROUND + 6]) {/* 墙(留南门洞) */
     SceneKit.fill(h.x - 2, y, h.z - 1, h.x + 2, y, h.z - 1, 6);
     SceneKit.fill(h.x - 2, y, h.z + 2, h.x + 2, y, h.z + 2, 6);
     SceneKit.fill(h.x - 2, y, h.z, h.x - 2, y, h.z + 1, 6);
@@ -389,12 +389,12 @@ function advSwampHut() { /* 女巫小屋(MC 沼泽小屋同款位): 高脚木屋
   SceneKit.fill(h.x - 2, ADV_GROUND + 7, h.z - 1, h.x + 2, ADV_GROUND + 7, h.z + 2, 6); /* 顶 */
   setBlockRaw(h.x, ADV_GROUND + 4, h.z, B_CHEST);
   setBlockRaw(h.x - 2, ADV_GROUND + 5, h.z - 1, B_TORCH); /* 西墙火把 */
-  for (let i = 0; i <= 2; i++) { /* 台阶: y25..y27 三级到地板平步(1 格级) */
+  for (let i = 0; i <= 2; i++) {/* 台阶: y25..y27 三级到地板平步(1 格级) */
     setBlockRaw(h.x, ADV_GROUND + 1 + i, h.z + 5 - i, 6);
   }
 }
 
-function advSwampBlocked(x, z) { /* 植被禁区: 门区/小屋(含台阶)/水洼(+泥岸)/巢穴 */
+function advSwampBlocked(x, z) {/* 植被禁区: 门区/小屋(含台阶)/水洼(+泥岸)/巢穴 */
   const d = ADV_SWAMP;
   if (Math.abs(x - d.gate.px - 2) <= 10 && Math.abs(z - d.gate.pz) <= 10) return true;
   if (Math.abs(x - d.hut.x) <= 6 && Math.abs(z - d.hut.z) <= 8) return true;
@@ -403,7 +403,7 @@ function advSwampBlocked(x, z) { /* 植被禁区: 门区/小屋(含台阶)/水�
   return false;
 }
 
-function advSwampScatter() { /* 垂藤橡树 ~18(SceneKit.tree 橡树形; 垂藤从简——
+function advSwampScatter() {/* 垂藤橡树 ~18(SceneKit.tree 橡树形; 垂藤从简——
     暗绿观感由 T6 调色板氛围补) + 兰花散布(沼泽唯一产地, 只长草上) */
   const d = ADV_SWAMP;
   const cands = [];
@@ -412,7 +412,7 @@ function advSwampScatter() { /* 垂藤橡树 ~18(SceneKit.tree 橡树形; 垂藤
       if (advSwampBlocked(x, z)) continue;
       const r = SceneKit.rand(x, z, d.salt + 4);
       if (r > 0.997) cands.push({x, z, r});
-      if (r > 0.99 && r <= 0.997) { /* 兰花 ~0.7% 列 */
+      if (r > 0.99 && r <= 0.997) {/* 兰花 ~0.7% 列 */
         const y = groundTop(x, z);
         if (getBlock(x, y, z) === 1) setBlockRaw(x, y + 1, z, B_ORCHID);
       }
@@ -425,7 +425,7 @@ function advSwampScatter() { /* 垂藤橡树 ~18(SceneKit.tree 橡树形; 垂藤
   }
 }
 
-function advSwampBuild() { /* 沼泽建场总装 */
+function advSwampBuild() {/* 沼泽建场总装 */
   advSwampTerrain();
   advSwampHut();
   for (const n of ADV_SWAMP.nests) advMapNest(n, 2, 14); /* 泥丘+苔石(home 巢同款) */
@@ -439,10 +439,10 @@ function advSwampBuild() { /* 沼泽建场总装 */
    植被色由方块自带(登记为辨识度基准, 与设计稿 §2.1 表一一对应)。
    ============================================================ */
 const ADV_MAPS = [
-  Object.assign({ /* home: 并入 ADV_HOME_ROW 的 id/nests/nightPool(同一引用不复制,
+  Object.assign({/* home: 并入 ADV_HOME_ROW 的 id/nests/nightPool(同一引用不复制,
      巢穴池/夜怪池缺省即本图, T2 通道; 建场仍 advBuildWorld, 布局重排归 T5) */
     name: '家园草原', hud: '🏡 家园草原',
-    palette: { /* 草绿/橡树/常规蓝/常规天(§2.1) */
+    palette: {/* 草绿/橡树/常规蓝/常规天(§2.1) */
       ground: [0.43, 0.74, 0.34], flora: [0.20, 0.50, 0.22],
       water: [0.25, 0.45, 0.85], sky: [0.56, 0.78, 1.00],
     },
@@ -457,7 +457,7 @@ const ADV_MAPS = [
   }, ADV_HOME_ROW),
   {
     id: 'desert', name: '黄沙沙漠', hud: '🏜️ 黄沙沙漠',
-    palette: { /* 沙色/仙人掌绿/绿洲青/暖黄天(§2.1: 沙 #86,0.80,0.55) */
+    palette: {/* 沙色/仙人掌绿/绿洲青/暖黄天(§2.1: 沙 #86,0.80,0.55) */
       ground: [0.86, 0.80, 0.55], flora: [0.29, 0.53, 0.22],
       water: [0.30, 0.60, 0.65], sky: [0.90, 0.82, 0.62],
     },
@@ -469,7 +469,7 @@ const ADV_MAPS = [
   },
   {
     id: 'snow', name: '白雪雪原', hud: '🌨️ 白雪雪原',
-    palette: { /* 雪白/云杉深绿/冰面淡蓝/冷白天(§2.1) */
+    palette: {/* 雪白/云杉深绿/冰面淡蓝/冷白天(§2.1) */
       ground: [0.93, 0.95, 0.98], flora: [0.14, 0.34, 0.20],
       water: [0.63, 0.78, 0.94], sky: [0.80, 0.87, 0.96],
     },
@@ -481,7 +481,7 @@ const ADV_MAPS = [
   },
   {
     id: 'swamp', name: '青苔沼泽', hud: '🌿 青苔沼泽',
-    palette: { /* 沼泽草绿/垂藤暗绿/灰绿水/灰蒙天(§2.1, 草色 MC #4c763c 口径) */
+    palette: {/* 沼泽草绿/垂藤暗绿/灰绿水/灰蒙天(§2.1, 草色 MC #4c763c 口径) */
       ground: [0.30, 0.46, 0.24], flora: [0.16, 0.36, 0.16],
       water: [0.35, 0.48, 0.42], sky: [0.62, 0.66, 0.64],
     },
