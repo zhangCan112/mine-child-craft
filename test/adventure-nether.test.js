@@ -1132,3 +1132,87 @@ test('T7-1 门阵建场: home 三扇门框常驻 · 未解锁掏门面(不可触
   assert.ok(Buffer.from(apiC.worldCells).equals(snapG), '门阵随建场确定性重建(逐字节一致)');
 });
 
+test('T7-2 站桩状态机: 地图门 2s 站满(可反悔) → 渐晕满格切图 → 落回程门内 + TTS 播报 + 遮罩收起', () => {
+  freshC(seedQuestC({unlockedDesert: 1}));
+  const dg = gateOf('home', 'desert');
+  const inFace = {x: dg.px + 2.5, y: Core.ADV_GROUND + 1, z: dg.pz + 0.5};
+  /* 蓄能音在站桩起步(§4.1 双段式第一段) */
+  globalThis.pos.x = inFace.x; globalThis.pos.y = inFace.y; globalThis.pos.z = inFace.z;
+  AM.update(0.1);
+  assert.ok(callsC.some((c) => c[0] === 'sfx' && c[1] === 'portal_charge'), '站桩起步播蓄能音');
+  /* 1.2s 后走出: 可反悔(归零), 不切图 */
+  AM.update(1.1);
+  globalThis.pos.z = inFace.z + 3; /* 走出门面 */
+  AM.update(0.1);
+  assert.strictEqual(AN.advNetherState().map, 'home', '走出归零不切图(可反悔红线)');
+  /* 重新站: 满 2s 才触发(上轮累计已清) */
+  globalThis.pos.z = inFace.z;
+  AM.update(1.9);
+  assert.strictEqual(AN.advNetherState().map, 'home', '1.9s 未满不切图');
+  assert.strictEqual(AN.advNetherState().portalCd, 0, '未触发不进冷却');
+  AM.update(0.2); /* 累计 2.1s → 发传送令 */
+  assert.strictEqual(AN.advNetherState().portalCd, Core.ADV_PORTAL.cd, '站满触发并进冷却(复用 ADV_PORTAL.cd)');
+  assert.strictEqual(AN.advNetherState().map, 'home', '触发瞬间还没切图(等遮罩满格)');
+  /* 渐晕淡入 400ms → 满格瞬间切图 + 到达音/播报 + 落回程门内 */
+  AM.update(0.45);
+  assert.strictEqual(AN.advNetherState().map, 'desert', '遮罩满格瞬间切图');
+  const sp = lastSpawnC();
+  const arrive = advMapArriveAt(gateOf('desert', 'home'));
+  assert.ok(sp && Math.abs(sp[1] - arrive.x) < 1e-9 && Math.abs(sp[3] - arrive.z) < 1e-9,
+      '落点=desert 回程门内侧 2.5 格面朝外(advMapArriveAt 口径)');
+  assert.ok(callsC.some((c) => c[0] === 'sfx' && c[1] === 'portal_travel'), '切图时刻播到达音(第二段)');
+  assert.ok(spokenC.some((s) => s.indexOf('沙漠') >= 0), 'TTS 到达播报(图名)');
+  /* 淡出 400ms → 遮罩收起(全程 2s+0.4s+0.4s=2.8s ≤5s 红线) */
+  AM.update(0.45);
+  const veil = globalThis.document.getElementById('portal-veil');
+  assert.ok(veil && +veil.style.opacity === 0, '遮罩收起(opacity=0)');
+});
+
+test('T7-3 锁门与 nether 门分流: 熄门走近给锁形 TTS(节流) · 门阵坐标外的门保持 nether 即时语义', () => {
+  /* 空任务档: 三门全熄。走近雪原门 → 锁形提示; 站多久也不切图 */
+  freshC();
+  const sg = gateOf('home', 'snow');
+  globalThis.pos.x = sg.px + 2.5;
+  globalThis.pos.y = Core.ADV_GROUND + 1;
+  globalThis.pos.z = sg.pz + 0.5;
+  AM.update(0.1);
+  assert.ok(spokenC.some((s) => s.indexOf('亮起来') >= 0), '走近熄门给锁形 TTS(完成XX任务提示)');
+  spokenC.length = 0;
+  AM.update(2.5); /* 一直站在熄门口 */
+  assert.strictEqual(AN.advNetherState().map, 'home', '熄门无门面不可触发(站多久都不切图)');
+  assert.strictEqual(spokenC.length, 0, '同一门口不重复播锁形提示(节流)');
+  globalThis.pos.z = sg.pz - 5; /* 走远 */
+  AM.update(0.1);
+  globalThis.pos.z = sg.pz + 0.5; /* 再走近: 仍熄 */
+  AM.update(0.1);
+  assert.ok(spokenC.length === 0, '节流窗内不重播');
+  /* nether 门零回归: 玩家自放门(门阵坐标外)站进去立即切下界(不站桩) */
+  const spot = findClearC(3, 60);
+  holdOnlyC('nether_portal', 2);
+  placePortalAt(spot);
+  stepIntoPortal(spot.x + 2.5, 25, spot.z + 0.5, 0);
+  assert.strictEqual(AN.advNetherState().dim, 'nether', '玩家 nether 门即时切界(站桩只对地图门生效)');
+  assert.strictEqual(AN.advNetherState().portalCd, Core.ADV_PORTAL.cd, 'nether 门同款冷却');
+});
+
+test('T7-4 回程门: 远征图站满 2s 回 home, 落在来时那扇门的门位(advMapArriveAt 对应门)', () => {
+  freshC(seedQuestC({unlockedSwamp: 1}));
+  AN.advSetMap('swamp');
+  const rg = gateOf('swamp', 'home');
+  globalThis.pos.x = rg.px + 2.5;
+  globalThis.pos.y = Core.ADV_GROUND + 1;
+  globalThis.pos.z = rg.pz + 0.5;
+  AM.update(2.1); /* 站满 */
+  AM.update(0.45); /* 渐晕满格 → 切回 home */
+  assert.strictEqual(AN.advNetherState().map, 'home', '回程门站满切回 home');
+  const sp = lastSpawnC();
+  const arrive = advMapArriveAt(gateOf('home', 'swamp')); /* 沼泽之门位, 不是 gates[0] */
+  assert.ok(sp && Math.abs(sp[1] - arrive.x) < 1e-9 && Math.abs(sp[3] - arrive.z) < 1e-9,
+      '落点=home 门阵的沼泽之门内侧(回程跟着来时的门走)');
+  const desertArrive = advMapArriveAt(gateOf('home', 'desert'));
+  assert.ok(Math.abs(arrive.x - desertArrive.x) > 1 || Math.abs(arrive.z - desertArrive.z) > 1,
+      '前提: 与沙漠门落点不同(三门各得各的)');
+  assert.ok(spokenC.some((s) => s.indexOf('家') >= 0), '回家播报');
+});
+
+
