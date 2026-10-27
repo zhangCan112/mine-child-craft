@@ -173,13 +173,21 @@ function showroomSyncBar() {/* 槽内容 → 槽型 item 字段(图标/名字跟
 let showroomCraftOpen = false;
 let showroomChestOpen = false;
 
+function showroomInvMove(from, to) {/* 背包格点选搬运(探险 advInvMove 同拍): moveSlot 纯核心搬移
+  (空位搬家/同物并堆/异种对调, 耐久随堆), 搬成即刷快捷栏镜像——图标/名字只认 syncBar
+  写的 item 字段, 不刷则关背包后快捷栏滞留旧物(2026-10-28 修复); 体验馆零存档/零音效
+  (dev 降噪口径) */
+  if (!moveSlot(showroomInv, from, to)) return;
+  showroomSyncBar();
+}
+
 const showroomPanel = ModeKit.mkCraftPanel({
   inv: showroomInv, /* 引用跨进场稳定(原地重铸) */
   station: () => true, /* 全开: 台级配方随处可摆(dev 口径, 站点门禁是儿童引导不属调试场) */
   allow: (typeof KIT_HIDDEN_RECIPES !== 'undefined') ?
     KIT_HIDDEN_RECIPES.slice() : [], /* 隐藏配方全点亮(二期卡也进馆可测), 清单随 mode-kit 演进自动跟 */
   onCraft: () => showroomSyncBar(), /* 产物入包即刷快捷栏; 满包余量静默丢弃(dev 降噪, 与退炉余量同口径) */
-  onMove: (from, to) => moveSlot(showroomInv, from, to), /* 背包格点选搬运(政策在背包核心) */
+  onMove: (from, to) => showroomInvMove(from, to), /* 背包格点选搬运(政策在本层, 面板只管格子) */
   onGridMove: () => showroomSyncBar(),
   onClose: () => {
     showroomCraftOpen = false;
@@ -915,7 +923,8 @@ ShowroomMode.sr = {
   isOpen: () => showroomFurnace.isOpen(),
   autoFill: (plan, key) => showroomFurnace.autoFill(plan, key),
   refundAll: () => showroomFurnace.refundAll(),
-  craft: {panel: showroomPanel, isOpen: () => showroomCraftOpen, toggle: showroomCraftToggle},
+  craft: {panel: showroomPanel, isOpen: () => showroomCraftOpen, toggle: showroomCraftToggle,
+    move: showroomInvMove}, /* move: 面板 onMove 同一函数(搬运政策, 测试缝) */
   chest: {panel: showroomChestPanel, isOpen: () => showroomChestOpen, open: showroomOpenCrate},
 };
 
