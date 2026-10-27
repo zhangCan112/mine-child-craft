@@ -318,17 +318,17 @@ test('顶点光: 玻璃/TNT/图集立方体面同样取邻格光(四通道同口
   assert.ok(faceBlkEq(r.atlas, quadsByNormal(r.atlas).get('0,1,0'), s15(6)), '图集面取邻格 block=6');
 });
 
-test('顶点光: 十字片与薄块取自身格 — 火把自身格 block=14 夜间自亮', () => {
+test('顶点光: 小盒与薄块取自身格 — 火把自身格 block=14 夜间自亮', () => {
   const m = loadMeshCore();
-  /* 十字片: 火把(48, thin)走图集十字通道 */
+  /* 火把小盒: 火把(48, thin+wall)走图集专用小盒通道(悬空立式, 底面可见) */
   let p = mkPackL(1);
   p.set(1, 5, 1, m.B_TORCH);
   p.setL(1, 5, 1, 6, 14); // 自身格: 洞内 sky=6 · 火把自亮 block=14
   let r = m.MeshCore.meshChunk(p, {hashRand: HR_HALF, tntTiles: 4, atlas: {cols: 16, rows: 16, tiles: {48: 26}}});
-  assert.ok(r.atlas && quads(r.atlas) === 4, '十字片 4 面');
-  assert.strictEqual(r.atlas.sky.length, 16);
-  for (const v of r.atlas.sky) assert.ok(Math.abs(v - s15(6)) < 1e-9, '十字片全部顶点取自身格 sky=6');
-  for (const v of r.atlas.block) assert.ok(Math.abs(v - s15(14)) < 1e-9, '十字片全部顶点取自身格 block=14');
+  assert.ok(r.atlas && quads(r.atlas) === 6, '火把小盒 6 面(悬空底面可见)');
+  assert.strictEqual(r.atlas.sky.length, 24);
+  for (const v of r.atlas.sky) assert.ok(Math.abs(v - s15(6)) < 1e-9, '小盒全部顶点取自身格 sky=6');
+  for (const v of r.atlas.block) assert.ok(Math.abs(v - s15(14)) < 1e-9, '小盒全部顶点取自身格 block=14');
   /* 薄块: 引线走实心通道 pushThin */
   p = mkPackL(1);
   p.set(3, 5, 3, m.B_FUSE);
@@ -339,41 +339,52 @@ test('顶点光: 十字片与薄块取自身格 — 火把自身格 block=14 夜
   for (const v of r.solid.block) assert.ok(Math.abs(v - s15(11)) < 1e-9, '薄块全部顶点取自身格 block=11');
 });
 
-test('贴墙取向(墙火把): 底下无支承+侧有实心墙 → 十字片顶边斜倚该墙, 底边原位', () => {
+test('火把小盒几何: 插地立式居中贴地(2×10×2px) · 墙式底贴墙+顶外倾 22.5° · 双侧墙优先序', () => {
   const m = loadMeshCore();
   const ATLAS = {hashRand: HR_HALF, tntTiles: 4, atlas: {cols: 16, rows: 16, tiles: {48: 26}}};
-  const topBotX = (r) => {/* 十字片顶点 y∈{5,6}(wx=100): 顶边最小 x / 底边最大 x(相对格原点) */
-    let topMin = Infinity; let botMax = -Infinity;
+  /* atlas 通道只含火把 → 全顶点统计(相对格原点取整; y>5.5 归顶组/否则底组) */
+  const stat = (r)=>{
+    const x0 = Math.floor(r.atlas.positions[0]); const z0 = Math.floor(r.atlas.positions[2]);
+    let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity;
+    let minZ = Infinity; let maxZ = -Infinity; let upMaxX = -Infinity; let loMinX = Infinity;
     for (let i = 0; i < r.atlas.positions.length; i += 3) {
-      const vx = r.atlas.positions[i] - 100; const vy = r.atlas.positions[i + 1];
-      if (vy === 6) topMin = Math.min(topMin, vx);
-      if (vy === 5) botMax = Math.max(botMax, vx);
+      const vx = r.atlas.positions[i] - x0; const vy = r.atlas.positions[i + 1];
+      const vz = r.atlas.positions[i + 2] - z0;
+      minX = Math.min(minX, vx); maxX = Math.max(maxX, vx);
+      minY = Math.min(minY, vy); maxY = Math.max(maxY, vy);
+      minZ = Math.min(minZ, vz); maxZ = Math.max(maxZ, vz);
+      if (vy > 5.5) upMaxX = Math.max(upMaxX, vx); else loMinX = Math.min(loMinX, vx);
     }
-    return {topMin, botMax};
+    return {minX, maxX, minY, maxY, minZ, maxZ, upMaxX, loMinX};
   };
-  /* 对照: 插地火把(底下实心) → 立式, 顶边不位移 */
+  /* 立式(MC §1.1 from[7,0,7]→to[9,10,9]): x/z∈[0.4375,0.5625] 居中 · y∈[5,5.625] 贴地 */
   let p = mkPackL(1);
   p.set(1, 5, 1, m.B_TORCH);
   p.set(1, 4, 1, 2); // 底座
   let r = m.MeshCore.meshChunk(p, ATLAS);
-  let tb = topBotX(r);
-  assert.ok(Math.abs(tb.topMin - 0.1) < 1e-9, '插地火把顶边原位(立式)');
-  /* 墙火把: 无底座, +x 侧实心墙(优先级首位) → 顶边整体 +0.3(LEAN_TAN) */
+  assert.ok(quads(r.atlas) === 5, '立式 5 面(底面贴垫块剔除, MC cullface:down)');
+  let s = stat(r);
+  assert.ok(Math.abs(s.minX - 0.4375) < 1e-9 && Math.abs(s.maxX - 0.5625) < 1e-9, '立式 x∈[7,9]px 居中');
+  assert.ok(Math.abs(s.minZ - 0.4375) < 1e-9 && Math.abs(s.maxZ - 0.5625) < 1e-9, '立式 z∈[7,9]px 居中');
+  assert.ok(Math.abs(s.minY - 5) < 1e-9 && Math.abs(s.maxY - 5.625) < 1e-9, '立式 y∈[0,10]px 贴地');
+  /* 墙火把(+x 墙, MC §2): 底面中心贴墙面(半宽嵌墙) · 底抬 3.5px · 顶端离墙外倾 22.5° */
   p = mkPackL(1);
   p.set(1, 5, 1, m.B_TORCH);
   p.set(2, 5, 1, 3); // +x 实心墙
   r = m.MeshCore.meshChunk(p, ATLAS);
-  assert.ok(quads(r.atlas) === 4, '剪切不改面数(仍 4 面)');
-  tb = topBotX(r);
-  assert.ok(Math.abs(tb.topMin - 0.4) < 1e-9, '顶边斜倚 +x 墙(顶边最小 x=+0.4)');
-  assert.ok(Math.abs(tb.botMax - 0.9) < 1e-9, '底边原位(底边最大 x=+0.9)');
-  /* 双侧墙 → 固定优先级取 +x(确定性) */
+  assert.ok(quads(r.atlas) === 6, '墙式 6 面(悬空底面可见, MC 墙模板无 cullface)');
+  s = stat(r);
+  assert.ok(Math.abs(s.maxX - (1 + 0.0625*Math.cos(Math.PI/8))) < 1e-3, '底面中心贴墙面 x=1(半宽嵌墙消缝)');
+  assert.ok(s.minY > 5.19, '底边抬离格底(3.5px − 半宽·sin22.5° ≈ 0.195)');
+  assert.ok(s.upMaxX < s.loMinX - 0.1, '顶端整体离墙外倾(顶组 maxX 在底组 minX 内侧 0.12+)');
+  assert.ok(Math.abs(s.minZ - 0.4375) < 1e-9 && Math.abs(s.maxZ - 0.5625) < 1e-9, '墙式 z 向居中不变');
+  /* 双侧墙 → 固定优先级取 +x(确定性, 与 cascade 同序) */
   p = mkPackL(1);
   p.set(1, 5, 1, m.B_TORCH);
   p.set(2, 5, 1, 3); // +x 墙
   p.set(0, 5, 1, 3); // -x 墙
   r = m.MeshCore.meshChunk(p, ATLAS);
-  assert.ok(Math.abs(topBotX(r).topMin - 0.4) < 1e-9, '双侧墙取 +x(优先序首位, 与 cascade 同序)');
+  assert.ok(Math.abs(stat(r).maxX - (1 + 0.0625*Math.cos(Math.PI/8))) < 1e-3, '双侧墙取 +x(优先序首位)');
 });
 
 test('顶点光: 无光照载荷的 pack 回落全亮(sky=15/block=0) — 既有调用缺省兼容', () => {
