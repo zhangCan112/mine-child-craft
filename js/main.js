@@ -63,6 +63,7 @@ let playSaveT = 0;
 function setupBudgets() {
   const store = {get: (k)=>SyncDB.get(k), set: (k, v)=>SyncDB.set(k, v), remove: (k)=>SyncDB.remove(k)};
   Budgets = mkDailyBudgets({
+    dev: DEV, // ?dev=1 预算全开: blocked 恒 false + warn/exhausted 不触发( docs/dev-mode-design.md D2)
     storage: store,
     defs: {
       play: {capMsFor: (d) => PLAY_LIMIT_DEFAULT_MIN * 60 * 1000 + // 默认限额常量在 daily-budget.js; 临时调整走存储, 不写源码日期
@@ -339,14 +340,11 @@ function netDead() {
 function init() {
   const sp = document.getElementById('splash');
   if (sp) sp.remove();
-  /* dev 解锁: ?dev=1 给 body 加 dev-on — 体验馆等 dev 向模式卡的可见开关。
-     CSS 默认隐藏是构造性防闪现(样式表先于脚本生效), 这里只做解锁
-     (config.js 读 ?touch=1 的 try/catch 同款防御式惯例) */
-  try {
-    if ((location.search || '').includes('dev=1')) document.body.classList.add('dev-on');
-  } catch (e) {
-    /* 参数不可读时保持隐藏 — dev 可见性宁缺勿滥(卡本就默认隐藏) */
-  }
+  /* dev 解锁: DEV 旗标(config.js 读 ?dev=1, 全游戏唯一口径)给 body 加
+     dev-on — 体验馆等 dev 向模式卡的可见开关。CSS 默认隐藏是构造性防闪现
+     (样式表先于脚本生效), 这里只做解锁(旗标读取与 ?touch=1 同款惯例收在
+     config.js; DEV 同时旁路预算/关卡解锁, 见 docs/dev-mode-design.md) */
+  if (DEV) document.body.classList.add('dev-on');
   buildMenu();
   Avatar.setItem(PLAYER.heldItem); // 组合根装配默认手持物(参数表驱动, 见 config.js)
   SyncDB.ready.then(setupBudgets); // 服务器镜像完成后再建账本/迁移(进度零丢失的时序保证)

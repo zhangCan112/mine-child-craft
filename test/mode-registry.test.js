@@ -18,6 +18,7 @@ const path = require('node:path');
 const ModeRegistry = require('../js/mode-registry.js');
 const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
 const mainSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'main.js'), 'utf8');
+const configSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'config.js'), 'utf8');
 
 test('模式注册表: 派生 id 符合命名约定(cardXxx / menuXxx / xxxBackBtn / xxxEnterBtn)', () => {
   for (const m of ModeRegistry.all) {
@@ -101,8 +102,10 @@ test('模式注册表: dev 行三层派生产物一致 — 卡在场带 dev 类 
       '样式表缺 .mode-card.dev 默认隐藏规则(构造性防闪现的 CSS 层)');
   assert.ok(/body\.dev-on\s+\.mode-card\.dev\s*\{\s*display:\s*block;\s*\}/.test(css),
       '样式表缺 body.dev-on .mode-card.dev 还原规则(还原值须与常规卡显示模型一致)');
-  assert.ok(mainSrc.includes('dev=1') && mainSrc.includes('dev-on'),
-      'main.js 缺 ?dev=1 → body.dev-on 解锁接线(JS 只做解锁, config.js ?touch=1 同款惯例)');
+  assert.ok(/const DEV = \(\(\)=>\{[\s\S]*?dev=1/.test(configSrc),
+      'config.js 缺 DEV 旗标(?dev=1 读取收口于此, ?touch=1 同款惯例 — dev 能力面的唯一口径)');
+  assert.ok(mainSrc.includes('DEV') && mainSrc.includes('dev-on'),
+      'main.js 缺 DEV → body.dev-on 解锁接线(旗标读取在 config.js, 这里只做派生消费)');
 });
 
 test('模式注册表: 限额文案的模式名由表派生(漏一个模式不再是手滑)', () => {
