@@ -53,6 +53,8 @@ const SFX_KINDS = {
   win: {synth: {special: 'win'}, g: 1, gTouch: 1, prio: 4, coolMs: 0}, // 胜利和弦: 双振荡器琶音特例(解释器内联), 仪式音豁免同类冷却
   splash: {synth: {noise: {type: 'bandpass', freq: 900, dur: 0.25}, g: 0.12}, g: 1, gTouch: 1, prio: 1, coolMs: 120}, // 入水水花(液体系统复活死键, 设计稿 liquid D10; 带通白噪拟水声)
   lava_hiss: {synth: {noise: {type: 'highpass', freq: 2400, dur: 0.5}, g: 0.10}, g: 1, gTouch: 1, prio: 2, coolMs: 200}, // 水岩混合嘶嘶声(MC extinguish 口径, liquid D4.4)
+  snow_throw: {synth: {noise: {type: 'lowpass', freq: 620, dur: 0.1}, g: 0.08}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 雪球掷出「噗」(票据 T9; 低通白噪拟脱手闷响)
+  snow_hit: {synth: {noise: {type: 'bandpass', freq: 1000, dur: 0.16}, g: 0.10}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 雪球命中「噗嗤」(票据 T9; 带通白噪拟松雪散裂, 打雪仗零伤害的观感主反馈)
 };
 
 /* ---------- BGM 曲目表 ----------
