@@ -89,7 +89,7 @@ test('mesh-worker: lod 请求 → 降采样粗网格(step 取 config 的 VIEW.lo
 test('mesh-worker: 请求携 sky/block 光照圈 → 顶点光随网格回传(火把自身格 block=14)', () => {
   const w = loadWorker();
   const m = mkMsg('full');
-  /* 火把(48, thin)入图集十字通道 — 自身格光照 sky=6 · block=14(§4.1 取自身格) */
+  /* 火把(48, thin+wall)入图集专用小盒通道 — 自身格光照 sky=6 · block=14(§4.1 取自身格) */
   const w18 = 18; const d18 = 18;
   const sky = new Uint8Array(w18*d18*48);
   const blk = new Uint8Array(w18*d18*48);
@@ -100,13 +100,13 @@ test('mesh-worker: 请求携 sky/block 光照圈 → 顶点光随网格回传(�
   m.sky = sky.buffer; m.block = blk.buffer;
   w.onmessage({data: m});
   const r = w.out[0];
-  assert.ok(r.res.atlas, '火把走图集十字面片通道');
+  assert.ok(r.res.atlas, '火把走图集专用小盒通道');
   const isF32 = (a) => Object.prototype.toString.call(a) === '[object Float32Array]';
   assert.ok(isF32(r.res.atlas.sky) && isF32(r.res.atlas.block), '顶点光是 Float32Array(transfer 回传)');
-  assert.strictEqual(r.res.atlas.sky.length, 16, '十字片 4 面 × 4 顶点');
+  assert.strictEqual(r.res.atlas.sky.length, 24, '小盒 6 面 × 4 顶点');
   /* Float32Array 传输量化(6/15 → 0.400000006): 容差 1e-6, 与精度无关的口径断言 */
-  for (const v of r.res.atlas.sky) assert.ok(Math.abs(v - 6/15) < 1e-6, '十字片全部顶点取自身格 sky=6');
-  for (const v of r.res.atlas.block) assert.ok(Math.abs(v - 14/15) < 1e-6, '十字片全部顶点取自身格 block=14(夜间自亮)');
+  for (const v of r.res.atlas.sky) assert.ok(Math.abs(v - 6/15) < 1e-6, '小盒全部顶点取自身格 sky=6');
+  for (const v of r.res.atlas.block) assert.ok(Math.abs(v - 14/15) < 1e-6, '小盒全部顶点取自身格 block=14(夜间自亮)');
   /* transfer 清单含顶点光缓冲(回传网格 sky/block 的 backing buffer, 与 positions 同款零拷贝口径) */
   const bufs = w.transfers[0];
   assert.ok(bufs.includes(r.res.atlas.sky.buffer) && bufs.includes(r.res.atlas.block.buffer),

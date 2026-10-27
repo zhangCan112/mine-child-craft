@@ -3,7 +3,8 @@
    网格化核心 (MeshCore) — 引擎层纯核心 (术语见 GLOSSARY.md)
    ------------------------------------------------------------
    区块数据 → 顶点裸数组 的纯变换: 全细节四通道(实心/玻璃/TNT贴图/
-   方块图集 texture-atlas; 图集内薄块走十字面片、pane 旗标走竖直薄板
+   方块图集 texture-atlas; 图集内薄块走十字面片、火把走专用小盒 pushTorch
+   (MC 同款, mc-torch-model-research §1/§2)、pane 旗标走竖直薄板
    pushPane — 门/玻璃板, docs/door-window-design.md §5)与 LOD 降采样粗网格。
    零 THREE · 零 DOM ·
    加载零副作用 →
@@ -97,22 +98,17 @@ const MeshCore = (() => {
     t.n += 4;
   }
 
-  /* 十字面片(草丛/麦/火把/树苗等入集薄块): 两个对角面各正反两绘 —
+  /* 十字面片(草丛/麦/树苗等入集薄块): 两个对角面各正反两绘 —
      FrontSide 材质下双面可见; 几何占满格高, 视觉高度由贴图 alpha 裁切
      (world.js atlasMat 的 alphaTest), 麦四阶段的"渐高"画在像素里而非
-     压扁几何(压扁会让植株比例失真)。
-     顶点光取自身格(设计稿 §4.1: 火把自身格 block=14, 夜间自亮)。
-     lean(墙火把): {ax, d} = 支承墙方位(ax 0=x 轴/1=z 轴, d=墙在 ± 向)——
-     顶边(py=1 角点)朝墙平移 LEAN_TAN 的剪切变换(MC 墙火把斜倚同款),
-     底边原位; null=立式(插地)。剪切不改法线: 十字面片双绘, 观感不变 */
-  const LEAN_TAN = 0.3; /* 斜倚幅度(顶边位移/格高) */
-  function pushCross(t, x, y, z, tile, cols, rows, lvSky, lvBlk, lean) {
+     压扁几何(压扁会让植株比例失真)。顶点光取自身格(设计稿 §4.1)。
+     火把曾是十字片一员, 2026-10-28 起改走下方专用小盒 pushTorch
+     (MC 火把不是 cross 模型, 资产级差异见 mc-torch-model-research §1.2) */
+  function pushCross(t, x, y, z, tile, cols, rows, lvSky, lvBlk) {
     const c = tile % cols; const r = Math.floor(tile / cols);
     const u0 = c/cols; const u1 = (c+1)/cols;
     const v0 = (rows-1-r)/rows; const v1 = (rows-r)/rows;
     const s = 0.7071; // 对角面法线水平分量(1/√2)
-    const kx = lean && lean.ax === 0 ? lean.d * LEAN_TAN : 0; /* 顶边剪切量 */
-    const kz = lean && lean.ax === 1 ? lean.d * LEAN_TAN : 0;
     /* corners 序 [bl, br, tl, tr]; 反向面角点镜像(UV 随之镜像, 背面图案不反) */
     const planes = [
       {p: [[0.1, 0, 0.1], [0.9, 0, 0.9], [0.1, 1, 0.1], [0.9, 1, 0.9]], n: [-s, 0, s], mirror: false},
@@ -123,10 +119,66 @@ const MeshCore = (() => {
     for (const pl of planes) {
       const us = pl.mirror ? [u1, u0, u1, u0] : [u0, u1, u0, u1];
       for (let i=0; i<4; i++) {
-        const py = pl.p[i][1]; /* 顶点高度 0/1: 剪切随高度线性(底不动顶斜倚) */
-        t.positions.push(x+pl.p[i][0]+kx*py, y+pl.p[i][1], z+pl.p[i][2]+kz*py);
+        t.positions.push(x+pl.p[i][0], y+pl.p[i][1], z+pl.p[i][2]);
         t.normals.push(pl.n[0], pl.n[1], pl.n[2]);
         t.uvs.push(us[i], i < 2 ? v0 : v1);
+        t.sky.push(lvSky);
+        t.block.push(lvBlk);
+      }
+      t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
+      t.n += 4;
+    }
+  }
+
+  /* 火把专用小盒(mc-torch-model-research §1/§2, MC 资产 @1.21.11 同款):
+     2×10×2 像素(0.125×0.625×0.125 格)实心小盒——MC 火把是专用盒模型, 与植物
+     cross 面片无 parent 关系; 「明显方块」感的根治 = 它真的不再是方块。
+     立式(lean=null): 水平居中贴地(from[7,0,7]→to[9,10,9]);
+     墙式 lean{ax,d}(ax 0=x/1=z, d=墙在 ± 向): 盒底面中心贴支承墙面(半宽
+     嵌墙消缝, MC 嵌 1px 同思路)、底距格底 3.5px, 绕底面中心向离墙方向整体
+     旋转 22.5°——底贴墙、顶端外倾(MC 14w07a「剪切平行六面体→旋转立方体」
+     同一条改版路线, 走向与旧 LEAN_TAN 顶边朝墙剪切相反)。
+     贴图采样窗(research §1.1 UV 原文, 像素自格左/顶起): 侧面棍条[7,6,9,16]
+     ·顶面[7,6,9,8] 火色·底面[7,13,9,15] 深木。cullDown=立式垫块贴合 → 底面
+     剔除(MC cullface:down); 墙式悬空底面可见(MC 墙模板无 cullface)。
+     顶点光取自身格(block=14 夜间自亮); 法线随盒旋转——材质注入已替换
+     lights_lambert_vertex(world.js §4.2), 法线不参与块面明暗, 旋转零代价。 */
+  const TORCH_HALF = 1/16; /* 盒半宽: 2px */
+  const TORCH_LEN = 10/16; /* 盒轴长: 10px */
+  const TORCH_LIFT = 3.5/16; /* 墙式底面中心距格底: 3.5px */
+  const TORCH_SN = Math.sin(Math.PI/8); /* sin 22.5° ≈ 0.3827 */
+  const TORCH_CS = Math.cos(Math.PI/8); /* cos 22.5° ≈ 0.9239 */
+  function pushTorch(t, x, y, z, tile, cols, rows, lvSky, lvBlk, lean, cullDown) {
+    const c = tile % cols; const r = Math.floor(tile / cols);
+    const uT = c/cols; const vT = (rows-1-r)/rows; /* 格左下角 UV */
+    const WINS = [[7, 6, 2, 10], [7, 6, 2, 2], [7, 13, 2, 2]]; /* 侧面/顶/底采样窗 */
+    const ax = lean ? lean.ax : 0; const d = lean ? lean.d : 0;
+    const cx = lean && ax === 0 ? x + (d > 0 ? 1 : 0) : x + 0.5; /* 底面中心: 墙式贴墙面 */
+    const cz = lean && ax === 1 ? z + (d > 0 ? 1 : 0) : z + 0.5;
+    const cy = y + (lean ? TORCH_LIFT : 0); /* 立式贴地 · 墙式底抬 3.5px */
+    /* 墙式绕底面中心在 (ax 轴, y) 平面旋 θ=d·22.5°(顶端离墙) */
+    const rv = (vx, vy, vz)=>{
+      if (!lean) return [vx, vy, vz];
+      if (ax === 0) return [vx*TORCH_CS - vy*d*TORCH_SN, vx*d*TORCH_SN + vy*TORCH_CS, vz];
+      return [vx, vz*TORCH_CS - vy*d*TORCH_SN, vz*d*TORCH_SN + vy*TORCH_CS];
+    };
+    for (let f=0; f<6; f++) {
+      if (f === 2 && cullDown) continue; /* 底面贴垫块剔除(MC cullface:down) */
+      const face = FACES[f];
+      const w = WINS[f === 2 ? 2 : (f === 3 ? 1 : 0)];
+      const n = rv(face.dir[0], face.dir[1], face.dir[2]); /* 法线随盒同旋 */
+      for (let i=0; i<4; i++) {
+        const cor = face.corners[i];
+        const lx = (cor[0]*2-1)*TORCH_HALF; /* 角点 0/1 → ±半宽 */
+        const ly = cor[1]*TORCH_LEN; /* 0/1 → 0/轴长 */
+        const lz = (cor[2]*2-1)*TORCH_HALF;
+        const p = rv(lx, ly, lz);
+        t.positions.push(cx+p[0], cy+p[1], cz+p[2]);
+        t.normals.push(n[0], n[1], n[2]);
+        /* 面内 [0,1]² → 像素窗: u 左起 · v 底起(fv=0 采样窗底行) */
+        const fuv = faceUV(face.dir, cor);
+        t.uvs.push(uT + (w[0] + fuv[0]*w[2])/16/cols,
+            vT + (16 - w[1] - (1 - fuv[1])*w[3])/16/rows);
         t.sky.push(lvSky);
         t.block.push(lvBlk);
       }
@@ -277,25 +329,29 @@ const MeshCore = (() => {
             pushPane(A, wx, y, wz, lx, lz, b, ae, atlas, lget, lsky, lblk);
             continue;
           }
-          if (ae) { // 图集方块: 第 4 通道(薄块走十字面片, 立方体按面取格)
+          if (ae) { // 图集方块: 第 4 通道(薄块走十字面片/火把走专用小盒, 立方体按面取格)
             if (b.thin) {
-              /* 贴墙取向(墙火把, config B_TORCH wall 旗标): 底下无实心支承 →
-                 按固定优先级(+x/-x/+z/-z, 与 cascade NEIGH_HOR 同序)取首个
-                 实心水平邻, 十字片顶边斜倚该墙; 支承判据镜像 CascadeCore
-                 mkPolicy.isSupport(单一权威在彼处, 此处只读同一 BLOCKS 派生)。
-                 取向不存档——同世界状态必同取向(确定性重放红线) */
-              let lean = null;
-              if (b.wall) {
+              if (b.wall) { // 火把(wall 全表唯一): 专用小盒 pushTorch(MC 同款)
+                /* 贴墙取向: 底下无实心支承 → 按固定优先级(+x/-x/+z/-z, 与
+                   cascade NEIGH_HOR 同序)取首个实心水平邻, 小盒底面贴该墙
+                   +外倾旋转; 支承判据镜像 CascadeCore mkPolicy.isSupport
+                   (单一权威在彼处, 此处只读同一 BLOCKS 派生)。
+                   取向不存档——同世界状态必同取向(确定性重放红线) */
                 const sup = (nid) => !!(nid !== 0 && BLOCKS[nid] && BLOCKS[nid].solid !== false);
-                if (!sup(lget(lx, y - 1, lz))) {
+                const onBase = sup(lget(lx, y - 1, lz));
+                let lean = null;
+                if (!onBase) {
                   if (sup(lget(lx + 1, y, lz))) lean = {ax: 0, d: 1};
                   else if (sup(lget(lx - 1, y, lz))) lean = {ax: 0, d: -1};
                   else if (sup(lget(lx, y, lz + 1))) lean = {ax: 1, d: 1};
                   else if (sup(lget(lx, y, lz - 1))) lean = {ax: 1, d: -1};
                 }
+                pushTorch(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows,
+                    lsky(lx, y, lz)/15, lblk(lx, y, lz)/15, lean, onBase);
+                continue;
               }
               pushCross(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows,
-                  lsky(lx, y, lz)/15, lblk(lx, y, lz)/15, lean);
+                  lsky(lx, y, lz)/15, lblk(lx, y, lz)/15);
               continue;
             }
             for (let f=0; f<6; f++) {
