@@ -337,7 +337,10 @@ canvas {
 
   .f-area {
     width: 94vw;
-    height: min(420px,52vh);
+
+    --f-area-h: min(420px, 52vh); /* 同步覆盖场地高变量: corsi 格阵自缩公式消费此值 */
+
+    height: var(--f-area-h);
   }
 
   .f-stim img {
@@ -375,14 +378,7 @@ canvas {
     height: 50px;
   }
 
-  .f-corsi-grid.g3 {
-    grid-template-columns: repeat(3,min(84px,22vw));
-  }
-
-  .f-corsi-grid.g3 .f-corsi-tile {
-    width: min(84px,22vw);
-    height: min(84px,22vw);
-  }
+  /* corsi 格阵不再按档写死: focus.css 已按 --f-area-h/88vw 流式自缩(含 g4) */
 
   .f-table {
     font-size: 11px;

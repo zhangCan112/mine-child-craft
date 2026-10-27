@@ -238,8 +238,11 @@
 .f-area {
   position: relative;
   isolation: isolate; /* F9: 矿洞皮肤 z-index:-1 沉到游戏内容之下 */
+
+  --f-area-h: min(440px, 56vh); /* 场地高单一出处: corsi 格阵自缩公式消费同源值 */
+
   width: min(760px,92vw);
-  height: min(440px,56vh);
+  height: var(--f-area-h);
   border-radius: 16px;
   background: linear-gradient(#2b2b33,#1c1c22); /* 无贴图时的纯色兜底 */
   border: 4px solid #5a5a63;
@@ -416,24 +419,36 @@
   text-shadow: 0 2px 4px #000;
 }
 
+/* Corsi 格阵流式自缩(2026-10-28 训练营 pad 反馈修): 1fr 轨 + 方块
+   aspect-ratio 撑行高, 容器边长取三者最小 — 名义边长(g3=312/g4=372,
+   与旧固定像素 96/84 等值) · 88vw(防窄窗横向溢出) · 场地高扣 68px
+   (提示行+内边距, 防底行被 .f-area 的 overflow:hidden 裁掉)。
+   旧写法固定像素列(96/84), 触屏档只配了 g3 没配 g4, 4×4 关在
+   pad 横屏塞不进更矮的场地 */
 .f-corsi-grid {
+  --corsi-nominal: 312px;
+
   display: grid;
   gap: 12px;
-  justify-content: center;
+  margin: 0 auto;
+  width: min(var(--corsi-nominal), 88vw, calc(var(--f-area-h) - 68px));
   padding: 8px 0;
 }
 
 .f-corsi-grid.g3 {
-  grid-template-columns: repeat(3,96px);
+  --corsi-nominal: 312px;
+
+  grid-template-columns: repeat(3,1fr);
 }
 
 .f-corsi-grid.g4 {
-  grid-template-columns: repeat(4,84px);
+  --corsi-nominal: 372px;
+
+  grid-template-columns: repeat(4,1fr);
 }
 
 .f-corsi-tile {
-  width: 96px;
-  height: 96px;
+  aspect-ratio: 1; /* 轨宽撑方形, 行高随之自洽 */
   border-radius: 12px;
   background-color: #55555e;
   background-size: 64% 64%;
@@ -443,11 +458,6 @@
   box-shadow: inset 0 -6px 0 rgb(0 0 0 / 30%);
   cursor: pointer;
   position: relative;
-}
-
-.f-corsi-grid.g4 .f-corsi-tile {
-  width: 84px;
-  height: 84px;
 }
 
 .f-corsi-tile.lit {
