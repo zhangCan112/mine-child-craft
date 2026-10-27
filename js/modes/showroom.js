@@ -19,22 +19,34 @@
    (无需 conventions §6 登记)、不计儿童时限(gated:false)。挖/放/门/传送门
    经 place-kit 接入(§8, 与探险同一段规则代码); TNT 点燃/爆炸链同拍接入
    (探险 D3/D4 同规则: 纯函数直用 adventure-core, 引信/爆炸不进 place-kit
-   既定口径; 波及怪物段不移植——体验馆不接 Mobs 子系统)。床睡觉/进食/雪球
-   仍推迟(夜窗/投掷系统未接入)。
+   既定口径; 波及怪物段不移植——体验馆不接 Mobs 子系统)。进食/雪球同拍
+   接入(票 B): 玩家 HP 实体(CombatKit.mkFighter, 探险 30/30 同款)+头顶
+   血条+右键使用链补「吃→掷」两档(站点>门开关>吃>雪球>放置, 探险同序),
+   规则零复制——吃判据 advEatPolicy 与雪球弹道常量 ADV_SNOWBALL_* 直用
+   adventure-core, 实体/冷却轨道/弹池/血条全经 CombatKit 工厂。本馆当前
+   无伤害源(无怪/TNT 不伤玩家/无摔落伤) → HP 恒满, 吃链待票 C 落怪才有
+   真实触发场景(本票先立实体与链路, 测试直驱血量)。左键挥击瞄准分支
+   (mkMelee.aim 扫怪列表)随票 C 落怪接入——现在接上是恒假死代码, 不接;
+   床睡觉仍推迟(夜窗未接入)。
    interface: ShowroomMode(mkMode 注册对象, id='showroom'; 无菜单页,
      卡点击直进) · ShowroomMode.stock(套餐挂点, 派生产物) / getInv()
      (内存背包 getter, 引用跨进场稳定) / crates(仓库箱挂点: list/账户/
      open) / sr(站点触达面: 熔炉 furnaces/panel/isOpen/autoFill/refundAll
      + 合成 craft + 箱子 chest) / pk(放置链 kit 实例) / mine(蓄力状态机) /
-     fuses(TNT 引信数组) / tntTap()(TNT 短按状态 getter) — 守门测试挂点
+     fuses(TNT 引信数组) / tntTap()(TNT 短按状态 getter) / pEnt()(HP 实体
+     getter) / snowballs(雪球弹池: count/clear 直驱) — 守门测试挂点
      (adventure 的 .adv 先例, 浏览器侧无害)
    依赖(均经全局名, 调用期解析): showroomPocket/showroomCrateRows/
      showroomDisplays(js/showroom-core.js 供给派生, 加载序在本文件之前) ·
      PlaceKit(js/place-kit.js 放置链, 加载序在 adventure.js 之后本文件之前) ·
      mkMode/ModeKit.spawn/ModeKit.mkHotbar/ModeKit.mkCraftPanel/ModeKit.
      mkChestPanel(js/mode-kit.js) · FurnaceKit(js/furnace-kit.js) ·
+     CombatKit(js/combat-kit.js 玩家战斗: mkFighter/mkMelee/mkArrows/
+     mkHpBar, 加载序在本文件之前; Mobs/Avatar/CameraRig 由其调用期消费) ·
      advChestPut/advChestTake/ADV_STATION_R/ADV_TNT_FUSE/ADV_TNT_R/
-     advTntTapStep/advExplodeCells(js/adventure-core.js, TNT 纯段直用) ·
+     advTntTapStep/advExplodeCells/advEatPolicy/ADV_SNOWBALL_SPEED/
+     ADV_SNOWBALL_G/ADV_SNOWBALL_KPOW/ADV_SNOWBALL_LIFE/ADV_SNOWBALL_CD
+     (js/adventure-core.js, TNT 纯段/进食政策/雪球弹道常量直用) ·
      Drops(js/drops.js 掉落物实体, update/render/onCollect 三链) ·
      loadScene(js/world.js) · SceneKit(js/scene-kit.js) · WORLD_W/WORLD_D/
      BLOCKS/B_FURNACE/B_CRAFT/B_CHEST/B_BED/B_TORCH/B_DOOR/B_DOOR_TOP/
@@ -46,8 +58,9 @@
      touchPlaying(js/input.js) ·
      fps/overlay/switchMode/showPage(js/main.js, 加载序在后、调用期已就绪)
    可测性: THREE/DOM 全经 loadScene/ModeKit 惰性路径, boot 冒烟(vm 桩)
-     全链可跑; 数据隔离/套餐/仓库箱/建场/三站点交互由 test/showroom-
-     mode.test.js 守门(供给派生不变量在 test/showroom-core.test.js)
+     全链可跑; 数据隔离/套餐/仓库箱/建场/三站点交互/放置链/TNT/进食/雪球
+     由 test/showroom-mode.test.js 守门(供给派生不变量在
+     test/showroom-core.test.js)
    ============================================================ */
 
 /* ---------- 场地常数: 展馆布局(§7 D4, 全部几何数据驱动) ---------- */
@@ -341,6 +354,62 @@ function showroomTntTapTick(dt) {/* 纯步进 advTntTapStep 在 adventure-core, 
   if (r.act && r.act.mine) showroomMine.down = true; /* 按住转蓄力(准星已移开则蓄力链自清) */
 }
 
+/* ---------- 玩家 HP 实体 + 进食 + 雪球(票 B, 探险同款镜像): HP 实体是票 C
+   怪物战斗的地基。本馆当前无伤害源 → HP 恒满, 吃链在真实游玩里待票 C 落怪
+   才有触发场景——本票先立实体与右键使用链, 测试直驱血量验行为。规则零复制:
+   吃判据 advEatPolicy、雪球弹道常量 ADV_SNOWBALL_* 直用 adventure-core,
+   实体/冷却轨道/弹池/血条全经 CombatKit 工厂(不造第二份实现); dev 降噪:
+   零 TTS/零音效, 反馈只走 toast(馆内既有口径)。 ---------- */
+/* 玩家战斗实体(探险 advPEnt 同形): hp 30/maxHp 30 探险同款; 体验馆无存档
+   → 实体即唯一账本(无 ADV.player 镜像), cleanup 复位满血 */
+const showroomPEnt = CombatKit.mkFighter({hp: 30, maxHp: 30});
+/* 近战冷却轨道(mkMelee 实例): 本票只消费 swingAction(雪球投掷与挥击同一
+   冷却轨道, 下界弓口径); aim 挥击/伤害/耐久随票 C 落怪接线(现在无怪,
+   aim 恒空, 接上是死代码); 冷却自持, update 只喂 tick */
+const showroomMelee = CombatKit.mkMelee({});
+/* 雪球弹池(T9 第二实例同形): sphere 白球·不 lookAt·muteSfx(kit 内置音全抑,
+   馆内降噪); 零伤害红线落在逐发 spec(dmg 0 只击退); 命中观感/音效政策随
+   票 C 落怪接 onHitMob(现在无怪, 命中面恒空) */
+const showroomSnowballs = CombatKit.mkArrows({mesh: 'sphere', color: 0xffffff,
+  lookAt: false, muteSfx: true});
+/* 头顶血条(探险 advHpBar 同款深接口): update 惰性建条, 重绘节流收在 kit */
+const showroomHpBar = CombatKit.mkHpBar();
+
+/* 吃食物(探险 advTryEat 镜像): 手持食物右键 → advEatPolicy 判据(满血不吃
+   不扣; 金苹果 full 回满), remove 吃一口, 快捷栏跟进; 账本=实体本身 */
+function showroomTryEat() {
+  const slot = showroomHb.sel;
+  const s = showroomInv.slots[slot];
+  const it = s ? ITEMS[s.id] : null;
+  if (!it || it.food == null) return false;
+  const pol = advEatPolicy(showroomPEnt.hp, showroomPEnt.maxHp, it.food, it.full);
+  if (!pol.canEat) {
+    showToast('现在饱饱的，还不饿哦！');
+    return true; /* 吃过 attempt 但没吃: 不进入放置(探险同款) */
+  }
+  showroomPEnt.hp = pol.hp;
+  remove(showroomInv, slot, 1);
+  showroomSyncBar();
+  showToast('😋 吃掉 ' + it.name + '，生命 +' + pol.healed);
+  return true;
+}
+
+/* 投掷雪球(T9 镜像): 手持雪球右键 — swingAction 占冷却(与挥击同轨, 冷却内
+   连点被拒不扣), 弹沿准星出膛(低初速高重力), 消耗手持 1 颗; 零伤害红线:
+   dmg 0 只击退(kpow 1.1), 掷出即算不问命中 */
+function showroomTryThrowSnowball() {
+  const slot = showroomHb.sel;
+  const s = showroomInv.slots[slot];
+  if (!s || s.id !== 'snowball') return false;
+  showroomMelee.swingAction(showroomPEnt, {cooldown: ADV_SNOWBALL_CD, act: () => {
+    showroomSnowballs.shootFromAim({speed: ADV_SNOWBALL_SPEED, dmg: 0,
+      kpow: ADV_SNOWBALL_KPOW, g: ADV_SNOWBALL_G, life: ADV_SNOWBALL_LIFE});
+    remove(showroomInv, slot, 1);
+    showroomSyncBar();
+  }});
+  return true; /* 手持雪球: 点击恒算投掷 attempt, 不落放置(探险同款) */
+}
+
 /* 站点使用路由: 点击块号分流, 4 格门槛按点击块精确判距(返回 true=消费本次点击) */
 function showroomUseStation(hit) {
   const lookId = getBlock(hit.x, hit.y, hit.z);
@@ -486,19 +555,28 @@ const ShowroomMode = mkMode({
     showroomSyncBar();
     showroomHb.show();
     showroomFurnace.reset(); // 炉态纯内存, 进场清零
+    showroomSnowballs.clear(); /* 上一场的雪球不渗进来(T9 清场纪律, 探险 init/cleanup 双先例) */
+    showroomMelee.reset(); /* 投掷冷却不复场(探险 advMelee.reset init 先例) */
+    showroomPEnt.hp = showroomPEnt.maxHp; /* 进场满血(实体即账本; 探险进场血量复位同位) */
+    CombatKit.resetFighter(showroomPEnt); /* 受击状态五字段复位(复活不变量) */
     showroomMouseListeners(true); // 桌面按住检测(document capture, 探险同款)
     showroomHookDrops(); // 收集回调重挂(切模式 Drops.clear 解除后, 探险同款)
   },
 
   cleanup() {/* 收场: 收双面板(合成 close 链退台面余料) + 蓄力停 + 按住监听摘 +
-    TNT 引信/tap 复位(引信不落盘, 探险先例) + 退炉三笔入包 + 收炉面板 +
-    解「进行中」态(零掉落物, 余量静默丢弃 dev 口径) */
+    TNT 引信/tap 复位(引信不落盘, 探险先例) + 雪球弹池清空 + HP 实体复位
+    满血 + 投掷冷却归零(跨进场不渗漏, 探险清场纪律先例) + 退炉三笔入包 +
+    收炉面板 + 解「进行中」态(零掉落物, 余量静默丢弃 dev 口径) */
     showroomCraftClose();
     if (showroomChestOpen) showroomChestPanel.close();
     showroomPlaceKit.mineStop(showroomMine);
     showroomMouseListeners(false);
     showroomTntTap = null; /* TNT 短按判定一并复位 */
     showroomFuses.length = 0; /* 引信不落盘 */
+    showroomSnowballs.clear(); /* 上一场的雪球不渗进来(T9 清场纪律, 探险 cleanup 先例) */
+    showroomMelee.reset(); /* 投掷冷却不复场(kit 自持账本复位, 探险 advMelee.reset 同款) */
+    showroomPEnt.hp = showroomPEnt.maxHp; /* HP 复位满血(实体即账本, 体验馆无存档镜像) */
+    CombatKit.resetFighter(showroomPEnt); /* 受击状态五字段复位(复活不变量) */
     showroomFurnace.refundAll();
     showroomFurnace.panel.hide();
     touchPlaying = false;
@@ -507,18 +585,23 @@ const ShowroomMode = mkMode({
   update(dt) {
     showroomFurnace.tick(dt); // 烧炼节律常开(多炉逐炉推进, 面板只是回显)
     showroomPlaceKit.tickTimers(dt); // 话术节流递减(账本在 kit 实例; 体验馆静默)
+    showroomMelee.tick(dt); /* 投掷冷却递减(kit 自持, update 只喂 tick; 探险同款喂法) */
     showroomFuseTick(dt); /* TNT 引信倒计时到点起爆(先于蓄力: 当帧爆炸位置不漂移, 探险同款) */
     showroomTntTapTick(dt); /* TNT 短按/按住判定: 转蓄力需先于 mineTick 同帧生效 */
     /* 蓄力挖 → 破坏结算(级联/门配对/掉落)全在 place-kit, 与探险同一实现 */
     showroomPlaceKit.mineTick(showroomMine, PlaceKit.aimHit(), dt,
         {held: showroomMouseHeld,
           panelOpen: showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen()});
+    showroomSnowballs.update(dt); /* 雪球弹道步进+命中扫描(零伤害 spec; 探险双实例并喂同拍) */
     Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 真空拾取(挖掘掉落, 玩家胸口点) */
     Drops.render();
+    showroomHpBar.update(showroomPEnt.hp, showroomPEnt.maxHp,
+        pos.x, pos.y + 2.2, pos.z); /* 头顶血条(头顶 2.2 格, 重绘节流收在 kit; 探险同位) */
   },
 
-  onMouse(button, hit) {/* 探险同款次序: 左键 = TNT 短按记账 > 站点使用 > 门开关 > 蓄力挖;
-      右键 = 站点使用 > 门开关 > 放置(TNT 点燃不走右键, 探险防误触拍板同款) */
+  onMouse(button, hit) {/* 探险同款次序: 左键 = TNT 短按记账 > 站点使用 > 门开关 > 蓄力挖
+      (挥击瞄准分支待票 C 落怪——mkMelee.aim 扫怪列表, 现在接上是恒假死代码);
+      右键 = 站点使用 > 门开关 > 吃 > 雪球 > 放置(TNT 点燃不走右键, 探险防误触拍板同款) */
     if (showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen()) return;
     if (button !== 0 && button !== 2) return;
     const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
@@ -536,6 +619,8 @@ const ShowroomMode = mkMode({
     if (button === 0) {
       if (hit) showroomMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update) */
     } else {
+      if (showroomTryEat()) return; /* 手持食物: 右键吃(使用档在门与放置之间, 探险同序) */
+      if (showroomTryThrowSnowball()) return; /* 手持雪球: 掷出(使用档在吃与放置之间, T9) */
       showroomPlaceKit.tryPlace(hit); /* 放置(单格/门/传送门结构, kit 全链) */
     }
   },
@@ -586,6 +671,8 @@ ShowroomMode.pk = showroomPlaceKit; // 放置链 kit(放置/破坏/门开关, �
 ShowroomMode.mine = showroomMine; // 蓄力状态机(形状同探险 advMine, 测试直驱)
 ShowroomMode.fuses = showroomFuses; // TNT 引信数组(测试直驱, 探险 advFuses 先例)
 ShowroomMode.tntTap = () => showroomTntTap; // TNT 短按状态 getter(let 绑定经闭包读)
+ShowroomMode.pEnt = () => showroomPEnt; // HP 实体 getter(测试直驱血量; adventure advGetPEnt 先例)
+ShowroomMode.snowballs = showroomSnowballs; // 雪球弹池(count/clear 测试直驱, fuses 先例)
 ShowroomMode.sr = {
   furnaces: showroomFurnace.map,
   panel: showroomFurnace.panel,

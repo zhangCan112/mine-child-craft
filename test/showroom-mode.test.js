@@ -156,6 +156,21 @@ ModeKit.spawn = (x, y, z, o) => {
   calls.push(['spawn', x, y, z, o]);
 };
 
+/* ---------- 玩家战斗桩(票 B: HP 实体/进食/雪球弹池经 CombatKit, 全调用期解析) ---------- */
+globalThis.CombatKit = require('../js/combat-kit.js');
+globalThis.CombatCore = require('../js/combat-core.js'); /* stepShot/leadAim(combat-kit 自由标识符消费) */
+globalThis.Avatar = {swing() {}, flash() {}, setItem() {}}; /* 挥臂/闪红观感桩(Node 无渲染) */
+globalThis.camera = {}; /* 相机件: shootFromAim 沿准星出膛的取景入参(raycastVoxel 缺席, aimHit 守卫仍返 null) */
+const mobsRig = {list: [], hits: []}; /* 体验馆无怪: 名单恒空(mkArrows 命中扫描面); 雪球红线用例临时塞假怪 */
+globalThis.Mobs = {
+  list: () => mobsRig.list,
+  hit(m, dmg, kdx, kdz, kpow) {
+    mobsRig.hits.push({m, dmg, kdx, kdz, kpow});
+    return {freshDead: false};
+  },
+  debrisColor: () => 0xffffff,
+};
+
 /* 供给核心先于模式装载(mode-kit 同款: 模式顶层即调其派生函数) */
 const ShowroomCore = require('../js/showroom-core.js');
 globalThis.showroomPocket = ShowroomCore.showroomPocket;
@@ -736,4 +751,115 @@ test('体验馆: 拾取入包 — 收集回调入包+快捷栏跟进, 满包拒�
   } finally {
     ShowroomMode.hotbar.render = origRender;
   }
+});
+
+/* ============ ⑫ 玩家 HP 实体 + 进食 + 雪球(票 B, 探险同款镜像) ============
+   吃判据 advEatPolicy(满血不吃不扣/金苹果 full 回满)、雪球冷却轨道
+   (mkMelee.swingAction 与挥击同轨)+零伤害弹池(红线: 雪球不伤人)。体验馆
+   无伤害源 → HP 恒满, 用例直驱实体血量(票 C 落怪后的同一路径); 用例坐标
+   在西场空地(x 20..28, z 20), 与既有用例零重叠(桩 loadScene 不清场)。 */
+
+test('体验馆: 进食链 — 半血右键吃: hp 回升+扣 1+快捷栏同步; 满血不吃不扣(advEatPolicy 政策)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('apple', 2);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.pEnt().hp = 15; /* 直驱至半血(实体即账本; 体验馆无伤害源, 票 C 落怪后同一路径) */
+  let renders = 0;
+  const origRender = ShowroomMode.hotbar.render;
+  /* 间谍: 快捷栏同步被调观察面(⑪ 同款) */
+  ShowroomMode.hotbar.render = () => {
+    renders++;
+    origRender();
+  };
+  try {
+    ShowroomMode.onMouse(2, {x: 20, y: 12, z: 20, nx: 0, ny: 1, nz: 0}); /* 草地: 吃吞点击不落放置 */
+    assert.strictEqual(ShowroomMode.pEnt().hp, 19, '苹果回 4 血(ITEMS.food)');
+    assert.strictEqual(inv.slots[0].n, 1, '吃掉 1 个');
+    assert.ok(renders > 0, '快捷栏同步被调(showroomSyncBar)');
+    assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('吃掉')), '吃货 toast(dev 降噪: 零 TTS/零音效)');
+    assert.strictEqual(api.getBlock(20, 13, 20), 0, '吃吞点击: 不落放置');
+  } finally {
+    ShowroomMode.hotbar.render = origRender;
+  }
+  ShowroomMode.pEnt().hp = 30; /* 满血 */
+  ShowroomMode.onMouse(2, {x: 20, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(inv.slots[0].n, 1, '满血不吃不扣(政策口径)');
+  assert.strictEqual(ShowroomMode.pEnt().hp, 30, '满血血量不动');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('饱')),
+      '满血提示(attempt 被吞, 仍不落放置)');
+  assert.strictEqual(api.getBlock(20, 13, 20), 0, '满血 attempt 也不落放置');
+});
+
+test('体验馆: 金苹果 — 半血右键吃回满(full 旗标经 advEatPolicy)+扣 1', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('golden_apple', 2);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.pEnt().hp = 12;
+  ShowroomMode.onMouse(2, {x: 22, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(ShowroomMode.pEnt().hp, 30, '金苹果回满血(full → maxHp, 无饥饿系统折算)');
+  assert.strictEqual(inv.slots[0].n, 1, '吃掉 1 个');
+});
+
+test('体验馆: 雪球投掷 — 右键掷出: 扣 1+弹池出膛+冷却内再掷被拒不扣; 零伤害红线(命中怪 dmg=0)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('snowball', 3);
+  ShowroomMode.hotbar.select(0);
+  /* 准星 fake: 眼高沿 -Z 平射(adventure-mode.test 同款; 只换 CameraRig,
+     camera/raycastVoxel 缺席 → PlaceKit.aimHit 守卫返 null, 蓄力链不受扰) */
+  const origRig = globalThis.CameraRig;
+  globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.6, z: pos.z},
+    dir: {x: 0, y: 0, z: -1}})};
+  mobsRig.list.push({type: 'zombie', pos: {x: 64.5, y: 13, z: 62.3}, vel: {x: 0, z: 0},
+    cfg: {h: 1.8, hitR: 0.55}, dead: false, gone: false}); /* 面前 2.2 格假怪(仅判定面) */
+  try {
+    ShowroomMode.onMouse(2, {x: 24, y: 12, z: 20, nx: 0, ny: 1, nz: 0}); /* 草地: 掷出吞点击 */
+    assert.strictEqual(inv.slots[0].n, 2, '掷出消耗 1 颗');
+    assert.strictEqual(ShowroomMode.snowballs.count(), 1, '弹池 1 发');
+    ShowroomMode.onMouse(2, {x: 24, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
+    assert.strictEqual(inv.slots[0].n, 2, '冷却内连点不扣(swingAction 与挥击同轨)');
+    assert.strictEqual(ShowroomMode.snowballs.count(), 1, '冷却内不出膛');
+    /* 弹道步进至命中: 零伤害红线 — update 喂弹池的行为面同证 */
+    for (let i = 0; i < 60 && !mobsRig.hits.length; i++) ShowroomMode.update(1 / 60);
+    assert.strictEqual(mobsRig.hits.length, 1, '雪球飞到怪(update 喂弹道)');
+    assert.strictEqual(mobsRig.hits[0].dmg, 0, '零伤害红线: 雪球永不扣血');
+    assert.strictEqual(ShowroomMode.snowballs.count(), 0, '命中出池');
+  } finally {
+    globalThis.CameraRig = origRig;
+    mobsRig.list.length = 0;
+    mobsRig.hits.length = 0;
+  }
+});
+
+test('体验馆: 手持非食物/非雪球右键 — 照旧落放置链(使用链不吞点击)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('dirt', 2);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 26, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(api.getBlock(26, 13, 20), 2, '泥土照常放置(放置链)');
+  assert.strictEqual(inv.slots[0].n, 1, '扣 1(放置链口径)');
+  assert.strictEqual(ShowroomMode.snowballs.count(), 0, '没有雪球出膛');
+});
+
+test('体验馆: cleanup 复位 — 雪球弹池清空+HP 实体复位满血(跨进场不渗漏, 探险清场纪律先例)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('snowball', 3);
+  ShowroomMode.hotbar.select(0);
+  const origRig = globalThis.CameraRig;
+  globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.6, z: pos.z},
+    dir: {x: 0, y: 0, z: -1}})};
+  ShowroomMode.onMouse(2, {x: 28, y: 12, z: 20, nx: 0, ny: 1, nz: 0}); /* 掷出一发 */
+  globalThis.CameraRig = origRig;
+  assert.strictEqual(ShowroomMode.snowballs.count(), 1, '弹池在位(复位前提)');
+  ShowroomMode.pEnt().hp = 7; /* 破坏现场: 残血 */
+  ShowroomMode.cleanup();
+  assert.strictEqual(ShowroomMode.snowballs.count(), 0, '弹池清空(不渗漏下一模式)');
+  assert.strictEqual(ShowroomMode.pEnt().hp, ShowroomMode.pEnt().maxHp, 'HP 复位满血');
+  freshEnter(); /* 重进: 干净初始态 */
+  assert.strictEqual(ShowroomMode.snowballs.count(), 0, '重进弹池仍空');
+  assert.strictEqual(ShowroomMode.pEnt().hp, ShowroomMode.pEnt().maxHp, '重进满血');
 });
