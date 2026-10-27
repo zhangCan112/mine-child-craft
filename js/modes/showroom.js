@@ -17,28 +17,33 @@
    红线: 零本地存储读写/零进度档键字面量(调试永不污染真实进度, ADR 0002;
    守门测试扫源文本, 注释也用中文措辞避开存储 API 名字面量)、不接指针锁定
    (无需 conventions §6 登记)、不计儿童时限(gated:false)。挖/放/门/传送门
-   经 place-kit 接入(§8, 与探险同一段规则代码; 床睡觉/进食/雪球/TNT 点燃
-   等探险系统仍推迟——夜窗/怪物/投掷/爆炸链未接入)。
+   经 place-kit 接入(§8, 与探险同一段规则代码); TNT 点燃/爆炸链同拍接入
+   (探险 D3/D4 同规则: 纯函数直用 adventure-core, 引信/爆炸不进 place-kit
+   既定口径; 波及怪物段不移植——体验馆不接 Mobs 子系统)。床睡觉/进食/雪球
+   仍推迟(夜窗/投掷系统未接入)。
    interface: ShowroomMode(mkMode 注册对象, id='showroom'; 无菜单页,
      卡点击直进) · ShowroomMode.stock(套餐挂点, 派生产物) / getInv()
      (内存背包 getter, 引用跨进场稳定) / crates(仓库箱挂点: list/账户/
      open) / sr(站点触达面: 熔炉 furnaces/panel/isOpen/autoFill/refundAll
-     + 合成 craft + 箱子 chest) — 守门测试挂点(adventure 的 .adv 先例,
-     浏览器侧无害)
+     + 合成 craft + 箱子 chest) / pk(放置链 kit 实例) / mine(蓄力状态机) /
+     fuses(TNT 引信数组) / tntTap()(TNT 短按状态 getter) — 守门测试挂点
+     (adventure 的 .adv 先例, 浏览器侧无害)
    依赖(均经全局名, 调用期解析): showroomPocket/showroomCrateRows/
      showroomDisplays(js/showroom-core.js 供给派生, 加载序在本文件之前) ·
      PlaceKit(js/place-kit.js 放置链, 加载序在 adventure.js 之后本文件之前) ·
      mkMode/ModeKit.spawn/ModeKit.mkHotbar/ModeKit.mkCraftPanel/ModeKit.
      mkChestPanel(js/mode-kit.js) · FurnaceKit(js/furnace-kit.js) ·
-     advChestPut/advChestTake/ADV_STATION_R(js/adventure-core.js) ·
-     Drops(js/drops.js 掉落物实体, update/render/tick 三链) ·
+     advChestPut/advChestTake/ADV_STATION_R/ADV_TNT_FUSE/ADV_TNT_R/
+     advTntTapStep/advExplodeCells(js/adventure-core.js, TNT 纯段直用) ·
+     Drops(js/drops.js 掉落物实体, update/render/onCollect 三链) ·
      loadScene(js/world.js) · SceneKit(js/scene-kit.js) · WORLD_W/WORLD_D/
      BLOCKS/B_FURNACE/B_CRAFT/B_CHEST/B_BED/B_TORCH/B_DOOR/B_DOOR_TOP/
-     B_GLASS_PANE/B_COAL_ORE/B_IRON_ORE/B_GOLD_ORE/B_DIAMOND_ORE/B_CLAY
-     (js/config.js) · blockKey/getBlock/setBlockRaw(js/voxel.js) ·
+     B_GLASS_PANE/B_TNT/B_COAL_ORE/B_IRON_ORE/B_GOLD_ORE/B_DIAMOND_ORE/
+     B_CLAY(js/config.js) · blockKey/getBlock/setBlockRaw(js/voxel.js) ·
      mkInventory/add/remove/moveSlot/count/isTool/toolOf/HOTBAR_SLOTS/
      INV_SLOTS(js/inventory-core.js) · ITEMS(js/items-core.js) ·
-     pos(js/voxel.js) · showToast(js/effects.js) · touchPlaying(js/input.js) ·
+     pos(js/voxel.js) · Fx/showToast(js/effects.js, 爆炸/火花观感与 toast) ·
+     touchPlaying(js/input.js) ·
      fps/overlay/switchMode/showPage(js/main.js, 加载序在后、调用期已就绪)
    可测性: THREE/DOM 全经 loadScene/ModeKit 惰性路径, boot 冒烟(vm 桩)
      全链可跑; 数据隔离/套餐/仓库箱/建场/三站点交互由 test/showroom-
@@ -253,6 +258,89 @@ function showroomMouseListeners(on) {
   }
 }
 
+/* 掉落物收集回调(Drops.onCollect, init 挂/切模式随 Drops.clear 解除重挂, 探险
+   advHookEntityCbs 同款): 入包并堆、并不下的进空位; 部分收下按收到的算, 一件
+   都放不下才拒返 false(掉落物停地上 1.2s 冷却重试, D6 背包满口径); 快捷栏跟进。
+   dev 降噪: 零 toast/零音效(探险的逐件播报不搬) */
+function showroomHookDrops() {
+  Drops.onCollect((id, n) => {
+    const left = add(showroomInv, id, n);
+    if (left >= n) return false;
+    showroomSyncBar();
+    return true;
+  });
+}
+
+/* ---------- TNT 链(探险 D3/D4 同规则, docs/showroom-design.md §7 红线内):
+   点燃/引信/爆炸壳段镜像 adventure.js, 规则零复制——短按二分 advTntTapStep、
+   半径遍历 advExplodeCells 直用 adventure-core 纯函数(引信 1.5s/半径 3.5/
+   不伤玩家都在其常量表); TNT 点燃不进 place-kit(GLOSSARY PlaceKit 词条既定
+   口径)。政策差异只在缝: 零 journal(改动只活当次进场)/零任务记账(quest=false)/
+   dev 降噪(只 toast); 波及怪物段不移植——体验馆不接 Mobs 子系统(无怪可炸)。 ---------- */
+/* 炉兜底记账(探险 advMarkEdit 的体验馆镜像, 零 journal): 不记账(恢复原装=
+   世界随进场重铸, 无重放需求), 唯一随行兜底=炉随世界走——改动格持有炉态而
+   改后不是炉 → 挖炉退料三笔入包+炉态删除(FurnaceKit.drop, 探险 advMarkEdit
+   同位同款); 爆炸 edit 与源块清格共用此缝防漏 */
+function showroomMarkEdit(x, y, z, id) {
+  if (id === B_FURNACE) return;
+  const k = blockKey(x, y, z);
+  if (showroomFurnace.state(k)) showroomFurnace.drop(k);
+}
+const showroomFuses = []; /* 已点燃引信 {x,y,z,t,sparkT}(纯内存, cleanup 清空) */
+function showroomIgnite(x, y, z) {/* 点燃(重复点击不叠加, 探险同款) */
+  for (const f of showroomFuses) {
+    if (f.x === x && f.y === y && f.z === z) return;
+  }
+  showroomFuses.push({x, y, z, t: ADV_TNT_FUSE, sparkT: 0});
+  showToast('🧨 点燃啦，快退后！');
+}
+function showroomFuseTick(dt) {/* 引信倒计时: 顶上火花弧观感 + 到点起爆(探险逐字同拍) */
+  for (let i = showroomFuses.length - 1; i >= 0; i--) {
+    const f = showroomFuses[i];
+    f.t -= dt;
+    f.sparkT -= dt;
+    if (f.sparkT <= 0) {
+      f.sparkT = 0.3;
+      Fx.arc(f.x + 0.5, f.y + 1.2, f.z + 0.5, {color: 0xffd23f, dur: 0.22}); /* 引信火花 */
+    }
+    if (f.t <= 0) {
+      showroomFuses.splice(i, 1);
+      showroomExplode(f.x, f.y, f.z);
+    }
+  }
+}
+/* 爆炸结算: Fx.boom 观感 + 源块直清不经掷骰 + 半径遍历纯段 advExplodeCells
+   (圈内 TNT 链式点燃/70% 掷骰掉落全在纯函数); edit sink 用本模式 place-kit
+   实例拼装——级联 quest=false(TNT 掀掉的不算)+门配对整扇回收(onEdit 缝保持
+   noop 红线, 只经 showroomMarkEdit 做炉兜底) */
+const showroomExplodeSink = {
+  ignite: showroomIgnite,
+  edit: (bx, by, bz) => {
+    showroomMarkEdit(bx, by, bz, 0); /* 炉兜底(零 journal, 探险 advMarkEdit 同位) */
+    showroomPlaceKit.applyCascade(editBlock(bx, by, bz, 0), false);
+    showroomPlaceKit.doorBreakApply(bx, by, bz, false); /* 掀门=整扇回收 */
+  },
+  sapling: () => {}, /* 树苗链未接入, 无计时可撤 */
+  drop: (id, n, x, y, z) => Drops.spawn(id, n, x, y, z),
+};
+function showroomExplode(x, y, z) {
+  Fx.boom(x + 0.5, y + 0.5, z + 0.5, {r1: ADV_TNT_R + 1.5, n: 14});
+  showroomMarkEdit(x, y, z, 0);
+  showroomPlaceKit.applyCascade(editBlock(x, y, z, 0), false);
+  showroomPlaceKit.doorBreakApply(x, y, z, false); /* 源块正上方若立着门, 一并整扇回收 */
+  advExplodeCells(x, y, z, getBlock, showroomExplodeSink);
+}
+let showroomTntTap = null; /* TNT 短按/按住二分状态 {x,y,z,held}|null(探险 advTntTap 同形) */
+function showroomTntTapTick(dt) {/* 纯步进 advTntTapStep 在 adventure-core, 这里持状态与面板守卫 */
+  const r = advTntTapStep(showroomTntTap, showroomMouseHeld,
+      showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen(), dt);
+  showroomTntTap = r.state;
+  if (r.act && r.act.ignite && getBlock(r.act.x, r.act.y, r.act.z) === B_TNT) {
+    showroomIgnite(r.act.x, r.act.y, r.act.z); /* 块还在才点(被掀走则作废) */
+  }
+  if (r.act && r.act.mine) showroomMine.down = true; /* 按住转蓄力(准星已移开则蓄力链自清) */
+}
+
 /* 站点使用路由: 点击块号分流, 4 格门槛按点击块精确判距(返回 true=消费本次点击) */
 function showroomUseStation(hit) {
   const lookId = getBlock(hit.x, hit.y, hit.z);
@@ -399,14 +487,18 @@ const ShowroomMode = mkMode({
     showroomHb.show();
     showroomFurnace.reset(); // 炉态纯内存, 进场清零
     showroomMouseListeners(true); // 桌面按住检测(document capture, 探险同款)
+    showroomHookDrops(); // 收集回调重挂(切模式 Drops.clear 解除后, 探险同款)
   },
 
   cleanup() {/* 收场: 收双面板(合成 close 链退台面余料) + 蓄力停 + 按住监听摘 +
-    退炉三笔入包 + 收炉面板 + 解「进行中」态(零掉落物, 余量静默丢弃 dev 口径) */
+    TNT 引信/tap 复位(引信不落盘, 探险先例) + 退炉三笔入包 + 收炉面板 +
+    解「进行中」态(零掉落物, 余量静默丢弃 dev 口径) */
     showroomCraftClose();
     if (showroomChestOpen) showroomChestPanel.close();
     showroomPlaceKit.mineStop(showroomMine);
     showroomMouseListeners(false);
+    showroomTntTap = null; /* TNT 短按判定一并复位 */
+    showroomFuses.length = 0; /* 引信不落盘 */
     showroomFurnace.refundAll();
     showroomFurnace.panel.hide();
     touchPlaying = false;
@@ -415,6 +507,8 @@ const ShowroomMode = mkMode({
   update(dt) {
     showroomFurnace.tick(dt); // 烧炼节律常开(多炉逐炉推进, 面板只是回显)
     showroomPlaceKit.tickTimers(dt); // 话术节流递减(账本在 kit 实例; 体验馆静默)
+    showroomFuseTick(dt); /* TNT 引信倒计时到点起爆(先于蓄力: 当帧爆炸位置不漂移, 探险同款) */
+    showroomTntTapTick(dt); /* TNT 短按/按住判定: 转蓄力需先于 mineTick 同帧生效 */
     /* 蓄力挖 → 破坏结算(级联/门配对/掉落)全在 place-kit, 与探险同一实现 */
     showroomPlaceKit.mineTick(showroomMine, PlaceKit.aimHit(), dt,
         {held: showroomMouseHeld,
@@ -423,11 +517,16 @@ const ShowroomMode = mkMode({
     Drops.render();
   },
 
-  onMouse(button, hit) {/* 探险同款次序(去 TNT/床/怪/吃——对应系统未接入):
-      左键 = 站点使用 > 门开关 > 蓄力挖; 右键 = 站点使用 > 门开关 > 放置 */
+  onMouse(button, hit) {/* 探险同款次序: 左键 = TNT 短按记账 > 站点使用 > 门开关 > 蓄力挖;
+      右键 = 站点使用 > 门开关 > 放置(TNT 点燃不走右键, 探险防误触拍板同款) */
     if (showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen()) return;
     if (button !== 0 && button !== 2) return;
     const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
+    if (button === 0 && lookId === B_TNT) {/* TNT(D3 探险镜像): mousedown 只记账不点燃
+        — 短按=点燃/按住=蓄力挖走回收, 判定在 update 的 showroomTntTapTick */
+      showroomTntTap = {x: hit.x, y: hit.y, z: hit.z, held: 0};
+      return;
+    }
     const stationHit = lookId === B_FURNACE || lookId === B_CRAFT || lookId === B_CHEST;
     if (stationHit) {
       showroomUseStation(hit); /* 圈内外都吞点击(圈外只提示不误开) */
@@ -485,6 +584,8 @@ ShowroomMode.crates = {list: showroomCrateList, accounts: () => showroomCrateAcc
   put: showroomCratePut, take: showroomCrateTake}; // 存/取意图(政策函数, 与面板回调同路)
 ShowroomMode.pk = showroomPlaceKit; // 放置链 kit(放置/破坏/门开关, 与探险同一实现)
 ShowroomMode.mine = showroomMine; // 蓄力状态机(形状同探险 advMine, 测试直驱)
+ShowroomMode.fuses = showroomFuses; // TNT 引信数组(测试直驱, 探险 advFuses 先例)
+ShowroomMode.tntTap = () => showroomTntTap; // TNT 短按状态 getter(let 绑定经闭包读)
 ShowroomMode.sr = {
   furnaces: showroomFurnace.map,
   panel: showroomFurnace.panel,

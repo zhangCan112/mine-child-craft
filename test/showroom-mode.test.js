@@ -132,8 +132,10 @@ globalThis.loadScene = (fn) => {
 globalThis.showToast = (s) => calls.push(['toast', s]);
 const dropCalls = []; /* 掉落物调用记账: 体验馆退出收场应为零(满包余量静默丢弃口径) */
 const dropsTicks = []; /* 掉落物 update 记账: 放置链接入后 update 应每帧喂真空拾取 */
+const collectCbs = []; /* 收集回调记账: init 重挂(切模式 Drops.clear 解除后重挂, 探险同款) */
 globalThis.Drops = {spawn: (id, n) => dropCalls.push([id, n]),
-  update: (dt, p) => dropsTicks.push([dt, p]), render: () => {}};
+  update: (dt, p) => dropsTicks.push([dt, p]), render: () => {},
+  onCollect: (cb) => collectCbs.push(cb)};
 globalThis.switchMode = (id) => calls.push(['switchMode', id]);
 globalThis.showPage = (id) => calls.push(['showPage', id]);
 globalThis.overlay = fakeEl();
@@ -167,6 +169,7 @@ const coreSrc = fs.readFileSync(path.join(ROOT, 'js', 'showroom-core.js'), 'utf8
 function freshEnter() {
   calls.length = 0;
   elCache['hotbar'].children.length = 0;
+  collectCbs.length = 0; /* switchMode 兜底清共享实体账(Drops.clear 解除回调)的同拍 */
   ShowroomMode.init();
 }
 
@@ -548,4 +551,189 @@ test('体验馆: 左键蓄力挖 — 到点破坏+掉落物照掉+update 喂真�
   assert.strictEqual(api.getBlock(60, 13, 72), 0, '到点破坏');
   assert.ok(dropCalls.some((d) => d[0] === 'log'), '掉落物照掉(级联 sink→Drops.spawn)');
   assert.ok(dropsTicks.length > 0, 'update 每帧喂掉落物真空拾取(玩家胸口点)');
+});
+
+/* ============ ⑩ TNT 点燃+爆炸链(adventure-core 纯函数直用) ============
+   与探险逐字同规则(docs/showroom-design.md §7 红线内): 短按/按住二分
+   (advTntTapStep)→引信 1.5s→爆炸(advExplodeCells 半径遍历: 圈内 TNT 链式
+   接力点燃/70% 掷骰掉落)。体验馆差异只在政策缝: 零 journal(onEdit noop
+   红线)/零任务记账(quest=false)/掀炉兜底退料。测试桩 loadScene 不清场,
+   TNT 用例用东场空地(x 108..120, z 98..110), 与既有用例坐标零重叠。 */
+
+test('体验馆: TNT 短按点燃 — tap 记账→引信 1.5s→爆炸圈内清空+70% 掉落(Drops.spawn)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('tnt', 4);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* TNT 落 (110,13,100) */
+  assert.strictEqual(api.getBlock(110, 13, 100), B_TNT, 'TNT 在场');
+  inv.slots[1] = api.mkStack('planks', 4);
+  ShowroomMode.hotbar.select(1);
+  ShowroomMode.onMouse(2, {x: 112, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* 木板落 (112,13,100), 距爆心 2<3.5 */
+  assert.strictEqual(api.getBlock(112, 13, 100), 6, '圈内对照木板在场');
+  dropCalls.length = 0;
+  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 100}); /* 左键: mousedown 只记账不点燃 */
+  assert.ok(ShowroomMode.tntTap(), 'tap 状态在位(短按判定待 update)');
+  assert.strictEqual(ShowroomMode.fuses.length, 0, 'mousedown 当帧未点燃');
+  ShowroomMode.update(0.05); /* 松手 <0.25s: 短按→点燃 */
+  assert.strictEqual(ShowroomMode.tntTap(), null, '判定完状态出列');
+  assert.strictEqual(ShowroomMode.fuses.length, 1, '短按点燃(引信在位)');
+  assert.strictEqual(api.getBlock(110, 13, 100), B_TNT, '点燃不摘块');
+  const realRandom = Math.random;
+  Math.random = () => 0; /* 70% 掷骰必中签(注入口径, 纯函数单测同款) */
+  try {
+    ShowroomMode.update(1.6); /* 引信 1.5s 走完: 起爆 */
+  } finally {
+    Math.random = realRandom;
+  }
+  assert.strictEqual(ShowroomMode.fuses.length, 0, '引信出列');
+  assert.strictEqual(api.getBlock(110, 13, 100), 0, '源块直清(不经掷骰)');
+  assert.strictEqual(api.getBlock(112, 13, 100), 0, '圈内方块清空');
+  assert.ok(dropCalls.some((d) => d[0] === 'planks'), '70% 掉落经 Drops.spawn(木板)');
+});
+
+test('体验馆: TNT 链式接力 — 圈内第二块被接力点燃(块还在), 二拍连环爆', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('tnt', 8);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 114, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* A (114,13,100) */
+  ShowroomMode.onMouse(2, {x: 117, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* B (117,13,100), 距 A 3<3.5 */
+  assert.strictEqual(api.getBlock(114, 13, 100), B_TNT, 'A 在场');
+  assert.strictEqual(api.getBlock(117, 13, 100), B_TNT, 'B 在场');
+  ShowroomMode.onMouse(0, {x: 114, y: 13, z: 100});
+  ShowroomMode.update(0.05); /* 点燃 A */
+  assert.strictEqual(ShowroomMode.fuses.length, 1, 'A 引信在位');
+  ShowroomMode.update(1.6); /* A 爆 → B 接力点燃(不即爆) */
+  assert.strictEqual(api.getBlock(114, 13, 100), 0, 'A 爆');
+  assert.strictEqual(api.getBlock(117, 13, 100), B_TNT, 'B 块还在(接力而非同爆)');
+  assert.strictEqual(ShowroomMode.fuses.length, 1, 'B 引信在位');
+  assert.strictEqual(ShowroomMode.fuses[0].x, 117, '接力引信=B 的位置');
+  ShowroomMode.update(1.6); /* B 爆 */
+  assert.strictEqual(api.getBlock(117, 13, 100), 0, 'B 二拍连环爆');
+  assert.strictEqual(ShowroomMode.fuses.length, 0, '引信清空');
+});
+
+test('体验馆: TNT 按住转蓄力 — ≥0.25s 不点燃转挖(hard 0 挖走回收, 探险 D3 二分同款)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('tnt', 4);
+  ShowroomMode.onMouse(2, {x: 118, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* TNT (118,13,100) */
+  dropCalls.length = 0;
+  ShowroomMode.onMouse(0, {x: 118, y: 13, z: 100}); /* 记账 */
+  const origAim = PlaceKit.aimHit;
+  PlaceKit.aimHit = () => ({x: 118, y: 13, z: 100, nx: 0, ny: 0, nz: 0}); /* Node 无相机: 桩准星 */
+  ShowroomMode.onHold(true); /* 桌面按住/触屏长按同轨道 */
+  try {
+    ShowroomMode.update(0.3); /* ≥0.25s: 转蓄力(同帧 mineTick 到点破坏) */
+  } finally {
+    PlaceKit.aimHit = origAim;
+    ShowroomMode.onHold(false);
+    ShowroomMode.mine.down = false;
+  }
+  assert.strictEqual(ShowroomMode.fuses.length, 0, '按住不点燃');
+  assert.strictEqual(api.getBlock(118, 13, 100), 0, '转挖: TNT 被挖走(hard 0 秒碎)');
+  assert.ok(dropCalls.some((d) => d[0] === 'tnt'), '可回收: 掉 TNT 物品(挖掘硬度修正 D3)');
+});
+
+test('体验馆: TNT 掀门 — 整扇回收(掉 1 扇不双掉), 级联不进任务档(quest=false noop)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('tnt', 4);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 104, nx: 0, ny: 1, nz: 0}); /* TNT (110,13,104) */
+  inv.slots[1] = api.mkStack('door', 2);
+  ShowroomMode.hotbar.select(1);
+  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 102, nx: 0, ny: 1, nz: 0}); /* 门 (110,13,102)+(110,14,102), 距爆心 2 */
+  assert.strictEqual(api.getBlock(110, 13, 102), api.B_DOOR, '门下扇在场');
+  assert.strictEqual(api.getBlock(110, 14, 102), api.B_DOOR_TOP, '门上扇在场');
+  dropCalls.length = 0;
+  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 104});
+  ShowroomMode.update(0.05);
+  ShowroomMode.update(1.6);
+  assert.strictEqual(api.getBlock(110, 13, 102), 0, '门下扇掀掉');
+  assert.strictEqual(api.getBlock(110, 14, 102), 0, '门上扇整扇回收');
+  assert.strictEqual(dropCalls.filter((d) => d[0] === 'door').length, 1, '掉 1 扇(不双掉)');
+  assert.match(showroomSrc, /questMine: \(\) => \{\}/,
+      '任务记账 noop(quest=false 不进任务档——体验馆零任务面)');
+});
+
+test('体验馆: 爆炸掀炉兜底 — 炉内三笔退包+炉态删除(探险「炉没了退料」同款缝)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[1] = api.mkStack('furnace', 2);
+  ShowroomMode.hotbar.select(1);
+  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 106, nx: 0, ny: 1, nz: 0}); /* 炉 (110,13,106) */
+  const key = api.blockKey(110, 13, 106);
+  ShowroomMode.sr.autoFill(null, key); /* 无面板直调上料(kit 契约: posKey 寻址) */
+  const f = ShowroomMode.sr.furnaces.get(key);
+  assert.ok(f && f.input, '炉已上料(兜底前提)');
+  const logBefore = api.count(inv, 'log');
+  inv.slots[0] = api.mkStack('tnt', 4);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 104, nx: 0, ny: 1, nz: 0}); /* TNT (110,13,104), 距炉 2 */
+  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 104});
+  ShowroomMode.update(0.05);
+  ShowroomMode.update(1.6);
+  assert.strictEqual(api.getBlock(110, 13, 106), 0, '炉块掀掉');
+  assert.ok(!ShowroomMode.sr.furnaces.has(key), '炉态删除(无幽灵炉)');
+  assert.ok(api.count(inv, 'log') > logBefore, '炉内待烧料三笔退包');
+});
+
+test('体验馆: onEdit 红线 — TNT 全程零记账(源码 noop 守门)+重进恢复原装', () => {
+  assert.match(showroomSrc, /onEdit: \(\) => \{\}/,
+      'kit onEdit 缝保持 noop(恢复原装红线: 改动只活当次进场, 不进任何档)');
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('tnt', 4);
+  ShowroomMode.onMouse(2, {x: 120, y: 12, z: 100, nx: 0, ny: 1, nz: 0});
+  ShowroomMode.onMouse(0, {x: 120, y: 13, z: 100});
+  ShowroomMode.update(0.05);
+  ShowroomMode.update(1.6); /* 爆完(东场留坑) */
+  assert.strictEqual(api.getBlock(120, 13, 100), 0, '爆点已清');
+  freshEnter(); /* 重进: 世界整场重铸 */
+  assert.strictEqual(api.getBlock(120, 12, 100), 1, '草地复原(无重放需求=改动只活当次进场)');
+});
+
+test('体验馆: cleanup 复位 — 引信清空+tap 状态归零(不渗漏到下一模式)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('tnt', 4);
+  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 108, nx: 0, ny: 1, nz: 0});
+  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 108});
+  ShowroomMode.update(0.05); /* 点燃: 引信在位 */
+  assert.strictEqual(ShowroomMode.fuses.length, 1, '引信在位(复位前提)');
+  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 108}); /* 再记一笔 pending tap */
+  assert.ok(ShowroomMode.tntTap(), 'tap 状态在位');
+  ShowroomMode.cleanup();
+  assert.strictEqual(ShowroomMode.fuses.length, 0, 'cleanup 引信清空(探险先例: 引信不落盘)');
+  assert.strictEqual(ShowroomMode.tntTap(), null, 'cleanup tap 归零');
+});
+
+/* ============ ⑪ 拾取入包(Drops.onCollect, 现状缺口: 吸到玩家即蒸发) ============ */
+
+test('体验馆: 拾取入包 — 收集回调入包+快捷栏跟进, 满包拒返 false(停地上冷却重试)', () => {
+  freshEnter();
+  assert.strictEqual(collectCbs.length, 1, 'init 注册收集回调(切模式 Drops.clear 后重挂, 探险同款)');
+  const inv = ShowroomMode.getInv();
+  for (let i = 0; i < api.INV_SLOTS; i++) inv.slots[i] = api.mkStack('log', 64); /* 满仓: 27 槽全满 */
+  inv.slots[0] = api.mkStack('log', 60); /* 槽 0 腾并堆余量(仍无空槽) */
+  let renders = 0;
+  const origRender = ShowroomMode.hotbar.render;
+  /* 间谍: 快捷栏同步被调观察面 */
+  ShowroomMode.hotbar.render = () => {
+    renders++;
+    origRender();
+  };
+  try {
+    assert.strictEqual(collectCbs[0]('log', 5), true, '部分收下返回 true(掉落物照常消失)');
+    assert.strictEqual(api.count(inv, 'log'), api.INV_SLOTS * 64,
+        '背包计数增加(并堆收满, 余量无空位即止)');
+    assert.ok(renders > 0, '快捷栏同步被调(showroomSyncBar)');
+    const n = renders;
+    assert.strictEqual(collectCbs[0]('log', 3), false, '一件都放不下: 拒返 false(D6 背包满口径)');
+    assert.strictEqual(renders, n, '拒收不刷快捷栏');
+  } finally {
+    ShowroomMode.hotbar.render = origRender;
+  }
 });
