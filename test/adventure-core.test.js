@@ -90,6 +90,47 @@ test('核心地形: 巢穴位点常量与矿带不越界(地图常量表是壳�
   assert.ok(ok, '矿种不越深度带(煤 y12~20 · 钻 y0~5)');
 });
 
+test('T5 坐标迁移: 湖/两坑/山洞/三巢钉死设计稿 §2.4 圈层表, 小屋与出生点不动(老档红线)', () => {
+  assert.deepStrictEqual([Core.ADV_LAKE.cx, Core.ADV_LAKE.cz, Core.ADV_LAKE.r], [36, 58, 7],
+      '湖挪近资源圈 (36,58)——黏土教学链步行 30 秒内可达');
+  assert.deepStrictEqual([Core.ADV_PITS[0].cx, Core.ADV_PITS[0].cz], [100, 52], '煤坑 (100,52) 矿业圈东');
+  assert.deepStrictEqual([Core.ADV_PITS[1].cx, Core.ADV_PITS[1].cz], [24, 44], '铁坑 (24,44) 矿业圈西');
+  assert.deepStrictEqual([Core.ADV_CAVE.x1, Core.ADV_CAVE.x2, Core.ADV_CAVE.zStart, Core.ADV_CAVE.zEnd],
+      [61, 62, 10, 30], '山洞口北缘 (62,10), 隧道向南深潜到穴室 z30');
+  assert.ok(Core.ADV_CAVE.zEnd > Core.ADV_CAVE.zStart, '方向反转: 原隧道向北(zStart72→zEnd52), 现向南');
+  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => [n.x, n.z]), [[44, 60], [96, 36], [20, 16]],
+      '三巢难度序: 近僵尸(44,60) / 中蜘蛛(96,36) / 远苦力怕(20,16)');
+  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => n.kinds[0]), ['zombie', 'spider', 'creeper'],
+      '巢穴主打种随难度递进(僵尸一家→虫虫族→草木族苦力怕)');
+  /* 小屋与出生点红线: 圈层重排一律不碰(老档的出生点/床边/站立位零悬空风险) */
+  assert.deepStrictEqual(Core.ADV_HUT, {x1: 58, x2: 64, z1: 78, z2: 84}, '小屋坐标不动');
+  assert.deepStrictEqual([Core.ADV_SPAWN.x, Core.ADV_SPAWN.y, Core.ADV_SPAWN.z], [61.5, 25, 76.5],
+      '出生点坐标与压平 y24 不动');
+});
+
+test('T5 圈层断言: 三巢距小屋距离单调递增(近<中<远, 风险-距离梯度)', () => {
+  const cx = (Core.ADV_HUT.x1 + Core.ADV_HUT.x2) / 2;
+  const cz = (Core.ADV_HUT.z1 + Core.ADV_HUT.z2) / 2;
+  const ds = Core.ADV_NESTS.map((n) => Math.hypot(n.x - cx, n.z - cz));
+  assert.ok(ds[0] < ds[1] && ds[1] < ds[2],
+      '巢穴难度距小屋单调递增: ' + ds.map((d) => d.toFixed(1)).join(' < '));
+  assert.ok(ds[0] >= 25 && ds[0] <= 45, '近巢落在资源圈 25~45: ' + ds[0].toFixed(1));
+  assert.ok(ds[1] >= 40 && ds[1] <= 60, '中巢落在矿业圈 40~60: ' + ds[1].toFixed(1));
+  assert.ok(ds[2] > 60, '远巢落在深险圈 >60: ' + ds[2].toFixed(1));
+});
+
+test('T5 迁移形状: 新坐标的湖心/坑底/洞口/穴室逐格断言(对真生成世界)', () => {
+  Core.advBuildWorld();
+  assert.strictEqual(cell(36, 24, 58), api.B_WATER, '湖心 (36,58) 水面齐草地');
+  assert.strictEqual(cell(36, 23, 58), 8, '湖心沙底');
+  assert.strictEqual(cell(100, 22, 52), 0, '煤坑 (100,52) 中心被挖开(漏斗见底)');
+  assert.strictEqual(cell(24, 22, 44), 0, '铁坑 (24,44) 中心被挖开');
+  assert.strictEqual(cell(62, 28, 8), 2, '山洞口小丘 (62,8) 泥皮穹顶 h4');
+  assert.strictEqual(cell(61, 23, 10), 0, '隧道北端 (61,23,10) 敞口(台阶起点)');
+  assert.strictEqual(cell(61, 3, 30), 0, '穴室最深处 (61,3,30) 掏空');
+  assert.strictEqual(cell(61, 1, 30), api.B_DIAMOND_ORE, '穴室底板保底钻石(任务第 15 步目的地)');
+});
+
 /* ============ 政策纯函数段(逐条钉口径) ============ */
 
 test('核心政策: 死亡计划 — 满血+回出生点+背包保留(零惩罚)', () => {

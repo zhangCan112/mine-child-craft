@@ -55,16 +55,19 @@
 const ADV_GROUND = 24; /* 草原表层 y: 下 4 层泥(y20~23), 再下石头到 y0(D5 压缩分层) */
 const ADV_HUT = {x1: 58, x2: 64, z1: 78, z2: 84}; /* 出生小屋: 7×7, 北墙正中门洞 */
 const ADV_SPAWN = {x: 61.5, y: ADV_GROUND + 1, z: 76.5, yaw: 0}; /* 门口两步, 面朝旷野背对小屋 */
-const ADV_LAKE = {cx: 22, cz: 24, r: 7}; /* 湖: 西北角, 沙岸+可趟水+湖底黏土 */
-const ADV_PITS = [ /* 露天矿坑: 阶梯漏斗坑(每级 1 格 — 玩家跳跃 1.42 格, 下得去也上得来; 2026-10-23 实测 2 格级困人), 坑壁矿化做可见性教学 */
-  {cx: 98, cz: 28, r: 8, floor: 12, ore: {id: B_COAL_ORE, yLo: 12, yHi: 20, salt: 4101}},
-  {cx: 30, cz: 96, r: 9, floor: 10, ore: {id: B_IRON_ORE, yLo: 6, yHi: 16, salt: 4207}},
+const ADV_LAKE = {cx: 36, cz: 58, r: 7}; /* 湖: 资源圈(T5 圈层重排, 设计稿 §2.4)——挪近小屋, 黏土教学链步行可达; 沙岸+可趟水+湖底黏土 */
+const ADV_PITS = [ /* 露天矿坑: 阶梯漏斗坑(每级 1 格 — 玩家跳跃 1.42 格, 下得去也上得来; 2026-10-23 实测 2 格级困人), 坑壁矿化做可见性教学; T5 两坑分踞东西矿业圈(探索动线成环) */
+  {cx: 100, cz: 52, r: 8, floor: 12, ore: {id: B_COAL_ORE, yLo: 12, yHi: 20, salt: 4101}},
+  {cx: 24, cz: 44, r: 9, floor: 10, ore: {id: B_IRON_ORE, yLo: 6, yHi: 16, salt: 4207}},
 ];
-const ADV_CAVE = {x1: 97, x2: 98, zStart: 72, steps: 20, y0: 23, zEnd: 52}; /* 山洞: 2 宽台阶隧道 y23→y3, 穴室镶钻 */
-const ADV_NESTS = [ /* 怪物巢穴位点(土丘洞穴): kinds=本巢刷怪池, 节律见巢穴战斗段(T14) */
-  {x: 40, z: 52, kinds: ['zombie', 'skeleton', 'spider']},
-  {x: 86, z: 96, kinds: ['creeper', 'zombie', 'spider']},
-  {x: 56, z: 20, kinds: ['skeleton', 'creeper', 'zombie']},
+/* 山洞: 2 宽台阶隧道 y23→y3, 穴室镶钻; T5 洞口挪北边缘 (62,10), 隧道**向南**深潜
+   (原隧道向北 zStart72→zEnd52, 方向反转——穴室 z30 在最深处), 深险圈入口 */
+const ADV_CAVE = {x1: 61, x2: 62, zStart: 10, steps: 20, y0: 23, zEnd: 30};
+const ADV_NESTS = [ /* 怪物巢穴位点(土丘洞穴): 难度序 = 距小屋由近到远(设计稿 §2.4 巢穴梯度, 单测锁单调递增);
+  kinds=本巢刷怪池(主打种在前, 重复即权重), 节律见巢穴战斗段(T14) */
+  {x: 44, z: 60, kinds: ['zombie', 'zombie', 'skeleton']}, /* 近巢·资源圈: 僵尸一家(温和) */
+  {x: 96, z: 36, kinds: ['spider', 'spider', 'zombie']}, /* 中巢·矿业圈: 虫虫族主打蜘蛛 */
+  {x: 20, z: 16, kinds: ['creeper', 'creeper', 'spider']}, /* 远巢·深险圈: 草木族苦力怕(最难) */
 ];
 /* 四矿物深度带(D5: 煤 y12~20 簇 4-8 · 铁 y6~16 簇 3-5 · 金 y2~10 簇 2-3 · 钻 y0~5 簇 1-2)
    p=种子点密度(每列), 盐值分层避免矿种互相踩散列 */
@@ -161,10 +164,11 @@ function advBuildPit(p) {/* 露天矿坑: 阶梯漏斗坑(每级 1 格深)挖到
 function advTryOre(x, y, z, id) {
   if (getBlock(x, y, z) === 3) setBlockRaw(x, y, z, id);
 }
-function advBuildCave() {/* 山洞: 洞口小丘 + 2 宽台阶隧道 y23→y3 + 深处穴室(镶钻) */
+function advBuildCave() {/* 山洞: 洞口小丘 + 2 宽台阶隧道 y23→y3 向南深潜 + 深处穴室(镶钻);
+  T5 洞口挪北边缘——小丘坐在隧道北端(zStart-2)上方, 敞廊朝南(面向来路), 穴室在最深南端 */
   const c = ADV_CAVE;
   /* 洞口小丘(石芯泥皮): 让"山洞入口"在地表上读得出来 */
-  const mcx = 98; const mcz = 74;
+  const mcx = c.x2; const mcz = c.zStart - 2;
   for (let dx = -3; dx <= 3; dx++) {
     for (let dz = -3; dz <= 3; dz++) {
       const d = Math.hypot(dx, dz);
@@ -173,10 +177,10 @@ function advBuildCave() {/* 山洞: 洞口小丘 + 2 宽台阶隧道 y23→y3 + 
       for (let y = 25; y <= ADV_GROUND + h; y++) setBlockRaw(mcx + dx, y, mcz + dz, y === ADV_GROUND + h ? 2 : 3);
     }
   }
-  SceneKit.fill(c.x1, 22, mcz, c.x2, 27, mcz + 3, 0); /* 南侧敞廊: 翻进洞口不用挖 */
-  /* 台阶隧道: 每步 z-1·y-1, 洞身+头顶净空 4 高, 垫底防漏 */
+  SceneKit.fill(c.x1, 22, mcz, c.x2, 27, mcz + 3, 0); /* 南侧敞廊: 翻进洞口不用挖(与隧道口 zStart..zStart+1 合并敞开) */
+  /* 台阶隧道: 每步 z+1·y-1(向南深潜), 洞身+头顶净空 4 高, 垫底防漏 */
   for (let i = 0; i <= c.steps; i++) {
-    const z = c.zStart - i;
+    const z = c.zStart + i;
     const y = c.y0 - i;
     for (let x = c.x1; x <= c.x2; x++) {
       for (let yy = y; yy <= y + 3; yy++) setBlockRaw(x, yy, z, 0);
@@ -240,7 +244,7 @@ function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含�
     if (Math.hypot(x - n.x, z - n.z) < 4) return true;
   }
   const c = ADV_CAVE;
-  return x >= c.x1 - 3 && x <= c.x2 + 3 && z >= c.zEnd - 4 && z <= c.zStart + 5;
+  return x >= c.x1 - 3 && x <= c.x2 + 3 && z >= c.zStart - 5 && z <= c.zEnd + 4; /* 隧道向南: 洞口小丘在北(zStart-5), 穴室在南(zEnd+4) */
 }
 function advTreeSpots() {/* 树林落位清单(advPlantTrees 的唯一权威): 候选按散列值排序取
   前 ADV_TREES——纯函数零世界读; F4 牧场群位避树复用同一清单(设计稿 §4.4 的
@@ -262,10 +266,16 @@ function advPlantTrees() {/* 树林 ~40: 落位清单逐棵种(advTreeSpots) */
 
 function advScatterTufts() {/* 草丛散布(T11 缺口, D7 草丛链): 确定性掷点, 只长
   草地表层顶上且上方无物(不占树干/不飘在沙/水上); 密度 ~4.5% 列 — 草原上
-  可发现但不铺满, 挖掉 50% 掉小麦种子(config drop 表) */
+  可发现但不铺满, 挖掉 50% 掉小麦种子(config drop 表); 巢穴 3 格内不长
+  (洞口朝南 y25~26 掏空, 草下真空会被误种进洞口) */
   for (let x = 2; x < WORLD_W - 2; x++) {
     for (let z = 2; z < WORLD_D - 2; z++) {
       if (SceneKit.rand(x, z, 9101) < 0.955) continue;
+      let nearNest = false;
+      for (const n of ADV_NESTS) {
+        if (Math.hypot(x - n.x, z - n.z) < 3) nearNest = true;
+      }
+      if (nearNest) continue;
       if (getBlock(x, ADV_GROUND, z) !== 1) continue; /* 脚下是草地(沙岸/湖/矿坑天然排除) */
       if (getBlock(x, ADV_GROUND + 1, z) !== 0) continue; /* 顶上无物(树干/小屋墙不占) */
       setBlockRaw(x, ADV_GROUND + 1, z, B_GRASS_TUFT);
@@ -486,7 +496,7 @@ function advLivestockHerdOk(x, z, trees) {/* 群位约束(设计稿 §4.4): 离�
   const h = ADV_HUT;
   if (x >= h.x1 - 5 && x <= h.x2 + 5 && z >= h.z1 - 5 && z <= h.z2 + 5) return false;
   const c = ADV_CAVE;
-  if (x >= c.x1 - 5 && x <= c.x2 + 5 && z >= c.zEnd - 5 && z <= c.zStart + 6) return false;
+  if (x >= c.x1 - 5 && x <= c.x2 + 5 && z >= c.zStart - 6 && z <= c.zEnd + 5) return false; /* 隧道向南同向矩形 */
   for (const t of trees) {
     if (Math.abs(t.x - x) <= 3 && Math.abs(t.z - z) <= 3) return false;
   }
