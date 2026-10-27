@@ -309,8 +309,8 @@ test('沙漠建场: 神殿 — 砂岩金字塔+外楼梯 · 地下宝箱室(B_CH
   assert.strictEqual(cell(t.cx, 17, t.cz), api.B_SANDSTONE, '室地板砂岩');
   assert.strictEqual(cell(t.cx, 18, t.cz), 0, '室腔净空');
   assert.strictEqual(cell(t.cx, 20, t.cz), api.B_CHEST, '宝箱在室中央');
-  assert.ok(cell(t.cx - 2, 21, t.cz - 2) === api.B_TORCH || cell(t.cx + 2, 21, t.cz + 2) === api.B_TORCH,
-      '室内火把(照明防刷怪)');
+  assert.ok(cell(t.cx - 2, 18, t.cz - 2) === api.B_TORCH || cell(t.cx + 2, 18, t.cz + 2) === api.B_TORCH,
+      '室内火把(照明防刷怪, 落地站膛防清扫)');
   assert.strictEqual(cell(t.cx, 22, t.cz), api.B_SANDSTONE, '室顶整层砂岩');
   /* 可疑地板: 室顶上方 y23 中央 2×2 是沙色(其余砂岩)——踩塌滑落入口, 挖开即落 */
   assert.strictEqual(cell(t.cx - 1, 23, t.cz - 1), 8, '可疑地板 2×2 沙(西北格)');
@@ -396,7 +396,7 @@ test('雪原建场: 雪屋 — 雪块圆顶+南门洞+室内净空 · 地下宝�
   assert.strictEqual(cell(h.cx, ADV_GROUND + 2, h.cz + h.r), 0, '门洞 2 高');
   /* 地下宝箱室 */
   assert.strictEqual(cell(h.cx, 20, h.cz), api.B_CHEST, '地下宝箱');
-  assert.strictEqual(cell(h.cx - 1, 21, h.cz - 1), api.B_TORCH, '室内火把');
+  assert.strictEqual(cell(h.cx - 1, 19, h.cz - 1), api.B_TORCH, '室内火把(落地站膛防清扫)');
   assert.strictEqual(cell(h.cx, 19, h.cz), 0, '室腔净空');
   /* 出路: 东侧 1 宽竖井台阶(y19→y24 相邻高差 1) */
   let steps = 0;

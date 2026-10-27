@@ -165,12 +165,19 @@ function advDesertTemple() {/* 沙漠神殿: 砂岩金字塔+南面外楼梯 + �
   SceneKit.fill(t.cx - 3, 22, t.cz - 3, t.cx + 3, 23, t.cz + 3, B_SANDSTONE); /* 室顶+地基 */
   SceneKit.fill(t.cx - 1, 23, t.cz - 1, t.cx, 23, t.cz, 8); /* 可疑地板: 中央 2×2 沙色薄层 */
   setBlockRaw(t.cx, 20, t.cz, B_CHEST);
-  setBlockRaw(t.cx - 2, 21, t.cz - 2, B_TORCH); /* 照明(防室内刷怪+不困黑的) */
-  setBlockRaw(t.cx + 2, 21, t.cz + 2, B_TORCH);
-  /* 东侧出路: 1 格级楼梯 y19→y25 回地表(穿地层向东) */
+  setBlockRaw(t.cx - 2, 18, t.cz - 2, B_TORCH); /* 照明(防室内刷怪+不困黑的); 落地站
+      膛(y18 站室地板 y17)——悬空 thin 会被 P14 清扫首进治愈, 违反桶重放确定性红线 */
+  setBlockRaw(t.cx + 2, 18, t.cz + 2, B_TORCH);
+  /* 东侧出路: 1 格级楼梯 y19→y25 回地表(穿地层向东); 楼梯道上方沙柱换砂岩盖
+      (fall 旗沙被掏空后悬空 → 首进清扫迁移, 同红线) */
   for (let i = 0; i <= 6; i++) {
     const x = t.cx + 4 + i; const y = 19 + i;
     SceneKit.fill(x, y, t.cz - 1, x, y + 2, t.cz + 1, 0); /* 净空 */
+    for (let z = t.cz - 1; z <= t.cz + 1; z++) {
+      for (let yy = y + 3; yy <= ADV_GROUND; yy++) {
+        if (getBlock(x, yy, z) === 8) setBlockRaw(x, yy, z, B_SANDSTONE); /* 沙顶盖砂岩(稳定地层) */
+      }
+    }
     if (getBlock(x, y - 1, t.cz) === 0) setBlockRaw(x, y - 1, t.cz, B_SANDSTONE); /* 垫脚 */
   }
   SceneKit.fill(t.cx + 10, ADV_GROUND, t.cz - 1, t.cx + 11, ADV_GROUND, t.cz + 1, 8); /* 出口沙平台 */
@@ -296,7 +303,7 @@ function advSnowHut() {/* 雪屋: 雪块圆顶(球壳 r4, 室内掏空) + 南门
   SceneKit.fill(h.cx - 2, 19, h.cz - 2, h.cx + 2, 21, h.cz + 2, 0); /* 室腔 */
   SceneKit.fill(h.cx - 2, 22, h.cz - 2, h.cx + 2, 23, h.cz + 2, B_SNOW); /* 室顶(屋内地面下) */
   setBlockRaw(h.cx, 20, h.cz, B_CHEST);
-  setBlockRaw(h.cx - 1, 21, h.cz - 1, B_TORCH);
+  setBlockRaw(h.cx - 1, 19, h.cz - 1, B_TORCH); /* 落地站膛(y19 站室地板 y18, 悬空 thin 会被清扫治愈) */
   for (let i = 0; i <= 5; i++) {/* 东侧 1 宽出路台阶 y19→y24 */
     const x = h.cx + 3 + i; const y = 19 + i;
     for (let yy = y; yy <= y + 2; yy++) setBlockRaw(x, yy, h.cz, 0);
