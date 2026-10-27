@@ -205,6 +205,19 @@ test('政策: 到达落点 — 回程门内侧 2.5 格 · 面朝外(advPortalExi
   }
 });
 
+test('政策: 指定门位到达落点 — advMapArriveAt(gate) 与 advMapArrive 同口径; home 三门各得各的落点', () => {
+  const home = Maps.ADV_MAPS[0];
+  for (const g of home.gates) {/* home 多门: 回程落点跟着来时的门走(沙漠门进沙漠门出) */
+    const sp = Maps.advMapArriveAt(g);
+    assert.deepStrictEqual(sp,
+        {x: g.px + 2.5, y: ADV_GROUND + 1, z: g.pz + 0.5 + 2.5, yaw: 0},
+        home.gates.find((m) => m.to === g.to) && g.to + ' 门位落点=门内侧 2.5 格面朝外');
+  }
+  const desert = Maps.ADV_MAPS.find((r) => r.id === 'desert');
+  assert.deepStrictEqual(Maps.advMapArriveAt(desert.gates[0]), Maps.advMapArrive(desert),
+      'advMapArrive(row) = gates[0] 的便捷版(远征图单门恒等)');
+});
+
 test('政策: 死亡回家 — 满血+home 门口+背包保留+map 标记回 home(零惩罚哲学)', () => {
   const plan = Maps.advMapDeathPlan('desert', {hp: 0, maxHp: 30});
   assert.strictEqual(plan.hp, 30, '满血复活');

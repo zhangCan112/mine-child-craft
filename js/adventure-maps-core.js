@@ -18,8 +18,9 @@
      advSnowBuild/advSwampBuild(每图建场总装, 签名零参同 advBuildWorld) ·
      政策纯函数 advMapUnlocked(门解锁判定, 任务档 counts 键
      unlockedDesert/unlockedSnow/unlockedSwamp)/advGateHoldStep(门面
-     站桩步进, 2s 可反悔, 状态进 {t,fire} 出)/advMapArrive(到达落点:
-     回程门内侧 2.5 格、面朝外——advPortalExit 同口径)/
+     站桩步进, 2s 可反悔, 状态进 {t,fire} 出)/advMapArriveAt(指定门位
+     到达落点: 回程门内侧 2.5 格、面朝外——advPortalExit 同口径;
+     advMapArrive(row)=gates[0] 便捷版)/
      advMapDeathPlan(死亡回家: 远征图死=满血+home 门口, 地图行化)
    依赖(均经全局名, 调用期解析): adventure-core.js 的 ADV_GROUND/
      ADV_SPAWN/ADV_PORTAL/ADV_HOME_ROW/advBuildWorld/advDeathPlan/
@@ -530,16 +531,21 @@ function advGateHoldStep(s, inGate, dt) {
   return {t: 0, fire: true};
 }
 
-/* 到达落点: 回程门内侧 2.5 格、面朝外(§2.3「落地就在门跟前, 门在身后」)
-   ——与 advPortalExit 同口径: 虚拟玩家从门面朝 -z 进门(yaw=π),
-   出口=沿来向退 2.5 格(门南侧)+yaw 反向(朝 +z 背对门)。远征图门位
-   统一朝南开口, 落点区在图常量布局中保证开阔; y 取基准地表上方
-   (门位压平区, 建场保证 y24 顶面) */
-function advMapArrive(row) {
-  const g = row.gates[0]; /* 远征图单门=回程门 */
+/* 指定门位的到达落点(advPortalExit 同口径的泛化): 站进绑定 g.to 图的门后,
+    落在 g 这扇门自身内侧 2.5 格、面朝外——门阵多门时回程落点跟着来时的门走
+    (沙漠门进沙漠门出, §2.3「落地就在门跟前, 门在身后」)。虚拟玩家从门面
+    朝 -z 进门(yaw=π), 出口=沿来向退 2.5 格(门南侧)+yaw 反向(朝 +z 背对门);
+    y 取基准地表上方(门位压平区, 建场保证 y24 顶面) */
+function advMapArriveAt(g) {
   const p = advPortalExit(g.px + 2.5, ADV_GROUND + 1, g.pz + 0.5, Math.PI);
   p.yaw = p.yaw % (Math.PI * 2); /* π+π=2π 归一 0: 与朝向等价, 免壳层拿到裸 6.28 */
   return p;
+}
+
+/* 到达落点(行便捷版): 取 gates[0]——远征图单门=回程门, 与泛化版恒等;
+    home 多门场景请用 advMapArriveAt(对应门), 各门落点不同 */
+function advMapArrive(row) {
+  return advMapArriveAt(row.gates[0]); /* 远征图单门=回程门 */
 }
 
 /* 死亡回家计划(§10 拍板②, nether 合并 D11 回家口径的地图行化):
@@ -556,5 +562,5 @@ if (typeof module !== 'undefined' && module.exports) {
     advSnowBuild, advSnowTerrain, advSnowTree, advSnowHut, advSnowScatter,
     advSwampBuild, advSwampTerrain, advSwampHut, advSwampScatter, advMapNest,
     ADV_UNLOCK_KEYS, advMapUnlocked, ADV_GATE_HOLD_T, advGateHoldStep,
-    advMapArrive, advMapDeathPlan};
+    advMapArriveAt, advMapArrive, advMapDeathPlan};
 }
