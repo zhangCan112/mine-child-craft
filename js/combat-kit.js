@@ -135,11 +135,14 @@ function mkMelee(cfg) {
 }
 
 /* ---------- 箭矢管线: 发射(leadAim/沿准星) → stepShot 步进 → 命中政策回调 ----------
-   一实例一弹种: mesh('box' 箭|'sphere' 火球)·lookAt·targets 分开配 ——
-   现行探险=一实例(骷髅箭 hitPlayer); 历史口径: 下界曾两实例(玩家箭
-   hitMobs / 怪火球 hitPlayer 不 lookAt, 已随模式退役); spec 逐发给 {speed, dmg, kpow, g, life};
+   一实例一弹种: mesh('box' 箭|'sphere' 火球|雪球)·lookAt·targets 分开配 ——
+   现行探险=两实例(骷髅箭 hitPlayer / 玩家雪球 hitMobs 零伤害+击退, T9);
+   历史口径: 下界曾两实例(玩家箭 hitMobs / 怪火球 hitPlayer 不 lookAt,
+   已随模式退役); spec 逐发给 {speed, dmg, kpow, g, life};
    onHitMob(m,res)/onHitPlayer(res) 携 Mobs.hit 结果(含 freshDead),
-   死亡/受击政策归模式; clear() 收全部在场弹(进场/清场纪律) */
+   死亡/受击政策归模式; muteSfx=true 抑制内置 shoot/hit 音效(雪球口径 —
+   壳层字面量播专属音, sfx() 字面量守门口径); clear() 收全部在场弹
+   (进场/清场纪律) */
 function mkArrows(cfg) {
   const o = cfg || {};
   const shots = [];
@@ -165,7 +168,7 @@ function mkArrows(cfg) {
   }
   function shootFromMob(m, tg, spec) {
     const s = spec || {};
-    sfx('shoot');
+    if (!o.muteSfx) sfx('shoot');
     const from = {x: m.pos.x, y: m.pos.y + (m.cfg.h || 1.8) * 0.55, z: m.pos.z};
     const speed = s.speed !== undefined ? s.speed : 16;
     const dir = CombatCore.leadAim(from, {x: tg.pos.x, y: tg.pos.y, z: tg.pos.z,
@@ -178,7 +181,7 @@ function mkArrows(cfg) {
   }
   function shootFromAim(spec) {
     const s = spec || {};
-    sfx('shoot');
+    if (!o.muteSfx) sfx('shoot');
     const a = CameraRig.aim(camera);
     const dx = a.dir.x; const dy = a.dir.y; const dz = a.dir.z;
     const from = {x: a.origin.x + dx * 0.3, y: a.origin.y + dy * 0.3, z: a.origin.z + dz * 0.3};
@@ -219,7 +222,7 @@ function mkArrows(cfg) {
         }
         if (hitMob) {
           const res = Mobs.hit(hitMob, a.dmg, hitMob.pos.x - r.x, hitMob.pos.z - r.z, a.kpow);
-          sfx('hit');
+          if (!o.muteSfx) sfx('hit');
           if (o.onHitMob) o.onHitMob(hitMob, res);
           removeAt(i);
         }

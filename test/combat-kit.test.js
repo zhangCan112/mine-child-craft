@@ -194,6 +194,26 @@ test('mkArrows: 玩家弹沿准星发射, 打怪分支回调 onHitMob', () => {
   assert.strictEqual(d.log.sfx[d.log.sfx.length - 1], 'hit', '命中音(政策回调前后同拍)');
 });
 
+test('mkArrows 第二实例(雪球弹种, T9): 零伤害+击退政策经 spec 注入, muteSfx 抑制内置音效', () => {
+  const d = loadCombatKit();
+  const mobHits = [];
+  d.setMobs([mobAtEye(0, -2)]); /* 贴脸怪: 高重力(g14)下 2 格内弹道仍在身体高度段 */
+  /* 雪球实例口径: sphere 白球·不 lookAt·音效归壳(muteSfx — 壳层字面量播
+     snow_throw/snow_hit, sfx() 字面量守门口径), 命中政策回调与弓同款注入 */
+  const balls = d.ck.mkArrows({mesh: 'sphere', color: 0xffffff, lookAt: false,
+    muteSfx: true, onHitMob: (m, res) => mobHits.push({m, res})});
+  const sfxBefore = d.log.sfx.length;
+  balls.shootFromAim({speed: 12, dmg: 0, kpow: 1.1, g: 14, life: 1.6}); /* 低初速高重力 */
+  assert.strictEqual(balls.count(), 1, '雪球入列(一实例一弹种: 与箭实例互不干扰)');
+  assert.strictEqual(d.log.sfx.length, sfxBefore, 'muteSfx 抑制内置 shoot 音(投掷音归壳层)');
+  for (let i = 0; i < 40 && balls.count() && !mobHits.length; i++) balls.update(0.05);
+  assert.strictEqual(mobHits.length, 1, '命中怪 → onHitMob(观感/音效挂点)');
+  assert.strictEqual(d.log.hits[d.log.hits.length - 1].dmg, 0, '零伤害红线: 雪球永不扣血');
+  assert.strictEqual(d.log.hits[d.log.hits.length - 1].kpow, 1.1, '击退政策经 spec 注入(打雪仗的主反馈)');
+  assert.strictEqual(d.log.sfx.length, sfxBefore, 'muteSfx 抑制内置 hit 音(命中音归壳层)');
+  assert.strictEqual(balls.count(), 0, '命中即移除');
+});
+
 /* ============ killBurst / resetFighter / mkHpBar ============ */
 
 test('killBurst: 碎块 + 计数 toast(动词可注入) + 尾回调', () => {
