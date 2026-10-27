@@ -88,7 +88,7 @@ const api = vm.runInContext(`({
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
-  B_PORTAL, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
+  B_PORTAL, B_PORTAL_DIM, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
@@ -2971,9 +2971,11 @@ test('T8 解锁链第一环: 完成 q16 广场引导 → 解锁键置位+档落�
   mem.clear();
   freshInit();
   const dg = ADV_MAPS[0].gates[0]; /* home 门阵沙漠门(desert, T7 绑定权威) */
-  /* 前置: q16 进行中, 沙漠门熄——只立框无门面(advInPortal 不命中=不可触发口径) */
+  /* 前置: q16 进行中, 沙漠门熄——立框+暗紫微光门面(id 异于 B_PORTAL,
+      advInPortal 不命中=不可触发口径不变) */
   A.ADV.quest.step = 16;
-  assert.notStrictEqual(cell(dg.px + 2, 25, dg.pz), api.B_PORTAL, '完成前: 门面格无门面(熄门只立框)');
+  assert.strictEqual(cell(dg.px + 2, 25, dg.pz), api.B_PORTAL_DIM,
+      '完成前: 门面格是暗紫微光(熄门可读「是门只是没开」)');
   spoken.length = 0;
   calls.length = 0;
   A.ADV.quest.counts.visit_plaza = 1; /* 测试捷径: 广场发现记账(挂点链在下一题) */
@@ -3054,6 +3056,8 @@ test('T8 锁门 TTS 真任务名: 走近熄门报前置任务 goal(T7 占位文�
   mem.clear();
   freshInit();
   const dg = ADV_MAPS[0].gates[0]; /* 沙漠门: 前置 = q16 广场引导 */
+  A.ADV.quest.step = 16; /* 链走到 q16(沙漠门前置已是当前步) → 点名话术;
+      step 0 时是泛指「先做完任务卡的任务」(分级口径见 T7-3) */
   pos.x = dg.px + ADV_PORTAL.w / 2; pos.z = dg.pz + 2; /* 门中心南侧 ~1.5 格 */
   spoken.length = 0;
   AdventureMode.update(0.1);
@@ -3063,6 +3067,7 @@ test('T8 锁门 TTS 真任务名: 走近熄门报前置任务 goal(T7 占位文�
   /* 雪原门(第二环): 提示的是神殿宝箱(q19)——线性链正确的前置。
      先挪位再推节流窗: 递减到 0 的那一帧查的是新位置(雪原门), 不重提沙漠门 */
   const sg = ADV_MAPS[0].gates[1];
+  A.ADV.quest.step = 19; /* 推进到 q19(雪原门前置成为当前步) */
   pos.x = sg.px + ADV_PORTAL.w / 2; pos.z = sg.pz + 2;
   spoken.length = 0;
   AdventureMode.update(6.1); /* 推过 6s 节流窗, 当帧即查新位置 */

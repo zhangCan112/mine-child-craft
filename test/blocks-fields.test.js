@@ -28,7 +28,7 @@ function loadCfg() {
     B_SAPLING, B_CLAY, B_CHEST, B_WOOL, B_BED,
     B_SNOW, B_SNOWY_GRASS, B_ICE, B_CACTUS, B_SANDSTONE,
     B_DEAD_BUSH, B_ORCHID, B_FLOWER_Y, B_FLOWER_W,
-    B_LAVA, B_GLOWSTONE,
+    B_LAVA, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM,
   };`, ctx);
   return ctx.__c;
 }
@@ -58,7 +58,7 @@ test('新方块常量与 id 一一对应: 36~49 按附录 A, B_SAPLING 顺延 50
 
 /* ============ 生态地图新方块 id 段(54~62, 冒险模式生态地图设计稿 §6) ============ */
 
-test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽三图资源); 号段红线 — BLOCKS 不占 id 63+', () => {
+test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽三图资源); 号段红线 — BLOCKS 不占 id 64+', () => {
   const c = loadCfg();
   const expect = {B_SNOW: 54, B_SNOWY_GRASS: 55, B_ICE: 56, B_CACTUS: 57,
     B_SANDSTONE: 58, B_DEAD_BUSH: 59, B_ORCHID: 60, B_FLOWER_Y: 61, B_FLOWER_W: 62};
@@ -67,10 +67,25 @@ test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽�
     assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
     assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
-  /* 红线: 存档按数字 id 记, 63+ 是后续号段预留(票据 T1), 现有表不得越界 */
+  /* 红线: 存档按数字 id 记, 64+ 是后续号段预留(63 已被 B_PORTAL_DIM 熄灭门面
+      占用——TR-2 手玩反馈票, 差异登记 #16; 32 是退役键 B_SOUL_SAND 勿复用) */
   for (const id of Object.keys(c.BLOCKS)) {
-    assert.ok(Number(id) <= 62, 'BLOCKS 出现 63+ 方块 id: ' + id + '(号段红线)');
+    assert.ok(Number(id) <= 63, 'BLOCKS 出现 64+ 方块 id: ' + id + '(号段红线)');
   }
+});
+
+test('熄灭门面 B_PORTAL_DIM=63: 门族形状 — glass 透渲/solid:false 可穿/无 portal 旗标(不可触发)/无 hard(声明式不可破坏)/色暗于亮门面', () => {
+  const c = loadCfg();
+  assert.strictEqual(c.B_PORTAL_DIM, 63, 'id 63(生态段后首位, 号段登记见上题红线)');
+  const b = c.BLOCKS[63];
+  assert.strictEqual(b.name, '熄灭门面');
+  assert.strictEqual(b.glass, true, '与门面同走 glass 透渲通道');
+  assert.strictEqual(b.solid, false, '可穿入(与 B_PORTAL 同口径)');
+  assert.ok(!b.portal, '无 portal 旗标——advInPortal 认 B_PORTAL id, 熄门天然不可触发');
+  assert.ok(!('hard' in b), '无 hard = 声明式不可破坏(门框同款, 挖不动给儿童话术)');
+  const lit = c.BLOCKS[c.B_PORTAL];
+  assert.ok(b.all[0] < lit.all[0] && b.all[2] < lit.all[2],
+      '暗紫微光: 色值显著暗于亮门面(读得出「是门只是没开」)');
 });
 
 test('生态地图薄块: 枯灌木/三花 thin 十字片一律 solid:false; 雪块/雪覆草/冰/仙人掌/砂岩是整块', () => {

@@ -225,7 +225,7 @@ BLOCKS[B_LAVA] = {name: '岩浆', all: [1.00, 0.42, 0.08], lava: true, fluid: 'l
    false, 含 TNT 免疫判据): 本段方块均未登记 hard——门框/门面永不可破坏(下界
    并入探险 D5), 下界岩系挖不动(D7 接受), 配套话术在模式层 */
 const B_NETHERRACK=30; const B_OBSIDIAN=31;
-const B_NETHER_BRICK=33; const B_GLOWSTONE=34; const B_PORTAL=35;
+const B_NETHER_BRICK=33; const B_GLOWSTONE=34; const B_PORTAL=35; const B_PORTAL_DIM=63;
 BLOCKS[B_NETHERRACK]= {name: '下界岩', all: [0.52, 0.28, 0.16]};
 BLOCKS[B_OBSIDIAN] = {name: '黑曜石', all: [0.10, 0.08, 0.16]};
 BLOCKS[B_NETHER_BRICK]= {name: '下界砖', all: [0.48, 0.20, 0.16]};
@@ -234,6 +234,12 @@ BLOCKS[B_GLOWSTONE] = {name: '发光岩', all: [1.00, 0.85, 0.45], light: 15};
    LOD 降采样会跳过 thin 块, 远处门面会消失); solid:false 可直接走入
    (传送判定只看坐标区间, 不看点位); portal 旗标 = 门面唯一身份 */
 BLOCKS[B_PORTAL] = {name: '传送门面', all: [0.50, 0.20, 0.80], glass: true, solid: false, portal: true};
+/* 熄灭门面(冒险地图 T7 收口, 2026-10-27 用户拍板): 未解锁地图门的暗紫微光门面——
+   读得出「这是传送门, 只是还没开」, 不再是空洞黑框。同走 glass 透渲通道/
+   solid:false 可穿入, 但**无 portal 旗标且 id 不同**(advInPortal 认 B_PORTAL
+   id)——熄门天然不可触发; 点亮仪式以 B_PORTAL 原位覆写换装。无 hard 字段 =
+   声明式不可破坏(门框同款) */
+BLOCKS[B_PORTAL_DIM] = {name: '熄灭门面', all: [0.24, 0.10, 0.38], glass: true, solid: false};
 
 /* 物品与合成一期新方块 (id 36~50, 附录 A) — 探险地形与站点件
    四矿: 石头底色+矿斑的纯色近似(嵌斑贴图归 T9 图集) · 硬度 3 = MC 矿石原值

@@ -293,7 +293,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID,
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
     B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_TNT,
-    B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_NETHER_BRICK,
+    B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_NETHER_BRICK,
     B_SNOWY_GRASS, B_SNOW, B_ICE, B_CACTUS, B_SANDSTONE, B_ORCHID, B_DEAD_BUSH,
     ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
     mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
@@ -1094,16 +1094,19 @@ const seedQuestC = (unlocked) => (m) => m.set('adventure_quest_save',
 const gateOf = (rowId, to) => ADV_MAPS.find((r) => r.id === rowId).gates
     .find((g) => g.to === to);
 
-test('T7-1 门阵建场: home 三扇门框常驻 · 未解锁掏门面(不可触发) · 解锁键亮门面 · 远征图回程门常亮 · 门体不记账', () => {
-  /* 空任务档: 三门全熄——门框在(黑曜石塔楼/门楣), 门面格无 B_PORTAL */
+test('T7-1 门阵建场: home 三扇门框常驻 · 未解锁铺暗紫微光门面(不可触发) · 解锁键亮门面 · 远征图回程门常亮 · 门体不记账', () => {
+  /* 空任务档: 三门全熄——门框在(黑曜石塔楼/门楣), 门面格是 B_PORTAL_DIM 微光
+      (2026-10-27 拍板: 从「只立框空洞黑」改为暗紫微光——读得出是门只是没开;
+      id 异于 B_PORTAL → advInPortal 不命中 = 不可触发红线不变) */
   freshC();
   const home = ADV_MAPS[0];
   assert.strictEqual(home.gates.length, 3, '前提: home 行三门');
   for (const g of home.gates) {
     assert.strictEqual(apiC.getBlock(g.px, Core.ADV_GROUND, g.pz), apiC.B_OBSIDIAN,
         g.to + ' 门框底边黑曜石(建场期常驻)');
-    assert.strictEqual(apiC.getBlock(g.px + 1, Core.ADV_GROUND + 3, g.pz), 0,
-        g.to + ' 未解锁: 门面格无 B_PORTAL(熄门不可触发)');
+    const dim = apiC.getBlock(g.px + 1, Core.ADV_GROUND + 3, g.pz);
+    assert.strictEqual(dim, apiC.B_PORTAL_DIM, g.to + ' 未解锁: 门面格是暗紫微光');
+    assert.notStrictEqual(dim, apiC.B_PORTAL, g.to + ' 微光门面不是 B_PORTAL(不可触发)');
     assert.strictEqual(apiC.getBlock(g.px + ADV_PORTAL.w - 1, Core.ADV_GROUND + 3, g.pz),
         apiC.B_OBSIDIAN, g.to + ' 侧柱在(中段, 端点是四角发光岩)');
   }
@@ -1122,8 +1125,8 @@ test('T7-1 门阵建场: home 三扇门框常驻 · 未解锁掏门面(不可触
       '解锁门亮门面(advInPortal 可命中)');
   assert.strictEqual(apiC.getBlock(dg.px + 3, Core.ADV_GROUND + 5, dg.pz), apiC.B_PORTAL,
       '门面 4×5 满铺');
-  assert.strictEqual(apiC.getBlock(sg.px + 2, Core.ADV_GROUND + 1, sg.pz), 0,
-      '未解锁门仍熄');
+  assert.strictEqual(apiC.getBlock(sg.px + 2, Core.ADV_GROUND + 1, sg.pz), apiC.B_PORTAL_DIM,
+      '未解锁门仍是暗紫微光(非亮紫门面)');
   /* 远征图: 回程门常亮(home 恒开) + 切走再切回门阵确定性重建(T6-3 红线的门阵面) */
   AN.advSetMap('desert');
   const rg = gateOf('desert', 'home');
@@ -1141,8 +1144,8 @@ test('T7-1b 点亮仪式网格重锚: 补门面同拍入脏队列(解锁当帧�
   freshC((m) => m.set('adventure_quest_save',
       JSON.stringify({_v: 1, step: 16, counts: {}}))); /* 当前步 q16_plaza(unlock desert) */
   const dg = gateOf('home', 'desert');
-  assert.strictEqual(apiC.getBlock(dg.px + 2, Core.ADV_GROUND + 1, dg.pz), 0,
-      '前提: 熄门无门面');
+  assert.strictEqual(apiC.getBlock(dg.px + 2, Core.ADV_GROUND + 1, dg.pz), apiC.B_PORTAL_DIM,
+      '前提: 熄门是暗紫微光门面');
   /* 注入 world 网格 seam 桩(advMeshTouch 消费, Node 桩缺席静默——注入后可断言) */
   const marked = [];
   let flushed = 0;
@@ -1203,18 +1206,20 @@ test('T7-2 站桩状态机: 地图门 2s 站满(可反悔) → 渐晕满格切�
   assert.ok(veil && +veil.style.opacity === 0, '遮罩收起(opacity=0)');
 });
 
-test('T7-3 锁门与 nether 门分流: 熄门走近给锁形 TTS(节流) · 门阵坐标外的门保持 nether 即时语义', () => {
-  /* 空任务档: 三门全熄。走近雪原门 → 锁形提示; 站多久也不切图 */
+test('T7-3 锁门与 nether 门分流: 熄门走近给分级话术(节流) · 门阵坐标外的门保持 nether 即时语义', () => {
+  /* 空任务档(step 0, 主链未走完): 走近雪原门 → 泛指话术「先做完任务卡的任务」
+      ——不剧透未来步, 也不把孩子引去「做了也不亮」的地方(用户实测踩坑) */
   freshC();
   const sg = gateOf('home', 'snow');
   globalThis.pos.x = sg.px + 2.5;
   globalThis.pos.y = Core.ADV_GROUND + 1;
   globalThis.pos.z = sg.pz + 0.5;
   AM.update(0.1);
-  assert.ok(spokenC.some((s) => s.indexOf('亮起来') >= 0), '走近熄门给锁形 TTS(完成XX任务提示)');
+  assert.ok(spokenC.some((s) => s.indexOf('任务卡') >= 0 && s.indexOf('亮起来') >= 0),
+      '链未走到: 泛指先做任务卡任务(不点名未来任务)');
   spokenC.length = 0;
   AM.update(2.5); /* 一直站在熄门口 */
-  assert.strictEqual(AN.advNetherState().map, 'home', '熄门无门面不可触发(站多久都不切图)');
+  assert.strictEqual(AN.advNetherState().map, 'home', '熄门微光门面不可触发(站多久都不切图)');
   assert.strictEqual(spokenC.length, 0, '同一门口不重复播锁形提示(节流)');
   globalThis.pos.z = sg.pz - 5; /* 走远 */
   AM.update(0.1);
@@ -1228,6 +1233,22 @@ test('T7-3 锁门与 nether 门分流: 熄门走近给锁形 TTS(节流) · 门�
   stepIntoPortal(spot.x + 2.5, 25, spot.z + 0.5, 0);
   assert.strictEqual(AN.advNetherState().dim, 'nether', '玩家 nether 门即时切界(站桩只对地图门生效)');
   assert.strictEqual(AN.advNetherState().portalCd, Core.ADV_PORTAL.cd, 'nether 门同款冷却');
+});
+
+test('T7-3b 锁门分级话术: 前置任务已是当前步 → 点名具体任务(雪原门 ← q19 神殿宝箱)', () => {
+  /* 一致的远征中期档: 沙漠已解锁(desert 门亮) · step=19(q19_temple 是当前步,
+      雪原门的挂 unlock 任务) → 走近雪原门说「先[神殿宝箱 goal]」 */
+  freshC((m) => m.set('adventure_quest_save', JSON.stringify({_v: 1, step: 19,
+    counts: {unlockedDesert: 1}})));
+  const sg = gateOf('home', 'snow');
+  const q19 = Core.ADV_QUESTS[19];
+  globalThis.pos.x = sg.px + 2.5;
+  globalThis.pos.y = Core.ADV_GROUND + 1;
+  globalThis.pos.z = sg.pz + 0.5;
+  AM.update(0.1);
+  assert.ok(spokenC.some((s) => s.indexOf(q19.goal) >= 0 && s.indexOf('雪原') >= 0),
+      '前置任务已当前: 点名「先' + q19.goal + '」(具体指引)');
+  assert.ok(!spokenC.some((s) => s.indexOf('任务卡') >= 0), '不再泛指(链已走到这环)');
 });
 
 test('T7-4 回程门: 远征图站满 2s 回 home, 落在来时那扇门的门位(advMapArriveAt 对应门)', () => {

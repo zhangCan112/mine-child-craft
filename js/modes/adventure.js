@@ -959,6 +959,7 @@ function advTrySleep(hit, lookId) {/* 点击床(§7.2, 挖掘左键与轻点/右
      全量装载(test/adventure-nether.test.js)拿到真值 */
 const ADV_B = {
   portal: (typeof B_PORTAL !== 'undefined') ? B_PORTAL : 0,
+  portalDim: (typeof B_PORTAL_DIM !== 'undefined') ? B_PORTAL_DIM : 0, /* 熄门微光门面(不可触发, id 异于 B_PORTAL) */
   obsidian: (typeof B_OBSIDIAN !== 'undefined') ? B_OBSIDIAN : 0,
   netherrack: (typeof B_NETHERRACK !== 'undefined') ? B_NETHERRACK : 0,
   glowstone: (typeof B_GLOWSTONE !== 'undefined') ? B_GLOWSTONE : 0,
@@ -1063,14 +1064,19 @@ function advGateLit(g) {/* 门亮否: 目标图解锁(回程门 to=home 恒亮);
   return advMapUnlocked(g.to, ADV.quest.counts);
 }
 function advGatesBuild() {/* 当前图门阵建场(loadScene 基座段收尾, 不记账): home 三扇
-    门阵 + 远征图单回程门; 熄门只立框——门面格不落 B_PORTAL(advInPortal 天然
-    不命中=「不可触发」口径), T8 点亮仪式补齐门面时门体才长脸。
+    门阵 + 远征图单回程门; 熄门立框+**暗紫微光门面**(2026-10-27 用户拍板: 从「只立框
+    空洞黑」改为 B_PORTAL_DIM——读得出「这是传送门, 只是还没开」; 无 portal 旗标且
+    id 不同, advInPortal 天然不命中=「不可触发」口径不变), T8 点亮仪式以 B_PORTAL
+    原位覆写换装门体才「长亮脸」。
     ADV_B.portal=0(精简装载守卫)时整体静默——门体核心引用下界方块常量 */
   if (advDim === 'nether' || !ADV_B.portal || !ADV_B.obsidian) return; /* 下界无门阵(回程门在 advSetDim 建场段) */
   for (const g of advMapRow.gates) {
     const lit = advGateLit(g);
     advPortalFrame((x, y, z, id) => {
-      if (id === ADV_B.portal && !lit) return; /* 熄门: 门面格跳过, 只留框 */
+      if (id === ADV_B.portal && !lit) {
+        if (ADV_B.portalDim) setBlockRaw(x, y, z, ADV_B.portalDim); /* 熄门: 门面降级微光 */
+        return;
+      }
       setBlockRaw(x, y, z, id);
     }, ADV_GROUND, g.px, g.pz);
   }
@@ -1337,8 +1343,11 @@ function advVeilTick(dt) {/* 转场推进(update 每帧): 淡入→满格沿→�
 }
 
 /* ---------- 锁门提示(T7, §2.3): 熄门不可触发, 走近给儿童话术 ----------
-     解锁=任务链点亮(§2.3), 本段只读 counts 键; 话术前置任务名走解锁链反查
-     (advUnlockQuest, T8 收尾 T7 占位文案「完成任务」→ 真任务 goal) */
+     解锁=任务链点亮(§2.3), 本段只读 counts 键; 话术**按任务进度分级**(2026-10-27
+     用户实测踩坑收口): 前置任务(挂 unlock 的那条, advUnlockQuest 反查)还没成为
+     当前步时不剧透未来步(任务卡「一步步揭示」同款), 只说「先做完手上的任务」——
+     照旧话术会把孩子引去「做了也不亮」的地方(如主链没走完时对他说「去门阵广场
+     看一看」, 他站进去毫无反馈) */
 let advGateLockT = 0; /* 锁门提示节流秒(6s, update 递减) */
 const ADV_GATE_LOCK_R = 3.5; /* 提示半径: 玩家到门中心的格数 */
 const ADV_GATE_LOCK_CD = 6; /* 同门口提示间隔(不啰嗦) */
@@ -1351,9 +1360,13 @@ function advGateLockTick(dt) {
     const row = ADV_MAPS.find((r) => r.id === g.to);
     const nm = row ? row.name : '';
     const uq = advUnlockQuest(g.to); /* 前置任务(挂 unlock 的那条): 缺位兜底泛称 */
-    const task = uq ? uq.goal : '完成探险任务';
-    SpeechKit.speak('先' + task + '，' + nm + '之门就会亮起来');
-    showToast('🔒 先' + task + '，' + nm + '之门就会亮起来');
+    if (!uq || ADV.quest.step < ADV_QUESTS.indexOf(uq)) {/* 链还没走到: 泛指先做任务 */
+      SpeechKit.speak('这扇门还在睡觉呢！先把任务卡上的任务做完，' + nm + '之门就会亮起来');
+      showToast('🔒 先做完任务卡的任务，' + nm + '之门就会亮起来');
+    } else {/* 前置任务已是当前步: 点名具体做什么 */
+      SpeechKit.speak('先' + uq.goal + '，' + nm + '之门就会亮起来');
+      showToast('🔒 先' + uq.goal + '，' + nm + '之门就会亮起来');
+    }
     advGateLockT = ADV_GATE_LOCK_CD;
     break; /* 一次只提一扇(两门贴近时也不叠话) */
   }
