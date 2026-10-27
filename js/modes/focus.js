@@ -10,6 +10,8 @@
      chiefFace/stampIcon/flameIcon(mcIcon 族, focus-icons.js) ·
      SpeechKit(js/speech.js) · sfx(js/audio.js) · Backpack/ITEMS/iconOf ·
      Budgets(js/daily-budget.js) · SyncDB(js/sync.js) · ModeKit(js/mode-kit.js) ·
+     DEV(js/config.js, ?dev=1 能力面 — 今日页跳关行/体检/魔鬼特训放开,
+     docs/dev-mode-design.md D3; typeof 守卫兼容 vm 精简装载) ·
      CampKit(js/camp-kit.js — 战利品回路五件套(C1-T1)与图章仪式四件套
      (C1-T2)收编, 加载序在本文件之前)
    可测性: 纯 DOM 模式层; 决策纯函数在 focus-levels.js 有单测,
@@ -265,6 +267,8 @@ function wireFocusStampPicker(save) {
 
 /* ---------- 今日页 ---------- */
 function showFocusToday() {
+  const devOn = typeof DEV !== 'undefined' && DEV; /* dev=1 能力面(跳关行/体检/魔鬼特训放开);
+  typeof 守卫=vm 精简装载落非 dev, camp-kit budget() 同款 */
   stopFocusTicker();
   const save = loadFocusSave();
   applyFocusBagSkin(save.stampClaimed); // B6 皮肤恢复路径(落账函数无 DOM 副作用)
@@ -321,6 +325,8 @@ function showFocusToday() {
         (lv.kind==='tutorial' ? ' · 教学' : (lv.kind==='master' ? ' · 大师考验' : ''))}</p>
     ${tasks ? '<div class="f-task-row" id="fTaskRow">' + tasks + '</div>' : ''}
     <button class="f-start" id="fStartBtn">▶ 开始训练</button>
+    ${devOn ? '<div class="f-dev-jump">🛠 跳到第 <input id="fDevJump" type="number" min="1" max="100" value="' +
+        (cur + 1) + '" /> 关 <button class="f-btn" id="fDevGo">跳转</button></div>' : ''}
     ${focusExtrasHtml(save)}
     <button class="f-btn" id="fBagBtn">${btnImg('chest')} 宝物柜</button>
     <button class="f-btn" id="fProgressBtn">${btnImg('chart')} 我的进步</button>
@@ -346,6 +352,17 @@ function showFocusToday() {
     btn.onclick = ()=> SpeechKit.speak(FOCUS_META[btn.dataset.dim].name);
   });
   document.getElementById('fStartBtn').onclick = ()=> startFocusLevel(cur);
+  if (devOn) { // dev=1 跳关: 验收任意一关(仅 dev 渲染; 通关照常落账推进, docs/dev-mode-design.md D3)
+    const jump = document.getElementById('fDevJump');
+    const go = ()=>{
+      const n = Math.min(100, Math.max(1, parseInt(jump.value, 10) || 1)); // 1..100 钳制(与关卡表同界)
+      startFocusLevel(n - 1);
+    };
+    document.getElementById('fDevGo').onclick = go;
+    jump.onkeydown = (e)=>{
+      if (e.key === 'Enter') go();
+    };
+  }
   wireFocusExtras();
   document.getElementById('fBagBtn').onclick = showFocusCabinet;
   document.getElementById('fProgressBtn').onclick = showFocusProgress;
@@ -379,7 +396,11 @@ function startFocusLevel(i) {
       <div class="f-tipbox">💡 ${focusTip(level)}${level.kind!=='tutorial' ? ' 目标：正确 70% 以上通过！' : ''}</div>
       <button class="f-start" id="fGoBtn">▶ 开始</button>
     </div>`);
-  SpeechKit.speak(meta.rule);
+  /* 零文字依赖(MISSION 约束): 档位级规则变化只住在 tip 里(如 gonogo 的
+     绿宝石伪装「TNT 变成绿宝石的样子」/corsi 的 4×4 格阵), 只写不念
+     则零文字的孩子永远听不到——rule+tip 合成一句念出(两连 speak 会
+     cancel 截断前句, 故并一句; 「目标 70%」是给陪同大人的, 不念) */
+  SpeechKit.speak(meta.rule + ' ' + focusTip(level));
   document.getElementById('fGoBtn').onclick = ()=> beginFocusRun(level);
 }
 
@@ -744,15 +765,18 @@ const FOCUS_FLAME_TEXT = {
   3: '哇，大火苗亮堂堂！',
 };
 
-/* 今日页附加入口行: 体检(当日未做才显示) + 魔鬼特训(当日未训: 可用或禁用态) */
+/* 今日页附加入口行: 体检(当日未做才显示) + 魔鬼特训(当日未训: 可用或禁用态)
+   dev=1 两者常显可重复进(验收不等明天, docs/dev-mode-design.md D3) */
 function focusExtrasHtml(save) {
+  const devOn = typeof DEV !== 'undefined' && DEV; /* typeof 守卫=vm 精简装载落非 dev, camp-kit budget() 同款 */
   const today = focusTodayStr();
   const parts = [];
-  if (focusCheckEntry(save.checks, today)) {
+  if (devOn || focusCheckEntry(save.checks, today)) {
     parts.push('<button class="f-extra-btn f-check-btn" id="fCheckBtn">' + btnImg('flame') + '今日体检</button>');
   }
   const fb = focusBudget();
-  const de = devilEntry(save.devil, today, fb ? fb.spentCount() : 0, fb ? fb.capCount() : FOCUS_DAILY_LEVELS);
+  const de = devOn ? {open: true, reason: 'ok'} :
+      devilEntry(save.devil, today, fb ? fb.spentCount() : 0, fb ? fb.capCount() : FOCUS_DAILY_LEVELS);
   if (de.reason !== 'done') {
     parts.push('<button class="f-extra-btn f-devil-btn" id="fDevilBtn"' +
         (de.open ? '' : ' disabled title="今天的关卡额度不够啦，明天再来！"') + '>' + btnImg('devil') + '魔鬼特训</button>');
@@ -870,6 +894,10 @@ function beginDevilRun(dim, tier) {
     </div>
     <div class="f-area f-devil-area" id="fArea"></div>`);
   document.getElementById('fBackBtn').onclick = ()=> settleDevilRun(true); // 中途退出: 打过即结算(中断不划算但零扣损)
+  /* 零文字依赖: 挑战档=当前档+2, 可能踩档位级新规则(如 gonogo 绿宝石
+     伪装)——开场把规则与提示念出来(与 startFocusLevel 同口径, 特训
+     头部的 f-rule-small 只有文字) */
+  SpeechKit.speak(FOCUS_META[dim].rule + ' ' + FOCUS_META[dim].tip(devilParams(dim, tier)));
   const run = {
     dim, tier,
     agg: {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0, goTrials: 0, hits: 0, rounds: 0},

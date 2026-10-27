@@ -481,6 +481,34 @@ test('体验馆: 工作台/Tab — 合成面板开合, station 恒真全开(隐�
   assert.match(showroomSrc, /KIT_HIDDEN_RECIPES/, '隐藏配方全点亮(清单随 mode-kit 自动跟)');
 });
 
+/* ============ 2026-10-28 背包点选搬运: 快捷栏镜像同步(修: onMove 搬完漏刷, 关背包图标滞留旧物) ============ */
+
+test('体验馆: 背包点选搬运 — 搬进/搬出/换序快捷栏镜像跟随(修: 关背包后物品栏不更新)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  /* 主格 → 快捷栏空位: 火把搬进槽 5, 图标要立即可见(图标只认 syncBar 写的 item 字段) */
+  inv.slots[5] = null;
+  inv.slots[20] = {id: 'torch', n: 4};
+  ShowroomMode.sr.craft.move(20, 5);
+  assert.deepStrictEqual({...inv.slots[5]}, {id: 'torch', n: 4}, '火把搬进快捷栏槽 5');
+  assert.strictEqual(ShowroomMode.hotbar.items[5].item, 'torch',
+      '快捷栏镜像跟随(修: 关背包后图标滞留旧物)');
+  /* 异种对调 = 快捷栏换序: 两格图标都要换 */
+  inv.slots[0] = {id: 'coal', n: 10};
+  inv.slots[1] = {id: 'planks', n: 3};
+  ShowroomMode.sr.craft.move(0, 1);
+  assert.strictEqual(ShowroomMode.hotbar.items[0].item, 'planks', '换序: 木板进槽 0 图标已换');
+  assert.strictEqual(ShowroomMode.hotbar.items[1].item, 'coal', '煤挪槽 1 图标已换');
+  /* 快捷栏 → 主格空位: 腾出的槽图标清空 */
+  inv.slots[26] = null;
+  ShowroomMode.sr.craft.move(1, 26);
+  assert.strictEqual(ShowroomMode.hotbar.items[1].item, '', '腾空槽镜像清空');
+  /* 原地搬运零副作用 */
+  ShowroomMode.sr.craft.move(3, 3);
+  assert.strictEqual(ShowroomMode.hotbar.items[3].item,
+      inv.slots[3] ? inv.slots[3].id : '', '原地搬运不动镜像');
+});
+
 test('体验馆: 仓库箱 — 点箱开对应账户(箱格首件=派生首件) · 整摞存取零损耗(政策纯函数)', () => {
   freshEnter();
   const accounts = ShowroomMode.crates.accounts();

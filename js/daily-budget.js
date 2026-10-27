@@ -11,6 +11,10 @@
    · 时钟/存储经 seam 注入: 生产=Date.now+SyncDB, 测试=假钟+内存
    · 零 DOM / 零 THREE / 零语音: 到量只触发 onWarn / onExhausted 回调,
      何时强制(游戏中打断/关卡间锁定)由调用方决定
+   · dev 选项(main.js 传 config.js 的 DEV): 调试模式预算全开 — blocked()
+     恒 false 且 warn/exhausted 回调不触发(时限/限额对开发者失效);
+     accrue/count 照常记账(图章序号/家长面板的数据源不能断,
+     见 docs/dev-mode-design.md D2)
    ============================================================ */
 
 const BUDGET_SAVE_KEY = 'daily_budget_save';
@@ -59,7 +63,7 @@ function readExtraMs(raw, date) {
 }
 
 function mkDailyBudgets(opts) {
-  const o = Object.assign({key: BUDGET_SAVE_KEY, now: ()=>Date.now(), storage: null, defs: {}}, opts);
+  const o = Object.assign({key: BUDGET_SAVE_KEY, now: ()=>Date.now(), storage: null, defs: {}, dev: false}, opts);
   const views = {};
   let state = null; /* 惰性加载的账本 */
   const firedWarn = {}; const firedExhausted = {}; /* name → 已触发的日期串(每天至多一次) */
@@ -96,6 +100,7 @@ function mkDailyBudgets(opts) {
   }
 
   function checkEvents(name) {
+    if (o.dev) return; /* dev 预算全开: 不触发"还剩 1 分钟"与到量踢出(读侧旁路, 记账照常) */
     const def = o.defs[name] || {};
     const t = load().date; const v = views[name];
     if (def.warnAtMs && firedWarn[name] !== t && !v.blocked() && v.remainingMs() <= def.warnAtMs) {
@@ -143,6 +148,7 @@ function mkDailyBudgets(opts) {
         return Math.max(0, capMs() - slot(name).ms);
       },
       blocked() {
+        if (o.dev) return false; /* dev 预算全开: 时限/限额对开发者失效(唯一闸门在此, 消费方零改动) */
         const s = slot(name); return s.ms >= capMs() || s.played >= capCount();
       },
       reset() {

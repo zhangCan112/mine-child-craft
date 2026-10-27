@@ -62,6 +62,18 @@ await tools["code-review-graph"].build_or_update_graph_tool({
 - worktree 里没有主仓库那套 hook 自动增量更新，改动多了就手动跑一次增量（同上，不带 full_rebuild）。
 - 删 worktree 时 `.code-review-graph/` 属未跟踪文件，`git worktree remove` 需加 `--force`。
 
+### worktree 安全清单（指针）
+
+**开/用/删 worktree 前必读 [docs/worktree-pitfalls.md](docs/worktree-pitfalls.md)**——
+2026-10-28 真实事故沉淀。两条最高压线：
+
+- worktree 里**别用 junction 借主仓库 node_modules**（要装就独立 `npm install
+  --ignore-scripts --strict-ssl=false`）；万不得已用了，**删 worktree 前先
+  `cmd /c rmdir "<worktree>\node_modules"` 摘链接**——递归删除（worktree_remove/
+  Remove-Item -Recurse/git worktree remove --force）会穿透 junction 删光主仓库内容。
+- 删完 worktree 记得 `session_move` 回主仓库——会话工作目录还指着已删目录。
+
+
 ### 优先用图谱工具的场景
 
 - **探索代码**：`semantic_search_nodes_tool` 或 `query_graph_tool`，代替 Grep。

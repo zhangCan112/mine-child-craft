@@ -19,6 +19,8 @@
      SpeechKit(js/speech.js) · showToast(js/effects.js) ·
      btnImg(js/button-icons.js) · Budgets/MATH_DAILY_*(js/daily-budget.js
      与 main.js setupBudgets 建立的 math 预算) · SyncDB(js/sync.js) ·
+     DEV(js/config.js, ?dev=1 关卡全开 — mathLevelUnlocked 读侧旁路,
+     docs/dev-mode-design.md D3; typeof 守卫兼容 vm 精简装载) ·
      Backpack(js/backpack.js, ADR 0002 共享背包 — 数学岛是只产出的新消费方,
      T8) · ITEMS(js/items-core.js) · iconOf(js/icons.js, 调用期解析) ·
      CampKit(js/camp-kit.js — 战利品回路五件套(C1-T1)与图章仪式四件套
@@ -141,6 +143,9 @@ function mathFrontier(save) {
 }
 
 function mathLevelUnlocked(save, i) {
+  /* dev=1 关卡全开: 120 关任意点验收(frontier 高亮照旧, docs/dev-mode-design.md D3);
+     typeof 守卫=vm 精简装载落非 dev 分支, camp-kit budget() 同款 */
+  if (typeof DEV !== 'undefined' && DEV) return true;
   return i <= mathFrontier(save);
 }
 

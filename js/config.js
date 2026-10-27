@@ -24,6 +24,21 @@ const IS_TOUCH = (()=>{
   }
 })();
 
+/* dev 调试旗标(全游戏唯一口径, ?touch=1 同款防御式读取): ?dev=1 开发模式 —
+   消费面(docs/dev-mode-design.md): ① dev 向模式卡可见(main.js body.dev-on,
+   体验馆) ② 每日预算全开(daily-budget 的 dev 选项: 儿童时限+训练营限额恒不锁,
+   warn/exhausted 不触发) ③ 训练关卡全开(数学岛 120 关全亮可点; 专注训练营
+   今日页加跳关控件) ④ 每日体检/魔鬼特训可重复进。红线: 无参数路径行为
+   零变化 — dev 只旁路"读侧判定", 存档照常写(dev 设备档即测试档, 拍板见
+   dev-mode-design.md D1) */
+const DEV = (()=>{
+  try {
+    return (location.search || '').includes('dev=1');
+  } catch (e) {
+    return false;
+  }
+})();
+
 const PLAYER = {
   hx: 0.3, hz: 0.3, height: 1.8, eye: 1.62,
   speed: 5.0, sprint: 8.5, jump: 8.6, gravity: 26.0,

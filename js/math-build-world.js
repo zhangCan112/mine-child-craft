@@ -46,6 +46,7 @@ const MATH_WORLD = {
   colBlock: {1: 16, 2: 15, 3: 19}, // 颜色号→方块: 红羊毛/蓝羊毛/灯块
   canvasBlock: 17, // 画布底(石英)
   markerBlock: 18, // 镜面线/轮廓/角框标记(玻璃, 嵌地面)
+  edgeTorchBlock: 14, // 图纸「上面」边标记: 整行插火把(试次开场语音绑定哪条边)
   pedestalBlock: 17, // 「好啦」基座(石英)
   checkBlock: 34, // 「好啦」确认块(发光岩)
   digitBlock: 16, // 数字牌笔划(红羊毛)
@@ -171,6 +172,16 @@ function wwCheckBlock(x0, z0, w, d) {
   setBlockRaw(cx, W.groundY + 1, cz, W.pedestalBlock);
   setBlockRaw(cx, W.groundY + 2, cz, W.checkBlock);
   return {x: cx, y: W.groundY + 2, z: cz};
+}
+/* 图纸「上面」边标记·火把版(训练营 2026-10-28 四轮实测拍板): 方块
+   三角不显眼(嵌草皮/草皮箭头/连体三角三版全废), 改沿画布外圈北行
+   (z0-1)整行插火把(立在外圈顶面上, 建造区外不可拆不可点)——一排
+   亮火把整条边一眼锁定, 不需要读形状; 「哪条边=图纸的上面」由试次
+   开场语音绑定说出 */
+function wwTopEdgeTorches(x0, z0, w) {
+  for (let dx = -1; dx <= w; dx++) {
+    setBlockRaw(x0 + dx, MATH_WORLD.groundY + 1, z0 - 1, MATH_WORLD.edgeTorchBlock);
+  }
 }
 /* 候选牌(图纸牌/数字牌共用): 宽度超 28(平台一行放不下)自动折两行;
    slots = [{w, d, value?, draw(bx,bz)}] — value = 数字牌的数值(判分
@@ -314,11 +325,12 @@ const MATH_WORLD_VARIANTS = {
     },
     build(t) {
       const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
+      wwTopEdgeTorches(x0, z0, p.box.w); // 图纸「上面」边: 整行火把
       return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h,
         blueprint: true, gradeBlueprint: true};
     },
     speak() {
-      return '看着上面的图纸，把一样颜色的房顶摆出来！' + MATH_WORLD.askS;
+      return '插满火把的那条边，就是图纸的上面！照着图纸，把一样颜色的房顶摆出来！' + MATH_WORLD.askS;
     },
   },
   'plan/pick': {
