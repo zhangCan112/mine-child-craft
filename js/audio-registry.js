@@ -55,6 +55,7 @@ const SFX_KINDS = {
   lava_hiss: {synth: {noise: {type: 'highpass', freq: 2400, dur: 0.5}, g: 0.10}, g: 1, gTouch: 1, prio: 2, coolMs: 200}, // 水岩混合嘶嘶声(MC extinguish 口径, liquid D4.4)
   portal_charge: {synth: {type: 'sine', f0: 330, f1: 990, fT: 0.5, dur: 0.55, g: 0.10}, g: 1, gTouch: 1, prio: 4, coolMs: 200}, // 门面站桩蓄能(冒险地图 T7 §4.1 双段式第一段): 正弦上行滑音, 走出可反悔故 200ms 冷却防抖
   portal_travel: {synth: {type: 'sine', steps: [659, 988], stepT: 0.11, dur: 0.34, g: 0.12}, g: 1, gTouch: 1, prio: 4, coolMs: 60}, // 穿门到达(第二段, 遮罩满格切图时刻): 双音上行琶音与 TTS 播报并线
+  gate_unlock: {synth: {type: 'sine', steps: [392, 523, 659, 784], stepT: 0.09, dur: 0.52, g: 0.12}, g: 1, gTouch: 1, prio: 4, coolMs: 0}, // 门点亮仪式(票据 T8 §2.3): 四音上行琶音(G 大调, 比 level 晋升琶音多一音更庄重), 与光束/TTS 同拍; 仪式音豁免同类冷却
   snow_throw: {synth: {noise: {type: 'lowpass', freq: 620, dur: 0.1}, g: 0.08}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 雪球掷出「噗」(票据 T9; 低通白噪拟脱手闷响)
   snow_hit: {synth: {noise: {type: 'bandpass', freq: 1000, dur: 0.16}, g: 0.10}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 雪球命中「噗嗤」(票据 T9; 带通白噪拟松雪散裂, 打雪仗零伤害的观感主反馈)
 };
