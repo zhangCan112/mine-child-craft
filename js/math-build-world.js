@@ -129,20 +129,29 @@ function wwHudProgress(k, n) {
     wwProgEl.firstChild.style.width = Math.round(k / Math.max(1, n) * 100) + '%';
   }
 }
-/* 图纸 = blueprintPixels 纯投影的 2D 像素图(design §3 不拍照) */
+/* 图纸 = blueprintPixels 纯投影的 2D 像素图(design §3 不拍照); 顶带画
+   一枚上指箭头 = 地面玻璃箭头(wwNorthArrow)的指向, 图纸行 0 的方位锚 */
 function wwPaintBlueprint(bp) {
   if (!wwCanvas) return;
   const px = BuildWorldCore.blueprintPixels(bp);
   const s = 26;
+  const top = s; // 顶部箭头带高一行
   wwCanvas.width = bp.w * s;
-  wwCanvas.height = bp.d * s;
+  wwCanvas.height = top + bp.d * s;
   const ctx = wwCanvas.getContext('2d');
   for (let z = 0; z < px.length; z++) {
     for (let x = 0; x < px[z].length; x++) {
       ctx.fillStyle = px[z][x] || '#2f353d';
-      ctx.fillRect(x * s, z * s, s - 2, s - 2);
+      ctx.fillRect(x * s, top + z * s, s - 2, s - 2);
     }
   }
+  ctx.fillStyle = '#bfe6f2'; // 玻璃色(all=[0.75,0.90,0.95]) — 与地上箭头同材料观感
+  ctx.beginPath();
+  ctx.moveTo(wwCanvas.width / 2 - s * 0.45, top - 4);
+  ctx.lineTo(wwCanvas.width / 2 + s * 0.45, top - 4);
+  ctx.lineTo(wwCanvas.width / 2, 5);
+  ctx.closePath();
+  ctx.fill();
 }
 
 /* ---------- 装场地基(平台 + 居中石英画布) ---------- */
@@ -171,6 +180,18 @@ function wwCheckBlock(x0, z0, w, d) {
   setBlockRaw(cx, W.groundY + 1, cz, W.pedestalBlock);
   setBlockRaw(cx, W.groundY + 2, cz, W.checkBlock);
   return {x: cx, y: W.groundY + 2, z: cz};
+}
+/* 图纸方位锚(训练营 2026-10-28 实测反馈): 图纸 2D 图行 0 = 画布北缘
+   (z0 侧), 地面无锚点时孩子绕到对侧会照屏摆出旋转 180° 的"看着对"
+   答案。玻璃北指三角(尖 1 · 中 3 · 底 5, 嵌草皮 — 与镜面线/角框同
+   材料语言), HUD 图纸覆层顶带画同色上指箭头(wwPaintBlueprint),
+   两个箭头一对照即知哪边是图纸的"上面" */
+function wwNorthArrow(cx, z0) {
+  [[0], [-1, 0, 1], [-2, -1, 0, 1, 2]].forEach((row, i) => {
+    for (const dx of row) {
+      setBlockRaw(cx + dx, MATH_WORLD.groundY, z0 - 2 - i, MATH_WORLD.markerBlock);
+    }
+  });
 }
 /* 候选牌(图纸牌/数字牌共用): 宽度超 28(平台一行放不下)自动折两行;
    slots = [{w, d, value?, draw(bx,bz)}] — value = 数字牌的数值(判分
@@ -314,11 +335,12 @@ const MATH_WORLD_VARIANTS = {
     },
     build(t) {
       const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
+      wwNorthArrow(x0 + Math.floor(p.box.w / 2), z0); // 北指箭头钉住图纸行 0 的方位
       return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h,
         blueprint: true, gradeBlueprint: true};
     },
     speak() {
-      return '看着上面的图纸，把一样颜色的房顶摆出来！' + MATH_WORLD.askS;
+      return '地上的箭头指着图纸的上面！照着图纸，把一样颜色的房顶摆出来！' + MATH_WORLD.askS;
     },
   },
   'plan/pick': {
