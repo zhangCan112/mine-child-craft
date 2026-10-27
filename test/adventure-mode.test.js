@@ -2958,6 +2958,50 @@ test('昼夜 D7 灯笼燃尽: 耐久归零整槽消失 + TTS 安抚「灯笼用�
   assert.deepStrictEqual({...A.advGetInv().slots[0]}, {id: 'lantern', n: 1, dur: 300}, '新灯笼满耐久入包(回填首个空位)');
 });
 
+/* ============ T8 任务链与门解锁(远征章, 冒险地图设计稿 §2.3) ============ */
+
+test('T8 解锁链第一环: 完成 q16 广场引导 → 解锁键置位+档落盘+点亮仪式(音效/TTS/冲击波)+沙漠门面运行时熄→亮', () => {
+  mem.clear();
+  freshInit();
+  const dg = ADV_MAPS[0].gates[0]; /* home 门阵沙漠门(desert, T7 绑定权威) */
+  /* 前置: q16 进行中, 沙漠门熄——只立框无门面(advInPortal 不命中=不可触发口径) */
+  A.ADV.quest.step = 16;
+  assert.notStrictEqual(cell(dg.px + 2, 25, dg.pz), api.B_PORTAL, '完成前: 门面格无门面(熄门只立框)');
+  spoken.length = 0;
+  calls.length = 0;
+  A.ADV.quest.counts.visit_plaza = 1; /* 测试捷径: 广场发现记账(挂点链在下一题) */
+  AdventureMode.update(0.55); /* 过 0.5s 谓词节流窗 */
+  assert.strictEqual(A.ADV.quest.step, 17, 'q16 完成, 接棒 q17(到达沙漠)');
+  assert.strictEqual(A.ADV.quest.counts.unlockedDesert, 1, '解锁键置位(T4 键名约定, 完成即点亮)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'gate_unlock'), '点亮仪式音效 gate_unlock(四音琶音)');
+  assert.ok(spoken.some((s) => String(s).indexOf('黄沙沙漠之门亮起来啦') >= 0), '点亮 TTS「XX之门亮起来啦！」');
+  assert.ok(calls.some((x) => x[0] === 'pop'), '门位冲击波观感(Fx.pop 现成件)');
+  assert.strictEqual(cell(dg.px + 2, 25, dg.pz), api.B_PORTAL, '完成后: 门面格长出 B_PORTAL(运行时熄→亮切换)');
+  assert.strictEqual(cell(dg.px + 3, 27, dg.pz), api.B_PORTAL, '内口 4×5 多格齐(增量补面非单格)');
+  /* 任务档即时落盘含解锁键(往返第一半) */
+  const saved = JSON.parse(mem.get('adventure_quest_save'));
+  assert.strictEqual(saved.step, 17, 'step 随步进即时落盘');
+  assert.strictEqual(saved.counts.unlockedDesert, 1, '解锁键同拍落盘(重进不丢门)');
+  /* 重进: 装场读键路径——门面由 advGatesBuild 重建, 不依赖会话内仪式 */
+  AdventureMode.cleanup();
+  freshInit();
+  assert.strictEqual(A.ADV.quest.counts.unlockedDesert, 1, '解锁键随任务档往返(第二半)');
+  assert.strictEqual(cell(dg.px + 2, 25, dg.pz), api.B_PORTAL, '重进: 门面随装场读键重建(常亮)');
+  assert.notStrictEqual(cell(ADV_MAPS[0].gates[1].px + 2, 25, ADV_MAPS[0].gates[1].pz), api.B_PORTAL,
+      '雪原门仍熄(线性链: 神殿宝箱才点亮)');
+});
+
+test('T8 老档不回退: 终章通关档(step=16+称号) → 接棒远征章首条, step/称号原样保留', () => {
+  mem.clear();
+  mem.set('adventure_quest_save', JSON.stringify({_v: 1, step: 16,
+    counts: {craft_sword_diamond: 1}, title: '小小探险家'}));
+  freshInit();
+  assert.strictEqual(A.ADV.quest.step, 16, 'step 原样保留(远征章追加尾部, 前 16 条含义不变)');
+  assert.strictEqual(A.ADV.quest.title, '小小探险家', '称号保留(重进不重复授予)');
+  assert.strictEqual(ADV_QUESTS[16].id, 'q16_plaza', '当前步接棒远征章首条(广场引导)');
+  assert.notStrictEqual(A.ADV.quest.counts.unlockedDesert, 1, '未完成解锁任务: 门仍熄');
+});
+
 test('昼夜 D7 灯笼退场复位: cleanup 关随身光(PointLight 不渗入其他模式)', () => {
   mem.clear();
   freshInit();

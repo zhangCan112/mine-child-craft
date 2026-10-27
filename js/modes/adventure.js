@@ -1978,9 +1978,12 @@ function advQuestTick(dt) {
   if (!q || !q.check(st.counts)) return;
   sfx(q.finale ? 'win' : 'level');
   showToast('✅ ' + q.icon + ' ' + q.goal + ' 完成！');
-  if (q.finale) {/* 终章: 称号入档(step 走到表外不再查) + 烟花, 重进不重复授予 */
+  if (q.finale) {/* 终章: 称号入档(step 走到下一步不再查) + 烟花, 重进不重复授予;
+      远征章接棒(T8): 钻石剑后门阵召唤——终章句并句远征首条引导(老玩家无缝知道下一步) */
     st.title = ADV_QUEST_TITLE;
-    SpeechKit.speak(q.praise + '你获得了「' + ADV_QUEST_TITLE + '」称号！为你放烟花！');
+    const nxt = ADV_QUESTS[st.step + 1];
+    SpeechKit.speak(q.praise + '你获得了「' + ADV_QUEST_TITLE + '」称号！为你放烟花！' +
+        (nxt ? ' 接下来：' + nxt.hint : ''));
     showToast('🏅 获得称号：' + ADV_QUEST_TITLE + '！');
     advFireworks();
   } else {
@@ -1989,8 +1992,38 @@ function advQuestTick(dt) {
     if (nxt) showToast(nxt.icon + ' 新任务：' + nxt.goal);
   }
   st.step += 1;
+  if (q.unlock) {/* 解锁链(T8, §2.3): 完成挂 unlock 的任务 → 任务档 counts 置
+      T4 键名键(解锁即成就, 语义同源) → 点亮仪式; 键在 save 前置位(落盘含键) */
+    ADV.quest.counts[ADV_UNLOCK_KEYS[q.unlock]] = 1;
+    advJournal.touch();
+    advUnlockRite(q.unlock);
+  }
   advQuestSlot.save(st);
   advQuestPaint();
+}
+
+/* 门点亮仪式(T8, §2.3「看着门亮起来」): 解锁键置位后的观感接线 —
+   gate_unlock 四音琶音 + 门位冲击波 + 当前图门面运行时熄→亮(增量补 B_PORTAL
+   门面, setBlockRaw 不记账与建场同口径; T7 只在装场读一次键, 会话内切换在此)
+   + Fx.portalBeam 常驻光束重锚(增量一束; 切图全量重锚归 advBeamsRelayout)。
+   玩家不在门所在图时(远征图完成点亮 home 的门)只播报, 门面等回 home 由
+   advGatesBuild 读键路径覆盖——「回家就能看到」 */
+function advUnlockRite(mapId) {
+  sfx('gate_unlock');
+  const row = ADV_MAPS.find((r) => r.id === mapId);
+  const nm = row ? row.name : mapId;
+  let g = (advDim === 'overworld') ? advMapRow.gates.find((q) => q.to === mapId) : null;
+  if (g && !ADV_B.portal) g = null; /* 精简装载守卫(ADV_B 同款): 无门面方块不补格 */
+  if (g) {
+    advPortalFrame((x, y, z, id) => {
+      if (id === ADV_B.portal) setBlockRaw(x, y, z, id); /* 只补门面(框熄门时已立) */
+    }, ADV_GROUND, g.px, g.pz);
+    advBeamAdd(ADV_GROUND, g.px, g.pz); /* 常驻光束: 亮门才有束(熄门无门面口径) */
+    Fx.pop(g.px + ADV_PORTAL.w / 2, ADV_GROUND + 2, g.pz + 0.5,
+        {color: 0xb676f2, r0: 0.3, r1: 2.6, dur: 0.8}); /* 紫色门面同款色系冲击波 */
+  }
+  SpeechKit.speak(nm + '之门亮起来啦！' + (g ? '' : '回到家里就能看到！'));
+  showToast('✨ ' + nm + '之门亮起来啦！');
 }
 
 /* 任务卡(背包面板 aside, 打开背包即见): 当前步大图标+进度条, 已完成步划线史,
