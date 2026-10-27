@@ -24,7 +24,7 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
-  B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
+  B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf, SMELT_T,
@@ -434,9 +434,8 @@ test('核心政策: 站点判定/TNT 掷骰与衰减', () => {
   assert.strictEqual(Core.advTntDmg(9), Core.ADV_TNT_DMG_LO, '越界钳边缘 12');
 });
 
-test('核心任务表: 16 条形状齐 + 谓词口径抽样(全量逐条在 adventure-mode.test.js)', () => {
-  assert.strictEqual(Core.ADV_QUESTS.length, 16, '引导链 v2: 15 步 + 终章');
-  assert.strictEqual(Core.ADV_QUESTS[15].finale, true, '第 16 条是终章');
+test('核心任务表: 16 条主线形状齐 + 谓词口径抽样(全量逐条在 adventure-mode.test.js)', () => {
+  assert.strictEqual(Core.ADV_QUESTS[15].finale, true, '第 16 条是终章(远征章追加其后, 老档 step 不回退)');
   Core.ADV_QUESTS.forEach((q, i) => {
     assert.ok(q.id && q.icon && q.goal && q.hint && q.praise, '步 ' + i + ' 文案五件套');
     assert.strictEqual(typeof q.prog, 'function', '步 ' + i + ' prog 谓词');
@@ -453,6 +452,44 @@ test('核心任务表: 16 条形状齐 + 谓词口径抽样(全量逐条在 adve
   assert.strictEqual(Core.ADV_QUESTS[13].id, 'q14_fight', '步14 = 战斗教学步(铁镐后钻石前)');
   assert.strictEqual(Core.ADV_MINE_TALLY[3], 'mine_cobble', '石头也计圆石(步7 口径)');
 });
+
+test('远征章(T8): 追加在终章之后 — 10 条(引导 1 + 每图 3), 前 16 条序不变(老档 step 不回退)', () => {
+  assert.strictEqual(Core.ADV_QUESTS.length, 26, '主线 16 + 远征章 10');
+  assert.strictEqual(Core.ADV_QUESTS[16].id, 'q16_plaza', '第 17 条 = home 门阵广场引导(远征章首条)');
+  assert.strictEqual(Core.ADV_QUESTS[16].unlock, 'desert', '广场引导完成点亮沙漠门(线性链第一环)');
+  assert.strictEqual(Core.ADV_QUESTS[19].id, 'q19_temple', '第 20 条 = 沙漠神殿宝箱(远征章链尾)');
+  assert.strictEqual(Core.ADV_QUESTS[19].unlock, 'snow', '神殿宝箱完成点亮雪原门(线性链第二环)');
+  assert.strictEqual(Core.ADV_QUESTS[22].id, 'q22_igloo', '第 23 条 = 雪屋宝箱(雪原链尾)');
+  assert.strictEqual(Core.ADV_QUESTS[22].unlock, 'swamp', '雪屋宝箱完成点亮沼泽门(线性链第三环)');
+  assert.strictEqual(Core.ADV_QUESTS[25].id, 'q25_witch_chest', '末条 = 女巫小屋宝箱(沼泽链尾, 无 unlock)');
+  /* unlock 只许挂在三环链尾: 别处冒出 unlock 会破坏「一任务一点亮」的仪式稀缺感 */
+  const unlocks = Core.ADV_QUESTS.filter((q) => q.unlock).map((q) => q.id + '→' + q.unlock);
+  assert.deepStrictEqual(unlocks, ['q16_plaza→desert', 'q19_temple→snow', 'q22_igloo→swamp'],
+      '解锁绑定恰三环: home→desert→snow→swamp 线性(设计稿 §2.3)');
+  /* 解锁链反查(锁门话术与点亮仪式共用): 目标图 → 挂 unlock 的那条任务 */
+  assert.strictEqual(Core.advUnlockQuest('desert').id, 'q16_plaza', '反查: 沙漠门 ← 广场引导');
+  assert.strictEqual(Core.advUnlockQuest('snow').id, 'q19_temple', '反查: 雪原门 ← 神殿宝箱');
+  assert.strictEqual(Core.advUnlockQuest('swamp').id, 'q22_igloo', '反查: 沼泽门 ← 雪屋宝箱');
+  assert.strictEqual(Core.advUnlockQuest('home'), null, 'home 恒开无解锁任务');
+  assert.strictEqual(Core.advUnlockQuest('nonsense'), null, '未知图返 null 不炸');
+});
+
+test('远征章(T8): 谓词口径 — 发现型 visit_ / 收集型 mine_cactus / 探宝型 chest_ / 投掷型 throw_ / 击杀型 kill_', () => {
+  const q17 = Core.ADV_QUESTS[17];
+  assert.strictEqual(q17.check({visit_desert: 1}), true, '到达记账 1 次即完成(发现型轻谓词)');
+  assert.strictEqual(q17.check({}), false, '未到达不完成');
+  assert.strictEqual(Core.ADV_QUESTS[18].check({mine_cactus: 3}), true, '挖满 3 根仙人掌');
+  assert.strictEqual(Core.ADV_QUESTS[18].check({mine_cactus: 2}), false, '差一根不满足');
+  assert.strictEqual(Core.ADV_QUESTS[19].check({chest_temple: 1}), true, '神殿宝箱开箱记账(结构键, 玩家自放箱不算)');
+  assert.strictEqual(Core.ADV_QUESTS[21].check({throw_snowball: 5}), true, '雪球掷出 5 颗(投掷记账)');
+  assert.strictEqual(Core.ADV_QUESTS[21].check({throw_snowball: 4}), false, '差一颗不满足');
+  assert.strictEqual(Core.ADV_QUESTS[22].check({chest_igloo: 1}), true, '雪屋宝箱开箱记账');
+  assert.strictEqual(Core.ADV_QUESTS[24].check({kill_bogged: 2}), true, '打跑 2 只沼骸(按怪种击杀记账)');
+  assert.strictEqual(Core.ADV_QUESTS[24].check({kill_mob: 5}), false, '杀别的不算沼骸步(按怪种分账)');
+  assert.strictEqual(Core.ADV_QUESTS[25].check({chest_witch: 1}), true, '女巫小屋宝箱开箱记账');
+  assert.strictEqual(Core.ADV_MINE_TALLY[B_CACTUS], 'mine_cactus', '仙人掌挖掘挂 mine_cactus 键(ADV_MINE_TALLY 既有通道)');
+});
+
 
 /* ============ 大宝箱政策(引导链 v2 纯函数段) ============ */
 

@@ -950,6 +950,7 @@ const ADV_QUEST_TITLE = '小小探险家'; /* 通关称号(D11 终章, 随 quest
 const ADV_MINE_TALLY = {
   3: 'mine_cobble', 4: 'mine_cobble',
   [B_COAL_ORE]: 'mine_coal_ore', [B_IRON_ORE]: 'mine_iron_ore', [B_DIAMOND_ORE]: 'mine_diamond_ore',
+  [B_CACTUS]: 'mine_cactus', /* 远征章(T8): 沙漠仙人掌收集步 */
 };
 
 /* 主线任务表(引导链 v2, 15 步+终章; 12 步版与插步依据见
@@ -1031,7 +1032,60 @@ const ADV_QUESTS = [
     hint: '用 2 颗钻石和 1 根木棍，合成属于你的钻石剑！',
     praise: '钻石剑做好啦！',
     prog: (c) => Math.min(c.craft_sword_diamond || 0, 1), check: (c) => (c.craft_sword_diamond || 0) >= 1},
+  /* 远征章(T8, 冒险地图设计稿 §2.3 解锁链): 追加在终章之后——前 16 条序不变,
+     老档 step 不回退(已通关档 step=16 顺位接棒远征章, 称号保留); 线性解锁链
+     home→desert→snow→swamp, unlock 字段 = 该任务完成时点亮的门(目标图 id),
+     壳层置 ADV_UNLOCK_KEYS[unlock] 键(键名权威在 adventure-maps-core, T4)。
+     counts 新增四类(事件处仍只 += 不判断): visit_<图> 到达记账(站桩切图时) ·
+     chest_<结构> 结构宝箱开箱(建场件坐标判定, 玩家自放箱不算) ·
+     throw_<物品> 投掷件数 · kill_<怪种> 按怪种击杀(与 kill_mob 并行记账) */
+  {id: 'q16_plaza', icon: '🏛️', goal: '去门阵广场看一看', target: 1, unlock: 'desert',
+    hint: '小屋东边有一座门阵广场，走过去看一看吧！',
+    praise: '找到门阵广场啦！你观察得真仔细！',
+    prog: (c) => Math.min(c.visit_plaza || 0, 1), check: (c) => (c.visit_plaza || 0) >= 1},
+  {id: 'q17_desert', icon: '🏜️', goal: '走进黄沙沙漠', target: 1,
+    hint: '沙漠之门亮起来啦！站进门里等一等，就去黄沙沙漠咯！',
+    praise: '到黄沙沙漠啦！你真勇敢！',
+    prog: (c) => Math.min(c.visit_desert || 0, 1), check: (c) => (c.visit_desert || 0) >= 1},
+  {id: 'q18_cactus', icon: '🌵', goal: '挖 3 根仙人掌', target: 3,
+    hint: '沙漠里有绿绿的仙人掌，挖 3 根带回家吧！',
+    praise: '仙人掌挖到啦！你收获满满！',
+    prog: (c) => Math.min(c.mine_cactus || 0, 3), check: (c) => (c.mine_cactus || 0) >= 3},
+  {id: 'q19_temple', icon: '📦', goal: '打开沙漠神殿的宝箱', target: 1, unlock: 'snow',
+    hint: '找到大金字塔，踩一踩地上颜色不一样的地板，下面藏着宝箱哦！',
+    praise: '神殿宝箱打开啦！你像小侦探一样厉害！',
+    prog: (c) => Math.min(c.chest_temple || 0, 1), check: (c) => (c.chest_temple || 0) >= 1},
+  {id: 'q20_snow', icon: '🌨️', goal: '走进白雪雪原', target: 1,
+    hint: '雪原之门亮起来啦！站进门里等一等，就去玩雪咯！',
+    praise: '到白雪雪原啦！雪白的世界真漂亮！',
+    prog: (c) => Math.min(c.visit_snow || 0, 1), check: (c) => (c.visit_snow || 0) >= 1},
+  {id: 'q21_snowball', icon: '❄️', goal: '扔 5 个雪球', target: 5,
+    hint: '挖雪块能拿到雪球，拿着雪球轻轻一点，扔出去吧！',
+    praise: '雪球扔得又远又好！你玩得真开心！',
+    prog: (c) => Math.min(c.throw_snowball || 0, 5), check: (c) => (c.throw_snowball || 0) >= 5},
+  {id: 'q22_igloo', icon: '📦', goal: '打开雪屋里的宝箱', target: 1, unlock: 'swamp',
+    hint: '找到圆圆的雪屋，屋里的雪面下藏着宝箱哦！',
+    praise: '雪屋宝箱打开啦！你找得真仔细！',
+    prog: (c) => Math.min(c.chest_igloo || 0, 1), check: (c) => (c.chest_igloo || 0) >= 1},
+  {id: 'q23_swamp', icon: '🌿', goal: '走进青苔沼泽', target: 1,
+    hint: '沼泽之门也亮起来啦！站进门里等一等，就去探险咯！',
+    praise: '到青苔沼泽啦！你的胆子越来越大啦！',
+    prog: (c) => Math.min(c.visit_swamp || 0, 1), check: (c) => (c.visit_swamp || 0) >= 1},
+  {id: 'q24_bogged', icon: '⚔️', goal: '打跑 2 只小沼骸', target: 2,
+    hint: '沼泽里住着小沼骸，拿起工具打跑 2 只！打不过就先跑回家，一点也不丢人！',
+    praise: '小沼骸被你打跑啦！你越来越勇敢！',
+    prog: (c) => Math.min(c.kill_bogged || 0, 2), check: (c) => (c.kill_bogged || 0) >= 2},
+  {id: 'q25_witch_chest', icon: '📦', goal: '打开女巫小屋的宝箱', target: 1,
+    hint: '高高的木头小屋里住着女巫，小心一点，打开屋里的宝箱吧！',
+    praise: '女巫的宝箱打开啦！你是真正的大探险家！',
+    prog: (c) => Math.min(c.chest_witch || 0, 1), check: (c) => (c.chest_witch || 0) >= 1},
 ];
+
+/* 门解锁链反查(§2.3 锁门话术与点亮仪式共用): 目标图 id → 挂 unlock 的那条
+   任务(每图至多一条, 表结构由单测锁定); home 恒开/未知图 → null 不炸 */
+function advUnlockQuest(mapId) {
+  return ADV_QUESTS.find((q) => q.unlock === mapId) || null;
+}
 
 /* ============================================================
    大宝箱政策 (引导链 v2) — 纯函数段: 全局共享账户 + 材料扩容
@@ -1348,7 +1402,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_LIVESTOCK_RING_HI, ADV_LIVESTOCK_HERDS, ADV_HERD_AVOID_R, ADV_HERD_AVOID_MULT,
     ADV_HERD_FLEE_T, ADV_HERD_FLEE_MULT, ADV_HERD_AMBLE_MULT,
     advLivestockHerdOk, advLivestockSpots, advLivestockPlan, advHerdStep,
-    ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS,
+    ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut, advChestTake,
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,
     advBreakToolText, ADV_HOME_CD, advHomeReady,
