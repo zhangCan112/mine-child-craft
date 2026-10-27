@@ -264,6 +264,17 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
   /* F1: 炉子消失(挖/TNT/覆盖) → 炉内三笔退包; 炉态键带界前缀(D14) */
   if (prev && prev.id === B_FURNACE && id !== B_FURNACE) advFurnace.drop(advFurnKey(x, y, z));
 }
+function advMeshTouch(x, z) {/* setBlockRaw 直写后的网格收口(点亮仪式/自放门/树长成共用):
+    setBlockRaw 只写 worldCells 不入脏队列——直写的门面/门体/树要等跨环或重进才被
+    重网格,「看着门亮起来」当帧不成立(解锁后门仍是黑框的用户报告即此)。markDirty/
+    flushDirty 是 world.js 的网格 seam, Node 桩缺席时静默跳过(ADV_B 守卫同款)。
+    光场不追: 门面 glass 透光不衰减, 直写前后光值一致(自放门的黑曜石/发光岩光差
+    是 nether 合并 D6 的既有口径, 观感可接受, 不在本修范围) */
+  if (typeof markDirty === 'function') markDirty(x, z);
+}
+function advMeshFlush() {/* 批量 touch 后一次入队收口(markDirty→flushDirty, editBlock 同款) */
+  if (typeof flushDirty === 'function') flushDirty();
+}
 
 /* ---------- 全局唯一背包(Backpack 壳, ADR 0002) + 快捷栏镜像(9 item 型槽, D10) ----------
     advInv 引用跨 load 稳定(面板闭包持同一引用), 换存档只原地换 slots 数组 */
@@ -1600,7 +1611,9 @@ function advPlacePortal(hit) {
   advPortalFrame((x, y, z, id) => {
     setBlockRaw(x, y, z, id); /* 直写不走 editBlock: 整座门是原子结构, 不触发级联/掉落 */
     advMarkEdit(x, y, z, id); /* 逐格记账 = 重放即重建 */
+    advMeshTouch(x, z); /* 门体当帧可见: 直写不标脏会等跨环/重进才长出来(点亮仪式同款) */
   }, ty, tx, tz);
+  advMeshFlush();
   remove(advInv, slot, 1);
   advSyncHotbar();
   sfx('click');
@@ -1620,6 +1633,11 @@ function advSapPlant(x, y, z) {
 function advGrowTree(x, y, z) {
   SceneKit.tree(x, y, z);
   advGrowMark(x, y, z, getBlock, advMarkEdit);
+  for (let dx = -2; dx <= 2; dx++) {/* 网格收口: 树 footprint ±2 与 advGrowMark 同款——
+      SceneKit.tree 也是 setBlockRaw 直写, 不标脏会长出「看不见的树」 */
+    for (let dz = -2; dz <= 2; dz++) advMeshTouch(x + dx, z + dz);
+  }
+  advMeshFlush();
   showToast('🌱 小树苗长成大树啦！');
 }
 
@@ -2097,8 +2115,12 @@ function advUnlockRite(mapId) {
   if (g && !ADV_B.portal) g = null; /* 精简装载守卫(ADV_B 同款): 无门面方块不补格 */
   if (g) {
     advPortalFrame((x, y, z, id) => {
-      if (id === ADV_B.portal) setBlockRaw(x, y, z, id); /* 只补门面(框熄门时已立) */
+      if (id === ADV_B.portal) {
+        setBlockRaw(x, y, z, id); /* 只补门面(框熄门时已立) */
+        advMeshTouch(x, z); /* 门面格同拍入脏队列: 当帧重网格立刻可见(不标脏=黑框) */
+      }
     }, ADV_GROUND, g.px, g.pz);
+    advMeshFlush();
     advBeamAdd(ADV_GROUND, g.px, g.pz); /* 常驻光束: 亮门才有束(熄门无门面口径) */
     Fx.pop(g.px + ADV_PORTAL.w / 2, ADV_GROUND + 2, g.pz + 0.5,
         {color: 0xb676f2, r0: 0.3, r1: 2.6, dur: 0.8}); /* 紫色门面同款色系冲击波 */

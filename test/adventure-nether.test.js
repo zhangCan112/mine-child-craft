@@ -1135,6 +1135,38 @@ test('T7-1 门阵建场: home 三扇门框常驻 · 未解锁掏门面(不可触
   assert.ok(Buffer.from(apiC.worldCells).equals(snapG), '门阵随建场确定性重建(逐字节一致)');
 });
 
+test('T7-1b 点亮仪式网格重锚: 补门面同拍入脏队列(解锁当帧可见, 不等跨环/重进)', () => {
+  /* 用户报告「解锁后有些门还是黑的」根因: rite 补门面走 setBlockRaw 不入脏队列,
+      门面要等跨环/重进才被重网格——观感上熄门(黑框)与刚点亮的门分不出来 */
+  freshC((m) => m.set('adventure_quest_save',
+      JSON.stringify({_v: 1, step: 16, counts: {}}))); /* 当前步 q16_plaza(unlock desert) */
+  const dg = gateOf('home', 'desert');
+  assert.strictEqual(apiC.getBlock(dg.px + 2, Core.ADV_GROUND + 1, dg.pz), 0,
+      '前提: 熄门无门面');
+  /* 注入 world 网格 seam 桩(advMeshTouch 消费, Node 桩缺席静默——注入后可断言) */
+  const marked = [];
+  let flushed = 0;
+  globalThis.markDirty = (x, z) => marked.push(x + ',' + z);
+  globalThis.flushDirty = () => flushed++;
+  try {
+    globalThis.pos.x = Core.ADV_GATE_PLAZA.x1 + 2; /* 站进门阵广场 */
+    globalThis.pos.z = Core.ADV_GATE_PLAZA.z1 + 2;
+    /* 泵两帧: 首帧 visitTick 记 visit_plaza(在 questTick 之后执行), 次帧节流窗到点推进 */
+    AM.update(0.6);
+    AM.update(0.6);
+    assert.strictEqual(apiC.getBlock(dg.px + 2, Core.ADV_GROUND + 1, dg.pz), apiC.B_PORTAL,
+        '门面格已写入(世界数据先就绪)');
+    assert.ok(marked.some((k) => k === (dg.px + 2) + ',' + dg.pz),
+        '门面格入脏队列(当帧重网格, 门面立刻可见)');
+    assert.ok(marked.length >= 20, '整面 4×5 门面逐格标脏(实测 ' + marked.length + ')');
+    assert.ok(flushed >= 1, '收口 flush 入队(markDirty→flushDirty, editBlock 同款)');
+    assert.ok(callsC.some((c) => c[0] === 'sfx' && c[1] === 'gate_unlock'), '点亮琶音照常');
+  } finally {
+    delete globalThis.markDirty; /* 桩不留场(其余测试的 setBlockRaw 路径保持静默) */
+    delete globalThis.flushDirty;
+  }
+});
+
 test('T7-2 站桩状态机: 地图门 2s 站满(可反悔) → 渐晕满格切图 → 落回程门内 + TTS 播报 + 遮罩收起', () => {
   freshC(seedQuestC({unlockedDesert: 1}));
   const dg = gateOf('home', 'desert');
