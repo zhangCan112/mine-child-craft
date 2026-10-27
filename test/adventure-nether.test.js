@@ -1164,7 +1164,7 @@ test('T7-2 站桩状态机: 地图门 2s 站满(可反悔) → 渐晕满格切�
   assert.ok(spokenC.some((s) => s.indexOf('沙漠') >= 0), 'TTS 到达播报(图名)');
   /* 淡出 400ms → 遮罩收起(全程 2s+0.4s+0.4s=2.8s ≤5s 红线) */
   AM.update(0.45);
-  const veil = globalThis.document.getElementById('portal-veil');
+  const veil = globalThis.document.getElementById('portalVeil');
   assert.ok(veil && +veil.style.opacity === 0, '遮罩收起(opacity=0)');
 });
 
@@ -1213,6 +1213,110 @@ test('T7-4 回程门: 远征图站满 2s 回 home, 落在来时那扇门的门�
   assert.ok(Math.abs(arrive.x - desertArrive.x) > 1 || Math.abs(arrive.z - desertArrive.z) > 1,
       '前提: 与沙漠门落点不同(三门各得各的)');
   assert.ok(spokenC.some((s) => s.indexOf('家') >= 0), '回家播报');
+});
+
+/* ============ 审查修复 P1：神殿可疑地板踩塌(code-review Spec 缺失项) ============
+    站上神殿室内中央 2×2 砂岩地板 → 4 格塌空(记账走 edits, 重进不复位) +
+    塌沙音/话术; 塌后脚下不再是砂岩, 判据天然不复发(幂等)。 */
+
+test('审查修复 P1: 神殿可疑地板 — 站上塌入宝箱室(4 格清空+记账+话术), 塌后不复发', () => {
+  freshC();
+  AN.advSetMap('desert');
+  const t = ADV_DESERT.temple; /* ADV_DESERT 经壳共享词法环境可直读(maps-core 已铺全局) */
+  /* 前提: 可疑地板在位(建场 2×2 砂岩, 正下方 y22~23 竖井空腔) */
+  assert.strictEqual(apiC.getBlock(t.cx, t.trapY, t.cz), apiC.B_SANDSTONE, '可疑地板在位(前提)');
+  assert.strictEqual(apiC.getBlock(t.cx, 22, t.cz), 0, '竖井空腔(前提)');
+  /* 玩家站上地板中央: pos 落 footprint, 脚下支撑格=trapY 层砂岩 */
+  globalThis.pos.x = t.cx + 0.5;
+  globalThis.pos.y = t.trapY + 1;
+  globalThis.pos.z = t.cz + 0.5;
+  spokenC.length = 0;
+  AM.update(0.05);
+  assert.strictEqual(apiC.getBlock(t.cx, t.trapY, t.cz), 0, '踩上即塌: 地板清空');
+  assert.strictEqual(apiC.getBlock(t.cx - 1, t.trapY, t.cz - 1), 0, '4 格齐塌(西北格)');
+  assert.ok(callsC.some((c) => c[0] === 'sfx' && c[1] === 'sand_collapse'), '塌沙音');
+  assert.ok(spokenC.some((s) => s.indexOf('塌') >= 0), '塌落话术');
+  /* 记账: 4 格已入 desert 桶 edits(flush 后档里有键) */
+  AN.advJournal.flush();
+  const sv = JSON.parse(memC.get('adventure_world_save'));
+  const keys = new Set((sv.edits.desert || []).map((e) => e[0]));
+  assert.ok(keys.has(t.cx + ',' + t.trapY + ',' + t.cz), '塌落格已记账(重进不复位)');
+  /* 幂等: 再 update 不再触发(脚下已空, 前提是判据读格不读状态) */
+  callsC.length = 0;
+  AM.update(0.05);
+  assert.ok(!callsC.some((c) => c[0] === 'sfx' && c[1] === 'sand_collapse'), '塌后不复发(幂等)');
+  /* 站在周边沙面上不误触(footprint 判定) */
+  globalThis.pos.x = t.cx + 3.5;
+  globalThis.pos.y = t.trapY + 1;
+  AM.update(0.05);
+  assert.ok(!callsC.some((c) => c[0] === 'sfx' && c[1] === 'sand_collapse'), '周边沙面不误触');
+});
+
+/* ============ 审查修复 P2：死畜账按图分桶(code-review Spec 半成品项) ============
+    档形 {图:[idx..]} 五桶(与 edits/furnaces 同口径); 老档 {dead:[..]} 单账→home 桶。 */
+
+test('审查修复 P2: 死畜账按图分桶 — 老档单账迁 home 桶 · 五桶恒写全 · 往返一致', () => {
+  /* 老档单账: 已杀 1 号牛 → home 桶吸收, 重进只播 9 只 */
+  freshC((m) => m.set('adventure_world_save', JSON.stringify({_v: 1,
+    edits: [], pos: null, hp: null, furnaces: [], livestock: {dead: [1]}, dayTime: 0})));
+  const idx1 = mobsSpawnedC.filter((m) => m.__livestockIdx === 1);
+  assert.strictEqual(idx1.length, 0, '老档单账 dead:[1] → home 桶吸收(1 号牛不重生)');
+  const alive = mobsSpawnedC.filter((m) => m.__livestockIdx != null);
+  assert.strictEqual(alive.length, 9, '其余 9 只照播(10-1)');
+  /* 落盘 = 新分桶形状: 五桶恒写全 */
+  AN.advJournal.flush();
+  const sv = JSON.parse(memC.get('adventure_world_save'));
+  assert.deepStrictEqual(Object.keys(sv.livestock).sort(),
+      ['desert', 'home', 'nether', 'snow', 'swamp'], '五桶恒写全(形状确定)');
+  assert.deepStrictEqual(sv.livestock.home, [1], 'home 桶带已杀索引');
+  assert.deepStrictEqual(sv.livestock.desert, [], '远征桶空');
+  /* encode→decode→encode 档文本恒等(往返一致) */
+  freshC((m) => m.set('adventure_world_save', JSON.stringify(sv)));
+  AN.advJournal.flush();
+  const sv2 = JSON.parse(memC.get('adventure_world_save'));
+  assert.deepStrictEqual(sv2.livestock, sv.livestock, 'livestock 分桶往返一致');
+});
+
+/* ============ 审查修复 P4：史莱姆夜刷限水边(code-review 口径项, 设计 §3) ============ */
+
+test('审查修复 P4: 史莱姆夜刷水边门 — 水洼旁放行 · 远水点拒绝(沼泽夜池专属口径)', () => {
+  freshC();
+  AN.advSetMap('swamp');
+  /* 前提: 沼泽有浅水洼(建场水面齐 y24)——找一个水格与一个远水干点 */
+  const pools = ADV_SWAMP.pools; /* maps-core 已铺全局(壳共享词法环境) */
+  let waterAt = null;
+  for (const p of pools) {
+    for (let dx = -p.r; dx <= p.r && !waterAt; dx++) {
+      for (let dz = -p.r; dz <= p.r && !waterAt; dz++) {
+        if (apiC.getBlock(p.cx + dx, 24, p.cz + dz) === apiC.B_WATER) {
+          waterAt = {x: p.cx + dx, z: p.cz + dz};
+        }
+      }
+    }
+    if (waterAt) break;
+  }
+  assert.ok(waterAt, '沼泽建场有浅水洼(前提)');
+  assert.ok(AN.advSlimeWaterOk(waterAt.x, waterAt.z), '水洼本体放行');
+  assert.ok(AN.advSlimeWaterOk(waterAt.x + 5, waterAt.z), '水边 5 格内放行');
+  /* 远水干点: 距所有水洼 >6 的地表点(用地图另一角扫) */
+  let dry = null;
+  outer: for (let x = 2; x < 120; x += 3) {
+    for (let z = 2; z < 120; z += 3) {
+      let near = false;
+      for (const p of pools) {
+        if (Math.hypot(x - p.cx, z - p.cz) <= p.r + 7) {
+          near = true;
+          break;
+        }
+      }
+      if (!near) {
+        dry = {x, z};
+        break outer;
+      }
+    }
+  }
+  assert.ok(dry, '沼泽存在远水干点(前提)');
+  assert.strictEqual(AN.advSlimeWaterOk(dry.x, dry.z), false, '远水干点拒绝(夜间水边专属)');
 });
 
 

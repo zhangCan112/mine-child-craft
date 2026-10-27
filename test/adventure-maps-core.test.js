@@ -126,6 +126,8 @@ test('注册表: 替换语义红线 — 三张远征图双池换防(desert/husk,
   assert.ok(kindsOf(swamp.nests).includes('bogged') && poolOf(swamp.nightPool).includes('bogged'),
       'swamp 巢穴池+夜怪池均有 bogged');
   assert.ok(poolOf(swamp.nightPool).includes('slime'), 'swamp 夜怪池有 slime(夜间水池)');
+  assert.ok(!kindsOf(swamp.nests).includes('slime'),
+      'slime 不进巢穴池(审查修复 P3: 史莱姆=夜间水边专属, 白天巢穴不刷)');
   assert.ok(!poolOf(swamp.nightPool).includes('witch'), 'witch 不进通用夜池(小屋常驻)');
   assert.ok(swamp.witchHut && Number.isInteger(swamp.witchHut.x) && Number.isInteger(swamp.witchHut.z),
       'swamp 行有女巫小屋常驻标记 witchHut{x,z}(T6 壳消费)');
@@ -277,7 +279,8 @@ test('沙漠建场: 地表九成列沙+砂岩垫层 · 神殿/绿洲/巢穴占�
     for (let z = 0; z < D; z++) counts[cell(x, colTop(x, z), z)] = (counts[cell(x, colTop(x, z), z)] || 0) + 1;
   }
   const total = W * D;
-  assert.ok(counts[8] / total >= 0.85, '九成列地表是沙(实测 ' + (counts[8] / total * 100).toFixed(1) + '%)');
+  assert.ok(counts[8] / total >= 0.9,
+      '九成列地表是沙(实测 ' + (counts[8] / total * 100).toFixed(1) + '%, 审查修复 P5 对齐 spec 九成红线)');
   assert.ok(counts[api.B_SANDSTONE] > 0 && counts[api.B_SANDSTONE] / total < 0.2,
       '一成砂岩露头点缀(非铺满)');
   /* 砂岩垫层: 抽样平坦沙列的下 3 格是砂岩、再往下石头 */
@@ -331,14 +334,20 @@ test('沙漠建场: 仙人掌 2-3 高柱 · 枯灌木散布 · 只长沙上', ()
   }
 });
 
-test('沙漠建场: 神殿 — 砂岩金字塔+外楼梯 · 地下宝箱室(B_CHEST+可疑地板+出路楼梯)', () => {
+test('沙漠建场: 神殿 — 空心砂岩金字塔(北门)+外楼梯 · 地下宝箱室(B_CHEST+可疑地板+出路楼梯)', () => {
   Maps.advDesertBuild();
   const t = Maps.ADV_DESERT.temple;
-  /* 金字塔: 塔底 15×15 实心砂岩, 塔顶尖格 */
-  assert.strictEqual(cell(t.cx, 25, t.cz), api.B_SANDSTONE, '塔底层中心砂岩');
-  assert.strictEqual(cell(t.cx - t.r, 25, t.cz - t.r), api.B_SANDSTONE, '塔底四角齐');
+  /* 金字塔: 塔底 15×15 **空心**(每级只砌外圈——塔内可入, 审查修复 P1), 塔顶尖格 */
+  assert.strictEqual(cell(t.cx, 25, t.cz), 0, '塔底层中心净空(空心塔, 室内可站)');
+  assert.strictEqual(cell(t.cx - t.r, 25, t.cz - t.r), api.B_SANDSTONE, '塔底四角齐(外圈)');
+  assert.strictEqual(cell(t.cx - t.r + 1, 25, t.cz - t.r + 1), 0, '塔底层内圈净空(空心)');
   assert.strictEqual(cell(t.cx, ADV_GROUND + 8, t.cz), api.B_SANDSTONE, '塔顶(8 级到 y32)');
   assert.strictEqual(cell(t.cx, ADV_GROUND + 9, t.cz), 0, '塔顶之上净空');
+  /* 北门: 塔脚北面 2 宽 × 2 高门洞(南有外楼梯/东有出路楼梯, 门开北面) */
+  assert.strictEqual(cell(t.cx, 25, t.cz - t.r), 0, '北门洞下格净空');
+  assert.strictEqual(cell(t.cx, 26, t.cz - t.r), 0, '北门洞上格净空');
+  assert.strictEqual(cell(t.cx - 1, 25, t.cz - t.r), 0, '北门洞 2 宽(西格)');
+  assert.strictEqual(cell(t.cx + 2, 25, t.cz - t.r), api.B_SANDSTONE, '门洞旁仍是塔壁');
   /* 外楼梯: 南面 2 宽台阶逐级(相邻高差 1, 顶与塔尖平步相接) */
   for (let i = 0; i <= 6; i++) {
     const z = t.cz + t.r - i;
@@ -352,11 +361,20 @@ test('沙漠建场: 神殿 — 砂岩金字塔+外楼梯 · 地下宝箱室(B_CH
   assert.strictEqual(cell(t.cx, 20, t.cz), api.B_CHEST, '宝箱在室中央');
   assert.ok(cell(t.cx - 2, 18, t.cz - 2) === api.B_TORCH || cell(t.cx + 2, 18, t.cz + 2) === api.B_TORCH,
       '室内火把(照明防刷怪, 落地站膛防清扫)');
-  assert.strictEqual(cell(t.cx, 22, t.cz), api.B_SANDSTONE, '室顶整层砂岩');
-  /* 可疑地板: 室顶上方 y23 中央 2×2 是沙色(其余砂岩)——踩塌滑落入口, 挖开即落 */
-  assert.strictEqual(cell(t.cx - 1, 23, t.cz - 1), 8, '可疑地板 2×2 沙(西北格)');
-  assert.strictEqual(cell(t.cx, 23, t.cz), 8, '可疑地板 2×2 沙(东南格)');
-  assert.strictEqual(cell(t.cx - 3, 23, t.cz - 3), api.B_SANDSTONE, '可疑地板周边仍是砂岩');
+  assert.strictEqual(cell(t.cx, 22, t.cz), 0, '室顶中央 2×2 是竖井空腔(踩塌坠入口)');
+  assert.strictEqual(cell(t.cx - 3, 22, t.cz - 3), api.B_SANDSTONE, '室顶其余仍是砂岩');
+  /* 可疑地板: 室内地表(y24)中央 2×2 砂岩显眼底板(周围是沙——「颜色不一样的地板」
+      踩塌滑落入口, 审查修复 P1: 从埋两层沙下改为室内可见可踩) */
+  assert.strictEqual(cell(t.cx - 1, t.trapY, t.cz - 1), api.B_SANDSTONE, '可疑地板 2×2 砂岩(西北格)');
+  assert.strictEqual(cell(t.cx, t.trapY, t.cz), api.B_SANDSTONE, '可疑地板 2×2 砂岩(东南格)');
+  assert.strictEqual(cell(t.cx - 3, t.trapY, t.cz - 3), 8, '可疑地板周边室内地表是沙');
+  assert.strictEqual(cell(t.cx + 3, t.trapY, t.cz + 3), 8, '可疑地板周边室内地表是沙(东南向)');
+  /* 踩塌格清单纯函数: 4 格单层, 与 footprint 一致 */
+  const cells = Maps.advTempleTrapCells();
+  assert.strictEqual(cells.length, 4, '踩塌清单 4 格(单层)');
+  assert.ok(cells.every((c) => c.y === t.trapY && Maps.advTempleTrapOn(c.x, c.z)),
+      '清单格全在 trapY 层且落在 footprint 内');
+  assert.ok(!Maps.advTempleTrapOn(t.cx - 2, t.cz), 'footprint 外不误判');
   /* 出路: 东侧 1 格级楼梯从室底回到地表(矿坑级教训, 不困人) */
   let steps = 0;
   for (let i = 0; i <= 6; i++) {

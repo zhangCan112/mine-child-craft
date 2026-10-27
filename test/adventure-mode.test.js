@@ -2529,7 +2529,9 @@ test('F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 
   assert.deepStrictEqual(dropsState.spawned.map((d) => d.id).sort(), ['leather', 'raw_beef'],
       '牛掉生牛肉+皮革(MOB_DROPS 表)');
   assert.ok(dropsState.spawned.every((d) => d.y === 25.8 && d.x === 45), '落点=尸体上方 0.8(击杀观感同款)');
-  assert.deepStrictEqual(A.getSaveView().world.livestock, {dead: [0]}, '死畜索引顺手落账(同一回调)');
+  assert.deepStrictEqual(A.getSaveView().world.livestock,
+      {home: [0], desert: [], snow: [], swamp: [], nether: []},
+      '死畜索引顺手落账(同一回调; 审查修复 P2 后为分桶形状, 已杀在家=home 桶)');
   /* 收获观感 + 不记账(挥击行为链: 准星锥内命中, 脚本 freshDead) */
   globalThis.yaw = 0;
   pos.x = 40; pos.y = 25; pos.z = 50;
@@ -2596,11 +2598,12 @@ test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索
   const victim = herd[4]; /* 群位 B 首只猪 */
   dropsState.spawned.length = 0;
   mobsState.deathCbs[0](victim); /* 走真实 onDeath 回调(掉落+落账同帧) */
-  assert.deepStrictEqual(A.getSaveView().world.livestock, {dead: [victim.__livestockIdx]}, '死畜账在内存');
+  const deadBuckets = {home: [victim.__livestockIdx], desert: [], snow: [], swamp: [], nether: []};
+  assert.deepStrictEqual(A.getSaveView().world.livestock, deadBuckets, '死畜账在内存(审查修复 P2 后为分桶形状)');
   assert.ok(dropsState.spawned.length >= 1, '掉落照常(收获链不断)');
   AdventureMode.cleanup();
   const sv = JSON.parse(mem.get('adventure_world_save'));
-  assert.deepStrictEqual(sv.livestock, {dead: [victim.__livestockIdx]}, '死畜索引随世界档落盘');
+  assert.deepStrictEqual(sv.livestock, deadBuckets, '死畜索引随世界档落盘(home 桶)');
   freshInit();
   const again = mobsState.spawned.filter((m) => m.__livestockIdx != null);
   assert.strictEqual(again.length, 9, '重进 9 只(死畜不复活)');

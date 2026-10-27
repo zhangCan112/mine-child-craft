@@ -304,7 +304,7 @@ _Avoid_: mathCtrl/mathBossStop（历史名——控制柄与链旗两条命已�
 _Avoid_: 生存模式（没有饥饿，死亡零惩罚——非生存口径；**有昼夜**：夜怪/床/灯笼/火把光照见 docs/mc-daylight-torch-design.md）
 
 **传送门阵**:
-探险模式的跨图传送子系统（壳装配 js/modes/adventure.js，站桩/落点/解锁政策纯函数在冒险地图核心，门体几何复用探险核心 ADV_PORTAL/advPortalFrame，设计稿 §2.3/§4）：home 屋东门阵广场三门位（desert/snow/swamp 各一扇——门位唯一权威=ADV_MAPS home 行 gates）+ 各远征图一扇回程门常驻（to=home 恒亮）。**门→图绑定=门阵包围盒查表**（advGateAt：脚格命中当前行某扇门的门面平面）——命中=地图门，未命中=玩家自放的 nether 门（保持「即时+冷却」语义，不套站桩）。地图门时序：门面内 2s 站桩可反悔（走出门面即刻归零，纯步进 advGateHoldStep）→ 400ms 紫白渐晕淡入（#portal-veil 径向渐变忌纯黑，幼儿口径）→ 满格瞬间 advSetMap 同步切图（实测 12-25ms 一二帧）+ 双段音效（起步蓄能/portal_travel）+ TTS 到达播报 → 400ms 淡出，全程 2.8s（红线 ≤5s）。解锁=任务档 counts 键（ADV_UNLOCK_KEYS）+ 点亮仪式 advUnlockRite（gate_unlock 琶音+紫色冲击波+运行时熄→亮补门面+光束）；熄门只立框不落门面（advInPortal 天然不命中=不可触发），走近播前置任务话术。冷却复用 ADV_PORTAL.cd（落地空眩晕，两类门同款）。
+探险模式的跨图传送子系统（壳装配 js/modes/adventure.js，站桩/落点/解锁政策纯函数在冒险地图核心，门体几何复用探险核心 ADV_PORTAL/advPortalFrame，设计稿 §2.3/§4）：home 屋东门阵广场三门位（desert/snow/swamp 各一扇——门位唯一权威=ADV_MAPS home 行 gates）+ 各远征图一扇回程门常驻（to=home 恒亮）。**门→图绑定=门阵包围盒查表**（advGateAt：脚格命中当前行某扇门的门面平面）——命中=地图门，未命中=玩家自放的 nether 门（保持「即时+冷却」语义，不套站桩）。地图门时序：门面内 2s 站桩可反悔（走出门面即刻归零，纯步进 advGateHoldStep）→ 400ms 紫白渐晕淡入（#portalVeil 径向渐变忌纯黑，幼儿口径）→ 满格瞬间 advSetMap 同步切图（实测 12-25ms 一二帧）+ 双段音效（起步蓄能/portal_travel）+ TTS 到达播报 → 400ms 淡出，全程 2.8s（红线 ≤5s）。解锁=任务档 counts 键（ADV_UNLOCK_KEYS）+ 点亮仪式 advUnlockRite（gate_unlock 琶音+紫色冲击波+运行时熄→亮补门面+光束）；熄门只立框不落门面（advInPortal 天然不命中=不可触发），走近播前置任务话术。冷却复用 ADV_PORTAL.cd（落地空眩晕，两类门同款）。
 _Avoid_: 把站桩/渐晕遮罩叫加载屏（它是到达仪式——切图本体同步成本仅 12-25ms，遮罩是观感设计不是性能遮羞布）、把门位写死在壳层（行数据权威在 ADV_MAPS）、给 nether 门套站桩（即时口径已拍板不变）
 
 **大宝箱（Chest Vault）**:

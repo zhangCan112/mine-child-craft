@@ -29,6 +29,7 @@
 | T8 | 任务链与门解锁 | T7 | ☑ 已并入（14f9b3e） |
 | T9 | 雪球投掷物 | T6 | ☑ 已并入（bd5fafc） |
 | T10 | 收尾：GLOSSARY + 全量回归 + 手玩报告 | T7, T8, T9 | ☑ 已并入（f0aa7d9） |
+| TR | code-review 两轴修复（S1/P1-P5/S2-S4） | T1-T10 | ◐ 进行中（fix-code-review） |
 
 状态图例：☐ 待领取 / ◐ 进行中（附分支名）/ ☑ 已并入集成分支（附合并序号）。
 
@@ -154,7 +155,7 @@ test/adventure-nether.test.js 全绿（nether 行为零回归）；`npm test` �
   解锁键亮门面+光束）挂 init/advSetMap/advSetDim(overworld) 三处 loadScene；
   `advGateAt` 门阵包围盒查表分流：命中=地图门 2s 站桩（起步蓄能音）、未命中=
   nether 门即时语义零改动；冷却复用 ADV_PORTAL.cd。
-- 遮罩 `#portal-veil`（index.html + style.css 紫白径向渐变忌纯黑）400ms 双段逐帧直驱
+- 遮罩 `#portalVeil`（index.html + style.css 紫白径向渐变忌纯黑）400ms 双段逐帧直驱
   （#fade 先例），满格瞬间 advSetMap(目标图, 对应回程门落点)+portal_travel 音+TTS
   到达播报；全程 2.8s。锁门走近 TTS「完成任务，XX 之门就会亮起来」6s 节流——
   任务名占位，T8 挂真任务名。点亮仪式与熄门常亮切换归 T8。
@@ -201,6 +202,24 @@ audio-registry 音效条目 + 4 雪球↔雪块配方（craft-core RECIPES 两�
 反悔 ×5、四图巡游、死亡回家、存档保留）。
 
 **验收**：全绿 + 手玩报告落 docs/（或随票据记录）。
+
+## TR code-review 两轴修复（implement-spec 第 7 步，2026-10-27）
+
+对集成分支跑 code-review（Standards/Spec 双轴并行子代理），全部发现集中一票修完：
+
+| 项 | 轴 | 内容与处置 |
+|---|---|---|
+| S1 | Standards 硬违规 | `#portal-veil` 连字符 id 违 conventions §6 偏离 #4/#6 → 全量改名 `portalVeil`（index.html/css/壳/测试/文档 9 处） |
+| P1 | Spec 缺失 | 神殿「可疑地板」无运行时机制且埋在两层方块下踩不到 → 金字塔改**空心**（MC 原版口径）+ 北面 2×2 门洞 + 室内地表中央 2×2 砂岩显眼底板 + 正下竖井；壳层 `advTempleTrapTick` 踩塌（4 格清空·爆炸段同款记账 seam·幂等）+ `sand_collapse` 音效；纯判定 `advTempleTrapOn/advTempleTrapCells` 落 maps-core |
+| P2 | Spec 半成品 | 死畜账未按图分桶 → `livestock` 五桶档形（与 edits/furnaces 同口径），老档单账→home 桶自动迁移；**教训**：save-slot 无档路径 clone(defaults) 不经 decode——defaults 必须自带全键形状 |
+| P3 | Spec creep | slime 混入沼泽巢穴池白天也刷 → 巢池改 `['bogged','zombie']` 系，断言钉死「slime 不进巢穴池」 |
+| P4 | Spec 口径 | slime 夜刷全域掷点 → 壳层水边门 `advSlimeWaterOk`（落点 6 格内有水才放行，13×13 有界扫描） |
+| P5 | Spec 红线值 | 沙漠地表沙占比实测 87.5% < 九成 → 露头阈值 0.9→0.94，实测 **91.4%**；断言 0.85→0.9 |
+| S2 | Standards | 熔炉前缀知识三处编码（表/正则/数组）→ `ADV_FURN_PREFIXED` 从表派生，加图只改表一处 |
+| S3 | Standards 判断性 | 三图 Blocked 门区子句逐字重复 ×3 → 抽 `advGateZoneBlocked`；Flats/散布同构**备案保留**（注释裁决：显式列举比配置表可读，与 adventure-core 先例同法） |
+| S4 | 已知遗留 | 壳层键清单注释计数 26→28（含 heightAt 与 advSlimeWaterOk） |
+
+**验收**：全量 `npm test` **1261/1261 全绿**（1258 + P1/P2/P4 壳测试 3 条）+ 三件 lint 零错误。
 
 **实现记录（t10-wrapup，2026-10-27）**：
 - GLOSSARY 两词条定稿：「冒险地图」（ADV_MAPS 行=图/图常量派生坐标单份/切图

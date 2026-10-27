@@ -90,12 +90,12 @@
        建场(advGatesBuild, 不记账; 解锁读任务档 counts 键——熄门只立框不可
        触发+走近锁形 TTS, 点亮仪式归 T8); 门面命中门阵包围盒查表(advGateAt)
        → 地图门走 2s 站桩可反悔(advGateHoldStep), 未命中=nether 门保持即时
-       +0.8s 冷却零改动; 站满→#portal-veil 渐晕 400ms 双段(紫白径向渐变忌
+       +0.8s 冷却零改动; 站满→#portalVeil 渐晕 400ms 双段(紫白径向渐变忌
        纯黑, 全程 ≤5s)→满格瞬间 advSetMap(目标图, advMapArriveAt 对应回程
        门落点)+到达音/TTS→遮罩收
    · 防沉迷: 与竞技场/建造/坦克/下界共享儿童时限(gated, 不新增账本)
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
-     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(26 键:
+     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(28 键:
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口;
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
@@ -172,25 +172,38 @@ function advSceneEditsEncode(b) {/* 桶账本 → 档(五桶恒写全: 形状确
   for (const k of ADV_SCENE_KEYS) out[k] = [...b[k].entries()];
   return out;
 }
+function advLivestockDecode(v) {/* 死畜账按图归一(审查修复 P2): 新档 {图:[idx..]} 五桶 ·
+    老档 {dead:[idx..]} 单账→home 桶(四畜全在 home 拍板⑤, 功能等价档形对齐 spec);
+    坏档/缺桶兜底空数组; 拷贝入账(档文本与运行账不共享引用) */
+  const out = {};
+  for (const k of ADV_SCENE_KEYS) out[k] = (v && Array.isArray(v[k])) ? v[k].slice() : [];
+  if (v && Array.isArray(v.dead)) out.home = v.dead.slice(); /* 老档单账优先(两形状并存时) */
+  return out;
+}
 const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
   /* map: 当前主世界图键(老档缺省 home; nether 期间保持最后主世界图——维度不进档 D9,
      重进 pos=null → 该图回程门出生); pos(含 yaw)/hp: 玩家状态随世界档(仅主世界图随
      当前图存); furnaces: 每炉独立炉态(F1 拍板①, 炉键带图/界前缀); livestock: F4 死畜
-     索引账(只存已杀——初始清单可推导); dayTime: 昼夜全局单钟(切图连续, nether 暂停 D10) */
-  defaults: {edits: [], map: 'home', pos: null, hp: null, furnaces: [], livestock: {dead: []}, dayTime: 0},
+     索引账**按图分桶**(审查修复 P2, 与 edits/furnaces 同口径——只存已杀, 初始清单可
+     推导; 四畜全在 home 拍板⑤故功能等价, 档形对齐 spec); dayTime: 昼夜全局单钟 */
+  defaults: {edits: [], map: 'home', pos: null, hp: null, furnaces: [],
+    livestock: {home: [], desert: [], snow: [], swamp: [], nether: []}, dayTime: 0},
+  /* livestock defaults 自带五桶全键: 无档路径 clone(defaults) 不经 decode
+     (save-slot load 语义), 半形状 defaults 会让播种读 undefined 桶——
+     形状必须两条路径都成立 */
   encode: (st) => ({edits: advSceneEditsEncode(st.edits),
     map: st.map,
     pos: st.pos || null,
     hp: (typeof st.hp === 'number') ? st.hp : null,
     furnaces: advFurnaceClean(st.furnaces), /* 空炉条目清扫(存档防膨胀) */
-    livestock: st.livestock || {dead: []},
+    livestock: st.livestock || {},
     dayTime: (typeof st.dayTime === 'number') ? st.dayTime : 0}),
   decode: (sv) => ({edits: advSceneEditsDecode(sv), /* 桶归一(三档型兼容, 幂等) */
     map: ADV_SCENE_KEYS.indexOf(sv.map) >= 0 && sv.map !== 'nether' ? sv.map : 'home', /* 坏键兜底 home */
     pos: sv.pos || null,
     hp: (typeof sv.hp === 'number') ? sv.hp : null,
     furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1]))), /* 非法炉态整条拒收 */
-    livestock: {dead: (sv.livestock && Array.isArray(sv.livestock.dead)) ? sv.livestock.dead : []}, /* 坏档兜底空账 */
+    livestock: advLivestockDecode(sv.livestock), /* 按图分桶归一(老档单账→home 桶) */
     dayTime: (typeof sv.dayTime === 'number' && sv.dayTime >= 0 && sv.dayTime < DAYLIGHT.TICKS) ?
       sv.dayTime : 0}), /* 越界/坏档兜底清晨 */
 });
@@ -228,13 +241,15 @@ const advJournal = mkWorldJournal(advWorldSlot, {
     edits: advSceneEdits,
     map: advMap, /* 当前主世界图键(nether 期间保持最后主世界图) */
     pos: advDim === 'nether' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw}, /* D9 */
-    hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestock, dayTime}),
+    hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, dayTime}),
   onFlush: () => {
     advBag.save(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
     advQuestSlot.save(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   },
 });
-let advLivestock = {dead: []}; /* F4 死畜索引账(init 从世界档换装): 索引清单见 advLivestockPlan, 只增不减 */
+let advLivestockAll = {home: [], desert: [], snow: [], swamp: [], nether: []}; /* F4 死畜索引账
+    按图分桶(审查修复 P2; init 从世界档换装): 键集同 ADV_SCENE_KEYS, 只增不减;
+    索引清单见 advLivestockPlan */
 /* 站点坐标缓存(T13): "x,y,z"→{x,y,z,id}——B_CRAFT/B_FURNACE 只可能来自玩家
    放置(edits 全量差异), 重进由 advRescanStations 重放收集, 增删经 advMarkEdit
    顺路维护——advStationOk 只查缓存, 不每帧扫全图 */
@@ -570,6 +585,17 @@ function advNightAlive() {/* 怪物存量(CAP 配额的分母, hud 同款口径:
   return n;
 }
 
+function advSlimeWaterOk(x, z) {/* 史莱姆夜刷水边门(审查修复 P4, 设计 §3「夜间水边
+    专属」): 落点 6 格内有水(沼泽浅水洼水面齐 y24, 只读 y24 层)才放行; 13×13 有界
+    扫描, 2s 一拍的频率成本可忽略; 远水点本拍作废——与光照不过同口径, 下一拍再掷 */
+  for (let dx = -6; dx <= 6; dx++) {
+    for (let dz = -6; dz <= 6; dz++) {
+      if (getBlock(x + dx, ADV_GROUND, z + dz) === B_WATER) return true;
+    }
+  }
+  return false;
+}
+
 function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿 §6.2): 夜间每 2s 一拍,
    核心掷环带+光照门出单 → 壳层按配额(CAP−现存怪数, 含巢穴怪)落地并挂私有字段;
    入夜播报(首夜并句火把引导, firstNight 一次性随任务档); 黎明上沿温和清场 */
@@ -586,7 +612,9 @@ function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿
   advWasNight = night;
   const r = advNightStepPool(advNightT, dt, dayTime, advNightRead, pos, Math.random, advMapRow.nightPool);
   advNightT = r.t;
-  if (r.spawn && advNightAlive() < ADV_NIGHT.CAP) {
+  if (r.spawn && advNightAlive() < ADV_NIGHT.CAP &&
+      (r.spawn.type !== 'slime' || advSlimeWaterOk(r.spawn.x, r.spawn.z))) {
+    /* slime 限水边(P4): 其余怪种全域放行, 不动既有口径 */
     const m = Mobs.spawn(r.spawn.type, r.spawn.x, r.spawn.z, {yaw: 0});
     m.__nightMob = true; /* 私有挂件(Mobs 许可): 黎明清场/床跳夜清场的唯一依据 */
     m.__nightHome = {x: r.spawn.x, z: r.spawn.z}; /* 家锚=出生环点(AI 收敛同巢穴口径, 不归巢) */
@@ -1054,8 +1082,8 @@ function advGateAt(x, z) {/* 门阵包围盒查表(advInPortal 命中后): 玩�
 function advHookEntityCbs() {
   Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8)。
       F4 死畜记账并进同一回调: 掉落与落账同帧, 挂清单索引(初始清单可推导, 存档最小) */
-    if (m.__livestockIdx != null && advLivestock.dead.indexOf(m.__livestockIdx) < 0) {
-      advLivestock.dead.push(m.__livestockIdx);
+    if (m.__livestockIdx != null && advLivestockAll[advMap].indexOf(m.__livestockIdx) < 0) {
+      advLivestockAll[advMap].push(m.__livestockIdx);
       advJournal.touch();
     }
     for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
@@ -1072,7 +1100,7 @@ function advSeedMapMobs() {/* 主世界怪播种(T6 行化): 当前行巢穴首�
   for (let i = 0; i < advMapRow.nests.length; i++) advSpawnNest(i);
   if (advMapRow.livestock === 'herds') {
     for (const e of advLivestockPlan()) {
-      if (advLivestock.dead.indexOf(e.idx) >= 0) continue;
+      if (advLivestockAll[advMap].indexOf(e.idx) >= 0) continue;
       const m = Mobs.spawn(e.type, e.x, e.z, {yaw: 0});
       m.__livestockIdx = e.idx; /* 模式私有挂件(Mobs 许可) */
     }
@@ -1092,19 +1120,24 @@ function advNightReset() {/* 夜怪账本对齐当下(昼夜 D5): 节拍器归�
 
 /* ---------- 熔炉图/界键(D14 泛化, T6): nether 'n|'/远征图各带前缀, home 键不前缀 ----------
      参照 nether 合并的 'n|' 先例: 各图炉位互不串档; home(=两界时代的上界)不
-     前缀 → 旧档天然兼容。前缀表与 advFurnKeyDim 的键序=前缀长度序(非空前缀
-     显式列举, 兜底 home) */
+     前缀 → 旧档天然兼容。**前缀知识单份在 ADV_FURN_PREFIX**(审查修复 S2: 正则/
+     场景数组原先各持一份字面量, 加第五张图要改三处——两处派生物全部从表派生) */
 const ADV_FURN_PREFIX = {home: '', desert: 'd|', snow: 's|', swamp: 'w|', nether: 'n|'};
+const ADV_FURN_PREFIXED = Object.keys(ADV_FURN_PREFIX) /* 带前缀场景清单(表派生, 长度序同表序) */
+    .filter((s) => ADV_FURN_PREFIX[s])
+    .sort((a, b) => ADV_FURN_PREFIX[b].length - ADV_FURN_PREFIX[a].length);
 function advFurnKey(x, y, z) {/* 方块坐标 → 当前场景的炉态键(开炉/建炉/退炉全走此) */
   return ADV_FURN_PREFIX[advSceneKey()] + blockKey(x, y, z);
 }
 function advFurnPos(k) {/* 炉态键 → 方块坐标(退料落点/火焰挂点解析; 剥图/界前缀再拆三段) */
-  const p = k.replace(/^(?:[ndsw]\|)/, '').split(',');
+  const rx = new RegExp('^(?:' + /* 前缀正则从表派生(审查修复 S2): 加图只改表一处 */
+      ADV_FURN_PREFIXED.map((s) => ADV_FURN_PREFIX[s].replace('|', '\\|')).join('|') + ')');
+  const p = k.replace(rx, '').split(',');
   return {x: +p[0], y: +p[1], z: +p[2]};
 }
 function advFurnKeyDim(k) {/* 炉态键属于哪个场景(火焰挂载门禁/核销消费) */
-  for (const s of ['nether', 'desert', 'snow', 'swamp']) {
-    if (k.slice(0, 2) === ADV_FURN_PREFIX[s]) return s;
+  for (const s of ADV_FURN_PREFIXED) {
+    if (k.slice(0, ADV_FURN_PREFIX[s].length) === ADV_FURN_PREFIX[s]) return s;
   }
   return 'home';
 }
@@ -1222,14 +1255,14 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
      时序: 门面内站桩 2s(走出门面即刻归零, 可反悔; 纯步进 advGateHoldStep 在
      adventure-maps-core) → 站满进渐晕: 400ms 淡入 → 满格瞬间切图(advSetMap,
      同步实测一二帧) → 400ms 淡出 + 到达音/TTS 播报。全程 2.8s(遮罩红线 ≤5s,
-     真正看不见画面仅 0.8s); 渐晕是紫白径向渐变(index.html #portal-veil +
+     真正看不见画面仅 0.8s); 渐晕是紫白径向渐变(index.html #portalVeil +
      css/style.css, 幼儿忌纯黑)。冷却复用 ADV_PORTAL.cd(落地空眩晕, 两类门同款) */
 const advGateHold = {t: 0}; /* 门面站桩秒累计(advGateHoldStep 的状态; nether 门不入账) */
 const ADV_VEIL_T = 0.4; /* 渐晕单段时长秒(双段共 0.8s) */
 const advVeil = {phase: 'idle', t: 0, to: '', from: ''}; /* 渐晕转场态: idle/in/out · to=目标图 · from=来时图(找对应回程门) */
-function advVeilEl() {/* #portal-veil 渐晕遮罩(index.html; Node 测试取 document 桩, 缺席静默) */
+function advVeilEl() {/* #portalVeil 渐晕遮罩(index.html; Node 测试取 document 桩, 缺席静默) */
   return (typeof document !== 'undefined' && document.getElementById) ?
-    document.getElementById('portal-veil') : null;
+    document.getElementById('portalVeil') : null;
 }
 function advVeilSet(op) {/* 直驱渐晕透明度(advFadeSet 同款: 关 transition 逐帧接管) */
   const el = advVeilEl();
@@ -1334,6 +1367,26 @@ function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/�
     SpeechKit.speak('回到上界啦');
     showToast('🏡 回到上界啦');
   }
+}
+
+/* 神殿可疑地板踩塌(审查修复 P1): 站上神殿室内中央 2×2 砂岩地板 → 4 格塌空
+   (先记账后破坏, 爆炸段同款 seam——editBlock 走光场/级联/脏标全链) + 塌沙音 +
+   话术; 正下方 y22~23 是建场竖井, 掏掉地板即坠入宝箱室(落室地板 y17, 无摔落
+   伤害=坠落限速口径)。幂等: 塌后脚下不是砂岩, 判据天然不复发; edits 已记账
+   重进不复位(一次性机关, 塌开的入口保持敞开); 级联不进任务(机关塌落不算孩子挖的) */
+function advTempleTrapTick() {
+  if (advMap !== 'desert') return;
+  const bx = Math.floor(pos.x); const bz = Math.floor(pos.z);
+  const by = Math.floor(pos.y - 0.05); /* 脚下支撑格(站上地板=trapY 层) */
+  if (getBlock(bx, by, bz) !== B_SANDSTONE || !advTempleTrapOn(bx, bz)) return;
+  for (const c of advTempleTrapCells()) {
+    if (getBlock(c.x, c.y, c.z) === 0) continue; /* 已塌格跳过(半塌态补刀) */
+    advMarkEdit(c.x, c.y, c.z, 0);
+    advCascadeApply(editBlock(c.x, c.y, c.z, 0), false);
+  }
+  sfx('sand_collapse');
+  SpeechKit.speak('哇——地板塌啦！下面藏着宝贝！');
+  showToast('🕳️ 可疑地板塌啦！');
 }
 
 /* ============================================================
@@ -2241,7 +2294,7 @@ const AdventureMode = mkMode({
     /* F4 牧场(设计稿 §4.4): 死畜账先换装再播种——确定性清单按死畜账跳过已杀索引
         生成, 不重生(MC 口径动物也不刷, 牧场会空是「保护动物」的隐性教育);
         游荡位置不存档(重进回散布原位); 实体挂 __livestockIdx 是记账唯一依据 */
-    advLivestock = advLoad.livestock; /* 世界档 decode 已兜底 {dead:[]} */
+    advLivestockAll = advLoad.livestock; /* 世界档 decode 已按图分桶归一 */
     advSeedMapMobs(); /* 当前行巢穴首刷 + 牧场清单/女巫常驻(切图/回界的怪物重播共用同一份, T6) */
     const qNow = ADV_QUESTS[ADV.quest.step]; /* 进场欢迎句带上当前步引导(hint 并句, 防 cancel 打断;
         「小小探险家」字样留给终章称号的仪式感) */
@@ -2327,6 +2380,7 @@ const AdventureMode = mkMode({
     advVeilTick(dt); /* 门阵渐晕转场推进(T7): 淡入→满格切图→淡出(先于传送触发: 发令帧从零起淡) */
     advGateLockTick(dt); /* 锁门提示(T7): 走近熄门给「完成任务就会亮」话术(节流) */
     advPortalTick(dt); /* 传送触发(§3.3/T7): 冷却递减 + 门面判定 → 地图门站桩/nether 切界分流 */
+    advTempleTrapTick(); /* 神殿可疑地板踩塌(审查修复 P1): 站上 2×2 砂岩地板即塌入宝箱室 */
     advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */
     advMelee.tick(dt); /* 挥击冷却递减(kit 自持, T14 口径不变) */
     advHurt.tick(dt); /* 受击语音节流递减(T14) */
@@ -2441,7 +2495,8 @@ const AdventureMode = mkMode({
 });
 
 /* T12~T15 的接线挂点(内部接口, 不进模式公共行为; 2026-10 评审候选 5 收敛为 20 键测试面,
-    下界相位装配追加 5 键、冒险地图 T6 追加 advSetMap 成 26 键; 键清单即 interface——
+    下界相位装配追加 5 键、冒险地图 T6 追加 advSetMap、T5 圈层高度场与审查修复
+    advSlimeWaterOk 再追加——现 28 键(键计数以本清单为准); 键清单即 interface——
     adventure-core 常量表与纯函数经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
       · advNetherState(下界相位·地图态只读快照: dim/map/portalCd/exitSpot)
@@ -2465,7 +2520,7 @@ function advSaveView() {/* 四份存档的可断言快照(只读缝): 与 journa
     world: {edits: advSceneEditsEncode(advSceneEdits),
       map: advMap,
       pos: advDim === 'nether' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw},
-      hp: ADV.player.hp, furnaces: advFurnaceClean(advFurnaces), livestock: advLivestock, dayTime},
+      hp: ADV.player.hp, furnaces: advFurnaceClean(advFurnaces), livestock: advLivestockAll, dayTime},
     quest: {step: ADV.quest.step, counts: ADV.quest.counts, title: ADV.quest.title,
       firstNight: ADV.quest.firstNight},
     chest: {size: advChest.size, slots: advChest.slots.slice()},
@@ -2478,7 +2533,7 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advFurnace, advFlameCount: () => advFlames.size,
   advBreakBlock, advOnCraft, advInvMove,
   advChestDeposit, advChestWithdraw, advChestExpand, advPanelClose,
-  advStationOk, advNightRead, advQuestPaint,
+  advStationOk, advNightRead, advQuestPaint, advSlimeWaterOk,
   advSetDim, advSetMap, advSceneEdits,
   advNetherState: () => ({dim: advDim, map: advMap, portalCd: advPortalCd, exitSpot: advExitSpot}),
   advMineHardText, advHudLines};

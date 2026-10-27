@@ -21,7 +21,9 @@
      站桩步进, 2s 可反悔, 状态进 {t,fire} 出)/advMapArriveAt(指定门位
      到达落点: 回程门内侧 2.5 格、面朝外——advPortalExit 同口径;
      advMapArrive(row)=gates[0] 便捷版)/
-     advMapDeathPlan(死亡回家: 远征图死=满血+home 门口, 地图行化)
+     advMapDeathPlan(死亡回家: 远征图死=满血+home 门口, 地图行化) ·
+     advTempleTrapOn/advTempleTrapCells(神殿可疑地板踩塌判定与塌落格清单,
+     审查修复 P1——运行时踩塌机制在壳层 advTempleTrapTick)
    依赖(均经全局名, 调用期解析): adventure-core.js 的 ADV_GROUND/
      ADV_SPAWN/ADV_PORTAL/ADV_HOME_ROW/advBuildWorld/advDeathPlan/
      advPortalExit(index.html 加载序: adventure-core → 本文件 →
@@ -41,7 +43,9 @@
    ============================================================ */
 const ADV_DESERT = {/* 黄沙沙漠: 沙丘地形 + 砂岩神殿 + 绿洲 + 尸壳替换僵尸 */
   gate: {px: 58, pz: 70}, /* 回程门框位(门体 T7 经 advPortalFrame 建, 此处只登记) */
-  temple: {cx: 64, cz: 40, r: 7}, /* 沙漠神殿: 金字塔底半径 7(15×15) + 地下宝箱室 */
+  temple: {cx: 64, cz: 40, r: 7, trapY: 24}, /* 沙漠神殿: 砂岩空心金字塔(塔内可入) +
+      地下宝箱室; trapY=可疑地板层(室内地表 y24 中央 2×2 砂岩显眼底板, 踩塌入口
+      ——审查修复 P1: 埋两层沙下孩子踩不到, 改室内可见可踩; 运行时机制在壳层) */
   oasis: [ /* 小绿洲水泊: 水面齐 y24, 沙岸环绕 */
     {cx: 28, cz: 92, r: 5},
     {cx: 98, cz: 96, r: 4},
@@ -79,9 +83,10 @@ const ADV_SWAMP = {/* 青苔沼泽: 平地浅水洼 + 垂藤橡树 + 沼骸替�
     {cx: 102, cz: 96, r: 5},
     {cx: 48, cz: 58, r: 3},
   ],
-  nests: [ /* 巢穴池(替换语义: skeleton 位→bogged; slime 沼泽主场) */
-    {x: 22, z: 58, kinds: ['bogged', 'zombie', 'slime']},
-    {x: 98, z: 68, kinds: ['bogged', 'slime', 'zombie']},
+  nests: [ /* 巢穴池(替换语义: skeleton 位→bogged; slime 不入巢池——设计 §3 口径
+      「史莱姆=夜间水边专属」, 白天巢穴不刷, 审查修复 P3) */
+    {x: 22, z: 58, kinds: ['bogged', 'zombie', 'zombie']},
+    {x: 98, z: 68, kinds: ['bogged', 'zombie', 'bogged']},
   ],
   salt: 6401,
 };
@@ -112,7 +117,10 @@ function advMapNest(n, top, rock) {
 
 /* ---------- 黄沙沙漠 ---------- */
 
-function advDesertFlats() {/* 压平区清单: 回程门/神殿/绿洲/巢穴(Snow/swamp 同款手法) */
+function advDesertFlats() {/* 压平区清单: 回程门/神殿/绿洲/巢穴(Snow/swamp 同款手法)。
+    注: 三图 Flats/Blocked 族同构**有意保留**(审查修复 S3 备案)——各自禁区构成不同
+    (神殿+绿洲 vs 雪屋+冰湖 vs 小屋+水洼), 逐图显式列举比抽象成配置表更可读,
+    与 adventure-core 建场族的显式先例同法; 公共子句已抽 advGateZoneBlocked */
   const f = [
     {cx: ADV_DESERT.gate.px + 2, cz: ADV_DESERT.gate.pz, r: 12}, /* 门区+落点开阔带 */
     {cx: ADV_DESERT.temple.cx, cz: ADV_DESERT.temple.cz, r: 18},
@@ -122,7 +130,8 @@ function advDesertFlats() {/* 压平区清单: 回程门/神殿/绿洲/巢穴(Sn
   return f;
 }
 
-function advDesertTerrain() {/* 沙丘地层: heightAt 幅度 2 起伏 + 九成沙面/一成砂岩露头
+function advDesertTerrain() {/* 沙丘地层: heightAt 幅度 2 起伏 + 九成沙面/零星砂岩露头
+    (~6%, 审查修复 P5: 露头 11% 挤占沙面至 87.5% 低于 spec 九成红线)
     + 砂岩垫层 3 格 + 绿洲水泊(压平区内水面齐 y24, home 湖同款)。
     门区+落点走廊强制沙面(砂岩露头散布不进门位——门体的落位前提) */
   const gt = ADV_DESERT.gate;
@@ -133,7 +142,7 @@ function advDesertTerrain() {/* 沙丘地层: heightAt 幅度 2 起伏 + 九成�
       const top = ADV_GROUND + SceneKit.heightAt(x, z, opts);
       for (let y = 0; y <= top - 4; y++) setBlockRaw(x, y, z, 3);
       for (let y = top - 3; y < top; y++) setBlockRaw(x, y, z, B_SANDSTONE);
-      const bare = !inGateZone(x, z) && SceneKit.rand(x, z, ADV_DESERT.salt + 1) > 0.9;
+      const bare = !inGateZone(x, z) && SceneKit.rand(x, z, ADV_DESERT.salt + 1) > 0.94;
       setBlockRaw(x, top, z, bare ? B_SANDSTONE : 8);
     }
   }
@@ -155,16 +164,22 @@ function advDesertTerrain() {/* 沙丘地层: heightAt 幅度 2 起伏 + 九成�
   }
 }
 
-function advDesertTemple() {/* 沙漠神殿: 砂岩金字塔+南面外楼梯 + 地下宝箱室
-    (B_CHEST 接大宝箱阶梯) + 可疑地板(沙色, 踩塌/挖开滑落入口——MC TNT
-    陷阱的儿童版, 附录 B #5: 无爆炸无致死) + 东侧出路楼梯(矿坑 1 格级
-    教训, 不困人) */
+function advDesertTemple() {/* 沙漠神殿: 砂岩**空心**金字塔(MC 原版口径——塔内可入,
+    北面 2×2 门洞)+南面外楼梯 + 地下宝箱室(B_CHEST 接大宝箱阶梯) + 可疑地板
+    (室内地面中央 2×2 砂岩显眼底板, 踩塌滑落入口——MC TNT 陷阱的儿童版,
+    附录 B #5: 无爆炸无致死; 运行时踩塌机制在壳层, 审查修复 P1) + 东侧出路
+    楼梯(矿坑 1 格级教训, 不困人) */
   const t = ADV_DESERT.temple;
   /* 地下宝箱室 7×7×4(先掏, 金字塔再压顶) */
   SceneKit.fill(t.cx - 3, 17, t.cz - 3, t.cx + 3, 17, t.cz + 3, B_SANDSTONE); /* 室地板 */
   SceneKit.fill(t.cx - 3, 18, t.cz - 3, t.cx + 3, 21, t.cz + 3, 0); /* 室腔 */
   SceneKit.fill(t.cx - 3, 22, t.cz - 3, t.cx + 3, 23, t.cz + 3, B_SANDSTONE); /* 室顶+地基 */
-  SceneKit.fill(t.cx - 1, 23, t.cz - 1, t.cx, 23, t.cz, 8); /* 可疑地板: 中央 2×2 沙色薄层 */
+  /* 室顶竖井: 中央 2×2 掏穿 y22~23——室内地面的可疑地板正下方, 踩塌即坠入 */
+  SceneKit.fill(t.cx - 1, 22, t.cz - 1, t.cx, 23, t.cz, 0);
+  /* 可疑地板: 室内地表(y24)中央 2×2 砂岩显眼底板——周围是沙, 「颜色不一样的
+      地板」踩上去就塌(P1: 从埋两层沙下改为室内可见可踩; 砂岩无 fall 旗,
+      悬井而建不被 P14 清扫) */
+  SceneKit.fill(t.cx - 1, t.trapY, t.cz - 1, t.cx, t.trapY, t.cz, B_SANDSTONE);
   setBlockRaw(t.cx, 20, t.cz, B_CHEST);
   setBlockRaw(t.cx - 2, 18, t.cz - 2, B_TORCH); /* 照明(防室内刷怪+不困黑的); 落地站
       膛(y18 站室地板 y17)——悬空 thin 会被 P14 清扫首进治愈, 违反桶重放确定性红线 */
@@ -182,10 +197,21 @@ function advDesertTemple() {/* 沙漠神殿: 砂岩金字塔+南面外楼梯 + �
     if (getBlock(x, y - 1, t.cz) === 0) setBlockRaw(x, y - 1, t.cz, B_SANDSTONE); /* 垫脚 */
   }
   SceneKit.fill(t.cx + 10, ADV_GROUND, t.cz - 1, t.cx + 11, ADV_GROUND, t.cz + 1, 8); /* 出口沙平台 */
-  /* 金字塔 8 级(底 15×15 → 顶尖 1×1), 塔底 y25 起于地表 y24 之上 */
+  /* 金字塔 8 级(底 15×15 → 顶尖 1×1), 塔底 y25 起于地表 y24 之上——**每级只砌
+      外圈 1 格厚**(空心, 塔内可站人); 北面塔脚留 2×2 门洞(lv0~1 跳过——南面有
+      外楼梯、东侧有出路楼梯, 门开北面互不打架) */
   for (let lv = 0; lv <= 7; lv++) {
     const r = t.r - lv;
-    SceneKit.fill(t.cx - r, ADV_GROUND + 1 + lv, t.cz - r, t.cx + r, ADV_GROUND + 1 + lv, t.cz + r, B_SANDSTONE);
+    const y = ADV_GROUND + 1 + lv;
+    for (let x = t.cx - r; x <= t.cx + r; x++) {
+      for (let z = t.cz - r; z <= t.cz + r; z++) {
+        const onRing = x === t.cx - r || x === t.cx + r || z === t.cz - r || z === t.cz + r;
+        if (!onRing) continue; /* 空心: 只砌外圈 */
+        const isDoor = lv <= 1 && z === t.cz - t.r && x >= t.cx - 1 && x <= t.cx;
+        if (isDoor) continue; /* 北门 2 宽 × 2 高 */
+        setBlockRaw(x, y, z, B_SANDSTONE);
+      }
+    }
   }
   /* 南面外楼梯: 2 宽台阶嵌塔身(y26→y32, 顶与塔尖 y32 平步相接, 相邻高差 1) */
   for (let i = 0; i <= 6; i++) {
@@ -193,9 +219,14 @@ function advDesertTemple() {/* 沙漠神殿: 砂岩金字塔+南面外楼梯 + �
   }
 }
 
+function advGateZoneBlocked(gate, x, z) {/* 门区植被禁区子句(审查修复 S3 抽取: 三图 Blocked
+    逐字重复的公共判定——门体包围盒外扩 10, 与建场门位压平净空同宽) */
+  return Math.abs(x - gate.px - 2) <= 10 && Math.abs(z - gate.pz) <= 10;
+}
+
 function advDesertBlocked(x, z) {/* 植被禁区: 门区/神殿(含楼梯出口)/绿洲/巢穴 */
   const d = ADV_DESERT;
-  if (Math.abs(x - d.gate.px - 2) <= 10 && Math.abs(z - d.gate.pz) <= 10) return true;
+  if (advGateZoneBlocked(d.gate, x, z)) return true;
   if (Math.abs(x - d.temple.cx) <= d.temple.r + 2 && Math.abs(z - d.temple.cz) <= d.temple.r + 2) return true;
   for (const o of d.oasis) if (Math.hypot(x - o.cx, z - o.cz) <= o.r + 2) return true;
   for (const n of d.nests) if (Math.hypot(x - n.x, z - n.z) < 6) return true;
@@ -314,7 +345,7 @@ function advSnowHut() {/* 雪屋: 雪块圆顶(球壳 r4, 室内掏空) + 南门
 
 function advSnowBlocked(x, z) {/* 植被禁区: 门区/雪屋(含出路外延)/冰湖/巢穴 */
   const d = ADV_SNOW;
-  if (Math.abs(x - d.gate.px - 2) <= 10 && Math.abs(z - d.gate.pz) <= 10) return true;
+  if (advGateZoneBlocked(d.gate, x, z)) return true;
   if (Math.abs(x - d.hut.cx) <= d.hut.r + 9 && Math.abs(z - d.hut.cz) <= d.hut.r + 3) return true;
   for (const l of d.lakes) if (Math.hypot(x - l.cx, z - l.cz) <= l.r + 2) return true;
   for (const n of d.nests) if (Math.hypot(x - n.x, z - n.z) < 6) return true;
@@ -322,7 +353,10 @@ function advSnowBlocked(x, z) {/* 植被禁区: 门区/雪屋(含出路外延)/�
 }
 
 function advSnowScatter() {/* 云杉 ~22(候选按散列值排序取前 N, advTreeSpots 同法
-    ——空间无偏) + 雪堆点缀(单块雪, 挖掉得雪球=雪仗弹药) */
+    ——空间无偏) + 雪堆点缀(单块雪, 挖掉得雪球=雪仗弹药)。
+    注: 「cands→sort→slice(0,N)」三处同构**有意保留**(审查修复 S3 备案)——散布
+    门类(树/兰花/枯灌木)各自 blocker 与密度不同, 抽公共 helper 反而藏起差异,
+    与 adventure-core advTreeSpots 先例同法 */
   const d = ADV_SNOW;
   const cands = [];
   for (let x = 2; x < WORLD_W - 2; x++) {
@@ -404,7 +438,7 @@ function advSwampHut() {/* 女巫小屋(MC 沼泽小屋同款位): 高脚木屋�
 
 function advSwampBlocked(x, z) {/* 植被禁区: 门区/小屋(含台阶)/水洼(+泥岸)/巢穴 */
   const d = ADV_SWAMP;
-  if (Math.abs(x - d.gate.px - 2) <= 10 && Math.abs(z - d.gate.pz) <= 10) return true;
+  if (advGateZoneBlocked(d.gate, x, z)) return true;
   if (Math.abs(x - d.hut.x) <= 6 && Math.abs(z - d.hut.z) <= 8) return true;
   for (const p of d.pools) if (Math.hypot(x - p.cx, z - p.cz) <= p.r + 2) return true;
   for (const n of d.nests) if (Math.hypot(x - n.x, z - n.z) < 6) return true;
@@ -573,11 +607,30 @@ function advMapDeathPlan(mapId, player) {
   return Object.assign(advDeathPlan(player, ADV_SPAWN), {map: 'home'});
 }
 
+/* ---------- 神殿可疑地板(审查修复 P1): 踩塌入口的判定与格清单 ----------
+   建场只铺「中央 2×2 沙面 + 下层砂岩顶盖」(advDesertTemple), 运行时
+   踩塌机制在壳层——本段提供纯判定, 壳消费(踩上→8 格清空+记账+音效)。
+   幂等口径: 塌后脚下不再是沙, 判据天然不复发; edits 记账保证重进不复位。 */
+function advTempleTrapOn(x, z) {/* 玩家所站格是否落进可疑地板 footprint(中央 2×2) */
+  const t = ADV_DESERT.temple;
+  return x >= t.cx - 1 && x <= t.cx && z >= t.cz - 1 && z <= t.cz;
+}
+function advTempleTrapCells() {/* 踩塌时清空的格清单: 中央 2×2 砂岩地板共 4 格
+    (单层——正下方 y22~23 已是竖井空腔, 掏掉地板即坠入宝箱室, 落在室地板
+    y17 上, 无摔落伤害=坠落限速口径) */
+  const t = ADV_DESERT.temple;
+  const cells = [];
+  for (let x = t.cx - 1; x <= t.cx; x++) {
+    for (let z = t.cz - 1; z <= t.cz; z++) cells.push({x, y: t.trapY, z});
+  }
+  return cells;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_MAPS, ADV_DESERT, ADV_SNOW, ADV_SWAMP,
     advDesertBuild, advDesertTerrain, advDesertTemple, advDesertPlants,
     advSnowBuild, advSnowTerrain, advSnowTree, advSnowHut, advSnowScatter,
     advSwampBuild, advSwampTerrain, advSwampHut, advSwampScatter, advMapNest,
     ADV_UNLOCK_KEYS, advMapUnlocked, ADV_GATE_HOLD_T, advGateHoldStep, advMapChestKey,
-    advMapArriveAt, advMapArrive, advMapDeathPlan};
+    advMapArriveAt, advMapArrive, advMapDeathPlan, advTempleTrapOn, advTempleTrapCells};
 }
