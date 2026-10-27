@@ -47,7 +47,9 @@
      (ADR 0002, 跨模式共享背包) / adventure_world_save(场景确定性重建+
      edits 重放, build 模式同款; 另带玩家位置/朝向+血量+昼夜时刻 dayTime,
      昼夜 D1: 重进时间连续, 老档缺省清晨 0) / adventure_quest_save({step,counts,title?})
-     / adventure_chest_save({size, slots} 大宝箱全局账户)
+     / adventure_chest_save({size, slots} 大宝箱全局账户)——四档供给与全部持久化
+     触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档 adapter 缺省装配,
+     触点口径见该缝头注释)
    · 昼夜(D1, mc-daylight-torch §2): 唯一置位 dayCycleOn 的模式——init
      恢复 dayTime 并 applyDaylight, cleanup 关循环复位白天观感(幂等);
      时间推进在 main.js 主循环; HUD 时段行(太阳/月亮两态, 不加时分)
@@ -217,7 +219,7 @@ const advChestSlot = SyncDB.slot(ADV_CHEST_KEY, {defaults: {size: ADV_CHEST_STAR
 let advChest = {size: ADV_CHEST_START, slots: []}; /* 账户本体(init 换装) */
 
 /* ---------- 下界相位·地图态与按图分桶 edits 账本(D8 泛化, 票据 T6) ----------
-     切图/切界 = advJournal.edits 换装当前桶(build 模式 buildEdits[id] 同款缝):
+     切图/切界 = advStore.journal.edits 换装当前桶(build 模式 buildEdits[id] 同款缝):
      journal 的 mark()/flush() 动态查 J.edits, 记账/重放/落盘全自动跟桶。
      桶键 = 四张主世界图 + nether(两界机制的 netherEdits 桶并入同一封套);
      各桶在 init 里从档收养(老档两代自动迁移, 见 advSceneEditsDecode);
@@ -236,16 +238,16 @@ function advSceneKey() {/* 当前场景键('nether'|地图 id)——换桶/炉�
    payload 键随读随装(两界桶各归各键), 背包+任务档在主档之后联写; 全量落盘时机
    (节流/退出兜底/死亡·回家·睡醒即时)由 journal 的 flush/tick/pageHide 统一驱动 */
 const advJournal = mkWorldJournal(advWorldSlot, {
-  payload: () => ({/* 桶账本整封装套(不变式: advJournal.edits === advSceneEdits[当前键],
+  payload: () => ({/* 桶账本整封装套(不变式: advStore.journal.edits === advSceneEdits[当前键],
       由 init/advSetMap/advSetDim/cleanup 四处换装维持)——mark/flush 记的账
       自动落在当前桶里, 各图互不串档(T6 分桶红线) */
     edits: advSceneEdits,
     map: advMap, /* 当前主世界图键(nether 期间保持最后主世界图) */
     pos: advDim === 'nether' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw}, /* D9 */
     hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, dayTime}),
-  onFlush: () => {
-    advBag.save(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
-    advQuestSlot.save(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
+  onFlush: () => {/* 伴随联写经存档 store 缝: U3 换装 dev store 后三档联写自动跟丢弃语义 */
+    advStore.saveBag(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
+    advStore.saveQuest(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   },
 });
 let advLivestockAll = {home: [], desert: [], snow: [], swamp: [], nether: []}; /* F4 死畜索引账
@@ -259,7 +261,7 @@ const advStations = new Map();
 function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此记账(build 同款); T13 顺路维护站点缓存 */
   const k = blockKey(x, y, z);
   const prev = advStations.get(k);
-  advJournal.mark(k, id); /* 记账+置脏(世界改动日志); 站点缓存/挖炉退包是探险私事, 留在本函数 */
+  advStore.mark(k, id); /* 记账+置脏(世界改动日志, 经存档 store 缝); 站点缓存/挖炉退包是探险私事, 留在本函数 */
   if (id === B_CRAFT || id === B_FURNACE) advStations.set(k, {x, y, z, id});
   else advStations.delete(k); /* 挖除/覆盖皆注销(爆炸掀掉站点同样走此 seam) */
   /* F1: 炉子消失(挖/TNT/覆盖) → 炉内三笔退包; 炉态键带界前缀(D14) */
@@ -294,6 +296,82 @@ for (let i = 0; i < HOTBAR_SLOTS; i++) {
   });
 }
 const advHb = ModeKit.mkHotbar({items: advHbItems, onPick: (i) => advHeldChanged(i)});
+
+/* ============================================================
+   存档 store 缝 (advStore) — 模式层·四份档的供给与持久化唯一面
+   ------------------------------------------------------------
+   世界档(journal)/任务档/大宝箱档/共享背包的槽供给与持久化语义收拢成
+   一个可整体替换的缝(ADR 0005 票 U1): 壳内一切读档·落盘·置脏·节流·
+   关页兜底触点只认本面, 不再直碰槽与背包实例——体验馆(U3)在 init 前
+   把本缝换装成全内存 dev store(零键字面量·落盘丢弃), 冒险壳编排零改动。
+   缺省装配 = 真档 adapter: SyncDB 三槽 + 背包壳实例 + 挂在世界档槽上的
+   journal(journal 是范本缝: 内存槽喂进同一个 mkWorldJournal 工厂即得
+   dev 版, 不为 journal 造第二实现; 槽创建留在上方顶层, SyncDB 键注册
+   回填不动)。
+   直调口径(journal 薄调用去留的登记): touch/flush/tick/pageHide/load/
+   mark 语义已精确, 本缝以同名薄方法收录而非让触点散直调 advJournal——
+   方法体在调用期读 advStore 字段, 换装后触点自动跟随; 账本机械面(edits
+   遍历/换桶/replay)不是「何时落盘」的决策而是世界账本操作, 不包方法,
+   触点直取 advStore.journal.X, 换装 journal 实例时同样动态跟随。
+   interface: 供给 worldSlot/questSlot/chestSlot/bag/journal(U3 换装点;
+     worldSlot 仅供给登记——默认 journal 在构造期闭包持有它, 换装世界档 =
+     换 journal 实例, 不改字段) + 语义面 load/mark/touch/flush/tick/
+     pageHide(世界档) · loadQuest/saveQuest · loadChest/saveChest ·
+     loadBag/saveBag(三份伴生档)
+   依赖(均经全局名, 调用期解析): 上方定义区四份供给(advWorldSlot/
+     advQuestSlot/advChestSlot/advBag/advJournal) · advChest(账户本体,
+     init 换装, saveChest 调用期读)
+   可测性: 纯薄委托零新逻辑, 行为由 test/adventure-mode.test.js 既有
+     断言守卫(U1 零改动); 顶层 let = 登记 U3 的跨文件换装写
+   ============================================================ */
+let advStore = {
+  /* —— 槽供给(四份档; U3 dev store 换装点: 整体换本缝或换单字段皆可) —— */
+  worldSlot: advWorldSlot, /* 世界档槽(真档: SyncDB 注册回填在创建期已定) */
+  questSlot: advQuestSlot, /* 任务档槽 */
+  chestSlot: advChestSlot, /* 大宝箱档槽 */
+  bag: advBag, /* 共享背包实例(ADR 0002: 存档键唯一持有在背包壳) */
+  journal: advJournal, /* 世界档记账(范本缝; 换装世界档 = 换整个实例, 见上) */
+  /* —— 世界档持久化语义面(薄委托 journal, 调用期读 advStore.journal) —— */
+  load() {
+    return advStore.journal.load();
+  },
+  mark(k, v) {
+    advStore.journal.mark(k, v);
+  },
+  touch() {
+    advStore.journal.touch();
+  },
+  flush() {
+    return advStore.journal.flush();
+  },
+  tick() {
+    return advStore.journal.tick();
+  },
+  pageHide() {
+    advStore.journal.pageHide();
+  },
+  /* —— 三份伴生档语义面(槽/背包藏在身后, 触点只见业务语义) —— */
+  loadQuest() {
+    return advStore.questSlot.load();
+  },
+  saveQuest(st) {
+    advStore.questSlot.save(st);
+  },
+  loadChest() {
+    return advStore.chestSlot.load();
+  },
+  /* 账户落盘: 存取/扩容是离散动作, 即做即存不等 5s 节流(原 advChestSave 口径) */
+  saveChest() {
+    advStore.chestSlot.save(advChest);
+  },
+  loadBag() {
+    return advStore.bag.load();
+  },
+  saveBag() {
+    advStore.bag.save();
+  },
+};
+
 function advSyncHeldVisual() {/* 手持观感 = 选中槽内容(「手持与物品栏一致」的单一出口):
    工具/方块/食物/材料全经 HeldItems.defFor 解析, 空槽 = 空手(MC 口径) */
   const s = advInv.slots[advHb.sel];
@@ -347,7 +425,7 @@ function advInvMove(from, to) {/* 背包面板点选搬运(2026-10-24 交互优�
   if (!moveSlot(advInv, from, to)) return;
   advSyncHotbar();
   if (from === advHb.sel || to === advHb.sel) advSyncHeldVisual(); /* 选中槽被搬换: 观感安静跟进(不播「在手」) */
-  advBag.save();
+  advStore.saveBag();
   sfx('pick');
 }
 
@@ -375,7 +453,7 @@ const advPanel = ModeKit.mkCraftPanel({
   onGridMove: () => {/* 摆放台动了背包(摆入/退回/摆入卡备料): 快捷栏+在手表征同步 + 存档 */
     advSyncHotbar();
     advSyncHeldVisual(); /* 起手槽可能是选中槽: 数量变化观感安静跟进 */
-    advBag.save();
+    advStore.saveBag();
   },
   onReturnLeft: (left) => {/* 关面板退料装不下的余量 → 脚下掉落物(零惩罚, crafting-grid §5) */
     for (const it of left) Drops.spawn(it.id, it.n, pos.x, pos.y + 0.5, pos.z);
@@ -615,7 +693,7 @@ function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿
   if (night && !advWasNight) {/* 入夜上沿: SpeechKit 是 cancel-then-speak, 引导并句 */
     if (!ADV.quest.firstNight) {
       ADV.quest.firstNight = true;
-      advQuestSlot.save(ADV.quest); /* 一次性即时落盘(重进夜里不重教) */
+      advStore.saveQuest(ADV.quest); /* 一次性即时落盘(重进夜里不重教) */
       SpeechKit.speak('天黑了，放个火把照亮周围吧！');
     } else {
       SpeechKit.speak('天黑了');
@@ -666,7 +744,7 @@ function advLanternWear() {/* 持满 1 秒扣 1 耐久(背包耐久管线 damage
     SpeechKit.speak('灯笼用完了，我们再做一个吧');
     showToast('🏮 灯笼用完了，我们再做一个吧');
   }
-  advJournal.touch(); /* 耐久变化随 5s 节流世界档落盘(退出兜底即时存) */
+  advStore.touch(); /* 耐久变化随 5s 节流世界档落盘(退出兜底即时存) */
   advSyncHotbar();
 }
 
@@ -834,7 +912,7 @@ function advPlayerDied() {
   CombatKit.resetFighter(e); /* 复活五字段不变量(阵亡去向政策在此) */
   e.hp = plan.hp; ADV.player.hp = plan.hp;
   ModeKit.spawn(plan.x, plan.y, plan.z, {yaw: plan.yaw});
-  advJournal.flush(); /* 重生态即时落盘: 防 5s 节流窗口内关页面 → 重进在死亡点残血(与死亡语义矛盾);
+  advStore.flush(); /* 重生态即时落盘: 防 5s 节流窗口内关页面 → 重进在死亡点残血(与死亡语义矛盾);
      炉态不动也不退(F1 拍板①: 炉内物品随档保留, 死亡零惩罚不碰炉子) */
   SpeechKit.speak('不怕不怕，回到小屋休息好啦，背包里的宝贝都在！');
   showToast('💀 回到出生小屋，满血再来！');
@@ -854,7 +932,7 @@ function advGoHome() {
   const e = advGetPEnt();
   e.hp = e.maxHp; ADV.player.hp = ADV.player.maxHp; /* 顺带回满血(回家=安全休整, nether 先例) */
   ModeKit.spawn(ADV.spawn.x, ADV.spawn.y, ADV.spawn.z, {yaw: ADV.spawn.yaw});
-  advJournal.flush(); /* 回家态即时落盘(与死亡同口径): 满血+小屋位置即刻入档, 防节流窗口 */
+  advStore.flush(); /* 回家态即时落盘(与死亡同口径): 满血+小屋位置即刻入档, 防节流窗口 */
   SpeechKit.speak('回家咯！休息一下再出发！');
   showToast('🏠 回到小屋');
 }
@@ -914,7 +992,7 @@ function advSleepWake() {/* 唤醒沿三连(§7.2): 跳清晨 + 夜怪清场 + �
   ModeKit.spawn(spot.x, spot.y, spot.z, {yaw: spot.yaw}); /* 落位+记忆(顺带把黑屏期游走的玩家拉回床边醒来) */
   SpeechKit.speak('睡饱啦，天亮了！');
   showToast('☀️ 睡饱啦，天亮了！');
-  advJournal.flush();
+  advStore.flush();
 }
 
 function advSleepTick(dt) {/* 转场推进(update 每帧): 纯函数时间账 + 遮罩直驱 + 唤醒沿/收尾 */
@@ -1050,7 +1128,7 @@ function advBeamsRelayout() {/* 重锚当前界全部门: 下界回程门(基座
     }
   }
   const cols = new Map(); /* z → 门面格清单 [{x,y}...] */
-  for (const [k, v] of advJournal.edits) {
+  for (const [k, v] of advStore.journal.edits) {
     if (v !== ADV_B.portal) continue;
     const p = k.split(',');
     const z = +p[2];
@@ -1118,7 +1196,7 @@ function advHookEntityCbs() {
       F4 死畜记账并进同一回调: 掉落与落账同帧, 挂清单索引(初始清单可推导, 存档最小) */
     if (m.__livestockIdx != null && advLivestockAll[advMap].indexOf(m.__livestockIdx) < 0) {
       advLivestockAll[advMap].push(m.__livestockIdx);
-      advJournal.touch();
+      advStore.touch();
     }
     for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
   });
@@ -1204,7 +1282,7 @@ function advFurnaceSettle(sceneKey) {/* 炉态核销(参照 decode 侧 advFurnac
      advSetDim 切维度(nether 期间 advMap 保持最后主世界图), advSetMap 切主世界
      图(T7 的门阵站桩触发器接此; 本票可被测试直调) */
 function advSceneLeave() {/* 离开当前场景的共通清单: 世界无关观感/实体/计时一次清空 */
-  advJournal.edits = advSceneEdits[advSceneKey()]; /* 换桶: mark/flush 动态查 J.edits, 记账/重放/落盘自动跟桶 */
+  advStore.journal.edits = advSceneEdits[advSceneKey()]; /* 换桶: mark/flush 动态查 J.edits, 记账/重放/落盘自动跟桶 */
   advMineStop(); /* 蓄力目标在旧世界: 清零(准星跨世界无意义) */
   advTntTap = null; /* TNT 短按判定同上(按住状态不跨场) */
   if (advFurnace.isOpen()) advFurnace.close(); /* 炉面板绑定旧场景炉: 先收 */
@@ -1235,7 +1313,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     loadScene(() => {/* 下界基座: 平地+熔岩池+固定回程门(不记账——互锁红线) + 下界桶重放 */
       advNetherBuild();
       advPortalFrame(setBlockRaw, ADV_NETHER.ground, ADV_NETHER.portal.px, ADV_NETHER.portal.pz);
-      advJournal.replay({block: setBlockRaw, fluid: setFluidLv});
+      advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
       advFurnaceSettle('nether'); /* 'n|' 炉键此时才有块可对(D14) */
       advRescanStations(); /* 站点缓存只反映当前场景(读当前桶) */
     });
@@ -1250,7 +1328,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     loadScene(() => {/* 主世界基座确定性重建(当前地图行 build) + 当前桶重放; 不跑
         applySweep——那是 init 旧档治愈专用, 切回来的世界本来就是干净的 */
       advMapRow.build();
-      advJournal.replay({block: setBlockRaw, fluid: setFluidLv});
+      advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
       advGatesBuild(); /* 门阵重建(T7): 重放之后立门——玩家对门区的误放被门体盖回 */
       advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
       advRescanStations();
@@ -1283,7 +1361,7 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
   advApplyMapPalette(row);
   loadScene(() => {
     row.build();
-    advJournal.replay({block: setBlockRaw, fluid: setFluidLv});
+    advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
     advGatesBuild(); /* 门阵重建(T7): 重放之后立门(远征图回程门常亮) */
     advRescanSaplings();
     advRescanStations();
@@ -1749,7 +1827,7 @@ function advStationTick() {
 /* 世界重放后重建站点缓存(init 调): 站点只可能来自玩家放置 → O(edits) 收集 */
 function advRescanStations() {
   advStations.clear();
-  for (const [k, v] of advJournal.edits) {
+  for (const [k, v] of advStore.journal.edits) {
     if (v !== B_CRAFT && v !== B_FURNACE) continue;
     const p = k.split(',');
     advStations.set(k, {x: +p[0], y: +p[1], z: +p[2], id: v});
@@ -1889,9 +1967,6 @@ function advExplode(x, y, z) {
    大宝箱 (引导链 v2) — 全局共享账户 + 点选搬运面板 + 材料扩容
    (阶梯表与政策纯函数 advChestNext/advChestPut 在 adventure-core.js)
    ============================================================ */
-function advChestSave() {/* 账户落盘: 存取/扩容是离散动作, 即做即存不等 5s 节流 */
-  advChestSlot.save(advChest);
-}
 function advChestOpenPanel() {/* 走近箱子点击打开: open_chest 记账(步 4 三条件之一) + 回显 */
   ADV.chestOpen = true;
   advTally('open_chest', 1);
@@ -1915,7 +1990,7 @@ function advChestDeposit(slotIdx) {
     return;
   }
   if (left > 0) s.n = left; else advInv.slots[slotIdx] = null;
-  advChestSave();
+  advStore.saveChest();
   advSyncHotbar();
   sfx('pick');
 }
@@ -1929,7 +2004,7 @@ function advChestWithdraw(i) {
     return;
   }
   if (r !== 'ok') return; /* 空槽无动作 */
-  advChestSave();
+  advStore.saveChest();
   advSyncHotbar();
   sfx('pick');
 }
@@ -1944,7 +2019,7 @@ function advChestExpand() {
     return;
   }
   advChest.size = nx.size;
-  advChestSave();
+  advStore.saveChest();
   advSyncHotbar();
   sfx('level');
   SpeechKit.speak('宝箱变大啦！能放更多宝贝咯！');
@@ -1960,7 +2035,7 @@ let advQuestT = 0; /* 谓词检查节流计时(init 复位一个整窗, 首查�
 function advTally(kind, n) {/* 任务计数: 事件挂点只 += 不做判断(推进归 advQuestTick 节流查);
    counts 只增不减 = 跳步防护(计数依赖事件, 不可逆); 顺路挂脏标记随 5s 存档节流落盘 */
   ADV.quest.counts[kind] = (ADV.quest.counts[kind] || 0) + n;
-  advJournal.touch();
+  advStore.touch();
 }
 
 /* 发现型记账(远征章 T8): 玩家脚格进 home 门阵广场 → visit_plaza 首次记账
@@ -2048,10 +2123,10 @@ function advQuestTick(dt) {
   if (q.unlock) {/* 解锁链(T8, §2.3): 完成挂 unlock 的任务 → 任务档 counts 置
       T4 键名键(解锁即成就, 语义同源) → 点亮仪式; 键在 save 前置位(落盘含键) */
     ADV.quest.counts[ADV_UNLOCK_KEYS[q.unlock]] = 1;
-    advJournal.touch();
+    advStore.touch();
     advUnlockRite(q.unlock);
   }
-  advQuestSlot.save(st);
+  advStore.saveQuest(st);
   advQuestPaint();
 }
 
@@ -2222,7 +2297,7 @@ const AdventureMode = mkMode({
   chrome: {score: 'none', hotbar: 'flex'},
 
   init() {
-    const advLoad = advJournal.load(); /* 读档+decode(桶归一化/老档两代迁移在 advSceneEditsDecode) */
+    const advLoad = advStore.load(); /* 读档+decode(桶归一化/老档两代迁移在 advSceneEditsDecode) */
     /* 地图/维度相位装桶(D8/D9 泛化, T6): 维度不进档——重进恒主世界(下界退出时
        pos 存 null); map 键恢复最后主世界图(老档缺省 home), 桶从档收养
        (Map 原样/数组转 Map/旧档缺省空——decode 已归一, 此处整只换装) */
@@ -2238,7 +2313,7 @@ const AdventureMode = mkMode({
     const advBuckets = advSceneEditsDecode(advLoad); /* 幂等再归一(decode 坏档兜底路径
         会漏跑 slot decode, 此处对 defaults/数组/桶对象三种输入都成立) */
     for (const k of ADV_SCENE_KEYS) advSceneEdits[k] = advBuckets[k];
-    advJournal.edits = advSceneEdits[advSceneKey()]; /* 当前桶换装 */
+    advStore.journal.edits = advSceneEdits[advSceneKey()]; /* 当前桶换装 */
     /* 昼夜时刻随世界档恢复(昼夜 D1, mc-daylight-torch §2.2/§2.5): decode 已兜底
        清晨 0; 探险是唯一置位 dayCycleOn 的模式, 天色/雾/光强/日月轨道由
        world.applyDaylight 每帧驱动(进场先刷一次, 夜晚重进当帧即夜) */
@@ -2257,31 +2332,31 @@ const AdventureMode = mkMode({
       advMapSpawn(null);
     const advHpIn = (typeof advLoad.hp === 'number' && advLoad.hp >= 1) ?
       Math.min(advLoad.hp | 0, ADV.player.maxHp) : ADV.player.maxHp;
-    ADV.quest = advQuestSlot.load();
+    ADV.quest = advStore.loadQuest();
     /* T15 归一化: 老档 {step:N} 无 counts(或损坏) → 补空表, 当前步从零累计——
        历史计数不追溯(玩家挖过什么无法从世界状态重建); step 钳进表界(表外=终章完成) */
     if (!ADV.quest.counts || typeof ADV.quest.counts !== 'object') ADV.quest.counts = {};
     ADV.quest.step = Math.max(0, Math.min(ADV.quest.step | 0, ADV_QUESTS.length));
     /* 大宝箱账户(引导链 v2): 归一化成满长槽数组, size 钩进档位界(扩容只升不降);
        账户槽 ≥ size 的存量(异常档)不清理——扩容后自然可见, 零损失口径 */
-    advChest = advChestSlot.load();
+    advChest = advStore.loadChest();
     if (!Array.isArray(advChest.slots)) advChest.slots = [];
     for (let i = 0; i < ADV_CHEST_SLOTS; i++) if (!advChest.slots[i]) advChest.slots[i] = null;
     advChest.slots.length = ADV_CHEST_SLOTS;
     advChest.size = Math.max(ADV_CHEST_START, Math.min(advChest.size | 0, ADV_CHEST_SLOTS));
     advQuestT = ADV_QUEST_CHECK_T; /* 谓词检查节流复位(进场半秒后首查) */
     advQuestPaint();
-    advBag.load(); /* 全局背包经背包壳读档(原地换槽, 面板/快捷栏闭包不脱钩) */
+    advStore.loadBag(); /* 全局背包经背包壳读档(原地换槽, 面板/快捷栏闭包不脱钩) */
     /* 流体账本缝(liquid D8): 流体写格(流动/消退/混合/冲毁)即时入 edits 账本——
        逐格最后写赢, 重进精确恢复水位; 流体格带 {id,lv}, 其余保持数字(旧档零迁移) */
     setFluidEditSink((x, y, z, id, lv) => {
-      advJournal.mark(x + ',' + y + ',' + z, fluidCell(id, lv, BLOCKS));
+      advStore.mark(x + ',' + y + ',' + z, fluidCell(id, lv, BLOCKS));
       /* 流体写格入节流窗: 漏置位 → 只动水时永不触发 5s 落盘, 关页即丢水位(mark 自带置脏) */
     });
     advBubbles = mkBubbleBar(); /* 溺气泡条(liquid D10): 剩 3 泡 TTS 提醒, 气满藏条 */
     loadScene(() => {/* 场景装填 seam: 清场→建场(当前地图行 build, T6)→收尾入队一步到位 */
       advMapRow.build();
-      advJournal.replay({block: setBlockRaw, fluid: setFluidLv}); /* 双通道重放(liquid D8): 流体格→方块+水位, 裸值→方块 */
+      advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv}); /* 双通道重放(liquid D8): 流体格→方块+水位, 裸值→方块 */
       /* P14 世界卫生清扫(设计稿 D9): 级联合并前的旧档浮空(孤儿冠/悬浮树/浮沙/
          悬空依附块)在重进时一次性治愈——静默结算(装场期迁移不是游戏事件:
          无掉落无话术无任务, 防刷档), 逐块记 edits 幂等(D5 红线: 治愈落盘后
@@ -2345,12 +2420,12 @@ const AdventureMode = mkMode({
       放置/水位)全丢, 而任务档步进是即时落盘 → 重进出现「任务说树苗种过了、
       世界里却没有」的错位。这里同步落盘(localStorage 同步写, pagehide 内
       安全); 服务器 push 由 main.js 统一补发 */
-    advJournal.pageHide();
+    advStore.pageHide();
   },
 
   cleanup() {
     /* F1 拍板①: 退世界不清炉不退料——炉态随下方落盘, 重进原样接着烧 */
-    advJournal.flush();
+    advStore.flush();
     /* 昼夜复位(昼夜 D1, 设计稿 §2.2): 关循环 + 白天观感复位(幂等)——其余模式
        与下界换天(applySky)都不再被每帧昼夜驱动打扰 */
     dayCycleOn = false;
@@ -2367,7 +2442,7 @@ const AdventureMode = mkMode({
     advGateLockT = 0; /* 锁门提示节流复位 */
     advMapRowCleanup(); /* 行调色板复位内含 advApplySky(ADV_SKY_OVER), 不另重复调用 */
     advBeamsClear(); /* 红天光束不渗进其他模式 */
-    advJournal.edits = advSceneEdits.home;
+    advStore.journal.edits = advSceneEdits.home;
     setPlayerGlow(false); /* 灯笼随身光一并熄灭(昼夜 D7): PointLight 不渗入其他模式 */
     advLanternT = 0; /* 耗秒累计器复位(重进从整秒重新累计) */
     setFluidEditSink(null); /* 流体账本缝解除(liquid D8: 不渗进其他模式) */
@@ -2384,7 +2459,7 @@ const AdventureMode = mkMode({
     advPanel.remove(); /* 卸载面板 DOM */
     advFurnace.panel.remove(); /* T13: 熔炉面板一并卸载 */
     advChestPanel.remove(); /* 引导链 v2: 箱子面板一并卸载 */
-    advChestSave(); /* 账户兜底落盘(存取/扩容已即做即存, 双保险口径) */
+    advStore.saveChest(); /* 账户兜底落盘(存取/扩容已即做即存, 双保险口径) */
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活) */
     advMouseListeners(false);
     advMineStop(); /* 蓄力清零 + 进度环收起 */
@@ -2402,7 +2477,7 @@ const AdventureMode = mkMode({
   },
 
   update(dt) {
-    advJournal.tick(); /* 世界存档节流 5s(build 同款, 时序收编 journal) */
+    advStore.tick(); /* 世界存档节流 5s(build 同款, 时序收编 journal) */
     advSyncMood(); /* 场景曲随昼夜/维度走(同值空转; 首帧补报夜间重进) */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
