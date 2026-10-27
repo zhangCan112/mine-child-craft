@@ -142,10 +142,37 @@ loadScene 全量光照自动点亮）。
 
 ### D5 · v2 显式推迟（免得日后当成漏）
 
-- **挖掘/放置/结构放置（门/下界传送门长结构）/床睡觉/进食/雪球/TNT**：
-  这些是冒险模式壳的交互链（advTryPlace/advTryDoor/advTrySleep…）。
-  体验馆要测它们须抽 place-kit（adventure.js 是唯一消费者，缝还是假的）；
-  待体验馆接入放置时两消费者塑形再抽。v2 的展品/箱子/工作台能覆盖
-  合成-烧炼-物资三链的全部测试面。
-- **怪物/昼夜**：mobs 与 daylight 子系统接线，同上待放置票一并评估。
+- ~~**挖掘/放置/结构放置（门/下界传送门长结构）**~~ → **已落（2026-10-27
+  place-kit 票，见 §8）**。床睡觉/进食/雪球/TNT 点燃仍推迟（夜窗/怪物/
+  投掷物/爆炸链是探险系统，体验馆测不到对应规则面）。
+- **怪物/昼夜**：mobs 与 daylight 子系统接线，随睡觉/进食票一并评估。
 - **仓库箱扩容行**：体验馆箱恒顶格 27（dev 全开），`next:()=>null` 隐藏。
+
+## 8. place-kit · 放置链两消费者收编（2026-10-27）
+
+**触发**：§7 D5 显式推迟条款兑现——体验馆要测冒险的挖/放/门，唯一消费者
+的缝是假缝；第二个真实消费者（体验馆）到位，按「两 adapter 塑形接口」
+抽取。规则早已全在纯函数（adventure-core 的 advPlaceCheck/advDoorSiteOk/
+advDoorTogglePlan/advDoorBreakPlan/advPortalSiteOk/advPortalFrame/advIsDoor/
+advMineStep/advCascadeLedger + craft-core breakTime + drops rollBlockDrop），
+本票只把两模式镜像的**壳段**收进 `js/place-kit.js`（PlaceKit）：
+
+| editor 面 | 收编自 adventure.js | 说明 |
+|---|---|---|
+| `tryPlace(hit)` | advTryPlace | 单格放置 + 门/传送门结构拦截分支 |
+| `placeDoor(hit)` / `placePortal(hit)` | advPlaceDoor / advPlacePortal | 结构放置（门走 editBlock 光场链；传送门 setBlockRaw+网格收口） |
+| `tryDoorToggle(hit, lookId)` | advTryDoor | 点击开关（成对换 id） |
+| `breakBlock(x,y,z,id,bt)` | advBreakBlock | 破坏结算：级联+门配对+掉落+磨损 |
+| `applyCascade` / `doorBreakApply` | advCascadeApply / advDoorBreakApply | TNT 链在探险侧继续直调（不进 kit） |
+| `mineTick(mine,hit,dt,view)` / `mineStop(mine)` | advMineTick / advMineStop | 蓄力循环保守编排（TNT/面板守卫留探险，panelOpen 走 view） |
+| `tickTimers(dt)` | update 的节流递减 | 话术节流账本封装在 kit 实例 |
+| `PlaceKit.aimHit()` | advAimHit | 准星命中（CameraRig+raycastVoxel，Node 守卫返 null） |
+
+政策缝（与 FurnaceKit 语义事件同一收编思路，全走 opts）：`onEdit`（世界档
+journal——体验馆 noop，放/挖只活当次进场=恢复原装红线不受影响）、`onPlaced`
+（任务 tally+树苗挂表）、`onConsume`（快捷栏同步）、`cascade` 四键 sink、
+`onFelled`、`wear`、`say/speak/sfx`（体验馆 dev 降噪全静默）、`ring/swing`、
+`mesh{touch,flush}`、`hardText`。探险侧原函数名全部保留为薄转发（挂点与
+既有测试零改动），行为逐字不变。体验馆侧：onMouse 左键=蓄力挖（站点/门
+使用优先）、右键=使用→放置、onHighlight 放开、Drops 实体接入（update 喂
+真空拾取）、桌面按住检测（document capture 监听）+触屏 onHold 同款。

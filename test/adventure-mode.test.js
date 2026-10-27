@@ -362,6 +362,7 @@ const CraftCore = require('../js/craft-core.js');
 Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
   furnaceRefund: CraftCore.furnaceRefund});
 globalThis.FurnaceKit = require('../js/furnace-kit.js'); /* 熔炉装配 kit(T4): 壳顶层即构造 station */
+globalThis.PlaceKit = require('../js/place-kit.js'); /* 放置链 kit(§8): 壳顶层即构造 editor */
 globalThis.Backpack = require('../js/backpack.js');
 /* 世界改动日志(index.html 加载序在模式之前; Node 侧显式铺全局同构):
    真模块直测在 test/world-journal-core.test.js, 这里只供壳经全局名消费 */
