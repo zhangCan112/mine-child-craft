@@ -134,11 +134,11 @@ test('BGM 未解锁静默: 有曲有情绪但未 unlock, 推进再久也无事�
   assert.deepStrictEqual(d.snapshot(), {state: 'idle', mood: 'calm', ducked: false, unlocked: false});
 });
 
-test('BGM 解锁后 5~30s 起曲: rand=0 恰在 5000ms 出 start(menu 口径)', () => {
+test('BGM 解锁后 0.8~2s 起曲: rand=0 恰在 800ms 出 start(menu 口径, 开头不再大段空白)', () => {
   const d = loadCore().mkMusicDirector({rand: seq(0, 0), tracks: TRACKS});
   d.setMood('calm');
   d.unlock();
-  assert.deepStrictEqual(d.tick(4999), [], '4999ms 还不起曲');
+  assert.deepStrictEqual(d.tick(799), [], '799ms 还不起曲');
   const evs = d.tick(1);
   assert.strictEqual(evs.length, 1);
   assert.strictEqual(evs[0].type, 'start');
@@ -149,31 +149,29 @@ test('BGM 解锁后 5~30s 起曲: rand=0 恰在 5000ms 出 start(menu 口径)', 
   assert.strictEqual(d.snapshot().state, 'playing');
 });
 
-test('BGM 起曲延迟随 rand 取区间值: rand=0.5 → 17500ms', () => {
+test('BGM 起曲延迟随 rand 取区间值: rand=0.5 → 1400ms', () => {
   const d = loadCore().mkMusicDirector({rand: seq(0.5, 0), tracks: TRACKS});
   d.setMood('calm');
   d.unlock();
-  let evs = [];
-  for (let i = 0; i < 17; i++) evs.push(...d.tick(1000)); /* 17000ms */
-  assert.deepStrictEqual(evs, []);
-  evs = d.tick(500); /* 17500ms */
-  assert.strictEqual(evs.length, 1, '17500ms 恰起曲');
+  assert.deepStrictEqual(d.tick(1399), [], '1399ms 还不起曲');
+  const evs = d.tick(1); /* 1400ms */
+  assert.strictEqual(evs.length, 1, '1400ms 恰起曲(0.8s + 0.5×1.2s)');
   assert.strictEqual(evs[0].type, 'start');
 });
 
-test('BGM 曲毕 60~180s 静默再选: rand=0 → 停后 60s 起下一首且同 mood 不重复', () => {
+test('BGM 曲毕 4~10s 静默再选: rand=0 → 停后 4s 起下一首且同 mood 不重复', () => {
   const d = loadCore().mkMusicDirector({rand: seq(0, 0, 0, 0), tracks: TRACKS});
   d.setMood('calm');
   d.unlock();
-  d.tick(5000); /* start calm1 (选曲 rand: calm 池 [calm1,calm2] 取第 0) */
+  d.tick(800); /* start calm1 (选曲 rand: calm 池 [calm1,calm2] 取第 0) */
   assert.deepStrictEqual(d.tick(9999), [], '曲长 10000ms 未到不停');
   let evs = d.tick(1); /* playMs=10000 → 曲毕 */
   assert.strictEqual(evs.length, 1);
   assert.strictEqual(evs[0].type, 'stop');
   assert.strictEqual(d.snapshot().state, 'waiting');
   evs = [];
-  for (let i = 0; i < 60; i++) evs.push(...d.tick(1000)); /* 静默 60s */
-  assert.strictEqual(evs.length, 1, 'rand=0 → 静默下界 60s 后起曲');
+  for (let i = 0; i < 4; i++) evs.push(...d.tick(1000)); /* 静默 4s */
+  assert.strictEqual(evs.length, 1, 'rand=0 → 静默下界 4s 后起曲');
   assert.strictEqual(evs[0].type, 'start');
   assert.strictEqual(evs[0].track.id, 'calm2', '同 mood 曲库不重复上一首');
 });
@@ -188,27 +186,27 @@ test('BGM 同 mood 续播: playing 中 setMood 同值不打断', () => {
   assert.strictEqual(d.snapshot().state, 'playing');
 });
 
-test('BGM 换 mood 交叉淡出: 1.2s gain(0) → stop → 15~45s 后新 mood 起曲', () => {
+test('BGM 换 mood 交叉淡出: 1.2s gain(0) → stop → 1.5~4s 后新 mood 起曲', () => {
   const d = loadCore().mkMusicDirector({rand: seq(0, 0, 0, 0), tracks: TRACKS});
   d.setMood('calm');
   d.unlock();
-  d.tick(5000); /* start calm1 */
+  d.tick(800); /* start calm1 */
   d.setMood('battle');
   assert.deepStrictEqual(d.tick(1), [{type: 'gain', target: 0, rampMs: 1200}], '先吐淡出增益指令');
   assert.deepStrictEqual(d.tick(1199), [{type: 'stop'}], '1.2s 淡出走完停曲');
   assert.strictEqual(d.snapshot().state, 'waiting');
   const evs = [];
-  for (let i = 0; i < 15; i++) evs.push(...d.tick(1000));
-  assert.strictEqual(evs.length, 1, 'rand=0 → 15s 后起曲(afterMood 口径)');
+  for (let i = 0; i < 15; i++) evs.push(...d.tick(100));
+  assert.strictEqual(evs.length, 1, 'rand=0 → 1.5s 后起曲(afterMood 口径)');
   assert.strictEqual(evs[0].type, 'start');
   assert.strictEqual(evs[0].track.mood, 'battle');
 });
 
-test('BGM none 恒静默: playing 中切 none 淡出停曲进 idle, 之后不再起; 恢复 mood 后 15s 起新曲', () => {
+test('BGM none 恒静默: playing 中切 none 淡出停曲进 idle, 之后不再起; 恢复 mood 后 1.5s 起新曲', () => {
   const d = loadCore().mkMusicDirector({rand: seq(0, 0, 0, 0), tracks: TRACKS});
   d.setMood('calm');
   d.unlock();
-  d.tick(5000);
+  d.tick(800);
   d.setMood('none');
   d.tick(1); /* 吐淡出指令 */
   assert.deepStrictEqual(d.tick(1199), [{type: 'stop'}]);
@@ -218,30 +216,30 @@ test('BGM none 恒静默: playing 中切 none 淡出停曲进 idle, 之后不再
   assert.deepStrictEqual(evs, [], 'none 情绪下永不起曲');
   d.setMood('calm');
   evs = [];
-  for (let i = 0; i < 15; i++) evs.push(...d.tick(1000));
-  assert.strictEqual(evs.length, 1, '恢复情绪后 rand=0 → 15s 起曲');
+  for (let i = 0; i < 15; i++) evs.push(...d.tick(100));
+  assert.strictEqual(evs.length, 1, '恢复情绪后 rand=0 → 1.5s 起曲');
   assert.strictEqual(evs[0].track.id, 'calm2', '恢复后仍避开上一首');
 });
 
-test('BGM waiting 中换 mood: 等待计时按 15~45s 口径重置', () => {
+test('BGM waiting 中换 mood: 等待计时按 1.5~4s 口径重置', () => {
   const d = loadCore().mkMusicDirector({rand: seq(0, 0, 0), tracks: TRACKS});
   d.setMood('calm');
-  d.unlock(); /* rand₁=0 → 5s */
-  d.setMood('battle'); /* rand₂=0 → 重置为 15s */
-  assert.deepStrictEqual(d.tick(5000), [], '原 5s 口径作废');
+  d.unlock(); /* rand₁=0 → 0.8s */
+  d.setMood('battle'); /* rand₂=0 → 重置为 1.5s */
+  assert.deepStrictEqual(d.tick(800), [], '原 0.8s 口径作废');
   const evs = [];
-  for (let i = 0; i < 10; i++) evs.push(...d.tick(1000)); /* 累计 15000ms */
-  assert.strictEqual(evs.length, 1, '重置后 15s 起曲');
+  for (let i = 0; i < 7; i++) evs.push(...d.tick(100)); /* 累计 1500ms */
+  assert.strictEqual(evs.length, 1, '重置后 1.5s 起曲');
   assert.strictEqual(evs[0].track.mood, 'battle');
 });
 
-test('BGM unlock 先于 setMood: 解锁后再设情绪走 15~45s 口径', () => {
+test('BGM unlock 先于 setMood: 解锁后再设情绪走 1.5~4s 口径', () => {
   const d = loadCore().mkMusicDirector({rand: seq(0, 0), tracks: TRACKS});
   d.unlock(); /* mood 尚空 → 仍 idle */
   assert.strictEqual(d.snapshot().state, 'idle');
-  d.setMood('calm'); /* rand₁=0 → 15s */
+  d.setMood('calm'); /* rand₁=0 → 1.5s */
   const evs = [];
-  for (let i = 0; i < 15; i++) evs.push(...d.tick(1000));
+  for (let i = 0; i < 15; i++) evs.push(...d.tick(100));
   assert.strictEqual(evs.length, 1);
   assert.strictEqual(evs[0].type, 'start');
 });

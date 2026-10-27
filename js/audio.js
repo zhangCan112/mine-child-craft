@@ -24,7 +24,7 @@ let musicBus = null; // 音乐总线(桌面 0.30/触屏 0.25, duck 时压 min(�
    mkVolState, 倍率/基线/钳制不再各处手写; 无存储注入 — 持久化实例在
    audio-vol-ui, 滑杆值经 setMusicVol/setSfxVol 链路同步进来 */
 const volState = mkVolState({isTouch: IS_TOUCH});
-let directorStarted = false; // BGM 计时起步只发一次(menu 口径 5~30s 首曲从此走)
+let directorStarted = false; // BGM 计时起步只发一次(menu 口径 0.8~2s 首曲从此走)
 let audioPreloaded = false; // 首次走通 context running 后自动 preload 一次(A9): 标记先行防重入(preload 内部再调 unlockAudio)
 /* pad 小喇叭发不动低频: 触屏检测口径统一在 config.js 的 IS_TOUCH */
 
@@ -423,8 +423,8 @@ function stopTrack() {
 const AudioMixer = {
   sfx,
   engineHum,
-  /* setMood(m): m ∈ MOODS 值集(calm/battle/dark/none)。同 mood 续播不打断,
-     换 mood 曲中 1.2s 淡出后 15~45s 新曲; none 恒静默 */
+  /* setMood(m): m ∈ 情绪值集(calm/adventure/night/nether/battle/none)。
+     同 mood 续播不打断, 换 mood 曲中 1.2s 淡出后 1.5~4s 新曲; none 恒静默 */
   setMood(m) {
     musicDir.setMood(m);
   },

@@ -929,6 +929,19 @@ function advNightReset() {/* 夜怪账本对齐当下(昼夜 D5): 节拍器归�
   advDawnLit = advDawnSweep(dayTime);
 }
 
+/* ---------- 场景 BGM 情绪(2026-10-27 换曲) ----------
+   mode-registry 的 adventure 是基线; 真正播什么由维度×昼夜决定:
+   下界=nether · 上界夜=night · 上界昼=adventure(纯映射在 adventure-core
+   的 advMusicMood)。advMood 是已报给 AudioMixer 的缓存 — 同值不重复报,
+   换值才触发 1.2s 淡出 + 1.5~4s 后新曲。 */
+let advMood = null; /* null = 本场尚未同步(首帧 update 必报一次) */
+function advSyncMood() {
+  const m = advMusicMood(advDim, Daylight.isNight(dayTime));
+  if (m === advMood) return;
+  advMood = m;
+  AudioMixer.setMood(m);
+}
+
 /* ---------- 熔炉界键(D14): 下界 posKey 加 'n|' 前缀, 上界键不前缀(旧档天然兼容) ---------- */
 function advFurnKey(x, y, z) {/* 方块坐标 → 当前界的炉态键(开炉/建炉/退炉全走此) */
   return advDim === 'nether' ? 'n|' + blockKey(x, y, z) : blockKey(x, y, z);
@@ -1001,6 +1014,7 @@ function advSetDim(dim, spot) {/* 换桶 → 重装场景(基座+当前桶重放
     advSeedOverworldMobs(); /* 上界怪重播(巢穴+牲畜, init 同款) */
   }
   advBeamsRelayout();
+  advSyncMood(); /* 切界即换场景曲: 下界=nether / 回上界按当下昼夜 */
 }
 
 function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/头格任一在紫色
@@ -1764,6 +1778,7 @@ const AdventureMode = mkMode({
     advDim = 'overworld';
     advPortalCd = 0;
     advExitSpot = null;
+    advMood = null; /* 首帧 update 按当下昼夜补报场景曲(main 随后会先报基线 adventure) */
     advSceneEdits.overworld = advJournal.edits;
     advSceneEdits.nether = (advLoad.netherEdits instanceof Map) ? advLoad.netherEdits :
         new Map(advLoad.netherEdits || []);
@@ -1884,6 +1899,7 @@ const AdventureMode = mkMode({
     advDim = 'overworld';
     advPortalCd = 0;
     advExitSpot = null;
+    advMood = null; /* 下一场/下一模式重新同步(不把本场缓存带出去) */
     advApplySky(ADV_SKY_OVER);
     advBeamsClear(); /* 红天光束不渗进其他模式 */
     if (advSceneEdits.overworld) advJournal.edits = advSceneEdits.overworld;
@@ -1921,6 +1937,7 @@ const AdventureMode = mkMode({
 
   update(dt) {
     advJournal.tick(); /* 世界存档节流 5s(build 同款, 时序收编 journal) */
+    advSyncMood(); /* 场景曲随昼夜/维度走(同值空转; 首帧补报夜间重进) */
     advTierT = Math.max(0, advTierT - dt); /* tier 提示节流递减(T12) */
     advHardT = Math.max(0, advHardT - dt); /* 「挖不动」话术节流递减(微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */

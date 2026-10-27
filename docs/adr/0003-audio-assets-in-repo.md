@@ -42,3 +42,9 @@ Statement）。我们决定把 CC0 素材**转码后直接入仓**：`assets/aud
   须同步 CREDITS 与注册表全量重验。
 - 单格式的代价：若未来出现不解 AAC 的目标设备，须按 CREDITS 的来源 URL 重新
   下载源文件整批重转码（源 wav/flac/ogg 不入库）。
+- **2026-10-27 增补**：BGM 按用户「太阴间 / 开头大段空白」反馈整体换曲——原 3 曲
+  下线、8 曲入库（场景分组 calm/adventure/night/nether/battle，曲目情绪不再单数），
+  `assets/audio/` 由 98 文件 ≈6.95MB 变为 103 文件 ≈8.63MB，仍在 ≤25MB 预算内。
+  转码口径随批升级：先 `aformat=channel_layouts=mono` 再**双遍** loudnorm
+  （linear=true）+ 首尾静音修剪——立体声先测后 downmix 会偏轻 ~2 LUFS，单遍动态
+  归一结果随内容浮动；命令与差异说明见 CREDITS.md 公共信息。

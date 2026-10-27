@@ -18,7 +18,8 @@
      advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫; 进度钳制界读
      craft-core 的 SMELT_T)/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 昼夜 D5 夜怪
-      政策 ADV_NIGHT/advNightCanSpawn/advNightStep/advDawnSweep · F4 牧场
+      政策 ADV_NIGHT/advNightCanSpawn/advNightStep/advDawnSweep/
+      advMusicMood(维度×昼夜→场景 BGM 情绪) · F4 牧场
      advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 床·睡觉
      政策(昼夜 D6 §7.2) advSleepCheck(两条件)/advSleepStep(转场时间账) 与
      常量 ADV_BED_MOB_R/ADV_SLEEP_* · 灯笼耗秒政策(昼夜 D7 §8.2)
@@ -428,6 +429,13 @@ function advNightStep(s, dt, dayTime, read, playerPos, rnd) {
    检测后触发清场, 本函数只给时刻不持状态 */
 function advDawnSweep(dayTime) {
   return Daylight.internalSky(15, dayTime) >= 12;
+}
+
+/* 场景 BGM 情绪映射(2026-10-27 换曲): 下界恒 nether; 上界按昼夜切
+   night/adventure。纯函数(维度 + isNight 入) — 壳层 advSyncMood 只在
+   值变化时报给 AudioMixer, 同值续播不打断。 */
+function advMusicMood(dim, isNight) {
+  return dim === 'nether' ? 'nether' : (isNight ? 'night' : 'adventure');
 }
 
 /* ============================================================
@@ -1162,7 +1170,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,
     ADV_SWING_CD, ADV_FIST_DMG, ADV_AIM_COS, ADV_ATTACK_T, ADV_ARROW_SPEED, ADV_PICKUP_WINDOW,
     advNestCount, advNestStep, advSwingDmg, advMobDmg, advDeathDrops, advPickupText,
-    ADV_NIGHT, advNightCanSpawn, advNightStep, advDawnSweep,
+    ADV_NIGHT, advNightCanSpawn, advNightStep, advDawnSweep, advMusicMood,
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
     ADV_STATION_R, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation,

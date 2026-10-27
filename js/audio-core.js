@@ -27,11 +27,14 @@ const AUDIO_MIX = Object.freeze({
   fadeOutMs: 1200, fadeInMs: 1200,
 });
 
-/* BGM 随机延迟区间(ms) — Minecraft 稀疏触发模型按儿童短局缩放(plan §3.3) */
+/* BGM 随机延迟区间(ms) — Minecraft 稀疏触发模型按儿童短局缩放(plan §3.3)
+   2026-10-27 按用户"开头大段空白"反馈整体缩短: 首曲 5~30s → 0.8~2s,
+   曲毕静默 60~180s → 4~10s, 换情绪 15~45s → 1.5~4s。留白仍保留
+   (不连续轰炸), 但不再让孩子对着空场等音乐。 */
 const SCHED = Object.freeze({
-  menuDelay: [5000, 30000], /* 解锁后首曲(menu 口径) */
-  afterTrack: [60000, 180000], /* 曲毕静默 */
-  afterMood: [15000, 45000], /* 换情绪后 */
+  menuDelay: [800, 2000], /* 解锁后首曲: 0.8~2s, 消除开头大段空白 */
+  afterTrack: [4000, 10000], /* 曲毕静默: 4~10s, 儿童短局保持音乐在场 */
+  afterMood: [1500, 4000], /* 换情绪后: 淡出 1.2s 后尽快接新场景 */
 });
 
 /* 发声准入 — max 由适配层按 IS_TOUCH 给 8/12; now 注入伪时钟可测 */
@@ -142,7 +145,7 @@ function mkMusicDirector({rand = Math.random, tracks = [], gain = AUDIO_MIX.musi
       }
       return events;
     },
-    /* setMood(m): 同 mood 续播不打断; 换 mood 曲中 1.2s 淡出后 15~45s 新曲 */
+    /* setMood(m): 同 mood 续播不打断; 换 mood 曲中 1.2s 淡出后 1.5~4s 新曲 */
     setMood(m) {
       if (m === mood) return;
       mood = m;
@@ -158,7 +161,7 @@ function mkMusicDirector({rand = Math.random, tracks = [], gain = AUDIO_MIX.musi
         enterWaiting(SCHED.afterMood);
       }
     },
-    /* unlock(): 用户手势解锁, menu 口径 5~30s 后首曲 */
+    /* unlock(): 用户手势解锁, menu 口径 0.8~2s 后首曲 */
     unlock() {
       unlocked = true;
       if (state === 'idle' && playable(mood)) enterWaiting(SCHED.menuDelay);

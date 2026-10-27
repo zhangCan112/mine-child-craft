@@ -7,9 +7,11 @@
    模式名清单。main.js 只消费, 不再另持 MODE_CARDS/pages/手写文案三份
    影子(曾出现"文案漏提坦克/下界"的漂移)。
    新增模式 = index.html 加卡+加页+加 script, 这里加一行(含 mood)。
-   各行的 mood 字段 = 该模式的 BGM 情绪(calm/battle/dark/none), 是模式
-   情绪的唯一权威(audio-registry 的 MOODS 已收窄为仅 menu 键); 每行
-   必声明 — 未声明/拼错由 test/mode-registry.test.js 逐行断言即红。
+   各行的 mood 字段 = 该模式的 BGM 情绪(calm/adventure/night/nether/battle/
+   none), 是模式情绪的唯一权威(audio-registry 的 MOODS 已收窄为仅 menu
+   键); 每行必声明 — 未声明/拼错由 test/mode-registry.test.js 逐行断言即红。
+   探险行填基线 adventure, 壳层再按维度/昼夜动态切 night/nether(见
+   js/modes/adventure.js 的 advSyncMood)。
    dev:true = 仅开发人员可见的调试模式(卡带 dev 身份类, CSS 默认隐藏,
    ?dev=1 解锁 — 三层派生与断言见 docs/showroom-design.md D1)。
    组合口径: gated:false + dev:true = 不进儿童时限的调试模式(区别于同为
@@ -25,7 +27,7 @@ const MODE_REGISTRY = [
   {id: 'math', name: '数学冒险岛', gated: false, page: false, mood: 'none'}, /* 训练营类同 focus: 独立预算/无菜单页; none=无 BGM(TTS 主导) */
   {id: 'build', name: '建造', gated: true, menu: true, mood: 'calm'},
   {id: 'tank', name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js', mood: 'battle'},
-  {id: 'adventure', name: '探险模式', gated: true, enter: true, mood: 'dark'}, /* enter: 出发页有"进入"按钮(锁指针); 下界是它的内部阶段 */
+  {id: 'adventure', name: '探险模式', gated: true, enter: true, mood: 'adventure'}, /* enter: 出发页「进入」按钮; 夜晚/下界壳层换曲 */
   {id: 'showroom', name: '体验馆', gated: false, page: false, dev: true, mood: 'none'}, /* dev 调试场: 卡默认隐藏(?dev=1 解锁) */
 ];
 

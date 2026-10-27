@@ -57,24 +57,32 @@ const SFX_KINDS = {
 
 /* ---------- BGM 曲目表 ----------
    每条: trackId → {file(assets/audio/ 下文件名), mood, g 曲目增益,
-    durMs 实测时长毫秒}。CC0 三曲(calm/battle/dark 各一, 溯源与听感映射
-    见 assets/audio/CREDITS.md): mood 为曲目名听感推断, 复核可调;
-    2026-10-23 用户试听反馈"瘆人"全量换为欢快曲(原蟋蟀夜声/深渊低回/
-    火山行军三曲下线, 曲目短故曲毕静默期占比更高, 稀疏调度符合儿童口径);
-    durMs 以 loudnorm 重转码(ADR 0003)后 ffmpeg 实测
-    Duration 换算毫秒 — MusicDirector 判曲毕的唯一依据(A3 接口备注②),
-    执行器另有 AudioBuffer.duration 解码预填兜底(audio.js), 此处静态值保首拍即准。 */
+    durMs 实测时长毫秒}。CC0 八曲按场景分组(溯源与听感映射见
+    assets/audio/CREDITS.md): calm=主菜单/建造 · adventure=上界白天 ·
+    night=上界夜晚 · nether=下界 · battle=竞技场/坦克。
+    2026-10-27 按用户"太阴间/开头大段空白"反馈整体换曲: 原三曲下线,
+    改选 Minecraft 风格 calm/ambient 与明亮芯片曲; 开头与曲间空白同步
+    缩短(SCHED 在 audio-core)。durMs 以 loudnorm 重转码(ADR 0003)后
+    ffmpeg 实测 Duration 换算毫秒 — MusicDirector 判曲毕的唯一依据
+    (A3 接口备注②), 执行器另有 AudioBuffer.duration 解码预填兜底
+    (audio.js), 此处静态值保首拍即准。 */
 const MUSIC_TRACKS = {
-  'happy-adventure': {file: 'bgm-happy-adventure.m4a', mood: 'calm', g: 1, durMs: 46900}, // 00:00:46.90 轻快芯片冒险(主菜单/建造)
-  'trip-to-mars': {file: 'bgm-trip-to-mars.m4a', mood: 'dark', g: 1, durMs: 38400}, // 00:00:38.40 欢快火星之旅(探险; 曾供下界)
-  'we-are-prophet': {file: 'bgm-we-are-prophet.m4a', mood: 'battle', g: 1, durMs: 34600}, // 00:00:34.60 欢快能量曲(竞技场/坦克)
+  'infinite-world': {file: 'bgm-infinite-world.m4a', mood: 'calm', g: 1, durMs: 86400}, // 00:01:26.40 钢琴合成器(菜单/建造)
+  'calm-piano': {file: 'bgm-calm-piano.m4a', mood: 'calm', g: 1, durMs: 160660}, // 00:02:40.66 舒缓铺底+明亮钢琴(主菜单/建造)
+  'flowerbed-fields': {file: 'bgm-flowerbed-fields.m4a', mood: 'adventure', g: 1, durMs: 39790}, // 00:00:39.79 可爱芯片(白天)
+  'going-up': {file: 'bgm-going-up.m4a', mood: 'adventure', g: 1, durMs: 55000}, // 00:00:55.00 上行冒险芯片(上界白天)
+  'morning-sky': {file: 'bgm-morning-sky.m4a', mood: 'night', g: 1, durMs: 132000}, // 00:02:12.00 夜间舒缓钢琴(上界夜晚)
+  'seeing-pool': {file: 'bgm-seeing-pool.m4a', mood: 'nether', g: 1, durMs: 68920}, // 00:01:08.92 洞穴/地下水声 ambient(下界)
+  '8bit-battle': {file: 'bgm-8bit-battle.m4a', mood: 'battle', g: 1, durMs: 26620}, // 00:00:26.62 短促 8-bit 战斗循环(竞技场/坦克)
+  'rpg-battle': {file: 'bgm-rpg-battle.m4a', mood: 'battle', g: 1, durMs: 59080}, // 00:00:59.08 RPG 战斗循环(竞技场/坦克)
 };
 
 /* ---------- 主菜单 BGM 情绪 ----------
    引擎侧只需 menu 一个键: 各游玩模式的情绪唯一权威在 mode-registry 各行
    mood 字段(main.js switchMode 直接消费, 每行必声明由其单测断言), 此前的
    模式 id 镜像键已删——两处权威各改一半的漂移源一并拔除。值 ∈ {calm,
-   battle, dark, none}; menu=calm: 主菜单轻柔迎接(spec 故事 9)。 */
+   adventure, night, nether, battle, none}; menu=calm: 主菜单轻柔迎接
+   (spec 故事 9)。探险模式另在壳层按维度/昼夜动态切 night/nether。 */
 const MOODS = {
   menu: 'calm', // 主菜单轻柔迎接(spec 故事 9)
 };

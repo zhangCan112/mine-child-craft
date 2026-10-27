@@ -192,6 +192,9 @@ globalThis.SpeechKit = {speak(s) {
   spoken.push(s);
 }, cancel() {}};
 globalThis.showToast = (s) => calls.push(['toast', s]);
+globalThis.AudioMixer = {setMood(m) {
+  calls.push(['mood', m]); /* 场景曲情绪(advSyncMood): 探险按维度/昼夜上报 */
+}};
 globalThis.setTouchActions = (l) => {
   touchList = l;
 };

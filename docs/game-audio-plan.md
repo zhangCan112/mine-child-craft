@@ -70,13 +70,13 @@ music voice (同时 ≤1, 一次性稀疏播放, 播完释放 PCM)          ├�
 
 ### 3.3 BGM 调度模型（MusicDirector，纯状态机可单测）
 
-参数照 Minecraft Wiki 抄再按儿童短局缩放：
+参数照 Minecraft Wiki 抄再按儿童短局缩放（2026-10-27 按用户「开头大段空白」反馈整体缩短，现行值见 js/audio-core.js 的 SCHED）：
 
-| 场景 | 行为 |
+| 场景 | 行为（现行值） |
 |---|---|
-| 主菜单 | 手势解锁后随机 5–30s 淡入一首（wiki：菜单 1–30s） |
-| 游玩中 | 一曲播完 → 随机 60–180s 静默 → 淡入下一首（wiki 原版 10–20min，儿童局 2–3 分钟故缩放）；同 mood 曲库 shuffle 不重复 |
-| 切模式 | 1.2s 交叉淡出 → 新 mood 随机 15–45s 后起曲（同 mood 则续播不打断） |
+| 主菜单 | 手势解锁后随机 0.8–2s 淡入一首（原 5–30s；wiki：菜单 1–30s） |
+| 游玩中 | 一曲播完 → 随机 4–10s 静默 → 淡入下一首（原 60–180s；wiki 原版 10–20min，儿童局且孩子反馈空白太久）；同 mood 曲库 shuffle 不重复 |
+| 切模式/场景 | 1.2s 交叉淡出 → 新 mood 随机 1.5–4s 后起曲（原 15–45s；同 mood 则续播不打断） |
 | 专注训练营 | mood='none' 完全无 BGM（注意力训练哲学：配乐与反馈音争注意力；MISSION 反馈哲学零压迫） |
 | TTS 说话 | musicBus duck 至 0.08（ramp 0.25s），说完 0.8s 缓升回 |
 | 挂起/interrupted | 不排队不计时，恢复后续跑（沿用现有"挂起不排队"纪律） |
@@ -106,7 +106,7 @@ decodeAudioData 用 callback 形式包 Promise（Safari reject `null` 怪癖防�
 
 ## 4. 素材方案
 
-- **曲目**：OGA「Crickets」（C418 式钢琴 ambient，CC0）+「Ambience of a Fallen Age」挑 2–3 首（洞穴/熔岩配下界，CC0）+ Minecraft 精选集挑 1–2 首（逐曲核对许可）；mood 分组：`calm`（建造/主菜单）、`battle`（竞技场/坦克）、`dark`（下界）、`menu`。
+- **曲目**：OGA「Crickets」（C418 式钢琴 ambient，CC0）+「Ambience of a Fallen Age」挑 2–3 首（洞穴/熔岩配下界，CC0）+ Minecraft 精选集挑 1–2 首（逐曲核对许可）；mood 分组：`calm`（建造/主菜单）、`battle`（竞技场/坦克）、`dark`（下界）、`menu`。（历史计划口径；两轮换曲后现行分组为 calm/adventure/night/nether/battle，见 CREDITS.md §4 与 spec——Minecraft 精选集因版权红线未采用，全部改用 CC0 Minecraft 风格曲。）
 - **反馈音**：Kenney Music Jingles 全包 + Interface Sounds 挑选（全 CC0）。
 - **转码管线**（一次性手工，命令记入 CREDITS.md）：`ffmpeg -i src -ac 1 -c:a aac -b:a 96k -ar 44100 out.m4a`；BGM mono 96k、jingle mono 128k；响度 `loudnorm` 归一到目标区间；源 wav/flac 不入库。
 - **红线**：不下载/不打包 C418 或 Minecraft 官方原声（受版权保护，B.1）；不取 CC-BY-SA（传染性）；CC-BY 只作第二梯队且必须做 Credits 署名页。

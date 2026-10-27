@@ -412,6 +412,9 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     spokenC.push(s);
   }, cancel() {}};
   globalThis.showToast = (s) => callsC.push(['toast', s]);
+  globalThis.AudioMixer = {setMood(m) {
+    callsC.push(['mood', m]); /* 场景曲情绪(advSyncMood): 探险按维度/昼夜上报 */
+  }};
   globalThis.setTouchActions = () => {};
   globalThis.aimClick = (b) => callsC.push(['aimClick', b]);
   globalThis.Input = {refreshMain(icon, label) {

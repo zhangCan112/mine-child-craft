@@ -93,7 +93,7 @@ test('声音清单: 条目形状 — synth/file 至少其一, file 条目须带 
 });
 
 test('声音清单: MOODS 收窄为仅 menu — 模式情绪唯一权威在 mode-registry 各行 mood 字段, 值 ∈ 合法情绪集', () => {
-  const legal = ['calm', 'battle', 'dark', 'none'];
+  const legal = ['calm', 'adventure', 'night', 'nether', 'battle', 'none'];
   assert.deepStrictEqual(Object.keys(AudioRegistry.MOODS), ['menu'],
       '引擎侧只需 menu 键(各游玩模式情绪随 mode-registry 各行 mood 字段走, 不再镜像)');
   for (const v of Object.values(AudioRegistry.MOODS)) {
@@ -108,12 +108,27 @@ test('声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9)', ()
 test('声音清单: MUSIC_TRACKS 条目形状 {file, mood, g, durMs}, 曲目情绪不含 none(A7 起填曲)', () => {
   for (const [id, t] of Object.entries(AudioRegistry.MUSIC_TRACKS)) {
     assert.strictEqual(typeof t.file, 'string', id + ' 缺 file(assets/audio/ 下文件名)');
-    assert.ok(['calm', 'battle', 'dark'].includes(t.mood),
+    assert.ok(['calm', 'adventure', 'night', 'nether', 'battle'].includes(t.mood),
         id + ' mood 非法: ' + t.mood + '(none=不放曲, 曲目不该有)');
     assert.strictEqual(typeof t.g, 'number', id + ' 缺数值增益 g');
     assert.ok(t.g > 0, id + '.g 须为正增益');
     assert.ok(Number.isInteger(t.durMs) && t.durMs > 0,
         id + ' 缺实测 durMs(MusicDirector 判曲毕唯一依据, A3 备注②; 转码后 ffmpeg 实测毫秒)');
+  }
+});
+
+test('声音清单: 曲目情绪覆盖 — 模式/场景用到的情绪都有曲(空池=该场景永无 BGM)', () => {
+  const ModeRegistry = require('../js/mode-registry.js');
+  const pool = {};
+  for (const t of Object.values(AudioRegistry.MUSIC_TRACKS)) pool[t.mood] = (pool[t.mood] || 0) + 1;
+  for (const m of ModeRegistry.all) {
+    if (m.mood === 'none') continue;
+    assert.ok(pool[m.mood] > 0, m.id + ' 的 mood ' + m.mood + ' 在 MUSIC_TRACKS 无曲目(空池)');
+  }
+  /* 场景分组钉死: night/nether 由探险壳层动态报(advMusicMood), 不在
+     mode-registry 行内出现, 故在此直接断言分组存在 */
+  for (const need of ['calm', 'adventure', 'night', 'nether', 'battle']) {
+    assert.ok(pool[need] > 0, '场景分组 ' + need + ' 至少 1 曲(2026-10-27 换曲口径)');
   }
 });
 

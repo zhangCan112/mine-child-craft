@@ -113,9 +113,10 @@ test('模式注册表: 限额文案的模式名由表派生(漏一个模式不�
 });
 
 test('模式注册表: mood 字段值 ∈ 合法情绪集且每行必声明(BGM 接线数据源, 模式情绪唯一权威在此)', () => {
-  const legal = new Set(['calm', 'battle', 'dark', 'none']);
-  /* 合法情绪集: calm/battle/dark = MUSIC_TRACKS 曲目情绪, none = 无配乐;
-     引擎侧 MOODS 已收窄为仅 menu */
+  const legal = new Set(['calm', 'adventure', 'night', 'nether', 'battle', 'none']);
+  /* 合法情绪集: calm/adventure/night/nether/battle = MUSIC_TRACKS 曲目情绪
+     (探险行只填基线 adventure, 夜晚/下界由壳层 advSyncMood 动态报),
+     none = 无配乐; 引擎侧 MOODS 已收窄为仅 menu */
   for (const m of ModeRegistry.all) {
     assert.ok(legal.has(m.mood),
         m.id + ' 的 mood 未声明或非法: ' + m.mood + ' ∈ ' + [...legal].join('|'));

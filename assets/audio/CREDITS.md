@@ -7,7 +7,7 @@
 
 ## 公共信息（各节通用）
 
-- 下载日期：全部 **2026-10-23**（PowerShell `Invoke-WebRequest`，源 zip/wav/ogg 原件存仓库外临时目录，不入库）
+- 下载日期：Kenney 批次 **2026-10-23** · BGM 换曲批次 **2026-10-27**（PowerShell `Invoke-WebRequest` / `curl.exe`，源 zip/wav/flac/ogg 原件存仓库外临时目录，不入库）
 - 许可：[CC0 1.0 Universal](https://creativecommons.org/publicdomain/zero/1.0/)（作者放弃一切权利，可商用、可改编、署名非义务——为溯源与儿童项目礼节仍逐条记录）
 - 转码：ffmpeg 6.1.1（devDependency `ffmpeg-static` 附带构建；本机 PATH 无 ffmpeg，直连 GitHub 拉取其二进制时证书校验失败，需 `NODE_TLS_REJECT_UNAUTHORIZED=0`，详见工单 A7 / ADR 0003）
 - 转码命令（128k 反馈短曲 / 打击样本，含响度归一）：
@@ -22,7 +22,18 @@
   ffmpeg -i <源> -af loudnorm=I=-21:TP=-2:LRA=7 -ac 1 -ar 44100 -c:a aac -b:a 96k <out>.m4a
   ```
 
-  统一 mono 44.1kHz AAC + 单遍 loudnorm 响度归一（I=-21 / TP=-2 / LRA=7，儿童保守目标，参数依据见 ADR 0003）。已接线的 13 个文件（3 BGM + 10 SFX 样本）于 2026-10-23（评审修复轮）自入库 m4a 重转码归一；85 首 jingles 备用池未接线，**未做 loudnorm**——接线时须按上表命令补齐。
+  统一 mono 44.1kHz AAC + 单遍 loudnorm 响度归一（I=-21 / TP=-2 / LRA=7，儿童保守目标，参数依据见 ADR 0003）。2026-10-23 批次的 13 个文件（3 BGM + 10 SFX 样本）按上述命令重转码归一；85 首 jingles 备用池未接线，**未做 loudnorm**——接线时须按上表命令补齐。
+
+- 转码命令（2026-10-27 BGM 换曲批次 8 首；先单声道化 + 首尾静音修剪 + 双遍 loudnorm）：
+
+  ```
+  rem ① 测量遍: mono 化与静音修剪后测响度(print_format=json 取 input_i/input_tp/input_lra/input_thresh/target_offset)
+  ffmpeg -i <源> -af "aformat=channel_layouts=mono,silenceremove=start_periods=1:start_duration=0:start_threshold=-45dB,areverse,silenceremove=start_periods=1:start_duration=0:start_threshold=-45dB,areverse,loudnorm=I=-21:TP=-2:LRA=7:print_format=json" -f null NUL
+  rem ② 校正遍: measured_* 填①的读数, linear=true 线性增益(不压动态)
+  ffmpeg -i <源> -af "aformat=channel_layouts=mono,silenceremove=…,areverse,silenceremove=…,areverse,loudnorm=I=-21:TP=-2:LRA=7:measured_I=…:measured_TP=…:measured_LRA=…:measured_thresh=…:offset=…:linear=true" -ac 1 -ar 44100 -c:a aac -b:a 96k -map_metadata -1 <out>.m4a
+  ```
+
+  与旧口径的两处差异（换曲批次实测教训）：**立体声 downmix 会拉低整体响度 ~2 LUFS**——先 `aformat=channel_layouts=mono` 再测再校，成品才落在 -21.0±0.1 LUFS（先按立体声测、输出时才 `-ac 1` 实际落在 ~-22~-23）；**loudnorm 改双遍**（先测后校 linear=true），单遍动态归一的结果随内容浮动。另加首尾静音修剪（-45dB 阈值），杜绝「起曲先是长空白 / 曲尾拖长静音」。已接线的 18 个文件（8 BGM + 10 SFX 样本）全部过 loudnorm 归一。
 
 ## 1. Kenney「Music Jingles」全包 85 首（反馈类短曲）
 
@@ -142,35 +153,69 @@
 | handlecoins.m4a | handleCoins | pick | 拾取（抖钱袋的硬币声） |
 | knifeslice.m4a | knifeSlice | shoot | 发射（飞刀挥掷的破空声） |
 
-## 4. OpenGameArt BGM 3 首（均入注册表 MUSIC_TRACKS）
+## 4. OpenGameArt BGM 8 首（均入注册表 MUSIC_TRACKS，按场景分组）
 
-- 转码：96k 命令（见公共信息，含 loudnorm）；durMs 以 loudnorm 重转码后文件实测（`ffmpeg -i` Duration 换算毫秒）为准填入 MUSIC_TRACKS——MusicDirector 判曲毕的唯一依据（A3 接口备注②）。2026-10-23 用户试听反馈原三曲（Crickets / The Abyss / Entering the Volcano，原作者 SpringySpringo 与 Umplix，均已 CC0）「瘆人，给小朋友听要欢快的」，全量下线换为下列三首欢快曲；原文件已删（git 历史可溯），换曲后实测时长：happy-adventure 00:00:46.90（46900ms）· trip-to-mars 00:00:38.40（38400ms）· we-are-prophet 00:00:34.60（34600ms）。
+- 下载日期：**2026-10-27**；许可：全部 **CC0**（各小节页面明示）。
+- 转码：96k BGM 口径 + 先单声道化 + 首尾静音修剪 + 双遍 loudnorm（命令与差异说明见公共信息）；durMs 以转码后文件实测（`ffmpeg -i` Duration 换算毫秒）为准填入 MUSIC_TRACKS——MusicDirector 判曲毕的唯一依据（A3 接口备注②）。
+- 选曲口径：2026-10-27 用户试听反馈「音乐太阴间，而且开始的时候有大段空白」。红线禁止 Minecraft/C418 原声（见本文件头），故改选 **Minecraft 风格**的 CC0 曲目并按场景分组（calm=主菜单/建造 · adventure=上界白天 · night=上界夜晚 · nether=下界 · battle=竞技场/坦克）；开头/曲间调度空白同步缩短（js/audio-core.js 的 SCHED，2026-10-27）。原三曲（Happy Adventure / Happy Trip To Mars / We Are Prophet，2026-10-23 批次；再早为 Crickets / The Abyss / Entering the Volcano）全部下线，文件已删（git 历史可溯）。
 
-### 4.1「Happy Adventure (Loop)」1 首（calm）
-
-- 作者：TinyWorlds · 发布：2014-02-04 · 许可：CC0（页面明示）
-- 来源：<https://opengameart.org/content/happy-adventure-loop>（mp3 直链 <https://opengameart.org/sites/default/files/happy_adveture.mp3>，源文件名原文即拼写 adveture）
-
-| 文件 | 曲目名 | 注册表 trackId | mood | 源时长 |
+| 文件 | 曲目名 | 注册表 trackId | mood（场景） | 入库实测时长 |
 | --- | --- | --- | --- | --- |
-| bgm-happy-adventure.m4a | Happy Adventure | happy-adventure | calm（主菜单/建造） | 00:00:46.90 |
+| bgm-infinite-world.m4a | Infinite World | infinite-world | calm（主菜单/建造） | 00:01:26.40（86400ms） |
+| bgm-calm-piano.m4a | Calm Piano 1 (Vaporware) | calm-piano | calm（主菜单/建造） | 00:02:40.66（160660ms） |
+| bgm-flowerbed-fields.m4a | Flowerbed Fields | flowerbed-fields | adventure（上界白天） | 00:00:39.79（39790ms） |
+| bgm-going-up.m4a | Going Up | going-up | adventure（上界白天） | 00:00:55.00（55000ms） |
+| bgm-morning-sky.m4a | Morning Sky (piano) | morning-sky | night（上界夜晚） | 00:02:12.00（132000ms） |
+| bgm-seeing-pool.m4a | The Seeing Pool | seeing-pool | nether（下界） | 00:01:08.92（68920ms） |
+| bgm-8bit-battle.m4a | 8-Bit Battle Loop | 8bit-battle | battle（竞技场/坦克） | 00:00:26.62（26620ms） |
+| bgm-rpg-battle.m4a | RPG Battle Loop | rpg-battle | battle（竞技场/坦克） | 00:00:59.08（59080ms） |
 
-### 4.2「Happy Trip To Mars」1 首（dark）
+### 4.1「Infinite World」（calm）
 
-- 作者：Pro Sensory（Alex McCulloch）· 发布：2020-08-14 · 许可：CC0（页面明示；作者礼貌性请求署名，此处已记录）
-- 来源：<https://opengameart.org/content/happy-trip-to-mars>（mp3 直链 <https://opengameart.org/sites/default/files/happy_trip_to_mars_0.mp3>）
+- 作者：Umplix · 发布：2022-03-03 · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/infinite-world>（wav 直链 <https://opengameart.org/sites/default/files/infinite_world.wav>）
+- 页面自述「A calm song, kind of Minecraft-ish」，标签 calm/piano/synth/minecraft——最贴近 MC 原声氛围的一首，主菜单/建造的基底。
 
-| 文件 | 曲目名 | 注册表 trackId | mood | 备注 |
-| --- | --- | --- | --- | --- |
-| bgm-trip-to-mars.m4a | Happy Trip To Mars | trip-to-mars | dark（下界/探险——红色异世界配欢快太空曲） | mp3 直链见上方来源行 |
+### 4.2「Calm Piano 1 (Vaporware)」（calm）
 
-### 4.3「We Are Prophet - Happy, Energetic Tune」1 首（battle）
+- 作者：cynicmusic（The Cynic Project）· 发布：2019-05-11 · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/calm-piano-1-vaporware>（mp3 直链 <https://opengameart.org/sites/default/files/003_Vaporware_2.mp3>）
+- 舒缓铺底 + 明亮钢琴旋律；源文件首/尾各有 ~1.7s / ~2.1s 静音，转码时已修剪。
 
-- 作者：TinyWorlds · 发布：2014-01-27 · 许可：CC0（页面明示）
-- 来源：<https://opengameart.org/content/we-are-prophet-happy-energetic-tune>（mp3 直链 <https://opengameart.org/sites/default/files/bu-offensive-birds.mp3>）
+### 4.3「Flowerbed Fields」（adventure）
 
-| 文件 | 曲目名 | 注册表 trackId | mood | 源时长 |
-| --- | --- | --- | --- | --- |
-| bgm-we-are-prophet.m4a | We Are Prophet | we-are-prophet | battle（竞技场/坦克） | 00:00:34.60 |
+- 作者：Zane Little Music · 发布：2023-05-14 · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/flowerbed-fields-loop>（ogg 直链 <https://opengameart.org/sites/default/files/flowerbed_fields.ogg>）
+- 「A cute chiptune loop to get an adventure started!」——上界白天探索的明亮开场。
 
-- 备注：三曲均为听感标签推断的欢快向选曲（happy/fun/energy），真机复核不满意可再换（OpenGameArt CC0 曲库充足）。
+### 4.4「Going Up」（adventure）
+
+- 作者：ansimuz（Luis Zuno）· 发布：2022-03-20 · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/going-up-adventure-chiptune>（zip 直链 <https://opengameart.org/sites/default/files/going_up_files_0.zip>，取包内 `Going Up.wav`；包内附作者许可说明，允许商用/改编/再分发，与页面 CC0 一致）
+- 冒险向 chiptune，原为无缝循环制作；一次性播放口径下取整曲 55s。
+
+### 4.5「Morning Sky (piano)」（night）
+
+- 作者：Centurion_of_war · 发布：2025-08-24 · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/morning-sky>（piano 版 flac 直链 <https://opengameart.org/sites/default/files/morning_2d.1_piano.flac>；另一混音 `morning_2d.2_0.ogg` 未采用）
+- 「A calm chill theme. Good for a chill morning/evening」——取钢琴版做夜晚的舒缓口径。
+
+### 4.6「The Seeing Pool」（nether）
+
+- 作者：Umplix · 发布：2022-04-06 · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/the-seeing-pool>（wav 直链 <https://opengameart.org/sites/default/files/the_seeing_pool.wav>）
+- 洞穴/地下水潭 ambient；源文件尾部有 ~6s 静音，转码时已修剪。下界是暗红异世界，配神秘但不刺耳的环境曲。
+
+### 4.7「8-Bit Battle Loop」（battle）
+
+- 作者：Wolfgang_ · 发布：2017-12-20 · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/8-bit-battle-loop>（ogg 直链 <https://opengameart.org/sites/default/files/8BitBattleLoop_0.ogg>）
+- 短促 8-bit 战斗循环（26.6s），竞技场/坦克的快节奏底色。
+
+### 4.8「RPG Battle Loop」（battle）
+
+- 作者：iamoneabe · 发布：2022-03-08 · 许可：CC0（页面明示「CC Zero, as always」）
+- 来源：<https://opengameart.org/content/rpg-battle-loop>（mp3 直链 <https://opengameart.org/sites/default/files/rbl_0.mp3>）
+- RPG 风格战斗循环（59.1s），与 8-bit 首尾时长错开避免连播同感。
+
+- 备注：mood 为曲目听感 + 页面自述推断，真机复核不满意可再换（OpenGameArt CC0 曲库充足）；八曲统一 -21 LUFS 归一，条目增益一律 g=1，无需逐曲配平。
