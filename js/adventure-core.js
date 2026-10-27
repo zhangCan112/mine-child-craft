@@ -79,15 +79,44 @@ const ADV_ORES = [
 ];
 const ADV_TREES = 40; /* 树林目标棵数(候选按散列值排序取前 N, 空间无偏) */
 
+/* ---------- 圈层高度场(T5, 设计稿 §2.4): SceneKit.heightAt 接入 ----------
+   幅度按距小屋距离分环(核心圈 0 → 深险圈 ±3), 结构压平区并集回落 y24;
+   坡度红线(全图相邻高差 ≤1)由 heightAt 的插值构造保证, 建场侧只消费不破坏 */
+const ADV_RING = {CORE: 18, DEEP: 60}; /* 圈层距小屋半径界(§2.4 圈层表): ≤18 家园核心圈 · >60 深险圈 */
+const ADV_HUT_C = {x: (ADV_HUT.x1 + ADV_HUT.x2) / 2, z: (ADV_HUT.z1 + ADV_HUT.z2) / 2}; /* 小屋中心: 圈层锚点 */
+function advRingAmp(d) {/* 距小屋 d → 丘体幅度: 核心圈 0, 深险圈 3, 中间按距离阶梯(圈层越远丘越高) */
+  if (d <= ADV_RING.CORE) return 0;
+  if (d >= ADV_RING.DEEP) return 3;
+  return Math.round((d - ADV_RING.CORE) / (ADV_RING.DEEP - ADV_RING.CORE) * 3);
+}
+const ADV_FLATS = [ /* 结构压平区清单(heightAt 的 flats 参数, 全部回落 base 0=y24)——
+  与建场件足印一一对应(单测锁足印归 0): 湖盆/两坑口/山洞口/三巢丘 + T5 新增广场/农田/围栏 */
+  {cx: ADV_LAKE.cx, cz: ADV_LAKE.cz, r: ADV_LAKE.r + 2}, /* 湖盆(含水岸) */
+  {cx: ADV_PITS[0].cx, cz: ADV_PITS[0].cz, r: ADV_PITS[0].r + 4}, /* 煤坑口漏斗 */
+  {cx: ADV_PITS[1].cx, cz: ADV_PITS[1].cz, r: ADV_PITS[1].r + 4}, /* 铁坑口漏斗 */
+  {cx: ADV_CAVE.x2, cz: ADV_CAVE.zStart - 1, r: 12}, /* 山洞口小丘+敞廊(含隧道北端露天台阶) */
+  {cx: ADV_NESTS[0].x, cz: ADV_NESTS[0].z, r: 8}, /* 近巢丘 */
+  {cx: ADV_NESTS[1].x, cz: ADV_NESTS[1].z, r: 8}, /* 中巢丘 */
+  {cx: ADV_NESTS[2].x, cz: ADV_NESTS[2].z, r: 8}, /* 远巢丘 */
+];
+function advHeightAt(x, z) {/* 表面高度偏移(相对 ADV_GROUND): 圈层丘体 + 结构压平并集。
+  amp 通道按控制格(16×16 格心)距小屋取圈层幅度; 建场件与树/草丛/花共用的唯一高度权威。
+  末尾 || 0 把 Math.round 负零归一成 +0(strictEqual 语义/档一致性) */
+  return SceneKit.heightAt(x, z, {salt: 3305, base: 0, flats: ADV_FLATS,
+    amp: (i, j) => advRingAmp(Math.hypot(i * 16 - ADV_HUT_C.x, j * 16 - ADV_HUT_C.z))}) || 0;
+}
+
 /* ============================================================
    地形生成 — 全部确定性(SceneKit.rand/hashRand 散布, 零 Math.random)
    ============================================================ */
-function advBaseTerrain() {/* 草原地层: y24 草 / y20~23 泥 / y0~19 石 */
+function advBaseTerrain() {/* 草原地层随圈层高度场(T5): 表面 y=24+advHeightAt 处草 /
+  下 4 层泥 / 再下石头——丘体起伏来自 SceneKit.heightAt, 建场侧零随机数 */
   for (let x = 0; x < WORLD_W; x++) {
     for (let z = 0; z < WORLD_D; z++) {
-      for (let y = 0; y <= ADV_GROUND - 5; y++) setBlockRaw(x, y, z, 3);
-      for (let y = ADV_GROUND - 4; y < ADV_GROUND; y++) setBlockRaw(x, y, z, 2);
-      setBlockRaw(x, ADV_GROUND, z, 1);
+      const top = ADV_GROUND + advHeightAt(x, z);
+      for (let y = 0; y <= top - 5; y++) setBlockRaw(x, y, z, 3);
+      for (let y = top - 4; y < top; y++) setBlockRaw(x, y, z, 2);
+      setBlockRaw(x, top, z, 1);
     }
   }
 }
@@ -260,8 +289,11 @@ function advTreeSpots() {/* 树林落位清单(advPlantTrees 的唯一权威): �
   cands.sort((a, b) => (a.r - b.r) || (a.x - b.x) || (a.z - b.z));
   return cands.slice(0, ADV_TREES);
 }
-function advPlantTrees() {/* 树林 ~40: 落位清单逐棵种(advTreeSpots) */
-  for (const cd of advTreeSpots()) SceneKit.tree(cd.x, ADV_GROUND + 1, cd.z);
+function advPlantTrees() {/* 树林 ~40: 落位清单逐棵种(advTreeSpots); 树随高度场
+  扎根本地草皮表面(丘上不悬空, T5 贴地红线) */
+  for (const cd of advTreeSpots()) {
+    SceneKit.tree(cd.x, ADV_GROUND + advHeightAt(cd.x, cd.z) + 1, cd.z);
+  }
 }
 
 function advScatterTufts() {/* 草丛散布(T11 缺口, D7 草丛链): 确定性掷点, 只长
@@ -276,9 +308,10 @@ function advScatterTufts() {/* 草丛散布(T11 缺口, D7 草丛链): 确定性
         if (Math.hypot(x - n.x, z - n.z) < 3) nearNest = true;
       }
       if (nearNest) continue;
-      if (getBlock(x, ADV_GROUND, z) !== 1) continue; /* 脚下是草地(沙岸/湖/矿坑天然排除) */
-      if (getBlock(x, ADV_GROUND + 1, z) !== 0) continue; /* 顶上无物(树干/小屋墙不占) */
-      setBlockRaw(x, ADV_GROUND + 1, z, B_GRASS_TUFT);
+      const top = ADV_GROUND + advHeightAt(x, z); /* 表面随圈层丘体(T5): 草丛跟草皮走 */
+      if (getBlock(x, top, z) !== 1) continue; /* 脚下是草地(沙岸/湖/矿坑/铺装天然排除) */
+      if (getBlock(x, top + 1, z) !== 0) continue; /* 顶上无物(树干/小屋墙不占) */
+      setBlockRaw(x, top + 1, z, B_GRASS_TUFT);
     }
   }
 }
@@ -1185,7 +1218,8 @@ function advPortalExit(x, y, z, yaw) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
-    ADV_ORES, ADV_TREES, advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
+    ADV_ORES, ADV_TREES, ADV_RING, ADV_HUT_C, ADV_FLATS, advRingAmp, advHeightAt,
+    advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
     advBuildPit, advTryOre, advBuildCave, advBuildHut, advBuildNest, advTreeBlocked,
     advPlantTrees, advTreeSpots, advScatterTufts, advBuildWorld, advDeathPlan,
     ADV_NEST_MIN, ADV_NEST_MAX, ADV_NEST_RESPAWN_T, ADV_NEST_AGGRO_R, ADV_NEST_LEASH_R,

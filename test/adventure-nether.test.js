@@ -586,9 +586,9 @@ test('C1 切界: advSetDim 下界基座(下界岩+回程门内口) + dayCycleOn 
   assert.strictEqual(apiC.getBlock(px + 3, by + 5, pz), apiC.B_PORTAL, '回程门内口顶行是门面');
   assert.strictEqual(mobsSpawnedC.length, 0, '切界清怪(下界无怪, 上界巢穴怪不渗入)');
   assert.strictEqual(fxBeams.length - fxRemoved.length, 1, '回程门光束锚一束(基座门, 不在 edits)');
-  /* 回上界: 草原确定性复原 + 昼夜循环复位 */
+  /* 回上界: 草原确定性复原 + 昼夜循环复位(T5 起表面随圈层高度场, 采样列按高度场取表面) */
   AN.advSetDim('overworld');
-  assert.strictEqual(apiC.getBlock(10, 24, 10), 1, '回上界草地复原');
+  assert.strictEqual(apiC.getBlock(10, 24 + Core.advHeightAt(10, 10), 10), 1, '回上界草地复原');
   assert.strictEqual(globalThis.dayCycleOn, true, '昼夜循环复位');
 });
 

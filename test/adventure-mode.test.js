@@ -390,13 +390,19 @@ function bandOk(id, yLo, yHi) {
   }
   return true;
 }
-/* 树干列: y25..28 连续原木(树高 4~6; 小屋角柱只到 y27, 不误计) */
+/* 树干列: 自表面起 4 连续原木(树高 4~6; 小屋角柱只到 y27, 不误计; T5 起树随
+   圈层丘体扎根, 干基 y 随高度场 21~28 浮动, 逐列扫窗) */
 function treeTrunks(skip) {
   let n = 0;
   for (let z = 0; z < D; z++) {
     for (let x = 0; x < W; x++) {
       if (skip && skip(x, z)) continue;
-      if (cell(x, 25, z) === 5 && cell(x, 26, z) === 5 && cell(x, 27, z) === 5 && cell(x, 28, z) === 5) n++;
+      for (let y = 21; y <= 28; y++) {
+        if (cell(x, y, z) === 5 && cell(x, y + 1, z) === 5 && cell(x, y + 2, z) === 5 && cell(x, y + 3, z) === 5) {
+          n++;
+          break;
+        }
+      }
     }
   }
   return n;
@@ -438,11 +444,13 @@ test('探险模式: 注册表行在场(gated 共享儿童时限 + 派生脚本�
 
 test('探险模式: init 建场 — 草原地层/出生小屋/出生点/快捷栏 9 槽镜像背包', () => {
   freshInit();
-  /* 地层: 地表 y24 草 / 下 4 层泥 / 再下石头到 y0 */
-  assert.strictEqual(cell(10, 24, 10), 1, '地表 y24 是草地');
-  assert.strictEqual(cell(10, 23, 10), 2, 'y21~23 泥土(上层)');
-  assert.strictEqual(cell(10, 20, 10), 2, 'y20 泥土(第 4 层)');
-  assert.strictEqual(cell(10, 19, 10), 3, 'y19 及以下石头');
+  /* 地层随圈层高度场(T5): 表面=24+advHeightAt 处草 / 下 4 层泥 / 再下石头到 y0;
+     (10,10) 在深险圈——采样列的表面高度按高度场取, 层序随之 */
+  const sy = A.ADV.ground + AdventureMode.adv.heightAt(10, 10);
+  assert.strictEqual(cell(10, sy, 10), 1, '(10,10) 表面草皮贴高度场 y' + sy);
+  assert.strictEqual(cell(10, sy - 1, 10), 2, '表面下泥土(上层)');
+  assert.strictEqual(cell(10, sy - 4, 10), 2, '泥土第 4 层');
+  assert.strictEqual(cell(10, sy - 5, 10), 3, '泥层下石头');
   assert.strictEqual(cell(10, 0, 10), 3, '直到 y0 都是石头');
   /* 出生小屋: 原木角柱 + 木板墙/地板/顶 + 北门洞; 工作台/熔炉不送(任务链要有仪式感) */
   const hut = A.ADV.hut;
@@ -1093,13 +1101,15 @@ test('T12 草丛散布: 确定性 + 只长草地顶 + 密度可发现不铺满(T
     for (let z = 0; z < D; z++) {
       for (let x = 0; x < W; x++) {
         if (cell(x, y, z) === api.B_GRASS_TUFT) {
-          assert.strictEqual(y, 25, '草丛只在地表上一层(y25)');
-          if (cell(x, 24, z) === 1) onGrass++;
+          assert.strictEqual(cell(x, y - 1, z), 1, '草丛脚下直接是草皮');
+          assert.strictEqual(y, A.ADV.ground + AdventureMode.adv.heightAt(x, z) + 1,
+              '草丛在本地表面上一层(T5 起随圈层丘体贴地)');
+          onGrass++;
         }
       }
     }
   }
-  assert.strictEqual(onGrass, tufts, '每丛脚下都是草地(不占沙/水/矿坑)');
+  assert.strictEqual(onGrass, tufts, '每丛脚下都是草地(不占沙/水/矿坑/铺装)');
   const again = (freshInit(), countId(api.B_GRASS_TUFT));
   assert.strictEqual(again, tufts, '重进草丛位置完全复现(确定性散布)');
 });

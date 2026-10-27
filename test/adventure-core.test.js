@@ -52,18 +52,16 @@ function countId(id, pred) {
 
 /* ============ 地形生成 ============ */
 
-test('核心地形: advBuildWorld 全图确定性(两次生成逐字节一致) + 地层/小屋/湖形状', () => {
+test('核心地形: advBuildWorld 全图确定性(两次生成逐字节一致) + 小屋/湖形状', () => {
   Core.advBuildWorld();
   const a = snapshot();
-  assert.strictEqual(cell(10, 24, 10), 1, '地表 y24 草地');
-  assert.strictEqual(cell(10, 23, 10), 2, 'y20~23 泥土');
-  assert.strictEqual(cell(10, 19, 10), 3, 'y19 及以下石头');
   const hut = Core.ADV_HUT;
   assert.strictEqual(cell(hut.x1, 25, hut.z1), 5, '小屋角柱原木');
   assert.strictEqual(cell(61, 25, hut.z1), 0, '北墙正中门洞');
   const lake = Core.ADV_LAKE;
   assert.ok(countId(api.B_CLAY, (x, y, z) => Math.hypot(x - lake.cx, z - lake.cz) <= lake.r) >= 150,
       '湖底黏土层(红砖链源头)');
+  /* 地层随高度场的采样断言在「T5 地形接入」测试(表面=24+advHeightAt 处草皮) */
   /* 清场重建: 逐字节复现(SceneKit.rand/hashRand 确定性, 零 Math.random) */
   vm.runInContext('worldCells.fill(0)', eng);
   Core.advBuildWorld();
@@ -129,6 +127,81 @@ test('T5 迁移形状: 新坐标的湖心/坑底/洞口/穴室逐格断言(对�
   assert.strictEqual(cell(61, 23, 10), 0, '隧道北端 (61,23,10) 敞口(台阶起点)');
   assert.strictEqual(cell(61, 3, 30), 0, '穴室最深处 (61,3,30) 掏空');
   assert.strictEqual(cell(61, 1, 30), api.B_DIAMOND_ORE, '穴室底板保底钻石(任务第 15 步目的地)');
+});
+
+test('T5 高度场: 圈层幅度分环 — 核心圈(≤18)恒 0 · 深险圈(>60)丘体起伏 · 幅度界 ±3', () => {
+  const cx = (Core.ADV_HUT.x1 + Core.ADV_HUT.x2) / 2;
+  const cz = (Core.ADV_HUT.z1 + Core.ADV_HUT.z2) / 2;
+  let lo = 1; let hi = -1;
+  for (let x = 2; x < 126; x++) {
+    for (let z = 2; z < 126; z++) {
+      const h = Core.advHeightAt(x, z);
+      assert.ok(h >= -3 && h <= 3, '幅度界 ±3: (' + x + ',' + z + ')=' + h);
+      const d = Math.hypot(x - cx, z - cz);
+      if (d <= 18) assert.strictEqual(h, 0, '家园核心圈恒 0(' + x + ',' + z + ')');
+      if (d > 60) {
+        if (h < lo) lo = h;
+        if (h > hi) hi = h;
+      }
+    }
+  }
+  assert.ok(lo < 0 && hi > 0, '深险圈丘体有起有伏: [' + lo + ',' + hi + ']');
+  assert.ok(hi - lo >= 3, '深险圈起伏到位(圈层越远丘越高): 跨度 ' + (hi - lo));
+});
+
+test('T5 高度场: 坡度红线 — 全图相邻格高差 ≤1(儿童可登可下, heightAt 结构保证建场侧不破坏)', () => {
+  for (let x = 0; x < 127; x++) {
+    for (let z = 0; z < 127; z++) {
+      const h = Core.advHeightAt(x, z);
+      assert.ok(Math.abs(Core.advHeightAt(x + 1, z) - h) <= 1, 'x 向相邻高差 ≤1: (' + x + ',' + z + ')');
+      assert.ok(Math.abs(Core.advHeightAt(x, z + 1) - h) <= 1, 'z 向相邻高差 ≤1: (' + x + ',' + z + ')');
+    }
+  }
+});
+
+test('T5 高度场: 既有结构压平区归 0 — 小屋/湖盆/两坑口/山洞口/三巢丘足印(ADV_FLATS 对齐)', () => {
+  const pts = [];
+  const rect = (x1, z1, x2, z2) => {
+    for (let x = x1; x <= x2; x++) for (let z = z1; z <= z2; z++) pts.push([x, z]);
+  };
+  const circ = (cx, cz, r) => {
+    for (let x = Math.floor(cx - r); x <= cx + r; x++) {
+      for (let z = Math.floor(cz - r); z <= cz + r; z++) {
+        if (Math.hypot(x - cx, z - cz) <= r) pts.push([x, z]);
+      }
+    }
+  };
+  const h = Core.ADV_HUT;
+  rect(h.x1 - 2, h.z1 - 2, h.x2 + 2, h.z2 + 2); /* 小屋(含出生位外扩) */
+  circ(Core.ADV_LAKE.cx, Core.ADV_LAKE.cz, Core.ADV_LAKE.r + 1); /* 湖盆 */
+  for (const p of Core.ADV_PITS) circ(p.cx, p.cz, p.r + 1); /* 两坑口漏斗 */
+  const c = Core.ADV_CAVE;
+  rect(c.x1 - 3, c.zStart - 6, c.x2 + 3, c.zStart + 4); /* 山洞口小丘+敞廊 */
+  for (const n of Core.ADV_NESTS) circ(n.x, n.z, 3); /* 三巢丘 */
+  for (const [x, z] of pts) {
+    assert.strictEqual(Core.advHeightAt(x, z), 0, '结构足印回落 y24: (' + x + ',' + z + ')');
+  }
+});
+
+test('T5 地形接入: 地层随高度场 — 表面=24+advHeightAt 处草皮, 下 4 层泥再下石; 树随丘扎根不悬空', () => {
+  Core.advBuildWorld();
+  const surf = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  /* 深险圈采样列: 表面贴高度场, 层序随之 */
+  for (const [x, z] of [[10, 10], [120, 120], [5, 80], [80, 5]]) {
+    const sy = surf(x, z);
+    assert.strictEqual(cell(x, sy, z), 1, '(' + x + ',' + z + ') 表面草皮贴高度场 y' + sy);
+    assert.strictEqual(cell(x, sy - 1, z), 2, '(' + x + ',' + z + ') 表面下泥层');
+    assert.strictEqual(cell(x, sy - 4, z), 2, '(' + x + ',' + z + ') 泥层共 4 层(sy-4 仍是泥)');
+    assert.strictEqual(cell(x, sy - 5, z), 3, '(' + x + ',' + z + ') 泥层下石头');
+  }
+  /* 核心圈平地照旧 y24 草皮 */
+  assert.strictEqual(cell(61, 24, 66), 1, '核心圈平地 (61,66) 表面仍 y24 草');
+  /* 树贴地: 每棵树干脚下恰是本地草皮表面(丘上树不悬空、坑边树不埋干) */
+  for (const s of Core.advTreeSpots()) {
+    const sy = surf(s.x, s.z);
+    assert.strictEqual(cell(s.x, sy, s.z), 1, '树脚下是草皮表面 (' + s.x + ',' + s.z + ')');
+    assert.strictEqual(cell(s.x, sy + 1, s.z), 5, '树干基部贴表面');
+  }
 });
 
 /* ============ 政策纯函数段(逐条钉口径) ============ */
