@@ -19,34 +19,54 @@
    (无需 conventions §6 登记)、不计儿童时限(gated:false)。挖/放/门/传送门
    经 place-kit 接入(§8, 与探险同一段规则代码); TNT 点燃/爆炸链同拍接入
    (探险 D3/D4 同规则: 纯函数直用 adventure-core, 引信/爆炸不进 place-kit
-   既定口径; 波及怪物段不移植——体验馆不接 Mobs 子系统)。进食/雪球同拍
-   接入(票 B): 玩家 HP 实体(CombatKit.mkFighter, 探险 30/30 同款)+头顶
-   血条+右键使用链补「吃→掷」两档(站点>门开关>吃>雪球>放置, 探险同序),
+   既定口径; 爆炸波及怪物段不移植——显式推迟, 不在本票范围)。进食/雪球
+   (票 B): 玩家 HP 实体(CombatKit.mkFighter, 探险 30/30 同款)+头顶血条+
+   右键使用链补「吃→掷」两档(站点>床>门开关>吃>雪球>放置, 探险同序),
    规则零复制——吃判据 advEatPolicy 与雪球弹道常量 ADV_SNOWBALL_* 直用
-   adventure-core, 实体/冷却轨道/弹池/血条全经 CombatKit 工厂。本馆当前
-   无伤害源(无怪/TNT 不伤玩家/无摔落伤) → HP 恒满, 吃链待票 C 落怪才有
-   真实触发场景(本票先立实体与链路, 测试直驱血量)。左键挥击瞄准分支
-   (mkMelee.aim 扫怪列表)随票 C 落怪接入——现在接上是恒假死代码, 不接;
-   床睡觉仍推迟(夜窗未接入)。
+   adventure-core, 实体/冷却轨道/弹池/血条全经 CombatKit 工厂。
+   昼夜+夜怪+床睡觉(票 C, 探险昼夜 D1/D5/D6 同规则薄版): init 置
+   dayCycleOn 白天起步(dayTime 绝不落盘——体验馆零存档红线, cleanup 复位
+   三连 dayCycleOn=false+applyDaylight+dayTime=0, 探险 cleanup 同款三连的
+   不落盘版); isNight 入夜上沿在**固定地面点位**铺夜怪(SHOWROOM.nightMobs,
+   离床 ≥ ADV_BED_MOB_R+余量/避开站点门展台/屋外草场, 全带 __nightMob
+   私有挂件——标记口径与探险 advNightTick/advSweepNightMobs 同一份),
+   isNight 下降沿/睡觉唤醒 → 温和清场(只收标记怪)。白天展馆无怪, 入夜
+   才有——与「退出恢复原装」红线自洽。AI 薄版(~30 行): 索敌半径内朝玩家
+   走+贴身挥击(冷却轨道 CombatCore.tickCadence/伤害 advMobDmg 直用),
+   怪打玩家 → HP 实体掉血 → 吃链激活; hp 到 0 走**薄死亡政策**(满血重置+
+   清夜怪+原地复活+toast, 零惩罚, 不搬探险死亡流程)。左键 melee-aim 分支
+   (探险 onMouse 同位): 锥内有怪本击归战斗, 挥击伤害 advSwingDmg/磨损与
+   挖掘同一缝。床点击(使用先于挖放) → advSleepCheck(夜窗+床边无怪, 签名
+   冻结直用) → #fade 遮罩+advSleepStep 转场(签名冻结直用) → 唤醒沿
+   dayTime=0+清夜怪; 不设床边出生点(体验馆无死亡/回家政策)。显式推迟:
+   advNightStepPool 动态夜刷环带(展厅屋顶刷怪风险+自定义光照 read 复杂度)、
+   骷髅远程箭池(夜怪池不排骷髅, AI 薄版只做近战半边)、TNT 炸怪波及段。
    interface: ShowroomMode(mkMode 注册对象, id='showroom'; 无菜单页,
      卡点击直进) · ShowroomMode.stock(套餐挂点, 派生产物) / getInv()
      (内存背包 getter, 引用跨进场稳定) / crates(仓库箱挂点: list/账户/
      open) / sr(站点触达面: 熔炉 furnaces/panel/isOpen/autoFill/refundAll
      + 合成 craft + 箱子 chest) / pk(放置链 kit 实例) / mine(蓄力状态机) /
      fuses(TNT 引信数组) / tntTap()(TNT 短按状态 getter) / pEnt()(HP 实体
-     getter) / snowballs(雪球弹池: count/clear 直驱) — 守门测试挂点
-     (adventure 的 .adv 先例, 浏览器侧无害)
+     getter) / snowballs(雪球弹池: count/clear 直驱) / sleep(睡觉转场状态:
+     on/t, 测试直驱) — 守门测试挂点(adventure 的 .adv 先例, 浏览器侧无害)
    依赖(均经全局名, 调用期解析): showroomPocket/showroomCrateRows/
      showroomDisplays(js/showroom-core.js 供给派生, 加载序在本文件之前) ·
      PlaceKit(js/place-kit.js 放置链, 加载序在 adventure.js 之后本文件之前) ·
      mkMode/ModeKit.spawn/ModeKit.mkHotbar/ModeKit.mkCraftPanel/ModeKit.
      mkChestPanel(js/mode-kit.js) · FurnaceKit(js/furnace-kit.js) ·
-     CombatKit(js/combat-kit.js 玩家战斗: mkFighter/mkMelee/mkArrows/
-     mkHpBar, 加载序在本文件之前; Mobs/Avatar/CameraRig 由其调用期消费) ·
+     CombatKit(js/combat-kit.js 玩家战斗: mkFighter/mkHurtAlarm/mkMelee/
+     mkArrows/killBurst/resetFighter/mkHpBar, 加载序在本文件之前;
+     Avatar/CameraRig 由其调用期消费) · CombatCore.tickCadence
+     (js/combat-core.js 攻击节拍) · Mobs(js/mobs.js 怪物库: spawn/list/hit/
+     update/render/remove/onDeath/clear, 引擎帧序契约 render 最后) ·
+     Daylight.isNight/sleepWindow(js/daylight-core.js 纯核心) ·
+     dayTime/dayCycleOn/applyDaylight(js/world.js 顶层绑定与场景驱动) ·
      advChestPut/advChestTake/ADV_STATION_R/ADV_TNT_FUSE/ADV_TNT_R/
      advTntTapStep/advExplodeCells/advEatPolicy/ADV_SNOWBALL_SPEED/
-     ADV_SNOWBALL_G/ADV_SNOWBALL_KPOW/ADV_SNOWBALL_LIFE/ADV_SNOWBALL_CD
-     (js/adventure-core.js, TNT 纯段/进食政策/雪球弹道常量直用) ·
+     ADV_SNOWBALL_G/ADV_SNOWBALL_KPOW/ADV_SNOWBALL_LIFE/ADV_SNOWBALL_CD/
+     advSleepCheck/advSleepStep/ADV_BED_MOB_R/advMobDmg/advSwingDmg/
+     advDeathDrops/ADV_NEST_AGGRO_R/ADV_ATTACK_T/ADV_MELEE_R/ADV_AIM_COS
+     (js/adventure-core.js, TNT/进食/雪球/睡觉/伤害纯段直用) ·
      Drops(js/drops.js 掉落物实体, update/render/onCollect 三链) ·
      loadScene(js/world.js) · SceneKit(js/scene-kit.js) · WORLD_W/WORLD_D/
      BLOCKS/B_FURNACE/B_CRAFT/B_CHEST/B_BED/B_TORCH/B_DOOR/B_DOOR_TOP/
@@ -58,9 +78,9 @@
      touchPlaying(js/input.js) ·
      fps/overlay/switchMode/showPage(js/main.js, 加载序在后、调用期已就绪)
    可测性: THREE/DOM 全经 loadScene/ModeKit 惰性路径, boot 冒烟(vm 桩)
-     全链可跑; 数据隔离/套餐/仓库箱/建场/三站点交互/放置链/TNT/进食/雪球
-     由 test/showroom-mode.test.js 守门(供给派生不变量在
-     test/showroom-core.test.js)
+     全链可跑; 数据隔离/套餐/仓库箱/建场/三站点交互/放置链/TNT/进食/雪球/
+     昼夜铺怪清场/AI/睡觉链/薄死亡由 test/showroom-mode.test.js 守门
+     (供给派生不变量在 test/showroom-core.test.js)
    ============================================================ */
 
 /* ---------- 场地常数: 展馆布局(§7 D4, 全部几何数据驱动) ---------- */
@@ -72,12 +92,19 @@ const SHOWROOM = {
   spawnFurnace: {x: 64, z: 62}, // 出生点正后方 1.5 格: 零走动即测熔炉
   kitchen: [{x: 72, z: 46}, {x: 74, z: 46}], // 北墙灶台角: 双炉
   craftTables: [{x: 52, z: 46}, {x: 54, z: 46}], // 北墙工作台×2
-  bed: {x: 77, z: 73}, // 东南角床(装饰件; 睡觉链待放置票)
+  bed: {x: 77, z: 73}, // 东南角床(票 C 睡觉链: 夜窗+床边无怪即可睡, 无床边出生点)
   crateX: 50, crateZ0: 50, crateStep: 2, crateMax: 8, // 西墙仓库箱排(箱数=派生长度, 锚位自动排)
   tables: [[55, 52], [55, 58], [55, 64], [69, 52], [69, 58], [69, 64]], // 展台 2×2 台身(木板), 顶面摆展品
   basement: {x1: 50, z1: 46, x2: 77, z2: 73}, // 地下室石壳(顶 y11=房内地基, 腔 y8..10, 地面 y7)
   stairs: {x1: 75, x2: 76, z1: 67, z2: 71}, // 楼梯井(东墙侧, 1 格台阶降/跳)
   ores: [], // 地下室矿石样本墙(建场段填 B_* 样本, 见 showroomBasement)
+  /* 夜怪固定铺点(票 C): 入夜上沿各铺 1 只 — 屋外草场(不在展厅屋顶, Risk③ 绕法)、
+     离床心 (77.5,73.5) ≥ ADV_BED_MOB_R+余量(最近 15 格)、避开站点/门/展台/ TNT 东场 */
+  nightMobs: [
+    {x: 84, z: 60, type: 'zombie'}, // 东墙外草场(离床 ≈15)
+    {x: 84, z: 48, type: 'spider'}, // 东北角草场(离床 ≈26)
+    {x: 40, z: 60, type: 'creeper'}, // 西墙外草场(离床 ≈40)
+  ],
 };
 
 /* ---------- 供给派生(showroom-core, 模块加载期一次算定) ----------
@@ -216,6 +243,15 @@ const showroomFurnace = FurnaceKit.mkFurnaceStation({
    进场=恢复原装红线) · 零任务记账 · 观感静默(dev 降噪) · 掉落照掉(dev
    可测掉落物/拾取链) · 磨损简版(damageTool 扣减破板清槽, 无安抚话术)。
    左键蓄力挖 / 右键放 / 门开关 / 传送门结构放置全走与探险逐字同一实现。 ---------- */
+/* 磨损简版(挖掘 wear 缝与挥击 onWear 共用一缝): 破坏/命中成功工具 −1,
+   归零清槽(静默; 探险 advWearHeld 的降噪版, 无安抚话术) */
+function showroomWearSel() {
+  const slot = showroomHb.sel;
+  const s = showroomInv.slots[slot];
+  if (!s || !isTool(s.id)) return;
+  if (damageTool(showroomInv, slot) === 0) remove(showroomInv, slot);
+  showroomSyncBar();
+}
 let showroomMouseHeld = false; /* 桌面按住标志(document capture 监听, 探险同款) */
 const showroomMine = {down: false, t: 0, key: '', need: 0, drops: true, swingT: 0};
 const showroomPlaceKit = PlaceKit.mkEditor({
@@ -230,13 +266,7 @@ const showroomPlaceKit = PlaceKit.mkEditor({
     drop: (id, n, x, y, z) => Drops.spawn(id, n, x, y, z),
     questMine: () => {},
   },
-  wear: () => {/* 磨损简版: 破坏成功工具 −1, 归零清槽(静默) */
-    const slot = showroomHb.sel;
-    const s = showroomInv.slots[slot];
-    if (!s || !isTool(s.id)) return;
-    if (damageTool(showroomInv, slot) === 0) remove(showroomInv, slot);
-    showroomSyncBar();
-  },
+  wear: () => showroomWearSel(), /* 磨损简版(与挥击 onWear 同缝) */
   swing: () => {/* 挥动观感(Avatar 全局, Node 单测缺席静默) */
     if (typeof Avatar !== 'undefined' && Avatar) Avatar.swing();
   },
@@ -354,22 +384,37 @@ function showroomTntTapTick(dt) {/* 纯步进 advTntTapStep 在 adventure-core, 
   if (r.act && r.act.mine) showroomMine.down = true; /* 按住转蓄力(准星已移开则蓄力链自清) */
 }
 
-/* ---------- 玩家 HP 实体 + 进食 + 雪球(票 B, 探险同款镜像): HP 实体是票 C
-   怪物战斗的地基。本馆当前无伤害源 → HP 恒满, 吃链在真实游玩里待票 C 落怪
-   才有触发场景——本票先立实体与右键使用链, 测试直驱血量验行为。规则零复制:
+/* ---------- 玩家 HP 实体 + 进食 + 雪球(票 B 立链, 票 C 落怪激活): HP 实体是
+   怪物战斗的地基——夜怪 AI 打玩家掉血、半血吃食物回血在馆内成环。规则零复制:
    吃判据 advEatPolicy、雪球弹道常量 ADV_SNOWBALL_* 直用 adventure-core,
-   实体/冷却轨道/弹池/血条全经 CombatKit 工厂(不造第二份实现); dev 降噪:
-   零 TTS/零音效, 反馈只走 toast(馆内既有口径)。 ---------- */
+   实体/冷却轨道/弹池/血条/受击提醒全经 CombatKit 工厂(不造第二份实现)。 ---------- */
 /* 玩家战斗实体(探险 advPEnt 同形): hp 30/maxHp 30 探险同款; 体验馆无存档
    → 实体即唯一账本(无 ADV.player 镜像), cleanup 复位满血 */
 const showroomPEnt = CombatKit.mkFighter({hp: 30, maxHp: 30});
-/* 近战冷却轨道(mkMelee 实例): 本票只消费 swingAction(雪球投掷与挥击同一
-   冷却轨道, 下界弓口径); aim 挥击/伤害/耐久随票 C 落怪接线(现在无怪,
-   aim 恒空, 接上是死代码); 冷却自持, update 只喂 tick */
-const showroomMelee = CombatKit.mkMelee({});
+/* 受击提醒(探险 advHurt 同件): 音+闪红+震屏+3s 节流话术全在 kit; 体验馆
+   实体即账本 → 无 setHp 镜像缝(MobCore.hitState 直接写在实体上) */
+const showroomHurt = CombatKit.mkHurtAlarm({});
+/* 击杀观感(CombatKit.killBurst, 探险 advOnKill 瘦身): 碎块+计数 toast;
+   掉落不在此——走 Mobs.onDeath 回调(见 showroomHookMobs) */
+let showroomKillCount = 0;
+function showroomOnKill(m) {
+  showroomKillCount++;
+  CombatKit.killBurst(m, showroomKillCount, {verb: '击杀'});
+}
+/* 近战(探险 advMelee 同件): 准星锥门槛/伤害/磨损/击杀全经注入——伤害
+   advSwingDmg(手持工具 D9 表, 空手 3)、磨损与挖掘同一缝(showroomWearSel)、
+   雪球投掷 swingAction 与挥击同一冷却轨道(下界弓口径); 冷却自持, update
+   只喂 tick; aim 分支在 onMouse 左键(探险同位) */
+const showroomMelee = CombatKit.mkMelee({range: ADV_MELEE_R, aimCos: ADV_AIM_COS,
+  dmg: () => {
+    const s = showroomInv.slots[showroomHb.sel];
+    return advSwingDmg(s ? s.id : '');
+  },
+  onWear: () => showroomWearSel(), /* 命中才扣耐久(空手/非工具不扣) */
+  onKill: (m) => showroomOnKill(m)});
 /* 雪球弹池(T9 第二实例同形): sphere 白球·不 lookAt·muteSfx(kit 内置音全抑,
-   馆内降噪); 零伤害红线落在逐发 spec(dmg 0 只击退); 命中观感/音效政策随
-   票 C 落怪接 onHitMob(现在无怪, 命中面恒空) */
+   馆内降噪); 零伤害红线落在逐发 spec(dmg 0 只击退); 命中即 Mobs.hit(dmg 0)
+   天然生效, onHitMob 观感缝仍不需要(dev 降噪) */
 const showroomSnowballs = CombatKit.mkArrows({mesh: 'sphere', color: 0xffffff,
   lookAt: false, muteSfx: true});
 /* 头顶血条(探险 advHpBar 同款深接口): update 惰性建条, 重绘节流收在 kit */
@@ -435,6 +480,154 @@ function showroomUseStation(hit) {
     return true;
   }
   return false;
+}
+
+/* ============================================================
+   昼夜 + 夜怪 + 床睡觉(票 C, 探险昼夜 D1/D5/D6 同规则薄版)
+   ------------------------------------------------------------
+   时间本体 dayTime/dayCycleOn 是 world.js 顶层绑定(全局直写, 探险同款):
+   init 白天起步 + cleanup 复位三连; dayTime 绝不落盘(体验馆零存档红线)。
+   夜怪不走 advNightStepPool 环带(展厅屋顶刷怪风险+自定义光照 read 复杂度,
+   显式推迟), 改 isNight 跨沿 + 固定点位铺怪(SHOWROOM.nightMobs); 清场
+   只收 __nightMob 标记怪(标记口径与探险 advNightTick/advSweepNightMobs
+   逐字同一份, 不发明第二套)。advMobAI 住探险壳且耦合其私有全局, 模式→
+   模式直调禁止 → 近战半边镜像 ~30 行(骨架同源: 索敌/逼近/贴身挥击,
+   判据与伤害全直用 adventure-core 纯函数)。
+   ============================================================ */
+let showroomWasNight = false; /* 入夜跨沿账本(isNight 上沿铺怪/下降沿清场; init 对齐当下) */
+
+function showroomSpawnNightMobs() {/* 入夜上沿: 固定地面点位各铺 1 只(全带 __nightMob
+    私有挂件——清场唯一依据, 探险 advNightTick 同一标记; 白天展馆无怪, 入夜才有) */
+  for (const p of SHOWROOM.nightMobs) {
+    const m = Mobs.spawn(p.type, p.x, p.z, {yaw: 0});
+    m.__nightMob = true;
+  }
+}
+
+function showroomSweepNightMobs() {/* 夜怪温和清场(探险 advSweepNightMobs 同形, dev 降噪
+    零 TTS): 按 __nightMob 私有字段过滤(尸体一并收=「全部 __nightMob」口径), 原地
+    灰白烟碎屑 + Mobs.remove; 不带标记的怪天然不清(脚本怪与昼夜解耦口径)。幂等 */
+  let n = 0;
+  for (const m of Mobs.list()) {
+    if (m.gone || !m.__nightMob) continue;
+    Fx.debrisBurst(m.pos.x, m.pos.y + 0.6, m.pos.z, 8, {color: 0xe6e6e6, life: 0.9});
+    Mobs.remove(m);
+    n++;
+  }
+  return n;
+}
+
+function showroomNightTick() {/* 昼夜跨沿(探险 advNightTick 同拍不同刷法): 上沿铺怪/
+    下降沿清场; 下降沿(23000)比探险的 advDawnSweep 黎明沿(≈23517)略早, 只会更温和。
+    夜内停留不加铺(边沿语义, 非节拍环带) */
+  const night = Daylight.isNight(dayTime);
+  if (night && !showroomWasNight) showroomSpawnNightMobs();
+  if (!night && showroomWasNight) showroomSweepNightMobs();
+  showroomWasNight = night;
+}
+
+function showroomMobAI(dt) {/* 夜怪 AI 薄版(探险 advMobAI 近战半边镜像): 索敌半径内
+    朝玩家走+贴身挥击(冷却轨道 CombatCore.tickCadence/伤害 advMobDmg 直用);
+    无收队(固定点位即家, 白天/睡觉清场兜底)/无远程(骷髅箭池显式推迟) */
+  const p = showroomPEnt;
+  for (const m of Mobs.list()) {
+    if (m.dead || m.gone || !m.cfg || m.cfg.passive) continue;
+    CombatCore.tickCadence(m, dt); /* 攻击节拍(战斗核心, 与探险/竞技场同一条) */
+    const dxP = p.pos.x - m.pos.x; const dzP = p.pos.z - m.pos.z;
+    const distP = Math.hypot(dxP, dzP) || 1e-9;
+    const speed = m.cfg.speed || 2;
+    let moved = 0; /* 本帧实际速度(喂步态) */
+    if (!p.dead && distP <= ADV_NEST_AGGRO_R) {
+      Mobs.steer(m, Math.atan2(dxP, dzP));
+      if (distP > m.cfg.range) {/* 近战逼近 */
+        Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
+      } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.attackCd <= 0) {/* 贴身打玩家 */
+        m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
+        const r = Mobs.hit(p, advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4);
+        if (r.freshDead) showroomPlayerDied();
+        else showroomHurt.hit(r); /* 非致命: 受击提醒(kit 全套观感) */
+      }
+    }
+    Mobs.gait(m, dt, moved, ADV_ATTACK_T); /* 步态+战斗姿态(引擎同一入口) */
+  }
+}
+
+function showroomPlayerDied() {/* 薄死亡政策(体验馆无死亡流程): 满血重置+清夜怪+原地
+    复活+toast, 零惩罚; 不搬探险死亡流程(无死亡计划/无回家传送/无落盘)。
+    原地而非回出生点: 清场后无威胁, 原地保住开发者当下的调试现场(准星/站位/面板) */
+  const e = showroomPEnt;
+  CombatKit.resetFighter(e); /* 复活五字段不变量(阵亡去向政策在此=原地) */
+  e.hp = e.maxHp;
+  showroomSweepNightMobs();
+  showToast('💀 不怕不怕，满血原地重来！');
+}
+
+function showroomHookMobs() {/* 击杀掉落回调(探险 advHookEntityCbs 的掉落半边):
+    onDeath → advDeathDrops 掷骰 → 逐条 Drops.spawn(过票 A 掉落物/真空拾取缝)
+    ——击杀→掉落→拾取→入包全链馆内可玩; Mobs.clear 解除回调, init 重挂 */
+  Mobs.onDeath((m) => {
+    for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
+  });
+}
+
+/* ---------- 床·睡觉转场(探险昼夜 D6 同规则, 判据/时间账纯函数签名冻结直用):
+    #fade 是 index.html 共享 DOM——用完必须还原 transition/opacity(探险
+    advSleepFadeReset 先例), 睡觉中切模式也归零不渗漏。与探险的唯一差异:
+    不设床边出生点(体验馆无死亡/回家政策), 唤醒三连瘦身为两连。 ---------- */
+const showroomSleep = {on: false, t: 0}; /* 转场状态: on=转场中(无床坐标——不设床边出生点) */
+
+function showroomFadeEl() {/* #fade 全屏遮罩(index.html 既有 DOM; Node 测试取 document 桩) */
+  return (typeof document !== 'undefined' && document.getElementById) ?
+    document.getElementById('fade') : null;
+}
+function showroomFadeSet(op) {/* 直驱遮罩透明度: 关掉 CSS 自带 transition, 状态机逐帧接管 */
+  const el = showroomFadeEl();
+  if (!el) return;
+  el.style.transition = 'none';
+  el.style.opacity = op;
+}
+function showroomSleepFadeReset() {/* 收尾/中断: 遮罩归零, transition 还回 CSS(昏迷/黑场既有语义) */
+  const el = showroomFadeEl();
+  if (!el) return;
+  el.style.transition = '';
+  el.style.opacity = 0;
+}
+
+function showroomTrySleep(hit, lookId) {/* 点击床(探险 advTrySleep 同形, onMouse 使用链
+    床位): 两条件纯函数 advSleepCheck(夜窗+床边 ADV_BED_MOB_R 内无怪)不过 → 对应
+    toast; 过 → 开转场。返回 true=消费本次点击(不放不挖) */
+  if (!hit || lookId !== B_BED) return false;
+  if (showroomSleep.on) return true; /* 转场中重复点击吞掉(输入另由 onMouse 顶层门挡) */
+  const mobs = Mobs.list().map((m) => ({x: m.pos.x, z: m.pos.z, dead: m.dead, gone: m.gone,
+    passive: !!(m.cfg && m.cfg.passive)})); /* 快照采集(passive 不拦口径与探险同份) */
+  const chk = advSleepCheck(dayTime, mobs, hit.x + 0.5, hit.z + 0.5);
+  if (!chk.ok) {
+    showToast(chk.why === 'night' ? '🌙 晚上才能睡哦' : '👾 附近有怪物，睡不着');
+    return true;
+  }
+  showroomSleep.on = true;
+  showroomSleep.t = 0;
+  showroomPlaceKit.mineStop(showroomMine); /* 蓄力中则收手(黑屏期不再挖) */
+  return true;
+}
+
+function showroomSleepWake() {/* 唤醒沿两连(探险 advSleepWake 瘦身): 跳清晨+夜怪清场
+    (sweep 幂等, 与白天下降沿清场同缝); 无出生点改写/无落盘(零存档红线) */
+  dayTime = 0;
+  showroomSweepNightMobs();
+  showToast('☀️ 睡饱啦，天亮了！');
+}
+
+function showroomSleepTick(dt) {/* 转场推进(update 每帧): 纯函数时间账+遮罩直驱+唤醒沿 */
+  if (!showroomSleep.on) return;
+  const s = advSleepStep(showroomSleep.t, dt);
+  showroomSleep.t = s.t;
+  showroomFadeSet(s.opacity);
+  if (s.wake) showroomSleepWake();
+  if (s.phase === 'done') {
+    showroomSleep.on = false;
+    showroomSleepFadeReset();
+  }
 }
 
 /* ============================================================
@@ -559,6 +752,19 @@ const ShowroomMode = mkMode({
     showroomMelee.reset(); /* 投掷冷却不复场(探险 advMelee.reset init 先例) */
     showroomPEnt.hp = showroomPEnt.maxHp; /* 进场满血(实体即账本; 探险进场血量复位同位) */
     CombatKit.resetFighter(showroomPEnt); /* 受击状态五字段复位(复活不变量) */
+    /* 昼夜接线(票 C): 白天起步开循环(dayTime 绝不落盘——零存档红线);
+       探险是另一个置位方, cleanup 三连保证互不渗入 */
+    dayTime = 0;
+    dayCycleOn = true;
+    applyDaylight(); /* 进场先刷一次天色(探险同位) */
+    showroomWasNight = Daylight.isNight(dayTime); /* 跨沿账本对齐当下(防首帧误触) */
+    showroomKillCount = 0;
+    Mobs.clear(); /* 清残留怪(switchMode 兜底外的双保险, 探险 init 同位) */
+    showroomHookMobs(); /* 击杀掉落回调重挂(Mobs.clear 解除后, 探 advHookEntityCbs 同款) */
+    showroomHurt.reset(); /* 受击话术节流不复场(kit 自持) */
+    showroomSleep.on = false; /* 睡觉转场不跨场(双保险; cleanup 先例) */
+    showroomSleep.t = 0;
+    showroomSleepFadeReset(); /* 上一场遮罩不渗入(#fade 共享 DOM 纪律) */
     showroomMouseListeners(true); // 桌面按住检测(document capture, 探险同款)
     showroomHookDrops(); // 收集回调重挂(切模式 Drops.clear 解除后, 探险同款)
   },
@@ -566,7 +772,9 @@ const ShowroomMode = mkMode({
   cleanup() {/* 收场: 收双面板(合成 close 链退台面余料) + 蓄力停 + 按住监听摘 +
     TNT 引信/tap 复位(引信不落盘, 探险先例) + 雪球弹池清空 + HP 实体复位
     满血 + 投掷冷却归零(跨进场不渗漏, 探险清场纪律先例) + 退炉三笔入包 +
-    收炉面板 + 解「进行中」态(零掉落物, 余量静默丢弃 dev 口径) */
+    收炉面板 + 昼夜复位三连/夜怪清场/睡觉转场与遮罩归零/受击节流与击杀
+    计数复位/血条回收(票 C, 全部不渗入其他模式) + 解「进行中」态(零掉落物,
+    余量静默丢弃 dev 口径) */
     showroomCraftClose();
     if (showroomChestOpen) showroomChestPanel.close();
     showroomPlaceKit.mineStop(showroomMine);
@@ -577,6 +785,19 @@ const ShowroomMode = mkMode({
     showroomMelee.reset(); /* 投掷冷却不复场(kit 自持账本复位, 探险 advMelee.reset 同款) */
     showroomPEnt.hp = showroomPEnt.maxHp; /* HP 复位满血(实体即账本, 体验馆无存档镜像) */
     CombatKit.resetFighter(showroomPEnt); /* 受击状态五字段复位(复活不变量) */
+    /* 昼夜复位三连(探险 cleanup 同款的不落盘版): 关循环+白天观感+时刻归零
+       ——其他模式不再被每帧昼夜驱动打扰, 重进恒白天起步 */
+    dayCycleOn = false;
+    dayTime = 0;
+    applyDaylight();
+    showroomWasNight = false; /* 跨沿账本复位 */
+    Mobs.clear(); /* 夜怪清场+解除击杀回调(switchMode 兜底外的双保险, 探险 cleanup 同款) */
+    showroomKillCount = 0;
+    showroomSleep.on = false; /* 睡觉转场中断复位(未到唤醒沿不跳清晨——此处三连已把时刻归零) */
+    showroomSleep.t = 0;
+    showroomSleepFadeReset(); /* 遮罩归零还 CSS transition, 不渗入其他模式 */
+    showroomHurt.reset(); /* 受击话术节流复位 */
+    showroomHpBar.dispose(); /* 头顶血条回收(S2 深接口, 探险 cleanup 同款) */
     showroomFurnace.refundAll();
     showroomFurnace.panel.hide();
     touchPlaying = false;
@@ -585,24 +806,32 @@ const ShowroomMode = mkMode({
   update(dt) {
     showroomFurnace.tick(dt); // 烧炼节律常开(多炉逐炉推进, 面板只是回显)
     showroomPlaceKit.tickTimers(dt); // 话术节流递减(账本在 kit 实例; 体验馆静默)
-    showroomMelee.tick(dt); /* 投掷冷却递减(kit 自持, update 只喂 tick; 探险同款喂法) */
+    showroomSleepTick(dt); /* 床·睡觉转场推进(票 C): 遮罩直驱+唤醒沿跳清晨/清夜怪 */
+    showroomMelee.tick(dt); /* 挥击/投掷冷却递减(kit 自持, update 只喂 tick; 探险同款喂法) */
+    showroomHurt.tick(dt); /* 受击话术节流递减(kit 自持; 探险同款喂法) */
     showroomFuseTick(dt); /* TNT 引信倒计时到点起爆(先于蓄力: 当帧爆炸位置不漂移, 探险同款) */
     showroomTntTapTick(dt); /* TNT 短按/按住判定: 转蓄力需先于 mineTick 同帧生效 */
     /* 蓄力挖 → 破坏结算(级联/门配对/掉落)全在 place-kit, 与探险同一实现 */
     showroomPlaceKit.mineTick(showroomMine, PlaceKit.aimHit(), dt,
         {held: showroomMouseHeld,
           panelOpen: showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen()});
+    showroomNightTick(); /* 昼夜跨沿(票 C): 入夜上沿铺怪/下降沿清夜怪(边沿语义) */
+    showroomMobAI(dt); /* 夜怪 AI 薄版: 索敌逼近+贴身挥击(伤害→HP 实体→吃链激活) */
+    Mobs.update(dt); /* 怪物本能(受击闪白/死亡时序; 帧序契约: 与模式 AI 相对顺序宽容) */
+    Mobs.render(); /* 合批渲染(帧序契约: 必在模式 AI 之后) */
     showroomSnowballs.update(dt); /* 雪球弹道步进+命中扫描(零伤害 spec; 探险双实例并喂同拍) */
-    Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 真空拾取(挖掘掉落, 玩家胸口点) */
+    Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 真空拾取(挖掘/击杀两链共用, 玩家胸口点) */
     Drops.render();
     showroomHpBar.update(showroomPEnt.hp, showroomPEnt.maxHp,
         pos.x, pos.y + 2.2, pos.z); /* 头顶血条(头顶 2.2 格, 重绘节流收在 kit; 探险同位) */
   },
 
-  onMouse(button, hit) {/* 探险同款次序: 左键 = TNT 短按记账 > 站点使用 > 门开关 > 蓄力挖
-      (挥击瞄准分支待票 C 落怪——mkMelee.aim 扫怪列表, 现在接上是恒假死代码);
-      右键 = 站点使用 > 门开关 > 吃 > 雪球 > 放置(TNT 点燃不走右键, 探险防误触拍板同款) */
-    if (showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen()) return;
+  onMouse(button, hit) {/* 探险同款次序: 左键 = TNT 短按记账 > 站点使用 > 床睡觉 > 门开关 >
+      挥击瞄准(锥内有活怪本击归战斗, 冷却中也占住不落挖, 票 C 接入) > 蓄力挖;
+      右键 = 站点使用 > 床睡觉 > 门开关 > 吃 > 雪球 > 放置(TNT 点燃不走右键,
+      探险防误触拍板同款); 睡觉黑屏期照探险加顶层门 */
+    if (showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen() ||
+        showroomSleep.on) return; /* 面板/睡觉黑屏遮罩兜底: 不挖不放不打 */
     if (button !== 0 && button !== 2) return;
     const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
     if (button === 0 && lookId === B_TNT) {/* TNT(D3 探险镜像): mousedown 只记账不点燃
@@ -615,8 +844,13 @@ const ShowroomMode = mkMode({
       showroomUseStation(hit); /* 圈内外都吞点击(圈外只提示不误开) */
       return;
     }
+    if (showroomTrySleep(hit, lookId)) return; /* 床: 点击睡觉(使用先于挖/放, 探险同位) */
     if (showroomPlaceKit.tryDoorToggle(hit, lookId)) return; /* 使用先于挖/放(MC 正典) */
     if (button === 0) {
+      if (showroomMelee.aim(showroomPEnt)) {/* 准星锥内有活怪: 本击归战斗(票 C, 探险同位) */
+        showroomMelee.swing(showroomPEnt);
+        return;
+      }
       if (hit) showroomMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update) */
     } else {
       if (showroomTryEat()) return; /* 手持食物: 右键吃(使用档在门与放置之间, 探险同序) */
@@ -655,8 +889,9 @@ const ShowroomMode = mkMode({
   hud() {
     return [
       '🧪 体验馆 · 冒险全开实验室 · B 回菜单',
-      'Tab 背包与配方书 · 左键挖 · 右键放 · 走近 工作台/熔炉/箱子 点击使用',
+      'Tab 背包与配方书 · 左键挖/挥击 · 右键放 · 走近 工作台/熔炉/箱子/床 点击使用',
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
+      Daylight.isNight(dayTime) ? '🌙 夜晚 · 怪物在馆外游荡' : '☀️ 白天', /* 时段两态(票 C, 探险 L2207 薄化) */
       'FPS ' + fps,
     ];
   },
@@ -673,6 +908,7 @@ ShowroomMode.fuses = showroomFuses; // TNT 引信数组(测试直驱, 探险 adv
 ShowroomMode.tntTap = () => showroomTntTap; // TNT 短按状态 getter(let 绑定经闭包读)
 ShowroomMode.pEnt = () => showroomPEnt; // HP 实体 getter(测试直驱血量; adventure advGetPEnt 先例)
 ShowroomMode.snowballs = showroomSnowballs; // 雪球弹池(count/clear 测试直驱, fuses 先例)
+ShowroomMode.sleep = showroomSleep; // 睡觉转场状态(测试直驱 on/t; adventure advSleep 先例)
 ShowroomMode.sr = {
   furnaces: showroomFurnace.map,
   panel: showroomFurnace.panel,
