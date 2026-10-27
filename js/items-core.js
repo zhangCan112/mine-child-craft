@@ -94,6 +94,8 @@ const ITEMS = {
   bed: {name: '床', icon: '🛏️', block: 53}, // B_BED(53, 昼夜 D6 §7.1); 夜里点击睡觉跳夜+设床边出生点(政策在模式层)
   lantern: {name: '灯笼', icon: '🏮', dur: 300}, // 原创手持光源(昼夜 D7 §8.1, 拍板⑤): dur=可耗损物满耐久 300 秒; 天黑手持才亮才耗(政策在模式层)
   tnt: {name: 'TNT', icon: '🧨', block: 20}, // 既有 B_TNT(config.js); 5 火药+4 沙合成
+  door: {name: '门', icon: '🚪'}, // B_DOOR(64~67 四态, docs/door-window-design.md §2.3); 无 block 字段: 结构放置由探险壳拦截(下界传送门 D4 先例), 放下长出 2 格门
+  glass_pane: {name: '玻璃板', icon: '🪟', block: 68}, // B_GLASS_PANE(68); 6 玻璃合成 16 块(MC 正典), 竖直薄板按邻居自动连接成窗
 
   /* —— 下界传送门(下界并入探险设计稿 D3/D4): 全表最贵合成——放置型但无 block
      字段, 放下长出整座 6×7 门(结构放置由探险壳拦截, 不走单格放置路径) —— */

@@ -20,7 +20,8 @@ function loadMeshCore() {
   for (const f of ['config.js', 'mesh-core.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
-  vm.runInContext('globalThis.__m = { MeshCore, BLOCKS, TNT_TILES, B_TNT, B_FUSE, B_TORCH, faceColor };', ctx);
+  vm.runInContext('globalThis.__m = { MeshCore, BLOCKS, TNT_TILES, B_TNT, B_FUSE, B_TORCH, faceColor,\n' +
+      '    B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE };', ctx);
   return ctx.__m;
 }
 
@@ -424,4 +425,101 @@ test('薄块分色: pushThin 顶面画 top(红毯) · 侧面画 all(床架), tin
       }
     }
   }
+});
+
+/* ============ 竖直薄板 pushPane(门/玻璃板, docs/door-window-design.md §5) ============ */
+
+/* pane 测试用注入 atlas: tiles 63~66 → 门板两格图, 67 → 玻璃板图 */
+const paneOpt = () => ({hashRand: HR_HALF, tntTiles: 4,
+  atlas: {cols: 16, rows: 16, tiles: {
+    [loadMeshCoreOnce().B_DOOR]: 40, [loadMeshCoreOnce().B_DOOR_TOP]: 41,
+    [loadMeshCoreOnce().B_DOOR_OPEN]: 40, [loadMeshCoreOnce().B_DOOR_TOP_OPEN]: 41,
+    [loadMeshCoreOnce().B_GLASS_PANE]: 42}}});
+let M_ONCE = null;
+function loadMeshCoreOnce() {
+  if (!M_ONCE) M_ONCE = loadMeshCore();
+  return M_ONCE;
+}
+
+test('门·降级路径: 无 atlas 注入时 pane 分支跳过, 门回落实心立方通道(存量行为)', () => {
+  const m = loadMeshCoreOnce();
+  const p = mkPack(1);
+  p.set(3, 5, 3, m.B_DOOR);
+  const r = m.MeshCore.meshChunk(p, OPT);
+  assert.strictEqual(r.atlas, null, '无 atlas 注入 → 无图集通道(降级)');
+  assert.strictEqual(quads(r.solid), 6, '门回落为实心立方 6 面(LOD 同口径)');
+});
+
+test('门·关/开: 图集通道几何 — 闭=板贴北缘 · 开=板贴西缘(绕西北角铰链 90°)', () => {
+  const m = loadMeshCoreOnce();
+  const opt = paneOpt();
+  const pC = mkPack(1);
+  pC.set(3, 5, 3, m.B_DOOR);
+  const rc = m.MeshCore.meshChunk(pC, opt);
+  assert.strictEqual(quads(rc.atlas), 6, '关门 6 面(2 大面+4 边条)');
+  assert.strictEqual(rc.solid, null, '门不进实心通道');
+  const zs = new Set();
+  for (let i=0; i<rc.atlas.positions.length; i+=3) zs.add(rc.atlas.positions[i+2].toFixed(4));
+  /* bx=99(border=1), lx=3 → wx=102; z ∈ {102, 102+0.1875} */
+  assert.deepStrictEqual([...zs].sort(), ['102.0000', '102.1875'], '关门板体贴在格子北缘');
+  const pO = mkPack(1);
+  pO.set(3, 5, 3, m.B_DOOR_OPEN);
+  const ro = m.MeshCore.meshChunk(pO, opt);
+  assert.strictEqual(quads(ro.atlas), 6, '开门 6 面');
+  const xs = new Set();
+  for (let i=0; i<ro.atlas.positions.length; i+=3) xs.add(ro.atlas.positions[i].toFixed(4));
+  assert.deepStrictEqual([...xs].sort(), ['102.0000', '102.1875'], '开门板转到西缘(x 0..3/16)');
+});
+
+test('玻璃板: 孤板=2px 中柱 4 面 · 东西有邻=大面横跨全格 · 邻实心也连接', () => {
+  const m = loadMeshCoreOnce();
+  const opt = paneOpt();
+  /* 孤板 */
+  const p0 = mkPack(1);
+  p0.set(3, 5, 3, m.B_GLASS_PANE);
+  const r0 = m.MeshCore.meshChunk(p0, opt);
+  assert.strictEqual(quads(r0.atlas), 4, '孤板 4 面(±z/±x 各一)');
+  const rng = (ch) => {
+    const lo = [Infinity, Infinity, Infinity]; const hi = [-Infinity, -Infinity, -Infinity];
+    for (let i=0; i<ch.positions.length; i+=3) {
+      for (let a=0; a<3; a++) {
+        lo[a] = Math.min(lo[a], ch.positions[i+a]);
+        hi[a] = Math.max(hi[a], ch.positions[i+a]);
+      }
+    }
+    return {lo, hi};
+  };
+  const g0 = rng(r0.atlas);
+  assert.ok(Math.abs(g0.lo[0] - 102.4375) < 1e-9 && Math.abs(g0.hi[0] - 102.5625) < 1e-9,
+      '孤板 x 跨度 = 2px 中柱(7/16..9/16)');
+  assert.ok(Math.abs(g0.lo[2] - 102.4375) < 1e-9 && Math.abs(g0.hi[2] - 102.5625) < 1e-9,
+      '孤板 z 跨度 = 2px 中柱');
+  /* 东邻玻璃板: 本板大面延伸到格缘(x=103), 邻板中柱东缘 103.5625 */
+  const p1 = mkPack(1);
+  p1.set(3, 5, 3, m.B_GLASS_PANE);
+  p1.set(4, 5, 3, m.B_GLASS_PANE);
+  const g1 = rng(m.MeshCore.meshChunk(p1, opt).atlas);
+  assert.ok(Math.abs(g1.hi[0] - 103.5625) < 1e-9, '东连玻璃板 → 大面延伸到格缘(邻板中柱 103.5625)');
+  assert.strictEqual(quads(m.MeshCore.meshChunk(p1, opt).atlas), 8, '两块板各 4 面');
+  /* 邻实心(石头)同样连接 */
+  const p2 = mkPack(1);
+  p2.set(3, 5, 3, m.B_GLASS_PANE);
+  p2.set(4, 5, 3, 3); // 石头
+  const g2 = rng(m.MeshCore.meshChunk(p2, opt).atlas);
+  assert.ok(Math.abs(g2.hi[0] - 103) < 1e-9, '东邻实心方块也连接(MC 口径)');
+  /* 南北无邻: z 仍是中柱 */
+  assert.ok(Math.abs(g2.lo[2] - 102.4375) < 1e-9, '未连方向保持中柱');
+});
+
+test('剔面规则: 实心方块贴门格的面不剔除(门是薄板, 面被剔会漏出墙洞)', () => {
+  const m = loadMeshCoreOnce();
+  const p = mkPack(1);
+  p.set(1, 5, 1, 3); // 石头
+  const alone = m.MeshCore.meshChunk(p, OPT);
+  assert.strictEqual(quads(alone.solid), 6, '孤立石头 6 面');
+  p.set(2, 5, 1, m.B_DOOR); // 东侧放门(关门态 solid)
+  const withDoor = m.MeshCore.meshChunk(p, {hashRand: HR_HALF, tntTiles: 4,
+    atlas: paneOpt().atlas});
+  assert.strictEqual(quads(withDoor.solid), 6, '邻格是门 → 石头面保留(pane 不算遮挡体)');
+  assert.strictEqual(quads(withDoor.atlas), 6, '门本体照常出图集通道');
 });

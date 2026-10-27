@@ -25,6 +25,7 @@ const api = vm.runInContext(`({
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
+  B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf, SMELT_T,
@@ -1212,4 +1213,85 @@ test('TNT 衰减补充: 中途 24 与波及边缘 12(线性内插)', () => {
   assert.strictEqual(Core.advTntDmg(1.5), 24, '中途线性衰减 24');
   assert.strictEqual(Core.advTntDmg(4.5), Core.ADV_TNT_DMG_LO, '波及边缘 12');
   assert.strictEqual(Core.advTntDmg(9), Core.ADV_TNT_DMG_LO, '越界钳制(调用方已按半径过滤)');
+});
+
+/* ============ 门与玻璃板政策(docs/door-window-design.md §3, 全走注入 seam) ============ */
+
+test('门身份: advIsDoor 认四态 id, 不认玻璃板/普通方块', () => {
+  assert.strictEqual(Core.advIsDoor(api.B_DOOR), true);
+  assert.strictEqual(Core.advIsDoor(api.B_DOOR_OPEN), true);
+  assert.strictEqual(Core.advIsDoor(api.B_DOOR_TOP), true);
+  assert.strictEqual(Core.advIsDoor(api.B_DOOR_TOP_OPEN), true);
+  assert.strictEqual(Core.advIsDoor(api.B_GLASS_PANE), false, '玻璃板不是门(不进开关链)');
+  assert.strictEqual(Core.advIsDoor(api.B_CRAFT), false);
+});
+
+test('advDoorSiteOk: 两格空气+下方实心 → 闭合态对; 空中/占用/玩家在门框 → 拒', () => {
+  const world = {}; /* read 桩: key 'x,y,z' → id */
+  const rd = (x, y, z) => (world[x + ',' + y + ',' + z] || 0);
+  const P = {x: 10.5, y: 25, z: 10.5};
+  world['20,24,20'] = 3; /* 泥土支撑(站点校验要求下方实心, 级联 isSupport 同判据) */
+  const ok = Core.advDoorSiteOk(rd, P, 20, 25, 20);
+  assert.deepStrictEqual(ok, {ok: true, cells: [{x: 20, y: 25, z: 20, id: api.B_DOOR},
+    {x: 20, y: 26, z: 20, id: api.B_DOOR_TOP}]}, '空气+泥土支撑 → 闭合态对(63/64)');
+  world['20,26,20'] = 3; /* 上格被石头占 */
+  assert.deepStrictEqual(Core.advDoorSiteOk(rd, P, 20, 25, 20), {ok: false, reason: 'blocked'}, '上格非空气 → 拒');
+  delete world['20,26,20'];
+  world['20,24,20'] = 0; /* 下方挖空 */
+  assert.deepStrictEqual(Core.advDoorSiteOk(rd, P, 20, 25, 20), {ok: false, reason: 'nosupport'}, '下方非实心 → 拒');
+  world['20,24,20'] = 3; /* 恢复支撑(下一用例要走到玩家占位分支) */
+  world['10,24,10'] = 3; /* 玩家脚下的门位也要有支撑, 才能走到 inside 分支 */
+  assert.deepStrictEqual(Core.advDoorSiteOk(rd, P, 10, 25, 10), {ok: false, reason: 'inside'}, '玩家站门框 → 拒');
+});
+
+test('advDoorTogglePlan: 下/上半命中都定位下半 · 关↔开成对换 id · 玩家站门洞拒关不拒开', () => {
+  const world = {};
+  const rd = (x, y, z) => (world[x + ',' + y + ',' + z] || 0);
+  const P = {x: 10.5, y: 25, z: 10.5}; /* 远处玩家(占位拒关用例另用 Pin) */
+  world['40,25,40'] = api.B_DOOR; world['40,26,40'] = api.B_DOOR_TOP;
+  const plan = Core.advDoorTogglePlan(rd, api.B_DOOR, P, 40, 25, 40);
+  assert.strictEqual(plan.ok, true);
+  assert.strictEqual(plan.open, true, '关门 → 开');
+  assert.deepStrictEqual(plan.writes.map((w) => [w.x, w.y, w.z, w.id]),
+      [[40, 25, 40, api.B_DOOR_OPEN], [40, 26, 40, api.B_DOOR_TOP_OPEN]], '两格成对 65/66');
+  /* 点上半(命中格 y=26)同样定位下半 —— 桩世界翻到开态再点 */
+  world['40,25,40'] = api.B_DOOR_OPEN; world['40,26,40'] = api.B_DOOR_TOP_OPEN;
+  const plan2 = Core.advDoorTogglePlan(rd, api.B_DOOR_TOP_OPEN, P, 40, 26, 40);
+  assert.strictEqual(plan2.open, false, '开门 → 关');
+  assert.deepStrictEqual(plan2.writes.map((w) => w.id), [api.B_DOOR, api.B_DOOR_TOP], '开 → 关(点上半同款)');
+  /* 玩家站门洞: 拒关不拒开 */
+  const Pin = {x: 40.5, y: 25, z: 40.5};
+  world['40,25,40'] = api.B_DOOR_OPEN; world['40,26,40'] = api.B_DOOR_TOP_OPEN;
+  assert.deepStrictEqual(Core.advDoorTogglePlan(rd, api.B_DOOR_OPEN, Pin, 40, 25, 40),
+      {ok: false, reason: 'occupied'}, '关门有人 → 拒');
+  assert.strictEqual(Core.advDoorTogglePlan(rd, api.B_DOOR_OPEN, Pin, 40, 25, 40).reason, 'occupied');
+  world['40,25,40'] = api.B_DOOR; world['40,26,40'] = api.B_DOOR_TOP;
+  assert.strictEqual(Core.advDoorTogglePlan(rd, api.B_DOOR, Pin, 40, 25, 40).ok, true, '开门不查人');
+  /* 半扇残门(上半在下半不在): 无从开关 */
+  world['40,25,40'] = 0;
+  assert.deepStrictEqual(Core.advDoorTogglePlan(rd, api.B_DOOR_TOP, P, 40, 26, 40),
+      {ok: false, reason: 'half'}, '下半缺失 → half');
+});
+
+test('advDoorBreakPlan: 挖下连上/挖上连下/挖门下支撑整扇弹出 · drop 恒 1 · 空格过滤', () => {
+  const world = {};
+  const rd = (x, y, z) => (world[x + ',' + y + ',' + z] || 0);
+  /* 挖掉下半(y 已清 0): 收上半 */
+  world['1,26,1'] = api.B_DOOR_TOP;
+  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 1, 25, 1),
+      {cells: [{x: 1, y: 26, z: 1}], drop: 1}, '挖下半 → 收上半, 掉 1');
+  /* 挖掉上半: 连下半整扇回收 */
+  world['1,26,1'] = 0; world['1,24,1'] = api.B_DOOR;
+  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 1, 25, 1),
+      {cells: [{x: 1, y: 24, z: 1}], drop: 1}, '挖上半 → 连下半, 掉 1');
+  /* 挖门正下方支撑: 整扇弹出(下半+上半) */
+  world['1,24,1'] = 0; world['2,26,2'] = api.B_DOOR_OPEN; world['2,27,2'] = api.B_DOOR_TOP_OPEN;
+  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 2, 25, 2),
+      {cells: [{x: 2, y: 26, z: 2}, {x: 2, y: 27, z: 2}], drop: 1}, '挖支撑 → 整扇弹出(开门态同款)');
+  /* 上半残留缺失时不产出空格(防空 editBlock) */
+  world['2,27,2'] = 0;
+  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 2, 25, 2),
+      {cells: [{x: 2, y: 26, z: 2}], drop: 1}, '上格已空 → 只收现存半扇');
+  /* 普通方块: 无门牵连 */
+  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 9, 25, 9), {cells: [], drop: 0}, '无关方块零牵连');
 });

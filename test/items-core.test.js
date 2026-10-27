@@ -44,6 +44,9 @@ test('注册表全量: 设计稿 §3.1 + §3.5 一期补给包条目全部注册
     'apple', 'bread', 'rotten_flesh',
     // 放置型方块物品与站点件
     'dirt', 'sand', 'cobble', 'stone', 'glass', 'torch', 'craft_table', 'furnace', 'tnt', 'sapling',
+    'chest', 'bed', 'lantern', 'wool', 'nether_portal',
+    // 门与玻璃板(合成家具, docs/door-window-design.md §2.3)
+    'door', 'glass_pane',
     // 二期占位(§3.2 配方书全表引用 bow_item, 一期卡片不点亮)
     'bow_item',
     // 工具 16 条 = 4 阶 × 镐斧剑锹(键名与手持物注册表 defs 同名, T4 直用)
@@ -63,8 +66,8 @@ test('条目形状: 每个物品必备 name/icon, 类别字段(block/food/fuel/t
     assert.strictEqual(typeof it.icon, 'string', id + ' icon');
     assert.ok(it.icon.length > 0, id + ' icon 非空(emoji 占位, 正式图标归 icons.js/T8)');
     if ('block' in it) {
-      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 62,
-          id + ' block 应为 1~62 整数(生态地图 B_FLOWER_W=62 顺延号段), 实际 ' + it.block);
+      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 68,
+          id + ' block 应为 1~68 整数(门/玻璃板 B_GLASS_PANE=68 顺延号段), 实际 ' + it.block);
     }
     if ('food' in it) assert.ok(typeof it.food === 'number' && it.food > 0, id + ' food 应为正数');
     if ('fuel' in it) assert.ok(typeof it.fuel === 'number' && it.fuel > 0, id + ' fuel 应为正数');

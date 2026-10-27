@@ -89,6 +89,7 @@ const api = vm.runInContext(`({
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
   B_PORTAL, B_PORTAL_DIM, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
+  B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,

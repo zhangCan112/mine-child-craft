@@ -43,7 +43,9 @@
      熔岩池, hashRand 种子化) · advPortalFrame(整座门, set 注入) ·
      advInPortal(内口判定, read 注入) · advPortalSiteOk(放置校验,
      read 注入) · advPortalExit(传送出口, 来向退 2.5 格+yaw 反向)
-   依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界
+   依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界(门段政策消费 B_DOOR 系 id; 门段 interface: advIsDoor/
+      advIsDoorLower/advDoorSiteOk/advDoorTogglePlan/advDoorBreakPlan——
+      放置校验/开关计划/配对破坏, docs/door-window-design.md §3)
      尺寸 · daylight-core 的 Daylight(昼夜 D5 夜怪判定与 D6 睡觉夜窗) ·
      voxel.js 的 getBlock/setBlockRaw/hashRand · scene-kit.js 的
      SceneKit · items-core 的 ITEMS/toolOf/stackMax/durOf · inventory-core
@@ -1400,6 +1402,80 @@ function advPortalExit(x, y, z, yaw) {
   return {x: x - Math.sin(yaw) * 2.5, y, z: z - Math.cos(yaw) * 2.5, yaw: yaw + Math.PI};
 }
 
+/* ============================================================
+   门与玻璃板段 (docs/door-window-design.md §3) — 合成家具政策
+   ------------------------------------------------------------
+   门 = 2 格真结构(拍板①), 成对自洽全在此段(引擎零改动): 级联旗标不可用
+   (isSupport=实心判定, 下半开门态非实心会误判失撑, 见设计稿 §2.2), 改走
+   「放置校验 / 开关计划 / 配对破坏」三个纯函数 + 壳在放置/交互/挖方/TNT
+   四个移除点接线。玻璃板无专门政策——常规单格放置路径天然成立。
+   ============================================================ */
+/* 门四态 id 集(下/上半 × 关/开, config B_DOOR~B_DOOR_TOP_OPEN):
+   身份判据只认 id, 不含位置/朝向条件(级联身份原则同款) */
+function advIsDoor(id) {
+  return id === B_DOOR || id === B_DOOR_OPEN || id === B_DOOR_TOP || id === B_DOOR_TOP_OPEN;
+}
+function advIsDoorLower(id) {
+  return id === B_DOOR || id === B_DOOR_OPEN;
+}
+
+/* 玩家(浮点 {x,y,z})是否占据 (x,y,z) 与 (x,y+1,z) 两格之一(按脚/头格判) */
+function advDoorPlayerIn(p, x, y, z) {
+  const px = Math.floor(p.x); const py = Math.floor(p.y); const pz = Math.floor(p.z);
+  return px === x && pz === z && (py === y || py === y + 1 || py + 1 === y || py + 1 === y + 1);
+}
+
+/* 门放置校验(结构放置, advPortalSiteOk 同款缝): 目标格与上格全空气 +
+   下方实心支撑(solid!==false, 级联同判据) + 玩家不入两格。
+   返回 {ok:true, cells:[{x,y,z,id}×2 闭合态对]} | {ok:false, reason} */
+function advDoorSiteOk(read, p, x, y, z) {
+  if (read(x, y, z) !== 0 || read(x, y + 1, z) !== 0) return {ok: false, reason: 'blocked'};
+  const below = BLOCKS[read(x, y - 1, z)];
+  if (!below || below.solid === false) return {ok: false, reason: 'nosupport'};
+  if (advDoorPlayerIn(p, x, y, z)) return {ok: false, reason: 'inside'};
+  return {ok: true, cells: [{x, y, z, id: B_DOOR}, {x, y: y + 1, z, id: B_DOOR_TOP}]};
+}
+
+/* 门开关计划(交互纯段): lookId 命中门任一半 → 定位下半格 → 产出两格的
+   成对换 id 写入(64↔66 / 65↔67, 状态即 id)。关门且玩家站门洞 → 拒
+   (children 话术由壳出; 怪物不查, 附录 B)。开不查人(开门永不受阻)。
+   返回 {ok:true, writes:[{x,y,z,id}×2], open} | {ok:false} */
+function advDoorTogglePlan(read, lookId, p, x, y, z) {
+  if (!advIsDoor(lookId)) return {ok: false};
+  const ly = advIsDoorLower(lookId) ? y : y - 1; /* 命中上半 → 下半在脚下 */
+  const lowId = read(x, ly, z);
+  if (!advIsDoorLower(lowId)) return {ok: false, reason: 'half'}; /* 半扇残门: 无从开关 */
+  const opening = lowId === B_DOOR;
+  if (!opening && advDoorPlayerIn(p, x, ly, z)) return {ok: false, reason: 'occupied'};
+  const topId = read(x, ly + 1, z);
+  return {ok: true, open: opening,
+    writes: [{x, y: ly, z, id: opening ? B_DOOR_OPEN : B_DOOR},
+      {x, y: ly + 1, z, id: opening ? (topId === B_DOOR_TOP ? B_DOOR_TOP_OPEN : topId) : B_DOOR_TOP}]};
+}
+
+/* 门配对破坏计划(MC 口径: 挖任一半=整扇消失、掉 1 扇; 挖门正下方支撑=
+   整扇弹出)。壳在世界已清格后调用(read 反映挖后状态), 对返回 cells 逐格
+   editBlock+记账, drop 走掉落物通道(上半 drop 字段留空防双掉, 表自洽)。
+   返回 {cells:[{x,y,z} 非空格], drop: 0|1} */
+function advDoorBreakPlan(read, x, y, z) {
+  const up = read(x, y + 1, z); const dn = read(x, y - 1, z);
+  /* 挖掉门下方块: 下方整扇弹出 */
+  if (advIsDoorLower(up)) {
+    const cells = [{x, y: y + 1, z}];
+    if (read(x, y + 2, z) !== 0) cells.push({x, y: y + 2, z});
+    return {cells, drop: 1};
+  }
+  /* 挖掉的是下半: 收上半 */
+  if (up === B_DOOR_TOP || up === B_DOOR_TOP_OPEN) {
+    return {cells: [{x, y: y + 1, z}], drop: 1};
+  }
+  /* 挖掉的是上半: 连下半整扇回收 */
+  if (advIsDoorLower(dn)) {
+    return {cells: [{x, y: y - 1, z}], drop: 1};
+  }
+  return {cells: [], drop: 0};
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, ADV_RING, ADV_HUT_C, ADV_FLATS, advRingAmp, advHeightAt,
@@ -1433,5 +1509,6 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_TNT_TAP_T, advTntTapStep, advCascadeLedger, advGrowMark,
     advExplodeCells, advTntWave, ADV_HERD_AMBLE_WALK_P, advAmbleStep,
     ADV_PORTAL, ADV_NETHER, advNetherBuild, advPortalFrame,
-    advInPortal, advPortalSiteOk, advPortalExit};
+    advInPortal, advPortalSiteOk, advPortalExit,
+    advIsDoor, advIsDoorLower, advDoorSiteOk, advDoorTogglePlan, advDoorBreakPlan};
 }

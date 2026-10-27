@@ -2,7 +2,7 @@
 /* ============================================================
    合成核心 (CraftCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
-   合成系统的唯一数据源: RECIPES 全表(随身 10 + 工作台级 25, 九宫格
+   合成系统的唯一数据源: RECIPES 全表(随身 10 + 工作台级 27, 九宫格
    改造 crafting-grid 设计稿 §3; 站点 'hand'=2×2 随身摆放格随时可摆 /
    'table'=3×3 摆放台需走近工作台 4 格, 拍板①④) · SMELTS 烧炼
    映射 · FUEL 燃料择优序(从 ITEMS fuel 字段按热值降序派生)。
@@ -34,8 +34,9 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 35 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
-      雪球 T9, 图案全部逐条查证自 minecraft.wiki, 见 docs/mc-crafting-grid-research.md §3)
+   RECIPES 配方表 — 37 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
+      雪球 T9 + 门/玻璃板 2 条, 图案全部逐条查证自 minecraft.wiki,
+      见 docs/mc-crafting-grid-research.md §3 与 docs/door-window-research.md)
    条目形状: id 配方卡键 · out {item, n} 产物 · station 'hand'|'table'
    · shape 图案(crafting-grid §3):
        {rows: [[格子规约|null, ...], ...]}  有序(行列=图案最小包围盒,
@@ -135,6 +136,12 @@ const RECIPES = [
   // 面包: 3 小麦一横排(当前版本仍是有序, Wiki 平移例); 原料二期(农田链), 一期不点亮
   {id: 'bread', out: {item: 'bread', n: 1}, station: 'table',
     shape: {rows: [['wheat', 'wheat', 'wheat']]}},
+  // 门(MC 正典 oak_door.json, docs/door-window-design.md §2.4): 6 木板 2 列×3 行 → 3 扇; 需 3 行 → 台级
+  {id: 'door', out: {item: 'door', n: 3}, station: 'table',
+    shape: {rows: [['planks', 'planks'], ['planks', 'planks'], ['planks', 'planks']]}},
+  // 玻璃板(MC 正典 glass_pane.json): 6 玻璃 3 列×2 行 → 16 块; 需 3 列 → 台级; 烧沙→玻璃链现成(SMELTS)
+  {id: 'glass_pane', out: {item: 'glass_pane', n: 16}, station: 'table',
+    shape: {rows: [['glass', 'glass', 'glass'], ['glass', 'glass', 'glass']]}},
   // 下界传送门(下界并入探险 D3): 8 金锭环形+中心钻石, 全表最贵合成压轴; 放下长出整座门(结构放置, 探险壳拦截)
   {id: 'nether_portal', out: {item: 'nether_portal', n: 1}, station: 'table',
     shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', 'diamond', 'gold_ingot'], ['gold_ingot', 'gold_ingot', 'gold_ingot']]}},

@@ -96,11 +96,11 @@ test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派�
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 随身 10 + 工作台级 25 共 35 条, id 唯一(crafting-grid §3 + 下界并入探险 D3 + 雪球 T9)', () => {
+test('配方全量: 随身 10 + 工作台级 27 共 37 条, id 唯一(crafting-grid §3 + 下界并入探险 D3 + 雪球 T9 + 门/玻璃板)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 35, '全表 35 条(随身 10 + 工具 16 + 站点件 8 + 传送门 1), 实际 ' + RECIPES.length);
+  assert.strictEqual(RECIPES.length, 37, '全表 37 条(随身 10 + 工具 16 + 站点件 8 + 门/玻璃板 2 + 传送门 1), 实际 ' + RECIPES.length);
   // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9)
   for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
     'bone_meal', 'iron_nuggets', 'snow']) {
@@ -108,12 +108,13 @@ test('配方全量: 随身 10 + 工作台级 25 共 35 条, id 唯一(crafting-g
     assert.ok(r, '随身配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
   }
-  // 工作台级: 工具 16 + furnace/chest/bed/lantern/golden_apple/tnt/bow_item/bread
+  // 工作台级: 工具 16 + furnace/chest/bed/lantern/golden_apple/tnt/bow_item/bread + door/glass_pane
   const tableIds = ['pick_wood', 'pick_stone', 'pick_iron', 'pick_diamond',
     'axe_wood', 'axe_stone', 'axe_iron', 'axe_diamond',
     'sword_wood', 'sword_stone', 'sword_iron', 'sword_diamond',
     'shovel_wood', 'shovel_stone', 'shovel_iron', 'shovel_diamond',
-    'furnace', 'chest', 'bed', 'lantern', 'golden_apple', 'tnt', 'bow_item', 'bread'];
+    'furnace', 'chest', 'bed', 'lantern', 'golden_apple', 'tnt', 'bow_item', 'bread',
+    'door', 'glass_pane'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');
@@ -747,6 +748,40 @@ test('下界传送门配方: RECIPES 最末压轴 — station table · shapeCost
   const c = {};
   for (const [k, v] of Object.entries(shapeCost(r))) c[k] = v;
   assert.deepStrictEqual(c, {gold_ingot: 8, diamond: 1}, '全表最贵: 8 金锭环形 + 中心 1 钻石');
+});
+
+/* ============ 门与玻璃板(docs/door-window-design.md §2.4): 正典配方 ============ */
+
+test('门配方: 6 木板 2 列×3 行 → 3 扇(MC 正典 oak_door.json) — 平移可摆 · 横摆不命中', () => {
+  const {RECIPES, matchGrid, shapeCost} = loadCraft();
+  const r = RECIPES.find((x) => x.id === 'door');
+  assert.ok(r, '门配方应存在');
+  assert.strictEqual(r.station, 'table', '需 3 行 → 台级');
+  assert.deepStrictEqual({...r.out}, {item: 'door', n: 3}, '一次 3 扇');
+  const c = {};
+  for (const [k, v] of Object.entries(shapeCost(r))) c[k] = v;
+  assert.deepStrictEqual(c, {planks: 6}, '6 木板(shapeCost 从图案派生)');
+  assert.strictEqual(matchGrid(cellsWith([[0, 'planks'], [3, 'planks'], [6, 'planks'],
+    [1, 'planks'], [4, 'planks'], [7, 'planks']]), r), true, '左两竖列命中');
+  assert.strictEqual(matchGrid(cellsWith([[1, 'planks'], [4, 'planks'], [7, 'planks'],
+    [2, 'planks'], [5, 'planks'], [8, 'planks']]), r), true, '右两竖列命中(平移)');
+  assert.strictEqual(matchGrid(cellsWith([[0, 'planks'], [1, 'planks'], [2, 'planks'],
+    [3, 'planks'], [4, 'planks'], [5, 'planks']]), r), false, '横两行不命中(转置≠镜像)');
+});
+
+test('玻璃板配方: 6 玻璃 3 列×2 行 → 16 块(MC 正典 glass_pane.json) — 上下平移皆可', () => {
+  const {RECIPES, matchGrid, shapeCost} = loadCraft();
+  const r = RECIPES.find((x) => x.id === 'glass_pane');
+  assert.ok(r, '玻璃板配方应存在');
+  assert.strictEqual(r.station, 'table', '需 3 列 → 台级');
+  assert.deepStrictEqual({...r.out}, {item: 'glass_pane', n: 16}, '一次 16 块(窗比墙省料的教学点)');
+  const c = {};
+  for (const [k, v] of Object.entries(shapeCost(r))) c[k] = v;
+  assert.deepStrictEqual(c, {glass: 6}, '6 玻璃(烧沙→玻璃链, SMELTS 现成)');
+  assert.strictEqual(matchGrid(cellsWith([[0, 'glass'], [1, 'glass'], [2, 'glass'],
+    [3, 'glass'], [4, 'glass'], [5, 'glass']]), r), true, '上两横行命中');
+  assert.strictEqual(matchGrid(cellsWith([[3, 'glass'], [4, 'glass'], [5, 'glass'],
+    [6, 'glass'], [7, 'glass'], [8, 'glass']]), r), true, '下两横行命中(平移)');
 });
 
 test('breakTime: 无 hard = 声明式不可破坏 — time Infinity · drops false(D5, 替代旧 NaN 意外)', () => {

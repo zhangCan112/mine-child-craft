@@ -320,6 +320,30 @@ BLOCKS[B_FLOWER_Y] = {name: '蒲公英', all: [0.91, 0.79, 0.19], thin: 0.65, so
 BLOCKS[B_FLOWER_W] = {name: '雏菊', all: [0.93, 0.93, 0.91], thin: 0.65, solid: false,
   hard: 0, tool: null, tier: 0, drop: [['flower_w', 1, 0]]};
 
+/* ---------- 门与玻璃板 (id 64~68, docs/door-window-design.md §2) ----------
+   合成家具两件(配方与样子照 MC 正典, 调研 docs/door-window-research.md)。
+   号段顺延: 63 已被熄门 B_PORTAL_DIM 先占(熄门观感票), 本段整体 +1。
+   门 = 4 id 表达「上/下半 × 关/开」(麦四阶段同款「状态即 id」口径): 开关 =
+   成对换 id(64↔66 / 65↔67); 关门实心挡人挡光挡怪, 开门 solid:false 可穿行
+   即透光(LightCore: opaque=实心且非玻璃)。玻璃板 glass:true 走透光(窗户采光),
+   solid 缺省 = 整格挡人(格粒度口径, 附录 B)。
+   pane 旗标 = 竖直薄板渲染身份(mesh-core pushPane 路由, B_PORTAL 的 portal
+   旗标先例); 一律**不挂级联旗标**——级联 isSupport=实心判定, 门上半的支撑
+   (下半)开门态非实心会误判失撑, thin 又同时驱动贴地板/十字片渲染; 门成对
+   自洽走探险模式政策(设计稿 §3), 玻璃板无旗标=失撑浮空, 恰与 MC 一致。 */
+const B_DOOR=64; const B_DOOR_TOP=65; const B_DOOR_OPEN=66; const B_DOOR_TOP_OPEN=67;
+const B_GLASS_PANE=68;
+BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true,
+  hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // MC 硬度 3 斧头加速; 关=实心挡人挡光
+BLOCKS[B_DOOR_TOP] = {name: '门(上)', all: [0.66, 0.52, 0.33], pane: true,
+  hard: 3.0, tool: 'axe', tier: 0}; // 无 drop: 挖任一半整扇回收 1 扇(配对政策), 防双掉
+BLOCKS[B_DOOR_OPEN] = {name: '门(开)', all: [0.66, 0.52, 0.33], pane: true, solid: false,
+  hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // 开=可穿行, 非 solid 即透光(开门放光进屋)
+BLOCKS[B_DOOR_TOP_OPEN] = {name: '门(上·开)', all: [0.66, 0.52, 0.33], pane: true, solid: false,
+  hard: 3.0, tool: 'axe', tier: 0};
+BLOCKS[B_GLASS_PANE] = {name: '玻璃板', all: [0.75, 0.90, 0.95], pane: true, glass: true,
+  hard: 0.3, tool: null, tier: 0, drop: [['glass_pane', 1, 0]]}; // MC 无精准采集不掉 → 零惩罚掉自身(玻璃同款)
+
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段
    (Object.assign 赋值式, 原 soft 旗标先例已随死旗标清偿删除)。hard = MC 硬度原值(徒手石头 7.5s 口径的来源) ·
