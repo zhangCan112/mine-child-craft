@@ -1358,6 +1358,41 @@ test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + �
   assert.strictEqual(A.advGetInv().slots[0].n, 1, '满血不吃不扣');
 });
 
+test('T9 雪球投掷链: 手持右键掷出 — 消耗 1 颗+掷出音+挥臂; 命中怪零伤害+击退+白絮+命中音', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('snowball', 3);
+  globalThis.pos.x = 40; globalThis.pos.y = 25; globalThis.pos.z = 50;
+  const zombie = mkAdvMob('zombie', 40, 25, 47.4, {attackCd: 99}); /* 北侧 2.6 格 */
+  listResult = [zombie];
+  /* 准星 fake: 玩家眼高沿 -Z 平射(aimDownAt 同款, 用完 clearAim 收口) */
+  globalThis.camera = {};
+  globalThis.CameraRig = {aim: () => ({origin: {x: 40, y: 26.4, z: 50}, dir: {x: 0, y: 0, z: -1}})};
+  hitLog.length = 0;
+  AdventureMode.onMouse(2, {x: 40, y: 24, z: 46, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetInv().slots[0].n, 2, '掷出消耗 1 颗');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'snow_throw'), '掷出「噗」音');
+  assert.ok(calls.some((c) => c[0] === 'swing'), '出手带挥臂观感');
+  assert.ok(!calls.some((c) => c[0] === 'sfx' && c[1] === 'shoot'), '不吃箭矢发射音(muteSfx 口径)');
+  /* 冷却内连点不重复消耗(swingAction 与剑同轨占冷却) */
+  AdventureMode.onMouse(2, {x: 40, y: 24, z: 46, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetInv().slots[0].n, 2, '冷却内连点不扣');
+  /* 弹道步进至命中: 零伤害红线 + 击退政策 + 白絮观感 + 命中音 */
+  for (let i = 0; i < 60 && !hitLog.length; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(hitLog.length, 1, '雪球飞到怪(hurt 前 Mobs.hit 先结算)');
+  assert.strictEqual(hitLog[0].dmg, 0, '零伤害红线: 雪球永不扣血');
+  assert.strictEqual(hitLog[0].kpow, 1.1, '击退政策(打雪仗主反馈)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'snow_hit'), '命中「噗嗤」音');
+  assert.ok(calls.some((c) => c[0] === 'debris'), '命中白絮小粒子(Fx.debrisBurst 现成件)');
+  assert.ok(!calls.some((c) => c[0] === 'sfx' && c[1] === 'hit'), '不吃近战/箭命中音(muteSfx 口径)');
+  clearAim();
+  /* 手持非雪球: 右键链照旧走放置(投掷不拦截) */
+  holdOnly('dirt', 2);
+  AdventureMode.onMouse(2, {x: 40, y: 24, z: 46, nx: 0, ny: 1, nz: 0});
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'snow_throw') === true, '前置音仍在账上(不误清)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '泥土走放置链扣 1(投掷没拦截放置)');
+});
+
 test('F3 金苹果行为链: 半血点击吃 — 回满血 + 扣 1 个, 满血不吃不扣(full 旗标经 advEatPolicy)', () => {
   mem.clear();
   freshInit();

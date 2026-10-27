@@ -460,6 +460,15 @@ const advArrows = CombatKit.mkArrows({color: 0xd8d0b8, player: advGetPEnt,
     if (res.freshDead) advPlayerDied();
     else advHurt.hit(res);
   }});
+/* 雪球管线(T9 第二实例, 一实例一弹种): sphere 白球·不 lookAt·零伤害+
+   击退政策在逐发 spec; muteSfx 抑制内置 shoot/hit 音(音效归本层字面量,
+   sfx 守门口径), 命中观感白絮 = Fx.debrisBurst 现成件(debrisBurst 白色) */
+const advSnowballs = CombatKit.mkArrows({mesh: 'sphere', color: 0xffffff, lookAt: false,
+  muteSfx: true,
+  onHitMob: (m) => {
+    sfx('snow_hit'); /* 命中「噗嗤」(零伤害的主反馈音) */
+    Fx.debrisBurst(m.pos.x, m.pos.y + 1, m.pos.z, 5, {color: 0xffffff, life: 0.5});
+  }});
 
 /* 环境伤害(liquid D9): 溺水/岩浆计息事件到点 → 扣血走受击观感(音/闪红/
    节流话术与战斗伤害同源, r.line 换来源话术), 致死走既有死亡计划 */
@@ -1123,6 +1132,7 @@ function advSceneLeave() {/* 离开当前场景的共通清单: 世界无关观�
   Mobs.clear(); /* 怪/掉落/箭不跨场: 门只渡人(下界无怪, 回主世界重播) */
   Drops.clear();
   advArrows.clear();
+  advSnowballs.clear(); /* 雪球同收(T9: 双实例清场纪律) */
   advHookEntityCbs(); /* clear 解除回调: 重挂(击杀掉落/收集并线, init 同一份) */
 }
 function advMapSpawn(spot) {/* 主世界缺省出生: 显式点 > home 出生账本 > 远征图回程门
@@ -1579,6 +1589,23 @@ function advTryEat() {
   SpeechKit.speak('咔嚓咔嚓真好吃！');
   showToast('😋 吃掉 ' + it.name + '，生命 +' + pol.healed);
   return true;
+}
+
+/* 投掷雪球(T9): 手持雪球右键/触屏轻点 — swingAction 占冷却与剑同一条轨道
+   (换手不躲冷却, 下界弓口径), 弹沿准星出膛(低初速高重力), 消耗手持 1 颗;
+   零伤害红线: dmg 0 只击退(kpow 1.1), 命中观感/音效归 advSnowballs.onHitMob */
+function advTryThrowSnowball() {
+  const slot = advHb.sel;
+  const s = advInv.slots[slot];
+  if (!s || s.id !== 'snowball') return false;
+  const threw = advMelee.swingAction(advGetPEnt(), {cooldown: ADV_SNOWBALL_CD, act: () => {
+    advSnowballs.shootFromAim({speed: ADV_SNOWBALL_SPEED, dmg: 0, kpow: ADV_SNOWBALL_KPOW,
+      g: ADV_SNOWBALL_G, life: ADV_SNOWBALL_LIFE});
+    remove(advInv, slot, 1);
+    advSyncHotbar();
+  }});
+  if (threw) sfx('snow_throw'); /* 掷出「噗」(冷却内连点不播) */
+  return true; /* 手持雪球: 点击恒算投掷 attempt, 不落放置 */
 }
 
 /* 掉落物收集回调(Drops.onCollect, init 挂/cleanup 随 Drops.clear 解除):
@@ -2153,6 +2180,7 @@ const AdventureMode = mkMode({
     Mobs.clear();
     Drops.clear(); /* 重进清残留掉落物(挖掘/击杀两链共用; 并解除旧收集回调) */
     advArrows.clear(); /* 上一场的箭不渗进来 */
+    advSnowballs.clear(); /* 上一场的雪球不渗进来(T9) */
     ADV.killCount = 0;
     advMelee.reset(); advHurt.reset(); /* 冷却/受击节流不复场 */
     advPickBuf.clear(); advPickT = 0;
@@ -2208,6 +2236,7 @@ const AdventureMode = mkMode({
     Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
     Drops.clear(); /* 清掉落物+解除收集回调 */
     advArrows.clear(); /* 箭矢网格一并摘除 */
+    advSnowballs.clear(); /* 雪球网格一并摘除(T9) */
     advFlamesClear(); /* F2: 炉口火焰 Sprite 一并摘除(炉态随档保留, 观感重建) */
     ADV.panelOpen = false;
     ADV.chestOpen = false;
@@ -2278,6 +2307,7 @@ const AdventureMode = mkMode({
     Mobs.update(dt);
     Mobs.render();
     advArrows.update(dt); /* 骷髅箭矢弹道 */
+    advSnowballs.update(dt); /* 雪球弹道(T9 双实例并喂) */
     Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 真空拾取(挖掘/击杀两链共用, 玩家胸口点) */
     Drops.render();
     advPickupTick(dt); /* 收集播报合并窗 */
@@ -2306,12 +2336,13 @@ const AdventureMode = mkMode({
       if (hit) advMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update) */
     } else if (button === 2) {
       /* 轻点/右键 = 使用优先(MC 正典: 交互先于放置): 熔炉/箱子走近开面板 →
-         手持食物吃 → 放置。TNT 点燃不走轻点(用户拍板 2026-10-24 防误触):
+         手持食物吃 → 手持雪球掷出(T9) → 放置。TNT 点燃不走轻点(用户拍板 2026-10-24 防误触):
          ⛏️ 键短按点燃/按住挖走(onMouse(0) 的 advTntTap 二分) */
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
       if (advUseStation(hit, lookId)) return;
       if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6 §7.2, 使用先于吃/放) */
       if (advTryEat()) return;
+      if (advTryThrowSnowball()) return; /* 手持雪球: 掷出(T9, 使用档在吃与放置之间) */
       advTryPlace(hit);
     }
   },
