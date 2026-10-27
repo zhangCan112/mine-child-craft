@@ -2,7 +2,7 @@
 /* ============================================================
    合成核心 (CraftCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
-   合成系统的唯一数据源: RECIPES 全表(随身 9 + 工作台级 25, 九宫格
+   合成系统的唯一数据源: RECIPES 全表(随身 10 + 工作台级 25, 九宫格
    改造 crafting-grid 设计稿 §3; 站点 'hand'=2×2 随身摆放格随时可摆 /
    'table'=3×3 摆放台需走近工作台 4 格, 拍板①④) · SMELTS 烧炼
    映射 · FUEL 燃料择优序(从 ITEMS fuel 字段按热值降序派生)。
@@ -34,8 +34,8 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 34 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条,
-   图案全部逐条查证自 minecraft.wiki, 见 docs/mc-crafting-grid-research.md §3)
+   RECIPES 配方表 — 35 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
+      雪球 T9, 图案全部逐条查证自 minecraft.wiki, 见 docs/mc-crafting-grid-research.md §3)
    条目形状: id 配方卡键 · out {item, n} 产物 · station 'hand'|'table'
    · shape 图案(crafting-grid §3):
        {rows: [[格子规约|null, ...], ...]}  有序(行列=图案最小包围盒,
@@ -71,6 +71,10 @@ const RECIPES = [
   // 铁粒: 1 铁锭 → 9(MC 正典单格配方, 拍板⑤; 灯笼材料的来路闭环)
   {id: 'iron_nuggets', out: {item: 'iron_nugget', n: 9}, station: 'hand',
     shape: {rows: [['iron_ingot']]}},
+  // 雪块: 4 雪球 2×2 → 1(雪仗弹药↔建材互兑; 挖雪块掉 4 球的合成反向, T9;
+  // MC 正典 shapeless 同档, 存储用满格 rows 跟 craft_table/stone_bricks 同款)
+  {id: 'snow', out: {item: 'snow', n: 1}, station: 'hand',
+    shape: {rows: [['snowball', 'snowball'], ['snowball', 'snowball']]}},
 
   /* —— 工具 16 条: 4 阶 × 镐斧剑锹 = 4 个形状模板 × 4 材质阶
      (材质: 木=planks · 石=cobble · 铁=iron_ingot · 钻=diamond;
