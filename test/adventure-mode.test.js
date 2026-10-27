@@ -87,6 +87,7 @@ const api = vm.runInContext(`({
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
+  B_PORTAL, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
@@ -1794,17 +1795,20 @@ test('T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落�
 
 /* ============ 引导链 v2: 15 步主线 + 终章 + 大宝箱 ============ */
 
-test('QUESTS 数据表: 15 步主线 + 终章 — 步序照引导链 v2, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
+test('QUESTS 数据表: 15 步主线 + 终章 + 远征章 10 — 步序照引导链 v2/远征链, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
   const qs = ADV_QUESTS; /* 任务表常量经 core 全局直取 */
-  assert.strictEqual(qs.length, 16, '15 步主线 + 终章');
+  assert.strictEqual(qs.length, 26, '15 步主线 + 终章 + 远征章 10(引导 1 + 每图 3)');
   assert.deepStrictEqual(qs.map((q) => q.id),
       ['q1_log', 'q2_planks', 'q3_table', 'q4_chest', 'q5_sapling', 'q6_pick_wood',
         'q7_cobble', 'q8_pick_stone', 'q9_coal', 'q10_torch', 'q11_iron', 'q12_smelt',
-        'q13_pick_iron', 'q14_fight', 'q15_diamond', 'finale'],
-      '步序 = 引导链 v2(砍树→木板→工作台→箱子→树苗→木镐→圆石→石镐→煤→火把→铁矿→熔炉铁锭→铁镐→战斗→钻石→钻石剑, docs/story-quest-research.md)');
+        'q13_pick_iron', 'q14_fight', 'q15_diamond', 'finale',
+        'q16_plaza', 'q17_desert', 'q18_cactus', 'q19_temple',
+        'q20_snow', 'q21_snowball', 'q22_igloo', 'q23_swamp', 'q24_bogged', 'q25_witch_chest'],
+      '步序 = 引导链 v2(砍树→…→钻石剑, docs/story-quest-research.md) + 远征章(T8: 广场→沙漠三连→雪原三连→沼泽三连)');
   assert.strictEqual(qs[15].finale, true, '第 16 条是终章(主线 15 条不带 finale 标记)');
   assert.ok(qs.slice(0, 15).every((q) => !q.finale), '主线步骤无 finale 标记');
-  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 16, 'id 唯一');
+  assert.ok(qs.slice(16).every((q) => !q.finale), '远征章不冒用终章标记(称号仪式感专属)');
+  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 26, 'id 唯一');
 });
 
 test('T15 谓词逐条: 最小满足触发 / 空账本或差一不触发 / 复合步条件缺一不可', () => {
@@ -1955,7 +1959,7 @@ test('T15 老档归一化: {step:N} 无 counts → 补空表当前步从零继�
   mem.set('adventure_quest_save', JSON.stringify({_v: 1, step: 99, counts: 3}));
   freshInit();
   assert.deepStrictEqual(A.ADV.quest.counts, {}, '损坏 counts 归一空表');
-  assert.strictEqual(A.ADV.quest.step, 16, '越界 step 钳到表外上界(终章完成位)');
+  assert.strictEqual(A.ADV.quest.step, ADV_QUESTS.length, '越界 step 钳到表外上界(远征章末位后=全完成)');
 });
 
 test('T15 钻石首获仪式: 首次挖到钻石矿触发一次(专属 TTS+音效+冲击波碎块), 第二颗起不再', () => {
@@ -2050,8 +2054,8 @@ test('T15 任务卡 UI: 打开背包即见 — 当前步目标+进度, 完成步
   assert.ok(/<s>[^]*木板[^]*<\/s>/.test(html()), '已完成步划线(<s> 历史区, 木板在第 2 步)');
   assert.ok(html().indexOf('工作台') >= 0, '当前步换成工作台');
   assert.ok(html().indexOf('0 / 2') >= 0, '复合步进度 0 / 2(合成+放置)');
-  /* 终章完成态: 称号置顶 + 自由玩提示 */
-  A.ADV.quest.step = 16;
+  /* 全线完成态(主线+远征章): 称号置顶 + 自由玩提示(step 走到表外才是真·全完成) */
+  A.ADV.quest.step = ADV_QUESTS.length;
   A.ADV.quest.title = '小小探险家';
   A.advQuestPaint();
   assert.ok(html().indexOf('小小探险家') >= 0, '称号置顶显示');

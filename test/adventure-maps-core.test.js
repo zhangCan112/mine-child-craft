@@ -156,6 +156,16 @@ test('注册表: 门位网 — home 三扇门阵互不重叠且各指一张远�
     assert.strictEqual(r.gates.length, 1, r.id + ' 单门回 home');
     assert.strictEqual(r.gates[0].to, 'home', r.id + ' 回程门指向 home');
   }
+  /* 门位副本一致性(T8): adventure-core 的 ADV_GATE_PLAZA.gates 是建场植被避让用的
+     副本(绑定权威在此表)——两份漂移会让草丛/树长在门体上, 逐门钉死同值 */
+  const Core = require('../js/adventure-core.js');
+  assert.strictEqual(Core.ADV_GATE_PLAZA.gates.length, home.gates.length, '副本门数一致');
+  for (let i = 0; i < home.gates.length; i++) {
+    assert.strictEqual(Core.ADV_GATE_PLAZA.gates[i].px, home.gates[i].px,
+        '副本门位 x 同值: ' + home.gates[i].to + '(漂移=植被长在门体上)');
+    assert.strictEqual(Core.ADV_GATE_PLAZA.gates[i].pz, home.gates[i].pz,
+        '副本门位 z 同值: ' + home.gates[i].to);
+  }
 });
 
 /* ============ 政策纯函数段(逐条钉口径, 纯数据进出零世界读) ============ */

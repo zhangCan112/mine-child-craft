@@ -89,10 +89,20 @@ const ADV_TREES = 40; /* 树林目标棵数(候选按散列值排序取前 N, �
 const ADV_GATE_PLAZA = {
   x1: 70, x2: 84, z1: 74, z2: 88,
   gates: [
-    {px: 77, pz: 74}, /* 门一·北缘居中(首解锁·沙漠之门) */
-    {px: 79, pz: 81}, /* 门二·东缘中段(雪原之门) */
-    {px: 70, pz: 88}, /* 门三·南缘西段(沼泽之门) */
+    {px: 72, pz: 76}, /* 门一·北缘(沙漠之门) — 与 ADV_MAPS home 行 gates 同值对齐
+      (绑定权威在 maps-core, 此处是建场避让用的副本, 一致性由
+      adventure-maps-core.test.js 断言守门; T5 旧位随 T7 门阵装配作废) */
+    {px: 80, pz: 76}, /* 门二·东缘(雪原之门, 塔楼 x86 外溢广场) */
+    {px: 72, pz: 88}, /* 门三·南缘西段(沼泽之门, 步道 z89 外溢广场) */
   ],
+};
+/* 广场外扩门体足迹(塔楼 px-1/px+6 与步道 pz±1 的并集外接矩形): 植被避让用——
+   T7 门体建场后步道会覆盖草皮, 草丛/树落在足迹上会「长在砖上」或被门框顶掉 */
+const ADV_GATE_PLAZA_PAD = {
+  x1: ADV_GATE_PLAZA.gates.reduce((m, g) => Math.min(m, g.px - 1), 999),
+  x2: ADV_GATE_PLAZA.gates.reduce((m, g) => Math.max(m, g.px + 6), 0),
+  z1: ADV_GATE_PLAZA.gates.reduce((m, g) => Math.min(m, g.pz - 1), 999),
+  z2: ADV_GATE_PLAZA.gates.reduce((m, g) => Math.max(m, g.pz + 1), 0),
 };
 /* 初始农田(§2.4 核心圈·屋南): 4×3 耕地+熟麦(点亮种子→小麦→面包教学第一环), 西缘 x1-1 列水路(从简) */
 const ADV_FARM = {x1: 59, x2: 62, z1: 86, z2: 88};
@@ -309,7 +319,7 @@ function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含�
   const c = ADV_CAVE;
   /* 隧道向南: 洞口小丘在北(zStart-5), 穴室在南(zEnd+4) */
   if (x >= c.x1 - 3 && x <= c.x2 + 3 && z >= c.zStart - 5 && z <= c.zEnd + 4) return true;
-  if (advInRect(x, z, ADV_GATE_PLAZA) || advInRect(x, z, ADV_FARM) || advInRect(x, z, ADV_PEN)) return true;
+  if (advInRect(x, z, ADV_GATE_PLAZA_PAD) || advInRect(x, z, ADV_FARM) || advInRect(x, z, ADV_PEN)) return true;
   for (const r of ADV_PATH) {
     if (advInRect(x, z, r)) return true;
   }
@@ -348,6 +358,7 @@ function advScatterTufts() {/* 草丛散布(T11 缺口, D7 草丛链): 确定性
         if (Math.hypot(x - n.x, z - n.z) < 3) nearNest = true;
       }
       if (nearNest) continue;
+      if (advInRect(x, z, ADV_GATE_PLAZA_PAD)) continue; /* 避门体足迹(T7): 步道覆盖草皮, 草会长在砖上 */
       const top = ADV_GROUND + advHeightAt(x, z); /* 表面随圈层丘体(T5): 草丛跟草皮走 */
       if (getBlock(x, top, z) !== 1) continue; /* 脚下是草地(沙岸/湖/矿坑/铺装天然排除) */
       if (getBlock(x, top + 1, z) !== 0) continue; /* 顶上无物(树干/小屋墙不占) */
@@ -413,6 +424,7 @@ function advScatterFlowers() {/* 花丛草场(T5, §2.4 核心圈): 蒲公英黄
       if (SceneKit.rand(x, z, 9201) < 0.98) continue;
       if (Math.hypot(x - ADV_HUT_C.x, z - ADV_HUT_C.z) > ADV_RING.CORE) continue;
       if (advInRect(x, z, ADV_PEN)) continue;
+      if (advInRect(x, z, ADV_GATE_PLAZA_PAD)) continue; /* 避门体足迹(T7): 同草丛口径 */
       const top = ADV_GROUND + advHeightAt(x, z);
       if (getBlock(x, top, z) !== 1) continue;
       if (getBlock(x, top + 1, z) !== 0) continue;
@@ -1383,7 +1395,7 @@ function advPortalExit(x, y, z, yaw) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, ADV_RING, ADV_HUT_C, ADV_FLATS, advRingAmp, advHeightAt,
-    ADV_GATE_PLAZA, ADV_FARM, ADV_PEN, ADV_PATH, advInRect,
+    ADV_GATE_PLAZA, ADV_GATE_PLAZA_PAD, ADV_FARM, ADV_PEN, ADV_PATH, advInRect,
     advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
     advBuildPit, advTryOre, advBuildCave, advBuildHut, advBuildNest, advTreeBlocked,
     advBuildPlaza, advBuildFarm, advBuildPen, advBuildPath, advScatterFlowers,
