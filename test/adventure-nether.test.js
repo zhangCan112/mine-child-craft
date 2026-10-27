@@ -5,7 +5,9 @@
    不塞 adventure-mode.test.js): fixture 加载序与 test/adventure-core.test.js
    头部一致(同一 vm 惯例装真引擎件直测)。门框等价性对着退役前权威源码
    逐格逐序断言(序 = edits 重放序); 建场确定性对着真 hashRand 断言
-   (确定性重放红线)。壳层装配断言(轴 C)随后追加在本文件。 */
+   (确定性重放红线)。壳层装配断言(轴 C)随后追加在本文件; 冒险地图 T6
+   (分桶存档+壳切图装配, 泛化自两界机制)同构追加在文件尾——共享同一
+   模式 fixture, 桶键随分桶泛化由 overworld 更名 home(语义不变)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -24,6 +26,7 @@ const api = vm.runInContext(`({
   WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED,
+  B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_NETHER_BRICK,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
@@ -291,6 +294,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
     B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_TNT,
     B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_NETHER_BRICK,
+    B_SNOWY_GRASS, B_SNOW, B_ICE, B_CACTUS, B_SANDSTONE, B_ORCHID, B_DEAD_BUSH,
     ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
     mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
     raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
@@ -405,6 +409,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
   globalThis.dayTime = 0;
   globalThis.dayCycleOn = false;
   globalThis.applyDaylight = () => callsC.push(['applyDaylight']);
+  globalThis.setSkyBase = (c) => callsC.push(['skyBase', c ? [c[0], c[1], c[2]] : null]); /* T6 天基色缝(world.js) */
   globalThis.setPlayerGlow = (on) => callsC.push(['glow', on]);
   globalThis.setFluidEditSink = () => {};
   globalThis.playerAirS = 15;
@@ -492,8 +497,10 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     globalThis.pos.x = x; globalThis.pos.y = y; globalThis.pos.z = z;
     globalThis.yaw = (o && o.yaw) || 0;
   };
-  /* 探险核心(复用 B 段的 require 实例) + 烧炼三件 + 三个壳级 kit 铺全局 */
+  /* 探险核心(复用 B 段的 require 实例) + 冒险地图核心(T6 切图消费 ADV_MAPS, index.html
+     加载序同构: adventure-core → maps-core → 壳) + 烧炼三件 + 三个壳级 kit 铺全局 */
   Object.assign(globalThis, Core);
+  Object.assign(globalThis, require('../js/adventure-maps-core.js'));
   const CraftCoreC = require('../js/craft-core.js');
   Object.assign(globalThis, {SMELT_T: CraftCoreC.SMELT_T, smeltStep: CraftCoreC.smeltStep,
     furnaceRefund: CraftCoreC.furnaceRefund});
@@ -559,6 +566,14 @@ function netherSpotC() {/* 下界岩顶面净空(非熔岩池, 出生区外) */
   }
   throw new Error('找不到下界空地');
 }
+function mapSpotC(topId) {/* 指定地表方块的净空列(T6 切图后放置用: y24 顶面+y25 净空) */
+  for (let x = 3; x < 116; x++) {
+    for (let z = 3; z < 116; z++) {
+      if (apiC.getBlock(x, 24, z) === topId && apiC.getBlock(x, 25, z) === 0) return {x, z};
+    }
+  }
+  throw new Error('找不到地表净空');
+}
 function placePortalAt(spot) {/* 站远处朝草地顶面放一座门(onMouse(2) 全链) */
   globalThis.pos.x = spot.x + 2.5;
   globalThis.pos.y = 25;
@@ -589,9 +604,9 @@ test('C1 切界: advSetDim 下界基座(下界岩+回程门内口) + dayCycleOn 
   assert.strictEqual(apiC.getBlock(px + 3, by + 5, pz), apiC.B_PORTAL, '回程门内口顶行是门面');
   assert.strictEqual(mobsSpawnedC.length, 0, '切界清怪(下界无怪, 上界巢穴怪不渗入)');
   assert.strictEqual(fxBeams.length - fxRemoved.length, 1, '回程门光束锚一束(基座门, 不在 edits)');
-  /* 回上界: 草原确定性复原 + 昼夜循环复位 */
+  /* 回上界: 草原确定性复原 + 昼夜循环复位(T5 起表面随圈层高度场, 采样列按高度场取表面) */
   AN.advSetDim('overworld');
-  assert.strictEqual(apiC.getBlock(10, 24, 10), 1, '回上界草地复原');
+  assert.strictEqual(apiC.getBlock(10, 24 + Core.advHeightAt(10, 10), 10), 1, '回上界草地复原');
   assert.strictEqual(globalThis.dayCycleOn, true, '昼夜循环复位');
 });
 
@@ -633,7 +648,7 @@ test('C3 两界分桶: 下界放置记 nether 桶不串 overworld 桶, 回界重
   const k = ns.x + ',21,' + ns.z;
   assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), 6, '木板已放下(前提)');
   assert.ok(AN.advSceneEdits.nether.has(k), '记进 nether 桶');
-  assert.ok(!AN.advSceneEdits.overworld.has(k), 'overworld 桶没有这格(不串桶)');
+  assert.ok(!AN.advSceneEdits.home.has(k), 'home 桶没有这格(不串桶)');
   /* 回上界再回来: 桶重放原样重建 */
   AN.advSetDim('overworld');
   AN.advSetDim('nether');
@@ -650,9 +665,10 @@ test('C4 payload: 下界期间 flush 的档 pos=null + netherEdits 随档 + 旧�
   AN.advJournal.flush();
   const sv = JSON.parse(memC.get('adventure_world_save'));
   assert.strictEqual(sv.pos, null, 'D9: 维度不进档(下界退出重进回上界小屋)');
-  assert.ok(Array.isArray(sv.netherEdits) && sv.netherEdits.some((e) => e[0] === k), 'netherEdits 随档');
-  assert.ok(!sv.edits.some((e) => e[0] === k), 'edits 字段恒为上界桶(下界期间不串桶)');
-  /* 旧形状档(无 netherEdits): init 照常, 下界桶缺省空 */
+  assert.ok(Array.isArray(sv.edits.nether) && sv.edits.nether.some((e) => e[0] === k),
+      '下界桶随档(T6 分桶: edits.nether)');
+  assert.ok(!sv.edits.home.some((e) => e[0] === k), 'home 桶恒为上界改动(下界期间不串桶)');
+  /* 旧形状档(无桶封套的裸 edits): init 照常, 桶缺省空 */
   freshC((m)=>m.set('adventure_world_save', JSON.stringify({_v: 1, edits: [['70,25,80', 3]]})));
   assert.strictEqual(AN.advNetherState().dim, 'overworld', '旧档进场恒上界');
   assert.strictEqual(AN.advSceneEdits.nether.size, 0, '旧档缺省空下界桶(零迁移)');
@@ -697,7 +713,7 @@ test('C6 门放置: 空地成功(结构逐格记账+扣物品+光束) · 盒内�
   assert.strictEqual(apiC.count(AN.advGetInv(), 'nether_portal'), 2, '成功扣 1');
   assert.strictEqual(apiC.getBlock(spot.x, 25, spot.z), apiC.B_OBSIDIAN, '底边黑曜石');
   assert.strictEqual(apiC.getBlock(spot.x + 2, 26, spot.z), apiC.B_PORTAL, '内口门面');
-  assert.strictEqual(AN.advSceneEdits.overworld.get((spot.x + 2) + ',26,' + spot.z), apiC.B_PORTAL,
+  assert.strictEqual(AN.advSceneEdits.home.get((spot.x + 2) + ',26,' + spot.z), apiC.B_PORTAL,
       '结构格逐格记账(重放即重建)');
   assert.strictEqual(fxBeams.length, 1, '这扇门的光束顺路锚上');
   assert.ok(toastsC().some((t) => t.indexOf('立起来') >= 0), '成功话术');
@@ -831,3 +847,479 @@ test('C12 挖不动话术(微默认3): 门框/门面=魔法做的, 下界岩系=
   assert.strictEqual(AN.advMineHardText(apiC.B_NETHER_BRICK), '这块石头太硬啦，挖不动哦');
   assert.strictEqual(AN.advMineHardText(apiC.B_WATER), '', '水等其余无 hard 方块保持静默');
 });
+
+/* ============ 冒险地图 T6：存档分桶泛化 + 壳切图装配(docs/adventure-maps-tickets.md) ============
+    在上面两界机制上泛化: advDim 之上加 advMap(home/desert/snow/swamp, nether 期间
+    保持最后主世界图), advSceneEdits 从两桶泛化为按图分桶(含 nether 桶)。断言:
+    分桶往返 · 老档两代迁移 · 切走再切回逐字节一致(分桶账本互锁红线) · 重进幂等 ·
+    装配清单(调色板/池/女巫/炉键/HUD) · nether 期间图保持 · 远征图死亡回家。 */
+
+test('T6-1 分桶存档: 三桶独立落盘 + map 键随档(分桶 encode/decode 往返一致)', () => {
+  freshC();
+  /* home 桶: 草地放木板 */
+  holdOnlyC('planks', 30);
+  const ow = grassSpotC();
+  AM.onMouse(2, {x: ow.x, y: 24, z: ow.z, nx: 0, ny: 1, nz: 0});
+  const kHome = ow.x + ',25,' + ow.z;
+  assert.strictEqual(apiC.getBlock(ow.x, 25, ow.z), 6, 'home 木板已放(前提)');
+  /* desert 桶: 切沙漠放第二块 */
+  AN.advSetMap('desert');
+  const ds = mapSpotC(8);
+  AM.onMouse(2, {x: ds.x, y: 24, z: ds.z, nx: 0, ny: 1, nz: 0});
+  const kDesert = ds.x + ',25,' + ds.z;
+  assert.strictEqual(apiC.getBlock(ds.x, 25, ds.z), 6, 'desert 木板已放(前提)');
+  /* nether 桶: 切下界放第三块 */
+  AN.advSetDim('nether');
+  const ns = netherSpotC();
+  AM.onMouse(2, {x: ns.x, y: 20, z: ns.z, nx: 0, ny: 1, nz: 0});
+  const kNether = ns.x + ',21,' + ns.z;
+  AN.advJournal.flush();
+  const sv = JSON.parse(memC.get('adventure_world_save'));
+  assert.strictEqual(sv.map, 'desert', 'map 键=最后主世界图(nether 期间保持)');
+  assert.strictEqual(sv.pos, null, 'D9 口径不变: nether 期间 pos=null');
+  assert.ok(sv.edits.home.some((e) => e[0] === kHome), 'home 桶有自己的改动');
+  assert.ok(sv.edits.desert.some((e) => e[0] === kDesert), 'desert 桶有自己的改动');
+  assert.ok(sv.edits.nether.some((e) => e[0] === kNether), 'nether 桶有自己的改动');
+  assert.ok(!sv.edits.desert.some((e) => e[0] === kHome), '桶互不串(home 改动不进 desert 桶)');
+  assert.ok(!sv.edits.home.some((e) => e[0] === kNether), 'nether 改动不进 home 桶');
+  /* decode 往返: 重进(cleanup→init 不清介质)后各桶内容恒等, 再落盘文本恒等 */
+  AM.cleanup();
+  callsC.length = 0;
+  AM.init();
+  assert.strictEqual(AN.advNetherState().map, 'desert', '重进恢复 map 键');
+  assert.strictEqual(AN.advSceneEdits.home.get(kHome), 6, 'home 桶往返一致');
+  assert.strictEqual(AN.advSceneEdits.desert.get(kDesert), 6, 'desert 桶往返一致');
+  assert.strictEqual(AN.advSceneEdits.nether.get(kNether), 6, 'nether 桶往返一致');
+  AN.advJournal.flush();
+  const sv2 = JSON.parse(memC.get('adventure_world_save'));
+  assert.deepStrictEqual(sv2.edits, sv.edits, 'encode→decode→encode 档文本恒等(往返一致)');
+  assert.strictEqual(sv2.map, 'desert', 'map 键往返恒等');
+  assert.ok(sv2.pos && Math.abs(sv2.pos.x - sv2.pos.x) >= 0 && typeof sv2.pos.y === 'number',
+      '重进即回主世界(D9): 重进态 pos=沙漠回程门出生点(不再是 null)');
+});
+
+test('T6-2 老档两代自动迁移: 裸 edits 档→home 桶 · netherEdits 档→nether 桶 · map 缺省 home', () => {
+  /* 一代老档(两界合并前的裸 edits): 全归 home 桶, 重放照旧 */
+  freshC((m) => m.set('adventure_world_save', JSON.stringify({_v: 1,
+    edits: [['70,25,80', 3]], pos: null, hp: null, furnaces: [], livestock: {dead: []}, dayTime: 0})));
+  assert.strictEqual(AN.advSceneEdits.home.get('70,25,80'), 3, '裸 edits 全归 home 桶');
+  assert.strictEqual(apiC.getBlock(70, 25, 80), 3, 'home 世界重放照旧');
+  assert.strictEqual(AN.advSceneEdits.nether.size, 0, 'nether 桶缺省空');
+  assert.strictEqual(AN.advSceneEdits.desert.size, 0, '远征桶缺省空');
+  assert.strictEqual(AN.advNetherState().map, 'home', 'map 键缺省 home');
+  /* 二代老档(T6 前两界档): edits→home 桶, 顶层 netherEdits 迁入 nether 桶 */
+  freshC((m) => m.set('adventure_world_save', JSON.stringify({_v: 1,
+    edits: [['70,25,80', 3]], netherEdits: [['50,21,50', 6]]})));
+  assert.strictEqual(AN.advSceneEdits.home.get('70,25,80'), 3, 'edits 键→home 桶');
+  assert.strictEqual(AN.advSceneEdits.nether.get('50,21,50'), 6, '顶层 netherEdits 迁入 nether 桶');
+  AN.advSetDim('nether');
+  assert.strictEqual(apiC.getBlock(50, 21, 50), 6, '迁移后的 nether 桶重放复原');
+  /* 迁移后再落盘 = 新形状: 桶封套, 顶层 netherEdits 键退役 */
+  AN.advJournal.flush();
+  const sv = JSON.parse(memC.get('adventure_world_save'));
+  assert.ok(sv.netherEdits === undefined, '顶层 netherEdits 键退役(迁入 edits.nether)');
+  assert.ok(sv.edits.nether.some((e) => e[0] === '50,21,50'), '下界桶在新封套里');
+});
+
+test('T6-3 切走再切回: 世界逐字节一致(分桶账本互锁红线) + 各桶重放互不渗漏', () => {
+  freshC();
+  holdOnlyC('planks', 30);
+  const ow = grassSpotC();
+  AM.onMouse(2, {x: ow.x, y: 24, z: ow.z, nx: 0, ny: 1, nz: 0}); /* home 桶一笔 */
+  const snapHome = Buffer.from(apiC.worldCells);
+  AN.advSetMap('swamp');
+  const sw = mapSpotC(1);
+  AM.onMouse(2, {x: sw.x, y: 24, z: sw.z, nx: 0, ny: 1, nz: 0}); /* swamp 桶一笔 */
+  const snapSwamp = Buffer.from(apiC.worldCells);
+  AN.advSetMap('home');
+  assert.ok(Buffer.from(apiC.worldCells).equals(snapHome),
+      'home 切走再切回逐字节一致(build+home 桶重放恒等, 他桶不渗漏)');
+  AN.advSetMap('swamp');
+  assert.ok(Buffer.from(apiC.worldCells).equals(snapSwamp),
+      'swamp 切走再切回逐字节一致');
+  /* home→nether→home 同款(两界既有口径并入分桶后不回归) */
+  AN.advSetDim('nether');
+  AN.advSetDim('overworld');
+  assert.ok(Buffer.from(apiC.worldCells).equals(snapSwamp), 'nether 往返仍逐字节一致');
+});
+
+test('T6-4 重进幂等: cleanup→init→cleanup→init 世界逐字节一致 + map/pos 恢复', () => {
+  freshC();
+  holdOnlyC('planks', 30);
+  const ow = grassSpotC();
+  AM.onMouse(2, {x: ow.x, y: 24, z: ow.z, nx: 0, ny: 1, nz: 0});
+  AN.advSetMap('desert');
+  const ds = mapSpotC(8);
+  AM.onMouse(2, {x: ds.x, y: 24, z: ds.z, nx: 0, ny: 1, nz: 0});
+  globalThis.pos.x = ds.x + 0.5;
+  globalThis.pos.y = 25;
+  globalThis.pos.z = ds.z + 0.5; /* 站在沙漠改动旁退出 */
+  AN.advJournal.flush();
+  const snapD0 = Buffer.from(apiC.worldCells);
+  AM.cleanup();
+  AM.init(); /* 第一次重进 */
+  assert.strictEqual(AN.advNetherState().map, 'desert', '重进恢复到退出时的图');
+  const snapD1 = Buffer.from(apiC.worldCells);
+  assert.ok(snapD1.equals(snapD0), '第一次重进世界逐字节一致');
+  assert.ok(Math.abs(globalThis.pos.x - (ds.x + 0.5)) < 1e-9 &&
+      Math.abs(globalThis.pos.z - (ds.z + 0.5)) < 1e-9, '重进落回退出位置(随图存)');
+  AM.cleanup();
+  AM.init(); /* 第二次重进: 幂等 */
+  assert.ok(Buffer.from(apiC.worldCells).equals(snapD1), '第二次重进世界逐字节一致(幂等)');
+});
+
+test('T6-5 装配清单: advSetMap 换桶建场重放 + 地图行池/调色板/出生/HUD/炉键前缀', () => {
+  freshC();
+  const rows = ADV_MAPS;
+  const desert = rows.find((r) => r.id === 'desert');
+  AN.advSetMap('desert');
+  assert.strictEqual(AN.advNetherState().map, 'desert', 'advMap 账本翻到 desert');
+  /* 换装清单: 地图行(池经 T2 通道) + 调色板(天基色缝+水色) + 回程门出生 + 站点重扫 + 节拍器复位 */
+  assert.strictEqual(AN.ADV.nests, desert.nests, '巢穴池换装当前地图行(T2 通道)');
+  assert.deepStrictEqual(callsC.filter((c) => c[0] === 'skyBase').slice(-1),
+      [['skyBase', desert.palette.sky]], '天基色基准=行 palette.sky(world.js 缝)');
+  assert.deepStrictEqual(apiC.BLOCKS[apiC.B_WATER].all, desert.palette.water, '水色基准=行 palette.water');
+  const sp = lastSpawnC();
+  const arrive = advMapArrive(desert);
+  assert.ok(sp && Math.abs(sp[1] - arrive.x) < 1e-9 && Math.abs(sp[3] - arrive.z) < 1e-9,
+      '缺省出生=回程门内侧(advMapArrive 口径)');
+  assert.strictEqual(callsC.filter((c) => c[0] === 'mobsClear').length >= 1, true, '清怪清箭');
+  /* HUD 图名行随地图行 */
+  assert.strictEqual(AN.advHudLines(null)[0], desert.hud, 'HUD 首行=地图行 hud 字段');
+  /* 巢穴 seeding 重播当前行: desert 三巢首刷且池全是 husk 系 */
+  const nestMobs = mobsSpawnedC.filter((m) => m.nest >= 0);
+  assert.ok(nestMobs.length >= desert.nests.length * 2, '每巢首刷 2~3 只');
+  assert.ok(nestMobs.every((m) => desert.nests[0].kinds.concat(desert.nests[1].kinds,
+      desert.nests[2].kinds).indexOf(m.type) >= 0), '刷怪种取自本行巢穴池');
+  assert.ok(!nestMobs.some((m) => m.type === 'zombie'), '替换语义: 沙漠不刷白僵尸');
+  /* 炉键地图前缀(参照 nether n| 先例): home 键不前缀(旧档兼容), 远征图各带各的 */
+  holdOnlyC('furnace', 1);
+  const ds2 = mapSpotC(8);
+  AM.onMouse(2, {x: ds2.x, y: 24, z: ds2.z, nx: 0, ny: 1, nz: 0});
+  globalThis.pos.x = ds2.x + 0.5;
+  globalThis.pos.z = ds2.z + 0.5;
+  AM.onMouse(0, {x: ds2.x, y: 25, z: ds2.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(AN.advFurnace.at(), 'd|' + ds2.x + ',25,' + ds2.z, 'desert 炉键带 d| 前缀');
+  AN.advSetMap('home');
+  assert.strictEqual(AN.advFurnace.at(), null, '切图收炉面板(未开)——炉态键分图不串档');
+  assert.strictEqual(AN.advHudLines(null)[0], '🏡 家园草原', '回 home 图名行复位');
+});
+
+test('T6-6 swamp 女巫常驻 + home 牲畜重播 + 夜怪池随行(替换语义)', () => {
+  freshC();
+  /* home: 牲畜 seeding(advLivestockPlan 清单, 死畜账跳过) */
+  const herds = mobsSpawnedC.filter((m) => m.__livestockIdx != null);
+  assert.ok(herds.length >= 8, 'home 行牲畜全套在场(herds 键)');
+  /* swamp: 女巫小屋常驻 + 无牲畜 */
+  AN.advSetMap('swamp');
+  const swamp = ADV_MAPS.find((r) => r.id === 'swamp');
+  const witch = mobsSpawnedC.find((m) => m.type === 'witch');
+  assert.ok(witch, 'swamp 行 witchHut 常驻女巫已 spawn');
+  assert.ok(witch.__nightHome && Math.abs(witch.__nightHome.x - swamp.witchHut.x) < 1e-9,
+      '女巫家锚=小屋位(收队不流浪)');
+  assert.strictEqual(mobsSpawnedC.filter((m) => m.__livestockIdx != null && m.dead === false).length, 0,
+      'swamp 行 livestock=none: 切图清怪后不重播牲畜');
+  /* 夜怪节拍器喂当前行 nightPool: 核心纯函数直证(壳喂池的通道已在 advNightTick 内) */
+  assert.strictEqual(AN.ADV.nests, swamp.nests, '巢穴池换装 swamp 行');
+  const read = () => ({sky: 15, block: 0, y: 25});
+  let got = null;
+  for (let i = 0; i < 40 && !got; i++) {
+    const r = advNightStepPool(0, 3, 18000, read, {x: 64, z: 64}, () => 0.99, swamp.nightPool);
+    if (r.spawn) got = r.spawn.type;
+  }
+  assert.ok(swamp.nightPool.some((p) => p[0] === got), '夜怪池种子取自行 nightPool: ' + got);
+});
+
+test('T6-7 nether 期间保持最后主世界图: 档 map 键不变, 回界回该图', () => {
+  freshC();
+  AN.advSetMap('snow');
+  AN.advSetDim('nether');
+  assert.strictEqual(AN.advNetherState().map, 'snow', '进 nether 不动 advMap');
+  AN.advJournal.flush();
+  assert.strictEqual(JSON.parse(memC.get('adventure_world_save')).map, 'snow', '档 map 保持 snow');
+  AN.advSetDim('overworld');
+  assert.strictEqual(AN.advNetherState().map, 'snow', '回界还是 snow');
+  const top = mapSpotC(apiC.B_SNOWY_GRASS);
+  assert.ok(top, '雪原地表在场上(回界=重建 snow 图而非 home)');
+  /* 重进(下界退出): map 保持最后主世界图, pos=null → 该图回程门出生 */
+  AN.advSetDim('nether');
+  AN.advJournal.flush();
+  AM.cleanup();
+  callsC.length = 0;
+  AM.init();
+  assert.strictEqual(AN.advNetherState().map, 'snow', '重进恢复最后主世界图');
+  assert.ok(mapSpotC(apiC.B_SNOWY_GRASS), '重进装的是 snow 图');
+  const snow = ADV_MAPS.find((r) => r.id === 'snow');
+  const sp = lastSpawnC();
+  const arrive = advMapArrive(snow);
+  assert.ok(sp && Math.abs(sp[1] - arrive.x) < 1e-9 && Math.abs(sp[3] - arrive.z) < 1e-9,
+      'pos=null → 该图回程门出生(ADV_MAPS 行 gates 落点口径)');
+});
+
+test('T6-8 远征图死亡/回家: 切回 home + 小屋出生 + 满血(§2.2 死了回家)', () => {
+  freshC();
+  AN.advSetMap('desert');
+  AN.advGetPEnt().hp = 1;
+  AM.onVoidFall();
+  assert.strictEqual(AN.advNetherState().map, 'home', '远征图死亡切回 home');
+  const sp = lastSpawnC();
+  const home = AN.ADV.spawn;
+  assert.ok(sp && sp[1] === home.x && sp[3] === home.z, '出生=小屋门口(死亡计划)');
+  assert.strictEqual(AN.ADV.player.hp, AN.ADV.player.maxHp, '满血复活');
+  /* 回家键同语义(冷却账本复位: 假时钟恒 0, 同文件早前 C11 用过一次会把本次拒掉) */
+  AN.advSetMap('swamp');
+  AN.ADV.homeCd = -1e9;
+  AN.advGetPEnt().hp = 5;
+  AM.onKey('KeyH');
+  assert.strictEqual(AN.advNetherState().map, 'home', '远征图回家也切回 home');
+  assert.strictEqual(AN.ADV.player.hp, AN.ADV.player.maxHp, '回家顺带回满血');
+});
+
+test('T6-9 调色板复位: cleanup 恢复缺省天基色/水色, 不渗其他模式', () => {
+  freshC();
+  AN.advSetMap('swamp');
+  assert.notDeepStrictEqual(apiC.BLOCKS[apiC.B_WATER].all, [0.25, 0.45, 0.85],
+      'swamp 水色已换装(前提: 与缺省不同)');
+  AM.cleanup();
+  assert.deepStrictEqual(apiC.BLOCKS[apiC.B_WATER].all, [0.25, 0.45, 0.85], '水色复位缺省');
+  assert.deepStrictEqual(callsC.filter((c) => c[0] === 'skyBase').slice(-1), [['skyBase', null]],
+      '天基色缝复位(null=缺省蓝)');
+});
+
+/* ============ 冒险地图 T7: 传送门阵 + 站桩 + 遮罩(票据 T7, 设计稿 §2.3/§4) ============ */
+
+/* 解锁任务档预铺: counts 带指定图的点亮键(点亮仪式归 T8, 本票只读键) */
+const seedQuestC = (unlocked) => (m) => m.set('adventure_quest_save',
+    JSON.stringify({_v: 1, step: 0, counts: unlocked}));
+const gateOf = (rowId, to) => ADV_MAPS.find((r) => r.id === rowId).gates
+    .find((g) => g.to === to);
+
+test('T7-1 门阵建场: home 三扇门框常驻 · 未解锁掏门面(不可触发) · 解锁键亮门面 · 远征图回程门常亮 · 门体不记账', () => {
+  /* 空任务档: 三门全熄——门框在(黑曜石塔楼/门楣), 门面格无 B_PORTAL */
+  freshC();
+  const home = ADV_MAPS[0];
+  assert.strictEqual(home.gates.length, 3, '前提: home 行三门');
+  for (const g of home.gates) {
+    assert.strictEqual(apiC.getBlock(g.px, Core.ADV_GROUND, g.pz), apiC.B_OBSIDIAN,
+        g.to + ' 门框底边黑曜石(建场期常驻)');
+    assert.strictEqual(apiC.getBlock(g.px + 1, Core.ADV_GROUND + 3, g.pz), 0,
+        g.to + ' 未解锁: 门面格无 B_PORTAL(熄门不可触发)');
+    assert.strictEqual(apiC.getBlock(g.px + ADV_PORTAL.w - 1, Core.ADV_GROUND + 3, g.pz),
+        apiC.B_OBSIDIAN, g.to + ' 侧柱在(中段, 端点是四角发光岩)');
+  }
+  /* 门体走建场(setBlockRaw), 不进 edits 账本——互锁红线与 nether 回程门同款 */
+  for (const g of home.gates) {
+    for (const y of [Core.ADV_GROUND, Core.ADV_GROUND + 1, Core.ADV_GROUND + 3]) {
+      assert.ok(!AN.advSceneEdits.home.has(g.px + ',' + y + ',' + g.pz),
+          '门体格不记账 @y' + y + '(' + g.to + ' 门)');
+    }
+  }
+  /* 点亮档: 键在=亮——desert 门面长出来, 其余两门仍熄 */
+  freshC(seedQuestC({unlockedDesert: 1}));
+  const dg = gateOf('home', 'desert');
+  const sg = gateOf('home', 'snow');
+  assert.strictEqual(apiC.getBlock(dg.px + 2, Core.ADV_GROUND + 1, dg.pz), apiC.B_PORTAL,
+      '解锁门亮门面(advInPortal 可命中)');
+  assert.strictEqual(apiC.getBlock(dg.px + 3, Core.ADV_GROUND + 5, dg.pz), apiC.B_PORTAL,
+      '门面 4×5 满铺');
+  assert.strictEqual(apiC.getBlock(sg.px + 2, Core.ADV_GROUND + 1, sg.pz), 0,
+      '未解锁门仍熄');
+  /* 远征图: 回程门常亮(home 恒开) + 切走再切回门阵确定性重建(T6-3 红线的门阵面) */
+  AN.advSetMap('desert');
+  const rg = gateOf('desert', 'home');
+  assert.strictEqual(apiC.getBlock(rg.px + 2, Core.ADV_GROUND + 1, rg.pz), apiC.B_PORTAL,
+      'desert 回程门常亮');
+  const snapG = Buffer.from(apiC.worldCells);
+  AN.advSetMap('home');
+  AN.advSetMap('desert');
+  assert.ok(Buffer.from(apiC.worldCells).equals(snapG), '门阵随建场确定性重建(逐字节一致)');
+});
+
+test('T7-2 站桩状态机: 地图门 2s 站满(可反悔) → 渐晕满格切图 → 落回程门内 + TTS 播报 + 遮罩收起', () => {
+  freshC(seedQuestC({unlockedDesert: 1}));
+  const dg = gateOf('home', 'desert');
+  const inFace = {x: dg.px + 2.5, y: Core.ADV_GROUND + 1, z: dg.pz + 0.5};
+  /* 蓄能音在站桩起步(§4.1 双段式第一段) */
+  globalThis.pos.x = inFace.x; globalThis.pos.y = inFace.y; globalThis.pos.z = inFace.z;
+  AM.update(0.1);
+  assert.ok(callsC.some((c) => c[0] === 'sfx' && c[1] === 'portal_charge'), '站桩起步播蓄能音');
+  /* 1.2s 后走出: 可反悔(归零), 不切图 */
+  AM.update(1.1);
+  globalThis.pos.z = inFace.z + 3; /* 走出门面 */
+  AM.update(0.1);
+  assert.strictEqual(AN.advNetherState().map, 'home', '走出归零不切图(可反悔红线)');
+  /* 重新站: 满 2s 才触发(上轮累计已清) */
+  globalThis.pos.z = inFace.z;
+  AM.update(1.9);
+  assert.strictEqual(AN.advNetherState().map, 'home', '1.9s 未满不切图');
+  assert.strictEqual(AN.advNetherState().portalCd, 0, '未触发不进冷却');
+  AM.update(0.2); /* 累计 2.1s → 发传送令 */
+  assert.strictEqual(AN.advNetherState().portalCd, Core.ADV_PORTAL.cd, '站满触发并进冷却(复用 ADV_PORTAL.cd)');
+  assert.strictEqual(AN.advNetherState().map, 'home', '触发瞬间还没切图(等遮罩满格)');
+  /* 渐晕淡入 400ms → 满格瞬间切图 + 到达音/播报 + 落回程门内 */
+  AM.update(0.45);
+  assert.strictEqual(AN.advNetherState().map, 'desert', '遮罩满格瞬间切图');
+  const sp = lastSpawnC();
+  const arrive = advMapArriveAt(gateOf('desert', 'home'));
+  assert.ok(sp && Math.abs(sp[1] - arrive.x) < 1e-9 && Math.abs(sp[3] - arrive.z) < 1e-9,
+      '落点=desert 回程门内侧 2.5 格面朝外(advMapArriveAt 口径)');
+  assert.ok(callsC.some((c) => c[0] === 'sfx' && c[1] === 'portal_travel'), '切图时刻播到达音(第二段)');
+  assert.ok(spokenC.some((s) => s.indexOf('沙漠') >= 0), 'TTS 到达播报(图名)');
+  /* 淡出 400ms → 遮罩收起(全程 2s+0.4s+0.4s=2.8s ≤5s 红线) */
+  AM.update(0.45);
+  const veil = globalThis.document.getElementById('portalVeil');
+  assert.ok(veil && +veil.style.opacity === 0, '遮罩收起(opacity=0)');
+});
+
+test('T7-3 锁门与 nether 门分流: 熄门走近给锁形 TTS(节流) · 门阵坐标外的门保持 nether 即时语义', () => {
+  /* 空任务档: 三门全熄。走近雪原门 → 锁形提示; 站多久也不切图 */
+  freshC();
+  const sg = gateOf('home', 'snow');
+  globalThis.pos.x = sg.px + 2.5;
+  globalThis.pos.y = Core.ADV_GROUND + 1;
+  globalThis.pos.z = sg.pz + 0.5;
+  AM.update(0.1);
+  assert.ok(spokenC.some((s) => s.indexOf('亮起来') >= 0), '走近熄门给锁形 TTS(完成XX任务提示)');
+  spokenC.length = 0;
+  AM.update(2.5); /* 一直站在熄门口 */
+  assert.strictEqual(AN.advNetherState().map, 'home', '熄门无门面不可触发(站多久都不切图)');
+  assert.strictEqual(spokenC.length, 0, '同一门口不重复播锁形提示(节流)');
+  globalThis.pos.z = sg.pz - 5; /* 走远 */
+  AM.update(0.1);
+  globalThis.pos.z = sg.pz + 0.5; /* 再走近: 仍熄 */
+  AM.update(0.1);
+  assert.ok(spokenC.length === 0, '节流窗内不重播');
+  /* nether 门零回归: 玩家自放门(门阵坐标外)站进去立即切下界(不站桩) */
+  const spot = findClearC(3, 60);
+  holdOnlyC('nether_portal', 2);
+  placePortalAt(spot);
+  stepIntoPortal(spot.x + 2.5, 25, spot.z + 0.5, 0);
+  assert.strictEqual(AN.advNetherState().dim, 'nether', '玩家 nether 门即时切界(站桩只对地图门生效)');
+  assert.strictEqual(AN.advNetherState().portalCd, Core.ADV_PORTAL.cd, 'nether 门同款冷却');
+});
+
+test('T7-4 回程门: 远征图站满 2s 回 home, 落在来时那扇门的门位(advMapArriveAt 对应门)', () => {
+  freshC(seedQuestC({unlockedSwamp: 1}));
+  AN.advSetMap('swamp');
+  const rg = gateOf('swamp', 'home');
+  globalThis.pos.x = rg.px + 2.5;
+  globalThis.pos.y = Core.ADV_GROUND + 1;
+  globalThis.pos.z = rg.pz + 0.5;
+  AM.update(2.1); /* 站满 */
+  AM.update(0.45); /* 渐晕满格 → 切回 home */
+  assert.strictEqual(AN.advNetherState().map, 'home', '回程门站满切回 home');
+  const sp = lastSpawnC();
+  const arrive = advMapArriveAt(gateOf('home', 'swamp')); /* 沼泽之门位, 不是 gates[0] */
+  assert.ok(sp && Math.abs(sp[1] - arrive.x) < 1e-9 && Math.abs(sp[3] - arrive.z) < 1e-9,
+      '落点=home 门阵的沼泽之门内侧(回程跟着来时的门走)');
+  const desertArrive = advMapArriveAt(gateOf('home', 'desert'));
+  assert.ok(Math.abs(arrive.x - desertArrive.x) > 1 || Math.abs(arrive.z - desertArrive.z) > 1,
+      '前提: 与沙漠门落点不同(三门各得各的)');
+  assert.ok(spokenC.some((s) => s.indexOf('家') >= 0), '回家播报');
+});
+
+/* ============ 审查修复 P1：神殿可疑地板踩塌(code-review Spec 缺失项) ============
+    站上神殿室内中央 2×2 砂岩地板 → 4 格塌空(记账走 edits, 重进不复位) +
+    塌沙音/话术; 塌后脚下不再是砂岩, 判据天然不复发(幂等)。 */
+
+test('审查修复 P1: 神殿可疑地板 — 站上塌入宝箱室(4 格清空+记账+话术), 塌后不复发', () => {
+  freshC();
+  AN.advSetMap('desert');
+  const t = ADV_DESERT.temple; /* ADV_DESERT 经壳共享词法环境可直读(maps-core 已铺全局) */
+  /* 前提: 可疑地板在位(建场 2×2 砂岩, 正下方 y22~23 竖井空腔) */
+  assert.strictEqual(apiC.getBlock(t.cx, t.trapY, t.cz), apiC.B_SANDSTONE, '可疑地板在位(前提)');
+  assert.strictEqual(apiC.getBlock(t.cx, 22, t.cz), 0, '竖井空腔(前提)');
+  /* 玩家站上地板中央: pos 落 footprint, 脚下支撑格=trapY 层砂岩 */
+  globalThis.pos.x = t.cx + 0.5;
+  globalThis.pos.y = t.trapY + 1;
+  globalThis.pos.z = t.cz + 0.5;
+  spokenC.length = 0;
+  AM.update(0.05);
+  assert.strictEqual(apiC.getBlock(t.cx, t.trapY, t.cz), 0, '踩上即塌: 地板清空');
+  assert.strictEqual(apiC.getBlock(t.cx - 1, t.trapY, t.cz - 1), 0, '4 格齐塌(西北格)');
+  assert.ok(callsC.some((c) => c[0] === 'sfx' && c[1] === 'sand_collapse'), '塌沙音');
+  assert.ok(spokenC.some((s) => s.indexOf('塌') >= 0), '塌落话术');
+  /* 记账: 4 格已入 desert 桶 edits(flush 后档里有键) */
+  AN.advJournal.flush();
+  const sv = JSON.parse(memC.get('adventure_world_save'));
+  const keys = new Set((sv.edits.desert || []).map((e) => e[0]));
+  assert.ok(keys.has(t.cx + ',' + t.trapY + ',' + t.cz), '塌落格已记账(重进不复位)');
+  /* 幂等: 再 update 不再触发(脚下已空, 前提是判据读格不读状态) */
+  callsC.length = 0;
+  AM.update(0.05);
+  assert.ok(!callsC.some((c) => c[0] === 'sfx' && c[1] === 'sand_collapse'), '塌后不复发(幂等)');
+  /* 站在周边沙面上不误触(footprint 判定) */
+  globalThis.pos.x = t.cx + 3.5;
+  globalThis.pos.y = t.trapY + 1;
+  AM.update(0.05);
+  assert.ok(!callsC.some((c) => c[0] === 'sfx' && c[1] === 'sand_collapse'), '周边沙面不误触');
+});
+
+/* ============ 审查修复 P2：死畜账按图分桶(code-review Spec 半成品项) ============
+    档形 {图:[idx..]} 五桶(与 edits/furnaces 同口径); 老档 {dead:[..]} 单账→home 桶。 */
+
+test('审查修复 P2: 死畜账按图分桶 — 老档单账迁 home 桶 · 五桶恒写全 · 往返一致', () => {
+  /* 老档单账: 已杀 1 号牛 → home 桶吸收, 重进只播 9 只 */
+  freshC((m) => m.set('adventure_world_save', JSON.stringify({_v: 1,
+    edits: [], pos: null, hp: null, furnaces: [], livestock: {dead: [1]}, dayTime: 0})));
+  const idx1 = mobsSpawnedC.filter((m) => m.__livestockIdx === 1);
+  assert.strictEqual(idx1.length, 0, '老档单账 dead:[1] → home 桶吸收(1 号牛不重生)');
+  const alive = mobsSpawnedC.filter((m) => m.__livestockIdx != null);
+  assert.strictEqual(alive.length, 9, '其余 9 只照播(10-1)');
+  /* 落盘 = 新分桶形状: 五桶恒写全 */
+  AN.advJournal.flush();
+  const sv = JSON.parse(memC.get('adventure_world_save'));
+  assert.deepStrictEqual(Object.keys(sv.livestock).sort(),
+      ['desert', 'home', 'nether', 'snow', 'swamp'], '五桶恒写全(形状确定)');
+  assert.deepStrictEqual(sv.livestock.home, [1], 'home 桶带已杀索引');
+  assert.deepStrictEqual(sv.livestock.desert, [], '远征桶空');
+  /* encode→decode→encode 档文本恒等(往返一致) */
+  freshC((m) => m.set('adventure_world_save', JSON.stringify(sv)));
+  AN.advJournal.flush();
+  const sv2 = JSON.parse(memC.get('adventure_world_save'));
+  assert.deepStrictEqual(sv2.livestock, sv.livestock, 'livestock 分桶往返一致');
+});
+
+/* ============ 审查修复 P4：史莱姆夜刷限水边(code-review 口径项, 设计 §3) ============ */
+
+test('审查修复 P4: 史莱姆夜刷水边门 — 水洼旁放行 · 远水点拒绝(沼泽夜池专属口径)', () => {
+  freshC();
+  AN.advSetMap('swamp');
+  /* 前提: 沼泽有浅水洼(建场水面齐 y24)——找一个水格与一个远水干点 */
+  const pools = ADV_SWAMP.pools; /* maps-core 已铺全局(壳共享词法环境) */
+  let waterAt = null;
+  for (const p of pools) {
+    for (let dx = -p.r; dx <= p.r && !waterAt; dx++) {
+      for (let dz = -p.r; dz <= p.r && !waterAt; dz++) {
+        if (apiC.getBlock(p.cx + dx, 24, p.cz + dz) === apiC.B_WATER) {
+          waterAt = {x: p.cx + dx, z: p.cz + dz};
+        }
+      }
+    }
+    if (waterAt) break;
+  }
+  assert.ok(waterAt, '沼泽建场有浅水洼(前提)');
+  assert.ok(AN.advSlimeWaterOk(waterAt.x, waterAt.z), '水洼本体放行');
+  assert.ok(AN.advSlimeWaterOk(waterAt.x + 5, waterAt.z), '水边 5 格内放行');
+  /* 远水干点: 距所有水洼 >6 的地表点(用地图另一角扫) */
+  let dry = null;
+  outer: for (let x = 2; x < 120; x += 3) {
+    for (let z = 2; z < 120; z += 3) {
+      let near = false;
+      for (const p of pools) {
+        if (Math.hypot(x - p.cx, z - p.cz) <= p.r + 7) {
+          near = true;
+          break;
+        }
+      }
+      if (!near) {
+        dry = {x, z};
+        break outer;
+      }
+    }
+  }
+  assert.ok(dry, '沼泽存在远水干点(前提)');
+  assert.strictEqual(AN.advSlimeWaterOk(dry.x, dry.z), false, '远水干点拒绝(夜间水边专属)');
+});
+
+

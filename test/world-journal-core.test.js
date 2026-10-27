@@ -4,7 +4,8 @@
    三层断言:
    ① 单元: fluidCell 编码判据 / mark·touch·flush 脏标与联写次序 / 超限守卫 /
       节流泵(注入时钟) / 关页兜底 / load 收养 / replay 双通道;
-   ② 互锁(本次核心交付): 同一份 edits(含流体格)经「探险形状(单 Map 档)」与
+   ② 互锁(本次核心交付): 同一份 edits(含流体格)经「探险形状(T6 起按图分桶
+       封套, journal 只认当前桶)」与
       「建造形状(按场景分桶档)」两个 journal 适配器重放 → 两个世界逐格一致
       (含水位通道), 且各自落盘往返后重放仍互锁——评审指出的「流体格编码
       两处各写、无互锁测试」的对症测试;
@@ -41,11 +42,20 @@ function mkMemSlot(mem, key, schema) {
   }, key, schema);
 }
 /* 两种档形状(edits 键编解码与模式文件逐字段同形, 其余键与重放无关):
-   探险: edits 是单 Map → entries 数组; 建造: edits 按场景分桶 {sceneId: entries} */
+    单 Map 形状载具(收养语义测试用; 探险 T6 前的形状); 建造: edits 按场景分桶 {sceneId: entries} */
 const ADV_SCHEMA = {
   defaults: {edits: []},
   encode: (st) => ({edits: [...st.edits.entries()]}),
   decode: (sv) => ({edits: new Map(sv.edits || [])}),
+};
+/* 探险 T6 形状(edits 按图分桶封套 {mapId: entries}, 同 js/modes/adventure.js 接线):
+    encode 透传 payload 装好的封套, decode 兼容老档裸数组(→home 桶) */
+const ADV_T6_SCHEMA = {
+  defaults: {edits: [], map: 'home'},
+  encode: (st) => ({map: st.map, edits: st.edits}),
+  decode: (sv) => ({map: sv.map || 'home',
+    edits: Array.isArray(sv.edits) ? {home: new Map(sv.edits)} :
+        Object.fromEntries(Object.keys(sv.edits || {}).map((k) => [k, new Map(sv.edits[k])]))}),
 };
 const BUILD_SCHEMA = {
   defaults: {scene: null, edits: {}},
@@ -158,8 +168,9 @@ test('pageHide 关页兜底: 脏则同步落盘, 干净幂等无档', () => {
   assert.deepStrictEqual(JSON.parse(mem.get('k')).edits, [['3,4,5', 6]], '改动进档');
 });
 
-test('load 收养: Map/数组/null 形状 edits 归一化成 Map, 桶形状(建造)透传不收养', () => {
-  /* decode 后的 Map → 收养(探险 init 原三行归一化语义收进 journal) */
+test('load 收养: Map/数组/null 形状 edits 归一化成 Map, 桶形状(建造/探险 T6)透传不收养', () => {
+  /* decode 后的 Map → 收养(单 Map 形状的归一化语义收在 journal; 载具见上方
+     ADV_SCHEMA——探险 T6 起改桶封套, journal 依旧不懂桶, 见下一分支) */
   const memA = new Map();
   memA.set('k', JSON.stringify({_v: 1, edits: [['1,2,3', 4], ['4,5,6', {id: B_WATER, lv: 2}]]}));
   const j1 = WorldJournal.mkWorldJournal(mkMemSlot(memA, 'k', ADV_SCHEMA));
@@ -208,10 +219,14 @@ test('互锁(红线): 同一份 edits(含流体格)经两模式形状适配器�
     ['13,25,13', {id: B_LAVA, lv: 0}],
     ['10,25,10', 6],
   ];
-  /* 探险形状适配器(同 js/modes/adventure.js 接线: 单 Map 档) */
+  /* 探险形状适配器(T6 分桶: 同 js/modes/adventure.js 接线——journal 只认当前桶,
+     payload 把当前桶装进 {mapId: entries} 封套; 此处单 home 桶即够互锁) */
   const memA = new Map();
-  const adv = WorldJournal.mkWorldJournal(mkMemSlot(memA, 'adventure_world_save', ADV_SCHEMA));
-  adv.edits = new Map(canonical);
+  const bucketsA = {home: new Map(canonical)};
+  const adv = WorldJournal.mkWorldJournal(mkMemSlot(memA, 'adventure_world_save', ADV_T6_SCHEMA), {
+    payload: () => ({map: 'home', edits: {home: [...bucketsA.home.entries()]}}),
+  });
+  adv.edits = bucketsA.home;
   const worldA = mkWorld();
   adv.replay(worldA.set);
   /* 建造形状适配器(同 js/modes/build.js 接线: 按场景分桶, 桶是建造私有) */
@@ -229,8 +244,9 @@ test('互锁(红线): 同一份 edits(含流体格)经两模式形状适配器�
   /* 落盘往返后再重放: 各自 encode→JSON→decode→replay 是恒等变换, 且两侧互锁 */
   adv.flush();
   bld.flush();
-  const adv2 = WorldJournal.mkWorldJournal(mkMemSlot(memA, 'adventure_world_save', ADV_SCHEMA));
-  adv2.load();
+  const adv2 = WorldJournal.mkWorldJournal(mkMemSlot(memA, 'adventure_world_save', ADV_T6_SCHEMA));
+  const stA = adv2.load();
+  adv2.edits = stA.edits.home; /* 换装当前桶(探险 init 同款) */
   const worldA2 = mkWorld();
   adv2.replay(worldA2.set);
   const bld2 = WorldJournal.mkWorldJournal(mkMemSlot(memB, 'build_world_save', BUILD_SCHEMA), {
@@ -243,10 +259,10 @@ test('互锁(红线): 同一份 edits(含流体格)经两模式形状适配器�
   assert.deepStrictEqual(worldA2.cells, worldA.cells, '探险形状落盘往返重放恒等');
   assert.deepStrictEqual(worldB2.cells, worldA.cells, '建造形状落盘往返重放与探险侧一致(互锁)');
   assert.deepStrictEqual(worldB2.fluid, worldA.fluid, '水位通道往返互锁');
-  /* 落盘文本形状(旧档兼容红线): entries 数组 + 流体格 {id,lv} 逐键(对照 git HEAD encode) */
-  assert.deepStrictEqual(JSON.parse(memA.get('adventure_world_save')).edits,
+  /* 落盘文本形状(旧档兼容红线): 桶内 entries 数组 + 流体格 {id,lv} 逐键(对照 git HEAD encode) */
+  assert.deepStrictEqual(JSON.parse(memA.get('adventure_world_save')).edits.home,
       [['10,25,10', 6], ['11,25,11', 0], ['12,25,12', {id: B_WATER, lv: 3}], ['13,25,13', {id: B_LAVA, lv: 0}]],
-      '探险档 edits 形状: 数组序=插入序, 覆写保位, 流体格 {id,lv}');
+      '探险档桶内形状: 数组序=插入序, 覆写保位, 流体格 {id,lv}');
   assert.deepStrictEqual(JSON.parse(memB.get('build_world_save')).edits.house,
       [['10,25,10', 6], ['11,25,11', 0], ['12,25,12', {id: B_WATER, lv: 3}], ['13,25,13', {id: B_LAVA, lv: 0}]],
       '建造档桶内形状与探险档同源(同一份账本两种封装, 互锁)');

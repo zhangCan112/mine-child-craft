@@ -96,14 +96,14 @@ test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派�
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 随身 9 + 工作台级 25 共 34 条, id 唯一(crafting-grid §3 + 下界并入探险 D3)', () => {
+test('配方全量: 随身 10 + 工作台级 25 共 35 条, id 唯一(crafting-grid §3 + 下界并入探险 D3 + 雪球 T9)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 34, '全表 34 条(随身 9 + 工具 16 + 站点件 8 + 传送门 1), 实际 ' + RECIPES.length);
-  // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒)
+  assert.strictEqual(RECIPES.length, 35, '全表 35 条(随身 10 + 工具 16 + 站点件 8 + 传送门 1), 实际 ' + RECIPES.length);
+  // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9)
   for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
-    'bone_meal', 'iron_nuggets']) {
+    'bone_meal', 'iron_nuggets', 'snow']) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '随身配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
@@ -203,6 +203,7 @@ test('shapeCost 派生: 图案→计费表与正典材料量逐条一致(候选�
   assert.deepStrictEqual(cost('shears'), {iron_ingot: 2});
   assert.deepStrictEqual(cost('bone_meal'), {bone: 1}); // 无序单材料
   assert.deepStrictEqual(cost('iron_nuggets'), {iron_ingot: 1}); // 1 铁锭→9 铁粒
+  assert.deepStrictEqual(cost('snow'), {snowball: 4}); // 4 雪球→雪块(挖雪块返 4 球的合成反向, T9)
   // 站点件(§3.5 口径不变 + 灯笼回正典)
   assert.deepStrictEqual(cost('furnace'), {cobble: 8});
   assert.deepStrictEqual(cost('chest'), {planks: 8});
@@ -230,6 +231,33 @@ test('图案抽查: 工具四模板 × 镐 3×3 十字 · 斧 2×3 缺角 · 剑
   assert.deepStrictEqual(rows('lantern')[1], ['iron_nugget', 'torch', 'iron_nugget'], '灯笼=8 铁粒环形+中心火把');
   assert.deepStrictEqual(rows('bread'), [['wheat', 'wheat', 'wheat']], '面包=3 小麦一横排');
   assert.deepStrictEqual(rows('bow_item')[1], ['stick', null, 'string'], '弓=棍蛇形+线列');
+});
+
+test('雪球→雪块(T9): 4 雪球 2×2 → 1 雪块 — canCraft 预检 + 2×2 随身格 gridCraft', () => {
+  const h = loadCraft();
+  const {RECIPES, canCraft, matchGrid, gridCraft} = h;
+  const r = RECIPES.find((x) => x.id === 'snow');
+  assert.ok(r, '配方 id=snow 应入 RECIPES(4 雪球→雪块, 雪仗弹药↔建材的正反向)');
+  assert.strictEqual(r.station, 'hand', '2×2 满格图案随身格放得下(MC 正典 shapeless 同档)');
+  /* canCraft 预检: 3 球缺 1 → missing 报 {snowball, need 4, have 3}; 4 球 ok */
+  const short = invWith(h, [['snowball', 3]]);
+  const miss = normMissing(canCraft(short, r, false).missing);
+  assert.deepStrictEqual(miss, [{id: 'snowball', need: 4, have: 3}], '缺 1 球报缺料');
+  const full = invWith(h, [['snowball', 4]]);
+  const ok = canCraft(full, r, false);
+  assert.strictEqual(ok.ok, true, '4 球预检过(hand 级不吃站点门禁)');
+  assert.deepStrictEqual(normMissing(ok.missing), [], '无缺料');
+  /* 2×2 随身格(cells 长度 4 → gridNorm 按 2×2)摆放合成: 每格扣 1 产 1 雪块 */
+  const cells4 = new Array(4).fill(null).map(() => ({id: 'snowball', n: 1}));
+  assert.strictEqual(matchGrid(cells4, r), true, '2×2 满格四球匹配');
+  const out = gridCraft(cells4, full, false);
+  assert.strictEqual(out.ok, true, 'gridCraft ok');
+  assert.strictEqual(out.out.item, 'snow', '产物=雪块');
+  assert.strictEqual(out.out.n, 1, '产出 1 块');
+  assert.strictEqual(out.leftover, 0, '无余量');
+  assert.deepStrictEqual(cells4, [null, null, null, null], '每占用格扣 1 件(扣空清 null)');
+  assert.strictEqual(h.count(full, 'snow'), 1, '雪块入包');
+  assert.strictEqual(h.count(full, 'snowball'), 4, '背包另一摞不动(料从摆放格扣, MC 口径)');
 });
 
 test('工具 16 条: 4 模板 × 4 材质阶, 材料计费随阶替换(shapeCost 派生)', () => {

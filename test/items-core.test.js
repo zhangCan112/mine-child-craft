@@ -63,8 +63,8 @@ test('条目形状: 每个物品必备 name/icon, 类别字段(block/food/fuel/t
     assert.strictEqual(typeof it.icon, 'string', id + ' icon');
     assert.ok(it.icon.length > 0, id + ' icon 非空(emoji 占位, 正式图标归 icons.js/T8)');
     if ('block' in it) {
-      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 53,
-          id + ' block 应为 1~53 整数(昼夜 D6 床 B_BED=53 顺延号段), 实际 ' + it.block);
+      assert.ok(Number.isInteger(it.block) && it.block >= 1 && it.block <= 62,
+          id + ' block 应为 1~62 整数(生态地图 B_FLOWER_W=62 顺延号段), 实际 ' + it.block);
     }
     if ('food' in it) assert.ok(typeof it.food === 'number' && it.food > 0, id + ' food 应为正数');
     if ('fuel' in it) assert.ok(typeof it.fuel === 'number' && it.fuel > 0, id + ' fuel 应为正数');
@@ -99,6 +99,26 @@ test('放置型 block 挂点: 与方块注册表既有 id / 附录 A 规划 id �
   // 床(昼夜 D6 §7.1): B_BED=53 放置型 — 睡觉跳夜+设床边出生点(政策在模式层)
   assert.strictEqual(ITEMS.bed.name, '床');
   assert.strictEqual(ITEMS.bed.block, 53, 'bed block 应为 B_BED=53');
+  // 生态地图(设计稿 §6): 雪原/沙漠/沼泽放置型 — 雪球是投掷物纯材料(无 block, T9 接线)
+  const ecoBlocks = {snow: 54, ice: 56, cactus: 57, sandstone: 58,
+    orchid: 60, flower_y: 61, flower_w: 62};
+  for (const [id, b] of Object.entries(ecoBlocks)) {
+    assert.strictEqual(ITEMS[id] && ITEMS[id].block, b, id + ' block 应为 ' + b);
+  }
+});
+
+test('生态地图 8 件(设计稿 §6): 名字逐条 · 雪球纯材料无 block · 全员可堆叠 64', () => {
+  const {ITEMS, stackMax} = loadItems();
+  const names = {snow: '雪块', snowball: '雪球', ice: '冰', cactus: '仙人掌',
+    sandstone: '砂岩', orchid: '兰花', flower_y: '蒲公英', flower_w: '雏菊'};
+  for (const [id, name] of Object.entries(names)) {
+    assert.ok(ITEMS[id], id + ' 应注册(生态地图 T1)');
+    assert.strictEqual(ITEMS[id].name, name, id + ' 中文名');
+    assert.ok(!ITEMS[id].tool && !ITEMS[id].food, id + ' 纯放置/材料条目');
+    assert.strictEqual(stackMax(id), 64, id + ' 可堆叠 64');
+  }
+  assert.ok(ITEMS.snowball.block == null, '雪球无 block(投掷物, 右键掷出归 T9 壳接线)');
+  assert.strictEqual(ITEMS.ice.block, 56, '冰放置型(B_ICE 不入图集但物品照常入包)');
 });
 
 test('工具 16 条数值表: 4 阶 × 镐斧剑锹 与设计稿 D9 逐格一致', () => {

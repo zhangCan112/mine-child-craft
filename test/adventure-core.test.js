@@ -24,6 +24,7 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
+  B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf, SMELT_T,
@@ -52,18 +53,16 @@ function countId(id, pred) {
 
 /* ============ 地形生成 ============ */
 
-test('核心地形: advBuildWorld 全图确定性(两次生成逐字节一致) + 地层/小屋/湖形状', () => {
+test('核心地形: advBuildWorld 全图确定性(两次生成逐字节一致) + 小屋/湖形状', () => {
   Core.advBuildWorld();
   const a = snapshot();
-  assert.strictEqual(cell(10, 24, 10), 1, '地表 y24 草地');
-  assert.strictEqual(cell(10, 23, 10), 2, 'y20~23 泥土');
-  assert.strictEqual(cell(10, 19, 10), 3, 'y19 及以下石头');
   const hut = Core.ADV_HUT;
   assert.strictEqual(cell(hut.x1, 25, hut.z1), 5, '小屋角柱原木');
   assert.strictEqual(cell(61, 25, hut.z1), 0, '北墙正中门洞');
   const lake = Core.ADV_LAKE;
   assert.ok(countId(api.B_CLAY, (x, y, z) => Math.hypot(x - lake.cx, z - lake.cz) <= lake.r) >= 150,
       '湖底黏土层(红砖链源头)');
+  /* 地层随高度场的采样断言在「T5 地形接入」测试(表面=24+advHeightAt 处草皮) */
   /* 清场重建: 逐字节复现(SceneKit.rand/hashRand 确定性, 零 Math.random) */
   vm.runInContext('worldCells.fill(0)', eng);
   Core.advBuildWorld();
@@ -88,6 +87,281 @@ test('核心地形: 巢穴位点常量与矿带不越界(地图常量表是壳�
     }
   }
   assert.ok(ok, '矿种不越深度带(煤 y12~20 · 钻 y0~5)');
+});
+
+test('T5 坐标迁移: 湖/两坑/山洞/三巢钉死设计稿 §2.4 圈层表, 小屋与出生点不动(老档红线)', () => {
+  assert.deepStrictEqual([Core.ADV_LAKE.cx, Core.ADV_LAKE.cz, Core.ADV_LAKE.r], [36, 58, 7],
+      '湖挪近资源圈 (36,58)——黏土教学链步行 30 秒内可达');
+  assert.deepStrictEqual([Core.ADV_PITS[0].cx, Core.ADV_PITS[0].cz], [100, 52], '煤坑 (100,52) 矿业圈东');
+  assert.deepStrictEqual([Core.ADV_PITS[1].cx, Core.ADV_PITS[1].cz], [24, 44], '铁坑 (24,44) 矿业圈西');
+  assert.deepStrictEqual([Core.ADV_CAVE.x1, Core.ADV_CAVE.x2, Core.ADV_CAVE.zStart, Core.ADV_CAVE.zEnd],
+      [61, 62, 10, 30], '山洞口北缘 (62,10), 隧道向南深潜到穴室 z30');
+  assert.ok(Core.ADV_CAVE.zEnd > Core.ADV_CAVE.zStart, '方向反转: 原隧道向北(zStart72→zEnd52), 现向南');
+  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => [n.x, n.z]), [[44, 60], [96, 36], [20, 16]],
+      '三巢难度序: 近僵尸(44,60) / 中蜘蛛(96,36) / 远苦力怕(20,16)');
+  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => n.kinds[0]), ['zombie', 'spider', 'creeper'],
+      '巢穴主打种随难度递进(僵尸一家→虫虫族→草木族苦力怕)');
+  /* 小屋与出生点红线: 圈层重排一律不碰(老档的出生点/床边/站立位零悬空风险) */
+  assert.deepStrictEqual(Core.ADV_HUT, {x1: 58, x2: 64, z1: 78, z2: 84}, '小屋坐标不动');
+  assert.deepStrictEqual([Core.ADV_SPAWN.x, Core.ADV_SPAWN.y, Core.ADV_SPAWN.z], [61.5, 25, 76.5],
+      '出生点坐标与压平 y24 不动');
+});
+
+test('T5 圈层断言: 三巢距小屋距离单调递增(近<中<远, 风险-距离梯度)', () => {
+  const cx = (Core.ADV_HUT.x1 + Core.ADV_HUT.x2) / 2;
+  const cz = (Core.ADV_HUT.z1 + Core.ADV_HUT.z2) / 2;
+  const ds = Core.ADV_NESTS.map((n) => Math.hypot(n.x - cx, n.z - cz));
+  assert.ok(ds[0] < ds[1] && ds[1] < ds[2],
+      '巢穴难度距小屋单调递增: ' + ds.map((d) => d.toFixed(1)).join(' < '));
+  assert.ok(ds[0] >= 25 && ds[0] <= 45, '近巢落在资源圈 25~45: ' + ds[0].toFixed(1));
+  assert.ok(ds[1] >= 40 && ds[1] <= 60, '中巢落在矿业圈 40~60: ' + ds[1].toFixed(1));
+  assert.ok(ds[2] > 60, '远巢落在深险圈 >60: ' + ds[2].toFixed(1));
+});
+
+test('T5 迁移形状: 新坐标的湖心/坑底/洞口/穴室逐格断言(对真生成世界)', () => {
+  Core.advBuildWorld();
+  assert.strictEqual(cell(36, 24, 58), api.B_WATER, '湖心 (36,58) 水面齐草地');
+  assert.strictEqual(cell(36, 23, 58), 8, '湖心沙底');
+  assert.strictEqual(cell(100, 22, 52), 0, '煤坑 (100,52) 中心被挖开(漏斗见底)');
+  assert.strictEqual(cell(24, 22, 44), 0, '铁坑 (24,44) 中心被挖开');
+  assert.strictEqual(cell(62, 28, 8), 2, '山洞口小丘 (62,8) 泥皮穹顶 h4');
+  assert.strictEqual(cell(61, 23, 10), 0, '隧道北端 (61,23,10) 敞口(台阶起点)');
+  assert.strictEqual(cell(61, 3, 30), 0, '穴室最深处 (61,3,30) 掏空');
+  assert.strictEqual(cell(61, 1, 30), api.B_DIAMOND_ORE, '穴室底板保底钻石(任务第 15 步目的地)');
+});
+
+test('T5 高度场: 圈层幅度分环 — 核心圈(≤18)恒 0 · 深险圈(>60)丘体起伏 · 幅度界 ±3', () => {
+  const cx = (Core.ADV_HUT.x1 + Core.ADV_HUT.x2) / 2;
+  const cz = (Core.ADV_HUT.z1 + Core.ADV_HUT.z2) / 2;
+  let lo = 1; let hi = -1;
+  for (let x = 2; x < 126; x++) {
+    for (let z = 2; z < 126; z++) {
+      const h = Core.advHeightAt(x, z);
+      assert.ok(h >= -3 && h <= 3, '幅度界 ±3: (' + x + ',' + z + ')=' + h);
+      const d = Math.hypot(x - cx, z - cz);
+      if (d <= 18) assert.strictEqual(h, 0, '家园核心圈恒 0(' + x + ',' + z + ')');
+      if (d > 60) {
+        if (h < lo) lo = h;
+        if (h > hi) hi = h;
+      }
+    }
+  }
+  assert.ok(lo < 0 && hi > 0, '深险圈丘体有起有伏: [' + lo + ',' + hi + ']');
+  assert.ok(hi - lo >= 3, '深险圈起伏到位(圈层越远丘越高): 跨度 ' + (hi - lo));
+});
+
+test('T5 高度场: 坡度红线 — 全图相邻格高差 ≤1(儿童可登可下, heightAt 结构保证建场侧不破坏)', () => {
+  for (let x = 0; x < 127; x++) {
+    for (let z = 0; z < 127; z++) {
+      const h = Core.advHeightAt(x, z);
+      assert.ok(Math.abs(Core.advHeightAt(x + 1, z) - h) <= 1, 'x 向相邻高差 ≤1: (' + x + ',' + z + ')');
+      assert.ok(Math.abs(Core.advHeightAt(x, z + 1) - h) <= 1, 'z 向相邻高差 ≤1: (' + x + ',' + z + ')');
+    }
+  }
+});
+
+test('T5 高度场: 既有结构压平区归 0 — 小屋/湖盆/两坑口/山洞口/三巢丘足印(ADV_FLATS 对齐)', () => {
+  const pts = [];
+  const rect = (x1, z1, x2, z2) => {
+    for (let x = x1; x <= x2; x++) for (let z = z1; z <= z2; z++) pts.push([x, z]);
+  };
+  const circ = (cx, cz, r) => {
+    for (let x = Math.floor(cx - r); x <= cx + r; x++) {
+      for (let z = Math.floor(cz - r); z <= cz + r; z++) {
+        if (Math.hypot(x - cx, z - cz) <= r) pts.push([x, z]);
+      }
+    }
+  };
+  const h = Core.ADV_HUT;
+  rect(h.x1 - 2, h.z1 - 2, h.x2 + 2, h.z2 + 2); /* 小屋(含出生位外扩) */
+  circ(Core.ADV_LAKE.cx, Core.ADV_LAKE.cz, Core.ADV_LAKE.r + 1); /* 湖盆 */
+  for (const p of Core.ADV_PITS) circ(p.cx, p.cz, p.r + 1); /* 两坑口漏斗 */
+  const c = Core.ADV_CAVE;
+  rect(c.x1 - 3, c.zStart - 6, c.x2 + 3, c.zStart + 4); /* 山洞口小丘+敞廊 */
+  for (const n of Core.ADV_NESTS) circ(n.x, n.z, 3); /* 三巢丘 */
+  for (const [x, z] of pts) {
+    assert.strictEqual(Core.advHeightAt(x, z), 0, '结构足印回落 y24: (' + x + ',' + z + ')');
+  }
+});
+
+test('T5 地形接入: 地层随高度场 — 表面=24+advHeightAt 处草皮, 下 4 层泥再下石; 树随丘扎根不悬空', () => {
+  Core.advBuildWorld();
+  const surf = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  /* 深险圈采样列: 表面贴高度场, 层序随之 */
+  for (const [x, z] of [[10, 10], [120, 120], [5, 80], [80, 5]]) {
+    const sy = surf(x, z);
+    assert.strictEqual(cell(x, sy, z), 1, '(' + x + ',' + z + ') 表面草皮贴高度场 y' + sy);
+    assert.strictEqual(cell(x, sy - 1, z), 2, '(' + x + ',' + z + ') 表面下泥层');
+    assert.strictEqual(cell(x, sy - 4, z), 2, '(' + x + ',' + z + ') 泥层共 4 层(sy-4 仍是泥)');
+    assert.strictEqual(cell(x, sy - 5, z), 3, '(' + x + ',' + z + ') 泥层下石头');
+  }
+  /* 核心圈平地照旧 y24 草皮 */
+  assert.strictEqual(cell(61, 24, 66), 1, '核心圈平地 (61,66) 表面仍 y24 草');
+  /* 树贴地: 每棵树干脚下恰是本地草皮表面(丘上树不悬空、坑边树不埋干) */
+  for (const s of Core.advTreeSpots()) {
+    const sy = surf(s.x, s.z);
+    assert.strictEqual(cell(s.x, sy, s.z), 1, '树脚下是草皮表面 (' + s.x + ',' + s.z + ')');
+    assert.strictEqual(cell(s.x, sy + 1, s.z), 5, '树干基部贴表面');
+  }
+});
+
+test('T5 门阵广场: 屋东 15×15 圆石满铺 + 三扇门位进常量(难度序, 门体归 T7)', () => {
+  const p = Core.ADV_GATE_PLAZA;
+  assert.deepStrictEqual([p.x1, p.x2, p.z1, p.z2], [70, 84, 74, 88], '屋东 x70-84 z74-88(§2.4 核心圈)');
+  assert.strictEqual(p.gates.length, 3, '三扇门位(每图一扇)');
+  const seen = new Set();
+  for (const g of p.gates) {
+    assert.ok(g.px >= p.x1 - 1 && g.px + 5 <= p.x2 + 1, '门框 6 宽(px..px+5)落广场含塔位余量: px=' + g.px);
+    assert.ok(g.pz >= p.z1 && g.pz <= p.z2, '门面 z 行在广场内: pz=' + g.pz);
+    seen.add(g.px + ',' + g.pz);
+  }
+  assert.strictEqual(seen.size, 3, '三门位互不重合');
+  Core.advBuildWorld();
+  for (let x = p.x1; x <= p.x2; x++) {
+    for (let z = p.z1; z <= p.z2; z++) {
+      assert.strictEqual(cell(x, 24, z), 4, '广场圆石满铺 (' + x + ',' + z + ')');
+    }
+  }
+});
+
+test('T5 初始农田: 屋南 4×3 耕地+熟麦 + 西缘水路(种子→小麦→面包教学第一环)', () => {
+  const f = Core.ADV_FARM;
+  assert.deepStrictEqual([f.x1, f.x2, f.z1, f.z2], [59, 62, 86, 88], '屋南 4×3');
+  Core.advBuildWorld();
+  for (let x = f.x1; x <= f.x2; x++) {
+    for (let z = f.z1; z <= f.z2; z++) {
+      assert.strictEqual(cell(x, 24, z), api.B_FARMLAND, '耕地 (' + x + ',' + z + ')');
+      assert.strictEqual(cell(x, 25, z), api.B_WHEAT_3, '熟麦已长成 (' + x + ',' + z + ')');
+    }
+  }
+  for (let z = f.z1; z <= f.z2; z++) {
+    assert.strictEqual(cell(f.x1 - 1, 24, z), api.B_WATER, '西缘水路(从简) z=' + z);
+  }
+});
+
+test('T5 畜牧围栏: 原木柱角+木板栏一圈 2 高 + 栏内草地 + 东侧踏石(孩子可越, 牲畜留场)', () => {
+  const pen = Core.ADV_PEN;
+  assert.deepStrictEqual([pen.x1, pen.x2, pen.z1, pen.z2], [40, 54, 74, 90], '屋西 x40-54 z74-90');
+  Core.advBuildWorld();
+  /* 四角原木柱(y25~26) */
+  for (const [cx, cz] of [[pen.x1, pen.z1], [pen.x2, pen.z1], [pen.x1, pen.z2], [pen.x2, pen.z2]]) {
+    assert.strictEqual(cell(cx, 25, cz), 5, '角柱原木 (' + cx + ',' + cz + ')');
+    assert.strictEqual(cell(cx, 26, cz), 5, '角柱两高');
+  }
+  /* 栏线完整: 周界每格 y25/y26 都是实心栏(原木/木板), 台阶步进 ≤1.05 的牲畜翻不出 */
+  for (let x = pen.x1; x <= pen.x2; x++) {
+    for (const z of [pen.z1, pen.z2]) {
+      const a = cell(x, 25, z); const b = cell(x, 26, z);
+      assert.ok((a === 5 || a === 6) && (b === 5 || b === 6), '南北栏线实心 (' + x + ',' + z + ')');
+    }
+  }
+  for (let z = pen.z1; z <= pen.z2; z++) {
+    for (const x of [pen.x1, pen.x2]) {
+      const a = cell(x, 25, z); const b = cell(x, 26, z);
+      assert.ok((a === 5 || a === 6) && (b === 5 || b === 6), '东西栏线实心 (' + x + ',' + z + ')');
+    }
+  }
+  assert.strictEqual(cell(47, 25, pen.z1), 6, '栏中段是木板(柱只在角)');
+  /* 栏内地面留草 */
+  assert.strictEqual(cell(47, 24, 82), 1, '栏内草地');
+  assert.strictEqual(cell(47, 25, 82), 0, '栏内净空');
+  /* 东侧踏石: 孩子两级翻越(地面→踏石→栏顶), 牲畜踏石到栏顶仍差 2 爬不上 */
+  assert.strictEqual(cell(pen.x2 + 1, 25, 82), 4, '踏石圆石在栏外东侧');
+});
+
+test('T5 圆石小径: 门口↔广场↔农田 2 宽间断铺装((x+z) 偶数格), 三段连通', () => {
+  assert.strictEqual(Core.ADV_PATH.length, 3, '三段走廊');
+  Core.advBuildWorld();
+  let paved = 0;
+  for (const r of Core.ADV_PATH) {
+    for (let x = r.x1; x <= r.x2; x++) {
+      for (let z = r.z1; z <= r.z2; z++) {
+        if ((x + z) % 2 === 0) {
+          assert.strictEqual(cell(x, 24, z), 4, '偶数格铺圆石 (' + x + ',' + z + ')');
+          paved++;
+        }
+      }
+    }
+  }
+  assert.ok(paved >= 20, '间断铺装有料: ' + paved + ' 格');
+  /* 连通性: 门口段东端(x69)贴广场西缘(x70); 南下段(x65-66)接门口段(z77/78 相邻);
+     西折段(x63)贴农田东缘(x62)——取样取偶数格(奇数格是间断留白) */
+  assert.strictEqual(cell(69, 24, 77), 4, '门口段东端接广场');
+  assert.strictEqual(cell(66, 24, 78), 4, '南下段起于门口段南侧');
+  assert.strictEqual(cell(63, 24, 87), 4, '西折段西端接农田');
+});
+
+test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴草皮不占围栏/铺装', () => {
+  Core.advBuildWorld();
+  const c = {x: 61, z: 81};
+  let n = 0; const kinds = new Set();
+  for (let y = 0; y < H; y++) {
+    for (let z = 0; z < D; z++) {
+      for (let x = 0; x < W; x++) {
+        const id = cell(x, y, z);
+        if (id !== api.B_FLOWER_Y && id !== api.B_FLOWER_W) continue;
+        n++;
+        kinds.add(id);
+        assert.ok(Math.hypot(x - c.x, z - c.z) <= 18, '花只长核心圈草场 (' + x + ',' + z + ')');
+        assert.strictEqual(cell(x, y - 1, z), 1, '花脚下直接是草皮');
+        assert.strictEqual(y, Core.ADV_GROUND + Core.advHeightAt(x, z) + 1, '花在本地表面上一层');
+        assert.ok(!Core.advInRect(x, z, Core.ADV_PEN), '不占畜牧围栏');
+      }
+    }
+  }
+  assert.ok(n >= 6 && n <= 90, '密度 ~2% 可发现不铺满: ' + n + ' 丛');
+  assert.strictEqual(kinds.size, 2, '黄白两款都有');
+});
+
+test('T5 避让联动: 树/群位避新增建场件 — 广场/农田/围栏/小径无树, 群位避广场/农田/小径', () => {
+  Core.advBuildWorld();
+  for (const s of Core.advTreeSpots()) {
+    assert.ok(!Core.advInRect(s.x, s.z, Core.ADV_GATE_PLAZA), '广场无树');
+    assert.ok(!Core.advInRect(s.x, s.z, Core.ADV_FARM), '农田无树');
+    assert.ok(!Core.advInRect(s.x, s.z, Core.ADV_PEN), '围栏无树');
+    for (const r of Core.ADV_PATH) assert.ok(!Core.advInRect(s.x, s.z, r), '小径无树');
+  }
+  /* 群位约束谓词: 广场心/农田心/小径格全拒 */
+  assert.strictEqual(Core.advLivestockHerdOk(77, 81, Core.advTreeSpots()), false, '广场心拒');
+  assert.strictEqual(Core.advLivestockHerdOk(60, 87, Core.advTreeSpots()), false, '农田心拒');
+  assert.strictEqual(Core.advLivestockHerdOk(65, 82, Core.advTreeSpots()), false, '小径格拒');
+});
+
+test('T5 畜牧群位进围栏: 两群位落栏内草地(四畜在场内), 显式坐标满足全部群位约束', () => {
+  Core.advBuildWorld();
+  const spots = Core.advLivestockSpots();
+  assert.strictEqual(spots.length, 2, '两个群位');
+  const pen = Core.ADV_PEN;
+  const trees = Core.advTreeSpots();
+  for (const s of spots) {
+    assert.ok(s.x >= pen.x1 + 3 && s.x <= pen.x2 - 3 && s.z >= pen.z1 + 3 && s.z <= pen.z2 - 3,
+        '群位在栏内且距墙 ≥3 (' + s.x + ',' + s.z + ')');
+    assert.strictEqual(Core.advLivestockHerdOk(s.x, s.z, trees), true,
+        '显式群位通过全部约束谓词(离出生 ≥15·避湖/坑/巢/洞/广场/农田/小径·避树)');
+    assert.strictEqual(cell(s.x, 24, s.z), 1, '群位脚下栏内草地');
+    assert.strictEqual(cell(s.x, 25, s.z), 0, '群位上方净空');
+  }
+  assert.ok(Math.hypot(spots[0].x - spots[1].x, spots[0].z - spots[1].z) >= Core.ADV_LIVESTOCK_HERD_R,
+      '两群彼此 ≥10(不叠群)');
+  const plan = Core.advLivestockPlan();
+  assert.strictEqual(plan.length, 10, '2 群共 10 只(清单构成不回归)');
+  for (const e of plan) {
+    assert.ok(e.x > pen.x1 + 1 && e.x < pen.x2 + 1 && e.z > pen.z1 + 1 && e.z < pen.z2 + 1,
+        '条目散布在栏内: (' + e.x.toFixed(1) + ',' + e.z.toFixed(1) + ')');
+  }
+});
+
+test('T5 压平扩容: 广场/农田/围栏足印归 0(ADV_FLATS 与建场件对齐)', () => {
+  const inR = (x, z, r, m) => x >= r.x1 - m && x <= r.x2 + m && z >= r.z1 - m && z <= r.z2 + m;
+  for (let x = 0; x < W; x++) {
+    for (let z = 0; z < D; z++) {
+      if (inR(x, z, Core.ADV_GATE_PLAZA, 1) || inR(x, z, Core.ADV_FARM, 1) ||
+          inR(x, z, Core.ADV_PEN, 0)) {
+        assert.strictEqual(Core.advHeightAt(x, z), 0, '新件足印回落 y24 (' + x + ',' + z + ')');
+      }
+    }
+  }
+  assert.strictEqual(Core.ADV_FLATS.length, 10, '压平清单与建场件一一对应(湖1+坑2+洞1+巢3+广场1+农田1+围栏1)');
 });
 
 /* ============ 政策纯函数段(逐条钉口径) ============ */
@@ -160,9 +434,8 @@ test('核心政策: 站点判定/TNT 掷骰与衰减', () => {
   assert.strictEqual(Core.advTntDmg(9), Core.ADV_TNT_DMG_LO, '越界钳边缘 12');
 });
 
-test('核心任务表: 16 条形状齐 + 谓词口径抽样(全量逐条在 adventure-mode.test.js)', () => {
-  assert.strictEqual(Core.ADV_QUESTS.length, 16, '引导链 v2: 15 步 + 终章');
-  assert.strictEqual(Core.ADV_QUESTS[15].finale, true, '第 16 条是终章');
+test('核心任务表: 16 条主线形状齐 + 谓词口径抽样(全量逐条在 adventure-mode.test.js)', () => {
+  assert.strictEqual(Core.ADV_QUESTS[15].finale, true, '第 16 条是终章(远征章追加其后, 老档 step 不回退)');
   Core.ADV_QUESTS.forEach((q, i) => {
     assert.ok(q.id && q.icon && q.goal && q.hint && q.praise, '步 ' + i + ' 文案五件套');
     assert.strictEqual(typeof q.prog, 'function', '步 ' + i + ' prog 谓词');
@@ -179,6 +452,44 @@ test('核心任务表: 16 条形状齐 + 谓词口径抽样(全量逐条在 adve
   assert.strictEqual(Core.ADV_QUESTS[13].id, 'q14_fight', '步14 = 战斗教学步(铁镐后钻石前)');
   assert.strictEqual(Core.ADV_MINE_TALLY[3], 'mine_cobble', '石头也计圆石(步7 口径)');
 });
+
+test('远征章(T8): 追加在终章之后 — 10 条(引导 1 + 每图 3), 前 16 条序不变(老档 step 不回退)', () => {
+  assert.strictEqual(Core.ADV_QUESTS.length, 26, '主线 16 + 远征章 10');
+  assert.strictEqual(Core.ADV_QUESTS[16].id, 'q16_plaza', '第 17 条 = home 门阵广场引导(远征章首条)');
+  assert.strictEqual(Core.ADV_QUESTS[16].unlock, 'desert', '广场引导完成点亮沙漠门(线性链第一环)');
+  assert.strictEqual(Core.ADV_QUESTS[19].id, 'q19_temple', '第 20 条 = 沙漠神殿宝箱(远征章链尾)');
+  assert.strictEqual(Core.ADV_QUESTS[19].unlock, 'snow', '神殿宝箱完成点亮雪原门(线性链第二环)');
+  assert.strictEqual(Core.ADV_QUESTS[22].id, 'q22_igloo', '第 23 条 = 雪屋宝箱(雪原链尾)');
+  assert.strictEqual(Core.ADV_QUESTS[22].unlock, 'swamp', '雪屋宝箱完成点亮沼泽门(线性链第三环)');
+  assert.strictEqual(Core.ADV_QUESTS[25].id, 'q25_witch_chest', '末条 = 女巫小屋宝箱(沼泽链尾, 无 unlock)');
+  /* unlock 只许挂在三环链尾: 别处冒出 unlock 会破坏「一任务一点亮」的仪式稀缺感 */
+  const unlocks = Core.ADV_QUESTS.filter((q) => q.unlock).map((q) => q.id + '→' + q.unlock);
+  assert.deepStrictEqual(unlocks, ['q16_plaza→desert', 'q19_temple→snow', 'q22_igloo→swamp'],
+      '解锁绑定恰三环: home→desert→snow→swamp 线性(设计稿 §2.3)');
+  /* 解锁链反查(锁门话术与点亮仪式共用): 目标图 → 挂 unlock 的那条任务 */
+  assert.strictEqual(Core.advUnlockQuest('desert').id, 'q16_plaza', '反查: 沙漠门 ← 广场引导');
+  assert.strictEqual(Core.advUnlockQuest('snow').id, 'q19_temple', '反查: 雪原门 ← 神殿宝箱');
+  assert.strictEqual(Core.advUnlockQuest('swamp').id, 'q22_igloo', '反查: 沼泽门 ← 雪屋宝箱');
+  assert.strictEqual(Core.advUnlockQuest('home'), null, 'home 恒开无解锁任务');
+  assert.strictEqual(Core.advUnlockQuest('nonsense'), null, '未知图返 null 不炸');
+});
+
+test('远征章(T8): 谓词口径 — 发现型 visit_ / 收集型 mine_cactus / 探宝型 chest_ / 投掷型 throw_ / 击杀型 kill_', () => {
+  const q17 = Core.ADV_QUESTS[17];
+  assert.strictEqual(q17.check({visit_desert: 1}), true, '到达记账 1 次即完成(发现型轻谓词)');
+  assert.strictEqual(q17.check({}), false, '未到达不完成');
+  assert.strictEqual(Core.ADV_QUESTS[18].check({mine_cactus: 3}), true, '挖满 3 根仙人掌');
+  assert.strictEqual(Core.ADV_QUESTS[18].check({mine_cactus: 2}), false, '差一根不满足');
+  assert.strictEqual(Core.ADV_QUESTS[19].check({chest_temple: 1}), true, '神殿宝箱开箱记账(结构键, 玩家自放箱不算)');
+  assert.strictEqual(Core.ADV_QUESTS[21].check({throw_snowball: 5}), true, '雪球掷出 5 颗(投掷记账)');
+  assert.strictEqual(Core.ADV_QUESTS[21].check({throw_snowball: 4}), false, '差一颗不满足');
+  assert.strictEqual(Core.ADV_QUESTS[22].check({chest_igloo: 1}), true, '雪屋宝箱开箱记账');
+  assert.strictEqual(Core.ADV_QUESTS[24].check({kill_bogged: 2}), true, '打跑 2 只沼骸(按怪种击杀记账)');
+  assert.strictEqual(Core.ADV_QUESTS[24].check({kill_mob: 5}), false, '杀别的不算沼骸步(按怪种分账)');
+  assert.strictEqual(Core.ADV_QUESTS[25].check({chest_witch: 1}), true, '女巫小屋宝箱开箱记账');
+  assert.strictEqual(Core.ADV_MINE_TALLY[B_CACTUS], 'mine_cactus', '仙人掌挖掘挂 mine_cactus 键(ADV_MINE_TALLY 既有通道)');
+});
+
 
 /* ============ 大宝箱政策(引导链 v2 纯函数段) ============ */
 
@@ -418,6 +729,42 @@ test('昼夜 D5 advNightStep: 节拍 2s 一拍 · 白天归零 · 环带落位 �
   /* 界外: read 返 null(壳层界外口径) → 不出单 */
   r = Core.advNightStep(1.9, 0.2, N, () => null, P, Math.random);
   assert.strictEqual(r.spawn, null, '界外/无效落点不出单');
+});
+
+test('T2 池参数化: ADV_HOME_ROW 缺省口径 + advNightStepPool 池注入(冒险地图票据 T2)', () => {
+  const N = 18000; /* 午夜(与 advNightStep 测试同时刻口径) */
+  const P = {x: 61.5, z: 76.5};
+  const dark = () => ({sky: 15, block: 0}); /* 夜地表可刷口径 */
+  const seq = (arr) => {
+    let i = 0;
+    return () => arr[i++];
+  };
+  /* home 地图行缺省数据 = 常量本体(同一引用): T4 地图行/T6 壳换装以行为池权威时,
+     home 行为与既有常量逐字节一致(导出口径不变红线) */
+  assert.strictEqual(Core.ADV_HOME_ROW.id, 'home', '行 id: home');
+  assert.strictEqual(Core.ADV_HOME_ROW.nests, Core.ADV_NESTS, '巢穴池缺省 = ADV_NESTS 本体');
+  assert.strictEqual(Core.ADV_HOME_ROW.nightPool, Core.ADV_NIGHT.POOL, '夜怪池缺省 = ADV_NIGHT.POOL 本体');
+  /* 池经入参注入(T4 替换语义的可行性证明): 沙漠味池 2:1 → 掷 0 落首段 husk,
+     节拍/环带/光照门口径与缺省池完全同构 */
+  const desertPool = [['husk', 2], ['creeper', 1]];
+  let r = Core.advNightStepPool(1.9, 0.2, N, dark, P, seq([0, 0.5, 0]), desertPool);
+  assert.ok(r.spawn, '注入池同样到拍出单');
+  assert.strictEqual(r.spawn.type, 'husk', '掷 0 → 注入池首段 husk(权重 2/3)');
+  assert.strictEqual(r.t, 0, '计时口径同缺省版(到拍归零)');
+  r = Core.advNightStepPool(1.9, 0.2, N, dark, P, seq([0, 0.5, 0.99]), desertPool);
+  assert.strictEqual(r.spawn.type, 'creeper', '掷 2.97/3 → 注入池末段 creeper(浮点尽头兜底)');
+  assert.ok(Math.abs(Math.hypot(r.spawn.x - P.x, r.spawn.z - P.z) - 32) < 1e-9,
+      '落点仍在缺省环带(环带/节拍常量不随池换)');
+  /* 池缺省回落: 不传第 7 参 = ADV_NIGHT.POOL 口径, 与 advNightStep 同 rnd 序输出逐字节一致
+     (advNightStep 是签名冻结的缺省薄壳, 行为等价由本断言锚定) */
+  const a = Core.advNightStep(1.9, 0.2, N, dark, P, seq([0, 0.5, 0.5]));
+  const b = Core.advNightStepPool(1.9, 0.2, N, dark, P, seq([0, 0.5, 0.5]));
+  assert.deepStrictEqual(b, a, '缺省池回落: 两版同 rnd 序输出逐字节一致');
+  /* 注入池不影响光照门/白天归零(拒绝路径先于池选种, 池零消费) */
+  assert.strictEqual(Core.advNightStepPool(1.9, 0.2, 6000, dark, P, Math.random, desertPool).spawn,
+      null, '白天归零口径不随池变');
+  assert.strictEqual(Core.advNightStepPool(1.9, 0.2, N, () => ({sky: 15, block: 3}), P,
+      Math.random, desertPool).spawn, null, '火把格拒绝口径不随池变');
 });
 
 test('昼夜 D5 advDawnSweep: internalSky(15)≥12(= skyDim≤3) 黎明谓词(跨沿归壳层账本)', () => {

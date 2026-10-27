@@ -86,6 +86,9 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
+  B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
+  B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
+  B_PORTAL, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
@@ -349,6 +352,9 @@ ModeKit.spawn = (x, y, z, o) => {
    显式铺到全局再 require 壳——壳顶层即消费这些全局名 */
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore);
+/* 冒险地图核心(T4, index.html 加载序同构: adventure-core → maps-core → 壳):
+    壳层 advSetMap/init 经全局名消费 ADV_MAPS/advMapArrive */
+Object.assign(globalThis, require('../js/adventure-maps-core.js'));
 /* 烧炼三件(SMELT_T/smeltStep/furnaceRefund)已迁 craft-core(2026-10 归属错位修复):
    Node 侧 require 真模块铺到全局, 浏览器侧 index.html 里 craft-core 先于本批加载同构 */
 const CraftCore = require('../js/craft-core.js');
@@ -393,13 +399,19 @@ function bandOk(id, yLo, yHi) {
   }
   return true;
 }
-/* 树干列: y25..28 连续原木(树高 4~6; 小屋角柱只到 y27, 不误计) */
+/* 树干列: 自表面起 4 连续原木(树高 4~6; 小屋角柱只到 y27, 不误计; T5 起树随
+   圈层丘体扎根, 干基 y 随高度场 21~28 浮动, 逐列扫窗) */
 function treeTrunks(skip) {
   let n = 0;
   for (let z = 0; z < D; z++) {
     for (let x = 0; x < W; x++) {
       if (skip && skip(x, z)) continue;
-      if (cell(x, 25, z) === 5 && cell(x, 26, z) === 5 && cell(x, 27, z) === 5 && cell(x, 28, z) === 5) n++;
+      for (let y = 21; y <= 28; y++) {
+        if (cell(x, y, z) === 5 && cell(x, y + 1, z) === 5 && cell(x, y + 2, z) === 5 && cell(x, y + 3, z) === 5) {
+          n++;
+          break;
+        }
+      }
     }
   }
   return n;
@@ -441,11 +453,13 @@ test('探险模式: 注册表行在场(gated 共享儿童时限 + 派生脚本�
 
 test('探险模式: init 建场 — 草原地层/出生小屋/出生点/快捷栏 9 槽镜像背包', () => {
   freshInit();
-  /* 地层: 地表 y24 草 / 下 4 层泥 / 再下石头到 y0 */
-  assert.strictEqual(cell(10, 24, 10), 1, '地表 y24 是草地');
-  assert.strictEqual(cell(10, 23, 10), 2, 'y21~23 泥土(上层)');
-  assert.strictEqual(cell(10, 20, 10), 2, 'y20 泥土(第 4 层)');
-  assert.strictEqual(cell(10, 19, 10), 3, 'y19 及以下石头');
+  /* 地层随圈层高度场(T5): 表面=24+advHeightAt 处草 / 下 4 层泥 / 再下石头到 y0;
+     (10,10) 在深险圈——采样列的表面高度按高度场取, 层序随之 */
+  const sy = A.ADV.ground + AdventureMode.adv.heightAt(10, 10);
+  assert.strictEqual(cell(10, sy, 10), 1, '(10,10) 表面草皮贴高度场 y' + sy);
+  assert.strictEqual(cell(10, sy - 1, 10), 2, '表面下泥土(上层)');
+  assert.strictEqual(cell(10, sy - 4, 10), 2, '泥土第 4 层');
+  assert.strictEqual(cell(10, sy - 5, 10), 3, '泥层下石头');
   assert.strictEqual(cell(10, 0, 10), 3, '直到 y0 都是石头');
   /* 出生小屋: 原木角柱 + 木板墙/地板/顶 + 北门洞; 工作台/熔炉不送(任务链要有仪式感) */
   const hut = A.ADV.hut;
@@ -558,17 +572,20 @@ test('探险模式: 2 个露天矿坑 — 阶梯漏斗坑挖到地表以下, 坑
 test('探险模式: 山洞隧道通 y<10 深处, 沿途裸露铁/金/钻石矿(不用猜地下有矿)', () => {
   freshInit();
   const cave = A.ADV.cave;
+  /* T5 起隧道向南(zStart 北端洞口 < zEnd 穴室), 扫描窗方向无关取 min/max */
+  const zLo = Math.min(cave.zStart, cave.zEnd) - 3;
+  const zHi = Math.max(cave.zStart, cave.zEnd) + 3;
   /* 隧道最深处: 台阶逐级向下, 存在 y<10 的洞内空间 */
   let deepAir = 0;
   for (let y = 1; y < 10; y++) {
-    for (let z = cave.zEnd - 3; z <= cave.zStart + 3; z++) {
+    for (let z = zLo; z <= zHi; z++) {
       for (let x = cave.x1 - 3; x <= cave.x2 + 3; x++) {
         if (x >= 0 && z >= 0 && cell(x, y, z) === 0) deepAir++;
       }
     }
   }
   assert.ok(deepAir >= 20, '山洞挖到 y<10 深处: ' + deepAir + ' 格空间');
-  const nearCave = (x, y, z)=>x >= cave.x1 - 3 && x <= cave.x2 + 3 && z >= cave.zEnd - 3 && z <= cave.zStart + 3;
+  const nearCave = (x, y, z)=>x >= cave.x1 - 3 && x <= cave.x2 + 3 && z >= zLo && z <= zHi;
   assert.ok(countId(api.B_IRON_ORE, (x, y, z)=>nearCave(x, y, z) && y >= 6 && y <= 16) >= 4, '沿途铁矿带');
   assert.ok(countId(api.B_GOLD_ORE, (x, y, z)=>nearCave(x, y, z) && y >= 2 && y <= 10) >= 2, '沿途金矿带');
   assert.ok(countId(api.B_DIAMOND_ORE, (x, y, z)=>nearCave(x, y, z) && y <= 5) >= 2, '深处钻石矿(含穴室保底)');
@@ -604,7 +621,7 @@ test('探险模式: 3 个怪物巢穴 — 土丘洞穴地形就位 + init 每巢
   assert.strictEqual(dropsState.cbs.length, 1, '收集回调注册在 init');
 });
 
-test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞', () => {
+test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞/门阵广场/农田/围栏/小径', () => {
   freshInit();
   const skipZone = (x, z) => {
     const hut = A.ADV.hut;
@@ -613,7 +630,16 @@ test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞', (
     for (const p of A.ADV.pits) if (inCircle(x, z, p, p.r + 1)) return true; /* 矿坑 */
     for (const n of A.ADV.nests) if (Math.hypot(x - n.x, z - n.z) < 4) return true; /* 巢穴 */
     const c = A.ADV.cave;
-    return inRect(x, z, c.x1 - 3, c.zEnd - 4, c.x2 + 3, c.zStart + 5); /* 山洞(含洞口小丘) */
+    /* 山洞(含洞口小丘, T5 起隧道向南) */
+    if (inRect(x, z, c.x1 - 3, Math.min(c.zStart, c.zEnd) - 5, c.x2 + 3, Math.max(c.zStart, c.zEnd) + 4)) return true;
+    const plz = AdventureCore.ADV_GATE_PLAZA; /* 门阵广场 */
+    if (inRect(x, z, plz.x1, plz.z1, plz.x2, plz.z2)) return true;
+    const fm = AdventureCore.ADV_FARM; /* 农田+水路(±1) */
+    if (inRect(x, z, fm.x1 - 1, fm.z1, fm.x2 + 1, fm.z2)) return true;
+    const pen = AdventureCore.ADV_PEN; /* 畜牧围栏 */
+    if (inRect(x, z, pen.x1, pen.z1, pen.x2, pen.z2)) return true;
+    for (const r of AdventureCore.ADV_PATH) if (inRect(x, z, r.x1, r.z1, r.x2, r.z2)) return true; /* 圆石小径 */
+    return false;
   };
   const total = treeTrunks(null);
   const outside = treeTrunks(skipZone);
@@ -638,7 +664,7 @@ test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 
   AdventureMode.cleanup();
   const saved = JSON.parse(mem.get('adventure_world_save'));
   assert.ok(saved._v === 1, '存档带版本号');
-  const flat = (saved.edits || []).map((e)=>e[0]);
+  const flat = (saved.edits.home || []).map((e)=>e[0]);
   assert.ok(flat.includes('90,24,90') && flat.includes('91,24,91'), '改动落盘(edits 只存差异)');
   freshInit();
   assert.strictEqual(cell(90, 24, 90), 3, '重进: 玩家改动重放');
@@ -661,9 +687,9 @@ test('世界改动日志: 流体格旧档重放 — {id,lv} 双通道(方块+水
   A.advJournal.mark('81,25,81', {id: api.B_WATER, lv: 2});
   AdventureMode.cleanup();
   const saved = JSON.parse(mem.get('adventure_world_save'));
-  assert.ok(saved.edits.some((e) => e[0] === '80,25,80' && e[1] && e[1].id === api.B_WATER && e[1].lv === 3),
+  assert.ok(saved.edits.home.some((e) => e[0] === '80,25,80' && e[1] && e[1].id === api.B_WATER && e[1].lv === 3),
       '旧档流体格原样回写 {id,lv}(encode 形状一字不改)');
-  assert.ok(saved.edits.some((e) => e[0] === '81,25,81' && e[1] && e[1].lv === 2), 'mark 的流体格入档');
+  assert.ok(saved.edits.home.some((e) => e[0] === '81,25,81' && e[1] && e[1].lv === 2), 'mark 的流体格入档');
   freshInit(); /* 重进: 水位精确恢复(逐格最后写赢) */
   assert.strictEqual(api.getFluidLv(80, 25, 80), 3, '重进水位恢复');
   assert.strictEqual(api.getFluidLv(81, 25, 81), 2, '重进新记的水位恢复');
@@ -989,8 +1015,8 @@ test('T14 玩家阵亡: 怪物致命一击走 advPlayerDied — 回出生小屋�
 
 test('T14 儿童可控: 苦力怕单击伤害封顶(33 → 10, 满血 30 不被秒杀)', () => {
   freshInit();
-  globalThis.pos.x = 86; globalThis.pos.y = 25; globalThis.pos.z = 96;
-  listResult = [mkAdvMob('creeper', 86.4, 25, 95.6, {nest: 1})];
+  globalThis.pos.x = 96; globalThis.pos.y = 25; globalThis.pos.z = 36; /* T5 巢 1(蜘蛛)新位 (96,36) 洞口前 */
+  listResult = [mkAdvMob('creeper', 96.4, 25, 35.6, {nest: 1})];
   nextHit = {hp: 20, dead: false, freshDead: false};
   hitLog.length = 0;
   AdventureMode.update(1 / 60);
@@ -999,31 +1025,31 @@ test('T14 儿童可控: 苦力怕单击伤害封顶(33 → 10, 满血 30 不被�
 
 test('T14 索敌收敛: 玩家在索敌半径外怪驻巢不追; 引出巢区过远掉头回巢(收队)', () => {
   freshInit();
-  /* 玩家在出生小屋(61.5,76.5), 巢 0 在(40,52): 相距 ~34 格 > 索敌半径 */
-  const guard = mkAdvMob('zombie', 41, 25, 53, {nest: 0});
+  /* 玩家在出生小屋(61.5,76.5), 巢 0 在(44,60)(T5 近巢新位): 相距 ~24 格 > 索敌半径 12 */
+  const guard = mkAdvMob('zombie', 45, 25, 60, {nest: 0});
   listResult = [guard];
   moveLog.length = 0;
   AdventureMode.update(1 / 60);
   assert.strictEqual(moveLog.length, 0, '玩家在索敌半径外: 原地驻巢(不追击不游荡出巢)');
   /* 玩家进索敌半径(距怪 4 格) → 开战逼近 */
-  globalThis.pos.x = 45; globalThis.pos.y = 25; globalThis.pos.z = 53;
+  globalThis.pos.x = 49; globalThis.pos.y = 25; globalThis.pos.z = 60;
   moveLog.length = 0;
   AdventureMode.update(1 / 60);
   const chase = moveLog.find((mv) => mv.m === guard);
   assert.ok(chase && chase.dx > 0, '进索敌半径: 朝玩家逼近(dx>0)');
   /* 被击退引出巢区(离巢 20 格 > 收队半径 16) → 不再追, 掉头回巢 */
-  guard.pos.x = 60; guard.pos.z = 53;
+  guard.pos.x = 64; guard.pos.z = 60;
   globalThis.pos.x = 61.5; globalThis.pos.z = 76.5; /* 玩家远走 */
   moveLog.length = 0;
   AdventureMode.update(1 / 60);
   const home = moveLog.find((mv) => mv.m === guard);
-  assert.ok(home && home.dx < 0, '离巢超收队半径: 掉头回巢(dx<0 朝巢 40)');
+  assert.ok(home && home.dx < 0, '离巢超收队半径: 掉头回巢(dx<0 朝巢 44)');
 });
 
 test('T14 骷髅远程: 索敌内保持距离放箭, 箭沿预测弹道命中玩家受击(CombatCore 先例)', () => {
   freshInit();
   globalThis.pos.x = 44; globalThis.pos.y = 25; globalThis.pos.z = 58; /* 距骷髅 4 格(巡航距内) */
-  listResult = [mkAdvMob('skeleton', 44, 25, 54, {nest: 0})]; /* 巢 0 土丘(40,52)外的开阔地 */
+  listResult = [mkAdvMob('skeleton', 44, 25, 54, {nest: 0})]; /* 巢 0(44,60)土丘外的开阔地 */
   nextHit = {hp: 24, dead: false, freshDead: false};
   calls.length = 0;
   spoken.length = 0;
@@ -1093,13 +1119,15 @@ test('T12 草丛散布: 确定性 + 只长草地顶 + 密度可发现不铺满(T
     for (let z = 0; z < D; z++) {
       for (let x = 0; x < W; x++) {
         if (cell(x, y, z) === api.B_GRASS_TUFT) {
-          assert.strictEqual(y, 25, '草丛只在地表上一层(y25)');
-          if (cell(x, 24, z) === 1) onGrass++;
+          assert.strictEqual(cell(x, y - 1, z), 1, '草丛脚下直接是草皮');
+          assert.strictEqual(y, A.ADV.ground + AdventureMode.adv.heightAt(x, z) + 1,
+              '草丛在本地表面上一层(T5 起随圈层丘体贴地)');
+          onGrass++;
         }
       }
     }
   }
-  assert.strictEqual(onGrass, tufts, '每丛脚下都是草地(不占沙/水/矿坑)');
+  assert.strictEqual(onGrass, tufts, '每丛脚下都是草地(不占沙/水/矿坑/铺装)');
   const again = (freshInit(), countId(api.B_GRASS_TUFT));
   assert.strictEqual(again, tufts, '重进草丛位置完全复现(确定性散布)');
 });
@@ -1287,7 +1315,7 @@ test('T12 树苗关页兜底: 5s 节流窗口内关页 → onPageHide 落盘 →
   assert.ok(!mem.has('adventure_world_save'), '节流窗口内世界档未落盘(关页丢档前提成立)');
   AdventureMode.onPageHide(); /* main.js pagehide 收口分发(不走 cleanup) */
   const saved = JSON.parse(mem.get('adventure_world_save'));
-  assert.ok((saved.edits || []).some((e) => e[0] === spot.x + ',25,' + spot.z && e[1] === api.B_SAPLING),
+  assert.ok((saved.edits.home || []).some((e) => e[0] === spot.x + ',25,' + spot.z && e[1] === api.B_SAPLING),
       'onPageHide 已把树苗格落进世界档');
   freshInit(); /* 重进 */
   assert.strictEqual(cell(spot.x, 25, spot.z), api.B_SAPLING, '重进树苗还在(不再丢档)');
@@ -1309,7 +1337,7 @@ test('T12 树苗生长链: 20s 到期长成树 + 逐块记账 + 重进树还在(
   assert.strictEqual(A.advSaplings.size, 0, '到期移出计时 Map');
   AdventureMode.cleanup(); /* 落盘 */
   const saved = JSON.parse(mem.get('adventure_world_save'));
-  const flat = (saved.edits || []).map((e) => e[0]);
+  const flat = (saved.edits.home || []).map((e) => e[0]);
   assert.ok(flat.includes(spot.x + ',25,' + spot.z), '树干格记账(edits 存差异)');
   freshInit(); /* 重进: 确定性重建 + edits 重放 */
   assert.strictEqual(cell(spot.x, 25, spot.z), 5, '重进树还在(不靠计时重演)');
@@ -1333,6 +1361,41 @@ test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + �
   A.ADV.player.hp = 30; /* 满血 */
   AdventureMode.onMouse(0, {x: 60, y: 24, z: 80, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(A.advGetInv().slots[0].n, 1, '满血不吃不扣');
+});
+
+test('T9 雪球投掷链: 手持右键掷出 — 消耗 1 颗+掷出音+挥臂; 命中怪零伤害+击退+白絮+命中音', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('snowball', 3);
+  globalThis.pos.x = 40; globalThis.pos.y = 25; globalThis.pos.z = 50;
+  const zombie = mkAdvMob('zombie', 40, 25, 47.4, {attackCd: 99}); /* 北侧 2.6 格 */
+  listResult = [zombie];
+  /* 准星 fake: 玩家眼高沿 -Z 平射(aimDownAt 同款, 用完 clearAim 收口) */
+  globalThis.camera = {};
+  globalThis.CameraRig = {aim: () => ({origin: {x: 40, y: 26.4, z: 50}, dir: {x: 0, y: 0, z: -1}})};
+  hitLog.length = 0;
+  AdventureMode.onMouse(2, {x: 40, y: 24, z: 46, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetInv().slots[0].n, 2, '掷出消耗 1 颗');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'snow_throw'), '掷出「噗」音');
+  assert.ok(calls.some((c) => c[0] === 'swing'), '出手带挥臂观感');
+  assert.ok(!calls.some((c) => c[0] === 'sfx' && c[1] === 'shoot'), '不吃箭矢发射音(muteSfx 口径)');
+  /* 冷却内连点不重复消耗(swingAction 与剑同轨占冷却) */
+  AdventureMode.onMouse(2, {x: 40, y: 24, z: 46, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetInv().slots[0].n, 2, '冷却内连点不扣');
+  /* 弹道步进至命中: 零伤害红线 + 击退政策 + 白絮观感 + 命中音 */
+  for (let i = 0; i < 60 && !hitLog.length; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(hitLog.length, 1, '雪球飞到怪(hurt 前 Mobs.hit 先结算)');
+  assert.strictEqual(hitLog[0].dmg, 0, '零伤害红线: 雪球永不扣血');
+  assert.strictEqual(hitLog[0].kpow, 1.1, '击退政策(打雪仗主反馈)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'snow_hit'), '命中「噗嗤」音');
+  assert.ok(calls.some((c) => c[0] === 'debris'), '命中白絮小粒子(Fx.debrisBurst 现成件)');
+  assert.ok(!calls.some((c) => c[0] === 'sfx' && c[1] === 'hit'), '不吃近战/箭命中音(muteSfx 口径)');
+  clearAim();
+  /* 手持非雪球: 右键链照旧走放置(投掷不拦截) */
+  holdOnly('dirt', 2);
+  AdventureMode.onMouse(2, {x: 40, y: 24, z: 46, nx: 0, ny: 1, nz: 0});
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'snow_throw') === true, '前置音仍在账上(不误清)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '泥土走放置链扣 1(投掷没拦截放置)');
 });
 
 test('F3 金苹果行为链: 半血点击吃 — 回满血 + 扣 1 个, 满血不吃不扣(full 旗标经 advEatPolicy)', () => {
@@ -1736,17 +1799,20 @@ test('T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落�
 
 /* ============ 引导链 v2: 15 步主线 + 终章 + 大宝箱 ============ */
 
-test('QUESTS 数据表: 15 步主线 + 终章 — 步序照引导链 v2, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
+test('QUESTS 数据表: 15 步主线 + 终章 + 远征章 10 — 步序照引导链 v2/远征链, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
   const qs = ADV_QUESTS; /* 任务表常量经 core 全局直取 */
-  assert.strictEqual(qs.length, 16, '15 步主线 + 终章');
+  assert.strictEqual(qs.length, 26, '15 步主线 + 终章 + 远征章 10(引导 1 + 每图 3)');
   assert.deepStrictEqual(qs.map((q) => q.id),
       ['q1_log', 'q2_planks', 'q3_table', 'q4_chest', 'q5_sapling', 'q6_pick_wood',
         'q7_cobble', 'q8_pick_stone', 'q9_coal', 'q10_torch', 'q11_iron', 'q12_smelt',
-        'q13_pick_iron', 'q14_fight', 'q15_diamond', 'finale'],
-      '步序 = 引导链 v2(砍树→木板→工作台→箱子→树苗→木镐→圆石→石镐→煤→火把→铁矿→熔炉铁锭→铁镐→战斗→钻石→钻石剑, docs/story-quest-research.md)');
+        'q13_pick_iron', 'q14_fight', 'q15_diamond', 'finale',
+        'q16_plaza', 'q17_desert', 'q18_cactus', 'q19_temple',
+        'q20_snow', 'q21_snowball', 'q22_igloo', 'q23_swamp', 'q24_bogged', 'q25_witch_chest'],
+      '步序 = 引导链 v2(砍树→…→钻石剑, docs/story-quest-research.md) + 远征章(T8: 广场→沙漠三连→雪原三连→沼泽三连)');
   assert.strictEqual(qs[15].finale, true, '第 16 条是终章(主线 15 条不带 finale 标记)');
   assert.ok(qs.slice(0, 15).every((q) => !q.finale), '主线步骤无 finale 标记');
-  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 16, 'id 唯一');
+  assert.ok(qs.slice(16).every((q) => !q.finale), '远征章不冒用终章标记(称号仪式感专属)');
+  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 26, 'id 唯一');
 });
 
 test('T15 谓词逐条: 最小满足触发 / 空账本或差一不触发 / 复合步条件缺一不可', () => {
@@ -1897,7 +1963,7 @@ test('T15 老档归一化: {step:N} 无 counts → 补空表当前步从零继�
   mem.set('adventure_quest_save', JSON.stringify({_v: 1, step: 99, counts: 3}));
   freshInit();
   assert.deepStrictEqual(A.ADV.quest.counts, {}, '损坏 counts 归一空表');
-  assert.strictEqual(A.ADV.quest.step, 16, '越界 step 钳到表外上界(终章完成位)');
+  assert.strictEqual(A.ADV.quest.step, ADV_QUESTS.length, '越界 step 钳到表外上界(远征章末位后=全完成)');
 });
 
 test('T15 钻石首获仪式: 首次挖到钻石矿触发一次(专属 TTS+音效+冲击波碎块), 第二颗起不再', () => {
@@ -1992,8 +2058,8 @@ test('T15 任务卡 UI: 打开背包即见 — 当前步目标+进度, 完成步
   assert.ok(/<s>[^]*木板[^]*<\/s>/.test(html()), '已完成步划线(<s> 历史区, 木板在第 2 步)');
   assert.ok(html().indexOf('工作台') >= 0, '当前步换成工作台');
   assert.ok(html().indexOf('0 / 2') >= 0, '复合步进度 0 / 2(合成+放置)');
-  /* 终章完成态: 称号置顶 + 自由玩提示 */
-  A.ADV.quest.step = 16;
+  /* 全线完成态(主线+远征章): 称号置顶 + 自由玩提示(step 走到表外才是真·全完成) */
+  A.ADV.quest.step = ADV_QUESTS.length;
   A.ADV.quest.title = '小小探险家';
   A.advQuestPaint();
   assert.ok(html().indexOf('小小探险家') >= 0, '称号置顶显示');
@@ -2418,13 +2484,13 @@ test('方块级联⑦(三期 P14 红线): 旧档浮空冠重进治愈 — 治愈
       '治愈不掉落(装场期迁移不是游戏事件, 防刷档)');
   AdventureMode.cleanup(); /* 治愈记账落盘 */
   const saved = JSON.parse(mem.get('adventure_world_save'));
-  const healN = saved.edits.length - edits.length;
+  const healN = saved.edits.home.length - edits.length;
   assert.ok(healN >= 40, '治愈格逐块记账(漏记=重进复活/重复清扫), 实际新增 ' + healN);
   freshInit(); /* 二次进世界: 幂等 */
   assert.strictEqual(treeLeaves(t), 0, '二次进: 依然干净');
   AdventureMode.cleanup();
   const saved2 = JSON.parse(mem.get('adventure_world_save'));
-  assert.strictEqual(saved2.edits.length, saved.edits.length, '幂等: 二次进世界零新增治愈记账');
+  assert.strictEqual(saved2.edits.home.length, saved.edits.home.length, '幂等: 二次进世界零新增治愈记账');
 });
 
 /* ============ F4 牧场(二期设计稿 §4): 散布在场 / 收获链 / 恐惧游荡 / 死畜账 / 熟食链 ============ */
@@ -2466,7 +2532,9 @@ test('F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 
   assert.deepStrictEqual(dropsState.spawned.map((d) => d.id).sort(), ['leather', 'raw_beef'],
       '牛掉生牛肉+皮革(MOB_DROPS 表)');
   assert.ok(dropsState.spawned.every((d) => d.y === 25.8 && d.x === 45), '落点=尸体上方 0.8(击杀观感同款)');
-  assert.deepStrictEqual(A.getSaveView().world.livestock, {dead: [0]}, '死畜索引顺手落账(同一回调)');
+  assert.deepStrictEqual(A.getSaveView().world.livestock,
+      {home: [0], desert: [], snow: [], swamp: [], nether: []},
+      '死畜索引顺手落账(同一回调; 审查修复 P2 后为分桶形状, 已杀在家=home 桶)');
   /* 收获观感 + 不记账(挥击行为链: 准星锥内命中, 脚本 freshDead) */
   globalThis.yaw = 0;
   pos.x = 40; pos.y = 25; pos.z = 50;
@@ -2533,11 +2601,12 @@ test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索
   const victim = herd[4]; /* 群位 B 首只猪 */
   dropsState.spawned.length = 0;
   mobsState.deathCbs[0](victim); /* 走真实 onDeath 回调(掉落+落账同帧) */
-  assert.deepStrictEqual(A.getSaveView().world.livestock, {dead: [victim.__livestockIdx]}, '死畜账在内存');
+  const deadBuckets = {home: [victim.__livestockIdx], desert: [], snow: [], swamp: [], nether: []};
+  assert.deepStrictEqual(A.getSaveView().world.livestock, deadBuckets, '死畜账在内存(审查修复 P2 后为分桶形状)');
   assert.ok(dropsState.spawned.length >= 1, '掉落照常(收获链不断)');
   AdventureMode.cleanup();
   const sv = JSON.parse(mem.get('adventure_world_save'));
-  assert.deepStrictEqual(sv.livestock, {dead: [victim.__livestockIdx]}, '死畜索引随世界档落盘');
+  assert.deepStrictEqual(sv.livestock, deadBuckets, '死畜索引随世界档落盘(home 桶)');
   freshInit();
   const again = mobsState.spawned.filter((m) => m.__livestockIdx != null);
   assert.strictEqual(again.length, 9, '重进 9 只(死畜不复活)');
@@ -2894,6 +2963,137 @@ test('昼夜 D7 灯笼燃尽: 耐久归零整槽消失 + TTS 安抚「灯笼用�
   /* 破灯笼不会误伤工具预警账本: 再做一盏满耐久(合成管线) */
   api.add(A.advGetInv(), 'lantern', 1);
   assert.deepStrictEqual({...A.advGetInv().slots[0]}, {id: 'lantern', n: 1, dur: 300}, '新灯笼满耐久入包(回填首个空位)');
+});
+
+/* ============ T8 任务链与门解锁(远征章, 冒险地图设计稿 §2.3) ============ */
+
+test('T8 解锁链第一环: 完成 q16 广场引导 → 解锁键置位+档落盘+点亮仪式(音效/TTS/冲击波)+沙漠门面运行时熄→亮', () => {
+  mem.clear();
+  freshInit();
+  const dg = ADV_MAPS[0].gates[0]; /* home 门阵沙漠门(desert, T7 绑定权威) */
+  /* 前置: q16 进行中, 沙漠门熄——只立框无门面(advInPortal 不命中=不可触发口径) */
+  A.ADV.quest.step = 16;
+  assert.notStrictEqual(cell(dg.px + 2, 25, dg.pz), api.B_PORTAL, '完成前: 门面格无门面(熄门只立框)');
+  spoken.length = 0;
+  calls.length = 0;
+  A.ADV.quest.counts.visit_plaza = 1; /* 测试捷径: 广场发现记账(挂点链在下一题) */
+  AdventureMode.update(0.55); /* 过 0.5s 谓词节流窗 */
+  assert.strictEqual(A.ADV.quest.step, 17, 'q16 完成, 接棒 q17(到达沙漠)');
+  assert.strictEqual(A.ADV.quest.counts.unlockedDesert, 1, '解锁键置位(T4 键名约定, 完成即点亮)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'gate_unlock'), '点亮仪式音效 gate_unlock(四音琶音)');
+  assert.ok(spoken.some((s) => String(s).indexOf('黄沙沙漠之门亮起来啦') >= 0), '点亮 TTS「XX之门亮起来啦！」');
+  assert.ok(calls.some((x) => x[0] === 'pop'), '门位冲击波观感(Fx.pop 现成件)');
+  assert.strictEqual(cell(dg.px + 2, 25, dg.pz), api.B_PORTAL, '完成后: 门面格长出 B_PORTAL(运行时熄→亮切换)');
+  assert.strictEqual(cell(dg.px + 3, 27, dg.pz), api.B_PORTAL, '内口 4×5 多格齐(增量补面非单格)');
+  /* 任务档即时落盘含解锁键(往返第一半) */
+  const saved = JSON.parse(mem.get('adventure_quest_save'));
+  assert.strictEqual(saved.step, 17, 'step 随步进即时落盘');
+  assert.strictEqual(saved.counts.unlockedDesert, 1, '解锁键同拍落盘(重进不丢门)');
+  /* 重进: 装场读键路径——门面由 advGatesBuild 重建, 不依赖会话内仪式 */
+  AdventureMode.cleanup();
+  freshInit();
+  assert.strictEqual(A.ADV.quest.counts.unlockedDesert, 1, '解锁键随任务档往返(第二半)');
+  assert.strictEqual(cell(dg.px + 2, 25, dg.pz), api.B_PORTAL, '重进: 门面随装场读键重建(常亮)');
+  assert.notStrictEqual(cell(ADV_MAPS[0].gates[1].px + 2, 25, ADV_MAPS[0].gates[1].pz), api.B_PORTAL,
+      '雪原门仍熄(线性链: 神殿宝箱才点亮)');
+});
+
+test('T8 老档不回退: 终章通关档(step=16+称号) → 接棒远征章首条, step/称号原样保留', () => {
+  mem.clear();
+  mem.set('adventure_quest_save', JSON.stringify({_v: 1, step: 16,
+    counts: {craft_sword_diamond: 1}, title: '小小探险家'}));
+  freshInit();
+  assert.strictEqual(A.ADV.quest.step, 16, 'step 原样保留(远征章追加尾部, 前 16 条含义不变)');
+  assert.strictEqual(A.ADV.quest.title, '小小探险家', '称号保留(重进不重复授予)');
+  assert.strictEqual(ADV_QUESTS[16].id, 'q16_plaza', '当前步接棒远征章首条(广场引导)');
+  assert.notStrictEqual(A.ADV.quest.counts.unlockedDesert, 1, '未完成解锁任务: 门仍熄');
+});
+
+test('T8 计数挂点四路: 广场发现(位置型) / 结构宝箱(图+坐标) / 雪球投掷 / 怪种击杀 — 事件处只 += 与步进解耦', () => {
+  mem.clear();
+  freshInit();
+  const c = () => A.ADV.quest.counts;
+  /* 广场发现: 玩家脚格进广场矩形(advQuestVisitTick 每帧查, 首记去重) */
+  pos.x = 77.5; pos.z = 80.5; /* 门阵广场内 */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(c().visit_plaza, 1, '进广场 → visit_plaza 记账');
+  pos.x = 61.5; pos.z = 76.5; /* 离开广场回小屋门口 */
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(c().visit_plaza, 1, '离开不重记(目标型键, 首记去重)');
+  /* 结构宝箱: 切到沙漠图, 走近神殿宝箱开箱 → chest_temple(建场真箱) */
+  const drow = ADV_MAPS.find((r) => r.id === 'desert');
+  A.advSetMap('desert', advMapArrive(drow));
+  const tc = ADV_DESERT.temple;
+  pos.x = tc.cx + 0.5; pos.y = 21; pos.z = tc.cz + 0.5; /* 站宝箱旁(开箱 4 格门槛) */
+  AdventureMode.onMouse(0, {x: tc.cx, y: 20, z: tc.cz, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(c().chest_temple, 1, '神殿宝箱开箱 → chest_temple');
+  assert.strictEqual(c().open_chest, 1, '大宝箱开箱记账照走(open_chest 并行)');
+  AdventureMode.onKey('Tab'); /* 箱子开着先收箱子(T15 同款), 不挡后续点击 */
+  /* 雪球投掷: 手持雪球掷出 → throw_snowball(T9 投掷链挂点; 准星桩照 T9 惯例) */
+  holdOnly('snowball', 5);
+  globalThis.camera = {};
+  globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.4, z: pos.z}, dir: {x: 0, y: 0, z: -1}})};
+  AdventureMode.onMouse(2, {x: 60, y: 24, z: 60, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(c().throw_snowball, 1, '掷出雪球 → throw_snowball 1');
+  clearAim();
+  for (let i = 0; i < 45; i++) AdventureMode.update(1 / 60); /* 推过雪球冷却 0.6s(挥击同轨, 换手不躲冷却) */
+  /* 怪种击杀: 挥击行为链打死沼骸 → kill_bogged(与 kill_mob 并行分账);
+     玩家仍在神殿宝箱室(y21), 怪同层放锥内 */
+  globalThis.yaw = 0;
+  listResult = [mkAdvMob('bogged', pos.x, pos.y, pos.z - 2.4, {attackCd: 99})];
+  nextHit = {hp: 0, dead: true, freshDead: true};
+  AdventureMode.onMouse(0);
+  listResult = [];
+  assert.strictEqual(c().kill_bogged, 1, '击杀沼骸 → kill_bogged 1(按怪种分账)');
+  assert.strictEqual(c().kill_mob, 1, 'kill_mob 总账并行(引导链步 14 同源)');
+  /* 挖仙人掌挂 ADV_MINE_TALLY 既有通道(core 直测已覆盖映射) */
+  assert.strictEqual(ADV_MINE_TALLY[api.B_CACTUS], 'mine_cactus', '仙人掌走挖掘挂点映射');
+});
+
+test('T8 锁门 TTS 真任务名: 走近熄门报前置任务 goal(T7 占位文案「完成任务」收尾)', () => {
+  mem.clear();
+  freshInit();
+  const dg = ADV_MAPS[0].gates[0]; /* 沙漠门: 前置 = q16 广场引导 */
+  pos.x = dg.px + ADV_PORTAL.w / 2; pos.z = dg.pz + 2; /* 门中心南侧 ~1.5 格 */
+  spoken.length = 0;
+  AdventureMode.update(0.1);
+  assert.ok(spoken.some((s) => String(s).indexOf('去门阵广场看一看') >= 0 &&
+      String(s).indexOf('黄沙沙漠之门就会亮起来') >= 0),
+  '话术含前置任务 goal(q16)与门名——不再是占位「完成任务」');
+  /* 雪原门(第二环): 提示的是神殿宝箱(q19)——线性链正确的前置。
+     先挪位再推节流窗: 递减到 0 的那一帧查的是新位置(雪原门), 不重提沙漠门 */
+  const sg = ADV_MAPS[0].gates[1];
+  pos.x = sg.px + ADV_PORTAL.w / 2; pos.z = sg.pz + 2;
+  spoken.length = 0;
+  AdventureMode.update(6.1); /* 推过 6s 节流窗, 当帧即查新位置 */
+  assert.ok(spoken.some((s) => String(s).indexOf('打开沙漠神殿的宝箱') >= 0 &&
+      String(s).indexOf('白雪雪原之门就会亮起来') >= 0),
+  '第二环锁门报 q19 goal(神殿宝箱), 不是第一环任务');
+});
+
+test('T8 站桩穿门端到端: 点亮的沙漠门站 2s → 渐晕切图 → 到达记账 visit_desert → q17 到达型完成', () => {
+  mem.clear();
+  freshInit();
+  /* 解锁沙漠门(计数捷径): q16 完成即点亮+运行时补门面(上一环测试已覆盖仪式观感) */
+  A.ADV.quest.step = 16;
+  A.ADV.quest.counts.visit_plaza = 1;
+  AdventureMode.update(0.55);
+  assert.strictEqual(A.ADV.quest.counts.unlockedDesert, 1, '解锁键已置');
+  const dg = ADV_MAPS[0].gates[0];
+  /* 站进门面(脚格=门面格): 站桩 2s 蓄能 → 渐晕 0.4s 满格切图 */
+  pos.x = dg.px + 2.5; pos.y = 25; pos.z = dg.pz + 0.5;
+  spoken.length = 0;
+  calls.length = 0;
+  for (let i = 0; i < 125; i++) AdventureMode.update(1 / 60); /* ~2.08s: 站满发令 */
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'portal_charge'), '站桩起步蓄能音(T7 双段式第一段)');
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s: 渐晕满格切图 */
+  assert.strictEqual(A.advNetherState().map, 'desert', '切到沙漠图');
+  assert.strictEqual(A.ADV.quest.counts.visit_desert, 1, '到达记账 visit_desert(切图时刻挂点)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'portal_travel'), '到达音第二段');
+  assert.ok(spoken.some((s) => String(s).indexOf('黄沙沙漠') >= 0), '到达播报(T7)');
+  /* 再过节流窗: q17(visit_desert>=1) 到达型完成 */
+  for (let i = 0; i < 35; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.ADV.quest.step, 18, 'q17 完成, 接棒 q18(仙人掌)');
 });
 
 test('昼夜 D7 灯笼退场复位: cleanup 关随身光(PointLight 不渗入其他模式)', () => {

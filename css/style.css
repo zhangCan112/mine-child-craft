@@ -837,6 +837,20 @@ body.dev-on .mode-card.dev {
   transition: opacity 0.45s;
 }
 
+/* 传送门渐晕(冒险地图 T7): 紫白径向渐变——中心亮紫、边缘深紫, 幼儿忌纯黑;
+   透明度由探险模式逐帧直驱(400ms 双段淡入淡出), 此处只管观感 */
+#portalVeil {
+  position: fixed;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 16;
+  background: radial-gradient(ellipse at center,
+    rgb(232 214 255 / 82%) 0%,
+    rgb(178 128 240 / 90%) 48%,
+    #a06ef2 100%);
+}
+
 /* 加载屏 */
 #splash {
   position: fixed;

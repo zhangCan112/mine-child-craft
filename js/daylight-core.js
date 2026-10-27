@@ -34,6 +34,10 @@ const DAYLIGHT = {
 /* 相位归一到 [0, 24000): 折线/窗口查询共用的第一步(越界/负值输入防御) */
 const dlNorm = (t) => ((t % DAYLIGHT.TICKS) + DAYLIGHT.TICKS) % DAYLIGHT.TICKS;
 
+/* 白日天色基准(缺省): skyColor 的 day 端点缺省值——冒险地图 T6 经 world.js 的
+   setSkyBase 换端点(设计 §2.1 调色板口径: 昼夜插值仍在, 只换基准色) */
+const DAY_SKY = [143 / 255, 199 / 255, 255 / 255];
+
 const Daylight = {
   /* 时间推进: dt 秒 × 20 tick/秒, 一日回绕; 纯函数不改入参 */
   advance(dayTime, dt) {
@@ -78,12 +82,13 @@ const Daylight = {
   },
 
   /* 天空/雾色: 白日 #8fc7ff(world.js 现状值) ↔ 夜 #0a1430 按 skyDim/11 插值
-     (黄昏橙不做 — 差异 #16) */
-  skyColor(dayTime) {
+     (黄昏橙不做 — 差异 #16)。day 为可选白日基准端点(冒险地图 T6 经 world.js
+     的 setSkyBase 换装; 缺省/空 = 既有常量——昼夜插值口径不变, 只换起点色) */
+  skyColor(dayTime, day) {
     const k = Daylight.skyDim(dayTime) / 11;
-    const day = [143 / 255, 199 / 255, 255 / 255];
+    const d = (Array.isArray(day) && day.length === 3) ? day : DAY_SKY;
     const night = [10 / 255, 20 / 255, 48 / 255];
-    return [day[0] + (night[0] - day[0]) * k, day[1] + (night[1] - day[1]) * k, day[2] + (night[2] - day[2]) * k];
+    return [d[0] + (night[0] - d[0]) * k, d[1] + (night[1] - d[1]) * k, d[2] + (night[2] - d[2]) * k];
   },
 
   /* 睡觉窗口 ⇔ 晴天 [12542, 23459](research §1.6 裁决口径, MC 语义 =
