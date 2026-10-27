@@ -3053,7 +3053,7 @@ test('T8 锁门 TTS 真任务名: 走近熄门报前置任务 goal(T7 占位文�
   AdventureMode.update(0.1);
   assert.ok(spoken.some((s) => String(s).indexOf('去门阵广场看一看') >= 0 &&
       String(s).indexOf('黄沙沙漠之门就会亮起来') >= 0),
-      '话术含前置任务 goal(q16)与门名——不再是占位「完成任务」');
+  '话术含前置任务 goal(q16)与门名——不再是占位「完成任务」');
   /* 雪原门(第二环): 提示的是神殿宝箱(q19)——线性链正确的前置。
      先挪位再推节流窗: 递减到 0 的那一帧查的是新位置(雪原门), 不重提沙漠门 */
   const sg = ADV_MAPS[0].gates[1];
@@ -3062,7 +3062,7 @@ test('T8 锁门 TTS 真任务名: 走近熄门报前置任务 goal(T7 占位文�
   AdventureMode.update(6.1); /* 推过 6s 节流窗, 当帧即查新位置 */
   assert.ok(spoken.some((s) => String(s).indexOf('打开沙漠神殿的宝箱') >= 0 &&
       String(s).indexOf('白雪雪原之门就会亮起来') >= 0),
-      '第二环锁门报 q19 goal(神殿宝箱), 不是第一环任务');
+  '第二环锁门报 q19 goal(神殿宝箱), 不是第一环任务');
 });
 
 test('T8 站桩穿门端到端: 点亮的沙漠门站 2s → 渐晕切图 → 到达记账 visit_desert → q17 到达型完成', () => {

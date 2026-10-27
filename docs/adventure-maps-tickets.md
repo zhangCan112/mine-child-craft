@@ -26,7 +26,7 @@
 | T5 | 家园地图重设计（圈层重排） | T1, T3 | ☑ 已并入（cb8e3ab） |
 | T6 | 存档分桶 + 壳切图装配 | T4, T5 | ☑ 已并入（94aa7f8） |
 | T7 | 传送门阵 + 站桩 + 遮罩 | T6 | ☑ 已并入（93dc402） |
-| T8 | 任务链与门解锁 | T7 | ☐ 阻塞中 |
+| T8 | 任务链与门解锁 | T7 | ☑ 已并入（本票 t8-quests-unlock） |
 | T9 | 雪球投掷物 | T6 | ☑ 已并入（bd5fafc） |
 | T10 | 收尾：GLOSSARY + 全量回归 + 手玩报告 | T7, T8, T9 | ☐ 阻塞中 |
 
@@ -166,6 +166,25 @@ test/adventure-nether.test.js 全绿（nether 行为零回归）；`npm test` �
 点亮仪式（Fx.portalBeam + sfx + TTS）接线。
 
 **验收**：任务档往返；门状态随任务进度点亮（壳断言）；`npm test` 全绿。
+
+**实现记录（t8-quests-unlock，2026-10-27）**：
+- ADV_QUESTS 追加**远征章 10 条**（home 引导 1 + 每图 3：发现/收集/探宝型每图齐 +
+  击杀型一席沼骸步），全部追加在终章之后——前 16 条序不变保老档 step 不回退（终章
+  通关档 step=16 顺位接棒远征首条，称号保留）；unlock 字段只挂三环链尾（q16 广场→
+  desert、q19 神殿宝箱→snow、q22 雪屋宝箱→swamp），advUnlockQuest 反查供锁门话术。
+- 解锁判定走 T4 的 advMapUnlocked（零第二判据）；点亮置键在壳 advQuestTick 完成分支
+  （T4 键名 ADV_UNLOCK_KEYS，save 前置位=落盘含键）；点亮仪式 advUnlockRite：
+  gate_unlock 四音琶音（新登记，synth 回退）+ 门位紫色冲击波 + **运行时熄→亮**（增量
+  advPortalFrame 补 B_PORTAL 门面 + advBeamAdd 光束，setBlockRaw 不记账与建场同口径；
+  玩家不在门所在图只播报，重进由 advGatesBuild 读键路径覆盖）。
+- counts 新四类挂点：visit_plaza（脚格进广场，查后写去重）/ visit_<图>（advVeilArrive
+  切图时刻）/ chest_<结构>（advMapChestKey 图+坐标双判定防冒名）/ throw_snowball +
+  kill_<怪种>（与 kill_mob 并行分账）；仙人掌走 ADV_MINE_TALLY 既有通道（typeof 守卫）。
+- T7 偏差②收尾：锁门 TTS 占位「完成任务」换前置任务 goal（「先去门阵广场看一看，
+  黄沙沙漠之门就会亮起来」）。
+- 顺带修复（T7 欠账）：壳测试补铺门方块常量后门阵路径真激活——草丛/花丛/树避让外扩
+  门体足迹（ADV_GATE_PLAZA_PAD，塔楼/步道外溢格不再长植被）；core 的
+  ADV_GATE_PLAZA.gates 复活为建场避让副本并与 ADV_MAPS home 行对齐（一致性断言守门）。
 
 ## T9 雪球投掷物（依赖 T6）
 
