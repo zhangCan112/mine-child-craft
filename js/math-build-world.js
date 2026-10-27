@@ -176,14 +176,14 @@ function wwCheckBlock(x0, z0, w, d) {
   setBlockRaw(cx, W.groundY + 2, cz, W.checkBlock);
   return {x: cx, y: W.groundY + 2, z: cz};
 }
-/* 图纸「上面」边标记·火把版(训练营 2026-10-28 四轮实测拍板): 方块
-   三角不显眼(嵌草皮/草皮箭头/连体三角三版全废), 改沿画布外圈北行
-   (z0-1)整行插火把(立在外圈顶面上, 建造区外不可拆不可点)——一排
-   亮火把整条边一眼锁定, 不需要读形状; 「哪条边=图纸的上面」由试次
-   开场语音绑定说出 */
+/* 图纸「上面」边标记·火把版(训练营 2026-10-28 五轮实测): 沿画布外圈
+   外侧一行(z0-2)整排插火把——曾立在外圈行(z0-1)上, 十字贴图恰好盖住
+   画布边界线+白石英反光, 边线被晃得看不清; 外移一行后边界线完整,
+   火把排仍紧贴该边(整排等宽=护栏语义, 非指南针), 建造区外不可拆
+   不可点; 「哪条边=图纸的上面」由试次开场语音绑定说出 */
 function wwTopEdgeTorches(x0, z0, w) {
   for (let dx = -1; dx <= w; dx++) {
-    setBlockRaw(x0 + dx, MATH_WORLD.groundY + 1, z0 - 1, MATH_WORLD.edgeTorchBlock);
+    setBlockRaw(x0 + dx, MATH_WORLD.groundY + 1, z0 - 2, MATH_WORLD.edgeTorchBlock);
   }
 }
 /* 候选牌(图纸牌/数字牌共用): 宽度超 28(平台一行放不下)自动折两行;
@@ -333,7 +333,7 @@ const MATH_WORLD_VARIANTS = {
         blueprint: true, gradeBlueprint: true};
     },
     speak() {
-      return '插满火把的那条边，就是图纸的上面！照着图纸，把一样颜色的房顶摆出来！' + MATH_WORLD.askS;
+      return '火把贴着的这条边，就是图纸的上面！照着图纸，把一样颜色的房顶摆出来！' + MATH_WORLD.askS;
     },
   },
   'plan/pick': {
