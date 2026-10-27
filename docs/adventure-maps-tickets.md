@@ -25,7 +25,7 @@
 | T4 | 冒险地图纯核心 + 同名单测 | T1, T2, T3 | ☑ 已并入（354147e） |
 | T5 | 家园地图重设计（圈层重排） | T1, T3 | ☑ 已并入（cb8e3ab） |
 | T6 | 存档分桶 + 壳切图装配 | T4, T5 | ☑ 已并入（94aa7f8） |
-| T7 | 传送门阵 + 站桩 + 遮罩 | T6 | ◐ 进行中（t7-portal-mask） |
+| T7 | 传送门阵 + 站桩 + 遮罩 | T6 | ◐ 实现完（t7-portal-mask，待并入） |
 | T8 | 任务链与门解锁 | T7 | ☐ 阻塞中 |
 | T9 | 雪球投掷物 | T6 | ☑ 已并入（bd5fafc） |
 | T10 | 收尾：GLOSSARY + 全量回归 + 手玩报告 | T7, T8, T9 | ☐ 阻塞中 |
@@ -146,6 +146,18 @@ test/adventure-nether.test.js 全绿（nether 行为零回归）；`npm test` �
 
 **验收**：boot 全链过；audio-registry sfx 字面量守门绿；`npm test` + `npm run lint` 全绿。
 手玩项（站桩反悔/≤5s/无黑帧）留 T10 清单。
+
+**实现记录（t7-portal-mask，2026-10-27）**：
+- 落点泛化 `advMapArriveAt(gate)`（maps-core 纯函数，`advMapArrive` 委托 gates[0]）——
+  home 三门回程落点跟着来时的门走（沙漠门进沙漠门出）。
+- 壳层 `advGatesBuild`（建场期 setBlockRaw 不记账；熄门只立框无门面=不可触发，
+  解锁键亮门面+光束）挂 init/advSetMap/advSetDim(overworld) 三处 loadScene；
+  `advGateAt` 门阵包围盒查表分流：命中=地图门 2s 站桩（起步蓄能音）、未命中=
+  nether 门即时语义零改动；冷却复用 ADV_PORTAL.cd。
+- 遮罩 `#portal-veil`（index.html + style.css 紫白径向渐变忌纯黑）400ms 双段逐帧直驱
+  （#fade 先例），满格瞬间 advSetMap(目标图, 对应回程门落点)+portal_travel 音+TTS
+  到达播报；全程 2.8s。锁门走近 TTS「完成任务，XX 之门就会亮起来」6s 节流——
+  任务名占位，T8 挂真任务名。点亮仪式与熄门常亮切换归 T8。
 
 ## T8 任务链与门解锁（依赖 T7）
 
