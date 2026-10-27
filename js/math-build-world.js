@@ -176,14 +176,15 @@ function wwCheckBlock(x0, z0, w, d) {
   setBlockRaw(cx, W.groundY + 2, cz, W.checkBlock);
   return {x: cx, y: W.groundY + 2, z: cz};
 }
-/* 图纸「上面」边标记·火把版(训练营 2026-10-28 五轮实测): 沿画布外圈
-   外侧一行(z0-2)整排插火把——曾立在外圈行(z0-1)上, 十字贴图恰好盖住
-   画布边界线+白石英反光, 边线被晃得看不清; 外移一行后边界线完整,
-   火把排仍紧贴该边(整排等宽=护栏语义, 非指南针), 建造区外不可拆
-   不可点; 「哪条边=图纸的上面」由试次开场语音绑定说出 */
+/* 图纸「上面」边标记·火把版(训练营 2026-10-28 六轮实测): 画布中线
+   左右对称插两支火把(整排太密盖边线, 收成居中两支), 立在外圈外两
+   行(z0-3)——不压外圈边界线, 火光也不糊线; 偶数宽两支骑中线相邻,
+   奇数宽跨中线对称; 建造区外不可拆不可点; 「哪条边=图纸的上面」
+   由试次开场语音绑定说出 */
 function wwTopEdgeTorches(x0, z0, w) {
-  for (let dx = -1; dx <= w; dx++) {
-    setBlockRaw(x0 + dx, MATH_WORLD.groundY + 1, z0 - 2, MATH_WORLD.edgeTorchBlock);
+  const c = x0 + Math.floor(w / 2);
+  for (const dx of (w % 2 === 0 ? [-1, 0] : [-1, 1])) {
+    setBlockRaw(c + dx, MATH_WORLD.groundY + 1, z0 - 3, MATH_WORLD.edgeTorchBlock);
   }
 }
 /* 候选牌(图纸牌/数字牌共用): 宽度超 28(平台一行放不下)自动折两行;
