@@ -347,6 +347,9 @@ ModeKit.spawn = (x, y, z, o) => {
    显式铺到全局再 require 壳——壳顶层即消费这些全局名 */
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore);
+/* 冒险地图核心(T4, index.html 加载序同构: adventure-core → maps-core → 壳):
+    壳层 advSetMap/init 经全局名消费 ADV_MAPS/advMapArrive */
+Object.assign(globalThis, require('../js/adventure-maps-core.js'));
 /* 烧炼三件(SMELT_T/smeltStep/furnaceRefund)已迁 craft-core(2026-10 归属错位修复):
    Node 侧 require 真模块铺到全局, 浏览器侧 index.html 里 craft-core 先于本批加载同构 */
 const CraftCore = require('../js/craft-core.js');
@@ -656,7 +659,7 @@ test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 
   AdventureMode.cleanup();
   const saved = JSON.parse(mem.get('adventure_world_save'));
   assert.ok(saved._v === 1, '存档带版本号');
-  const flat = (saved.edits || []).map((e)=>e[0]);
+  const flat = (saved.edits.home || []).map((e)=>e[0]);
   assert.ok(flat.includes('90,24,90') && flat.includes('91,24,91'), '改动落盘(edits 只存差异)');
   freshInit();
   assert.strictEqual(cell(90, 24, 90), 3, '重进: 玩家改动重放');
@@ -679,9 +682,9 @@ test('世界改动日志: 流体格旧档重放 — {id,lv} 双通道(方块+水
   A.advJournal.mark('81,25,81', {id: api.B_WATER, lv: 2});
   AdventureMode.cleanup();
   const saved = JSON.parse(mem.get('adventure_world_save'));
-  assert.ok(saved.edits.some((e) => e[0] === '80,25,80' && e[1] && e[1].id === api.B_WATER && e[1].lv === 3),
+  assert.ok(saved.edits.home.some((e) => e[0] === '80,25,80' && e[1] && e[1].id === api.B_WATER && e[1].lv === 3),
       '旧档流体格原样回写 {id,lv}(encode 形状一字不改)');
-  assert.ok(saved.edits.some((e) => e[0] === '81,25,81' && e[1] && e[1].lv === 2), 'mark 的流体格入档');
+  assert.ok(saved.edits.home.some((e) => e[0] === '81,25,81' && e[1] && e[1].lv === 2), 'mark 的流体格入档');
   freshInit(); /* 重进: 水位精确恢复(逐格最后写赢) */
   assert.strictEqual(api.getFluidLv(80, 25, 80), 3, '重进水位恢复');
   assert.strictEqual(api.getFluidLv(81, 25, 81), 2, '重进新记的水位恢复');
@@ -1307,7 +1310,7 @@ test('T12 树苗关页兜底: 5s 节流窗口内关页 → onPageHide 落盘 →
   assert.ok(!mem.has('adventure_world_save'), '节流窗口内世界档未落盘(关页丢档前提成立)');
   AdventureMode.onPageHide(); /* main.js pagehide 收口分发(不走 cleanup) */
   const saved = JSON.parse(mem.get('adventure_world_save'));
-  assert.ok((saved.edits || []).some((e) => e[0] === spot.x + ',25,' + spot.z && e[1] === api.B_SAPLING),
+  assert.ok((saved.edits.home || []).some((e) => e[0] === spot.x + ',25,' + spot.z && e[1] === api.B_SAPLING),
       'onPageHide 已把树苗格落进世界档');
   freshInit(); /* 重进 */
   assert.strictEqual(cell(spot.x, 25, spot.z), api.B_SAPLING, '重进树苗还在(不再丢档)');
@@ -1329,7 +1332,7 @@ test('T12 树苗生长链: 20s 到期长成树 + 逐块记账 + 重进树还在(
   assert.strictEqual(A.advSaplings.size, 0, '到期移出计时 Map');
   AdventureMode.cleanup(); /* 落盘 */
   const saved = JSON.parse(mem.get('adventure_world_save'));
-  const flat = (saved.edits || []).map((e) => e[0]);
+  const flat = (saved.edits.home || []).map((e) => e[0]);
   assert.ok(flat.includes(spot.x + ',25,' + spot.z), '树干格记账(edits 存差异)');
   freshInit(); /* 重进: 确定性重建 + edits 重放 */
   assert.strictEqual(cell(spot.x, 25, spot.z), 5, '重进树还在(不靠计时重演)');
@@ -2438,13 +2441,13 @@ test('方块级联⑦(三期 P14 红线): 旧档浮空冠重进治愈 — 治愈
       '治愈不掉落(装场期迁移不是游戏事件, 防刷档)');
   AdventureMode.cleanup(); /* 治愈记账落盘 */
   const saved = JSON.parse(mem.get('adventure_world_save'));
-  const healN = saved.edits.length - edits.length;
+  const healN = saved.edits.home.length - edits.length;
   assert.ok(healN >= 40, '治愈格逐块记账(漏记=重进复活/重复清扫), 实际新增 ' + healN);
   freshInit(); /* 二次进世界: 幂等 */
   assert.strictEqual(treeLeaves(t), 0, '二次进: 依然干净');
   AdventureMode.cleanup();
   const saved2 = JSON.parse(mem.get('adventure_world_save'));
-  assert.strictEqual(saved2.edits.length, saved.edits.length, '幂等: 二次进世界零新增治愈记账');
+  assert.strictEqual(saved2.edits.home.length, saved.edits.home.length, '幂等: 二次进世界零新增治愈记账');
 });
 
 /* ============ F4 牧场(二期设计稿 §4): 散布在场 / 收获链 / 恐惧游荡 / 死畜账 / 熟食链 ============ */
