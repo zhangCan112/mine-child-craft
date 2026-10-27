@@ -962,7 +962,8 @@ const ADV_QUEST_TITLE = '小小探险家'; /* 通关称号(D11 终章, 随 quest
 const ADV_MINE_TALLY = {
   3: 'mine_cobble', 4: 'mine_cobble',
   [B_COAL_ORE]: 'mine_coal_ore', [B_IRON_ORE]: 'mine_iron_ore', [B_DIAMOND_ORE]: 'mine_diamond_ore',
-  [B_CACTUS]: 'mine_cactus', /* 远征章(T8): 沙漠仙人掌收集步 */
+  [(typeof B_CACTUS !== 'undefined') ? B_CACTUS : 0]: 'mine_cactus', /* 远征章(T8): 沙漠仙人掌收集步;
+      T1 方块常量旧测试装载序可能没铺——typeof 守卫缺省 0(方块 id ≥1 永不命中, ADV_B 同哲学) */
 };
 
 /* 主线任务表(引导链 v2, 15 步+终章; 12 步版与插步依据见
