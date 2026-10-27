@@ -24,8 +24,9 @@ const api = vm.runInContext(`({
   getBlock, setBlockRaw, groundTop, SceneKit, Daylight, DAYLIGHT, BLOCKS, PLAYER,
   WORLD_W, WORLD_D, WORLD_H, MOB_TYPES,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
-  B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED,
+  B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_FARMLAND, B_WHEAT_3,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_CACTUS, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
+  B_FLOWER_Y, B_FLOWER_W,
   B_CHEST, B_PORTAL, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
@@ -478,7 +479,8 @@ test('沼泽建场: 女巫小屋 — 高脚木屋(原木柱脚+木板屋体) + �
 /* ============ 门位完整性(对建场后的真实世界断言, 票据验收) ============ */
 
 test('门位: 四图门位不落水 · 地表压平净空不撞结构(T7 门体的落位前提)', () => {
-  const groundOf = {home: 1, desert: 8, snow: api.B_SNOWY_GRASS, swamp: 1}; /* 各图地表方块 */
+  /* 各图地表方块清单(home 含 T5 门阵广场的圆石铺装) */
+  const groundOf = {home: [1, 4], desert: [8], snow: [api.B_SNOWY_GRASS], swamp: [1]};
   for (const r of Maps.ADV_MAPS) {
     clearWorld();
     r.build(); /* 该图真实建场 */
@@ -489,8 +491,8 @@ test('门位: 四图门位不落水 · 地表压平净空不撞结构(T7 门体�
         for (let z = z1; z <= z2; z++) {
           assert.notStrictEqual(cell(x, ADV_GROUND, z), api.B_WATER,
               r.id + ' 门(' + g.to + ') 不落水 @(' + x + ',' + z + ')');
-          assert.strictEqual(cell(x, ADV_GROUND, z), groundOf[r.id],
-              r.id + ' 门区地表压平为' + r.name + '地表 @(' + x + ',' + z + ')');
+          assert.ok(groundOf[r.id].includes(cell(x, ADV_GROUND, z)),
+              r.id + ' 门区地表压平为' + r.name + '地表 @(' + x + ',' + z + ')=' + cell(x, ADV_GROUND, z));
           for (let y = ADV_GROUND + 1; y <= ADV_GROUND + ADV_PORTAL.h + 2; y++) {
             const id = cell(x, y, z);
             const ok = id === 0 || (r.id === 'home' && id === api.B_GRASS_TUFT); /* home 现散布场
@@ -503,7 +505,7 @@ test('门位: 四图门位不落水 · 地表压平净空不撞结构(T7 门体�
       const a = Maps.advMapArrive(r.id === 'home' ? Maps.ADV_MAPS.find((m) => m.id === 'desert') : r);
       if (r.id !== 'home') {
         for (let z = g.pz + 1; z <= Math.floor(a.z) + 2; z++) {
-          assert.strictEqual(cell(g.px + 2, ADV_GROUND, z), groundOf[r.id],
+          assert.ok(groundOf[r.id].includes(cell(g.px + 2, ADV_GROUND, z)),
               r.id + ' 落点走廊地表 @(' + (g.px + 2) + ',' + z + ')');
           assert.strictEqual(cell(g.px + 2, ADV_GROUND + 1, z), 0, r.id + ' 落点走廊净空');
           assert.strictEqual(cell(g.px + 3, ADV_GROUND + 1, z), 0, r.id + ' 落点走廊净空(东列)');
