@@ -2,107 +2,98 @@
 /* ============================================================
    体验馆 (ShowroomMode, 术语见 GLOSSARY.md「体验馆」) — 模式层
    ------------------------------------------------------------
-   仅开发人员可见的调试模式(注册表 dev:true + 卡默认隐藏, ?dev=1 解锁):
-   真游戏场景去掉跑图与挖掘 — 平地草场空场 + 预置被测道具(v1 展品=熔炉) +
-   满材料背包, 一切触手可及; 做出来的东西在这里亲手玩一遍, bug 自己冒出来
-   (开发者亲手玩, 不是自动化测试管线)。
-   T1 骨架: 装场 + 出生点 + HUD 坐标/FPS。
-   T2 材料台: SHOWROOM_STOCK 数据表(一行=一种材料) + 内存背包每次进场
-   照表重铸 + mkHotbar 材料快捷栏(数字键/滚轮/点选全自动)。
-   T3 熔炉展品: 场中心预置熔炉(出生圈内, 走近点击开熔炉面板) + 烧炼节律
-   update 常开 + 自动放料经背包核心扣加 + 退出三笔尽力入包。
-   T4 装配收编: 面板开合/取产物/自动放料/逐炉推进喂显/退炉/燃料余量比
-   全在共享熔炉 kit(js/furnace-kit.js, 探险同款两消费者——探险的炉与这里
-   的炉是同一缝上的两个 adapter, 不造第二份烧炼实现); 与探险的差异只有
-   供给形态(inv 取数器, 进场换新实例) 与政策降噪(零儿童提示/零掉落物/
-   退出余量静默丢弃), 炉态纯内存退出即清。
+   冒险全开实验室(docs/showroom-design.md §7): 一个「所有条件都满足、
+   退出再进恢复原装」的冒险存档替身 — 合成/烧炼/物资三链全开 + 预建
+   大房子与地下室(插满火把、展台陈列、站点齐备), 开发者亲手玩冒险的
+   一切细节, bug 自己冒出来(不是自动化测试管线)。
+   v2 三份供给全部派生自权威注册表(showroom-core.js, 派生不复制):
+   背包套餐=RECIPES 材料并集(揣着就能合成任何配方) · 仓库箱=ITEMS 字段
+   驱动五桶(新物品自动归箱) · 展台展品=可放置方块各一份; 冒险加新物品/
+   新配方, 体验馆零改动自动同步。
+   面板全走既有 kit 的第二消费者缝(不造第二份实现): 合成=mkCraftPanel
+   (station 恒真=台级配方随处摆, allow 放开全部隐藏配方, dev 全开口径)
+   · 箱子=mkChestPanel + advChestPut/advChestTake(每箱一个内存账户) ·
+   熔炉=FurnaceKit(多炉 posKey 寻址, 按点击块绑定)。
    红线: 零本地存储读写/零进度档键字面量(调试永不污染真实进度, ADR 0002;
    守门测试扫源文本, 注释也用中文措辞避开存储 API 名字面量)、不接指针锁定
-   (无需 conventions §6 登记; 视角操作走触屏口径, 配合 ?touch=1 强制预览即
-   指针无关的完整操控)、不计儿童时限(gated:false)。
+   (无需 conventions §6 登记)、不计儿童时限(gated:false)、挖/放不接
+   (冒险壳交互链待 place-kit 两消费者塑形, §7 D5)。
    interface: ShowroomMode(mkMode 注册对象, id='showroom'; 无菜单页,
-     卡点击直进 — focus/math 同款先例) · ShowroomMode.stock(材料表挂点)
-     / ShowroomMode.getInv()(内存背包 getter) / ShowroomMode.sr(熔炉展品
-     触达面: furnaces/panel/isOpen/autoFill/refundAll) — 守门测试挂点
-     (adventure 的 .adv 先例, 浏览器侧无害)
-   依赖(均经全局名, 调用期解析): mkMode/ModeKit.spawn/ModeKit.mkHotbar
-     (js/mode-kit.js) · FurnaceKit(js/furnace-kit.js 共享熔炉 kit, 加载序在
-     本文件之前) · loadScene(js/world.js 场景
-     装填 seam) · SceneKit(js/scene-kit.js) · B_FURNACE(js/config.js) ·
-     blockKey/getBlock(js/voxel.js; 近距判定与点击查块) · mkInventory/add/
-     take/count/HOTBAR_SLOTS(js/inventory-core.js) · ITEMS/isTool/toolOf
-     (js/items-core.js) · advNearStation/ADV_STATION_R
-     (js/adventure-core.js 探险核心纯函数, 加载序: adventure.js 在本文件
-     之前, 其核心更早) · pos(js/voxel.js 玩家位置, 近距判定/HUD 只读) ·
-     showToast(js/effects.js
-     走近提示) · touchPlaying(js/input.js "进行中"态, main.js 跨文件写
-     先例) · fps/overlay/switchMode/showPage(js/main.js, 加载序在后、
-     调用期已就绪)
-   可测性: THREE/DOM 全经 loadScene/ModeKit 等惰性路径, boot 冒烟(vm 桩)
-   全链可跑; 数据隔离/材料表/预装/快捷栏/熔炉展品行为由 test/showroom-
-   mode.test.js 守门(键扫+表校验+进场断言+烧炼编排: 只测编排不重测
-   adventure-core 纯函数, 其单测在 test/adventure-core.test.js)
+     卡点击直进) · ShowroomMode.stock(套餐挂点, 派生产物) / getInv()
+     (内存背包 getter, 引用跨进场稳定) / crates(仓库箱挂点: list/账户/
+     open) / sr(站点触达面: 熔炉 furnaces/panel/isOpen/autoFill/refundAll
+     + 合成 craft + 箱子 chest) — 守门测试挂点(adventure 的 .adv 先例,
+     浏览器侧无害)
+   依赖(均经全局名, 调用期解析): showroomPocket/showroomCrateRows/
+     showroomDisplays(js/showroom-core.js 供给派生, 加载序在本文件之前) ·
+     mkMode/ModeKit.spawn/ModeKit.mkHotbar/ModeKit.mkCraftPanel/ModeKit.
+     mkChestPanel(js/mode-kit.js) · FurnaceKit(js/furnace-kit.js) ·
+     advChestPut/advChestTake/ADV_STATION_R(js/adventure-core.js) ·
+     loadScene(js/world.js) · SceneKit(js/scene-kit.js) · WORLD_W/WORLD_D/
+     BLOCKS/B_FURNACE/B_CRAFT/B_CHEST/B_BED/B_TORCH/B_DOOR/B_DOOR_TOP/
+     B_GLASS_PANE/B_COAL_ORE/B_IRON_ORE/B_GOLD_ORE/B_DIAMOND_ORE/B_CLAY
+     (js/config.js) · blockKey/getBlock/setBlockRaw(js/voxel.js) ·
+     mkInventory/add/remove/moveSlot/count/isTool/toolOf/HOTBAR_SLOTS/
+     INV_SLOTS(js/inventory-core.js) · ITEMS(js/items-core.js) ·
+     pos(js/voxel.js) · showToast(js/effects.js) · touchPlaying(js/input.js) ·
+     fps/overlay/switchMode/showPage(js/main.js, 加载序在后、调用期已就绪)
+   可测性: THREE/DOM 全经 loadScene/ModeKit 惰性路径, boot 冒烟(vm 桩)
+     全链可跑; 数据隔离/套餐/仓库箱/建场/三站点交互由 test/showroom-
+     mode.test.js 守门(供给派生不变量在 test/showroom-core.test.js)
    ============================================================ */
 
-/* 场地常数: 全幅平地草场(随世界尺寸, 坦克演习场同幅), 世界中心出生 */
+/* ---------- 场地常数: 展馆布局(§7 D4, 全部几何数据驱动) ---------- */
 const SHOWROOM = {
-  groundY: 12, // 草地顶层(站立面 y=13, 坦克演习场同标高)
-  spawn: {x: 64.5, z: 64.5, yaw: 0}, // 世界中心出生, 面朝 -Z(camera-rig 口径)
-  furnace: {x: 64, z: 62}, // 预置熔炉格(地面上一层): 出生点正前方 2 格, 炉中心距出生 2 格 < 4 格解锁圈
+  groundY: 12, // 草地顶层(站立面 y=13)
+  spawn: {x: 64.5, z: 60.5, yaw: 0}, // 房内中央过道出生, 面朝 -Z(展台区)
+  house: {x1: 48, z1: 44, x2: 79, z2: 75}, // 32×32 木构展厅(墙 y13..16+顶 y17)
+  door: {x: 63, z: 75}, // 南门(1 格宽 2 格高, 门板成对在场)
+  spawnFurnace: {x: 64, z: 62}, // 出生点正后方 1.5 格: 零走动即测熔炉
+  kitchen: [{x: 72, z: 46}, {x: 74, z: 46}], // 北墙灶台角: 双炉
+  craftTables: [{x: 52, z: 46}, {x: 54, z: 46}], // 北墙工作台×2
+  bed: {x: 77, z: 73}, // 东南角床(装饰件; 睡觉链待放置票)
+  crateX: 50, crateZ0: 50, crateStep: 2, crateMax: 8, // 西墙仓库箱排(箱数=派生长度, 锚位自动排)
+  tables: [[55, 52], [55, 58], [55, 64], [69, 52], [69, 58], [69, 64]], // 展台 2×2 台身(木板), 顶面摆展品
+  basement: {x1: 50, z1: 46, x2: 77, z2: 73}, // 地下室石壳(顶 y11=房内地基, 腔 y8..10, 地面 y7)
+  stairs: {x1: 75, x2: 76, z1: 67, z2: 71}, // 楼梯井(东墙侧, 1 格台阶降/跳)
+  ores: [], // 地下室矿石样本墙(建场段填 B_* 样本, 见 showroomBasement)
 };
 
-/* ---------- 材料台数据表(票据 T2): 一行=一种材料 {id, n} ----------
-   初始清单 = SMELTS 全部原料(10 行, 照 craft-core 登记序) + 代表燃料
-   (煤/木板/木棍 — FUEL 择优序的首/中/尾三档) + 各烧炼产物对照样(10 行),
-   共 23 行 ≤27 槽预算(一行一槽); 加测试材料只改这张表(spec 故事 14),
-   不碰任何逻辑 — id 必须在物品核心注册、数量不超堆叠上限, 守门测试
-   逐行校验(test/showroom-mode.test.js)。 */
-const SHOWROOM_STOCK = [
-  /* 烧炼原料: SMELTS 全集(craft-core 登记序), 前 9 行正好铺满快捷栏 */
-  {id: 'iron_ore', n: 16}, // 粗铁矿 → 铁锭
-  {id: 'gold_ore', n: 16}, // 粗金矿 → 金锭
-  {id: 'log', n: 16}, // 原木 → 木炭
-  {id: 'cobble', n: 16}, // 圆石 → 石头(建材循环)
-  {id: 'sand', n: 16}, // 沙子 → 玻璃
-  {id: 'clay_ball', n: 16}, // 黏土球 → 红砖
-  {id: 'raw_beef', n: 16}, // 生牛肉 → 牛排
-  {id: 'raw_porkchop', n: 16}, // 生猪排 → 熟猪排
-  {id: 'raw_chicken', n: 16}, // 生鸡肉 → 熟鸡肉
-  {id: 'raw_mutton', n: 16}, // 生羊肉 → 熟羊肉
-  /* 代表燃料: 煤(热值 8)/木板(1.5)/木棍(0.5) — 单位=能烧几件 */
-  {id: 'coal', n: 16},
-  {id: 'planks', n: 16},
-  {id: 'stick', n: 16},
-  /* 产物对照样: 烧前烧后摆一起, 显示层 bug 一眼对出 */
-  {id: 'iron_ingot', n: 4},
-  {id: 'gold_ingot', n: 4},
-  {id: 'charcoal', n: 4},
-  {id: 'stone', n: 4},
-  {id: 'glass', n: 4},
-  {id: 'brick', n: 4},
-  {id: 'cooked_beef', n: 4},
-  {id: 'cooked_porkchop', n: 4},
-  {id: 'cooked_chicken', n: 4},
-  {id: 'cooked_mutton', n: 4},
-  /* 门与玻璃板验机(docs/door-window-design.md §4.5): 成品摆一起, 开发者
-     亲手放门/开关/砌窗验观感与交互(木板燃料区已有, 够合成一扇门) */
-  {id: 'door', n: 2},
-  {id: 'glass_pane', n: 16},
-];
+/* ---------- 供给派生(showroom-core, 模块加载期一次算定) ----------
+   套餐/仓库箱/展品全从权威注册表派生; 展台排除站点四件(它们作为真站点
+   装在场内, 不重复陈列)。 */
+const showroomPocketRows = showroomPocket(); // {rows ≤27, overflow}
+const showroomCrateList = showroomCrateRows(showroomPocketRows.overflow); // [{title, rows}]
+const showroomDisplayIds = showroomDisplays(
+    [B_CRAFT, B_FURNACE, B_CHEST, B_BED]); // 展品=可放置方块物品 − 站点件
 
-/* ---------- 内存背包(票据 T2): mkInventory 纯内存实例 ----------
-   不经背包壳、不碰共享背包、不读不写任何进度档(数据隔离红线) — init
-   每次进场照表重铸满材料, 退出即弃, 每次进场都是干净初始态(spec 故事 17)。 */
-let showroomInv = mkInventory(); // require 期先备空实例(hotbar 的 cnt 闭包即有包可读)
+/* ---------- 内存背包: 引用跨进场稳定(面板族持引用), 内容每次进场原地清空重铸 ----------
+   不经背包壳、不碰共享背包、不读不写任何进度档(数据隔离红线); 面板
+   (craft/chest)构造期即持有 inv 引用, 探险同款「对象供给形态」。 */
+let showroomInv = mkInventory();
 
-function showroomFill() {/* 进场装满: 照表逐行入包(行数 ≤27 且不超堆叠 → 零余量) */
-  showroomInv = mkInventory();
-  for (const row of SHOWROOM_STOCK) add(showroomInv, row.id, row.n);
+function showroomRefill() {/* 进场原地重铸: 清 27 槽照套餐入包(套餐 ≤27 行 ⇒ 零余量) */
+  showroomInv.slots.fill(null);
+  for (const row of showroomPocketRows.rows) add(showroomInv, row.id, row.n);
 }
 
-/* ---------- 材料快捷栏(mkHotbar item 槽型): 9 槽镜像内存背包前 9 槽 ----------
-   数字键/滚轮/点选由 mkMode 默认路由全自动接走(探险同款手感); 数量经
-   cnt 闭包实时读包, 名字/图标在进场装满后 showroomSyncBar 刷一次 */
+/* ---------- 仓库箱内存账户: 每箱 {size, slots} 纯内存, 进场照派生重铸 ----------
+   存取意图走 adventure-core 的 advChestPut/advChestTake 纯函数(与探险
+   大宝箱同一份政策实现, 不造第二份); 退出即弃, 每次进场恢复原装。 */
+let showroomCrateAccounts = [];
+
+function showroomCratesReset() {
+  showroomCrateAccounts = showroomCrateList.map((crate) => {
+    const acct = {size: INV_SLOTS, slots: new Array(INV_SLOTS).fill(null)};
+    for (const row of crate.rows) advChestPut(acct, {id: row.id, n: row.n});
+    return acct;
+  });
+}
+function showroomCratePos(i) {/* 箱锚位: 西墙一排自动排(箱数≤crateMax, 超出由守门测试拦) */
+  return {x: SHOWROOM.crateX, z: SHOWROOM.crateZ0 + i * SHOWROOM.crateStep};
+}
+
+/* ---------- 材料快捷栏: 9 槽镜像内存背包前 9 槽(v1 同款, 数字键/滚轮/点选全自动) ---------- */
 const showroomHbItems = [];
 for (let i = 0; i < HOTBAR_SLOTS; i++) {
   showroomHbItems.push({
@@ -110,7 +101,7 @@ for (let i = 0; i < HOTBAR_SLOTS; i++) {
     cnt: () => (showroomInv.slots[i] ? showroomInv.slots[i].n : 0),
     dur: () => {
       const s = showroomInv.slots[i];
-      if (!s || !isTool(s.id)) return 0; /* 非工具不画耐久条(表里加工具行即自动点亮) */
+      if (!s || !isTool(s.id)) return 0; /* 非工具不画耐久条 */
       const t = toolOf(s.id);
       return t ? (s.dur || 0) / t.dur : 0;
     },
@@ -126,109 +117,273 @@ function showroomSyncBar() {/* 槽内容 → 槽型 item 字段(图标/名字跟
 }
 
 /* ============================================================
-   熔炉展品(票据 T3/T4) — 共享熔炉 kit(js/furnace-kit.js)在体验馆的 adapter
-   ------------------------------------------------------------
-   状态机/退炉/装配段全收编共享 kit(探险同款两消费者, 探险的炉与这里的炉
-   是同一缝上的两个 adapter——不造第二份烧炼实现, kit 内部走探险核心纯
-   函数); 与探险的差异只有供给形态与政策降噪: inv 走取数器(每次进场照表
-   重铸新实例, kit/面板永远读到当前包) · 零儿童提示/零掉落物/退出余量
-   静默丢弃(dev 调试口径) · 炉态纯内存(退出即清, 每次进场干净初始态,
-   spec 故事 17) · 退出三笔尽力入包(故事 12); 关面板只取产物、烧炼照跑
-   进度保留(故事 11 断档续烧可复现)。
+   面板族(v2): 合成 / 仓库箱 / 熔炉 — 三块面板都是 mode-kit/kit 的
+   第二消费者 adapter, 政策差异只在 dev 降噪(零 TTS/零记账/满包静默)。
+   开态旗标只做世界点击与回菜单的守卫; 面板自身开合真值在 kit
+   (✕/Esc 直关不经模式层, 与探险同款对账口径)。
    ============================================================ */
+let showroomCraftOpen = false;
+let showroomChestOpen = false;
+
+const showroomPanel = ModeKit.mkCraftPanel({
+  inv: showroomInv, /* 引用跨进场稳定(原地重铸) */
+  station: () => true, /* 全开: 台级配方随处可摆(dev 口径, 站点门禁是儿童引导不属调试场) */
+  allow: (typeof KIT_HIDDEN_RECIPES !== 'undefined') ?
+    KIT_HIDDEN_RECIPES.slice() : [], /* 隐藏配方全点亮(二期卡也进馆可测), 清单随 mode-kit 演进自动跟 */
+  onCraft: () => showroomSyncBar(), /* 产物入包即刷快捷栏; 满包余量静默丢弃(dev 降噪, 与退炉余量同口径) */
+  onMove: (from, to) => moveSlot(showroomInv, from, to), /* 背包格点选搬运(政策在背包核心) */
+  onGridMove: () => showroomSyncBar(),
+  onClose: () => {
+    showroomCraftOpen = false;
+  },
+  onSort: () => showroomSyncBar(),
+});
+function showroomCraftToggle() {
+  if (showroomCraftOpen) {
+    showroomPanel.close(); /* close 链含关面板退料(台面余料回包, 零损失) */
+    return;
+  }
+  showroomCraftOpen = true;
+  showroomPanel.show();
+}
+function showroomCraftClose() {
+  if (showroomCraftOpen) showroomPanel.close();
+}
+
+let showroomCrateIdx = -1; /* 当前打开的箱号(面板 chest() 经此路由到对应账户) */
+const showroomChestPanel = ModeKit.mkChestPanel({
+  inv: showroomInv,
+  chest: () => showroomCrateAccounts[showroomCrateIdx] || {size: 0, slots: []},
+  next: () => null, /* 体验馆箱恒顶格(dev 全开无扩容), 扩容行隐藏 */
+  have: (id) => count(showroomInv, id),
+  onPut: (i) => showroomCratePut(i),
+  onTake: (i) => showroomCrateTake(i),
+  onClose: () => {
+    showroomChestOpen = false;
+  },
+});
+function showroomCratePut(i) {/* 背包格 → 箱: 整摞入箱(政策纯函数), 装不下留背包 */
+  const st = remove(showroomInv, i);
+  if (!st) return;
+  const left = advChestPut(showroomCrateAccounts[showroomCrateIdx], st);
+  if (left > 0) {
+    st.n = left;
+    showroomInv.slots[i] = st;
+  }
+  showroomSyncBar();
+}
+function showroomCrateTake(i) {/* 箱格 → 背包: 整摞出箱(满包整摞留箱, 政策纯函数) */
+  advChestTake(showroomCrateAccounts[showroomCrateIdx], showroomInv, i);
+  showroomSyncBar();
+}
+function showroomOpenCrate(idx) {
+  showroomCrateIdx = idx;
+  showroomChestOpen = true;
+  showroomChestPanel.show();
+  showroomChestPanel.refresh(); /* chest 面板契约: show 只装 chrome, 内容消费方自刷 */
+}
+
+/* 熔炉展品(多炉 posKey 寻址): 点击哪台绑哪台, 炉态按块号分账(kit 原生
+   多炉口径); 政策降噪同 v1(零儿童提示/零掉落物/退出余量静默丢弃) */
 const showroomFurnace = FurnaceKit.mkFurnaceStation({
-  inv: () => showroomInv, /* 取数器供给: 进场换新实例, kit/面板永远读到当前包 */
-  onInvTouched: () => showroomSyncBar(), /* 背包被 kit 动过(收产物/放料/取回/退料, 不分 reason 一律刷新快捷栏;
-    政策降噪: 不接 onPanel/onRefundLeft/onMade——dev 场零提示零音效零掉落物) */
+  inv: () => showroomInv, /* 取数器供给(kit 归一两种形态) */
+  onInvTouched: () => showroomSyncBar(),
 });
 
-function showroomFurnaceKey() {/* 预置炉 posKey('x,y,z', 与探险站点缓存同口径) */
-  return blockKey(SHOWROOM.furnace.x, SHOWROOM.groundY + 1, SHOWROOM.furnace.z);
-}
-function showroomStations() {/* 站点清单(advNearStation 输入形状 {id,x,z}): v1 单炉, 加展品加行 */
-  return [{id: B_FURNACE, x: SHOWROOM.furnace.x, z: SHOWROOM.furnace.z}];
-}
-/* 使用型站点交互(探险 advUseStation 同款): 点击熔炉后判距, 圈内开面板/
-   圈外只提示不误开(v1 单炉绑预置位, 未来多炉再从点击块取 posKey 绑定) */
-function showroomUseFurnace() {
-  if (advNearStation(showroomStations(), pos.x, pos.z, ADV_STATION_R, B_FURNACE)) {
-    showroomFurnace.open(showroomFurnaceKey());
-  } else {
-    showToast('♨️ 走近一点就能用熔炉啦');
+/* ---------- 站点使用路由: 点击块号分流, 4 格门槛按点击块精确判距 ---------- */
+function showroomUseStation(hit) {
+  const lookId = getBlock(hit.x, hit.y, hit.z);
+  const d = Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z);
+  if (d > ADV_STATION_R) {
+    showToast('🚪 走近一点就能用啦');
+    return;
+  }
+  if (lookId === B_FURNACE) {
+    showroomFurnace.open(blockKey(hit.x, hit.y, hit.z));
+    return;
+  }
+  if (lookId === B_CRAFT) {
+    showroomCraftToggle();
+    return;
+  }
+  if (lookId === B_CHEST) {
+    const idx = showroomCrateList.findIndex((c, i) => {
+      const p = showroomCratePos(i);
+      return p.x === hit.x && p.z === hit.z;
+    });
+    if (idx >= 0) showroomOpenCrate(idx);
   }
 }
-/* 面板意图的无面板直调口径: 单炉固定 key(plan 缺省自算, 测试可无开态直驱;
-   退炉/推进/喂显/收口全在 kit, 经 showroomFurnace.tick/refundAll 驱动) */
-function showroomFurnaceLoad(plan) {
-  showroomFurnace.autoFill(plan, showroomFurnaceKey());
+
+/* ============================================================
+   建场(全几何数据驱动, 走 SceneKit/setBlockRaw; 光照归 loadScene 全量)
+   ============================================================ */
+
+/* 火把插点 helper: 地面一层 thin 火把(光 14, loadScene 全量点亮) */
+function showroomTorches(points, y) {
+  for (const p of points) setBlockRaw(p[0], y, p[1], B_TORCH);
 }
 
 function showroomBuild() {
-  /* 平地草场: 两层泥土垫底 + 整幅草皮 — 空场即调试画布, 展品预置见下 */
-  SceneKit.fill(0, SHOWROOM.groundY - 2, 0, 127, SHOWROOM.groundY - 1, 127, 2);
-  SceneKit.fill(0, SHOWROOM.groundY, 0, 127, SHOWROOM.groundY, 127, 1);
-  /* v1 展品: 场中心预置熔炉(T3) — 装场即在场, 不靠玩家放置(体验馆去掉跑图与挖掘) */
-  SceneKit.fill(SHOWROOM.furnace.x, SHOWROOM.groundY + 1, SHOWROOM.furnace.z,
-      SHOWROOM.furnace.x, SHOWROOM.groundY + 1, SHOWROOM.furnace.z, B_FURNACE);
+  const g = SHOWROOM.groundY;
+  /* 全幅平地草场(随世界尺寸; v1 只铺 0..127 是 128 时代旧值, 扩容 160 后纠偏) */
+  SceneKit.fill(0, g - 2, 0, WORLD_W - 1, g - 1, WORLD_D - 1, 2);
+  SceneKit.fill(0, g, 0, WORLD_W - 1, g, WORLD_D - 1, 1);
+  showroomHouse();
+  showroomHall();
+  showroomBasement();
 }
 
-/* 进场一条路: 清场 → 建场 → 出生 → 收菜单 → 置"进行中"态。
-   switchMode 进来时 world 已清, loadScene 的清场再兜一次重建(幂等) */
+function showroomHouse() {
+  const h = SHOWROOM.house; const g = SHOWROOM.groundY;
+  const top = 16;
+  SceneKit.fill(h.x1, g, h.z1, h.x2, g, h.z2, 6); // 木板地板(覆草皮)
+  /* 四墙(实心 y13..16), 再开门洞与玻璃板窗 */
+  SceneKit.fill(h.x1, g + 1, h.z1, h.x2, top, h.z1, 6);
+  SceneKit.fill(h.x1, g + 1, h.z2, h.x2, top, h.z2, 6);
+  SceneKit.fill(h.x1, g + 1, h.z1, h.x1, top, h.z2, 6);
+  SceneKit.fill(h.x2, g + 1, h.z1, h.x2, top, h.z2, 6);
+  for (const x of [54, 60, 68, 74]) { // 南北墙窗(y14 单排玻璃板)
+    setBlockRaw(x, 14, h.z1, B_GLASS_PANE);
+    if (x !== SHOWROOM.door.x) setBlockRaw(x, 14, h.z2, B_GLASS_PANE);
+  }
+  for (const z of [54, 60, 68]) { // 东西墙窗
+    setBlockRaw(h.x1, 14, z, B_GLASS_PANE);
+    setBlockRaw(h.x2, 14, z, B_GLASS_PANE);
+  }
+  const d = SHOWROOM.door; // 南门: 门洞 + 门板成对(关态在场, 开关链待放置票)
+  setBlockRaw(d.x, g + 1, d.z, 0);
+  setBlockRaw(d.x, g + 2, d.z, 0);
+  setBlockRaw(d.x, g + 1, d.z, B_DOOR);
+  setBlockRaw(d.x, g + 2, d.z, B_DOOR_TOP);
+  SceneKit.fill(h.x1, top + 1, h.z1, h.x2, top + 1, h.z2, 6); // 木板顶
+  /* 站点件: 即测炉(出生圈) + 灶台角双炉 + 工作台×2 + 床 */
+  SceneKit.fill(SHOWROOM.spawnFurnace.x, g + 1, SHOWROOM.spawnFurnace.z,
+      SHOWROOM.spawnFurnace.x, g + 1, SHOWROOM.spawnFurnace.z, B_FURNACE);
+  for (const f of SHOWROOM.kitchen) setBlockRaw(f.x, g + 1, f.z, B_FURNACE);
+  for (const c of SHOWROOM.craftTables) setBlockRaw(c.x, g + 1, c.z, B_CRAFT);
+  setBlockRaw(SHOWROOM.bed.x, g + 1, SHOWROOM.bed.z, B_BED);
+  /* 仓库箱排: 箱数=仓库箱派生长度(≤crateMax, 守门测试拦超出) */
+  for (let i = 0; i < Math.min(showroomCrateList.length, SHOWROOM.crateMax); i++) {
+    const p = showroomCratePos(i);
+    setBlockRaw(p.x, g + 1, p.z, B_CHEST);
+  }
+  /* 火把插满: 室内四面墙+中央过道(地面一层) */
+  showroomTorches([[50, 45], [58, 45], [66, 45], [74, 45], [50, 74], [58, 74],
+    [66, 74], [74, 74], [49, 50], [49, 58], [49, 66], [78, 50], [78, 58],
+    [78, 66], [62, 56], [66, 64]], g + 1);
+}
+
+function showroomHall() {/* 中央展台: 2×2 木板台身, 顶面照派生清单各摆一份展品 */
+  let k = 0;
+  for (const [tx, tz] of SHOWROOM.tables) {
+    SceneKit.fill(tx, SHOWROOM.groundY + 1, tz, tx + 1, SHOWROOM.groundY + 1, tz + 1, 6);
+    for (let dx = 0; dx <= 1; dx++) {
+      for (let dz = 0; dz <= 1; dz++) {
+        if (k < showroomDisplayIds.length) {
+          setBlockRaw(tx + dx, SHOWROOM.groundY + 2, tz + dz,
+              ITEMS[showroomDisplayIds[k]].block);
+          k++;
+        }
+      }
+    }
+  }
+}
+
+function showroomBasement() {/* 房下石壳(自密封: 清空世界里下方是空的) + 矿样墙 + 楼梯井 */
+  const b = SHOWROOM.basement; const s = SHOWROOM.stairs; const g = SHOWROOM.groundY;
+  SceneKit.fill(b.x1, 6, b.z1, b.x2, g - 1, b.z2, 4); // 石壳整体(cobble)
+  SceneKit.fill(b.x1 + 1, 8, b.z1 + 1, b.x2 - 1, 10, b.z2 - 1, 0); // 掏空内腔(地面 y7 顶, 高 3)
+  /* 矿石样本墙(北壁内面, 站立面高度): 五种矿物各一格 */
+  const ores = [B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY];
+  for (let i = 0; i < ores.length; i++) setBlockRaw(52 + i, 8, b.z1 + 1, ores[i]);
+  /* 楼梯井: 五级 1 格台阶(降=走落, 升=跳跃), 顶通房内地面 */
+  for (let i = 0; i <= 4; i++) {
+    SceneKit.fill(s.x1, Math.max(8, g - i), s.z2 - i, s.x2, g, s.z2 - i, 0);
+  }
+  /* 踏步回填: 内腔掏空吃掉了壳层, 三级踏步显式落位(每级降 1 格, 站位 2 格净空) */
+  SceneKit.fill(s.x1, 10, s.z2 - 1, s.x2, 10, s.z2 - 1, 4);
+  SceneKit.fill(s.x1, 9, s.z2 - 2, s.x2, 9, s.z2 - 2, 4);
+  SceneKit.fill(s.x1, 8, s.z2 - 3, s.x2, 8, s.z2 - 3, 4);
+  /* 地下室火把插满: 内腔周界 + 井口侧壁照明(不占楼梯通道格) */
+  showroomTorches([[60, 47], [68, 47], [52, 72], [60, 72], [68, 72],
+    [51, 52], [51, 60], [51, 68], [76, 52], [76, 60], [76, 68],
+    [s.x1 - 1, s.z1]], 8);
+}
+
+/* 进场一条路: 清场 → 建场 → 出生 → 收菜单 → 置"进行中"态(v1 同款) */
 function showroomEnter() {
-  loadScene(showroomBuild); // 场景装填 seam: 建场+收尾重建一步到位
+  loadScene(showroomBuild); // 场景装填 seam: 建场+光场+收尾重建一步到位
   ModeKit.spawn(SHOWROOM.spawn.x, SHOWROOM.groundY + 1, SHOWROOM.spawn.z,
       {yaw: SHOWROOM.spawn.yaw});
   touchPlaying = true; // input.js 的"进行中"态(触屏同款口径; 不接指针锁定)
-  overlay.style.display = 'none'; // 直进: 收主菜单(训练营壳 init 同款动作)
+  overlay.style.display = 'none'; // 直进: 收主菜单
 }
 
 const ShowroomMode = mkMode({
   id: 'showroom',
 
-  hotbar: showroomHb, // 材料快捷栏: mkHotbar(数字键/滚轮/点选全自动)
-  chrome: {hotbar: 'deferred'}, // 先藏, init 装满材料后再现身(一次渲染到位)
+  hotbar: showroomHb,
+  chrome: {hotbar: 'deferred'}, // 先藏, init 装满材料后再现身
 
   init() {
-    showroomFill(); // 材料台: 照表重铸满材料背包(每次进场干净初始态)
+    showroomRefill(); // 套餐: 原地清空重铸(每次进场干净初始态)
+    showroomCratesReset(); // 仓库箱: 照派生重铸(恢复原装)
     showroomEnter();
     showroomSyncBar();
-    showroomHb.show(); // 材料栏现身: 装满后渲染, 名字数量一步到位
-    showroomFurnace.reset(); // 熔炉展品(T3/T4): 炉态纯内存, 进场清零(干净初始态, spec 故事 17)
+    showroomHb.show();
+    showroomFurnace.reset(); // 炉态纯内存, 进场清零
   },
 
-  cleanup() {/* T3 收场: 退炉三笔尽力入包(零损耗, 故事 12; 满包余量静默丢弃是
-    kit refundAll 的 dev 口径) + 炉态清空 + 收面板 +
-    解「进行中」态(体验馆不锁指针, touchPlaying 是唯一进行中标志) */
+  cleanup() {/* 收场: 收双面板(合成 close 链退台面余料) + 退炉三笔入包 +
+    收炉面板 + 解「进行中」态(零掉落物, 余量静默丢弃 dev 口径) */
+    showroomCraftClose();
+    if (showroomChestOpen) showroomChestPanel.close();
     showroomFurnace.refundAll();
     showroomFurnace.panel.hide();
     touchPlaying = false;
   },
 
   update(dt) {
-    showroomFurnace.tick(dt); // 烧炼节律常开(面板只是回显): 逐炉推进 + 面板开着喂显
+    showroomFurnace.tick(dt); // 烧炼节律常开(多炉逐炉推进, 面板只是回显)
   },
 
-  onMouse(button, hit) {/* v1 不挖不放: 点击只接熔炉使用(左/轻点同达, 探险 advUseStation 同款) */
-    if (showroomFurnace.isOpen()) return; /* 面板遮罩兜底: 开面板不吃世界点击 */
+  onMouse(button, hit) {/* 不挖不放: 点击只接站点使用(工作台/熔炉/箱子, 左右键同达) */
+    if (showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen()) return;
+    if (button !== 0 && button !== 2) return;
     const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
-    if (lookId === B_FURNACE) showroomUseFurnace();
+    if (lookId === B_FURNACE || lookId === B_CRAFT || lookId === B_CHEST) {
+      showroomUseStation(hit);
+    }
   },
 
-  /* B/暂停回菜单: 体验馆无菜单页(page:false), 恢复菜单背景默认模式再回主页 —
-     MODES.cur 交还 arena 后, 再点体验馆卡即全新进场(体验馆每次进场都是
-     干净初始态, 炉态/背包后续票据也靠这条收场链兜住不渗漏) */
+  /* B/暂停回菜单: 无菜单页, 恢复菜单背景默认模式再回主页; 三面板开着 =
+     放鼠标不是回菜单(探险同款守卫) */
   onMenu() {
-    if (showroomFurnace.isOpen()) {
-      overlay.style.display = 'none'; return; /* 熔炉面板开着 = 放鼠标不是回菜单(探险同款守卫) */
+    if (showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen()) {
+      overlay.style.display = 'none'; return;
     }
     switchMode('arena');
     showPage('main');
   },
 
+  onKey(code) {/* Tab 背包+配方书(探险同款入口); 箱/炉开着先收箱/炉 */
+    if (code !== 'Tab') return;
+    if (showroomChestOpen) {
+      showroomChestPanel.close();
+      return;
+    }
+    if (showroomFurnace.isOpen()) {
+      showroomFurnace.close();
+      return;
+    }
+    showroomCraftToggle();
+  },
+
   hud() {
-    /* bug 报告口径: 坐标(探险同款行) + FPS(坦克演习场同款尾行) */
     return [
-      '🧪 体验馆 · dev 调试场 · B 回菜单',
+      '🧪 体验馆 · 冒险全开实验室 · B 回菜单',
+      'Tab 背包与配方书 · 走近 工作台/熔炉/箱子 点击使用',
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
       'FPS ' + fps,
     ];
@@ -236,19 +391,22 @@ const ShowroomMode = mkMode({
 
   onHighlight() {
     return false;
-  }, // v1 不挖不放(spec Out of Scope), 隐藏方块高亮(坦克演习场同款)
+  }, // 不挖不放, 隐藏方块高亮(v2 同 v1 口径, 放置链待 place-kit)
 });
 
-/* 守门测试挂点(adventure 的 .adv 先例): 材料表 + 内存背包 getter(浏览器侧无害) */
-ShowroomMode.stock = SHOWROOM_STOCK;
+/* 守门测试挂点(adventure 的 .adv 先例; 浏览器侧无害) */
+ShowroomMode.stock = showroomPocketRows.rows; // 套餐(派生产物; 旧材料表挂点同名延续)
 ShowroomMode.getInv = () => showroomInv;
-
-/* 熔炉展品触达面(.sr, adventure .adv 同款内部挂点 — 单测经此驱动交互链):
-   furnaces 炉态 Map(kit 的 Map 引用, 只读断言/直写同口径) · panel 面板
-   实例(✕/Esc 出口全链) · isOpen 开态 · autoFill 自动放料落点(无面板直调
-   口径, 单炉固定 key) · refundAll 退炉 */
-ShowroomMode.sr = {furnaces: showroomFurnace.map, panel: showroomFurnace.panel,
-  isOpen: () => showroomFurnace.isOpen(), autoFill: (plan) => showroomFurnaceLoad(plan),
-  refundAll: () => showroomFurnace.refundAll()};
+ShowroomMode.crates = {list: showroomCrateList, accounts: () => showroomCrateAccounts,
+  put: showroomCratePut, take: showroomCrateTake}; // 存/取意图(政策函数, 与面板回调同路)
+ShowroomMode.sr = {
+  furnaces: showroomFurnace.map,
+  panel: showroomFurnace.panel,
+  isOpen: () => showroomFurnace.isOpen(),
+  autoFill: (plan, key) => showroomFurnace.autoFill(plan, key),
+  refundAll: () => showroomFurnace.refundAll(),
+  craft: {panel: showroomPanel, isOpen: () => showroomCraftOpen, toggle: showroomCraftToggle},
+  chest: {panel: showroomChestPanel, isOpen: () => showroomChestOpen, open: showroomOpenCrate},
+};
 
 if (typeof module !== 'undefined' && module.exports) module.exports = ShowroomMode;
