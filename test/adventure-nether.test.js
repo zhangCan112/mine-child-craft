@@ -1082,3 +1082,53 @@ test('T6-9 调色板复位: cleanup 恢复缺省天基色/水色, 不渗其他�
   assert.deepStrictEqual(callsC.filter((c) => c[0] === 'skyBase').slice(-1), [['skyBase', null]],
       '天基色缝复位(null=缺省蓝)');
 });
+
+/* ============ 冒险地图 T7: 传送门阵 + 站桩 + 遮罩(票据 T7, 设计稿 §2.3/§4) ============ */
+
+/* 解锁任务档预铺: counts 带指定图的点亮键(点亮仪式归 T8, 本票只读键) */
+const seedQuestC = (unlocked) => (m) => m.set('adventure_quest_save',
+    JSON.stringify({_v: 1, step: 0, counts: unlocked}));
+const gateOf = (rowId, to) => ADV_MAPS.find((r) => r.id === rowId).gates
+    .find((g) => g.to === to);
+
+test('T7-1 门阵建场: home 三扇门框常驻 · 未解锁掏门面(不可触发) · 解锁键亮门面 · 远征图回程门常亮 · 门体不记账', () => {
+  /* 空任务档: 三门全熄——门框在(黑曜石塔楼/门楣), 门面格无 B_PORTAL */
+  freshC();
+  const home = ADV_MAPS[0];
+  assert.strictEqual(home.gates.length, 3, '前提: home 行三门');
+  for (const g of home.gates) {
+    assert.strictEqual(apiC.getBlock(g.px, Core.ADV_GROUND, g.pz), apiC.B_OBSIDIAN,
+        g.to + ' 门框底边黑曜石(建场期常驻)');
+    assert.strictEqual(apiC.getBlock(g.px + 1, Core.ADV_GROUND + 3, g.pz), 0,
+        g.to + ' 未解锁: 门面格无 B_PORTAL(熄门不可触发)');
+    assert.strictEqual(apiC.getBlock(g.px + ADV_PORTAL.w - 1, Core.ADV_GROUND + 3, g.pz),
+        apiC.B_OBSIDIAN, g.to + ' 侧柱在(中段, 端点是四角发光岩)');
+  }
+  /* 门体走建场(setBlockRaw), 不进 edits 账本——互锁红线与 nether 回程门同款 */
+  for (const g of home.gates) {
+    for (const y of [Core.ADV_GROUND, Core.ADV_GROUND + 1, Core.ADV_GROUND + 3]) {
+      assert.ok(!AN.advSceneEdits.home.has(g.px + ',' + y + ',' + g.pz),
+          '门体格不记账 @y' + y + '(' + g.to + ' 门)');
+    }
+  }
+  /* 点亮档: 键在=亮——desert 门面长出来, 其余两门仍熄 */
+  freshC(seedQuestC({unlockedDesert: 1}));
+  const dg = gateOf('home', 'desert');
+  const sg = gateOf('home', 'snow');
+  assert.strictEqual(apiC.getBlock(dg.px + 2, Core.ADV_GROUND + 1, dg.pz), apiC.B_PORTAL,
+      '解锁门亮门面(advInPortal 可命中)');
+  assert.strictEqual(apiC.getBlock(dg.px + 3, Core.ADV_GROUND + 5, dg.pz), apiC.B_PORTAL,
+      '门面 4×5 满铺');
+  assert.strictEqual(apiC.getBlock(sg.px + 2, Core.ADV_GROUND + 1, sg.pz), 0,
+      '未解锁门仍熄');
+  /* 远征图: 回程门常亮(home 恒开) + 切走再切回门阵确定性重建(T6-3 红线的门阵面) */
+  AN.advSetMap('desert');
+  const rg = gateOf('desert', 'home');
+  assert.strictEqual(apiC.getBlock(rg.px + 2, Core.ADV_GROUND + 1, rg.pz), apiC.B_PORTAL,
+      'desert 回程门常亮');
+  const snapG = Buffer.from(apiC.worldCells);
+  AN.advSetMap('home');
+  AN.advSetMap('desert');
+  assert.ok(Buffer.from(apiC.worldCells).equals(snapG), '门阵随建场确定性重建(逐字节一致)');
+});
+

@@ -964,9 +964,14 @@ function advBeamsClear() {/* 全清(切界/cleanup): 悬空句柄再 remove 无�
   for (const h of advBeamHs) if (h && Fx.removeBeam) Fx.removeBeam(h);
   advBeamHs.length = 0;
 }
-function advBeamsRelayout() {/* 重锚当前界全部门: 下界回程门(基座, 不在 edits) + edits 扫描 */
+function advBeamsRelayout() {/* 重锚当前界全部门: 下界回程门(基座, 不在 edits) +
+    地图门阵亮门(建场件, 不在 edits) + edits 扫描 */
   if (advDim === 'nether') {
     advBeamAdd(ADV_NETHER.ground, ADV_NETHER.portal.px, ADV_NETHER.portal.pz);
+  } else {
+    for (const g of advMapRow.gates) {
+      if (advGateLit(g)) advBeamAdd(ADV_GROUND, g.px, g.pz); /* 亮门才有束(熄门无门面) */
+    }
   }
   const cols = new Map(); /* z → 门面格清单 [{x,y}...] */
   for (const [k, v] of advJournal.edits) {
@@ -987,6 +992,40 @@ function advBeamsRelayout() {/* 重锚当前界全部门: 下界回程门(基座
       start = i;
     }
   }
+}
+
+/* ---------- 传送门阵(票据 T7, 设计稿 §2.3/§4): 建场/绑定/解锁读 ----------
+     门→目标图的绑定 = 当前地图行 gates 固定坐标表(ADV_MAPS 各行, T4 权威);
+     门体是建场件(setBlockRaw 直写不记账, 与 nether 回程门同款互锁口径——
+     每次装场重建同一份, 门体不进 edits 账本); 解锁读任务档 counts 键
+     (advMapUnlocked, 点亮仪式归 T8); 门框/门面方块走「声明式不可破坏」
+     (无 hard 字段, 蓄力链给 advMineHardText 儿童话术——nether 门先例) */
+function advGateLit(g) {/* 门亮否: 目标图解锁(回程门 to=home 恒亮); 纯读任务档 */
+  return advMapUnlocked(g.to, ADV.quest.counts);
+}
+function advGatesBuild() {/* 当前图门阵建场(loadScene 基座段收尾, 不记账): home 三扇
+    门阵 + 远征图单回程门; 熄门只立框——门面格不落 B_PORTAL(advInPortal 天然
+    不命中=「不可触发」口径), T8 点亮仪式补齐门面时门体才长脸。
+    ADV_B.portal=0(精简装载守卫)时整体静默——门体核心引用下界方块常量 */
+  if (advDim === 'nether' || !ADV_B.portal || !ADV_B.obsidian) return; /* 下界无门阵(回程门在 advSetDim 建场段) */
+  for (const g of advMapRow.gates) {
+    const lit = advGateLit(g);
+    advPortalFrame((x, y, z, id) => {
+      if (id === ADV_B.portal && !lit) return; /* 熄门: 门面格跳过, 只留框 */
+      setBlockRaw(x, y, z, id);
+    }, ADV_GROUND, g.px, g.pz);
+  }
+}
+function advGateAt(x, z) {/* 门阵包围盒查表(advInPortal 命中后): 玩家脚格落在当前行
+    某扇门的门面平面(fx∈门框 6 宽, fz=门面 z) → 返回该门 {to,px,pz};
+    未命中返回 null = 玩家自放的 nether 门(保持 D6 即时语义) */
+  if (advDim !== 'overworld') return null;
+  const fx = Math.floor(x); const fz = Math.floor(z);
+  for (const g of advMapRow.gates) {
+    if (fz !== g.pz) continue; /* 门面是单 z 平面(advPortalFrame 口径) */
+    if (fx >= g.px && fx <= g.px + ADV_PORTAL.w - 1) return g;
+  }
+  return null;
 }
 
 /* ---------- 上界怪播种/实体回调重挂(init 与切界共用) ----------
@@ -1111,6 +1150,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
         applySweep——那是 init 旧档治愈专用, 切回来的世界本来就是干净的 */
       advMapRow.build();
       advJournal.replay({block: setBlockRaw, fluid: setFluidLv});
+      advGatesBuild(); /* 门阵重建(T7): 重放之后立门——玩家对门区的误放被门体盖回 */
       advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
       advRescanStations();
       advFurnaceSettle(advMap);
@@ -1142,6 +1182,7 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
   loadScene(() => {
     row.build();
     advJournal.replay({block: setBlockRaw, fluid: setFluidLv});
+    advGatesBuild(); /* 门阵重建(T7): 重放之后立门(远征图回程门常亮) */
     advRescanSaplings();
     advRescanStations();
     advFurnaceSettle(advMap);
@@ -1982,6 +2023,7 @@ const AdventureMode = mkMode({
         }
       }
       advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘; 清扫之后跑——被治愈掀掉的悬空树苗不再重挂) */
+      advGatesBuild(); /* 门阵建场(T7): 治愈之后立门——门体不被清扫/重放翻动, 每次装场同一份 */
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
     ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
