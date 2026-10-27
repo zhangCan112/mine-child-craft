@@ -18,7 +18,12 @@
      照烧/退出三笔退包——只测编排不重测纯函数(craft-core/furnace-kit
      各有单测);
    ⑧ 收场与重进: 面板全收+零掉落物 · 背包同实例原地重铸 · 仓库箱恢复
-     原装(退出即弃, 每次进场干净初始态)。 */
+     原装(退出即弃, 每次进场干净初始态);
+   ⑭ U3 展馆 edits 账本派生(世界即存档): 仿真 diff 确定性(两次派生逐字节
+      一致) · 条目落整地圈+全裸值 · 重放同构(基座+账本重放=目标态绘制,
+      逐格一致) · 重放后结构全覆盖(家营地平 y24)/立面净空/地平实心 ·
+      footprint 选址核查(不压水面·硬结构不相交·压界恰为登记三处) ·
+      世界档 payload(真账本)/dev store 丢弃语义。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -1127,4 +1132,291 @@ test('体验馆: 击杀掉落 — Mobs.onDeath → advDeathDrops 掷骰 → Drop
   mobsRig.deathCbs[0](m); /* 引擎在 hit 判死瞬间回调; 桩内手动触发(同拍行为) */
   assert.ok(dropCalls.length >= 1, '掷骰保底必得: 至少掉 1 条');
   assert.ok(dropCalls.every((d) => d[2] === 10 && d[4] === 10), '落点=尸体上方(m.pos 同缝)');
+});
+
+/* ============ ⑭ U3 展馆 edits 账本派生(世界即存档, ADR 0005) — 世界仿真类 ============
+    布局常量 SHOWROOM 已迁 js/showroom-core.js(语义源唯一化), 模式文件经全局名
+    继续引用——先补铺全局; 世界清场面/水位写缝/世界格数组从 vm 引擎件取出,
+    供仿真 diff 与重放同构断言直用。本段用例会整场清掉并重建世界(home 基座),
+    全部排在既有用例之后, 互不渗漏。 */
+globalThis.SHOWROOM = ShowroomCore.SHOWROOM; /* 模式文件经全局名继续引用(迁移后唯一语义源) */
+globalThis.world = vm.runInContext('world', eng); /* 体素清场面(派生仿真: 两次清世界) */
+Object.assign(globalThis, vm.runInContext('({WORLD_H, setFluidLv, worldCells})', eng));
+globalThis.mkWorldJournal = require('../js/world-journal-core.js').mkWorldJournal;
+/* 门解锁键名权威在地图注册表(冒险纯核心之上): Node 侧 require 需先铺其装载期
+   引用的全局名(B_ 建材常数自 vm 真件, ADV_HOME_ROW/advBuildWorld 已在全局) */
+Object.assign(globalThis, vm.runInContext('({B_SANDSTONE, B_SNOW, B_ICE})', eng));
+Object.assign(globalThis, {ADV_UNLOCK_KEYS: require('../js/adventure-maps-core.js').ADV_UNLOCK_KEYS});
+
+test('体验馆 U3: 布局常量迁移 — 模式文件不再声明 SHOWROOM, 供给核心持有(经全局名引用, 行为不变)', () => {
+  assert.ok(!/^const SHOWROOM = \{/m.test(showroomSrc), '模式文件不再声明常量块(唯一允许改动=删原块)');
+  assert.ok(coreSrc.includes('const SHOWROOM = {'), '供给核心持有常量(语义源)');
+  assert.match(showroomSrc, /SHOWROOM\.house/, '模式文件经全局名继续引用');
+  assert.strictEqual(globalThis.SHOWROOM, ShowroomCore.SHOWROOM, '全局名=供给核心常量(同引用)');
+});
+
+test('体验馆 U3: 展馆账本派生确定性 — 两次仿真逐字节一致 · 缓存面同实例 · 条目落整地圈+全裸值', () => {
+  const a = ShowroomCore.showroomWorldEditsCompute();
+  const b = ShowroomCore.showroomWorldEditsCompute();
+  assert.ok(a.length > 0, '账本非空(整地+结构条目在场)');
+  assert.strictEqual(JSON.stringify(a), JSON.stringify(b), '两次派生逐字节一致(基座建场+绘制双零随机)');
+  assert.strictEqual(ShowroomCore.showroomWorldEdits(), ShowroomCore.showroomWorldEdits(),
+      '缓存面: 惰性一次算定(同实例)');
+  assert.deepStrictEqual(ShowroomCore.showroomWorldEdits(), a, '缓存=计算结果');
+  const L = ShowroomCore.showroomDevLayout();
+  const R = ShowroomCore.showroomFlatRegion(L);
+  for (const e of a) {
+    const p = e[0].split(',');
+    const x = +p[0];
+    const y = +p[1];
+    const z = +p[2];
+    assert.ok(x >= R.x1 && x <= R.x2 && z >= R.z1 && z <= R.z2,
+        '条目落 footprint+整地圈: ' + e[0]);
+    assert.ok(Number.isInteger(y) && y >= 0 && y < globalThis.WORLD_H, 'y 在世界高内: ' + e[0]);
+    assert.ok(typeof e[1] === 'number' && Number.isInteger(e[1]) && e[1] >= 0,
+        '全裸值(无 {id,lv} 流体格): ' + e[0]);
+  }
+});
+
+test('体验馆 U3: 重放同构 — 基座+账本重放 = 目标态绘制, 全世界逐格一致(迁移等价性的可执行表达)', () => {
+  const entries = ShowroomCore.showroomWorldEditsCompute();
+  /* 重放态: home 基座 → 世界改动日志同一条重放链(裸值→方块一笔) */
+  globalThis.world.clear();
+  advBuildWorld();
+  globalThis.mkWorldJournal({load: () => null, save: () => {}}, {edits: new Map(entries)})
+      .replay({block: setBlockRaw, fluid: globalThis.setFluidLv});
+  const replayed = globalThis.worldCells.slice();
+  /* 目标态: home 基座 → 展馆绘制(v2 语义: 整地一圈+展厅+展台+地下室) */
+  globalThis.world.clear();
+  advBuildWorld();
+  ShowroomCore.showroomPaintSite(ShowroomCore.showroomDevLayout());
+  const target = globalThis.worldCells.slice();
+  assert.ok(Buffer.from(replayed).equals(Buffer.from(target)),
+      '重放后=目标态(逐格一致, 世界即存档: 进场=建场+重放同一份账本)');
+});
+
+/* 重放态世界装配 helper: 基座+账本重放(结构覆盖/净空/实心断言共用) */
+function srReplayWorld() {
+  globalThis.world.clear();
+  advBuildWorld();
+  globalThis.mkWorldJournal({load: () => null, save: () => {}},
+      {edits: new Map(ShowroomCore.showroomWorldEdits())})
+      .replay({block: setBlockRaw, fluid: globalThis.setFluidLv});
+}
+
+test('体验馆 U3: 重放后结构全覆盖 — 墙/顶/门/窗/站点件/床/仓库箱/展台展品/火把/地下室(家营地平 y24)', () => {
+  srReplayWorld();
+  const g = ADV_GROUND;
+  assert.strictEqual(api.getBlock(55, g, 55), 6, '木板地板');
+  assert.strictEqual(api.getBlock(48, g + 2, 44), 6, '木墙(西北角 y26)');
+  assert.strictEqual(api.getBlock(63, g + 5, 60), 6, '木板顶(y29)');
+  assert.strictEqual(api.getBlock(63, g + 1, 75), api.B_DOOR, '南门(下扇)');
+  assert.strictEqual(api.getBlock(63, g + 2, 75), api.B_DOOR_TOP, '南门(上扇)');
+  assert.strictEqual(api.getBlock(54, g + 2, 44), api.B_GLASS_PANE, '北墙窗');
+  assert.strictEqual(api.getBlock(48, g + 2, 60), api.B_GLASS_PANE, '西墙窗');
+  /* 站点件: 即测炉+灶台双炉+工作台×2+床 */
+  assert.strictEqual(api.getBlock(64, g + 1, 62), api.B_FURNACE, '出生圈内即测熔炉');
+  assert.strictEqual(api.getBlock(72, g + 1, 46), api.B_FURNACE, '灶台角炉 1');
+  assert.strictEqual(api.getBlock(74, g + 1, 46), api.B_FURNACE, '灶台角炉 2');
+  assert.strictEqual(api.getBlock(52, g + 1, 46), api.B_CRAFT, '工作台 1');
+  assert.strictEqual(api.getBlock(54, g + 1, 46), api.B_CRAFT, '工作台 2');
+  assert.strictEqual(api.getBlock(77, g + 1, 73), api.B_BED, '床');
+  /* 仓库箱排: 箱方块数=派生箱数(≤锚位上限) */
+  const crates = ShowroomCore.showroomCrateStock();
+  for (let i = 0; i < Math.min(crates.length, SHOWROOM.crateMax); i++) {
+    assert.strictEqual(api.getBlock(50, g + 1, 50 + i * 2), api.B_CHEST,
+        '第 ' + i + ' 箱(' + crates[i].title + ')在场');
+  }
+  /* 展台展品: 派生清单的方块都在台面(y g+2 扫描区) */
+  const found = new Set();
+  for (let x = 54; x <= 72; x++) {
+    for (let z = 51; z <= 66; z++) {
+      const b = api.getBlock(x, g + 2, z);
+      if (b) found.add(b);
+    }
+  }
+  for (const id of ShowroomCore.showroomDisplays(
+      [api.B_CRAFT, api.B_FURNACE, api.B_CHEST, api.B_BED])) {
+    assert.ok(found.has(api.ITEMS[id].block), '展品在台面: ' + id);
+  }
+  /* 火把插满: 室内(y25..28)+地下室(y20)计数 */
+  let houseTorch = 0;
+  for (let x = 48; x <= 79; x++) {
+    for (let z = 44; z <= 75; z++) {
+      for (let y = g + 1; y <= g + 4; y++) {
+        if (api.getBlock(x, y, z) === api.B_TORCH) houseTorch++;
+      }
+    }
+  }
+  assert.ok(houseTorch >= 10, '室内火把成排: ' + houseTorch);
+  let baseTorch = 0;
+  for (let x = 50; x <= 77; x++) {
+    for (let z = 46; z <= 73; z++) {
+      if (api.getBlock(x, g - 4, z) === api.B_TORCH) baseTorch++;
+    }
+  }
+  assert.ok(baseTorch >= 8, '地下室火把成排: ' + baseTorch);
+  /* 地下室: 石壳/内腔净空/矿样墙/楼梯井逐级通透(v2 断言的 y+12 平移版) */
+  assert.strictEqual(api.getBlock(63, g - 5, 60), 4, '内腔地面(圆石 y19)');
+  assert.strictEqual(api.getBlock(63, g - 3, 60), 0, '内腔净空(y21)');
+  assert.strictEqual(api.getBlock(63, g - 1, 60), 4, '腔顶石壳(y23, 上承房内地板)');
+  assert.strictEqual(api.getBlock(52, g - 4, 47), api.B_COAL_ORE, '矿样墙: 煤');
+  assert.strictEqual(api.getBlock(55, g - 4, 47), api.B_DIAMOND_ORE, '矿样墙: 钻');
+  assert.strictEqual(api.getBlock(56, g - 4, 47), api.B_CLAY, '矿样墙: 黏土');
+  for (let i = 0; i <= 4; i++) {
+    const z = 71 - i;
+    const standY = g - i;
+    for (let y = standY; y <= g; y++) {
+      assert.strictEqual(api.getBlock(75, y, z), 0, '楼梯井通透: (75,' + y + ',' + z + ')');
+    }
+    assert.strictEqual(api.getBlock(75, standY - 1, z), 4, '踏步在位: y=' + (standY - 1));
+  }
+});
+
+test('体验馆 U3: 重放后立面净空+地平实心 — 地平以上除结构外全空 · 地平连圈实心 · 屋南小径完好', () => {
+  srReplayWorld();
+  const g = ADV_GROUND;
+  const h = SHOWROOM.house;
+  const R = ShowroomCore.showroomFlatRegion(ShowroomCore.showroomDevLayout());
+  /* 立面净空: footprint 顶板(y29)以上全空; 圈(footprint 外的整地环)地平以上全空 */
+  for (let x = h.x1; x <= h.x2; x++) {
+    for (let z = h.z1; z <= h.z2; z++) {
+      for (let y = g + 6; y < globalThis.WORLD_H; y++) {
+        assert.strictEqual(api.getBlock(x, y, z), 0, '顶上净空: (' + x + ',' + y + ',' + z + ')');
+      }
+    }
+  }
+  for (let x = R.x1; x <= R.x2; x++) {
+    for (let z = R.z1; z <= R.z2; z++) {
+      if (x >= h.x1 && x <= h.x2 && z >= h.z1 && z <= h.z2) continue; /* footprint 另断言 */
+      for (let y = g + 1; y < globalThis.WORLD_H; y++) {
+        assert.strictEqual(api.getBlock(x, y, z), 0, '整地环净空: (' + x + ',' + y + ',' + z + ')');
+      }
+    }
+  }
+  /* 地平实心: 圈内每列地平非空(整地补齐凹陷+房地板); 楼梯井开口除外——
+     房内下地下室的入口(v2 同款: 井道逐级掏穿房内地板, z67..71 列顶层开天) */
+  const sw = SHOWROOM.stairs;
+  const inStairWell = (x, z) => x >= sw.x1 && x <= sw.x2 && z >= sw.z1 && z <= sw.z2;
+  for (let x = R.x1; x <= R.x2; x++) {
+    for (let z = R.z1; z <= R.z2; z++) {
+      if (inStairWell(x, z)) continue;
+      assert.ok(api.getBlock(x, g, z) !== 0, '地平实心: (' + x + ',' + g + ',' + z + ')');
+    }
+  }
+  /* 屋南小径(圈外)完好: 南 pad=0 一格不铲, 门口↔广场动线不断 */
+  let pathCobble = 0;
+  for (let x = 62; x <= 77; x++) {
+    for (const z of [76, 77]) {
+      if ((x + z) % 2 === 0 && api.getBlock(x, g, z) === 4) pathCobble++;
+    }
+  }
+  assert.ok(pathCobble >= 12, '门口段小径圆石在位: ' + pathCobble);
+});
+
+test('体验馆 U3: footprint 选址核查 — 不压水面 · 硬结构清单不相交 · 压界恰为登记三处', () => {
+  globalThis.world.clear();
+  advBuildWorld(); /* 纯基座世界(结构清单的几何判定+登记压界的逐格清点) */
+  const h = SHOWROOM.house;
+  const R = ShowroomCore.showroomFlatRegion(ShowroomCore.showroomDevLayout());
+  /* 不压水面/沙岸: 圈内无流体无沙(重放后湖水不会经流体泵渗入整地区) */
+  for (let x = R.x1; x <= R.x2; x++) {
+    for (let z = R.z1; z <= R.z2; z++) {
+      for (let y = 0; y < globalThis.WORLD_H; y++) {
+        const b = api.BLOCKS[api.getBlock(x, y, z)];
+        assert.ok(!b || !b.fluid, '圈内无流体: (' + x + ',' + y + ',' + z + ')');
+      }
+      assert.notStrictEqual(api.getBlock(x, ADV_GROUND, z), 8, '圈地平无沙岸: (' + x + ',' + z + ')');
+    }
+  }
+  /* 硬结构不相交(footprint vs 几何清单, 常量全部来自冒险纯核心) */
+  const away = (cx, cz, r, why) => {
+    const nx = Math.max(h.x1, Math.min(cx, h.x2));
+    const nz = Math.max(h.z1, Math.min(cz, h.z2));
+    assert.ok(Math.hypot(nx - cx, nz - cz) > r, why + ' 不相交');
+  };
+  away(ADV_LAKE.cx, ADV_LAKE.cz, ADV_LAKE.r + 1, '湖(含沙岸)');
+  for (const p of ADV_PITS) away(p.cx, p.cz, p.r, '矿坑漏斗(' + p.cx + ',' + p.cz + ')');
+  away(ADV_TOWER.x, ADV_TOWER.z, 4, '望塔基座');
+  away(ADV_STONES.cx, ADV_STONES.cz, ADV_STONES.r + 1, '石阵环');
+  away(ADV_POND.cx, ADV_POND.cz, ADV_POND.r + 1, '南池(含水岸)');
+  for (const n of ADV_NESTS) away(n.x, n.z, 2, '巢丘(' + n.x + ',' + n.z + ')');
+  const noRect = (r, why) => {
+    assert.ok(h.x2 < r.x1 || r.x2 < h.x1 || h.z2 < r.z1 || r.z2 < h.z1, why + ' 不相交');
+  };
+  noRect(ADV_HUT, '出生小屋');
+  noRect(ADV_FARM, '农田(含水路)');
+  noRect({x1: ADV_CAVE.x1 - 3, x2: ADV_CAVE.x2 + 3, z1: ADV_CAVE.zStart - 5, z2: ADV_CAVE.zEnd + 4},
+      '山洞(洞口小丘+隧道+穴室)');
+  for (const g of ADV_GATE_PLAZA.gates) {
+    assert.ok(h.z2 < g.pz, '门面/塔列平面(z=' + g.pz + ')在 footprint 之外');
+  }
+  /* 登记压界三处(布局常量坐标被既有测试锁死, 压界如下登记——恰好这些, 漂移即红) */
+  let paving = 0;
+  for (let x = h.x1; x <= h.x2; x++) {
+    for (let z = h.z1; z <= h.z2; z++) {
+      if (api.getBlock(x, ADV_GROUND, z) === 4) paving++;
+    }
+  }
+  assert.strictEqual(paving, 4, '压界①: 门阵广场铺装西北角恰 4 格(重放后覆上木地板)');
+  let fence = 0;
+  for (let x = h.x1; x <= 54; x++) {
+    for (const y of [ADV_GROUND + 1, ADV_GROUND + 2]) {
+      if (api.getBlock(x, y, 74) !== 0) fence++;
+    }
+  }
+  assert.strictEqual(fence, 14, '压界②: 牧场围栏北线恰 7 柱×2 高=14 格(重放后清空, 房南墙代偿栏体)');
+  let moundCols = 0;
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      if (Math.hypot(dx, dz) > 2) continue;
+      const x = ADV_NESTS[0].x + dx;
+      const z = ADV_NESTS[0].z + dz;
+      if (x >= R.x1 && x <= R.x2 && z >= R.z1 && z <= R.z2) moundCols++;
+    }
+  }
+  assert.strictEqual(moundCols, 1, '压界③: 近巢丘(44,60)东缘恰 1 列(46,60)入整地圈(削平丘脚)');
+  assert.ok(api.getBlock(46, ADV_GROUND + 1, 60) !== 0, '该列基座确有丘块(清点前提)');
+});
+
+test('体验馆 U3: 世界档 payload(真账本) — home 桶=派生条目 · 房内出生 · 数组桶可归一成 Map', () => {
+  const store = ShowroomCore.mkShowroomStore();
+  const p = store.load();
+  assert.strictEqual(p.map, 'home', 'map=home');
+  assert.deepStrictEqual(p.edits.home, ShowroomCore.showroomWorldEdits(), 'home 桶=展馆账本原条目');
+  for (const k of ['desert', 'snow', 'swamp', 'nether']) {
+    assert.deepStrictEqual(p.edits[k], [], k + ' 空桶');
+  }
+  const m = new Map(p.edits.home); /* 档→桶账本归一(读档侧 decode 同款吃法) */
+  assert.strictEqual(m.size, p.edits.home.length, '条目键无重复(逐格最后写赢的账本面)');
+  assert.ok(p.pos.x > SHOWROOM.house.x1 && p.pos.x < SHOWROOM.house.x2, '房内出生 x');
+  assert.ok(p.pos.z > SHOWROOM.house.z1 && p.pos.z < SHOWROOM.house.z2, '房内出生 z');
+  assert.strictEqual(p.pos.y, ADV_GROUND + 1, '出生 y=家营地平+1');
+  assert.strictEqual(p.pos.yaw, SHOWROOM.spawn.yaw, '朝向随常量');
+  assert.strictEqual(p.hp, 30, '满血');
+  assert.strictEqual(p.dayTime, 0, '清晨起步');
+  assert.deepStrictEqual(p.furnaces, [], '炉空');
+  assert.deepStrictEqual(Object.keys(p.livestock).sort(),
+      ['desert', 'home', 'nether', 'snow', 'swamp'], '死畜五桶空账');
+});
+
+test('体验馆 U3: dev store 丢弃语义 — 落盘面全 noop · mark 进内存账本 · 三档再读仍篡改', () => {
+  const store = ShowroomCore.mkShowroomStore();
+  const loaded = store.load(); /* 喂篡改 payload(journal 桶形不收养=消费方自装当前桶) */
+  assert.ok(loaded && loaded.edits.home.length > 0, '世界档 payload 在位');
+  assert.strictEqual(store.journal.edits.size, 0, 'journal 初始空账本(桶形不收养, init 换装当前桶)');
+  store.mark('48,24,44', 6);
+  assert.strictEqual(store.journal.edits.get('48,24,44'), 6, '记账进内存(切图换桶/重进重放的账本面)');
+  assert.strictEqual(store.journal.dirty(), true, 'mark 后脏标在位');
+  store.touch();
+  store.flush();
+  store.tick();
+  store.pageHide();
+  assert.strictEqual(store.journal.dirty(), true,
+      '落盘面全 noop: 脏标不清(真档 flush 会清脏标)——丢弃式的可观察证据');
+  assert.strictEqual(store.loadQuest().step, ADV_QUESTS.length, '任务档仍篡改(saveQuest 丢弃)');
+  assert.strictEqual(store.loadChest().size, ADV_CHEST_SLOTS, '宝箱档仍篡改(saveChest 丢弃)');
+  const inv = store.loadBag();
+  const row = ShowroomCore.showroomPocket().rows[0];
+  assert.strictEqual(api.count(inv, row.id), row.n, '背包装配重铸套餐首行');
 });

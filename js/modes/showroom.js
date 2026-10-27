@@ -49,7 +49,8 @@
      fuses(TNT 引信数组) / tntTap()(TNT 短按状态 getter) / pEnt()(HP 实体
      getter) / snowballs(雪球弹池: count/clear 直驱) / sleep(睡觉转场状态:
      on/t, 测试直驱) — 守门测试挂点(adventure 的 .adv 先例, 浏览器侧无害)
-   依赖(均经全局名, 调用期解析): showroomPocket/showroomCrateRows/
+   依赖(均经全局名, 调用期解析): SHOWROOM 布局常量(U3 迁至 js/showroom-core.js
+      顶部, 本文件经全局名继续引用, 值零改动) · showroomPocket/showroomCrateRows/
      showroomDisplays(js/showroom-core.js 供给派生, 加载序在本文件之前) ·
      PlaceKit(js/place-kit.js 放置链, 加载序在 adventure.js 之后本文件之前) ·
      mkMode/ModeKit.spawn/ModeKit.mkHotbar/ModeKit.mkCraftPanel/ModeKit.
@@ -83,29 +84,8 @@
      (供给派生不变量在 test/showroom-core.test.js)
    ============================================================ */
 
-/* ---------- 场地常数: 展馆布局(§7 D4, 全部几何数据驱动) ---------- */
-const SHOWROOM = {
-  groundY: 12, // 草地顶层(站立面 y=13)
-  spawn: {x: 64.5, z: 60.5, yaw: 0}, // 房内中央过道出生, 面朝 -Z(展台区)
-  house: {x1: 48, z1: 44, x2: 79, z2: 75}, // 32×32 木构展厅(墙 y13..16+顶 y17)
-  door: {x: 63, z: 75}, // 南门(1 格宽 2 格高, 门板成对在场)
-  spawnFurnace: {x: 64, z: 62}, // 出生点正后方 1.5 格: 零走动即测熔炉
-  kitchen: [{x: 72, z: 46}, {x: 74, z: 46}], // 北墙灶台角: 双炉
-  craftTables: [{x: 52, z: 46}, {x: 54, z: 46}], // 北墙工作台×2
-  bed: {x: 77, z: 73}, // 东南角床(票 C 睡觉链: 夜窗+床边无怪即可睡, 无床边出生点)
-  crateX: 50, crateZ0: 50, crateStep: 2, crateMax: 8, // 西墙仓库箱排(箱数=派生长度, 锚位自动排)
-  tables: [[55, 52], [55, 58], [55, 64], [69, 52], [69, 58], [69, 64]], // 展台 2×2 台身(木板), 顶面摆展品
-  basement: {x1: 50, z1: 46, x2: 77, z2: 73}, // 地下室石壳(顶 y11=房内地基, 腔 y8..10, 地面 y7)
-  stairs: {x1: 75, x2: 76, z1: 67, z2: 71}, // 楼梯井(东墙侧, 1 格台阶降/跳)
-  ores: [], // 地下室矿石样本墙(建场段填 B_* 样本, 见 showroomBasement)
-  /* 夜怪固定铺点(票 C): 入夜上沿各铺 1 只 — 屋外草场(不在展厅屋顶, Risk③ 绕法)、
-     离床心 (77.5,73.5) ≥ ADV_BED_MOB_R+余量(最近 15 格)、避开站点/门/展台/ TNT 东场 */
-  nightMobs: [
-    {x: 84, z: 60, type: 'zombie'}, // 东墙外草场(离床 ≈15)
-    {x: 84, z: 48, type: 'spider'}, // 东北角草场(离床 ≈26)
-    {x: 40, z: 60, type: 'creeper'}, // 西墙外草场(离床 ≈40)
-  ],
-};
+/* ---------- 场地常数: SHOWROOM 布局常量已迁 js/showroom-core.js(U3, 语义源唯一化——
+   模式装配与展馆账本派生两处消费同参); 本文件经全局名继续引用, 值零改动 ---------- */
 
 /* ---------- 供给派生(showroom-core, 模块加载期一次算定) ----------
    套餐/仓库箱/展品全从权威注册表派生; 展台排除站点四件(它们作为真站点

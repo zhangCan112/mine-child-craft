@@ -9,6 +9,9 @@
      抽样(log→烧炼·燃料 / 生肉→食物 / 工具→工具·耗损 / 火把→方块·功能 /
      门→材料杂物) · 溢出行并入首只「套餐补箱」, 无溢出则无补箱;
    ④ 展品: = 可放置方块物品 − 站点件(独立重算对拍) · 注册序确定。
+   ⑥ U3 篡改档派生(纯派生面): SHOWROOM 布局常量在位 · 世界/任务/宝箱 payload
+      形状(decode 输入形状) · 背包供给重铸 · dev store 丢弃语义(世界仿真/
+      重放同构类在 test/showroom-mode.test.js——那里有体素底座)。
    vm 装真三核心(items/inventory/craft)+config(展品排除要 B_* 常数),
    Node 侧 require 被测核心, 其自由标识符经 globalThis 解析到 vm 真件
    (showroom-mode.test 同款手法)。 */
@@ -151,4 +154,134 @@ test('供给核心: 数据隔离 — 源文本零存储 API 名/零存档键字�
   while ((m = re.exec(coreSrc)) !== null) {
     assert.fail('不得出现存档键字面量: ' + m[1]);
   }
+});
+
+/* ============ ⑥ U3 篡改档派生(纯派生面; 世界仿真类在 test/showroom-mode.test.js) ============
+    环境补装: 冒险纯核心(ADV_QUESTS/ADV_CHEST_SLOTS/advChestPut/ADV_GROUND)与地图
+    注册表(ADV_UNLOCK_KEYS)进 vm 同一词法环境; 世界改动日志工厂直装 Node 全局。 */
+
+test('供给核心: 环境补装 — 冒险纯核心与地图注册表可加载(后续用例的派生依赖面)', () => {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/adventure-core.js'), 'utf8'), eng,
+      {filename: 'js/adventure-core.js'});
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/adventure-maps-core.js'), 'utf8'), eng,
+      {filename: 'js/adventure-maps-core.js'});
+  Object.assign(globalThis, vm.runInContext(`({ADV_GROUND, ADV_QUESTS, ADV_QUEST_TITLE,
+    ADV_CHEST_SLOTS, advChestPut, ADV_UNLOCK_KEYS})`, eng));
+  Object.assign(globalThis, require('../js/world-journal-core.js'));
+  assert.strictEqual(globalThis.ADV_GROUND, 24, '家营地平(冒险纯核心在位)');
+  assert.ok(globalThis.ADV_QUESTS.length > 20, '任务表在位(含远征章)');
+  assert.ok(globalThis.mkWorldJournal, '世界改动日志工厂在位');
+});
+
+test('供给核心: SHOWROOM 布局常量在位(v2 值原样迁入) · dev 布局=坐标不动只平移地平', () => {
+  const L = Core.SHOWROOM;
+  assert.ok(L && typeof L === 'object', '常量对象在位(供给核心为唯一语义源)');
+  assert.strictEqual(L.groundY, 12, 'v2 地平 12 原样(模式行为不变红线)');
+  assert.deepStrictEqual([L.house.x1, L.house.z1, L.house.x2, L.house.z2], [48, 44, 79, 75],
+      '房子 footprint 原样');
+  assert.strictEqual(L.door.x, 63, '南门 x');
+  assert.strictEqual(L.spawn.x, 64.5, '房内出生点');
+  assert.strictEqual(L.crateMax, 8, '仓库箱锚位上限');
+  assert.deepStrictEqual(L.flatPad, {n: 2, w: 2, e: 2, s: 0},
+      '整地圈 pad: 北西东 2 防半埋, 南 0 不铲屋南小径');
+  const dev = Core.showroomDevLayout();
+  assert.strictEqual(dev.groundY, globalThis.ADV_GROUND, 'dev 布局地平=家营地平');
+  assert.strictEqual(dev.house, L.house, '坐标/房子同引用(两处语义源同参)');
+  const R = Core.showroomFlatRegion(dev);
+  assert.deepStrictEqual([R.x1, R.z1, R.x2, R.z2], [46, 42, 81, 75],
+      '整地圈 = footprint 外扩(南缘=footprint 南缘)');
+});
+
+test('供给核心: 世界档 payload — 五桶 edits(home=注入条目) · 房内出生 · 满血清晨(decode 输入形状)', () => {
+  const p = Core.showroomWorldPayload([['48,24,44', 6], ['50,25,50', 54]]); /* 注入条目: 纯形状面不跑世界仿真 */
+  assert.deepStrictEqual(Object.keys(p.edits).sort(), ['desert', 'home', 'nether', 'snow', 'swamp'],
+      'edits 五桶齐(键=场景键集)');
+  assert.deepStrictEqual(p.edits.home, [['48,24,44', 6], ['50,25,50', 54]], 'home 桶=注入条目原样');
+  for (const k of ['desert', 'snow', 'swamp', 'nether']) {
+    assert.deepStrictEqual(p.edits[k], [], k + ' 空桶');
+  }
+  assert.strictEqual(p.map, 'home', 'map=home(重进即家营)');
+  const h = Core.SHOWROOM.house;
+  assert.ok(p.pos.x > h.x1 && p.pos.x < h.x2 && p.pos.z > h.z1 && p.pos.z < h.z2, 'pos=房内出生');
+  assert.strictEqual(p.pos.y, globalThis.ADV_GROUND + 1, 'pos.y=地平+1(站立面)');
+  assert.strictEqual(p.pos.yaw, Core.SHOWROOM.spawn.yaw, '朝向随常量');
+  assert.strictEqual(p.hp, 30, '满血(冒险玩家 30/30 口径)');
+  assert.deepStrictEqual(p.furnaces, [], '炉空');
+  assert.deepStrictEqual(Object.keys(p.livestock).sort(), ['desert', 'home', 'nether', 'snow', 'swamp'],
+      '死畜五桶空账');
+  assert.strictEqual(p.dayTime, 0, '清晨起步');
+});
+
+test('供给核心: 任务档 payload — 表外步=终章完成态 · 门解锁键全置 1 · 首夜已教 · 称号在档', () => {
+  const q = Core.showroomQuestPayload();
+  const KEYS = globalThis;
+  assert.strictEqual(q.step, KEYS.ADV_QUESTS.length, 'step=表长(表外=终章+远征章全完成, 进门不引导)');
+  const want = Object.values(KEYS.ADV_UNLOCK_KEYS);
+  assert.deepStrictEqual(Object.keys(q.counts).sort(), want.slice().sort(),
+      'counts 恰为门解锁键全集(从注册表派生, 不手抄)');
+  for (const k of want) assert.strictEqual(q.counts[k], 1, k + ' 置 1(三扇门全亮)');
+  assert.strictEqual(q.firstNight, true, '首夜教学已给(重进夜里不重教)');
+  assert.strictEqual(q.title, KEYS.ADV_QUEST_TITLE, '终章称号在档(通关徽标)');
+});
+
+test('供给核心: 宝箱档 payload — 顶格 27 槽预填(全 id∈ITEMS · n 合法 · 装不下截断)', () => {
+  const c = Core.showroomChestPayload();
+  const KEYS = globalThis;
+  assert.strictEqual(c.size, KEYS.ADV_CHEST_SLOTS, 'size=硬上限(顶格档)');
+  assert.strictEqual(c.slots.length, KEYS.ADV_CHEST_SLOTS, '满长槽数组(壳 init 归一化输入形状)');
+  let filled = 0;
+  for (const s of c.slots) {
+    if (!s) continue;
+    filled++;
+    assert.ok(Object.prototype.hasOwnProperty.call(api.ITEMS, s.id), 'id ∈ ITEMS: ' + s.id);
+    assert.ok(Number.isInteger(s.n) && s.n >= 1 && s.n <= api.stackMax(s.id),
+        'n ∈ [1, stackMax]: ' + s.id);
+  }
+  assert.ok(filled > 0, '预填非空(仓库箱派生物资在场)');
+  assert.ok(filled <= KEYS.ADV_CHEST_SLOTS, '装不下的余量截断(不溢出槽界)');
+  assert.deepStrictEqual(Core.showroomChestPayload(), c, '同参同结果(纯派生)');
+});
+
+test('供给核心: 背包供给 — load 原地重铸套餐(引用稳定) · save 丢弃零副作用', () => {
+  const bag = Core.showroomDevBag();
+  const inv = bag.inv;
+  assert.strictEqual(bag.load(), inv, 'load 返回同一实例(原地重铸, 面板闭包不脱钩)');
+  const p = Core.showroomPocket();
+  assert.ok(p.rows.length <= api.INV_SLOTS, '套餐 ≤27 行(一行一槽零余量)');
+  for (let i = 0; i < p.rows.length; i++) {
+    assert.strictEqual(inv.slots[i] && inv.slots[i].id, p.rows[i].id, '槽 ' + i + ' = 套餐行');
+    assert.strictEqual(inv.slots[i].n, p.rows[i].n, '槽 ' + i + ' 数量=堆叠上限');
+  }
+  inv.slots[0] = null; /* 破坏现场 */
+  bag.load();
+  assert.ok(inv.slots[0], '重铸恢复原装');
+  bag.save(); /* 丢弃式: 调用不炸 */
+  assert.ok(inv.slots[0], 'save 零副作用(账本只在内存)');
+});
+
+test('供给核心: dev store — 槽供给五件齐 · mark 进内存账本 · 落盘面全 noop(脏标不清=未走真链路)', () => {
+  const store = Core.mkShowroomStore();
+  const KEYS = globalThis;
+  assert.ok(store.worldSlot && store.questSlot && store.chestSlot && store.bag && store.journal,
+      '供给五件齐(与冒险壳真档 adapter 同形, 可整体换装)');
+  assert.strictEqual(store.loadQuest().step, KEYS.ADV_QUESTS.length, '任务档=篡改 payload');
+  store.saveQuest({step: 0, counts: {}}); /* 丢弃 */
+  assert.strictEqual(store.loadQuest().step, KEYS.ADV_QUESTS.length, 'saveQuest 丢弃: 再读仍篡改档');
+  assert.strictEqual(store.loadChest().size, KEYS.ADV_CHEST_SLOTS, '宝箱档=篡改 payload');
+  store.saveChest(); /* noop */
+  assert.strictEqual(store.loadChest().size, KEYS.ADV_CHEST_SLOTS, 'saveChest 丢弃');
+  const inv = store.loadBag();
+  assert.strictEqual(store.bag.inv, inv, '背包引用稳定');
+  store.saveBag(); /* noop */
+  assert.ok(inv.slots[0], '背包重铸在位(save 后不动)');
+  /* mark 正常: edits 活在内存 journal(切图换桶/重进重放的账本面) */
+  store.mark('48,24,44', 6);
+  assert.strictEqual(store.journal.edits.get('48,24,44'), 6, '记账进内存账本');
+  assert.strictEqual(store.journal.dirty(), true, 'mark 后脏标在位');
+  store.touch();
+  store.flush();
+  store.tick();
+  store.pageHide();
+  assert.strictEqual(store.journal.dirty(), true,
+      '落盘面全 noop: 脏标不清(真档 flush 会清脏标)——丢弃式的可观察证据');
 });
