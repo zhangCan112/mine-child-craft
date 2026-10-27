@@ -39,6 +39,10 @@
      (树苗长成足迹记账, y..y+7/±2 界限——重进幂等关键) · advExplodeCells
      (TNT 半径遍历编排)/advTntWave(波及怪物清单, 线性衰减) ·
      ADV_HERD_AMBLE_WALK_P/advAmbleStep(闲逛吃草节拍, 随机注入) ·
+     ADV_HERD_PAD/advHerdClamp(栏内钳制——出栏防线, 踏石爬行路线兜底) ·
+     石阵夜晚彩蛋(2026-10-27): ADV_STONE_EGG_CD/ADV_STONE_HINT_CD/
+     ADV_STONE_EGG_GIFT/advStoneAltarHit(灯坛命中)/advStoneEggPick(昼夜
+     分支裁决——观感归壳) ·
      下界段(nether 模式退役迁入, docs/nether-merge-design.md §3.2):
      ADV_PORTAL/ADV_NETHER 常量 · advNetherBuild(平地下界岩+3×3 成片
      熔岩池, hashRand 种子化) · advPortalFrame(整座门, set 注入; 可选
@@ -426,8 +430,9 @@ function advBuildFarm() {/* 初始农田(T5, §2.4 核心圈·屋南): 4×3 耕�
 }
 
 function advBuildPen() {/* 畜牧围栏(T5, §2.4 核心圈·屋西): 角柱原木 2 高 + 木板栏一圈 2 高
-  (MobCore.stepMove 台阶步进 ≤1.05——2 高栏翻不出, F4 AI 零改动), 东侧栏外一颗圆石踏石
-  (孩子 地面→踏石→栏顶 两级翻越, 牲畜踏石到栏顶仍差 2 爬不上), 栏内草地不动 */
+  (MobCore.stepMove 台阶步进 ≤1.05——2 高栏正面翻不出, F4 AI 零改动), 东侧栏外一颗圆石踏石
+  (孩子 地面→踏石→栏顶 两级翻越; 注意踏石到栏顶 block-y 差恰 1=牲畜也爬得上来——
+  动物侧由 advHerdClamp 栏内钳制兜底, 踏石保留给孩子), 栏内草地不动 */
   const p = ADV_PEN;
   for (let x = p.x1; x <= p.x2; x++) {
     for (const z of [p.z1, p.z2]) {
@@ -477,47 +482,55 @@ function advBuildPond() {/* 南池: 小水泊(水面齐 y24 可趟)+沙岸环绕
   }
 }
 
-function advBuildTower() {/* 望塔: 5×5 石砖塔(塔底小室南门洞入)+东/北两侧实心墩折返
-  石阶登顶(每级恰 1 格=跳跃可登, 矿坑级教训)+顶平台(心部灯砖/宝箱/满圈垛口墙/
-  四角原木柱火把)——登高看全岛的地标; 垛口满圈是给幼儿的防失足墙 */
+function advBuildTower() {/* 望塔: 7×7 石砖塔(外沿环墙, 室内 5×5 大厅)+内旋石梯登顶——
+  梯贴内壁沿东墙向北盘旋 8 级(每级恰 1 格=跳跃可登, 矿坑级教训), 门进屋即见
+  梯级(旧版塔底死屋+外挂折返梯的可发现性缺陷就此收掉); 顶平台木板(心部灯砖/
+  宝箱/满圈垛口/四角原木柱火把)——登高看全岛的地标, 垛口满圈是给幼儿的防失足墙。
+  楼梯口=6~8 级顶开在平台北缘(平台板会挡 32~34 脚位的头顶净空), 掉进口=落在
+  梯级上, 零坠落伤害; 石材无级联旗标, 结构全部实心落地不悬空 */
   const t = ADV_TOWER;
-  const x1 = t.x - 2; const x2 = t.x + 2; const z1 = t.z - 2; const z2 = t.z + 2;
-  SceneKit.fill(x1, ADV_GROUND + 1, z1, x2, ADV_GROUND + 1, z2, 4); /* 基座满铺(塔室地板) */
+  const x1 = t.x - 3; const x2 = t.x + 3; const z1 = t.z - 3; const z2 = t.z + 3;
+  SceneKit.fill(x1, ADV_GROUND + 1, z1, x2, ADV_GROUND + 1, z2, 4); /* 基座满铺(大厅地板) */
   for (let x = x1; x <= x2; x++) {/* 台阶层: 环边圆石(南面正中留门洞坎) */
     for (let z = z1; z <= z2; z++) {
       if (x === x1 || x === x2 || z === z1 || z === z2) setBlockRaw(x, ADV_GROUND + 2, z, 4);
     }
   }
-  for (let y = ADV_GROUND + 3; y <= ADV_GROUND + 7; y++) {/* 塔身石砖环墙(内室 3×3) */
+  for (let y = ADV_GROUND + 3; y <= ADV_GROUND + 8; y++) {/* 塔身石砖环墙(内室 5×5) */
     for (let x = x1; x <= x2; x++) {
       for (let z = z1; z <= z2; z++) {
         if (x === x1 || x === x2 || z === z1 || z === z2) setBlockRaw(x, y, z, 13);
       }
     }
   }
-  setBlockRaw(t.x, ADV_GROUND + 2, z2, 0); /* 南门洞 2 高(坎层+墙层) */
+  setBlockRaw(t.x, ADV_GROUND + 2, z2, 0); /* 南门洞 2 高(坎层+墙层, 上方石砖门楣) */
   setBlockRaw(t.x, ADV_GROUND + 3, z2, 0);
-  setBlockRaw(t.x, ADV_GROUND + 2, t.z, B_TORCH); /* 室内火把(落地站膛, 防清扫) */
-  const steps = [ /* 折返石阶 8 级(东列南→北 6 级 + 北列东→西 2 级), 实心墩不悬空,
-      全程直角踏步无斜跳(幼儿可登) */
-    [x2 + 1, z2, 1], [x2 + 1, z2 - 1, 2], [x2 + 1, z2 - 2, 3], [x2 + 1, z2 - 3, 4],
-    [x2 + 1, z1, 5], [x2 + 1, z1 - 1, 6], [x2, z1 - 1, 7], [x2 - 1, z1 - 1, 8],
+  setBlockRaw(t.x, ADV_GROUND + 2, t.z, B_TORCH); /* 厅心火把(落地站膛, 防清扫) */
+  const steps = [ /* 内旋石梯 8 级(东南内角起步 → 沿东墙向北 → 北缘折西半圈):
+      每级恰 +1、全部实心落地(不悬空), 首级就在门洞右前方——进屋即见;
+      内圈 5×5 的周格: 东列 z2-1..z1+1 五格 + 北列 x2-2..x1+2 五格 */
+    [x2 - 1, z2 - 1, 1], [x2 - 1, z2 - 2, 2], [x2 - 1, t.z, 3], [x2 - 1, z1 + 2, 4],
+    [x2 - 1, z1 + 1, 5], [x2 - 2, z1 + 1, 6], [t.x, z1 + 1, 7], [t.x - 1, z1 + 1, 8],
   ];
   for (const [sx, sz, up] of steps) {
-    for (let y = ADV_GROUND + 1; y <= ADV_GROUND + up; y++) setBlockRaw(sx, y, sz, 4);
+    for (let y = ADV_GROUND + 2; y <= ADV_GROUND + 1 + up; y++) setBlockRaw(sx, y, sz, 4);
   }
-  SceneKit.fill(x1, ADV_GROUND + 8, z1, x2, ADV_GROUND + 8, z2, 6); /* 顶平台木板(y32) */
-  setBlockRaw(t.x, ADV_GROUND + 8, t.z, B_GLOWSTONE); /* 平台心灯砖(发光地面) */
-  setBlockRaw(x1 + 1, ADV_GROUND + 9, z1 + 1, B_CHEST); /* 顶角宝箱(登顶奖励) */
+  SceneKit.fill(x1, ADV_GROUND + 9, z1, x2, ADV_GROUND + 9, z2, 6); /* 顶平台木板(y33) */
+  for (const [sx, sz] of steps.slice(5, 7)) setBlockRaw(sx, ADV_GROUND + 9, sz, 0); /* 楼梯口:
+      6~7 级格开天井(平台板会挡 32~33 脚位的头顶净空); 8 级柱顶恰为平台层,
+      平台铺装原位盖板无缝出梯, 不可清 */
+  setBlockRaw(t.x, ADV_GROUND + 9, t.z, B_GLOWSTONE); /* 平台心灯砖(发光地面) */
+  setBlockRaw(x2 - 1, ADV_GROUND + 10, z2 - 1, B_CHEST); /* 顶角宝箱(登顶奖励,
+      与楼梯口对角, 上来转头就见) */
   for (let x = x1; x <= x2; x++) {/* 满圈垛口墙(幼儿防失足) */
-    for (const z of [z1, z2]) setBlockRaw(x, ADV_GROUND + 9, z, 4);
+    for (const z of [z1, z2]) setBlockRaw(x, ADV_GROUND + 10, z, 4);
   }
   for (let z = z1 + 1; z < z2; z++) {
-    for (const x of [x1, x2]) setBlockRaw(x, ADV_GROUND + 9, z, 4);
+    for (const x of [x1, x2]) setBlockRaw(x, ADV_GROUND + 10, z, 4);
   }
   for (const [px, pz] of [[x1, z1], [x2, z1], [x1, z2], [x2, z2]]) {/* 四角原木柱+火把 */
-    setBlockRaw(px, ADV_GROUND + 10, pz, 5);
-    setBlockRaw(px, ADV_GROUND + 11, pz, B_TORCH);
+    setBlockRaw(px, ADV_GROUND + 11, pz, 5);
+    setBlockRaw(px, ADV_GROUND + 12, pz, B_TORCH);
   }
 }
 
@@ -535,6 +548,27 @@ function advBuildStones() {/* 远古石阵: 8 根苔石列柱(石英压顶)围�
   }
   setBlockRaw(s.cx, ADV_GROUND + 1, s.cz, 14); /* 中心基座 */
   setBlockRaw(s.cx, ADV_GROUND + 2, s.cz, 19); /* 灯块 */
+}
+
+/* ---------- 石阵夜晚彩蛋(2026-10-27 用户拍板: 夜晚限定互动) ----------
+   点击中心灯坛(19 灯块)触发: 夜里 = 烟花 + 远古牧人小故事 + 首次赠灯笼
+   (全会话一次防连点刷); 白天 = 温和提示「等天黑再来」(零惩罚不强迫)。
+   命中判据/昼夜分支/节流常量在此(纯函数可单测), 观感(Fx/SpeechKit/
+   Drops)归壳。判据零世界读、零 Math.random */
+const ADV_STONE_EGG_CD = 8; /* 夜间彩蛋(故事+烟花)重播节流秒(防连点) */
+const ADV_STONE_HINT_CD = 6; /* 白天提示节流秒(与锁门提示同量级) */
+const ADV_STONE_EGG_GIFT = 'lantern'; /* 首次赠礼: 灯笼(灯坛夜之伴, 手持光源) */
+
+function advStoneAltarHit(x, y, z, id) {/* 灯坛命中判据: 坐标 + 灯块 id 双重
+  (防下界门角发光岩/望塔心灯砖等同 id 误触发)——壳的交互链先过这里 */
+  return id === 19 && x === ADV_STONES.cx && y === ADV_GROUND + 2 && z === ADV_STONES.cz;
+}
+
+function advStoneEggPick(coolT, night) {/* 点击时刻的分支裁决: 节流窗内静默
+  (null); 到窗按昼夜分——夜里全彩蛋 'egg', 白天只提示 'hint'。节流秒由壳按
+  发放类型回填(夜 ADV_STONE_EGG_CD / 昼 ADV_STONE_HINT_CD, 夜长昼短) */
+  if (coolT > 0) return null;
+  return night ? 'egg' : 'hint';
 }
 
 function advPineTree(x, baseY, z, salt) {/* 松树: 原木 4-6 高 + 锥形叶冠(下宽上尖+顶帽)
@@ -901,6 +935,19 @@ function advAmbleStep(t, dir, walk, dt, rnd) {
   const ntt = 2 + rnd() * 3;
   const nw = rnd() < ADV_HERD_AMBLE_WALK_P;
   return {t: ntt, dir: nd, walk: nw};
+}
+
+/* 栏内钳制(2026-10-27 出栏修复): 牲畜每次位移后强钳回围栏内带——踏石(栏外
+   东侧)到栏顶高差恰 1(≤1.05 爬行口径), 动物能沿「地面→踏石→栏顶→栏外」
+   爬出(建场旧注释「仍差 2」是 block-y 口径算错); 钳制带自墙列内缩 1.1 格
+   (不贴栏站立), 存量出栏个体也会被逐步收回。纯函数可单测, 壳 advHerdTick
+   施加(仅 home 图——四畜全套留 home, 他图无牲畜) */
+const ADV_HERD_PAD = 1.1; /* 钳制带内缩格(墙列占整格, 留 0.1 贴面余量) */
+
+function advHerdClamp(x, z) {/* 位置 → 钳回栏内带(四边独立 min/max, 角上同收) */
+  const p = ADV_PEN;
+  return {x: Math.min(Math.max(x, p.x1 + ADV_HERD_PAD), p.x2 + 1 - ADV_HERD_PAD),
+    z: Math.min(Math.max(z, p.z1 + ADV_HERD_PAD), p.z2 + 1 - ADV_HERD_PAD)};
 }
 
 /* ============================================================
@@ -1697,6 +1744,9 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_LIVESTOCK_RING_HI, ADV_LIVESTOCK_HERDS, ADV_HERD_AVOID_R, ADV_HERD_AVOID_MULT,
     ADV_HERD_FLEE_T, ADV_HERD_FLEE_MULT, ADV_HERD_AMBLE_MULT,
     advLivestockHerdOk, advLivestockSpots, advLivestockPlan, advHerdStep,
+    ADV_HERD_PAD, advHerdClamp,
+    ADV_STONE_EGG_CD, ADV_STONE_HINT_CD, ADV_STONE_EGG_GIFT,
+    advStoneAltarHit, advStoneEggPick,
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut, advChestTake,
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,

@@ -985,23 +985,25 @@ const DOOR_ART = [
   '................',
 ];
 
-/* 玻璃板(窗): 方框 + 透明芯 + 斜高光, 与 GLASS_ART 同一观感语言 */
+/* 玻璃板(窗): MC 正典物品图标口径的窄竖条(6 宽满高)——配方书里与玻璃块
+   (GLASS_ART 全格方板)一眼可分, 读得出「6 方块 → 16 薄板」; 观感语言同源
+   (亮框 + 半透明芯 + 斜高光, 色表同 GLASS 条目) */
 const PANE_ART = [
   '................',
-  '................',
-  '..ffffffffffff..',
-  '..fggggggggggf..',
-  '..fgghgggggggf..',
-  '..fgghhggggggf..',
-  '..fggghhgggggf..',
-  '..fgggghhggggf..',
-  '..fggggghhgggf..',
-  '..fgggggghhggf..',
-  '..fggggggghhgf..',
-  '..fgggggggghgf..',
-  '..fggggggggggf..',
-  '..ffffffffffff..',
-  '................',
+  '.....ffffff.....',
+  '.....fggggf.....',
+  '.....fghggf.....',
+  '.....fghggf.....',
+  '.....fgghgf.....',
+  '.....fgghgf.....',
+  '.....fgghgf.....',
+  '.....fgghgf.....',
+  '.....fgghgf.....',
+  '.....fgghgf.....',
+  '.....fgghgf.....',
+  '.....fgghgf.....',
+  '.....fggggf.....',
+  '.....ffffff.....',
   '................',
 ];
 

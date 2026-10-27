@@ -268,8 +268,40 @@ test('T5 畜牧围栏: 原木柱角+木板栏一圈 2 高 + 栏内草地 + 东�
   /* 栏内地面留草 */
   assert.strictEqual(cell(47, 24, 82), 1, '栏内草地');
   assert.strictEqual(cell(47, 25, 82), 0, '栏内净空');
-  /* 东侧踏石: 孩子两级翻越(地面→踏石→栏顶), 牲畜踏石到栏顶仍差 2 爬不上 */
+  /* 东侧踏石: 孩子两级翻越(地面→踏石→栏顶); 踏石到栏顶 block-y 差恰 1=
+     牲畜(stepMove ≤1.05)也爬得上来——旧注释「仍差 2」算错, 动物侧由
+     advHerdClamp 栏内钳制兜底(见下), 踏石保留给孩子 */
   assert.strictEqual(cell(pen.x2 + 1, 25, 82), 4, '踏石圆石在栏外东侧');
+});
+
+test('栏内钳制(2026-10-27 出栏修复): advHerdClamp 四边内缩 1.1 · 栏内不动 · 角上同收 · 散布环带不出带', () => {
+  const p = Core.ADV_PEN;
+  assert.deepStrictEqual(Core.advHerdClamp(47.5, 82.5), {x: 47.5, z: 82.5}, '栏内位置原样返回');
+  assert.strictEqual(Core.advHerdClamp(40.2, 82).x, p.x1 + Core.ADV_HERD_PAD, '西出栏钳回西带');
+  assert.strictEqual(Core.advHerdClamp(54.8, 82).x, p.x2 + 1 - Core.ADV_HERD_PAD, '东出栏(踏石侧)钳回东带');
+  assert.strictEqual(Core.advHerdClamp(47, 73.5).z, p.z1 + Core.ADV_HERD_PAD, '北出栏钳回北带');
+  assert.strictEqual(Core.advHerdClamp(47, 90.6).z, p.z2 + 1 - Core.ADV_HERD_PAD, '南出栏钳回南带');
+  const corner = Core.advHerdClamp(39.9, 90.9);
+  assert.strictEqual(corner.x, p.x1 + Core.ADV_HERD_PAD, '角上 x 同收');
+  assert.strictEqual(corner.z, p.z2 + 1 - Core.ADV_HERD_PAD, '角上 z 同收');
+  for (const e of Core.advLivestockPlan()) {/* 重生散布环带全部在钳制带内(进场无瞬移) */
+    const k = Core.advHerdClamp(e.x, e.z);
+    assert.ok(Math.abs(k.x - e.x) < 1e-9 && Math.abs(k.z - e.z) < 1e-9,
+        '散布条目在带内: idx=' + e.idx);
+  }
+});
+
+test('石阵夜晚彩蛋(2026-10-27): 灯坛命中坐标+id 双重 · 昼夜分支裁决 · 夜长昼短 · 首赠礼是注册物品', () => {
+  const s = Core.ADV_STONES;
+  assert.strictEqual(Core.advStoneAltarHit(s.cx, 26, s.cz, 19), true, '灯坛命中(坐标+灯块 id)');
+  assert.strictEqual(Core.advStoneAltarHit(s.cx, 26, s.cz, api.B_GLOWSTONE), false, '同坐标非灯块 id 不触发');
+  assert.strictEqual(Core.advStoneAltarHit(s.cx + 1, 26, s.cz, 19), false, '同 id 邻格不触发');
+  assert.strictEqual(Core.advStoneAltarHit(s.cx, 25, s.cz, 19), false, '基座层不触发');
+  assert.strictEqual(Core.advStoneEggPick(0, true), 'egg', '到窗+夜晚 → 全彩蛋');
+  assert.strictEqual(Core.advStoneEggPick(0, false), 'hint', '到窗+白天 → 只提示');
+  assert.strictEqual(Core.advStoneEggPick(2, true), null, '节流窗内 → 静默');
+  assert.ok(Core.ADV_STONE_EGG_CD > Core.ADV_STONE_HINT_CD, '夜长昼短(彩蛋重播慢于提示)');
+  assert.strictEqual(api.ITEMS[Core.ADV_STONE_EGG_GIFT].name, '灯笼', '首赠礼是注册物品(灯笼)');
 });
 
 test('T5 圆石小径: 门口↔广场↔农田 2 宽间断铺装((x+z) 偶数格), 五段连通', () => {
@@ -389,22 +421,35 @@ test('扩容主题五件: 松林/望塔/石阵/花田/南池建场落位(确定�
   assert.strictEqual(cell(p.cx, 24, p.cz), api.B_WATER, '南池洼心水面 y24');
   assert.strictEqual(cell(p.cx, 23, p.cz), 8, '南池沙底');
   assert.strictEqual(cell(p.cx, 24, p.cz + p.r + 2), 1, '池外一圈草皮');
-  /* 望塔: 基座/塔身/门洞/平台灯砖/宝箱/垛口 + 折返石阶逐级 */
+  /* 望塔: 基座/环墙/门洞/平台灯砖/宝箱/垛口 + 内旋石梯逐级(7×7 外沿,
+    2026-10-27 重构: 内旋梯收掉旧版「塔底死屋+外挂折返梯」的可发现性缺陷) */
   const t = Core.ADV_TOWER;
   assert.strictEqual(cell(t.x, 25, t.z), 4, '塔底基座圆石');
-  assert.strictEqual(cell(t.x - 2, 29, t.z), 13, '塔身石砖环墙');
-  assert.strictEqual(cell(t.x, 26, t.z + 2), 0, '南门洞坎层净空');
-  assert.strictEqual(cell(t.x, 27, t.z + 2), 0, '南门洞墙层净空');
-  assert.strictEqual(cell(t.x, 32, t.z), api.B_GLOWSTONE, '平台心灯砖');
-  assert.strictEqual(cell(t.x - 1, 33, t.z - 1), api.B_CHEST, '顶角宝箱');
-  assert.strictEqual(cell(t.x - 2, 33, t.z - 2), 4, '垛口满圈(防失足)');
-  const ups = [];
-  for (let y = 25; y <= 32; y++) {/* 石阶逐级: 东列(x+3, z 南→北)6 级 + 北列(z-3, x 东→西)2 级 */
-    const sx = y <= 30 ? t.x + 3 : t.x + 3 - (y - 30);
-    const sz = y <= 29 ? t.z + 2 - (y - 25) : t.z - 3;
-    if (cell(sx, y, sz) === 4) ups.push(y);
+  assert.strictEqual(cell(t.x - 3, 29, t.z), 13, '塔身石砖环墙(7×7 外沿)');
+  assert.strictEqual(cell(t.x, 26, t.z + 3), 0, '南门洞坎层净空');
+  assert.strictEqual(cell(t.x, 27, t.z + 3), 0, '南门洞墙层净空');
+  assert.strictEqual(cell(t.x, 28, t.z + 3), 13, '门洞上方石砖门楣(门高恰 2)');
+  assert.strictEqual(cell(t.x, 33, t.z), api.B_GLOWSTONE, '平台心灯砖');
+  assert.strictEqual(cell(t.x + 2, 34, t.z + 2), api.B_CHEST, '顶角宝箱(楼梯口对角)');
+  assert.strictEqual(cell(t.x - 3, 34, t.z - 3), 4, '垛口满圈(防失足)');
+  /* 内旋石梯 8 级逐级: 内圈东南角起步沿东墙向北折西半圈, 每级恰 +1 且
+    实心落地(列内 26..25+k 无空洞; 8 级柱顶由平台木板盖板同判) */
+  let spiral = 0;
+  for (let k = 1; k <= 8; k++) {
+    const sx = k <= 5 ? t.x + 2 : t.x + 2 - (k - 5);
+    const sz = k <= 5 ? t.z + 2 - (k - 1) : t.z - 2;
+    let solid = 0;
+    for (let y = 26; y <= 25 + k; y++) if (cell(sx, y, sz) !== 0) solid++;
+    if (solid === k) spiral++;
   }
-  assert.strictEqual(ups.length, 8, '折返石阶 8 级逐级成立(实测 y=' + ups + ')');
+  assert.strictEqual(spiral, 8, '内旋石梯 8 级逐级实心落地(实测=' + spiral + ')');
+  assert.strictEqual(cell(t.x + 2, 26, t.z + 2), 4, '首级贴门洞右前内角(进屋即见)');
+  /* 楼梯口: 6~7 级格平台开天井(平台板会挡 32~33 脚位头顶净空),
+    8 级柱顶由平台铺装原位盖板(无缝出梯), 5 级上方平台封闭(净空恰 2) */
+  assert.strictEqual(cell(t.x + 1, 33, t.z - 2), 0, '楼梯口 6 级格开天井');
+  assert.strictEqual(cell(t.x, 33, t.z - 2), 0, '楼梯口 7 级格开天井');
+  assert.strictEqual(cell(t.x - 1, 33, t.z - 2), 6, '8 级柱顶平台盖板(无缝出梯)');
+  assert.strictEqual(cell(t.x + 2, 33, t.z - 2), 6, '5 级上方平台封闭(净空恰 2)');
   /* 石阵: 8 柱环(苔石) + 中心基座灯块 */
   const s = Core.ADV_STONES;
   assert.strictEqual(cell(s.cx, 25, s.cz), 14, '石阵中心基座苔石');

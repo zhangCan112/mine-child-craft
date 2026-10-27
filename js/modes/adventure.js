@@ -776,8 +776,10 @@ function advHerdPanic(m) {/* 受击存活 → 3 秒逃窜(挥击 onHit / TNT 波
 
 function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 adventure-core(advHerdStep);
    受击逃窜(3s, speed×2.2 背向玩家) > 玩家贴近让开(≤2.5 格, speed×0.8) > 闲逛吃草
-   (换向计时自持, 六成时间缓步); 出逃不设界——草原无墙, 游荡半径自然收敛 */
+   (换向计时自持, 六成时间缓步); 每次位移后栏内钳制(advHerdClamp, 仅 home 图)——
+   踏石到栏顶差恰 1 牲畜爬得出, 钳制是兜底防线(出栏个体同被收回) */
   const p = advGetPEnt();
+  const inPen = advMap === 'home'; /* 四畜全套留 home, 他图无牲畜不钳 */
   for (const m of Mobs.list()) {
     if (m.dead || m.gone || !m.cfg || !m.cfg.passive) continue;
     const dx = m.pos.x - p.pos.x; const dz = m.pos.z - p.pos.z;
@@ -788,6 +790,10 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
       Mobs.steer(m, Math.atan2(dx, dz));
       Mobs.move(m, dx / dist * st.speed * dt, dz / dist * st.speed * dt);
       Mobs.gait(m, dt, st.speed);
+      if (inPen) {/* 栏内钳制: 位移后强钳回内带(出栏防线+存量收回) */
+        const c = advHerdClamp(m.pos.x, m.pos.z);
+        m.pos.x = c.x; m.pos.z = c.z;
+      }
       continue;
     }
     /* 闲逛: 换向计时自持(私有字段不落盘——动物位置本就不存档, 设计稿 §6 差异清单);
@@ -799,6 +805,10 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
       Mobs.steer(m, Math.atan2(Math.cos(am.dir), Math.sin(am.dir)));
       Mobs.move(m, Math.cos(am.dir) * sp * dt, Math.sin(am.dir) * sp * dt);
       Mobs.gait(m, dt, sp);
+      if (inPen) {/* 栏内钳制: 同逃窜分支 */
+        const c = advHerdClamp(m.pos.x, m.pos.z);
+        m.pos.x = c.x; m.pos.z = c.z;
+      }
     }
   }
 }
@@ -2231,11 +2241,58 @@ function advQuestPaint() {
   return advPanel.questEl; /* 重画并返回任务卡(只读查询面) */
 }
 
+/* ---------- 石阵夜晚彩蛋(2026-10-27 用户拍板): 判据/节流常量在 adventure-core,
+   观感(Fx/SpeechKit/Drops)在此。点击中心灯坛: 夜里 = 四色烟花 + 远古牧人小
+   故事 + 首次赠灯笼(Drops 真空拾取, 全会话一次防连点刷); 白天 = 温和提示
+   「等天黑再来」(零惩罚不强迫)。距离口径与站点同半径(太远只提示) ---------- */
+let advStoneEggT = 0; /* 点击节流秒(update 递减, advGateLockT 同款) */
+let advStoneGifted = false; /* 灯笼已赠旗(全会话一次, 不入档——重开页面可再得, 零惩罚) */
+
+function advStoneEggActivate(hit) {/* 灯坛点击(轻点/右键共用入口 advUseStation 转接) */
+  if (Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z) > ADV_STATION_R) {
+    showToast('🏮 走近一点再点灯坛啦');
+    return;
+  }
+  const act = advStoneEggPick(advStoneEggT, Daylight.isNight(dayTime));
+  if (!act) return; /* 节流窗内: 静默吞掉点击(防音效/话术连刷) */
+  advStoneEggT = act === 'egg' ? ADV_STONE_EGG_CD : ADV_STONE_HINT_CD;
+  if (act === 'hint') {/* 白天: 灯坛「不算数」, 温和指引夜里再来 */
+    SpeechKit.speak('天还亮着呢，等天黑再来点亮灯坛吧！');
+    showToast('🌙 天黑再来，石阵藏着故事');
+    return;
+  }
+  sfx('gem');
+  advStoneFireworksAt(hit.x + 0.5, hit.y + 1.2, hit.z + 0.5);
+  if (!advStoneGifted) {/* 首次: 灯笼落在灯坛旁(走既有收集链真空入包) */
+    advStoneGifted = true;
+    Drops.spawn(ADV_STONE_EGG_GIFT, 1, hit.x + 1.2, hit.y + 1.2, hit.z + 0.5);
+    showToast('🏮 灯坛送你一只灯笼！');
+  }
+  SpeechKit.speak('远古牧人赶羊回家的夜里，会点亮这座石阵——走散的羊看见灯光，就自己找到回家的路啦！');
+}
+
+function advStoneFireworksAt(fx, fy, fz) {/* 灯坛四色礼花(advFireworks 同语言换锚点:
+   以灯坛为心小半径, 不震屏不轰鸣) */
+  const cols = [0xff5a5a, 0xffd23f, 0x4ee1d2, 0xb78af7];
+  for (let i = 0; i < cols.length; i++) {
+    const a = (i / cols.length) * Math.PI * 2 + 0.6;
+    const px = fx + Math.cos(a) * 1.8; const pz = fz + Math.sin(a) * 1.8;
+    const py = fy + (i % 2) * 0.6;
+    Fx.pop(px, py, pz, {color: cols[i], r0: 0.4, r1: 2.0, dur: 0.6});
+    Fx.debrisBurst(px, py + 0.2, pz, 6, {color: cols[i], life: 1.2});
+  }
+}
+
 /* 使用型站点交互(熔炉/箱子, 挖掘左键与轻点/右键共用): 走近 4 格开面板,
    太远只提示不误触; 消耗了本次点击返回 true。
    箱子不是站点(不在 advStations 缓存), 对点击块直算水平距离(与站点同半径口径)。 */
 function advUseStation(hit, lookId) {
   if (!hit) return false;
+  if (advStoneAltarHit(hit.x, hit.y, hit.z, lookId)) {/* 石阵灯坛(判据在 core):
+      轻点/右键都转接彩蛋链(白天提示/夜晚烟花+故事+赠礼), 消耗本次点击 */
+    advStoneEggActivate(hit);
+    return true;
+  }
   if (lookId === B_FURNACE) {
     /* F1: 对点击的这台炉直算距离(箱子同款)并绑定它——多炉各有各的内容 */
     if (hit && Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z) <= ADV_STATION_R) {
@@ -2496,6 +2553,7 @@ const AdventureMode = mkMode({
     advSleepTick(dt); /* 床·睡觉转场推进(昼夜 D6): 遮罩直驱+唤醒沿跳清晨/设床边出生点 */
     advVeilTick(dt); /* 门阵渐晕转场推进(T7): 淡入→满格切图→淡出(先于传送触发: 发令帧从零起淡) */
     advGateLockTick(dt); /* 锁门提示(T7): 走近熄门给「完成任务就会亮」话术(节流) */
+    advStoneEggT = Math.max(0, advStoneEggT - dt); /* 石阵灯坛点击节流递减(彩蛋段) */
     advPortalTick(dt); /* 传送触发(§3.3/T7): 冷却递减 + 门面判定 → 地图门站桩/nether 切界分流 */
     advTempleTrapTick(); /* 神殿可疑地板踩塌(审查修复 P1): 站上 2×2 砂岩地板即塌入宝箱室 */
     advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */

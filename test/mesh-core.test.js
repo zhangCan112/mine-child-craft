@@ -471,6 +471,24 @@ test('门·关/开: 图集通道几何 — 闭=板贴北缘 · 开=板贴西缘(
   assert.deepStrictEqual([...xs].sort(), ['102.0000', '102.1875'], '开门板转到西缘(x 0..3/16)');
 });
 
+test('门·面光取面朝向邻格(2026-10-27 修): 关门自身格光恒 0 — 两大面各吃邻格光(整扇黑病根)', () => {
+  const m = loadMeshCoreOnce();
+  const p = mkPackL(1);
+  p.set(3, 5, 3, m.B_DOOR);
+  p.setL(3, 5, 3, 0, 0); /* 自身格: 关门 opaque 挡光 → 两通道恒 0(取自身格=整扇黑的病根) */
+  p.setL(2, 5, 3, 15, 0); /* 西邻空气格: 天空满光 */
+  p.setL(4, 5, 3, 7, 3); /* 东邻空气格: 天空 7 / 块光 3 */
+  const r = m.MeshCore.meshChunk(p, {hashRand: HR_HALF, tntTiles: 4, atlas: paneOpt().atlas});
+  const byFace = {};
+  for (let v = 0; v < r.atlas.sky.length; v++) {
+    const key = r.atlas.normals[v*3] + ',' + r.atlas.normals[v*3+1] + ',' + r.atlas.normals[v*3+2];
+    byFace[key] = byFace[key] || new Set();
+    byFace[key].add(Math.round(r.atlas.sky[v]*15) + '/' + Math.round(r.atlas.block[v]*15));
+  }
+  assert.deepStrictEqual([...byFace['-1,0,0']], ['15/0'], '西大面吃西邻格光(非自身格 0)');
+  assert.deepStrictEqual([...byFace['1,0,0']], ['7/3'], '东大面吃东邻格光(每面独立取样)');
+});
+
 test('玻璃板: 孤板=2px 中柱 4 面 · 东西有邻=大面横跨全格 · 邻实心也连接', () => {
   const m = loadMeshCoreOnce();
   const opt = paneOpt();

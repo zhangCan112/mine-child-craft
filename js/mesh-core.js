@@ -19,9 +19,10 @@
    (bx/bz 为 pack 原点的世界坐标; border=1 时含邻块边界圈供跨区块剔面;
    网格顶点坐标一律用世界坐标 — 与渲染/物理同一坐标系)。
    顶点光(D3, docs/mc-daylight-torch-design.md §4.1): 四通道每顶点产出
-   sky/block 两个标量(值=等级/15) — 普通面取面朝向邻格光, 十字片/薄块取
-   自身格(火把自亮), LOD 仅天空二值 0/15·block 恒 0; 无光照载荷的旧 pack
-   回落全亮(sky 15 · block 0), 存量调用方零侵入。
+   sky/block 两个标量(值=等级/15) — 普通面与 pane 竖直薄板取面朝向邻格光
+   (关门是 opaque 挡光格、自身格恒 0, 取自身格会整扇黑——2026-10-27 修),
+   十字片/薄块取自身格(火把自亮), LOD 仅天空二值 0/15·block 恒 0;
+   无光照载荷的旧 pack 回落全亮(sky 15 · block 0), 存量调用方零侵入。
    ============================================================ */
 
 const MeshCore = (() => {
@@ -133,21 +134,25 @@ const MeshCore = (() => {
      上/下半贴图由 layout 的 side 格号区分。玻璃板 = 中柱 + 按邻接出臂(邻格玻璃板
      或实心即连, 网格化现算 = MC 东南西北四布尔的免存档版); UV 按世界分数取窗,
      贴图边框恰好落在格缘。复用 FACES 角点绕序(法线恒朝外)×缩放偏移。 */
-  function pushPane(t, x, y, z, lx, lz, b, ae, atlas, lget, lvSky, lvBlk) {
+  /* pane 竖直薄板(门/玻璃板): 面光取面朝向邻格(lsky/lblk 注入, 与实心面同口径
+     ——关门自身格恒 0, 取自身格整扇黑); 几何/贴图与历史逐字一致 */
+  function pushPane(t, x, y, z, lx, lz, b, ae, atlas, lget, lsky, lblk) {
     const tile = atlasTileOf(ae, [0, 0, 1]);
     const u0 = (tile % atlas.cols) / atlas.cols;
     const v0 = (atlas.rows - 1 - Math.floor(tile / atlas.cols)) / atlas.rows;
     const du = 1 / atlas.cols; const dv = 1 / atlas.rows;
     function quad(f, sc, of, win) {
       const face = FACES[f];
+      const nx = lx + face.dir[0]; const ny = y + face.dir[1]; const nz = lz + face.dir[2];
+      const fSky = lsky(nx, ny, nz) / 15; const fBlk = lblk(nx, ny, nz) / 15;
       for (let c=0; c<4; c++) {
         const cor = face.corners[c];
         const uv = faceUV(face.dir, cor);
         t.positions.push(x + cor[0]*sc[0] + of[0], y + cor[1]*sc[1] + of[1], z + cor[2]*sc[2] + of[2]);
         t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
         t.uvs.push(u0 + (win[0] + uv[0]*(win[2]-win[0]))*du, v0 + (win[1] + uv[1]*(win[3]-win[1]))*dv);
-        t.sky.push(lvSky);
-        t.block.push(lvBlk);
+        t.sky.push(fSky);
+        t.block.push(fBlk);
       }
       t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
       t.n += 4;
@@ -262,8 +267,7 @@ const MeshCore = (() => {
           }
           const ae = atlas ? atlas.tiles[id] : undefined;
           if (b.pane && ae) { // 竖直薄板(门/玻璃板): 图集通道 alphaTest 真透明(设计稿 §5)
-            pushPane(A, wx, y, wz, lx, lz, b, ae, atlas, lget,
-                lsky(lx, y, lz)/15, lblk(lx, y, lz)/15);
+            pushPane(A, wx, y, wz, lx, lz, b, ae, atlas, lget, lsky, lblk);
             continue;
           }
           if (ae) { // 图集方块: 第 4 通道(薄块走十字面片, 立方体按面取格)

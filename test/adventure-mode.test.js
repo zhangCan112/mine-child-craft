@@ -2578,9 +2578,11 @@ test('F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 
 test('F4 恐惧游荡: 玩家靠近 ≤2.5 让开(×0.8 背向) · 受击存活 3 秒逃窜(×2.2) · 不进战斗 AI 不反击', () => {
   mem.clear();
   freshInit();
-  const cow = mkAdvMob('cow', 40, 25, 48.4); /* 玩家正北 2.5 格(恰让开圈沿, 含等号) */
+  const cow = mkAdvMob('cow', 47, 25, 79.5); /* 玩家正北 2.5 格(恰让开圈沿, 含等号);
+    2026-10-27 起场景挪进围栏钳制带内——advHerdClamp 会把栏外牲畜一帧收回,
+    测试牛须在带内才走得到受击链(生产中牲畜只在栏内, 语义不变) */
   globalThis.yaw = 0; /* 面朝 -Z */
-  globalThis.pos.x = 40; globalThis.pos.y = 25; globalThis.pos.z = 50.9;
+  globalThis.pos.x = 47; globalThis.pos.y = 25; globalThis.pos.z = 82;
   listResult = [cow];
   moveLog.length = 0;
   hitLog.length = 0;
