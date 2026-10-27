@@ -191,7 +191,9 @@ function advGateHoldStep(s, inGate, dt) {
    (门位压平区, 建场保证 y24 顶面) */
 function advMapArrive(row) {
   const g = row.gates[0]; /* 远征图单门=回程门 */
-  return advPortalExit(g.px + 2.5, ADV_GROUND + 1, g.pz + 0.5, Math.PI);
+  const p = advPortalExit(g.px + 2.5, ADV_GROUND + 1, g.pz + 0.5, Math.PI);
+  p.yaw = p.yaw % (Math.PI * 2); /* π+π=2π 归一 0: 与朝向等价, 免壳层拿到裸 6.28 */
+  return p;
 }
 
 /* 死亡回家计划(§10 拍板②, nether 合并 D11 回家口径的地图行化):

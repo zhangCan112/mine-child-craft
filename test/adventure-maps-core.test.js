@@ -143,3 +143,63 @@ test('注册表: 门位网 — home 三扇门阵互不重叠且各指一张远�
     assert.strictEqual(r.gates[0].to, 'home', r.id + ' 回程门指向 home');
   }
 });
+
+/* ============ 政策纯函数段(逐条钉口径, 纯数据进出零世界读) ============ */
+
+test('政策: 门解锁判定 — home 恒开; 远征图看任务档 counts 键(T8 点亮置 1)', () => {
+  assert.strictEqual(Maps.advMapUnlocked('home', {}), true, 'home 出生图恒开');
+  assert.strictEqual(Maps.advMapUnlocked('home', null), true, 'home 无档也开');
+  assert.strictEqual(Maps.ADV_UNLOCK_KEYS.desert, 'unlockedDesert', 'counts 键名约定');
+  assert.strictEqual(Maps.ADV_UNLOCK_KEYS.snow, 'unlockedSnow');
+  assert.strictEqual(Maps.ADV_UNLOCK_KEYS.swamp, 'unlockedSwamp');
+  const empty = {collect_log: 5}; /* 有任务进度但没点亮任何门 */
+  for (const id of ['desert', 'snow', 'swamp']) {
+    assert.strictEqual(Maps.advMapUnlocked(id, empty), false, id + ' 缺键=锁定');
+    assert.strictEqual(Maps.advMapUnlocked(id, {}), false, id + ' 空档=锁定');
+    assert.strictEqual(Maps.advMapUnlocked(id, undefined), false, id + ' 无档=锁定');
+    assert.strictEqual(Maps.advMapUnlocked(id, {[Maps.ADV_UNLOCK_KEYS[id]]: 0}), false, id + ' 键值 0=锁定(真值判定)');
+    assert.strictEqual(Maps.advMapUnlocked(id, {[Maps.ADV_UNLOCK_KEYS[id]]: 1}), true, id + ' 点亮=解锁');
+  }
+});
+
+test('政策: 站桩步进 — 2s 站满发令 · 走出门面即刻反悔归零 · 发令后重新累计', () => {
+  assert.strictEqual(Maps.ADV_GATE_HOLD_T, 2, '站桩时长 2s(设计稿 §4.1)');
+  assert.deepStrictEqual(Maps.advGateHoldStep(0, true, 0.5), {t: 0.5, fire: false}, '站内累计');
+  assert.deepStrictEqual(Maps.advGateHoldStep(1.5, true, 0.4), {t: 1.9, fire: false}, '不足 2s 不发令');
+  assert.deepStrictEqual(Maps.advGateHoldStep(1.5, true, 0.5), {t: 0, fire: true}, '恰站满 2s 发传送令并归零');
+  assert.deepStrictEqual(Maps.advGateHoldStep(1.9, true, 1.0), {t: 0, fire: true}, '一帧跨过阈值同样发令(不丢帧)');
+  assert.deepStrictEqual(Maps.advGateHoldStep(1.9, false, 0.1), {t: 0, fire: false}, '1.9s 走出=反悔归零(可反悔红线)');
+  assert.deepStrictEqual(Maps.advGateHoldStep(1.9, false, 0.0), {t: 0, fire: false}, '不在门内 dt=0 也归零');
+  assert.deepStrictEqual(Maps.advGateHoldStep(0, false, 0.5), {t: 0, fire: false}, '门外不计时');
+});
+
+test('政策: 到达落点 — 回程门内侧 2.5 格 · 面朝外(advPortalExit 同口径数值钉死)', () => {
+  const desert = Maps.ADV_MAPS.find((r) => r.id === 'desert');
+  const g = desert.gates[0];
+  const sp = Maps.advMapArrive(desert);
+  /* 虚拟进门者从门面朝 -z(yaw=π): 出口 = 门中心 - forward×2.5, yaw 反向
+     forward=(sin,cos): yaw π=(0,-1) → 落点 z = pz+0.5+2.5 = pz+3(门南侧),
+     yaw = 0(朝 +z, 背对门走向开阔区——§2.3 门在身后) */
+  assert.deepStrictEqual(sp,
+      {x: g.px + 2.5, y: ADV_GROUND + 1, z: g.pz + 0.5 + 2.5, yaw: 0},
+      '落点=回程门内侧 2.5 格, 面朝外');
+  for (const r of Maps.ADV_MAPS.filter((m) => m.id !== 'home')) {
+    const a = Maps.advMapArrive(r);
+    assert.ok(a.x > 1 && a.x < W - 1 && a.z > 1 && a.z < D - 1, r.id + ' 落点在界内');
+    assert.strictEqual(a.y, ADV_GROUND + 1, r.id + ' 落点站基准地表(门位压平区)');
+    assert.strictEqual(a.yaw, 0, r.id + ' 面朝外(朝南远离门)');
+  }
+});
+
+test('政策: 死亡回家 — 满血+home 门口+背包保留+map 标记回 home(零惩罚哲学)', () => {
+  const plan = Maps.advMapDeathPlan('desert', {hp: 0, maxHp: 30});
+  assert.strictEqual(plan.hp, 30, '满血复活');
+  assert.strictEqual(plan.x, ADV_SPAWN.x, 'home 门口(出生账本)');
+  assert.strictEqual(plan.y, ADV_SPAWN.y);
+  assert.strictEqual(plan.z, ADV_SPAWN.z);
+  assert.strictEqual(plan.yaw, ADV_SPAWN.yaw);
+  assert.strictEqual(plan.keepInv, true, '背包保留');
+  assert.strictEqual(plan.map, 'home', '壳按 map 切回 home(远征图死=回家红线)');
+  assert.strictEqual(Maps.advMapDeathPlan('home', {hp: 3, maxHp: 30}).map, 'home', 'home 图死=原地出生点(不切图)');
+});
+
