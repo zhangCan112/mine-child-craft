@@ -2081,6 +2081,7 @@ function advSaveView() {/* 四份存档的可断言快照(只读缝): 与 journa
 }
 AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advGetInv: () => advInv, advGetPEnt, advMine, advSaplings, advSleep,
+  heightAt: advHeightAt, /* T5 圈层高度场(建场件与测试共用的唯一高度权威) */
   advFurnace, advFlameCount: () => advFlames.size,
   advBreakBlock, advOnCraft, advInvMove,
   advChestDeposit, advChestWithdraw, advChestExpand, advPanelClose,

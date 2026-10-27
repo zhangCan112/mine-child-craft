@@ -86,6 +86,7 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
+  B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
@@ -390,13 +391,19 @@ function bandOk(id, yLo, yHi) {
   }
   return true;
 }
-/* 树干列: y25..28 连续原木(树高 4~6; 小屋角柱只到 y27, 不误计) */
+/* 树干列: 自表面起 4 连续原木(树高 4~6; 小屋角柱只到 y27, 不误计; T5 起树随
+   圈层丘体扎根, 干基 y 随高度场 21~28 浮动, 逐列扫窗) */
 function treeTrunks(skip) {
   let n = 0;
   for (let z = 0; z < D; z++) {
     for (let x = 0; x < W; x++) {
       if (skip && skip(x, z)) continue;
-      if (cell(x, 25, z) === 5 && cell(x, 26, z) === 5 && cell(x, 27, z) === 5 && cell(x, 28, z) === 5) n++;
+      for (let y = 21; y <= 28; y++) {
+        if (cell(x, y, z) === 5 && cell(x, y + 1, z) === 5 && cell(x, y + 2, z) === 5 && cell(x, y + 3, z) === 5) {
+          n++;
+          break;
+        }
+      }
     }
   }
   return n;
@@ -438,11 +445,13 @@ test('探险模式: 注册表行在场(gated 共享儿童时限 + 派生脚本�
 
 test('探险模式: init 建场 — 草原地层/出生小屋/出生点/快捷栏 9 槽镜像背包', () => {
   freshInit();
-  /* 地层: 地表 y24 草 / 下 4 层泥 / 再下石头到 y0 */
-  assert.strictEqual(cell(10, 24, 10), 1, '地表 y24 是草地');
-  assert.strictEqual(cell(10, 23, 10), 2, 'y21~23 泥土(上层)');
-  assert.strictEqual(cell(10, 20, 10), 2, 'y20 泥土(第 4 层)');
-  assert.strictEqual(cell(10, 19, 10), 3, 'y19 及以下石头');
+  /* 地层随圈层高度场(T5): 表面=24+advHeightAt 处草 / 下 4 层泥 / 再下石头到 y0;
+     (10,10) 在深险圈——采样列的表面高度按高度场取, 层序随之 */
+  const sy = A.ADV.ground + AdventureMode.adv.heightAt(10, 10);
+  assert.strictEqual(cell(10, sy, 10), 1, '(10,10) 表面草皮贴高度场 y' + sy);
+  assert.strictEqual(cell(10, sy - 1, 10), 2, '表面下泥土(上层)');
+  assert.strictEqual(cell(10, sy - 4, 10), 2, '泥土第 4 层');
+  assert.strictEqual(cell(10, sy - 5, 10), 3, '泥层下石头');
   assert.strictEqual(cell(10, 0, 10), 3, '直到 y0 都是石头');
   /* 出生小屋: 原木角柱 + 木板墙/地板/顶 + 北门洞; 工作台/熔炉不送(任务链要有仪式感) */
   const hut = A.ADV.hut;
@@ -555,17 +564,20 @@ test('探险模式: 2 个露天矿坑 — 阶梯漏斗坑挖到地表以下, 坑
 test('探险模式: 山洞隧道通 y<10 深处, 沿途裸露铁/金/钻石矿(不用猜地下有矿)', () => {
   freshInit();
   const cave = A.ADV.cave;
+  /* T5 起隧道向南(zStart 北端洞口 < zEnd 穴室), 扫描窗方向无关取 min/max */
+  const zLo = Math.min(cave.zStart, cave.zEnd) - 3;
+  const zHi = Math.max(cave.zStart, cave.zEnd) + 3;
   /* 隧道最深处: 台阶逐级向下, 存在 y<10 的洞内空间 */
   let deepAir = 0;
   for (let y = 1; y < 10; y++) {
-    for (let z = cave.zEnd - 3; z <= cave.zStart + 3; z++) {
+    for (let z = zLo; z <= zHi; z++) {
       for (let x = cave.x1 - 3; x <= cave.x2 + 3; x++) {
         if (x >= 0 && z >= 0 && cell(x, y, z) === 0) deepAir++;
       }
     }
   }
   assert.ok(deepAir >= 20, '山洞挖到 y<10 深处: ' + deepAir + ' 格空间');
-  const nearCave = (x, y, z)=>x >= cave.x1 - 3 && x <= cave.x2 + 3 && z >= cave.zEnd - 3 && z <= cave.zStart + 3;
+  const nearCave = (x, y, z)=>x >= cave.x1 - 3 && x <= cave.x2 + 3 && z >= zLo && z <= zHi;
   assert.ok(countId(api.B_IRON_ORE, (x, y, z)=>nearCave(x, y, z) && y >= 6 && y <= 16) >= 4, '沿途铁矿带');
   assert.ok(countId(api.B_GOLD_ORE, (x, y, z)=>nearCave(x, y, z) && y >= 2 && y <= 10) >= 2, '沿途金矿带');
   assert.ok(countId(api.B_DIAMOND_ORE, (x, y, z)=>nearCave(x, y, z) && y <= 5) >= 2, '深处钻石矿(含穴室保底)');
@@ -601,7 +613,7 @@ test('探险模式: 3 个怪物巢穴 — 土丘洞穴地形就位 + init 每巢
   assert.strictEqual(dropsState.cbs.length, 1, '收集回调注册在 init');
 });
 
-test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞', () => {
+test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞/门阵广场/农田/围栏/小径', () => {
   freshInit();
   const skipZone = (x, z) => {
     const hut = A.ADV.hut;
@@ -610,7 +622,16 @@ test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞', (
     for (const p of A.ADV.pits) if (inCircle(x, z, p, p.r + 1)) return true; /* 矿坑 */
     for (const n of A.ADV.nests) if (Math.hypot(x - n.x, z - n.z) < 4) return true; /* 巢穴 */
     const c = A.ADV.cave;
-    return inRect(x, z, c.x1 - 3, c.zEnd - 4, c.x2 + 3, c.zStart + 5); /* 山洞(含洞口小丘) */
+    /* 山洞(含洞口小丘, T5 起隧道向南) */
+    if (inRect(x, z, c.x1 - 3, Math.min(c.zStart, c.zEnd) - 5, c.x2 + 3, Math.max(c.zStart, c.zEnd) + 4)) return true;
+    const plz = AdventureCore.ADV_GATE_PLAZA; /* 门阵广场 */
+    if (inRect(x, z, plz.x1, plz.z1, plz.x2, plz.z2)) return true;
+    const fm = AdventureCore.ADV_FARM; /* 农田+水路(±1) */
+    if (inRect(x, z, fm.x1 - 1, fm.z1, fm.x2 + 1, fm.z2)) return true;
+    const pen = AdventureCore.ADV_PEN; /* 畜牧围栏 */
+    if (inRect(x, z, pen.x1, pen.z1, pen.x2, pen.z2)) return true;
+    for (const r of AdventureCore.ADV_PATH) if (inRect(x, z, r.x1, r.z1, r.x2, r.z2)) return true; /* 圆石小径 */
+    return false;
   };
   const total = treeTrunks(null);
   const outside = treeTrunks(skipZone);
@@ -986,8 +1007,8 @@ test('T14 玩家阵亡: 怪物致命一击走 advPlayerDied — 回出生小屋�
 
 test('T14 儿童可控: 苦力怕单击伤害封顶(33 → 10, 满血 30 不被秒杀)', () => {
   freshInit();
-  globalThis.pos.x = 86; globalThis.pos.y = 25; globalThis.pos.z = 96;
-  listResult = [mkAdvMob('creeper', 86.4, 25, 95.6, {nest: 1})];
+  globalThis.pos.x = 96; globalThis.pos.y = 25; globalThis.pos.z = 36; /* T5 巢 1(蜘蛛)新位 (96,36) 洞口前 */
+  listResult = [mkAdvMob('creeper', 96.4, 25, 35.6, {nest: 1})];
   nextHit = {hp: 20, dead: false, freshDead: false};
   hitLog.length = 0;
   AdventureMode.update(1 / 60);
@@ -996,31 +1017,31 @@ test('T14 儿童可控: 苦力怕单击伤害封顶(33 → 10, 满血 30 不被�
 
 test('T14 索敌收敛: 玩家在索敌半径外怪驻巢不追; 引出巢区过远掉头回巢(收队)', () => {
   freshInit();
-  /* 玩家在出生小屋(61.5,76.5), 巢 0 在(40,52): 相距 ~34 格 > 索敌半径 */
-  const guard = mkAdvMob('zombie', 41, 25, 53, {nest: 0});
+  /* 玩家在出生小屋(61.5,76.5), 巢 0 在(44,60)(T5 近巢新位): 相距 ~24 格 > 索敌半径 12 */
+  const guard = mkAdvMob('zombie', 45, 25, 60, {nest: 0});
   listResult = [guard];
   moveLog.length = 0;
   AdventureMode.update(1 / 60);
   assert.strictEqual(moveLog.length, 0, '玩家在索敌半径外: 原地驻巢(不追击不游荡出巢)');
   /* 玩家进索敌半径(距怪 4 格) → 开战逼近 */
-  globalThis.pos.x = 45; globalThis.pos.y = 25; globalThis.pos.z = 53;
+  globalThis.pos.x = 49; globalThis.pos.y = 25; globalThis.pos.z = 60;
   moveLog.length = 0;
   AdventureMode.update(1 / 60);
   const chase = moveLog.find((mv) => mv.m === guard);
   assert.ok(chase && chase.dx > 0, '进索敌半径: 朝玩家逼近(dx>0)');
   /* 被击退引出巢区(离巢 20 格 > 收队半径 16) → 不再追, 掉头回巢 */
-  guard.pos.x = 60; guard.pos.z = 53;
+  guard.pos.x = 64; guard.pos.z = 60;
   globalThis.pos.x = 61.5; globalThis.pos.z = 76.5; /* 玩家远走 */
   moveLog.length = 0;
   AdventureMode.update(1 / 60);
   const home = moveLog.find((mv) => mv.m === guard);
-  assert.ok(home && home.dx < 0, '离巢超收队半径: 掉头回巢(dx<0 朝巢 40)');
+  assert.ok(home && home.dx < 0, '离巢超收队半径: 掉头回巢(dx<0 朝巢 44)');
 });
 
 test('T14 骷髅远程: 索敌内保持距离放箭, 箭沿预测弹道命中玩家受击(CombatCore 先例)', () => {
   freshInit();
   globalThis.pos.x = 44; globalThis.pos.y = 25; globalThis.pos.z = 58; /* 距骷髅 4 格(巡航距内) */
-  listResult = [mkAdvMob('skeleton', 44, 25, 54, {nest: 0})]; /* 巢 0 土丘(40,52)外的开阔地 */
+  listResult = [mkAdvMob('skeleton', 44, 25, 54, {nest: 0})]; /* 巢 0(44,60)土丘外的开阔地 */
   nextHit = {hp: 24, dead: false, freshDead: false};
   calls.length = 0;
   spoken.length = 0;
@@ -1090,13 +1111,15 @@ test('T12 草丛散布: 确定性 + 只长草地顶 + 密度可发现不铺满(T
     for (let z = 0; z < D; z++) {
       for (let x = 0; x < W; x++) {
         if (cell(x, y, z) === api.B_GRASS_TUFT) {
-          assert.strictEqual(y, 25, '草丛只在地表上一层(y25)');
-          if (cell(x, 24, z) === 1) onGrass++;
+          assert.strictEqual(cell(x, y - 1, z), 1, '草丛脚下直接是草皮');
+          assert.strictEqual(y, A.ADV.ground + AdventureMode.adv.heightAt(x, z) + 1,
+              '草丛在本地表面上一层(T5 起随圈层丘体贴地)');
+          onGrass++;
         }
       }
     }
   }
-  assert.strictEqual(onGrass, tufts, '每丛脚下都是草地(不占沙/水/矿坑)');
+  assert.strictEqual(onGrass, tufts, '每丛脚下都是草地(不占沙/水/矿坑/铺装)');
   const again = (freshInit(), countId(api.B_GRASS_TUFT));
   assert.strictEqual(again, tufts, '重进草丛位置完全复现(确定性散布)');
 });
