@@ -61,8 +61,8 @@ test('声音清单: 只收活着的 kind — 16 活键齐备, TNT 死键(fss/doo
   const keys = Object.keys(AudioRegistry.SFX_KINDS);
   for (const k of ['zap', 'boom', 'pick', 'click', 'death', 'hit', 'hurt',
     'shoot', 'level', 'win', 'roar', 'breath', 'splash', 'lava_hiss',
-    'snow_throw', 'snow_hit']) {
-    assert.ok(keys.includes(k), '缺活键: ' + k + '(splash/lava_hiss 为液体系统活键; snow_throw/snow_hit 为雪球投掷物活键, 票据 T9)');
+    'snow_throw', 'snow_hit', 'gate_unlock']) {
+    assert.ok(keys.includes(k), '缺活键: ' + k + '(splash/lava_hiss 为液体系统活键; snow_throw/snow_hit 为雪球投掷物活键, 票据 T9; gate_unlock 为门点亮仪式活键, 票据 T8)');
   }
   for (const dead of ['fss', 'door']) {
     assert.ok(!keys.includes(dead), '死键不迁(TNT 密室已下线, 复活时再登记): ' + dead);

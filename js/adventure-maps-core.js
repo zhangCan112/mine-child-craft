@@ -518,6 +518,16 @@ function advMapUnlocked(mapId, counts) {
   return !!(k && counts && counts[k]);
 }
 
+/* 结构宝箱坐标 → 探宝型任务计数键(T8): 三座结构的建场宝箱各记一键
+   (chest_temple/chest_igloo/chest_witch), 坐标与建场函数同源常量——
+   玩家自放的箱子/结构邻格返 null(防「带箱远征」cheese, 探宝要探真结构) */
+function advMapChestKey(x, y, z) {
+  if (x === ADV_DESERT.temple.cx && y === 20 && z === ADV_DESERT.temple.cz) return 'chest_temple';
+  if (x === ADV_SNOW.hut.cx && y === 20 && z === ADV_SNOW.hut.cz) return 'chest_igloo';
+  if (x === ADV_SWAMP.hut.x && y === ADV_GROUND + 4 && z === ADV_SWAMP.hut.z) return 'chest_witch';
+  return null;
+}
+
 const ADV_GATE_HOLD_T = 2; /* 门面站桩秒数(§4.1: MC 4s 减半防幼儿失耐心, 全程可反悔) */
 
 /* 站桩步进(advNestStep/advNightStep 同构: 状态进 → {t, fire} 出):
@@ -561,6 +571,6 @@ if (typeof module !== 'undefined' && module.exports) {
     advDesertBuild, advDesertTerrain, advDesertTemple, advDesertPlants,
     advSnowBuild, advSnowTerrain, advSnowTree, advSnowHut, advSnowScatter,
     advSwampBuild, advSwampTerrain, advSwampHut, advSwampScatter, advMapNest,
-    ADV_UNLOCK_KEYS, advMapUnlocked, ADV_GATE_HOLD_T, advGateHoldStep,
+    ADV_UNLOCK_KEYS, advMapUnlocked, ADV_GATE_HOLD_T, advGateHoldStep, advMapChestKey,
     advMapArriveAt, advMapArrive, advMapDeathPlan};
 }
