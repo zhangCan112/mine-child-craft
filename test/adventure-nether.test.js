@@ -28,6 +28,7 @@ const api = vm.runInContext(`({
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_NETHER_BRICK,
+  B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 
@@ -294,6 +295,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
     B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_TNT,
     B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_NETHER_BRICK,
+    B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
     B_SNOWY_GRASS, B_SNOW, B_ICE, B_CACTUS, B_SANDSTONE, B_ORCHID, B_DEAD_BUSH,
     ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
     mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,

@@ -86,6 +86,8 @@ const ITEM_HINTS = {
   craft_table: '站在旁边，能做更多东西',
   furnace: '轰隆隆，把矿石烧成锭',
   chest: '把宝贝存进大箱子',
+  door: '装在门口，点一下就开关',
+  glass_pane: '装在墙上当窗子，透光',
   tnt: '轰！点着了快跑远一点',
   nether_portal: '放下长出紫色大门，走进去到下界',
 

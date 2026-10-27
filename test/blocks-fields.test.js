@@ -28,6 +28,7 @@ function loadCfg() {
     B_SAPLING, B_CLAY, B_CHEST, B_WOOL, B_BED,
     B_SNOW, B_SNOWY_GRASS, B_ICE, B_CACTUS, B_SANDSTONE,
     B_DEAD_BUSH, B_ORCHID, B_FLOWER_Y, B_FLOWER_W,
+    B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
     B_LAVA, B_GLOWSTONE,
   };`, ctx);
   return ctx.__c;
@@ -58,7 +59,7 @@ test('新方块常量与 id 一一对应: 36~49 按附录 A, B_SAPLING 顺延 50
 
 /* ============ 生态地图新方块 id 段(54~62, 冒险模式生态地图设计稿 §6) ============ */
 
-test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽三图资源); 号段红线 — BLOCKS 不占 id 63+', () => {
+test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽三图资源)', () => {
   const c = loadCfg();
   const expect = {B_SNOW: 54, B_SNOWY_GRASS: 55, B_ICE: 56, B_CACTUS: 57,
     B_SANDSTONE: 58, B_DEAD_BUSH: 59, B_ORCHID: 60, B_FLOWER_Y: 61, B_FLOWER_W: 62};
@@ -67,10 +68,52 @@ test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽�
     assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
     assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
-  /* 红线: 存档按数字 id 记, 63+ 是后续号段预留(票据 T1), 现有表不得越界 */
-  for (const id of Object.keys(c.BLOCKS)) {
-    assert.ok(Number(id) <= 62, 'BLOCKS 出现 63+ 方块 id: ' + id + '(号段红线)');
+});
+
+/* ============ 门与玻璃板 id 段(63~67, docs/door-window-design.md §2) ============ */
+
+test('门/玻璃板常量与 id 一一对应: 63~67 顺延; 号段红线外推 — BLOCKS 不占 id 68+', () => {
+  const c = loadCfg();
+  const expect = {B_DOOR: 63, B_DOOR_TOP: 64, B_DOOR_OPEN: 65, B_DOOR_TOP_OPEN: 66, B_GLASS_PANE: 67};
+  for (const [k, id] of Object.entries(expect)) {
+    assert.strictEqual(c[k], id, k + ' 应为 ' + id);
+    assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
+    assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
+  /* 红线: 存档按数字 id 记, 68+ 是后续号段预留, 现有表不得越界 */
+  for (const id of Object.keys(c.BLOCKS)) {
+    assert.ok(Number(id) <= 67, 'BLOCKS 出现 68+ 方块 id: ' + id + '(号段红线)');
+  }
+});
+
+test('门四态字段(设计稿 §2.2): 全带 pane 旗标 · 关门实心/开门 solid:false · 下半有 drop 上半无(防双掉) · 硬度 3 斧头(MC 同值)', () => {
+  const c = loadCfg();
+  const d = c.BLOCKS[c.B_DOOR]; const dt = c.BLOCKS[c.B_DOOR_TOP];
+  const o = c.BLOCKS[c.B_DOOR_OPEN]; const ot = c.BLOCKS[c.B_DOOR_TOP_OPEN];
+  for (const b of [d, dt, o, ot]) {
+    assert.strictEqual(b.pane, true, b.name + ' 应带 pane 竖直薄板旗标(mesh 路由)');
+    assert.ok(!b.thin, b.name + ' 不得挂 thin(thin=贴地板渲染+级联失撑误判, 设计稿 §2.2)');
+    assert.strictEqual(b.hard, 3.0, b.name + ' MC 硬度 3');
+    assert.strictEqual(b.tool, 'axe', b.name + ' 斧头加速(MC 口径)');
+  }
+  assert.strictEqual(d.solid, undefined, '关门(下)实心: 挡人挡光挡怪');
+  assert.strictEqual(dt.solid, undefined, '关门(上)实心');
+  assert.strictEqual(o.solid, false, '开门(下)可穿行, 非 solid 即透光');
+  assert.strictEqual(ot.solid, false, '开门(上)可穿行');
+  assert.deepStrictEqual([...d.drop[0]].slice(0, 2), ['door', 1], '下半掉门 ×1');
+  assert.strictEqual(o.drop[0][0], 'door', '开门态挖掉同样掉门');
+  assert.ok(!dt.drop && !ot.drop, '上半无 drop: 整扇回收走配对政策, 防双掉');
+});
+
+test('玻璃板字段(设计稿 §2.2): pane 旗标 + glass 透光 + 硬度 0.3 徒手 + 掉自身(零惩罚)', () => {
+  const c = loadCfg();
+  const p = c.BLOCKS[c.B_GLASS_PANE];
+  assert.strictEqual(p.pane, true, 'pane 竖直薄板旗标(mesh 路由)');
+  assert.strictEqual(p.glass, true, 'glass 旗标 = LightCore 透光(窗户采光)');
+  assert.ok(!p.thin, '不得挂 thin(浮空恰是 MC 口径, 设计稿 §2.2)');
+  assert.strictEqual(p.hard, 0.3, 'MC 硬度 0.3');
+  assert.strictEqual(p.tool, null, '无指定工具, 徒手同速');
+  assert.strictEqual(p.drop[0][0], 'glass_pane', '掉自身(零惩罚哲学, 玻璃块同款; 偏离 MC 无精准采集不掉, 拍板②)');
 });
 
 test('生态地图薄块: 枯灌木/三花 thin 十字片一律 solid:false; 雪块/雪覆草/冰/仙人掌/砂岩是整块', () => {

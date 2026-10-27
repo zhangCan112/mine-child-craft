@@ -84,6 +84,10 @@ const SHOWROOM_STOCK = [
   {id: 'cooked_porkchop', n: 4},
   {id: 'cooked_chicken', n: 4},
   {id: 'cooked_mutton', n: 4},
+  /* 门与玻璃板验机(docs/door-window-design.md §4.5): 成品摆一起, 开发者
+     亲手放门/开关/砌窗验观感与交互(木板燃料区已有, 够合成一扇门) */
+  {id: 'door', n: 2},
+  {id: 'glass_pane', n: 16},
 ];
 
 /* ---------- 内存背包(票据 T2): mkInventory 纯内存实例 ----------

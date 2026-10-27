@@ -965,6 +965,46 @@ const FLOWER_ART = [ // 花共用形(生态地图): 绿茎双叶 + 花头外圈�
   '................',
 ];
 
+/* 门(合成家具, docs/door-window-design.md): 竖板双扇门形, 中缝+外框+右下门把手 */
+const DOOR_ART = [
+  '................',
+  '...ddddddddddd..',
+  '...dlmmddmmld...',
+  '...dlmmddmmld...',
+  '...dlmmddmmld...',
+  '...dlmmddmmld...',
+  '...dlmmddmmld...',
+  '...dlmmddmmld...',
+  '...dlmmddmKld...',
+  '...dlmmddmkld...',
+  '...dlmmddmmld...',
+  '...dlmmddmmld...',
+  '...dlmmddmmld...',
+  '...dlmmddmmld...',
+  '...ddddddddddd..',
+  '................',
+];
+
+/* 玻璃板(窗): 方框 + 透明芯 + 斜高光, 与 GLASS_ART 同一观感语言 */
+const PANE_ART = [
+  '................',
+  '................',
+  '..ffffffffffff..',
+  '..fggggggggggf..',
+  '..fgghgggggggf..',
+  '..fgghhggggggf..',
+  '..fggghhgggggf..',
+  '..fgggghhggggf..',
+  '..fggggghhgggf..',
+  '..fgggggghhggf..',
+  '..fggggggghhgf..',
+  '..fgggggggghgf..',
+  '..fggggggggggf..',
+  '..ffffffffffff..',
+  '................',
+  '................',
+];
+
 /* ------------------------------------------------------------
    ITEM_PIX 字符画数据表 — 键集与 ITEMS 完全一致(test 防错网断言),
    共用形状(矿炭/矿石/锭/粉堆/圆球/砖墙)多条目复用同 art 换色板
@@ -1022,6 +1062,8 @@ const ITEM_PIX = {
   lantern: {art: LANTERN_ART, map: {h: '#4a5058', K: '#3d434c', k: '#23272e',
     W: '#fff3b0', F: '#ffd83d', f: '#ff9d2e'}}, // 昼夜 D7: 深色铁骨架 + 暖黄光芯(焰色与火把/太阳亮心同板)
   tnt: {art: TNT_ART, map: {r: '#d0342c', R: '#f05545', w: '#ececec', k: '#1a1a1a', d: '#a02018'}},
+  door: {art: DOOR_ART, map: {d: '#6b451f', l: '#caa06e', m: '#b1804f', k: '#4a4f57', K: '#d8dde5'}}, // 门(设计稿 §5.3): 板色与箱子同板
+  glass_pane: {art: PANE_ART, map: {f: '#cfe8ef', g: 'rgba(205,235,245,0.30)', h: '#ffffff'}}, // 玻璃板: 框+透明芯, GLASS_ART 同板
   nether_portal: {art: PORTAL_ART, map: {o: '#2e2242', O: '#1b1426', l: '#8b3fd9', m: '#a86ef2', d: '#5c239c', s: '#e3c8ff'}}, // 下界并入探险 D3: 深色门框(B_OBSIDIAN 同调) + 紫色漩涡门面(B_PORTAL 同调)
   /* 生态地图件(冒险模式生态地图设计稿 §6): 三花共用 FLOWER_ART 换色板 ·
      雪球复用 BALL_ART 换白色板 · 冰复用 GLASS_ART 形换冰色板(票据 T1) */

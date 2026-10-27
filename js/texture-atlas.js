@@ -5,6 +5,7 @@
    程序化 16×16 像素画风方块贴图图集: 新方块 36~52 全量(四矿嵌斑/草丛/
    耕地/麦四阶段/工作台/熔炉/火把/树苗/黏土/箱子/羊毛) + 生态地图 54~62
    (雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花; B_ICE 不入集走纯色透渲) +
+   门与玻璃板 63~67(门板上下两张/玻璃板框图, docs/door-window-design.md §5.3) +
    存量基础方块升级款(草顶/泥土/石头颗粒/圆石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒)。风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
@@ -21,7 +22,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 40 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 43 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -54,6 +55,7 @@ const TextureAtlas = (() => {
   const T_SNOW = 32; const T_SNOWY_SIDE = 33; const T_CACTUS = 34; const T_SANDSTONE = 35;
   const T_DEAD_BUSH = 36;
   const T_ORCHID = 37; const T_FLOWER_Y = 38; const T_FLOWER_W = 39;
+  const T_DOOR_BOTTOM = 40; const T_DOOR_TOP = 41; const T_GLASS_PANE = 42;
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -413,6 +415,37 @@ const TextureAtlas = (() => {
   PAINTERS[T_FLOWER_Y] = (px, rng)=>flowerBase(px, rng, [240, 207, 48], [248, 232, 120], [216, 160, 32]); // 蒲公英: 黄瓣
   PAINTERS[T_FLOWER_W] = (px, rng)=>flowerBase(px, rng, [244, 244, 240], [255, 255, 255], [232, 200, 50]); // 雏菊: 白瓣黄心
 
+  /* 门板: 竖木板纹 + 中缝 + 外框(MC oak_door 观感语言); 上半加门把手(右下,
+     与 mesh 铰链西北角配对 —— 把手在远铰链侧)。下半底部踢脚深色带 */
+  function doorBase(px, rng) {
+    for (let y=0; y<TILE; y++) {
+      for (let x=0; x<TILE; x++) {
+        const seam = (x === 0 || x === 15 || x === 5 || x === 10 || y === 15);
+        const v = 1 + (rng() * 2 - 1) * 0.06;
+        setP(px, x, y, seam ? [110, 84, 50] : [168 * v, 133 * v, 84 * v]);
+      }
+    }
+  }
+  PAINTERS[T_DOOR_BOTTOM] = (px, rng)=>doorBase(px, rng);
+  PAINTERS[T_DOOR_TOP] = (px, rng)=>{
+    doorBase(px, rng);
+    for (const p of [[11, 8], [11, 9]]) setP(px, p[0], p[1], [70, 62, 55]); // 门把手(右下, 远铰链侧)
+    setP(px, 11, 8, [150, 140, 130]); // 把手高光
+  };
+  /* 玻璃板: 2px 不透明浅框 + 中间全透明 + 斜高光(MC「玻璃=不透明框+透明芯」
+     的窗框观感)。中间 alpha=0 交 alphaTest 裁掉 —— pushPane 按世界分数映射
+     UV, 框恰好落在格缘/格界上(单张贴图服务中柱与任意连接臂) */
+  PAINTERS[T_GLASS_PANE] = (px, rng)=>{
+    const edge = [205, 232, 240];
+    for (let i=0; i<TILE; i++) {
+      for (const [x, y] of [[i, 0], [i, 1], [i, 14], [i, 15], [0, i], [1, i], [14, i], [15, i]]) {
+        setP(px, x, y, edge);
+      }
+    }
+    for (let i=2; i<10; i++) setP(px, 2 + i, 3 + i, [255, 255, 255]); // 斜高光线(透明芯里的一笔)
+    setP(px, 4, 4, [255, 255, 255]);
+  };
+
   /* ---------- 布局: 方块 id → 格号(MeshCore opts.atlas 载荷) ----------
      number = 全格同图; {top,side,bottom} = 分面。底面共享泥土/木板格是
      刻意复用: 面朝下几乎不可见, 省格即少一处 mipmap 串色面。 */
@@ -443,6 +476,11 @@ const TextureAtlas = (() => {
       [B_CACTUS]: T_CACTUS, [B_SANDSTONE]: T_SANDSTONE,
       [B_DEAD_BUSH]: T_DEAD_BUSH,
       [B_ORCHID]: T_ORCHID, [B_FLOWER_Y]: T_FLOWER_Y, [B_FLOWER_W]: T_FLOWER_W,
+      /* 门与玻璃板 63~67(docs/door-window-design.md §5.3): 门四态共用两张门板图
+         (下半/上半, 竖直薄板按世界分数取 UV); 玻璃板一张(框在贴图边缘) */
+      [B_DOOR]: T_DOOR_BOTTOM, [B_DOOR_TOP]: T_DOOR_TOP,
+      [B_DOOR_OPEN]: T_DOOR_BOTTOM, [B_DOOR_TOP_OPEN]: T_DOOR_TOP,
+      [B_GLASS_PANE]: T_GLASS_PANE,
     },
   };
 

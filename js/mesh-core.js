@@ -3,7 +3,9 @@
    网格化核心 (MeshCore) — 引擎层纯核心 (术语见 GLOSSARY.md)
    ------------------------------------------------------------
    区块数据 → 顶点裸数组 的纯变换: 全细节四通道(实心/玻璃/TNT贴图/
-   方块图集 texture-atlas)与 LOD 降采样粗网格。零 THREE · 零 DOM ·
+   方块图集 texture-atlas; 图集内薄块走十字面片、pane 旗标走竖直薄板
+   pushPane — 门/玻璃板, docs/door-window-design.md §5)与 LOD 降采样粗网格。
+   零 THREE · 零 DOM ·
    加载零副作用 →
    Node 可直接加载单测; 同一份代码在主线程(world.js 兜底路径)与
    Worker(js/mesh-worker.js, http 服务下的主路径)里运行。
@@ -125,6 +127,65 @@ const MeshCore = (() => {
     }
   }
 
+  /* 竖直薄板(门/玻璃板, docs/door-window-design.md §5): 图集通道 alphaTest 真透明。
+     朝向拍板③固定: 门闭=板贴北缘(z 0..3/16)横跨 x 全宽, 开=绕西北角铰链转到
+     西缘(x 0..3/16)横跨 z —— 开态由 solid:false 派生(63↔65 状态即 id), 零存储;
+     上/下半贴图由 layout 的 side 格号区分。玻璃板 = 中柱 + 按邻接出臂(邻格玻璃板
+     或实心即连, 网格化现算 = MC 东南西北四布尔的免存档版); UV 按世界分数取窗,
+     贴图边框恰好落在格缘。复用 FACES 角点绕序(法线恒朝外)×缩放偏移。 */
+  function pushPane(t, x, y, z, lx, lz, b, ae, atlas, lget, lvSky, lvBlk) {
+    const tile = atlasTileOf(ae, [0, 0, 1]);
+    const u0 = (tile % atlas.cols) / atlas.cols;
+    const v0 = (atlas.rows - 1 - Math.floor(tile / atlas.cols)) / atlas.rows;
+    const du = 1 / atlas.cols; const dv = 1 / atlas.rows;
+    function quad(f, sc, of, win) {
+      const face = FACES[f];
+      for (let c=0; c<4; c++) {
+        const cor = face.corners[c];
+        const uv = faceUV(face.dir, cor);
+        t.positions.push(x + cor[0]*sc[0] + of[0], y + cor[1]*sc[1] + of[1], z + cor[2]*sc[2] + of[2]);
+        t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
+        t.uvs.push(u0 + (win[0] + uv[0]*(win[2]-win[0]))*du, v0 + (win[1] + uv[1]*(win[3]-win[1]))*dv);
+        t.sky.push(lvSky);
+        t.block.push(lvBlk);
+      }
+      t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
+      t.n += 4;
+    }
+    if (b.glass) { // 玻璃板: 中柱 + 四向连接臂(顶底薄边/臂端帽省略, 附录 B)
+      const T = 0.125; const a = 0.5 - T / 2; const c1 = 0.5 + T / 2; // 中柱厚 2px(MC 口径)
+      const link = (dx, dz) => {
+        const nid = lget(lx + dx, y, lz + dz);
+        const nb = nid !== 0 ? BLOCKS[nid] : null;
+        return !!(nb && ((nb.pane && nb.glass) || (nb.solid !== false && !nb.pane)));
+      };
+      const xL = link(-1, 0) ? 0 : a; const xR = link(1, 0) ? 1 : c1;
+      const zT = link(0, -1) ? 0 : a; const zB = link(0, 1) ? 1 : c1;
+      quad(4, [xR - xL, 1, T], [xL, 0, a], [xL, 0, xR, 1]); // 北向大面(z=a)
+      quad(5, [xR - xL, 1, T], [xL, 0, a], [xL, 0, xR, 1]); // 南向大面
+      quad(0, [T, 1, zB - zT], [a, 0, zT], [zT, 0, zB, 1]); // 西向大面(x=a)
+      quad(1, [T, 1, zB - zT], [a, 0, zT], [zT, 0, zB, 1]); // 东向大面
+      return;
+    }
+    const T = 0.1875; // 门厚 3/16(MC 口径)
+    if (b.solid === false) { // 开: 板贴西缘, 大面朝东西, 铰链在北端
+      quad(1, [T, 1, 1], [0, 0, 0], [0, 0, 1, 1]); // 东向大面
+      quad(0, [T, 1, 1], [0, 0, 0], [0, 0, 1, 1]); // 西向大面
+      quad(3, [T, 1, 1], [0, 0, 0], [0, 0, T, 1]); // 顶边条
+      quad(2, [T, 1, 1], [0, 0, 0], [0, 0, T, 1]); // 底边条
+      quad(4, [T, 1, 1], [0, 0, 0], [0, 0, T, 1]); // 北端帽(铰链侧)
+      quad(5, [T, 1, 1], [0, 0, 0], [0, 0, T, 1]); // 南端帽
+      return;
+    }
+    // 闭: 板贴北缘, 大面朝南北, 横跨 x 全宽
+    quad(5, [1, 1, T], [0, 0, 0], [0, 0, 1, 1]); // 南向大面(门正面)
+    quad(4, [1, 1, T], [0, 0, 0], [0, 0, 1, 1]); // 北向大面
+    quad(3, [1, 1, T], [0, 0, 0], [0, 0, 1, T]); // 顶边条
+    quad(2, [1, 1, T], [0, 0, 0], [0, 0, 1, T]); // 底边条
+    quad(1, [1, 1, T], [0, 0, 0], [0, 0, 1, T]); // 东端帽
+    quad(0, [1, 1, T], [0, 0, 0], [0, 0, 1, T]); // 西端帽(铰链侧)
+  }
+
   /* 图集条目 → 面朝向格号(number 简写=六面同格; 分面条目按朝向取) */
   function atlasTileOf(entry, dir) {
     if (typeof entry === 'number') return entry;
@@ -184,7 +245,7 @@ const MeshCore = (() => {
               const nid = lget(nx, ny, nz);
               if (nid === id) continue; // 同流体邻接: 剔面
               const nb = nid!==0 ? BLOCKS[nid] : null;
-              if (nb && !nb.glass && !nb.thin) continue; // 不透明实心遮挡
+              if (nb && !nb.glass && !nb.thin && !nb.pane) continue; // 不透明实心遮挡
               const fSky = lsky(nx, ny, nz)/15; const fBlk = lblk(nx, ny, nz)/15;
               for (let c=0; c<4; c++) {
                 const cor = face.corners[c];
@@ -200,6 +261,11 @@ const MeshCore = (() => {
             continue;
           }
           const ae = atlas ? atlas.tiles[id] : undefined;
+          if (b.pane && ae) { // 竖直薄板(门/玻璃板): 图集通道 alphaTest 真透明(设计稿 §5)
+            pushPane(A, wx, y, wz, lx, lz, b, ae, atlas, lget,
+                lsky(lx, y, lz)/15, lblk(lx, y, lz)/15);
+            continue;
+          }
           if (ae) { // 图集方块: 第 4 通道(薄块走十字面片, 立方体按面取格)
             if (b.thin) {
               pushCross(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows,
@@ -211,7 +277,7 @@ const MeshCore = (() => {
               const nx = lx+face.dir[0]; const ny = y+face.dir[1]; const nz = lz+face.dir[2];
               const nid = lget(nx, ny, nz);
               const nb = nid!==0 ? BLOCKS[nid] : null;
-              if (nb && !nb.glass && !nb.thin) continue; // 剔面规则与实心通道一致
+              if (nb && !nb.glass && !nb.thin && !nb.pane) continue; // 剔面规则与实心通道一致
               const tile = atlasTileOf(ae, face.dir);
               const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
               const fSky = lsky(nx, ny, nz)/15; const fBlk = lblk(nx, ny, nz)/15;
@@ -241,7 +307,7 @@ const MeshCore = (() => {
               const nx = lx+face.dir[0]; const ny = y+face.dir[1]; const nz = lz+face.dir[2];
               const nid = lget(nx, ny, nz);
               const nb = nid!==0 ? BLOCKS[nid] : null;
-              if (nb && !nb.glass && !nb.thin) continue;
+              if (nb && !nb.glass && !nb.thin && !nb.pane) continue;
               // 顶/底/侧 (0 号格是 mipmap 缓冲垫)
               const tileV = face.dir[1]===1 ? tiles-1 : (face.dir[1]===-1 ? tiles-2 : tiles-3);
               const fSky = lsky(nx, ny, nz)/15; const fBlk = lblk(nx, ny, nz)/15;
@@ -267,10 +333,10 @@ const MeshCore = (() => {
             const nb = nid!==0 ? BLOCKS[nid] : null;
             let target;
             if (isGlass) {
-              if (nb && !nb.thin) continue; // 玻璃只对着空气/薄块显示面
+              if (nb && !nb.thin && !nb.pane) continue; // 玻璃只对着空气/薄块/薄板显示面
               target = G;
             } else {
-              if (nb && !nb.glass && !nb.thin) continue; // 实心面被实心邻居遮挡才剔除
+              if (nb && !nb.glass && !nb.thin && !nb.pane) continue; // 实心面被实心邻居遮挡才剔除
               target = S;
             }
             const col = faceColor(id, face.dir);

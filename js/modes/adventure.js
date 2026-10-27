@@ -299,7 +299,7 @@ function advMainPlaceable() {/* 智能主动作的手持判定(纯 seam, 单测�
    挖/打(探险 onMouse(0) 已内建 TNT→站点→打怪→吃→蓄力 的次序, 无需改) */
   const s = advInv.slots[advHb.sel];
   /* nether_portal 无 block 字段但也是放置型(整座门由 advTryPlace 拦截分支放置, §3.3) */
-  return !!(s && ITEMS[s.id] && (ITEMS[s.id].block != null || s.id === 'nether_portal'));
+  return !!(s && ITEMS[s.id] && (ITEMS[s.id].block != null || s.id === 'nether_portal' || s.id === 'door'));
 }
 function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/其余=镐,
    2026-10-24 手持感知拍板); input.js 未加载(桌面/Node 单测)时静默
@@ -928,6 +928,25 @@ function advTrySleep(hit, lookId) {/* 点击床(§7.2, 挖掘左键与轻点/右
   return true;
 }
 
+/* 点击门开关(门/玻璃板设计稿 §4.2, 床先例同款「使用先于放置」): 门任一半
+   命中 → 纯核心 advDoorTogglePlan 产出成对换 id 写入 → editBlock 两格(挡光性
+   变化走光场)+记账+音效话术。返回 true=消费了本次点击(不放不挖) */
+function advTryDoor(hit, lookId) {
+  if (!hit || !advIsDoor(lookId)) return false;
+  const plan = advDoorTogglePlan(getBlock, lookId, pos, hit.x, hit.y, hit.z);
+  if (!plan.ok) {
+    showToast(plan.reason === 'occupied' ? '🚪 门口有人站着，关不上啦' : '🚪 门缺了一半，挖掉重新放吧');
+    return true; /* 命中门但开不了: 吞掉点击 */
+  }
+  for (const w of plan.writes) {
+    editBlock(w.x, w.y, w.z, w.id);
+    advMarkEdit(w.x, w.y, w.z, w.id);
+  }
+  sfx('door_swing');
+  showToast(plan.open ? '🚪 吱呀～门开啦' : '🚪 咔哒，门关上啦');
+  return true;
+}
+
 /* ============================================================
    下界相位·切图装配 (docs/nether-merge-design.md §3.3 泛化, 票据 T6) —
    切图/切界/天空调色板/光束/传送触发
@@ -1470,6 +1489,7 @@ function advCascadeApply(removed, quest) {
 function advBreakBlock(x, y, z, id, bt) {
   advMarkEdit(x, y, z, 0); /* 触发格先记账(级联移动可能落回此格, 后写覆盖才对) */
   advCascadeApply(editBlock(x, y, z, 0), true); /* 级联: 记账+默认表掉落+任务(蓄力链视同亲手挖, P6) */
+  advDoorBreakApply(x, y, z, true); /* 门配对破坏(挖任一半/挖门下支撑=整扇回收, 设计稿 §4.3) */
   if (id === B_SAPLING) advSaplings.delete(blockKey(x, y, z)); /* 挖树苗撤计时 */
   sfx('hit');
   advWearHeld('mine'); /* 破坏成功 −1(工具匹配与否都扣, MC 口径; 徒手无槽可扣) */
@@ -1547,12 +1567,13 @@ function advMineTick(dt) {
 
 /* 放置交互: 选中放置型物品(ITEMS.block 字段)点击准星面 → editBlock+记账+
    背包 −1(D4); 树苗额外挂 20s 计时; thin 块非法落点给节流 toast;
-   nether_portal 无 block 字段, 在旧判断之前拦截走 advPlacePortal(§3.3) */
+   nether_portal 与 door 无 block 字段, 在旧判断之前拦截走结构放置(§3.3/§4.1) */
 function advTryPlace(hit) {
   const slot = advHb.sel;
   const s = advInv.slots[slot];
   const it = s ? ITEMS[s.id] : null;
   if (s && s.id === 'nether_portal') return advPlacePortal(hit); /* 整座门放置, 不走单格 editHit */
+  if (s && s.id === 'door') return advPlaceDoor(hit); /* 2 格门结构放置(门/玻璃板设计稿 §4.1) */
   if (!hit || !it || it.block == null) return false;
   const lookId = getBlock(hit.x, hit.y, hit.z);
   const targetId = getBlock(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz);
@@ -1608,6 +1629,46 @@ function advPlacePortal(hit) {
   SpeechKit.speak('下界传送门立起来啦！走进紫色门面去下界！');
   showToast('🌀 下界传送门立起来啦！走进紫色门面去下界！');
   return true;
+}
+
+/* 门放置(拦截分支, 门/玻璃板设计稿 §4.1; 传送门 D4 先例): 点击面外一格为
+   门基 → 纯核心 advDoorSiteOk 校验(两格空气+下方实心+玩家不入) → 失败给
+   儿童话术不扣物品; 成功两格 editBlock+逐格记账(开关改变挡光性, 必须走
+   editBlock 光场全链——与传送门 setBlockRaw 的唯一分叉, 设计稿 §2.1) */
+function advPlaceDoor(hit) {
+  if (!hit) return false;
+  const slot = advHb.sel;
+  const tx = hit.x + hit.nx;
+  const ty = hit.y + hit.ny;
+  const tz = hit.z + hit.nz; /* 与单格放置同款目标格(点击面外一格) */
+  const ok = advDoorSiteOk(getBlock, pos, tx, ty, tz);
+  if (!ok.ok) {
+    showToast(ok.reason === 'inside' ? '🚪 别站在门框里放哦！' :
+      ok.reason === 'nosupport' ? '🚪 门要放在地上哦' : '🚪 上下两格都空着才放得下');
+    return false; /* 不扣物品, 换个地方再试 */
+  }
+  for (const c of ok.cells) {
+    editBlock(c.x, c.y, c.z, c.id);
+    advMarkEdit(c.x, c.y, c.z, c.id);
+  }
+  remove(advInv, slot, 1);
+  advSyncHotbar();
+  sfx('door_swing');
+  SpeechKit.speak('门装好啦！点一下就能开关');
+  showToast('🚪 门装好啦！点一下就能开关');
+  return true;
+}
+
+/* 门配对破坏(设计稿 §4.3): 任何移除点(挖方/TNT)清格后调用——挖任一半/
+   挖门下支撑 = 整扇消失 + 掉 1 扇(政策在 advDoorBreakPlan, MC 口径);
+   door 格无级联旗标, editBlock 级联清单恒空, 统一走全链防漂移 */
+function advDoorBreakApply(bx, by, bz, quest) {
+  const plan = advDoorBreakPlan(getBlock, bx, by, bz);
+  for (const c of plan.cells) {
+    advMarkEdit(c.x, c.y, c.z, 0);
+    advCascadeApply(editBlock(c.x, c.y, c.z, 0), quest);
+  }
+  if (plan.drop > 0) Drops.spawn('door', plan.drop, bx + 0.5, by + 0.5, bz + 0.5);
 }
 
 /* 树苗挂表: 20s 后长成(D7); 重进经 advRescanSaplings 全图重建计时 */
@@ -1895,6 +1956,7 @@ const advExplodeSink = {
   edit: (bx, by, bz) => {/* 触发格先记账(级联移动可能落回此格) → 破坏+级联记账(不进任务, P6) */
     advMarkEdit(bx, by, bz, 0);
     advCascadeApply(editBlock(bx, by, bz, 0), false);
+    advDoorBreakApply(bx, by, bz, false); /* TNT 掀门=整扇回收(不进任务, P6 口径) */
   },
   sapling: (bx, by, bz) => advSaplings.delete(blockKey(bx, by, bz)),
   drop: (id, n, x, y, z) => Drops.spawn(id, n, x, y, z),
@@ -1905,6 +1967,7 @@ function advExplode(x, y, z) {
      不进任务(P6: TNT 掀掉的不算——级联同理) */
   advMarkEdit(x, y, z, 0);
   advCascadeApply(editBlock(x, y, z, 0), false);
+  advDoorBreakApply(x, y, z, false); /* 源块正上方若立着门, 一并整扇回收 */
   advExplodeCells(x, y, z, getBlock, advExplodeSink);
   for (const w of advTntWave(Mobs.list(), x, y, z)) {/* 波及怪物: 线性衰减伤害+击退 */
     const r2 = Mobs.hit(w.m, w.dmg, w.kdx, w.kdz, 0.8);
@@ -2449,6 +2512,7 @@ const AdventureMode = mkMode({
       }
       if (advUseStation(hit, lookId)) return; /* 熔炉/箱子: 走近开面板(见下) */
       if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6, 使用先于打/挖) */
+      if (advTryDoor(hit, lookId)) return; /* 门: 点击开关(设计稿 §4.2, 使用先于打/挖) */
       if (advMelee.aim(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖) */
         advMelee.swing(advGetPEnt());
         return;
@@ -2462,6 +2526,7 @@ const AdventureMode = mkMode({
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
       if (advUseStation(hit, lookId)) return;
       if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6 §7.2, 使用先于吃/放) */
+      if (advTryDoor(hit, lookId)) return; /* 门: 点击开关(设计稿 §4.2, 使用先于吃/放) */
       if (advTryEat()) return;
       if (advTryThrowSnowball()) return; /* 手持雪球: 掷出(T9, 使用档在吃与放置之间) */
       advTryPlace(hit);
