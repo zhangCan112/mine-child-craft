@@ -665,7 +665,10 @@ function advOnKill(m) {/* 击杀观感(CombatKit.killBurst, nether 同源): 碎�
    kill_mob 记账排除——冒险章战斗步只认怪物, 动物是收获不是战斗 */
   ADV.killCount++;
   const passive = !!(m.cfg && m.cfg.passive);
-  if (!passive) advTally('kill_mob', 1); /* 引导链 v2: 战斗教学步(铁镐后钻石前) */
+  if (!passive) {
+    advTally('kill_mob', 1); /* 引导链 v2: 战斗教学步(铁镐后钻石前) */
+    advTally('kill_' + m.type, 1); /* 怪种分账(T8 远征章): 沼骸步按种认, 与总账并行 */
+  }
   CombatKit.killBurst(m, ADV.killCount, {verb: passive ? '收获' : '击杀'});
 }
 
@@ -1253,6 +1256,7 @@ function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): 切图 + 落对�
   const g = row.gates.find((q) => q.to === advVeil.from) || row.gates[0]; /* 对应门, 单门图兜底 */
   sfx('portal_travel'); /* 双段式第二段: 与遮罩满格同拍 */
   advSetMap(advVeil.to, advMapArriveAt(g)); /* 回程门落点(advPortalExit 口径) */
+  if (advVeil.to !== 'home') advTally('visit_' + advVeil.to, 1); /* 到达记账(T8 发现型): home 无此键 */
   const home = advVeil.to === 'home';
   SpeechKit.speak(home ? '回到家啦！' : '到' + row.name + '啦！');
   showToast(home ? '🏡 回到家啦！' : '🌀 到' + row.name + '啦！');
@@ -1275,8 +1279,8 @@ function advVeilTick(dt) {/* 转场推进(update 每帧): 淡入→满格沿→�
 }
 
 /* ---------- 锁门提示(T7, §2.3): 熄门不可触发, 走近给儿童话术 ----------
-     解锁=任务链点亮(T8 接仪式), 本票只读 counts 键; 提示文案的任务名占位
-     「完成 XX 任务」——T8 挂真任务名时换成行数据 */
+     解锁=任务链点亮(§2.3), 本段只读 counts 键; 话术前置任务名走解锁链反查
+     (advUnlockQuest, T8 收尾 T7 占位文案「完成任务」→ 真任务 goal) */
 let advGateLockT = 0; /* 锁门提示节流秒(6s, update 递减) */
 const ADV_GATE_LOCK_R = 3.5; /* 提示半径: 玩家到门中心的格数 */
 const ADV_GATE_LOCK_CD = 6; /* 同门口提示间隔(不啰嗦) */
@@ -1288,8 +1292,10 @@ function advGateLockTick(dt) {
     if (Math.hypot(pos.x - (g.px + ADV_PORTAL.w / 2), pos.z - (g.pz + 0.5)) > ADV_GATE_LOCK_R) continue;
     const row = ADV_MAPS.find((r) => r.id === g.to);
     const nm = row ? row.name : '';
-    SpeechKit.speak('完成任务后，' + nm + '之门就会亮起来');
-    showToast('🔒 完成任务，' + nm + '之门就会亮起来');
+    const uq = advUnlockQuest(g.to); /* 前置任务(挂 unlock 的那条): 缺位兜底泛称 */
+    const task = uq ? uq.goal : '完成探险任务';
+    SpeechKit.speak('先' + task + '，' + nm + '之门就会亮起来');
+    showToast('🔒 先' + task + '，' + nm + '之门就会亮起来');
     advGateLockT = ADV_GATE_LOCK_CD;
     break; /* 一次只提一扇(两门贴近时也不叠话) */
   }
@@ -1602,6 +1608,7 @@ function advTryThrowSnowball() {
     advSnowballs.shootFromAim({speed: ADV_SNOWBALL_SPEED, dmg: 0, kpow: ADV_SNOWBALL_KPOW,
       g: ADV_SNOWBALL_G, life: ADV_SNOWBALL_LIFE});
     remove(advInv, slot, 1);
+    advTally('throw_snowball', 1); /* 投掷记账(T8 雪原远征步): 掷出即算, 不问命中 */
     advSyncHotbar();
   }});
   if (threw) sfx('snow_throw'); /* 掷出「噗」(冷却内连点不播) */
@@ -1917,6 +1924,13 @@ function advTally(kind, n) {/* 任务计数: 事件挂点只 += 不做判断(推
   advJournal.touch();
 }
 
+/* 发现型记账(远征章 T8): 玩家脚格进 home 门阵广场 → visit_plaza 首次记账
+   (查后写去重, 与 advQuestMine 首钻判定同款——目标型键只记一次) */
+function advQuestVisitTick() {
+  if (ADV.quest.counts.visit_plaza || advDim !== 'overworld' || advMap !== 'home') return;
+  if (advInRect(Math.floor(pos.x), Math.floor(pos.z), ADV_GATE_PLAZA)) advTally('visit_plaza', 1);
+}
+
 /* 挖掘挂点(advBreakBlock 尾部): 矿物记账 + 钻石首获仪式(与任务步无关——
    第 12 步之前挖到第一颗同样庆祝, 仪式属于"第一颗"这个时刻) */
 function advQuestMine(id, x, y, z) {
@@ -2066,6 +2080,8 @@ function advUseStation(hit, lookId) {
   }
   if (lookId === B_CHEST) {
     if (Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z) <= ADV_STATION_R) {
+      const ck = advMapChestKey(advMap, hit.x, hit.y, hit.z); /* 结构宝箱键(T8 探宝型): 图+坐标双判定 */
+      if (ck) advTally(ck, 1); /* 他图/自放箱返 null 只走 open_chest, 防冒名 */
       advChestOpenPanel();
     } else {
       showToast('📦 走近一点就能打开箱子啦');
@@ -2299,6 +2315,7 @@ const AdventureMode = mkMode({
     advHardT = Math.max(0, advHardT - dt); /* 「挖不动」话术节流递减(微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */
+    advQuestVisitTick(); /* 发现型记账(T8): 脚格进门阵广场首记 visit_plaza(每帧查, 内部去重) */
     advBagTick(dt); /* 背包快满提醒(S4②): 0.5s 节流查占用槽 */
     advSmeltTtsT = Math.max(0, advSmeltTtsT - dt); /* 完成播报节流递减(T13) */
     advFurnace.tick(dt); /* 烧炼节律常开(面板只是回显, 烧成经 kit onMade 回调), ✕ 关闭对账(T13);

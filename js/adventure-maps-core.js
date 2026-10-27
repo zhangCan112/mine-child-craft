@@ -519,12 +519,19 @@ function advMapUnlocked(mapId, counts) {
 }
 
 /* 结构宝箱坐标 → 探宝型任务计数键(T8): 三座结构的建场宝箱各记一键
-   (chest_temple/chest_igloo/chest_witch), 坐标与建场函数同源常量——
-   玩家自放的箱子/结构邻格返 null(防「带箱远征」cheese, 探宝要探真结构) */
-function advMapChestKey(x, y, z) {
-  if (x === ADV_DESERT.temple.cx && y === 20 && z === ADV_DESERT.temple.cz) return 'chest_temple';
-  if (x === ADV_SNOW.hut.cx && y === 20 && z === ADV_SNOW.hut.cz) return 'chest_igloo';
-  if (x === ADV_SWAMP.hut.x && y === ADV_GROUND + 4 && z === ADV_SWAMP.hut.z) return 'chest_witch';
+   (chest_temple/chest_igloo/chest_witch), 图+坐标双重判定(坐标与建场函数
+   同源常量)——他图同坐标/玩家自放的箱子/结构邻格返 null(防「带箱远征」
+   与「挖坑埋箱冒名」的 cheese, 探宝要探真结构) */
+function advMapChestKey(mapId, x, y, z) {
+  if (mapId === 'desert' && x === ADV_DESERT.temple.cx && y === 20 && z === ADV_DESERT.temple.cz) {
+    return 'chest_temple';
+  }
+  if (mapId === 'snow' && x === ADV_SNOW.hut.cx && y === 20 && z === ADV_SNOW.hut.cz) {
+    return 'chest_igloo';
+  }
+  if (mapId === 'swamp' && x === ADV_SWAMP.hut.x && y === ADV_GROUND + 4 && z === ADV_SWAMP.hut.z) {
+    return 'chest_witch';
+  }
   return null;
 }
 

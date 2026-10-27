@@ -186,20 +186,22 @@ test('政策: 门解锁判定 — home 恒开; 远征图看任务档 counts 键(
   }
 });
 
-test('政策: 结构宝箱坐标 → 任务计数键(T8 探宝型) — 三座结构各一键, 玩家自放箱/他图坐标不算', () => {
+test('政策: 结构宝箱坐标 → 任务计数键(T8 探宝型) — 三座结构各一键, 他图/玩家自放箱不算', () => {
   /* 三座结构宝箱坐标与建场函数同源常量(神殿/雪屋 y20 地下宝箱室, 女巫小屋地板) */
-  assert.strictEqual(Maps.advMapChestKey(Maps.ADV_DESERT.temple.cx, 20, Maps.ADV_DESERT.temple.cz),
+  assert.strictEqual(Maps.advMapChestKey('desert', Maps.ADV_DESERT.temple.cx, 20, Maps.ADV_DESERT.temple.cz),
       'chest_temple', '神殿宝箱 → chest_temple');
-  assert.strictEqual(Maps.advMapChestKey(Maps.ADV_SNOW.hut.cx, 20, Maps.ADV_SNOW.hut.cz),
+  assert.strictEqual(Maps.advMapChestKey('snow', Maps.ADV_SNOW.hut.cx, 20, Maps.ADV_SNOW.hut.cz),
       'chest_igloo', '雪屋宝箱 → chest_igloo');
-  assert.strictEqual(Maps.advMapChestKey(Maps.ADV_SWAMP.hut.x, 24 + 4, Maps.ADV_SWAMP.hut.z),
+  assert.strictEqual(Maps.advMapChestKey('swamp', Maps.ADV_SWAMP.hut.x, 24 + 4, Maps.ADV_SWAMP.hut.z),
       'chest_witch', '女巫小屋宝箱 → chest_witch(地板 ADV_GROUND+4)');
-  /* 反例: 同结构邻格/玩家自放箱坐标 → null(不记结构键, 防「带箱远征」cheese) */
-  assert.strictEqual(Maps.advMapChestKey(Maps.ADV_DESERT.temple.cx, 21, Maps.ADV_DESERT.temple.cz),
+  /* 反例: 图不符/同结构邻格/玩家自放箱坐标 → null(图+坐标双判定防冒名) */
+  assert.strictEqual(Maps.advMapChestKey('home', Maps.ADV_DESERT.temple.cx, 20, Maps.ADV_DESERT.temple.cz),
+      null, 'home 图同坐标不算(带箱远征/挖坑埋箱都骗不过)');
+  assert.strictEqual(Maps.advMapChestKey('desert', Maps.ADV_DESERT.temple.cx, 21, Maps.ADV_DESERT.temple.cz),
       null, '神殿宝箱头顶一格不算');
-  assert.strictEqual(Maps.advMapChestKey(Maps.ADV_SNOW.hut.cx + 1, 20, Maps.ADV_SNOW.hut.cz),
+  assert.strictEqual(Maps.advMapChestKey('snow', Maps.ADV_SNOW.hut.cx + 1, 20, Maps.ADV_SNOW.hut.cz),
       null, '雪屋宝箱旁格不算');
-  assert.strictEqual(Maps.advMapChestKey(61, 25, 81), null, 'home 小屋旁的箱子不算(玩家自放)');
+  assert.strictEqual(Maps.advMapChestKey('home', 61, 25, 81), null, 'home 小屋旁的箱子不算(玩家自放)');
 });
 
 test('政策: 站桩步进 — 2s 站满发令 · 走出门面即刻反悔归零 · 发令后重新累计', () => {

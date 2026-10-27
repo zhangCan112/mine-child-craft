@@ -87,6 +87,7 @@ const api = vm.runInContext(`({
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
+  B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
   B_PORTAL, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
@@ -3000,6 +3001,93 @@ test('T8 老档不回退: 终章通关档(step=16+称号) → 接棒远征章首
   assert.strictEqual(A.ADV.quest.title, '小小探险家', '称号保留(重进不重复授予)');
   assert.strictEqual(ADV_QUESTS[16].id, 'q16_plaza', '当前步接棒远征章首条(广场引导)');
   assert.notStrictEqual(A.ADV.quest.counts.unlockedDesert, 1, '未完成解锁任务: 门仍熄');
+});
+
+test('T8 计数挂点四路: 广场发现(位置型) / 结构宝箱(图+坐标) / 雪球投掷 / 怪种击杀 — 事件处只 += 与步进解耦', () => {
+  mem.clear();
+  freshInit();
+  const c = () => A.ADV.quest.counts;
+  /* 广场发现: 玩家脚格进广场矩形(advQuestVisitTick 每帧查, 首记去重) */
+  pos.x = 77.5; pos.z = 80.5; /* 门阵广场内 */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(c().visit_plaza, 1, '进广场 → visit_plaza 记账');
+  pos.x = 61.5; pos.z = 76.5; /* 离开广场回小屋门口 */
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(c().visit_plaza, 1, '离开不重记(目标型键, 首记去重)');
+  /* 结构宝箱: 切到沙漠图, 走近神殿宝箱开箱 → chest_temple(建场真箱) */
+  const drow = ADV_MAPS.find((r) => r.id === 'desert');
+  A.advSetMap('desert', advMapArrive(drow));
+  const tc = ADV_DESERT.temple;
+  pos.x = tc.cx + 0.5; pos.y = 21; pos.z = tc.cz + 0.5; /* 站宝箱旁(开箱 4 格门槛) */
+  AdventureMode.onMouse(0, {x: tc.cx, y: 20, z: tc.cz, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(c().chest_temple, 1, '神殿宝箱开箱 → chest_temple');
+  assert.strictEqual(c().open_chest, 1, '大宝箱开箱记账照走(open_chest 并行)');
+  AdventureMode.onKey('Tab'); /* 箱子开着先收箱子(T15 同款), 不挡后续点击 */
+  /* 雪球投掷: 手持雪球掷出 → throw_snowball(T9 投掷链挂点; 准星桩照 T9 惯例) */
+  holdOnly('snowball', 5);
+  globalThis.camera = {};
+  globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.4, z: pos.z}, dir: {x: 0, y: 0, z: -1}})};
+  AdventureMode.onMouse(2, {x: 60, y: 24, z: 60, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(c().throw_snowball, 1, '掷出雪球 → throw_snowball 1');
+  clearAim();
+  for (let i = 0; i < 45; i++) AdventureMode.update(1 / 60); /* 推过雪球冷却 0.6s(挥击同轨, 换手不躲冷却) */
+  /* 怪种击杀: 挥击行为链打死沼骸 → kill_bogged(与 kill_mob 并行分账);
+     玩家仍在神殿宝箱室(y21), 怪同层放锥内 */
+  globalThis.yaw = 0;
+  listResult = [mkAdvMob('bogged', pos.x, pos.y, pos.z - 2.4, {attackCd: 99})];
+  nextHit = {hp: 0, dead: true, freshDead: true};
+  AdventureMode.onMouse(0);
+  listResult = [];
+  assert.strictEqual(c().kill_bogged, 1, '击杀沼骸 → kill_bogged 1(按怪种分账)');
+  assert.strictEqual(c().kill_mob, 1, 'kill_mob 总账并行(引导链步 14 同源)');
+  /* 挖仙人掌挂 ADV_MINE_TALLY 既有通道(core 直测已覆盖映射) */
+  assert.strictEqual(ADV_MINE_TALLY[api.B_CACTUS], 'mine_cactus', '仙人掌走挖掘挂点映射');
+});
+
+test('T8 锁门 TTS 真任务名: 走近熄门报前置任务 goal(T7 占位文案「完成任务」收尾)', () => {
+  mem.clear();
+  freshInit();
+  const dg = ADV_MAPS[0].gates[0]; /* 沙漠门: 前置 = q16 广场引导 */
+  pos.x = dg.px + ADV_PORTAL.w / 2; pos.z = dg.pz + 2; /* 门中心南侧 ~1.5 格 */
+  spoken.length = 0;
+  AdventureMode.update(0.1);
+  assert.ok(spoken.some((s) => String(s).indexOf('去门阵广场看一看') >= 0 &&
+      String(s).indexOf('黄沙沙漠之门就会亮起来') >= 0),
+      '话术含前置任务 goal(q16)与门名——不再是占位「完成任务」');
+  /* 雪原门(第二环): 提示的是神殿宝箱(q19)——线性链正确的前置。
+     先挪位再推节流窗: 递减到 0 的那一帧查的是新位置(雪原门), 不重提沙漠门 */
+  const sg = ADV_MAPS[0].gates[1];
+  pos.x = sg.px + ADV_PORTAL.w / 2; pos.z = sg.pz + 2;
+  spoken.length = 0;
+  AdventureMode.update(6.1); /* 推过 6s 节流窗, 当帧即查新位置 */
+  assert.ok(spoken.some((s) => String(s).indexOf('打开沙漠神殿的宝箱') >= 0 &&
+      String(s).indexOf('白雪雪原之门就会亮起来') >= 0),
+      '第二环锁门报 q19 goal(神殿宝箱), 不是第一环任务');
+});
+
+test('T8 站桩穿门端到端: 点亮的沙漠门站 2s → 渐晕切图 → 到达记账 visit_desert → q17 到达型完成', () => {
+  mem.clear();
+  freshInit();
+  /* 解锁沙漠门(计数捷径): q16 完成即点亮+运行时补门面(上一环测试已覆盖仪式观感) */
+  A.ADV.quest.step = 16;
+  A.ADV.quest.counts.visit_plaza = 1;
+  AdventureMode.update(0.55);
+  assert.strictEqual(A.ADV.quest.counts.unlockedDesert, 1, '解锁键已置');
+  const dg = ADV_MAPS[0].gates[0];
+  /* 站进门面(脚格=门面格): 站桩 2s 蓄能 → 渐晕 0.4s 满格切图 */
+  pos.x = dg.px + 2.5; pos.y = 25; pos.z = dg.pz + 0.5;
+  spoken.length = 0;
+  calls.length = 0;
+  for (let i = 0; i < 125; i++) AdventureMode.update(1 / 60); /* ~2.08s: 站满发令 */
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'portal_charge'), '站桩起步蓄能音(T7 双段式第一段)');
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s: 渐晕满格切图 */
+  assert.strictEqual(A.advNetherState().map, 'desert', '切到沙漠图');
+  assert.strictEqual(A.ADV.quest.counts.visit_desert, 1, '到达记账 visit_desert(切图时刻挂点)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'portal_travel'), '到达音第二段');
+  assert.ok(spoken.some((s) => String(s).indexOf('黄沙沙漠') >= 0), '到达播报(T7)');
+  /* 再过节流窗: q17(visit_desert>=1) 到达型完成 */
+  for (let i = 0; i < 35; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.ADV.quest.step, 18, 'q17 完成, 接棒 q18(仙人掌)');
 });
 
 test('昼夜 D7 灯笼退场复位: cleanup 关随身光(PointLight 不渗入其他模式)', () => {
