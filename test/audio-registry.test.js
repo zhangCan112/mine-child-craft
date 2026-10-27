@@ -101,6 +101,22 @@ test('声音清单: MOODS 收窄为仅 menu — 模式情绪唯一权威在 mode
   }
 });
 
+test('声音清单: 传送门双音效(冒险地图 T7) — 蓄能上行/到达琶音, 纯合成无样本(仪式层)', () => {
+  for (const k of ['portal_charge', 'portal_travel']) {
+    const e = AudioRegistry.SFX_KINDS[k];
+    assert.ok(e, '登记活键: ' + k + '(进门蓄能/到达播报两段, 设计稿 §4.1)');
+    assert.ok(e.synth && typeof e.synth === 'object', k + ' 带合成定义(样本二期可选, synth 是回退底线)');
+    assert.strictEqual(e.file, undefined, k + ' 暂无样本条目(CC0 素材二期再挂)');
+    assert.strictEqual(e.prio, 4, k + ' 仪式层(与 level/gem 同档: 切图是冒险地图的大事件)');
+  }
+  /* 形状细节: 蓄能=上行滑音(f0<f1), 到达=上行琶音(steps 递增)——听感方向都是「升」 */
+  const c = AudioRegistry.SFX_KINDS.portal_charge.synth;
+  assert.ok(c.f0 < c.f1, 'portal_charge 是上行滑音(f0<f1)');
+  const t = AudioRegistry.SFX_KINDS.portal_travel.synth;
+  assert.ok(Array.isArray(t.steps) && t.steps.length >= 2 &&
+      t.steps.every((v, i) => i === 0 || v > t.steps[i - 1]), 'portal_travel 是上行琶音(steps 递增)');
+});
+
 test('声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9)', () => {
   assert.strictEqual(AudioRegistry.MOODS.menu, 'calm');
 });

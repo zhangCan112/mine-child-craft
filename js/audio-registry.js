@@ -53,6 +53,8 @@ const SFX_KINDS = {
   win: {synth: {special: 'win'}, g: 1, gTouch: 1, prio: 4, coolMs: 0}, // 胜利和弦: 双振荡器琶音特例(解释器内联), 仪式音豁免同类冷却
   splash: {synth: {noise: {type: 'bandpass', freq: 900, dur: 0.25}, g: 0.12}, g: 1, gTouch: 1, prio: 1, coolMs: 120}, // 入水水花(液体系统复活死键, 设计稿 liquid D10; 带通白噪拟水声)
   lava_hiss: {synth: {noise: {type: 'highpass', freq: 2400, dur: 0.5}, g: 0.10}, g: 1, gTouch: 1, prio: 2, coolMs: 200}, // 水岩混合嘶嘶声(MC extinguish 口径, liquid D4.4)
+  portal_charge: {synth: {type: 'sine', f0: 330, f1: 990, fT: 0.5, dur: 0.55, g: 0.10}, g: 1, gTouch: 1, prio: 4, coolMs: 200}, // 门面站桩蓄能(冒险地图 T7 §4.1 双段式第一段): 正弦上行滑音, 走出可反悔故 200ms 冷却防抖
+  portal_travel: {synth: {type: 'sine', steps: [659, 988], stepT: 0.11, dur: 0.34, g: 0.12}, g: 1, gTouch: 1, prio: 4, coolMs: 60}, // 穿门到达(第二段, 遮罩满格切图时刻): 双音上行琶音与 TTS 播报并线
 };
 
 /* ---------- BGM 曲目表 ----------
