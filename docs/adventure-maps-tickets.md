@@ -201,3 +201,14 @@ audio-registry 音效条目 + 4 雪球↔雪块配方（craft-core RECIPES 两�
 反悔 ×5、四图巡游、死亡回家、存档保留）。
 
 **验收**：全绿 + 手玩报告落 docs/（或随票据记录）。
+
+**实现记录（t10-wrapup，2026-10-27）**：
+- GLOSSARY 两词条定稿：「冒险地图」（ADV_MAPS 行=图/图常量派生坐标单份/切图
+  =advSetMap 唯一入口/存档按图分桶）与「传送门阵」（包围盒查表分流/2s 站桩
+  400ms 双段渐晕全程 2.8s/counts 键解锁+点亮仪式）；顺带「探险核心」词条最小
+  增补地图行化一句、「探险模式」词条修 20 键过期口径并加多地图指向。
+- 手玩验收清单成文 docs/adventure-maps-acceptance.md：plan 10 项逐条标注
+  自动已覆盖（票据+单测名）与必须真机手玩两部分，含结论记录区。
+- 全量回归：npm test 1258 全绿（0 失败）；npm run lint 零错误（ESLint/
+  Stylelint/htmlhint 三链，rtk stderr 混流用 $LASTEXITCODE 核实均 0）。
+  真机手玩按 acceptance 清单执行后回填。
