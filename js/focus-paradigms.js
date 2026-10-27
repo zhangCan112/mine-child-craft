@@ -691,7 +691,11 @@ function runFocusLevel(level, area, h, failCount) {
         return;
       }
       const s = level.sections[sec];
-      SpeechKit.speak('新游戏：' + FOCUS_META[s.dim].game + '！');
+      /* 零文字依赖: 小节播报连带规则与档位提示一起念——大师关 gonogo
+         tier8 起就有绿宝石伪装, 只报名不念规则=零文字孩子裸进新游戏
+         (tip 是档位感知的, 伪装/4×4 等规则变化只在 tip 里) */
+      SpeechKit.speak('新游戏：' + FOCUS_META[s.dim].game + '！' +
+          FOCUS_META[s.dim].rule + ' ' + FOCUS_META[s.dim].tip(s.params));
       const sub = withDim({
         progress(k, n) {
           h.progress(sec + k/Math.max(1, n), level.sections.length);

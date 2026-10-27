@@ -379,7 +379,11 @@ function startFocusLevel(i) {
       <div class="f-tipbox">💡 ${focusTip(level)}${level.kind!=='tutorial' ? ' 目标：正确 70% 以上通过！' : ''}</div>
       <button class="f-start" id="fGoBtn">▶ 开始</button>
     </div>`);
-  SpeechKit.speak(meta.rule);
+  /* 零文字依赖(MISSION 约束): 档位级规则变化只住在 tip 里(如 gonogo 的
+     绿宝石伪装「TNT 变成绿宝石的样子」/corsi 的 4×4 格阵), 只写不念
+     则零文字的孩子永远听不到——rule+tip 合成一句念出(两连 speak 会
+     cancel 截断前句, 故并一句; 「目标 70%」是给陪同大人的, 不念) */
+  SpeechKit.speak(meta.rule + ' ' + focusTip(level));
   document.getElementById('fGoBtn').onclick = ()=> beginFocusRun(level);
 }
 
@@ -870,6 +874,10 @@ function beginDevilRun(dim, tier) {
     </div>
     <div class="f-area f-devil-area" id="fArea"></div>`);
   document.getElementById('fBackBtn').onclick = ()=> settleDevilRun(true); // 中途退出: 打过即结算(中断不划算但零扣损)
+  /* 零文字依赖: 挑战档=当前档+2, 可能踩档位级新规则(如 gonogo 绿宝石
+     伪装)——开场把规则与提示念出来(与 startFocusLevel 同口径, 特训
+     头部的 f-rule-small 只有文字) */
+  SpeechKit.speak(FOCUS_META[dim].rule + ' ' + FOCUS_META[dim].tip(devilParams(dim, tier)));
   const run = {
     dim, tier,
     agg: {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0, goTrials: 0, hits: 0, rounds: 0},
