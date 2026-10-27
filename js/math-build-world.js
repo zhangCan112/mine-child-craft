@@ -46,7 +46,10 @@ const MATH_WORLD = {
   colBlock: {1: 16, 2: 15, 3: 19}, // 颜色号→方块: 红羊毛/蓝羊毛/灯块
   canvasBlock: 17, // 画布底(石英)
   markerBlock: 18, // 镜面线/轮廓/角框标记(玻璃, 嵌地面)
-  edgeTorchBlock: 14, // 图纸「上面」边标记: 整行插火把(试次开场语音绑定哪条边)
+  // 图纸「上面」边标记: 整行插火把。48 = config B_TORCH(字面量: vm 精简装载
+  //   无 config 全局, 表内同 16/17/34 惯例); 曾误写 14=苔石——config 注释
+  //   「火把 14」指光照级 light:14 而非方块 id, 改前先对 B_TORCH
+  edgeTorchBlock: 48,
   pedestalBlock: 17, // 「好啦」基座(石英)
   checkBlock: 34, // 「好啦」确认块(发光岩)
   digitBlock: 16, // 数字牌笔划(红羊毛)
