@@ -16,8 +16,9 @@
    熔炉=FurnaceKit(多炉 posKey 寻址, 按点击块绑定)。
    红线: 零本地存储读写/零进度档键字面量(调试永不污染真实进度, ADR 0002;
    守门测试扫源文本, 注释也用中文措辞避开存储 API 名字面量)、不接指针锁定
-   (无需 conventions §6 登记)、不计儿童时限(gated:false)、挖/放不接
-   (冒险壳交互链待 place-kit 两消费者塑形, §7 D5)。
+   (无需 conventions §6 登记)、不计儿童时限(gated:false)。挖/放/门/传送门
+   经 place-kit 接入(§8, 与探险同一段规则代码; 床睡觉/进食/雪球/TNT 点燃
+   等探险系统仍推迟——夜窗/怪物/投掷/爆炸链未接入)。
    interface: ShowroomMode(mkMode 注册对象, id='showroom'; 无菜单页,
      卡点击直进) · ShowroomMode.stock(套餐挂点, 派生产物) / getInv()
      (内存背包 getter, 引用跨进场稳定) / crates(仓库箱挂点: list/账户/
@@ -26,9 +27,11 @@
      浏览器侧无害)
    依赖(均经全局名, 调用期解析): showroomPocket/showroomCrateRows/
      showroomDisplays(js/showroom-core.js 供给派生, 加载序在本文件之前) ·
+     PlaceKit(js/place-kit.js 放置链, 加载序在 adventure.js 之后本文件之前) ·
      mkMode/ModeKit.spawn/ModeKit.mkHotbar/ModeKit.mkCraftPanel/ModeKit.
      mkChestPanel(js/mode-kit.js) · FurnaceKit(js/furnace-kit.js) ·
      advChestPut/advChestTake/ADV_STATION_R(js/adventure-core.js) ·
+     Drops(js/drops.js 掉落物实体, update/render/tick 三链) ·
      loadScene(js/world.js) · SceneKit(js/scene-kit.js) · WORLD_W/WORLD_D/
      BLOCKS/B_FURNACE/B_CRAFT/B_CHEST/B_BED/B_TORCH/B_DOOR/B_DOOR_TOP/
      B_GLASS_PANE/B_COAL_ORE/B_IRON_ORE/B_GOLD_ORE/B_DIAMOND_ORE/B_CLAY
@@ -190,21 +193,81 @@ const showroomFurnace = FurnaceKit.mkFurnaceStation({
   onInvTouched: () => showroomSyncBar(),
 });
 
-/* ---------- 站点使用路由: 点击块号分流, 4 格门槛按点击块精确判距 ---------- */
+/* ---------- 放置链 kit 实例(place-kit, docs/showroom-design.md §8): 与探险
+   同一段规则代码, 差异只在政策缝——零 journal(onEdit noop: 改动只活当次
+   进场=恢复原装红线) · 零任务记账 · 观感静默(dev 降噪) · 掉落照掉(dev
+   可测掉落物/拾取链) · 磨损简版(damageTool 扣减破板清槽, 无安抚话术)。
+   左键蓄力挖 / 右键放 / 门开关 / 传送门结构放置全走与探险逐字同一实现。 ---------- */
+let showroomMouseHeld = false; /* 桌面按住标志(document capture 监听, 探险同款) */
+const showroomMine = {down: false, t: 0, key: '', need: 0, drops: true, swingT: 0};
+const showroomPlaceKit = PlaceKit.mkEditor({
+  inv: showroomInv, /* 引用跨进场稳定(原地重铸) */
+  sel: () => showroomHb.sel,
+  pos: () => pos,
+  onEdit: () => {}, /* 无 journal: 不记账(恢复原装=世界随进场重铸, 无重放需求) */
+  onConsume: () => showroomSyncBar(), /* 放置/磨损动包后快捷栏跟进 */
+  cascade: {/* 级联 sink: 掉落照掉(掉落物/拾取链可测), 记账/任务/树苗撤表静默 */
+    mark: () => {},
+    sapling: () => {},
+    drop: (id, n, x, y, z) => Drops.spawn(id, n, x, y, z),
+    questMine: () => {},
+  },
+  wear: () => {/* 磨损简版: 破坏成功工具 −1, 归零清槽(静默) */
+    const slot = showroomHb.sel;
+    const s = showroomInv.slots[slot];
+    if (!s || !isTool(s.id)) return;
+    if (damageTool(showroomInv, slot) === 0) remove(showroomInv, slot);
+    showroomSyncBar();
+  },
+  swing: () => {/* 挥动观感(Avatar 全局, Node 单测缺席静默) */
+    if (typeof Avatar !== 'undefined' && Avatar) Avatar.swing();
+  },
+  mesh: {/* setBlockRaw 直写(传送门)后的网格收口: 引擎 seam, 探险同款守卫 */
+    touch: (x, z) => {
+      if (typeof markDirty === 'function') markDirty(x, z);
+    },
+    flush: () => {
+      if (typeof flushDirty === 'function') flushDirty();
+    },
+  },
+  /* say/speak/sfx/ring/onPlaced/hardText 全缺省 = dev 降噪静默(规则不受影响) */
+});
+
+/* 桌面按住检测(document capture 阶段, 先于 input.js 的 mousedown 路由;
+   探险 advMouseListeners 同款——按住连挖, 松手本块完成即停) */
+function showroomMouseHeldOn() {
+  showroomMouseHeld = true;
+}
+function showroomMouseHeldOff() {
+  showroomMouseHeld = false;
+}
+function showroomMouseListeners(on) {
+  if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') return;
+  const opt = {capture: true};
+  if (on) {
+    document.addEventListener('mousedown', showroomMouseHeldOn, opt);
+    document.addEventListener('mouseup', showroomMouseHeldOff, opt);
+  } else {
+    document.removeEventListener('mousedown', showroomMouseHeldOn, opt);
+    document.removeEventListener('mouseup', showroomMouseHeldOff, opt);
+  }
+}
+
+/* 站点使用路由: 点击块号分流, 4 格门槛按点击块精确判距(返回 true=消费本次点击) */
 function showroomUseStation(hit) {
   const lookId = getBlock(hit.x, hit.y, hit.z);
   const d = Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z);
   if (d > ADV_STATION_R) {
     showToast('🚪 走近一点就能用啦');
-    return;
+    return true; /* 圈外只提示不误开, 点击照吞(探险 advUseStation 同款) */
   }
   if (lookId === B_FURNACE) {
     showroomFurnace.open(blockKey(hit.x, hit.y, hit.z));
-    return;
+    return true;
   }
   if (lookId === B_CRAFT) {
     showroomCraftToggle();
-    return;
+    return true;
   }
   if (lookId === B_CHEST) {
     const idx = showroomCrateList.findIndex((c, i) => {
@@ -212,7 +275,9 @@ function showroomUseStation(hit) {
       return p.x === hit.x && p.z === hit.z;
     });
     if (idx >= 0) showroomOpenCrate(idx);
+    return true;
   }
+  return false;
 }
 
 /* ============================================================
@@ -333,12 +398,15 @@ const ShowroomMode = mkMode({
     showroomSyncBar();
     showroomHb.show();
     showroomFurnace.reset(); // 炉态纯内存, 进场清零
+    showroomMouseListeners(true); // 桌面按住检测(document capture, 探险同款)
   },
 
-  cleanup() {/* 收场: 收双面板(合成 close 链退台面余料) + 退炉三笔入包 +
-    收炉面板 + 解「进行中」态(零掉落物, 余量静默丢弃 dev 口径) */
+  cleanup() {/* 收场: 收双面板(合成 close 链退台面余料) + 蓄力停 + 按住监听摘 +
+    退炉三笔入包 + 收炉面板 + 解「进行中」态(零掉落物, 余量静默丢弃 dev 口径) */
     showroomCraftClose();
     if (showroomChestOpen) showroomChestPanel.close();
+    showroomPlaceKit.mineStop(showroomMine);
+    showroomMouseListeners(false);
     showroomFurnace.refundAll();
     showroomFurnace.panel.hide();
     touchPlaying = false;
@@ -346,14 +414,30 @@ const ShowroomMode = mkMode({
 
   update(dt) {
     showroomFurnace.tick(dt); // 烧炼节律常开(多炉逐炉推进, 面板只是回显)
+    showroomPlaceKit.tickTimers(dt); // 话术节流递减(账本在 kit 实例; 体验馆静默)
+    /* 蓄力挖 → 破坏结算(级联/门配对/掉落)全在 place-kit, 与探险同一实现 */
+    showroomPlaceKit.mineTick(showroomMine, PlaceKit.aimHit(), dt,
+        {held: showroomMouseHeld,
+          panelOpen: showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen()});
+    Drops.update(dt, {x: pos.x, y: pos.y + PLAYER.height * 0.62, z: pos.z}); /* 真空拾取(挖掘掉落, 玩家胸口点) */
+    Drops.render();
   },
 
-  onMouse(button, hit) {/* 不挖不放: 点击只接站点使用(工作台/熔炉/箱子, 左右键同达) */
+  onMouse(button, hit) {/* 探险同款次序(去 TNT/床/怪/吃——对应系统未接入):
+      左键 = 站点使用 > 门开关 > 蓄力挖; 右键 = 站点使用 > 门开关 > 放置 */
     if (showroomCraftOpen || showroomChestOpen || showroomFurnace.isOpen()) return;
     if (button !== 0 && button !== 2) return;
     const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
-    if (lookId === B_FURNACE || lookId === B_CRAFT || lookId === B_CHEST) {
-      showroomUseStation(hit);
+    const stationHit = lookId === B_FURNACE || lookId === B_CRAFT || lookId === B_CHEST;
+    if (stationHit) {
+      showroomUseStation(hit); /* 圈内外都吞点击(圈外只提示不误开) */
+      return;
+    }
+    if (showroomPlaceKit.tryDoorToggle(hit, lookId)) return; /* 使用先于挖/放(MC 正典) */
+    if (button === 0) {
+      if (hit) showroomMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update) */
+    } else {
+      showroomPlaceKit.tryPlace(hit); /* 放置(单格/门/传送门结构, kit 全链) */
     }
   },
 
@@ -380,18 +464,18 @@ const ShowroomMode = mkMode({
     showroomCraftToggle();
   },
 
+  onHold(active) {/* 触屏长按连挖(input.js 手势路由): 复用桌面按住标志(探险同款) */
+    showroomMouseHeld = active;
+  },
+
   hud() {
     return [
       '🧪 体验馆 · 冒险全开实验室 · B 回菜单',
-      'Tab 背包与配方书 · 走近 工作台/熔炉/箱子 点击使用',
+      'Tab 背包与配方书 · 左键挖 · 右键放 · 走近 工作台/熔炉/箱子 点击使用',
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
       'FPS ' + fps,
     ];
   },
-
-  onHighlight() {
-    return false;
-  }, // 不挖不放, 隐藏方块高亮(v2 同 v1 口径, 放置链待 place-kit)
 });
 
 /* 守门测试挂点(adventure 的 .adv 先例; 浏览器侧无害) */
@@ -399,6 +483,8 @@ ShowroomMode.stock = showroomPocketRows.rows; // 套餐(派生产物; 旧材料�
 ShowroomMode.getInv = () => showroomInv;
 ShowroomMode.crates = {list: showroomCrateList, accounts: () => showroomCrateAccounts,
   put: showroomCratePut, take: showroomCrateTake}; // 存/取意图(政策函数, 与面板回调同路)
+ShowroomMode.pk = showroomPlaceKit; // 放置链 kit(放置/破坏/门开关, 与探险同一实现)
+ShowroomMode.mine = showroomMine; // 蓄力状态机(形状同探险 advMine, 测试直驱)
 ShowroomMode.sr = {
   furnaces: showroomFurnace.map,
   panel: showroomFurnace.panel,

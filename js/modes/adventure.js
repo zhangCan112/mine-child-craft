@@ -950,23 +950,9 @@ function advTrySleep(hit, lookId) {/* 点击床(§7.2, 挖掘左键与轻点/右
   return true;
 }
 
-/* 点击门开关(门/玻璃板设计稿 §4.2, 床先例同款「使用先于放置」): 门任一半
-   命中 → 纯核心 advDoorTogglePlan 产出成对换 id 写入 → editBlock 两格(挡光性
-   变化走光场)+记账+音效话术。返回 true=消费了本次点击(不放不挖) */
+/* 点击门开关 → kit 薄转发(使用先于放置/挖掘的次序在 onMouse 编排, 不变) */
 function advTryDoor(hit, lookId) {
-  if (!hit || !advIsDoor(lookId)) return false;
-  const plan = advDoorTogglePlan(getBlock, lookId, pos, hit.x, hit.y, hit.z);
-  if (!plan.ok) {
-    showToast(plan.reason === 'occupied' ? '🚪 门口有人站着，关不上啦' : '🚪 门缺了一半，挖掉重新放吧');
-    return true; /* 命中门但开不了: 吞掉点击 */
-  }
-  for (const w of plan.writes) {
-    editBlock(w.x, w.y, w.z, w.id);
-    advMarkEdit(w.x, w.y, w.z, w.id);
-  }
-  sfx('door_swing');
-  showToast(plan.open ? '🚪 吱呀～门开啦' : '🚪 咔哒，门关上啦');
-  return true;
+  return advPlaceKit.tryDoorToggle(hit, lookId);
 }
 
 /* ============================================================
@@ -1460,9 +1446,9 @@ function advTempleTrapTick() {
 
 /* ============================================================
    T12 挖掘与采集 — 交互段(挂 onMouse/update)
-   (蓄力步进/放置合法性/食物政策/树苗计时纯函数在 adventure-core.js)
+   (蓄力步进/放置合法性/食物政策/树苗计时纯函数在 adventure-core.js;
+    蓄力循环/放置/破坏/门开关的壳段在 place-kit.js, 本段只剩状态与输入)
    ============================================================ */
-let advTierT = 0; /* 「需要更硬的镐子」TTS 节流(3s) */
 const advSaplings = new Map(); /* 树苗计时 "x,y,z"→{x,y,z,left}; 重进经全图扫描重建 */
 const advMine = {down: false, t: 0, key: '', need: 0, drops: true, swingT: 0}; /* 蓄力状态机 */
 let advMouseHeld = false; /* 桌面按住标志(document mousedown/up 维护; 失焦/解锁经 onHold(false) 自愈 —
@@ -1482,22 +1468,14 @@ function advTntTapTick(dt) {
   if (r.act && r.act.mine) advMine.down = true; /* 按住转蓄力(准星已移开则蓄力链自清) */
 }
 
-/* 准星命中(每帧蓄力判定用): CameraRig.aim 唯一视线入口(nether 先例);
-   Node 测试无相机件时返回 null(蓄力链经 onMouse 直测) */
+/* 准星命中(每帧蓄力判定用) → kit 静态件薄转发(Node 测试无相机件返 null) */
 function advAimHit() {
-  if (typeof CameraRig === 'undefined' || typeof camera === 'undefined' ||
-      typeof raycastVoxel === 'undefined') return null;
-  const a = CameraRig.aim(camera);
-  return raycastVoxel(a.origin, a.dir, PLAYER.reach);
+  return PlaceKit.aimHit();
 }
 
-/* 蓄力清零(松手/换目标不可挖/面板打开/退出模式) */
+/* 蓄力清零(松手/换目标不可挖/面板打开/退出模式) → kit 薄转发 */
 function advMineStop() {
-  advMine.down = false;
-  advMine.t = 0;
-  advMine.key = '';
-  advMine.swingT = 0;
-  advRingSet(-1);
+  advPlaceKit.mineStop(advMine);
 }
 
 /* 级联块结算(方块级联设计稿 D4/D5/P6): 记账编排(移动两格/树苗撤表/掉落清单/
@@ -1511,42 +1489,55 @@ const advCascadeSink = {
   drop: (id, n, x, y, z) => Drops.spawn(id, n, x, y, z),
   questMine: advQuestMine,
 };
-function advCascadeApply(removed, quest) {
-  const r = advCascadeLedger(removed, quest, advCascadeSink);
-  if (r.felled) {/* 整树倒: 只为含原木的级联喊话(火把/草丛脱落不出声) */
+/* ---------- 放置链 kit 实例(PlaceKit, docs/showroom-design.md §8): 探险政策全走缝 ----------
+    规则(合法性/结构/级联/掉落/蓄力)早已在纯函数与 kit, 这里只注入探险侧
+    政策: 世界档 journal+站点缓存(onEdit=advMarkEdit) · 任务 tally+树苗挂表
+    (onPlaced) · 快捷栏同步(onConsume) · 级联 sink(advCascadeSink 原样) ·
+    整树倒话术 · 磨损(advWearHeld('mine')) · 儿童 TTS/toast/音效 · 准星环/
+    挥动 · 网格收口(传送门直写) · 硬块话术(advMineHardText 纯 seam 原样)。
+    体验馆是同一缝上的另一个 adapter(dev 降噪: 无 journal/无 TTS/静默)。 */
+const advPlaceKit = PlaceKit.mkEditor({
+  inv: advInv,
+  sel: () => advHb.sel,
+  pos: () => pos,
+  onEdit: advMarkEdit,
+  onPlaced: (blockId, x, y, z) => {
+    if (blockId === B_CRAFT) advTally('place_craft_table', 1); /* T15: 站点放置记账(任务链消费的两键) */
+    if (blockId === B_FURNACE) advTally('place_furnace', 1);
+    if (blockId === B_CHEST) advTally('place_chest', 1); /* 引导链 v2: 箱子步(合成/放置/打开三条件) */
+    if (blockId === B_SAPLING) {
+      advTally('place_sapling', 1); /* 引导链 v2: 种树苗步(砍了树要种回去) */
+      advSapPlant(x, y, z);
+    }
+  },
+  onConsume: advSyncHotbar,
+  onPortalPlaced: (by, px, pz) => advBeamAdd(by, px, pz), /* 这扇门的光束顺路锚上(切界时随全量重锚) */
+  cascade: advCascadeSink,
+  onFelled: () => {/* 整树倒: 只为含原木的级联喊话(火把/草丛脱落不出声) */
     SpeechKit.speak('哇！大树倒啦！');
     showToast('🌳 大树倒啦！');
-  }
+  },
+  wear: () => advWearHeld('mine'),
+  say: showToast,
+  speak: (t) => SpeechKit.speak(t),
+  sfx,
+  ring: advRingSet,
+  swing: () => Avatar.swing(),
+  mesh: {touch: advMeshTouch, flush: advMeshFlush},
+  hardText: advMineHardText,
+});
+function advCascadeApply(removed, quest) {
+  return advPlaceKit.applyCascade(removed, quest);
 }
 
-/* 破坏结算: 碎屑(editBlock 内置同色 Fx.debrisBurst)+记账+掉落+耐久。
-   bt 为破坏时的 breakTime 结果(drops:false = tier 不足, 只碎不掉+节流提示);
-   级联块(整树/依附脱落)经 advCascadeApply 结算(方块级联设计稿 D4) */
+/* 破坏结算 → kit 薄转发(挂点名保留, advBreakBlock 既有测试/TNT 链零改动) */
 function advBreakBlock(x, y, z, id, bt) {
-  advMarkEdit(x, y, z, 0); /* 触发格先记账(级联移动可能落回此格, 后写覆盖才对) */
-  advCascadeApply(editBlock(x, y, z, 0), true); /* 级联: 记账+默认表掉落+任务(蓄力链视同亲手挖, P6) */
-  advDoorBreakApply(x, y, z, true); /* 门配对破坏(挖任一半/挖门下支撑=整扇回收, 设计稿 §4.3) */
-  if (id === B_SAPLING) advSaplings.delete(blockKey(x, y, z)); /* 挖树苗撤计时 */
-  sfx('hit');
-  advWearHeld('mine'); /* 破坏成功 −1(工具匹配与否都扣, MC 口径; 徒手无槽可扣) */
-  if (!bt.drops) {/* tier 不足: 可挖慢速但掉落不触发(§3.4) */
-    if (advTierT <= 0) {
-      advTierT = 3;
-      SpeechKit.speak('需要更硬的镐子哦！');
-      showToast('⛏️ 换更硬的镐子才能挖到宝贝');
-    }
-    return;
-  }
-  const held = advInv.slots[advHb.sel];
-  /* 剪刀 × shearDrop 掷专属表(D2); 爆炸路径不传工具走默认表 */
-  for (const d of rollBlockDrop(BLOCKS[id], null, held)) Drops.spawn(d.id, d.n, x + 0.5, y + 0.8, z + 0.5);
-  advQuestMine(id, x, y, z); /* T15: 挖到矿记账+钻石首获仪式(只认蓄力挖掘, TNT 链不挂) */
+  advPlaceKit.breakBlock(x, y, z, id, bt);
 }
 
 /* 「挖不动」话术(微默认3, D5/D7): 无 hard 方块 = 声明式不可破坏, 蓄力链不起
-   进度, 改给 3s 节流的儿童话术(节流账本 advHardT 与 advTierT 同款); 判据用
-   ADV_B 集中解析(精简装载守卫), 其余无 hard 方块(水等)保持静默 */
-let advHardT = 0; /* 「挖不动」话术节流计时(3s, update 递减) */
+   进度, 改给 3s 节流的儿童话术(节流账本在 place-kit 实例内, tickTimers 递减);
+   判据用 ADV_B 集中解析(精简装载守卫), 其余无 hard 方块(水等)保持静默 */
 function advMineHardText(id) {/* 目标格 → 话术(纯 seam, 单测直触); 空串 = 不出声 */
   if (id === ADV_B.portal || id === ADV_B.obsidian) return '传送门是魔法做的，挖不动哦';
   if (id === ADV_B.netherrack || id === ADV_B.glowstone || id === ADV_B.brick) {
@@ -1555,158 +1546,33 @@ function advMineHardText(id) {/* 目标格 → 话术(纯 seam, 单测直触); �
   return '';
 }
 
-/* 蓄力推进(update 每帧): 准星指住可挖方块才累计; 换目标/指空清零;
-   松手态换目标熄火(单击只认起步那块, 不跟准星漂); 到点破坏 —
-   桌面按住连挖(advMouseHeld), 触屏单击政策本块完成即停 */
+/* 蓄力推进(update 每帧) → kit 薄转发: 状态(advMine)/准星(advAimHit)/
+   按住(advMouseHeld)/面板守卫是探险输入, 循环编排与破坏结算全在 kit */
 function advMineTick(dt) {
-  if (!advMine.down || ADV.panelOpen || advFurnace.isOpen()) {
-    advMineStop();
-    return;
-  }
-  const hit = advAimHit();
-  const id = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
-  const def = id ? BLOCKS[id] : null;
-  if (!def || def.hard == null) {/* 空气/水/创造专属(字段缺失即不可采集, T2 判据) */
-    if (def) {/* 有实体定义但无 hard = 声明式不可破坏: 节流话术, 不起蓄力 */
-      const hardTxt = advMineHardText(id);
-      if (hardTxt && advHardT <= 0) {
-        advHardT = 3;
-        SpeechKit.speak(hardTxt);
-        showToast('⛏️ ' + hardTxt);
-      }
-    }
-    advMineStop();
-    return;
-  }
-  const aimKey = blockKey(hit.x, hit.y, hit.z);
-  if (!advMouseHeld && advMine.key && advMine.key !== aimKey) {/* 松手态(桌面已松手/
-    触屏单击)只认起步那块: 单击的意图是"挖这块", 不是"此后准星扫过的每一块"都跟着敲 */
-    advMineStop();
-    return;
-  }
-  const held = advInv.slots[advHb.sel];
-  const bt = breakTime(def, held && isTool(held.id) ? held : null); /* 非工具手持 = 徒手口径 */
-  Object.assign(advMine, advMineStep(advMine, aimKey, bt, dt));
-  advMine.swingT += dt; /* 挥动循环: 节拍触发 Avatar.swing(swingPose 纯函数在 Avatar 内循环) */
-  if (advMine.swingT >= ADV_MINE_SWING) {
-    advMine.swingT = 0;
-    Avatar.swing();
-  }
-  advRingSet(advMine.need > 0 ? advMine.t / advMine.need : -1); /* 准星进度环填充 */
-  if (!advMine.done) return;
-  advBreakBlock(hit.x, hit.y, hit.z, id, bt);
-  advMine.t = 0;
-  advMine.key = '';
-  if (!advMouseHeld) advMine.down = false; /* 触屏单击/桌面已松手: 本块完成即停 */
-  advRingSet(-1);
+  advPlaceKit.mineTick(advMine, advAimHit(), dt,
+      {held: advMouseHeld, panelOpen: ADV.panelOpen || advFurnace.isOpen()});
 }
 
-/* 放置交互: 选中放置型物品(ITEMS.block 字段)点击准星面 → editBlock+记账+
-   背包 −1(D4); 树苗额外挂 20s 计时; thin 块非法落点给节流 toast;
-   nether_portal 与 door 无 block 字段, 在旧判断之前拦截走结构放置(§3.3/§4.1) */
+/* 放置交互 → kit 薄转发(挂点名保留, 既有测试/触屏 mkMainAct 零改动):
+   单格放置 + 门/传送门结构拦截分支全在 kit, 树苗挂表经 onPlaced 缝回来 */
 function advTryPlace(hit) {
-  const slot = advHb.sel;
-  const s = advInv.slots[slot];
-  const it = s ? ITEMS[s.id] : null;
-  if (s && s.id === 'nether_portal') return advPlacePortal(hit); /* 整座门放置, 不走单格 editHit */
-  if (s && s.id === 'door') return advPlaceDoor(hit); /* 2 格门结构放置(门/玻璃板设计稿 §4.1) */
-  if (!hit || !it || it.block == null) return false;
-  const lookId = getBlock(hit.x, hit.y, hit.z);
-  const targetId = getBlock(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz);
-  const pc = advPlaceCheck(hit, it.block, lookId, targetId);
-  if (!pc.ok || collidesAtPlayer(pc.x, pc.y, pc.z)) {/* 不与玩家身体重叠(arena 先例) */
-    showToast('这里放不了哦');
-    return false;
-  }
-  const moved = editBlock(pc.x, pc.y, pc.z, it.block); /* 放置触发仅 fall(P9): 半空沙即落 */
-  advMarkEdit(pc.x, pc.y, pc.z, it.block);
-  for (const r of moved) {/* 移动两格记账: 原格清空+落格得沙(漏记重进悬空沙复活) */
-    advMarkEdit(r.x, r.y, r.z, 0);
-    advMarkEdit(r.to.x, r.to.y, r.to.z, r.id);
-  }
-  if (it.block === B_CRAFT) advTally('place_craft_table', 1); /* T15: 站点放置记账(任务链消费的两键) */
-  if (it.block === B_FURNACE) advTally('place_furnace', 1);
-  if (it.block === B_CHEST) advTally('place_chest', 1); /* 引导链 v2: 箱子步(合成/放置/打开三条件) */
-  if (it.block === B_SAPLING) {
-    advTally('place_sapling', 1); /* 引导链 v2: 种树苗步(砍了树要种回去) */
-    advSapPlant(pc.x, pc.y, pc.z);
-  }
-  remove(advInv, slot, 1);
-  advSyncHotbar();
-  sfx('click');
-  showToast('放下 ' + it.name + '！');
-  return true;
+  return advPlaceKit.tryPlace(hit);
 }
 
-/* 下界传送门放置(拦截分支, D4/D13): 点击面外一格为门基(by,px,pz) → 纯核心
-   advPortalSiteOk 校验(结构包围盒全空气+玩家不入盒) → 失败给儿童话术不扣
-   物品; 成功 advPortalFrame 经「setBlockRaw+逐格记账」sink 长出整座门
-   (结构只以 edits 形态存在, 重放即重建——互锁红线) + 扣 1 + 顺路锚这扇门
-   的光束。放置朝向固定(门面朝 ±z), 不随视角(D13) */
+/* 下界传送门放置 → kit 薄转发(挂点名保留; 结构/记账/扣件全在 kit,
+   光束观感经 onPortalPlaced 缝回探险) */
 function advPlacePortal(hit) {
-  if (!hit) return false;
-  const slot = advHb.sel;
-  const tx = hit.x + hit.nx;
-  const ty = hit.y + hit.ny;
-  const tz = hit.z + hit.nz; /* 与单格放置同款目标格(点击面外一格) */
-  const ok = advPortalSiteOk(getBlock, pos, ty, tx, tz); /* 参数序 by,px,pz */
-  if (!ok.ok) {
-    showToast(ok.reason === 'inside' ? '🌀 站远一点再放哦！' : '🌀 这里太挤啦，找一块大空地！');
-    return false; /* 不扣物品, 换个地方再试 */
-  }
-  advPortalFrame((x, y, z, id) => {
-    setBlockRaw(x, y, z, id); /* 直写不走 editBlock: 整座门是原子结构, 不触发级联/掉落 */
-    advMarkEdit(x, y, z, id); /* 逐格记账 = 重放即重建 */
-    advMeshTouch(x, z); /* 门体当帧可见: 直写不标脏会等跨环/重进才长出来(点亮仪式同款) */
-  }, ty, tx, tz);
-  advMeshFlush();
-  remove(advInv, slot, 1);
-  advSyncHotbar();
-  sfx('click');
-  advBeamAdd(ty, tx, tz); /* 这扇门的光束顺路锚上(切界时随全量重锚) */
-  SpeechKit.speak('下界传送门立起来啦！走进紫色门面去下界！');
-  showToast('🌀 下界传送门立起来啦！走进紫色门面去下界！');
-  return true;
+  return advPlaceKit.placePortal(hit);
 }
 
-/* 门放置(拦截分支, 门/玻璃板设计稿 §4.1; 传送门 D4 先例): 点击面外一格为
-   门基 → 纯核心 advDoorSiteOk 校验(两格空气+下方实心+玩家不入) → 失败给
-   儿童话术不扣物品; 成功两格 editBlock+逐格记账(开关改变挡光性, 必须走
-   editBlock 光场全链——与传送门 setBlockRaw 的唯一分叉, 设计稿 §2.1) */
+/* 门放置 → kit 薄转发(挂点名保留, door-window 既有测试零改动) */
 function advPlaceDoor(hit) {
-  if (!hit) return false;
-  const slot = advHb.sel;
-  const tx = hit.x + hit.nx;
-  const ty = hit.y + hit.ny;
-  const tz = hit.z + hit.nz; /* 与单格放置同款目标格(点击面外一格) */
-  const ok = advDoorSiteOk(getBlock, pos, tx, ty, tz);
-  if (!ok.ok) {
-    showToast(ok.reason === 'inside' ? '🚪 别站在门框里放哦！' :
-      ok.reason === 'nosupport' ? '🚪 门要放在地上哦' : '🚪 上下两格都空着才放得下');
-    return false; /* 不扣物品, 换个地方再试 */
-  }
-  for (const c of ok.cells) {
-    editBlock(c.x, c.y, c.z, c.id);
-    advMarkEdit(c.x, c.y, c.z, c.id);
-  }
-  remove(advInv, slot, 1);
-  advSyncHotbar();
-  sfx('door_swing');
-  SpeechKit.speak('门装好啦！点一下就能开关');
-  showToast('🚪 门装好啦！点一下就能开关');
-  return true;
+  return advPlaceKit.placeDoor(hit);
 }
 
-/* 门配对破坏(设计稿 §4.3): 任何移除点(挖方/TNT)清格后调用——挖任一半/
-   挖门下支撑 = 整扇消失 + 掉 1 扇(政策在 advDoorBreakPlan, MC 口径);
-   door 格无级联旗标, editBlock 级联清单恒空, 统一走全链防漂移 */
+/* 门配对破坏 → kit 薄转发(TNT 链 quest=false 同走此处, 口径不变) */
 function advDoorBreakApply(bx, by, bz, quest) {
-  const plan = advDoorBreakPlan(getBlock, bx, by, bz);
-  for (const c of plan.cells) {
-    advMarkEdit(c.x, c.y, c.z, 0);
-    advCascadeApply(editBlock(c.x, c.y, c.z, 0), quest);
-  }
-  if (plan.drop > 0) Drops.spawn('door', plan.drop, bx + 0.5, by + 0.5, bz + 0.5);
+  advPlaceKit.doorBreakApply(bx, by, bz, quest);
 }
 
 /* 树苗挂表: 20s 后长成(D7); 重进经 advRescanSaplings 全图重建计时 */
@@ -2530,7 +2396,7 @@ const AdventureMode = mkMode({
     advFuses.length = 0; /* 引信不落盘 */
     advStations.clear(); /* 站点缓存重进由 advRescanStations 重建 */
     advTableNear = false;
-    advTierT = 0;
+    advPlaceKit.resetTimers(); /* 话术节流复位(账本在 place-kit 实例) */
     advRingDispose();
     advHpBar.dispose(); /* 头顶血条回收(S2 深接口) */
   },
@@ -2538,8 +2404,7 @@ const AdventureMode = mkMode({
   update(dt) {
     advJournal.tick(); /* 世界存档节流 5s(build 同款, 时序收编 journal) */
     advSyncMood(); /* 场景曲随昼夜/维度走(同值空转; 首帧补报夜间重进) */
-    advTierT = Math.max(0, advTierT - dt); /* tier 提示节流递减(T12) */
-    advHardT = Math.max(0, advHardT - dt); /* 「挖不动」话术节流递减(微默认3) */
+    advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */
     advQuestVisitTick(); /* 发现型记账(T8): 脚格进门阵广场首记 visit_plaza(每帧查, 内部去重) */

@@ -86,18 +86,37 @@ globalThis.document = {
    建场断言对着真 fill/getBlock(fake SceneKit 会把「方块真的在场」变成
    同义反复, T3 起惯例); 其全局名依赖经 Object.assign 就位到 Node 侧 */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
-for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/items-core.js',
-  'js/inventory-core.js', 'js/craft-core.js']) {
+for (const f of ['js/config.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js',
+  'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
-const api = vm.runInContext(`({ITEMS, stackMax, isTool, toolOf, durOf, mkInventory, add, count, remove,
-  take, moveSlot, costEntry, shapeCost, canCraft, matchGrid, gridCraft, fillGrid,
-  RECIPES, SMELTS, FUEL, fuelUnits, smeltOf,
-  HOTBAR_SLOTS, INV_SLOTS, WORLD_W, WORLD_D,
-  BLOCKS, B_FURNACE, B_CRAFT, B_CHEST, B_BED, B_TORCH, B_DOOR, B_DOOR_TOP, B_GLASS_PANE,
+const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, mkInventory, add, count, remove,
+  take, moveSlot, damageTool, costEntry, shapeCost, canCraft, matchGrid, gridCraft, fillGrid,
+  RECIPES, SMELTS, FUEL, fuelUnits, smeltOf, breakTime,
+  HOTBAR_SLOTS, INV_SLOTS, WORLD_W, WORLD_D, PLAYER,
+  BLOCKS, B_FURNACE, B_CRAFT, B_CHEST, B_BED, B_TORCH, B_DOOR, B_DOOR_TOP, B_DOOR_OPEN,
+  B_DOOR_TOP_OPEN, B_GLASS_PANE,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY,
-  getBlock, setBlockRaw, blockKey, SceneKit})`, eng);
-Object.assign(globalThis, api); /* 模式/供给核心经全局名消费这些真件 */
+  getBlock, setBlockRaw, blockKey, collidesAtPlayer, rollBlockDrop, SceneKit})`, eng);
+Object.assign(globalThis, api); /* 模式/供给核心/放置链经全局名消费这些真件 */
+/* 单块编辑 seam: world.js 太重——真级联核心镜像 world.js 的装配
+   (adventure-mode.test 同款): setBlockRaw + 破坏侧 cascadeRemove */
+const engCascade = vm.runInContext('({core: CascadeCore, policy: CascadeCore.mkPolicy(BLOCKS)})', eng);
+globalThis.editBlock = (x, y, z, id) => {
+  const old = api.getBlock(x, y, z);
+  api.setBlockRaw(x, y, z, id);
+  return (id === 0 && old !== 0) ?
+    engCascade.core.cascadeRemove(api.getBlock, api.setBlockRaw, x, y, z, old, engCascade.policy) : [];
+};
+globalThis.Fx = {debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}}; /* 碎屑观感桩 */
+/* place-kit/adventure-core 的自由标识符引用 config 的 B_ 前缀常数(const 词法绑定
+   不挂 vm 全局对象): 按两文件源码动态收集名单, 在上下文内求值铺到 Node 全局 */
+for (const src of [fs.readFileSync(path.join(ROOT, 'js', 'adventure-core.js'), 'utf8'),
+  fs.readFileSync(path.join(ROOT, 'js', 'place-kit.js'), 'utf8')]) {
+  for (const n of [...new Set(src.match(/\bB_[A-Z0-9_]+\b/g) || [])]) {
+    if (globalThis[n] === undefined) globalThis[n] = vm.runInContext(n, eng);
+  }
+}
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore); /* advChestPut/advChestTake/ADV_STATION_R 等 */
 const CraftCore = require('../js/craft-core.js');
@@ -112,7 +131,9 @@ globalThis.loadScene = (fn) => {
 }; /* 场景装填 seam: 清场+建场+光场(收尾重建归渲染层, 行为断言不需要) */
 globalThis.showToast = (s) => calls.push(['toast', s]);
 const dropCalls = []; /* 掉落物调用记账: 体验馆退出收场应为零(满包余量静默丢弃口径) */
-globalThis.Drops = {spawn: (id, n) => dropCalls.push([id, n])};
+const dropsTicks = []; /* 掉落物 update 记账: 放置链接入后 update 应每帧喂真空拾取 */
+globalThis.Drops = {spawn: (id, n) => dropCalls.push([id, n]),
+  update: (dt, p) => dropsTicks.push([dt, p]), render: () => {}};
 globalThis.switchMode = (id) => calls.push(['switchMode', id]);
 globalThis.showPage = (id) => calls.push(['showPage', id]);
 globalThis.overlay = fakeEl();
@@ -128,6 +149,7 @@ const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;
 globalThis.ModeKit = ModeKit;
 globalThis.FurnaceKit = require('../js/furnace-kit.js');
+globalThis.PlaceKit = require('../js/place-kit.js'); /* 放置链 kit(模式顶层即构造 editor) */
 ModeKit.spawn = (x, y, z, o) => {
   calls.push(['spawn', x, y, z, o]);
 };
@@ -478,4 +500,52 @@ test('体验馆: 收场与重进 — 面板全收+零掉落物 · 背包同实�
       ShowroomMode.stock[0].n, '套餐照表重铸(恢复原装)');
   assert.strictEqual(ShowroomMode.crates.accounts()[0].slots[0].id, 'shears',
       '仓库箱照派生重铸(恢复原装)');
+});
+
+/* ============ ⑨ 放置链接入(place-kit, showroom-design §8) ============
+   与冒险同一段规则代码: 单格放置(advPlaceCheck)/门结构(advDoorSiteOk/
+   advDoorTogglePlan 成对换 id)/蓄力挖(breakTime+级联+掉落)。体验馆差异只在
+   政策缝(零 journal/零 TTS/掉落照掉)。左键挖右键放的次序=使用先于挖放。 */
+
+test('体验馆: 右键放置 — 套餐首行原木落地+扣件(单格放置走 kit 全链)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  assert.strictEqual(inv.slots[0].id, 'log', '套餐首行=原木(选中槽 0)');
+  ShowroomMode.onMouse(2, {x: 58, y: 12, z: 68, nx: 0, ny: 1, nz: 0}); /* 草地顶面 */
+  assert.strictEqual(api.getBlock(58, 13, 68), 5, '原木方块在场(木块 id 5)');
+  assert.strictEqual(api.count(inv, 'log'), 63, '扣 1 件');
+});
+
+/* 注: 测试桩 loadScene 不清场(真件有 clearWorld), 三用例用互不重叠坐标 */
+test('体验馆: 门 — 放置两格+左键点击开关(与冒险同一结构放置/成对换 id)', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('door', 2); /* 从仓库取门进选中槽(测试捷径) */
+  ShowroomMode.onMouse(2, {x: 58, y: 12, z: 70, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(api.getBlock(58, 13, 70), api.B_DOOR, '门下扇');
+  assert.strictEqual(api.getBlock(58, 14, 70), api.B_DOOR_TOP, '门上扇');
+  assert.strictEqual(api.count(inv, 'door'), 1, '扣 1 扇');
+  ShowroomMode.onMouse(0, {x: 58, y: 13, z: 70, nx: 0, ny: 0, nz: 0}); /* 左键点门=开关(使用先于挖) */
+  assert.strictEqual(api.getBlock(58, 13, 70), api.B_DOOR_OPEN, '点击开门(成对换 id)');
+  ShowroomMode.onMouse(0, {x: 58, y: 13, z: 70, nx: 0, ny: 0, nz: 0});
+  assert.strictEqual(api.getBlock(58, 13, 70), api.B_DOOR, '再点关回实心');
+});
+
+test('体验馆: 左键蓄力挖 — 到点破坏+掉落物照掉+update 喂真空拾取(与冒险同一实现)', () => {
+  freshEnter();
+  ShowroomMode.onMouse(2, {x: 60, y: 12, z: 72, nx: 0, ny: 1, nz: 0}); /* 放原木 (60,13,72) */
+  dropCalls.length = 0;
+  dropsTicks.length = 0;
+  const origAim = PlaceKit.aimHit;
+  PlaceKit.aimHit = () => ({x: 60, y: 13, z: 72, nx: 0, ny: 0, nz: 0}); /* Node 无相机: 桩准星 */
+  ShowroomMode.mine.down = true;
+  try {
+    ShowroomMode.update(3); /* 原木徒手 3s: 一步到点破坏(蓄力链全在 kit) */
+  } finally {
+    PlaceKit.aimHit = origAim;
+    ShowroomMode.mine.down = false;
+  }
+  assert.strictEqual(api.getBlock(60, 13, 72), 0, '到点破坏');
+  assert.ok(dropCalls.some((d) => d[0] === 'log'), '掉落物照掉(级联 sink→Drops.spawn)');
+  assert.ok(dropsTicks.length > 0, 'update 每帧喂掉落物真空拾取(玩家胸口点)');
 });

@@ -507,6 +507,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
   Object.assign(globalThis, {SMELT_T: CraftCoreC.SMELT_T, smeltStep: CraftCoreC.smeltStep,
     furnaceRefund: CraftCoreC.furnaceRefund});
   globalThis.FurnaceKit = require('../js/furnace-kit.js');
+  globalThis.PlaceKit = require('../js/place-kit.js'); /* 放置链 kit(T9 前置装配, 壳顶层即构造 editor) */
   globalThis.Backpack = require('../js/backpack.js');
   globalThis.WorldJournal = require('../js/world-journal-core.js');
   globalThis.mkWorldJournal = WorldJournal.mkWorldJournal;
