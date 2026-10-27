@@ -43,7 +43,7 @@ const HopWorld = (() => {
     const unit = max > 100 ? 10 : 1; // 大数带: 一格代表 10(整十数加减)
     const last = Math.floor(max / unit); // 终点格下标(值 last*unit ≤ max)
     const line = last + 1 <= HOP_LINE_MAX;
-    const x0 = line ? 64 - Math.floor(last / 2) : 60; // 世界 128×128 居中
+    const x0 = line ? 64 - Math.floor(last / 2) : 60; // 一期 128 区居中(2026-10 世界扩容后坐标不动)
     const z0 = line ? 64 : 66;
     const rows = line ? 1 : Math.ceil((last + 1) / HOP_ROW);
     function at(i) {

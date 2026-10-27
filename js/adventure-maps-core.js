@@ -489,11 +489,17 @@ const ADV_MAPS = [
       water: [0.25, 0.45, 0.85], sky: [0.56, 0.78, 1.00],
     },
     build: advBuildWorld,
-    gates: [ /* 三扇门阵(T5 广场压平区 x70-84 z74-88 内品字落位, 门体 T7 建;
-       现散布场校准: 落位避树冠/树干, 撞上的只有 thin 草丛——门基座直接覆盖) */
-      {to: 'desert', px: 72, pz: 76},
-      {to: 'snow', px: 80, pz: 76},
-      {to: 'swamp', px: 72, pz: 88},
+    gates: [ /* 三扇门阵(T5 广场压平区 x78-92 z74-88 内品字落位, 门体 T7 建;
+       现散布场校准: 落位避树冠/树干, 撞上的只有 thin 草丛——门基座直接覆盖。
+       look = 门体观感主题(2026-10-27 精细化): 塔楼/冠带/步道主砖/步道花砖
+       随目的地换装——沙漠砂岩+沙花砖/雪原雪块+冰花砖/沼泽苔石+泥花砖, 另附
+       步道前缘双火把灯柱; 黑曜石门框环与门面不换装(传送门辨识底座)) */
+      {to: 'desert', px: 80, pz: 76,
+        look: {tower: B_SANDSTONE, crown: 8, path: B_SANDSTONE, pathAlt: 8}},
+      {to: 'snow', px: 88, pz: 76,
+        look: {tower: B_SNOW, crown: B_ICE, path: B_SNOW, pathAlt: B_ICE}},
+      {to: 'swamp', px: 80, pz: 88,
+        look: {tower: 14, crown: 5, path: 14, pathAlt: 2}},
     ],
     livestock: 'herds', /* 四畜全套留 home(设计稿 §10 拍板⑤) */
   }, ADV_HOME_ROW),

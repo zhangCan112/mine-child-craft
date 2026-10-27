@@ -6,9 +6,10 @@
    THREE·DOM 观感 / 话术与 toast / 生命周期与存档; 全部政策纯函数段、
    地形生成与任务表在 js/adventure-core.js(先于本文件加载, 经共享词法
    环境直用, 政策口径以其头注释与段注释为权威——此处只留指针):
-   · 地形: 128×128 确定性草原(advBuildWorld 一族)——树林 ~40 · 湖(湖底
-     黏土, 红砖链源头) · 2 露天矿坑 · 山洞隧道通 y<10 钻石带 · 出生小屋
-     (站点件不送, 任务链做出来才有仪式感) · 3 怪物巢穴 · 草丛散布
+   · 地形: 确定性草原(advBuildWorld 一族, 世界随 NCX/NCZ 尺寸——2026-10-27
+     扩容 160×160)——橡树林 · 松林 · 湖(湖底黏土, 红砖链源头) · 2 露天矿坑 ·
+     山洞隧道通 y<10 钻石带 · 出生小屋(站点件不送, 任务链做出来才有仪式感) ·
+     3 怪物巢穴 · 草丛散布 · 主题元素(望塔/远古石阵/花田/南池)
    · 玩家: 出生小屋门口 · 步行(不飞行) · 血量 30 + 头顶血条(mkHpBar);
      死亡 = 背包保留 + 回出生点满血 + TTS 安抚(advDeathPlan, 零惩罚哲学);
      位置/朝向+血量随世界档落盘 → 重进原地续命(死亡·回家即时落盘防节流窗口)
@@ -1097,7 +1098,8 @@ function advGatesBuild() {/* 当前图门阵建场(loadScene 基座段收尾, �
         return;
       }
       setBlockRaw(x, y, z, id);
-    }, ADV_GROUND, g.px, g.pz);
+    }, ADV_GROUND, g.px, g.pz, g.look); /* g.look = 门体主题建材(home 门阵三扇各配,
+      远征图回程门无 look=经典下界门; 熄/亮只换门面格, 建材两态同款) */
   }
 }
 function advGateAt(x, z) {/* 门阵包围盒查表(advInPortal 命中后): 玩家脚格落在当前行
@@ -2195,7 +2197,7 @@ function advUnlockRite(mapId) {
         setBlockRaw(x, y, z, id); /* 只补门面(框熄门时已立) */
         advMeshTouch(x, z); /* 门面格同拍入脏队列: 当帧重网格立刻可见(不标脏=黑框) */
       }
-    }, ADV_GROUND, g.px, g.pz);
+    }, ADV_GROUND, g.px, g.pz, g.look); /* 主题建材与建场同款(g.look, 点亮只换门面) */
     advMeshFlush();
     advBeamAdd(ADV_GROUND, g.px, g.pz); /* 常驻光束: 亮门才有束(熄门无门面口径) */
     Fx.pop(g.px + ADV_PORTAL.w / 2, ADV_GROUND + 2, g.pz + 0.5,

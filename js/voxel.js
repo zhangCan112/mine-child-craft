@@ -21,7 +21,8 @@ function hashRand(x, z) {
    平面 Uint8Array: getBlock 是全游戏最热的路径(物理/射线/网格重建/怪物
    落地扫描), 演进史: 字符串键 Map(GC 掉帧) → 整数键 Map → 平面数组
    (下标直读, 零分配零哈希; pad 真机爆炸重建实测是最大尖峰来源)。
-   128×128×48 = 786KB 一次分配; 方块 id ≤ 255, Uint8 足够。
+   160×160×48 ≈ 1.2MB 一次分配(2026-10-27 探险扩容 8→10 区块); 方块 id ≤ 255,
+   Uint8 足够。
    blockKey(字符串) 保留为存档/转辙器等外部格式专用, 与内部布局无关。 */
 const topCache = new Map(); // 按列高度缓存 (x,z)→顶层 y
 const worldCells = new Uint8Array(WORLD_W * WORLD_D * WORLD_H);

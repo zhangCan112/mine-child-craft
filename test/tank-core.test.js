@@ -140,9 +140,9 @@ test('履带爬台阶: 1 格高平台直接爬上, 在平台上继续前进', ()
 
 test('世界边缘: 隐形墙拦住, 不越出世界边界', () => {
   const t = loadTank();
-  flatGround(t, 10, 30, 30, 120, 120);
+  flatGround(t, 10, 30, 30, t.WORLD_W - 10, t.WORLD_D - 10);
   const T = grounded(t, 64, 64, 0);
-  drive(t, T, {forward: 1, steer: 0, lookYaw: -Math.PI/2}, 12); // 朝 +X 全速开 12 秒
+  drive(t, T, {forward: 1, steer: 0, lookYaw: -Math.PI/2}, 14); // 朝 +X 全速开 14 秒(世界扩容 160 后 12s 到不了墙)
   assert.ok(T.x <= t.WORLD_W - t.TANK.hw + 0.01, 'x 不越界: ' + T.x + ' ≤ ' + (t.WORLD_W - t.TANK.hw));
   assert.ok(T.x > t.WORLD_W - 3, '确实开到了边缘');
 });

@@ -25,6 +25,7 @@ const api = vm.runInContext(`({
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
+  B_SNOW, B_ICE, B_SANDSTONE, B_GLOWSTONE, B_CHEST, /* 扩容主题五件建场件消费(望塔灯/箱, 松林/花田/南池) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
@@ -208,7 +209,8 @@ test('T5 地形接入: 地层随高度场 — 表面=24+advHeightAt 处草皮, �
 
 test('T5 门阵广场: 屋东 15×15 圆石满铺 + 三扇门位进常量(难度序, 门体归 T7)', () => {
   const p = Core.ADV_GATE_PLAZA;
-  assert.deepStrictEqual([p.x1, p.x2, p.z1, p.z2], [70, 84, 74, 88], '屋东 x70-84 z74-88(§2.4 核心圈)');
+  assert.deepStrictEqual([p.x1, p.x2, p.z1, p.z2], [78, 92, 74, 88],
+      '屋东 x78-92 z74-88(§2.4 核心圈; 2026-10-27 用户拍板东移离小屋远点)');
   assert.strictEqual(p.gates.length, 3, '三扇门位(每图一扇)');
   const seen = new Set();
   for (const g of p.gates) {
@@ -270,37 +272,46 @@ test('T5 畜牧围栏: 原木柱角+木板栏一圈 2 高 + 栏内草地 + 东�
   assert.strictEqual(cell(pen.x2 + 1, 25, 82), 4, '踏石圆石在栏外东侧');
 });
 
-test('T5 圆石小径: 门口↔广场↔农田 2 宽间断铺装((x+z) 偶数格), 三段连通', () => {
-  assert.strictEqual(Core.ADV_PATH.length, 3, '三段走廊');
+test('T5 圆石小径: 门口↔广场↔农田 2 宽间断铺装((x+z) 偶数格), 五段连通', () => {
+  assert.strictEqual(Core.ADV_PATH.length, 5, '五段走廊(核心圈三段 + 扩容延伸东/南两段)');
   Core.advBuildWorld();
   let paved = 0;
   for (const r of Core.ADV_PATH) {
     for (let x = r.x1; x <= r.x2; x++) {
       for (let z = r.z1; z <= r.z2; z++) {
         if ((x + z) % 2 === 0) {
-          assert.strictEqual(cell(x, 24, z), 4, '偶数格铺圆石 (' + x + ',' + z + ')');
+          assert.strictEqual(cell(x, 24 + Core.advHeightAt(x, z), z), 4,
+              '偶数格铺圆石贴本地表面 (' + x + ',' + z + ')');
           paved++;
         }
       }
     }
   }
   assert.ok(paved >= 20, '间断铺装有料: ' + paved + ' 格');
-  /* 连通性: 门口段东端(x69)贴广场西缘(x70); 南下段(x65-66)接门口段(z77/78 相邻);
-     西折段(x63)贴农田东缘(x62)——取样取偶数格(奇数格是间断留白) */
-  assert.strictEqual(cell(69, 24, 77), 4, '门口段东端接广场');
+  /* 连通性: 门口段东端(x77)贴广场西缘(x78); 南下段(x65-66)接门口段(z77/78 相邻);
+     西折段(x63)贴农田东缘(x62); 东段起于广场东缘(x93); 南段起于农田南缘(z89)
+     ——取样取偶数格(奇数格是间断留白) */
+  assert.strictEqual(cell(77, 24, 77), 4, '门口段东端接广场');
   assert.strictEqual(cell(66, 24, 78), 4, '南下段起于门口段南侧');
   assert.strictEqual(cell(63, 24, 87), 4, '西折段西端接农田');
+  assert.strictEqual(cell(93, 24 + Core.advHeightAt(93, 75), 75), 4, '东段起于广场东缘(贴本地表面)');
+  assert.strictEqual(cell(61, 24, 89), 4, '南段起于农田南缘');
 });
 
 test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴草皮不占围栏/铺装', () => {
   Core.advBuildWorld();
   const c = {x: 61, z: 81};
-  let n = 0; const kinds = new Set();
+  const m = Core.ADV_MEADOW;
+  let n = 0; let meadowN = 0; const kinds = new Set();
   for (let y = 0; y < H; y++) {
     for (let z = 0; z < D; z++) {
       for (let x = 0; x < W; x++) {
         const id = cell(x, y, z);
         if (id !== api.B_FLOWER_Y && id !== api.B_FLOWER_W) continue;
+        if (Math.hypot(x - m.cx, z - m.cz) <= m.r + 1) {
+          meadowN++; /* 花田密铺区单算(扩容主题五件, 自己的验收在下一题) */
+          continue;
+        }
         n++;
         kinds.add(id);
         assert.ok(Math.hypot(x - c.x, z - c.z) <= 18, '花只长核心圈草场 (' + x + ',' + z + ')');
@@ -312,6 +323,7 @@ test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴�
   }
   assert.ok(n >= 6 && n <= 90, '密度 ~2% 可发现不铺满: ' + n + ' 丛');
   assert.strictEqual(kinds.size, 2, '黄白两款都有');
+  assert.ok(meadowN >= 100, '花田密铺单算不混入核心圈口径(实测 ' + meadowN + ' 丛)');
 });
 
 test('T5 避让联动: 树/群位避新增建场件 — 广场/农田/围栏/小径无树, 群位避广场/农田/小径', () => {
@@ -323,7 +335,7 @@ test('T5 避让联动: 树/群位避新增建场件 — 广场/农田/围栏/小
     for (const r of Core.ADV_PATH) assert.ok(!Core.advInRect(s.x, s.z, r), '小径无树');
   }
   /* 群位约束谓词: 广场心/农田心/小径格全拒 */
-  assert.strictEqual(Core.advLivestockHerdOk(77, 81, Core.advTreeSpots()), false, '广场心拒');
+  assert.strictEqual(Core.advLivestockHerdOk(85, 81, Core.advTreeSpots()), false, '广场心拒');
   assert.strictEqual(Core.advLivestockHerdOk(60, 87, Core.advTreeSpots()), false, '农田心拒');
   assert.strictEqual(Core.advLivestockHerdOk(65, 82, Core.advTreeSpots()), false, '小径格拒');
 });
@@ -354,15 +366,88 @@ test('T5 畜牧群位进围栏: 两群位落栏内草地(四畜在场内), 显�
 
 test('T5 压平扩容: 广场/农田/围栏足印归 0(ADV_FLATS 与建场件对齐)', () => {
   const inR = (x, z, r, m) => x >= r.x1 - m && x <= r.x2 + m && z >= r.z1 - m && z <= r.z2 + m;
+  const inC = (x, z, c, r) => Math.hypot(x - c.cx, z - c.cz) <= r;
   for (let x = 0; x < W; x++) {
     for (let z = 0; z < D; z++) {
       if (inR(x, z, Core.ADV_GATE_PLAZA, 1) || inR(x, z, Core.ADV_FARM, 1) ||
-          inR(x, z, Core.ADV_PEN, 0)) {
+          inR(x, z, Core.ADV_PEN, 0) ||
+          inC(x, z, Core.ADV_TOWER, 5) || /* 望塔基座(含楼梯带, flats r9 内圈取样) */
+          inC(x, z, Core.ADV_STONES, Core.ADV_STONES.r + 2) ||
+          inC(x, z, Core.ADV_POND, Core.ADV_POND.r + 1)) {
         assert.strictEqual(Core.advHeightAt(x, z), 0, '新件足印回落 y24 (' + x + ',' + z + ')');
       }
     }
   }
-  assert.strictEqual(Core.ADV_FLATS.length, 10, '压平清单与建场件一一对应(湖1+坑2+洞1+巢3+广场1+农田1+围栏1)');
+  assert.strictEqual(Core.ADV_FLATS.length, 13,
+      '压平清单与建场件一一对应(湖1+坑2+洞1+巢3+广场1+农田1+围栏1+望塔1+石阵1+南池1)');
+});
+
+test('扩容主题五件: 松林/望塔/石阵/花田/南池建场落位(确定性总装内的结构可读)', () => {
+  Core.advBuildWorld();
+  /* 南池: 洼心水+沙底, 池外一圈仍是草皮(压平区边缘回归草地) */
+  const p = Core.ADV_POND;
+  assert.strictEqual(cell(p.cx, 24, p.cz), api.B_WATER, '南池洼心水面 y24');
+  assert.strictEqual(cell(p.cx, 23, p.cz), 8, '南池沙底');
+  assert.strictEqual(cell(p.cx, 24, p.cz + p.r + 2), 1, '池外一圈草皮');
+  /* 望塔: 基座/塔身/门洞/平台灯砖/宝箱/垛口 + 折返石阶逐级 */
+  const t = Core.ADV_TOWER;
+  assert.strictEqual(cell(t.x, 25, t.z), 4, '塔底基座圆石');
+  assert.strictEqual(cell(t.x - 2, 29, t.z), 13, '塔身石砖环墙');
+  assert.strictEqual(cell(t.x, 26, t.z + 2), 0, '南门洞坎层净空');
+  assert.strictEqual(cell(t.x, 27, t.z + 2), 0, '南门洞墙层净空');
+  assert.strictEqual(cell(t.x, 32, t.z), api.B_GLOWSTONE, '平台心灯砖');
+  assert.strictEqual(cell(t.x - 1, 33, t.z - 1), api.B_CHEST, '顶角宝箱');
+  assert.strictEqual(cell(t.x - 2, 33, t.z - 2), 4, '垛口满圈(防失足)');
+  const ups = [];
+  for (let y = 25; y <= 32; y++) {/* 石阶逐级: 东列(x+3, z 南→北)6 级 + 北列(z-3, x 东→西)2 级 */
+    const sx = y <= 30 ? t.x + 3 : t.x + 3 - (y - 30);
+    const sz = y <= 29 ? t.z + 2 - (y - 25) : t.z - 3;
+    if (cell(sx, y, sz) === 4) ups.push(y);
+  }
+  assert.strictEqual(ups.length, 8, '折返石阶 8 级逐级成立(实测 y=' + ups + ')');
+  /* 石阵: 8 柱环(苔石) + 中心基座灯块 */
+  const s = Core.ADV_STONES;
+  assert.strictEqual(cell(s.cx, 25, s.cz), 14, '石阵中心基座苔石');
+  assert.strictEqual(cell(s.cx, 26, s.cz), 19, '石阵中心灯块');
+  let pillars = 0;
+  for (let x = s.cx - s.r - 1; x <= s.cx + s.r + 1; x++) {
+    for (let z = s.cz - s.r - 1; z <= s.cz + s.r + 1; z++) {
+      if (cell(x, 25, z) === 14 && Math.round(Math.hypot(x - s.cx, z - s.cz)) === s.r) pillars++;
+    }
+  }
+  assert.strictEqual(pillars, s.n, '列柱数 = n(环上等分)');
+  /* 松林: 圈内松干成规模(干基贴草皮), 橡树落位清单不进圈 */
+  let pines = 0;
+  for (let x = Core.ADV_PINE.cx - Core.ADV_PINE.r; x <= Core.ADV_PINE.cx + Core.ADV_PINE.r; x++) {
+    for (let z = Core.ADV_PINE.cz - Core.ADV_PINE.r; z <= Core.ADV_PINE.cz + Core.ADV_PINE.r; z++) {
+      if (Math.hypot(x - Core.ADV_PINE.cx, z - Core.ADV_PINE.cz) > Core.ADV_PINE.r) continue;
+      for (let y = 21; y <= 29; y++) {/* 干基随高度场 21~28 浮动(深险圈丘/谷), 逐列扫窗 */
+        if (cell(x, y, z) === 5 && cell(x, y - 1, z) === 1) {
+          pines++;
+          break;
+        }
+      }
+    }
+  }
+  assert.ok(pines >= 12, '松林规模(实测 ' + pines + '/' + Core.ADV_PINE.n + ')');
+  for (const sp of Core.advTreeSpots()) {
+    assert.ok(Math.hypot(sp.x - Core.ADV_PINE.cx, sp.z - Core.ADV_PINE.cz) > Core.ADV_PINE.r,
+        '橡树不进松林圈 (' + sp.x + ',' + sp.z + ')');
+  }
+  /* 花田: 密铺花海(>100 丛, 核心圈散布密度的 20 倍以上), 脚下草皮 */
+  let meadow = 0;
+  for (let x = Core.ADV_MEADOW.cx - Core.ADV_MEADOW.r - 1;
+    x <= Core.ADV_MEADOW.cx + Core.ADV_MEADOW.r + 1; x++) {
+    for (let z = Core.ADV_MEADOW.cz - Core.ADV_MEADOW.r - 1;
+      z <= Core.ADV_MEADOW.cz + Core.ADV_MEADOW.r + 1; z++) {
+      if (Math.hypot(x - Core.ADV_MEADOW.cx, z - Core.ADV_MEADOW.cz) > Core.ADV_MEADOW.r + 1) continue;
+      for (let y = 24; y <= 29; y++) {
+        const id = cell(x, y, z);
+        if ((id === api.B_FLOWER_Y || id === api.B_FLOWER_W) && cell(x, y - 1, z) === 1) meadow++;
+      }
+    }
+  }
+  assert.ok(meadow >= 100, '花田密铺规模(实测 ' + meadow + ' 丛)');
 });
 
 /* ============ 政策纯函数段(逐条钉口径) ============ */

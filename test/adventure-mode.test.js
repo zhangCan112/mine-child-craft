@@ -544,11 +544,12 @@ test('探险模式: 四矿物深度带 + 矿簇密度序(常见→稀有) — �
   const gold = countId(api.B_GOLD_ORE);
   const dia = countId(api.B_DIAMOND_ORE);
   assert.ok(coal > iron && iron > gold && gold > dia, '相对丰度递减(煤>铁>金>钻): ' + coal + '/' + iron + '/' + gold + '/' + dia);
-  assert.ok(coal >= 300 && coal <= 1600, '煤矿常见: ' + coal);
-  assert.ok(iron >= 120 && iron <= 1200, '铁矿中等: ' + iron +
+  /* 密度参数(p/列)未动, 2026-10-27 世界扩容 128→160 面积 ×1.56 → 区间同比上调 */
+  assert.ok(coal >= 470 && coal <= 2500, '煤矿常见: ' + coal);
+  assert.ok(iron >= 190 && iron <= 1875, '铁矿中等: ' + iron +
       '(2026-10-23 矿坑改每级 1 格台阶, 铁坑 r7→9 加深后坑壁教学裸露 +~200, 上限随校)');
-  assert.ok(gold >= 30 && gold <= 350, '金矿偏少: ' + gold);
-  assert.ok(dia >= 6 && dia <= 160, '钻石稀有但任务链(3 颗)挖得到: ' + dia);
+  assert.ok(gold >= 47 && gold <= 545, '金矿偏少: ' + gold);
+  assert.ok(dia >= 10 && dia <= 250, '钻石稀有但任务链(3 颗)挖得到: ' + dia);
 });
 
 test('探险模式: 2 个露天矿坑 — 阶梯漏斗坑挖到地表以下, 坑壁裸露煤/铁矿(可见性教学)', () => {
@@ -644,7 +645,22 @@ test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞/门
   };
   const total = treeTrunks(null);
   const outside = treeTrunks(skipZone);
-  assert.ok(total >= 35 && total <= 45, '全图树 ~40 棵: ' + total);
+  /* 2026-10-27 扩容: 橡树目标 56(ADV_TREES 随面积上调) + 松林 ~14(ADV_PINE 圈内) */
+  let pines = 0;
+  const PINE = AdventureCore.ADV_PINE;
+  for (let z = PINE.cz - PINE.r; z <= PINE.cz + PINE.r; z++) {
+    for (let x = PINE.cx - PINE.r; x <= PINE.cx + PINE.r; x++) {
+      if (Math.hypot(x - PINE.cx, z - PINE.cz) > PINE.r) continue;
+      for (let y = 21; y <= 29; y++) {/* 干基随高度场 21~28 浮动, 逐列扫窗 */
+        if (cell(x, y, z) === 5 && cell(x, y - 1, z) === 1) {
+          pines++;
+          break;
+        }
+      }
+    }
+  }
+  assert.ok(total >= 62 && total <= 78, '全图树(橡树+松林) ~70 棵: ' + total);
+  assert.ok(pines >= 12, '松林圈内松树成林(实测 ' + pines + ')');
   assert.strictEqual(total, outside, '保护区内一棵树都不种(生成时就避开, 不靠后清理)');
 });
 
@@ -2731,7 +2747,7 @@ test('昼夜 D5 防刷怪圈接线: advNightRead 读 groundTop+1 同格双通道
   assert.strictEqual(r1.y, api.groundTop(70, 70) + 1, '落点格 = groundTop+1(Mobs.spawn 同口径)');
   /* 火把方块光写入落点格 → 双通道读数随之(核心 advNightCanSpawn 拒绝 = 防刷怪圈) */
   const gy = api.groundTop(70, 70) + 1;
-  vm.runInContext(`lightBlock[(${gy} * ${128} + 70) * ${128} + 70] = 14`, eng);
+  vm.runInContext(`lightBlock[(${gy} * ${api.WORLD_D} + 70) * ${api.WORLD_W} + 70] = 14`, eng);
   const r2 = A.advNightRead(70, 70);
   assert.strictEqual(r2.block, 14, '方块光通道读数');
   assert.strictEqual(advNightCanSpawn(r2.sky, r2.block, 18000), false, '火把格不可刷');
@@ -3017,7 +3033,7 @@ test('T8 计数挂点四路: 广场发现(位置型) / 结构宝箱(图+坐标) 
   freshInit();
   const c = () => A.ADV.quest.counts;
   /* 广场发现: 玩家脚格进广场矩形(advQuestVisitTick 每帧查, 首记去重) */
-  pos.x = 77.5; pos.z = 80.5; /* 门阵广场内 */
+  pos.x = 85.5; pos.z = 81.5; /* 门阵广场内(2026-10-27 广场东移后 x78-92) */
   AdventureMode.update(1 / 60);
   assert.strictEqual(c().visit_plaza, 1, '进广场 → visit_plaza 记账');
   pos.x = 61.5; pos.z = 76.5; /* 离开广场回小屋门口 */

@@ -5,7 +5,8 @@
    2026-10 架构治理候选 8 — 怪物种类清单唯一权威, -registry 契约)
 ============================================================ */
 const CHUNK = 16;
-const NCX = 8; const NCZ = 8;
+const NCX = 10; const NCZ = 10; /* 2026-10-27 探险地图扩容 8→10(160×160): 走本旋钮
+    即设计预留的扩容通道——既有内容坐标零改动, 远征图/竞技场/建造全图自动受益 */
 const WORLD_W = NCX * CHUNK;
 const WORLD_D = NCZ * CHUNK;
 const WORLD_H = 48;
@@ -57,8 +58,9 @@ const CAM = {
    docs/chunk-streaming-lod-research.md §7):
    ≤fullChunks 全细节实时构建 · fullChunks~lodChunks 降采样粗网格
    (每 lodStep×lodStep 列合并采样, 成本 ~1/lodStep²) · 更远卸载(GPU
-   释放, 数据保留, 走近重建)。当前 8×8 图上远角才进 LOD 环; 地图
-   调大(NCX/NCZ)后环自动生效, GPU 对象数按环面积封顶。 */
+   释放, 数据保留, 走近重建)。128×128 时代远角才进 LOD 环; 2026-10-27 扩容
+   10×10(160×160)后环自动生效(调大 NCX/NCZ 环即自动适配的既定口径),
+   GPU 对象数按环面积封顶。 */
 const VIEW = {
   fogNear: 90, fogFar: 230, far: 240,
   fullChunks: 8, // 全细节环半径(区块)

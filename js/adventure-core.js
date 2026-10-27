@@ -11,9 +11,10 @@
    词法环境消费。
    interface: 地图常量表(ADV_GROUND/HUT/SPAWN/LAKE/PITS/CAVE/NESTS/
      ORES/TREES + T5 圈层高度场 ADV_RING/ADV_FLATS/advHeightAt 与核心圈
-     建场件 ADV_GATE_PLAZA/ADV_FARM/ADV_PEN/ADV_PATH) · 地形生成
+     建场件 ADV_GATE_PLAZA/ADV_FARM/ADV_PEN/ADV_PATH + 2026-10-27 扩容
+     主题五件 ADV_PINE/ADV_TOWER/ADV_STONES/ADV_MEADOW/ADV_POND) · 地形生成
      advBuildWorld 一族(树落位清单 advTreeSpots 与 F4 牧场共用; 花丛/草丛
-     随高度场贴地) · 政策纯函数
+     随高度场贴地; 松林/花田/南池/望塔/石阵建场件同族) · 政策纯函数
      advDeathPlan/advNestCount/advNestStep/advSwingDmg/advMobDmg/
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
      advSapDue/advNearStation/advFurnaceValid/
@@ -40,7 +41,8 @@
      ADV_HERD_AMBLE_WALK_P/advAmbleStep(闲逛吃草节拍, 随机注入) ·
      下界段(nether 模式退役迁入, docs/nether-merge-design.md §3.2):
      ADV_PORTAL/ADV_NETHER 常量 · advNetherBuild(平地下界岩+3×3 成片
-     熔岩池, hashRand 种子化) · advPortalFrame(整座门, set 注入) ·
+     熔岩池, hashRand 种子化) · advPortalFrame(整座门, set 注入; 可选
+     look 主题建材——门阵观感精细化, 缺省经典下界门逐字不变) ·
      advInPortal(内口判定, read 注入) · advPortalSiteOk(放置校验,
      read 注入) · advPortalExit(传送出口, 来向退 2.5 格+yaw 反向)
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界(门段政策消费 B_DOOR 系 id; 门段 interface: advIsDoor/
@@ -55,7 +57,8 @@
      vm 装真引擎件直测, 地形确定性对着真散布函数断言)
    ============================================================ */
 
-/* ---------- 地图常量(128×128, 一期口径; D14 扩容后随尺寸换算) ---------- */
+/* ---------- 地图常量(随 NCX/NCZ 世界尺寸自适应; 2026-10-27 扩容 160×160,
+   既有内容坐标零改动——扩容通道预留口径) ---------- */
 const ADV_GROUND = 24; /* 草原表层 y: 下 4 层泥(y20~23), 再下石头到 y0(D5 压缩分层) */
 const ADV_HUT = {x1: 58, x2: 64, z1: 78, z2: 84}; /* 出生小屋: 7×7, 北墙正中门洞 */
 const ADV_SPAWN = {x: 61.5, y: ADV_GROUND + 1, z: 76.5, yaw: 0}; /* 门口两步, 面朝旷野背对小屋 */
@@ -82,20 +85,23 @@ const ADV_ORES = [
   {id: B_GOLD_ORE, yLo: 2, yHi: 10, sizeLo: 2, sizeHi: 3, p: 0.0035, salt: 311},
   {id: B_DIAMOND_ORE, yLo: 0, yHi: 5, sizeLo: 1, sizeHi: 2, p: 0.002, salt: 411},
 ];
-const ADV_TREES = 40; /* 树林目标棵数(候选按散列值排序取前 N, 空间无偏) */
+const ADV_TREES = 56; /* 橡树林目标棵数(候选按散列值排序取前 N, 空间无偏)——
+  2026-10-27 扩容 160×160 后按面积比例上调(40×1.56≈56, 密度感不稀释) */
 
 /* ---------- T5 家园核心圈新建场件(设计稿 §2.4): 门阵广场/初始农田/畜牧围栏/圆石小径 ---------- */
 /* 门阵广场(§2.3 门阵/§2.4 核心圈): 屋东 15×15 压平+圆石铺装; 三扇门位只登记坐标
    (px..px+5 为 6 宽门框, ADV_PORTAL 口径)——门体 advPortalFrame 归 T7 建, 门→目标图
-   绑定归 T4 注册表各行 gatePos; gates 数组序 = 难度序(home→desert→snow→swamp 解锁链) */
+   绑定归 T4 注册表各行 gatePos; gates 数组序 = 难度序(home→desert→snow→swamp 解锁链)。
+   2026-10-27 用户拍板: 广场东移 8 格(屋墙 x64 → 塔楼 x79, 门离小屋远一倍不止),
+   坐标零重排——广场尺寸/三门品字位关系原样平移 */
 const ADV_GATE_PLAZA = {
-  x1: 70, x2: 84, z1: 74, z2: 88,
+  x1: 78, x2: 92, z1: 74, z2: 88,
   gates: [
-    {px: 72, pz: 76}, /* 门一·北缘(沙漠之门) — 与 ADV_MAPS home 行 gates 同值对齐
+    {px: 80, pz: 76}, /* 门一·北缘西段(沙漠之门) — 与 ADV_MAPS home 行 gates 同值对齐
       (绑定权威在 maps-core, 此处是建场避让用的副本, 一致性由
       adventure-maps-core.test.js 断言守门; T5 旧位随 T7 门阵装配作废) */
-    {px: 80, pz: 76}, /* 门二·东缘(雪原之门, 塔楼 x86 外溢广场) */
-    {px: 72, pz: 88}, /* 门三·南缘西段(沼泽之门, 步道 z89 外溢广场) */
+    {px: 88, pz: 76}, /* 门二·北缘东段(雪原之门, 塔楼 x94 外溢广场) */
+    {px: 80, pz: 88}, /* 门三·南缘西段(沼泽之门, 步道 z89 外溢广场) */
   ],
 };
 /* 广场外扩门体足迹(塔楼 px-1/px+6 与步道 pz±1 的并集外接矩形): 植被避让用——
@@ -111,11 +117,30 @@ const ADV_FARM = {x1: 59, x2: 62, z1: 86, z2: 88};
 /* 畜牧围栏(§2.4 核心圈·屋西): 原木柱角+木板栏一圈 2 高(台阶步进 ≤1.05 的牲畜翻不出,
    孩子踩东侧踏石两级可越), 栏内留草地(四畜在场内, F4 AI 零改动) */
 const ADV_PEN = {x1: 40, x2: 54, z1: 74, z2: 90};
-const ADV_PATH = [ /* 圆石小径(§2.4 原则 2 动线成环): 门口↔广场↔农田, 2 宽走廊内 (x+z) 偶数格间断铺圆石 */
-  {x1: 62, x2: 69, z1: 76, z2: 77}, /* 门口段: 北门洞向东接广场西缘 */
+const ADV_PATH = [ /* 圆石小径(§2.4 原则 2 动线成环): 门口↔广场↔农田 + 2026-10-27
+   扩容延伸两段(广场→望塔/农田→花田——新元素入环, 方向引导不铺满), 2 宽走廊内
+   (x+z) 偶数格间断铺圆石 */
+  {x1: 62, x2: 77, z1: 76, z2: 77}, /* 门口段: 北门洞向东接广场西缘(广场东移后同步拉长) */
   {x1: 65, x2: 66, z1: 78, z2: 88}, /* 南下段: 贴屋东墙南下 */
   {x1: 63, x2: 66, z1: 87, z2: 88}, /* 西折段: 屋东南角西折接农田东缘 */
+  {x1: 93, x2: 108, z1: 74, z2: 75}, /* 东段: 广场东缘向东指引望塔(矿业圈外侧) */
+  {x1: 60, x2: 61, z1: 89, z2: 110}, /* 南段: 农田南缘南下指引花田 */
 ];
+
+/* ---------- 2026-10-27 扩容新增元素(主题五件, 坐标避让既有圈层) ----------
+   世界 128→160 后东部/南部新敞出来的草甸, 五个POI 分主题落位:
+   松林(东北·针叶林)/望塔(东·登高)/远古石阵(东南·夜景)/花田(南·花海)/
+   南池(南·水景)。全部确定性建场(零 Math.random), 盐值 77xx/78xx/79xx 分层
+   不踩既有散布; 压平/避让登记见 ADV_FLATS 与 advTreeBlocked */
+const ADV_PINE = {cx: 122, cz: 28, r: 15, n: 14, salt: 7701}; /* 松林: 云杉形针叶林
+   (树形与雪原云杉同语言, 自持盐值), 橡树散布避让本圈 */
+const ADV_TOWER = {x: 114, z: 66}; /* 望塔: 5×5 石砖塔(外部折返楼梯登顶)+顶平台宝箱,
+   矿业圈东侧的高点地标 */
+const ADV_STONES = {cx: 126, cz: 106, r: 6, n: 8, salt: 7801}; /* 远古石阵: 苔石列石环 +
+   中心灯块基座(夜间发光地标), 深险圈南侧 */
+const ADV_MEADOW = {cx: 72, cz: 126, r: 11, salt: 7901}; /* 花田: 蒲公英/雏菊密铺花海
+   (~四成半列), 家园南侧的目的地 */
+const ADV_POND = {cx: 98, cz: 132, r: 5}; /* 南池: 小水泊(沙岸+沙底), 花田以东的南水景 */
 
 /* ---------- 圈层高度场(T5, 设计稿 §2.4): SceneKit.heightAt 接入 ----------
    幅度按距小屋距离分环(核心圈 0 → 深险圈 ±3), 结构压平区并集回落 y24;
@@ -128,7 +153,8 @@ function advRingAmp(d) {/* 距小屋 d → 丘体幅度: 核心圈 0, 深险圈 
   return Math.round((d - ADV_RING.CORE) / (ADV_RING.DEEP - ADV_RING.CORE) * 3);
 }
 const ADV_FLATS = [ /* 结构压平区清单(heightAt 的 flats 参数, 全部回落 base 0=y24)——
-  与建场件足印一一对应(单测锁足印归 0): 湖盆/两坑口/山洞口/三巢丘 + T5 新增广场/农田/围栏 */
+   与建场件足印一一对应(单测锁足印归 0): 湖盆/两坑口/山洞口/三巢丘 + T5 新增广场/农田/围栏
+   + 2026-10-27 扩容新增望塔/石阵/南池(花田/松林走自然起伏, 花草随高度场扎根不压平) */
   {cx: ADV_LAKE.cx, cz: ADV_LAKE.cz, r: ADV_LAKE.r + 2}, /* 湖盆(含水岸) */
   {cx: ADV_PITS[0].cx, cz: ADV_PITS[0].cz, r: ADV_PITS[0].r + 4}, /* 煤坑口漏斗 */
   {cx: ADV_PITS[1].cx, cz: ADV_PITS[1].cz, r: ADV_PITS[1].r + 4}, /* 铁坑口漏斗 */
@@ -140,6 +166,10 @@ const ADV_FLATS = [ /* 结构压平区清单(heightAt 的 flats 参数, 全部�
     cz: (ADV_GATE_PLAZA.z1 + ADV_GATE_PLAZA.z2) / 2, r: 12},
   {cx: (ADV_FARM.x1 + ADV_FARM.x2) / 2, cz: (ADV_FARM.z1 + ADV_FARM.z2) / 2, r: 5}, /* 农田+水路 */
   {cx: (ADV_PEN.x1 + ADV_PEN.x2) / 2, cz: (ADV_PEN.z1 + ADV_PEN.z2) / 2, r: 12}, /* 畜牧围栏 */
+  {cx: ADV_TOWER.x, cz: ADV_TOWER.z, r: 20}, /* 望塔台地——深险圈丘陵带小半径压平会被
+    16 格控制网格插值出 ±1 肩坡, 半径须 ≥16+结构外沿(沙漠神殿 r18 同口径) */
+  {cx: ADV_STONES.cx, cz: ADV_STONES.cz, r: ADV_STONES.r + 14}, /* 石阵环场(同上口径) */
+  {cx: ADV_POND.cx, cz: ADV_POND.cz, r: ADV_POND.r + 12}, /* 南池盆(同上口径, 保水面齐整) */
 ];
 function advHeightAt(x, z) {/* 表面高度偏移(相对 ADV_GROUND): 圈层丘体 + 结构压平并集。
   amp 通道按控制格(16×16 格心)距小屋取圈层幅度; 建场件与树/草丛/花共用的唯一高度权威。
@@ -308,7 +338,8 @@ function advInRect(x, z, r) {/* 矩形含界判据(建场件占位/避让共用,
   return x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2;
 }
 
-function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含洞口小丘)/巢穴/门阵广场/农田/围栏/小径(T5 建场件全避) */
+function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含洞口小丘)/巢穴/门阵广场/农田/围栏/小径(T5 建场件全避)
+  + 2026-10-27 扩容新增(松林圈让位给针叶松/望塔/石阵/花田/南池——橡树不进新元素场) */
   const h = ADV_HUT;
   if (x >= h.x1 - 2 && x <= h.x2 + 2 && z >= h.z1 - 2 && z <= h.z2 + 2) return true;
   if (Math.hypot(x - ADV_LAKE.cx, z - ADV_LAKE.cz) <= ADV_LAKE.r + 2) return true;
@@ -325,6 +356,11 @@ function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含�
   for (const r of ADV_PATH) {
     if (advInRect(x, z, r)) return true;
   }
+  if (Math.hypot(x - ADV_PINE.cx, z - ADV_PINE.cz) <= ADV_PINE.r) return true; /* 松林圈: 只长松 */
+  if (Math.hypot(x - ADV_TOWER.x, z - ADV_TOWER.z) <= 6) return true; /* 望塔(含楼梯带) */
+  if (Math.hypot(x - ADV_STONES.cx, z - ADV_STONES.cz) <= ADV_STONES.r + 2) return true; /* 石阵环场 */
+  if (Math.hypot(x - ADV_MEADOW.cx, z - ADV_MEADOW.cz) <= ADV_MEADOW.r + 2) return true; /* 花田留白 */
+  if (Math.hypot(x - ADV_POND.cx, z - ADV_POND.cz) <= ADV_POND.r + 2) return true; /* 南池水岸 */
   return false;
 }
 function advTreeSpots() {/* 树林落位清单(advPlantTrees 的唯一权威): 候选按散列值排序取
@@ -407,13 +443,149 @@ function advBuildPen() {/* 畜牧围栏(T5, §2.4 核心圈·屋西): 角柱原�
   setBlockRaw(p.x2 + 1, 25, Math.floor((p.z1 + p.z2) / 2), 4); /* 踏石(栏外东侧居中) */
 }
 
-function advBuildPath() {/* 圆石小径(T5, §2.4 原则 2 动线成环): 门口↔广场↔农田三段走廊,
-  (x+z) 偶数格间断铺圆石——方向引导不铺满(不新增方块, 克制边界) */
+function advBuildPath() {/* 圆石小径(T5, §2.4 原则 2 动线成环): 门口↔广场↔农田 + 扩容
+  延伸两段(广场→望塔/农田→花田)走廊, (x+z) 偶数格间断铺圆石——方向引导不铺满
+  (不新增方块, 克制边界)。铺装贴本地表面(ADV_GROUND+高度场): 核心圈段恒 y24
+  (高度场归 0, 逐字节同旧), 丘陵段随坡起伏不断裂 */
   for (const r of ADV_PATH) {
     for (let x = r.x1; x <= r.x2; x++) {
       for (let z = r.z1; z <= r.z2; z++) {
-        if ((x + z) % 2 === 0) setBlockRaw(x, ADV_GROUND, z, 4);
+        if ((x + z) % 2 === 0) setBlockRaw(x, ADV_GROUND + advHeightAt(x, z), z, 4);
       }
+    }
+  }
+}
+
+/* ---------- 2026-10-27 扩容新增建场件(主题五件, 全确定性零 Math.random) ---------- */
+
+function advBuildPond() {/* 南池: 小水泊(水面齐 y24 可趟)+沙岸环绕+沙底——黏土教学
+  仍是湖的专属(不复制), 南池只做水景; 压平区保水面齐整 */
+  const p = ADV_POND;
+  for (let dx = -p.r; dx <= p.r; dx++) {
+    for (let dz = -p.r; dz <= p.r; dz++) {
+      const d = Math.hypot(dx, dz);
+      if (d > p.r) continue;
+      const x = p.cx + dx; const z = p.cz + dz;
+      if (d < p.r - 1.2) {
+        setBlockRaw(x, ADV_GROUND, z, B_WATER);
+        setBlockRaw(x, ADV_GROUND - 1, z, 8);
+      } else {
+        setBlockRaw(x, ADV_GROUND, z, 8);
+        setBlockRaw(x, ADV_GROUND - 1, z, 8);
+      }
+    }
+  }
+}
+
+function advBuildTower() {/* 望塔: 5×5 石砖塔(塔底小室南门洞入)+东/北两侧实心墩折返
+  石阶登顶(每级恰 1 格=跳跃可登, 矿坑级教训)+顶平台(心部灯砖/宝箱/满圈垛口墙/
+  四角原木柱火把)——登高看全岛的地标; 垛口满圈是给幼儿的防失足墙 */
+  const t = ADV_TOWER;
+  const x1 = t.x - 2; const x2 = t.x + 2; const z1 = t.z - 2; const z2 = t.z + 2;
+  SceneKit.fill(x1, ADV_GROUND + 1, z1, x2, ADV_GROUND + 1, z2, 4); /* 基座满铺(塔室地板) */
+  for (let x = x1; x <= x2; x++) {/* 台阶层: 环边圆石(南面正中留门洞坎) */
+    for (let z = z1; z <= z2; z++) {
+      if (x === x1 || x === x2 || z === z1 || z === z2) setBlockRaw(x, ADV_GROUND + 2, z, 4);
+    }
+  }
+  for (let y = ADV_GROUND + 3; y <= ADV_GROUND + 7; y++) {/* 塔身石砖环墙(内室 3×3) */
+    for (let x = x1; x <= x2; x++) {
+      for (let z = z1; z <= z2; z++) {
+        if (x === x1 || x === x2 || z === z1 || z === z2) setBlockRaw(x, y, z, 13);
+      }
+    }
+  }
+  setBlockRaw(t.x, ADV_GROUND + 2, z2, 0); /* 南门洞 2 高(坎层+墙层) */
+  setBlockRaw(t.x, ADV_GROUND + 3, z2, 0);
+  setBlockRaw(t.x, ADV_GROUND + 2, t.z, B_TORCH); /* 室内火把(落地站膛, 防清扫) */
+  const steps = [ /* 折返石阶 8 级(东列南→北 6 级 + 北列东→西 2 级), 实心墩不悬空,
+      全程直角踏步无斜跳(幼儿可登) */
+    [x2 + 1, z2, 1], [x2 + 1, z2 - 1, 2], [x2 + 1, z2 - 2, 3], [x2 + 1, z2 - 3, 4],
+    [x2 + 1, z1, 5], [x2 + 1, z1 - 1, 6], [x2, z1 - 1, 7], [x2 - 1, z1 - 1, 8],
+  ];
+  for (const [sx, sz, up] of steps) {
+    for (let y = ADV_GROUND + 1; y <= ADV_GROUND + up; y++) setBlockRaw(sx, y, sz, 4);
+  }
+  SceneKit.fill(x1, ADV_GROUND + 8, z1, x2, ADV_GROUND + 8, z2, 6); /* 顶平台木板(y32) */
+  setBlockRaw(t.x, ADV_GROUND + 8, t.z, B_GLOWSTONE); /* 平台心灯砖(发光地面) */
+  setBlockRaw(x1 + 1, ADV_GROUND + 9, z1 + 1, B_CHEST); /* 顶角宝箱(登顶奖励) */
+  for (let x = x1; x <= x2; x++) {/* 满圈垛口墙(幼儿防失足) */
+    for (const z of [z1, z2]) setBlockRaw(x, ADV_GROUND + 9, z, 4);
+  }
+  for (let z = z1 + 1; z < z2; z++) {
+    for (const x of [x1, x2]) setBlockRaw(x, ADV_GROUND + 9, z, 4);
+  }
+  for (const [px, pz] of [[x1, z1], [x2, z1], [x1, z2], [x2, z2]]) {/* 四角原木柱+火把 */
+    setBlockRaw(px, ADV_GROUND + 10, pz, 5);
+    setBlockRaw(px, ADV_GROUND + 11, pz, B_TORCH);
+  }
+}
+
+function advBuildStones() {/* 远古石阵: 8 根苔石列柱(石英压顶)围成环 + 中心苔石基座
+  托灯块(光 15, 夜间暖光地标); 柱高 2-3 确定性掷点(盐值 7802)——
+  纯观感目的地, 不刷怪不挂任务 */
+  const s = ADV_STONES;
+  for (let k = 0; k < s.n; k++) {
+    const a = k / s.n * Math.PI * 2;
+    const px = s.cx + Math.round(Math.cos(a) * s.r);
+    const pz = s.cz + Math.round(Math.sin(a) * s.r);
+    const h = SceneKit.rand(px, pz, s.salt + 2) > 0.5 ? 3 : 2;
+    for (let y = ADV_GROUND + 1; y <= ADV_GROUND + h; y++) setBlockRaw(px, y, pz, 14);
+    setBlockRaw(px, ADV_GROUND + h + 1, pz, 17); /* 石英压顶 */
+  }
+  setBlockRaw(s.cx, ADV_GROUND + 1, s.cz, 14); /* 中心基座 */
+  setBlockRaw(s.cx, ADV_GROUND + 2, s.cz, 19); /* 灯块 */
+}
+
+function advPineTree(x, baseY, z, salt) {/* 松树: 原木 4-6 高 + 锥形叶冠(下宽上尖+顶帽)
+  ——雪原 advSnowTree 同语言的针叶形, 自持盐值不跨模块借雪原件(同形保留备案,
+  maps-core S3 先例); 叶贴干 ≤2 格, need:dist4 内不失撑 */
+  const th = 4 + Math.floor(SceneKit.rand(x + 7, z + 3, salt) * 3);
+  for (let i = 0; i < th; i++) setBlockRaw(x, baseY + i, z, 5);
+  const top = baseY + th;
+  for (let ly = baseY + 2; ly <= top; ly++) {
+    const rad = ly >= top - 1 ? 1 : 2;
+    for (let dx = -rad; dx <= rad; dx++) {
+      for (let dz = -rad; dz <= rad; dz++) {
+        if (dx === 0 && dz === 0 && ly < top) continue; /* 让位树干 */
+        if (Math.abs(dx) === rad && Math.abs(dz) === rad && rad === 2) continue; /* 削角 */
+        if (getBlock(x + dx, ly, z + dz) === 0) setBlockRaw(x + dx, ly, z + dz, 7);
+      }
+    }
+  }
+  setBlockRaw(x, top + 1, z, 7); /* 顶帽 */
+}
+
+function advBuildPineGrove() {/* 松林: 圈内候选确定性掷点取前 N(空间无偏, advTreeSpots
+  同法), 橡树散布避让本圈(advTreeBlocked), 松随高度场扎根(丘上不悬空) */
+  const g = ADV_PINE;
+  const cands = [];
+  for (let x = 2; x < WORLD_W - 2; x++) {
+    for (let z = 2; z < WORLD_D - 2; z++) {
+      if (Math.hypot(x - g.cx, z - g.cz) > g.r) continue;
+      const r = SceneKit.rand(x, z, g.salt);
+      if (r > 0.96) cands.push({x, z, r}); /* 4% 列候选取前 N——圈小候选池浅, 密度比整图散布调高 */
+    }
+  }
+  cands.sort((a, b) => (a.r - b.r) || (a.x - b.x) || (a.z - b.z));
+  for (const cd of cands.slice(0, g.n)) {
+    advPineTree(cd.x, ADV_GROUND + advHeightAt(cd.x, cd.z) + 1, cd.z, g.salt + 1);
+  }
+}
+
+function advBuildMeadow() {/* 花田: 蒲公英黄/雏菊白密铺(~四成半列, 核心圈散布密度的
+  20 倍以上)——贴本地草皮表面、顶上无物才落(最后跑, 天然不叠草丛/树); 高度场
+  自然起伏不压平, 花随坡扎根 */
+  const m = ADV_MEADOW;
+  for (let dx = -m.r; dx <= m.r; dx++) {
+    for (let dz = -m.r; dz <= m.r; dz++) {
+      if (Math.hypot(dx, dz) > m.r) continue;
+      const x = m.cx + dx; const z = m.cz + dz;
+      if (SceneKit.rand(x, z, m.salt) < 0.55) continue;
+      const top = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, top, z) !== 1) continue; /* 脚下草皮(沙/水/铺装天然排除) */
+      if (getBlock(x, top + 1, z) !== 0) continue; /* 顶上无物 */
+      setBlockRaw(x, top + 1, z, SceneKit.rand(x, z, m.salt + 1) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
     }
   }
 }
@@ -437,7 +609,8 @@ function advScatterFlowers() {/* 花丛草场(T5, §2.4 核心圈): 蒲公英黄
 
 function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模式同款架构);
   T5 核心圈四件(广场/农田/围栏/小径)在地形与既有结构之后、树之前——树与散布件
-  经避让判据/顶上无物判据自动让位 */
+  经避让判据/顶上无物判据自动让位; 2026-10-27 主题五件入列: 南池/望塔/石阵随
+  结构段, 松林随树段, 花田殿后(贴草皮顶上无物判据, 不叠草丛) */
   advBaseTerrain();
   advBuildLake();
   advScatterOres();
@@ -449,9 +622,14 @@ function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模
   advBuildFarm();
   advBuildPen();
   advBuildPath();
+  advBuildPond();
+  advBuildTower();
+  advBuildStones();
   advPlantTrees();
+  advBuildPineGrove(); /* 松林圈内橡树已被避让判据排除, 序仅定确定性 */
   advScatterTufts(); /* 树立好再撒草丛(顶上无物判据吃树干占位) */
   advScatterFlowers();
+  advBuildMeadow();
 }
 
 /* ---------- 死亡政策(纯函数段): 满血 + 回出生点 + 背包保留(零惩罚哲学) ---------- */
@@ -1339,9 +1517,20 @@ function advNetherBuild() {
    步道 —— 逐字迁自 nether 模式 buildPortalFrame(行为逐字等价)。
    set(x,y,z,id) 注入缝: 场景基座传 setBlockRaw, 玩家放置传「setBlockRaw+
    逐格记账」sink(结构以 edits 形态存在, 重放即重建——与 journal 互锁
-   红线同构) */
-function advPortalFrame(set, by, px, pz) {
+   红线同构)。
+   look 观感主题(2026-10-27 门阵精细化, 缺省 undefined = 经典下界门):
+   {tower 塔楼主体, crown 冠带, path 步道主砖, pathAlt 步道花砖} 四建材随
+   目的地换装(ADV_MAPS home 行 gates[].look——沙漠砂岩/雪原雪冰/沼泽苔石),
+   并附步道前缘双火把灯柱; 黑曜石门框环(底边/顶边/侧柱/四角发光岩)与紫色
+   门面**永不换装**——「传送门魔法」的辨识底座。逐格契约: 内口 4×5 门面
+   (px+1..px+4 / by+1..by+5 / 单 z 平面)与结构包围盒(px-1..px+W,
+   pz-1..pz+1)不变——advGateAt/advPortalSiteOk/光束锚定全靠它 */
+function advPortalFrame(set, by, px, pz, look) {
   const W = ADV_PORTAL.w; const H = ADV_PORTAL.h;
+  const tw = look ? look.tower : B_OBSIDIAN; /* 塔楼主体(缺省黑曜石=经典) */
+  const cr = look ? look.crown : B_OBSIDIAN; /* 冠带: 塔顶带/门楣横带 */
+  const p1 = look ? look.path : B_NETHER_BRICK; /* 步道主砖 */
+  const p2 = look ? look.pathAlt : p1; /* 步道花砖(缺省同主砖=经典整铺) */
   for (let x = px; x <= px + W - 1; x++) set(x, by, pz, B_OBSIDIAN); /* 底边 */
   for (let x = px; x <= px + W - 1; x++) set(x, by + H - 1, pz, B_OBSIDIAN); /* 顶边 */
   for (let y = by + 1; y <= by + H - 2; y++) {
@@ -1352,15 +1541,22 @@ function advPortalFrame(set, by, px, pz) {
   for (const gx of [px, px + W - 1]) {/* 开口四角发光岩 */
     for (const gy of [by + 1, by + H - 2]) set(gx, gy, pz, B_GLOWSTONE);
   }
-  for (const tx of [px - 1, px + W]) {/* 两侧塔楼 + 发光岩压顶 */
-    for (let y = by; y <= by + H; y++) set(tx, y, pz, B_OBSIDIAN);
+  for (const tx of [px - 1, px + W]) {/* 两侧塔楼: 主体收顶 + 冠带 + 发光岩灯 */
+    for (let y = by; y <= by + H - 1; y++) set(tx, y, pz, tw);
+    set(tx, by + H, pz, cr);
     set(tx, by + H + 1, pz, B_GLOWSTONE);
   }
-  for (let x = px; x <= px + W - 1; x++) set(x, by + H, pz, B_OBSIDIAN); /* 门楣: 逐层收窄 */
-  for (let x = px + 1; x <= px + W - 2; x++) set(x, by + H + 1, pz, B_OBSIDIAN);
+  for (let x = px; x <= px + W - 1; x++) set(x, by + H, pz, cr); /* 门楣: 冠带横贯(与塔顶带同高) */
+  for (let x = px + 1; x <= px + W - 2; x++) set(x, by + H + 1, pz, cr); /* 上带逐层收窄 */
   for (let x = px + 2; x <= px + W - 3; x++) set(x, by + H + 2, pz, B_GLOWSTONE); /* 顶心发光岩 */
-  for (const dz of [-1, 1]) {/* 前后步道(与地表齐平) */
-    for (let x = px - 1; x <= px + W; x++) set(x, by, pz + dz, B_NETHER_BRICK);
+  for (const dz of [-1, 1]) {/* 前后步道(与地表齐平): 后排主/花砖相间出纹理, 前排整条主砖 */
+    for (let x = px - 1; x <= px + W; x++) {
+      set(x, by, pz + dz, dz < 0 ? (((x - px) % 2 === 0) ? p1 : p2) : p1);
+    }
+  }
+  if (look) {/* 门前灯柱(主题门限定): 步道前缘两端火把, 夜里给门阵引光 */
+    set(px - 1, by + 1, pz + 1, B_TORCH);
+    set(px + W, by + 1, pz + 1, B_TORCH);
   }
 }
 
@@ -1480,9 +1676,11 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, ADV_RING, ADV_HUT_C, ADV_FLATS, advRingAmp, advHeightAt,
     ADV_GATE_PLAZA, ADV_GATE_PLAZA_PAD, ADV_FARM, ADV_PEN, ADV_PATH, advInRect,
+    ADV_PINE, ADV_TOWER, ADV_STONES, ADV_MEADOW, ADV_POND,
     advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
     advBuildPit, advTryOre, advBuildCave, advBuildHut, advBuildNest, advTreeBlocked,
     advBuildPlaza, advBuildFarm, advBuildPen, advBuildPath, advScatterFlowers,
+    advBuildPond, advBuildTower, advBuildStones, advPineTree, advBuildPineGrove, advBuildMeadow,
     advPlantTrees, advTreeSpots, advScatterTufts, advBuildWorld, advDeathPlan,
     ADV_NEST_MIN, ADV_NEST_MAX, ADV_NEST_RESPAWN_T, ADV_NEST_AGGRO_R, ADV_NEST_LEASH_R,
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,
