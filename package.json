@@ -1,5 +1,5 @@
 {
-  "name": "my-craft-demo",
+  "name": "mine-child-craft",
   "version": "1.0.0",
   "private": true,
   "description": "我的世界 · 方块乐园 — 体素注意力训练游戏（原生 JS + Three.js，无构建步骤。本文件只承载开发期 lint 工具链，运行时不依赖 node_modules：入口 node server.js，浏览器直引 js/*.js）",
