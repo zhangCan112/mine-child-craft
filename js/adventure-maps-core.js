@@ -122,14 +122,18 @@ function advDesertFlats() { /* 压平区清单: 回程门/神殿/绿洲/巢穴(S
 }
 
 function advDesertTerrain() { /* 沙丘地层: heightAt 幅度 2 起伏 + 九成沙面/一成砂岩露头
-    + 砂岩垫层 3 格 + 绿洲水泊(压平区内水面齐 y24, home 湖同款) */
+    + 砂岩垫层 3 格 + 绿洲水泊(压平区内水面齐 y24, home 湖同款)。
+    门区+落点走廊强制沙面(砂岩露头散布不进门位——门体的落位前提) */
+  const gt = ADV_DESERT.gate;
+  const inGateZone = (x, z) => x >= gt.px - 2 && x <= gt.px + 7 && z >= gt.pz - 2 && z <= gt.pz + 9;
   const opts = {salt: ADV_DESERT.salt, amp: 2, base: 0, flats: advDesertFlats()};
   for (let x = 0; x < WORLD_W; x++) {
     for (let z = 0; z < WORLD_D; z++) {
       const top = ADV_GROUND + SceneKit.heightAt(x, z, opts);
       for (let y = 0; y <= top - 4; y++) setBlockRaw(x, y, z, 3);
       for (let y = top - 3; y < top; y++) setBlockRaw(x, y, z, B_SANDSTONE);
-      setBlockRaw(x, top, z, SceneKit.rand(x, z, ADV_DESERT.salt + 1) > 0.9 ? B_SANDSTONE : 8);
+      const bare = !inGateZone(x, z) && SceneKit.rand(x, z, ADV_DESERT.salt + 1) > 0.9;
+      setBlockRaw(x, top, z, bare ? B_SANDSTONE : 8);
     }
   }
   for (const o of ADV_DESERT.oasis) { /* 绿洲: 湖心水+沙底, 沙岸环绕 */
@@ -443,10 +447,11 @@ const ADV_MAPS = [
       water: [0.25, 0.45, 0.85], sky: [0.56, 0.78, 1.00],
     },
     build: advBuildWorld,
-    gates: [ /* 三扇门阵(T5 广场压平区 x70-84 z74-88 内品字落位, 门体 T7 建) */
+    gates: [ /* 三扇门阵(T5 广场压平区 x70-84 z74-88 内品字落位, 门体 T7 建;
+       现散布场校准: 落位避树冠/树干, 撞上的只有 thin 草丛——门基座直接覆盖) */
       {to: 'desert', px: 72, pz: 76},
       {to: 'snow', px: 80, pz: 76},
-      {to: 'swamp', px: 76, pz: 86},
+      {to: 'swamp', px: 72, pz: 88},
     ],
     livestock: 'herds', /* 四畜全套留 home(设计稿 §10 拍板⑤) */
   }, ADV_HOME_ROW),

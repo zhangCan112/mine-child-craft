@@ -472,4 +472,42 @@ test('沼泽建场: 女巫小屋 — 高脚木屋(原木柱脚+木板屋体) + �
   }
 });
 
+/* ============ 门位完整性(对建场后的真实世界断言, 票据验收) ============ */
+
+test('门位: 四图门位不落水 · 地表压平净空不撞结构(T7 门体的落位前提)', () => {
+  const groundOf = {home: 1, desert: 8, snow: api.B_SNOWY_GRASS, swamp: 1}; /* 各图地表方块 */
+  for (const r of Maps.ADV_MAPS) {
+    clearWorld();
+    r.build(); /* 该图真实建场 */
+    for (const g of r.gates) {
+      const x1 = g.px - 1; const x2 = g.px + ADV_PORTAL.w; /* 含塔楼/步道的包围盒 */
+      const z1 = g.pz - 1; const z2 = g.pz + 1;
+      for (let x = x1; x <= x2; x++) {
+        for (let z = z1; z <= z2; z++) {
+          assert.notStrictEqual(cell(x, ADV_GROUND, z), api.B_WATER,
+              r.id + ' 门(' + g.to + ') 不落水 @(' + x + ',' + z + ')');
+          assert.strictEqual(cell(x, ADV_GROUND, z), groundOf[r.id],
+              r.id + ' 门区地表压平为' + r.name + '地表 @(' + x + ',' + z + ')');
+          for (let y = ADV_GROUND + 1; y <= ADV_GROUND + ADV_PORTAL.h + 2; y++) {
+            const id = cell(x, y, z);
+            const ok = id === 0 || (r.id === 'home' && id === api.B_GRASS_TUFT); /* home 现散布场
+              允许 thin 草丛(solid:false 不挡门体, T7 门基座覆盖; T5 重排后压平区不再散草) */
+            assert.ok(ok, r.id + ' 门区净空(不撞结构/植被) @(' + x + ',' + y + ',' + z + ')=' + id);
+          }
+        }
+      }
+      /* 落点走廊: 门南侧到落点+2 格也是平地净空(advMapArrive 的面朝外前提) */
+      const a = Maps.advMapArrive(r.id === 'home' ? Maps.ADV_MAPS.find((m) => m.id === 'desert') : r);
+      if (r.id !== 'home') {
+        for (let z = g.pz + 1; z <= Math.floor(a.z) + 2; z++) {
+          assert.strictEqual(cell(g.px + 2, ADV_GROUND, z), groundOf[r.id],
+              r.id + ' 落点走廊地表 @(' + (g.px + 2) + ',' + z + ')');
+          assert.strictEqual(cell(g.px + 2, ADV_GROUND + 1, z), 0, r.id + ' 落点走廊净空');
+          assert.strictEqual(cell(g.px + 3, ADV_GROUND + 1, z), 0, r.id + ' 落点走廊净空(东列)');
+        }
+      }
+    }
+  }
+});
+
 
