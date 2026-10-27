@@ -90,7 +90,133 @@ const ADV_SWAMP = { /* 青苔沼泽: 平地浅水洼 + 垂藤橡树 + 沼骸替�
    两次建场 worldCells 逐字节一致(单测红线); 门体不在建场内
    (T7 壳经 advPortalFrame 建, 建场只保证门位区压平净空)
    ============================================================ */
-function advDesertBuild() { /* 沙漠建场总装 */ }
+
+/* 参数化巢穴丘(advBuildNest 同形状, 方块随图换): top=丘体方块,
+   rock=点缀方块——desert 沙+砂岩 / snow 雪块+石头 / swamp 泥+苔石
+   (与 home 巢同观感)。kinds 池在图常量 nests 里, 刷怪归壳(T6) */
+function advMapNest(n, top, rock) {
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      const d = Math.hypot(dx, dz);
+      if (d > 2) continue;
+      const h = d < 0.8 ? 3 : (d < 1.8 ? 2 : 1);
+      for (let y = ADV_GROUND + 1; y <= ADV_GROUND + h; y++) {
+        const id = (d >= 0.8 && SceneKit.rand(n.x + dx, n.z + dz, 5102) > 0.72) ? rock : top;
+        setBlockRaw(n.x + dx, y, n.z + dz, id);
+      }
+    }
+  }
+  for (const y of [ADV_GROUND + 1, ADV_GROUND + 2]) setBlockRaw(n.x, y, n.z + 2, 0); /* 洞口朝南 */
+}
+
+/* ---------- 黄沙沙漠 ---------- */
+
+function advDesertFlats() { /* 压平区清单: 回程门/神殿/绿洲/巢穴(Snow/swamp 同款手法) */
+  const f = [
+    {cx: ADV_DESERT.gate.px + 2, cz: ADV_DESERT.gate.pz, r: 12}, /* 门区+落点开阔带 */
+    {cx: ADV_DESERT.temple.cx, cz: ADV_DESERT.temple.cz, r: 18},
+  ];
+  for (const o of ADV_DESERT.oasis) f.push({cx: o.cx, cz: o.cz, r: o.r + 3});
+  for (const n of ADV_DESERT.nests) f.push({cx: n.x, cz: n.z, r: 6});
+  return f;
+}
+
+function advDesertTerrain() { /* 沙丘地层: heightAt 幅度 2 起伏 + 九成沙面/一成砂岩露头
+    + 砂岩垫层 3 格 + 绿洲水泊(压平区内水面齐 y24, home 湖同款) */
+  const opts = {salt: ADV_DESERT.salt, amp: 2, base: 0, flats: advDesertFlats()};
+  for (let x = 0; x < WORLD_W; x++) {
+    for (let z = 0; z < WORLD_D; z++) {
+      const top = ADV_GROUND + SceneKit.heightAt(x, z, opts);
+      for (let y = 0; y <= top - 4; y++) setBlockRaw(x, y, z, 3);
+      for (let y = top - 3; y < top; y++) setBlockRaw(x, y, z, B_SANDSTONE);
+      setBlockRaw(x, top, z, SceneKit.rand(x, z, ADV_DESERT.salt + 1) > 0.9 ? B_SANDSTONE : 8);
+    }
+  }
+  for (const o of ADV_DESERT.oasis) { /* 绿洲: 湖心水+沙底, 沙岸环绕 */
+    for (let dx = -o.r; dx <= o.r; dx++) {
+      for (let dz = -o.r; dz <= o.r; dz++) {
+        const d = Math.hypot(dx, dz);
+        if (d > o.r) continue;
+        const x = o.cx + dx; const z = o.cz + dz;
+        if (d < o.r - 1.2) {
+          setBlockRaw(x, ADV_GROUND, z, B_WATER);
+          setBlockRaw(x, ADV_GROUND - 1, z, 8);
+        } else {
+          setBlockRaw(x, ADV_GROUND, z, 8);
+          setBlockRaw(x, ADV_GROUND - 1, z, 8);
+        }
+      }
+    }
+  }
+}
+
+function advDesertTemple() { /* 沙漠神殿: 砂岩金字塔+南面外楼梯 + 地下宝箱室
+    (B_CHEST 接大宝箱阶梯) + 可疑地板(沙色, 踩塌/挖开滑落入口——MC TNT
+    陷阱的儿童版, 附录 B #5: 无爆炸无致死) + 东侧出路楼梯(矿坑 1 格级
+    教训, 不困人) */
+  const t = ADV_DESERT.temple;
+  /* 地下宝箱室 7×7×4(先掏, 金字塔再压顶) */
+  SceneKit.fill(t.cx - 3, 17, t.cz - 3, t.cx + 3, 17, t.cz + 3, B_SANDSTONE); /* 室地板 */
+  SceneKit.fill(t.cx - 3, 18, t.cz - 3, t.cx + 3, 21, t.cz + 3, 0); /* 室腔 */
+  SceneKit.fill(t.cx - 3, 22, t.cz - 3, t.cx + 3, 23, t.cz + 3, B_SANDSTONE); /* 室顶+地基 */
+  SceneKit.fill(t.cx - 1, 23, t.cz - 1, t.cx, 23, t.cz, 8); /* 可疑地板: 中央 2×2 沙色薄层 */
+  setBlockRaw(t.cx, 20, t.cz, B_CHEST);
+  setBlockRaw(t.cx - 2, 21, t.cz - 2, B_TORCH); /* 照明(防室内刷怪+不困黑的) */
+  setBlockRaw(t.cx + 2, 21, t.cz + 2, B_TORCH);
+  /* 东侧出路: 1 格级楼梯 y19→y25 回地表(穿地层向东) */
+  for (let i = 0; i <= 6; i++) {
+    const x = t.cx + 4 + i; const y = 19 + i;
+    SceneKit.fill(x, y, t.cz - 1, x, y + 2, t.cz + 1, 0); /* 净空 */
+    if (getBlock(x, y - 1, t.cz) === 0) setBlockRaw(x, y - 1, t.cz, B_SANDSTONE); /* 垫脚 */
+  }
+  SceneKit.fill(t.cx + 10, ADV_GROUND, t.cz - 1, t.cx + 11, ADV_GROUND, t.cz + 1, 8); /* 出口沙平台 */
+  /* 金字塔 8 级(底 15×15 → 顶尖 1×1), 塔底 y25 起于地表 y24 之上 */
+  for (let lv = 0; lv <= 7; lv++) {
+    const r = t.r - lv;
+    SceneKit.fill(t.cx - r, ADV_GROUND + 1 + lv, t.cz - r, t.cx + r, ADV_GROUND + 1 + lv, t.cz + r, B_SANDSTONE);
+  }
+  /* 南面外楼梯: 2 宽台阶嵌塔身(y26→y32, 顶与塔尖 y32 平步相接, 相邻高差 1) */
+  for (let i = 0; i <= 6; i++) {
+    SceneKit.fill(t.cx - 1, ADV_GROUND + 2 + i, t.cz + t.r - i, t.cx, ADV_GROUND + 2 + i, t.cz + t.r - i, B_SANDSTONE);
+  }
+}
+
+function advDesertBlocked(x, z) { /* 植被禁区: 门区/神殿(含楼梯出口)/绿洲/巢穴 */
+  const d = ADV_DESERT;
+  if (Math.abs(x - d.gate.px - 2) <= 10 && Math.abs(z - d.gate.pz) <= 10) return true;
+  if (Math.abs(x - d.temple.cx) <= d.temple.r + 2 && Math.abs(z - d.temple.cz) <= d.temple.r + 2) return true;
+  for (const o of d.oasis) if (Math.hypot(x - o.cx, z - o.cz) <= o.r + 2) return true;
+  for (const n of d.nests) if (Math.hypot(x - n.x, z - n.z) < 6) return true;
+  return false;
+}
+
+function advDesertPlants() { /* 仙人掌 2-3 高柱 + 枯灌木散布(确定性, 只长
+    沙面——列顶 getBlock 判定, 砂岩露头/水泊/结构天然排除) */
+  const d = ADV_DESERT;
+  for (let x = 2; x < WORLD_W - 2; x++) {
+    for (let z = 2; z < WORLD_D - 2; z++) {
+      if (advDesertBlocked(x, z)) continue;
+      const r = SceneKit.rand(x, z, d.salt + 2);
+      if (r <= 0.988) continue;
+      const y = groundTop(x, z);
+      if (getBlock(x, y, z) !== 8) continue; /* 只长沙面 */
+      if (r > 0.995) { /* 仙人掌柱(~0.5% 列) */
+        const h = 2 + (SceneKit.rand(x, z, d.salt + 3) > 0.5 ? 1 : 0);
+        for (let i = 1; i <= h; i++) setBlockRaw(x, y + i, z, B_CACTUS);
+      } else { /* 枯灌木(~0.7% 列) */
+        setBlockRaw(x, y + 1, z, B_DEAD_BUSH);
+      }
+    }
+  }
+}
+
+function advDesertBuild() { /* 沙漠建场总装 */
+  advDesertTerrain();
+  advDesertTemple();
+  for (const n of ADV_DESERT.nests) advMapNest(n, 8, B_SANDSTONE);
+  advDesertPlants();
+}
+
 function advSnowBuild() { /* 雪原建场总装 */ }
 function advSwampBuild() { /* 沼泽建场总装 */ }
 
@@ -206,7 +332,8 @@ function advMapDeathPlan(mapId, player) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_MAPS, ADV_DESERT, ADV_SNOW, ADV_SWAMP,
-    advDesertBuild, advSnowBuild, advSwampBuild,
+    advDesertBuild, advDesertTerrain, advDesertTemple, advDesertPlants,
+    advSnowBuild, advSwampBuild, advMapNest,
     ADV_UNLOCK_KEYS, advMapUnlocked, ADV_GATE_HOLD_T, advGateHoldStep,
     advMapArrive, advMapDeathPlan};
 }

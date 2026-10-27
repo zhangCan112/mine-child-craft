@@ -21,7 +21,7 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
-  getBlock, setBlockRaw, SceneKit, Daylight, DAYLIGHT, BLOCKS, PLAYER,
+  getBlock, setBlockRaw, groundTop, SceneKit, Daylight, DAYLIGHT, BLOCKS, PLAYER,
   WORLD_W, WORLD_D, WORLD_H, MOB_TYPES,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED,
@@ -202,4 +202,125 @@ test('政策: 死亡回家 — 满血+home 门口+背包保留+map 标记回 hom
   assert.strictEqual(plan.map, 'home', '壳按 map 切回 home(远征图死=回家红线)');
   assert.strictEqual(Maps.advMapDeathPlan('home', {hp: 3, maxHp: 30}).map, 'home', 'home 图死=原地出生点(不切图)');
 });
+
+/* ============ 建场: 黄沙沙漠 ============ */
+
+test('沙漠建场: 两次建场 worldCells 逐字节一致(确定性红线, 零 Math.random)', () => {
+  Maps.advDesertBuild();
+  const a = snapshot();
+  vm.runInContext('worldCells.fill(0)', eng);
+  Maps.advDesertBuild();
+  assert.deepStrictEqual(a, snapshot(), '两次建场 worldCells 逐块一致');
+});
+
+test('沙漠建场: 地表九成列沙+砂岩垫层 · 神殿/绿洲/巢穴占位', () => {
+  Maps.advDesertBuild();
+  /* 地表抽样: 全图列顶方块分类(植被/水/建筑顶之外的「地表」应为沙) */
+  const counts = {};
+  for (let x = 0; x < W; x++) {
+    for (let z = 0; z < D; z++) counts[cell(x, colTop(x, z), z)] = (counts[cell(x, colTop(x, z), z)] || 0) + 1;
+  }
+  const total = W * D;
+  assert.ok(counts[8] / total >= 0.85, '九成列地表是沙(实测 ' + (counts[8] / total * 100).toFixed(1) + '%)');
+  assert.ok(counts[api.B_SANDSTONE] > 0 && counts[api.B_SANDSTONE] / total < 0.2,
+      '一成砂岩露头点缀(非铺满)');
+  /* 砂岩垫层: 抽样平坦沙列的下 3 格是砂岩、再往下石头 */
+  let checked = 0;
+  for (let x = 20; x < W && checked < 40; x += 13) {
+    for (let z = 20; z < D && checked < 40; z += 11) {
+      const y = colTop(x, z);
+      if (cell(x, y, z) !== 8 || y !== ADV_GROUND) continue; /* 只验平地沙列 */
+      assert.strictEqual(cell(x, y - 1, z), api.B_SANDSTONE, '沙下第 1 格砂岩垫层');
+      assert.strictEqual(cell(x, y - 3, z), api.B_SANDSTONE, '垫层 3 格厚');
+      assert.strictEqual(cell(x, y - 5, z), 3, '垫层以下是石头');
+      checked++;
+    }
+  }
+  assert.ok(checked >= 10, '平地沙列抽样点足够');
+  /* 小绿洲水泊: 水面齐 y24 + 湖底沙 */
+  const o = Maps.ADV_DESERT.oasis[0];
+  assert.strictEqual(cell(o.cx, ADV_GROUND, o.cz), api.B_WATER, '绿洲中心水面 y24');
+  assert.strictEqual(cell(o.cx, ADV_GROUND - 1, o.cz), 8, '湖底沙');
+  assert.ok(countId(api.B_WATER) > 60, '两处绿洲水体规模');
+});
+
+test('沙漠建场: 仙人掌 2-3 高柱 · 枯灌木散布 · 只长沙上', () => {
+  Maps.advDesertBuild();
+  const cacti = countId(api.B_CACTUS);
+  assert.ok(cacti >= 15, '仙人掌柱规模(实测 ' + cacti + ')');
+  assert.ok(countId(api.B_DEAD_BUSH) >= 15, '枯灌木散布规模');
+  /* 柱高 2-3: 从柱顶格向下数到沙面 */
+  const heights = [];
+  for (let y = ADV_GROUND + 1; y < ADV_GROUND + 5; y++) {
+    for (let z = 1; z < D - 1; z++) {
+      for (let x = 1; x < W - 1; x++) {
+        if (cell(x, y, z) !== api.B_CACTUS) continue;
+        if (cell(x, y + 1, z) === api.B_CACTUS) continue; /* 只看柱顶格 */
+        let h = 0; let yy = y;
+        while (cell(x, yy, z) === api.B_CACTUS) { h++; yy--; }
+        heights.push(h);
+      }
+    }
+  }
+  assert.ok(heights.length >= 15, '株数与柱顶扫描一致');
+  assert.ok(heights.every((h) => h >= 2 && h <= 3), '柱高一律 2-3(实测集合 ' + [...new Set(heights)] + ')');
+  /* 只长沙上: 柱脚下是沙 */
+  for (let z = 1; z < D - 1; z += 7) {
+    for (let x = 1; x < W - 1; x += 5) {
+      const y = colTop(x, z);
+      if (cell(x, y, z) === api.B_DEAD_BUSH) assert.strictEqual(cell(x, y - 1, z), 8, '枯灌木脚下是沙');
+    }
+  }
+});
+
+test('沙漠建场: 神殿 — 砂岩金字塔+外楼梯 · 地下宝箱室(B_CHEST+可疑地板+出路楼梯)', () => {
+  Maps.advDesertBuild();
+  const t = Maps.ADV_DESERT.temple;
+  /* 金字塔: 塔底 15×15 实心砂岩, 塔顶尖格 */
+  assert.strictEqual(cell(t.cx, 25, t.cz), api.B_SANDSTONE, '塔底层中心砂岩');
+  assert.strictEqual(cell(t.cx - t.r, 25, t.cz - t.r), api.B_SANDSTONE, '塔底四角齐');
+  assert.strictEqual(cell(t.cx, ADV_GROUND + 8, t.cz), api.B_SANDSTONE, '塔顶(8 级到 y32)');
+  assert.strictEqual(cell(t.cx, ADV_GROUND + 9, t.cz), 0, '塔顶之上净空');
+  /* 外楼梯: 南面 2 宽台阶逐级(相邻高差 1, 顶与塔尖平步相接) */
+  for (let i = 0; i <= 6; i++) {
+    const z = t.cz + t.r - i;
+    const y = 26 + i;
+    assert.strictEqual(cell(t.cx, y, z), api.B_SANDSTONE, '楼梯第 ' + i + ' 级(南面嵌塔)');
+  }
+  assert.strictEqual(cell(t.cx, 32, t.cz + 1), api.B_SANDSTONE, '楼梯末级与塔尖平步相接');
+  /* 地下宝箱室: y18~21 室腔 + 砂岩地板/室顶 + 宝箱 + 火把 */
+  assert.strictEqual(cell(t.cx, 17, t.cz), api.B_SANDSTONE, '室地板砂岩');
+  assert.strictEqual(cell(t.cx, 18, t.cz), 0, '室腔净空');
+  assert.strictEqual(cell(t.cx, 20, t.cz), api.B_CHEST, '宝箱在室中央');
+  assert.ok(cell(t.cx - 2, 21, t.cz - 2) === api.B_TORCH || cell(t.cx + 2, 21, t.cz + 2) === api.B_TORCH,
+      '室内火把(照明防刷怪)');
+  assert.strictEqual(cell(t.cx, 22, t.cz), api.B_SANDSTONE, '室顶整层砂岩');
+  /* 可疑地板: 室顶上方 y23 中央 2×2 是沙色(其余砂岩)——踩塌滑落入口, 挖开即落 */
+  assert.strictEqual(cell(t.cx - 1, 23, t.cz - 1), 8, '可疑地板 2×2 沙(西北格)');
+  assert.strictEqual(cell(t.cx, 23, t.cz), 8, '可疑地板 2×2 沙(东南格)');
+  assert.strictEqual(cell(t.cx - 3, 23, t.cz - 3), api.B_SANDSTONE, '可疑地板周边仍是砂岩');
+  /* 出路: 东侧 1 格级楼梯从室底回到地表(矿坑级教训, 不困人) */
+  let steps = 0;
+  for (let i = 0; i <= 6; i++) {
+    const x = t.cx + 4 + i;
+    const y = 19 + i;
+    if (cell(x, y, t.cz) !== 0 || cell(x, y - 1, t.cz) === 0) continue;
+    steps++; /* 净空在, 垫脚在 */
+  }
+  assert.ok(steps >= 5, '东侧楼梯多数台阶成立(实测 ' + steps + '/7)');
+  assert.strictEqual(cell(t.cx + 10, ADV_GROUND, t.cz), 8, '楼梯出口回到地表沙面');
+});
+
+test('沙漠建场: 三巢穴沙丘+砂岩点缀+朝南洞口(advMapNest 参数化件)', () => {
+  Maps.advDesertBuild();
+  for (const n of Maps.ADV_DESERT.nests) {
+    const top = colTop(n.x, n.z);
+    assert.strictEqual(cell(n.x, top, n.z), 8, '巢丘顶沙');
+    assert.ok(top >= ADV_GROUND + 2, '丘高 ≥2(洞口在丘体上)');
+    assert.strictEqual(cell(n.x, ADV_GROUND + 1, n.z + 2), 0, '洞口朝南净空(壳 spawn 环带)');
+    assert.ok(cell(n.x + 2, ADV_GROUND + 1, n.z) !== 0 && cell(n.x - 2, ADV_GROUND + 1, n.z) !== 0,
+        '丘体直径 ≥5(东西丘脚)');
+  }
+});
+
 
