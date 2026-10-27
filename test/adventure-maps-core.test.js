@@ -413,4 +413,63 @@ test('雪原建场: 三巢穴雪块丘+石头点缀+朝南洞口', () => {
   }
 });
 
+/* ============ 建场: 青苔沼泽 ============ */
+
+test('沼泽建场: 两次建场 worldCells 逐字节一致(确定性红线)', () => {
+  clearWorld();
+  Maps.advSwampBuild();
+  const a = snapshot();
+  clearWorld();
+  Maps.advSwampBuild();
+  assertSameWorld(a, snapshot(), '两次建场 worldCells 逐块一致');
+});
+
+test('沼泽建场: 浅水洼+泥岸 · 垂藤橡树(从简口径) · 兰花散布(唯一产地)', () => {
+  Maps.advSwampBuild();
+  /* 浅水洼: 洼心水面齐 y24 可趟 + 泥底; 洼外一圈泥岸 */
+  const p = Maps.ADV_SWAMP.pools[0];
+  assert.strictEqual(cell(p.cx, ADV_GROUND, p.cz), api.B_WATER, '洼心水面 y24(浅水)');
+  assert.strictEqual(cell(p.cx, ADV_GROUND - 1, p.cz), 2, '洼底泥');
+  assert.ok(countId(api.B_WATER) > 120, '五处水洼规模(实测 ' + countId(api.B_WATER) + ')');
+  const shore = {found: false};
+  for (let dx = -p.r - 1; dx <= p.r + 1 && !shore.found; dx++) {
+    for (let dz = -p.r - 1; dz <= p.r + 1 && !shore.found; dz++) {
+      const d = Math.hypot(dx, dz);
+      if (d > p.r && d <= p.r + 1.2 && cell(p.cx + dx, ADV_GROUND, p.cz + dz) === 2) shore.found = true;
+    }
+  }
+  assert.ok(shore.found, '水洼外圈泥岸');
+  /* 垂藤橡树: 橡树树形(SceneKit.tree)成规模——垂藤从简=暗绿观感留给 T6 调色板 */
+  assert.ok(countId(5) >= 40, '橡树树干规模(实测 ' + countId(5) + ')');
+  assert.ok(countId(7) >= 120, '橡树冠规模(实测 ' + countId(7) + ')');
+  /* 兰花: 沼泽唯一产地, 只长草上 */
+  const orchid = countId(api.B_ORCHID, (x, y, z) => cell(x, y - 1, z) === 1);
+  assert.ok(orchid >= 20, '兰花散布规模且脚下是草(实测 ' + orchid + ')');
+});
+
+test('沼泽建场: 女巫小屋 — 高脚木屋(原木柱脚+木板屋体) + 宝箱 + 门洞 · 两巢穴泥丘', () => {
+  Maps.advSwampBuild();
+  const h = Maps.ADV_SWAMP.hut;
+  /* 高脚: 原木柱脚从地面撑起屋体 */
+  assert.strictEqual(cell(h.x - 2, ADV_GROUND + 1, h.z - 1), 5, '柱脚原木 y25');
+  assert.strictEqual(cell(h.x - 2, ADV_GROUND + 3, h.z - 1), 5, '柱脚原木到屋底 y27');
+  assert.strictEqual(cell(h.x - 2, ADV_GROUND + 4, h.z - 1), 6, '屋体地板木板 y28');
+  assert.strictEqual(cell(h.x, ADV_GROUND + 5, h.z), 0, '屋内净空');
+  assert.strictEqual(cell(h.x, ADV_GROUND + 7, h.z), 6, '木板屋顶 y31');
+  assert.strictEqual(cell(h.x - 2, ADV_GROUND + 5, h.z + 2), 6, '南墙木板');
+  assert.strictEqual(cell(h.x, ADV_GROUND + 4, h.z), api.B_CHEST, '屋内宝箱');
+  assert.strictEqual(cell(h.x - 2, ADV_GROUND + 5, h.z - 1), api.B_TORCH, '屋内火把(西墙)');
+  /* 门洞朝南 + 台阶进门(高脚屋地板 y28, 台阶 1 格级上到门口) */
+  assert.strictEqual(cell(h.x, ADV_GROUND + 5, h.z + 2), 0, '门洞 2 高下格');
+  assert.strictEqual(cell(h.x, ADV_GROUND + 6, h.z + 2), 0, '门洞上格');
+  assert.strictEqual(cell(h.x, ADV_GROUND + 1, h.z + 5), 6, '进屋台阶第 1 级');
+  assert.strictEqual(cell(h.x, ADV_GROUND + 3, h.z + 3), 6, '台阶末级(平步入地板)');
+  /* 巢穴: 泥丘+苔石点缀(与 home 巢同款观感) */
+  for (const n of Maps.ADV_SWAMP.nests) {
+    const top = colTop(n.x, n.z);
+    assert.ok(top >= ADV_GROUND + 2, '丘高 ≥2');
+    assert.strictEqual(cell(n.x, ADV_GROUND + 1, n.z + 2), 0, '洞口朝南');
+  }
+});
+
 

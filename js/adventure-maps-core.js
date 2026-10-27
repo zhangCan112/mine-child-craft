@@ -339,7 +339,94 @@ function advSnowBuild() { /* 雪原建场总装 */
   advSnowScatter();
 }
 
-function advSwampBuild() { /* 沼泽建场总装 */ }
+/* ---------- 青苔沼泽 ---------- */
+
+function advSwampTerrain() { /* 沼泽地层: 平地草/泥/石(home 口径, 无丘——票据
+    只给沙丘/雪堆轻用高度场) + 浅水洼(水面齐 y24 可趟+泥底) + 泥岸环绕 */
+  for (let x = 0; x < WORLD_W; x++) {
+    for (let z = 0; z < WORLD_D; z++) {
+      for (let y = 0; y <= ADV_GROUND - 5; y++) setBlockRaw(x, y, z, 3);
+      for (let y = ADV_GROUND - 4; y < ADV_GROUND; y++) setBlockRaw(x, y, z, 2);
+      setBlockRaw(x, ADV_GROUND, z, 1);
+    }
+  }
+  for (const p of ADV_SWAMP.pools) {
+    for (let dx = -p.r - 1; dx <= p.r + 1; dx++) {
+      for (let dz = -p.r - 1; dz <= p.r + 1; dz++) {
+        const d = Math.hypot(dx, dz);
+        if (d > p.r + 1.2) continue;
+        const x = p.cx + dx; const z = p.cz + dz;
+        if (d < p.r - 0.5) { /* 洼心: 水 + 泥底 */
+          setBlockRaw(x, ADV_GROUND, z, B_WATER);
+          setBlockRaw(x, ADV_GROUND - 1, z, 2);
+        } else { /* 泥岸 */
+          setBlockRaw(x, ADV_GROUND, z, 2);
+        }
+      }
+    }
+  }
+}
+
+function advSwampHut() { /* 女巫小屋(MC 沼泽小屋同款位): 高脚木屋——原木柱脚
+    y25~27 撑起木板屋体(地板 y28/墙 y29~30/顶 y31), 南门洞+台阶进门;
+    屋内宝箱+火把。witch 常驻位在图常量(ADV_SWAMP.hut), spawn 归壳 T6 */
+  const h = ADV_SWAMP.hut;
+  for (const cn of [[h.x - 2, h.z - 1], [h.x + 2, h.z - 1], [h.x - 2, h.z + 1], [h.x + 2, h.z + 1]]) {
+    for (let y = ADV_GROUND + 1; y <= ADV_GROUND + 3; y++) setBlockRaw(cn[0], y, cn[1], 5); /* 柱脚 */
+  }
+  SceneKit.fill(h.x - 2, ADV_GROUND + 4, h.z - 1, h.x + 2, ADV_GROUND + 4, h.z + 2, 6); /* 地板 */
+  for (const y of [ADV_GROUND + 5, ADV_GROUND + 6]) { /* 墙(留南门洞) */
+    SceneKit.fill(h.x - 2, y, h.z - 1, h.x + 2, y, h.z - 1, 6);
+    SceneKit.fill(h.x - 2, y, h.z + 2, h.x + 2, y, h.z + 2, 6);
+    SceneKit.fill(h.x - 2, y, h.z, h.x - 2, y, h.z + 1, 6);
+    SceneKit.fill(h.x + 2, y, h.z, h.x + 2, y, h.z + 1, 6);
+  }
+  SceneKit.fill(h.x, ADV_GROUND + 5, h.z + 2, h.x, ADV_GROUND + 6, h.z + 2, 0); /* 南门洞 2 高 */
+  SceneKit.fill(h.x - 2, ADV_GROUND + 7, h.z - 1, h.x + 2, ADV_GROUND + 7, h.z + 2, 6); /* 顶 */
+  setBlockRaw(h.x, ADV_GROUND + 4, h.z, B_CHEST);
+  setBlockRaw(h.x - 2, ADV_GROUND + 5, h.z - 1, B_TORCH); /* 西墙火把 */
+  for (let i = 0; i <= 2; i++) { /* 台阶: y25..y27 三级到地板平步(1 格级) */
+    setBlockRaw(h.x, ADV_GROUND + 1 + i, h.z + 5 - i, 6);
+  }
+}
+
+function advSwampBlocked(x, z) { /* 植被禁区: 门区/小屋(含台阶)/水洼(+泥岸)/巢穴 */
+  const d = ADV_SWAMP;
+  if (Math.abs(x - d.gate.px - 2) <= 10 && Math.abs(z - d.gate.pz) <= 10) return true;
+  if (Math.abs(x - d.hut.x) <= 6 && Math.abs(z - d.hut.z) <= 8) return true;
+  for (const p of d.pools) if (Math.hypot(x - p.cx, z - p.cz) <= p.r + 2) return true;
+  for (const n of d.nests) if (Math.hypot(x - n.x, z - n.z) < 6) return true;
+  return false;
+}
+
+function advSwampScatter() { /* 垂藤橡树 ~18(SceneKit.tree 橡树形; 垂藤从简——
+    暗绿观感由 T6 调色板氛围补) + 兰花散布(沼泽唯一产地, 只长草上) */
+  const d = ADV_SWAMP;
+  const cands = [];
+  for (let x = 2; x < WORLD_W - 2; x++) {
+    for (let z = 2; z < WORLD_D - 2; z++) {
+      if (advSwampBlocked(x, z)) continue;
+      const r = SceneKit.rand(x, z, d.salt + 4);
+      if (r > 0.997) cands.push({x, z, r});
+      if (r > 0.99 && r <= 0.997) { /* 兰花 ~0.7% 列 */
+        const y = groundTop(x, z);
+        if (getBlock(x, y, z) === 1) setBlockRaw(x, y + 1, z, B_ORCHID);
+      }
+    }
+  }
+  cands.sort((a, b) => (a.r - b.r) || (a.x - b.x) || (a.z - b.z));
+  for (const cd of cands.slice(0, 18)) {
+    const y = groundTop(cd.x, cd.z);
+    if (getBlock(cd.x, y, cd.z) === 1) SceneKit.tree(cd.x, y + 1, cd.z);
+  }
+}
+
+function advSwampBuild() { /* 沼泽建场总装 */
+  advSwampTerrain();
+  advSwampHut();
+  for (const n of ADV_SWAMP.nests) advMapNest(n, 2, 14); /* 泥丘+苔石(home 巢同款) */
+  advSwampScatter();
+}
 
 /* ============================================================
    地图注册表 — 每图一行, 五件套(调色板/专属怪/唯一结构/专属资源/
@@ -455,7 +542,7 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_MAPS, ADV_DESERT, ADV_SNOW, ADV_SWAMP,
     advDesertBuild, advDesertTerrain, advDesertTemple, advDesertPlants,
     advSnowBuild, advSnowTerrain, advSnowTree, advSnowHut, advSnowScatter,
-    advSwampBuild, advMapNest,
+    advSwampBuild, advSwampTerrain, advSwampHut, advSwampScatter, advMapNest,
     ADV_UNLOCK_KEYS, advMapUnlocked, ADV_GATE_HOLD_T, advGateHoldStep,
     advMapArrive, advMapDeathPlan};
 }
