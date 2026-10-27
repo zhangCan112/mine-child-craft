@@ -217,7 +217,128 @@ function advDesertBuild() { /* 沙漠建场总装 */
   advDesertPlants();
 }
 
-function advSnowBuild() { /* 雪原建场总装 */ }
+/* ---------- 白雪雪原 ---------- */
+
+function advSnowFlats() { /* 压平区: 回程门/雪屋/冰湖/巢穴 */
+  const f = [
+    {cx: ADV_SNOW.gate.px + 2, cz: ADV_SNOW.gate.pz, r: 12},
+    {cx: ADV_SNOW.hut.cx, cz: ADV_SNOW.hut.cz, r: 12},
+  ];
+  for (const l of ADV_SNOW.lakes) f.push({cx: l.cx, cz: l.cz, r: l.r + 3});
+  for (const n of ADV_SNOW.nests) f.push({cx: n.x, cz: n.z, r: 6});
+  return f;
+}
+
+function advSnowTerrain() { /* 雪堆地层: heightAt 幅度 2 起伏 + 全铺雪覆草 +
+    冰封小湖(冰面 y24 + 冰下 2 格水 + 泥底; 湖岸雪覆草——雪原一切雪白) */
+  const opts = {salt: ADV_SNOW.salt, amp: 2, base: 0, flats: advSnowFlats()};
+  for (let x = 0; x < WORLD_W; x++) {
+    for (let z = 0; z < WORLD_D; z++) {
+      const top = ADV_GROUND + SceneKit.heightAt(x, z, opts);
+      for (let y = 0; y <= top - 5; y++) setBlockRaw(x, y, z, 3);
+      for (let y = top - 4; y < top; y++) setBlockRaw(x, y, z, 2);
+      setBlockRaw(x, top, z, B_SNOWY_GRASS);
+    }
+  }
+  for (const l of ADV_SNOW.lakes) {
+    for (let dx = -l.r; dx <= l.r; dx++) {
+      for (let dz = -l.r; dz <= l.r; dz++) {
+        if (Math.hypot(dx, dz) > l.r - 1.2) continue; /* 冰面内圈 */
+        const x = l.cx + dx; const z = l.cz + dz;
+        setBlockRaw(x, ADV_GROUND, z, B_ICE);
+        setBlockRaw(x, ADV_GROUND - 1, z, B_WATER);
+        setBlockRaw(x, ADV_GROUND - 2, z, B_WATER);
+        setBlockRaw(x, ADV_GROUND - 3, z, 2); /* 泥底 */
+      }
+    }
+  }
+}
+
+function advSnowTree(x, baseY, z) { /* 云杉: 原木 4-6 高 + 锥形叶冠——「现有树形
+    换色口径」: 复用原木(5)/树叶(7) 两方块, 尖塔轮廓(下宽上尖+顶帽)与
+    橡树圆冠(SceneKit.tree)拉开辨识; 叶贴干 ≤2 格, need:dist4 内不失撑 */
+  const th = 4 + Math.floor(SceneKit.rand(x + 7, z + 3, ADV_SNOW.salt + 5) * 3);
+  for (let i = 0; i < th; i++) setBlockRaw(x, baseY + i, z, 5);
+  const top = baseY + th;
+  for (let ly = baseY + 2; ly <= top; ly++) {
+    const rad = ly >= top - 1 ? 1 : 2;
+    for (let dx = -rad; dx <= rad; dx++) {
+      for (let dz = -rad; dz <= rad; dz++) {
+        if (dx === 0 && dz === 0 && ly < top) continue; /* 让位树干 */
+        if (Math.abs(dx) === rad && Math.abs(dz) === rad && rad === 2) continue; /* 削角 */
+        if (getBlock(x + dx, ly, z + dz) === 0) setBlockRaw(x + dx, ly, z + dz, 7);
+      }
+    }
+  }
+  setBlockRaw(x, top + 1, z, 7); /* 顶帽 */
+}
+
+function advSnowHut() { /* 雪屋: 雪块圆顶(球壳 r4, 室内掏空) + 南门洞 + 地下宝箱室
+    (屋内雪面挖开即入——雪块硬度 0.2, 儿童三四下; 宝箱+火把+东侧出路楼梯) */
+  const h = ADV_SNOW.hut;
+  for (let dx = -4; dx <= 4; dx++) {
+    for (let dy = 0; dy <= 4; dy++) {
+      for (let dz = -4; dz <= 4; dz++) {
+        const d = Math.sqrt(dx * dx + dy * dy + dz * dz);
+        const x = h.cx + dx; const y = ADV_GROUND + dy; const z = h.cz + dz;
+        if (d >= 3 && d <= 4) setBlockRaw(x, y, z, B_SNOW);
+        else if (d < 3 && dy > 0) setBlockRaw(x, y, z, 0); /* 室内净空 */
+      }
+    }
+  }
+  SceneKit.fill(h.cx - 1, ADV_GROUND + 1, h.cz + h.r, h.cx, ADV_GROUND + 2, h.cz + h.r, 0); /* 门洞朝南 2×2 */
+  /* 地下宝箱室 5×5×3(y19~21) */
+  SceneKit.fill(h.cx - 2, 18, h.cz - 2, h.cx + 2, 18, h.cz + 2, B_SNOW); /* 室地板 */
+  SceneKit.fill(h.cx - 2, 19, h.cz - 2, h.cx + 2, 21, h.cz + 2, 0); /* 室腔 */
+  SceneKit.fill(h.cx - 2, 22, h.cz - 2, h.cx + 2, 23, h.cz + 2, B_SNOW); /* 室顶(屋内地面下) */
+  setBlockRaw(h.cx, 20, h.cz, B_CHEST);
+  setBlockRaw(h.cx - 1, 21, h.cz - 1, B_TORCH);
+  for (let i = 0; i <= 5; i++) { /* 东侧 1 宽出路台阶 y19→y24 */
+    const x = h.cx + 3 + i; const y = 19 + i;
+    for (let yy = y; yy <= y + 2; yy++) setBlockRaw(x, yy, h.cz, 0);
+    if (getBlock(x, y - 1, h.cz) === 0) setBlockRaw(x, y - 1, h.cz, B_SNOW);
+  }
+}
+
+function advSnowBlocked(x, z) { /* 植被禁区: 门区/雪屋(含出路外延)/冰湖/巢穴 */
+  const d = ADV_SNOW;
+  if (Math.abs(x - d.gate.px - 2) <= 10 && Math.abs(z - d.gate.pz) <= 10) return true;
+  if (Math.abs(x - d.hut.cx) <= d.hut.r + 9 && Math.abs(z - d.hut.cz) <= d.hut.r + 3) return true;
+  for (const l of d.lakes) if (Math.hypot(x - l.cx, z - l.cz) <= l.r + 2) return true;
+  for (const n of d.nests) if (Math.hypot(x - n.x, z - n.z) < 6) return true;
+  return false;
+}
+
+function advSnowScatter() { /* 云杉 ~22(候选按散列值排序取前 N, advTreeSpots 同法
+    ——空间无偏) + 雪堆点缀(单块雪, 挖掉得雪球=雪仗弹药) */
+  const d = ADV_SNOW;
+  const cands = [];
+  for (let x = 2; x < WORLD_W - 2; x++) {
+    for (let z = 2; z < WORLD_D - 2; z++) {
+      if (advSnowBlocked(x, z)) continue;
+      const r = SceneKit.rand(x, z, d.salt + 4);
+      if (r > 0.996) cands.push({x, z, r});
+      /* 雪堆点缀 ~1.5% 列: 只长雪覆草上 */
+      if (r > 0.985 && r <= 0.996) {
+        const y = groundTop(x, z);
+        if (getBlock(x, y, z) === B_SNOWY_GRASS) setBlockRaw(x, y + 1, z, B_SNOW);
+      }
+    }
+  }
+  cands.sort((a, b) => (a.r - b.r) || (a.x - b.x) || (a.z - b.z));
+  for (const cd of cands.slice(0, 22)) {
+    const y = groundTop(cd.x, cd.z);
+    if (getBlock(cd.x, y, cd.z) === B_SNOWY_GRASS) advSnowTree(cd.x, y + 1, cd.z);
+  }
+}
+
+function advSnowBuild() { /* 雪原建场总装 */
+  advSnowTerrain();
+  advSnowHut();
+  for (const n of ADV_SNOW.nests) advMapNest(n, B_SNOW, 3);
+  advSnowScatter();
+}
+
 function advSwampBuild() { /* 沼泽建场总装 */ }
 
 /* ============================================================
@@ -333,7 +454,8 @@ function advMapDeathPlan(mapId, player) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_MAPS, ADV_DESERT, ADV_SNOW, ADV_SWAMP,
     advDesertBuild, advDesertTerrain, advDesertTemple, advDesertPlants,
-    advSnowBuild, advSwampBuild, advMapNest,
+    advSnowBuild, advSnowTerrain, advSnowTree, advSnowHut, advSnowScatter,
+    advSwampBuild, advMapNest,
     ADV_UNLOCK_KEYS, advMapUnlocked, ADV_GATE_HOLD_T, advGateHoldStep,
     advMapArrive, advMapDeathPlan};
 }

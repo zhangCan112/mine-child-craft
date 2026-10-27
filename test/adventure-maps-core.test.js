@@ -54,6 +54,18 @@ const colTop = (x, z) => { /* 列最高非空格 y(地表抽样用) */
   for (let y = H - 1; y >= 0; y--) if (cell(x, y, z) !== 0) return y;
   return -1;
 };
+const clearWorld = () => vm.runInContext('worldCells.fill(0)', eng); /* 空场起建(生产 loadScene
+  的 world.clear 同义; 不清则上一张图的高处残留, snow 顶面低于 desert 处会读到旧砂岩) */
+function assertSameWorld(a, b, msg) { /* Buffer 不等时给首差异坐标(不走 deepStrictEqual 的
+  myers diff——两个 786KB Buffer 的差异报告会爆内存, 2026-10-27 实测教训) */
+  if (a.equals(b)) return;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) {
+      const x = i % W; const z = Math.floor(i / W) % D; const y = Math.floor(i / (W * D));
+      assert.fail(msg + '(首个差异 @(' + x + ',' + y + ',' + z + ') ' + a[i] + '≠' + b[i] + ')');
+    }
+  }
+}
 
 /* ============ 注册表完整性(纯数据, 不建场) ============ */
 
@@ -206,11 +218,12 @@ test('政策: 死亡回家 — 满血+home 门口+背包保留+map 标记回 hom
 /* ============ 建场: 黄沙沙漠 ============ */
 
 test('沙漠建场: 两次建场 worldCells 逐字节一致(确定性红线, 零 Math.random)', () => {
+  clearWorld();
   Maps.advDesertBuild();
   const a = snapshot();
-  vm.runInContext('worldCells.fill(0)', eng);
+  clearWorld();
   Maps.advDesertBuild();
-  assert.deepStrictEqual(a, snapshot(), '两次建场 worldCells 逐块一致');
+  assertSameWorld(a, snapshot(), '两次建场 worldCells 逐块一致');
 });
 
 test('沙漠建场: 地表九成列沙+砂岩垫层 · 神殿/绿洲/巢穴占位', () => {
@@ -320,6 +333,83 @@ test('沙漠建场: 三巢穴沙丘+砂岩点缀+朝南洞口(advMapNest 参数�
     assert.strictEqual(cell(n.x, ADV_GROUND + 1, n.z + 2), 0, '洞口朝南净空(壳 spawn 环带)');
     assert.ok(cell(n.x + 2, ADV_GROUND + 1, n.z) !== 0 && cell(n.x - 2, ADV_GROUND + 1, n.z) !== 0,
         '丘体直径 ≥5(东西丘脚)');
+  }
+});
+
+/* ============ 建场: 白雪雪原 ============ */
+
+test('雪原建场: 两次建场 worldCells 逐字节一致 + 雪堆起伏(高度场消费, 地表不恒平)', () => {
+  clearWorld();
+  Maps.advSnowBuild();
+  const a = snapshot();
+  clearWorld();
+  Maps.advSnowBuild();
+  assertSameWorld(a, snapshot(), '两次建场 worldCells 逐块一致');
+  /* 雪堆起伏: 远离结构的采样线上 colTop 有多种高度(heightAt 幅度 2 生效) */
+  const tops = new Set();
+  const nest0 = Maps.ADV_SNOW.nests.find((n) => n.z < 30) || Maps.ADV_SNOW.nests[0]; /* 北缘最近巢 */
+  for (let x = 4; x < W - 4; x += 3) {
+    const z = 6; /* 北缘采样线: 距各压平圆(门/雪屋/湖)中心均 >26 格 */
+    if (Math.abs(x - nest0.x) < 30) continue; /* 避北缘巢压平带 */
+    tops.add(colTop(x, z));
+  }
+  assert.ok(tops.size >= 3, '采样线地表高度 ≥3 种(实测 ' + [...tops].sort((p, q) => p - q) + ')');
+});
+
+test('雪原建场: 全铺雪覆草 · 冰封小湖(冰面+冰下水) · 云杉树+雪堆点缀', () => {
+  Maps.advSnowBuild();
+  const counts = {};
+  for (let x = 0; x < W; x++) {
+    for (let z = 0; z < D; z++) {
+      const id = cell(x, colTop(x, z), z);
+      counts[id] = (counts[id] || 0) + 1;
+    }
+  }
+  const total = W * D;
+  assert.ok(counts[api.B_SNOWY_GRASS] / total >= 0.9,
+      '全铺雪覆草(实测 ' + (counts[api.B_SNOWY_GRASS] / total * 100).toFixed(1) + '%)');
+  /* 冰封湖: 湖心冰面 y24 + 冰下水体(挖开冰见水) + 湖岸雪覆草 */
+  const l = Maps.ADV_SNOW.lakes[0];
+  assert.strictEqual(cell(l.cx, ADV_GROUND, l.cz), api.B_ICE, '湖心冰面 y24');
+  assert.strictEqual(cell(l.cx, ADV_GROUND - 1, l.cz), api.B_WATER, '冰下第一格水');
+  assert.strictEqual(cell(l.cx, ADV_GROUND - 2, l.cz), api.B_WATER, '冰下第二格水');
+  assert.strictEqual(cell(l.cx, ADV_GROUND, l.cz + l.r + 2), api.B_SNOWY_GRASS, '湖岸仍是雪覆草');
+  assert.ok(countId(api.B_ICE) > 120, '两处冰湖规模(实测 ' + countId(api.B_ICE) + ')');
+  /* 云杉: 原木树干成规模(雪原唯一原木来源), 树叶锥冠存在 */
+  assert.ok(countId(5) >= 60, '云杉树干规模(实测 ' + countId(5) + ')');
+  assert.ok(countId(7) >= 150, '锥形叶冠规模(实测 ' + countId(7) + ')');
+  /* 雪堆点缀: 雪块散布在雪覆草之上(挖掉得雪球, 雪仗弹药) */
+  assert.ok(countId(api.B_SNOW, (x, y, z) => cell(x, y - 1, z) === api.B_SNOWY_GRASS) >= 50,
+      '雪堆点缀长在雪覆草上');
+});
+
+test('雪原建场: 雪屋 — 雪块圆顶+南门洞+室内净空 · 地下宝箱室(B_CHEST+火把+出路楼梯)', () => {
+  Maps.advSnowBuild();
+  const h = Maps.ADV_SNOW.hut;
+  assert.strictEqual(cell(h.cx, ADV_GROUND + 4, h.cz), api.B_SNOW, '圆顶壳顶');
+  assert.strictEqual(cell(h.cx, ADV_GROUND + 2, h.cz), 0, '室内净空(壳内掏空)');
+  assert.strictEqual(cell(h.cx - 1, ADV_GROUND + 1, h.cz + h.r), 0, '门洞朝南 2 宽');
+  assert.strictEqual(cell(h.cx, ADV_GROUND + 2, h.cz + h.r), 0, '门洞 2 高');
+  /* 地下宝箱室 */
+  assert.strictEqual(cell(h.cx, 20, h.cz), api.B_CHEST, '地下宝箱');
+  assert.strictEqual(cell(h.cx - 1, 21, h.cz - 1), api.B_TORCH, '室内火把');
+  assert.strictEqual(cell(h.cx, 19, h.cz), 0, '室腔净空');
+  /* 出路: 东侧 1 宽竖井台阶(y19→y24 相邻高差 1) */
+  let steps = 0;
+  for (let i = 0; i <= 5; i++) {
+    const x = h.cx + 3 + i; const y = 19 + i;
+    if (cell(x, y, h.cz) === 0 && cell(x, y - 1, h.cz) !== 0) steps++;
+  }
+  assert.ok(steps >= 4, '出路台阶多数成立(实测 ' + steps + '/6)');
+});
+
+test('雪原建场: 三巢穴雪块丘+石头点缀+朝南洞口', () => {
+  Maps.advSnowBuild();
+  for (const n of Maps.ADV_SNOW.nests) {
+    const top = colTop(n.x, n.z);
+    assert.strictEqual(cell(n.x, top, n.z), api.B_SNOW, '巢丘顶雪块');
+    assert.ok(top >= ADV_GROUND + 2, '丘高 ≥2');
+    assert.strictEqual(cell(n.x, ADV_GROUND + 1, n.z + 2), 0, '洞口朝南');
   }
 });
 
