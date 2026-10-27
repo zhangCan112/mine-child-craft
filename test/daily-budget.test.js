@@ -112,6 +112,45 @@ test('flush 落账, 重开页面(新实例)从存储恢复当日账', () => {
   assert.strictEqual(b2.focus.spentMs(), 45000);
 });
 
+/* ============ dev 预算全开 (config.js DEV → main.js 传 dev:true, docs/dev-mode-design.md D2) ============ */
+
+test('dev: 时限/关数超量恒不 blocked(读侧旁路, 消费方零改动)', () => {
+  const clk = mkClock(at(2030, 5, 19, 10));
+  const b = D.mkDailyBudgets({dev: true, now: clk.now, storage: mkStorage(), defs: DEFS});
+  b.play.accrue(60 * 60000); // 时长超限 6 倍
+  for (let i = 0; i < 20; i++) b.focus.count(1); // 关数超限 3 倍多
+  assert.strictEqual(b.play.blocked(), false, '时长超量不锁(dev 无限游玩)');
+  assert.strictEqual(b.focus.blocked(), false, '关数超量不锁(dev 无限游玩)');
+});
+
+test('dev: warn/exhausted 回调不触发(不出"还剩 1 分钟"toast, 不到量踢出)', () => {
+  const clk = mkClock(at(2030, 5, 19, 10));
+  const b = D.mkDailyBudgets({dev: true, now: clk.now, storage: mkStorage(), defs: DEFS});
+  let warns = 0; let exhausted = 0;
+  b.play.onWarn(()=>{
+    warns++;
+  });
+  b.play.onExhausted(()=>{
+    exhausted++;
+  });
+  b.play.accrue(10 * 60000); // 恰到量(warnAtMs 窗口与 cap 双双踩中)
+  assert.strictEqual(warns, 0, 'dev 下 warn 不触发');
+  assert.strictEqual(exhausted, 0, 'dev 下 exhausted 不触发');
+});
+
+test('dev: accrue/count 照常记账(图章序号/家长面板数据源不断)', () => {
+  const clk = mkClock(at(2030, 5, 19, 10));
+  const st = mkStorage();
+  const b = D.mkDailyBudgets({dev: true, now: clk.now, storage: st, defs: DEFS});
+  b.play.accrue(5 * 60000);
+  b.focus.count(1); b.focus.count(1);
+  assert.strictEqual(b.play.spentMs(), 5 * 60000, '时长照记');
+  assert.strictEqual(b.focus.spentCount(), 2, '关数照记');
+  b.flush();
+  const again = D.mkDailyBudgets({dev: true, now: clk.now, storage: st, defs: DEFS});
+  assert.strictEqual(again.play.spentMs(), 5 * 60000, '落盘恢复照常(与无参数路径同一本账)');
+});
+
 /* ============ 家长加时 (play_extra_save, 单设备当日有效) ============ */
 
 test('readExtraMs: 当日加时如实读出(字符串/对象), 过期·损坏·非正数记 0', () => {

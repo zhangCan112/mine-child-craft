@@ -96,6 +96,28 @@
   background: rgb(124 252 0 / 55%);
 }
 
+/* dev=1 跳关行(focus.js 仅 DEV 渲染, docs/dev-mode-design.md D3): 低调工具行, 不抢孩子按钮风 */
+.f-dev-jump {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0 2px;
+  font-size: 14px;
+  color: #fff;
+  text-shadow: 0 2px 4px #000;
+}
+
+.f-dev-jump input {
+  width: 64px;
+  padding: 4px 6px;
+  border-radius: 8px;
+  border: 2px solid rgb(255 255 255 / 40%);
+  background: rgb(0 0 0 / 35%);
+  color: #fff;
+  font-size: 15px;
+  text-align: center;
+}
+
 @keyframes f-pulse {
   0%,100%{transform:scale(1)}50%{transform:scale(1.045)};
 }
