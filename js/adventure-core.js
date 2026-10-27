@@ -10,8 +10,10 @@
    生命周期)留在 js/modes/adventure.js, 在本文件之后加载并经共享
    词法环境消费。
    interface: 地图常量表(ADV_GROUND/HUT/SPAWN/LAKE/PITS/CAVE/NESTS/
-     ORES/TREES) · 地形生成 advBuildWorld 一族(树落位清单 advTreeSpots
-     与 F4 牧场共用) · 政策纯函数
+     ORES/TREES + T5 圈层高度场 ADV_RING/ADV_FLATS/advHeightAt 与核心圈
+     建场件 ADV_GATE_PLAZA/ADV_FARM/ADV_PEN/ADV_PATH) · 地形生成
+     advBuildWorld 一族(树落位清单 advTreeSpots 与 F4 牧场共用; 花丛/草丛
+     随高度场贴地) · 政策纯函数
      advDeathPlan/advNestCount/advNestStep/advSwingDmg/advMobDmg/
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
      advSapDue/advNearStation/advFurnaceValid/
@@ -56,7 +58,8 @@ const ADV_GROUND = 24; /* 草原表层 y: 下 4 层泥(y20~23), 再下石头到 
 const ADV_HUT = {x1: 58, x2: 64, z1: 78, z2: 84}; /* 出生小屋: 7×7, 北墙正中门洞 */
 const ADV_SPAWN = {x: 61.5, y: ADV_GROUND + 1, z: 76.5, yaw: 0}; /* 门口两步, 面朝旷野背对小屋 */
 const ADV_LAKE = {cx: 36, cz: 58, r: 7}; /* 湖: 资源圈(T5 圈层重排, 设计稿 §2.4)——挪近小屋, 黏土教学链步行可达; 沙岸+可趟水+湖底黏土 */
-const ADV_PITS = [ /* 露天矿坑: 阶梯漏斗坑(每级 1 格 — 玩家跳跃 1.42 格, 下得去也上得来; 2026-10-23 实测 2 格级困人), 坑壁矿化做可见性教学; T5 两坑分踞东西矿业圈(探索动线成环) */
+const ADV_PITS = [ /* 露天矿坑: 阶梯漏斗坑(每级 1 格 — 玩家跳跃 1.42 格, 下得去也上得来;
+  2026-10-23 实测 2 格级困人), 坑壁矿化做可见性教学; T5 两坑分踞东西矿业圈(探索动线成环) */
   {cx: 100, cz: 52, r: 8, floor: 12, ore: {id: B_COAL_ORE, yLo: 12, yHi: 20, salt: 4101}},
   {cx: 24, cz: 44, r: 9, floor: 10, ore: {id: B_IRON_ORE, yLo: 6, yHi: 16, salt: 4207}},
 ];
@@ -79,6 +82,29 @@ const ADV_ORES = [
 ];
 const ADV_TREES = 40; /* 树林目标棵数(候选按散列值排序取前 N, 空间无偏) */
 
+/* ---------- T5 家园核心圈新建场件(设计稿 §2.4): 门阵广场/初始农田/畜牧围栏/圆石小径 ---------- */
+/* 门阵广场(§2.3 门阵/§2.4 核心圈): 屋东 15×15 压平+圆石铺装; 三扇门位只登记坐标
+   (px..px+5 为 6 宽门框, ADV_PORTAL 口径)——门体 advPortalFrame 归 T7 建, 门→目标图
+   绑定归 T4 注册表各行 gatePos; gates 数组序 = 难度序(home→desert→snow→swamp 解锁链) */
+const ADV_GATE_PLAZA = {
+  x1: 70, x2: 84, z1: 74, z2: 88,
+  gates: [
+    {px: 77, pz: 74}, /* 门一·北缘居中(首解锁·沙漠之门) */
+    {px: 79, pz: 81}, /* 门二·东缘中段(雪原之门) */
+    {px: 70, pz: 88}, /* 门三·南缘西段(沼泽之门) */
+  ],
+};
+/* 初始农田(§2.4 核心圈·屋南): 4×3 耕地+熟麦(点亮种子→小麦→面包教学第一环), 西缘 x1-1 列水路(从简) */
+const ADV_FARM = {x1: 59, x2: 62, z1: 86, z2: 88};
+/* 畜牧围栏(§2.4 核心圈·屋西): 原木柱角+木板栏一圈 2 高(台阶步进 ≤1.05 的牲畜翻不出,
+   孩子踩东侧踏石两级可越), 栏内留草地(四畜在场内, F4 AI 零改动) */
+const ADV_PEN = {x1: 40, x2: 54, z1: 74, z2: 90};
+const ADV_PATH = [ /* 圆石小径(§2.4 原则 2 动线成环): 门口↔广场↔农田, 2 宽走廊内 (x+z) 偶数格间断铺圆石 */
+  {x1: 62, x2: 69, z1: 76, z2: 77}, /* 门口段: 北门洞向东接广场西缘 */
+  {x1: 65, x2: 66, z1: 78, z2: 88}, /* 南下段: 贴屋东墙南下 */
+  {x1: 63, x2: 66, z1: 87, z2: 88}, /* 西折段: 屋东南角西折接农田东缘 */
+];
+
 /* ---------- 圈层高度场(T5, 设计稿 §2.4): SceneKit.heightAt 接入 ----------
    幅度按距小屋距离分环(核心圈 0 → 深险圈 ±3), 结构压平区并集回落 y24;
    坡度红线(全图相邻高差 ≤1)由 heightAt 的插值构造保证, 建场侧只消费不破坏 */
@@ -98,6 +124,10 @@ const ADV_FLATS = [ /* 结构压平区清单(heightAt 的 flats 参数, 全部�
   {cx: ADV_NESTS[0].x, cz: ADV_NESTS[0].z, r: 8}, /* 近巢丘 */
   {cx: ADV_NESTS[1].x, cz: ADV_NESTS[1].z, r: 8}, /* 中巢丘 */
   {cx: ADV_NESTS[2].x, cz: ADV_NESTS[2].z, r: 8}, /* 远巢丘 */
+  {cx: (ADV_GATE_PLAZA.x1 + ADV_GATE_PLAZA.x2) / 2, /* 门阵广场(含门体外扩) */
+    cz: (ADV_GATE_PLAZA.z1 + ADV_GATE_PLAZA.z2) / 2, r: 12},
+  {cx: (ADV_FARM.x1 + ADV_FARM.x2) / 2, cz: (ADV_FARM.z1 + ADV_FARM.z2) / 2, r: 5}, /* 农田+水路 */
+  {cx: (ADV_PEN.x1 + ADV_PEN.x2) / 2, cz: (ADV_PEN.z1 + ADV_PEN.z2) / 2, r: 12}, /* 畜牧围栏 */
 ];
 function advHeightAt(x, z) {/* 表面高度偏移(相对 ADV_GROUND): 圈层丘体 + 结构压平并集。
   amp 通道按控制格(16×16 格心)距小屋取圈层幅度; 建场件与树/草丛/花共用的唯一高度权威。
@@ -262,7 +292,11 @@ function advBuildNest(n) {/* 怪物巢穴: 苔石点缀的土丘 + 朝南洞口(
   for (const y of [25, 26]) setBlockRaw(n.x, y, n.z + 2, 0); /* 洞口朝南 */
 }
 
-function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含洞口小丘)/巢穴 */
+function advInRect(x, z, r) {/* 矩形含界判据(建场件占位/避让共用, r 带 x1/x2/z1/z2) */
+  return x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2;
+}
+
+function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含洞口小丘)/巢穴/门阵广场/农田/围栏/小径(T5 建场件全避) */
   const h = ADV_HUT;
   if (x >= h.x1 - 2 && x <= h.x2 + 2 && z >= h.z1 - 2 && z <= h.z2 + 2) return true;
   if (Math.hypot(x - ADV_LAKE.cx, z - ADV_LAKE.cz) <= ADV_LAKE.r + 2) return true;
@@ -273,7 +307,13 @@ function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含�
     if (Math.hypot(x - n.x, z - n.z) < 4) return true;
   }
   const c = ADV_CAVE;
-  return x >= c.x1 - 3 && x <= c.x2 + 3 && z >= c.zStart - 5 && z <= c.zEnd + 4; /* 隧道向南: 洞口小丘在北(zStart-5), 穴室在南(zEnd+4) */
+  /* 隧道向南: 洞口小丘在北(zStart-5), 穴室在南(zEnd+4) */
+  if (x >= c.x1 - 3 && x <= c.x2 + 3 && z >= c.zStart - 5 && z <= c.zEnd + 4) return true;
+  if (advInRect(x, z, ADV_GATE_PLAZA) || advInRect(x, z, ADV_FARM) || advInRect(x, z, ADV_PEN)) return true;
+  for (const r of ADV_PATH) {
+    if (advInRect(x, z, r)) return true;
+  }
+  return false;
 }
 function advTreeSpots() {/* 树林落位清单(advPlantTrees 的唯一权威): 候选按散列值排序取
   前 ADV_TREES——纯函数零世界读; F4 牧场群位避树复用同一清单(设计稿 §4.4 的
@@ -316,7 +356,74 @@ function advScatterTufts() {/* 草丛散布(T11 缺口, D7 草丛链): 确定性
   }
 }
 
-function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模式同款架构) */
+function advBuildPlaza() {/* 门阵广场(T5, §2.4 核心圈): 压平区(ADV_FLATS)上圆石满铺;
+  三扇门位只登记在 ADV_GATE_PLAZA——门体(advPortalFrame)归 T7 建 */
+  const p = ADV_GATE_PLAZA;
+  for (let x = p.x1; x <= p.x2; x++) {
+    for (let z = p.z1; z <= p.z2; z++) setBlockRaw(x, ADV_GROUND, z, 4);
+  }
+}
+
+function advBuildFarm() {/* 初始农田(T5, §2.4 核心圈·屋南): 4×3 耕地+熟麦 + 西缘 1×3 水路
+  (水路从简——灌溉观感, 不做流渠); 压平区保证与屋前草地同层 */
+  const f = ADV_FARM;
+  for (let x = f.x1; x <= f.x2; x++) {
+    for (let z = f.z1; z <= f.z2; z++) {
+      setBlockRaw(x, ADV_GROUND, z, B_FARMLAND);
+      setBlockRaw(x, ADV_GROUND + 1, z, B_WHEAT_3); /* 已熟(教学链从收成开始) */
+    }
+  }
+  for (let z = f.z1; z <= f.z2; z++) setBlockRaw(f.x1 - 1, ADV_GROUND, z, B_WATER);
+}
+
+function advBuildPen() {/* 畜牧围栏(T5, §2.4 核心圈·屋西): 角柱原木 2 高 + 木板栏一圈 2 高
+  (MobCore.stepMove 台阶步进 ≤1.05——2 高栏翻不出, F4 AI 零改动), 东侧栏外一颗圆石踏石
+  (孩子 地面→踏石→栏顶 两级翻越, 牲畜踏石到栏顶仍差 2 爬不上), 栏内草地不动 */
+  const p = ADV_PEN;
+  for (let x = p.x1; x <= p.x2; x++) {
+    for (const z of [p.z1, p.z2]) {
+      const corner = x === p.x1 || x === p.x2;
+      for (let y = 25; y <= 26; y++) setBlockRaw(x, y, z, corner ? 5 : 6);
+    }
+  }
+  for (let z = p.z1 + 1; z < p.z2; z++) {/* 东西栏线(不含角, 四角已由南北线落原木柱) */
+    for (const x of [p.x1, p.x2]) {
+      for (let y = 25; y <= 26; y++) setBlockRaw(x, y, z, 6);
+    }
+  }
+  setBlockRaw(p.x2 + 1, 25, Math.floor((p.z1 + p.z2) / 2), 4); /* 踏石(栏外东侧居中) */
+}
+
+function advBuildPath() {/* 圆石小径(T5, §2.4 原则 2 动线成环): 门口↔广场↔农田三段走廊,
+  (x+z) 偶数格间断铺圆石——方向引导不铺满(不新增方块, 克制边界) */
+  for (const r of ADV_PATH) {
+    for (let x = r.x1; x <= r.x2; x++) {
+      for (let z = r.z1; z <= r.z2; z++) {
+        if ((x + z) % 2 === 0) setBlockRaw(x, ADV_GROUND, z, 4);
+      }
+    }
+  }
+}
+
+function advScatterFlowers() {/* 花丛草场(T5, §2.4 核心圈): 蒲公英黄/雏菊白沿核心圈草场
+  确定性散布(密度 ~2% 列); 脚下草皮贴本地表面、顶上净空——广场/农田/小径铺装替掉草皮
+  天然排除, 围栏(牧场)不占; 与草丛互不叠格(后跑的一方顶上无物判据吃掉同格) */
+  for (let x = 2; x < WORLD_W - 2; x++) {
+    for (let z = 2; z < WORLD_D - 2; z++) {
+      if (SceneKit.rand(x, z, 9201) < 0.98) continue;
+      if (Math.hypot(x - ADV_HUT_C.x, z - ADV_HUT_C.z) > ADV_RING.CORE) continue;
+      if (advInRect(x, z, ADV_PEN)) continue;
+      const top = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, top, z) !== 1) continue;
+      if (getBlock(x, top + 1, z) !== 0) continue;
+      setBlockRaw(x, top + 1, z, SceneKit.rand(x, z, 9202) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
+    }
+  }
+}
+
+function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模式同款架构);
+  T5 核心圈四件(广场/农田/围栏/小径)在地形与既有结构之后、树之前——树与散布件
+  经避让判据/顶上无物判据自动让位 */
   advBaseTerrain();
   advBuildLake();
   advScatterOres();
@@ -324,8 +431,13 @@ function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模
   advBuildCave();
   advBuildHut();
   for (const n of ADV_NESTS) advBuildNest(n);
+  advBuildPlaza();
+  advBuildFarm();
+  advBuildPen();
+  advBuildPath();
   advPlantTrees();
   advScatterTufts(); /* 树立好再撒草丛(顶上无物判据吃树干占位) */
+  advScatterFlowers();
 }
 
 /* ---------- 死亡政策(纯函数段): 满血 + 回出生点 + 背包保留(零惩罚哲学) ---------- */
@@ -504,9 +616,11 @@ function advDawnSweep(dayTime) {
 const ADV_LIVESTOCK_SPAWN_R = 15; /* 群位离出生点最小距离(设计稿 §4.4: ≥15 格) */
 const ADV_LIVESTOCK_HERD_R = 10; /* 两群彼此最小间距(群位互斥, 不叠群) */
 const ADV_LIVESTOCK_RING_LO = 0.8; const ADV_LIVESTOCK_RING_HI = 1.8; /* 群内散布环带(≤1.8 保证不撞 ±3 避树盒外的树干列) */
-const ADV_LIVESTOCK_HERDS = [ /* 2 群共 10 只(设计稿 §4.4) */
-  {kinds: ['cow', 'cow', 'sheep', 'sheep']}, /* 群位 A: 牛×2+羊×2 */
-  {kinds: ['pig', 'pig', 'pig', 'chicken', 'chicken', 'chicken']}, /* 群位 B: 猪×3+鸡×3 */
+const ADV_LIVESTOCK_HERDS = [ /* 2 群共 10 只(设计稿 §4.4); T5 群位挪进屋西围栏内——
+  栏内可用面 11×13 容不下「全图无偏扫描 + 两群 ≥10」, 群位改显式坐标(距墙 ≥3·
+  离出生 ≥15·两群 ≥10, 约束成立由单测对 advLivestockHerdOk 逐点断言) */
+  {x: 43, z: 77, kinds: ['cow', 'cow', 'sheep', 'sheep']}, /* 群位 A·栏内北段: 牛×2+羊×2 */
+  {x: 46, z: 87, kinds: ['pig', 'pig', 'pig', 'chicken', 'chicken', 'chicken']}, /* 群位 B·栏内南段: 猪×3+鸡×3 */
 ];
 const ADV_HERD_AVOID_R = 2.5; /* 玩家贴近让开距离(设计稿 §4.3: ≤2.5 格) */
 const ADV_HERD_AVOID_MULT = 0.8; /* 让开速度系数(speed×0.8, 缓步) */
@@ -516,7 +630,8 @@ const ADV_HERD_AMBLE_MULT = 0.5; /* 闲逛速度系数(吃草步, 六成时间�
 const ADV_HERD_AMBLE_WALK_P = 0.6; /* 闲逛掷点在走概率(四成时间站着吃草, 设计稿 §4.3) */
 
 function advLivestockHerdOk(x, z, trees) {/* 群位约束(设计稿 §4.4): 离出生点 ≥15 · 避湖/
-  矿坑/巢穴/山洞/小屋(外扩裕量盖过群内环带) · 避树干 ±3 盒; 零世界读——基础草原面
+  矿坑/巢穴/山洞/小屋(外扩裕量盖过群内环带) · 避树干 ±3 盒 · T5 起避门阵广场/农田/小径
+  (群位挪进围栏后此三条为防御性约束, 供 T4 异图复用); 零世界读——基础草原面
   在禁区外天然是整块平草地(advBaseTerrain), 不必逐格验草 */
   if (Math.hypot(x - ADV_SPAWN.x, z - ADV_SPAWN.z) < ADV_LIVESTOCK_SPAWN_R) return false;
   if (Math.hypot(x - ADV_LAKE.cx, z - ADV_LAKE.cz) <= ADV_LAKE.r + 4) return false;
@@ -530,29 +645,21 @@ function advLivestockHerdOk(x, z, trees) {/* 群位约束(设计稿 §4.4): 离�
   if (x >= h.x1 - 5 && x <= h.x2 + 5 && z >= h.z1 - 5 && z <= h.z2 + 5) return false;
   const c = ADV_CAVE;
   if (x >= c.x1 - 5 && x <= c.x2 + 5 && z >= c.zStart - 6 && z <= c.zEnd + 5) return false; /* 隧道向南同向矩形 */
+  if (advInRect(x, z, ADV_GATE_PLAZA) || advInRect(x, z, ADV_FARM)) return false; /* 避广场/农田 */
+  for (const r of ADV_PATH) {
+    if (advInRect(x, z, r)) return false; /* 避小径 */
+  }
   for (const t of trees) {
     if (Math.abs(t.x - x) <= 3 && Math.abs(t.z - z) <= 3) return false;
   }
   return true;
 }
 
-function advLivestockSpots() {/* 群位清单(advLivestockPlan 的位点权威, 单测直触): 候选全图
-  收集按散列值排序(advPlantTrees 同款空间无偏), 依次取满足约束且两群 ≥HERD_R 的前两个 */
-  const trees = advTreeSpots();
-  const cands = [];
-  for (let x = 4; x < WORLD_W - 4; x++) {
-    for (let z = 4; z < WORLD_D - 4; z++) {
-      if (!advLivestockHerdOk(x, z, trees)) continue;
-      cands.push({x, z, r: SceneKit.rand(x, z, 7301)});
-    }
-  }
-  cands.sort((a, b) => (a.r - b.r) || (a.x - b.x) || (a.z - b.z));
-  const spots = [];
-  for (const c of cands) {
-    if (spots.length >= ADV_LIVESTOCK_HERDS.length) break;
-    if (spots.every((s) => Math.hypot(s.x - c.x, s.z - c.z) >= ADV_LIVESTOCK_HERD_R)) spots.push(c);
-  }
-  return spots;
+function advLivestockSpots() {/* 群位清单(advLivestockPlan 的位点权威, 单测直触): T5 群位
+  挪进屋西围栏内, 坐标由 ADV_LIVESTOCK_HERDS 显式携带(见其注释), 本函数退化为
+  投影清单——约束成立(离出生 ≥15·避湖/坑/巢/洞/广场/农田/小径·两群 ≥10)由单测
+  对 advLivestockHerdOk 逐点断言, 零世界读保持(清单不随玩家改动漂移) */
+  return ADV_LIVESTOCK_HERDS.map((h) => ({x: h.x, z: h.z}));
 }
 
 function advLivestockPlan() {/* 确定性散布清单(设计稿 §4.4, SceneKit.rand 同种子口径):
@@ -1219,8 +1326,10 @@ function advPortalExit(x, y, z, yaw) {
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, ADV_RING, ADV_HUT_C, ADV_FLATS, advRingAmp, advHeightAt,
+    ADV_GATE_PLAZA, ADV_FARM, ADV_PEN, ADV_PATH, advInRect,
     advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
     advBuildPit, advTryOre, advBuildCave, advBuildHut, advBuildNest, advTreeBlocked,
+    advBuildPlaza, advBuildFarm, advBuildPen, advBuildPath, advScatterFlowers,
     advPlantTrees, advTreeSpots, advScatterTufts, advBuildWorld, advDeathPlan,
     ADV_NEST_MIN, ADV_NEST_MAX, ADV_NEST_RESPAWN_T, ADV_NEST_AGGRO_R, ADV_NEST_LEASH_R,
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,

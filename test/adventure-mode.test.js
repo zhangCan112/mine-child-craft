@@ -86,6 +86,7 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
+  B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
@@ -612,7 +613,7 @@ test('探险模式: 3 个怪物巢穴 — 土丘洞穴地形就位 + init 每巢
   assert.strictEqual(dropsState.cbs.length, 1, '收集回调注册在 init');
 });
 
-test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞', () => {
+test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞/门阵广场/农田/围栏/小径', () => {
   freshInit();
   const skipZone = (x, z) => {
     const hut = A.ADV.hut;
@@ -621,7 +622,16 @@ test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞', (
     for (const p of A.ADV.pits) if (inCircle(x, z, p, p.r + 1)) return true; /* 矿坑 */
     for (const n of A.ADV.nests) if (Math.hypot(x - n.x, z - n.z) < 4) return true; /* 巢穴 */
     const c = A.ADV.cave;
-    return inRect(x, z, c.x1 - 3, Math.min(c.zStart, c.zEnd) - 5, c.x2 + 3, Math.max(c.zStart, c.zEnd) + 4); /* 山洞(含洞口小丘, T5 起隧道向南) */
+    /* 山洞(含洞口小丘, T5 起隧道向南) */
+    if (inRect(x, z, c.x1 - 3, Math.min(c.zStart, c.zEnd) - 5, c.x2 + 3, Math.max(c.zStart, c.zEnd) + 4)) return true;
+    const plz = AdventureCore.ADV_GATE_PLAZA; /* 门阵广场 */
+    if (inRect(x, z, plz.x1, plz.z1, plz.x2, plz.z2)) return true;
+    const fm = AdventureCore.ADV_FARM; /* 农田+水路(±1) */
+    if (inRect(x, z, fm.x1 - 1, fm.z1, fm.x2 + 1, fm.z2)) return true;
+    const pen = AdventureCore.ADV_PEN; /* 畜牧围栏 */
+    if (inRect(x, z, pen.x1, pen.z1, pen.x2, pen.z2)) return true;
+    for (const r of AdventureCore.ADV_PATH) if (inRect(x, z, r.x1, r.z1, r.x2, r.z2)) return true; /* 圆石小径 */
+    return false;
   };
   const total = treeTrunks(null);
   const outside = treeTrunks(skipZone);

@@ -24,6 +24,7 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
+  B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf, SMELT_T,
@@ -202,6 +203,165 @@ test('T5 地形接入: 地层随高度场 — 表面=24+advHeightAt 处草皮, �
     assert.strictEqual(cell(s.x, sy, s.z), 1, '树脚下是草皮表面 (' + s.x + ',' + s.z + ')');
     assert.strictEqual(cell(s.x, sy + 1, s.z), 5, '树干基部贴表面');
   }
+});
+
+test('T5 门阵广场: 屋东 15×15 圆石满铺 + 三扇门位进常量(难度序, 门体归 T7)', () => {
+  const p = Core.ADV_GATE_PLAZA;
+  assert.deepStrictEqual([p.x1, p.x2, p.z1, p.z2], [70, 84, 74, 88], '屋东 x70-84 z74-88(§2.4 核心圈)');
+  assert.strictEqual(p.gates.length, 3, '三扇门位(每图一扇)');
+  const seen = new Set();
+  for (const g of p.gates) {
+    assert.ok(g.px >= p.x1 - 1 && g.px + 5 <= p.x2 + 1, '门框 6 宽(px..px+5)落广场含塔位余量: px=' + g.px);
+    assert.ok(g.pz >= p.z1 && g.pz <= p.z2, '门面 z 行在广场内: pz=' + g.pz);
+    seen.add(g.px + ',' + g.pz);
+  }
+  assert.strictEqual(seen.size, 3, '三门位互不重合');
+  Core.advBuildWorld();
+  for (let x = p.x1; x <= p.x2; x++) {
+    for (let z = p.z1; z <= p.z2; z++) {
+      assert.strictEqual(cell(x, 24, z), 4, '广场圆石满铺 (' + x + ',' + z + ')');
+    }
+  }
+});
+
+test('T5 初始农田: 屋南 4×3 耕地+熟麦 + 西缘水路(种子→小麦→面包教学第一环)', () => {
+  const f = Core.ADV_FARM;
+  assert.deepStrictEqual([f.x1, f.x2, f.z1, f.z2], [59, 62, 86, 88], '屋南 4×3');
+  Core.advBuildWorld();
+  for (let x = f.x1; x <= f.x2; x++) {
+    for (let z = f.z1; z <= f.z2; z++) {
+      assert.strictEqual(cell(x, 24, z), api.B_FARMLAND, '耕地 (' + x + ',' + z + ')');
+      assert.strictEqual(cell(x, 25, z), api.B_WHEAT_3, '熟麦已长成 (' + x + ',' + z + ')');
+    }
+  }
+  for (let z = f.z1; z <= f.z2; z++) {
+    assert.strictEqual(cell(f.x1 - 1, 24, z), api.B_WATER, '西缘水路(从简) z=' + z);
+  }
+});
+
+test('T5 畜牧围栏: 原木柱角+木板栏一圈 2 高 + 栏内草地 + 东侧踏石(孩子可越, 牲畜留场)', () => {
+  const pen = Core.ADV_PEN;
+  assert.deepStrictEqual([pen.x1, pen.x2, pen.z1, pen.z2], [40, 54, 74, 90], '屋西 x40-54 z74-90');
+  Core.advBuildWorld();
+  /* 四角原木柱(y25~26) */
+  for (const [cx, cz] of [[pen.x1, pen.z1], [pen.x2, pen.z1], [pen.x1, pen.z2], [pen.x2, pen.z2]]) {
+    assert.strictEqual(cell(cx, 25, cz), 5, '角柱原木 (' + cx + ',' + cz + ')');
+    assert.strictEqual(cell(cx, 26, cz), 5, '角柱两高');
+  }
+  /* 栏线完整: 周界每格 y25/y26 都是实心栏(原木/木板), 台阶步进 ≤1.05 的牲畜翻不出 */
+  for (let x = pen.x1; x <= pen.x2; x++) {
+    for (const z of [pen.z1, pen.z2]) {
+      const a = cell(x, 25, z); const b = cell(x, 26, z);
+      assert.ok((a === 5 || a === 6) && (b === 5 || b === 6), '南北栏线实心 (' + x + ',' + z + ')');
+    }
+  }
+  for (let z = pen.z1; z <= pen.z2; z++) {
+    for (const x of [pen.x1, pen.x2]) {
+      const a = cell(x, 25, z); const b = cell(x, 26, z);
+      assert.ok((a === 5 || a === 6) && (b === 5 || b === 6), '东西栏线实心 (' + x + ',' + z + ')');
+    }
+  }
+  assert.strictEqual(cell(47, 25, pen.z1), 6, '栏中段是木板(柱只在角)');
+  /* 栏内地面留草 */
+  assert.strictEqual(cell(47, 24, 82), 1, '栏内草地');
+  assert.strictEqual(cell(47, 25, 82), 0, '栏内净空');
+  /* 东侧踏石: 孩子两级翻越(地面→踏石→栏顶), 牲畜踏石到栏顶仍差 2 爬不上 */
+  assert.strictEqual(cell(pen.x2 + 1, 25, 82), 4, '踏石圆石在栏外东侧');
+});
+
+test('T5 圆石小径: 门口↔广场↔农田 2 宽间断铺装((x+z) 偶数格), 三段连通', () => {
+  assert.strictEqual(Core.ADV_PATH.length, 3, '三段走廊');
+  Core.advBuildWorld();
+  let paved = 0;
+  for (const r of Core.ADV_PATH) {
+    for (let x = r.x1; x <= r.x2; x++) {
+      for (let z = r.z1; z <= r.z2; z++) {
+        if ((x + z) % 2 === 0) {
+          assert.strictEqual(cell(x, 24, z), 4, '偶数格铺圆石 (' + x + ',' + z + ')');
+          paved++;
+        }
+      }
+    }
+  }
+  assert.ok(paved >= 20, '间断铺装有料: ' + paved + ' 格');
+  /* 连通性: 门口段东端(x69)贴广场西缘(x70); 南下段(x65-66)接门口段(z77/78 相邻);
+     西折段(x63)贴农田东缘(x62)——取样取偶数格(奇数格是间断留白) */
+  assert.strictEqual(cell(69, 24, 77), 4, '门口段东端接广场');
+  assert.strictEqual(cell(66, 24, 78), 4, '南下段起于门口段南侧');
+  assert.strictEqual(cell(63, 24, 87), 4, '西折段西端接农田');
+});
+
+test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴草皮不占围栏/铺装', () => {
+  Core.advBuildWorld();
+  const c = {x: 61, z: 81};
+  let n = 0; const kinds = new Set();
+  for (let y = 0; y < H; y++) {
+    for (let z = 0; z < D; z++) {
+      for (let x = 0; x < W; x++) {
+        const id = cell(x, y, z);
+        if (id !== api.B_FLOWER_Y && id !== api.B_FLOWER_W) continue;
+        n++;
+        kinds.add(id);
+        assert.ok(Math.hypot(x - c.x, z - c.z) <= 18, '花只长核心圈草场 (' + x + ',' + z + ')');
+        assert.strictEqual(cell(x, y - 1, z), 1, '花脚下直接是草皮');
+        assert.strictEqual(y, Core.ADV_GROUND + Core.advHeightAt(x, z) + 1, '花在本地表面上一层');
+        assert.ok(!Core.advInRect(x, z, Core.ADV_PEN), '不占畜牧围栏');
+      }
+    }
+  }
+  assert.ok(n >= 6 && n <= 90, '密度 ~2% 可发现不铺满: ' + n + ' 丛');
+  assert.strictEqual(kinds.size, 2, '黄白两款都有');
+});
+
+test('T5 避让联动: 树/群位避新增建场件 — 广场/农田/围栏/小径无树, 群位避广场/农田/小径', () => {
+  Core.advBuildWorld();
+  for (const s of Core.advTreeSpots()) {
+    assert.ok(!Core.advInRect(s.x, s.z, Core.ADV_GATE_PLAZA), '广场无树');
+    assert.ok(!Core.advInRect(s.x, s.z, Core.ADV_FARM), '农田无树');
+    assert.ok(!Core.advInRect(s.x, s.z, Core.ADV_PEN), '围栏无树');
+    for (const r of Core.ADV_PATH) assert.ok(!Core.advInRect(s.x, s.z, r), '小径无树');
+  }
+  /* 群位约束谓词: 广场心/农田心/小径格全拒 */
+  assert.strictEqual(Core.advLivestockHerdOk(77, 81, Core.advTreeSpots()), false, '广场心拒');
+  assert.strictEqual(Core.advLivestockHerdOk(60, 87, Core.advTreeSpots()), false, '农田心拒');
+  assert.strictEqual(Core.advLivestockHerdOk(65, 82, Core.advTreeSpots()), false, '小径格拒');
+});
+
+test('T5 畜牧群位进围栏: 两群位落栏内草地(四畜在场内), 显式坐标满足全部群位约束', () => {
+  Core.advBuildWorld();
+  const spots = Core.advLivestockSpots();
+  assert.strictEqual(spots.length, 2, '两个群位');
+  const pen = Core.ADV_PEN;
+  const trees = Core.advTreeSpots();
+  for (const s of spots) {
+    assert.ok(s.x >= pen.x1 + 3 && s.x <= pen.x2 - 3 && s.z >= pen.z1 + 3 && s.z <= pen.z2 - 3,
+        '群位在栏内且距墙 ≥3 (' + s.x + ',' + s.z + ')');
+    assert.strictEqual(Core.advLivestockHerdOk(s.x, s.z, trees), true,
+        '显式群位通过全部约束谓词(离出生 ≥15·避湖/坑/巢/洞/广场/农田/小径·避树)');
+    assert.strictEqual(cell(s.x, 24, s.z), 1, '群位脚下栏内草地');
+    assert.strictEqual(cell(s.x, 25, s.z), 0, '群位上方净空');
+  }
+  assert.ok(Math.hypot(spots[0].x - spots[1].x, spots[0].z - spots[1].z) >= Core.ADV_LIVESTOCK_HERD_R,
+      '两群彼此 ≥10(不叠群)');
+  const plan = Core.advLivestockPlan();
+  assert.strictEqual(plan.length, 10, '2 群共 10 只(清单构成不回归)');
+  for (const e of plan) {
+    assert.ok(e.x > pen.x1 + 1 && e.x < pen.x2 + 1 && e.z > pen.z1 + 1 && e.z < pen.z2 + 1,
+        '条目散布在栏内: (' + e.x.toFixed(1) + ',' + e.z.toFixed(1) + ')');
+  }
+});
+
+test('T5 压平扩容: 广场/农田/围栏足印归 0(ADV_FLATS 与建场件对齐)', () => {
+  const inR = (x, z, r, m) => x >= r.x1 - m && x <= r.x2 + m && z >= r.z1 - m && z <= r.z2 + m;
+  for (let x = 0; x < W; x++) {
+    for (let z = 0; z < D; z++) {
+      if (inR(x, z, Core.ADV_GATE_PLAZA, 1) || inR(x, z, Core.ADV_FARM, 1) ||
+          inR(x, z, Core.ADV_PEN, 0)) {
+        assert.strictEqual(Core.advHeightAt(x, z), 0, '新件足印回落 y24 (' + x + ',' + z + ')');
+      }
+    }
+  }
+  assert.strictEqual(Core.ADV_FLATS.length, 10, '压平清单与建场件一一对应(湖1+坑2+洞1+巢3+广场1+农田1+围栏1)');
 });
 
 /* ============ 政策纯函数段(逐条钉口径) ============ */
