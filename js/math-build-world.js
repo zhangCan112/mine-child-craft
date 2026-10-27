@@ -172,16 +172,18 @@ function wwCheckBlock(x0, z0, w, d) {
   setBlockRaw(cx, W.groundY + 2, cz, W.checkBlock);
   return {x: cx, y: W.groundY + 2, z: cz};
 }
-/* 图纸方位锚(训练营 2026-10-28 实测反馈): 图纸 2D 图行 0 = 画布北缘
-   (z0 侧), 地面无锚点时孩子绕到对侧会照屏摆出旋转 180° 的"看着对"
-   答案。玻璃北指三角(尖 1 · 中 3 · 底 5)立在草皮上一格(groundY+1 —
-   首版嵌草皮只露顶面一片不显眼, 实测等于没标记; 立起后五面全可见,
-   与「好啦」基座同为场地立体地标; 材料仍用玻璃=标记语言, 且在建造
-   区外不可拆)。方位标记只进世界, HUD 图纸覆层不动(用户拍板) */
-function wwNorthArrow(cx, z0) {
-  [[0], [-1, 0, 1], [-2, -1, 0, 1, 2]].forEach((row, i) => {
+/* 图纸「上面」边标记(训练营 2026-10-28 两轮实测返工): 图纸 2D 图
+   行 0 = 画布北缘(z0 侧), 但孩子不看指南针——语义钉死为「箭头贴住
+   的那条边就是图纸的上面」, 不是指北。玻璃箭头立起(五面可见)且
+   基座行直接压在画布外圈北行(z0-1)上, 与画布连成一体: 绕到任何
+   一侧看, 图的上面永远是箭头贴住的那条边; 画布 ≤2 宽时收窄为
+   1/3 两行(5 宽箭头会单边溢出草皮, 不对称) */
+function wwTopEdgeMark(x0, z0, w) {
+  const cx = x0 + Math.floor(w / 2);
+  const rows = w <= 2 ? [[0], [-1, 0, 1]] : [[0], [-1, 0, 1], [-2, -1, 0, 1, 2]];
+  rows.forEach((row, i) => {
     for (const dx of row) {
-      setBlockRaw(cx + dx, MATH_WORLD.groundY + 1, z0 - 2 - i, MATH_WORLD.markerBlock);
+      setBlockRaw(cx + dx, MATH_WORLD.groundY + 1, z0 - 1 - i, MATH_WORLD.markerBlock);
     }
   });
 }
@@ -327,12 +329,12 @@ const MATH_WORLD_VARIANTS = {
     },
     build(t) {
       const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
-      wwNorthArrow(x0 + Math.floor(p.box.w / 2), z0); // 北指箭头钉住图纸行 0 的方位
+      wwTopEdgeMark(x0, z0, p.box.w); // 「图纸的上面」边标记: 箭头贴住的那条边 = 图行 0
       return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h,
         blueprint: true, gradeBlueprint: true};
     },
     speak() {
-      return '地上的箭头指着图纸的上面！照着图纸，把一样颜色的房顶摆出来！' + MATH_WORLD.askS;
+      return '挨着箭头的这条边，就是图纸的上面！照着图纸，把一样颜色的房顶摆出来！' + MATH_WORLD.askS;
     },
   },
   'plan/pick': {
