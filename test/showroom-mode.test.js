@@ -87,7 +87,8 @@ globalThis.document = {
    同义反复, T3 起惯例); 其全局名依赖经 Object.assign 就位到 Node 侧 */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
 for (const f of ['js/config.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js',
-  'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
+  'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/mob-registry.js',
+  'js/daylight-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, mkInventory, add, count, remove,
@@ -97,7 +98,8 @@ const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, 
   BLOCKS, B_FURNACE, B_CRAFT, B_CHEST, B_BED, B_TORCH, B_DOOR, B_DOOR_TOP, B_DOOR_OPEN,
   B_DOOR_TOP_OPEN, B_GLASS_PANE,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY,
-  getBlock, setBlockRaw, blockKey, collidesAtPlayer, rollBlockDrop, SceneKit})`, eng);
+  getBlock, setBlockRaw, blockKey, collidesAtPlayer, rollBlockDrop, rollDrops,
+  Daylight, SceneKit})`, eng);
 Object.assign(globalThis, api); /* 模式/供给核心/放置链经全局名消费这些真件 */
 /* 单块编辑 seam: world.js 太重——真级联核心镜像 world.js 的装配
    (adventure-mode.test 同款): setBlockRaw + 破坏侧 cascadeRemove */
@@ -133,7 +135,7 @@ globalThis.showToast = (s) => calls.push(['toast', s]);
 const dropCalls = []; /* 掉落物调用记账: 体验馆退出收场应为零(满包余量静默丢弃口径) */
 const dropsTicks = []; /* 掉落物 update 记账: 放置链接入后 update 应每帧喂真空拾取 */
 const collectCbs = []; /* 收集回调记账: init 重挂(切模式 Drops.clear 解除后重挂, 探险同款) */
-globalThis.Drops = {spawn: (id, n) => dropCalls.push([id, n]),
+globalThis.Drops = {spawn: (id, n, x, y, z) => dropCalls.push([id, n, x, y, z]),
   update: (dt, p) => dropsTicks.push([dt, p]), render: () => {},
   onCollect: (cb) => collectCbs.push(cb)};
 globalThis.switchMode = (id) => calls.push(['switchMode', id]);
@@ -146,6 +148,20 @@ globalThis.touchPlaying = false;
 globalThis.iconOf = (id) => (globalThis.ITEMS[id] && globalThis.ITEMS[id].icon) || '';
 globalThis.btnImg = () => '';
 globalThis.setTouchActions = () => {};
+
+/* ---------- 昼夜/战斗 seam(world.js/input/effects 未装, adventure-mode.test 同款):
+   dayTime/dayCycleOn 是 world.js 顶层可写绑定, 模式经全局名读写; applyDaylight
+   只记账(场景驱动归渲染层); yaw 是玩家朝向(mkMelee.aim 准星锥用, 0=面朝 -Z);
+   sfx/SpeechKit 是 CombatKit 受击/挥击音话术通道 —— 全部只记账 */
+globalThis.dayTime = 0;
+globalThis.dayCycleOn = false;
+globalThis.applyDaylight = () => calls.push(['applyDaylight']);
+globalThis.yaw = 0;
+globalThis.sfx = (n) => calls.push(['sfx', n]);
+const spoken = [];
+globalThis.SpeechKit = {speak(s) {
+  spoken.push(s);
+}, cancel() {}};
 
 const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;
@@ -161,13 +177,47 @@ globalThis.CombatKit = require('../js/combat-kit.js');
 globalThis.CombatCore = require('../js/combat-core.js'); /* stepShot/leadAim(combat-kit 自由标识符消费) */
 globalThis.Avatar = {swing() {}, flash() {}, setItem() {}}; /* 挥臂/闪红观感桩(Node 无渲染) */
 globalThis.camera = {}; /* 相机件: shootFromAim 沿准星出膛的取景入参(raycastVoxel 缺席, aimHit 守卫仍返 null) */
-const mobsRig = {list: [], hits: []}; /* 体验馆无怪: 名单恒空(mkArrows 命中扫描面); 雪球红线用例临时塞假怪 */
+/* ---------- 怪物库桩(票 C 扩桩, adventure-mode.test 窄面桩法): 名单默认空
+   (mkArrows 命中扫描面), 用例经 spawn(铺怪路径)或 push 假怪驱动; 玩家实体
+   受击走真实受击状态机(mob-core), 血量断言有据; 行为断言全走调用记录 ---------- */
+const RealMobCore = require('../js/mob-core.js');
+const mobsRig = {list: [], hits: [], spawned: [], deathCbs: []};
+const SR_MOB_CFG = {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55};
 globalThis.Mobs = {
+  spawn(type, x, z, opts) {/* 记账+落清单(铺怪点位/标记断言有据) */
+    const m = {type, pos: {x, y: 13, z}, dead: false, gone: false,
+      yaw: (opts && opts.yaw) || 0, attackCd: 0, attackT: 0, target: null,
+      cfg: Object.assign({}, SR_MOB_CFG, {name: type})};
+    mobsRig.spawned.push(m);
+    mobsRig.list.push(m);
+    return m;
+  },
   list: () => mobsRig.list,
+  update() {}, render() {},
   hit(m, dmg, kdx, kdz, kpow) {
     mobsRig.hits.push({m, dmg, kdx, kdz, kpow});
+    if (m.pos === globalThis.pos) return RealMobCore.hitState(m, dmg); /* 玩家实体走真实受击状态机 */
     return {freshDead: false};
   },
+  onDeath(cb) {
+    mobsRig.deathCbs.push(cb);
+  },
+  remove(m) {
+    m.gone = true;
+  }, /* 镜像真库: 置 gone 交回收(清场断言消费) */
+  clear() {
+    mobsRig.list.length = 0;
+    mobsRig.spawned.length = 0;
+    mobsRig.deathCbs.length = 0;
+  },
+  steer(m, y) {
+    m.yaw = y;
+  },
+  move(m, dx, dz) {
+    m.pos.x += dx;
+    m.pos.z += dz;
+  },
+  gait() {},
   debrisColor: () => 0xffffff,
 };
 
@@ -862,4 +912,191 @@ test('体验馆: cleanup 复位 — 雪球弹池清空+HP 实体复位满血(跨
   freshEnter(); /* 重进: 干净初始态 */
   assert.strictEqual(ShowroomMode.snowballs.count(), 0, '重进弹池仍空');
   assert.strictEqual(ShowroomMode.pEnt().hp, ShowroomMode.pEnt().maxHp, '重进满血');
+});
+
+/* ============ ⑬ 昼夜+夜怪+床睡觉(票 C, 探险昼夜 D1/D5/D6 同规则薄版) ============
+   昼夜接线(init 置 dayCycleOn 白天起步 / cleanup 复位三连, dayTime 绝不落盘)、
+   入夜边沿固定点位铺怪(全带 __nightMob 标记, 标记口径=探险 advNightTick 同一份)、
+   白天下降沿/睡觉唤醒温和清场(只收标记怪)、AI 薄版(索敌逼近+贴身挥击→HP 实体
+   掉血→吃链激活)、薄死亡政策(满血重置+清场, 零惩罚)、击杀掉落(过票 A 拾取缝)。
+   用例坐标: 夜怪桩走 spawn 点位/假怪 push, 无世界编辑; 新用例与既有用例零重叠。 */
+
+test('体验馆: 昼夜接线 — init 置 dayCycleOn 白天起步; cleanup 复位三连(全局单钟不渗入其他模式)', () => {
+  freshEnter();
+  assert.strictEqual(globalThis.dayCycleOn, true, 'init 置位昼夜循环(主循环推进门)');
+  assert.strictEqual(globalThis.dayTime, 0, '白天起步(dayTime 从 0 起步, 不读档)');
+  assert.ok(calls.some((c) => c[0] === 'applyDaylight'), '进场先刷一次天色(探险同位)');
+  globalThis.dayTime = 18000; /* 破坏现场: 模拟退场时是深夜 */
+  ShowroomMode.cleanup();
+  assert.strictEqual(globalThis.dayCycleOn, false, 'cleanup 关循环(其余模式观感恒白天)');
+  assert.strictEqual(globalThis.dayTime, 0, 'cleanup 时刻归零(体验馆不落盘, 探险三连的不落盘版)');
+  assert.ok(calls.some((c) => c[0] === 'applyDaylight'), '复位即刷天色(幂等)');
+});
+
+test('体验馆: 入夜边沿铺怪 — isNight 上沿固定点位铺 3 只全带夜怪标记; 夜内不加铺; 白天无怪', () => {
+  freshEnter();
+  ShowroomMode.update(0.05); /* 白天: 馆内无怪 */
+  assert.strictEqual(mobsRig.list.length, 0, '白天展馆无怪(入夜才有)');
+  globalThis.dayTime = 13000; /* 入夜上沿(NIGHT_A) */
+  ShowroomMode.update(0.05);
+  assert.strictEqual(mobsRig.list.length, 3, '固定点位各铺 1 只');
+  assert.ok(mobsRig.list.every((m) => m.__nightMob === true),
+      '全带 __nightMob 标记(探险 advNightTick 同一口径, 清场唯一依据)');
+  assert.ok(mobsRig.list.every((m) => Math.hypot(m.pos.x - 77.5, m.pos.z - 73.5) > 8),
+      '铺怪点离床心 > ADV_BED_MOB_R(睡觉判定不被自家怪长期堵死)');
+  ShowroomMode.update(0.05); /* 夜内第二拍 */
+  assert.strictEqual(mobsRig.list.length, 3, '跨沿只铺一次(边沿语义, 非节拍环带)');
+  globalThis.dayTime = 23500; /* isNight 下降沿(23000 后) */
+  ShowroomMode.update(0.05);
+  assert.ok(mobsRig.list.every((m) => m.gone), '白天下降沿温和清场');
+});
+
+test('体验馆: 清场薄版 — 只收 __nightMob 标记怪, 未标记怪不动(脚本怪与昼夜解耦口径)', () => {
+  freshEnter();
+  const stray = {type: 'zombie', pos: {x: 84, y: 13, z: 60}, dead: false, gone: false,
+    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)};
+  mobsRig.list.push(stray); /* 未标记怪(脚本怪同位) */
+  globalThis.dayTime = 13000;
+  ShowroomMode.update(0.05); /* 铺 3 只夜怪 */
+  assert.strictEqual(mobsRig.list.length, 4, '夜怪 3+未标记 1');
+  globalThis.dayTime = 6000; /* 回白天 */
+  ShowroomMode.update(0.05);
+  assert.ok(mobsRig.list.filter((m) => m.__nightMob).every((m) => m.gone), '夜怪全收');
+  assert.ok(!stray.gone, '未标记怪不动(只收标记怪)');
+});
+
+test('体验馆: 睡觉三分支 — 白天拒/夜+床边 8 格内有怪拒/夜+怪远过(advSleepCheck 政策直用)', () => {
+  freshEnter();
+  const bed = {x: 77, y: 13, z: 73}; /* 床(建场真件) */
+  globalThis.dayTime = 6000; /* 正午: 睡窗外 */
+  ShowroomMode.onMouse(2, bed);
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('晚上才能睡哦')),
+      '白天拒睡 toast');
+  assert.strictEqual(ShowroomMode.sleep.on, false, '不开转场');
+  globalThis.dayTime = 20000; /* 深夜: 睡窗内 */
+  mobsRig.list.push({type: 'zombie', pos: {x: 79.5, y: 13, z: 73.5}, dead: false, gone: false,
+    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}); /* 床边 2 格 */
+  calls.length = 0;
+  ShowroomMode.onMouse(2, bed);
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('附近有怪物')),
+      '床边有怪拒睡 toast');
+  assert.strictEqual(ShowroomMode.sleep.on, false, '不开转场');
+  mobsRig.list.length = 0; /* 怪远(清场) */
+  calls.length = 0;
+  ShowroomMode.onMouse(2, bed);
+  assert.strictEqual(ShowroomMode.sleep.on, true, '夜+床边无怪: 开转场');
+  ShowroomMode.cleanup(); /* 收场复位(测试隔离) */
+});
+
+test('体验馆: 睡着转场 — advSleepStep 唤醒沿恰发一次; 唤醒 dayTime=0+清夜怪+遮罩归零', () => {
+  /* 纯函数面: 全程步进 wake 恰一次(签名冻结直用的行为锁) */
+  let wakes = 0; let t = 0;
+  while (t < 5) {
+    const s = advSleepStep(t, 0.05);
+    if (s.wake) wakes++;
+    t = s.t;
+  }
+  assert.strictEqual(wakes, 1, '唤醒沿恰发一次(大步跨沿也只一次)');
+  /* 行为面: 点床入睡 → 推过唤醒沿 → 跳清晨+清夜怪 */
+  freshEnter();
+  globalThis.dayTime = 13000;
+  ShowroomMode.update(0.05); /* 铺夜怪(清场前提) */
+  const nightMobs = mobsRig.list.filter((m) => m.__nightMob);
+  assert.strictEqual(nightMobs.length, 3);
+  calls.length = 0;
+  ShowroomMode.onMouse(2, {x: 77, y: 13, z: 73}); /* 点床入睡(使用先于挖放) */
+  assert.strictEqual(ShowroomMode.sleep.on, true, '转场开启');
+  for (let i = 0; i < 74; i++) ShowroomMode.update(0.05); /* +3.7s: 过唤醒沿(3.5s) */
+  assert.strictEqual(globalThis.dayTime, 0, '唤醒沿跳清晨(dayTime=0)');
+  assert.ok(nightMobs.every((m) => m.gone), '唤醒清夜怪(与白天清场同缝, 幂等)');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('睡饱啦')), '睡饱 toast');
+  for (let i = 0; i < 30; i++) ShowroomMode.update(0.05); /* 走完渐亮(总 5s) */
+  assert.strictEqual(ShowroomMode.sleep.on, false, '转场结束');
+  assert.strictEqual(+globalThis.document.getElementById('fade').style.opacity, 0,
+      '渐亮收尾遮罩归零');
+});
+
+test('体验馆: 睡觉中 cleanup — 遮罩归零还 CSS transition/转场复位(切模式不渗漏 #fade)', () => {
+  freshEnter();
+  globalThis.dayTime = 20000;
+  ShowroomMode.onMouse(2, {x: 77, y: 13, z: 73});
+  assert.strictEqual(ShowroomMode.sleep.on, true, '转场开启');
+  ShowroomMode.update(0.5); /* 渐黑中 */
+  const fade = globalThis.document.getElementById('fade');
+  assert.ok(+fade.style.opacity > 0, '遮罩在渐黑(复位前提)');
+  assert.strictEqual(fade.style.transition, 'none', '遮罩直驱期 CSS transition 被接管');
+  ShowroomMode.cleanup();
+  assert.strictEqual(ShowroomMode.sleep.on, false, 'cleanup 复位转场(中断不触发唤醒沿)');
+  assert.strictEqual(+fade.style.opacity, 0, '遮罩归零');
+  assert.strictEqual(fade.style.transition, '', 'CSS transition 还原(不渗入其他模式)');
+  assert.strictEqual(globalThis.dayTime, 0, '昼夜复位三连归零(非睡觉跳清晨语义)');
+});
+
+test('体验馆: 左键挥击 — 准星锥内怪命中扣血(advSwingDmg 面)+本击归战斗不落挖', () => {
+  freshEnter();
+  mobsRig.list.push({type: 'zombie', pos: {x: pos.x, y: 13, z: pos.z - 2}, dead: false, gone: false,
+    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}); /* 正前方 2 格(yaw 0 朝 -Z) */
+  ShowroomMode.onMouse(0, {x: 30, y: 12, z: 30}); /* 准星指草地 */
+  assert.strictEqual(mobsRig.hits.length, 1, '挥击命中怪');
+  assert.strictEqual(mobsRig.hits[0].dmg, advSwingDmg(''), '空手伤害=ADV_FIST_DMG(伤害函数直用)');
+  assert.strictEqual(ShowroomMode.mine.down, false, '本击归战斗: 不进蓄力(探险同款占位)');
+  assert.strictEqual(api.getBlock(30, 13, 30), 0, '草地无损伤');
+});
+
+test('体验馆: 左键挥击·工具 — 手持木剑伤害按 D9 表+命中扣耐久(与挖掘磨损同一缝)', () => {
+  freshEnter();
+  mobsRig.hits.length = 0; /* 上一用例的命中记账清零(本用例从零数) */
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('sword_wood', 1);
+  ShowroomMode.hotbar.select(0);
+  mobsRig.list.push({type: 'zombie', pos: {x: pos.x, y: 13, z: pos.z - 2}, dead: false, gone: false,
+    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)});
+  ShowroomMode.onMouse(0, {x: 30, y: 12, z: 30});
+  assert.strictEqual(mobsRig.hits.length, 1, '挥击命中怪');
+  assert.strictEqual(mobsRig.hits[0].dmg, advSwingDmg('sword_wood'), '工具伤害随 D9 表(同份纯函数)');
+  assert.strictEqual(inv.slots[0].dur, api.toolOf('sword_wood').dur - 1,
+      '命中扣 1 耐久(onWear 与挖掘 wear 同缝)');
+});
+
+test('体验馆: 夜怪 AI 薄版 — 索敌半径内朝玩家走+贴身挥击: pEnt.hp 下降(吃链激活前提)', () => {
+  freshEnter();
+  const m = {type: 'zombie', pos: {x: pos.x, y: 13, z: pos.z - 8}, dead: false, gone: false,
+    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}; /* 8 格: 索敌 12 内、触及外 */
+  mobsRig.list.push(m);
+  ShowroomMode.update(0.25);
+  const d0 = Math.hypot(m.pos.x - pos.x, m.pos.z - pos.z);
+  assert.ok(d0 < 8 && d0 > 2.1, '索敌逼近(初始 8 → ' + d0.toFixed(2) + ', 未及触及)');
+  for (let i = 0; i < 200 && ShowroomMode.pEnt().hp === 30; i++) ShowroomMode.update(0.05);
+  assert.ok(ShowroomMode.pEnt().hp < 30, '贴身挥击: 玩家掉血(Mobs.hit → 真实受击状态机)');
+  assert.strictEqual(ShowroomMode.pEnt().hp, 25, '单击伤害=advMobDmg(zombie 5, 封顶面)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hurt'), '受击提醒(CombatKit.mkHurtAlarm)');
+});
+
+test('体验馆: 薄死亡政策 — hp 到 0: 满血重置+夜怪清场+原地复活(零惩罚, 不搬探险死亡流程)', () => {
+  freshEnter();
+  globalThis.dayTime = 13000;
+  ShowroomMode.update(0.05); /* 铺夜怪 */
+  const nightMobs = mobsRig.list.filter((m) => m.__nightMob);
+  assert.strictEqual(nightMobs.length, 3);
+  ShowroomMode.pEnt().hp = 1; /* 直驱濒死 */
+  const killer = {type: 'zombie', pos: {x: pos.x, y: 13, z: pos.z - 1.5}, dead: false, gone: false,
+    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}; /* 未标记(脚本怪同位) */
+  mobsRig.list.push(killer);
+  ShowroomMode.update(0.05); /* 贴身一击 5 伤: hp≤0 → freshDead → 薄死亡 */
+  assert.strictEqual(ShowroomMode.pEnt().hp, ShowroomMode.pEnt().maxHp, '满血重置');
+  assert.strictEqual(ShowroomMode.pEnt().dead, false, 'dead 复位(复活不变量)');
+  assert.ok(nightMobs.every((m) => m.gone), '夜怪清场');
+  assert.ok(!killer.gone, '未标记的凶手怪不被清场(只收标记怪)');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('满血')), '提示 toast');
+});
+
+test('体验馆: 击杀掉落 — Mobs.onDeath → advDeathDrops 掷骰 → Drops.spawn(过票 A 拾取缝)', () => {
+  freshEnter();
+  assert.strictEqual(mobsRig.deathCbs.length, 1, 'init 恰挂一个击杀回调(Mobs.clear 解除后重挂)');
+  const m = {type: 'zombie', pos: {x: 10, y: 13, z: 10}, cfg: Object.assign({}, SR_MOB_CFG),
+    dead: true, gone: false};
+  dropCalls.length = 0;
+  mobsRig.deathCbs[0](m); /* 引擎在 hit 判死瞬间回调; 桩内手动触发(同拍行为) */
+  assert.ok(dropCalls.length >= 1, '掷骰保底必得: 至少掉 1 条');
+  assert.ok(dropCalls.every((d) => d[2] === 10 && d[4] === 10), '落点=尸体上方(m.pos 同缝)');
 });
