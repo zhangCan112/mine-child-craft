@@ -1,0 +1,210 @@
+'use strict';
+/* ============================================================
+   冒险地图纯核心 (AdventureMapsCore) — 应用层·纯核心
+   ------------------------------------------------------------
+   冒险模式的地图注册表与三张生态远征图(沙漠/雪原/沼泽)的建场核心
+   (docs/adventure-maps-design.md, 票据 T4): 零 THREE 零 DOM——建场段
+   直用全局 setBlockRaw/getBlock/SceneKit(adventure-core 建场族同款
+   惯例, 确定性零 Math.random), 政策段(门解锁/站桩/落点/死亡回家)
+   纯数据进出。壳装配(切图换桶/applyMapPalette/遮罩/门体/怪物 spawn)
+   归 T6/T7, 本文件只出数据与判定。
+   interface: 地图注册表 ADV_MAPS(四行, 每行 id/name/hud/palette 调色板
+     四元组(地表/植被/水/天, RGB 0..1)/build 建场函数/nests 巢穴池/
+     nightPool 夜怪池(替换语义: 整池换防不混刷)/gates 门位清单/
+     livestock 畜牧分布键, swamp 行另带 witchHut 常驻标记; home 行经
+     Object.assign 并入 ADV_HOME_ROW——巢穴池/夜怪池同一引用不复制) ·
+     图常量 ADV_DESERT/ADV_SNOW/ADV_SWAMP(结构坐标/巢穴/门位唯一权威,
+     建场与行数据都从这里派生) · 建场函数族 advDesertBuild/
+     advSnowBuild/advSwampBuild(每图建场总装, 签名零参同 advBuildWorld) ·
+     政策纯函数 advMapUnlocked(门解锁判定, 任务档 counts 键
+     unlockedDesert/unlockedSnow/unlockedSwamp)/advGateHoldStep(门面
+     站桩步进, 2s 可反悔, 状态进 {t,fire} 出)/advMapArrive(到达落点:
+     回程门内侧 2.5 格、面朝外——advPortalExit 同口径)/
+     advMapDeathPlan(死亡回家: 远征图死=满血+home 门口, 地图行化)
+   依赖(均经全局名, 调用期解析): adventure-core.js 的 ADV_GROUND/
+     ADV_SPAWN/ADV_PORTAL/ADV_HOME_ROW/advBuildWorld/advDeathPlan/
+     advPortalExit(index.html 加载序: adventure-core → 本文件 →
+     modes/adventure; 门几何常量复用 ADV_PORTAL 不另定义) · config.js
+     的 B_* 生态方块常量(54~62)与 WORLD_W/WORLD_D/WORLD_H ·
+     scene-kit.js 的 SceneKit(fill/tree/rand/heightAt 高度场) ·
+     voxel.js 的 setBlockRaw/getBlock
+   可测性: 零 THREE·零 DOM·有单测(test/adventure-maps-core.test.js,
+     vm 装真引擎件直测, 建场确定性对着真散布函数逐字节断言)
+   ============================================================ */
+
+/* ============================================================
+   图常量 — 每图结构坐标/巢穴池/门位/散布盐的唯一权威
+   (ADV_MAPS 行的 nests/gates/witchHut 从这里派生同引用, 坐标不在
+   两处写; 布局口径: 回程门统一 (58,70), 落点在门南侧开阔区——
+   advMapArrive 的面朝外前提; 远征图无床无熔炉, 死了回家 §2.2)
+   ============================================================ */
+const ADV_DESERT = { /* 黄沙沙漠: 沙丘地形 + 砂岩神殿 + 绿洲 + 尸壳替换僵尸 */
+  gate: {px: 58, pz: 70}, /* 回程门框位(门体 T7 经 advPortalFrame 建, 此处只登记) */
+  temple: {cx: 64, cz: 40, r: 7}, /* 沙漠神殿: 金字塔底半径 7(15×15) + 地下宝箱室 */
+  oasis: [ /* 小绿洲水泊: 水面齐 y24, 沙岸环绕 */
+    {cx: 28, cz: 92, r: 5},
+    {cx: 98, cz: 96, r: 4},
+  ],
+  nests: [ /* 巢穴池(替换语义: zombie 位→husk, 票据 T4 红线) */
+    {x: 24, z: 28, kinds: ['husk', 'skeleton', 'creeper']},
+    {x: 100, z: 56, kinds: ['husk', 'creeper', 'skeleton']},
+    {x: 44, z: 108, kinds: ['husk', 'skeleton', 'creeper']},
+  ],
+  salt: 6201, /* 本图散布盐(与别图/别类散布分层, 互不踩) */
+};
+
+const ADV_SNOW = { /* 白雪雪原: 雪堆地形 + 冰面湖 + 雪屋 + 流浪者替换骷髅 */
+  gate: {px: 58, pz: 70},
+  hut: {cx: 40, cz: 40, r: 4}, /* 雪屋: 雪块圆顶(球半径 4) + 地下宝箱室 */
+  lakes: [ /* 冰封小湖: 冰面 + 冰下水体 */
+    {cx: 92, cz: 28, r: 8},
+    {cx: 26, cz: 100, r: 6},
+  ],
+  nests: [ /* 巢穴池(替换语义: skeleton 位→stray) */
+    {x: 28, z: 60, kinds: ['stray', 'zombie', 'creeper']},
+    {x: 96, z: 86, kinds: ['stray', 'creeper', 'zombie']},
+    {x: 62, z: 16, kinds: ['stray', 'zombie', 'creeper']},
+  ],
+  salt: 6301,
+};
+
+const ADV_SWAMP = { /* 青苔沼泽: 平地浅水洼 + 垂藤橡树 + 沼骸替换骷髅 + 女巫小屋 */
+  gate: {px: 58, pz: 70},
+  hut: {x: 90, z: 42}, /* 女巫小屋: 高脚木屋(原木柱脚+木板屋体), witch 常驻位 */
+  pools: [ /* 浅水洼: 水面齐 y24 可趟, 泥岸环绕 */
+    {cx: 22, cz: 26, r: 4},
+    {cx: 68, cz: 34, r: 5},
+    {cx: 30, cz: 92, r: 4},
+    {cx: 102, cz: 96, r: 5},
+    {cx: 48, cz: 58, r: 3},
+  ],
+  nests: [ /* 巢穴池(替换语义: skeleton 位→bogged; slime 沼泽主场) */
+    {x: 22, z: 58, kinds: ['bogged', 'zombie', 'slime']},
+    {x: 98, z: 68, kinds: ['bogged', 'slime', 'zombie']},
+  ],
+  salt: 6401,
+};
+
+/* ============================================================
+   建场函数族 — 确定性(SceneKit.rand/heightAt 散布, 零 Math.random),
+   两次建场 worldCells 逐字节一致(单测红线); 门体不在建场内
+   (T7 壳经 advPortalFrame 建, 建场只保证门位区压平净空)
+   ============================================================ */
+function advDesertBuild() { /* 沙漠建场总装 */ }
+function advSnowBuild() { /* 雪原建场总装 */ }
+function advSwampBuild() { /* 沼泽建场总装 */ }
+
+/* ============================================================
+   地图注册表 — 每图一行, 五件套(调色板/专属怪/唯一结构/专属资源/
+   门位)齐活才算一张图(设计稿 §2.1); 壳 T6 按行换池/换天/换名。
+   调色板四元组是每图美术基准: T6 applyMapPalette 消费水/天, 地表/
+   植被色由方块自带(登记为辨识度基准, 与设计稿 §2.1 表一一对应)。
+   ============================================================ */
+const ADV_MAPS = [
+  Object.assign({ /* home: 并入 ADV_HOME_ROW 的 id/nests/nightPool(同一引用不复制,
+     巢穴池/夜怪池缺省即本图, T2 通道; 建场仍 advBuildWorld, 布局重排归 T5) */
+    name: '家园草原', hud: '🏡 家园草原',
+    palette: { /* 草绿/橡树/常规蓝/常规天(§2.1) */
+      ground: [0.43, 0.74, 0.34], flora: [0.20, 0.50, 0.22],
+      water: [0.25, 0.45, 0.85], sky: [0.56, 0.78, 1.00],
+    },
+    build: advBuildWorld,
+    gates: [ /* 三扇门阵(T5 广场压平区 x70-84 z74-88 内品字落位, 门体 T7 建) */
+      {to: 'desert', px: 72, pz: 76},
+      {to: 'snow', px: 80, pz: 76},
+      {to: 'swamp', px: 76, pz: 86},
+    ],
+    livestock: 'herds', /* 四畜全套留 home(设计稿 §10 拍板⑤) */
+  }, ADV_HOME_ROW),
+  {
+    id: 'desert', name: '黄沙沙漠', hud: '🏜️ 黄沙沙漠',
+    palette: { /* 沙色/仙人掌绿/绿洲青/暖黄天(§2.1: 沙 #86,0.80,0.55) */
+      ground: [0.86, 0.80, 0.55], flora: [0.29, 0.53, 0.22],
+      water: [0.30, 0.60, 0.65], sky: [0.90, 0.82, 0.62],
+    },
+    build: advDesertBuild,
+    nests: ADV_DESERT.nests,
+    nightPool: [['husk', 2], ['creeper', 1], ['spider', 1]], /* home 夜池 zombie 位→husk */
+    gates: [{to: 'home', px: ADV_DESERT.gate.px, pz: ADV_DESERT.gate.pz}],
+    livestock: 'none',
+  },
+  {
+    id: 'snow', name: '白雪雪原', hud: '🌨️ 白雪雪原',
+    palette: { /* 雪白/云杉深绿/冰面淡蓝/冷白天(§2.1) */
+      ground: [0.93, 0.95, 0.98], flora: [0.14, 0.34, 0.20],
+      water: [0.63, 0.78, 0.94], sky: [0.80, 0.87, 0.96],
+    },
+    build: advSnowBuild,
+    nests: ADV_SNOW.nests,
+    nightPool: [['stray', 2], ['zombie', 1], ['creeper', 1]], /* 主角换流浪者 */
+    gates: [{to: 'home', px: ADV_SNOW.gate.px, pz: ADV_SNOW.gate.pz}],
+    livestock: 'none',
+  },
+  {
+    id: 'swamp', name: '青苔沼泽', hud: '🌿 青苔沼泽',
+    palette: { /* 沼泽草绿/垂藤暗绿/灰绿水/灰蒙天(§2.1, 草色 MC #4c763c 口径) */
+      ground: [0.30, 0.46, 0.24], flora: [0.16, 0.36, 0.16],
+      water: [0.35, 0.48, 0.42], sky: [0.62, 0.66, 0.64],
+    },
+    build: advSwampBuild,
+    nests: ADV_SWAMP.nests,
+    nightPool: [['bogged', 2], ['zombie', 1], ['slime', 1]], /* 沼骸主角+史莱姆夜池 */
+    gates: [{to: 'home', px: ADV_SWAMP.gate.px, pz: ADV_SWAMP.gate.pz}],
+    livestock: 'none',
+    witchHut: {x: ADV_SWAMP.hut.x, z: ADV_SWAMP.hut.z}, /* 女巫小屋常驻标记(T6 壳 spawn 消费) */
+  },
+];
+
+/* ============================================================
+   政策纯函数段 — 切图时序的判定核心(设计稿 §4), 依赖全注入
+   ============================================================ */
+
+/* 门解锁的任务档 counts 键(§10 拍板③: 解锁账进任务档, 与任务成就同源;
+   点亮仪式/解锁链 home→desert→snow→swamp 归 T8) */
+const ADV_UNLOCK_KEYS = {desert: 'unlockedDesert', snow: 'unlockedSnow', swamp: 'unlockedSwamp'};
+
+/* 门解锁判定: home 恒开(出生图); 远征图看任务档 counts 键真值
+   (T8 点亮仪式置 1; 缺键/0/undefined = 门面熄灭+锁定话术) */
+function advMapUnlocked(mapId, counts) {
+  if (mapId === 'home') return true;
+  const k = ADV_UNLOCK_KEYS[mapId];
+  return !!(k && counts && counts[k]);
+}
+
+const ADV_GATE_HOLD_T = 2; /* 门面站桩秒数(§4.1: MC 4s 减半防幼儿失耐心, 全程可反悔) */
+
+/* 站桩步进(advNestStep/advNightStep 同构: 状态进 → {t, fire} 出):
+   s 为秒累计, inGate 为本帧是否在门面内(advInPortal 判定, 壳喂),
+   dt 为帧间隔。走出门面即刻归零(可反悔, MC 下界门口径); 站满 2s 发
+   传送令并归零(遮罩与冷却归壳层, 冷却复用 ADV_PORTAL.cd) */
+function advGateHoldStep(s, inGate, dt) {
+  if (!inGate) return {t: 0, fire: false};
+  const nt = s + dt;
+  if (nt < ADV_GATE_HOLD_T) return {t: nt, fire: false};
+  return {t: 0, fire: true};
+}
+
+/* 到达落点: 回程门内侧 2.5 格、面朝外(§2.3「落地就在门跟前, 门在身后」)
+   ——与 advPortalExit 同口径: 虚拟玩家从门面朝 -z 进门(yaw=π),
+   出口=沿来向退 2.5 格(门南侧)+yaw 反向(朝 +z 背对门)。远征图门位
+   统一朝南开口, 落点区在图常量布局中保证开阔; y 取基准地表上方
+   (门位压平区, 建场保证 y24 顶面) */
+function advMapArrive(row) {
+  const g = row.gates[0]; /* 远征图单门=回程门 */
+  return advPortalExit(g.px + 2.5, ADV_GROUND + 1, g.pz + 0.5, Math.PI);
+}
+
+/* 死亡回家计划(§10 拍板②, nether 合并 D11 回家口径的地图行化):
+   无论死在哪张图, 满血+回 home 门口(ADV_SPAWN 出生账本)+背包保留;
+   map 字段告诉壳切回 home(已在 home 则无操作)。零惩罚哲学与
+   advDeathPlan 同源 */
+function advMapDeathPlan(mapId, player) {
+  return Object.assign(advDeathPlan(player, ADV_SPAWN), {map: 'home'});
+}
+
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {ADV_MAPS, ADV_DESERT, ADV_SNOW, ADV_SWAMP,
+    advDesertBuild, advSnowBuild, advSwampBuild,
+    ADV_UNLOCK_KEYS, advMapUnlocked, ADV_GATE_HOLD_T, advGateHoldStep,
+    advMapArrive, advMapDeathPlan};
+}
