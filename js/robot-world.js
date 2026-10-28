@@ -474,8 +474,8 @@ const RobotWorld = (() => {
     }
 
     /* 演示(带2 演示复现载体): 木偶按 cards 走一遍(缺省 par 解), 脚印逐格
-       亮起, 走完后 previewSec 秒内淡出(0=不消退), 炸坑当场复原; cb 在走完
-       时调, 淡出异步 */
+       亮起, 走完后炸坑复原、木偶归位、脚印 previewSec 秒内淡出(0=不消退);
+       cb 在走完时调, 淡出异步 */
     function demo(cards, previewSec, cb) {
       stopRun();
       resetToStart();
@@ -491,7 +491,9 @@ const RobotWorld = (() => {
         if (!busy) return;
         if (i >= seq.length || dSim.won) {
           busy = false;
+          anim = null; // 掐掉在途动画(归位瞬移不被末帧插值拉回终点)
           clearPits(); // 演示是预览: 炸坑当场复原(脚印照旧淡出), 编程阶段见原盘
+          placePuppets(); // 木偶与地形同拍归位(编程阶段见出生布局, 不停在半路)
           footFade(previewSec);
           if (cb) cb();
           return;
