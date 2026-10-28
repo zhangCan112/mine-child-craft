@@ -396,8 +396,7 @@ function showroomQuestPayload() {/* 任务档篡改 payload: 表外步=终章+�
 
 function showroomChestPayload() {/* 宝箱档篡改 payload: 基础格顶格 27 档 + 仓库箱派生清单逐行灌入(整摞入箱政策纯函数,
     装不下的余量自然截断); {size, slots} 形状=壳 init 归一化的输入——size 字段语义=材料阶梯
-    基础格(ADR 0007); 箱轨加格在体验馆经 chestCapScale=false 政策缝关闭(展馆陈列箱本身是
-    edits, 不算容量), 顶格口径固定 27 */
+    基础格(ADR 0007); 总容量由壳 init 从展馆账本现算, 陈列仓库箱与冒险同口径逐只计入 */
   const acct = {size: ADV_CHEST_SLOTS, slots: new Array(ADV_CHEST_SLOTS).fill(null)};
   for (const crate of showroomCrateStock()) {
     for (const row of crate.rows) advChestPut(acct, {id: row.id, n: row.n});

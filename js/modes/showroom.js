@@ -71,7 +71,6 @@ const showroomProfile = {/* dev 政策值: 冒险壳政策缝的整体替换件(
   stationAlwaysOpen: true, /* 台级配方随处可摆(站点门禁是儿童引导, 不属调试场) */
   hiddenRecipesOpen: true, /* 隐藏配方全点亮(二期卡进馆可测, 清单随 mode-kit 自动跟) */
   leftoverDrops: false, /* 满包余量静默丢弃(dev 无存档, 掉落只是噪音; 三处余量同口径) */
-  chestCapScale: false, /* 箱轨容量关(ADR 0007): 展馆陈列箱本身是 edits, 不算容量加格——顶格篡改档口径固定 27 */
 };
 
 /* ---------- 换装/还原(①: 两缝整体换, 单并发无嵌套) ---------- */

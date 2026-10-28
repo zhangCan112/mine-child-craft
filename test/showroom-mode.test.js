@@ -708,13 +708,18 @@ test('体验馆: station 行为断言 — 远离工作台台级配方随处可�
 test('体验馆: 箱子全局单账户 — 顶格预填 · 多箱方块打开同一账户(§4 行为变化)', () => {
   freshEnter();
   const account = ShowroomMode.chest();
-  assert.strictEqual(account.size, ADV_CHEST_SLOTS, '顶格 ' + ADV_CHEST_SLOTS + ' 槽(篡改档)');
   const stock = ShowroomCore.showroomCrateStock();
+  /* 基础格顶格 27 + 陈列仓库箱逐只计入(与冒险同口径, ADR 0007 修正——
+     初版曾为保「顶格 27」把体验馆箱轨整条关掉, 真机造箱验证拍板撤销) */
+  assert.strictEqual(account.size, ADV_CHEST_SLOTS + 9 * stock.length,
+      '基础顶格 ' + ADV_CHEST_SLOTS + ' + 陈列箱 ' + stock.length + ' 只 ×9');
   assert.strictEqual(account.slots[0].id, stock[0].rows[0].id,
       '首槽=派生首行(' + stock[0].title + '): 仓库箱物资经 U3 payload 预填');
   assert.ok(account.slots.every((s) => !s || Object.prototype.hasOwnProperty.call(api.ITEMS, s.id)),
       '槽内容 ∈ ITEMS');
-  /* 满箱拒收(此刻账户 27 槽全满): 整摞存入被温和拒绝(零惩罚口径) */
+  /* 满箱拒收(预填 27 槽 + 尾部陈列箱加成格直接灌满, 还原「满箱」前提):
+     整摞存入被温和拒绝(零惩罚口径) */
+  for (let i = ADV_CHEST_SLOTS; i < account.size; i++) account.slots[i] = {id: 'cobble', n: 1};
   const inv = ShowroomMode.getInv();
   const logBefore = api.count(inv, 'log');
   calls.length = 0;
@@ -745,6 +750,25 @@ test('体验馆: 箱子全局单账户 — 顶格预填 · 多箱方块打开同
   assert.strictEqual(api.count(inv, 'log'), logBefore, '整摞取回(零损耗)');
   ShowroomMode.sr.chest.panel.close();
   pos.x = sx; pos.z = sz;
+});
+
+test('体验馆: 箱轨容量(ADR 0007 修正) — 展馆造箱也 +9 · 挖箱 −9, 与冒险同口径', () => {
+  freshEnter();
+  const before = ShowroomMode.chest().size;
+  assert.ok(before > ADV_CHEST_SLOTS, '陈列仓库箱已计入入场容量: ' + before);
+  const inv = ShowroomMode.getInv();
+  const held0 = inv.slots[0];
+  inv.slots[0] = api.mkStack('chest', 2); /* 手持两只箱(门测试同款捷径) */
+  /* 整地圈西条带连放两箱(右键草地顶面, 放置链测试同坐标带) */
+  ShowroomMode.onMouse(2, {x: 46, y: G, z: 55, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(api.getBlock(46, G + 1, 55), api.B_CHEST, '箱子 A 在场');
+  assert.strictEqual(ShowroomMode.chest().size, before + 9, '造箱 A: 容量 +9(用户真机报告的回归护栏)');
+  ShowroomMode.onMouse(2, {x: 46, y: G, z: 57, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(ShowroomMode.chest().size, before + 18, '造箱 B: 再 +9');
+  /* 挖掉一箱: 容量随之缩回(随现存箱子数缩放) */
+  A.advBreakBlock(46, G + 1, 57, api.B_CHEST, {time: 1, drops: false});
+  assert.strictEqual(ShowroomMode.chest().size, before + 9, '挖掉 B: 缩回 +9 格');
+  inv.slots[0] = held0;
 });
 
 /* ============ 2026-10-28 背包点选搬运: 快捷栏镜像同步(壳的 advInvMove) ============ */

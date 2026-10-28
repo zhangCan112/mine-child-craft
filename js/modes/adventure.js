@@ -380,7 +380,6 @@ const advProfileDefault = {
   stationAlwaysOpen: false, /* 合成站点门禁: false=走近 4 格(现行) · true=恒真(U4 体验馆) */
   hiddenRecipesOpen: false, /* 隐藏配方: false=锁(现行) · true=全开(U4 体验馆) */
   leftoverDrops: true, /* 满包余量: true=掉地上拾回(现行) · false=静默丢弃(U4 体验馆) */
-  chestCapScale: true, /* 箱轨容量(ADR 0007): true=每放一箱+9 格(现行) · false=顶格固定(U4 体验馆——展馆陈列箱本身是 edits, 不该被当成容量加格) */
 };
 let advProfile = advProfileDefault; /* 政策缝本体(U4 体验馆门面 init 前整体换装 dev 政策值, cleanup 收尾还原) */
 function advSpeak(text) {/* 媒体缝·TTS: 经 profile 取通道(缺省直通 SpeechKit.speak) */
@@ -2412,10 +2411,10 @@ function advExplode(x, y, z) {
 /* 容量重算(ADR 0007): chests 从五桶世界账本现算(玩家放置的箱子才进账本),
    size=总容量=base+9×chests; 触点=init 归一化 + advMarkEdit 唯一记账缝的
    箱子增删检测——挖/TNT 掀/覆盖全路径自动覆盖, 无漂移无第二账本。
-   chestCapScale=false(U4 体验馆政策缝)不计箱轨——展馆陈列箱本身是 edits,
-   顶格篡改档口径固定在基础格 */
+   体验馆与冒险同口径(2026-10-28 真机验证拍板): 展馆陈列箱本身是 edits,
+   一并计入容量, 不为体验馆造第二口径 */
 function advChestResync() {
-  advChest.chests = advProfile.chestCapScale ? advCountChestEdits(advSceneEdits) : 0;
+  advChest.chests = advCountChestEdits(advSceneEdits);
   advChest.size = advChestCapacity(advChest.base, advChest.chests);
 }
 function advChestOpenPanel() {/* 走近箱子点击打开: open_chest 记账(步 4 三条件之一) + 回显 */
