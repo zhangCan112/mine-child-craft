@@ -1128,12 +1128,14 @@ function mkFurnacePanel(opts) {
 }
 
 /* ---------- 大宝箱面板(mkChestPanel, 引导链 v2): 点选搬运的纯格子面板 ----------
-    全局共享账户的观感层: 箱子格(前 size 格, 点击=取回背包) + 扩容行(下一档
-    材料 chip + 按钮, 顶格隐藏) + 背包格(18 主格+9 快捷镜像, 点击=存入箱子)。
+    全局共享账户的观感层: 箱子格(前 size 格, 点击=取回背包) + 容量提示行
+    (两轨口径一句话: 多放箱子+9/材料扩容钮) + 扩容行(下一档材料 chip + 按钮,
+    顶格隐藏) + 背包格(18 主格+9 快捷镜像, 点击=存入箱子)。
     存取/扩容的政策与存档全在模式层(onPut/onTake/onExpand 回调), 面板只管
     格子与点击, 每次动作后自 chest()/inv 重画; 触屏桌面同一套点选(无拖拽, 拍板②)。
-    opts: inv(mkInventory 背包) · chest()→{size, slots} 账户现状 · next()→
-    {size, cost}|null 下一扩容档 · have(id)→背包持有数(缺料角标 have/need) ·
+    opts: inv(mkInventory 背包) · chest()→{size, slots, chests} 账户现状
+    (size=总容量, chests=现存箱子数, ADR 0007) · next()→{size, cost}|null
+    下一扩容档(按基础格算) · have(id)→背包持有数(缺料角标 have/need) ·
     onPut(invSlotIdx) · onTake(chestSlotIdx) · onExpand() · onClose */
 function mkChestPanel(opts) {
   const o = opts || {};
@@ -1148,6 +1150,10 @@ function mkChestPanel(opts) {
   const chestGrid = doc.createElement('div');
   chestGrid.className = 'mkp-grid mkp-chestgrid';
   box.appendChild(chestGrid);
+
+  const capLbl = doc.createElement('div'); /* 容量提示行(ADR 0007 两轨口径一句话) */
+  capLbl.className = 'mkp-chestlbl';
+  box.appendChild(capLbl);
 
   const expandRow = doc.createElement('div');
   expandRow.className = 'mkp-chestrow';
@@ -1165,8 +1171,9 @@ function mkChestPanel(opts) {
     });
   }
 
-  function refresh() {/* 每次动作后整幅重画(格子数 ≤27+27, 无性能顾虑); 背包区
-    双循环与点击接线在底座(主格/快捷镜像同一段 onPut 意图, 收编前两份逐字誊写) */
+  function refresh() {/* 每次动作后整幅重画(格子数=容量+背包 27, 容量有界
+    无性能顾虑); 背包区双循环与点击接线在底座(主格/快捷镜像同一段 onPut
+    意图, 收编前两份逐字誊写) */
     const ch = o.chest();
     chestGrid.innerHTML = '';
     for (let i = 0; i < ch.size; i++) {
@@ -1179,6 +1186,8 @@ function mkChestPanel(opts) {
       };
       chestGrid.appendChild(d);
     }
+    capLbl.textContent = '多放一个箱子，宝箱就多 9 格哦（现在 ' +
+      (ch.chests | 0) + ' 个 · 共 ' + ch.size + ' 格）';
     expandRow.innerHTML = '';
     const nx = o.next();
     if (nx) {
@@ -1190,7 +1199,7 @@ function mkChestPanel(opts) {
       }
       const btn = doc.createElement('button');
       btn.className = 'mkp-autofill';
-      btn.textContent = '＋ 扩到 ' + nx.size + ' 格';
+      btn.textContent = '＋ 材料扩容（+9 格）'; /* 阶梯加的是基础格(总容量还有箱子轨, ADR 0007) */
       btn.onclick = ()=>{
         o.onExpand();
         refresh();

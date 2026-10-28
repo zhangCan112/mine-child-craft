@@ -2120,7 +2120,7 @@ test('大宝箱: 走近点击开面板(4 格门槛, 熔炉同款) → 存入并�
   A.advChestDeposit(5);
   assert.strictEqual(inv.slots[5], null, '背包槽清空(整摞搬走)');
   assert.deepStrictEqual(A.getSaveView().chest.slots[0], {id: 'planks', n: 20}, '入箱落首格');
-  assert.strictEqual(A.getSaveView().chest.size, 9, '初始 9 格');
+  assert.strictEqual(A.getSaveView().chest.size, 18, '已放一箱: 基础 9+箱轨 9(ADR 0007)');
   /* 工具连耐久整槽搬: 磨损铁镐入箱再取出, 耐久不被重铸满(add 会满耐久, 禁走) */
   inv.slots[6] = {id: 'pick_iron', n: 1, dur: 111};
   A.advChestDeposit(6);
@@ -2205,6 +2205,48 @@ test('大宝箱扩容: 材料不够温和提示不动包 → 8 圆石扩到 18 �
   AdventureMode.cleanup();
   freshInit();
   assert.strictEqual(chest().size, 27, '重进档位保持');
+});
+
+test('大宝箱箱轨容量(ADR 0007): 放一箱 +9 → 挖掉 −9 → 超容存量留档不丢, 重进恢复', () => {
+  mem.clear();
+  freshInit();
+  const chest = () => A.getSaveView().chest;
+  assert.strictEqual(chest().size, 9, '没放箱子: 基础 9 格');
+  /* 找相邻双格干净草地(两箱并排放地面; 右键箱子=开面板不能当放置跳板) */
+  const spot = (() => {
+    for (let x = 3; x < 50; x++) {
+      for (let z = 3; z < 48; z++) {
+        if (cell(x, 24, z) === 1 && cell(x, 25, z) === 0 && cell(x, 26, z) === 0 &&
+          cell(x + 1, 24, z) === 1 && cell(x + 1, 25, z) === 0 && cell(x + 1, 26, z) === 0) {
+          return {x, z};
+        }
+      }
+    }
+    throw new Error('找不到相邻双格草地');
+  })();
+  holdOnly('chest', 2);
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5;
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(chest().size, 18, '放一箱: 9+9=18(放箱即扩, 无需材料)');
+  AdventureMode.onMouse(2, {x: spot.x + 1, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(chest().size, 27, '再放一箱: 9+18=27');
+  /* 灌满 27 格后挖掉一箱: 容量缩回 18, 第 19~27 格存量留档不丢(不可见但零损失)。
+     用工具灌(可堆叠物会并堆成少数几摞, 占不满格) */
+  const inv = A.advGetInv();
+  for (let i = 0; i < 27; i++) inv.slots[i] = {id: 'pick_iron', n: 1, dur: 1};
+  for (let i = 0; i < 27; i++) A.advChestDeposit(i);
+  assert.strictEqual(chest().slots.filter(Boolean).length, 27, '27 格全占(工具整槽搬不并堆)');
+  A.advBreakBlock(spot.x + 1, 25, spot.z, api.B_CHEST, {time: 1, drops: false});
+  assert.strictEqual(chest().size, 18, '挖掉一箱: 容量 27→18(随现存箱子数缩放)');
+  assert.ok(chest().slots[26], '第 27 格存量仍在档(不清理不丢失)');
+  assert.strictEqual(chest().slots.filter(Boolean).length, 27, '挖箱不动账户内容(零损失口径)');
+  /* 前 18 格照常存取; cleanup → 重进: 账本现算恢复, 存量原样 */
+  A.advChestWithdraw(0);
+  assert.deepStrictEqual({...inv.slots[0]}, {id: 'pick_iron', n: 1, dur: 1}, '缩容后前 18 格照常取回(耐久原样)');
+  AdventureMode.cleanup();
+  freshInit();
+  assert.strictEqual(chest().size, 18, '重进容量按现存箱子数现算(一箱=18)');
+  assert.strictEqual(chest().slots.filter(Boolean).length, 26, '重进 26 件存量原样(取走一件后 26; 容量回来自然可见)');
 });
 
 test('大宝箱联动: 背包快满提醒在做过箱子步后指向收纳(话术升级不改触发口径)', () => {

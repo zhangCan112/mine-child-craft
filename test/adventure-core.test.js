@@ -680,6 +680,23 @@ test('大宝箱阶梯: 9→18(8 圆石)→27(4 铁锭), 顶格 null, 材料取�
   assert.strictEqual(Core.advChestNext(5).size, 18, '异常低档也指向第一档');
 });
 
+test('大宝箱两轨容量(ADR 0007): advChestCapacity 基础+每箱 9 · advCountChestEdits 跨桶数账本 B_CHEST', () => {
+  assert.strictEqual(Core.ADV_CHEST_PER, 9, '每箱加 9 格');
+  assert.strictEqual(Core.advChestCapacity(9, 0), 9, '没放箱子=基础档');
+  assert.strictEqual(Core.advChestCapacity(9, 3), 36, '三箱 9+27=36(不设上限)');
+  assert.strictEqual(Core.advChestCapacity(27, 5), 72, '顶格基础+五箱=72');
+  assert.strictEqual(Core.advChestCapacity(9, -2), 9, '负数箱子数兜底 0(坏档不倒扣)');
+  /* 账本计数: 只数值 === B_CHEST 的条目; 空气(0)/流体对象 {id,lv}/其他方块不计 */
+  const buckets = {
+    home: new Map([['1,24,1', B_CHEST], ['1,24,2', 0], ['1,24,3', {id: B_CHEST, lv: 0}], ['1,24,4', B_CHEST]]),
+    desert: new Map([['2,24,2', B_CHEST]]),
+    snow: new Map(),
+    swamp: new Map([['3,24,3', 1]]),
+    nether: new Map([['4,10,4', B_CHEST]]),
+  };
+  assert.strictEqual(Core.advCountChestEdits(buckets), 4, '跨桶求和(home 2+desert 1+nether 1); 流体对象形状不误中');
+});
+
 test('advChestPut: 并堆优先→空位→余量; 只认前 size 格; 工具连耐久整槽搬', () => {
   const mk = (size, slots) => ({size, slots: slots.slice()});
   /* 并堆: 已有 60 圆石, 再进 10 → 并满 64, 余 6 落空位 */

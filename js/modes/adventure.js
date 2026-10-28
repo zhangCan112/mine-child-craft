@@ -166,10 +166,12 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
 /* T15 任务进度: mkSaveSlot defaults 只补缺失字段——老档 {step:N} 自动补空 counts */
 const advQuestSlot = SyncDB.slot(ADV_QUEST_KEY, {defaults: {step: 0, counts: {}}});
 /* 引导链 v2 大宝箱: 全局共享账户(所有放置的箱子同一份存储; 挖掉箱子内容
-   保留在账户里, 零损失)——defaults 只补缺失字段, init 归一化成满长槽数组 */
+   保留在账户里, 零损失)——defaults 只补缺失字段, init 归一化成满长槽数组。
+   两轨容量(ADR 0007): 存档 size 字段=材料阶梯基础格 base; 总容量 size =
+   base + ADV_CHEST_PER×现存箱子数(chests 由世界账本现算, 不落盘) */
 const ADV_CHEST_KEY = 'adventure_chest_save';
 const advChestSlot = SyncDB.slot(ADV_CHEST_KEY, {defaults: {size: ADV_CHEST_START, slots: []}});
-let advChest = {size: ADV_CHEST_START, slots: []}; /* 账户本体(init 换装) */
+let advChest = {size: ADV_CHEST_START, base: ADV_CHEST_START, chests: 0, slots: []}; /* 账户本体(init 换装) */
 
 /* ---------- 下界相位·地图态与按图分桶 edits 账本(D8 泛化, 票据 T6) ----------
      切图/切界 = advStore.journal.edits 换装当前桶(build 模式 buildEdits[id] 同款缝):
@@ -220,11 +222,15 @@ const advStations = new Map();
 function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此记账(build 同款); T13 顺路维护站点缓存 */
   const k = blockKey(x, y, z);
   const prev = advStations.get(k);
+  const pv = advStore.journal.edits.get(k); /* 记账前旧账(ADR 0007 箱子增删判据) */
   advStore.mark(k, id); /* 记账+置脏(世界改动日志, 经存档 store 缝); 站点缓存/挖炉退包是探险私事, 留在本函数 */
   if (id === B_CRAFT || id === B_FURNACE) advStations.set(k, {x, y, z, id});
   else advStations.delete(k); /* 挖除/覆盖皆注销(爆炸掀掉站点同样走此 seam) */
   /* F1: 炉子消失(挖/TNT/覆盖) → 炉内三笔退包; 炉态键带界前缀(D14) */
   if (prev && prev.id === B_FURNACE && id !== B_FURNACE) advFurnace.drop(advFurnKey(x, y, z));
+  /* ADR 0007: 箱子进账/出账(放置/挖除/TNT 掀/覆盖同走此缝) → 容量随之重算;
+     结构宝箱不在账本里, 天然不触发 */
+  if ((id === B_CHEST) !== (pv === B_CHEST)) advChestResync();
 }
 function advMeshTouch(x, z) {/* setBlockRaw 直写后的网格收口(点亮仪式/自放门/树长成共用):
     setBlockRaw 只写 worldCells 不入脏队列——直写的门面/门体/树要等跨环或重进才被
@@ -319,9 +325,11 @@ const advStoreDefault = {/* 真档 adapter 缺省(U4 还原锚点): 名字即还
   loadChest() {
     return advStore.chestSlot.load();
   },
-  /* 账户落盘: 存取/扩容是离散动作, 即做即存不等 5s 节流(原 advChestSave 口径) */
+  /* 账户落盘: 存取/扩容是离散动作, 即做即存不等 5s 节流(原 advChestSave 口径)。
+     显式只写存档形状 {size: base, slots}——运行态的 chests/size(总容量) 是
+     世界账本派生值(ADR 0007), 不进档; slots 全长保存, 超容存量不丢 */
   saveChest() {
-    advStore.chestSlot.save(advChest);
+    advStore.chestSlot.save({size: advChest.base, slots: advChest.slots});
   },
   loadBag() {
     return advStore.bag.load();
@@ -372,6 +380,7 @@ const advProfileDefault = {
   stationAlwaysOpen: false, /* 合成站点门禁: false=走近 4 格(现行) · true=恒真(U4 体验馆) */
   hiddenRecipesOpen: false, /* 隐藏配方: false=锁(现行) · true=全开(U4 体验馆) */
   leftoverDrops: true, /* 满包余量: true=掉地上拾回(现行) · false=静默丢弃(U4 体验馆) */
+  chestCapScale: true, /* 箱轨容量(ADR 0007): true=每放一箱+9 格(现行) · false=顶格固定(U4 体验馆——展馆陈列箱本身是 edits, 不该被当成容量加格) */
 };
 let advProfile = advProfileDefault; /* 政策缝本体(U4 体验馆门面 init 前整体换装 dev 政策值, cleanup 收尾还原) */
 function advSpeak(text) {/* 媒体缝·TTS: 经 profile 取通道(缺省直通 SpeechKit.speak) */
@@ -590,7 +599,7 @@ const advFurnace = FurnaceKit.mkFurnaceStation({
 });
 /* 大宝箱面板(引导链 v2): 政策与存档在本文件下方箱子段, 面板只管格子 */
 const advChestPanel = ModeKit.mkChestPanel({inv: advInv, chest: () => advChest,
-  next: () => advChestNext(advChest.size), have: (id) => count(advInv, id),
+  next: () => advChestNext(advChest.base), have: (id) => count(advInv, id),
   onPut: (i) => advChestDeposit(i), onTake: (i) => advChestWithdraw(i),
   onExpand: () => advChestExpand(), onClose: () => advChestClose()});
 /* 指针锁配套(桌面; 触屏无此概念): 开面板放鼠标出来点卡片 — 解锁事件不弹菜单
@@ -2395,9 +2404,20 @@ function advExplode(x, y, z) {
 }
 
 /* ============================================================
-   大宝箱 (引导链 v2) — 全局共享账户 + 点选搬运面板 + 材料扩容
-   (阶梯表与政策纯函数 advChestNext/advChestPut 在 adventure-core.js)
+   大宝箱 (引导链 v2 / ADR 0007) — 全局共享账户 + 点选搬运面板 +
+   两轨容量(材料阶梯基础格 + 每个已放置箱子加 9 格, 不设上限)
+   (阶梯表与政策纯函数 advChestNext/advChestPut/advChestCapacity/
+   advCountChestEdits 在 adventure-core.js)
    ============================================================ */
+/* 容量重算(ADR 0007): chests 从五桶世界账本现算(玩家放置的箱子才进账本),
+   size=总容量=base+9×chests; 触点=init 归一化 + advMarkEdit 唯一记账缝的
+   箱子增删检测——挖/TNT 掀/覆盖全路径自动覆盖, 无漂移无第二账本。
+   chestCapScale=false(U4 体验馆政策缝)不计箱轨——展馆陈列箱本身是 edits,
+   顶格篡改档口径固定在基础格 */
+function advChestResync() {
+  advChest.chests = advProfile.chestCapScale ? advCountChestEdits(advSceneEdits) : 0;
+  advChest.size = advChestCapacity(advChest.base, advChest.chests);
+}
 function advChestOpenPanel() {/* 走近箱子点击打开: open_chest 记账(步 4 三条件之一) + 回显 */
   ADV.chestOpen = true;
   advTally('open_chest', 1);
@@ -2439,22 +2459,24 @@ function advChestWithdraw(i) {
   advSyncHotbar();
   advSfx('pick');
 }
-/* 扩容(面板 ＋ 按钮出口): canAfford 验费 → take 扣料 → 档位落盘; 材料
-   不够温和提示(零惩罚; 阶梯取任务链产物, 目标随进度自然到期) */
+/* 扩容(面板 ＋ 按钮出口): canAfford 验费 → take 扣料 → 基础档升格重算容量落盘;
+   材料不够温和提示(零惩罚; 阶梯取任务链产物, 目标随进度自然到期)。
+   阶梯升的是基础格 base(ADR 0007): 提示报总容量——箱子轨的加格照算在内 */
 function advChestExpand() {
-  const nx = advChestNext(advChest.size);
+  const nx = advChestNext(advChest.base);
   if (!nx) return;
   if (!take(advInv, nx.cost)) {
     advToast('材料还不够，先去挖一挖吧！');
     advSpeak('扩容的材料还不够，先去挖一挖，等会儿再来！');
     return;
   }
-  advChest.size = nx.size;
+  advChest.base = nx.size;
+  advChestResync();
   advStore.saveChest();
   advSyncHotbar();
   advSfx('level');
   advSpeak('宝箱变大啦！能放更多宝贝咯！');
-  advToast('📦 宝箱扩到 ' + nx.size + ' 格！');
+  advToast('📦 宝箱扩到 ' + advChest.size + ' 格！');
 }
 
 /* ============================================================
@@ -2778,13 +2800,16 @@ const AdventureMode = mkMode({
        历史计数不追溯(玩家挖过什么无法从世界状态重建); step 钳进表界(表外=终章完成) */
     if (!ADV.quest.counts || typeof ADV.quest.counts !== 'object') ADV.quest.counts = {};
     ADV.quest.step = Math.max(0, Math.min(ADV.quest.step | 0, ADV_QUESTS.length));
-    /* 大宝箱账户(引导链 v2): 归一化成满长槽数组, size 钩进档位界(扩容只升不降);
-       账户槽 ≥ size 的存量(异常档)不清理——扩容后自然可见, 零损失口径 */
+    /* 大宝箱账户(引导链 v2 / ADR 0007): 存档 size 字段=阶梯基础格 base(老档
+       零迁移——老档无箱子数概念, base=老 size 恰好兼容); chests 从五桶世界
+       账本现算, size=总容量=base+9×chests; 槽位数组补齐到容量但永不截断——
+       容量缩水(挖箱)后超容存量不清理不丢失, 容量回来自然可见(零损失口径) */
     advChest = advStore.loadChest();
     if (!Array.isArray(advChest.slots)) advChest.slots = [];
-    for (let i = 0; i < ADV_CHEST_SLOTS; i++) if (!advChest.slots[i]) advChest.slots[i] = null;
-    advChest.slots.length = ADV_CHEST_SLOTS;
-    advChest.size = Math.max(ADV_CHEST_START, Math.min(advChest.size | 0, ADV_CHEST_SLOTS));
+    advChest.base = Math.max(ADV_CHEST_START, Math.min(advChest.size | 0, ADV_CHEST_SLOTS));
+    advChestResync();
+    for (let i = 0; i < advChest.size; i++) if (!advChest.slots[i]) advChest.slots[i] = null;
+    if (advChest.slots.length < advChest.size) advChest.slots.length = advChest.size;
     advQuestT = ADV_QUEST_CHECK_T; /* 谓词检查节流复位(进场半秒后首查) */
     advUnlockedSeen.length = 0;
     for (const id of advUnlockedRecipes(ADV.quest.counts)) advUnlockedSeen.push(id); /* 解锁集合播种(读档后, 老档不重播报, D2) */
