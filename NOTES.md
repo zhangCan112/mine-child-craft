@@ -31,9 +31,19 @@
   训练营 2.0 本体未实现。规格已发布：worktree `focus-revamp-spec`（opencode worktree）上
   两个提交——`docs/focus-revamp-spec.md`（合同，19 条实现决策 + 32 用户故事，测试缝经
   用户确认后升级为零新缝）+ `docs/focus-revamp-tickets.md`（F1~F10 四波，ready-for-agent）。
-  **尚未并回主仓库**；下次会话先核对合并状态再动工。
+  **尚未并回主仓库**；下次会话先核对合并状态再动工。（后续已并回且已实现完工，2026-10-28 核实）
+
+- 2026-10-28：文档结构治理（worktree docs-structure 两票）。第一票：调研
+  docs/agent-context-research.md（14 个一手来源）→ 新增 docs/README.md 文档地图索引、
+  22 个历史工件标「生命周期+后继」、conventions.test.js 新增文档指针零死链断言（首跑
+  即抓出 RESOURCES.md 根目录 6 处 ../ 出仓断链）、5 个超长 js 横幅叙事瘦身(-134 行，
+  interface/依赖逐字节保留)、conventions §1.7 横幅纪律/§1.11 生命周期标注/§6 #10 偏离
+  登记。第二票：GLOSSARY 长词条深度瘦身（另一子代理执行中）。用户拍板方向：AI 按需
+  阅读效率优先；「大篇幅代码注释」纳入治理范围；已完工文档不删、标状态指后继。
 
 ## 技术备忘（下次实现时先核对）
+
+（2026-10-28 核实：训练营 2.0 已完工，本段仅作历史待办存档）
 
 - 动代码前：AGENTS.md → docs/conventions.md → GLOSSARY.md（既有流程）。
 - 实现期第一件事：验证 `Mobs.face` 接口形状（设计稿 §7.2），不合用则 focus-icons 补画。
