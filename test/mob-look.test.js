@@ -72,18 +72,24 @@ test('造型档案: 细骨基座 — 四肢 2×12×2 · 追加骨(骷髅弓)进 
   assert.strictEqual(rig.armStyle, 'archer', '弓手步态');
 });
 
-test('造型档案: 自有骨架 — 苦力怕无臂四腿 · 蜘蛛八杆腿与前置头', () => {
+test('造型档案: 自有骨架 — 苦力怕无臂四腿 · 蜘蛛八腿独立骨两段折线与前置头', () => {
   const cr = MobLookKit.rig('creeper');
   assert.ok(!cr.slots.armL && !cr.slots.armR, '苦力怕无臂(官方)');
   assert.strictEqual(cr.slots.legL.cubes.length, 2, '对角腿成对进 legL');
   const leg = cr.slots.legL.boxes[0];
   assert.ok(Math.abs(leg.h - 6/16) < 1e-9, '官方短腿 6px');
   const sp = MobLookKit.rig('spider');
-  assert.strictEqual(sp.slots.legL.cubes.length, 4, '蜘蛛左四杆');
-  assert.strictEqual(sp.slots.legR.cubes.length, 4, '蜘蛛右四杆');
-  const bar = sp.slots.legL.boxes[0];
-  assert.ok(Math.abs(bar.w - 1) < 1e-9 && Math.abs(bar.h - 2/16) < 1e-9,
-      '官方腿 = 16×2×2px 水平长杆');
+  for (const i of [1, 2, 3, 4]) {
+    assert.strictEqual(sp.slots['legL' + i].cubes.length, 2, '蜘蛛左' + i + '腿两段(股+胫)');
+    assert.strictEqual(sp.slots['legR' + i].cubes.length, 2, '蜘蛛右' + i + '腿两段');
+  }
+  const femur = sp.slots.legL1.boxes[0];
+  assert.ok(Math.abs(femur.w - 8/16) < 1e-9 && Math.abs(femur.h - 2/16) < 1e-9,
+      '官方腿截面 2px, 段长 8px(16 长杆拆两段折线)');
+  assert.ok(femur.rz > 0 && sp.slots.legR1.boxes[0].rz < 0,
+      '左腿 rz 下斜 · 右腿反号(折线左右镜像)');
+  const zs = [1, 2, 3, 4].map((i) => sp.slots['legL' + i].joint[2]);
+  assert.strictEqual(new Set(zs).size, 4, '四腿 pivot z 扇形交错(官方 2/1/0/−1)');
   assert.ok(sp.slots.head.boxes[0].z > 0, '头在 +Z 前侧(官方 −11px 前置镜像)');
 });
 
@@ -102,7 +108,7 @@ test('造型档案: 票②基座扩展 — 灾厄基座 · 宽头参数 · 翼�
   const wsArm = ws.slots.armR.boxes[0];
   assert.ok(Math.abs(wsArm.h - 12*1.2/16) < 1e-9, '凋灵骷髅 scale 1.2(官方 2×12×2×1.2)');
   const cs = MobLookKit.rig('cave_spider');
-  assert.ok(Math.abs(cs.slots.legL.boxes[0].w - 0.7) < 1e-9, '洞穴蜘蛛 scale 0.7(蜘蛛骨×0.7)');
+  assert.ok(Math.abs(cs.slots.legL1.boxes[0].w - 8*0.7/16) < 1e-9, '洞穴蜘蛛 scale 0.7(蜘蛛骨×0.7)');
 });
 
 test('造型档案: UV 区域公式 — 玩家布局(官方 64×64) · overlay 第二盒', () => {
@@ -130,7 +136,7 @@ test('造型档案: 贴图布局合法性 — 六面矩形不出界 · 不同盒
       for (let j = i + 1; j < rects.length; j++) {
         const a = rects[i][3]; const b = rects[j][3];
         const same = a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
-        if (same) continue; /* 整份共区(蜘蛛左右腿)是声明过的共享, 合法 */
+        if (same) continue; /* 整份共区(蜘蛛八腿段)是声明过的共享, 合法 */
         const ox = Math.max(0, Math.min(a[0] + a[2], b[0] + b[2]) - Math.max(a[0], b[0]));
         const oy = Math.max(0, Math.min(a[1] + a[3], b[1] + b[3]) - Math.max(a[1], b[1]));
         assert.ok(ox === 0 || oy === 0,

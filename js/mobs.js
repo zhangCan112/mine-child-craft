@@ -312,7 +312,7 @@ const Mobs = (() => {
     gait(m, dt, sp);
   }
 
-  /* 步态(引擎/模式共用): 走路摆腿 · 飞行扇翅 · 按骨架表 armStyle 摆臂。
+  /* 步态(引擎/模式共用): 走路摆腿(蜘蛛式八腿相位交错) · 飞行扇翅 · 按骨架表 armStyle 摆臂。
      返回摆幅 sw — 模式的攻击挥臂等战斗姿态在 gait 写入的 pose 之上覆盖叠加。
      第 4 参 atkDur(可缺省)= attackT 满时长 → 通用战斗姿态一并收在此:
      有臂挥臂(僵尸式下劈/弓手举持/通用人形抡臂 — 挥击手=持械手: 骨架表
@@ -324,6 +324,14 @@ const Mobs = (() => {
     const sw = Math.sin(m.walkPhase)*0.5*Math.min(1, sp/2.2);
     const J = m.pose;
     const rig = rigOf(m.type);
+    if (rig.slots.legL1) { // 蜘蛛式: 八腿一腿一骨, 相位交错(同侧前→后传动, 对侧反相)
+      const amp = 0.5*Math.min(1, sp/2.2);
+      const PH = [0, 1.6, 3.1, 4.7];
+      for (let i = 0; i < 4; i++) {
+        J['legL'+(i+1)] = Math.sin(m.walkPhase+PH[i])*amp;
+        J['legR'+(i+1)] = Math.sin(m.walkPhase+PH[i]+Math.PI)*amp;
+      }
+    }
     if (rig.slots.legL) {
       J.legL = sw; J.legR = -sw;
     }

@@ -3,8 +3,13 @@
    造型档案 · 蜘蛛 (spider) — 引擎层 (术语见 GLOSSARY「造型档案」)
    ------------------------------------------------------------
    官方虫形骨架(docs/mc-mob-models-research.md §5 虫虫族): 头 8³ 前置 +
-   前体 6³ + 腹 10×8×12 + 8 条 16×2×2 水平长杆腿(左四右四进 legL/legR
-   槽, 与旧 MOB_RIG 的"整槽摆动"同构)。多眼簇/螯肢画进贴图。
+   前体 6³ + 腹 10×8×12 + 8 条长腿。官方每腿独立骨(bedrock spider.geo
+   8 条 leg 骨各自摆) — 落成 legL1..4/legR1..4 一腿一骨, 步态相位
+   交错(mobs.js gait 蜘蛛式分支驱动), 不再整槽齐摆。腿形在官方
+   16×2×2 水平直杆基础上做两段折线(股 8px 微斜 + 胫 8px 陡折触地,
+   立方体级 rz, 猪灵耳先例): 总展幅/截面不变, 关节轮廓换划水感 —
+   引擎步态可见优先(illager 长袍下摆同款取舍)。八眼簇/螯肢/腹背
+   人字纹画进贴图。
    interface: declare('spider', {...}) — 单一声明
    依赖: js/mob-look-kit.js(先载); 键 ∈ mob-registry.js MOB_TYPES
    可测性声明: 纯声明数据, 由 test/mob-look.test.js 键集/覆盖断言
@@ -17,40 +22,86 @@ MobLookKit.declare('spider', {
       {origin: [-3, 6, -3], size: [6, 6, 6], uv: [0, 0]}, /* 前体 */
       {origin: [-5, 5, 3], size: [10, 8, 12], uv: [0, 20]}, /* 腹 */
     ], pivot: [0, 9, 0]},
-    legL: {add: [ /* 左四杆(官方 z 交错 2/1/0/-1, 微扇形) */
-      {origin: [-19, 8, 1], size: [16, 2, 2], uv: [0, 44]},
-      {origin: [-19, 8, 0], size: [16, 2, 2], uv: [0, 48]},
-      {origin: [-19, 8, -1], size: [16, 2, 2], uv: [0, 52]},
-      {origin: [-19, 8, -2], size: [16, 2, 2], uv: [0, 56]},
-    ], pivot: [-4, 9, 0]},
-    legR: {add: [ /* 右四杆(x 镜像; UV 与左共用 — 腿通体深色, 共区无感) */
-      {origin: [3, 8, 1], size: [16, 2, 2], uv: [0, 44]},
-      {origin: [3, 8, 0], size: [16, 2, 2], uv: [0, 48]},
-      {origin: [3, 8, -1], size: [16, 2, 2], uv: [0, 52]},
-      {origin: [3, 8, -2], size: [16, 2, 2], uv: [0, 56]},
-    ], pivot: [4, 9, 0]},
+    /* 八腿一腿一骨(pivot z 交错 2/1/0/−1 官方扇形): 每骨两段折线 —
+       股(近体, rz 微斜) + 胫(外端, rz 陡折), 腿尖落地; 左右 rz 反号。
+       八腿段全共区两块 UV(通体深色, 共区无感) */
+    legL1: {pivot: [-4, 9, 2], add: [
+      {origin: [-12, 8, 1], size: [8, 2, 2], rz: 0.35, uv: [0, 44]},
+      {origin: [-20, 4, 1], size: [8, 2, 2], rz: 0.7, uv: [0, 48]},
+    ]},
+    legL2: {pivot: [-4, 9, 1], add: [
+      {origin: [-12, 8, 0], size: [8, 2, 2], rz: 0.35, uv: [0, 44]},
+      {origin: [-20, 4, 0], size: [8, 2, 2], rz: 0.7, uv: [0, 48]},
+    ]},
+    legL3: {pivot: [-4, 9, 0], add: [
+      {origin: [-12, 8, -1], size: [8, 2, 2], rz: 0.35, uv: [0, 44]},
+      {origin: [-20, 4, -1], size: [8, 2, 2], rz: 0.7, uv: [0, 48]},
+    ]},
+    legL4: {pivot: [-4, 9, -1], add: [
+      {origin: [-12, 8, -2], size: [8, 2, 2], rz: 0.35, uv: [0, 44]},
+      {origin: [-20, 4, -2], size: [8, 2, 2], rz: 0.7, uv: [0, 48]},
+    ]},
+    legR1: {pivot: [4, 9, 2], add: [
+      {origin: [4, 8, 1], size: [8, 2, 2], rz: -0.35, uv: [0, 44]},
+      {origin: [12, 4, 1], size: [8, 2, 2], rz: -0.7, uv: [0, 48]},
+    ]},
+    legR2: {pivot: [4, 9, 1], add: [
+      {origin: [4, 8, 0], size: [8, 2, 2], rz: -0.35, uv: [0, 44]},
+      {origin: [12, 4, 0], size: [8, 2, 2], rz: -0.7, uv: [0, 48]},
+    ]},
+    legR3: {pivot: [4, 9, 0], add: [
+      {origin: [4, 8, -1], size: [8, 2, 2], rz: -0.35, uv: [0, 44]},
+      {origin: [12, 4, -1], size: [8, 2, 2], rz: -0.7, uv: [0, 48]},
+    ]},
+    legR4: {pivot: [4, 9, -1], add: [
+      {origin: [4, 8, -2], size: [8, 2, 2], rz: -0.35, uv: [0, 44]},
+      {origin: [12, 4, -2], size: [8, 2, 2], rz: -0.7, uv: [0, 48]},
+    ]},
   },
   tex: {size: 64, paint: (g, R) => {
     const BODY = [66, 52, 56]; const BODY2 = [46, 36, 40];
-    const LEG = [44, 34, 38]; const RED = [216, 58, 42]; const DARKR = [138, 30, 18];
-    /* 头: 深绒噪底 · 多眼簇(大红对 + 暗红小对, 官方八眼语义) · 螯肢 */
+    const LEG = [44, 34, 38]; const LEG2 = [34, 26, 30]; /* 胫节比股节暗(体积感) */
+    const TIP = [20, 16, 18]; const RED = [216, 58, 42]; const DARKR = [138, 30, 18];
+    /* 头: 深绒噪底 · 八眼簇(大红对 + 暗红六小, 官方八眼语义) · 螯肢红尖 */
     const F = R.head.front;
     g.noise(F, BODY, 0.08);
     g.fill([F[0] + 1, F[1] + 3, 2, 2], RED); g.fill([F[0] + 5, F[1] + 3, 2, 2], RED);
-    g.px(F[0], F[1] + 4, DARKR); g.px(F[0] + 7, F[1] + 4, DARKR);
-    g.px(F[0] + 3, F[1] + 2, DARKR); g.px(F[0] + 4, F[1] + 2, DARKR);
-    g.fill([F[0] + 3, F[1] + 6, 1, 2], DARKR); g.fill([F[0] + 4, F[1] + 6, 1, 2], DARKR); /* 螯肢 */
+    g.px(F[0] + 2, F[1] + 1, DARKR); g.px(F[0] + 5, F[1] + 1, DARKR); /* 上对小眼 */
+    g.px(F[0], F[1] + 5, DARKR); g.px(F[0] + 2, F[1] + 5, DARKR);
+    g.px(F[0] + 5, F[1] + 5, DARKR); g.px(F[0] + 7, F[1] + 5, DARKR); /* 下排弧形四小 */
+    g.fill([F[0] + 3, F[1] + 6, 1, 2], DARKR); g.fill([F[0] + 4, F[1] + 6, 1, 2], DARKR);
+    g.px(F[0] + 3, F[1] + 7, RED); g.px(F[0] + 4, F[1] + 7, RED); /* 螯肢尖 */
     for (const f of ['back', 'left', 'right', 'top', 'bottom']) {
       g.noise(R.head[f], BODY, 0.08);
     }
-    /* 体两节(root=前体, root2=腹): 深绒底 + 腹背中线纹 */
-    for (const part of [R.root, R.root2]) {
-      g.noiseAll(part, BODY, 0.08);
+    g.fill([R.head.top[0] + 3, R.head.top[1], 2, R.head.top[3]], BODY2); /* 头背中纹 */
+    /* 体两节(root=前体, root2=腹): 深绒底 + 背中纹 */
+    g.noiseAll(R.root, BODY, 0.08);
+    g.noiseAll(R.root2, BODY, 0.08);
+    g.fill([R.root.top[0] + 2, R.root.top[1], 2, R.root.top[3]], BODY2); /* 前体背中纹 */
+    /* 腹背人字纹 ×3(V 尖朝尾, 官方腹部锯齿纹语义) */
+    const B = R.root2.back;
+    for (const dy of [0, 3, 6]) {
+      g.px(B[0] + 4, B[1] + dy, BODY2);
+      g.px(B[0] + 3, B[1] + dy + 1, BODY2); g.px(B[0] + 5, B[1] + dy + 1, BODY2);
+      g.px(B[0] + 2, B[1] + dy + 1, BODY2); g.px(B[0] + 6, B[1] + dy + 1, BODY2);
     }
-    g.fill([R.root2.back[0] + 4, R.root2.back[1], 2, R.root2.back[3]], BODY2); /* 腹尾纹 */
-    /* 八腿杆: 通体深色 */
-    for (const leg of [R.legL, R.legL2, R.legL3, R.legL4, R.legR, R.legR2, R.legR3, R.legR4]) {
-      g.noiseAll(leg, LEG, 0.06);
+    for (const f of ['left', 'right']) {/* 腹侧分节竖纹 */
+      const r = R.root2[f];
+      for (let x = 2; x < r[2]; x += 3) g.fill([r[0] + x, r[1], 1, r[3]], BODY2);
     }
+    /* 八腿段(全共区): 股亮 · 胫暗 · 两端关节环 · 端面黑尖 · 上亮下暗 */
+    g.noiseAll(R.legL1, LEG, 0.06);
+    g.noiseAll(R.legL12, LEG2, 0.06);
+    for (const seg of [R.legL1, R.legL12]) {
+      for (const f of ['front', 'back']) {
+        const r = seg[f];
+        g.px(r[0], r[1], BODY2); g.px(r[0], r[1] + 1, BODY2);
+        g.px(r[0] + r[2] - 1, r[1], BODY2); g.px(r[0] + r[2] - 1, r[1] + 1, BODY2);
+      }
+      g.fill(seg.left, BODY2); g.fill(seg.right, BODY2);
+      g.mul(seg.top, 1.1); g.mul(seg.bottom, 0.8);
+    }
+    g.fill(R.legL12.left, TIP); g.fill(R.legL12.right, TIP); /* 胫节端面黑尖 */
   }},
 });
