@@ -103,7 +103,10 @@ function paramsFor(level) {
   const band = level.band;
   const t = level.tier;
   const meta = ROBOT_PACKS.find((p) => p.key === level.pack) || {};
-  const skill = meta.skill || null;
+  /* 带0 封印特技卡(D4 防挫败阶梯: 先学会走和转); 软/水/台特征量随 skill
+     归零——mkBoard 静默少放语义, 托盘 S 卡(modes/robot.js 按 p.skill 派生)
+     随之不出, 与设计稿 §4 带表一致(带0 只有走/转) */
+  const skill = level.band === 0 ? null : (meta.skill || null);
   const relay = level.kind === 'relay';
   /* 棋盘尺寸: 带内后半放大一级, 带尺寸表封顶 */
   const grow = level.k < 12 ? 0 : 1;

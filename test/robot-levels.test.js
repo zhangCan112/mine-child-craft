@@ -3,7 +3,8 @@
    运行: node --test test/robot-levels.test.js
    覆盖: 100 关编排(4 带×25/kind 分布逐带断言/boss 恒带末/包轮换合法/
    tier 1..19) · paramsFor 边界(槽位主轴 1..10/尺寸 4..7/previewSec 带语义/
-   trapRate 渐进有界/decoy 仅带3/skill 与包一致) · presetFor=解去尾卡可续赢 ·
+   trapRate 渐进有界/decoy 仅带3/skill 带感知: 带0 封印特技卡(特征量全 0),
+   带1~3 与包一致) · presetFor=解去尾卡可续赢 ·
    debugPresetFor 必坏(≠win) · 三星与通过门槛边界 · 战利品(教学豁免/池键 ⊆
    ITEMS[vm 装载]/确定性/boss 保底) · 存档迁移幂等 · 跨层可出盘(抽样关参数
    喂 robot-core 全可解)。
@@ -99,7 +100,14 @@ test('paramsFor: 槽位主轴(带0 1/3/4 → 带1~3 6/8/10) · 尺寸 4..7 · �
     if (l.band !== 3) assert.strictEqual(p.decoy, 0, '假旗仅带3');
     else assert.ok(p.decoy >= 0 && p.decoy <= 2, '假旗 ≤2(无害档)');
     const meta = ROBOT_PACKS.find((x) => x.key === l.pack);
-    assert.strictEqual(p.skill, meta.skill || null, 'skill 与包一致');
+    if (l.band === 0) {
+      assert.strictEqual(p.skill, null, 'i=' + l.i + ' 带0 封印特技卡(D4: 先学会走和转)');
+      assert.strictEqual(p.softPath, 0, '带0 无软障碍(特征量随 skill 归零)');
+      assert.strictEqual(p.waterPath, 0, '带0 无水面路');
+      assert.strictEqual(p.ledgePath, 0, '带0 无高台路');
+    } else {
+      assert.strictEqual(p.skill, meta.skill || null, 'i=' + l.i + ' skill 与包一致');
+    }
     assert.strictEqual(p.boards, 4, '每关 4 盘');
     if (!meta.skill || meta.skill === 'boom' || meta.skill === 'smash') {
       assert.strictEqual(p.waterPath, 0, '非滑翔包不出水面路');

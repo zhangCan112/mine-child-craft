@@ -28,7 +28,7 @@
 const RobotWorld = (() => {
   /* ---------- 节奏与相机参数表(真机试玩调参) ---------- */
   const ROBOT_GROUND = 12; // 棋盘岛顶层 y(数学世界轨 hop 同款浮岛高程)
-  const ROBOT_CAM_PITCH = -0.64; // 固定俯角看整盘(MATH_W_CAM_PITCH 先例; 真机试玩调参: 配合无人机眼位让棋盘居中)
+  const ROBOT_CAM_PITCH = -0.68; // 固定俯角看整盘(MATH_W_CAM_PITCH 先例; 真机试玩调参: -0.64→-0.68 配合眼位抬升, 棋盘更居中少露天空)
   const ROBOT_PUPPET_SCALE = 0.6; // Q 版化(设计稿 §3.2: 铁傀儡 h2.8 也放得下)
   const ROBOT_WALK_SPD = 2.6; // gait 摆腿速度(格/秒 ≈ 每格 380ms 的步频)
   /* 回放节奏(ms/卡, 每卡一步): turn 原地转向 · move 前进一格 ·
@@ -40,10 +40,11 @@ const RobotWorld = (() => {
     nap: 900, win: 900, spin: 600, nothing: 400, idle: 200, roll: 300,
   };
   /* 方块映射(config BLOCKS 实有 id): GROUND=草 · HARD=石 · SOFT=木板箱
-     (可炸可砸) · WATER=水(glass 透渲) · GOAL=灯块(自发光=真旗) ·
-     LEDGE=圆石抬升一格 · 起点石英垫 · 旗杆木 · 旗面黄羊毛 */
-  const ROBOT_BLOCKS = {ground: 1, hard: 3, soft: 6, water: 24, goal: 19,
-    ledge: 4, start: 17, pole: 5, flag: 14};
+     (可炸可砸) · WATER=水(glass 透渲) · GOAL=红羊毛 · LEDGE=圆石抬升一格 ·
+     起点蓝羊毛 · 杯与脚印=灯块(自发光金) —— 起点蓝/终点红+悬空金杯, 用户拍板
+     (真机反馈「终点看不出是目的地」; 蓝红实心羊毛 = math-world markSquare 先例) */
+  const ROBOT_BLOCKS = {ground: 1, hard: 3, soft: 6, water: 24, goal: 16,
+    ledge: 4, start: 15, lamp: 19};
   const ROBOT_PLATFORM = {dz: 4, lift: 3}; // 观景台: 棋盘南侧 dz 格外 · 抬升 lift 格
 
   /* 计时器收口: stop 一次清空(math-world mWTimers 同构的本地副本, 不跨
@@ -95,7 +96,7 @@ const RobotWorld = (() => {
 
     /* ===== 装场(场景装填纪律: 进场装场, 退出清场, 不写建造存档) ===== */
     loadScene(() => {
-      const mg = 1; // 岛缘草圈一圈(旗杆与树都站在圈上)
+      const mg = 1; // 岛缘草圈一圈(北缘两棵框景树已删——真机反馈树冠展开半径大, 压住棋盘格挡走子; 草圈保留)
       SceneKit.fill(x0 - mg, G - 3, z0 - mg, x0 + board.w, G - 1, z0 + board.h, 2); // 泥土芯
       SceneKit.fill(x0 - mg, G, z0 - mg, x0 + board.w, G, z0 + board.h, 1); // 草圈
       for (let z = 0; z < board.h; z++) {
@@ -112,14 +113,16 @@ const RobotWorld = (() => {
           if (t === RobotCore.CELL.LEDGE) setBlockRaw(x0 + x, G + 1, z0 + z, ROBOT_BLOCKS.ledge);
         }
       }
-      /* 终点旗: 杆立在终点南侧岛缘(不占棋盘格), 金色旗面 */
+      /* 悬空金杯(终点格正上, 用户拍板「总之要明显」): G+3 杯柄一格 + G+4
+         杯沿横排三格(以格心为中心) — G+1/G+2 留空, 木偶 scaleTo 0.6 后通行
+         零遮挡。金材质三选一取复用灯块: 自发光金黄贴「奖杯」语义且零新增
+         config id(发光岩属下界段不混用; 另加纯色数据行无必要); 终点格本体
+         红羊毛已由上方 cell 循环按 GOAL 映射铺好 */
       const gx = x0 + board.goal.x;
       const gz = z0 + board.goal.z;
-      SceneKit.fill(gx, G + 1, gz + 1, gx, G + 3, gz + 1, ROBOT_BLOCKS.pole);
-      setBlockRaw(gx + 1, G + 3, gz + 1, ROBOT_BLOCKS.flag);
-      /* 北缘两棵树(构图框景, 不进棋盘不挡走子) */
-      SceneKit.tree(x0 - mg, G + 1, z0 - mg);
-      SceneKit.tree(x0 + board.w, G + 1, z0 - mg);
+      setBlockRaw(gx, G + 3, gz, ROBOT_BLOCKS.lamp);
+      SceneKit.fill(gx - 1, G + 4, gz, gx + 1, G + 4, gz, ROBOT_BLOCKS.lamp);
+      /* 北缘两棵框景树已删(真机反馈: 树冠压棋盘格), 见上方 mg 行注释 */
       /* 观景台: 棋盘南侧上方 3×3 石台 — 玩家出生其上俯视整盘 */
       const pz = z0 + board.h + ROBOT_PLATFORM.dz;
       SceneKit.fill(63, G + ROBOT_PLATFORM.lift, pz - 1, 65, G + ROBOT_PLATFORM.lift, pz + 1,
@@ -137,7 +140,7 @@ const RobotWorld = (() => {
        按契约隐藏(真机试玩反馈: 第三人称小人挡棋盘, 本模式只需看盘排指令)。
        锚点 fn 只供位置 — 朝向仍走全局 yaw/pitch(frame 每帧复归, 白名单内) */
     CameraRig.mount(() =>
-      ({x: x0 + board.w / 2, y: G + 5.4, z: z0 + board.h - 0.5}));
+      ({x: x0 + board.w / 2, y: G + 6.2, z: z0 + board.h - 0.5})); // 真机调参: 5.4→6.2 与俯角 -0.68 同拍
 
     /* ===== 木偶 ===== */
     const pack = ROBOT_PACKS.find((p) => p.key === level.pack) || {};
@@ -195,7 +198,7 @@ const RobotWorld = (() => {
       const lz = z0 + z;
       if (marks.some((mk) => mk.x === lx && mk.y === fy && mk.z === lz)) return;
       marks.push({x: lx, y: fy, z: lz, prev: getBlock(lx, fy, lz)});
-      setBlockRaw(lx, fy, lz, ROBOT_BLOCKS.goal); // 灯块亮起
+      setBlockRaw(lx, fy, lz, ROBOT_BLOCKS.lamp); // 灯块亮起(与终点红羊毛分立, 脚印语义不变)
       markDirty(lx, lz);
     }
     function restoreMark(mk) {
@@ -239,7 +242,7 @@ const RobotWorld = (() => {
         if (intent === 'win') {
           sfxSafe('win');
           if (typeof Fx !== 'undefined' && Fx && Fx.pop) {
-            Fx.pop(wx(s.x), G + 2.2, wz(s.z), {color: 0x7cfc00, r0: 0.6, r1: 3.5, dur: 0.5});
+            Fx.pop(wx(s.x), G + 2.2, wz(s.z), {color: 0xffd83d, r0: 0.6, r1: 3.5, dur: 0.5}); // 到旗=金杯同款金彩
           }
         } else {
           sfxSafe('click'); // 每步一声轻响(步点与程序条高亮同拍)
