@@ -421,8 +421,9 @@ test('扩容主题五件: 松林/望塔/石阵/花田/南池建场落位(确定�
   assert.strictEqual(cell(p.cx, 24, p.cz), api.B_WATER, '南池洼心水面 y24');
   assert.strictEqual(cell(p.cx, 23, p.cz), 8, '南池沙底');
   assert.strictEqual(cell(p.cx, 24, p.cz + p.r + 2), 1, '池外一圈草皮');
-  /* 望塔: 基座/环墙/门洞/平台灯砖/宝箱/垛口 + 内旋石梯逐级(7×7 外沿,
-    2026-10-27 重构: 内旋梯收掉旧版「塔底死屋+外挂折返梯」的可发现性缺陷) */
+  /* 望塔: 基座/环墙/门洞/平台灯砖/宝箱/垛口 + 内旋楼梯逐级(7×7 外沿,
+    2026-10-27 重构: 内旋梯收掉旧版「塔底死屋+外挂折返梯」的可发现性缺陷;
+    2026-10-28 用户拍板: 楼梯改红蓝羊毛逐级交替——石梯在石砖墙里不显眼) */
   const t = Core.ADV_TOWER;
   assert.strictEqual(cell(t.x, 25, t.z), 4, '塔底基座圆石');
   assert.strictEqual(cell(t.x - 3, 29, t.z), 13, '塔身石砖环墙(7×7 外沿)');
@@ -432,18 +433,22 @@ test('扩容主题五件: 松林/望塔/石阵/花田/南池建场落位(确定�
   assert.strictEqual(cell(t.x, 33, t.z), api.B_GLOWSTONE, '平台心灯砖');
   assert.strictEqual(cell(t.x + 2, 34, t.z + 2), api.B_CHEST, '顶角宝箱(楼梯口对角)');
   assert.strictEqual(cell(t.x - 3, 34, t.z - 3), 4, '垛口满圈(防失足)');
-  /* 内旋石梯 8 级逐级: 内圈东南角起步沿东墙向北折西半圈, 每级恰 +1 且
-    实心落地(列内 26..25+k 无空洞; 8 级柱顶由平台木板盖板同判) */
+  /* 内旋楼梯 8 级逐级: 内圈东南角起步沿东墙向北折西半圈, 每级恰 +1 且
+    实心落地(列内 26..25+k 无空洞; 8 级柱顶由平台木板盖板同判);
+    红蓝羊毛逐级交替(奇数级红 16/偶数级蓝 15, 整柱同色) */
   let spiral = 0;
+  let alt = 0;
   for (let k = 1; k <= 8; k++) {
     const sx = k <= 5 ? t.x + 2 : t.x + 2 - (k - 5);
     const sz = k <= 5 ? t.z + 2 - (k - 1) : t.z - 2;
     let solid = 0;
     for (let y = 26; y <= 25 + k; y++) if (cell(sx, y, sz) !== 0) solid++;
     if (solid === k) spiral++;
+    if (cell(sx, 26, sz) === (k % 2 ? 16 : 15)) alt++; /* 柱基即整柱色 */
   }
-  assert.strictEqual(spiral, 8, '内旋石梯 8 级逐级实心落地(实测=' + spiral + ')');
-  assert.strictEqual(cell(t.x + 2, 26, t.z + 2), 4, '首级贴门洞右前内角(进屋即见)');
+  assert.strictEqual(spiral, 8, '内旋楼梯 8 级逐级实心落地(实测=' + spiral + ')');
+  assert.strictEqual(alt, 8, '红蓝羊毛逐级交替(16 红/15 蓝, 实测=' + alt + ')');
+  assert.strictEqual(cell(t.x + 2, 26, t.z + 2), 16, '首级红羊毛贴门洞右前内角(进屋即见)');
   /* 楼梯口: 6~7 级格平台开天井(平台板会挡 32~33 脚位头顶净空),
     8 级柱顶由平台铺装原位盖板(无缝出梯), 5 级上方平台封闭(净空恰 2) */
   assert.strictEqual(cell(t.x + 1, 33, t.z - 2), 0, '楼梯口 6 级格开天井');

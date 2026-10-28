@@ -3079,6 +3079,30 @@ test('T8 计数挂点四路: 广场发现(位置型) / 结构宝箱(图+坐标) 
   assert.strictEqual(ADV_MINE_TALLY[api.B_CACTUS], 'mine_cactus', '仙人掌走挖掘挂点映射');
 });
 
+test('弓射击(2026-10-28 弓物品化): 手持弓右键沿准星放箭 → 弹步进命中击杀记账; 拉弓冷却与挥击同轨连点不连发', () => {
+  mem.clear();
+  freshInit();
+  /* 站门阵广场开阔处(弹道不碰建筑), 手持弓 + 准星朝前(T9 雪球同款桩) */
+  pos.x = 85.5; pos.z = 81.5;
+  holdOnly('bow_item', 1);
+  globalThis.camera = {};
+  globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.4, z: pos.z}, dir: {x: 0, y: 0, z: -1}})};
+  const shots = () => calls.filter((c) => c[0] === 'sfx' && c[1] === 'shoot').length;
+  AdventureMode.onMouse(2, {x: 60, y: 24, z: 60, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(shots(), 1, '手持弓右键 → 放箭(shoot 音效, mkArrows 内置)');
+  AdventureMode.onMouse(2, {x: 60, y: 24, z: 60, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(shots(), 1, '拉弓冷却内(0.55s)连点不连发——与挥击同一条轨道');
+  /* 弹道步进: 怪在准星线上 2 格 → 箭 22 格/秒命中 → 击杀记账走 advOnKill(与挥击同拍) */
+  globalThis.yaw = 0;
+  listResult = [mkAdvMob('zombie', pos.x, pos.y, pos.z - 2, {attackCd: 99})];
+  nextHit = {hp: 0, dead: true, freshDead: true};
+  for (let i = 0; i < 30; i++) AdventureMode.update(1 / 60); /* ~0.1s 后命中 */
+  listResult = [];
+  assert.strictEqual(A.ADV.quest.counts.kill_mob, 1, '箭杀怪 → kill_mob 1(advBolts.onHitMob → advOnKill)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hit'), '命中怪 → hit 音效(kit 内置)');
+  clearAim();
+});
+
 test('T8 锁门 TTS 真任务名: 走近熄门报前置任务 goal(T7 占位文案「完成任务」收尾)', () => {
   mem.clear();
   freshInit();

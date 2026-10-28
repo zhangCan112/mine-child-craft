@@ -131,7 +131,7 @@ voxel.js 玩家段的六绑定 pos/vel（const 对象、成员可写、与 THREE
 _Avoid_: 把六绑定当模式可写状态（模式层直写已被守门断言拦）、给 setFly 加第二实现（语义单份在 voxel.js）
 
 **手持物注册表（HeldItems）**:
-手持物的唯一数据源：部件表、握持姿态、挥击与待机参数。两级供给——**defs 注册表**（手工武器 + 工具 16 条由 mkToolDef 加载期批量生成，工厂供单测直调）+ **defFor 惰性出口**（运行时唯一取 def 通道：工具/武器→defs；方块〔物品 id 或数字方块 id，建造/竞技场调色板直传〕→mkBlockDef 方块本体；棒状材料→mkRodDef；其余注册物品→mkPlateDef 薄片；空槽/未注册→null=空手，MC 口径）；附无状态入口——挥击关节角纯函数、按 def 的网格装配。加武器 = 加一份 def；肢体动画与握持施加收在玩家形象（Avatar）的 implementation 里，Avatar.setItem 声明目标、换物走「下沉-换-抬起」装备动画（沉到底才换网格）。
+手持物的唯一数据源：部件表、握持姿态、挥击与待机参数。两级供给——**defs 注册表**（手工武器 + 工具 16 条由 mkToolDef 加载期批量生成，工厂供单测直调；弓 def=bow_item 键与物品 id 逐字一致，形状照 MC 正典 bow.json：16×16 像素图挤出薄片，art 部件经像素图标工坊 ITEM_PIX 贴图〔正面/背面镜像、侧面单色、alphaTest 裁透明角〕，工坊或画布不可用回落纯色薄板；hoe/sword 是无同名物品的观感族模板，defFor 永不命中）+ **defFor 惰性出口**（运行时唯一取 def 通道：工具/武器→defs；方块〔物品 id 或数字方块 id，建造/竞技场调色板直传〕→mkBlockDef 方块本体；棒状材料→mkRodDef；其余注册物品→mkPlateDef 薄片；空槽/未注册→null=空手，MC 口径）；附无状态入口——挥击关节角纯函数、按 def 的网格装配。加武器 = 加一份 def；肢体动画与握持施加收在玩家形象（Avatar）的 implementation 里，Avatar.setItem 声明目标、换物走「下沉-换-抬起」装备动画（沉到底才换网格）。
 _Avoid_: 武器表、物品系统（合称——物品核心/背包核心/合成核心/掉落物实体库各归各词条）
 
 **物品核心**:

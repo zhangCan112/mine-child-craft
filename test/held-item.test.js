@@ -34,11 +34,17 @@ test('剑在注册表: 下界「进下界换剑」依赖它(Avatar.setItem 未�
   assert.strictEqual(sword.label, '剑');
 });
 
-test('弓在注册表: 下界武器栏的远程位依赖它(与剑同为纯数据 def, 战斗政策在模式层)', () => {
+test('弓在注册表: 键名与物品 id 逐字一致(bow_item)——Avatar.setItem 直用, 战斗政策在模式层', () => {
   const {HeldItems} = loadHeld();
-  const bow = HeldItems.defs['bow'];
-  assert.ok(bow, 'defs 里应有 bow');
+  const bow = HeldItems.defs['bow_item'];
+  assert.ok(bow, 'defs 里应有 bow_item(与 items-core 物品 id 一致)');
   assert.strictEqual(bow.label, '弓');
+  /* 回归防线: 旧键 'bow' 与物品 id 不匹配——defFor('bow_item') 曾因此落到
+     mkPlateDef 灰色薄片兜底, 手里拿的不是弓 */
+  assert.strictEqual(HeldItems.defFor('bow_item'), bow,
+      'defFor(bow_item) 应命中 defs 条目而非薄片兜底');
+  assert.ok(bow.parts[0].art === 'bow_item',
+      '弓部件带 art 字段(MC item/generated 像素挤出薄片正典)');
 });
 
 test('def 形状: 每个手持物具备 部件表/握持/挥击/待机 四组数据', () => {
