@@ -172,9 +172,13 @@ function showroomCrateStock() {/* 仓库箱派生清单(模式装配与展馆绘
   return showroomCrateRows(showroomPocket().overflow);
 }
 
-function showroomDisplayBlocks() {/* 展台展品方块号清单(注册序): 展品排除站点四件(它们作为真站点装在场内) */
+function showroomDisplayBlocks() {/* 展台展品方块号清单(注册序): 展品排除站点四件(它们作为真站点装在场内)与
+    need 旗标方块(树叶——失依即落, 壳 init 的 P14 世界卫生清扫每场都会把它从台面
+    静默收走, 陈了等于空位; U4 遗留观察①收口。thin 依附块(火把/树苗)在木板台面
+    有底座可依附, 存活不排除) */
   return showroomDisplays([B_CRAFT, B_FURNACE, B_CHEST, B_BED])
-      .map((id) => ITEMS[id].block);
+      .map((id) => ITEMS[id].block)
+      .filter((b) => !(BLOCKS[b] && BLOCKS[b].need));
 }
 
 function showroomDevLayout() {/* dev 档布局 = SHOWROOM 坐标不动(x/z 与 v2 语义源/既有测试同参——选址压界

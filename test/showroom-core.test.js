@@ -29,7 +29,7 @@ for (const f of ['js/config.js', 'js/items-core.js', 'js/inventory-core.js', 'js
 }
 const api = vm.runInContext(`({ITEMS, stackMax, isTool, durOf, mkInventory, add, count,
   canCraft, shapeCost, costEntry, RECIPES, SMELTS, FUEL, INV_SLOTS,
-  B_CRAFT, B_FURNACE, B_CHEST, B_BED})`, eng);
+  B_CRAFT, B_FURNACE, B_CHEST, B_BED, BLOCKS})`, eng);
 Object.assign(globalThis, api); /* 被测核心经全局名消费 vm 真件 */
 
 const Core = require('../js/showroom-core.js');
@@ -141,6 +141,13 @@ test('供给核心: 展品 = 可放置方块物品 − 站点件(独立重算对
     assert.ok(exclude.indexOf(api.ITEMS[id].block) < 0, '站点件不上展台: ' + id);
   }
   assert.ok(ids.length > 15, '展品成阵(当前表 20+ 件): ' + ids.length);
+  /* U5: 展台方块清单在派生层排除 need 旗标块(失依即落, P14 清扫每场收走) */
+  const blocks = Core.showroomDisplayBlocks();
+  assert.ok(blocks.length > 15 && blocks.length < ids.length,
+      'need 排除后仍有展品成阵(排除至少 1 件): ' + blocks.length + '/' + ids.length);
+  for (const b of blocks) {
+    assert.ok(!(api.BLOCKS[b] && api.BLOCKS[b].need), 'need 旗标块不上展台: ' + b);
+  }
 });
 
 /* ============ ⑤ 红线: 供给核心同守数据隔离 ============ */

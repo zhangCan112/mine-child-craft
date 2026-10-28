@@ -575,9 +575,8 @@ test('体验馆: 统一装场 — 展馆结构经壳的建场+重放链在场(�
     assert.strictEqual(api.getBlock(50, G + 1, 50 + i * 2), api.B_CHEST,
         '第 ' + i + ' 箱(' + crates[i].title + ')在场');
   }
-  /* 展台展品: 派生清单的方块都在台面(y G+2 扫描区); 例外登记——need 旗标块
-      (树叶)是失依即落的伴生块, 台面上无原木可依, 过壳 init 的 P14 清扫不
-      存活(重进也不复活)——统一壳的既有语义, 非账本缺块 */
+  /* 展台展品: 派生方块清单(U5 起 need 旗标块在派生层排除——失依即落, 台面无原木
+      可依, P14 清扫每场都会收走, 陈了等于空位)逐件在台面(y G+2 扫描区) */
   const found = new Set();
   for (let x = 54; x <= 72; x++) {
     for (let z = 51; z <= 66; z++) {
@@ -585,14 +584,8 @@ test('体验馆: 统一装场 — 展馆结构经壳的建场+重放链在场(�
       if (b) found.add(b);
     }
   }
-  for (const id of ShowroomCore.showroomDisplays(
-      [api.B_CRAFT, api.B_FURNACE, api.B_CHEST, api.B_BED])) {
-    const bid = api.ITEMS[id].block;
-    if (api.BLOCKS[bid] && api.BLOCKS[bid].need) {
-      assert.ok(!found.has(bid), 'need 旗标展品(' + id + ')被 P14 清扫(失依即落, 统一壳语义)');
-      continue;
-    }
-    assert.ok(found.has(bid), '展品在台面: ' + id);
+  for (const bid of ShowroomCore.showroomDisplayBlocks()) {
+    assert.ok(found.has(bid), '展品在台面: ' + bid);
   }
   /* 火把插满: 室内 + 地下室(扫描区域计数) */
   let houseTorch = 0;
@@ -638,12 +631,24 @@ test('体验馆: 统一进场 — 房内出生(篡改档 pos)·昼夜接线·昼
 
 test('体验馆: 馆内生态 — 巢穴怪与牧场动物随统一壳进馆(拍板③), 白天无夜怪', () => {
   freshEnter();
-  const types = new Set(mobsRig.spawned.map((m) => m.type));
+  /* 巢穴怪种类掷骰是无种子 Math.random(adventure.js advSpawnNest, 每进场不同
+      是既有口径)——「三怪都会来」的守门面是**池数据**(随统一壳进馆的确定性
+      事实), 播种结果只校验非空且 ⊆ 池并集(不赌运气, 全量并行跑不偶发红) */
+  const nestKinds = new Set();
+  for (const nest of eng.ADV_HOME_ROW.nests) {
+    for (const k of nest.kinds) nestKinds.add(k);
+  }
   for (const t of ['zombie', 'spider', 'creeper']) {
-    assert.ok(types.has(t), '巢穴怪在场: ' + t + '(壳的 advSeedMapMobs)');
+    assert.ok(nestKinds.has(t), '巢穴池含 ' + t + '(壳的 advSeedMapMobs 播的就是这张池)');
+  }
+  const spawned = mobsRig.spawned.map((m) => m.type);
+  const nestSpawned = spawned.filter((t) => nestKinds.has(t));
+  assert.ok(nestSpawned.length > 0, '巢穴怪已播(非空): ' + nestSpawned.join(','));
+  for (const t of nestSpawned) {
+    assert.ok(nestKinds.has(t), '播种种类 ∈ 巢穴池: ' + t);
   }
   for (const t of ['cow', 'sheep', 'pig', 'chicken']) {
-    assert.ok(types.has(t), '牧场动物在场: ' + t + '(F4 牧场随统一进馆)');
+    assert.ok(spawned.indexOf(t) >= 0, '牧场动物在场: ' + t + '(F4 牧场确定性清单随统一进馆)');
   }
   assert.strictEqual(nightMobList().length, 0, '白天无夜怪(入夜上沿才铺)');
 });
@@ -1531,7 +1536,7 @@ test('体验馆 U3: 重放后结构全覆盖 — 墙/顶/门/窗/站点件/床/�
     assert.strictEqual(api.getBlock(50, g + 1, 50 + i * 2), api.B_CHEST,
         '第 ' + i + ' 箱(' + crates[i].title + ')在场');
   }
-  /* 展台展品: 派生清单的方块都在台面(y g+2 扫描区) */
+  /* 展台展品: 派生方块清单(U5 起 need 旗标块在派生层排除)的方块都在台面(y g+2 扫描区) */
   const found = new Set();
   for (let x = 54; x <= 72; x++) {
     for (let z = 51; z <= 66; z++) {
@@ -1539,9 +1544,8 @@ test('体验馆 U3: 重放后结构全覆盖 — 墙/顶/门/窗/站点件/床/�
       if (b) found.add(b);
     }
   }
-  for (const id of ShowroomCore.showroomDisplays(
-      [api.B_CRAFT, api.B_FURNACE, api.B_CHEST, api.B_BED])) {
-    assert.ok(found.has(api.ITEMS[id].block), '展品在台面: ' + id);
+  for (const bid of ShowroomCore.showroomDisplayBlocks()) {
+    assert.ok(found.has(bid), '展品在台面: ' + bid);
   }
   /* 火把插满: 室内(y25..28)+地下室(y20)计数 */
   let houseTorch = 0;
