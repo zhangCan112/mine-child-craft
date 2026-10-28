@@ -1742,12 +1742,15 @@ function advBreakToolText(name, hint) {
 }
 
 /* ============================================================
-   床·睡觉政策 (昼夜 D6, mc-daylight-torch §7.2) — 常量与纯函数段
+   床·睡觉政策 (昼夜 D6, mc-daylight-torch §7.2; 2026-10-28 用户拍板时钟改版:
+   床点击不再一键睡到天亮, 开「时钟拨盘」自选醒来时刻——拨盘纯函数在
+   daylight-core 的 clock* 族(时间轴派生量归引擎), 这里只剩睡觉判据) —
+   常量与纯函数段
    ------------------------------------------------------------
-   两条件(设计稿 §7.2 表): 夜晚窗口 Daylight.sleepWindow(skyDim≥4 ⇔
-   晴天 [12542,23460], research §1.6 裁决口径) + 床 8 格(水平)内无
-   活怪(MC 口径; passive 牧场动物不算怪——F4「动物不算怪」同口径)。
-   转场观感(#fade 遮罩/TTS/跳清晨/出生点设床边)在壳 modes/adventure.js,
+   睡觉条件一条件制(原「夜窗+床边无怪」两条件, 时钟改版撤销夜窗——
+   拨盘本身就是选时刻, 白天也可拨; 怪圈保留): 床 8 格(水平)内无活怪
+   (MC 口径; passive 牧场动物不算怪——F4「动物不算怪」同口径)。
+   转场观感(#fade 遮罩/TTS/跳时刻/出生点设床边)在壳 modes/adventure.js,
    这里只有判据与时间账。
    ============================================================ */
 const ADV_BED_MOB_R = 8; /* 床边无怪判定半径(水平格, 含等号——advNearStation 同口径) */
@@ -1755,11 +1758,11 @@ const ADV_SLEEP_FADE = 1.5; /* 渐黑秒数(§7.2) */
 const ADV_SLEEP_HOLD = 2; /* 全黑停留秒数(§7.2) */
 const ADV_SLEEP_TOTAL = 5; /* 总时长 ≈ MC 101 tick=5.05s 观感等价(差异 #2) */
 
-/* 睡觉条件: mobs 为怪物快照([{x,z,dead?,gone?,passive?}] 壳层从 Mobs.list()
-   采集成), bx/bz 为床格心坐标。返回 {ok, why}: 'night'(→toast「晚上才能睡哦」)
-   优先于 'mob'(→toast「附近有怪物，睡不着」)— 次序 = §7.2 表条件次序 */
-function advSleepCheck(dayTime, mobs, bx, bz) {
-  if (!Daylight.sleepWindow(dayTime)) return {ok: false, why: 'night'};
+/* 睡觉条件(时钟改版后一条件制): mobs 为怪物快照([{x,z,dead?,gone?,passive?}]
+   壳层从 Mobs.list() 采集成), bx/bz 为床格心坐标。返回 {ok, why}:
+   'mob'(→toast「附近有怪物，睡不着」)。夜窗撤销(2026-10-28 时钟改版):
+   白天点床=开拨盘选时刻, 不再 toast「晚上才能睡哦」。 */
+function advSleepCheck(mobs, bx, bz) {
   for (const m of mobs) {
     if (m.dead || m.gone || m.passive) continue; /* 尸体/已移除/牧场动物不拦 */
     if (Math.hypot(m.x - bx, m.z - bz) <= ADV_BED_MOB_R) return {ok: false, why: 'mob'};

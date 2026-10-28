@@ -7,7 +7,8 @@
    两级供给: defs 注册表(个性武器 = 加一份纯数据; 镐/斧/剑/锹四阶
    工具 = mkToolDef 加载期批量生成 16 条, 工厂供单测直调) +
    defFor 惰性出口(运行时一律经此: wall 薄块(火把) → mkTorchDef 细棒
-   +炭头, 方块 → mkBlockDef 方块本体, 棒状材料 → mkRodDef, 其余注册
+   +炭头, bed 薄块(床) → mkBlockDef 床形装配, 方块 → mkBlockDef 方块本体,
+   棒状材料 → mkRodDef, 其余注册
    物品 → mkPlateDef 薄片, 空槽/未注册 → null=空手; MC 口径见
    docs/mc-held-item-render-research.md)。
    外加四个无状态入口: swingPose 第三人称挥击关节角 · swingView 第一
@@ -233,10 +234,28 @@ const heldHex = (c) =>
    top/side 异色方块(原木/草地/转辙器)在顶/底加端面盖(原木年轮口径):
    盖略宽防共面闪烁, 主体略矮使各面互不共面。grip: 中心在握点前上方,
    与手臂留出间隙不贴臂(2026-10-24 用户观感反馈), 绕 Y 45° 两面示人 +
-   后仰让第三人称看到顶面(MC thirdperson rot[75,45,0] 的观感折算, 数值可调)。 */
+   后仰让第三人称看到顶面(MC thirdperson rot[75,45,0] 的观感折算, 数值可调)。
+   床(bed 旗标, 2026-10-28 床观感票)不走单盒: 床形装配——床垫(毯红)+
+   枕头(白, -Z 前端)+床头/床脚板(木色), 白枕红毯木框与 BED_ART/图集床贴图
+   同一语言(MC 手持床=缩小床本体的观感折算)。 */
 function mkBlockDef(blockId) {
   const b = BLOCKS[blockId];
   if (!b) return null;
+  if (b.bed) {
+    return {
+      label: b.name,
+      parts: [
+        {w: 0.42, h: 0.18, d: 0.05, color: 0x8a5a2b, pos: [0, 0.15, -0.30]}, // 床头板(前)
+        {w: 0.42, h: 0.14, d: 0.05, color: 0x8a5a2b, pos: [0, 0.13, 0.30]}, // 床脚板(后)
+        {w: 0.38, h: 0.12, d: 0.62, color: heldHex(b.top), pos: [0, 0.06, 0]}, // 床垫(毯红)
+        {w: 0.26, h: 0.06, d: 0.16, color: 0xf4f4f4, pos: [0, 0.15, -0.22]}, // 枕头(白)
+      ],
+      grip: {pos: [0, -0.42, -0.20], rot: [0.50, 0.785, 0]},
+      fp: fpOf(FP_BLOCK), /* 第一人称: 方块族(rotY 45° 两面示人) */
+      swing: {dur: 0.24, amp: 1.3, curlZ: 0.12},
+      sway: {idle: 0.03},
+    };
+  }
   const parts = b.side ? [
     {w: 0.38, h: 0.34, d: 0.38, color: heldHex(b.side), pos: [0, 0, 0]},
     {w: 0.40, h: 0.04, d: 0.40, color: heldHex(b.top), pos: [0, 0.17, 0]},

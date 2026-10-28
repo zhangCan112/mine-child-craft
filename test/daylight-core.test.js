@@ -140,3 +140,51 @@ test('sleepWindow: ⇔ 晴天 [12542, 23459](闭开区间, 23460 起不可睡)',
   assert.strictEqual(Daylight.sleepWindow(23999), false, '黎明尾声不可睡');
 });
 
+/* ============ clockSnap/clockDelta: 时钟拨盘时间账(2026-10-28 床时钟改版) ============ */
+
+test('clockSnap: 拨盘吸附 500 tick(游戏内 30 分钟)并归一 [0,24000)', () => {
+  const {Daylight} = loadCore();
+  assert.strictEqual(Daylight.clockSnap(0), 0, '清晨 0 不动');
+  assert.strictEqual(Daylight.clockSnap(1200), 1000, '1200 吸到近邻 1000');
+  assert.strictEqual(Daylight.clockSnap(1249), 1000, '1249 离 1000 更近');
+  assert.strictEqual(Daylight.clockSnap(1250), 1500, '恰中点 Math.round 半升吸到 1500');
+  assert.strictEqual(Daylight.clockSnap(23900), 0, '23900 吸到 24000 归一为 0(次日清晨)');
+  assert.strictEqual(Daylight.clockSnap(24500), 500, '越界输入归一回环');
+});
+
+test('clockDelta: 前进时间账 — 表盘语义「下一次到达该时刻」, 同刻=睡满一整天', () => {
+  const {Daylight} = loadCore();
+  assert.strictEqual(Daylight.clockDelta(6000, 12000), 6000, '正午→午夜 前进 6000');
+  assert.strictEqual(Daylight.clockDelta(18000, 6000), 12000, '午夜→次日正午 前进 12000(回绕)');
+  assert.strictEqual(Daylight.clockDelta(6000, 6000), 24000, '同刻 = 睡满一整天(非 0)');
+  assert.strictEqual(Daylight.clockDelta(6000, 5900), 23900, '往后拨 100 tick = 前进 23900(下一次到达)');
+});
+
+/* ============ clockPhase/clockLabel: 相位四段与时刻文案(拨盘 UI 的天色提示) ============ */
+
+test('clockPhase: 相位四段断点 = DIM_KEYS 转折 tick(白天→傍晚→夜晚→清晨, 零新魔法数)', () => {
+  const {Daylight} = loadCore();
+  /* vm realm 返回对象与 Node 字面量原型不同, deepStrictEqual 拒绝 — 逐字段断言 */
+  const eq = (tick, id, name, icon) => {
+    const p = Daylight.clockPhase(tick);
+    assert.strictEqual(p.id, id, tick + ' → id');
+    assert.strictEqual(p.name, name, tick + ' → name');
+    assert.strictEqual(p.icon, icon, tick + ' → icon');
+  };
+  eq(0, 'day', '白天', '☀️');
+  eq(12039, 'day', '白天', '☀️'); // 白天尾段(12040 前一 tick)
+  eq(12040, 'dusk', '傍晚', '🌇'); // 日落渐暗段起
+  eq(13670, 'night', '夜晚', '🌙'); // 全黑段起
+  eq(18000, 'night', '夜晚', '🌙'); // 午夜仍夜
+  eq(22330, 'dawn', '清晨', '🌅'); // 日出渐亮段起
+  eq(23999, 'dawn', '清晨', '🌅'); // 黎明尾声仍清晨
+});
+
+test('clockLabel: MC 表盘 tick 0=06:00 → HH:MM(步长 500 ⇒ 分钟只出 00/30)', () => {
+  const {Daylight} = loadCore();
+  assert.strictEqual(Daylight.clockLabel(0), '06:00', 'tick0=06:00(MC 口径)');
+  assert.strictEqual(Daylight.clockLabel(6000), '12:00', '正午');
+  assert.strictEqual(Daylight.clockLabel(18000), '00:00', '午夜');
+  assert.strictEqual(Daylight.clockLabel(12500), '18:30', '半步(500 tick=30 分钟)');
+});
+

@@ -1150,16 +1150,21 @@ function advGoHome() {
 }
 
 /* ============================================================
-   床·睡觉转场 (昼夜 D6, mc-daylight-torch §7.2) — 观感与接线段
+   床·睡觉时钟 (昼夜 D6, mc-daylight-torch §7.2; 2026-10-28 用户拍板时钟改版:
+   点床不再一键睡到天亮, 开「时钟拨盘」自选醒来时刻——原神式时间跳跃观感)
+   — 观感与接线段
    ------------------------------------------------------------
-   判据与时间账纯函数在 adventure-core(advSleepCheck 两条件/
-   advSleepStep 转场状态机); 这里只做观感与落地: #fade 全屏遮罩
-   (index.html 既有 DOM, 本工单前零消费)逐帧直驱 + TTS 鼾声/睡饱
-   播报 + 唤醒沿三连(dayTime=0 + 夜怪温和清场 + 出生点设床边)。
+   点击床 → 怪圈判据(advSleepCheck 一条件制, 夜窗已撤销)过 → 开时钟拨盘
+   (拨盘数学 clockSnap/clockDelta/clockPhase/clockLabel 在 daylight-core,
+   时间轴派生量归引擎; 面板 DOM 在本段)。确认 → advSleepStep 转场状态机
+   (#fade 渐黑→全黑→渐亮, 纯函数在 adventure-core) → 唤醒沿: dayTime 推进
+   到拨盘时刻(clockDelta 现算——渐黑期世界时间照走) + 非夜时刻温和清场 +
+   出生点设床边。拨盘缺省拨到清晨(tick 0) = MC 一键跳夜的正典等价路径。
    出生点沿既有缝: ADV.spawn 账本换床边(死亡/回家同缝消费) +
    ModeKit.spawn 落位顺带记忆(onVoidFall 兜底), 不开第二实现。
    ============================================================ */
-const advSleep = {on: false, t: 0, x: 0, y: 0, z: 0}; /* 转场状态: on=转场中, x/y/z=床方块坐标 */
+const advSleep = {on: false, t: 0, target: 0, x: 0, y: 0, z: 0};
+/* 转场状态: on=转场中 · target=醒来时刻(tick, 已吸附) · x/y/z=床方块坐标 */
 
 function advFadeEl() {/* #fade 全屏遮罩(index.html 既有 DOM; Node 测试取 document 桩) */
   return (typeof document !== 'undefined' && document.getElementById) ?
@@ -1193,21 +1198,29 @@ function advSweepNightMobs() {/* 夜怪温和清场(§6.2 观感; 黎明清场�
   return n;
 }
 
-function advSleepWake() {/* 唤醒沿三连(§7.2): 跳清晨 + 夜怪清场 + 出生点设床边; 顺带即时落盘
-   (清晨时刻与床边位即刻入档——死亡/回家同口径, 防 5s 节流窗口内关页面回到黑夜)。
+function advSleepWake() {/* 唤醒沿(§7.2 时钟改版): 跳拨盘时刻 + (非夜)夜怪清场 + 出生点设床边;
+   顺带即时落盘(醒来时刻与床边位即刻入档——死亡/回家同口径, 防 5s 节流窗口内关页面回旧时刻)。
+   清场判据: 醒在天亮段(!isNight)夜怪回家(与黎明清场同缝); 醒在夜里不清(夜怪照常——
+   夜铺怪层 advNightTick 每帧现算, 跳进夜里/夜里跳时会自然接住); 黎明窗(22330..23000,
+   isNight=true)跳入时次帧 advDawnSweep 跨沿自动清场, 不在此重复。
    床边出生点经政策缝 advProfile.sleepWakeSetsSpawn(U2): 缺省 true(现行 MC 口径);
-   U4 体验馆 false——唤醒瘦身为「跳清晨+清场」两连(showroom 先例, 无出生点改写/无落位) */
-  dayTime = 0;
-  advSweepNightMobs(); /* 清场 TTS 若发声会被下一句「睡饱啦」顶掉(SpeechKit cancel-then-speak);
-     D5 黎明清场单独调用时整句完整——睡醒链听「睡饱啦」即可 */
+   U4 体验馆 false——唤醒瘦身为「跳时刻+清场」两连(showroom 先例, 无出生点改写/无落位) */
+  dayTime = Daylight.advance(dayTime, Daylight.clockDelta(dayTime, advSleep.target) / 20);
+  if (!Daylight.isNight(dayTime)) advSweepNightMobs();
   if (advProfile.sleepWakeSetsSpawn) {/* 出生点账本换床边: 死亡(advDeathPlan)/回家/坠虚同缝消费 */
     const spot = advBedSpot(advSleep.x, advSleep.y, advSleep.z, getBlock,
         {x: pos.x, y: pos.y, z: pos.z, yaw}); /* 四邻全堵回落玩家当前位(选址纯函数在 core) */
     ADV.spawn = spot;
     ModeKit.spawn(spot.x, spot.y, spot.z, {yaw: spot.yaw}); /* 落位+记忆(顺带把黑屏期游走的玩家拉回床边醒来) */
   }
-  advSpeak('睡饱啦，天亮了！');
-  advToast('☀️ 睡饱啦，天亮了！');
+  const ph = Daylight.clockPhase(dayTime);
+  if (ph.id === 'day' || ph.id === 'dawn') {
+    advSpeak('睡饱啦，天亮了！');
+    advToast('☀️ 睡饱啦，天亮了！');
+  } else {
+    advSpeak('睡了一觉，现在是' + ph.name + '呀');
+    advToast(ph.icon + ' 醒来了，现在是' + ph.name);
+  }
   advStore.flush(); /* 落盘调用点不动: U3 dev store 丢弃式, 换装后自动无害 */
 }
 
@@ -1223,24 +1236,204 @@ function advSleepTick(dt) {/* 转场推进(update 每帧): 纯函数时间账 + 
   }
 }
 
-function advTrySleep(hit, lookId) {/* 点击床(§7.2, 挖掘左键与轻点/右键共用入口): 两条件纯函数
-   advSleepCheck(夜窗+床边无怪)不过 → 对应 toast; 过 → 开转场(黑屏后唤醒沿跳清晨+设床边出生点)。
-   返回 true=消费了本次点击(不放不挖) */
-  if (!hit || lookId !== B_BED) return false;
-  if (advSleep.on) return true; /* 转场中重复点击吞掉(输入另由 onMouse 顶层门挡) */
-  const mobs = Mobs.list().map((m) => ({x: m.pos.x, z: m.pos.z, dead: m.dead, gone: m.gone,
-    passive: !!(m.cfg && m.cfg.passive)})); /* 快照采集: 牧场动物 passive 不拦(F4 口径) */
-  const chk = advSleepCheck(dayTime, mobs, hit.x + 0.5, hit.z + 0.5);
-  if (!chk.ok) {
-    advToast(chk.why === 'night' ? '🌙 晚上才能睡哦' : '👾 附近有怪物，睡不着');
-    return true;
+/* ---------- 时钟拨盘面板(2026-10-28 时钟改版): 惰性 DOM 单例, Node 桩可安全创建 ---------- */
+const advSleepClock = {on: false, target: 0, x: 0, y: 0, z: 0};
+/* 拨盘态: on=面板开着 · target=醒来时刻(tick, 已吸附) · x/y/z=床方块坐标 */
+let advClockDom = null; /* 惰性单例 {root, box, cv, read} — 开盘建, cleanup 卸 */
+let advClockDragging = false; /* 拨针拖拽中(pointermove 现算) */
+
+/* 表盘角: 正午朝上(MC tick 6000=正午), 顺时针走时——日出(0)在左 · 日落在右,
+   白天弧朝上夜晚弧朝下, 孩子一眼读出「指针在哪边=天什么色」 */
+function advClockAngle(tick) {
+  return ((tick - 6000) / DAYLIGHT.TICKS) * Math.PI * 2;
+}
+
+function advClockDraw() {/* 表盘绘制: 昼夜四段色环 + 现在针(细白) + 拨针(粗琥珀);
+   canvas 不可用(Node 桩 fakeEl 无 getContext)静默跳过——面板仍可预设钮/确认 */
+  if (!advClockDom) return;
+  const cv = advClockDom.cv;
+  const g = (typeof cv.getContext === 'function') ? cv.getContext('2d') : null;
+  if (!g) return;
+  const S = cv.width; const c = S / 2; const r = c - 14;
+  g.clearRect(0, 0, S, S);
+  const k = DAYLIGHT.DIM_KEYS; /* 相位断点与 Daylight.clockPhase 同源, 零手抄 */
+  const segs = [
+    {a0: 0, a1: k[1][0], col: '#a8ddf7'}, /* 白天 */
+    {a0: k[1][0], a1: k[2][0], col: '#ff9d5c'}, /* 傍晚 */
+    {a0: k[2][0], a1: k[3][0], col: '#1d2f57'}, /* 夜晚 */
+    {a0: k[3][0], a1: DAYLIGHT.TICKS, col: '#ffb3a3'}, /* 清晨 */
+  ];
+  for (const s of segs) {
+    g.beginPath();
+    g.strokeStyle = s.col;
+    g.lineWidth = 18;
+    g.arc(c, c, r, advClockAngle(s.a0) - Math.PI / 2, advClockAngle(s.a1) - Math.PI / 2);
+    g.stroke();
   }
+  g.font = '16px sans-serif';
+  g.textAlign = 'center';
+  g.textBaseline = 'middle';
+  g.fillText('☀️', c, c - r + 24); /* 正午(上) */
+  g.fillText('🌙', c, c + r - 24); /* 午夜(下) */
+  g.fillText('🌅', c - r + 24, c); /* 日出(左) */
+  g.fillText('🌇', c + r - 24, c); /* 日落(右) */
+  const hand = (tick, w, col) => {
+    const a = advClockAngle(tick);
+    g.beginPath();
+    g.strokeStyle = col;
+    g.lineWidth = w;
+    g.lineCap = 'round';
+    g.moveTo(c, c);
+    g.lineTo(c + Math.sin(a) * (r - 12), c - Math.cos(a) * (r - 12));
+    g.stroke();
+  };
+  hand(dayTime, 3, '#f5f9ff'); /* 现在针 */
+  hand(advSleepClock.target, 6, '#ffb84d'); /* 拨针(醒来时刻) */
+  g.beginPath();
+  g.fillStyle = '#ffb84d';
+  g.arc(c, c, 5, 0, Math.PI * 2);
+  g.fill();
+}
+
+function advClockPointTick(e) {/* 指针位置 → 表盘 tick(clockSnap 吸附后; 圆心死区返 null) */
+  const cv = advClockDom && advClockDom.cv;
+  if (!cv || typeof cv.getBoundingClientRect !== 'function') return null;
+  const b = cv.getBoundingClientRect();
+  const dx = e.clientX - (b.left + b.width / 2);
+  const dy = e.clientY - (b.top + b.height / 2);
+  if (Math.hypot(dx, dy) < 8) return null;
+  let a = Math.atan2(dx, -dy); /* 屏幕向量 → tick 角(正午朝上口径, 与 advClockAngle 互逆) */
+  if (a < 0) a += Math.PI * 2;
+  return Daylight.clockSnap(((a / (Math.PI * 2)) * DAYLIGHT.TICKS + 6000) % DAYLIGHT.TICKS);
+}
+
+function advClockRefresh() {/* 读数行 + 重绘: 现在/醒来/相位/睡几小时(拨针与预设共用) */
+  if (!advClockDom) return;
+  const now = Daylight.clockPhase(dayTime);
+  const to = Daylight.clockPhase(advSleepClock.target);
+  const hrs = Math.round(Daylight.clockDelta(dayTime, advSleepClock.target) / 100) / 10;
+  advClockDom.read.textContent = '现在 ' + Daylight.clockLabel(dayTime) + ' ' + now.icon + ' ' +
+      now.name + ' → ⏰ ' + Daylight.clockLabel(advSleepClock.target) + ' ' + to.icon + ' ' +
+      to.name + ' · 睡 ' + hrs + ' 小时';
+  advClockDraw();
+}
+
+function advClockBuild() {/* 建面板 DOM(壳模式专用): 遮罩+盒+表盘+读数+预设+睡觉/✕ */
+  const root = document.createElement('div');
+  root.className = 'slp-mask';
+  const box = document.createElement('div');
+  box.className = 'slp-box';
+  root.appendChild(box);
+  const title = document.createElement('div');
+  title.className = 'slp-title';
+  title.textContent = '⏰ 拨到想醒的时间';
+  box.appendChild(title);
+  const cv = document.createElement('canvas');
+  cv.width = 240;
+  cv.height = 240;
+  cv.className = 'slp-dial';
+  box.appendChild(cv);
+  const read = document.createElement('div');
+  read.className = 'slp-read';
+  box.appendChild(read);
+  const presets = document.createElement('div');
+  presets.className = 'slp-presets';
+  for (const p of [['🌅', '清晨', 0], ['☀️', '正午', 6000], ['🌇', '傍晚', 12000], ['🌙', '半夜', 18000]]) {
+    const b = document.createElement('button');
+    b.className = 'slp-preset';
+    b.textContent = p[0] + p[1];
+    b.onclick = () => {
+      advSleepClock.target = p[2];
+      advClockRefresh();
+    };
+    presets.appendChild(b);
+  }
+  box.appendChild(presets);
+  const go = document.createElement('button');
+  go.className = 'slp-go';
+  go.textContent = '😴 睡觉';
+  go.onclick = () => advSleepClockConfirm();
+  box.appendChild(go);
+  const x = document.createElement('button');
+  x.className = 'slp-x';
+  x.textContent = '✕';
+  x.onclick = () => advSleepClockClose();
+  box.appendChild(x);
+  /* 拨针拖拽(pointer 事件, 触屏/鼠标同源): down 开拖 + move 现算 + up 收 */
+  cv.onpointerdown = (e) => {
+    advClockDragging = true;
+    const t = advClockPointTick(e);
+    if (t != null) {
+      advSleepClock.target = t;
+      advClockRefresh();
+    }
+  };
+  if (typeof window !== 'undefined' && window.addEventListener) {
+    window.addEventListener('pointermove', (e) => {
+      if (!advClockDragging) return;
+      const t = advClockPointTick(e);
+      if (t != null) {
+        advSleepClock.target = t;
+        advClockRefresh();
+      }
+    });
+    window.addEventListener('pointerup', () => {
+      advClockDragging = false;
+    });
+  }
+  document.body.appendChild(root);
+  root.style.display = 'none';
+  return {root, box, cv, read};
+}
+
+function advSleepClockOpen(x, y, z) {/* 开拨盘(怪圈已过): 缺省拨到清晨(tick 0)=MC 一键跳夜的正典等价 */
+  advSleepClock.on = true;
+  advSleepClock.target = 0;
+  advSleepClock.x = x;
+  advSleepClock.y = y;
+  advSleepClock.z = z;
+  if (!advClockDom) advClockDom = advClockBuild();
+  advClockDom.root.style.display = 'flex';
+  ADV.panelOpen = true; /* 复用面板门卫: onMouse 挖/放/打与 TNT/蓄力全关(顶层判 panelOpen) */
+  advFreeMouse(); /* 放鼠标拨针(解锁不弹菜单: onMenu 有面板守卫) */
+  advClockRefresh();
+  advSpeak('想睡到什么时候呀？');
+}
+
+function advSleepClockClose() {/* 收拨盘(✕/Tab/onKey 共用): 状态同步 + 回锁 */
+  if (!advSleepClock.on) return;
+  advSleepClock.on = false;
+  if (advClockDom) advClockDom.root.style.display = 'none';
+  ADV.panelOpen = false;
+  advRelock();
+}
+
+function advSleepClockConfirm() {/* 「睡觉」: 收拨盘 → 开转场(醒来时刻随行, 唤醒沿跳到点) */
   advSleep.on = true;
   advSleep.t = 0;
-  advSleep.x = hit.x; advSleep.y = hit.y; advSleep.z = hit.z;
+  advSleep.target = advSleepClock.target;
+  advSleep.x = advSleepClock.x;
+  advSleep.y = advSleepClock.y;
+  advSleep.z = advSleepClock.z;
+  advSleepClockClose();
   advMineStop(); /* 蓄力中则收手(黑屏期不再挖) */
   advSpeak('呼——呼——'); /* 鼾声(§7.2) */
   advFadeSet(0); /* 接管遮罩: 从全透开始渐黑 */
+}
+
+function advTrySleep(hit, lookId) {/* 点击床(§7.2 时钟改版, 挖掘左键与轻点/右键共用入口): 怪圈纯函数
+   advSleepCheck(床边 8 格无怪; 夜窗已撤销——拨盘本身就是选时刻)不过 → toast;
+   过 → 开时钟拨盘(确认才开转场)。返回 true=消费了本次点击(不放不挖) */
+  if (!hit || lookId !== B_BED) return false;
+  if (advSleep.on || advSleepClock.on) return true; /* 转场/拨盘中重复点击吞掉(输入另由 onMouse 顶层门挡) */
+  const mobs = Mobs.list().map((m) => ({x: m.pos.x, z: m.pos.z, dead: m.dead, gone: m.gone,
+    passive: !!(m.cfg && m.cfg.passive)})); /* 快照采集: 牧场动物 passive 不拦(F4 口径) */
+  const chk = advSleepCheck(mobs, hit.x + 0.5, hit.z + 0.5);
+  if (!chk.ok) {
+    advToast('👾 附近有怪物，睡不着');
+    return true;
+  }
+  advSleepClockOpen(hit.x, hit.y, hit.z);
   return true;
 }
 
@@ -3052,8 +3245,13 @@ const AdventureMode = mkMode({
     Avatar.setItem(PLAYER.heldItem); /* 手持物复位(Avatar 跨模式存活) */
     advMouseListeners(false);
     advMineStop(); /* 蓄力清零 + 进度环收起 */
-    advSleep.on = false; /* 睡觉转场中断复位(昼夜 D6): 未到唤醒沿不跳清晨 */
+    advSleep.on = false; /* 睡觉转场中断复位(昼夜 D6): 未到唤醒沿不跳时刻 */
     advSleep.t = 0;
+    advSleepClock.on = false; /* 拨盘开着退出模式: 状态复位(panelOpen 已归零) */
+    if (advClockDom) { // 拨盘 DOM 随模式卸载, 重进惰性重建
+      if (advClockDom.root.parentNode) advClockDom.root.parentNode.removeChild(advClockDom.root);
+      advClockDom = null;
+    }
     advSleepFadeReset(); /* 遮罩归零还 CSS transition, 不渗入其他模式 */
     advTntTap = null; /* TNT 短按判定一并复位 */
     advSaplings.clear(); /* 计时不落盘, 重进经全图扫描重建 */
@@ -3080,7 +3278,7 @@ const AdventureMode = mkMode({
     advFlameTick(dt); /* F2 炉口火焰: 差异增删 + 脉动(原烧炼节律尾钩, T4 起独立挂 update) */
     advFuseTick(dt); /* TNT 引信倒计时到点起爆(T13, 先于怪物 AI——当帧爆炸位置不漂移) */
     advTntTapTick(dt); /* TNT 短按/按住判定(D3): 转蓄力需先于 advMineTick 同帧生效 */
-    advSleepTick(dt); /* 床·睡觉转场推进(昼夜 D6): 遮罩直驱+唤醒沿跳清晨/设床边出生点 */
+    advSleepTick(dt); /* 床·睡觉转场推进(昼夜 D6): 遮罩直驱+唤醒沿跳拨盘时刻/设床边出生点 */
     advVeilTick(dt); /* 门阵渐晕转场推进(T7): 淡入→满格切图→淡出(先于传送触发: 发令帧从零起淡) */
     advGateLockTick(dt); /* 锁门提示(T7): 走近熄门给「完成任务就会亮」话术(节流) */
     advStoneEggT = Math.max(0, advStoneEggT - dt); /* 石阵灯坛点击节流递减(彩蛋段) */
@@ -3131,8 +3329,8 @@ const AdventureMode = mkMode({
   onMouse(button, hit) {/* 左键并线(T12×T13×T14): TNT 短按点燃/按住挖走(D3)/熔炉走近点击开面板(T13, 准星块
     精确命中故在最前)/箱子走近点击开面板(引导链 v2, 站点缓存外故按点击块直算距离), 准星锥内有
     活怪→挥击(T14, 持弓=空手伤害 3 点——2026-10-28 Route A 拍板回归 MC 正典,
-    射箭只在右键/触屏专用键), 否则吃/挖掘蓄力(T12); 右键放置; 床=点击睡觉(昼夜 D6, 两条件与
-    转场在 advTrySleep) */
+    射箭只在右键/触屏专用键), 否则吃/挖掘蓄力(T12); 右键放置; 床=点击开时钟拨盘
+    (昼夜 D6 时钟改版, 判据与拨盘在 advTrySleep) */
     if (ADV.panelOpen || advFurnace.isOpen() || ADV.chestOpen || advSleep.on) return; /* 面板/睡觉黑屏遮罩兜底: 不挖不放不打 */
     if (button === 0) {
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
@@ -3170,6 +3368,10 @@ const AdventureMode = mkMode({
 
   onKey(code) {
     if (code === 'Tab') {
+      if (advSleepClock.on) {/* 拨盘开着先收拨盘(body 级遮罩不叠层) */
+        advSleepClockClose();
+        return;
+      }
       if (ADV.chestOpen) {/* 箱子开着先收箱子(body 级遮罩不叠层) */
         advChestClose();
         return;
@@ -3209,10 +3411,11 @@ const AdventureMode = mkMode({
 
 /* T12~T15 的接线挂点(内部接口, 不进模式公共行为; 2026-10 评审候选 5 收敛为 20 键测试面,
     下界相位装配追加 5 键、冒险地图 T6 追加 advSetMap、T5 圈层高度场与审查修复
-    advSlimeWaterOk 再追加——现 28 键(键计数以本清单为准); 键清单即 interface——
+    advSlimeWaterOk 再追加、时钟改版追加 advSleepClock/advSleepClockConfirm——
+    现 30 键(键计数以本清单为准); 键清单即 interface——
     adventure-core 常量表与纯函数经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
-      · advNetherState(下界相位·地图态只读快照: dim/map/portalCd/exitSpot)
+      · advSleepClock(时钟拨盘态) · advNetherState(下界相位·地图态只读快照: dim/map/portalCd/exitSpot)
     · 存档面: advJournal(世界档记账 seam) · getSaveView(四份存档只读快照)
     · 布置缝: advGetInv · advGetPEnt · advFurnace(熔炉站点直达: map/state/at/open/
       close/isOpen/autoFill/manualPut/slotClick/drop) · advFlameCount
@@ -3220,6 +3423,7 @@ const AdventureMode = mkMode({
       接此) · advSceneEdits(按图分桶账本) · advNetherState
     · 交互链入口: advBreakBlock · advOnCraft · advInvMove · advChest{Deposit,Withdraw,Expand}
       · advPanelClose(幂等守卫回归锚点) · advMineHardText(挖不动话术判据)
+      · advSleepClockConfirm(拨盘「睡觉」确认, 测试与触屏共用行为面)
     · 查询 seam: advStationOk · advNightRead · advQuestPaint(重画并返回任务卡) · advHudLines(HUD 行)
     已删键的行为面等价物: advPlayerDied→onVoidFall · advGoHome→onKey('KeyH') ·
     advChestOpenPanel/advChestClose→点击与 onKey('Tab') · advExplode→TNT 引信行为链 ·
@@ -3241,7 +3445,8 @@ function advSaveView() {/* 四份存档的可断言快照(只读缝): 与 journa
   };
 }
 AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
-  advGetInv: () => advInv, advGetPEnt, advMine, advSaplings, advSleep,
+  advGetInv: () => advInv, advGetPEnt, advMine, advSaplings, advSleep, advSleepClock,
+  advSleepClockConfirm,
   heightAt: advHeightAt, /* T5 圈层高度场(建场件与测试共用的唯一高度权威) */
   advFurnace, advFlameCount: () => advFlames.size,
   advBreakBlock, advOnCraft, advInvMove, advDropSlot, advTryExpandBag, advReclaimThrown,
