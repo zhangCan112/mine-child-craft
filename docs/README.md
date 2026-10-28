@@ -16,7 +16,7 @@
 
 ### 设计权威（-design，按主题域）
 
-- **训练营**：[focus-revamp-design.md](focus-revamp-design.md)（2.0 定稿）· [focus-reward-tuning-design.md](focus-reward-tuning-design.md)（奖励段位）
+- **训练营**：[focus-revamp-design.md](focus-revamp-design.md)（2.0 定稿）· [focus-reward-tuning-design.md](focus-reward-tuning-design.md)（奖励段位）· [camp-rotation-design.md](camp-rotation-design.md)（每日轮换+表现奖励）
 - **数学岛**：[math-mode-design.md](math-mode-design.md) · [math-track-unification-design.md](math-track-unification-design.md)
 - **探险**：[adventure-maps-design.md](adventure-maps-design.md)（多地图）· [nether-merge-design.md](nether-merge-design.md)（下界相位）· [adventure-shell-unification-design.md](adventure-shell-unification-design.md) · [mining-hardness-design.md](mining-hardness-design.md) · [monster-taxonomy-design.md](monster-taxonomy-design.md) · [shared-monsters-design.md](shared-monsters-design.md)
 - **物品与合成**：[item-crafting-design.md](item-crafting-design.md) · [crafting-grid-design.md](crafting-grid-design.md) · [door-window-design.md](door-window-design.md) · [item-hint-design.md](item-hint-design.md) · [furnace-design.md](furnace-design.md) · [farm-and-recipe-design.md](farm-and-recipe-design.md)（农田闭环与配方补全）

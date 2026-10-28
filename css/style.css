@@ -490,6 +490,30 @@ canvas {
   font-weight: 700;
 }
 
+/* ---------- 训练营轮换卡显隐与徽章(docs/camp-rotation-design.md) ----------
+   camp-off: 非今日/非奖励营彻底隐藏(孩子眼里每天只有 1~2 张训练营卡);
+   徽章观感对齐 timeout-badge 同式(定位取左上 — 训练营卡不会出现 timeout 徽章) */
+.mode-card.camp-off {
+  display: none;
+}
+
+.mode-card .camp-badge {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  background: rgb(0 0 0 / 68%);
+  border: 2px solid rgb(255 255 255 / 25%);
+  color: #ffe27a;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.mode-card .camp-badge.camp-badge-bonus {
+  border-color: rgb(255 226 122 / 85%);
+}
+
 /* ---------- dev 向模式卡(注册表 dev:true): 默认隐藏 + ?dev=1 解锁 ----------
    构造性防闪现: CSS 先于任何脚本生效, 弱网/慢加载下 dev 卡也从不满帧露脸;
    三层分工(docs/showroom-design.md D1): HTML 声明身份(class 含 dev)、

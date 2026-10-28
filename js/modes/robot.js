@@ -758,6 +758,9 @@ function onRobotLevelEnd(level, stats) {
   stopRobotTicker();
   const save = loadRobotSave();
   const today = robotTodayStr();
+  /* 轮换奖励上报(必须在 count 前: onExhausted 同步评估含本关); 盘正确率=答对盘/总盘(家长日志同式) */
+  noteCampResult('robot',
+      Math.round(100 * stats.filter((b) => b && b.solved).length / Math.max(1, stats.length)));
   const fb = robotBudget();
   if (fb) {
     fb.count(1);
