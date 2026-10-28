@@ -7,13 +7,13 @@
 
 ### 仓库自有权威文档（一手，最优先）
 
-- [MISSION.md](../MISSION.md) — 项目使命/成功标准/约束（零文字依赖、无构建步骤、反馈哲学）。
-- [docs/conventions.md](../docs/conventions.md) — 工程规范正文；改任何代码前必读。
-- [docs/focus-revamp-design.md](../docs/focus-revamp-design.md) — 训练营 2.0 设计定稿（2026-10-23）：
+- [MISSION.md](MISSION.md) — 项目使命/成功标准/约束（零文字依赖、无构建步骤、反馈哲学）。
+- [docs/conventions.md](docs/conventions.md) — 工程规范正文；改任何代码前必读。
+- [docs/focus-revamp-design.md](docs/focus-revamp-design.md) — 训练营 2.0 设计定稿（2026-10-23）：
   难度再平衡参数表 + 战利品回路 + 测试计划。
-- [docs/item-crafting-design.md](../docs/item-crafting-design.md) — 物品与合成系统设计（新素材的数值与接口出处）。
-- [docs/adr/0002-focus-loot-integration.md](../docs/adr/0002-focus-loot-integration.md) — 专注接入物品系统的决策记录。
-- [GLOSSARY.md](../GLOSSARY.md) — 模块术语表（找模块先查这里）。
+- [docs/item-crafting-design.md](docs/item-crafting-design.md) — 物品与合成系统设计（新素材的数值与接口出处）。
+- [docs/adr/0002-focus-loot-integration.md](docs/adr/0002-focus-loot-integration.md) — 专注接入物品系统的决策记录。
+- [GLOSSARY.md](GLOSSARY.md) — 模块术语表（找模块先查这里）。
 
 ### 科学文献（范式与口径依据；代码 focus-levels.js 头注释同源）
 

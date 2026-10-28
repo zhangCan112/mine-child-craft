@@ -1,5 +1,7 @@
 # 专注训练营 2.0 · 实现规格（Spec）
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [focus-revamp-design.md](focus-revamp-design.md)
+
 > 状态：本地 spec（tracker 代理见 `docs/focus-revamp-tickets.md`，已标 **ready-for-agent**；
 > 实现工单直接引用本文件）。
 > 本文是 implement-spec 流程的合同：实现者以本文的 Implementation Decisions 为准、

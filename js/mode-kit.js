@@ -2,66 +2,33 @@
 /* ============================================================
    ModeKit — 应用层 shell 服务 (术语见 GLOSSARY.md)
    ------------------------------------------------------------
-   mkMode(cfg) 把四个模式各自复制的样板收进一个深 interface:
-     · chrome {score,hotbar}   进入模式时施加 DOM 显隐(cleanup 无需还原)
-     · hotbar (mkHotbar 实例)  digit/wheel/点选 选块全自动
-     · hud(hit) → string[]     每帧 HUD 文本(hit 由主循环注入, 模式不再自行 raycast)
-     · touch [...]             Input.setActions 声明 (缺省=null 隐藏)
-     · onHold(active)          触屏长按起止钩子(手势分类在 input.js/touch-core)
-     · onPageHide()            关页兜底存档钩子(main.js pagehide 收口分发,
-                               白名单透传; 世界档 5s 节流的模式借此同步落盘)
-     · KeyB 默认暂停 · 无 hud 配置则清空并跳过 · onVoidFall 默认回最近出生点
-   工具: spawn(对外经 ModeKit.spawn) / lookName / confirmBtn
-   液体扩展(设计稿 liquid D10):
-     · mkBubbleBar — 溺气 HUD(10 泡像素条挂快捷栏上方), update(airFrac),
-       剩 3 泡 TTS 一次性提醒(节流自持), dispose 收 DOM
-   T10 扩展(设计稿 D8/D10):
-     · mkHotbar 第三种槽型 {item:id} — 像素图标(iconOf)+右上数量(>1 才显)
-       +底部耐久条(dur 访问器返 0..1 比, 模式层算 dur/toolOf(id).dur)
-     · mkCraftPanel — 背包网格+摆放台+配方书卡片+任务卡占位容器
-       (九宫格改造 crafting-grid 设计稿 §5): 3×3 摆放台站点外锁外圈
-       (左上 2×2 随身格), 摆对图案 matchGrid 命中→产出槽亮(点击一发/
-       长按 0.4s 连做 0.3s 一发, 按压状态机在产出槽上; 防误合由「摆错
-       不产出」天然承担); 配方卡=BE 口径一键摆入(fillGrid 自动摆材料,
-       缺料留空, 重复点=再备一套), 亮灰仍由 canCraft 驱动; 背包格点选
-       搬运(点非空格起手高亮→点目标格 onMove, 无拖拽; 摆放格同口径
-       入格/退回, 动背包经 onGridMove 通知缝); 关面板格内材料退回背包
-       (装不下的余量经 onReturnLeft 报模式层转掉落物)
-     · mkFurnacePanel — 三槽+进度条+燃料余量条的显示面板(F2: setFuel 喂
-       r=heat/fuelUnits, r≤0 熄灭灰显),「自动放入」只算
-       plan 回调 onAutoFill(矿石全放+FUEL 序最省凑料), 不动背包;
-       手动放入(2026-10-25 交互优化): 面板常驻背包区(18 主格+9 快捷
-       镜像, 点击格报 onPut(槽号) 意图——路由/扣加归模式层), 点击炉三槽
-       报 onSlot('input'|'fuel'|'out') 意图(取回/收取); 可烧或燃料物
-       亮显, 其余 dim 灰显(判据 smeltOf/fuelUnits, 纯预告不打扰)
-     · sortInv — 整理按钮底座: 主格区同项合并(快捷栏不动)
-     code-review 修复轮(S2): mkHpBar — 头顶血条深接口; C6-T3 已随玩家战斗
-       vocabulary 迁入 js/combat-kit.js(CombatKit.mkHpBar, 交接零行为变化)
-   手持件与选怪件(评审候选 6, 跨模式样板收编):
-     · mkHeldSync(palette, hb) — 手持感知五件套(调色板 + 'shovel' 哨兵槽
-       + typeof number 判定 + Avatar.setItem + 主动作键图标切换)收编;
-       哨兵语义藏实现, 消费方只见 isBlock/itemId/sync(竞技场先接,
-       建造镜像由后续票收口)
-     · mkMobPicker(opts) — 选怪按钮族(Mobs.face 头像 + 名字 + families()
-       谱系分组簇 + data-type + active 高亮)三处誊写收编; 差异经 opts
-       (headKeys 前置功能位 / groupOf 组覆写(返 null=平铺) / itemTag·
-       itemCls·itemHtml 卡片观感 / titleOf 悬停)
-   引擎层(world/input)对本文件零依赖; 本文件属应用层
-   引导链 v2: mkChestPanel — 大宝箱面板(箱子格/扩容行/背包格, 点选搬运;
-     政策与存档在模式层回调, 顶格档隐藏扩容行)
-   物品提示(ItemHint, 设计定稿 docs/item-hint-design.md): 点到什么读什么 —
-     话术唯一权威在 item-hint-registry.js, 本文件只做装配: 触发点(mkHotbar
-     选槽 / 三面板格子点击 / 灰配方卡点击) + kitHint 气泡(div.hint-bubble
-     挂 body, 3.2s 淡出, 与 #toast 互不抢占) + SpeechKit 语音
-   面板族底座(评审候选 2 收编): craft/furnace/chest 三面板誊写的公共骨架
-     (遮罩/头/✕/背包格区双循环/格子渲染/Esc/生命周期)收进内部底座
-     mkPanelShell(不对外), 面板退化为「底座+差异段」; refresh 语义统一=
-     重画内容不碰开合态(craft 的无条件 display='flex' 已撤, 复明归 show);
-     内部卸载函数名 unmount(对外成员仍叫 remove), 摆放台槽级取走回归裸调
-     remove(背包核心, 不再被同名遮蔽); 摆放堆叠上限经 stackMax(64 魔数
-     清零); 三面板同吐 cellAt(背包槽号→栈快照)只读查询面; 图标/格子/材料
-     chip 渲染知识单份收口 kitIconHtml/kitCellHtml/kitChipHtml(iconOf 的
-     'data:'→img / 文本→icon span 二合一出口)
+   mkMode(cfg) 深接口(四模式壳样板收编): chrome{score,hotbar} 进模式
+   施加 DOM 显隐(cleanup 无需还原) · hotbar(mkHotbar 实例, digit/wheel/
+   点选选块全自动) · hud(hit)→string[] 每帧 HUD 文本(命中由主循环注入,
+   模式不再自行 raycast) · touch(Input.setActions 声明, 缺省=null 隐藏) ·
+   onHold(触屏长按起止钩子, 手势分类在 input.js/touch-core) ·
+   onPageHide(关页兜底存档钩子, main.js pagehide 白名单透传) · KeyB 默认
+   暂停 · 无 hud 配置清空跳过 · onVoidFall 默认回最近出生点; 工具
+   spawn(对外经 ModeKit.spawn)/lookName/confirmBtn。
+   面板族(共骨架——内部底座 mkPanelShell 收编遮罩/头/✕/背包格区/Esc/
+   生命周期; refresh 语义统一=重画内容不碰开合态; 三面板同吐 cellAt
+   只读查询面; 图标/格子/chip 渲染单份收口 kitIconHtml/kitCellHtml/
+   kitChipHtml): mkCraftPanel(3×3 摆放台站点外锁外圈+配方卡一键摆入+
+   产出槽点击一发/长按连做, 交互语义权威 docs/crafting-grid-design.md
+   §5) · mkFurnacePanel(三槽+进度条+燃料余量条, 常驻背包区手动放料/
+   点击报意图回调, docs/furnace-design.md F2) · mkChestPanel(大宝箱,
+   政策与存档在模式层回调, 顶格档隐藏扩容行)。
+   其余构件: mkHotbar 第三槽型 {item:id}(像素图标+右上数量+底部耐久条) ·
+   mkMainAct/mkHeldSync(手持感知五件套, 评审候选 6: 调色板+'shovel'
+   哨兵槽+Avatar.setItem+主动作键图标切换) · mkMobPicker(选怪按钮族:
+   Mobs.face 头像+families() 谱系分组+active 高亮, 差异全经 opts) ·
+   mkBubbleBar(溺气 HUD 10 泡像素条, 液体 D10) · sortInv(主格区同项
+   合并, 快捷栏不动) · editHit(挖/放编辑原语)/mkHoldMine(触屏按住连挖
+   驱动)——两件全部交互期调用, 精简装载的 Node 单测不触发即不依赖 ·
+   物品提示装配(话术唯一权威在 item-hint-registry.js; 触发点=选槽/
+   三面板格子点击/灰配方卡点击, kitHint 气泡 3.2s 淡出+SpeechKit,
+   设计定稿 docs/item-hint-design.md)。
+   引擎层(world/input)对本文件零依赖; 本文件属应用层。
    interface: mkMode · mkHotbar · mkMainAct · mkHeldSync(手持感知同步件) ·
               mkMobPicker(选怪按钮组) · mkCraftPanel · mkFurnacePanel ·
               mkChestPanel(三者=内部底座 mkPanelShell+差异段, 均含 cellAt

@@ -1,5 +1,7 @@
 # 冒险模式生态地图 · Spec（adventure-maps-spec）
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [adventure-maps-design.md](adventure-maps-design.md)
+
 > 依据 to-spec 流程产出。调研底座：minecraft-biome-research.md · map-transition-research.md；
 > 设计定稿：adventure-maps-design.md（含家园重设计 §2.4，已拍板）；计划：adventure-maps-plan.md。
 > 测试缝 S1-S5 已经用户 2026-10-27 确认（唯一新缝 = 冒险地图纯核心同名单测）。

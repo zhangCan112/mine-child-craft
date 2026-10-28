@@ -8,6 +8,7 @@
 - **MISSION.md** — 项目使命、成功标准、技术栈约束。动工前先读。
 - **docs/conventions.md** — 工程与代码规范正文。改任何代码前读；本地偏离登记表在它的 §6。
 - **GLOSSARY.md** — 模块术语表。**找模块先查这里**：词条按 interface 收词，_Avoid_ 是已废弃的旧名，别再用。
+- **docs/README.md** — 文档地图（索引页）：设计权威/调研/ADR/历史工件按主题域分类跳转，别在 docs/ 平铺目录里猜文件名。
 - docs/google-style-research.md · docs/project-structure-research.md — 规范背后的来源论证（改规范前读）。
 
 ## 硬规则（conventions.md 的浓缩，细节以正文为准）

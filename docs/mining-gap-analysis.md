@@ -1,5 +1,7 @@
 # 挖掘链路现状差距分析（代码侧事实清单）
 
+> 生命周期：分析快照（使命已完成）— 结论已收编 [mining-hardness-design.md](mining-hardness-design.md) 与 config.js；config.js 注释仍引用本文
+
 > **目的**：为 MC 原版硬度/破坏速度/工具分级调研（`docs/minecraft-mining-hardness-research.md`）提供代码侧的现状事实底座——逐条列出本游戏挖掘链路当前实现与 Minecraft 原版口径的差异点，每条附 `文件:行号` 证据。本稿只陈述现状与差异，不修改任何代码，不重复 MC 侧考证。
 >
 > **口径**：

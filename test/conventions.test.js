@@ -86,6 +86,40 @@ test('规范: 源文件文本卫生 — LF 行尾 · 无 BOM · 收尾换行 · 
   }
 });
 
+/* ---------- 文档指针零死链(2026-10-28) ----------
+   依据 docs/agent-context-research.md §4.3(可机械检验的文档契约下沉测试,
+   deterministic 层): 两个断言面——
+   ① js/test/html/md 文本里的 docs/<path>.md 引用必须指向存在文件
+     (注释与正文同权——RESOURCES.md 式 ../ 断链即时红);
+   ② md 文件内 markdown 相对链接 ](xxx.md) 按文件位置解析后必须存在。
+   正则限定小写 kebab: 占位符路径(docs/adr/NNNN-slug.md)不在此列。 */
+test('规范: 文档指针零死链 — docs/ 引用与 md 相对链接必须指向存在的文件', () => {
+  const files = ['index.html', 'server.js', 'AGENTS.md', 'MISSION.md', 'GLOSSARY.md',
+    'NOTES.md', 'RESOURCES.md', 'README.md'].map((f) => path.join(ROOT, f));
+  for (const d of ['js', 'test', 'docs', 'learning-records']) {
+    for (const p of walk(path.join(ROOT, d))) files.push(p);
+  }
+  let refs = 0;
+  for (const p of files) {
+    if (!/\.(js|mjs|cjs|css|html|md)$/.test(p)) continue;
+    const src = fs.readFileSync(p, 'utf8');
+    for (const m of src.matchAll(/docs\/[a-z0-9][a-z0-9/._-]*\.md/g)) {
+      refs++;
+      assert.ok(fs.existsSync(path.join(ROOT, m[0])),
+          rel(p) + ' 引用 ' + m[0] + ' 是死链(文件不存在)');
+    }
+    if (p.endsWith('.md')) {
+      for (const m of src.matchAll(/\]\(([^)#\s]+\.md)\)/g)) {
+        if (m[1].includes('://')) continue; /* http 外链(如 github 上的 .md)不归仓内死链管 */
+        refs++;
+        assert.ok(fs.existsSync(path.resolve(path.dirname(p), m[1])),
+            rel(p) + ' 链接 ' + m[1] + ' 解析到不存在的文件(死链)');
+      }
+    }
+  }
+  assert.ok(refs >= 80, '死链扫描应覆盖 ≥80 处文档引用 — 扫描空集 = 守门静默失效');
+});
+
 /* ---------- 玩家状态守门(C7-T2) ----------
    玩家六绑定(pos/vel/onGround/yaw/pitch/flyMode, 定义在 voxel.js 玩家段)
    的可写白名单与例外登记, 唯一权威是 js/voxel.js 玩家段头注释: physics 自身 /

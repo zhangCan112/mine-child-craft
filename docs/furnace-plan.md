@@ -1,5 +1,7 @@
 # 熔炉玩法与物品体系二期 · 执行 Spec
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [furnace-design.md](furnace-design.md)
+
 > 状态：**已批准**（2026-10-24 四项拍板齐；实现设计定稿 `docs/furnace-design.md`，基线 master `514b736`，855 测试全绿）
 > 需求源：用户 2026-10-24——「参考我的世界熔炉的用法和可合成工具，完善项目里的熔炉玩法与对应的物品体系」。
 > MC 一手依据：`docs/minecraft-furnace-research.md`（本次新增，2026-10-24 抓取 minecraft.wiki 六页核实）+

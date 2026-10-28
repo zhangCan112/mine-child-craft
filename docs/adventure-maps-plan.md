@@ -1,5 +1,7 @@
 # 冒险模式生态地图 · 计划稿（adventure-maps-plan）
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [adventure-maps-design.md](adventure-maps-design.md)
+
 > 调研底座：[minecraft-biome-research.md](minecraft-biome-research.md) ·
 > [map-transition-research.md](map-transition-research.md)。
 > 设计定稿：[adventure-maps-design.md](adventure-maps-design.md)（五问已拍板：三图全上 ·

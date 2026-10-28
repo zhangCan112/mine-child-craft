@@ -1,5 +1,7 @@
 # Tickets · 体验馆（showroom）— 任务图谱
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [showroom-design.md](showroom-design.md) 与 [adr/0005-unified-adventure-shell-dev-profile.md](adr/0005-unified-adventure-shell-dev-profile.md)
+
 - Spec：docs/showroom-spec.md（ready-for-agent）
 - 设计：docs/showroom-design.md · 术语：GLOSSARY「体验馆」
 - 集成分支：`showroom` · 关单=把状态改为 `done` 并注明分支/提交

@@ -1,5 +1,7 @@
 # 液体系统 · 计划稿（liquid-plan）
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [liquid-design.md](liquid-design.md)
+
 > 调研底座：[mc-liquid-research.md](mc-liquid-research.md)（MC 一手机制，S1–S17 逐条可溯）。
 > 设计定稿：[liquid-design.md](liquid-design.md)。结构决策：[adr/0004-parallel-fluid-level-plane.md](adr/0004-parallel-fluid-level-plane.md)。
 > 范围拍板（2026-10-25 与用户逐题共识，Q1–Q24）：水+岩浆全量、MC 参数表模型、
