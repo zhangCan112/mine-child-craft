@@ -19,6 +19,7 @@ const MODES = {
   arena: ArenaMode,
   focus: FocusMode,
   math: MathMode,
+  robot: RobotMode,
   build: BuildMode,
   tank: TankRangeMode,
   adventure: AdventureMode,
@@ -73,6 +74,7 @@ function setupBudgets() {
       warnAtMs: 60*1000},
       focus: {capMsFor: () => FOCUS_DAILY_MIN * 60 * 1000, capCount: FOCUS_DAILY_LEVELS},
       math: {capMsFor: () => MATH_DAILY_MIN * 60 * 1000, capCount: MATH_DAILY_LEVELS},
+      robot: {capMsFor: () => ROBOT_DAILY_MIN * 60 * 1000, capCount: ROBOT_DAILY_LEVELS},
     },
   });
   Budgets.migrate(); // 旧 play_time_save / focus_camp_save.daily → daily_budget_save

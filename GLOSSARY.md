@@ -6,7 +6,7 @@
 
 - **大分块**（54）: 引擎层（Engine） · 体素模型（VoxelModel） · 流体核心（FluidCore） · 方块级联（Block Cascade） · 场景装填（loadScene） · 世界改动日志（WorldJournal） · 冒险存档 store（AdventureStore） · 冒险壳政策缝（AdventureProfile） · 昼夜核心（DaylightCore） · 光照核心（LightCore） · 网格化核心（MeshCore） · 贴图图集 · 距离环（Chunk Rings） · Fx · 声音清单注册表（AudioRegistry） · 音频核心（AudioCore） · 确定性随机核心（RandCore） · AudioMixer · SpeechKit · 头顶血条（mkHpBar） · 玩家战斗 kit（CombatKit） · 训练营壳 kit（CampKit） · 模式面板 kit（ModeKit） · 熔炉装配 kit（FurnaceKit） · 放置链 kit（PlaceKit） · SceneKit · 画质核心（QualityCore） · 触控手势核心（TouchCore） · 相机装置（CameraRig） · 玩家形象（Avatar） · 第一人称手持视图（HandView） · 玩家状态（PlayerState） · 手持物注册表（HeldItems） · 物品核心 · 物品提示（ItemHint） · 使用动作注册表（ItemUseRegistry） · 背包核心 · 合成核心 · 掉落物实体库 · 像素图标工坊 · 按钮像素图标工坊 · 探险核心（AdventureCore） · 冒险地图 · 竞技场核心（ArenaCore） · 训练营机制核心（CampCore） · 背包壳（Backpack） · 载具（Tank） · 怪物库（Mobs） · 怪物谱系（Mob Taxonomy） · 造型档案（MobLook） · 战斗核心（CombatCore） · 应用层（Application） · 模式注册表（ModeRegistry） · 切换清场（switchMode 兜底）
 - **政策与进度**（4）: 共享背包（Shared Backpack） · 每日预算（DailyBudget） · 儿童时限 · 游玩模式（Play modes）
-- **游戏模式**（29）: 竞技场（Arena） · 建造模式 · 坦克演习场（TankRangeMode） · 专注训练营 · 矿袋（Loot Bag） · 宝物柜（FocusCabinet） · 图章日历（Stamps Calendar） · 集章里程碑（Stamp Milestones） · 每日体检（Daily Check） · 魔鬼特训（Devil Training） · 训练师村长（Chief） · 数学冒险岛（MathMode） · 数学关卡参数表（MathLevels） · 谜题纯核心（PuzzleCore） · 数学屏流引擎 · 数学情境变体（MATH_CONTEXTS） · 数学图章 · 跳一跳世界轨纯核心（HopWorld） · 数学世界轨（MathWorldTrack） · 摆与搭世界引擎（BuildWorld） · 世界轨驱动器（WorldTrackDriver） · 下界冒险（NetherMode） · 下界传送门（Nether Portal） · 探险模式 · 传送门阵 · 大宝箱（Chest Vault） · 牧场（Livestock） · 体验馆 · dev 模式（DEV）
+- **游戏模式**（30）: 竞技场（Arena） · 建造模式 · 坦克演习场（TankRangeMode） · 专注训练营 · 矿袋（Loot Bag） · 宝物柜（FocusCabinet） · 图章日历（Stamps Calendar） · 集章里程碑（Stamp Milestones） · 每日体检（Daily Check） · 魔鬼特训（Devil Training） · 训练师村长（Chief） · 数学冒险岛（MathMode） · 数学关卡参数表（MathLevels） · 谜题纯核心（PuzzleCore） · 数学屏流引擎 · 数学情境变体（MATH_CONTEXTS） · 数学图章 · 跳一跳世界轨纯核心（HopWorld） · 数学世界轨（MathWorldTrack） · 摆与搭世界引擎（BuildWorld） · 世界轨驱动器（WorldTrackDriver） · 怪物指挥官（RobotMode） · 下界冒险（NetherMode） · 下界传送门（Nether Portal） · 探险模式 · 传送门阵 · 大宝箱（Chest Vault） · 牧场（Livestock） · 体验馆 · dev 模式（DEV）
 - **玩法时间预算**（2）: 每日儿童时限（每日预算 DailyBudget） · 家长加时（play_extra_save）
 
 ## 语言
@@ -318,6 +318,10 @@ _Avoid_: NPC/向导（散称）、把表情画散写在模式层（像素画归 
 **世界轨驱动器（WorldTrackDriver）**:
 数学冒险岛关卡节的唯一运行 seam（`js/math-track.js` 应用层装配 + `js/math-track-core.js` 纯核心，均有单测）：变体分发（dispatch(family,variant)→'screen'|'world'|null 纯查表，未册键返 null）、单节生命周期（run：屏流/世界同一入口，**清完再发 end**——离场含 clearWorld/HUD/指针收口先于消费方结算，时序由 seam 担保不靠各引擎自觉）、boss 小节串链（runBoss：400ms 接力 + alive 旗整链中止）、退出收口（leave=单节离场 / stop=整链一刀，幂等）。三交互插件经统一注册表 **MATH_TRACK_RUNNERS**（{kind:'screen'|'world', run} 形状，29 键=16 屏流+13 世界；屏流键集加载期自 MATH_SCREEN_ENGINES 引擎表派生，两表互锁由测试担保）收在驱动器：js/math-world.js（hop 混合宿主）、js/math-build-world.js（摆与搭指针锁宿主）、js/math-paradigms.js（屏流引擎）；试次循环骨架（记分账本/连对连错节拍/试次钳制/boss 规划/聚合）在 MathTrackCore 纯核心。interface：`MathTrack{dispatch · run · runBoss · leave · stop · active · mouse · runners}`。
 _Avoid_: mathCtrl/mathBossStop（历史名——控制柄与链旗两条命已合一）、mathWorldLeave/mathStopRun（历史名——退出收口已收进驱动器）、MATH_WORLD_RUNNERS（历史名——统一注册表已改名 MATH_TRACK_RUNNERS，屏流 T5 并入后 29 键）、把「清完再发 end」时序下放回引擎或模式层（纪律归 seam）、在世界插件里自持清场以外的退出收口（HUD/触屏键/指针归 stop 统一收）
+
+
+**怪物指挥官（RobotMode）**:
+编程解谜训练营模式（js/modes/robot.js，训练营类同专注/数学：全屏接管 UI、独立每日预算 6 关/20 分钟、不计儿童时限、无菜单页）：孩子提前编排指令序列（槽位队列点选，无拖拽、v1 无循环），回放看怪物从起点走到终点旗（失败倒放回滚零惩罚，Robot Turtles 范式）；训练营壳家族第三员（CampKit.mkCampShell，prefix 'r'，存档键 robot_camp_save）。关卡数值唯一权威在 js/robot-levels.js（怪物包解锁制/存档迁移）；指令模拟纯核心与棋盘世界宿主随 T2/T4 票落地。设计权威 docs/robot-program-design.md（五维嵌入与防挫败阶梯），调研底座 docs/robot-program-research.md。_Avoid_: 机器人模式（被控的是怪物不是机器人——id robot 是品类名）、编程模式（散称）
 
 
 **下界冒险（NetherMode）**:

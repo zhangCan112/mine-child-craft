@@ -1,0 +1,149 @@
+/* ============================================================
+ 怪物指挥官 — 界面样式 (T1 骨架: 今日页/家长门; 编辑器与棋盘 HUD 随 T4/T5 续建)
+ MC 配色 · 大目标 · 零文字压力 (focus/math 同款纪律: 像素图标
+ image-rendering: pixelated · DPR 友好 · reduced-motion 动画全关)
+ ============================================================ */
+#robotRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: none;
+  background: linear-gradient(#86c5e8 0%, #b3ddf2 45%, #8fce62 45.2%, #6aae47 100%);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: #fff;
+  overflow: auto;
+  user-select: none;
+}
+
+/* 像素图标统一口径: 关平滑放大(focus 同款 DPR 纪律) */
+#robotRoot img {
+  image-rendering: pixelated;
+}
+
+#robotRoot .r-top {
+  position: relative;
+  padding: 10px 14px;
+}
+
+#robotRoot .r-back {
+  font-size: 22px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 3px solid rgb(255 255 255 / 40%);
+  background: rgb(0 0 0 / 35%);
+  cursor: pointer;
+  color: #fff;
+}
+
+#robotRoot .r-back .bi {
+  width: 22px;
+  height: 22px;
+  vertical-align: -5px;
+}
+
+.r-screen {
+  min-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 24px 40px;
+}
+
+.r-screen h1 {
+  font-size: 34px;
+  margin: 8px 0 4px;
+  text-shadow: 0 3px 8px #000;
+}
+
+.r-sub {
+  font-size: 16px;
+  opacity: 0.92;
+  margin: 4px 0 14px;
+  text-shadow: 0 2px 5px #000;
+}
+
+.r-start {
+  font-size: 26px;
+  padding: 16px 52px;
+  border-radius: 16px;
+  border: 4px solid #fff;
+  cursor: pointer;
+  background: rgb(255 170 0 / 45%);
+  color: #fff;
+  font-weight: 800;
+  text-shadow: 0 2px 4px #000;
+  box-shadow: 0 6px 0 rgb(0 0 0 / 30%);
+  animation: r-pulse 2.2s infinite;
+}
+
+.r-start:hover {
+  background: rgb(255 170 0 / 65%);
+}
+
+@keyframes r-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+
+.r-btn {
+  font-size: 17px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  border: 3px solid rgb(255 255 255 / 40%);
+  background: rgb(0 0 0 / 35%);
+  cursor: pointer;
+  color: #fff;
+  margin: 4px;
+}
+
+.r-btn:hover {
+  background: rgb(255 255 255 / 18%);
+}
+
+/* 按钮像素图标(button-icons.js 工坊注入的 img.bi, 文字按钮内联) */
+.r-btn .bi {
+  width: 18px;
+  height: 18px;
+  vertical-align: -4px;
+}
+
+.r-dots {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.r-dots .dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 50%);
+  background: rgb(0 0 0 / 25%);
+}
+
+.r-dots .dot.done {
+  background: #ffd75e;
+  border-color: #fff3c4;
+}
+
+/* ---------- 家长面板: 入口钮/算术门/面板(矩阵表随 T5 续建) ---------- */
+.r-today {
+  position: relative; /* 家长入口钮的定位锚 */
+}
+
+.r-today .r-parent-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #robotRoot *,
+  #robotRoot *::before,
+  #robotRoot *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}
