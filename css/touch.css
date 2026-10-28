@@ -241,18 +241,25 @@ canvas {
 
 /* ---------- 平板/触屏 适配 ---------- */
 @media (pointer: coarse), (width <= 900px) {
-  /* 主菜单卡片 */
+  /* 主菜单卡片(menu-ui 设计稿 §5): grid 自适应已够, 这里只收紧留白与徽章;
+     触屏 :hover 会粘住, 悬停语言在 style.css 已限定 hover:hover 设备 */
   #modeCards {
-    gap: 14px;
+    gap: 12px 14px;
   }
 
   .mode-card {
-    width: min(230px,42vw);
-    padding: 20px 12px;
+    padding: 16px 10px 14px;
   }
 
   .mode-card .big {
-    font-size: min(46px,9vw);
+    width: 64px;
+    height: 64px;
+    font-size: 34px;
+  }
+
+  .mode-card .big img {
+    width: 44px;
+    height: 44px;
   }
 
   .mode-card h2 {
@@ -260,7 +267,21 @@ canvas {
   }
 
   #overlay h1 {
-    font-size: clamp(22px,6vw,40px);
+    font-size: clamp(22px,6vw,34px);
+  }
+
+  /* 门面区收拢: 大标题字距/两侧方块在小屏缩档 */
+  #overlay h1.hero-title {
+    letter-spacing: 5px;
+  }
+
+  .hero-art img {
+    width: 46px;
+    height: 46px;
+  }
+
+  .menu-hero {
+    gap: 16px;
   }
 
   #overlay {

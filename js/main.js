@@ -188,9 +188,24 @@ Input.onLockChange = onLockChanged;
 /* ---------- 坦克模式卡入口图标: 已移居 js/icons.js(菜单像素图标工坊) ---------- */
 
 /* ---------- 主菜单与按钮(卡片 onclick / 返回 / 出发 全部由注册表派生) ---------- */
+/* 悬停报名(设计稿 menu-ui §2.2): 桌面指针停在卡上 0.65s 才报模式名 —
+   扫过不吵、想要才说; 移出即取消。零文字依赖的 TTS 补充(MISSION);
+   触屏无悬停不接; 打断政策归 SpeechKit(cancel-then-speak, 模式开场白优先) */
+function wireCardVoice(mc, card) {
+  if (!card || IS_TOUCH || typeof SpeechKit === 'undefined') return;
+  let hoverT = 0;
+  card.addEventListener('mouseenter', () => {
+    clearTimeout(hoverT);
+    hoverT = setTimeout(() => SpeechKit.speak(mc.name), 650);
+  });
+  card.addEventListener('mouseleave', () => clearTimeout(hoverT));
+}
+
 function buildMenu() {
   for (const mc of ModeRegistry.all) {
-    document.getElementById(ModeRegistry.cardId(mc)).onclick = ()=>{
+    const card = document.getElementById(ModeRegistry.cardId(mc));
+    card.onclick = ()=>{
+      sfx('click'); // 选中确认音(设计稿 menu-ui §2.2; 音效键既有, 注册表零改动)
       if (mc.gated && playBlocked()) {
         showPlayTimeoutPage(); return;
       }
@@ -198,6 +213,7 @@ function buildMenu() {
       if (ModeRegistry.hasPage(mc)) showPage(mc.id);
       if (mc.menu && MODES.cur.buildMenu) MODES.cur.buildMenu();
     };
+    wireCardVoice(mc, card);
     if (ModeRegistry.hasPage(mc)) { // 出发配置页的返回按钮
       const back = document.getElementById(ModeRegistry.backBtnId(mc));
       if (back) back.onclick = ()=> showPage('main');
@@ -338,8 +354,13 @@ function netDead() {
 })();
 
 function init() {
+  /* 加载屏退场(设计稿 menu-ui §1): .done 触发 0.45s 淡出; 600ms 兜底
+     remove — reduced-motion/旧引擎下 transition 可能不发生, 不依赖事件 */
   const sp = document.getElementById('splash');
-  if (sp) sp.remove();
+  if (sp) {
+    sp.classList.add('done');
+    setTimeout(() => sp.remove(), 600);
+  }
   /* dev 解锁: DEV 旗标(config.js 读 ?dev=1, 全游戏唯一口径)给 body 加
      dev-on — 体验馆等 dev 向模式卡的可见开关。CSS 默认隐藏是构造性防闪现
      (样式表先于脚本生效), 这里只做解锁(旗标读取与 ?touch=1 同款惯例收在

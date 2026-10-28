@@ -159,11 +159,15 @@ canvas {
   opacity: 0.45;
 }
 
-/* 开始遮罩 + 菜单 */
+/* ============================================================
+   菜单门面(设计权威 docs/menu-ui-design.md): 遮罩/主菜单/模式卡/页脚
+   ============================================================ */
 #overlay {
   position: fixed;
   inset: 0;
-  background: rgb(0 0 0 / 60%);
+
+  /* 渐变遮罩(上透下深)取代旧 60% 平涂: 竞技场 3D 实景当活门面, 底部压暗保页脚可读 */
+  background: linear-gradient(rgb(10 14 22 / 38%) 0%, rgb(10 14 22 / 58%) 62%, rgb(6 9 14 / 80%) 100%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -172,13 +176,14 @@ canvas {
   z-index: 20;
   text-align: center;
   overflow: auto;
+  padding: 24px 16px;
 }
 
 #overlay h1 {
-  font-size: 40px;
-  margin: 0 0 4px;
-  letter-spacing: 3px;
-  text-shadow: 0 3px 10px #000;
+  font-size: 34px;
+  margin: 0 0 6px;
+  letter-spacing: 4px;
+  text-shadow: 0 4px 0 rgb(0 0 0 / 30%), 0 2px 12px rgb(0 0 0 / 55%);
 }
 
 #overlay h1 span {
@@ -189,13 +194,16 @@ canvas {
   margin: 2px 0 4px;
   font-size: 14px;
   opacity: 0.9;
+  max-width: 720px;
+  line-height: 1.75;
 }
 
 #overlay .keys {
-  margin-top: 14px;
+  margin-top: 20px;
   font-size: 12.5px;
   line-height: 1.9;
-  opacity: 0.85;
+  opacity: 0.72;
+  max-width: 920px;
 }
 
 #overlay .keys b {
@@ -210,48 +218,189 @@ canvas {
   display: none;
   flex-direction: column;
   align-items: center;
+  position: relative;
 }
 
 .menu-page.active {
   display: flex;
+  animation: page-in 0.16s ease-out;
 }
 
-/* 主菜单模式卡片 */
-#modeCards {
+/* 返回按钮钉左上角(arena/build/tank/adventure 配置页共用, id 契约在 mode-registry) */
+#overlay .back-pin {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  margin: 0;
+}
+
+/* 儿童时限提醒页: 深夜蓝卡片(幼儿忌纯黑, 压暗不压死) */
+.menu-page.page-night {
+  background: radial-gradient(ellipse at center, rgb(24 34 60 / 88%) 0%, rgb(12 18 34 / 94%) 100%);
+  border-radius: 24px;
+  padding: 48px 64px;
+  box-shadow: 0 18px 50px rgb(0 0 0 / 45%);
+}
+
+.page-night h1 {
+  font-size: 30px;
+}
+
+.page-night p {
+  font-size: 17px;
+}
+
+/* ---------- 主菜单门面区: 眉题 + 大标题 + 两侧悬浮草方块 ---------- */
+.menu-hero {
   display: flex;
-  gap: 22px;
-  margin-top: 18px;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 26px;
+}
+
+.hero-eyebrow {
+  font-size: 15px;
+  letter-spacing: 8px;
+  opacity: 0.88;
+  text-shadow: 0 2px 6px #000;
+  margin-bottom: 2px;
+}
+
+#overlay h1.hero-title {
+  font-size: clamp(38px, 6.5vw, 58px);
+  letter-spacing: 10px;
+  margin: 0;
+  text-shadow: 0 5px 0 rgb(0 0 0 / 32%), 0 3px 16px rgb(0 0 0 / 60%);
+}
+
+.hero-art img {
+  width: 64px;
+  height: 64px;
+  image-rendering: pixelated;
+  display: block;
+  filter: drop-shadow(0 10px 12px rgb(0 0 0 / 45%));
+  animation: hero-bob 3.6s ease-in-out infinite;
+}
+
+/* 右侧方块反相半拍浮动, 像两块方块在打招呼 */
+.hero-art-r img {
+  animation-delay: -1.8s;
+}
+
+#overlay p.hero-tag {
+  margin: 12px 0 0;
+  font-size: 16px;
+  letter-spacing: 2px;
+  opacity: 0.92;
+}
+
+/* ---------- 模式卡片区: grid 自适应, 每模式一族强调色(CSS 变量) ---------- */
+#modeCards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 320px));
   justify-content: center;
+  gap: 18px 20px;
+  margin-top: 22px;
+  width: min(1120px, 96vw);
 }
 
 .mode-card {
-  width: 230px;
-  padding: 26px 18px;
-  border: 3px solid rgb(255 255 255 / 30%);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 22px 14px 18px;
+  border: 3px solid rgb(255 255 255 / 28%);
   border-radius: 16px;
-  background: rgb(255 255 255 / 8%);
+  background: rgb(15 20 28 / 82%);
+  box-shadow:
+    inset 0 2px 0 rgb(255 255 255 / 14%),
+    inset 0 -4px 0 rgb(0 0 0 / 35%),
+    0 8px 18px rgb(0 0 0 / 30%);
   cursor: pointer;
-  transition: transform 0.12s, background 0.12s;
   user-select: none;
+  transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s, background 0.15s;
 }
 
-.mode-card:hover {
-  transform: translateY(-4px);
-  background: rgb(255 255 255 / 16%);
+/* 每模式强调色: 边框/悬停光共用一族(类名=模式 id, 与注册表对齐) */
+.mode-card.arena {
+  --accent: #ff7a6e;
+  --glow: rgb(255 122 110 / 35%);
 }
 
+.mode-card.focus {
+  --accent: #f08a9b;
+  --glow: rgb(240 138 155 / 35%);
+}
+
+.mode-card.math {
+  --accent: #5abf5a;
+  --glow: rgb(90 191 90 / 35%);
+}
+
+.mode-card.build {
+  --accent: #e9c46a;
+  --glow: rgb(233 196 106 / 35%);
+}
+
+.mode-card.tank {
+  --accent: #7eb45e;
+  --glow: rgb(126 180 94 / 35%);
+}
+
+.mode-card.adventure {
+  --accent: #4e9e58;
+  --glow: rgb(78 158 88 / 35%);
+}
+
+.mode-card.showroom {
+  --accent: #b58ae0;
+  --glow: rgb(181 138 224 / 35%);
+}
+
+/* 悬停语言只在真指针设备生效(触屏 tap 后 :hover 会粘住) */
+@media (hover: hover) {
+  .mode-card:hover {
+    transform: translateY(-6px);
+    border-color: var(--accent, rgb(255 255 255 / 60%));
+    background: rgb(24 32 44 / 88%);
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 14%),
+      inset 0 -4px 0 rgb(0 0 0 / 35%),
+      0 14px 26px rgb(0 0 0 / 42%),
+      0 0 22px var(--glow, rgb(255 255 255 / 25%));
+  }
+
+  .mode-card:hover .big {
+    transform: scale(1.08);
+    border-color: var(--accent, rgb(255 255 255 / 60%));
+  }
+
+  .mode-card:active {
+    transform: translateY(-1px);
+  }
+}
+
+/* 图标徽章 .big: 像素图标由 button-icons.js 注入(BTN_CARD_ICON), emoji 兜底 */
 .mode-card .big {
-  font-size: 46px;
-  line-height: 1.2;
+  width: 76px;
+  height: 76px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 40px;
+  line-height: 1;
+  border: 2px solid rgb(255 255 255 / 22%);
+  border-radius: 14px;
+  background: rgb(255 255 255 / 8%);
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / 12%), inset 0 -3px 0 rgb(0 0 0 / 30%);
+  transition: transform 0.15s, border-color 0.15s;
 }
 
 .mode-card .big img {
-  width: 56px;
-  height: 56px;
+  width: 52px;
+  height: 52px;
   image-rendering: pixelated;
   display: block;
-  margin: 0 auto;
 }
 
 /* ---------- 按钮像素图标(button-icons.js 工坊注入的 img.bi): 16×16→64 dataURL,
@@ -283,58 +432,60 @@ canvas {
   vertical-align: -3px;
 }
 
+.splash-logo .bi {
+  width: 44px;
+  height: 44px;
+}
+
+.page-night h1 .bi {
+  width: 30px;
+  height: 30px;
+  vertical-align: -4px;
+}
+
 .mode-card h2 {
-  margin: 8px 0 4px;
-  font-size: 20px;
+  margin: 12px 0 4px;
+  font-size: 21px;
+  letter-spacing: 2px;
+  text-shadow: 0 2px 4px #000;
 }
 
 .mode-card small {
-  font-size: 12px;
-  opacity: 0.8;
-}
-
-.mode-card.build {
-  border-color: rgb(233 196 106 / 60%);
-}
-
-.mode-card.build:hover {
-  background: rgb(233 196 106 / 18%);
-}
-
-.mode-card.tank {
-  border-color: rgb(126 180 94 / 60%);
-}
-
-.mode-card.tank:hover {
-  background: rgb(110 168 80 / 18%);
-}
-
-.mode-card.nether {
-  border-color: rgb(196 96 62 / 65%);
-}
-
-.mode-card.nether:hover {
-  background: rgb(196 96 62 / 20%);
+  font-size: 12.5px;
+  opacity: 0.82;
 }
 
 .mode-card.timedout {
   opacity: 0.45;
-  position: relative;
 }
 
-.mode-card.timedout:hover {
-  transform: none;
-  background: rgb(255 255 255 / 8%);
+/* 时限卡不可玩: 悬停全套回落(不亮边框不上浮, 不误导孩子点) */
+@media (hover: hover) {
+  .mode-card.timedout:hover {
+    transform: none;
+    border-color: rgb(255 255 255 / 28%);
+    background: rgb(15 20 28 / 82%);
+    box-shadow:
+      inset 0 2px 0 rgb(255 255 255 / 14%),
+      inset 0 -4px 0 rgb(0 0 0 / 35%),
+      0 8px 18px rgb(0 0 0 / 30%);
+  }
+
+  .mode-card.timedout:hover .big {
+    transform: none;
+    border-color: rgb(255 255 255 / 22%);
+  }
 }
 
 .mode-card .timeout-badge {
   position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgb(0 0 0 / 65%);
+  top: 10px;
+  right: 10px;
+  background: rgb(0 0 0 / 68%);
+  border: 2px solid rgb(255 255 255 / 25%);
   color: #ffe27a;
-  padding: 4px 9px;
-  border-radius: 8px;
+  padding: 4px 10px;
+  border-radius: 999px;
   font-size: 11px;
   font-weight: 700;
 }
@@ -343,33 +494,109 @@ canvas {
    构造性防闪现: CSS 先于任何脚本生效, 弱网/慢加载下 dev 卡也从不满帧露脸;
    三层分工(docs/showroom-design.md D1): HTML 声明身份(class 含 dev)、
    CSS 拥有默认隐藏、JS 只做解锁(main.js 读 ?dev=1 给 body 加 dev-on)。
-   还原值 display:block 与 .mode-card 常规显示模型一致(基类不设 display,
-   div 天然块级 — 不经 flex 改写卡内布局) */
+   还原值 display:flex 与 .mode-card 常规显示模型一致(基类显式 flex 列布局) */
 .mode-card.dev {
   display: none;
 }
 
 body.dev-on .mode-card.dev {
-  display: block;
+  display: flex;
 }
 
-/* ---------- 音量面板(A8): 主菜单 🎵 展开音乐/音效两滑杆; 触屏加大档在 touch.css ---------- */
+/* ---------- 菜单动效: 页面淡入 + 卡片逐张弹入(回主菜单每次重放) ---------- */
+@keyframes page-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+}
+
+@keyframes card-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+}
+
+@keyframes hero-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+.menu-page.active .mode-card {
+  animation: card-in 0.34s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.menu-page.active .mode-card:nth-child(1) {
+  animation-delay: 0.02s;
+}
+
+.menu-page.active .mode-card:nth-child(2) {
+  animation-delay: 0.08s;
+}
+
+.menu-page.active .mode-card:nth-child(3) {
+  animation-delay: 0.14s;
+}
+
+.menu-page.active .mode-card:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.menu-page.active .mode-card:nth-child(5) {
+  animation-delay: 0.26s;
+}
+
+.menu-page.active .mode-card:nth-child(6) {
+  animation-delay: 0.32s;
+}
+
+.menu-page.active .mode-card:nth-child(7) {
+  animation-delay: 0.38s;
+}
+
+/* 动画减免: 全部菜单/门面动效停用(加载条、方块浮动、入场) */
+@media (prefers-reduced-motion: reduce) {
+  .menu-page.active,
+  .menu-page.active .mode-card,
+  .hero-art img,
+  .splash-fill {
+    animation: none;
+  }
+
+  #splash {
+    transition: none;
+  }
+}
+
+/* ---------- 音量面板(A8 → menu-ui 设计稿 §2): 右下角浮标按钮 + 上翻面板;
+   id 契约不变(audio-vol-ui.js 按 id 接线), 触屏加大档在 touch.css ---------- */
 #volWrap {
-  margin-top: 14px;
+  position: fixed;
+  right: 18px;
+  bottom: 14px;
+  z-index: 30;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 12px;
+  align-items: flex-end;
+  gap: 10px;
 }
 
 .vol-panel {
   display: none;
   flex-direction: column;
   gap: 12px;
-  padding: 16px 24px;
+  padding: 16px 22px;
   border: 2px solid rgb(255 255 255 / 30%);
   border-radius: 14px;
-  background: rgb(0 0 0 / 35%);
+  background: rgb(12 16 24 / 92%);
+  box-shadow: 0 12px 30px rgb(0 0 0 / 45%);
 }
 
 .vol-panel.open {
@@ -382,6 +609,7 @@ body.dev-on .mode-card.dev {
   gap: 14px;
   font-size: 16px;
   font-weight: 600;
+  white-space: nowrap;
 }
 
 .vol-row.muted {
@@ -690,14 +918,17 @@ body.dev-on .mode-card.dev {
 }
 
 #overlay .play {
-  padding: 11px 28px;
-  font-size: 17px;
-  border: 2px solid #fff;
-  border-radius: 8px;
+  padding: 11px 26px;
+  font-size: 16px;
+  border: 2px solid rgb(255 255 255 / 45%);
+  border-radius: 10px;
   background: rgb(255 255 255 / 12%);
   color: #fff;
   cursor: pointer;
   font-weight: 600;
+  letter-spacing: 1px;
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / 18%), inset 0 -3px 0 rgb(0 0 0 / 30%);
+  transition: background 0.12s, border-color 0.12s;
 }
 
 #overlay .play:hover {
@@ -851,7 +1082,7 @@ body.dev-on .mode-card.dev {
     #a06ef2 100%);
 }
 
-/* 加载屏 */
+/* ---------- 加载屏(menu-ui 设计稿 §4): 夜空 + 像素草地门面, init() 加 .done 淡出 ---------- */
 #splash {
   position: fixed;
   inset: 0;
@@ -859,12 +1090,78 @@ body.dev-on .mode-card.dev {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(#8fc7ff,#b8e0ff);
+  background: linear-gradient(#2b3856 0%, #1b2438 58%, #141b2b 100%);
   color: #fff;
-  font-size: 26px;
-  font-weight: 700;
-  text-shadow: 0 2px 8px #000;
+  text-align: center;
+  transition: opacity 0.45s ease;
+}
+
+#splash.done {
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* 底部像素草地条: 亮绿草帽 + 深绿过渡 + 泥土(零图片, 线性渐变分段) */
+#splash::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 72px;
+  background: linear-gradient(#5abf5a 0 22px, #3f8f3f 22px 26px, #866043 26px 100%);
+}
+
+.splash-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 20px;
+}
+
+.splash-logo {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  font-size: 34px;
+  font-weight: 800;
+  letter-spacing: 6px;
+  text-shadow: 0 4px 0 rgb(0 0 0 / 35%), 0 2px 14px rgb(0 0 0 / 50%);
+}
+
+/* 不确定式加载条: 匀速来回(脚本加载无进度事件可依, 安抚性动效而非假进度) */
+.splash-bar {
+  width: min(320px, 70vw);
+  height: 18px;
+  border: 3px solid rgb(255 255 255 / 55%);
+  border-radius: 9px;
+  background: rgb(0 0 0 / 45%);
+  overflow: hidden;
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 50%);
+}
+
+.splash-fill {
+  width: 45%;
+  height: 100%;
+  border-radius: 6px;
+  background: linear-gradient(90deg, #5abf5a, #9fe8a0);
+  animation: splash-slide 1.3s ease-in-out infinite alternate;
+}
+
+@keyframes splash-slide {
+  from {
+    transform: translateX(-60%);
+  }
+
+  to {
+    transform: translateX(150%);
+  }
+}
+
+.splash-tip {
+  font-size: 14px;
   letter-spacing: 2px;
+  opacity: 0.8;
 }
 
 /* 心跳失联锁定层 */
