@@ -76,7 +76,7 @@ const ROOT = path.join(__dirname, '..');
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
 for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js',
   'js/cascade-core.js', 'js/scene-kit.js',
-  'js/items-core.js',
+  'js/items-core.js', 'js/item-use-registry.js',
   'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
@@ -90,7 +90,7 @@ const api = vm.runInContext(`({
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
   B_PORTAL, B_PORTAL_DIM, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
-  ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
+  ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime, itemUses,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
   RECIPES, canCraft, shapeCost, matchGrid, gridCraft, fillGrid, take, costEntry, FUEL, fuelUnits, smeltOf, B_TNT,
@@ -3079,22 +3079,30 @@ test('T8 计数挂点四路: 广场发现(位置型) / 结构宝箱(图+坐标) 
   assert.strictEqual(ADV_MINE_TALLY[api.B_CACTUS], 'mine_cactus', '仙人掌走挖掘挂点映射');
 });
 
-test('弓射击(2026-10-28 弓物品化): 攻击键=远程放箭(持弓不再挥砍) → 弹步进命中击杀记账; 拉弓冷却与挥击同轨连点不连发; 主动作键弓态图标', () => {
+test('弓射击(2026-10-28 Route A): 右键/射箭键沿准星放箭 → 弹步进命中击杀记账; 拉弓冷却与挥击同轨连点不连发; 攻击键=空手挖/打(MC 正典回归); 触屏条两键(基表+射箭键边沿重声明)', () => {
   mem.clear();
   freshInit();
   /* 站门阵广场开阔处(弹道不碰建筑), 手持弓 + 准星朝前(T9 雪球同款桩) */
   pos.x = 85.5; pos.z = 81.5;
   holdOnly('bow_item', 1);
-  assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'bow' && c[2] === '射击'),
-      '选中弓 → 主动作键切弓·射击(不再是镐·挖/打)');
+  assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'pick' && c[2] === '挖/打'),
+      '主键恒镐·挖/放(持弓=空手挖/打——弓态主键已撤, 弓图标由专用键承载)');
+  /* 触屏条边沿重声明(2026-10-28 拍板「弓 = 射箭 + 空手两个键」): 选中弓 →
+     setTouchActions 收到基表 3 键 + 🏹 射箭键 */
+  assert.ok(Array.isArray(touchList) && touchList.length === 4, '触屏条 = 基表 3 + 射箭键 1');
+  const useKey = touchList.find((b) => b.icon === 'bow');
+  assert.ok(useKey && useKey.label === '射箭', '射箭专用键: bow 图标(委托弓物品图)+无障碍名');
   globalThis.camera = {};
   globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.4, z: pos.z}, dir: {x: 0, y: 0, z: -1}})};
   const shots = () => calls.filter((c) => c[0] === 'sfx' && c[1] === 'shoot').length;
+  /* 射箭专用键直调执行器不走 aimClick(专用键身份=恒射箭): 出箭且 holdAct
+     返 false = 一次性动作不进连发(input.js 对 holdAct 键自动 main 尺寸) */
+  assert.strictEqual(useKey.holdAct(), false, '射箭键 holdAct 返 false(一次性, 不进连发)');
+  assert.strictEqual(shots(), 1, '射箭专用键 → 放箭(直调 advUseRun 执行器)');
   AdventureMode.onMouse(2, {x: 60, y: 24, z: 60, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(shots(), 1, '轻点/右键 → 放箭(shoot 音效, mkArrows 内置)');
-  AdventureMode.onMouse(2, {x: 60, y: 24, z: 60, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(shots(), 1, '拉弓冷却内(0.55s)连点不连发——与挥击同一条轨道');
-  /* 弹道步进: 怪在准星线上 2 格 → 箭 22 格/秒命中 → 击杀记账走 advOnKill(与挥击同拍) */
+  assert.strictEqual(shots(), 1, '轻点/右键 → 使用档经 advTryUseHeld(注册表驱动)同轨冷却, 连点不连发');
+  /* 弹道步进: 怪在准星线上 2 格 → 箭 22 格/秒命中 → 击杀记账走 advOnKill(与挥击同拍);
+     箭从人物弓位出膛(advBolts origin 注入——修第三人称箭从人物背后飞出) */
   globalThis.yaw = 0;
   listResult = [mkAdvMob('zombie', pos.x, pos.y, pos.z - 2, {attackCd: 99})];
   nextHit = {hp: 0, dead: true, freshDead: true};
@@ -3102,17 +3110,18 @@ test('弓射击(2026-10-28 弓物品化): 攻击键=远程放箭(持弓不再挥
   listResult = [];
   assert.strictEqual(A.ADV.quest.counts.kill_mob, 1, '箭杀怪 → kill_mob 1(advBolts.onHitMob → advOnKill)');
   assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hit'), '命中怪 → hit 音效(kit 内置)');
-  /* 攻击键=远程放箭(用户拍板「弓箭应该是远程攻击」, 修前持弓左键=近战挥砍):
-     近战锥内有怪时攻击键放箭不放挥砍 — 点击即出箭且无同步近战命中记录 */
+  /* 攻击键回归 MC 正典(2026-10-28 Route A: 撤 1148fe2 攻击键弓分支): 持弓左键
+     = 空手挖/打——不出箭; 近战锥内有怪时挥砍命中(空手 3 点, 一刀不杀 30 血僵尸) */
   for (let i = 0; i < 12; i++) AdventureMode.update(1 / 60); /* 推过拉弓冷却(累计 0.7s > 0.55s) */
   const hitLogLen = hitLog.length;
+  nextHit = {hp: 3, dead: false, freshDead: false}; /* 桩复位: 空手 3 点只伤不死(上一段的必杀脚本不沿用) */
   listResult = [mkAdvMob('zombie', pos.x, pos.y, pos.z - 2, {attackCd: 99})];
   AdventureMode.onMouse(0, {x: 60, y: 24, z: 59, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(shots(), 2, '攻击键(左键/⛏️)持弓 → 放箭');
-  assert.strictEqual(hitLog.length, hitLogLen, '无同步近战命中(挥砍让位远程, 击杀走弹道步进)');
+  assert.strictEqual(shots(), 1, '攻击键(左键/⛏️)持弓 → 不出箭(空手挖/打, MC 正典回归)');
+  assert.ok(hitLog.length > hitLogLen, '锥内有怪 → 近战挥砍命中(空手伤害, 击杀走多刀)');
   for (let i = 0; i < 30; i++) AdventureMode.update(1 / 60);
   listResult = [];
-  assert.strictEqual(A.ADV.quest.counts.kill_mob, 2, '第二只 → kill_mob 2(攻击键弹道同拍)');
+  assert.strictEqual(A.ADV.quest.counts.kill_mob, 1, '无第二记箭杀(攻击键不放箭, kill_mob 停在 1)');
   clearAim();
 });
 

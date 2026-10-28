@@ -214,6 +214,24 @@ test('mkArrows 第二实例(雪球弹种, T9): 零伤害+击退政策经 spec �
   assert.strictEqual(balls.count(), 0, '命中即移除');
 });
 
+test('mkArrows 起点注入(修: 第三人称箭从相机出膛=人物背后飞出, 2026-10-28): origin 实例从人物位出膛, 方向重指相机射线远点', () => {
+  const d = loadCombatKit();
+  const mobHits = [];
+  /* 桩相机在人物后上方(origin (0,2,0), dir (0,0,-1)); 人物弓位 (0,1.3,3)——
+     旧轨迹(相机直射 y≈2)上的怪 vs 新轨迹(弓位→相机射线 40 格远点)旁的怪 */
+  const near = mobAt(0, -3, {pos: {x: 0, y: 2, z: -3}}); /* 相机直射才命中 */
+  const far = mobAt(0, -39, {pos: {x: 0, y: 1.8, z: -39}}); /* 新轨迹远点旁 */
+  d.setMobs([near, far]);
+  const arr = d.ck.mkArrows({origin: () => ({x: 0, y: 1.3, z: 3}),
+    onHitMob: (m, res) => mobHits.push({m, res})});
+  arr.shootFromAim({speed: 20, dmg: 10, kpow: 0.35, g: 0, life: 5});
+  assert.strictEqual(arr.count(), 1, '入列');
+  for (let i = 0; i < 60 && arr.count() && !mobHits.length; i++) arr.update(0.05);
+  assert.strictEqual(mobHits.length, 1, '命中一条轨迹');
+  assert.strictEqual(mobHits[0].m, far, '打中新轨迹(人物位→远点方向)上的怪');
+  assert.notStrictEqual(mobHits[0].m, near, '相机直射轨迹上的怪不被带出——箭不再从相机出膛');
+});
+
 /* ============ killBurst / resetFighter / mkHpBar ============ */
 
 test('killBurst: 碎块 + 计数 toast(动词可注入) + 尾回调', () => {

@@ -184,8 +184,20 @@ function mkArrows(cfg) {
     const s = spec || {};
     if (!o.muteSfx) sfx('shoot');
     const a = CameraRig.aim(camera);
-    const dx = a.dir.x; const dy = a.dir.y; const dz = a.dir.z;
-    const from = {x: a.origin.x + dx * 0.3, y: a.origin.y + dy * 0.3, z: a.origin.z + dz * 0.3};
+    let dx = a.dir.x; let dy = a.dir.y; let dz = a.dir.z;
+    let ox = a.origin.x; let oy = a.origin.y; let oz = a.origin.z;
+    if (o.origin) {
+      /* 起点注入(修: 第三人称箭从相机出膛 = 人物背后飞出, 2026-10-28): 起点换
+         人物位, 方向重指相机射线 40 格远点——准星与弹道收敛, 消越肩视差;
+         缺省不注入 = 原相机起点行为(雪球等既有实例不动, 向后兼容) */
+      const p = o.origin();
+      const tx = a.origin.x + dx * 40; const ty = a.origin.y + dy * 40; const tz = a.origin.z + dz * 40;
+      dx = tx - p.x; dy = ty - p.y; dz = tz - p.z;
+      const l = Math.hypot(dx, dy, dz) || 1;
+      dx /= l; dy /= l; dz /= l;
+      ox = p.x; oy = p.y; oz = p.z;
+    }
+    const from = {x: ox + dx * 0.3, y: oy + dy * 0.3, z: oz + dz * 0.3};
     const speed = s.speed !== undefined ? s.speed : 22;
     spawn({fromPlayer: true, from,
       vel: {x: dx * speed, y: dy * speed, z: dz * speed},

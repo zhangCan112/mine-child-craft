@@ -284,7 +284,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
   /* ---------- 真引擎件: 与 adventure-mode.test.js 同一装载序 + cascade-core ---------- */
   const engC = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
   for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js',
-    'js/cascade-core.js', 'js/scene-kit.js', 'js/items-core.js',
+    'js/cascade-core.js', 'js/scene-kit.js', 'js/items-core.js', 'js/item-use-registry.js',
     'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), engC, {filename: f});
   }
@@ -297,7 +297,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_NETHER_BRICK,
     B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
     B_SNOWY_GRASS, B_SNOW, B_ICE, B_CACTUS, B_SANDSTONE, B_ORCHID, B_DEAD_BUSH,
-    ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime,
+    ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime, itemUses,
     mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
     raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
     RECIPES, canCraft, shapeCost, matchGrid, gridCraft, fillGrid, take, costEntry, FUEL, fuelUnits, smeltOf,

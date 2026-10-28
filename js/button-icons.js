@@ -696,7 +696,7 @@ BTN_PIX.swords.map = ITEM_PIX.sword_iron.map;
 const BTN_DELEGATE = {
   pick: () => itemIcon('pick_iron'), /* 主动作键(挖/打): 铁镐 */
   shovel: () => itemIcon('shovel_iron'), /* 智能主动作·铲子态: 建造/竞技场挖掘入口 */
-  bow: () => itemIcon('bow_item'), /* 智能主动作·弓态: 探险手持弓=攻击键射击(弓物品化) */
+  bow: () => itemIcon('bow_item'), /* 射箭专用键(探险触屏, 使用动作注册表 icon 键); 曾为弓态主动作键(2026-10-28 Route A 撤) */
   apple: () => itemIcon('apple'), /* 配方书·食物页签 */
   brick: () => itemIcon('brick'), /* 配方书·方块页签 */
   table: () => itemIcon('craft_table'), /* 工作台站点徽标 */

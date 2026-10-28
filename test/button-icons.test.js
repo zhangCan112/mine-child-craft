@@ -117,7 +117,7 @@ test('委托单一来源: pick/shovel/table 等委托 itemIcon 同一物品图, 
   const {h} = loadButtonIcons();
   assert.strictEqual(h.btnIcon('pick'), h.itemIcon('pick_iron'));
   assert.strictEqual(h.btnIcon('shovel'), h.itemIcon('shovel_iron'));
-  assert.strictEqual(h.btnIcon('bow'), h.itemIcon('bow_item'), 'bow 委托弓物品图(弓态主动作键)');
+  assert.strictEqual(h.btnIcon('bow'), h.itemIcon('bow_item'), 'bow 委托弓物品图(射箭专用键)');
   assert.strictEqual(h.btnIcon('table'), h.itemIcon('craft_table'));
   assert.strictEqual(h.btnIcon('chest'), h.itemIcon('chest'));
   assert.strictEqual(h.btnIcon('tank'), h.tankIcon());

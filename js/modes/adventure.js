@@ -39,6 +39,7 @@
      backpack.js 的 Backpack · config.js 的 BLOCKS/PLAYER/B_* 常量 ·
      voxel.js 的 getBlock/blockKey/raycastVoxel/collidesAtPlayer ·
      world.js 的 loadScene/editBlock · items-core 的 ITEMS/isTool/toolOf/durOf ·
+     item-use-registry 的 itemUses(使用动作注册表, 加载序在 items-core 后) ·
      inventory-core 的 add/count/remove/moveSlot/take/damageTool/serialize · craft-core 的
      breakTime/fuelUnits · drops.js 的 rollBlockDrop/rollDrops(纯)/
      spawn/update/onCollect/clear · mobs.js 的 spawn/hit/onDeath/update/
@@ -375,18 +376,52 @@ function advMainPlaceable() {/* 智能主动作的手持判定(纯 seam, 单测�
   /* nether_portal 无 block 字段但也是放置型(整座门由 advTryPlace 拦截分支放置, §3.3) */
   return !!(s && ITEMS[s.id] && (ITEMS[s.id].block != null || s.id === 'nether_portal' || s.id === 'door'));
 }
+let advTouchUseOn = false; /* 触屏使用动作键边沿记忆(false=条上是基表): 状态翻转才重声明条 */
 function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/其余=镐,
-   2026-10-24 手持感知拍板; 弓态=弓·射击——攻击键远程放箭, 弓物品化);
-   input.js 未加载(桌面/Node 单测)时静默
+   2026-10-24 手持感知拍板; 持弓主键不再是弓态——2026-10-28 Route A 拍板:
+   主键恒挖/打(MC 正典回归), 弓图标由专用射箭键承载); 特殊物品 = 基表 +
+   使用动作键的边沿重声明(本函数挂 advSyncHotbar, 每次拾物都跑, 不能
+   每次重建条——只在使用动作「有无」翻转时 setActions); input.js 未加载(桌面/Node 单测)时静默
    (2026-10-26 别名收口: 过渡名 refreshTouchMain 已撤, 走 Input.refreshMain) */
-  if (typeof Input !== 'undefined' && Input && typeof Input.refreshMain === 'function') {
-    const place = advMainPlaceable();
-    const s = advInv.slots[advHb.sel];
-    if (!place && s && s.id === 'bow_item') {
-      Input.refreshMain('bow', '射击'); /* 持弓: 攻击键=放箭(不再是挖/打) */
-      return;
-    }
-    Input.refreshMain(place ? 'brick' : 'pick', place ? '放置' : '挖/打');
+  if (typeof Input === 'undefined' || !Input || typeof Input.refreshMain !== 'function') return;
+  const place = advMainPlaceable();
+  Input.refreshMain(place ? 'brick' : 'pick', place ? '放置' : '挖/打');
+  const s = advInv.slots[advHb.sel];
+  const on = !!(s && itemUses(s.id));
+  if (on !== advTouchUseOn) {
+    advTouchUseOn = on;
+    advTouchDeclare();
+  }
+}
+const advTouchBase = [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2026-10-24): 拿可放置物→放置
+    一次(mkMainAct 返 false 不连发), 空手/工具/食物→打/挖起步+按住连挖;
+    🎒🏠 低频 → 顶部小键区, 不占拇指操作区。基表静态声明(mkMode init 用),
+    特殊物品的使用动作键由 advTouchMainSync 边沿重声明追加 */
+  {icon: 'pick', label: '挖/放', holdAct: mkMainAct(advMainPlaceable)},
+  {icon: 'chest', label: '背包', act: () => advPanelToggle(), rare: true},
+  {icon: 'house', label: '回家', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
+];
+function advTouchList() {/* 触屏条清单 = 基表 + 手持物品的使用动作键(使用动作注册表驱动,
+    2026-10-28 拍板「弓 = 射箭 + 空手两个键」): 专用键直调执行器不走 aimClick(2)——
+    专用键身份 = 恒执行使用动作(指到熔炉也射), 与轻点(走完整使用链 = MC 正典
+    交互优先)是两个不同 affordance; holdAct 返 false = 一次性动作不进连发
+    (input.js 对 holdAct 键自动给 main 尺寸) */
+  const s = advInv.slots[advHb.sel];
+  const uses = (s && itemUses(s.id)) || [];
+  return advTouchBase.concat(uses.map((u) => ({icon: u.icon, label: u.label,
+    holdAct: () => {
+      advUseRun[u.act]();
+      return false;
+    }})));
+}
+function advTouchDeclare() {/* 触屏条声明唯一出口: Input.setActions 可运行时重调
+    (input.js 重build条 DOM, 安全); Node 单测缺 Input.setActions 时回落
+    setTouchActions 假桩(mkMode init 同款回落口径) */
+  const list = advTouchList();
+  if (typeof Input !== 'undefined' && Input && typeof Input.setActions === 'function') {
+    Input.setActions(list);
+  } else if (typeof setTouchActions === 'function') {
+    setTouchActions(list);
   }
 }
 let advHbSig = '';
@@ -586,10 +621,14 @@ const advSnowballs = CombatKit.mkArrows({mesh: 'sphere', color: 0xffffff, lookAt
    不必另配色); 命中政策与近战挥击同拍——击杀走 advOnKill(任务记账+击杀观感,
    掉落在 onDeath 回调), 受击存活的牧场动物照 F4 逃窜; 历史口径=nether 玩家箭
    (模式已退役, 2026-10-28 弓物品化随冒险侧使用档回归) */
-const advBolts = CombatKit.mkArrows({onHitMob: (m, res) => {
-  if (res.freshDead) advOnKill(m);
-  else advHerdPanic(m);
-}});
+const advBolts = CombatKit.mkArrows({origin: () => ({x: pos.x, y: pos.y + PLAYER.height * 0.72, z: pos.z}),
+  /* 箭从人物弓位(height*0.72)出膛不随相机——修第三人称箭从人物背后飞出
+    (2026-10-28); 雪球实例不注入 origin(未报障, 最小改动; combat-kit 缺省
+    = 原相机起点行为, 向后兼容) */
+  onHitMob: (m, res) => {
+    if (res.freshDead) advOnKill(m);
+    else advHerdPanic(m);
+  }});
 
 /* 环境伤害(liquid D9): 溺水/岩浆计息事件到点 → 扣血走受击观感(音/闪红/
    节流话术与战斗伤害同源, r.line 换来源话术), 致死走既有死亡计划 */
@@ -1770,11 +1809,27 @@ function advTryThrowSnowball() {
   return true; /* 手持雪球: 点击恒算投掷 attempt, 不落放置 */
 }
 
-/* 射箭(手持弓, 2026-10-28 弓物品化): 攻击键(左键/⛏️)与轻点/右键都沿准星放箭
-   ——用户拍板「弓箭应该是远程攻击」: 拿弓按攻击就是射箭, 近战挥砍让位(旧观感
-   曾是持弓挥砍); swingAction 占剑同一条冷却轨道(拉弓 0.55s, 换武器不躲冷却,
-   nether 弓口径), 出手观感=弓 def 的蓄力前送(Avatar.swing 随 def 走), 弹由
-   advBolts 管线步进(shoot/hit 音效与骷髅箭同源, mkArrows 默认内置);
+const advUseRun = {shoot: () => advTryShootBow()}; /* 使用动作注册表 act 键 → 执行器
+   (行为不进注册表——「战斗政策在模式层」红线, 手持物注册表词条同款口径) */
+function advTryUseHeld() {/* 使用档通用分派(2026-10-28 Route A): 选中物品在使用动作
+   注册表有条目 → 逐 act 调执行器, 有使用动作的物品点击恒算使用 attempt
+   不落放置(弓同雪球口径); 未注册物品返 false 回落吃/放置链 */
+  const s = advInv.slots[advHb.sel];
+  const uses = s ? itemUses(s.id) : null;
+  if (!uses) return false;
+  for (const u of uses) {
+    if (advUseRun[u.act]) advUseRun[u.act]();
+  }
+  return true;
+}
+
+/* 射箭(手持弓, 2026-10-28 弓物品化): 'shoot' 执行器——onMouse(2) 使用档经
+   advTryUseHeld(使用动作注册表驱动)与触屏 🏹 专用键两处触达; 攻击键不放箭
+   (2026-10-28 Route A 拍板回归 MC 正典: 持弓左键=空手挖/打, 近战伤害空手
+   3 点——1148fe2 的攻击键弓分支撤销); swingAction 占剑同一条冷却轨道(拉弓
+   0.55s, 换武器不躲冷却, nether 弓口径), 出手观感=弓 def 的蓄力前送
+   (Avatar.swing 随 def 走), 弹由 advBolts 管线步进(shoot/hit 音效与骷髅箭
+   同源, mkArrows 默认内置);
    无弹药设计(儿童版): 箭不消耗、弓无耐久不磨损, 冷却即节奏——远程优势不设资源门槛 */
 function advTryShootBow() {
   const slot = advHb.sel;
@@ -2444,6 +2499,8 @@ const AdventureMode = mkMode({
     advMineStop(); /* 蓄力状态复位(上次退出可能按住) */
     advTntTap = null; /* TNT 短按判定复位(上次退出可能按在 TNT 上) */
     advMouseListeners(true); /* 桌面按住连挖检测(capture) */
+    advTouchUseOn = false; /* 触屏条回到基表态(mkMode init 已声明 advTouchBase);
+      持弓进场时随后的 advSyncHotbar → advTouchMainSync 边沿重声明补射箭键 */
     advSyncHotbar();
     advWarnLow.clear(); /* S4① 预警账本复位: 新一命重新预警 */
     advBagArmed = true; /* S4② 快满提醒复位(进场满包会在首查时提醒一次) */
@@ -2594,9 +2651,9 @@ const AdventureMode = mkMode({
   },
 
   onMouse(button, hit) {/* 左键并线(T12×T13×T14): TNT 短按点燃/按住挖走(D3)/熔炉走近点击开面板(T13, 准星块
-    精确命中故在最前)/箱子走近点击开面板(引导链 v2, 站点缓存外故按点击块直算距离), 手持弓=攻击键
-    远程放箭(弓物品化, 先于近战锥), 准星锥内有
-    活怪→挥击(T14), 否则吃/挖掘蓄力(T12); 右键放置; 床=点击睡觉(昼夜 D6, 两条件与
+    精确命中故在最前)/箱子走近点击开面板(引导链 v2, 站点缓存外故按点击块直算距离), 准星锥内有
+    活怪→挥击(T14, 持弓=空手伤害 3 点——2026-10-28 Route A 拍板回归 MC 正典,
+    射箭只在右键/触屏专用键), 否则吃/挖掘蓄力(T12); 右键放置; 床=点击睡觉(昼夜 D6, 两条件与
     转场在 advTrySleep) */
     if (ADV.panelOpen || advFurnace.isOpen() || ADV.chestOpen || advSleep.on) return; /* 面板/睡觉黑屏遮罩兜底: 不挖不放不打 */
     if (button === 0) {
@@ -2609,10 +2666,8 @@ const AdventureMode = mkMode({
       if (advUseStation(hit, lookId)) return; /* 熔炉/箱子: 走近开面板(见下) */
       if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6, 使用先于打/挖) */
       if (advTryDoor(hit, lookId)) return; /* 门: 点击开关(设计稿 §4.2, 使用先于打/挖) */
-      if (advTryShootBow()) return; /* 手持弓: 攻击键=远程放箭(2026-10-28 用户拍板
-        「弓箭应该是远程攻击」——近战锥内有怪也不再挥砍, 拿弓按攻击就是射箭;
-        MC「攻击与手持无关」正典在此让位儿童直觉, 与下界弓口径一致) */
-      if (advMelee.aim(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖) */
+      if (advMelee.aim(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖;
+        持弓=空手 3 点——2026-10-28 Route A 回归 MC 正典, 射箭走右键/触屏专用键) */
         advMelee.swing(advGetPEnt());
         return;
       }
@@ -2620,7 +2675,7 @@ const AdventureMode = mkMode({
       if (hit) advMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update) */
     } else if (button === 2) {
       /* 轻点/右键 = 使用优先(MC 正典: 交互先于放置): 熔炉/箱子走近开面板 →
-         手持食物吃 → 手持雪球掷出(T9) → 手持弓放箭 → 放置。TNT 点燃不走轻点(用户拍板 2026-10-24 防误触):
+         手持食物吃 → 手持雪球掷出(T9) → 使用动作物品放箭(弓, 注册表驱动) → 放置。TNT 点燃不走轻点(用户拍板 2026-10-24 防误触):
          ⛏️ 键短按点燃/按住挖走(onMouse(0) 的 advTntTap 二分) */
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
       if (advUseStation(hit, lookId)) return;
@@ -2628,7 +2683,8 @@ const AdventureMode = mkMode({
       if (advTryDoor(hit, lookId)) return; /* 门: 点击开关(设计稿 §4.2, 使用先于吃/放) */
       if (advTryEat()) return;
       if (advTryThrowSnowball()) return; /* 手持雪球: 掷出(T9, 使用档在吃与放置之间) */
-      if (advTryShootBow()) return; /* 手持弓: 放箭(使用档同雪球——MC 正典弓走使用键) */
+      if (advTryUseHeld()) return; /* 手持使用动作物品(弓): 注册表驱动放箭(2026-10-28
+        Route A), 恒算使用 attempt 不落放置——MC 正典弓走使用键 */
       advTryPlace(hit);
     }
   },
@@ -2663,13 +2719,9 @@ const AdventureMode = mkMode({
 
   hud: advHudLines, /* HUD 行构造(下界态分支在内; 具名提出供挂点触达) */
 
-  touch: [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2026-10-24): 拿可放置物→放置
-     一次(mkMainAct 返 false 不连发), 空手/工具/食物→打/挖起步+按住连挖;
-     🎒🏠 低频 → 顶部小键区, 不占拇指操作区 */
-    {icon: 'pick', label: '挖/放', holdAct: mkMainAct(advMainPlaceable)},
-    {icon: 'chest', label: '背包', act: () => advPanelToggle(), rare: true},
-    {icon: 'house', label: '回家', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
-  ],
+  touch: advTouchBase, /* 触屏条基表(⛏️ 智能主键 + rare 🎒🏠): mkMode init 声明; 手持
+     特殊物品时 advTouchMainSync 边沿重声明为 advTouchList()(基表 + 使用动作
+     键, 2026-10-28 拍板「弓 = 射箭 + 空手两个键」) */
   /* 触屏长按连挖(input.js 手势路由): 复用桌面按住标志 — 蓄力链自动连挖/触屏松手即停 */
   onHold(active) {
     advMouseHeld = active;

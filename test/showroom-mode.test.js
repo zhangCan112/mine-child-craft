@@ -116,11 +116,12 @@ const eng = vm.createContext({console: {log() {}, warn() {}, error() {}},
   groundTop: () => 24, /* world.js 顶层函数的桩(adventure-mode.test 同款) */
 });
 for (const f of ['js/config.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js',
-  'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/mob-registry.js',
+  'js/items-core.js', 'js/item-use-registry.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/mob-registry.js',
   'js/daylight-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
-const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, mkInventory, add, count, remove,
+const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, itemUses,
+  mkInventory, add, count, remove,
   take, moveSlot, damageTool, serialize, deserialize, costEntry, shapeCost, canCraft, matchGrid, gridCraft, fillGrid,
   RECIPES, SMELTS, FUEL, fuelUnits, smeltOf, breakTime,
   HOTBAR_SLOTS, INV_SLOTS, WORLD_W, WORLD_D, WORLD_H, PLAYER, IS_TOUCH, FLUID, DAYLIGHT,
