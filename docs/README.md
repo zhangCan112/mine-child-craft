@@ -12,7 +12,7 @@
 - [worktree-pitfalls.md](worktree-pitfalls.md) — worktree 生命周期安全清单（开/删 worktree 前必读）
 - [google-style-research.md](google-style-research.md) · [project-structure-research.md](project-structure-research.md) — 规范正文的两份依据调研
 - [agent-context-research.md](agent-context-research.md) — 文档/注释体量与分层的依据调研
-- ADR（不可逆决策日志，编号单调不复用）：[0001 每日预算单键](adr/0001-daily-budget-single-key.md) · [0002 专注接物品系统](adr/0002-focus-loot-integration.md) · [0003 音频入库](adr/0003-audio-assets-in-repo.md) · [0004 并行水位面](adr/0004-parallel-fluid-level-plane.md) · [0005 统一冒险壳](adr/0005-unified-adventure-shell-dev-profile.md)
+- ADR（不可逆决策日志，编号单调不复用）：[0001 每日预算单键](adr/0001-daily-budget-single-key.md) · [0002 专注接物品系统](adr/0002-focus-loot-integration.md) · [0003 音频入库](adr/0003-audio-assets-in-repo.md) · [0004 并行水位面](adr/0004-parallel-fluid-level-plane.md) · [0005 统一冒险壳](adr/0005-unified-adventure-shell-dev-profile.md) · [0006 生态恢复机制](adr/0006-eco-recovery.md)
 
 ### 设计权威（-design，按主题域）
 
@@ -20,7 +20,7 @@
 - **数学岛**：[math-mode-design.md](math-mode-design.md) · [math-track-unification-design.md](math-track-unification-design.md)
 - **探险**：[adventure-maps-design.md](adventure-maps-design.md)（多地图）· [nether-merge-design.md](nether-merge-design.md)（下界相位）· [adventure-shell-unification-design.md](adventure-shell-unification-design.md) · [mining-hardness-design.md](mining-hardness-design.md) · [monster-taxonomy-design.md](monster-taxonomy-design.md) · [shared-monsters-design.md](shared-monsters-design.md)
 - **物品与合成**：[item-crafting-design.md](item-crafting-design.md) · [crafting-grid-design.md](crafting-grid-design.md) · [door-window-design.md](door-window-design.md) · [item-hint-design.md](item-hint-design.md) · [furnace-design.md](furnace-design.md)
-- **世界机制**：[liquid-design.md](liquid-design.md) · [block-lifecycle-design.md](block-lifecycle-design.md) · [mc-daylight-torch-design.md](mc-daylight-torch-design.md)（昼夜/光照）
+- **世界机制**：[liquid-design.md](liquid-design.md) · [block-lifecycle-design.md](block-lifecycle-design.md) · [eco-recovery-design.md](eco-recovery-design.md)（生态恢复：繁育/树位再生/矿位回填） · [mc-daylight-torch-design.md](mc-daylight-torch-design.md)（昼夜/光照）
 - **触控与观感**：[touch-controls-design.md](touch-controls-design.md) · [mob-look-design.md](mob-look-design.md) · [pixel-pipeline-design.md](pixel-pipeline-design.md)（底座化裁决记录：不做） · [first-person-hand-design.md](first-person-hand-design.md)（第一人称手持视图 HandView）
 - **菜单与入口**：[menu-ui-design.md](menu-ui-design.md)（加载屏/主菜单门面/模式卡/音量与页脚）
 - **战斗与竞技**：[combat-kit-unification-design.md](combat-kit-unification-design.md) · [arena-core-unification-design.md](arena-core-unification-design.md) · [tank-impl-design.md](tank-impl-design.md)
@@ -28,7 +28,7 @@
 
 ### 调研参考（-research，长期有效）
 
-- **MC 正典取证**：[mc-daylight-torch](mc-daylight-torch-research.md) · [mc-torch-model](mc-torch-model-research.md) · [mc-liquid](mc-liquid-research.md) · [mc-mob-models](mc-mob-models-research.md) · [mc-touch-controls](mc-touch-controls-research.md) · [mc-held-item-action](mc-held-item-action-research.md) · [mc-held-item-render](mc-held-item-render-research.md) · [mc-first-person-hand](mc-first-person-hand-research.md)（手持物渲染续篇：第一人称通道/裸臂/挥击数学） · [mc-button-icons](mc-button-icons-research.md) · [mc-crafting-grid](mc-crafting-grid-research.md) · [minecraft-biome](minecraft-biome-research.md) · [minecraft-furnace](minecraft-furnace-research.md) · [minecraft-item-crafting](minecraft-item-crafting-research.md) · [minecraft-mechanism](minecraft-mechanism-research.md) · [minecraft-mining-hardness](minecraft-mining-hardness-research.md)
+- **MC 正典取证**：[mc-daylight-torch](mc-daylight-torch-research.md) · [mc-torch-model](mc-torch-model-research.md) · [mc-liquid](mc-liquid-research.md) · [mc-mob-models](mc-mob-models-research.md) · [mc-touch-controls](mc-touch-controls-research.md) · [mc-held-item-action](mc-held-item-action-research.md) · [mc-held-item-render](mc-held-item-render-research.md) · [mc-first-person-hand](mc-first-person-hand-research.md)（手持物渲染续篇：第一人称通道/裸臂/挥击数学） · [mc-button-icons](mc-button-icons-research.md) · [mc-crafting-grid](mc-crafting-grid-research.md) · [minecraft-biome](minecraft-biome-research.md) · [minecraft-furnace](minecraft-furnace-research.md) · [minecraft-item-crafting](minecraft-item-crafting-research.md) · [minecraft-mechanism](minecraft-mechanism-research.md) · [minecraft-mining-hardness](minecraft-mining-hardness-research.md) · [minecraft-eco-recovery](minecraft-eco-recovery-research.md)（资源恢复/随机刻/繁育/矿再生取证）
 - **设计输入**：[story-quest](story-quest-research.md) · [map-transition](map-transition-research.md) · [monster-taxonomy](monster-taxonomy-research.md) · [reward-model](reward-model-research.md) · [math-thinking](math-thinking-research.md) · [game-audio](game-audio-research.md) · [block-lifecycle](block-lifecycle-research.md) · [door-window](door-window-research.md) · [chunk-streaming-lod](chunk-streaming-lod-research.md)
 
 ## 历史工件（施工期记录，行为以后继为权威）

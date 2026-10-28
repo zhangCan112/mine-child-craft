@@ -272,3 +272,30 @@ test('mkHpBar: 头顶血条深接口 — 形状齐全 + 无 THREE/DOM 渲染环�
   assert.doesNotThrow(() => vis.update(10, 30, 0, 0, 0), 'visible 回调口径同安全');
   assert.doesNotThrow(() => vis.dispose());
 });
+
+/* ============ skip 豁免(生态恢复: 幼崽免伤, ADR 0006) ============ */
+
+test('mkMelee: skip 豁免不被选为目标(探险幼崽免伤), 成年目标不受影响', () => {
+  const d = loadCombatKit();
+  d.setMobs([mobAt(0, -2, {__baby: true})]);
+  const p = {pos: {x: 0, y: 10, z: 0}};
+  const guarded = d.ck.mkMelee({aimCos: 0.5, dmg: 7, skip: (m) => !!m.__baby});
+  assert.strictEqual(guarded.aim(p), null, '幼崽被豁免 → 锥内无目标');
+  assert.strictEqual(guarded.swing(p), false, '落空=不出手不占冷却(点击自然落挖掘/放置)');
+  assert.strictEqual(d.log.hits.length, 0, '幼崽永不进伤害结算');
+  assert.strictEqual(d.log.sfx.length, 0, '零观感(静默保护)');
+  d.setMobs([mobAt(0, -2)]);
+  assert.ok(guarded.aim(p), '成年目标不受豁免影响');
+});
+
+test('mkArrows: skip 豁免玩家弹直接穿过(不命中不消耗不结算)', () => {
+  const d = loadCombatKit();
+  d.setMobs([mobAt(0, -3, {pos: {x: 0, y: 2, z: -3}, __baby: true})]);
+  const hits = [];
+  const arr = d.ck.mkArrows({skip: (m) => !!m.__baby, onHitMob: (m) => hits.push(m)});
+  arr.shootFromAim({speed: 20, dmg: 10, kpow: 0.35, g: 0, life: 5});
+  for (let i = 0; i < 120 && arr.count(); i++) arr.update(0.05);
+  assert.strictEqual(hits.length, 0, '幼崽不被命中');
+  assert.strictEqual(d.log.hits.length, 0, '伤害结算零触达');
+  assert.strictEqual(arr.count(), 0, '弹自然飞尽(寿命/撞块), 不因豁免滞留');
+});

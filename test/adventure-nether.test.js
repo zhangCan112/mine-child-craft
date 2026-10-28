@@ -1327,8 +1327,8 @@ test('审查修复 P2: 死畜账按图分桶 — 老档单账迁 home 桶 · 五
   const sv = JSON.parse(memC.get('adventure_world_save'));
   assert.deepStrictEqual(Object.keys(sv.livestock).sort(),
       ['desert', 'home', 'nether', 'snow', 'swamp'], '五桶恒写全(形状确定)');
-  assert.deepStrictEqual(sv.livestock.home, [1], 'home 桶带已杀索引');
-  assert.deepStrictEqual(sv.livestock.desert, [], '远征桶空');
+  assert.deepStrictEqual(sv.livestock.home, {dead: [1], bred: []}, 'home 桶带已杀索引(v2 两栏)');
+  assert.deepStrictEqual(sv.livestock.desert, {dead: [], bred: []}, '远征桶空');
   /* encode→decode→encode 档文本恒等(往返一致) */
   freshC((m) => m.set('adventure_world_save', JSON.stringify(sv)));
   AN.advJournal.flush();
