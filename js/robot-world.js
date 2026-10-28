@@ -17,7 +17,9 @@
      scaleTo/stagger/remove — 位移/朝向零直写, pose 叠加与 pos.y 例外见
      mobs.js 白名单) · loadScene/setBlockRaw/getBlock/editBlock/markDirty/
      clearWorld(js/world.js·voxel.js) · SceneKit(js/scene-kit.js) ·
-     Fx(js/effects.js) · ModeKit.spawn(js/mode-kit.js) · sfx(js/audio.js);
+     Fx(js/effects.js) · ModeKit.spawn(js/mode-kit.js) · sfx(js/audio.js) ·
+     CameraRig(js/camera-rig.js, 载具锚 mount 装悬停无人机镜头: apply 恒 0
+     按契约隐藏玩家形象 — 看盘不被小人挡);
      index.html 装载序 robot-levels → robot-core → robot-world → modes/robot
    可测性: THREE/DOM 全惰性(顶层零执行), Node 测试可安全加载(vm 直载,
      boot.test.js 全链冒烟兜底); 判定与模拟纯逻辑在 robot-core(有单测)
@@ -26,7 +28,7 @@
 const RobotWorld = (() => {
   /* ---------- 节奏与相机参数表(真机试玩调参) ---------- */
   const ROBOT_GROUND = 12; // 棋盘岛顶层 y(数学世界轨 hop 同款浮岛高程)
-  const ROBOT_CAM_PITCH = -0.72; // 固定俯角看整盘(数学世界 MATH_W_CAM_PITCH 先例)
+  const ROBOT_CAM_PITCH = -0.64; // 固定俯角看整盘(MATH_W_CAM_PITCH 先例; 真机试玩调参: 配合无人机眼位让棋盘居中)
   const ROBOT_PUPPET_SCALE = 0.6; // Q 版化(设计稿 §3.2: 铁傀儡 h2.8 也放得下)
   const ROBOT_WALK_SPD = 2.6; // gait 摆腿速度(格/秒 ≈ 每格 380ms 的步频)
   /* 回放节奏(ms/卡, 每卡一步): turn 原地转向 · move 前进一格 ·
@@ -130,6 +132,12 @@ const RobotWorld = (() => {
     const spawnZ = z0 + board.h + ROBOT_PLATFORM.dz;
     ModeKit.spawn(64.5, G + ROBOT_PLATFORM.lift + 1, spawnZ + 0.5,
         {yaw: 0, pitch: ROBOT_CAM_PITCH});
+    /* 载具锚 mount(坦克上车同款契约, tank.js 692 行先例): 眼位锚在棋盘南缘
+       上空 → 相机换 CAM_TANK 悬停无人机轨道看盘; apply 恒返回 0 → 玩家形象
+       按契约隐藏(真机试玩反馈: 第三人称小人挡棋盘, 本模式只需看盘排指令)。
+       锚点 fn 只供位置 — 朝向仍走全局 yaw/pitch(frame 每帧复归, 白名单内) */
+    CameraRig.mount(() =>
+      ({x: x0 + board.w / 2, y: G + 5.4, z: z0 + board.h - 0.5}));
 
     /* ===== 木偶 ===== */
     const pack = ROBOT_PACKS.find((p) => p.key === level.pack) || {};
@@ -467,6 +475,7 @@ const RobotWorld = (() => {
 
   /* 模式 cleanup 收口: 当前 handle.stop + 木偶回收 + 退场清场(幂等) */
   function stop() {
+    CameraRig.mount(null); // 退模式还原玩家轨道(tank.js 683 行下车同款; 幂等)
     if (!cur) return;
     const h = cur;
     cur = null;

@@ -263,6 +263,8 @@ let robotLastT = 0;
 function startRobotPump() {
   stopRobotPump();
   robotLastT = 0;
+  const ch = document.getElementById('crosshair');
+  if (ch) ch.style.display = 'none'; // 看盘镜头无需准星(棋盘屏期间挡视线中心)
   const frame = (now) => {
     robotRaf = requestAnimationFrame(frame);
     const rw = robotWorldApi();
@@ -278,6 +280,8 @@ function stopRobotPump() {
     cancelAnimationFrame(robotRaf);
     robotRaf = 0;
   }
+  const ch = document.getElementById('crosshair');
+  if (ch) ch.style.display = ''; // 泵停即离盘: 准星必恢复(本函数是棋盘屏唯一停收口)
 }
 
 /* ---------- 关卡屏运行上下文(一盘一 handle, 一关一 stats) ---------- */
