@@ -314,8 +314,8 @@ function loop(now) {
   if (hit && MODES.cur && MODES.cur.onHighlight) {
     if (MODES.cur.onHighlight(hit) === false) hlShow = false;
   }
+  if (hit && hlShow) hlShow = highlightShape(hit); /* 位置+缩放+框去留(world.js): 贴形薄块不画框(2026-10-28 用户反馈「边框干掉」) */
   highlight.visible = hlShow;
-  if (hlShow) highlightShape(hit); /* 选中框贴形状: 非整格方块用贴合小块(world.js) */
 
   renderer.render(scene, camera);
   HandView.render(renderer, camera); // 手部通道恰在主渲染后: 清深度再画, 手永不插墙(design D4)
