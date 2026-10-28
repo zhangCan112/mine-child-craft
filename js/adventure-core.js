@@ -1961,7 +1961,10 @@ function advDoorSiteOk(read, p, x, y, z) {
 /* 门开关计划(交互纯段): lookId 命中门任一半 → 定位下半格 → 产出两格的
    成对换 id 写入(64↔66 / 65↔67, 状态即 id)。关门且玩家站门洞 → 拒
    (children 话术由壳出; 怪物不查, 附录 B)。开不查人(开门永不受阻)。
-   返回 {ok:true, writes:[{x,y,z,id}×2], open} | {ok:false} */
+   双开耦合(MC 口径, 2026-10-28): x±1 直接相邻列的下半同状态门随动同开同关,
+   关门占位检查含随动列; 只耦合直接相邻一列不链式传播(三连门点中间带两扇
+   = 可接受退化)。2 格门洞放两扇即成双开门, 一点全开。
+   返回 {ok:true, writes:[{x,y,z,id}×2 或 ×4], open} | {ok:false} */
 function advDoorTogglePlan(read, lookId, p, x, y, z) {
   if (!advIsDoor(lookId)) return {ok: false};
   const ly = advIsDoorLower(lookId) ? y : y - 1; /* 命中上半 → 下半在脚下 */
@@ -1970,9 +1973,16 @@ function advDoorTogglePlan(read, lookId, p, x, y, z) {
   const opening = lowId === B_DOOR;
   if (!opening && advDoorPlayerIn(p, x, ly, z)) return {ok: false, reason: 'occupied'};
   const topId = read(x, ly + 1, z);
-  return {ok: true, open: opening,
-    writes: [{x, y: ly, z, id: opening ? B_DOOR_OPEN : B_DOOR},
-      {x, y: ly + 1, z, id: opening ? (topId === B_DOOR_TOP ? B_DOOR_TOP_OPEN : topId) : B_DOOR_TOP}]};
+  const writes = [{x, y: ly, z, id: opening ? B_DOOR_OPEN : B_DOOR},
+    {x, y: ly + 1, z, id: opening ? (topId === B_DOOR_TOP ? B_DOOR_TOP_OPEN : topId) : B_DOOR_TOP}];
+  for (const dx of [-1, 1]) {
+    if (read(x + dx, ly, z) !== lowId) continue; /* 相邻列非同状态门 → 不耦合 */
+    if (!opening && advDoorPlayerIn(p, x + dx, ly, z)) return {ok: false, reason: 'occupied'};
+    const nTop = read(x + dx, ly + 1, z);
+    writes.push({x: x + dx, y: ly, z, id: opening ? B_DOOR_OPEN : B_DOOR},
+        {x: x + dx, y: ly + 1, z, id: opening ? (nTop === B_DOOR_TOP ? B_DOOR_TOP_OPEN : nTop) : B_DOOR_TOP});
+  }
+  return {ok: true, open: opening, writes};
 }
 
 /* 门配对破坏计划(MC 口径: 挖任一半=整扇消失、掉 1 扇; 挖门正下方支撑=

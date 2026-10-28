@@ -1479,6 +1479,44 @@ test('advDoorTogglePlan: 下/上半命中都定位下半 · 关↔开成对换 i
       {ok: false, reason: 'half'}, '下半缺失 → half');
 });
 
+test('advDoorTogglePlan: 双开耦合(2026-10-28) — 相邻同状态门随动同开同关 · 随动列占位拒关 · 异态不耦合', () => {
+  const world = {};
+  const rd = (x, y, z) => (world[x + ',' + y + ',' + z] || 0);
+  const P = {x: 10.5, y: 25, z: 10.5};
+  /* 两扇并排(40/41 列)全关: 点左扇 → 两扇四格一起开 */
+  world['40,25,40'] = api.B_DOOR; world['40,26,40'] = api.B_DOOR_TOP;
+  world['41,25,40'] = api.B_DOOR; world['41,26,40'] = api.B_DOOR_TOP;
+  const plan = Core.advDoorTogglePlan(rd, api.B_DOOR, P, 40, 25, 40);
+  assert.strictEqual(plan.ok, true);
+  assert.deepStrictEqual(plan.writes.map((w) => [w.x, w.y, w.z, w.id]), [
+    [40, 25, 40, api.B_DOOR_OPEN], [40, 26, 40, api.B_DOOR_TOP_OPEN],
+    [41, 25, 40, api.B_DOOR_OPEN], [41, 26, 40, api.B_DOOR_TOP_OPEN],
+  ], '双开随动: 四格成对换开态(本列在前, 随动列在后)');
+  /* 全开态点右扇 → 两扇一起关(随动列=西邻) */
+  world['40,25,40'] = api.B_DOOR_OPEN; world['40,26,40'] = api.B_DOOR_TOP_OPEN;
+  world['41,25,40'] = api.B_DOOR_OPEN; world['41,26,40'] = api.B_DOOR_TOP_OPEN;
+  const plan2 = Core.advDoorTogglePlan(rd, api.B_DOOR_OPEN, P, 41, 25, 40);
+  assert.strictEqual(plan2.open, false);
+  assert.deepStrictEqual(plan2.writes.map((w) => [w.x, w.y, w.z, w.id]), [
+    [41, 25, 40, api.B_DOOR], [41, 26, 40, api.B_DOOR_TOP],
+    [40, 25, 40, api.B_DOOR], [40, 26, 40, api.B_DOOR_TOP],
+  ], '双开随动: 四格成对换关态');
+  /* 玩家站右扇门洞点左扇关门 → 拒(随动列占位同查) */
+  const Pin = {x: 41.5, y: 25, z: 40.5};
+  assert.strictEqual(
+      Core.advDoorTogglePlan(rd, api.B_DOOR_OPEN, Pin, 40, 25, 40).reason, 'occupied',
+      '随动列有人 → 拒关');
+  /* 异态不耦合: 左开右关, 点左扇只动左扇 */
+  world['40,25,40'] = api.B_DOOR_OPEN; world['40,26,40'] = api.B_DOOR_TOP_OPEN;
+  world['41,25,40'] = api.B_DOOR; world['41,26,40'] = api.B_DOOR_TOP;
+  const plan3 = Core.advDoorTogglePlan(rd, api.B_DOOR_OPEN, P, 40, 25, 40);
+  assert.deepStrictEqual(plan3.writes.map((w) => w.x), [40, 40], '异态邻居不随动');
+  /* 单扇无邻居: 只有两格(既有口径零变化) */
+  world['41,25,40'] = 0; world['41,26,40'] = 0;
+  const plan4 = Core.advDoorTogglePlan(rd, api.B_DOOR_OPEN, P, 40, 25, 40);
+  assert.strictEqual(plan4.writes.length, 2, '单扇不耦合');
+});
+
 test('advDoorBreakPlan: 挖下连上/挖上连下/挖门下支撑整扇弹出 · drop 恒 1 · 空格过滤', () => {
   const world = {};
   const rd = (x, y, z) => (world[x + ',' + y + ',' + z] || 0);

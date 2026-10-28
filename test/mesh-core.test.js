@@ -497,7 +497,7 @@ test('门·降级路径: 无 atlas 注入时 pane 分支跳过, 门回落实心�
   assert.strictEqual(quads(r.solid), 6, '门回落为实心立方 6 面(LOD 同口径)');
 });
 
-test('门·关/开: 图集通道几何 — 闭=板格内居中(2026-10-28 反转修复) · 开=板贴西缘(绕北端 90°)', () => {
+test('门·关/开: 图集通道几何 — 闭=板贴北缘(居中试验已撤) · 开=板贴缘(铰链现算)', () => {
   const m = loadMeshCoreOnce();
   const opt = paneOpt();
   const pC = mkPack(1);
@@ -507,10 +507,8 @@ test('门·关/开: 图集通道几何 — 闭=板格内居中(2026-10-28 反转
   assert.strictEqual(rc.solid, null, '门不进实心通道');
   const zs = new Set();
   for (let i=0; i<rc.atlas.positions.length; i+=3) zs.add(rc.atlas.positions[i+2].toFixed(4));
-  /* bx=99(border=1), lx=3 → wx=102; 居中 z ∈ {102+13/32, 102+19/32} */
-  const half = 0.1875 / 2;
-  assert.deepStrictEqual([...zs].sort(),
-      [(102 + 0.5 - half).toFixed(4), (102 + 0.5 + half).toFixed(4)], '关门板体居中(格心 ±3/32)');
+  /* bx=99(border=1), lx=3 → wx=102; z ∈ {102, 102+0.1875} */
+  assert.deepStrictEqual([...zs].sort(), ['102.0000', '102.1875'], '关门板体贴在格子北缘');
   const pO = mkPack(1);
   pO.set(3, 5, 3, m.B_DOOR_OPEN);
   const ro = m.MeshCore.meshChunk(pO, opt);
