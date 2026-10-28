@@ -100,8 +100,13 @@ test('模式注册表: dev 行三层派生产物一致 — 卡在场带 dev 类 
   }
   assert.ok(/\.mode-card\.dev\s*\{\s*display:\s*none;\s*\}/.test(css),
       '样式表缺 .mode-card.dev 默认隐藏规则(构造性防闪现的 CSS 层)');
-  assert.ok(/body\.dev-on\s+\.mode-card\.dev\s*\{\s*display:\s*block;\s*\}/.test(css),
-      '样式表缺 body.dev-on .mode-card.dev 还原规则(还原值须与常规卡显示模型一致)');
+  /* 还原值 = 基类 .mode-card 的 display(单一事实来源: 基类改显示模型,
+     还原规则必须跟; 2026-10-28 菜单改版基类从隐式 block 变显式 flex) */
+  const baseDisplay = /\.mode-card\s*\{[^}]*?display:\s*(\w+);/.exec(css);
+  assert.ok(baseDisplay, '样式表缺 .mode-card 基类 display 声明(dev 还原值的参照)');
+  assert.ok(new RegExp('body\\.dev-on\\s+\\.mode-card\\.dev\\s*\\{\\s*display:\\s*' +
+      baseDisplay[1] + ';\\s*\\}').test(css),
+  '样式表 body.dev-on .mode-card.dev 还原值须与常规卡显示模型(' + baseDisplay[1] + ')一致');
   assert.ok(/const DEV = \(\(\)=>\{[\s\S]*?dev=1/.test(configSrc),
       'config.js 缺 DEV 旗标(?dev=1 读取收口于此, ?touch=1 同款惯例 — dev 能力面的唯一口径)');
   assert.ok(mainSrc.includes('DEV') && mainSrc.includes('dev-on'),

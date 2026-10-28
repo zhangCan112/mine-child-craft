@@ -22,6 +22,7 @@
 - **物品与合成**：[item-crafting-design.md](item-crafting-design.md) · [crafting-grid-design.md](crafting-grid-design.md) · [door-window-design.md](door-window-design.md) · [item-hint-design.md](item-hint-design.md) · [furnace-design.md](furnace-design.md)
 - **世界机制**：[liquid-design.md](liquid-design.md) · [block-lifecycle-design.md](block-lifecycle-design.md) · [mc-daylight-torch-design.md](mc-daylight-torch-design.md)（昼夜/光照）
 - **触控与观感**：[touch-controls-design.md](touch-controls-design.md) · [mob-look-design.md](mob-look-design.md) · [pixel-pipeline-design.md](pixel-pipeline-design.md)（底座化裁决记录：不做）
+- **菜单与入口**：[menu-ui-design.md](menu-ui-design.md)（加载屏/主菜单门面/模式卡/音量与页脚）
 - **战斗与竞技**：[combat-kit-unification-design.md](combat-kit-unification-design.md) · [arena-core-unification-design.md](arena-core-unification-design.md) · [tank-impl-design.md](tank-impl-design.md)
 - **模式与装配**：[mode-switch-unification-design.md](mode-switch-unification-design.md) · [camp-core-unification-design.md](camp-core-unification-design.md) · [camp-kit-unification-design.md](camp-kit-unification-design.md) · [mob-registry-unification-design.md](mob-registry-unification-design.md) · [player-state-seam-design.md](player-state-seam-design.md) · [dev-mode-design.md](dev-mode-design.md) · [showroom-design.md](showroom-design.md)
 

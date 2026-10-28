@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>我的世界 · 方块乐园</title>
+    <!-- 草方块 favicon(内联 SVG, 零资产; 色板与按钮像素图标工坊 grassblock 同源) -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23866043'/%3E%3Crect width='16' height='5' fill='%235abf5a'/%3E%3Crect y='5' width='16' height='1' fill='%233f8f3f'/%3E%3C/svg%3E">
     <link rel="stylesheet" href="css/style.css">
     <link rel="stylesheet" href="css/focus.css">
     <link rel="stylesheet" href="css/math.css">
@@ -11,7 +13,15 @@
   </head>
   <body>
     <div id="app"></div>
-    <div id="splash">⛏️ 正在加载方块乐园…</div>
+    <!-- 加载屏(设计权威 docs/menu-ui-design.md §4): 夜空+草地像素门面,
+         ⛏️ 前缀由 button-icons.js 静态注入换像素草方块; init() 淡出后兜底 remove -->
+    <div id="splash">
+      <div class="splash-inner">
+        <div class="splash-logo" id="splashTitle">⛏️ 方块乐园</div>
+        <div class="splash-bar"><div class="splash-fill"></div></div>
+        <div class="splash-tip">正在铺方块，马上就好…</div>
+      </div>
+    </div>
 
     <div id="crosshair"></div>
 
@@ -33,12 +43,20 @@
 
     <div id="overlay">
 
-      <!-- 主菜单:模式选择 -->
+      <!-- 主菜单:模式选择(结构设计权威 docs/menu-ui-design.md §2;
+           卡片/音量/页脚的 id 均为 JS 接线契约, 不可改名) -->
       <div class="menu-page active" id="menuMain">
-        <h1>我的世界 <span>方块乐园</span></h1>
-        <p>选择一个游戏模式</p>
+        <header class="menu-hero">
+          <div class="hero-art" aria-hidden="true"></div>
+          <div>
+            <div class="hero-eyebrow">我的世界</div>
+            <h1 class="hero-title">方块乐园</h1>
+          </div>
+          <div class="hero-art hero-art-r" aria-hidden="true"></div>
+        </header>
+        <p class="hero-tag">今天想去哪里玩？</p>
         <div id="modeCards">
-          <div class="mode-card" id="cardArena">
+          <div class="mode-card arena" id="cardArena">
             <div class="big">⚔️</div>
             <h2>怪物竞技场</h2>
             <small>双阵营团队 PVP 观战</small>
@@ -75,7 +93,7 @@
             <small>开发者调试场 · ?dev=1 可见</small>
           </div>
         </div>
-        <!-- 音量面板(A8): 🎵 开关 + 音乐/音效滑杆, 接线在 js/audio-vol-ui.js -->
+        <!-- 音量面板(A8): 🎵 开关 + 音乐/音效滑杆, 接线在 js/audio-vol-ui.js(id 契约不可动) -->
         <div id="volWrap">
           <button class="play" id="volBtn" type="button">🎵 声音</button>
           <div class="vol-panel" id="volPanel">
@@ -89,7 +107,7 @@
         </div>
         <div class="keys">
           <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc<br>
-          <span class="safe">版本 2026.10.24-1 · 若本行版本号和电脑上约定的一致, 说明运行的是最新版</span>
+          <span class="safe">版本 2026.10.28-1 · 若本行版本号和电脑上约定的一致, 说明运行的是最新版</span>
         </div>
       </div>
 
@@ -121,7 +139,7 @@
           <button class="play" id="balBtn">战力配平：开</button>
           <button class="play" id="resumeBtn">进入观战</button>
           <button class="play" id="clearBtn">清场</button>
-          <button class="play" id="arenaBackBtn">⬅ 返回</button>
+          <button class="play back-pin" id="arenaBackBtn">⬅ 返回</button>
         </div>
         <div class="keys">
           <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift<br>
@@ -143,7 +161,7 @@
         <div id="buildScenes"></div>
         <div class="btn-row">
           <button class="play primary" id="buildEnterBtn">继续建造 ▶</button>
-          <button class="play" id="buildBackBtn">⬅ 返回</button>
+          <button class="play back-pin" id="buildBackBtn">⬅ 返回</button>
         </div>
         <div class="keys">
           <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>挖/放方块</b>：鼠标左右键 &nbsp; <b>选方块</b>：1~9 / 滚轮<br>
@@ -162,7 +180,7 @@
         <div id="tankMobPick"></div>
         <div class="btn-row">
           <button class="play primary" id="tankGoBtn">🚀 出发！</button>
-          <button class="play" id="tankBackBtn">⬅ 返回</button>
+          <button class="play back-pin" id="tankBackBtn">⬅ 返回</button>
         </div>
         <div class="keys">
           <b>开车</b>：W 前进 · S 倒车 · A D 转向 &nbsp; <b>开炮</b>：左键 &nbsp; <b>上下车</b>：E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc<br>
@@ -176,7 +194,7 @@
         <p>大草原上有树林 · 湖泊 · 矿坑和山洞 🌲 空手出发，成为小小探险家！攒够 8 块金锭和 1 颗钻石，可以合成下界传送门 🌀 放下它就能去下界看看啦！</p>
         <div class="btn-row">
           <button class="play primary" id="adventureEnterBtn">🌲 出发探险 ▶</button>
-          <button class="play" id="adventureBackBtn">⬅ 返回</button>
+          <button class="play back-pin" id="adventureBackBtn">⬅ 返回</button>
         </div>
         <div class="keys">
           <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>背包</b>：Tab / 🎒 &nbsp; <b>整理</b>：🧹 &nbsp; <b>菜单</b>：Esc<br>
@@ -184,8 +202,8 @@
         </div>
       </div>
 
-      <!-- 儿童时限提醒页 -->
-      <div class="menu-page" id="menuPlayTime">
+      <!-- 儿童时限提醒页(page-night: 深夜蓝主题, 设计稿 menu-ui §3) -->
+      <div class="menu-page page-night" id="menuPlayTime">
         <h1>🌙 今天的冒险时间到啦！</h1>
         <p>怪物们也要休息了，明天再来挑战吧！</p>
         <div class="btn-row">

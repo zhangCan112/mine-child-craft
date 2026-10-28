@@ -650,6 +650,28 @@ const BUBBLE_ART = [
   '................',
 ];
 
+/* ---------- 草方块(主菜单门面装饰 + 加载屏徽标 — 方块乐园的品牌记号):
+   整面 16×16 方块脸(非物品 blob 语言): 近黑描边 + 草帽(亮→暗两级, 底缘
+   参差咬合泥土) + 泥土身噪点; 色板与物品工坊 dirt/tree 同源 ---------- */
+const GRASSBLOCK_ART = [
+  'KKKKKKKKKKKKKKKK',
+  'KGGGGGGGGGGGGGGK',
+  'KGGGgGGGGGGgGGGK',
+  'KggGGGggggGGGggK',
+  'KgGGggGGgggGGggK',
+  'KmgmmgmmmmgmmgmK',
+  'KmmmlmmmmmmdmmmK',
+  'KmmdmmmmmlmmmmmK',
+  'KmmmmmmdmmmmmdmK',
+  'KmlmmmmmmmmmmmmK',
+  'KmmmmmlmmmdmmmmK',
+  'KmdmmmmmmmmmlmmK',
+  'KmmmmmdmmmmmmmmK',
+  'KmmmmmmmmmlmmmmK',
+  'KmlmmmmdmmmmmmdK',
+  'KKKKKKKKKKKKKKKK',
+];
+
 const BTN_PIX = {
   /* 方向与播放 */
   left: {art: ARROW_LEFT_ART, map: BTN_GLYPH},
@@ -686,6 +708,8 @@ const BTN_PIX = {
   tree: {art: TREE_ART, map: {g: '#3f8f3f', G: '#5abf5a', t: '#7d5730'}},
   basement: {art: BASEMENT_ART, map: {S: '#8a8f98', L: '#c8cdd4', K: '#14161a'}},
   steps: {art: STEPS_ART, map: {K: '#14161a', G: '#5abf5a', g: '#3f8f3f'}}, /* 数学冒险岛卡(草方块阶梯, 与 tree 同绿系) */
+  /* 门面装饰(主菜单标题两侧/加载屏徽标): 整面方块脸, 色板与物品工坊 dirt/tree 同源 */
+  grassblock: {art: GRASSBLOCK_ART, map: {K: '#14161a', G: '#5abf5a', g: '#3f8f3f', m: '#866043', l: '#a07b56', d: '#6b4a33'}},
   flask: {art: FLASK_ART, map: {...BTN_GLYPH, g: '#3f8f3f', G: '#5abf5a'}}, /* 体验馆卡(锥形瓶绿液; G 覆写为亮绿=液面/气泡) */
 };
 
@@ -800,9 +824,17 @@ function btnSwapTrailPlay(el) {
     ['#tankGoBtn', 'rocket'], ['#adventureEnterBtn', 'tree'],
     ['#playTimeHomeBtn', 'house'], ['#pkGo', 'rocket'], ['#pkClose', 'close'],
     ['.pk-title', 'creeper'],
+    ['#splashTitle', 'grassblock'], ['#menuPlayTime h1', 'moon'],
     ['#volMusicRow', 'note'], ['#volSfxRow', 'bell'],
     ['#tankPickTitle', 'tank'], ['#mobPickTitle', 'creeper'],
   ].forEach(([sel, key]) => btnSwapLeadEmoji(q(sel), key));
   /* 尾缀 ▶ → 像素三角 */
   ['#buildEnterBtn', '#adventureEnterBtn'].forEach((sel) => btnSwapTrailPlay(q(sel)));
+  /* 主菜单门面方块(docs/menu-ui-design.md §2): 标题两侧各一块悬浮草方块,
+     纯装饰 — 容器 aria-hidden 在 index.html 声明, 这里只补图 */
+  document.querySelectorAll('.hero-art').forEach((box) => {
+    const img = document.createElement('img');
+    img.alt = ''; img.draggable = false; img.src = btnIcon('grassblock');
+    box.appendChild(img);
+  });
 })();
