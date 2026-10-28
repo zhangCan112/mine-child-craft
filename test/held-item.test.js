@@ -213,3 +213,157 @@ test('惰性 def 形状: 工厂产物同样 parts/grip/swing/sway 四组齐全',
     assert.ok(def.sway.idle >= 0, id + ' sway 非负');
   }
 });
+
+/* ============ T1: 第一人称 fp 姿态两族 + swingView + swap ============
+   正典数值(docs/mc-first-person-hand-research.md Q4/Q3)与折算口径
+   (design D3/D6)见 js/held-item.js 的 fp 常量块注释; 期望值独立于实现抄录 */
+
+test('fp 形状: defFor 全路径产物含 fp 且 pos/rot/scale 三键齐(工具/锄/剑/弓/方块两形/薄片/棒)', () => {
+  const {HeldItems} = loadHeld();
+  const v3 = (a) => Array.isArray(a) && a.length === 3 && a.every((n) => typeof n === 'number');
+  const ids = [
+    ...Object.keys(HeldItems.defs), /* 16 工具 + hoe/sword/bow_item 手工条目 */
+    'planks', 'log', 17, /* 方块两形: 单色盒(木板/石英) + top/side 三件盒(原木) */
+    'apple', 'stick', /* 薄片/棒(惰性工厂路径) */
+  ];
+  for (const id of ids) {
+    const def = HeldItems.defFor(id);
+    assert.ok(def, id + ' 应有 def');
+    assert.ok(def.fp, id + ' 缺 fp');
+    assert.ok(v3(def.fp.pos), id + ' fp.pos 三元数');
+    assert.ok(v3(def.fp.rot), id + ' fp.rot 三元数');
+    assert.ok(typeof def.fp.scale === 'number' && def.fp.scale > 0, id + ' fp.scale 为正');
+  }
+});
+
+test('fp 族正确: 方块两形=方块族(rotY 45°/scale1), 工具/锄/剑/弓/薄片/棒=手持物族(rot[-90,25]°)', () => {
+  const {HeldItems} = loadHeld();
+  /* 期望值独立于实现: 正典折算(mc-first-person-hand-research Q4)照常量注释抄录
+     —— 方块 [0,45,0]/scale0.40(本体 0.38 已内建 → 1.0);
+        手持物 [0,-90,25]+[1.13,3.2,1.13]/16+0.68(工具全长 ~0.85 → 0.68/0.85≈0.8) */
+  const BLOCK = {pos: [0, 0, 0], rot: [0, 0.785, 0], scale: 1.0};
+  const HAND = {pos: [1.13 / 16, 3.2 / 16, 1.13 / 16], rot: [0, -1.5708, 0.4363], scale: 0.8};
+  const eq3 = (actual, want, tag) => {
+    assert.ok(Array.isArray(actual) && actual.length === 3, tag + ' 三元数');
+    actual.forEach((n, i) => assert.ok(Math.abs(n - want[i]) < 1e-9, tag + ' 第' + i + '分量'));
+  };
+  const same = (def, F, tag) => {
+    eq3(def.fp.pos, F.pos, tag + ' fp.pos');
+    eq3(def.fp.rot, F.rot, tag + ' fp.rot');
+    assert.strictEqual(def.fp.scale, F.scale, tag + ' fp.scale');
+  };
+  /* 方块族: 单色盒(木板) + top/side 三件盒(原木) + 数字方块 id(石英) + 工厂直调 */
+  for (const id of ['planks', 'log', 17]) same(HeldItems.defFor(id), BLOCK, '方块 ' + id);
+  /* 手持物族: defs 全部 19 条(弓正典 display 与 handheld 同值=继承)逐一 + 薄片 + 棒 */
+  for (const [id, def] of Object.entries(HeldItems.defs)) same(def, HAND, '手持物 ' + id);
+  same(HeldItems.defFor('apple'), HAND, '薄片 apple');
+  same(HeldItems.defFor('stick'), HAND, '棒 stick');
+  same(HeldItems.mkToolDef('pick', 'iron'), HAND, '工具工厂直调');
+});
+
+test('defFor 兜底: 手滑产物缺 fp → 回落手持物族(不炸、观感可用), 正常路径引用恒等不受影响', () => {
+  const {HeldItems} = loadHeld();
+  HeldItems.defs['__future'] = {label: '未来手滑', parts: [], swing: {dur: 0.24, amp: 1.3, curlZ: 0}, sway: {idle: 0.03}};
+  const def = HeldItems.defFor('__future');
+  assert.ok(def.fp, '兜底应有 fp');
+  assert.strictEqual(def.fp.scale, 0.8, '回落手持物族 scale');
+  assert.strictEqual(HeldItems.defFor('hoe'), HeldItems.defs['hoe'], '有 fp 条目仍原引用');
+});
+
+test('swingView 端点归零 + 越界钳制: p=0/1 与越界值全零(与 swingPose 同纪律)', () => {
+  const {HeldItems} = loadHeld();
+  const def = HeldItems.defs['hoe'];
+  for (const p of [0, 1, -0.3, 1.7]) {
+    const s = HeldItems.swingView(p, def);
+    for (const k of ['px', 'py', 'pz', 'rx', 'ry']) {
+      assert.ok(Math.abs(s[k]) < 1e-9, 'p=' + p + ' ' + k + ' 应为 0');
+    }
+  }
+});
+
+test('swingView 中段: px<0(横扫前送) pz<0(前伸) rx/ry<0(劈砍), 幅度随 swing.amp 归一(基线 1.3)', () => {
+  const {HeldItems} = loadHeld();
+  for (const id of ['hoe', 'sword', 'bow_item', 'pick_diamond']) {
+    const def = HeldItems.defs[id];
+    for (const p of [0.15, 0.35, 0.5, 0.7, 0.9]) {
+      const s = HeldItems.swingView(p, def);
+      assert.ok(s.px < 0, id + ' p=' + p + ' px 应为负(前送)');
+      assert.ok(s.pz < 0, id + ' p=' + p + ' pz 应为负(前伸)');
+      assert.ok(s.rx < 0 && s.ry < 0, id + ' p=' + p + ' rx/ry 应为负(劈砍/摆头)');
+    }
+  }
+  /* 归一: 偏移 ∝ swing.amp/1.3(锄 1.3=正典全额, 剑 1.6 更阔) */
+  const hoe = HeldItems.defs['hoe'];
+  const sword = HeldItems.defs['sword'];
+  const ratio = HeldItems.swingView(0.5, sword).px / HeldItems.swingView(0.5, hoe).px;
+  assert.ok(Math.abs(ratio - sword.swing.amp / hoe.swing.amp) < 1e-9, '幅度按 amp/1.3 归一');
+});
+
+/* swap 直测需最小 THREE 桩: 只盖 mount 用到的 Group/Mesh/BoxGeometry/
+   MeshLambertMaterial(traverse 递归, geometry/material 记 dispose 次数)。
+   独立加载器而非改 loadHeld——不给「顶层零 THREE」回归留活口 */
+function loadHeldWithThreeStub() {
+  const ctx = vm.createContext({console});
+  for (const f of ['config.js', 'items-core.js', 'held-item.js']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
+  }
+  vm.runInContext(`
+    class Node3 {
+      constructor() { this.children = []; this.position = {set() {}}; }
+      add(c) { this.children.push(c); }
+      traverse(fn) { fn(this); for (const c of this.children) c.traverse(fn); }
+    }
+    class Disposable {
+      constructor() { this.disposeCalls = 0; }
+      dispose() { this.disposeCalls++; }
+    }
+    globalThis.THREE = {
+      Group: class extends Node3 {},
+      Mesh: class extends Node3 {
+        constructor(g, m) { super(); this.isMesh = true; this.geometry = g; this.material = m; }
+      },
+      BoxGeometry: class extends Disposable {},
+      MeshLambertMaterial: class extends Disposable {},
+    };
+    globalThis.__h = {HeldItems, THREE};
+  `, ctx);
+  return ctx.__h;
+}
+
+test('swap: 旧组逐 Mesh dispose(geometry+材质, spy 计数恰一次) + 新组部件数=def.parts', () => {
+  const {HeldItems} = loadHeldWithThreeStub();
+  const def = HeldItems.defFor('hoe');
+  const old = HeldItems.mount(def);
+  assert.strictEqual(old.children.length, def.parts.length);
+  const next = HeldItems.swap(old, def);
+  for (const m of old.children) {
+    assert.strictEqual(m.geometry.disposeCalls, 1, '旧 geometry dispose 恰一次');
+    assert.strictEqual(m.material.disposeCalls, 1, '旧 material dispose 恰一次');
+  }
+  assert.strictEqual(next.children.length, def.parts.length, '新组部件数=def.parts');
+  assert.notStrictEqual(next, old, '返回的是新组');
+  for (const m of next.children) assert.strictEqual(m.geometry.disposeCalls, 0, '新组几何未释放');
+});
+
+test('swap 空手: def=null → 旧组照常释放, 返回 null', () => {
+  const {HeldItems} = loadHeldWithThreeStub();
+  const old = HeldItems.mount(HeldItems.defFor('sword_iron'));
+  assert.strictEqual(HeldItems.swap(old, null), null);
+  for (const m of old.children) {
+    assert.strictEqual(m.geometry.disposeCalls, 1);
+    assert.strictEqual(m.material.disposeCalls, 1);
+  }
+});
+
+test('swap 材质数组: mkArtMats 式多材质(弓 art 部件浏览器态)逐枚 dispose', () => {
+  const {HeldItems, THREE} = loadHeldWithThreeStub();
+  const old = HeldItems.mount(HeldItems.defFor('bow_item'));
+  /* Node 下 mkArtMats 回落单材质; 数组分支用手工多材质 Mesh 桩直测 traverse 收口 */
+  old.add(new THREE.Mesh(new THREE.BoxGeometry(),
+      [new THREE.MeshLambertMaterial(), new THREE.MeshLambertMaterial()]));
+  HeldItems.swap(old, null);
+  const multi = old.children[old.children.length - 1];
+  assert.strictEqual(multi.geometry.disposeCalls, 1);
+  assert.strictEqual(multi.material[0].disposeCalls, 1, '数组材质[0] dispose');
+  assert.strictEqual(multi.material[1].disposeCalls, 1, '数组材质[1] dispose');
+});

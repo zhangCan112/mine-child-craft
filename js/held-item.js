@@ -2,15 +2,19 @@
 /* ============================================================
    手持物注册表 (HeldItems, 术语见 GLOSSARY.md) — 引擎层
    ------------------------------------------------------------
-   手持物的唯一数据源: 部件表 + 握持姿态 + 挥击/待机参数。
+   手持物的唯一数据源: 部件表 + 握持姿态 + 第一人称姿态(fp 两族常量)
+   + 挥击/待机参数。
    两级供给: defs 注册表(个性武器 = 加一份纯数据; 镐/斧/剑/锹四阶
    工具 = mkToolDef 加载期批量生成 16 条, 工厂供单测直调) +
    defFor 惰性出口(运行时一律经此: 方块 → mkBlockDef 方块本体,
    棒状材料 → mkRodDef, 其余注册物品 → mkPlateDef 薄片, 空槽/
    未注册 → null=空手; MC 口径见 docs/mc-held-item-render-research.md)。
-   外加两个无状态入口: swingPose 挥击关节角纯函数 · mount 按 def
-   装配网格。肢体动画与握持施加收在 Avatar。顶层零 THREE → Node vm
-   可直接加载单测; mount()/defFor() 调用期才触碰 THREE/表依赖。
+   外加四个无状态入口: swingPose 第三人称挥击关节角 · swingView 第一
+   人称挥击偏移(两支纯函数) · mount 按 def 装配网格 · swap 释放旧
+   网格+mount 新 def(第三/第一人称渲染器共用换装生命周期)。fp 姿态
+   数值口径见 docs/first-person-hand-design.md D3/D6。
+   肢体动画与握持施加收在 Avatar。顶层零 THREE → Node vm
+   可直接加载单测; mount()/defFor()/swap() 调用期才触碰 THREE/表依赖。
    依赖: config.js 的 BLOCKS 与 items-core.js 的 ITEMS(均 defFor
    调用期惰性读; 顶层不触碰, 单测 vm 同境先载两件)。
    ============================================================ */
@@ -20,6 +24,32 @@ const HELD_BARE = {
   label: '空手',
   swing: {dur: 0.24, amp: 1.1, curlZ: 0},
   sway: {idle: 0.03},
+};
+
+/* ---------- 第一人称姿态两族常量 (fp) — design D3 / 调研 Q4 ----------
+   MC 第一人称 display 坍缩为两族(docs/mc-first-person-hand-research.md Q4):
+   方块 = block/block.json firstperson_righthand rot[0,45,0]/scale 0.40;
+   手持物全族统一 = rot[0,-90,25] + translation[1.13,3.2,1.13]/16 + scale 0.68
+   (handheld 镐斧剑锹锄 + generated 食物/材料 + 弓——bow 正典 display 与
+   handheld 完全同值=继承)。折算口径: translation 单位 1/16 像素格 →
+   本仓库格直接除 16; MC 的 scale 作用在全长 1.0 的模型上, 本仓库部件
+   尺寸已自带缩放 → 比例再折算: 方块 def 本体边 0.38(≈正典 0.375–0.40
+   终观感已内建, 见 mkBlockDef) → scale 1.0; 工具全长 ~0.85 →
+   0.68/0.85 ≈ 0.8。数值=观感折算起点(design D6, 调参不判红),
+   不做像素级校真, 形状与族归属正确即可。 */
+const FP_BLOCK = {pos: [0, 0, 0], rot: [0, 0.785, 0], scale: 1.0}; /* 45° 绕 Y: 两面示人 */
+/* rot 即正典 [-90,25]° 折弧度: 长轴指向画面内 + 斜握 */
+const FP_HANDHELD = {pos: [1.13 / 16, 3.2 / 16, 1.13 / 16], rot: [0, -1.5708, 0.4363], scale: 0.8};
+/* 族常量 → 条目内嵌副本(工厂展开, 零逐条复制; 拷贝防条目间共享可变别名) */
+const fpOf = (F) => ({pos: [...F.pos], rot: [...F.rot], scale: F.scale});
+
+/* swingView 挥击幅度(正典 ITEM_SWING_* 常量, 单位格/弧度, 调研 Q3):
+   x −0.4 横扫 · y +0.2 上挑 · z −0.2 前伸 · pitch −80° 劈砍主力 · yaw −20° 摆头;
+   基线 amp 1.3(hoe/pick/rod/block 档)对应正典全额 1.0 倍 */
+const FP_SWING_AMP_BASE = 1.3;
+const FP_SWING = {
+  posX: -0.4, posY: 0.2, posZ: -0.2,
+  rotX: -80 * Math.PI / 180, rotY: -20 * Math.PI / 180,
 };
 
 /* ---------- 工具 def 工厂 (mkToolDef): 镐/斧/剑/锹 × 木/石/铁/钻 ----------
@@ -101,6 +131,7 @@ const mkToolDef = (kind, tier) => {
       ...heads(TOOL_HEAD_COLORS[tier]),
     ],
     grip: {pos: [...grip.pos], rot: [...grip.rot]},
+    fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(正典 handheld, 工厂展开) */
     swing: {...swing},
     sway: {idle: 0.03},
   };
@@ -125,6 +156,7 @@ const HELD_DEFS = {
     ],
     /* 挂在右臂手部枢轴: 手心略前, 柄顶前倾离臂(与 TOOL_GRIPS 同口径) */
     grip: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
+    fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(正典 handheld, 锄无一例外, 调研 Q4) */
     /* 挥击: 0.24 秒内前挥 1.3 rad, 带轻微内收 */
     swing: {dur: 0.24, amp: 1.3, curlZ: 0.12},
     /* 待机呼吸浮动幅度(可调 0 关闭) */
@@ -143,6 +175,7 @@ const HELD_DEFS = {
     ],
     /* 挂在右臂手部枢轴(与锄头同位): 剑尖朝前上, 戒备式前倾离臂 */
     grip: {pos: [0, -0.50, -0.10], rot: [-0.76, 0, 0]},
+    fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(正典 handheld, 剑同族) */
     /* 挥击: 比锄头更快更阔(剑感) */
     swing: {dur: 0.2, amp: 1.6, curlZ: 0.05},
     /* 待机呼吸浮动幅度 */
@@ -166,6 +199,9 @@ const HELD_DEFS = {
     /* 挂在右臂手部枢轴: MC thirdperson 折算([-80,260,-40]°=[-1.40,-1.75,-0.70]rad,
        XYZ 序与 MC display 同构), 与工具组同款前移离臂 */
     grip: {pos: [0, -0.50, -0.10], rot: [-1.40, -1.75, -0.70]},
+    /* 第一人称: 手持物族——正典 bow 第一人称 display 与 handheld/generated
+       完全同值(等价于继承, mc-first-person-hand-research.md Q4 表) */
+    fp: fpOf(FP_HANDHELD),
     /* 挥击=放箭的蓄力前送(幅度接近剑的挥砍, 放箭动作要看得见): 挥臂观感随 def 走 */
     swing: {dur: 0.3, amp: 1.1, curlZ: 0},
     /* 待机呼吸浮动幅度 */
@@ -205,6 +241,7 @@ function mkBlockDef(blockId) {
     label: b.name,
     parts,
     grip: {pos: [0, -0.42, -0.20], rot: [0.50, 0.785, 0]},
+    fp: fpOf(FP_BLOCK), /* 第一人称: 方块族(rotY 45° 两面示人) */
     swing: {dur: 0.24, amp: 1.3, curlZ: 0.12},
     sway: {idle: 0.03},
   };
@@ -229,6 +266,7 @@ function mkPlateDef(id) {
     label: it.name,
     parts: [{w: 0.30, h: 0.30, d: 0.06, color: PLATE_COLORS[id] || 0x9aa0a8, pos: [0, 0.12, 0]}],
     grip: {pos: [0, -0.46, -0.18], rot: [-1.13, 0, 0]},
+    fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(generated 与 handheld 正典同值) */
     swing: {dur: 0.24, amp: 1.1, curlZ: 0},
     sway: {idle: 0.03},
   };
@@ -244,6 +282,7 @@ function mkRodDef(id) {
     label: it.name,
     parts: [{w: 0.055, h: 0.55, d: 0.055, color: 0x8a5a2b, pos: [0, 0.16, 0]}],
     grip: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
+    fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(vanilla 木棍用 handheld 握法) */
     swing: {dur: 0.24, amp: 1.3, curlZ: 0.12},
     sway: {idle: 0.03},
   };
@@ -263,16 +302,21 @@ const HeldItems = {
   /* def 惰性出口(Avatar.setItem 的唯一取 def 通道): 工具/武器 → defs ·
       数字方块 id(建造/竞技场调色板直传)或放置型物品 → mkBlockDef ·
       棒状 → mkRodDef · 其余注册物品 → mkPlateDef · 空槽/未注册 →
-      null(空手, MC 口径)。 */
+      null(空手, MC 口径)。产物缺 fp 时回落手持物族(design D3 兜底:
+      未来手滑新增不炸、观感可用; 兜底走浅拷贝, 不改原条目, 有 fp 的
+      条目保持原引用恒等)。 */
   defFor(id) {
     if (id == null) return null;
-    if (HELD_DEFS[id]) return HELD_DEFS[id];
-    if (typeof id === 'number') return mkBlockDef(id);
-    const it = ITEMS[id];
-    if (!it) return null;
-    if (it.block != null) return mkBlockDef(it.block);
-    if (ROD_IDS.indexOf(id) >= 0) return mkRodDef(id);
-    return mkPlateDef(id);
+    let def = HELD_DEFS[id] || null;
+    if (!def && typeof id === 'number') def = mkBlockDef(id);
+    if (!def) {
+      const it = ITEMS[id];
+      if (!it) return null;
+      if (it.block != null) def = mkBlockDef(it.block);
+      else if (ROD_IDS.indexOf(id) >= 0) def = mkRodDef(id);
+      else def = mkPlateDef(id);
+    }
+    return def.fp ? def : {...def, fp: fpOf(FP_HANDHELD)};
   },
 
   /* 挥击关节角(纯函数): p 为 0..1 的挥击进度。
@@ -281,6 +325,28 @@ const HeldItems = {
   swingPose(p, def) {
     const s = Math.sin(Math.max(0, Math.min(1, p)) * Math.PI);
     return {x: s * def.swing.amp, z: s * def.swing.curlZ};
+  },
+
+  /* 第一人称挥击偏移(纯函数): p 为 0..1 的挥击进度 → {px,py,pz,rx,ry}。
+     曲线照正典家族(docs/mc-first-person-hand-research.md Q3): 位移走
+     sin(πp) 半波包络(ITEM_SWING_*_POS_SCALE −0.4/+0.2/−0.2, 单位格),
+     旋转走 sin(π√p) 先快后慢(ITEM_SWING_*_ROT_AMOUNT −80°/−20°, 劈砍
+     主力在 pitch); 裸臂路径的 sin(2π√p)「先抬后劈」项归 hand-view 裸臂
+     建模(T2a)。幅度随 def.swing.amp 归一(基线 1.3=正典全额)。契约不变量
+     (design D3): p=0 与 p=1 全零(端点归零, 与 swingPose 同纪律);
+     0<p<1 时 px<0(横扫前送)。 */
+  swingView(p, def) {
+    const q = Math.max(0, Math.min(1, p)); /* 钳制越界进度, 端点安全归零 */
+    const k = def.swing.amp / FP_SWING_AMP_BASE; /* 幅度归一: 基线档=正典全额 */
+    const wave = Math.sin(q * Math.PI); /* sin(πp): 半波包络(位移项) */
+    const slash = Math.sin(Math.sqrt(q) * Math.PI); /* sin(π√p): 先快后慢(旋转项) */
+    return {
+      px: FP_SWING.posX * wave * k,
+      py: FP_SWING.posY * wave * k,
+      pz: FP_SWING.posZ * wave * k,
+      rx: FP_SWING.rotX * slash * k,
+      ry: FP_SWING.rotY * slash * k,
+    };
   },
 
   /* 像素贴图薄板材质(art 部件): 图标工坊字符画 → CanvasTexture 关平滑(像素
@@ -319,6 +385,23 @@ const HeldItems = {
       g.add(m);
     }
     return g;
+  },
+
+  /* 换装生命周期收口(design D3): 释放旧网格(traverse 逐 Mesh dispose
+     geometry+material, mkArtMats 的材质数组同收) + mount 新 def → 返回
+     新 Group|null(def 空=空手 null, 旧组照常释放)。第三人称 Avatar.mountItem
+     与第一人称 HandView(T2a)共用同一套「沉底换网格」舞步, 收口一份;
+     本票只交付+直测, 消费方接线在 T2a/T3。调用期触碰 THREE(同 mount)。 */
+  swap(oldGroup, def) {
+    if (oldGroup) {
+      oldGroup.traverse((o) => {
+        if (!o.isMesh) return;
+        if (o.geometry) o.geometry.dispose();
+        const mats = Array.isArray(o.material) ? o.material : [o.material];
+        for (const m of mats) if (m) m.dispose();
+      });
+    }
+    return HeldItems.mount(def);
   },
 };
 if (typeof module !== 'undefined' && module.exports) module.exports = HeldItems;
