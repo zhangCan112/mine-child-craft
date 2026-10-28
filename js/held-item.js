@@ -6,9 +6,10 @@
    + 挥击/待机参数。
    两级供给: defs 注册表(个性武器 = 加一份纯数据; 镐/斧/剑/锹四阶
    工具 = mkToolDef 加载期批量生成 16 条, 工厂供单测直调) +
-   defFor 惰性出口(运行时一律经此: 方块 → mkBlockDef 方块本体,
-   棒状材料 → mkRodDef, 其余注册物品 → mkPlateDef 薄片, 空槽/
-   未注册 → null=空手; MC 口径见 docs/mc-held-item-render-research.md)。
+   defFor 惰性出口(运行时一律经此: wall 薄块(火把) → mkTorchDef 细棒
+   +炭头, 方块 → mkBlockDef 方块本体, 棒状材料 → mkRodDef, 其余注册
+   物品 → mkPlateDef 薄片, 空槽/未注册 → null=空手; MC 口径见
+   docs/mc-held-item-render-research.md)。
    外加四个无状态入口: swingPose 第三人称挥击关节角 · swingView 第一
    人称挥击偏移(两支纯函数) · mount 按 def 装配网格 · swap 释放旧
    网格+mount 新 def(第三/第一人称渲染器共用换装生命周期)。fp 姿态
@@ -294,6 +295,27 @@ function mkRodDef(id) {
   };
 }
 
+/* 火把 def 工厂: 与世界内 pushTorch 同款专用小盒(MC 2×10×2px 正典, 0.125 断面
+   × 0.625 长, mc-torch-model-research §1.2——手持态与世界内共用同一盒模型,
+   不再当方块本体画 0.38 小立方): 细棍身 + 顶部炭头(炭头色取 BLOCKS.all 块色
+   =单一数据源; 棍身用仓库木色系, 同木棍/工具柄)。非 wall 薄块返回 null,
+   defFor 落回 mkBlockDef 方块本体路径。grip/swing 沿木棍 rod 档。 */
+function mkTorchDef(blockId) {
+  const b = BLOCKS[blockId];
+  if (!b || !b.wall) return null;
+  return {
+    label: b.name,
+    parts: [
+      {w: 0.125, h: 0.50, d: 0.125, color: 0x8a5a2b, pos: [0, 0.10, 0]}, // 棍身(MC 2×8×2px)
+      {w: 0.125, h: 0.125, d: 0.125, color: heldHex(b.all), pos: [0, 0.4125, 0]}, // 炭头(2px, 块 all 色亮端)
+    ],
+    grip: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
+    fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(正典火把属手持物, 同木棍) */
+    swing: {dur: 0.24, amp: 1.3, curlZ: 0.12},
+    sway: {idle: 0.03},
+  };
+}
+
 const HeldItems = {
   defs: HELD_DEFS,
   bare: HELD_BARE,
@@ -303,11 +325,13 @@ const HeldItems = {
      消费方一律读 defs, 不经此现做 */
   mkToolDef,
   /* 惰性 def 工厂(单测直调面, 运行时一律经 defFor): mkBlockDef 收数字
-      方块 id, mkRodDef/mkPlateDef 收物品 id; 越界返回 null 不抛 */
-  mkBlockDef, mkRodDef, mkPlateDef,
+      方块 id, mkTorchDef 收数字方块 id(wall 薄块, 火把), mkRodDef/mkPlateDef
+      收物品 id; 越界返回 null 不抛 */
+  mkBlockDef, mkTorchDef, mkRodDef, mkPlateDef,
 
   /* def 惰性出口(Avatar.setItem 的唯一取 def 通道): 工具/武器 → defs ·
-      数字方块 id(建造/竞技场调色板直传)或放置型物品 → mkBlockDef ·
+      数字方块 id(建造/竞技场调色板直传)或放置型物品 → wall 薄块走
+      mkTorchDef(火把细棒+炭头)、其余方块走 mkBlockDef 方块本体 ·
       棒状 → mkRodDef · 其余注册物品 → mkPlateDef · 空槽/未注册 →
       null(空手, MC 口径)。产物缺 fp 时回落手持物族(design D3 兜底:
       未来手滑新增不炸、观感可用; 兜底走浅拷贝, 不改原条目, 有 fp 的
@@ -315,11 +339,11 @@ const HeldItems = {
   defFor(id) {
     if (id == null) return null;
     let def = HELD_DEFS[id] || null;
-    if (!def && typeof id === 'number') def = mkBlockDef(id);
+    if (!def && typeof id === 'number') def = mkTorchDef(id) || mkBlockDef(id);
     if (!def) {
       const it = ITEMS[id];
       if (!it) return null;
-      if (it.block != null) def = mkBlockDef(it.block);
+      if (it.block != null) def = mkTorchDef(it.block) || mkBlockDef(it.block);
       else if (ROD_IDS.indexOf(id) >= 0) def = mkRodDef(id);
       else def = mkPlateDef(id);
     }

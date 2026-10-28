@@ -198,6 +198,41 @@ test('defFor 棒状: 木棍 → 细长棒(工具握法; vanilla 木棍用 handhe
   assert.ok(def.parts[0].h > def.parts[0].w * 4, '细长棒');
 });
 
+/* ============ 火把: 贴墙薄块(wall 全表唯一) → 细棒+炭头, 不落方块本体 ============
+   MC 口径: 手持火把与世界内 pushTorch 共用同一 2×10×2px 专用小盒模型
+   (mc-torch-model-research §1.2), 既不是方块本体小立方也不是十字片 */
+
+test('defFor 火把: 物品 id 与数字方块 id 均为细棒+炭头两件(断面 2px, 总长 10px), 不再是 0.38 小立方', () => {
+  const {HeldItems} = loadHeld();
+  for (const id of ['torch', 48]) {
+    const def = HeldItems.defFor(id);
+    assert.ok(def, id + ' 应有 def');
+    assert.strictEqual(def.label, '火把');
+    assert.strictEqual(def.parts.length, 2, id + ' 棍身+炭头两件');
+    const total = def.parts.reduce((s, p) => s + p.h, 0);
+    assert.ok(Math.abs(total - 0.625) < 1e-9, id + ' 总长 0.625 格(MC 专用小盒 10px 正典)');
+    for (const p of def.parts) {
+      assert.strictEqual(p.w, 0.125, id + ' 断面宽 2px');
+      assert.strictEqual(p.d, 0.125, id + ' 断面厚 2px');
+    }
+    assert.ok(total > def.parts[0].w * 4, id + ' 细长观感(整体长细比 5:1, 与木棍同族)');
+  }
+});
+
+test('defFor 火把炭头取块色: 顶部部件色 = BLOCKS[48].all(亮端火色; 单一数据源, 改块色手持跟随)', () => {
+  const {HeldItems, BLOCKS} = loadHeld();
+  const c = BLOCKS[48].all;
+  const def = HeldItems.defFor('torch');
+  assert.strictEqual(def.parts[def.parts.length - 1].color,
+      (Math.round(c[0]*255) << 16) | (Math.round(c[1]*255) << 8) | Math.round(c[2]*255));
+});
+
+test('mkTorchDef 工厂: 非 wall 方块与越界 id → null(defFor 落回方块本体路径, 不误伤实心块)', () => {
+  const {HeldItems} = loadHeld();
+  assert.strictEqual(HeldItems.mkTorchDef(6), null, '木板是实心方块, 不归火把工厂');
+  assert.strictEqual(HeldItems.mkTorchDef(999), null);
+});
+
 test('defFor 空手: null/未注册 → null(MC 口径: 空槽=裸手)', () => {
   const {HeldItems} = loadHeld();
   assert.strictEqual(HeldItems.defFor(null), null);
@@ -207,7 +242,7 @@ test('defFor 空手: null/未注册 → null(MC 口径: 空槽=裸手)', () => {
 test('惰性 def 形状: 工厂产物同样 parts/grip/swing/sway 四组齐全', () => {
   const {HeldItems} = loadHeld();
   const v3 = (a) => Array.isArray(a) && a.length === 3 && a.every((n) => typeof n === 'number');
-  for (const id of ['planks', 'log', 17, 'apple', 'stick', 'coal']) {
+  for (const id of ['planks', 'log', 17, 'apple', 'stick', 'coal', 'torch']) {
     const def = HeldItems.defFor(id);
     assert.ok(Array.isArray(def.parts) && def.parts.length > 0, id + ' parts 非空');
     for (const p of def.parts) {
@@ -231,7 +266,7 @@ test('fp 形状: defFor 全路径产物含 fp 且 pos/rot/scale 三键齐(工具
   const ids = [
     ...Object.keys(HeldItems.defs), /* 16 工具 + hoe/sword/bow_item 手工条目 */
     'planks', 'log', 17, /* 方块两形: 单色盒(木板/石英) + top/side 三件盒(原木) */
-    'apple', 'stick', /* 薄片/棒(惰性工厂路径) */
+    'apple', 'stick', 'torch', /* 薄片/棒/火把(惰性工厂路径) */
   ];
   for (const id of ids) {
     const def = HeldItems.defFor(id);
@@ -265,6 +300,7 @@ test('fp 族正确: 方块两形=方块族(rotY 45°/scale1), 工具/锄/剑/弓
   for (const [id, def] of Object.entries(HeldItems.defs)) same(def, HAND, '手持物 ' + id);
   same(HeldItems.defFor('apple'), HAND, '薄片 apple');
   same(HeldItems.defFor('stick'), HAND, '棒 stick');
+  same(HeldItems.defFor('torch'), HAND, '火把 torch(手持态正典 handheld 族)');
   same(HeldItems.mkToolDef('pick', 'iron'), HAND, '工具工厂直调');
 });
 
