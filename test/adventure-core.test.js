@@ -1540,6 +1540,64 @@ test('advDoorBreakPlan: 挖下连上/挖上连下/挖门下支撑整扇弹出 ·
   assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 9, 25, 9), {cells: [], drop: 0}, '无关方块零牵连');
 });
 
+/* ============ 门号段存档迁移(2026-10-28 关门能穿/开门挡路根因修复) ============ */
+
+test('advDoorIdsMigrate: 旧档(63 铁证)三代档形全移位 63~67→+1, 窗外 id 原样', () => {
+  /* 一代老档: 裸 edits 数组(关门 63/64 + 开门 65/66 + 玻璃板 67 + 窗外对照) */
+  const g1 = {edits: [['1,24,1', 63], ['2,24,2', 64], ['3,25,3', 65], ['4,25,4', 66],
+    ['5,25,5', 67], ['6,25,6', 35], ['7,25,7', 0], ['8,25,8', {id: 24, lv: 2}]]};
+  Core.advDoorIdsMigrate(g1);
+  assert.deepStrictEqual(g1.edits.map((e) => e[1]),
+      [64, 65, 66, 67, 68, 35, 0, {id: 24, lv: 2}], '门段 +1, 熄门/空气/流体不动');
+  /* 现行分桶对象 + 二代顶层 netherEdits 同迁 */
+  const g2 = {edits: {home: [['1,24,1', 63]], desert: [['9,24,9', 67]], nether: []},
+    netherEdits: [['2,20,2', 63]]};
+  Core.advDoorIdsMigrate(g2);
+  assert.strictEqual(g2.edits.home[0][1], 64, 'home 桶移位');
+  assert.strictEqual(g2.edits.desert[0][1], 68, '远征图桶移位');
+  assert.strictEqual(g2.netherEdits[0][1], 64, '二代顶层 nether 账移位');
+  /* 流体格 {id,lv} 形状窗口内兜底(窗口内本无流体, 形状对齐 fluidCell) */
+  const g3 = {edits: [['1,24,1', {id: 63, lv: 2}]]};
+  Core.advDoorIdsMigrate(g3);
+  assert.deepStrictEqual(g3.edits[0][1], {id: 64, lv: 2}, '流体格形状同移');
+});
+
+test('advDoorIdsMigrate: 新档(64~68 合法在档, 无 63)不误移', () => {
+  const fresh = {edits: {home: [['1,24,1', 64], ['2,24,2', 65], ['3,25,3', 66],
+    ['4,25,4', 67], ['5,25,5', 68]]}};
+  const before = JSON.stringify(fresh);
+  Core.advDoorIdsMigrate(fresh);
+  assert.strictEqual(JSON.stringify(fresh), before, '无 63 → 原样(盲移会把现行门 id 推错一段)');
+});
+
+test('advDoorIdsMigrate: 幂等 —— 移位后 63 清零, 二次调用不再触发', () => {
+  const sv = {edits: [['1,24,1', 63], ['2,24,2', 66]]};
+  Core.advDoorIdsMigrate(sv);
+  assert.deepStrictEqual(sv.edits.map((e) => e[1]), [64, 67], '首次移位');
+  const once = JSON.stringify(sv);
+  Core.advDoorIdsMigrate(sv);
+  assert.strictEqual(JSON.stringify(sv), once, '二次调用原样(落盘 _v:2 后同款不再进链)');
+});
+
+test('advDoorIdsStale: 63 出现任一账本即旧档; 异形/空档与开门-only 保守不触发', () => {
+  assert.strictEqual(Core.advDoorIdsStale({edits: [['1,24,1', 63]]}), true, '一代裸数组');
+  assert.strictEqual(Core.advDoorIdsStale({edits: {nether: [['1,20,1', 63]]}, netherEdits: []}), true, '分桶对象');
+  assert.strictEqual(Core.advDoorIdsStale({edits: [['1,24,1', 65], ['2,24,2', 66]]}), false,
+      '开门-only 旧档无 63: 宁漏移不误移(已知局限, 注释即契约)');
+  assert.strictEqual(Core.advDoorIdsStale(null), false, '空档不抛');
+  assert.strictEqual(Core.advDoorIdsStale({}), false, '半形档不抛');
+});
+
+test('迁移接线源文本守门: advWorldSlot schema version:2 + migrate 链挂 advDoorIdsMigrate', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const i = src.indexOf('SyncDB.slot(ADV_WORLD_KEY');
+  assert.ok(i >= 0, '世界档槽在档');
+  const head = src.slice(i, i + 1200);
+  assert.ok(/version: 2/.test(head), 'schema version 2 漂移即红(门号段迁移锚点)');
+  assert.ok(/from >= 1 \? advDoorIdsMigrate\(s\) : s/.test(head),
+      'migrate 链挂 advDoorIdsMigrate(v0 无操作)漂移即红');
+});
+
 /* ============ 农田链判定与配方解锁(farm-and-recipe 设计稿 D2/D3) ============ */
 
 test('农田四判定: 锄(草地/泥土+上方空)/种(耕地+上方空)/长(42→43→44→45→0)/催(0~2 阶)', () => {

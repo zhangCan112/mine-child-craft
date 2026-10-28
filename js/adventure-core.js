@@ -2008,6 +2008,57 @@ function advDoorBreakPlan(read, x, y, z) {
   return {cells: [], drop: 0};
 }
 
+/* ---------- 门号段存档迁移(2026-10-28 用户报告「关门能穿/开门过不去」根因) ----------
+   门与玻璃板首落地号段 63~67(6461fa9), 熄门 B_PORTAL_DIM 占 63 后整体 +1
+   (5708c24)——间隙里落盘的世界档 edits 账本存的是旧 id: 旧关门(63/64)新读作
+   B_PORTAL_DIM(solid:false → 门关着也能穿)与 B_DOOR(错位), 旧开门(65/66)新读
+   作 B_DOOR_TOP(实心 → 门开着也过不去)。
+   迁移触发 = 账本里出现 63: 熄门是建场件(setBlockRaw 直写不记账, T7)+声明式
+   不可破坏(无 hard)+TNT 免疫, 新档的 63 永不进账本——有 63 即旧档铁证, 此时
+   63~67 逐值 +1(单遍映射, 无连锁移位); 无 63 不动(新档 64~68 合法在档, 盲移
+   会误伤)。已知保守局限: 旧档账本终态只剩开门态(65/66, 关门格全被后写覆盖)
+   时无 63 不触发——宁漏移不误移, 该形态只能靠后续版本位兜底。
+   接线: adventure.js advWorldSlot schema version 2 的 migrate 链(from ≥1 才
+   跑, v0 档早于门与玻璃板天然无门); 幂等由触发条件保证——移位后 63 清零,
+   落盘 _v:2 不再进链。 */
+function advDoorEditBuckets(sv) {/* 原始档 → 数组账本清单(三代档形, 原引用不拷贝) */
+  const out = [];
+  if (!sv || typeof sv !== 'object') return out;
+  if (Array.isArray(sv.edits)) out.push(sv.edits); /* 一代老档: 裸 edits 数组恒属 home */
+  else if (sv.edits && typeof sv.edits === 'object') {
+    for (const k in sv.edits) if (Array.isArray(sv.edits[k])) out.push(sv.edits[k]);
+  } /* 现行分桶对象: home/desert/snow/swamp/nether 各一数组 */
+  if (Array.isArray(sv.netherEdits)) out.push(sv.netherEdits); /* 二代老档: 顶层 nether 账 */
+  return out;
+}
+function advDoorIdsStale(sv) {/* 旧档判定: 任一账本格值 = 63(旧 B_DOOR, 今熄门) */
+  for (const arr of advDoorEditBuckets(sv)) {
+    for (const e of arr) {
+      if (!Array.isArray(e)) continue;
+      const v = e[1];
+      const id = (v && typeof v === 'object') ? v.id : v;
+      if (id === 63) return true;
+    }
+  }
+  return false;
+}
+function advDoorIdsMigrate(sv) {/* 原地移位 63~67 → +1; 无旧档特征原样返回 */
+  if (!advDoorIdsStale(sv)) return sv;
+  for (const arr of advDoorEditBuckets(sv)) {
+    for (const e of arr) {
+      if (!Array.isArray(e)) continue;
+      const v = e[1];
+      if (typeof v === 'number') {
+        if (v >= 63 && v <= 67) e[1] = v + 1;
+      } else if (v && typeof v === 'object' && typeof v.id === 'number' &&
+          v.id >= 63 && v.id <= 67) {
+        v.id += 1; /* 流体格 {id,lv} 同窗兜底(窗口内本无流体, 形状对齐 fluidCell) */
+      }
+    }
+  }
+  return sv;
+}
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, ADV_RING, ADV_HUT_C, ADV_FLATS, advRingAmp, advHeightAt,
@@ -2055,6 +2106,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_PORTAL, ADV_NETHER, advNetherBuild, advPortalFrame,
     advInPortal, advPortalSiteOk, advPortalExit,
     advIsDoor, advIsDoorLower, advDoorSiteOk, advDoorTogglePlan, advDoorBreakPlan,
+    advDoorIdsStale, advDoorIdsMigrate,
     ADV_WHEAT_GROW, advHoeOk, advPlantOk, advWheatNext, advRipenOk,
     ADV_RECIPE_UNLOCK, advUnlockedRecipes, advRecipeUnlockedNew};
 }

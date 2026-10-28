@@ -126,6 +126,13 @@ function advOreRegenDecode(v) {/* 矿位开采账归一(生态恢复 C 通道): 
   return out;
 }
 const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
+  /* v2(2026-10-28 门号段迁移): 熄门 B_PORTAL_DIM 占 63 把门段从 63~67 推到
+     64~68(5708c24), 间隙档的旧 id = 关门读作熄门(solid:false 能穿透)/开门读作
+     门上半(实心挡路)。migrate 链(from ≥1): advDoorIdsMigrate 检 63 铁证即整体
+     +1(判据与局限见 adventure-core 同名段), 落盘 _v:2 后不再进链; from 0 无
+     操作——v0 档早于门与玻璃板, 天然无门 id */
+  version: 2,
+  migrate: (s, from) => (from >= 1 ? advDoorIdsMigrate(s) : s),
   /* map: 当前主世界图键(老档缺省 home; nether 期间保持最后主世界图——维度不进档 D9,
      重进 pos=null → 该图回程门出生); pos(含 yaw)/hp: 玩家状态随世界档(仅主世界图随
      当前图存); furnaces: 每炉独立炉态(F1 拍板①, 炉键带图/界前缀); livestock: 牧场账
