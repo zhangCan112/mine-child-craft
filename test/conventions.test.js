@@ -146,3 +146,20 @@ test('规范: 模式文件零直写玩家六绑定 — 传送/出生走 ModeKit.
     });
   }
 });
+
+/* ---------- 第一人称手持视图装载序 (first-person-hand T2a) ----------
+   装载序 held-item → hand-view → avatar 是设计契约(docs/first-person-hand-design.md
+   Interface 块装载序注)。hand-view.js 对 HeldItems/CameraRig 全部调用期解析 —
+   序错了不抛错, boot 冒烟探不到, 只有源文本序断言能抓手滑挪行
+   (mode-registry.test.js 的 script 序断言同款口径)。 */
+test('规范: hand-view.js 装载序 held-item → hand-view → avatar(经典脚本顺序即依赖)', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const at = (f) => html.indexOf('src="js/' + f + '"');
+  for (const f of ['held-item.js', 'hand-view.js', 'avatar.js']) {
+    assert.ok(at(f) > 0, 'index.html 缺 script: js/' + f);
+  }
+  assert.ok(at('held-item.js') < at('hand-view.js'),
+      'hand-view.js 必须晚于 held-item.js 装载(消费 HeldItems)');
+  assert.ok(at('hand-view.js') < at('avatar.js'),
+      'hand-view.js 必须先于 avatar.js 装载(design Interface 装载序)');
+});
