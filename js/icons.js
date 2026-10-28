@@ -712,6 +712,24 @@ const CHEST_ART = [ // 箱子: 亮木盖 + 深色盖缝箍 + 中央金属锁扣
   '................',
   '................',
 ];
+const BAGUP_ART = [ // 大背包: 线提手 + 亮革盖 + 暗缝 + 主体金扣 + 双侧贴袋
+  '................',
+  '................',
+  '....ss....ss....',
+  '....ss....ss....',
+  '...LLLLLLLLLL...',
+  '..lLLLLLLLLLLl..',
+  '..lddddddddddl..',
+  '..mmmmKKKKmmmm..',
+  '..mmmmkKKkmmmm..',
+  '..mmmmKKKKmmmm..',
+  '..mmmmmmmmmmmm..',
+  '..mLLmmmmmmLLm..',
+  '..mLLmmmmmmLLm..',
+  '..mmmmmmmmmmmm..',
+  '..dddddddddddd..',
+  '................',
+];
 const TNT_ART = [ // TNT: 红柱 + 白标带 + 三个黑字块(16px 画不下字母)
   '................',
   '................',
@@ -1067,6 +1085,7 @@ const ITEM_PIX = {
   door: {art: DOOR_ART, map: {d: '#6b451f', l: '#caa06e', m: '#b1804f', k: '#4a4f57', K: '#d8dde5'}}, // 门(设计稿 §5.3): 板色与箱子同板
   glass_pane: {art: PANE_ART, map: {f: '#cfe8ef', g: 'rgba(205,235,245,0.30)', h: '#ffffff'}}, // 玻璃板: 框+透明芯, GLASS_ART 同板
   nether_portal: {art: PORTAL_ART, map: {o: '#2e2242', O: '#1b1426', l: '#8b3fd9', m: '#a86ef2', d: '#5c239c', s: '#e3c8ff'}}, // 下界并入探险 D3: 深色门框(B_OBSIDIAN 同调) + 紫色漩涡门面(B_PORTAL 同调)
+  bag_upgrade: {art: BAGUP_ART, map: {s: '#e0ded4', L: '#caa06e', l: '#e0b482', m: '#b1804f', d: '#6b451f', K: '#f0c53a', k: '#c79a22'}}, // 大背包(2026-10): 皮革系与箱子同板, 提手=线色, 金扣与数量角标同调
   /* 生态地图件(冒险模式生态地图设计稿 §6): 三花共用 FLOWER_ART 换色板 ·
      雪球复用 BALL_ART 换白色板 · 冰复用 GLASS_ART 形换冰色板(票据 T1) */
   snow: {art: SNOW_ART, map: {m: '#e8edf2', l: '#f8fafc', d: '#c8d2dc', S: '#ffffff'}},

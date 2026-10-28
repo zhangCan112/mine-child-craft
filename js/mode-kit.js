@@ -352,8 +352,10 @@ function sortInv(inv) {
   return inv;
 }
 
-/* 一期不点亮的配方 id(T6 备注: 原料/用途归二期, 模式层过滤口径收在面板) */
-const KIT_HIDDEN_RECIPES = ['bread', 'bone_meal', 'bow_item'];
+/* 一期不点亮的配方 id(T6 备注: 原料/用途归二期, 模式层过滤口径收在面板;
+   bag_upgrade=大背包「只扩一次」门禁——模式层未扩容时经 allow 放开, 已扩容
+   保持隐藏, 2026-10) */
+const KIT_HIDDEN_RECIPES = ['bread', 'bone_meal', 'bow_item', 'bag_upgrade'];
 
 /* 站点徽标(D8): table=工作台 furnace=二期烧炼站点配方预留 hand=无
    (设计稿 D8 定稿: 一期熔炉是走近点击的开面板交互, 非 station 门槛配方——
@@ -405,15 +407,19 @@ function kitChipHtml(id, need, have, lack, ratio) {
    只管创建与行为。
    cfg: doc(文档注入, Node 单测) · inv(背包引用, 背包区读数与 cellAt 查询)
         · boxCls(box 附加类, 如 'mkp-furnace') · headBtns(✕ 前的头钮
-        [{cls, onClick}], craft 的整理钮) · preClose(close 前置钩子, craft
-        退料收手) · onClose(✕/Esc 统一出口尾钩, 模式层做状态同步与回锁)
+        [{cls, onClick}], craft 的整理钮) · onDrop(槽号→丢弃意图, 提供则
+        加「丢弃」头钮——armed 态点背包格整摞扔出, 关面板/再点即收,
+        docs/bag-and-drop-design.md §1) · onArm(丢弃态切换通知, craft
+        收起手) · preClose(close 前置钩子, craft 退料收手) · onClose
+        (✕/Esc 统一出口尾钩, 模式层做状态同步与回锁)
         · onUnmount(卸载前置钩子, craft 停连做计时)
-   吐出: {doc, root, box, head, titleEl, headBtnEls, closeBtn, grid, hotrow,
-        cellEl, cellAt, renderInv, wirePut, paintChrome, show, hide, close,
-        unmount, onEsc} —— 内部卸载函数名 unmount(各面板返回对象负责别名
-        成 remove): 底座域不占用 remove 一词, 面板体内裸调 remove 即解析到
-        inventory-core 的槽级移除(不再同名遮蔽); refresh 不在底座(各面板
-        的重画范围不同), 但语义统一: 只重画内容, 开合态只有 show/hide 碰 */
+   吐出: {doc, root, box, head, titleEl, headBtnEls, dropBtn, closeBtn, grid,
+        hotrow, cellEl, cellAt, renderInv, wirePut, paintChrome, show, hide,
+        close, unmount, onEsc, dropArmed, dropIntercept} —— 内部卸载函数名
+        unmount(各面板返回对象负责别名成 remove): 底座域不占用 remove 一词,
+        面板体内裸调 remove 即解析到 inventory-core 的槽级移除(不再同名遮蔽);
+        refresh 不在底座(各面板的重画范围不同), 但语义统一: 只重画内容,
+        开合态只有 show/hide 碰 */
 function mkPanelShell(cfg) {
   const o = cfg || {};
   const doc = o.doc || document;
@@ -437,6 +443,35 @@ function mkPanelShell(cfg) {
     head.appendChild(btn);
     return btn;
   });
+
+  /* —— 丢弃态(2026-10, docs/bag-and-drop-design.md §1): onDrop 提供方才有
+     头钮; armed 时点背包格=整摞扔出(onDrop 报模式层), 空格/再点/关面板收。
+     图标 show 期注入(paintChrome), 与 ✕ 同一延迟加载口径 —— */
+  let dropMode = false;
+  const dropBtn = o.onDrop ? doc.createElement('button') : null;
+  function setDropMode(on) {
+    dropMode = on;
+    if (dropBtn) dropBtn.classList.toggle('on', on);
+    grid.classList.toggle('dropmode', on);
+    hotrow.classList.toggle('dropmode', on);
+    if (o.onArm) o.onArm(on);
+  }
+  if (dropBtn) {
+    dropBtn.className = 'mkp-drop';
+    dropBtn.onclick = () => setDropMode(!dropMode);
+    head.appendChild(dropBtn);
+  }
+  /* armed 查询与点击拦截: 面板各自接进背包格点击路径(wirePut 兜住熔炉/宝箱,
+     craft 的点选搬运状态机在 cellClick 里自查) */
+  function dropArmed() {
+    return dropMode && !!o.onDrop;
+  }
+  function dropIntercept(i) {
+    if (!dropArmed() || !inv.slots[i]) return false;
+    o.onDrop(i);
+    return true;
+  }
+
   const closeBtn = doc.createElement('button');
   closeBtn.className = 'mkp-x';
   closeBtn.onclick = ()=>close(); /* 统一出口: 隐藏+通知模式层(状态同步/回锁) */
@@ -473,11 +508,15 @@ function mkPanelShell(cfg) {
     for (let i = 0; i < HOTBAR_SLOTS; i++) hotrow.appendChild(wire(i));
   }
   /* 意图接线(熔炉/宝箱同口径): 点击背包格报 onPut(槽号) 意图 + 读被点物品
-     提示 + 重画; dimIf 可选(熔炉: 不可入炉物灰显预告) */
+     提示 + 重画; dimIf 可选(熔炉: 不可入炉物灰显预告); 丢弃态优先拦截 */
   function wirePut(onPut, redraw, dimIf) {
     return (i)=>{
       const d = cellEl(inv.slots[i], dimIf && dimIf(inv.slots[i]));
       d.onclick = ()=>{
+        if (dropIntercept(i) || dropArmed()) { // 丢弃态: 有摞扔摞, 空格不动
+          redraw();
+          return;
+        }
         const st = inv.slots[i]; /* 先取: onPut 后模式层会扣包 */
         if (onPut) onPut(i);
         kitHint(kitHintItem(st ? st.id : ''), doc); /* 读被点的那摞(空格静默) */
@@ -493,6 +532,7 @@ function mkPanelShell(cfg) {
   function paintChrome(titleHtml, extra) {
     titleEl.innerHTML = titleHtml;
     closeBtn.innerHTML = btnImg('close');
+    if (dropBtn) dropBtn.innerHTML = btnImg('trash') + '丢弃';
     if (extra) extra();
   }
 
@@ -505,6 +545,7 @@ function mkPanelShell(cfg) {
     if (doc.addEventListener) doc.addEventListener('keydown', onEsc, true); /* 面板开着: Esc=关面板, 不走菜单链 */
   }
   function hide() {
+    if (dropMode) setDropMode(false); // 关面板收丢弃态(重开不带武器)
     root.style.display = 'none';
     if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
   }
@@ -520,11 +561,13 @@ function mkPanelShell(cfg) {
   }
   function unmount() {
     if (o.onUnmount) o.onUnmount();
+    if (dropMode) setDropMode(false);
     if (doc.removeEventListener) doc.removeEventListener('keydown', onEsc, true);
     if (root.parentNode === doc.body) doc.body.removeChild(root);
   }
-  return {doc, root, box, head, titleEl, headBtnEls, closeBtn, grid, hotrow,
-    cellEl, cellAt, renderInv, wirePut, paintChrome, show, hide, close, unmount, onEsc};
+  return {doc, root, box, head, titleEl, headBtnEls, dropBtn, closeBtn, grid, hotrow,
+    cellEl, cellAt, renderInv, wirePut, paintChrome, show, hide, close, unmount,
+    onEsc, dropArmed, dropIntercept};
 }
 
 /* ---------- 背包+摆放台+配方书面板(crafting-grid 设计稿 §5, T10 改造) ----------
@@ -558,6 +601,12 @@ function mkCraftPanel(opts) {
      关面板退料收手 + 卸载停连做; 组装序(main/quest/摆放台/配方书)归本段 */
   const shell = mkPanelShell({doc, inv,
     headBtns: [{cls: 'mkp-sort', onClick: onSortClick}],
+    onDrop: o.onDrop, /* 丢弃头钮(提供才现身, 2026-10) */
+    onArm: (on) => { // 进丢弃态先收起手: 起手格语义与丢弃互斥
+      if (on) {
+        pickIdx = -1; pickCell = -1;
+      }
+    },
     preClose: onPreClose, onClose: o.onClose, onUnmount: stopPress});
   const root = shell.root;
   const main = doc.createElement('div');
@@ -621,6 +670,11 @@ function mkCraftPanel(opts) {
      有起手时点另一格=搬去那里(onMove 报模式层执行), 点原格=放下;
      起手格被合成掏空则本次点击改当新起手 —— */
   function cellClick(i) {
+    if (shell.dropArmed()) { // 丢弃态优先: 有摞报 onDrop, 空格不动(不进搬运状态机)
+      shell.dropIntercept(i);
+      refresh();
+      return;
+    }
     if (pickCell >= 0) { // 摆放格起手 → 点背包格: 整摞退回(经 add, 零损失)
       backCell(pickCell, i);
       return;
@@ -986,8 +1040,10 @@ function mkFurnacePanel(opts) {
   const o = opts || {};
   const doc = o.doc || document;
   const inv = o.inv;
-  /* 公共骨架(遮罩/头/✕/背包格区/Esc/生命周期)在底座, 本段只剩炉子差异段 */
-  const shell = mkPanelShell({doc, inv, boxCls: 'mkp-furnace', onClose: o.onClose});
+  /* 公共骨架(遮罩/头/✕/背包格区/Esc/生命周期)在底座, 本段只剩炉子差异段;
+     onDrop 透传底座(丢弃头钮, 2026-10) */
+  const shell = mkPanelShell({doc, inv, boxCls: 'mkp-furnace',
+    onDrop: o.onDrop, onClose: o.onClose});
   const root = shell.root;
   const box = shell.box;
   box.appendChild(shell.head);
@@ -1139,8 +1195,10 @@ function mkChestPanel(opts) {
   const o = opts || {};
   const doc = o.doc || document;
   const inv = o.inv;
-  /* 公共骨架(遮罩/头/✕/背包格区/Esc/生命周期)在底座, 本段只剩箱格/扩容行 */
-  const shell = mkPanelShell({doc, inv, boxCls: 'mkp-chest', onClose: o.onClose});
+  /* 公共骨架(遮罩/头/✕/背包格区/Esc/生命周期)在底座, 本段只剩箱格/扩容行;
+     onDrop 透传底座(丢弃头钮, 2026-10) */
+  const shell = mkPanelShell({doc, inv, boxCls: 'mkp-chest',
+    onDrop: o.onDrop, onClose: o.onClose});
   const root = shell.root;
   const box = shell.box;
   box.appendChild(shell.head);

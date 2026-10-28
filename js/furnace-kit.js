@@ -34,6 +34,7 @@
        onRefundLeft(posKey, leftover) 挖炉满包余量(掉落物政策, 与背包
          政策分缝独立; 退出收场 refundAll 静默——不走此缝也不发
          onInvTouched=dev 口径) ·
+       onDrop(槽号) 面板「丢弃」头钮透传(可选; 未提供=无钮, 体验馆同此) ·
        onMade(posKey, 新炉态, 件数增量) 烧成记账(任务计数/TTS/观感
          归消费方)
      station: map(炉态 Map<posKey,{input,fuel,out,heat,prog}>, 裸形状
@@ -91,6 +92,7 @@ function mkFurnaceStation(opts) {
     onAutoFill: (plan) => st.autoFill(plan),
     onPut: (i) => st.manualPut(i), /* 手动放入(背包格点击): 路由/扣加归本 kit */
     onSlot: (name) => st.slotClick(name), /* 炉槽点击: 取回(料/燃料)/收取(产物) */
+    onDrop: o.onDrop, /* 丢弃头钮透传(2026-10; 未提供=无钮, 体验馆同此) */
     onClose: () => st.close()});
   const furnaces = new Map(); /* posKey → 炉态 {input,fuel,out,heat,prog}; 引用跨 init 稳定, reset() 复位不换 Map */
   let at = null; /* 面板绑定的炉 posKey(面板开着时非 null) */

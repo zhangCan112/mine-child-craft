@@ -17,7 +17,8 @@ function loadInv() {
   }
   const get = vm.runInContext('(k) => eval(k)', ctx); // 未实现符号 → undefined(红在断言处)
   const names = ['ITEMS', 'stackMax', 'mkStack', 'mkInventory', 'add', 'count', 'canAfford',
-    'take', 'remove', 'moveSlot', 'damageTool', 'serialize', 'deserialize', 'HOTBAR_SLOTS', 'MAIN_SLOTS', 'INV_SLOTS'];
+    'take', 'remove', 'moveSlot', 'damageTool', 'serialize', 'deserialize', 'HOTBAR_SLOTS', 'MAIN_SLOTS', 'INV_SLOTS',
+    'BAG_EXPAND_SLOTS', 'BAG_MAX_SLOTS'];
   const h = {};
   for (const n of names) {
     try {
@@ -351,4 +352,48 @@ test('deserialize: 老档缺 _v / 超量数量也按形状校验收容(数量钳
   const h = loadInv();
   const back = h.deserialize({slots: [{id: 'coal', n: 999}].concat(new Array(26).fill(null))}); // 超 64 钳回
   assert.deepStrictEqual({...back.slots[0]}, {id: 'coal', n: 64});
+});
+
+/* ============ 可变容量(大背包扩容, 2026-10 docs/bag-and-drop-design.md §2) ============ */
+
+test('mkInventory: 容量可指定(钳制 [HOTBAR, BAG_MAX]), 缺省/非法回落基础 27', () => {
+  const h = loadInv();
+  assert.strictEqual(h.BAG_EXPAND_SLOTS, 6);
+  assert.strictEqual(h.BAG_MAX_SLOTS, 33);
+  assert.strictEqual(h.mkInventory(33).slots.length, 33); // 扩容档
+  assert.strictEqual(h.mkInventory(40).slots.length, 33, '超上限钳回 33');
+  assert.strictEqual(h.mkInventory(3).slots.length, 9, '低于快捷栏数钳回 9');
+  assert.strictEqual(h.mkInventory(NaN).slots.length, 27, '非法回落 27');
+  assert.strictEqual(h.mkInventory('33').slots.length, 27, '非数字回落 27');
+});
+
+test('扩容包全规则: add 填满 33 格 / take 跨全长扣料 / remove 照常', () => {
+  const h = loadInv();
+  const inv = h.mkInventory(33);
+  // add: 33 格每格顶格 64 → 33×64 全收下(基础 27 会提前拒)
+  for (let i = 0; i < 33; i++) assert.strictEqual(h.add(inv, 'coal', 64), 0);
+  assert.strictEqual(h.add(inv, 'coal', 1), 1, '33 格全满才拒');
+  // take: 全长跨槽扣料(33×64=2112 整包扣空)
+  assert.strictEqual(h.take(inv, {coal: 2112}), true);
+  assert.strictEqual(h.count(inv, 'coal'), 0);
+  // remove: 扩容区槽位照常
+  h.add(inv, 'diamond', 3);
+  inv.slots[30] = {id: 'iron_ingot', n: 2};
+  assert.deepStrictEqual({...h.remove(inv, 30)}, {id: 'iron_ingot', n: 2});
+  assert.strictEqual(inv.slots[30], null);
+});
+
+test('serialize/deserialize: 33 槽往返一致; 旧 27 档读回仍 27; 越界长度=损坏回落空包', () => {
+  const h = loadInv();
+  const big = h.mkInventory(33);
+  h.add(big, 'leather', 10);
+  big.slots[32] = {id: 'sword_iron', n: 1, dur: 500}; // 扩容区末格
+  const back = h.deserialize(h.serialize(big));
+  assert.strictEqual(back.slots.length, 33, '扩容档往返保持 33');
+  assert.deepStrictEqual(snap(back.slots[32]), {id: 'sword_iron', n: 1, dur: 500});
+  // 旧档(27)读回 27 — 老档零迁移
+  const old = h.deserialize({_v: 1, slots: new Array(27).fill(null)});
+  assert.strictEqual(old.slots.length, 27);
+  // 越界: >33 或 <9 = 整包损坏 → 基础空包
+  assert.strictEqual(h.deserialize({slots: new Array(40).fill(null)}).slots.length, 27);
 });

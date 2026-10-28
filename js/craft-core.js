@@ -34,8 +34,9 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 40 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
-      雪球 T9 + 门/玻璃板 2 条 + 补链 3 条, 图案全部逐条查证自 minecraft.wiki,
+   RECIPES 配方表 — 41 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
+      雪球 T9 + 门/玻璃板 2 条 + 补链 3 条 + 大背包 1 条, 图案逐条查证自
+      minecraft.wiki——大背包为原创件, docs/bag-and-drop-design.md §2),
       见 docs/mc-crafting-grid-research.md §3 与 docs/door-window-research.md)
    条目形状: id 配方卡键 · out {item, n} 产物 · station 'hand'|'table'
    · shape 图案(crafting-grid §3):
@@ -156,6 +157,11 @@ const RECIPES = [
   // 玻璃板(MC 正典 glass_pane.json): 6 玻璃 3 列×2 行 → 16 块; 需 3 列 → 台级; 烧沙→玻璃链现成(SMELTS)
   {id: 'glass_pane', out: {item: 'glass_pane', n: 16}, station: 'table',
     shape: {rows: [['glass', 'glass', 'glass'], ['glass', 'glass', 'glass']]}},
+  // 大背包(2026-10, docs/bag-and-drop-design.md §2): 2 线提手 + 6 皮革包身
+  //   (图案借原版 1.17 bundle 环形——兔皮换本游戏已开放的皮革; 皮革首个合成出口,
+  //   farm-and-recipe D4 挂账清偿); 手持使用扩容 +6 主格, 一次性(已扩容配方卡隐藏)
+  {id: 'bag_upgrade', out: {item: 'bag_upgrade', n: 1}, station: 'table',
+    shape: {rows: [['string', null, 'string'], ['leather', 'leather', 'leather'], ['leather', 'leather', 'leather']]}},
   // 下界传送门(下界并入探险 D3): 8 金锭环形+中心钻石, 全表最贵合成压轴; 放下长出整座门(结构放置, 探险壳拦截)
   {id: 'nether_portal', out: {item: 'nether_portal', n: 1}, station: 'table',
     shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', 'diamond', 'gold_ingot'], ['gold_ingot', 'gold_ingot', 'gold_ingot']]}},

@@ -1436,6 +1436,7 @@ body.dev-on .mode-card.dev {
 }
 
 .mkp-sort,
+.mkp-drop,
 .mkp-x,
 .mkp-autofill {
   font-size: 15px;
@@ -1450,6 +1451,7 @@ body.dev-on .mode-card.dev {
 
 /* 面板按钮/页签/徽标/标题的像素图标分档 */
 .mkp-sort .bi,
+.mkp-drop .bi,
 .mkp-x .bi,
 .mkp-autofill .bi,
 .mkp-badge .bi,
@@ -1471,9 +1473,27 @@ body.dev-on .mode-card.dev {
 }
 
 .mkp-sort:active,
+.mkp-drop:active,
 .mkp-autofill:active {
   background: rgb(124 252 0 / 35%);
   transform: translateY(1px); /* MC 按钮四态口径: 按下整钮下沉 1px */
+}
+
+/* 丢弃态(2026-10): 头钮点亮 + 背包格红边警示——「现在点格子=扔出去」的大状态 */
+.mkp-drop.on {
+  background: rgb(216 58 46 / 55%);
+  border-color: rgb(255 120 100 / 85%);
+}
+
+.mkp-grid.dropmode .mkp-cell,
+.mkp-hotrow.dropmode .mkp-cell {
+  border-color: rgb(216 58 46 / 60%);
+}
+
+.mkp-grid.dropmode .mkp-cell:hover,
+.mkp-hotrow.dropmode .mkp-cell:hover {
+  border-color: rgb(255 120 100 / 90%);
+  background: rgb(216 58 46 / 25%);
 }
 
 .mkp-x {

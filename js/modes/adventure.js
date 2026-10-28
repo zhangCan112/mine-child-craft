@@ -29,8 +29,9 @@
    任务/宝箱, 触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档
    adapter 缺省装配, 触点口径见该缝头注释)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
-     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(28 键:
-     状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口;
+     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(31 键:
+     状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口/丢弃与扩容
+     执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
       adventure-maps-core 的 ADV_MAPS/advMapArrive/advMapArriveAt/
@@ -501,9 +502,35 @@ function advStationGate() {/* 合成站点门禁缝(U2, craftPanel 的 station o
   return advProfile.stationAlwaysOpen || advStationOk();
 }
 function advLeftoverSpawn(items, x, y, z) {/* 满包余量政策缝(U2): 缺省掉地上拾回(零损失,
-    合成 leftover/关面板退料/挖炉退料三处同口径); U4 体验馆 leftoverDrops=false 静默丢弃 */
+    合成 leftover/关面板退料/挖炉退料三处同口径); U4 体验馆 leftoverDrops=false 静默丢弃。
+    存留期用丢弃件同款 10 分钟(刻意存放的余量比挖落件更耐等) */
   if (!advProfile.leftoverDrops) return;
-  for (const it of items) Drops.spawn(it.id, it.n, x, y, z);
+  for (const it of items) Drops.spawn(it.id, it.n, x, y, z, {life: ADV_DROP_LIFE});
+}
+
+/* —— 丢弃链常量(2026-10, docs/bag-and-drop-design.md §1) —— */
+const ADV_DROP_REPICK_T = 1.5; /* 丢弃静默秒: 扔出后 1.5s 内不吸附(MC 拾取延迟儿童化) */
+const ADV_DROP_LIFE = 600; /* 丢弃/余量件存留 10 分钟(挖落件 3 分钟不变——刻意存放期更长) */
+function advDropSlot(slot) {/* 背包/快捷面板「丢弃」: 整摞从包里取出 → 朝玩家面朝方向
+    抛出(掉落物实体库接管落地弹跳/贴地浮动/真空吸附), holdFar+stillT 双门=
+    「走远了才捡得回」——站着不动不吃回去; 工具耐久随件, 捡回不重铸(mkStack
+    红线)。面板骨架(mkPanelShell 丢弃头钮)驱动, 政策/话术/存档在本层 */
+  const st = advInv.slots[slot];
+  if (!st) return;
+  const dropped = remove(advInv, slot); // 整摞(inventory-core 槽级移除, 耐久随拷贝走)
+  if (!dropped) return;
+  const fx = -Math.sin(yaw); const fz = -Math.cos(yaw); // 前向单位向量(voxel 移动同式)
+  Drops.spawn(dropped.id, dropped.n, pos.x + fx * 1.1, pos.y + 0.8, pos.z + fz * 1.1, {
+    vx: fx * 2.2, vz: fz * 2.2, /* 定向前抛(覆盖随机散布) */
+    stillT: ADV_DROP_REPICK_T, holdFar: true, thrown: true,
+    life: ADV_DROP_LIFE,
+    dur: (dropped.dur != null) ? dropped.dur : undefined, /* 耐久随件(undefined=无) */
+  });
+  advSyncHotbar();
+  advStore.saveBag();
+  advSfx('snow_throw'); /* 掷出「噗」(与雪球/播种同款脱手音) */
+  const name = (ITEMS[dropped.id] && ITEMS[dropped.id].name) || dropped.id;
+  advToast('👋 ' + name + ' ×' + dropped.n + ' 扔在地上啦');
 }
 function advOnCraft(out) {/* 合成成功(T13, D8): TTS 具体表扬(产物名入句, 夸努力口径) +
   leftover 转脚下掉落物(背包满零惩罚) — T15 任务进度在此挂合成事件;
@@ -524,15 +551,22 @@ const advPanel = ModeKit.mkCraftPanel({
       (U4 init 前换装 profile 即生效, 不受本装配期限制); KIT_HIDDEN_RECIPES 是
       mode-kit 顶层 const(Node 模块态不可见, typeof 守卫, showroom 先例)。
       探险缺省=挂账解锁子集(farm-and-recipe D2: 面包=首收小麦/骨粉=首杀骷髅/
-      弓=首杀蜘蛛, 谓词在 adventure-core); 体验馆 hiddenRecipesOpen 仍全开 */
+      弓=首杀蜘蛛, 谓词在 adventure-core); 体验馆 hiddenRecipesOpen 仍全开。
+      大背包「只扩一次」门禁(2026-10): 未扩容时放开卡片, 已顶格即隐藏——
+      隐藏配方不参与摆放匹配, 连误合成都不会发生 */
     if (advProfile.hiddenRecipesOpen && typeof KIT_HIDDEN_RECIPES !== 'undefined') {
       return KIT_HIDDEN_RECIPES.slice();
     }
-    return typeof advUnlockedRecipes === 'function' ?
+    const base = typeof advUnlockedRecipes === 'function' ?
       advUnlockedRecipes(ADV.quest.counts) : undefined;
+    if (advInv.slots.length < BAG_MAX_SLOTS) {
+      return (base || []).concat(['bag_upgrade']);
+    }
+    return base;
   },
   onCraft: advOnCraft,
   onMove: (from, to) => advInvMove(from, to), /* 背包格点选搬运(政策在本层, 面板只管格子) */
+  onDrop: (slot) => advDropSlot(slot), /* 丢弃头钮→整摞扔地上(2026-10, 政策在 advDropSlot) */
   onGridMove: () => {/* 摆放台动了背包(摆入/退回/摆入卡备料): 快捷栏+在手表征同步 + 存档 */
     advSyncHotbar();
     advSyncHeldVisual(); /* 起手槽可能是选中槽: 数量变化观感安静跟进 */
@@ -556,6 +590,7 @@ const advPanel = ModeKit.mkCraftPanel({
    (F1 持久化照旧, encode/decode 在本文件世界档段) */
 const advFurnace = FurnaceKit.mkFurnaceStation({
   inv: advInv, /* 探险背包: 引用跨 load 稳定(对象供给形态) */
+  onDrop: (slot) => advDropSlot(slot), /* 炉面板丢弃头钮(2026-10, 与背包面板同政策) */
   onPanel: (isOpen) => {/* 开合配套: 开=放鼠标点面板(解锁不弹菜单: onMenu 守卫), 收=回锁 */
     if (isOpen) advFreeMouse();
     else advRelock();
@@ -592,6 +627,7 @@ const advFurnace = FurnaceKit.mkFurnaceStation({
 const advChestPanel = ModeKit.mkChestPanel({inv: advInv, chest: () => advChest,
   next: () => advChestNext(advChest.size), have: (id) => count(advInv, id),
   onPut: (i) => advChestDeposit(i), onTake: (i) => advChestWithdraw(i),
+  onDrop: (slot) => advDropSlot(slot), /* 箱面板丢弃头钮(2026-10, 与背包面板同政策) */
   onExpand: () => advChestExpand(), onClose: () => advChestClose()});
 /* 指针锁配套(桌面; 触屏无此概念): 开面板放鼠标出来点卡片 — 解锁事件不弹菜单
    (onMenu 有面板守卫收 overlay); 关面板在用户手势里回锁, 游戏无缝继续 */
@@ -705,7 +741,7 @@ function advBagTick(dt) {/* 背包快满提醒(S4②): 占用槽经纯函数判 
   advBagT = ADV_BAG_CHECK_T;
   let used = 0;
   for (const s of advInv.slots) if (s) used++;
-  const r = advBagFullStep(used, advBagArmed);
+  const r = advBagFullStep(used, advBagArmed, advInv.slots.length); /* 容量感知(扩容档 30/33 才提醒) */
   advBagArmed = r.armed;
   if (r.fire) {
     /* 引导链 v2 联动: 已放置过箱子(任务链教过的收纳机制)→提醒指向箱子,
@@ -1379,8 +1415,8 @@ function advHookEntityCbs() {
     }
     for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
   });
-  Drops.onCollect((id, n) => {/* 收集并线(T12×T14): 入包/镜像/逐件 toast(T12) → 3s 合并播报窗(T14) */
-    if (!advOnCollect(id, n)) return false; /* 满包拒返 false → 1.2s 冷却重试(D6) */
+  Drops.onCollect((id, n, dur) => {/* 收集并线(T12×T14): 入包/镜像/逐件 toast(T12) → 3s 合并播报窗(T14) */
+    if (!advOnCollect(id, n, dur)) return false; /* 满包拒返 false → 1.2s 冷却重试(D6) */
     advPickBuf.set(id, (advPickBuf.get(id) || 0) + n); /* 并入 3s 合并播报窗 */
     advPickT = ADV_PICKUP_WINDOW;
   });
@@ -1486,6 +1522,7 @@ function advSceneLeave() {/* 离开当前场景的共通清单: 世界无关观�
   advTreeRegen.clear(); /* 凋零树位恢复计时同不跨场(同款串档防线) */
   advFuses.length = 0; /* 已点燃的 TNT 不跨场引爆(会在新图坐标起爆——串档事故) */
   Mobs.clear(); /* 怪/掉落/箭不跨场: 门只渡人(下界无怪, 回主世界重播) */
+  advReclaimThrown(); /* 丢弃件切图前收回包(零损失红线: 扔下的宝贝不换图蒸发) */
   Drops.clear();
   advArrows.clear();
   advSnowballs.clear(); /* 雪球同收(T9: 双实例清场纪律) */
@@ -2054,10 +2091,35 @@ function advTryThrowSnowball() {
   return true; /* 手持雪球: 点击恒算投掷 attempt, 不落放置 */
 }
 
+/* 大背包使用器(2026-10, docs/bag-and-drop-design.md §2): 手持 bag_upgrade 使用
+   (右键使用档/触屏专用键两处触达, ItemUseRegistry 'expand_bag' 档) → 背包就地
+   +BAG_EXPAND_SLOTS 空槽(27→33, push 保引用稳定——面板/快捷栏闭包不脱钩);
+   一次性=已顶格礼貌拒绝不消耗(配方卡也已隐藏, 这是孩子硬留旧件时的兜底话术) */
+function advTryExpandBag() {
+  const slot = advHb.sel;
+  const s = advInv.slots[slot];
+  if (!s || s.id !== 'bag_upgrade') return false;
+  if (advInv.slots.length >= BAG_MAX_SLOTS) {
+    advSpeak('背包已经是最大的啦！');
+    advToast('🎒 背包已经扩过容啦');
+    return true; /* 恒算使用 attempt 不落放置(弓同口径), 也不消耗 */
+  }
+  for (let i = 0; i < BAG_EXPAND_SLOTS; i++) advInv.slots.push(null);
+  remove(advInv, slot, 1); /* 消耗手持件(农田链同款扣件) */
+  advSyncHotbar();
+  advStore.saveBag(); /* 扩容即存: slots 长度 33 随背包存档落盘(重进不缩回; ADR 0002 键面在背包壳) */
+  advTally('expand_bag', 1);
+  advSfx('level'); /* 晋升琶音(仪式音): 背包变大的庆祝感 */
+  advSpeak('哇！背包变大啦，可以装更多宝贝了！');
+  advToast('🎒 背包扩容成功！多了 6 格');
+  return true;
+}
+
 const advUseRun = {shoot: () => advTryShootBow(),
-  plant: () => advTryPlant(), ripen: () => advTryRipen()}; /* 使用动作注册表 act 键 → 执行器
+  plant: () => advTryPlant(), ripen: () => advTryRipen(),
+  expand_bag: () => advTryExpandBag()}; /* 使用动作注册表 act 键 → 执行器
    (行为不进注册表——「战斗政策在模式层」红线, 手持物注册表词条同款口径;
-    plant/ripen 为农田链两键, farm-and-recipe D3) */
+    plant/ripen 为农田链两键, farm-and-recipe D3; expand_bag 为扩容件, 2026-10) */
 function advTryUseHeld() {/* 使用档通用分派(2026-10-28 Route A): 选中物品在使用动作
    注册表有条目 → 逐 act 调执行器, 有使用动作的物品点击恒算使用 attempt
    不落放置(弓同雪球口径); 未注册物品返 false 回落吃/放置链 */
@@ -2160,8 +2222,24 @@ function advTryRipen() {
 
 /* 掉落物收集回调(Drops.onCollect, init 挂/cleanup 随 Drops.clear 解除):
    入包并堆, 一件都放不下才拒返 false(掉落物停地上冷却重试, D6 背包满);
+   dur 非 null=玩家丢弃的耐久件(工具/灯笼): 空槽直放不经 add——mkStack
+   会把耐久重铸满(捡回即白得耐久=作弊), 与 advChestTake 同一红线;
    收集 TTS 合并播报(3s 节流)归 T14, 这里只 toast+音效 */
-function advOnCollect(itemId, n) {
+function advOnCollect(itemId, n, dur) {
+  if (dur != null) {
+    const i = advInv.slots.findIndex((t) => !t);
+    if (i < 0) {
+      advToast('🎒 背包满啦');
+      return false;
+    }
+    advInv.slots[i] = {id: itemId, n, dur}; /* 耐久原样回家 */
+    advTally('collect_' + itemId, n);
+    advSyncHotbar();
+    advSfx('pick');
+    const dname = (ITEMS[itemId] && ITEMS[itemId].name) || itemId;
+    advToast('🎒 捡回 ' + dname + ' ×' + n);
+    return true;
+  }
   const left = add(advInv, itemId, n);
   if (left >= n) {
     advToast('🎒 背包满啦');
@@ -2173,6 +2251,38 @@ function advOnCollect(itemId, n) {
   const name = (ITEMS[itemId] && ITEMS[itemId].name) || itemId;
   advToast('🎒 捡到 ' + name + ' ×' + n);
   return true;
+}
+
+/* 丢弃件退场回收(2026-10, docs/bag-and-drop-design.md §1): 切图/重进/退出
+   模式前, 地上还没被捡回的丢弃件(thrown 旗)原样收回归包——「扔出去的东西
+   不因退场蒸发」(零损失红线; 挖落/怪落件不在册, 沿用旧到期口径)。装不下的
+   部分(整摞无空槽/并堆余量)转普通掉落物留地上: 摘掉 thrown/holdFar 旗,
+   掐断「回收→再回收」循环, 按旧口径到点静默消失 */
+function advReclaimThrown() {
+  let touched = false;
+  for (const d of Drops.list()) {
+    if (!d.thrown || d.gone) continue;
+    d.gone = true; /* 先按收走记账(不触发收集回调——退场播报没有意义) */
+    if (d.dur != null) {/* 耐久件: 空槽直放, 不经 add(mkStack 重铸红线) */
+      const i = advInv.slots.findIndex((t) => !t);
+      if (i >= 0) {
+        advInv.slots[i] = {id: d.id, n: d.n, dur: d.dur};
+        touched = true;
+        continue;
+      }
+    } else {
+      const left = add(advInv, d.id, d.n);
+      if (left === 0) {
+        touched = true;
+        continue;
+      }
+      d.n = left; /* 部分入包: 余量留地上 */
+    }
+    d.gone = false;
+    d.thrown = false;
+    d.holdFar = false;
+  }
+  if (touched) advSyncHotbar();
 }
 
 /* ---------- 挖掘进度环(conic-gradient 圆环, 自建 DOM 不依赖 index.html) ----------
@@ -2843,6 +2953,7 @@ const AdventureMode = mkMode({
     advBagT = ADV_BAG_CHECK_T; /* 首查在进场半秒后(欢迎语音先落地不被顶掉) */
     /* —— 巢穴战斗段(T14): 清残留 → 重挂引擎回调(clear 会解除, 每次进场重挂) → 三巢首刷 */
     Mobs.clear();
+    advReclaimThrown(); /* 重进/换图回收丢弃件(零损失红线, 同 advSceneLeave 口径) */
     Drops.clear(); /* 重进清残留掉落物(挖掘/击杀两链共用; 并解除旧收集回调) */
     advArrows.clear(); /* 上一场的箭不渗进来 */
     advSnowballs.clear(); /* 上一场的雪球不渗进来(T9) */
@@ -2902,6 +3013,7 @@ const AdventureMode = mkMode({
       advBubbles.dispose(); advBubbles = null; /* 溺气泡条收 DOM(liquid D10) */
     }
     Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
+    advReclaimThrown(); /* 退出模式前收回丢弃件(零损失红线): 未捡回的原样回家 */
     Drops.clear(); /* 清掉落物+解除收集回调 */
     advArrows.clear(); /* 箭矢网格一并摘除 */
     advSnowballs.clear(); /* 雪球网格一并摘除(T9) */
@@ -3108,7 +3220,7 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advGetInv: () => advInv, advGetPEnt, advMine, advSaplings, advSleep,
   heightAt: advHeightAt, /* T5 圈层高度场(建场件与测试共用的唯一高度权威) */
   advFurnace, advFlameCount: () => advFlames.size,
-  advBreakBlock, advOnCraft, advInvMove,
+  advBreakBlock, advOnCraft, advInvMove, advDropSlot, advTryExpandBag, advReclaimThrown,
   advChestDeposit, advChestWithdraw, advChestExpand, advPanelClose,
   advStationOk, advNightRead, advQuestPaint, advSlimeWaterOk,
   advSetDim, advSetMap, advSceneEdits,
