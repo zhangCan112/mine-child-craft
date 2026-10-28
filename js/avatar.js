@@ -59,7 +59,7 @@ const Avatar = (() => {
      高度 equipH 1→0 下沉, 沉底换物, 0→1 抬起; 目标变更从当前高度
      续沉(mainHandHeight ±0.4/tick 的折算, 全程 ≈0.28s)。 */
   const ARM_R_Y0 = armR.position.y; // 右臂基高(下沉基准, 官方肩枢轴 22px)
-  const EQUIP_HALF = 0.14; // 半程秒数
+  const EQUIP_HALF = HeldItems.equipHalf; // 半程秒数(收口 held-item.js, 与 HandView 同源, design D6)
   const EQUIP_DIP = 0.2; // 下沉量(MC -0.6 格按本仓库手臂尺度折算)
   let heldTarget = null; // 落定后的手持物 id; null=空手
   let equipH = 1; // 装备高度 0..1: 1=持稳, 0=沉底(换物点)

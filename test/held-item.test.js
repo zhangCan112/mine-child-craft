@@ -27,6 +27,13 @@ test('默认手持物: PLAYER.heldItem 指向 defs 里的合法条目', () => {
   assert.ok(HeldItems.defs[PLAYER.heldItem], 'defs 里应有 ' + PLAYER.heldItem);
 });
 
+/* ============ 两层共享动画参数: equip 半程秒数收口一份 (design D6) ============ */
+
+test('EQUIP_HALF 值锚: HeldItems.equipHalf === 0.14(Avatar/HandView 装备动画两层同拍, 防漂移)', () => {
+  const {HeldItems} = loadHeld();
+  assert.strictEqual(HeldItems.equipHalf, 0.14);
+});
+
 test('剑在注册表: 下界「进下界换剑」依赖它(Avatar.setItem 未知键会静默回落空手)', () => {
   const {HeldItems} = loadHeld();
   const sword = HeldItems.defs['sword'];

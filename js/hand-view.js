@@ -13,8 +13,8 @@
      恰一次: 推进动画+可见性自判(隐藏帧只推进不渲染) / render(renderer,
      camera) 恰在主渲染之后一次: 可见=清深度通道, 否则 no-op。
    依赖(均经全局名, 调用期解析): held-item.js 的 HeldItems(装载序先于本
-     文件), camera-rig.js 的 CameraRig(mode 读取; mounted 按 typeof 守卫,
-     getter 本体 T3 落地), voxel.js 的 vel/onGround/yaw/pitch(bob 与鼠标
+     文件), camera-rig.js 的 CameraRig(mode/mounted 读取, mounted 为 T3
+     落地的 getter), voxel.js 的 vel/onGround/yaw/pitch(bob 与鼠标
      滞后自读, 引擎同侪合法), config.js 的 PLAYER(speed 步频归一),
      lib/three.min.js(THREE 顶层装配须先载)。
    可测性: THREE 顶层装配(同 avatar.js 惯例), Node 不直测, 由
@@ -40,7 +40,7 @@ const HandView = (() => {
   handScene.add(handRoot);
 
   /* ---------- 动态四件常数 (design D6 口径, 出处逐条标注; 调参不判红) ---------- */
-  const EQUIP_HALF = 0.14; /* 半程秒数: 与 Avatar EQUIP_HALF 同值, 两层同拍(design D6) */
+  const EQUIP_HALF = HeldItems.equipHalf; /* 半程秒数: 收口 held-item.js, 与 Avatar 同源两层同拍(design D6) */
   const EQUIP_DIP = 0.6; /* 下沉量(格): 正典 ITEM_HEIGHT_SCALE/ARM_HEIGHT_SCALE
      = −0.6 视空间直取, 纯 y 轴无旋转(调研 Q5, design D6) */
   const LAG_FACTOR = 0.1; /* 鼠标滞后施加系数: 正典 (视角−平滑)×0.1(调研 Q1.5
@@ -114,7 +114,11 @@ const HandView = (() => {
   let heldId = null; /* 当前声明目标(幂等基线; null=空手) */
   let itemMesh = null; /* 已挂载网格(Group|null; null=空手, 只画裸臂) */
 
-  function mountItem() {/* 沉底瞬间的实际装配: HeldItems.swap 释放旧+挂新 */
+  function mountItem() {/* 沉底瞬间的实际装配: swap 只 dispose 不摘父节点,
+      摘除旧组归施加侧(同 Avatar.mountItem 契约; remove(null) 是安全
+      no-op, 漏摘则旧组仍挂 itemSlot 照常渲染成幽灵网格, 破坏「空手=
+      仅裸臂」T2a) */
+    itemSlot.remove(itemMesh);
     heldDef = HeldItems.defFor(heldId); /* defFor 产物保证带 fp(T1 兜底); 空槽→null */
     itemMesh = HeldItems.swap(itemMesh, heldDef);
     if (itemMesh) {/* def.fp 两族姿态 rot→pos→scale 施于视空间(design D6) */
@@ -140,11 +144,11 @@ const HandView = (() => {
 
   /* ---------- 可见性自判 (design D5) ----------
      camDist=0 有两义(第一人称/载具锚), 只看 mode 分不开 → 还须非驾驶。
-     CameraRig.mounted 是 T3 的只读 getter: 本票按 typeof 守卫读取,
-     undefined 视作未挂载; 不自加 getter(票面归 T3)。 */
+     CameraRig.mounted 读 T3 落地的只读 getter: 装载序 camera-rig 先于
+     本文件, 直接读取(T2a 的 typeof 过渡守卫随 T3 落地移除)。 */
   function visibleNow() {
     if (CameraRig.mode !== 0) return false;
-    return !(typeof CameraRig.mounted !== 'undefined' && CameraRig.mounted);
+    return !CameraRig.mounted;
   }
 
   let visible = false; /* 最近一次 update 的可见性(隐藏帧 render=no-op) */

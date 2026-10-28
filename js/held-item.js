@@ -26,6 +26,12 @@ const HELD_BARE = {
   sway: {idle: 0.03},
 };
 
+/* 装备动画半程秒数(两层共享, design D6): 第三人称 Avatar 与第一人称
+   HandView 的 equip 下沉/抬起同拍——正典 mainHandHeight ±0.4/tick ≈
+   0.15s 半程的折算(docs/mc-held-item-render-research.md Q4)。此前
+   avatar.js/hand-view.js 各持一份 0.14 靠注释互指, 收口一份防两层漂移。 */
+const HELD_EQUIP_HALF = 0.14;
+
 /* ---------- 第一人称姿态两族常量 (fp) — design D3 / 调研 Q4 ----------
    MC 第一人称 display 坍缩为两族(docs/mc-first-person-hand-research.md Q4):
    方块 = block/block.json firstperson_righthand rot[0,45,0]/scale 0.40;
@@ -291,6 +297,7 @@ function mkRodDef(id) {
 const HeldItems = {
   defs: HELD_DEFS,
   bare: HELD_BARE,
+  equipHalf: HELD_EQUIP_HALF, /* 装备动画半程秒数(Avatar/HandView 两层同拍, design D6) */
   /* 工具 def 工厂: kind×tier → 全新 def。加载期已批量生成 16 条进 defs
      (本入口即那段装配代码的单测直调面), 非运行时按需入口——运行时
      消费方一律读 defs, 不经此现做 */
@@ -331,10 +338,11 @@ const HeldItems = {
      曲线照正典家族(docs/mc-first-person-hand-research.md Q3): 位移走
      sin(πp) 半波包络(ITEM_SWING_*_POS_SCALE −0.4/+0.2/−0.2, 单位格),
      旋转走 sin(π√p) 先快后慢(ITEM_SWING_*_ROT_AMOUNT −80°/−20°, 劈砍
-     主力在 pitch); 裸臂路径的 sin(2π√p)「先抬后劈」项归 hand-view 裸臂
-     建模(T2a)。幅度随 def.swing.amp 归一(基线 1.3=正典全额)。契约不变量
-     (design D3): p=0 与 p=1 全零(端点归零, 与 swingPose 同纪律);
-     0<p<1 时 px<0(横扫前送)。 */
+     主力在 pitch)。正典裸臂路径专属的 sin(2π√p)「先抬后劈」项本仓库
+     未采用: 裸臂与持物共用本函数(HandView 同一施加路径)。幅度随
+     def.swing.amp 归一(基线 1.3=正典全额)。契约不变量(design D3):
+     p=0 与 p=1 全零(端点归零, 与 swingPose 同纪律); 0<p<1 时 px<0
+     (横扫前送)。 */
   swingView(p, def) {
     const q = Math.max(0, Math.min(1, p)); /* 钳制越界进度, 端点安全归零 */
     const k = def.swing.amp / FP_SWING_AMP_BASE; /* 幅度归一: 基线档=正典全额 */
