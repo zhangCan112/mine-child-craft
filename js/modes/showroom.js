@@ -166,6 +166,8 @@ ShowroomMode.tntTap = () => advTntTap; /* TNT 短按状态 getter(let 绑定经�
 ShowroomMode.pEnt = advGetPEnt; /* HP 实体 getter(壳的) */
 ShowroomMode.snowballs = advSnowballs; /* 雪球弹池(壳的) */
 ShowroomMode.sleep = advSleep; /* 睡觉转场状态(壳的) */
+ShowroomMode.sleepClock = advSleepClock; /* 时钟拨盘态(壳的, 时钟改版守门挂点) */
+ShowroomMode.sleepConfirm = advSleepClockConfirm; /* 「睡觉」确认(壳的, 与触屏同路径) */
 ShowroomMode.sr = {/* 站点触达面: 熔炉/合成/箱子三件(壳的 kit 实例与意图入口) */
   furnaces: advFurnace.map,
   panel: advFurnace.panel,

@@ -980,30 +980,24 @@ test('场景 BGM advMusicMood: 下界=nether · 上界夜=night · 上界昼=adv
 
 /* ============ 昼夜 D6: 床·睡觉政策纯函数(设计稿 §7.2) ============ */
 
-test('D6 睡觉政策: advSleepCheck — 夜窗(sleepWindow)优先 + 床 8 格内无活怪(passive 不算怪)', () => {
-  /* 夜窗判定直连 Daylight.sleepWindow(skyDim≥4 ⇔ [12542,23460)); 边界细节归 daylight-core 单测 */
-  assert.deepStrictEqual(Core.advSleepCheck(6000, [], 10.5, 20.5), {ok: false, why: 'night'},
-      '正午不可睡(why=night → toast「晚上才能睡哦」)');
-  assert.deepStrictEqual(Core.advSleepCheck(12541, [], 10.5, 20.5), {ok: false, why: 'night'},
-      '窗口起 12542 前一 tick 仍不可睡');
-  assert.deepStrictEqual(Core.advSleepCheck(20000, [], 10.5, 20.5), {ok: true, why: ''},
-      '深夜无怪可睡');
+test('D6 睡觉政策(时钟改版): advSleepCheck 一条件制 — 床 8 格内无活怪(passive 不算怪); 夜窗已撤销', () => {
+  /* 时钟改版(2026-10-28): 床点击开「时钟拨盘」自选醒来时刻, 白天也可拨 —
+   * 原夜窗条件撤销(拨盘本身就是选时刻), 只剩床边无怪一条件 */
+  assert.deepStrictEqual(Core.advSleepCheck([], 10.5, 20.5), {ok: true, why: ''},
+      '无怪可睡(白天黑夜都一样——拨盘选时刻)');
   /* 床边无怪: 水平 8 格(MC 口径 research §1.6); 床坐标取格心 */
-  const nightMobs = (mobs) => Core.advSleepCheck(20000, mobs, 10.5, 20.5);
-  assert.deepStrictEqual(nightMobs([{x: 13, z: 23}]), {ok: false, why: 'mob'},
+  const near = (mobs) => Core.advSleepCheck(mobs, 10.5, 20.5);
+  assert.deepStrictEqual(near([{x: 13, z: 23}]), {ok: false, why: 'mob'},
       '3 格内有活怪(why=mob → toast「附近有怪物，睡不着」)');
-  assert.deepStrictEqual(nightMobs([{x: 18.5, z: 20.5}]), {ok: false, why: 'mob'},
+  assert.deepStrictEqual(near([{x: 18.5, z: 20.5}]), {ok: false, why: 'mob'},
       '恰 8 格整也算「8 格内」(advNearStation 同含等号口径)');
-  assert.deepStrictEqual(nightMobs([{x: 19.2, z: 20.5}]), {ok: true, why: ''},
+  assert.deepStrictEqual(near([{x: 19.2, z: 20.5}]), {ok: true, why: ''},
       '8.7 格外的怪不拦');
   /* 尸体/已移除/牧场动物(passive)不拦(F4 口径: 动物不算怪) */
-  assert.deepStrictEqual(nightMobs([{x: 11, z: 21, dead: true}]), {ok: true, why: ''}, '尸体不拦');
-  assert.deepStrictEqual(nightMobs([{x: 11, z: 21, gone: true}]), {ok: true, why: ''}, '已移除不拦');
-  assert.deepStrictEqual(nightMobs([{x: 11, z: 21, passive: true}]), {ok: true, why: ''},
+  assert.deepStrictEqual(near([{x: 11, z: 21, dead: true}]), {ok: true, why: ''}, '尸体不拦');
+  assert.deepStrictEqual(near([{x: 11, z: 21, gone: true}]), {ok: true, why: ''}, '已移除不拦');
+  assert.deepStrictEqual(near([{x: 11, z: 21, passive: true}]), {ok: true, why: ''},
       '牧场动物贴床也不拦(MC 口径: 动物不妨碍睡觉)');
-  /* 夜窗不过时连怪都不看(先决条件次序 = toast 优先级) */
-  assert.deepStrictEqual(Core.advSleepCheck(6000, [{x: 11, z: 21}], 10.5, 20.5),
-      {ok: false, why: 'night'}, '白天有怪也先报「晚上才能睡哦」');
   assert.strictEqual(Core.ADV_BED_MOB_R, 8, '床边无怪半径 = 8 格(常量表)');
 });
 

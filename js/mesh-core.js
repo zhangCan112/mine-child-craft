@@ -3,7 +3,8 @@
    网格化核心 (MeshCore) — 引擎层纯核心 (术语见 GLOSSARY.md)
    ------------------------------------------------------------
    区块数据 → 顶点裸数组 的纯变换: 全细节四通道(实心/玻璃/TNT贴图/
-   方块图集 texture-atlas; 图集内薄块走十字面片、火把走专用小盒 pushTorch
+   方块图集 texture-atlas; 图集内薄块走十字面片、床走薄块扁盒 pushBedBox、
+   火把走专用小盒 pushTorch
    (MC 同款, mc-torch-model-research §1/§2)、pane 旗标走竖直薄板
    pushPane — 门/玻璃板, docs/door-window-design.md §5)与 LOD 降采样粗网格。
    零 THREE · 零 DOM ·
@@ -73,6 +74,38 @@ const MeshCore = (() => {
         t.positions.push(x+cor[0], y+cor[1]*h, z+cor[2]);
         t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
         t.colors.push(col[0]*tint, col[1]*tint, col[2]*tint);
+        t.sky.push(lvSky);
+        t.block.push(lvBlk);
+      }
+      t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
+      t.n += 4;
+    }
+  }
+
+  /* 床(薄块扁盒 + 图集, 2026-10-28 床观感票): 几何同 pushThin(扁盒跳底面),
+     贴图走图集通道——顶面整张床顶格(白枕在北端) / 侧面采床侧格顶部 h 段
+     (毯沿+木框, MC 床侧面 [0,0,16,9] 比例窗同口径; v = v0+(1−(1−f)·h)·dv,
+     f=面内高度分数: 面顶沿取 tile 行 0, 底沿取行 h·16)。顶点光取自身格
+     (§4.1 薄块口径, 与 pushThin 一致); 不乘 tint(图集通道无 colors, 噪点自带)。 */
+  function pushBedBox(t, x, y, z, h, ae, atlas, lvSky, lvBlk) {
+    const topTile = atlasTileOf(ae, FACES[3].dir);
+    const tu0 = (topTile % atlas.cols) / atlas.cols;
+    const tv0 = (atlas.rows - 1 - Math.floor(topTile / atlas.cols)) / atlas.rows;
+    const sideTile = atlasTileOf(ae, FACES[0].dir);
+    const su0 = (sideTile % atlas.cols) / atlas.cols;
+    const sv0 = (atlas.rows - 1 - Math.floor(sideTile / atlas.cols)) / atlas.rows;
+    const du = 1 / atlas.cols; const dv = 1 / atlas.rows;
+    for (let f=0; f<6; f++) {
+      if (f===2) continue; // 底面贴地不可见, 不绘(pushThin 同款)
+      const face = FACES[f];
+      const isTop = f === 3;
+      for (let c=0; c<4; c++) {
+        const cor = face.corners[c];
+        t.positions.push(x+cor[0], y+cor[1]*h, z+cor[2]);
+        t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
+        const fuv = faceUV(face.dir, cor);
+        if (isTop) t.uvs.push(tu0 + fuv[0]*du, tv0 + fuv[1]*dv);
+        else t.uvs.push(su0 + fuv[0]*du, sv0 + (1 - (1 - fuv[1])*h)*dv);
         t.sky.push(lvSky);
         t.block.push(lvBlk);
       }
@@ -338,8 +371,13 @@ const MeshCore = (() => {
             pushPane(A, wx, y, wz, lx, lz, b, ae, atlas, lget, lsky, lblk);
             continue;
           }
-          if (ae) { // 图集方块: 第 4 通道(薄块走十字面片/火把走专用小盒, 立方体按面取格)
+          if (ae) { // 图集方块: 第 4 通道(薄块走十字面片/床走扁盒/火把走专用小盒, 立方体按面取格)
             if (b.thin) {
+              if (b.bed) { // 床(bed 旗标全表唯一): 薄块扁盒+床贴图(床观感票, 非十字植物)
+                pushBedBox(A, wx, y, wz, b.thin, ae, atlas,
+                    lsky(lx, y, lz)/15, lblk(lx, y, lz)/15);
+                continue;
+              }
               if (b.wall) { // 火把(wall 全表唯一): 专用小盒 pushTorch(MC 同款)
                 /* 贴墙取向: 底下无实心支承 → 按固定优先级(+x/-x/+z/-z, 与
                    cascade NEIGH_HOR 同序)取首个实心水平邻, 小盒底面贴该墙

@@ -2857,7 +2857,7 @@ test('昼夜 D6 床·放置: thin 顶面路径现成 — 草地顶可放/实心�
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('放不了') >= 0), '非法落点 toast');
 });
 
-test('昼夜 D6 床·睡觉条件: 白天「晚上才能睡哦」 · 床边有怪「附近有怪物，睡不着」 · 动物不拦(§7.2)', () => {
+test('昼夜 D6 床·睡觉条件(时钟改版): 白天开拨盘 · 床边有怪「附近有怪物，睡不着」 · 动物不拦(§7.2)', () => {
   mem.clear();
   freshInit();
   const spot = findGrassSpot();
@@ -2866,21 +2866,27 @@ test('昼夜 D6 床·睡觉条件: 白天「晚上才能睡哦」 · 床边有�
   listResult = [];
   calls.length = 0;
   AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
-  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('晚上才能睡哦') >= 0), '白天拒睡 toast');
-  assert.strictEqual(A.advSleep.on, false, '不开转场');
+  assert.strictEqual(A.advSleepClock.on, true, '白天点床开时钟拨盘(夜窗已撤销, 自选醒来时刻)');
+  assert.strictEqual(A.ADV.panelOpen, true, '拨盘走面板门卫(挖/放/打全关)');
+  assert.strictEqual(A.advSleep.on, false, '未确认不开转场');
+  A.advSleepClock.on = false; /* 手动复位, 不渗入后续分支 */
+  A.ADV.panelOpen = false;
   /* 深夜 + 床边 ~2 格有怪 */
   globalThis.dayTime = 20000;
   listResult = [mkAdvMob('zombie', spot.x + 2.5, 25, spot.z + 0.5, {})];
   calls.length = 0;
   AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('附近有怪物') >= 0), '床边有怪拒睡 toast');
+  assert.strictEqual(A.advSleepClock.on, false, '有怪连拨盘都不开(怪圈保留)');
   assert.strictEqual(A.advSleep.on, false, '不开转场');
-  /* 牧场动物贴床不拦(passive 口径, F4「动物不算怪」) → 可入睡 */
+  /* 牧场动物贴床不拦(passive 口径, F4「动物不算怪」) → 开拨盘 + 确认入睡 */
   listResult = [mkAdvMob('sheep', spot.x + 1, 25, spot.z + 1, {})];
   calls.length = 0;
   spoken.length = 0;
   AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(A.advSleep.on, true, '动物在旁可入睡(转场开启)');
+  assert.strictEqual(A.advSleepClock.on, true, '动物在旁可开拨盘');
+  A.advSleepClockConfirm(); /* 「睡觉」确认(挂点行为面, 与触屏/桌面同路径) */
+  assert.strictEqual(A.advSleep.on, true, '确认后开转场');
   assert.ok(spoken.some((s) => s.indexOf('呼——呼——') >= 0), '鼾声起(§7.2)');
   A.advSleep.on = false; /* 手动复位, 不渗入后续测试 */
 });
@@ -2896,6 +2902,9 @@ test('昼夜 D6 床·睡着转场: 渐黑1.5s→停2s→唤醒沿(跳清晨+夜�
   calls.length = 0;
   spoken.length = 0;
   AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advSleepClock.on, true, '点床开拨盘(时钟改版)');
+  A.advSleepClockConfirm(); /* 确认睡觉(拨盘缺省拨到清晨 tick 0 = MC 一键跳夜等价) */
+  assert.strictEqual(A.advSleepClock.on, false, '确认后拨盘收起');
   assert.strictEqual(A.advSleep.on, true, '转场开启');
   /* 黑屏期输入被门挡: 挖掘不启动 */
   AdventureMode.onMouse(0, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
@@ -2939,14 +2948,22 @@ test('昼夜 D6 床·睡着转场: 渐黑1.5s→停2s→唤醒沿(跳清晨+夜�
   AdventureMode.onVoidFall(); /* 死亡类事件唯一行为入口 */
   const dieSpawn = calls.filter((c) => c[0] === 'spawn').pop();
   assert.deepStrictEqual([dieSpawn[1], dieSpawn[3]], [sp.x, sp.z], '死亡也回床边(ADV.spawn 同缝)');
-  /* 当晚可再睡(状态复位可重入) */
+  /* 当晚可再睡(状态复位可重入) + 拨盘自选时刻(时钟改版核心行为): 拨到正午,
+     唤醒沿恰落在拨针时刻(clockDelta 现算, 渐黑期世界时间照走也不偏) */
   globalThis.dayTime = 20000;
   listResult = []; /* 巢穴怪仍在床边会拦睡(条件纯函数照常生效), 清场后再点 */
   spoken.length = 0;
+  calls.length = 0;
   AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advSleepClock.on, true, '可再开拨盘');
+  A.advSleepClock.target = 6000; /* 拨针拨到正午(预设钮同路径的直赋) */
+  A.advSleepClockConfirm();
   assert.strictEqual(A.advSleep.on, true, '可再睡');
-  assert.ok(spoken.some((s) => s.indexOf('呼——呼——') >= 0), '新一轮鼾声');
-  /* 测试隔离: 手动复位睡觉态与出生点账本 */
+  for (let i = 0; i < 74; i++) AdventureMode.update(0.05); /* +3.7s: 过唤醒沿(3.5s) */
+  assert.strictEqual(globalThis.dayTime, 6000, '唤醒沿跳拨盘时刻(正午 6000, 非清晨 0)');
+  assert.ok(spoken.some((s) => s.indexOf('睡饱啦') >= 0), '白天醒来也报睡饱(相位分支)');
+  /* 测试隔离: 手动复位睡觉态与出生点账本(4.2s 未走满 5s, 转场未自然收尾) */
+  for (let i = 0; i < 30; i++) AdventureMode.update(0.05); /* 渐亮收尾推进 */
   A.advSleep.on = false;
   A.ADV.spawn = ADV_SPAWN;
   globalThis.document.getElementById('fade').style.opacity = 0;
@@ -2960,6 +2977,7 @@ test('昼夜 D6 床·转场退出复位: cleanup 中断睡觉 — 遮罩归零/�
   globalThis.dayTime = 20000;
   listResult = [];
   AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  A.advSleepClockConfirm(); /* 点床开拨盘 → 确认入睡(时钟改版两步) */
   assert.strictEqual(A.advSleep.on, true, '转场开启');
   AdventureMode.update(0.5); /* 渐黑中 */
   AdventureMode.cleanup();

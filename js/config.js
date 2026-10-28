@@ -340,10 +340,11 @@ BLOCKS[B_WOOL] = {name: '羊毛', all: [0.92, 0.92, 0.92], hard: 0.8, tool: null
   drop: [['wool', 1, 0]]};
 /* 床(昼夜 D6 §7.1): 1 格半高薄块(差异 #1: MC 2 格×0.5625 简化) — thin 旗标白送
    顶面限定放置(advPlaceCheck thin 路径)与失撑脱落(cascade); hard 0 徒手秒碎回收。
-   颜色: top=红毯(亮) / all=床架深红 — 注: 实心通道 pushThin 现取 b.all 单色,
-   top 字段按规格 §7.1 原样入表(mesh-core thin 路径分色归 D3/后续观感票) */
+   bed 身份旗标(2026-10-28 床观感票): mesh-core 图集通道按旗标走「薄块扁盒+
+   床贴图」路径(枕红毯木框, 不与十字面片混淆) · held-item 按旗标装配床形手持件
+   (床垫+枕头+床头床脚板)——改观感先认旗标, 不认 id。 */
 BLOCKS[B_BED] = {name: '床', top: [0.90, 0.30, 0.30], all: [0.75, 0.22, 0.22], thin: 0.55,
-  solid: false, hard: 0, tool: null, tier: 0, drop: [['bed', 1, 0]]};
+  solid: false, bed: true, hard: 0, tool: null, tier: 0, drop: [['bed', 1, 0]]};
 
 /* 生态地图新方块 (id 54~62, 冒险模式生态地图设计稿 §6) — 雪原/沙漠/沼泽三图资源,
    号段顺延同款(B_SAPLING/B_CHEST/B_WOOL/B_BED 先例)。B_ICE 不入贴图图集——

@@ -2074,3 +2074,94 @@ body.dev-on .mode-card.dev {
   color: rgb(255 255 255 / 78%);
   text-shadow: 0 1px 2px #000;
 }
+
+/* ---------- 睡觉时钟面板(slp, 2026-10-28 时钟改版): 表盘拨针自选醒来时刻 ----------
+   遮罩层级与背包面板 .mkp-mask 同级(40, body 级遮罩不叠层, Tab 链互斥收起);
+   表盘 touch-action:none 让拨针拖拽不被浏览器手势抢走 */
+.slp-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 55%);
+}
+
+.slp-box {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: min(320px, 92vw);
+  padding: 14px 16px;
+  color: #fff;
+  background: rgb(20 26 34 / 94%);
+  border: 3px solid rgb(255 255 255 / 22%);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgb(0 0 0 / 45%);
+}
+
+.slp-title {
+  font-size: 17px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #000;
+}
+
+.slp-dial {
+  width: 220px;
+  height: 220px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.slp-dial:active {
+  cursor: grabbing;
+}
+
+.slp-read {
+  min-height: 20px;
+  font-size: 14px;
+  color: rgb(255 255 255 / 92%);
+  text-align: center;
+  text-shadow: 0 1px 2px #000;
+}
+
+.slp-presets {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.slp-preset,
+.slp-go,
+.slp-x {
+  font-size: 15px;
+  line-height: 1;
+  color: #fff;
+  cursor: pointer;
+  background: rgb(0 0 0 / 32%);
+  border: 2px solid rgb(255 255 255 / 40%);
+  border-radius: 8px;
+  padding: 7px 12px;
+}
+
+.slp-preset:active,
+.slp-x:active {
+  background: rgb(124 252 0 / 35%);
+  transform: translateY(1px); /* MC 按钮四态口径: 按下整钮下沉 1px */
+}
+
+.slp-go {
+  min-width: 180px;
+  font-size: 18px;
+  font-weight: 700;
+  background: rgb(96 168 82 / 45%);
+  border-color: rgb(160 240 140 / 70%);
+}
+
+.slp-go:active {
+  background: rgb(124 252 0 / 45%);
+  transform: translateY(1px);
+}

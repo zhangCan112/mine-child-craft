@@ -5,10 +5,13 @@
    MC 同表的一日 24000 tick 时间轴(tick 0=06:00 · 6000=正午 ·
    12000=日落开始 · 18000=午夜)与全部派生量的纯函数: 时间推进回绕 ·
    天空暗度折线(skyDim) · 夜晚判定 · 内部天空光 · 渲染亮度(锚点拟合) ·
-   天空染色与天色 · 睡觉窗口。数值权威 docs/mc-daylight-torch-design.md §2
+   天空染色与天色 · 睡觉窗口 · 时钟拨盘族(clockSnap/clockDelta/clockPhase/
+   clockLabel, 2026-10-28 床时钟改版: 表盘吸附/前进账/相位四段/时刻文案)。
+   数值权威 docs/mc-daylight-torch-design.md §2
    (MC 数值依据与差异登记: docs/mc-daylight-torch-research.md)。
    interface: DAYLIGHT(常量表) · Daylight.advance/skyDim/isNight/
-     internalSky/renderBright/skyTint/skyColor/sleepWindow
+     internalSky/renderBright/skyTint/skyColor/sleepWindow/
+     clockSnap/clockDelta/clockPhase/clockLabel
    依赖(均经全局名, 调用期解析): 无 — 纯核心, 消费方为 world.js(场景驱动)/
      main.js(主循环推进)/modes/adventure.js(存档与 HUD)
    可测性: 零 THREE·零 DOM·有单测(test/daylight-core.test.js)
@@ -18,6 +21,7 @@
    (world.js 的 GLSL 镜像同源插值同一份 — 重调曲线只改这里, 两端零手抄漂移) */
 const DAYLIGHT = {
   TICKS: 24000, // 一天 = 24000 tick = 20 分钟(20 tick/秒, dt 秒 × 20)
+  CLOCK_STEP: 500, // 时钟拨盘吸附步长(2026-10-28 床时钟改版): 500 tick = 游戏内 30 分钟
   NIGHT_A: 13000, // 夜晚开始(简化口径, MC 精确值 13188/22812——差异 #15)
   NIGHT_B: 23000, // 夜晚结束
   SLEEP_A: 12542, // 睡觉窗口起(research §1.6 裁决: internal≤11 的晴天精确界)
@@ -98,5 +102,43 @@ const Daylight = {
   sleepWindow(dayTime) {
     const t = dlNorm(dayTime);
     return t >= DAYLIGHT.SLEEP_A && t < DAYLIGHT.SLEEP_B;
+  },
+
+  /* ---------- 时钟拨盘族(2026-10-28 床时钟改版): 一日时间轴的表盘派生量 ----------
+     床点击开「时钟拨盘」自选醒来时刻(原神式时间跳跃)——拨盘 UI 在模式层,
+     这里只有时间轴数学: 吸附/前进账/相位/文案。表盘语义 = 「下一次到达
+     该时刻」(同刻 = 睡满一整天)。 */
+
+  /* 吸附: t 吸到 CLOCK_STEP 整数倍并归一 [0,24000) */
+  clockSnap(t) {
+    const s = Math.round(t / DAYLIGHT.CLOCK_STEP) * DAYLIGHT.CLOCK_STEP;
+    return dlNorm(s);
+  },
+
+  /* 前进时间账: 从 cur 前进到 target 的 tick 数(表盘语义), 同刻 = 24000。
+     壳层唤醒沿用它一次性推进 dayTime(渐黑期间世界时间仍在走, 唤醒沿现算)。 */
+  clockDelta(cur, target) {
+    const d = (dlNorm(target) - dlNorm(cur)) % DAYLIGHT.TICKS;
+    return (d + DAYLIGHT.TICKS) % DAYLIGHT.TICKS || DAYLIGHT.TICKS;
+  },
+
+  /* 相位四段: 断点 = DIM_KEYS 转折 tick(白天→傍晚 12040 → 夜晚 13670 →
+     清晨 22330 → 次日白天), 零新魔法数。返回 {id, name, icon} 供拨盘
+     实时提示黑夜白天状态(拨到哪段天色怎样)。 */
+  clockPhase(t) {
+    const k = DAYLIGHT.DIM_KEYS; /* [[0,0],[12040,0],[13670,11],[22330,11],[23961,0]] */
+    const tick = dlNorm(t);
+    if (tick < k[1][0]) return {id: 'day', name: '白天', icon: '☀️'};
+    if (tick < k[2][0]) return {id: 'dusk', name: '傍晚', icon: '🌇'};
+    if (tick < k[3][0]) return {id: 'night', name: '夜晚', icon: '🌙'};
+    return {id: 'dawn', name: '清晨', icon: '🌅'};
+  },
+
+  /* 时刻文案: MC 表盘 tick 0=06:00 → 'HH:MM'(24 小时制; 步长 500 ⇒ 分钟只出 00/30) */
+  clockLabel(t) {
+    const tick = dlNorm(t);
+    const h = (Math.floor(tick / 1000) + 6) % 24;
+    const m = Math.floor((tick % 1000) / 1000 * 60);
+    return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
   },
 };

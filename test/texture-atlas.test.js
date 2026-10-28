@@ -60,11 +60,11 @@ function tilePixels(t, all, idx) {
 test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块走纯色兜底)', () => {
   const t = loadAtlas();
   const count = t.TextureAtlas.count;
-  /* 51=B_CHEST(引导链 v2) · 52=B_WOOL(F4) · 54~62=生态地图(冒险模式设计稿 §6) *
-   * 不入集例外: 53=B_BED(半高薄块走实心通道 pushThin 纯色, 昼夜 D6 既定) ·
-   * 56=B_ICE(glass 透光透渲走纯色通道, 玻璃同款, 票据 T1 红线) */
+  /* 51=B_CHEST(引导链 v2) · 52=B_WOOL(F4) · 53=B_BED(床观感票: 床顶/床侧两张) ·
+   * 54~62=生态地图(冒险模式设计稿 §6) *
+   * 不入集例外: 56=B_ICE(glass 透光透渲走纯色通道, 玻璃同款, 票据 T1 红线) */
   for (let id=36; id<=62; id++) {
-    if (id === t.B_BED || id === t.B_ICE) {
+    if (id === t.B_ICE) {
       assert.ok(!(id in t.TextureAtlas.layout.tiles),
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 不入图集 — 走纯色兜底通道');
       continue;
@@ -75,9 +75,11 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 43, '已绘制格数 = 43(32+生态地图 8+门板两张与玻璃板 3: 雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花/门/玻璃板)');
+  assert.strictEqual(t.TextureAtlas.count, 45, '已绘制格数 = 45(43+床顶/床侧: 雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花/门/玻璃板/床)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
+  const bed = t.TextureAtlas.layout.tiles[t.B_BED];
+  assert.notStrictEqual(bed.top, bed.side, '床顶(枕+毯)与侧(毯沿+木框)应分格(床观感票)');
 });
 
 test('布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格)', () => {
@@ -252,6 +254,61 @@ test('meshChunk: 生态地图薄块(兰花)同走十字面片 — 4 面 UV 全�
     assert.ok(u >= rect[0]-1e-12 && u <= rect[2]+1e-12 && v >= rect[1]-1e-12 && v <= rect[3]+1e-12,
         'UV(' + u + ',' + v + ') 应落在兰花格 ' + rect);
   }
+});
+
+test('meshChunk: 床(bed 旗标)走薄块扁盒图集通道 — 5 面盒(无底面), 高度 0.55, 顶/侧分格', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_BED);
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(r.solid, null, '入集床不再走实心通道的纯色扁盒(床观感票)');
+  assert.strictEqual(quads(r.atlas), 5, '扁盒跳底面(pushThin 同款): 顶 1 + 侧 4');
+  const ys = new Set();
+  for (let i=1; i<r.atlas.positions.length; i+=3) ys.add(r.atlas.positions[i]);
+  assert.ok(ys.has(5) && ys.has(5.55) && ys.size === 2, '扁盒高度=thin 0.55, 实际 ' + [...ys]);
+  const e = t.TextureAtlas.layout.tiles[t.B_BED];
+  const topRect = t.TextureAtlas.tileUV(e.top);
+  const sideRect = t.TextureAtlas.tileUV(e.side);
+  for (let q=0; q<r.atlas.indices.length; q+=6) {
+    const ny = r.atlas.normals[r.atlas.indices[q]*3+1];
+    for (let c=0; c<4; c++) {
+      const vi = r.atlas.indices[q+c];
+      const u = r.atlas.uvs[vi*2]; const v = r.atlas.uvs[vi*2+1];
+      if (ny === 1) {
+        assert.ok(u >= topRect[0]-1e-12 && u <= topRect[2]+1e-12 &&
+            v >= topRect[1]-1e-12 && v <= topRect[3]+1e-12, '顶面应落床顶格(枕+毯)');
+      } else {
+        assert.ok(u >= sideRect[0]-1e-12 && u <= sideRect[2]+1e-12, '侧面 u 应落床侧格');
+        /* 比例窗: 侧面只采 tile 顶部 h=0.55 段(v ∈ [v0+0.45dv, v0+dv], MC 床侧
+           [0,0,16,9] 比例窗同口径) — 断言既不越格也不采到 tile 下半木框段 */
+        assert.ok(v >= sideRect[1] + 0.44/16 - 1e-12 && v <= sideRect[3] + 1e-12,
+            '侧面 v 应采格顶 0.55 段, 实际 ' + v + ' 窗底 ' + (sideRect[1] + 0.45/16));
+      }
+    }
+  }
+});
+
+test('meshChunk: 床无图集注入回落实心通道纯色扁盒(存量行为零变化)', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_BED);
+  const r = t.MeshCore.meshChunk(p, {hashRand: HR, tntTiles: 4});
+  assert.strictEqual(r.atlas, null);
+  assert.strictEqual(quads(r.solid), 5, 'pushThin 扁盒跳底面: 顶 1 + 侧 4(存量口径)');
+});
+
+test('床贴图像素(床观感票): 床顶白枕在 canvas 顶行(=世界 −Z 北端)+毯身红; 床侧上毯下木框', () => {
+  const t = loadAtlas();
+  const all = t.TextureAtlas.paintAll();
+  const L = t.TextureAtlas.layout;
+  const at = (px, x, y) => px[y * 16 + x];
+  const top = tilePixels(t, all, L.tiles[t.B_BED].top);
+  assert.strictEqual(at(top, 8, 1)[3], 255, '枕身像素不透明');
+  assert.ok(at(top, 8, 1)[0] > 240 && at(top, 8, 1)[1] > 240, '枕身近白(canvas 行 0-2=北端)');
+  assert.ok(at(top, 8, 10)[0] > 190 && at(top, 8, 10)[1] < 120, '毯身红(canvas 行 6-14)');
+  const side = tilePixels(t, all, L.tiles[t.B_BED].side);
+  assert.ok(at(side, 8, 1)[0] > 190 && at(side, 8, 1)[1] < 120, '侧上段毯沿红(几何采窗可见段)');
+  assert.ok(at(side, 8, 6)[0] > 140 && at(side, 8, 6)[2] < 110, '侧下段木框棕(几何采窗可见段)');
 });
 
 test('meshChunk: 图集立方体邻面剔除同实心规则 — 相邻两煤矿共界面剔成 10 面', () => {

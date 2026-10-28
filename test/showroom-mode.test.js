@@ -1257,26 +1257,30 @@ test('体验馆: 清场只收标记怪 — 巢穴怪/牧场动物/脚本怪不�
   assert.ok(dayMobs.every((m) => !m.gone), '巢穴怪/牧场动物不动(与昼夜解耦口径)');
 });
 
-test('体验馆: 睡觉三分支 — 白天拒/夜+床边 8 格内有怪拒/夜+怪远过(advSleepCheck 政策直用)', () => {
+test('体验馆: 睡觉三分支(时钟改版) — 白天开拨盘/床边 8 格内有怪拒/怪远开拨盘+确认入睡', () => {
   freshEnter();
   const bed = {x: 77, y: G + 1, z: 73}; /* 床(建场真件) */
-  eng.dayTime = 6000; /* 正午: 睡窗外 */
+  eng.dayTime = 6000; /* 正午 */
   ShowroomMode.onMouse(2, bed);
-  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('晚上才能睡哦')),
-      '白天拒睡 toast');
-  assert.strictEqual(ShowroomMode.sleep.on, false, '不开转场');
-  eng.dayTime = 20000; /* 深夜: 睡窗内 */
+  assert.strictEqual(ShowroomMode.sleepClock.on, true, '白天点床开拨盘(夜窗已撤销, 自选时刻)');
+  assert.strictEqual(ShowroomMode.sleep.on, false, '未确认不开转场');
+  ShowroomMode.sleepClock.on = false; /* 手动复位, 不渗入后续分支 */
+  A.ADV.panelOpen = false; /* 拨盘的面板门卫一并复位(否则 onMouse 顶层吞点击) */
+  eng.dayTime = 20000; /* 深夜 */
   mobsRig.list.push({type: 'zombie', pos: {x: 79.5, y: G + 1, z: 73.5}, dead: false, gone: false,
     attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}); /* 床边 2 格 */
   calls.length = 0;
   ShowroomMode.onMouse(2, bed);
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('附近有怪物')),
       '床边有怪拒睡 toast');
+  assert.strictEqual(ShowroomMode.sleepClock.on, false, '有怪连拨盘都不开(怪圈保留)');
   assert.strictEqual(ShowroomMode.sleep.on, false, '不开转场');
   mobsRig.list.length = 0; /* 怪远(清场) */
   calls.length = 0;
   ShowroomMode.onMouse(2, bed);
-  assert.strictEqual(ShowroomMode.sleep.on, true, '夜+床边无怪: 开转场');
+  assert.strictEqual(ShowroomMode.sleepClock.on, true, '夜+床边无怪: 开拨盘');
+  ShowroomMode.sleepConfirm(); /* 「睡觉」确认 → 开转场(拨盘缺省清晨) */
+  assert.strictEqual(ShowroomMode.sleep.on, true, '确认后开转场');
   ShowroomMode.cleanup(); /* 收场复位(测试隔离) */
 });
 
@@ -1297,7 +1301,10 @@ test('体验馆: 睡着转场 — 唤醒沿恰一次: 跳清晨+清夜怪+不设
   const nightMobs = nightMobList();
   assert.strictEqual(nightMobs.length, 3);
   calls.length = 0;
-  ShowroomMode.onMouse(2, {x: 77, y: G + 1, z: 73}); /* 点床入睡(使用先于挖放) */
+  ShowroomMode.onMouse(2, {x: 77, y: G + 1, z: 73}); /* 点床(使用先于挖放) → 开拨盘 */
+  assert.strictEqual(ShowroomMode.sleepClock.on, true, '点床开拨盘(时钟改版)');
+  ShowroomMode.sleepConfirm(); /* 确认睡觉(拨盘缺省拨到清晨 tick 0) */
+  assert.strictEqual(ShowroomMode.sleepClock.on, false, '确认后拨盘收起');
   assert.strictEqual(ShowroomMode.sleep.on, true, '转场开启');
   for (let i = 0; i < 74; i++) ShowroomMode.update(0.05); /* +3.7s: 过唤醒沿(3.5s) */
   assert.strictEqual(eng.dayTime, 0, '唤醒沿跳清晨(dayTime=0)');
@@ -1314,6 +1321,7 @@ test('体验馆: 睡觉中 cleanup — 遮罩归零还 CSS transition/转场复�
   freshEnter();
   eng.dayTime = 20000;
   ShowroomMode.onMouse(2, {x: 77, y: G + 1, z: 73});
+  ShowroomMode.sleepConfirm(); /* 点床开拨盘 → 确认入睡(时钟改版两步) */
   assert.strictEqual(ShowroomMode.sleep.on, true, '转场开启');
   ShowroomMode.update(0.5); /* 渐黑中 */
   const fade = globalThis.document.getElementById('fade');
