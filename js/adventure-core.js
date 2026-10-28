@@ -17,7 +17,7 @@
      随高度场贴地; 松林/花田/南池/望塔/石阵建场件同族) · 政策纯函数
      advDeathPlan/advNestCount/advNestStep/advSwingDmg/advMobDmg/
      advDeathDrops/advPickupText/advMineStep/advPlaceCheck/advEatPolicy/
-     advSapDue/advNearStation/advFurnaceValid/
+     advSapDue/advNearStation(losOk 视线缝可选)/advLosBlocked(站点隔墙段采样)/advFurnaceValid/
      advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫; 进度钳制界读
      craft-core 的 SMELT_T)/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 昼夜 D5 夜怪
@@ -1138,11 +1138,37 @@ const ADV_TNT_DROP_P = 0.7; /* 爆炸掉落率(D4: MC 30% → 儿童加倍 70%, 
 const ADV_SMELT_TTS_T = 3; /* 烧炼完成播报节流秒数(受击语音同款节拍) */
 
 /* 站点解锁判定: stations 为缓存值集合({x,z,id}), 玩家水平距离 ≤r 且 id 匹配
-   (wantId 省略=任意站点)即命中——缓存即判据, 不碰世界数据 */
-function advNearStation(stations, px, pz, r, wantId) {
+   (wantId 省略=任意站点)即命中——缓存即判据, 不碰世界数据;
+   losOk(st) 可选视线缝(隔墙修复 2026-10-28): 距离命中后逐站点再问一眼,
+   返回 false 视作不命中继续找下一个(缺省不传=纯距离, 既有口径零变化) */
+function advNearStation(stations, px, pz, r, wantId, losOk) {
   for (const st of stations) {
     if (wantId != null && st.id !== wantId) continue;
-    if (Math.hypot(st.x + 0.5 - px, st.z + 0.5 - pz) <= r) return true;
+    if (Math.hypot(st.x + 0.5 - px, st.z + 0.5 - pz) <= r) {
+      if (!losOk || losOk(st)) return true;
+    }
+  }
+  return false;
+}
+
+/* 视线阻断判定(隔墙修复 2026-10-28): 站点方块中心(a*)到人眼(b*)的体素段
+   等步采样, 任一中间格 opaque 即隔墙不可用——两端点格(站点自身/人眼所在格)
+   跳过(站点实心不挡自己); 步长 0.25 格(4 格半径至多 ~20 采样, 每帧仅对
+   距离命中的站点才调, 可忽略)。read(x,y,z)→方块 id, opaque(id)→实心墙判定
+   (壳传 voxel isOpaque: 玻璃板/开门不挡——「看得见即可用」, 与光照挡光
+   判据同源; 关门挡)。返回 true=中间有墙 */
+function advLosBlocked(read, opaque, ax, ay, az, bx, by, bz) {
+  const axc = Math.floor(ax); const ayc = Math.floor(ay); const azc = Math.floor(az);
+  const bxc = Math.floor(bx); const byc = Math.floor(by); const bzc = Math.floor(bz);
+  const steps = Math.max(1, Math.ceil(Math.hypot(bx - ax, by - ay, bz - az) / 0.25));
+  for (let i = 1; i < steps; i++) {
+    const t = i / steps;
+    const x = Math.floor(ax + (bx - ax) * t);
+    const y = Math.floor(ay + (by - ay) * t);
+    const z = Math.floor(az + (bz - az) * t);
+    if ((x === axc && y === ayc && z === azc) ||
+        (x === bxc && y === byc && z === bzc)) continue; /* 两端点格不算墙 */
+    if (opaque(read(x, y, z))) return true;
   }
   return false;
 }
@@ -1833,7 +1859,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advDawnSweep, advMusicMood,
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
     ADV_STATION_R, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
-    ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation,
+    ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advLosBlocked,
     advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
     ADV_LIVESTOCK_SPAWN_R, ADV_LIVESTOCK_HERD_R, ADV_LIVESTOCK_RING_LO,
     ADV_LIVESTOCK_RING_HI, ADV_LIVESTOCK_HERDS, ADV_HERD_AVOID_R, ADV_HERD_AVOID_MULT,
