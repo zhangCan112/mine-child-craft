@@ -1307,6 +1307,33 @@ test('放置合法性全簇: 实心贴面/thin 只放实心顶+墙火把贴墙/�
   assert.strictEqual(chk(null, 2, 1, 0).ok, false, '无命中 → 拒');
 });
 
+test('覆盖放置(用户拍板 2026-10-28): 命中 replaceable 薄块 → 落点=被点格本身盖掉; thin 新块支承认正下方', () => {
+  const chk = Core.advPlaceCheck;
+  /* 实心新块覆盖: 即便法线侧落点非空气也放(旧路径会拒/架半空) */
+  const rep = chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, api.B_GRASS_TUFT, 3);
+  assert.ok(rep.ok, '泥土命中草丛: 覆盖 ok(法线侧叠放拒不适用于覆盖)');
+  assert.deepStrictEqual([rep.x, rep.y, rep.z], [10, 24, 10], '覆盖落点 = 被点格本身');
+  const wall = chk({x: 10, y: 24, z: 10, nx: 1, ny: 0, nz: 0}, 2, api.B_TORCH, 3);
+  assert.ok(wall.ok, '泥土命中墙火把: 覆盖 ok(新块贴墙不悬空)');
+  assert.deepStrictEqual([wall.x, wall.y, wall.z], [10, 24, 10], '火把覆盖落点 = 被点格本身');
+  /* thin 新块覆盖(拿火把点花草): 支承=被覆盖格正下方(belowId), 面法线路径不适用 */
+  assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, api.B_GRASS_TUFT, 0, 1).ok,
+      '火把覆盖草丛: 正下方草地块(实心) ok');
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_TORCH, api.B_GRASS_TUFT, 0, 0).ok,
+      false, '火把覆盖草丛: 正下方悬空 → 拒');
+  assert.ok(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, api.B_GRASS_TUFT, 0, 1).ok,
+      '树苗覆盖草丛: 正下方草地 ok');
+  assert.strictEqual(chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, api.B_SAPLING, api.B_GRASS_TUFT, 0, 3).ok,
+      false, '树苗覆盖草丛: 正下方石头 → 拒(限草地/泥土 D7)');
+  /* 非覆盖族(thin 但无旗标): 走原路径——庄稼/家具防误盖 */
+  const wheat = chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, api.B_WHEAT_3, 0);
+  assert.ok(wheat.ok, '泥土命中熟麦: 不覆盖(庄稼保护), 走原路径放法线侧');
+  assert.deepStrictEqual([wheat.x, wheat.y, wheat.z], [10, 25, 10],
+      '麦走原路径: 落点 = 命中格 + 面法线(旧行为)');
+  const bedHit = chk({x: 10, y: 24, z: 10, nx: 0, ny: 1, nz: 0}, 2, api.B_BED, 3);
+  assert.strictEqual(bedHit.ok, false, '泥土命中床: 不覆盖且法线侧非空气 → 拒(家具防误盖)');
+});
+
 test('食物回血补充: 腐肉注册表 food=2 走同一政策口径(儿童版无饥饿 debuff)', () => {
   assert.strictEqual(api.ITEMS.rotten_flesh.food, 2, '腐肉注册表 food=2(D7)');
   assert.strictEqual(Core.advEatPolicy(10, 30, api.ITEMS.rotten_flesh.food).hp, 12, '腐肉回 2 血(同口径)');

@@ -165,7 +165,9 @@ function mkHeldSync(palette, hb) {
 /* ---------- editHit: 挖/放编辑原语(2026-10-26 建造/竞技场镜像收编) ----------
    button 0=挖(世界底层 y0 保护: 挖穿=坠出世界, 儿童话术提示; 原建造私有
    守卫升格共享——竞技场补齐, 两模式同口径) · 2=放置(手持感知 placeId +
-   目标格空置 + 不与玩家碰撞三重守卫, 沿命中面法线落位)。
+   目标格空置 + 不与玩家碰撞三重守卫, 沿命中面法线落位; 命中 replaceable
+   薄块(花草/火把, config 旗标)例外——落点=被点格本身直接盖掉, 镂空块
+   贴着放悬空半格很出戏, 用户拍板 2026-10-28)。
    placeId() 返回可放置的方块数字 id(铲子槽/空手经 mkHeldSync.itemId
    天然返 null=无操作)。
    返回 {x, y, z, id, removed}(removed=editBlock 的级联清单)或 null
@@ -184,8 +186,12 @@ function editHit(button, hit, placeId) {
   if (button === 2) {
     const id = placeId ? placeId() : null;
     if (id == null) return null; /* 手持不可放置: 无操作(MC 拿工具右键同构) */
-    const x = hit.x + hit.nx; const y = hit.y + hit.ny; const z = hit.z + hit.nz;
-    if (getBlock(x, y, z) !== 0) return null; /* 目标格非空 */
+    const hitId = getBlock(hit.x, hit.y, hit.z);
+    const rep = !!(hitId !== 0 && BLOCKS[hitId] && BLOCKS[hitId].replaceable); /* 覆盖放置: 落点=被点格 */
+    const x = rep ? hit.x : hit.x + hit.nx;
+    const y = rep ? hit.y : hit.y + hit.ny;
+    const z = rep ? hit.z : hit.z + hit.nz;
+    if (!rep && getBlock(x, y, z) !== 0) return null; /* 目标格非空(覆盖时目标=被点格本身, 免此检) */
     if (collidesAtPlayer(x, y, z)) return null; /* 不把自己埋进去 */
     return {x, y, z, id, removed: editBlock(x, y, z, id)};
   }

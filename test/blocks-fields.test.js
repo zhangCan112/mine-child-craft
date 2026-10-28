@@ -159,6 +159,22 @@ test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗/床(B
   }
 });
 
+test('replaceable 放置覆盖旗标(用户拍板 2026-10-28): 花草火把族七件; 麦/床/引线不带(庄稼家具防误盖)', () => {
+  const c = loadCfg();
+  const repIds = [c.B_GRASS_TUFT, c.B_TORCH, c.B_SAPLING,
+    c.B_DEAD_BUSH, c.B_ORCHID, c.B_FLOWER_Y, c.B_FLOWER_W];
+  for (const id of repIds) {
+    assert.strictEqual(c.BLOCKS[id].replaceable, true,
+        c.BLOCKS[id].name + ' 应带 replaceable(命中放置=覆盖)');
+  }
+  /* 反白名单: 其余方块带 replaceable 即手滑——麦是庄稼、床/引线是家具电路,
+     静默无掉落地盖掉都有损(改动即有意) */
+  for (const [id, b] of Object.entries(c.BLOCKS)) {
+    if (repIds.includes(Number(id))) continue;
+    assert.ok(!b.replaceable, id + '(' + b.name + ') 不在覆盖白名单, 不应带 replaceable');
+  }
+});
+
 /* ============ 采集字段防错网(hard/tool/tier/drop) ============ */
 
 test('存量探险方块 13 个补齐四字段(TNT 可回收 D3); 创造专属 7 个保持无采集字段', () => {

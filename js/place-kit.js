@@ -165,8 +165,10 @@ function mkEditor(opts) {
   }
 
   /* 放置交互: 选中放置型物品(ITEMS.block 字段)点击准星面 → editBlock+记账+
-     背包 −1(D4); thin 块非法落点给话术; nether_portal 与 door 无 block 字段,
-     在旧判断之前拦截走结构放置(§3.3/§4.1) */
+     背包 −1(D4); thin 块非法落点给话术; replaceable 薄块(花草/火把, config
+     旗标)命中即覆盖——落点=被点格本身, thin 新块支承改认正下方(belowId),
+     盖掉树苗连带撤计时(sink.sapling, 挖树苗同款); nether_portal 与 door 无
+     block 字段, 在旧判断之前拦截走结构放置(§3.3/§4.1) */
   function tryPlace(hit) {
     const slot = o.sel();
     const s = invOf().slots[slot];
@@ -175,12 +177,16 @@ function mkEditor(opts) {
     if (s && s.id === 'door') return placeDoor(hit); /* 2 格门结构放置 */
     if (!hit || !it || it.block == null) return false;
     const lookId = getBlock(hit.x, hit.y, hit.z);
+    const lookDef = lookId !== 0 ? BLOCKS[lookId] : null;
+    const replace = !!(lookDef && lookDef.replaceable); /* 覆盖放置: 落点=被点格 */
     const targetId = getBlock(hit.x + hit.nx, hit.y + hit.ny, hit.z + hit.nz);
-    const pc = advPlaceCheck(hit, it.block, lookId, targetId);
+    const pc = advPlaceCheck(hit, it.block, lookId, targetId,
+        replace ? getBlock(hit.x, hit.y - 1, hit.z) : null); /* belowId 仅覆盖+thin 新块消费 */
     if (!pc.ok || collidesAtPlayer(pc.x, pc.y, pc.z)) {/* 不与玩家身体重叠(arena 先例) */
       if (o.say) o.say('这里放不了哦');
       return false;
     }
+    if (replace && lookId === B_SAPLING && sink.sapling) sink.sapling(pc.x, pc.y, pc.z); /* 盖掉树苗撤计时 */
     const moved = editBlock(pc.x, pc.y, pc.z, it.block); /* 放置触发仅 fall(P9): 半空沙即落 */
     if (o.onEdit) o.onEdit(pc.x, pc.y, pc.z, it.block);
     for (const r of moved) {/* 移动两格记账: 原格清空+落格得沙(漏记重进悬空沙复活) */
