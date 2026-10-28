@@ -60,6 +60,7 @@ const SFX_KINDS = {
   snow_hit: {synth: {noise: {type: 'bandpass', freq: 1000, dur: 0.16}, g: 0.10}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 雪球命中「噗嗤」(票据 T9; 带通白噪拟松雪散裂, 打雪仗零伤害的观感主反馈)
   sand_collapse: {synth: {noise: {type: 'lowpass', freq: 380, dur: 0.3}, g: 0.14}, g: 1, gTouch: 1, prio: 2, coolMs: 100}, // 神殿可疑地板踩塌(审查修复 P1; 低通白噪拟沙层坍落闷响, 比 snow_hit 低且长)
   door_swing: {synth: {type: 'square', f0: 180, f1: 95, fT: 0.09, dur: 0.12, g: 0.09}, g: 1, gTouch: 1, prio: 1, coolMs: 150}, // 木门开合「吱呀叩」(门/玻璃板设计稿 §4.4; 注意 kind 不是死键 'door' —— TNT 密室铁门音已清偿不迁, test 断言其缺席)
+  shear: {synth: {noise: {type: 'highpass', freq: 1800, dur: 0.12}, g: 0.10}, g: 1, gTouch: 1, prio: 1, coolMs: 150}, // 剪羊毛「咔嚓」(剪毛使用档; 高通白噪短促拟剪刀开合, 与 hit 打击音区分)
 };
 
 /* ---------- BGM 曲目表 ----------

@@ -1727,14 +1727,32 @@ test('生态恢复·凋零树位派生: 基格无原木=凋零, 有原木=在位
       [{x: 7, y: 11, z: 3}], '只有无原木的位进凋零清单');
 });
 
-test('生态恢复·牧场档形归一: 三代档形收敛 + 坏条目丢弃', () => {
-  assert.deepStrictEqual(Core.advLivestockNormBucket([1, 2]), {dead: [1, 2], bred: []}, '二代索引数组');
+test('生态恢复·牧场档形归一: 四代档形收敛 + 坏条目丢弃 + 剪毛账(v3)', () => {
+  assert.deepStrictEqual(Core.advLivestockNormBucket([1, 2]), {dead: [1, 2], bred: [], sheared: {}},
+      '二代索引数组');
   assert.deepStrictEqual(Core.advLivestockNormBucket({dead: [3], bred: [{k: 'cow', b: '2026-10-28'}]}),
-      {dead: [3], bred: [{k: 'cow', b: '2026-10-28'}]}, 'v2 桶原样拷贝');
+      {dead: [3], bred: [{k: 'cow', b: '2026-10-28'}], sheared: {}}, 'v2 桶 → sheared 空');
+  assert.deepStrictEqual(
+      Core.advLivestockNormBucket({dead: [3], bred: [{k: 'cow', b: '2026-10-28', sheared: 5000}],
+        sheared: {'2': 12000}}),
+      {dead: [3], bred: [{k: 'cow', b: '2026-10-28', sheared: 5000}], sheared: {'2': 12000}},
+      'v3 桶原样拷贝(初始畜+繁育畜剪毛时刻两处都收)');
   assert.deepStrictEqual(Core.advLivestockNormBucket({dead: [3], bred: [{k: 'cow'}, 'x', null, {k: 'pig', b: 5}]}),
-      {dead: [3], bred: []}, '异形 bred 条目整条丢弃');
-  assert.deepStrictEqual(Core.advLivestockNormBucket(null), {dead: [], bred: []}, '坏档兜底空');
-  assert.deepStrictEqual(Core.advLivestockNormBucket(undefined), {dead: [], bred: []}, '缺桶兜底空');
+      {dead: [3], bred: [], sheared: {}}, '异形 bred 条目整条丢弃');
+  assert.deepStrictEqual(Core.advLivestockNormBucket(null), {dead: [], bred: [], sheared: {}}, '坏档兜底空');
+  assert.deepStrictEqual(Core.advLivestockNormBucket(undefined), {dead: [], bred: [], sheared: {}}, '缺桶兜底空');
+  /* 剪毛账归一: 只收数字索引键 × 有限数值, 异形键值整条丢 */
+  assert.deepStrictEqual(Core.advShearedNorm({'2': 5000, '10': 0}), {'2': 5000, '10': 0}, '合法账拷贝');
+  assert.deepStrictEqual(Core.advShearedNorm({'x': 1, '1.5': 2, '3': 'l', '4': NaN, '5': Infinity}),
+      {}, '异形键值全丢(非数字键/非有限值)');
+  assert.deepStrictEqual(Core.advShearedNorm(null), {}, '坏档兜底空');
+  /* bred 条目 sheared 字段: 非有限数值剥除(回落有毛), 合法数值保留 */
+  assert.deepStrictEqual(Core.advBredNorm([{k: 'sheep', b: '2026-10-28', sheared: 777}]),
+      [{k: 'sheep', b: '2026-10-28', sheared: 777}], '合法剪毛字段保留');
+  assert.deepStrictEqual(Core.advBredNorm([{k: 'sheep', b: '2026-10-28', sheared: 'x'}]),
+      [{k: 'sheep', b: '2026-10-28'}], '坏剪毛字段剥除');
+  assert.deepStrictEqual(Core.advBredNorm([{k: 'sheep', b: '2026-10-28'}]),
+      [{k: 'sheep', b: '2026-10-28'}], '无剪毛字段形状不变(v2 兼容)');
 });
 
 test('生态恢复·繁育判据: 同种成年邻近, 冷却/幼崽/超距/异种拒绝', () => {

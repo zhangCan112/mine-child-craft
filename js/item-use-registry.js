@@ -31,6 +31,9 @@ const ITEM_USES = {
   /* 大背包使用档(2026-10, docs/bag-and-drop-design.md §2): 手持使用扩容 +6
      主格(一次性; 已扩容时模式层执行器礼貌拒绝不消耗) */
   bag_upgrade: [{act: 'expand_bag', icon: 'bagup', label: '背包扩容'}],
+  /* 剪羊毛使用档(2026-10-28): 手持剪刀对准羊使用 = 剪毛不伤羊(温和收获
+     口径, F4 牧场延伸); 行为在模式层执行器 act 'shear', 剪毛账/长回政策同 */
+  shears: [{act: 'shear', icon: 'shear', label: '剪羊毛'}],
 };
 
 /* 物品键 → 使用动作条目; 无专属使用动作返回 null(调用方回落常规使用链) */

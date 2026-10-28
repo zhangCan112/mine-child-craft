@@ -112,7 +112,8 @@ const MobLookKit = (() => {
      官方下摆 y0 会把摆腿动画整个罩没); 官方交叉臂是 idle 姿态语言, 与引擎
      挥击摆臂互斥, 取摆臂(持械怪持械手必须垂臂)
      quad: 四足(牛/猪/羊…) — 官方「竖模 bind_pose 90°」的等价水平盒(预躺平,
-     推导注引研究笔记 §5); wool 参数 = 身/头同盒 + inflate 的 overlay(羊);
+     推导注引研究笔记 §5); wool 参数 = 身/头同盒 inflate 的**羊毛独立骨**
+     (woolBody/woolHead, 剪毛态可整骨隐藏, 羊; 研究笔记 §5 农场一家);
      bodyUV/headUV/legUVs 参数 = 大怪 128 档的布局重排覆写 */
   const BASES = {
     humanoid(o) {
@@ -167,17 +168,12 @@ const MobLookKit = (() => {
         size: [o.headW, o.headH, o.headD], uv: o.headUV || [0, 0],
       };
       const headCubes = [head];
-      /* 羊毛 overlay: 身/头同盒 + inflate(官方手法, 研究笔记 §5 农场一家) */
-      if (o.wool) {
-        bodyCubes.push({...body, inflate: o.wool.inflate, uv: o.wool.bodyUV});
-        headCubes.push({...head, inflate: o.wool.headInflate, uv: o.wool.headUV});
-      }
       const legUVs = o.legUVs || /* 四腿各一区(左前/左后/右前/右后) */
         [[32, 0], [48, 0], [32, 16], [48, 16]];
       const leg = (x, z, uv) => ({
         origin: [x - o.legW / 2, 0, z - o.legW / 2], size: [o.legW, o.legH, o.legW], uv,
       });
-      return {
+      const out = {
         head: {pivot: [0, o.headPY !== undefined ? o.headPY : o.headCY,
           o.headPZ !== undefined ? o.headPZ : o.headCZ], cubes: headCubes},
         root: {pivot: [0, o.bodyCY, o.bodyCZ], cubes: bodyCubes},
@@ -186,6 +182,16 @@ const MobLookKit = (() => {
         legL: {pivot: [o.legX, o.legH, 0],
           cubes: [leg(o.legX, o.legZF, legUVs[0]), leg(o.legX, o.legZB, legUVs[1])]},
       };
+      /* 羊毛 overlay(羊): **独立骨**(身随 root 枢轴/头随 head 枢轴)而非同槽
+         第二盒——羊毛单独成槽 = 渲染侧可逐实例隐藏(剪羊毛: 没毛羊不写羊毛
+         批次即裸身示人, 批处理零额外开销); 羊毛头骨 poseKey='head' 随头俯仰 */
+      if (o.wool) {
+        out.woolBody = {pivot: [0, o.bodyCY, o.bodyCZ],
+          cubes: [{...body, inflate: o.wool.inflate, uv: o.wool.bodyUV}]};
+        out.woolHead = {pivot: out.head.pivot, poseKey: 'head',
+          cubes: [{...head, inflate: o.wool.headInflate, uv: o.wool.headUV}]};
+      }
+      return out;
     },
   };
 
@@ -221,6 +227,7 @@ const MobLookKit = (() => {
         joint: [bone.pivot[0] * s, bone.pivot[1] * s, nz(bone.pivot[2] * s * mz)],
         axis: bone.axis, boxes: [], cubes: bone.cubes,
       };
+      if (bone.poseKey) slot.poseKey = bone.poseKey; /* 共姿槽: 随声明骨同关节角(羊毛头随 head) */
       for (const c of bone.cubes) {
         const w = c.size[0]; const h = c.size[1]; const d = c.size[2];
         let cx = (c.origin[0] + w / 2 - bone.pivot[0]) * s;

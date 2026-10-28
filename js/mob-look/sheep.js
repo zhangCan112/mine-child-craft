@@ -3,9 +3,10 @@
    造型档案 · 羊 (sheep) — 引擎层 (术语见 GLOSSARY「造型档案」)
    ------------------------------------------------------------
    四足基座(官方竖模预躺平: 身 8×6×16 心 y15 · 头 6×6×8 · 腿 4×12×4,
-   推导自 docs/mc-mob-models-research.md §5 农场一家) + **羊毛 overlay**
-   (身同盒 inflate 1.75 / 头同盒 inflate 0.6 — 官方第二层语言, 本票
-   overlay 代表)。消费者: mobs.js(+Z 镜像合批)。
+   推导自 docs/mc-mob-models-research.md §5 农场一家) + **羊毛独立骨
+   overlay**(woolBody/woolHead, 身同盒 inflate 1.75 / 头同盒 inflate 0.6 —
+   官方第二层语言; 独立骨 = 剪羊毛态模式层整骨隐藏, 本票剪毛功能)。
+   消费者: mobs.js(+Z 镜像合批)。
    interface: declare('sheep', {...}) — 单一声明
    依赖: js/mob-look-kit.js(先载); 键 ∈ mob-registry.js MOB_TYPES
    可测性声明: 纯声明数据, 由 test/mob-look.test.js 键集/覆盖/overlay 断言
@@ -28,10 +29,10 @@ MobLookKit.declare('sheep', {
         g.px(r[0] + Math.floor(g.rng() * r[2]), r[1] + Math.floor(g.rng() * r[3]), WOOL2);
       }
     };
-    /* 羊毛 overlay(身 root2 / 头 head2): 绒毛通体 */
+    /* 羊毛独立骨(woolBody / woolHead): 绒毛通体(剪毛态整骨隐藏=裸身示人) */
     for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
-      fleece(R.root2[f]);
-      fleece(R.head2[f]);
+      fleece(R.woolBody[f]);
+      fleece(R.woolHead[f]);
     }
     /* 裸身/裸头(剪羊毛口径, overlay 之下透出的边角) */
     for (const f of ['front', 'back', 'left', 'right', 'top', 'bottom']) {
@@ -44,7 +45,7 @@ MobLookKit.declare('sheep', {
     g.fill([F[0] + 2, F[1] + 4, 2, 2], PINK); /* 粉吻 */
     g.px(F[0] + 2, F[1] + 4, DARK); g.px(F[0] + 3, F[1] + 4, DARK); /* 鼻孔 */
     /* 羊毛头正面开脸洞(露眼与吻 — overlay 罩脸会闷) */
-    const W = R.head2.front;
+    const W = R.woolHead.front;
     g.fill([W[0] + 1, W[1] + 1, 4, 4], WOOL2); /* 脸洞框 */
     /* 腿: 上段绒白下段浅肤(膝下露肤) */
     for (const leg of [R.legL, R.legL2, R.legR, R.legR2]) {
