@@ -315,7 +315,7 @@ function loop(now) {
     if (MODES.cur.onHighlight(hit) === false) hlShow = false;
   }
   highlight.visible = hlShow;
-  if (hlShow) highlight.position.set(hit.x+0.5, hit.y+0.5, hit.z+0.5);
+  if (hlShow) highlightShape(hit); /* 选中框贴形状: 非整格方块用贴合小块(world.js) */
 
   renderer.render(scene, camera);
   HandView.render(renderer, camera); // 手部通道恰在主渲染后: 清深度再画, 手永不插墙(design D4)
