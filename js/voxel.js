@@ -200,6 +200,8 @@ function raycastVoxel(origin, dir, maxDist, filter) {
    · math-world.js     自持 rAF 直写 pos/vel/pitch/onGround — 根因: 主循环
      以指针锁为门跑 physics, 不锁指针宿主只能自持驱动(该文件头已自白;
      治理归引擎「非锁定宿主驱动入口」的未来票)
+   · robot-world.js    直写 pitch(固定俯角看棋盘, tick 每帧复归) — 怪物指挥官
+     世界宿主, 相机是看盘装置同 math-world 口径(该文件头已自白)
    · tank.js           引擎同侪直写(驾驶锁舱姿态/上下车视角对齐, 引擎层内部)
    其余写者一律走意图入口: 传送/出生 → ModeKit.spawn(mode-kit.js),
    飞行态 → setFly(下方); 模式文件与组合根(main.js)零裸写。 */
