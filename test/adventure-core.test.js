@@ -25,6 +25,7 @@ const api = vm.runInContext(`({
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
+  B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_ICE, B_SANDSTONE, B_GLOWSTONE, B_CHEST, /* 扩容主题五件建场件消费(望塔灯/箱, 松林/花田/南池) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
@@ -1458,4 +1459,47 @@ test('advDoorBreakPlan: 挖下连上/挖上连下/挖门下支撑整扇弹出 ·
       {cells: [{x: 2, y: 26, z: 2}], drop: 1}, '上格已空 → 只收现存半扇');
   /* 普通方块: 无门牵连 */
   assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 9, 25, 9), {cells: [], drop: 0}, '无关方块零牵连');
+});
+
+/* ============ 农田链判定与配方解锁(farm-and-recipe 设计稿 D2/D3) ============ */
+
+test('农田四判定: 锄(草地/泥土+上方空)/种(耕地+上方空)/长(42→43→44→45→0)/催(0~2 阶)', () => {
+  /* 锄地: 草地(1)/泥土(2)可垦, 上方有块不可(播种位), 耕地/石头不可再锄 */
+  assert.strictEqual(Core.advHoeOk(1, 0), true, '草地可垦');
+  assert.strictEqual(Core.advHoeOk(2, 0), true, '泥土可垦');
+  assert.strictEqual(Core.advHoeOk(1, api.B_WHEAT_0), false, '上方有块不可垦(播种位被占)');
+  assert.strictEqual(Core.advHoeOk(api.B_FARMLAND, 0), false, '耕地不可再锄');
+  assert.strictEqual(Core.advHoeOk(3, 0), false, '石头不可垦');
+  /* 播种: 只认耕地且上方空 */
+  assert.strictEqual(Core.advPlantOk(api.B_FARMLAND, 0), true, '耕地可播');
+  assert.strictEqual(Core.advPlantOk(api.B_FARMLAND, api.B_WHEAT_0), false, '已有苗不可再播');
+  assert.strictEqual(Core.advPlantOk(1, 0), false, '草地不可直播(两步正典: 先锄后种)');
+  /* 生长: 阶段线性推进, 成熟/非麦格无下一步 */
+  assert.strictEqual(Core.advWheatNext(api.B_WHEAT_0), api.B_WHEAT_1, '麦苗0→1');
+  assert.strictEqual(Core.advWheatNext(api.B_WHEAT_1), api.B_WHEAT_2, '麦苗1→2');
+  assert.strictEqual(Core.advWheatNext(api.B_WHEAT_2), api.B_WHEAT_3, '麦苗2→熟');
+  assert.strictEqual(Core.advWheatNext(api.B_WHEAT_3), 0, '成熟无下一步');
+  assert.strictEqual(Core.advWheatNext(0), 0, '空气无下一步');
+  /* 催熟: 未熟三阶可催, 成熟/空气不可 */
+  assert.strictEqual(Core.advRipenOk(api.B_WHEAT_0), true, '0 阶可催');
+  assert.strictEqual(Core.advRipenOk(api.B_WHEAT_2), true, '2 阶可催');
+  assert.strictEqual(Core.advRipenOk(api.B_WHEAT_3), false, '成熟不可催');
+  assert.strictEqual(Core.advRipenOk(0), false, '空气不可催');
+  assert.strictEqual(Core.ADV_WHEAT_GROW, 20, '每阶段 20s(D7, 与树苗同拍)');
+});
+
+test('配方解锁表(D2): 三谓词读 counts 记账键, 键序稳定, 差集只报新鲜达成', () => {
+  assert.deepStrictEqual(Core.advUnlockedRecipes({}), [], '零计数全锁');
+  assert.deepStrictEqual(Core.advUnlockedRecipes({collect_wheat: 1}), ['bread'], '首收小麦解锁面包');
+  assert.deepStrictEqual(Core.advUnlockedRecipes({kill_skeleton: 1}), ['bone_meal'], '首杀骷髅解锁骨粉');
+  assert.deepStrictEqual(Core.advUnlockedRecipes({kill_spider: 2}), ['bow_item'], '杀蜘蛛(≥1)解锁弓');
+  assert.deepStrictEqual(Core.advUnlockedRecipes({collect_wheat: 3, kill_skeleton: 1, kill_spider: 1}),
+      ['bread', 'bone_meal', 'bow_item'], '全达成按表序全开(键序稳定)');
+  /* 差集: now 有 prev 无才报; prev 全有报空(防重复播报) */
+  assert.deepStrictEqual(Core.advRecipeUnlockedNew([], {collect_wheat: 1}), ['bread'], '无到有报新');
+  assert.deepStrictEqual(
+      Core.advRecipeUnlockedNew(['bread'], {collect_wheat: 1, kill_skeleton: 1}),
+      ['bone_meal'], '增量只报未播过的');
+  assert.deepStrictEqual(Core.advRecipeUnlockedNew(['bread', 'bone_meal', 'bow_item'],
+      {collect_wheat: 1, kill_skeleton: 1, kill_spider: 1}), [], '已播过不再报');
 });

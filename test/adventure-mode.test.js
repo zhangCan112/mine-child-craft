@@ -87,6 +87,7 @@ const api = vm.runInContext(`({
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
+  B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
   B_PORTAL, B_PORTAL_DIM, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
@@ -3183,4 +3184,75 @@ test('昼夜 D7 灯笼退场复位: cleanup 关随身光(PointLight 不渗入其
   calls.length = 0;
   AdventureMode.cleanup();
   assert.deepStrictEqual(calls.filter((c) => c[0] === 'glow'), [['glow', false]], 'cleanup 兜底熄灭(幂等复位)');
+});
+
+/* ============ 农田闭环(farm-and-recipe 设计稿 D3)与配方解锁(D2) — 壳行为链 ============ */
+
+test('农田 D3 锄地: 空手右键草地→耕地(世界档记账+翻土声); 手持方块右键=放置不被锄地劫持', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5;
+  aimDownAt(spot); /* 准星 fake: 射线命中 (x,24,z) 草地顶面 */
+  holdOnly(null); /* 空手=锄(D7) */
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 24, spot.z), api.B_FARMLAND, '草地锄成耕地');
+  assert.strictEqual(A.advJournal.edits.get(spot.x + ',24,' + spot.z), api.B_FARMLAND,
+      '锄地进世界档账本(重放即重建)');
+  assert.ok(spoken.some((t) => t.includes('种子')), '锄成给播种引导话术');
+  /* 手持放置物: 右键归放置链——草地不再被锄(回归锚点: 放置优先于空手锄) */
+  holdOnly('dirt', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 24, spot.z), api.B_FARMLAND, '耕地原样(未被再锄)');
+  assert.strictEqual(cell(spot.x, 25, spot.z), 2, '泥土放进了上格(放置链照常)');
+  clearAim();
+});
+
+test('农田 D3 播种→催熟→生长全链: 非耕地不扣件·耕地落苗扣种·骨粉+1 阶·20s/阶段到熟即停', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5;
+  api.setBlockRaw(spot.x, 24, spot.z, api.B_FARMLAND); /* 锄好的耕地布景 */
+  /* 准星指邻列草地: 播种 attempt 落空不扣件(执行器走准星, 弓同口径) */
+  globalThis.camera = {};
+  globalThis.CameraRig = {aim: () => ({origin: {x: spot.x + 3.5, y: 28.5, z: spot.z + 0.5},
+    dir: {x: 0, y: -1, z: 0}})};
+  holdOnly('wheat_seeds', 3);
+  AdventureMode.onMouse(2, {x: spot.x + 3, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advGetInv().slots[0].n, 3, '非耕地播种不扣种子');
+  /* 准星指耕地: 落麦苗+扣 1+挂生长计时+记账 */
+  aimDownAt(spot);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_WHEAT_0, '麦苗落位');
+  assert.strictEqual(A.advGetInv().slots[0].n, 2, '扣 1 粒种子');
+  assert.strictEqual(A.advJournal.edits.get(spot.x + ',25,' + spot.z), api.B_WHEAT_0,
+      '播种进世界档账本(重放即重建)');
+  /* 骨粉催熟: 0 阶→1 阶(D7 确定性 +1), 扣 1 */
+  holdOnly('bone_meal', 2);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_WHEAT_1, '骨粉 +1 阶');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '扣 1 份骨粉');
+  /* 生长: 20s/阶段推进, 成熟即停(计时撤表) */
+  holdOnly(null);
+  AdventureMode.update(20);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_WHEAT_2, '20s 长到 2 阶');
+  AdventureMode.update(20);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_WHEAT_3, '再 20s 成熟');
+  AdventureMode.update(20);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_WHEAT_3, '成熟后不再生长(计时已撤)');
+  clearAim();
+});
+
+test('配方解锁播报(D2): 击杀记账达成→0.5s 节拍播报一次, 不重复播', () => {
+  mem.clear();
+  freshInit();
+  A.getSaveView().quest.counts.kill_skeleton = 1; /* 首杀骷髅(模拟击杀记账; counts 为活引用) */
+  AdventureMode.update(0.6); /* 过 0.5s 节拍窗 */
+  assert.ok(spoken.some((t) => t.includes('骨粉') && t.includes('解锁')), '解锁播报+指路背包');
+  spoken.length = 0;
+  AdventureMode.update(0.6);
+  assert.ok(!spoken.some((t) => t.includes('解锁')), '同一次达成只播一次');
+  AdventureMode.update(0.6);
+  assert.ok(!spoken.some((t) => t.includes('解锁')), '计数没新增就不播');
 });

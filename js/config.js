@@ -284,13 +284,15 @@ BLOCKS[B_GRASS_TUFT] = {name: '草丛', all: [0.38, 0.66, 0.28], thin: 0.35, sol
   replaceable: true, hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 0, 0.5]]}; // 无保底, 50% 掉种子(MC 12.5% → 儿童加倍)
 BLOCKS[B_FARMLAND] = {name: '耕地', top: [0.32, 0.22, 0.13], side: [0.42, 0.30, 0.18], bottom: [0.42, 0.30, 0.18],
   hard: 0.6, tool: 'shovel', tier: 0, drop: [['dirt', 1, 0]]}; // 锄头点草地/泥土转来(二期农田链)
-BLOCKS[B_WHEAT_0] = {name: '麦苗', all: [0.45, 0.70, 0.30], thin: 0.3, solid: false,
+/* crop 旗标 = 生长作物身份(farm-and-recipe 设计稿 D3): 破坏/级联脱落/TNT 掀掉
+   三通道撤生长计时(sink.crop); 麦四阶段专用, 树苗走既有 sink.sapling */
+BLOCKS[B_WHEAT_0] = {name: '麦苗', all: [0.45, 0.70, 0.30], thin: 0.3, solid: false, crop: true,
   hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 1, 0]]};
-BLOCKS[B_WHEAT_1] = {name: '麦苗', all: [0.50, 0.72, 0.25], thin: 0.45, solid: false,
+BLOCKS[B_WHEAT_1] = {name: '麦苗', all: [0.50, 0.72, 0.25], thin: 0.45, solid: false, crop: true,
   hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 1, 0]]};
-BLOCKS[B_WHEAT_2] = {name: '麦苗', all: [0.60, 0.70, 0.22], thin: 0.55, solid: false,
+BLOCKS[B_WHEAT_2] = {name: '麦苗', all: [0.60, 0.70, 0.22], thin: 0.55, solid: false, crop: true,
   hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 1, 0]]};
-BLOCKS[B_WHEAT_3] = {name: '小麦', all: [0.85, 0.72, 0.20], thin: 0.7, solid: false,
+BLOCKS[B_WHEAT_3] = {name: '小麦', all: [0.85, 0.72, 0.20], thin: 0.7, solid: false, crop: true,
   hard: 0, tool: null, tier: 0, drop: [['wheat', 1, 0], ['wheat_seeds', 1, 0.5]]}; // 熟麦: 小麦×1 + 种子 1-2
 BLOCKS[B_CRAFT] = {name: '工作台', top: [0.55, 0.42, 0.26], side: [0.66, 0.52, 0.33], bottom: [0.60, 0.47, 0.30],
   hard: 2.5, tool: 'axe', tier: 0, drop: [['craft_table', 1, 0]]}; // 站点: table 级配方

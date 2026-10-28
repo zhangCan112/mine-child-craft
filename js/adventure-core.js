@@ -1062,6 +1062,39 @@ function advGrowMark(x, y, z, read, mark) {
 }
 
 /* ============================================================
+   农田链判定(farm-and-recipe 设计稿 D3) — 锄/种/长/催四步的纯判定段
+   ------------------------------------------------------------
+   D7 二期农田链落地: 状态机政策在纯函数, 世界写/扣件/计时表在壳。
+   与 MC 差异(登记 farm-and-recipe 附录): 锄头不是物品(空手=锄, 免耐久
+   免 tier) · 耕地不需水不退化 · 骨粉确定 +1 阶段(MC 随机 2-5)。
+   ------------------------------------------------------------ */
+const ADV_WHEAT_GROW = 20; /* 每阶段生长秒数(D7: 4 阶段×20s; 与 ADV_SAP_GROW 同拍) */
+
+/* 可垦判定: 草地(1)/泥土(2) 且上方空(播种位, 也挡「麦苗嵌进草丛」);
+   雪覆草/耕地不可再锄(MC 口径: 开垦只对土面) */
+function advHoeOk(id, aboveId) {
+  return (id === 1 || id === 2) && !aboveId;
+}
+
+/* 播种判定: 目标格是耕地且上方空 */
+function advPlantOk(id, aboveId) {
+  return id === B_FARMLAND && !aboveId;
+}
+
+/* 下一生长阶段: 42→43→44→45, 成熟(45)/非麦格返 0(无下一步) */
+function advWheatNext(id) {
+  if (id === B_WHEAT_0) return B_WHEAT_1;
+  if (id === B_WHEAT_1) return B_WHEAT_2;
+  if (id === B_WHEAT_2) return B_WHEAT_3;
+  return 0;
+}
+
+/* 可催熟判定: 麦苗 0~2 阶段(成熟 45 骨粉无意义, MC 同口径) */
+function advRipenOk(id) {
+  return id >= B_WHEAT_0 && id < B_WHEAT_3;
+}
+
+/* ============================================================
    方块级联记账政策(设计稿 D4/D5/P6) — 级联清单 → edits 账本的编排
    ------------------------------------------------------------
    存档红线件: editBlock 返回的级联清单逐块入账, 顺序即契约——
@@ -1082,6 +1115,7 @@ function advCascadeLedger(removed, quest, sink) {
     }
     sink.mark(r.x, r.y, r.z, 0);
     if (r.id === B_SAPLING) sink.sapling(r.x, r.y, r.z);
+    if (BLOCKS[r.id] && BLOCKS[r.id].crop && sink.crop) sink.crop(r.x, r.y, r.z); /* 麦苗脱落撤生长计时(farm-and-recipe D3) */
     if (BLOCKS[r.id] && BLOCKS[r.id].fell) felled = true;
     for (const d of rollBlockDrop(BLOCKS[r.id], null, null)) sink.drop(d.id, d.n, r.x + 0.5, r.y + 0.8, r.z + 0.5);
     if (quest) sink.questMine(r.id, r.x, r.y, r.z);
@@ -1196,6 +1230,7 @@ function advExplodeCells(x, y, z, read, sink, rand) {
         if (!def || def.hard == null) continue; /* 空气/水/创造专属免疫(字段缺失判据) */
         sink.edit(bx, by, bz);
         if (id === B_SAPLING) sink.sapling(bx, by, bz);
+        if (def.crop && sink.crop) sink.crop(bx, by, bz); /* 掀掉麦苗撤生长计时(farm-and-recipe D3) */
         for (const d of advTntRoll(id, rand)) sink.drop(d.id, d.n, bx + 0.5, by + 0.8, bz + 0.5);
       }
     }
@@ -1365,6 +1400,32 @@ const ADV_QUESTS = [
    任务(每图至多一条, 表结构由单测锁定); home 恒开/未知图 → null 不炸 */
 function advUnlockQuest(mapId) {
   return ADV_QUESTS.find((q) => q.unlock === mapId) || null;
+}
+
+/* ------------------------------------------------------------
+   隐藏配方解锁表(farm-and-recipe 设计稿 D2, 2026-10-28 用户拍板①)
+   ------------------------------------------------------------
+   KIT_HIDDEN_RECIPES(mode-kit 一期锁)的配方卡在探险缺省隐藏, 达成因果
+   事件即解锁——解锁本身是教学时刻。谓词纯读 counts 记账键(事件处只 +=
+   不判断的既有红线不破), 键 = 配方 id; 挂任务链解锁、不插任务步序
+   (插步移老档 step 下标, 远征章「只追加」先例)。
+   ------------------------------------------------------------ */
+const ADV_RECIPE_UNLOCK = {
+  bread: (c) => (c.collect_wheat || 0) >= 1, /* 首收小麦: 收成→食物链入口 */
+  bone_meal: (c) => (c.kill_skeleton || 0) >= 1, /* 首杀骷髅: 骨头→骨粉 */
+  bow_item: (c) => (c.kill_spider || 0) >= 1, /* 首杀蜘蛛: 线→弓(因果与骨粉同构) */
+};
+
+/* 当前已解锁清单(纯函数): 键序稳定(表声明序), 供壳 allow getter 与差集播报 */
+function advUnlockedRecipes(counts) {
+  return Object.keys(ADV_RECIPE_UNLOCK).filter((id) => ADV_RECIPE_UNLOCK[id](counts));
+}
+
+/* 新解锁差集(纯函数): now 有而 prev 没有的键——壳在任务节拍里播报「解锁啦」,
+   prev 为壳侧已播集合快照 */
+function advRecipeUnlockedNew(prev, counts) {
+  const seen = new Set(prev);
+  return advUnlockedRecipes(counts).filter((id) => !seen.has(id));
 }
 
 /* ============================================================
@@ -1792,5 +1853,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advExplodeCells, advTntWave, ADV_HERD_AMBLE_WALK_P, advAmbleStep,
     ADV_PORTAL, ADV_NETHER, advNetherBuild, advPortalFrame,
     advInPortal, advPortalSiteOk, advPortalExit,
-    advIsDoor, advIsDoorLower, advDoorSiteOk, advDoorTogglePlan, advDoorBreakPlan};
+    advIsDoor, advIsDoorLower, advDoorSiteOk, advDoorTogglePlan, advDoorBreakPlan,
+    ADV_WHEAT_GROW, advHoeOk, advPlantOk, advWheatNext, advRipenOk,
+    ADV_RECIPE_UNLOCK, advUnlockedRecipes, advRecipeUnlockedNew};
 }

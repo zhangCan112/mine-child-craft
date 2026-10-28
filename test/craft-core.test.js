@@ -96,25 +96,25 @@ test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派�
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 随身 10 + 工作台级 27 共 37 条, id 唯一(crafting-grid §3 + 下界并入探险 D3 + 雪球 T9 + 门/玻璃板)', () => {
+test('配方全量: 随身 13 + 工作台级 27 共 40 条, id 唯一(crafting-grid §3 + 下界并入探险 D3 + 雪球 T9 + 门/玻璃板 + 补链 D1)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 37, '全表 37 条(随身 10 + 工具 16 + 站点件 8 + 门/玻璃板 2 + 传送门 1), 实际 ' + RECIPES.length);
-  // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9)
+  assert.strictEqual(RECIPES.length, 40, '全表 40 条(随身 13 + 工具 16 + 站点件 8 + 门/玻璃板 2 + 传送门 1), 实际 ' + RECIPES.length);
+  // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9 + 补链 D1 砂岩/羊毛)
   for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
-    'bone_meal', 'iron_nuggets', 'snow']) {
+    'bone_meal', 'iron_nuggets', 'snow', 'sandstone', 'wool']) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '随身配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
   }
-  // 工作台级: 工具 16 + furnace/chest/bed/lantern/golden_apple/tnt/bow_item/bread + door/glass_pane
+  // 工作台级: 工具 16 + furnace/chest/bed/lantern/golden_apple/tnt/bow_item/bread + door/glass_pane + 铁粒回炉(9 格 D1)
   const tableIds = ['pick_wood', 'pick_stone', 'pick_iron', 'pick_diamond',
     'axe_wood', 'axe_stone', 'axe_iron', 'axe_diamond',
     'sword_wood', 'sword_stone', 'sword_iron', 'sword_diamond',
     'shovel_wood', 'shovel_stone', 'shovel_iron', 'shovel_diamond',
     'furnace', 'chest', 'bed', 'lantern', 'golden_apple', 'tnt', 'bow_item', 'bread',
-    'door', 'glass_pane'];
+    'door', 'glass_pane', 'iron_ingot'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');
@@ -295,9 +295,9 @@ test('烧炼表: 十条映射与任务合同逐条一致(铁/金粗矿·木炭·
   });
 });
 
-test('燃料择优序: 读 ITEMS fuel 字段按热值降序(煤→木炭→原木→木板→木棍, D8)', () => {
+test('燃料择优序: 读 ITEMS fuel 字段按热值降序(煤→木炭→原木→木板→木棍→树苗, D8; 树苗半件 MC 正典补链 D1——注册表序在木棍后同值稳定排序)', () => {
   const {FUEL} = loadCraft();
-  assert.deepStrictEqual([...FUEL], ['coal', 'charcoal', 'log', 'planks', 'stick']);
+  assert.deepStrictEqual([...FUEL], ['coal', 'charcoal', 'log', 'planks', 'stick', 'sapling']);
 });
 
 /* ============ 热值与烧炼查询 ============ */

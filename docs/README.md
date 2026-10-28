@@ -19,7 +19,7 @@
 - **训练营**：[focus-revamp-design.md](focus-revamp-design.md)（2.0 定稿）· [focus-reward-tuning-design.md](focus-reward-tuning-design.md)（奖励段位）
 - **数学岛**：[math-mode-design.md](math-mode-design.md) · [math-track-unification-design.md](math-track-unification-design.md)
 - **探险**：[adventure-maps-design.md](adventure-maps-design.md)（多地图）· [nether-merge-design.md](nether-merge-design.md)（下界相位）· [adventure-shell-unification-design.md](adventure-shell-unification-design.md) · [mining-hardness-design.md](mining-hardness-design.md) · [monster-taxonomy-design.md](monster-taxonomy-design.md) · [shared-monsters-design.md](shared-monsters-design.md)
-- **物品与合成**：[item-crafting-design.md](item-crafting-design.md) · [crafting-grid-design.md](crafting-grid-design.md) · [door-window-design.md](door-window-design.md) · [item-hint-design.md](item-hint-design.md) · [furnace-design.md](furnace-design.md)
+- **物品与合成**：[item-crafting-design.md](item-crafting-design.md) · [crafting-grid-design.md](crafting-grid-design.md) · [door-window-design.md](door-window-design.md) · [item-hint-design.md](item-hint-design.md) · [furnace-design.md](furnace-design.md) · [farm-and-recipe-design.md](farm-and-recipe-design.md)（农田闭环与配方补全）
 - **世界机制**：[liquid-design.md](liquid-design.md) · [block-lifecycle-design.md](block-lifecycle-design.md) · [mc-daylight-torch-design.md](mc-daylight-torch-design.md)（昼夜/光照）
 - **触控与观感**：[touch-controls-design.md](touch-controls-design.md) · [mob-look-design.md](mob-look-design.md) · [pixel-pipeline-design.md](pixel-pipeline-design.md)（底座化裁决记录：不做） · [first-person-hand-design.md](first-person-hand-design.md)（第一人称手持视图 HandView）
 - **菜单与入口**：[menu-ui-design.md](menu-ui-design.md)（加载屏/主菜单门面/模式卡/音量与页脚）
