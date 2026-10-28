@@ -108,6 +108,12 @@ function stopRobotTicker() {
   robotCampTicker.stop();
 }
 
+/* dev 预览开关(URL ?dev=1, PerfKit ?perf=1 同款惯例): 地图/关卡全程只读
+   试玩——不写星表不推前沿不计每日预算, 家长不刷 5 天即可查看带1+ 内容。
+   红线兼容: D9 跳关红线管的是「进度落盘」, 预览零落盘故不碰红线 */
+const ROBOT_DEV_PREVIEW = (typeof location !== 'undefined') &&
+    /[?&]dev=1/.test(location.search || '');
+
 /* ---------- 图章一本(T5): 纯函数在 robot-levels.js, 呈现件住 robotStampRites 实例 ----------
    当日 ≥1 关盖普通章(图案 stampKind 三选一自选), 满 3 关大章; 达成线表
    二期再填(奖励领取仪式二期) — 表空时仪式块恒空、进度行不预告奖励 */
@@ -293,6 +299,7 @@ function stopRobotPump() {
 /* ---------- 关卡屏运行上下文(一盘一 handle, 一关一 stats) ---------- */
 let robotRunCtx = null; // {level, boardIdx, stats, handle, prog, trace, hi, editing, busy, tutUsed}
 let robotBeat = 0; // 过盘间歇定时器(退场收口)
+let robotPreviewing = false; // dev 预览态(startRobotLevel 第二参): 只读试玩零写盘
 
 /* 收当前关(回地图/退模式/结算前): 倒放句柄 + beat 定时器 + tick 泵 */
 function stopRobotRun() {
@@ -334,7 +341,7 @@ function showRobotParentGate() {
 function showRobotToday() {
   stopRobotTicker();
   const save = loadRobotSave();
-  const locked = robotLocked();
+  const locked = robotLocked() && !ROBOT_DEV_PREVIEW;
   const played = robotBudget() ? robotBudget().spentCount() : 0;
   const total = Object.values(save.stars).reduce((s, x) => s + x, 0);
   const dots = Array.from({length: ROBOT_DAILY_LEVELS}, (_, k) =>
@@ -381,7 +388,7 @@ function robotFrontier(save) {
 function showRobotMap() {
   stopRobotTicker();
   const save = loadRobotSave();
-  if (robotLocked()) {
+  if (robotLocked() && !ROBOT_DEV_PREVIEW) {
     robotPlainScreen(`
       <div class="r-screen r-map">
         <h1>小怪物们要休息啦</h1>
@@ -398,7 +405,9 @@ function showRobotMap() {
   }
   const frontier = robotFrontier(save);
   const lv = ROBOT_LEVELS[frontier];
-  let html = '<div class="r-screen r-map"><h1>指挥官地图</h1>' + robotStampTodayHtml(save);
+  let html = '<div class="r-screen r-map"><h1>指挥官地图' +
+      (ROBOT_DEV_PREVIEW ? '<span class="r-sub">（dev 预览）</span>' : '') + '</h1>' +
+      robotStampTodayHtml(save);
   for (let band = 0; band < ROBOT_BANDS.length; band++) {
     const lvls = ROBOT_LEVELS.filter((l) => l.band === band);
     const stars = lvls.reduce((s, l) => s + (save.stars[l.i] || 0), 0);
@@ -418,9 +427,18 @@ function showRobotMap() {
   html += '</div>';
   robotPlainScreen(html);
   document.querySelectorAll('#robotRoot .r-band').forEach((btn) => {
-    btn.onclick = () => SpeechKit.speak(ROBOT_BANDS[+btn.dataset.band].story);
+    btn.onclick = () => {
+      const band = +btn.dataset.band;
+      if (ROBOT_DEV_PREVIEW) { // dev 预览: 带分区=该带首关入口(只读试玩)
+        SpeechKit.speak(ROBOT_BANDS[band].story);
+        startRobotLevel(band * 25, true); // 带首关 = i band*25(4 带 × 25 关)
+        return;
+      }
+      SpeechKit.speak(ROBOT_BANDS[band].story);
+    };
   });
-  document.getElementById('rFrontierBtn').onclick = () => startRobotLevel(frontier);
+  document.getElementById('rFrontierBtn').onclick = () =>
+    startRobotLevel(frontier, ROBOT_DEV_PREVIEW);
   document.getElementById('rParentBtn').onclick = showRobotParentGate;
   SpeechKit.speak(ROBOT_BANDS[lv.band].story);
 }
@@ -431,7 +449,7 @@ function showRobotMap() {
    托盘(F/L/R/S=怪物头像, 带2 起概率 trapX 陷阱卡 — RandCore 派生骰),
    #rRun 出发键(程序为空置灰 = D 抑制控制的按钮锁); 带0 tut 关不出程序条,
    改单卡大按钮排(点一张 stepOnce 走一步) */
-function startRobotLevel(i) {
+function startRobotLevel(i, preview) {
   robotSettle.clear();
   const level = ROBOT_LEVELS[i];
   const rw = robotWorldApi();
@@ -439,9 +457,10 @@ function startRobotLevel(i) {
     showRobotMap(); // world 宿主未落地/关号越界: 安静回地图(不炸)
     return;
   }
+  robotPreviewing = !!preview && ROBOT_DEV_PREVIEW; // 预览仅 dev 开关下生效
   robotRunCtx = {level, boardIdx: 0, stats: [], handle: null,
     prog: [], trace: [], hi: -1, editing: false, busy: false, tutUsed: 0};
-  startRobotTicker();
+  if (!robotPreviewing) startRobotTicker(); // 预览不计训练时长/关数预算
   robotLootHud.begin(); // 矿袋会话状态: 每关一份新明细/满包节流复位
   mountRobotBoard();
 }
@@ -760,6 +779,22 @@ function endRobotLevel() {
    确定性流(禁 Math.random, 与棋盘种子不同流); loot HUD 不在场 → 飞行观感
    由结算列队回顾兜住, 入包照常 */
 function onRobotLevelEnd(level, stats) {
+  if (robotPreviewing) { // dev 预览结算: 零写盘(星表/图章/战利品/预算全跳过)
+    const solvedN = stats.filter((b) => b && b.solved).length;
+    const stars = robotStars(stats);
+    const nextI = Math.min(level.i + 1, ROBOT_LEVELS.length - 1);
+    robotPlainScreen(`
+      <div class="r-screen r-result">
+        <h1>预览 · 第 ${level.i + 1} 关</h1>
+        <p class="r-sub">通过 ${solvedN}/${stats.length} 盘 · 预览不计进度</p>
+        <div class="r-stars">${robotSettle.starSpans(stars)}</div>
+        <button class="r-btn" id="rPrevNext">${btnImg('playGo')} 下一关</button>
+        <button class="r-btn" id="rPrevMap">${btnImg('house')} 回地图</button>
+      </div>`);
+    document.getElementById('rPrevNext').onclick = () => startRobotLevel(nextI, true);
+    document.getElementById('rPrevMap').onclick = showRobotMap;
+    return;
+  }
   robotSettle.clear();
   stopRobotTicker();
   const save = loadRobotSave();
