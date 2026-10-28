@@ -38,15 +38,78 @@ const Tank = (()=>{
     return m;
   };
 
-  /* 履带: 底带 + 5 节循环滚动的履带节(差速: 原地转也滚), 各型号只换配色 */
+  /* 色调暗化: hex 颜色乘系数 f(<1 变暗), 返回新 hex(履带板双色/内衬架用) */
+  const shadeCol = (hex, f)=> new THREE.Color(hex).multiplyScalar(f).getHex();
+
+  /* 履带跑道几何(履带组局部坐标, y 向上, 模型面朝 -Z): 直线段半长 L ·
+     上/下股高度 WTOP/WBOT · 端部半圆半径 RC(圆心 y=CY, z=±L),
+     周长 PERIM = 4L + 2πRC — 六款型号共用同一跑道, 只换配色 */
+  const TRK = (()=>{
+    const L = 1.3;
+    const WTOP = 0.56;
+    const WBOT = 0.06;
+    const CY = (WTOP + WBOT) / 2;
+    const RC = (WTOP - WBOT) / 2;
+    return {L, CY, RC, PERIM: 4 * L + 2 * Math.PI * RC};
+  })();
+
+  /* 弧长 s(自动回绕 0..PERIM) → 履带板位姿 [y, z, rotX]:
+     上股(z: L→-L, 平放) → 前半圆(绕 z=-L, 经最前点时竖起) →
+     下股(z: -L→L, 平放) → 后半圆(绕 z=+L)。rotX 让板长轴贴合跑道切线:
+     弧段切线角 φ = θ+π/2(θ 为圆参数角), 绕 x 转角 = -φ */
+  function trackPose(s) {
+    const {L, CY, RC, PERIM} = TRK;
+    s = ((s % PERIM) + PERIM) % PERIM;
+    if (s < 2 * L) return [CY + RC, L - s, Math.PI]; // 上股: 朝车头(-z)行进
+    s -= 2 * L;
+    if (s < Math.PI * RC) { // 前半圆: θ 90°→270°
+      const th = Math.PI / 2 + s / RC;
+      return [CY + RC * Math.sin(th), -L + RC * Math.cos(th), -th - Math.PI / 2];
+    }
+    s -= Math.PI * RC;
+    if (s < 2 * L) return [CY - RC, -L + s, 0]; // 下股: 朝车尾(+z)行进
+    s -= 2 * L;
+    const th = 3 * Math.PI / 2 + s / RC; // 后半圆: θ 270°→450°
+    return [CY + RC * Math.sin(th), L + RC * Math.cos(th), -th - Math.PI / 2];
+  }
+
+  /* 履带: 封闭环形履带 + 轮系 — 前诱导轮 + 4 负重轮 + 后主动轮(轮毂盖凸出
+     侧面可见), 中间暗色内衬架挡穿帮; 履带板双色交替沿跑道铺满一整圈,
+     板间留缝露出轮系。材质/几何在双轨间共享(每侧各自建 Mesh),
+     userData 带 links(履带板)/offset/pitch/perim 供 animateTreads 驱动 */
   function mkTracks(trackCol, linkCol) {
+    const {L, CY, RC, PERIM} = TRK;
+    let N = Math.round(PERIM / 0.36); // 履带板块数(节距 ≈ 0.36), 取偶防环绕撞色
+    if (N % 2) N++;
+    const pitch = PERIM / N;
+    const linkLen = pitch * 0.88; // 板间留缝
+    const trackMat = new THREE.MeshLambertMaterial({color: trackCol});
+    const frameMat = new THREE.MeshLambertMaterial({color: shadeCol(trackCol, 0.85)});
+    const linkMats = [new THREE.MeshLambertMaterial({color: linkCol}),
+      new THREE.MeshLambertMaterial({color: shadeCol(linkCol, 0.76)})];
+    const wheelMat = new THREE.MeshLambertMaterial({color: shadeCol(trackCol, 1.25)});
+    const hubMat = new THREE.MeshLambertMaterial({color: linkCol});
+    const linkGeo = new THREE.BoxGeometry(0.34, 0.09, linkLen);
+    const roadGeo = new THREE.BoxGeometry(0.40, 0.30, 0.30);
+    const endGeo = new THREE.BoxGeometry(0.40, 0.34, 0.34);
+    const hubGeo = new THREE.BoxGeometry(0.44, 0.13, 0.13);
+    const frameGeo = new THREE.BoxGeometry(0.26, 0.34, 2.55);
     const mk = (x)=>{
       const g = new THREE.Group(); g.position.x = x;
-      const base = box(0.42, 0.50, 3.1, trackCol); base.position.y = 0.25; g.add(base);
-      g.userData.links = [];
-      for (let i=0; i<5; i++) {
-        const link = box(0.46, 0.06, 0.30, linkCol);
-        link.position.set(0, 0.52, -1.2 + i*0.6);
+      const frame = new THREE.Mesh(frameGeo, frameMat); frame.position.y = CY;
+      g.add(frame);
+      for (const z of [-L, -0.94, -0.31, 0.31, 0.94, L]) { // 轮系(端轮略大)
+        const wheel = new THREE.Mesh(Math.abs(z) === L ? endGeo : roadGeo, wheelMat);
+        wheel.position.set(0, CY, z);
+        const hub = new THREE.Mesh(hubGeo, hubMat); hub.position.set(0, CY, z);
+        g.add(wheel, hub);
+      }
+      g.userData.links = []; g.userData.offset = 0;
+      g.userData.pitch = pitch; g.userData.perim = PERIM;
+      for (let i=0; i<N; i++) {
+        const link = new THREE.Mesh(linkGeo, linkMats[i % 2]);
+        const [y, z, rx] = trackPose(i * pitch);
+        link.position.set(0, y, z); link.rotation.x = rx;
         g.add(link); g.userData.links.push(link);
       }
       return g;
@@ -423,15 +486,20 @@ const Tank = (()=>{
     return {x: T.x, z: T.z}; // 兜底: 原地弹出
   }
 
-  /* 履带滚动: 速度 + 转向差速(原地转两侧反向滚), 节距 0.6 循环 */
+  /* 履带滚动: 速度 + 转向差速(原地转两侧反向滚), 履带板沿环形跑道循环
+     (trackPose: 前进时上股朝车头滚 — 物理正确口径), offset 只存回绕值防浮点漂移 */
   function animateTreads(tk, dt) {
     const yawDelta = TankCore.wrapAngle(tk.T.yaw - tk.prevYaw);
     tk.prevYaw = tk.T.yaw;
     const vL = tk.T.vel - yawDelta*0.8; // 差速视觉量(非物理): 原地转两侧反向滚
     const vR = tk.T.vel + yawDelta*0.8;
     for (const [g, v] of [[tk.trackL, vL], [tk.trackR, vR]]) {
-      for (const link of g.userData.links) {
-        link.position.z = ((link.position.z + v*dt) % 3 + 3) % 3 - 1.5;
+      const u = g.userData;
+      u.offset = (((u.offset + v*dt) % u.perim) + u.perim) % u.perim;
+      for (let i=0; i<u.links.length; i++) {
+        const link = u.links[i];
+        const [y, z, rx] = trackPose(i * u.pitch + u.offset);
+        link.position.y = y; link.position.z = z; link.rotation.x = rx;
       }
     }
   }
