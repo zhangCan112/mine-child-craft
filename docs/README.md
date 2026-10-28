@@ -21,14 +21,14 @@
 - **探险**：[adventure-maps-design.md](adventure-maps-design.md)（多地图）· [nether-merge-design.md](nether-merge-design.md)（下界相位）· [adventure-shell-unification-design.md](adventure-shell-unification-design.md) · [mining-hardness-design.md](mining-hardness-design.md) · [monster-taxonomy-design.md](monster-taxonomy-design.md) · [shared-monsters-design.md](shared-monsters-design.md)
 - **物品与合成**：[item-crafting-design.md](item-crafting-design.md) · [crafting-grid-design.md](crafting-grid-design.md) · [door-window-design.md](door-window-design.md) · [item-hint-design.md](item-hint-design.md) · [furnace-design.md](furnace-design.md)
 - **世界机制**：[liquid-design.md](liquid-design.md) · [block-lifecycle-design.md](block-lifecycle-design.md) · [mc-daylight-torch-design.md](mc-daylight-torch-design.md)（昼夜/光照）
-- **触控与观感**：[touch-controls-design.md](touch-controls-design.md) · [mob-look-design.md](mob-look-design.md) · [pixel-pipeline-design.md](pixel-pipeline-design.md)（底座化裁决记录：不做）
+- **触控与观感**：[touch-controls-design.md](touch-controls-design.md) · [mob-look-design.md](mob-look-design.md) · [pixel-pipeline-design.md](pixel-pipeline-design.md)（底座化裁决记录：不做） · [first-person-hand-design.md](first-person-hand-design.md)（第一人称手持视图 HandView）
 - **菜单与入口**：[menu-ui-design.md](menu-ui-design.md)（加载屏/主菜单门面/模式卡/音量与页脚）
 - **战斗与竞技**：[combat-kit-unification-design.md](combat-kit-unification-design.md) · [arena-core-unification-design.md](arena-core-unification-design.md) · [tank-impl-design.md](tank-impl-design.md)
 - **模式与装配**：[mode-switch-unification-design.md](mode-switch-unification-design.md) · [camp-core-unification-design.md](camp-core-unification-design.md) · [camp-kit-unification-design.md](camp-kit-unification-design.md) · [mob-registry-unification-design.md](mob-registry-unification-design.md) · [player-state-seam-design.md](player-state-seam-design.md) · [dev-mode-design.md](dev-mode-design.md) · [showroom-design.md](showroom-design.md)
 
 ### 调研参考（-research，长期有效）
 
-- **MC 正典取证**：[mc-daylight-torch](mc-daylight-torch-research.md) · [mc-torch-model](mc-torch-model-research.md) · [mc-liquid](mc-liquid-research.md) · [mc-mob-models](mc-mob-models-research.md) · [mc-touch-controls](mc-touch-controls-research.md) · [mc-held-item-action](mc-held-item-action-research.md) · [mc-held-item-render](mc-held-item-render-research.md) · [mc-button-icons](mc-button-icons-research.md) · [mc-crafting-grid](mc-crafting-grid-research.md) · [minecraft-biome](minecraft-biome-research.md) · [minecraft-furnace](minecraft-furnace-research.md) · [minecraft-item-crafting](minecraft-item-crafting-research.md) · [minecraft-mechanism](minecraft-mechanism-research.md) · [minecraft-mining-hardness](minecraft-mining-hardness-research.md)
+- **MC 正典取证**：[mc-daylight-torch](mc-daylight-torch-research.md) · [mc-torch-model](mc-torch-model-research.md) · [mc-liquid](mc-liquid-research.md) · [mc-mob-models](mc-mob-models-research.md) · [mc-touch-controls](mc-touch-controls-research.md) · [mc-held-item-action](mc-held-item-action-research.md) · [mc-held-item-render](mc-held-item-render-research.md) · [mc-first-person-hand](mc-first-person-hand-research.md)（手持物渲染续篇：第一人称通道/裸臂/挥击数学） · [mc-button-icons](mc-button-icons-research.md) · [mc-crafting-grid](mc-crafting-grid-research.md) · [minecraft-biome](minecraft-biome-research.md) · [minecraft-furnace](minecraft-furnace-research.md) · [minecraft-item-crafting](minecraft-item-crafting-research.md) · [minecraft-mechanism](minecraft-mechanism-research.md) · [minecraft-mining-hardness](minecraft-mining-hardness-research.md)
 - **设计输入**：[story-quest](story-quest-research.md) · [map-transition](map-transition-research.md) · [monster-taxonomy](monster-taxonomy-research.md) · [reward-model](reward-model-research.md) · [math-thinking](math-thinking-research.md) · [game-audio](game-audio-research.md) · [block-lifecycle](block-lifecycle-research.md) · [door-window](door-window-research.md) · [chunk-streaming-lod](chunk-streaming-lod-research.md)
 
 ## 历史工件（施工期记录，行为以后继为权威）
@@ -45,6 +45,7 @@
 | 坦克 | [plan](tank-plan.md) | 已完工 → [tank-impl-design.md](tank-impl-design.md) |
 | 怪物共享/分类 | [shared-monsters-plan](shared-monsters-plan.md) · [monster-taxonomy-plan](monster-taxonomy-plan.md) | 已完工 → 对应 -design |
 | 体验馆 | [spec](showroom-spec.md) · [tickets](showroom-tickets.md) | 已完工 → [showroom-design.md](showroom-design.md) + [adr/0005](adr/0005-unified-adventure-shell-dev-profile.md) |
+| 第一人称手持视图 | [tickets](first-person-hand-tickets.md) | 已完工 → [first-person-hand-design.md](first-person-hand-design.md) |
 | 下界独立模式 | [plan](nether-plan.md) | **已废弃**（模式退役并入探险）→ [nether-merge-design.md](nether-merge-design.md) |
 | 挖矿缺口分析 | [mining-gap-analysis.md](mining-gap-analysis.md) | 分析快照 → [mining-hardness-design.md](mining-hardness-design.md)（config.js 注释仍引用） |
 | 架构快照 | [design.html](design.html) | 静态快照 2026-10-18，**非权威**，改代码不自动更新 |

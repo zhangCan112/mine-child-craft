@@ -19,6 +19,7 @@
    人物面向 -Z, 与玩家视线一致。
    依赖: world.js 的 scene, voxel.js 的 pos/vel/yaw/pitch/onGround/
    flyMode, config.js 的 PLAYER/CAM, held-item.js 的 HeldItems,
+   hand-view.js 的 HandView(setItem/swing 镜像转发, 装载序先于本文件),
    mob-look-kit.js 的 MobLookKit(player 造型须先声明)。
    零输入 · 零玩法知识。
    ============================================================ */
@@ -58,25 +59,18 @@ const Avatar = (() => {
      高度 equipH 1→0 下沉, 沉底换物, 0→1 抬起; 目标变更从当前高度
      续沉(mainHandHeight ±0.4/tick 的折算, 全程 ≈0.28s)。 */
   const ARM_R_Y0 = armR.position.y; // 右臂基高(下沉基准, 官方肩枢轴 22px)
-  const EQUIP_HALF = 0.14; // 半程秒数
+  const EQUIP_HALF = HeldItems.equipHalf; // 半程秒数(收口 held-item.js, 与 HandView 同源, design D6)
   const EQUIP_DIP = 0.2; // 下沉量(MC -0.6 格按本仓库手臂尺度折算)
   let heldTarget = null; // 落定后的手持物 id; null=空手
   let equipH = 1; // 装备高度 0..1: 1=持稳, 0=沉底(换物点)
   let equipDown = false; // 下沉中(目标已变更)
 
-  function mountItem(id) {/* 沉底瞬间的实际装配: 旧网格释放, defFor 解析新 def */
-    if (itemMesh) {
-      armR.remove(itemMesh);
-      itemMesh.traverse((o)=>{
-        if (o.isMesh) {
-          o.geometry.dispose(); o.material.dispose();
-        }
-      });
-      itemMesh = null;
-    }
+  function mountItem(id) {/* 沉底瞬间的实际装配: swap 释放旧组+mount 新 def
+     (defFor 解析); swap 只 dispose 不摘父节点, 摘除旧组归施加侧 */
+    armR.remove(itemMesh);
     itemDef = HeldItems.defFor(id);
-    if (itemDef) {
-      itemMesh = HeldItems.mount(itemDef);
+    itemMesh = HeldItems.swap(itemMesh, itemDef);
+    if (itemMesh) {
       itemMesh.position.fromArray(itemDef.grip.pos);
       itemMesh.position.y += ITEM_GRIP_DY;
       itemMesh.rotation.fromArray(itemDef.grip.rot);
@@ -85,6 +79,7 @@ const Avatar = (() => {
   }
 
   function setItem(id) {/* 声明目标(空槽/未知 id 经 defFor 落空手) */
+    HandView.setItem(id); /* 镜像转发第一人称视图(唯一漏斗, design D2) */
     const t = id || null;
     if (t === heldTarget) return;
     heldTarget = t;
@@ -92,6 +87,7 @@ const Avatar = (() => {
   }
 
   function swing() {
+    HandView.swing(); /* 镜像转发第一人称挥击(design D2 无条件直调; 方法本体 T2b) */
     swingT = 0;
   } // 连点重置 = 连挥
 

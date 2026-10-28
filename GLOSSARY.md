@@ -4,7 +4,7 @@
 
 ## 词条一览（检索索引：只报家门，定义见下文各分区）
 
-- **大分块**（53）: 引擎层（Engine） · 体素模型（VoxelModel） · 流体核心（FluidCore） · 方块级联（Block Cascade） · 场景装填（loadScene） · 世界改动日志（WorldJournal） · 冒险存档 store（AdventureStore） · 冒险壳政策缝（AdventureProfile） · 昼夜核心（DaylightCore） · 光照核心（LightCore） · 网格化核心（MeshCore） · 贴图图集 · 距离环（Chunk Rings） · Fx · 声音清单注册表（AudioRegistry） · 音频核心（AudioCore） · 确定性随机核心（RandCore） · AudioMixer · SpeechKit · 头顶血条（mkHpBar） · 玩家战斗 kit（CombatKit） · 训练营壳 kit（CampKit） · 模式面板 kit（ModeKit） · 熔炉装配 kit（FurnaceKit） · 放置链 kit（PlaceKit） · SceneKit · 画质核心（QualityCore） · 触控手势核心（TouchCore） · 相机装置（CameraRig） · 玩家形象（Avatar） · 玩家状态（PlayerState） · 手持物注册表（HeldItems） · 物品核心 · 物品提示（ItemHint） · 使用动作注册表（ItemUseRegistry） · 背包核心 · 合成核心 · 掉落物实体库 · 像素图标工坊 · 按钮像素图标工坊 · 探险核心（AdventureCore） · 冒险地图 · 竞技场核心（ArenaCore） · 训练营机制核心（CampCore） · 背包壳（Backpack） · 载具（Tank） · 怪物库（Mobs） · 怪物谱系（Mob Taxonomy） · 造型档案（MobLook） · 战斗核心（CombatCore） · 应用层（Application） · 模式注册表（ModeRegistry） · 切换清场（switchMode 兜底）
+- **大分块**（54）: 引擎层（Engine） · 体素模型（VoxelModel） · 流体核心（FluidCore） · 方块级联（Block Cascade） · 场景装填（loadScene） · 世界改动日志（WorldJournal） · 冒险存档 store（AdventureStore） · 冒险壳政策缝（AdventureProfile） · 昼夜核心（DaylightCore） · 光照核心（LightCore） · 网格化核心（MeshCore） · 贴图图集 · 距离环（Chunk Rings） · Fx · 声音清单注册表（AudioRegistry） · 音频核心（AudioCore） · 确定性随机核心（RandCore） · AudioMixer · SpeechKit · 头顶血条（mkHpBar） · 玩家战斗 kit（CombatKit） · 训练营壳 kit（CampKit） · 模式面板 kit（ModeKit） · 熔炉装配 kit（FurnaceKit） · 放置链 kit（PlaceKit） · SceneKit · 画质核心（QualityCore） · 触控手势核心（TouchCore） · 相机装置（CameraRig） · 玩家形象（Avatar） · 第一人称手持视图（HandView） · 玩家状态（PlayerState） · 手持物注册表（HeldItems） · 物品核心 · 物品提示（ItemHint） · 使用动作注册表（ItemUseRegistry） · 背包核心 · 合成核心 · 掉落物实体库 · 像素图标工坊 · 按钮像素图标工坊 · 探险核心（AdventureCore） · 冒险地图 · 竞技场核心（ArenaCore） · 训练营机制核心（CampCore） · 背包壳（Backpack） · 载具（Tank） · 怪物库（Mobs） · 怪物谱系（Mob Taxonomy） · 造型档案（MobLook） · 战斗核心（CombatCore） · 应用层（Application） · 模式注册表（ModeRegistry） · 切换清场（switchMode 兜底）
 - **政策与进度**（4）: 共享背包（Shared Backpack） · 每日预算（DailyBudget） · 儿童时限 · 游玩模式（Play modes）
 - **游戏模式**（29）: 竞技场（Arena） · 建造模式 · 坦克演习场（TankRangeMode） · 专注训练营 · 矿袋（Loot Bag） · 宝物柜（FocusCabinet） · 图章日历（Stamps Calendar） · 集章里程碑（Stamp Milestones） · 每日体检（Daily Check） · 魔鬼特训（Devil Training） · 训练师村长（Chief） · 数学冒险岛（MathMode） · 数学关卡参数表（MathLevels） · 谜题纯核心（PuzzleCore） · 数学屏流引擎 · 数学情境变体（MATH_CONTEXTS） · 数学图章 · 跳一跳世界轨纯核心（HopWorld） · 数学世界轨（MathWorldTrack） · 摆与搭世界引擎（BuildWorld） · 世界轨驱动器（WorldTrackDriver） · 下界冒险（NetherMode） · 下界传送门（Nether Portal） · 探险模式 · 传送门阵 · 大宝箱（Chest Vault） · 牧场（Livestock） · 体验馆 · dev 模式（DEV）
 - **玩法时间预算**（2）: 每日儿童时限（每日预算 DailyBudget） · 家长加时（play_extra_save）
@@ -130,15 +130,19 @@ _Avoid_: 手势识别器（散称）、把定时器塞进纯核心（到点驱�
 _Avoid_: 相机跟随、第三人称开关（那是它的 implementation）
 
 **玩家形象（Avatar）**:
-玩家的小探险家模型与动画：建模走造型档案（MobLookKit.puppet('player')——官方 8/12/12px 等比人形 + 64×64 自绘皮肤，身份件〔橙帽/背包/蓝衫/五官〕全画进贴图，旧 Q 版盒子建模已退役；**骨架名≠解剖学左右**：官方 bedrock 数据把 armR/legR 建在 −X 侧，怪物经 z 镜像（+Z 朝向）后 −X 恰为解剖学右手，玩家傀儡 −Z 原生不镜像、解剖学右手在 +X=骨架名 armL——Avatar 装配处按解剖学交换左右骨绑定，手持物/挥击恒在右手，2026-10-26 左手持物回归修复）、走路摆臂、头部俯仰、随相机距离显隐、受击闪红（flash：皮肤材质向红插值再淡出，模式层意图 API，观感能力不漏玩法知识）。加载即挂场景、跨模式存活；每帧由主循环喂 dt 与 CameraRig.apply 的返回距离，其余不可见。
+玩家的小探险家模型与动画：建模走造型档案（MobLookKit.puppet('player')——官方 8/12/12px 等比人形 + 64×64 自绘皮肤，身份件〔橙帽/背包/蓝衫/五官〕全画进贴图，旧 Q 版盒子建模已退役；**骨架名≠解剖学左右**：官方 bedrock 数据把 armR/legR 建在 −X 侧，怪物经 z 镜像（+Z 朝向）后 −X 恰为解剖学右手，玩家傀儡 −Z 原生不镜像、解剖学右手在 +X=骨架名 armL——Avatar 装配处按解剖学交换左右骨绑定，手持物/挥击恒在右手，2026-10-26 左手持物回归修复）、走路摆臂、头部俯仰、随相机距离显隐、受击闪红（flash：皮肤材质向红插值再淡出，模式层意图 API，观感能力不漏玩法知识）。setItem/swing 是双层漏斗：体内各一行镜像转发 HandView（第一人称观感层），10+ 调用点零改动，自身担第三人称身体+手持渲染。加载即挂场景、跨模式存活；每帧由主循环喂 dt 与 CameraRig.apply 的返回距离，其余不可见。
 _Avoid_: 玩家皮肤（那是官方素材概念，本项目皮肤程序自绘归造型档案）、人物模型（散称）
+
+**第一人称手持视图（HandView）**:
+第一人称视角下手与手持物的唯一渲染入口（js/hand-view.js，引擎层 adapter，THREE 顶层装配、boot 冒烟覆盖不直测）：自建 handScene（固定灯、无雾）+ handCam，主渲染后清深度再画——手永不插墙；空手=裸臂、持物臂照画，持物槽经 HeldItems.swap 装配并按 def.fp 两族姿态施加。动态四件（equip 沉底换物 / swing 挥击 / 走路 bob / 鼠标滞后）全在本模块推进；可见性自判 mode===0 且非驾驶（CameraRig.mounted），隐藏帧只推进动画不渲染。加载序 held-item → hand-view → avatar。interface：`HandView{setItem(id) · swing() · update(dt) · render(renderer, camera)}`。
+_Avoid_: 第一人称渲染器 / 手部渲染（散称）、把 viewmodel 塞回 Avatar（viewmodel 是独立 vocabulary——Avatar 第三人称层 vs HandView 第一人称层，MC 两层渲染器同构）
 
 **玩家状态（PlayerState）**:
 voxel.js 玩家段的六绑定 pos/vel（const 对象、成员可写、与 THREE.Vector3 鸭子类型兼容）与 onGround/yaw/pitch/flyMode（顶层 let）——共享词法环境里全仓可读。可写白名单的唯一权威在 voxel.js 玩家段头注释：physics 自身 · input.js 视角热路径（唯一属主+事件频率高于帧率）· math-world.js 自持 rAF（主循环物理门控的已知症状，治理归引擎「非锁定宿主驱动入口」未来票）· tank.js 引擎同侪四类例外。意图入口：传送/出生走 ModeKit.spawn（mode-kit.js，顺带记住出生点供 onVoidFall 兜底），飞行态走 setFly（voxel.js，切换清垂直速度）；模式文件零直写由 test/conventions.test.js 守门断言把口。combat-kit 的 mkFighter 把 pos/vel 可变引用别名进战斗实体——意图入口只原地改字段、不替换绑定。
 _Avoid_: 把六绑定当模式可写状态（模式层直写已被守门断言拦）、给 setFly 加第二实现（语义单份在 voxel.js）
 
 **手持物注册表（HeldItems）**:
-手持物的唯一数据源：部件表、握持姿态、挥击与待机参数。两级供给——**defs 注册表**（手工武器 + 工具 16 条由 mkToolDef 加载期批量生成，工厂供单测直调；弓 def=bow_item 键与物品 id 逐字一致，形状照 MC 正典 bow.json：16×16 像素图挤出薄片，art 部件经像素图标工坊 ITEM_PIX 贴图〔正面/背面镜像、侧面单色、alphaTest 裁透明角〕，工坊或画布不可用回落纯色薄板；hoe/sword 是无同名物品的观感族模板，defFor 永不命中）+ **defFor 惰性出口**（运行时唯一取 def 通道：工具/武器→defs；方块〔物品 id 或数字方块 id，建造/竞技场调色板直传〕→mkBlockDef 方块本体；棒状材料→mkRodDef；其余注册物品→mkPlateDef 薄片；空槽/未注册→null=空手，MC 口径）；附无状态入口——挥击关节角纯函数、按 def 的网格装配。加武器 = 加一份 def；肢体动画与握持施加收在玩家形象（Avatar）的 implementation 里，Avatar.setItem 声明目标、换物走「下沉-换-抬起」装备动画（沉到底才换网格）。
+手持物的唯一数据源：部件表、握持姿态、挥击与待机参数。两级供给——**defs 注册表**（手工武器 + 工具 16 条由 mkToolDef 加载期批量生成，工厂供单测直调；弓 def=bow_item 键与物品 id 逐字一致，形状照 MC 正典 bow.json：16×16 像素图挤出薄片，art 部件经像素图标工坊 ITEM_PIX 贴图〔正面/背面镜像、侧面单色、alphaTest 裁透明角〕，工坊或画布不可用回落纯色薄板；hoe/sword 是无同名物品的观感族模板，defFor 永不命中）+ **defFor 惰性出口**（运行时唯一取 def 通道：工具/武器→defs；方块〔物品 id 或数字方块 id，建造/竞技场调色板直传〕→mkBlockDef 方块本体；棒状材料→mkRodDef；其余注册物品→mkPlateDef 薄片；空槽/未注册→null=空手，MC 口径）；附无状态入口——swingPose 第三人称挥击关节角纯函数、swingView 第一人称挥击偏移纯函数、mount 按 def 装配网格、swap 释放旧网格+mount 新 def（第三/第一人称渲染器共用换装生命周期）；defs 条目内嵌 fp 第一人称姿态（方块/手持物两族常量，缺 fp 回落手持物族）。加武器 = 加一份 def；肢体动画与握持施加收在玩家形象（Avatar）的 implementation 里，Avatar.setItem 声明目标、换物走「下沉-换-抬起」装备动画（沉到底才换网格）。
 _Avoid_: 武器表、物品系统（合称——物品核心/背包核心/合成核心/掉落物实体库各归各词条）
 
 **物品核心**:

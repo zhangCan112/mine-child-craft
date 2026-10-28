@@ -133,5 +133,7 @@ const CameraRig = (()=>{
 
   return {apply, cycle, aim, holdAim, mount, get mode() {
     return mode;
+  }, get mounted() {/* mountFn 现状态只读暴露: HandView 可见性判定用(design D5) */
+    return mountFn !== null;
   }};
 })();

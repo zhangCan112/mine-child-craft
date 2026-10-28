@@ -10,7 +10,9 @@
    test/mode-registry.test.js 对着 index.html 断言, 手滑即红)。
    清场消费(switchMode 兜底清场, C4-T2): mobs.js 的 Mobs · tank.js 的
    Tank · drops.js 的 Drops · avatar.js 的 Avatar(实参 config.js 的 PLAYER);
-   并跨文件写 voxel.js 的 flyMode(conventions §2.1 先例: input.js 写 pitch)。
+   并跨文件写 voxel.js 的 flyMode(conventions §2.1 先例: input.js 写 pitch);
+   主循环接线 js/hand-view.js 的 HandView(update 在 Avatar.update 后,
+   render 在主渲染后 — 换装/挥击意图经 Avatar 镜像转发, design D2/D4/D5)。
 ============================================================ */
 
 const MODES = {
@@ -303,6 +305,7 @@ function loop(now) {
   const camDist = CameraRig.apply(camera, dt); // 相机装置: 视角模式/轨道/防穿墙
   updateFluidFog(); // 头没水/岩浆的雾色切换(liquid D10, 出水复原)
   Avatar.update(dt, camDist); // 玩家形象同步+动画(近距自动隐藏)
+  HandView.update(dt); // 第一人称手持视图: 可见性自判+动画推进(design D5)
   Fx.wobble(dt, camera); // 震屏消费(衰减+抖动)收在 Fx, 须在相机位姿设定之后
 
   const aim = CameraRig.aim(camera); // 瞄准射线统一从眼睛出发(不因第三人称瞄到身后)
@@ -315,6 +318,7 @@ function loop(now) {
   if (hlShow) highlight.position.set(hit.x+0.5, hit.y+0.5, hit.z+0.5);
 
   renderer.render(scene, camera);
+  HandView.render(renderer, camera); // 手部通道恰在主渲染后: 清深度再画, 手永不插墙(design D4)
 
   fpsAcc+=dt; fpsCnt++;
   if (fpsAcc>=0.5) {
