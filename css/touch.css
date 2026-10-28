@@ -8,6 +8,7 @@
 ============================================================ */
 html,
 body {
+  -webkit-user-select: none; /* stylelint-disable-line property-no-vendor-prefix -- 旧 iPad Safari 只认前缀版(WebKit 不支持无前缀版 user-select), 缺它 iPad 上全局防误选整体失效 */
   user-select: none;
   -webkit-touch-callout: none;
 }
