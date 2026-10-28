@@ -672,6 +672,86 @@ const GRASSBLOCK_ART = [
   'KKKKKKKKKKKKKKKK',
 ];
 
+/* ---------- 怪物指挥官指令卡与出发键(编程解谜训练营, 设计稿 §3.1:
+      图标+固定色+TTS 三编码; 像素全部自绘, 版权口径 D13) ----------
+    arrowF 前进=上箭头+金色脚印对(脚印=MC 路径观感); turnL/turnR 转向=
+    折角箭头(↰ 基画手绘, ↱ 镜像派生防手抖); trapX 陷阱卡=金色宝箱+星光
+    (「闪亮的诱惑」观感, 排进去白费一槽); playGo 出发键=绿底白三角圆角块 */
+const ARROWF_ART = [
+  '................',
+  '......KKKK......',
+  '.....KLWWGK.....',
+  '....KLWWWWGK....',
+  '...KLWWWWWWGK...',
+  '..KLWWWWWWWWGK..',
+  '.KLWWWWWWWWWWGK.',
+  '.KKKKKWWWWKKKKK.',
+  '.....KLWWGK.....',
+  '.....KLWWGK.....',
+  '.....KGGGGK.....',
+  '................',
+  '..KKKK...KKKK...',
+  '.KwwwwK.KwwwwK..',
+  '..KKKK...KKKK...',
+  '................',
+];
+const TURN_LEFT_ART = [
+  '................',
+  '................',
+  '................',
+  '................',
+  '....WWW.........',
+  '...WWWW.........',
+  '..WWWWWWWWWWW...',
+  '.WWWWWWWWWWWW...',
+  '..WWWWWWWWWWW...',
+  '...WWWW...WWW...',
+  '....WWW...WWW...',
+  '..........WWW...',
+  '..........WWW...',
+  '..........WWW...',
+  '................',
+  '................',
+];
+const TRAP_ART = [
+  '............W...',
+  '...........WWW..',
+  '............W...',
+  '...KKKKKKKKKK...',
+  '..KyyyyyyyyyyK..',
+  '..KyYYyyyyYYyK..',
+  '..KyyyyyyyyyyK..',
+  '..KKKKKKKKKKKK..',
+  '..KyyyyKKyyyyK..',
+  '..KyyyyKKyyyyK..',
+  '..KyyyyyyyyyyK..',
+  '..KyYYyyyyYYyK..',
+  '..KKKKKKKKKKKK..',
+  '................',
+  '................',
+  '................',
+];
+const PLAYGO_ART = [
+  '................',
+  '................',
+  '..KKKKKKKKKKKK..',
+  '..KYYYYYYYYYYK..',
+  '..KYYYYYYYYYYK..',
+  '..KYYWYYYYYYYK..',
+  '..KYYWWYYYYYYK..',
+  '..KYYWWWYYYYYK..',
+  '..KYYWWWWYYYYK..',
+  '..KYYWWWYYYYYK..',
+  '..KYYWWYYYYYYK..',
+  '..KYYWYYYYYYYK..',
+  '..KYYYYYYYYYYK..',
+  '..KKKKKKKKKKKK..',
+  '................',
+  '................',
+];
+/* 右转 = 左转基画镜像派生(与箭头对同款防手抖手法) */
+const TURN_RIGHT_ART = mirrorX(TURN_LEFT_ART);
+
 const BTN_PIX = {
   /* 方向与播放 */
   left: {art: ARROW_LEFT_ART, map: BTN_GLYPH},
@@ -711,6 +791,12 @@ const BTN_PIX = {
   /* 门面装饰(主菜单标题两侧/加载屏徽标): 整面方块脸, 色板与物品工坊 dirt/tree 同源 */
   grassblock: {art: GRASSBLOCK_ART, map: {K: '#14161a', G: '#5abf5a', g: '#3f8f3f', m: '#866043', l: '#a07b56', d: '#6b4a33'}},
   flask: {art: FLASK_ART, map: {...BTN_GLYPH, g: '#3f8f3f', G: '#5abf5a'}}, /* 体验馆卡(锥形瓶绿液; G 覆写为亮绿=液面/气泡) */
+  /* 怪物指挥官: 指令卡四原语 + 陷阱卡 + 出发键(特技卡不在此 — 走 Mobs.face 怪物头像) */
+  arrowF: {art: ARROWF_ART, map: {...BTN_GLYPH, w: '#ffd83d'}},
+  turnL: {art: TURN_LEFT_ART, map: {W: '#ffffff'}},
+  turnR: {art: TURN_RIGHT_ART, map: {W: '#ffffff'}},
+  trapX: {art: TRAP_ART, map: {K: '#14161a', y: '#c79a22', Y: '#f0c53a', W: '#ffffff'}},
+  playGo: {art: PLAYGO_ART, map: {K: '#14161a', Y: '#58c14e', W: '#ffffff'}},
 };
 
 /* 交叉剑色板: 与物品工坊铁剑同源(字符画直接 ⊕ 自那里, 色板也一并) */

@@ -17,6 +17,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 global.RandCore = require('../js/rand-core.js');
+global.CampCore = require('../js/camp-core.js'); // 图章一本构造期即用(镜像 index.html 相对序: camp-core 先于 robot-levels)
 global.RobotCore = require('../js/robot-core.js');
 const Levels = require('../js/robot-levels.js');
 const {ROBOT_LEVELS, ROBOT_PACKS, ROBOT_KIND_TEMPLATES} = Levels;

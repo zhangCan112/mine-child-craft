@@ -4,7 +4,7 @@
 
 ## 词条一览（检索索引：只报家门，定义见下文各分区）
 
-- **大分块**（54）: 引擎层（Engine） · 体素模型（VoxelModel） · 流体核心（FluidCore） · 方块级联（Block Cascade） · 场景装填（loadScene） · 世界改动日志（WorldJournal） · 冒险存档 store（AdventureStore） · 冒险壳政策缝（AdventureProfile） · 昼夜核心（DaylightCore） · 光照核心（LightCore） · 网格化核心（MeshCore） · 贴图图集 · 距离环（Chunk Rings） · Fx · 声音清单注册表（AudioRegistry） · 音频核心（AudioCore） · 确定性随机核心（RandCore） · AudioMixer · SpeechKit · 头顶血条（mkHpBar） · 玩家战斗 kit（CombatKit） · 训练营壳 kit（CampKit） · 模式面板 kit（ModeKit） · 熔炉装配 kit（FurnaceKit） · 放置链 kit（PlaceKit） · SceneKit · 画质核心（QualityCore） · 触控手势核心（TouchCore） · 相机装置（CameraRig） · 玩家形象（Avatar） · 第一人称手持视图（HandView） · 玩家状态（PlayerState） · 手持物注册表（HeldItems） · 物品核心 · 物品提示（ItemHint） · 使用动作注册表（ItemUseRegistry） · 背包核心 · 合成核心 · 掉落物实体库 · 像素图标工坊 · 按钮像素图标工坊 · 探险核心（AdventureCore） · 冒险地图 · 竞技场核心（ArenaCore） · 训练营机制核心（CampCore） · 背包壳（Backpack） · 载具（Tank） · 怪物库（Mobs） · 怪物谱系（Mob Taxonomy） · 造型档案（MobLook） · 战斗核心（CombatCore） · 应用层（Application） · 模式注册表（ModeRegistry） · 切换清场（switchMode 兜底）
+- **大分块**（56）: 指令模拟器（RobotCore） · 棋盘世界宿主（RobotWorld） · 引擎层（Engine） · 体素模型（VoxelModel） · 流体核心（FluidCore） · 方块级联（Block Cascade） · 场景装填（loadScene） · 世界改动日志（WorldJournal） · 冒险存档 store（AdventureStore） · 冒险壳政策缝（AdventureProfile） · 昼夜核心（DaylightCore） · 光照核心（LightCore） · 网格化核心（MeshCore） · 贴图图集 · 距离环（Chunk Rings） · Fx · 声音清单注册表（AudioRegistry） · 音频核心（AudioCore） · 确定性随机核心（RandCore） · AudioMixer · SpeechKit · 头顶血条（mkHpBar） · 玩家战斗 kit（CombatKit） · 训练营壳 kit（CampKit） · 模式面板 kit（ModeKit） · 熔炉装配 kit（FurnaceKit） · 放置链 kit（PlaceKit） · SceneKit · 画质核心（QualityCore） · 触控手势核心（TouchCore） · 相机装置（CameraRig） · 玩家形象（Avatar） · 第一人称手持视图（HandView） · 玩家状态（PlayerState） · 手持物注册表（HeldItems） · 物品核心 · 物品提示（ItemHint） · 使用动作注册表（ItemUseRegistry） · 背包核心 · 合成核心 · 掉落物实体库 · 像素图标工坊 · 按钮像素图标工坊 · 探险核心（AdventureCore） · 冒险地图 · 竞技场核心（ArenaCore） · 训练营机制核心（CampCore） · 背包壳（Backpack） · 载具（Tank） · 怪物库（Mobs） · 怪物谱系（Mob Taxonomy） · 造型档案（MobLook） · 战斗核心（CombatCore） · 应用层（Application） · 模式注册表（ModeRegistry） · 切换清场（switchMode 兜底）
 - **政策与进度**（4）: 共享背包（Shared Backpack） · 每日预算（DailyBudget） · 儿童时限 · 游玩模式（Play modes）
 - **游戏模式**（30）: 竞技场（Arena） · 建造模式 · 坦克演习场（TankRangeMode） · 专注训练营 · 矿袋（Loot Bag） · 宝物柜（FocusCabinet） · 图章日历（Stamps Calendar） · 集章里程碑（Stamp Milestones） · 每日体检（Daily Check） · 魔鬼特训（Devil Training） · 训练师村长（Chief） · 数学冒险岛（MathMode） · 数学关卡参数表（MathLevels） · 谜题纯核心（PuzzleCore） · 数学屏流引擎 · 数学情境变体（MATH_CONTEXTS） · 数学图章 · 跳一跳世界轨纯核心（HopWorld） · 数学世界轨（MathWorldTrack） · 摆与搭世界引擎（BuildWorld） · 世界轨驱动器（WorldTrackDriver） · 怪物指挥官（RobotMode） · 下界冒险（NetherMode） · 下界传送门（Nether Portal） · 探险模式 · 传送门阵 · 大宝箱（Chest Vault） · 牧场（Livestock） · 体验馆 · dev 模式（DEV）
 - **玩法时间预算**（2）: 每日儿童时限（每日预算 DailyBudget） · 家长加时（play_extra_save）
@@ -321,7 +321,13 @@ _Avoid_: mathCtrl/mathBossStop（历史名——控制柄与链旗两条命已�
 
 
 **怪物指挥官（RobotMode）**:
-编程解谜训练营模式（js/modes/robot.js，训练营类同专注/数学：全屏接管 UI、独立每日预算 6 关/20 分钟、不计儿童时限、无菜单页）：孩子提前编排指令序列（槽位队列点选，无拖拽、v1 无循环），回放看怪物从起点走到终点旗（失败倒放回滚零惩罚，Robot Turtles 范式）；训练营壳家族第三员（CampKit.mkCampShell，prefix 'r'，存档键 robot_camp_save）。关卡数值唯一权威在 js/robot-levels.js（怪物包解锁制/存档迁移）；指令模拟纯核心与棋盘世界宿主随 T2/T4 票落地。设计权威 docs/robot-program-design.md（五维嵌入与防挫败阶梯），调研底座 docs/robot-program-research.md。_Avoid_: 机器人模式（被控的是怪物不是机器人——id robot 是品类名）、编程模式（散称）
+编程解谜训练营模式（js/modes/robot.js，训练营类同专注/数学：全屏接管 UI、独立每日预算 6 关/20 分钟、不计儿童时限、无菜单页）：孩子提前编排指令序列（槽位队列点选，无拖拽、v1 无循环），回放看怪物从起点走到终点旗（失败倒放回滚零惩罚，Robot Turtles 范式）；训练营壳家族第三员（CampKit.mkCampShell，prefix 'r'，存档键 robot_camp_save）。关卡数值唯一权威在 js/robot-levels.js（怪物包解锁制/图章一本/存档迁移/加关纪律 D9）；指令模拟在指令模拟器（RobotCore），棋盘装场与回放在棋盘世界宿主（RobotWorld）。设计权威 docs/robot-program-design.md（五维嵌入与防挫败阶梯），调研底座 docs/robot-program-research.md。_Avoid_: 机器人模式（被控的是怪物不是机器人——id robot 是品类名）、编程模式（散称）
+
+**指令模拟器（RobotCore）**:
+怪物指挥官的引擎无关纯核心（js/robot-core.js，零 THREE·零 DOM·有单测）：mkBoard 确定性出题（全硬墙起底→目标偏置游走刻可解路径→特征落位，40 次重试子种子）、stepSim 单卡纯步进（状态进/意图出：move/turn/skill/win/bonk/splash/nap/spin/nothing/idle）、parSolution BFS 最短指令序列（演示路径与三星 par 同一权威；stateKey 必须含 asleep——打盹过渡与炸后状态同键会被 seen 丢弃）。消费方：robot-levels（presetFor/debugPresetFor/跨层可出盘测试）与 robot-world（回放账本零判定逻辑）。_Avoid_: 模拟器（散称——判定与账本单份在这里，世界宿主只演不算）、把 par 第二实现写进世界宿主或关卡库
+
+**棋盘世界宿主（RobotWorld）**:
+怪物指挥官的 3D 装配层（js/robot-world.js，THREE/DOM 允许、顶层零执行）：loadScene 建浮空棋盘岛（方块映射/终点旗/观景台）、按怪物包 spawn Q 版木偶（scaleTo 0.6）、按 stepSim 意图演回放/单步/演示（脚印灯块 previewSec 淡出）/倒放四类驱动；tick 由模式层自持 rAF 泵喂（main.js update 只在指针锁/触屏态分发，纯 DOM 模式吃不到——math-world 先例）；动画全走怪物库意图 API（setPos/steer/settle/gait/stagger），退出收口=handle.stop+Mobs.clear+clearWorld。_Avoid_: 怪物剧场（散称）、在世界宿主里写判定/账本（零逻辑红线——只演不算）、直接写引擎位移字段（白名单例外仅 pitch，voxel.js 已登记）
 
 
 **下界冒险（NetherMode）**:

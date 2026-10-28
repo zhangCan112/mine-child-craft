@@ -11,10 +11,15 @@
      migrateRobotSave(s, from) · paramsFor(level) · presetFor(level, boardIdx) ·
      debugPresetFor(level, boardIdx) · robotPassed(solved) ·
      robotStars(boardStats) · rollRobotLoot(rnd, level, solvedBoards) ·
-     boardSeed(levelIdx, boardIdx) · boardOpts(level) · robotTierFor(band, k)
+     boardSeed(levelIdx, boardIdx) · boardOpts(level) · robotTierFor(band, k) ·
+     图章一本家族段(T5): ROBOT_STAMP_KINDS/DAILY/REWARDS/REWARD_TEXT/KEEP_DAYS ·
+     robotStampRecord/Trim/Count/Milestones/RewardsDue/RewardFor/
+     RewardClaimed/NextLine(薄委托 CampCore.mkStampBook 八件) ·
+     robotTodayStr(now)(日期键单点出口) · ROBOT_LOG_KEEP_DAYS
    依赖(均经全局名, 调用期解析): RandCore(js/rand-core.js, boardSeed 派生,
      Node 测试先挂 global) · RobotCore(js/robot-core.js, 仅 presetFor/
-     debugPresetFor 用, typeof 守卫兼容精简装载)
+     debugPresetFor 用, typeof 守卫兼容精简装载) · CampCore(js/camp-core.js,
+     图章一本构造期即用 — 加载序在 robot-levels 之前, Node 测试先挂 global)
    可测性: 零 THREE·零 DOM, 有同名单测 test/robot-levels.test.js
    ============================================================ */
 
@@ -239,9 +244,87 @@ function migrateRobotSave(s, from) {
   return s;
 }
 
+/* ---------- 图章一本(modes 层仪式件与单测共用, 形态照 math-levels 图章段) ----------
+   robot 独立图章日历(不与 focus/math 共用账本): stamps 形状 {日期: 当日关数}
+   (键与 budgetDateStr 同款 'Y-M-D' 无前导零), 落账点在 modes/robot.js 的
+   robotSettleSave(单一写入点); 全部无突变。机制单份在 CampCore.mkStampBook
+   (八件 record/trim/count/milestones/rewardsDue/rewardFor/rewardClaimed/
+   nextLine), 家族差异只注入三参: 达成线表/滚动窗口/日限(dailyCap 按值 6 =
+   ROBOT_DAILY_LEVELS, 按值拷贝免跨文件依赖)。口径与家族同构: 当日 ≥1 关
+   普通章(图案 stampKind 三选一自选), 满 3 关大章; 集章数按天计; 集章达成线
+   只发观感奖励, 永不解锁关卡/难度(红线)。
+   达成线表二期再填(奖励领取仪式二期): 表空 = 无观感奖励可发 —— 结算屏
+   集章块只报章数进度、领取仪式块恒空、进度行不预告奖励(诚实口径);
+   mkStampBook 机制不受影响, 二期填表后 robotStampRewardsDue 的过滤自动
+   放行, 仪式链零改动。 */
+const ROBOT_STAMP_KEEP_DAYS = 90; // 滚动保留窗口(与日志窗口有意分立, focus 先例)
+const ROBOT_STAMP_DAILY = {min: 1, big: 3}; // 当日 ≥1 关普通章 / 满 3 关大章
+const ROBOT_STAMP_KINDS = ['gem', 'star', 'plus']; // 自选章图案三选一(stampIcon 合法 kind 子集)
+const ROBOT_STAMP_REWARDS = {}; // 达成线 → 观感奖励 id —— 奖励领取仪式二期
+const ROBOT_STAMP_REWARD_TEXT = {};
+
+const RobotStampBook = CampCore.mkStampBook({rewards: ROBOT_STAMP_REWARDS,
+  keepDays: ROBOT_STAMP_KEEP_DAYS, dailyCap: 6});
+
+/* 落账: 当日计数钳 1~6(日限 ROBOT_DAILY_LEVELS=6, 按值拷贝), 当日取 max
+   不重复累加(重玩同日不叠章); 0/负/NaN 关不落账 */
+function robotStampRecord(stamps, day, count) {
+  return RobotStampBook.record(stamps, day, count);
+}
+
+/* 裁剪: 只保留今天起 90 天窗口内的键(防存档膨胀), 机制在 CampCore.trimLog */
+function robotStampTrim(stamps, today) {
+  return RobotStampBook.trim(stamps, today);
+}
+
+/* 集章总数 = 有章天数(每天至多 1 枚; 普通/大章是同一枚章的两种大小) */
+function robotStampCount(stamps) {
+  return RobotStampBook.count(stamps);
+}
+
+/* 达成线: 表内线 + 60/90/…每 30 章递进(二期表空时只剩递进线, 无奖励可发) */
+function robotStampMilestones(count) {
+  return RobotStampBook.milestones(count);
+}
+
+/* 待领 = 已越线 − 已领(差集) 再过一道「表内有奖励」滤网: 二期前恒空 */
+function robotStampRewardsDue(count, claimed) {
+  const due = RobotStampBook.rewardsDue(count, claimed);
+  return due.filter((line) => RobotStampBook.rewardFor(line) !== undefined);
+}
+
+/* 达成线 → 奖励 id: 递进线(60/90/…)不在表内, 沿用 30 线(二期填表后生效) */
+function robotStampRewardFor(line) {
+  return RobotStampBook.rewardFor(line);
+}
+
+/* 已领奖励判定(观感恢复用): claimed 线集合里是否领过某奖励 id */
+function robotStampRewardClaimed(claimed, rid) {
+  return RobotStampBook.rewardClaimed(claimed, rid);
+}
+
+/* 下一目标线(集章进度口径): 表内线优先, 过表后为 30 的倍数 */
+function robotStampNextLine(count) {
+  return RobotStampBook.nextLine(count);
+}
+
+/* 今日日期串(单点出口): 薄委托 CampCore.todayStr(其内再委托 budgetDateStr
+   — 'Y-M-D' 拼装全库只留在 daily-budget.js 那一处); now 可注入 */
+function robotTodayStr(now) {
+  return CampCore.todayStr(now);
+}
+
+/* 家长日志滚动窗口(与图章窗口有意分立, focus/math 同款双 90) */
+const ROBOT_LOG_KEEP_DAYS = 90;
+
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ROBOT_BANDS, ROBOT_PACKS, ROBOT_KIND_TEMPLATES, ROBOT_LEVELS,
     ROBOT_SEED_BASE, ROBOT_LOOT, ROBOT_SAVE_VERSION, ROBOT_SAVE_DEFAULTS,
     migrateRobotSave, paramsFor, presetFor, debugPresetFor, robotPassed,
-    robotStars, rollRobotLoot, boardSeed, boardOpts, robotTierFor};
+    robotStars, rollRobotLoot, boardSeed, boardOpts, robotTierFor,
+    ROBOT_STAMP_KINDS, ROBOT_STAMP_DAILY, ROBOT_STAMP_REWARDS,
+    ROBOT_STAMP_REWARD_TEXT, ROBOT_STAMP_KEEP_DAYS, robotStampRecord,
+    robotStampTrim, robotStampCount, robotStampMilestones, robotStampRewardsDue,
+    robotStampRewardFor, robotStampRewardClaimed, robotStampNextLine,
+    robotTodayStr, ROBOT_LOG_KEEP_DAYS};
 }
