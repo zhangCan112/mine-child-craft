@@ -682,7 +682,7 @@ test('探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 
   A.advJournal.mark('91,24,91', 0);
   AdventureMode.cleanup();
   const saved = JSON.parse(mem.get('adventure_world_save'));
-  assert.ok(saved._v === 1, '存档带版本号');
+  assert.ok(saved._v === 2, '存档带版本号(v2 门号段迁移, 2026-10-28)');
   const flat = (saved.edits.home || []).map((e)=>e[0]);
   assert.ok(flat.includes('90,24,90') && flat.includes('91,24,91'), '改动落盘(edits 只存差异)');
   freshInit();
