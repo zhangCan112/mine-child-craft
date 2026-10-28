@@ -138,7 +138,7 @@ const ADV_PATH = [ /* 圆石小径(§2.4 原则 2 动线成环): 门口↔广场
    不踩既有散布; 压平/避让登记见 ADV_FLATS 与 advTreeBlocked */
 const ADV_PINE = {cx: 122, cz: 28, r: 15, n: 14, salt: 7701}; /* 松林: 云杉形针叶林
    (树形与雪原云杉同语言, 自持盐值), 橡树散布避让本圈 */
-const ADV_TOWER = {x: 114, z: 66}; /* 望塔: 5×5 石砖塔(外部折返楼梯登顶)+顶平台宝箱,
+const ADV_TOWER = {x: 114, z: 66}; /* 望塔: 7×7 石砖塔(室内红蓝羊毛内旋梯登顶)+顶平台宝箱,
    矿业圈东侧的高点地标 */
 const ADV_STONES = {cx: 126, cz: 106, r: 6, n: 8, salt: 7801}; /* 远古石阵: 苔石列石环 +
    中心灯块基座(夜间发光地标), 深险圈南侧 */
@@ -482,12 +482,14 @@ function advBuildPond() {/* 南池: 小水泊(水面齐 y24 可趟)+沙岸环绕
   }
 }
 
-function advBuildTower() {/* 望塔: 7×7 石砖塔(外沿环墙, 室内 5×5 大厅)+内旋石梯登顶——
+function advBuildTower() {/* 望塔: 7×7 石砖塔(外沿环墙, 室内 5×5 大厅)+内旋楼梯登顶——
   梯贴内壁沿东墙向北盘旋 8 级(每级恰 1 格=跳跃可登, 矿坑级教训), 门进屋即见
-  梯级(旧版塔底死屋+外挂折返梯的可发现性缺陷就此收掉); 顶平台木板(心部灯砖/
-  宝箱/满圈垛口/四角原木柱火把)——登高看全岛的地标, 垛口满圈是给幼儿的防失足墙。
+  梯级(旧版塔底死屋+外挂折返梯的可发现性缺陷就此收掉); 楼梯红蓝羊毛逐级交替
+  (2026-10-28 用户拍板: 一色石梯藏在石砖墙里不显眼, 孩子进塔找不到楼梯——纯色
+  羊毛在灰石环境里一眼锁定; 15/16 无级联旗标, 与圆石同行为); 顶平台木板(心部
+  灯砖/宝箱/满圈垛口/四角原木柱火把)——登高看全岛的地标, 垛口满圈是给幼儿的防失足墙。
   楼梯口=6~8 级顶开在平台北缘(平台板会挡 32~34 脚位的头顶净空), 掉进口=落在
-  梯级上, 零坠落伤害; 石材无级联旗标, 结构全部实心落地不悬空 */
+  梯级上, 零坠落伤害; 楼梯/石材均无级联旗标, 结构全部实心落地不悬空 */
   const t = ADV_TOWER;
   const x1 = t.x - 3; const x2 = t.x + 3; const z1 = t.z - 3; const z2 = t.z + 3;
   SceneKit.fill(x1, ADV_GROUND + 1, z1, x2, ADV_GROUND + 1, z2, 4); /* 基座满铺(大厅地板) */
@@ -506,14 +508,17 @@ function advBuildTower() {/* 望塔: 7×7 石砖塔(外沿环墙, 室内 5×5 �
   setBlockRaw(t.x, ADV_GROUND + 2, z2, 0); /* 南门洞 2 高(坎层+墙层, 上方石砖门楣) */
   setBlockRaw(t.x, ADV_GROUND + 3, z2, 0);
   setBlockRaw(t.x, ADV_GROUND + 2, t.z, B_TORCH); /* 厅心火把(落地站膛, 防清扫) */
-  const steps = [ /* 内旋石梯 8 级(东南内角起步 → 沿东墙向北 → 北缘折西半圈):
+  const steps = [ /* 内旋楼梯 8 级(东南内角起步 → 沿东墙向北 → 北缘折西半圈):
       每级恰 +1、全部实心落地(不悬空), 首级就在门洞右前方——进屋即见;
       内圈 5×5 的周格: 东列 z2-1..z1+1 五格 + 北列 x2-2..x1+2 五格 */
     [x2 - 1, z2 - 1, 1], [x2 - 1, z2 - 2, 2], [x2 - 1, t.z, 3], [x2 - 1, z1 + 2, 4],
     [x2 - 1, z1 + 1, 5], [x2 - 2, z1 + 1, 6], [t.x, z1 + 1, 7], [t.x - 1, z1 + 1, 8],
   ];
-  for (const [sx, sz, up] of steps) {
-    for (let y = ADV_GROUND + 2; y <= ADV_GROUND + 1 + up; y++) setBlockRaw(sx, y, sz, 4);
+  /* 红蓝羊毛逐级交替(16 红=奇数级 / 15 蓝=偶数级): 整柱同色——挖开任何一截,
+      断口颜色仍在讲「这是第几级」; 8 级 4 红 4 蓝首尾异色, 半圈一眼数清 */
+  for (let i = 0; i < steps.length; i++) {
+    const [sx, sz, up] = steps[i];
+    for (let y = ADV_GROUND + 2; y <= ADV_GROUND + 1 + up; y++) setBlockRaw(sx, y, sz, i % 2 ? 15 : 16);
   }
   SceneKit.fill(x1, ADV_GROUND + 9, z1, x2, ADV_GROUND + 9, z2, 6); /* 顶平台木板(y33) */
   for (const [sx, sz] of steps.slice(5, 7)) setBlockRaw(sx, ADV_GROUND + 9, sz, 0); /* 楼梯口:
@@ -710,6 +715,12 @@ const ADV_ARROW_SPEED = 16; /* 骷髅箭速(竞技场/nether 弹道档) */
 const ADV_SNOWBALL_SPEED = 12; const ADV_SNOWBALL_G = 14; /* 雪球弹道: 低初速高重力(比箭慢比箭坠, T9 打雪仗) */
 const ADV_SNOWBALL_KPOW = 1.1; /* 雪球击退力(零伤害红线: 只推不疼, 重击退档) */
 const ADV_SNOWBALL_LIFE = 1.6; const ADV_SNOWBALL_CD = 0.6; /* 雪球寿命/投掷冷却秒(T9) */
+const ADV_BOW_SPEED = 22; const ADV_BOW_G = 9.5; /* 玩家弓箭弹道: 高初速低重力(nether
+   箭道口径; 2026-10-28 弓物品化启用——雪球之外的第二条使用档弹道, 比雪球快且平) */
+const ADV_BOW_DMG = 10; const ADV_BOW_KPOW = 0.35; /* 弓箭伤害/击退: 铁剑(11)略下一档——
+   远程安全的代价(儿童版不设蓄力档, 单发定值) */
+const ADV_BOW_LIFE = 3; const ADV_BOW_CD = 0.55; /* 弓箭寿命/拉弓冷却秒(nether bowCd 原值;
+   与挥击同一条冷却轨道——换武器不躲冷却) */
 const ADV_PICKUP_WINDOW = 3; /* 收集播报合并窗秒数(D6: 计数累计 3 秒合并播报) */
 
 /* 每巢刷怪数量: 2~3 只(D11), rand 可注入(缺省 Math.random) */
@@ -1739,6 +1750,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,
     ADV_SWING_CD, ADV_FIST_DMG, ADV_AIM_COS, ADV_ATTACK_T, ADV_ARROW_SPEED, ADV_PICKUP_WINDOW,
     ADV_SNOWBALL_SPEED, ADV_SNOWBALL_G, ADV_SNOWBALL_KPOW, ADV_SNOWBALL_LIFE, ADV_SNOWBALL_CD,
+    ADV_BOW_SPEED, ADV_BOW_G, ADV_BOW_DMG, ADV_BOW_KPOW, ADV_BOW_LIFE, ADV_BOW_CD,
     advNestCount, advNestStep, advSwingDmg, advMobDmg, advDeathDrops, advPickupText,
     ADV_NIGHT, ADV_HOME_ROW, advNightCanSpawn, advNightStep, advNightStepPool,
     advDawnSweep, advMusicMood,

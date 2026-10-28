@@ -25,8 +25,9 @@ const HELD_BARE = {
 /* ---------- 工具 def 工厂 (mkToolDef): 镐/斧/剑/锹 × 木/石/铁/钻 ----------
    部件同构 = 木柄 + 工具头(形状按 kind 分四套), 头色按 tier 换材质色板;
    grip/swing 按 kind 分档(剑快阔 · 镐中 · 斧锹沉)。每次调用产出全新对象,
-   16 个生成条目与 hoe/sword/bow 手工条目同住 defs(键名与物品 id 一致,
-   供 Avatar.setItem 直用, 见设计稿 §3.1/D2)。 */
+   16 个生成条目与 hoe/sword/bow_item 手工条目同住 defs(工具与 bow_item
+   键名与物品 id 逐字一致, 供 Avatar.setItem 直用, 见设计稿 §3.1/D2;
+   hoe/sword 是观感族模板——无同名物品, defFor 永不命中)。 */
 
 /* 材质四阶色板: 工具头颜色(工单 T4 / 设计稿 §3.1 抄录) */
 const TOOL_HEAD_COLORS = {
@@ -147,19 +148,24 @@ const HELD_DEFS = {
     /* 待机呼吸浮动幅度 */
     sway: {idle: 0.03},
   },
-  /* 弓: 竖直木弓臂 + 弓弦 + 两端梢块, 部件坐标系以握点为原点, -Z 为前
-     (口径出下界冒险武器栏远程位——模式已退役, 条目留存; 箭矢伤害/弹道等
-     战斗政策在模式层, 不进 def) */
-  bow: {
+  /* 弓: MC 正典「16×16 像素图挤出薄片」——vanilla bow.json parent=item/generated
+     (1.20.4 一手, docs/mc-held-item-render-research.md Q2: 非方块物品统一为图标
+     挤出薄片模型, 弓不是 3D 盒模型); 姿态照抄 thirdperson_righthand
+     rotation[-80,260,-40]/scale0.9 的折算(长轴前倾上举、弦面转向身体侧,
+     MC 持弓的斜握观感); 贴图走像素图标工坊的 ITEM_PIX.bow_item 字符画
+     (art 字段, mount 调用期画布上色), 工坊/画布不可用时回落木色薄板(Node
+     单测口径); 键名与物品 id 逐字一致(items-core bow_item, Avatar.setItem
+     直用——2026-10-28 弓物品化, 旧键 'bow' 无同名物品已修正)。
+     箭矢伤害/弹道等战斗政策在模式层, 不进 def */
+  bow_item: {
     label: '弓',
     parts: [
-      {w: 0.05, h: 0.62, d: 0.05, color: 0x8a5a2b, pos: [0, 0.10, -0.10]}, // 弓臂(竖)
-      {w: 0.015, h: 0.56, d: 0.015, color: 0xd8d8d4, pos: [0, 0.10, -0.03]}, // 弓弦
-      {w: 0.075, h: 0.05, d: 0.075, color: 0x6a4a22, pos: [0, 0.44, -0.11]}, // 上梢
-      {w: 0.075, h: 0.05, d: 0.075, color: 0x6a4a22, pos: [0, -0.24, -0.11]}, // 下梢
+      /* 弓薄片(正反面贴像素图, 侧面木色); 中点即握点——持弓握弓腹中段 */
+      {w: 0.62, h: 0.62, d: 0.05, color: 0x8a5a2b, art: 'bow_item', pos: [0, 0.02, 0]},
     ],
-    /* 挂在右臂手部枢轴: 弓竖持于手前, 前移+前倾离臂(随工具组再前倾 15°) */
-    grip: {pos: [0, -0.48, -0.14], rot: [-0.36, 0, 0]},
+    /* 挂在右臂手部枢轴: MC thirdperson 折算([-80,260,-40]°=[-1.40,-1.75,-0.70]rad,
+       XYZ 序与 MC display 同构), 与工具组同款前移离臂 */
+    grip: {pos: [0, -0.50, -0.10], rot: [-1.40, -1.75, -0.70]},
     /* 挥击=放箭的蓄力前送(幅度接近剑的挥砍, 放箭动作要看得见): 挥臂观感随 def 走 */
     swing: {dur: 0.3, amp: 1.1, curlZ: 0},
     /* 待机呼吸浮动幅度 */
@@ -277,16 +283,38 @@ const HeldItems = {
     return {x: s * def.swing.amp, z: s * def.swing.curlZ};
   },
 
+  /* 像素贴图薄板材质(art 部件): 图标工坊字符画 → CanvasTexture 关平滑(像素
+     风), 只贴 ±Z 两大面(薄板正/背面同图, 背面镜像=MC 挤出薄片同款观感),
+     挤出侧面用 color 单色近似; alphaTest 裁透明角(弓弧中空处透出背景)。
+     工坊(icons.js 的 ITEM_PIX/drawArt 全局, 加载序在本文件之后)或画布
+     不可用 → null(回落纯色薄板, Node 单测口径) */
+  mkArtMats(p) {
+    if (!p.art || typeof document === 'undefined' || typeof THREE === 'undefined' ||
+        typeof ITEM_PIX === 'undefined' || typeof drawArt !== 'function' ||
+        !ITEM_PIX[p.art]) return null;
+    const cv = document.createElement('canvas');
+    cv.width = 16; cv.height = 16;
+    drawArt(cv.getContext('2d'), ITEM_PIX[p.art].art, ITEM_PIX[p.art].map);
+    const tex = new THREE.CanvasTexture(cv);
+    tex.magFilter = THREE.NearestFilter;
+    tex.minFilter = THREE.NearestFilter;
+    tex.generateMipmaps = false;
+    const face = new THREE.MeshLambertMaterial({map: tex, alphaTest: 0.5, side: THREE.DoubleSide});
+    const edge = new THREE.MeshLambertMaterial({color: p.color});
+    return [edge, edge, edge, edge, face, face]; /* BoxGeometry 面序 [+x,-x,+y,-y,+z,-z] */
+  },
+
   /* 按 def 装配手持物网格(仅浏览器: 调用期才触碰 THREE)。
      返回以握点为原点的 Group; 握持姿态(grip)由 Avatar 施加,
-     因为那是手臂坐标系的知识。def 为空 → null(空手)。 */
+     因为那是手臂坐标系的知识。def 为空 → null(空手)。
+     part 带 art 字段走 mkArtMats 像素薄片(MC item/generated 正典)。 */
   mount(def) {
     if (!def) return null;
     const g = new THREE.Group();
     for (const p of def.parts) {
       const m = new THREE.Mesh(
           new THREE.BoxGeometry(p.w, p.h, p.d),
-          new THREE.MeshLambertMaterial({color: p.color}));
+          HeldItems.mkArtMats(p) || new THREE.MeshLambertMaterial({color: p.color}));
       m.position.set(p.pos[0], p.pos[1], p.pos[2]);
       g.add(m);
     }

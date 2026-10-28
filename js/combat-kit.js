@@ -136,7 +136,8 @@ function mkMelee(cfg) {
 
 /* ---------- 箭矢管线: 发射(leadAim/沿准星) → stepShot 步进 → 命中政策回调 ----------
    一实例一弹种: mesh('box' 箭|'sphere' 火球|雪球)·lookAt·targets 分开配 ——
-   现行探险=两实例(骷髅箭 hitPlayer / 玩家雪球 hitMobs 零伤害+击退, T9);
+   现行探险=三实例(骷髅箭 hitPlayer / 玩家雪球 hitMobs 零伤害+击退 T9 /
+   玩家弓箭 hitMobs 2026-10-28 弓物品化);
    历史口径: 下界曾两实例(玩家箭 hitMobs / 怪火球 hitPlayer 不 lookAt,
    已随模式退役); spec 逐发给 {speed, dmg, kpow, g, life};
    onHitMob(m,res)/onHitPlayer(res) 携 Mobs.hit 结果(含 freshDead),
