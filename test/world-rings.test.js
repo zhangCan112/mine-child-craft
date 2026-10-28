@@ -41,7 +41,7 @@ function mkAny() {
   return any;
 }
 
-function loadWorld() {
+function loadWorld(env) { // env: 沙盒键覆盖(低核档用例注入触屏+2核 navigator)
   const sandbox = {
     console: {log() {}, warn() {}, error() {}},
     performance: {now: () => 0},
@@ -51,6 +51,7 @@ function loadWorld() {
     innerWidth: 1280, innerHeight: 720, devicePixelRatio: 1,
     addEventListener() {},
   };
+  Object.assign(sandbox, env || {});
   sandbox.window = sandbox;
   const ctx = vm.createContext(sandbox);
   for (const f of ['config.js', 'daylight-core.js', 'light-core.js', 'voxel.js', 'cascade-core.js', 'fluid-core.js',
@@ -114,4 +115,24 @@ test('编辑管线: markDirty 的区块下帧被消费(同步兜底路径)', () 
   w.markDirty(9, 9);
   w.pumpRemesh(2); // 一帧内消费(编辑优先)
   assert.ok(w.full.has('0,0'), '重建后仍在全细节表');
+});
+
+test('距离环·低核档收紧: 触屏+≤2核 → full 6/lod 10, 环外区块不驻留(桌面档不变)', () => {
+  const desk = loadWorld(); // 缺省沙盒: 桌面
+  assert.strictEqual(desk.VIEW.fullChunks, 8, '桌面档全细节半径不动');
+  assert.strictEqual(desk.VIEW.lodChunks, 15, '桌面档 LOD 半径不动');
+  const w = loadWorld({navigator: {maxTouchPoints: 5, hardwareConcurrency: 2}}); // 低核触屏
+  assert.strictEqual(w.VIEW.fullChunks, 6);
+  assert.strictEqual(w.VIEW.lodChunks, 10);
+  w.clearWorld();
+  w.pos.set(8, 10, 8);
+  w.setBlockRaw(8, 5, 8, 3); // 近块: 区块(0,0), d=0 → 全细节
+  w.setBlockRaw(88, 5, 88, 3); // 中距: 区块(5,5), d≈7.07 → 低核档落 LOD(桌面档会是 full)
+  w.setBlockRaw(152, 5, 152, 3); // 对角远块: 区块(9,9), d≈12.7 > lodChunks(10) → 不驻留
+  w.rebuildAll();
+  drain(w, 20);
+  assert.ok(w.full.has('0,0'), '近块仍全细节');
+  assert.ok(w.lod.has('5,5') && !w.full.has('5,5'), '低核档中距块提前进 LOD');
+  assert.ok(!w.full.has('9,9') && !w.lod.has('9,9'), '低核档环外区块不驻留');
+  assert.strictEqual(w.ringQueueLen, 0, '队列应排空');
 });

@@ -96,8 +96,12 @@ const CAM = {
    GPU 对象数按环面积封顶。 */
 const VIEW = {
   fogNear: 90, fogFar: 230, far: 240,
-  fullChunks: 8, // 全细节环半径(区块)
-  lodChunks: 15, // LOD 环半径(区块; ×16 格 ≈ 雾终点)
+  /* 环半径分档: 低核触屏(A9 级 iPad, IS_LOWCORE_TOUCH)收紧 full 8→6 / lod 15→10 —
+     驻留几何/显存按环面积(πr²)收缩, 环外区块提前卸载(GPU 释放); 雾不动=观感边界
+     不变, 只是粗网格更早出现。桌面与强触屏保持 8/15(全设备零回归, 设计稿
+     docs/ipad5-performance-design.md §7 落地记录)。Worker 侧只消费 lodStep, 不受分档影响 */
+  fullChunks: IS_LOWCORE_TOUCH ? 6 : 8, // 全细节环半径(区块)
+  lodChunks: IS_LOWCORE_TOUCH ? 10 : 15, // LOD 环半径(区块; ×16 格 ≈ 雾终点)
   lodStep: 2, // LOD 采样步长(格/边; 须整除 CHUNK=16, 否则回落 2)
   dispatch: 8, // Worker 每帧派发上限(派发只含打包+postMessage, 帧成本极低; 同步兜底预算由 pumpRemesh 入参)
 };
