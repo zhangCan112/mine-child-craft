@@ -107,22 +107,34 @@ function advSceneEditsEncode(b) {/* 桶账本 → 档(五桶恒写全: 形状确
   for (const k of ADV_SCENE_KEYS) out[k] = [...b[k].entries()];
   return out;
 }
-function advLivestockDecode(v) {/* 死畜账按图归一(审查修复 P2): 新档 {图:[idx..]} 五桶 ·
-    老档 {dead:[idx..]} 单账→home 桶(四畜全在 home 拍板⑤, 功能等价档形对齐 spec);
-    坏档/缺桶兜底空数组; 拷贝入账(档文本与运行账不共享引用) */
+function advLivestockDecode(v) {/* 牧场账按图归一(档形 v2/ADR 0006): 五桶各经
+    advLivestockNormBucket 收敛三代档形(v2 {dead,bred} / 二代索引数组 / 老单账
+    {dead:[..]}→home 桶); 拷贝入账(档文本与运行账不共享引用) */
   const out = {};
-  for (const k of ADV_SCENE_KEYS) out[k] = (v && Array.isArray(v[k])) ? v[k].slice() : [];
-  if (v && Array.isArray(v.dead)) out.home = v.dead.slice(); /* 老档单账优先(两形状并存时) */
+  for (const k of ADV_SCENE_KEYS) out[k] = advLivestockNormBucket(v && v[k]);
+  if (v && Array.isArray(v.dead)) out.home = {dead: v.dead.slice(), bred: []}; /* 老单账优先(两形状并存时) */
+  return out;
+}
+function advOreRegenDecode(v) {/* 矿位开采账归一(生态恢复 C 通道): 只收 {<场景>:x,y,z: 日期串},
+   异形键值整条丢弃(坏档兜底空账) */
+  const out = {};
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    for (const k in v) {
+      if (typeof v[k] === 'string' && advOreParseKey(k)) out[k] = v[k];
+    }
+  }
   return out;
 }
 const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
   /* map: 当前主世界图键(老档缺省 home; nether 期间保持最后主世界图——维度不进档 D9,
      重进 pos=null → 该图回程门出生); pos(含 yaw)/hp: 玩家状态随世界档(仅主世界图随
-     当前图存); furnaces: 每炉独立炉态(F1 拍板①, 炉键带图/界前缀); livestock: F4 死畜
-     索引账**按图分桶**(审查修复 P2, 与 edits/furnaces 同口径——只存已杀, 初始清单可
-     推导; 四畜全在 home 拍板⑤故功能等价, 档形对齐 spec); dayTime: 昼夜全局单钟 */
+     当前图存); furnaces: 每炉独立炉态(F1 拍板①, 炉键带图/界前缀); livestock: 牧场账
+     **按图分桶**(档形 v2/ADR 0006: {dead 死畜索引, bred 繁育账}, 初始清单可推导);
+     oreRegen: 矿位开采账(生态恢复, '<场景>:x,y,z'→'Y-M-D', 跨天回填); dayTime: 昼夜全局单钟 */
   defaults: {edits: [], map: 'home', pos: null, hp: null, furnaces: [],
-    livestock: {home: [], desert: [], snow: [], swamp: [], nether: []}, dayTime: 0},
+    livestock: {home: {dead: [], bred: []}, desert: {dead: [], bred: []},
+      snow: {dead: [], bred: []}, swamp: {dead: [], bred: []}, nether: {dead: [], bred: []}},
+    oreRegen: {}, dayTime: 0},
   /* livestock defaults 自带五桶全键: 无档路径 clone(defaults) 不经 decode
      (save-slot load 语义), 半形状 defaults 会让播种读 undefined 桶——
      形状必须两条路径都成立 */
@@ -132,13 +144,15 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     hp: (typeof st.hp === 'number') ? st.hp : null,
     furnaces: advFurnaceClean(st.furnaces), /* 空炉条目清扫(存档防膨胀) */
     livestock: st.livestock || {},
+    oreRegen: st.oreRegen || {},
     dayTime: (typeof st.dayTime === 'number') ? st.dayTime : 0}),
   decode: (sv) => ({edits: advSceneEditsDecode(sv), /* 桶归一(三档型兼容, 幂等) */
     map: ADV_SCENE_KEYS.indexOf(sv.map) >= 0 && sv.map !== 'nether' ? sv.map : 'home', /* 坏键兜底 home */
     pos: sv.pos || null,
     hp: (typeof sv.hp === 'number') ? sv.hp : null,
     furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1]))), /* 非法炉态整条拒收 */
-    livestock: advLivestockDecode(sv.livestock), /* 按图分桶归一(老档单账→home 桶) */
+    livestock: advLivestockDecode(sv.livestock), /* 按图分桶归一(三代档形收敛) */
+    oreRegen: advOreRegenDecode(sv.oreRegen), /* 矿位开采账归一(缺省 {}) */
     dayTime: (typeof sv.dayTime === 'number' && sv.dayTime >= 0 && sv.dayTime < DAYLIGHT.TICKS) ?
       sv.dayTime : 0}), /* 越界/坏档兜底清晨 */
 });
@@ -176,15 +190,21 @@ const advJournal = mkWorldJournal(advWorldSlot, {
     edits: advSceneEdits,
     map: advMap, /* 当前主世界图键(nether 期间保持最后主世界图) */
     pos: advDim === 'nether' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw}, /* D9 */
-    hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, dayTime}),
+    hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, oreRegen: advOreRegen, dayTime}),
   onFlush: () => {/* 伴随联写经存档 store 缝: U3 换装 dev store 后三档联写自动跟丢弃语义 */
     advStore.saveBag(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
     advStore.saveQuest(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   },
 });
-let advLivestockAll = {home: [], desert: [], snow: [], swamp: [], nether: []}; /* F4 死畜索引账
-    按图分桶(审查修复 P2; init 从世界档换装): 键集同 ADV_SCENE_KEYS, 只增不减;
-    索引清单见 advLivestockPlan */
+let advLivestockAll = {home: {dead: [], bred: []}, desert: {dead: [], bred: []},
+  snow: {dead: [], bred: []}, swamp: {dead: [], bred: []}, nether: {dead: [], bred: []}};
+/* 牧场账按图分桶(档形 v2/ADR 0006; init 从世界档换装): dead=初始死畜索引(只增不减,
+    初始清单可推导); bred=繁育账 [{k: 怪物键, b: 出生日'Y-M-D'}](死亡=除名);
+    游荡位置不存档, 重进回群位锚点 */
+let advOreRegen = {}; /* 矿位开采账(生态恢复 C 通道): '<场景>:x,y,z'→'Y-M-D' 开采日,
+    跨天回填(拍板②); init 从世界档换装, 回填/销账即 touch */
+const advTreeRegen = new Map(); /* 凋零树位恢复计时 "x,y,z"→{x,y,z,left}; 计时不落盘,
+    重进经 advRescanTreeRegen 重建(树苗同惯例; 仅 home 图——树位清单是 home 常量派生) */
 /* 站点坐标缓存(T13): "x,y,z"→{x,y,z,id}——B_CRAFT/B_FURNACE 只可能来自玩家
    放置(edits 全量差异), 重进由 advRescanStations 重放收集, 增删经 advMarkEdit
    顺路维护——advStationOk 只查缓存, 不每帧扫全图 */
@@ -609,6 +629,8 @@ const advHurt = CombatKit.mkHurtAlarm({setHp: (v) => {
 }});
 const advMelee = CombatKit.mkMelee({range: ADV_MELEE_R, cooldown: ADV_SWING_CD,
   aimCos: ADV_AIM_COS, /* 准星锥门槛(纯方向, 不依赖相机 — lookDir 同式 yaw 朝向) */
+  skip: (m) => !!m.__baby, /* 幼崽免伤(生态恢复差异 6): 不被选为目标——挥击落空,
+    点击自然落到挖掘/放置, 静默保护(零惩罚, 不给伤害也不给击退) */
   dmg: () => {
     const held = advInv.slots[advHb.sel];
     return advSwingDmg(held ? held.id : '');
@@ -637,6 +659,7 @@ const advSnowballs = CombatKit.mkArrows({mesh: 'sphere', color: 0xffffff, lookAt
    掉落在 onDeath 回调), 受击存活的牧场动物照 F4 逃窜; 历史口径=nether 玩家箭
    (模式已退役, 2026-10-28 弓物品化随冒险侧使用档回归) */
 const advBolts = CombatKit.mkArrows({origin: () => ({x: pos.x, y: pos.y + PLAYER.height * 0.72, z: pos.z}),
+  skip: (m) => !!m.__baby, /* 幼崽免伤: 箭矢直接穿过(生态恢复差异 6) */
   /* 箭从人物弓位(height*0.72)出膛不随相机——修第三人称箭从人物背后飞出
     (2026-10-28); 雪球实例不注入 origin(未报障, 最小改动; combat-kit 缺省
     = 原相机起点行为, 向后兼容) */
@@ -938,6 +961,14 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
   const inPen = advMap === 'home'; /* 四畜全套留 home, 他图无牲畜不钳 */
   for (const m of Mobs.list()) {
     if (m.dead || m.gone || !m.cfg || !m.cfg.passive) continue;
+    if (m.__breedCd > 0) m.__breedCd = Math.max(0, m.__breedCd - dt); /* 繁殖冷却递减 */
+    if (m.__baby) {/* 幼崽成长计时(当次内秒表; 计时不落盘——重进按繁育账 b 重挂, 差异 5) */
+      m.__babyT -= dt;
+      if (m.__babyT <= 0) {
+        m.__baby = false;
+        Mobs.scaleTo(m, 1); /* 长成: 体型回成年 */
+      }
+    }
     const dx = m.pos.x - p.pos.x; const dz = m.pos.z - p.pos.z;
     const dist = Math.hypot(dx, dz) || 1e-9;
     const st = advHerdStep(dist, m.cfg.speed || 1, m.__fleeT || 0, dt);
@@ -965,6 +996,47 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
         const c = advHerdClamp(m.pos.x, m.pos.z);
         m.pos.x = c.x; m.pos.z = c.z;
       }
+    }
+  }
+}
+
+/* 自动繁育(生态恢复 §2, 拍板①): 2s 节流扫描——同种成年邻近配对(判据纯函数
+   advBreedPairOk 在 adventure-core), 中点产崽入繁育账(世界档 v2 bred), 双亲进
+   冷却, 幼崽挂三件(体型/免伤旗/成长计时); 活畜上限闸门(初始 10 + 余量 6)。
+   一帧至多添一只(上限逼近时逐拍生效); 粉絮爆点=小爱心观感(Fx 现成件)。 */
+let advBreedT = 0;
+function advBreedTick(dt) {
+  advBreedT -= dt;
+  if (advBreedT > 0) return;
+  advBreedT = 2;
+  if (!Number.isFinite(advTodayOrd())) return; /* 精简装载环境: 无日期源不繁育(幼崽出生日无法记) */
+  if (!advMapRow || advMapRow.livestock !== 'herds') return; /* 四畜全套留 home */
+  const bucket = advLivestockAll[advMap];
+  const snaps = [];
+  for (const m of Mobs.list()) {
+    if (m.dead || m.gone || !m.cfg || !m.cfg.passive) continue;
+    snaps.push({m, type: m.type, baby: !!m.__baby, cd: m.__breedCd || 0});
+  }
+  if (snaps.length >= ADV_LIVESTOCK_CAP) return;
+  for (let i = 0; i < snaps.length; i++) {
+    for (let j = i + 1; j < snaps.length; j++) {
+      const a = snaps[i]; const b = snaps[j];
+      const dist = Math.hypot(a.m.pos.x - b.m.pos.x, a.m.pos.z - b.m.pos.z);
+      if (!advBreedPairOk(a, b, dist)) continue;
+      const entry = {k: a.type, b: budgetDateStr()};
+      bucket.bred.push(entry);
+      const mx = (a.m.pos.x + b.m.pos.x) / 2;
+      const mz = (a.m.pos.z + b.m.pos.z) / 2;
+      const baby = Mobs.spawn(a.type, mx, mz, {yaw: 0});
+      baby.__bredRef = entry; /* 死亡记账唯一依据(与初始清单 __livestockIdx 同地位) */
+      baby.__baby = true;
+      baby.__babyT = ADV_BABY_GROW_S;
+      Mobs.scaleTo(baby, ADV_BABY_SCALE);
+      a.m.__breedCd = ADV_BREED_CD_S;
+      b.m.__breedCd = ADV_BREED_CD_S;
+      Fx.debrisBurst(mx, a.m.pos.y + 1, mz, 4, {color: 0xff9ec4, life: 0.6});
+      advStore.touch();
+      return;
     }
   }
 }
@@ -1286,9 +1358,16 @@ function advGateAt(x, z) {/* 门阵包围盒查表(advInPortal 命中后): 玩�
      后必须重挂, 回挂在 init 与 advSetDim 是同一份(单一实现) */
 function advHookEntityCbs() {
   Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8)。
-      F4 死畜记账并进同一回调: 掉落与落账同帧, 挂清单索引(初始清单可推导, 存档最小) */
-    if (m.__livestockIdx != null && advLivestockAll[advMap].indexOf(m.__livestockIdx) < 0) {
-      advLivestockAll[advMap].push(m.__livestockIdx);
+      F4 牧场记账并进同一回调: 初始畜挂清单索引(死畜账只增不减), 繁育畜按
+      __bredRef 从繁育账除名(种群收缩)——掉落与落账同帧 */
+    const bucket = advLivestockAll[advMap];
+    if (m.__livestockIdx != null && bucket.dead.indexOf(m.__livestockIdx) < 0) {
+      bucket.dead.push(m.__livestockIdx);
+      advStore.touch();
+    }
+    if (m.__bredRef) {/* 繁育畜死亡 = 繁育账除名(生态恢复 §2; 不进死畜索引——初始清单推导不含它) */
+      const bi = bucket.bred.indexOf(m.__bredRef);
+      if (bi >= 0) bucket.bred.splice(bi, 1);
       advStore.touch();
     }
     for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
@@ -1300,14 +1379,29 @@ function advHookEntityCbs() {
   });
 }
 function advSeedMapMobs() {/* 主世界怪播种(T6 行化): 当前行巢穴首刷 + 牲畜(仅
-    home 行 herds——远征图无家畜, 死畜账跳过已杀不重生) + swamp 行女巫小屋
-    常驻(家锚=小屋位, 收队不流浪); init 与切图/回界共用同一份(单一实现) */
+    home 行 herds——初始清单按死畜账跳过已杀(不重生 MC 口径), 繁育账逐条重播:
+    跨天成年/当日幼崽重挂成长计时) + swamp 行女巫小屋常驻(家锚=小屋位,
+    收队不流浪); init 与切图/回界共用同一份(单一实现) */
   for (let i = 0; i < advMapRow.nests.length; i++) advSpawnNest(i);
   if (advMapRow.livestock === 'herds') {
+    const bucket = advLivestockAll[advMap];
+    const today = advTodayOrd();
+    const spots = advLivestockSpots();
     for (const e of advLivestockPlan()) {
-      if (advLivestockAll[advMap].indexOf(e.idx) >= 0) continue;
+      if (bucket.dead.indexOf(e.idx) >= 0) continue;
       const m = Mobs.spawn(e.type, e.x, e.z, {yaw: 0});
       m.__livestockIdx = e.idx; /* 模式私有挂件(Mobs 许可) */
+    }
+    for (let bi = 0; bi < bucket.bred.length; bi++) {/* 繁育畜重播(位置不存档, 回群位锚点) */
+      const b = bucket.bred[bi];
+      const spot = spots[advBreedHerdOf(b.k) % spots.length];
+      const m = Mobs.spawn(b.k, spot.x + 0.5 + (bi % 3) * 0.8, spot.z + 0.5, {yaw: 0});
+      m.__bredRef = b;
+      if (!advBabyAdult(CampCore.dayIndex(b.b), today)) {/* 当日出世: 幼崽形态重挂成长计时 */
+        m.__baby = true;
+        m.__babyT = ADV_BABY_GROW_S;
+        Mobs.scaleTo(m, ADV_BABY_SCALE);
+      }
     }
   }
   if (advMapRow.witchHut) {/* 常驻女巫: 小屋室内落位(地板 y+1, groundTop 会量到屋顶) */
@@ -1382,6 +1476,7 @@ function advSceneLeave() {/* 离开当前场景的共通清单: 世界无关观�
   advBeamsClear(); /* 光束句柄全清再重锚(旧世界的束不跨场) */
   advFlamesClear(); /* 炉口火焰 Sprite 同理(炉态随档跨场保留, 观感不跨) */
   advSaplings.clear(); /* 树苗计时不跨场(进图重扫重建, 防旧图坐标在新图长树——串档事故) */
+  advTreeRegen.clear(); /* 凋零树位恢复计时同不跨场(同款串档防线) */
   advFuses.length = 0; /* 已点燃的 TNT 不跨场引爆(会在新图坐标起爆——串档事故) */
   Mobs.clear(); /* 怪/掉落/箭不跨场: 门只渡人(下界无怪, 回主世界重播) */
   Drops.clear();
@@ -1421,11 +1516,13 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
   } else {
     loadScene(() => {/* 主世界基座确定性重建(当前地图行 build) + 当前桶重放; 不跑
         applySweep——那是 init 旧档治愈专用, 切回来的世界本来就是干净的 */
-      advMapRow.build();
+      advBuildScene(advMapRow);
       advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
       advGatesBuild(); /* 门阵重建(T7): 重放之后立门——玩家对门区的误放被门体盖回 */
       advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
       advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
+      advRescanTreeRegen(); /* 凋零树位重挂恢复计时(仅 home 图有树位清单) */
+      advOreRegenTick(); /* 到期矿位回填(跨天口径; 只结本场景的账) */
       advRescanStations();
       advFurnaceSettle(advMap);
     });
@@ -1455,11 +1552,13 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
   advSceneLeave();
   advApplyMapPalette(row);
   loadScene(() => {
-    row.build();
+    advBuildScene(row);
     advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
     advGatesBuild(); /* 门阵重建(T7): 重放之后立门(远征图回程门常亮) */
     advRescanSaplings();
     advRescanWheats();
+    advRescanTreeRegen();
+    advOreRegenTick();
     advRescanStations();
     advFurnaceSettle(advMap);
   });
@@ -1663,6 +1762,7 @@ const advCascadeSink = {
   crop: (x, y, z) => advWheats.delete(blockKey(x, y, z)), /* 麦苗脱落撤生长计时(farm-and-recipe D3) */
   drop: (id, n, x, y, z) => Drops.spawn(id, n, x, y, z),
   questMine: advQuestMine,
+  mined: advOreMined, /* 生态恢复: 矿位开采记账(挖掘/TNT 两路同经 advCascadeLedger) */
 };
 /* ---------- 放置链 kit 实例(PlaceKit, docs/showroom-design.md §8): 探险政策全走缝 ----------
     规则(合法性/结构/级联/掉落/蓄力)早已在纯函数与 kit, 这里只注入探险侧
@@ -1757,7 +1857,8 @@ function advSapPlant(x, y, z) {
 
 /* 树苗长成: SceneKit.tree(确定性外观与地形树一致) + 足迹逐块记账(纯段
    advGrowMark 在 adventure-core: y..y+7 / ±2 粗扫, 重放同值幂等) */
-function advGrowTree(x, y, z) {
+function advGrowTree(x, y, z, line) {/* 长树全链: SceneKit.tree + 足迹逐块记账(纯段
+   advGrowMark: y..y+7 / ±2 粗扫, 重放同值幂等) + 网格收口 + toast(树苗/自主恢复两路共用) */
   SceneKit.tree(x, y, z);
   advGrowMark(x, y, z, getBlock, advMarkEdit);
   for (let dx = -2; dx <= 2; dx++) {/* 网格收口: 树 footprint ±2 与 advGrowMark 同款——
@@ -1765,12 +1866,19 @@ function advGrowTree(x, y, z) {
     for (let dz = -2; dz <= 2; dz++) advMeshTouch(x + dx, z + dz);
   }
   advMeshFlush();
-  advToast('🌱 小树苗长成大树啦！');
+  advToast(line || '🌱 小树苗长成大树啦！');
 }
 
-/* 树苗计时推进(update 每帧): 到期清单逐棵长树 */
+/* 树苗计时推进(update 每帧): 到期先过占位预检(拒绝式——被实体方块围住就
+   不长, 重挂 20s 再试, MC 受阻树苗同语义, 调研稿 §2.2), 过检才长 */
 function advSapTick(dt) {
-  for (const s of advSapDue(advSaplings, dt)) advGrowTree(s.x, s.y, s.z);
+  for (const s of advSapDue(advSaplings, dt)) {
+    if (!advTreeSpotOpen(s.x, s.y, s.z, getBlock)) {
+      advSapPlant(s.x, s.y, s.z);
+      continue;
+    }
+    advGrowTree(s.x, s.y, s.z);
+  }
 }
 
 /* 全图扫树苗重建计时(init 重放 edits 后调): 计时不落盘, 重进重挂 20s */
@@ -1812,6 +1920,87 @@ function advRescanWheats() {/* 全图扫未熟麦重建计时(init 重放 edits 
         if (advRipenOk(getBlock(x, y, z))) advWheatArm(x, y, z);
       }
     }
+  }
+}
+
+/* ============================================================
+/* ============================================================
+   生态恢复·壳装配 (docs/eco-recovery-design.md §1/§3, ADR 0006) — 账本接线
+   纯函数段(占位预检/凋零派生/矿位结算)在 adventure-core; 这里只持账本与
+   施加(树苗同款: 计时不落盘, 重进重扫重建)。
+   ============================================================ */
+function advTodayOrd() {/* 今日日序数(生态恢复日期唯一换算点): 精简装载环境
+   (体验馆 vm 子集)无 CampCore/budgetDateStr 时回落 NaN——消费方 NaN 比较
+   恒不到期/成年兜底, item-hint 的 SpeechKit 守卫同款口径 */
+  return (typeof budgetDateStr === 'function' && typeof CampCore !== 'undefined') ?
+    CampCore.dayIndex(budgetDateStr()) : NaN;
+}
+function advBuildScene(row) {/* 建场统一缝(init/切图/回界三处共用): 矿位白名单
+   先清后建——建场期 advTryOre 逐位记录, 同 seed 同清单, 回填只认本场清单 */
+  advOreSpotsReset();
+  row.build();
+}
+function advOreMined(id, x, y, z) {/* 矿位开采记账(级联账本 mined sink——挖掘/TNT
+   两路同经 advCascadeLedger): 被移除的是矿石 → 记开采日(跨天回填依据), 当日不回填 */
+  if (!advIsOre(id)) return;
+  advOreRegen[advOreKey(advSceneKey(), x, y, z)] = budgetDateStr();
+  advStore.touch();
+}
+function advRescanTreeRegen() {/* 进场重扫(advRescanSaplings 同拍同法): 凋零树位逐个
+   挂抖动恢复计时——SceneKit.rand 派生 ±JIT 错峰; 树位清单是 home 常量派生,
+   他图清账不挂(远征图树不参与自主恢复, 附录 B 差异 2 的范围注记) */
+  advTreeRegen.clear();
+  if (advMap !== 'home') return;
+  for (const s of advTreeRegenSpots(advTreeSpots(), ADV_GROUND, advHeightAt, getBlock)) {
+    const jit = (SceneKit.rand(s.x, s.z, 7301) * 2 - 1) * ADV_TREE_REGROW_JIT;
+    advTreeRegen.set(blockKey(s.x, s.y, s.z), {x: s.x, y: s.y, z: s.z, left: ADV_TREE_REGROW_S + jit});
+  }
+}
+function advTreeRegenTick(dt) {/* 凋零树位到期(update 每帧, 与树苗同拍): 基格已有
+   原木=孩子补种赢了 → 撤销; 占位预检不过 → 重挂再试(拆了占位建筑树会回来);
+   过检 → 走 advGrowTree 全链(足迹记账+网格收口, 重放幂等) */
+  for (const s of advSapDue(advTreeRegen, dt)) {
+    if (getBlock(s.x, s.y, s.z) === ADV_LOG_ID) continue;
+    if (!advTreeSpotOpen(s.x, s.y, s.z, getBlock)) {
+      advTreeRegen.set(blockKey(s.x, s.y, s.z), {x: s.x, y: s.y, z: s.z, left: ADV_TREE_REGROW_RETRY_S});
+      continue;
+    }
+    advGrowTree(s.x, s.y, s.z, '🌲 空地上的小树悄悄长回来啦！');
+  }
+}
+function advOreRegenTick() {/* 到期矿位回填(跨天拍板②): 只结当前场景的账——日期早于
+   今日的矿位, 空气位回填原矿种(edits 记账+网格收口, 重放幂等), 被占位销账
+   (玩家改建永久优先于恢复); 矿种从建场期白名单查, 查无=孤儿账一并销 */
+  const keys = Object.keys(advOreRegen);
+  if (!keys.length) return; /* 空账速返(常见路径) */
+  const today = advTodayOrd();
+  if (Number.isNaN(today)) return; /* 精简装载环境: 无法判「今日」→ 保守不回填 */
+  const scene = advSceneKey();
+  const entries = [];
+  for (const k of keys) {
+    const p = advOreParseKey(k);
+    if (!p || p.scene !== scene) continue;
+    const dayOrd = CampCore.dayIndex(advOreRegen[k]);
+    if (!Number.isNaN(dayOrd) && advOreDue(dayOrd, today)) entries.push(p);
+  }
+  if (!entries.length) return;
+  const spots = {};
+  for (const s of advOreSpots) spots[s.x + ',' + s.y + ',' + s.z] = s.id;
+  const plan = advOreRefillPlan(entries, getBlock);
+  for (const e of plan.drop) delete advOreRegen[advOreKey(e.scene, e.x, e.y, e.z)];
+  let n = 0;
+  for (const e of plan.fill) {
+    const id = spots[e.x + ',' + e.y + ',' + e.z];
+    delete advOreRegen[advOreKey(e.scene, e.x, e.y, e.z)];
+    if (id == null) continue;
+    setBlockRaw(e.x, e.y, e.z, id);
+    advMarkEdit(e.x, e.y, e.z, id);
+    advMeshTouch(e.x, e.z);
+    n++;
+  }
+  if (n) {
+    advMeshFlush();
+    advToast('⛏️ 矿山慢慢长回来了一些！');
   }
 }
 
@@ -2191,6 +2380,7 @@ function advExplode(x, y, z) {
   advDoorBreakApply(x, y, z, false); /* 源块正上方若立着门, 一并整扇回收 */
   advExplodeCells(x, y, z, getBlock, advExplodeSink);
   for (const w of advTntWave(Mobs.list(), x, y, z)) {/* 波及怪物: 线性衰减伤害+击退 */
+    if (w.m.__baby) continue; /* 幼崽免伤: TNT 不波及(生态恢复差异 6, 零惩罚) */
     const r2 = Mobs.hit(w.m, w.dmg, w.kdx, w.kdz, 0.8);
     if (r2.freshDead) advOnKill(w.m);
     else advHerdPanic(w.m); /* F4: 受击存活的牧场动物逃窜(怪物 no-op) */
@@ -2600,8 +2790,10 @@ const AdventureMode = mkMode({
       /* 流体写格入节流窗: 漏置位 → 只动水时永不触发 5s 落盘, 关页即丢水位(mark 自带置脏) */
     });
     advBubbles = mkBubbleBar(); /* 溺气泡条(liquid D10): 剩 3 泡 TTS 提醒, 气满藏条 */
+    advOreRegen = advOreRegenDecode(advLoad.oreRegen); /* 矿位开采账换装(生态恢复; 归一兜底——
+       dev store/旧档缺键 → 空账; 先于 loadScene, 回填在其内结算) */
     loadScene(() => {/* 场景装填 seam: 清场→建场(当前地图行 build, T6)→收尾入队一步到位 */
-      advMapRow.build();
+      advBuildScene(advMapRow);
       advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv}); /* 双通道重放(liquid D8): 流体格→方块+水位, 裸值→方块 */
       /* P14 世界卫生清扫(设计稿 D9): 级联合并前的旧档浮空(孤儿冠/悬浮树/浮沙/
          悬空依附块)在重进时一次性治愈——静默结算(装场期迁移不是游戏事件:
@@ -2617,6 +2809,8 @@ const AdventureMode = mkMode({
       }
       advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘; 清扫之后跑——被治愈掀掉的悬空树苗不再重挂) */
       advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
+      advRescanTreeRegen(); /* 凋零树位重挂恢复计时(仅 home 图; 清扫之后跑) */
+      advOreRegenTick(); /* 到期矿位回填(跨天口径; 只结本场景的账, 重放后结算) */
       advGatesBuild(); /* 门阵建场(T7): 治愈之后立门——门体不被清扫/重放翻动, 每次装场同一份 */
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
@@ -2657,7 +2851,8 @@ const AdventureMode = mkMode({
     /* F4 牧场(设计稿 §4.4): 死畜账先换装再播种——确定性清单按死畜账跳过已杀索引
         生成, 不重生(MC 口径动物也不刷, 牧场会空是「保护动物」的隐性教育);
         游荡位置不存档(重进回散布原位); 实体挂 __livestockIdx 是记账唯一依据 */
-    advLivestockAll = advLoad.livestock; /* 世界档 decode 已按图分桶归一 */
+    advLivestockAll = advLivestockDecode(advLoad.livestock); /* 牧场账换装(档形 v2 归一——dev store
+        字面量/二代老档数组均收敛 {dead,bred}; 世界档 decode 同一函数, 双路径同口径) */
     advSeedMapMobs(); /* 当前行巢穴首刷 + 牧场清单/女巫常驻(切图/回界的怪物重播共用同一份, T6) */
     const qNow = ADV_QUESTS[ADV.quest.step]; /* 进场欢迎句带上当前步引导(hint 并句, 防 cancel 打断;
         「小小探险家」字样留给终章称号的仪式感) */
@@ -2719,6 +2914,7 @@ const AdventureMode = mkMode({
     advSleepFadeReset(); /* 遮罩归零还 CSS transition, 不渗入其他模式 */
     advTntTap = null; /* TNT 短按判定一并复位 */
     advSaplings.clear(); /* 计时不落盘, 重进经全图扫描重建 */
+    advTreeRegen.clear(); /* 恢复计时同不落盘, 重进经 advRescanTreeRegen 重建 */
     advFuses.length = 0; /* 引信不落盘 */
     advStations.clear(); /* 站点缓存重进由 advRescanStations 重建 */
     advTableNear = false;
@@ -2767,11 +2963,13 @@ const AdventureMode = mkMode({
         灯笼耗秒是主世界夜晚机制(D10 下界恒夜由天穹呈现, 不亮不耗)。切图不门禁
         (各图都有树苗/巢穴/夜晚, 计时账随 advSceneLeave 清空防跨图坐标串档)。
         任务/背包提醒两图/界照旧 */
-      advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
+      advSapTick(dt); /* 树苗 20s 计时到期长树(T12; 占位预检拒绝式) */
       advWheatTick(dt); /* 麦 20s/阶段生长推进(farm-and-recipe D3) */
       if (advFarmHintT > 0) advFarmHintT -= dt; /* 农田引导话术节流递减 */
+      advTreeRegenTick(dt); /* 凋零树位恢复计时到期长回(生态恢复 A 通道) */
       advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架; passive 动物在此排除) */
       advHerdTick(dt); /* F4 牧场动物: 恐惧游荡/闲逛(与战斗 AI 互斥的两条驱动) */
+      advBreedTick(dt); /* 自动繁育: 同种成年邻近配对产崽(生态恢复 B 通道, 拍板①) */
       advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */
       advNightTick(dt); /* 夜怪节拍 + 入夜/黎明跨沿(昼夜 D5: 环带刷怪/配额/温和清场/播报) */
       advLanternTick(dt); /* 灯笼政策(昼夜 D7): 天黑手持才亮才耗, 持满 1 秒扣耐久 */

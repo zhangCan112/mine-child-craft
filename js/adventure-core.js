@@ -40,6 +40,12 @@
      (TNT 半径遍历编排)/advTntWave(波及怪物清单, 线性衰减) ·
      ADV_HERD_AMBLE_WALK_P/advAmbleStep(闲逛吃草节拍, 随机注入) ·
      ADV_HERD_PAD/advHerdClamp(栏内钳制——出栏防线, 踏石爬行路线兜底) ·
+     生态恢复(docs/eco-recovery-design.md, ADR 0006): advTreeSpotOpen(树位占位
+     预检, 拒绝式生长)/advTreeRegenSpots(凋零树位派生)/ADV_TREE_REGROW_* ·
+     advOreSpots/advOreSpotsReset(矿位白名单, advTryOre 建场期记录)/advIsOre/
+     advOreKey/advOreParseKey/advOreDue/advOreRefillPlan(矿位跨天回填纯段) ·
+     advBreedPairOk(繁育配对判据)/advBabyAdult(幼崽成年判)/advLivestockNormBucket
+     (牧场桶三代档形归一)/advBreedHerdOf/ADV_BREED 族/ADV_BABY 族 ·
      石阵夜晚彩蛋(2026-10-27): ADV_STONE_EGG_CD/ADV_STONE_HINT_CD/
      ADV_STONE_EGG_GIFT/advStoneAltarHit(灯坛命中)/advStoneEggPick(昼夜
      分支裁决——观感归壳) ·
@@ -220,7 +226,7 @@ function advOreCluster(x, y, z, o) {/* 小簇随机游走(每步沿一轴 ±1, �
   const n = o.sizeLo + Math.floor(SceneKit.rand(x, z, o.salt + 2) * (o.sizeHi - o.sizeLo + 1));
   let cx = x; let cy = y; let cz = z;
   for (let k = 0; k < n; k++) {
-    if (getBlock(cx, cy, cz) === 3) setBlockRaw(cx, cy, cz, o.id);
+    advTryOre(cx, cy, cz, o.id);
     const r = SceneKit.rand(x + k * 13, z + k * 7, o.salt + 3 + k);
     const sgn = SceneKit.rand(x - k * 11, z + k * 17, o.salt + 53 + k) > 0.5 ? 1 : -1;
     const axis = Math.floor(r * 3);
@@ -260,14 +266,25 @@ function advBuildPit(p) {/* 露天矿坑: 阶梯漏斗坑(每级 1 格深)挖到
         if (y < p.ore.yLo || y > p.ore.yHi) continue;
         if (getBlock(p.cx + dx, y, p.cz + dz) !== 3) continue;
         if (SceneKit.rand(p.cx + dx, p.cz + dz, p.ore.salt) < 0.65) continue;
-        setBlockRaw(p.cx + dx, y, p.cz + dz, p.ore.id);
+        advTryOre(p.cx + dx, y, p.cz + dz, p.ore.id);
       }
     }
   }
 }
 
-function advTryOre(x, y, z, id) {
-  if (getBlock(x, y, z) === 3) setBlockRaw(x, y, z, id);
+const advOreSpots = []; /* 矿位白名单(生态恢复 C 通道, docs/eco-recovery-design.md §3):
+  建场期 advTryOre 逐位记录——回填只认这份清单(插件「位置记录」套路, 调研稿 §10),
+  玩家建筑不在其中天然免疫; 同 seed 同清单, 进场由壳 advBuildScene 清空重建, 零存档 */
+function advOreSpotsReset() {
+  advOreSpots.length = 0;
+}
+
+function advTryOre(x, y, z, id) {/* 只镶进石头 + 矿位记账(白名单唯一写入点, 四处布点
+  主矿带/坑壁/洞壁/固定钻全收口在此) */
+  if (getBlock(x, y, z) === 3) {
+    setBlockRaw(x, y, z, id);
+    advOreSpots.push({x, y, z, id});
+  }
 }
 function advBuildCave() {/* 山洞: 洞口小丘 + 2 宽台阶隧道 y23→y3 向南深潜 + 深处穴室(镶钻);
   T5 洞口挪北边缘——小丘坐在隧道北端(zStart-2)上方, 敞廊朝南(面向来路), 穴室在最深南端 */
@@ -301,9 +318,9 @@ function advBuildCave() {/* 山洞: 洞口小丘 + 2 宽台阶隧道 y23→y3 �
   /* 深处穴室(5×5, y2~5 掏空): 底板镶保底钻石(仪式感预演, 任务第 12 步的目的地) */
   SceneKit.fill(c.x1 - 2, 1, c.zEnd - 2, c.x2 + 1, 1, c.zEnd + 2, 3);
   SceneKit.fill(c.x1 - 2, 2, c.zEnd - 2, c.x2 + 1, 5, c.zEnd + 2, 0);
-  setBlockRaw(c.x1 - 2, 1, c.zEnd - 2, B_DIAMOND_ORE);
-  setBlockRaw(c.x2 + 1, 1, c.zEnd + 2, B_DIAMOND_ORE);
-  setBlockRaw(c.x1, 1, c.zEnd, B_DIAMOND_ORE);
+  advTryOre(c.x1 - 2, 1, c.zEnd - 2, B_DIAMOND_ORE);
+  advTryOre(c.x2 + 1, 1, c.zEnd + 2, B_DIAMOND_ORE);
+  advTryOre(c.x1, 1, c.zEnd, B_DIAMOND_ORE);
 }
 
 function advBuildHut() {/* 出生小屋: 原木角柱+木板墙/顶/地, 北门洞正对出生点; 站点件不送 */
@@ -962,6 +979,52 @@ function advHerdClamp(x, z) {/* 位置 → 钳回栏内带(四边独立 min/max,
 }
 
 /* ============================================================
+   生态恢复·牧场繁育 (docs/eco-recovery-design.md §2, ADR 0006) — 常量与纯函数段
+   MC 繁殖模型照抄(调研稿 §6): 冷却+成长+上限三闸门防指数爆炸; 触发力按拍板
+   改自动(同种成年邻近即成对, 附录 B 差异 4——猪无对应食物物品); 幼崽免伤为
+   永久偏差(差异 6, 零惩罚哲学)。
+   ============================================================ */
+const ADV_BREED_CD_S = 300; /* 繁殖冷却秒(MC 6000 刻=5min 1:1, 调研稿 §6.2) */
+const ADV_BABY_GROW_S = 600; /* 幼崽当次成长秒(MC 24000 刻=20min 砍半: 日限内可见, 差异 5) */
+const ADV_BREED_R = 4; /* 配对水平距离(格) */
+const ADV_LIVESTOCK_CAP = 16; /* 活畜上限(初始 10 + 繁育余量 6; MC creature 上限 10 锚点) */
+const ADV_BABY_SCALE = 0.55; /* 幼崽体型(MC 约半体型) */
+
+function advBredNorm(v) {/* 繁育账条目归一(纯函数): 只收 {k: 怪物键, b: 日期串}, 异形整条丢弃 */
+  return (Array.isArray(v) ? v : [])
+      .filter((e) => e && typeof e.k === 'string' && typeof e.b === 'string')
+      .map((e) => ({k: e.k, b: e.b}));
+}
+
+function advLivestockNormBucket(v) {/* 牧场桶形状归一(纯函数, 世界档 v2): 三代档形收敛——
+   v2 {dead:[..], bred:[{k,b}..]} 校验拷贝 · 二代纯死畜索引数组 → bred 空 · 坏值兜底空 */
+  if (Array.isArray(v)) return {dead: v.slice(), bred: []};
+  if (v && typeof v === 'object') {
+    return {dead: Array.isArray(v.dead) ? v.dead.slice() : [], bred: advBredNorm(v.bred)};
+  }
+  return {dead: [], bred: []};
+}
+
+function advBreedPairOk(a, b, dist) {/* 配对判据(纯谓词): 快照 {type,baby,cd} × 实距——
+   同种·双成年·双不在冷却·距离 ≤R; 实体扫描与产崽施加归壳 */
+  return a.type === b.type && !a.baby && !b.baby &&
+    a.cd <= 0 && b.cd <= 0 && dist <= ADV_BREED_R;
+}
+
+function advBabyAdult(bornOrd, todayOrd) {/* 幼崽成年判(纯函数): 出生日序数 ≠ 今日即成年
+   (跨天必成年; 'Y-M-D' 无前导零不可字典序比较, 序数换算归壳 CampCore.dayIndex) */
+  return bornOrd !== todayOrd;
+}
+
+function advBreedHerdOf(kind) {/* 繁育畜归群(纯函数): kind 首个所属群的群号, 查无回落 0
+   ——重播落位只用作围栏锚点(游荡位置不存档) */
+  for (let i = 0; i < ADV_LIVESTOCK_HERDS.length; i++) {
+    if (ADV_LIVESTOCK_HERDS[i].kinds.indexOf(kind) >= 0) return i;
+  }
+  return 0;
+}
+
+/* ============================================================
    挖掘与采集政策 (T12, 设计稿 D4/D7) — 常量与纯函数段
    ============================================================ */
 const ADV_MINE_SWING = 0.28; /* 蓄力期间挥动节拍(秒/挥, Avatar.swing 循环喂 HeldItems.swingPose) */
@@ -1095,6 +1158,101 @@ function advRipenOk(id) {
 }
 
 /* ============================================================
+   生态恢复·树位再生 (docs/eco-recovery-design.md §1, ADR 0006) — 常量与纯函数段
+   MC 拒绝式生长语义(调研稿 §2.2/§8.2): 执行前逐格检查, 被实体方块挡住就
+   整株放弃——宁可不长, 绝不改写玩家建筑。预检盒 = SceneKit.tree 实际会写
+   的格子超集(树干柱 + 冠层双环带), 比 advGrowMark 粗扫盒贴树形, 坡邻地形
+   不会造成永久误拒。
+   ============================================================ */
+const ADV_TREE_REGROW_S = 180; /* 凋零树位恢复基准秒(±抖动错峰长出; MC 树苗约每分钟一次尝试) */
+const ADV_TREE_REGROW_JIT = 60; /* 恢复计时抖动幅(SceneKit.rand 派生) */
+const ADV_TREE_REGROW_RETRY_S = 90; /* 占位预检不过的重试间隔(受阻树苗无限重试语义) */
+const ADV_LOG_ID = 5; /* 原木方块 id(树干判据, SceneKit.tree 同源) */
+
+function advTreeSpotOpen(x, y, z, read) {/* 树位占位预检(纯函数): 脚下草地/泥土
+   (树苗放置同款基底判据) + 树干柱(x,z 列 y..y+5)与冠层环带(y+2..y+5 半径 2
+   去四角 / y+4..y+6 半径 1)全为空气或 replaceable 薄块(草丛/花——MC
+   #replaceable_by_trees 思路)——任何实体方块(玩家建筑/地形)即 false。read 注入保零全局 */
+  const g = read(x, y - 1, z);
+  if (g !== 1 && g !== 2) return false;
+  const open = (cx, cy, cz) => {
+    const id = read(cx, cy, cz);
+    if (id === 0) return true;
+    const def = BLOCKS[id];
+    return !!(def && def.replaceable);
+  };
+  for (let yy = y; yy <= y + 5; yy++) {
+    if (!open(x, yy, z)) return false; /* 树干柱 */
+  }
+  for (let yy = y + 2; yy <= y + 5; yy++) {/* 冠层主环(半径 2, 四角不算——SceneKit.tree 同款) */
+    for (let dx = -2; dx <= 2; dx++) {
+      for (let dz = -2; dz <= 2; dz++) {
+        if (Math.abs(dx) === 2 && Math.abs(dz) === 2) continue;
+        if (!open(x + dx, yy, z + dz)) return false;
+      }
+    }
+  }
+  for (let yy = y + 4; yy <= y + 6; yy++) {/* 冠层小环(半径 1) */
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (!open(x + dx, yy, z + dz)) return false;
+      }
+    }
+  }
+  return true;
+}
+
+function advTreeRegenSpots(spots, groundY, heightAt, read) {/* 凋零树位派生(纯函数):
+   位清单逐位判基格无原木 → 凋零位清单(壳挂恢复计时)。零全局, 单测直触 */
+  const out = [];
+  for (const s of spots) {
+    const y = groundY + heightAt(s.x, s.z) + 1;
+    if (read(s.x, y, s.z) !== ADV_LOG_ID) out.push({x: s.x, y, z: s.z});
+  }
+  return out;
+}
+
+/* ============================================================
+   生态恢复·矿位回填 (设计稿 §3) — 纯函数段
+   插件三件套(调研稿 §10): 位置记录(advOreSpots 白名单) + 类型白名单(advIsOre)
+   + 基底检查(只回填空气位)。日期走序数比较——budgetDateStr 的 'Y-M-D' 无前导零,
+   字典序会错(9 月 vs 10 月), 序数换算归壳 CampCore.dayIndex。
+   ============================================================ */
+const ADV_ORE_IDS = [B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE];
+
+function advIsOre(id) {
+  return ADV_ORE_IDS.indexOf(id) >= 0;
+}
+
+function advOreKey(scene, x, y, z) {
+  return scene + ':' + x + ',' + y + ',' + z;
+}
+
+function advOreParseKey(k) {/* 账键解析(纯函数): '<场景>:x,y,z' → {scene,x,y,z} | null */
+  const i = k.indexOf(':');
+  if (i < 0) return null;
+  const parts = k.slice(i + 1).split(',');
+  if (parts.length !== 3) return null;
+  const x = +parts[0]; const y = +parts[1]; const z = +parts[2];
+  if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z)) return null;
+  return {scene: k.slice(0, i), x, y, z};
+}
+
+function advOreDue(dayOrd, todayOrd) {
+  return dayOrd < todayOrd;
+} /* 跨天口径(拍板②) */
+
+function advOreRefillPlan(entries, read) {/* 到期矿位结算分流(纯函数): 目标格空气 →
+   回填; 被占 → 销账(玩家改建永久优先于恢复) */
+  const fill = []; const drop = [];
+  for (const e of entries) {
+    if (read(e.x, e.y, e.z) === 0) fill.push(e);
+    else drop.push(e);
+  }
+  return {fill, drop};
+}
+
+/* ============================================================
    方块级联记账政策(设计稿 D4/D5/P6) — 级联清单 → edits 账本的编排
    ------------------------------------------------------------
    存档红线件: editBlock 返回的级联清单逐块入账, 顺序即契约——
@@ -1102,7 +1260,7 @@ function advRipenOk(id) {
    · 移除项: 记 0 + 树苗撤计时表 + fell 旗标(整树倒话术依据) + 默认表掉落
      (不传工具=砸倒不是剪, 零惩罚) + quest 旗标(蓄力链视同亲手挖; TNT 链
      传 false——「TNT 掀掉的不算」既有口径)。
-   编辑/撤表/掉落/任务动作全经 sink 注入({mark, sapling, drop, questMine}),
+   编辑/撤表/掉落/任务动作全经 sink 注入({mark, sapling, drop, questMine, mined}),
    观感(fell 话术/Fx)留壳回调; 返回 {felled} 供壳决定是否喊话。
    确定性重放红线: 同一 removed 清单+同一 sink 必产生同一动作序(测试锁)。 */
 function advCascadeLedger(removed, quest, sink) {
@@ -1117,6 +1275,7 @@ function advCascadeLedger(removed, quest, sink) {
     if (r.id === B_SAPLING) sink.sapling(r.x, r.y, r.z);
     if (BLOCKS[r.id] && BLOCKS[r.id].crop && sink.crop) sink.crop(r.x, r.y, r.z); /* 麦苗脱落撤生长计时(farm-and-recipe D3) */
     if (BLOCKS[r.id] && BLOCKS[r.id].fell) felled = true;
+    if (sink.mined) sink.mined(r.id, r.x, r.y, r.z); /* 生态恢复: 矿位开采记账(TNT/挖掘两路同经此处) */
     for (const d of rollBlockDrop(BLOCKS[r.id], null, null)) sink.drop(d.id, d.n, r.x + 0.5, r.y + 0.8, r.z + 0.5);
     if (quest) sink.questMine(r.id, r.x, r.y, r.z);
   }
@@ -1866,6 +2025,12 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_HERD_FLEE_T, ADV_HERD_FLEE_MULT, ADV_HERD_AMBLE_MULT,
     advLivestockHerdOk, advLivestockSpots, advLivestockPlan, advHerdStep,
     ADV_HERD_PAD, advHerdClamp,
+    ADV_BREED_CD_S, ADV_BABY_GROW_S, ADV_BREED_R, ADV_LIVESTOCK_CAP, ADV_BABY_SCALE,
+    advBredNorm, advLivestockNormBucket, advBreedPairOk, advBabyAdult, advBreedHerdOf,
+    ADV_TREE_REGROW_S, ADV_TREE_REGROW_JIT, ADV_TREE_REGROW_RETRY_S, ADV_LOG_ID,
+    advTreeSpotOpen, advTreeRegenSpots,
+    ADV_ORE_IDS, advIsOre, advOreKey, advOreParseKey, advOreDue, advOreRefillPlan,
+    advOreSpots, advOreSpotsReset,
     ADV_STONE_EGG_CD, ADV_STONE_HINT_CD, ADV_STONE_EGG_GIFT,
     advStoneAltarHit, advStoneEggPick,
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,

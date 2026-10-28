@@ -1544,3 +1544,113 @@ test('配方解锁表(D2): 三谓词读 counts 记账键, 键序稳定, 差集�
   assert.deepStrictEqual(Core.advRecipeUnlockedNew(['bread', 'bone_meal', 'bow_item'],
       {collect_wheat: 1, kill_skeleton: 1, kill_spider: 1}), [], '已播过不再报');
 });
+
+
+/* ============ 生态恢复(docs/eco-recovery-design.md, ADR 0006) ============ */
+
+test('生态恢复·矿位白名单: advBuildWorld 逐位记录 + 两次建场同清单 + 只收四矿', () => {
+  Core.advOreSpotsReset();
+  Core.advBuildWorld();
+  const key = (s) => s.x + ',' + s.y + ',' + s.z + ':' + s.id;
+  const a = Core.advOreSpots.map(key).sort().join('|');
+  assert.ok(Core.advOreSpots.length > 100, '矿位应上千级(主矿带+坑壁+洞壁+固定钻)');
+  for (const s of Core.advOreSpots) {
+    assert.ok(Core.advIsOre(s.id), '白名单只收四矿');
+  }
+  Core.advOreSpotsReset();
+  Core.advBuildWorld();
+  const b = Core.advOreSpots.map(key).sort().join('|');
+  assert.strictEqual(a, b, '同 seed 同清单(确定性零漂移)');
+});
+
+test('生态恢复·矿位账键: advOreKey/advOreParseKey 往返 + 坏键拒收', () => {
+  const k = Core.advOreKey('home', 12, 34, 56);
+  assert.strictEqual(k, 'home:12,34,56');
+  assert.deepStrictEqual(Core.advOreParseKey(k), {scene: 'home', x: 12, y: 34, z: 56});
+  assert.strictEqual(Core.advOreParseKey('nether:1,2,3').scene, 'nether', '界键同构');
+  assert.strictEqual(Core.advOreParseKey('bad-key'), null, '无冒号拒收');
+  assert.strictEqual(Core.advOreParseKey('home:1,2'), null, '段数不足拒收');
+  assert.strictEqual(Core.advOreParseKey('home:a,b,c'), null, '非整数拒收');
+});
+
+test('生态恢复·矿位回填: 跨天到期 + 空气才回填(被占销账=玩家改建永久优先)', () => {
+  assert.strictEqual(Core.advOreDue(5, 6), true, '昨日 < 今日 = 到期(序数比较)');
+  assert.strictEqual(Core.advOreDue(6, 6), false, '当日不回填(跨天拍板)');
+  assert.strictEqual(Core.advOreDue(7, 6), false, '未来序数不到期');
+  const read = (x) => {
+    if (x === 1) return 0; /* 空气 → 回填 */
+    if (x === 2) return 6; /* 木板(玩家改建) → 销账 */
+    return 3; /* 石头(未挖) → 销账 */
+  };
+  const plan = Core.advOreRefillPlan([
+    {scene: 'home', x: 1, y: 2, z: 3},
+    {scene: 'home', x: 2, y: 2, z: 3},
+    {scene: 'home', x: 3, y: 2, z: 3},
+  ], read);
+  assert.deepStrictEqual(plan.fill, [{scene: 'home', x: 1, y: 2, z: 3}], '只回填空气位');
+  assert.deepStrictEqual(plan.drop.map((e) => e.x).sort(), [2, 3], '被占位销账');
+});
+
+test('生态恢复·树位占位预检: 拒绝式逐条 + 四角不算 + replaceable 放行', () => {
+  const G = 10; /* 树位基面 y */
+  const mkRead = (overrides) => (x, y, z) => {
+    const k = x + ',' + y + ',' + z;
+    if (overrides[k] !== undefined) return overrides[k];
+    if (y === G - 1) return 1; /* 默认草地基底 */
+    return 0; /* 默认空气 */
+  };
+  assert.strictEqual(Core.advTreeSpotOpen(5, G, 5, mkRead({})), true, '空旷草地可长');
+  assert.strictEqual(Core.advTreeSpotOpen(5, G, 5, mkRead({'5,9,5': 8})), false, '基底非草地/泥土拒');
+  assert.strictEqual(Core.advTreeSpotOpen(5, G, 5, mkRead({['5,' + (G + 2) + ',5']: 6})), false, '树干柱被木板挡拒');
+  assert.strictEqual(Core.advTreeSpotOpen(5, G, 5, mkRead({['7,' + (G + 3) + ',5']: 6})), false, '冠层主环被挡拒');
+  assert.strictEqual(Core.advTreeSpotOpen(5, G, 5, mkRead({['7,' + (G + 3) + ',7']: 6})),
+      true, '主环四角不算(SceneKit.tree 同款)');
+  assert.strictEqual(Core.advTreeSpotOpen(5, G, 5, mkRead({['6,' + (G + 6) + ',5']: 6})), false, '冠层小环被挡拒');
+  assert.strictEqual(Core.advTreeSpotOpen(5, G, 5,
+      mkRead({['5,' + (G + 1) + ',5']: api.B_GRASS_TUFT})), true, '草丛=replaceable 放行(树长过草丛)');
+  assert.strictEqual(Core.advTreeSpotOpen(5, G, 5,
+      mkRead({['5,' + (G + 1) + ',5']: api.B_SAPLING})), true, '树苗=replaceable 放行(补种同位不冲突)');
+});
+
+test('生态恢复·凋零树位派生: 基格无原木=凋零, 有原木=在位', () => {
+  const spots = [{x: 3, z: 3}, {x: 7, z: 3}];
+  const heightAt = () => 0;
+  const read = (x, y) => (x === 3 && y === 11 ? 5 : 0); /* (3,11) 有原木(groundY10+1) */
+  assert.deepStrictEqual(Core.advTreeRegenSpots(spots, 10, heightAt, read),
+      [{x: 7, y: 11, z: 3}], '只有无原木的位进凋零清单');
+});
+
+test('生态恢复·牧场档形归一: 三代档形收敛 + 坏条目丢弃', () => {
+  assert.deepStrictEqual(Core.advLivestockNormBucket([1, 2]), {dead: [1, 2], bred: []}, '二代索引数组');
+  assert.deepStrictEqual(Core.advLivestockNormBucket({dead: [3], bred: [{k: 'cow', b: '2026-10-28'}]}),
+      {dead: [3], bred: [{k: 'cow', b: '2026-10-28'}]}, 'v2 桶原样拷贝');
+  assert.deepStrictEqual(Core.advLivestockNormBucket({dead: [3], bred: [{k: 'cow'}, 'x', null, {k: 'pig', b: 5}]}),
+      {dead: [3], bred: []}, '异形 bred 条目整条丢弃');
+  assert.deepStrictEqual(Core.advLivestockNormBucket(null), {dead: [], bred: []}, '坏档兜底空');
+  assert.deepStrictEqual(Core.advLivestockNormBucket(undefined), {dead: [], bred: []}, '缺桶兜底空');
+});
+
+test('生态恢复·繁育判据: 同种成年邻近, 冷却/幼崽/超距/异种拒绝', () => {
+  const ok = {type: 'cow', baby: false, cd: 0};
+  assert.strictEqual(Core.advBreedPairOk(ok, {type: 'cow', baby: false, cd: 0}, 3), true, '基准配对');
+  assert.strictEqual(Core.advBreedPairOk(ok, {type: 'pig', baby: false, cd: 0}, 3), false, '异种拒');
+  assert.strictEqual(Core.advBreedPairOk(ok, {type: 'cow', baby: true, cd: 0}, 3), false, '幼崽不配对');
+  assert.strictEqual(Core.advBreedPairOk(ok, {type: 'cow', baby: false, cd: 5}, 3), false, '冷却中不配对');
+  assert.strictEqual(Core.advBreedPairOk({type: 'cow', baby: false, cd: 9},
+      {type: 'cow', baby: false, cd: 0}, 3), false, '己方冷却同拒');
+  assert.strictEqual(Core.advBreedPairOk(ok, {type: 'cow', baby: false, cd: 0}, 4.1), false, '超距拒(≤4)');
+});
+
+test('生态恢复·幼崽成年判: 跨天成年(序数), 坏序数兜底成年', () => {
+  assert.strictEqual(Core.advBabyAdult(20700, 20700), false, '当日=仍幼崽');
+  assert.strictEqual(Core.advBabyAdult(20699, 20700), true, '昨日=成年');
+  assert.strictEqual(Core.advBabyAdult(20701, 20700), true, '未来序数=成年兜底');
+});
+
+test('生态恢复·繁育归群: kind→群号(重播落位锚点)', () => {
+  assert.strictEqual(Core.advBreedHerdOf('cow'), 0);
+  assert.strictEqual(Core.advBreedHerdOf('sheep'), 0);
+  assert.strictEqual(Core.advBreedHerdOf('pig'), 1);
+  assert.strictEqual(Core.advBreedHerdOf('chicken'), 1);
+  assert.strictEqual(Core.advBreedHerdOf('zombie'), 0, '查无回落 0');
+});

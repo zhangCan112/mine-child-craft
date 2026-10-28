@@ -13,8 +13,8 @@
    mkHpBar 自 mode-kit 迁入(C6-T3 与模式切换同票原子落地 — S2 归一件
    随战斗 vocabulary 归位)。
    interface: mkFighter(policy)→ent · mkHurtAlarm(cfg)→{hit(r),tick(dt),reset()} ·
-     mkMelee(cfg)→{aim(p),swing(p),swingAction(p,spec),tick(dt),reset()} ·
-     mkArrows(cfg)→{shootFromMob(m,tg,spec)·shootFromAim(spec)·update(dt)·clear()·count()} ·
+     mkMelee(cfg{skip?(m)})→{aim(p),swing(p),swingAction(p,spec),tick(dt),reset()} ·
+     mkArrows(cfg{skip?(m)})→{shootFromMob(m,tg,spec)·shootFromAim(spec)·update(dt)·clear()·count()} ·
      killBurst(m,count,cfg?) · resetFighter(e) · mkHpBar(opts)→{update,dispose}
    依赖(均经全局名, 调用期解析): CombatCore(js/combat-core.js — leadAim/
      hitBody/stepShot) · Mobs(js/mobs.js — list/hit/debrisColor) ·
@@ -85,6 +85,7 @@ function mkMelee(cfg) {
     const fx = -Math.sin(yaw); const fz = -Math.cos(yaw); /* 朝向(camera-rig lookDir 同式) */
     for (const m of Mobs.list()) {
       if (m.dead || m.gone) continue;
+      if (o.skip && o.skip(m)) continue; /* 消费方豁免(探险幼崽免伤: 不被选为目标) */
       const dx = m.pos.x - p.pos.x; const dz = m.pos.z - p.pos.z;
       const d2 = dx * dx + dz * dz;
       if (d2 > bd) continue;
@@ -225,10 +226,11 @@ function mkArrows(cfg) {
         continue;
       }
       if (a.fromPlayer) {
-        /* 玩家弹 → 打怪(首个盒命中即止) */
+        /* 玩家弹 → 打怪(首个盒命中即止; skip 豁免直接穿过——探险幼崽免伤) */
         let hitMob = null;
         for (const m of Mobs.list()) {
           if (m.dead || m.gone) continue;
+          if (o.skip && o.skip(m)) continue;
           if (CombatCore.hitBody(r, m)) {
             hitMob = m; break;
           }
