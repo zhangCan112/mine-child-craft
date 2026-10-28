@@ -20,7 +20,7 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
-  getBlock, setBlockRaw, blockKey, SceneKit, Daylight,
+  getBlock, setBlockRaw, blockKey, isOpaque, SceneKit, Daylight,
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
@@ -568,6 +568,47 @@ test('核心政策: 站点判定/TNT 掷骰与衰减', () => {
   assert.strictEqual(Core.advTntRoll(3, () => 0.7).length, 0, '恰 0.7 不中签');
   assert.strictEqual(Core.advTntDmg(0), Core.ADV_TNT_DMG_HI, '爆心 30');
   assert.strictEqual(Core.advTntDmg(9), Core.ADV_TNT_DMG_LO, '越界钳边缘 12');
+});
+
+test('站点隔墙修复(2026-10-28): advLosBlocked 段采样 + advNearStation losOk 视线缝', () => {
+  /* 假世界: Map 邻接表, read/opaque 全注入(纯函数零全局); 测试口径=非空即墙 */
+  const mk = (walls) => {
+    const m = new Map(walls.map(([x, y, z]) => [x + ',' + y + ',' + z, 1]));
+    return {
+      read: (x, y, z) => m.get(x + ',' + y + ',' + z) || 0,
+      opaque: (id) => id !== 0,
+    };
+  };
+  const w = mk([]);
+  assert.strictEqual(Core.advLosBlocked(w.read, w.opaque, 0.5, 10.5, 0.5, 4.5, 10.5, 0.5), false,
+      '空旷通视: 中间无格不算墙');
+  const wWall = mk([[2, 10, 0]]);
+  assert.strictEqual(Core.advLosBlocked(wWall.read, wWall.opaque,
+      0.5, 10.5, 0.5, 4.5, 10.5, 0.5), true, '中间一堵实心墙: 隔墙不可用');
+  const wDiag = mk([[2, 10, 2]]);
+  assert.strictEqual(Core.advLosBlocked(wDiag.read, wDiag.opaque,
+      0.5, 10.5, 0.5, 3.5, 10.5, 3.5), true, '斜向穿墙同样拦下(采样步长 0.25 不漏对角)');
+  const wEnds = mk([[0, 10, 0], [4, 10, 0]]);
+  assert.strictEqual(Core.advLosBlocked(wEnds.read, wEnds.opaque,
+      0.5, 10.5, 0.5, 4.5, 10.5, 0.5), false,
+  '两端点格跳过: 站点实心不挡自己, 人眼格不挡人');
+  /* 真判据抽查: isOpaque(玻璃板/开门不挡, 关门挡)——「看得见即可用」与光照挡光同源 */
+  assert.strictEqual(api.isOpaque(api.B_DOOR), true, '关门=实心挡');
+  assert.strictEqual(api.isOpaque(api.B_DOOR_OPEN), false, '开门=可穿行不挡');
+  assert.strictEqual(api.isOpaque(api.B_GLASS_PANE), false, '玻璃板=透明不挡');
+  assert.strictEqual(Core.advLosBlocked(
+      (x, y, z) => (x === 2 && y === 10 && z === 0) ? api.B_GLASS_PANE : 0,
+      api.isOpaque, 0.5, 10.5, 0.5, 4.5, 10.5, 0.5), false,
+  '隔窗(玻璃板)可用的完整链: read 真 id + isOpaque 真判据');
+  /* advNearStation losOk 缝: 距离命中后逐站点问视线, 不命中继续找下一个 */
+  const near = {x: 10, y: 25, z: 10, id: api.B_CRAFT};
+  const far = {x: 10, y: 25, z: 13, id: api.B_CRAFT};
+  assert.strictEqual(Core.advNearStation([near, far], 10.5, 10.5, 4, api.B_CRAFT,
+      (st) => st !== near), true, '被挡站点不算数: 继续找下一个通视站点');
+  assert.strictEqual(Core.advNearStation([near], 10.5, 10.5, 4, api.B_CRAFT, () => false), false,
+      '全部被挡: 不解锁');
+  assert.strictEqual(Core.advNearStation([near], 10.5, 10.5, 4, api.B_CRAFT), true,
+      '不传 losOk=既有纯距离口径(缺省零变化)');
 });
 
 test('核心任务表: 16 条主线形状齐 + 谓词口径抽样(全量逐条在 adventure-mode.test.js)', () => {

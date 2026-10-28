@@ -455,8 +455,12 @@ function advInvMove(from, to) {/* 背包面板点选搬运(2026-10-24 交互优�
 }
 
 /* ---------- 背包+配方书面板(T10 mkCraftPanel) + 熔炉面板(T13 实例化) ---------- */
-function advStationOk() {/* 站点解锁(D8 拍板④): 已放置工作台距玩家 ≤4 格(水平距离, 查站点缓存不扫全图) */
-  return advNearStation(advStations.values(), pos.x, pos.z, ADV_STATION_R, B_CRAFT);
+function advStationOk() {/* 站点解锁(D8 拍板④ + 隔墙修复 2026-10-28): 已放置工作台距玩家 ≤4 格
+    (水平距离, 查站点缓存不扫全图), 且站点到人眼中间无实心墙(advLosBlocked 段采样,
+    玻璃板/开门不挡=看得见即可用; 隔墙站点不算数, TTS 沿检测同此判据一并静音) */
+  return advNearStation(advStations.values(), pos.x, pos.z, ADV_STATION_R, B_CRAFT,
+      (st) => !advLosBlocked(getBlock, isOpaque, st.x + 0.5, st.y + 0.5, st.z + 0.5,
+          pos.x, pos.y + PLAYER.eye, pos.z));
 }
 function advStationGate() {/* 合成站点门禁缝(U2, craftPanel 的 station opts): 缺省=4 格门禁
     (advStationOk 现行口径); U4 体验馆 stationAlwaysOpen=true 恒真——台级配方随处可摆 */
@@ -1924,8 +1928,9 @@ function advPickupTick(dt) {
    (站点判定/烧炼节律/退炉政策/TNT 掷骰纯函数在 adventure-core.js)
    ============================================================ */
 
-/* 站点沿检测(update 每帧): 首次靠近工作台给一句 TTS 引导(上升沿一次不唠叨);
-   开着配方书走近 → 亮灰实时重算(table 级卡片点亮) */
+/* 站点沿检测(update 每帧): 首次靠近工作台给一句 TTS 引导(上升沿一次不唠叨;
+    隔墙不算「靠近」——advStationOk 的视线缝一并管住播报, 门外不误报);
+    开着配方书走近 → 亮灰实时重算(table 级卡片点亮) */
 let advTableNear = false;
 function advStationTick() {
   const near = advStationOk();
