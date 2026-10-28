@@ -921,6 +921,25 @@ test('chest 面板: 扩容行 — 材料账单 chip have/need + 缺料 lack + �
   p.remove();
 });
 
+test('chest 面板: 容量提示行(ADR 0007) — 一句话报现存箱子数与总容量(两轨口径)', () => {
+  const doc = mkDoc();
+  const inv = {slots: new Array(27).fill(null)};
+  const chest = {size: 27, chests: 2, slots: new Array(27).fill(null)};
+  const p = mkChestPanel({doc, inv, chest: ()=>chest, next: ()=>null, have: ()=>0,
+    onPut() {}, onTake() {}, onExpand() {}, onClose() {}});
+  p.show(); p.refresh();
+  const lbl = collect(p.root, 'mkp-chestlbl')
+      .map((e) => String(e.textContent)).join('|');
+  assert.ok(lbl.includes('2 个'), '提示行报现存箱子数(chests)');
+  assert.ok(lbl.includes('27 格'), '提示行报总容量(size)');
+  chest.chests = 3; chest.size = 36; /* 模式层重算后面板重画跟随 */
+  p.refresh();
+  const lbl2 = collect(p.root, 'mkp-chestlbl')
+      .map((e) => String(e.textContent)).join('|');
+  assert.ok(lbl2.includes('3 个') && lbl2.includes('36 格'), '重画跟随账户现状');
+  p.remove();
+});
+
 test('chest 面板: 存取意图后面板重读现状 — onPut 动包后背包格跟随重画', () => {
   const doc = mkDoc();
   const inv = {slots: [...Array(9).fill(null), {id: 'log', n: 3}, ...Array(17).fill(null)]};

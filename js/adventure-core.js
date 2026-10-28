@@ -30,8 +30,10 @@
      常量 ADV_BED_MOB_R/ADV_SLEEP_* · 灯笼耗秒政策(昼夜 D7 §8.2)
      ADV_LANTERN/advLanternStep(天黑才亮才耗三前置+持满 1 秒节拍) · 任务表
      ADV_QUESTS/ADV_MINE_TALLY · 大宝箱政策 ADV_CHEST_START/ADV_CHEST_SLOTS/
-     ADV_CHEST_TIERS/advChestNext/advChestPut/advChestTake(整摞出箱, 与 Put
-     镜像) · 节律常量 ADV_* · 政策下沉包(评审候选 5, 2026-10 自壳迁入;
+     ADV_CHEST_PER/ADV_CHEST_TIERS/advChestNext/advChestCapacity(两轨容量:
+     阶梯基础+每箱加格, ADR 0007)/advCountChestEdits(世界账本现算箱子数)/
+     advChestPut/advChestTake(整摞出箱, 与 Put 镜像) · 节律常量 ADV_* ·
+     政策下沉包(评审候选 5, 2026-10 自壳迁入;
      世界读/随机/动作全经注入 seam): advHomeReady/ADV_HOME_CD(回家冷却
      判据) · advBedSpot(床边出生位选址, 方块读注入) · ADV_TNT_TAP_T/
      advTntTapStep(TNT 短按/按住二分纯步进) · advCascadeLedger(级联清单→
@@ -1614,11 +1616,13 @@ function advRecipeUnlockedNew(prev, counts) {
 }
 
 /* ============================================================
-   大宝箱政策 (引导链 v2) — 纯函数段: 全局共享账户 + 材料扩容
+   大宝箱政策 (引导链 v2 / ADR 0007) — 纯函数段: 全局共享账户 +
+   两轨容量(材料阶梯基础格 + 每个已放置箱子加格)
    ============================================================ */
-const ADV_CHEST_SLOTS = 27; /* 账户槽位硬上限(顶格档, 与背包同宽) */
-const ADV_CHEST_START = 9; /* 初始格数: 合成解锁的第一档 */
-/* 扩容阶梯(拍板: 箱子只储物+全局共享+材料扩容): 9→18 档 8 圆石(第 7 步挖
+const ADV_CHEST_SLOTS = 27; /* 材料阶梯顶格档(基础格上限, 与背包同宽) */
+const ADV_CHEST_START = 9; /* 初始基础格数: 合成解锁的第一档 */
+const ADV_CHEST_PER = 9; /* 每个已放置箱子的容量加格(ADR 0007: 多放箱子多格子) */
+/* 材料扩容阶梯(拍板: 箱子只储物+全局共享+材料扩容): 9→18 档 8 圆石(第 7 步挖
    圆石即凑齐) · 18→27 档 4 铁锭(第 12 步烧铁)——材料刻意取任务链产物,
    扩容目标随引导进度自然到期; 挖掉箱子内容保留在账户里(零损失口径) */
 const ADV_CHEST_TIERS = [
@@ -1626,16 +1630,36 @@ const ADV_CHEST_TIERS = [
   {size: 27, cost: {iron_ingot: 4}},
 ];
 
-/* 当前格数 → 下一档 {size, cost} | null(已顶格) */
+/* 当前基础格数 → 下一档 {size, cost} | null(已顶格) */
 function advChestNext(size) {
   for (const t of ADV_CHEST_TIERS) if (t.size > size) return t;
   return null;
 }
 
+/* 总容量(两轨合成, ADR 0007): 阶梯基础格 base + 每个已放置箱子 ADV_CHEST_PER
+   格, 不设上限; chests 为负数按 0 兜底(坏档/异常不倒扣) */
+function advChestCapacity(base, chests) {
+  return base + ADV_CHEST_PER * Math.max(0, chests | 0);
+}
+
+/* 现存已放置箱子数(世界账本现算, 不落盘——ADR 0007): 各场景 edits 桶
+   (advSceneEdits, 桶键→Map "x,y,z"→id|{id,lv})里值 === B_CHEST 的条数。
+   只有玩家放置/挖除才进账本: 结构宝箱(神殿/雪屋/女巫小屋, 确定性建场)
+   天然不计入; 挖掉的箱子账面变空气即除名; 流体格是 {id,lv} 对象,
+   === 永不误中。调用时机=箱子增删(init/advMarkEdit 缝), edits 量级小 */
+function advCountChestEdits(buckets) {
+  let n = 0;
+  for (const k of Object.keys(buckets)) {
+    for (const v of buckets[k].values()) if (v === B_CHEST) n++;
+  }
+  return n;
+}
+
 /* 整摞入箱: 前 size 格先并堆(可堆叠)再进空位, 返回放不下的余量件数
    (0=全部收下; 满箱只拒收不惩罚, 余量由调用方留在背包原槽)。
-   与 InventoryCore.add 的两处刻意差异: ① 只认前 size 格(扩容档);
-   ② 工具按原耐久整槽搬——add 经 mkStack 会把工具重铸满耐久, 不能复用 */
+   与 InventoryCore.add 的两处刻意差异: ① 只认前 size 格(总容量, 两轨合成
+   见 advChestCapacity); ② 工具按原耐久整槽搬——add 经 mkStack 会把工具
+   重铸满耐久, 不能复用 */
 function advChestPut(chest, stack) {
   const max = stackMax(stack.id);
   if (!max) return stack.n; /* 未注册 = 拒收门禁(items-core, add 同口径): 不落格不污染 */
@@ -2095,7 +2119,8 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_STONE_EGG_CD, ADV_STONE_HINT_CD, ADV_STONE_EGG_GIFT,
     advStoneAltarHit, advStoneEggPick,
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,
-    ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_TIERS, advChestNext, advChestPut, advChestTake,
+    ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_PER, ADV_CHEST_TIERS, advChestNext,
+    advChestCapacity, advCountChestEdits, advChestPut, advChestTake,
     ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,
     advBreakToolText, ADV_HOME_CD, advHomeReady,
     ADV_BED_MOB_R, ADV_SLEEP_FADE, ADV_SLEEP_HOLD, ADV_SLEEP_TOTAL,
