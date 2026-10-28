@@ -245,6 +245,7 @@ id 命名偏离见 §6。
 | 8 | math-build-world（摆与搭世界轨）采用指针锁定宿主，偏离 MISSION"无键盘/指针锁定"约束 | 放置类变体需要瞄准射线持续操作（MC 建造形态的关卡内临时放置）；hop 混合宿主仍保持纯点选不锁指针——仅此一宿主受限 | docs/math-mode-design.md §9 |
 | 9 | js/mob-look/ 文件名带下划线（如 zombified_piglin.js），不合 kebab-case | 造型档案文件名=declare 键=MOB_TYPES id（票②拍板：文件名与注册表键零变换，防第二条映射规则漂移）；与 modes/（文件名=模式 id）同理按注册表管，test/mob-look.test.js 断言文件名=键集 | test/conventions.test.js 命名断言豁免 js/mob-look/ |
 | 10 | 模块头注释用 `====` 框线包边（Google JS 指南 §4.8.1 "Comments are not enclosed in boxes drawn with asterisks or other characters"） | 框线是横幅契约的可识别边界，test/conventions.test.js 断言其存在；查证与裁决见 docs/agent-context-research.md §3.2 | test/conventions.test.js 横幅断言 |
+| 11 | CSS 保留 `-webkit-user-select` 前缀版（与标准版并存，行内 disable property-no-vendor-prefix） | Safari/iOS Safari 只认前缀版（caniuse 对 user-select 记的是合并前缀口径，css-tricks 前缀表明列 Safari 须 `-webkit-`）；缺前缀则 touch.css 全局防误选在 iPad 上整体失效（2026-10-28 真机复现） | css/touch.css 行内 |
 
 新增偏离必须登记在此表并给理由；未登记的偏离视为违规。
 
@@ -277,3 +278,7 @@ id 命名偏离见 §6。
   瘦身（adventure/mode-kit/math/camp-kit/showroom 门面，-134 行，interface/依赖清单
   逐字节保留）；修正 RESOURCES.md 根目录断链 6 处；GLOSSARY 补词条一览索引并修正
   探险地图尺寸 128→160 漂移。
+- 2026-10-28：iPad5 误选蓝框修复（紧张连点/拖动把 UI 文字选中）——根因是 touch.css
+  全局 `user-select: none` 只有无前缀版，WebKit 只认 `-webkit-user-select`，规则在
+  iPad 上从未生效；§6 登记 #11（css/touch.css 行内豁免）+ js/input.js 增
+  `selectstart` 全局兜底（表单控件放行）。

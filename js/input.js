@@ -105,6 +105,14 @@ document.addEventListener('wheel', (e)=>{
 
 /* ---------- 鼠标 (触屏合成事件会被抑制) ---------- */
 document.addEventListener('contextmenu', (e)=> e.preventDefault());
+/* 防误选兜底(紧张连点/拖动把 UI 文字选蓝): 旧 iPad Safari 的 -webkit-user-select
+   挡不全拖选怪癖(见 css/touch.css 根规则), selectstart 全局拦掉;
+   表单控件放行(音量滑杆拖动不受影响), 页面无 textarea/正文可选需求 */
+document.addEventListener('selectstart', (e)=>{
+  const t = e.target;
+  if (t && t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
+  e.preventDefault();
+});
 renderer.domElement.addEventListener('click', ()=>{
   if (IS_TOUCH || locked) return;
   requestLock();
