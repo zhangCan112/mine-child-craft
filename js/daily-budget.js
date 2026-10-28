@@ -34,6 +34,8 @@ const FOCUS_DAILY_LEVELS = 6;
 const FOCUS_DAILY_MIN = 20;
 const MATH_DAILY_LEVELS = 6; /* 数学冒险岛每日限额(与 FOCUS 同址同形态, plan D7) */
 const MATH_DAILY_MIN = 20;
+const ROBOT_DAILY_LEVELS = 6; /* 怪物指挥官每日限额(与 FOCUS/MATH 同址同形态, docs/robot-program-design.md §8) */
+const ROBOT_DAILY_MIN = 20;
 
 /* 本模块的存档键在加载期注册(sync.js 的回填依赖; Node 单测直载时 sync 未加载, 静默跳过) */
 if (typeof registerSyncKeys === 'function') registerSyncKeys(BUDGET_SAVE_KEY, PLAY_EXTRA_KEY);

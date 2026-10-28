@@ -1,0 +1,987 @@
+/* ============================================================
+ 怪物指挥官 — 界面样式 (T5 完整: 今日页/家长门/地图页/棋盘关卡屏(指令
+ 编辑器)/结算/图章/家长面板)
+ MC 配色 · 大目标 · 零文字压力 (focus/math 同款纪律: 像素图标
+ image-rendering: pixelated · DPR 友好 · reduced-motion 动画全关)
+ ============================================================ */
+#robotRoot {
+  position: fixed;
+  inset: 0;
+  z-index: 25;
+  display: none;
+  background: linear-gradient(#86c5e8 0%, #b3ddf2 45%, #8fce62 45.2%, #6aae47 100%);
+  font-family: 'Segoe UI', Arial, sans-serif;
+  color: #fff;
+  overflow: auto;
+  user-select: none;
+}
+
+/* 像素图标统一口径: 关平滑放大(focus 同款 DPR 纪律) */
+#robotRoot img {
+  image-rendering: pixelated;
+}
+
+#robotRoot .r-top {
+  position: relative;
+  padding: 10px 14px;
+}
+
+#robotRoot .r-back {
+  font-size: 22px;
+  padding: 6px 14px;
+  border-radius: 10px;
+  border: 3px solid rgb(255 255 255 / 40%);
+  background: rgb(0 0 0 / 35%);
+  cursor: pointer;
+  color: #fff;
+}
+
+#robotRoot .r-back .bi {
+  width: 22px;
+  height: 22px;
+  vertical-align: -5px;
+}
+
+.r-screen {
+  min-height: 78vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 0 24px 40px;
+}
+
+.r-screen h1 {
+  font-size: 34px;
+  margin: 8px 0 4px;
+  text-shadow: 0 3px 8px #000;
+}
+
+.r-sub {
+  font-size: 16px;
+  opacity: 0.92;
+  margin: 4px 0 14px;
+  text-shadow: 0 2px 5px #000;
+}
+
+.r-start {
+  font-size: 26px;
+  padding: 16px 52px;
+  border-radius: 16px;
+  border: 4px solid #fff;
+  cursor: pointer;
+  background: rgb(255 170 0 / 45%);
+  color: #fff;
+  font-weight: 800;
+  text-shadow: 0 2px 4px #000;
+  box-shadow: 0 6px 0 rgb(0 0 0 / 30%);
+  animation: r-pulse 2.2s infinite;
+}
+
+.r-start:hover {
+  background: rgb(255 170 0 / 65%);
+}
+
+@keyframes r-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.045); }
+}
+
+.r-btn {
+  font-size: 17px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  border: 3px solid rgb(255 255 255 / 40%);
+  background: rgb(0 0 0 / 35%);
+  cursor: pointer;
+  color: #fff;
+  margin: 4px;
+}
+
+.r-btn:hover {
+  background: rgb(255 255 255 / 18%);
+}
+
+/* 按钮像素图标(button-icons.js 工坊注入的 img.bi, 文字按钮内联) */
+.r-btn .bi {
+  width: 18px;
+  height: 18px;
+  vertical-align: -4px;
+}
+
+.r-dots {
+  margin-top: 16px;
+  display: flex;
+  gap: 8px;
+}
+
+.r-dots .dot {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 50%);
+  background: rgb(0 0 0 / 25%);
+}
+
+.r-dots .dot.done {
+  background: #ffd75e;
+  border-color: #fff3c4;
+}
+
+/* 大图标位(锁定日锁图/模式脸) */
+.r-dim-icon img {
+  width: 72px;
+  height: 72px;
+}
+
+/* ---------- 世界关卡屏: 透明宿主露 3D 棋盘, DOM 只剩覆层 ----------
+   math 世界轨同款: r-top 绝对定位不挡点选, 编辑器是底部浮层 */
+#robotRoot.r-world {
+  background: none;
+  overflow: hidden;
+}
+
+#robotRoot.r-world .r-top {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+
+#robotRoot.r-world .r-top .r-back {
+  pointer-events: auto;
+}
+
+/* 盘头: 本盘怪物脸 + 盘进度点(第几盘/4), 不挡棋盘点选 */
+.r-board-head {
+  position: absolute;
+  top: 60px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  pointer-events: none;
+}
+
+.r-board-mob {
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 3px solid rgb(255 255 255 / 45%);
+  background: rgb(10 14 20 / 55%);
+  image-rendering: pixelated;
+}
+
+.r-board-dots {
+  display: flex;
+  gap: 6px;
+}
+
+.r-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgb(255 255 255 / 55%);
+  background: rgb(0 0 0 / 30%);
+}
+
+.r-dot.done {
+  background: #ffd75e;
+  border-color: #fff3c4;
+}
+
+.r-dot.cur {
+  border-color: #7cfc00;
+  box-shadow: 0 0 0 3px rgb(124 252 0 / 35%);
+}
+
+/* ---------- 指令编辑器(底部浮层): 程序条 + 托盘 + 出发键 ---------- */
+.r-editor {
+  position: absolute;
+  left: 50%;
+  bottom: 12px;
+  transform: translateX(-50%);
+  z-index: 4;
+  box-sizing: border-box;
+  width: min(720px, 96vw);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  border-radius: 16px;
+  border: 3px solid rgb(255 255 255 / 40%);
+  background: rgb(10 14 20 / 62%);
+}
+
+/* 程序条: 槽位队列(槽位数=paramsFor.slots); 空槽虚框占位, 已放卡金框,
+   回放中当前卡绿圈卡拉OK(程序指针与怪物位置强绑定) */
+.r-slots {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+.r-slot {
+  box-sizing: border-box;
+  width: 52px;
+  height: 52px;
+  padding: 3px;
+  border-radius: 10px;
+  border: 3px dashed rgb(255 255 255 / 35%);
+  background: rgb(0 0 0 / 28%);
+  cursor: pointer;
+}
+
+.r-slot.filled {
+  border-style: solid;
+  border-color: #ffd83d;
+  background: rgb(255 216 61 / 16%);
+}
+
+.r-slot.on {
+  border-color: #7cfc00;
+  box-shadow: 0 0 0 3px rgb(124 252 0 / 45%);
+}
+
+.r-tray-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+/* 指令卡托盘: 点卡=落第一个空槽; tut 直接驱动关整排放大(点一张走一步) */
+.r-tray {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.r-card {
+  box-sizing: border-box;
+  width: 56px;
+  height: 56px;
+  padding: 5px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 255 255 / 45%);
+  background: rgb(0 0 0 / 35%);
+  cursor: pointer;
+}
+
+.r-card:hover {
+  border-color: #ffd83d;
+  background: rgb(255 255 255 / 14%);
+}
+
+.r-card-big {
+  width: 88px;
+  height: 88px;
+}
+
+/* 出发键(D 抑制控制): 程序为空置灰禁按 — 「放完才能跑」(Turtles 口径) */
+.r-run {
+  box-sizing: border-box;
+  width: 76px;
+  height: 76px;
+  padding: 6px;
+  border-radius: 16px;
+  border: 4px solid #fff;
+  background: rgb(88 193 78 / 45%);
+  cursor: pointer;
+  box-shadow: 0 5px 0 rgb(0 0 0 / 30%);
+}
+
+.r-run:hover:enabled {
+  background: rgb(88 193 78 / 65%);
+}
+
+.r-run:disabled {
+  opacity: 0.38;
+  filter: grayscale(0.8);
+  cursor: default;
+  box-shadow: none;
+}
+
+/* 指令卡图统一尺寸(卡面/槽位内) */
+.r-ci {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  display: block;
+  margin: 0 auto;
+}
+
+.r-slot .r-ci {
+  width: 38px;
+  height: 38px;
+}
+
+.r-card .r-ci {
+  width: 40px;
+  height: 40px;
+}
+
+.r-card-big .r-ci {
+  width: 64px;
+  height: 64px;
+}
+
+.r-run .r-ci {
+  width: 52px;
+  height: 52px;
+}
+
+/* 回放中: 编辑器整板锁定(卡拉OK高亮仍可见) */
+.r-editor.locked .r-slot,
+.r-editor.locked .r-card {
+  pointer-events: none;
+  opacity: 0.8;
+}
+
+/* ---------- 矿袋收集条(世界关卡屏右下, math 同位) ----------
+   本关拾取实时可见; 教学关(tut)不渲染挂点 */
+.r-bag {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  justify-content: center;
+  width: min(458px, 92vw); /* 至多可视 8 槽(8×54+边距), 超出滚动 */
+  box-sizing: border-box;
+  margin: 10px auto 16px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: rgb(0 0 0 / 35%);
+  border: 3px solid rgb(0 0 0 / 45%);
+  overflow-x: auto; /* 槽满滚动(JS 落袋时滚到最新拾取) */
+  scrollbar-width: none;
+}
+
+.r-bag::-webkit-scrollbar {
+  display: none;
+}
+
+#robotRoot.r-world .r-bag {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 4;
+  margin: 0;
+}
+
+/* 槽位: 木箱 hotbar 质感 — 亮顶暗底 inset 棱线(对齐 MC 立体按钮口径) */
+.r-bag-slot {
+  position: relative;
+  flex: 0 0 auto;
+  width: 48px;
+  height: 48px;
+  border-radius: 8px;
+  border: 3px solid #5d4a24;
+  background: linear-gradient(#a98950, #8a6d3b);
+  box-shadow:
+    inset 0 2px 0 rgb(255 235 190 / 30%),
+    inset 0 -3px 0 rgb(0 0 0 / 30%),
+    0 3px 0 rgb(0 0 0 / 35%);
+}
+
+.r-bag-slot img {
+  width: 40px;
+  height: 40px;
+  margin: 1px auto 0;
+  display: block;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%));
+}
+
+/* 数量角标(×2 起显示, 计数权威在 lootHud 会话明细) */
+.r-bag-n {
+  position: absolute;
+  right: -7px;
+  bottom: -7px;
+  font-size: 12px;
+  font-weight: 800;
+  padding: 0 6px;
+  border-radius: 9px;
+  background: #2c2c34;
+  border: 2px solid #ffd83d;
+  color: #ffd83d;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* 落袋弹跳: 与飞行 0.6s 尾牙衔接 */
+.r-bag-slot.bump {
+  animation: r-bag-bump 0.45s;
+}
+
+@keyframes r-bag-bump {
+  30% {
+    transform: scale(1.32) rotate(-6deg);
+  }
+
+  60% {
+    transform: scale(0.92) rotate(4deg);
+  }
+}
+
+/* ---------- 战利品飞行: 点击位→槽位贝塞尔弧线(真空吸附观感) ----------
+   元素挂 document.body(kit 侧): ① 不受 #robotRoot 的滚动/层叠上下文牵制,
+   ② 下方 reduced-motion 降级自管( fade 退化), 不被根容器动画全关块盖掉 */
+.r-loot-fly {
+  position: fixed;
+  z-index: 60;
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+  pointer-events: none;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 55%));
+  animation: r-loot-arc 0.6s cubic-bezier(0.32, 0.08, 0.4, 1) forwards;
+}
+
+/* 弧线三关键帧: 原位→弧顶(半程上抛 90px 再放大, 抛起手)→槽位(收小入袋);
+   位移由 JS 写入 --dx/--dy(中心到中心位移) */
+@keyframes r-loot-arc {
+  0% {
+    transform: translate(0, 0) scale(1) rotate(0deg);
+    opacity: 1;
+  }
+
+  45% {
+    transform: translate(calc(var(--dx) * 0.5), calc(var(--dy) * 0.5 - 90px)) scale(1.32) rotate(-10deg);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translate(var(--dx), var(--dy)) scale(0.45) rotate(8deg);
+    opacity: 0.95;
+  }
+}
+
+/* 动画敏感者: 飞行退化为中心淡入(JS 侧 620ms 后照常落袋入槽) */
+@media (prefers-reduced-motion: reduce) {
+  .r-loot-fly {
+    animation: r-loot-fade 0.35s ease-out forwards;
+  }
+}
+
+@keyframes r-loot-fade {
+  0% {
+    opacity: 0;
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  100% {
+    opacity: 0.9;
+  }
+}
+
+/* ---------- 结算屏战利品回顾: 本关收获列队(级联 pop) ---------- */
+.r-loot-recap {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  margin: 6px 0 2px;
+  padding: 8px 18px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 216 61 / 60%);
+  background: rgb(0 0 0 / 40%);
+}
+
+.r-loot-title {
+  font-size: 15px;
+  font-weight: 800;
+  color: #ffd83d;
+  text-shadow: 0 2px 4px #000;
+}
+
+.r-loot-item {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  animation: r-loot-pop 0.45s backwards; /* backwards: 级联进场不露形 */
+}
+
+.r-loot-item img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 3px 5px rgb(0 0 0 / 50%));
+}
+
+.r-loot-item b {
+  font-size: 13px;
+  color: #ffd83d;
+  text-shadow: 0 1px 2px #000;
+}
+
+/* 从收集条升起: 自下方 28px 抬起 + 回弹放大(列队进场, JS 逐件延迟插入) */
+@keyframes r-loot-pop {
+  0% {
+    transform: translateY(28px) scale(0.3);
+    opacity: 0;
+  }
+
+  60% {
+    transform: translateY(-4px) scale(1.18);
+    opacity: 1;
+  }
+
+  100% {
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* ---------- 关卡地图页: 四带分区(怪物脸+story TTS) + 前沿关大按钮 ---------- */
+.r-map {
+  position: relative; /* 家长入口钮的定位锚 */
+  justify-content: flex-start;
+  min-height: 0;
+  padding-bottom: 60px;
+}
+
+.r-band {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: min(560px, 92vw);
+  margin: 6px 0;
+  padding: 10px 16px;
+  border-radius: 14px;
+  border: 3px solid rgb(255 255 255 / 40%);
+  background: rgb(0 0 0 / 38%);
+  cursor: pointer;
+  color: #fff;
+}
+
+.r-band:hover {
+  background: rgb(255 255 255 / 18%);
+}
+
+.r-band-name {
+  flex: 1;
+  text-align: left;
+  font-size: 18px;
+  font-weight: 800;
+  text-shadow: 0 2px 4px #000;
+}
+
+.r-band-faces img {
+  width: 30px;
+  height: 30px;
+  margin-left: 4px;
+  border-radius: 8px;
+  background: rgb(255 255 255 / 12%);
+  image-rendering: pixelated;
+}
+
+.r-band-stars {
+  font-size: 14px;
+  font-weight: 700;
+  color: #ffd75e;
+  text-shadow: 0 1px 3px #000;
+}
+
+/* 前沿关大按钮: 怪物脸 + 关号 + 出发键, 点击直接开打 */
+.r-frontier {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 14px 0 8px;
+  padding: 12px 28px;
+  border-radius: 18px;
+  border: 4px solid #fff;
+  background: rgb(255 170 0 / 45%);
+  cursor: pointer;
+  color: #fff;
+  box-shadow: 0 6px 0 rgb(0 0 0 / 30%);
+  animation: r-pulse 2.2s infinite;
+}
+
+.r-frontier:hover {
+  background: rgb(255 170 0 / 65%);
+}
+
+.r-frontier-mob img {
+  width: 52px;
+  height: 52px;
+  border-radius: 12px;
+  background: rgb(10 14 20 / 40%);
+  image-rendering: pixelated;
+}
+
+.r-frontier-num {
+  font-size: 26px;
+  font-weight: 800;
+  text-shadow: 0 2px 4px #000;
+}
+
+.r-frontier-go {
+  width: 40px;
+  height: 40px;
+}
+
+/* ---------- 结算屏: 三星 + 气泡话术 ---------- */
+.r-stars {
+  display: flex;
+  gap: 10px;
+  min-height: 56px;
+  margin: 8px 0;
+}
+
+.r-stars .st {
+  font-size: 44px;
+  opacity: 0.25;
+  filter: grayscale(1);
+}
+
+.r-stars .st.on {
+  opacity: 1;
+  filter: none;
+}
+
+.r-stars .st.pop {
+  animation: r-star-pop 0.5s;
+}
+
+@keyframes r-star-pop {
+  0% { transform: scale(0.2); }
+  60% { transform: scale(1.4); }
+  100% { transform: scale(1); }
+}
+
+.r-result-bubble {
+  max-width: 520px;
+  margin: 10px 0;
+}
+
+.r-bubble {
+  display: inline-block;
+  background: rgb(0 0 0 / 45%);
+  border: 3px solid rgb(255 255 255 / 45%);
+  border-radius: 14px;
+  padding: 10px 16px;
+  font-size: 17px;
+  line-height: 1.5;
+}
+
+/* ---------- 图章一本(T5): 日历条 + 今日进度 + 结算图章块 + 三选一 + 烟花 ----------
+   漏签空白无负面标记(零文字压力); 图案 stampIcon 三选一自选 */
+.r-stamp-cal {
+  margin-top: 14px;
+  max-width: 520px;
+  width: 100%;
+}
+
+.r-stamp-title {
+  font-size: 14px;
+  margin-bottom: 8px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.r-stamp-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 5px;
+}
+
+.r-stamp-cell {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 8px;
+  border: 2px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 22%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.r-stamp-cell img {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+.r-stamp-cell span {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  font-size: 10px;
+  opacity: 0.85;
+  text-shadow: 0 1px 2px #000;
+}
+
+.r-stamp-today {
+  border-color: #ffd83d;
+  box-shadow: 0 0 0 2px rgb(255 216 61 / 35%);
+}
+
+/* 金图章(30 章起日历头部常驻, 纯观感不占章位) */
+.r-stamp-gold {
+  width: 26px;
+  height: 26px;
+  margin-left: 6px;
+  vertical-align: -6px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 4px #ffd83d);
+}
+
+/* 今日图章进度行(今日页/地图页共用): 状态章 + 一句话 */
+.r-stamp-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+  font-size: 14px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.r-stamp-row img {
+  width: 34px;
+  height: 34px;
+  image-rendering: pixelated;
+}
+
+/* 结算屏图章块: 今日图章(新盖弹跳) + 集章进度 */
+.r-stamp-block {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 6px 0 2px;
+  padding: 6px 16px;
+  border-radius: 12px;
+  border: 3px solid rgb(255 255 255 / 25%);
+  background: rgb(0 0 0 / 35%);
+  font-size: 14px;
+  text-shadow: 0 2px 4px #000;
+}
+
+.r-stamp-block img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+
+.r-stamp-block.pop {
+  animation: r-stamp-pop 0.5s;
+}
+
+@keyframes r-stamp-pop {
+  0% {
+    transform: scale(0.5);
+  }
+
+  60% {
+    transform: scale(1.15);
+  }
+
+  100% {
+    transform: scale(1);
+  }
+}
+
+/* 集章授予仪式块 + 三选一图案(奖励领取仪式二期填表后登场) */
+.r-award {
+  margin: 8px 0 2px;
+  padding: 8px 18px;
+  border-radius: 14px;
+  border: 3px solid #ffd83d;
+  background: rgb(0 0 0 / 40%);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.r-award b {
+  color: #ffd83d;
+  font-size: 17px;
+}
+
+.r-stamp-pick {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 14px;
+  border: 2px dashed rgb(255 216 61 / 70%);
+  border-radius: 14px;
+  background: rgb(0 0 0 / 38%);
+}
+
+.r-stamp-pick-label {
+  font-size: 14px;
+  color: #ffd83d;
+  text-shadow: 0 2px 4px #000;
+}
+
+.r-stamp-pick button {
+  width: 52px;
+  height: 52px;
+  padding: 2px;
+  border: 3px solid rgb(255 255 255 / 25%);
+  border-radius: 12px;
+  background: rgb(0 0 0 / 30%);
+  cursor: pointer;
+}
+
+.r-stamp-pick button.on {
+  border-color: #ffd83d;
+  box-shadow: 0 0 0 3px rgb(255 216 61 / 30%);
+}
+
+.r-stamp-pick img {
+  width: 44px;
+  height: 44px;
+  image-rendering: pixelated;
+}
+
+/* 集章烟花(firework 奖励, 二期): box-shadow 粒子手法, 一次性迸发
+   (基础 opacity=0, prefers-reduced-motion 动画全关时自然不可见) */
+.r-firework {
+  position: fixed;
+  left: 50%;
+  top: 42%;
+  z-index: 70;
+  width: 8px;
+  height: 8px;
+  margin: -4px;
+  border-radius: 50%;
+  background: transparent;
+  opacity: 0;
+  pointer-events: none;
+  animation: r-firework-a 1.4s ease-out forwards;
+}
+
+.r-firework::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  animation: r-firework-b 1.4s 0.12s ease-out forwards;
+}
+
+@keyframes r-firework-a {
+  0% {
+    opacity: 1;
+    box-shadow:
+      4px -3px 0 0 #ffd83d, -4px -3px 0 0 #7cfc00, 4px 3px 0 0 #fff2a8,
+      -4px 3px 0 0 #7cfc00, 0 -5px 0 0 #ffd83d, 0 5px 0 0 #fff2a8;
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      180px -130px 0 0 #ffd83d, -160px -150px 0 0 #fff2a8, 190px 120px 0 0 #7cfc00,
+      -180px 140px 0 0 #ffd83d, 20px -190px 0 0 #fff2a8, -30px 180px 0 0 #7cfc00,
+      -200px 10px 0 0 #ffd83d, 200px -10px 0 0 #fff2a8, 130px -190px 0 0 #7cfc00,
+      -120px -200px 0 0 #ffd83d;
+  }
+}
+
+@keyframes r-firework-b {
+  0% {
+    opacity: 1;
+    box-shadow:
+      4px 2px 0 0 #f4f4f4, -4px 2px 0 0 #ffd83d, 2px -4px 0 0 #fff2a8,
+      -2px -4px 0 0 #f4f4f4;
+  }
+
+  100% {
+    opacity: 0;
+    box-shadow:
+      -150px -170px 0 0 #f4f4f4, 170px -140px 0 0 #ffd83d, -170px 130px 0 0 #fff2a8,
+      160px 160px 0 0 #f4f4f4, 200px 40px 0 0 #ffd83d, -200px -30px 0 0 #fff2a8;
+  }
+}
+
+/* ---------- 家长面板: 入口钮/算术门/四带矩阵表/诚实口径说明 ---------- */
+.r-today {
+  position: relative; /* 家长入口钮的定位锚 */
+}
+
+.r-today .r-parent-btn,
+.r-map .r-parent-btn {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+}
+
+.r-gate-row,
+.r-btn-row {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin-top: 14px;
+}
+
+.r-stat-row {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  flex-wrap: wrap;
+  margin: 4px 0 12px;
+}
+
+.r-stat {
+  background: rgb(0 0 0 / 30%);
+  border-radius: 10px;
+  padding: 8px 14px;
+  font-size: 15px;
+  text-shadow: 0 1px 3px #000;
+}
+
+.r-table {
+  border-collapse: collapse;
+  margin: 0 auto 12px;
+  font-size: 14px;
+}
+
+.r-table th,
+.r-table td {
+  border: 1px solid rgb(255 255 255 / 30%);
+  padding: 4px 10px;
+  text-align: center;
+}
+
+.r-table th {
+  background: rgb(0 0 0 / 30%);
+}
+
+/* 家长面板带趋势迷你折线(CampKit.sparkSvg, math 的 .m-spark 同形态) */
+.r-spark {
+  background: rgb(0 0 0 / 35%);
+  border-radius: 6px;
+}
+
+.r-note {
+  max-width: 560px;
+  margin: 0 auto 12px;
+  font-size: 12px;
+  line-height: 1.7;
+  background: rgb(0 0 0 / 22%);
+  border-radius: 10px;
+  padding: 10px 14px;
+}
+
+/* ---------- 动画全关降级: 本层动画/过渡停跳(firework 随之不可见) ---------- */
+@media (prefers-reduced-motion: reduce) {
+  #robotRoot *,
+  #robotRoot *::before,
+  #robotRoot *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  .r-firework,
+  .r-firework::after {
+    display: none;
+  }
+}

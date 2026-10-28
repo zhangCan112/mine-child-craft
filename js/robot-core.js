@@ -1,0 +1,314 @@
+'use strict';
+/* ============================================================
+   Robot Commander Core (怪物指挥官指令模拟器, 术语见 GLOSSARY.md) — 引擎无关纯核心
+   ------------------------------------------------------------
+   一句话职责: 棋盘谜题的确定性生成与指令模拟——mkBoard 种子出题(先生成
+   可解路径再落障碍, 生成即可解) · stepSim 单卡纯步进(状态进/意图出) ·
+   parSolution BFS 最短指令序列(演示模式与三星 par 同一权威); 回放的动画
+   表现归 robot-world(T4), 本文件只算数、不碰 THREE/DOM。
+   interface: DIRS · CELL · CARDS · SKILLS · mkBoard(seed, opts) ·
+     mkSim(board) · stepSim(board, sim, card) · simulate(board, cards) ·
+     parSolution(board) · parOf(board)
+   依赖(均经全局名, 调用期解析): RandCore(js/rand-core.js, mkRand/seedAt/
+     shuffle — 确定性出题; 浏览器加载序在前, Node 测试先挂 global)
+   可测性: 零 THREE·零 DOM·零全局可变依赖, 有同名单测 test/robot-core.test.js
+   ============================================================ */
+
+/* 格类型(cells 数组元素; 越界判定用 OOB 哨兵, 不入 cells) */
+const CELL = {GROUND: 0, SOFT: 1, HARD: 2, WATER: 3, GOAL: 4, LEDGE: 5, OOB: 9};
+/* 朝向: 按东南西北顺时针(屏幕坐标 z 向南) —— E=0, 左转=(dir+3)%4 恰是北 */
+const DIRS = [{dx: 1, dz: 0}, {dx: 0, dz: 1}, {dx: -1, dz: 0}, {dx: 0, dz: -1}];
+/* 指令卡: F 前进 · L/R 转向 · S 怪物特技 · X 转圈(带2 陷阱卡——好看但白费一槽) */
+const CARDS = ['F', 'L', 'R', 'S'];
+/* 特技语义(board.skill): boom 炸开软障碍+打盹2回合 · smash 砸碎软障碍 ·
+   climb 可上高台 · glide 可过水面 —— 特技卡统一语义见设计稿 §3.1/§3.2 */
+const SKILLS = ['boom', 'smash', 'climb', 'glide'];
+
+const idxIn = (board, x, z) =>
+  (x < 0 || x >= board.w || z < 0 || z >= board.h) ? -1 : z * board.w + x;
+
+/* 有效格型: 已被特技清除的软障碍视作地面(判定单份, F 与 BFS 共用) */
+function effectiveType(board, x, z, cleared) {
+  const idx = idxIn(board, x, z);
+  if (idx < 0) return CELL.OOB;
+  const t = board.cells[idx];
+  return (t === CELL.SOFT && cleared.indexOf(idx) >= 0) ? CELL.GROUND : t;
+}
+
+/* ---------- 出题: 先生可解路径, 再落障碍(硬墙填充→刻路径→特征→装饰) ---------- */
+
+/* 目标偏置随机游走: goalward 候选额外加权(池内重复 3 份 vs 邻域 1 份),
+   步数封顶防绕环; 未达返回 null 由 mkBoard 换重试子种子(确定性重放红线:
+   全程 RandCore, 零 Math.random) */
+function carvePath(rnd, w, h, start, goal) {
+  let x = start.x; let z = start.z;
+  const path = [{x, z}];
+  const seen = new Set([z * w + x]);
+  for (let i = 0; i < w * h * 8; i++) {
+    if (x === goal.x && z === goal.z) return path;
+    const cand = [];
+    for (const d of DIRS) {
+      const nx = x + d.dx; const nz = z + d.dz;
+      if (nx < 0 || nx >= w || nz < 0 || nz >= h) continue;
+      const goalward = (nx === x + Math.sign(goal.x - x) && d.dz === 0) ||
+        (nz === z + Math.sign(goal.z - z) && d.dx === 0);
+      const reps = goalward ? 3 : 1;
+      for (let k = 0; k < reps; k++) cand.push({x: nx, z: nz});
+    }
+    const pick = cand[Math.floor(rnd() * cand.length)];
+    x = pick.x; z = pick.z;
+    const idx = z * w + x;
+    if (!seen.has(idx)) {
+      seen.add(idx); path.push({x, z});
+    }
+  }
+  return null;
+}
+
+/* 特征落位候选: 路径中段(去重, 非起终点), 不与起终点/已落特征相邻 */
+function featureCandidates(path, board0, taken) {
+  const w = board0.w; const h = board0.h;
+  const uniq = [];
+  const seen = new Set();
+  for (const c of path) {
+    const idx = c.z * w + c.x;
+    if (!seen.has(idx)) {
+      seen.add(idx); uniq.push(idx);
+    }
+  }
+  const edges = new Set();
+  for (const e of [uniq[0], uniq[uniq.length - 1]]) {
+    edges.add(e);
+    const ex = e % w; const ez = Math.floor(e / w);
+    for (const d of DIRS) {
+      const ni = idxIn({w, h}, ex + d.dx, ez + d.dz);
+      if (ni >= 0) edges.add(ni);
+    }
+  }
+  const near = (idx, list) => {
+    const x = idx % w; const z = Math.floor(idx / w);
+    return list.some((t) => {
+      const tx = t % w; const tz = Math.floor(t / w);
+      return Math.abs(tx - x) + Math.abs(tz - z) <= 1;
+    });
+  };
+  return uniq.filter((idx, i) =>
+    i > 0 && i < uniq.length - 1 && !edges.has(idx) && !near(idx, taken));
+}
+
+function placeFeatures(rnd, cand, count, taken) {
+  const shuffled = RandCore.shuffle(rnd, cand);
+  for (const idx of shuffled) {
+    if (taken.length >= (taken.baseCount || 0) + count) break;
+    const w = taken.w; const x = idx % w; const z = Math.floor(idx / w);
+    const clash = taken.some((t) => {
+      const tx = t % w; const tz = Math.floor(t / w);
+      return Math.abs(tx - x) + Math.abs(tz - z) <= 1;
+    });
+    if (!clash) taken.push(idx);
+  }
+  return taken.slice(taken.baseCount || 0);
+}
+
+/* mkBoard(seed, opts): opts = {w, h, skill, softPath, waterPath, ledgePath,
+   groundDecor, waterDecor} —— 特征量按包/带给(skill 约束在 robot-levels
+   的关卡参数里把关, 这里对错配静默少放: softPath 仅 boom/smash 生效等) */
+function mkBoard(seed, opts) {
+  const o = opts || {};
+  const w = o.w || 6; const h = o.h || 6;
+  const skill = o.skill || null;
+  const wantSoft = (skill === 'boom' || skill === 'smash') ? (o.softPath || 0) : 0;
+  const wantWater = (skill === 'glide') ? (o.waterPath || 0) : 0;
+  const wantLedge = (skill === 'climb') ? (o.ledgePath || 0) : 0;
+  for (let attempt = 0; attempt < 40; attempt++) {
+    const rnd = RandCore.mkRand(RandCore.seedAt(seed, attempt));
+    const start = {x: 0, z: Math.floor(rnd() * h)};
+    const goal = {x: w - 1, z: Math.floor(rnd() * h)};
+    const path = carvePath(rnd, w, h, start, goal);
+    if (!path) continue;
+    const cells = new Array(w * h).fill(CELL.HARD); /* 全硬墙起底: 天然堵捷径 */
+    for (const c of path) cells[c.z * w + c.x] = CELL.GROUND;
+    cells[goal.z * w + goal.x] = CELL.GOAL;
+    /* 特征三连: 软障碍(带1 特技教学) → 水面(滑翔) → 高台(攀爬), 互不相邻 */
+    const taken = [];
+    taken.baseCount = 0; taken.w = w;
+    taken.push(start.z * w + start.x); taken.push(goal.z * w + goal.x);
+    taken.baseCount = taken.length; /* 起终点只作邻接约束, 不算已落特征 */
+    let features = [];
+    if (wantSoft || wantWater || wantLedge) {
+      const cand = featureCandidates(path, {w, h}, taken);
+      const sink = [];
+      sink.baseCount = 0; sink.w = w;
+      const take = (n) => {
+        const got = placeFeatures(rnd, cand, n, sink);
+        sink.baseCount = sink.length;
+        return got;
+      };
+      const soft = take(wantSoft);
+      const water = take(wantWater);
+      const ledge = take(wantLedge);
+      features = [...soft, ...water, ...ledge];
+      for (const idx of soft) cells[idx] = CELL.SOFT;
+      for (const idx of water) cells[idx] = CELL.WATER;
+      for (const idx of ledge) cells[idx] = CELL.LEDGE;
+    }
+    /* 装饰: 非路径非特征的硬墙里开洞(近路可能)与小水面(危险观感) */
+    const free = [];
+    for (let i = 0; i < cells.length; i++) {
+      if (cells[i] === CELL.HARD) free.push(i);
+    }
+    const decor = RandCore.shuffle(rnd, free);
+    let di = 0;
+    for (let k = 0; k < (o.groundDecor || 0) && di < decor.length; k++, di++) {
+      cells[decor[di]] = CELL.GROUND;
+    }
+    for (let k = 0; k < (o.waterDecor || 0) && di < decor.length; k++, di++) {
+      cells[decor[di]] = CELL.WATER;
+    }
+    /* 起始朝向 = 第二个路径格方向(路径长度恒 ≥2: 起终点不同列) */
+    let dir = 0;
+    if (path.length > 1) {
+      const dx = path[1].x - path[0].x; const dz = path[1].z - path[0].z;
+      dir = Math.max(0, DIRS.findIndex((d) => d.dx === dx && d.dz === dz));
+    }
+    return {seed, w, h, cells, softList: features, start: {...start, dir}, goal,
+      skill};
+  }
+  /* 40 次全败兜底(理论上不可达): 中线直路棋盘, 仍保证可解 */
+  const mid = Math.floor(h / 2);
+  const cells = new Array(w * h).fill(CELL.HARD);
+  for (let x = 0; x < w; x++) cells[mid * w + x] = CELL.GROUND;
+  return {seed, w, h, cells, softList: [],
+    start: {x: 0, z: mid, dir: 0}, goal: {x: w - 1, z: mid}, skill};
+}
+
+/* ---------- 模拟: 状态进/意图出, 纯函数(入参 sim 不被改写) ----------
+   意图: move/turn/skill/win/bonk/splash/nap/spin/nothing/idle —— 回放表现
+   (走路/撞头/晃圈/睡觉)由 robot-world 按意图演, 本文件只产意图 */
+
+function mkSim(board) {
+  return {x: board.start.x, z: board.start.z, dir: board.start.dir,
+    asleep: 0, cleared: [], won: false};
+}
+
+function stepForward(board, s, skill) {
+  const d = DIRS[s.dir];
+  const nx = s.x + d.dx; const nz = s.z + d.dz;
+  const t = effectiveType(board, nx, nz, s.cleared);
+  const ok = skill === 'climb' ?
+    (t === CELL.GROUND || t === CELL.GOAL || t === CELL.LEDGE) :
+    skill === 'glide' ?
+      (t === CELL.GROUND || t === CELL.GOAL || t === CELL.WATER) :
+      (t === CELL.GROUND || t === CELL.GOAL);
+  if (!ok) return {sim: s, intent: t === CELL.WATER ? 'splash' : 'bonk'};
+  s.x = nx; s.z = nz;
+  if (t === CELL.GOAL) {
+    s.won = true; return {sim: s, intent: 'win'};
+  }
+  return {sim: s, intent: 'move'};
+}
+
+function stepSkill(board, s) {
+  if (board.skill === 'boom' || board.skill === 'smash') {
+    const d = DIRS[s.dir];
+    const idx = idxIn(board, s.x + d.dx, s.z + d.dz);
+    if (idx >= 0 && board.cells[idx] === CELL.SOFT && s.cleared.indexOf(idx) < 0) {
+      s.cleared.push(idx);
+      if (board.skill === 'boom') s.asleep = 2; /* 苦力怕炸完打盹(设计稿 §3.2) */
+      return {sim: s, intent: 'skill'};
+    }
+    return {sim: s, intent: 'nothing'}; /* 没得炸: 耸肩不罚(零惩罚) */
+  }
+  return stepForward(board, s, board.skill); /* climb/glide 特殊移动 */
+}
+
+function stepSim(board, sim, card) {
+  const s = {x: sim.x, z: sim.z, dir: sim.dir, asleep: sim.asleep,
+    cleared: sim.cleared.slice(), won: sim.won};
+  if (s.won) return {sim: s, intent: 'idle'}; /* 已到旗: 后续卡全空转 */
+  if (s.asleep > 0) {
+    s.asleep--; return {sim: s, intent: 'nap'};
+  } /* 打盹吞掉任何卡 */
+  if (card === 'X') return {sim: s, intent: 'spin'};
+  if (card === 'L') {
+    s.dir = (s.dir + 3) % 4; return {sim: s, intent: 'turn'};
+  }
+  if (card === 'R') {
+    s.dir = (s.dir + 1) % 4; return {sim: s, intent: 'turn'};
+  }
+  if (card === 'F') return stepForward(board, s, null);
+  if (card === 'S') return stepSkill(board, s);
+  return {sim: s, intent: 'idle'}; /* 未知卡: 安全空转 */
+}
+
+/* simulate: 整段程序回放账本(world host 逐条演 trace; win 提前收) */
+function simulate(board, cards) {
+  let sim = mkSim(board);
+  const trace = [];
+  let lastIntent = 'idle';
+  for (const card of cards) {
+    const r = stepSim(board, sim, card);
+    sim = r.sim;
+    lastIntent = r.intent;
+    trace.push({card, intent: r.intent, x: sim.x, z: sim.z, dir: sim.dir,
+      asleep: sim.asleep});
+    if (r.intent === 'win') break;
+  }
+  const status = sim.won ? 'win' :
+    (lastIntent === 'bonk' ? 'bonk' :
+      lastIntent === 'splash' ? 'splash' : 'out');
+  return {trace, status, sim};
+}
+
+/* ---------- par: BFS 最短指令序列(演示路径与三星预算同一权威) ---------- */
+
+function stateKey(board, s) {
+  /* asleep 必须入键: 打盹过渡若与炸后状态同键, BFS 会把它当已访问丢弃,
+     炸过的怪永远醒不来(回归: 手工 '@sG' boom 棋盘 par 误判不可解) */
+  return s.x + ',' + s.z + ',' + s.dir + ',' + s.asleep + ',' +
+    s.cleared.slice().sort((a, b) => a - b).join('.');
+}
+
+/* parSolution: 层序 BFS(父指针回溯卡列), 不可解返回 null(生成器保证可解,
+   手工棋盘不保证); 探索深度封顶 400 层防病态棋盘 */
+function parSolution(board) {
+  const start = mkSim(board);
+  const startKey = stateKey(board, start);
+  const seen = new Set([startKey]);
+  const parent = new Map();
+  let frontier = [start];
+  for (let depth = 0; frontier.length && depth < 400; depth++) {
+    const next = [];
+    for (const sim of frontier) {
+      if (sim.won) {/* 回溯卡列 */
+        const cards = [];
+        let k = stateKey(board, sim);
+        while (k !== startKey) {
+          const p = parent.get(k);
+          cards.push(p.card);
+          k = p.prev;
+        }
+        return cards.reverse();
+      }
+      for (const card of CARDS) {
+        const r = stepSim(board, sim, card);
+        const k = stateKey(board, r.sim);
+        if (seen.has(k)) continue;
+        seen.add(k);
+        parent.set(k, {prev: stateKey(board, sim), card});
+        next.push(r.sim);
+      }
+    }
+    frontier = next;
+  }
+  return null;
+}
+
+function parOf(board) {
+  const sol = parSolution(board);
+  return sol ? sol.length : -1;
+}
+
+const RobotCore = {CELL, DIRS, CARDS, SKILLS,
+  mkBoard, mkSim, stepSim, simulate, parSolution, parOf};
+if (typeof module !== 'undefined' && module.exports) module.exports = RobotCore;

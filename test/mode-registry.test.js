@@ -74,12 +74,12 @@ test('模式注册表: 儿童时限成员 = gated 模式(专注训练营独立�
   assert.ok(!ModeRegistry.playModeIds().includes('focus'));
 });
 
-test('模式注册表: gated:false 清单 = 两训练营 + 体验馆(dev 调试场)', () => {
-  /* 数学冒险岛与专注训练营同形态: 独立每日预算/无菜单页/不计儿童时限;
+test('模式注册表: gated:false 清单 = 三训练营 + 体验馆(dev 调试场)', () => {
+  /* 数学冒险岛/怪物指挥官与专注训练营同形态: 独立每日预算/无菜单页/不计儿童时限;
      体验馆同走 gated:false(孩子任何情况下看不到入口, 也不进儿童时限)。
      手滑把任何一员改成 gated 会把它错并进儿童时限, 这里当场红 */
   const camps = ModeRegistry.all.filter((m) => !m.gated).map((m) => m.id);
-  assert.deepStrictEqual(camps, ['focus', 'math', 'showroom']);
+  assert.deepStrictEqual(camps, ['focus', 'math', 'robot', 'showroom']);
 });
 
 test('模式注册表: dev 行三层派生产物一致 — 卡在场带 dev 类 · 样式表默认隐藏+解锁还原 · main.js 读 ?dev=1', () => {
