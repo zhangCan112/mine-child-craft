@@ -220,7 +220,9 @@ const Mobs = (() => {
     if (typeof document !== 'undefined' && typeof THREE !== 'undefined') {
       const lc = document.createElement('canvas'); lc.width=LABEL_W; lc.height=LABEL_H;
       const ltex = new THREE.CanvasTexture(lc);
-      m.label = new THREE.Sprite(new THREE.SpriteMaterial({map: ltex, transparent: true, depthTest: false}));
+      /* 名牌读深度(默认 depthTest: true): 被地形正常遮挡 — 地下不再透视
+         看到地表怪物名牌(2026-10 视野 bug; combat-kit mkHpBar 血条同口径) */
+      m.label = new THREE.Sprite(new THREE.SpriteMaterial({map: ltex, transparent: true}));
       m.labelCanvas = lc; m.labelTex = ltex;
       applyLabelScale(m);
       scene.add(m.label);

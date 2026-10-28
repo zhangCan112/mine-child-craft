@@ -248,3 +248,36 @@ test('怪物库: gait 攻击姿态窗口(第 4 参) — 挥臂(人形)/头前扑
   assert.strictEqual(h.pose.head, 0, 'attackT 归零: 头部回正');
   Mobs.clear();
 });
+
+test('怪物库: 名牌 Sprite 不关深度测试 — 地形遮挡语义(地下透视看到地表名牌的回归钉)', () => {
+  /* 桩: document + THREE 贴图三件套, 让 spawn 的名牌段(引擎层唯一 Sprite
+     出口)在 Node 里真跑一次 — 材质参数逐字落入桩构造器可断言 */
+  const ctxStub = {
+    clearRect() {}, fillText() {}, fillRect() {}, strokeRect() {},
+    measureText: () => ({width: 10}),
+  };
+  globalThis.document = {createElement: () => ({width: 0, height: 0, getContext: () => ctxStub})};
+  globalThis.THREE.CanvasTexture = function() {
+    this.needsUpdate = false; this.dispose = () => {};
+  };
+  globalThis.THREE.SpriteMaterial = function(opts) {
+    Object.assign(this, opts); this.dispose = () => {};
+  };
+  globalThis.THREE.Sprite = function(mat) {
+    this.material = mat; this.scale = {set() {}};
+    this.position = new THREE.Vector3();
+  };
+  try {
+    Mobs.clear();
+    const m = Mobs.spawn('zombie', 10, 10, {});
+    assert.ok(m.label, '有 document 时 spawn 建名牌');
+    assert.notStrictEqual(m.label.material.depthTest, false,
+        '名牌材质不得关深度测试(关了就穿墙透视, 隔着地形也可见)');
+  } finally {
+    Mobs.clear(); /* dispose 走桩的 dispose, 无泄漏 */
+    delete globalThis.document; /* 摘桩: 后续测试回到无名牌路径 */
+    delete globalThis.THREE.CanvasTexture;
+    delete globalThis.THREE.SpriteMaterial;
+    delete globalThis.THREE.Sprite;
+  }
+});
