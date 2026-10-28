@@ -376,7 +376,8 @@ function advMainPlaceable() {/* 智能主动作的手持判定(纯 seam, 单测�
   /* nether_portal 无 block 字段但也是放置型(整座门由 advTryPlace 拦截分支放置, §3.3) */
   return !!(s && ITEMS[s.id] && (ITEMS[s.id].block != null || s.id === 'nether_portal' || s.id === 'door'));
 }
-let advTouchUseOn = false; /* 触屏使用动作键边沿记忆(false=条上是基表): 状态翻转才重声明条 */
+let advTouchUseOn = 'boot'; /* 触屏条状态签名('boot'=未声明 | 'hand'=空手(基表+锄地键) |
+   物品id(有使用档, 基表+使用键) | 'item'=普通物品(基表)): 状态翻转才重声明条 */
 function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/其余=镐,
    2026-10-24 手持感知拍板; 持弓主键不再是弓态——2026-10-28 Route A 拍板:
    主键恒挖/打(MC 正典回归), 弓图标由专用射箭键承载); 特殊物品 = 基表 +
@@ -387,7 +388,8 @@ function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/
   const place = advMainPlaceable();
   Input.refreshMain(place ? 'brick' : 'pick', place ? '放置' : '挖/打');
   const s = advInv.slots[advHb.sel];
-  const on = !!(s && itemUses(s.id));
+  const on = s ? (itemUses(s.id) ? s.id : 'item') : 'hand'; /* 三态签名: 空手↔普通物↔使用档物
+    都要重声明(farm-and-recipe D3: 空手才有锄地键, 手持种子/骨粉才有播种/催熟键) */
   if (on !== advTouchUseOn) {
     advTouchUseOn = on;
     advTouchDeclare();
@@ -401,14 +403,19 @@ const advTouchBase = [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2
   {icon: 'chest', label: '背包', act: () => advPanelToggle(), rare: true},
   {icon: 'house', label: '回家', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
 ];
-function advTouchList() {/* 触屏条清单 = 基表 + 手持物品的使用动作键(使用动作注册表驱动,
-    2026-10-28 拍板「弓 = 射箭 + 空手两个键」): 专用键直调执行器不走 aimClick(2)——
+function advTouchList() {/* 触屏条清单 = 基表 + 空手锄地键 + 手持物品的使用动作键(使用动作
+    注册表驱动, 2026-10-28 拍板「弓 = 射箭 + 空手两个键」): 专用键直调执行器不走 aimClick(2)——
     专用键身份 = 恒执行使用动作(指到熔炉也射), 与轻点(走完整使用链 = MC 正典
     交互优先)是两个不同 affordance; holdAct 返 false = 一次性动作不进连发
-    (input.js 对 holdAct 键自动给 main 尺寸) */
+    (input.js 对 holdAct 键自动给 main 尺寸); 空手锄地键 = 农田链 D7 两步正典的
+    触屏入口(点错地方静默, 引导话术在执行器) */
   const s = advInv.slots[advHb.sel];
   const uses = (s && itemUses(s.id)) || [];
-  return advTouchBase.concat(uses.map((u) => ({icon: u.icon, label: u.label,
+  const hoeBtn = s ? [] : [{icon: 'hoe', label: '锄地', holdAct: () => {
+    advTryHoe();
+    return false;
+  }}];
+  return advTouchBase.concat(hoeBtn, uses.map((u) => ({icon: u.icon, label: u.label,
     holdAct: () => {
       advUseRun[u.act]();
       return false;
@@ -484,10 +491,14 @@ const advPanel = ModeKit.mkCraftPanel({
   station: advStationGate, /* 站点门禁经政策缝(缺省 4 格门禁; U4 体验馆恒真) */
   get allow() {/* 隐藏配方锁经政策缝(U2): kit 算可见集时调用期读 o.allow, getter 动态取值
       (U4 init 前换装 profile 即生效, 不受本装配期限制); KIT_HIDDEN_RECIPES 是
-      mode-kit 顶层 const(Node 模块态不可见, typeof 守卫, showroom 先例);
-      缺省 undefined = 隐藏配方锁(现行) */
-    return advProfile.hiddenRecipesOpen && typeof KIT_HIDDEN_RECIPES !== 'undefined' ?
-      KIT_HIDDEN_RECIPES.slice() : undefined;
+      mode-kit 顶层 const(Node 模块态不可见, typeof 守卫, showroom 先例)。
+      探险缺省=挂账解锁子集(farm-and-recipe D2: 面包=首收小麦/骨粉=首杀骷髅/
+      弓=首杀蜘蛛, 谓词在 adventure-core); 体验馆 hiddenRecipesOpen 仍全开 */
+    if (advProfile.hiddenRecipesOpen && typeof KIT_HIDDEN_RECIPES !== 'undefined') {
+      return KIT_HIDDEN_RECIPES.slice();
+    }
+    return typeof advUnlockedRecipes === 'function' ?
+      advUnlockedRecipes(ADV.quest.counts) : undefined;
   },
   onCraft: advOnCraft,
   onMove: (from, to) => advInvMove(from, to), /* 背包格点选搬运(政策在本层, 面板只管格子) */
@@ -1410,6 +1421,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
       advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
       advGatesBuild(); /* 门阵重建(T7): 重放之后立门——玩家对门区的误放被门体盖回 */
       advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
+      advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
       advRescanStations();
       advFurnaceSettle(advMap);
     });
@@ -1443,6 +1455,7 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
     advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
     advGatesBuild(); /* 门阵重建(T7): 重放之后立门(远征图回程门常亮) */
     advRescanSaplings();
+    advRescanWheats();
     advRescanStations();
     advFurnaceSettle(advMap);
   });
@@ -1643,6 +1656,7 @@ function advMineStop() {
 const advCascadeSink = {
   mark: advMarkEdit,
   sapling: (x, y, z) => advSaplings.delete(blockKey(x, y, z)),
+  crop: (x, y, z) => advWheats.delete(blockKey(x, y, z)), /* 麦苗脱落撤生长计时(farm-and-recipe D3) */
   drop: (id, n, x, y, z) => Drops.spawn(id, n, x, y, z),
   questMine: advQuestMine,
 };
@@ -1766,6 +1780,37 @@ function advRescanSaplings() {
   }
 }
 
+/* ---------- 农田生长(farm-and-recipe 设计稿 D3): 计时 Map 不落盘, 重进
+   advRescanWheats 全图扫未熟麦重挂——树苗计时同款三通道(挂表/推进/撤表);
+   纯判定(下一阶段/可垦/可种/可催)在 adventure-core ---------- */
+const advWheats = new Map(); /* 生长计时 "x,y,z"→{x,y,z,left}; 每阶段 20s(D7) */
+function advWheatArm(x, y, z) {
+  advWheats.set(blockKey(x, y, z), {x, y, z, left: ADV_WHEAT_GROW});
+}
+/* 阶段推进: 换 id + 记账 + 收口(setBlockRaw 直写不标脏会长出「看不见的麦子」,
+   advGrowTree 同理); 未熟重挂下一阶段, 成熟撤表静等收割(0=无下一步不动作) */
+function advWheatAdvance(x, y, z) {
+  const nxt = advWheatNext(getBlock(x, y, z));
+  if (!nxt) return;
+  setBlockRaw(x, y, z, nxt);
+  advMarkEdit(x, y, z, nxt);
+  advMeshTouch(x, z);
+  advMeshFlush();
+  if (advRipenOk(nxt)) advWheatArm(x, y, z);
+}
+function advWheatTick(dt) {/* 生长推进(update 每帧): 复用 advSapDue 通用到期步进 */
+  for (const s of advSapDue(advWheats, dt)) advWheatAdvance(s.x, s.y, s.z);
+}
+function advRescanWheats() {/* 全图扫未熟麦重建计时(init 重放 edits 后调) */
+  for (let x = 0; x < WORLD_W; x++) {
+    for (let z = 0; z < WORLD_D; z++) {
+      for (let y = 1; y < WORLD_H; y++) {
+        if (advRipenOk(getBlock(x, y, z))) advWheatArm(x, y, z);
+      }
+    }
+  }
+}
+
 /* 吃食物: 点击手持食物(D4) — 满血不吃; 回血走 advEatPolicy(腐肉同口径),
    remove 吃一口返堆拷贝(inventory-core 口径), 头顶血条随 hp 变化自动重绘;
    full 旗标(金苹果)由 advEatPolicy 解读=直接回满(F3, 二期设计稿 §3),
@@ -1809,8 +1854,10 @@ function advTryThrowSnowball() {
   return true; /* 手持雪球: 点击恒算投掷 attempt, 不落放置 */
 }
 
-const advUseRun = {shoot: () => advTryShootBow()}; /* 使用动作注册表 act 键 → 执行器
-   (行为不进注册表——「战斗政策在模式层」红线, 手持物注册表词条同款口径) */
+const advUseRun = {shoot: () => advTryShootBow(),
+  plant: () => advTryPlant(), ripen: () => advTryRipen()}; /* 使用动作注册表 act 键 → 执行器
+   (行为不进注册表——「战斗政策在模式层」红线, 手持物注册表词条同款口径;
+    plant/ripen 为农田链两键, farm-and-recipe D3) */
 function advTryUseHeld() {/* 使用档通用分派(2026-10-28 Route A): 选中物品在使用动作
    注册表有条目 → 逐 act 调执行器, 有使用动作的物品点击恒算使用 attempt
    不落放置(弓同雪球口径); 未注册物品返 false 回落吃/放置链 */
@@ -1840,6 +1887,75 @@ function advTryShootBow() {
       g: ADV_BOW_G, life: ADV_BOW_LIFE});
   }});
   return true; /* 手持弓: 点击恒算放箭 attempt, 不落放置 */
+}
+
+/* ---------- 农田交互三执行器(farm-and-recipe 设计稿 D3) ----------
+   纯判定(advHoeOk/advPlantOk/advWheatNext/advRipenOk)在 adventure-core;
+   世界写=setBlockRaw 直写+记账+收口(advGrowTree 同款), 扣件经背包核心
+   remove(雪球掷出同款), 引导话术 3s 节流(挖不动话术同拍)。 */
+let advFarmHintT = 0; /* 引导话术节流账本(update 递减) */
+function advFarmHint(text) {
+  if (advFarmHintT > 0) return;
+  advFarmHintT = 3;
+  advSpeak(text);
+}
+/* 锄地(空手=锄, D7 两步正典): 桌面右键空手点击/触屏🪓锄地键两处触达;
+   非可垦块返 false 回落放置链(空手 noop); **手持任意物品直接让路**——
+   右键归使用/放置链(MC 口径: 拿着东西点击=用/放, 不锄地) */
+function advTryHoe() {
+  const held = advInv.slots[advHb.sel];
+  if (held) return false;
+  const hit = advAimHit();
+  if (!hit) return false;
+  if (!advHoeOk(getBlock(hit.x, hit.y, hit.z), getBlock(hit.x, hit.y + 1, hit.z))) return false;
+  setBlockRaw(hit.x, hit.y, hit.z, B_FARMLAND);
+  advMarkEdit(hit.x, hit.y, hit.z, B_FARMLAND);
+  advMeshTouch(hit.x, hit.z);
+  advMeshFlush();
+  advSfx('sand_collapse');
+  advFarmHint('地翻好啦！拿着种子点耕地就能种麦子哦');
+  return true;
+}
+/* 播种(手持种子, 注册表 act 'plant'): 点耕地落麦苗+扣 1 件+挂生长计时;
+   点错地方给引导话术不扣件, 恒算使用 attempt 不落放置(弓同口径) */
+function advTryPlant() {
+  const hit = advAimHit();
+  if (!hit || !advPlantOk(getBlock(hit.x, hit.y, hit.z), getBlock(hit.x, hit.y + 1, hit.z))) {
+    advFarmHint('种子要种在翻好的耕地上哦');
+    return true;
+  }
+  remove(advInv, advHb.sel, 1);
+  setBlockRaw(hit.x, hit.y + 1, hit.z, B_WHEAT_0);
+  advMarkEdit(hit.x, hit.y + 1, hit.z, B_WHEAT_0);
+  advMeshTouch(hit.x, hit.z);
+  advMeshFlush();
+  advWheatArm(hit.x, hit.y + 1, hit.z);
+  advSyncHotbar();
+  advSfx('snow_throw');
+  advTally('plant_wheat', 1);
+  return true;
+}
+/* 催熟(手持骨粉, 注册表 act 'ripen'): 麦苗 +1 阶段(D7 确定性, MC 随机 2-5 的
+   差异登记在案)+扣 1 件; 催到成熟有庆祝句(收成的仪式感) */
+function advTryRipen() {
+  const hit = advAimHit();
+  const cur = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
+  if (!advRipenOk(cur)) {
+    advFarmHint('骨粉要撒在麦苗上哦');
+    return true;
+  }
+  remove(advInv, advHb.sel, 1);
+  const nxt = advWheatNext(cur);
+  setBlockRaw(hit.x, hit.y, hit.z, nxt);
+  advMarkEdit(hit.x, hit.y, hit.z, nxt);
+  advMeshTouch(hit.x, hit.z);
+  advMeshFlush();
+  advWheats.delete(blockKey(hit.x, hit.y, hit.z));
+  if (advRipenOk(nxt)) advWheatArm(hit.x, hit.y, hit.z);
+  advSyncHotbar();
+  advSfx('pick');
+  if (!advRipenOk(nxt)) advSpeak('小麦熟啦！你真有耐心！');
+  return true;
 }
 
 /* 掉落物收集回调(Drops.onCollect, init 挂/cleanup 随 Drops.clear 解除):
@@ -2058,6 +2174,7 @@ const advExplodeSink = {
     advDoorBreakApply(bx, by, bz, false); /* TNT 掀门=整扇回收(不进任务, P6 口径) */
   },
   sapling: (bx, by, bz) => advSaplings.delete(blockKey(bx, by, bz)),
+  crop: (bx, by, bz) => advWheats.delete(blockKey(bx, by, bz)), /* 掀掉麦苗撤生长计时(D3) */
   drop: (id, n, x, y, z) => Drops.spawn(id, n, x, y, z),
 };
 function advExplode(x, y, z) {
@@ -2143,6 +2260,7 @@ function advChestExpand() {
    (QUESTS 数据表与谓词纯函数在 adventure-core.js)
    ============================================================ */
 let advQuestT = 0; /* 谓词检查节流计时(init 复位一个整窗, 首查在进场半秒后) */
+const advUnlockedSeen = []; /* 已播报解锁配方(farm-and-recipe D2): init 从 counts 播种, 差集只报新鲜达成 */
 
 function advTally(kind, n) {/* 任务计数: 事件挂点只 += 不做判断(推进归 advQuestTick 节流查);
    counts 只增不减 = 跳步防护(计数依赖事件, 不可逆); 顺路挂脏标记随 5s 存档节流落盘 */
@@ -2214,6 +2332,15 @@ function advQuestTick(dt) {
   if (advQuestT > 0) return;
   advQuestT = ADV_QUEST_CHECK_T;
   const st = ADV.quest;
+  /* 配方解锁播报(farm-and-recipe D2): 与任务谓词同拍 0.5s 差集; seen 在 init
+     从 counts 播种——老档已解锁的不重播, 只报游玩中新鲜达成的 */
+  for (const id of advRecipeUnlockedNew(advUnlockedSeen, st.counts)) {
+    advUnlockedSeen.push(id);
+    const name = (ITEMS[id] && ITEMS[id].name) || id;
+    advSfx('gate_unlock');
+    advToast('🎉 新配方解锁：' + name + '！');
+    advSpeak(name + '配方解锁啦！打开背包看看吧！');
+  }
   const q = ADV_QUESTS[st.step];
   if (!q || !q.check(st.counts)) return;
   advSfx(q.finale ? 'win' : 'level');
@@ -2457,6 +2584,8 @@ const AdventureMode = mkMode({
     advChest.slots.length = ADV_CHEST_SLOTS;
     advChest.size = Math.max(ADV_CHEST_START, Math.min(advChest.size | 0, ADV_CHEST_SLOTS));
     advQuestT = ADV_QUEST_CHECK_T; /* 谓词检查节流复位(进场半秒后首查) */
+    advUnlockedSeen.length = 0;
+    for (const id of advUnlockedRecipes(ADV.quest.counts)) advUnlockedSeen.push(id); /* 解锁集合播种(读档后, 老档不重播报, D2) */
     advQuestPaint();
     advStore.loadBag(); /* 全局背包经背包壳读档(原地换槽, 面板/快捷栏闭包不脱钩) */
     /* 流体账本缝(liquid D8): 流体写格(流动/消退/混合/冲毁)即时入 edits 账本——
@@ -2482,6 +2611,7 @@ const AdventureMode = mkMode({
         }
       }
       advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘; 清扫之后跑——被治愈掀掉的悬空树苗不再重挂) */
+      advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
       advGatesBuild(); /* 门阵建场(T7): 治愈之后立门——门体不被清扫/重放翻动, 每次装场同一份 */
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
@@ -2633,6 +2763,8 @@ const AdventureMode = mkMode({
         (各图都有树苗/巢穴/夜晚, 计时账随 advSceneLeave 清空防跨图坐标串档)。
         任务/背包提醒两图/界照旧 */
       advSapTick(dt); /* 树苗 20s 计时到期长树(T12) */
+      advWheatTick(dt); /* 麦 20s/阶段生长推进(farm-and-recipe D3) */
+      if (advFarmHintT > 0) advFarmHintT -= dt; /* 农田引导话术节流递减 */
       advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架; passive 动物在此排除) */
       advHerdTick(dt); /* F4 牧场动物: 恐惧游荡/闲逛(与战斗 AI 互斥的两条驱动) */
       advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */
@@ -2683,8 +2815,9 @@ const AdventureMode = mkMode({
       if (advTryDoor(hit, lookId)) return; /* 门: 点击开关(设计稿 §4.2, 使用先于吃/放) */
       if (advTryEat()) return;
       if (advTryThrowSnowball()) return; /* 手持雪球: 掷出(T9, 使用档在吃与放置之间) */
-      if (advTryUseHeld()) return; /* 手持使用动作物品(弓): 注册表驱动放箭(2026-10-28
-        Route A), 恒算使用 attempt 不落放置——MC 正典弓走使用键 */
+      if (advTryUseHeld()) return; /* 手持使用动作物品(弓/种子/骨粉): 注册表驱动使用(farm-and-recipe D3
+        +弓 Route A), 恒算使用 attempt 不落放置——MC 正典弓走使用键 */
+      if (advTryHoe()) return; /* 空手锄地(D7 两步正典): 指可垦块才命中, 否则回落放置(空手 noop) */
       advTryPlace(hit);
     }
   },
@@ -2719,9 +2852,9 @@ const AdventureMode = mkMode({
 
   hud: advHudLines, /* HUD 行构造(下界态分支在内; 具名提出供挂点触达) */
 
-  touch: advTouchBase, /* 触屏条基表(⛏️ 智能主键 + rare 🎒🏠): mkMode init 声明; 手持
-     特殊物品时 advTouchMainSync 边沿重声明为 advTouchList()(基表 + 使用动作
-     键, 2026-10-28 拍板「弓 = 射箭 + 空手两个键」) */
+  touch: advTouchList(), /* 触屏条初表(空手=⛏️主键+🪓锄地键+rare 🎒🏠, farm-and-recipe D3;
+    装载期求值一次, init 读档后 advSyncHotbar→advTouchMainSync 按实际手态重声明); 手持
+    特殊物品时 advTouchMainSync 边沿重声明为 advTouchList()(基表 + 使用动作键) */
   /* 触屏长按连挖(input.js 手势路由): 复用桌面按住标志 — 蓄力链自动连挖/触屏松手即停 */
   onHold(active) {
     advMouseHeld = active;

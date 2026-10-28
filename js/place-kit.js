@@ -17,7 +17,7 @@
      opts.onPlaced(blockId,x,y,z) — 放置后钩(探险=任务 tally+树苗挂表)
      opts.onConsume() — 扣件后(快捷栏同步)
      opts.onPortalPlaced(by,px,pz) — 传送门立起后(探险=锚这扇门的光束)
-     opts.cascade — {mark,sapling,drop,questMine} 级联账本 sink
+     opts.cascade — {mark,sapling,crop,drop,questMine} 级联账本 sink
        (advCascadeLedger 形状; drop=掉落物出口, questMine=挖掘记账)
      opts.onFelled() — 整树倒观感
      opts.wear() — 破坏成功磨损(探险=advWearHeld('mine'); 体验馆=简版)
@@ -84,6 +84,7 @@ function mkEditor(opts) {
     applyCascade(editBlock(x, y, z, 0), true); /* 蓄力链视同亲手挖(P6) */
     doorBreakApply(x, y, z, true); /* 门配对破坏(挖任一半/挖门下支撑=整扇回收) */
     if (id === B_SAPLING && sink.sapling) sink.sapling(x, y, z); /* 挖树苗撤计时 */
+    if (BLOCKS[id] && BLOCKS[id].crop && sink.crop) sink.crop(x, y, z); /* 挖麦苗撤生长计时(farm-and-recipe D3, crop 身份旗标) */
     if (o.sfx) o.sfx('hit');
     if (o.wear) o.wear(); /* 破坏成功 −1(工具匹配与否都扣, MC 口径; 徒手无槽可扣) */
     if (!bt.drops) {/* tier 不足: 可挖慢速但掉落不触发(§3.4) */

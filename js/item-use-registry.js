@@ -24,6 +24,10 @@
    ------------------------------------------------------------ */
 const ITEM_USES = {
   bow_item: [{act: 'shoot', icon: 'bow', label: '射箭'}],
+  /* 农田链使用档(farm-and-recipe 设计稿 D3): 种子点耕地播种 · 骨粉点麦苗催熟
+     ——与弓同款「点击恒算使用 attempt 不落放置」口径 */
+  wheat_seeds: [{act: 'plant', icon: 'plant', label: '播种'}],
+  bone_meal: [{act: 'ripen', icon: 'ripen', label: '催熟'}],
 };
 
 /* 物品键 → 使用动作条目; 无专属使用动作返回 null(调用方回落常规使用链) */

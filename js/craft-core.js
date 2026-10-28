@@ -2,7 +2,7 @@
 /* ============================================================
    合成核心 (CraftCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
-   合成系统的唯一数据源: RECIPES 全表(随身 10 + 工作台级 27, 九宫格
+   合成系统的唯一数据源: RECIPES 全表(随身 12 + 工作台级 28, 九宫格
    改造 crafting-grid 设计稿 §3; 站点 'hand'=2×2 随身摆放格随时可摆 /
    'table'=3×3 摆放台需走近工作台 4 格, 拍板①④) · SMELTS 烧炼
    映射 · FUEL 燃料择优序(从 ITEMS fuel 字段按热值降序派生)。
@@ -34,8 +34,8 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 37 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
-      雪球 T9 + 门/玻璃板 2 条, 图案全部逐条查证自 minecraft.wiki,
+   RECIPES 配方表 — 40 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
+      雪球 T9 + 门/玻璃板 2 条 + 补链 3 条, 图案全部逐条查证自 minecraft.wiki,
       见 docs/mc-crafting-grid-research.md §3 与 docs/door-window-research.md)
    条目形状: id 配方卡键 · out {item, n} 产物 · station 'hand'|'table'
    · shape 图案(crafting-grid §3):
@@ -47,7 +47,8 @@
    ------------------------------------------------------------ */
 const RECIPES = [
   /* —— 随身级 2×2 摆放格(拍板①: 木板/木棍/工作台/火把为 Wiki 点名的
-     2×2 例; 石砖/红砖块/剪刀/骨粉 4 条按正典迁回 hand, 拍板②) —— */
+     2×2 例; 石砖/红砖块/剪刀/骨粉 4 条按正典迁回 hand, 拍板②;
+     砂岩/线羊毛/铁粒回炉 3 条补链, farm-and-recipe 设计稿 D1) —— */
   {id: 'planks', out: {item: 'planks', n: 4}, station: 'hand', // 1 原木→4 木板
     shape: {rows: [['log']]}},
   {id: 'stick', out: {item: 'stick', n: 4}, station: 'hand', // 2 板竖排→4 棍
@@ -76,6 +77,19 @@ const RECIPES = [
   // MC 正典 shapeless 同档, 存储用满格 rows 跟 craft_table/stone_bricks 同款)
   {id: 'snow', out: {item: 'snow', n: 1}, station: 'hand',
     shape: {rows: [['snowball', 'snowball'], ['snowball', 'snowball']]}},
+  // 砂岩: 4 沙子 2×2 → 1(MC 正典 sandstone.json; 沙子建材化——沙漠地下层从
+  // 「只能挖」转「可合成」, farm-and-recipe 设计稿 D1)
+  {id: 'sandstone', out: {item: 'sandstone', n: 1}, station: 'hand',
+    shape: {rows: [['sand', 'sand'], ['sand', 'sand']]}},
+  // 羊毛: 4 线无序 → 1 白羊毛(MC 正典 white_wool shapeless; 线的第二出口,
+  // 没羊也能做床; 只开白羊毛天然对齐——线没有颜色)
+  {id: 'wool', out: {item: 'wool', n: 1}, station: 'hand',
+    shape: {any: ['string', 'string', 'string', 'string']}},
+  // 铁粒回炉: 9 铁粒无序 → 1 铁锭(MC 正典 shapeless, 3×3 台级——9 格摆不下随身格;
+  // 闭合铁粒单向死路: 灯笼用 8 粒的余料可回锭, farm-and-recipe 设计稿 D1)
+  {id: 'iron_ingot', out: {item: 'iron_ingot', n: 1}, station: 'table',
+    shape: {any: ['iron_nugget', 'iron_nugget', 'iron_nugget', 'iron_nugget',
+      'iron_nugget', 'iron_nugget', 'iron_nugget', 'iron_nugget', 'iron_nugget']}},
 
   /* —— 工具 16 条: 4 阶 × 镐斧剑锹 = 4 个形状模板 × 4 材质阶
      (材质: 木=planks · 石=cobble · 铁=iron_ingot · 钻=diamond;
@@ -171,7 +185,8 @@ const SMELT_T = 2.5; /* 每件烧炼秒数(D8: MC 10s → 儿童缩短; 附录 B
 
 /* ------------------------------------------------------------
    FUEL 燃料择优序 — 从 ITEMS 的 fuel 字段(热值=能烧几件)按值降序派生,
-   同值保持注册表原序; 熔炉「自动放料」按此序挑最省的(D8: 煤→木炭→原木→木板→木棍)
+   同值保持注册表原序; 熔炉「自动放料」按此序挑最省的(D8: 煤→木炭→原木→
+   木板→木棍→树苗, 树苗半件=farm-and-recipe D1 补链)
    ------------------------------------------------------------ */
 const FUEL = Object.keys(ITEMS)
     .filter((id) => typeof ITEMS[id].fuel === 'number')

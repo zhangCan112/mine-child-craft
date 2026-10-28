@@ -72,6 +72,7 @@ const sfxs = [];
 const rings = [];
 const touches = [];
 const sapCleared = []; /* 盖掉/挖掉树苗的撤计时 sink 录 */
+const cropCleared = []; /* 挖掉/掀掉麦苗的撤计时 sink 录(farm-and-recipe D3) */
 let flushes = 0;
 let wearCalls = 0;
 let felled = 0;
@@ -94,6 +95,7 @@ const ed = PlaceKit.mkEditor({
   cascade: {
     mark: () => {},
     sapling: (x, y, z) => sapCleared.push([x, y, z]),
+    crop: (x, y, z) => cropCleared.push([x, y, z]),
     drop: (id, n) => drops.push([id, n]),
     questMine: (id) => mined.push(id),
   },
@@ -110,7 +112,7 @@ const ed = PlaceKit.mkEditor({
 function reset() {
   journal.length = 0; placed.length = 0; drops.length = 0; mined.length = 0;
   says.length = 0; speaks.length = 0; sfxs.length = 0; rings.length = 0; touches.length = 0;
-  sapCleared.length = 0;
+  sapCleared.length = 0; cropCleared.length = 0;
   flushes = 0; wearCalls = 0; felled = 0;
 }
 
@@ -288,4 +290,20 @@ test('place-kit: 级联 — 原木组件失撑整倒(onFelled 观感+掉落)', (
   assert.strictEqual(api.getBlock(34, 14, 20), 0, '上方原木随组件倒');
   assert.strictEqual(felled, 1, '整树倒观感钩');
   assert.ok(drops.some((d) => d[0] === 'log'), '倒塌原木落为掉落物');
+});
+
+test('农田撤表(farm-and-recipe D3): 直接挖麦与级联脱落(挖耕地)都走 sink.crop', () => {
+  /* 直接挖: 立在草地上的麦苗, breakBlock 经 crop 身份旗标撤计时 */
+  reset();
+  api.setBlockRaw(20, 13, 30, B_WHEAT_1);
+  ed.breakBlock(20, 13, 30, B_WHEAT_1, {time: 1, drops: true});
+  assert.deepStrictEqual(cropCleared, [[20, 13, 30]], '挖麦苗撤生长计时(crop 旗标判据)');
+  /* 级联脱落: 耕地上的麦苗, 挖耕地 → 麦苗 thin 失撑进级联清单 → 同一 sink 撤表 */
+  reset();
+  api.setBlockRaw(22, 13, 30, B_FARMLAND);
+  api.setBlockRaw(22, 14, 30, B_WHEAT_2);
+  ed.breakBlock(22, 13, 30, B_FARMLAND, {time: 1, drops: true});
+  assert.strictEqual(api.getBlock(22, 14, 30), 0, '麦苗随耕地失撑脱落');
+  assert.ok(cropCleared.some((c) => c[0] === 22 && c[1] === 14 && c[2] === 30),
+      '级联脱落的麦苗同样撤计时(重进不复活半截麦)');
 });

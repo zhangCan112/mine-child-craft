@@ -28,7 +28,7 @@ const ITEMS = {
   log: {name: '原木', icon: '🪵', block: 5, fuel: 1.5}, // 木头(5); 也可烧成木炭
   planks: {name: '木板', icon: '🟫', block: 6, fuel: 1.5}, // 木板(6)
   stick: {name: '木棍', icon: '🥢', fuel: 0.5},
-  sapling: {name: '树苗', icon: '🌿', block: 50}, // B_SAPLING=50(T2 落定号段顺延); 放草地/泥土 20s 长成树
+  sapling: {name: '树苗', icon: '🌿', block: 50, fuel: 0.5}, // B_SAPLING=50(T2 落定号段顺延); 放草地/泥土 20s 长成树; 燃料半件(MC 正典 100 ticks, farm-and-recipe D1——树苗积压的天然出口)
 
   /* —— 矿物链(煤直接用 · 铁/金粗矿需熔炼 · 钻直接得, 设计稿 D5) —— */
   coal: {name: '煤炭', icon: '⚫', fuel: 8},
@@ -44,8 +44,8 @@ const ITEMS = {
   rotten_flesh: {name: '腐肉', icon: '🥓', food: 2}, // 僵尸; 儿童版无饥饿debuff, 回 2 血
   bone: {name: '骨头', icon: '🦴'}, // 骷髅; 磨骨粉
   gunpowder: {name: '火药', icon: '⚪'}, // 苦力怕 → TNT
-  string: {name: '线', icon: '🧵'}, // 蜘蛛
-  slimeball: {name: '粘液球', icon: '🟢'}, // 岩浆怪(一期备用, 掉落表二期下界)
+  string: {name: '线', icon: '🧵'}, // 蜘蛛 → 弓弦/羊毛(MC white_wool 正典, farm-and-recipe D1)
+  slimeball: {name: '粘液球', icon: '🟢'}, // 收集品(出口=粘液块/拴绳, 均依赖不存在的功能——登记在案不硬造, farm-and-recipe D4)
 
   /* —— 农耕链(二期开放; 一期先注册, 配方书引用不炸) —— */
   wheat: {name: '小麦', icon: '🌾'},
@@ -73,8 +73,8 @@ const ITEMS = {
   cooked_chicken: {name: '熟鸡肉', icon: '🍗', food: 6},
   raw_mutton: {name: '生羊肉', icon: '🍖', food: 2}, // 羊; 烧成熟羊肉
   cooked_mutton: {name: '熟羊肉', icon: '🍖', food: 6},
-  leather: {name: '皮革', icon: '🟤'}, // 收集品(出口三期护甲, Out of Scope)
-  feather: {name: '羽毛', icon: '🪶'}, // 收集品(出口三期箭, Out of Scope)
+  leather: {name: '皮革', icon: '🟤'}, // 收集品(出口三期护甲, Out of Scope——登记在案, farm-and-recipe D4)
+  feather: {name: '羽毛', icon: '🪶'}, // 收集品(原「三期箭」出口已被弓无弹药设计架空——登记在案, farm-and-recipe D4)
   wool: {name: '羊毛', icon: '☁️', block: 52}, // B_WOOL=52(F4 §4.7); 羊掉毛转入采集, 只开白羊毛(染料 Out of Scope)
 
   /* —— 放置型方块物品(挖掘获得, 可放回世界) —— */
