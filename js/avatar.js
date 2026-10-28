@@ -32,6 +32,10 @@ const Avatar = (() => {
      零改动即回右手观感; 皮肤左右对称(双臂/双腿同图), 交换无观感差。 */
   const puppet = MobLookKit.puppet('player');
   const root = puppet.root;
+  /* 人物本体微缩(config PLAYER.modelScale, 缺省 1=官方等比): 0.9 时模型顶高
+     32px×PX×0.9=1.8 格恰与碰撞壳同高(2026-10-28 家长反馈: 人物偏大, 门洞里
+     身体挡视线)。只缩观感, 手持物挂臂骨随缩, 第一人称 HandView 独立不受影响 */
+  root.scale.setScalar(PLAYER.modelScale || 1);
   const legL = puppet.bones.legR; const legR = puppet.bones.legL;
   const armL = puppet.bones.armR; const armR = puppet.bones.armL;
   const head = puppet.bones.head;
