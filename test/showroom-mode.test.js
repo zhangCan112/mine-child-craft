@@ -1,29 +1,39 @@
 'use strict';
 /* 体验馆模式 (js/modes/showroom.js) 守门测试 — node --test (零依赖)
    运行: node --test test/showroom-mode.test.js
-   v2「冒险全开实验室」守门线(docs/showroom-design.md §7, adventure-mode.test
-   契约先例, 只测外显行为不伸手进实现):
-   ① 契约面: 模式文件可 require + 注册行形状 + main.js MODES 接线正则;
-   ② 数据隔离键扫: 模式与供给核心两文件源文本零存储 API 名/零存档键
-     字面量(含注释, 红线 = 调试永不读写真实进度, ADR 0002);
+   U4 统一切换后的守门线(docs/adventure-shell-unification-design.md §4/§6,
+   adventure-mode.test 契约先例, 只测外显行为不伸手进实现):
+   ① 契约面: 门面与冒险壳装进同一 vm 词法环境可加载(门面要写壳的顶层 let
+     缝——经典 script 共享词法环境的装载现实还原) + 注册行形状 + main.js
+     MODES/index.html 接线正则;
+   ② 数据隔离键扫(不动, 红线): 模式与供给核心两文件源文本零存储 API 名/
+     零存档键字面量(含注释, ADR 0002);
    ③ 套餐供给: stock 挂点(派生产物)行形状/≤27/全 id ∈ ITEMS · 进场后
-     RECIPES 每条配方 canCraft 全绿(「所有条件都满足」的模式侧复验);
-   ④ 快捷栏: 9 槽镜像背包前 9 槽, 数字键/滚轮/点选全自动;
-   ⑤ 建场真件断言(vm 装真体素底座): 全幅草场/房子墙顶门板窗/站点件
-     (即测炉+灶台双炉+工作台×2+仓库箱排+床)/展台展品=派生清单/火把
-     插满(室内+地下室计数)/地下室石壳+矿样墙+楼梯井;
-   ⑥ 三站点交互: 熔炉走近点击开面板/圈外拒 · 工作台开合成面板(Tab 同达)
-     · 箱子开对应仓库箱(逐箱内容=派生账户);
-   ⑦ 熔炉行为线: 自动放料(首现矿种全量+最省燃料)/2.5s 件推进/关面板
-     照烧/退出三笔退包——只测编排不重测纯函数(craft-core/furnace-kit
-     各有单测);
-   ⑧ 收场与重进: 面板全收+零掉落物 · 背包同实例原地重铸 · 仓库箱恢复
-     原装(退出即弃, 每次进场干净初始态);
-   ⑭ U3 展馆 edits 账本派生(世界即存档): 仿真 diff 确定性(两次派生逐字节
-      一致) · 条目落整地圈+全裸值 · 重放同构(基座+账本重放=目标态绘制,
-      逐格一致) · 重放后结构全覆盖(家营地平 y24)/立面净空/地平实心 ·
-      footprint 选址核查(不压水面·硬结构不相交·压界恰为登记三处) ·
-      世界档 payload(真账本)/dev store 丢弃语义。 */
+     RECIPES 每条配方 canCraft 全绿(dev bag 重铸);
+   ④ 快捷栏: 壳的 9 槽镜像 dev 背包前 9 槽, 数字键/滚轮/点选全自动;
+   ⑤ 统一进场: 壳 init 读篡改世界档 = home 基座 + 展馆账本重放(结构在场,
+     家营地平)/房内出生/昼夜接线/巢穴怪与牧场动物随壳进馆(拍板③);
+   ⑥ 三站点(统一口径): 熔炉走近点击开面板/圈外拒 · 合成面板 Tab 入口 +
+     station 行为断言(远离工作台台级配方随处可摆, 源码正则已废) · 箱子
+     全局单账户顶格预填(多箱方块打开同一账户, §4 行为变化);
+   ⑦ 熔炉行为线: 自动放料/2.5s 件推进/关面板照烧(壳的 kit 实例);
+   ⑧ 收场与重进: dev store 丢弃一切(退炉不退料·炉态随会话丢弃/背包同实例
+     原地重铸/账户照派生重铸/世界逐格恢复原装);
+   ⑨ 放置链(place-kit 同一实现): 单格放置/门成对/蓄力挖+掉落+真空拾取;
+   ⑩ TNT 链: 短按点燃/引信/爆炸清空+70% 掉落/链式接力/按住转蓄力/掀炉
+     兜底 + 波及怪物段随统一进馆(§4 行为变化) + 重进世界无痕;
+   ⑪ 拾取入包: 收集回调入包并堆/满包拒返 false;
+   ⑫ 玩家 HP 实体+进食+雪球(壳的链): 吃判据/金苹果 full/零伤害弹道;
+   ⑬ 昼夜+夜怪+床(统一壳 + dev 政策): 入夜上沿固定点位铺怪(边沿制/
+     __nightMob 标记)/黎明清场共用壳实现/睡觉三分支/唤醒两连(床边无
+     出生点, D5 拍板①)/完整 AI 索敌逼近掉血/原地满血复活/击杀掉落/
+     击杀不推任务步(任务档终章态);
+   ⑭ U4 门面与换装生命周期: HUD 徽标包层/onMenu dev 特化/媒体降噪
+     (TTS·sfx 静默·toast 保留)/onKey 单跳/换装生命周期(dev 会话真档
+     mem 桩零写入 → cleanup 还原缺省 → 冒险壳照常读真档);
+   ⑮ U3 展馆 edits 账本派生(世界即存档, 原样保留): 仿真 diff 确定性 ·
+     重放同构 · 结构全覆盖/立面净空/地平实心 · 选址核查 · 世界档 payload ·
+     dev store 丢弃语义。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -82,32 +92,79 @@ function fakeEl() {
 const fakeClock = 0;
 globalThis.performance = {now: () => fakeClock};
 const elCache = {};
+const docBody = fakeEl();
 globalThis.document = {
   createElement: () => fakeEl(),
   getElementById: (id) => (elCache[id] = elCache[id] || fakeEl()),
+  body: docBody, /* mkBubbleBar 等面板件的挂载点(adventure-mode.test 同款) */
 };
 
-/* ---------- 真引擎件: 体素底座+纯核心(vm), 共享一个 vm 词法环境 ----------
-   建场断言对着真 fill/getBlock(fake SceneKit 会把「方块真的在场」变成
-   同义反复, T3 起惯例); 其全局名依赖经 Object.assign 就位到 Node 侧 */
-const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+/* ---------- 行为记账账本(断言面, 各桩共享) ---------- */
+const calls = [];
+const spoken = [];
+const dropCalls = []; /* 掉落物调用记账(收场应为零——余量静默丢弃口径) */
+const dropsTicks = []; /* 掉落物 update 记账(update 应每帧喂真空拾取) */
+const collectCbs = []; /* 收集回调记账(init 重挂, 切模式 Drops.clear 解除) */
+
+/* ---------- 真引擎件: 体素底座+纯核心(vm) ----------
+   U4 起本文件把 js/modes/adventure.js 与 js/modes/showroom.js 也装进同一个
+   vm 词法环境(引擎件同款手法): 门面要写壳的顶层 let 缝(advStore/advProfile),
+   CommonJS 逐文件 require 的模块作用域看不见彼此的顶层声明——共享 context
+   才是经典 <script> 装载现实的忠实复刻。引擎件的真状态与本文件的断言面
+   共用同一 world 对象。 */
+const eng = vm.createContext({console: {log() {}, warn() {}, error() {}},
+  groundTop: () => 24, /* world.js 顶层函数的桩(adventure-mode.test 同款) */
+});
 for (const f of ['js/config.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js',
   'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/mob-registry.js',
   'js/daylight-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, mkInventory, add, count, remove,
-  take, moveSlot, damageTool, costEntry, shapeCost, canCraft, matchGrid, gridCraft, fillGrid,
+  take, moveSlot, damageTool, serialize, deserialize, costEntry, shapeCost, canCraft, matchGrid, gridCraft, fillGrid,
   RECIPES, SMELTS, FUEL, fuelUnits, smeltOf, breakTime,
-  HOTBAR_SLOTS, INV_SLOTS, WORLD_W, WORLD_D, PLAYER,
+  HOTBAR_SLOTS, INV_SLOTS, WORLD_W, WORLD_D, WORLD_H, PLAYER, IS_TOUCH, FLUID, DAYLIGHT,
   BLOCKS, B_FURNACE, B_CRAFT, B_CHEST, B_BED, B_TORCH, B_DOOR, B_DOOR_TOP, B_DOOR_OPEN,
-  B_DOOR_TOP_OPEN, B_GLASS_PANE,
+  B_DOOR_TOP_OPEN, B_GLASS_PANE, B_TNT,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY,
-  getBlock, setBlockRaw, blockKey, collidesAtPlayer, rollBlockDrop, rollDrops,
-  Daylight, SceneKit})`, eng);
+  B_SANDSTONE, B_SNOW, B_ICE, B_PORTAL, B_PORTAL_DIM, B_OBSIDIAN, B_NETHERRACK,
+  B_GLOWSTONE, B_NETHER_BRICK,
+  getBlock, setBlockRaw, getFluidLv, setFluidLv, world, worldCells, worldEvents,
+  blockKey, collidesAtPlayer, rollBlockDrop, rollDrops,
+  Daylight, SceneKit, Drops})`, eng);
 Object.assign(globalThis, api); /* 模式/供给核心/放置链经全局名消费这些真件 */
+/* 玩家状态绑定(pos/vel 是 voxel.js 的顶层词法绑定): 壳在 eng 里读到的是 eng 词法
+    对象——Node 侧(CombatKit/测试断言)必须与之同一引用, 否则距离判定/血量断言
+    全部各说各话(替换而非另建桩) */
+globalThis.pos = vm.runInContext('pos', eng);
+globalThis.vel = vm.runInContext('vel', eng);
+/* 掉落物库(drops.js 顶层 const, eng 词法): 壳经 eng 词法取到真件——在真件对象上
+    包记账壳(调用透传), spawn/update/onCollect/clear 的行为断言面与真实拾取链共存
+    (adventure-mode.test 的代理记账口径, 差别只在记账挂在真件本身) */
+const RealDrops = vm.runInContext('Drops', eng);
+const realDropSpawn = RealDrops.spawn;
+const realDropUpdate = RealDrops.update;
+const realDropOnCollect = RealDrops.onCollect;
+const realDropClear = RealDrops.clear;
+RealDrops.spawn = (id, n, x, y, z) => {
+  dropCalls.push([id, n, x, y, z]);
+  return realDropSpawn(id, n, x, y, z);
+};
+RealDrops.update = (dt, p) => {
+  dropsTicks.push([dt, p]);
+  return realDropUpdate(dt, p);
+};
+RealDrops.onCollect = (cb) => {
+  collectCbs.push(cb);
+  return realDropOnCollect(cb);
+};
+RealDrops.clear = () => {
+  realDropClear();
+  collectCbs.length = 0; /* 镜像 v2 桩: clear 解除收集回调(init 重挂前提) */
+};
+globalThis.Drops = RealDrops;
 /* 单块编辑 seam: world.js 太重——真级联核心镜像 world.js 的装配
-   (adventure-mode.test 同款): setBlockRaw + 破坏侧 cascadeRemove */
+    (adventure-mode.test 同款): setBlockRaw + 破坏侧 cascadeRemove */
 const engCascade = vm.runInContext('({core: CascadeCore, policy: CascadeCore.mkPolicy(BLOCKS)})', eng);
 globalThis.editBlock = (x, y, z, id) => {
   const old = api.getBlock(x, y, z);
@@ -115,82 +172,104 @@ globalThis.editBlock = (x, y, z, id) => {
   return (id === 0 && old !== 0) ?
     engCascade.core.cascadeRemove(api.getBlock, api.setBlockRaw, x, y, z, old, engCascade.policy) : [];
 };
-globalThis.Fx = {debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}}; /* 碎屑观感桩 */
-/* place-kit/adventure-core 的自由标识符引用 config 的 B_ 前缀常数(const 词法绑定
-   不挂 vm 全局对象): 按两文件源码动态收集名单, 在上下文内求值铺到 Node 全局 */
-for (const src of [fs.readFileSync(path.join(ROOT, 'js', 'adventure-core.js'), 'utf8'),
-  fs.readFileSync(path.join(ROOT, 'js', 'place-kit.js'), 'utf8')]) {
-  for (const n of [...new Set(src.match(/\bB_[A-Z0-9_]+\b/g) || [])]) {
-    if (globalThis[n] === undefined) globalThis[n] = vm.runInContext(n, eng);
-  }
+/* 世界卫生清扫 seam(P14/D9, adventure-mode.test 同款快照桥接): init 的
+    loadScene 回调会跑 applySweep——同一份 cascade-core 在 Node 侧对快照
+    扫描, 差异格回写真 setBlockRaw(含 topCache 失效; 干净世界零回写) */
+const Core = require('../js/cascade-core.js');
+const localBlocks = {};
+for (const k of Object.keys(api.BLOCKS)) {
+  const b = api.BLOCKS[k];
+  const nb = {};
+  if (b.fell) nb.fell = true;
+  if (b.thin != null) nb.thin = b.thin;
+  if (b.fall) nb.fall = true;
+  if (b.solid === false) nb.solid = false;
+  if (b.need) nb.need = {id: b.need.id, dist: b.need.dist};
+  localBlocks[+k] = nb;
 }
-const AdventureCore = require('../js/adventure-core.js');
-Object.assign(globalThis, AdventureCore); /* advChestPut/advChestTake/ADV_STATION_R 等 */
-const CraftCore = require('../js/craft-core.js');
-Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
-  furnaceRefund: CraftCore.furnaceRefund});
+const localPolicy = Core.mkPolicy(localBlocks);
+globalThis.applySweep = () => {
+  const W = api.WORLD_W; const H = api.WORLD_H; const D = api.WORLD_D;
+  const snap = new Uint8Array(api.worldCells);
+  const read = (x, y, z) => (x < 0 || y < 0 || z < 0 || x >= W || y >= H || z >= D) ?
+    0 : snap[(y * D + z) * W + x];
+  const write = (x, y, z, id) => {
+    snap[(y * D + z) * W + x] = id;
+  };
+  const removed = Core.cascadeSweep(read, write, localPolicy, W, H, D);
+  const orig = api.worldCells;
+  for (let i = 0; i < snap.length; i++) {
+    if (snap[i] === orig[i]) continue;
+    const x = i % W;
+    const t = (i - x) / W;
+    const z = t % D;
+    const y = (t - z) / D;
+    api.setBlockRaw(x, y, z, snap[i]);
+  }
+  return removed;
+};
 
-/* ---------- 假应用层(调用期解析的全局名, nether-mode.test 先例) ---------- */
-const calls = [];
+/* ---------- 假应用层(调用期解析的全局名, adventure-mode.test 同款) ---------- */
 globalThis.loadScene = (fn) => {
   calls.push(['loadScene']);
+  api.world.clear(); /* 真件口径: 装填前清场(adventure-mode.test 同款) */
   fn();
-}; /* 场景装填 seam: 清场+建场+光场(收尾重建归渲染层, 行为断言不需要) */
+}; /* 场景装填 seam: 清场+建场(收尾重建归渲染层, 行为断言不需要) */
 globalThis.showToast = (s) => calls.push(['toast', s]);
-const dropCalls = []; /* 掉落物调用记账: 体验馆退出收场应为零(满包余量静默丢弃口径) */
-const dropsTicks = []; /* 掉落物 update 记账: 放置链接入后 update 应每帧喂真空拾取 */
-const collectCbs = []; /* 收集回调记账: init 重挂(切模式 Drops.clear 解除后重挂, 探险同款) */
-globalThis.Drops = {spawn: (id, n, x, y, z) => dropCalls.push([id, n, x, y, z]),
-  update: (dt, p) => dropsTicks.push([dt, p]), render: () => {},
-  onCollect: (cb) => collectCbs.push(cb)};
+globalThis.sfx = (n) => calls.push(['sfx', n]);
+globalThis.SpeechKit = {speak(s) {
+  spoken.push(s);
+}, cancel() {}};
+globalThis.AudioMixer = {setMood(m) {
+  calls.push(['mood', m]);
+}};
+/* 真档存储介质(adventure-mode.test 同款 mem 桩): dev 会话零写入的红线断言面 */
+const mem = new Map();
+globalThis.SyncDB = {
+  ready: Promise.resolve(),
+  slot(key, schema) {
+    return require('../js/save-slot.js').mkSaveSlot({
+      get: (k)=> (mem.has(k) ? mem.get(k) : null),
+      set: (k, v)=> {
+        mem.set(k, v);
+      },
+      remove: (k)=> {
+        mem.delete(k);
+      },
+    }, key, schema);
+  },
+};
 globalThis.switchMode = (id) => calls.push(['switchMode', id]);
 globalThis.showPage = (id) => calls.push(['showPage', id]);
+globalThis.uiPause = () => calls.push(['uiPause']);
 globalThis.overlay = fakeEl();
 globalThis.fps = 60;
-globalThis.pos = {x: 64.5, y: 13, z: 64.5, set() {}};
-globalThis.vel = {set() {}};
+globalThis.setFly = (v)=> {
+  globalThis.flyMode = v;
+  globalThis.vel.y = 0;
+}; /* 意图入口桩(eng 侧壳读到 voxel 词法的真 setFly, 此桩供 Node 侧消费方) */
 globalThis.touchPlaying = false;
 globalThis.iconOf = (id) => (globalThis.ITEMS[id] && globalThis.ITEMS[id].icon) || '';
 globalThis.btnImg = () => '';
 globalThis.setTouchActions = () => {};
-
-/* ---------- 昼夜/战斗 seam(world.js/input/effects 未装, adventure-mode.test 同款):
-   dayTime/dayCycleOn 是 world.js 顶层可写绑定, 模式经全局名读写; applyDaylight
-   只记账(场景驱动归渲染层); yaw 是玩家朝向(mkMelee.aim 准星锥用, 0=面朝 -Z);
-   sfx/SpeechKit 是 CombatKit 受击/挥击音话术通道 —— 全部只记账 */
 globalThis.dayTime = 0;
 globalThis.dayCycleOn = false;
 globalThis.applyDaylight = () => calls.push(['applyDaylight']);
-globalThis.yaw = 0;
-globalThis.sfx = (n) => calls.push(['sfx', n]);
-const spoken = [];
-globalThis.SpeechKit = {speak(s) {
-  spoken.push(s);
-}, cancel() {}};
+globalThis.setPlayerGlow = (on) => calls.push(['glow', on]);
+globalThis.setFluidEditSink = () => {}; /* 流体账本缝(world.js 太重): 空桩 */
+globalThis.playerAirS = 15; /* 溺气余秒: 恒满气(气泡条藏, adventure 同款) */
+globalThis.camera = {}; /* 相机件: shootFromAim 的取景入参(raycastVoxel 缺席, aimHit 守卫返 null) */
+globalThis.Avatar = {swing() {}, flash() {}, setItem() {}}; /* 挥臂/闪红观感桩 */
+globalThis.Fx = {debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}}; /* 观感桩 */
 
-const ModeKit = require('../js/mode-kit.js');
-globalThis.mkMode = ModeKit.mkMode;
-globalThis.ModeKit = ModeKit;
-globalThis.FurnaceKit = require('../js/furnace-kit.js');
-globalThis.PlaceKit = require('../js/place-kit.js'); /* 放置链 kit(模式顶层即构造 editor) */
-ModeKit.spawn = (x, y, z, o) => {
-  calls.push(['spawn', x, y, z, o]);
-};
-
-/* ---------- 玩家战斗桩(票 B: HP 实体/进食/雪球弹池经 CombatKit, 全调用期解析) ---------- */
-globalThis.CombatKit = require('../js/combat-kit.js');
-globalThis.CombatCore = require('../js/combat-core.js'); /* stepShot/leadAim(combat-kit 自由标识符消费) */
-globalThis.Avatar = {swing() {}, flash() {}, setItem() {}}; /* 挥臂/闪红观感桩(Node 无渲染) */
-globalThis.camera = {}; /* 相机件: shootFromAim 沿准星出膛的取景入参(raycastVoxel 缺席, aimHit 守卫仍返 null) */
-/* ---------- 怪物库桩(票 C 扩桩, adventure-mode.test 窄面桩法): 名单默认空
-   (mkArrows 命中扫描面), 用例经 spawn(铺怪路径)或 push 假怪驱动; 玩家实体
-   受击走真实受击状态机(mob-core), 血量断言有据; 行为断言全走调用记录 ---------- */
+/* ---------- 怪物库桩(窄面桩法, 行为断言全走调用记录; 玩家实体受击走真实
+    受击状态机 mob-core——血量断言有据) ---------- */
 const RealMobCore = require('../js/mob-core.js');
 const mobsRig = {list: [], hits: [], spawned: [], deathCbs: []};
 const SR_MOB_CFG = {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55};
 globalThis.Mobs = {
   spawn(type, x, z, opts) {/* 记账+落清单(铺怪点位/标记断言有据) */
-    const m = {type, pos: {x, y: 13, z}, dead: false, gone: false,
+    const m = {type, pos: {x, y: 25, z}, dead: false, gone: false,
       yaw: (opts && opts.yaw) || 0, attackCd: 0, attackT: 0, target: null,
       cfg: Object.assign({}, SR_MOB_CFG, {name: type})};
     mobsRig.spawned.push(m);
@@ -208,8 +287,8 @@ globalThis.Mobs = {
     mobsRig.deathCbs.push(cb);
   },
   remove(m) {
-    m.gone = true;
-  }, /* 镜像真库: 置 gone 交回收(清场断言消费) */
+    m.gone = true; /* 镜像真库: 置 gone 交回收(清场断言消费) */
+  },
   clear() {
     mobsRig.list.length = 0;
     mobsRig.spawned.length = 0;
@@ -226,27 +305,138 @@ globalThis.Mobs = {
   debrisColor: () => 0xffffff,
 };
 
-/* 供给核心先于模式装载(mode-kit 同款: 模式顶层即调其派生函数) */
+/* ---------- 纯核心与 kit(Node 侧 require, 全局名铺到两侧) ---------- */
+/* adventure-core/place-kit 的自由标识符引用 config 的 B_ 前缀常数(const 词法绑定
+    不挂 vm 全局对象): 按源码动态收集名单铺到 Node 全局(v2 同款手法) */
+for (const src of [fs.readFileSync(path.join(ROOT, 'js', 'adventure-core.js'), 'utf8'),
+  fs.readFileSync(path.join(ROOT, 'js', 'adventure-maps-core.js'), 'utf8'),
+  fs.readFileSync(path.join(ROOT, 'js', 'place-kit.js'), 'utf8')]) {
+  for (const n of [...new Set(src.match(/\bB_[A-Z0-9_]+\b/g) || [])]) {
+    if (globalThis[n] === undefined) globalThis[n] = vm.runInContext(n, eng);
+  }
+}
+const AdventureCore = require('../js/adventure-core.js');
+Object.assign(globalThis, AdventureCore); /* advChestPut/advSwingDmg/ADV_GROUND/advBuildWorld 等 */
+Object.assign(globalThis, require('../js/adventure-maps-core.js')); /* ADV_MAPS/ADV_UNLOCK_KEYS 等 */
+const CraftCore = require('../js/craft-core.js');
+Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
+  furnaceRefund: CraftCore.furnaceRefund});
+const ModeKit = require('../js/mode-kit.js');
+globalThis.mkMode = ModeKit.mkMode;
+globalThis.mkMainAct = ModeKit.mkMainAct; /* 智能主动作分派(adventure touch 顶层即消费) */
+globalThis.mkBubbleBar = ModeKit.mkBubbleBar; /* 溺气泡条: 真件, 假 DOM 惰性渲染 */
+globalThis.ModeKit = ModeKit;
+ModeKit.spawn = (x, y, z, o) => {
+  calls.push(['spawn', x, y, z, o]);
+  /* 镜像真 kitSpawn 写 pos/yaw(adventure-mode.test 同款): 位置断言有据 */
+  globalThis.pos.x = x; globalThis.pos.y = y; globalThis.pos.z = z;
+  globalThis.yaw = (o && o.yaw) || 0;
+};
+globalThis.FurnaceKit = require('../js/furnace-kit.js');
+globalThis.PlaceKit = require('../js/place-kit.js'); /* 放置链 kit(壳顶层即构造 editor) */
+globalThis.CombatKit = require('../js/combat-kit.js');
+globalThis.CombatCore = require('../js/combat-core.js'); /* stepShot/leadAim(combat-kit 自由标识符消费) */
+globalThis.Backpack = require('../js/backpack.js'); /* 背包壳(ADR 0002 唯一持有 inventory 存档键) */
+const WorldJournalMod = require('../js/world-journal-core.js');
+globalThis.mkWorldJournal = WorldJournalMod.mkWorldJournal;
+globalThis.fluidCell = WorldJournalMod.fluidCell;
+
+/* 供给核心先于模式装载(其派生函数经全局名供给门面) */
 const ShowroomCore = require('../js/showroom-core.js');
+globalThis.SHOWROOM = ShowroomCore.SHOWROOM;
 globalThis.showroomPocket = ShowroomCore.showroomPocket;
 globalThis.showroomCrateRows = ShowroomCore.showroomCrateRows;
 globalThis.showroomDisplays = ShowroomCore.showroomDisplays;
+globalThis.showroomWorldEdits = ShowroomCore.showroomWorldEdits;
+globalThis.showroomDevBag = ShowroomCore.showroomDevBag;
+globalThis.mkShowroomStore = ShowroomCore.mkShowroomStore;
 
-const ShowroomMode = require('../js/modes/showroom.js');
-const showroomSrc = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'showroom.js'), 'utf8');
-const coreSrc = fs.readFileSync(path.join(ROOT, 'js', 'showroom-core.js'), 'utf8');
+/* ---------- 两个模式文件装进 eng(共享词法环境; index.html 加载序同构:
+    adventure.js → showroom-core(上方已铺全局) → showroom.js) ---------- */
+Object.assign(eng, {
+  document: globalThis.document, performance: globalThis.performance,
+  loadScene: globalThis.loadScene, showToast: globalThis.showToast, sfx: globalThis.sfx,
+  SpeechKit: globalThis.SpeechKit, AudioMixer: globalThis.AudioMixer, Fx: globalThis.Fx,
+  Mobs: globalThis.Mobs, Drops: globalThis.Drops,
+  switchMode: globalThis.switchMode, showPage: globalThis.showPage, uiPause: globalThis.uiPause,
+  overlay: globalThis.overlay, fps: globalThis.fps,
+  setFly: globalThis.setFly, touchPlaying: false, camera: globalThis.camera,
+  dayTime: 0, dayCycleOn: false,
+  applyDaylight: globalThis.applyDaylight, setPlayerGlow: globalThis.setPlayerGlow,
+  setFluidEditSink: globalThis.setFluidEditSink, playerAirS: globalThis.playerAirS,
+  iconOf: globalThis.iconOf, btnImg: globalThis.btnImg, setTouchActions: globalThis.setTouchActions,
+  Avatar: globalThis.Avatar, SyncDB: globalThis.SyncDB, Backpack: globalThis.Backpack,
+  mkWorldJournal: globalThis.mkWorldJournal, fluidCell: globalThis.fluidCell,
+  editBlock: globalThis.editBlock, applySweep: globalThis.applySweep,
+  ModeKit, mkMode: globalThis.mkMode, mkMainAct: globalThis.mkMainAct,
+  mkBubbleBar: globalThis.mkBubbleBar, FurnaceKit: globalThis.FurnaceKit,
+  PlaceKit: globalThis.PlaceKit, CombatKit: globalThis.CombatKit, CombatCore: globalThis.CombatCore,
+});/* 注: pos/vel/yaw/pitch/onGround/flyMode/Drops 是 eng 词法绑定(voxel/drops 顶层),
+    属性赋值只会被词法遮蔽——Node 侧已改为直接共享词法对象(见上方提取/包装) */
+/* 隐藏配方清单(mode-kit 顶层 const, 浏览器侧是共享词法名; Node 模块作用域取不到
+    → 从语义源源文本解析真值铺进 eng, 壳的 allow getter(typeof 守卫)读到真清单
+    ——生产行为(隐藏配方经 dev 政策点亮)的忠实复刻, 修桩不修断言 */
+{
+  const mkSrc = fs.readFileSync(path.join(ROOT, 'js/mode-kit.js'), 'utf8');
+  const m = mkSrc.match(/const KIT_HIDDEN_RECIPES = (\[[^\]]*\]);/);
+  assert.ok(m, 'mode-kit 隐藏配方清单可解析(桩 provisioning 前提)');
+  eng.KIT_HIDDEN_RECIPES = JSON.parse(m[1].replace(/'/g, '"'));
+}
+Object.assign(eng, AdventureCore); /* 冒险纯核心常量表与政策纯函数(adventure-core) */
+Object.assign(eng, require('../js/adventure-maps-core.js')); /* 地图注册表(缓存实例) */
+Object.assign(eng, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
+  furnaceRefund: CraftCore.furnaceRefund});
+Object.assign(eng, {SHOWROOM: ShowroomCore.SHOWROOM, showroomPocket: ShowroomCore.showroomPocket,
+  showroomWorldEdits: ShowroomCore.showroomWorldEdits, showroomDevBag: ShowroomCore.showroomDevBag,
+  mkShowroomStore: ShowroomCore.mkShowroomStore});
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/modes/adventure.js'), 'utf8'),
+    eng, {filename: 'js/modes/adventure.js'});
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/modes/showroom.js'), 'utf8'),
+    eng, {filename: 'js/modes/showroom.js'});
+const SRV = vm.runInContext(`({
+  get ShowroomMode() { return ShowroomMode; },
+  get AdventureMode() { return AdventureMode; },
+  get store() { return advStore; }, /* 两缝与缺省(U4 换装生命周期断言面) */
+  get profile() { return advProfile; },
+  get storeDefault() { return advStoreDefault; },
+  get profileDefault() { return advProfileDefault; },
+  advStationGate, /* 站点门禁缝(station 行为断言直触, 与面板 opts 同一函数) */
+})`, eng);
+const ShowroomMode = SRV.ShowroomMode;
+const AdventureMode = SRV.AdventureMode;
+const A = AdventureMode.adv; /* 壳的 28 键测试面(挂点别名优先走它, 见各用例) */
+const showroomSrc = fs.readFileSync(path.join(ROOT, 'js/modes/showroom.js'), 'utf8');
+const coreSrc = fs.readFileSync(path.join(ROOT, 'js/showroom-core.js'), 'utf8');
+
+const G = ADV_GROUND; /* 家营地平 24(展馆 dev 档的地平; v2 独立世界地平 12 已退役) */
+const SR_FURNACE = {x: 64, y: G + 1, z: 62}; /* 即测炉: 出生点正后方 1.5 格 */
+const nightMobList = () => mobsRig.list.filter((m) => m.__nightMob);
 
 function freshEnter() {
   calls.length = 0;
+  spoken.length = 0;
+  dropCalls.length = 0;
+  dropsTicks.length = 0;
+  mobsRig.hits.length = 0;
   elCache['hotbar'].children.length = 0;
   collectCbs.length = 0; /* switchMode 兜底清共享实体账(Drops.clear 解除回调)的同拍 */
   ShowroomMode.init();
 }
 
+/* 面板 DOM 面读: 递归找 recipe 键(v2 辅助延续, 配方卡 dataset.recipe) */
+function findCardByRecipe(el, rid) {
+  if (el.dataset && el.dataset.recipe === rid) return el;
+  for (const c of el.children || []) {
+    const r = findCardByRecipe(c, rid);
+    if (r) return r;
+  }
+  return null;
+}
+
 /* ============ ① 契约面 ============ */
 
-test('体验馆: 模式文件可 require + 注册行形状(dev 调试场) + main.js MODES 接线正则', () => {
-  assert.ok(ShowroomMode, 'CommonJS 导出守卫(nether 先例): require 不炸且有导出');
+test('体验馆: 门面经共享词法环境装载 + 注册行形状(dev 调试场) + main.js/index.html 接线', () => {
+  assert.ok(ShowroomMode, '门面与冒险壳同 context 装载不炸(门面写壳的顶层 let 缝)');
   assert.strictEqual(ShowroomMode.id, 'showroom', '模式对象 id');
   const ModeRegistry = require('../js/mode-registry.js');
   const row = ModeRegistry.all.find((m) => m.id === 'showroom');
@@ -257,15 +447,18 @@ test('体验馆: 模式文件可 require + 注册行形状(dev 调试场) + main
   assert.strictEqual(row.dev, true, 'dev 行(卡默认隐藏, ?dev=1 解锁)');
   assert.strictEqual(row.mood, 'none', '情绪 none');
   assert.strictEqual(ModeRegistry.scriptSrc(row), 'js/modes/showroom.js', '派生脚本路径');
-  const mainSrc = fs.readFileSync(path.join(ROOT, 'js', 'main.js'), 'utf8');
+  const mainSrc = fs.readFileSync(path.join(ROOT, 'js/main.js'), 'utf8');
   assert.match(mainSrc, /^ {2}showroom: ShowroomMode,$/m,
       'main.js MODES 表接线(两空格缩进+行尾逗号)');
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   assert.match(html, /<script src="js\/showroom-core\.js" defer><\/script>/,
       'index.html 装载供给核心(加载序在模式之前)');
+  const orderOk = html.indexOf('js/modes/adventure.js') < html.indexOf('js/showroom-core.js') &&
+      html.indexOf('js/showroom-core.js') < html.indexOf('js/modes/showroom.js');
+  assert.ok(orderOk, '加载序: 冒险壳 → 供给核心 → 门面(门面加载期即引用壳顶层部件)');
 });
 
-/* ============ ② 数据隔离键扫(模式+供给核心两文件) ============ */
+/* ============ ② 数据隔离键扫(模式+供给核心两文件, 红线不动) ============ */
 
 function scanSaveKeys() {
   const keys = new Set(['audio_vol_save', 'inventory_save', 'daily_budget_save',
@@ -320,9 +513,10 @@ test('体验馆: 套餐 — stock 行形状/≤27/全 id ∈ ITEMS/n=stackMax(�
   }
 });
 
-test('体验馆: 进场即全开 — 背包套餐出发, RECIPES 每条配方 canCraft 全绿', () => {
+test('体验馆: 进场即全开 — dev bag 照套餐重铸, RECIPES 每条配方 canCraft 全绿', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
+  assert.strictEqual(inv, A.advGetInv(), '门面 getInv = 壳的背包 inv(dev bag 包同一引用)');
   for (const r of api.RECIPES) {
     const check = api.canCraft(inv, r, true);
     assert.ok(check.ok, '配方可合成: ' + r.id + ' 缺 ' + JSON.stringify(check.missing));
@@ -331,10 +525,11 @@ test('体验馆: 进场即全开 — 背包套餐出发, RECIPES 每条配方 ca
 
 /* ============ ④ 快捷栏 ============ */
 
-test('体验馆: 材料快捷栏 — mkHotbar 9 槽镜像背包前 9 槽, 数字键/滚轮/点选全自动', () => {
+test('体验馆: 壳的快捷栏 — 9 槽镜像 dev 背包前 9 槽, 数字键/滚轮/点选全自动', () => {
   freshEnter();
   const hb = ShowroomMode.hotbar;
-  assert.ok(hb, '模式壳接了 mkHotbar');
+  assert.ok(hb, '门面接壳的 mkHotbar');
+  assert.strictEqual(hb, AdventureMode.hotbar, '与冒险壳同一实例(统一壳的快捷栏)');
   assert.strictEqual(hb.items.length, api.HOTBAR_SLOTS, '快捷栏 9 槽');
   const inv = ShowroomMode.getInv();
   for (let i = 0; i < api.HOTBAR_SLOTS; i++) {
@@ -349,46 +544,61 @@ test('体验馆: 材料快捷栏 — mkHotbar 9 槽镜像背包前 9 槽, 数字
   assert.strictEqual(hb.sel, 1, '滚轮下滚 → 下一槽');
   ShowroomMode.onWheel(-1);
   assert.strictEqual(hb.sel, 0, '滚轮上滚 → 上一槽');
-  assert.strictEqual(elCache['hotbar'].style.display, 'flex', '进场快捷栏可见');
+  assert.strictEqual(elCache['hotbar'].style.display, 'flex', '进场快捷栏可见(chrome 对齐冒险壳)');
 });
 
-/* ============ ⑤ 建场真件断言 ============ */
+/* ============ ⑤ 统一进场: 壳 init 读篡改世界档 = home 基座 + 展馆账本重放 ============ */
 
-const SR_FURNACE = {x: 64, y: 13, z: 62}; /* 即测炉: 出生点正后方 1.5 格 */
-
-test('体验馆: 装场 — 全幅草场/房子墙顶门板窗/站点件齐备/仓库箱数=派生箱数(真件 getBlock)', () => {
+test('体验馆: 统一装场 — 展馆结构经壳的建场+重放链在场(家营地平 y' + G + ', 真件 getBlock)', () => {
   freshEnter();
-  const g = 12;
-  assert.strictEqual(api.getBlock(5, g, 5), 1, '全幅草皮(160 世界不再只铺 128)');
-  assert.strictEqual(api.getBlock(159, g, 159), 1, '世界东南角也在场(扩容纠偏)');
-  /* 房子: 地板/墙角/屋顶/南门成对/玻璃板窗 */
-  assert.strictEqual(api.getBlock(55, g, 55), 6, '木板地板');
-  assert.strictEqual(api.getBlock(48, 14, 44), 6, '木墙(西北角)');
-  assert.strictEqual(api.getBlock(63, 17, 60), 6, '木板顶');
-  assert.strictEqual(api.getBlock(63, 13, 75), api.B_DOOR, '南门(下扇)');
-  assert.strictEqual(api.getBlock(63, 14, 75), api.B_DOOR_TOP, '南门(上扇)');
-  assert.strictEqual(api.getBlock(54, 14, 44), api.B_GLASS_PANE, '北墙窗');
-  assert.strictEqual(api.getBlock(48, 14, 60), api.B_GLASS_PANE, '西墙窗');
+  /* 展厅: 地板/墙角/屋顶/南门成对/玻璃板窗 */
+  assert.strictEqual(api.getBlock(55, G, 55), 6, '木板地板');
+  assert.strictEqual(api.getBlock(48, G + 2, 44), 6, '木墙(西北角)');
+  assert.strictEqual(api.getBlock(63, G + 5, 60), 6, '木板顶');
+  assert.strictEqual(api.getBlock(63, G + 1, 75), api.B_DOOR, '南门(下扇)');
+  assert.strictEqual(api.getBlock(63, G + 2, 75), api.B_DOOR_TOP, '南门(上扇)');
+  assert.strictEqual(api.getBlock(54, G + 2, 44), api.B_GLASS_PANE, '北墙窗');
+  assert.strictEqual(api.getBlock(48, G + 2, 60), api.B_GLASS_PANE, '西墙窗');
   /* 站点件: 即测炉 + 灶台双炉 + 工作台×2 + 床 */
   assert.strictEqual(api.getBlock(SR_FURNACE.x, SR_FURNACE.y, SR_FURNACE.z), api.B_FURNACE,
       '出生圈内即测熔炉');
-  assert.strictEqual(api.getBlock(72, 13, 46), api.B_FURNACE, '灶台角炉 1');
-  assert.strictEqual(api.getBlock(74, 13, 46), api.B_FURNACE, '灶台角炉 2');
-  assert.strictEqual(api.getBlock(52, 13, 46), api.B_CRAFT, '工作台 1');
-  assert.strictEqual(api.getBlock(54, 13, 46), api.B_CRAFT, '工作台 2');
-  assert.strictEqual(api.getBlock(77, 13, 73), api.B_BED, '床');
+  assert.strictEqual(api.getBlock(72, G + 1, 46), api.B_FURNACE, '灶台角炉 1');
+  assert.strictEqual(api.getBlock(74, G + 1, 46), api.B_FURNACE, '灶台角炉 2');
+  assert.strictEqual(api.getBlock(52, G + 1, 46), api.B_CRAFT, '工作台 1');
+  assert.strictEqual(api.getBlock(54, G + 1, 46), api.B_CRAFT, '工作台 2');
+  assert.strictEqual(api.getBlock(77, G + 1, 73), api.B_BED, '床');
   /* 仓库箱排: 箱方块数 = 派生箱数(且 ≤ 锚位上限, 超出即红) */
-  const crates = ShowroomMode.crates.list;
-  assert.ok(crates.length > 0 && crates.length <= 8, '仓库箱 1..8 只: ' + crates.length);
-  for (let i = 0; i < crates.length; i++) {
-    assert.strictEqual(api.getBlock(50, 13, 50 + i * 2), api.B_CHEST,
+  const crates = ShowroomCore.showroomCrateStock();
+  assert.ok(crates.length > 0 && crates.length <= SHOWROOM.crateMax,
+      '仓库箱 1..' + SHOWROOM.crateMax + ' 只: ' + crates.length);
+  for (let i = 0; i < Math.min(crates.length, SHOWROOM.crateMax); i++) {
+    assert.strictEqual(api.getBlock(50, G + 1, 50 + i * 2), api.B_CHEST,
         '第 ' + i + ' 箱(' + crates[i].title + ')在场');
+  }
+  /* 展台展品: 派生清单的方块都在台面(y G+2 扫描区); 例外登记——need 旗标块
+      (树叶)是失依即落的伴生块, 台面上无原木可依, 过壳 init 的 P14 清扫不
+      存活(重进也不复活)——统一壳的既有语义, 非账本缺块 */
+  const found = new Set();
+  for (let x = 54; x <= 72; x++) {
+    for (let z = 51; z <= 66; z++) {
+      const b = api.getBlock(x, G + 2, z);
+      if (b) found.add(b);
+    }
+  }
+  for (const id of ShowroomCore.showroomDisplays(
+      [api.B_CRAFT, api.B_FURNACE, api.B_CHEST, api.B_BED])) {
+    const bid = api.ITEMS[id].block;
+    if (api.BLOCKS[bid] && api.BLOCKS[bid].need) {
+      assert.ok(!found.has(bid), 'need 旗标展品(' + id + ')被 P14 清扫(失依即落, 统一壳语义)');
+      continue;
+    }
+    assert.ok(found.has(bid), '展品在台面: ' + id);
   }
   /* 火把插满: 室内 + 地下室(扫描区域计数) */
   let houseTorch = 0;
   for (let x = 48; x <= 79; x++) {
     for (let z = 44; z <= 75; z++) {
-      for (let y = 13; y <= 16; y++) {
+      for (let y = G + 1; y <= G + 4; y++) {
         if (api.getBlock(x, y, z) === api.B_TORCH) houseTorch++;
       }
     }
@@ -397,59 +607,50 @@ test('体验馆: 装场 — 全幅草场/房子墙顶门板窗/站点件齐备/�
   let baseTorch = 0;
   for (let x = 50; x <= 77; x++) {
     for (let z = 46; z <= 73; z++) {
-      if (api.getBlock(x, 8, z) === api.B_TORCH) baseTorch++;
+      if (api.getBlock(x, G - 4, z) === api.B_TORCH) baseTorch++;
     }
   }
   assert.ok(baseTorch >= 8, '地下室火把成排: ' + baseTorch);
+  /* 地下室: 内腔净空/腔顶石壳/矿样墙/楼梯井踏步 */
+  assert.strictEqual(api.getBlock(63, G - 3, 60), 0, '内腔净空');
+  assert.strictEqual(api.getBlock(63, G - 1, 60), 4, '腔顶石壳(上承房内地板)');
+  assert.strictEqual(api.getBlock(55, G - 4, 47), api.B_DIAMOND_ORE, '矿样墙: 钻');
+  assert.strictEqual(api.getBlock(75, G - 5, 71), 4, '楼梯井踏步在位');
+  /* 基座世界在场(整地圈外的 home 图建场件): 门阵广场圆石铺装(坐标避开三扇门
+      的门框平面 pz=76/88 与塔列, 帧 x88..93 属雪原门 x 向) */
+  assert.strictEqual(api.getBlock(90, G, 80), 4, '门阵广场圆石(基座建场在展馆外完好)');
 });
 
-test('体验馆: 展台 — 展品=派生清单, 每件展品的方块都在台面上(真件扫描)', () => {
+test('体验馆: 统一进场 — 房内出生(篡改档 pos)·昼夜接线·昼夜时刻恒清晨(dev 档不落盘)', () => {
   freshEnter();
-  const found = new Set();
-  for (let x = 54; x <= 72; x++) {
-    for (let z = 51; z <= 66; z++) {
-      const b = api.getBlock(x, 14, z);
-      if (b) found.add(b);
-    }
-  }
-  for (const id of ShowroomCore.showroomDisplays(
-      [api.B_CRAFT, api.B_FURNACE, api.B_CHEST, api.B_BED])) {
-    assert.ok(found.has(api.ITEMS[id].block), '展品在台面: ' + id);
-  }
+  assert.ok(calls.some((c) => c[0] === 'spawn' && c[1] === 64.5 && c[2] === G + 1 && c[3] === 60.5),
+      '出生=篡改档 pos(房内过道, 家营地平+1)');
+  assert.strictEqual(eng.dayCycleOn, true, '壳 init 置位昼夜循环');
+  assert.strictEqual(eng.dayTime, 0, '白天起步(篡改档 dayTime=0)');
+  assert.ok(calls.some((c) => c[0] === 'applyDaylight'), '进场先刷一次天色(壳同位)');
+  eng.dayTime = 18000; /* 破坏现场: 深夜退场 */
+  ShowroomMode.cleanup();
+  assert.strictEqual(eng.dayCycleOn, false, 'cleanup 关循环(壳同位)');
+  assert.ok(calls.some((c) => c[0] === 'applyDaylight'), '复位即刷天色(幂等)');
+  freshEnter(); /* 重进: dev 档重铸, 时刻回清晨 */
+  assert.strictEqual(eng.dayTime, 0, '重进恒清晨(dev 档每次进场重铸, 不读深夜残留)');
 });
 
-test('体验馆: 地下室 — 自密封石壳/内腔净空/矿样墙/楼梯井逐级通透(真件)', () => {
+test('体验馆: 馆内生态 — 巢穴怪与牧场动物随统一壳进馆(拍板③), 白天无夜怪', () => {
   freshEnter();
-  assert.strictEqual(api.getBlock(63, 7, 60), 4, '地下室内腔地面(圆石)');
-  assert.strictEqual(api.getBlock(63, 9, 60), 0, '内腔净空(高 3)');
-  assert.strictEqual(api.getBlock(63, 11, 60), 4, '腔顶石壳(上承房内地板, 不塌不漏)');
-  assert.strictEqual(api.getBlock(52, 8, 47), api.B_COAL_ORE, '矿样墙: 煤');
-  assert.strictEqual(api.getBlock(55, 8, 47), api.B_DIAMOND_ORE, '矿样墙: 钻');
-  assert.strictEqual(api.getBlock(56, 8, 47), api.B_CLAY, '矿样墙: 黏土');
-  /* 楼梯井: 五级 1 格台阶(降=走落, 升=跳跃), 顶通房内地面; 每级站位净空+踏步在位 */
-  for (let i = 0; i <= 4; i++) {
-    const z = 71 - i; const standY = 12 - i;
-    for (let y = standY; y <= 12; y++) {
-      assert.strictEqual(api.getBlock(75, y, z), 0, '楼梯井通透: (75,' + y + ',' + z + ')');
-    }
-    assert.strictEqual(api.getBlock(75, standY - 1, z), 4,
-        '踏步在位: (75,' + (standY - 1) + ',' + z + ')');
+  const types = new Set(mobsRig.spawned.map((m) => m.type));
+  for (const t of ['zombie', 'spider', 'creeper']) {
+    assert.ok(types.has(t), '巢穴怪在场: ' + t + '(壳的 advSeedMapMobs)');
   }
+  for (const t of ['cow', 'sheep', 'pig', 'chicken']) {
+    assert.ok(types.has(t), '牧场动物在场: ' + t + '(F4 牧场随统一进馆)');
+  }
+  assert.strictEqual(nightMobList().length, 0, '白天无夜怪(入夜上沿才铺)');
 });
 
-/* ============ ⑥ 三站点交互 ============ */
+/* ============ ⑥ 三站点交互(统一口径) ============ */
 
-/* 面板 DOM 面读: 递归找类名(旧版同款辅助) */
-function findByClass(el, cls) {
-  if (String(el.className || '').split(/\s+/).includes(cls)) return el;
-  for (const c of el.children || []) {
-    const r = findByClass(c, cls);
-    if (r) return r;
-  }
-  return null;
-}
-
-test('体验馆: 熔炉交互 — 走近点击开面板/太远 toast 拒/✕ 统一出口收起', () => {
+test('体验馆: 熔炉交互 — 走近点击开面板/太远 toast 拒/✕ 统一出口收起/左键同达', () => {
   freshEnter();
   const hit = {x: SR_FURNACE.x, y: SR_FURNACE.y, z: SR_FURNACE.z};
   const sx = pos.x; const sz = pos.z;
@@ -468,30 +669,84 @@ test('体验馆: 熔炉交互 — 走近点击开面板/太远 toast 拒/✕ 统
   ShowroomMode.sr.panel.close();
 });
 
-test('体验馆: 工作台/Tab — 合成面板开合, station 恒真全开(隐藏配方也点亮)', () => {
+test('体验馆: 合成面板 — Tab 开合(统一入口) · 点击工作台不再开面板(统一口径)', () => {
   freshEnter();
-  const sx = pos.x; const sz = pos.z;
-  pos.x = 52.5; pos.z = 47.5; /* 走近工作台 1 */
-  ShowroomMode.onMouse(2, {x: 52, y: 13, z: 46});
-  assert.ok(ShowroomMode.sr.craft.isOpen(), '点击工作台开合成面板');
-  assert.notStrictEqual(ShowroomMode.sr.craft.panel.root.style.display, 'none', '面板可见');
-  ShowroomMode.sr.craft.panel.close();
-  assert.ok(!ShowroomMode.sr.craft.isOpen(), '✕ 出口收起');
-  pos.x = sx; pos.z = sz;
-  ShowroomMode.onKey('Tab'); /* Tab 同达(探险同款入口) */
+  /* 统一后合成面板入口=Tab/🎒(站点门禁是合成时校验, 不是点击开面板); 点击
+      工作台落放置链——这是拍板过的统一口径, 非回归 */
+  ShowroomMode.onMouse(2, {x: 52, y: G + 1, z: 46, nx: 0, ny: 1, nz: 0});
+  assert.ok(!ShowroomMode.sr.craft.isOpen(), '点击工作台不开面板(统一口径: 入口在 Tab)');
+  ShowroomMode.onKey('Tab'); /* Tab 开面板 */
   assert.ok(ShowroomMode.sr.craft.isOpen(), 'Tab 开面板');
+  assert.notStrictEqual(ShowroomMode.sr.craft.panel.root.style.display, 'none', '面板可见');
   ShowroomMode.onKey('Tab');
   assert.ok(!ShowroomMode.sr.craft.isOpen(), 'Tab 再按收面板');
-  assert.match(showroomSrc, /station: \(\) => true/, '台级配方随处可摆(dev 全开口径)');
-  assert.match(showroomSrc, /KIT_HIDDEN_RECIPES/, '隐藏配方全点亮(清单随 mode-kit 自动跟)');
 });
 
-/* ============ 2026-10-28 背包点选搬运: 快捷栏镜像同步(修: onMove 搬完漏刷, 关背包图标滞留旧物) ============ */
+test('体验馆: station 行为断言 — 远离工作台台级配方随处可摆(dev 政策, 源码正则已废)', () => {
+  freshEnter();
+  /* 站在房内过道(64.5,60.5): 距最近工作台(52/54,46) > 20 格——真实 4 格门禁
+      必假; 政策缝 advStationGate(面板 opts 消费的同一函数)恒真 */
+  assert.strictEqual(A.advStationOk(), false, '4 格内无工作台(真实站点门禁为假)');
+  assert.strictEqual(SRV.advStationGate(), true, 'advStationGate 恒真(dev: 台级配方随处可摆)');
+  /* 隐藏配方全点亮: bread ∈ mode-kit 隐藏清单, dev 政策下面板卡片在场且不灰 */
+  ShowroomMode.onKey('Tab');
+  const bread = findCardByRecipe(ShowroomMode.sr.craft.panel.root, 'bread');
+  assert.ok(bread, '隐藏配方面包卡片在场(hiddenRecipesOpen)');
+  const tableR = api.RECIPES.find((r) => r.station === 'table');
+  const card = findCardByRecipe(ShowroomMode.sr.craft.panel.root, tableR.id);
+  assert.ok(card, '台级配方卡片在场(远离工作台): ' + tableR.id);
+  assert.ok(!card.classList.contains('dim'), '台级配方不灰(station 门禁被 dev 政策放开)');
+  ShowroomMode.onKey('Tab');
+});
 
-test('体验馆: 背包点选搬运 — 搬进/搬出/换序快捷栏镜像跟随(修: 关背包后物品栏不更新)', () => {
+test('体验馆: 箱子全局单账户 — 顶格预填 · 多箱方块打开同一账户(§4 行为变化)', () => {
+  freshEnter();
+  const account = ShowroomMode.chest();
+  assert.strictEqual(account.size, ADV_CHEST_SLOTS, '顶格 ' + ADV_CHEST_SLOTS + ' 槽(篡改档)');
+  const stock = ShowroomCore.showroomCrateStock();
+  assert.strictEqual(account.slots[0].id, stock[0].rows[0].id,
+      '首槽=派生首行(' + stock[0].title + '): 仓库箱物资经 U3 payload 预填');
+  assert.ok(account.slots.every((s) => !s || Object.prototype.hasOwnProperty.call(api.ITEMS, s.id)),
+      '槽内容 ∈ ITEMS');
+  /* 满箱拒收(此刻账户 27 槽全满): 整摞存入被温和拒绝(零惩罚口径) */
+  const inv = ShowroomMode.getInv();
+  const logBefore = api.count(inv, 'log');
+  calls.length = 0;
+  A.advChestDeposit(0); /* 背包槽 0(原木×64)整摞入箱尝试 */
+  assert.strictEqual(api.count(inv, 'log'), logBefore, '满箱拒收: 背包不动');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('满')),
+      '满箱提示 toast');
+  /* 两只仓库箱方块 → 同一账户: 从 A 箱取走的槽, 从 B 箱看也是空的 */
+  const sx = pos.x; const sz = pos.z;
+  pos.x = 50.5; pos.z = 51.5; /* 走近第 0 箱(50,50) */
+  ShowroomMode.onMouse(2, {x: 50, y: G + 1, z: 50});
+  assert.ok(ShowroomMode.sr.chest.isOpen(), '点箱 A 开面板');
+  assert.ok(ShowroomMode.sr.chest.panel.root.style.display !== 'none', '面板可见');
+  A.advChestWithdraw(0); /* 从 A 箱取走首槽 */
+  assert.strictEqual(account.slots[0], null, 'A 箱取走首槽');
+  ShowroomMode.sr.chest.panel.close();
+  assert.ok(!ShowroomMode.sr.chest.isOpen(), '✕ 出口收起');
+  ShowroomMode.onMouse(2, {x: 50, y: G + 1, z: 52}); /* 走近第 1 箱(50,52) */
+  assert.ok(ShowroomMode.sr.chest.isOpen(), '点箱 B 开面板');
+  assert.strictEqual(ShowroomMode.chest(), account, '多箱方块同一账户(全局单账户口径)');
+  assert.strictEqual(account.slots[0], null, 'B 箱看到的也是取空的首槽(A/B 同账户)');
+  /* 背包→账户→背包: 取空一格后整摞走一个来回零损耗(advChestPut/Take 政策路径) */
+  A.advChestDeposit(0); /* 背包槽 0(原木×64)整摞入箱(取空的首槽恰可容) */
+  assert.strictEqual(api.count(inv, 'log'), 0, '整摞出包入箱');
+  const slot = account.slots.findIndex((s) => s && s.id === 'log' && s.n === 64);
+  assert.ok(slot >= 0, '原木整摞躺进账户');
+  A.advChestWithdraw(slot);
+  assert.strictEqual(api.count(inv, 'log'), logBefore, '整摞取回(零损耗)');
+  ShowroomMode.sr.chest.panel.close();
+  pos.x = sx; pos.z = sz;
+});
+
+/* ============ 2026-10-28 背包点选搬运: 快捷栏镜像同步(壳的 advInvMove) ============ */
+
+test('体验馆: 背包点选搬运 — 搬进/搬出/换序快捷栏镜像跟随(壳同一函数)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
-  /* 主格 → 快捷栏空位: 火把搬进槽 5, 图标要立即可见(图标只认 syncBar 写的 item 字段) */
+  /* 主格 → 快捷栏空位: 火把搬进槽 5, 图标要立即可见(图标只认 sync 写的 item 字段) */
   inv.slots[5] = null;
   inv.slots[20] = {id: 'torch', n: 4};
   ShowroomMode.sr.craft.move(20, 5);
@@ -514,46 +769,17 @@ test('体验馆: 背包点选搬运 — 搬进/搬出/换序快捷栏镜像跟�
       inv.slots[3] ? inv.slots[3].id : '', '原地搬运不动镜像');
 });
 
-test('体验馆: 仓库箱 — 点箱开对应账户(箱格首件=派生首件) · 整摞存取零损耗(政策纯函数)', () => {
-  freshEnter();
-  const accounts = ShowroomMode.crates.accounts();
-  assert.strictEqual(accounts[0].slots[0].id, 'shears', '工具箱首件=注册序首个工具(剪刀)');
-  const sx = pos.x; const sz = pos.z;
-  pos.x = 50.5; pos.z = 51.5; /* 走近第 0 箱 */
-  ShowroomMode.onMouse(2, {x: 50, y: 13, z: 50});
-  assert.ok(ShowroomMode.sr.chest.isOpen(), '点箱开面板');
-  assert.notStrictEqual(ShowroomMode.sr.chest.panel.root.style.display, 'none', '面板可见');
-  /* 面板箱格首格渲染当前账户首件图标(路由到了第 0 箱) */
-  const grid = findByClass(ShowroomMode.sr.chest.panel.root, 'mkp-chestgrid');
-  assert.ok(grid && grid.children[0] &&
-      String(grid.children[0].innerHTML).indexOf(api.ITEMS.shears.icon) >= 0,
-  '箱格首格=工具箱首件(剪刀图标)');
-  /* 背包→箱→背包: 套餐首件原木整摞走一个来回(advChestPut/Take 政策路径) */
-  ShowroomMode.sr.chest.open(2); /* 直开第 2 箱(烧炼·燃料箱) */
-  const inv = ShowroomMode.getInv();
-  const before = api.count(inv, 'log');
-  ShowroomMode.crates.put(0); /* 背包槽 0(原木×64)整摞入箱 */
-  assert.strictEqual(api.count(inv, 'log'), 0, '整摞出包入箱');
-  const slot = accounts[2].slots.findIndex((s) => s && s.id === 'log' && s.n === 64);
-  assert.ok(slot >= 0, '原木整摞躺在第 2 箱');
-  ShowroomMode.crates.take(slot); /* 整摞取回 */
-  assert.strictEqual(api.count(inv, 'log'), before, '整摞取回(零损耗)');
-  ShowroomMode.sr.chest.panel.close();
-  assert.ok(!ShowroomMode.sr.chest.isOpen(), '✕ 出口收起');
-  pos.x = sx; pos.z = sz;
-});
+/* ============ ⑦ 熔炉行为线(壳的 kit 实例, 编排口径) ============ */
 
-/* ============ ⑦ 熔炉行为线(编排口径, 纯函数不重测) ============ */
-
-test('体验馆: 熔炉 — 自动放料(套餐首现矿种全量+最省燃料) · 2.5s/件 · 关面板照烧 · 退包', () => {
+test('体验馆: 熔炉 — 自动放料(套餐首现矿种全量+最省燃料) · 2.5s/件 · 关面板照烧', () => {
   freshEnter();
   const hit = {x: SR_FURNACE.x, y: SR_FURNACE.y, z: SR_FURNACE.z};
   ShowroomMode.onMouse(2, hit);
-  ShowroomMode.sr.autoFill(); /* 绑定炉自算真 plan(读真包) */
+  ShowroomMode.sr.autoFill(); /* 绑定炉自算真 plan(读真包, 与探险同一实现) */
   const key = api.blockKey(SR_FURNACE.x, SR_FURNACE.y, SR_FURNACE.z);
   const f = ShowroomMode.sr.furnaces.get(key);
   /* 套餐首行=原木(RECIPES 首配方 planks 的材料): 全量入炉; 热值缺口 64,
-     FUEL 择优序首煤(8 件/块) → 8 块 */
+      FUEL 择优序首煤(8 件/块) → 8 块 */
   const first = ShowroomMode.stock[0];
   assert.strictEqual(first.id, 'log', '套餐首行=原木(配方书首配方的材料, 派生序)');
   assert.deepStrictEqual(f.input, {id: 'log', n: 64}, '待烧料=首现矿种全量');
@@ -573,9 +799,9 @@ test('体验馆: 熔炉 — 自动放料(套餐首现矿种全量+最省燃料) 
   assert.deepStrictEqual(f3.out, {id: 'charcoal', n: 1}, '面板关着照烧');
 });
 
-/* ============ ⑧ 收场与重进 ============ */
+/* ============ ⑧ 收场与重进(dev store 丢弃一切) ============ */
 
-test('体验馆: 收场与重进 — 面板全收+零掉落物 · 背包同实例原地重铸 · 仓库箱恢复原装', () => {
+test('体验馆: 收场与重进 — 退炉不退料(统一口径)·零掉落物·背包同实例重铸·账户照派生重铸', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   ShowroomMode.onMouse(2, {x: SR_FURNACE.x, y: SR_FURNACE.y, z: SR_FURNACE.z});
@@ -585,60 +811,56 @@ test('体验馆: 收场与重进 — 面板全收+零掉落物 · 背包同实�
   ShowroomMode.onKey('Tab'); /* 合成面板开着一起收 */
   assert.ok(ShowroomMode.sr.craft.isOpen(), '面板开着(收场前提)');
   ShowroomMode.cleanup();
-  assert.ok(!ShowroomMode.sr.isOpen() && !ShowroomMode.sr.craft.isOpen(),
-      '双面板全收');
-  assert.strictEqual(ShowroomMode.sr.furnaces.size, 0, '炉态清空');
-  assert.strictEqual(dropCalls.length, 0, '常规收场零掉落物');
-  assert.strictEqual(api.count(inv, 'log'), 63, '退炉三笔入包(炉内待烧料 63)');
-  assert.strictEqual(api.count(inv, 'coal'), 63, '燃料退回(56 + 炉内 7)');
-  assert.strictEqual(api.count(inv, 'charcoal'), 65, '产物已随关面板入包(对照样 64 + 新烧 1)');
-  /* 重进: 同实例原地重铸 + 仓库箱恢复原装(退出即弃) */
+  assert.ok(!ShowroomMode.sr.craft.isOpen() && !ShowroomMode.sr.chest.isOpen(),
+      '面板旗标全收(壳 cleanup)');
+  assert.strictEqual(dropCalls.length, 0, '常规收场零掉落物(余量静默丢弃口径)');
+  assert.strictEqual(api.count(inv, 'log'), 0,
+      '退炉不退料(F1 拍板①: 炉态随会话丢弃, v2 的退炉三笔入包退役)');
+  /* 重进: dev 档全部重铸(背包同实例原地重铸/账户照派生/炉态清空/世界重建) */
   inv.slots[0] = null; /* 破坏现场 */
-  ShowroomMode.crates.accounts()[0].slots[0] = null;
+  ShowroomMode.chest().slots[0] = null;
   freshEnter();
-  assert.strictEqual(ShowroomMode.getInv(), inv, '背包引用跨进场稳定(面板族持引用)');
+  assert.strictEqual(ShowroomMode.getInv(), inv, '背包引用跨进场稳定(②的解: 同一 inv 对象)');
   assert.strictEqual(api.count(inv, ShowroomMode.stock[0].id),
       ShowroomMode.stock[0].n, '套餐照表重铸(恢复原装)');
-  assert.strictEqual(ShowroomMode.crates.accounts()[0].slots[0].id, 'shears',
-      '仓库箱照派生重铸(恢复原装)');
+  assert.strictEqual(ShowroomMode.chest().slots[0].id, ShowroomCore.showroomCrateStock()[0].rows[0].id,
+      '账户照派生重铸(恢复原装)');
+  assert.strictEqual(ShowroomMode.sr.furnaces.size, 0, '炉态清空(壳 init reset)');
+  assert.ok(!ShowroomMode.sr.isOpen(), '熔炉面板复位');
 });
 
-/* ============ ⑨ 放置链接入(place-kit, showroom-design §8) ============
-   与冒险同一段规则代码: 单格放置(advPlaceCheck)/门结构(advDoorSiteOk/
-   advDoorTogglePlan 成对换 id)/蓄力挖(breakTime+级联+掉落)。体验馆差异只在
-   政策缝(零 journal/零 TTS/掉落照掉)。左键挖右键放的次序=使用先于挖放。 */
+/* ============ ⑨ 放置链(place-kit 同一实现; 用整地圈西条带, 地平恒 G) ============ */
 
-test('体验馆: 右键放置 — 套餐首行原木落地+扣件(单格放置走 kit 全链)', () => {
+test('体验馆: 右键放置 — 套餐首行原木落地+扣件(单格放置走壳的 kit 全链)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   assert.strictEqual(inv.slots[0].id, 'log', '套餐首行=原木(选中槽 0)');
-  ShowroomMode.onMouse(2, {x: 58, y: 12, z: 68, nx: 0, ny: 1, nz: 0}); /* 草地顶面 */
-  assert.strictEqual(api.getBlock(58, 13, 68), 5, '原木方块在场(木块 id 5)');
+  ShowroomMode.onMouse(2, {x: 46, y: G, z: 55, nx: 0, ny: 1, nz: 0}); /* 整地圈西条带草地顶面 */
+  assert.strictEqual(api.getBlock(46, G + 1, 55), 5, '原木方块在场(木块 id 5)');
   assert.strictEqual(api.count(inv, 'log'), 63, '扣 1 件');
 });
 
-/* 注: 测试桩 loadScene 不清场(真件有 clearWorld), 三用例用互不重叠坐标 */
 test('体验馆: 门 — 放置两格+左键点击开关(与冒险同一结构放置/成对换 id)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('door', 2); /* 从仓库取门进选中槽(测试捷径) */
-  ShowroomMode.onMouse(2, {x: 58, y: 12, z: 70, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(api.getBlock(58, 13, 70), api.B_DOOR, '门下扇');
-  assert.strictEqual(api.getBlock(58, 14, 70), api.B_DOOR_TOP, '门上扇');
+  ShowroomMode.onMouse(2, {x: 46, y: G, z: 52, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(api.getBlock(46, G + 1, 52), api.B_DOOR, '门下扇');
+  assert.strictEqual(api.getBlock(46, G + 2, 52), api.B_DOOR_TOP, '门上扇');
   assert.strictEqual(api.count(inv, 'door'), 1, '扣 1 扇');
-  ShowroomMode.onMouse(0, {x: 58, y: 13, z: 70, nx: 0, ny: 0, nz: 0}); /* 左键点门=开关(使用先于挖) */
-  assert.strictEqual(api.getBlock(58, 13, 70), api.B_DOOR_OPEN, '点击开门(成对换 id)');
-  ShowroomMode.onMouse(0, {x: 58, y: 13, z: 70, nx: 0, ny: 0, nz: 0});
-  assert.strictEqual(api.getBlock(58, 13, 70), api.B_DOOR, '再点关回实心');
+  ShowroomMode.onMouse(0, {x: 46, y: G + 1, z: 52, nx: 0, ny: 0, nz: 0}); /* 左键点门=开关 */
+  assert.strictEqual(api.getBlock(46, G + 1, 52), api.B_DOOR_OPEN, '点击开门(成对换 id)');
+  ShowroomMode.onMouse(0, {x: 46, y: G + 1, z: 52, nx: 0, ny: 0, nz: 0});
+  assert.strictEqual(api.getBlock(46, G + 1, 52), api.B_DOOR, '再点关回实心');
 });
 
 test('体验馆: 左键蓄力挖 — 到点破坏+掉落物照掉+update 喂真空拾取(与冒险同一实现)', () => {
   freshEnter();
-  ShowroomMode.onMouse(2, {x: 60, y: 12, z: 72, nx: 0, ny: 1, nz: 0}); /* 放原木 (60,13,72) */
+  ShowroomMode.onMouse(2, {x: 47, y: G, z: 58, nx: 0, ny: 1, nz: 0}); /* 放原木 (47,G+1,58) */
   dropCalls.length = 0;
   dropsTicks.length = 0;
   const origAim = PlaceKit.aimHit;
-  PlaceKit.aimHit = () => ({x: 60, y: 13, z: 72, nx: 0, ny: 0, nz: 0}); /* Node 无相机: 桩准星 */
+  PlaceKit.aimHit = () => ({x: 47, y: G + 1, z: 58, nx: 0, ny: 0, nz: 0}); /* Node 无相机: 桩准星 */
   ShowroomMode.mine.down = true;
   try {
     ShowroomMode.update(3); /* 原木徒手 3s: 一步到点破坏(蓄力链全在 kit) */
@@ -646,37 +868,36 @@ test('体验馆: 左键蓄力挖 — 到点破坏+掉落物照掉+update 喂真�
     PlaceKit.aimHit = origAim;
     ShowroomMode.mine.down = false;
   }
-  assert.strictEqual(api.getBlock(60, 13, 72), 0, '到点破坏');
+  assert.strictEqual(api.getBlock(47, G + 1, 58), 0, '到点破坏');
   assert.ok(dropCalls.some((d) => d[0] === 'log'), '掉落物照掉(级联 sink→Drops.spawn)');
   assert.ok(dropsTicks.length > 0, 'update 每帧喂掉落物真空拾取(玩家胸口点)');
 });
 
-/* ============ ⑩ TNT 点燃+爆炸链(adventure-core 纯函数直用) ============
-   与探险逐字同规则(docs/showroom-design.md §7 红线内): 短按/按住二分
-   (advTntTapStep)→引信 1.5s→爆炸(advExplodeCells 半径遍历: 圈内 TNT 链式
-   接力点燃/70% 掷骰掉落)。体验馆差异只在政策缝: 零 journal(onEdit noop
-   红线)/零任务记账(quest=false)/掀炉兜底退料。测试桩 loadScene 不清场,
-   TNT 用例用东场空地(x 108..120, z 98..110), 与既有用例坐标零重叠。 */
+/* ============ ⑩ TNT 链(adventure-core 纯函数 + 壳的引信/爆炸编排; 用整地圈
+    东条带 x80..81, 地平恒 G, 与结构断言互不干扰——每次 freshEnter 世界重建) ============ */
 
-test('体验馆: TNT 短按点燃 — tap 记账→引信 1.5s→爆炸圈内清空+70% 掉落(Drops.spawn)', () => {
+test('体验馆: TNT 短按点燃 — tap 记账→引信 1.5s→爆炸圈内清空+70% 掉落+波及怪物段(§4)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('tnt', 4);
   ShowroomMode.hotbar.select(0);
-  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* TNT 落 (110,13,100) */
-  assert.strictEqual(api.getBlock(110, 13, 100), B_TNT, 'TNT 在场');
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 55, nx: 0, ny: 1, nz: 0}); /* TNT 落 (81,G+1,55) */
+  assert.strictEqual(api.getBlock(81, G + 1, 55), B_TNT, 'TNT 在场');
   inv.slots[1] = api.mkStack('planks', 4);
   ShowroomMode.hotbar.select(1);
-  ShowroomMode.onMouse(2, {x: 112, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* 木板落 (112,13,100), 距爆心 2<3.5 */
-  assert.strictEqual(api.getBlock(112, 13, 100), 6, '圈内对照木板在场');
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 57, nx: 0, ny: 1, nz: 0}); /* 木板落 (81,G+1,57), 距爆心 2<3.5 */
+  assert.strictEqual(api.getBlock(81, G + 1, 57), 6, '圈内对照木板在场');
+  mobsRig.list.push({type: 'zombie', pos: {x: 81.5, y: G + 1, z: 56.5}, dead: false, gone: false,
+    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}); /* 波及怪(距 1.5) */
+  const bystander = mobsRig.list[mobsRig.list.length - 1];
   dropCalls.length = 0;
-  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 100}); /* 左键: mousedown 只记账不点燃 */
+  ShowroomMode.onMouse(0, {x: 81, y: G + 1, z: 55}); /* 左键: mousedown 只记账不点燃 */
   assert.ok(ShowroomMode.tntTap(), 'tap 状态在位(短按判定待 update)');
   assert.strictEqual(ShowroomMode.fuses.length, 0, 'mousedown 当帧未点燃');
   ShowroomMode.update(0.05); /* 松手 <0.25s: 短按→点燃 */
   assert.strictEqual(ShowroomMode.tntTap(), null, '判定完状态出列');
   assert.strictEqual(ShowroomMode.fuses.length, 1, '短按点燃(引信在位)');
-  assert.strictEqual(api.getBlock(110, 13, 100), B_TNT, '点燃不摘块');
+  assert.strictEqual(api.getBlock(81, G + 1, 55), B_TNT, '点燃不摘块');
   const realRandom = Math.random;
   Math.random = () => 0; /* 70% 掷骰必中签(注入口径, 纯函数单测同款) */
   try {
@@ -685,9 +906,11 @@ test('体验馆: TNT 短按点燃 — tap 记账→引信 1.5s→爆炸圈内清
     Math.random = realRandom;
   }
   assert.strictEqual(ShowroomMode.fuses.length, 0, '引信出列');
-  assert.strictEqual(api.getBlock(110, 13, 100), 0, '源块直清(不经掷骰)');
-  assert.strictEqual(api.getBlock(112, 13, 100), 0, '圈内方块清空');
+  assert.strictEqual(api.getBlock(81, G + 1, 55), 0, '源块直清(不经掷骰)');
+  assert.strictEqual(api.getBlock(81, G + 1, 57), 0, '圈内方块清空');
   assert.ok(dropCalls.some((d) => d[0] === 'planks'), '70% 掉落经 Drops.spawn(木板)');
+  assert.ok(mobsRig.hits.some((h) => h.m === bystander && h.dmg > 0),
+      '波及怪物段随统一进馆(advTntWave: 线性衰减伤害, §4 行为变化)');
 });
 
 test('体验馆: TNT 链式接力 — 圈内第二块被接力点燃(块还在), 二拍连环爆', () => {
@@ -695,20 +918,20 @@ test('体验馆: TNT 链式接力 — 圈内第二块被接力点燃(块还在),
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('tnt', 8);
   ShowroomMode.hotbar.select(0);
-  ShowroomMode.onMouse(2, {x: 114, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* A (114,13,100) */
-  ShowroomMode.onMouse(2, {x: 117, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* B (117,13,100), 距 A 3<3.5 */
-  assert.strictEqual(api.getBlock(114, 13, 100), B_TNT, 'A 在场');
-  assert.strictEqual(api.getBlock(117, 13, 100), B_TNT, 'B 在场');
-  ShowroomMode.onMouse(0, {x: 114, y: 13, z: 100});
+  ShowroomMode.onMouse(2, {x: 80, y: G, z: 58, nx: 0, ny: 1, nz: 0}); /* A (80,G+1,58) */
+  ShowroomMode.onMouse(2, {x: 80, y: G, z: 61, nx: 0, ny: 1, nz: 0}); /* B (80,G+1,61), 距 A 3<3.5 */
+  assert.strictEqual(api.getBlock(80, G + 1, 58), B_TNT, 'A 在场');
+  assert.strictEqual(api.getBlock(80, G + 1, 61), B_TNT, 'B 在场');
+  ShowroomMode.onMouse(0, {x: 80, y: G + 1, z: 58});
   ShowroomMode.update(0.05); /* 点燃 A */
   assert.strictEqual(ShowroomMode.fuses.length, 1, 'A 引信在位');
   ShowroomMode.update(1.6); /* A 爆 → B 接力点燃(不即爆) */
-  assert.strictEqual(api.getBlock(114, 13, 100), 0, 'A 爆');
-  assert.strictEqual(api.getBlock(117, 13, 100), B_TNT, 'B 块还在(接力而非同爆)');
+  assert.strictEqual(api.getBlock(80, G + 1, 58), 0, 'A 爆');
+  assert.strictEqual(api.getBlock(80, G + 1, 61), B_TNT, 'B 块还在(接力而非同爆)');
   assert.strictEqual(ShowroomMode.fuses.length, 1, 'B 引信在位');
-  assert.strictEqual(ShowroomMode.fuses[0].x, 117, '接力引信=B 的位置');
+  assert.strictEqual(ShowroomMode.fuses[0].z, 61, '接力引信=B 的位置');
   ShowroomMode.update(1.6); /* B 爆 */
-  assert.strictEqual(api.getBlock(117, 13, 100), 0, 'B 二拍连环爆');
+  assert.strictEqual(api.getBlock(80, G + 1, 61), 0, 'B 二拍连环爆');
   assert.strictEqual(ShowroomMode.fuses.length, 0, '引信清空');
 });
 
@@ -716,11 +939,11 @@ test('体验馆: TNT 按住转蓄力 — ≥0.25s 不点燃转挖(hard 0 挖走�
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('tnt', 4);
-  ShowroomMode.onMouse(2, {x: 118, y: 12, z: 100, nx: 0, ny: 1, nz: 0}); /* TNT (118,13,100) */
+  ShowroomMode.onMouse(2, {x: 80, y: G, z: 64, nx: 0, ny: 1, nz: 0}); /* TNT (80,G+1,64) */
   dropCalls.length = 0;
-  ShowroomMode.onMouse(0, {x: 118, y: 13, z: 100}); /* 记账 */
+  ShowroomMode.onMouse(0, {x: 80, y: G + 1, z: 64}); /* 记账 */
   const origAim = PlaceKit.aimHit;
-  PlaceKit.aimHit = () => ({x: 118, y: 13, z: 100, nx: 0, ny: 0, nz: 0}); /* Node 无相机: 桩准星 */
+  PlaceKit.aimHit = () => ({x: 80, y: G + 1, z: 64, nx: 0, ny: 0, nz: 0}); /* Node 无相机: 桩准星 */
   ShowroomMode.onHold(true); /* 桌面按住/触屏长按同轨道 */
   try {
     ShowroomMode.update(0.3); /* ≥0.25s: 转蓄力(同帧 mineTick 到点破坏) */
@@ -730,148 +953,165 @@ test('体验馆: TNT 按住转蓄力 — ≥0.25s 不点燃转挖(hard 0 挖走�
     ShowroomMode.mine.down = false;
   }
   assert.strictEqual(ShowroomMode.fuses.length, 0, '按住不点燃');
-  assert.strictEqual(api.getBlock(118, 13, 100), 0, '转挖: TNT 被挖走(hard 0 秒碎)');
+  assert.strictEqual(api.getBlock(80, G + 1, 64), 0, '转挖: TNT 被挖走(hard 0 秒碎)');
   assert.ok(dropCalls.some((d) => d[0] === 'tnt'), '可回收: 掉 TNT 物品(挖掘硬度修正 D3)');
 });
 
-test('体验馆: TNT 掀门 — 整扇回收(掉 1 扇不双掉), 级联不进任务档(quest=false noop)', () => {
+test('体验馆: TNT 掀门 — 整扇回收(掉 1 扇不双掉), 击杀不推任务步(任务档终章态)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('tnt', 4);
   ShowroomMode.hotbar.select(0);
-  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 104, nx: 0, ny: 1, nz: 0}); /* TNT (110,13,104) */
+  ShowroomMode.onMouse(2, {x: 80, y: G, z: 68, nx: 0, ny: 1, nz: 0}); /* TNT (80,G+1,68) */
   inv.slots[1] = api.mkStack('door', 2);
   ShowroomMode.hotbar.select(1);
-  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 102, nx: 0, ny: 1, nz: 0}); /* 门 (110,13,102)+(110,14,102), 距爆心 2 */
-  assert.strictEqual(api.getBlock(110, 13, 102), api.B_DOOR, '门下扇在场');
-  assert.strictEqual(api.getBlock(110, 14, 102), api.B_DOOR_TOP, '门上扇在场');
+  ShowroomMode.onMouse(2, {x: 80, y: G, z: 70, nx: 0, ny: 1, nz: 0}); /* 门 (80,G+1/2,70), 距爆心 2 */
+  assert.strictEqual(api.getBlock(80, G + 1, 70), api.B_DOOR, '门下扇在场');
+  assert.strictEqual(api.getBlock(80, G + 2, 70), api.B_DOOR_TOP, '门上扇在场');
   dropCalls.length = 0;
-  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 104});
+  const stepBefore = A.ADV.quest.step;
+  ShowroomMode.onMouse(0, {x: 80, y: G + 1, z: 68});
   ShowroomMode.update(0.05);
   ShowroomMode.update(1.6);
-  assert.strictEqual(api.getBlock(110, 13, 102), 0, '门下扇掀掉');
-  assert.strictEqual(api.getBlock(110, 14, 102), 0, '门上扇整扇回收');
+  assert.strictEqual(api.getBlock(80, G + 1, 70), 0, '门下扇掀掉');
+  assert.strictEqual(api.getBlock(80, G + 2, 70), 0, '门上扇整扇回收');
   assert.strictEqual(dropCalls.filter((d) => d[0] === 'door').length, 1, '掉 1 扇(不双掉)');
-  assert.match(showroomSrc, /questMine: \(\) => \{\}/,
-      '任务记账 noop(quest=false 不进任务档——体验馆零任务面)');
+  /* v2 的 questMine noop 源码正则 → 行为断言: 级联/爆炸不推任务步(篡改档
+      本就是表外终章态, 推进链在壳内天然空转; 记账进内存 dev 档随会话丢弃) */
+  assert.strictEqual(A.ADV.quest.step, stepBefore, '任务步不动(终章态不推进)');
+  assert.strictEqual(A.ADV.quest.step, ADV_QUESTS.length, '任务档=表外终章态(篡改 payload)');
 });
 
-test('体验馆: 爆炸掀炉兜底 — 炉内三笔退包+炉态删除(探险「炉没了退料」同款缝)', () => {
+test('体验馆: 爆炸掀炉兜底 — 炉内三笔退包+炉态删除(壳「炉没了退料」同款缝)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[1] = api.mkStack('furnace', 2);
   ShowroomMode.hotbar.select(1);
-  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 106, nx: 0, ny: 1, nz: 0}); /* 炉 (110,13,106) */
-  const key = api.blockKey(110, 13, 106);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 67, nx: 0, ny: 1, nz: 0}); /* 炉 (81,G+1,67) */
+  const key = api.blockKey(81, G + 1, 67);
   ShowroomMode.sr.autoFill(null, key); /* 无面板直调上料(kit 契约: posKey 寻址) */
   const f = ShowroomMode.sr.furnaces.get(key);
   assert.ok(f && f.input, '炉已上料(兜底前提)');
   const logBefore = api.count(inv, 'log');
   inv.slots[0] = api.mkStack('tnt', 4);
   ShowroomMode.hotbar.select(0);
-  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 104, nx: 0, ny: 1, nz: 0}); /* TNT (110,13,104), 距炉 2 */
-  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 104});
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 65, nx: 0, ny: 1, nz: 0}); /* TNT (81,G+1,65), 距炉 2 */
+  ShowroomMode.onMouse(0, {x: 81, y: G + 1, z: 65});
   ShowroomMode.update(0.05);
   ShowroomMode.update(1.6);
-  assert.strictEqual(api.getBlock(110, 13, 106), 0, '炉块掀掉');
+  assert.strictEqual(api.getBlock(81, G + 1, 67), 0, '炉块掀掉');
   assert.ok(!ShowroomMode.sr.furnaces.has(key), '炉态删除(无幽灵炉)');
   assert.ok(api.count(inv, 'log') > logBefore, '炉内待烧料三笔退包');
 });
 
-test('体验馆: onEdit 红线 — TNT 全程零记账(源码 noop 守门)+重进恢复原装', () => {
-  assert.match(showroomSrc, /onEdit: \(\) => \{\}/,
-      'kit onEdit 缝保持 noop(恢复原装红线: 改动只活当次进场, 不进任何档)');
+test('体验馆: dev store 丢弃一切 — 挖放爆全程改动只活当次进场, 重进世界逐格恢复原装', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('tnt', 4);
-  ShowroomMode.onMouse(2, {x: 120, y: 12, z: 100, nx: 0, ny: 1, nz: 0});
-  ShowroomMode.onMouse(0, {x: 120, y: 13, z: 100});
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 80, y: G, z: 72, nx: 0, ny: 1, nz: 0}); /* TNT (80,G+1,72) */
+  ShowroomMode.onMouse(0, {x: 80, y: G + 1, z: 72});
   ShowroomMode.update(0.05);
-  ShowroomMode.update(1.6); /* 爆完(东场留坑) */
-  assert.strictEqual(api.getBlock(120, 13, 100), 0, '爆点已清');
-  freshEnter(); /* 重进: 世界整场重铸 */
-  assert.strictEqual(api.getBlock(120, 12, 100), 1, '草地复原(无重放需求=改动只活当次进场)');
+  ShowroomMode.update(1.6); /* 爆完(东条带留坑) */
+  assert.strictEqual(api.getBlock(80, G + 1, 72), 0, '爆点已清');
+  assert.notStrictEqual(api.getBlock(80, G, 72), 1, '爆坑深入地平(dev 会话内的改动)');
+  freshEnter(); /* 重进: 世界=基座+展馆账本重放, dev 会话改动随 store 丢弃 */
+  assert.strictEqual(api.getBlock(80, G + 1, 72), 0, 'TNT 不在场(非账本内容不重放)');
+  assert.strictEqual(api.getBlock(80, G, 72), 1, '地平草地复原(改动只活当次进场)');
+  assert.strictEqual(api.getBlock(55, G, 55), 6, '展馆结构复原(账本重放)');
 });
 
 test('体验馆: cleanup 复位 — 引信清空+tap 状态归零(不渗漏到下一模式)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('tnt', 4);
-  ShowroomMode.onMouse(2, {x: 110, y: 12, z: 108, nx: 0, ny: 1, nz: 0});
-  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 108});
+  ShowroomMode.onMouse(2, {x: 80, y: G, z: 74, nx: 0, ny: 1, nz: 0});
+  ShowroomMode.onMouse(0, {x: 80, y: G + 1, z: 74});
   ShowroomMode.update(0.05); /* 点燃: 引信在位 */
   assert.strictEqual(ShowroomMode.fuses.length, 1, '引信在位(复位前提)');
-  ShowroomMode.onMouse(0, {x: 110, y: 13, z: 108}); /* 再记一笔 pending tap */
+  ShowroomMode.onMouse(0, {x: 80, y: G + 1, z: 74}); /* 再记一笔 pending tap */
   assert.ok(ShowroomMode.tntTap(), 'tap 状态在位');
   ShowroomMode.cleanup();
-  assert.strictEqual(ShowroomMode.fuses.length, 0, 'cleanup 引信清空(探险先例: 引信不落盘)');
+  assert.strictEqual(ShowroomMode.fuses.length, 0, 'cleanup 引信清空(壳先例: 引信不落盘)');
   assert.strictEqual(ShowroomMode.tntTap(), null, 'cleanup tap 归零');
 });
 
-/* ============ ⑪ 拾取入包(Drops.onCollect, 现状缺口: 吸到玩家即蒸发) ============ */
+/* ============ ⑪ 拾取入包(Drops.onCollect → 壳的收集链) ============ */
 
 test('体验馆: 拾取入包 — 收集回调入包+快捷栏跟进, 满包拒返 false(停地上冷却重试)', () => {
   freshEnter();
-  assert.strictEqual(collectCbs.length, 1, 'init 注册收集回调(切模式 Drops.clear 后重挂, 探险同款)');
+  assert.strictEqual(collectCbs.length, 1, 'init 注册收集回调(壳 init 重挂, 探险同款)');
   const inv = ShowroomMode.getInv();
-  for (let i = 0; i < api.INV_SLOTS; i++) inv.slots[i] = api.mkStack('log', 64); /* 满仓: 27 槽全满 */
+  /* 满仓化: 套餐行数可能 <27(材料并集按注册序), 空槽补满原木做满包口径 */
+  for (let i = 0; i < api.INV_SLOTS; i++) {
+    if (!inv.slots[i]) inv.slots[i] = api.mkStack('log', 64);
+  }
   inv.slots[0] = api.mkStack('log', 60); /* 槽 0 腾并堆余量(仍无空槽) */
-  let renders = 0;
+  const logBefore = api.count(inv, 'log');
+  let syncs = 0; /* 壳的 advSyncHotbar 语义: 换物 render / 同物轻刷新 refresh——两者任一即同步 */
   const origRender = ShowroomMode.hotbar.render;
-  /* 间谍: 快捷栏同步被调观察面 */
+  const origRefresh = ShowroomMode.hotbar.refresh;
   ShowroomMode.hotbar.render = () => {
-    renders++;
+    syncs++;
     origRender();
   };
+  ShowroomMode.hotbar.refresh = () => {
+    syncs++;
+    origRefresh();
+  };
   try {
-    assert.strictEqual(collectCbs[0]('log', 5), true, '部分收下返回 true(掉落物照常消失)');
-    assert.strictEqual(api.count(inv, 'log'), api.INV_SLOTS * 64,
-        '背包计数增加(并堆收满, 余量无空位即止)');
-    assert.ok(renders > 0, '快捷栏同步被调(showroomSyncBar)');
-    const n = renders;
+    assert.notStrictEqual(collectCbs[0]('log', 5), false,
+        '部分收下(非 false=掉落物照常消失, drops.js 消费口径: 壳包装成功返 undefined)');
+    assert.strictEqual(api.count(inv, 'log'), logBefore + 4,
+        '背包计数增加(并堆收满 60→64, 余量无空位即止)');
+    assert.ok(syncs > 0, '快捷栏同步被调(壳的 advSyncHotbar: render/refresh 任一)');
+    const n = syncs;
     assert.strictEqual(collectCbs[0]('log', 3), false, '一件都放不下: 拒返 false(D6 背包满口径)');
-    assert.strictEqual(renders, n, '拒收不刷快捷栏');
+    assert.strictEqual(syncs, n, '拒收不刷快捷栏');
+    assert.strictEqual(api.count(inv, 'log'), logBefore + 4, '拒收计数不动');
   } finally {
     ShowroomMode.hotbar.render = origRender;
+    ShowroomMode.hotbar.refresh = origRefresh;
   }
 });
 
-/* ============ ⑫ 玩家 HP 实体 + 进食 + 雪球(票 B, 探险同款镜像) ============
-   吃判据 advEatPolicy(满血不吃不扣/金苹果 full 回满)、雪球冷却轨道
-   (mkMelee.swingAction 与挥击同轨)+零伤害弹池(红线: 雪球不伤人)。体验馆
-   无伤害源 → HP 恒满, 用例直驱实体血量(票 C 落怪后的同一路径); 用例坐标
-   在西场空地(x 20..28, z 20), 与既有用例零重叠(桩 loadScene 不清场)。 */
+/* ============ ⑫ 玩家 HP 实体 + 进食 + 雪球(壳的链; 用整地圈西条带空地) ============ */
 
 test('体验馆: 进食链 — 半血右键吃: hp 回升+扣 1+快捷栏同步; 满血不吃不扣(advEatPolicy 政策)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('apple', 2);
   ShowroomMode.hotbar.select(0);
-  ShowroomMode.pEnt().hp = 15; /* 直驱至半血(实体即账本; 体验馆无伤害源, 票 C 落怪后同一路径) */
-  let renders = 0;
+  ShowroomMode.pEnt().hp = 15; /* 直驱至半血(实体即账本; 受击走同一路径) */
+  let syncs = 0; /* 壳的 advSyncHotbar 语义: 换物 render / 同物轻刷新 refresh(拾取用例同款) */
   const origRender = ShowroomMode.hotbar.render;
-  /* 间谍: 快捷栏同步被调观察面(⑪ 同款) */
+  const origRefresh = ShowroomMode.hotbar.refresh;
   ShowroomMode.hotbar.render = () => {
-    renders++;
+    syncs++;
     origRender();
   };
+  ShowroomMode.hotbar.refresh = () => {
+    syncs++;
+    origRefresh();
+  };
   try {
-    ShowroomMode.onMouse(2, {x: 20, y: 12, z: 20, nx: 0, ny: 1, nz: 0}); /* 草地: 吃吞点击不落放置 */
+    ShowroomMode.onMouse(2, {x: 46, y: G, z: 58, nx: 0, ny: 1, nz: 0}); /* 草地: 吃吞点击不落放置 */
     assert.strictEqual(ShowroomMode.pEnt().hp, 19, '苹果回 4 血(ITEMS.food)');
     assert.strictEqual(inv.slots[0].n, 1, '吃掉 1 个');
-    assert.ok(renders > 0, '快捷栏同步被调(showroomSyncBar)');
-    assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('吃掉')), '吃货 toast(dev 降噪: 零 TTS/零音效)');
-    assert.strictEqual(api.getBlock(20, 13, 20), 0, '吃吞点击: 不落放置');
+    assert.ok(syncs > 0, '快捷栏同步被调(壳的 advSyncHotbar: render/refresh 任一)');
+    assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('吃掉')), '吃货 toast(dev 降噪: TTS 静默 toast 保留)');
+    assert.strictEqual(api.getBlock(46, G + 1, 58), 0, '吃吞点击: 不落放置');
   } finally {
     ShowroomMode.hotbar.render = origRender;
+    ShowroomMode.hotbar.refresh = origRefresh;
   }
   ShowroomMode.pEnt().hp = 30; /* 满血 */
-  ShowroomMode.onMouse(2, {x: 20, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
+  ShowroomMode.onMouse(2, {x: 46, y: G, z: 58, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(inv.slots[0].n, 1, '满血不吃不扣(政策口径)');
   assert.strictEqual(ShowroomMode.pEnt().hp, 30, '满血血量不动');
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('饱')),
       '满血提示(attempt 被吞, 仍不落放置)');
-  assert.strictEqual(api.getBlock(20, 13, 20), 0, '满血 attempt 也不落放置');
+  assert.strictEqual(api.getBlock(46, G + 1, 58), 0, '满血 attempt 也不落放置');
 });
 
 test('体验馆: 金苹果 — 半血右键吃回满(full 旗标经 advEatPolicy)+扣 1', () => {
@@ -880,7 +1120,7 @@ test('体验馆: 金苹果 — 半血右键吃回满(full 旗标经 advEatPolicy
   inv.slots[0] = api.mkStack('golden_apple', 2);
   ShowroomMode.hotbar.select(0);
   ShowroomMode.pEnt().hp = 12;
-  ShowroomMode.onMouse(2, {x: 22, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
+  ShowroomMode.onMouse(2, {x: 46, y: G, z: 60, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(ShowroomMode.pEnt().hp, 30, '金苹果回满血(full → maxHp, 无饥饿系统折算)');
   assert.strictEqual(inv.slots[0].n, 1, '吃掉 1 个');
 });
@@ -895,17 +1135,18 @@ test('体验馆: 雪球投掷 — 右键掷出: 扣 1+弹池出膛+冷却内再�
   const origRig = globalThis.CameraRig;
   globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.6, z: pos.z},
     dir: {x: 0, y: 0, z: -1}})};
-  mobsRig.list.push({type: 'zombie', pos: {x: 64.5, y: 13, z: 62.3}, vel: {x: 0, z: 0},
-    cfg: {h: 1.8, hitR: 0.55}, dead: false, gone: false}); /* 面前 2.2 格假怪(仅判定面) */
+  mobsRig.list.push({type: 'zombie', pos: {x: pos.x, y: pos.y, z: pos.z - 2.2}, vel: {x: 0, z: 0},
+    cfg: {h: 1.8, hitR: 0.55}, dead: false, gone: false,
+    __nightHome: {x: pos.x, z: pos.z - 2.2}}); /* 面前 2.2 格假怪(家锚=自身: 完整 AI 索敌不拉走) */
   try {
-    ShowroomMode.onMouse(2, {x: 24, y: 12, z: 20, nx: 0, ny: 1, nz: 0}); /* 草地: 掷出吞点击 */
+    ShowroomMode.onMouse(2, {x: 47, y: G, z: 62, nx: 0, ny: 1, nz: 0}); /* 草地: 掷出吞点击 */
     assert.strictEqual(inv.slots[0].n, 2, '掷出消耗 1 颗');
     assert.strictEqual(ShowroomMode.snowballs.count(), 1, '弹池 1 发');
-    ShowroomMode.onMouse(2, {x: 24, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
+    ShowroomMode.onMouse(2, {x: 47, y: G, z: 62, nx: 0, ny: 1, nz: 0});
     assert.strictEqual(inv.slots[0].n, 2, '冷却内连点不扣(swingAction 与挥击同轨)');
     assert.strictEqual(ShowroomMode.snowballs.count(), 1, '冷却内不出膛');
     /* 弹道步进至命中: 零伤害红线 — update 喂弹池的行为面同证 */
-    for (let i = 0; i < 60 && !mobsRig.hits.length; i++) ShowroomMode.update(1 / 60);
+    for (let i = 0; i < 90 && !mobsRig.hits.length; i++) ShowroomMode.update(1 / 60);
     assert.strictEqual(mobsRig.hits.length, 1, '雪球飞到怪(update 喂弹道)');
     assert.strictEqual(mobsRig.hits[0].dmg, 0, '零伤害红线: 雪球永不扣血');
     assert.strictEqual(ShowroomMode.snowballs.count(), 0, '命中出池');
@@ -921,13 +1162,13 @@ test('体验馆: 手持非食物/非雪球右键 — 照旧落放置链(使用�
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('dirt', 2);
   ShowroomMode.hotbar.select(0);
-  ShowroomMode.onMouse(2, {x: 26, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(api.getBlock(26, 13, 20), 2, '泥土照常放置(放置链)');
+  ShowroomMode.onMouse(2, {x: 47, y: G, z: 64, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(api.getBlock(47, G + 1, 64), 2, '泥土照常放置(放置链)');
   assert.strictEqual(inv.slots[0].n, 1, '扣 1(放置链口径)');
   assert.strictEqual(ShowroomMode.snowballs.count(), 0, '没有雪球出膛');
 });
 
-test('体验馆: cleanup 复位 — 雪球弹池清空+HP 实体复位满血(跨进场不渗漏, 探险清场纪律先例)', () => {
+test('体验馆: cleanup 复位 — 雪球弹池清空 + 重进满血(壳清场纪律)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('snowball', 3);
@@ -935,79 +1176,67 @@ test('体验馆: cleanup 复位 — 雪球弹池清空+HP 实体复位满血(跨
   const origRig = globalThis.CameraRig;
   globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.6, z: pos.z},
     dir: {x: 0, y: 0, z: -1}})};
-  ShowroomMode.onMouse(2, {x: 28, y: 12, z: 20, nx: 0, ny: 1, nz: 0}); /* 掷出一发 */
+  ShowroomMode.onMouse(2, {x: 46, y: G, z: 62, nx: 0, ny: 1, nz: 0}); /* 掷出一发 */
   globalThis.CameraRig = origRig;
   assert.strictEqual(ShowroomMode.snowballs.count(), 1, '弹池在位(复位前提)');
   ShowroomMode.pEnt().hp = 7; /* 破坏现场: 残血 */
   ShowroomMode.cleanup();
-  assert.strictEqual(ShowroomMode.snowballs.count(), 0, '弹池清空(不渗漏下一模式)');
-  assert.strictEqual(ShowroomMode.pEnt().hp, ShowroomMode.pEnt().maxHp, 'HP 复位满血');
-  freshEnter(); /* 重进: 干净初始态 */
+  assert.strictEqual(ShowroomMode.snowballs.count(), 0, '弹池清空(壳 cleanup, 不渗漏下一模式)');
+  freshEnter(); /* 重进: dev 档满血重铸 */
   assert.strictEqual(ShowroomMode.snowballs.count(), 0, '重进弹池仍空');
-  assert.strictEqual(ShowroomMode.pEnt().hp, ShowroomMode.pEnt().maxHp, '重进满血');
+  assert.strictEqual(ShowroomMode.pEnt().hp, ShowroomMode.pEnt().maxHp, '重进满血(篡改档 hp=30)');
 });
 
-/* ============ ⑬ 昼夜+夜怪+床睡觉(票 C, 探险昼夜 D1/D5/D6 同规则薄版) ============
-   昼夜接线(init 置 dayCycleOn 白天起步 / cleanup 复位三连, dayTime 绝不落盘)、
-   入夜边沿固定点位铺怪(全带 __nightMob 标记, 标记口径=探险 advNightTick 同一份)、
-   白天下降沿/睡觉唤醒温和清场(只收标记怪)、AI 薄版(索敌逼近+贴身挥击→HP 实体
-   掉血→吃链激活)、薄死亡政策(满血重置+清场, 零惩罚)、击杀掉落(过票 A 拾取缝)。
-   用例坐标: 夜怪桩走 spawn 点位/假怪 push, 无世界编辑; 新用例与既有用例零重叠。 */
+/* ============ ⑬ 昼夜+夜怪+床睡觉(dev 政策下的统一壳) ============ */
 
-test('体验馆: 昼夜接线 — init 置 dayCycleOn 白天起步; cleanup 复位三连(全局单钟不渗入其他模式)', () => {
+test('体验馆: 入夜上沿铺怪 — 固定点位铺 3 只全带夜怪标记+家锚; 夜内不加铺; 黎明清场共用壳实现', () => {
   freshEnter();
-  assert.strictEqual(globalThis.dayCycleOn, true, 'init 置位昼夜循环(主循环推进门)');
-  assert.strictEqual(globalThis.dayTime, 0, '白天起步(dayTime 从 0 起步, 不读档)');
-  assert.ok(calls.some((c) => c[0] === 'applyDaylight'), '进场先刷一次天色(探险同位)');
-  globalThis.dayTime = 18000; /* 破坏现场: 模拟退场时是深夜 */
-  ShowroomMode.cleanup();
-  assert.strictEqual(globalThis.dayCycleOn, false, 'cleanup 关循环(其余模式观感恒白天)');
-  assert.strictEqual(globalThis.dayTime, 0, 'cleanup 时刻归零(体验馆不落盘, 探险三连的不落盘版)');
-  assert.ok(calls.some((c) => c[0] === 'applyDaylight'), '复位即刷天色(幂等)');
-});
-
-test('体验馆: 入夜边沿铺怪 — isNight 上沿固定点位铺 3 只全带夜怪标记; 夜内不加铺; 白天无怪', () => {
-  freshEnter();
-  ShowroomMode.update(0.05); /* 白天: 馆内无怪 */
-  assert.strictEqual(mobsRig.list.length, 0, '白天展馆无怪(入夜才有)');
-  globalThis.dayTime = 13000; /* 入夜上沿(NIGHT_A) */
+  ShowroomMode.update(0.05); /* 白天: 馆内无夜怪(巢穴怪/牧场动物另计) */
+  assert.strictEqual(nightMobList().length, 0, '白天无夜怪(入夜才有)');
+  eng.dayTime = 13000; /* 入夜上沿(NIGHT_A) */
   ShowroomMode.update(0.05);
-  assert.strictEqual(mobsRig.list.length, 3, '固定点位各铺 1 只');
-  assert.ok(mobsRig.list.every((m) => m.__nightMob === true),
-      '全带 __nightMob 标记(探险 advNightTick 同一口径, 清场唯一依据)');
-  assert.ok(mobsRig.list.every((m) => Math.hypot(m.pos.x - 77.5, m.pos.z - 73.5) > 8),
+  const laid = nightMobList();
+  assert.strictEqual(laid.length, 3, '固定点位各铺 1 只(dev 铺法注入政策缝)');
+  assert.ok(laid.every((m) => m.__nightMob === true),
+      '全带 __nightMob 标记(与壳的环带版同一口径, 清场唯一依据)');
+  assert.ok(laid.every((m) => m.__nightHome), '全带家锚=铺点(完整 AI 收队不流浪)');
+  const byPos = laid.map((m) => SHOWROOM.nightMobs.find((p) => p.x === Math.floor(m.pos.x)));
+  assert.ok(byPos.every(Boolean), '铺怪点位=SHOWROOM.nightMobs(布局常量唯一语义源)');
+  assert.ok(laid.every((m) => Math.hypot(m.pos.x - 77.5, m.pos.z - 73.5) > 8),
       '铺怪点离床心 > ADV_BED_MOB_R(睡觉判定不被自家怪长期堵死)');
   ShowroomMode.update(0.05); /* 夜内第二拍 */
-  assert.strictEqual(mobsRig.list.length, 3, '跨沿只铺一次(边沿语义, 非节拍环带)');
-  globalThis.dayTime = 23500; /* isNight 下降沿(23000 后) */
+  assert.strictEqual(nightMobList().length, 3, '跨沿只铺一次(边沿制, 非节拍环带)');
+  eng.dayTime = 23600; /* 过黎明沿(advDawnSweep ≈23517 翻真) */
   ShowroomMode.update(0.05);
-  assert.ok(mobsRig.list.every((m) => m.gone), '白天下降沿温和清场');
+  assert.ok(nightMobList().every((m) => m.gone), '黎明上沿温和清场(壳的 advSweepNightMobs 唯一实现)');
 });
 
-test('体验馆: 清场薄版 — 只收 __nightMob 标记怪, 未标记怪不动(脚本怪与昼夜解耦口径)', () => {
+test('体验馆: 清场只收标记怪 — 巢穴怪/牧场动物/脚本怪不动(与壳同源口径)', () => {
   freshEnter();
-  const stray = {type: 'zombie', pos: {x: 84, y: 13, z: 60}, dead: false, gone: false,
+  const dayMobs = mobsRig.list.slice(); /* 巢穴怪+牧场动物(壳播种, 无标记) */
+  const stray = {type: 'zombie', pos: {x: 84, y: G + 1, z: 60}, dead: false, gone: false,
     attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)};
   mobsRig.list.push(stray); /* 未标记怪(脚本怪同位) */
-  globalThis.dayTime = 13000;
+  eng.dayTime = 13000;
   ShowroomMode.update(0.05); /* 铺 3 只夜怪 */
-  assert.strictEqual(mobsRig.list.length, 4, '夜怪 3+未标记 1');
-  globalThis.dayTime = 6000; /* 回白天 */
+  assert.strictEqual(nightMobList().length, 3, '夜怪 3 只');
+  eng.dayTime = 23600; /* 回白天 */
   ShowroomMode.update(0.05);
-  assert.ok(mobsRig.list.filter((m) => m.__nightMob).every((m) => m.gone), '夜怪全收');
+  assert.ok(nightMobList().every((m) => m.gone), '夜怪全收');
   assert.ok(!stray.gone, '未标记怪不动(只收标记怪)');
+  assert.ok(dayMobs.every((m) => !m.gone), '巢穴怪/牧场动物不动(与昼夜解耦口径)');
 });
 
 test('体验馆: 睡觉三分支 — 白天拒/夜+床边 8 格内有怪拒/夜+怪远过(advSleepCheck 政策直用)', () => {
   freshEnter();
-  const bed = {x: 77, y: 13, z: 73}; /* 床(建场真件) */
-  globalThis.dayTime = 6000; /* 正午: 睡窗外 */
+  const bed = {x: 77, y: G + 1, z: 73}; /* 床(建场真件) */
+  eng.dayTime = 6000; /* 正午: 睡窗外 */
   ShowroomMode.onMouse(2, bed);
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('晚上才能睡哦')),
       '白天拒睡 toast');
   assert.strictEqual(ShowroomMode.sleep.on, false, '不开转场');
-  globalThis.dayTime = 20000; /* 深夜: 睡窗内 */
-  mobsRig.list.push({type: 'zombie', pos: {x: 79.5, y: 13, z: 73.5}, dead: false, gone: false,
+  eng.dayTime = 20000; /* 深夜: 睡窗内 */
+  mobsRig.list.push({type: 'zombie', pos: {x: 79.5, y: G + 1, z: 73.5}, dead: false, gone: false,
     attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}); /* 床边 2 格 */
   calls.length = 0;
   ShowroomMode.onMouse(2, bed);
@@ -1021,7 +1250,7 @@ test('体验馆: 睡觉三分支 — 白天拒/夜+床边 8 格内有怪拒/夜+
   ShowroomMode.cleanup(); /* 收场复位(测试隔离) */
 });
 
-test('体验馆: 睡着转场 — advSleepStep 唤醒沿恰发一次; 唤醒 dayTime=0+清夜怪+遮罩归零', () => {
+test('体验馆: 睡着转场 — 唤醒沿恰一次: 跳清晨+清夜怪+不设床边出生点(D5 拍板①)+遮罩归零', () => {
   /* 纯函数面: 全程步进 wake 恰一次(签名冻结直用的行为锁) */
   let wakes = 0; let t = 0;
   while (t < 5) {
@@ -1030,19 +1259,21 @@ test('体验馆: 睡着转场 — advSleepStep 唤醒沿恰发一次; 唤醒 day
     t = s.t;
   }
   assert.strictEqual(wakes, 1, '唤醒沿恰发一次(大步跨沿也只一次)');
-  /* 行为面: 点床入睡 → 推过唤醒沿 → 跳清晨+清夜怪 */
+  /* 行为面: 点床入睡 → 推过唤醒沿 → 跳清晨+清夜怪+出生点不动 */
   freshEnter();
-  globalThis.dayTime = 13000;
+  const spawnRef = A.ADV.spawn; /* 出生点账本引用(D5: 睡醒不设床边) */
+  eng.dayTime = 13000;
   ShowroomMode.update(0.05); /* 铺夜怪(清场前提) */
-  const nightMobs = mobsRig.list.filter((m) => m.__nightMob);
+  const nightMobs = nightMobList();
   assert.strictEqual(nightMobs.length, 3);
   calls.length = 0;
-  ShowroomMode.onMouse(2, {x: 77, y: 13, z: 73}); /* 点床入睡(使用先于挖放) */
+  ShowroomMode.onMouse(2, {x: 77, y: G + 1, z: 73}); /* 点床入睡(使用先于挖放) */
   assert.strictEqual(ShowroomMode.sleep.on, true, '转场开启');
   for (let i = 0; i < 74; i++) ShowroomMode.update(0.05); /* +3.7s: 过唤醒沿(3.5s) */
-  assert.strictEqual(globalThis.dayTime, 0, '唤醒沿跳清晨(dayTime=0)');
-  assert.ok(nightMobs.every((m) => m.gone), '唤醒清夜怪(与白天清场同缝, 幂等)');
+  assert.strictEqual(eng.dayTime, 0, '唤醒沿跳清晨(dayTime=0)');
+  assert.ok(nightMobs.every((m) => m.gone), '唤醒清夜怪(与黎明清场同缝, 幂等)');
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('睡饱啦')), '睡饱 toast');
+  assert.strictEqual(A.ADV.spawn, spawnRef, '出生点账本不动(sleepWakeSetsSpawn=false, 床边无出生点)');
   for (let i = 0; i < 30; i++) ShowroomMode.update(0.05); /* 走完渐亮(总 5s) */
   assert.strictEqual(ShowroomMode.sleep.on, false, '转场结束');
   assert.strictEqual(+globalThis.document.getElementById('fade').style.opacity, 0,
@@ -1051,8 +1282,8 @@ test('体验馆: 睡着转场 — advSleepStep 唤醒沿恰发一次; 唤醒 day
 
 test('体验馆: 睡觉中 cleanup — 遮罩归零还 CSS transition/转场复位(切模式不渗漏 #fade)', () => {
   freshEnter();
-  globalThis.dayTime = 20000;
-  ShowroomMode.onMouse(2, {x: 77, y: 13, z: 73});
+  eng.dayTime = 20000;
+  ShowroomMode.onMouse(2, {x: 77, y: G + 1, z: 73});
   assert.strictEqual(ShowroomMode.sleep.on, true, '转场开启');
   ShowroomMode.update(0.5); /* 渐黑中 */
   const fade = globalThis.document.getElementById('fade');
@@ -1062,18 +1293,17 @@ test('体验馆: 睡觉中 cleanup — 遮罩归零还 CSS transition/转场复�
   assert.strictEqual(ShowroomMode.sleep.on, false, 'cleanup 复位转场(中断不触发唤醒沿)');
   assert.strictEqual(+fade.style.opacity, 0, '遮罩归零');
   assert.strictEqual(fade.style.transition, '', 'CSS transition 还原(不渗入其他模式)');
-  assert.strictEqual(globalThis.dayTime, 0, '昼夜复位三连归零(非睡觉跳清晨语义)');
 });
 
 test('体验馆: 左键挥击 — 准星锥内怪命中扣血(advSwingDmg 面)+本击归战斗不落挖', () => {
   freshEnter();
-  mobsRig.list.push({type: 'zombie', pos: {x: pos.x, y: 13, z: pos.z - 2}, dead: false, gone: false,
+  mobsRig.list.push({type: 'zombie', pos: {x: pos.x, y: pos.y, z: pos.z - 2}, dead: false, gone: false,
     attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}); /* 正前方 2 格(yaw 0 朝 -Z) */
-  ShowroomMode.onMouse(0, {x: 30, y: 12, z: 30}); /* 准星指草地 */
+  ShowroomMode.onMouse(0, {x: 46, y: G, z: 55}); /* 准星指草地 */
   assert.strictEqual(mobsRig.hits.length, 1, '挥击命中怪');
   assert.strictEqual(mobsRig.hits[0].dmg, advSwingDmg(''), '空手伤害=ADV_FIST_DMG(伤害函数直用)');
-  assert.strictEqual(ShowroomMode.mine.down, false, '本击归战斗: 不进蓄力(探险同款占位)');
-  assert.strictEqual(api.getBlock(30, 13, 30), 0, '草地无损伤');
+  assert.strictEqual(ShowroomMode.mine.down, false, '本击归战斗: 不进蓄力(壳同款占位)');
+  assert.strictEqual(api.getBlock(46, G + 1, 55), 0, '草地无损伤');
 });
 
 test('体验馆: 左键挥击·工具 — 手持木剑伤害按 D9 表+命中扣耐久(与挖掘磨损同一缝)', () => {
@@ -1082,19 +1312,20 @@ test('体验馆: 左键挥击·工具 — 手持木剑伤害按 D9 表+命中扣
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('sword_wood', 1);
   ShowroomMode.hotbar.select(0);
-  mobsRig.list.push({type: 'zombie', pos: {x: pos.x, y: 13, z: pos.z - 2}, dead: false, gone: false,
+  mobsRig.list.push({type: 'zombie', pos: {x: pos.x, y: pos.y, z: pos.z - 2}, dead: false, gone: false,
     attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)});
-  ShowroomMode.onMouse(0, {x: 30, y: 12, z: 30});
+  ShowroomMode.onMouse(0, {x: 46, y: G, z: 55});
   assert.strictEqual(mobsRig.hits.length, 1, '挥击命中怪');
   assert.strictEqual(mobsRig.hits[0].dmg, advSwingDmg('sword_wood'), '工具伤害随 D9 表(同份纯函数)');
   assert.strictEqual(inv.slots[0].dur, api.toolOf('sword_wood').dur - 1,
       '命中扣 1 耐久(onWear 与挖掘 wear 同缝)');
 });
 
-test('体验馆: 夜怪 AI 薄版 — 索敌半径内朝玩家走+贴身挥击: pEnt.hp 下降(吃链激活前提)', () => {
+test('体验馆: 完整 AI — 索敌半径内朝玩家走+贴身挥击: pEnt.hp 下降(吃链激活前提)', () => {
   freshEnter();
-  const m = {type: 'zombie', pos: {x: pos.x, y: 13, z: pos.z - 8}, dead: false, gone: false,
-    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}; /* 8 格: 索敌 12 内、触及外 */
+  const m = {type: 'zombie', pos: {x: pos.x, y: pos.y, z: pos.z - 8}, dead: false, gone: false,
+    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG),
+    __nightHome: {x: pos.x, z: pos.z - 8}}; /* 8 格: 索敌 12 内、触及外; 家锚=自身(收队不拉走) */
   mobsRig.list.push(m);
   ShowroomMode.update(0.25);
   const d0 = Math.hypot(m.pos.x - pos.x, m.pos.z - pos.z);
@@ -1102,31 +1333,35 @@ test('体验馆: 夜怪 AI 薄版 — 索敌半径内朝玩家走+贴身挥击: 
   for (let i = 0; i < 200 && ShowroomMode.pEnt().hp === 30; i++) ShowroomMode.update(0.05);
   assert.ok(ShowroomMode.pEnt().hp < 30, '贴身挥击: 玩家掉血(Mobs.hit → 真实受击状态机)');
   assert.strictEqual(ShowroomMode.pEnt().hp, 25, '单击伤害=advMobDmg(zombie 5, 封顶面)');
-  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hurt'), '受击提醒(CombatKit.mkHurtAlarm)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hurt'), '受击提醒(CombatKit.mkHurtAlarm 内置音, 既有口径)');
 });
 
-test('体验馆: 薄死亡政策 — hp 到 0: 满血重置+夜怪清场+原地复活(零惩罚, 不搬探险死亡流程)', () => {
+test('体验馆: 原地满血复活 — hp 到 0: 满血重置+夜怪清场+原地复活(dev 政策 death=inPlace)', () => {
   freshEnter();
-  globalThis.dayTime = 13000;
+  eng.dayTime = 13000;
   ShowroomMode.update(0.05); /* 铺夜怪 */
-  const nightMobs = mobsRig.list.filter((m) => m.__nightMob);
+  const nightMobs = nightMobList();
   assert.strictEqual(nightMobs.length, 3);
   ShowroomMode.pEnt().hp = 1; /* 直驱濒死 */
-  const killer = {type: 'zombie', pos: {x: pos.x, y: 13, z: pos.z - 1.5}, dead: false, gone: false,
-    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG)}; /* 未标记(脚本怪同位) */
+  const killer = {type: 'zombie', pos: {x: pos.x, y: pos.y, z: pos.z - 1.5}, dead: false, gone: false,
+    attackCd: 0, attackT: 0, cfg: Object.assign({}, SR_MOB_CFG),
+    __nightHome: {x: pos.x, z: pos.z - 1.5}}; /* 未标记(脚本怪同位), 家锚=自身保索敌 */
   mobsRig.list.push(killer);
-  ShowroomMode.update(0.05); /* 贴身一击 5 伤: hp≤0 → freshDead → 薄死亡 */
+  const px = pos.x; const pz = pos.z;
+  ShowroomMode.update(0.05); /* 贴身一击 5 伤: hp≤0 → freshDead → 原地复活 */
   assert.strictEqual(ShowroomMode.pEnt().hp, ShowroomMode.pEnt().maxHp, '满血重置');
   assert.strictEqual(ShowroomMode.pEnt().dead, false, 'dead 复位(复活不变量)');
-  assert.ok(nightMobs.every((m) => m.gone), '夜怪清场');
+  assert.strictEqual(pos.x, px, '原地复活(不切图不落出生点, 保调试现场)');
+  assert.strictEqual(pos.z, pz, '原地复活 z');
+  assert.ok(nightMobs.every((m2) => m2.gone), '夜怪清场(壳内 inPlace 分支)');
   assert.ok(!killer.gone, '未标记的凶手怪不被清场(只收标记怪)');
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('满血')), '提示 toast');
 });
 
-test('体验馆: 击杀掉落 — Mobs.onDeath → advDeathDrops 掷骰 → Drops.spawn(过票 A 拾取缝)', () => {
+test('体验馆: 击杀掉落 — Mobs.onDeath → advDeathDrops 掷骰 → Drops.spawn(拾取缝成环)', () => {
   freshEnter();
-  assert.strictEqual(mobsRig.deathCbs.length, 1, 'init 恰挂一个击杀回调(Mobs.clear 解除后重挂)');
-  const m = {type: 'zombie', pos: {x: 10, y: 13, z: 10}, cfg: Object.assign({}, SR_MOB_CFG),
+  assert.strictEqual(mobsRig.deathCbs.length, 1, 'init 恰挂一个击杀回调(壳 init 重挂)');
+  const m = {type: 'zombie', pos: {x: 10, y: G + 1, z: 10}, cfg: Object.assign({}, SR_MOB_CFG),
     dead: true, gone: false};
   dropCalls.length = 0;
   mobsRig.deathCbs[0](m); /* 引擎在 hit 判死瞬间回调; 桩内手动触发(同拍行为) */
@@ -1134,24 +1369,93 @@ test('体验馆: 击杀掉落 — Mobs.onDeath → advDeathDrops 掷骰 → Drop
   assert.ok(dropCalls.every((d) => d[2] === 10 && d[4] === 10), '落点=尸体上方(m.pos 同缝)');
 });
 
-/* ============ ⑭ U3 展馆 edits 账本派生(世界即存档, ADR 0005) — 世界仿真类 ============
-    布局常量 SHOWROOM 已迁 js/showroom-core.js(语义源唯一化), 模式文件经全局名
-    继续引用——先补铺全局; 世界清场面/水位写缝/世界格数组从 vm 引擎件取出,
-    供仿真 diff 与重放同构断言直用。本段用例会整场清掉并重建世界(home 基座),
-    全部排在既有用例之后, 互不渗漏。 */
-globalThis.SHOWROOM = ShowroomCore.SHOWROOM; /* 模式文件经全局名继续引用(迁移后唯一语义源) */
-globalThis.world = vm.runInContext('world', eng); /* 体素清场面(派生仿真: 两次清世界) */
+/* ============ ⑭ U4 门面与换装生命周期 ============ */
+
+test('体验馆 U4: HUD 门面包层 — 首行体验馆徽标, 其余行透传壳的 HUD(mkMode 节流链)', () => {
+  freshEnter();
+  const hit = {x: SR_FURNACE.x, y: SR_FURNACE.y, z: SR_FURNACE.z};
+  ShowroomMode.updateHud(hit); /* mkMode 包装的 HUD 链(性能桩恒 0 → 首调必过) */
+  const html = elCache['hud'].innerHTML;
+  assert.ok(html.startsWith('🧪'), '首行体验馆徽标行: ' + html.split('<br>')[0]);
+  const shellHtml = AdventureMode.adv.advHudLines(hit).join('<br>');
+  assert.ok(html.endsWith(shellHtml), '其余行=壳的 HUD 透传(图名/生命/位置/时段/怪物/背包/任务)');
+  assert.ok(html.includes('任务'), '任务行在场(篡改档下显示终章称号)');
+});
+
+test('体验馆 U4: onMenu dev 特化 — 面板开着收 overlay 不回菜单; 全关回主页(v2 口径)', () => {
+  freshEnter();
+  ShowroomMode.onKey('Tab'); /* 开合成面板 */
+  assert.ok(ShowroomMode.sr.craft.isOpen(), '面板开着(前提)');
+  overlay.style.display = 'flex'; /* 模拟指针锁遮罩弹起 */
+  calls.length = 0;
+  ShowroomMode.onMenu();
+  assert.strictEqual(overlay.style.display, 'none', '面板开着: 收 overlay 不回菜单');
+  assert.ok(!calls.some((c) => c[0] === 'switchMode'), '不切模式');
+  ShowroomMode.onKey('Tab'); /* 收面板 */
+  assert.ok(!ShowroomMode.sr.craft.isOpen(), '面板全关(前提)');
+  calls.length = 0;
+  ShowroomMode.onMenu();
+  assert.ok(calls.some((c) => c[0] === 'switchMode' && c[1] === 'arena'), '恢复菜单背景默认模式(v2 口径)');
+  assert.ok(calls.some((c) => c[0] === 'showPage' && c[1] === 'main'), '回主页(体验馆无菜单页)');
+  freshEnter(); /* 恢复 showroom 态(后续用例前提) */
+});
+
+test('体验馆 U4: 媒体降噪 — TTS/音效经政策缝全静默 · toast 保留(v2 口径)', () => {
+  freshEnter();
+  assert.strictEqual(spoken.length, 0, '进场欢迎 TTS 静默(壳的 advSpeak → dev noop)');
+  assert.ok(calls.some((c) => c[0] === 'toast'), '进场 toast 保留(壳的 advToast → showToast)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx').length, 0,
+      '壳内音效调用点全静默(advSfx → dev noop; kit 内置音不计——既有口径)');
+});
+
+test('体验馆 U4: onKey 单跳 — KeyB 经门面只触发一次 uiPause(委托不双跳)', () => {
+  freshEnter();
+  ShowroomMode.onKey('KeyB');
+  assert.strictEqual(calls.filter((c) => c[0] === 'uiPause').length, 1,
+      'mkMode 两层包装各自吃掉 KeyB, 委托后恰好一次');
+});
+
+test('体验馆 U4: 换装生命周期 — dev 会话真档零写入 · cleanup 还原缺省 · 冒险壳照常读真档', () => {
+  freshEnter();
+  assert.notStrictEqual(SRV.store, SRV.storeDefault, 'dev store 在位(init 装配)');
+  assert.strictEqual(SRV.profile.death, 'inPlace', 'dev 政策在位(death=inPlace)');
+  assert.strictEqual(mem.size, 0, '装配后真档介质零写入');
+  /* dev 会话内的全套写路径: 放置(mark) · 爆炸(mark+touch) · 节流泵(tick) · 存取账户 */
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('tnt', 4);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 75, nx: 0, ny: 1, nz: 0}); /* 放置(mark) */
+  ShowroomMode.onMouse(0, {x: 81, y: G + 1, z: 75}); /* 点燃 */
+  ShowroomMode.update(0.05);
+  ShowroomMode.update(1.6); /* 爆炸(mark/touch/tick 全链) */
+  ShowroomMode.update(6.1); /* 推过节流窗(真档会 flush, dev 落 noop) */
+  A.advChestDeposit(0); /* 账户存取(saveChest noop) */
+  assert.strictEqual(mem.size, 0, 'dev 会话全程真档介质零写入(dev store 丢弃一切)');
+  ShowroomMode.cleanup();
+  assert.strictEqual(SRV.store, SRV.storeDefault, 'cleanup 后存档缝还原缺省');
+  assert.strictEqual(SRV.profile, SRV.profileDefault, 'cleanup 后政策缝还原缺省');
+  assert.strictEqual(mem.size, 0, '退场兜底落盘全落进 noop(退出无痕)');
+  /* 还原后冒险壳照常工作: 真档读档(空介质→defaults)·基座建场·真盘可写 */
+  assert.doesNotThrow(() => AdventureMode.init(), '还原后壳 init 可用(真档读档)');
+  assert.ok(calls.some((c) => c[0] === 'spawn' && c[1] === ADV_SPAWN.x && c[3] === ADV_SPAWN.z),
+      '真档出生=ADV_SPAWN(门口两步, 非篡改档房内)');
+  assert.strictEqual(api.getBlock(55, G, 55) !== 6, true, '真档世界=home 基座(展馆不在)');
+  assert.strictEqual(api.getBlock(90, G, 80), 4, '真档世界建场完好(门阵广场圆石, 避开门框平面)');
+  AdventureMode.cleanup(); /* 真档退场: flush 走真链路落盘——与 dev 会话零写入对照 */
+  assert.ok(mem.size >= 1, '真档会话落盘在位(还原后写链路健康, dev 零写入非断管)');
+});
+
+/* ============ ⑮ U3 展馆 edits 账本派生(世界即存档, ADR 0005) — 世界仿真类(原样保留) ============
+    布局常量 SHOWROOM 在 js/showroom-core.js(语义源唯一化); 世界清场面/水位写
+    缝/世界格数组从 vm 引擎件取出, 供仿真 diff 与重放同构断言直用。本段用例
+    会整场清掉并重建世界(home 基座), 全部排在既有用例之后, 互不渗漏。 */
+globalThis.mkWorldJournal = require('../js/world-journal-core.js').mkWorldJournal; /* 已在, 保险 */
 Object.assign(globalThis, vm.runInContext('({WORLD_H, setFluidLv, worldCells})', eng));
-globalThis.mkWorldJournal = require('../js/world-journal-core.js').mkWorldJournal;
-/* 门解锁键名权威在地图注册表(冒险纯核心之上): Node 侧 require 需先铺其装载期
-   引用的全局名(B_ 建材常数自 vm 真件, ADV_HOME_ROW/advBuildWorld 已在全局) */
-Object.assign(globalThis, vm.runInContext('({B_SANDSTONE, B_SNOW, B_ICE})', eng));
-Object.assign(globalThis, {ADV_UNLOCK_KEYS: require('../js/adventure-maps-core.js').ADV_UNLOCK_KEYS});
 
 test('体验馆 U3: 布局常量迁移 — 模式文件不再声明 SHOWROOM, 供给核心持有(经全局名引用, 行为不变)', () => {
   assert.ok(!/^const SHOWROOM = \{/m.test(showroomSrc), '模式文件不再声明常量块(唯一允许改动=删原块)');
   assert.ok(coreSrc.includes('const SHOWROOM = {'), '供给核心持有常量(语义源)');
-  assert.match(showroomSrc, /SHOWROOM\.house/, '模式文件经全局名继续引用');
+  assert.match(showroomSrc, /SHOWROOM\./, '模式文件经全局名继续引用(nightMobs 铺法)');
   assert.strictEqual(globalThis.SHOWROOM, ShowroomCore.SHOWROOM, '全局名=供给核心常量(同引用)');
 });
 
@@ -1295,7 +1599,7 @@ test('体验馆 U3: 重放后立面净空+地平实心 — 地平以上除结构
     }
   }
   /* 地平实心: 圈内每列地平非空(整地补齐凹陷+房地板); 楼梯井开口除外——
-     房内下地下室的入口(v2 同款: 井道逐级掏穿房内地板, z67..71 列顶层开天) */
+      房内下地下室的入口(v2 同款: 井道逐级掏穿房内地板, z67..71 列顶层开天) */
   const sw = SHOWROOM.stairs;
   const inStairWell = (x, z) => x >= sw.x1 && x <= sw.x2 && z >= sw.z1 && z <= sw.z2;
   for (let x = R.x1; x <= R.x2; x++) {

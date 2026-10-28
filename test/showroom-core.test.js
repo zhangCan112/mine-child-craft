@@ -259,6 +259,22 @@ test('供给核心: 背包供给 — load 原地重铸套餐(引用稳定) · sa
   assert.ok(inv.slots[0], 'save 零副作用(账本只在内存)');
 });
 
+test('供给核心 U4: dev bag 可注入 inv — 包外部 inv 对象原地重铸(背包闭包绑定的解) · mkShowroomStore 可注入 bag', () => {
+  /* U4 门面把冒险壳真档背包的 inv 对象注入: 壳的 kit/面板在加载期捕获该引用,
+     dev bag 必须包同一对象——身份永不变、内容随 load 换(背包壳「原地换槽」同款) */
+  const foreign = api.mkInventory(); /* 外部 inv(测试里=壳真档 inv 的替身) */
+  foreign.slots[0] = {id: 'diamond', n: 7}; /* 预置他内容(真档残留) */
+  const bag = Core.showroomDevBag(foreign);
+  assert.strictEqual(bag.inv, foreign, '供给包外部 inv 对象(不自建第二实例)');
+  bag.load();
+  const p = Core.showroomPocket();
+  assert.strictEqual(foreign.slots[0].id, p.rows[0].id, 'load 清槽后照套餐原地重铸进该 inv');
+  assert.ok(foreign.slots.every((s, i) => !s || i < p.rows.length), '27 槽清空重铸(无真档残留)');
+  const store = Core.mkShowroomStore(bag);
+  assert.strictEqual(store.bag, bag, 'store 可注入 bag(整体换装时闭包面同一份)');
+  assert.strictEqual(store.loadBag(), foreign, 'loadBag 返回注入的 inv(同一引用)');
+});
+
 test('供给核心: dev store — 槽供给五件齐 · mark 进内存账本 · 落盘面全 noop(脏标不清=未走真链路)', () => {
   const store = Core.mkShowroomStore();
   const KEYS = globalThis;

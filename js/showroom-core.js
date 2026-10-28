@@ -40,7 +40,8 @@
      PaintHouse/PaintHall/PaintBasement/PaintSite · showroomWorldEditsCompute
      (纯计算面, 每次重算) · showroomWorldEdits(缓存面, 惰性一次算定) ·
      showroomSceneKeys/SceneEnvelope · showroomWorldPayload/QuestPayload/
-     ChestPayload · showroomDevBag · mkShowroomStore
+     ChestPayload · showroomDevBag(inv?) · mkShowroomStore(bag?)(inv/bag 可注入:
+     U4 门面把壳的真档 inv 包进 dev bag——壳闭包绑定不脱钩)
    依赖(均经全局名, 调用期解析): js/items-core.js 的 ITEMS/stackMax/durOf ·
      js/craft-core.js 的 RECIPES/SMELTS/FUEL/shapeCost · js/inventory-core.js
      的 INV_SLOTS/mkInventory/add · js/config.js 的 B_* 方块常数与
@@ -398,14 +399,17 @@ function showroomChestPayload() {/* 宝箱档篡改 payload: 顶格 27 槽 + 仓
   return acct;
 }
 
-function showroomDevBag() {/* 背包供给(内存实例): {inv, load=照套餐原地重铸, save=丢弃}——与背包壳同供给形态,
-    引用跨进场稳定, 内容每次进场原地清空重铸(面板族闭包不脱钩) */
-  const inv = mkInventory();
-  return {inv,
+function showroomDevBag(inv) {/* 背包供给(内存实例): {inv, load=照套餐原地重铸, save=丢弃}——与背包壳同供给
+    形态, 引用跨进场稳定, 内容每次进场原地清空重铸(面板族闭包不脱钩)。
+    inv 可注入(U4 门面消费): 冒险壳的 kit/面板在加载期捕获真档背包的 inv 对象
+    引用, 换 bag 不重绑闭包——门面把壳的真档 advStore.bag.inv 注入进来, dev
+    bag 包同一对象(身份永不变、内容随 load 换), 壳的全部闭包自动对准 dev 内容 */
+  const own = inv || mkInventory();
+  return {inv: own,
     load() {
-      inv.slots.fill(null);
-      for (const row of showroomPocket().rows) add(inv, row.id, row.n);
-      return inv;
+      own.slots.fill(null);
+      for (const row of showroomPocket().rows) add(own, row.id, row.n);
+      return own;
     },
     save() {}};
 }
@@ -422,7 +426,8 @@ function showroomDevBag() {/* 背包供给(内存实例): {inv, load=照套餐�
    U4 把冒险壳的存档缝整体换装成本工厂产物, 编排零改动。
    ============================================================ */
 
-function mkShowroomStore() {
+function mkShowroomStore(bag) {/* bag 可注入(U4 门面消费: 包壳真档 inv 的 dev bag, 见 showroomDevBag);
+    缺省自建内存背包(U3 形状) */
   const worldSlot = {load: () => showroomWorldPayload(), save: () => {}}; /* 内存槽: load=篡改档, save=丢弃 */
   const questSlot = {load: () => showroomQuestPayload(), save: () => {}};
   const chestSlot = {load: () => showroomChestPayload(), save: () => {}};
@@ -431,7 +436,7 @@ function mkShowroomStore() {
     worldSlot,
     questSlot,
     chestSlot,
-    bag: showroomDevBag(),
+    bag: bag || showroomDevBag(),
     /* 世界档记账: 内存槽喂同一工厂(范本缝), 联写经本面 noop——三档联写的丢弃版 */
     journal: null,
     /* —— 世界档持久化语义面(load=喂篡改 payload; 落盘决策点全 noop) —— */

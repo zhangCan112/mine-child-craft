@@ -322,9 +322,9 @@ const advHb = ModeKit.mkHotbar({items: advHbItems, onPick: (i) => advHeldChanged
      advQuestSlot/advChestSlot/advBag/advJournal) · advChest(账户本体,
      init 换装, saveChest 调用期读)
    可测性: 纯薄委托零新逻辑, 行为由 test/adventure-mode.test.js 既有
-     断言守卫(U1 零改动); 顶层 let = 登记 U3 的跨文件换装写
+     断言守卫(U1 零改动); 顶层 let = 登记 U4 体验馆门面的跨文件换装/还原写
    ============================================================ */
-let advStore = {
+const advStoreDefault = {/* 真档 adapter 缺省(U4 还原锚点): 名字即还原目标 */
   /* —— 槽供给(四份档; U3 dev store 换装点: 整体换本缝或换单字段皆可) —— */
   worldSlot: advWorldSlot, /* 世界档槽(真档: SyncDB 注册回填在创建期已定) */
   questSlot: advQuestSlot, /* 任务档槽 */
@@ -371,6 +371,7 @@ let advStore = {
     advStore.bag.save();
   },
 };
+let advStore = advStoreDefault; /* 存档缝本体(U4 体验馆门面 init 前整体换装 dev store, cleanup 收尾还原) */
 
 /* ============================================================
    政策缝 (advProfile) — 模式层·冒险壳政策点的唯一读取面
@@ -395,13 +396,14 @@ let advStore = {
    · hiddenRecipesOpen       隐藏配方锁(现行) | 全开(二期卡进馆可测)
    · leftoverDrops           满包余量掉地上拾回(现行零损失) | 静默丢弃(体验馆
      无存档, 掉落只是噪音; 合成 leftover/关面板退料/挖炉退料三处同口径)
-   interface: advProfile(政策对象) · advSpeak/advSfx/advToast(媒体薄包装)
+   interface: advProfile(政策对象) · advSpeak/advSfx/advToast(媒体薄包装);
+      缺省对象名单独命名 advProfileDefault = U4 体验馆门面的还原锚点
    依赖(均经全局名, 调用期解析): SpeechKit/sfx/showToast(媒体直通缺省) ·
      advNightLayRing(本文件下方昼夜 D5 段的环带铺法, 函数声明加载期即在场)
    可测性: 缺省政策 = 既有行为, 由 test/adventure-mode.test.js 既有断言守卫
      (U2 测试零改动); 换装行为由 U4 的 dev profile 落测
    ============================================================ */
-let advProfile = {
+const advProfileDefault = {
   death: 'home', /* 死亡去向: 'home'=切图回出生点(现行) · 'inPlace'=原地满血复活(U4 体验馆) */
   sleepWakeSetsSpawn: true, /* 睡醒沿设床边出生点+落位(现行) · false=只跳清晨+清场(U4 体验馆) */
   nightLay: advNightLayRing, /* 夜怪铺法(缺省=环带节拍) · U4 体验馆注入固定点位铺法 */
@@ -412,6 +414,7 @@ let advProfile = {
   hiddenRecipesOpen: false, /* 隐藏配方: false=锁(现行) · true=全开(U4 体验馆) */
   leftoverDrops: true, /* 满包余量: true=掉地上拾回(现行) · false=静默丢弃(U4 体验馆) */
 };
+let advProfile = advProfileDefault; /* 政策缝本体(U4 体验馆门面 init 前整体换装 dev 政策值, cleanup 收尾还原) */
 function advSpeak(text) {/* 媒体缝·TTS: 经 profile 取通道(缺省直通 SpeechKit.speak) */
   advProfile.speak(text);
 }
