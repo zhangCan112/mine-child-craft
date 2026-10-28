@@ -24,6 +24,24 @@ const IS_TOUCH = (()=>{
   }
 })();
 
+/* 低核触屏分档(全游戏唯一口径): ≤2 逻辑核的触屏设备(A9 级, 如 iPad 5)单列一档,
+   初始 DPR 上限 LOWCORE_DPR_MAX(docs/ipad5-performance-research.md §4①: dpr2 全屏
+   ≈3.15M 像素是该代 GPU 第一瓶颈, 1.5 省 44% 像素成本)。判据只认硬件信号不读
+   UA(iPad 桌面形态 UA 呈 Mac); hardwareConcurrency 缺失 → 不分档保持现状
+   (Safari iOS 15.4+ 已支持该 API, 目标机 16.7 必有)。桌面端被 IS_TOUCH 滤除;
+   ?touch=1 强制预览下同样生效(顺带成为低核档的桌面预览口)。
+   设计权威 docs/ipad5-performance-design.md 票①。 */
+const IS_LOWCORE_TOUCH = (()=>{
+  if (!IS_TOUCH) return false;
+  try {
+    const n = navigator.hardwareConcurrency;
+    return typeof n === 'number' && n > 0 && n <= 2;
+  } catch (e) {
+    return false;
+  }
+})();
+const LOWCORE_DPR_MAX = 1.5; /* 低核档初始 DPR 上限(world.js 渲染 adapter 读; mk 语义=初始即本场封顶, 档内仍可自适应回落) */
+
 /* dev 调试旗标(全游戏唯一口径, ?touch=1 同款防御式读取): ?dev=1 开发模式 —
    消费面(docs/dev-mode-design.md): ① dev 向模式卡可见(main.js body.dev-on,
    体验馆) ② 每日预算全开(daily-budget 的 dev 选项: 儿童时限+训练营限额恒不锁,

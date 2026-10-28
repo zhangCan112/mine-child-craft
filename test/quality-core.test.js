@@ -2,7 +2,8 @@
 /* 画质核心 (js/quality-core.js) 单测 — node --test (零依赖)
    运行: node --test test/quality-core.test.js
    加载器: vm context 执行 quality-core.js (纯决策核心, 零依赖);
-   step 每次调用 = 主循环的一个半秒 fps 采样 (口径见文件头) */
+   step 每次调用 = 主循环的一个半秒 fps 采样; 守卫 feed 每次调用 =
+   主循环的一帧原始 rAF 间隔毫秒 (口径见文件头) */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -117,5 +118,51 @@ test('无效采样与台阶取整: fps≤0 不参与决策, mk 把非台阶 DPR 
   for (let i=0; i<30; i++) r = Q.step(q, i%2 ? 0 : 50); // fps≤0 忽略, 50 落死区 → 永不换档
   assert.strictEqual(r, 0, '全程无换档');
   assert.strictEqual(q.dpr, 1.75, 'fps≤0 采样不触发任何换档');
+});
+
+/* ============ LPM 守卫 (mkLpmGuard, 设计稿 docs/ipad5-performance-design.md 票④) ============ */
+
+test('LPM 锁存: 连续 60 帧紧带间隔(≈33.3ms)才锁存, 第 59 帧还不锁', () => {
+  const Q = loadCore();
+  const g = Q.mkLpmGuard();
+  let on = false;
+  for (let i=0; i<59; i++) on = g.feed(33.3);
+  assert.strictEqual(on, false, '第 59 帧不应锁存');
+  on = g.feed(33.3);
+  assert.strictEqual(on, true, '第 60 帧锁存');
+  assert.strictEqual(g.on, true);
+});
+
+test('60fps 与宽抖动流永不锁存: 快帧/负载型抖动都进不了证据', () => {
+  const Q = loadCore();
+  const a = Q.mkLpmGuard();
+  for (let i=0; i<500; i++) a.feed(16.7);
+  assert.strictEqual(a.on, false, '60fps 恒快帧, 无证据可攒');
+  const b = Q.mkLpmGuard();
+  for (let i=0; i<500; i++) b.feed(i%2 ? 25 : 45); // 均值≈35ms 但宽抖动
+  assert.strictEqual(b.on, false, '负载型 30fps 抖动流不锁存');
+});
+
+test('锁存滞回: 单发慢帧(>36ms)不解锁, 快帧(<31.5ms)解锁且证据清零重攒', () => {
+  const Q = loadCore();
+  const g = Q.mkLpmGuard();
+  for (let i=0; i<60; i++) g.feed(33.3);
+  assert.strictEqual(g.on, true, '前置: 已锁存');
+  assert.strictEqual(g.feed(40), true, '调度 hiccup 慢帧不解锁');
+  assert.strictEqual(g.feed(16.7), false, '60fps 快帧回归 → 解锁');
+  assert.strictEqual(g.n, 0, '解锁即清证据');
+  for (let i=0; i<59; i++) g.feed(33.3);
+  assert.strictEqual(g.on, false, '重新攒需满 60 帧');
+  assert.strictEqual(g.feed(33.3), true, '第 60 帧再锁存');
+});
+
+test('紧带边界: 31.5/36 计入证据, 31.4/36.1 不计且打断连击', () => {
+  const Q = loadCore();
+  const g = Q.mkLpmGuard();
+  for (let i=0; i<59; i++) g.feed(31.5);
+  g.feed(36.1); // 出带 → 连击清零
+  assert.strictEqual(g.on, false, '36.1 出带打断连击');
+  for (let i=0; i<59; i++) g.feed(31.5);
+  assert.strictEqual(g.feed(36), true, '带内边界 31.5/36 累满 60 锁存');
 });
 

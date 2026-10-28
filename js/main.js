@@ -4,7 +4,7 @@
    ------------------------------------------------------------
    模式调度与主循环: 消费模式注册表派生菜单页/卡片接线, 驱动 MODES 框架的
    进入/退出/update/render 主循环, 装配每日预算(setupBudgets)与画质档决策
-   (帧率采样喂 quality-core)。
+   (帧率采样喂 quality-core + LPM 守卫冻结 + GL 上下文丢失 UX)。
    依赖(均经全局名, 经典 script 顺序加载): js/ 全部引擎与应用模块 +
    js/modes/*.js 模式文件 — 后者必须先于本文件加载(由
    test/mode-registry.test.js 对着 index.html 断言, 手滑即红)。
@@ -249,6 +249,29 @@ window.addEventListener('error', (e)=>{
     'font:13px/1.6 sans-serif;padding:6px 12px;box-shadow:0 2px 8px rgba(0,0,0,.4)';
   document.body.appendChild(d);
 });
+/* ---------- GL 上下文丢失 UX(设计稿 docs/ipad5-performance-design.md 票③) ----------
+   r128 内部已监听同款事件并 preventDefault+自复位渲染状态(调研 §3.1), 这里只做
+   儿童可见提示与计数 — iOS 上 context lost 常是内存压力前兆, 计数供 PerfKit
+   遥测(内存红线报警器, 调研 §2.6-3) */
+let glLostCount = 0; /* 丢失计数(PerfKit 遥测读) */
+let glLostBar = null;
+renderer.domElement.addEventListener('webglcontextlost', () => {
+  glLostCount++;
+  if (glLostBar) return; // 提示条已在场, 只计数
+  glLostBar = document.createElement('div');
+  glLostBar.id = 'glLostBar';
+  glLostBar.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:9998;background:#8e44ad;' +
+      'color:#fff;font:15px/1.8 sans-serif;padding:8px 14px;text-align:center;';
+  glLostBar.textContent = '🖥️ 平板累了，正在歇口气…如果一直没画面，请刷新这一页';
+  document.body.appendChild(glLostBar);
+  SpeechKit.speak('平板累了，正在歇口气，马上就好');
+});
+renderer.domElement.addEventListener('webglcontextrestored', () => {
+  if (glLostBar) {
+    glLostBar.remove(); glLostBar = null;
+  }
+  showToast('🖼️ 画面回来啦');
+});
 /* 帧率上限 60: ProMotion(pad Pro 等 120Hz)设备 rAF 翻倍 → JS/渲染成本全翻,
    GPU 撑不住时帧率在 60~120 抖动, 锁 60 帧 pacing 反而稳; 60Hz 屏不受影响
    (阈值 16.4ms < 16.7ms 常规帧全部放行) */
@@ -257,8 +280,14 @@ const FRAME_MIN = 16.4;
    纯核心+单元测试), 这里只做半秒采样与施加;
    初始 DPR 拉满在 world.js, 桌面端不参与自适应 */
 let quality = null;
+/* LPM 守卫(设计稿 docs/ipad5-performance-design.md 票④): 低电量模式把 rAF 钉在
+   30fps, 不冻结会被降档逻辑误读为"带不动"一路降到底且永不回升 — 锁存期间
+   adaptDpr 直接返回(冻结档位) */
+let lpmGuard = IS_TOUCH ? QualityCore.mkLpmGuard() : null;
+let lpmOn = false; /* 守卫锁存态(PerfKit 遥测读, conventions §2.1 跨文件读先例) */
 function adaptDpr() {
   if (!IS_TOUCH) return;
+  if (lpmOn) return; // LPM 冻结: 30fps 是系统省电, 不是设备带不动
   if (!quality) quality = QualityCore.mk(renderer.getPixelRatio());
   const next = QualityCore.step(quality, fps);
   if (next) renderer.setPixelRatio(next);
@@ -268,6 +297,7 @@ function loop(now) {
   if (NET_DEAD) return; // 心跳失联: 冻结一切
   if (now - last < FRAME_MIN) return; // 未满一帧预算: 等下个 rAF
   let dt = (now-last)/1000; last=now;
+  if (lpmGuard) lpmOn = lpmGuard.feed(dt*1000); /* 原始帧间隔(钳制前, 毫秒)喂 LPM 守卫 */
   if (dt>0.05) dt=0.05;
   AudioMixer.tick(dt*1000); // BGM 调度步进: dt 秒→毫秒; context 挂起时 audio.js 内部有闸不推进
 
@@ -324,6 +354,7 @@ function loop(now) {
   if (fpsAcc>=0.5) {
     fps=Math.round(fpsCnt/fpsAcc); fpsAcc=0; fpsCnt=0; adaptDpr();
   }
+  PerfKit.tick(now); // 性能 HUD(默认关闭零成本, ?perf=1 常驻, 设计稿票②)
   if (MODES.cur && MODES.cur.updateHud) MODES.cur.updateHud(hit); // hit 复用本帧唯一一次 raycast
 }
 
@@ -370,6 +401,7 @@ function init() {
      (样式表先于脚本生效), 这里只做解锁(旗标读取与 ?touch=1 同款惯例收在
      config.js; DEV 同时旁路预算/关卡解锁, 见 docs/dev-mode-design.md) */
   if (DEV) document.body.classList.add('dev-on');
+  PerfKit.init(); // 性能 HUD 自检+心跳(?perf=1 才有实质动作, 设计稿票②)
   buildMenu();
   Avatar.setItem(PLAYER.heldItem); // 组合根装配默认手持物(参数表驱动, 见 config.js)
   SyncDB.ready.then(setupBudgets); // 服务器镜像完成后再建账本/迁移(进度零丢失的时序保证)

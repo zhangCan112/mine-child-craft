@@ -22,7 +22,8 @@
    light-core.js(光照核心: 装场全量 computeAll + 编辑增量 updateEdit) ·
    mesh-core.js(网格化核心, 同一份代码在 Worker 里跑) · daylight-core.js
    (Daylight/DAYLIGHT 昼夜纯函数, DAYLIGHT 常数在加载期插值进 GLSL 模板,
-   单源) · config.js(VIEW/CAM/BLOCKS/FLUIDS/FLUID) · lib/three.min.js。
+   单源) · config.js(VIEW/CAM/BLOCKS/FLUIDS/FLUID + IS_LOWCORE_TOUCH/LOWCORE_DPR_MAX
+   低核分档) · lib/three.min.js。
    THREE/DOM 惰性创建, Node 测试环境可安全加载(经 boot.test.js 冒烟)。
 ============================================================ */
 
@@ -35,7 +36,9 @@
    对 3D 透视几何不成立, 已由触屏 DPR 帧率自适应取代, 见 main.js)。
    high-performance 提示移动 GPU 拉满时钟(默认不指定偏保守)。 */
 const renderer = new THREE.WebGLRenderer({antialias: true, powerPreference: 'high-performance'});
-renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); // 初始拉满; 触屏按帧率证据自适应回落
+/* 初始拉满, 触屏按帧率证据自适应回落; 低核触屏(A9 级, config.IS_LOWCORE_TOUCH)初始即
+   限 1.5 且为本场封顶(mk 语义) — 设计稿 docs/ipad5-performance-design.md 票① */
+renderer.setPixelRatio(Math.min(devicePixelRatio, IS_LOWCORE_TOUCH ? LOWCORE_DPR_MAX : 2));
 renderer.setSize(innerWidth, innerHeight);
 document.getElementById('app').appendChild(renderer.domElement);
 
