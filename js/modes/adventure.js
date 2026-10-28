@@ -445,10 +445,16 @@ function advMainPlaceable() {/* 智能主动作的手持判定(纯 seam, 单测�
   return !!(s && ITEMS[s.id] && (ITEMS[s.id].block != null || s.id === 'nether_portal' || s.id === 'door'));
 }
 function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/其余=镐,
-   2026-10-24 手持感知拍板); input.js 未加载(桌面/Node 单测)时静默
+   2026-10-24 手持感知拍板; 弓态=弓·射击——攻击键远程放箭, 弓物品化);
+   input.js 未加载(桌面/Node 单测)时静默
    (2026-10-26 别名收口: 过渡名 refreshTouchMain 已撤, 走 Input.refreshMain) */
   if (typeof Input !== 'undefined' && Input && typeof Input.refreshMain === 'function') {
     const place = advMainPlaceable();
+    const s = advInv.slots[advHb.sel];
+    if (!place && s && s.id === 'bow_item') {
+      Input.refreshMain('bow', '射击'); /* 持弓: 攻击键=放箭(不再是挖/打) */
+      return;
+    }
     Input.refreshMain(place ? 'brick' : 'pick', place ? '放置' : '挖/打');
   }
 }
@@ -1833,11 +1839,12 @@ function advTryThrowSnowball() {
   return true; /* 手持雪球: 点击恒算投掷 attempt, 不落放置 */
 }
 
-/* 射箭(手持弓, 2026-10-28 弓物品化): 轻点/右键沿准星放箭 — swingAction 占剑
-   同一条冷却轨道(拉弓 0.55s, 换武器不躲冷却, nether 弓口径), 出手观感=弓 def
-   的蓄力前送(Avatar.swing 随 def 走), 弹由 advBolts 管线步进(shoot/hit 音效与
-   骷髅箭同源, mkArrows 默认内置); 无弹药设计(儿童版): 箭不消耗、弓无耐久
-   不磨损, 冷却即节奏——远程优势不设资源门槛 */
+/* 射箭(手持弓, 2026-10-28 弓物品化): 攻击键(左键/⛏️)与轻点/右键都沿准星放箭
+   ——用户拍板「弓箭应该是远程攻击」: 拿弓按攻击就是射箭, 近战挥砍让位(旧观感
+   曾是持弓挥砍); swingAction 占剑同一条冷却轨道(拉弓 0.55s, 换武器不躲冷却,
+   nether 弓口径), 出手观感=弓 def 的蓄力前送(Avatar.swing 随 def 走), 弹由
+   advBolts 管线步进(shoot/hit 音效与骷髅箭同源, mkArrows 默认内置);
+   无弹药设计(儿童版): 箭不消耗、弓无耐久不磨损, 冷却即节奏——远程优势不设资源门槛 */
 function advTryShootBow() {
   const slot = advHb.sel;
   const s = advInv.slots[slot];
@@ -2656,7 +2663,8 @@ const AdventureMode = mkMode({
   },
 
   onMouse(button, hit) {/* 左键并线(T12×T13×T14): TNT 短按点燃/按住挖走(D3)/熔炉走近点击开面板(T13, 准星块
-    精确命中故在最前)/箱子走近点击开面板(引导链 v2, 站点缓存外故按点击块直算距离), 准星锥内有
+    精确命中故在最前)/箱子走近点击开面板(引导链 v2, 站点缓存外故按点击块直算距离), 手持弓=攻击键
+    远程放箭(弓物品化, 先于近战锥), 准星锥内有
     活怪→挥击(T14), 否则吃/挖掘蓄力(T12); 右键放置; 床=点击睡觉(昼夜 D6, 两条件与
     转场在 advTrySleep) */
     if (ADV.panelOpen || advFurnace.isOpen() || ADV.chestOpen || advSleep.on) return; /* 面板/睡觉黑屏遮罩兜底: 不挖不放不打 */
@@ -2670,6 +2678,9 @@ const AdventureMode = mkMode({
       if (advUseStation(hit, lookId)) return; /* 熔炉/箱子: 走近开面板(见下) */
       if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6, 使用先于打/挖) */
       if (advTryDoor(hit, lookId)) return; /* 门: 点击开关(设计稿 §4.2, 使用先于打/挖) */
+      if (advTryShootBow()) return; /* 手持弓: 攻击键=远程放箭(2026-10-28 用户拍板
+        「弓箭应该是远程攻击」——近战锥内有怪也不再挥砍, 拿弓按攻击就是射箭;
+        MC「攻击与手持无关」正典在此让位儿童直觉, 与下界弓口径一致) */
       if (advMelee.aim(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖) */
         advMelee.swing(advGetPEnt());
         return;

@@ -3079,17 +3079,19 @@ test('T8 计数挂点四路: 广场发现(位置型) / 结构宝箱(图+坐标) 
   assert.strictEqual(ADV_MINE_TALLY[api.B_CACTUS], 'mine_cactus', '仙人掌走挖掘挂点映射');
 });
 
-test('弓射击(2026-10-28 弓物品化): 手持弓右键沿准星放箭 → 弹步进命中击杀记账; 拉弓冷却与挥击同轨连点不连发', () => {
+test('弓射击(2026-10-28 弓物品化): 攻击键=远程放箭(持弓不再挥砍) → 弹步进命中击杀记账; 拉弓冷却与挥击同轨连点不连发; 主动作键弓态图标', () => {
   mem.clear();
   freshInit();
   /* 站门阵广场开阔处(弹道不碰建筑), 手持弓 + 准星朝前(T9 雪球同款桩) */
   pos.x = 85.5; pos.z = 81.5;
   holdOnly('bow_item', 1);
+  assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'bow' && c[2] === '射击'),
+      '选中弓 → 主动作键切弓·射击(不再是镐·挖/打)');
   globalThis.camera = {};
   globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.4, z: pos.z}, dir: {x: 0, y: 0, z: -1}})};
   const shots = () => calls.filter((c) => c[0] === 'sfx' && c[1] === 'shoot').length;
   AdventureMode.onMouse(2, {x: 60, y: 24, z: 60, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(shots(), 1, '手持弓右键 → 放箭(shoot 音效, mkArrows 内置)');
+  assert.strictEqual(shots(), 1, '轻点/右键 → 放箭(shoot 音效, mkArrows 内置)');
   AdventureMode.onMouse(2, {x: 60, y: 24, z: 60, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(shots(), 1, '拉弓冷却内(0.55s)连点不连发——与挥击同一条轨道');
   /* 弹道步进: 怪在准星线上 2 格 → 箭 22 格/秒命中 → 击杀记账走 advOnKill(与挥击同拍) */
@@ -3100,6 +3102,17 @@ test('弓射击(2026-10-28 弓物品化): 手持弓右键沿准星放箭 → 弹
   listResult = [];
   assert.strictEqual(A.ADV.quest.counts.kill_mob, 1, '箭杀怪 → kill_mob 1(advBolts.onHitMob → advOnKill)');
   assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hit'), '命中怪 → hit 音效(kit 内置)');
+  /* 攻击键=远程放箭(用户拍板「弓箭应该是远程攻击」, 修前持弓左键=近战挥砍):
+     近战锥内有怪时攻击键放箭不放挥砍 — 点击即出箭且无同步近战命中记录 */
+  for (let i = 0; i < 12; i++) AdventureMode.update(1 / 60); /* 推过拉弓冷却(累计 0.7s > 0.55s) */
+  const hitLogLen = hitLog.length;
+  listResult = [mkAdvMob('zombie', pos.x, pos.y, pos.z - 2, {attackCd: 99})];
+  AdventureMode.onMouse(0, {x: 60, y: 24, z: 59, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(shots(), 2, '攻击键(左键/⛏️)持弓 → 放箭');
+  assert.strictEqual(hitLog.length, hitLogLen, '无同步近战命中(挥砍让位远程, 击杀走弹道步进)');
+  for (let i = 0; i < 30; i++) AdventureMode.update(1 / 60);
+  listResult = [];
+  assert.strictEqual(A.ADV.quest.counts.kill_mob, 2, '第二只 → kill_mob 2(攻击键弹道同拍)');
   clearAim();
 });
 
