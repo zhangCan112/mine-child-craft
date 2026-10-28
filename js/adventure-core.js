@@ -47,7 +47,8 @@
      advOreSpots/advOreSpotsReset(矿位白名单, advTryOre 建场期记录)/advIsOre/
      advOreKey/advOreParseKey/advOreDue/advOreRefillPlan(矿位跨天回填纯段) ·
      advBreedPairOk(繁育配对判据)/advBabyAdult(幼崽成年判)/advLivestockNormBucket
-     (牧场桶三代档形归一)/advBreedHerdOf/ADV_BREED 族/ADV_BABY 族 ·
+     (牧场桶四代档形归一, v3 增剪毛账 sheared)/advShearedNorm(剪毛账归一)/
+     advBreedHerdOf/ADV_BREED 族/ADV_BABY 族 ·
      石阵夜晚彩蛋(2026-10-27): ADV_STONE_EGG_CD/ADV_STONE_HINT_CD/
      ADV_STONE_EGG_GIFT/advStoneAltarHit(灯坛命中)/advStoneEggPick(昼夜
      分支裁决——观感归壳) ·
@@ -992,19 +993,35 @@ const ADV_BREED_R = 4; /* 配对水平距离(格) */
 const ADV_LIVESTOCK_CAP = 16; /* 活畜上限(初始 10 + 繁育余量 6; MC creature 上限 10 锚点) */
 const ADV_BABY_SCALE = 0.55; /* 幼崽体型(MC 约半体型) */
 
-function advBredNorm(v) {/* 繁育账条目归一(纯函数): 只收 {k: 怪物键, b: 日期串}, 异形整条丢弃 */
+function advBredNorm(v) {/* 繁育账条目归一(纯函数): 只收 {k: 怪物键, b: 日期串[, sheared: 剪毛
+    时刻 tick]}(v3 剪毛字段可选), 异形整条丢弃; sheared 非有限数值即剥除(回落有毛) */
   return (Array.isArray(v) ? v : [])
       .filter((e) => e && typeof e.k === 'string' && typeof e.b === 'string')
-      .map((e) => ({k: e.k, b: e.b}));
+      .map((e) => (typeof e.sheared === 'number' && Number.isFinite(e.sheared)) ?
+        {k: e.k, b: e.b, sheared: e.sheared} : {k: e.k, b: e.b});
 }
 
-function advLivestockNormBucket(v) {/* 牧场桶形状归一(纯函数, 世界档 v2): 三代档形收敛——
-   v2 {dead:[..], bred:[{k,b}..]} 校验拷贝 · 二代纯死畜索引数组 → bred 空 · 坏值兜底空 */
-  if (Array.isArray(v)) return {dead: v.slice(), bred: []};
-  if (v && typeof v === 'object') {
-    return {dead: Array.isArray(v.dead) ? v.dead.slice() : [], bred: advBredNorm(v.bred)};
+function advShearedNorm(v) {/* 剪毛账归一(纯函数, 档形 v3): 只收 {初始畜索引: 剪毛时刻 tick}
+    的有限数值对, 异形键值整条丢弃(坏档兜底空账); 繁育畜的剪毛时刻挂在
+    bred 条目上(advBredNorm), 两者分工与 dead/bred 同构 */
+  const out = {};
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    for (const k of Object.keys(v)) {
+      if (/^\d+$/.test(k) && typeof v[k] === 'number' && Number.isFinite(v[k])) out[k] = v[k];
+    }
   }
-  return {dead: [], bred: []};
+  return out;
+}
+
+function advLivestockNormBucket(v) {/* 牧场桶形状归一(纯函数, 世界档 v3): 四代档形收敛——
+    v3 {dead:[..], bred:[..], sheared:{idx: 剪毛时刻}} 校验拷贝 · v2 {dead,bred}
+    → sheared 空 · 二代纯死畜索引数组 → bred/sheared 空 · 坏值兜底空 */
+  if (Array.isArray(v)) return {dead: v.slice(), bred: [], sheared: {}};
+  if (v && typeof v === 'object') {
+    return {dead: Array.isArray(v.dead) ? v.dead.slice() : [], bred: advBredNorm(v.bred),
+      sheared: advShearedNorm(v.sheared)};
+  }
+  return {dead: [], bred: [], sheared: {}};
 }
 
 function advBreedPairOk(a, b, dist) {/* 配对判据(纯谓词): 快照 {type,baby,cd} × 实距——
@@ -2114,7 +2131,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advLivestockHerdOk, advLivestockSpots, advLivestockPlan, advHerdStep,
     ADV_HERD_PAD, advHerdClamp,
     ADV_BREED_CD_S, ADV_BABY_GROW_S, ADV_BREED_R, ADV_LIVESTOCK_CAP, ADV_BABY_SCALE,
-    advBredNorm, advLivestockNormBucket, advBreedPairOk, advBabyAdult, advBreedHerdOf,
+    advBredNorm, advShearedNorm, advLivestockNormBucket, advBreedPairOk, advBabyAdult, advBreedHerdOf,
     ADV_TREE_REGROW_S, ADV_TREE_REGROW_JIT, ADV_TREE_REGROW_RETRY_S, ADV_LOG_ID,
     advTreeSpotOpen, advTreeRegenSpots,
     ADV_ORE_IDS, advIsOre, advOreKey, advOreParseKey, advOreDue, advOreRefillPlan,

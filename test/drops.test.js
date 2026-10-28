@@ -398,11 +398,11 @@ test('交叉: MOB_DROPS 与 BLOCKS.drop 引用的全部物品 id ⊆ ITEMS(防�
   assert.deepStrictEqual(missing, [], '掉落表引用了未注册物品: ' + missing.join(', '));
 });
 
-test('交叉: ITEMS 工具 id(除 shears)⊆ HeldItems.defs(Avatar.setItem 直用)', () => {
+test('交叉: ITEMS 工具 id ⊆ HeldItems.defs(Avatar.setItem 直用; shears 观感已补齐)', () => {
   const h = loadDrops();
-  /* 豁免口径(工单备注): shears 无手持观感属预期 — 豁免集只收 shears,
-     若日后给剪刀补了观感, 本断言自动收紧无需改动 */
-  const exempt = new Set(['shears']);
+  /* shears 曾因无手持观感豁免(白色板状口径)——2026-10-28 剪刀像素薄片
+     def 落地(held-item shears 条目), 豁免集清空、断言全额收紧 */
+  const exempt = new Set([]);
   const kinds = new Set(['pick', 'axe', 'sword', 'shovel', 'hoe']);
   const missing = Object.entries(h.ITEMS)
       .filter(([id, it]) => it.tool && kinds.has(it.tool.kind) && !exempt.has(id))

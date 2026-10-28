@@ -296,7 +296,7 @@ test('fp 族正确: 方块两形=方块族(rotY 45°/scale1), 工具/锄/剑/弓
   };
   /* 方块族: 单色盒(木板) + top/side 三件盒(原木) + 数字方块 id(石英) + 工厂直调 */
   for (const id of ['planks', 'log', 17]) same(HeldItems.defFor(id), BLOCK, '方块 ' + id);
-  /* 手持物族: defs 全部 19 条(弓正典 display 与 handheld 同值=继承)逐一 + 薄片 + 棒 */
+  /* 手持物族: defs 全部 20 条(弓/剪刀正典 display 与 handheld 同值=继承)逐一 + 薄片 + 棒 */
   for (const [id, def] of Object.entries(HeldItems.defs)) same(def, HAND, '手持物 ' + id);
   same(HeldItems.defFor('apple'), HAND, '薄片 apple');
   same(HeldItems.defFor('stick'), HAND, '棒 stick');

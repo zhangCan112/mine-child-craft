@@ -108,12 +108,14 @@ function advSceneEditsEncode(b) {/* 桶账本 → 档(五桶恒写全: 形状确
   for (const k of ADV_SCENE_KEYS) out[k] = [...b[k].entries()];
   return out;
 }
-function advLivestockDecode(v) {/* 牧场账按图归一(档形 v2/ADR 0006): 五桶各经
-    advLivestockNormBucket 收敛三代档形(v2 {dead,bred} / 二代索引数组 / 老单账
-    {dead:[..]}→home 桶); 拷贝入账(档文本与运行账不共享引用) */
+function advLivestockDecode(v) {/* 牧场账按图归一(档形 v3): 五桶各经
+    advLivestockNormBucket 收敛历代档形(v3 {dead,bred,sheared} / v2 {dead,bred} /
+    二代索引数组 / 老单账 {dead:[..]}→home 桶); 拷贝入账(档文本与运行账不共享引用) */
   const out = {};
   for (const k of ADV_SCENE_KEYS) out[k] = advLivestockNormBucket(v && v[k]);
-  if (v && Array.isArray(v.dead)) out.home = {dead: v.dead.slice(), bred: []}; /* 老单账优先(两形状并存时) */
+  if (v && Array.isArray(v.dead)) {/* 老单账优先(两形状并存时; 三栏形状恒完整——缺 sheared 是残缺桶) */
+    out.home = {dead: v.dead.slice(), bred: [], sheared: {}};
+  }
   return out;
 }
 function advOreRegenDecode(v) {/* 矿位开采账归一(生态恢复 C 通道): 只收 {<场景>:x,y,z: 日期串},
@@ -137,11 +139,15 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
   /* map: 当前主世界图键(老档缺省 home; nether 期间保持最后主世界图——维度不进档 D9,
      重进 pos=null → 该图回程门出生); pos(含 yaw)/hp: 玩家状态随世界档(仅主世界图随
      当前图存); furnaces: 每炉独立炉态(F1 拍板①, 炉键带图/界前缀); livestock: 牧场账
-     **按图分桶**(档形 v2/ADR 0006: {dead 死畜索引, bred 繁育账}, 初始清单可推导);
+     **按图分桶**(档形 v3: {dead 死畜索引, bred 繁育账, sheared 初始畜剪毛账},
+     初始清单可推导);
      oreRegen: 矿位开采账(生态恢复, '<场景>:x,y,z'→'Y-M-D', 跨天回填); dayTime: 昼夜全局单钟 */
+  /* v3(2026-10-28 剪羊毛): livestock 桶增剪毛账 sheared({初始畜索引: 剪毛时刻
+     dayTime}; 繁育畜剪毛时刻挂 bred 条目上)——跨天长回判据的持久化半边 */
   defaults: {edits: [], map: 'home', pos: null, hp: null, furnaces: [],
-    livestock: {home: {dead: [], bred: []}, desert: {dead: [], bred: []},
-      snow: {dead: [], bred: []}, swamp: {dead: [], bred: []}, nether: {dead: [], bred: []}},
+    livestock: {home: {dead: [], bred: [], sheared: {}}, desert: {dead: [], bred: [], sheared: {}},
+      snow: {dead: [], bred: [], sheared: {}}, swamp: {dead: [], bred: [], sheared: {}},
+      nether: {dead: [], bred: [], sheared: {}}},
     oreRegen: {}, dayTime: 0},
   /* livestock defaults 自带五桶全键: 无档路径 clone(defaults) 不经 decode
      (save-slot load 语义), 半形状 defaults 会让播种读 undefined 桶——
@@ -206,10 +212,12 @@ const advJournal = mkWorldJournal(advWorldSlot, {
     advStore.saveQuest(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   },
 });
-let advLivestockAll = {home: {dead: [], bred: []}, desert: {dead: [], bred: []},
-  snow: {dead: [], bred: []}, swamp: {dead: [], bred: []}, nether: {dead: [], bred: []}};
-/* 牧场账按图分桶(档形 v2/ADR 0006; init 从世界档换装): dead=初始死畜索引(只增不减,
-    初始清单可推导); bred=繁育账 [{k: 怪物键, b: 出生日'Y-M-D'}](死亡=除名);
+let advLivestockAll = {home: {dead: [], bred: [], sheared: {}}, desert: {dead: [], bred: [], sheared: {}},
+  snow: {dead: [], bred: [], sheared: {}}, swamp: {dead: [], bred: [], sheared: {}},
+  nether: {dead: [], bred: [], sheared: {}}};
+/* 牧场账按图分桶(档形 v3; init 从世界档换装): dead=初始死畜索引(只增不减,
+    初始清单可推导); bred=繁育账 [{k: 怪物键, b: 出生日'Y-M-D', sheared?: 剪毛
+    时刻}](死亡=除名); sheared=初始畜剪毛账 {索引: 剪毛时刻 dayTime}(长回=销账);
     游荡位置不存档, 重进回群位锚点 */
 let advOreRegen = {}; /* 矿位开采账(生态恢复 C 通道): '<场景>:x,y,z'→'Y-M-D' 开采日,
     跨天回填(拍板②); init 从世界档换装, 回填/销账即 touch */
@@ -998,7 +1006,53 @@ function advMobAI(dt) {
    动物不反击不追击不索敌(不进 advMobAI); 位移全走 Mobs.move/steer
    意图 API(引擎帧序契约); 受击逃窜计时挂实体私有字段 __fleeT(Mobs
    「模式可挂私有字段」许可), 闲逛换向计时 __ambleT/__ambleDir 同款。
+   剪羊毛(2026-10-28, MC 剪刀口径): 手持剪刀对准羊使用 = 剪毛不伤羊,
+   掉 1~3 团羊毛, 羊进没毛态(羊毛 overlay 独立骨整骨隐藏——mobs.js
+   render 逐实例跳过 hideSlots), 隔一个游戏日毛再长出来。跨天账本:
+   会话侧 advWoolDayN(日回绕计数, advHerdTick 检沿自持) + 档侧
+   bucket.sheared / bred 条目 sheared 字段(剪毛时刻 dayTime, 世界档
+   v3); 长回判据 = 当前 dayTime 回绕到剪毛时刻之前(= 次日黎明/睡醒)。
    ============================================================ */
+const ADV_WOOL_SLOTS = ['woolBody', 'woolHead']; /* 羊毛独立骨槽名(造型档案 quad wool 参数派生) */
+let advWoolPrevT = null; /* 跨沿检测的上帧 dayTime(null=未初始化, 首帧对表) */
+let advWoolDayN = 0; /* 会话日计数(检测到 dayTime 回绕/睡醒跳零即 +1) */
+function advWoolSeed(m, sAt) {/* 重进播种剪毛态(施加, advSeedMapMobs 消费):
+    sAt=剪毛时刻 dayTime; 当前时刻 ≥ 剪毛时刻 = 尚未跨天(挂没毛态),
+    < 剪毛时刻 = 离场期间已长回(返 true 让调用方销账); 无账返 false */
+  if (sAt == null) return false;
+  if (dayTime >= sAt) {
+    m.__sheared = true;
+    m.__shearDay = advWoolDayN;
+    m.hideSlots = ADV_WOOL_SLOTS;
+    return false;
+  }
+  return true;
+}
+function advWoolRegrow(m, bucket) {/* 毛长回来(施加): 清实体态+销剪毛账+白絮观感(静默, MC 口径) */
+  m.__sheared = false;
+  m.hideSlots = null;
+  if (m.__livestockIdx != null) delete bucket.sheared[m.__livestockIdx];
+  else if (m.__bredRef) delete m.__bredRef.sheared;
+  advStore.touch();
+  Fx.debrisBurst(m.pos.x, m.pos.y + 1, m.pos.z, 4, {color: 0xffffff, life: 0.4});
+}
+function advShearSheep(m) {/* 剪毛施加(advTryShear 的 act 体): 实体态+剪毛账+羊毛
+    掉落(MC 1~3 团)+耐久/音效/观感; 剪毛不伤羊(零伤害, 温和收获口径) */
+  m.__sheared = true;
+  m.__shearDay = advWoolDayN;
+  m.hideSlots = ADV_WOOL_SLOTS;
+  const bucket = advLivestockAll[advMap];
+  if (m.__livestockIdx != null) bucket.sheared[m.__livestockIdx] = dayTime;
+  else if (m.__bredRef) m.__bredRef.sheared = dayTime;
+  advStore.touch();
+  const n = 1 + Math.floor(Math.random() * 3); /* MC 口径: 1~3 团 */
+  Drops.spawn('wool', n, m.pos.x, m.pos.y + 0.8, m.pos.z); /* 落点同击杀掉落(尸体上方 0.8) */
+  advWearHeld('shear'); /* 剪一次扣 1 耐久(挖掘/命中同一条耐久管线) */
+  advSfx('shear');
+  Fx.debrisBurst(m.pos.x, m.pos.y + 1, m.pos.z, 6, {color: 0xffffff, life: 0.5});
+  advToast('✂️ 咔嚓！剪到了 ' + n + ' 团羊毛，过一天还会再长出来哦');
+  advSpeak('咔嚓咔嚓，羊毛剪好啦！小羊凉凉快快，明天毛就长回来啦');
+}
 function advHerdPanic(m) {/* 受击存活 → 3 秒逃窜(挥击 onHit / TNT 波及两路都进这) */
   if (!m.cfg || !m.cfg.passive) return; /* 怪物/死畜不动作 */
   m.__fleeT = ADV_HERD_FLEE_T;
@@ -1007,11 +1061,17 @@ function advHerdPanic(m) {/* 受击存活 → 3 秒逃窜(挥击 onHit / TNT 波
 function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 adventure-core(advHerdStep);
    受击逃窜(3s, speed×2.2 背向玩家) > 玩家贴近让开(≤2.5 格, speed×0.8) > 闲逛吃草
    (换向计时自持, 六成时间缓步); 每次位移后栏内钳制(advHerdClamp, 仅 home 图)——
-   踏石到栏顶差恰 1 牲畜爬得出, 钳制是兜底防线(出栏个体同被收回) */
+   踏石到栏顶差恰 1 牲畜爬得出, 钳制是兜底防线(出栏个体同被收回);
+   帧首兼管剪羊毛跨天账本(dayTime 回绕沿检测 → 毛长回施加, 见上段) */
+  if (advWoolPrevT == null) advWoolPrevT = dayTime; /* 首帧对表(不把装场当跨天) */
+  else if (dayTime < advWoolPrevT) advWoolDayN++; /* 回绕沿(自然过午夜/睡醒跳零)= 新的一天 */
+  advWoolPrevT = dayTime;
   const p = advGetPEnt();
   const inPen = advMap === 'home'; /* 四畜全套留 home, 他图无牲畜不钳 */
+  const bucket = advLivestockAll[advMap];
   for (const m of Mobs.list()) {
     if (m.dead || m.gone || !m.cfg || !m.cfg.passive) continue;
+    if (m.__sheared && advWoolDayN > m.__shearDay) advWoolRegrow(m, bucket); /* 隔天毛长回 */
     if (m.__breedCd > 0) m.__breedCd = Math.max(0, m.__breedCd - dt); /* 繁殖冷却递减 */
     if (m.__baby) {/* 幼崽成长计时(当次内秒表; 计时不落盘——重进按繁育账 b 重挂, 差异 5) */
       m.__babyT -= dt;
@@ -1414,6 +1474,7 @@ function advHookEntityCbs() {
     const bucket = advLivestockAll[advMap];
     if (m.__livestockIdx != null && bucket.dead.indexOf(m.__livestockIdx) < 0) {
       bucket.dead.push(m.__livestockIdx);
+      delete bucket.sheared[m.__livestockIdx]; /* 死畜剪毛账一并销(索引不再生成, 账不留孤儿) */
       advStore.touch();
     }
     if (m.__bredRef) {/* 繁育畜死亡 = 繁育账除名(生态恢复 §2; 不进死畜索引——初始清单推导不含它) */
@@ -1421,7 +1482,10 @@ function advHookEntityCbs() {
       if (bi >= 0) bucket.bred.splice(bi, 1);
       advStore.touch();
     }
-    for (const s of advDeathDrops(m)) Drops.spawn(s.id, s.n, s.x, s.y, s.z);
+    for (const s of advDeathDrops(m)) {
+      if (m.__sheared && s.id === 'wool') continue; /* 剪过毛的羊身上没毛可掉(MC 口径; 肉照掉) */
+      Drops.spawn(s.id, s.n, s.x, s.y, s.z);
+    }
   });
   Drops.onCollect((id, n, dur) => {/* 收集并线(T12×T14): 入包/镜像/逐件 toast(T12) → 3s 合并播报窗(T14) */
     if (!advOnCollect(id, n, dur)) return false; /* 满包拒返 false → 1.2s 冷却重试(D6) */
@@ -1442,12 +1506,20 @@ function advSeedMapMobs() {/* 主世界怪播种(T6 行化): 当前行巢穴首�
       if (bucket.dead.indexOf(e.idx) >= 0) continue;
       const m = Mobs.spawn(e.type, e.x, e.z, {yaw: 0});
       m.__livestockIdx = e.idx; /* 模式私有挂件(Mobs 许可) */
+      if (e.type === 'sheep' && advWoolSeed(m, bucket.sheared[e.idx])) {
+        delete bucket.sheared[e.idx]; /* 离场期间已跨天长回: 销账(矿位回填同款卫生) */
+        advStore.touch();
+      }
     }
     for (let bi = 0; bi < bucket.bred.length; bi++) {/* 繁育畜重播(位置不存档, 回群位锚点) */
       const b = bucket.bred[bi];
       const spot = spots[advBreedHerdOf(b.k) % spots.length];
       const m = Mobs.spawn(b.k, spot.x + 0.5 + (bi % 3) * 0.8, spot.z + 0.5, {yaw: 0});
       m.__bredRef = b;
+      if (b.k === 'sheep' && advWoolSeed(m, b.sheared)) {
+        delete b.sheared; /* 同上: 离场期间已长回(繁育畜账挂条目上, 销字段) */
+        advStore.touch();
+      }
       if (!advBabyAdult(CampCore.dayIndex(b.b), today)) {/* 当日出世: 幼崽形态重挂成长计时 */
         m.__baby = true;
         m.__babyT = ADV_BABY_GROW_S;
@@ -2125,9 +2197,11 @@ function advTryExpandBag() {
 
 const advUseRun = {shoot: () => advTryShootBow(),
   plant: () => advTryPlant(), ripen: () => advTryRipen(),
-  expand_bag: () => advTryExpandBag()}; /* 使用动作注册表 act 键 → 执行器
+  expand_bag: () => advTryExpandBag(),
+  shear: () => advTryShear()}; /* 使用动作注册表 act 键 → 执行器
    (行为不进注册表——「战斗政策在模式层」红线, 手持物注册表词条同款口径;
-    plant/ripen 为农田链两键, farm-and-recipe D3; expand_bag 为扩容件, 2026-10) */
+    plant/ripen 为农田链两键, farm-and-recipe D3; expand_bag 为扩容件, 2026-10;
+    shear 为剪羊毛键, 2026-10-28) */
 function advTryUseHeld() {/* 使用档通用分派(2026-10-28 Route A): 选中物品在使用动作
    注册表有条目 → 逐 act 调执行器, 有使用动作的物品点击恒算使用 attempt
    不落放置(弓同雪球口径); 未注册物品返 false 回落吃/放置链 */
@@ -2157,6 +2231,25 @@ function advTryShootBow() {
       g: ADV_BOW_G, life: ADV_BOW_LIFE});
   }});
   return true; /* 手持弓: 点击恒算放箭 attempt, 不落放置 */
+}
+
+/* ---------- 剪羊毛执行器(2026-10-28, F4 牧场延伸) ----------
+   手持剪刀对准羊使用: 桌面右键(使用档经 advTryUseHeld)与触屏 ✂️ 专用键
+   两处触达(弓同款两 affordance)。目标 = 准星锥内最近目标(与挥击同一瞄准,
+   advMelee.aim)中可剪的羊: 成年(幼崽免伤同口径)且未剪过。剪毛零伤害
+   (温和收获口径——攻击键照旧能伤羊, 剪是另一回事); 挥击/剪共用一条冷却
+   轨道(swingAction), 防连点连剪。点错目标给引导话术(农田链同款节流),
+   指空静默(右键悬空不叨叨)。恒算使用 attempt 不落放置(弓同口径) */
+function advTryShear() {
+  const s = advInv.slots[advHb.sel];
+  if (!s || s.id !== 'shears') return false;
+  const m = advMelee.aim(advGetPEnt());
+  if (m && m.type === 'sheep' && !m.__baby && !m.__sheared) {
+    advMelee.swingAction(advGetPEnt(), {act: () => advShearSheep(m)});
+  } else if (m) {
+    advFarmHint(m.type === 'sheep' ? '这只羊刚剪过啦，等毛长回来再剪哦' : '要对着毛茸茸的羊才能剪哦');
+  }
+  return true;
 }
 
 /* ---------- 农田交互三执行器(farm-and-recipe 设计稿 D3) ----------

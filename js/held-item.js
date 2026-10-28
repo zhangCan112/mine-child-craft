@@ -215,6 +215,30 @@ const HELD_DEFS = {
     sway: {idle: 0.03},
   },
 
+  /* 剪刀: MC 正典「16×16 像素图挤出薄片」(item/generated, 与弓同管线)——
+     贴图走像素图标工坊 ITEM_PIX.shears 字符画(art 字段, mount 调用期画布上色,
+     alphaTest 裁透明角), 工坊/画布不可用回落铁灰色薄板(Node 单测口径)。
+     键名与物品 id 逐字一致(items-core shears, Avatar.setItem 直用)——
+     2026-10-28 剪刀观感补齐(此前 defFor 落 mkPlateDef 单色薄板 =
+     「白色板状不像剪刀」的用户反馈); drops.test 的工具观感豁免集同步收紧。
+     握点对准片下部(刀刃朝上, 持剪捏剪柄的观感), 剪羊毛行为政策在模式层
+     (使用动作注册表 act 'shear'), 不进 def */
+  shears: {
+    label: '剪刀',
+    parts: [
+      /* 剪刀薄片(正反面贴像素图, 侧面铁灰色); 片心抬高让握点落在剪柄段 */
+      {w: 0.62, h: 0.62, d: 0.05, color: 0xb8bec6, art: 'shears', pos: [0, 0.14, 0]},
+    ],
+    /* 挂在右臂手部枢轴: 与工具组同口径(前移+前倾离臂, 刃口朝前上) */
+    grip: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
+    /* 第一人称: 手持物族——MC generated 物品与 handheld 正典同值(弓同款继承) */
+    fp: fpOf(FP_HANDHELD),
+    /* 挥击: 与镐/锄同档(咔嚓一剪的手感) */
+    swing: {dur: 0.24, amp: 1.3, curlZ: 0.12},
+    /* 待机呼吸浮动幅度 */
+    sway: {idle: 0.03},
+  },
+
   /* 镐/斧/剑/锹 × 木/石/铁/钻 共 16 条: mkToolDef 批量生成(见上方工厂段) */
   ...TOOL_DEFS,
 };

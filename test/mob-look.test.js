@@ -116,13 +116,13 @@ test('造型档案: 票②基座扩展 — 灾厄基座 · 宽头参数 · 翼�
   assert.ok(Math.abs(cs.slots.legL1.boxes[0].w - 8*0.7/16) < 1e-9, '洞穴蜘蛛 scale 0.7(蜘蛛骨×0.7)');
 });
 
-test('造型档案: UV 区域公式 — 玩家布局(官方 64×64) · overlay 第二盒', () => {
+test('造型档案: UV 区域公式 — 玩家布局(官方 64×64) · 羊毛独立骨', () => {
   const R = MobLookKit.regions('player');
   assert.deepStrictEqual(R.head.front, [8, 8, 8, 8], '头正面 [8,8](官方布局可直填)');
   assert.deepStrictEqual(R.armL.front, [36, 52, 4, 12], '左臂独立区 [32,48] 布局');
   const S = MobLookKit.regions('sheep');
-  assert.ok(S.root2 && S.head2, '羊毛 overlay = 身/头第二盒(inflate)');
-  assert.deepStrictEqual(S.root2.front, [16, 56, 8, 6], '羊毛身区(自配布局)');
+  assert.ok(S.woolBody && S.woolHead, '羊毛独立骨 = 身/头各一盒(woolBody/woolHead, 剪毛可整骨隐藏)');
+  assert.deepStrictEqual(S.woolBody.front, [16, 56, 8, 6], '羊毛身区(自配布局)');
 });
 
 test('造型档案: 贴图布局合法性 — 六面矩形不出界 · 不同盒无部分重叠(共区合法)', () => {

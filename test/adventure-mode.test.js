@@ -2603,9 +2603,10 @@ test('F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 
       '牛掉生牛肉+皮革(MOB_DROPS 表)');
   assert.ok(dropsState.spawned.every((d) => d.y === 25.8 && d.x === 45), '落点=尸体上方 0.8(击杀观感同款)');
   assert.deepStrictEqual(A.getSaveView().world.livestock,
-      {home: {dead: [0], bred: []}, desert: {dead: [], bred: []}, snow: {dead: [], bred: []},
-        swamp: {dead: [], bred: []}, nether: {dead: [], bred: []}},
-      '死畜索引顺手落账(同一回调; ADR 0006 后为 v2 两栏桶, 已杀在家=home 桶)');
+      {home: {dead: [0], bred: [], sheared: {}}, desert: {dead: [], bred: [], sheared: {}},
+        snow: {dead: [], bred: [], sheared: {}}, swamp: {dead: [], bred: [], sheared: {}},
+        nether: {dead: [], bred: [], sheared: {}}},
+      '死畜索引顺手落账(同一回调; v3 三栏桶: dead/bred/sheared 剪毛账)');
   /* 收获观感 + 不记账(挥击行为链: 准星锥内命中, 脚本 freshDead) */
   globalThis.yaw = 0;
   pos.x = 40; pos.y = 25; pos.z = 50;
@@ -2674,9 +2675,10 @@ test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索
   const victim = herd[4]; /* 群位 B 首只猪 */
   dropsState.spawned.length = 0;
   mobsState.deathCbs[0](victim); /* 走真实 onDeath 回调(掉落+落账同帧) */
-  const deadBuckets = {home: {dead: [victim.__livestockIdx], bred: []}, desert: {dead: [], bred: []},
-    snow: {dead: [], bred: []}, swamp: {dead: [], bred: []}, nether: {dead: [], bred: []}};
-  assert.deepStrictEqual(A.getSaveView().world.livestock, deadBuckets, '死畜账在内存(ADR 0006 后为 v2 两栏桶形状)');
+  const deadBuckets = {home: {dead: [victim.__livestockIdx], bred: [], sheared: {}},
+    desert: {dead: [], bred: [], sheared: {}}, snow: {dead: [], bred: [], sheared: {}},
+    swamp: {dead: [], bred: [], sheared: {}}, nether: {dead: [], bred: [], sheared: {}}};
+  assert.deepStrictEqual(A.getSaveView().world.livestock, deadBuckets, '死畜账在内存(v3 三栏桶形状)');
   assert.ok(dropsState.spawned.length >= 1, '掉落照常(收获链不断)');
   AdventureMode.cleanup();
   const sv = JSON.parse(mem.get('adventure_world_save'));
@@ -2688,6 +2690,138 @@ test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索
   assert.strictEqual(again.filter((m) => m.type === 'pig').length, 2, '猪少一只(不重生)');
   assert.strictEqual(again.filter((m) => m.type === 'cow').length, 2, '别的群原样');
 });
+
+/* ============ 剪羊毛(2026-10-28): 剪毛不伤羊 + 隔天毛长回 ============ */
+
+test('剪羊毛行为链: 右键对准羊 → 掉羊毛 1~3 + 羊进没毛态 + 剪毛账落桶 + 耐久 −1 + shear 音; 剪毛零伤害', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shears', 1, 500);
+  /* 触屏条边沿重声明: 选中剪刀 → 基表 3 键 + ✂️ 剪羊毛键 */
+  assert.ok(Array.isArray(touchList) && touchList.length === 4, '触屏条 = 基表 3 + 剪羊毛键 1');
+  const useKey = touchList.find((b) => b.icon === 'shear');
+  assert.ok(useKey && useKey.label === '剪羊毛', '剪羊毛专用键: shear 图标(委托剪刀物品图)+无障碍名');
+  globalThis.dayTime = 5000; /* 剪毛时刻(落账断言用) */
+  globalThis.yaw = 0; /* 面朝 -Z */
+  pos.x = 47; pos.y = 25; pos.z = 82;
+  const sheep = mkAdvMob('sheep', 47, 25, 80, {__livestockIdx: 2}); /* 正前方 2 格(锥内) */
+  listResult = [sheep];
+  dropsState.spawned.length = 0;
+  AdventureMode.onMouse(2, {x: 47, y: 24, z: 79, nx: 0, ny: 1, nz: 0}); /* 右键 = 使用档剪毛 */
+  assert.strictEqual(sheep.__sheared, true, '羊进没毛态(实体旗标)');
+  assert.deepStrictEqual(sheep.hideSlots, ['woolBody', 'woolHead'], '羊毛独立骨整骨隐藏(render 逐实例跳过)');
+  assert.strictEqual(hitLog.length, 0, '剪毛零伤害(温和收获口径, 不进 Mobs.hit)');
+  const woolN = dropsState.spawned.filter((d) => d.id === 'wool').reduce((s, d) => s + d.n, 0);
+  assert.ok(woolN >= 1 && woolN <= 3, '掉羊毛 1~3 团(MC 口径): ' + woolN);
+  assert.ok(dropsState.spawned.every((d) => d.id !== 'wool' || d.y === 25.8), '落点=羊身上方 0.8(掉落同款)');
+  assert.strictEqual(A.advGetInv().slots[0].dur, 499, '剪刀耐久 −1');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'shear'), 'shear 音(咔嚓)');
+  assert.deepStrictEqual(A.getSaveView().world.livestock.home.sheared, {'2': 5000},
+      '剪毛账落桶 {索引: 剪毛时刻}(世界档 v3)');
+  /* 已剪的羊: 再点不掉毛(话术提示等长回) */
+  for (let i = 0; i < 30; i++) AdventureMode.update(1 / 60); /* 推过挥击/剪共用冷却 */
+  dropsState.spawned.length = 0;
+  AdventureMode.onMouse(2, {x: 47, y: 24, z: 79, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(dropsState.spawned.filter((d) => d.id === 'wool').length, 0, '已剪的羊不再掉毛');
+  assert.strictEqual(A.advGetInv().slots[0].dur, 499, '空剪不扣耐久(没剪成)');
+  /* 非羊目标: 对准牛 → 提示话术, 不掉毛不扣耐久(先烧过 3s 话术节流窗) */
+  for (let i = 0; i < 240; i++) AdventureMode.update(1 / 60);
+  spoken.length = 0;
+  listResult = [mkAdvMob('cow', 47, 25, 80)];
+  AdventureMode.onMouse(2, {x: 47, y: 24, z: 79, nx: 0, ny: 1, nz: 0});
+  assert.ok(spoken.some((s) => String(s).indexOf('毛茸茸的羊') >= 0), '对准牛 → 引导话术');
+  assert.strictEqual(dropsState.spawned.filter((d) => d.id === 'wool').length, 0, '牛不掉羊毛');
+  /* 幼崽免剪(免伤同口径): __baby 旗标不被选为目标 */
+  listResult = [mkAdvMob('sheep', 47, 25, 80, {__baby: true})];
+  AdventureMode.onMouse(2, {x: 47, y: 24, z: 79, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(dropsState.spawned.filter((d) => d.id === 'wool').length, 0, '幼崽不被剪');
+  listResult = [];
+});
+
+test('剪羊毛触屏专用键: holdAct 直调执行器 = 右键同轨(一次性动作不进连发)', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shears', 1, 500);
+  const useKey = touchList.find((b) => b.icon === 'shear');
+  globalThis.yaw = 0;
+  pos.x = 47; pos.y = 25; pos.z = 82;
+  const sheep = mkAdvMob('sheep', 47, 25, 80, {__livestockIdx: 3});
+  listResult = [sheep];
+  assert.strictEqual(useKey.holdAct(), false, 'holdAct 返 false(一次性, 不进连发)');
+  assert.strictEqual(sheep.__sheared, true, '专用键直调执行器 → 剪毛(与右键同一管线)');
+  listResult = [];
+});
+
+test('剪羊毛隔天长回: dayTime 回绕沿(自然过午夜/睡醒跳零) → 毛长回来+剪毛账销', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shears', 1, 500);
+  globalThis.dayTime = 5000;
+  globalThis.yaw = 0;
+  pos.x = 47; pos.y = 25; pos.z = 82;
+  const sheep = mkAdvMob('sheep', 47, 25, 80, {__livestockIdx: 2});
+  listResult = [sheep];
+  AdventureMode.onMouse(2, {x: 47, y: 24, z: 79, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(sheep.__sheared, true, '前提: 已剪');
+  sheep.__fleeT = 0; sheep.__ambleT = 999; sheep.__ambleWalk = false; /* 静置便于断言 */
+  globalThis.dayTime = 100; /* 模拟回绕沿(5000 → 过午夜 → 次日 100) */
+  AdventureMode.update(1 / 60); /* 跨沿帧: 日计数 +1 → 长回施加 */
+  assert.strictEqual(sheep.__sheared, false, '隔一天毛长回来');
+  assert.strictEqual(sheep.hideSlots, null, '羊毛 overlay 恢复显示');
+  assert.deepStrictEqual(A.getSaveView().world.livestock.home.sheared, {}, '剪毛账销(桶回空)');
+  listResult = [];
+});
+
+test('剪毛跨档: 剪毛账随世界档 → 重进没毛态复现; 离场跨天后重进 = 毛已长回(账销)', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shears', 1, 500);
+  globalThis.dayTime = 5000;
+  globalThis.yaw = 0;
+  pos.x = 47; pos.y = 25; pos.z = 82;
+  listResult = [mkAdvMob('sheep', 47, 25, 80, {__livestockIdx: 2})];
+  AdventureMode.onMouse(2, {x: 47, y: 24, z: 79, nx: 0, ny: 1, nz: 0});
+  listResult = [];
+  AdventureMode.cleanup();
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  assert.deepStrictEqual(sv.livestock.home.sheared, {'2': 5000}, '剪毛时刻随世界档落盘');
+  freshInit(); /* 重进: dayTime=5000(同一天) → 没毛态复现 */
+  const again = mobsState.spawned.find((m) => m.__livestockIdx === 2);
+  assert.strictEqual(again.type, 'sheep', '前提: 2 号是羊');
+  assert.strictEqual(again.__sheared, true, '重进没毛态复现');
+  assert.deepStrictEqual(again.hideSlots, ['woolBody', 'woolHead'], '羊毛 overlay 仍隐藏');
+  /* 离场跨天: 档里 dayTime 已回绕到剪毛时刻之前 → 播种时判「已长回」销账 */
+  const sv2 = JSON.parse(mem.get('adventure_world_save'));
+  sv2.dayTime = 100;
+  mem.set('adventure_world_save', JSON.stringify(sv2));
+  freshInit();
+  const back = mobsState.spawned.find((m) => m.__livestockIdx === 2);
+  assert.strictEqual(back.__sheared, undefined, '跨天后重进: 有毛(不挂没毛态)');
+  assert.strictEqual(back.hideSlots, undefined, '羊毛 overlay 正常显示');
+  assert.deepStrictEqual(A.getSaveView().world.livestock.home.sheared, {}, '过期剪毛账播种时销');
+});
+
+test('剪过毛的羊死亡不掉羊毛(MC 口径): 肉照掉, 击杀账照走', () => {
+  mem.clear();
+  freshInit();
+  dropsState.spawned.length = 0;
+  mobsState.deathCbs[0]({type: 'sheep', pos: {x: 45, y: 25, z: 45}, __livestockIdx: 2, __sheared: true});
+  const ids = dropsState.spawned.map((d) => d.id);
+  assert.ok(!ids.includes('wool'), '没毛的羊不掉羊毛: ' + ids.join(','));
+  assert.ok(ids.includes('raw_mutton'), '生羊肉照掉(MOB_DROPS 表)');
+  assert.deepStrictEqual(A.getSaveView().world.livestock.home.dead, [2], '死畜账照走');
+  assert.deepStrictEqual(A.getSaveView().world.livestock.home.sheared, {}, '死畜剪毛账一并销(不留孤儿)');
+});
+
+test('剪毛档形兼容: 老单账 {dead:[..]} 读档 → home 桶收敛 v3 三栏(sheared 恒在, 不出残缺桶)', () => {
+  mem.clear();
+  mem.set('adventure_world_save', JSON.stringify({edits: [], map: 'home', pos: null, hp: null,
+    furnaces: [], livestock: {dead: [1]}, dayTime: 0}));
+  freshInit();
+  assert.deepStrictEqual(A.getSaveView().world.livestock.home, {dead: [1], bred: [], sheared: {}},
+      '老单账 → 三栏桶(缺 sheared 的残缺桶会让剪毛账读写炸, 本断言钉住)');
+});
+
 
 test('F4 熟食链: 炉烧生肉→熟肉(SMELTS 四条, 与矿物同套节律) + 吃熟肉回血走 advEatPolicy 普通口径', () => {
   /* 纯表复核(逐条钉口径在 craft-core.test; 此处验探险消费面) */

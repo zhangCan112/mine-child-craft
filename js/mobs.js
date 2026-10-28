@@ -111,10 +111,12 @@ const Mobs = (() => {
       _wq.setFromEuler(_we);
       _wm.compose(_wp.set(m.pos.x, m.pos.y - sink, m.pos.z), _wq, _ws.set(s, s, s));
       for (const name of Object.keys(rig.slots)) {
+        if (m.hideSlots && m.hideSlots.indexOf(name) >= 0) continue; /* 逐实例隐藏槽(模式政策: 剪毛羊不写羊毛批次=裸身示人) */
         const slot = rig.slots[name];
         const b = getMobBatch(slot, rig);
         if (b.n >= b.cap) growMobBatch(b, b.n+1);
-        _jq.setFromAxisAngle(slot.axis==='z' ? _axisZ : _axisX, name==='root' ? 0 : (m.pose[name]||0));
+        const pk = slot.poseKey || name; /* 共姿槽: 羊毛头骨随 head 关节角(造型档案 poseKey 声明) */
+        _jq.setFromAxisAngle(slot.axis==='z' ? _axisZ : _axisX, pk==='root' ? 0 : (m.pose[pk]||0));
         _jm.compose(_jp.fromArray(slot.joint), _jq, _one);
         _im.multiplyMatrices(_wm, _jm);
         b.mesh.setMatrixAt(b.n, _im);

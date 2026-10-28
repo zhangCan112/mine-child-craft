@@ -853,6 +853,7 @@ const BTN_DELEGATE = {
   plant: () => itemIcon('wheat_seeds'), /* 播种专用键(探险触屏, 农田链 D3) */
   ripen: () => itemIcon('bone_meal'), /* 催熟专用键(探险触屏, 农田链 D3) */
   bagup: () => itemIcon('bag_upgrade'), /* 背包扩容专用键(使用动作注册表, 2026-10) */
+  shear: () => itemIcon('shears'), /* 剪羊毛专用键(探险触屏, 使用动作注册表; 剪刀物品图同源) */
   apple: () => itemIcon('apple'), /* 配方书·食物页签 */
   brick: () => itemIcon('brick'), /* 配方书·方块页签 */
   table: () => itemIcon('craft_table'), /* 工作台站点徽标 */
