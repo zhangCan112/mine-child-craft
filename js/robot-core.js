@@ -44,6 +44,12 @@ function carvePath(rnd, w, h, start, goal) {
   let x = start.x; let z = start.z;
   const path = [{x, z}];
   const seen = new Set([z * w + x]);
+  /* 首步恒向东: 出生朝向派生自第二路径格(mkBoard 尾部), 钉死东 = 画面右,
+     「F 往哪走」俯视角一眼读懂(真机反馈; mkBoard 保证 goal.x 恒 > start.x
+     且 start.x 恒 0, 东邻恒在界内) */
+  x += 1;
+  seen.add(z * w + x);
+  path.push({x, z});
   for (let i = 0; i < w * h * 8; i++) {
     if (x === goal.x && z === goal.z) return path;
     const cand = [];
@@ -65,7 +71,10 @@ function carvePath(rnd, w, h, start, goal) {
   return null;
 }
 
-/* 特征落位候选: 路径中段(去重, 非起终点), 不与起终点/已落特征相邻 */
+/* 特征落位候选: 路径中段(去重, 非起终点), 不与起点/已落特征相邻 ——
+   终点侧 2026-10-28 放开(@.sG 式「特技贴旗」是带1 boom 唯一可教形态:
+   4 宽路径中段全与起终点相邻, 禁贴终点 = 特征无处落 = 教学静默蒸发);
+   起点侧仍禁(第一步即陷阱的挫败设计) */
 function featureCandidates(path, board0, taken) {
   const w = board0.w; const h = board0.h;
   const uniq = [];
@@ -77,7 +86,8 @@ function featureCandidates(path, board0, taken) {
     }
   }
   const edges = new Set();
-  for (const e of [uniq[0], uniq[uniq.length - 1]]) {
+  /* 只护起点侧(终点侧放开, 见函数头注释) */
+  for (const e of [uniq[0]]) {
     edges.add(e);
     const ex = e % w; const ez = Math.floor(e / w);
     for (const d of DIRS) {
@@ -111,8 +121,9 @@ function placeFeatures(rnd, cand, count, taken) {
 }
 
 /* mkBoard(seed, opts): opts = {w, h, skill, softPath, waterPath, ledgePath,
-   groundDecor, waterDecor} —— 特征量按包/带给(skill 约束在 robot-levels
-   的关卡参数里把关, 这里对错配静默少放: softPath 仅 boom/smash 生效等) */
+   groundDecor, waterDecor, parCap} —— 特征量按包/带给(skill 约束在
+   robot-levels 的关卡参数里把关, 这里对错配静默少放: softPath 仅 boom/smash
+   生效等); parCap = BFS 最短解预算(0/缺省 = 不设闸, 单测手工盘用) */
 function mkBoard(seed, opts) {
   const o = opts || {};
   const w = o.w || 6; const h = o.h || 6;
@@ -120,7 +131,7 @@ function mkBoard(seed, opts) {
   const wantSoft = (skill === 'boom' || skill === 'smash') ? (o.softPath || 0) : 0;
   const wantWater = (skill === 'glide') ? (o.waterPath || 0) : 0;
   const wantLedge = (skill === 'climb') ? (o.ledgePath || 0) : 0;
-  for (let attempt = 0; attempt < 40; attempt++) {
+  for (let attempt = 0; attempt < 80; attempt++) {
     const rnd = RandCore.mkRand(RandCore.seedAt(seed, attempt));
     const start = {x: 0, z: Math.floor(rnd() * h)};
     const goal = {x: w - 1, z: Math.floor(rnd() * h)};
@@ -129,11 +140,12 @@ function mkBoard(seed, opts) {
     const cells = new Array(w * h).fill(CELL.HARD); /* 全硬墙起底: 天然堵捷径 */
     for (const c of path) cells[c.z * w + c.x] = CELL.GROUND;
     cells[goal.z * w + goal.x] = CELL.GOAL;
-    /* 特征三连: 软障碍(带1 特技教学) → 水面(滑翔) → 高台(攀爬), 互不相邻 */
+    /* 特征三连: 软障碍(带1 特技教学) → 水面(滑翔) → 高台(攀爬), 互不相邻。
+       taken 只护起点(终点侧放开 = @.sG 特技贴旗教学, 见 featureCandidates) */
     const taken = [];
     taken.baseCount = 0; taken.w = w;
-    taken.push(start.z * w + start.x); taken.push(goal.z * w + goal.x);
-    taken.baseCount = taken.length; /* 起终点只作邻接约束, 不算已落特征 */
+    taken.push(start.z * w + start.x);
+    taken.baseCount = taken.length; /* 起点只作邻接约束, 不算已落特征 */
     let features = [];
     if (wantSoft || wantWater || wantLedge) {
       const cand = featureCandidates(path, {w, h}, taken);
@@ -171,13 +183,30 @@ function mkBoard(seed, opts) {
       const dx = path[1].x - path[0].x; const dz = path[1].z - path[0].z;
       dir = Math.max(0, DIRS.findIndex((d) => d.dx === dx && d.dz === dz));
     }
-    return {seed, w, h, cells, softList: features, start: {...start, dir}, goal,
-      skill};
+    const out = {seed, w, h, cells, softList: features, start: {...start, dir},
+      goal, skill};
+    /* 双闸(同一份 BFS 解上判, 不过闸换 attempt 子种子重出, 确定性不变):
+       ① 预算闸 parCap: 最短解 ≤ 槽位预算 —— 设计稿 §4「程序长度主轴」的
+          硬约束, par 超槽位 = 模式层一 program 内必不可能到旗(槽满静默拒
+          落卡); 真机迭代探针实锤: 修前 236/300 非 tut 盘超预算, 81/100 关
+          凑不齐 3/4 过盘线 = 根本过不了关;
+       ② 教学闸: 特技关的棋盘最短解必须真用上特技卡(S 承重) —— 装饰近路
+          或路径自贴旁路把特征格绕成选修 = 该关教学目标落空(探针: 61/268
+          特技盘被绕过) */
+    const sol = parSolution(out);
+    if (!sol) continue; /* 防御: 生成器保证可解, 理论不可达 */
+    if (o.parCap && sol.length > o.parCap) continue;
+    if (skill && features.length && !sol.includes('S')) continue;
+    return out;
   }
-  /* 40 次全败兜底(理论上不可达): 中线直路棋盘, 仍保证可解 */
+  /* 80 次全败兜底(理论上不可达; 80 = 双闸重试余量): 中线直路棋盘 — 罕见
+     形态(无特征无装饰), 但可解(par = w-1 ≤ 各带槽位)且教学闸自然豁免
+     (features 空)。曾漏设 GOAL 格(双闸加入后兜底首次可达, 随即炸出
+     「必须可解」红灯的回归), 这里补上 */
   const mid = Math.floor(h / 2);
   const cells = new Array(w * h).fill(CELL.HARD);
   for (let x = 0; x < w; x++) cells[mid * w + x] = CELL.GROUND;
+  cells[mid * w + (w - 1)] = CELL.GOAL;
   return {seed, w, h, cells, softList: [],
     start: {x: 0, z: mid, dir: 0}, goal: {x: w - 1, z: mid}, skill};
 }

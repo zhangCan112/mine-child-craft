@@ -1,7 +1,8 @@
 'use strict';
 /* 怪物指挥官指令模拟器纯核心单测 — node --test (零依赖)
    运行: node --test test/robot-core.test.js
-   覆盖: mkBoard 确定性(同 seed 同棋盘/跨 seed 相异/200 种子全可解) ·
+   覆盖: mkBoard 确定性(同 seed 同棋盘/跨 seed 相异/200 种子全可解/出生朝向
+   恒东=画面右) ·
    stepSim 全意图分支(转向/前进/撞墙/落水/到旗/特技炸墙/打盹吞卡/爬台/
    滑翔过水/陷阱转圈/未知卡安全空转/win 后 idle) · 纯度(入参 sim 不被改写) ·
    parSolution BFS(手工棋盘手算对照 + 生成棋盘解自证: simulate 解列必 win) ·
@@ -77,6 +78,51 @@ test('mkBoard: 200 种子 × 4 特技全可解且形状合法(特征量符合请
     if (wantLedge === 0) assert.ok(![...kinds].includes(CELL.LEDGE), '无高台请求就不该有台格');
   }
   assert.ok(cases === 200);
+});
+
+test('出生朝向恒东(画面右): 200 种子 × 全特技 start.dir 恒 0 — 真机反馈朝向可读性', () => {
+  const skills = ['boom', 'smash', 'climb', 'glide'];
+  for (let seed = 0; seed < 200; seed++) {
+    const skill = skills[seed % 4];
+    const b = RobotCore.mkBoard(seed, {w: 6, h: 6, skill,
+      softPath: skill === 'boom' || skill === 'smash' ? 1 : 0,
+      waterPath: skill === 'glide' ? 1 : 0,
+      ledgePath: skill === 'climb' ? 1 : 0,
+      groundDecor: 3, waterDecor: 2});
+    assert.strictEqual(b.start.dir, 0,
+        'seed ' + seed + ' (' + skill + ') 出生必须朝东: 第二路径格恒在正东');
+  }
+});
+
+test('双闸: parCap 预算内必收(200 种子 par ≤ cap), 特技关最短解必含 S(教学承重)', () => {
+  const skills = ['boom', 'smash', 'climb', 'glide'];
+  for (let seed = 0; seed < 200; seed++) {
+    const skill = skills[seed % 4];
+    const b = RobotCore.mkBoard(seed, {w: 6, h: 6, skill,
+      softPath: skill === 'boom' || skill === 'smash' ? 1 : 0,
+      waterPath: skill === 'glide' ? 1 : 0,
+      ledgePath: skill === 'climb' ? 1 : 0,
+      groundDecor: 4, waterDecor: 2, parCap: 8});
+    const par = RobotCore.parOf(b);
+    assert.ok(par > 0 && par <= 8,
+        'seed ' + seed + ' (' + skill + ') 必须 par ≤ 预算(实际 ' + par + ')');
+    const want = {boom: CELL.SOFT, smash: CELL.SOFT, climb: CELL.LEDGE,
+      glide: CELL.WATER}[skill];
+    if (b.cells.includes(want)) {
+      const sol = RobotCore.parSolution(b);
+      assert.ok(sol.includes('S'),
+          'seed ' + seed + ' (' + skill + ') 特征在盘上, 最短解必须用特技卡');
+    }
+  }
+});
+
+test('双闸不可满足时兜底盘仍可解(回归: 兜底曾漏 GOAL 格)', () => {
+  /* boom + parCap 4 在 6 宽上数学不可行(m ≥ 5 ⇒ par ≥ 8 > 4): 必走兜底 */
+  const b = RobotCore.mkBoard(123, {w: 6, h: 6, skill: 'boom', softPath: 1,
+    groundDecor: 3, waterDecor: 2, parCap: 4});
+  assert.strictEqual(b.cells[b.goal.z * b.w + b.goal.x], CELL.GOAL,
+      '兜底盘终点格必须是旗(回归: 兜底曾漏设 GOAL 格)');
+  assert.ok(RobotCore.parOf(b) > 0, '兜底盘必须可解');
 });
 
 /* ============ stepSim: 全意图分支(手工字符画棋盘) ============ */

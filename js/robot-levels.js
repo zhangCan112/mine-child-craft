@@ -108,15 +108,19 @@ function paramsFor(level) {
      随之不出, 与设计稿 §4 带表一致(带0 只有走/转) */
   const skill = level.band === 0 ? null : (meta.skill || null);
   const relay = level.kind === 'relay';
-  /* 棋盘尺寸: 带内后半放大一级, 带尺寸表封顶 */
-  const grow = level.k < 12 ? 0 : 1;
-  const size = [[4, 5], [5, 6], [6, 6], [7, 7]][band];
-  const w = Math.min(size[0] + grow, size[1]);
-  const h = w;
   /* 槽位上限: 带0 直接驱动 1 张/解码 3 张/整段 4 张; 带1~3 = 6/8/10 */
   const slots = band === 0 ?
     (level.kind === 'tut' ? 1 : level.kind === 'decode' ? 3 : 4) :
     [0, 6, 8, 10][band];
+  /* 棋盘尺寸: 带内后半放大一级, 带尺寸表封顶; boom 关宽钳到 slots-2 ——
+     程序长度主轴优先, 次要轴(棋盘)让步: boom 代价恒 +3 卡(S+打盹吞 2),
+     m ≥ w-1 ⇒ par ≥ w+2, 5 宽起 par ≥ 7 > 带1 槽位 6 = 数学不可行(双闸
+     80 连败 → 兜底直路, boom 教学静默落空)。带3 槽位 10 不受钳制影响 */
+  const grow = level.k < 12 ? 0 : 1;
+  const size = [[4, 5], [5, 6], [6, 6], [7, 7]][band];
+  const w = Math.min(size[0] + grow, size[1],
+      skill === 'boom' ? slots - 2 : size[1]);
+  const h = w;
   /* 特征量: 包解锁首关给 1 个(只教一个新语义), 之后 1~2 随 tier */
   const firstOfPack = ROBOT_LEVELS.find((l) => l.pack === level.pack && l.band === band);
   const isUnlock = !!firstOfPack && firstOfPack.i === level.i && band > 0;
@@ -194,7 +198,10 @@ const boardOpts = (level) => {
   const p = paramsFor(level);
   return {w: p.w, h: p.h, skill: p.skill, softPath: p.softPath,
     waterPath: p.waterPath, ledgePath: p.ledgePath,
-    groundDecor: p.groundDecor, waterDecor: p.waterDecor};
+    groundDecor: p.groundDecor, waterDecor: p.waterDecor,
+    /* par 预算闸 = 槽位上限(mkBoard 双闸①, 设计稿 §4 程序长度主轴):
+       tut 直接驱动点几张都行不受槽位限, 记 0 = 不设闸 */
+    parCap: level.kind === 'tut' ? 0 : p.slots};
 };
 
 /* ---------- 战利品(设计稿 §8: 怪物包主题化, 只奖不罚) ----------

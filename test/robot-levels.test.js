@@ -214,7 +214,7 @@ test('migrateRobotSave: 空档回默认 · 坏字段修形 · 幂等 · 当前�
 
 /* ============ 跨层可出盘: 关卡参数喂 robot-core 全可解 ============ */
 
-test('boardSeed/boardOpts: 抽样 14 关 × 4 盘全部可解(参数→棋盘闭环)', () => {
+test('boardSeed/boardOpts: 抽样 14 关 × 4 盘全部可解(参数→棋盘闭环), 出生朝向恒东', () => {
   const sample = [0, 6, 13, 25, 26, 33, 50, 57, 58, 63, 75, 80, 99, 30];
   for (const i of sample) {
     const l = ROBOT_LEVELS[i];
@@ -223,6 +223,36 @@ test('boardSeed/boardOpts: 抽样 14 关 × 4 盘全部可解(参数→棋盘闭
       const par = global.RobotCore.parOf(board);
       assert.ok(par > 0, 'i=' + i + ' 盘' + bd + ' (' + l.pack + ') 必须可解');
       assert.ok(par <= 40, 'par 有界(顶格远小于程序上限)');
+      assert.strictEqual(board.start.dir, 0,
+          'i=' + i + ' 盘' + bd + ' 出生必须朝东(画面右, 真机反馈朝向可读性)');
+    }
+  }
+});
+
+/* ============ 可通关闭环(全量): 双闸落地的产品级回归网 ============ */
+
+test('全量 100 关 × 4 盘: 非 tut 盘 par ≤ 槽位(超预算=不可通关), 特技盘最短解必含 S', () => {
+  for (const l of ROBOT_LEVELS) {
+    const p = Levels.paramsFor(l);
+    for (let bd = 0; bd < 4; bd++) {
+      const board = global.RobotCore.mkBoard(Levels.boardSeed(l.i, bd), Levels.boardOpts(l));
+      const par = global.RobotCore.parOf(board);
+      assert.ok(par > 0, 'i=' + l.i + ' 盘' + bd + ' (' + l.pack + ') 必须可解');
+      if (l.kind !== 'tut') { // tut 直接驱动不受槽位限
+        assert.ok(par <= p.slots,
+            'i=' + l.i + ' 盘' + bd + ' par ' + par + ' > 槽位 ' + p.slots +
+            ' = 一 program 内不可能到旗');
+      }
+      if (p.skill) {
+        const want = {boom: global.RobotCore.CELL.SOFT,
+          smash: global.RobotCore.CELL.SOFT, climb: global.RobotCore.CELL.LEDGE,
+          glide: global.RobotCore.CELL.WATER}[p.skill];
+        if (board.cells.includes(want)) {
+          const sol = global.RobotCore.parSolution(board);
+          assert.ok(sol.includes('S'),
+              'i=' + l.i + ' 盘' + bd + ' 特征在盘上, 最短解必须用特技卡(教学承重)');
+        }
+      }
     }
   }
 });
