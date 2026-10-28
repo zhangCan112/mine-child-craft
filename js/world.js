@@ -843,3 +843,47 @@ const highlight = new THREE.LineSegments(hlEdges,
     new THREE.LineBasicMaterial({color: 0x000000, transparent: true, opacity: 0.5}));
 highlight.visible = false;
 scene.add(highlight);
+
+/* 选中框贴形状(2026-10-28「透明框的边」反馈): 非整格方块换贴合小块——
+   整格黑框罩在花草/火把上, 读作「透明方块外多了个框」很出戏。形状契约
+   复用渲染口径: 图集在集薄块=十字片(0.8 宽全高, pushCross 同宽) ·
+   wall(火把)=2×10×2 小盒(贴墙取向从邻块派生——与 mesh-core pushTorch
+   同优先级的只读镜像, 取向不存档同红线) · pane=薄板(门开态=solid:false
+   贴西缘/闭态贴北缘, 玻璃板=中柱, pushPane 同厚) · 其余 thin(床/引线/
+   压力板)=整格 × thin 高; 实心/流体/TNT=整格缺省。各维微加垫厚防与
+   贴图面共面。main.js 渲染循环命中时调用(位置+缩放一起接管)。 */
+function highlightShape(hit) {
+  const id = getBlock(hit.x, hit.y, hit.z);
+  const b = id !== 0 ? BLOCKS[id] : null;
+  let cx = 0.5; let cy = 0.5; let cz = 0.5; let sx = 1; let sy = 1; let sz = 1; /* 整格缺省 */
+  if (b && b.pane) {
+    if (b.glass) {/* 玻璃板: 中柱 2px(pushPane T=0.125) */
+      sx = 0.19; sz = 0.19;
+    } else if (b.solid === false) {/* 开门: 板贴西缘(x 0..3/16) */
+      sx = 0.21; cx = 0.094; sz = 1;
+    } else {/* 闭门: 板贴北缘(z 0..3/16) */
+      sz = 0.21; cz = 0.094;
+    }
+  } else if (b && b.thin) {
+    if (b.wall) {/* 火把: 小盒 2×10×2 px + 垫厚 */
+      const sup = (x, y, z) => {
+        const n = getBlock(x, y, z);
+        return n !== 0 && BLOCKS[n] && BLOCKS[n].solid !== false;
+      };
+      const onBase = sup(hit.x, hit.y - 1, hit.z);
+      sx = 0.25; sz = 0.25; sy = 0.68; cy = 0.34; /* 立式: 底边贴地 10px 高 */
+      if (!onBase) {/* 墙式: 小盒满贴支承墙面(pushTorch 同优先级派生) */
+        if (sup(hit.x + 1, hit.y, hit.z)) cx = 15/16;
+        else if (sup(hit.x - 1, hit.y, hit.z)) cx = 1/16;
+        else if (sup(hit.x, hit.y, hit.z + 1)) cz = 15/16;
+        else if (sup(hit.x, hit.y, hit.z - 1)) cz = 1/16;
+      }
+    } else if (ATLAS_LAYOUT && ATLAS_LAYOUT.tiles[id] != null) {/* 十字片(花草/麦/树苗) */
+      sx = 0.84; sz = 0.84; sy = 1.02;
+    } else {/* 床/引线/压力板: 整格 × thin 高 */
+      sy = b.thin + 0.02; cy = sy / 2;
+    }
+  }
+  highlight.position.set(hit.x + cx, hit.y + cy, hit.z + cz);
+  highlight.scale.set(sx, sy, sz);
+}
