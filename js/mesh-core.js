@@ -133,48 +133,42 @@ const MeshCore = (() => {
   /* 火把专用小盒(mc-torch-model-research §1/§2, MC 资产 @1.21.11 同款):
      2×10×2 像素(0.125×0.625×0.125 格)实心小盒——MC 火把是专用盒模型, 与植物
      cross 面片无 parent 关系; 「明显方块」感的根治 = 它真的不再是方块。
-     立式(lean=null): 水平居中贴地(from[7,0,7]→to[9,10,9]);
-     墙式 lean{ax,d}(ax 0=x/1=z, d=墙在 ± 向): 盒底面中心贴支承墙面(半宽
-     嵌墙消缝, MC 嵌 1px 同思路)、底距格底 3.5px, 绕底面中心向离墙方向整体
-     旋转 22.5°——底贴墙、顶端外倾(MC 14w07a「剪切平行六面体→旋转立方体」
-     同一条改版路线, 走向与旧 LEAN_TAN 顶边朝墙剪切相反)。
+     立式(lean=null): 水平居中贴地(from[7,0,7]→to[9,10,9])。
+     墙式 lean{ax,d}(ax 0=x/1=z, d=墙在 ± 向): 用户拍板「不外倾, 直接贴墙」
+     (2026-10-28)——整盒平移满贴支承墙面, 底边距格底 3.5px(读作「挂」在
+     墙上而非立在地上); 贴墙侧面与墙面共面(会 z-fight)且不可见 → 剔除不绘。
+     MC 原版此姿态是旋转 −22.5° 顶端外倾, 本项目弃旋转——登记偏差见
+     block-lifecycle-design.md 附录 B。
      贴图采样窗(research §1.1 UV 原文, 像素自格左/顶起): 侧面棍条[7,6,9,16]
      ·顶面[7,6,9,8] 火色·底面[7,13,9,15] 深木。cullDown=立式垫块贴合 → 底面
      剔除(MC cullface:down); 墙式悬空底面可见(MC 墙模板无 cullface)。
-     顶点光取自身格(block=14 夜间自亮); 法线随盒旋转——材质注入已替换
-     lights_lambert_vertex(world.js §4.2), 法线不参与块面明暗, 旋转零代价。 */
+     顶点光取自身格(block=14 夜间自亮); 无旋转, 法线=轴对齐面法线。 */
   const TORCH_HALF = 1/16; /* 盒半宽: 2px */
   const TORCH_LEN = 10/16; /* 盒轴长: 10px */
-  const TORCH_LIFT = 3.5/16; /* 墙式底面中心距格底: 3.5px */
-  const TORCH_SN = Math.sin(Math.PI/8); /* sin 22.5° ≈ 0.3827 */
-  const TORCH_CS = Math.cos(Math.PI/8); /* cos 22.5° ≈ 0.9239 */
+  const TORCH_LIFT = 3.5/16; /* 墙式底边距格底: 3.5px(MC 墙式基线) */
   function pushTorch(t, x, y, z, tile, cols, rows, lvSky, lvBlk, lean, cullDown) {
     const c = tile % cols; const r = Math.floor(tile / cols);
     const uT = c/cols; const vT = (rows-1-r)/rows; /* 格左下角 UV */
     const WINS = [[7, 6, 2, 10], [7, 6, 2, 2], [7, 13, 2, 2]]; /* 侧面/顶/底采样窗 */
+    /* 盒中心: 立式水平居中; 墙式整盒贴支承墙面(贴墙侧盒面恰在墙面上) */
     const ax = lean ? lean.ax : 0; const d = lean ? lean.d : 0;
-    const cx = lean && ax === 0 ? x + (d > 0 ? 1 : 0) : x + 0.5; /* 底面中心: 墙式贴墙面 */
-    const cz = lean && ax === 1 ? z + (d > 0 ? 1 : 0) : z + 0.5;
+    const cx = lean && ax === 0 ? x + (d > 0 ? 1 - TORCH_HALF : TORCH_HALF) : x + 0.5;
+    const cz = lean && ax === 1 ? z + (d > 0 ? 1 - TORCH_HALF : TORCH_HALF) : z + 0.5;
     const cy = y + (lean ? TORCH_LIFT : 0); /* 立式贴地 · 墙式底抬 3.5px */
-    /* 墙式绕底面中心在 (ax 轴, y) 平面旋 θ=d·22.5°(顶端离墙) */
-    const rv = (vx, vy, vz)=>{
-      if (!lean) return [vx, vy, vz];
-      if (ax === 0) return [vx*TORCH_CS - vy*d*TORCH_SN, vx*d*TORCH_SN + vy*TORCH_CS, vz];
-      return [vx, vz*TORCH_CS - vy*d*TORCH_SN, vz*d*TORCH_SN + vy*TORCH_CS];
-    };
+    /* 贴墙面剔除: 墙式朝墙那面与支承墙面共面(z-fight)且不可见(lean 派生自
+       实心墙, 剔除安全) → FACES 序 0:-x/1:+x/4:-z/5:+z */
+    const wallFace = !lean ? -1 : (ax === 0 ? (d > 0 ? 1 : 0) : (d > 0 ? 5 : 4));
     for (let f=0; f<6; f++) {
-      if (f === 2 && cullDown) continue; /* 底面贴垫块剔除(MC cullface:down) */
+      if ((f === 2 && cullDown) || f === wallFace) continue;
       const face = FACES[f];
       const w = WINS[f === 2 ? 2 : (f === 3 ? 1 : 0)];
-      const n = rv(face.dir[0], face.dir[1], face.dir[2]); /* 法线随盒同旋 */
       for (let i=0; i<4; i++) {
         const cor = face.corners[i];
         const lx = (cor[0]*2-1)*TORCH_HALF; /* 角点 0/1 → ±半宽 */
         const ly = cor[1]*TORCH_LEN; /* 0/1 → 0/轴长 */
         const lz = (cor[2]*2-1)*TORCH_HALF;
-        const p = rv(lx, ly, lz);
-        t.positions.push(cx+p[0], cy+p[1], cz+p[2]);
-        t.normals.push(n[0], n[1], n[2]);
+        t.positions.push(cx+lx, cy+ly, cz+lz);
+        t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
         /* 面内 [0,1]² → 像素窗: u 左起 · v 底起(fv=0 采样窗底行) */
         const fuv = faceUV(face.dir, cor);
         t.uvs.push(uT + (w[0] + fuv[0]*w[2])/16/cols,

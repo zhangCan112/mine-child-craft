@@ -339,23 +339,22 @@ test('顶点光: 小盒与薄块取自身格 — 火把自身格 block=14 夜间
   for (const v of r.solid.block) assert.ok(Math.abs(v - s15(11)) < 1e-9, '薄块全部顶点取自身格 block=11');
 });
 
-test('火把小盒几何: 插地立式居中贴地(2×10×2px) · 墙式底贴墙+顶外倾 22.5° · 双侧墙优先序', () => {
+test('火把小盒几何: 插地立式居中贴地(2×10×2px) · 墙式整盒满贴墙面直立(用户拍板不外倾) · 双侧墙优先序', () => {
   const m = loadMeshCore();
   const ATLAS = {hashRand: HR_HALF, tntTiles: 4, atlas: {cols: 16, rows: 16, tiles: {48: 26}}};
-  /* atlas 通道只含火把 → 全顶点统计(相对格原点取整; y>5.5 归顶组/否则底组) */
+  /* atlas 通道只含火把 → 全顶点统计(相对格原点取整) */
   const stat = (r)=>{
     const x0 = Math.floor(r.atlas.positions[0]); const z0 = Math.floor(r.atlas.positions[2]);
     let minX = Infinity; let maxX = -Infinity; let minY = Infinity; let maxY = -Infinity;
-    let minZ = Infinity; let maxZ = -Infinity; let upMaxX = -Infinity; let loMinX = Infinity;
+    let minZ = Infinity; let maxZ = -Infinity;
     for (let i = 0; i < r.atlas.positions.length; i += 3) {
       const vx = r.atlas.positions[i] - x0; const vy = r.atlas.positions[i + 1];
       const vz = r.atlas.positions[i + 2] - z0;
       minX = Math.min(minX, vx); maxX = Math.max(maxX, vx);
       minY = Math.min(minY, vy); maxY = Math.max(maxY, vy);
       minZ = Math.min(minZ, vz); maxZ = Math.max(maxZ, vz);
-      if (vy > 5.5) upMaxX = Math.max(upMaxX, vx); else loMinX = Math.min(loMinX, vx);
     }
-    return {minX, maxX, minY, maxY, minZ, maxZ, upMaxX, loMinX};
+    return {minX, maxX, minY, maxY, minZ, maxZ};
   };
   /* 立式(MC §1.1 from[7,0,7]→to[9,10,9]): x/z∈[0.4375,0.5625] 居中 · y∈[5,5.625] 贴地 */
   let p = mkPackL(1);
@@ -367,16 +366,16 @@ test('火把小盒几何: 插地立式居中贴地(2×10×2px) · 墙式底贴�
   assert.ok(Math.abs(s.minX - 0.4375) < 1e-9 && Math.abs(s.maxX - 0.5625) < 1e-9, '立式 x∈[7,9]px 居中');
   assert.ok(Math.abs(s.minZ - 0.4375) < 1e-9 && Math.abs(s.maxZ - 0.5625) < 1e-9, '立式 z∈[7,9]px 居中');
   assert.ok(Math.abs(s.minY - 5) < 1e-9 && Math.abs(s.maxY - 5.625) < 1e-9, '立式 y∈[0,10]px 贴地');
-  /* 墙火把(+x 墙, MC §2): 底面中心贴墙面(半宽嵌墙) · 底抬 3.5px · 顶端离墙外倾 22.5° */
+  /* 墙火把(+x 墙, 用户拍板: 不外倾直接贴墙): 整盒满贴墙面 x∈[0.875,1] · 底抬 3.5px · 直立 */
   p = mkPackL(1);
   p.set(1, 5, 1, m.B_TORCH);
   p.set(2, 5, 1, 3); // +x 实心墙
   r = m.MeshCore.meshChunk(p, ATLAS);
-  assert.ok(quads(r.atlas) === 6, '墙式 6 面(悬空底面可见, MC 墙模板无 cullface)');
+  assert.ok(quads(r.atlas) === 5, '墙式 5 面(贴墙侧面与墙面共面剔除防 z-fight; 悬空底面可见)');
   s = stat(r);
-  assert.ok(Math.abs(s.maxX - (1 + 0.0625*Math.cos(Math.PI/8))) < 1e-3, '底面中心贴墙面 x=1(半宽嵌墙消缝)');
-  assert.ok(s.minY > 5.19, '底边抬离格底(3.5px − 半宽·sin22.5° ≈ 0.195)');
-  assert.ok(s.upMaxX < s.loMinX - 0.1, '顶端整体离墙外倾(顶组 maxX 在底组 minX 内侧 0.12+)');
+  assert.ok(Math.abs(s.maxX - 1) < 1e-9 && Math.abs(s.minX - 0.875) < 1e-9, '整盒满贴墙面(2px 宽 x∈[0.875,1])');
+  assert.ok(Math.abs(s.minY - 5.21875) < 1e-9 && Math.abs(s.maxY - 5.84375) < 1e-9,
+      '底抬 3.5px · 直立不外倾(y 恰 10px 高, 顶底同界)');
   assert.ok(Math.abs(s.minZ - 0.4375) < 1e-9 && Math.abs(s.maxZ - 0.5625) < 1e-9, '墙式 z 向居中不变');
   /* 双侧墙 → 固定优先级取 +x(确定性, 与 cascade 同序) */
   p = mkPackL(1);
@@ -384,7 +383,7 @@ test('火把小盒几何: 插地立式居中贴地(2×10×2px) · 墙式底贴�
   p.set(2, 5, 1, 3); // +x 墙
   p.set(0, 5, 1, 3); // -x 墙
   r = m.MeshCore.meshChunk(p, ATLAS);
-  assert.ok(Math.abs(stat(r).maxX - (1 + 0.0625*Math.cos(Math.PI/8))) < 1e-3, '双侧墙取 +x(优先序首位)');
+  assert.ok(Math.abs(stat(r).maxX - 1) < 1e-9, '双侧墙取 +x(优先序首位)');
 });
 
 test('顶点光: 无光照载荷的 pack 回落全亮(sky=15/block=0) — 既有调用缺省兼容', () => {
