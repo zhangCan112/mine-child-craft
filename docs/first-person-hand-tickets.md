@@ -1,6 +1,6 @@
 # 第一人称手持视图（HandView）· 施工票图
 
-> 生命周期：施工中（2026-10-28 开工）— 完工后本文件标「已完工」并在 docs/README.md 登记后继。
+> 生命周期：已完工（2026-10-28）— 仅作历史依据；权威后继 [first-person-hand-design.md](first-person-hand-design.md)。
 > 规格权威：[first-person-hand-design.md](first-person-hand-design.md)（D1–D6 + 附录 B 差异表）。
 > 正典依据：[mc-first-person-hand-research.md](mc-first-person-hand-research.md)（关键数值清单）·
 > [mc-held-item-render-research.md](mc-held-item-render-research.md)（姐妹调研）。
@@ -72,8 +72,8 @@
 
 | 票 | 状态 | 备注 |
 |---|---|---|
-| T1 | 待开工 | 前沿 |
-| T2a | 待开工 | blocked by T1 |
-| T2b | 待开工 | blocked by T2a |
-| T3 | 待开工 | blocked by T2a，可与 T2b 并行（文件不相交） |
-| T4 | 待开工 | blocked by T2b+T3 |
+| T1 | 已完工 | 两族 fp 常量工厂展开内嵌全 def（defFor 缺 fp 回落手持物族）+ swingView 纯函数（端点归零/中段前送/幅度随 amp 归一）+ swap 释放旧网格并 mount 收口，新增 8 测直测 |
+| T2a | 已完工 | 新 js/hand-view.js（====横幅）：handScene 固定灯无雾 + handCam 投影每帧同步 + 裸臂盒建模 + swap 持物槽按 def.fp 施加 + 可见性自判 + clearDepth 通道；index.html 装载序 held-item→hand-view→avatar |
+| T2b | 已完工 | 动态四件：equip 沉 0.6 沉底换网格半程 0.14s 与 Avatar 同拍、swing 连挥（swingView 原样施加曲线零改造）、走路 bob 小椭圆、鼠标滞后（平滑−视角）×0.1；隐藏帧照常推进只 render no-op |
+| T3 | 已完工 | Avatar setItem/swing 体内各一行镜像转发 HandView + mountItem 改走 HeldItems.swap；CameraRig 加只读 `get mounted()`；main.js update/render 各一行；三处伪造 Avatar 测试零改动全绿 |
+| T4 | 已完工 | GLOSSARY 新词条「第一人称手持视图（HandView）」+ Avatar/HeldItems 词条 interface 增补；`npm test` 全绿 + `npm run lint` 零错误 |

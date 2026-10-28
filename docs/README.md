@@ -44,6 +44,7 @@
 | 坦克 | [plan](tank-plan.md) | 已完工 → [tank-impl-design.md](tank-impl-design.md) |
 | 怪物共享/分类 | [shared-monsters-plan](shared-monsters-plan.md) · [monster-taxonomy-plan](monster-taxonomy-plan.md) | 已完工 → 对应 -design |
 | 体验馆 | [spec](showroom-spec.md) · [tickets](showroom-tickets.md) | 已完工 → [showroom-design.md](showroom-design.md) + [adr/0005](adr/0005-unified-adventure-shell-dev-profile.md) |
+| 第一人称手持视图 | [tickets](first-person-hand-tickets.md) | 已完工 → [first-person-hand-design.md](first-person-hand-design.md) |
 | 下界独立模式 | [plan](nether-plan.md) | **已废弃**（模式退役并入探险）→ [nether-merge-design.md](nether-merge-design.md) |
 | 挖矿缺口分析 | [mining-gap-analysis.md](mining-gap-analysis.md) | 分析快照 → [mining-hardness-design.md](mining-hardness-design.md)（config.js 注释仍引用） |
 | 架构快照 | [design.html](design.html) | 静态快照 2026-10-18，**非权威**，改代码不自动更新 |
