@@ -9,13 +9,18 @@
      时掷专属表, 挖掘硬度修正 D2) — 掷骰语义在此, 表只存数据
    · 拾取判定: pickupCheck 三维距离 — <=0.6 收集 · <=2.5 真空吸附
    · 壳段实体生命周期: 落地弹跳一次 → 贴地浮动+缓旋 → 2.5 格内加速飞向
-     玩家 → 0.6 格触发收集回调 → 3 分钟到期静默消失; 贴图 emoji canvas
-     Sprite 过渡, 运行时存在全局 iconOf(T8 的 icons.js 将提供)则优先用
-     像素图 dataURL, 否则 emoji 兜底(本模块不定义 iconOf, 只消费)
+     玩家 → 0.6 格触发收集回调 → 到期静默消失(缺省 3 分钟, opts.life 可调);
+     贴图 emoji canvas Sprite 过渡, 运行时存在全局 iconOf(T8 的 icons.js 将
+     提供则优先用像素图 dataURL, 否则 emoji 兜底(本模块不定义 iconOf, 只消费)
+   · spawn 第六参 opts(玩家丢弃件, docs/bag-and-drop-design.md §1): {vx,vz}
+     初速覆盖(缺省随机散布) · {stillT} 拾取静默秒(丢弃防秒吸) · {holdFar}
+     「玩家离开过吸附圈才解锁拾取」门(扔地上=放下而非喂回) · {life} 存留秒 ·
+     {dur} 耐久随件(工具丢弃不重铸) · {thrown} 丢弃旗(模式层退场回收判据)
    interface: rollDrops(type, rand?) · rollBlockDrop(blockDef, rand?, toolStack?) ·
               pickupCheck(dropPos, playerPos) · resolveIcon(itemId) /
-              Drops.spawn(itemId, n, x, y, z) · Drops.update(dt, playerPos) ·
+              Drops.spawn(itemId, n, x, y, z, opts?) · Drops.update(dt, playerPos) ·
               Drops.render · Drops.clear · Drops.list · Drops.onCollect(cb)
+              (收集回调签名 (itemId, n, dur?) — dur 仅玩家丢弃件携带)
    依赖(均经全局名, 调用期解析): mob-registry.js 的 MOB_DROPS(+测试交叉断言用
      MOB_TYPES) · config.js 的 BLOCKS(rollBlockDrop 读 drop/shearDrop) ·
      items-core.js 的 ITEMS(resolveIcon 兜底) ·
@@ -153,18 +158,27 @@ const Drops = (() => {
     d.sprite = null;
   }
 
-  /* 出生: 从击杀碎块里「蹦出来」— 随机水平散布 + 小上抛, 落地弹跳一次 */
-  function spawn(itemId, n, x, y, z) {
+  /* 出生: 从击杀碎块里「蹦出来」— 随机水平散布 + 小上抛, 落地弹跳一次。
+     opts(玩家丢弃件, 全部可选): {vx,vz} 初速覆盖(定向抛掷) · {stillT} 拾取
+     静默秒(rejectT 同款倒计时) · {holdFar} 玩家离开过吸附圈才解锁拾取 ·
+     {life} 存留秒覆盖(缺省 LIFE) · {dur} 耐久随件(收集回调原样带回) ·
+     {thrown} 丢弃旗(供模式层退场回收辨认) */
+  function spawn(itemId, n, x, y, z, opts) {
+    const o = opts || {};
     const a = Math.random() * Math.PI * 2;
     const d = {
       id: itemId, n: Math.max(1, n || 1),
       x, y, z,
-      vx: Math.cos(a) * (0.4 + Math.random() * 0.8),
-      vz: Math.sin(a) * (0.4 + Math.random() * 0.8),
+      vx: (o.vx != null) ? o.vx : Math.cos(a) * (0.4 + Math.random() * 0.8),
+      vz: (o.vz != null) ? o.vz : Math.sin(a) * (0.4 + Math.random() * 0.8),
       vy: 2.6,
       grounded: false, bounced: false,
-      age: 0, phase: Math.random() * 6, spin: Math.random() * Math.PI * 2,
-      pullV: 0, rejectT: 0, gone: false, sprite: null,
+      age: 0, life: (typeof o.life === 'number' && o.life > 0) ? o.life : LIFE,
+      phase: Math.random() * 6, spin: Math.random() * Math.PI * 2,
+      pullV: 0, rejectT: (o.stillT > 0) ? o.stillT : 0,
+      holdFar: !!o.holdFar, thrown: !!o.thrown,
+      dur: (o.dur != null) ? o.dur : null,
+      gone: false, sprite: null,
     };
     if (typeof THREE !== 'undefined' && typeof document !== 'undefined' &&
         typeof scene !== 'undefined') {
@@ -212,12 +226,13 @@ const Drops = (() => {
     }
   }
 
-  /* 收集: 逐回调报 (itemId, n); 任一回调显式返回 false = 拒收(背包满,
-   D6 政策在模式层) → 掉落物停在地上进冷却, 冷却结束再试 */
+  /* 收集: 逐回调报 (itemId, n, dur?) — dur 仅玩家丢弃件携带(模式层据此
+     保耐久入包, 不经 mkStack 重铸); 任一回调显式返回 false = 拒收(背包满,
+     D6 政策在模式层) → 掉落物停在地上进冷却, 冷却结束再试 */
   function collect(d) {
     let rejected = false;
     for (const cb of collectCbs) {
-      if (cb(d.id, d.n) === false) rejected = true;
+      if (cb(d.id, d.n, d.dur) === false) rejected = true;
     }
     if (rejected) {
       d.rejectT = REJECT_CD;
@@ -227,20 +242,29 @@ const Drops = (() => {
     unmount(d);
   }
 
-  /* 通用本能(每帧): 寿命 → 拾取意图(判定权威 pickupCheck) → 吸引/物理。
-     playerPos {x,y,z} 由模式层喂(建议玩家胸口点), 缺省只做物理 */
+  /* 通用本能(每帧): 寿命(逐实体 life, 缺省 LIFE) → 拾取意图(判定权威
+     pickupCheck) → 吸引/物理。holdFar 件先等玩家离开过吸附圈一次才参战
+     (扔地上=放下, 不朝站着的主人飞回); playerPos {x,y,z} 由模式层喂
+     (建议玩家胸口点), 缺省只做物理 */
   function update(dt, playerPos) {
     for (const d of live) {
       if (d.gone) continue;
       d.age += dt;
       if (d.rejectT > 0) d.rejectT -= dt;
       d.spin += dt * SPIN_W;
-      if (d.age > LIFE) { // 3 分钟到期: 静默消失(不是收集, 不触发回调)
+      if (d.age > d.life) { // 到期: 静默消失(不是收集, 不触发回调)
         d.gone = true;
         unmount(d);
         continue;
       }
-      const pick = (playerPos && d.rejectT <= 0) ? pickupCheck(d, playerPos) : 'far';
+      let pick = 'far';
+      if (playerPos && d.rejectT <= 0) {
+        if (d.holdFar) { // 未离开过吸附圈: 恒不理睬; 观察到一次「远」即解锁
+          if (pickupCheck(d, playerPos) === 'far') d.holdFar = false;
+        } else {
+          pick = pickupCheck(d, playerPos);
+        }
+      }
       if (pick === 'collect') {
         collect(d);
         continue;

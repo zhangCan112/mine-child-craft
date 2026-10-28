@@ -96,11 +96,12 @@ test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派�
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 随身 13 + 工作台级 27 共 40 条, id 唯一(crafting-grid §3 + 下界并入探险 D3 + 雪球 T9 + 门/玻璃板 + 补链 D1)', () => {
+test('配方全量: 随身 13 + 工作台级 28 共 41 条, id 唯一(crafting-grid §3 + 下界 D3 + 雪球 T9 + 门/玻璃板 + 补链 D1 + 大背包)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 40, '全表 40 条(随身 13 + 工具 16 + 站点件 8 + 门/玻璃板 2 + 传送门 1), 实际 ' + RECIPES.length);
+  assert.strictEqual(RECIPES.length, 41,
+      '全表 41 条(随身 13 + 工具 16 + 站点件 8 + 门/玻璃板 2 + 大背包 1 + 传送门 1), 实际 ' + RECIPES.length);
   // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9 + 补链 D1 砂岩/羊毛)
   for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
     'bone_meal', 'iron_nuggets', 'snow', 'sandstone', 'wool']) {
@@ -108,13 +109,13 @@ test('配方全量: 随身 13 + 工作台级 27 共 40 条, id 唯一(crafting-g
     assert.ok(r, '随身配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
   }
-  // 工作台级: 工具 16 + furnace/chest/bed/lantern/golden_apple/tnt/bow_item/bread + door/glass_pane + 铁粒回炉(9 格 D1)
+  // 工作台级: 工具 16 + furnace/chest/bed/lantern/golden_apple/tnt/bow_item/bread + door/glass_pane + 铁粒回炉(9 格 D1) + 大背包
   const tableIds = ['pick_wood', 'pick_stone', 'pick_iron', 'pick_diamond',
     'axe_wood', 'axe_stone', 'axe_iron', 'axe_diamond',
     'sword_wood', 'sword_stone', 'sword_iron', 'sword_diamond',
     'shovel_wood', 'shovel_stone', 'shovel_iron', 'shovel_diamond',
     'furnace', 'chest', 'bed', 'lantern', 'golden_apple', 'tnt', 'bow_item', 'bread',
-    'door', 'glass_pane', 'iron_ingot'];
+    'door', 'glass_pane', 'iron_ingot', 'bag_upgrade'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');
@@ -392,6 +393,21 @@ test('matchGrid 候选规约: 火把煤/木炭任一(MC tag 口径), 混摆亦�
   assert.strictEqual(matchGrid(cellsWith([[0, 'charcoal'], [3, 'stick']]), torch), true);
   assert.strictEqual(matchGrid(cellsWith([[2, 'charcoal'], [5, 'stick']]), torch), true, '右列竖排(平移+候选)');
   assert.strictEqual(matchGrid(cellsWith([[0, 'iron_ingot'], [3, 'stick']]), torch), false, '异种不中');
+});
+
+test('matchGrid 大背包: 线提手+皮革包身环形(原版 1.17 bundle 图案, 中格空)', () => {
+  const {RECIPES, matchGrid, shapeCost} = loadCraft();
+  const by = (id) => RECIPES.find((r) => r.id === id);
+  // 正图案: 顶行两角线 + 两整行皮革(中格空)
+  const bag = cellsWith([[0, 'string'], [2, 'string'], [3, 'leather'], [4, 'leather'], [5, 'leather'],
+    [6, 'leather'], [7, 'leather'], [8, 'leather']]);
+  assert.strictEqual(matchGrid(bag, by('bag_upgrade')), true);
+  // 提手/包身颠倒(皮革角+线行)= 异图案不中
+  assert.strictEqual(matchGrid(cellsWith([[0, 'leather'], [2, 'leather'], [3, 'string'], [4, 'string'],
+    [5, 'string'], [6, 'string'], [7, 'string'], [8, 'string']]), by('bag_upgrade')), false, '上下颠倒不中');
+  // 派生计费: 2 线 + 6 皮革(shapeCost 单一数据源; 跨 realm 产物用宽松 deepEqual,
+  // drops.test.js 先例)
+  assert.deepEqual(shapeCost(by('bag_upgrade')), {string: 2, leather: 6});
 });
 
 test('matchGrid 无序: 骨粉任意格, 多一件不中, 空格随意', () => {

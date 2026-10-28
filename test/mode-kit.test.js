@@ -1287,3 +1287,80 @@ test('editHit 放置覆盖薄块: 命中 replaceable → 落点=被点格本身�
     }
   }
 });
+
+/* ============ 丢弃态 + 可变容量背包区(2026-10, docs/bag-and-drop-design.md) ============ */
+
+test('丢弃: 未传 onDrop 无头钮(体验馆零变化); 传了才现身且 paintChrome 注入图标不炸', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'planks', n: 5}, ...Array(17).fill(null)]};
+  const p0 = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {}});
+  p0.show();
+  assert.strictEqual(collect(p0.root, 'mkp-drop').length, 0, '无 onDrop=无丢弃钮');
+  p0.remove();
+  const p1 = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {}, onDrop() {}});
+  p1.show();
+  assert.strictEqual(collect(p1.root, 'mkp-drop').length, 1, '有 onDrop=头钮现身');
+  p1.remove();
+});
+
+test('丢弃: craft armed → 点背包格报 onDrop(槽号); 空格不动; 关面板收态后恢复搬运', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'planks', n: 5}, null, ...Array(16).fill(null)]};
+  const dropped = []; const moves = [];
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {},
+    onDrop: (i) => {
+      dropped.push(i); inv.slots[i] = null;
+    }, /* 模式层扣包(advDropSlot 同构) */
+    onMove: (from, to) => moves.push([from, to])});
+  panel.show();
+  const btn = collect(panel.root, 'mkp-drop')[0];
+  btn.onclick();
+  assert.ok(btn._cls.has('on'), 'armed 头钮点亮');
+  assert.ok(collect(panel.root, 'mkp-grid')[0]._cls.has('dropmode'), '背包格红边警示类');
+  collect(panel.root, 'mkp-cell')[0].onclick(); /* 主格首格=槽 9(木板) */
+  assert.deepStrictEqual(dropped, [9], '整摞丢弃报槽号');
+  assert.strictEqual(inv.slots[9], null, '模式层已扣包');
+  collect(panel.root, 'mkp-cell')[0].onclick(); /* 现在是空格 */
+  assert.deepStrictEqual(dropped, [9], '空格不报丢弃');
+  panel.close(); /* ✕ 统一出口 → 收丢弃态 */
+  assert.ok(!btn._cls.has('on'), '关面板收态');
+  /* 恢复搬运: 起手(槽 9 放回一摞) → 点目标格 = onMove 而非 onDrop */
+  inv.slots[9] = {id: 'planks', n: 3};
+  const cells = collect(panel.root, 'mkp-cell');
+  cells[0].onclick(); /* 起手槽 9 */
+  cells[1].onclick(); /* 目标槽 10(空) */
+  assert.deepStrictEqual(moves, [[9, 10]], '收态后点选搬运恢复');
+  assert.deepStrictEqual(dropped, [9], '收态后不再报丢弃');
+  panel.remove();
+});
+
+test('丢弃: chest 面板 wirePut 同口径 — armed 点背包格报 onDrop 不报 onPut', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'planks', n: 12}, ...Array(17).fill(null)]};
+  const chest = {size: 9, slots: new Array(9).fill(null)};
+  const puts = []; const dropped = [];
+  const p = mkChestPanel({doc, inv, chest: ()=>chest, next: ()=>null, have: ()=>0,
+    onPut: (i)=>puts.push(i), onTake() {}, onExpand() {}, onClose() {},
+    onDrop: (i) => {
+      dropped.push(i); inv.slots[i] = null;
+    }});
+  p.show();
+  p.refresh(); /* 消费方口径: 开面板后自调 refresh */
+  collect(p.root, 'mkp-drop')[0].onclick(); /* armed */
+  const cells = collect(p.root, 'mkp-cell'); /* 箱格 9 + 背包主格 18 + 快捷镜像 9 */
+  cells[9].onclick(); /* 背包主格首格 = 槽 9(木板) */
+  assert.deepStrictEqual(dropped, [9], 'armed 报丢弃');
+  assert.deepStrictEqual(puts, [], '不再报入箱意图');
+  p.remove();
+});
+
+test('可变容量: 33 槽背包区按现长度重画(24 主格 + 9 快捷镜像 + 摆放台 9 = 42 格)', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), ...Array(23).fill(null), {id: 'planks', n: 6}]};
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {}});
+  panel.show();
+  const cells = collect(panel.root, 'mkp-cell');
+  assert.strictEqual(cells.length, 42, '24 主格 + 9 镜像 + 摆放台 9');
+  assert.ok(cells[23].innerHTML.includes('data:image/png'), '主格末格=槽 32(扩容区)有内容');
+  panel.remove();
+});

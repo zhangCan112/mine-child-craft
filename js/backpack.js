@@ -8,8 +8,9 @@
    薄壳: 只做 mkSaveSlot+SyncDB 装配与 load/save 生命周期; 背包规则
    (堆叠/扣料/耐久/序列化形状)全部归背包核心 inventory-core, 本壳
    不复制任何一条。
-   interface: mkBackpack() → {inv(27 槽本体, 引用跨 load 稳定) ·
-     load(原地换槽, 消费方闭包不脱钩) · save}
+   interface: mkBackpack() → {inv(可变容量背包本体, 27 基础/33 扩容档,
+     引用跨 load 稳定) · load(原地换槽, 长度随存档走, 消费方闭包不脱钩) ·
+     save}
    依赖(均经全局名, 调用期解析): inventory-core 的 mkInventory/
      serialize/deserialize/INV_SLOTS · sync.js 的 SyncDB.slot
      (加载序: 两文件在 index.html 均先于本文件)
@@ -23,13 +24,13 @@ function mkBackpack() {
   const inv = mkInventory();
   const slot = SyncDB.slot(BACKPACK_KEY, {
     defaults: {slots: new Array(INV_SLOTS).fill(null)},
-    encode: (i) => serialize(i), /* T5 形状 {_v:1, slots} 直产 */
+    encode: (i) => serialize(i), /* T5 形状 {_v:1, slots} 直产(slots 长度=容量, 2026-10 扩容随形) */
     decode: (sv) => deserialize(sv), /* 损坏回落空包(inventory-core 口径) */
   });
   return {
     inv, /* 背包本体: 消费方经 inventory-core 接口读写, 规则不在本壳 */
     load() {
-      inv.slots = slot.load().slots; /* 原地换槽(空档回落 defaults 的 27 空槽数组) */
+      inv.slots = slot.load().slots; /* 原地换槽(空档回落 defaults 的 27 空槽数组; 扩容档 33 随存档) */
       return inv;
     },
     save() {

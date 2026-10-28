@@ -28,6 +28,9 @@ const ITEM_USES = {
      ——与弓同款「点击恒算使用 attempt 不落放置」口径 */
   wheat_seeds: [{act: 'plant', icon: 'plant', label: '播种'}],
   bone_meal: [{act: 'ripen', icon: 'ripen', label: '催熟'}],
+  /* 大背包使用档(2026-10, docs/bag-and-drop-design.md §2): 手持使用扩容 +6
+     主格(一次性; 已扩容时模式层执行器礼貌拒绝不消耗) */
+  bag_upgrade: [{act: 'expand_bag', icon: 'bagup', label: '背包扩容'}],
 };
 
 /* 物品键 → 使用动作条目; 无专属使用动作返回 null(调用方回落常规使用链) */

@@ -1708,7 +1708,7 @@ function advChestTake(chest, inv, i) {
    提醒政策 (code-review 修复轮 S4) — 纯函数段
    ============================================================ */
 const ADV_WEAR_WARN_AT = 0.25; /* 低耐久预警线: 耐久比 <0.25 提醒(D9 耐久条红档同阈值) */
-const ADV_BAG_FULL_N = 24; /* 背包快满线: 占用槽 ≥24/27 提醒(留 3 格周转) */
+const ADV_BAG_FULL_BUFFER = 3; /* 背包快满周转格数: 占用 ≥ 容量-3 提醒(27 档=24, 33 扩容档=30) */
 const ADV_BAG_CHECK_T = 0.5; /* 快满检查节流秒(update 内, 与任务链节拍同量级) */
 
 /* 低耐久语音预警(S4①): 耐久比首次跌破 ADV_WEAR_WARN_AT → 返回 true(提醒
@@ -1721,12 +1721,15 @@ function advWearWarn(warned, id, ratio) {
   return true;
 }
 
-/* 背包快满提醒(S4②): 占用槽 ≥ADV_BAG_FULL_N(24/27) → fire 一次; armed 为
+/* 背包快满提醒(S4②): 占用槽 ≥ 容量-ADV_BAG_FULL_BUFFER → fire 一次; armed 为
    调用方持有的布尔账本——冷却口径=「回落再满」的上升沿: 占用回落到线下即
    重新武装(不按时间冷却, 整理/合成腾出格子后再满会再提醒一次); 持续满格
-   不重复轰炸。返回新账本 {armed, fire} */
-function advBagFullStep(used, armed) {
-  if (used < ADV_BAG_FULL_N) return {armed: true, fire: false};
+   不重复轰炸。cap 省略=基础 27 档(扩容档传 inv.slots.length)。返回新账本
+   {armed, fire} */
+function advBagFullStep(used, armed, cap) {
+  const fullN = (typeof cap === 'number' && isFinite(cap)) ?
+    Math.max(1, cap - ADV_BAG_FULL_BUFFER) : INV_SLOTS - ADV_BAG_FULL_BUFFER;
+  if (used < fullN) return {armed: true, fire: false};
   return armed ? {armed: false, fire: true} : {armed: false, fire: false};
 }
 
@@ -2121,7 +2124,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_PER, ADV_CHEST_TIERS, advChestNext,
     advChestCapacity, advCountChestEdits, advChestPut, advChestTake,
-    ADV_WEAR_WARN_AT, ADV_BAG_FULL_N, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,
+    ADV_WEAR_WARN_AT, ADV_BAG_FULL_BUFFER, ADV_BAG_CHECK_T, advWearWarn, advBagFullStep,
     advBreakToolText, ADV_HOME_CD, advHomeReady,
     ADV_BED_MOB_R, ADV_SLEEP_FADE, ADV_SLEEP_HOLD, ADV_SLEEP_TOTAL,
     advSleepCheck, advSleepStep, advBedSpot,

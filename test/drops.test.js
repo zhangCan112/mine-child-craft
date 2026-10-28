@@ -310,6 +310,73 @@ test('壳: clear 清空实体并解除收集回调(与 Mobs.clear 同口径, 切
   assert.strictEqual(calls, 0, 'clear 后回调已解除');
 });
 
+/* ============ 丢弃件 opts(2026-10, docs/bag-and-drop-design.md §1) ============ */
+
+test('壳: stillT 静默秒 — 玩家踩在身上也不收集, 到期后照常收', () => {
+  const {Drops} = loadDrops();
+  Drops.clear();
+  let calls = 0;
+  Drops.onCollect(() => {
+    calls++;
+  });
+  const e = Drops.spawn('leather', 1, 10, 16, 10, {stillT: 5});
+  for (let i = 0; i < 60; i++) Drops.update(1 / 30, null); // 落地静置(2s, 静默窗同步流逝)
+  const on = {x: e.x, y: e.y, z: e.z};
+  for (let i = 0; i < 60; i++) Drops.update(1 / 30, on); // 累计 4s < 5s: 静默期内
+  assert.strictEqual(calls, 0, '静默期内不收集(扔出不秒吃回)');
+  for (let i = 0; i < 40; i++) Drops.update(1 / 30, on); // 越过 5s
+  assert.strictEqual(calls, 1, '静默结束照常收集');
+  Drops.clear();
+});
+
+test('壳: holdFar — 站在身边不理睬, 离开过吸附圈一次才解锁, 回来即收', () => {
+  const {Drops} = loadDrops();
+  Drops.clear();
+  let calls = 0;
+  Drops.onCollect(() => {
+    calls++;
+  });
+  const e = Drops.spawn('leather', 1, 10, 16, 10, {holdFar: true});
+  for (let i = 0; i < 240; i++) Drops.update(1 / 30, null); // 落地静置
+  const on = {x: e.x, y: e.y, z: e.z};
+  for (let i = 0; i < 120; i++) Drops.update(1 / 30, on); // 站 4s: 不吃回
+  assert.strictEqual(calls, 0, '站着不动不收集(holdFar 门未开)');
+  for (let i = 0; i < 120; i++) Drops.update(1 / 30, {x: e.x + 5, y: e.y, z: e.z}); // 走远 5 格
+  assert.strictEqual(e.holdFar, false, '观察到一次「远」即解锁');
+  for (let i = 0; i < 60; i++) Drops.update(1 / 30, on); // 回到身上
+  assert.strictEqual(calls, 1, '回来后被收集(下次靠近自动拾取)');
+  Drops.clear();
+});
+
+test('壳: life 覆盖 — 丢弃件 10 分钟存留不受 3 分钟默认到期影响', () => {
+  const {Drops} = loadDrops();
+  Drops.clear();
+  Drops.spawn('leather', 1, 10, 16, 10, {life: 600});
+  for (let i = 0; i < 1806; i++) Drops.update(0.1, {x: 20, y: 12, z: 20}); // 180.6s: 默认寿命已尽
+  assert.strictEqual(Drops.list().length, 1, '10 分钟存留件此刻还活着');
+  for (let i = 0; i < 4200; i++) Drops.update(0.1, {x: 20, y: 12, z: 20}); // 再走 420s
+  assert.strictEqual(Drops.list().length, 0, '到 600s 照样到期');
+  Drops.clear();
+});
+
+test('壳: dur 随件 + 定向初速 — 收集回调第三参带回耐久, vx/vz 覆盖随机散布', () => {
+  const {Drops} = loadDrops();
+  Drops.clear();
+  let got = null;
+  Drops.onCollect((id, n, dur) => {
+    got = [id, n, dur];
+  });
+  const e = Drops.spawn('pick_iron', 1, 10, 16, 10, {vx: 2, vz: 0, dur: 123, stillT: 2, holdFar: true});
+  assert.strictEqual(e.vx, 2, '定向初速生效(不被随机散布覆盖)');
+  assert.strictEqual(e.vz, 0);
+  for (let i = 0; i < 240; i++) Drops.update(1 / 30, null); // 落地
+  e.holdFar = false; // 测试直开门(解锁路径已单测)
+  e.rejectT = 0;
+  Drops.update(1 / 30, {x: e.x, y: e.y, z: e.z});
+  assert.deepStrictEqual(got, ['pick_iron', 1, 123], '耐久原样回带(模式层据此不重铸)');
+  Drops.clear();
+});
+
 /* ============ 交叉断言(工单核心价值): 三张注册表互查 ============ */
 
 test('交叉: MOB_DROPS 与 BLOCKS.drop 引用的全部物品 id ⊆ ITEMS(防改表漏改注册)', () => {

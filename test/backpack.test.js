@@ -57,6 +57,20 @@ test('背包壳: load/save 往返 — T5 形状 {_v:1,slots} 落盘, 槽位与�
   assert.strictEqual(bag2.inv.slots[ti].dur, 77, '耐久随槽往返');
 });
 
+test('背包壳: 大背包扩容档往返 — slots 长度 33 随形落盘, 重进不缩回(2026-10)', () => {
+  mem.clear();
+  const bag = Backpack.mkBackpack();
+  for (let i = 0; i < 6; i++) bag.inv.slots.push(null); /* 扩容=模式层 push 空槽(inventory-core 口径) */
+  api.add(bag.inv, 'leather', 6);
+  bag.save();
+  const saved = JSON.parse(mem.get('inventory_save'));
+  assert.strictEqual(saved.slots.length, 33, '扩容形状=slots 长度(无第二存档键)');
+  const bag2 = Backpack.mkBackpack();
+  bag2.load(); /* 原地换槽: 长度跟随存档(消费方闭包不脱钩) */
+  assert.strictEqual(bag2.inv.slots.length, 33, '重进保持 33');
+  assert.strictEqual(api.count(bag2.inv, 'leather'), 6, '扩容区物品照常恢复');
+});
+
 test('背包壳: 空档/损坏回落空包 + inv 引用跨 load 稳定(消费方闭包不脱钩)', () => {
   mem.clear();
   const bag = Backpack.mkBackpack();

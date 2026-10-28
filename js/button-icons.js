@@ -772,6 +772,25 @@ const PLAYGO_ART = [
 /* 右转 = 左转基画镜像派生(与箭头对同款防手抖手法) */
 const TURN_RIGHT_ART = mirrorX(TURN_LEFT_ART);
 
+const TRASH_ART = [ // 垃圾桶: 提手 + 盖沿 + 双浅条桶身(丢弃头钮, 2026-10)
+  '................',
+  '................',
+  '.......KK.......',
+  '....KKKKKKKK....',
+  '..KKKKKKKKKKKK..',
+  '...kkkkkkkkkk...',
+  '...kkKKkkKKkk...',
+  '...kkKKkkKKkk...',
+  '...kkKKkkKKkk...',
+  '...kkKKkkKKkk...',
+  '...kkKKkkKKkk...',
+  '...kkKKkkKKkk...',
+  '....kkkkkkkk....',
+  '....kkkkkkkk....',
+  '................',
+  '................',
+];
+
 const BTN_PIX = {
   /* 方向与播放 */
   left: {art: ARROW_LEFT_ART, map: BTN_GLYPH},
@@ -791,6 +810,7 @@ const BTN_PIX = {
   doc: {art: DOC_ART, map: {K: '#14161a', W: '#ffffff', g: '#9aa3ad'}},
   grid: {art: GRID_ART, map: {'K': '#14161a', '#': '#3a4149'}},
   sort: {art: SORT_ART, map: {'K': '#14161a', 'A': '#c9a06b', 'B': '#8a8f98', 'C': '#d83a2e', '#': '#3a4149'}},
+  trash: {art: TRASH_ART, map: {K: '#a3a8b0', k: '#3d434c'}}, /* 面板「丢弃」头钮(金属灰, 灯笼骨架同调) */
   autofill: {art: AUTOFILL_ART, map: {...BTN_GLYPH, d: '#3a4149'}},
   heart: {art: HEART_ART, map: {R: '#ff1313', W: '#ffc8c8', D: '#bb1313'}},
   bubble: {art: BUBBLE_ART, map: {o: '#5f9ee8', W: '#e8f4ff'}}, /* 溺气泡(MC 氧气泡语义, liquid D10) */
@@ -832,6 +852,7 @@ const BTN_DELEGATE = {
   bow: () => itemIcon('bow_item'), /* 射箭专用键(探险触屏, 使用动作注册表 icon 键); 曾为弓态主动作键(2026-10-28 Route A 撤) */
   plant: () => itemIcon('wheat_seeds'), /* 播种专用键(探险触屏, 农田链 D3) */
   ripen: () => itemIcon('bone_meal'), /* 催熟专用键(探险触屏, 农田链 D3) */
+  bagup: () => itemIcon('bag_upgrade'), /* 背包扩容专用键(使用动作注册表, 2026-10) */
   apple: () => itemIcon('apple'), /* 配方书·食物页签 */
   brick: () => itemIcon('brick'), /* 配方书·方块页签 */
   table: () => itemIcon('craft_table'), /* 工作台站点徽标 */

@@ -93,6 +93,7 @@ const api = vm.runInContext(`({
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime, itemUses,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
+  BAG_EXPAND_SLOTS, BAG_MAX_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
   RECIPES, canCraft, shapeCost, matchGrid, gridCraft, fillGrid, take, costEntry, FUEL, fuelUnits, smeltOf, B_TNT,
 })`, eng);
@@ -287,11 +288,12 @@ globalThis.Mobs = {
   },
 };
 /* Drops 并线(T12×T14): 代理 vm 真件(T12 挖掘掉落/真空拾取链可真跑),
-   同时记账 spawn/收集回调(T14 行为断言走调用记录) */
+   同时记账 spawn/收集回调(T14 行为断言走调用记录); opts 随参透传(丢弃件
+   stillT/holdFar/thrown/life/dur, 2026-10) */
 globalThis.Drops = {
-  spawn(id, n, x, y, z) {
-    dropsState.spawned.push({id, n, x, y, z});
-    return RealDrops.spawn(id, n, x, y, z);
+  spawn(id, n, x, y, z, opts) {
+    dropsState.spawned.push({id, n, x, y, z, opts});
+    return RealDrops.spawn(id, n, x, y, z, opts);
   },
   update: (...a) => RealDrops.update(...a),
   render: () => RealDrops.render(),
@@ -3299,4 +3301,88 @@ test('配方解锁播报(D2): 击杀记账达成→0.5s 节拍播报一次, 不�
   assert.ok(!spoken.some((t) => t.includes('解锁')), '同一次达成只播一次');
   AdventureMode.update(0.6);
   assert.ok(!spoken.some((t) => t.includes('解锁')), '计数没新增就不播');
+});
+
+/* ============ 丢弃在地上 + 大背包扩容(2026-10, docs/bag-and-drop-design.md) ============ */
+
+test('丢弃: advDropSlot 整摞离包 → 定向掉落物(thrown/holdFar/耐久随件/10 分钟存留) → 站着不吸回, 走远再回来原耐久拾回', () => {
+  mem.clear();
+  freshInit();
+  const inv = A.advGetInv();
+  api.add(inv, 'pick_iron', 1);
+  inv.slots[0].dur = 321; /* 用旧了的镐 */
+  AdventureMode.onDigit(1); /* 选中槽 0 */
+  globalThis.yaw = 0; /* 面朝 -Z(voxel 移动同式) */
+  globalThis.pos.x = 40; globalThis.pos.y = 25; globalThis.pos.z = 50;
+  A.advDropSlot(0);
+  assert.strictEqual(inv.slots[0], null, '整摞离包');
+  const live = api.Drops.list();
+  assert.strictEqual(live.length, 1, '恰一件掉落物');
+  const pick = live[0];
+  assert.strictEqual(pick.id, 'pick_iron');
+  assert.strictEqual(pick.thrown, true, '丢弃旗在(退场回收判据)');
+  assert.strictEqual(pick.holdFar, true, 'holdFar 门在(站着不吸回)');
+  assert.strictEqual(pick.dur, 321, '耐久随件(捡回不重铸)');
+  assert.strictEqual(pick.life, 600, '丢弃件 10 分钟存留');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'snow_throw'), '脱手音');
+  /* 站在原地 4s: 不吃回去 */
+  for (let i = 0; i < 240; i++) AdventureMode.update(1 / 60);
+  assert.ok(!inv.slots.some((s) => s && s.id === 'pick_iron'), '站着不动不吸回(holdFar)');
+  /* 走远 6 格(解锁)再走回来 */
+  for (let i = 0; i < 60; i++) {
+    globalThis.pos.z -= 0.1; AdventureMode.update(1 / 60);
+  }
+  assert.strictEqual(pick.holdFar, false, '离开过吸附圈即解锁');
+  for (let i = 0; i < 90; i++) {
+    globalThis.pos.z += 0.1; AdventureMode.update(1 / 60);
+  }
+  for (let i = 0; i < 120; i++) AdventureMode.update(1 / 60); /* 吸附+收集余拍 */
+  const back = inv.slots.find((s) => s && s.id === 'pick_iron');
+  assert.ok(back, '回来后自动拾回');
+  assert.strictEqual(back.dur, 321, '耐久原样回家(不经 mkStack 重铸)');
+});
+
+test('大背包: 手持使用扩容 27→33 恰一次(消耗+庆祝+记账), 已顶格礼貌拒绝不消耗', () => {
+  mem.clear();
+  freshInit();
+  const inv = A.advGetInv();
+  assert.strictEqual(inv.slots.length, 27, '进场基础 27');
+  api.add(inv, 'bag_upgrade', 1);
+  AdventureMode.onDigit(1); /* 选中槽 0 */
+  A.advTryExpandBag();
+  assert.strictEqual(inv.slots.length, 33, '扩到 33(就地 push, 引用稳定)');
+  assert.strictEqual(inv.slots[0], null, '手持件已消耗');
+  assert.ok(spoken.some((s) => String(s).includes('变大')), 'TTS 庆祝');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'level'), '晋升琶音(仪式感)');
+  /* 再合一个再用: 顶格拒绝 + 不消耗 */
+  api.add(inv, 'bag_upgrade', 1);
+  AdventureMode.onDigit(1);
+  A.advTryExpandBag();
+  assert.strictEqual(inv.slots.length, 33, '顶格不再扩');
+  assert.ok(inv.slots.some((s) => s && s.id === 'bag_upgrade'), '拒绝时不消耗');
+  assert.ok(spoken.some((s) => String(s).includes('最大')), '礼貌拒绝话术');
+  /* 扩容后的格子真的能用: 第 28 格(槽 27)可收物 */
+  assert.strictEqual(api.add(inv, 'coal', 5), 0, '扩容区可入包');
+});
+
+test('退场回收: advReclaimThrown 把地上丢弃件收回包(耐久原样); 满包装不下的转普通掉落物留地上', () => {
+  mem.clear();
+  freshInit();
+  const inv = A.advGetInv();
+  api.Drops.spawn('planks', 5, 40, 26, 50, {thrown: true, holdFar: true, life: 600});
+  api.Drops.spawn('pick_iron', 1, 41, 26, 50, {thrown: true, dur: 77, life: 600});
+  A.advReclaimThrown();
+  assert.strictEqual(inv.slots.find((s) => s && s.id === 'planks').n, 5, '木板回包');
+  assert.strictEqual(inv.slots.find((s) => s && s.id === 'pick_iron').dur, 77, '耐久原样回家');
+  assert.ok(api.Drops.list().every((d) => d.gone), '回收即记账(离场收口归随后的 Drops.clear)');
+  /* 满包: 装不下 → 摘旗留地上(转普通件, 掐断二次回收) */
+  mem.clear();
+  freshInit();
+  for (let i = 0; i < 27; i++) A.advGetInv().slots[i] = {id: 'cobble', n: 64};
+  api.Drops.spawn('planks', 5, 40, 26, 50, {thrown: true, holdFar: true, life: 600});
+  A.advReclaimThrown();
+  const left = api.Drops.list()[0];
+  assert.ok(left && left.id === 'planks' && left.n === 5, '装不下留地上');
+  assert.strictEqual(left.thrown, false, '摘丢弃旗(不再退场回收)');
+  assert.strictEqual(left.holdFar, false, '摘 holdFar(转普通件口径)');
 });

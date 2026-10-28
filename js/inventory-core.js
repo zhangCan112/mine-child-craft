@@ -2,7 +2,8 @@
 /* ============================================================
    Inventory Core (背包核心, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
-   27 槽背包模型(9 快捷 + 18 主格, 设计稿 D10)与全部背包规则:
+   可变容量背包模型(基础 27 槽 = 9 快捷 + 18 主格, 设计稿 D10; 大背包扩容 +BAG_EXPAND_SLOTS 主格,
+   上限 BAG_MAX_SLOTS——docs/bag-and-drop-design.md)与全部背包规则:
    入包并堆/拒收、跨槽计数、按 cost 扣料(含任选材料)、槽级移除、
    点选搬运(槽间搬家/并堆/对调)、耐久扣减(工具与可耗损物)、存档往返。
    模式层只拿这里的函数拼玩法(吃/放/合成/掉落拾取), 耐久归零后的
@@ -10,7 +11,7 @@
    零 THREE 零 DOM, 只依赖 items-core 的注册表门禁(stackMax=0 即拒收)。
    interface: mkInventory · add · count · canAfford · take · remove ·
               moveSlot · damageTool · serialize · deserialize ·
-              常量 HOTBAR_SLOTS/MAIN_SLOTS/INV_SLOTS
+              常量 HOTBAR_SLOTS/MAIN_SLOTS/INV_SLOTS/BAG_EXPAND_SLOTS/BAG_MAX_SLOTS
    依赖(均经全局名, 调用期解析): js/items-core.js 的 stackMax/mkStack/
      durOf(可耗损物判定, 昼夜 D7)/ITEMS(加载序: items-core 先于本文件)
    可测性: 零 THREE·零 DOM·有单测(test/inventory-core.test.js, vm 直测)
@@ -20,10 +21,18 @@
 const HOTBAR_SLOTS = 9;
 const MAIN_SLOTS = 18;
 const INV_SLOTS = HOTBAR_SLOTS + MAIN_SLOTS;
+/* 大背包扩容(2026-10, docs/bag-and-drop-design.md §2): 背包核心不认「扩容」动作——
+   容量即 inv.slots.length, 扩容=模式层 push BAG_EXPAND_SLOTS 个空槽(合成产物
+   「大背包」手持使用, 一次性); 存档形状 slots 长度随扩容走(deserialize 兼容新旧) */
+const BAG_EXPAND_SLOTS = 6;
+const BAG_MAX_SLOTS = INV_SLOTS + BAG_EXPAND_SLOTS;
 
-/* 造空背包: 27 个空槽(null); 槽形状 {id, n, dur} 与 mkStack 产出的标准形状一致 */
-function mkInventory() {
-  return {slots: new Array(INV_SLOTS).fill(null)};
+/* 造空背包: 缺省 27 空槽(null); cap 可指定容量(钳制在 [HOTBAR_SLOTS, BAG_MAX_SLOTS],
+   非法/省略回落基础 27); 槽形状 {id, n, dur} 与 mkStack 产出的标准形状一致 */
+function mkInventory(cap) {
+  const n = (typeof cap === 'number' && isFinite(cap)) ?
+    Math.max(HOTBAR_SLOTS, Math.min(Math.floor(cap), BAG_MAX_SLOTS)) : INV_SLOTS;
+  return {slots: new Array(n).fill(null)};
 }
 
 /* ------------------------------------------------------------
@@ -46,7 +55,7 @@ function add(inv, id, n) {
       }
     }
   }
-  for (let i = 0; i < INV_SLOTS && left > 0; i++) { // 空位阶段: 每格一整堆
+  for (let i = 0; i < inv.slots.length && left > 0; i++) { // 空位阶段: 每格一整堆(按现容量遍历)
     if (!inv.slots[i]) {
       const st = mkStack(id, left); // n 钳制进 [1, max]; 工具附满耐久
       inv.slots[i] = st;
@@ -100,7 +109,7 @@ function take(inv, cost) {
     const e = costEntry(key, cost[key]);
     let left = e.n;
     for (const cand of e.cands) { // 候选顺序 = 扣料优先级
-      for (let i = 0; i < INV_SLOTS && left > 0; i++) {
+      for (let i = 0; i < inv.slots.length && left > 0; i++) {
         const s = inv.slots[i];
         if (s && s.id === cand && s.n > 0) {
           const got = Math.min(left, s.n);
@@ -178,7 +187,7 @@ function damageTool(inv, slot) {
 
 /* ------------------------------------------------------------
    存档往返(设计稿 D12: inventory_save 形状 {slots:[{id,n,dur}|
-   null ×27], _v:1})。serialize 产深拷贝(存档与背包不共享引用);
+   null ×27|×33], _v:1}——slots 长度即容量, 扩容档天然随形)。serialize 产深拷贝(存档与背包不共享引用);
    deserialize 损坏回落——整包结构非法回落空包, 单槽非法(未注册/
    缺 id/数量越界)只殃及该槽置 null, 合法槽数量钳回堆叠上限。
    版本断言/写盘归 T11 的 mkSaveSlot 接线, 本层只管形状。
@@ -189,10 +198,13 @@ function serialize(inv) {
 }
 
 function deserialize(save) {
-  const inv = mkInventory();
-  if (!save || typeof save !== 'object' || !Array.isArray(save.slots) ||
-      save.slots.length !== INV_SLOTS) return inv; // 整包损坏 → 空包
-  for (let i = 0; i < INV_SLOTS; i++) {
+  /* 容量按存档 slots 长度还原(27 基础档/33 扩容档都合法); 长度越界
+     ([HOTBAR_SLOTS, BAG_MAX_SLOTS] 之外)= 整包损坏 → 空包回落 */
+  const len = (save && typeof save === 'object' && Array.isArray(save.slots)) ?
+    save.slots.length : 0;
+  if (len < HOTBAR_SLOTS || len > BAG_MAX_SLOTS) return mkInventory();
+  const inv = mkInventory(len);
+  for (let i = 0; i < len; i++) {
     const s = save.slots[i];
     const max = s && typeof s === 'object' && typeof s.id === 'string' ? stackMax(s.id) : 0;
     if (!max || typeof s.n !== 'number' || s.n < 1) continue; // 单槽非法 → 留 null
