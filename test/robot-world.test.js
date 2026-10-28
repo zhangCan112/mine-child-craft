@@ -30,10 +30,20 @@ global.SceneKit = {fill: (x0, y0, z0, x1, y1, z1, id) => {
     }
   }
 }};
-/* 木偶/出生/镜头/声音全 noop — 本文件只验世界数据面 */
+/* 木偶/出生/镜头/声音全 noop — 本文件只验世界数据面。
+   木偶桩例外: setPos/steer 真记(归位断言要读木偶位置), spawned 收集实例 */
+const spawned = [];
 const mkPuppet = () => ({pos: {x: 0, y: 0, z: 0}, yaw: 0, pose: {}});
-global.Mobs = {spawn: mkPuppet, scaleTo() {}, setPos() {}, steer() {},
-  settle() {}, stagger() {}, gait() {}, update() {}, render() {}, clear() {}};
+global.Mobs = {spawn: () => {
+  const p = mkPuppet();
+  spawned.push(p);
+  return p;
+}, scaleTo() {}, setPos(m, x, z) {
+  m.pos.x = x;
+  m.pos.z = z;
+}, steer(m, yaw) {
+  m.yaw = yaw;
+}, settle() {}, stagger() {}, gait() {}, update() {}, render() {}, clear() {}};
 global.ModeKit = {spawn() {}};
 global.CameraRig = {mount() {}};
 global.sfx = () => {};
@@ -116,15 +126,38 @@ function prefixToBoomCell(picked) {
   return picked.sol.slice(); // 兜底: 全解(必然踩过坑格)
 }
 
+/* 出生格世界坐标(镜像 build 的 wx/wz + 0.5 格心) */
+function startCellOf(picked) {
+  const x0 = 64 - Math.floor(picked.board.w / 2);
+  const z0 = 64 - Math.floor(picked.board.h / 2);
+  return {x: x0 + picked.board.start.x + 0.5, z: z0 + picked.board.start.z + 0.5};
+}
+
+/* 驱动演示到走完: demo 链的动画靠 RobotWorld.tick 每帧推进(浏览器主循环喂,
+   测试用 interval 泵代打), 否则木偶从未挪窝、归位断言空洞 */
+async function runDemo(handle, cards) {
+  const done = new Promise((res) => handle.demo(cards, 0, res));
+  const pump = setInterval(() => RobotWorld.tick(0.05), 5);
+  try {
+    await done;
+  } finally {
+    clearInterval(pump);
+  }
+}
+
 test('demo: 演示炸格走完后地形复原(木板箱回原位)', async () => {
   const picked = pickBoomBoard();
   const cell = boomCellOf(picked).world;
   const handle = RobotWorld.build(picked.level, picked.boardIdx);
+  const mob = spawned[spawned.length - 1]; // 本盘 mobA(非 relay 盘仅一只)
   assert.strictEqual(global.getBlock(cell.x, cell.y, cell.z), SOFT_ID,
       '建场后炸点必须是木板箱(缝自检)');
-  await new Promise((res) => handle.demo(prefixToBoomCell(picked), 0, res));
+  await runDemo(handle, prefixToBoomCell(picked));
   assert.strictEqual(global.getBlock(cell.x, cell.y, cell.z), SOFT_ID,
       '演示结束编程阶段: 炸掉的软障碍必须复原(棋盘数据从未变过)');
+  const home = startCellOf(picked);
+  assert.strictEqual(mob.pos.x, home.x, '演示结束木偶归位 x(与地形复原同拍)');
+  assert.strictEqual(mob.pos.z, home.z, '演示结束木偶归位 z(不能停在半路等编程)');
   handle.play([], {onDone: () => {}}); // 空程序触发 resetToStart: 脚印账清完仍应是原块
   assert.strictEqual(global.getBlock(cell.x, cell.y, cell.z), SOFT_ID,
       '踩坑脚印清账后不得把复原块重新挖成坑(账本互锁)');
