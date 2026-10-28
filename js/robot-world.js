@@ -4,7 +4,8 @@
    ------------------------------------------------------------
    一句话职责: 把 robot-core 的纯数据棋盘装进 3D 世界——loadScene 建浮空
    棋盘岛、按怪物包 spawn Q 版木偶(提线木偶剧场, 零战斗 AI), 按 stepSim
-   意图演回放/单步/演示/倒放四类动画并联动脚印与碎屑, 终点悬金杯贴片、
+   意图演回放/单步/演示/倒放四类动画并联动脚印与碎屑, 炸格走账本复原
+   (棋盘数据永不改, 世界演出随演随收), 终点悬金杯贴片、
    木偶脚下朝向箭头; 判定与账本零逻辑(全在 RobotCore), 本文件只演不算。
    interface: RobotWorld{build(level, boardIdx) → handle · tick(dt) · stop()}
      · handle{board · sim · par · level · boardIdx · play(cards, o) ·
@@ -51,6 +52,10 @@ const RobotWorld = (() => {
   const ROBOT_BLOCKS = {ground: 1, hard: 3, soft: 6, water: 24, goal: 16,
     ledge: 4, start: 15, lamp: 19};
   const ROBOT_PLATFORM = {dz: 4, lift: 3}; // 观景台: 棋盘南侧 dz 格外 · 抬升 lift 格
+  /* 无人机眼位再南移格数(纯平移=棋盘整体上移屏面, 俯角不动画面阅读角不变):
+     iPad5 竖屏底部程序条/按钮区遮盘(真机反馈 2026-10-28), 南缘让出托盘高度。
+     只移锚不动 pitch——调 pitch 会连轨道一起前移, 南缘反而更贴底(几何推算) */
+  const ROBOT_CAM_BACK = 2.5;
   /* 终点金杯贴片 / 朝向箭头 decal 参数(真机反馈二连: 方块杯太丑 ·
      俯视角背/正面读不出朝向) */
   const ROBOT_TROPHY = {y: 2.5, size: 1.3, bobW: 2.4, bobA: 0.08,
@@ -160,7 +165,7 @@ const RobotWorld = (() => {
   /* fx 回收(幂等): clearWorld 只清体素数据, 挂 scene 的观感必须显式摘除 —
      stop 退场与 build 换盘双路径都过这里; 贴图单份随挂件走(每次 build 重画) */
   function clearFx() {
-    if (trophyFx) {
+    if (trophyFx && trophyFx.sp) { // sp 可为 null(art 环境不齐挂 null 件, 见 mountTrophy)
       scene.remove(trophyFx.sp);
       trophyFx.sp.material.map.dispose();
       trophyFx.sp.material.dispose();
@@ -244,7 +249,9 @@ const RobotWorld = (() => {
        按契约隐藏(真机试玩反馈: 第三人称小人挡棋盘, 本模式只需看盘排指令)。
        锚点 fn 只供位置 — 朝向仍走全局 yaw/pitch(frame 每帧复归, 白名单内) */
     CameraRig.mount(() =>
-      ({x: x0 + board.w / 2, y: G + 6.2, z: z0 + board.h - 0.5})); // 真机调参: 5.4→6.2 与俯角 -0.68 同拍
+      ({x: x0 + board.w / 2, y: G + 6.2,
+        z: z0 + board.h + ROBOT_CAM_BACK})); // 眼位南移(ROBOT_CAM_BACK: 竖屏托盘让位)
+    /* 真机调参: 眼位 5.4→6.2 与俯角 -0.68 同拍; 南移 2.5 格=iPad5 竖屏程序条让位 */
 
     /* ===== 木偶 ===== */
     const pack = ROBOT_PACKS.find((p) => p.key === level.pack) || {};
@@ -271,6 +278,9 @@ const RobotWorld = (() => {
     let activeMob = mobA; // 当前执行木偶(relay 交接后切 B)
     let handed = false; // 已交接(单向 A→B)
     const marks = []; // 演示脚印 [{x, y, z, prev}]
+    /* 炸坑账本 [{x, y, z, prev}]: 棋盘数据永不改(纯数据盘, sim.cleared 随
+       mkSim 重开即清), 炸格是纯演出, 演完按账复原木箱 */
+    const pits = [];
 
     const handle = {
       board, sim: RobotCore.mkSim(board), par: RobotCore.parOf(board), level, boardIdx,
@@ -283,6 +293,7 @@ const RobotWorld = (() => {
       activeMob = mobA;
       handed = false;
       clearMarks();
+      clearPits(); // 炸坑随 sim 重开一并复原(sim.cleared 已清, 世界同拍)
       placePuppets();
     }
     function placePuppets() {
@@ -305,7 +316,9 @@ const RobotWorld = (() => {
       const lx = x0 + x;
       const lz = z0 + z;
       if (marks.some((mk) => mk.x === lx && mk.y === fy && mk.z === lz)) return;
-      marks.push({x: lx, y: fy, z: lz, prev: getBlock(lx, fy, lz)});
+      /* prev 记「坑复原后的逻辑块」而非现值: 踩过炸坑格的脚印若记 0, 淡出
+         时会把刚复原的木箱重新挖成坑(账本互锁, 见 pitPrevAt) */
+      marks.push({x: lx, y: fy, z: lz, prev: pitPrevAt(lx, fy, lz)});
       setBlockRaw(lx, fy, lz, ROBOT_BLOCKS.lamp); // 灯块亮起(与终点红羊毛分立, 脚印语义不变)
       markDirty(lx, lz);
     }
@@ -314,6 +327,20 @@ const RobotWorld = (() => {
       markDirty(mk.x, mk.z);
       const i = marks.indexOf(mk);
       if (i >= 0) marks.splice(i, 1);
+    }
+    /* 炸坑账本三件(与脚印 marks 同构): prev 取原块, 复原=按账写回 */
+    function pitPrevAt(lx, fy, lz) {
+      const pt = pits.find((p) => p.x === lx && p.y === fy && p.z === lz);
+      return pt ? pt.prev : getBlock(lx, fy, lz); // 坑格的「原状」是账面原块
+    }
+    function restorePit(pt) {
+      setBlockRaw(pt.x, pt.y, pt.z, pt.prev);
+      markDirty(pt.x, pt.z);
+      const i = pits.indexOf(pt);
+      if (i >= 0) pits.splice(i, 1);
+    }
+    function clearPits() {
+      while (pits.length) restorePit(pits[0]);
     }
     function clearMarks() {
       while (marks.length) restoreMark(marks[0]);
@@ -326,7 +353,7 @@ const RobotWorld = (() => {
       });
     }
 
-    /* ===== 卡步演出: 意图 → 动画/音效/世界副作用(棋盘改动仅炸格一处) ===== */
+    /* ===== 卡步演出: 意图 → 动画/音效/世界副作用(棋盘改动仅炸格一处, 走 pits 账本) ===== */
     function intentMs(intent) {
       switch (intent) {
         case 'turn': return ROBOT_T.turn;
@@ -379,10 +406,17 @@ const RobotWorld = (() => {
         anim = Object.assign({kind: 'pause', mob: activeMob}, base); // nothing/idle: 耸肩空转
       }
     }
-    /* 软障碍炸开成坑(editBlock 自带碎屑反馈; 木板无级联旗标零连带) */
+    /* 软障碍炸开成坑(editBlock 自带碎屑反馈; 木板无级联旗标零连带)。
+       炸前记账进 pits——棋盘数据(board.cells)与 sim.cleared 之外的世界改动
+       只有这一处, 必须可复原(演示/回放结束编程阶段要见原盘) */
     function skillBoom(s) {
       const d = RobotCore.DIRS[s.dir];
-      if (typeof editBlock === 'function') editBlock(x0 + s.x + d.dx, G, z0 + s.z + d.dz, 0);
+      const lx = x0 + s.x + d.dx;
+      const lz = z0 + s.z + d.dz;
+      if (getBlock(lx, G, lz) !== 0) { // 已是坑不重记(同格两次炸)
+        pits.push({x: lx, y: G, z: lz, prev: getBlock(lx, G, lz)});
+      }
+      if (typeof editBlock === 'function') editBlock(lx, G, lz, 0);
       sfxSafe('boom');
     }
 
@@ -439,7 +473,8 @@ const RobotWorld = (() => {
     }
 
     /* 演示(带2 演示复现载体): 木偶按 cards 走一遍(缺省 par 解), 脚印逐格
-       亮起, 走完后 previewSec 秒内淡出(0=不消退); cb 在走完时调, 淡出异步 */
+       亮起, 走完后 previewSec 秒内淡出(0=不消退), 炸坑当场复原; cb 在走完
+       时调, 淡出异步 */
     function demo(cards, previewSec, cb) {
       stopRun();
       resetToStart();
@@ -455,6 +490,7 @@ const RobotWorld = (() => {
         if (!busy) return;
         if (i >= seq.length || dSim.won) {
           busy = false;
+          clearPits(); // 演示是预览: 炸坑当场复原(脚印照旧淡出), 编程阶段见原盘
           footFade(previewSec);
           if (cb) cb();
           return;
@@ -485,6 +521,7 @@ const RobotWorld = (() => {
         if (!busy) return;
         if (k >= path.length) { // 归位: 状态回到起点(倒放完即重编)
           handle.sim = RobotCore.mkSim(board);
+          clearPits(); // sim.cleared 已随重开清空, 炸坑世界侧同拍复原
           Mobs.steer(activeMob, yawOf(board.start.dir));
           busy = false;
           if (cb) cb();
