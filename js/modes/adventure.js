@@ -3,100 +3,31 @@
    探险模式 (AdventureMode) — 应用层·模式壳
    ------------------------------------------------------------
    物品与合成系统的第一个消费者(设计稿 D11)。本文件是壳: mkMode 装配 /
-   THREE·DOM 观感 / 话术与 toast / 生命周期与存档; 全部政策纯函数段、
-   地形生成与任务表在 js/adventure-core.js(先于本文件加载, 经共享词法
-   环境直用, 政策口径以其头注释与段注释为权威——此处只留指针):
-   · 地形: 确定性草原(advBuildWorld 一族, 世界随 NCX/NCZ 尺寸——2026-10-27
-     扩容 160×160)——橡树林 · 松林 · 湖(湖底黏土, 红砖链源头) · 2 露天矿坑 ·
-     山洞隧道通 y<10 钻石带 · 出生小屋(站点件不送, 任务链做出来才有仪式感) ·
-     3 怪物巢穴 · 草丛散布 · 主题元素(望塔/远古石阵/花田/南池)
-   · 玩家: 出生小屋门口 · 步行(不飞行) · 血量 30 + 头顶血条(mkHpBar);
-     死亡 = 背包保留 + 回出生点满血 + TTS 安抚(advDeathPlan, 零惩罚哲学);
-     位置/朝向+血量随世界档落盘 → 重进原地续命(死亡·回家即时落盘防节流窗口)
-   · 挖掘与采集(T12, D4/D7): 按住蓄力(breakTime 驱动, 准星进度环+挥动
-     循环) → 掉落真空拾取; tier 不足只碎不掉 + TTS 节流; 放置型点准星面;
-     树苗 20s 长成(计时 Map 不落盘, 重进重建); 食物点击吃; 工具耐久归零
-     消失 + 安抚 TTS 并句当前任务步指路(S4③)
-   · 合成与烧炼(T13, D8): 工作台/熔炉放置后走近 4 格解锁(站点坐标缓存);
-     合成成功 TTS 具体表扬 + leftover 转脚下掉落物; 熔炉 2.5s/件自动烧炼,
-     每炉独立 + 炉态随世界档持久化(F1 拍板①, 2026-10-25: 多炉各有内容/
-     重进接着烧/挖炉退料, 旧「退世界死亡全额退料」政策退役); 炉口火焰
-     Sprite 随烧炼起灭 + 面板燃料余量条(F2 点燃观感, 不进方块数据/存档);
-     TNT 合成→放置→点燃→延时爆炸(不伤玩家——儿童挖矿神器)
-   · 巢穴战斗(T14, D6/D11/D9): 每巢限量 2~3 只 · 清空 60s 再刷 · 索敌
-     收敛不追出巢区; 击杀掉落(rollDrops) + 收集 3s 合并播报; 玩家战斗
-     (nether 同骨架 AI, 单击伤害封顶 10)
-   · 牧场(F4, 二期设计稿 §4): 确定性散布 2 群 10 只(牛羊/猪鸡, 清单纯函数
-     advLivestockPlan 在 adventure-core) · 死畜索引随世界档, 不重生(MC 口径);
-     恐惧游荡 advHerdTick(贴近让开/受击逃窜/闲逛吃草——不进战斗 AI, 不反击
-     不追击) · 击杀走「收获」口径(kill_mob 不记账), 掉落生肉+副产物接熟食链
-   · 任务链(引导链 v2): 15 步+终章(安家/挖矿/冶炼/冒险四章, 12 步版与
-     插步依据见 docs/story-quest-research.md), 事件挂点只往计数账本累计
-     (只增不减=跳步防护), update 内 0.5s 节流查当前步谓词(不越级);
-     钻石首获仪式 · 金苹果首获仪式(F3, 合成侧); 终章合成钻石剑 → 「小小探险家」称号+烟花;
-     任务卡挂 advPanel.questEl
-   · 大宝箱(引导链 v2 拍板): 全局共享账户——所有放置的箱子同一份存储
-     (adventure_chest_save), 只储物不解锁配方(合成仍要工作台); 点击放置
-     的箱子(走近 4 格, 熔炉同款)开 mkChestPanel 点选搬运; 9/18/27 三档
-     材料扩容, 政策纯函数 advChestNext/advChestPut 在 adventure-core
-   · 提醒政策(S4): 低耐久语音预警(耐久比首次 <0.25, 每工具每命一次,
-     破板即重置) · 背包快满一次性 toast+TTS(占用槽 ≥24/27, 回落再满才
-     再提醒; 放过箱子后话术指向收纳)——判据纯函数
-     advWearWarn/advBagFullStep/advBreakToolText
-   · 四份存档: 全局唯一背包存档键经背包壳 js/backpack.js 唯一持有
-     (ADR 0002, 跨模式共享背包) / adventure_world_save(场景确定性重建+
-     edits 重放, build 模式同款; 另带玩家位置/朝向+血量+昼夜时刻 dayTime,
-     昼夜 D1: 重进时间连续, 老档缺省清晨 0) / adventure_quest_save({step,counts,title?})
-     / adventure_chest_save({size, slots} 大宝箱全局账户)——四档供给与全部持久化
-     触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档 adapter 缺省装配,
-     触点口径见该缝头注释)
-   · 昼夜(D1, mc-daylight-torch §2): 唯一置位 dayCycleOn 的模式——init
-     恢复 dayTime 并 applyDaylight, cleanup 关循环复位白天观感(幂等);
-     时间推进在 main.js 主循环; HUD 时段行(太阳/月亮两态, 不加时分)
-   · 昼夜夜怪(D5, mc-daylight-torch §6): 夜间 2s 一拍在 24~40 格出生环带
-     刷僵尸/苦力怕/蜘蛛(池 2:1:1 无骷髅; 上限 12 含巢穴怪的配额口径)·
-     火把圈(方块光 ≥1)即防刷怪圈·黎明 internalSky(15)≥12 上沿温和清场
-     (灰白烟+移除, advSweepNightMobs——清夜怪唯一实现, 床跳夜 D6 同款复用)·
-     入夜播报+首夜火把引导(firstNight 一次性随任务档)
-   · 床·睡觉(昼夜 D6, mc-daylight-torch §7): 床=薄块 53(3 羊毛+3 木板台级
-     合成, thin 顶面放置路径现成); 夜里点击两条件(advSleepCheck 夜窗+床边
-     8 格无怪, 纯函数在 adventure-core) → #fade 转场(advSleepStep 1.5s
-     渐黑+2s 停+1.5s 渐亮≈5s) → 唤醒沿 dayTime=0+夜怪温和清场(__nightMob
-     过滤缝, D5 黎明清场同调 advSweepNightMobs)+出生点设床边(ADV.spawn
-     账本+ModeKit.spawn 记忆, MC 口径)
-   · 灯笼(昼夜 D7, mc-daylight-torch §8): 原创手持光源 2 铁锭+1 火把台级
-     合成(耐久 300 秒可耗损物, items-core dur 字段/mkStack 满耐久管线);
-     政策=天黑(skyDim>0)且选中且耐久>0 才亮才耗(纯函数 advLanternStep),
-     每持满 1 秒 damageTool 扣 1, 燃尽整槽消失+TTS 安抚「灯笼用完了，
-     我们再做一个吧」(D4/D9 惯例); 光照呈现双通道走 world.setPlayerGlow
-     机制缝(方块侧 uGlowPos/uGlowR 顶点衰减+实体侧 PointLight, D3 备好);
-     退场 cleanup 兜底熄灭不渗其他模式; 快捷栏耐久条/手持薄片观感
-     (mkPlateDef 缺省)全走现成管线
-    · 下界相位(docs/nether-merge-design.md): 下界传送门=全表最贵合成物
-      (8 金锭环形+中心 1 钻石, 台级) → 放置长出整座 6×7 门(advPlacePortal,
-      结构逐格记账=重放即重建) → 踏入紫色门面切下界(advSetDim: journal edits
-      两界分桶换装/暗红天穹恒夜/清场/回程门光束重锚); 下界与上界同规则,
-      改动记账落盘(D8) 唯一危险=岩浆; 死亡/回家在下界先切回上界(D11),
-      维度不进档(D9: 下界退出 pos 存 null), 炉态键界前缀 'n|'(D14),
-      上界专属子系统 update 内门禁(树苗/巢穴/夜怪/牧场/灯笼);
-      门框建场与判定纯核心在 adventure-core 下界段(ADV_PORTAL/ADV_NETHER/
-      advNetherBuild/advPortalFrame/advInPortal/advPortalSiteOk/advPortalExit)
-     · 冒险地图(docs/adventure-maps-design.md, 票据 T6): 两界机制泛化为 N 图——
-       advDim 之上的 advMap 管四张主世界图(nether 期间保持最后主世界图),
-       edits 按图分桶(老档两代自动迁移), 切图统一走 advSetMap(换桶→行建场
-       重放→applyMapPalette 天/水色→清场→回程门出生→站点重扫→节拍器复位→
-       光束重锚); 池消费走当前地图行(替换语义),
-       swamp 女巫常驻/home 牲畜在播种重放里; 炉键图前缀 d|/s|/w|(home 不前缀),
-       dayTime 全局单钟, 远征图死亡/回家切回 home(§2.2); 地图行数据在
-       adventure-maps-core(ADV_MAPS/advMapArrive)
-     · 传送门阵(票据 T7, 设计稿 §2.3/§4): home 三扇地图门 + 各远征图回程门
-       建场(advGatesBuild, 不记账; 解锁读任务档 counts 键——熄门只立框不可
-       触发+走近锁形 TTS, 点亮仪式归 T8); 门面命中门阵包围盒查表(advGateAt)
-       → 地图门走 2s 站桩可反悔(advGateHoldStep), 未命中=nether 门保持即时
-       +0.8s 冷却零改动; 站满→#portalVeil 渐晕 400ms 双段(紫白径向渐变忌
-       纯黑, 全程 ≤5s)→满格瞬间 advSetMap(目标图, advMapArriveAt 对应回程
-       门落点)+到达音/TTS→遮罩收
-   · 防沉迷: 与竞技场/建造/坦克/下界共享儿童时限(gated, 不新增账本)
+   THREE·DOM 观感 / 话术与 toast / 生命周期与存档; 全部政策纯函数与
+   地形/任务表在 js/adventure-core.js 与 js/adventure-maps-core.js
+   (先于本文件加载, 政策口径以其头注释与段注释为权威——此处只留指针)。
+   特性叙事与拍板史按主题下沉在设计稿(改行为先读对应稿):
+   · 物品/合成/烧炼/大宝箱/任务链 → docs/item-crafting-design.md ·
+     docs/story-quest-research.md
+   · 下界相位/传送门 → docs/nether-merge-design.md
+   · 多地图远征/门阵 → docs/adventure-maps-design.md
+   · 昼夜·夜怪·床·灯笼 → docs/mc-daylight-torch-design.md §2/§6/§7/§8
+   · 统一冒险壳/dev profile → docs/adventure-shell-unification-design.md(ADR 0005)
+   现行行为速览(逐特性细节见上列设计稿与 GLOSSARY「探险模式」「冒险地图」
+   「下界传送门」「牧场」「大宝箱」词条):
+   160×160 确定性草原(2026-10-27 扩容)四图远征 home/沙漠/雪原/沼泽 +
+   下界相位(恒夜暗红天, 唯一危险=岩浆, 死亡切回上界); 出生小屋门口,
+   血量 30+头顶血条; 挖放按住蓄力(tier 不足只碎不掉+TTS 节流)、掉落
+   真空拾取、树苗 20s 长成(计时 Map 不落盘); 工作台/熔炉走近 4 格解锁,
+   炉态随档持久化(挖炉/掀炉退料); TNT 延时爆炸不伤玩家; 牧场「收获」
+   口径; 大宝箱全局单账户; 任务链 15 步+终章(事件挂点只向计数账本累计,
+   0.5s 节流查步不越级); 死亡零惩罚(背包保留+满血回出生点+TTS 安抚);
+   昼夜: 唯一置位 dayCycleOn 的模式(时间推进在 main.js 主循环, 重进
+   时间连续); 提醒: 低耐久语音预警+背包快满一次性 toast+TTS; 与竞技场/
+   建造/坦克共享儿童时限(gated, 不新增账本); 存档四份——背包(ADR 0002,
+   经 backpack 壳唯一持有)/世界(确定性重建+edits 重放+玩家态+dayTime)/
+   任务/宝箱, 触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档
+   adapter 缺省装配, 触点口径见该缝头注释)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
      onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(28 键:
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口;

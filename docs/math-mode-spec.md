@@ -1,5 +1,7 @@
 # 数学冒险岛 · Spec
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [math-mode-design.md](math-mode-design.md)
+
 > 状态：**ready-for-agent**（to-spec 产出，2026-10-24；测试缝已经用户确认）。
 > 证据链：`docs/math-thinking-research.md`（研究）→ `docs/math-mode-plan.md`（需求定稿 D1~D9）→ `docs/math-mode-design.md`（实现设计与切票 T1~T9）。
 > 相关 ADR：0001（每日预算单一存档键——math 预算并入同一账本）、0002（共享背包——数学是新的"只产出"消费方）。

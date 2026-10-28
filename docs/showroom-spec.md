@@ -1,5 +1,7 @@
 # Spec · 体验馆（showroom）— dev-only 调试模式
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [showroom-design.md](showroom-design.md) 与 [adr/0005-unified-adventure-shell-dev-profile.md](adr/0005-unified-adventure-shell-dev-profile.md)
+
 - 状态：`ready-for-agent`
 - 日期：2026-10-25 · 共识出自 grill 会话（13 问全落），设计论证见 docs/showroom-design.md
 - 术语：GLOSSARY「体验馆」（_Avoid_: 实验室——已废弃名）

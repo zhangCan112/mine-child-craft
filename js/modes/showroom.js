@@ -2,30 +2,24 @@
 /* ============================================================
    体验馆 (ShowroomMode, 术语见 GLOSSARY.md「体验馆」) — 模式层·dev profile 门面
    ------------------------------------------------------------
-   冒险壳统一终态(ADR 0005 票 U4, docs/adventure-shell-unification-design.md §3):
-   v2 的镜像编排段(面板族/背包镜像/TNT 链/拾取/进食/雪球/站点路由/夜怪铺场
-   清场/近战 AI/薄死亡/击杀掉落/床睡觉链/#fade 三件套/建场族/update·init·
-   cleanup 骨架, ~600 行)全删——壳内同名能力全部接管, 本文件只剩三件事:
+   冒险壳统一终态的 dev profile 门面(ADR 0005 票 U4, 权威
+   docs/adventure-shell-unification-design.md §3): v2 镜像编排段(~600 行)
+   全删——壳内同名能力全部接管, 本文件只剩三件事:
    ① 换装/还原: init 前把存档缝 advStore 整体换成全内存 dev store(U3 的
-      mkShowroomStore, 落盘面全丢弃) + 政策缝 advProfile 换成 dev 政策值,
-      冒险壳编排零改动, 任务链/地图/门阵/下界/牧场/灯笼随统一自动进馆
-      (拍板③); cleanup 必须在 dev 装配下跑完(退炉/兜底落盘全落进 noop),
-      收尾把两缝还原真档缺省(advStoreDefault/advProfileDefault)——此后进
-      冒险/其他模式拿真档, 「dev store 丢弃一切: 进场重铸、退出无痕」。
-   ② 背包闭包绑定(本票最重要的正确性细节): 壳的 kit/面板在加载期就捕获了
-      真档背包的 inv 对象引用(advPanel/advFurnace/advChestPanel/advPlaceKit/
-      快捷栏 cnt 闭包/melee dmg 闭包), 换 advStore.bag 不会重绑这些闭包——
-      dev bag 必须包壳的真档 inv 对象(装配前取 advStore.bag.inv 注入
-      showroomDevBag): inv 身份永不变、内容随 load 原地重铸(背包壳「原地
-      换槽」同款语义), 闭包全对; dev 会话期 saveBag 全 noop, 真键零写入。
-   ③ dev 政策值(D5 拍板① + v2 降噪口径, U2 政策缝的消费): death='inPlace'
-      原地满血复活(壳内已备分支) · sleepWakeSetsSpawn=false 床边无出生点 ·
-      nightLay=入夜上沿固定点位铺法(SHOWROOM.nightMobs, 边沿状态自持,
-      清场共用壳的 advSweepNightMobs) · speak/sfx 全静默(kit 内置 hurt/
-      击杀音存活是既有口径) · toast 直通 · stationAlwaysOpen/
-      hiddenRecipesOpen 全开 · leftoverDrops 静默丢弃。
-   红线: 零本地存储读写/零存档键字面量(ADR 0002, 两文件键扫守门)、不接
-   指针锁定(无需 conventions §6 登记)、不计儿童时限(gated:false)。
+      mkShowroomStore, 落盘面全丢弃)+政策缝 advProfile 换 dev 政策值,
+      冒险壳编排零改动, 任务链/地图/门阵/下界/牧场/灯笼随统一自动进馆;
+      cleanup 必须在 dev 装配下跑完(退炉/兜底落盘全落进 noop), 收尾把
+      两缝还原真档缺省——「进场重铸、退出无痕」。
+   ② 背包闭包绑定(本票最重要的正确性细节): 壳的 kit/面板在加载期就捕获
+      真档背包 inv 对象引用, 换 advStore.bag 不会重绑这些闭包——dev bag
+      必须包壳的真档 inv(showroomDevBag): 身份永不变、内容随 load 原地
+      重铸, 闭包全对; dev 会话期真键零写入。
+   ③ dev 政策值(D5 拍板①+v2 降噪口径, U2 政策缝的消费): death='inPlace'
+      原地满血复活 · 床边不设出生点 · 夜怪入夜上沿固定点位铺(SHOWROOM.
+      nightMobs, 池不排骷髅) · 语音/音效静默 toast 保留(kit 内置受击/
+      击杀音存活是既有口径) · 站点/隐藏配方全开 · 余量静默丢弃。
+   红线: 零本地存储读写/零存档键字面量(ADR 0002, 两文件键扫测试守门)、
+   不接指针锁定(无需 conventions §6 登记)、不计儿童时限(gated:false)。
    interface: ShowroomMode(mkMode 门面, id='showroom'; 钩子全委托壳,
      chrome 对齐冒险壳; hud 首行加 🧪 体验馆徽标行, 其余行透传壳的 HUD;
      onMenu dev 特化=面板开着不回菜单/否则回 main) · stock/getInv/chest/

@@ -37,37 +37,14 @@
      overlay/showPage(js/main.js 组合根, main.js 后加载, 调用期才解析 —
      与 FocusMode 同款)
    可测性: 纯 DOM 模式层; 流程纯函数经 vm 直测(见上), 本文件由
-     boot.test.js 全链冒烟兜底
+      boot.test.js 全链冒烟兜底
    ------------------------------------------------------------
-   会话(设计稿 docs/math-mode-design.md §5): 主菜单卡进入 →
-   init 全屏接管(共享背包 load 一次, focus 同款双消费方惯例, T8) →
-   今日页(进度概览/每日额度/图章日历) → 关卡地图(四带分组/
-   星显/锁定) → 规则语音 → 关卡 runner(屏流引擎) → 结算(星显/
-   过程表扬/战利品回顾/图章进度/自动下一关); boss 关按 sections
-   连跑三小节聚合单关口径; 挑战关通过写 challenge 表(第三星挂钩);
-   额度尽 → 今日页锁定文案; 时长入账: 关卡进行中每秒 accrue
-   (focus ticker 同款), 菜单/地图页不计。
-   T8 激励回路(设计稿 §5·ADR 0002): onTrial 逐试次掷骰
-   (rollMathLoot, 教学豁免/只奖不罚在纯函数)→ grantMathLoot 入共享
-   背包 → HUD 矿袋槽位飞入(贝塞尔观感归 css/math.css, 对齐 focus
-   F5 纪律; 授予/飞行/落袋/回顾观感件自 C1-T1 起住 CampKit 的
-   mathLootHud 实例, 飞行起点经 noteTap 自记点击坐标 — 引擎事件缝
-   不带 DOM 信息)→ 结算屏战利品列队回顾; 满包每关至多一次「背包满啦」
-   toast; 图章一本独立于专注训练营(日历/自选章图案/集章达成线
-   领奖, 纯函数在 math-levels.js, 奖励纯观感不解锁玩法)。
-   ★ 分发与生命周期(T4 起收进世界轨驱动器 js/math-track.js):
-   MathTrack.dispatch(family, variant) 返回 'screen' | 'world' | null
-   (T5-b 纯查表: 未册键 null), 关卡节
-   一律经 MathTrack.run/runBoss 启动 — 驱动器担保「清完再发 end」的统一
-   时序与离场收口(leave/stop), boss 串链/聚合在 MathTrackCore; 三交互
-   插件经统一注册表 MATH_TRACK_RUNNERS 入册(T5-b): hop 三变体=
-   js/math-world.js 混合宿主 · mirror/plan 十变体=js/math-build-world.js
-   指针锁宿主 · 屏流 16 变体=js/math-paradigms.js 屏流引擎; 29 变体已
-   全部在册("建设中"占位屏已随全册退役; 未登记变体属清单漂移, 由 test
-   单一权威断言拦截)。
-   migrate 用库层 MATH_SAVE_DEFAULTS/migrateMathSave; stars 表以
-   "键存在"记通关(教学关 0 星入账=已通占位, 数学侧无 unlocked 字段的
-   派生口径, 见 mathFrontier)。
+   会话流(今日页→关卡地图→规则语音→runner→结算·boss 串链)/T8 激励
+   回路(逐试次掷骰入共享背包+HUD 矿袋飞入+图章独立一本)/额度尽锁定/
+   时长入账口径的叙事与拍板史见 docs/math-mode-design.md §5 与
+   GLOSSARY「数学冒险岛」「世界轨驱动器」词条; 29 变体经
+   MATH_TRACK_RUNNERS 注册表入册(未登记变体=清单漂移, 由 test 断言
+   拦截), 分发/生命周期时序权威在 js/math-track.js。
    ============================================================ */
 
 /* ---------- 过程性表扬 / 中性安慰 (数学向: 夸方法与努力, 不夸聪明) ----------

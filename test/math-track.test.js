@@ -2,8 +2,8 @@
 /* 世界轨宿主纪律守门 — node --test (零依赖)
    运行: node --test test/math-track.test.js
    对应模块: 现阶段守两个世界宿主(js/math-world.js · js/math-build-world.js)
-   的退出纪律; T4 世界轨驱动器(js/math-track.js, 术语见 GLOSSARY「世界轨
-   驱动器」)落地后, 本文件扩充为驱动器的装配纪律测试(装场/清场/单节离场
+   的退出纪律; T4 世界轨驱动器(js/math-track.js, 术语见
+   GLOSSARY「世界轨驱动器」)落地后, 本文件扩充为驱动器的装配纪律测试(装场/清场/单节离场
    vs 整链中止/boss 串序/onTrial 契约/变体分发单一权威) — 命名偏差按
    conventions §1.9 存量惯例在此登记。
    覆盖(T1): 场景装填纪律「进场装场 · 退出清场」在两宿主上的守门 —

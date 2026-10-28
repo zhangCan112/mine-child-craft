@@ -1,5 +1,7 @@
 # 物品与合成系统 · 一期工单（本地 issue tracker 代理）
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [item-crafting-design.md](item-crafting-design.md)
+
 > 状态标记：`[ ]` 待认领 · `[~]` 进行中（子代理已派）· `[x]` 已并入 `feature/item-crafting`
 > 本文件是 implement-spec 流程的 tracker 代理：工单完成 = 分支并入集成分支 + 勾选状态。
 >

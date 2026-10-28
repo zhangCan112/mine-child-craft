@@ -1,5 +1,7 @@
 # 游戏音频系统重建 · 工单（本地 issue tracker 代理）
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；权威见 [adr/0003-audio-assets-in-repo.md](adr/0003-audio-assets-in-repo.md)
+
 > 状态标记：`[ ]` 待认领 · `[~]` 进行中（子代理已派）· `[x]` 已并入 `feature/game-audio`
 > 本文件是 implement-spec 流程的 tracker 代理：工单完成 = 分支并入集成分支 + 勾选状态。
 >

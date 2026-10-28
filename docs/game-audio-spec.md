@@ -1,5 +1,7 @@
 # 游戏音频系统重建 Spec
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；权威见 [adr/0003-audio-assets-in-repo.md](adr/0003-audio-assets-in-repo.md)
+
 > 状态：本地 spec（需求方拍板不走 issue tracker，本文件即权威规格；实现工单直接引用本文件）。
 > 依据：`docs/game-audio-research.md`（一手来源调研）· `docs/game-audio-plan.md`（重建方案）· 调用面基线为 feature/item-crafting @ b258ab5（TNT 密室已下线、探险模式已加入后的 6 模式现状）。
 

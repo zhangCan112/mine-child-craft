@@ -29,7 +29,7 @@ js/mob-look/      # 造型档案声明（<type>.js 一怪一文件，文件名=d
                   #   基座/换算/贴图的缝在 mob-look-kit.js，键集与布局合法性由 test/mob-look.test.js 断言）
 css/              # 按端拆分：style(桌面) → focus(训练营) → touch(触屏)，按此顺序覆盖
 test/             # node --test 单测，与 js 模块镜像命名
-docs/             # <topic>-research / -design / -plan 三段式 + adr/NNNN-slug.md
+docs/             # README.md 索引(文档地图) + <topic>-research / -design / -plan 三段式 + adr/NNNN-slug.md
 lib/              # 仅 vendored 三方库（three.min.js），只读
 assets/audio/     # CC0 音频资产 + CREDITS.md 溯源清单（只放转码后产物，源 wav/flac/ogg 不入库，见 adr/0003）
 data/             # 运行时数据（gitignore）
@@ -108,6 +108,16 @@ interface: 入口函数/对象一行清单
 由 test/conventions.test.js 守门（strict 首行 + 横幅存在性）；interface 摘要质量靠评审。
 注释用中文（Google JS 指南 §9.2 明确允许非 ASCII）。
 
+横幅纪律（2026-10-28 增补，依据 [docs/agent-context-research.md](agent-context-research.md) §3/§4.4）：
+
+- 五要素中的「职责」是真·一句话（至多三行）；特性叙事/拍板史/逐票说明不进横幅，按
+  四层去向下沉：设计权衡 → `docs/<topic>-design.md` 或 ADR；术语与历史别名 → GLOSSARY；
+  用法示范 → 设计稿；实现解说 → 代码不自明处的就地短注释。
+- 「叙事段」（职责+设计说明，不含 interface/依赖清单）≤15 行；interface/依赖清单不设
+  行数上限，但只列符号、语义与加载序，不写论证与历史——接口宽是模块面积的诚实反映
+  （先例：furnace-kit / adventure-core 的长横幅=接口清单长，非叙事肥，勿砍）。
+- 一句话说不短先怀疑模块切分（SWE 书 ch.10「一两段话说不清=API 没想清楚」），不是加行。
+
 ### 1.8 GLOSSARY 收录判据（满足任一即收）
 
 1. 该词跨模块出现（≥2 个文件的调用方在用，或跨层引用）；
@@ -115,6 +125,12 @@ interface: 入口函数/对象一行清单
 3. 它是层的名字或层的边界规则。
 
 一次性实现细节、单文件内部的名字不进。每条格式：定义 + interface/职责 + _Avoid_ 别名。
+
+词条格式纪律（2026-10-28 增补，依据 [agent-context-research.md](agent-context-research.md) §4.3/§4.4）：
+长论证/拍板史/逐票说明不进词条——与设计稿、模块头注释三重复制必漂移；词条超过 ~800
+字符时按「定义 1–2 句 + interface 紧凑清单（入口名/键名一个不丢）+ _Avoid_」重写，
+别处无据的独有事实（数值/口径/红线/加载序）必须保留；**词条名一经被 js/test 头注释
+具名引用（「术语见 GLOSSARY『XXX』」）即冻结，改名=断链且死链测试查不出**。
 
 ### 1.9 test 镜像规则
 
@@ -135,6 +151,12 @@ interface: 入口函数/对象一行清单
 
 同一主题：`-research.md`（调研，来源逐条可溯）→ `-plan.md`（计划）→ `-design.md`
 （设计定稿）；不可逆决策进 `docs/adr/NNNN-slug.md`（Considered Options + Consequences）。
+
+完工或废弃的 plan/spec/tickets/acceptance **不删除**：文件头加
+`> 生命周期：已完工/已废弃 — 仅作历史依据；权威后继 <链接>` 一行，
+[docs/README.md](README.md) 的历史工件栏同步登记；ADR 沿用 superseded
+标记惯例，编号单调不复用（依据 agent-context-research.md §2.4：显式退场
+比删除安全、比沉默诚实）。
 
 ### 1.12 移植参考机制须连伴生状态机制
 
@@ -203,7 +225,7 @@ id 命名偏离见 §6。
 | `.htmlhintrc` | htmlhint 子集（id 命名豁免） |
 | `.editorconfig` | UTF-8 · LF · 2 空格 · 收尾换行 · 去尾空白 |
 | `.gitattributes` | `* text=auto eol=lf`（覆盖 Windows autocrlf，检出也是 LF） |
-| `test/conventions.test.js` | 结构约定断言：命名语法 / strict+头注释横幅 / -core·-registry 配单测 / 文本卫生 |
+| `test/conventions.test.js` | 结构约定断言：命名语法 / strict+头注释横幅 / -core·-registry 配单测 / 文本卫生 / 文档指针零死链 |
 | `package.json` 的 `ffmpeg-static`（devDependency） | 一次性音频转码工具链（A7 素材入库：mono 44.1kHz AAC/m4a，决策见 adr/0003）；不进运行时——浏览器直引 js、server.js 只用内建模块，零依赖定位不破 |
 
 规范分三层被执行：**格式归 lint**（零错误才算过）、**结构归守门测试**（手滑即红）、
@@ -222,6 +244,7 @@ id 命名偏离见 §6。
 | 7 | CSS 保留 `-webkit-appearance` 前缀版（与标准版并存，行内 disable property-no-vendor-prefix） | 旧 iPad Safari 只认前缀版外观属性；音量滑杆（A8）自绘 thumb 必须去默认外观 | css/touch.css 两处行内 |
 | 8 | math-build-world（摆与搭世界轨）采用指针锁定宿主，偏离 MISSION"无键盘/指针锁定"约束 | 放置类变体需要瞄准射线持续操作（MC 建造形态的关卡内临时放置）；hop 混合宿主仍保持纯点选不锁指针——仅此一宿主受限 | docs/math-mode-design.md §9 |
 | 9 | js/mob-look/ 文件名带下划线（如 zombified_piglin.js），不合 kebab-case | 造型档案文件名=declare 键=MOB_TYPES id（票②拍板：文件名与注册表键零变换，防第二条映射规则漂移）；与 modes/（文件名=模式 id）同理按注册表管，test/mob-look.test.js 断言文件名=键集 | test/conventions.test.js 命名断言豁免 js/mob-look/ |
+| 10 | 模块头注释用 `====` 框线包边（Google JS 指南 §4.8.1 "Comments are not enclosed in boxes drawn with asterisks or other characters"） | 框线是横幅契约的可识别边界，test/conventions.test.js 断言其存在；查证与裁决见 docs/agent-context-research.md §3.2 | test/conventions.test.js 横幅断言 |
 
 新增偏离必须登记在此表并给理由；未登记的偏离视为违规。
 
@@ -246,3 +269,11 @@ id 命名偏离见 §6。
   36 怪时落地：键集与文件名零变换由 test/mob-look.test.js 断言，命名守卫豁免该目录）。
 - 2026-10-26：造型档案票③拆旧收尾（mobs.js 内联骨架/手绘头像/碎块表退役，rigOf 直查
   造型档案——三票过渡双轨消名，无新增偏离登记项）。
+- 2026-10-28：文档结构治理（依据调研 docs/agent-context-research.md）：新增 docs/README.md
+  索引（交通警察页，只放链接与状态）；§1.11 增补生命周期状态标注约定（已完工/已废弃
+  不删、标后继——22 个历史工件补标）；§1.7 增补横幅纪律（叙事段 ≤15 行 + 四层下沉
+  去向）；§6 登记 #10（==== 框线对 Google §4.8.1 的偏离）；conventions.test.js 新增
+  文档指针零死链断言（含 md 相对链接，防根目录 `../` 出仓式断链）；五个超长横幅叙事段
+  瘦身（adventure/mode-kit/math/camp-kit/showroom 门面，-134 行，interface/依赖清单
+  逐字节保留）；修正 RESOURCES.md 根目录断链 6 处；GLOSSARY 补词条一览索引并修正
+  探险地图尺寸 128→160 漂移。

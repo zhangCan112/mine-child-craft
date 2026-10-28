@@ -1,5 +1,7 @@
 # 共享怪物系统 · 需求定稿
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [shared-monsters-design.md](shared-monsters-design.md)
+
 > 经 pinpoint 批注定稿:一轮批注 8 条(理解确认 + 7 问拍板)+ 二轮修正(取消波次)。
 > 所有开放问题均已拍板(第 4 节);实现设计见后续 `docs/shared-monsters-design.md`(第 ② 步产出)。
 

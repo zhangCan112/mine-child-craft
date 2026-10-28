@@ -1,5 +1,7 @@
 # 物品与合成系统 · 一期执行 Spec
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [item-crafting-design.md](item-crafting-design.md)
+
 > 状态：**ready-for-agent**（本地 spec，未发布 issue tracker——当前未配置 tracker；需要时先跑 `/setup-matt-pocock-skills` 再发布）
 > 需求细化自：`docs/item-crafting-design.md`（实现设计定稿，含 2026-10-22 四项拍板 + 2026-10-23 三条 pinpoint 批注的吸收）
 > MC 数值依据：`docs/minecraft-item-crafting-research.md`（Minecraft Wiki 第一手调研）

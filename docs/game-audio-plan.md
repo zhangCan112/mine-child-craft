@@ -1,5 +1,7 @@
 # 游戏音频系统重建方案（plan）
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；权威见 [adr/0003-audio-assets-in-repo.md](adr/0003-audio-assets-in-repo.md)
+
 > 依据：`docs/game-audio-research.md`（2026-10-23，WebKit Bugzilla / W3C 规范 / 许可原文等一手来源逐条可溯）。
 > 现状：全部音频在 `js/effects.js` —— WebAudio 合成音效 16 种（振荡器+滤波白噪）+ 常驻锯齿引擎嗡鸣，**无背景音乐**；iPad 内放杂音严重。
 > 本文档只定方案；动工前不改任何代码。

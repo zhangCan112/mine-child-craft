@@ -1,5 +1,7 @@
 # 冒险模式生态地图 · 票据（adventure-maps-tickets）
 
+> 生命周期：已完工 — 施工期工件，仅作历史依据；行为权威见 [adventure-maps-design.md](adventure-maps-design.md)
+
 > Spec：[adventure-maps-spec.md](adventure-maps-spec.md) · 设计定稿：[adventure-maps-design.md](adventure-maps-design.md)
 > · 计划：[adventure-maps-plan.md](adventure-maps-plan.md)。
 > 本文件是**本地任务图**（issue tracker 未配置，仓库先例 item-crafting-tickets.md 同款）：

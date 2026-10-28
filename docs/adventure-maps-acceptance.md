@@ -1,5 +1,7 @@
 # 冒险模式 · 生态地图 手玩验收清单（T10 收尾）
 
+> 生命周期：已完工（验收记录，天然历史件）— 行为权威见 [adventure-maps-design.md](adventure-maps-design.md)
+
 > 来源：[adventure-maps-plan.md](adventure-maps-plan.md)「手玩验收清单（P9 真机）」10 项，
 > 结合 T1-T9 实现记录（[adventure-maps-tickets.md](adventure-maps-tickets.md)）刷新。
 > 每项分两栏：**自动已覆盖**（票据 + 单测——`npm test` 全绿即视为通过）与
