@@ -118,7 +118,7 @@ _Avoid_: 把放置合法性/门结构/级联规则抄进 kit 或模式层（规�
 _Avoid_: fillB / plantTree / fxHash（历史名，已归并）
 
 **画质核心（QualityCore）**:
-触屏 DPR 自适应的纯决策核心：主循环每半秒喂一个 fps 采样——降档快（持续低帧 3 秒即降，不受冷却）、升档慢（持续高帧 30 秒且度过降档后 60 秒冷却才升）、45~55fps 死区不积累证据、升档观察窗（升后 60 个采样）内又降则该档本场封顶。interface：mk（按设备初始 DPR 建档，向下取整到 0.25 台阶）/ step（喂采样，返回新 DPR 或 0）。初始 DPR 拉满在渲染 adapter（world.js），换档的 setPixelRatio 施加在主循环，核心不碰 renderer；桌面端不参与自适应。
+触屏 DPR 自适应的纯决策核心：主循环每半秒喂一个 fps 采样——降档快（持续低帧 3 秒即降，不受冷却）、升档慢（持续高帧 30 秒且度过降档后 60 秒冷却才升）、45~55fps 死区不积累证据、升档观察窗（升后 60 个采样）内又降则该档本场封顶。低核触屏（config 的 IS_LOWCORE_TOUCH：触屏且 ≤2 逻辑核，A9 级如 iPad 5）初始 DPR 上限 LOWCORE_DPR_MAX=1.5 且 mk 语义=初始即本场封顶，档内仍可自适应回落（docs/ipad5-performance-design.md 票①）。低电量守卫 mkLpmGuard：吃主循环每帧原始 rAF 间隔（毫秒），紧带 31.5~36ms 连续 60 帧判定系统把 rAF 钉在 30fps（WebKit 无查询 API），锁存期间调用方冻结喂采样——LPM 的 30fps 不是"带不动"，防一路降到下限钉死；任一快帧（<31.5ms）解锁重攒。interface：mk / step / mkLpmGuard。初始 DPR 拉满在渲染 adapter（world.js），换档的 setPixelRatio 施加在主循环，核心不碰 renderer；桌面端不参与自适应。
 _Avoid_: 自适应分辨率（历史名——现在管的是画质档决策）、dprCap/lowFpsStreak（被取代的内联实现）
 
 **触控手势核心（TouchCore）**:
