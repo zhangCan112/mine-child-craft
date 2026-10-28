@@ -520,6 +520,29 @@ test('门·关/开: 图集通道几何 — 闭=板格内居中(2026-10-28 反转
   assert.deepStrictEqual([...xs].sort(), ['102.0000', '102.1875'], '开门板转到西缘(x 0..3/16)');
 });
 
+test('门·开铰链现算(2026-10-28): 东邻实心 → 板贴东缘(贴墙站) · 西邻实心 → 贴西缘', () => {
+  const m = loadMeshCoreOnce();
+  const opt = paneOpt();
+  /* 东邻石头: 开门板贴东缘 x ∈ {102+13/16, 103} —— 贴墙站不悬在通道正中 */
+  const pE = mkPack(1);
+  pE.set(3, 5, 3, m.B_DOOR_OPEN);
+  pE.set(4, 5, 3, 3);
+  const re = m.MeshCore.meshChunk(pE, opt);
+  const xe = new Set();
+  for (let i = 0; i < re.atlas.positions.length; i += 3) xe.add(re.atlas.positions[i].toFixed(4));
+  assert.deepStrictEqual([...xe].sort(),
+      [(102 + 1 - 0.1875).toFixed(4), (102 + 1).toFixed(4)], '东邻实心 → 板贴东缘');
+  /* 西邻石头: 维持贴西缘 x ∈ {102, 102.1875} */
+  const pW = mkPack(1);
+  pW.set(3, 5, 3, m.B_DOOR_OPEN);
+  pW.set(2, 5, 3, 3);
+  const rw = m.MeshCore.meshChunk(pW, opt);
+  const xw = new Set();
+  for (let i = 0; i < rw.atlas.positions.length; i += 3) xw.add(rw.atlas.positions[i].toFixed(4));
+  assert.deepStrictEqual([...xw].sort(),
+      ['102.0000', '102.1875'], '西邻实心 → 板贴西缘(默认铰链不变)');
+});
+
 test('门·面光取面朝向邻格(2026-10-27 修): 关门自身格光恒 0 — 两大面各吃邻格光(整扇黑病根)', () => {
   const m = loadMeshCoreOnce();
   const p = mkPackL(1);
