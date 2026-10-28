@@ -36,7 +36,7 @@ for (const n of bNames) globalThis[n] = vm.runInContext(n, eng);
 const api = vm.runInContext(`({ITEMS, stackMax, isTool, mkInventory, add, count, remove,
   damageTool, HOTBAR_SLOTS, INV_SLOTS, BLOCKS, PLAYER, WORLD_W, WORLD_D,
   B_CRAFT, B_FURNACE, B_CHEST, B_SAPLING, B_TORCH, B_DOOR, B_DOOR_TOP,
-  B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_PORTAL, B_LAVA,
+  B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_PORTAL, B_LAVA, B_GRASS_TUFT, B_BED,
   getBlock, setBlockRaw, blockKey, collidesAtPlayer, rollBlockDrop, SceneKit})`, eng);
 Object.assign(globalThis, api);
 /* 单块编辑 seam: world.js 太重——真级联核心镜像 world.js 的装配(adventure-mode.test
@@ -71,6 +71,7 @@ const speaks = [];
 const sfxs = [];
 const rings = [];
 const touches = [];
+const sapCleared = []; /* 盖掉/挖掉树苗的撤计时 sink 录 */
 let flushes = 0;
 let wearCalls = 0;
 let felled = 0;
@@ -92,7 +93,7 @@ const ed = PlaceKit.mkEditor({
   onPlaced: (blockId, x, y, z) => placed.push([blockId, x, y, z]),
   cascade: {
     mark: () => {},
-    sapling: () => {},
+    sapling: (x, y, z) => sapCleared.push([x, y, z]),
     drop: (id, n) => drops.push([id, n]),
     questMine: (id) => mined.push(id),
   },
@@ -109,6 +110,7 @@ const ed = PlaceKit.mkEditor({
 function reset() {
   journal.length = 0; placed.length = 0; drops.length = 0; mined.length = 0;
   says.length = 0; speaks.length = 0; sfxs.length = 0; rings.length = 0; touches.length = 0;
+  sapCleared.length = 0;
   flushes = 0; wearCalls = 0; felled = 0;
 }
 
@@ -143,6 +145,37 @@ test('place-kit: thin 规则(火把贴墙) — 侧面收(墙火把)/顶面收/�
   assert.strictEqual(ed.tryPlace(dup), false, '落点非空气拒(叠放)');
   assert.strictEqual(api.count(inv, 'torch'), 3, '拒绝不扣件');
   assert.ok(says.some((m) => String(m).includes('放不了')), '给指路话术');
+});
+
+test('place-kit: 覆盖放置(用户拍板 2026-10-28) — 命中花草/火把 → 新块落被点格盖掉+扣件+记账; 树苗连带撤计时', () => {
+  reset();
+  sel = slotOf('planks');
+  api.setBlockRaw(12, 13, 32, B_GRASS_TUFT); /* 草地面上摆一株草丛(z=32 走廊, 不与他测撞格) */
+  const hit = {x: 12, y: 13, z: 32, nx: 0, ny: 1, nz: 0}; /* 指草丛(顶面视角) */
+  assert.strictEqual(ed.tryPlace(hit), true, '覆盖放置成功');
+  assert.strictEqual(api.getBlock(12, 13, 32), 6, '木板落在草丛原格(不架半空)');
+  assert.strictEqual(api.getBlock(12, 14, 32), 0, '法线侧仍是空气(旧行为不复返)');
+  assert.strictEqual(api.count(inv, 'planks'), 8, '扣 1 件(此前 9)');
+  assert.ok(journal.some((j) => j[0] === 12 && j[1] === 13 && j[2] === 32 && j[3] === 6),
+      'journal 记账=覆盖格');
+  assert.deepStrictEqual(placed, [[6, 12, 13, 32]], '放置钩坐标=被点格');
+  /* 盖掉树苗: 撤计时(挖树苗同款, 防 20s 后树在新块里长出来) */
+  api.setBlockRaw(14, 13, 32, B_SAPLING);
+  sel = slotOf('torch');
+  assert.strictEqual(ed.tryPlace({x: 14, y: 13, z: 32, nx: 0, ny: 1, nz: 0}), true,
+      '火把覆盖树苗成功(正下方草地实心)');
+  assert.strictEqual(api.getBlock(14, 13, 32), api.B_TORCH, '火把落在树苗原格');
+  assert.deepStrictEqual(sapCleared, [[14, 13, 32]], '树苗计时已撤');
+  assert.strictEqual(api.count(inv, 'torch'), 2, '火把扣 1(此前 3)');
+  /* 床不带 replaceable: 走原路径——法线侧(床顶)可放, 床本体不被覆盖 */
+  api.setBlockRaw(22, 13, 32, B_BED);
+  reset();
+  sel = slotOf('planks');
+  assert.strictEqual(ed.tryPlace({x: 22, y: 13, z: 32, nx: 0, ny: 1, nz: 0}), true,
+      '床走原路径: 法线侧(床顶)可放');
+  assert.strictEqual(api.getBlock(22, 13, 32), B_BED, '床本体原样(不覆盖)');
+  assert.strictEqual(api.getBlock(22, 14, 32), 6, '木板在床顶(旧行为不回归)');
+  assert.strictEqual(api.count(inv, 'planks'), 7, '再扣 1 件(8→7)');
 });
 
 /* ============ ② 门: 放置/开关/配对破坏 ============ */

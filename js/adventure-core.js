@@ -979,15 +979,31 @@ function advMineStep(m, key, bt, dt) {
 }
 
 /* 放置合法性(纯函数): hit 为准星命中 {x,y,z,nx,ny,nz}, blockId 为物品的
-   block 字段, lookId 为命中格方块 id, targetId 为落点格现有方块 id。
+   block 字段, lookId 为命中格方块 id, targetId 为落点格现有方块 id,
+   belowId 为被点格正下方方块 id(仅覆盖放置的 thin 新块消费, 可省)。
    规则(D4): 落点必须空气 · thin 块(火把/树苗)只放实心面顶(点击面法线
    朝上, 支承块 solid) · wall 旗标薄块(火把)额外认实心侧面(墙火把, 支承
-   口径同顶面) · 树苗支承限草地/泥土(D7)。返回 {ok,x,y,z} 或
+   口径同顶面) · 树苗支承限草地/泥土(D7)。
+   覆盖放置(用户拍板 2026-10-28, config replaceable 旗标): 命中 replaceable
+   薄块(花草/火把)时落点=被点格本身, 新块盖掉它——镂空薄块占整格却几乎
+   看不见, 新块架在半空很出戏; thin 新块(火把/树苗)的支承改认 belowId
+   (被覆盖格正下方), 面法线支承路径不适用。返回 {ok,x,y,z} 或
    {ok:false}(不可放置的旗标语义: 草丛/麦等薄块自身 solid:false, 天然
    当不了支承; 草丛/麦物品不存在 block 字段, 进不了本函数)。 */
-function advPlaceCheck(hit, blockId, lookId, targetId) {
+function advPlaceCheck(hit, blockId, lookId, targetId, belowId) {
   const def = blockId != null ? BLOCKS[blockId] : null;
   if (!hit || !def) return {ok: false};
+  const lookDef = lookId != null ? BLOCKS[lookId] : null;
+  if (lookDef && lookDef.replaceable) {/* 覆盖放置: 落点=被点格, 盖掉旧薄块 */
+    const x = hit.x; const y = hit.y; const z = hit.z;
+    if (def.thin != null) {/* thin 新块依附口径: 支承=被覆盖格正下方(实心) */
+      const below = belowId != null ? BLOCKS[belowId] : null;
+      const solidSup = below && below.solid !== false && below.thin == null;
+      if (!solidSup) return {ok: false};
+      if (blockId === B_SAPLING && belowId !== 1 && belowId !== 2) return {ok: false}; /* 树苗限草地/泥土 */
+    }
+    return {ok: true, x, y, z};
+  }
   if (targetId !== 0) return {ok: false}; /* 落点非空气 → 拒(不可叠放) */
   const x = hit.x + hit.nx;
   const y = hit.y + hit.ny;

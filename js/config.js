@@ -276,8 +276,12 @@ BLOCKS[B_COAL_ORE] = {name: '煤矿', all: [0.36, 0.36, 0.38], hard: 3.0, tool: 
 BLOCKS[B_IRON_ORE] = {name: '铁矿', all: [0.55, 0.44, 0.36], hard: 3.0, tool: 'pick', tier: 2, drop: [['iron_ore', 1, 0]]};
 BLOCKS[B_GOLD_ORE] = {name: '金矿', all: [0.62, 0.52, 0.28], hard: 3.0, tool: 'pick', tier: 3, drop: [['gold_ore', 1, 0]]};
 BLOCKS[B_DIAMOND_ORE] = {name: '钻石矿', all: [0.42, 0.56, 0.58], hard: 3.0, tool: 'pick', tier: 3, drop: [['diamond', 1, 0]]};
+/* replaceable 放置覆盖旗标(用户拍板 2026-10-28, advPlaceCheck/editHit 消费):
+   命中此块放置 → 新块落本格盖掉它——透明镂空薄块占整格却几乎看不见,
+   新块「架在半空」很出戏。白名单=装饰花草+火把七件; 麦四阶段不带(庄稼
+   防误盖)·床/引线不带(家具/电路); MC 对花/火把并不替换——本项目放宽 */
 BLOCKS[B_GRASS_TUFT] = {name: '草丛', all: [0.38, 0.66, 0.28], thin: 0.35, solid: false,
-  hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 0, 0.5]]}; // 无保底, 50% 掉种子(MC 12.5% → 儿童加倍)
+  replaceable: true, hard: 0, tool: null, tier: 0, drop: [['wheat_seeds', 0, 0.5]]}; // 无保底, 50% 掉种子(MC 12.5% → 儿童加倍)
 BLOCKS[B_FARMLAND] = {name: '耕地', top: [0.32, 0.22, 0.13], side: [0.42, 0.30, 0.18], bottom: [0.42, 0.30, 0.18],
   hard: 0.6, tool: 'shovel', tier: 0, drop: [['dirt', 1, 0]]}; // 锄头点草地/泥土转来(二期农田链)
 BLOCKS[B_WHEAT_0] = {name: '麦苗', all: [0.45, 0.70, 0.30], thin: 0.3, solid: false,
@@ -293,14 +297,14 @@ BLOCKS[B_CRAFT] = {name: '工作台', top: [0.55, 0.42, 0.26], side: [0.66, 0.52
 BLOCKS[B_FURNACE] = {name: '熔炉', top: [1.00, 0.45, 0.10], side: [0.35, 0.35, 0.38], bottom: [0.35, 0.35, 0.38],
   hard: 3.5, tool: 'pick', tier: 1, drop: [['furnace', 1, 0]]}; // 站点: 烧炼
 BLOCKS[B_TORCH] = {name: '火把', all: [1.00, 0.70, 0.25], thin: 0.5, solid: false, light: 14,
-  wall: true, hard: 0, tool: null, tier: 0, drop: [['torch', 1, 0]]}; // 光源 14 照亮半径 13(§5.1);
+  wall: true, replaceable: true, hard: 0, tool: null, tier: 0, drop: [['torch', 1, 0]]}; // 光源 14 照亮半径 13(§5.1);
 // 不烧完/不能当燃料(vanilla 维持项); wall:true 唯一贴墙薄块——放置认实心侧面
 // (advPlaceCheck)·依附认四水平实心邻(cascade)·渲染专用小盒满贴墙直立·不外倾(pushTorch)
 // ——取向不存档, 级联/渲染从邻块现况派生(确定性重放红线)
 BLOCKS[B_CLAY] = {name: '黏土', all: [0.58, 0.60, 0.68],
   hard: 0.6, tool: 'shovel', tier: 0, drop: [['clay_ball', 4, 0]]}; // 掉 4 黏土球(红砖链源头, §3.5); 湖底生成
 BLOCKS[B_SAPLING] = {name: '树苗', all: [0.30, 0.60, 0.25], thin: 0.4, solid: false,
-  hard: 0, tool: null, tier: 0, drop: [['sapling', 1, 0]]}; // 20s 长成树(T12 模式层计时)
+  replaceable: true, hard: 0, tool: null, tier: 0, drop: [['sapling', 1, 0]]}; // 20s 长成树(T12 计时); 盖掉撤计时(place-kit)
 BLOCKS[B_CHEST] = {name: '箱子', top: [0.72, 0.55, 0.30], side: [0.62, 0.44, 0.22], bottom: [0.55, 0.38, 0.20],
   hard: 2.5, tool: 'axe', tier: 0, drop: [['chest', 1, 0]]}; // 引导链 v2: 点击开大宝箱面板(走近 4 格, 熔炉同款); 全局共享账户, 挖掉不丢内容
 /* F4 羊毛(二期设计稿 §4.7): 羊掉毛转入采集 — 徒手可挖掉自身(零惩罚);
@@ -332,13 +336,13 @@ BLOCKS[B_CACTUS] = {name: '仙人掌', all: [0.29, 0.53, 0.22],
 BLOCKS[B_SANDSTONE] = {name: '砂岩', all: [0.85, 0.78, 0.57],
   hard: 0.8, tool: 'pick', tier: 1, drop: [['sandstone', 1, 0]]}; // 沙漠地下层/神殿墙体
 BLOCKS[B_DEAD_BUSH] = {name: '枯灌木', all: [0.50, 0.35, 0.18], thin: 0.6, solid: false,
-  hard: 0, tool: null, tier: 0, drop: [['stick', 1, 0.5]]}; // thin 十字片; 掉木棍 1~2(MC 0~2 → 儿童保底 1)
+  replaceable: true, hard: 0, tool: null, tier: 0, drop: [['stick', 1, 0.5]]}; // thin 十字片; 掉木棍 1~2(MC 0~2 → 儿童保底 1)
 BLOCKS[B_ORCHID] = {name: '兰花', all: [0.42, 0.66, 0.78], thin: 0.65, solid: false,
-  hard: 0, tool: null, tier: 0, drop: [['orchid', 1, 0]]}; // 沼泽唯一产地收藏(设计稿 §6)
+  replaceable: true, hard: 0, tool: null, tier: 0, drop: [['orchid', 1, 0]]}; // 沼泽唯一产地收藏(设计稿 §6)
 BLOCKS[B_FLOWER_Y] = {name: '蒲公英', all: [0.91, 0.79, 0.19], thin: 0.65, solid: false,
-  hard: 0, tool: null, tier: 0, drop: [['flower_y', 1, 0]]}; // 家园花丛草场(T5 散布)
+  replaceable: true, hard: 0, tool: null, tier: 0, drop: [['flower_y', 1, 0]]}; // 家园花丛草场(T5 散布)
 BLOCKS[B_FLOWER_W] = {name: '雏菊', all: [0.93, 0.93, 0.91], thin: 0.65, solid: false,
-  hard: 0, tool: null, tier: 0, drop: [['flower_w', 1, 0]]};
+  replaceable: true, hard: 0, tool: null, tier: 0, drop: [['flower_w', 1, 0]]};
 
 /* ---------- 门与玻璃板 (id 64~68, docs/door-window-design.md §2) ----------
    合成家具两件(配方与样子照 MC 正典, 调研 docs/door-window-research.md)。

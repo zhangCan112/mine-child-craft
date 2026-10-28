@@ -1223,3 +1223,48 @@ test('mkMobPicker: groupOf 恒 null 平铺(出发配置页卡片流) + itemTag/i
   const sk = mount.children.find((c) => c.dataset.type === 'skeleton');
   assert.ok(sk._cls.has('active'), 'activeOf 供给的键高亮');
 });
+
+/* ============ editHit 覆盖放置(2026-10-28 花草火把票, 建造/竞技场路径) ============ */
+
+test('editHit 放置覆盖薄块: 命中 replaceable → 落点=被点格本身盖掉; 实心命中走法线侧旧口径', () => {
+  /* 引擎全局以属性占位注入(Node 无 world.js), 用完逐键还原防泄漏到同文件其他测试 */
+  const saved = {
+    BLOCKS: globalThis.BLOCKS, getBlock: globalThis.getBlock,
+    editBlock: globalThis.editBlock, collidesAtPlayer: globalThis.collidesAtPlayer,
+  };
+  globalThis.BLOCKS = [null,
+    {name: '泥土', solid: true}, /* 1 实心参照 */
+    {name: '草丛', thin: 0.35, solid: false, replaceable: true}, /* 2 覆盖族 */
+    {name: '床', thin: 0.55, solid: false}, /* 3 thin 无旗标(家具) */
+  ];
+  globalThis.getBlock = (x, y, z) =>
+    (x === 3 && y === 4 && z === 5) ? 2 : (x === 6 && y === 7 && z === 8) ? 3 : 0;
+  const edits = [];
+  globalThis.editBlock = (x, y, z, id) => {
+    edits.push([x, y, z, id]); return [];
+  };
+  globalThis.collidesAtPlayer = () => false;
+  try {
+    const r1 = ModeKit.editHit(2, {x: 3, y: 4, z: 5, nx: 0, ny: 1, nz: 0}, () => 1);
+    assert.deepStrictEqual([r1.x, r1.y, r1.z, r1.id], [3, 4, 5, 1],
+        '命中草丛: 木板落被点格本身(覆盖, 不架半空)');
+    assert.deepStrictEqual(edits, [[3, 4, 5, 1]], '编辑恰一记=覆盖格');
+    edits.length = 0;
+    const r2 = ModeKit.editHit(2, {x: 6, y: 7, z: 8, nx: 0, ny: 1, nz: 0}, () => 1);
+    assert.deepStrictEqual([r2.x, r2.y, r2.z, r2.id], [6, 8, 8, 1],
+        '命中床(无旗标): 走原路径落法线侧');
+    edits.length = 0;
+    globalThis.collidesAtPlayer = (x, y, z) => (x === 3 && y === 4 && z === 5);
+    assert.strictEqual(ModeKit.editHit(2, {x: 3, y: 4, z: 5, nx: 0, ny: 1, nz: 0}, () => 1), null,
+        '覆盖格撞玩家身体 → 拒(不把自己埋进去, 覆盖路径同守卫)');
+    globalThis.collidesAtPlayer = () => false;
+    globalThis.getBlock = () => 1; /* 命中实心且法线侧也实心 */
+    assert.strictEqual(ModeKit.editHit(2, {x: 6, y: 7, z: 8, nx: 0, ny: 1, nz: 0}, () => 1), null,
+        '实心命中+法线侧非空 → 拒(旧行为不回归)');
+    assert.deepStrictEqual(edits, [], '拒绝路径零编辑');
+  } finally {
+    for (const k of Object.keys(saved)) {
+      if (saved[k] === undefined) delete globalThis[k]; else globalThis[k] = saved[k];
+    }
+  }
+});

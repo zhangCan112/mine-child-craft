@@ -199,15 +199,22 @@ const tntMat = new THREE.MeshLambertMaterial({map: makeTntTexture(), side: THREE
 /* 方块贴图图集 (js/texture-atlas.js): 像素在纯数据缓冲里确定性生成,
    此处只做画布壳 + CanvasTexture 包装(与 TNT 图集同款管线/滤波口径)。
    alphaTest 裁切让植物十字面片与树叶孔洞呈镂空观感(不透明像素照常
-   渲染, 无透明排序负担); 256×256 正方形 2 的幂, WebGL1 mipmap 合法。
+   渲染, 无透明排序负担); 256×256 正方形 2 的幂——图集通道现已禁 mip
+   (透明边修复, 见 makeAtlasTexture), 尺寸口径对 TNT 图集仍成立。
    typeof 防御与下方 ringCenter 的 Tank 同款: texture-atlas.js 的 script
    行由集成者加入 index.html, 并入前 boot 冒烟不炸(缺图集 → 纯色兜底)。 */
 const ATLAS_LAYOUT = (typeof TextureAtlas !== 'undefined') ? TextureAtlas.layout : null;
 function makeAtlasTexture() {
   const tex = new THREE.CanvasTexture(TextureAtlas.makeCanvas(document));
   tex.magFilter = THREE.NearestFilter; // 近处保持像素颗粒
-  tex.minFilter = THREE.NearestMipmapLinearFilter; // 远处走 mipmap, 消高频闪烁
-  tex.anisotropy = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  /* 远处禁 mipmap(2026-10-28 透明边修复): 图集 16px 格边贴边打包, mip 链逐级
+     混采跨格像素——镂空薄块(花草/火把/门板)的透明底(α=0)与自身实体像素/
+     邻格颜色均值后 α 会越过 alphaTest 阈值, 呈「幽灵透明边/串色」(texture-atlas
+     相邻同色系排布只是缓解)。代价: 远处实心图集块(四矿/工作台)轻微像素闪烁
+     ——像素风可接受; 若不可接受再拆双材质(实心留 mip/镂空禁用)。TNT 图集
+     全不透明无此问题, 维持 mip 消闪烁口径不动。 */
+  tex.minFilter = THREE.NearestFilter;
+  tex.generateMipmaps = false; // anisotropy 随 mips 一并弃(无 mip 链即无意义)
   return tex;
 }
 const atlasMat = new THREE.MeshLambertMaterial({map: ATLAS_LAYOUT ? makeAtlasTexture() : null,
