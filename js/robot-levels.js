@@ -43,7 +43,13 @@ const ROBOT_BANDS = [
    (预置程序缺 1 卡, 研究口径「解码他人程序」) · debug 找错关(预置 1 处
    错误看回放找) · relay 双怪接力 · boss 带末大关 · normal 常规。
    分布为显式模板(测试逐带断言, 防编排漂移): 带0 = 6 tut + 4 decode +
-   14 normal + boss; 带2 每 3~4 关混入 1 debug; 带3 后半混入 relay */
+   14 normal + boss; 带2 每 3~4 关混入 1 debug; 带3 后半混入 relay。
+   ── 加关纪律(内容契约, 用户拍板 2026-10-28 = 设计稿 D9)──
+   只许两动法: ① 追加式扩容(带内 boss 前插新 normal / 带末加新带), 星表
+   按关号仍对位, 前沿自然推进——孩子按序玩到新关, 不升版本位;
+   ② 插入/重排/删改编排, 必须升 ROBOT_SAVE_VERSION → 星表清空, 从头玩,
+   绝不许旧进度把新关标记成已玩(跳关红线)。两动法都保证: 新增关卡
+   一定被从头玩到。 */
 const ROBOT_KIND_TEMPLATES = [
   /* 带0 */ ['tut', 'tut', 'tut', 'tut', 'tut', 'tut', 'decode', 'decode', 'decode', 'decode',
     'normal', 'normal', 'normal', 'normal', 'normal', 'normal', 'normal', 'normal', 'normal',
@@ -209,13 +215,21 @@ function rollRobotLoot(rnd, level, solvedBoards) {
   return out;
 }
 
-/* ---------- 存档(家族键名 robot_camp_save, SyncDB.slot 经壳骨架收编) ---------- */
+/* ---------- 存档(家族键名 robot_camp_save, SyncDB.slot 经壳骨架收编) ----------
+   版本位 v = 编排内容契约的执行者(加关纪律见 ROBOT_KIND_TEMPLATES 注释):
+   升版本位 = 关号语义变化 → 星表清空从头玩; 不升 = 星表按关号对位保留 */
 const ROBOT_SAVE_VERSION = 1;
 const ROBOT_SAVE_DEFAULTS = {v: ROBOT_SAVE_VERSION, stars: {},
   stamps: {}, stampClaimed: [], stampKind: 'gem', log: {}};
 
+/* 存档迁移(save-slot 的 migrate 链调用, (s, from) 两参): v ≠ 当前版 =
+   关号语义变化(插入/重排/删改), 星表一次性清空——新关卡从头玩, 不许
+   旧进度跳关(D9 用户拍板); stamps/stampClaimed/stampKind/log 按日期记账
+   与关号无关, 原样保留(进度保护: 图章/战利品/家长日志零损失——重玩
+   不是惩罚, 是新内容)。v=当前版只做幂等修形: 字段缺/损坏补空 */
 function migrateRobotSave(s, from) {
   if (!s || typeof s !== 'object') return {...ROBOT_SAVE_DEFAULTS};
+  if (s.v !== ROBOT_SAVE_VERSION) s.stars = {};
   s.v = ROBOT_SAVE_VERSION;
   for (const k of ['stars', 'stamps', 'log']) {
     if (!s[k] || typeof s[k] !== 'object') s[k] = {};

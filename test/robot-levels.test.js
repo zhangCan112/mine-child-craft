@@ -176,7 +176,7 @@ test('rollRobotLoot: 教学关豁免 · 同 rnd 同结果 · 池键 ⊆ ITEMS ·
 
 /* ============ 存档迁移 ============ */
 
-test('migrateRobotSave: 空档回默认 · 坏字段修形 · 幂等 · 进度保留', () => {
+test('migrateRobotSave: 空档回默认 · 坏字段修形 · 幂等 · 当前版进度保留 · 升版清星表(D9)', () => {
   assert.deepStrictEqual(Levels.migrateRobotSave(null), Levels.ROBOT_SAVE_DEFAULTS);
   const junk = {v: 99, stars: 'x', stamps: null, log: 3, stampClaimed: 'y', stampKind: 7,
     stars2: {}}; // 未知字段原样保留
@@ -191,6 +191,16 @@ test('migrateRobotSave: 空档回默认 · 坏字段修形 · 幂等 · 进度�
     stampKind: 'gem'};
   const kept = Levels.migrateRobotSave({...keep});
   assert.deepStrictEqual(kept.stars, {0: 3}, '存量进度原样保留');
+  /* D9 升版清星表: 版本位不匹配 = 编排已变(插关/重排) → 从头玩, 不许跳关;
+     日期记账(图章/日志/已领线)与关号无关, 保留——重玩不是惩罚 */
+  const old = {v: 0, stars: {0: 3, 1: 2, 2: 1}, stamps: {'2026-10-28': 2},
+    log: {'2026-10-28': {band: 0}}, stampClaimed: [3], stampKind: 'gem'};
+  const reborn = Levels.migrateRobotSave(old);
+  assert.strictEqual(Levels.ROBOT_SAVE_VERSION, 1, '当前版=1(升版示例语义锚)');
+  assert.deepStrictEqual(reborn.stars, {}, '升版清星表——新关卡从头玩');
+  assert.deepStrictEqual(reborn.stamps, {'2026-10-28': 2}, '图章保留');
+  assert.deepStrictEqual(reborn.log, {'2026-10-28': {band: 0}}, '家长日志保留');
+  assert.deepStrictEqual(reborn.stampClaimed, [3], '已领达成线保留');
 });
 
 /* ============ 跨层可出盘: 关卡参数喂 robot-core 全可解 ============ */
