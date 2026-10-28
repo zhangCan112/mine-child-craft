@@ -349,9 +349,9 @@ const RobotWorld = (() => {
           t: 0, dur: (intent === 'win' ? ROBOT_T.win : ROBOT_T.move) / 1000};
         if (intent === 'win') {
           sfxSafe('win');
-          if (typeof Fx !== 'undefined' && Fx && Fx.pop) {
-            Fx.pop(wx(s.x), G + 2.2, wz(s.z), {color: 0xffd83d, r0: 0.6, r1: 2.2,
-              dur: 0.35}); // 到旗金彩(小半径短促爆点——大球会糊住金杯本体, 真机反馈)
+          if (typeof Fx !== 'undefined' && Fx && Fx.debrisBurst) {
+            Fx.debrisBurst(wx(s.x), G + 2.2, wz(s.z), 12,
+                {color: 0xffd83d, life: 0.7}); // 到旗金彩=小金块迸发(用户拍板「不要大球」——球形 pop 已弃)
           }
         } else {
           sfxSafe('click'); // 每步一声轻响(步点与程序条高亮同拍)

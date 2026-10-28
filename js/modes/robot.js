@@ -27,6 +27,8 @@
      ROBOT_*(js/robot-levels.js) · RobotCore(js/robot-core.js, parSolution) ·
      RobotWorld(js/robot-world.js, build/play/stepOnce/demo/rollback/stop/
      tick 契约 — T4 并行票落地, 经 robotWorldApi() typeof 守卫) ·
+     Fx(js/effects.js, tick 泵喂 update 驱动引擎特效生命周期——本模式不经
+     主循环门, 不喂则 win 爆彩冻结成永久大球) ·
      ROBOT_DAILY_*(js/daily-budget.js) · Budgets(js/main.js setupBudgets
      建立的 robot 预算) · SyncDB(js/sync.js) · overlay/showPage(js/main.js
      组合根, main.js 后加载, 调用期才解析 — 与 focus/math 同款)
@@ -255,9 +257,11 @@ function robotExit() {
   robotShell.exit(); // 停止钩子(本关/世界宿主/续程) → ticker → 静音 → 藏根 → 回主菜单
 }
 
-/* ---------- tick 泵(模式层自持 rAF → RobotWorld.tick) ----------
+/* ---------- tick 泵(模式层自持 rAF → RobotWorld.tick + Fx.update) ----------
    main.js 的 update 钩子只在指针锁/触屏进行态喂(robot 是纯 DOM 模式吃不到),
-   故照 math-world 先例由模式自管 rAF: 棋盘关卡屏在场即泵, 离场/退模式即停 */
+   故照 math-world 先例由模式自管 rAF: 棋盘关卡屏在场即泵, 离场/退模式即停。
+   引擎特效生命周期(Fx.update)同吃本泵——win 爆彩球/boom 碎屑只认这一处,
+   不喂则每颗都冻结成永久大球(真机实锤: 每胜一盘多一颗, L2 见俩) */
 let robotRaf = 0;
 let robotLastT = 0;
 function startRobotPump() {
@@ -272,6 +276,8 @@ function startRobotPump() {
     const dt = robotLastT ? Math.min(0.05, (now - robotLastT) / 1000) : 0.016;
     robotLastT = now;
     rw.tick(dt);
+    Fx.update(dt); /* 引擎特效泵: 主循环那侧的门在本模式恒关(纯点选不锁指针),
+       不在这里喂 = 爆彩球永驻(本模式内仅 robot 自产特效, 单驱无双喂) */
   };
   robotRaf = requestAnimationFrame(frame);
 }
