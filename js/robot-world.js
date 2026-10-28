@@ -53,9 +53,10 @@ const RobotWorld = (() => {
     ledge: 4, start: 15, lamp: 19};
   const ROBOT_PLATFORM = {dz: 4, lift: 3}; // 观景台: 棋盘南侧 dz 格外 · 抬升 lift 格
   /* 无人机眼位再南移格数(纯平移=棋盘整体上移屏面, 俯角不动画面阅读角不变):
-     iPad5 竖屏底部程序条/按钮区遮盘(真机反馈 2026-10-28), 南缘让出托盘高度。
-     只移锚不动 pitch——调 pitch 会连轨道一起前移, 南缘反而更贴底(几何推算) */
-  const ROBOT_CAM_BACK = 2.5;
+     底部程序条/按钮区遮盘(真机反馈 2026-10-28 两轮: 首调 2.5 仍压南缘,
+     用户「再上移一些, 上面空间还大」→ 5)。只移锚不动 pitch——调 pitch 会
+     连轨道一起前移, 南缘反而更贴底(几何推算) */
+  const ROBOT_CAM_BACK = 5;
   /* 终点金杯贴片 / 朝向箭头 decal 参数(真机反馈二连: 方块杯太丑 ·
      俯视角背/正面读不出朝向) */
   const ROBOT_TROPHY = {y: 2.5, size: 1.3, bobW: 2.4, bobA: 0.08,
@@ -251,7 +252,7 @@ const RobotWorld = (() => {
     CameraRig.mount(() =>
       ({x: x0 + board.w / 2, y: G + 6.2,
         z: z0 + board.h + ROBOT_CAM_BACK})); // 眼位南移(ROBOT_CAM_BACK: 竖屏托盘让位)
-    /* 真机调参: 眼位 5.4→6.2 与俯角 -0.68 同拍; 南移 2.5 格=iPad5 竖屏程序条让位 */
+    /* 真机调参: 眼位 5.4→6.2 与俯角 -0.68 同拍; 南移 5 格=程序条让位(两轮实调) */
 
     /* ===== 木偶 ===== */
     const pack = ROBOT_PACKS.find((p) => p.key === level.pack) || {};
