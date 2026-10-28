@@ -229,7 +229,9 @@ const MobLookKit = (() => {
         slot.boxes.push({w: w * s, h: h * s, d: d * s, hex: 0xffffff,
           x: cx, y: cy, z: cz,
           rx: c.rx ? (mirror ? -c.rx : c.rx) : 0,
-          rz: c.rz || 0}); /* rz 与 z 镜像交换不变(绕 z 轴), 不取负 */
+          ry: c.ry ? (mirror ? -c.ry : c.ry) : 0,
+          rz: c.rz || 0}); /* rz 与 z 镜像交换不变(绕 z 轴), 不取负;
+            ry 在 x-z 平面转(z 镜像反向), 取负保放射朝向跟骨架走(蜘蛛腿) */
       }
       slots[name] = slot;
     }
@@ -309,7 +311,8 @@ const MobLookKit = (() => {
       const g = new THREE.BoxGeometry(c.size[0] * s + inf * 2, c.size[1] * s + inf * 2,
           c.size[2] * s + inf * 2);
       if (c.rx) g.rotateX(c.rx);
-      if (c.rz) g.rotateZ(c.rz); /* 立方体级倾斜(猪灵耳/劫掠兽角/幻翼翼尖) */
+      if (c.ry) g.rotateY(mirror ? -c.ry : c.ry); /* 水平面转向(z 镜像反向): 蜘蛛腿放射 */
+      if (c.rz) g.rotateZ(c.rz); /* 立方体级倾斜(猪灵耳/劫掠兽角/幻翼翼尖/蜘蛛腿下垂) */
       const off = slot.boxes[slot.cubes.indexOf(c)];
       g.translate(off.x, off.y, off.z);
       const rects = faceRects(c);

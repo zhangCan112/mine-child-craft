@@ -88,6 +88,11 @@ test('造型档案: 自有骨架 — 苦力怕无臂四腿 · 蜘蛛八腿独立
       '官方腿截面 2px, 段长 8px(16 长杆拆两段折线)');
   assert.ok(femur.rz > 0 && sp.slots.legR1.boxes[0].rz < 0,
       '左腿 rz 下斜 · 右腿反号(折线左右镜像)');
+  assert.ok(femur.ry < 0 && sp.slots.legL4.boxes[0].ry > 0 &&
+      sp.slots.legR1.boxes[0].ry > 0,
+  '放射分布: 后腿朝后外 · 前腿朝前外 · 右腿反号(官方 Java 版扇形, 镜像后符号)');
+  assert.ok(Math.abs(sp.slots.legL2.boxes[0].ry) < Math.abs(femur.ry),
+      '中腿放射角小于前后腿(扇形过渡)');
   const zs = [1, 2, 3, 4].map((i) => sp.slots['legL' + i].joint[2]);
   assert.strictEqual(new Set(zs).size, 4, '四腿 pivot z 扇形交错(官方 2/1/0/−1)');
   assert.ok(sp.slots.head.boxes[0].z > 0, '头在 +Z 前侧(官方 −11px 前置镜像)');
@@ -201,6 +206,7 @@ test('造型档案: 确定性 — 同 type 两次声明+绘制逐字节一致(�
    本测试保证几何 UV 真的落在涂过的纹素上 */
 function stubThree() {
   const rotX = (x, y, z, a) => [x, y * Math.cos(a) - z * Math.sin(a), y * Math.sin(a) + z * Math.cos(a)];
+  const rotY = (x, y, z, a) => [x * Math.cos(a) + z * Math.sin(a), y, -x * Math.sin(a) + z * Math.cos(a)];
   const rotZ = (x, y, z, a) => [x * Math.cos(a) + y * Math.sin(a), -x * Math.sin(a) + y * Math.cos(a), z];
   class BoxGeometry {
     constructor(w, h, d) {
@@ -236,6 +242,9 @@ function stubThree() {
     }
     rotateX(a) {
       this._map((x, y, z) => rotX(x, y, z, a)); return this;
+    }
+    rotateY(a) {
+      this._map((x, y, z) => rotY(x, y, z, a)); return this;
     }
     rotateZ(a) {
       this._map((x, y, z) => rotZ(x, y, z, a)); return this;
