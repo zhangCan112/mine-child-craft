@@ -50,6 +50,7 @@ function showPage(id) {
   /* 回主菜单换 menu 口径情绪(MOODS.menu=calm): 模式菜单页仍是该模式情绪, 不在此切 */
   if (id === 'main') {
     refreshPlayCards();
+    refreshCampCards();
     AudioMixer.setMood(MOODS.menu);
   }
 }
@@ -82,6 +83,7 @@ function setupBudgets() {
   Budgets.play.onExhausted(playTimeUp); // 每天至多触发一次(语音也只说一次)
   updateLimitText(); // 规则文案始终由限额生成(单一来源)
   refreshPlayCards();
+  setupCampRotation(store); // 训练营轮换: 读账本 + 挂三营 onExhausted 评估钩(见下节)
 }
 function playBlocked() {
   return !!(Budgets && Budgets.play.blocked());
@@ -125,6 +127,79 @@ function playTimeUp() {
     touchPlaying = false; overlay.style.display = 'flex';
   }
   showPlayTimeoutPage();
+}
+
+/* ---------- 训练营轮换 + 表现奖励 (CampRotation, 术语见 GLOSSARY.md) ----------
+    三营每日只放出一个"今日营"(轮换表在 js/camp-rotation-core.js, 派生不依赖
+    存档 — 开场即可隐藏非今日卡), 表现达标(6 关全做完 × 关卡内总用时 ≤8 分钟
+    × 平均正确率 ≥80%)当天解锁一个奖励营(剩余两营二选一), 一天至多 2 营。
+    记账/评估政策收在这里: 各营结算先 noteCampResult 上报正确率再 count(1)
+    — onExhausted 在 count 内同步触发, 顺序颠峰会漏计第 6 关成绩。 */
+let CampRotState = null; // SyncDB.ready 后填充(setupBudgets → setupCampRotation)
+let campRotChoiceSpoken = false; // 奖励二选一的开场播报每次页面加载至多一次
+
+function campRotToday() {
+  return budgetDateStr(Date.now()); // 日期串拼装唯一权威在 daily-budget.js
+}
+function campRotFlush() {
+  if (CampRotState) SyncDB.set(CAMP_ROTATION_SAVE_KEY, JSON.stringify(CampRotState));
+}
+function setupCampRotation(store) {
+  let s = null;
+  try {
+    s = JSON.parse(store.get(CAMP_ROTATION_SAVE_KEY) || 'null');
+  } catch (e) {}
+  CampRotState = CampRotation.ensureDate(s, campRotToday());
+  for (const camp of CAMP_ROTATION_ORDER) {
+    Budgets[camp].onExhausted(() => evaluateCampReward(camp)); // 时长先触顶也进评估 — 判据自然判否
+  }
+  refreshCampCards(); // 奖励态此刻才可判(此前 buildMenu 已按纯轮换显隐过一次)
+}
+function evaluateCampReward(camp) {
+  if (DEV || !Budgets || !CampRotState) return; // dev 预算全开: 永不触发(与 dev-mode D2 同口径)
+  if (CampRotation.dailyCamp(campRotToday()) !== camp) return; // 只有今日营能发奖(奖励营做完不放第三个)
+  if (CampRotState.reward) return; // 今天已解锁: 一天至多 2 营
+  const v = Budgets[camp];
+  const verdict = CampRotation.evalReward({played: v.spentCount(), capCount: v.capCount(),
+    spentMs: v.spentMs(), accMean: CampRotation.accMean(CampRotState, camp)});
+  if (!verdict.pass) return;
+  CampRotState = CampRotation.earnReward(CampRotState, campRotToday());
+  campRotFlush();
+  showToast('✨ 表现超棒！回大厅挑一个奖励营地吧', 3200); // 语音让位结算屏自家台词, 到主菜单再播报
+  sfx('level');
+}
+function noteCampResult(campId, accPct) { // 各营结算处的上报缝: 当关正确率 0-100
+  if (!Budgets || !CampRotState || typeof accPct !== 'number' || !Number.isFinite(accPct)) return;
+  CampRotState = CampRotation.noteAcc(CampRotState, campRotToday(), campId, accPct);
+  campRotFlush(); // 每关至多一笔, 直落盘 — 中途关页奖励判定零丢失
+}
+function campRotPickIfPending(campId) { // 卡片点击时: 二选一待选即落选(非候选卡空转)
+  if (!CampRotation.isRewardChoice(CampRotState, campRotToday(), campId)) return;
+  CampRotState = CampRotation.chooseBonus(CampRotState, campRotToday(), campId);
+  campRotFlush();
+}
+function refreshCampCards() {
+  const daily = CampRotation.dailyCamp(campRotToday());
+  for (const cid of CAMP_ROTATION_ORDER) {
+    const c = document.getElementById(ModeRegistry.cardId({id: cid}));
+    if (!c) continue;
+    const pending = CampRotation.isRewardChoice(CampRotState, campRotToday(), cid);
+    const visible = DEV || cid === daily || cid === CampRotation.bonusOf(CampRotState) || pending;
+    c.classList.toggle('camp-off', !visible); // 未放行的营彻底隐藏(孩子眼里每天只有 1~2 张训练营卡)
+    let b = c.querySelector('.camp-badge');
+    if (!visible) {
+      if (b) b.remove();
+      continue;
+    }
+    if (!b) {
+      b = document.createElement('div'); b.className = 'camp-badge'; c.appendChild(b);
+    }
+    b.textContent = cid === daily ? '📌 今日训练' : '✨ 奖励营地';
+    if (pending && !campRotChoiceSpoken) {
+      campRotChoiceSpoken = true;
+      if (typeof SpeechKit !== 'undefined') SpeechKit.speak('奖励营地解锁啦，挑一个玩吧！');
+    }
+  }
 }
 
 /* ---------- 模式切换 ---------- */
@@ -213,6 +288,7 @@ function buildMenu() {
       if (mc.gated && playBlocked()) {
         showPlayTimeoutPage(); return;
       }
+      campRotPickIfPending(mc.id); // 奖励二选一: 点哪张哪张当今日奖励营(待选态才生效)
       if (curModeId() !== mc.id) switchMode(mc.id);
       if (ModeRegistry.hasPage(mc)) showPage(mc.id);
       if (mc.menu && MODES.cur.buildMenu) MODES.cur.buildMenu();
@@ -232,6 +308,7 @@ function buildMenu() {
       }
     }
   }
+  refreshCampCards(); // 轮换显隐立即可用(今日营派生不依赖存档; 奖励态 SyncDB.ready 后补刷)
   document.getElementById('playTimeHomeBtn').onclick = ()=> showPage('main');
 }
 

@@ -5,7 +5,7 @@
 ## 词条一览（检索索引：只报家门，定义见下文各分区）
 
 - **大分块**（56）: 指令模拟器（RobotCore） · 棋盘世界宿主（RobotWorld） · 引擎层（Engine） · 体素模型（VoxelModel） · 流体核心（FluidCore） · 方块级联（Block Cascade） · 场景装填（loadScene） · 世界改动日志（WorldJournal） · 冒险存档 store（AdventureStore） · 冒险壳政策缝（AdventureProfile） · 昼夜核心（DaylightCore） · 光照核心（LightCore） · 网格化核心（MeshCore） · 贴图图集 · 距离环（Chunk Rings） · Fx · 声音清单注册表（AudioRegistry） · 音频核心（AudioCore） · 确定性随机核心（RandCore） · AudioMixer · SpeechKit · 头顶血条（mkHpBar） · 玩家战斗 kit（CombatKit） · 训练营壳 kit（CampKit） · 模式面板 kit（ModeKit） · 熔炉装配 kit（FurnaceKit） · 放置链 kit（PlaceKit） · SceneKit · 画质核心（QualityCore） · 触控手势核心（TouchCore） · 相机装置（CameraRig） · 玩家形象（Avatar） · 第一人称手持视图（HandView） · 玩家状态（PlayerState） · 手持物注册表（HeldItems） · 物品核心 · 物品提示（ItemHint） · 使用动作注册表（ItemUseRegistry） · 背包核心 · 合成核心 · 掉落物实体库 · 像素图标工坊 · 按钮像素图标工坊 · 探险核心（AdventureCore） · 冒险地图 · 竞技场核心（ArenaCore） · 训练营机制核心（CampCore） · 背包壳（Backpack） · 载具（Tank） · 怪物库（Mobs） · 怪物谱系（Mob Taxonomy） · 造型档案（MobLook） · 战斗核心（CombatCore） · 应用层（Application） · 模式注册表（ModeRegistry） · 切换清场（switchMode 兜底）
-- **政策与进度**（4）: 共享背包（Shared Backpack） · 每日预算（DailyBudget） · 儿童时限 · 游玩模式（Play modes）
+- **政策与进度**（5）: 共享背包（Shared Backpack） · 每日预算（DailyBudget） · 训练营轮换（CampRotation） · 儿童时限 · 游玩模式（Play modes）
 - **游戏模式**（31）: 竞技场（Arena） · 建造模式 · 坦克演习场（TankRangeMode） · 专注训练营 · 矿袋（Loot Bag） · 宝物柜（FocusCabinet） · 图章日历（Stamps Calendar） · 集章里程碑（Stamp Milestones） · 每日体检（Daily Check） · 魔鬼特训（Devil Training） · 训练师村长（Chief） · 数学冒险岛（MathMode） · 数学关卡参数表（MathLevels） · 谜题纯核心（PuzzleCore） · 数学屏流引擎 · 数学情境变体（MATH_CONTEXTS） · 数学图章 · 跳一跳世界轨纯核心（HopWorld） · 数学世界轨（MathWorldTrack） · 摆与搭世界引擎（BuildWorld） · 世界轨驱动器（WorldTrackDriver） · 怪物指挥官（RobotMode） · 下界冒险（NetherMode） · 下界传送门（Nether Portal） · 探险模式 · 传送门阵 · 大宝箱（Chest Vault） · 牧场（Livestock） · 生态恢复（Eco Recovery） · 体验馆 · dev 模式（DEV）
 - **玩法时间预算**（2）: 每日儿童时限（每日预算 DailyBudget） · 家长加时（play_extra_save）
 
@@ -238,6 +238,10 @@ _Avoid_: focusBag（那是训练营模式层的共享背包实例变量名，非
 **每日预算（DailyBudget）**:
 一天内可花费的额度，含时长（毫秒）与关数两个维度；儿童时限与专注每日限额都是它的一种配置。
 _Avoid_: 时限、限额、限制（混称两种机制时）
+
+**训练营轮换（CampRotation）**:
+三训练营（专注/数学/怪物指挥官）的每日放行政策（js/camp-rotation-core.js 纯核心 + main.js 接线，设计权威 docs/camp-rotation-design.md）：每天按轮换表只放出一个今日营（robot→focus→math 按日期天序循环，2026-10-28 上线日=robot，测试钉住），未放行的营卡在主菜单彻底隐藏（?dev=1 全显调试）。表现奖励：今日营 6 关全做完（预算关数封顶）× 关卡内总用时 ≤8 分钟（预算 spentMs）× 平均正确率 ≥80%（各营结算先 noteCampResult 上报当关正确率再 count(1)——onExhausted 同步评估，顺序颠峰漏计第 6 关），当天解锁一个奖励营（剩余两营二选一，点卡即定），一天至多 2 营。账本单键 camp_rotation_save（SyncDB）：{date, reward, bonus, acc:{n,sum}}，午夜翻转同每日预算惯例；各营自身 6 关/20 分钟预算不动——只改「开不开门」，不碰防沉迷红线。
+_Avoid_: 训练营限制（混称每日预算——那是每营额度，这是放行政策）、机器人模式（轮换表键 id robot=怪物指挥官，被控的是怪物不是机器人）
 
 **儿童时限**:
 面向孩子的防沉迷政策：竞技场、建造模式、坦克演习场、探险模式（下界已是探险的内部相位，不单列）共享的同一份每日预算。

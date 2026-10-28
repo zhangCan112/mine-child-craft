@@ -697,6 +697,7 @@ function onMathLevelEnd(level, st) {
   stopMathTicker();
   const save = loadMathSave();
   const today = mathTodayStr();
+  noteCampResult('math', Math.round((st.acc || 0) * 100)); // 轮换奖励上报(必须在 count 前: onExhausted 同步评估含本关)
   const fb = mathBudget();
   if (fb) {
     fb.count(1);

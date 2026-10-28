@@ -549,6 +549,7 @@ function onFocusLevelEnd(level, st) {
   } else {
     focusFailCount[level.i] = (focusFailCount[level.i]||0) + 1;
   }
+  noteCampResult('focus', Math.round(st.acc * 100)); // 轮换奖励上报(必须在 count 前: onExhausted 同步评估含本关)
   const fb = focusBudget();
   if (fb) {
     fb.count(1); fb.flush();
