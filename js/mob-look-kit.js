@@ -223,11 +223,21 @@ const MobLookKit = (() => {
       };
       for (const c of bone.cubes) {
         const w = c.size[0]; const h = c.size[1]; const d = c.size[2];
-        const cx = (c.origin[0] + w / 2 - bone.pivot[0]) * s;
+        let cx = (c.origin[0] + w / 2 - bone.pivot[0]) * s;
         const cy = (c.origin[1] + h / 2 - bone.pivot[1]) * s;
-        const cz = nz(((c.origin[2] + d / 2) - bone.pivot[2]) * s * mz);
+        let cz = ((c.origin[2] + d / 2) - bone.pivot[2]) * s * mz;
+        if (c.ry) {/* 段中心绕 pivot y 转 — 与 slotGeo 的 cube 自转同参同系
+            (镜像系 + 取负, 引擎槽位即终态): 蜘蛛腿 pivot 挤前体 + 杆放射
+            (官方 Java 版), 只自转不移心 = 原地扭(2026-10-28 事故);
+            位置转与自转反向 = 股胫对折(同日二连坑) */
+          const a = mirror ? -c.ry : c.ry;
+          const co = Math.cos(a); const si = Math.sin(a);
+          const nx = cx * co + cz * si;
+          cz = -cx * si + cz * co;
+          cx = nx;
+        }
         slot.boxes.push({w: w * s, h: h * s, d: d * s, hex: 0xffffff,
-          x: cx, y: cy, z: cz,
+          x: cx, y: cy, z: nz(cz),
           rx: c.rx ? (mirror ? -c.rx : c.rx) : 0,
           ry: c.ry ? (mirror ? -c.ry : c.ry) : 0,
           rz: c.rz || 0}); /* rz 与 z 镜像交换不变(绕 z 轴), 不取负;
