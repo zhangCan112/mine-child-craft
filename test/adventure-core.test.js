@@ -28,6 +28,7 @@ const api = vm.runInContext(`({
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_ICE, B_SANDSTONE, B_GLOWSTONE, B_CHEST, /* 扩容主题五件建场件消费(望塔灯/箱, 松林/花田/南池) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
+  B_SPAWNER, B_OBSIDIAN, /* 黑巢/巢穴副本建场件消费(den-nest: 巢之心/祭坛柱) */
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf, SMELT_T,
@@ -74,7 +75,7 @@ test('核心地形: advBuildWorld 全图确定性(两次生成逐字节一致) +
 });
 
 test('核心地形: 巢穴位点常量与矿带不越界(地图常量表是壳与单测的共同权威)', () => {
-  assert.strictEqual(Core.ADV_NESTS.length, 3, '三巢穴');
+  assert.strictEqual(Core.ADV_NESTS.length, 4, '四巢穴(三普通巢 + 黑巢主巢, den-nest §2)');
   Core.ADV_NESTS.forEach((n, i) => {
     assert.ok(n.x >= 2 && n.x < W - 2 && n.z >= 2 && n.z < D - 2, '巢 ' + i + ' 在界内');
     assert.ok(Array.isArray(n.kinds) && n.kinds.length >= 2, '巢 ' + i + ' 刷怪池');
@@ -100,25 +101,27 @@ test('T5 坐标迁移: 湖/两坑/山洞/三巢钉死设计稿 §2.4 圈层表, 
   assert.deepStrictEqual([Core.ADV_CAVE.x1, Core.ADV_CAVE.x2, Core.ADV_CAVE.zStart, Core.ADV_CAVE.zEnd],
       [61, 62, 10, 30], '山洞口北缘 (62,10), 隧道向南深潜到穴室 z30');
   assert.ok(Core.ADV_CAVE.zEnd > Core.ADV_CAVE.zStart, '方向反转: 原隧道向北(zStart72→zEnd52), 现向南');
-  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => [n.x, n.z]), [[44, 60], [96, 36], [20, 16]],
-      '三巢难度序: 近僵尸(44,60) / 中蜘蛛(96,36) / 远苦力怕(20,16)');
-  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => n.kinds[0]), ['zombie', 'spider', 'creeper'],
-      '巢穴主打种随难度递进(僵尸一家→虫虫族→草木族苦力怕)');
+  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => [n.x, n.z]), [[44, 60], [96, 36], [20, 16], [100, 8]],
+      '四巢难度序: 近僵尸(44,60) / 中蜘蛛(96,36) / 远苦力怕(20,16) / 黑巢主巢(100,8)');
+  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => n.kinds[0]), ['zombie', 'spider', 'creeper', 'cave_spider'],
+      '巢穴主打种随难度递进(僵尸一家→虫虫族→草木族苦力怕→洞穴蜘蛛, den-nest D7)');
+  assert.ok(Core.ADV_NESTS[3].den === true, '黑巢行带 den 旗标(建场分派 advBuildDenNest)');
   /* 小屋与出生点红线: 圈层重排一律不碰(老档的出生点/床边/站立位零悬空风险) */
   assert.deepStrictEqual(Core.ADV_HUT, {x1: 58, x2: 64, z1: 78, z2: 84}, '小屋坐标不动');
   assert.deepStrictEqual([Core.ADV_SPAWN.x, Core.ADV_SPAWN.y, Core.ADV_SPAWN.z], [61.5, 25, 76.5],
       '出生点坐标与压平 y24 不动');
 });
 
-test('T5 圈层断言: 三巢距小屋距离单调递增(近<中<远, 风险-距离梯度)', () => {
+test('T5 圈层断言: 四巢距小屋距离单调递增(近<中<远<黑巢, 风险-距离梯度)', () => {
   const cx = (Core.ADV_HUT.x1 + Core.ADV_HUT.x2) / 2;
   const cz = (Core.ADV_HUT.z1 + Core.ADV_HUT.z2) / 2;
   const ds = Core.ADV_NESTS.map((n) => Math.hypot(n.x - cx, n.z - cz));
-  assert.ok(ds[0] < ds[1] && ds[1] < ds[2],
+  assert.ok(ds[0] < ds[1] && ds[1] < ds[2] && ds[2] < ds[3],
       '巢穴难度距小屋单调递增: ' + ds.map((d) => d.toFixed(1)).join(' < '));
   assert.ok(ds[0] >= 25 && ds[0] <= 45, '近巢落在资源圈 25~45: ' + ds[0].toFixed(1));
   assert.ok(ds[1] >= 40 && ds[1] <= 60, '中巢落在矿业圈 40~60: ' + ds[1].toFixed(1));
   assert.ok(ds[2] > 60, '远巢落在深险圈 >60: ' + ds[2].toFixed(1));
+  assert.ok(ds[3] > 60, '黑巢落在深险圈 >60: ' + ds[3].toFixed(1));
 });
 
 test('T5 迁移形状: 新坐标的湖心/坑底/洞口/穴室逐格断言(对真生成世界)', () => {
@@ -411,8 +414,8 @@ test('T5 压平扩容: 广场/农田/围栏足印归 0(ADV_FLATS 与建场件对
       }
     }
   }
-  assert.strictEqual(Core.ADV_FLATS.length, 13,
-      '压平清单与建场件一一对应(湖1+坑2+洞1+巢3+广场1+农田1+围栏1+望塔1+石阵1+南池1)');
+  assert.strictEqual(Core.ADV_FLATS.length, 14,
+      '压平清单与建场件一一对应(湖1+坑2+洞1+巢4+广场1+农田1+围栏1+望塔1+石阵1+南池1)');
 });
 
 test('扩容主题五件: 松林/望塔/石阵/花田/南池建场落位(确定性总装内的结构可读)', () => {
@@ -631,15 +634,16 @@ test('核心任务表: 16 条主线形状齐 + 谓词口径抽样(全量逐条�
   assert.strictEqual(Core.ADV_MINE_TALLY[3], 'mine_cobble', '石头也计圆石(步7 口径)');
 });
 
-test('远征章(T8): 追加在终章之后 — 10 条(引导 1 + 每图 3), 前 16 条序不变(老档 step 不回退)', () => {
-  assert.strictEqual(Core.ADV_QUESTS.length, 26, '主线 16 + 远征章 10');
+test('远征章(T8): 追加在终章之后 — 11 条(引导 1 + 每图 3 + 巢穴宝箱 1), 前 16 条序不变(老档 step 不回退)', () => {
+  assert.strictEqual(Core.ADV_QUESTS.length, 27, '主线 16 + 远征章 11(den-nest D12 追加巢穴宝箱条)');
   assert.strictEqual(Core.ADV_QUESTS[16].id, 'q16_plaza', '第 17 条 = home 门阵广场引导(远征章首条)');
   assert.strictEqual(Core.ADV_QUESTS[16].unlock, 'desert', '广场引导完成点亮沙漠门(线性链第一环)');
   assert.strictEqual(Core.ADV_QUESTS[19].id, 'q19_temple', '第 20 条 = 沙漠神殿宝箱(远征章链尾)');
   assert.strictEqual(Core.ADV_QUESTS[19].unlock, 'snow', '神殿宝箱完成点亮雪原门(线性链第二环)');
   assert.strictEqual(Core.ADV_QUESTS[22].id, 'q22_igloo', '第 23 条 = 雪屋宝箱(雪原链尾)');
   assert.strictEqual(Core.ADV_QUESTS[22].unlock, 'swamp', '雪屋宝箱完成点亮沼泽门(线性链第三环)');
-  assert.strictEqual(Core.ADV_QUESTS[25].id, 'q25_witch_chest', '末条 = 女巫小屋宝箱(沼泽链尾, 无 unlock)');
+  assert.strictEqual(Core.ADV_QUESTS[25].id, 'q25_witch_chest', '第 26 条 = 女巫小屋宝箱(沼泽链尾, 无 unlock)');
+  assert.strictEqual(Core.ADV_QUESTS[26].id, 'q26_den_chest', '末条 = 巢穴副本宝箱(den-nest D12, 自由探险目标)');
   /* unlock 只许挂在三环链尾: 别处冒出 unlock 会破坏「一任务一点亮」的仪式稀缺感 */
   const unlocks = Core.ADV_QUESTS.filter((q) => q.unlock).map((q) => q.id + '→' + q.unlock);
   assert.deepStrictEqual(unlocks, ['q16_plaza→desert', 'q19_temple→snow', 'q22_igloo→swamp'],

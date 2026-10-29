@@ -11,12 +11,15 @@
      docs/story-quest-research.md
    · 下界相位/传送门 → docs/nether-merge-design.md
    · 多地图远征/门阵 → docs/adventure-maps-design.md
+   · 怪物巢穴副本(黑巢/den 维度/夜袭涌出) → docs/den-nest-design.md
    · 昼夜·夜怪·床·灯笼 → docs/mc-daylight-torch-design.md §2/§6/§7/§8
    · 统一冒险壳/dev profile → docs/adventure-shell-unification-design.md(ADR 0005)
    现行行为速览(逐特性细节见上列设计稿与 GLOSSARY「探险模式」「冒险地图」
    「下界传送门」「牧场」「大宝箱」词条):
    160×160 确定性草原(2026-10-27 扩容)四图远征 home/沙漠/雪原/沼泽 +
-   下界相位(恒夜暗红天, 唯一危险=岩浆, 死亡切回上界); 出生小屋门口,
+   下界相位(恒夜暗红天, 唯一危险=岩浆, 死亡切回上界) + 巢穴副本相位
+   (黑巢巢厅巢之心切入的地下巨洞: 祭坛刷怪+矿藏+宝箱, 恒暗, 死亡切回
+   主世界; 夜间主巢洞口涌出怪在巢穴周围游荡); 出生小屋门口,
    血量 30+头顶血条; 挖放按住蓄力(tier 不足只碎不掉+TTS 节流)、掉落
    真空拾取、树苗 20s 长成(计时 Map 不落盘); 工作台/熔炉走近 4 格解锁,
    炉态随档持久化(挖炉/掀炉退料); TNT 延时爆炸不伤玩家; 牧场「收获」
@@ -67,7 +70,8 @@
    nests/nightPool, advSetMap 在此换装(行内容见 js/adventure-maps-core.js) */
 let advMapRow = ADV_HOME_ROW;
 let advMap = 'home'; /* 当前主世界图(advSetMap 唯一入口; nether 期间保持最后主世界图) */
-const ADV_SCENE_KEYS = ADV_MAPS.map((r) => r.id).concat(['nether']); /* 分桶键全集(注册表派生) */
+const ADV_SCENE_KEYS = ADV_MAPS.map((r) => r.id).concat(['nether', 'den']); /* 分桶键全集(注册表派生
+    + nether 下界 + den 巢穴副本, den-nest D8) */
 const ADV_WATER_ALL_DEFAULT = [BLOCKS[B_WATER].all[0], BLOCKS[B_WATER].all[1],
   BLOCKS[B_WATER].all[2]]; /* 水色缺省(cleanup 复位, 不渗其他模式; 逐元素抄=宿主域数组) */
 const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
@@ -191,8 +195,8 @@ let advPortalCd = 0; /* 传送冷却秒(ADV_PORTAL.cd): 落地空眩晕, 两界�
 let advExitSpot = null; /* 回上界落点(进门时刻 advPortalExit 的记录, 最后进入者优先 D6) */
 const advSceneEdits = {}; /* 桶账本(advSceneEditsDecode 归一化形状; init 装桶) */
 for (const k of ADV_SCENE_KEYS) advSceneEdits[k] = new Map();
-function advSceneKey() {/* 当前场景键('nether'|地图 id)——换桶/炉键/火焰门禁的单一口径 */
-  return advDim === 'nether' ? 'nether' : advMap;
+function advSceneKey() {/* 当前场景键(地图 id | 'nether' | 'den')——换桶/炉键/火焰门禁的单一口径 */
+  return advDim === 'overworld' ? advMap : advDim;
 }
 
 /* 世界改动日志(WorldJournal, js/world-journal-core.js): edits 账本/脏标/5s 节流/
@@ -214,7 +218,7 @@ const advJournal = mkWorldJournal(advWorldSlot, {
 });
 let advLivestockAll = {home: {dead: [], bred: [], sheared: {}}, desert: {dead: [], bred: [], sheared: {}},
   snow: {dead: [], bred: [], sheared: {}}, swamp: {dead: [], bred: [], sheared: {}},
-  nether: {dead: [], bred: [], sheared: {}}};
+  nether: {dead: [], bred: [], sheared: {}}, den: {dead: [], bred: [], sheared: {}}};
 /* 牧场账按图分桶(档形 v3; init 从世界档换装): dead=初始死畜索引(只增不减,
     初始清单可推导); bred=繁育账 [{k: 怪物键, b: 出生日'Y-M-D', sheared?: 剪毛
     时刻}](死亡=除名); sheared=初始畜剪毛账 {索引: 剪毛时刻 dayTime}(长回=销账);
@@ -852,6 +856,28 @@ function advNightLayRing(dt) {/* 环带铺怪(缺省夜怪铺法, 政策缝 advP
     m.__nightMob = true; /* 私有挂件(Mobs 许可): 黎明清场/床跳夜清场的唯一依据 */
     m.__nightHome = {x: r.spawn.x, z: r.spawn.z}; /* 家锚=出生环点(AI 收敛同巢穴口径, 不归巢) */
   }
+  advEruptTick(dt); /* 黑巢夜袭涌出(den-nest §2.2): 缺省铺法的第二通道——dev 整缝
+      换装(showroom 固定点位)后自然不跑, home 图以外无主巢不跑 */
+}
+let advEruptT = 0; /* 涌出节拍器(秒, advEruptStep 的状态; advNightReset 对齐) */
+function advEruptAlive() {/* 涌出怪存量(QUOTA 配额分母: 本铺法自持记账) */
+  let n = 0;
+  for (const m of Mobs.list()) {
+    if (!m.dead && !m.gone && m.__erupt) n++;
+  }
+  return n;
+}
+function advEruptTick(dt) {/* 涌出落地(夜间每 3s 一拍+概率+自持配额): 从巢口出生 1 只,
+    家锚=巢口(AI leash 收敛在巢穴周围——「出来在周围游荡」), 夜怪账照挂(黎明清场)。
+    总量仍受 ADV_NIGHT.CAP 封顶(den-nest D5: 与环带共享怪物总量红线, 涌出配额
+    只防「把环带名额吃光」) */
+  const e = advEruptStep(advEruptT, dt, dayTime, advEruptAlive(), Math.random);
+  advEruptT = e.t;
+  if (!e.spawn || advNightAlive() >= ADV_NIGHT.CAP) return;
+  const m = Mobs.spawn(e.spawn.type, ADV_DEN_NEST_DOOR.x, ADV_DEN_NEST_DOOR.z, {yaw: 0});
+  m.__nightMob = true; /* 黎明清场/床跳夜清场同夜怪 */
+  m.__nightHome = {x: ADV_DEN_NEST_DOOR.x, z: ADV_DEN_NEST_DOOR.z}; /* 游荡不离家 */
+  m.__erupt = true; /* 涌出自持配额记账(advEruptAlive) */
 }
 
 function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿 §6.2): 铺怪经政策缝
@@ -1174,6 +1200,9 @@ function advPlayerDied() {
       advExitSpot 作废——人已死, 回程记录无意义 */
     advExitSpot = null;
     advSetDim('overworld', ADV.spawn);
+  } else if (advDim === 'den') {/* D14: 副本死亡同样顺带切回主世界(回家语义) */
+    advExitSpot = null;
+    advSetDim('overworld', ADV.spawn);
   } else if (advMap !== 'home') {/* T6(§2.2/§10拍板②): 远征图死亡切回 home(满血+小屋,
       与死亡计划同语义; advExitSpot 是主世界门回程账, 与死亡无关) */
     advExitSpot = null;
@@ -1199,7 +1228,7 @@ function advGoHome() {
     advToast('🏠 小屋还在休息, 稍等一下哦'); return;
   }
   ADV.homeCd = now;
-  if (advDim === 'nether') advSetDim('overworld', ADV.spawn); /* 下界回家: 先切回上界再落小屋(与死亡同语义, 不走门) */
+  if (advDim !== 'overworld') advSetDim('overworld', ADV.spawn); /* 下界/副本回家: 先切回主世界再落小屋(与死亡同语义, 不走门) */
   else if (advMap !== 'home') advSetMap('home', ADV.spawn); /* 远征图回家同语义: 先切回 home 图再落小屋(T6) */
   const e = advGetPEnt();
   e.hp = e.maxHp; ADV.player.hp = ADV.player.maxHp; /* 顺带回满血(回家=安全休整, nether 先例) */
@@ -1528,6 +1557,7 @@ const ADV_B = {
   netherrack: (typeof B_NETHERRACK !== 'undefined') ? B_NETHERRACK : 0,
   glowstone: (typeof B_GLOWSTONE !== 'undefined') ? B_GLOWSTONE : 0,
   brick: (typeof B_NETHER_BRICK !== 'undefined') ? B_NETHER_BRICK : 0,
+  spawner: (typeof B_SPAWNER !== 'undefined') ? B_SPAWNER : 0, /* 怪物巢穴之心(den-nest D9; 精简装载缺 0=入口判定静默) */
 };
 
 /* ---------- 天空(观感逐字迁自退役 nether.js, 改名对齐本文件 ADV_ 前缀) ----------
@@ -1535,6 +1565,7 @@ const ADV_B = {
      Node/无渲染场景静默跳过; 日月天体显隐归 dayCycleOn(下界不置位即隐藏) */
 const ADV_SKY_NETHER = {color: 0x2a0a08, fogNear: 26, fogFar: 120, sunI: 0.3};
 const ADV_SKY_OVER = {color: 0x8fc7ff, fogNear: 90, fogFar: 230, sunI: 0.75};
+const ADV_SKY_DEN = {color: 0x07040a, fogNear: 18, fogFar: 80, sunI: 0.12}; /* 巢穴副本恒暗近黑(den-nest §3.2) */
 function advApplySky(k) {
   if (typeof scene === 'undefined' || !scene.fog) return;
   scene.background.set(k.color);
@@ -1588,10 +1619,12 @@ function advBeamsClear() {/* 全清(切界/cleanup): 悬空句柄再 remove 无�
   for (const h of advBeamHs) if (h && Fx.removeBeam) Fx.removeBeam(h);
   advBeamHs.length = 0;
 }
-function advBeamsRelayout() {/* 重锚当前界全部门: 下界回程门(基座, 不在 edits) +
+function advBeamsRelayout() {/* 重锚当前界全部门: 下界/副本回程门(基座, 不在 edits) +
     地图门阵亮门(建场件, 不在 edits) + edits 扫描 */
   if (advDim === 'nether') {
     advBeamAdd(ADV_NETHER.ground, ADV_NETHER.portal.px, ADV_NETHER.portal.pz);
+  } else if (advDim === 'den') {
+    advBeamAdd(ADV_DEN.ground, ADV_DEN.gate.px, ADV_DEN.gate.pz); /* 副本回程裂隙门(常亮) */
   } else {
     for (const g of advMapRow.gates) {
       if (advGateLit(g)) advBeamAdd(ADV_GROUND, g.px, g.pz); /* 亮门才有束(熄门无门面) */
@@ -1633,7 +1666,7 @@ function advGatesBuild() {/* 当前图门阵建场(loadScene 基座段收尾, �
     id 不同, advInPortal 天然不命中=「不可触发」口径不变), T8 点亮仪式以 B_PORTAL
     原位覆写换装门体才「长亮脸」。
     ADV_B.portal=0(精简装载守卫)时整体静默——门体核心引用下界方块常量 */
-  if (advDim === 'nether' || !ADV_B.portal || !ADV_B.obsidian) return; /* 下界无门阵(回程门在 advSetDim 建场段) */
+  if (advDim !== 'overworld' || !ADV_B.portal || !ADV_B.obsidian) return; /* 非主世界无门阵(副本回程门/下界回程门在 advSetDim 建场段) */
   for (const g of advMapRow.gates) {
     const lit = advGateLit(g);
     advPortalFrame((x, y, z, id) => {
@@ -1728,8 +1761,10 @@ function advSeedMapMobs() {/* 主世界怪播种(T6 行化): 当前行巢穴首�
   }
 }
 function advNightReset() {/* 夜怪账本对齐当下(昼夜 D5): 节拍器归零 + 入夜/黎明跨沿
-    账本取当下值(重进/回上界夜里不补播「天黑了」, 明侧不误触黎明清场) */
+    账本取当下值(重进/回上界夜里不补播「天黑了」, 明侧不误触黎明清场);
+    涌出节拍器同拍归零(黑巢涌出与环带同一夜门) */
   advNightT = 0;
+  advEruptT = 0;
   advWasNight = Daylight.isNight(dayTime);
   advDawnLit = advDawnSweep(dayTime);
 }
@@ -1751,7 +1786,7 @@ function advSyncMood() {
      参照 nether 合并的 'n|' 先例: 各图炉位互不串档; home(=两界时代的上界)不
      前缀 → 旧档天然兼容。**前缀知识单份在 ADV_FURN_PREFIX**(审查修复 S2: 正则/
      场景数组原先各持一份字面量, 加第五张图要改三处——两处派生物全部从表派生) */
-const ADV_FURN_PREFIX = {home: '', desert: 'd|', snow: 's|', swamp: 'w|', nether: 'n|'};
+const ADV_FURN_PREFIX = {home: '', desert: 'd|', snow: 's|', swamp: 'w|', nether: 'n|', den: 'k|'};
 const ADV_FURN_PREFIXED = Object.keys(ADV_FURN_PREFIX) /* 带前缀场景清单(表派生, 长度序同表序) */
     .filter((s) => ADV_FURN_PREFIX[s])
     .sort((a, b) => ADV_FURN_PREFIX[b].length - ADV_FURN_PREFIX[a].length);
@@ -1814,7 +1849,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     (ADV.spawn 账本, 与 advPortalExit 无关), 正常回上界缺省用 advExitSpot
     (最后进入的门, D6)——其坐标属于离开时的那张图, 回界即回该图 */
   if (dim === advDim) return;
-  advDim = dim; /* advMap 不动: nether 期间保持最后主世界图(T6) */
+  advDim = dim; /* advMap 不动: 副本/下界期间保持最后主世界图(T6) */
   advSceneLeave();
   if (dim === 'nether') {
     loadScene(() => {/* 下界基座: 平地+熔岩池+固定回程门(不记账——互锁红线) + 下界桶重放 */
@@ -1831,6 +1866,23 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     ModeKit.spawn(ADV_NETHER.base.x, ADV_NETHER.ground + 1, ADV_NETHER.base.z,
         {yaw: Math.PI}); /* 落点在回程门前数格, 面朝下界背对门(走出即离开门) */
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
+  } else if (dim === 'den') {
+    loadScene(() => {/* 副本基座: 地下巨洞+祭坛+回程门+矿藏廊(不记账——互锁红线) + den 桶重放 */
+      advOreSpotsReset(); /* 矿位白名单先清后建(副本矿藏走同一白名单, 回填在副本同样生效) */
+      advDenBuild();
+      advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
+      advRescanStations(); /* 站点缓存只反映当前场景(读当前桶) */
+      advFurnaceSettle('den'); /* 'k|' 炉键此时才有块可对(D14 泛化) */
+    });
+    advApplySky(ADV_SKY_DEN); /* 近黑天穹+近雾: 黑暗深处(den-nest §3.2) */
+    dayCycleOn = false; /* D6: 副本恒暗, dayTime 暂停(下界 D10 同口径) */
+    setPlayerGlow(false); /* 灯笼随身光熄灭(地下无昼夜, 门禁见 update) */
+    advLanternT = 0;
+    advDenT = 0; /* 副本刷怪节拍器复位 */
+    ModeKit.spawn(ADV_DEN.base.x, ADV_DEN.ground + 1, ADV_DEN.base.z,
+        {yaw: Math.PI}); /* 落点大厅南侧开阔区, 面朝北一眼看到祭坛 */
+    setFly(false);
+    advDenSeed(); /* 副本怪首刷(守卫在场, 节拍器补员) */
   } else {
     loadScene(() => {/* 主世界基座确定性重建(当前地图行 build) + 当前桶重放; 不跑
         applySweep——那是 init 旧档治愈专用, 切回来的世界本来就是干净的 */
@@ -1890,6 +1942,76 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
   advBeamsRelayout();
 }
 
+/* ============================================================
+   怪物巢穴副本壳段 (den-nest-design §3) — 副本刷怪/入口站桩/涌出接线
+   ------------------------------------------------------------
+   副本 = 探险第三维度 advDim 'den'(切界装配在 advSetDim den 分支):
+   节拍/光照门/掷点/取种纯函数在 adventure-core 巢穴副本段(ADV_DEN),
+   本段只做落地: 祭坛环带刷怪(家锚=祭坛, advMobAI leash 复用) + 主世界
+   黑巢巢厅巢之心(B_SPAWNER)的入口站桩 + 夜间巢口涌出(涌出节拍纯函数
+   advEruptStep, 落地挂在缺省夜怪铺法 advNightLayRing 尾部)。
+   ============================================================ */
+let advDenT = 0; /* 副本刷怪节拍器(秒, advDenStep 的状态; advSetDim den 分支复位) */
+function advDenAlive() {/* 副本怪存量(advNightAlive 同口径: 尸体/已移除/动物不算) */
+  let n = 0;
+  for (const m of Mobs.list()) {
+    if (!m.dead && !m.gone && m.cfg && !m.cfg.passive) n++;
+  }
+  return n;
+}
+function advDenSpawnOne() {/* 单只副本怪: 祭坛环带掷点 → 光照门复核(火把圈=防刷怪圈,
+    不过本拍作废——夜怪同款逐拍独立) → spawn + 家锚 + 落位修正。返 boolean 供首刷计数 */
+  const s = advDenSpot(Math.random);
+  const bx = Math.floor(s.x); const bz = Math.floor(s.z);
+  if (bx < 0 || bz < 0 || bx >= WORLD_W || bz >= WORLD_D) return false;
+  if (!advDenCanSpawn(lightSkyAt(bx, ADV_DEN.ground + 1, bz),
+      lightBlockAt(bx, ADV_DEN.ground + 1, bz))) return false;
+  const m = Mobs.spawn(advDenPick(Math.random), s.x, s.z, {yaw: 0});
+  m.pos.y = ADV_DEN.ground + 1; /* spawn 贴列顶(穹顶), 显式落厅地面(Mobs 许可直写, 女巫先例) */
+  m.__nightHome = {x: ADV_DEN.altar.x + 0.5, z: ADV_DEN.altar.z + 0.5}; /* 家锚=祭坛(advMobAI leash 原点, 祭坛周围游荡) */
+  return true;
+}
+function advDenSeed() {/* 副本怪首刷: 进副本即有守卫(节拍器随后补员) */
+  for (let k = 0; k < 2; k++) advDenSpawnOne();
+}
+function advDenTick(dt) {/* 副本刷怪节拍(update 每帧, den 门禁内): 纯函数节拍
+    (配额未满 2.5s 一拍) → 掷点+光照门落地 */
+  const step = advDenStep(advDenAlive(), advDenT, dt);
+  advDenT = step.t;
+  if (step.spawn) advDenSpawnOne();
+}
+
+/* ---------- 副本入口站桩(den-nest §3.3): 主世界巢厅巢之心旁 2s ---------- */
+const advDenHold = {t: 0}; /* 巢之心站桩秒累计(advGateHoldStep 同构复用; 与门阵站桩独立) */
+const ADV_DEN_GATE = {r: 1.8, hintCd: 8}; /* 判定半径(格)/引导话术节流秒 */
+const advDenCore = {/* 巢之心判定锚(方块中心): 与 advBuildDenNest 放置格同源派生 */
+  x: ADV_NESTS[3].x + 0.5, y: 8.5, z: ADV_NESTS[3].z + 19 + 0.5,
+};
+let advDenHintT = 0; /* 引导话术节流秒(update 递减) */
+function advDenGateTick(dt) {/* 入口站桩(update 每帧): 主世界 home 图才判——距巢之心
+    ≤1.8 格站桩 2s(可反悔, 门阵同款红线) → 记入口落点 → 渐晕转场(kind den)。
+    首次靠近给引导话术(节流); ADV_B.spawner=0(精简装载)时整体静默 */
+  advDenHintT = Math.max(0, advDenHintT - dt);
+  if (advDim !== 'overworld' || advMap !== 'home' || !ADV_B.spawner || advSleep.on) {
+    advDenHold.t = advGateHoldStep(advDenHold.t, false, dt).t; /* 离开判定域即刻归零(可反悔) */
+    return;
+  }
+  const near = Math.hypot(pos.x - advDenCore.x, pos.y - advDenCore.y,
+      pos.z - advDenCore.z) <= ADV_DEN_GATE.r;
+  if (near && advDenHintT <= 0 && advDenHold.t === 0) {
+    advSpeak('怪物的心脏在咚咚跳…站一会儿，就能钻进巢穴深处！');
+    advDenHintT = ADV_DEN_GATE.hintCd;
+  }
+  const was = advDenHold.t;
+  const hold = advGateHoldStep(advDenHold.t, near, dt);
+  advDenHold.t = hold.t;
+  if (was === 0 && hold.t > 0) advSfx('portal_charge'); /* 站桩起步蓄能音(双段式第一段) */
+  if (hold.fire) {
+    advExitSpot = {x: pos.x, y: pos.y, z: pos.z, yaw}; /* 入口落点记账(回主世界落此, D6 语义复用) */
+    advVeilFire({to: 'den', kind: 'den'}); /* 渐晕转场(到达侧在 advVeilArrive 分流) */
+  }
+}
+
 /* ---------- 门阵站桩与渐晕遮罩(票据 T7, 设计稿 §4.1 时序) ----------
      时序: 门面内站桩 2s(走出门面即刻归零, 可反悔; 纯步进 advGateHoldStep 在
      adventure-maps-core) → 站满进渐晕: 400ms 淡入 → 满格瞬间切图(advSetMap,
@@ -1898,7 +2020,9 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
      css/style.css, 幼儿忌纯黑)。冷却复用 ADV_PORTAL.cd(落地空眩晕, 两类门同款) */
 const advGateHold = {t: 0}; /* 门面站桩秒累计(advGateHoldStep 的状态; nether 门不入账) */
 const ADV_VEIL_T = 0.4; /* 渐晕单段时长秒(双段共 0.8s) */
-const advVeil = {phase: 'idle', t: 0, to: '', from: ''}; /* 渐晕转场态: idle/in/out · to=目标图 · from=来时图(找对应回程门) */
+/* 渐晕转场态: idle/in/out · to=目标图 · from=来时图(找对应回程门) ·
+   kind=map 门阵切图 | den 巢穴副本(advVeilArrive 分流, den-nest §3.3) */
+const advVeil = {phase: 'idle', t: 0, to: '', from: '', kind: 'map'};
 function advVeilEl() {/* #portalVeil 渐晕遮罩(index.html; Node 测试取 document 桩, 缺席静默) */
   return (typeof document !== 'undefined' && document.getElementById) ?
     document.getElementById('portalVeil') : null;
@@ -1914,19 +2038,27 @@ function advVeilReset() {/* 收尾/中断: 转场归零 + 遮罩收起(不渗其
   advVeil.t = 0;
   advVeilSet(0);
 }
-function advVeilFire(gate) {/* 站满发令: 开渐晕转场 + 进冷却(0.8s 盖过整个转场窗, 防连触) */
+function advVeilFire(gate) {/* 站满发令: 开渐晕转场 + 进冷却(0.8s 盖过整个转场窗, 防连触)。
+    gate.kind='den'(巢穴副本入口, den-nest §3.3)缺省 'map'(门阵切图) */
   advVeil.phase = 'in';
   advVeil.t = 0;
   advVeil.to = gate.to;
   advVeil.from = advMap; /* 来时图: 到达侧找 to===from 的那扇门(沙漠门进沙漠门出) */
+  advVeil.kind = gate.kind || 'map';
   advGateHold.t = 0;
   advPortalCd = ADV_PORTAL.cd;
 }
-function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): 切图 + 落对应回程门内 + 到达音/播报 */
+function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——den=切副本 / map=切图 */
+  advSfx('portal_travel'); /* 双段式第二段: 与遮罩满格同拍 */
+  if (advVeil.kind === 'den') {
+    advSetDim('den'); /* 换桶/建场/暗黑天穹/首刷在切界装配(den-nest §3.3 ②) */
+    advSpeak('你钻进了怪物巢穴深处！');
+    advToast('🕳️ 钻进了怪物巢穴深处！');
+    return;
+  }
   const row = ADV_MAPS.find((r) => r.id === advVeil.to);
   if (!row || row.id === advMap) return; /* 未知键/已在该图(死亡竞态): 静默 */
   const g = row.gates.find((q) => q.to === advVeil.from) || row.gates[0]; /* 对应门, 单门图兜底 */
-  advSfx('portal_travel'); /* 双段式第二段: 与遮罩满格同拍 */
   advSetMap(advVeil.to, advMapArriveAt(g)); /* 回程门落点(advPortalExit 口径) */
   if (advVeil.to !== 'home') advTally('visit_' + advVeil.to, 1); /* 到达记账(T8 发现型): home 无此键 */
   const home = advVeil.to === 'home';
@@ -3105,7 +3237,8 @@ function advUseStation(hit, lookId) {
   }
   if (lookId === B_CHEST) {
     if (Math.hypot(hit.x + 0.5 - pos.x, hit.z + 0.5 - pos.z) <= ADV_STATION_R) {
-      const ck = advMapChestKey(advMap, hit.x, hit.y, hit.z); /* 结构宝箱键(T8 探宝型): 图+坐标双判定 */
+      const ck = advMapChestKey(advSceneKey(), hit.x, hit.y, hit.z); /* 结构宝箱键(T8 探宝型): 场景+坐标双判定
+          (场景键=地图 id 或副本 den——advMap 在副本期间保持主世界图, 不能用它) */
       if (ck) advTally(ck, 1); /* 他图/自放箱返 null 只走 open_chest, 防冒名 */
       advChestOpenPanel();
     } else {
@@ -3130,6 +3263,18 @@ function advHudLines(hit) {
       '🌌 下界 · 黑漆漆亮晶晶',
       `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
+      `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
+      `📖 任务: ${qTxt}`,
+      `注视: ${ModeKit.lookName(hit)} · B 菜单`,
+    ];
+  }
+  if (advDim === 'den') {/* 副本态(den-nest §3.2): 首行换巢穴横幅; 恒暗不显时段行,
+      怪物行照显(副本有怪——配额观感) */
+    return [
+      '🕳️ 怪物巢穴 · 黑暗深处',
+      `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
+      `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
+      `👾 怪物: ${alive} · ☠️ 击杀: ${ADV.killCount}`,
       `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
       `📖 任务: ${qTxt}`,
       `注视: ${ModeKit.lookName(hit)} · B 菜单`,
@@ -3166,6 +3311,10 @@ const AdventureMode = mkMode({
     advExitSpot = null;
     advMood = null; /* 首帧 update 按当下昼夜补报场景曲(main 随后会先报基线 adventure) */
     advGateHold.t = 0; /* 门阵站桩归零(T7): 转场不跨场次 */
+    advDenHold.t = 0; /* 巢之心站桩归零(den-nest §3.3): 同上 */
+    advDenHintT = 0; /* 入口引导话术节流复位 */
+    advDenT = 0; /* 副本刷怪节拍器复位(维度不进档, 重进恒主世界) */
+    advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
     advGateLockT = 0; /* 锁门提示节流复位 */
     advMap = advLoad.map;
@@ -3313,6 +3462,7 @@ const AdventureMode = mkMode({
     advExitSpot = null;
     advMood = null; /* 下一场/下一模式重新同步(不把本场缓存带出去) */
     advGateHold.t = 0; /* 门阵站桩归零(T7) */
+    advDenHold.t = 0; /* 巢之心站桩归零(den-nest §3.3) */
     advVeilReset(); /* 渐晕遮罩收起(T7): 中途退出模式不留紫屏 */
     advGateLockT = 0; /* 锁门提示节流复位 */
     advMapRowCleanup(); /* 行调色板复位内含 advApplySky(ADV_SKY_OVER), 不另重复调用 */
@@ -3378,6 +3528,7 @@ const AdventureMode = mkMode({
     advGateLockTick(dt); /* 锁门提示(T7): 走近熄门给「完成任务就会亮」话术(节流) */
     advStoneEggT = Math.max(0, advStoneEggT - dt); /* 石阵灯坛点击节流递减(彩蛋段) */
     advPortalTick(dt); /* 传送触发(§3.3/T7): 冷却递减 + 门面判定 → 地图门站桩/nether 切界分流 */
+    advDenGateTick(dt); /* 副本入口站桩(den-nest §3.3): 主世界巢厅巢之心旁 2s → 渐晕切副本 */
     advTempleTrapTick(); /* 神殿可疑地板踩塌(审查修复 P1): 站上 2×2 砂岩地板即塌入宝箱室 */
     advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */
     advMelee.tick(dt); /* 挥击冷却递减(kit 自持, T14 口径不变) */
@@ -3393,22 +3544,25 @@ const AdventureMode = mkMode({
       advEnvHurt(FLUID.lavaDps, '好烫！快离开岩浆！');
     }
     if (advBubbles) advBubbles.update(playerAirS / FLUID.airMaxS); /* 溺气泡条(liquid D10) */
-    if (advDim === 'overworld') {/* 维度门禁(§3.3 泛化, T6): 人在下界时停掉主世界专属
-        子系统——树苗计时若在下界跑, 树会长在「当前世界」且足迹记账进下界桶(串档事故);
-        巢穴节律/夜怪刷怪/牧场 AI 是主世界怪的系统(下界无怪, 池随当前地图行);
-        灯笼耗秒是主世界夜晚机制(D10 下界恒夜由天穹呈现, 不亮不耗)。切图不门禁
-        (各图都有树苗/巢穴/夜晚, 计时账随 advSceneLeave 清空防跨图坐标串档)。
-        任务/背包提醒两图/界照旧 */
+    if (advDim === 'overworld') {/* 维度门禁(§3.3 泛化, T6 + den-nest §3.2): 人在下界/副本时
+        停掉主世界专属子系统——树苗计时若在别界跑, 树会长在「当前世界」且足迹记账进
+        别界桶(串档事故); 巢穴节律/夜怪刷怪/牧场 AI 是主世界怪的系统(池随当前地图行);
+        灯笼耗秒是主世界夜晚机制(别界恒暗由天穹呈现, 不亮不耗)。切图不门禁(各图都有
+        树苗/巢穴/夜晚, 计时账随 advSceneLeave 清空防跨图坐标串档)。任务/背包提醒照旧 */
       advSapTick(dt); /* 树苗 20s 计时到期长树(T12; 占位预检拒绝式) */
       advWheatTick(dt); /* 麦 20s/阶段生长推进(farm-and-recipe D3) */
       if (advFarmHintT > 0) advFarmHintT -= dt; /* 农田引导话术节流递减 */
       advTreeRegenTick(dt); /* 凋零树位恢复计时到期长回(生态恢复 A 通道) */
-      advMobAI(dt); /* 巢穴怪物: 索敌/攻击/收队(nether 同骨架; passive 动物在此排除) */
       advHerdTick(dt); /* F4 牧场动物: 恐惧游荡/闲逛(与战斗 AI 互斥的两条驱动) */
       advBreedTick(dt); /* 自动繁育: 同种成年邻近配对产崽(生态恢复 B 通道, 拍板①) */
       advNestTick(dt); /* 巢穴节律: 全清 60s 再刷(每巢独立计时) */
       advNightTick(dt); /* 夜怪节拍 + 入夜/黎明跨沿(昼夜 D5: 环带刷怪/配额/温和清场/播报) */
       advLanternTick(dt); /* 灯笼政策(昼夜 D7): 天黑手持才亮才耗, 持满 1 秒扣耐久 */
+    }
+    if (advDim === 'den') advDenTick(dt); /* 副本刷怪补员(den-nest §3.2: 祭坛环带+光照门+配额) */
+    if (advDim !== 'nether') {
+      advMobAI(dt); /* 战斗 AI: 主世界巢穴怪+副本怪共用一套(下界无怪不跑;
+          副本怪家锚 __nightHome=祭坛, leash/收队/索敌零改动) */
     }
     Mobs.update(dt);
     Mobs.render();

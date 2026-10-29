@@ -391,6 +391,14 @@ BLOCKS[B_FLOWER_W] = {name: '雏菊', all: [0.93, 0.93, 0.91], thin: 0.65, solid
    自洽走探险模式政策(设计稿 §3), 玻璃板无旗标=失撑浮空, 恰与 MC 一致。 */
 const B_DOOR=64; const B_DOOR_TOP=65; const B_DOOR_OPEN=66; const B_DOOR_TOP_OPEN=67;
 const B_GLASS_PANE=68;
+
+/* ---------- 怪物巢穴之心 (id 70, docs/den-nest-design.md) ----------
+   黑巢巢厅与副本祭坛的机制件(MC 刷怪笼地牢的语义转译, 差异表 #2/#3):
+   无 hard = 声明式不可破坏(下界门框 D5 同口径——入口机制件拆不得, 配套话术在
+   模式层); light 5 微红光 = 黑暗巢厅里「看得见心脏在跳」, 不影响副本刷怪
+   (副本光照门认方块光 0, 巢之心自发光恰好圈出自己周围的不刷怪区)。 */
+const B_SPAWNER=70;
+BLOCKS[B_SPAWNER] = {name: '怪物巢穴之心', all: [0.22, 0.06, 0.07], light: 5};
 BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true,
   hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // MC 硬度 3 斧头加速; 关=实心挡人挡光
 BLOCKS[B_DOOR_TOP] = {name: '门(上)', all: [0.66, 0.52, 0.33], pane: true,

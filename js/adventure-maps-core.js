@@ -561,7 +561,9 @@ function advMapUnlocked(mapId, counts) {
 /* 结构宝箱坐标 → 探宝型任务计数键(T8): 三座结构的建场宝箱各记一键
    (chest_temple/chest_igloo/chest_witch), 图+坐标双重判定(坐标与建场函数
    同源常量)——他图同坐标/玩家自放的箱子/结构邻格返 null(防「带箱远征」
-   与「挖坑埋箱冒名」的 cheese, 探宝要探真结构) */
+   与「挖坑埋箱冒名」的 cheese, 探宝要探真结构)。den 行=巢穴副本宝箱室
+   (den-nest-design D11/D12, 坐标与 advDenBuild 同源 ADV_DEN.chest;
+   mapId 实参是场景键 advSceneKey()——副本期间 advMap 保持主世界图) */
 function advMapChestKey(mapId, x, y, z) {
   if (mapId === 'desert' && x === ADV_DESERT.temple.cx && y === 20 && z === ADV_DESERT.temple.cz) {
     return 'chest_temple';
@@ -571,6 +573,9 @@ function advMapChestKey(mapId, x, y, z) {
   }
   if (mapId === 'swamp' && x === ADV_SWAMP.hut.x && y === ADV_GROUND + 4 && z === ADV_SWAMP.hut.z) {
     return 'chest_witch';
+  }
+  if (mapId === 'den' && x === ADV_DEN.chest.x && y === ADV_DEN.chest.y && z === ADV_DEN.chest.z) {
+    return 'chest_den';
   }
   return null;
 }

@@ -30,6 +30,7 @@ function loadCfg() {
     B_DEAD_BUSH, B_ORCHID, B_FLOWER_Y, B_FLOWER_W,
     B_LAVA, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM,
     B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
+    B_SPAWNER,
   };`, ctx);
   return ctx.__c;
 }
@@ -86,7 +87,7 @@ test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽�
 
 /* ============ 门与玻璃板 id 段(64~68, docs/door-window-design.md §2) ============ */
 
-test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 id 70+(两格床改版床尾占 69)', () => {
+test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 id 71+(69=床尾 · 70=怪物巢穴之心)', () => {
   const c = loadCfg();
   const expect = {B_DOOR: 64, B_DOOR_TOP: 65, B_DOOR_OPEN: 66, B_DOOR_TOP_OPEN: 67, B_GLASS_PANE: 68};
   for (const [k, id] of Object.entries(expect)) {
@@ -94,10 +95,12 @@ test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_POR
     assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
     assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
-  /* 红线: 存档按数字 id 记, 70+ 是后续号段预留, 现有表不得越界
-     (69 已被两格床改版床尾 B_BED_FOOT 占用, 2026-10-29) */
+  /* 红线: 存档按数字 id 记, 71+ 是后续号段预留
+     (69=两格床改版床尾 B_BED_FOOT 2026-10-29 · 70=怪物巢穴之心 B_SPAWNER, den-nest D9) */
+  assert.strictEqual(c.B_SPAWNER, 70, '巢穴之心占 70(den-nest-design 号段顺延)');
+  assert.ok(c.BLOCKS[70], 'BLOCKS[70] 应有定义');
   for (const id of Object.keys(c.BLOCKS)) {
-    assert.ok(Number(id) <= 69, 'BLOCKS 出现 70+ 方块 id: ' + id + '(号段红线)');
+    assert.ok(Number(id) <= 70, 'BLOCKS 出现 71+ 方块 id: ' + id + '(号段红线)');
   }
 });
 
@@ -359,17 +362,18 @@ test('只增不改: 存量方块 name 与颜色三元组保持原值', () => {
 
 /* ============ 光源字段 light(昼夜设计稿 §5.1, D4) ============ */
 
-test('光源方块 light 四条(昼夜设计稿 §5.1): 火把 14 · 灯块/发光岩/岩浆 15; 光源面反白名单', () => {
+test('光源方块 light 五条(昼夜设计稿 §5.1 + den-nest D9): 火把 14 · 灯块/发光岩/岩浆 15 · 巢穴之心 5; 光源面反白名单', () => {
   const c = loadCfg();
   assert.strictEqual(c.BLOCKS[c.B_TORCH].light, 14, '火把 14: 照亮半径 13 菱形(research TL;DR #7)');
   assert.strictEqual(c.BLOCKS[19].light, 15, '灯块 15: 同级光源(MC 灯笼/萤石口径)');
   assert.strictEqual(c.BLOCKS[c.B_GLOWSTONE].light, 15, '发光岩 15(MC 萤石)');
   assert.strictEqual(c.BLOCKS[c.B_LAVA].light, 15, '岩浆 15(MC 岩浆)');
-  /* 反白名单: 光源清单 = 恰好这四个, 别的方块带 light 即手滑(改动即有意) */
-  const litIds = [String(c.B_TORCH), '19', String(c.B_GLOWSTONE), String(c.B_LAVA)];
+  assert.strictEqual(c.BLOCKS[c.B_SPAWNER].light, 5, '巢穴之心 5: 微红光(den-nest D9 黑暗巢厅里「看得见心脏在跳」)');
+  /* 反白名单: 光源清单 = 恰好这五条, 别的方块带 light 即手滑(改动即有意) */
+  const litIds = [String(c.B_TORCH), '19', String(c.B_GLOWSTONE), String(c.B_LAVA), String(c.B_SPAWNER)];
   for (const [id, b] of Object.entries(c.BLOCKS)) {
     assert.ok(!b.light || litIds.includes(id),
-        id + '(' + b.name + ') 不在光源表(设计稿 §5.1), 不得带 light 字段');
+        id + '(' + b.name + ') 不在光源表(设计稿 §5.1 + den-nest D9), 不得带 light 字段');
   }
 });
 

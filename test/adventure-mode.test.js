@@ -90,6 +90,7 @@ const api = vm.runInContext(`({
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
   B_PORTAL, B_PORTAL_DIM, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
+  B_SPAWNER, /* 黑巢巢之心(den-nest: home 行 build 经 advBuildDenNest 消费) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime, itemUses,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
@@ -597,22 +598,23 @@ test('探险模式: 山洞隧道通 y<10 深处, 沿途裸露铁/金/钻石矿(�
   assert.ok(countId(api.B_DIAMOND_ORE, (x, y, z)=>nearCave(x, y, z) && y <= 5) >= 2, '深处钻石矿(含穴室保底)');
 });
 
-test('探险模式: 3 个怪物巢穴 — 土丘洞穴地形就位 + init 每巢限量首刷 2~3 只(T14)', () => {
+test('探险模式: 4 个怪物巢穴 — 土丘洞穴地形就位 + init 每巢限量首刷 2~3 只(T14)', () => {
   freshInit();
   const nests = A.ADV.nests;
-  assert.strictEqual(nests.length, 3, '三个巢穴位点');
+  assert.strictEqual(nests.length, 4, '四个巢穴位点(三普通巢 + 黑巢主巢, den-nest §2)');
   nests.forEach((n, i) => {
     assert.ok(n.x >= 2 && n.x < W - 2 && n.z >= 2 && n.z < D - 2, '巢穴 ' + i + ' 在界内');
     assert.ok(Array.isArray(n.kinds) && n.kinds.length >= 2, '巢穴 ' + i + ' 常量表带刷怪种类池');
+    if (n.den) return; /* 黑巢是石质巨丘+深洞道(黑曜石斑), 不是泥土土丘——专属断言在 adventure-den.test */
     assert.strictEqual(cell(n.x, 25, n.z), 2, '巢穴 ' + i + ' 是土丘(泥土穹顶)');
     assert.strictEqual(cell(n.x, 25, n.z + 2), 0, '巢穴 ' + i + ' 有洞口');
   });
   /* init 首刷: 每巢 2~3 只, 种类取自本巢 kinds 池, 落位在土丘洞口附近环带(不贴脸);
      F4 牧场动物也在 spawned 里(无 nest 归属), 按挂件滤出巢穴怪再断言 */
-  const byNest = [[], [], []];
+  const byNest = [[], [], [], []];
   for (const m of mobsState.spawned) {
     if (m.__livestockIdx != null) continue; /* F4 牧场动物不是巢穴怪 */
-    assert.ok(m.nest >= 0 && m.nest < 3, '刷出的怪挂巢穴归属(m.nest)');
+    assert.ok(m.nest >= 0 && m.nest < 4, '刷出的怪挂巢穴归属(m.nest)');
     byNest[m.nest].push(m);
   }
   byNest.forEach((ms, i) => {
@@ -865,25 +867,26 @@ test('探险模式: 🎒/Tab 开关背包配方书面板(本单只挂上, 合成
 /* 巢穴节律纯函数(advNestCount/advNestStep)与 D9 挥击伤害表、掉落清单纯函数的
    直测在 test/adventure-core.test.js——此处只留行为链 */
 
-test('T14 巢穴节律: 行为 — 全清 60 秒后三巢各再刷 2~3 只', () => {
+test('T14 巢穴节律: 行为 — 全清 60 秒后四巢各再刷 2~3 只', () => {
   freshInit();
   mobsState.spawned.length = 0; /* 全清(连同尸体) */
   listResult = [];
   for (let i = 0; i < 3540; i++) AdventureMode.update(1 / 60); /* 59s: 还不到 */
   assert.strictEqual(mobsState.spawned.length, 0, '60s 内不刷');
   for (let i = 0; i < 120; i++) AdventureMode.update(1 / 60); /* 跨过 60s */
-  assert.ok(mobsState.spawned.length >= 6 && mobsState.spawned.length <= 9,
-      '三巢各再刷 2~3 只: ' + mobsState.spawned.length);
+  assert.ok(mobsState.spawned.length >= 8 && mobsState.spawned.length <= 12,
+      '四巢各再刷 2~3 只: ' + mobsState.spawned.length);
 });
 
-test('T14 巢穴节律: 计时逐巢独立 — B/C 巢有活怪不重刷, A 巢到点单独再刷', () => {
+test('T14 巢穴节律: 计时逐巢独立 — B/C/D 巢有活怪不重刷, A 巢到点单独再刷', () => {
   freshInit();
   mobsState.spawned.length = 0;
-  listResult = [mkAdvMob('spider', 87, 25, 97, {nest: 1}), mkAdvMob('zombie', 57, 25, 21, {nest: 2})];
+  listResult = [mkAdvMob('spider', 87, 25, 97, {nest: 1}), mkAdvMob('zombie', 57, 25, 21, {nest: 2}),
+    mkAdvMob('cave_spider', 90, 25, 15, {nest: 3})];
   for (let i = 0; i < 3660; i++) AdventureMode.update(1 / 60); /* 61s */
   const got = mobsState.spawned;
   assert.ok(got.length >= 2 && got.length <= 3, '只有 A 巢再刷 2~3 只: ' + got.length);
-  assert.ok(got.every((m) => m.nest === 0), '再刷的都归 A 巢(B/C 巢没跟着刷)');
+  assert.ok(got.every((m) => m.nest === 0), '再刷的都归 A 巢(B/C/D 巢没跟着刷)');
 });
 
 test('T14 玩家挥击: 点击 → 准星方向最近怪按工具伤害受击 + 命中扣耐久 + 冷却节拍', () => {
@@ -1827,20 +1830,21 @@ test('T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落�
 
 /* ============ 引导链 v2: 15 步主线 + 终章 + 大宝箱 ============ */
 
-test('QUESTS 数据表: 15 步主线 + 终章 + 远征章 10 — 步序照引导链 v2/远征链, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
+test('QUESTS 数据表: 15 步主线 + 终章 + 远征章 11 — 步序照引导链 v2/远征链, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
   const qs = ADV_QUESTS; /* 任务表常量经 core 全局直取 */
-  assert.strictEqual(qs.length, 26, '15 步主线 + 终章 + 远征章 10(引导 1 + 每图 3)');
+  assert.strictEqual(qs.length, 27, '15 步主线 + 终章 + 远征章 11(引导 1 + 每图 3 + 巢穴宝箱, den-nest D12)');
   assert.deepStrictEqual(qs.map((q) => q.id),
       ['q1_log', 'q2_planks', 'q3_table', 'q4_chest', 'q5_sapling', 'q6_pick_wood',
         'q7_cobble', 'q8_pick_stone', 'q9_coal', 'q10_torch', 'q11_iron', 'q12_smelt',
         'q13_pick_iron', 'q14_fight', 'q15_diamond', 'finale',
         'q16_plaza', 'q17_desert', 'q18_cactus', 'q19_temple',
-        'q20_snow', 'q21_snowball', 'q22_igloo', 'q23_swamp', 'q24_bogged', 'q25_witch_chest'],
-      '步序 = 引导链 v2(砍树→…→钻石剑, docs/story-quest-research.md) + 远征章(T8: 广场→沙漠三连→雪原三连→沼泽三连)');
+        'q20_snow', 'q21_snowball', 'q22_igloo', 'q23_swamp', 'q24_bogged', 'q25_witch_chest',
+        'q26_den_chest'],
+      '步序 = 引导链 v2(砍树→…→钻石剑, docs/story-quest-research.md) + 远征章(T8: 广场→沙漠三连→雪原三连→沼泽三连) + 巢穴宝箱(den-nest)');
   assert.strictEqual(qs[15].finale, true, '第 16 条是终章(主线 15 条不带 finale 标记)');
   assert.ok(qs.slice(0, 15).every((q) => !q.finale), '主线步骤无 finale 标记');
   assert.ok(qs.slice(16).every((q) => !q.finale), '远征章不冒用终章标记(称号仪式感专属)');
-  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 26, 'id 唯一');
+  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 27, 'id 唯一');
 });
 
 test('T15 谓词逐条: 最小满足触发 / 空账本或差一不触发 / 复合步条件缺一不可', () => {
@@ -2605,8 +2609,8 @@ test('F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 
   assert.deepStrictEqual(A.getSaveView().world.livestock,
       {home: {dead: [0], bred: [], sheared: {}}, desert: {dead: [], bred: [], sheared: {}},
         snow: {dead: [], bred: [], sheared: {}}, swamp: {dead: [], bred: [], sheared: {}},
-        nether: {dead: [], bred: [], sheared: {}}},
-      '死畜索引顺手落账(同一回调; v3 三栏桶: dead/bred/sheared 剪毛账)');
+        nether: {dead: [], bred: [], sheared: {}}, den: {dead: [], bred: [], sheared: {}}},
+      '死畜索引顺手落账(同一回调; v3 三栏桶: dead/bred/sheared 剪毛账; den 桶 den-nest D8)');
   /* 收获观感 + 不记账(挥击行为链: 准星锥内命中, 脚本 freshDead) */
   globalThis.yaw = 0;
   pos.x = 40; pos.y = 25; pos.z = 50;
@@ -2677,7 +2681,8 @@ test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索
   mobsState.deathCbs[0](victim); /* 走真实 onDeath 回调(掉落+落账同帧) */
   const deadBuckets = {home: {dead: [victim.__livestockIdx], bred: [], sheared: {}},
     desert: {dead: [], bred: [], sheared: {}}, snow: {dead: [], bred: [], sheared: {}},
-    swamp: {dead: [], bred: [], sheared: {}}, nether: {dead: [], bred: [], sheared: {}}};
+    swamp: {dead: [], bred: [], sheared: {}}, nether: {dead: [], bred: [], sheared: {}},
+    den: {dead: [], bred: [], sheared: {}}};
   assert.deepStrictEqual(A.getSaveView().world.livestock, deadBuckets, '死畜账在内存(v3 三栏桶形状)');
   assert.ok(dropsState.spawned.length >= 1, '掉落照常(收获链不断)');
   AdventureMode.cleanup();

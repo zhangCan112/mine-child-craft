@@ -28,6 +28,7 @@ const api = vm.runInContext(`({
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_CACTUS, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
   B_FLOWER_Y, B_FLOWER_W,
   B_CHEST, B_PORTAL, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
+  B_SPAWNER, /* 黑巢巢之心(den-nest: home 行 build 经 advBuildDenNest 消费) */
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 /* 上一层共享词法: ADV_GROUND/ADV_SPAWN/ADV_PORTAL/ADV_HOME_ROW/advPortalExit/advBuildWorld */

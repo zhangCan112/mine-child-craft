@@ -75,7 +75,8 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 46, '已绘制格数 = 46(43+床头顶/床侧/床尾顶: 雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花/门/玻璃板/床两格)');
+  assert.strictEqual(t.TextureAtlas.count, 47,
+      '已绘制格数 = 47(46+巢穴之心: 雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花/门/玻璃板/床两格/怪物巢穴之心)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   const bed = t.TextureAtlas.layout.tiles[t.B_BED];

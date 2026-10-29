@@ -58,6 +58,7 @@ const TextureAtlas = (() => {
   const T_ORCHID = 37; const T_FLOWER_Y = 38; const T_FLOWER_W = 39;
   const T_DOOR_BOTTOM = 40; const T_DOOR_TOP = 41; const T_GLASS_PANE = 42;
   const T_BED_TOP = 43; const T_BED_SIDE = 44; const T_BED_TOP_FOOT = 45;
+  const T_SPAWNER = 46; /* 怪物巢穴之心(den-nest-design D9): 铁笼网格+暗红核 */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -507,6 +508,26 @@ const TextureAtlas = (() => {
       }
     }
   };
+  /* 怪物巢穴之心(den-nest-design D9): 暗铁笼网格(竖/横笼条) + 中央暗红核
+      (跳动的心——内核亮斑+外圈渐暗); 底色近黑衬光(light 5 自发光观感底) */
+  PAINTERS[T_SPAWNER] = (px, rng)=>{
+    noiseFill(px, rng, [30, 24, 26], 0.06); // 近黑底(铁笼缝隙的暗腔)
+    for (let i=0; i<TILE; i++) {
+      for (const b of [1, 6, 11, 15]) { // 竖笼条 x 与横笼条 y 同网格
+        const v = 1 + (rng() * 2 - 1) * 0.08;
+        setP(px, b, i, [86 * v, 82 * v, 88 * v]); setP(px, i, b, [86 * v, 82 * v, 88 * v]);
+        if (rng() < 0.25) setP(px, b, i, [62, 58, 64]); // 笼条锈斑
+      }
+    }
+    for (let dy=-3; dy<=3; dy++) { // 中央 7×7 红核: 距心渐暗(心脏光晕)
+      for (let dx=-3; dx<=3; dx++) {
+        const d = Math.hypot(dx, dy);
+        if (d > 3.2) continue;
+        setP(px, 8 + dx, 8 + dy, d < 1.2 ? [228, 64, 64] : (d < 2.2 ? [168, 34, 44] : [104, 18, 28]));
+      }
+    }
+    setP(px, 7, 7, [255, 120, 110]); setP(px, 8, 7, [240, 90, 84]); // 内核高光(跳动亮点)
+  };
 
   /* ---------- 布局: 方块 id → 格号(MeshCore opts.atlas 载荷) ----------
      number = 全格同图; {top,side,bottom} = 分面。底面共享泥土/木板格是
@@ -548,6 +569,8 @@ const TextureAtlas = (() => {
          防 atlasTileOf 越界。床头顶的枕按床尾方位由 mesh 旋转 UV */
       [B_BED]: {top: T_BED_TOP, side: T_BED_SIDE, bottom: T_BED_SIDE},
       [B_BED_FOOT]: {top: T_BED_TOP_FOOT, side: T_BED_SIDE, bottom: T_BED_SIDE},
+      /* 怪物巢穴之心 70(den-nest-design): 铁笼+红核整格同图 */
+      [B_SPAWNER]: T_SPAWNER,
     },
   };
 

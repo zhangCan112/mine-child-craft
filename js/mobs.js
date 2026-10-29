@@ -294,6 +294,20 @@ const Mobs = (() => {
     m.label.scale.set(LABEL_BASE_W*ls, LABEL_BASE_H*ls, 1);
   }
 
+  /* 脚下地面顶 y(地下空间感知): 列顶即地面(地表怪——groundTop 原语义,
+     记忆化热点不动); 列顶远高于脚(怪在洞里: 怪物巢穴副本/黑巢洞道等
+     地下空间) → 从脚位向下扫描首个实心格顶。洞判据阈值 1.5(正常台阶
+     高差 ≤1.05, MobCore.stepMove 同源); 世界查询归引擎本份, 地下语义
+     不含任何玩法知识(副本/洞道是应用层概念) */
+  function groundUnderAt(x, z, refY) {
+    const bx = Math.floor(x); const bz = Math.floor(z);
+    const top = groundTop(bx, bz);
+    if (top <= refY + 1.5) return top;
+    let s = Math.min(Math.floor(refY), WORLD_H - 2);
+    for (; s > 0; s--) if (getBlock(bx, s, bz) !== 0) break;
+    return s;
+  }
+
   /* 游荡(演习场靶怪): 随机换向 · 栅栏/撞墙回头 · 贴地爬坡 · 步态关节 */
   function wanderStep(m, dt) {
     const gp = m.pos; const f = m.wander;
@@ -310,7 +324,7 @@ const Mobs = (() => {
       return;
     }
     m.yaw = Math.atan2(Math.cos(m.wanderDir), Math.sin(m.wanderDir)); // 模型面朝 +Z
-    MobCore.stepMove(m, nx-gp.x, nz-gp.z, groundTop);
+    MobCore.stepMove(m, nx-gp.x, nz-gp.z, (bx, bz) => groundUnderAt(bx, bz, gp.y));
     settle(m, dt);
     m.speedNow = sp;
     gait(m, dt, sp);
@@ -384,8 +398,8 @@ const Mobs = (() => {
      shift  无碰撞平移(飞行单位的巡航/盘旋)
      setPos 几何回弹的绝对落位(边界约束把单位拉回场内) */
   function move(m, dx, dz) {
-    MobCore.stepMove(m, dx, 0, groundTop);
-    MobCore.stepMove(m, 0, dz, groundTop);
+    MobCore.stepMove(m, dx, 0, (bx, bz) => groundUnderAt(bx, bz, m.pos.y));
+    MobCore.stepMove(m, 0, dz, (bx, bz) => groundUnderAt(bx, bz, m.pos.y));
   }
   function shift(m, dx, dz) {
     m.pos.x += dx; m.pos.z += dz;
@@ -407,11 +421,12 @@ const Mobs = (() => {
   function remove(m) {
     m.gone = true;
   }
-  /* 贴地/回巡航高度(游荡本能的同一条式, 战斗 AI 收尾复用) */
+  /* 贴地/回巡航高度(游荡本能的同一条式, 战斗 AI 收尾复用);
+     贴地目标走 groundUnderAt(地下空间感知: 列顶远高于脚时贴脚下洞底) */
   function settle(m, dt) {
     const gp = m.pos;
     if (!m.cfg.fly) {
-      const ty = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
+      const ty = groundUnderAt(gp.x, gp.z, gp.y) + 1;
       gp.y += (ty-gp.y)*Math.min(1, dt*10); // 爬坡下坎自然贴地
     } else if (gp.y !== m.flyHome) {
       gp.y += (m.flyHome-gp.y)*Math.min(1, dt*2); // 被震落后缓慢回到巡航高度(不贴地怪飞)
@@ -436,8 +451,8 @@ const Mobs = (() => {
       m.pos.z += kdz/l*0.9*kpow;
       if (m.clamp) m.clamp(m);
     } else {
-      MobCore.stepMove(m, kdx/l*0.9*kpow, 0, groundTop);
-      MobCore.stepMove(m, 0, kdz/l*0.9*kpow, groundTop);
+      MobCore.stepMove(m, kdx/l*0.9*kpow, 0, (bx, bz) => groundUnderAt(bx, bz, m.pos.y));
+      MobCore.stepMove(m, 0, kdz/l*0.9*kpow, (bx, bz) => groundUnderAt(bx, bz, m.pos.y));
     }
     if (r.freshDead) {
       sfx('death');
