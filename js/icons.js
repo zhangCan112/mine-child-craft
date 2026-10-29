@@ -43,7 +43,7 @@ function tankIcon() {
    ------------------------------------------------------------
    画法: 每物品一张 16 行×16 列「字符画」, 字符查表上色('.'=透明),
    走 tankIcon 同款管线(16×16 画布 → 关平滑放大 64×64 → dataURL)。
-   工具 16 条共用 4 张字符画, '#'主/'+'亮/'-'暗 三字符按四阶色板
+   工具 16 条共用 4 张字符画, '#'主/'+'亮/'-'暗/'o'描边 四字符按四阶色板
    替换 — 色板与 held-item.js mkToolDef 同源(木/石/铁/钻), 视觉
    口径单一。风格参考 MC 观感语言, 全部程序自绘(版权口径 D13)。
    interface: itemIcon(itemId)·iconOf(itemId)·ITEM_PIX(字符画数据表)
@@ -52,12 +52,15 @@ function tankIcon() {
    (test/icons-item.test.js); 字符画数据段零依赖可直接断言。
    ============================================================ */
 
-/* 四阶色板 — 键名与 ITEMS 工具 id 后缀一致, 基色照抄 held-item.js */
+/* 四阶色板 — 键名与 ITEMS 工具 id 后缀一致, 基色照抄 held-item.js;
+   outline = 剑薄片描边槽(2026-10-29 剑建模票新增, 镐斧锹画未用此字符):
+   正典每阶一条通长暗描边(mc-sword-model-research.md §2.3/§2.4), 色值参照
+   正典 per-tier 描边档(版权口径 D13: 只取观感语言, 像素自绘) */
 const PIX_TIER = {
-  wood: {main: '#8a5a2b', light: '#a8743d', dark: '#6b451f'},
-  stone: {main: '#8a8f98', light: '#a3a8b0', dark: '#6e737c'},
-  iron: {main: '#d8dde4', light: '#eef1f5', dark: '#b0b7c0'},
-  diamond: {main: '#4ee1d2', light: '#7feee2', dark: '#2fb8aa'},
+  wood: {main: '#8a5a2b', light: '#a8743d', dark: '#6b451f', outline: '#20180a'},
+  stone: {main: '#8a8f98', light: '#a3a8b0', dark: '#6e737c', outline: '#212121'},
+  iron: {main: '#d8dde4', light: '#eef1f5', dark: '#b0b7c0', outline: '#181818'},
+  diamond: {main: '#4ee1d2', light: '#7feee2', dark: '#2fb8aa', outline: '#082520'},
 };
 const PIX_HANDLE = {light: '#a0703c', dark: '#7a5228'}; // 木柄(比 wood 阶提亮一档区分)
 
@@ -98,23 +101,27 @@ const AXE_ART = [ // 斧: 块状刃挂柄顶左侧, 刃口朝下
   '................',
   '................',
 ];
-const SWORD_ART = [ // 剑: 斜 45° 长刃(左亮右暗)+ 木色护手横条
-  '................',
-  '...........+#...',
-  '..........+#-...',
-  '.........+#-....',
-  '........+#-.....',
-  '.......+#-......',
-  '......+#-.......',
-  '.....+#-........',
-  '...W+#-w........',
-  '..WWWWw.........',
-  '..Ww............',
-  '.Ww.............',
-  'Ww..............',
-  '................',
-  '................',
-  '................',
+const SWORD_ART = [ // 剑: MC 正典结构(柄左下/尖右上占满对角) — 3px 刃带+通长亮线
+  // (+) + 垂刃斜杆护手跨刃两侧 + 木柄 + 柄尾圆头(o); 逐像素转写 vanilla 铁剑
+  // 解码网格并换本仓色板槽(mc-sword-model-research.md §2.2→§2.6 — 旧画
+  // 1-2px 细刃/横条护手/无柄尾是「不帅」的资产级根源); 同形换四阶色板,
+  // 贴图同源兼作手持薄片(held-item 剑 def 的 art 部件)
+  '.............ooo',
+  '............-++o',
+  '...........-#++o',
+  '..........-#++o.',
+  '.........-+##o..',
+  '........-+##o...',
+  '..--...-###o....',
+  '..---.-###o.....',
+  '...-#o###o......',
+  '...-##-#o.......',
+  '....---o........',
+  '...wwo--o.......',
+  '..wWw.oo-o......',
+  '--ww....oo......',
+  '--o.............',
+  'ooo.............',
 ];
 const SHOVEL_ART = [ // 锹: 圆角铲斗 + 斜柄
   '................',
@@ -1112,12 +1119,13 @@ const ITEM_PIX = {
   wool: {art: WOOL_ART, map: {m: '#ececec', l: '#fafafa', d: '#d0d0d0'}},
 };
 
-/* 工具 16 条 = 4 种字符画 × 四阶色板('#'主/'+'亮/'-'暗), 柄色固定 */
+/* 工具 16 条 = 4 种字符画 × 四阶色板('#'主/'+'亮/'-'暗/'o'描边), 柄色固定;
+   'o' 描边槽目前仅剑画消费(镐斧锹画无此字符, 多余键无副作用) */
 for (const [kind, art] of [['pick', PICK_ART], ['axe', AXE_ART],
   ['sword', SWORD_ART], ['shovel', SHOVEL_ART]]) {
   for (const [tier, pal] of Object.entries(PIX_TIER)) {
     ITEM_PIX[kind + '_' + tier] = {art, map: {
-      '#': pal.main, '+': pal.light, '-': pal.dark,
+      '#': pal.main, '+': pal.light, '-': pal.dark, 'o': pal.outline,
       'W': PIX_HANDLE.light, 'w': PIX_HANDLE.dark,
     }};
   }
