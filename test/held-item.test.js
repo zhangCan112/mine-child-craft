@@ -34,11 +34,16 @@ test('EQUIP_HALF 值锚: HeldItems.equipHalf === 0.14(Avatar/HandView 装备动�
   assert.strictEqual(HeldItems.equipHalf, 0.14);
 });
 
-test('剑在注册表: 下界「进下界换剑」依赖它(Avatar.setItem 未知键会静默回落空手)', () => {
+test('剑在注册表: 手工模板 = 铁剑像素薄片(下界换剑口径已退役, 条目留存为工具剑族模板)', () => {
   const {HeldItems} = loadHeld();
   const sword = HeldItems.defs['sword'];
   assert.ok(sword, 'defs 里应有 sword');
   assert.strictEqual(sword.label, '剑');
+  /* MC 正典: 剑 = 16×16 贴图挤出薄片(item/handheld→builtin/generated,
+     原版资产无 3D 盒几何 — docs/mc-sword-model-research.md §1), bow 同管线 */
+  assert.strictEqual(sword.parts.length, 1, '单 art 薄片部件');
+  assert.strictEqual(sword.parts[0].art, 'sword_iron', '模板观感=铁剑(art 键=ITEM_PIX 工具键)');
+  assert.ok(sword.parts[0].d < sword.parts[0].w * 0.2, '薄片(厚远小于宽)');
 });
 
 test('弓在注册表: 键名与物品 id 逐字一致(bow_item)——Avatar.setItem 直用, 战斗政策在模式层', () => {
@@ -104,6 +109,17 @@ test('四阶色板: 每个工具 def 至少一个部件色等于该阶材质色'
           def.parts.some((p) => p.color === TIER_HEAD_COLORS[tier]),
           kind + '_' + tier + ' 应含 ' + tier + ' 阶色板部件');
     }
+  }
+});
+
+test('四阶剑 = 同形换色板像素薄片: 单 art 部件, art 键=物品 id, 阶色留作挤出侧面(MC 正典: 换板不换形)', () => {
+  const {HeldItems} = loadHeld();
+  for (const tier of Object.keys(TIER_NAMES)) {
+    const def = HeldItems.defs['sword_' + tier];
+    assert.strictEqual(def.parts.length, 1, 'sword_' + tier + ' 单薄片部件');
+    assert.strictEqual(def.parts[0].art, 'sword_' + tier, 'art 键与物品 id 逐字一致(ITEM_PIX 工具键)');
+    assert.strictEqual(def.parts[0].color, TIER_HEAD_COLORS[tier], '阶色留作挤出侧面单色');
+    assert.ok(def.parts[0].d < def.parts[0].w * 0.2, '薄片(厚远小于宽)');
   }
 });
 

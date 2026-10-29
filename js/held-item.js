@@ -92,12 +92,15 @@ const TOOL_HEAD_PARTS = {
     {w: 0.09, h: 0.15, d: 0.075, color: c, pos: [0, 0.43, 0]},
     {w: 0.06, h: 0.19, d: 0.11, color: c, pos: [0.075, 0.43, -0.02]},
   ],
-  /* 剑: 剑柄/柄尾/护手照手工 sword 条目, 仅剑身换材质色 */
-  sword: (c) => [
-    {w: 0.05, h: 0.24, d: 0.05, color: 0x3a2a1c, pos: [0, 0.06, 0]},
-    {w: 0.065, h: 0.05, d: 0.065, color: 0xd9b23c, pos: [0, -0.09, 0]},
-    {w: 0.17, h: 0.05, d: 0.06, color: 0x6a6f78, pos: [0, 0.20, 0]},
-    {w: 0.055, h: 0.50, d: 0.028, color: c, pos: [0, 0.47, 0]},
+  /* 剑: MC 正典「16×16 像素贴图挤出薄片」(item/handheld→builtin/generated,
+     原版资产无 3D 盒几何 — docs/mc-sword-model-research.md §1/§5.1), 与
+     bow_item/shears 同管线: art 部件经 mkArtMats 贴工坊字符画(正反面镜像
+     + alphaTest 裁透明角), color 留阶色作挤出侧面单色; 四阶同形换色板即
+     正典做法(§2.4), artKey 由 mkToolDef 传 kind_tier(=ITEM_PIX 工具键) */
+  sword: (c, artKey) => [
+    /* 对角全长 0.62·√2≈0.88(旧盒剑 0.84, 尺度感不跳变); pos 抬移把
+       柄段中心(片中心 (-0.17,-0.17) 处)落到握点, shears 同款手法 */
+    {w: 0.62, h: 0.62, d: 0.05, color: c, art: artKey, pos: [0.17, 0.17, 0]},
   ],
   /* 锹: 柄顶装颈 + 前伸薄铲头 */
   shovel: (c) => [
@@ -106,13 +109,16 @@ const TOOL_HEAD_PARTS = {
   ],
 };
 
-/* 握持分档: 剑照手工剑(尖朝前上戒备式), 其余三种与锄头同位。
+/* 握持分档: 剑照正典 handheld display, 其余三种与锄头同位。
    前移+前倾统一口径(2026-10-24 用户观感反馈两轮: 前端再前倾 15°),
-   工具头端离开小臂, 不贴臂竖立 */
+   工具头端离开小臂, 不贴臂竖立;
+   剑 = 正典 thirdperson_righthand [0,-90,55]° 直接折弧度(bow_item 同款
+   「薄片件照抄正典 display」路线——贴图对角线长轴正是正典 sprite 朝向,
+   不做预旋转; docs/mc-sword-model-research.md §3/§5.4, 数值=调参起点) */
 const TOOL_GRIPS = {
   pick: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
   axe: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
-  sword: {pos: [0, -0.50, -0.10], rot: [-0.76, 0, 0]},
+  sword: {pos: [0, -0.50, -0.10], rot: [0, -1.5708, 0.9599]},
   shovel: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
 };
 
@@ -124,7 +130,9 @@ const TOOL_SWINGS = {
   shovel: {dur: 0.28, amp: 1.2, curlZ: 0.10},
 };
 
-/* 工具 def 工厂(纯数据): 越界 kind/tier 直接抛错, 不静默产出残缺 def */
+/* 工具 def 工厂(纯数据): 越界 kind/tier 直接抛错, 不静默产出残缺 def。
+   剑 = 单 art 薄片(正典贴图自带柄段——item/generated 全剑一张图, 不再
+   加通用木柄盒); 镐/斧/锹 = 通用木柄盒 + 工具头 */
 const mkToolDef = (kind, tier) => {
   const heads = TOOL_HEAD_PARTS[kind];
   if (!heads || TOOL_HEAD_COLORS[tier] === undefined) {
@@ -132,12 +140,15 @@ const mkToolDef = (kind, tier) => {
   }
   const grip = TOOL_GRIPS[kind];
   const swing = TOOL_SWINGS[kind];
+  const parts = (kind === 'sword') ? [
+    ...heads(TOOL_HEAD_COLORS[tier], kind + '_' + tier),
+  ] : [
+    {w: 0.055, h: 0.55, d: 0.055, color: 0x8a5a2b, pos: [0, 0.16, 0]}, // 木柄(同锄头)
+    ...heads(TOOL_HEAD_COLORS[tier]),
+  ];
   return {
     label: TIER_LABELS[tier] + KIND_LABELS[kind],
-    parts: [
-      {w: 0.055, h: 0.55, d: 0.055, color: 0x8a5a2b, pos: [0, 0.16, 0]}, // 木柄(同锄头)
-      ...heads(TOOL_HEAD_COLORS[tier]),
-    ],
+    parts,
     grip: {pos: [...grip.pos], rot: [...grip.rot]},
     fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(正典 handheld, 工厂展开) */
     swing: {...swing},
@@ -170,19 +181,21 @@ const HELD_DEFS = {
     /* 待机呼吸浮动幅度(可调 0 关闭) */
     sway: {idle: 0.03},
   },
-  /* 剑: 剑柄 + 金柄尾 + 十字护手 + 上指剑身, 部件坐标系以握点为原点, -Z 为前
-     (口径出下界冒险「进下界换剑」——模式已退役, 条目留存为工具剑族模板;
-     伤害/触及等战斗政策在模式层, 不进 def) */
+  /* 剑: MC 正典「16×16 像素贴图挤出薄片」(item/handheld→builtin/generated,
+     原版资产无 3D 盒几何 — docs/mc-sword-model-research.md §1), 2026-10-29
+     观感升级: 旧纯色盒体四件(剑柄/柄尾/护手/剑身)退役, 换单 art 薄片——
+     贴图走像素图标工坊 ITEM_PIX.sword_iron 字符画(正典结构: 对角线 3px
+     刃带+通长亮线+垂刃斜杆护手+柄尾圆头), 工坊/画布不可用回落铁灰色薄板
+     (Node 单测口径, 与弓/剪刀同纪律); pos 抬移把握点对准柄段(shears 同款
+     手法)。(口径出下界冒险「进下界换剑」——模式已退役, 条目留存为工具剑族
+     模板; 伤害/触及等战斗政策在模式层, 不进 def) */
   sword: {
     label: '剑',
     parts: [
-      {w: 0.05, h: 0.24, d: 0.05, color: 0x3a2a1c, pos: [0, 0.06, 0]}, // 剑柄
-      {w: 0.065, h: 0.05, d: 0.065, color: 0xd9b23c, pos: [0, -0.09, 0]}, // 柄尾圆头
-      {w: 0.17, h: 0.05, d: 0.06, color: 0x6a6f78, pos: [0, 0.20, 0]}, // 十字护手
-      {w: 0.055, h: 0.50, d: 0.028, color: 0xd8dde4, pos: [0, 0.47, 0]}, // 剑身
+      {w: 0.62, h: 0.62, d: 0.05, color: 0xd8dde4, art: 'sword_iron', pos: [0.17, 0.17, 0]},
     ],
-    /* 挂在右臂手部枢轴(与锄头同位): 剑尖朝前上, 戒备式前倾离臂 */
-    grip: {pos: [0, -0.50, -0.10], rot: [-0.76, 0, 0]},
+    /* 挂在右臂手部枢轴: 正典 thirdperson [0,-90,55]° 折弧度(同 TOOL_GRIPS.sword) */
+    grip: {pos: [0, -0.50, -0.10], rot: [0, -1.5708, 0.9599]},
     fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(正典 handheld, 剑同族) */
     /* 挥击: 比锄头更快更阔(剑感) */
     swing: {dur: 0.2, amp: 1.6, curlZ: 0.05},

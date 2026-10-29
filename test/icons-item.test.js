@@ -151,6 +151,15 @@ test('工具色板: 木/石/铁/钻四阶基色出现在对应工具绘制(held-
   }
 });
 
+test('剑薄片描边槽: 四阶 map 均带 o 且暗于暗面档(正典通长暗描边的槽位, mc-sword-model-research §2.3)', () => {
+  const {h} = loadIcons();
+  for (const tier of ['wood', 'stone', 'iron', 'diamond']) {
+    const map = h.ITEM_PIX['sword_' + tier].map;
+    assert.ok(map.o, 'sword_' + tier + ' 应含描边槽 o');
+    assert.notStrictEqual(map.o, map['-'], '描边色 ≠ 暗面档(轮廓语言成立)');
+  }
+});
+
 /* ============ 生态地图件(冒险模式生态地图 T1): 共用形换色板 ============ */
 
 test('生态地图件: 三花共用一张 FLOWER_ART 换三套色板; 雪球/冰复用 BALL/GLASS 既有形', () => {
