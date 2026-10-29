@@ -6,7 +6,7 @@
    耕地/麦四阶段/工作台/熔炉/火把/树苗/黏土/箱子/羊毛) + 生态地图 54~62
    (雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花; B_ICE 不入集走纯色透渲) +
    门与玻璃板 64~68(门板上下两张/玻璃板框图, docs/door-window-design.md §5.3) +
-   床 53(床顶枕毯/床侧毯木框, 昼夜 D6 床观感票) +
+   床 53/69(床头顶枕毯/床尾顶全毯/床侧毯木框, 两格床改版) +
    存量基础方块升级款(草顶/泥土/石头颗粒/圆石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒)。风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
@@ -23,7 +23,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 45 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 46 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -57,7 +57,7 @@ const TextureAtlas = (() => {
   const T_DEAD_BUSH = 36;
   const T_ORCHID = 37; const T_FLOWER_Y = 38; const T_FLOWER_W = 39;
   const T_DOOR_BOTTOM = 40; const T_DOOR_TOP = 41; const T_GLASS_PANE = 42;
-  const T_BED_TOP = 43; const T_BED_SIDE = 44;
+  const T_BED_TOP = 43; const T_BED_SIDE = 44; const T_BED_TOP_FOOT = 45;
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -458,11 +458,12 @@ const TextureAtlas = (() => {
     setP(px, 4, 4, [255, 255, 255]);
   };
 
-  /* 床(昼夜 D6 床观感票, 2026-10-28): 配色锚定 icons.js 的 BED_ART 色板
-     (P 白/p 浅灰/r 亮毯/R 深毯)与 planksBase 木色, 两张图同一语言。
-     canvas 行 0 = 纹理 v 顶端 = 世界 −Z(北)端 —— 枕头固定画在北端
-     (床无取向存储, 单格简化同差异 #1, 登记为已知观感边界)。 */
-  /* 床顶: 北端 4 行白枕(底行浅灰收沿) + 亮毯折沿 + 毯身两道褶皱 + 毯尾深线 */
+  /* 床(昼夜 D6 床观感票, 2026-10-28; 两格床改版 2026-10-29): 配色锚定 icons.js
+     的 BED_ART 色板(P 白/p 浅灰/r 亮毯/R 深毯)与 planksBase 木色, 三张图同一
+     语言。canvas 行 0 = 纹理 v 顶端 = 世界 −Z(北)端 —— 床头枕固定画在北端,
+     床头块由 mesh 按床尾方位旋转顶面 UV(取向不存档, 世界状态派生); 老档
+     lone 床头无床尾邻 → 缺省北端(既有观感)。 */
+  /* 床头顶: 北端 4 行白枕(底行浅灰收沿) + 亮毯折沿 + 毯身两道褶皱 + 毯尾深线 */
   PAINTERS[T_BED_TOP] = (px, rng)=>{
     for (let y=0; y<TILE; y++) {
       for (let x=0; x<TILE; x++) {
@@ -478,9 +479,23 @@ const TextureAtlas = (() => {
       for (let x=0; x<TILE; x++) if (rng() < 0.8) setP(px, x, y, [196, 66, 54]);
     }
   };
-  /* 床侧: 上段毯沿垂边(0..2)+毯木分界深线(3)+下段木框(4..15, 板缝横线)。
-     几何侧面只采 tile 顶部 h=0.55 段(行 0..8.8, 与 pushBedBox 的比例窗同口径),
-     行 9+ 照填木框防 thin 调参后露底 */
+  /* 床尾顶: 全毯面(无枕) + 两道褶皱 + 与床头接缝处的折沿深线(canvas 行 0 = 靠床头端) */
+  PAINTERS[T_BED_TOP_FOOT] = (px, rng)=>{
+    for (let y=0; y<TILE; y++) {
+      for (let x=0; x<TILE; x++) {
+        const v = 1 + (rng() * 2 - 1) * 0.04;
+        if (y === 0) setP(px, x, y, [184, 58, 48]); // 接缝折沿深线(贴床头端)
+        else if (y === 15) setP(px, x, y, [184, 58, 48]); // 床尾沿深线
+        else setP(px, x, y, [224 * v, 85 * v, 69 * v]); // 毯身
+      }
+    }
+    for (const y of [6, 11]) { // 毯面褶皱横线(床头顶同语言)
+      for (let x=0; x<TILE; x++) if (rng() < 0.8) setP(px, x, y, [196, 66, 54]);
+    }
+  };
+  /* 床侧(床头/床尾共用): 上段毯沿垂边(0..2)+毯木分界深线(3)+下段木框(4..15,
+     板缝横线)。几何侧面只采 tile 顶部 h=0.55 段(行 0..8.8, 与 pushBedBox 的
+     比例窗同口径), 行 9+ 照填木框防 thin 调参后露底 */
   PAINTERS[T_BED_SIDE] = (px, rng)=>{
     for (let y=0; y<TILE; y++) {
       for (let x=0; x<TILE; x++) {
@@ -528,9 +543,11 @@ const TextureAtlas = (() => {
       [B_DOOR]: T_DOOR_BOTTOM, [B_DOOR_TOP]: T_DOOR_TOP,
       [B_DOOR_OPEN]: T_DOOR_BOTTOM, [B_DOOR_TOP_OPEN]: T_DOOR_TOP,
       [B_GLASS_PANE]: T_GLASS_PANE,
-      /* 床 53(昼夜 D6 床观感票): 薄块扁盒分面 —— 顶=枕+毯 / 侧=毯沿+木框;
-         底面盒路径不绘(推床盒跳 f=2), 条目补 side 兜底防 atlasTileOf 越界 */
+      /* 床 53/69(两格床改版): 床头/床尾薄块扁盒分面 —— 床头顶=枕+毯 / 床尾顶=全毯 /
+         侧=毯沿+木框(两半共用); 底面盒路径不绘(推床盒跳 f=2), 条目补 side 兜底
+         防 atlasTileOf 越界。床头顶的枕按床尾方位由 mesh 旋转 UV */
       [B_BED]: {top: T_BED_TOP, side: T_BED_SIDE, bottom: T_BED_SIDE},
+      [B_BED_FOOT]: {top: T_BED_TOP_FOOT, side: T_BED_SIDE, bottom: T_BED_SIDE},
     },
   };
 

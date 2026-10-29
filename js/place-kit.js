@@ -5,13 +5,15 @@
    探险(js/modes/adventure.js)与体验馆(js/modes/showroom.js)「放置/破坏/
    门开关」三段装配的共享 kit(docs/showroom-design.md §8, 两消费者塑形)。
    规则全在纯函数(adventure-core 的 advPlaceCheck/advDoorSiteOk/
-   advDoorTogglePlan/advDoorBreakPlan/advPortalSiteOk/advPortalFrame/
+   advDoorTogglePlan/advDoorBreakPlan/advBedSiteOk/advBedBreakPlan/
+   advPortalSiteOk/advPortalFrame/
    advIsDoor/advMineStep/advCascadeLedger + craft-core 的 breakTime +
    drops 的 rollBlockDrop), 本 kit 只收编两模式镜像的壳段, 不造第二份
    规则实现; 消费方政策全走 opts 缝(与 FurnaceKit 的语义事件缝同一思路):
      opts.inv — 背包对象(引用稳定)或 () => 背包(进场换新), 内部取数器归一
      opts.sel — () => 选中槽号(快捷栏选中态归消费方)
-     opts.pos — () => {x,y,z}(站点/门/传送门校验纯函数的玩家位置形状)
+     opts.pos — () => {x,y,z}(站点/门/床/传送门校验纯函数的玩家位置形状)
+     opts.yaw — () => 朝向弧度(床放置轴向取主导轴用, 缺省 0=朝北)
      opts.onEdit(x,y,z,id) — 世界改动记账(探险=journal+站点缓存;
        体验馆 noop——无 journal, 改动只活当次进场=恢复原装)
      opts.onPlaced(blockId,x,y,z) — 放置后钩(探险=任务 tally+树苗挂表)
@@ -77,12 +79,25 @@ function mkEditor(opts) {
     if (plan.drop > 0 && sink.drop) sink.drop('door', plan.drop, bx + 0.5, by + 0.5, bz + 0.5);
   }
 
+  /* 床配对破坏(两格床改版, 门配对同款): 任何移除点清格后调用——挖任一半=
+     整床消失(政策在 advBedBreakPlan 正典形认亲, 两床并排不拆错邻床);
+     drop=1 仅挖床尾时由计划补发(床头自带 drop 表走常规掷, 不双发) */
+  function bedBreakApply(bx, by, bz, quest) {
+    const plan = advBedBreakPlan(getBlock, bx, by, bz);
+    for (const c of plan.cells) {
+      if (o.onEdit) o.onEdit(c.x, c.y, c.z, 0);
+      applyCascade(editBlock(c.x, c.y, c.z, 0), quest);
+    }
+    if (plan.drop > 0 && sink.drop) sink.drop('bed', plan.drop, bx + 0.5, by + 0.5, bz + 0.5);
+  }
+
   /* 破坏结算: 碎屑(editBlock 内置同色 Fx.debrisBurst)+记账+级联+掉落+磨损。
      bt 为破坏时的 breakTime 结果(drops:false = tier 不足, 只碎不掉+节流提示) */
   function breakBlock(x, y, z, id, bt) {
     if (o.onEdit) o.onEdit(x, y, z, 0); /* 触发格先记账(级联移动可能落回此格, 后写覆盖才对) */
     applyCascade(editBlock(x, y, z, 0), true); /* 蓄力链视同亲手挖(P6) */
     doorBreakApply(x, y, z, true); /* 门配对破坏(挖任一半/挖门下支撑=整扇回收) */
+    bedBreakApply(x, y, z, true); /* 床配对破坏(挖任一半=整床回收, 两格床改版) */
     if (id === B_SAPLING && sink.sapling) sink.sapling(x, y, z); /* 挖树苗撤计时 */
     if (BLOCKS[id] && BLOCKS[id].crop && sink.crop) sink.crop(x, y, z); /* 挖麦苗撤生长计时(farm-and-recipe D3, crop 身份旗标) */
     if (o.sfx) o.sfx('hit');
@@ -132,6 +147,35 @@ function mkEditor(opts) {
     return true;
   }
 
+  /* 床放置(拦截分支, 两格床改版; 门放置同款): 点击面外一格为床尾候选 →
+     纯核心 advBedSiteOk 校验(两格空气+各自下方实心+玩家不入, 床头沿玩家
+     朝向取邻格) → 失败给儿童话术不扣物品; 成功两格 editBlock+逐格记账 */
+  function placeBed(hit) {
+    if (!hit) return false;
+    const slot = o.sel();
+    const tx = hit.x + hit.nx;
+    const ty = hit.y + hit.ny;
+    const tz = hit.z + hit.nz; /* 与单格放置同款目标格(点击面外一格) */
+    const ok = advBedSiteOk(getBlock, o.pos(), o.yaw ? o.yaw() : 0, tx, ty, tz);
+    if (!ok.ok) {
+      if (o.say) {
+        o.say(ok.reason === 'inside' ? '🛏️ 别站在放床的地方哦！' :
+          ok.reason === 'nosupport' ? '🛏️ 床要放在地上哦' : '🛏️ 床头那边要空着才放得下');
+      }
+      return false; /* 不扣物品, 换个地方再试 */
+    }
+    for (const c of ok.cells) {
+      editBlock(c.x, c.y, c.z, c.id);
+      if (o.onEdit) o.onEdit(c.x, c.y, c.z, c.id);
+    }
+    remove(invOf(), slot, 1);
+    if (o.onConsume) o.onConsume();
+    if (o.sfx) o.sfx('click');
+    if (o.speak) o.speak('床放好啦！夜里点它就能睡');
+    if (o.say) o.say('🛏️ 床放好啦！夜里点它就能睡');
+    return true;
+  }
+
   /* 下界传送门放置(拦截分支, D4/D13): 点击面外一格为门基 → 纯核心
      advPortalSiteOk 校验(结构包围盒全空气+玩家不入盒) → 失败给话术不扣
      物品; 成功 advPortalFrame 经「setBlockRaw+逐格记账」sink 长出整座门
@@ -176,6 +220,7 @@ function mkEditor(opts) {
     const it = s ? ITEMS[s.id] : null;
     if (s && s.id === 'nether_portal') return placePortal(hit); /* 整座门放置, 不走单格 */
     if (s && s.id === 'door') return placeDoor(hit); /* 2 格门结构放置 */
+    if (s && s.id === 'bed') return placeBed(hit); /* 2 格床结构放置(两格床改版) */
     if (!hit || !it || it.block == null) return false;
     const lookId = getBlock(hit.x, hit.y, hit.z);
     const lookDef = lookId !== 0 ? BLOCKS[lookId] : null;

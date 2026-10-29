@@ -36,7 +36,7 @@ for (const n of bNames) globalThis[n] = vm.runInContext(n, eng);
 const api = vm.runInContext(`({ITEMS, stackMax, isTool, mkInventory, add, count, remove,
   damageTool, HOTBAR_SLOTS, INV_SLOTS, BLOCKS, PLAYER, WORLD_W, WORLD_D,
   B_CRAFT, B_FURNACE, B_CHEST, B_SAPLING, B_TORCH, B_DOOR, B_DOOR_TOP,
-  B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_PORTAL, B_LAVA, B_GRASS_TUFT, B_BED,
+  B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_PORTAL, B_LAVA, B_GRASS_TUFT, B_BED, B_BED_FOOT,
   getBlock, setBlockRaw, blockKey, collidesAtPlayer, rollBlockDrop, SceneKit})`, eng);
 Object.assign(globalThis, api);
 /* 单块编辑 seam: world.js 太重——真级联核心镜像 world.js 的装配(adventure-mode.test
@@ -80,7 +80,7 @@ let sel = 0;
 let playerPos = {x: 20.5, y: 13, z: 20.5};
 
 const inv = api.mkInventory();
-for (const row of [['planks', 10], ['torch', 5], ['door', 3], ['nether_portal', 1], ['log', 5]]) {
+for (const row of [['planks', 10], ['torch', 5], ['door', 3], ['nether_portal', 1], ['log', 5], ['bed', 3]]) {
   api.add(inv, row[0], row[1]);
 }
 function slotOf(id) {
@@ -213,6 +213,41 @@ test('place-kit: 门配对破坏 — 挖任一半整扇回收+掉 1 扇(经 casc
   assert.strictEqual(api.getBlock(16, 14, 20), 0, '上扇配对清(整扇回收)');
   assert.ok(drops.some((d) => d[0] === 'door' && d[1] === 1), '掉 1 扇(不双掉)');
   assert.strictEqual(wearCalls, 1, '破坏成功磨损钩');
+});
+
+/* ============ ②b 床: 两格放置/配对破坏 (两格床改版, 门同款缝) ============ */
+
+test('place-kit: 床 — 两格结构放置(床头=正典形较小坐标端)+扣 1 张', () => {
+  reset();
+  sel = slotOf('bed');
+  const hit = {x: 16, y: 12, z: 20, nx: 0, ny: 1, nz: 0}; /* 目标 (16,13,20); yaw 缺省 0=朝北(−z) */
+  assert.strictEqual(ed.tryPlace(hit), true, '床放置成功');
+  assert.strictEqual(api.getBlock(16, 13, 20), api.B_BED_FOOT, '床尾在点击格');
+  assert.strictEqual(api.getBlock(16, 13, 19), api.B_BED, '床头在 z−1(正典形=床头在轴向较小坐标端)');
+  assert.strictEqual(api.count(inv, 'bed'), 2, '扣 1 张床(3→2)');
+  /* 床头格被占 → 拒放不扣件(reset 不回滚背包, 库存应保持 2) */
+  reset();
+  assert.strictEqual(ed.tryPlace(hit), false, '床头候选格(z−1)已被床占 → 拒');
+  assert.strictEqual(api.count(inv, 'bed'), 2, '拒放不扣件');
+});
+
+test('place-kit: 床配对破坏 — 挖任一半整床回收+恰掉 1 张(挖床头走常规掷/挖床尾计划补发)', () => {
+  reset();
+  sel = slotOf('bed');
+  ed.tryPlace({x: 16, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
+  drops.length = 0;
+  ed.breakBlock(16, 13, 19, api.B_BED, {time: 1, drops: true}); /* 挖床头 */
+  assert.strictEqual(api.getBlock(16, 13, 19), 0, '床头清');
+  assert.strictEqual(api.getBlock(16, 13, 20), 0, '床尾配对清(整床回收)');
+  assert.strictEqual(drops.filter((d) => d[0] === 'bed').length, 1, '恰 1 张(床头常规掷, 计划不双发)');
+  /* 挖床尾: 床尾无 drop 表 → 计划补发 1 */
+  reset();
+  sel = slotOf('bed');
+  ed.tryPlace({x: 16, y: 12, z: 20, nx: 0, ny: 1, nz: 0});
+  drops.length = 0;
+  ed.breakBlock(16, 13, 20, api.B_BED_FOOT, {time: 1, drops: true});
+  assert.strictEqual(api.getBlock(16, 13, 19), 0, '床头配对清');
+  assert.strictEqual(drops.filter((d) => d[0] === 'bed').length, 1, '恰 1 张(床尾由计划补发)');
 });
 
 /* ============ ③ 传送门: 结构长出+网格收口 ============ */

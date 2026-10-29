@@ -82,12 +82,15 @@ const MeshCore = (() => {
     }
   }
 
-  /* 床(薄块扁盒 + 图集, 2026-10-28 床观感票): 几何同 pushThin(扁盒跳底面),
-     贴图走图集通道——顶面整张床顶格(白枕在北端) / 侧面采床侧格顶部 h 段
-     (毯沿+木框, MC 床侧面 [0,0,16,9] 比例窗同口径; v = v0+(1−(1−f)·h)·dv,
+  /* 床(薄块扁盒 + 图集, 2026-10-28 床观感票; 两格床改版 2026-10-29): 几何同
+     pushThin(扁盒跳底面), 贴图走图集通道——顶面整张床顶格 / 侧面采床侧格
+     顶部 h 段(毯沿+木框, MC 床侧面 [0,0,16,9] 比例窗同口径; v = v0+(1−(1−f)·h)·dv,
      f=面内高度分数: 面顶沿取 tile 行 0, 底沿取行 h·16)。顶点光取自身格
-     (§4.1 薄块口径, 与 pushThin 一致); 不乘 tint(图集通道无 colors, 噪点自带)。 */
-  function pushBedBox(t, x, y, z, h, ae, atlas, lvSky, lvBlk) {
+     (§4.1 薄块口径, 与 pushThin 一致); 不乘 tint(图集通道无 colors, 噪点自带)。
+     rot=顶面四分之一圈数(仅床头消费): 枕画在 canvas 顶行(北端), 床头四邻扫
+     到床尾后由调用方传「枕背对床尾」的圈数——取向不存档(确定性重放红线),
+     世界状态派生; 0=北(缺省, 老档 lone 床头)/1=东/2=南/3=西。 */
+  function pushBedBox(t, x, y, z, h, ae, atlas, lvSky, lvBlk, rot) {
     const topTile = atlasTileOf(ae, FACES[3].dir);
     const tu0 = (topTile % atlas.cols) / atlas.cols;
     const tv0 = (atlas.rows - 1 - Math.floor(topTile / atlas.cols)) / atlas.rows;
@@ -95,6 +98,8 @@ const MeshCore = (() => {
     const su0 = (sideTile % atlas.cols) / atlas.cols;
     const sv0 = (atlas.rows - 1 - Math.floor(sideTile / atlas.cols)) / atlas.rows;
     const du = 1 / atlas.cols; const dv = 1 / atlas.rows;
+    const rotTop = (u, v) => rot === 1 ? [1 - v, u] : rot === 2 ? [1 - u, 1 - v] :
+      rot === 3 ? [v, 1 - u] : [u, v];
     for (let f=0; f<6; f++) {
       if (f===2) continue; // 底面贴地不可见, 不绘(pushThin 同款)
       const face = FACES[f];
@@ -104,8 +109,12 @@ const MeshCore = (() => {
         t.positions.push(x+cor[0], y+cor[1]*h, z+cor[2]);
         t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
         const fuv = faceUV(face.dir, cor);
-        if (isTop) t.uvs.push(tu0 + fuv[0]*du, tv0 + fuv[1]*dv);
-        else t.uvs.push(su0 + fuv[0]*du, sv0 + (1 - (1 - fuv[1])*h)*dv);
+        if (isTop) {
+          const r = rotTop(fuv[0], fuv[1]);
+          t.uvs.push(tu0 + r[0]*du, tv0 + r[1]*dv);
+        } else {
+          t.uvs.push(su0 + fuv[0]*du, sv0 + (1 - (1 - fuv[1])*h)*dv);
+        }
         t.sky.push(lvSky);
         t.block.push(lvBlk);
       }
@@ -373,9 +382,19 @@ const MeshCore = (() => {
           }
           if (ae) { // 图集方块: 第 4 通道(薄块走十字面片/床走扁盒/火把走专用小盒, 立方体按面取格)
             if (b.thin) {
-              if (b.bed) { // 床(bed 旗标全表唯一): 薄块扁盒+床贴图(床观感票, 非十字植物)
+              if (b.bed) { // 床(bed 旗标: 床头 53/床尾 69): 薄块扁盒+床贴图(两格床改版)
+                /* 床头旋转: 四邻扫床尾定枕向(枕背对床尾; 取向不存档, 世界派生);
+                   邻接床尾方位 → 圈数: 北0/东1/南2/西3(枕画在北端, 背对床尾);
+                   无床尾邻(老档 lone 床头)缺省 0=枕朝北。床尾不转(全毯面对称) */
+                let bedRot = 0;
+                if (b.bedHead) {
+                  if (lget(lx + 1, y, lz) === B_BED_FOOT) bedRot = 3; /* 床尾在东 → 枕朝西 */
+                  else if (lget(lx - 1, y, lz) === B_BED_FOOT) bedRot = 1; /* 床尾在西 → 枕朝东 */
+                  else if (lget(lx, y, lz + 1) === B_BED_FOOT) bedRot = 0; /* 床尾在南 → 枕朝北 */
+                  else if (lget(lx, y, lz - 1) === B_BED_FOOT) bedRot = 2; /* 床尾在北 → 枕朝南 */
+                }
                 pushBedBox(A, wx, y, wz, b.thin, ae, atlas,
-                    lsky(lx, y, lz)/15, lblk(lx, y, lz)/15);
+                    lsky(lx, y, lz)/15, lblk(lx, y, lz)/15, bedRot);
                 continue;
               }
               if (b.wall) { // 火把(wall 全表唯一): 专用小盒 pushTorch(MC 同款)

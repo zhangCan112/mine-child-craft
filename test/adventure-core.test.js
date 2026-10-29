@@ -23,7 +23,7 @@ const api = vm.runInContext(`({
   getBlock, setBlockRaw, blockKey, isOpaque, SceneKit, Daylight,
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
-  B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, Daylight, DAYLIGHT,
+  B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_BED_FOOT, Daylight, DAYLIGHT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_ICE, B_SANDSTONE, B_GLOWSTONE, B_CHEST, /* 扩容主题五件建场件消费(望塔灯/箱, 松林/花田/南池) */
@@ -999,6 +999,46 @@ test('D6 睡觉政策(时钟改版): advSleepCheck 一条件制 — 床 8 格内
   assert.deepStrictEqual(near([{x: 11, z: 21, passive: true}]), {ok: true, why: ''},
       '牧场动物贴床也不拦(MC 口径: 动物不妨碍睡觉)');
   assert.strictEqual(Core.ADV_BED_MOB_R, 8, '床边无怪半径 = 8 格(常量表)');
+});
+
+/* ============ 两格床结构 (2026-10-29 两格床改版, 门结构同款缝) ============ */
+
+test('两格床放置校验: advBedSiteOk — 两格空气+各自下方实心+玩家不入; 床头=正典形较小坐标端', () => {
+  const air = () => 0;
+  assert.deepStrictEqual(Core.advBedSiteOk(air, {x: 10.5, y: 13, z: 20.5}, 0, 12, 13, 20),
+      {ok: false, reason: 'nosupport'}, '全空世界无支撑 → 拒(门同款 reason 口径)');
+  /* 地板实心: yaw 0 朝北(−z) → 床头候选 = 目标格 z−1; 正典形床头在较小 z 端 */
+  const floor = (x, y, z) => (y === 12 ? 3 : 0);
+  assert.deepStrictEqual(Core.advBedSiteOk(floor, {x: 10.5, y: 13, z: 20.5}, 0, 12, 13, 20),
+      {ok: true, cells: [{x: 12, y: 13, z: 19, id: 53}, {x: 12, y: 13, z: 20, id: 69}]},
+      'yaw0: 床头(12,13,19)+床尾(12,13,20)');
+  /* yaw π/2: fx=−1 朝西 → 床头候选 x−1, 正典形床头在较小 x 端 */
+  assert.deepStrictEqual(Core.advBedSiteOk(floor, {x: 10.5, y: 13, z: 20.5}, Math.PI / 2, 12, 13, 20),
+      {ok: true, cells: [{x: 11, y: 13, z: 20, id: 53}, {x: 12, y: 13, z: 20, id: 69}]},
+      'yawπ/2: 床头(11,13,20)+床尾(12,13,20)');
+  /* 床头候选格被占 → blocked */
+  const occ = (x, y, z) => (y === 12 ? 3 : (x === 12 && z === 19 ? 3 : 0));
+  assert.deepStrictEqual(Core.advBedSiteOk(occ, {x: 10.5, y: 13, z: 20.5}, 0, 12, 13, 20),
+      {ok: false, reason: 'blocked'}, '床头候选格被占 → 拒');
+  /* 玩家站床头候选格 → inside */
+  assert.deepStrictEqual(Core.advBedSiteOk(floor, {x: 12.5, y: 13, z: 19.5}, 0, 12, 13, 20),
+      {ok: false, reason: 'inside'}, '玩家在床头格 → 拒(advDoorPlayerIn 同款)');
+});
+
+test('两格床配对破坏: advBedBreakPlan — 正典形认亲(并排两床不拆错邻床)/drop 分配(挖床尾补 1, 挖床头不补)', () => {
+  /* 挖床头(5), 床尾在东(6): 伙伴=床尾 → 床头常规掷已发 1, 计划不补 */
+  assert.deepStrictEqual(Core.advBedBreakPlan((x, y, z) => (x === 6 && z === 5 ? 69 : 0), 5, 13, 5),
+      {cells: [{x: 6, y: 13, z: 5}], drop: 0}, '挖床头: 清床尾, 不补发');
+  /* 挖床尾(5), 床头在西(4): 伙伴=床头 → 床尾无 drop 表, 计划补发 1 */
+  assert.deepStrictEqual(Core.advBedBreakPlan((x, y, z) => (x === 4 && z === 5 ? 53 : 0), 5, 13, 5),
+      {cells: [{x: 4, y: 13, z: 5}], drop: 1}, '挖床尾: 清床头, 补发 1');
+  /* 两床并排同轴相接 [头4][尾5·被挖][头6][尾7]: 正典形唯一认亲 → 清(4)不拆错(7) */
+  const row = (x, y, z) => (z === 5 ? ({4: 53, 6: 53, 7: 69}[x] || 0) : 0);
+  assert.deepStrictEqual(Core.advBedBreakPlan(row, 5, 13, 5),
+      {cells: [{x: 4, y: 13, z: 5}], drop: 1}, '并排两床: 候选两床头, 正典形(头<尾)唯一认亲头4, 不拆错头6的床尾7');
+  /* lone 半(老档单格床/TNT 拆半): 无配对不补发 */
+  assert.deepStrictEqual(Core.advBedBreakPlan((x, y, z) => 0, 5, 13, 5),
+      {cells: [], drop: 0}, '无邻半 → 空计划');
 });
 
 test('D6 睡觉转场: advSleepStep — 渐黑 1.5s → 停 2s(唤醒沿) → 渐亮 1.5s ≈ 5s(MC 101 tick 观感)', () => {

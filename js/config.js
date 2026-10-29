@@ -296,7 +296,7 @@ const B_WHEAT_0=42; const B_WHEAT_1=43; const B_WHEAT_2=44; const B_WHEAT_3=45;
 const B_CRAFT=46; const B_FURNACE=47; const B_TORCH=48; const B_CLAY=49; const B_SAPLING=50;
 const B_CHEST=51;
 const B_WOOL=52; /* F4 羊毛(二期设计稿 §4.7): 号段顺延同款(B_SAPLING/B_CHEST 先例) */
-const B_BED=53; /* 床(昼夜 D6, mc-daylight-torch §7.1): 号段顺延同款 */
+const B_BED=53; /* 床头(昼夜 D6, mc-daylight-torch §7.1): 号段顺延同款 */
 BLOCKS[B_COAL_ORE] = {name: '煤矿', all: [0.36, 0.36, 0.38], hard: 3.0, tool: 'pick', tier: 1, drop: [['coal', 1, 0]]};
 BLOCKS[B_IRON_ORE] = {name: '铁矿', all: [0.55, 0.44, 0.36], hard: 3.0, tool: 'pick', tier: 2, drop: [['iron_ore', 1, 0]]};
 BLOCKS[B_GOLD_ORE] = {name: '金矿', all: [0.62, 0.52, 0.28], hard: 3.0, tool: 'pick', tier: 3, drop: [['gold_ore', 1, 0]]};
@@ -338,13 +338,19 @@ BLOCKS[B_CHEST] = {name: '箱子', top: [0.72, 0.55, 0.30], side: [0.62, 0.44, 0
    蓝/红羊毛(15/16)维持创造专属, 只开白羊毛(染料 Out of Scope) */
 BLOCKS[B_WOOL] = {name: '羊毛', all: [0.92, 0.92, 0.92], hard: 0.8, tool: null, tier: 0,
   drop: [['wool', 1, 0]]};
-/* 床(昼夜 D6 §7.1): 1 格半高薄块(差异 #1: MC 2 格×0.5625 简化) — thin 旗标白送
-   顶面限定放置(advPlaceCheck thin 路径)与失撑脱落(cascade); hard 0 徒手秒碎回收。
-   bed 身份旗标(2026-10-28 床观感票): mesh-core 图集通道按旗标走「薄块扁盒+
-   床贴图」路径(枕红毯木框, 不与十字面片混淆) · held-item 按旗标装配床形手持件
-   (床垫+枕头+床头床脚板)——改观感先认旗标, 不认 id。 */
-BLOCKS[B_BED] = {name: '床', top: [0.90, 0.30, 0.30], all: [0.75, 0.22, 0.22], thin: 0.55,
-  solid: false, bed: true, hard: 0, tool: null, tier: 0, drop: [['bed', 1, 0]]};
+/* 床(昼夜 D6 §7.1; 2026-10-29 两格床改版——差异 #1 撤销, 床占 2 格=MC 正典形状):
+   床头 53 + 床尾 69 成对(门四态「结构即 id」同款, 取向不存档——确定性重放红线,
+   配对用「床头恒在轴向较小坐标端」的正典形重建, advBedBreakPlan 邻接推断)。
+   thin 旗标白送: 失撑脱落(cascade); hard 0 徒手秒碎回收。
+   bed 身份旗标: mesh-core 图集通道按旗标走「薄块扁盒+床贴图」路径(床头四邻
+   扫床尾定朝向旋转枕头贴图) · held-item 按旗标装配床形手持件。
+   床尾无 drop(床头上半无 drop 门同款防双掉): 挖任一半经 advBedBreakPlan
+   整床回收 1 张。老档单格床= lone 床头(枕头朝北缺省), 可睡可挖不迁移。 */
+BLOCKS[B_BED] = {name: '床头', top: [0.90, 0.30, 0.30], all: [0.75, 0.22, 0.22], thin: 0.55,
+  solid: false, bed: true, bedHead: true, hard: 0, tool: null, tier: 0, drop: [['bed', 1, 0]]};
+const B_BED_FOOT=69; /* 床尾(两格床改版): 号段顺延同款(B_DOOR_TOP 先例, 63~68 已占) */
+BLOCKS[B_BED_FOOT] = {name: '床尾', all: [0.75, 0.22, 0.22], thin: 0.55,
+  solid: false, bed: true, hard: 0, tool: null, tier: 0}; // 无 drop: 防双掉(见上)
 
 /* 生态地图新方块 (id 54~62, 冒险模式生态地图设计稿 §6) — 雪原/沙漠/沼泽三图资源,
    号段顺延同款(B_SAPLING/B_CHEST/B_WOOL/B_BED 先例)。B_ICE 不入贴图图集——

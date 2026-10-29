@@ -1483,8 +1483,9 @@ function advSleepClockConfirm() {/* 「睡觉」: 收拨盘 → 开转场(醒来
 
 function advTrySleep(hit, lookId) {/* 点击床(§7.2 时钟改版, 挖掘左键与轻点/右键共用入口): 怪圈纯函数
    advSleepCheck(床边 8 格无怪; 夜窗已撤销——拨盘本身就是选时刻)不过 → toast;
-   过 → 开时钟拨盘(确认才开转场)。返回 true=消费了本次点击(不放不挖) */
-  if (!hit || lookId !== B_BED) return false;
+   过 → 开时钟拨盘(确认才开转场)。两格床改版: 床头 53/床尾 69 任一半可睡。
+   返回 true=消费了本次点击(不放不挖) */
+  if (!hit || (lookId !== B_BED && lookId !== B_BED_FOOT)) return false;
   if (advSleep.on || advSleepClock.on) return true; /* 转场/拨盘中重复点击吞掉(输入另由 onMouse 顶层门挡) */
   const mobs = Mobs.list().map((m) => ({x: m.pos.x, z: m.pos.z, dead: m.dead, gone: m.gone,
     passive: !!(m.cfg && m.cfg.passive)})); /* 快照采集: 牧场动物 passive 不拦(F4 口径) */
@@ -2092,6 +2093,7 @@ const advPlaceKit = PlaceKit.mkEditor({
   inv: advInv,
   sel: () => advHb.sel,
   pos: () => pos,
+  yaw: () => yaw, /* 床放置轴向(两格床改版): 玩家朝向主导轴定床头伸向 */
   onEdit: advMarkEdit,
   onPlaced: (blockId, x, y, z) => {
     if (blockId === B_CRAFT) advTally('place_craft_table', 1); /* T15: 站点放置记账(任务链消费的两键) */

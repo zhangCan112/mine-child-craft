@@ -25,7 +25,7 @@ function loadCfg() {
     BLOCKS,
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_GRASS_TUFT, B_FARMLAND,
     B_WHEAT_0, B_WHEAT_1, B_WHEAT_2, B_WHEAT_3, B_CRAFT, B_FURNACE, B_TORCH,
-    B_SAPLING, B_CLAY, B_CHEST, B_WOOL, B_BED,
+    B_SAPLING, B_CLAY, B_CHEST, B_WOOL, B_BED, B_BED_FOOT,
     B_SNOW, B_SNOWY_GRASS, B_ICE, B_CACTUS, B_SANDSTONE,
     B_DEAD_BUSH, B_ORCHID, B_FLOWER_Y, B_FLOWER_W,
     B_LAVA, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM,
@@ -57,6 +57,20 @@ test('新方块常量与 id 一一对应: 36~49 按附录 A, B_SAPLING 顺延 50
      存档按数字 id 记, 顺延 50/51/52/53 不与任何号段(1-19/20-29/30-35/36-49)冲突 */
 });
 
+/* ============ 两格床 id 段(69, 2026-10-29 两格床改版: 床头 53 + 床尾 69 成对) ============ */
+
+test('两格床常量与 id 一一对应: B_BED_FOOT 顺延 69(门段 64~68 后); 床尾无 drop 防双掉(门 B_DOOR_TOP 同款)', () => {
+  const c = loadCfg();
+  assert.strictEqual(c.B_BED_FOOT, 69, 'B_BED_FOOT 应为 69');
+  assert.ok(c.BLOCKS[69], 'BLOCKS[69] 应有定义');
+  assert.strictEqual(c.BLOCKS[69].name, '床尾');
+  assert.strictEqual(c.BLOCKS[69].thin, 0.55, '床尾=半高薄块(与床头同形)');
+  assert.strictEqual(c.BLOCKS[69].solid, false, '床尾不挡人(床头同款)');
+  assert.strictEqual(c.BLOCKS[69].bed, true, '床尾带 bed 身份旗标(mesh/held 路由)');
+  assert.strictEqual(c.BLOCKS[69].drop, undefined, '床尾无 drop(挖床尾由 advBedBreakPlan 补发 1 张, 防双掉)');
+  assert.strictEqual(c.BLOCKS[c.B_BED].bedHead, true, '床头带 bedHead 旗标(mesh 枕向旋转扫描)');
+});
+
 /* ============ 生态地图新方块 id 段(54~62, 冒险模式生态地图设计稿 §6) ============ */
 
 test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽三图资源)', () => {
@@ -72,7 +86,7 @@ test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽�
 
 /* ============ 门与玻璃板 id 段(64~68, docs/door-window-design.md §2) ============ */
 
-test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 id 69+', () => {
+test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 id 70+(两格床改版床尾占 69)', () => {
   const c = loadCfg();
   const expect = {B_DOOR: 64, B_DOOR_TOP: 65, B_DOOR_OPEN: 66, B_DOOR_TOP_OPEN: 67, B_GLASS_PANE: 68};
   for (const [k, id] of Object.entries(expect)) {
@@ -80,9 +94,10 @@ test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_POR
     assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
     assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
-  /* 红线: 存档按数字 id 记, 69+ 是后续号段预留, 现有表不得越界 */
+  /* 红线: 存档按数字 id 记, 70+ 是后续号段预留, 现有表不得越界
+     (69 已被两格床改版床尾 B_BED_FOOT 占用, 2026-10-29) */
   for (const id of Object.keys(c.BLOCKS)) {
-    assert.ok(Number(id) <= 68, 'BLOCKS 出现 69+ 方块 id: ' + id + '(号段红线)');
+    assert.ok(Number(id) <= 69, 'BLOCKS 出现 70+ 方块 id: ' + id + '(号段红线)');
   }
 });
 
@@ -144,10 +159,10 @@ test('生态地图薄块: 枯灌木/三花 thin 十字片一律 solid:false; 雪
 });
 
 
-test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗/床(B_FUSE 同款口径)', () => {
+test('薄块(thin)一律 solid:false — 草丛/麦四阶段/火把/树苗/床(床头+床尾)/B_FUSE 同款口径', () => {
   const c = loadCfg();
   const thinIds = [c.B_GRASS_TUFT, c.B_WHEAT_0, c.B_WHEAT_1, c.B_WHEAT_2,
-    c.B_WHEAT_3, c.B_TORCH, c.B_SAPLING, c.B_BED];
+    c.B_WHEAT_3, c.B_TORCH, c.B_SAPLING, c.B_BED, c.B_BED_FOOT];
   for (const id of thinIds) {
     const b = c.BLOCKS[id];
     assert.ok(typeof b.thin === 'number' && b.thin > 0, id + ' 应有 thin 高度');

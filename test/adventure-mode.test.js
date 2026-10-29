@@ -85,7 +85,7 @@ const api = vm.runInContext(`({
   groundTop, lightSkyAt, lightBlockAt,
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
-  B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED,
+  B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_BED_FOOT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
@@ -2968,27 +2968,34 @@ test('昼夜 D5 夜怪 AI: 家锚=出生环点不归巢穴 · 玩家走近照常
 
 /* ============ 昼夜 D6: 床·放置/睡觉链路(设计稿 §7) ============ */
 
-test('昼夜 D6 床·放置: thin 顶面路径现成 — 草地顶可放/实心块侧面拒(零新政策)', () => {
+test('昼夜 D6 床·放置(两格床改版): 结构放置沿朝向占两格 — 床尾在点击格/床头伸向朝向侧, 下方无支撑拒', () => {
   mem.clear();
   freshInit();
   const spot = findGrassSpot();
   holdOnly('bed', 1);
   pos.x = spot.x + 0.5; pos.y = 25; pos.z = spot.z + 2.5;
+  globalThis.yaw = 0; /* 朝北(−z): 床头候选 = 目标格 z−1, 正典形床头在较小 z 端 */
+  setBlockRaw(spot.x, 25, spot.z - 1, 0); /* 床头候选格清空(草丛也是阻碍, read!==0 即 blocked) */
+  setBlockRaw(spot.x, 26, spot.z - 1, 0);
+  setBlockRaw(spot.x, 24, spot.z - 1, 2); /* 床头候选格正下方垫泥土(地形斜坡可能无支撑) */
   AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
-  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_BED, '床放上草地顶(B_BED 带 thin 旗标, 顶面限定自动生效)');
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_BED_FOOT, '床尾在点击格(床沿玩家朝向伸两格)');
+  assert.strictEqual(cell(spot.x, 25, spot.z - 1), api.B_BED, '床头在 z−1(正典形=床头在轴向较小坐标端, 配对可重建)');
   assert.strictEqual(A.advGetInv().slots[0], null, '放置扣 1 张床');
-  /* 侧面拒: 净空区立一格泥土, 点它 +z 侧面(落点是空气) — thin 块只认实心面顶 */
+  /* 悬空拒: 净空区立一格泥土, 点它顶面; 床头候选格(z−1)的地板挖掉 → 无支撑拒 */
   const qx = spot.x + 2; const qz = spot.z + 2;
   for (let y = 25; y <= 27; y++) {
     setBlockRaw(qx, y, qz, 0);
     setBlockRaw(qx, y, qz + 1, 0);
+    setBlockRaw(qx, y, qz - 1, 0);
   }
+  setBlockRaw(qx, 24, qz - 1, 0); /* 床头候选格正下方挖空(无支撑) */
   setBlockRaw(qx, 25, qz, 2); /* 独立泥土块 */
   holdOnly('bed', 1);
   calls.length = 0;
-  AdventureMode.onMouse(2, {x: qx, y: 25, z: qz, nx: 0, ny: 0, nz: 1});
-  assert.ok(!cell(qx, 25, qz + 1), '实心块侧面不放床(advPlaceCheck thin 路径现成)');
-  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('放不了') >= 0), '非法落点 toast');
+  AdventureMode.onMouse(2, {x: qx, y: 25, z: qz, nx: 0, ny: 1, nz: 0});
+  assert.ok(!cell(qx, 26, qz) && !cell(qx, 26, qz - 1), '床头格无支撑不放床(advBedSiteOk nosupport)');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('床要放在地上') >= 0), '无支撑话术 toast');
 });
 
 test('昼夜 D6 床·睡觉条件(时钟改版): 白天开拨盘 · 床边有怪「附近有怪物，睡不着」 · 动物不拦(§7.2)', () => {

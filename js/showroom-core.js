@@ -232,7 +232,10 @@ function showroomPaintHouse(L, crateCount) {/* 展厅(v2 showroomHouse 语义): 
       L.spawnFurnace.x, g + 1, L.spawnFurnace.z, B_FURNACE);
   for (const f of L.kitchen) setBlockRaw(f.x, g + 1, f.z, B_FURNACE);
   for (const c of L.craftTables) setBlockRaw(c.x, g + 1, c.z, B_CRAFT);
+  /* 床(两格床改版): 床头 53 + 床尾 69 成对(正典形=床头在较小 z 端; 床尾格
+     建场直写覆盖, 卧室布局留有净空) */
   setBlockRaw(L.bed.x, g + 1, L.bed.z, B_BED);
+  setBlockRaw(L.bed.x, g + 1, L.bed.z + 1, B_BED_FOOT);
   /* 仓库箱排: 箱数=仓库箱派生长度(≤crateMax, 守门测试拦超出) */
   for (let i = 0; i < crateCount; i++) {
     setBlockRaw(L.crateX, g + 1, L.crateZ0 + i * L.crateStep, B_CHEST);

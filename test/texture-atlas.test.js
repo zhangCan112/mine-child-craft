@@ -20,7 +20,7 @@ function loadAtlas() {
   vm.runInContext(
       'globalThis.__t = { TextureAtlas, MeshCore, BLOCKS,' +
       ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING,' +
-      ' B_BED, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID };', ctx);
+      ' B_BED, B_BED_FOOT, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID };', ctx);
   return ctx.__t;
 }
 
@@ -75,11 +75,14 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 45, '已绘制格数 = 45(43+床顶/床侧: 雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花/门/玻璃板/床)');
+  assert.strictEqual(t.TextureAtlas.count, 46, '已绘制格数 = 46(43+床头顶/床侧/床尾顶: 雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花/门/玻璃板/床两格)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   const bed = t.TextureAtlas.layout.tiles[t.B_BED];
-  assert.notStrictEqual(bed.top, bed.side, '床顶(枕+毯)与侧(毯沿+木框)应分格(床观感票)');
+  assert.notStrictEqual(bed.top, bed.side, '床头顶(枕+毯)与侧(毯沿+木框)应分格(床观感票)');
+  const foot = t.TextureAtlas.layout.tiles[t.B_BED_FOOT];
+  assert.notStrictEqual(foot.top, bed.top, '床尾顶(全毯)与床头顶(枕+毯)应分格(两格床改版)');
+  assert.strictEqual(foot.side, bed.side, '床侧两半共用一张毯木框图');
 });
 
 test('布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格)', () => {
@@ -283,6 +286,31 @@ test('meshChunk: 床(bed 旗标)走薄块扁盒图集通道 — 5 面盒(无底�
            [0,0,16,9] 比例窗同口径) — 断言既不越格也不采到 tile 下半木框段 */
         assert.ok(v >= sideRect[1] + 0.44/16 - 1e-12 && v <= sideRect[3] + 1e-12,
             '侧面 v 应采格顶 0.55 段, 实际 ' + v + ' 窗底 ' + (sideRect[1] + 0.45/16));
+      }
+    }
+  }
+});
+
+test('meshChunk: 床头枕向按床尾方位旋转 — 床尾在东则枕贴西缘(取向不存档, 世界状态派生)', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_BED); /* 床头 */
+  p.set(9, 5, 8, t.B_BED_FOOT); /* 床尾在东 → 枕应朝西(rot3) */
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  const e = t.TextureAtlas.layout.tiles[t.B_BED];
+  const rect = t.TextureAtlas.tileUV(e.top);
+  for (let q=0; q<r.atlas.indices.length; q+=6) {
+    if (r.atlas.normals[r.atlas.indices[q]*3+1] !== 1) continue; /* 只看顶面 */
+    const u0 = r.atlas.uvs[r.atlas.indices[q]*2];
+    if (u0 < rect[0] - 1e-9 || u0 > rect[2] + 1e-9) continue; /* 床尾顶面(另一张格)跳过, 只量床头顶 */
+    for (let c=0; c<4; c++) {
+      const vi = r.atlas.indices[q+c];
+      const vx = r.atlas.positions[vi*3] - p.bx; /* 局部 lx(世界坐标含 bx=99 偏移) */
+      const tileV = (r.atlas.uvs[vi*2+1] - rect[1]) * 16; /* tile 内 v: 枕带=行0-3 → v∈[12/16,1] */
+      if (vx < 8.5) { // 西缘角点(cor0=0): rot3 采样 emitted v = 1 − faceUVu = 1 → 枕带
+        assert.ok(tileV >= 12/16 - 1e-9, '西缘应采枕带(枕背对东床尾), 实际 ' + tileV);
+      } else { // 东缘角点(cor0=1): emitted v = 0 → 毯身
+        assert.ok(tileV <= 4/16 + 1e-9, '东缘应采毯身(朝床尾), 实际 ' + tileV);
       }
     }
   }

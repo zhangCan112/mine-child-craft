@@ -60,7 +60,8 @@
      read 注入) · advPortalExit(传送出口, 来向退 2.5 格+yaw 反向)
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界(门段政策消费 B_DOOR 系 id; 门段 interface: advIsDoor/
       advIsDoorLower/advDoorSiteOk/advDoorTogglePlan/advDoorBreakPlan——
-      放置校验/开关计划/配对破坏, docs/door-window-design.md §3)
+      放置校验/开关计划/配对破坏, docs/door-window-design.md §3; 床两格结构
+      interface: advBedSiteOk/advBedBreakPlan——放置校验/配对破坏, 两格床改版)
      尺寸 · daylight-core 的 Daylight(昼夜 D5 夜怪判定与 D6 睡觉夜窗) ·
      voxel.js 的 getBlock/setBlockRaw/hashRand · scene-kit.js 的
      SceneKit · items-core 的 ITEMS/toolOf/stackMax/durOf · inventory-core
@@ -2055,6 +2056,55 @@ function advDoorBreakPlan(read, x, y, z) {
   return {cells: [], drop: 0};
 }
 
+/* ---------- 床两格结构 (两格床改版 2026-10-29, 门结构放置/配对破坏同款缝) ----------
+   床头 53 + 床尾 69 成对, 取向不存档(确定性重放红线): 配对用正典形
+   「床头恒在轴向较小坐标端」从世界状态唯一重建——放置按此形落格,
+   破坏按此形认亲, 两床并排同轴相接也拆不错邻床。 */
+/* 床放置校验: 目标格与床头格(沿玩家朝向的邻格)全空气 + 两格下方实心支撑
+   (级联同判据) + 玩家不入两格(advDoorPlayerIn 同款两格高判)。
+   返回 {ok:true, cells:[{x,y,z,id}×2 床头/床尾]} | {ok:false, reason} */
+function advBedSiteOk(read, p, yaw, x, y, z) {
+  if (read(x, y, z) !== 0) return {ok: false, reason: 'blocked'};
+  const fx = -Math.sin(yaw); const fz = -Math.cos(yaw); /* 朝向(camera-rig lookDir 同式) */
+  const dx = Math.abs(fx) > Math.abs(fz) ? Math.sign(fx) : 0; /* 朝向取主导轴(45° 平局归 z, 确定性) */
+  const dz = Math.abs(fx) > Math.abs(fz) ? 0 : Math.sign(fz);
+  const hx = x + dx; const hz = z + dz; /* 床头候选格(沿朝向的邻格) */
+  if (read(hx, y, hz) !== 0) return {ok: false, reason: 'blocked'};
+  const belowT = BLOCKS[read(x, y - 1, z)]; const belowH = BLOCKS[read(hx, y - 1, hz)];
+  if (!belowT || belowT.solid === false || !belowH || belowH.solid === false) {
+    return {ok: false, reason: 'nosupport'};
+  }
+  if (advDoorPlayerIn(p, x, y, z) || advDoorPlayerIn(p, hx, y, hz)) {
+    return {ok: false, reason: 'inside'};
+  }
+  const headFirst = (dx !== 0) ? (hx < x) : (hz < z); /* 正典形: 床头在较小坐标端 */
+  return {ok: true, cells: [
+    {x: headFirst ? hx : x, y, z: headFirst ? hz : z, id: B_BED},
+    {x: headFirst ? x : hx, y, z: headFirst ? z : hz, id: B_BED_FOOT},
+  ]};
+}
+
+/* 床配对破坏计划(门配对同款: 挖任一半=整床消失、掉 1 张; 世界已清格后调用,
+   四邻找另一半——候选须满足正典形「头.axis < 尾.axis」才算真配对, 两床并排
+   同轴相接时防拆错邻床)。drop: 挖的是床尾(无 drop 半)才由计划补发 1(床头
+   自带 drop 表走常规掷掉, 不双发); lone 半(老档/TNT 拆半)无配对不补发。
+   返回 {cells:[{x,y,z} 非空格], drop: 0|1} */
+function advBedBreakPlan(read, x, y, z) {
+  for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    const px = x + d[0]; const pz = z + d[1];
+    const nid = read(px, y, pz);
+    if (nid !== B_BED && nid !== B_BED_FOOT) continue;
+    const onX = d[0] !== 0; /* 轴向坐标: 床头须严格小于床尾(正典形) */
+    const headAxis = (nid === B_BED) ? (onX ? px : pz) : (onX ? x : z);
+    const footAxis = (nid === B_BED) ? (onX ? x : z) : (onX ? px : pz);
+    if (headAxis >= footAxis) continue;
+    /* 伙伴=床头(53) → 被挖的是床尾(无 drop 半), 计划补发 1; 伙伴=床尾 → 被挖的
+       是床头(自带 drop 表走常规掷), 不双发 */
+    return {cells: [{x: px, y, z: pz}], drop: nid === B_BED ? 1 : 0};
+  }
+  return {cells: [], drop: 0};
+}
+
 /* ---------- 门号段存档迁移(2026-10-28 用户报告「关门能穿/开门过不去」根因) ----------
    门与玻璃板首落地号段 63~67(6461fa9), 熄门 B_PORTAL_DIM 占 63 后整体 +1
    (5708c24)——间隙里落盘的世界档 edits 账本存的是旧 id: 旧关门(63/64)新读作
@@ -2155,6 +2205,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advInPortal, advPortalSiteOk, advPortalExit,
     advIsDoor, advIsDoorLower, advDoorSiteOk, advDoorTogglePlan, advDoorBreakPlan,
     advDoorIdsStale, advDoorIdsMigrate,
+    advBedSiteOk, advBedBreakPlan,
     ADV_WHEAT_GROW, advHoeOk, advPlantOk, advWheatNext, advRipenOk,
     ADV_RECIPE_UNLOCK, advUnlockedRecipes, advRecipeUnlockedNew};
 }
