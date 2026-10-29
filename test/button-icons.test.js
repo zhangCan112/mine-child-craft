@@ -98,6 +98,27 @@ test('派生箭头: left/right 是基画的几何变换(与基画像素数一致
       'left = mirrorX(right)');
 });
 
+test('派生箭头朝向: right 头部在右、left 头部在左(2026-10 Flanker 方向颠倒回归网)', () => {
+  const {h} = loadButtonIcons();
+  /* 朝向判据: 箭头头部半区像素显著多于杆半区 — 数左右两翼各 6 列的非透明格。
+     另以行对称性钉死"是横箭头"(垂直箭头两翼密度会接近, 单靠翼差会漏)。 */
+  const wing = (art) => {
+    let l = 0;
+    let r = 0;
+    art.forEach((row) => {
+      for (let x = 0; x < 16; x++) {
+        if (row[x] === '.') continue;
+        if (x < 6) l++; else if (x > 9) r++;
+      }
+    });
+    return {l, r};
+  };
+  const rw = wing(h.BTN_PIX.right.art);
+  assert.ok(rw.r > rw.l, 'right 键应画右箭头(右翼 ' + rw.r + ' > 左翼 ' + rw.l + ')');
+  const lw = wing(h.BTN_PIX.left.art);
+  assert.ok(lw.l > lw.r, 'left 键应画左箭头(左翼 ' + lw.l + ' > 右翼 ' + lw.r + ')');
+});
+
 /* ============ 出口: dataURL / 缓存 / 未知安全 ============ */
 
 test('全量出口: 每个键 btnIcon 返回 dataURL 且实际画了像素', () => {

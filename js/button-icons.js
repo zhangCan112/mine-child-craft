@@ -25,9 +25,11 @@
 
 /* ---------- 字符画工具: 镜像/旋转/叠层(一套基画派生方向变体) ---------- */
 const mirrorX = (art) => art.map((row) => [...row].reverse().join(''));
-/* 顺时针 90°: 新行 i = 旧列 15-i 自上而下 — 上箭头转出右箭头 */
+/* 顺时针 90°: 新行 i = 旧列 i 自下而上(new(i,j)=old(15-j,i)) — 上箭头转出右箭头。
+   (2026-10 修复: 旧实现 new(i,j)=old(j,15-i) 实为逆时针, 致 right 键画出左箭头、
+   镜像派生的 left 键画出右箭头 — Flanker 左右按钮方向颠倒的根因) */
 const rotCW = (art) => art[0].split('').map((_, i) =>
-  art.map((row) => row[row.length - 1 - i]).join(''));
+  art.map((row) => row[i]).reverse().join(''));
 /* 叠层: a 有像素用 a, 空位透出 b(交叉剑 = 单剑 ⊕ 镜像单剑) */
 const overlayArt = (a, b) => a.map((row, y) =>
   [...row].map((c, x) => (c !== '.' ? c : b[y][x])).join(''));
