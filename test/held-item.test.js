@@ -426,3 +426,42 @@ test('swap 材质数组: mkArtMats 式多材质(弓 art 部件浏览器态)逐�
   assert.strictEqual(multi.material[0].disposeCalls, 1, '数组材质[0] dispose');
   assert.strictEqual(multi.material[1].disposeCalls, 1, '数组材质[1] dispose');
 });
+
+/* ============ mkArtMats 浏览器路径: art 桩注入直测 ============
+   2026-10-29 剑/剪刀「镜像幽灵」回归锁: face 材质必须 FrontSide——
+   DoubleSide 从正面透孔渲染背面内侧, 用户看到「第二把镜像武器」;
+   背面在其自身半球照常可见(从背后看=镜像图, MC 挤出薄片同款)。 */
+function loadHeldWithArtStub() {
+  const ctx = vm.createContext({console});
+  for (const f of ['config.js', 'items-core.js', 'held-item.js']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
+  }
+  vm.runInContext(`
+    globalThis.document = {
+      createElement: () => ({width: 16, height: 16, getContext: () => ({})}),
+    };
+    globalThis.drawArt = function () {};
+    globalThis.ITEM_PIX = {x: {art: ['##'], map: {'#': '#123456'}}};
+    globalThis.THREE = {
+      FrontSide: 0, DoubleSide: 1, NearestFilter: 'nearest',
+      CanvasTexture: class { constructor(img) { this.image = img; } },
+      MeshLambertMaterial: class { constructor(opts) { this.opts = opts || {}; } },
+    };
+    globalThis.__h = {HeldItems, THREE};
+  `, ctx);
+  return ctx.__h;
+}
+
+test('mkArtMats 材质数组: face=FrontSide(镜像幽灵回归锁) + alphaTest 裁角 + 未登记 art 回落 null', () => {
+  const {HeldItems, THREE} = loadHeldWithArtStub();
+  const mats = HeldItems.mkArtMats({art: 'x', color: 0x123456});
+  assert.ok(Array.isArray(mats) && mats.length === 6, 'BoxGeometry 六面材质数组');
+  assert.strictEqual(mats[0].opts.color, 0x123456, '挤出侧面=color 单色');
+  for (const i of [4, 5]) {
+    assert.strictEqual(mats[i].opts.side, THREE.FrontSide,
+        '±Z 面必须 FrontSide(DoubleSide 透孔渲染镜像背面=2026-10-29 破相)');
+    assert.strictEqual(mats[i].opts.alphaTest, 0.5, '透明角裁切');
+  }
+  assert.strictEqual(HeldItems.mkArtMats({art: 'nope', color: 0}), null,
+      '工坊键缺失回落 null(纯色薄板, Node 既有口径)');
+});

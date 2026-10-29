@@ -453,7 +453,11 @@ const HeldItems = {
     tex.magFilter = THREE.NearestFilter;
     tex.minFilter = THREE.NearestFilter;
     tex.generateMipmaps = false;
-    const face = new THREE.MeshLambertMaterial({map: tex, alphaTest: 0.5, side: THREE.DoubleSide});
+    /* side=FrontSide: 正/背面各自外向半球可见(从背后看仍是镜像图, MC 同款)。
+       不能用 DoubleSide——它会从正面半球也渲染背面内侧, 透过 alphaTest 透明孔
+       看到「第二把镜像武器」(2026-10-29 用户报告的剑/剪刀第一人称破相根因,
+       反馈环: 透孔射线命中背面内侧 DoubleSide=红 / FrontSide=绿) */
+    const face = new THREE.MeshLambertMaterial({map: tex, alphaTest: 0.5, side: THREE.FrontSide});
     const edge = new THREE.MeshLambertMaterial({color: p.color});
     return [edge, edge, edge, edge, face, face]; /* BoxGeometry 面序 [+x,-x,+y,-y,+z,-z] */
   },
