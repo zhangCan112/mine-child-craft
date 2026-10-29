@@ -797,8 +797,11 @@ function runSearch(area, params, adapt, h) {
     grid.innerHTML = '';
     hint.innerHTML = hintHTML(params.targets);
     const cells = params.cols*params.rows;
-    const idxs = RandCore.shuffle(Math.random, Array.from({length: cells}, (_, k)=>k));
-    const targetSet = idxs.slice(0, params.targets);
+    const slots = Array.from({length: cells}, (_, k)=>k);
+    /* 目标格位 = 全格位洗牌取前 targets 个(格位号即行优先布局位置) —
+       铺格循环恒按自然序走(2026-10-29 修复: 原实现铺格也走同一洗牌序,
+       前 targets 个 DOM 槽恒为目标 = 第一排恒满钻, 洗牌随机性在布局侧被抵消) */
+    const targetSet = RandCore.shuffle(Math.random, slots).slice(0, params.targets);
     /* 干扰率: 首回合恒 0(Balloon Hunt 前段=纯目标), 后回合读 density[r-1] */
     const dens = r === 0 ? 0 : (params.density[r-1] || 0);
     let roundLeft = params.targets;
@@ -806,7 +809,7 @@ function runSearch(area, params, adapt, h) {
     if (params.demo && r === 0) { // 教学关首回合: 目标脉动高亮 + 一句口播
       T.after(900, ()=>SpeechKit.speak('闪光的钻石全都点掉，一颗都别漏！'));
     }
-    idxs.forEach((cell) => {
+    slots.forEach((cell) => {
       const isTarget = targetSet.includes(cell);
       let kind;
       if (isTarget) {

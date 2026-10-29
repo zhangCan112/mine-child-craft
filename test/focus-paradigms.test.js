@@ -817,6 +817,28 @@ test('runSearch: 低档(tier<8)整局无绿宝石; 教学关首回合目标带 h
   assert.strictEqual(ended[0].acc, 1, '无误点 acc=1');
 });
 
+test('runSearch: 钻石格位随机分布(回归: 铺格曾走洗牌序, 第一排恒满钻)', () => {
+  const d = loadFocusDrv({seed: 13});
+  const p = Object.assign(d.fp.paramsFor('search', 3), {demo: false});
+  const seen = new Set(); let mark = 0;
+  for (let g = 0; g < 30; g++) {
+    d.fp.runFocusLevel({dim: 'search', kind: 'normal', params: p}, fakeEl(),
+        {progress() {}, end() {}});
+    const cells = drvEls(d, 'f-search-cell').slice(mark); // 本局首回合格(创建序=渲染序)
+    mark += cells.length;
+    assert.strictEqual(cells.length, p.cols*4, '首回合格数 = cols×rows');
+    const dia = [];
+    cells.forEach((e, k) => {
+      if (e.innerHTML.includes('data:icon:diamond')) dia.push(k);
+    });
+    assert.strictEqual(dia.length, p.targets, '首回合恰 6 颗钻石');
+    assert.ok(!dia.every((k) => k < p.cols),
+        '钻石不得恒占第一排(目标格位=洗牌取位, 铺格恒自然序): 局' + g + ' 落在 ' + dia.join(','));
+    dia.forEach((k) => seen.add(k));
+  }
+  assert.ok(seen.size >= 12, '30 局钻石应铺开多数格位: 覆盖 ' + seen.size + '/24');
+});
+
 /* ============ P1 回声矿洞(听觉持续注意, 附加块) ============ */
 
 test('echoParamsFor 曲线: 5 回合, 声数/间隔/干扰混入率渐进有界(qualitative 跳变混编红线)', () => {
