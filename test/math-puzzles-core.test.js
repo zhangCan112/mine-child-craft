@@ -585,6 +585,39 @@ test('mkClueOrderPuzzle: 三实体值互异跟带, 线索 2~3 条, 解唯一且�
       PuzzleCore.mkClueOrderPuzzle({seed: 4, max: 20}));
 });
 
+test('mkClueOrderPuzzle: want=2 只出两条链线索 — 200 种子扫描恒唯一解(引擎截断误判回归, 2026-10-29 P1)', () => {
+  /* 引擎 tier9/10(clueCount=2)按 want 取线索: 生成器保证恰好 2 条链线索,
+     solveClueOrder 必非 null(不存在"两个都合法的全序") — 旧行为下冗余
+     线索挤掉链线索时孩子按逻辑答仍有一半概率被判错 */
+  for (let seed = 0; seed < 200; seed++) {
+    const p = PuzzleCore.mkClueOrderPuzzle({seed, max: 20, want: 2});
+    assert.strictEqual(p.clues.length, 2, 'want=2 恰两条链线索(不出冗余), seed=' + seed);
+    const sol = PuzzleCore.solveClueOrder(p.entities.map((e) => e.key), p.clues);
+    assert.notStrictEqual(sol, null, 'seed=' + seed + ' 线索恒可解(唯一全序)');
+    const byVal = p.entities.slice().sort((x, y) => y.value - x.value).map((e) => e.key);
+    assert.deepStrictEqual(sol, byVal, 'seed=' + seed + ' 唯一解=值降序');
+  }
+});
+
+test('mkClueOrderPuzzle: want=3 链+冗余恰 3 条仍唯一解; 缺省行为不变(2~3 条随机冗余)', () => {
+  for (const seed of SEEDS.concat(Array.from({length: 40}, (v, i) => 1000 + i))) {
+    const p3 = PuzzleCore.mkClueOrderPuzzle({seed, max: 20, want: 3});
+    assert.strictEqual(p3.clues.length, 3, 'want=3 恰 3 条(红线 ≤3), seed=' + seed);
+    assert.notStrictEqual(
+        PuzzleCore.solveClueOrder(p3.entities.map((e) => e.key), p3.clues),
+        null, 'seed=' + seed + ' want=3 仍唯一解');
+  }
+  let two = 0;
+  let three = 0;
+  for (let seed = 0; seed < 200; seed++) {
+    const n = PuzzleCore.mkClueOrderPuzzle({seed, max: 20}).clues.length;
+    if (n === 2) two++;
+    else three++;
+  }
+  assert.ok(two > 0 && three > 0,
+      '缺省(无 want)保持旧行为 2 或 3 条: 2条=' + two + ' 3条=' + three);
+});
+
 /* ============ 间隔问答(C ★★ 植树问题具身版) ============ */
 
 test('mkIntervalPuzzle: 教材口径手算对照 — 第3格到第9格 三种数法', () => {

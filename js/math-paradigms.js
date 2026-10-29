@@ -19,6 +19,8 @@
      runMathScreen(section, area, h) → {stop()}(T5-b 起经 MathTrack.runners 派发)
      section = {family, variant, tier?, kind?, params, seed?} ·
      mFrameLayout(n, seed) → 十格阵格位序列(呈现反泄漏纯函数, G5) ·
+     MATH_POSITION_CAP/MATH_MEASURE_CAP(站位数线/测距数格 cap 上限常数,
+     math-levels tip 话术同源出处) ·
      h = {progress(k, n)?, onTrial({ok, streak})?, end(st)} —
      st = {trials, correct, acc, maxStreakErr}(供 mathPassed/mathStars) ·
      钟部件族 mClockFace/mClockAngles/mClockSay(角度/报时口径纯函数,
@@ -114,6 +116,13 @@ const MATH_COLORS = {
   2: {ico: 'wool_blue', name: '蓝色'},
   3: {ico: 'wool_yellow', name: '黄色'},
 };
+
+/* 屏流数值钳制上限(具名常数, 2026-10-29 从引擎内字面量提出, 供
+   math-levels 的 tip 话术同源引用):
+   hop/position 数线 cap = Math.max(10, Math.min(p.max||20, MATH_POSITION_CAP))
+   count/measure 数格 cap = Math.max(6, Math.min(p.max||20, MATH_MEASURE_CAP)) */
+const MATH_POSITION_CAP = 100;
+const MATH_MEASURE_CAP = 60;
 
 /* ---------- 认知负荷红线(渲染前校验, 越界 warn + 截断) ---------- */
 
@@ -321,7 +330,10 @@ function mCountFetch(stage, p, rnd, ctx) {
   }
   stage.appendChild(tray);
   mOkBtn(stage, () => {
-    const got = tray.children.filter((c) => c.classList.contains('in')).length;
+    /* Array.from 化: 真元素 .children 是 HTMLCollection, 没有数组方法,
+       直接 .filter 在浏览器必抛 TypeError → settle 永不执行(关卡软锁);
+       假 doc 的 children 是纯数组, 行为测试测不出此陷阱(2026-10-29 P0) */
+    const got = Array.from(tray.children).filter((c) => c.classList.contains('in')).length;
     ctx.settle(got === n, null);
   });
   ctx.speak('请搬 ' + n + ' 个方块进箱子，点够了按好啦。');
@@ -684,7 +696,8 @@ function mPatternSortBin(stage, p, rnd, ctx) {
   }
   stage.appendChild(tray);
   mOkBtn(stage, () => {
-    const sel = tray.children.filter((c) => c.classList.contains('in'));
+    /* Array.from 化: 同 mCountFetch(HTMLCollection 无数组方法, 2026-10-29 P0) */
+    const sel = Array.from(tray.children).filter((c) => c.classList.contains('in'));
     const ok = sel.length === wantCount && sel.every((c) => c.dataset.v === ruleIcon);
     ctx.settle(ok, null);
   });
@@ -692,10 +705,14 @@ function mPatternSortBin(stage, p, rnd, ctx) {
 }
 
 function mPatternSortClue(stage, p, rnd, ctx) {
-  const pz = PuzzleCore.mkClueOrderPuzzle({seed: RandCore.childSeed(rnd), max: p.max || 20});
+  /* want 把意图线索条数传进生成器(单一权威): 生成条数恒=clueCount 且
+     恒可解 — 旧实现整体洗牌后 slice 截前 N 条, tier9/10(clueCount=2)时
+     冗余线索可能挤掉链线索, 出"两个都合法的全序", 孩子按逻辑答仍有一半
+     概率被判错(2026-10-29 P1); slice 保留作防御, 生成器已保证前 want 条可解 */
+  const clueCount = Math.min(p.clueCount || 3, PuzzleCore.LIMITS.clues);
+  const pz = PuzzleCore.mkClueOrderPuzzle({seed: RandCore.childSeed(rnd), max: p.max || 20, want: clueCount});
   const colorOf = {a: 'wool_red', b: 'wool_blue', c: 'wool_yellow'};
   const nameOf = {a: '红色的', b: '蓝色的', c: '黄色的'};
-  const clueCount = Math.min(p.clueCount || 3, PuzzleCore.LIMITS.clues);
   const clues = pz.clues.slice(0, clueCount);
   const clueWrap = mEl('div', 'm-clues');
   for (const c of clues) {
@@ -772,7 +789,7 @@ function mPatternCycle(stage, p, rnd, ctx) {
 /* ---------- hop 族 C 屏流变体: 站位比大小 ---------- */
 
 function mHopPosition(stage, p, rnd, ctx) {
-  const cap = Math.max(10, Math.min(p.max || 20, 100));
+  const cap = Math.max(10, Math.min(p.max || 20, MATH_POSITION_CAP));
   const a = mRi(rnd, 1, cap - 2);
   const b = mRi(rnd, a + 1, cap);
   const diffMode = p.reasoning && p.reasoning !== 'single';
@@ -886,7 +903,10 @@ function mShopPayWays(stage, p, rnd, ctx) {
     max: Math.min(p.max || 12, 12), parts: 2});
   mSolveChips(stage, rnd, ctx, pz,
       '买 <b>' + pz.n + ' 元</b>的东西，哪两张钱合起来正好？把对的都找出来！',
-      (x, y) => x + ' 元 + ' + y + ' 元',
+      /* chip 去货币化: mkPartitionPuzzle 出 4..12 全数对, 3/4 等非人民币
+         面额不能以「元」的样子示人(教材面额口径, 2026-10-29 review);
+         保留数的分合语义, 判分仍按 x+y=n 完全不变 */
+      (x, y) => x + ' 和 ' + y,
       '买 ' + pz.n + ' 元的东西，哪两张钱合起来正好 ' + pz.n + ' 元？把对的都找出来！');
 }
 
@@ -996,7 +1016,7 @@ function mClockAfter(stage, rnd, ctx, delta) {
    终点挂小旗, 格子带绝对序号(大数跟带在格子号上) */
 function mCountMeasure(stage, p, rnd, ctx) {
   const r = p.reasoning || 'single';
-  const cap = Math.max(6, Math.min(p.max || 20, 60));
+  const cap = Math.max(6, Math.min(p.max || 20, MATH_MEASURE_CAP));
   const round = (r === 'reverse' || r === 'multi-solve') && rnd() < 0.6;
   let mode;
   if (round) mode = 'one';
@@ -1129,5 +1149,6 @@ function runMathScreen(section, area, h) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {mathScreenDispatch, mathGuardParams, runMathScreen, mFrameLayout};
+  module.exports = {mathScreenDispatch, mathGuardParams, runMathScreen, mFrameLayout,
+    MATH_POSITION_CAP, MATH_MEASURE_CAP};
 }

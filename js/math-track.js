@@ -11,7 +11,8 @@
    宿主) · js/math-paradigms.js(屏流引擎, 键集加载期自引擎表派生);
    记分/节拍/boss 规划在 js/math-track-core.js(纯核心, 有单测)。
    interface: dispatch(family,variant)→'screen'|'world'|null(纯查表: 未册键
-     返 null — 原「未知键归世界轨」语义随 T5-b 废除) ·
+     返 null — 原「未知键归世界轨」语义随 T5-b 废除; run 侧未册键
+     warn+空账收口, 防消费方空等 end 卡屏) ·
      run(section, areaEl, h)→{stop(),onMouse?}|null(单节; end 前先离场) ·
      runBoss(level, areaEl, h)(串链, h={progress?,onTrial(sec,t)?,end(agg)?,speak?}) ·
      leave()(单节离场: stop+交还指针+复明 DOM, 幂等) ·
@@ -119,7 +120,13 @@ function trackRun(section, areaEl, h) {
     if (userEnd) userEnd(st);
   };
   const entry = MATH_TRACK_RUNNERS[section.family + '/' + section.variant];
-  if (!entry) return null; /* 未注册变体: 保持 null 契约(防御 — 单一权威测试下不可达) */
+  if (!entry) {
+    /* 未册变体(清单漂移防御, 单一权威测试下不可达): warn 后按空账收口 —
+       静默返 null 会让消费方空等 end 卡屏 */
+    console.warn('[math-track] 未册变体: ' + section.family + '/' + section.variant);
+    hh.end(MathTrackCore.aggStats([]));
+    return null;
+  }
   const handle = entry.run(section, areaEl, hh);
   if (!handle) return null;
   trackCur = {handle};
@@ -160,7 +167,8 @@ function trackRunBoss(level, areaEl, h) {
         if (boss.alive) step();
       }, 400);
     };
-    trackRun({family: s.family, variant: s.variant, tier: s.tier, kind: 'challenge',
+    const before = statsList.length; /* 账目观察: trackRun 空账收口会 +1 */
+    const handle = trackRun({family: s.family, variant: s.variant, tier: s.tier, kind: 'challenge',
       params: s.params, seed: RandCore.seedAt(level.i, si)}, areaEl, {
       progress(k, n) {
         if (hh.progress) hh.progress(doneTrials + k, totalTrials);
@@ -170,6 +178,13 @@ function trackRunBoss(level, areaEl, h) {
       },
       end: secEnd,
     });
+    if (!handle && boss.alive && statsList.length === before) {
+      /* 未册变体/在册 runner 拒单(清单漂移防御): 未册键的空账 end 已在
+         trackRun 内触发(账目+1, 此处不再重复); 这里只兜"没有 end 会来"
+         的残路 — 空账直接过, 链不在空等里卡死 */
+      console.warn('[math-track] 未册变体: ' + s.family + '/' + s.variant);
+      secEnd({trials: 0, correct: 0, acc: 0, maxStreakErr: 0});
+    }
   }
   step();
 }

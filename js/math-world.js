@@ -169,11 +169,14 @@ function runHopWorld(section, h) {
          南侧相机与路侧旗) */
       SceneKit.tree(b.x1 - 2, G + 1, b.z1 - 2);
       SceneKit.tree(b.x2 + 2, G + 1, b.z1 - 2);
-      /* 每格数字贴片(整十格大号金色 — 十格一档的位值读法) */
+      /* 每格数字贴片(整十格大号金色 — 十格一档的位值读法)。贴片悬于
+         路面上方防遮挡: 路块占 y∈[G+1,G+2], 原锚点 G+1+0.62/2.05 落在
+         路块内部, 字面几乎被块顶盖住 — 锚点口径对齐 hoverBox(G+2+0.14,
+         块顶之上), 整十格再抬一层保持错层关系 */
       for (let i = 0; i <= plan.last; i++) {
         const c = plan.at(i);
-        const sp = mWNumSprite(plan.value(i), c.x + 0.5, G + 1 + (plan.isDecade(i) ? 1.05 : 0.62),
-            c.z + 0.5, plan.isDecade(i));
+        const sp = mWNumSprite(plan.value(i), c.x + 0.5,
+            G + 2 + (plan.isDecade(i) ? 1 : 0) + 0.12, c.z + 0.5, plan.isDecade(i));
         scene.add(sp);
         sprites.push(sp);
       }
@@ -395,6 +398,9 @@ function runHopWorld(section, h) {
                 speak(plan.unit === 1 ? k + ' 格' : String(k * plan.unit));
               },
               onDone() {
+                /* 落格截断(min(from+roll,last)): 念出的步数少于骰面,
+                   补一句说明 — 否则孩子以为念漏了或骰子骗人 */
+                if (st.to - st.from < st.roll) speak('到头啦，停在这里！');
                 const q = '现在站在哪块石板？数字是几？';
                 askChoices(q, plan.value(st.to), pathMax, null);
                 speak(q); // 零文字依赖: 题面随卡读出(jumps/gaps 变体同款)
@@ -568,7 +574,17 @@ function runHopWorld(section, h) {
   }
 
   function setCard(html) {
-    if (card) card.innerHTML = html;
+    if (!card) return;
+    card.innerHTML = html;
+    /* pick 阶段任务卡放行点击(css .m-w-card.pick-through =
+       pointer-events:none): 下缘落格被卡带遮住时点击穿透到接球层,
+       不再落卡上无反馈; choice/die 阶段恢复可点(数字选项/骰钮在卡内)。
+       每条 setCard 路径都先定 phase 再写卡, 类名跟 phase 同步 */
+    if (phase === 'pick-target' || phase === 'pick-start') {
+      card.classList.add('pick-through');
+    } else {
+      card.classList.remove('pick-through');
+    }
   }
 
   /* ===== 指针事件(点选接球层): 点格(=点路侧旗) / 悬停 ===== */

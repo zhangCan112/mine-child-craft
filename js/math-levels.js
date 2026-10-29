@@ -3,14 +3,17 @@
    数学关卡参数表 (MathLevels, 术语见 GLOSSARY.md) — 应用层·数据表+纯函数
    ------------------------------------------------------------
    数学冒险岛的数值唯一权威: 六族与变体元数据(规则/tip 话术供 TTS,
-   零文字依赖口径) · mathParamsFor 双轨难度曲线(数值轨带内微升永不
-   越带, 推理轨 single→two-step→reverse→multi-solve 分段, 定性跳变
+   rule/tip 可为按 params 求值的函数形态, 零文字依赖口径) · 关卡参数
+   装配三段口径(族曲线→变体覆写→带钳制: 数值轨带内微升, 轮转流 k=5
+   溢位档按关卡自身 band 钳回本带上限——永不越带) · mathParamsFor 双轨
+   难度曲线(推理轨 single→two-step→reverse→multi-solve 分段, 定性跳变
    概率渐进——台阶变坡道, focus-levels 先例) · 120 关螺旋编排(G4 扩容, 四带×30,
    教学关开局/带首复习/带内末 N 次=挑战序列/带末 boss) · 通过门槛/三星(挑战
    挂钩, 补过回溯) · 战利品表与掷骰(简单版) · 存档默认值/迁移。
    数值出处: docs/math-mode-design.md §4/§5 · docs/math-mode-plan.md
    §4~§7(难度双轨=数字跟着教材走, 思维跳到附加题)。
-   interface: MATH_FAMILIES · MATH_META · MATH_VARIANTS · MATH_CONTEXTS ·
+   interface: MATH_FAMILIES · MATH_META · MATH_VARIANTS · MATH_CONTEXTS
+     (变体/情境 rule 可为 (p)=>string 函数形态; 变体/情境可覆写 tip) ·
      MATH_RANGES ·
      mathParamsFor(family, tier, li) · MATH_LEVELS ·
      mathPassed(level, st) · mathStars(level, st, famChallengeDone) ·
@@ -119,7 +122,12 @@ const MATH_META = {
    跟带红线)。
    可选字段 introBand = 挑战变体解锁带(dualview=2 二年级「观察物体」
    同频 · bridge=1): 带内挑战序列 = 挑战变体按 introBand 升序过滤
-   introBand≤band 者, 占带内末 N 次轮转位(旧挑战在前, 新变体殿后)。 */
+   introBand≤band 者, 占带内末 N 次轮转位(旧挑战在前, 新变体殿后)。
+   可选字段 rule = 变体级规则话术(报幕用, 覆写族 rule — 首遇即讲本
+   变体玩法): 可为 (p)=>string 函数形态, 按 tune 后的本关 params 求值
+   —— 首遇档呈现不超承诺(dualview 单/双视图两版)。可选字段 tip =
+   (p)=>string 变体级提示覆写(优先于族 tip): 变体呈现上限与族数值轴
+   不同步时用(hop/position 屏流只画到 cap, 族 tip 报 p.max 会谎报)。 */
 const MATH_VARIANTS = {
   count: [ /* A 数一数: 感数与计数 → 对应与比较 (T1) */
     {id: 'snapshot', name: '怪物快照'},
@@ -132,19 +140,30 @@ const MATH_VARIANTS = {
     {id: 'enough', name: '材料够不够'},
     {id: 'shortage', name: '还差几个'},
     {id: 'order', name: '合成订单'},
-    {id: 'blank', name: '魔法空格', kind: 'challenge'},
+    {id: 'blank', name: '魔法空格', kind: 'challenge',
+      rule: '魔法空格：算式里少了一个数，想一想该是几？点出来！'},
   ],
   hop: [ /* C 跳一跳: 数字线跳格子 → 数序、间隔与数列规律 (T3) */
     {id: 'dice', name: '掷骰前进'},
     {id: 'jumps', name: '跳格子任务'},
-    {id: 'position', name: '站位比大小'},
-    {id: 'gaps', name: '间隔问题', kind: 'challenge'},
+    {id: 'position', name: '站位比大小',
+      /* tip 覆写: 屏流呈现上限是 cap(math-paradigms.js mHopPosition 同款
+         公式, 改一处须同步另一处), 族 tip 报 p.max 在带 3 会谎报 1000 */
+      tip(p) {
+        const cap = Math.max(10, Math.min(p.max || 20, 100));
+        let s = '小路这次到 ' + cap;
+        if (p.landmark) s += '，每 10 格有一面小旗';
+        return s + '。';
+      }},
+    {id: 'gaps', name: '间隔问题', kind: 'challenge',
+      rule: '间隔问题：先点红色出发小旗，走一走，数一数间隔！'},
   ],
   mirror: [ /* D 摆一摆: 对称建造 → 空间想象与拼组 (T4) */
     {id: 'reflect', name: '魔法镜补全'},
     {id: 'translate', name: '平移复制'},
     {id: 'rotate', name: '旋转对称'},
-    {id: 'tangram', name: '拼组与省料', kind: 'challenge'},
+    {id: 'tangram', name: '拼组与省料', kind: 'challenge',
+      rule: '拼组与省料：用积木把玻璃格子全部盖住，不多也不少！'},
     {id: 'bridge', name: '最省桥', kind: 'challenge', introBand: 1, trials: 2,
       /* 曲线(G4, US20): 推理档沿族轨 reverse(带 1 首遇, 先「能过」→
         multi-solve(带 2+, 后「最省」— 恰与 mathReasoningOf 同段, tune
@@ -162,7 +181,8 @@ const MATH_VARIANTS = {
     {id: 'build', name: '看图施工'},
     {id: 'pick', name: '反向选图'},
     {id: 'hidden', name: '隐藏块推理'},
-    {id: 'countall', name: '数方块', kind: 'challenge'},
+    {id: 'countall', name: '数方块', kind: 'challenge',
+      rule: '数方块：藏起来的也要数，点出正确答案！'},
     {id: 'dualview', name: '双视角推理', kind: 'challenge', introBand: 2,
       /* 曲线(G4, US24): dualview 首遇在带 2 末次(tier13) — 族推理轨此处
         已是 multi-solve, 但视角推理是新技能, 推理档在变体内重爬:
@@ -176,22 +196,31 @@ const MATH_VARIANTS = {
         return {...p, reasoning: twoStep ? 'two-step' : 'single',
           dualCands: twoStep ? 4 : 2, dualViews: twoStep ? 2 : 1};
       },
-      rule: '双视角推理：正面看是山，侧面看是墙——哪座建筑和图纸一样？点它！'},
+      /* rule 函数形态: 按 tune 后的视图数分两版 —— 带 2 首遇 single 档
+         dualViews=1 只立正面一块投影牌, 不承诺「侧面」句(与引擎
+         math-build-world.js speak 的 views 分支同口径) */
+      rule(p) {
+        return p && p.dualViews === 2 ?
+          '双视角推理：正面看是山，侧面看是墙——哪座建筑和两块图纸都一样？点它！' :
+          '双视角推理：看一看图纸，哪座建筑和它正面一样？点它！';
+      }},
   ],
   pattern: [ /* F 找一找: 接龙与分类 → 模式、周期与推理 (T3/T6) */
     {id: 'chain', name: '花纹接龙'},
     {id: 'sort', name: '分装箱'},
     {id: 'odd', name: '找异类'},
-    {id: 'cycle', name: '周期问题', kind: 'challenge'},
+    {id: 'cycle', name: '周期问题', kind: 'challenge',
+      rule: '周期问题：花纹按规律重复，下一个是什么？点出来！'},
   ],
 };
 
 /* 情境变体登记(T7, plan §6 情境挂载): 挂在既有族上的皮肤变体, 不独立
    成族 — 配重/战利品/日志/挑战表全记在承载族(family 字段), 排班由
    编排生成器在每带首个轮转位换 variant 实现(tier/kind/params
-   与族曲线同源, 结构不变量零扰动)。rule/tip 为变体级话术, 模式层
-   mathLevelMeta 据此覆盖族元数据(TTS 零文字依赖)。id 即关卡 variant
-   与屏流分发键(math-paradigms MATH_SCREEN_KEYS 同步在册)。 */
+   与族曲线同源, 结构不变量零扰动)。rule/tip 为变体级话术(rule 可为
+   (p)=>string 函数形态, 同 MATH_VARIANTS), 模式层 mathLevelMeta 据此
+   覆盖族元数据(TTS 零文字依赖)。id 即关卡 variant 与屏流分发键
+   (math-paradigms MATH_SCREEN_KEYS 同步在册)。 */
 const MATH_CONTEXTS = {
   shop: {family: 'craft', name: '人民币商店',
     rule: '欢迎来到人民币商店！买材料、算找零，想一想付钱有几种付法！',
@@ -208,9 +237,17 @@ const MATH_CONTEXTS = {
       return '过一刻钟是几点？想好了再点！';
     }},
   measure: {family: 'count', name: '测距步数',
-    rule: '数一数格子：从小怪物到小旗有几格？走过去再回来又是几格？',
+    /* rule 函数形态: 往返题只在 reverse/multi-solve 档(math-paradigms.js
+       mCountMeasure 的 round 分支), single/two-step 档不承诺「走过去
+       再回来」句 —— 首遇档呈现不超承诺 */
+    rule(p) {
+      const round = !!p && (p.reasoning === 'reverse' || p.reasoning === 'multi-solve');
+      return round ? '数一数格子：从小怪物到小旗有几格？走过去再回来又是几格？' :
+        '数一数格子：从小怪物到小旗有几格？点出正确的数字！';
+    },
     tip(p) {
-      let s = '这次最多数到 ' + Math.min(p.max, 60) + ' 格';
+      const cap = Math.max(6, Math.min(p.max || 20, 60)); // 呈现上限, 与 math-paradigms.js mCountMeasure 同步
+      let s = '这次最多数到 ' + cap + ' 格';
       if (p.reasoning === 'reverse' || p.reasoning === 'multi-solve') s += '，来回要走两趟，两倍别忘算';
       return s + '。';
     }},
@@ -301,6 +338,11 @@ const MATH_NUM_TRACK = {
   plan: [[8, 20], [20, 60], [60, 100], [100, 600]],
   pattern: [[10, 20], [20, 100], [100, 100], [500, 10000]],
 };
+
+/* 各族数值轴键(带钳制与关卡层红线测试共用口径): max=题内最大数,
+   其余为族的规模轴 —— 三段口径末段只钳这些键, 推理档等保持 tier 派生 */
+const MATH_NUM_KEYS = {count: ['max'], craft: ['max'], hop: ['max'],
+  mirror: ['span'], plan: ['blocks'], pattern: ['max']};
 
 function mathParamsFor(family, tier, li) {
   const t = Math.min(1, Math.max(0, (tier-1)/18)); // 0..1 归一(时间类参数用)
@@ -417,12 +459,21 @@ const MATH_LEVEL_MIX = [
 
     /* 变体级参数覆写(变体表单一权威): 族曲线出参后按变体表 trials/tune
        等可选字段覆写 — 搬动试错关(count/balance)每题探索长一次 2~3 题,
-       新挑战变体(dualview/bridge)的推理档/候选/视图/预算在变体内重爬 */
+       新挑战变体(dualview/bridge)的推理档/候选/视图/预算在变体内重爬。
+       装配三段口径: 族曲线 → 变体覆写 → 带钳制 */
     const paramsOf = (family, variant, tier, idx) => {
       const meta = (MATH_VARIANTS[family] || []).find((x) => x.id === variant);
       let params = mathParamsFor(family, tier, idx);
       if (meta && meta.tune) params = meta.tune(params, tier);
       if (meta && meta.trials) params.trials = meta.trials;
+      /* 带钳制(红线兜底): 轮转流 k 可达 5, tier=band*4+k 溢到下一带
+         区间时 mathParamsFor 按 tier 派生带会取到下一带数值 —— 数值轴
+         按关卡自身 band 钳回本带上限(MATH_RANGES); 推理档等非数值键
+         保持 tier 派生(bridge 带 1=reverse 等已钉口径不动) */
+      const cap = MATH_RANGES[band];
+      for (const key of MATH_NUM_KEYS[family] || []) {
+        params[key] = Math.min(params[key], cap);
+      }
       return params;
     };
 
@@ -465,9 +516,10 @@ const MATH_LEVEL_MIX = [
     const bossFams = band % 2 === 0 ? ['craft', 'mirror', 'pattern'] : ['hop', 'plan', 'count'];
     const bossTier = Math.min(19, band*4 + 4);
     const bossChal = bossFams.map((f) => challengesOf(f, band).pop());
-    const boss = {i: i++, band, family: bossFams[0], variant: bossChal[0].id,
+    const idx = i++; // 关号先取定 — 同字面量 params 实参不再拿到自增后的 i(死参错位修复)
+    const boss = {i: idx, band, family: bossFams[0], variant: bossChal[0].id,
       kind: 'boss', tier: bossTier,
-      params: paramsOf(bossFams[0], bossChal[0].id, bossTier, i)};
+      params: paramsOf(bossFams[0], bossChal[0].id, bossTier, idx)};
     boss.sections = bossFams.map((f, s) => ({family: f, variant: bossChal[s].id,
       tier: chalTier[f], params: paramsOf(f, bossChal[s].id, chalTier[f])}));
     MATH_LEVELS.push(boss);
@@ -476,15 +528,28 @@ const MATH_LEVEL_MIX = [
 
 /* ---------- 通过门槛 / 三星(design §4.2, 纯函数, 模式层与单测共用) ----------
    通过: 教学关恒过(零压力); 常规/复习 acc≥0.70(自适应训练带下界, 同
-   focus); 挑战 acc≥0.80(附加题水平, plan D3); boss 聚合三段按单关 70% 口径。
+   focus); 挑战 acc≥0.80(附加题水平, plan D3)—— 变体表带显式 trials 覆写
+   的探索型挑战例外(balance 搬动试错/bridge 摆桥是长交互): 容错线
+   correct ≥ trials−1(2/3·1/2 过, design §9 拍板「全对线对 6 岁过苛」);
+   st 缺 correct/trials(异常结算)回落 acc 线。boss 聚合三段按单关 70%
+   口径(整关 acc, 不走逐节线, 容错线不涉及)。
    三星: ⭐通过 ⭐⭐acc≥85% ⭐⭐⭐acc≥95% 且无连续 3 错, 且该族当带挑战关
    已通过(famChallengeDone 注入, 存档 challenge 表查 'family:band')——
    挑战/boss 关自成该条件(过关即点亮); 补过挑战后常规关第三星回溯点亮
    (地图星显按本函数重算即得, 星数只取历史最高)。 */
 function mathPassed(level, st) {
   if (level.kind === 'tutorial') return true;
-  const acc = (st && st.acc) || 0;
-  if (level.kind === 'challenge') return acc >= 0.80;
+  const s = st || {};
+  const acc = s.acc || 0;
+  if (level.kind === 'challenge') {
+    /* 探索容错线(design §9): 变体表带显式 trials 覆写的挑战(长交互
+       搬动/摆桥)按 correct ≥ trials−1 判, 其余挑战维持 acc≥0.80 */
+    const v = (MATH_VARIANTS[level.family] || []).find((x) => x.id === level.variant);
+    if (v && v.trials && Number.isFinite(s.correct) && Number.isFinite(s.trials)) {
+      return s.correct >= s.trials - 1;
+    }
+    return acc >= 0.80;
+  }
   return acc >= 0.70; // normal/review/boss(boss 聚合三段, 单关口径)
 }
 
@@ -783,7 +848,9 @@ const MATH_SAVE_DEFAULTS = {v: MATH_SAVE_VERSION, stars: {}, challenge: {},
    v≠当前版(G4 关号语义 25/带→30/带): stars/challenge/ready 三表按新编排
    全部失真, 一次性清空(数学岛上线仅一天损失可忽略, 用户拍板); stamps
    图章与 log 家长日志按日期记账, 原样保留。v=2 后只做幂等修形: 五个表
-   字段缺/损坏补空对象(ready=三星回溯档), stampClaimed 非数组补 [](T8
+   字段缺/损坏(含被写成数组的 —— typeof [] === 'object', 不拦会把数组
+   长度当天数, 如 mathStampCount 读数组 stamps)补空对象
+   (ready=三星回溯档), stampClaimed 非数组补 [](T8
    集章已领线), stampKind 非字符串回落 'gem'; 存量进度原样保留; 90 天
    滚动裁剪由模式层在落账时调 trimMathLog/mathStampTrim(写入点单一) */
 function migrateMathSave(s, from) {
@@ -795,7 +862,7 @@ function migrateMathSave(s, from) {
     s.v = MATH_SAVE_VERSION;
   }
   for (const k of ['stars', 'challenge', 'ready', 'stamps', 'log']) {
-    if (!s[k] || typeof s[k] !== 'object') s[k] = {};
+    if (!s[k] || typeof s[k] !== 'object' || Array.isArray(s[k])) s[k] = {};
   }
   if (!Array.isArray(s.stampClaimed)) s.stampClaimed = []; // T8: 集章已领达成线
   if (!MATH_STAMP_KINDS.includes(s.stampKind)) s.stampKind = 'gem'; // T8: 自选章图案白名单修形(focus 同款)

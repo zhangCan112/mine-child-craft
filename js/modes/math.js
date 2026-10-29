@@ -10,7 +10,8 @@
      mathFrontier(save) · mathLevelUnlocked(save, i) ·
      mathSettleSave(...) ·
      mathStampClaim(save)(T8 集章达成线领取) ·
-     mathLevelMeta(level)(情境关话术覆盖, T7);
+     mathLevelMeta(level)(情境关话术覆盖, T7; rule/tip 可为函数形态 —
+      rule 按 params 归一为字符串, 变体 tip 覆写优先, G4 修订);
      分发/boss 规划/聚合已迁世界轨驱动器侧(T4): MathTrack.dispatch ·
      MathTrackCore.bossPlan/aggStats(js/math-track-core.js 与 js/math-track.js);
      mathFamChallengeDone/mathLevelStars(第三星挂钩判据与三星回溯星显)住
@@ -534,21 +535,47 @@ function mathVariantName(family, variant) {
   return v ? v.name : variant;
 }
 
-/* 关卡话术元数据(T7+G2): 情境关(shop/clock/measure)以情境名为场馆名,
-   规则/提示换情境级话术(MATH_CONTEXTS), 图标沿用承载族 — 情境只换
-   皮肤, 配重/战利品/日志全随族; 变体表带 rule 的变体(移多补少搬动
-   试错)只覆盖规则话术, 名/场馆/提示仍走族元数据; 常规关原样返回族元数据 */
+/* 关卡话术元数据(T7+G2+G4 修订): 情境关(shop/clock/measure)以情境名为
+    场馆名, 规则/提示换情境级话术(MATH_CONTEXTS), 图标沿用承载族 — 情境
+    只换皮肤, 配重/战利品/日志全随族; 变体表带 rule 的变体只覆盖规则
+    话术, 名/场馆仍走族元数据; 变体/情境 rule 可为 (p)=>string 函数形态
+    (按本关 params 求值——首遇档呈现不超承诺), 归一为字符串在此单点收口
+    (渲染与 TTS 消费点只认 string); 变体表带 tip 覆写的变体(如
+    hop/position 屏流呈现上限)提示走变体级, 其余走族曲线话术; 常规关
+    原样返回族元数据 */
 function mathLevelMeta(level) {
   const fam = MATH_META[level.family];
+  const p = level.params || {};
+  const ruleText = (r) => (typeof r === 'function' ? r(p) : r);
   const ctx = MATH_CONTEXTS[level.variant];
   if (ctx && ctx.family === level.family) {
-    return {name: fam.name, game: ctx.name, icon: fam.icon, rule: ctx.rule, tip: (p) => ctx.tip(p)};
+    return {name: fam.name, game: ctx.name, icon: fam.icon,
+      rule: ruleText(ctx.rule), tip: (q) => ctx.tip(q)};
   }
   const v = (MATH_VARIANTS[level.family] || []).find((x) => x.id === level.variant);
-  if (v && v.rule) {
-    return {name: fam.name, game: fam.game, icon: fam.icon, rule: v.rule, tip: fam.tip};
+  if (v && (v.rule || v.tip)) {
+    return {name: fam.name, game: fam.game, icon: fam.icon,
+      rule: ruleText(v.rule || fam.rule), tip: v.tip || fam.tip};
   }
   return fam;
+}
+
+/* 挑战目标线展示口径(mathPassed 同源): 常规挑战 80%、常规/复习 70%;
+   探索式变体(变体表带显式 trials 覆写: balance/bridge)按容错线
+   correct ≥ trials−1 折算, 展示为「N 题里做对 N−1 题」的具象说法 —
+   报幕与结算两处共用, 改门槛口径只动 mathPassed 与本函数 */
+function mathChallengeTrials(level) {
+  if (level.kind !== 'challenge') return 0;
+  const v = (MATH_VARIANTS[level.family] || []).find((x) => x.id === level.variant);
+  return (v && v.trials) || 0;
+}
+
+function mathTargetLine(level, prefix, suffix) {
+  if (level.kind !== 'challenge') return prefix + '70' + suffix;
+  const trials = mathChallengeTrials(level);
+  return trials ?
+      '目标：' + trials + ' 题里做对 ' + (trials - 1) + ' 题就过关！' :
+      prefix + '80' + suffix;
 }
 
 function showMathMap() {
@@ -605,7 +632,7 @@ function startMathLevel(i) {
      "建设中"占位分支; 未登记变体属清单漂移, 由测试拦截而非运行时兜底 */
   const meta = mathLevelMeta(level); // 情境关话术覆盖(T7)
   const target = level.kind === 'tutorial' ? '随便玩，学会就好！' :
-      '目标：正确 ' + (level.kind === 'challenge' ? '80' : '70') + '% 以上通过！';
+      mathTargetLine(level, '目标：正确 ', '% 以上通过！');
   mathScreen(`
     <div class="m-screen m-intro">
       <div class="m-progress-line">第 ${i + 1} / ${MATH_LEVELS.length} 关${mathKindTag(level.kind)}</div>
@@ -617,7 +644,11 @@ function startMathLevel(i) {
       <div class="m-tipbox">${target}</div>
       <button class="m-start" id="mGoBtn">▶ 开始</button>
     </div>`);
-  SpeechKit.speak(meta.rule);
+  /* 零文字依赖(MISSION 约束): tip 承载档位信息(「可以 5 个 5 个地数」
+     「有的题要倒想一想」), 只渲染不念则不识字的孩子收不到 —— rule+tip
+     合成一句念出(两连 speak 会 cancel 截断前句, focus 注释踩过坑;
+     「目标 xx%」是给陪同大人的, 不念) */
+  SpeechKit.speak(meta.rule + ' ' + meta.tip(level.params || {}));
   document.getElementById('mBackBtn').onclick = showMathMap;
   document.getElementById('mGoBtn').onclick = () => beginMathRun(level);
 }
@@ -721,6 +752,7 @@ function onMathLevelEnd(level, st) {
   const praise = level.kind === 'tutorial' ? '你学会新玩法啦！' :
       (passed ? mathPraiseLine() : mathComfortLine());
   const accPct = Math.round((st.acc || 0) * 100);
+  const chTrials = mathChallengeTrials(level); // 探索式挑战展示容错线(与 mathPassed 同源)
   const targetPct = level.kind === 'challenge' ? 80 : 70;
   const moveOn = !passed && (mathFailCount[level.i] || 0) >= 2; // 连败 2 次换路, 防卡死(focus 同款)
   /* TTS 优先级: 集章仪式 > (通过=表扬+新章 / 未过=换路提示或安慰) — 结算屏只有一次开口 */
@@ -749,7 +781,7 @@ function onMathLevelEnd(level, st) {
       <div class="m-screen m-result">
         <div class="m-stars"></div>
         <h1>很努力了！</h1>
-        <p class="m-sub">正确 ${accPct}% · 目标 ${targetPct}%</p>
+        <p class="m-sub">正确 ${accPct}% · 目标 ${chTrials ? (chTrials - 1) + '/' + chTrials + ' 题' : targetPct + '%'}</p>
         <p class="m-sub">${moveOn ? '这关先记住感觉，我们去玩别的，以后再来挑战！' : '我们再试一次，慢慢想 😊'}</p>
         <div class="m-result-bubble"><span class="m-bubble">${praise}</span></div>
         ${mathLootRecapHtml()}

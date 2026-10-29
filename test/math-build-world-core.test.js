@@ -637,3 +637,68 @@ test('同 seed 同输出: 选图/隐藏/数方块/平移/拼组 全族', () => {
   assert.strictEqual(t(BuildWorldCore.mkWorldTangram, {seed: 9, span: 12}),
       t(BuildWorldCore.mkWorldTangram, {seed: 9, span: 12}));
 });
+
+/* ============ 回归钉(2026-10 修复): 摆放界 / 负 y / 轮廓上限 / 带上钳 ============ */
+
+test('mkWorldTranslate: 解必可摆 — 200 种子逐格落在摆放界内(0≤x<box.w · 0≤z<box.d)', () => {
+  for (let s = 0; s < 200; s++) {
+    const pz = BuildWorldCore.mkWorldTranslate(
+        {seed: s, span: 12 + (s % 3) * 16, layerRate: (s % 2) * 0.5});
+    for (const c of pz.solution) {
+      assert.ok(c.x >= 0 && c.x < pz.box.w && c.z >= 0 && c.z < pz.box.d,
+          'seed' + s + ' 解越摆放界: ' + JSON.stringify(c) + ' box=' + JSON.stringify(pz.box));
+    }
+    /* 归零不破判分语义: 照平移像摆(解减样品)仍判对 */
+    const moved = pz.solution.filter((c) => !pz.half.some((h) => key(h) === key(c)));
+    assert.strictEqual(PuzzleCore.gradeSymmetry(moved, pz), true,
+        'seed' + s + ' 平移像判分(归零后相对几何不变)');
+  }
+});
+
+test('mkWorldHidden 十字簇: 整体抬到 y≥0 — 200 种子无负 y, 藏块数平移不变', () => {
+  for (let s = 0; s < 200; s++) {
+    const pz = BuildWorldCore.mkWorldHidden({seed: s, blocks: 10 + (s % 17), max: 20});
+    assert.ok(pz.cells.every((c) => c.y >= 0),
+        'seed' + s + ' 十字簇细胞 y≥0(装配层 groundY+1+c.y 直放不再嵌地)');
+    assert.strictEqual(PuzzleCore.hiddenBlocks(pz.cells), pz.answer, '答案=纯函数重算');
+    assert.strictEqual(pz.answer, 1, '十字簇仍恰藏 1 块(藏块数语义不变)');
+  }
+  const big = BuildWorldCore.mkWorldHidden({seed: 3, blocks: 60, max: 100}); // 厚墙族本就 y≥0
+  assert.ok(big.cells.every((c) => c.y >= 0), '厚墙族 y≥0 不受影响');
+});
+
+test('mkWorldTangram: 轮廓不越标称上限 — 200 种子 4≤格数≤want 且四连通', () => {
+  for (let s = 0; s < 200; s++) {
+    const span = 8 + (s % 17) * 2; // want=clamp(round(span/2),4,12) → 4..12 全档覆盖
+    const pz = BuildWorldCore.mkWorldTangram({seed: 1000 + s, span});
+    const want = Math.min(12, Math.max(4, Math.round(span / 2)));
+    assert.ok(pz.target.length >= 4 && pz.target.length <= want,
+        'seed' + (1000 + s) + ' span=' + span + ' 格数=' + pz.target.length + ' want=' + want);
+    /* 连通性: BFS 泛洪一次走完(截断收尾不破坏连通) */
+    const set = keySet(pz.target);
+    const q = [pz.target[0]];
+    const seen = new Set([key(pz.target[0])]);
+    while (q.length) {
+      const c = q.pop();
+      for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+        const k = (c.x + dx) + ',0,' + (c.z + dz);
+        if (set.has(k) && !seen.has(k)) {
+          seen.add(k);
+          q.push(pz.target.find((cc) => key(cc) === k));
+        }
+      }
+    }
+    assert.strictEqual(seen.size, pz.target.length, 'seed' + (1000 + s) + ' 轮廓四连通');
+  }
+});
+
+test('worldNumChoices: hi 钳数值带上限 — answer 贴上限时候选不越带', () => {
+  const c = BuildWorldCore.worldNumChoices(20, mkRnd(9), 20);
+  assert.strictEqual(c.length, 4);
+  assert.ok(c.includes(20), '候选含答案');
+  assert.strictEqual(new Set(c).size, 4, '候选互异');
+  assert.ok(c.every((v) => v >= 0 && v <= 20), '候选全在 [0,hi] 内: ' + c.join(','));
+  /* 不传 hi 行为零变化(存量调用): answer+10 兜底可超 answer+4 */
+  const free = BuildWorldCore.worldNumChoices(20, mkRnd(9));
+  assert.ok(free.length === 4 && free.includes(20) && free.every((v) => v >= 0));
+});

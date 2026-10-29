@@ -23,7 +23,7 @@
      US20: 两岸地形+可证最少块数 par / 三判据判分 / 出题包装) ·
      bridgeOk(G4: 推理档判分口径 — reverse 能过即对/multi-solve 要最省) ·
      mkWorldDualView(G4: 双视角候选/视图裁剪, 曲线经 cands/views 注入) ·
-     blueprintPixels · digitCells · worldNumChoices
+     blueprintPixels · digitCells · worldNumChoices(可选 hi 钳数值带上限)
    依赖(经全局名, 调用期解析): PuzzleCore(js/math-puzzles-core.js,
    加载序在本文件之前, 见 index.html) — 生成与判分全部委托;
    RandCore(js/rand-core.js, 加载序在本文件之前, 见 index.html) —
@@ -123,9 +123,16 @@ const BuildWorldCore = (() => {
     const dx = base.box.w + 1 + ri(rnd, 0, 2);
     const dz = ri(rnd, 0, 1);
     const moved = PuzzleCore.translatePattern(sample, dx, 0, dz);
-    const solution = sample.concat(moved);
-    const b = boundsOf(solution);
-    return {offset: {dx, dz}, sample, half: sample, solution,
+    const b = boundsOf(sample.concat(moved));
+    /* 归零平移(解必可摆): 样品最左列无块时 minX≥1, 最右列 x=maxX 会
+       顶到 box.w, 超出装配层缺省摆放界 tx<x0+w — 样品与像一起平移
+       (-minX,-minZ), 解整体落进 0≤x<w · 0≤z<d; 两者相对距离(平移量
+       dx/dz)不变, offset 语义照旧 */
+    const sampleN = b.x0 === 0 && b.z0 === 0 ? sample :
+      PuzzleCore.translatePattern(sample, -b.x0, 0, -b.z0);
+    const solution = b.x0 === 0 && b.z0 === 0 ? sample.concat(moved) :
+      PuzzleCore.translatePattern(sample.concat(moved), -b.x0, 0, -b.z0);
+    return {offset: {dx, dz}, sample: sampleN, half: sampleN, solution,
       box: {w: b.w, d: b.d, h: b.h}};
   }
 
@@ -146,14 +153,35 @@ const BuildWorldCore = (() => {
         }
       }
     };
-    const fw = ri(rnd, 2, 3); const fh = ri(rnd, 2, 3);
+    let fw = ri(rnd, 2, 3); let fh = ri(rnd, 2, 3);
+    while (fw * fh > want) { // 起手矩形也钳在 want 内(want 可低至 4, 3×3=9 曾直接越上限)
+      if (fh > fw) fh--; else fw--;
+    }
     addRect(ri(rnd, 0, 6 - fw), ri(rnd, 0, 6 - fh), fw, fh);
     let guard = 0;
     while (cells.size < want && guard++ < 6) { // 沿已有轮廓搭接小矩形(连通由搭接保证)
       const anchor = pick(rnd, [...cells.values()]);
       const w = ri(rnd, 1, 2); const h = ri(rnd, 1, 2);
-      addRect(clamp(anchor.x - ri(rnd, 0, w - 1), 0, 6 - w),
-          clamp(anchor.z - ri(rnd, 0, h - 1), 0, 6 - h), w, h);
+      const rx = clamp(anchor.x - ri(rnd, 0, w - 1), 0, 6 - w);
+      const rz = clamp(anchor.z - ri(rnd, 0, h - 1), 0, 6 - h);
+      /* 矩形新格按「贴着已有轮廓」的 BFS 序逐格入列, 到 want 即收 —
+         整块 2×2 收尾曾越过标称上限(want=clamp(4..12), 实测最多 14 格);
+         每格都与已入列的格子四相邻, 截断后轮廓仍连通 */
+      const queue = [[anchor.x, anchor.z]];
+      const seen = new Set([anchor.x + ',' + anchor.z]);
+      while (queue.length && cells.size < want) {
+        const cx = queue[0][0]; const cz = queue[0][1];
+        queue.shift();
+        for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+          const nx = cx + dx; const nz = cz + dz;
+          const k = nx + ',' + nz;
+          if (nx < rx || nx >= rx + w || nz < rz || nz >= rz + h) continue;
+          if (seen.has(k)) continue;
+          seen.add(k);
+          queue.push([nx, nz]);
+          if (!cells.has(k) && cells.size < want) cells.set(k, {x: nx, y: 0, z: nz});
+        }
+      }
     }
     const target = [...cells.values()].map((c) => ({x: c.x, y: 0, z: c.z}));
     const b = boundsOf(target);
@@ -266,9 +294,18 @@ const BuildWorldCore = (() => {
         const a = pick(rnd, arms);
         cells.push({x: a[0] * 2, y: a[1] * 2, z: a[2] * 2, col: 1});
       }
+      /* 十字簇整体抬到 y≥0(最小 y 归 0): 底臂原在 y=-1(外延可到 -2),
+         装配层按 groundY+1+c.y 直放会把底臂嵌进地面 — 藏块数是纯邻接
+         查询(PuzzleCore.hiddenBlocks), 平移不变, 答案不受影响 */
+      let minY = Infinity;
+      for (const c of cells) {
+        if (c.y < minY) minY = c.y;
+      }
+      if (minY < 0) cells = cells.map((c) => Object.assign({}, c, {y: c.y - minY}));
     }
     const answer = PuzzleCore.hiddenBlocks(cells);
-    return {cells, answer: Math.min(answer, max), cands: worldNumChoices(Math.min(answer, max), rnd)};
+    return {cells, answer: Math.min(answer, max),
+      cands: worldNumChoices(Math.min(answer, max), rnd, max)};
   }
 
   /* 数方块(★★): 推理档决定问法 — single/two-step 问总块数(含藏块),
@@ -313,7 +350,7 @@ const BuildWorldCore = (() => {
     const cells = boxCells(w, d, h);
     const raw = mode === 'faces' ? PuzzleCore.exposedFaces(cells) : cells.length;
     const answer = Math.min(raw, max);
-    return {cells, mode, answer, cands: worldNumChoices(answer, rnd)};
+    return {cells, mode, answer, cands: worldNumChoices(answer, rnd, max)};
   }
 
   /* ---------- plan/bridge 最省桥(★★ US20): 两岸地形 + 可证最少块数 ---------- */
@@ -531,16 +568,21 @@ const BuildWorldCore = (() => {
   }
 
   /* 数值候选条(世界版 mNumChoices): 答案 + 邻近干扰恰 4 个, 互异
-     非负, 洗牌注入 rnd — 同 seed 同输出。 */
-  function worldNumChoices(answer, rnd) {
+     非负, 洗牌注入 rnd — 同 seed 同输出。hi 可选: 数值轴带上限,
+     干扰候选一并钳住(answer 贴近带上限时候选不再越带; 缺省不钳,
+     存量调用零变化)。 */
+  function worldNumChoices(answer, rnd, hi) {
     const vals = [answer];
     let guard = 0;
     while (vals.length < 4 && guard++ < 80) {
       const v = answer + ri(rnd, 1, 4) * (rnd() < 0.5 ? -1 : 1);
-      if (v >= 0 && !vals.includes(v)) vals.push(v);
+      if (v >= 0 && (hi === undefined || v <= hi) && !vals.includes(v)) vals.push(v);
     }
     let extra = 1;
-    while (vals.length < 4) vals.push(answer + 10 + extra++); // 干扰兜底(远离答案)
+    while (vals.length < 4) { // 干扰兜底(远离答案); 传 hi 时向下补不越上限
+      const v = hi === undefined ? answer + 10 + extra++ : Math.max(0, hi - extra++);
+      if (!vals.includes(v)) vals.push(v);
+    }
     return RandCore.shuffle(rnd, vals);
   }
 

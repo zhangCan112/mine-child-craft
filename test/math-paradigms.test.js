@@ -14,6 +14,8 @@
    mathSettleSave 落账)
    · G1 常驻钟面纯函数(mClockAngles 时/分针角度 · mClockSay 报时口径
    整时/半时/几时几分 · mClockFace 角度单一出处守卫)
+   · 源文本守门(.children 上禁数组方法 — 真元素 HTMLCollection 陷阱,
+   2026-10-29 P0)· 曲线下限不变量(六族曲线首档参数喂生成器不 throw)
    · index.html 脚本序(rand-core → camp-core → math-levels → math-puzzles-core →
    math-paradigms → modes/math, 加载序即依赖序)
    加载器: vm context 依次执行 rand-core.js + camp-core.js + math-levels.js + math-puzzles-core.js +
@@ -345,6 +347,21 @@ test('mathGuardParams: chunks/unitLen >4 与 clueCount >3 越界即 warn+截断,
   assert.deepStrictEqual([ok.chunks, ok.unitLen, ok.clueCount], [2, 4, 3]);
   assert.strictEqual(warns.length, 3, '合法参数零 warn');
   assert.strictEqual(mp.mathGuardParams(null).trials, undefined, '空参防御');
+});
+
+/* ============ 源文本守门(2026-10-29 P0) ============ */
+
+test('源文本守门: math-paradigms 的 .children 上不得直接调数组方法(HTMLCollection 陷阱)', () => {
+  /* 真浏览器 document.createElement 的 .children 是 HTMLCollection, 没有
+     filter/forEach 等数组方法 — 点「✔ 好啦」即抛 TypeError, settle 永不
+     执行, 关卡软锁; 假 doc 的 children 是纯数组, 行为测试测不出, 只能锁
+     源文本(先 Array.from 化再调数组方法) */
+  const src = fs.readFileSync(path.join(__dirname, '..', 'js', 'math-paradigms.js'), 'utf8');
+  const bad = src.match(new RegExp(
+      '\\.children\\.(?:filter|forEach|map|some|every|reduce|reduceRight|find|findIndex' +
+      '|includes|indexOf|join|slice|concat|sort|reverse|flat|flatMap|fill|at' +
+      '|entries|keys|values)\\(', 'g'));
+  assert.ok(!bad, '.children 需先 Array.from 化再调数组方法(2026-10-29 P0), 命中: ' + bad);
 });
 
 /* ============ 呈现反泄漏(G5): 需求侧数字卡 + 两堆十格阵 ============ */
@@ -928,6 +945,39 @@ test('pattern/sort: 线索排队子型(m-clue≤3 + m-card), 按线索全序点�
   assert.ok(found, 'tier19 30 个种子内掷到线索排队子型');
 });
 
+test('pattern/sort tier9(clueCount=2): 生成器按 want 出恰 2 条链线索, 排队恒唯一解(截断误判回归)', () => {
+  /* 旧行为: 生成器洗牌后引擎 slice 截前 2 条, 冗余线索挤掉链线索时存在
+     两个都合法的全序, 按逻辑答仍有一半概率被判错(2026-10-29 P1);
+     修后引擎把 clueCount 作 want 传进生成器 — 恰 2 条链线索, 必唯一解 */
+  const d = loadMathParadigms();
+  for (let seed = 1; seed <= 20; seed++) {
+    const ended = [];
+    play(d, 'pattern', 'sort', 9, {trials: 1, seed}, {end: (s) => ended.push(s)});
+    d.flush(8);
+    const clues = sEls(d, 'm-clue');
+    assert.strictEqual(clues.length, 2,
+        'tier9 clueCount=2 → 恰渲染 2 条链线索(不截断), seed=' + seed);
+    const cards = sEls(d, 'm-card');
+    assert.strictEqual(cards.length, 3, '三实体排队');
+    const hiLo = clues.map((c) => [c.dataset.hi, c.dataset.lo]);
+    let order = null;
+    for (const p1 of ['a', 'b', 'c']) {
+      for (const p2 of ['a', 'b', 'c']) {
+        for (const p3 of ['a', 'b', 'c']) {
+          const perm = [p1, p2, p3];
+          if (new Set(perm).size !== 3) continue;
+          if (hiLo.every(([hi, lo]) => perm.indexOf(hi) < perm.indexOf(lo))) order = perm;
+        }
+      }
+    }
+    assert.ok(order, '两条链线索可推唯一全序, seed=' + seed +
+        ' 线索=' + JSON.stringify(hiLo));
+    for (const k of order) tap(cards.find((c) => c.dataset.k === k));
+    d.flush(8);
+    assert.strictEqual(ended[0].correct, 1, '按线索排队必判对, seed=' + seed);
+  }
+});
+
 test('pattern/odd: 找异类=类别少数派(类目表神谕)', () => {
   const CATS = [new Set(['wool_red', 'wool_blue', 'wool_yellow']),
     new Set(['coal', 'iron', 'diamond']), new Set(['cobble', 'planks', 'brick', 'stone'])];
@@ -1066,6 +1116,9 @@ test('craft/shop: 付法找齐子型(m-chip) — 哪两张钱合起来正好 n �
     const bad = chips.filter((c) => +c.dataset.x + +c.dataset.y !== n);
     assert.ok(good.length >= 1 && bad.length >= 1, '有对有错(找齐口径)');
     assert.ok(d.spoken.some((s) => s.includes('付') || s.includes('钱')), '付法话术: ' + d.spoken.join('/'));
+    assert.ok(chips.every((c) => !String(c.innerHTML).includes('元')),
+        'chip 去货币化(4..12 全数对里 3/4 等非真实面额不得示「元」, 2026-10-29 review): ' +
+        chips.map((c) => String(c.innerHTML)).join('/'));
     for (const c of good) tap(c);
     tap(sEls(d, 'm-ok').pop());
     d.flush(8);
@@ -1400,6 +1453,44 @@ test('clueCount 越界(9): guard warn + 渲染线索卡 ≤3', () => {
   if (clues.length) assert.ok(clues.length <= 3);
 });
 
+/* ============ 曲线下限不变量(2026-10-29 P2 守门) ============ */
+
+test('曲线下限不变量: 六族 tier1 与各带首档的曲线参数喂生成器不 throw', () => {
+  /* 守门: 曲线首档不得低于生成器下限 — 三个生成器对 max 有硬下限直接
+     throw(mkSeqPuzzle ≥7 · mkPeriodPuzzle ≥ 2*unitLen+1 · mkClueOrderPuzzle
+     ≥3), mathGuardParams 只封顶不保底, 现网曲线不可达但未来调表会踩;
+     参数源=mathParamsFor(经本文件 loader 已装载 math-levels) */
+  const d = loadMathParadigms();
+  const PC = d.mp.PuzzleCore;
+  for (const fam of d.mp.MATH_FAMILIES) {
+    for (const tier of [1, 5, 9, 13]) { // tier1 + 各带首档(带 1/2/3 起)
+      const p = d.mp.mathParamsFor(fam, tier);
+      for (let seed = 0; seed < 30; seed++) {
+        assert.doesNotThrow(() => {
+          if (fam === 'pattern') {
+            PC.mkSeqPuzzle({seed, max: p.max});
+            PC.mkPeriodPuzzle({seed, max: p.max, unitLen: p.unitLen});
+            PC.mkClueOrderPuzzle({seed, max: p.max,
+              want: Math.min(p.clueCount || 3, PC.LIMITS.clues)});
+          } else if (fam === 'craft') {
+            PC.mkScalePuzzle({seed, max: p.max});
+            PC.mkPartitionPuzzle({seed, max: p.max});
+          } else if (fam === 'count' || fam === 'hop') {
+            PC.mkIntervalPuzzle({seed, max: p.max});
+            if (fam === 'hop') PC.mkSeqPuzzle({seed, max: p.max}); // hop 世界规律跳消费方
+          } else if (fam === 'plan') {
+            PC.mkDualViewPuzzle({seed, blocks: p.blocks});
+            PC.mkBlueprintPuzzle({seed});
+          } else { // mirror
+            PC.mkSymmetryPuzzle({seed});
+            PC.mkBlueprintPuzzle({seed});
+          }
+        }, fam + ' tier' + tier + ' 曲线参数不得低于生成器下限(max=' + p.max + ')');
+      }
+    }
+  }
+});
+
 /* ============ 模式层流程纯函数(modes/math.js) ============ */
 
 test('MathTrack.dispatch(T5-b 纯查表): 在册键返注册表 kind, 未知键返 null', () => {
@@ -1478,12 +1569,37 @@ test('mathLevelMeta: 情境关话术覆盖(场馆=情境名/规则/提示), 常�
   const ctx = mm.MATH_CONTEXTS[ctxLv.variant];
   const meta = mm.mathLevelMeta(ctxLv);
   assert.strictEqual(meta.game, ctx.name, '情境名=场馆名');
-  assert.strictEqual(meta.rule, ctx.rule, '规则话术取情境级');
+  /* rule 可为 (p)=>string 函数形态(G4 修订) — mathLevelMeta 归一为字符串:
+     函数按本关 params 求值, string 原样 */
+  const wantRule = typeof ctx.rule === 'function' ? ctx.rule(ctxLv.params || {}) : ctx.rule;
+  assert.strictEqual(meta.rule, wantRule, '规则话术取情境级(函数形态按本关 params 求值)');
+  assert.strictEqual(typeof meta.rule, 'string', 'rule 恒为字符串(渲染/TTS 消费点只认 string)');
   assert.strictEqual(mm.mathVariantName(ctxLv.family, ctxLv.variant), ctx.name, '变体名查情境表');
   /* 同族非情境变体 → 族元数据(覆盖只对情境关生效) */
   const plain = mm.mathLevelMeta({family: ctxLv.family, variant: 'zzz'});
   assert.notStrictEqual(plain.game, ctx.name, '常规关场馆仍是族场馆');
   assert.ok(typeof plain.rule === 'string' && plain.rule.length > 0, '常规关规则走族话术');
+});
+
+test('mathLevelMeta: 函数 rule 按档位求值; 变体 tip 覆写优先于族 tip(呈现上限口径)', () => {
+  const {mm} = loadMathMode();
+  /* dualview: 带 2 首遇单视图版不含「侧面」, 带 3 双视图版含 */
+  const dv2 = mm.MATH_LEVELS.find((l) => l.variant === 'dualview' && l.band === 2);
+  const dv3 = mm.MATH_LEVELS.find((l) => l.variant === 'dualview' && l.band === 3);
+  assert.ok(dv2 && dv3, 'dualview 带 2/3 各有挑战关');
+  const meta2 = mm.mathLevelMeta(dv2);
+  assert.strictEqual(typeof meta2.rule, 'string', '函数 rule 求值为字符串');
+  assert.ok(!meta2.rule.includes('侧面'), '带 2 首遇单视图版不承诺侧面句');
+  assert.ok(mm.mathLevelMeta(dv3).rule.includes('侧面'), '带 3 双视图版含侧面句');
+  /* position(带 3): 族 tip 谎报 1000, 变体覆写报屏流 cap 100 */
+  const pos = mm.MATH_LEVELS.find((l) => l.variant === 'position' && l.band === 3);
+  assert.ok(pos, '带 3 有 position 关');
+  const metaP = mm.mathLevelMeta(pos);
+  assert.notStrictEqual(metaP.tip, mm.MATH_META.hop.tip, 'position 用变体 tip 覆写');
+  assert.ok(metaP.tip(pos.params).includes('100'), '带 3 position tip 报 cap 100: ' + metaP.tip(pos.params));
+  /* 无覆写变体(如 balance)tip 仍走族曲线话术 */
+  const bal = mm.MATH_LEVELS.find((l) => l.variant === 'balance');
+  assert.strictEqual(mm.mathLevelMeta(bal).tip, mm.MATH_META.count.tip, '无覆写变体 tip 走族');
 });
 
 test('mathLevelMeta: 变体级规则话术(移多补少搬动试错)覆盖族 rule, 名/提示仍走族', () => {
