@@ -77,9 +77,14 @@ test('编排: 包键全注册 · tier 1..19 带内不减 · 解锁关恰在包�
       lastTier = l.tier;
     }
   }
-  /* 带1 铁傀儡第 9 关(k=8)解锁——「每包只教一个新语义」的编排钉 */
+  /* 带1 铁傀儡第 9 关(k=8)解锁——「每包只教一个新语义」的编排钉; k8 起
+     全铁傀儡(D15 v2: 交替制会让 boom 关在非教学段批量出直线盘) */
   assert.strictEqual(ROBOT_LEVELS[25 + 8].pack, 'golem');
   assert.strictEqual(ROBOT_LEVELS[25 + 7].pack, 'creeper');
+  for (let k = 8; k < 25; k++) {
+    assert.strictEqual(ROBOT_LEVELS[25 + k].pack, 'golem',
+        '带1 k' + k + ' 应为铁傀儡(k8 起全 golem)');
+  }
 });
 
 /* ============ paramsFor: 曲线边界 ============ */
@@ -109,6 +114,23 @@ test('paramsFor: 槽位主轴(带0 1/3/4 → 带1~3 6/8/10) · 尺寸 4..7 · �
       assert.strictEqual(p.skill, meta.skill || null, 'i=' + l.i + ' skill 与包一致');
     }
     assert.strictEqual(p.boards, 4, '每关 4 盘');
+    /* 转弯爬坡曲线(D15 v2): 带0 tut 后段 1 转直驱首秀 · 带1 smash 1 转
+       (boom 教学期直路=D13 数学) · 带2 k10 起 2 转 · 带3 1→2→3 转带末
+       俯冲, boom 天花板 1 转 —— 带内不减(台阶不变陡) */
+    if (l.band === 0) {
+      assert.strictEqual(p.turnsMin, l.kind === 'tut' && l.k >= 3 ? 1 : 0,
+          'i=' + l.i + ' 带0 只有 tut k3+ 开 1 转');
+    } else if (l.band === 1) {
+      assert.strictEqual(p.turnsMin, meta.skill === 'smash' ? 1 : 0,
+          'i=' + l.i + ' 带1 smash 1 转 / boom 教学期直路');
+    } else if (l.band === 2) {
+      assert.strictEqual(p.turnsMin, l.k < 10 ? 1 : 2,
+          'i=' + l.i + ' 带2 k10 起 2 转');
+    } else {
+      assert.strictEqual(p.turnsMin,
+          meta.skill === 'boom' ? 1 : (l.k < 5 ? 1 : l.k < 18 ? 2 : 3),
+          'i=' + l.i + ' 带3 1→2→3 转(boom 天花板 1 转)');
+    }
     if (!meta.skill || meta.skill === 'boom' || meta.skill === 'smash') {
       assert.strictEqual(p.waterPath, 0, '非滑翔包不出水面路');
       assert.strictEqual(p.ledgePath, 0, '非攀爬包不出高台路');
@@ -229,9 +251,9 @@ test('boardSeed/boardOpts: 抽样 14 关 × 4 盘全部可解(参数→棋盘闭
   }
 });
 
-/* ============ 可通关闭环(全量): 双闸落地的产品级回归网 ============ */
+/* ============ 可通关闭环(全量): 三闸落地的产品级回归网 ============ */
 
-test('全量 100 关 × 4 盘: 非 tut 盘 par ≤ 槽位(超预算=不可通关), 特技盘最短解必含 S', () => {
+test('全量 100 关 × 4 盘: 非 tut 盘 par ≤ 槽位(超预算=不可通关), 特技盘最短解必含 S, 转向请求必足额', () => {
   for (const l of ROBOT_LEVELS) {
     const p = Levels.paramsFor(l);
     for (let bd = 0; bd < 4; bd++) {
@@ -252,6 +274,15 @@ test('全量 100 关 × 4 盘: 非 tut 盘 par ≤ 槽位(超预算=不可通关
           assert.ok(sol.includes('S'),
               'i=' + l.i + ' 盘' + bd + ' 特征在盘上, 最短解必须用特技卡(教学承重)');
         }
+      }
+      /* 形状闸(D15): 请求转弯的关, 最短解转向卡必须足额(否则 L/R 课程线
+         断供——2026-10-29 审计: 修前带1~3 共 300 盘 100% 零转弯) */
+      if (p.turnsMin > 0) {
+        const sol = global.RobotCore.parSolution(board);
+        const tc = sol.filter((c) => c === 'L' || c === 'R').length;
+        assert.ok(tc >= p.turnsMin,
+            'i=' + l.i + ' 盘' + bd + ' 转向数 ' + tc + ' < 请求 ' + p.turnsMin +
+            '(转弯教学落空)');
       }
     }
   }
