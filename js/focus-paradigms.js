@@ -502,8 +502,13 @@ function runCorsi(area, params, adapt, h) {
       inputOn = true;
       let step = 0; const t0 = performance.now();
       tiles.forEach((t, k)=>{
-        /* mousedown 即判定 + click 键盘兜底(inputOn/step 互斥不双计, 2026-10 手感翻新) */
-        const tap = ()=>{
+        /* mousedown 即判定 + click 键盘/辅助点击兜底(2026-10 手感翻新)。
+           一次物理点击会先后触发 mousedown→click 两事件; 序列中途 inputOn 仍开、
+           无 answered 式单发闸, 同格跟到的 click 会对「下一格」误判成错(一点就对
+           反报错的真凶) — downed 闸保证每物理点击只判一次, click 只在 mousedown
+           缺席时(键盘/辅助点击)兜底 */
+        let downed = false; // 本物理点击 mousedown 已判定 → 跟进的 click 跳过
+        const judge = ()=>{
           if (!inputOn) return;
           if (k === seq[step]) {
             light(k, 400); t.classList.add('good');
@@ -542,8 +547,17 @@ function runCorsi(area, params, adapt, h) {
             });
           }
         };
-        t.onmousedown = tap;
-        t.onclick = tap;
+        t.onmousedown = ()=>{
+          downed = true;
+          judge();
+        };
+        t.onclick = ()=>{
+          if (downed) {
+            downed = false; // 同一次物理点击的跟进 click — mousedown 已判定过
+            return;
+          }
+          judge(); // 键盘/辅助点击(mousedown 缺席)走兜底判定
+        };
       });
     });
   }

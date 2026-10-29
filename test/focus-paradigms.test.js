@@ -435,7 +435,8 @@ test('gonogo 伪装绿宝石: 物品系统未注册时回落训练营自有管�
 /* ============ F2 Corsi: lenMix 长度混编 / antiChunk 反组块 / gem 宝石轮换 ============ */
 
 /* 驱动一局 corsi: 逐序列 flush 到输入期(hint 文案翻转即输入期开, 消费后清空),
-   按亮序全点对(或 clickMode='wrong' 首步点错), 返回每序列 {len, ok} 与终局统计 */
+   按亮序全点对(或 clickMode='wrong' 首步点错 / 'real' 每击 mousedown→click 双事件
+   ——真浏览器一次物理点击两事件都到), 返回每序列 {len, ok} 与终局统计 */
 function driveCorsi(d, params, clickMode) {
   const ended = [];
   d.fp.runFocusLevel({dim: 'corsi', kind: 'normal', params}, fakeEl(),
@@ -455,7 +456,11 @@ function driveCorsi(d, params, clickMode) {
       tiles.find((t) => t !== lit[0]).onclick(); // 首步点错
       seqs.push({len: lit.length, ok: false});
     } else {
-      lit.forEach((t) => t.onclick()); // 全点对
+      const real = clickMode === 'real'; // 真浏览器点击链: mousedown+click 依次都到
+      lit.forEach((t) => {
+        if (real) t.onmousedown();
+        t.onclick();
+      });
       seqs.push({len: lit.length, ok: true});
     }
     mark = d.clsLog.length; // 点击触发的 light('lit') 属本序列, 一并消费
@@ -509,6 +514,18 @@ test('corsi gem 轮换: 亮格宝石像素图走 iconOf 出口, 同局恒一种'
   assert.strictEqual(ended.length, 1);
   assert.ok(d.log.iconOf.includes('gold_ingot'), '亮格宝石走 iconOf 像素出口');
   assert.ok(d.log.iconOf.every((n) => n === 'gold_ingot'), '同局恒一种宝石(Corsi 构念)');
+});
+
+test('corsi 真实点击链不双计: 一次物理点击(mousedown+click)只判一次, 序列可正常完成', () => {
+  /* 回归锁: 序列中途 inputOn 仍开、又无 answered 式单发闸, mousedown 判对 step 前进后,
+     同一次点击跟到的 click 会对「下一格」误判成错 —— 玩家一点击就报错的真凶 */
+  const d = loadFocusDrv({seed: 11});
+  const p = Object.assign(d.fp.paramsFor('corsi', 4), {demo: false});
+  const {seqs, ended} = driveCorsi(d, p, 'real');
+  assert.strictEqual(ended.length, 1, '整局驱动到 h.end');
+  assert.strictEqual(seqs.length, p.seqs, '全部序列被驱动');
+  assert.strictEqual(ended[0].trials, p.seqs, '每序列恰计一次试次');
+  assert.strictEqual(ended[0].correct, p.seqs, '真实点击链下每序列仍判对(双通道不双计)');
 });
 
 /* ============ F2 逐试次事件缝 onTrial({ok, streak, dim}) ============
