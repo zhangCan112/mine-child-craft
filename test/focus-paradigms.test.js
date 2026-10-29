@@ -100,11 +100,11 @@ test('focusDispatch: 第 100 关(master)必须走 master 路径 — dim 分发�
   const {fp} = loadFocus();
   const L99 = fp.FOCUS_LEVELS[99];
   assert.strictEqual(L99.kind, 'master');
-  assert.strictEqual(L99.dim, 'switch', '大师关的哨兵 dim 恰是五维最后一个(最容易撞上 switch 分发)');
+  assert.strictEqual(L99.dim, 'search', '大师关的哨兵 dim 恰是六维最后一个(最容易撞上 search 分发)');
   assert.strictEqual(fp.focusDispatch(L99).kind, 'master', 'kind=master 优先于 dim 判定');
 });
 
-test('focusDispatch: 五维各归各的引擎, 未知维度返回 none', () => {
+test('focusDispatch: 六维各归各的引擎, 未知维度返回 none', () => {
   const {fp} = loadFocus();
   const d = (dim, kind) => fp.focusDispatch({dim, kind: kind || 'normal'});
   /* 逐字段断言: 对象来自 vm context, deepStrictEqual 会因跨 realm 原型不同而误判 */
@@ -113,11 +113,12 @@ test('focusDispatch: 五维各归各的引擎, 未知维度返回 none', () => {
   assert.deepStrictEqual({...d('flanker')}, {kind: 'engine', engine: 'flanker'});
   assert.deepStrictEqual({...d('corsi')}, {kind: 'engine', engine: 'corsi'});
   assert.deepStrictEqual({...d('switch')}, {kind: 'engine', engine: 'switch'});
+  assert.deepStrictEqual({...d('search')}, {kind: 'engine', engine: 'search'});
   assert.strictEqual(d('???').kind, 'none', '未知维度不进任何引擎');
   assert.strictEqual(d('cpt', 'tutorial').engine, 'discrimination', '教学关同引擎(demo 标记在 runFocusLevel 加)');
 });
 
-test('runFocusLevel: master 关真进五维连续小节(报幕"新游戏"且可 stop)', () => {
+test('runFocusLevel: master 关真进六维连续小节(报幕"新游戏"且可 stop)', () => {
   const {fp, spoken} = loadFocus();
   const h = {progress() {}, showRule() {}, end() {}};
   const ctrl = fp.runFocusLevel(fp.FOCUS_LEVELS[99], fakeEl(), h, 0);
@@ -190,29 +191,28 @@ test('focusStars: ⭐通过 ⭐⭐≥85% ⭐⭐⭐≥95% 且无连续 3 错', ()
 
 /* ============ 100 关编排不变量 ============ */
 
-test('FOCUS_LEVELS: 共 100 关, 前 5 关教学(tier1 按五维序), 第 100 关 master 五小节', () => {
+test('FOCUS_LEVELS: 共 100 关, 前 6 关教学(tier1 按六维序), 第 100 关 master 六小节', () => {
   const {fp} = loadFocus();
   const L = fp.FOCUS_LEVELS;
   assert.strictEqual(L.length, 100);
-  for (let i=0; i<5; i++) {
+  for (let i=0; i<6; i++) {
     assert.strictEqual(L[i].kind, 'tutorial', '第 ' + (i+1) + ' 关为教学');
     assert.strictEqual(L[i].tier, 1);
-    assert.strictEqual(L[i].dim, fp.FOCUS_DIMS[i], '教学关按五维顺序');
+    assert.strictEqual(L[i].dim, fp.FOCUS_DIMS[i], '教学关按六维顺序');
   }
   const m = L[99];
   assert.strictEqual(m.kind, 'master');
   assert.strictEqual(m.tier, 19, '难度封顶');
-  assert.strictEqual(m.sections.length, 5, '五维连续小节');
-  assert.strictEqual(m.sections.length, 5, '五维连续小节');
-  assert.strictEqual(m.sections.map((s) => s.dim).join(','), fp.FOCUS_DIMS.join(','), '小节覆盖全部五维');
+  assert.strictEqual(m.sections.length, 6, '六维连续小节');
+  assert.strictEqual(m.sections.map((s) => s.dim).join(','), fp.FOCUS_DIMS.join(','), '小节覆盖全部六维');
 });
 
-test('FOCUS_LEVELS: 6~99 关五维轮换且 tier 随轮次递进(封顶 19)', () => {
+test('FOCUS_LEVELS: 7~99 关六维轮换且 tier 随轮次递进(封顶 19)', () => {
   const {fp} = loadFocus();
   const L = fp.FOCUS_LEVELS;
-  for (let i=5; i<99; i++) {
-    const k = i - 5;
-    assert.strictEqual(L[i].dim, fp.FOCUS_DIMS[k % 5], '第 ' + (i+1) + ' 关轮换维度');
+  for (let i=6; i<99; i++) {
+    const k = i - 6;
+    assert.strictEqual(L[i].dim, fp.FOCUS_DIMS[k % 6], '第 ' + (i+1) + ' 关轮换维度');
     assert.strictEqual(L[i].tier, Math.min(19, 2 + Math.floor(k/5)), '第 ' + (i+1) + ' 关难度档');
   }
 });
@@ -573,7 +573,7 @@ test('onTrial corsi: 每序列恰一次(完成或点错), 教学序列不计', (
   const events = [];
   const p = Object.assign(d.fp.paramsFor('corsi', 2), {demo: true});
   const ended = [];
-  d.fp.runFocusLevel({dim: 'corsi', kind: 'tutorial', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'corsi', kind: 'normal', params: p}, fakeEl(),
       {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
   const hint = drvEls(d, 'f-corsi-hint')[0];
   const tiles = drvEls(d, 'f-corsi-tile');
@@ -594,6 +594,34 @@ test('onTrial corsi: 每序列恰一次(完成或点错), 教学序列不计', (
   checkTrialEvents(events, 'corsi');
   assert.strictEqual(events[0].ok, false, '点错序列报 false');
   assert.strictEqual(events[0].streak, 0);
+});
+
+test('corsi 教学脚手架: 点错原序列重演(不推进), 正式关无此行为', () => {
+  const d = loadFocusDrv({seed: 19});
+  const ended = [];
+  const p = Object.assign(d.fp.paramsFor('corsi', 2), {demo: true, scaffold: true});
+  d.fp.runFocusLevel({dim: 'corsi', kind: 'tutorial', params: p}, fakeEl(),
+      {progress() {}, end: (s) => ended.push(s)});
+  const hint = drvEls(d, 'f-corsi-hint')[0];
+  const tiles = drvEls(d, 'f-corsi-tile');
+  let mark = 0; let seqN = 0; let replayed = 0;
+  for (let guard = 0; guard < 60 && ended.length === 0; guard++) {
+    d.flush();
+    if (!hint.textContent.includes('按顺序')) break;
+    const lit = d.clsLog.slice(mark).filter((r) => !r.rm && r.cls === 'lit').map((r) => r.el);
+    hint.textContent = '';
+    if (seqN === 1 && replayed === 0) {
+      tiles.find((t) => t !== lit[0]).onclick(); // 第一正式序列点错 → 触发重演
+      replayed++;
+    } else lit.forEach((t) => t.onclick());
+    mark = d.clsLog.length;
+    seqN++;
+  }
+  d.flush();
+  assert.strictEqual(replayed, 1, '点错触发过一次重演');
+  assert.strictEqual(seqN, p.seqs + 1, '重演多驱一序列(demo 1 + 正式 5 + 重演 1)');
+  assert.strictEqual(ended.length, 1, '重演后照常到局末');
+  assert.ok(d.spoken.some((s) => s.indexOf('再看一遍这一串') >= 0), '重演配一句口播引导');
 });
 
 test('onTrial switch: 每试次恰一次, demo 两试次不计; 不传 onTrial 零影响', () => {
@@ -643,6 +671,13 @@ test('onTrial master: 五小节事件全部上报, dim=各小节维度, 总数=�
       corsiMark = d.clsLog.length; // 点击触发的 light 属本序列, 一并消费
       continue;
     }
+    /* search 小节(第六维): 点全部未找钻石, 回合间 flush 驱动重建 */
+    const sDiamonds = drvEls(d, 'f-search-cell')
+        .filter((e) => e.innerHTML.includes('data:icon:diamond') && !e.dataset.found);
+    if (sDiamonds.length) {
+      sDiamonds.forEach((e) => e.onmousedown());
+      continue;
+    }
     const batch = drvEls(d, 'f-block').slice(swMark); // switch 小节待点批
     if (batch.length) {
       swMark += batch.length;
@@ -654,8 +689,108 @@ test('onTrial master: 五小节事件全部上报, dim=各小节维度, 总数=�
   assert.strictEqual(events.length, ended[0].trials, '上报数=聚合试次数(每试次恰一次)');
   /* 注意: FOCUS_DIMS 来自 vm context, 展开成宿主数组再比(跨 realm 原型坑) */
   const dims = [...new Set(events.map((t) => t.dim))];
-  assert.deepStrictEqual(dims, [...d.fp.FOCUS_DIMS], '五维小节各按自己 dim 上报');
+  assert.deepStrictEqual(dims, [...d.fp.FOCUS_DIMS], '六维小节各按自己 dim 上报');
   for (const dim of dims) checkTrialEvents(events.filter((t) => t.dim === dim), dim);
+});
+
+/* ============ D6 视觉搜索(矿洞大扫除, 2026-10 第六维) ============ */
+
+test('search 曲线(D6): 回合/目标常量带, 网格 6→8 列, similarMix 渐进混编, density 单调有界', () => {
+  const {fp} = loadFocus();
+  const MIX_STEPS = [0, 0.3, 0.6, 0.9, 1];
+  for (let tier=1; tier<=19; tier++) {
+    const p = fp.paramsFor('search', tier);
+    assert.strictEqual(p.rounds, 3, '恒 3 回合(Balloon Hunt 结构)');
+    assert.strictEqual(p.targets, 6, '每回合 6 目标');
+    assert.strictEqual(p.trials, 18, '试次归一口径 = 3×6');
+    assert.strictEqual(p.rows, 4);
+    assert.ok(p.cols >= 6 && p.cols <= 8, '网格 6~8 列: tier' + tier + '=' + p.cols);
+    assert.ok(p.density.length === 2, '回合 1/2 两档干扰率(回合 0 恒 0 在引擎内)');
+    assert.ok(p.density[0] > 0 && p.density[1] > p.density[0], '回合 2 干扰率高于回合 1(回合内递增)');
+    assert.ok(p.density[1] <= 0.8, '干扰率顶格 0.8');
+    const expectMix = tier < 8 ? 0 : Math.min(1, 0.3*(tier-7));
+    assert.ok(Math.abs(p.similarMix - expectMix) < 1e-9, 'similarMix 渐进公式: tier' + tier);
+    assert.ok(MIX_STEPS.some((v) => Math.abs(p.similarMix - v) < 1e-9),
+        'similarMix 只落渐进档(0/0.3/0.6/0.9/1): tier' + tier + '=' + p.similarMix);
+  }
+  assert.strictEqual(fp.paramsFor('search', 1).cols, 6, '起步 6 列');
+  assert.strictEqual(fp.paramsFor('search', 10).cols, 7, '中段 7 列');
+  assert.strictEqual(fp.paramsFor('search', 19).cols, 8, '顶格 8 列');
+  assert.strictEqual(fp.paramsFor('search', 7).similarMix, 0, 'tier7 无绿宝石');
+  assert.strictEqual(fp.paramsFor('search', 8).similarMix, 0.3, 'tier8 首见 30% 混入');
+  assert.ok(Math.abs(fp.paramsFor('search', 10).similarMix - 0.9) < 1e-9, 'tier10 混入 90%(与 gonogo 伪装同式)');
+  assert.strictEqual(fp.paramsFor('search', 11).similarMix, 1, 'tier11 全量');
+});
+
+test('FOCUS_META.search: 六维元数据齐全, tip 档位感知(绿宝石混入才提醒)', () => {
+  const {fp} = loadFocus();
+  const m = fp.FOCUS_META.search;
+  assert.strictEqual(m.name, '视觉搜索');
+  assert.strictEqual(m.game, '矿洞大扫除');
+  assert.ok(m.rule.indexOf('钻石') >= 0 && m.rule.indexOf('找') >= 0, '规则含目标与动作');
+  const low = m.tip(fp.paramsFor('search', 3));
+  const high = m.tip(fp.paramsFor('search', 12));
+  assert.ok(low.indexOf('绿宝石') < 0, '低档 tip 不提绿宝石');
+  assert.ok(high.indexOf('绿宝石') >= 0, '高档 tip 提醒绿宝石相似干扰');
+  assert.ok(low.indexOf('18') >= 0, 'tip 含目标总数(3×6=18)');
+});
+
+test('runSearch: 首回合纯目标+中性填料, 三轮找齐驱动到局末, acc/correct/falseTaps 口径', () => {
+  const d = loadFocusDrv({seed: 7});
+  const ended = [];
+  const p = Object.assign(d.fp.paramsFor('search', 12), {demo: false});
+  d.fp.runFocusLevel({dim: 'search', kind: 'normal', params: p}, fakeEl(),
+      {progress() {}, end: (s) => ended.push(s)});
+  const round0 = drvEls(d, 'f-search-cell');
+  assert.strictEqual(round0.length, p.cols*4, '首回合格数 = cols×rows');
+  const icons0 = round0.map((e) => (e.innerHTML.match(/data:icon:(\w+)/) || [])[1]);
+  assert.ok(icons0.every((n) => n === 'diamond' || n === 'stone'),
+      '首回合纯目标+中性填料(无干扰矿): ' + icons0.join(','));
+  assert.strictEqual(icons0.filter((n) => n === 'diamond').length, 6, '首回合 6 目标');
+  /* 逐回合点掉全部钻石(mousedown 即判定通道), 误点每回合一块非目标格 */
+  for (let guard = 0; guard < 12 && ended.length === 0; guard++) {
+    const cells = drvEls(d, 'f-search-cell');
+    const stone = cells.find((e) => !e.innerHTML.includes('data:icon:diamond') && !e.dataset.tapped);
+    if (stone) {
+      stone.dataset.tapped = '1';
+      stone.onmousedown();
+    }
+    const diamonds = cells.filter((e) => e.innerHTML.includes('data:icon:diamond') && !e.dataset.found);
+    diamonds.forEach((e) => e.onmousedown());
+    d.flush(60);
+  }
+  d.flush(60);
+  assert.strictEqual(ended.length, 1, '三轮找齐驱动到 h.end');
+  const st = ended[0];
+  assert.strictEqual(st.trials, 18, '分母=目标总数(自定步调无漏测试次)');
+  assert.strictEqual(st.correct, 18, '全部找齐');
+  assert.strictEqual(st.falseTaps, 3, '每回合一次误点(3 回合)');
+  assert.ok(Math.abs(st.acc - 15/18) < 1e-9, 'acc=(找到−误点)/总数: ' + st.acc);
+  assert.ok(st.rts.length === 18 && st.mrt >= 0, '每颗钻石一条反应时(只进家长面板)');
+  /* 高档(tier12, similarMix=1)的干扰矿石全为绿宝石 — iconOf 出口可见 */
+  assert.ok(d.log.iconOf.includes('emerald'), 'similarMix=1 时绿宝石混入');
+});
+
+test('runSearch: 低档(tier<8)整局无绿宝石; 教学关首回合目标带 hint 脉动', () => {
+  const d = loadFocusDrv({seed: 11});
+  const ended = [];
+  const p = Object.assign(d.fp.paramsFor('search', 3), {demo: true});
+  d.fp.runFocusLevel({dim: 'search', kind: 'tutorial', params: p}, fakeEl(),
+      {progress() {}, end: (s) => ended.push(s)});
+  const round0 = drvEls(d, 'f-search-cell');
+  const hinted = round0.filter((e) => e.className.split(' ').includes('hint'));
+  assert.strictEqual(hinted.length, 6, '教学首回合 6 目标全部 hint 脉动');
+  assert.ok(hinted.every((e) => e.innerHTML.includes('data:icon:diamond')), 'hint 只挂在目标上');
+  for (let guard = 0; guard < 12 && ended.length === 0; guard++) {
+    const cells = drvEls(d, 'f-search-cell');
+    cells.filter((e) => e.innerHTML.includes('data:icon:diamond') && !e.dataset.found)
+        .forEach((e) => e.onmousedown());
+    d.flush(60);
+  }
+  d.flush(60);
+  assert.strictEqual(ended.length, 1, '教学局可整局驱动');
+  assert.strictEqual(d.log.iconOf.includes('emerald'), false, 'tier3 similarMix=0 整局无绿宝石');
+  assert.strictEqual(ended[0].acc, 1, '无误点 acc=1');
 });
 
 /* ============ F2 Flanker: len9 小尺寸 / neutralRate 中立行 / mobMix 混生物 ============ */
@@ -1058,16 +1193,19 @@ test('rewardStageFor/rewardTrialCount: tier→段映射与试次归一的取数�
   assert.strictEqual(fp.rewardStageFor(19), fp.FOCUS_REWARD_STAGES[3]);
   assert.strictEqual(fp.rewardStageFor(99), fp.FOCUS_REWARD_STAGES[3], '越界回落末段(防御不白给)');
   /* 试次取数: 普通关读 params(cpt trials / corsi seqs), 大师关 sections 各节各归各 */
-  const L50 = fp.FOCUS_LEVELS[50];
-  assert.strictEqual(fp.rewardTrialCount(L50), L50.params.trials, 'cpt 关读 params.trials');
-  const L8 = fp.FOCUS_LEVELS[8]; /* i=8: k=3 → corsi(FOCUS_DIMS[3]) */
-  assert.strictEqual(L8.dim, 'corsi');
-  assert.strictEqual(fp.rewardTrialCount(L8), L8.params.seqs, 'corsi 关读 params.seqs');
+  const L54 = fp.FOCUS_LEVELS[54]; /* i=54: k=48 → cpt(FOCUS_DIMS[0]), tier11 */
+  assert.strictEqual(L54.dim, 'cpt');
+  assert.strictEqual(fp.rewardTrialCount(L54), L54.params.trials, 'cpt 关读 params.trials');
+  const L51 = fp.FOCUS_LEVELS[51]; /* i=51: k=45 → corsi(FOCUS_DIMS[3]), tier11 */
+  assert.strictEqual(L51.dim, 'corsi');
+  assert.strictEqual(fp.rewardTrialCount(L51), L51.params.seqs, 'corsi 关读 params.seqs');
   const M = fp.FOCUS_LEVELS[99];
   const mCpt = M.sections.find((s)=>s.dim==='cpt');
   assert.strictEqual(fp.rewardTrialCount(M, 'cpt'), mCpt.params.trials, '大师关按 dim 补注查 sections');
+  assert.strictEqual(fp.rewardTrialCount(M, 'search'),
+      M.sections.find((s)=>s.dim==='search').params.trials, 'search 小节读 params.trials(3×6=18 归一口径)');
   const mSelf = M.sections.find((s)=>s.dim===M.dim);
-  assert.strictEqual(fp.rewardTrialCount(M), mSelf.params.trials, '大师关缺省 dim 落本体 dim 的 sections 节(哨兵 dim=switch 也在节内)');
+  assert.strictEqual(fp.rewardTrialCount(M), mSelf.params.trials, '大师关缺省 dim 落本体 dim 的 sections 节(哨兵 dim=search 也在节内)');
   assert.strictEqual(fp.rewardTrialCount({dim: 'cpt'}, '???'), fp.FOCUS_REWARD_TRIAL_REF, '未知 dim 回落基准=归一 1.0(防御)');
 });
 
@@ -1084,21 +1222,28 @@ test('FOCUS_MILESTONES: 6 条里程碑(10/30/50/70/90/100)且全为工具(木镐
   assert.strictEqual(fp.FOCUS_MILESTONES[100], 'sword_diamond');
 });
 
-test('FOCUS_CHECK_PARAMS: 五维低档短参数, 参数驱动的时长有上界(约 90 秒口径)', () => {
+test('FOCUS_CHECK_PARAMS: 六维低档短参数, 参数驱动的时长有上界(约 90 秒口径)', () => {
   const {fp} = loadFocus();
   const cs = fp.FOCUS_CHECK_PARAMS;
-  assert.strictEqual(cs.length, 5, '五维各一节');
-  assert.strictEqual(cs.map((s) => s.dim).join(','), fp.FOCUS_DIMS.join(','), '小节覆盖全部五维');
+  assert.strictEqual(cs.length, 6, '六维各一节');
+  assert.strictEqual(cs.map((s) => s.dim).join(','), fp.FOCUS_DIMS.join(','), '小节覆盖全部六维');
   let total = 0;
   for (const s of cs) {
     const p = s.params;
+    if (s.dim === 'search') { // 搜索自定步调无试次轴: 减回合/目标/列控时长
+      assert.strictEqual(p.rounds, 2, 'search 体检减到 2 回合');
+      assert.strictEqual(p.targets, 4, 'search 体检每回合 4 目标');
+      assert.strictEqual(p.cols, 5, 'search 体检 5 列小阵');
+      assert.strictEqual(p.trials, 8, 'search 归一口径同步缩');
+      continue;
+    }
     if (p.trials) assert.ok(p.trials <= 6, s.dim + ' 每节约 6 试次');
     if (p.seqs) assert.ok(p.seqs <= 6, 'corsi 序列数 ≤6');
     if (s.dim === 'cpt') total += p.trials * (p.dur + p.isi); // 判别: 呈现+间隔
     if (s.dim === 'gonogo') total += p.trials * (p.dur + 800); // 引擎无 isi 时默认 800
     if (s.dim === 'flanker') total += p.trials * (p.window + 360); // 窗口+反馈帧
     if (s.dim === 'corsi') total += p.seqs * (400 + p.len * p.pace + 200); // 展示期(输入期自步伐, 不由参数决定)
-    /* switch 自步伐, 无参数驱动时长 */
+    /* switch/search 自步伐, 无参数驱动时长 */
   }
   assert.ok(total <= 90000, '参数驱动时长上界 90 秒, 实为 ' + total + 'ms');
   /* 低档锚点(设计稿 B3"各维度取低档短参数") */
@@ -1183,14 +1328,14 @@ test('滚动保留天数常量: 90 天(存档防膨胀口径)', () => {
   assert.strictEqual(fp.FOCUS_LOG_KEEP_DAYS, 90);
 });
 
-test('devilDimFor: 严格按日序数 %5 轮换 — 连续 5 天五维全覆盖, 相邻两天必不同维', () => {
+test('devilDimFor: 严格按日序数 %6 轮换 — 连续 6 天六维全覆盖, 相邻两天必不同维', () => {
   const {fp} = loadFocus();
   const dstr = (d) => d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate();
   const days = Array.from({length: 10}, (_, k)=>dstr(new Date(2026, 9, 20 + k))); // 10-20 起跨月进位
   const dims = days.map((day)=>fp.devilDimFor(day));
-  assert.strictEqual(dims.slice(0, 5).sort().join(','), [...fp.FOCUS_DIMS].sort().join(','),
-      '连续 5 天恰好五维各一次: ' + dims.slice(0, 5).join(','));
-  assert.strictEqual(dims[5], dims[0], '第 6 天回到第 1 天的维度(5 天一轮)');
+  assert.strictEqual(dims.slice(0, 6).sort().join(','), [...fp.FOCUS_DIMS].sort().join(','),
+      '连续 6 天恰好六维各一次: ' + dims.slice(0, 6).join(','));
+  assert.strictEqual(dims[6], dims[0], '第 7 天回到第 1 天的维度(6 天一轮)');
   for (let k = 0; k < days.length - 1; k++) { // 相邻两天必不同维(严格轮换, 非哈希)
     assert.strictEqual(fp.focusDayIndex(days[k+1]) - fp.focusDayIndex(days[k]), 1,
         '日期构造相邻: ' + days[k] + ' → ' + days[k+1]);
@@ -1241,15 +1386,19 @@ test('devilEntry: 当日已训→done, 关数余额<2→quota(禁用态), 否则
 
 test('devilTierFor: 从待打关向下找该维最近一关的 tier(教学关兜底)', () => {
   const {fp} = loadFocus();
-  /* 编排事实: 第 54 关(i=53)是 corsi tier11, i=52 flanker tier11, i=51 gonogo tier11 */
-  assert.strictEqual(fp.FOCUS_LEVELS[53].dim, 'corsi');
-  assert.strictEqual(fp.devilTierFor('corsi', 53), 11, '待打关恰是该维 → 直接取');
-  assert.strictEqual(fp.devilTierFor('flanker', 53), 11, '该维在 52 关 → 往下找到');
-  assert.strictEqual(fp.devilTierFor('cpt', 53), 11, 'cpt 在 i=50(k=45) → 往下扫最近一关同为 tier11');
-  assert.strictEqual(fp.devilTierFor('switch', 99), 19, '第 100 关 master 的 dim 恰是 switch → 直接取 19');
-  assert.strictEqual(fp.devilTierFor('switch', 0), 1, '开局只解锁 cpt 教学 → switch 兜到 i=4 教学 tier1');
+  /* 编排事实(六维): 第 52 关(i=51)是 corsi tier11, i=48 cpt tier11;
+     flanker 在 tier11 带(k=45~49)恰好缺席, 最近是 i=50 的 tier10 —
+     6 维轮换 × tier 每 5 关进 1 档, 每个档带必有一个维度缺席(预期行为) */
+  assert.strictEqual(fp.FOCUS_LEVELS[51].dim, 'corsi');
+  assert.strictEqual(fp.devilTierFor('corsi', 51), 11, '待打关恰是该维 → 直接取');
+  assert.strictEqual(fp.devilTierFor('flanker', 51), 10, 'flanker 缺席 tier11 带 → 往下找到 i=50 tier10');
+  assert.strictEqual(fp.devilTierFor('cpt', 51), 10, 'cpt 同缺席 tier11 带 → 往下找到 i=48 tier10');
+  assert.strictEqual(fp.devilTierFor('cpt', 54), 11, '待打关 i=54 恰是 cpt tier11 → 直接取');
+  assert.strictEqual(fp.devilTierFor('switch', 99), 19, 'switch 最近在 i=92(k=88) → tier19');
+  assert.strictEqual(fp.devilTierFor('search', 99), 19, 'search 最近在 i=95(k=89) → tier19');
+  assert.strictEqual(fp.devilTierFor('corsi', 99), 19, 'corsi 最近在 i=93(k=87) → tier19');
+  assert.strictEqual(fp.devilTierFor('switch', 0), 1, '开局只解锁 cpt 教学 → 扫不到回落兜底 tier1');
   assert.strictEqual(fp.devilTierFor('cpt', 0), 1, '教学关也是合法当前档');
-  assert.strictEqual(fp.devilTierFor('corsi', 99), 19, '封顶: 第 100 关 master 的 dim=switch, corsi 最近在 i=98 tier19');
 });
 
 test('FOCUS_DEVIL_TIME_MS: 魔鬼特训 5 分钟硬顶(到点当前小节打完强制结束)', () => {
@@ -1257,13 +1406,13 @@ test('FOCUS_DEVIL_TIME_MS: 魔鬼特训 5 分钟硬顶(到点当前小节打完�
   assert.strictEqual(fp.FOCUS_DEVIL_TIME_MS, 5*60*1000, '5 分钟 = 300000ms(设计稿 B8)');
 });
 
-test('focusDispatch: kind=check(每日体检)与 master 同走五维连跑路径', () => {
+test('focusDispatch: kind=check(每日体检)与 master 同走六维连跑路径', () => {
   const {fp} = loadFocus();
   assert.strictEqual(fp.focusDispatch({kind: 'check', dim: 'switch'}).kind, 'master', '体检走 sections 分发');
   assert.strictEqual(fp.focusDispatch({kind: 'devil', dim: 'corsi'}).kind, 'engine', '魔鬼特训是单维小节, 走普通引擎分发');
 });
 
-test('runFocusLevel: 体检 level(FOCUS_CHECK_PARAMS)真进五维连跑且报幕可停', () => {
+test('runFocusLevel: 体检 level(FOCUS_CHECK_PARAMS)真进六维连跑且报幕可停', () => {
   const {fp, spoken} = loadFocus();
   const h = {progress() {}, showRule() {}, end() {}};
   const ctrl = fp.runFocusLevel({kind: 'check', dim: 'switch', sections: fp.FOCUS_CHECK_PARAMS}, fakeEl(), h, 0);
@@ -1423,7 +1572,9 @@ function lootFirstRoll(seed) {
 /* 段位造档: 直接取真实关卡表(段1 L5=tier2 · 段2 L25=tier6 · 段3 L50=tier11
    · 段4 L75=tier16), 与运行时同源不手搓 */
 function stageLevel(fp, s) {
-  return fp.FOCUS_LEVELS[[5, 25, 50, 75][s - 1]];
+  /* 六维编排(2026-10)的段代表关: k=i-6 与旧五维 k=i-5 同值取参 —
+     [6,26,51,76] 的 k=[0,20,45,70] 与旧 [5,25,50,75] 完全一致(dim/tier/params 等价) */
+  return fp.FOCUS_LEVELS[[6, 26, 51, 76][s - 1]];
 }
 
 test('rollFocusLoot: 教学关豁免 + 错误试次只奖不罚 — 恒无掉落', () => {
@@ -1441,7 +1592,7 @@ test('rollFocusLoot: 教学关豁免 + 错误试次只奖不罚 — 恒无掉落
 
 test('rollFocusLoot: seed 缺省回落 Math.random — 有掉有不掉且产物不恒定(NaN 回归)', () => {
   const {fp} = loadFocus();
-  const L = stageLevel(fp, 2); /* 段2 p_eff=0.09×18/19≈0.085: 200 掷两分支都充分 */
+  const L = stageLevel(fp, 2); /* 段2(L26 flanker tier6, 16 试次) p_eff=0.09×18/16≈0.101: 200 掷两分支都充分 */
   const poolIds = Object.keys(fp.rewardStageFor(L.tier).pool);
   let sawDrop = 0; let sawNull = 0;
   const distinct = new Set();
@@ -1635,20 +1786,21 @@ test('milestoneLevels: 门槛升序唯一派生出口, 与 FOCUS_MILESTONES 表�
 test('focusTodayDims: 从待打关取今日额度内将轮到的维度, 去重至多 2 个', () => {
   const {fp} = loadFocus();
   assert.deepStrictEqual([...fp.focusTodayDims(0, 2)], ['cpt', 'gonogo'], '教学关前两关');
-  assert.deepStrictEqual([...fp.focusTodayDims(5, 2)], ['cpt', 'gonogo'], '第 6 关起螺旋轮换');
-  assert.deepStrictEqual([...fp.focusTodayDims(5, 1)], ['cpt'], '额度 1 只取 1 个');
-  assert.deepStrictEqual([...fp.focusTodayDims(99, 6)], ['switch'], '第 100 关大师 dim=switch');
+  assert.deepStrictEqual([...fp.focusTodayDims(5, 2)], ['search', 'cpt'], '第 6 关(教学末关)起进螺旋: search→cpt');
+  assert.deepStrictEqual([...fp.focusTodayDims(5, 1)], ['search'], '额度 1 只取 1 个');
+  assert.deepStrictEqual([...fp.focusTodayDims(99, 6)], ['search'], '第 100 关大师 dim=search');
   assert.deepStrictEqual([...fp.focusTodayDims(0, 0)], [], '今日额度耗尽返回空');
   assert.deepStrictEqual([...fp.focusTodayDims(-3, 2)], ['cpt', 'gonogo'], '负 unlocked 钳到 0');
 });
 
-test('focusDimStars: 五维齐全, 按关卡号归维求和, 重玩取历史最高不稀释', () => {
+test('focusDimStars: 六维齐全, 按关卡号归维求和, 重玩取历史最高不稀释', () => {
   const {fp} = loadFocus();
   const left = fp.focusDimStars({stars: {'0': 3, '1': 2, '5': 1, '99': 3}});
-  assert.deepStrictEqual({...left}, {cpt: 4, gonogo: 2, flanker: 0, corsi: 0, switch: 3});
-  assert.deepStrictEqual({...fp.focusDimStars({})}, {cpt: 0, gonogo: 0, flanker: 0, corsi: 0, switch: 0},
-      '空档五维占位');
-  assert.deepStrictEqual({...fp.focusDimStars(null)}, {cpt: 0, gonogo: 0, flanker: 0, corsi: 0, switch: 0},
+  assert.deepStrictEqual({...left}, {cpt: 3, gonogo: 2, flanker: 0, corsi: 0, switch: 0, search: 4},
+      'i=5 教学末关=search(1 星), i=99 master dim=search(3 星)');
+  assert.deepStrictEqual({...fp.focusDimStars({})}, {cpt: 0, gonogo: 0, flanker: 0, corsi: 0, switch: 0, search: 0},
+      '空档六维占位');
+  assert.deepStrictEqual({...fp.focusDimStars(null)}, {cpt: 0, gonogo: 0, flanker: 0, corsi: 0, switch: 0, search: 0},
       '空档安全');
 });
 

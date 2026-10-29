@@ -20,7 +20,7 @@
    会话: 进入→今日页→关卡→星级+过程表扬→自动下一关→每日 6 关或 20 分钟锁定;
    F6 增: 里程碑工具授予(存档 tools 字段记账 + 全屏仪式)与 🎒 宝物柜
    (工具组从 tools 字段渲染, 其余组从共享背包计数渲染, 点击 TTS 读物品名);
-   F8 增: 每日体检(五维连跑→探险家火苗, 计时长不占额度)与魔鬼特训(单维轮换
+   F8 增: 每日体检(六维连跑→探险家火苗, 计时长不占额度)与魔鬼特训(单维轮换
    挑战档 5 分钟硬顶, 计 2 关额度; 鬼等级双阈进退零扣损) — 决策纯函数在
    js/focus-levels.js, 本文件只做流程装配与应用层文案;
    F5 增·奖励调优(2026-10): 矿袋战利品回路 — onTrial 逐试次段位掷骰入共享
@@ -41,6 +41,32 @@ const FOCUS_PRAISE = [
 const FOCUS_COMFORT = [
   '没关系，我们慢慢来。', '深呼吸，再看仔细一点。', '差一点点啦，再试一次！', '休息一下眼睛，我们继续。',
 ];
+/* ---------- 具体过程性表扬 + 连败策略提示(B3 证据落地, 2026-10 交互翻新) ----------
+   结算表扬含具体行为计数(Mueller & Dweck 1998: 夸具体过程不夸人物;
+   Sesame: 正确反馈指向孩子的选择「Nice job choosing…」); 连败话术指向
+   策略与下一次的具体做法(Dweck 2007: 失败情境里只夸努力会听成「没能力」),
+   逐维一条可执行的扫描/等待策略。证据: docs/focus-interaction-research.md §B3 */
+function focusSpecificPraise(level, st) {
+  const n = st ? st.correct : 0;
+  switch (level.dim) {
+    case 'cpt': return '你盯住了 ' + n + ' 颗钻石，眼睛一直没有走开！';
+    case 'gonogo': return '你挖对了 ' + (st.hits||0) + ' 块矿，还忍住了 ' +
+        Math.max(0, n-(st.hits||0)) + ' 次没有乱挖！';
+    case 'flanker': return n + ' 排队伍你都看清了中间那一只！';
+    case 'corsi': return n + ' 条宝石顺序你都记对啦！';
+    case 'switch': return n + ' 次都听对了旗子的指挥，反应又快又对！';
+    case 'search': return n + ' 颗钻石都被你一颗一颗找出来啦！';
+    default: return praiseLine();
+  }
+}
+const FOCUS_STRATEGY = {
+  cpt: '眼睛跟着矿灯慢慢扫，钻石一闪就点。',
+  gonogo: '看到东西先停半秒，看清是钻石再下手。',
+  flanker: '先用手指找到中间那一只，再看它看向哪边。',
+  corsi: '看的时候用手指在空中跟着宝石画一遍顺序。',
+  switch: '每次都先抬头看旗子，旗子说什么就找什么。',
+  search: '从上往下一排一排找，找完一排再找下一排就不会漏。',
+};
 function praiseLine() { // 随机取行件自 C1-T4 起住 CampKit; 全局名是引擎调用期解析契约, 不改不删
   return CampKit.pickLine(FOCUS_PRAISE);
 }
@@ -287,16 +313,21 @@ function showFocusToday() {
     const checkDue = focusCheckEntry(save.checks, today); // B3: 体检不占关数额度, 锁定日仍可做
     html = `
     <div class="f-screen f-today">
+      <div class="f-topline">
+        <span class="f-progress-line">训练完成 · ⭐${total}</span>
+        <span class="f-dots">${dots}</span>
+      </div>
       <div class="f-lock"><img class="f-lock-chief" draggable="false" alt="打盹的村长"
         src="${chiefFace('sleepy')}"><span class="f-lock-moon" aria-hidden="true">🌙</span></div>
       <h1>今天的训练完成啦！</h1>
       <p class="f-sub">训练师要休息了，明天怪物们等你来 😊</p>
-      <div class="f-dots">${dots}</div>
       ${checkDue ? '<div class="f-extra-row">' +
         '<button class="f-extra-btn f-check-btn" id="fCheckBtn">' + btnImg('flame') + '今日体检</button></div>' : ''}
       ${focusStampCalendarHtml(save)}
-      <button class="f-btn" id="fBagBtn">${btnImg('chest')} 宝物柜</button>
-      <button class="f-btn" id="fHome2">${btnImg('house')} 回主页</button>
+      <div class="f-menu-row">
+        <button class="f-btn" id="fBagBtn">${btnImg('chest')} 宝物柜</button>
+        <button class="f-btn" id="fHome2">${btnImg('house')} 回主页</button>
+      </div>
       <button class="f-parent-btn" id="fParentBtn">${btnImg('lock')} 家长</button>
     </div>`;
     focusScreen(html);
@@ -312,25 +343,34 @@ function showFocusToday() {
   const tasks = focusTodayDims(save.unlocked, remaining).map((dim)=>
     '<button class="f-task-chip" data-dim="' + dim + '" title="' + FOCUS_META[dim].name +
     '" aria-label="' + FOCUS_META[dim].name + '">' + FOCUS_META[dim].icon + '</button>').join('');
+  /* 今日页层级(2026-10 交互翻新): 顶栏(进度+今日额度点) → 村长问候 →
+     主行动区(今天玩什么+大开始钮) → 活动行(任务单/体检/特训) →
+     次菜单行(宝物柜/进步) → 日历 → 家长角 —— 主行动永远首屏最大 */
   html = `
   <div class="f-screen f-today">
-    <div class="f-progress-line">第 ${cur+1} 关 / 100 · ⭐${total}</div>
+    <div class="f-topline">
+      <span class="f-progress-line">第 ${cur+1} 关 / 100 · ⭐${total}</span>
+      <span class="f-dots">${dots}</span>
+    </div>
     <div class="f-chief-bubble f-greeting" id="fGreeting" role="button" tabindex="0">
       <img draggable="false" alt="村长爷爷" src="${chiefFace('smile')}">
       <span class="f-bubble">今天我们来玩${meta.game}，准备好了吗？</span>
     </div>
-    <div class="f-dim-icon">${meta.icon}</div>
-    <h1>${meta.game}</h1>
-    <p class="f-sub">${meta.name}${lv.kind==='review' ? ' · 复习' :
-        (lv.kind==='tutorial' ? ' · 教学' : (lv.kind==='master' ? ' · 大师考验' : ''))}</p>
+    <div class="f-hero">
+      <div class="f-dim-icon">${meta.icon}</div>
+      <h1>${meta.game}</h1>
+      <p class="f-sub">${meta.name}${lv.kind==='review' ? ' · 复习' :
+          (lv.kind==='tutorial' ? ' · 教学' : (lv.kind==='master' ? ' · 大师考验' : ''))}</p>
+      <button class="f-start" id="fStartBtn">▶ 开始训练</button>
+    </div>
     ${tasks ? '<div class="f-task-row" id="fTaskRow">' + tasks + '</div>' : ''}
-    <button class="f-start" id="fStartBtn">▶ 开始训练</button>
     ${devOn ? '<div class="f-dev-jump">🛠 跳到第 <input id="fDevJump" type="number" min="1" max="100" value="' +
         (cur + 1) + '" /> 关 <button class="f-btn" id="fDevGo">跳转</button></div>' : ''}
     ${focusExtrasHtml(save)}
-    <button class="f-btn" id="fBagBtn">${btnImg('chest')} 宝物柜</button>
-    <button class="f-btn" id="fProgressBtn">${btnImg('chart')} 我的进步</button>
-    <div class="f-dots">${dots}</div>
+    <div class="f-menu-row">
+      <button class="f-btn" id="fBagBtn">${btnImg('chest')} 宝物柜</button>
+      <button class="f-btn" id="fProgressBtn">${btnImg('chart')} 我的进步</button>
+    </div>
     ${focusStampCalendarHtml(save)}
     <button class="f-parent-btn" id="fParentBtn">${btnImg('lock')} 家长</button>
   </div>`;
@@ -567,7 +607,8 @@ function onFocusLevelEnd(level, st) {
    拦教学关/未通过); 入包后进本关明细, 与关内掉落一起列队回顾 */
   const bonus = passed ? levelBonusLoot(passed, stars, level) : [];
   if (bonus.length) grantFocusLootIntoBag(bonus);
-  const praise = level.kind==='tutorial' ? '你学会新游戏啦！' : praiseLine();
+  const praise = level.kind==='tutorial' ? '你学会新游戏啦！' :
+      focusSpecificPraise(level, st); // B3: 具体过程性表扬(含当关行为计数, 禁人物句)
 
   if (passed) {
     focusScreen(`
@@ -585,18 +626,22 @@ function onFocusLevelEnd(level, st) {
     focusSettle.popStars(stars); // 350ms*n 逐星 pop + 叮咚(C1-T3 kit 实例)
   } else {
     const moveOn = (focusFailCount[level.i]||0) >= 2; // 连败 2 次后换下一个游戏, 避免整段时间卡死在同一关
+    /* B3 连败话术指向策略(Dweck 2007): 不只说「很努力」, 给下一次可执行的做法 */
+    const strategy = FOCUS_STRATEGY[level.dim] || '';
     focusScreen(`
       <div class="f-screen f-result">
         <div class="f-stars"></div>
         <h1>很努力了！</h1>
         <p class="f-sub">正确 ${Math.round(st.acc*100)}% · 目标 70%</p>
+        ${strategy ? '<p class="f-sub f-strategy">下次试试：' + strategy + '</p>' : ''}
         <p class="f-sub">${moveOn ? '这关先记住感觉，我们去玩别的游戏，以后再来挑战！' : '我们再试一次，这次会简单一点点 😊'}</p>
         ${focusLootRecapHtml()}
         ${focusStampAwardHtml(stampDue, save)}
         <button class="f-start" id="fNextBtn">${moveOn ? '下一个游戏 ▶' : '再来一次 ↺'}</button>
       </div>`);
     SpeechKit.speak(stampDue.length ? '集齐图章啦！获得' + stampNames + '！' :
-        (moveOn ? '你已经很努力了！我们先去玩别的游戏，以后再来挑战这一关。' : '你刚才很努力！我们再来一次，这次会简单一点点。'));
+        (moveOn ? '你已经很努力了！下次试试' + strategy + '我们先去玩别的游戏，以后再来挑战这一关。' :
+        '下次试试' + strategy + '我们再来一次，这次会简单一点点。'));
   }
   wireFocusStampPicker(save); // B6 三选一图案(未达成时无节点, 自动 no-op)
   celebrateFocusStampAwards(save, stampDue); // 皮肤恢复 + 首次烟花迸发(落账后观感)
@@ -753,7 +798,7 @@ function showFocusProgress() {
 }
 
 /* ---------- 每日体检 · 魔鬼特训 (F8, 设计稿 §8 B3/B8) ----------
-   体检: FOCUS_CHECK_PARAMS 五维连跑约 90 秒 → 探险家火苗三档; 计入时长、
+   体检: FOCUS_CHECK_PARAMS 六维连跑约 100 秒 → 探险家火苗三档; 计入时长、
    不占关数额度; 当日一次, 做完入口消失; 只与自己近 7 天均值比且只显变亮。
    魔鬼特训: 单维按日轮换的挑战档(当前档+2)连续小节, 5 分钟硬顶到点当前
    小节打完即强制结束; 计 2 关额度 + 计入时长; 当日一次; 鬼等级 1~10 双阈
@@ -1033,6 +1078,26 @@ function showFocusParent() {
   const mins = Math.round((fb ? fb.spentMs() : 0)/60000);
   const played = fb ? fb.spentCount() : 0;
   const dims = FOCUS_DIMS;
+  /* 努力口径区块(C2, 2026-10): 近 7 天 练习关数/体检天数/魔鬼特训次数 —
+     对齐 EndeavorRx 家长端「报努力与完成」先例, 不展示任何横向比较 */
+  const t0 = focusDayIndex(focusTodayStr());
+  const inWeek = (k) => {
+    const d = focusDayIndex(k);
+    return Number.isFinite(d) && t0-d >= 0 && t0-d <= 6;
+  };
+  const weekLevels = Object.keys(save.stamps || {}).filter(inWeek)
+      .reduce((s, k)=>s+(save.stamps[k]||0), 0);
+  const weekFlames = Object.keys(save.checks || {}).filter(inWeek).length;
+  const weekDevil = Object.keys((save.devil && save.devil.days) || {}).filter(inWeek).length;
+  /* 陪玩一句话(按日轮播, 过程性表扬句式库 — 给家长现成话术, B3/C2) */
+  const FOCUS_PARENT_TIPS = [
+    '陪玩一句话：夸具体行为——「你刚才等得真稳」，不说「你真聪明」。',
+    '孩子卡关时给策略：「一排一排找」「先看中间那只」，比「加油」更有用。',
+    '这个游戏本来就该有点难——受挫时鼓励他再试一次就好。',
+    '固定时间练更养成习惯：比如每晚饭后，村长都会等他。',
+  ];
+  const tipLen = FOCUS_PARENT_TIPS.length;
+  const parentTip = FOCUS_PARENT_TIPS[((t0 % tipLen) + tipLen) % tipLen];
   const perDim = dims.map((d)=>{
     const h = save.history.filter((x)=>x.dim===d).slice(-20);
     const acc = h.length ? Math.round(h.reduce((s, x)=>s+x.acc, 0)/h.length) : null;
@@ -1051,6 +1116,10 @@ function showFocusParent() {
         <div class="f-stat">今日 <b>${played}</b>/${FOCUS_DAILY_LEVELS} 关 · <b>${mins}</b> 分钟</div>
         <div class="f-stat">累计 <b>${save.unlocked+1}</b>/100 关 · ⭐${total}</div>
       </div>
+      <div class="f-stat-row">
+        <div class="f-stat">近 7 天 <b>${weekLevels}</b> 关 · 体检 ${weekFlames} 天 · 魔鬼特训 ${weekDevil} 次</div>
+      </div>
+      <div class="f-note f-parent-tip">${parentTip}</div>
       <table class="f-table">
         <tr><th>维度</th><th>练习次数</th><th>平均正确率</th><th>平均反应</th><th>近期趋势</th></tr>
         ${perDim.map((p)=>`<tr><td>${FOCUS_META[p.d].icon} ${FOCUS_META[p.d].name}</td>
@@ -1058,7 +1127,7 @@ function showFocusParent() {
           <td>${p.mrt===null?'—':(p.mrt/1000).toFixed(1)+'s'}</td><td>${spark(p.h)}</td></tr>`).join('')}
       </table>
       <div class="f-note">
-        本模式是注意力技能的<b>结构化练习</b>(持续警觉/抑制控制/干扰控制/视空记忆/规则切换),
+        本模式是注意力技能的<b>结构化练习</b>(持续警觉/抑制控制/干扰控制/视空记忆/规则切换/视觉搜索),
         不用于诊断或治疗,不宣称提升智力或成绩(远迁移证据不足, Melby-Lervåg 2016)。
         6 岁儿童的注意力本身随年龄快速发育,偶尔分心是正常的;
         如在<b>家庭和学校等多个场景</b>持续存在困难并影响生活,请咨询儿科医生(NIMH 指引)。

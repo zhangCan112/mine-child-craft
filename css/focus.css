@@ -1822,3 +1822,190 @@ body.f-bag-iron .f-bag-n {
     display: none;
   }
 }
+
+/* ============================================================
+   2026-10 交互翻新(第六维 search + 今日页层级 + 教学脚手架)
+   设计权威: docs/focus-search-dim-design.md; 证据: docs/focus-interaction-research.md
+============================================================ */
+
+/* ---------- 今日页层级翻新: 顶栏(进度+额度点) / 主行动区 / 次菜单行 ----------
+   主行动(开始训练)永远首屏最大; 次要入口收进双列行, 终结纵向按钮堆叠 */
+.f-topline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  width: min(560px, 92vw);
+  margin: 0 auto 2px;
+}
+
+.f-topline .f-dots {
+  margin-top: 0;
+}
+
+.f-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: min(560px, 92vw);
+  margin: 6px auto 4px;
+  padding: 18px 16px 22px;
+  border: 3px solid rgb(255 255 255 / 22%);
+  border-radius: 20px;
+  background:
+    linear-gradient(180deg, rgb(255 255 255 / 8%), rgb(0 0 0 / 28%)),
+    rgb(10 14 20 / 35%);
+  box-shadow: inset 0 2px 0 rgb(255 255 255 / 12%), 0 8px 18px rgb(0 0 0 / 25%);
+}
+
+.f-hero .f-start {
+  margin-top: 10px;
+}
+
+.f-menu-row {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+  margin-top: 2px;
+}
+
+.f-menu-row .f-btn {
+  min-width: 150px;
+}
+
+/* ---------- 矿洞大扫除(第六维 search): 提示条 + 石头堆格阵 ----------
+   自定步调划消: 无时窗; 列数走 c5~c8 类名(假环境无 CSSStyleDeclaration) */
+.f-search-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 6px 0 10px;
+}
+
+.f-search-goal {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 0 8px rgb(84 215 205 / 60%));
+}
+
+.f-search-left {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  max-width: 300px;
+}
+
+.f-search-chip {
+  width: 16px;
+  height: 16px;
+  image-rendering: pixelated;
+  opacity: 0.9;
+}
+
+.f-search-grid {
+  display: grid;
+  gap: 8px;
+  margin: 0 auto;
+  width: min(640px, 92vw, calc(var(--f-area-h, 60vh) - 96px));
+}
+
+.f-search-grid.c5 { grid-template-columns: repeat(5, 1fr); }
+.f-search-grid.c6 { grid-template-columns: repeat(6, 1fr); }
+.f-search-grid.c7 { grid-template-columns: repeat(7, 1fr); }
+.f-search-grid.c8 { grid-template-columns: repeat(8, 1fr); }
+
+/* 判定热区 ≥ 视觉绘制区(儿童指向运动学, Hourcade 2004 / Donker & Reitsma 2007):
+   高档位只压图标视觉尺寸, 格子热区不随之缩 */
+.f-search-cell {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 10px;
+  border: 3px solid #38383f;
+  background-color: #55555e;
+  box-shadow: inset 0 -5px 0 rgb(0 0 0 / 30%);
+  cursor: pointer;
+}
+
+.f-search-cell img {
+  width: 78%;
+  height: 78%;
+  image-rendering: pixelated;
+  pointer-events: none; /* 点选目标=格子本身(热区稳定), 图标不截获事件 */
+}
+
+.f-search-cell:hover {
+  border-color: rgb(255 255 255 / 45%);
+}
+
+.f-search-cell.found {
+  border-color: #7cfc00;
+  background-color: #3f7f3f;
+  animation: f-search-pop 0.35s;
+}
+
+.f-search-cell.miss {
+  animation: f-search-miss 0.34s;
+}
+
+.f-search-cell.hint {
+  animation: f-hint 0.7s infinite;
+}
+
+.f-search-grid.clear .f-search-cell.found {
+  animation: f-search-pop 0.35s;
+}
+
+.f-search-grid.clear {
+  animation: f-search-clear 0.75s;
+}
+
+@keyframes f-search-pop {
+  0% { transform: scale(1); }
+  45% { transform: scale(1.16); }
+  100% { transform: scale(1); }
+}
+
+@keyframes f-search-miss {
+  0%, 100% { transform: translateX(0); }
+  30% { transform: translateX(-4px); }
+  65% { transform: translateX(4px); }
+}
+
+@keyframes f-search-clear {
+  0%, 100% { filter: brightness(1); }
+  40% { filter: brightness(1.5); }
+}
+
+/* ---------- 教学脚手架(Sesame 三级反馈)复用既有 hint 族, 只补 Corsi 格 ---------- */
+.f-corsi-tile.hint {
+  animation: f-hint 0.7s infinite;
+}
+
+/* ---------- 结算屏策略行 + 家长面板陪玩一句话(B3/C2) ---------- */
+.f-strategy {
+  color: #ffd83d;
+  font-weight: 700;
+}
+
+.f-parent-tip {
+  border-color: rgb(255 216 61 / 40%);
+  color: #fff2a8;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #focusRoot .f-search-cell.hint,
+  #focusRoot .f-corsi-tile.hint {
+    animation: none;
+    box-shadow: 0 0 0 4px #7cfc00;
+  }
+
+  .f-search-grid.clear {
+    animation: none;
+  }
+}

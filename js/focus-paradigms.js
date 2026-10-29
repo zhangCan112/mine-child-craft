@@ -6,8 +6,8 @@
    调度层只给参数与 handler, 拿回统计; 引擎不知道奖励/背包/图章。
    interface: mkAdapt(failCount) · runDiscrimination(area, params, adapt, h, framing) ·
      runFlanker(area, params, adapt, h) · runCorsi(area, params, adapt, h) ·
-     runSwitch(area, params, adapt, h) · withDim(h, dim) ·
-     focusDispatch(level) · runFocusLevel(level, area, h, failCount)
+     runSwitch(area, params, adapt, h) · runSearch(area, params, adapt, h) ·
+     withDim(h, dim) · focusDispatch(level) · runFocusLevel(level, area, h, failCount)
    依赖(均经全局名, 调用期解析): SpeechKit(js/speech.js) · sfx(js/audio.js) ·
      stimIcon→iconOf(js/icons.js)/mcIcon(js/focus-icons.js) ·
      mobFace→pigFace/sheepFace(js/focus-icons.js)/Mobs.face(js/mobs.js) ·
@@ -20,7 +20,13 @@
    干扰), noSet 扩 coal/iron_ore · Corsi: lenMix 混出 len-1 ·
    antiChunk 展示前置换打乱格位 · gem 轮换亮格宝石 · Flanker: len9
    小尺寸档 + neutralRate 中立行(猪/羊) + mobMix 混入非苦力怕生物 ·
-   Switch: choices 5 选项 + bivalent 双价干扰 + switchJitter 切换抖动
+   Switch: choices 5 选项 + bivalent 双价干扰 + switchJitter 切换抖动 ·
+   Search(2026-10 第六维): 回合制自定步调划消, 干扰按回合渐入 + 绿宝石
+   similarMix 相似混入(参数形状见 paramsFor D6)
+   教学脚手架(Sesame 三级反馈的教学关落地, 2026-10): 教学关(kind=tutorial,
+   经 runFocusLevel 注入 params.scaffold)答错不惩罚只重教 — 判别=漏点高亮
+   刺激+句尾指引/误点念「不点」; Flanker=高亮中间只+念方向; Corsi=原序列
+   重演一遍; Switch=高亮正确方块。仅教学关生效, 正式关零改动
    事件缝: handler 可选 h.onTrial({ok, streak}) — 每正式试次恰一次,
    教学演示不计; 维度名由 runFocusLevel 调度层补注(引擎不知道玩法,
    分层红线); 干扰物/宝石图标走 stimIcon(iconOf 优先, mcIcon 兜底),
@@ -188,6 +194,18 @@ function runDiscrimination(area, params, adapt, h, framing) {
       if (answered) return; answered = true;
       const ok = isGo ? clicked : !clicked;
       if (ok && clicked) stats.rts.push(performance.now()-t0);
+      /* 教学脚手架(Sesame 三级反馈, 仅教学关正式试次): 答错只重教不惩罚 —
+         漏点=刺激留场高亮+句尾动作指引; 误点=念「不点」(与演示话术同族) */
+      const reteach = params.scaffold && !isDemo && !ok;
+      if (reteach) {
+        if (isGo) {
+          stim.classList.add('hint');
+          SpeechKit.speak('钻石在这里，快点点它！');
+        } else {
+          stim.classList.add('hint-no');
+          SpeechKit.speak('这个不点，等它自己走。');
+        }
+      }
       if (!isDemo) {
         stats.trials++;
         if (isGo) stats.goTrials = (stats.goTrials||0) + 1;
@@ -205,8 +223,8 @@ function runDiscrimination(area, params, adapt, h, framing) {
           h.showRule && h.showRule();
         }
       } else feedback(isGo ? clicked : true, stim);
-      stim.classList.add('gone');
-      T.after(240, ()=>{
+      if (!reteach) stim.classList.add('gone'); // 重教路径刺激留场(高亮可读), 到点直接撤
+      T.after(reteach ? 1200 : 240, ()=>{
         stim.remove(); T.after(adapt.t(params.isi||800), next);
       });
     }
@@ -322,6 +340,13 @@ function runFlanker(area, params, adapt, h) {
       if (answered) return; answered = true;
       const ok = dir === centerDir;
       if (ok) stats.rts.push(performance.now()-t0);
+      /* 教学脚手架(仅教学关正式试次): 答错高亮中间只+念方向(Sesame 重述目标级) */
+      const reteach = params.scaffold && isDemo===undefined && !ok;
+      if (reteach) {
+        const c = bar.children[Math.floor(params.len/2)];
+        if (c && c.classList) c.classList.add('hint');
+        SpeechKit.speak('先找中间那一只，它看' + (centerDir<0?'左':'右') + '边！');
+      }
       if (isDemo===undefined) {
         stats.trials++;
         if (ok) stats.correct++;
@@ -338,12 +363,17 @@ function runFlanker(area, params, adapt, h) {
         br.classList.toggle('picked-ok', ok && dir>0);
       }
       bar.classList.add(ok!==false && isDemo!==undefined ? 'demo-ok' : (ok?'ok':'no'));
-      T.after(360, ()=>{
+      T.after(reteach ? 1200 : 360, ()=>{
         bar.className='f-flanker-row'; next();
       });
     }
-    bl.onclick = ()=>resolve(-1);
-    br.onclick = ()=>resolve(1);
+    /* mousedown 即判定(Sesame「触点即响应」的鼠标等价物, 2026-10 手感翻新):
+       6 岁连点场景 click(抬手判定)有迟滞感; answered 互斥使 click 兜底
+       (键盘/辅助点击同通道)不会双计 */
+    const tapL = ()=>resolve(-1);
+    const tapR = ()=>resolve(1);
+    bl.onmousedown = tapL; bl.onclick = tapL;
+    br.onmousedown = tapR; br.onclick = tapR;
     T.after(adapt.t(params.window), ()=>{
       if (!answered) {
         answered=true;
@@ -407,29 +437,32 @@ function runCorsi(area, params, adapt, h) {
   }
   let inputOn = false; let comfortSaid = false;
 
-  function light(k, ms) {
+  function light(k, ms, hinted) {
     tiles[k].classList.add('lit');
+    if (hinted) tiles[k].classList.add('hint'); // 教学重演: 亮格带提示脉动(css/focus.css)
     tiles[k].style.backgroundImage = 'url(' + stimIcon(params.gem || 'diamond') + ')';
     T.after(Math.max(220, ms*0.65), ()=>{
       tiles[k].classList.remove('lit');
+      tiles[k].classList.remove('hint');
       tiles[k].style.backgroundImage = '';
     });
   }
-  function runSeq(seqIdx, seq) {
+  function runSeq(seqIdx, seq, hinted) {
     const isDemo = params.demo && seqIdx===0;
     inputOn = false;
     hint.textContent = '👀 看顺序…';
     tiles.forEach((t)=>{
-      t.onclick = null;
-    }); // 展示期禁点
+      t.onclick = null; t.onmousedown = null;
+    }); // 展示期禁点(mousedown 即判定后两通道同锁)
     const pace = adapt.t(params.pace);
-    seq.forEach((k, s)=>T.after(400 + s*pace, ()=>light(k, pace)));
+    seq.forEach((k, s)=>T.after(400 + s*pace, ()=>light(k, pace, hinted)));
     T.after(400 + seq.length*pace + 200, ()=>{
       hint.textContent = '👉 按顺序点！';
       inputOn = true;
       let step = 0; const t0 = performance.now();
       tiles.forEach((t, k)=>{
-        t.onclick = ()=>{
+        /* mousedown 即判定 + click 键盘兜底(inputOn/step 互斥不双计, 2026-10 手感翻新) */
+        const tap = ()=>{
           if (!inputOn) return;
           if (k === seq[step]) {
             light(k, 400); t.classList.add('good');
@@ -458,10 +491,18 @@ function runCorsi(area, params, adapt, h) {
               }
             }
             T.after(600, ()=>{
-              t.classList.remove('bad'); nextSeq(++seqIdx);
+              t.classList.remove('bad');
+              /* 教学脚手架(仅教学关): 原序列重演一遍(亮格带提示), 不推进 —
+                 Sesame「重述目标+示范」级; 正式关照旧推进 */
+              if (params.scaffold && !isDemo) {
+                SpeechKit.speak('再看一遍这一串哦。');
+                runSeq(seqIdx, seq, true);
+              } else nextSeq(++seqIdx);
             });
           }
         };
+        t.onmousedown = tap;
+        t.onclick = tap;
       });
     });
   }
@@ -518,6 +559,7 @@ function runSwitch(area, params, adapt, h) {
   area.appendChild(flag);
   const board = fEl('div', 'f-switch-board');
   area.appendChild(board);
+  let correctEl = null; // 教学脚手架用: 本试次正确方块元素(每试次在摆台时刷新)
 
   function flagHTML(target) {
     if (rule==='size') {
@@ -573,16 +615,24 @@ function runSwitch(area, params, adapt, h) {
     }
 
     let answered = false; const t0 = performance.now();
+    correctEl = null;
     choices.forEach((c)=>{
       const el = fEl('div', 'f-block block ' + (c.size==='big'?'big':'small'),
           '<img draggable="false" src="'+stimIcon(c.icon)+'">');
-      el.onclick = ()=>{
+      if (isCorrect(c)) correctEl = el; // 教学脚手架: 记下正确方块(答错后高亮重教)
+      /* mousedown 即判定 + click 键盘兜底(answered 互斥不双计, 2026-10 手感翻新) */
+      const tap = ()=>{
         if (answered) return; answered = true;
         const ok = isCorrect(c);
         if (ok) {
           stats.rts.push(performance.now()-t0); el.classList.add('good'); sfx('pick');
         } else {
           el.classList.add('bad'); sfx('click');
+          /* 教学脚手架(仅教学关正式试次): 高亮正确方块(Sesame「重述+示范正确答案」级) */
+          if (params.scaffold && isDemo===undefined && correctEl) {
+            correctEl.classList.add('hint');
+            SpeechKit.speak('看旗子上画的是什么——点这个！');
+          }
         }
         if (isDemo===undefined) {
           stats.trials++;
@@ -600,6 +650,8 @@ function runSwitch(area, params, adapt, h) {
         }
         T.after(420, next);
       };
+      el.onmousedown = tap;
+      el.onclick = tap;
       board.appendChild(el);
       if (isDemo && isCorrect(c)) {
         T.after(1200, ()=>{
@@ -651,6 +703,146 @@ function runSwitch(area, params, adapt, h) {
   }};
 }
 
+/* ---------- 视觉搜索:矿洞大扫除(2026-10 第六维, D6) ----------
+   自定步调划消(TEA-Ch2 J Balloon Hunt 系, 证据链 docs/focus-interaction-research.md §A1):
+   石头堆里把全部钻石点出来。回合制 — 首回合纯目标(纯检测), 后回合混入干扰
+   矿石(密度读 params.density)与绿宝石相似混入(similarMix, 与 cpt similar 同族);
+   无时窗压迫(红线: 自定步调, 速度只进家长面板 mrt, 不驱动任何计分);
+   记分 = 找到数与误点数(乱扫会压 acc, 防连点通吃); 漏找不存在 — 找齐才进
+   下一回合(自定步调的"回合"是干扰密度梯度, 不是时限)。
+   事件缝: 中的=fire(ok), 误点=fire(!ok) — 连对显示/掉落掷骰照常工作,
+   试次总量 3×6=18 与其他维对齐(FOCUS_REWARD_TRIAL_REF) */
+function runSearch(area, params, adapt, h) {
+  const T = mkTimers();
+  const ev = mkTrialEvents(); // 逐试次事件缝(事件=一次点选判定)
+  const stats = {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0,
+    falseTaps: 0}; // falseTaps=误点数(石头/他矿/绿宝石), 结算按 找到−误点 折 acc
+  const total = params.rounds*params.targets;
+  let found = 0; let comfortSaid = false; let scaffoldSaid = false; let isStopped = false;
+
+  const hint = fEl('div', 'f-search-hint');
+  /* 列数走类名(c5~c8, css/focus.css 映射 --cols)而非内联样式 — DOM 惰性
+     可测性约定(假环境无 CSSStyleDeclaration), 与格阵 g9/g16 同款手法 */
+  const grid = fEl('div', 'f-search-grid c' + params.cols);
+  area.appendChild(hint);
+  area.appendChild(grid);
+
+  /* 目标提示条: 大钻石 + 本回合剩余小钻石图标行(零文字 — 数图标即知还差几颗;
+     按回合显示 6 颗封顶, 不铺全程 18 颗) */
+  function hintHTML(left) {
+    let chips = '';
+    for (let k=0; k<left; k++) {
+      chips += '<img class="f-search-chip" draggable="false" alt="" src="' + stimIcon('diamond') + '">';
+    }
+    return '<img class="f-search-goal" draggable="false" alt="" src="' + stimIcon('diamond') + '">' +
+        '<span class="f-search-left">' + chips + '</span>';
+  }
+
+  function buildRound(r) {
+    grid.innerHTML = '';
+    hint.innerHTML = hintHTML(params.targets);
+    const cells = params.cols*params.rows;
+    const idxs = RandCore.shuffle(Math.random, Array.from({length: cells}, (_, k)=>k));
+    const targetSet = idxs.slice(0, params.targets);
+    /* 干扰率: 首回合恒 0(Balloon Hunt 前段=纯目标), 后回合读 density[r-1] */
+    const dens = r === 0 ? 0 : (params.density[r-1] || 0);
+    let roundLeft = params.targets;
+    const t0 = performance.now(); // 回合起始(每颗钻石的反应时基准, 只进家长面板)
+    if (params.demo && r === 0) { // 教学关首回合: 目标脉动高亮 + 一句口播
+      T.after(900, ()=>SpeechKit.speak('闪光的钻石全都点掉，一颗都别漏！'));
+    }
+    idxs.forEach((cell) => {
+      const isTarget = targetSet.includes(cell);
+      let kind;
+      if (isTarget) {
+        kind = 'diamond';
+      } else if (Math.random() < dens) {
+        /* 干扰矿石: 按相似混入率掷骰 — 中=绿宝石(同形异色高相似), 不中=他矿 */
+        kind = Math.random() < (params.similarMix || 0) ? 'emerald' :
+            pickRand(['coal', 'iron_ore']);
+      } else {
+        kind = 'stone'; // 中性填料(不吸引点选, 构成扫描负载)
+      }
+      const cellCls = 'f-search-cell' + (isTarget && params.demo && r === 0 ? ' hint' : '');
+      const el = fEl('button', cellCls,
+          '<img draggable="false" alt="" src="' + stimIcon(kind) + '">');
+      let taken = false; // 每格至多记一次(连点/mousedown+click 双通道不双计)
+      const tap = (e) => {
+        if (e && e.preventDefault) e.preventDefault();
+        if (isStopped || taken || el.dataset.found) return;
+        if (isTarget) {
+          taken = true;
+          el.dataset.found = '1';
+          el.classList.add('found');
+          found++; stats.correct++; roundLeft--;
+          stats.rts.push(performance.now()-t0);
+          stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak);
+          adapt.record(true);
+          ev.fire(h, true); // 事件缝: 中的(streak 由缝自持)
+          sfx('pick');
+          hint.innerHTML = hintHTML(roundLeft);
+          h.progress(found, total);
+          if (roundLeft <= 0) { // 回合找齐: 短促庆祝格阵闪光, 进下一回合
+            grid.classList.add('clear');
+            T.after(750, ()=>{
+              grid.classList.remove('clear');
+              next(r+1);
+            });
+          }
+        } else {
+          /* 误点(石头/他矿/绿宝石): 记误点压 acc(防乱扫通吃)但零惩罚 —
+             轻微摇摆一晃即回, 不扣不罚; 3 连误点触发挫败阀安慰(mkAdapt 统一) */
+          taken = true;
+          stats.falseTaps++;
+          stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak+1);
+          el.classList.add('miss');
+          T.after(340, ()=>el.classList.remove('miss'));
+          if (adapt.record(false)==='valve') {
+            stats.valveCount++;
+            if (!comfortSaid) {
+              comfortSaid = true; SpeechKit.speak(comfortLine());
+            }
+            h.showRule && h.showRule();
+          }
+          /* 教学脚手架(Sesame 重述目标级, 仅教学关): 首次误点念一句「找钻石」 */
+          if (params.scaffold && !scaffoldSaid) {
+            scaffoldSaid = true;
+            SpeechKit.speak('那些是石头，别点它们——找闪光的钻石！');
+          }
+          ev.fire(h, false);
+        }
+      };
+      /* mousedown 即判定(Sesame「触点即响应」鼠标等价) + click 键盘兜底 */
+      el.onmousedown = tap;
+      el.onclick = tap;
+      grid.appendChild(el);
+    });
+  }
+
+  function next(r) {
+    if (isStopped) return;
+    if (r >= params.rounds) {
+      finish();
+      return;
+    }
+    buildRound(r);
+  }
+  function finish() {
+    /* 分母=目标总数(自定步调无漏测试次); acc=(找到−误点)/总数 钳 0 —
+       全找齐是必然事件, 分数差异全由误点率承载(精确搜索=星级来源) */
+    stats.trials = total;
+    stats.acc = Math.max(0, (stats.correct - stats.falseTaps)/total);
+    stats.mrt = median(stats.rts);
+    stats.valveCount += adapt.valveCount;
+    hint.remove(); grid.remove();
+    h.end(stats);
+  }
+  next(0);
+  return {stop() {
+    isStopped = true; T.stop(); hint.remove(); grid.remove();
+  }};
+}
+
 /* ---------- 调度入口 ---------- */
 /* dim 补注包装: 引擎报 {ok, streak}(不知道自己叫什么), 维度名由本调度层
    统一补进事件对象 — 调用方(modes/focus.js)拿到完整的 {ok, streak, dim} */
@@ -663,8 +855,9 @@ function withDim(h, dim) {
   });
 }
 /* 分发判定(纯函数, 单测锁住顺序): master/check 必须先于 dim 判定 —
-   第 100 关 dim='switch', 若先按 dim 分发, master 分支永远不可达(曾经的死码 bug);
-   check=每日体检(F8), 与 master 同走五维连跑(sections 分发, 短参数来自 FOCUS_CHECK_PARAMS) */
+   第 100 关 dim='search'(六维最后一个), 若先按 dim 分发, master 分支
+   永远不可达(曾经的死码 bug); check=每日体检(F8), 与 master 同走六维
+   连跑(sections 分发, 短参数来自 FOCUS_CHECK_PARAMS) */
 function focusDispatch(level) {
   if (level.kind === 'master' || level.kind === 'check') return {kind: 'master'};
   if (level.dim==='cpt') return {kind: 'engine', engine: 'discrimination', framing: 'cpt'};
@@ -672,11 +865,12 @@ function focusDispatch(level) {
   if (level.dim==='flanker') return {kind: 'engine', engine: 'flanker'};
   if (level.dim==='corsi') return {kind: 'engine', engine: 'corsi'};
   if (level.dim==='switch') return {kind: 'engine', engine: 'switch'};
+  if (level.dim==='search') return {kind: 'engine', engine: 'search'};
   return {kind: 'none'};
 }
 function runFocusLevel(level, area, h, failCount) {
   const d = focusDispatch(level);
-  if (d.kind === 'master') { // 五维连续小节
+  if (d.kind === 'master') { // 六维连续小节
     const T = mkTimers();
     let isStopped = false;
     const agg = {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0, goTrials: 0, hits: 0};
@@ -731,10 +925,14 @@ function runFocusLevel(level, area, h, failCount) {
   if (d.kind === 'none') return null;
   const adapt = mkAdapt(failCount);
   const p = {...level.params};
-  if (level.kind==='tutorial') p.demo = true;
+  if (level.kind==='tutorial') {
+    p.demo = true;
+    p.scaffold = true; // 教学脚手架(Sesame 三级反馈, 仅教学关正式试次生效)
+  }
   const hd = withDim(h, level.dim); // 事件缝补注维度名(不传 onTrial 时零包装)
   if (d.engine==='discrimination') return runDiscrimination(area, p, adapt, hd, d.framing);
   if (d.engine==='flanker') return runFlanker(area, p, adapt, hd);
   if (d.engine==='corsi') return runCorsi(area, p, adapt, hd);
+  if (d.engine==='search') return runSearch(area, p, adapt, hd);
   return runSwitch(area, p, adapt, hd);
 }

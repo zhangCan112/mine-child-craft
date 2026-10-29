@@ -2,13 +2,15 @@
 /* ============================================================
    关卡参数表 (FocusLevels) — 应用层·数据表+纯函数
    ------------------------------------------------------------
-   专注训练营 2.0 的数值唯一权威: 五维元数据(规则/tip 文案) ·
+   专注训练营 2.0 的数值唯一权威: 六维元数据(规则/tip 文案) ·
    paramsFor 难度曲线(tier 1..19, qualitative 跳变一律概率渐进
    混编——台阶变坡道) · 100 关螺旋编排 · 通过门槛/三星 ·
    战利品掉落表与里程碑工具 · 体检/魔鬼特训/图章数据与纯函数。
    数值出处: docs/focus-revamp-design.md §2(D1~D5)/§3(L3~L4)/§8(B1~B8);
-   奖励数值(2026-10 调优)出处: docs/focus-reward-tuning-design.md(段位表/EV 台账)。
-   科学依据(见 MISSION.md): 五维范式 · 每关只动一个难度维度(Davidson 2006)
+   奖励数值(2026-10 调优)出处: docs/focus-reward-tuning-design.md(段位表/EV 台账);
+   第六维 search(视觉搜索「矿洞大扫除」, 2026-10)出处: docs/focus-search-dim-design.md
+   (证据链: docs/focus-interaction-research.md §A1 — TEA-Ch2 J 5-7 岁常模子测验 Balloon Hunt 系)。
+   科学依据(见 MISSION.md): 六维范式 · 每关只动一个难度维度(Davidson 2006)
    · 复习/交错编排 = 间隔效应+交错练习(Cepeda 2006; Klimovich 2025)
    interface: FOCUS_DIMS · FOCUS_META · paramsFor(dim, tier, li) ·
      FOCUS_LEVELS · focusPassed · focusStars · FOCUS_REWARD_STAGES ·
@@ -38,7 +40,7 @@
      (test/focus-paradigms.test.js, vm 直测)
    ============================================================ */
 
-const FOCUS_DIMS = ['cpt', 'gonogo', 'flanker', 'corsi', 'switch']; // 阶段顺序
+const FOCUS_DIMS = ['cpt', 'gonogo', 'flanker', 'corsi', 'switch', 'search']; // 阶段顺序(六维; search=视觉搜索, 2026-10 第六维追加)
 const mcIco = (n) => '<img class="f-mcicon" draggable="false" src="' + mcIcon(n) + '">';
 const FOCUS_META = {
   cpt: {name: '持续警觉', game: '矿洞瞭望塔', icon: mcIco('torch'),
@@ -78,6 +80,17 @@ const FOCUS_META = {
           (p.switchJitter ? '旗子说变就变，不定时哦，盯紧它！' : '旗子大约每 ' + p.switchEvery + ' 次换一次，盯紧旗子！');
       if (p.choices === 5) s += '方块变多了，看仔细再点！';
       if (p.bivalent > 0) s += '有的方块会故意长得像目标，只看旗子说的那一样！';
+      return s;
+    }},
+  search: {name: '视觉搜索', game: '矿洞大扫除', icon: mcIco('iron'),
+    rule: '把石头堆里的钻石全都找出来点掉，一颗都别漏！石头和别的矿石不要点。',
+    tip(p) {
+      let s = '石头堆里一共藏着 ' + (p.rounds*p.targets) +
+          ' 颗钻石，全部找出来！越到后面假石头越多，一排一排找就不会漏。';
+      if (p.similarMix > 0) {
+        s += p.similarMix >= 1 ? '小心！绿宝石长得跟钻石几乎一样，看清楚再点！' :
+            '有时候会混进像钻石的绿宝石，看清楚再点！';
+      }
       return s;
     }},
 };
@@ -143,37 +156,57 @@ function paramsFor(dim, tier, li) {
         choices: tier >= 10 ? 5 : 4, // 第 5 选项(扫视负载)
         bivalent: tier >= 8 ? fLerp(0.5, 1, (tier-8)/11) : 0, // 无关维度匹配 0.5→顶格 1.0(逼孩子只看当前规则维度)
       };
+    case 'search': { // D6 搜索(2026-10 第六维): 自定步调视觉划消 — 无时窗压迫,
+      // 难度轴=网格变大 × 干扰密度上移 × 绿宝石相似混入(与 cpt similar 同款门槛)
+      // 结构照 TEA-Ch2 J Balloon Hunt: 首回合纯目标, 后回合渐进混入干扰
+      const rounds = 3;
+      const targets = 6; // 每回合目标数; 3×6=18 恰为 FOCUS_REWARD_TRIAL_REF(掉落归一天然对齐)
+      const cols = Math.round(fLerp(6, 8, t)); // 网格 6×4=24 格 → 8×4=32 格
+      const rows = 4;
+      const base = fLerp(0.3, 0.55, t); // 干扰密度基线(非目标格成为干扰矿石的概率)
+      return {
+        trials: rounds*targets, // 奖励试次归一口径(rewardTrialCount 读; 引擎不消费)
+        rounds, targets, cols, rows,
+        // 回合 1/2 的干扰率(回合 0 恒 0 纯目标 — Balloon Hunt 前段结构), 顶格 0.8 封底
+        density: [Math.min(0.8, base), Math.min(0.8, base + 0.15)],
+        // 绿宝石混入率(qualitative 跳变一律渐进混编红线): tier8→0.3, 9→0.6, 10→0.9, ≥11→1
+        similarMix: tier < 8 ? 0 : Math.min(1, 0.3*(tier-7)),
+      };
+    }
   }
 }
 
-/* ---------- 100 关编排 (螺旋轮换制) ----------
-   - 第 1~5 关: 五个游戏的入门教学关 (从第一关就换着玩)
-   - 第 6~99 关: 每 5 关一轮, 五个游戏轮换出现, 难度档随轮次递进
+/* ---------- 100 关编排 (螺旋轮换制, 2026-10 起六维) ----------
+   - 第 1~6 关: 六个游戏的入门教学关 (从第一关就换着玩)
+   - 第 7~99 关: 六个游戏轮换出现, 难度档随轮次递进
      (交错练习+间隔复习合一: Klimovich 2025; Cepeda 2006)
-   - 第 100 关: 五维大师考验
+   - 第 100 关: 六维大师考验
    - 特殊变体随难度档渐进混入(新曲线见 paramsFor): 伪装渐入 tier8 ·
      假钻石 tier10 · 五选项 tier10 · 中立行 tier13 · 4×4 格阵 tier14 ·
-     混生物 tier15 · 队伍 9 只 tier18                                */
+     混生物 tier15 · 队伍 9 只 tier18 · 绿宝石相似混入 tier8(search)
+   - 存量档口径: 编排从五维变六维会重排 unlocked 之后的关卡内容 —
+     档位带(tier 公式不变)与通过门槛不动, mkAdapt 阶梯与挫败阀照常兜住
+     (决策记录: docs/adr/0008-search-sixth-dim.md) */
 const FOCUS_LEVELS = [];
 (function generateFocusLevels() {
   for (let i=0; i<100; i++) {
     let dim; let kind = 'normal'; let tier;
-    if (i < 5) { // 五个教学关
+    if (i < 6) { // 六个教学关
       dim = FOCUS_DIMS[i];
       kind = 'tutorial';
       tier = 1;
     } else if (i === 99) { // 大师考验
-      dim = FOCUS_DIMS[4];
+      dim = FOCUS_DIMS[5];
       kind = 'master';
       tier = 19;
     } else { // 螺旋轮换
-      const k = i - 5;
-      dim = FOCUS_DIMS[k % 5];
+      const k = i - 6;
+      dim = FOCUS_DIMS[k % 6];
       tier = Math.min(19, 2 + Math.floor(k / 5));
     }
     FOCUS_LEVELS.push({i, stage: Math.floor(i/5)+1, dim, kind, tier, params: paramsFor(dim, tier, i)});
   }
-  // 大师关: 五维连续小节(各 tier 8 难度)
+  // 大师关: 六维连续小节(各 tier 8 难度)
   FOCUS_LEVELS[99].sections = FOCUS_DIMS.map((d) => ({dim: d, params: paramsFor(d, 8)}));
 })();
 
@@ -342,15 +375,19 @@ function focusProgress(save) {
 }
 
 /* ---------- 每日体检短参数(设计稿 §8 B3) ----------
-   复用大师关的五维连跑机制(sections 分发), 各维度取低档(tier 2)
+   复用大师关的六维连跑机制(sections 分发), 各维度取低档(tier 2)
    短参数、每节约 6 试次; 计费归模式层(F8): 计入时长、不占关数额度 */
 const FOCUS_CHECK_PARAMS = FOCUS_DIMS.map((dim) => {
   const p = {...paramsFor(dim, 2)};
-  if (p.trials) p.trials = 6; // corsi 无 trials, 序列数本就是 6
+  if (dim === 'search') { // 搜索自定步调无试次轴: 减回合/目标/列控时长(2×4=8 目标)
+    p.rounds = 2; p.targets = 4; p.cols = 5; p.trials = 8;
+  } else if (p.trials) {
+    p.trials = 6; // corsi 无 trials, 序列数本就是 6
+  }
   return {dim, params: p};
 });
 
-/* 探险家火苗(设计稿 §8 B3): 三档按当次五维平均正确率映射(≥85 大/≥70 中/其余小);
+/* 探险家火苗(设计稿 §8 B3): 三档按当次六维平均正确率映射(≥85 大/≥70 中/其余小);
    brighter 只在超过自己近 7 天体检均值时为真(只显示变亮, 不显示回落, 不与常模比较) */
 function focusFlame(acc, baseline) {
   const flame = acc >= 0.85 ? 3 : acc >= 0.70 ? 2 : 1;
@@ -398,8 +435,8 @@ function trimFocusLog(log, today, keepDays) {
   return CampCore.trimLog(log, today, keepDays);
 }
 
-/* 魔鬼特训维度按日严格轮换(设计稿 B8 "天数%5"): 日序数(focusDayIndex 派生)
-   %5 映射五维 — 相邻两天必不同维、五天一轮全覆盖, 纯函数不依赖 Date.now */
+/* 魔鬼特训维度按日严格轮换: 日序数(focusDayIndex 派生) % 维度数映射六维
+   — 相邻两天必不同维、六天一轮全覆盖, 纯函数不依赖 Date.now */
 function devilDimFor(dateStr) {
   const idx = focusDayIndex(dateStr);
   const n = Number.isFinite(idx) ? idx : 0; // 损坏串回落第 0 维(不炸)
@@ -435,7 +472,7 @@ function devilEntry(devil, today, playedCount, capCount) {
 }
 
 /* 孩子在某维度的"当前档": 从待打关(unlocked)向下找该维最近一关的 tier —
-   魔鬼特训挑战档 = devilParams(dim, 该档+2)(封顶 19); 前 5 关教学覆盖五维, 循环必命中 */
+   魔鬼特训挑战档 = devilParams(dim, 该档+2)(封顶 19); 前 6 关教学覆盖六维, 循环必命中 */
 function devilTierFor(dim, unlocked) {
   for (let i = Math.min(unlocked, 99); i >= 0; i--) {
     if (FOCUS_LEVELS[i].dim === dim) return FOCUS_LEVELS[i].tier;
@@ -534,8 +571,8 @@ function focusTodayDims(unlocked, remaining) {
   return dims;
 }
 
-/* 我的进步·五维星柱: 各维累计星数(stars 按关卡号归维求和; 每关历史最高,
-   重玩不稀释——防刷天然满足)。返回五维齐全的计数对象, 零星也占位 */
+/* 我的进步·六维星柱: 各维累计星数(stars 按关卡号归维求和; 每关历史最高,
+   重玩不稀释——防刷天然满足)。返回六维齐全的计数对象, 零星也占位 */
 function focusDimStars(save) {
   const out = {};
   for (const d of FOCUS_DIMS) out[d] = 0;
