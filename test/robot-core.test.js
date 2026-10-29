@@ -2,7 +2,8 @@
 /* 怪物指挥官指令模拟器纯核心单测 — node --test (零依赖)
    运行: node --test test/robot-core.test.js
    覆盖: mkBoard 确定性(同 seed 同棋盘/跨 seed 相异/200 种子全可解/出生朝向
-   恒东=画面右) ·
+   恒东=画面右) · 三闸(预算 parCap/教学 S 承重/形状 turnsMin 转向足额+
+   可行性降档+转向盘特征钳 1) ·
    stepSim 全意图分支(转向/前进/撞墙/落水/到旗/特技炸墙/打盹吞卡/爬台/
    滑翔过水/陷阱转圈/未知卡安全空转/win 后 idle) · 纯度(入参 sim 不被改写) ·
    parSolution BFS(手工棋盘手算对照 + 生成棋盘解自证: simulate 解列必 win) ·
@@ -124,6 +125,56 @@ test('双闸不可满足时兜底盘仍可解(回归: 兜底曾漏 GOAL 格)', (
       '兜底盘终点格必须是旗(回归: 兜底曾漏设 GOAL 格)');
   assert.ok(RobotCore.parOf(b) > 0, '兜底盘必须可解');
 });
+
+/* ============ 形状闸(D15): turnsMin 转弯爬坡 ============ */
+
+test('形状闸: turnsMin 请求下最短解转向卡足额, 几何与确定性成立(100 种子 × 2 档)', () => {
+  for (let seed = 0; seed < 100; seed++) {
+    const turnsMin = seed % 2 === 0 ? 1 : 2;
+    const opts = {w: 6, h: 6, skill: 'climb', ledgePath: 1,
+      groundDecor: 3, waterDecor: 2, parCap: 8, turnsMin};
+    const b = RobotCore.mkBoard(seed, opts);
+    const sol = RobotCore.parSolution(b);
+    assert.ok(Array.isArray(sol), 'seed ' + seed + ' 必有解');
+    const tc = sol.filter((c) => c === 'L' || c === 'R').length;
+    assert.ok(tc >= turnsMin,
+        'seed ' + seed + ' 转向数 ' + tc + ' < 请求 ' + turnsMin + '(转弯教学落空)');
+    assert.ok(sol.length <= 8, 'seed ' + seed + ' par ≤ 预算');
+    assert.strictEqual(b.start.dir, 0,
+        'seed ' + seed + ' 出生朝向恒东(D10, 转向盘同样成立: 首段恒东)');
+    assert.strictEqual(b.start.x, 0, '起点恒西缘');
+    assert.strictEqual(b.goal.x, b.w - 1, '终点恒东缘(goal.x 不随形状变)');
+    assert.strictEqual(JSON.stringify(RobotCore.mkBoard(seed, opts)),
+        JSON.stringify(b), '同 seed 同棋盘(确定性重放红线, 转向盘在内)');
+  }
+});
+
+test('形状可行性降档: 装不下的 turnsMin 静默降档仍可解(boom 同源 D13 数学)', () => {
+  /* boom(skillExtra 3) + 1 转: parMin = 3+1+1+3 = 8 > cap 6 → 降到 0 走游走 */
+  const b = RobotCore.mkBoard(9, {w: 5, h: 5, skill: 'boom', softPath: 1,
+    groundDecor: 3, waterDecor: 2, parCap: 6, turnsMin: 1});
+  assert.ok(RobotCore.parOf(b) > 0, '降档后必须可解');
+  assert.strictEqual(RobotCore.parOf(b) <= 6, true, '降档不破预算闸');
+  /* |dz| 装不下: h-1 < ceil(t/2) 的极端盘(t=5 需 3 行纵深, h=3 只够 2) */
+  const c = RobotCore.mkBoard(10, {w: 5, h: 3, skill: null,
+    groundDecor: 2, waterDecor: 1, parCap: 12, turnsMin: 5});
+  assert.ok(RobotCore.parOf(c) > 0, '纵深不足降档后仍可解');
+});
+
+test('转向盘特征钳 1: 走廊无旁路时双软必爆预算 → 静默少放到 1 块', () => {
+  /* 带3 golem 同源配置(w7 cap10 softPath2 turnsMin2): 钳 1 后必不落兜底 */
+  const turning = RobotCore.mkBoard(11, {w: 7, h: 7, skill: 'smash', softPath: 2,
+    groundDecor: 5, waterDecor: 2, parCap: 10, turnsMin: 2});
+  assert.strictEqual(turning.softList.length, 1, '转向盘软障碍钳 1(静默少放)');
+  const sol = RobotCore.parSolution(turning);
+  assert.ok(sol.includes('S'), '特征在盘上仍须教学承重');
+  const tc = sol.filter((c) => c === 'L' || c === 'R').length;
+  assert.ok(tc >= 2, '钳特征不破形状闸');
+  const straight = RobotCore.mkBoard(11, {w: 7, h: 7, skill: 'smash', softPath: 2,
+    groundDecor: 5, waterDecor: 2, parCap: 10});
+  assert.ok(straight.softList.length >= 1, '直路盘多特征请求保留(旧行为)');
+});
+
 
 /* ============ stepSim: 全意图分支(手工字符画棋盘) ============ */
 

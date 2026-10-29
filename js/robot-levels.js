@@ -71,11 +71,14 @@ const ROBOT_KIND_TEMPLATES = [
 ];
 
 /* 怪物包轮换(每带一行, 入参带内序 k): 带0 全程苦力怕; 带1 前 8 关苦力怕
-   (boom 教学), 第 9 关铁傀儡解锁此后交替; 带2 前 8 蜘蛛(climb)接 8 小鸡
-   (glide)再交替; 带3 relay 关用 relay 包, 其余铁傀儡/苦力怕交替 */
+   (boom 教学), 第 9 关铁傀儡解锁后**全铁傀儡**(D15 修订: 原交替制会让
+   boom 关在非教学段批量出直线盘——cap 6 减 boom 代价 3 后任何转弯都装
+   不下, 苦力怕的规划练习由带0 全程 25 关与带3 轮换承接); 带2 前 8 蜘蛛
+   (climb)接 8 小鸡(glide)再交替; 带3 relay 关用 relay 包, 其余铁傀儡/
+   苦力怕交替(两包在带3 都能出转弯盘: boom 缩 6×6 出 1 转) */
 const ROBOT_PACK_ROTATION = [
   (k) => 'creeper',
-  (k) => (k < 8 ? 'creeper' : (k % 2 === 0 ? 'golem' : 'creeper')),
+  (k) => (k < 8 ? 'creeper' : 'golem'),
   (k) => (k < 8 ? 'spider' : (k < 16 ? 'chicken' : (k % 2 === 0 ? 'spider' : 'chicken'))),
   (k) => (ROBOT_KIND_TEMPLATES[3][k] === 'relay' ? 'relay' : (k % 2 === 0 ? 'golem' : 'creeper')),
 ];
@@ -98,7 +101,8 @@ for (let band = 0; band < 4; band++) {
    棋盘尺寸次要轴(4×4 → 7×7); 特征量随包给(skill 错配自动归零——mkBoard
    同款静默少放语义); previewSec=演示脚印淡出秒数(0=无消退, 带0/1 恒 0,
    构念保护: 教学类关不消退); trapRate=托盘出现闪亮陷阱卡概率(带2 起渐进
-   混入——focus-revamp「台阶变坡道」口径); decoy=假旗数(带3 起, 无害档) */
+   混入——focus-revamp「台阶变坡道」口径); decoy=假旗数(带3 起, 无害档);
+   turnsMin=路径转弯下限(形状闸③, D15 转弯爬坡, mkBoard 装不下自动降档) */
 function paramsFor(level) {
   const band = level.band;
   const t = level.tier;
@@ -112,14 +116,42 @@ function paramsFor(level) {
   const slots = band === 0 ?
     (level.kind === 'tut' ? 1 : level.kind === 'decode' ? 3 : 4) :
     [0, 6, 8, 10][band];
+  /* 转弯爬坡(D15 v2, 用户 2026-10-29「直线只留教学关 + 坡度稍高」):
+     难度主轴 = par 贴满槽位预算, 转弯数做第二轴, 棋盘宽做让步轴——
+     带0 tut k3+ 1 转(直驱首秀 L/R; decode/normal cap 3/4 数学锁死直路);
+     带1 boom 教学期(k0-7)恒直路(D13: cap 6 - boom 代价 3 装不下任何
+     转弯), k8+ 全铁傀儡 1 转(轮换表同步改); 带2 k<10 1 转 → 2 转(转弯
+     进入规划); 带3 k<5 1 转 → k5-17 2 转 → k18-24 3 转(带末俯冲)。
+     boom 转向天花板 1 转: 代价 +3 后 2 转必须缩到 4×4, 得不偿失 */
+  const skillExtra = skill === 'boom' ? 3 : skill === 'smash' ? 1 : 0;
+  let turnsMin = band === 0 ?
+    (level.kind === 'tut' && level.k >= 3 ? 1 : 0) :
+    band === 1 ? (skill === 'smash' ? 1 : 0) :
+    band === 2 ? (level.k < 10 ? 1 : 2) :
+    (level.k < 5 ? 1 : level.k < 18 ? 2 : 3);
+  if (skill === 'boom') turnsMin = Math.min(turnsMin, 1);
+  /* 宽度让步(§4 次要轴): t 转盘需 (w-1) + ceil(t/2) + t + skillExtra ≤
+     预算, 反解 w 上限; 预算口径=parCap(tut 直接驱动不限槽, 记无穷);
+     装不下(下限 4 都不够, 带1 boom 同款数学)就静默降回直路——请求必可
+     交付, 不依赖 mkBoard 预检兜底 */
+  const turnCap = level.kind === 'tut' ? Infinity : slots;
+  if (turnsMin > 0) {
+    const needDz = Math.ceil(turnsMin / 2);
+    const wTurnMax = turnCap - turnsMin - skillExtra - needDz + 1;
+    if (wTurnMax < 4) turnsMin = 0;
+  }
   /* 棋盘尺寸: 带内后半放大一级, 带尺寸表封顶; boom 关宽钳到 slots-2 ——
      程序长度主轴优先, 次要轴(棋盘)让步: boom 代价恒 +3 卡(S+打盹吞 2),
      m ≥ w-1 ⇒ par ≥ w+2, 5 宽起 par ≥ 7 > 带1 槽位 6 = 数学不可行(双闸
-     80 连败 → 兜底直路, boom 教学静默落空)。带3 槽位 10 不受钳制影响 */
+     80 连败 → 兜底直路, boom 教学静默落空)。带3 槽位 10 不受钳制影响;
+     转向盘再让: 宽度钳到 wTurnMax(带3 boom 6×6 / 3 转盘 6×6 或 5×5) */
   const grow = level.k < 12 ? 0 : 1;
   const size = [[4, 5], [5, 6], [6, 6], [7, 7]][band];
-  const w = Math.min(size[0] + grow, size[1],
+  let w = Math.min(size[0] + grow, size[1],
       skill === 'boom' ? slots - 2 : size[1]);
+  if (turnsMin > 0) {
+    w = Math.min(w, turnCap - turnsMin - skillExtra - Math.ceil(turnsMin / 2) + 1);
+  }
   const h = w;
   /* 特征量: 包解锁首关给 1 个(只教一个新语义), 之后 1~2 随 tier */
   const firstOfPack = ROBOT_LEVELS.find((l) => l.pack === level.pack && l.band === band);
@@ -134,8 +166,8 @@ function paramsFor(level) {
   const decoy = band === 3 ? Math.min(2, Math.floor(t / 8)) : 0;
   const groundDecor = Math.floor(w * h / 14) + Math.floor(t / 8);
   const waterDecor = Math.max(1, Math.floor(w / 3));
-  return {w, h, slots, skill, relay, softPath, waterPath, ledgePath,
-    groundDecor, waterDecor, previewSec, trapRate, decoy, boards: 4};
+  return {w, h, slots, skill, relay, turnsMin, softPath, waterPath,
+    ledgePath, groundDecor, waterDecor, previewSec, trapRate, decoy, boards: 4};
 }
 
 /* ---------- decode/debug 关预置程序(调用期经全局 RobotCore 派生) ---------- */
@@ -199,9 +231,10 @@ const boardOpts = (level) => {
   return {w: p.w, h: p.h, skill: p.skill, softPath: p.softPath,
     waterPath: p.waterPath, ledgePath: p.ledgePath,
     groundDecor: p.groundDecor, waterDecor: p.waterDecor,
-    /* par 预算闸 = 槽位上限(mkBoard 双闸①, 设计稿 §4 程序长度主轴):
+    /* par 预算闸 = 槽位上限(mkBoard 三闸①, 设计稿 §4 程序长度主轴):
        tut 直接驱动点几张都行不受槽位限, 记 0 = 不设闸 */
-    parCap: level.kind === 'tut' ? 0 : p.slots};
+    parCap: level.kind === 'tut' ? 0 : p.slots,
+    turnsMin: p.turnsMin};
 };
 
 /* ---------- 战利品(设计稿 §8: 怪物包主题化, 只奖不罚) ----------

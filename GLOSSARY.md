@@ -325,10 +325,10 @@ _Avoid_: mathCtrl/mathBossStop（历史名——控制柄与链旗两条命已�
 
 
 **怪物指挥官（RobotMode）**:
-编程解谜训练营模式（js/modes/robot.js，训练营类同专注/数学：全屏接管 UI、独立每日预算 6 关/20 分钟、不计儿童时限、无菜单页）：孩子提前编排指令序列（槽位队列点选，无拖拽、v1 无循环），回放看怪物从起点走到终点旗（失败倒放回滚零惩罚，Robot Turtles 范式）；训练营壳家族第三员（CampKit.mkCampShell，prefix 'r'，存档键 robot_camp_save）。关卡数值唯一权威在 js/robot-levels.js（怪物包解锁制/图章一本/存档迁移/加关纪律 D9）；指令模拟在指令模拟器（RobotCore），棋盘装场与回放在棋盘世界宿主（RobotWorld）。设计权威 docs/robot-program-design.md（五维嵌入与防挫败阶梯），调研底座 docs/robot-program-research.md。_Avoid_: 机器人模式（被控的是怪物不是机器人——id robot 是品类名）、编程模式（散称）
+编程解谜训练营模式（js/modes/robot.js，训练营类同专注/数学：全屏接管 UI、独立每日预算 6 关/20 分钟、不计儿童时限、无菜单页）：孩子提前编排指令序列（槽位队列点选，无拖拽、v1 无循环），回放看怪物从起点走到终点旗（失败倒放回滚零惩罚，Robot Turtles 范式）；训练营壳家族第三员（CampKit.mkCampShell，prefix 'r'，存档键 robot_camp_save）。关卡数值唯一权威在 js/robot-levels.js（怪物包解锁制/图章一本/存档迁移/加关纪律 D9/转弯爬坡 D15 v2——带0 tut 后段 1 转直驱首秀 → 带1 smash 1 转（boom 教学期直路）→ 带2 k10 起 2 转 → 带3 1→2→3 转（boom 天花板 1 转），直线盘只存在于教学段）；指令模拟在指令模拟器（RobotCore），棋盘装场与回放在棋盘世界宿主（RobotWorld）。设计权威 docs/robot-program-design.md（五维嵌入与防挫败阶梯），调研底座 docs/robot-program-research.md。_Avoid_: 机器人模式（被控的是怪物不是机器人——id robot 是品类名）、编程模式（散称）
 
 **指令模拟器（RobotCore）**:
-怪物指挥官的引擎无关纯核心（js/robot-core.js，零 THREE·零 DOM·有单测）：mkBoard 确定性出题（全硬墙起底→目标偏置游走刻可解路径→特征落位，40 次重试子种子）、stepSim 单卡纯步进（状态进/意图出：move/turn/skill/win/bonk/splash/nap/spin/nothing/idle）、parSolution BFS 最短指令序列（演示路径与三星 par 同一权威；stateKey 必须含 asleep——打盹过渡与炸后状态同键会被 seen 丢弃）。消费方：robot-levels（presetFor/debugPresetFor/跨层可出盘测试）与 robot-world（回放账本零判定逻辑）。_Avoid_: 模拟器（散称——判定与账本单份在这里，世界宿主只演不算）、把 par 第二实现写进世界宿主或关卡库
+怪物指挥官的引擎无关纯核心（js/robot-core.js，零 THREE·零 DOM·有单测）：mkBoard 确定性出题（全硬墙起底→刻可解路径→特征落位，80 次重试子种子；直路盘走目标偏置游走、转向盘（turnsMin>0，D15）走路点走廊——L/Z/阶梯形 1 格宽无岔路 ⇒ BFS 最短解唯一；收盘三闸=预算 parCap/教学 S 承重/形状 sol 转向数足额，装不下逐级静默降档）、stepSim 单卡纯步进（状态进/意图出：move/turn/skill/win/bonk/splash/nap/spin/nothing/idle）、parSolution BFS 最短指令序列（演示路径与三星 par 同一权威；stateKey 必须含 asleep——打盹过渡与炸后状态同键会被 seen 丢弃）。消费方：robot-levels（presetFor/debugPresetFor/跨层可出盘测试）与 robot-world（回放账本零判定逻辑）。_Avoid_: 模拟器（散称——判定与账本单份在这里，世界宿主只演不算）、把 par 第二实现写进世界宿主或关卡库
 
 **棋盘世界宿主（RobotWorld）**:
 怪物指挥官的 3D 装配层（js/robot-world.js，THREE/DOM 允许、顶层零执行）：loadScene 建浮空棋盘岛（方块映射/终点旗/观景台）、按怪物包 spawn Q 版木偶（scaleTo 0.6）、按 stepSim 意图演回放/单步/演示（脚印灯块 previewSec 淡出）/倒放四类驱动；tick 由模式层自持 rAF 泵喂（main.js update 只在指针锁/触屏态分发，纯 DOM 模式吃不到——math-world 先例）；动画全走怪物库意图 API（setPos/steer/settle/gait/stagger），退出收口=handle.stop+Mobs.clear+clearWorld。_Avoid_: 怪物剧场（散称）、在世界宿主里写判定/账本（零逻辑红线——只演不算）、直接写引擎位移字段（白名单例外仅 pitch，voxel.js 已登记）
