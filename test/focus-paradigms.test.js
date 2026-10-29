@@ -76,7 +76,7 @@ function loadFocus() {
                         FOCUS_REWARD_STAGES, rewardStageFor, rewardTrialCount,
                         FOCUS_REWARD_TRIAL_REF, FOCUS_REWARD_DRY,
                         FOCUS_CHECK_PARAMS,
-                        focusFlame, devilStep, devilParams,
+                        focusFlame, devilStep, devilParams, echoParamsFor, runEcho,
                         FOCUS_STAMP_DAILY, FOCUS_STAMP_REWARDS,
                         focusDayIndex, trimFocusLog, FOCUS_LOG_KEEP_DAYS,
                         devilDimFor, focusCheckEntry, checkBaseline,
@@ -258,7 +258,8 @@ function loadFocusDrv(opts) {
   const els = [];
   const timers = [];
   const clsLog = []; // 全局时序 classList 日志(亮灯顺序重建: add('lit') 按 seq 序入账)
-  const log = {mc: [], creeper: [], iconOf: [], mobFace: [], pigFace: [], sheepFace: [], sfx: []};
+  const log = {mc: [], creeper: [], iconOf: [], mobFace: [], pigFace: [], sheepFace: [],
+    wolfFace: [], sfx: []};
   const spoken = [];
   let seed = opts.seed === undefined ? 12345 : opts.seed;
   const rand = () => { // LCG: 确定性伪随机, 概率断言不抖动
@@ -277,7 +278,9 @@ function loadFocusDrv(opts) {
     SpeechKit: {speak(s) {
       spoken.push(s);
     }, cancel() {}},
-    sfx() {},
+    sfx(k) {
+      log.sfx.push(k);
+    }, // 声音记录桩: 回声矿洞的声序列/拆弹反馈按 kind 回读
     praiseLine: () => '(表扬)', comfortLine: () => '(安慰)',
     /* 记录型图标桩: 前缀区分出口(mcIcon=训练营自有管线 / iconOf=物品系统) */
     mcIcon(n) {
@@ -297,6 +300,10 @@ function loadFocusDrv(opts) {
       log.sheepFace.push(1);
       return 'data:sheep';
     },
+    wolfFace() {
+      log.wolfFace.push(1);
+      return 'data:wolf';
+    },
     iconOf(id) {
       log.iconOf.push(id);
       return (opts.noPix || []).includes(id) ? '' : 'data:icon:' + id;
@@ -314,7 +321,7 @@ function loadFocusDrv(opts) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext('globalThis.__fp = {focusDispatch, runFocusLevel, mkAdapt, paramsFor, ' +
-      'FOCUS_LEVELS, FOCUS_DIMS};', ctx);
+      'echoParamsFor, runEcho, FOCUS_LEVELS, FOCUS_DIMS};', ctx);
   return {
     fp: sandbox.__fp, spoken, els, log, clsLog,
     flush(max) { // 按注册序触发待决定时器(链式注册随触发入队, 续驱动到局末)
@@ -791,6 +798,154 @@ test('runSearch: 低档(tier<8)整局无绿宝石; 教学关首回合目标带 h
   assert.strictEqual(ended.length, 1, '教学局可整局驱动');
   assert.strictEqual(d.log.iconOf.includes('emerald'), false, 'tier3 similarMix=0 整局无绿宝石');
   assert.strictEqual(ended[0].acc, 1, '无误点 acc=1');
+});
+
+/* ============ P1 回声矿洞(听觉持续注意, 附加块) ============ */
+
+test('echoParamsFor 曲线: 5 回合, 声数/间隔/干扰混入率渐进有界(qualitative 跳变混编红线)', () => {
+  const {fp} = loadFocus();
+  for (let tier=1; tier<=19; tier++) {
+    const p = fp.echoParamsFor(tier);
+    assert.strictEqual(p.trials, 5, '恒 5 回合(试次归一口径)');
+    assert.ok(p.barkMin >= 2 && p.barkMax <= 6, '声数带 2~6(Barking 系): tier' + tier);
+    assert.ok(p.barkMax >= p.barkMin, 'barkMax ≥ barkMin');
+    assert.ok(p.isi >= 1500 && p.isi <= 2200, '声间隔秒级(刻意"慢而无聊"): tier' + tier);
+    const expectDecoy = tier < 8 ? 0 : Math.min(0.5, 0.15*(tier-7));
+    assert.ok(Math.abs(p.decoyRate - expectDecoy) < 1e-9, 'decoyRate 渐进公式: tier' + tier);
+    assert.ok(p.decoyRate >= 0 && p.decoyRate <= 0.5);
+  }
+  assert.strictEqual(fp.echoParamsFor(3).barkMin, 2, '低档 2 声起步');
+  assert.strictEqual(fp.echoParamsFor(6).barkMin, 3, 'tier5 起步 3 声');
+  assert.strictEqual(fp.echoParamsFor(7).decoyRate, 0, 'tier7 无干扰声');
+  assert.strictEqual(fp.echoParamsFor(8).decoyRate, 0.15, 'tier8 首见 15% 干扰');
+});
+
+test('runEcho: 声序列/答案点阵/每回合恰一次事件 — 数对全部回合驱动到局末', () => {
+  const d = loadFocusDrv({seed: 9});
+  const events = [];
+  const ended = [];
+  const p = {trials: 2, barkMin: 2, barkMax: 3, isi: 100, decoyRate: 0};
+  d.fp.runEcho(fakeEl(), p, d.fp.mkAdapt(0),
+      {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
+  let mark = 0;
+  for (let guard = 0; guard < 30 && ended.length === 0; guard++) {
+    d.flush(120);
+    if (ended.length) break; // flush 可能已把最后回合驱动到局末(残旧按钮不再处理)
+    /* 只取当前回合的答案格(驱动环境 innerHTML='' 不移除旧元素, 旧按钮闭包
+       指向已完成回合 — 真实 DOM 随板重建销毁, 无此问题) */
+    const btns = drvEls(d, 'f-echo-ans').slice(-p.barkMax);
+    if (btns.length) {
+      const barks = d.log.sfx.slice(mark).filter((k) => k === 'bark').length;
+      mark = d.log.sfx.length;
+      const right = btns.find((b) => +b.dataset.n === barks);
+      assert.ok(right, '答案格覆盖正确数: bark=' + barks);
+      assert.strictEqual(right.innerHTML.split('<i></i>').length - 1, barks,
+          '点阵点数=格值(零文字数点)');
+      right.onmousedown();
+    }
+  }
+  d.flush(120);
+  assert.strictEqual(ended.length, 1, '两回合驱动到 h.end');
+  assert.strictEqual(ended[0].trials, 2);
+  assert.strictEqual(ended[0].correct, 2, '全部数对');
+  assert.strictEqual(ended[0].acc, 1);
+  assert.strictEqual(events.length, 2, '每回合恰一次事件');
+  assert.deepStrictEqual(events.map((t) => t.streak), [1, 2], '连对 streak 照常');
+  assert.ok(ended[0].rts.length === 2, '每回合一条作答反应时');
+});
+
+test('runEcho: 数错回合报错归零; decoyRate 混入猫叫但不计入答案', () => {
+  const d = loadFocusDrv({seed: 21});
+  const events = [];
+  const ended = [];
+  const p = {trials: 2, barkMin: 2, barkMax: 3, isi: 100, decoyRate: 1};
+  d.fp.runEcho(fakeEl(), p, d.fp.mkAdapt(0),
+      {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
+  let mark = 0;
+  for (let guard = 0; guard < 30 && ended.length === 0; guard++) {
+    d.flush(120);
+    if (ended.length) break; // 同上: 局末短路
+    const btns = drvEls(d, 'f-echo-ans').slice(-p.barkMax); // 当前回合(旧板按钮闭包已废, 见上)
+    if (btns.length) {
+      const barks = d.log.sfx.slice(mark).filter((k) => k === 'bark').length;
+      const meows = d.log.sfx.slice(mark).filter((k) => k === 'meow').length;
+      mark = d.log.sfx.length;
+      const wrong = btns.find((b) => +b.dataset.n !== barks);
+      assert.ok(wrong, '存在错误答案格');
+      wrong.onmousedown();
+      assert.ok(meows <= Math.round(barks*p.decoyRate) + 1, '猫叫混入量≈n×decoyRate(首声恒狼嚎)');
+    }
+  }
+  d.flush(120);
+  assert.strictEqual(ended.length, 1);
+  assert.strictEqual(ended[0].correct, 0, '全点错');
+  assert.strictEqual(ended[0].acc, 0);
+  assert.deepStrictEqual(events.map((t) => t.ok), [false, false], '点错报 false');
+  assert.deepStrictEqual(events.map((t) => t.streak), [0, 0], '连对归零');
+});
+
+/* ============ P2 gonogo 拆弹窗(儿童版停止信号, tier≥12) ============ */
+
+test('gonogo defuse 档位: tier<12 无拆弹, tier≥12 开窗且引信随档收窄', () => {
+  const {fp} = loadFocus();
+  assert.strictEqual(fp.paramsFor('gonogo', 11).defuse, false, 'tier11 无拆弹');
+  assert.strictEqual(fp.paramsFor('gonogo', 12).defuse, true, 'tier12 首见拆弹');
+  assert.strictEqual(fp.paramsFor('gonogo', 19).defuse, true, '顶格保持');
+  for (let tier=12; tier<=19; tier++) {
+    const p = fp.paramsFor('gonogo', tier);
+    assert.ok(p.fuseMs >= 380 && p.fuseMs <= 650, '引信窗 380~650ms: tier' + tier + '=' + p.fuseMs);
+  }
+  assert.ok(fp.paramsFor('gonogo', 12).fuseMs > fp.paramsFor('gonogo', 19).fuseMs, '引信随档收窄');
+  const tipLow = fp.FOCUS_META.gonogo.tip(fp.paramsFor('gonogo', 10));
+  const tipHigh = fp.FOCUS_META.gonogo.tip(fp.paramsFor('gonogo', 12));
+  assert.ok(tipLow.indexOf('拆掉') < 0, '低档 tip 不提拆弹');
+  assert.ok(tipHigh.indexOf('拆掉') >= 0, '高档 tip 教拆弹(零文字: 规则进 TTS)');
+});
+
+test('gonogo 拆弹: 误点进引信窗不终局, 窗内再点=拆弹按答对计; 烧完=错误', () => {
+  const mk = () => {
+    const d = loadFocusDrv({seed: 33});
+    const events = [];
+    const ended = [];
+    /* goRate=0 单 No-Go 试次; disguiseRate=1 → 呈绿宝石(伪装全量) */
+    const p = Object.assign(d.fp.paramsFor('gonogo', 12),
+        {trials: 1, goRate: 0, dur: 900, demo: false, isi: 100});
+    d.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: p}, fakeEl(),
+        {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
+    return {d, events, ended, p};
+  };
+  /* 路径 A: 点一次进引信(无事件) → 再点拆弹(事件 ok) */
+  const a = mk();
+  const stimA = drvEls(a.d, 'f-stim')[0];
+  assert.ok(stimA, '刺激已呈现');
+  stimA.onmousedown();
+  assert.strictEqual(a.events.length, 0, '引信期内不终局(事件缝每试次恰一次)');
+  assert.ok(stimA._cls.includes('fuse'), '引信燃烧观感类');
+  stimA.onmousedown();
+  assert.strictEqual(a.events.length, 1);
+  assert.strictEqual(a.events[0].ok, true, '拆弹成功=答对');
+  a.d.flush(); // 撤场计时器 + 局末分发
+  assert.strictEqual(a.ended[0].correct, 1, '拆弹按答对计');
+  assert.strictEqual(a.ended[0].defuseTries, 1);
+  assert.strictEqual(a.ended[0].defuseWins, 1);
+  /* 路径 B: 点一次后不拆, 引信烧完=错误终局 */
+  const b = mk();
+  drvEls(b.d, 'f-stim')[0].onmousedown();
+  b.d.flush();
+  assert.strictEqual(b.events.length, 1);
+  assert.strictEqual(b.events[0].ok, false, '烧完=误点(与直接误点同口径)');
+  assert.strictEqual(b.ended[0].defuseWins, 0);
+  assert.strictEqual(b.ended[0].correct, 0);
+  /* 路径 C: tier<12 无拆弹 — 误点立即终局 */
+  const c = {events: [], ended: []};
+  const again = loadFocusDrv({seed: 33});
+  const pC = Object.assign(again.fp.paramsFor('gonogo', 11),
+      {trials: 1, goRate: 0, dur: 900, demo: false, isi: 100});
+  again.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: pC}, fakeEl(),
+      {progress() {}, end: (s) => c.ended.push(s), onTrial: (t) => c.events.push(t)});
+  drvEls(again, 'f-stim')[0].onmousedown();
+  assert.strictEqual(c.events.length, 1, '无拆弹档: 误点立即终局');
+  assert.strictEqual(c.events[0].ok, false);
 });
 
 /* ============ F2 Flanker: len9 小尺寸 / neutralRate 中立行 / mobMix 混生物 ============ */

@@ -6,7 +6,7 @@
 
 - **大分块**（56）: 指令模拟器（RobotCore） · 棋盘世界宿主（RobotWorld） · 引擎层（Engine） · 体素模型（VoxelModel） · 流体核心（FluidCore） · 方块级联（Block Cascade） · 场景装填（loadScene） · 世界改动日志（WorldJournal） · 冒险存档 store（AdventureStore） · 冒险壳政策缝（AdventureProfile） · 昼夜核心（DaylightCore） · 光照核心（LightCore） · 网格化核心（MeshCore） · 贴图图集 · 距离环（Chunk Rings） · Fx · 声音清单注册表（AudioRegistry） · 音频核心（AudioCore） · 确定性随机核心（RandCore） · AudioMixer · SpeechKit · 头顶血条（mkHpBar） · 玩家战斗 kit（CombatKit） · 训练营壳 kit（CampKit） · 模式面板 kit（ModeKit） · 熔炉装配 kit（FurnaceKit） · 放置链 kit（PlaceKit） · SceneKit · 画质核心（QualityCore） · 触控手势核心（TouchCore） · 相机装置（CameraRig） · 玩家形象（Avatar） · 第一人称手持视图（HandView） · 玩家状态（PlayerState） · 手持物注册表（HeldItems） · 物品核心 · 物品提示（ItemHint） · 使用动作注册表（ItemUseRegistry） · 背包核心 · 合成核心 · 掉落物实体库 · 像素图标工坊 · 按钮像素图标工坊 · 探险核心（AdventureCore） · 冒险地图 · 竞技场核心（ArenaCore） · 训练营机制核心（CampCore） · 背包壳（Backpack） · 载具（Tank） · 怪物库（Mobs） · 怪物谱系（Mob Taxonomy） · 造型档案（MobLook） · 战斗核心（CombatCore） · 应用层（Application） · 模式注册表（ModeRegistry） · 切换清场（switchMode 兜底）
 - **政策与进度**（5）: 共享背包（Shared Backpack） · 每日预算（DailyBudget） · 训练营轮换（CampRotation） · 儿童时限 · 游玩模式（Play modes）
-- **游戏模式**（32）: 竞技场（Arena） · 建造模式 · 坦克演习场（TankRangeMode） · 专注训练营 · 矿洞大扫除（Search Dim） · 矿袋（Loot Bag） · 宝物柜（FocusCabinet） · 图章日历（Stamps Calendar） · 集章里程碑（Stamp Milestones） · 每日体检（Daily Check） · 魔鬼特训（Devil Training） · 训练师村长（Chief） · 数学冒险岛（MathMode） · 数学关卡参数表（MathLevels） · 谜题纯核心（PuzzleCore） · 数学屏流引擎 · 数学情境变体（MATH_CONTEXTS） · 数学图章 · 跳一跳世界轨纯核心（HopWorld） · 数学世界轨（MathWorldTrack） · 摆与搭世界引擎（BuildWorld） · 世界轨驱动器（WorldTrackDriver） · 怪物指挥官（RobotMode） · 下界冒险（NetherMode） · 下界传送门（Nether Portal） · 探险模式 · 传送门阵 · 大宝箱（Chest Vault） · 牧场（Livestock） · 生态恢复（Eco Recovery） · 体验馆 · dev 模式（DEV）
+- **游戏模式**（33）: 竞技场（Arena） · 建造模式 · 坦克演习场（TankRangeMode） · 专注训练营 · 矿洞大扫除（Search Dim） · 回声矿洞（Echo Block） · 矿袋（Loot Bag） · 宝物柜（FocusCabinet） · 图章日历（Stamps Calendar） · 集章里程碑（Stamp Milestones） · 每日体检（Daily Check） · 魔鬼特训（Devil Training） · 训练师村长（Chief） · 数学冒险岛（MathMode） · 数学关卡参数表（MathLevels） · 谜题纯核心（PuzzleCore） · 数学屏流引擎 · 数学情境变体（MATH_CONTEXTS） · 数学图章 · 跳一跳世界轨纯核心（HopWorld） · 数学世界轨（MathWorldTrack） · 摆与搭世界引擎（BuildWorld） · 世界轨驱动器（WorldTrackDriver） · 怪物指挥官（RobotMode） · 下界冒险（NetherMode） · 下界传送门（Nether Portal） · 探险模式 · 传送门阵 · 大宝箱（Chest Vault） · 牧场（Livestock） · 生态恢复（Eco Recovery） · 体验馆 · dev 模式（DEV）
 - **玩法时间预算**（2）: 每日儿童时限（每日预算 DailyBudget） · 家长加时（play_extra_save）
 
 ## 语言
@@ -262,7 +262,7 @@ _Avoid_: 游玩限制、防沉迷开关
 载具的第一个投放场：96×96 多地形（丘陵 · 峡谷 · 乱石阵 · 爬坡瞭望台）+ 五类可破坏靶（靶排 · 环靶 · 靶墙 · 靶屋红心 · 远距靶塔）。主菜单坦克卡先进**出发配置页**（坦克一行按 order 排序 + 怪物一行——种类来自怪物库 Mobs.spawnable()，与游戏内 👾 面板共用 mobCfg），点"出发"才重建演习场（选择没变则直回战场保进度），Esc 随时回来换；怪物走怪物库（竞技场同款全怪物，有血量可受击），一次性部署（无波次），清场按 R 再来；开炮炸靶/炸地形，场景每次进入重建（退出即还原，坦克位置不存档）。
 
 **专注训练营**:
-基于六维实证范式的百关注意力训练；拥有独立的每日预算（时长 + 关数）。2.0 增量（难度坡道/战利品回路/脑锻炼结构层）的数值唯一权威在 js/focus-levels.js（纯函数+数据表，有单测），屏幕流与观感装配在 js/modes/focus.js——子系统词条见下方：矿袋 · 宝物柜 · 图章日历 · 集章里程碑 · 每日体检 · 魔鬼特训 · 训练师村长 · 矿洞大扫除；跨模式训练营壳共用件（战利品回路/图章仪式/家长门与面板件/结算星显与续程/壳骨架生命周期）在 js/camp-kit.js（见「训练营壳 kit」）。第六维增量（2026-10，视觉搜索「矿洞大扫除」+ 交互翻新：mousedown 即判定/教学三级脚手架/今日页层级/具体过程性表扬与连败策略话术/家长努力口径区块）设计权威 docs/focus-search-dim-design.md，升格与存量进度重排决策 docs/adr/0008-search-sixth-dim.md。
+基于六维实证范式的百关注意力训练；拥有独立的每日预算（时长 + 关数）。2.0 增量（难度坡道/战利品回路/脑锻炼结构层）的数值唯一权威在 js/focus-levels.js（纯函数+数据表，有单测），屏幕流与观感装配在 js/modes/focus.js——子系统词条见下方：矿袋 · 宝物柜 · 图章日历 · 集章里程碑 · 每日体检 · 魔鬼特训 · 训练师村长 · 矿洞大扫除 · 回声矿洞；跨模式训练营壳共用件（战利品回路/图章仪式/家长门与面板件/结算星显与续程/壳骨架生命周期）在 js/camp-kit.js（见「训练营壳 kit」）。第六维增量（2026-10，视觉搜索「矿洞大扫除」+ 交互翻新：mousedown 即判定/教学三级脚手架/今日页层级/具体过程性表扬与连败策略话术/家长努力口径区块/矿洞深度图 + gonogo tier≥12 拆弹窗）设计权威 docs/focus-search-dim-design.md，升格与存量进度重排决策 docs/adr/0008-search-sixth-dim.md。
 
 **矿袋（Loot Bag）**:
 训练营的战利品回路 HUD（观感件自 C1-T1 起住 CampKit.mkLootHud 的 focusLootHud 实例，css/focus.css 观感）：正式试次答对按段位奖励表掷骰（FOCUS_REWARD_STAGES 四段递增，奖励调优 2026-10：品质镜像探险深度带——段1 煤带→段4 钻带，钻石仅段4 出现、金段3 首见、铁锭全程不发（烧炼教学归探险）；变率 p 0.06→0.15 随 tier 递增并乘试次归一（corsi 6 序列与 cpt 20+ 试次每关期望产次趋同）；连对保底已退役（预期的实物工资形态，动机研究 d=−0.36），防空关挫败改关内干燥兜底（连续 10 个答对未掉必得，dry 计数模式层维护、关开始/答错/掉落即清零）；教学关豁免；通关/三星按段位表展开（三星追加段4 才有钻石）），战利品沿贝塞尔弧线飞入矿袋槽位（复刻掉落物真空吸附观感）+ 落袋音，结算页列队回顾；掉落最终进共享背包。满包静默忽略 + 每关至多一次「背包满啦」toast。掷骰/结算/授予政策是种子可注入的纯函数（rollFocusLoot · levelBonusLoot · grantFocusLoot，focus-levels.js，有单测）——掷骰政策在 focus-levels，机制基座（pickWeighted/grantLoot）在训练营机制核心；DOM 动画不直测。集章奖励的矿袋皮肤挂 body.f-bag-iron 类钩子。数值依据与后续模式复用契约见 docs/focus-reward-tuning-design.md。
@@ -291,6 +291,10 @@ _Avoid_: devil 字段名当物理名、鬼计算/n-back（招牌内核即 N-back
 **矿洞大扫除（Search Dim）**:
 专注训练营第六维（2026-10，视觉搜索/划消，游戏名「矿洞大扫除」，引擎 runSearch 在 focus-paradigms.js）：回合制自定步调划消——石头堆里把全部钻石点出来，首回合纯目标、后回合渐入干扰矿（density）与绿宝石相似混入（similarMix，与 gonogo 伪装同式同门槛）；**无时窗压迫**（自定步调红线），acc=(找到−误点)/目标总数（乱扫天然被压分，找齐才进下一回合），反应时只进家长面板；试次归一 3×6=18 与 FOCUS_REWARD_TRIAL_REF 对齐（掉落经济零新增）。证据 TEA-Ch2 J Balloon Hunt 系 5-7 岁常模子测验（docs/focus-interaction-research.md §A1）；数值唯一权威 paramsFor('search', tier)（focus-levels.js，有单测）；升格决策 docs/adr/0008-search-sixth-dim.md。
 _Avoid_: 找不同/连连看（那是别的玩法）、给它加时限（TEA-Ch2 的 15 秒回合是常模化需要，训练自定步调）、第六维（散称——维度序列唯一权威 FOCUS_DIMS）
+
+**回声矿洞（Echo Block）**:
+专注训练营的听觉附加块（2026-10 P1，数狼嚎报总数，TEA-Ch2 J Barking 系，游戏名「回声矿洞」，引擎 runEcho）：今日页附加入口（不进 100 关螺旋，存量进度零重排），计 1 关额度+计入时长、每日一次；每回合先"听"——长间隔声序列（isi 1.5~2.2s，任务刻意"不抓"注意，考核自主维持），decoyRate 渐入猫叫干扰（音色可分，只数狼嚎），听完点一样多的点阵答案格（零文字）；难度随孩子当前档（echoParamsFor，focus-levels 纯函数）。存档 `echo={days:{日期:{acc,rounds}}}` 滚动 90 天；历史记录 i=-1 不指涉编排关卡。证据与设计 docs/focus-interaction-research.md §A2 / docs/focus-search-dim-design.md 二轮增量。
+_Avoid_: 第七维（它不是螺旋维度）、TTS 数声（目标声用注册表恒定合成 bark，合成/TTS 音色漂移即知觉干扰）、逐声按键当主形态（报总数是 Barking 计分口径）
 
 **训练师村长（Chief）**:
 训练营的像素主持人格（js/focus-icons.js 的 chiefFace，16×16 字符画→96px 既有管线）：微笑/喝彩/打盹三表情 + 魔鬼特训鬼化变体（矿工帽加鬼角 + 坏笑，mood='devil'），主持开场/规则/喝彩/授予仪式/宝物柜导览；文案与语音走既有应用层话术与 SpeechKit 通道（夸努力不夸聪明）。同库相伴：stampIcon（六图章）与 flameIcon（火苗三态，CSS 摇曳底图）。

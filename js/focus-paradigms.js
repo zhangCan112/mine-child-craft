@@ -7,6 +7,7 @@
    interface: mkAdapt(failCount) · runDiscrimination(area, params, adapt, h, framing) ·
      runFlanker(area, params, adapt, h) · runCorsi(area, params, adapt, h) ·
      runSwitch(area, params, adapt, h) · runSearch(area, params, adapt, h) ·
+     runEcho(area, params, adapt, h) ·
      withDim(h, dim) · focusDispatch(level) · runFocusLevel(level, area, h, failCount)
    依赖(均经全局名, 调用期解析): SpeechKit(js/speech.js) · sfx(js/audio.js) ·
      stimIcon→iconOf(js/icons.js)/mcIcon(js/focus-icons.js) ·
@@ -22,7 +23,13 @@
    小尺寸档 + neutralRate 中立行(猪/羊) + mobMix 混入非苦力怕生物 ·
    Switch: choices 5 选项 + bivalent 双价干扰 + switchJitter 切换抖动 ·
    Search(2026-10 第六维): 回合制自定步调划消, 干扰按回合渐入 + 绿宝石
-   similarMix 相似混入(参数形状见 paramsFor D6)
+   similarMix 相似混入(参数形状见 paramsFor D6) ·
+   gonogo 拆弹窗(2026-10 P2, tier≥12 params.defuse): 误点 No-Go 不立即终局,
+   进引信燃烧窗(fuseMs 随档收窄), 窗内再点=拆弹成功按答对计, 烧完=错误 —
+   儿童版停止信号(调研 §A3: 放弃 SSRT 计分改拆弹率, stats.defuseTries/Wins);
+   事件缝仍在最终结局恰发一次 · Echo(2026-10 P1 附加块, 参数形状见
+   echoParamsFor): 数狼嚎报总数(Barking 系), 长间隔声序列不抓注意考核
+   自主维持, 干扰猫叫 decoyRate 渐入(音色可分), 答案格=点阵点选(零文字)
    教学脚手架(Sesame 三级反馈的教学关落地, 2026-10): 教学关(kind=tutorial,
    经 runFocusLevel 注入 params.scaffold)答错不惩罚只重教 — 判别=漏点高亮
    刺激+句尾指引/误点念「不点」; Flanker=高亮中间只+念方向; Corsi=原序列
@@ -144,7 +151,8 @@ function mkTrialEvents() {
 function runDiscrimination(area, params, adapt, h, framing) {
   const T = mkTimers();
   const ev = mkTrialEvents(); // 逐试次事件缝
-  const stats = {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0};
+  const stats = {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0,
+    defuseTries: 0, defuseWins: 0}; // 拆弹率(P2): tries=进引信次数, wins=拆成功次数
   const goSet = ['diamond']; // 钻石=要点
   /* noSet 扩充(D2/D1 素材行): 干扰矿走物品系统像素口径 iron_ore(原自绘 iron);
      gonogo 的煤/铁矿都是"不碰"类, 只添观感丰富度不改构念 */
@@ -188,11 +196,15 @@ function runDiscrimination(area, params, adapt, h, framing) {
     const iconName = isGo ? pickRand(goSet) : (isDemo ? 'tnt' : pickNoGo());
     const stim = showStim(iconName, isDemo);
     const dur = adapt.t(isDemo ? params.dur*1.5 : params.dur);
-    let answered = false; const t0 = performance.now();
+    let answered = false; let fusing = false; const t0 = performance.now();
 
-    function resolve(clicked) {
-      if (answered) return; answered = true;
-      const ok = isGo ? clicked : !clicked;
+    /* 拆弹窗(P2 停止信号变体, tier≥12 params.defuse): 误点 No-Go 不立即终局 —
+       引信燃烧窗内再点一下=拆弹成功(按答对计, stats.defuseWins), 烧完=错误
+       (与直接误点同口径)。儿童版停止信号: 放弃 SSRT 阶梯计分(6 岁不收敛,
+       调研 §A3), 只记拆弹率; 事件缝在最终结局恰发一次(每正式试次恰一次契约不破) */
+    function finishTrial(clicked, defused) {
+      if (answered) return; answered = true; fusing = false;
+      const ok = isGo ? clicked : (!clicked || !!defused);
       if (ok && clicked) stats.rts.push(performance.now()-t0);
       /* 教学脚手架(Sesame 三级反馈, 仅教学关正式试次): 答错只重教不惩罚 —
          漏点=刺激留场高亮+句尾动作指引; 误点=念「不点」(与演示话术同族) */
@@ -228,13 +240,42 @@ function runDiscrimination(area, params, adapt, h, framing) {
         stim.remove(); T.after(adapt.t(params.isi||800), next);
       });
     }
-    stim.onmousedown = (e)=>{
-      e.preventDefault(); resolve(true);
+    function enterFuse() {
+      fusing = true;
+      stats.defuseTries = (stats.defuseTries||0) + 1;
+      stim.classList.add('fuse'); // 引信燃烧观感(css/focus.css 红光脉动)
+      sfx('click');
+      T.after(adapt.t(params.fuseMs || 500), ()=>{
+        if (!fusing) return; // 已拆: 定时器作废
+        stim.classList.remove('fuse');
+        finishTrial(true, false); // 烧完=误点终局(与直接误点同口径)
+      });
+    }
+    function resolve(clicked) {
+      if (answered || fusing) return;
+      if (!isGo && clicked && params.defuse && !isDemo) {
+        enterFuse();
+        return;
+      }
+      finishTrial(clicked, false);
+    }
+    /* 拆弹判定在 mousedown/ontouchstart 两通道前置于 resolve(引信期再点=拆弹) */
+    const tapStim = (e)=>{
+      if (e && e.preventDefault) e.preventDefault();
+      if (fusing) {
+        stim.classList.remove('fuse');
+        stats.defuseWins = (stats.defuseWins||0) + 1;
+        finishTrial(true, true);
+        return;
+      }
+      resolve(true);
     };
-    stim.ontouchstart = (e)=>{
-      e.preventDefault(); resolve(true);
-    }; // 触屏即时响应
-    T.after(dur, ()=>resolve(false));
+    stim.onmousedown = tapStim;
+    stim.ontouchstart = tapStim; // 触屏即时响应
+    T.after(dur, ()=>{
+      if (fusing) return; // 引信期呈现窗到点不终局, 结局归引信定时器
+      resolve(false);
+    });
 
     if (isDemo) { // 教学演示:自动高亮正确做法
       T.after(1100, ()=>{
@@ -840,6 +881,105 @@ function runSearch(area, params, adapt, h) {
   next(0);
   return {stop() {
     isStopped = true; T.stop(); hint.remove(); grid.remove();
+  }};
+}
+
+/* ---------- 回声矿洞:数狼嚎(听觉持续注意, 2026-10 P1 附加块) ----------
+   参数形状权威=focus-levels.js echoParamsFor 头注释(证据 TEA-Ch2 J Barking 系):
+   每回合先"听"——狼头像脉动, 声序列按 isi 秒级间隔播放(长间隔=任务"不抓"
+   注意, 考核自主维持; 首声恒狼嚎锚定开场), decoyRate 掷骰混入猫叫干扰
+   (音色与目标可分, 只数狼嚎); 听完亮答案格(1~barkMax, 每格 k 个点=零文字),
+   点对=过。事件缝: 每回合(=每试次)恰一次; 声音走 sfx('bark'/'meow') 注册表
+   恒定合成(音色不漂移, 调研 §A2 警示 TTS/合成漂移即知觉干扰) */
+function runEcho(area, params, adapt, h) {
+  const T = mkTimers();
+  const ev = mkTrialEvents();
+  const stats = {trials: 0, correct: 0, rts: [], maxStreakErr: 0, valveCount: 0};
+  let comfortSaid = false; let isStopped = false;
+
+  const cue = fEl('div', 'f-echo-cue', '<img draggable="false" alt="" src="' + wolfFace() + '">');
+  const board = fEl('div', 'f-echo-board wait');
+  area.appendChild(cue);
+  area.appendChild(board);
+
+  function round(idx) {
+    if (isStopped) return;
+    if (idx >= params.trials) {
+      finish();
+      return;
+    }
+    h.progress(idx, params.trials);
+    board.innerHTML = '';
+    board.className = 'f-echo-board wait';
+    cue.classList.add('listen');
+    /* 声序列: n 声狼嚎 + 按 decoyRate 掷骰混入猫叫(首声恒狼嚎, 开场锚定) */
+    const n = params.barkMin + Math.floor(Math.random()*(params.barkMax-params.barkMin+1));
+    const seq = [];
+    for (let k=0; k<n; k++) seq.push('bark');
+    const decoys = Math.round(n*(params.decoyRate || 0));
+    for (let k=0; k<decoys; k++) {
+      seq.splice(1 + Math.floor(Math.random()*(seq.length-1 || 1)), 0, 'meow');
+    }
+    seq.forEach((kind, s)=>{
+      T.after(600 + s*adapt.t(params.isi), ()=>{
+        if (!isStopped) sfx(kind);
+      });
+    });
+    /* 听完亮答案格(声音序列播完 + 500ms 缓冲) */
+    T.after(600 + seq.length*adapt.t(params.isi) + 500, ()=>{
+      if (isStopped) return;
+      cue.classList.remove('listen');
+      board.className = 'f-echo-board';
+      const t0 = performance.now();
+      for (let k=1; k<=params.barkMax; k++) {
+        const el = fEl('button', 'f-echo-ans',
+            '<span class="f-echo-dots">' + Array.from({length: k}, ()=>'<i></i>').join('') + '</span>');
+        el.dataset.n = k;
+        /* mousedown 即判定 + click 键盘兜底(wait 态单发互斥不双计) */
+        el.onmousedown = (e)=>{
+          if (e && e.preventDefault) e.preventDefault();
+          answer(k, n, t0);
+        };
+        el.onclick = ()=>answer(k, n, t0);
+        board.appendChild(el);
+      }
+    });
+    function answer(k, n, t0) {
+      if (isStopped || board.classList.contains('wait')) return;
+      board.classList.add('wait'); // 单发: 答完即锁(mousedown+click 双通道不双计)
+      const ok = k === n;
+      if (ok) stats.rts.push(performance.now()-t0);
+      stats.trials++;
+      if (ok) stats.correct++;
+      stats.maxStreakErr = Math.max(stats.maxStreakErr, adapt.streak + (ok?0:1));
+      const valve = adapt.record(ok);
+      ev.fire(h, ok); // 事件缝: 每回合恰一次
+      board.classList.add(ok ? 'ok' : 'no');
+      sfx(ok ? 'pick' : 'click');
+      if (valve==='valve') {
+        stats.valveCount++;
+        if (!comfortSaid) {
+          comfortSaid = true; SpeechKit.speak(comfortLine());
+        }
+        h.showRule && h.showRule();
+      }
+      T.after(700, ()=>{
+        if (isStopped) return;
+        board.className = 'f-echo-board wait';
+        round(idx+1);
+      });
+    }
+  }
+  function finish() {
+    stats.acc = stats.trials ? stats.correct/stats.trials : 0;
+    stats.mrt = median(stats.rts);
+    stats.valveCount += adapt.valveCount;
+    cue.remove(); board.remove();
+    h.end(stats);
+  }
+  round(0);
+  return {stop() {
+    isStopped = true; T.stop(); cue.remove(); board.remove();
   }};
 }
 

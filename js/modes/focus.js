@@ -56,6 +56,7 @@ function focusSpecificPraise(level, st) {
     case 'corsi': return n + ' 条宝石顺序你都记对啦！';
     case 'switch': return n + ' 次都听对了旗子的指挥，反应又快又对！';
     case 'search': return n + ' 颗钻石都被你一颗一颗找出来啦！';
+    case 'echo': return '你数对了 ' + n + ' 段狼嚎，小耳朵真灵！';
     default: return praiseLine();
   }
 }
@@ -764,6 +765,24 @@ function showFocusCabinet() {
   if (stampRewardClaimed(save.stampClaimed, 'firework')) launchFocusFirework();
 }
 
+/* 矿洞深度图(P2 目标梯度, 2026-10): 20 段竖井(每段 5 关), 已打通段点火把,
+   当前段 ⛏️ 游标; 只可视化不选关(防刷红线) — 目标梯度效应: 看得见的进度
+   比徽章更有效(reward-model 研究 §C1), 未打通段无任何负面标记 */
+function focusDepthHtml(save) {
+  const prog = Math.min(100, focusProgress(save));
+  let cells = '';
+  for (let s=1; s<=20; s++) {
+    const done = prog >= s*5;
+    const cur = !done && prog > (s-1)*5;
+    cells += '<button class="f-depth-cell' + (done ? ' done' : '') + (cur ? ' cur' : '') +
+        '" data-n="' + s + '" aria-label="第' + s + '层">' +
+        (done ? '<img draggable="false" alt="" src="' + mcIcon('torch') + '">' :
+         (cur ? '<img draggable="false" alt="" src="' + mcIcon('pickaxe') + '">' : '')) +
+        '</button>';
+  }
+  return '<div class="f-depth" id="fDepth">' + cells + '</div>';
+}
+
 /* ---------- 我的进步(B5, 儿童版成绩曲线): 零文字星柱 + 最新突破高亮 ----------
    数据来自 focusDimStars/focusLastBreakthrough 纯函数(重玩取历史最高, 天然防刷);
    只呈现累计与突破, 不呈现下滑; 点击列 TTS 读维度名 */
@@ -787,6 +806,7 @@ function showFocusProgress() {
       <div class="f-chief"><img draggable="false" alt="村长爷爷" src="${chiefFace('smile')}"></div>
       <h1>📈 我的进步</h1>
       <div class="f-progress-cols">${cols}</div>
+      ${focusDepthHtml(save)}
       <button class="f-btn" id="fProgressHome">返回今天</button>
     </div>`);
   document.getElementById('fBackBtn').onclick = showFocusToday;
@@ -794,7 +814,15 @@ function showFocusProgress() {
   document.querySelectorAll('#focusRoot .f-dim-col').forEach((btn)=>{
     btn.onclick = ()=> SpeechKit.speak(FOCUS_META[btn.dataset.dim].name);
   });
-  SpeechKit.speak(latest ? '你最近突破了' + FOCUS_META[latest].name + '！' : '看看你的星星吧！');
+  /* 深度图: 点击段读层号与状态(零文字导航, 数字进 TTS 不进画面) */
+  document.querySelectorAll('#focusRoot .f-depth-cell').forEach((btn)=>{
+    btn.onclick = ()=>{
+      const n = +btn.dataset.n;
+      SpeechKit.speak('第' + n + '层' + (btn.classList.contains('done') ? '，已经打通啦！' : '，还在前面，加油！'));
+    };
+  });
+  SpeechKit.speak(latest ? '你最近突破了' + FOCUS_META[latest].name + '！洞口在上面，越挖越深！' :
+      '看看你的星星吧！洞口在上面，越挖越深！');
 }
 
 /* ---------- 每日体检 · 魔鬼特训 (F8, 设计稿 §8 B3/B8) ----------
@@ -811,8 +839,9 @@ const FOCUS_FLAME_TEXT = {
   3: '哇，大火苗亮堂堂！',
 };
 
-/* 今日页附加入口行: 体检(当日未做才显示) + 魔鬼特训(当日未训: 可用或禁用态)
-   dev=1 两者常显可重复进(验收不等明天, docs/dev-mode-design.md D3) */
+/* 今日页附加入口行: 体检(当日未做才显示) + 回声矿洞(P1 附加块, 当日未做才
+   显示, 计 1 关额度) + 魔鬼特训(当日未训: 可用或禁用态)
+   dev=1 三者常显可重复进(验收不等明天, docs/dev-mode-design.md D3) */
 function focusExtrasHtml(save) {
   const devOn = typeof DEV !== 'undefined' && DEV; /* typeof 守卫=vm 精简装载落非 dev, camp-kit budget() 同款 */
   const today = focusTodayStr();
@@ -821,6 +850,14 @@ function focusExtrasHtml(save) {
     parts.push('<button class="f-extra-btn f-check-btn" id="fCheckBtn">' + btnImg('flame') + '今日体检</button>');
   }
   const fb = focusBudget();
+  /* 回声矿洞(P1 附加块): 当日未做才显示; 计 1 关额度, 额度用尽禁用(防沉迷口径) */
+  const echoDue = devOn || !(save.echo && hasFocusDay(save.echo.days, today));
+  if (echoDue) {
+    const noQuota = !devOn && (fb ? fb.spentCount() : 0) >= (fb ? fb.capCount() : FOCUS_DAILY_LEVELS);
+    parts.push('<button class="f-extra-btn f-echo-btn" id="fEchoBtn"' +
+        (noQuota ? ' disabled title="今天的关卡额度用完啦，明天再来！"' : '') +
+        '><img class="f-echo-face" draggable="false" alt="" src="' + wolfFace() + '">回声矿洞</button>');
+  }
   const de = devOn ? {open: true, reason: 'ok'} :
       devilEntry(save.devil, today, fb ? fb.spentCount() : 0, fb ? fb.capCount() : FOCUS_DAILY_LEVELS);
   if (de.reason !== 'done') {
@@ -832,6 +869,8 @@ function focusExtrasHtml(save) {
 function wireFocusExtras() {
   const cb = document.getElementById('fCheckBtn');
   if (cb) cb.onclick = startFocusCheck;
+  const eb = document.getElementById('fEchoBtn');
+  if (eb && !eb.disabled) eb.onclick = startFocusEcho; // 禁用态不挂点击(额度用尽)
   const db = document.getElementById('fDevilBtn');
   if (db && !db.disabled) db.onclick = startFocusDevil; // 禁用态不挂点击(余额<2)
 }
@@ -903,6 +942,127 @@ function onCheckEnd(st) {
   SpeechKit.speak(line);
   if (res.brighter) sfx('level'); // 喝彩只在变亮时(村长喝彩脸同上), 回落静默
   document.getElementById('fCheckHome').onclick = showFocusToday;
+}
+
+/* ----- 回声矿洞流程(P1 附加块, 2026-10) -----
+   TEA-Ch2 J Barking 系数狼嚎(证据 docs/focus-interaction-research.md §A2):
+   自主维持注意+跨通道(听觉)增量。今日页附加块形态: 不进 100 关螺旋(存量
+   进度零重排), 计 1 关额度 + 计时长, 每日一次; 难度随孩子当前档(echoParamsFor);
+   中途退出不计费不落账(与体检同口径); 答对照常掷骰入矿袋(试次=回合) */
+function startFocusEcho() {
+  const save = loadFocusSave();
+  const tier = Math.min(19, FOCUS_LEVELS[Math.min(save.unlocked, 99)].tier); // 难度随孩子当前档
+  const params = echoParamsFor(tier);
+  focusScreen(`
+    <div class="f-screen f-intro">
+      <div class="f-chief"><img src="${wolfFace()}" draggable="false" alt="大灰狼"></div>
+      <h1>🐺 回声矿洞</h1>
+      <p class="f-sub">静静听，数一数有几声狼嚎，听完点一样多的点点！</p>
+      <div class="f-rulebox">约 1 分钟 · 计 1 关额度 · 竖起耳朵就好</div>
+      ${params.decoyRate > 0 ? '<div class="f-tipbox">🐱 有时候会有小猫叫混进来，只数狼嚎！</div>' : ''}
+      <button class="f-start" id="fEchoGo">▶ 开始听</button>
+    </div>`);
+  /* 零文字: 规则+档位提示合成一句念出(两连 speak 会截断前句) */
+  SpeechKit.speak('回声矿洞！静静听，数一数有几声狼嚎，听完点一样多的点点！' +
+      (params.decoyRate > 0 ? '小心，有时候会有小猫叫混进来，只数狼嚎！' : ''));
+  document.getElementById('fEchoGo').onclick = ()=>beginFocusEcho(tier, params);
+}
+
+function beginFocusEcho(tier, params) {
+  startFocusTicker(); // 计入时长预算(每秒 accrue)
+  focusLootHud.begin(); // 矿袋会话开张(答对掷骰照常, 试次=回合)
+  focusStreakChimes = 0;
+  focusLootDry = 0;
+  focusScreen(`
+    <div class="f-level-head">
+      <div class="f-rule"><span class="f-rule-icon"><img src="${wolfFace()}" draggable="false" alt=""></span>
+        <span class="f-rule-text">🐺 回声矿洞</span></div>
+      <div class="f-rule-small">静静听，数狼嚎！${params.decoyRate > 0 ? '只数狼嚎，别被猫叫带偏！' : ''}</div>
+      <div class="f-progress-wrap">
+        <div class="f-progress"><div class="f-progress-bar" id="fProg"></div></div>
+      </div>
+    </div>
+    <div class="f-area" id="fArea">
+      <div class="f-streak" id="fStreak" aria-hidden="true"></div>
+    </div>
+    <div class="f-bag" id="fBagHud" aria-hidden="true"></div>`);
+  document.getElementById('fBackBtn').onclick = ()=>{ // 中途退出: 不计费不落账(与体检同口径)
+    if (focusCtrl) {
+      focusCtrl.stop(); focusCtrl = null;
+    }
+    showFocusToday();
+  };
+  const areaEl = document.getElementById('fArea');
+  areaEl.addEventListener('pointerdown', (e)=>{
+    focusLootHud.noteTap(e.clientX, e.clientY); // 飞行起点与普通关同缝
+  }, true);
+  /* i=-1: 不指涉编排关卡 — focusProgress/focusLastBreakthrough/focusDimStars
+     对未知索引按防御跳过, 附加块记录不污染关卡统计 */
+  const level = {i: -1, kind: 'echo', dim: 'echo', tier, params};
+  focusCtrl = runEcho(areaEl, params, mkAdapt(0), {
+    progress(k, n) {
+      const bar = document.getElementById('fProg');
+      if (bar) bar.style.width = Math.round(k/Math.max(1, n)*100) + '%';
+    },
+    showRule() {
+      SpeechKit.speak('静静听，数一数有几声狼嚎，听完点一样多的点点！');
+    },
+    onTrial(t) {
+      onFocusTrialLoot(level, t); // 答对掷骰入矿袋(试次归一读 params.trials=5)
+    },
+    end(st) {
+      onEchoEnd(level, st);
+    },
+  });
+}
+
+function onEchoEnd(level, st) {
+  focusCtrl = null;
+  stopFocusTicker();
+  const passed = focusPassed(level, st);
+  const stars = passed ? focusStars(level, st) : 0;
+  const save = loadFocusSave();
+  const today = focusTodayStr();
+  noteCampResult('focus', Math.round(st.acc*100)); // 轮换奖励上报(与普通关同口径)
+  const fb = focusBudget();
+  if (fb) {
+    fb.count(1); fb.flush(); // 计 1 关额度(附加块与普通关同预算, 防沉迷不加总)
+  }
+  save.history.push({d: today, i: -1, dim: 'echo', kind: 'echo',
+    acc: Math.round(st.acc*100), mrt: Math.round(st.mrt), trials: st.trials, stars, passed});
+  if (save.history.length > 400) save.history.splice(0, save.history.length-400);
+  save.echo = save.echo || {days: {}};
+  save.echo.days = trimFocusLog(save.echo.days, today, FOCUS_LOG_KEEP_DAYS);
+  save.echo.days[today] = {acc: Math.round(st.acc*100), rounds: st.trials};
+  const stampDue = settleFocusStamps(save, today, fb ? fb.spentCount() : 1);
+  const bonus = passed ? levelBonusLoot(passed, stars, level) : [];
+  if (bonus.length) grantFocusLootIntoBag(bonus);
+  saveFocusSave(save);
+  const praise = passed ? focusSpecificPraise(level, st) : '你听得特别认真！';
+  focusScreen(`
+    <div class="f-screen f-result">
+      <div class="f-stars" id="fStars">${passed ? focusSettle.starSpans(stars) : ''}</div>
+      <h1>${passed ? '听到啦！' : '很努力了！'}</h1>
+      <p class="f-sub">答对 ${st.correct}/${st.trials} 回合</p>
+      <div class="f-result-chief"><img draggable="false" alt="村长爷爷" src="${chiefFace(passed ? 'cheer' : 'smile')}">
+        <span class="f-bubble">${passed ? praise : '没关系，我们明天再听一次！'}</span></div>
+      ${focusLootRecapHtml()}
+      ${focusStampAwardHtml(stampDue, save)}
+      <button class="f-start" id="fEchoHome">回到今天</button>
+    </div>`);
+  SpeechKit.speak(stampDue.length ? '集齐图章啦！获得' +
+      stampDue.map((line)=>FOCUS_STAMP_REWARD_TEXT[stampRewardFor(line)]).join('、') + '！' :
+      (passed ? praise : '没关系，我们明天再听一次！'));
+  if (passed) focusSettle.popStars(stars);
+  wireFocusStampPicker(save);
+  celebrateFocusStampAwards(save, stampDue);
+  runFocusLootRecap();
+  if (stampDue.length) {
+    showToast('🎖️ 集章奖励：' +
+        stampDue.map((line)=>FOCUS_STAMP_REWARD_TEXT[stampRewardFor(line)]).join('、') + '！', 2600);
+    sfx('level');
+  }
+  document.getElementById('fEchoHome').onclick = showFocusToday;
 }
 
 /* ----- 魔鬼特训流程 ----- */
@@ -1143,7 +1303,9 @@ function showFocusParent() {
     const rows = [['日期', '关卡', '轮次', '游戏', '类型', '通过', '正确率%', '反应中位数ms', '试次数', '星级']];
     for (const h of save.history) {
       const lv = FOCUS_LEVELS[h.i] || {stage: 0};
-      rows.push([h.d, h.i+1, lv.stage, FOCUS_META[h.dim] ? FOCUS_META[h.dim].name : h.dim,
+      const name = FOCUS_META[h.dim] ? FOCUS_META[h.dim].name :
+          (h.dim==='echo' ? '回声矿洞' : h.dim);
+      rows.push([h.d, h.i+1, lv.stage, name,
         h.kind, h.passed===false ? '否' : '是', h.acc, h.mrt, h.trials, h.stars]);
     }
     CampKit.downloadCsv('专注训练营记录.csv', rows); // BOM+Blob+click+5s revoke 仪式件(C1-T3), 行构造留模式层

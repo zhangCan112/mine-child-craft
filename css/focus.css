@@ -2009,3 +2009,156 @@ body.f-bag-iron .f-bag-n {
     animation: none;
   }
 }
+
+/* ---------- 回声矿洞(P1 附加块) + gonogo 引信(P2) + 矿洞深度图(P2, 2026-10) ---------- */
+
+/* 回声矿洞: 听阶段狼头像脉动 / 答案格点阵 */
+.f-echo-cue {
+  padding: 8px 0 12px;
+}
+
+.f-echo-cue img {
+  width: 96px;
+  height: 96px;
+  image-rendering: pixelated;
+  filter: drop-shadow(0 4px 8px rgb(0 0 0 / 45%));
+}
+
+.f-echo-cue.listen img {
+  animation: f-echo-listen 1.1s infinite;
+}
+
+@keyframes f-echo-listen {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.08) rotate(-2deg); }
+}
+
+.f-echo-board {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: center;
+  padding: 10px 0;
+  min-height: 84px;
+}
+
+.f-echo-board.wait {
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.f-echo-ans {
+  width: 64px;
+  height: 64px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  border: 3px solid rgb(255 255 255 / 40%);
+  background: rgb(0 0 0 / 35%);
+  cursor: pointer;
+  padding: 0;
+}
+
+.f-echo-ans:hover {
+  border-color: rgb(255 255 255 / 75%);
+  background: rgb(255 255 255 / 15%);
+}
+
+.f-echo-dots {
+  display: grid;
+  grid-template-columns: repeat(3, 10px);
+  gap: 4px;
+  justify-items: center;
+}
+
+.f-echo-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 2px;
+  background: #ffd83d;
+  box-shadow: inset 0 -2px 0 rgb(0 0 0 / 35%);
+}
+
+.f-echo-board.ok .f-echo-ans {
+  border-color: #7cfc00;
+}
+
+.f-echo-board.no .f-echo-ans {
+  animation: f-no 0.4s;
+  border-color: #ff7043;
+}
+
+.f-echo-face {
+  width: 20px;
+  height: 20px;
+  image-rendering: pixelated;
+  vertical-align: -5px;
+  margin-right: 4px;
+}
+
+/* gonogo 拆弹引信(P2): 燃烧红光脉动, 窗内再点可拆 */
+.f-stim.fuse {
+  border-color: #ff5230;
+  animation: f-fuse 0.28s infinite;
+}
+
+@keyframes f-fuse {
+  0%, 100% { box-shadow: 0 0 0 3px rgb(255 82 48 / 55%); }
+  50% { box-shadow: 0 0 0 7px rgb(255 82 48 / 85%); }
+}
+
+/* 矿洞深度图(P2 目标梯度): 20 段横条, 打通=火把亮块, 当前=矿镐游标 */
+.f-depth {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  justify-content: center;
+  width: min(520px, 92vw);
+  margin: 10px auto 0;
+  padding: 8px;
+  border: 3px solid rgb(255 255 255 / 20%);
+  border-radius: 14px;
+  background: rgb(0 0 0 / 30%);
+}
+
+.f-depth-cell {
+  width: 20px;
+  height: 24px;
+  padding: 0;
+  border-radius: 4px;
+  border: 2px solid #38383f;
+  background: #2c2c34;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.f-depth-cell img {
+  width: 14px;
+  height: 14px;
+  image-rendering: pixelated;
+}
+
+.f-depth-cell.done {
+  border-color: #b8862c;
+  background: #4a3a1a;
+}
+
+.f-depth-cell.cur {
+  border-color: #7cfc00;
+  animation: f-echo-listen 1.6s infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #focusRoot .f-echo-cue.listen img,
+  #focusRoot .f-depth-cell.cur {
+    animation: none;
+  }
+
+  #focusRoot .f-stim.fuse {
+    animation: none;
+    box-shadow: 0 0 0 5px rgb(255 82 48 / 75%);
+  }
+}

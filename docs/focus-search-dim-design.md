@@ -121,3 +121,19 @@ n-back（<8 岁）、双任务（8+）、SART 独立成模（6 岁高误击违�
 
 - 2026-10-29 初版（随实现回写）。证据：docs/focus-interaction-research.md §A1/§B2/§B3/§C2；
   决策：用户两问拍板（第六维升格 + UI 从宽）；重排决策：adr/0008。
+- 2026-10-29 二轮增量（同日续工单，P1/P2 清单落地）：
+  - **P1 回声矿洞（听觉持续注意附加块）**：TEA-Ch2 J Barking 系（调研 §A2）——数狼嚎报总数，
+    长间隔声序列（1.5~2.2s，刻意"不抓"注意）考核自主维持；干扰猫叫 decoyRate tier≥8 渐入
+    （音色可分，注册表恒定合成 bark/meow，杜绝音色漂移=知觉干扰）；答案格=点阵点选（零文字）。
+    **形态=今日页附加块**（ADR 0008 预留的低风险入口）：不进螺旋、存量进度零重排，计 1 关额度 +
+    计时长，每日一次，存档 `echo={days:{日期:{acc,rounds}}}` 滚动 90 天；答对照常掷骰入矿袋
+    （试次=回合，params.trials=5）；历史记录 i=-1 不指涉编排关卡（进度/突破/星柱统计防御跳过）。
+    纯函数 echoParamsFor（focus-levels）+ 引擎 runEcho（focus-paradigms）+ 流程装配（modes/focus）。
+  - **P2 gonogo 拆弹窗（儿童版停止信号）**：tier≥12 `params.defuse`——误点 No-Go 不立即终局，
+    进引信燃烧窗（fuseMs 650→380 随档收窄），窗内再点=拆弹成功按答对计（stats.defuseTries/Wins，
+    家长 CSV 可见拆弹率），烧完=错误与直接误点同口径；放弃 SSRT 阶梯计分（6 岁不收敛，调研 §A3），
+    tip 进 TTS 教「再点一下拆掉」。事件缝仍在最终结局恰发一次。
+  - **P2 矿洞深度图（目标梯度可视化）**：我的进步页内 20 段横条（每段 5 关），打通段点火把、
+    当前段 ⛏️ 游标；点击 TTS 读层号；只可视化不选关（防刷红线），未打通段零负面标记。
+  - 新增音效键 bark/meow（audio-registry synth-only，同 level/gem 惯例）；新增狼像素头像
+    wolfFace（focus-icons，同 pigFace 管线，不进怪物库）。

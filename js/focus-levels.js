@@ -25,6 +25,7 @@
      FOCUS_STAMP_KINDS(自选图案白名单) · stampRewardClaimed(claimed, rid) ·
      focusDayIndex · trimFocusLog · FOCUS_LOG_KEEP_DAYS · FOCUS_DEVIL_TIME_MS ·
      devilDimFor · focusCheckEntry · checkBaseline · devilEntry · devilTierFor ·
+     echoParamsFor(tier) ·
      focusTodayStr(now) · focusTodayDims · focusDimStars · focusLastBreakthrough ·
      FOCUS_SAVE_DEFAULTS · migrateFocusSave
      (图章/日期/授予机制同源 CampCore(js/camp-core.js), 此处家族名为薄委托)
@@ -52,9 +53,11 @@ const FOCUS_META = {
   gonogo: {name: '抑制控制', game: '挖矿小能手', icon: mcIco('pickaxe'),
     rule: '钻石快挖！别的矿和 TNT 都不要碰。',
     tip(p) {
-      return p.disguiseRate >= 1 ? 'TNT 全都会变成绿宝石的样子混进来！手别太快，看清楚再挖。' :
+      let s = p.disguiseRate >= 1 ? 'TNT 全都会变成绿宝石的样子混进来！手别太快，看清楚再挖。' :
              p.disguiseRate > 0 ? '有的 TNT 会变成绿宝石的样子，手别太快，看清楚再挖。' :
              '钻石变少、TNT 变多了，忍住不碰 TNT 才能拿星星。';
+      if (p.defuse) s += '万一碰到 TNT 别慌——引信会烧一小会儿，马上再点它一下就能拆掉！';
+      return s;
     }},
   flanker: {name: '干扰控制', game: '苦力怕排队', icon: '<img class="f-mcicon" draggable="false" src="'+creeperFace(1)+'">',
     rule: '只看中间那只苦力怕，它看哪边，就点哪边。',
@@ -121,6 +124,10 @@ function paramsFor(dim, tier, li) {
         goRate: fLerp(0.75, 0.55, t),
         // 伪装率: 每个 No-Go 试次独立掷骰(中则绿宝石伪装, 否则显性 TNT)
         disguiseRate: Math.min(1, Math.max(0, 0.3*(tier-7))), // tier8→0.3, 9→0.6, 10→0.9, ≥11→1.0
+        // 拆弹窗(P2 停止信号变体, 2026-10): tier≥12 点中 TNT 进入引信燃烧窗,
+        // 窗内再点一下=拆弹成功(反应式抑制+错误修正); 引信随档变短
+        defuse: tier >= 12,
+        fuseMs: Math.round(fLerp(650, 380, t)),
       };
     case 'flanker': { // D3 干扰:不一致更多+排更长+中立行+混生物(治无顶碾压)
       const len = tier <= 6 ? 3 : tier <= 11 ? 5 : tier <= 17 ? 7 : 9; // D3 档位表: tier≤6/7~11/12~17/18+
@@ -406,6 +413,24 @@ function devilParams(dim, currentTier) {
   return paramsFor(dim, Math.min(19, currentTier + 2));
 }
 
+/* ---------- 回声矿洞(听觉持续注意, 2026-10 P1 附加块) ----------
+   数狗叫式(TEA-Ch2 J Barking 系, 证据 docs/focus-interaction-research.md §A2):
+   一段长间隔的狼嚎声里数共有几声, 听完点一样多的答案格; 干扰声(猫叫)高 tier
+   渐入(Hide & Seek Auditory 系)。长间隔=任务"不抓"注意, 考核自主维持(Barking
+   官方设计意图); 目标/干扰音色恒定合成采样(音色漂移即知觉干扰, 调研 §A2 警示)。
+   形态=今日页附加块(不进 100 关螺旋, 不重排存量进度): 计 1 关额度, 每日一次。
+   纯函数只出参数, 引擎在 focus-paradigms.js, 流程装配在 modes/focus.js */
+function echoParamsFor(tier) {
+  const t = Math.min(1, Math.max(0, (tier-1)/18));
+  return {
+    trials: 5, // 回合数=试次数(每回合听一段答一次)
+    barkMin: tier < 5 ? 2 : 3, // 低档 2~3 声起步
+    barkMax: Math.round(fLerp(3, 6, t)), // 顶格 3~6 声
+    isi: Math.round(fLerp(2200, 1500, t)), // 声间隔秒级(刻意"慢而无聊", Barking 同款)
+    decoyRate: tier < 8 ? 0 : Math.min(0.5, 0.15*(tier-7)), // 干扰猫叫混入率渐进
+  };
+}
+
 /* ---------- F8 每日体检/魔鬼特训的入口与记账纯函数(设计稿 §8 B3/B8) ---------- */
 /* 存档按日记录(checks/devil.days)的滚动保留窗口: 防存档膨胀(90 天) */
 const FOCUS_LOG_KEEP_DAYS = 90;
@@ -604,7 +629,7 @@ function focusLastBreakthrough(save) {
    原样), 供 save-slot 的 migrate 链调用; 存量进度字段原样保留 */
 const FOCUS_SAVE_DEFAULTS = {unlocked: 0, stars: {}, history: [], tools: [],
   stamps: {}, stampClaimed: [], stampKind: 'pick',
-  checks: {}, devil: {levels: {}, days: {}}};
+  checks: {}, devil: {levels: {}, days: {}}, echo: {days: {}}};
 
 function migrateFocusSave(s, from) {
   if (from === 0 && s && s.daily) delete s.daily; // v0 老形状可能仍带 daily(已迁 daily_budget_save) → 摘除

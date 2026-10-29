@@ -5,6 +5,7 @@
    专注训练营全部刺激/头像/图章/火苗共用, 调用方只需传键名拿 dataURL
    interface: mcIcon(name) 刺激图标 · creeperFace(dir) 苦力怕头像 ·
      pigFace() 猪中立头像 · sheepFace() 羊中立头像(Flanker 中立行 D3) ·
+     wolfFace() 狼头像(回声矿洞 P1 附加块"听"角标) ·
      chiefFace(mood) 训练师村长(mood ∈ smile/cheer/sleepy/devil, 鬼化=devil) ·
      stampIcon(kind) 图章(kind ∈ pick/gem/tnt/big/gold/devil + star/plus 数学岛自选, T8) ·
      flameIcon(level) 探险家火苗(level ∈ 1/2/3, CSS 摇曳底图)
@@ -206,6 +207,31 @@ function sheepFace() {
   px(7, 10, 2, 2, '#e0a3a0'); // 粉鼻(居中)
   const url = to96(c);
   sheepCache.face = url;
+  return url;
+}
+
+/* 狼头像(无方向) — 回声矿洞的"听"角标(P1 附加块): 灰狼竖耳+白吻板,
+   同 pigFace/sheepFace 管线(训练营像素库, 不进怪物库——不参与战斗); 双瞳看镜头 */
+const wolfCache = {face: ''};
+function wolfFace() {
+  if (wolfCache.face) return wolfCache.face;
+  const c = document.createElement('canvas');
+  c.width = c.height = 16;
+  const g = c.getContext('2d');
+  const px = (x, y, w, h, col)=>{
+    g.fillStyle = col; g.fillRect(x, y, w, h);
+  };
+  px(2, 0, 3, 4, '#8a8a8a'); px(11, 0, 3, 4, '#8a8a8a'); // 双竖耳
+  px(3, 1, 1, 2, '#5c5c5c'); px(12, 1, 1, 2, '#5c5c5c'); // 耳内影
+  px(1, 3, 14, 12, '#9a9a9a'); // 灰狼脸底
+  [[2, 4], [6, 3], [12, 5], [2, 9], [13, 10], [4, 13], [10, 13]]
+      .forEach(([x, y])=>px(x, y, 1, 1, '#8a8a8a')); // 深灰噪点(避五官)
+  px(4, 6, 2, 2, '#f4f4f4'); px(5, 7, 1, 1, '#101510'); // 左眼(瞳朝中)
+  px(10, 6, 2, 2, '#f4f4f4'); px(10, 7, 1, 1, '#101510'); // 右眼(镜像)
+  px(5, 10, 6, 4, '#e8e4dc'); // 白吻板
+  px(7, 10, 2, 2, '#3a3a3a'); // 黑鼻头(居中)
+  const url = to96(c);
+  wolfCache.face = url;
   return url;
 }
 
