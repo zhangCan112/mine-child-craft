@@ -1020,6 +1020,13 @@ button.m-mark:hover {
   text-align: center;
 }
 
+/* pick 阶段(点落格/点出发旗)任务卡放行点击: 卡悬在下缘, 会遮住屏幕
+   下缘的跳格目标 — 整块可点时点击落卡上无反馈; 置 none 让点击穿透到
+   点选接球层(.m-w-catcher)。choice/die 阶段不加此类, 卡内选项照常可点 */
+.m-w-card.pick-through {
+  pointer-events: none;
+}
+
 .m-w-q {
   font-size: 19px;
   font-weight: 800;

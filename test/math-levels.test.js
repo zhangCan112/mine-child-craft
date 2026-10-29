@@ -1,10 +1,11 @@
 'use strict';
 /* 数学冒险岛关卡库纯逻辑单测 — node --test (零依赖)
    运行: node --test test/math-levels.test.js
-   覆盖: 六族元数据/变体表(3 常规+1 挑战) · mathParamsFor 双轨曲线
-   (数值轨带内微升永不越带 · 推理轨分段单调 · 定性跳变概率坡道 ·
-   认知负荷红线 组块≤4/线索≤3/每关只动一个维度) · 100 关编排不变量
-   (四带×25 · 配重 15/20 · 带内末次=挑战 · 带末 boss · 带首复习) ·
+   覆盖: 六族元数据/变体表(3 常规+1~2 挑战, 挑战全带 rule) · mathParamsFor
+   双轨曲线(数值轨带内微升永不越带 · 推理轨分段单调 · 定性跳变概率坡道 ·
+   认知负荷红线 组块≤4/线索≤3/每关只动一个维度) · 120 关编排不变量
+   (G4 扩容四带×30 · 配重 16/20/24 · 带内末次=挑战 · 带末 boss · 带首复习 ·
+   情境关 12 · 数值轨关卡层红线: 逐关参数 ≤ 本带上限) ·
    通过门槛/三星(挑战挂钩与回溯) · 战利品池合法性/掷骰概率边界
    (池概率和=1 · 教学豁免 · 连对保底 · 同 seed 同输出) · 存档迁移幂等
    加载器: vm context 依次执行 rand-core.js + items-core.js + inventory-core.js +
@@ -39,7 +40,7 @@ function loadMathLevels() {
   }
   vm.runInContext(`
     globalThis.__ml = { MATH_FAMILIES, MATH_META, MATH_VARIANTS, MATH_RANGES,
-      MATH_CONTEXTS, mathParamsFor, MATH_LEVELS, mathPassed, mathStars, mathLevelStars,
+      MATH_CONTEXTS, mathParamsFor, MATH_NUM_KEYS, MATH_LEVELS, mathPassed, mathStars, mathLevelStars,
       mathFamChallengeDone, MATH_LOOT,
       rollMathLoot, grantMathLoot, MATH_LOG_KEEP_DAYS,
       mathTodayStr, mathDayIndex, trimMathLog,
@@ -272,11 +273,11 @@ test('MATH_LEVELS: boss 三族★★串联 sections(对齐 focus 大师关先例
       '带 3 boss plan 节=dualview');
 });
 
-test('MATH_LEVELS: 每关 params = 族曲线 → 变体级覆写(trials/tune, 单一权威派生)', () => {
+test('MATH_LEVELS: 每关 params = 族曲线 → 变体级覆写 → 带钳制(单一权威派生)', () => {
   const ml = loadMathLevels();
   for (const lv of ml.MATH_LEVELS) {
     let p = ml.mathParamsFor(lv.family, lv.tier, lv.i);
-    /* 变体级覆写(变体表单一权威)是唯一合法偏离: trials 压次(G2 先例) ·
+    /* 变体级覆写(变体表单一权威)是第一段合法偏离: trials 压次(G2 先例) ·
         tune 曲线(G4 新变体推理档/候选/视图/预算) — 期望值按同一序应用 */
     const meta = (ml.MATH_VARIANTS[lv.family] || []).find((x) => x.id === lv.variant);
     const a = {...lv.params};
@@ -287,8 +288,15 @@ test('MATH_LEVELS: 每关 params = 族曲线 → 变体级覆写(trials/tune, �
       delete a.trials;
       delete p.trials;
     }
+    /* 带钳制段(三段口径末段): 数值轴按关卡自身 band 钳回本带上限 —
+        轮转流 k 可达 5, tier=band*4+k 溢到下一带区间时曲线按 tier
+        派生带会取到下一带数值(推理档不钳, 保住 bridge band1=reverse
+        等已钉口径) */
+    for (const key of ml.MATH_NUM_KEYS[lv.family]) {
+      p[key] = Math.min(p[key], ml.MATH_RANGES[lv.band]);
+    }
     assert.deepStrictEqual(a, {...p},
-        '第 ' + (lv.i+1) + ' 关参数 = 曲线+变体覆写');
+        '第 ' + (lv.i+1) + ' 关参数 = 曲线+变体覆写+带钳制');
   }
 });
 
@@ -310,6 +318,33 @@ test('mathPassed: 教学关恒过, 常规/复习 70% 门槛, 挑战 80%, boss �
   const boss = ml.MATH_LEVELS.find((lv) => lv.kind === 'boss');
   assert.strictEqual(ml.mathPassed(boss, {acc: 0.69}), false);
   assert.strictEqual(ml.mathPassed(boss, {acc: 0.70}), true, 'boss 聚合三段按单关 70% 口径');
+});
+
+test('mathPassed: 探索容错线 — balance 2/3 过·1/3 不过, bridge 1/2 过·0/2 不过, 常规挑战 6/7·5/7 维持 0.80', () => {
+  const ml = loadMathLevels();
+  const bal = ml.MATH_LEVELS.find((lv) => lv.kind === 'challenge' && lv.variant === 'balance');
+  const brg = ml.MATH_LEVELS.find((lv) => lv.kind === 'challenge' && lv.variant === 'bridge');
+  assert.ok(bal && brg, 'balance/bridge 挑战关在编排中(变体表显式 trials 覆写)');
+  assert.strictEqual(ml.mathPassed(bal, {acc: 2 / 3, correct: 2, trials: 3}), true,
+      'balance 2/3 过(容错线 correct ≥ trials−1, 搬动试错长交互)');
+  assert.strictEqual(ml.mathPassed(bal, {acc: 1 / 3, correct: 1, trials: 3}), false,
+      'balance 1/3 不过');
+  assert.strictEqual(ml.mathPassed(brg, {acc: 0.5, correct: 1, trials: 2}), true, 'bridge 1/2 过');
+  assert.strictEqual(ml.mathPassed(brg, {acc: 0, correct: 0, trials: 2}), false, 'bridge 0/2 不过');
+  assert.strictEqual(
+      ml.mathStars(bal, {acc: 2 / 3, correct: 2, trials: 3, maxStreakErr: 0}, false), 1,
+      '容错过关 1 星(2 星仍看 85%, 容错线不动星线)');
+  /* 常规挑战(无变体 trials 覆写)维持 acc≥0.80 */
+  const reg = ml.MATH_LEVELS.find((lv) => lv.kind === 'challenge' &&
+      !((ml.MATH_VARIANTS[lv.family] || []).find((x) => x.id === lv.variant) || {}).trials);
+  assert.ok(reg, '有无覆写的常规挑战关');
+  assert.strictEqual(ml.mathPassed(reg, {acc: 6 / 7, correct: 6, trials: 7}), true,
+      '常规挑战 6/7 过(维持 0.80)');
+  assert.strictEqual(ml.mathPassed(reg, {acc: 5 / 7, correct: 5, trials: 7}), false,
+      '常规挑战 5/7 不过');
+  /* st 异常(缺 correct/trials)回落 acc 线 — 老口径兜底不炸 */
+  assert.strictEqual(ml.mathPassed(bal, {acc: 0.79}), false, '缺 correct 回落: 79% 不过');
+  assert.strictEqual(ml.mathPassed(bal, {acc: 0.80}), true, '缺 correct 回落: 80% 过');
 });
 
 test('mathStars: 1星通过 / 2星 85% / 3星 95%且无连续3错且该族当带挑战已过(注入)', () => {
@@ -557,6 +592,11 @@ test('migrateMathSave: v2 形内修形照旧 — 损坏字段补空, stampKind �
   assert.deepStrictEqual({...once.log}, {}, '损坏 log 修形为空对象');
   const twice = ml.migrateMathSave(once, 1);
   assert.deepStrictEqual(twice, once, '连跑幂等(已是好形状再跑原样)');
+  /* 数组值修形: typeof [] === 'object', 不拦会把数组长度当天数(mathStampCount) */
+  const arr = {v: 2, stamps: ['2026-10-24'], stars: {'3': 2}};
+  const fixed = ml.migrateMathSave(arr, 1);
+  assert.deepStrictEqual({...fixed.stamps}, {}, '数组 stamps 修形为空对象');
+  assert.strictEqual(fixed.stars['3'], 2, '数组修形只动 stamps, 星表原样保留');
 });
 
 test('存档日志滚动 90 天: mathDayIndex/trimMathLog 裁剪窗口与非法键', () => {
@@ -664,26 +704,14 @@ test('mathStampNextLine: 集章进度的下一目标(结算屏/日历头共用�
 
 /* ============ mathParamsFor 双轨曲线(design §4.1) ============ */
 
-test('数值轨红线: 带内微升且永不越带 — 每族每个数值字段 ≤ MATH_RANGES[band]', () => {
+test('数值轨曲线: 全程单调不降 + 带 0 锚点(曲线层; 关卡层红线=下一测)', () => {
   const ml = loadMathLevels();
-  /* 各族的数值字段清单(数值轨): max=题内最大数, 其余为族的规模轴 */
-  const numKeys = {count: ['max'], craft: ['max'], hop: ['max'], mirror: ['span'],
-    plan: ['blocks'], pattern: ['max']};
   for (const f of ml.MATH_FAMILIES) {
-    for (let t = 1; t <= 19; t++) {
-      const band = Math.min(3, Math.floor((t-1)/4));
-      for (const key of numKeys[f]) {
-        const v = ml.mathParamsFor(f, t)[key];
-        assert.ok(typeof v === 'number' && v > 0, f + ' tier' + t + ' ' + key + ' 为正数');
-        assert.ok(v <= ml.MATH_RANGES[band],
-            f + ' tier' + t + ' ' + key + '=' + v + ' 越带(上限 ' + ml.MATH_RANGES[band] + ')');
-      }
-    }
     /* 带内微升 + 跨带不回退: 数值轴全程单调不降(ramp 微升, 不许断崖) */
     for (let t = 1; t < 19; t++) {
-      const a = ml.mathParamsFor(f, t)[numKeys[f][0]];
-      const b = ml.mathParamsFor(f, t+1)[numKeys[f][0]];
-      assert.ok(b >= a, f + ' ' + numKeys[f][0] + ' 单调不降(tier ' + t + '→' + (t+1) + '): ' + a + '→' + b);
+      const a = ml.mathParamsFor(f, t)[ml.MATH_NUM_KEYS[f][0]];
+      const b = ml.mathParamsFor(f, t+1)[ml.MATH_NUM_KEYS[f][0]];
+      assert.ok(b >= a, f + ' ' + ml.MATH_NUM_KEYS[f][0] + ' 单调不降(tier ' + t + '→' + (t+1) + '): ' + a + '→' + b);
     }
   }
   /* 带 0 专项锚点: 一上永不出现 >20 的数(plan D3 数值严格跟带) */
@@ -693,6 +721,37 @@ test('数值轨红线: 带内微升且永不越带 — 每族每个数值字段 
       assert.ok(ml.mathParamsFor(f, t).max <= 20, f + ' 带 0(tier' + t + ') max ≤ 20');
     }
   }
+});
+
+test('数值轨红线(关卡层): 全 120 关逐关 — 每个数值参数 ≤ MATH_RANGES[level.band]', () => {
+  const ml = loadMathLevels();
+  /* 盲区修复: 按 tier 推带(Math.floor((tier-1)/4))看不见轮转流 k=5 的
+     溢位档(tier=band*4+5 派生出下一带数值) — 红线权威断言按关卡自身
+     band 字段逐关查(编排/推理档口径见上, 这里只管数值不越带) */
+  for (const lv of ml.MATH_LEVELS) {
+    assert.ok(lv.params && typeof lv.params === 'object', '第 ' + (lv.i+1) + ' 关带参数');
+    for (const key of ml.MATH_NUM_KEYS[lv.family]) {
+      const v = lv.params[key];
+      assert.ok(typeof v === 'number' && v > 0,
+          '第 ' + (lv.i+1) + ' 关 ' + lv.family + '/' + lv.variant + ' ' + key + ' 为正数');
+      assert.ok(v <= ml.MATH_RANGES[lv.band],
+          '第 ' + (lv.i+1) + ' 关 ' + lv.family + '/' + lv.variant + ' ' + key + '=' + v +
+          ' 越本带上限 ' + ml.MATH_RANGES[lv.band] + '(band ' + lv.band + ')');
+    }
+    if (lv.kind !== 'boss') continue;
+    for (const sec of lv.sections) { // boss 三节 params 同口径(chalTier 与 boss 同带)
+      for (const key of ml.MATH_NUM_KEYS[sec.family]) {
+        assert.ok(sec.params[key] <= ml.MATH_RANGES[lv.band],
+            '带 ' + lv.band + ' boss ' + sec.family + ' 节 ' + key + '=' + sec.params[key] + ' 越本带上限');
+      }
+    }
+  }
+  /* 修复锚点(回归钉死): 带 0/带 2 的 hop/gaps 挑战关曾用下一带数值 30/200 */
+  const g0 = ml.MATH_LEVELS.find((lv) => lv.band === 0 && lv.variant === 'gaps');
+  const g2 = ml.MATH_LEVELS.find((lv) => lv.band === 2 && lv.variant === 'gaps');
+  assert.ok(g0 && g2, 'hop/gaps 带 0/带 2 各有挑战关(溢位档所在)');
+  assert.strictEqual(g0.params.max, 20, '带 0 hop/gaps max 钳回 20(曾 30)');
+  assert.strictEqual(g2.params.max, 100, '带 2 hop/gaps max 钳回 100(曾 200)');
 });
 
 test('推理轨: single→two-step→reverse→multi-solve 随 tier 分段, 全族一致且单调', () => {
@@ -831,6 +890,27 @@ test('MATH_VARIANTS: 每族 3 常规 + 挑战(kind=challenge), 名称非空 — 
   assert.strictEqual(br.introBand, 1, 'bridge 解锁带 1+');
 });
 
+test('MATH_VARIANTS: 挑战变体全部有 rule 话术 — 首遇不听旧族话术(常规走族 rule 是设计内)', () => {
+  const ml = loadMathLevels();
+  for (const f of ml.MATH_FAMILIES) {
+    for (const v of ml.MATH_VARIANTS[f]) {
+      if (v.kind !== 'challenge') continue; // 常规范型=族话术讲的原玩法, 回落是设计内
+      const ok = (typeof v.rule === 'string' && v.rule.length > 0) ||
+          typeof v.rule === 'function';
+      assert.ok(ok, f + '/' + v.id + ' 缺 rule(首遇会听旧族话术)');
+    }
+  }
+  /* 抽查五条新补话术讲的是本变体玩法(非族话术) */
+  const checks = [
+    ['craft', 'blank', '空格'], ['hop', 'gaps', '小旗'], ['mirror', 'tangram', '玻璃格子'],
+    ['plan', 'countall', '藏起来'], ['pattern', 'cycle', '规律'],
+  ];
+  for (const [f, id, word] of checks) {
+    const v = ml.MATH_VARIANTS[f].find((x) => x.id === id);
+    assert.ok(v.rule.includes(word), f + '/' + id + ' 话术讲本变体玩法(含「' + word + '」): ' + v.rule);
+  }
+});
+
 /* ============ G4 新变体曲线(变体级 tune 覆写, 数值跟带/推理档重爬) ============ */
 
 test('plan/dualview 曲线: 推理档重置 single→two-step, 候选 2→4, 视图 1→2(正视→双视图)', () => {
@@ -877,6 +957,44 @@ test('mirror/bridge 曲线: 推理档沿族轨 reverse→multi-solve, 预算宽�
   assert.ok(br.trials >= 2 && br.trials <= 3, 'bridge 每关 2~3 座桥');
 });
 
+/* ============ rule 函数形态 / 变体·情境 tip 覆写(G4 修订) ============ */
+
+test('rule 函数形态: dualview 单/双视图两版, measure 无往返档不含「走过去再回来」', () => {
+  const ml = loadMathLevels();
+  const dv = ml.MATH_VARIANTS.plan.find((v) => v.id === 'dualview');
+  assert.strictEqual(typeof dv.rule, 'function', 'dualview rule 为函数形态');
+  const single = dv.rule(dv.tune(ml.mathParamsFor('plan', 13), 13)); // 带 2 首遇: dualViews=1
+  const dual = dv.rule(dv.tune(ml.mathParamsFor('plan', 17), 17)); // 带 3: dualViews=2
+  assert.ok(!single.includes('侧面'), '单视图版不承诺「侧面」句(首遇只有正面一块牌): ' + single);
+  assert.ok(single.includes('正面'), '单视图版仍讲正面玩法');
+  assert.ok(dual.includes('侧面'), '双视图版含「侧面」句');
+  const ms = ml.MATH_CONTEXTS.measure;
+  assert.strictEqual(typeof ms.rule, 'function', 'measure rule 为函数形态');
+  /* 往返题只在 reverse/multi-solve 档(math-paradigms.js mCountMeasure 的
+     round 分支), single/two-step 档不承诺往返 */
+  assert.ok(!ms.rule({reasoning: 'single'}).includes('走过去再回来'), 'single 档无往返句');
+  assert.ok(!ms.rule({reasoning: 'two-step'}).includes('走过去再回来'), 'two-step 档无往返句');
+  assert.ok(ms.rule({reasoning: 'reverse'}).includes('走过去再回来'), 'reverse 档报往返');
+  assert.ok(ms.rule({reasoning: 'multi-solve'}).includes('走过去再回来'), 'multi-solve 档报往返');
+});
+
+test('tip 覆写: position 报屏流呈现上限 cap 而非族曲线 max, measure tip 用同款 cap 公式', () => {
+  const ml = loadMathLevels();
+  const pos = ml.MATH_VARIANTS.hop.find((v) => v.id === 'position');
+  assert.strictEqual(typeof pos.tip, 'function', 'position 有变体级 tip 覆写');
+  const p17 = ml.mathParamsFor('hop', 17); // 带 3: 族 max 200+
+  const hi = pos.tip(p17);
+  assert.ok(hi.includes('到 100'), '带 3 报屏流 cap=100: ' + hi);
+  assert.ok(!hi.includes(String(p17.max)), '不出现族曲线 max ' + p17.max + '(谎报): ' + hi);
+  const p3 = ml.mathParamsFor('hop', 3);
+  assert.ok(pos.tip(p3).includes('到 ' + p3.max), '带 0 cap=max 原样');
+  const ms = ml.MATH_CONTEXTS.measure;
+  const m17 = ms.tip(ml.mathParamsFor('count', 17)); // count 带 3 max 上千
+  assert.ok(m17.includes('到 60 格'), 'measure 带 3 报呈现上限 60 格: ' + m17);
+  const m3 = ml.mathParamsFor('count', 3);
+  assert.ok(ms.tip(m3).includes('到 ' + m3.max + ' 格'), '带 0 cap=max 原样');
+});
+
 /* ============ 情境挂载(T7): 商店/钟表/测距 — 挂族不独立成族 ============ */
 
 test('MATH_CONTEXTS: 商店/钟表/测距三情境在册, 挂族/名称/话术齐全可 TTS', () => {
@@ -889,7 +1007,9 @@ test('MATH_CONTEXTS: 商店/钟表/测距三情境在册, 挂族/名称/话术�
     assert.ok(ctx[id], '情境 ' + id + ' 在册');
     assert.strictEqual(ctx[id].family, want[id], id + ' 挂在 ' + want[id] + ' 族(不独立成族)');
     assert.ok(ctx[id].name, id + ' 有中文名');
-    assert.ok(typeof ctx[id].rule === 'string' && ctx[id].rule.length > 0, id + ' 规则话术非空');
+    const rule = ctx[id].rule;
+    assert.ok((typeof rule === 'string' && rule.length > 0) || typeof rule === 'function',
+        id + ' 规则话术非空(string 或函数形态)');
     assert.ok(typeof ctx[id].tip === 'function', id + ' 提示话术为函数');
   }
   /* tip 全档位有文案且不引用不存在参数(与族 tip 同口径) */

@@ -445,8 +445,9 @@ const MATH_WORLD_VARIANTS = {
       const p = t.pz; const W = MATH_WORLD;
       const plan = p.plan;
       const {x0, z0} = wwStage(plan.span + 8, 9);
-      /* 桥轴局部坐标 → 世界: 局部 x 0..span+1(两岸柱列), y 0=河床面,
-         z=zLane(0) — placed 坐标直接喂 bridgeGrade(同平面) */
+      /* 桥轴局部坐标 → 世界: 局部 x 0..span+1(两岸柱列), y 0=河床面(世
+         界 y=groundY, 挖去草皮的河面行), z=zLane(0) — placed 坐标经
+         ax/ay/az 换算回桥轴平面后直接喂 bridgeGrade(同平面判分) */
       const xB0 = 64 - Math.floor((plan.span + 2) / 2);
       const zW = 64; // 桥线世界列(画布 9 深, 64 为中线)
       const Y = W.groundY;
@@ -473,6 +474,10 @@ const MATH_WORLD_VARIANTS = {
       }
       return {mode: 'place', pz: p, x0, z0, w: plan.span + 8, d: 9,
         h: plan.capY + 1, budgetN: t.budgetN, reasoning: t.reasoning,
+        /* 判分偏移(ax/ay/az): 孩子摆的世界块换算回桥轴局部系 — 画布
+           原点(x0,z0)与桥轴原点(xB0,zW)的缝 + 河床行(世界 y=Y, 记录
+           基面却是 groundY+1)的 y 缝; 没有这组偏移任何摆法判分恒 false */
+        ax: xB0 - x0, az: zW - z0, ay: -1,
         /* 建造区 = 河面桥线(局部 x 1..span · z=zLane · y 0..capY) */
         canPlace(tx, ty, tz) {
           return tx >= xB0 + 1 && tx <= xB0 + plan.span && tz === zW &&
@@ -635,6 +640,13 @@ function runBuildWorld(section, h) {
     wwHudShow(titleHtml, (idx + 1) + ' / ' + n, !!trial.blueprint);
     wwHudProgress(idx, n);
     if (trial.blueprint) wwPaintBlueprint(trial.pz.blueprint);
+    /* 教学关首试次(kind='tutorial', 全场第 4 关摆一摆/第 5 关搭一搭):
+       孩子第一次接触指针瞄准+放置 — 玩法口播前先插一句操作教学
+       (瞄准/放置/撤除/交卷, 搭一搭再补换色); 常规关不插播 */
+    if (section.kind === 'tutorial' && idx === 0 && trial.mode === 'place') {
+      wwSpeak('用鼠标瞄准白色画布，按下就放一块；点已放的可以拿走；摆好啦，敲一下发光石！' +
+          (section.family === 'plan' ? '点下面的小方块可以换颜色！' : ''));
+    }
     wwSpeak(spec.speak(trial.pz, trial));
     idx++;
   }
@@ -690,7 +702,10 @@ function runBuildWorld(section, h) {
       const col = MATH_WORLD_COLS[Math.min(MATH_WORLD_COLS.length - 1, mathWorldHb.sel)];
       trial.placed.set(wwKey(tx, ty, tz), {
         x: tx - trial.x0 - (trial.ax || 0),
-        y: ty - (W.groundY + 1),
+        /* y 缝: 缺省基面 groundY+1(谜题细胞 y 自 0); 最省桥的河床行在
+           groundY(挖开的河面), 由 trial.ay 补这格差 — 其余变体不传 ay
+           行为不变 */
+        y: ty - (W.groundY + 1) - (trial.ay || 0),
         z: tz - trial.z0 - (trial.az || 0),
         col});
       editBlock(tx, ty, tz, W.colBlock[col]);

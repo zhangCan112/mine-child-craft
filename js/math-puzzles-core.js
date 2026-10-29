@@ -22,7 +22,8 @@
      · hiddenBlocks · exposedFaces(空间计数)
      · mkSeqPuzzle(数列) · periodAt · mkPeriodPuzzle(周期)
      · partitionsOf · mkPartitionPuzzle(多解枚举)
-     · mkScalePuzzle(天平代换链) · mkClueOrderPuzzle · solveClueOrder
+     · mkScalePuzzle(天平代换链) · mkClueOrderPuzzle(可选 want: 意图
+     线索条数, 缺省旧行为) · solveClueOrder
      (线索排队) · mkIntervalPuzzle(间隔问答) · LIMITS(呈现红线常数)
    依赖(经全局名, 调用期解析): RandCore(js/rand-core.js, 加载序在本文件
      之前) — mkRand 随机流与 shuffle 洗牌的全仓唯一实现; 谜题纯变换
@@ -554,9 +555,12 @@ const PuzzleCore = (() => {
     return keys.slice().sort((x, y) => beat.get(y).size - beat.get(x).size);
   }
 
-  /* 出题: t = {seed, max}。属性值取 1..min(max,10) 中互异三值
-     (高矮/轻重皮肤由模式层); 标准解=值降序; 线索取链式两条(唯一全序
-     的最小组), 约 1/3 概率加一条冗余跨位线索(难度微调), 呈现序打乱。 */
+  /* 出题: t = {seed, max, want?(意图线索条数)}。属性值取 1..min(max,10)
+     中互异三值(高矮/轻重皮肤由模式层); 标准解=值降序; 线索取链式两条
+     (唯一全序的最小组)。want=2 只出两条链线索(不出冗余); want≥3 补冗余
+     跨位线索到 3 条; 缺省保持旧行为(约 1/3 概率加一条冗余, 难度微调)。
+     want 条恒可解: 呈现任意子集/顺序都唯一全序(2026-10-29 P1 — 引擎按
+     want 取线索, 不再洗牌后截断误伤链线索); 呈现序打乱。 */
   function mkClueOrderPuzzle(t) {
     const o = t || {};
     const max = o.max || 20;
@@ -567,7 +571,14 @@ const PuzzleCore = (() => {
     const entities = ['a', 'b', 'c'].map((k, i) => ({key: k, value: vals[i]}));
     const order = entities.slice().sort((x, y) => y.value - x.value).map((e) => e.key);
     let clues = [{hi: order[0], lo: order[1]}, {hi: order[1], lo: order[2]}];
-    if (rnd() < 0.35) clues.push({hi: order[0], lo: order[2]});
+    /* 冗余线索按 want 出(2026-10-29 P1): 缺省保持旧行为(35% 概率加一条,
+       整体任意子集仍可解); want=2 不出(want 条恒可解, 引擎截断不再误伤);
+       want≥3 补齐到 3(链+冗余, 红线 ≤3) */
+    if (o.want === undefined) {
+      if (rnd() < 0.35) clues.push({hi: order[0], lo: order[2]});
+    } else if (o.want >= 3) {
+      clues.push({hi: order[0], lo: order[2]});
+    }
     return {entities, clues: RandCore.shuffle(rnd, clues), solution: order};
   }
 
