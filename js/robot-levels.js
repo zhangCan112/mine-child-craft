@@ -116,29 +116,34 @@ function paramsFor(level) {
   const slots = band === 0 ?
     (level.kind === 'tut' ? 1 : level.kind === 'decode' ? 3 : 4) :
     [0, 6, 8, 10][band];
-  /* 转弯爬坡(D15 v2, 用户 2026-10-29「直线只留教学关 + 坡度稍高」):
-     难度主轴 = par 贴满槽位预算, 转弯数做第二轴, 棋盘宽做让步轴——
-     带0 tut k3+ 1 转(直驱首秀 L/R; decode/normal cap 3/4 数学锁死直路);
-     带1 boom 教学期(k0-7)恒直路(D13: cap 6 - boom 代价 3 装不下任何
-     转弯), k8+ 全铁傀儡 1 转(轮换表同步改); 带2 k<10 1 转 → 2 转(转弯
-     进入规划); 带3 k<5 1 转 → k5-17 2 转 → k18-24 3 转(带末俯冲)。
-     boom 转向天花板 1 转: 代价 +3 后 2 转必须缩到 4×4, 得不偿失 */
+  /* 转弯爬坡(D15 v3, 用户 2026-10-29「带1/带2 分布不合理 + 带0 的 0 转
+     转 30% 到 1 转」): 难度主轴 = par 贴满槽位预算, 转弯数做第二轴, 棋盘
+     宽做让步轴——带0 tut k3+ 1 转(直驱首秀 L/R) + normal k12-17 1 转(3×3
+     微型盘, cap 4 减 moves 恰满, 非 tut 关唯一解锁段; decode cap 3 仍数学
+     锁死直路); 带1 boom 教学期(k0-7)恒直路(D13: cap 6 - boom 代价 3 装不
+     下任何转弯), k8-15 1 转 4×4 → k16-24 2 转 3×3(par=6 恰满, 破后半平坦);
+     带2 k<10 1 转 → k10-19 2 转 → k20-24 3 转 4×4(par=8 恰满, 破后半平坦);
+     带3 k<5 1 转 → k5-17 2 转 → k18-24 3 转(带末俯冲)。boom 转向天花板
+     1 转: 代价 +3 后 2 转必须缩到 4×4, 得不偿失 */
   const skillExtra = skill === 'boom' ? 3 : skill === 'smash' ? 1 : 0;
   let turnsMin = band === 0 ?
-    (level.kind === 'tut' && level.k >= 3 ? 1 : 0) :
-    band === 1 ? (skill === 'smash' ? 1 : 0) :
-    band === 2 ? (level.k < 10 ? 1 : 2) :
+    ((level.kind === 'tut' && level.k >= 3) ||
+     (level.kind === 'normal' && level.k >= 12 && level.k <= 17) ? 1 : 0) :
+    band === 1 ? (skill === 'smash' ? (level.k < 16 ? 1 : 2) : 0) :
+    band === 2 ? (level.k < 10 ? 1 : level.k < 20 ? 2 : 3) :
     (level.k < 5 ? 1 : level.k < 18 ? 2 : 3);
   if (skill === 'boom') turnsMin = Math.min(turnsMin, 1);
   /* 宽度让步(§4 次要轴): t 转盘需 (w-1) + ceil(t/2) + t + skillExtra ≤
      预算, 反解 w 上限; 预算口径=parCap(tut 直接驱动不限槽, 记无穷);
-     装不下(下限 4 都不够, 带1 boom 同款数学)就静默降回直路——请求必可
-     交付, 不依赖 mkBoard 预检兜底 */
+     装不下(下限 3 都不够, 带1 boom 同款数学)就静默降回直路——请求必可
+     交付, 不依赖 mkBoard 预检兜底。v3: 下限 4→3 放行 3×3 微型盘(带0
+     normal 1 转 / 带1 k16+ 2 转的解锁前提; w=3 下 carveShapedPath H 段
+     切分与 featureCandidates 中段候选均已核, 见交接审计) */
   const turnCap = level.kind === 'tut' ? Infinity : slots;
   if (turnsMin > 0) {
     const needDz = Math.ceil(turnsMin / 2);
     const wTurnMax = turnCap - turnsMin - skillExtra - needDz + 1;
-    if (wTurnMax < 4) turnsMin = 0;
+    if (wTurnMax < 3) turnsMin = 0;
   }
   /* 棋盘尺寸: 带内后半放大一级, 带尺寸表封顶; boom 关宽钳到 slots-2 ——
      程序长度主轴优先, 次要轴(棋盘)让步: boom 代价恒 +3 卡(S+打盹吞 2),

@@ -2,7 +2,7 @@
 /* 怪物指挥官关卡库单测 — node --test (零依赖)
    运行: node --test test/robot-levels.test.js
    覆盖: 100 关编排(4 带×25/kind 分布逐带断言/boss 恒带末/包轮换合法/
-   tier 1..19) · paramsFor 边界(槽位主轴 1..10/尺寸 4..7/previewSec 带语义/
+   tier 1..19) · paramsFor 边界(槽位主轴 1..10/尺寸 3..7/previewSec 带语义/
    trapRate 渐进有界/decoy 仅带3/skill 带感知: 带0 封印特技卡(特征量全 0),
    带1~3 与包一致) · presetFor=解去尾卡可续赢 ·
    debugPresetFor 必坏(≠win) · 三星与通过门槛边界 · 战利品(教学豁免/池键 ⊆
@@ -89,10 +89,10 @@ test('编排: 包键全注册 · tier 1..19 带内不减 · 解锁关恰在包�
 
 /* ============ paramsFor: 曲线边界 ============ */
 
-test('paramsFor: 槽位主轴(带0 1/3/4 → 带1~3 6/8/10) · 尺寸 4..7 · 演示消退带语义', () => {
+test('paramsFor: 槽位主轴(带0 1/3/4 → 带1~3 6/8/10) · 尺寸 3..7 · 演示消退带语义', () => {
   for (const l of ROBOT_LEVELS) {
     const p = Levels.paramsFor(l);
-    assert.ok(p.w >= 4 && p.w <= 7 && p.h === p.w, 'i=' + l.i + ' 尺寸有界');
+    assert.ok(p.w >= 3 && p.w <= 7 && p.h === p.w, 'i=' + l.i + ' 尺寸有界(3..7)');
     if (l.band === 0) {
       assert.strictEqual(p.slots, l.kind === 'tut' ? 1 : l.kind === 'decode' ? 3 : 4);
       assert.strictEqual(p.previewSec, 0, '带0 无消退');
@@ -114,18 +114,22 @@ test('paramsFor: 槽位主轴(带0 1/3/4 → 带1~3 6/8/10) · 尺寸 4..7 · �
       assert.strictEqual(p.skill, meta.skill || null, 'i=' + l.i + ' skill 与包一致');
     }
     assert.strictEqual(p.boards, 4, '每关 4 盘');
-    /* 转弯爬坡曲线(D15 v2): 带0 tut 后段 1 转直驱首秀 · 带1 smash 1 转
-       (boom 教学期直路=D13 数学) · 带2 k10 起 2 转 · 带3 1→2→3 转带末
+    /* 转弯爬坡曲线(D15 v3): 带0 tut k3+ 与 normal k12-17 各 1 转(w=3
+       微型盘放行) · 带1 k8-15 smash 1 转 → k16-24 2 转 3×3(boom 教学期
+       直路=D13 数学) · 带2 k10-19 2 转 → k20-24 3 转 · 带3 1→2→3 转带末
        俯冲, boom 天花板 1 转 —— 带内不减(台阶不变陡) */
     if (l.band === 0) {
-      assert.strictEqual(p.turnsMin, l.kind === 'tut' && l.k >= 3 ? 1 : 0,
-          'i=' + l.i + ' 带0 只有 tut k3+ 开 1 转');
+      assert.strictEqual(p.turnsMin,
+          (l.kind === 'tut' && l.k >= 3) ||
+          (l.kind === 'normal' && l.k >= 12 && l.k <= 17) ? 1 : 0,
+          'i=' + l.i + ' 带0 tut k3+ / normal k12-17 开 1 转');
     } else if (l.band === 1) {
-      assert.strictEqual(p.turnsMin, meta.skill === 'smash' ? 1 : 0,
-          'i=' + l.i + ' 带1 smash 1 转 / boom 教学期直路');
+      assert.strictEqual(p.turnsMin,
+          meta.skill === 'smash' ? (l.k < 16 ? 1 : 2) : 0,
+          'i=' + l.i + ' 带1 smash k8-15 1 转 / k16-24 2 转 / boom 教学期直路');
     } else if (l.band === 2) {
-      assert.strictEqual(p.turnsMin, l.k < 10 ? 1 : 2,
-          'i=' + l.i + ' 带2 k10 起 2 转');
+      assert.strictEqual(p.turnsMin, l.k < 10 ? 1 : l.k < 20 ? 2 : 3,
+          'i=' + l.i + ' 带2 k10 起 2 转 / k20 起 3 转');
     } else {
       assert.strictEqual(p.turnsMin,
           meta.skill === 'boom' ? 1 : (l.k < 5 ? 1 : l.k < 18 ? 2 : 3),
