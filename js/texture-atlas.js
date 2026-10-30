@@ -577,19 +577,26 @@ const TextureAtlas = (() => {
     }
     for (let i=0; i<4; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [255, 244, 182]);
   };
-  /* 传送门面(点亮态): 暗紫底 + 斜向漩涡亮纹(双笔触交替) + 深斑
-     ——MC 传送门的漩涡观感; alpha 全 255(atlasMat alphaTest 只收不透明像素,
-     玻璃通道的半透明口径在此不适用—— portals 转图集通道后是实心紫门观感) */
+  /* 传送门面(点亮态): 镂空底上的双臂漩涡——阿基米德螺线臂不透明(亮/中/深紫
+     沿臂分段+2px 臂厚+中心漩涡眼), 底 alpha=0(atlasMat alphaTest 裁出透明点
+     ——玻璃通道时代的「透光」观感由镂空承担, 不退回纯色平紫) */
   PAINTERS[T_PORTAL] = (px, rng)=>{
-    noiseFill(px, rng, [82, 28, 132], 0.10);
-    for (let i=0; i<5; i++) {
-      const x0 = Math.floor(rng() * TILE); const y0 = Math.floor(rng() * TILE);
-      for (let t=0; t<8; t++) {
-        const c = rng() < 0.5 ? [140, 68, 202] : [176, 100, 228];
-        setP(px, (x0 + t) % TILE, (y0 + t) % TILE, c); // 斜向漩涡纹(回绕)
+    for (const arm of [0, Math.PI]) {
+      for (let th = 0; th <= Math.PI * 3; th += 0.22) {
+        const rad = 0.9 + th * 0.68; // 阿基米德螺线: 半径 0.9→7.3, 出臂到格缘
+        const x = Math.round(7.5 + Math.cos(th + arm) * rad);
+        const y = Math.round(7.5 + Math.sin(th + arm) * rad);
+        const seg = Math.floor(th / 2.1) % 3; // 沿臂三色分段(亮/中/深紫)
+        const c = seg === 0 ? [192, 118, 236] : (seg === 1 ? [146, 72, 206] : [100, 40, 156]);
+        setP(px, x, y, c);
+        setP(px, x + (rng() < 0.5 ? 1 : -1), y, c); // 臂厚 2px(rng 交错加宽)
       }
     }
-    for (let i=0; i<8; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [58, 18, 96]);
+    setP(px, 7, 7, [214, 150, 244]); setP(px, 8, 7, [192, 118, 236]); // 漩涡眼
+    setP(px, 7, 8, [146, 72, 206]); setP(px, 8, 8, [100, 40, 156]);
+    for (let i=0; i<8; i++) { // 镂空隙里的深紫雾点(不透明, 压透明密度)
+      setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [64, 24, 100]);
+    }
   };
   /* 熄灭门面: 去饱和深紫底 + 暗残纹(旧漩涡的痕迹) + 微光斑
      ——「这是传送门, 只是还没开」的读法不靠亮度靠纹理(熄门观感票同语言) */

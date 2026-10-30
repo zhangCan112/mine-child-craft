@@ -111,25 +111,35 @@ test('布局: 黑巢地上件入集(den-nest §2.1) — 苔石/黑曜石/发光�
   assert.strictEqual(quads(r.atlas), 6, '门面按图集立方体 6 面出图');
 });
 
-test('像素: 黑巢件全不透明(atlasMat alphaTest 前提) — 门面/熄门/黑曜石/发光岩/苔石', () => {
+test('像素: 黑巢件不透明口径 — 苔石/黑曜石/发光岩/熄门全不透明; 门面镂空漩涡(臂+透明底)', () => {
   const t = loadAtlas();
   const all = t.TextureAtlas.paintAll();
   const L = t.TextureAtlas.layout;
-  for (const id of [14, t.B_OBSIDIAN, t.B_GLOWSTONE, t.B_PORTAL, t.B_PORTAL_DIM]) {
-    const px = tilePixels(t, all, typeof L.tiles[id] === 'number' ? L.tiles[id] : L.tiles[id].top);
+  for (const id of [14, t.B_OBSIDIAN, t.B_GLOWSTONE, t.B_PORTAL_DIM]) {
+    const px = tilePixels(t, all, L.tiles[id]);
     for (let i=0; i<px.length; i++) {
       assert.strictEqual(px[i][3], 255,
-          '方块 ' + id + '(' + t.BLOCKS[id].name + ') 像素 ' + i + ' 应全不透明(玻璃通道半透明口径在图集通道不适用)');
+          '方块 ' + id + '(' + t.BLOCKS[id].name + ') 像素 ' + i + ' 应全不透明');
     }
   }
-  /* 观感锚: 黑曜石底近黑紫(黑巢「这里不对劲」), 门面暗紫(点亮), 熄门更暗(去饱和) */
-  const at = (px, x, y) => px[y * 16 + x];
-  const obs = tilePixels(t, all, L.tiles[t.B_OBSIDIAN]);
-  assert.ok(at(obs, 8, 8)[2] > at(obs, 8, 8)[0], '黑曜石蓝紫分量高于红(黑里透紫)');
-  const portal = tilePixels(t, all, L.tiles[t.B_PORTAL]);
-  assert.ok(at(portal, 8, 8)[2] > 90 && at(portal, 8, 8)[0] < 140, '点亮门面暗紫底');
+  /* 门面: 镂空底双臂漩涡——不透明螺旋臂(看得见的漩涡) + alpha=0 底(atlasMat
+     alphaTest 裁出透明点, 找回玻璃通道时代的透光观感); 两侧量都要够 */
+  const pp = tilePixels(t, all, L.tiles[t.B_PORTAL]);
+  let opaque = 0; let hole = 0; let blueSum = 0;
+  for (const p of pp) {
+    if (p[3] === 255) {
+      opaque++;
+      blueSum += p[2];
+    } else if (p[3] === 0) hole++;
+  }
+  assert.ok(opaque > 60 && hole > 40,
+      '门面应镂空漩涡(不透明臂+透明底): 不透明 ' + opaque + ' 透明 ' + hole);
+  /* 观感锚: 点亮臂亮紫于熄门(「开/没开」靠亮度分), 熄门全不透明密实 */
   const dim = tilePixels(t, all, L.tiles[t.B_PORTAL_DIM]);
-  assert.ok(dim[8 * 16 + 8][2] < portal[8 * 16 + 8][2] - 20, '熄门蓝分量暗于点亮门面(未开读法)');
+  const dimAvg = dim.reduce((s, p) => s + p[2], 0) / dim.length;
+  assert.ok(blueSum / opaque > dimAvg + 40, '点亮门面蓝分量应显著亮于熄门');
+  const obs = tilePixels(t, all, L.tiles[t.B_OBSIDIAN]);
+  assert.ok(obs[8 * 16 + 8][2] > obs[8 * 16 + 8][0], '黑曜石蓝紫分量高于红(黑里透紫)');
 });
 
 test('布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格)', () => {
