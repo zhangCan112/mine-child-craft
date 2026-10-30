@@ -145,15 +145,20 @@ const ADV_DEN_TUNNELS = [
 
 /* 固定布防表(进场一次; 祭坛房波次另算): 按谱系与层级有高有低——低级层
    苦力怕为绝对主力(≥60%), 虫虫族/僵尸一家为中层, 凋灵骷髅为关底精英,
-   苦力怕王是 boss。hx/hz=家锚(AI leash 原点=房心, 怪守在本房);
+   苦力怕王是 boss。hx/hz=家锚(AI leash 原点=房心, 怪守在本房; 大厅例外=
+   厅北集结点——进场落点安全缓冲, 布防位/家锚距落点 > 索敌半径 12 有测试钉死);
    y 缺省地面 ground+1, 王座台上的王 y=ground+2 */
 const ADV_DEN_GUARDS = [
-  /* 大厅·进门巡守(低级层+僵尸) */
-  {type: 'creeper', x: 74, z: 76, hx: 80, hz: 80},
-  {type: 'creeper', x: 86, z: 84, hx: 80, hz: 80},
-  {type: 'creeper', x: 79, z: 89, hx: 80, hz: 80},
-  {type: 'creeper', x: 88, z: 73, hx: 80, hz: 80},
-  {type: 'zombie', x: 71, z: 83, hx: 80, hz: 80},
+  /* 大厅·进门巡守(低级层+僵尸): 布防位与家锚全在厅北半——进场落点(南缘
+     80.5,92.5)到索敌圈(ADV_NEST_AGGRO_R=12, 语义在 adventure-core)之间留
+     安全缓冲, 传送落地默认不挨打(2026-10-30 用户反馈「刚传送门口2个苦力怕」:
+     旧表 (79,89) 距落点 3.8/(86,84) 距 10.1 开局即索敌, 且家锚=厅心收敛位
+     距落点 10.5 也入圈; 家锚北移厅北集结点后战斗从大厅中段路标以北开始) */
+  {type: 'creeper', x: 74, z: 76, hx: 80, hz: 72},
+  {type: 'creeper', x: 86, z: 78, hx: 80, hz: 72},
+  {type: 'creeper', x: 78, z: 71, hx: 80, hz: 72},
+  {type: 'creeper', x: 88, z: 73, hx: 80, hz: 72},
+  {type: 'zombie', x: 71, z: 83, hx: 80, hz: 72},
   /* 西翼·苦力怕巢 A/B(低级层大本营) */
   {type: 'creeper', x: 44, z: 87, hx: 46, hz: 88}, {type: 'creeper', x: 48, z: 90, hx: 46, hz: 88},
   {type: 'creeper', x: 46, z: 85, hx: 46, hz: 88}, {type: 'creeper', x: 49, z: 87, hx: 46, hz: 88},

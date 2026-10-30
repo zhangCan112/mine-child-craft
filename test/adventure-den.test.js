@@ -359,6 +359,20 @@ test('副本布防表: 全部怪落在所属房腔地板上 · 家锚=房心 · 
       '苦力怕王恰一位(关底 boss)');
 });
 
+test('副本布防表: 布防位与家锚收敛位都在进场落点索敌圈外(传送落地安全缓冲)', () => {
+  /* 2026-10-30 用户反馈「刚传送门口2个苦力怕」: 落点默认不在怪物攻击范围
+     是儿童红线。索敌=distP ≤ AGGRO_R(12); 收队聚齐=家锚 ± HOME_R(2)。
+     两口径对全表 28 只钉死——大厅北移之外, 未来加怪也进不了落点圈 */
+  for (const g of Dims.ADV_DEN_GUARDS) {
+    const dSpawn = Math.hypot(g.x + 0.5 - DEN.base.x, g.z + 0.5 - DEN.base.z);
+    assert.ok(dSpawn > Core.ADV_NEST_AGGRO_R,
+        g.type + ' 布防位在落点索敌圈外(' + g.x + ',' + g.z + ' d=' + dSpawn.toFixed(1) + ')');
+    const dHome = Math.hypot(g.hx - DEN.base.x, g.hz - DEN.base.z) - Core.ADV_NEST_HOME_R;
+    assert.ok(dHome > Core.ADV_NEST_AGGRO_R,
+        g.type + ' 家锚收敛位也在索敌圈外(收队聚齐同样索敌不到落点)');
+  }
+});
+
 test('副本波次节拍: 全清才计时 · 10s 到拍出波令 · 有怪活着计时归零(打完 10 秒刷新)', () => {
   assert.deepStrictEqual(Dims.advDenStep(false, 3, 1), {spawn: false, t: 0},
       '怪还活着: 计时归零(见怪即重数)');

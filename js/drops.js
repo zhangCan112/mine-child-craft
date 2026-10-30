@@ -114,9 +114,21 @@ const Drops = (() => {
   const BOB_W = 2.4; const BOB_A = 0.06; const SPIN_W = 0.9;
   const LIFE = 180; const REJECT_CD = 1.2; const SPRITE_SIZE = 0.55;
 
-  /* 悬浮线 = 脚下最高实心方块顶(groundTop+1)再抬 HOVER(贴地浮动) */
-  function restYAt(x, z) {
-    return groundTop(Math.floor(x), Math.floor(z)) + 1 + HOVER;
+  /* 悬浮线 = 脚下最高实心方块顶再抬 HOVER(贴地浮动)。脚下地面走
+     groundUnderAt 地下空间感知(mobs.js 同款判据, 2026-10-30 副本掉落回归修复):
+     副本巨洞是从岩体里掏的, 列顶 groundTop=穹顶岩壳——旧口径 restYAt 恒读列顶,
+     掉落物第一帧就被吸上穹顶外(击杀掉落/丢弃物瞬移失踪); 列顶 ≤ 脚+1.5 仍走
+     地表原语义(记忆化热点不动), 列顶远高于脚 → 从脚位向下扫描首个实心格顶 */
+  function groundUnderAt(x, z, refY) {
+    const bx = Math.floor(x); const bz = Math.floor(z);
+    const top = groundTop(bx, bz);
+    if (top <= refY + 1.5) return top;
+    let s = Math.min(Math.floor(refY), WORLD_H - 2);
+    for (; s > 0; s--) if (getBlock(bx, s, bz) !== 0) break;
+    return s;
+  }
+  function restYAt(x, z, refY) {
+    return groundUnderAt(x, z, refY) + 1 + HOVER;
   }
 
   /* ---------- 贴图: 按物品缓存共享(emoji 先上屏, 像素图就绪后换脸) ---------- */
@@ -194,7 +206,7 @@ const Drops = (() => {
     d.x += d.vx * dt;
     d.y += d.vy * dt;
     d.z += d.vz * dt;
-    const ry = restYAt(d.x, d.z);
+    const ry = restYAt(d.x, d.z, d.y);
     if (d.y <= ry && d.vy < 0) {
       d.y = ry;
       if (!d.bounced) {
@@ -277,7 +289,7 @@ const Drops = (() => {
       if (!d.grounded) {
         fallStep(d, dt);
       } else {
-        const ry = restYAt(d.x, d.z);
+        const ry = restYAt(d.x, d.z, d.y);
         if (ry < d.y - 0.3) { // 脚下方块被挖走 → 重新下落
           d.grounded = false;
           d.vy = 0;

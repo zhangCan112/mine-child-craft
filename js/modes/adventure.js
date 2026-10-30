@@ -987,14 +987,22 @@ function advOnKill(m) {/* 击杀观感(CombatKit.killBurst, nether 同源): 碎�
   }
 }
 
+/* 自爆残料概率(2026-10-30 用户拍板, 同日二次上调): 60% 掉 1 火药——自爆不再
+   两手空空, 但与击杀掉落区分开(击杀走 MOB_DROPS 保底 100% ≥1, 未自爆成功=稳拿)。
+   苦力怕王同走此掷(bomber 一族一口径; 王的击杀掉落 10 火药+钻石剑不受影响) */
+const ADV_BOOM_LOOT_P = 0.6;
+
 /* 苦力怕自爆结算(bomber 原型, 副本 §7): AOE 伤玩家(伤害走 advMobDmg 封顶
    通道, 与近战同一条儿童红线), 不拆方块——副本岩体是可探索空间不是矿场,
-   「爆炸开矿」的唯一出口仍是 TNT(D4 口径不松动); 自爆无掉落(MC 口径),
-   观感与 TNT 同一视觉语言(Fx.boom+boom 音) */
+   「爆炸开矿」的唯一出口仍是 TNT(D4 口径不松动); 自爆 30% 残料(用户拍板
+   见 ADV_BOOM_LOOT_P), 观感与 TNT 同一视觉语言(Fx.boom+boom 音) */
 function advCreepBoom(m, p) {
   const R = m.cfg.boomR || 2.6; /* 王座 3.4 / 常款 2.6(mob-registry fuseS/boomR) */
   Fx.boom(m.pos.x, m.pos.y + 0.9, m.pos.z, {r1: R + 1, n: 12});
   advSfx('boom');
+  if (Math.random() < ADV_BOOM_LOOT_P) {
+    Drops.spawn('gunpowder', 1, m.pos.x, m.pos.y + 0.8, m.pos.z); /* 落点=爆心(与击杀掉落同观感) */
+  }
   Mobs.remove(m); /* 自爆残躯立即移除(引擎回收管线, 竞技场同款) */
   const d = Math.hypot(p.pos.x - m.pos.x, p.pos.z - m.pos.z);
   if (!p.dead && d <= R && Math.abs(p.pos.y - m.pos.y) < 3) {

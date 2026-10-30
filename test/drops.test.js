@@ -417,3 +417,23 @@ test('交叉: MOB_DROPS 键 ⊆ MOB_TYPES(掉落表引用的怪种必须真实�
     assert.ok(h.MOB_TYPES[k], 'MOB_TYPES 应注册 ' + k);
   }
 });
+
+/* ============ 地下空间感知(2026-10-30 副本掉落回归修复, mobs.js groundUnderAt 同款) ============
+   副本巨洞是从岩体里掏的: 列顶 groundTop=穹顶岩壳——旧口径 restYAt 恒读列顶,
+   掉落物第一帧被吸上穹顶外(击杀掉落/丢弃物瞬移失踪, 用户实测「打了 N 个一个没掉」)。
+   修后列顶远高于掉落物时从脚位向下扫描, 贴脚下洞底; 地表语义(平地桩)不回归。 */
+
+test('壳: 地下空间感知 — 列顶远高于掉落物时贴脚下洞底(副本瞬移穹顶回归钉)', () => {
+  /* 副本地貌桩: 列顶恒 40(穹顶岩壳), y≤6 实心岩体、y7 起腔内全空 */
+  const h = loadDrops({groundTop: () => 40, getBlock: (x, y, z) => (y <= 6 ? 3 : 0)});
+  const e = h.Drops.spawn('gunpowder', 1, 10, 8, 10);
+  for (let i = 0; i < 240; i++) h.Drops.update(1 / 30, null);
+  assert.ok(Math.abs(e.y - 7.35) < 0.12,
+      '贴脚下洞底悬浮线 7.35(洞底顶+1+HOVER), 实测 ' + e.y.toFixed(2));
+  assert.ok(e.y < 20, '不瞬移穹顶(修前 restYAt=列顶+1 → 41.35), 实测 ' + e.y.toFixed(2));
+  /* 地表语义不回归: 平地桩(groundTop 11 ≤ 脚+1.5)悬浮线仍 12.35 */
+  const h2 = loadDrops({getBlock: () => 0});
+  const e2 = h2.Drops.spawn('gunpowder', 1, 10, 16, 10);
+  for (let i = 0; i < 240; i++) h2.Drops.update(1 / 30, null);
+  assert.ok(Math.abs(e2.y - 12.35) < 0.1, '地表悬浮线 12.35 不变, 实测 ' + e2.y.toFixed(2));
+});

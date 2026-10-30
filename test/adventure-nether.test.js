@@ -479,6 +479,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
       return listResultC;
     },
     steer() {}, move() {}, gait() {},
+    scaleTo() {}, pulseTint() {}, /* 引信膨胀/白闪(bomber 分支消费, 真库意图 API 窄面对齐) */
     debrisColor() {
       return 0x1a2b3c;
     },
@@ -1423,4 +1424,53 @@ test('C-DR 切界存档 pos: 维度不进档单点判据(nether/den 一致) — 
   AN.advSetDim('overworld');
   assert.ok(AN.getSaveView().world.pos && typeof AN.getSaveView().world.pos.x === 'number',
       '回主世界 pos 恢复进档(档面带坐标)');
+});
+
+
+/* ============ 副本掉落真世界集成(2026-10-30 D14 回归钉) ============
+   T14 掉落链路走的是 Drops 桩——物理不在断言面, 「打了 N 个一个没掉」
+   (drops.js 旧口径 restYAt 恒读列顶=副本穹顶岩壳, 掉落物第一帧被吸上穹顶外)
+   正是从这条缝漏出去的。本组用例走真 drops 引擎 + 真 den 世界(advSetDim 建场)。 */
+
+test('副本掉落真世界: 落点贴大厅洞底(不瞬移穹顶) — den-nest D14 集成回归', () => {
+  freshC();
+  AN.advSetDim('den');
+  /* 大厅进场落点上空撒一粒火药(击杀掉落同观感), 不喂玩家只跑物理 */
+  const e = Drops.spawn('gunpowder', 1, ADV_DEN.base.x, ADV_DEN.ground + 2, ADV_DEN.base.z);
+  for (let i = 0; i < 240; i++) Drops.update(1 / 30, null);
+  assert.ok(Math.abs(e.y - (ADV_DEN.ground + 1 + 0.35)) < 0.12,
+      '副本掉落贴大厅洞底悬浮线 y' + (ADV_DEN.ground + 1.35) + ', 实测 ' + e.y.toFixed(2));
+  AN.advSetDim('overworld');
+  Drops.clear();
+});
+
+test('副本自爆残料: 掷中(60%)掉 1 火药·未掷中不掉(ADV_BOOM_LOOT_P, 用户拍板 D14)', () => {
+  freshC();
+  AN.advSetDim('den');
+  globalThis.pos.x = ADV_DEN.base.x; globalThis.pos.y = ADV_DEN.ground + 1;
+  globalThis.pos.z = ADV_DEN.base.z; /* 落点站桩; 假怪在东侧 10 格(自爆波及圈外) */
+  const mkBoomCreep = () => ({type: 'creeper', dead: false, gone: false, nest: -1,
+    cfg: {boom: true, fuseS: 0.05, boomR: 2.6, dmg: 33, speed: 3, range: 2, cd: 9, h: 1.7, hitR: 0.5},
+    pos: {x: ADV_DEN.base.x + 10, y: ADV_DEN.ground + 1, z: ADV_DEN.base.z},
+    attackCd: 0, attackT: 0, __fuse: 0, __nightHome: {x: 90, z: 92}});
+  const origRnd = Math.random;
+  /* 掷中(0.1 < 0.6): 残料一粒, 落点=爆心(残躯移除前 spawn) */
+  listResultC = [mkBoomCreep()];
+  Math.random = () => 0.1;
+  AM.update(0.1);
+  Math.random = origRnd;
+  assert.ok(listResultC[0].gone, '引信到点自爆(残躯立即移除)');
+  const loot = Drops.list().filter((d) => d.id === 'gunpowder');
+  assert.strictEqual(loot.length, 1, '掷中残料: 火药恰一粒');
+  assert.strictEqual(loot[0].n, 1, '残料 1 个(与击杀保底口径区分)');
+  Drops.clear();
+  /* 未掷中(0.9 ≥ 0.6): 自爆无残料——击杀才有 100% 保底(儿童正反馈分界) */
+  listResultC = [mkBoomCreep()];
+  Math.random = () => 0.9;
+  AM.update(0.1);
+  Math.random = origRnd;
+  assert.ok(listResultC[0].gone, '同样自爆');
+  assert.strictEqual(Drops.list().filter((d) => d.id === 'gunpowder').length, 0, '未掷中不掉');
+  listResultC = [];
+  AN.advSetDim('overworld');
 });
