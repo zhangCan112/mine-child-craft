@@ -385,6 +385,8 @@ Object.assign(eng, {
 }
 Object.assign(eng, AdventureCore); /* 冒险纯核心常量表与政策纯函数(adventure-core) */
 Object.assign(eng, require('../js/adventure-maps-core.js')); /* 地图注册表(缓存实例) */
+Object.assign(eng, require('../js/adventure-dims-core.js')); /* 维度规格注册表(ADV_DIMS/advDimRow,
+   dimension-registry——壳层 ADV_SCENE_KEYS 加载期派生消费) */
 Object.assign(eng, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
   furnaceRefund: CraftCore.furnaceRefund});
 Object.assign(eng, {SHOWROOM: ShowroomCore.SHOWROOM, showroomPocket: ShowroomCore.showroomPocket,
@@ -1738,7 +1740,7 @@ test('体验馆 U3: 世界档 payload(真账本) — home 桶=派生条目 · �
   assert.strictEqual(p.dayTime, 0, '清晨起步');
   assert.deepStrictEqual(p.furnaces, [], '炉空');
   assert.deepStrictEqual(Object.keys(p.livestock).sort(),
-      ['desert', 'home', 'nether', 'snow', 'swamp'], '死畜五桶空账');
+      ['den', 'desert', 'home', 'nether', 'snow', 'swamp'], '死畜六桶空账(桶集随 ADV_DIMS 对齐, dimension-registry)');
 });
 
 test('体验馆 U3: dev store 丢弃语义 — 落盘面全 noop · mark 进内存账本 · 三档再读仍篡改', () => {

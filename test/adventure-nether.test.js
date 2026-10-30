@@ -34,6 +34,8 @@ const api = vm.runInContext(`({
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 
 const Core = require('../js/adventure-core.js');
+Object.assign(globalThis, Core); /* 上一层共享词法(adventure-maps-core.test 同款惯例): dims-core 加载/建场经全局名读 ADV_PORTAL 等 */
+const Dims = require('../js/adventure-dims-core.js'); /* 维度规格核心(dimension-registry): 下界段随迁至此 */
 
 /* ---------- 世界快照助手(对真 worldCells 断言, 与 adventure-core.test.js 同款) ---------- */
 const W = api.WORLD_W;
@@ -46,12 +48,12 @@ const snapshot = () => Buffer.from(vm.runInContext('worldCells', eng)); /* 逐�
 
 test('下界常量: ADV_PORTAL/ADV_NETHER 形状钉死(施工契约 §3.2 固定名)', () => {
   assert.deepStrictEqual(Core.ADV_PORTAL, {w: 6, h: 7, cd: 0.8}, '门框宽 6 高 7(内口 4×5)+冷却 0.8s');
-  assert.deepStrictEqual(Core.ADV_NETHER, {ground: 20, portal: {px: 24, pz: 24}, base: {x: 25.5, z: 30.5}},
+  assert.deepStrictEqual(Dims.ADV_NETHER, {ground: 20, portal: {px: 24, pz: 24}, base: {x: 25.5, z: 30.5}},
       '下界平地顶层/回程门位/下界落点');
 });
 
 test('下界门框: advPortalFrame 与退役前原版逐格一致(收集器 sink) + 关键构件抽点', () => {
-  const by = Core.ADV_NETHER.ground; const px = Core.ADV_NETHER.portal.px; const pz = Core.ADV_NETHER.portal.pz;
+  const by = Dims.ADV_NETHER.ground; const px = Dims.ADV_NETHER.portal.px; const pz = Dims.ADV_NETHER.portal.pz;
   const key = (x, y, z) => x + ',' + y + ',' + z;
   const cells = new Map();
   Core.advPortalFrame((x, y, z, id) => cells.set(key(x, y, z), id), by, px, pz);
@@ -120,9 +122,9 @@ test('下界门框: advPortalFrame 与退役前原版逐格一致(收集器 sink
 });
 
 test('下界建场: advNetherBuild 确定性重放(两遍逐字节一致) + 地层全下界岩 + 出生区无熔岩', () => {
-  const G = Core.ADV_NETHER.ground;
+  const G = Dims.ADV_NETHER.ground;
   vm.runInContext('worldCells.fill(0)', eng);
-  Core.advNetherBuild();
+  Dims.advNetherBuild();
   const a = snapshot();
   let bad = 0; /* 违规格计数: 熔岩只许在顶层且不进出生区 · 其余按层全下界岩/空气 */
   for (let y = 0; y < H; y++) {
@@ -155,13 +157,13 @@ test('下界建场: advNetherBuild 确定性重放(两遍逐字节一致) + 地�
   assert.ok(lava < (W - 44) * (D - 44) / 3, '熔岩不成海(阈值 0.93 的成片点缀)');
   /* 清场重建: 逐字节复现(SceneKit.rand 种子化, 零 Math.random — 确定性重放红线) */
   vm.runInContext('worldCells.fill(0)', eng);
-  Core.advNetherBuild();
+  Dims.advNetherBuild();
   assert.deepStrictEqual(snapshot(), a, '两次建场 worldCells 逐块一致');
 });
 
 test('下界内口判定: advInPortal 门面内 true(脚/头各一例), 门外/框柱旁/门楣 false', () => {
   vm.runInContext('worldCells.fill(0)', eng);
-  const by = Core.ADV_NETHER.ground; const px = Core.ADV_NETHER.portal.px; const pz = Core.ADV_NETHER.portal.pz;
+  const by = Dims.ADV_NETHER.ground; const px = Dims.ADV_NETHER.portal.px; const pz = Dims.ADV_NETHER.portal.pz;
   Core.advPortalFrame(api.setBlockRaw, by, px, pz); /* 场景基座同款接线: set 直传 setBlockRaw */
   const inP = (x, y, z) => Core.advInPortal(api.getBlock, x, y, z);
   assert.strictEqual(inP(px + 2.5, by + 1, pz + 0.5), true, '脚格在门面内');
@@ -505,6 +507,8 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
      加载序同构: adventure-core → maps-core → 壳) + 烧炼三件 + 三个壳级 kit 铺全局 */
   Object.assign(globalThis, Core);
   Object.assign(globalThis, require('../js/adventure-maps-core.js'));
+  Object.assign(globalThis, require('../js/adventure-dims-core.js')); /* 维度规格核心: 壳层读表
+     ADV_DIMS/advDimRow(index.html 加载序同构) */
   const CraftCoreC = require('../js/craft-core.js');
   Object.assign(globalThis, {SMELT_T: CraftCoreC.SMELT_T, smeltStep: CraftCoreC.smeltStep,
     furnaceRefund: CraftCoreC.furnaceRefund});
@@ -603,8 +607,8 @@ test('C1 切界: advSetDim 下界基座(下界岩+回程门内口) + dayCycleOn 
   assert.strictEqual(AN.advNetherState().dim, 'nether', '维度账本翻到 nether');
   assert.strictEqual(apiC.getBlock(10, 10, 10), apiC.B_NETHERRACK, '地层全下界岩');
   assert.strictEqual(globalThis.dayCycleOn, false, 'D10: 昼夜循环关(dayTime 暂停)');
-  const px = Core.ADV_NETHER.portal.px; const pz = Core.ADV_NETHER.portal.pz;
-  const by = Core.ADV_NETHER.ground;
+  const px = Dims.ADV_NETHER.portal.px; const pz = Dims.ADV_NETHER.portal.pz;
+  const by = Dims.ADV_NETHER.ground;
   assert.strictEqual(apiC.getBlock(px + 2, by + 1, pz), apiC.B_PORTAL, '回程门内口底行是门面');
   assert.strictEqual(apiC.getBlock(px + 3, by + 5, pz), apiC.B_PORTAL, '回程门内口顶行是门面');
   assert.strictEqual(mobsSpawnedC.length, 0, '切界清怪(下界无怪, 上界巢穴怪不渗入)');
@@ -632,8 +636,8 @@ test('C2 传送触发: 站进玩家门的门面 → 切下界 + 冷却期再站�
   assert.ok(Math.abs(ex.x - (spot.x + 2.5)) < 1e-9, '出口 x=来向退 2.5(yaw=0 前向 +z)');
   assert.ok(Math.abs(ex.z - (spot.z + 0.5 - 2.5)) < 1e-9, '出口 z 沿来向后退 2.5');
   /* 冷却期内站进下界回程门门面: 被吞(不回弹) */
-  stepIntoPortal(Core.ADV_NETHER.portal.px + 2.5, Core.ADV_NETHER.ground + 1,
-      Core.ADV_NETHER.portal.pz + 0.5, Math.PI);
+  stepIntoPortal(Dims.ADV_NETHER.portal.px + 2.5, Dims.ADV_NETHER.ground + 1,
+      Dims.ADV_NETHER.portal.pz + 0.5, Math.PI);
   assert.strictEqual(AN.advNetherState().dim, 'nether', '冷却期内再触发被吞');
   /* 冷却耗尽仍站在回程门面 → 回上界, 落在自家门旁的 advExitSpot */
   AM.update(0.9);
@@ -737,9 +741,9 @@ test('C7 多门回程: 最后进入的门优先——门A记录被门B按次序�
   const e1 = AN.advNetherState().exitSpot;
   assert.ok(Math.abs(e1.z - (spotA.z - 2)) < 1e-9, '门A的出口记录');
   /* 回上界 → 进门 B(yaw=π/2): 出口记录换成门B的(最后进入者优先, 不残留门A) */
-  globalThis.pos.x = Core.ADV_NETHER.portal.px + 2.5;
-  globalThis.pos.y = Core.ADV_NETHER.ground + 1;
-  globalThis.pos.z = Core.ADV_NETHER.portal.pz + 0.5;
+  globalThis.pos.x = Dims.ADV_NETHER.portal.px + 2.5;
+  globalThis.pos.y = Dims.ADV_NETHER.ground + 1;
+  globalThis.pos.z = Dims.ADV_NETHER.portal.pz + 0.5;
   AM.update(0.9); /* 冷却尽 + 站在回程门面 → 回上界 */
   assert.strictEqual(AN.advNetherState().dim, 'overworld', '回上界(前提)');
   stepIntoPortal(spotB.x + 2.5, 25, spotB.z + 0.5, Math.PI / 2); /* 摆位门B(回程冷却窗内, 本帧被吞) */
@@ -749,9 +753,9 @@ test('C7 多门回程: 最后进入的门优先——门A记录被门B按次序�
       '门B的出口记录(yaw=π/2 前向 +x, 退 2.5)');
   assert.ok(Math.abs(e1.x - e2.x) > 1 || Math.abs(e1.z - e2.z) > 1, '两门出口不同(记录确已换人)');
   /* 再回上界: 落门B旁, 不是门A旁 */
-  globalThis.pos.x = Core.ADV_NETHER.portal.px + 2.5;
-  globalThis.pos.y = Core.ADV_NETHER.ground + 1;
-  globalThis.pos.z = Core.ADV_NETHER.portal.pz + 0.5;
+  globalThis.pos.x = Dims.ADV_NETHER.portal.px + 2.5;
+  globalThis.pos.y = Dims.ADV_NETHER.ground + 1;
+  globalThis.pos.z = Dims.ADV_NETHER.portal.pz + 0.5;
   AM.update(0.9);
   assert.ok(Math.abs(globalThis.pos.x - spotB.x) < 1e-9, '回程落门B旁(最后进入者优先)');
 });
@@ -1381,3 +1385,15 @@ test('审查修复 P4: 史莱姆夜刷水边门 — 水洼旁放行 · 远水点
 });
 
 
+/* ============ 维度存档 pos 锁(dimension-registry D8 修复回归) ============ */
+
+test('C-DR 切界存档 pos: 维度不进档单点判据(nether/den 一致) — den-nest D8 补锁', () => {
+  AN.advSetDim('nether');
+  assert.strictEqual(AN.getSaveView().world.pos, null, '下界期间 pos 不进档(nether-merge D9)');
+  AN.advSetDim('den');
+  assert.strictEqual(AN.getSaveView().world.pos, null,
+      '副本期间 pos 不进档(den-nest D8——修前只判 nether, den 坐标落档重进困在主世界岩层)');
+  AN.advSetDim('overworld');
+  assert.ok(AN.getSaveView().world.pos && typeof AN.getSaveView().world.pos.x === 'number',
+      '回主世界 pos 恢复进档(档面带坐标)');
+});

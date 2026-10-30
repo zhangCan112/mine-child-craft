@@ -360,9 +360,14 @@ function showroomWorldEdits() {/* 缓存面(装配入口): 首次调用算一次
    title)与壳内存档视图同形。宝箱档 {size, slots} 满长槽数组(顶格+预填)。
    ============================================================ */
 
-function showroomSceneKeys() {/* 分桶键全集: 地图注册表派生(ADV_MAPS 同款口径); 无注册表环境回落固定五桶 */
-  return (typeof ADV_MAPS !== 'undefined') ?
-    ADV_MAPS.map((r) => r.id).concat(['nether']) : ['home', 'desert', 'snow', 'swamp', 'nether'];
+function showroomSceneKeys() {/* 分桶键全集: 两注册表派生(ADV_MAPS+ADV_DIMS, dimension-registry
+    同口径, 2026-10-30 补 den 桶——原先漏抄, 靠壳 decode 归一兜住; 回落清单须与
+    ADV_DIMS 键集同步); 无注册表环境回落固定清单 */
+  if (typeof ADV_MAPS !== 'undefined') {
+    const dims = (typeof ADV_DIMS !== 'undefined') ? ADV_DIMS.map((r) => r.id) : ['nether', 'den'];
+    return ADV_MAPS.map((r) => r.id).concat(dims);
+  }
+  return ['home', 'desert', 'snow', 'swamp', 'nether', 'den'];
 }
 
 function showroomEmptyBuckets() {/* 五桶空账本(edits/livestock 共用的桶形): 键集随注册表, 只增不减 */

@@ -12,6 +12,7 @@
    · 下界相位/传送门 → docs/nether-merge-design.md
    · 多地图远征/门阵 → docs/adventure-maps-design.md
    · 怪物巢穴副本(黑巢/den 维度/夜袭涌出) → docs/den-nest-design.md
+   · 维度规格注册表(ADV_DIMS: 下界/副本切界政策一行注册) → docs/dimension-registry-design.md
    · 昼夜·夜怪·床·灯笼 → docs/mc-daylight-torch-design.md §2/§6/§7/§8
    · 统一冒险壳/dev profile → docs/adventure-shell-unification-design.md(ADR 0005)
    现行行为速览(逐特性细节见上列设计稿与 GLOSSARY「探险模式」「冒险地图」
@@ -70,8 +71,8 @@
    nests/nightPool, advSetMap 在此换装(行内容见 js/adventure-maps-core.js) */
 let advMapRow = ADV_HOME_ROW;
 let advMap = 'home'; /* 当前主世界图(advSetMap 唯一入口; nether 期间保持最后主世界图) */
-const ADV_SCENE_KEYS = ADV_MAPS.map((r) => r.id).concat(['nether', 'den']); /* 分桶键全集(注册表派生
-    + nether 下界 + den 巢穴副本, den-nest D8) */
+const ADV_SCENE_KEYS = ADV_MAPS.map((r) => r.id).concat(ADV_DIMS.map((r) => r.id)); /* 分桶键全集(两注册表
+    派生: 地图行 ADV_MAPS + 维度行 ADV_DIMS, den-nest D8——新维度自动跟随零手抄) */
 const ADV_WATER_ALL_DEFAULT = [BLOCKS[B_WATER].all[0], BLOCKS[B_WATER].all[1],
   BLOCKS[B_WATER].all[2]]; /* 水色缺省(cleanup 复位, 不渗其他模式; 逐元素抄=宿主域数组) */
 const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
@@ -149,11 +150,12 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
   /* v3(2026-10-28 剪羊毛): livestock 桶增剪毛账 sheared({初始畜索引: 剪毛时刻
      dayTime}; 繁育畜剪毛时刻挂 bred 条目上)——跨天长回判据的持久化半边 */
   defaults: {edits: [], map: 'home', pos: null, hp: null, furnaces: [],
-    livestock: {home: {dead: [], bred: [], sheared: {}}, desert: {dead: [], bred: [], sheared: {}},
-      snow: {dead: [], bred: [], sheared: {}}, swamp: {dead: [], bred: [], sheared: {}},
-      nether: {dead: [], bred: [], sheared: {}}},
+    livestock: ADV_SCENE_KEYS.reduce((o, k) => {/* 桶集注册表派生(加维度零手抄) */
+      o[k] = {dead: [], bred: [], sheared: {}};
+      return o;
+    }, {}),
     oreRegen: {}, dayTime: 0},
-  /* livestock defaults 自带五桶全键: 无档路径 clone(defaults) 不经 decode
+  /* livestock defaults 桶集从 ADV_SCENE_KEYS 派生: 无档路径 clone(defaults) 不经 decode
      (save-slot load 语义), 半形状 defaults 会让播种读 undefined 桶——
      形状必须两条路径都成立 */
   encode: (st) => ({edits: advSceneEditsEncode(st.edits),
@@ -165,7 +167,8 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     oreRegen: st.oreRegen || {},
     dayTime: (typeof st.dayTime === 'number') ? st.dayTime : 0}),
   decode: (sv) => ({edits: advSceneEditsDecode(sv), /* 桶归一(三档型兼容, 幂等) */
-    map: ADV_SCENE_KEYS.indexOf(sv.map) >= 0 && sv.map !== 'nether' ? sv.map : 'home', /* 坏键兜底 home */
+    map: ADV_MAPS.some((r) => r.id === sv.map) ? sv.map : 'home',
+    /* 坏键兜底 home(map 键权威=ADV_MAPS 行, 维度键不在此域——dimension-registry) */
     pos: sv.pos || null,
     hp: (typeof sv.hp === 'number') ? sv.hp : null,
     furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1]))), /* 非法炉态整条拒收 */
@@ -208,17 +211,19 @@ const advJournal = mkWorldJournal(advWorldSlot, {
       由 init/advSetMap/advSetDim/cleanup 四处换装维持)——mark/flush 记的账
       自动落在当前桶里, 各图互不串档(T6 分桶红线) */
     edits: advSceneEdits,
-    map: advMap, /* 当前主世界图键(nether 期间保持最后主世界图) */
-    pos: advDim === 'nether' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw}, /* D9 */
+    map: advMap, /* 当前主世界图键(nether/den 期间保持最后主世界图) */
+    pos: advDim !== 'overworld' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw},
+    /* 维度不进档(nether D9+den D8 单点判据, dimension-registry §2) */
     hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, oreRegen: advOreRegen, dayTime}),
   onFlush: () => {/* 伴随联写经存档 store 缝: U3 换装 dev store 后三档联写自动跟丢弃语义 */
     advStore.saveBag(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
     advStore.saveQuest(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
   },
 });
-let advLivestockAll = {home: {dead: [], bred: [], sheared: {}}, desert: {dead: [], bred: [], sheared: {}},
-  snow: {dead: [], bred: [], sheared: {}}, swamp: {dead: [], bred: [], sheared: {}},
-  nether: {dead: [], bred: [], sheared: {}}, den: {dead: [], bred: [], sheared: {}}};
+let advLivestockAll = ADV_SCENE_KEYS.reduce((o, k) => {/* 牧场账按图/维度分桶(档形 v3; init 从世界档换装; 桶集注册表派生零手抄) */
+  o[k] = {dead: [], bred: [], sheared: {}};
+  return o;
+}, {});
 /* 牧场账按图分桶(档形 v3; init 从世界档换装): dead=初始死畜索引(只增不减,
     初始清单可推导); bred=繁育账 [{k: 怪物键, b: 出生日'Y-M-D', sheared?: 剪毛
     时刻}](死亡=除名); sheared=初始畜剪毛账 {索引: 剪毛时刻 dayTime}(长回=销账);
@@ -1196,11 +1201,9 @@ function advPlayerDied() {
     advToast('💀 不怕不怕，满血原地重来！');
     return;
   }
-  if (advDim === 'nether') {/* D11: 下界死亡顺带切回上界(小屋语义, 不用 advPortalExit);
-      advExitSpot 作废——人已死, 回程记录无意义 */
-    advExitSpot = null;
-    advSetDim('overworld', ADV.spawn);
-  } else if (advDim === 'den') {/* D14: 副本死亡同样顺带切回主世界(回家语义) */
+  if (advDim !== 'overworld') {/* D11/D14: 下界/副本死亡同一条——顺带切回主世界(小屋语义,
+      不用 advPortalExit); advExitSpot 作废——人已死, 回程记录无意义。判据单点
+      「维度不进档」(dimension-registry §2) */
     advExitSpot = null;
     advSetDim('overworld', ADV.spawn);
   } else if (advMap !== 'home') {/* T6(§2.2/§10拍板②): 远征图死亡切回 home(满血+小屋,
@@ -1560,12 +1563,11 @@ const ADV_B = {
   spawner: (typeof B_SPAWNER !== 'undefined') ? B_SPAWNER : 0, /* 怪物巢穴之心(den-nest D9; 精简装载缺 0=入口判定静默) */
 };
 
-/* ---------- 天空(观感逐字迁自退役 nether.js, 改名对齐本文件 ADV_ 前缀) ----------
-     暗红天穹+近雾+压暗日光一眼是下界, 回上界恢复 world.js 初始天蓝; 纯渲染态,
-     Node/无渲染场景静默跳过; 日月天体显隐归 dayCycleOn(下界不置位即隐藏) */
-const ADV_SKY_NETHER = {color: 0x2a0a08, fogNear: 26, fogFar: 120, sunI: 0.3};
+/* ---------- 天空(主世界口径; 下界/副本天穹在维度行 ADV_DIMS[].sky) ----------
+     维度天穹参数走维度注册表(2026-10-30 迁出本文件); 纯渲染态, Node/无渲染
+     场景静默跳过; 日月天体显隐归 dayCycleOn(维度行不置位即隐藏) */
 const ADV_SKY_OVER = {color: 0x8fc7ff, fogNear: 90, fogFar: 230, sunI: 0.75};
-const ADV_SKY_DEN = {color: 0x07040a, fogNear: 18, fogFar: 80, sunI: 0.12}; /* 巢穴副本恒暗近黑(den-nest §3.2) */
+/* 下界/副本天穹参数已迁维度行 ADV_DIMS[].sky(js/adventure-dims-core.js, 2026-10-30) */
 function advApplySky(k) {
   if (typeof scene === 'undefined' || !scene.fog) return;
   scene.background.set(k.color);
@@ -1581,7 +1583,7 @@ function advApplySky(k) {
      setSkyBase 缝(昼夜插值仍走 Daylight/applyDaylight, 只换白日端点,
      设计 §2.1), 水色写 BLOCKS[B_WATER].all(纯色方块, 须在 loadScene 前
      换——网格重建烘色), 雾距/日光沿用主世界口径。home 行与全局缺省逐字节
-     同值(观感零变化); nether 不走此缝(ADV_SKY_NETHER 口径不变) */
+      同值(观感零变化); 维度不走此缝(ADV_DIMS[].sky 口径不变) */
 function advApplyMapRow(row) {
   advMapRow = row;
   ADV.nests = row.nests; /* 常量视图跟行(测试面 ADV.nests 与池权威一致) */
@@ -1771,8 +1773,8 @@ function advNightReset() {/* 夜怪账本对齐当下(昼夜 D5): 节拍器归�
 
 /* ---------- 场景 BGM 情绪(2026-10-27 换曲) ----------
    mode-registry 的 adventure 是基线; 真正播什么由维度×昼夜决定:
-   下界=nether · 上界夜=night · 上界昼=adventure(纯映射在 adventure-core
-   的 advMusicMood)。advMood 是已报给 AudioMixer 的缓存 — 同值不重复报,
+   下界/副本=维度行 mood · 上界夜=night · 上界昼=adventure(纯映射
+   advMusicMood 在 adventure-dims-core 读维度行)。advMood 是已报给 AudioMixer 的缓存 — 同值不重复报,
    换值才触发 1.2s 淡出 + 1.5~4s 后新曲。 */
 let advMood = null; /* null = 本场尚未同步(首帧 update 必报一次) */
 function advSyncMood() {
@@ -1851,38 +1853,26 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
   if (dim === advDim) return;
   advDim = dim; /* advMap 不动: 副本/下界期间保持最后主世界图(T6) */
   advSceneLeave();
-  if (dim === 'nether') {
-    loadScene(() => {/* 下界基座: 平地+熔岩池+固定回程门(不记账——互锁红线) + 下界桶重放 */
-      advNetherBuild();
-      advPortalFrame(setBlockRaw, ADV_NETHER.ground, ADV_NETHER.portal.px, ADV_NETHER.portal.pz);
+  const drow = advDimRow(dim);
+  if (drow) {/* 维度相位(下界/巢穴副本): 建场序列/天穹/昼夜/落点全读维度行
+      (ADV_DIMS 行=切界政策唯一权威, docs/dimension-registry-design.md);
+      den 专属步(节拍器复位/首刷)是「不进表」清单刻意留壳的真差异(§5) */
+    loadScene(() => {/* 基座建场直写不记账——互锁红线; 建场序列含维度差异:
+        nether 的回程门框/den 的矿位白名单先清后建都收在行 build 闭包 */
+      drow.build();
       advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
-      advFurnaceSettle('nether'); /* 'n|' 炉键此时才有块可对(D14) */
-      advRescanStations(); /* 站点缓存只反映当前场景(读当前桶) */
+      advRescanStations(); /* 站点缓存只反映当前场景(读当前桶); 与炉键核销分属
+          advStations/advFurnaces 两不相交的状态, 先后次序无观测差 */
+      advFurnaceSettle(dim); /* 维度炉键('n|'/'k|')此时才有块可对(D14 泛化) */
     });
-    advApplySky(ADV_SKY_NETHER); /* 暗红天穹: 一眼就知道到了下界 */
-    dayCycleOn = false; /* D10: dayTime 暂停 + 恒夜(日月天体随之隐藏) */
-    setPlayerGlow(false); /* 灯笼随身光熄灭(下界不亮不耗, 门禁见 update) */
+    advApplySky(drow.sky); /* 暗红/近黑天穹: 行参数, 一眼就知道到了哪个维度 */
+    dayCycleOn = drow.dayCycle; /* 维度恒停 dayTime(日月天体随之隐藏, D10/D6) */
+    setPlayerGlow(false); /* 灯笼随身光熄灭(维度不亮不耗, 门禁见 update) */
     advLanternT = 0; /* 耗秒累计器归零(回主世界从整秒重新累计) */
-    ModeKit.spawn(ADV_NETHER.base.x, ADV_NETHER.ground + 1, ADV_NETHER.base.z,
-        {yaw: Math.PI}); /* 落点在回程门前数格, 面朝下界背对门(走出即离开门) */
+    if (dim === 'den') advDenT = 0; /* 副本刷怪节拍器复位(den 专属, 不进表) */
+    ModeKit.spawn(drow.spawn.x, drow.spawn.y, drow.spawn.z, {yaw: drow.spawn.yaw}); /* 行落点(结构常量派生) */
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
-  } else if (dim === 'den') {
-    loadScene(() => {/* 副本基座: 地下巨洞+祭坛+回程门+矿藏廊(不记账——互锁红线) + den 桶重放 */
-      advOreSpotsReset(); /* 矿位白名单先清后建(副本矿藏走同一白名单, 回填在副本同样生效) */
-      advDenBuild();
-      advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
-      advRescanStations(); /* 站点缓存只反映当前场景(读当前桶) */
-      advFurnaceSettle('den'); /* 'k|' 炉键此时才有块可对(D14 泛化) */
-    });
-    advApplySky(ADV_SKY_DEN); /* 近黑天穹+近雾: 黑暗深处(den-nest §3.2) */
-    dayCycleOn = false; /* D6: 副本恒暗, dayTime 暂停(下界 D10 同口径) */
-    setPlayerGlow(false); /* 灯笼随身光熄灭(地下无昼夜, 门禁见 update) */
-    advLanternT = 0;
-    advDenT = 0; /* 副本刷怪节拍器复位 */
-    ModeKit.spawn(ADV_DEN.base.x, ADV_DEN.ground + 1, ADV_DEN.base.z,
-        {yaw: Math.PI}); /* 落点大厅南侧开阔区, 面朝北一眼看到祭坛 */
-    setFly(false);
-    advDenSeed(); /* 副本怪首刷(守卫在场, 节拍器补员) */
+    if (dim === 'den') advDenSeed(); /* 副本怪首刷(守卫在场, 节拍器补员; den 专属) */
   } else {
     loadScene(() => {/* 主世界基座确定性重建(当前地图行 build) + 当前桶重放; 不跑
         applySweep——那是 init 旧档治愈专用, 切回来的世界本来就是干净的 */
@@ -1945,11 +1935,12 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
 /* ============================================================
    怪物巢穴副本壳段 (den-nest-design §3) — 副本刷怪/入口站桩/涌出接线
    ------------------------------------------------------------
-   副本 = 探险第三维度 advDim 'den'(切界装配在 advSetDim den 分支):
-   节拍/光照门/掷点/取种纯函数在 adventure-core 巢穴副本段(ADV_DEN),
-   本段只做落地: 祭坛环带刷怪(家锚=祭坛, advMobAI leash 复用) + 主世界
-   黑巢巢厅巢之心(B_SPAWNER)的入口站桩 + 夜间巢口涌出(涌出节拍纯函数
-   advEruptStep, 落地挂在缺省夜怪铺法 advNightLayRing 尾部)。
+   副本 = 探险第三维度 advDim 'den'(切界装配读维度行 ADV_DIMS, 见
+   advSetDim): 节拍/光照门/掷点/取种纯函数在 adventure-dims-core
+   (ADV_DEN 副本段), 本段只做落地: 祭坛环带刷怪(家锚=祭坛, advMobAI
+   leash 复用) + 主世界黑巢洞口紫门的入口站桩 + 夜间巢口涌出(涌出节拍
+   纯函数 advEruptStep 亦在 adventure-dims-core, 落地挂在缺省夜怪铺法
+   advNightLayRing 尾部)。
    ============================================================ */
 let advDenT = 0; /* 副本刷怪节拍器(秒, advDenStep 的状态; advSetDim den 分支复位) */
 function advDenAlive() {/* 副本怪存量(advNightAlive 同口径: 尸体/已移除/动物不算) */
@@ -3254,24 +3245,14 @@ function advHudLines(hit) {
   const qTxt = q ? q.icon + ' ' + q.goal + ' ' + Math.min(q.prog(ADV.quest.counts), q.target) + '/' + q.target :
       (ADV.quest.title ? '🏅 ' + ADV.quest.title : '全部完成 🎉');
   const alive = Mobs.list().filter((m) => !m.dead && !m.gone && !m.cfg.passive).length; /* F4: 牧场动物不算怪物 */
-  if (advDim === 'nether') {/* 下界态(§3.3/D10): 首行换下界横幅; 不显白日/夜历(恒夜,
-      dayTime 已暂停, 时段行无信息); 怪物行也隐——下界无怪, 恒 0 徒增困惑 */
+  const drow = advDimRow(advDim);
+  if (drow) {/* 维度态(下界/副本, 读维度行): 首行换行横幅; 不显时段行(维度恒停
+      dayTime, 时段行无信息); 怪物行按行显隐——下界无怪恒 0 徒增困惑, 副本照显(配额观感) */
     return [
-      '🌌 下界 · 黑漆漆亮晶晶',
+      drow.hud.banner,
       `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
       `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
-      `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
-      `📖 任务: ${qTxt}`,
-      `注视: ${ModeKit.lookName(hit)} · B 菜单`,
-    ];
-  }
-  if (advDim === 'den') {/* 副本态(den-nest §3.2): 首行换巢穴横幅; 恒暗不显时段行,
-      怪物行照显(副本有怪——配额观感) */
-    return [
-      '🕳️ 怪物巢穴 · 黑暗深处',
-      `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
-      `位置: ${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)}`,
-      `👾 怪物: ${alive} · ☠️ 击杀: ${ADV.killCount}`,
+      ...(drow.hud.showMobs ? [`👾 怪物: ${alive} · ☠️ 击杀: ${ADV.killCount}`] : []),
       `🎒 背包: Tab / 🎒 · 手上: ${s ? ((ITEMS[s.id] && ITEMS[s.id].name) || s.id) : '空手'}`,
       `📖 任务: ${qTxt}`,
       `注视: ${ModeKit.lookName(hit)} · B 菜单`,
@@ -3678,7 +3659,7 @@ function advSaveView() {/* 四份存档的可断言快照(只读缝): 与 journa
   return {
     world: {edits: advSceneEditsEncode(advSceneEdits),
       map: advMap,
-      pos: advDim === 'nether' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw},
+      pos: advDim !== 'overworld' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw}, /* 维度不进档(与 journal payload 同判据) */
       hp: ADV.player.hp, furnaces: advFurnaceClean(advFurnaces), livestock: advLivestockAll, dayTime},
     quest: {step: ADV.quest.step, counts: ADV.quest.counts, title: ADV.quest.title,
       firstNight: ADV.quest.firstNight},

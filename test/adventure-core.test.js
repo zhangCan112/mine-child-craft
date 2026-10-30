@@ -975,13 +975,6 @@ test('昼夜 D5 advDawnSweep: internalSky(15)≥12(= skyDim≤3) 黎明谓词(�
   assert.strictEqual(Core.advDawnSweep(12400), true, '黄昏早期 dim≤3 也为 true——跨沿取上升沿归壳层, 此处只给谓词');
 });
 
-test('场景 BGM advMusicMood: 下界=nether · 上界夜=night · 上界昼=adventure', () => {
-  assert.strictEqual(Core.advMusicMood('overworld', false), 'adventure', '上界白天');
-  assert.strictEqual(Core.advMusicMood('overworld', true), 'night', '上界夜晚');
-  assert.strictEqual(Core.advMusicMood('nether', false), 'nether', '下界恒 nether');
-  assert.strictEqual(Core.advMusicMood('nether', true), 'nether', '下界不随昼夜变');
-});
-
 /* ============ 昼夜 D6: 床·睡觉政策纯函数(设计稿 §7.2) ============ */
 
 test('D6 睡觉政策(时钟改版): advSleepCheck 一条件制 — 床 8 格内无活怪(passive 不算怪); 夜窗已撤销', () => {

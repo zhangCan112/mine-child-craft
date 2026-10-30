@@ -201,8 +201,8 @@ test('供给核心: SHOWROOM 布局常量在位(v2 值原样迁入) · dev 布�
 
 test('供给核心: 世界档 payload — 五桶 edits(home=注入条目) · 房内出生 · 满血清晨(decode 输入形状)', () => {
   const p = Core.showroomWorldPayload([['48,24,44', 6], ['50,25,50', 54]]); /* 注入条目: 纯形状面不跑世界仿真 */
-  assert.deepStrictEqual(Object.keys(p.edits).sort(), ['desert', 'home', 'nether', 'snow', 'swamp'],
-      'edits 五桶齐(键=场景键集)');
+  assert.deepStrictEqual(Object.keys(p.edits).sort(), ['den', 'desert', 'home', 'nether', 'snow', 'swamp'],
+      'edits 六桶齐(键=场景键集, 桶集随 ADV_DIMS 对齐——dimension-registry)');
   assert.deepStrictEqual(p.edits.home, [['48,24,44', 6], ['50,25,50', 54]], 'home 桶=注入条目原样');
   for (const k of ['desert', 'snow', 'swamp', 'nether']) {
     assert.deepStrictEqual(p.edits[k], [], k + ' 空桶');
@@ -214,8 +214,8 @@ test('供给核心: 世界档 payload — 五桶 edits(home=注入条目) · 房
   assert.strictEqual(p.pos.yaw, Core.SHOWROOM.spawn.yaw, '朝向随常量');
   assert.strictEqual(p.hp, 30, '满血(冒险玩家 30/30 口径)');
   assert.deepStrictEqual(p.furnaces, [], '炉空');
-  assert.deepStrictEqual(Object.keys(p.livestock).sort(), ['desert', 'home', 'nether', 'snow', 'swamp'],
-      '死畜五桶空账');
+  assert.deepStrictEqual(Object.keys(p.livestock).sort(), ['den', 'desert', 'home', 'nether', 'snow', 'swamp'],
+      '死畜六桶空账(桶集随 ADV_DIMS 对齐)');
   assert.strictEqual(p.dayTime, 0, '清晨起步');
 });
 

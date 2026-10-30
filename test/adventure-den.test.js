@@ -1,5 +1,6 @@
 'use strict';
-/* 怪物巢穴副本 (js/adventure-core.js 黑巢/巢穴副本段, docs/den-nest-design.md) 单测
+/* 怪物巢穴副本 单测: 黑巢 POI=js/adventure-core.js; 巢穴副本段=js/adventure-dims-core.js
+   (维度规格核心, docs/den-nest-design.md + dimension-registry-design.md)。
    运行: node --test test/adventure-den.test.js
    独立文件先例(nether-merge D16): 不塞 160KB 的 adventure-mode.test.js。
    真引擎件 vm 装载(adventure-core.test 同款惯例)直测: 黑巢建场(巨丘/洞道/
@@ -32,6 +33,8 @@ const api = vm.runInContext(`({
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 
 const Core = require('../js/adventure-core.js');
+Object.assign(globalThis, Core); /* 上一层共享词法(adventure-maps-core.test 同款惯例): dims-core 建场经全局名消费 advTryOre 等 */
+const Dims = require('../js/adventure-dims-core.js'); /* 维度规格核心(dimension-registry): 巢穴副本段随迁至此 */
 
 const W = api.WORLD_W;
 const D = api.WORLD_D;
@@ -50,7 +53,7 @@ const colTop = (x, z) => {
 const snapshot = () => Buffer.from(vm.runInContext('worldCells', eng));
 const clearWorld = () => vm.runInContext('worldCells.fill(0)', eng);
 const DN = Core.ADV_NESTS[3]; /* 黑巢行(巢之心坐标派生锚) */
-const DEN = Core.ADV_DEN;
+const DEN = Dims.ADV_DEN;
 
 /* ============ 主世界 · 黑巢建场 ============ */
 
@@ -146,16 +149,16 @@ test('黑巢门口刷怪池: den 行进 ADV_NESTS(巢穴机制照跑) + 池主�
 
 test('副本建场: 全图确定性(两次生成逐字节一致, 确定性重放红线)', () => {
   clearWorld();
-  Core.advDenBuild();
+  Dims.advDenBuild();
   const a = snapshot();
   clearWorld();
-  Core.advDenBuild();
+  Dims.advDenBuild();
   assert.deepStrictEqual(a, snapshot(), '两次建场 worldCells 逐块一致');
 });
 
 test('副本结构: 大厅净空+地面/祭坛巢之心+黑曜石柱/穹顶遮天/回程裂隙门', () => {
   clearWorld();
-  Core.advDenBuild();
+  Dims.advDenBuild();
   /* 大厅: 地面层实心、净空到穹顶渐降(中央 y38) */
   assert.notStrictEqual(cell(DEN.hall.cx, DEN.ground, DEN.hall.cz), 0, '厅心地面实心(苔石/泥混铺)');
   assert.strictEqual(cell(DEN.altar.x - 1, DEN.ground + 1, DEN.altar.z - 1), 14, '祭坛 3×3 苔石台(角格)');
@@ -173,7 +176,7 @@ test('副本结构: 大厅净空+地面/祭坛巢之心+黑曜石柱/穹顶遮�
 
 test('副本矿藏廊: 走廊连通 + 两矿腔分矿种镶矿 + 宝箱室(任务键同源坐标)', () => {
   clearWorld();
-  Core.advDenBuild();
+  Dims.advDenBuild();
   /* 东墙洞口+走廊连通大厅与矿腔区(x 92..112, z 79..81 净空) */
   assert.strictEqual(cell(DEN.hall.cx + DEN.hall.r, DEN.ground + 2, DEN.altar.z), 0, '东墙洞口');
   assert.strictEqual(cell(105, DEN.ground + 2, DEN.altar.z), 0, '走廊中段');
@@ -203,7 +206,7 @@ test('副本矿藏廊: 走廊连通 + 两矿腔分矿种镶矿 + 宝箱室(任�
 test('副本白名单: 矿腔镶矿进矿位账(跨天回填在副本同样生效)', () => {
   clearWorld();
   Core.advOreSpotsReset(); /* 壳层 advBuildScene 同款先清后建(白名单是建场期累积账) */
-  Core.advDenBuild();
+  Dims.advDenBuild();
   assert.ok(Core.advOreSpots.length > 50, '副本镶矿逐位记账(advTryOre 白名单)');
   for (const s of Core.advOreSpots) {
     assert.strictEqual(cell(s.x, s.y, s.z), s.id, '白名单格与世界一致(' + s.x + ',' + s.y + ',' + s.z + ')');
@@ -215,26 +218,26 @@ test('副本白名单: 矿腔镶矿进矿位账(跨天回填在副本同样生�
 
 test('副本刷怪: 节拍到拍出单/配额归零 · 光照门认方块光(火把圈=防刷怪圈)', () => {
   /* 节拍(advNestStep 同构): 未满累计 2.5s 出单; 满配额不刷且计时归零 */
-  assert.deepStrictEqual(Core.advDenStep(0, 0, 1), {spawn: false, t: 1}, '未到拍只累计');
-  assert.deepStrictEqual(Core.advDenStep(0, 2, 1), {spawn: true, t: 0}, '到拍出刷怪令并归零');
-  assert.deepStrictEqual(Core.advDenStep(DEN.CAP, 2, 1), {spawn: false, t: 0}, '满配额不出单');
+  assert.deepStrictEqual(Dims.advDenStep(0, 0, 1), {spawn: false, t: 1}, '未到拍只累计');
+  assert.deepStrictEqual(Dims.advDenStep(0, 2, 1), {spawn: true, t: 0}, '到拍出刷怪令并归零');
+  assert.deepStrictEqual(Dims.advDenStep(DEN.CAP, 2, 1), {spawn: false, t: 0}, '满配额不出单');
   /* 光照门: 只认双光(方块光 0 + 天空光 ≤7)——副本穹顶内天空光恒 0 天然过,
      火把半径 13 内方块光 ≥1 拒刷; 无时间维度(副本恒暗, 冻结 dayTime 不参与) */
-  assert.strictEqual(Core.advDenCanSpawn(0, 0), true, '全黑可刷');
-  assert.strictEqual(Core.advDenCanSpawn(7, 0), true, '天空光恰 7 过(≤7 边界)');
-  assert.strictEqual(Core.advDenCanSpawn(8, 0), false, '天空光 8 拒刷(与主世界同门)');
-  assert.strictEqual(Core.advDenCanSpawn(0, 1), false, '火把圈拒刷(教学与主世界一致)');
+  assert.strictEqual(Dims.advDenCanSpawn(0, 0), true, '全黑可刷');
+  assert.strictEqual(Dims.advDenCanSpawn(7, 0), true, '天空光恰 7 过(≤7 边界)');
+  assert.strictEqual(Dims.advDenCanSpawn(8, 0), false, '天空光 8 拒刷(与主世界同门)');
+  assert.strictEqual(Dims.advDenCanSpawn(0, 1), false, '火把圈拒刷(教学与主世界一致)');
 });
 
 test('副本掷点/取种: 祭坛环带界内 + 池合法(主打 zombie, cave_spider 在池)', () => {
   for (let i = 0; i < 200; i++) {
-    const s = Core.advDenSpot(Math.random);
+    const s = Dims.advDenSpot(Math.random);
     const d = Math.hypot(s.x - DEN.altar.x - 0.5, s.z - DEN.altar.z - 0.5);
     assert.ok(d >= DEN.RING_LO - 1e-9 && d <= DEN.RING_HI + 1e-9,
         '环带界内(RING_LO~RING_HI): ' + d.toFixed(2));
   }
   const picks = new Set();
-  for (let i = 0; i < 500; i++) picks.add(Core.advDenPick(Math.random));
+  for (let i = 0; i < 500; i++) picks.add(Dims.advDenPick(Math.random));
   const legal = new Set(DEN.POOL.map((p) => p[0]));
   for (const p of picks) assert.ok(legal.has(p), '取种不出池: ' + p);
   assert.ok(picks.size >= 3, '500 次取种覆盖多数池种(权重活签): ' + [...picks].join('/'));
@@ -244,20 +247,20 @@ test('副本掷点/取种: 祭坛环带界内 + 池合法(主打 zombie, cave_sp
 
 test('夜袭涌出: 夜门(白天归零) · 到拍掷概率 · 配额门 · 池合法(无苦力怕)', () => {
   const NIGHT = 15000; const DAY = 5000; /* isNight [13000,23000) */
-  assert.deepStrictEqual(Core.advEruptStep(0, 1, DAY, 0, Math.random), {t: 0, spawn: null},
+  assert.deepStrictEqual(Dims.advEruptStep(0, 1, DAY, 0, Math.random), {t: 0, spawn: null},
       '白天节拍器归零(涌出只在夜间)');
-  assert.deepStrictEqual(Core.advEruptStep(0, 1, NIGHT, 0, Math.random), {t: 1, spawn: null},
+  assert.deepStrictEqual(Dims.advEruptStep(0, 1, NIGHT, 0, Math.random), {t: 1, spawn: null},
       '夜间未到拍只累计');
-  assert.deepStrictEqual(Core.advEruptStep(Core.ADV_ERUPT.TRY_S, 0, NIGHT, 0, () => 0.99),
+  assert.deepStrictEqual(Dims.advEruptStep(Dims.ADV_ERUPT.TRY_S, 0, NIGHT, 0, () => 0.99),
       {t: 0, spawn: null}, '到拍掷概率不过(0.99 ≥ P)本拍作废');
-  assert.strictEqual(Core.advEruptStep(Core.ADV_ERUPT.TRY_S, 0, NIGHT, 0, () => 0).spawn.type,
+  assert.strictEqual(Dims.advEruptStep(Dims.ADV_ERUPT.TRY_S, 0, NIGHT, 0, () => 0).spawn.type,
       'zombie', '到拍概率过+池首权重取种(浮点起点=zombie)');
-  assert.deepStrictEqual(Core.advEruptStep(Core.ADV_ERUPT.TRY_S, 0, NIGHT, Core.ADV_ERUPT.QUOTA, () => 0),
+  assert.deepStrictEqual(Dims.advEruptStep(Dims.ADV_ERUPT.TRY_S, 0, NIGHT, Dims.ADV_ERUPT.QUOTA, () => 0),
       {t: 0, spawn: null}, '配额满本拍作废(涌出自持小配额, 不吃光环带名额)');
-  const legal = new Set(Core.ADV_ERUPT.POOL.map((p) => p[0]));
+  const legal = new Set(Dims.ADV_ERUPT.POOL.map((p) => p[0]));
   assert.ok(!legal.has('creeper'), '池无苦力怕(洞口贴脸爆炸对 6 岁是惊吓不是挑战)');
   for (let i = 0; i < 200; i++) {
-    const r = Core.advEruptStep(Core.ADV_ERUPT.TRY_S, 0, NIGHT, 0, Math.random);
+    const r = Dims.advEruptStep(Dims.ADV_ERUPT.TRY_S, 0, NIGHT, 0, Math.random);
     if (r.spawn) assert.ok(legal.has(r.spawn.type), '涌出取种不出池: ' + r.spawn.type);
   }
 });

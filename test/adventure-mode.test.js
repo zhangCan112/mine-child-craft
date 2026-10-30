@@ -360,6 +360,9 @@ Object.assign(globalThis, AdventureCore);
 /* 冒险地图核心(T4, index.html 加载序同构: adventure-core → maps-core → 壳):
     壳层 advSetMap/init 经全局名消费 ADV_MAPS/advMapArrive */
 Object.assign(globalThis, require('../js/adventure-maps-core.js'));
+/* 维度规格核心(adventure-core → maps-core → dims-core → 壳, index.html 加载序同构):
+    壳层 advSetDim/HUD/advSyncMood/ADV_SCENE_KEYS 经全局名读表 ADV_DIMS/advDimRow */
+Object.assign(globalThis, require('../js/adventure-dims-core.js'));
 /* 烧炼三件(SMELT_T/smeltStep/furnaceRefund)已迁 craft-core(2026-10 归属错位修复):
    Node 侧 require 真模块铺到全局, 浏览器侧 index.html 里 craft-core 先于本批加载同构 */
 const CraftCore = require('../js/craft-core.js');
@@ -3549,4 +3552,10 @@ test('退场回收: advReclaimThrown 把地上丢弃件收回包(耐久原样); 
   assert.ok(left && left.id === 'planks' && left.n === 5, '装不下留地上');
   assert.strictEqual(left.thrown, false, '摘丢弃旗(不再退场回收)');
   assert.strictEqual(left.holdFar, false, '摘 holdFar(转普通件口径)');
+});
+test('维度规格收口: ADV_SCENE_KEYS 两注册表派生(桶键=地图行+维度行, 加维度零手抄)', () => {
+  const Dims = globalThis.ADV_DIMS;
+  assert.ok(Array.isArray(Dims) && Dims.length === 2, '两维度行(nether/den)');
+  const want = [...globalThis.ADV_MAPS.map((r) => r.id), ...Dims.map((r) => r.id)].sort();
+  assert.deepStrictEqual(Object.keys(A.advSceneEdits).sort(), want, '分桶键全集=ADV_MAPS+ADV_DIMS 派生');
 });

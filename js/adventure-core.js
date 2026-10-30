@@ -22,8 +22,7 @@
      craft-core 的 SMELT_T)/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 昼夜 D5 夜怪
       政策 ADV_NIGHT/advNightCanSpawn/advNightStep(缺省池薄壳, 签名冻结)/
-      advNightStepPool(池经入参注入通道)/advDawnSweep/advMusicMood(维度×
-      昼夜→场景 BGM 情绪) · home 地图行缺省 ADV_HOME_ROW(巢穴池/夜怪池的
+      advDawnSweep · home 地图行缺省 ADV_HOME_ROW(巢穴池/夜怪池的
       行缺省权威, 冒险地图 T2——壳与 T4 注册表各行经它换池, 常量本体不动) · F4 牧场
      advLivestockPlan(确定性散布清单)/advHerdStep(恐惧游荡决策) · 床·睡觉
      政策(昼夜 D6 §7.2) advSleepCheck(两条件)/advSleepStep(转场时间账) 与
@@ -52,19 +51,15 @@
      石阵夜晚彩蛋(2026-10-27): ADV_STONE_EGG_CD/ADV_STONE_HINT_CD/
      ADV_STONE_EGG_GIFT/advStoneAltarHit(灯坛命中)/advStoneEggPick(昼夜
      分支裁决——观感归壳) ·
-     下界段(nether 模式退役迁入, docs/nether-merge-design.md §3.2):
-     ADV_PORTAL/ADV_NETHER 常量 · advNetherBuild(平地下界岩+3×3 成片
-     熔岩池, hashRand 种子化) · advPortalFrame(整座门, set 注入; 可选
-     look 主题建材——门阵观感精细化, 缺省经典下界门逐字不变) ·
-     advInPortal(内口判定, read 注入) · advPortalSiteOk(放置校验,
-     read 注入) · advPortalExit(传送出口, 来向退 2.5 格+yaw 反向) ·
-     夜袭涌出段(den-nest-design §2.2): ADV_ERUPT/advEruptStep(黑巢夜间
-     从洞口爬怪的节拍纯函数——夜门+节拍+概率+配额+池权重, 落点归壳) ·
-     巢穴副本段(den-nest-design §3, 探险第三维度 den): ADV_DEN 常量/
-     advDenBuild(地下巨洞副本建场: 岩体掏厅+祭坛+回程门+矿藏廊+宝箱室)/
-     advDenCanSpawn(光照门, 无时间维度)/advDenStep(刷怪节拍)/advDenSpot
-     (祭坛环带掷点)/advDenPick(池权重取种) · 黑巢主巢 ADV_NESTS[3](den
-     旗标行)/ADV_DEN_NEST_DOOR(洞口涌出锚点)
+      传送门段(门阵/下界/副本三家共用, docs/nether-merge-design.md §3.2):
+      ADV_PORTAL 常量 · advPortalFrame(整座门, set 注入; 可选
+      look 主题建材——门阵观感精细化, 缺省经典下界门逐字不变) ·
+      advInPortal(内口判定, read 注入) · advPortalSiteOk(放置校验,
+      read 注入) · advPortalExit(传送出口, 来向退 2.5 格+yaw 反向) ·
+      黑巢主巢 ADV_NESTS[3](den 旗标行)/ADV_DEN_NEST_DOOR(洞口涌出锚点)
+      ——维度专属段(ADV_NETHER/advNetherBuild/ADV_ERUPT/advEruptStep/
+      ADV_DEN/advDenBuild/副本刷怪四件套/advMusicMood)已迁
+      js/adventure-dims-core.js(2026-10-30, docs/dimension-registry-design.md)
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界(门段政策消费 B_DOOR 系 id; 门段 interface: advIsDoor/
       advIsDoorLower/advDoorSiteOk/advDoorTogglePlan/advDoorBreakPlan——
       放置校验/开关计划/配对破坏, docs/door-window-design.md §3; 床两格结构
@@ -962,52 +957,6 @@ function advDawnSweep(dayTime) {
   return Daylight.internalSky(15, dayTime) >= 12;
 }
 
-/* ============================================================
-   夜袭涌出 (den-nest-design §2.2) — 黑巢夜间从洞口爬怪的节拍纯函数
-   ------------------------------------------------------------
-   与环带铺怪(壳 advNightLayRing)并行的第二通道:「大量怪物从地下洞穴
-   出来, 在周围游荡」的直译。涌出怪照走夜怪账(__nightMob 黎明清场/
-   床跳夜清场), 家锚=巢口(AI leash 收敛在巢穴周围——游荡不离家); 与
-   环带共享 ADV_NIGHT.CAP 封顶(儿童红线不松动), 涌出另有自持小配额
-   (QUOTA)防把环带名额吃光。
-   ============================================================ */
-const ADV_ERUPT = {
-  TRY_S: 3, /* 涌出节拍秒(比环带 2s 稀——涌出是主巢专属演出) */
-  P: 0.6, /* 到拍掷中的概率(忽紧忽松的「涌出感」) */
-  QUOTA: 5, /* 涌出怪自持配额(壳层计存活数传入) */
-  POOL: [['zombie', 2], ['skeleton', 1], ['spider', 1]], /* 巢穴主力(无苦力怕——洞口贴脸爆炸对 6 岁是惊吓不是挑战) */
-};
-
-/* 涌出节拍(advNightStepPool 同构: 状态进 · {t, spawn} 出): 夜门(白天节拍器
-   归零)→累计到拍→掷概率与配额门→按池权重取种。落点不在本函数(巢口坐标
-   是建场常量, 壳层 ADV_DEN_NEST_DOOR 持有), spawn 只回 {type}; rnd 可注入 */
-function advEruptStep(t, dt, dayTime, eruptN, rnd) {
-  if (!Daylight.isNight(dayTime)) return {t: 0, spawn: null};
-  const nt = t + dt;
-  if (nt < ADV_ERUPT.TRY_S) return {t: nt, spawn: null};
-  if (rnd() >= ADV_ERUPT.P || eruptN >= ADV_ERUPT.QUOTA) return {t: 0, spawn: null};
-  let total = 0;
-  for (const p of ADV_ERUPT.POOL) total += p[1];
-  let pick = rnd() * total;
-  let type = ADV_ERUPT.POOL[ADV_ERUPT.POOL.length - 1][0]; /* 浮点尽头兜底末段 */
-  for (const p of ADV_ERUPT.POOL) {
-    pick -= p[1];
-    if (pick < 0) {
-      type = p[0];
-      break;
-    }
-  }
-  return {t: 0, spawn: {type}};
-}
-
-/* 场景 BGM 情绪映射(2026-10-27 换曲): 下界/巢穴副本恒 nether(seeing-pool
-   洞穴水声 ambient——副本的洞穴语义同源, den-nest D13); 上界按昼夜切
-   night/adventure。纯函数(维度 + isNight 入) — 壳层 advSyncMood 只在
-   值变化时报给 AudioMixer, 同值续播不打断。 */
-function advMusicMood(dim, isNight) {
-  if (dim === 'nether' || dim === 'den') return 'nether';
-  return isNight ? 'night' : 'adventure';
-}
 
 /* ============================================================
    F4 牧场(二期设计稿 §4.4/§4.3) — 确定性散布清单 + 恐惧游荡决策
@@ -1995,37 +1944,17 @@ function advLanternStep(s, dt, heldId, dur, skyDim) {
 }
 
 /* ============================================================
-   下界段 (docs/nether-merge-design.md §3.2) — nether 模式退役迁入
+   传送门段 (docs/nether-merge-design.md §3.2) — 门词汇三家共用
    ------------------------------------------------------------
-   下界 = 探险模式内部 phase(设计稿 D1): 与上界同规则、暂无资源无怪物、
-   改动记账落盘的远征地图, 唯一危险 = 岩浆(D2)。此处只收纯政策与地形核
-   (D15): 建场直用全局 setBlockRaw/hashRand(advBuildWorld 同款惯例),
-   判定/校验经注入 seam(2026-10 政策下沉包口径); 波次/AI/武器段不迁,
-   随模式退役。切界装配(换桶/天空/冷却/话术)在壳 modes/adventure.js。
+   门阵/下界/巢穴副本三家共用的传送门结构与判定留本文件
+   (ADV_PORTAL 门框几何·advPortalFrame 整门建场·advInPortal O(1) 内口判定·
+   advPortalSiteOk 放置校验·advPortalExit 落点口径)。维度专属段
+   (ADV_NETHER/advNetherBuild、ADV_ERUPT/advEruptStep、ADV_DEN 副本段与
+   advMusicMood) 已随维度 vocabulary 归家迁入 js/adventure-dims-core.js
+   (2026-10-30, docs/dimension-registry-design.md)。
    ============================================================ */
 const ADV_PORTAL = {w: 6, h: 7, cd: 0.8};
 /*   门框宽×高(内口 4×5) + 传送冷却秒(落地时空眩晕, 两界门都不触发) */
-const ADV_NETHER = {ground: 20, portal: {px: 24, pz: 24}, base: {x: 25.5, z: 30.5}};
-/*   下界平地顶层 y(脚踩 21; 下界地面是平的) / 回程门框位置(门基 by 用
-     ground 派生) / 下界落点(离门数格, 在无熔岩的出生区内) */
-
-/* 下界建场: 平整下界岩地面 + 3×3 成片熔岩池 —— 迁自 nether 模式
-   buildNetherWorld。确定性重放红线: SceneKit.rand 种子化, 零 Math.random;
-   出生区(x,z<44, 回程门与落点所在)不铺熔岩。2026-10-27 修活: 原版
-   hashRand(...) > 0.93 恒假(hashRand 输出域截断 [0,0.5), scene-kit 头注释
-   登记的特性, 散布应走 SceneKit.rand)——退役前的下界从未长出过熔岩,
-   与「平地上的可见障碍」原意/共识「唯一危险=岩浆」相悖, 本次随合并修正 */
-function advNetherBuild() {
-  for (let x = 0; x < WORLD_W; x++) {
-    for (let z = 0; z < WORLD_D; z++) {
-      for (let y = 0; y <= ADV_NETHER.ground; y++) setBlockRaw(x, y, z, B_NETHERRACK); /* 平整地面 */
-      if (x < 44 && z < 44) continue; /* 出生区/回程门: 不铺熔岩 */
-      if (SceneKit.rand(Math.floor(x / 3), Math.floor(z / 3), 7) > 0.93) {
-        setBlockRaw(x, ADV_NETHER.ground, z, B_LAVA);
-      } /* 3×3 成片的熔岩池(同 3×3 索引喂 rand, 格内同池成片) */
-    }
-  }
-}
 
 /* 整座下界传送门: 黑曜石框 + 紫色内口门面 + 塔楼 + 门楣 + 发光岩 + 前后
    步道 —— 逐字迁自 nether 模式 buildPortalFrame(行为逐字等价)。
@@ -2112,137 +2041,6 @@ function advPortalExit(x, y, z, yaw) {
   return {x: x - Math.sin(yaw) * 2.5, y, z: z - Math.cos(yaw) * 2.5, yaw: yaw + Math.PI};
 }
 
-/* ============================================================
-   巢穴副本段 (docs/den-nest-design.md §3) — 探险模式第三维度 den
-   ------------------------------------------------------------
-   「怪物巢穴」副本 = 地下巨洞世界: 主世界黑巢巢厅的巢之心(B_SPAWNER)
-   站桩切入, 大厅北墙回程裂隙门走出。此处只收纯政策与地形核(下界段
-   D15 同口径): 建场直用全局 setBlockRaw/advTryOre/SceneKit(确定性零
-   Math.random, 两次建场逐字节一致是单测红线), 刷怪节拍/光照门/出生
-   环带为纯函数; 切界装配(换桶/天空/冷却/话术/入口站桩)在壳 modes/
-   adventure.js。副本怪池主打 cave_spider——已建模入册的唯一产地(D7)。
-   ============================================================ */
-const ADV_DEN = {
-  ground: 6, /* 厅地面顶面 y(脚踩 7) */
-  roof: 38, /* 穹顶壳底层 y(壳厚 4: y38~41)——D10 扩高锚点, 未来升 WORLD_H 只改此值 */
-  hall: {cx: 80, cz: 80, r: 14}, /* 巨洞大厅(圆厅, 观感体量由黑暗+雾+发光岩承担) */
-  altar: {x: 80, z: 80}, /* 刷怪祭坛中心(副本怪家锚与出生环心, 壳层挂 __nightHome) */
-  gate: {px: 76, pz: 69}, /* 回程裂隙门框位(厅内北缘, 常亮; 基座建场直写不记账——互锁红线) */
-  chest: {x: 116, y: 8, z: 80}, /* 宝箱室宝箱(任务键 chest_den, advMapChestKey 同源坐标) */
-  base: {x: 80.5, z: 92.5}, /* 进场落点(大厅南侧开阔区, 面朝北一眼看到祭坛) */
-  CAP: 6, /* 副本怪自持配额(独立于主世界 ADV_NIGHT.CAP——两界怪数不叠加, 儿童可控) */
-  TRY_S: 2.5, /* 刷怪节拍秒 */
-  RING_LO: 1.8, RING_HI: 4.2, /* 祭坛出生环带(巢之心附近不贴脸, 巢穴环带同款口径) */
-  POOL: [['zombie', 2], ['spider', 1], ['cave_spider', 1], ['skeleton', 1]], /* 副本主力 */
-};
-
-/* 副本建场: 整图岩体(y0~roof+1 实心——巨洞从岩体里掏出来, 矿腔镶矿/岩壁
-   体感/天空光全遮都依赖实心; 雾把远处吃掉, 观感与性能的平衡点), 掏出大厅/
-   走廊/矿腔/宝箱室, 地面混铺苔石/泥, 祭坛+回程门+发光岩簇。确定性重放红线:
-   零 Math.random; 矿藏走 advTryOre 白名单(矿位跨天回填在副本同样生效) */
-function advDenBuild() {
-  const D = ADV_DEN;
-  for (let x = 0; x < WORLD_W; x++) {
-    for (let z = 0; z < WORLD_D; z++) {
-      for (let y = 0; y <= D.roof + 1; y++) setBlockRaw(x, y, z, 3); /* 岩体(壳顶 2 层遮天空光) */
-    }
-  }
-  const h = D.hall;
-  for (let x = h.cx - h.r; x <= h.cx + h.r; x++) {
-    for (let z = h.cz - h.r; z <= h.cz + h.r; z++) {
-      const d = Math.hypot(x - h.cx, z - h.cz);
-      if (d > h.r) continue;
-      for (let y = D.ground + 1; y <= D.roof - Math.floor(d / 3); y++) {
-        setBlockRaw(x, y, z, 0);
-      } /* 大厅掏空: 穹顶随半径渐降(中央 38 → 厅缘 34, 深盆巨洞轮廓) */
-      const r = SceneKit.rand(x, z, 8101);
-      setBlockRaw(x, D.ground, z, r > 0.82 ? 14 : (r < 0.08 ? 2 : 3)); /* 苔石/泥地混铺 */
-      if (r > 0.965) setBlockRaw(x, D.ground + 1, z, B_GLOWSTONE); /* 地面微光簇(~3% 列) */
-    }
-  }
-  /* 刷怪祭坛: 3×3 苔石台 + 中央巢之心 + 四角黑曜石柱(柱顶发光岩)——副本的视觉锚 */
-  SceneKit.fill(D.altar.x - 1, D.ground + 1, D.altar.z - 1, D.altar.x + 1, D.ground + 1, D.altar.z + 1, 14);
-  setBlockRaw(D.altar.x, D.ground + 1, D.altar.z, B_SPAWNER);
-  for (const cn of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-    for (let y = D.ground + 2; y <= D.ground + 5; y++) setBlockRaw(D.altar.x + cn[0], y, D.altar.z + cn[1], B_OBSIDIAN);
-    setBlockRaw(D.altar.x + cn[0], D.ground + 6, D.altar.z + cn[1], B_GLOWSTONE);
-  }
-  advPortalFrame(setBlockRaw, D.ground, D.gate.px, D.gate.pz); /* 回程裂隙门(常亮, 厅内北缘) */
-  /* 矿藏廊: 东墙洞口 → 东向走廊(净空 4) → 两间矿腔(煤铁腔/金钻腔, 壁镶矿
-     高密度——「越危险越富」的实体) + 尽头宝箱室(B_CHEST 接全局账户)。
-     门洞先掏再镶矿(顺序红线): 镶矿走 advTryOre「只镶进石头」, 门洞格已空
-     自然不镶——白名单账实一致(矿位回填不会在门洞里长出矿挡路) */
-  SceneKit.fill(h.cx + h.r - 2, D.ground + 1, D.altar.z - 1, 112, D.ground + 4, D.altar.z + 1, 0); /* 洞口+走廊 */
-  SceneKit.fill(101, D.ground + 1, 77, 102, D.ground + 3, 78, 0); /* 腔 A 门洞(穿墙接走廊) */
-  SceneKit.fill(101, D.ground + 1, 82, 102, D.ground + 3, 83, 0); /* 腔 B 门洞 */
-  advDenMineRoom(102, 74, [B_COAL_ORE, B_IRON_ORE], 8201); /* 矿腔 A: 煤铁(走廊北侧) */
-  advDenMineRoom(102, 86, [B_GOLD_ORE, B_DIAMOND_ORE], 8301); /* 矿腔 B: 金钻(走廊南侧) */
-  SceneKit.fill(114, D.ground + 1, D.altar.z - 2, 118, D.ground + 3, D.altar.z + 2, 0); /* 宝箱室腔 */
-  setBlockRaw(D.chest.x, D.chest.y, D.chest.z, B_CHEST);
-  setBlockRaw(114, D.ground + 1, D.altar.z - 2, B_TORCH); /* 角落落地站膛(thin 悬空会被清扫治愈, 神殿先例) */
-  setBlockRaw(118, D.ground + 1, D.altar.z + 2, B_TORCH);
-}
-
-/* 矿腔(建场件): 7×5 腔室掏空 + 四壁高密度镶矿(两种矿交替, advTryOre 只镶
-   进石头+白名单记账——矿位回填在副本同样生效); salt 分层防与地面混铺同噪 */
-function advDenMineRoom(cx, cz, ores, salt) {
-  const D = ADV_DEN;
-  SceneKit.fill(cx - 3, D.ground + 1, cz - 2, cx + 3, D.ground + 4, cz + 2, 0);
-  for (let x = cx - 3; x <= cx + 3; x++) {
-    for (const z of [cz - 3, cz + 3]) {
-      for (let y = D.ground + 1; y <= D.ground + 4; y++) {
-        if (SceneKit.rand(x, y * 61 + z, salt) > 0.45) advTryOre(x, y, z, ores[(x + z) % 2]);
-      }
-    }
-  }
-  for (let z = cz - 2; z <= cz + 2; z++) {
-    for (const x of [cx - 4, cx + 4]) {
-      for (let y = D.ground + 1; y <= D.ground + 4; y++) {
-        if (SceneKit.rand(x, y * 61 + z, salt + 1) > 0.45) advTryOre(x, y, z, ores[(x + z) % 2]);
-      }
-    }
-  }
-}
-
-/* 副本刷怪光照门(单表达式): 方块光 0(火把圈=防刷怪圈, 教学与主世界一致)
-   且天空光 ≤7——穹顶内天空光恒 0 天然过; 无时间维度(副本恒暗, 冻结的
-   dayTime 不参与——advNightCanSpawn 的 internalSky 项在这里恒不可用) */
-function advDenCanSpawn(skyAt, blockAt) {
-  return blockAt === 0 && skyAt <= 7;
-}
-
-/* 副本刷怪节拍(advNestStep 同构: 状态进 · {spawn, t} 出): 存量满配额 → 不刷
-   且计时归零; 未满累计到拍出刷怪令(落点/取种/光照复核在壳层——光照不过本拍
-   作废, 夜怪同款「逐拍独立」) */
-function advDenStep(alive, t, dt) {
-  if (alive >= ADV_DEN.CAP) return {spawn: false, t: 0};
-  const nt = t + dt;
-  if (nt >= ADV_DEN.TRY_S) return {spawn: true, t: 0};
-  return {spawn: false, t: nt};
-}
-
-/* 祭坛出生环带掷点(角度/半径均匀, 巢穴出生环带同款几何; 环心=祭坛中心) */
-function advDenSpot(rnd) {
-  const a = rnd() * Math.PI * 2;
-  const r = ADV_DEN.RING_LO + rnd() * (ADV_DEN.RING_HI - ADV_DEN.RING_LO);
-  return {x: ADV_DEN.altar.x + 0.5 + Math.cos(a) * r, z: ADV_DEN.altar.z + 0.5 + Math.sin(a) * r};
-}
-
-/* 副本池权重取种(advEruptStep 同构; 浮点尽头兜底末段) */
-function advDenPick(rnd) {
-  let total = 0;
-  for (const p of ADV_DEN.POOL) total += p[1];
-  let pick = rnd() * total;
-  let type = ADV_DEN.POOL[ADV_DEN.POOL.length - 1][0];
-  for (const p of ADV_DEN.POOL) {
-    pick -= p[1];
-    if (pick < 0) {
-      type = p[0];
-      break;
-    }
-  }
-  return type;
-}
 
 /* ============================================================
    门与玻璃板段 (docs/door-window-design.md §3) — 合成家具政策
@@ -2445,7 +2243,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_BOW_SPEED, ADV_BOW_G, ADV_BOW_DMG, ADV_BOW_KPOW, ADV_BOW_LIFE, ADV_BOW_CD,
     advNestCount, advNestStep, advSwingDmg, advMobDmg, advDeathDrops, advPickupText,
     ADV_NIGHT, ADV_HOME_ROW, advNightCanSpawn, advNightStep, advNightStepPool,
-    advDawnSweep, advMusicMood,
+    advDawnSweep,
     ADV_MINE_SWING, ADV_SAP_GROW, advMineStep, advPlaceCheck, advEatPolicy, advSapDue,
     ADV_STATION_R, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advLosBlocked,
@@ -2473,10 +2271,9 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_LANTERN, advLanternStep,
     ADV_TNT_TAP_T, advTntTapStep, advCascadeLedger, advGrowMark,
     advExplodeCells, advTntWave, ADV_HERD_AMBLE_WALK_P, advAmbleStep,
-    ADV_PORTAL, ADV_NETHER, advNetherBuild, advPortalFrame,
+    ADV_PORTAL, advPortalFrame,
     advInPortal, advPortalSiteOk, advPortalExit,
-    ADV_DEN_NEST_DOOR, ADV_ERUPT, advEruptStep,
-    ADV_DEN, advDenBuild, advDenCanSpawn, advDenStep, advDenSpot, advDenPick,
+    ADV_DEN_NEST_DOOR,
     advIsDoor, advIsDoorLower, advDoorSiteOk, advDoorTogglePlan, advDoorBreakPlan,
     advDoorIdsStale, advDoorIdsMigrate,
     advBedSiteOk, advBedBreakPlan,
