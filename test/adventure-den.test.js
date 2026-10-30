@@ -169,6 +169,32 @@ test('巢穴洞口紫门: 2×2 B_PORTAL 门面+黑曜石门槛+发光岩门楣(�
   }
 });
 
+test('黑巢丘顶·苦力怕王半身像: 基座/像身/头/正典脸纹/金冠落位(巢穴观感票二批)', () => {
+  clearWorld();
+  Core.advBuildWorld();
+  /* 纵剖面自下而上: 黑曜石基座 y30(坐黑石王冠顶) → 苔石像身 y31~32 → 苔石头颅
+     y33~37 → 发光岩金冠四尖桩 y38~39 —— 三种材料全上图集贴图(观感票一批) */
+  assert.strictEqual(cell(DN.x, 30, DN.z), api.B_OBSIDIAN, '基座黑曜石(王冠正顶)');
+  assert.strictEqual(cell(DN.x - 1, 31, DN.z + 1), 14, '像身苔石胸肩');
+  assert.strictEqual(cell(DN.x + 2, 33, DN.z - 2), 14, '头颅 5×5 苔石(东北角采样)');
+  /* 正典脸纹(南面 z+2, 苦力怕垂腿嘴 5 宽缩放): 眼 y36 一对 + 嘴心中柱 y35~34 +
+     垂腿 y34 两侧——「认脸是教学锚」口径的脸不缺件、不串位 */
+  for (const fx of [DN.x - 1, DN.x + 1]) {
+    assert.strictEqual(cell(fx, 36, DN.z + 2), api.B_OBSIDIAN, '眼 (' + fx + ',36)');
+    assert.strictEqual(cell(fx, 34, DN.z + 2), api.B_OBSIDIAN, '垂腿 (' + fx + ',34)');
+  }
+  assert.strictEqual(cell(DN.x, 35, DN.z + 2), api.B_OBSIDIAN, '嘴心上 (100,35)');
+  assert.strictEqual(cell(DN.x, 34, DN.z + 2), api.B_OBSIDIAN, '嘴心下 (100,34)');
+  assert.strictEqual(cell(DN.x, 37, DN.z + 2), 14, '眉带无脸纹(脸只占 y34~36)');
+  /* 金冠四尖桩(发光岩, 头顶四角 y38~39, 夜间灯塔) */
+  for (const [cx, cz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) {
+    assert.strictEqual(cell(DN.x + cx, 38, DN.z + cz), api.B_GLOWSTONE,
+        '金冠尖桩下角 (' + cx + ',' + cz + ')');
+    assert.strictEqual(cell(DN.x + cx, 39, DN.z + cz), api.B_GLOWSTONE,
+        '金冠尖桩顶 (' + cx + ',' + cz + ')');
+  }
+});
+
 test('黑巢门口刷怪池: den 行进 ADV_NESTS(巢穴机制照跑) + 池主打洞穴蜘蛛', () => {
   assert.strictEqual(DN.den, true, 'den 旗标(advBuildWorld 分派 advBuildDenNest)');
   assert.deepStrictEqual(DN.kinds, ['cave_spider', 'zombie', 'skeleton'],

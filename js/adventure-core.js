@@ -377,8 +377,9 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
   丘冠黑曜石为主+丘身苔石斑+丘裙素石苔, 纵剖面自冠向裙渐亮) + 南敞廊 + 向南深潜
   洞道(y24→y12, 沿途镶煤铁, 山洞同款 1 格级台阶) + 进厅台阶 + 地下巢厅(y8~11 腔室):
   中央怪物巢穴之心(B_SPAWNER, 巢厅地标——副本入口 2026-10-30 已迁洞口紫门) +
-  角落发光岩(微弱路标) + 洞口巢穴之门(黑曜石门框柱+紫门面+发光楣, 全件上图集贴图)。
-  确定性零 Math.random; 门口刷怪归 T14 巢穴机制(n.den 行照常进 advNestTick) */
+  角落发光岩(微弱路标) + 洞口巢穴之门(黑曜石门框柱+紫门面+发光楣, 全件上图集贴图) +
+  丘顶苦力怕王半身像(巢穴地标, 观感票二批)。确定性零 Math.random; 门口刷怪归
+  T14 巢穴机制(n.den 行照常进 advNestTick) */
   for (let dx = -5; dx <= 5; dx++) {
     for (let dz = -5; dz <= 5; dz++) {
       const d = Math.hypot(dx, dz);
@@ -461,6 +462,23 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
      之外, 天然地形 y22~23 泥/y24 草, 覆写即成框柱; 触发域(门面格)不动 */
   for (const gx of [n.x - 2, n.x + 1]) {
     for (let yy = 22; yy <= 24; yy++) setBlockRaw(gx, yy, n.z + 3, B_OBSIDIAN);
+  }
+  /* 苦力怕王半身像(巢穴观感票二批, den-nest §2.1): 丘顶地标——一眼读出「苦力怕的
+     巢穴」。方块拼像(MC 玩家造像同款语言, 三种材料全上图集贴图): 黑曜石基座坐黑石
+     王冠顶 → 苔石像身与头颅(丘裙同款绿感石=「绿色苦力怕」的石像读法) → 黑曜石正典
+     脸纹(苦力怕王「认脸是教学锚」不改脸, 面朝南=巢穴之门与来路方向) → 发光岩金冠
+     四尖桩(苦力怕王头顶四尖金冠的方块镜像, 夜间自亮=巢穴灯塔; 门口/涌出两路刷怪
+     均无光照门, 光源不改机制)。确定性直写零掷点 */
+  SceneKit.fill(n.x - 1, 30, n.z - 1, n.x + 1, 30, n.z + 1, B_OBSIDIAN); /* 基座 3×3 */
+  SceneKit.fill(n.x - 1, 31, n.z - 1, n.x + 1, 32, n.z + 1, 14); /* 像身胸肩 3×3×2 苔石 */
+  SceneKit.fill(n.x - 2, 33, n.z - 2, n.x + 2, 37, n.z + 2, 14); /* 头颅 5×5×5 苔石 */
+  /* 脸纹(南面 z+2, 苦力怕正典脸 5 宽缩放): 眼 y36 一对 · 嘴心中柱 y35~34 · 垂腿 y34 两侧 */
+  for (const fx of [n.x - 1, n.x + 1]) setBlockRaw(fx, 36, n.z + 2, B_OBSIDIAN);
+  setBlockRaw(n.x, 35, n.z + 2, B_OBSIDIAN);
+  for (const fx of [n.x - 1, n.x, n.x + 1]) setBlockRaw(fx, 34, n.z + 2, B_OBSIDIAN);
+  /* 金冠 y38~39: 头顶四角发光岩尖桩 */
+  for (const [cx, cz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) {
+    SceneKit.fill(n.x + cx, 38, n.z + cz, n.x + cx, 39, n.z + cz, B_GLOWSTONE);
   }
 }
 
