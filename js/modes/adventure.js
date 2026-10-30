@@ -135,6 +135,14 @@ function advOreRegenDecode(v) {/* 矿位开采账归一(生态恢复 C 通道): 
   }
   return out;
 }
+function advDenDailyDecode(v) {/* 每日副本态归一(D20): 只收 {day 'Y-M-D', wave ≥1 整数,
+   chestDone 布尔, deadGuards 整数数组}, 异形整条丢弃 null(老档/坏档=首进全新) */
+  if (!v || typeof v !== 'object' || typeof v.day !== 'string' ||
+      typeof v.wave !== 'number' || !(v.wave >= 1) ||
+      typeof v.chestDone !== 'boolean' || !Array.isArray(v.deadGuards)) return null;
+  return {day: v.day, wave: v.wave, chestDone: v.chestDone,
+    deadGuards: v.deadGuards.filter((i) => Number.isInteger(i))};
+}
 const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
   /* v2(2026-10-28 门号段迁移): 熄门 B_PORTAL_DIM 占 63 把门段从 63~67 推到
      64~68(5708c24), 间隙档的旧 id = 关门读作熄门(solid:false 能穿透)/开门读作
@@ -152,6 +160,7 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
   /* v3(2026-10-28 剪羊毛): livestock 桶增剪毛账 sheared({初始畜索引: 剪毛时刻
      dayTime}; 繁育畜剪毛时刻挂 bred 条目上)——跨天长回判据的持久化半边 */
   defaults: {edits: [], map: 'home', pos: null, hp: null, furnaces: [],
+    den: null, /* 每日副本态(D20): {day 'Y-M-D', wave, chestDone, deadGuards 守卫表序} */
     livestock: ADV_SCENE_KEYS.reduce((o, k) => {/* 桶集注册表派生(加维度零手抄) */
       o[k] = {dead: [], bred: [], sheared: {}};
       return o;
@@ -165,6 +174,7 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     pos: st.pos || null,
     hp: (typeof st.hp === 'number') ? st.hp : null,
     furnaces: advFurnaceClean(st.furnaces), /* 空炉条目清扫(存档防膨胀) */
+    den: st.den || null, /* 每日副本态(D20) */
     livestock: st.livestock || {},
     oreRegen: st.oreRegen || {},
     dayTime: (typeof st.dayTime === 'number') ? st.dayTime : 0}),
@@ -174,6 +184,7 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     pos: sv.pos || null,
     hp: (typeof sv.hp === 'number') ? sv.hp : null,
     furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1]))), /* 非法炉态整条拒收 */
+    den: advDenDailyDecode(sv.den), /* 每日副本态归一(老档/坏档 null=首进全新, D20) */
     livestock: advLivestockDecode(sv.livestock), /* 按图分桶归一(三代档形收敛) */
     oreRegen: advOreRegenDecode(sv.oreRegen), /* 矿位开采账归一(缺省 {}) */
     dayTime: (typeof sv.dayTime === 'number' && sv.dayTime >= 0 && sv.dayTime < DAYLIGHT.TICKS) ?
@@ -216,7 +227,8 @@ const advJournal = mkWorldJournal(advWorldSlot, {
     map: advMap, /* 当前主世界图键(nether/den 期间保持最后主世界图) */
     pos: advDim !== 'overworld' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw},
     /* 维度不进档(nether D9+den D8 单点判据, dimension-registry §2) */
-    hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, oreRegen: advOreRegen, dayTime}),
+    hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, oreRegen: advOreRegen, dayTime,
+    den: advDenDaily}), /* 每日副本态(D20): 同日续局/次日重置的持久半边 */
   onFlush: () => {/* 伴随联写经存档 store 缝: U3 换装 dev store 后三档联写自动跟丢弃语义 */
     advStore.saveBag(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
     advStore.saveQuest(ADV.quest); /* T15: 任务进度随 5s 节流一起落盘(步进时另有即时落盘) */
@@ -1774,7 +1786,12 @@ function advGateAt(x, z) {/* 门阵包围盒查表(advInPortal 命中后): 玩�
 function advHookEntityCbs() {
   Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8)。
       F4 牧场记账并进同一回调: 初始畜挂清单索引(死畜账只增不减), 繁育畜按
-      __bredRef 从繁育账除名(种群收缩)——掉落与落账同帧 */
+      __bredRef 从繁育账除名(种群收缩)——掉落与落账同帧。
+      每日副本守卫尸账并进此处(D20): __denGuard=守卫表序, 阵亡即入档——
+      同日重进不复活(任何死法都算, 不只亲手击杀) */
+    if (m.__denGuard != null && advDenDaily && advDenDaily.deadGuards.indexOf(m.__denGuard) < 0) {
+      advDenDaily.deadGuards.push(m.__denGuard);
+    }
     const bucket = advLivestockAll[advMap];
     if (m.__livestockIdx != null && bucket.dead.indexOf(m.__livestockIdx) < 0) {
       bucket.dead.push(m.__livestockIdx);
@@ -1928,6 +1945,16 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
   if (dim === advDim) return;
   advDim = dim; /* advMap 不动: 副本/下界期间保持最后主世界图(T6) */
   advSceneLeave();
+  let denFresh = false;
+  if (dim === 'den') {/* 每日副本判据(D20)——必须在 loadScene 之前: 桶清要先落,
+      build+重放才落在空桶上(次日=原始地貌; 放在重放后就只清了账没修世界) */
+    const step = advDenDailyStep(advDenDaily, advDenTodayKey());
+    advDenDaily = step.state;
+    denFresh = step.fresh;
+    if (denFresh) advSceneEdits.den.clear(); /* 桶清=地形破坏愈合+玩家摆设清——
+        次日军全新(小宝箱补给随建场回来=一天一次); 炉态由 advFurnaceSettle
+        对重放后世界自动核销, 不用另清 */
+  }
   const drow = advDimRow(dim);
   if (drow) {/* 维度相位(下界/巢穴副本): 建场序列/天穹/昼夜/落点全读维度行
       (ADV_DIMS 行=切界政策唯一权威, docs/dimension-registry-design.md);
@@ -1945,11 +1972,14 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     setPlayerGlow(false); /* 灯笼随身光熄灭(维度不亮不耗, 门禁见 update) */
     advLanternT = 0; /* 耗秒累计器归零(回主世界从整秒重新累计) */
     if (dim === 'den') {
-      advDenT = 0; advDenWave = 0; advDenChestDone = false; /* 副本波次状态复位(den 专属, 不进表; 重进由 advDenSeed 重铺) */
+      if (denFresh) {
+        advToast('🔔 新的一天，副本刷新啦！');
+        advSpeak('新的一天，怪物巢穴刷新啦，所有怪物都回来了！');
+      }
+      advDenSeed(denFresh); /* 布防: 全新=全量守卫+第一波; 同日=活守卫+断点波(D20) */
     }
     ModeKit.spawn(drow.spawn.x, drow.spawn.y, drow.spawn.z, {yaw: drow.spawn.yaw}); /* 行落点(结构常量派生) */
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
-    if (dim === 'den') advDenSeed(); /* 副本进场布防(§7: 守卫+祭坛房第一波; 清怪后波次补员; den 专属) */
   } else {
     loadScene(() => {/* 主世界基座确定性重建(当前地图行 build) + 当前桶重放; 不跑
         applySweep——那是 init 旧档治愈专用, 切回来的世界本来就是干净的 */
@@ -2019,12 +2049,20 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
    引信自爆(bomber 分支在 advMobAI)
    + 主世界黑巢洞口紫门的入口站桩 + 夜间巢口涌出(涌出节拍纯函数
    advEruptStep 亦在 adventure-dims-core, 落地挂在缺省夜怪铺法
-   advNightLayRing 尾部)。
+   advNightLayRing 尾部)
+   + 每日副本(D20): 真实日历日同日续局/次日彻底复原——判据纯函数
+   advDenDailyStep 在 dims-core, 日键经 js/daily-budget.js 的
+   budgetDateStr(与每日预算/图章同钟), 状态走世界档 den 字段。
    ============================================================ */
-let advDenT = 0; /* 副本清怪计时(秒, advDenStep 的状态; 全清才累计, 见怪即归零) */
-let advDenWave = 0; /* 当前波次(1 起; 进场铺布防+第一波, 全清 WAVE_S 秒后递增) */
-let advDenChestDone = false; /* 通关宝箱已发旗(第 WAVES 波全清刷一次; 维度不进档,
-    重进由 advSetDim 复位——宝箱与波次同命不落盘, den-nest §7.5/D17) */
+let advDenT = 0; /* 副本清怪计时(秒, advDenStep 的状态; 全清才累计, 见怪即归零;
+    会话内计时器, 重进归零不落档) */
+let advDenDaily = null; /* 每日副本态(D20): {day 'Y-M-D', wave, chestDone, deadGuards
+    守卫表序}——世界档 den 字段(init 收养/进副本判同异日); 同日续局=怪尸/波次/
+    通关旗保持, 次日重置=一切还原(真实日历日, 与每日预算/图章同钟) */
+let advDenTodayOverride = null; /* 日键覆写(测试缝): 每日刷新用例模拟跨天 */
+function advDenTodayKey() {/* 每日副本的「今天」(D20): 真钟=DailyBudget 同一日期串 */
+  return advDenTodayOverride || DailyBudget.budgetDateStr(Date.now());
+}
 function advDenAlive() {/* 副本怪存量(advNightAlive 同口径: 尸体/已移除/动物不算) */
   let n = 0;
   for (const m of Mobs.list()) {
@@ -2034,36 +2072,48 @@ function advDenAlive() {/* 副本怪存量(advNightAlive 同口径: 尸体/已�
 }
 function advDenLay(list, mult) {/* 布防落地(固定守卫与波次共用): spawn 贴列顶
     (副本岩顶, 女巫先例的显式落位) + 波次三乘数(hp 走 spawn 的 hpMult 通道,
-    速度/伤害走逐实例字段——cfg 是共享注册表对象, 严禁原地改) + 家锚=房心 */
+    速度/伤害走逐实例字段——cfg 是共享注册表对象, 严禁原地改) + 家锚=房心。
+    守卫条目可带 gi(守卫表序)→ 实体标 __denGuard(阵亡入档键, D20) */
   for (const g of list) {
     const m = Mobs.spawn(g.type, g.x + 0.5, g.z + 0.5,
         {yaw: 0, hpMult: mult ? mult.hpMult : 1});
     m.pos.y = (g.y != null ? g.y : ADV_DEN.ground + 1);
     if (mult && mult.spdMult) m.speedMult = mult.spdMult;
     if (mult && mult.dmgMult) m.dmgMult = mult.dmgMult;
+    if (g.gi != null) m.__denGuard = g.gi;
     m.__nightHome = {x: g.hx != null ? g.hx : g.x + 0.5, z: g.hz != null ? g.hz : g.z + 0.5};
   }
 }
-function advDenSeed() {/* 副本进场布防(§7): 固定守卫(大厅/两翼/关底王座) +
-    祭坛房第一波; 之后全清 WAVE_S 秒出更强的一波(advDenTick 补位) */
-  advDenWave = 1;
+function advDenSeed(fresh) {/* 副本进场布防(§7+D20): fresh=全新(每日重置/首刷)——
+    全量守卫+第一波; 同日续局=只铺活守卫(deadGuards 表序不铺——打死的当天不
+    复活)+断点波(整波重铺: 波次怪实体不落档, 当波已伤已死的随重铺回归是已
+    知近似)+通关态只铺活守卫不再出波 */
   advDenT = 0;
-  advDenLay(ADV_DEN_GUARDS);
-  const w1 = advDenWavePlan(1, Math.random);
-  advDenLay(w1.spawns, w1);
+  const dead = fresh ? [] : advDenDaily.deadGuards;
+  const alive = [];
+  ADV_DEN_GUARDS.forEach((g, i) => {
+    if (dead.indexOf(i) >= 0) return;
+    alive.push(Object.assign({}, g, {gi: i}));
+  });
+  advDenLay(alive);
+  advDenDaily.wave = fresh ? 1 : Math.max(1, advDenDaily.wave || 1);
+  if (!fresh && advDenDaily.chestDone) return; /* 同日已通关: 熄火到明天(D20) */
+  const w = advDenWavePlan(advDenDaily.wave, Math.random);
+  advDenLay(w.spawns, w);
 }
 function advDenTick(dt) {/* 副本波次节拍(update 每帧, den 门禁内): 门=全清
     (怪还活着计时归零)——清空累计 WAVE_S 秒出下一波; 第 WAVES 波全清 → 刷
-    战利品宝箱(恰一次); 封顶判据在纯核 advDenStep, 壳层只落地(§7.5/D15) */
-  const step = advDenStep(advDenAlive() === 0, advDenT, dt, advDenWave, advDenChestDone);
+    战利品宝箱(恰一次); 封顶判据在纯核 advDenStep, 壳层只落地(§7.5/D15)。
+    波次/通关旗直接读写 advDenDaily(每日态=唯一权威, 档随 payload 落盘, D20) */
+  const step = advDenStep(advDenAlive() === 0, advDenT, dt, advDenDaily.wave, advDenDaily.chestDone);
   advDenT = step.t;
   if (step.spawn) {
-    advDenWave++;
-    const w = advDenWavePlan(advDenWave, Math.random);
+    advDenDaily.wave++;
+    const w = advDenWavePlan(advDenDaily.wave, Math.random);
     advDenLay(w.spawns, w);
   }
   if (step.chest) {
-    advDenChestDone = true;
+    advDenDaily.chestDone = true;
     advDenLootSpawn();
   }
 }
@@ -3416,7 +3466,7 @@ const AdventureMode = mkMode({
     advExitSpot = null;
     advMood = null; /* 首帧 update 按当下昼夜补报场景曲(main 随后会先报基线 adventure) */
     advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7): 转场不跨场次(巢穴门已共用此状态) */
-    advDenT = 0; advDenWave = 0; advDenChestDone = false; /* 副本波次状态复位(维度不进档, 重进恒主世界) */
+    advDenT = 0; /* 副本计时复位(维度不进档, 重进恒主世界); 波次/通关旗走 advDenDaily(D20), init 收养档值不动 */
     advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
     advGateLockT = 0; /* 锁门提示节流复位 */
@@ -3473,6 +3523,7 @@ const AdventureMode = mkMode({
     advBubbles = mkBubbleBar(); /* 溺气泡条(liquid D10): 剩 3 泡 TTS 提醒, 气满藏条 */
     advOreRegen = advOreRegenDecode(advLoad.oreRegen); /* 矿位开采账换装(生态恢复; 归一兜底——
        dev store/旧档缺键 → 空账; 先于 loadScene, 回填在其内结算) */
+    advDenDaily = advLoad.den || null; /* 每日副本态收养(D20): 老档/坏档 null=首进全新 */
     loadScene(() => {/* 场景装填 seam: 清场→建场(当前地图行 build, T6)→收尾入队一步到位 */
       advBuildScene(advMapRow);
       advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv}); /* 双通道重放(liquid D8): 流体格→方块+水位, 裸值→方块 */
@@ -3805,6 +3856,10 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advChestDeposit, advChestWithdraw, advChestExpand, advPanelClose,
   advStationOk, advNightRead, advQuestPaint, advSlimeWaterOk,
   advSetDim, advSetMap, advSceneEdits,
+  advDenState: () => advDenDaily, /* 每日副本态(D20 测试挂点: 活绑定读/注入尸账) */
+  advDenTodaySet: (v) => {
+    advDenTodayOverride = v; /* 日键覆写(每日刷新用例模拟跨天) */
+  },
   advNetherState: () => ({dim: advDim, map: advMap, portalCd: advPortalCd, exitSpot: advExitSpot}),
   advMineHardText, advHudLines};
 

@@ -293,6 +293,9 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), engC, {filename: f});
   }
+  globalThis.DailyBudget = require('../js/daily-budget.js'); /* D20 每日副本:
+      advDenTodayKey 消费 budgetDateStr(导出平铺; adventure.js 经 require 装载,
+      自由标识符走 Node 全局) */
   apiC = vm.runInContext(`({
     getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, world, worldCells, SceneKit,
     groundTop, lightSkyAt, lightBlockAt,
@@ -1518,5 +1521,49 @@ test('副本 5 轮封顶真世界: 第 5 波全清刷战利品宝箱 · 敲碎�
   assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), 0, '重进后宝箱不在场(已领奖)');
   assert.strictEqual(apiC.getBlock(L.x + 1, L.y, L.z), 0, '右半同样不在场');
   AN.advSetDim('overworld');
+  Drops.clear();
+});
+
+/* ============ 每日副本刷新真世界流程(D20, 2026-10-30 四批拍板) ============ */
+
+test('每日副本真世界: 同日续局(破坏保留+尸账不复活+补给不重来) · 次日彻底复原', () => {
+  freshC();
+  AN.advDenTodaySet('2026-10-30');
+  AN.advSetDim('den');
+  const cr = ADV_DEN.rooms.chestR;
+  const ty = ADV_DEN.ground + 1;
+  const CH = ADV_DEN.chest;
+  const n0 = mobsSpawnedC.length;
+  assert.ok(n0 > 0, '全新日进场布防在场(守卫+首波)');
+  assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), apiC.B_LOOT_CHEST_SMALL,
+      '全新日: 宝箱室小宝箱在场(建场预置)');
+  /* Day A: 破坏室角火把 + 敲碎小宝箱(补给落地) */
+  AN.advBreakBlock(cr.x1 + 1, ty, cr.z1 + 1, apiC.B_TORCH, {time: 2, drops: true});
+  dropsSpawnedC.length = 0;
+  AN.advBreakBlock(CH.x, CH.y, CH.z, apiC.B_LOOT_CHEST_SMALL, {time: 2, drops: true});
+  assert.ok(dropsSpawnedC.some((d) => d.id === 'sword_iron' && d.n === 1), '补给含铁剑×1');
+  assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), 0, '小宝箱已敲碎');
+  /* 模拟打死一只守卫: 尸账入档(D20) */
+  AN.advDenState().deadGuards.push(0);
+  /* 同日重进: 破坏保留 + 小宝箱不回来 + 布防恰少一只(尸账生效, 波次整波重铺)。
+     (量测口径: 进 den 前 advSceneLeave→Mobs.clear 清桩, 进场后计数=本次布防量) */
+  AN.advSetDim('overworld');
+  AN.advSetDim('den');
+  assert.strictEqual(mobsSpawnedC.length, n0 - 1,
+      '同日重进: 布防恰少一只(打死的守卫不复活)');
+  assert.strictEqual(apiC.getBlock(cr.x1 + 1, ty, cr.z1 + 1), 0, '同日: 破坏的火把不恢复');
+  assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), 0, '同日: 小宝箱不回来(补给一次)');
+  /* 次日: 一切还原——地形愈合+小宝箱回来+全量布防+尸账清零+日键翻篇 */
+  AN.advSetDim('overworld');
+  AN.advDenTodaySet('2026-10-31');
+  AN.advSetDim('den');
+  assert.strictEqual(mobsSpawnedC.length, n0, '次日: 全量布防(守卫全回来)');
+  assert.strictEqual(apiC.getBlock(cr.x1 + 1, ty, cr.z1 + 1), apiC.B_TORCH, '次日: 破坏愈合(火把回来)');
+  assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), apiC.B_LOOT_CHEST_SMALL,
+      '次日: 小宝箱回来(补给一天一次)');
+  assert.deepStrictEqual(AN.advDenState().deadGuards, [], '次日: 守卫尸账清零');
+  assert.strictEqual(AN.advDenState().day, '2026-10-31', '日键翻篇入档');
+  AN.advSetDim('overworld');
+  AN.advDenTodaySet(null);
   Drops.clear();
 });

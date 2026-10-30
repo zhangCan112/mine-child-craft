@@ -113,6 +113,22 @@ test('行 build 建场确定性: 两维度各两遍逐字节一致(确定性重�
   }
 });
 
+/* ============ 每日副本刷新判据(D20, 真实日历日键注入) ============ */
+
+test('每日副本刷新判据: 同日续局原样带出 · 异日/首日/老档归全新(状态归零)', () => {
+  const prev = {day: '2026-10-30', wave: 3, chestDone: false, deadGuards: [2, 5]};
+  /* 同日: 续局——状态原样(怪尸/波次/通关旗都保持) */
+  assert.deepStrictEqual(Dims.advDenDailyStep(prev, '2026-10-30'),
+      {fresh: false, state: prev}, '同日 = 续局(fresh:false)');
+  /* 异日: 全新——日键翻篇, 状态归零(波次回 1/旗清/尸账清) */
+  assert.deepStrictEqual(Dims.advDenDailyStep(prev, '2026-10-31'),
+      {fresh: true, state: {day: '2026-10-31', wave: 1, chestDone: false, deadGuards: []}},
+      '次日 = 一切还原(D20 拍板)');
+  /* 老档/坏档(null): 首进即全新 */
+  assert.deepStrictEqual(Dims.advDenDailyStep(null, '2026-10-30').fresh, true,
+      '无档 = 全新(老档兼容)');
+});
+
 /* ============ 炉键前缀守门(源文本: 壳层 ADV_FURN_PREFIX 键集 ⊇ 维度行 id) ============ */
 
 test('炉键前缀守门: ADV_FURN_PREFIX 单份权威键集覆盖全部维度行(新维度忘配即红)', () => {

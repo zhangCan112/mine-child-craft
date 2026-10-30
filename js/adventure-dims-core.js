@@ -21,6 +21,7 @@
      advDenMineRoom/advDenStep(清怪波次节拍+5 轮封顶 chest 信号)/advDenWavePlan(波次计划)
        · ADV_DEN_LOOT(宝箱掉落表)/advDenLootRoll/advLootChestPlan(宝箱配对破坏计划)
       · ADV_DEN_LOOT_SMALL(低档掉落表)/advLootChestSmallPlan(低档单格破坏计划, D18)
+      · advDenDailyStep(每日副本刷新判据, D20——日键注入, core 零 Date 依赖)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
      advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——涌出/副本节拍
      薄壳组装, 加载序先于 adventure-core) · adventure-core.js 的 advPortalFrame/
@@ -291,6 +292,18 @@ function advLootChestSmallPlan(id, rnd) {
   return {cells: [], drops: advDenLootRoll(rnd, ADV_DEN_LOOT_SMALL)};
 }
 
+/* 每日副本刷新判据(§7.5/D20): 真实日历日键(与每日预算/图章同钟——键由壳层
+   DailyBudget.budgetDateStr 算好注入, core 零 Date 依赖)。prev=世界档 den
+   每日态|null(老档/坏档); 同日=续局(fresh:false, 状态原样带出——怪尸/破坏/
+   波次都保持); 异日/首日=全新(fresh:true, 状态归零: 波次回 1/通关旗清/守卫
+   尸账清——地形复原由壳层清桶落地, 判据只管状态) */
+function advDenDailyStep(prev, today) {
+  if (prev && prev.day === today && Array.isArray(prev.deadGuards)) {
+    return {fresh: false, state: prev};
+  }
+  return {fresh: true, state: {day: today, wave: 1, chestDone: false, deadGuards: []}};
+}
+
 /* 副本建场: 整图岩体(y0~roof+1 实心——巨洞从岩体里掏出来, 矿腔镶矿/岩壁
    体感/天空光全遮都依赖实心; 雾把远处吃掉, 观感与性能的平衡点), 掏出
    大厅/七房/弯曲隧道, 地面混铺苔石/泥, 关底王座+壁雕+火把, 深处祭坛,
@@ -480,5 +493,5 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_DEN, ADV_DEN_TUNNELS, ADV_DEN_GUARDS, advDenRoomCenter,
     advDenBuild, advDenMineRoom, advDenStep, advDenWavePlan,
     ADV_DEN_LOOT, ADV_DEN_LOOT_SMALL, advDenLootRoll, advLootChestPlan,
-    advLootChestSmallPlan};
+    advLootChestSmallPlan, advDenDailyStep};
 }
