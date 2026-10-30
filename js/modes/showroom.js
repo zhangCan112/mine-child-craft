@@ -96,6 +96,22 @@ function showroomDevRestore() {/* 还原真档缺省(adventure.js 顶层的两 c
   showroomDevOn = false;
 }
 
+/* ---------- 试玩工位·战利品宝箱(2026-10-30 用户试玩需求): 进场在出生炉旁的
+   中央过道地板上备好一个战利品宝箱(B_LOOT_CHEST 双格)——敲 2 秒打碎, 就地试
+   「配对破坏+掉落表战利品」全链。体验馆世界是内存派生的(退出无痕), 打碎/拾取
+   全落 dev store, 重进必得新箱; 与副本通关刷箱(den-nest §7.5 的演出语义)互不
+   相干——这里是试玩工位: 直写不记账(展馆账本派生不含它, 无重现语义可言)。
+   选址 (66..67, g+1, 62): 出生炉(64,62)东侧过道, 避开火把点(66,64)/展台
+   (x55/69)/门线(x63)——展馆账本里该两格恒空气(整地段清空, showroomPaintFlat) */
+function showroomLootChest() {
+  const y = ADV_GROUND + 1; /* 运行时地平=家营 ADV_GROUND(showroomDevLayout 覆写) */
+  setBlockRaw(66, y, 62, B_LOOT_CHEST);
+  setBlockRaw(67, y, 62, B_LOOT_CHEST);
+  advMeshTouch(66, 62); /* 直写当帧可见(自放门/树长成同款收口; Node 桩缺席静默) */
+  advMeshTouch(67, 62);
+  advMeshFlush();
+}
+
 /* ---------- 模式门面: 钩子全委托冒险壳, 差异只在换装与 dev 特化 ---------- */
 const ShowroomMode = mkMode({
   id: 'showroom',
@@ -106,6 +122,7 @@ const ShowroomMode = mkMode({
   init() {
     showroomDevInstall(); /* 装 dev(账本派生+dev store+dev 政策) → 壳 init 全链读篡改档 */
     AdventureMode.init();
+    showroomLootChest(); /* 试玩工位: 出生炉旁战利品宝箱(敲 2 秒试配对破坏+掉落全链) */
     showroomNightWas = Daylight.isNight(dayTime); /* 铺法边沿账本对齐装载后的当下(dev 档恒清晨) */
     touchPlaying = true; /* input.js 的「进行中」态(无菜单页卡点击直进, v2 口径; 不接指针锁定) */
     overlay.style.display = 'none'; /* 直进: 收主菜单(v2 口径) */
