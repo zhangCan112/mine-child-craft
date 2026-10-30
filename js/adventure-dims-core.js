@@ -106,7 +106,7 @@ const ADV_DEN = {
   roof: 38, /* 穹顶壳底层 y(壳厚 4: y38~41)——D10 扩高锚点, 未来升 WORLD_H 只改此值 */
   hall: {cx: 80, cz: 80, r: 14}, /* 巨洞大厅(圆厅, 进场集散地; 观感体量由黑暗+雾+发光岩承担) */
   gate: {px: 76, pz: 69}, /* 回程裂隙门框位(厅内北缘, 常亮; 基座建场直写不记账——互锁红线) */
-  chest: {x: 116, y: 8, z: 80}, /* 宝箱室宝箱(任务键 chest_den, advMapChestKey 同源坐标) */
+  chest: {x: 116, y: 8, z: 80}, /* 宝箱室小宝箱(D19: B_LOOT_CHEST_SMALL 可敲补给件; 任务键 chest_den 同源坐标, 计数在打碎侧) */
   base: {x: 80.5, z: 92.5}, /* 进场落点(大厅南侧开阔区, 面朝北) */
   /* —— 苦力怕主题改造(§7): 祭坛迁离大厅 → 深处祭坛房; 关底王座 —— */
   altar: {x: 63, z: 28}, /* 刷怪祭坛中心(深处祭坛房中央; 波次出生环心, 家锚=此处) */
@@ -236,13 +236,13 @@ const ADV_DEN_LOOT = {
   rare: [['diamond', 1]], /* 钻石恒得(5 轮苦战的压轴惊喜) */
 };
 
-/* 低档奖励箱掉落表(§7.5/D18): 用户拍板 2026-10-30「简化减量版」——条目少/
-   数量少/无金无钻, 一眼看出是小箱。全保底零掷骰(敲开即得的确定回报, 体验馆
-   工位口径), 形状与 ADV_DEN_LOOT 同契约(表只存数据, 掷骰语义共用
-   advDenLootRoll 的 table 注入) */
+/* 低档奖励箱掉落表(§7.5/D18+D19): 用户拍板 2026-10-30 二轮——副本宝箱室补给
+   定版「铁剑 1+苹果 10」(初版火药 2/铁锭 1/苹果 1 是试玩占位, 随箱进副本转正)。
+   全保底零掷骰(敲开即得的确定回报), 形状与 ADV_DEN_LOOT 同契约(表只存数据,
+   掷骰语义共用 advDenLootRoll 的 table 注入) */
 const ADV_DEN_LOOT_SMALL = {
   rolls: [
-    ['gunpowder', 2, 0], ['iron_ingot', 1, 0], ['apple', 1, 0],
+    ['sword_iron', 1, 0], ['apple', 10, 0], /* 补给: 一把铁剑+十个苹果(D19 拍板) */
   ],
   rare: [],
 };
@@ -350,8 +350,11 @@ function advDenBuild() {
   }
   advDenMineRoom(104, 73, [B_COAL_ORE, B_IRON_ORE], 8201); /* 矿腔 A: 煤铁(东北) */
   advDenMineRoom(104, 87, [B_GOLD_ORE, B_DIAMOND_ORE], 8301); /* 矿腔 B: 金钻(东南) */
-  /* 宝箱室: 宝箱+两角落地站膛火把(thin 悬空会被清扫治愈, 神殿先例) */
-  setBlockRaw(D.chest.x, D.chest.y, D.chest.z, B_CHEST);
+  /* 宝箱室: 小宝箱(D19——原木箱 B_CHEST 换低档奖励箱: 储物箱退场, 敲 2 秒
+     碎箱掉补给 sword_iron×1+apple×10, 建场预置随世界档持久——打碎经 edits
+     记账, 重进不复活=一次补给; 任务键 chest_den 计数随迁「打开→打碎」, 壳层
+     onLootChestBreak 消费)+两角落地站膛火把(thin 悬空会被清扫治愈, 神殿先例) */
+  setBlockRaw(D.chest.x, D.chest.y, D.chest.z, B_LOOT_CHEST_SMALL);
   setBlockRaw(D.rooms.chestR.x1 + 1, D.ground + 1, D.rooms.chestR.z1 + 1, B_TORCH);
   setBlockRaw(D.rooms.chestR.x2 - 1, D.ground + 1, D.rooms.chestR.z2 - 1, B_TORCH);
   /* 关底王座大房间(用户拍板: 最后关底大房=苦力怕王, 有布置有火把照亮):

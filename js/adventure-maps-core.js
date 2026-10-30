@@ -563,7 +563,9 @@ function advMapUnlocked(mapId, counts) {
    同源常量)——他图同坐标/玩家自放的箱子/结构邻格返 null(防「带箱远征」
    与「挖坑埋箱冒名」的 cheese, 探宝要探真结构)。den 行=巢穴副本宝箱室
    (den-nest-design D11/D12, 坐标与 advDenBuild 同源 ADV_DEN.chest;
-   mapId 实参是场景键 advSceneKey()——副本期间 advMap 保持主世界图) */
+   mapId 实参是场景键 advSceneKey()——副本期间 advMap 保持主世界图)。
+   D19 起 den 键的计数在打碎侧(小宝箱可敲不可开, 壳层 onLootChestBreak
+   消费); 其余三结构仍是 B_CHEST 开箱计数, 双判定防冒名语义不变) */
 function advMapChestKey(mapId, x, y, z) {
   if (mapId === 'desert' && x === ADV_DESERT.temple.cx && y === 20 && z === ADV_DESERT.temple.cz) {
     return 'chest_temple';

@@ -337,8 +337,10 @@ test('副本矿藏廊: 隧道连通两矿腔分矿种镶矿 + 宝箱室(任务�
   }
   assert.ok((counts[api.B_COAL_ORE] || 0) > 0 && (counts[api.B_IRON_ORE] || 0) > 0, '腔 A 煤铁镶矿非零');
   assert.ok((counts[api.B_GOLD_ORE] || 0) > 0 && (counts[api.B_DIAMOND_ORE] || 0) > 0, '腔 B 金钻镶矿非零');
-  /* 宝箱室: 宝箱坐标与 advMapChestKey 'den' 行同源(maps-core 消费 ADV_DEN.chest) */
-  assert.strictEqual(cell(DEN.chest.x, DEN.chest.y, DEN.chest.z), api.B_CHEST, '宝箱室宝箱');
+  /* 宝箱室: 小宝箱坐标与 advMapChestKey 'den' 行同源(maps-core 消费 ADV_DEN.chest)
+     ——D19 起是低档奖励箱(可敲补给件), 不再是储物箱 B_CHEST */
+  assert.strictEqual(cell(DEN.chest.x, DEN.chest.y, DEN.chest.z), api.B_LOOT_CHEST_SMALL,
+      '宝箱室小宝箱(D19: 木箱换低档奖励箱)');
   const cr = DEN.rooms.chestR;
   assert.strictEqual(cell(cr.x1 + 1, DEN.ground + 1, cr.z1 + 1), api.B_TORCH, '室角落地站膛火把');
 });
@@ -522,13 +524,13 @@ test('战利品宝箱配对计划: 四邻认亲 · 恰一次掉落 · 无相邻�
 
 /* ============ 低档奖励箱纯件(§7.5 D18, 2026-10-30 三批拍板) ============ */
 
-test('低档奖励箱掷骰: 简化减量表全确定 — 火药2/铁锭1/苹果1 无金无钻零掷骰(D18)', () => {
+test('低档奖励箱掷骰: 补给表全确定 — 铁剑1/苹果10 无金无钻零掷骰(D19 拍板)', () => {
   const ITEMS = api.ITEMS; /* 注册表唯一权威(vm 真件; items-core 无导出守卫, 不可 require) */
-  /* 全保底零掷骰: 任意 rnd 结果同一(敲开即得的确定回报, 体验馆工位口径) */
+  /* 全保底零掷骰: 任意 rnd 结果同一(敲开即得的确定回报) */
   for (const r of [() => 0, () => 0.4, () => 0.9]) {
     assert.deepStrictEqual(Dims.advDenLootRoll(r, Dims.ADV_DEN_LOOT_SMALL), [
-      {id: 'gunpowder', n: 2}, {id: 'iron_ingot', n: 1}, {id: 'apple', n: 1},
-    ], '简化减量版逐条保底(用户拍板, 无加成无 rare)');
+      {id: 'sword_iron', n: 1}, {id: 'apple', n: 10},
+    ], '补给定版逐条保底(用户拍板: 铁剑 1 把+苹果 10 个)');
   }
   /* 缺省表兼容: 不传 table 仍掷大箱表(旧调用零改动——钻石恒得作确定性锚) */
   assert.deepStrictEqual(Dims.advDenLootRoll(() => 0.9)[4], {id: 'diamond', n: 1},
@@ -544,8 +546,8 @@ test('低档奖励箱破坏计划: 单格整箱无配对 — 破坏块 id 认主
   const p = Dims.advLootChestSmallPlan(api.B_LOOT_CHEST_SMALL, () => 0.9);
   assert.deepStrictEqual(p.cells, [], '单格无第二格要清(cells 恒空)');
   assert.deepStrictEqual(p.drops, [
-    {id: 'gunpowder', n: 2}, {id: 'iron_ingot', n: 1}, {id: 'apple', n: 1},
-  ], '低档表恰掷一次(零掷骰全确定)');
+    {id: 'sword_iron', n: 1}, {id: 'apple', n: 10},
+  ], '补给表恰掷一次(零掷骰全确定)');
   assert.strictEqual(Dims.advLootChestSmallPlan(api.B_LOOT_CHEST, () => 0.9), null,
       '大箱不走小箱计划(回退配对扫描)');
   assert.strictEqual(Dims.advLootChestSmallPlan(0, () => 0.9), null, '非宝箱返 null');

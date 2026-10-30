@@ -1700,9 +1700,9 @@ const ADV_QUESTS = [
     hint: '高高的木头小屋里住着女巫，小心一点，打开屋里的宝箱吧！',
     praise: '女巫的宝箱打开啦！你是真正的大探险家！',
     prog: (c) => Math.min(c.chest_witch || 0, 1), check: (c) => (c.chest_witch || 0) >= 1},
-  {id: 'q26_den_chest', icon: '🕳️', goal: '打开怪物巢穴深处的宝箱', target: 1,
-    hint: '东北边的黑石丘下藏着怪物的巢穴，钻进最深处，打开宝箱吧！',
-    praise: '巢穴宝箱打开啦！黑暗深处也难不倒你！',
+  {id: 'q26_den_chest', icon: '🕳️', goal: '打碎怪物巢穴深处的宝箱', target: 1,
+    hint: '东北边的黑石丘下藏着怪物的巢穴，钻进最深处，敲碎小宝箱吧！',
+    praise: '巢穴宝箱敲碎啦！黑暗深处也难不倒你！',
     prog: (c) => Math.min(c.chest_den || 0, 1), check: (c) => (c.chest_den || 0) >= 1},
 ];
 

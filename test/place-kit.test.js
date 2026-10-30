@@ -78,6 +78,7 @@ const rings = [];
 const touches = [];
 const sapCleared = []; /* 盖掉/挖掉树苗的撤计时 sink 录 */
 const cropCleared = []; /* 挖掉/掀掉麦苗的撤计时 sink 录(farm-and-recipe D3) */
+const chestBreaks = []; /* 奖励箱破坏后钩录(D19: [x,y,z,id,quest]) */
 let flushes = 0;
 let wearCalls = 0;
 let felled = 0;
@@ -97,6 +98,7 @@ const ed = PlaceKit.mkEditor({
   pos: () => playerPos,
   onEdit: (x, y, z, id) => journal.push([x, y, z, id]),
   onPlaced: (blockId, x, y, z) => placed.push([blockId, x, y, z]),
+  onLootChestBreak: (x, y, z, id, quest) => chestBreaks.push([x, y, z, id, quest]),
   cascade: {
     mark: () => {},
     sapling: (x, y, z) => sapCleared.push([x, y, z]),
@@ -117,7 +119,7 @@ const ed = PlaceKit.mkEditor({
 function reset() {
   journal.length = 0; placed.length = 0; drops.length = 0; mined.length = 0;
   says.length = 0; speaks.length = 0; sfxs.length = 0; rings.length = 0; touches.length = 0;
-  sapCleared.length = 0; cropCleared.length = 0;
+  sapCleared.length = 0; cropCleared.length = 0; chestBreaks.length = 0;
   flushes = 0; wearCalls = 0; felled = 0;
 }
 
@@ -284,16 +286,18 @@ test('place-kit: 宝箱配对破坏 — 挖任一半整箱消失+掉落表恰掷
   assert.strictEqual(drops.length, 0, '无配对不掉战利品');
 });
 
-/* ============ ②d 低档奖励箱: 单格整箱 id 认主 (den-nest §7.5 D18) ============ */
+/* ============ ②d 低档奖励箱: 单格整箱 id 认主 (den-nest §7.5 D18/D19) ============ */
 
-test('place-kit: 低档奖励箱单格破坏 — id 认主恰掉简化表(挨着大箱不误吃配对)', () => {
+test('place-kit: 低档奖励箱单格破坏 — id 认主恰掉补给表+破坏后钩(挨着大箱不误吃配对)', () => {
   reset();
   api.setBlockRaw(35, 13, 36, api.B_LOOT_CHEST_SMALL);
   ed.breakBlock(35, 13, 36, api.B_LOOT_CHEST_SMALL, {time: 2, drops: true});
   assert.strictEqual(api.getBlock(35, 13, 36), 0, '单格整箱清');
   assert.deepStrictEqual(drops.map((d) => [d[0], d[1]]),
-      [['gunpowder', 2], ['iron_ingot', 1], ['apple', 1]],
-      '简化减量表恰一次(全保底零掷骰——任意 rnd 同一结果)');
+      [['sword_iron', 1], ['apple', 10]],
+      '补给表恰一次(全保底零掷骰——任意 rnd 同一结果, D19 拍板)');
+  assert.deepStrictEqual(chestBreaks, [[35, 13, 36, api.B_LOOT_CHEST_SMALL, true]],
+      '破坏后钩恰一发(坐标+id+quest 全参, 探宝 tally 缝 D19)');
   assert.strictEqual(wearCalls, 1, '破坏磨损钩');
   /* 挨着大箱: 先认小箱(id 精确匹配)不回退大箱配对——72 邻 71 不误吃 */
   reset();
@@ -305,14 +309,21 @@ test('place-kit: 低档奖励箱单格破坏 — id 认主恰掉简化表(挨着
   assert.strictEqual(api.getBlock(30, 13, 36), api.B_LOOT_CHEST, '大箱左半不动');
   assert.strictEqual(api.getBlock(31, 13, 36), api.B_LOOT_CHEST, '大箱右半不动(不误吃配对)');
   assert.deepStrictEqual(drops.map((d) => [d[0], d[1]]),
-      [['gunpowder', 2], ['iron_ingot', 1], ['apple', 1]], '只掉小箱的减量表');
-  /* 大箱链不回归: 配对计划仍走(挖任一半整箱消失+钻石恒得锚) */
+      [['sword_iron', 1], ['apple', 10]], '只掉小箱的补给表');
+  /* 大箱链不回归: 配对计划仍走(挖任一半整箱消失+钻石恒得锚), 后钩照样发 */
   reset();
   api.setBlockRaw(30, 13, 36, api.B_LOOT_CHEST);
   api.setBlockRaw(31, 13, 36, api.B_LOOT_CHEST);
   ed.breakBlock(30, 13, 36, api.B_LOOT_CHEST, {time: 2, drops: true});
   assert.strictEqual(api.getBlock(31, 13, 36), 0, '大箱配对破坏照旧');
   assert.ok(drops.some((d) => d[0] === 'diamond' && d[1] === 1), '大箱钻石恒得锚(rare p=1)');
+  assert.deepStrictEqual(chestBreaks, [[30, 13, 36, api.B_LOOT_CHEST, true]],
+      '大箱破坏后钩也发(家族同缝; 壳层按键名坐标判定, 无键即 no-op)');
+  /* 普通方块不触奖励箱后钩 */
+  reset();
+  api.setBlockRaw(36, 13, 36, 3);
+  ed.breakBlock(36, 13, 36, 3, {time: 2, drops: true});
+  assert.deepStrictEqual(chestBreaks, [], '非奖励箱破坏不发后钩');
 });
 
 /* ============ ③ 传送门: 结构长出+网格收口 ============ */

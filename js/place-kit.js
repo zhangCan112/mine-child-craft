@@ -17,6 +17,8 @@
      opts.onEdit(x,y,z,id) — 世界改动记账(探险=journal+站点缓存;
        体验馆 noop——无 journal, 改动只活当次进场=恢复原装)
      opts.onPlaced(blockId,x,y,z) — 放置后钩(探险=任务 tally+树苗挂表)
+     opts.onLootChestBreak(x,y,z,id,quest) — 奖励箱破坏后钩(D19: 探险=探宝
+       任务 tally 随箱型迁移; quest=false=TNT 链不计数; 仅计划命中才发)
      opts.onConsume() — 扣件后(快捷栏同步)
      opts.onPortalPlaced(by,px,pz) — 传送门立起后(探险=锚这扇门的光束)
      opts.cascade — {mark,sapling,crop,drop,questMine} 级联账本 sink
@@ -110,6 +112,7 @@ function mkEditor(opts) {
     for (const d of plan.drops) {
       if (sink.drop) sink.drop(d.id, d.n, bx + 0.5, by + 0.5, bz + 0.5);
     }
+    if (o.onLootChestBreak) o.onLootChestBreak(bx, by, bz, id, quest); /* 破坏后钩(D19: 探宝 tally 缝, TNT 链同样经此) */
   }
 
   /* 破坏结算: 碎屑(editBlock 内置同色 Fx.debrisBurst)+记账+级联+掉落+磨损。

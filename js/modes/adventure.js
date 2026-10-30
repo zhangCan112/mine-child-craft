@@ -2333,6 +2333,15 @@ const advPlaceKit = PlaceKit.mkEditor({
       advSapPlant(x, y, z);
     }
   },
+  onLootChestBreak: (x, y, z, id, quest) => {
+    /* 探宝任务键随箱型迁移(D19): 副本宝箱室的小宝箱可敲不可开——chest_den
+        计数从「打开 B_CHEST」迁到「打碎小宝箱」, 场景+坐标双判定照旧
+        (advMapChestKey 防冒名); TNT 链 quest=false 不计数(P6: 掀掉的不算
+        任务), 补给照掉。他图结构键仍是 B_CHEST 开箱计数, 与此互不干扰 */
+    if (!quest) return;
+    const ck = advMapChestKey(advSceneKey(), x, y, z);
+    if (ck) advTally(ck, 1);
+  },
   onConsume: advSyncHotbar,
   onPortalPlaced: (by, px, pz) => advBeamAdd(by, px, pz), /* 这扇门的光束顺路锚上(切界时随全量重锚) */
   cascade: advCascadeSink,
