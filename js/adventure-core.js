@@ -370,22 +370,27 @@ function advBuildNest(n) {/* 怪物巢穴: 苔石点缀的土丘 + 朝南洞口(
   for (const y of [25, 26]) setBlockRaw(n.x, y, n.z + 2, 0); /* 洞口朝南 */
 }
 
-function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(r5, 黑曜石斑+苔石——
-  「这里不对劲」的地表预告) + 南敞廊 + 向南深潜洞道(y24→y12, 沿途镶煤铁, 山洞同款
-  1 格级台阶) + 进厅台阶 + 地下巢厅(y8~11 腔室): 中央怪物巢穴之心(B_SPAWNER,
-  巢厅地标——副本入口 2026-10-30 已迁洞口紫门) + 角落发光岩(微弱路标) + 洞口
-  巢穴之门(紫门面+发光楣)。确定性零 Math.random; 门口刷怪归 T14 巢穴
-  机制(n.den 行照常进 advNestTick) */
+function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(r5, 黑石王冠——
+  丘冠黑曜石为主+丘身苔石斑+丘裙素石苔, 纵剖面自冠向裙渐亮) + 南敞廊 + 向南深潜
+  洞道(y24→y12, 沿途镶煤铁, 山洞同款 1 格级台阶) + 进厅台阶 + 地下巢厅(y8~11 腔室):
+  中央怪物巢穴之心(B_SPAWNER, 巢厅地标——副本入口 2026-10-30 已迁洞口紫门) +
+  角落发光岩(微弱路标) + 洞口巢穴之门(黑曜石门框柱+紫门面+发光楣, 全件上图集贴图)。
+  确定性零 Math.random; 门口刷怪归 T14 巢穴机制(n.den 行照常进 advNestTick) */
   for (let dx = -5; dx <= 5; dx++) {
     for (let dz = -5; dz <= 5; dz++) {
       const d = Math.hypot(dx, dz);
       if (d > 5) continue;
-      const h = d < 1.2 ? 4 : (d < 2.4 ? 3 : (d < 3.6 ? 2 : 1));
+      const h = d < 1.2 ? 5 : (d < 2.4 ? 4 : (d < 3.6 ? 3 : 2));
       for (let y = ADV_GROUND + 1; y <= ADV_GROUND + h; y++) {
-        const r = SceneKit.rand(n.x + dx, n.z + dz, 5103);
-        /* 黑曜石斑(挖不得的黑石质感=危险预告)+苔石+石芯——不用煤矿: 矿带
-           断言锁「煤矿只在 y12~20」全图红线(adventure-core.test), 丘体装饰不入矿带 */
-        const id = r > 0.88 ? B_OBSIDIAN : (r > 0.72 ? 14 : 3);
+        const r = SceneKit.rand(n.x + dx, n.z + dz + y * 131, 5103); /* y 入盐: 逐格掷点,
+            旧版整列同 id 的「黑柱串」观感消除 */
+        /* 黑曜石斑(挖不得的黑石质感=危险预告)+苔石+石芯, 纵向渐变: 丘冠(d<1.2)
+           黑曜石为主=黑石王冠(中心柱整柱黑——峰顶任何角度读黑), 丘身石芯+苔石斑+
+           偶黑曜石(原版比例 72/16/12), 丘裙只石苔——黑块不再撒到草皮边; 不用煤矿:
+           矿带断言锁「煤矿只在 y12~20」全图红线(adventure-core.test), 丘体装饰不入矿带 */
+        const id = d < 1.2 ? ((dx === 0 && dz === 0) || r > 0.35 ? B_OBSIDIAN : 3) :
+          (d < 3.6 ? (r > 0.88 ? B_OBSIDIAN : (r > 0.72 ? 14 : 3)) :
+            (r > 0.84 ? 14 : 3));
         setBlockRaw(n.x + dx, y, n.z + dz, id);
       }
     }
@@ -447,6 +452,12 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
     setBlockRaw(gx, 21, n.z + 3, B_OBSIDIAN); /* 黑曜石门槛(嵌画廊地板, 经典门基) */
     for (let yy = 22; yy <= 23; yy++) setBlockRaw(gx, yy, n.z + 3, B_PORTAL); /* 紫门面 2×2 */
     setBlockRaw(gx, 24, n.z + 3, B_GLOWSTONE); /* 发光岩门楣(夜间也一眼可见) */
+  }
+  /* 门框柱(巢穴观感票): 门面两侧贴廊壁各一根黑曜石柱(y22~24, 画廊地面到草皮面)
+     ——经典门框观感, 远看即「这里有一扇门」。廊壁格(x±2 列)在敞廊 fill(x-1..x)
+     之外, 天然地形 y22~23 泥/y24 草, 覆写即成框柱; 触发域(门面格)不动 */
+  for (const gx of [n.x - 2, n.x + 1]) {
+    for (let yy = 22; yy <= 24; yy++) setBlockRaw(gx, yy, n.z + 3, B_OBSIDIAN);
   }
 }
 

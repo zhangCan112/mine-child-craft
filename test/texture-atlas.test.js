@@ -20,7 +20,8 @@ function loadAtlas() {
   vm.runInContext(
       'globalThis.__t = { TextureAtlas, MeshCore, BLOCKS,' +
       ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING,' +
-      ' B_BED, B_BED_FOOT, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID };', ctx);
+      ' B_BED, B_BED_FOOT, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID,' +
+      ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM };', ctx);
   return ctx.__t;
 }
 
@@ -75,8 +76,8 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 47,
-      '已绘制格数 = 47(46+巢穴之心: 雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花/门/玻璃板/床两格/怪物巢穴之心)');
+  assert.strictEqual(t.TextureAtlas.count, 52,
+      '已绘制格数 = 52(47+苔石/黑曜石/发光岩/传送门面/熄灭门面: 巢穴观感票)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   const bed = t.TextureAtlas.layout.tiles[t.B_BED];
@@ -84,6 +85,51 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
   const foot = t.TextureAtlas.layout.tiles[t.B_BED_FOOT];
   assert.notStrictEqual(foot.top, bed.top, '床尾顶(全毯)与床头顶(枕+毯)应分格(两格床改版)');
   assert.strictEqual(foot.side, bed.side, '床侧两半共用一张毯木框图');
+});
+
+test('布局: 黑巢地上件入集(den-nest §2.1) — 苔石/黑曜石/发光岩/门面/熄门各占一格', () => {
+  const t = loadAtlas();
+  /* 苔石 14(存量装饰)与下界系 31/34/35/63 此前走 faceColor 纯色兜底——
+     「黑巢读不出黑、门面一片平」的根因; 入集后黑巢丘体与门框全件贴图 */
+  const ids = [14, t.B_OBSIDIAN, t.B_GLOWSTONE, t.B_PORTAL, t.B_PORTAL_DIM];
+  const seen = new Set();
+  for (const id of ids) {
+    for (const idx of tileSet(t, id)) {
+      assert.ok(Number.isInteger(idx) && idx >= 0 && idx < t.TextureAtlas.count,
+          '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号合法');
+      assert.ok(!seen.has(idx), '黑巢件格号不串格: ' + id);
+      seen.add(idx);
+    }
+  }
+  assert.strictEqual(seen.size, 5, '五件各占一格(不共图)');
+  /* 门面/熄门虽带 glass 旗标(光照透光判据不变), 渲染已转图集通道——
+     meshChunk 的 atlas 判定先于 glass 通道, 门面得 6 面贴图立方体 */
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_PORTAL);
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(r.glass, null, '门面不再走玻璃纯色通道');
+  assert.strictEqual(quads(r.atlas), 6, '门面按图集立方体 6 面出图');
+});
+
+test('像素: 黑巢件全不透明(atlasMat alphaTest 前提) — 门面/熄门/黑曜石/发光岩/苔石', () => {
+  const t = loadAtlas();
+  const all = t.TextureAtlas.paintAll();
+  const L = t.TextureAtlas.layout;
+  for (const id of [14, t.B_OBSIDIAN, t.B_GLOWSTONE, t.B_PORTAL, t.B_PORTAL_DIM]) {
+    const px = tilePixels(t, all, typeof L.tiles[id] === 'number' ? L.tiles[id] : L.tiles[id].top);
+    for (let i=0; i<px.length; i++) {
+      assert.strictEqual(px[i][3], 255,
+          '方块 ' + id + '(' + t.BLOCKS[id].name + ') 像素 ' + i + ' 应全不透明(玻璃通道半透明口径在图集通道不适用)');
+    }
+  }
+  /* 观感锚: 黑曜石底近黑紫(黑巢「这里不对劲」), 门面暗紫(点亮), 熄门更暗(去饱和) */
+  const at = (px, x, y) => px[y * 16 + x];
+  const obs = tilePixels(t, all, L.tiles[t.B_OBSIDIAN]);
+  assert.ok(at(obs, 8, 8)[2] > at(obs, 8, 8)[0], '黑曜石蓝紫分量高于红(黑里透紫)');
+  const portal = tilePixels(t, all, L.tiles[t.B_PORTAL]);
+  assert.ok(at(portal, 8, 8)[2] > 90 && at(portal, 8, 8)[0] < 140, '点亮门面暗紫底');
+  const dim = tilePixels(t, all, L.tiles[t.B_PORTAL_DIM]);
+  assert.ok(dim[8 * 16 + 8][2] < portal[8 * 16 + 8][2] - 20, '熄门蓝分量暗于点亮门面(未开读法)');
 });
 
 test('布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格)', () => {
