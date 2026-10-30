@@ -36,6 +36,17 @@ const Core = require('../js/adventure-core.js');
 const W = api.WORLD_W;
 const D = api.WORLD_D;
 const cell = (x, y, z) => vm.runInContext('worldCells', eng)[(y * D + z) * W + x];
+/* colTop: 天空往下第一个非空格(入口剖面/站位断言用, 站位=顶+1) */
+const colTop = (x, z) => {
+  let top = -1;
+  for (let y = api.WORLD_H - 1; y >= 0; y--) {
+    if (cell(x, y, z) !== 0) {
+      top = y;
+      break;
+    }
+  }
+  return top;
+};
 const snapshot = () => Buffer.from(vm.runInContext('worldCells', eng));
 const clearWorld = () => vm.runInContext('worldCells.fill(0)', eng);
 const DN = Core.ADV_NESTS[3]; /* 黑巢行(巢之心坐标派生锚) */
@@ -60,7 +71,7 @@ test('黑巢建场: 巢厅/巢之心/发光岩落位 + 洞道向南深潜连通(
   assert.strictEqual(cell(DN.x - 1, 24, DN.z + 5), 0, '南敞廊翻进洞口不用挖(与山洞同款)');
   /* 进厅台阶(1 格级, 上得来): i=12..15 → z25..28, y11..8 */
   for (const i of [12, 15]) {
-    const z = DN.z + 5 + i; const y = 35 - i;
+    const z = DN.z + 5 + i; const y = 23 - i;
     assert.strictEqual(cell(DN.x, y, z), 0, '进厅台阶步 ' + i + ' 掏空(z' + z + ' y' + y + ')');
   }
   /* 巨丘地表预告: 黑曜石斑在丘体(挖不得的黑石质感) + 丘顶高出地表 */
@@ -72,6 +83,42 @@ test('黑巢建场: 巢厅/巢之心/发光岩落位 + 洞道向南深潜连通(
     }
   }
   assert.ok(obs > 0, '丘体黑曜石斑(危险预告, 不用煤矿——矿带全图红线)');
+});
+
+test('黑巢入口动线·南口: 台阶回填后剖面 1 格级(x99/x100 双列, 涌出点列不困人)', () => {
+  clearWorld();
+  Core.advBuildWorld();
+  /* 洞口步 z+5 站 23 → 回填 z+6 站 23(平走) → 回填 z+7 站 24 → 南侧草皮 z+8 站 25 */
+  const stands = (x) => [5, 6, 7, 8].map((dz) => colTop(x, DN.z + dz) + 1);
+  assert.deepStrictEqual(stands(DN.x - 1), [23, 23, 24, 25],
+      'x99 剖面(洞口步/回填/回填/草皮)——修前 z+6/z+7 站 22/21 是 4 格壕沟');
+  assert.deepStrictEqual(stands(DN.x), [23, 23, 24, 25],
+      'x100 剖面(夜袭涌出点列)全程 1 格级, 出洞口爬得回来');
+  for (const x of [DN.x - 1, DN.x]) {
+    for (const yy of [21, 22, 23]) {
+      assert.strictEqual(cell(x, yy, DN.z + 7), 3, '南口台阶回填非空 (' + x + ',' + yy + ',' + (DN.z + 7) + ')');
+    }
+    assert.strictEqual(cell(x, 22, DN.z + 6), 3, '南口中步回填非空 (' + x + ',22,' + (DN.z + 6) + ')');
+  }
+});
+
+test('黑巢入口动线·进厅: 台阶铺在洞道→厅动线上(垫底不被厅腔掏空, 全程 1 格级)', () => {
+  clearWorld();
+  Core.advBuildWorld();
+  /* 踏面垫底链: z+16 y11(站12) → z+17 y10(站11) → z+18 y9(站10) → z+19 y8(站9) →
+     厅地板 y7(站8)——每步降 1 格(修前台阶铺错层 35-i + 厅腔掏垫底 = 4 格落差坠厅) */
+  for (const [dz, yy] of [[16, 11], [17, 10], [18, 9]]) {
+    assert.strictEqual(cell(DN.x, yy, DN.z + dz), 3,
+        '进厅踏面非空 (' + DN.x + ',' + yy + ',' + (DN.z + dz) + ')');
+  }
+  assert.strictEqual(cell(DN.x - 1, 8, DN.z + 19), 3, '末块踏面 x99');
+  /* 净空: 每级踏面上方一格是掏空腔, 玩家站得进(台阶 carve y..y+3 与厅腔叠加) */
+  assert.strictEqual(cell(DN.x, 12, DN.z + 16), 0, '洞道末步净空');
+  assert.strictEqual(cell(DN.x, 11, DN.z + 17), 0, '首步净空');
+  assert.strictEqual(cell(DN.x, 10, DN.z + 18), 0, '中步净空');
+  assert.strictEqual(cell(DN.x, 9, DN.z + 19), 0, '末块净空(腔第一层)');
+  assert.strictEqual(cell(DN.x, 8, DN.z + 19), api.B_SPAWNER,
+      '巢之心仍在末块踏面上(副本判定锚与动线末块同格, 绕行必经)');
 });
 
 test('黑巢门口刷怪池: den 行进 ADV_NESTS(巢穴机制照跑) + 池主打洞穴蜘蛛', () => {

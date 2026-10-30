@@ -409,10 +409,20 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
       if (y >= 6 && y <= 16 && i % 3 === 1) advTryOre(wx, y, z, B_IRON_ORE);
     }
   }
+  /* 南入口台阶(洞道 i=1..2 的 carve 顶穿草皮, 南口留下 4 格壕沟困人——露天矿坑
+     2 格级困人的同款教训): z+7 回填 y21..23(顶 y23, 站 24, 与南侧草皮站 25 差 1)·
+     z+6 回填 y22(顶 y22, 站 23, 与洞口步 z+5 站 23 平走)——露天段剖面全程 1 格级
+     双向可走; 夜袭涌出点就在 z+7, 涌出怪站在台阶上, 「从洞口爬出来」观感不变 */
+  for (let yy = 21; yy <= 23; yy++) {
+    setBlockRaw(n.x - 1, yy, n.z + 7, 3);
+    setBlockRaw(n.x, yy, n.z + 7, 3);
+  }
+  setBlockRaw(n.x - 1, 22, n.z + 6, 3);
+  setBlockRaw(n.x, 22, n.z + 6, 3);
   /* 进厅台阶(z25~28, y11→y8, 1 格级) + 巢厅(9×7, 地板 y7 填石/腔 y8~11 掏空) */
   for (let i = 12; i <= 15; i++) {
     const z = n.z + 5 + i;
-    const y = 35 - i; /* i=12→y11 · i=15→y8 */
+    const y = 23 - i; /* i=12→y11 · i=15→y8(曾误写 35-i: 台阶铺到地表层, 洞道→厅断桥) */
     for (let x = n.x - 1; x <= n.x; x++) {
       for (let yy = y; yy <= y + 3; yy++) setBlockRaw(x, yy, z, 0);
       if (getBlock(x, y - 1, z) === 0) setBlockRaw(x, y - 1, z, 3);
@@ -421,6 +431,14 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
   SceneKit.fill(n.x - 4, 7, n.z + 16, n.x + 4, 7, n.z + 22, 3); /* 厅地板 */
   SceneKit.fill(n.x - 4, 8, n.z + 17, n.x + 4, 11, n.z + 22, 0); /* 厅腔(z25..30)——北墙 z24 保留:
       洞道末步垫底不被掏(洞道→台阶→厅的 1 格级动线完整, 不出「直接掉进厅」) */
+  /* 厅台阶重铺(厅腔 fill 在台阶之后跑, 掏空了前两步垫底——垫块须回铺):
+     z+17 顶 y10(站 11)·z+18 顶 y9(站 10)·z+19 顶 y8(站 9, x 列同格由巢之心占位=
+     末块踏面)——续接洞道末步站 12, 进厅全程 1 格级 */
+  setBlockRaw(n.x - 1, 10, n.z + 17, 3);
+  setBlockRaw(n.x, 10, n.z + 17, 3);
+  setBlockRaw(n.x - 1, 9, n.z + 18, 3);
+  setBlockRaw(n.x, 9, n.z + 18, 3);
+  setBlockRaw(n.x - 1, 8, n.z + 19, 3); /* 台阶末块(x100 同格是巢之心) */
   setBlockRaw(n.x, 8, n.z + 19, B_SPAWNER); /* 怪物巢穴之心: 副本入口(壳层站桩判定锚),
       立在厅地板上的凸格(腔第一层)——玩家同层绕行, 走近即触发射程 */
   setBlockRaw(n.x - 3, 8, n.z + 21, B_GLOWSTONE); /* 角落微光路标 */
