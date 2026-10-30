@@ -28,7 +28,7 @@ const api = vm.runInContext(`({
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_ICE, B_SANDSTONE, B_GLOWSTONE, B_CHEST, /* 扩容主题五件建场件消费(望塔灯/箱, 松林/花田/南池) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
-  B_SPAWNER, B_OBSIDIAN, /* 黑巢/巢穴副本建场件消费(den-nest: 巢之心/祭坛柱) */
+  B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK, /* 黑巢/巢穴副本建场件消费(den-nest: 巢之心/祭坛柱/洞口紫门) */
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
   mkInventory, add, count, remove, damageTool, serialize, deserialize, INV_SLOTS,
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf, SMELT_T,

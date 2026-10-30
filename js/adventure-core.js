@@ -378,7 +378,8 @@ function advBuildNest(n) {/* 怪物巢穴: 苔石点缀的土丘 + 朝南洞口(
 function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(r5, 黑曜石斑+苔石——
   「这里不对劲」的地表预告) + 南敞廊 + 向南深潜洞道(y24→y12, 沿途镶煤铁, 山洞同款
   1 格级台阶) + 进厅台阶 + 地下巢厅(y8~11 腔室): 中央怪物巢穴之心(B_SPAWNER,
-  副本入口锚) + 角落发光岩(微弱路标)。确定性零 Math.random; 门口刷怪归 T14 巢穴
+  巢厅地标——副本入口 2026-10-30 已迁洞口紫门) + 角落发光岩(微弱路标) + 洞口
+  巢穴之门(紫门面+发光楣)。确定性零 Math.random; 门口刷怪归 T14 巢穴
   机制(n.den 行照常进 advNestTick) */
   for (let dx = -5; dx <= 5; dx++) {
     for (let dz = -5; dz <= 5; dz++) {
@@ -439,9 +440,19 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
   setBlockRaw(n.x - 1, 9, n.z + 18, 3);
   setBlockRaw(n.x, 9, n.z + 18, 3);
   setBlockRaw(n.x - 1, 8, n.z + 19, 3); /* 台阶末块(x100 同格是巢之心) */
-  setBlockRaw(n.x, 8, n.z + 19, B_SPAWNER); /* 怪物巢穴之心: 副本入口(壳层站桩判定锚),
-      立在厅地板上的凸格(腔第一层)——玩家同层绕行, 走近即触发射程 */
+  setBlockRaw(n.x, 8, n.z + 19, B_SPAWNER); /* 怪物巢穴之心: 巢厅地标(2026-10-30 起不再
+      判定副本入口——入口已迁洞口紫门), 立在厅地板上的凸格(腔第一层) */
   setBlockRaw(n.x - 3, 8, n.z + 21, B_GLOWSTONE); /* 角落微光路标 */
+  /* 巢穴之门(den-nest §2.1; 2026-10-30 用户拍板: 入口从「巢厅巢之心旁站桩」迁到洞口
+     ——「传送门不知道在哪, 莫名被传送」): 画廊北端(z+3, 楼梯尽头)小门——黑曜石门槛+
+     2×2 B_PORTAL 紫门面+发光岩门楣(画廊露天采光, 下楼梯即见); 触发在壳层
+     advPortalTick(advDenDoorAt 认领, 门阵同款站桩 2s 可反悔)。建场直写不进 edits
+     账本(光束扫描/nether 判据不误认——壳层查表先行认领) */
+  for (const gx of [n.x - 1, n.x]) {
+    setBlockRaw(gx, 21, n.z + 3, B_OBSIDIAN); /* 黑曜石门槛(嵌画廊地板, 经典门基) */
+    for (let yy = 22; yy <= 23; yy++) setBlockRaw(gx, yy, n.z + 3, B_PORTAL); /* 紫门面 2×2 */
+    setBlockRaw(gx, 24, n.z + 3, B_GLOWSTONE); /* 发光岩门楣(夜间也一眼可见) */
+  }
 }
 
 function advInRect(x, z, r) {/* 矩形含界判据(建场件占位/避让共用, r 带 x1/x2/z1/z2) */

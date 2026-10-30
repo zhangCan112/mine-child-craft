@@ -1981,35 +1981,19 @@ function advDenTick(dt) {/* 副本刷怪节拍(update 每帧, den 门禁内): �
   if (step.spawn) advDenSpawnOne();
 }
 
-/* ---------- 副本入口站桩(den-nest §3.3): 主世界巢厅巢之心旁 2s ---------- */
-const advDenHold = {t: 0}; /* 巢之心站桩秒累计(advGateHoldStep 同构复用; 与门阵站桩独立) */
-const ADV_DEN_GATE = {r: 1.8, hintCd: 8}; /* 判定半径(格)/引导话术节流秒 */
-const advDenCore = {/* 巢之心判定锚(方块中心): 与 advBuildDenNest 放置格同源派生 */
-  x: ADV_NESTS[3].x + 0.5, y: 8.5, z: ADV_NESTS[3].z + 19 + 0.5,
+/* ---------- 副本入口门(den-nest §2.1; 2026-10-30 从「巢厅巢之心旁半径站桩」迁到洞口
+   画廊北端的显眼紫门——用户反馈「传送门不知道在哪, 莫名被传送」): 门体在
+   advBuildDenNest 建场(黑曜石门槛+2×2 B_PORTAL 门面+发光岩门楣), 触发收编进
+   advPortalTick(advDenDoorAt 认领 → 门阵同款站桩 2s 可反悔, 与门阵共用
+   advGateHold)。巢厅巢之心(B_SPAWNER)保留为地标, 不再判定 */
+const advDenDoor = {/* 门面判定盒: 与 advBuildDenNest 门体同源派生(z 平面含界) */
+  x1: ADV_NESTS[3].x - 1, x2: ADV_NESTS[3].x,
+  y1: 22, y2: 23, z: ADV_NESTS[3].z + 3,
 };
-let advDenHintT = 0; /* 引导话术节流秒(update 递减) */
-function advDenGateTick(dt) {/* 入口站桩(update 每帧): 主世界 home 图才判——距巢之心
-    ≤1.8 格站桩 2s(可反悔, 门阵同款红线) → 记入口落点 → 渐晕转场(kind den)。
-    首次靠近给引导话术(节流); ADV_B.spawner=0(精简装载)时整体静默 */
-  advDenHintT = Math.max(0, advDenHintT - dt);
-  if (advDim !== 'overworld' || advMap !== 'home' || !ADV_B.spawner || advSleep.on) {
-    advDenHold.t = advGateHoldStep(advDenHold.t, false, dt).t; /* 离开判定域即刻归零(可反悔) */
-    return;
-  }
-  const near = Math.hypot(pos.x - advDenCore.x, pos.y - advDenCore.y,
-      pos.z - advDenCore.z) <= ADV_DEN_GATE.r;
-  if (near && advDenHintT <= 0 && advDenHold.t === 0) {
-    advSpeak('怪物的心脏在咚咚跳…站一会儿，就能钻进巢穴深处！');
-    advDenHintT = ADV_DEN_GATE.hintCd;
-  }
-  const was = advDenHold.t;
-  const hold = advGateHoldStep(advDenHold.t, near, dt);
-  advDenHold.t = hold.t;
-  if (was === 0 && hold.t > 0) advSfx('portal_charge'); /* 站桩起步蓄能音(双段式第一段) */
-  if (hold.fire) {
-    advExitSpot = {x: pos.x, y: pos.y, z: pos.z, yaw}; /* 入口落点记账(回主世界落此, D6 语义复用) */
-    advVeilFire({to: 'den', kind: 'den'}); /* 渐晕转场(到达侧在 advVeilArrive 分流) */
-  }
+function advDenDoorAt(x, y, z) {/* 脚格落入门面(脚层 y22~23 即身体整体在 2 高门内) */
+  const fx = Math.floor(x); const fy = Math.floor(y); const fz = Math.floor(z);
+  return fx >= advDenDoor.x1 && fx <= advDenDoor.x2 && fz === advDenDoor.z &&
+      fy >= advDenDoor.y1 && fy <= advDenDoor.y2;
 }
 
 /* ---------- 门阵站桩与渐晕遮罩(票据 T7, 设计稿 §4.1 时序) ----------
@@ -2115,6 +2099,8 @@ function advGateLockTick(dt) {
 function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/头格任一在紫色
     门面内(advInPortal, 玩家门/回程门/门阵同一条判据) → 门阵包围盒查表分流
     (advGateAt, T7): 命中=地图门走站桩(2s 可反悔), 否则=玩家 nether 门即时切界。
+    巢穴洞口紫门由 advDenDoorAt 认领(2026-10-30 从巢之心旁站桩迁来, 同走站桩;
+    不认领就会坠进 nether 即时切界——B_PORTAL 全局同判据的代价, 必须先拦)。
     进下界前把 advPortalExit 落点记账(回上界出生用, 最后进入者优先 D6);
     下界任意门(回程门/玩家放的门)回上界语义统一。y 用 pos.y 原样(来向地面
     已知安全)。ADV_B.portal=0(精简装载守卫)时整体静默——判据纯核心引用
@@ -2125,13 +2111,24 @@ function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/�
     advGateHold.t = advGateHoldStep(advGateHold.t, false, dt).t; /* 走出门面即刻归零(可反悔红线) */
     return;
   }
-  const gate = advGateAt(pos.x, pos.z); /* 门→目标图绑定: 门阵包围盒查表(未命中=nether 门) */
+  let gate = advGateAt(pos.x, pos.z); /* 门→目标图绑定: 门阵包围盒查表 */
+  const denDoor = !gate && advDim === 'overworld' && advMap === 'home' &&
+      advDenDoorAt(pos.x, pos.y, pos.z); /* 巢穴洞口紫门认领(主世界 home 限定) */
+  if (denDoor) gate = {to: 'den', kind: 'den'}; /* 伪门对象: 复用门阵站桩/渐晕整链 */
   const was = advGateHold.t;
   const hold = advGateHoldStep(advGateHold.t, !!gate, dt); /* 站桩步进只对地图门累计 */
   advGateHold.t = hold.t;
-  if (gate && was === 0 && hold.t > 0) advSfx('portal_charge'); /* 站桩起步蓄能音(§4.1 双段式第一段) */
+  if (gate && was === 0 && hold.t > 0) {
+    advSfx('portal_charge'); /* 站桩起步蓄能音(§4.1 双段式第一段) */
+    if (denDoor) advSpeak('紫色的巢穴之门在嗡嗡响…站稳 2 秒，就能钻进怪物巢穴！');
+  }
   if (gate) {
-    if (hold.fire) advVeilFire(gate); /* 站满: 进渐晕转场(冷却/切图在转场段) */
+    if (hold.fire) {
+      if (denDoor) {
+        advExitSpot = {x: pos.x, y: pos.y, z: pos.z, yaw}; /* 入口落点记账(回主世界落此, D6 语义复用) */
+      }
+      advVeilFire(gate); /* 站满: 进渐晕转场(冷却/切图在转场段) */
+    }
     return; /* 地图门只走站桩——熄门无门面(advInPortal 进不来), 不落 nether 语义 */
   }
   advPortalCd = ADV_PORTAL.cd;
@@ -3310,9 +3307,7 @@ const AdventureMode = mkMode({
     advPortalCd = 0;
     advExitSpot = null;
     advMood = null; /* 首帧 update 按当下昼夜补报场景曲(main 随后会先报基线 adventure) */
-    advGateHold.t = 0; /* 门阵站桩归零(T7): 转场不跨场次 */
-    advDenHold.t = 0; /* 巢之心站桩归零(den-nest §3.3): 同上 */
-    advDenHintT = 0; /* 入口引导话术节流复位 */
+    advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7): 转场不跨场次(巢穴门已共用此状态) */
     advDenT = 0; /* 副本刷怪节拍器复位(维度不进档, 重进恒主世界) */
     advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
@@ -3461,8 +3456,7 @@ const AdventureMode = mkMode({
     advPortalCd = 0;
     advExitSpot = null;
     advMood = null; /* 下一场/下一模式重新同步(不把本场缓存带出去) */
-    advGateHold.t = 0; /* 门阵站桩归零(T7) */
-    advDenHold.t = 0; /* 巢之心站桩归零(den-nest §3.3) */
+    advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7) */
     advVeilReset(); /* 渐晕遮罩收起(T7): 中途退出模式不留紫屏 */
     advGateLockT = 0; /* 锁门提示节流复位 */
     advMapRowCleanup(); /* 行调色板复位内含 advApplySky(ADV_SKY_OVER), 不另重复调用 */
@@ -3527,8 +3521,7 @@ const AdventureMode = mkMode({
     advVeilTick(dt); /* 门阵渐晕转场推进(T7): 淡入→满格切图→淡出(先于传送触发: 发令帧从零起淡) */
     advGateLockTick(dt); /* 锁门提示(T7): 走近熄门给「完成任务就会亮」话术(节流) */
     advStoneEggT = Math.max(0, advStoneEggT - dt); /* 石阵灯坛点击节流递减(彩蛋段) */
-    advPortalTick(dt); /* 传送触发(§3.3/T7): 冷却递减 + 门面判定 → 地图门站桩/nether 切界分流 */
-    advDenGateTick(dt); /* 副本入口站桩(den-nest §3.3): 主世界巢厅巢之心旁 2s → 渐晕切副本 */
+    advPortalTick(dt); /* 传送触发(§3.3/T7): 冷却递减 + 门面判定 → 地图门站桩/nether 切界分流(巢穴洞口紫门在此认领) */
     advTempleTrapTick(); /* 神殿可疑地板踩塌(审查修复 P1): 站上 2×2 砂岩地板即塌入宝箱室 */
     advMineTick(dt); /* 挖掘蓄力: 进度环+挥动循环+到点破坏(T12) */
     advMelee.tick(dt); /* 挥击冷却递减(kit 自持, T14 口径不变) */

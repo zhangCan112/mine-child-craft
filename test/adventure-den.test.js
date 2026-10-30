@@ -58,7 +58,7 @@ test('黑巢建场: 巢厅/巢之心/发光岩落位 + 洞道向南深潜连通(
   clearWorld();
   Core.advBuildWorld();
   const coreX = DN.x; const coreZ = DN.z + 19;
-  assert.strictEqual(cell(coreX, 8, coreZ), api.B_SPAWNER, '巢厅中央巢之心(副本入口锚, 壳 advDenCore 同源)');
+  assert.strictEqual(cell(coreX, 8, coreZ), api.B_SPAWNER, '巢厅中央巢之心(巢厅地标; 2026-10-30 入口已迁洞口紫门)');
   assert.strictEqual(cell(coreX, 7, coreZ), 3, '巢之心立在厅地板上(凸格)');
   assert.strictEqual(cell(coreX, 10, coreZ), 0, '巢厅净空(腔 y8~11)');
   assert.strictEqual(cell(coreX - 3, 8, DN.z + 21), api.B_GLOWSTONE, '角落发光岩微光路标');
@@ -119,6 +119,21 @@ test('黑巢入口动线·进厅: 台阶铺在洞道→厅动线上(垫底不被
   assert.strictEqual(cell(DN.x, 9, DN.z + 19), 0, '末块净空(腔第一层)');
   assert.strictEqual(cell(DN.x, 8, DN.z + 19), api.B_SPAWNER,
       '巢之心仍在末块踏面上(副本判定锚与动线末块同格, 绕行必经)');
+});
+
+test('巢穴洞口紫门: 2×2 B_PORTAL 门面+黑曜石门槛+发光岩门楣(可见入口, 从巢之心旁站桩迁移)', () => {
+  clearWorld();
+  Core.advBuildWorld();
+  const DZ = DN.z + 3; /* 门面 z 平面: 画廊北端(楼梯尽头, 下楼梯正对着) */
+  for (const gx of [DN.x - 1, DN.x]) {
+    for (const yy of [22, 23]) {
+      assert.strictEqual(cell(gx, yy, DZ), api.B_PORTAL, '紫门面 (' + gx + ',' + yy + ',' + DZ + ')');
+    }
+    assert.strictEqual(cell(gx, 21, DZ), api.B_OBSIDIAN, '黑曜石门槛 (' + gx + ',21,' + DZ + ')');
+    assert.strictEqual(cell(gx, 24, DZ), api.B_GLOWSTONE, '发光岩门楣 (' + gx + ',24,' + DZ + ')');
+  }
+  /* 门面格可走入(B_PORTAL solid:false): 玩家脚格落 (x99..100, y22..23, z11) 即触发域
+     ——壳层 advDenDoorAt 与此同源派生, 建场/判定不漂移 */
 });
 
 test('黑巢门口刷怪池: den 行进 ADV_NESTS(巢穴机制照跑) + 池主打洞穴蜘蛛', () => {
