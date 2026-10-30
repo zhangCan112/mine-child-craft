@@ -88,6 +88,27 @@ test('黑巢建场: 巢厅/巢之心/发光岩落位 + 洞道向南深潜连通(
     }
   }
   assert.ok(obs > 0, '丘体黑曜石斑(危险预告, 不用煤矿——矿带全图红线)');
+  /* 黑石王冠(巢穴观感票): 丘冠(d<1.2, h=5)黑曜石为主——顶冠读得出「黑巢」,
+     丘裙(d≥3.6)不再撒随机黑块(旧版黑柱串到草皮边) */
+  let crown = 0; let crownAll = 0;
+  for (let yy = 25; yy <= 29; yy++) {
+    for (const [dx, dz] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) {
+      if (cell(DN.x + dx, yy, DN.z + dz) === 0) continue;
+      crownAll++;
+      if (cell(DN.x + dx, yy, DN.z + dz) === api.B_OBSIDIAN) crown++;
+    }
+  }
+  assert.ok(crown > crownAll / 2, '丘冠以黑曜石为主(黑石王冠): ' + crown + '/' + crownAll);
+  let skirtObs = 0;
+  for (let dx = -5; dx <= 5; dx++) {
+    for (let dz = -5; dz <= 5; dz++) {
+      if (Math.hypot(dx, dz) < 3.6 || Math.hypot(dx, dz) > 5) continue;
+      for (let yy = 25; yy <= 26; yy++) {
+        if (cell(DN.x + dx, yy, DN.z + dz) === api.B_OBSIDIAN) skirtObs++;
+      }
+    }
+  }
+  assert.strictEqual(skirtObs, 0, '丘裙无随机黑块(黑块只留在丘冠/丘身)');
 });
 
 test('黑巢入口动线·南口: 台阶回填后剖面 1 格级(x99/x100 双列, 涌出点列不困人)', () => {
@@ -139,6 +160,13 @@ test('巢穴洞口紫门: 2×2 B_PORTAL 门面+黑曜石门槛+发光岩门楣(�
   }
   /* 门面格可走入(B_PORTAL solid:false): 玩家脚格落 (x99..100, y22..23, z11) 即触发域
      ——壳层 advDenDoorAt 与此同源派生, 建场/判定不漂移 */
+  /* 门框柱(巢穴观感票): 门面两侧贴廊壁各一根黑曜石柱(y22~24)——经典门框观感,
+     远看即「这里有一扇门」; 廊壁格在敞廊 fill 之外, 触发域不动 */
+  for (const gx of [DN.x - 2, DN.x + 1]) {
+    for (let yy = 22; yy <= 24; yy++) {
+      assert.strictEqual(cell(gx, yy, DZ), api.B_OBSIDIAN, '黑曜石门框柱 (' + gx + ',' + yy + ',' + DZ + ')');
+    }
+  }
 });
 
 test('黑巢门口刷怪池: den 行进 ADV_NESTS(巢穴机制照跑) + 池主打洞穴蜘蛛', () => {

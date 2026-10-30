@@ -7,13 +7,15 @@
    (雪块/雪覆草侧/仙人掌/砂岩/枯灌木/三花; B_ICE 不入集走纯色透渲) +
    门与玻璃板 64~68(门板上下两张/玻璃板框图, docs/door-window-design.md §5.3) +
    床 53/69(床头顶枕毯/床尾顶全毯/床侧毯木框, 两格床改版) +
-   存量基础方块升级款(草顶/泥土/石头颗粒/圆石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒)。风格参考
+   存量基础方块升级款(草顶/泥土/石头颗粒/圆石/苔石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒) +
+   黑巢地上件(黑曜石/发光岩/传送门面/熄灭门面——巢穴观感票, 巢穴观感详见
+   docs/den-nest-design.md §2.1)。风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
    创建) — Node 可逐像素直测; 噪点/斑点全用种子化伪随机, 同 seed 同图。
    layout(方块id→格号)是网格化核心的 UV 契约: 经 opts.atlas 注入
    MeshCore(与 tntTiles 同惯例), Worker 侧 importScripts 本文件共读;
-   未入集方块(下界系/羊毛/装饰)仍走 faceColor 纯色兜底。
+   未入集方块(冰/水等玻璃透渲件与未升级存量)仍走 faceColor 纯色兜底。
    interface: layout{cols,rows,tiles} / count 已绘制格数 / paintAll()→
      {w,h,pixels} / tileUV(idx)→[u0,v0,u1,v1] / makeCanvas(doc)→canvas
    依赖(均经全局名, 加载序解析): config.js 的 B_* 方块 id 常量
@@ -23,7 +25,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 46 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 52 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -59,6 +61,11 @@ const TextureAtlas = (() => {
   const T_DOOR_BOTTOM = 40; const T_DOOR_TOP = 41; const T_GLASS_PANE = 42;
   const T_BED_TOP = 43; const T_BED_SIDE = 44; const T_BED_TOP_FOOT = 45;
   const T_SPAWNER = 46; /* 怪物巢穴之心(den-nest-design D9): 铁笼网格+暗红核 */
+  const T_MOSSY = 47; /* 苔石(14): 圆石底+苔斑——巢穴丘体/副本祭坛/石阵共用 */
+  const T_OBSIDIAN = 48; /* 黑曜石(31): 近黑紫底+紫辉斑+品红高光(黑巢丘冠/门框) */
+  const T_GLOWSTONE = 49; /* 发光岩(34): 琥珀底+亮金斑团(MC 萤石马赛克观感) */
+  const T_PORTAL = 50; /* 传送门面(35): 暗紫漩涡纹(点亮态, 门阵/巢穴之门共用) */
+  const T_PORTAL_DIM = 51; /* 熄灭门面(63): 去饱和深紫+残纹(点亮格 T_PORTAL 同语言) */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -528,6 +535,72 @@ const TextureAtlas = (() => {
     }
     setP(px, 7, 7, [255, 120, 110]); setP(px, 8, 7, [240, 90, 84]); // 内核高光(跳动亮点)
   };
+  /* 苔石(巢穴丘体/副本祭坛/石阵共用): 圆石底 + 绿苔斑团(斑缘残缺) + 苔点
+     ——苔色锚定 config faceColor [0.45,0.52,0.38] 观感连续, LOD 远景不串调 */
+  PAINTERS[T_MOSSY] = (px, rng)=>{
+    PAINTERS[T_COBBLE](px, rng);
+    for (let i=0; i<5; i++) {
+      const w = 2 + Math.floor(rng() * 3); const h = 2 + Math.floor(rng() * 2);
+      const x = Math.floor(rng() * (TILE - w)); const y = Math.floor(rng() * (TILE - h));
+      for (let dy=0; dy<h; dy++) {
+        for (let dx=0; dx<w; dx++) {
+          if (rng() < 0.2) continue; // 斑缘残缺(苔不盖满)
+          const v = 1 + (rng() * 2 - 1) * 0.08;
+          setP(px, x + dx, y + dy, [96 * v, 116 * v, 74 * v]);
+        }
+      }
+    }
+    for (let i=0; i<6; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [78, 96, 58]);
+  };
+  /* 黑曜石(黑巢丘冠/门框): 近黑紫底强噪 + 紫辉 2px 斑团 + 稀品红高光碎点
+     (MC 黑曜石「黑里透紫」观感; 底色锚 faceColor [0.10,0.08,0.16]) */
+  PAINTERS[T_OBSIDIAN] = (px, rng)=>{
+    noiseFill(px, rng, [26, 20, 41], 0.12);
+    for (let i=0; i<6; i++) {
+      const x = Math.floor(rng() * 15); const y = Math.floor(rng() * 15);
+      setP(px, x, y, [46, 32, 70]); setP(px, x + 1, y, [46, 32, 70]);
+      if (rng() < 0.5) setP(px, x, y + 1, [38, 28, 56]);
+    }
+    for (let i=0; i<3; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [96, 66, 140]);
+  };
+  /* 发光岩(门楣/巢厅角落路标): 琥珀底 + 亮金 2×2 斑团 + 炽白点
+     (MC 萤石马赛克观感; 底色偏暗衬 light 15 自发光的亮斑) */
+  PAINTERS[T_GLOWSTONE] = (px, rng)=>{
+    noiseFill(px, rng, [188, 144, 66], 0.08);
+    for (let i=0; i<7; i++) {
+      const x = Math.floor(rng() * 14); const y = Math.floor(rng() * 14);
+      for (let dy=0; dy<2; dy++) {
+        for (let dx=0; dx<2; dx++) {
+          setP(px, x + dx, y + dy, rng() < 0.5 ? [255, 214, 118] : [240, 186, 90]);
+        }
+      }
+    }
+    for (let i=0; i<4; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [255, 244, 182]);
+  };
+  /* 传送门面(点亮态): 暗紫底 + 斜向漩涡亮纹(双笔触交替) + 深斑
+     ——MC 传送门的漩涡观感; alpha 全 255(atlasMat alphaTest 只收不透明像素,
+     玻璃通道的半透明口径在此不适用—— portals 转图集通道后是实心紫门观感) */
+  PAINTERS[T_PORTAL] = (px, rng)=>{
+    noiseFill(px, rng, [82, 28, 132], 0.10);
+    for (let i=0; i<5; i++) {
+      const x0 = Math.floor(rng() * TILE); const y0 = Math.floor(rng() * TILE);
+      for (let t=0; t<8; t++) {
+        const c = rng() < 0.5 ? [140, 68, 202] : [176, 100, 228];
+        setP(px, (x0 + t) % TILE, (y0 + t) % TILE, c); // 斜向漩涡纹(回绕)
+      }
+    }
+    for (let i=0; i<8; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [58, 18, 96]);
+  };
+  /* 熄灭门面: 去饱和深紫底 + 暗残纹(旧漩涡的痕迹) + 微光斑
+     ——「这是传送门, 只是还没开」的读法不靠亮度靠纹理(熄门观感票同语言) */
+  PAINTERS[T_PORTAL_DIM] = (px, rng)=>{
+    noiseFill(px, rng, [56, 26, 88], 0.08);
+    for (let i=0; i<4; i++) {
+      const x0 = Math.floor(rng() * TILE); const y0 = Math.floor(rng() * TILE);
+      for (let t=0; t<6; t++) setP(px, (x0 + t) % TILE, (y0 + t) % TILE, [42, 20, 66]);
+    }
+    for (let i=0; i<5; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [70, 36, 106]);
+  };
 
   /* ---------- 布局: 方块 id → 格号(MeshCore opts.atlas 载荷) ----------
      number = 全格同图; {top,side,bottom} = 分面。底面共享泥土/木板格是
@@ -540,6 +613,7 @@ const TextureAtlas = (() => {
       2: T_DIRT, 3: T_STONE, 4: T_COBBLE,
       5: {top: T_LOG_TOP, side: T_LOG_SIDE, bottom: T_LOG_TOP},
       6: T_PLANKS, 7: T_LEAVES, 8: T_SAND,
+      14: T_MOSSY, /* 苔石(巢穴丘体/副本祭坛/石阵) */
       /* 新方块 36~50(附录 A): 纯色近似升级为像素贴图; 51 箱子/52 羊毛号段顺延入集 */
       [B_COAL_ORE]: T_COAL_ORE, [B_IRON_ORE]: T_IRON_ORE,
       [B_GOLD_ORE]: T_GOLD_ORE, [B_DIAMOND_ORE]: T_DIAMOND_ORE,
@@ -571,6 +645,11 @@ const TextureAtlas = (() => {
       [B_BED_FOOT]: {top: T_BED_TOP_FOOT, side: T_BED_SIDE, bottom: T_BED_SIDE},
       /* 怪物巢穴之心 70(den-nest-design): 铁笼+红核整格同图 */
       [B_SPAWNER]: T_SPAWNER,
+      /* 黑巢地上件入集(巢穴观感票): 黑曜石/发光岩/传送门面此前走 faceColor
+         纯色兜底是「黑巢读不出黑」的根因; 门面/熄门 glass 旗标保留(光照透光
+         判据不变), 仅渲染改走图集通道(atlas 判定先于 glass 通道) */
+      [B_OBSIDIAN]: T_OBSIDIAN, [B_GLOWSTONE]: T_GLOWSTONE,
+      [B_PORTAL]: T_PORTAL, [B_PORTAL_DIM]: T_PORTAL_DIM,
     },
   };
 
