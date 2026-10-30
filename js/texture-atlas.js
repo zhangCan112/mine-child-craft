@@ -665,6 +665,10 @@ const TextureAtlas = (() => {
          (左右同款=MC 双箱观感), 标准图集通道渲染(mesh-core 零特殊几何);
          顶盖分格(金边框+扣横条), 底面几乎不可见复用侧格 */
       [B_LOOT_CHEST]: {top: T_LOOT_TOP, side: T_LOOT_SIDE, bottom: T_LOOT_SIDE},
+      /* 低档奖励箱 72(den-nest §7.5 D18): 单格低档款复用 71 红金同格(零新增
+         画师格位, count 仍 52)——「新 id 好认物, 红金好认箱」, 单格 vs 双格
+         一眼分大小 */
+      [B_LOOT_CHEST_SMALL]: {top: T_LOOT_TOP, side: T_LOOT_SIDE, bottom: T_LOOT_SIDE},
     },
   };
 

@@ -575,6 +575,11 @@ test('体验馆: 统一装场 — 展馆结构经壳的建场+重放链在场(�
   assert.strictEqual(api.getBlock(52, G + 1, 46), api.B_CRAFT, '工作台 1');
   assert.strictEqual(api.getBlock(54, G + 1, 46), api.B_CRAFT, '工作台 2');
   assert.strictEqual(api.getBlock(77, G + 1, 73), api.B_BED, '床');
+  /* 试玩工位·奖励箱双工位(2026-10-30; D18 加小箱): 大箱双格 + 小箱单格错行
+     (B_ 名经夹具动态收集进 globalThis——dims-core 源码扫描, api 对象无此二名) */
+  assert.strictEqual(api.getBlock(66, G + 1, 62), B_LOOT_CHEST, '试玩工位大箱左格');
+  assert.strictEqual(api.getBlock(67, G + 1, 62), B_LOOT_CHEST, '试玩工位大箱右格');
+  assert.strictEqual(api.getBlock(66, G + 1, 60), B_LOOT_CHEST_SMALL, '试玩工位小箱(北邻错行不共线)');
   /* 仓库箱排: 箱方块数 = 派生箱数(且 ≤ 锚位上限, 超出即红) */
   const crates = ShowroomCore.showroomCrateStock();
   assert.ok(crates.length > 0 && crates.length <= SHOWROOM.crateMax,

@@ -34,11 +34,12 @@ const acSrc = fs.readFileSync(path.join(ROOT, 'js', 'adventure-core.js'), 'utf8'
 const bNames = [...new Set(acSrc.match(/\bB_[A-Z0-9_]+\b/g) || [])];
 for (const n of bNames) globalThis[n] = vm.runInContext(n, eng);
 globalThis.B_LOOT_CHEST = vm.runInContext('B_LOOT_CHEST', eng); /* 宝箱在 dims-core 消费(core 源码外) */
+globalThis.B_LOOT_CHEST_SMALL = vm.runInContext('B_LOOT_CHEST_SMALL', eng); /* 低档箱同款(D18) */
 const api = vm.runInContext(`({ITEMS, stackMax, isTool, mkInventory, add, count, remove,
   damageTool, HOTBAR_SLOTS, INV_SLOTS, BLOCKS, PLAYER, WORLD_W, WORLD_D,
   B_CRAFT, B_FURNACE, B_CHEST, B_SAPLING, B_TORCH, B_DOOR, B_DOOR_TOP,
   B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_PORTAL, B_LAVA, B_GRASS_TUFT, B_BED, B_BED_FOOT,
-  B_LOOT_CHEST,
+  B_LOOT_CHEST, B_LOOT_CHEST_SMALL,
   getBlock, setBlockRaw, blockKey, collidesAtPlayer, rollBlockDrop, SceneKit})`, eng);
 Object.assign(globalThis, api);
 /* 单块编辑 seam: world.js 太重——真级联核心镜像 world.js 的装配(adventure-mode.test
@@ -281,6 +282,37 @@ test('place-kit: 宝箱配对破坏 — 挖任一半整箱消失+掉落表恰掷
   ed.breakBlock(33, 13, 36, api.B_LOOT_CHEST, {time: 2, drops: true});
   assert.strictEqual(api.getBlock(33, 13, 36), 0, '孤儿格清');
   assert.strictEqual(drops.length, 0, '无配对不掉战利品');
+});
+
+/* ============ ②d 低档奖励箱: 单格整箱 id 认主 (den-nest §7.5 D18) ============ */
+
+test('place-kit: 低档奖励箱单格破坏 — id 认主恰掉简化表(挨着大箱不误吃配对)', () => {
+  reset();
+  api.setBlockRaw(35, 13, 36, api.B_LOOT_CHEST_SMALL);
+  ed.breakBlock(35, 13, 36, api.B_LOOT_CHEST_SMALL, {time: 2, drops: true});
+  assert.strictEqual(api.getBlock(35, 13, 36), 0, '单格整箱清');
+  assert.deepStrictEqual(drops.map((d) => [d[0], d[1]]),
+      [['gunpowder', 2], ['iron_ingot', 1], ['apple', 1]],
+      '简化减量表恰一次(全保底零掷骰——任意 rnd 同一结果)');
+  assert.strictEqual(wearCalls, 1, '破坏磨损钩');
+  /* 挨着大箱: 先认小箱(id 精确匹配)不回退大箱配对——72 邻 71 不误吃 */
+  reset();
+  api.setBlockRaw(30, 13, 36, api.B_LOOT_CHEST);
+  api.setBlockRaw(31, 13, 36, api.B_LOOT_CHEST);
+  api.setBlockRaw(32, 13, 36, api.B_LOOT_CHEST_SMALL);
+  ed.breakBlock(32, 13, 36, api.B_LOOT_CHEST_SMALL, {time: 2, drops: true});
+  assert.strictEqual(api.getBlock(32, 13, 36), 0, '小箱格清');
+  assert.strictEqual(api.getBlock(30, 13, 36), api.B_LOOT_CHEST, '大箱左半不动');
+  assert.strictEqual(api.getBlock(31, 13, 36), api.B_LOOT_CHEST, '大箱右半不动(不误吃配对)');
+  assert.deepStrictEqual(drops.map((d) => [d[0], d[1]]),
+      [['gunpowder', 2], ['iron_ingot', 1], ['apple', 1]], '只掉小箱的减量表');
+  /* 大箱链不回归: 配对计划仍走(挖任一半整箱消失+钻石恒得锚) */
+  reset();
+  api.setBlockRaw(30, 13, 36, api.B_LOOT_CHEST);
+  api.setBlockRaw(31, 13, 36, api.B_LOOT_CHEST);
+  ed.breakBlock(30, 13, 36, api.B_LOOT_CHEST, {time: 2, drops: true});
+  assert.strictEqual(api.getBlock(31, 13, 36), 0, '大箱配对破坏照旧');
+  assert.ok(drops.some((d) => d[0] === 'diamond' && d[1] === 1), '大箱钻石恒得锚(rare p=1)');
 });
 
 /* ============ ③ 传送门: 结构长出+网格收口 ============ */

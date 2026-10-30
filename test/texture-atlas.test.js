@@ -21,7 +21,7 @@ function loadAtlas() {
       'globalThis.__t = { TextureAtlas, MeshCore, BLOCKS,' +
       ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING,' +
       ' B_BED, B_BED_FOOT, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID,' +
-      ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_LOOT_CHEST };', ctx);
+      ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_LOOT_CHEST, B_LOOT_CHEST_SMALL };', ctx);
   return ctx.__t;
 }
 
@@ -94,6 +94,9 @@ test('布局+像素: 战利品宝箱(71)入集 — 顶/侧分格红金配色, �
       '宝箱应分面(top/side)入图集');
   assert.notStrictEqual(e.top, e.side, '顶盖(金边框+扣横条)与侧(金箍带+锁扣)应分格');
   assert.strictEqual(e.bottom, e.side, '底面几乎不可见复用侧格(箱子 51 同款省格)');
+  /* 低档奖励箱 72(D18): 单格低档款复用 71 红金同格——映射全同零新增格位 */
+  const sm = t.TextureAtlas.layout.tiles[t.B_LOOT_CHEST_SMALL];
+  assert.deepStrictEqual(sm, e, '72 与 71 同图集映射(top/side/bottom 全同, count 仍 52)');
   for (const idx of [e.top, e.side]) {
     assert.ok(Number.isInteger(idx) && idx >= 0 && idx < t.TextureAtlas.count,
         '格号 ' + idx + ' 应在 [0,' + t.TextureAtlas.count + ')');

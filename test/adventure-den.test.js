@@ -28,7 +28,7 @@ const api = vm.runInContext(`({
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_BED_FOOT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   B_SNOW, B_SANDSTONE, B_GLOWSTONE, B_CHEST,
-  B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK, B_LOOT_CHEST,
+  B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK, B_LOOT_CHEST, B_LOOT_CHEST_SMALL,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 
@@ -492,6 +492,45 @@ test('战利品宝箱配对计划: 四邻认亲 · 恰一次掉落 · 无相邻�
   /* 无相邻宝箱(孤儿格): null——防 TNT 同拍双掷/双掉 */
   assert.strictEqual(Dims.advLootChestPlan(() => 0, 80, 7, 80, () => 0.9), null,
       '四周皆空: 无宝箱可配, 返 null');
+});
+
+/* ============ 低档奖励箱纯件(§7.5 D18, 2026-10-30 三批拍板) ============ */
+
+test('低档奖励箱掷骰: 简化减量表全确定 — 火药2/铁锭1/苹果1 无金无钻零掷骰(D18)', () => {
+  const ITEMS = api.ITEMS; /* 注册表唯一权威(vm 真件; items-core 无导出守卫, 不可 require) */
+  /* 全保底零掷骰: 任意 rnd 结果同一(敲开即得的确定回报, 体验馆工位口径) */
+  for (const r of [() => 0, () => 0.4, () => 0.9]) {
+    assert.deepStrictEqual(Dims.advDenLootRoll(r, Dims.ADV_DEN_LOOT_SMALL), [
+      {id: 'gunpowder', n: 2}, {id: 'iron_ingot', n: 1}, {id: 'apple', n: 1},
+    ], '简化减量版逐条保底(用户拍板, 无加成无 rare)');
+  }
+  /* 缺省表兼容: 不传 table 仍掷大箱表(旧调用零改动——钻石恒得作确定性锚) */
+  assert.deepStrictEqual(Dims.advDenLootRoll(() => 0.9)[4], {id: 'diamond', n: 1},
+      '缺省表=ADV_DEN_LOOT(大箱表不动)');
+  /* 表里每个物品 id 都在 ITEMS 注册(掷出的东西必须拿得起来) */
+  for (const e of Dims.ADV_DEN_LOOT_SMALL.rolls) {
+    assert.ok(ITEMS[e[0]], '低档表物品已注册: ' + e[0]);
+  }
+  assert.deepStrictEqual(Dims.ADV_DEN_LOOT_SMALL.rare, [], '低档款无 rare(无压轴惊喜位)');
+});
+
+test('低档奖励箱破坏计划: 单格整箱无配对 — 破坏块 id 认主, 非小箱返 null(D18)', () => {
+  const p = Dims.advLootChestSmallPlan(api.B_LOOT_CHEST_SMALL, () => 0.9);
+  assert.deepStrictEqual(p.cells, [], '单格无第二格要清(cells 恒空)');
+  assert.deepStrictEqual(p.drops, [
+    {id: 'gunpowder', n: 2}, {id: 'iron_ingot', n: 1}, {id: 'apple', n: 1},
+  ], '低档表恰掷一次(零掷骰全确定)');
+  assert.strictEqual(Dims.advLootChestSmallPlan(api.B_LOOT_CHEST, () => 0.9), null,
+      '大箱不走小箱计划(回退配对扫描)');
+  assert.strictEqual(Dims.advLootChestSmallPlan(0, () => 0.9), null, '非宝箱返 null');
+  /* 敲 2 秒口径与 71 同款: hard 1.33 → 徒手 1.995s ≈ 2s, tier 0 恒掉落 */
+  const bt = api.breakTime(api.BLOCKS[api.B_LOOT_CHEST_SMALL], null);
+  assert.ok(Math.abs(bt.time - 2) < 0.05, '徒手敲击 ' + bt.time + 's ≈ 2 秒(71 同款)');
+  assert.strictEqual(bt.drops, true, 'tier 0 恒掉落(儿童徒手也拿得到)');
+  assert.strictEqual(api.BLOCKS[api.B_LOOT_CHEST_SMALL].lchest, undefined,
+      '无 lchest 旗标(那是配对身份, 单格款没有配对可认)');
+  assert.strictEqual(api.BLOCKS[api.B_LOOT_CHEST_SMALL].drop, undefined,
+      '无 drop 字段(TNT 掷普通表掷不到东西, 掉落由破坏计划兜底——71 同款)');
 });
 
 /* ============ 夜袭涌出纯函数(§2.2, 未改动——回归锁) ============ */

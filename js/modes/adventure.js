@@ -2398,10 +2398,11 @@ function advDoorBreakApply(bx, by, bz, quest) {
   advPlaceKit.doorBreakApply(bx, by, bz, quest);
 }
 
-/* 战利品宝箱配对破坏 → kit 薄转发(TNT 链 quest=false 同走此处, 门配对同款口径;
-    蓄力链在 kit breakBlock 内直调, 不经此转发) */
-function advLootChestBreakApply(bx, by, bz, quest) {
-  advPlaceKit.lootChestApply(bx, by, bz, quest);
+/* 奖励箱破坏 → kit 薄转发(TNT 链 quest=false 同走此处, 门配对同款口径;
+    蓄力链在 kit breakBlock 内直调, 不经此转发。id=被破坏方块号: 小箱按 id
+    认主(D18), 大箱靠四邻认亲不依赖它——TNT 源块位传 B_TNT 即「不是小箱」) */
+function advLootChestBreakApply(bx, by, bz, quest, id) {
+  advPlaceKit.lootChestApply(bx, by, bz, quest, id);
 }
 
 /* 树苗挂表: 20s 后长成(D7); 重进经 advRescanSaplings 全图重建计时 */
@@ -3010,11 +3011,11 @@ function advFuseTick(dt) {/* 引信倒计时: 顶上火花弧观感 + 到点起�
    不伤玩家——儿童挖矿神器口径(D4 只给火药一个挖矿出口) */
 const advExplodeSink = {
   ignite: advIgnite,
-  edit: (bx, by, bz) => {/* 触发格先记账(级联移动可能落回此格) → 破坏+级联记账(不进任务, P6) */
+  edit: (bx, by, bz, id) => {/* 触发格先记账(级联移动可能落回此格) → 破坏+级联记账(不进任务, P6); id 由 advExplodeCells 透传(小箱认主, D18) */
     advMarkEdit(bx, by, bz, 0);
     advCascadeApply(editBlock(bx, by, bz, 0), false);
     advDoorBreakApply(bx, by, bz, false); /* TNT 掀门=整扇回收(不进任务, P6 口径) */
-    advLootChestBreakApply(bx, by, bz, false); /* TNT 掀宝箱=整箱消失+战利品(配对计划兜底, D16) */
+    advLootChestBreakApply(bx, by, bz, false, id); /* TNT 掀奖励箱=整箱消失+战利品(小箱 id 认主/大箱配对兜底, D16/D18) */
   },
   sapling: (bx, by, bz) => advSaplings.delete(blockKey(bx, by, bz)),
   crop: (bx, by, bz) => advWheats.delete(blockKey(bx, by, bz)), /* 掀掉麦苗撤生长计时(D3) */
@@ -3027,7 +3028,7 @@ function advExplode(x, y, z) {
   advMarkEdit(x, y, z, 0);
   advCascadeApply(editBlock(x, y, z, 0), false);
   advDoorBreakApply(x, y, z, false); /* 源块正上方若立着门, 一并整扇回收 */
-  advLootChestBreakApply(x, y, z, false); /* 源块贴着宝箱同理(四邻认亲) */
+  advLootChestBreakApply(x, y, z, false, B_TNT); /* 源块贴着宝箱同理(四邻认亲; 源块本身是 TNT 非小箱) */
   advExplodeCells(x, y, z, getBlock, advExplodeSink);
   for (const w of advTntWave(Mobs.list(), x, y, z)) {/* 波及怪物: 线性衰减伤害+击退 */
     if (w.m.__baby) continue; /* 幼崽免伤: TNT 不波及(生态恢复差异 6, 零惩罚) */

@@ -1497,7 +1497,8 @@ function advTntTapStep(state, held, blocked, dt) {
    (旧模式 chainR 口径) · 可采集方块破坏(hard 缺失=空气/水/创造专属免疫)
    · 掀掉的树苗撤计时 · 70% 掷骰掉落(advTntRoll, rand 注入保可测)。
    read 为方块读 seam, 动作全经 sink({ignite, edit, sapling, drop}) 注入——
-   edit 对应「触发格先记账+editBlock+级联记账」的整段(壳接线), 爆炸观感
+   edit 对应「触发格先记账+editBlock+级联记账」的整段(壳接线), 签名附带方块
+   id(奖励箱家族破坏计划认主: 小箱按 id、大箱按四邻, D18), 爆炸观感
    (Fx.boom)与怪物波及(advTntWave)不在此。遍历序 dx→dy→dz 与历史壳实现
    逐字一致(同世界同破坏序=同 edits 账本, 确定性重放红线)。 */
 function advExplodeCells(x, y, z, read, sink, rand) {
@@ -1515,7 +1516,7 @@ function advExplodeCells(x, y, z, read, sink, rand) {
         }
         const def = id ? BLOCKS[id] : null;
         if (!def || def.hard == null) continue; /* 空气/水/创造专属免疫(字段缺失判据) */
-        sink.edit(bx, by, bz);
+        sink.edit(bx, by, bz, id); /* id 附带透传(奖励箱家族计划认主, D18; 旧 sink 桩少参不炸) */
         if (id === B_SAPLING) sink.sapling(bx, by, bz);
         if (def.crop && sink.crop) sink.crop(bx, by, bz); /* 掀掉麦苗撤生长计时(farm-and-recipe D3) */
         for (const d of advTntRoll(id, rand)) sink.drop(d.id, d.n, bx + 0.5, by + 0.8, bz + 0.5);

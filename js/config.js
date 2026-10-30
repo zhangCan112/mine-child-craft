@@ -412,6 +412,22 @@ BLOCKS[B_SPAWNER] = {name: '怪物巢穴之心', all: [0.22, 0.06, 0.07], light:
 const B_LOOT_CHEST=71;
 BLOCKS[B_LOOT_CHEST] = {name: '战利品宝箱', top: [0.72, 0.22, 0.18], side: [0.66, 0.20, 0.16], bottom: [0.55, 0.16, 0.14],
   hard: 1.33, tool: null, tier: 0, lchest: true};
+
+/* ---------- 低档奖励箱 (id 72, docs/den-nest-design.md §7.5/D18) ----------
+   战利品宝箱家族低档款(2026-10-30 用户拍板「新 id+复用红金纹理」): 单格整箱
+   **无配对**——与大箱四邻认亲相反, 身份判据读破坏块的 id(advLootChestSmallPlan
+   按 id 认主; place-kit 先认小箱再回退配对扫描, 72 挨着 71 也不误吃大箱)。
+   敲 2 秒口径与 71 同款(hard 1.33=徒手 1.995s; tool null 全工具同速, tier 0
+   恒掉落)。无 drop 字段: 战利品走 ADV_DEN_LOOT_SMALL 专属表(TNT 掷普通表掷
+   不到东西, 掉落由破坏计划兜底——炸了也给, 儿童零惩罚, 71 同款)。无 lchest
+   旗标: 那是配对破坏身份(71 专用), 单格款没有配对可认。纹理复用 71 的红金
+   图集格(texture-atlas layout 加一行映射, 零新增画师格位)——单格 vs 双格
+   一眼分大小。与玩家箱 B_CHEST 不同物: 不是储物箱、不进大宝箱账户/面板、
+   点击链不命中 chest 分支 → 点击即蓄力敲击。刷出场景=体验馆试玩工位
+   (showroom.js), 副本零接线。 */
+const B_LOOT_CHEST_SMALL=72;
+BLOCKS[B_LOOT_CHEST_SMALL] = {name: '低档奖励箱', top: [0.72, 0.22, 0.18], side: [0.66, 0.20, 0.16],
+  bottom: [0.55, 0.16, 0.14], hard: 1.33, tool: null, tier: 0};
 BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true,
   hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // MC 硬度 3 斧头加速; 关=实心挡人挡光
 BLOCKS[B_DOOR_TOP] = {name: '门(上)', all: [0.66, 0.52, 0.33], pane: true,

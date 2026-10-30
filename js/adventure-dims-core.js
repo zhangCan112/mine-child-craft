@@ -20,6 +20,7 @@
      ADV_DEN_GUARDS(固定布防表)/advDenRoomCenter(房心) · advDenBuild/
      advDenMineRoom/advDenStep(清怪波次节拍+5 轮封顶 chest 信号)/advDenWavePlan(波次计划)
        · ADV_DEN_LOOT(宝箱掉落表)/advDenLootRoll/advLootChestPlan(宝箱配对破坏计划)
+      · ADV_DEN_LOOT_SMALL(低档掉落表)/advLootChestSmallPlan(低档单格破坏计划, D18)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
      advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——涌出/副本节拍
      薄壳组装, 加载序先于 adventure-core) · adventure-core.js 的 advPortalFrame/
@@ -235,18 +236,31 @@ const ADV_DEN_LOOT = {
   rare: [['diamond', 1]], /* 钻石恒得(5 轮苦战的压轴惊喜) */
 };
 
+/* 低档奖励箱掉落表(§7.5/D18): 用户拍板 2026-10-30「简化减量版」——条目少/
+   数量少/无金无钻, 一眼看出是小箱。全保底零掷骰(敲开即得的确定回报, 体验馆
+   工位口径), 形状与 ADV_DEN_LOOT 同契约(表只存数据, 掷骰语义共用
+   advDenLootRoll 的 table 注入) */
+const ADV_DEN_LOOT_SMALL = {
+  rolls: [
+    ['gunpowder', 2, 0], ['iron_ingot', 1, 0], ['apple', 1, 0],
+  ],
+  rare: [],
+};
+
 /* 宝箱掉落掷骰(rollDrops 同语义: 保底必得 + 逐次 50% 加成 + rare 独立掷):
-   rnd 可注入(测试确定性, 缺省 Math.random), 返回 [{id, n}] 供配对计划逐条
-   落地——消费方(place-kit lootChestApply/TNT 链)不再各自掷骰 */
-function advDenLootRoll(rnd) {
+   rnd 可注入(测试确定性, 缺省 Math.random), table 可注入(缺省大箱表
+   ADV_DEN_LOOT——旧调用零改动, D18 低档表注入), 返回 [{id, n}] 供破坏计划
+   逐条落地——消费方(place-kit lootChestApply/TNT 链)不再各自掷骰 */
+function advDenLootRoll(rnd, table) {
   const r = rnd || Math.random;
+  const t = table || ADV_DEN_LOOT;
   const out = [];
-  for (const e of ADV_DEN_LOOT.rolls) {
+  for (const e of t.rolls) {
     let n = e[1];
     for (let i = 0; i < e[2]; i++) if (r() < 0.5) n++;
     if (n > 0) out.push({id: e[0], n});
   }
-  for (const e of ADV_DEN_LOOT.rare) {
+  for (const e of t.rare) {
     if (r() < e[1]) out.push({id: e[0], n: 1});
   }
   return out;
@@ -265,6 +279,16 @@ function advLootChestPlan(read, x, y, z, rnd) {
   }
   if (!cells.length) return null;
   return {cells, drops: advDenLootRoll(rnd)};
+}
+
+/* 低档奖励箱破坏计划(§7.5/D18): 单格整箱**无配对**——破坏的格子本身就是
+   整箱, 身份判据读破坏块的 id(调用方把 id 传进来: 大箱四邻认亲读的是世界,
+   小箱读的是「刚敲的是什么」, 两判据互补不互斥)。cells 恒空(无第二格要清,
+   触发格已由破坏链清格记账)。返回 null=破坏的不是小箱(调用方回退到大箱
+   配对计划) */
+function advLootChestSmallPlan(id, rnd) {
+  if (id !== B_LOOT_CHEST_SMALL) return null;
+  return {cells: [], drops: advDenLootRoll(rnd, ADV_DEN_LOOT_SMALL)};
 }
 
 /* 副本建场: 整图岩体(y0~roof+1 实心——巨洞从岩体里掏出来, 矿腔镶矿/岩壁
@@ -452,5 +476,6 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_ERUPT, advEruptStep,
     ADV_DEN, ADV_DEN_TUNNELS, ADV_DEN_GUARDS, advDenRoomCenter,
     advDenBuild, advDenMineRoom, advDenStep, advDenWavePlan,
-    ADV_DEN_LOOT, advDenLootRoll, advLootChestPlan};
+    ADV_DEN_LOOT, ADV_DEN_LOOT_SMALL, advDenLootRoll, advLootChestPlan,
+    advLootChestSmallPlan};
 }
