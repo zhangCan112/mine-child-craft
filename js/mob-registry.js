@@ -107,13 +107,14 @@ const MOB_TYPES = {
   /* —— 独行侠已撤销(用户拍板"不要不伦不类的兜底族"): 每怪必归种族, 单员族合法 —— */
   /* —— 草木族(主族 plant): 植物身子的怪(家传三期补) —— */
   creeper: {name: '苦力怕', hp: 28, dmg: 33, speed: 3.1, range: 2.0, cd: 9, h: 1.7, boom: true, hitR: 0.5,
-    proto: 'bomber', family: ['plant']}, // 个体特化=扑袭+读条取消(原型分支)
+    fuseS: 3, proto: 'bomber', family: ['plant']}, // 个体特化=扑袭+读条取消(原型分支); 引信 3s(用户拍板 2026-10-30 加长——儿童反应窗)
   creaking: {name: '嘎枝', hp: 30, dmg: 5, speed: 3.0, range: 2.2, cd: 1.1, h: 1.7, hitR: 0.5,
     proto: 'skirmisher', family: ['plant']},
   /* 苦力怕王(副本关底 boss, 2026-10-30 用户拍板): 放大版苦力怕——同 bomber 原型
-     (引信自爆), 更厚的血(120)与更大的自爆半径; 对玩家伤害仍走 ADV_DMG_CAP 封顶 */
+     (引信自爆), 更厚的血(120)与更大的自爆半径; 引信 2s 比常款(3s)更果断——
+     王不犹豫; 对玩家伤害仍走 ADV_DMG_CAP 封顶 */
   creeper_king: {name: '苦力怕王', hp: 120, dmg: 33, speed: 2.1, range: 2.6, cd: 1.6, h: 2.8,
-    hitR: 1.05, boom: true, boss: true, fuseS: 1.4, boomR: 3.4, proto: 'bomber',
+    hitR: 1.05, boom: true, boss: true, fuseS: 2, boomR: 3.4, proto: 'bomber',
     family: ['plant']},
   /* —— 龙族(主族 dragon, 单员族): 家传无(龙息即本体特化, 原型分支) —— */
   dragon: {name: '末影龙', hp: 300, dmg: 7, speed: 4.4, range: 17, cd: 4.5, h: 3.0, fly: true, hitR: 2.2, boss: true,

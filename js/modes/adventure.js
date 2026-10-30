@@ -1015,11 +1015,12 @@ function advMobAI(dt) {
     if (m.dead || m.gone || m.cfg.passive) continue; /* F4 牧场动物走 advHerdTick(恐惧游荡), 不进战斗 AI */
     CombatCore.tickCadence(m, dt); /* 攻击节拍(战斗核心, 与竞技场/下界同一条) */
     /* 苦力怕引信推进(bomber 原型, 副本 §7): 点着就站桩膨胀+白闪倒数(竞技场
-       tickCreepFuse 同构), 到点自爆; 读条早期(<0.35s)玩家拉开 2.2×range
-       可取消——「看到绿朋友鼓起来就后退」是可教的动作课 */
+       tickCreepFuse 同构), 到点自爆; 读条早期(前 30%)玩家拉开 2.2×range
+       可取消——「看到绿朋友鼓起来就后退」是可教的动作课。引信时长是
+       注册表行值: 常款 3s(儿童反应窗)/王 2s(王不犹豫, 用户拍板) */
     if (m.__fuse >= 0) {
       m.__fuse += dt;
-      const ft = m.cfg.fuseS || 1.15; /* 王 1.4s 留反应窗(mob-registry 行内注释) */
+      const ft = m.cfg.fuseS || 1.15; /* 兜底缺省(两 boom 行都有显式值) */
       const fp = Math.min(1, m.__fuse / ft);
       Mobs.scaleTo(m, 1 + fp * 0.35); /* 引信膨胀 */
       const fv = Math.sin(m.__fuse * 25) > 0 ? 1.9 : 1;
@@ -1053,9 +1054,10 @@ function advMobAI(dt) {
             kpow: 0.6, g: 6, life: 2.5}); /* 骷髅箭(伤害封顶 ADV_DMG_CAP 在纯核心) */
         }
       } else if (m.cfg.boom) {/* 苦力怕族: 压上→贴身点引信(站桩自爆); 读条早期
-          玩家跑远即取消(竞技场 moveBoom 同款判据); 无近战平A——引信即全部 */
+          (前 30%——常款 3s 引信即 0.9s 内)玩家跑远即取消(竞技场 moveBoom 同款
+          判据, 窗口随引信时长等比); 无近战平A——引信即全部 */
         if (m.__fuse >= 0) {
-          if (m.__fuse < 0.35 && distP > m.cfg.range * 2.2) {
+          if (m.__fuse < (m.cfg.fuseS || 1.15) * 0.3 && distP > m.cfg.range * 2.2) {
             m.__fuse = -1;
             Mobs.scaleTo(m, 1);
             Mobs.pulseTint(m, 1, 1, 1); /* 收引信回常态 */

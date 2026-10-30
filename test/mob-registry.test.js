@@ -280,4 +280,8 @@ test('MOB_DROPS 结构: rolls=[itemId,保底,加成次数], rare=[itemId,概率]
       '王行带 boss+boom 旗标(bomber 原型, 引信自爆)');
   assert.ok(MOB_TYPES.creeper_king.hp > MOB_TYPES.creeper.hp * 3,
       '王血量 ≥3×常款(关底体格)');
+  /* 引信时长(用户拍板 2026-10-30 二次调整: 加长反应窗): 常款 3s / 王 2s 更果断 */
+  assert.strictEqual(MOB_TYPES.creeper.fuseS, 3, '苦力怕引信 3 秒(儿童反应窗)');
+  assert.strictEqual(MOB_TYPES.creeper_king.fuseS, 2, '王引信 2 秒(比常款果断——王不犹豫)');
+  assert.ok(MOB_TYPES.creeper_king.fuseS < MOB_TYPES.creeper.fuseS, '王引信短于常款');
 });
