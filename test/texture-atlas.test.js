@@ -21,7 +21,7 @@ function loadAtlas() {
       'globalThis.__t = { TextureAtlas, MeshCore, BLOCKS,' +
       ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING,' +
       ' B_BED, B_BED_FOOT, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID,' +
-      ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM };', ctx);
+      ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_LOOT_CHEST };', ctx);
   return ctx.__t;
 }
 
@@ -76,8 +76,8 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 50,
-      '已绘制格数 = 50(PAINTERS 0~49 连续; 门面宏格已随贴图回退删除)');
+  assert.strictEqual(t.TextureAtlas.count, 52,
+      '已绘制格数 = 52(PAINTERS 0~51 连续; 门面宏格已随贴图回退删除, 50/51=战利品宝箱)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   const bed = t.TextureAtlas.layout.tiles[t.B_BED];
@@ -85,6 +85,44 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
   const foot = t.TextureAtlas.layout.tiles[t.B_BED_FOOT];
   assert.notStrictEqual(foot.top, bed.top, '床尾顶(全毯)与床头顶(枕+毯)应分格(两格床改版)');
   assert.strictEqual(foot.side, bed.side, '床侧两半共用一张毯木框图');
+});
+
+test('布局+像素: 战利品宝箱(71)入集 — 顶/侧分格红金配色, 全不透明(den-nest §7.5 D16)', () => {
+  const t = loadAtlas();
+  const e = t.TextureAtlas.layout.tiles[t.B_LOOT_CHEST];
+  assert.ok(e && typeof e === 'object' && e.top != null && e.side != null,
+      '宝箱应分面(top/side)入图集');
+  assert.notStrictEqual(e.top, e.side, '顶盖(金边框+扣横条)与侧(金箍带+锁扣)应分格');
+  assert.strictEqual(e.bottom, e.side, '底面几乎不可见复用侧格(箱子 51 同款省格)');
+  for (const idx of [e.top, e.side]) {
+    assert.ok(Number.isInteger(idx) && idx >= 0 && idx < t.TextureAtlas.count,
+        '格号 ' + idx + ' 应在 [0,' + t.TextureAtlas.count + ')');
+  }
+  /* 红金经典配色: 实心立方体全不透明(与 bed 薄块镂空不同族); 侧格中部=锁座金,
+     上下箍带金, 箱体红(R 分量显著高于 G/B); 顶格边框金 */
+  const all = t.TextureAtlas.paintAll();
+  const px = (idx) => tilePixels(t, all, idx);
+  for (const idx of [e.top, e.side]) {
+    for (const p of px(idx)) assert.strictEqual(p[3], 255, '宝箱像素应全不透明');
+  }
+  const side = px(e.side);
+  const at = (x, y) => side[y * 16 + x];
+  assert.ok(at(3, 8)[0] > 120 && at(3, 8)[1] < 100, '箱体红(canvas 行 8 列 3=R 主导)');
+  assert.ok(at(3, 1)[0] > 190 && at(3, 1)[1] > 140, '上箍带金(canvas 行 1)');
+  assert.ok(at(3, 13)[0] > 190 && at(3, 13)[1] > 140, '下箍带金(canvas 行 13)');
+  assert.ok(at(6, 7)[0] > 170 && at(6, 7)[2] < 100, '中央锁座金(canvas 行 7 列 6)');
+  assert.ok(at(7, 8)[0] > 240 && at(7, 8)[2] > 120, '锁眼高光(canvas 行 8 列 7)');
+  const top = px(e.top);
+  assert.ok(top[4 * 16 + 8][0] > 120 && top[4 * 16 + 8][1] < 100, '盖面红(行 4, 金框之外)');
+  assert.ok(top[8 * 16 + 3][0] > 170 && top[8 * 16 + 3][2] < 100, '中央扣横条金(行 8 列 3)');
+  assert.ok(top[8 * 16 + 0][0] > 190 && top[8 * 16 + 0][1] > 140, '盖沿金边框(canvas 行 0)');
+  /* mesh 接线: 标准图集立方体通道(零特殊几何), 两格相邻共面剔除 10 面 */
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_LOOT_CHEST);
+  p.set(9, 5, 8, t.B_LOOT_CHEST);
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(r.solid, null, '入集宝箱走图集通道');
+  assert.strictEqual(quads(r.atlas), 10, '双格立方体邻面剔除(6+6-2)');
 });
 
 test('布局: 黑巢地上件入集(den-nest §2.1) — 苔石/黑曜石/发光岩各占一格; 门面/熄门回退玻璃通道不入集', () => {

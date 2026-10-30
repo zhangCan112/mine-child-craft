@@ -18,7 +18,8 @@
      advMusicMood(维度×昼夜→mood 桥接) · ADV_NETHER/advNetherBuild ·
      ADV_ERUPT/advEruptStep · ADV_DEN/ADV_DEN_TUNNELS(弯隧道折线)/
      ADV_DEN_GUARDS(固定布防表)/advDenRoomCenter(房心) · advDenBuild/
-     advDenMineRoom/advDenStep(清怪波次节拍)/advDenWavePlan(波次计划)
+     advDenMineRoom/advDenStep(清怪波次节拍+5 轮封顶 chest 信号)/advDenWavePlan(波次计划)
+       · ADV_DEN_LOOT(宝箱掉落表)/advDenLootRoll/advLootChestPlan(宝箱配对破坏计划)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
      advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——涌出/副本节拍
      薄壳组装, 加载序先于 adventure-core) · adventure-core.js 的 advPortalFrame/
@@ -119,10 +120,14 @@ const ADV_DEN = {
     altarR: {x1: 56, z1: 22, x2: 70, z2: 34, h: 5}, /* 西北深处·刷怪祭坛房 */
   },
   WAVE_S: 10, /* 清怪后到下一波的秒数(用户拍板「打完 10 秒刷新」) */
+  WAVES: 5, /* 波次封顶(用户拍板「最多 5 轮」): 第 WAVES 波全清刷战利品宝箱,
+      之后节拍熄火本会话不再出波——数值封顶(D8)之外轮数也封顶(总量收口) */
   RING_LO: 1.2, RING_HI: 4.6, /* 波次出生环带(祭坛周围, 不贴脸不撞墙) */
   WAVE_HP_STEP: 0.25, WAVE_HP_MAX: 2.75, /* 逐波血量成长与封顶(越来越厉害, 儿童可控上限) */
   WAVE_SPD_STEP: 0.04, WAVE_SPD_MAX: 1.2, /* 逐波速度成长与封顶 */
   WAVE_DMG_STEP: 0.10, WAVE_DMG_MAX: 1.6, /* 逐波伤害成长(玩家侧重伤在 ADV_DMG_CAP 封顶) */
+  loot: {x: 62, y: 7, z: 22}, /* 战利品宝箱左格(深处祭坛房北墙贴墙, 跨 x 62~63 两格;
+      5 轮全清后壳层刷出——通关演出件与波次同命不落盘, 见 §7.5/D17) */
 };
 /* 房心快捷取用(布防家锚/测试) */
 function advDenRoomCenter(key) {
@@ -179,11 +184,18 @@ const ADV_DEN_GUARDS = [
   {type: 'creeper_king', x: 82, z: 37, y: ADV_DEN.ground + 2, hx: 82, hz: 42},
 ];
 
-/* 波次节拍(advSpawnPulse 组装): 门=「全清」——怪还活着计时归零, 全清后
-   累计到 WAVE_S 出波令并归零; 逐拍独立(出令后布防在壳层, 整波作废不结转) */
-function advDenStep(cleared, t, dt) {
+/* 波次节拍(advSpawnPulse 组装) + 5 轮封顶: 门=「全清」——怪还活着计时归零,
+   全清后累计到 WAVE_S 出波令并归零; wave 达 WAVES 后不再出波——第 WAVES 波
+   全清即发 chest 信号(宝箱祭坛房刷出, chestDone=false 才发=恰一次), 之后熄火
+   (t 恒 0, 奖励即现不等 10s)。逐拍独立(出令后布防/刷箱在壳层, 整拍作废不结转) */
+function advDenStep(cleared, t, dt, wave, chestDone) {
+  const w = Math.max(1, Math.floor(wave || 1));
+  if (w >= ADV_DEN.WAVES) {
+    if (cleared && !chestDone) return {spawn: false, chest: true, t: 0}; /* 第 5 波全清: 刷宝箱 */
+    return {spawn: false, chest: false, t: 0}; /* 封顶熄火(宝箱已发或怪未清) */
+  }
   const m = advSpawnPulse(cleared, t, dt, ADV_DEN.WAVE_S);
-  return {spawn: m.fire, t: m.t};
+  return {spawn: m.fire, chest: false, t: m.t};
 }
 
 /* 波次计划(纯函数): 第 wave 波从祭坛环带涌出的怪与三乘数。低级层苦力怕
@@ -209,6 +221,50 @@ function advDenWavePlan(wave, rnd) {
     hpMult: Math.min(1 + ADV_DEN.WAVE_HP_STEP * (n - 1), ADV_DEN.WAVE_HP_MAX),
     spdMult: Math.min(1 + ADV_DEN.WAVE_SPD_STEP * (n - 1), ADV_DEN.WAVE_SPD_MAX),
     dmgMult: Math.min(1 + ADV_DEN.WAVE_DMG_STEP * (n - 1), ADV_DEN.WAVE_DMG_MAX)};
+}
+
+/* 战利品宝箱掉落表(§7.5/D17): 用户拍板 2026-10-30——初版占位表转正为终版
+   (火药/铁锭/金锭/苹果 + 必得钻石)。条目形状与 MOB_DROPS 同契约: rolls=[itemId, 保底, 加成掷数](逐次 50% 加成) +
+   rare=[itemId, 概率](独立掷)。表只存数据, 掷骰语义在 advDenLootRoll */
+const ADV_DEN_LOOT = {
+  rolls: [
+    ['gunpowder', 3, 1], /* 苦力怕巢穴主题回礼: 火药保底 3 + 50% 一发 */
+    ['iron_ingot', 2, 1], ['gold_ingot', 1, 1], /* 矿藏廊的「越危险越富」呼应 */
+    ['apple', 2, 0], /* 回血干粮(打完最强一波总得口吃的) */
+  ],
+  rare: [['diamond', 1]], /* 钻石恒得(5 轮苦战的压轴惊喜) */
+};
+
+/* 宝箱掉落掷骰(rollDrops 同语义: 保底必得 + 逐次 50% 加成 + rare 独立掷):
+   rnd 可注入(测试确定性, 缺省 Math.random), 返回 [{id, n}] 供配对计划逐条
+   落地——消费方(place-kit lootChestApply/TNT 链)不再各自掷骰 */
+function advDenLootRoll(rnd) {
+  const r = rnd || Math.random;
+  const out = [];
+  for (const e of ADV_DEN_LOOT.rolls) {
+    let n = e[1];
+    for (let i = 0; i < e[2]; i++) if (r() < 0.5) n++;
+    if (n > 0) out.push({id: e[0], n});
+  }
+  for (const e of ADV_DEN_LOOT.rare) {
+    if (r() < e[1]) out.push({id: e[0], n: 1});
+  }
+  return out;
+}
+
+/* 战利品宝箱配对破坏计划(床配对同款缝, D16): 触发格已清格后调用, 四邻找
+   另一半(同 id 相邻即配对——系统刷出固定贴墙, 无取向歧义也无相邻双箱),
+   drops=宝箱掉落表掷骰一次(恰一次, 双格不双掉)。返回 null=此处无宝箱
+   (触发格无相邻宝箱——防 TNT 同拍双掷/孤儿格双掉) */
+function advLootChestPlan(read, x, y, z, rnd) {
+  const cells = [];
+  for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    if (read(x + d[0], y, z + d[1]) === B_LOOT_CHEST) {
+      cells.push({x: x + d[0], y, z: z + d[1]});
+    }
+  }
+  if (!cells.length) return null;
+  return {cells, drops: advDenLootRoll(rnd)};
 }
 
 /* 副本建场: 整图岩体(y0~roof+1 实心——巨洞从岩体里掏出来, 矿腔镶矿/岩壁
@@ -395,5 +451,6 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_NETHER, advNetherBuild,
     ADV_ERUPT, advEruptStep,
     ADV_DEN, ADV_DEN_TUNNELS, ADV_DEN_GUARDS, advDenRoomCenter,
-    advDenBuild, advDenMineRoom, advDenStep, advDenWavePlan};
+    advDenBuild, advDenMineRoom, advDenStep, advDenWavePlan,
+    ADV_DEN_LOOT, advDenLootRoll, advLootChestPlan};
 }

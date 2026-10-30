@@ -1945,7 +1945,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     setPlayerGlow(false); /* 灯笼随身光熄灭(维度不亮不耗, 门禁见 update) */
     advLanternT = 0; /* 耗秒累计器归零(回主世界从整秒重新累计) */
     if (dim === 'den') {
-      advDenT = 0; advDenWave = 0; /* 副本波次状态复位(den 专属, 不进表; 重进由 advDenSeed 重铺) */
+      advDenT = 0; advDenWave = 0; advDenChestDone = false; /* 副本波次状态复位(den 专属, 不进表; 重进由 advDenSeed 重铺) */
     }
     ModeKit.spawn(drow.spawn.x, drow.spawn.y, drow.spawn.z, {yaw: drow.spawn.yaw}); /* 行落点(结构常量派生) */
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
@@ -2015,13 +2015,16 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
    副本 = 探险第三维度 advDim 'den'(切界装配读维度行 ADV_DIMS, 见
    advSetDim): 布防表/波次计划/弯隧道纯数据与纯函数在 adventure-dims-core
    (ADV_DEN 副本段), 本段只做落地: 进场布防+清怪波次(§7 苦力怕主题改造,
-   家锚=房心, advMobAI leash 复用) + 苦力怕引信自爆(bomber 分支在 advMobAI)
+   家锚=房心, advMobAI leash 复用; 5 轮封顶+通关宝箱刷出 §7.5) + 苦力怕
+   引信自爆(bomber 分支在 advMobAI)
    + 主世界黑巢洞口紫门的入口站桩 + 夜间巢口涌出(涌出节拍纯函数
    advEruptStep 亦在 adventure-dims-core, 落地挂在缺省夜怪铺法
    advNightLayRing 尾部)。
    ============================================================ */
 let advDenT = 0; /* 副本清怪计时(秒, advDenStep 的状态; 全清才累计, 见怪即归零) */
 let advDenWave = 0; /* 当前波次(1 起; 进场铺布防+第一波, 全清 WAVE_S 秒后递增) */
+let advDenChestDone = false; /* 通关宝箱已发旗(第 WAVES 波全清刷一次; 维度不进档,
+    重进由 advSetDim 复位——宝箱与波次同命不落盘, den-nest §7.5/D17) */
 function advDenAlive() {/* 副本怪存量(advNightAlive 同口径: 尸体/已移除/动物不算) */
   let n = 0;
   for (const m of Mobs.list()) {
@@ -2050,14 +2053,32 @@ function advDenSeed() {/* 副本进场布防(§7): 固定守卫(大厅/两翼/�
   advDenLay(w1.spawns, w1);
 }
 function advDenTick(dt) {/* 副本波次节拍(update 每帧, den 门禁内): 门=全清
-    (怪还活着计时归零)——清空累计 WAVE_S 秒出下一波; 节拍纯函数在 dims-core */
-  const step = advDenStep(advDenAlive() === 0, advDenT, dt);
+    (怪还活着计时归零)——清空累计 WAVE_S 秒出下一波; 第 WAVES 波全清 → 刷
+    战利品宝箱(恰一次); 封顶判据在纯核 advDenStep, 壳层只落地(§7.5/D15) */
+  const step = advDenStep(advDenAlive() === 0, advDenT, dt, advDenWave, advDenChestDone);
   advDenT = step.t;
   if (step.spawn) {
     advDenWave++;
     const w = advDenWavePlan(advDenWave, Math.random);
     advDenLay(w.spawns, w);
   }
+  if (step.chest) {
+    advDenChestDone = true;
+    advDenLootSpawn();
+  }
+}
+function advDenLootSpawn() {/* 第 5 波全清: 战利品宝箱刷出(深处祭坛房北墙 2 格,
+    den-nest §7.5/D16): setBlockRaw 直写不记账(建场件口径——回程门同款互锁
+    红线; 打碎走正常破坏链记账, 重进重跑副本再通关再刷), mesh 两列当帧收口 */
+  const L = ADV_DEN.loot;
+  setBlockRaw(L.x, L.y, L.z, B_LOOT_CHEST);
+  setBlockRaw(L.x + 1, L.y, L.z, B_LOOT_CHEST);
+  advMeshTouch(L.x, L.z);
+  advMeshTouch(L.x + 1, L.z);
+  advMeshFlush();
+  advSfx('win');
+  advSpeak('五波全清！祭坛后面出现了战利品宝箱！');
+  advToast('🎁 战利品宝箱出现啦！敲碎它拿奖励！');
 }
 
 /* ---------- 副本入口门(den-nest §2.1; 2026-10-30 从「巢厅巢之心旁半径站桩」迁到洞口
@@ -2375,6 +2396,12 @@ function advPlaceDoor(hit) {
 /* 门配对破坏 → kit 薄转发(TNT 链 quest=false 同走此处, 口径不变) */
 function advDoorBreakApply(bx, by, bz, quest) {
   advPlaceKit.doorBreakApply(bx, by, bz, quest);
+}
+
+/* 战利品宝箱配对破坏 → kit 薄转发(TNT 链 quest=false 同走此处, 门配对同款口径;
+    蓄力链在 kit breakBlock 内直调, 不经此转发) */
+function advLootChestBreakApply(bx, by, bz, quest) {
+  advPlaceKit.lootChestApply(bx, by, bz, quest);
 }
 
 /* 树苗挂表: 20s 后长成(D7); 重进经 advRescanSaplings 全图重建计时 */
@@ -2987,6 +3014,7 @@ const advExplodeSink = {
     advMarkEdit(bx, by, bz, 0);
     advCascadeApply(editBlock(bx, by, bz, 0), false);
     advDoorBreakApply(bx, by, bz, false); /* TNT 掀门=整扇回收(不进任务, P6 口径) */
+    advLootChestBreakApply(bx, by, bz, false); /* TNT 掀宝箱=整箱消失+战利品(配对计划兜底, D16) */
   },
   sapling: (bx, by, bz) => advSaplings.delete(blockKey(bx, by, bz)),
   crop: (bx, by, bz) => advWheats.delete(blockKey(bx, by, bz)), /* 掀掉麦苗撤生长计时(D3) */
@@ -2999,6 +3027,7 @@ function advExplode(x, y, z) {
   advMarkEdit(x, y, z, 0);
   advCascadeApply(editBlock(x, y, z, 0), false);
   advDoorBreakApply(x, y, z, false); /* 源块正上方若立着门, 一并整扇回收 */
+  advLootChestBreakApply(x, y, z, false); /* 源块贴着宝箱同理(四邻认亲) */
   advExplodeCells(x, y, z, getBlock, advExplodeSink);
   for (const w of advTntWave(Mobs.list(), x, y, z)) {/* 波及怪物: 线性衰减伤害+击退 */
     if (w.m.__baby) continue; /* 幼崽免伤: TNT 不波及(生态恢复差异 6, 零惩罚) */
@@ -3377,7 +3406,7 @@ const AdventureMode = mkMode({
     advExitSpot = null;
     advMood = null; /* 首帧 update 按当下昼夜补报场景曲(main 随后会先报基线 adventure) */
     advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7): 转场不跨场次(巢穴门已共用此状态) */
-    advDenT = 0; advDenWave = 0; /* 副本波次状态复位(维度不进档, 重进恒主世界) */
+    advDenT = 0; advDenWave = 0; advDenChestDone = false; /* 副本波次状态复位(维度不进档, 重进恒主世界) */
     advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
     advGateLockT = 0; /* 锁门提示节流复位 */

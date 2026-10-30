@@ -28,13 +28,15 @@
      opts.mesh — {touch(x,z), flush()} setBlockRaw 直写后的网格收口
      opts.hardText(id) — 无 hard 方块话术(空串=不出声)
    interface: PlaceKit.mkEditor(opts) → editor {tryPlace · placeDoor ·
-     placePortal · tryDoorToggle · breakBlock · doorBreakApply · applyCascade ·
+     placePortal · tryDoorToggle · breakBlock · doorBreakApply ·
+     lootChestApply · applyCascade ·
      mineTick(mine,hit,dt,view) · mineStop(mine) · tickTimers(dt)} ·
      PlaceKit.aimHit()(静态: 准星命中, Node 无相机件返 null)
      mine 状态形状 {down,t,key,need,drops,swingT} 与探险 advMine 同形。
      view 形状 {held(按住), panelOpen(面板遮罩)}。
    依赖(均经全局名, 调用期解析): js/adventure-core.js 的纯函数族(加载序在
-     本文件之前) · js/craft-core.js 的 breakTime · js/drops.js 的
+     本文件之前) · js/adventure-dims-core.js 的 advLootChestPlan(宝箱配对
+     计划, 调用期解析) · js/craft-core.js 的 breakTime · js/drops.js 的
      rollBlockDrop · js/items-core.js 的 ITEMS/isTool · js/inventory-core.js
      的 remove · js/config.js 的 BLOCKS/PLAYER · js/voxel.js 的 getBlock/
      editBlock/setBlockRaw/blockKey/collidesAtPlayer · js/world.js 的
@@ -91,6 +93,23 @@ function mkEditor(opts) {
     if (plan.drop > 0 && sink.drop) sink.drop('bed', plan.drop, bx + 0.5, by + 0.5, bz + 0.5);
   }
 
+  /* 战利品宝箱配对破坏(副本通关奖励箱, 床配对同款; den-nest §7.5 D16): 任何
+      移除点清格后调用——挖任一半=整箱消失(政策在 advLootChestPlan 四邻认亲),
+      drops=宝箱掉落表掷骰恰一次(表与掷骰在 adventure-dims-core——副本词汇
+      归家), 逐条经 cascade.drop 落地。宝箱无级联旗标, 级联清单恒空(形状对齐
+      床/门)。quest 穿透级联: 蓄力链 true / TNT 链 false(掉落不受 quest 影响) */
+  function lootChestApply(bx, by, bz, quest) {
+    const plan = advLootChestPlan(getBlock, bx, by, bz);
+    if (!plan) return;
+    for (const c of plan.cells) {
+      if (o.onEdit) o.onEdit(c.x, c.y, c.z, 0);
+      applyCascade(editBlock(c.x, c.y, c.z, 0), quest);
+    }
+    for (const d of plan.drops) {
+      if (sink.drop) sink.drop(d.id, d.n, bx + 0.5, by + 0.5, bz + 0.5);
+    }
+  }
+
   /* 破坏结算: 碎屑(editBlock 内置同色 Fx.debrisBurst)+记账+级联+掉落+磨损。
      bt 为破坏时的 breakTime 结果(drops:false = tier 不足, 只碎不掉+节流提示) */
   function breakBlock(x, y, z, id, bt) {
@@ -98,6 +117,7 @@ function mkEditor(opts) {
     applyCascade(editBlock(x, y, z, 0), true); /* 蓄力链视同亲手挖(P6) */
     doorBreakApply(x, y, z, true); /* 门配对破坏(挖任一半/挖门下支撑=整扇回收) */
     bedBreakApply(x, y, z, true); /* 床配对破坏(挖任一半=整床回收, 两格床改版) */
+    lootChestApply(x, y, z, true); /* 宝箱配对破坏(挖任一半=整箱消失+战利品, D16) */
     if (id === B_SAPLING && sink.sapling) sink.sapling(x, y, z); /* 挖树苗撤计时 */
     if (BLOCKS[id] && BLOCKS[id].crop && sink.crop) sink.crop(x, y, z); /* 挖麦苗撤生长计时(farm-and-recipe D3, crop 身份旗标) */
     if (o.sfx) o.sfx('hit');
@@ -339,7 +359,8 @@ function mkEditor(opts) {
   }
 
   return {tryPlace, placeDoor, placePortal, tryDoorToggle, breakBlock,
-    doorBreakApply, applyCascade, mineTick, mineStop, tickTimers, resetTimers};
+    doorBreakApply, lootChestApply, applyCascade, mineTick, mineStop,
+    tickTimers, resetTimers};
 }
 
 const PlaceKit = {mkEditor, aimHit: aimHitNow};

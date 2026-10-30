@@ -300,6 +300,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
     B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_TNT,
     B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_NETHER_BRICK,
+    B_LOOT_CHEST, /* 战利品宝箱(§7.5: 5 轮通关刷箱断言) */
     B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
     B_SNOWY_GRASS, B_SNOW, B_ICE, B_CACTUS, B_SANDSTONE, B_ORCHID, B_DEAD_BUSH,
     B_FARMLAND, B_WHEAT_0, B_WHEAT_1, B_WHEAT_2, B_WHEAT_3,
@@ -1473,4 +1474,48 @@ test('副本自爆残料: 掷中(60%)掉 1 火药·未掷中不掉(ADV_BOOM_LOOT
   assert.strictEqual(Drops.list().filter((d) => d.id === 'gunpowder').length, 0, '未掷中不掉');
   listResultC = [];
   AN.advSetDim('overworld');
+});
+
+/* ============ 副本 5 轮封顶+通关宝箱真世界流程(§7.5, 2026-10-30 二批拍板) ============ */
+
+test('副本 5 轮封顶真世界: 第 5 波全清刷战利品宝箱 · 敲碎掉落+记账 · 重进不再现', () => {
+  freshC();
+  AN.advSetDim('den');
+  const L = ADV_DEN.loot;
+  assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), 0, '进场时宝箱未刷(通关演出件不预置)');
+  /* 波次 1 进场即铺(布防+首波在 mobsSpawnedC); 逐波全清推进到第 5 波 */
+  listResultC = mobsSpawnedC.slice();
+  for (let w = 2; w <= 5; w++) {
+    listResultC = []; /* 全清 */
+    AM.update(ADV_DEN.WAVE_S + 0.5); /* 出下一波 */
+    assert.ok(mobsSpawnedC.length > 0, '第 ' + w + ' 波已铺');
+    listResultC = mobsSpawnedC.slice();
+    assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), 0, '第 ' + w + ' 波出令不刷箱(封顶前)');
+  }
+  /* 第 5 波全清 → 宝箱当帧刷出(奖励即现不等 10s, D15) */
+  listResultC = [];
+  AM.update(0.1);
+  assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), apiC.B_LOOT_CHEST, '左格宝箱在场');
+  assert.strictEqual(apiC.getBlock(L.x + 1, L.y, L.z), apiC.B_LOOT_CHEST, '右格宝箱在场(2 格)');
+  assert.ok(spokenC.some((s) => String(s).indexOf('战利品宝箱') >= 0), '庆祝 TTS 播报');
+  /* 封顶熄火: 再跑 30s 不再出波(mobsSpawnedC 不涨)不再重刷(D15) */
+  const nMobs = mobsSpawnedC.length;
+  AM.update(30);
+  assert.strictEqual(mobsSpawnedC.length, nMobs, '封顶后不再出波');
+  assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), apiC.B_LOOT_CHEST, '宝箱不重复刷(恰一次)');
+  /* 敲碎左半: 整箱消失 + 战利品落地 + 记账进 den 桶(D16/D17) */
+  dropsSpawnedC.length = 0;
+  AN.advBreakBlock(L.x, L.y, L.z, apiC.B_LOOT_CHEST, {time: 2, drops: true});
+  assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), 0, '触发格清');
+  assert.strictEqual(apiC.getBlock(L.x + 1, L.y, L.z), 0, '右半配对清');
+  assert.ok(dropsSpawnedC.some((d) => d.id === 'diamond' && d.n === 1), '战利品含钻石(掉落表 rare p=1)');
+  assert.ok(AN.advSceneEdits.den.has(L.x + ',' + L.y + ',' + L.z), '打碎记账进 den 桶');
+  assert.ok(AN.advSceneEdits.den.has((L.x + 1) + ',' + L.y + ',' + L.z), '配对格记账');
+  /* 重进: 宝箱不再现(edits 记账 + 建场不预置)——再次通关 5 轮才会重刷(D17) */
+  AN.advSetDim('overworld');
+  AN.advSetDim('den');
+  assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), 0, '重进后宝箱不在场(已领奖)');
+  assert.strictEqual(apiC.getBlock(L.x + 1, L.y, L.z), 0, '右半同样不在场');
+  AN.advSetDim('overworld');
+  Drops.clear();
 });

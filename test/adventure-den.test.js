@@ -22,13 +22,13 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
-  getBlock, setBlockRaw, SceneKit, Daylight, BLOCKS,
+  getBlock, setBlockRaw, SceneKit, Daylight, BLOCKS, breakTime, ITEMS,
   WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_BED_FOOT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   B_SNOW, B_SANDSTONE, B_GLOWSTONE, B_CHEST,
-  B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK,
+  B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK, B_LOOT_CHEST,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 
@@ -374,11 +374,33 @@ test('副本布防表: 布防位与家锚收敛位都在进场落点索敌圈外
 });
 
 test('副本波次节拍: 全清才计时 · 10s 到拍出波令 · 有怪活着计时归零(打完 10 秒刷新)', () => {
-  assert.deepStrictEqual(Dims.advDenStep(false, 3, 1), {spawn: false, t: 0},
+  assert.deepStrictEqual(Dims.advDenStep(false, 3, 1), {spawn: false, chest: false, t: 0},
       '怪还活着: 计时归零(见怪即重数)');
-  assert.deepStrictEqual(Dims.advDenStep(true, 0, 1), {spawn: false, t: 1}, '全清后未到拍只累计');
-  assert.deepStrictEqual(Dims.advDenStep(true, 9, 1.5), {spawn: true, t: 0}, '到 10s 出波令并归零');
+  assert.deepStrictEqual(Dims.advDenStep(true, 0, 1), {spawn: false, chest: false, t: 1}, '全清后未到拍只累计');
+  assert.deepStrictEqual(Dims.advDenStep(true, 9, 1.5), {spawn: true, chest: false, t: 0}, '到 10s 出波令并归零');
   assert.strictEqual(DEN.WAVE_S, 10, '波次间隔 10 秒(用户拍板)');
+});
+
+test('副本波次封顶: 最多 5 轮 — 第 5 波全清即发 chest 信号(恰一次), 之后熄火(D15)', () => {
+  assert.strictEqual(DEN.WAVES, 5, '波次封顶 5 轮(用户拍板「最多 5 轮」)');
+  /* 1~4 波: 既有 10s 脉冲节拍(chest 恒 false) */
+  for (const w of [1, 2, 3, 4]) {
+    assert.deepStrictEqual(Dims.advDenStep(false, 3, 1, w, false),
+        {spawn: false, chest: false, t: 0}, '第 ' + w + ' 波怪未清不计时');
+    assert.deepStrictEqual(Dims.advDenStep(true, DEN.WAVE_S, 0.5, w, false),
+        {spawn: true, chest: false, t: 0}, '第 ' + w + ' 波全清 10s 出波令');
+  }
+  /* 第 5 波: 全清 → chest 信号(t 恒 0——奖励即现不等 10s); chestDone 后熄火 */
+  assert.deepStrictEqual(Dims.advDenStep(false, 5, 1, 5, false),
+      {spawn: false, chest: false, t: 0}, '第 5 波怪未清: 什么都不发');
+  assert.deepStrictEqual(Dims.advDenStep(true, 0, 0.1, 5, false),
+      {spawn: false, chest: true, t: 0}, '第 5 波全清: 全清当帧即发 chest(不等 10s)');
+  assert.deepStrictEqual(Dims.advDenStep(true, 0, 1, 5, true),
+      {spawn: false, chest: false, t: 0}, '宝箱已发: 熄火(本会话不再出波不再刷箱)');
+  assert.deepStrictEqual(Dims.advDenStep(true, 99, 1, 6, true),
+      {spawn: false, chest: false, t: 0}, 'wave 超封顶同熄火(防御)');
+  /* 缺省入参兼容(旧 3 参调用 = wave 1 从头跑) */
+  assert.deepStrictEqual(Dims.advDenStep(true, 9.5, 1), {spawn: true, chest: false, t: 0});
 });
 
 test('副本波次计划: 祭坛环带界内 · 逐波变强有封顶 · 苦力怕每波为主力 · 高波入精英', () => {
@@ -413,6 +435,63 @@ test('副本波次计划: 祭坛环带界内 · 逐波变强有封顶 · 苦力�
   /* 怪种合法: 全部 ∈ MOB_TYPES(注册表即合法性唯一权威) */
   const legal = new Set(Object.keys(require('../js/mob-registry.js').MOB_TYPES));
   for (const s of m(2).spawns) assert.ok(legal.has(s.type), '波次怪种已注册: ' + s.type);
+});
+
+/* ============ 战利品宝箱纯件(§7.5, 2026-10-30 二批拍板) ============ */
+
+test('战利品宝箱: 常量空间关系 — 宝箱在祭坛房内 · 波次环带外 · 建场不预置(通关才刷)', () => {
+  const L = DEN.loot;
+  const ar = DEN.rooms.altarR;
+  for (const x of [L.x, L.x + 1]) {
+    assert.ok(x >= ar.x1 && x <= ar.x2 && L.z >= ar.z1 && L.z <= ar.z2,
+        '宝箱格 (' + x + ',' + L.z + ') 在深处祭坛房内(贴北墙)');
+    const d = Math.hypot(x + 0.5 - DEN.altar.x - 0.5, L.z + 0.5 - DEN.altar.z - 0.5);
+    assert.ok(d > DEN.RING_HI, '宝箱在波次出生环带外(d=' + d.toFixed(2) + ' > ' + DEN.RING_HI + ')');
+    assert.strictEqual(api.BLOCKS[api.B_LOOT_CHEST].lchest, true, 'lchest 旗标在册(配对破坏身份)');
+  }
+  /* 敲 2 秒口径(D16): hard 1.33 → 徒手 1.995s ≈ 2s, tier 0 恒掉落 */
+  const bt = api.breakTime(api.BLOCKS[api.B_LOOT_CHEST], null);
+  assert.ok(Math.abs(bt.time - 2) < 0.05, '徒手敲击 ' + bt.time + 's ≈ 2 秒(用户拍板)');
+  assert.strictEqual(bt.drops, true, 'tier 0 恒掉落(儿童徒手也拿得到战利品)');
+  /* 建场不预置宝箱(演出件——advDenBuild 不刷, 5 轮全清后壳层才刷, D17) */
+  clearWorld();
+  Dims.advDenBuild();
+  assert.strictEqual(cell(L.x, L.y, L.z), 0, '建场后宝箱格 A 空(祭坛房净空)');
+  assert.strictEqual(cell(L.x + 1, L.y, L.z), 0, '建场后宝箱格 B 空');
+});
+
+test('战利品宝箱掷骰: 保底必得 + 50% 加成 + 钻石恒得 — 注入 rnd 全确定(D17 掉落表, 2026-10-30 拍板)', () => {
+  const ITEMS = api.ITEMS; /* 注册表唯一权威(vm 真件; items-core 无导出守卫, 不可 require) */
+  /* 全不中(rnd=0.9): 保底恰 = 火药 3 + 铁锭 2 + 金锭 1 + 苹果 2; 钻石 rare p=1 恒得 */
+  assert.deepStrictEqual(Dims.advDenLootRoll(() => 0.9), [
+    {id: 'gunpowder', n: 3}, {id: 'iron_ingot', n: 2},
+    {id: 'gold_ingot', n: 1}, {id: 'apple', n: 2}, {id: 'diamond', n: 1},
+  ], '全不中 = 纯保底 + 钻石恒得');
+  /* 全中(rnd=0.4 < 0.5): 加成逐次命中 → 火药 4 + 铁锭 3 + 金锭 2 */
+  const lucky = Dims.advDenLootRoll(() => 0.4);
+  assert.deepStrictEqual(lucky.find((d) => d.id === 'gunpowder').n, 4, '火药 3+1');
+  assert.deepStrictEqual(lucky.find((d) => d.id === 'iron_ingot').n, 3, '铁锭 2+1');
+  assert.deepStrictEqual(lucky.find((d) => d.id === 'gold_ingot').n, 2, '金锭 1+1');
+  /* 表里每个物品 id 都在 ITEMS 注册(掷出的东西必须拿得起来) */
+  for (const e of Dims.ADV_DEN_LOOT.rolls) {
+    assert.ok(ITEMS[e[0]], '掉落表物品已注册: ' + e[0]);
+  }
+  for (const e of Dims.ADV_DEN_LOOT.rare) assert.ok(ITEMS[e[0]], 'rare 物品已注册: ' + e[0]);
+});
+
+test('战利品宝箱配对计划: 四邻认亲 · 恰一次掉落 · 无相邻宝箱返 null(D16)', () => {
+  const L = DEN.loot;
+  const at = (x, y, z) => (x === L.x || x === L.x + 1) && y === L.y && z === L.z ? api.B_LOOT_CHEST : 0;
+  /* 挖左半(触发格已清): 右半在东邻 → cells=[右], drops 恰掷一次 */
+  const pA = Dims.advLootChestPlan(at, L.x, L.y, L.z, () => 0.9);
+  assert.deepStrictEqual(pA.cells, [{x: L.x + 1, y: L.y, z: L.z}], '东邻右半入计划');
+  assert.strictEqual(pA.drops.length, 5, '掉落恰掷一次(保底 4 条 + 钻石, 0.9 全不中)');
+  /* 挖右半: 左半在西邻 → 对称 */
+  const pB = Dims.advLootChestPlan(at, L.x + 1, L.y, L.z, () => 0.9);
+  assert.deepStrictEqual(pB.cells, [{x: L.x, y: L.y, z: L.z}], '西邻左半入计划');
+  /* 无相邻宝箱(孤儿格): null——防 TNT 同拍双掷/双掉 */
+  assert.strictEqual(Dims.advLootChestPlan(() => 0, 80, 7, 80, () => 0.9), null,
+      '四周皆空: 无宝箱可配, 返 null');
 });
 
 /* ============ 夜袭涌出纯函数(§2.2, 未改动——回归锁) ============ */

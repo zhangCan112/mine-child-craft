@@ -399,6 +399,19 @@ const B_GLASS_PANE=68;
    (副本光照门认方块光 0, 巢之心自发光恰好圈出自己周围的不刷怪区)。 */
 const B_SPAWNER=70;
 BLOCKS[B_SPAWNER] = {name: '怪物巢穴之心', all: [0.22, 0.06, 0.07], light: 5};
+
+/* ---------- 战利品宝箱 (id 71, docs/den-nest-design.md §7.5/D16) ----------
+   副本深处祭坛房的通关奖励箱(5 轮全清后系统刷出, 非玩家放置——无物品条目,
+   永不进背包/调色板): 占 2 格(同 id 双格贴墙横排, 配对破坏=挖任一半整箱消失
+   且掉落恰一次, 配对计划 advLootChestPlan 在 adventure-dims-core)。hard 1.33
+   = 徒手 1.995s ≈ 2 秒(用户拍板「敲 2 秒」; tool null 全工具同速, tier 0 恒掉
+   落)。无 drop 字段: 战利品走 ADV_DEN_LOOT 专属表(TNT 掀不掷普通表, 掉落由
+   配对计划的掷骰兜底——炸了也给, 儿童零惩罚)。lchest 旗标 = 配对破坏身份
+   (bed 旗标同哲学: 身份判据只读 config 旗标)。与玩家箱 B_CHEST 不是同一物品:
+   不是储物箱、不进大宝箱账户/面板、点击链不命中 chest 分支 → 点击即蓄力敲击。 */
+const B_LOOT_CHEST=71;
+BLOCKS[B_LOOT_CHEST] = {name: '战利品宝箱', top: [0.72, 0.22, 0.18], side: [0.66, 0.20, 0.16], bottom: [0.55, 0.16, 0.14],
+  hard: 1.33, tool: null, tier: 0, lchest: true};
 BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true,
   hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // MC 硬度 3 斧头加速; 关=实心挡人挡光
 BLOCKS[B_DOOR_TOP] = {name: '门(上)', all: [0.66, 0.52, 0.33], pane: true,

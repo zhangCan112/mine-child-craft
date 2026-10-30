@@ -30,7 +30,7 @@ function loadCfg() {
     B_DEAD_BUSH, B_ORCHID, B_FLOWER_Y, B_FLOWER_W,
     B_LAVA, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM,
     B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
-    B_SPAWNER,
+    B_SPAWNER, B_LOOT_CHEST,
   };`, ctx);
   return ctx.__c;
 }
@@ -87,7 +87,7 @@ test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽�
 
 /* ============ 门与玻璃板 id 段(64~68, docs/door-window-design.md §2) ============ */
 
-test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 id 71+(69=床尾 · 70=怪物巢穴之心)', () => {
+test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 72+(69=床尾 · 70=巢穴之心 · 71=战利品宝箱)', () => {
   const c = loadCfg();
   const expect = {B_DOOR: 64, B_DOOR_TOP: 65, B_DOOR_OPEN: 66, B_DOOR_TOP_OPEN: 67, B_GLASS_PANE: 68};
   for (const [k, id] of Object.entries(expect)) {
@@ -95,12 +95,14 @@ test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_POR
     assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
     assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
-  /* 红线: 存档按数字 id 记, 71+ 是后续号段预留
-     (69=两格床改版床尾 B_BED_FOOT 2026-10-29 · 70=怪物巢穴之心 B_SPAWNER, den-nest D9) */
+  /* 红线: 存档按数字 id 记, 72+ 是后续号段预留
+     (69=两格床改版床尾 B_BED_FOOT 2026-10-29 · 70=怪物巢穴之心 B_SPAWNER, den-nest D9 ·
+     71=战利品宝箱 B_LOOT_CHEST, den-nest §7.5 D16) */
   assert.strictEqual(c.B_SPAWNER, 70, '巢穴之心占 70(den-nest-design 号段顺延)');
-  assert.ok(c.BLOCKS[70], 'BLOCKS[70] 应有定义');
+  assert.strictEqual(c.B_LOOT_CHEST, 71, '战利品宝箱占 71(den-nest §7.5 号段顺延)');
+  assert.ok(c.BLOCKS[70] && c.BLOCKS[71], 'BLOCKS[70]/[71] 应有定义');
   for (const id of Object.keys(c.BLOCKS)) {
-    assert.ok(Number(id) <= 70, 'BLOCKS 出现 71+ 方块 id: ' + id + '(号段红线)');
+    assert.ok(Number(id) <= 71, 'BLOCKS 出现 72+ 方块 id: ' + id + '(号段红线)');
   }
 });
 

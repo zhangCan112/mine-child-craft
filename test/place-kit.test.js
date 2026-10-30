@@ -33,10 +33,12 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/voxel.js', 'js/cascad
 const acSrc = fs.readFileSync(path.join(ROOT, 'js', 'adventure-core.js'), 'utf8');
 const bNames = [...new Set(acSrc.match(/\bB_[A-Z0-9_]+\b/g) || [])];
 for (const n of bNames) globalThis[n] = vm.runInContext(n, eng);
+globalThis.B_LOOT_CHEST = vm.runInContext('B_LOOT_CHEST', eng); /* 宝箱在 dims-core 消费(core 源码外) */
 const api = vm.runInContext(`({ITEMS, stackMax, isTool, mkInventory, add, count, remove,
   damageTool, HOTBAR_SLOTS, INV_SLOTS, BLOCKS, PLAYER, WORLD_W, WORLD_D,
   B_CRAFT, B_FURNACE, B_CHEST, B_SAPLING, B_TORCH, B_DOOR, B_DOOR_TOP,
   B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_PORTAL, B_LAVA, B_GRASS_TUFT, B_BED, B_BED_FOOT,
+  B_LOOT_CHEST,
   getBlock, setBlockRaw, blockKey, collidesAtPlayer, rollBlockDrop, SceneKit})`, eng);
 Object.assign(globalThis, api);
 /* 单块编辑 seam: world.js 太重——真级联核心镜像 world.js 的装配(adventure-mode.test
@@ -50,6 +52,8 @@ globalThis.editBlock = (x, y, z, id) => {
 };
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore); /* advPlaceCheck/advDoorSiteOk/advMineStep 等纯函数 */
+Object.assign(globalThis, require('../js/adventure-dims-core.js')); /* advLootChestPlan(宝箱配对计划,
+    place-kit 调用期经全局名消费; dims-core 加载期自包含, 直 require 安全) */
 const CraftCore = require('../js/craft-core.js');
 Object.assign(globalThis, {breakTime: CraftCore.breakTime});
 globalThis.Fx = {debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}}; /* 碎屑观感桩 */
@@ -248,6 +252,35 @@ test('place-kit: 床配对破坏 — 挖任一半整床回收+恰掉 1 张(挖�
   ed.breakBlock(16, 13, 20, api.B_BED_FOOT, {time: 1, drops: true});
   assert.strictEqual(api.getBlock(16, 13, 19), 0, '床头配对清');
   assert.strictEqual(drops.filter((d) => d[0] === 'bed').length, 1, '恰 1 张(床尾由计划补发)');
+});
+
+/* ============ ②c 战利品宝箱: 配对破坏+战利品恰一次 (den-nest §7.5 D16) ============ */
+
+test('place-kit: 宝箱配对破坏 — 挖任一半整箱消失+掉落表恰掷一次(diamond 恒得作确定性锚)', () => {
+  reset();
+  api.setBlockRaw(30, 13, 36, api.B_LOOT_CHEST);
+  api.setBlockRaw(31, 13, 36, api.B_LOOT_CHEST);
+  ed.breakBlock(30, 13, 36, api.B_LOOT_CHEST, {time: 2, drops: true}); /* 挖左半 */
+  assert.strictEqual(api.getBlock(30, 13, 36), 0, '触发格清');
+  assert.strictEqual(api.getBlock(31, 13, 36), 0, '右半配对清(整箱消失)');
+  assert.ok(journal.some((j) => j[0] === 31 && j[1] === 13 && j[2] === 36 && j[3] === 0),
+      '配对格也记账(重进不复活——edits 单格 0 即可, 逐格清)');
+  assert.ok(drops.some((d) => d[0] === 'diamond' && d[1] === 1), '钻石恒得(rare p=1, 确定性锚)');
+  assert.ok(drops.some((d) => d[0] === 'gunpowder' && d[1] >= 3), '火药保底 ≥3(掉落表)');
+  assert.strictEqual(drops.filter((d) => d[0] === 'diamond').length, 1, '掉落恰一次(双格不双掉)');
+  assert.strictEqual(wearCalls, 1, '破坏磨损钩');
+  /* 挖右半: 左半配对清(四邻认亲对称) */
+  reset();
+  api.setBlockRaw(30, 13, 36, api.B_LOOT_CHEST);
+  api.setBlockRaw(31, 13, 36, api.B_LOOT_CHEST);
+  ed.breakBlock(31, 13, 36, api.B_LOOT_CHEST, {time: 2, drops: true});
+  assert.strictEqual(api.getBlock(30, 13, 36), 0, '左半配对清');
+  /* 孤儿格(无相邻宝箱): 清格不掉战利品(计划返 null——防双掷) */
+  reset();
+  api.setBlockRaw(33, 13, 36, api.B_LOOT_CHEST);
+  ed.breakBlock(33, 13, 36, api.B_LOOT_CHEST, {time: 2, drops: true});
+  assert.strictEqual(api.getBlock(33, 13, 36), 0, '孤儿格清');
+  assert.strictEqual(drops.length, 0, '无配对不掉战利品');
 });
 
 /* ============ ③ 传送门: 结构长出+网格收口 ============ */

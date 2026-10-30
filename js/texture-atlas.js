@@ -9,7 +9,8 @@
    床 53/69(床头顶枕毯/床尾顶全毯/床侧毯木框, 两格床改版) +
    存量基础方块升级款(草顶/泥土/石头颗粒/圆石/苔石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒) +
    黑巢地上件(黑曜石/发光岩——巢穴观感票; 门面/熄门贴图三试三否, 2026-10-30
-   拍板回退玻璃通道平紫半透明, 见 docs/den-nest-design.md §2.1)。风格参考
+   拍板回退玻璃通道平紫半透明, 见 docs/den-nest-design.md §2.1) +
+   战利品宝箱 71(红金双格, den-nest §7.5)。风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
    创建) — Node 可逐像素直测; 噪点/斑点全用种子化伪随机, 同 seed 同图。
@@ -25,7 +26,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 50 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 52 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -64,6 +65,8 @@ const TextureAtlas = (() => {
   const T_MOSSY = 47; /* 苔石(14): 圆石底+苔斑——巢穴丘体/副本祭坛/石阵共用 */
   const T_OBSIDIAN = 48; /* 黑曜石(31): 近黑紫底+紫辉斑+品红高光(黑巢丘冠/门框) */
   const T_GLOWSTONE = 49; /* 发光岩(34): 琥珀底+亮金斑团(MC 萤石马赛克观感) */
+  const T_LOOT_SIDE = 50; /* 战利品宝箱侧(71): 深红箱体+上下金箍带+中央金锁扣(den-nest §7.5 D16) */
+  const T_LOOT_TOP = 51; /* 战利品宝箱顶盖: 红盖+金边框+中央金扣横条(双格同图=MC 双箱观感) */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -575,6 +578,41 @@ const TextureAtlas = (() => {
     }
     for (let i=0; i<4; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [255, 244, 182]);
   };
+  /* 战利品宝箱(副本通关奖励, den-nest §7.5 D16): 红金经典配色——深红木板箱体
+      (planksBase 同行构红色版) + 上下金箍带 + 中央金锁扣; 顶盖红底金边框+中央
+      金扣横条。双格同图(左右同款)=MC 双箱观感, 系统刷出固定贴墙无朝向语义 */
+  function redPlanksBase(px, rng) {
+    for (let b=0; b<4; b++) {
+      const y0 = b * 4; const tint = 1 + (rng() * 2 - 1) * 0.05; // 板条各自基调
+      for (let y=y0; y<y0+4; y++) {
+        for (let x=0; x<TILE; x++) {
+          const v = tint * (1 + (rng() * 2 - 1) * 0.05);
+          setP(px, x, y, [164 * v, 46 * v, 40 * v]);
+        }
+      }
+      for (let x=0; x<TILE; x++) setP(px, x, y0 + 3, [118, 30, 26]); // 板缝横线(深红)
+      const sx = 2 + Math.floor(rng() * 12);
+      for (let y=y0; y<y0+3; y++) setP(px, sx, y, [134, 38, 32]); // 竖缝(逐板错位)
+    }
+  }
+  PAINTERS[T_LOOT_SIDE] = (px, rng)=>{
+    redPlanksBase(px, rng);
+    for (const y of [1, 2, 13, 14]) { // 上下金箍带(亮金斑混色)
+      for (let x=0; x<TILE; x++) setP(px, x, y, rng() < 0.3 ? [248, 208, 108] : [222, 176, 62]);
+    }
+    for (const y of [7, 8, 9]) for (let x=6; x<=9; x++) setP(px, x, y, [184, 140, 44]); // 中央锁座
+    setP(px, 7, 8, [255, 232, 150]); setP(px, 8, 8, [120, 88, 24]); // 锁眼高光/暗面
+  };
+  PAINTERS[T_LOOT_TOP] = (px, rng)=>{
+    redPlanksBase(px, rng);
+    for (let i=0; i<TILE; i++) { // 金边框围一圈(盖沿)
+      for (const [x, y] of [[i, 0], [i, 1], [i, 14], [i, 15], [0, i], [1, i], [14, i], [15, i]]) {
+        setP(px, x, y, rng() < 0.3 ? [248, 208, 108] : [222, 176, 62]);
+      }
+    }
+    for (let y=7; y<=8; y++) for (let x=5; x<=10; x++) setP(px, x, y, [184, 140, 44]); // 中央扣横条
+    setP(px, 7, 7, [255, 232, 150]); // 扣面高光
+  };
   /* ---------- 布局: 方块 id → 格号(MeshCore opts.atlas 载荷) ----------
      number = 全格同图; {top,side,bottom} = 分面。底面共享泥土/木板格是
      刻意复用: 面朝下几乎不可见, 省格即少一处 mipmap 串色面。 */
@@ -623,6 +661,10 @@ const TextureAtlas = (() => {
          逐块小漩涡/宏格大漩涡, 2026-10-30 拍板回退): glass 旗标走玻璃通道
          平紫半透明(贴图前观感, 2 格门/3 格门天然均匀), 辨识度补常驻光柱 */
       [B_OBSIDIAN]: T_OBSIDIAN, [B_GLOWSTONE]: T_GLOWSTONE,
+      /* 战利品宝箱 71(den-nest §7.5 D16): 红金经典配色整格立方体——双格同图
+         (左右同款=MC 双箱观感), 标准图集通道渲染(mesh-core 零特殊几何);
+         顶盖分格(金边框+扣横条), 底面几乎不可见复用侧格 */
+      [B_LOOT_CHEST]: {top: T_LOOT_TOP, side: T_LOOT_SIDE, bottom: T_LOOT_SIDE},
     },
   };
 

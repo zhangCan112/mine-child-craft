@@ -311,6 +311,7 @@ globalThis.Mobs = {
     不挂 vm 全局对象): 按源码动态收集名单铺到 Node 全局(v2 同款手法) */
 for (const src of [fs.readFileSync(path.join(ROOT, 'js', 'adventure-core.js'), 'utf8'),
   fs.readFileSync(path.join(ROOT, 'js', 'adventure-maps-core.js'), 'utf8'),
+  fs.readFileSync(path.join(ROOT, 'js', 'adventure-dims-core.js'), 'utf8'),
   fs.readFileSync(path.join(ROOT, 'js', 'place-kit.js'), 'utf8')]) {
   for (const n of [...new Set(src.match(/\bB_[A-Z0-9_]+\b/g) || [])]) {
     if (globalThis[n] === undefined) globalThis[n] = vm.runInContext(n, eng);
@@ -321,6 +322,8 @@ Object.assign(globalThis, SpawnCore); Object.assign(eng, SpawnCore);
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore); /* advChestPut/advSwingDmg/ADV_GROUND/advBuildWorld 等 */
 Object.assign(globalThis, require('../js/adventure-maps-core.js')); /* ADV_MAPS/ADV_UNLOCK_KEYS 等 */
+Object.assign(globalThis, require('../js/adventure-dims-core.js')); /* ADV_DIMS/advLootChestPlan 等——
+    place-kit 宝箱配对计划经全局名消费(index.html 全量加载同构, TNT 链要它) */
 const CraftCore = require('../js/craft-core.js');
 Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
   furnaceRefund: CraftCore.furnaceRefund});
