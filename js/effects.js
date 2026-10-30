@@ -131,18 +131,20 @@ const Fx = (function() {
   /* 传送门紫色光束: 常驻动效(非爆炸类一次性) — 句柄制, removeBeam(h) 摘除,
      clear() 模式切换连带清场; 悬空句柄再 remove 无害(清场后找不到即跳过)。
      观感 = 两层竖直光柱(亮芯 + 光晕)缓慢脉动 + 一簇绕柱盘旋上升的微粒
-     (到顶回卷, 漩涡感)。柱体用 boltBox 单位盒共享缩放, 零几何分配 */
+     (到顶回卷, 漩涡感)。柱体用 boltBox 单位盒共享缩放, 零几何分配。
+     2026-10-30 芯柱加宽提亮(用户复核: 既有束几乎看不出——「稍微再添加点
+     光柱」口径, 全部门阵/回程门/巢门的光束一并更醒目) */
   const beams = [];
   function portalBeam(x, y, z, o) {
     o = o || {};
     const col = o.color !== undefined ? o.color : 0xa855f7;
     const H = o.h || 3; const W = o.w || 2;
-    const coreMat = new THREE.MeshBasicMaterial({color: col, transparent: true, opacity: 0.45, depthWrite: false});
-    const haloMat = new THREE.MeshBasicMaterial({color: col, transparent: true, opacity: 0.15,
+    const coreMat = new THREE.MeshBasicMaterial({color: col, transparent: true, opacity: 0.55, depthWrite: false});
+    const haloMat = new THREE.MeshBasicMaterial({color: col, transparent: true, opacity: 0.2,
       depthWrite: false, side: THREE.DoubleSide});
     const moteMat = new THREE.MeshBasicMaterial({color: 0xd9b3ff, transparent: true, opacity: 0.8, depthWrite: false});
     const core = new THREE.Mesh(boltBox, coreMat); // 亮芯: 细高柱
-    core.scale.set(0.34, H, 0.34); core.position.set(x, y + H/2, z);
+    core.scale.set(0.5, H, 0.5); core.position.set(x, y + H/2, z);
     const halo = new THREE.Mesh(boltBox, haloMat); // 光晕: 粗一圈的半透明柱
     halo.scale.set(1.05, H, 1.05); halo.position.copy(core.position);
     const group = new THREE.Group();
@@ -173,10 +175,10 @@ const Fx = (function() {
     for (const b of beams) {
       b.t += dt;
       const pulse = 0.5 + 0.5*Math.sin(b.t*1.7); // 0..1 缓慢脉动(周期 ~3.7s)
-      b.core.scale.x = b.core.scale.z = 0.28 + pulse*0.26;
-      b.coreMat.opacity = 0.32 + pulse*0.34;
-      b.halo.scale.x = b.halo.scale.z = 0.95 + pulse*0.45;
-      b.haloMat.opacity = 0.10 + pulse*0.12;
+      b.core.scale.x = b.core.scale.z = 0.4 + pulse*0.3;
+      b.coreMat.opacity = 0.45 + pulse*0.35;
+      b.halo.scale.x = b.halo.scale.z = 1.1 + pulse*0.6;
+      b.haloMat.opacity = 0.14 + pulse*0.16;
       for (const p of b.motes) { // 盘旋上升, 到顶回卷(取模循环)
         p.ph += dt*p.sp;
         const yy = (p.k + b.t*p.up) % 1;

@@ -1662,21 +1662,27 @@ function advMapRowCleanup() {/* 退场复位(T6): 图账本/行视图/调色板�
 }
 
 /* ---------- 传送门紫色光束(常驻动效): 特效唯一入口 Fx.portalBeam ----------
-     多门多束(advBeamHs 句柄清单); 锚定 = 下界回程门(固定坐标) + 当前桶 edits
+     多门多束(advBeamHs 句柄清单); 锚定 = 下界/副本回程门(固定坐标) + home 巢穴
+     之门(advDenDoor 查表, 建场件不在 edits) + 门阵亮门(建场件) + 当前桶 edits
      里值===B_PORTAL 的格子(玩家门只以 edits 形态存在)——按 z 分组、同 z 相邻
      x 连续段为一个内口(内口 4×5 全格是门面, min-x/min-y 各退 1 即门基)。
      切界先全清再重锚; Node/fake Fx 无入口时句柄为 null 占位, remove 无害 */
 let advBeamHs = []; /* 当前界的光束句柄(Fx.portalBeam 返回值; null=无渲染环境) */
-function advBeamAdd(by, px, pz) {/* 单门一束(原版句式: 束心=门基宽中点/内口底/门面 z+0.5) */
-  advBeamHs.push(Fx.portalBeam ? Fx.portalBeam(px + ADV_PORTAL.w / 2, by + 1, pz + 0.5,
-      {w: ADV_PORTAL.w - 2, h: ADV_PORTAL.h - 2}) : null);
+function advBeamAdd(by, px, pz, mw, mh) {/* 单门一束(束心=门基宽中点/内口底/门面
+    z+0.5); 内口宽高缺省=下界门(ADV_PORTAL.w-2 × h-2), 巢穴之门 2×2 小面显式
+    传实宽高(px=门框左沿, px+mw/2+1 即门面中点——下界门 mw=4 时即旧式
+    px+ADV_PORTAL.w/2, 既有调用点零改动) */
+  const w = mw === undefined ? ADV_PORTAL.w - 2 : mw;
+  const h = mh === undefined ? ADV_PORTAL.h - 2 : mh;
+  advBeamHs.push(Fx.portalBeam ? Fx.portalBeam(px + w / 2 + 1, by + 1, pz + 0.5,
+      {w: w, h: h}) : null);
 }
 function advBeamsClear() {/* 全清(切界/cleanup): 悬空句柄再 remove 无害 */
   for (const h of advBeamHs) if (h && Fx.removeBeam) Fx.removeBeam(h);
   advBeamHs.length = 0;
 }
 function advBeamsRelayout() {/* 重锚当前界全部门: 下界/副本回程门(基座, 不在 edits) +
-    地图门阵亮门(建场件, 不在 edits) + edits 扫描 */
+    home 巢穴之门(查表派生) + 地图门阵亮门(建场件, 不在 edits) + edits 扫描 */
   if (advDim === 'nether') {
     advBeamAdd(ADV_NETHER.ground, ADV_NETHER.portal.px, ADV_NETHER.portal.pz);
   } else if (advDim === 'den') {
@@ -1684,6 +1690,13 @@ function advBeamsRelayout() {/* 重锚当前界全部门: 下界/副本回程门
   } else {
     for (const g of advMapRow.gates) {
       if (advGateLit(g)) advBeamAdd(ADV_GROUND, g.px, g.pz); /* 亮门才有束(熄门无门面) */
+    }
+    /* 巢穴之门(2026-10-30 巢穴观感票补束): 建场直写不在 edits 也不在门阵——
+       advDenDoor 查表派生(单一权威, 巢门坐标不抄第二份; home 图限定与
+       advPortalTick 认领同口径), 2×2 面束宽高显式传实值(缺省=下界门 4×5) */
+    if (advMap === 'home' && ADV_B.portal) {
+      advBeamAdd(advDenDoor.y1 - 1, advDenDoor.x1 - 1, advDenDoor.z,
+          advDenDoor.x2 - advDenDoor.x1 + 1, advDenDoor.y2 - advDenDoor.y1 + 1);
     }
   }
   const cols = new Map(); /* z → 门面格清单 [{x,y}...] */
@@ -3437,6 +3450,8 @@ const AdventureMode = mkMode({
     });
     ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
     setFly(false); /* 探险步行(不沿用建造的飞行; 走意图入口) */
+    advBeamsClear(); /* init 无 advSceneLeave: 旧句柄先摘(重进幂等纪律, 同切界) */
+    advBeamsRelayout(); /* 光束重锚(init 也锚: 亮门/巢穴之门的常驻束不再等首次切图/切界才出现) */
     advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
     ADV.panelOpen = false;
     ADV.chestOpen = false; /* 引导链 v2: 箱子面板一并复位 */

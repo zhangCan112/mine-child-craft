@@ -525,8 +525,11 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
 }
 
 /* ---------- 轴 C 共用助手 ---------- */
-function freshC(pre) {/* 干净进场(可选 pre 桩先铺存档介质) */
+function freshC(pre) {/* 干净进场(可选 pre 桩先铺存档介质)。cleanup 先于 init:
+    真实切模生命周期(switchMode)的镜像——壳层残留(光束句柄/计时器等)在
+    cleanup 全量出清, init 的光束重锚不被上一场句柄污染(计数断言不顺序依赖) */
   loadModeFixture();
+  AM.cleanup();
   memC.clear();
   if (pre) pre(memC);
   callsC.length = 0;
@@ -726,7 +729,10 @@ test('C6 门放置: 空地成功(结构逐格记账+扣物品+光束) · 盒内�
   assert.strictEqual(apiC.getBlock(spot.x + 2, 26, spot.z), apiC.B_PORTAL, '内口门面');
   assert.strictEqual(AN.advSceneEdits.home.get((spot.x + 2) + ',26,' + spot.z), apiC.B_PORTAL,
       '结构格逐格记账(重放即重建)');
-  assert.strictEqual(fxBeams.length, 1, '这扇门的光束顺路锚上');
+  assert.strictEqual(fxBeams.length, 2, '光束×2: 巢穴之门常驻束(init 重锚)+这扇门的束');
+  assert.deepStrictEqual(fxBeams[1],
+      {x: spot.x + 3, y: 26, z: spot.z + 0.5, w: 4, h: 5},
+      '这扇门的光束顺路锚上(下界门内口 4×5, 束心=门基宽中点)');
   assert.ok(toastsC().some((t) => t.indexOf('立起来') >= 0), '成功话术');
 });
 
@@ -1179,6 +1185,25 @@ test('T7-1b 点亮仪式网格重锚: 补门面同拍入脏队列(解锁当帧�
     delete globalThis.markDirty; /* 桩不留场(其余测试的 setBlockRaw 路径保持静默) */
     delete globalThis.flushDirty;
   }
+});
+
+test('T7-1c 巢穴之门光束: init 即锚(home 建场件不在 edits/门阵, advDenDoor 查表派生 2×2 束)', () => {
+  /* 巢穴观感票(2026-10-30): 门阵亮门/回程门都有常驻束, 唯巢穴之门没有——
+      建场直写不进 edits(relayout 的 edits 扫描扫不到)也不在 advMapRow.gates,
+      只能查表 advDenDoor 派生(巢门坐标单一权威, 不抄第二份) */
+  freshC(); /* 空任务档: 门阵三门全熄(0 束), 巢穴之门是唯一常驻束 */
+  assert.strictEqual(fxBeams.length, 1, 'home init: 门阵全熄, 只锚巢门一束');
+  const b = fxBeams[0];
+  const n = Core.ADV_NESTS[3];
+  assert.strictEqual(b.x, n.x, '束心 x=2 格门面中点(框柱左沿 x-2 + 束宽 2/2 + 1)');
+  assert.strictEqual(b.y, 22, '束基=门面底行(门槛 y21 各退 1, 下界门同款)');
+  assert.strictEqual(b.z, n.z + 3.5, '束心 z=门面平面中点');
+  assert.strictEqual(b.w, 2, '束宽=门面实宽(非下界门缺省 4)');
+  assert.strictEqual(b.h, 2, '束高=门面实高(非下界门缺省 5)');
+  /* 切走再切回: 全清重锚仍是这一束(advSetMap 走 relayout, 巢门束如一) */
+  AN.advSetMap('desert');
+  AN.advSetMap('home');
+  assert.strictEqual(fxBeams.length - fxRemoved.length, 1, '切图往返巢门束重锚如一');
 });
 
 test('T7-2 站桩状态机: 地图门 2s 站满(可反悔) → 渐晕满格切图 → 落回程门内 + TTS 播报 + 遮罩收起', () => {

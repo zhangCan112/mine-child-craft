@@ -6,8 +6,7 @@
    方块图集 texture-atlas; 图集内薄块走十字面片、床走薄块扁盒 pushBedBox、
    火把走专用小盒 pushTorch
    (MC 同款, mc-torch-model-research §1/§2)、pane 旗标走竖直薄板
-   pushPane — 门/玻璃板, docs/door-window-design.md §5、portal 旗标走
-   宏格大漩涡 UV(atlas.portalMacro 契约, 门面多块共享一整只旋涡))与
+   pushPane — 门/玻璃板, docs/door-window-design.md §5)与
    LOD 降采样粗网格。
    零 THREE · 零 DOM ·
    加载零副作用 →
@@ -58,24 +57,6 @@ const MeshCore = (() => {
     }
     return [u, v];
   }
-
-  /* 门面宏格的 UV 轴向(面级预探一次): portal 大漩涡按「世界坐标 mod size」
-     取样象限, 相邻门块的象限必须沿面的渲染方向递进——大漩涡才在块界连续
-     (u=(tc+uv)/cols 随 tc 增 → du>0 时列随 wx 进; v=(rows-1-tr+uv)/rows 随 tr
-     减 → dv>0 时行随 y 进)。±x/±y 面(门框遮挡, 实际不可见)探测值退化为 0,
-     映射无害; 依赖 opts.atlas.portalMacro(缺省走逐块小图, 存量行为不变) */
-  const PORTAL_FACE_AXES = FACES.map((face) => {
-    const c0 = face.corners[0];
-    const px = c0.slice(); px[0] = 1 - px[0];
-    const py = c0.slice(); py[1] = 1 - py[1];
-    const du = faceUV(face.dir, px)[0] - faceUV(face.dir, c0)[0];
-    const dv = faceUV(face.dir, py)[1] - faceUV(face.dir, c0)[1];
-    const mod4 = (n) => ((n % 4) + 4) % 4;
-    return {
-      col: (wx) => mod4(du >= 0 ? wx : -wx),
-      row: (wy) => mod4(dv >= 0 ? wy : -wy),
-    };
-  });
 
   const mkCh = () => ({positions: [], colors: [], normals: [], indices: [], sky: [], block: [], n: 0});
   const mkTexCh = () => ({positions: [], uvs: [], normals: [], indices: [], sky: [], block: [], n: 0});
@@ -446,17 +427,8 @@ const MeshCore = (() => {
               const nid = lget(nx, ny, nz);
               const nb = nid!==0 ? BLOCKS[nid] : null;
               if (nb && !nb.glass && !nb.thin && !nb.pane) continue; // 剔面规则与实心通道一致
-              let tc; let tr;
-              if (b.portal && atlas.portalMacro) {
-                // 门面宏格大漩涡(巢穴观感票返工): 4×4 块共享一只 64×64px 旋涡,
-                // 按世界坐标取样象限——整面门连续读作一整只大旋涡而非逐块小漩涡
-                const M = atlas.portalMacro; const ax = PORTAL_FACE_AXES[f];
-                tc = M.col + ax.col(wx);
-                tr = M.row + ax.row(y);
-              } else {
-                const tile = atlasTileOf(ae, face.dir);
-                tc = tile % atlas.cols; tr = Math.floor(tile / atlas.cols);
-              }
+              const tile = atlasTileOf(ae, face.dir);
+              const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
               const fSky = lsky(nx, ny, nz)/15; const fBlk = lblk(nx, ny, nz)/15;
               for (let c=0; c<4; c++) {
                 const cor = face.corners[c];
