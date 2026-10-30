@@ -33,6 +33,8 @@ const api = vm.runInContext(`({
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 
+/* 刷怪三件(候选 2): advNightStepPool/advEruptStep 等薄壳经全局名消费 */
+Object.assign(globalThis, require('../js/adventure-spawn-core.js'));
 const Core = require('../js/adventure-core.js');
 Object.assign(globalThis, Core); /* 上一层共享词法(adventure-maps-core.test 同款惯例): dims-core 加载/建场经全局名读 ADV_PORTAL 等 */
 const Dims = require('../js/adventure-dims-core.js'); /* 维度规格核心(dimension-registry): 下界段随迁至此 */

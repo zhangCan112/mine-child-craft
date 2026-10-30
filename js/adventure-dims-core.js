@@ -18,9 +18,11 @@
      advMusicMood(维度×昼夜→mood 桥接) · ADV_NETHER/advNetherBuild ·
      ADV_ERUPT/advEruptStep · ADV_DEN/advDenBuild/advDenMineRoom/
      advDenCanSpawn/advDenStep/advDenSpot/advDenPick
-   依赖(均经全局名, 调用期解析): adventure-core.js 的 advPortalFrame/
+   依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
+     advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——涌出/副本节拍
+     薄壳组装, 加载序先于 adventure-core) · adventure-core.js 的 advPortalFrame/
      advOreSpotsReset/advTryOre(建场调用期消费; index.html 加载序:
-     adventure-core → adventure-maps-core → 本文件 → modes/adventure →
+     adventure-spawn-core → adventure-core → adventure-maps-core → 本文件 → modes/adventure →
      showroom-core) · config.js 的 B_*、WORLD_* 与 voxel.js 的
      setBlockRaw/getBlock、scene-kit.js 的 SceneKit(建场期) ·
      daylight-core.js 的 Daylight(涌出夜门)
@@ -77,22 +79,10 @@ const ADV_ERUPT = {
    归零)→累计到拍→掷概率与配额门→按池权重取种。落点不在本函数(巢口坐标
    是建场常量, 壳层 ADV_DEN_NEST_DOOR 持有), spawn 只回 {type}; rnd 可注入 */
 function advEruptStep(t, dt, dayTime, eruptN, rnd) {
-  if (!Daylight.isNight(dayTime)) return {t: 0, spawn: null};
-  const nt = t + dt;
-  if (nt < ADV_ERUPT.TRY_S) return {t: nt, spawn: null};
-  if (rnd() >= ADV_ERUPT.P || eruptN >= ADV_ERUPT.QUOTA) return {t: 0, spawn: null};
-  let total = 0;
-  for (const p of ADV_ERUPT.POOL) total += p[1];
-  let pick = rnd() * total;
-  let type = ADV_ERUPT.POOL[ADV_ERUPT.POOL.length - 1][0]; /* 浮点尽头兜底末段 */
-  for (const p of ADV_ERUPT.POOL) {
-    pick -= p[1];
-    if (pick < 0) {
-      type = p[0];
-      break;
-    }
-  }
-  return {t: 0, spawn: {type}};
+  const m = advSpawnPulse(Daylight.isNight(dayTime), t, dt, ADV_ERUPT.TRY_S);
+  if (!m.fire) return {t: m.t, spawn: null};
+  if (rnd() >= ADV_ERUPT.P || eruptN >= ADV_ERUPT.QUOTA) return {t: 0, spawn: null}; /* 概率/配额门(rnd 消费序: P 门先于取种) */
+  return {t: 0, spawn: {type: advWeightedPick(ADV_ERUPT.POOL, rnd)}};
 }
 
 /* ============================================================
@@ -199,33 +189,18 @@ function advDenCanSpawn(skyAt, blockAt) {
    且计时归零; 未满累计到拍出刷怪令(落点/取种/光照复核在壳层——光照不过本拍
    作废, 夜怪同款「逐拍独立」) */
 function advDenStep(alive, t, dt) {
-  if (alive >= ADV_DEN.CAP) return {spawn: false, t: 0};
-  const nt = t + dt;
-  if (nt >= ADV_DEN.TRY_S) return {spawn: true, t: 0};
-  return {spawn: false, t: nt};
+  const m = advSpawnPulse(alive < ADV_DEN.CAP, t, dt, ADV_DEN.TRY_S); /* 刷怪核心薄壳 */
+  return {spawn: m.fire, t: m.t};
 }
 
 /* 祭坛出生环带掷点(角度/半径均匀, 巢穴出生环带同款几何; 环心=祭坛中心) */
 function advDenSpot(rnd) {
-  const a = rnd() * Math.PI * 2;
-  const r = ADV_DEN.RING_LO + rnd() * (ADV_DEN.RING_HI - ADV_DEN.RING_LO);
-  return {x: ADV_DEN.altar.x + 0.5 + Math.cos(a) * r, z: ADV_DEN.altar.z + 0.5 + Math.sin(a) * r};
+  return advRingSpot(ADV_DEN.altar.x + 0.5, ADV_DEN.altar.z + 0.5, ADV_DEN.RING_LO, ADV_DEN.RING_HI, rnd);
 }
 
 /* 副本池权重取种(advEruptStep 同构; 浮点尽头兜底末段) */
 function advDenPick(rnd) {
-  let total = 0;
-  for (const p of ADV_DEN.POOL) total += p[1];
-  let pick = rnd() * total;
-  let type = ADV_DEN.POOL[ADV_DEN.POOL.length - 1][0];
-  for (const p of ADV_DEN.POOL) {
-    pick -= p[1];
-    if (pick < 0) {
-      type = p[0];
-      break;
-    }
-  }
-  return type;
+  return advWeightedPick(ADV_DEN.POOL, rnd);
 }
 
 /* ============================================================

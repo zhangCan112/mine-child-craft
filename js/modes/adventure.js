@@ -38,6 +38,8 @@
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
+      adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
+       index.html 加载序在 adventure-core 之前) ·
       adventure-maps-core 的 ADV_MAPS/advMapArrive/advMapArriveAt/
        advMapUnlocked/advGateHoldStep(地图行数据与门阵政策, index.html
       加载序: adventure-core → adventure-maps-core → 本文件) ·
@@ -798,9 +800,8 @@ function advSpawnNest(i) {/* 本巢首刷/再刷: 池内取种, 洞口环带落�
   const count = advNestCount();
   for (let k = 0; k < count; k++) {
     const type = nest.kinds[Math.floor(Math.random() * nest.kinds.length)];
-    const a = Math.random() * Math.PI * 2;
-    const r = ADV_NEST_RING_LO + Math.random() * (ADV_NEST_RING_HI - ADV_NEST_RING_LO);
-    const m = Mobs.spawn(type, nest.x + Math.cos(a) * r, nest.z + Math.sin(a) * r, {yaw: 0});
+    const spot = advRingSpot(nest.x, nest.z, ADV_NEST_RING_LO, ADV_NEST_RING_HI, Math.random);
+    const m = Mobs.spawn(type, spot.x, spot.z, {yaw: 0});
     m.nest = i; /* 模式私有挂件: 巢穴归属(AI 收队/清巢计数的唯一依据) */
   }
 }

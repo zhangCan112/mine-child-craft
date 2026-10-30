@@ -34,6 +34,9 @@ const api = vm.runInContext(`({
   rollBlockDrop, rollDrops, FUEL, fuelUnits, smeltOf, SMELT_T,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
+/* 刷怪核心(候选 2 归一, 加载序先于 adventure-core): advNestStep/advNightStepPool
+   薄壳与组装经全局名消费 advSpawnPulse/advWeightedPick/advRingSpot */
+Object.assign(globalThis, require('../js/adventure-spawn-core.js'));
 
 const Core = require('../js/adventure-core.js');
 

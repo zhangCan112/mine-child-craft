@@ -168,6 +168,8 @@ test('供给核心: 数据隔离 — 源文本零存储 API 名/零存档键字�
     注册表(ADV_UNLOCK_KEYS)进 vm 同一词法环境; 世界改动日志工厂直装 Node 全局。 */
 
 test('供给核心: 环境补装 — 冒险纯核心与地图注册表可加载(后续用例的派生依赖面)', () => {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/adventure-spawn-core.js'), 'utf8'), eng,
+      {filename: 'js/adventure-spawn-core.js'}); /* 刷怪三件(候选 2): 先于 adventure-core 进同一词法环境 */
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/adventure-core.js'), 'utf8'), eng,
       {filename: 'js/adventure-core.js'});
   vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/adventure-maps-core.js'), 'utf8'), eng,

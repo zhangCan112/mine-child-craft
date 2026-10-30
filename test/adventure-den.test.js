@@ -32,6 +32,8 @@ const api = vm.runInContext(`({
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 
+/* 刷怪三件(候选 2): advDenStep/advDenSpot/advDenPick/advEruptStep 薄壳经全局名消费 */
+Object.assign(globalThis, require('../js/adventure-spawn-core.js'));
 const Core = require('../js/adventure-core.js');
 Object.assign(globalThis, Core); /* 上一层共享词法(adventure-maps-core.test 同款惯例): dims-core 建场经全局名消费 advTryOre 等 */
 const Dims = require('../js/adventure-dims-core.js'); /* 维度规格核心(dimension-registry): 巢穴副本段随迁至此 */

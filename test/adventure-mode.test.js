@@ -355,6 +355,9 @@ ModeKit.spawn = (x, y, z, o) => {
 /* 探险核心(S1 纯函数段迁 js/adventure-core.js) + 背包壳(S6, ADR 0002
    inventory_save 唯一持有): 浏览器按 index.html 加载序在壳之前, Node 侧
    显式铺到全局再 require 壳——壳顶层即消费这些全局名 */
+/* 刷怪核心(候选 2, index.html 加载序在 adventure-core 之前): 壳层 advSpawnNest 与
+   advNestStep/advNightStepPool 薄壳经全局名消费 advRingSpot 等三件 */
+Object.assign(globalThis, require('../js/adventure-spawn-core.js'));
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore);
 /* 冒险地图核心(T4, index.html 加载序同构: adventure-core → maps-core → 壳):

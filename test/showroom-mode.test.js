@@ -316,6 +316,8 @@ for (const src of [fs.readFileSync(path.join(ROOT, 'js', 'adventure-core.js'), '
     if (globalThis[n] === undefined) globalThis[n] = vm.runInContext(n, eng);
   }
 }
+const SpawnCore = require('../js/adventure-spawn-core.js'); /* 刷怪三件(候选 2): 薄壳/壳层经全局名消费, 加载序先于 adventure-core */
+Object.assign(globalThis, SpawnCore); Object.assign(eng, SpawnCore);
 const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore); /* advChestPut/advSwingDmg/ADV_GROUND/advBuildWorld 等 */
 Object.assign(globalThis, require('../js/adventure-maps-core.js')); /* ADV_MAPS/ADV_UNLOCK_KEYS 等 */

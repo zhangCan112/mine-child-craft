@@ -60,7 +60,10 @@
       ——维度专属段(ADV_NETHER/advNetherBuild/ADV_ERUPT/advEruptStep/
       ADV_DEN/advDenBuild/副本刷怪四件套/advMusicMood)已迁
       js/adventure-dims-core.js(2026-10-30, docs/dimension-registry-design.md)
-   依赖(均经全局名, 调用期解析): config.js 的 BLOCKS/B_* 常量/世界(门段政策消费 B_DOOR 系 id; 门段 interface: advIsDoor/
+   依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
+      advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——advNestStep 薄壳/
+      advNightStepPool 组装消费, 加载序先于本文件) · config.js 的
+      BLOCKS/B_* 常量/世界(门段政策消费 B_DOOR 系 id; 门段 interface: advIsDoor/
       advIsDoorLower/advDoorSiteOk/advDoorTogglePlan/advDoorBreakPlan——
       放置校验/开关计划/配对破坏, docs/door-window-design.md §3; 床两格结构
       interface: advBedSiteOk/advBedBreakPlan——放置校验/配对破坏, 两格床改版)
@@ -844,10 +847,8 @@ function advNestCount(rand) {
 /* 巢穴节拍: 巢里有活怪 → 不刷且计时归零; 全清 → 累计到 60s 发刷怪令并归零。
    返回 {spawn, t} — t 由调用方逐巢各存一份(计时独立是结构保证) */
 function advNestStep(alive, t, dt) {
-  if (alive > 0) return {spawn: false, t: 0};
-  const nt = t + dt;
-  if (nt >= ADV_NEST_RESPAWN_T) return {spawn: true, t: 0};
-  return {spawn: false, t: nt};
+  const m = advSpawnPulse(alive <= 0, t, dt, ADV_NEST_RESPAWN_T); /* 刷怪核心薄壳 */
+  return {spawn: m.fire, t: m.t};
 }
 
 /* 挥击伤害: 手持工具按 D9 表(toolOf.dmg), 空手/非工具 3 */
@@ -917,27 +918,12 @@ function advNightCanSpawn(skyAt, blockAt, dayTime) {
    供壳层喂当前地图行池, T4/T6 替换语义的注入缝) */
 function advNightStepPool(s, dt, dayTime, read, playerPos, rnd, pool) {
   const P = pool || ADV_NIGHT.POOL;
-  if (!Daylight.isNight(dayTime)) return {t: 0, spawn: null}; /* 白天: 节拍器归零 */
-  const nt = s + dt;
-  if (nt < ADV_NIGHT.TRY_MS / 1000) return {t: nt, spawn: null};
-  const a = rnd() * Math.PI * 2;
-  const r = ADV_NIGHT.RING_LO + rnd() * (ADV_NIGHT.RING_HI - ADV_NIGHT.RING_LO);
-  const x = playerPos.x + Math.cos(a) * r;
-  const z = playerPos.z + Math.sin(a) * r;
-  const lt = read(x, z);
+  const m = advSpawnPulse(Daylight.isNight(dayTime), s, dt, ADV_NIGHT.TRY_MS / 1000);
+  if (!m.fire) return {t: m.t, spawn: null}; /* 白天等门关: 节拍器归零 */
+  const spot = advRingSpot(playerPos.x, playerPos.z, ADV_NIGHT.RING_LO, ADV_NIGHT.RING_HI, rnd);
+  const lt = read(spot.x, spot.z);
   if (!lt || !advNightCanSpawn(lt.sky, lt.block, dayTime)) return {t: 0, spawn: null};
-  let total = 0;
-  for (const p of P) total += p[1];
-  let pick = rnd() * total;
-  let type = P[P.length - 1][0]; /* 浮点尽头兜底末段 */
-  for (const p of P) {
-    pick -= p[1];
-    if (pick < 0) {
-      type = p[0];
-      break;
-    }
-  }
-  return {t: 0, spawn: {type, x, z}};
+  return {t: 0, spawn: {type: advWeightedPick(P, rnd), x: spot.x, z: spot.z}};
 }
 
 /* 夜怪节拍(advNestStep 同构: 前置不满足即归零 · 到拍出单): s 为秒累计,
