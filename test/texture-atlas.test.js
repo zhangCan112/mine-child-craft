@@ -76,8 +76,12 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 52,
-      '已绘制格数 = 52(47+苔石/黑曜石/发光岩/传送门面/熄灭门面: 巢穴观感票)');
+  assert.strictEqual(t.TextureAtlas.count, 68,
+      '已绘制格数 = 68(52 常规 + 16 门面宏格: 巢穴观感票)');
+  const MC = t.TextureAtlas.layout.portalMacro;
+  assert.strictEqual(MC.col, 0);
+  assert.strictEqual(MC.row, 4);
+  assert.strictEqual(MC.size, 4); /* 门面宏格契约(64×64px 一整只大漩涡, mesh 按世界坐标取象限) */
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   const bed = t.TextureAtlas.layout.tiles[t.B_BED];
@@ -404,6 +408,58 @@ test('meshChunk: 图集立方体邻面剔除同实心规则 — 相邻两煤矿�
 });
 
 /* ============ 画布壳 · doc 桩注入 ============ */
+
+test('meshChunk: 门面宏格大漩涡 — 相邻门块取样相邻象限(块界 UV 连续), 采样限于宏格区', () => {
+  const t = loadAtlas();
+  const M = t.TextureAtlas.layout.portalMacro;
+  const p = mkPack(1);
+  /* 选无回绕的块位(世界坐标 mod 4 不跨宏格边): x105/106 · y6/7 */
+  p.set(6, 6, 8, t.B_PORTAL); p.set(7, 6, 8, t.B_PORTAL); // 横向邻(x105→106, y6)
+  p.set(6, 7, 8, t.B_PORTAL); // 纵向邻(y6→7)
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(r.glass, null, '门面仍走图集通道');
+  /* 收全部 ±z 大面, 按(法线号, 块坐标)归组记 UV 带——南/北面 u 轴向镜像,
+     各自组内断言连续 */
+  const bands = new Map();
+  for (let q = 0; q < r.atlas.indices.length; q += 6) {
+    const vi0 = r.atlas.indices[q];
+    const nz = r.atlas.normals[vi0 * 3 + 2];
+    if (Math.abs(nz) !== 1) continue;
+    let sx = 0; let sy = 0; let uMin = 1; let uMax = 0; let vMin = 1; let vMax = 0;
+    for (let c = 0; c < 4; c++) {
+      const vi = r.atlas.indices[q + c];
+      sx += r.atlas.positions[vi * 3]; sy += r.atlas.positions[vi * 3 + 1];
+      const u = r.atlas.uvs[vi * 2]; const v = r.atlas.uvs[vi * 2 + 1];
+      uMin = Math.min(uMin, u); uMax = Math.max(uMax, u);
+      vMin = Math.min(vMin, v); vMax = Math.max(vMax, v);
+    }
+    const key = (nz > 0 ? 'S' : 'N') + '_' + Math.round(sx / 4 - 0.5) + '_' + Math.round(sy / 4 - 0.5);
+    const prev = bands.get(key);
+    if (!prev) bands.set(key, {uMin, uMax, vMin, vMax});
+    else {
+      prev.uMin = Math.min(prev.uMin, uMin); prev.uMax = Math.max(prev.uMax, uMax);
+      prev.vMin = Math.min(prev.vMin, vMin); prev.vMax = Math.max(prev.vMax, vMax);
+    }
+  }
+  const eps = 1e-9;
+  const at = (s, bx, by) => bands.get(s + '_' + bx + '_' + by);
+  /* 纵向邻块(y6→7): v 带相接(大漩涡在块界连续) */
+  for (const s of ['N', 'S']) {
+    const lo = at(s, 105, 6); const hi = at(s, 105, 7);
+    assert.ok(Math.abs(lo.vMax - hi.vMin) < eps || Math.abs(hi.vMax - lo.vMin) < eps,
+        s + ' 面纵向邻块 v 带相接: ' + JSON.stringify([lo, hi]));
+    /* 横向邻块(x105→106): u 带相接 */
+    const lf = at(s, 105, 6); const rt = at(s, 106, 6);
+    assert.ok(Math.abs(lf.uMax - rt.uMin) < eps || Math.abs(rt.uMax - lf.uMin) < eps,
+        s + ' 面横向邻块 u 带相接: ' + JSON.stringify([lf, rt]));
+    /* 每块恰采一格宽(一个象限), 且全部落在宏格列区/行区 */
+    for (const b of [lo, hi, lf, rt]) {
+      assert.ok(b.uMax - b.uMin <= 1 / 16 + eps, '单块恰一格宽: ' + (b.uMax - b.uMin));
+      assert.ok(b.uMin >= M.col / 16 - eps && b.uMax <= (M.col + M.size) / 16 + eps, 'u 落宏格列区');
+      assert.ok(b.vMin >= (16 - M.row - M.size) / 16 - eps && b.vMax <= (16 - M.row) / 16 + eps, 'v 落宏格行区');
+    }
+  }
+});
 
 test('makeCanvas: doc 桩注入 — 尺寸按图集, putImageData 像素与 paintAll 一致', () => {
   const t = loadAtlas();

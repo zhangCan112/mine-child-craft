@@ -8,15 +8,16 @@
    门与玻璃板 64~68(门板上下两张/玻璃板框图, docs/door-window-design.md §5.3) +
    床 53/69(床头顶枕毯/床尾顶全毯/床侧毯木框, 两格床改版) +
    存量基础方块升级款(草顶/泥土/石头颗粒/圆石/苔石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒) +
-   黑巢地上件(黑曜石/发光岩/传送门面/熄灭门面——巢穴观感票, 巢穴观感详见
-   docs/den-nest-design.md §2.1)。风格参考
+   黑巢地上件(黑曜石/发光岩/传送门面/熄灭门面——巢穴观感票) + 门面宏格 4×4 格
+   (layout.portalMacro 契约: 64×64px 一整只大漩涡, mesh 按世界坐标取样象限,
+   整面门连续一只旋涡)。风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
    创建) — Node 可逐像素直测; 噪点/斑点全用种子化伪随机, 同 seed 同图。
    layout(方块id→格号)是网格化核心的 UV 契约: 经 opts.atlas 注入
    MeshCore(与 tntTiles 同惯例), Worker 侧 importScripts 本文件共读;
    未入集方块(冰/水等玻璃透渲件与未升级存量)仍走 faceColor 纯色兜底。
-   interface: layout{cols,rows,tiles} / count 已绘制格数 / paintAll()→
+   interface: layout{cols,rows,tiles,portalMacro} / count 已绘制格数 / paintAll()→
      {w,h,pixels} / tileUV(idx)→[u0,v0,u1,v1] / makeCanvas(doc)→canvas
    依赖(均经全局名, 加载序解析): config.js 的 B_* 方块 id 常量
      (index.html 里在 mesh-core.js 之后、world.js 之前加载)。
@@ -25,7 +26,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 52 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 68 格已用(52 常规 + 16 门面宏格), 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -64,7 +65,7 @@ const TextureAtlas = (() => {
   const T_MOSSY = 47; /* 苔石(14): 圆石底+苔斑——巢穴丘体/副本祭坛/石阵共用 */
   const T_OBSIDIAN = 48; /* 黑曜石(31): 近黑紫底+紫辉斑+品红高光(黑巢丘冠/门框) */
   const T_GLOWSTONE = 49; /* 发光岩(34): 琥珀底+亮金斑团(MC 萤石马赛克观感) */
-  const T_PORTAL = 50; /* 传送门面(35): 暗紫漩涡纹(点亮态, 门阵/巢穴之门共用) */
+  const T_PORTAL = 50; /* 传送门面(35)逐块小图: 镂空双臂漩涡——portalMacro 缺省时的回落格 */
   const T_PORTAL_DIM = 51; /* 熄灭门面(63): 去饱和深紫+残纹(点亮格 T_PORTAL 同语言) */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
@@ -609,6 +610,47 @@ const TextureAtlas = (() => {
     for (let i=0; i<5; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [70, 36, 106]);
   };
 
+  /* ---------- 门面宏格(layout.portalMacro, 格 64~67/80~83/96~99/112~115) ----------
+     门阵/巢穴之门/回程门的门面是多块拼的一面——逐块小图会拼出「一群小漩涡」
+     (用户复核否掉的版本)。宏格 4×4 格=64×64px 只画一整只大漩涡, mesh-core 按
+     「世界坐标 mod 4」取样对应象限(portalMacro 是 UV 契约), 相邻门块取相邻
+     象限 → 整面门连续显示同一只大旋涡。图案是全局坐标的纯函数(16 个象限画师
+     共享同一公式, 不用各自 rng——跨象限必须逐像素连续); 外圈半径渐隐到镂空
+     (回绕取样的门不出硬缝), 底部镂空保透光观感 */
+  const PORTAL_MACRO = {col: 0, row: 4, size: 4};
+  function portalVortexInk(gx, gy) {
+    const dx = gx - 31.5; const dy = 31.5 - gy; // 画布 y 向下, 数学 y 向上
+    const rad = Math.hypot(dx, dy);
+    if (rad > 27) { // 外圈渐隐带: 只留疏雾(回绕取样无硬缝)
+      return ((gx * 73 + gy * 151) % 211) < 10 ? [64, 24, 100] : null;
+    }
+    if (rad < 3.2) return rad < 1.8 ? [214, 150, 244] : [170, 98, 228]; // 漩涡眼
+    const th = Math.atan2(dy, dx);
+    const phase = ((th + rad * 0.52) % (Math.PI * 2) + Math.PI * 2) % (Math.PI * 2);
+    const d = Math.min(phase, Math.abs(phase - Math.PI), Math.PI * 2 - phase); // 距最近臂心
+    const w = Math.min(0.48, Math.PI / 2); // 臂半宽(恒定角宽: 臂随半径外扩, 旋涡观感更饱满)
+    if (d < w) {
+      const q = d / w;
+      const band = Math.floor(rad * 0.35 + phase * 1.4) % 2; // 沿臂明暗层
+      if (q < 0.4) return band === 0 ? [192, 118, 236] : [174, 102, 226];
+      if (q < 0.75) return [146, 72, 206];
+      return [104, 44, 160];
+    }
+    return ((gx * 73 + gy * 151) % 211) < 30 ? [64, 24, 100] : null; // 镂空隙深紫雾点
+  }
+  for (let qy = 0; qy < PORTAL_MACRO.size; qy++) {
+    for (let qx = 0; qx < PORTAL_MACRO.size; qx++) {
+      PAINTERS[PORTAL_MACRO.col + qx + (PORTAL_MACRO.row + qy) * COLS] = (px)=>{
+        for (let y = 0; y < TILE; y++) {
+          for (let x = 0; x < TILE; x++) {
+            const ink = portalVortexInk(qx * TILE + x, qy * TILE + y);
+            if (ink) setP(px, x, y, ink);
+          }
+        }
+      };
+    }
+  }
+
   /* ---------- 布局: 方块 id → 格号(MeshCore opts.atlas 载荷) ----------
      number = 全格同图; {top,side,bottom} = 分面。底面共享泥土/木板格是
      刻意复用: 面朝下几乎不可见, 省格即少一处 mipmap 串色面。 */
@@ -658,6 +700,9 @@ const TextureAtlas = (() => {
       [B_OBSIDIAN]: T_OBSIDIAN, [B_GLOWSTONE]: T_GLOWSTONE,
       [B_PORTAL]: T_PORTAL, [B_PORTAL_DIM]: T_PORTAL_DIM,
     },
+    /* 门面宏格契约(mesh-core 按「世界坐标 mod size」取象限): 4×4 格共享一只
+       64×64px 大漩涡——整面门连续读作一整只旋涡; 缺省(老调用方)回落逐块小图 */
+    portalMacro: PORTAL_MACRO,
   };
 
   /* 整图: 未用格填中性深灰(远处 mipmap 混色不刺眼), 已用格逐格绘制 */
@@ -702,5 +747,8 @@ const TextureAtlas = (() => {
     return c;
   }
 
-  return {layout, count: PAINTERS.length, paintAll, tileUV, makeCanvas};
+  /* 已绘制格数: PAINTERS 稀疏(门面宏格 64~115 与常规格间有空段), 数真值 */
+  const paintedCount = PAINTERS.reduce((n, fn) => n + (fn ? 1 : 0), 0);
+
+  return {layout, count: paintedCount, paintAll, tileUV, makeCanvas};
 })();
