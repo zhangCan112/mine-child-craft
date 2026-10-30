@@ -16,8 +16,9 @@
      参数/mood 曲目/dayCycle 昼夜开关/spawn 进场落点(加载期从结构常量
      派生)/hud{banner,showMobs}/assets 预留缝) · advDimRow(id) 取行 ·
      advMusicMood(维度×昼夜→mood 桥接) · ADV_NETHER/advNetherBuild ·
-     ADV_ERUPT/advEruptStep · ADV_DEN/advDenBuild/advDenMineRoom/
-     advDenCanSpawn/advDenStep/advDenSpot/advDenPick
+     ADV_ERUPT/advEruptStep · ADV_DEN/ADV_DEN_TUNNELS(弯隧道折线)/
+     ADV_DEN_GUARDS(固定布防表)/advDenRoomCenter(房心) · advDenBuild/
+     advDenMineRoom/advDenStep(清怪波次节拍)/advDenWavePlan(波次计划)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
      advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——涌出/副本节拍
      薄壳组装, 加载序先于 adventure-core) · adventure-core.js 的 advPortalFrame/
@@ -86,34 +87,130 @@ function advEruptStep(t, dt, dayTime, eruptN, rnd) {
 }
 
 /* ============================================================
-   巢穴副本段(迁自 adventure-core 巢穴副本段, docs/den-nest-design.md §3)
-   — 探险模式第三维度 den, 2026-10-30 维度 vocabulary 归家迁入, 行为零改动
+   巢穴副本段(迁自 adventure-core 巢穴副本段, docs/den-nest-design.md §3+§7)
+   — 探险模式第三维度 den, 2026-10-30 苦力怕主题改造(用户四轮拍板)
    ------------------------------------------------------------
-   「怪物巢穴」副本 = 地下巨洞世界: 主世界黑巢巢厅的巢之心(B_SPAWNER)
-   站桩切入, 大厅北墙回程裂隙门走出。此处只收纯政策与地形核(下界段
-   D15 同口径): 建场直用全局 setBlockRaw/advTryOre/SceneKit(确定性零
-   Math.random, 两次建场逐字节一致是单测红线), 刷怪节拍/光照门/出生
-   环带为纯函数; 切界装配(换桶/天空/冷却/话术/入口站桩)在壳 modes/
-   adventure.js。副本怪池主打 cave_spider——已建模入册的唯一产地(D7)。
+   「苦力怕巢穴」副本 = 地下巨洞世界: 主世界黑巢洞口紫门站桩切入,
+   大厅北墙回程裂隙门走出。主题改造(§7): 苦力怕为主力(低级层 ≥60%),
+   弯曲隧道连七房(两巢房/两矿腔/宝箱室/关底王座/深处祭坛房), 关底
+   苦力怕王(掉 10 火药+钻石剑), 刷怪祭坛迁深处祭坛房、清怪 10s 后
+   波次补员且逐波变强。此处只收纯政策与地形核(下界段 D15 同口径):
+   建场直用全局 setBlockRaw/advTryOre/SceneKit(确定性零 Math.random,
+   两次建场逐字节一致是单测红线), 波次节拍/布防清单为纯数据与纯函数;
+   切界装配(换桶/天空/冷却/话术/入口站桩)在壳 modes/adventure.js。
    ============================================================ */
 const ADV_DEN = {
   ground: 6, /* 厅地面顶面 y(脚踩 7) */
   roof: 38, /* 穹顶壳底层 y(壳厚 4: y38~41)——D10 扩高锚点, 未来升 WORLD_H 只改此值 */
-  hall: {cx: 80, cz: 80, r: 14}, /* 巨洞大厅(圆厅, 观感体量由黑暗+雾+发光岩承担) */
-  altar: {x: 80, z: 80}, /* 刷怪祭坛中心(副本怪家锚与出生环心, 壳层挂 __nightHome) */
+  hall: {cx: 80, cz: 80, r: 14}, /* 巨洞大厅(圆厅, 进场集散地; 观感体量由黑暗+雾+发光岩承担) */
   gate: {px: 76, pz: 69}, /* 回程裂隙门框位(厅内北缘, 常亮; 基座建场直写不记账——互锁红线) */
   chest: {x: 116, y: 8, z: 80}, /* 宝箱室宝箱(任务键 chest_den, advMapChestKey 同源坐标) */
-  base: {x: 80.5, z: 92.5}, /* 进场落点(大厅南侧开阔区, 面朝北一眼看到祭坛) */
-  CAP: 6, /* 副本怪自持配额(独立于主世界 ADV_NIGHT.CAP——两界怪数不叠加, 儿童可控) */
-  TRY_S: 2.5, /* 刷怪节拍秒 */
-  RING_LO: 1.8, RING_HI: 4.2, /* 祭坛出生环带(巢之心附近不贴脸, 巢穴环带同款口径) */
-  POOL: [['zombie', 2], ['spider', 1], ['cave_spider', 1], ['skeleton', 1]], /* 副本主力 */
+  base: {x: 80.5, z: 92.5}, /* 进场落点(大厅南侧开阔区, 面朝北) */
+  /* —— 苦力怕主题改造(§7): 祭坛迁离大厅 → 深处祭坛房; 关底王座 —— */
+  altar: {x: 63, z: 28}, /* 刷怪祭坛中心(深处祭坛房中央; 波次出生环心, 家锚=此处) */
+  boss: {x: 82, z: 37}, /* 苦力怕王王座(关底大房间北端黑曜石台上, 壳层布防表消费) */
+  rooms: {/* 房间内腔(含界): 掏空 ground+1..ground+h; 坐标是布防/测试的共同权威 */
+    nestA: {x1: 42, z1: 84, x2: 50, z2: 92, h: 5}, /* 西南·苦力怕巢 A */
+    nestB: {x1: 42, z1: 66, x2: 50, z2: 74, h: 5}, /* 西北·苦力怕巢 B */
+    mineA: {x1: 100, z1: 70, x2: 108, z2: 76, h: 5}, /* 东北·矿腔(煤铁) */
+    mineB: {x1: 100, z1: 84, x2: 108, z2: 90, h: 5}, /* 东南·矿腔(金钻) */
+    chestR: {x1: 112, z1: 77, x2: 118, z2: 83, h: 4}, /* 东·宝箱室 */
+    bossR: {x1: 72, z1: 34, x2: 92, z2: 50, h: 8}, /* 北·关底王座大房间(高顶, 火把照明) */
+    altarR: {x1: 56, z1: 22, x2: 70, z2: 34, h: 5}, /* 西北深处·刷怪祭坛房 */
+  },
+  WAVE_S: 10, /* 清怪后到下一波的秒数(用户拍板「打完 10 秒刷新」) */
+  RING_LO: 1.2, RING_HI: 4.6, /* 波次出生环带(祭坛周围, 不贴脸不撞墙) */
+  WAVE_HP_STEP: 0.25, WAVE_HP_MAX: 2.75, /* 逐波血量成长与封顶(越来越厉害, 儿童可控上限) */
+  WAVE_SPD_STEP: 0.04, WAVE_SPD_MAX: 1.2, /* 逐波速度成长与封顶 */
+  WAVE_DMG_STEP: 0.10, WAVE_DMG_MAX: 1.6, /* 逐波伤害成长(玩家侧重伤在 ADV_DMG_CAP 封顶) */
 };
+/* 房心快捷取用(布防家锚/测试) */
+function advDenRoomCenter(key) {
+  const r = ADV_DEN.rooms[key];
+  return {x: Math.floor((r.x1 + r.x2) / 2), z: Math.floor((r.z1 + r.z2) / 2)};
+}
+
+/* 弯曲隧道折线(用户拍板: 不走全直线, 弯弯曲曲增加恐怖气氛): 每相邻两点
+   carve 一段 L 形(x 段沿前点 z, z 段沿后点 x), 宽 3 净空 4; 起点在厅内/
+   终点在房内(穿墙即门洞)。全表确定性——隧道形状是建场常量不是掷点 */
+const ADV_DEN_TUNNELS = [
+  [[68, 86], [62, 86], [62, 90], [55, 90], [55, 88], [46, 88]], /* 大厅→巢 A(S 弯南下西折) */
+  [[68, 74], [62, 74], [62, 70], [55, 70], [55, 72], [46, 72]], /* 大厅→巢 B(镜像弯北上西折) */
+  [[93, 77], [99, 77], [99, 72], [104, 72]], /* 大厅→矿腔 A(北折东进) */
+  [[102, 72], [97, 72], [97, 83], [103, 83], [103, 86]], /* 矿腔 A→B(绕西侧双弯) */
+  [[104, 87], [110, 87], [110, 80], [114, 80]], /* 矿腔 B→宝箱室(北折东进) */
+  [[84, 68], [84, 61], [78, 61], [78, 55], [84, 55], [84, 47]], /* 大厅→关底(主线三连弯) */
+  [[73, 40], [67, 40], [67, 31], [61, 31], [61, 27], [57, 27]], /* 关底→祭坛房(最深一程) */
+];
+
+/* 固定布防表(进场一次; 祭坛房波次另算): 按谱系与层级有高有低——低级层
+   苦力怕为绝对主力(≥60%), 虫虫族/僵尸一家为中层, 凋灵骷髅为关底精英,
+   苦力怕王是 boss。hx/hz=家锚(AI leash 原点=房心, 怪守在本房);
+   y 缺省地面 ground+1, 王座台上的王 y=ground+2 */
+const ADV_DEN_GUARDS = [
+  /* 大厅·进门巡守(低级层+僵尸) */
+  {type: 'creeper', x: 74, z: 76, hx: 80, hz: 80},
+  {type: 'creeper', x: 86, z: 84, hx: 80, hz: 80},
+  {type: 'creeper', x: 79, z: 89, hx: 80, hz: 80},
+  {type: 'creeper', x: 88, z: 73, hx: 80, hz: 80},
+  {type: 'zombie', x: 71, z: 83, hx: 80, hz: 80},
+  /* 西翼·苦力怕巢 A/B(低级层大本营) */
+  {type: 'creeper', x: 44, z: 87, hx: 46, hz: 88}, {type: 'creeper', x: 48, z: 90, hx: 46, hz: 88},
+  {type: 'creeper', x: 46, z: 85, hx: 46, hz: 88}, {type: 'creeper', x: 49, z: 87, hx: 46, hz: 88},
+  {type: 'creeper', x: 43, z: 91, hx: 46, hz: 88}, {type: 'creeper', x: 47, z: 92, hx: 46, hz: 88},
+  {type: 'silverfish', x: 45, z: 89, hx: 46, hz: 88},
+  {type: 'creeper', x: 44, z: 69, hx: 46, hz: 70}, {type: 'creeper', x: 48, z: 72, hx: 46, hz: 70},
+  {type: 'creeper', x: 46, z: 67, hx: 46, hz: 70}, {type: 'creeper', x: 49, z: 69, hx: 46, hz: 70},
+  {type: 'creeper', x: 43, z: 73, hx: 46, hz: 70}, {type: 'creeper', x: 47, z: 74, hx: 46, hz: 70},
+  {type: 'cave_spider', x: 45, z: 71, hx: 46, hz: 70},
+  /* 东翼·矿腔(地底生态多样性: 虫虫族+僵尸一家, 用户拍板允带其他地底生物) */
+  {type: 'cave_spider', x: 103, z: 72, hx: 104, hz: 73}, {type: 'cave_spider', x: 106, z: 75, hx: 104, hz: 73},
+  {type: 'zombie', x: 104, z: 74, hx: 104, hz: 73},
+  {type: 'spider', x: 103, z: 86, hx: 104, hz: 87}, {type: 'spider', x: 106, z: 89, hx: 104, hz: 87},
+  {type: 'endermite', x: 104, z: 88, hx: 104, hz: 87},
+  /* 北·关底王座(高层: 凋灵骷髅护卫 + 苦力怕王 boss) */
+  {type: 'wither_skeleton', x: 79, z: 38, hx: 82, hz: 42},
+  {type: 'wither_skeleton', x: 85, z: 38, hx: 82, hz: 42},
+  {type: 'creeper_king', x: 82, z: 37, y: ADV_DEN.ground + 2, hx: 82, hz: 42},
+];
+
+/* 波次节拍(advSpawnPulse 组装): 门=「全清」——怪还活着计时归零, 全清后
+   累计到 WAVE_S 出波令并归零; 逐拍独立(出令后布防在壳层, 整波作废不结转) */
+function advDenStep(cleared, t, dt) {
+  const m = advSpawnPulse(cleared, t, dt, ADV_DEN.WAVE_S);
+  return {spawn: m.fire, t: m.t};
+}
+
+/* 波次计划(纯函数): 第 wave 波从祭坛环带涌出的怪与三乘数。低级层苦力怕
+   为主力(每波 ≥70%); 高波渐入精英(3 波换尸壳、4 波起凋灵骷髅护卫、
+   6 波双护卫), 血量/速度/伤害逐波成长到封顶——「越来越厉害」的儿童
+   可控版(伤害另有 ADV_DMG_CAP 双保险)。rnd 可注入(测试确定性) */
+function advDenWavePlan(wave, rnd) {
+  const n = Math.max(1, Math.floor(wave || 1));
+  const r = rnd || Math.random;
+  const spawns = [];
+  const push = (type) => {
+    const p = advRingSpot(ADV_DEN.altar.x + 0.5, ADV_DEN.altar.z + 0.5,
+        ADV_DEN.RING_LO, ADV_DEN.RING_HI, r);
+    spawns.push({type, x: Math.floor(p.x), z: Math.floor(p.z),
+      hx: ADV_DEN.altar.x, hz: ADV_DEN.altar.z}); /* 家锚=祭坛(涌出怪围绕祭坛游荡) */
+  };
+  const nCreep = 5 + Math.min(3, Math.floor((n - 1) / 2)); /* 苦力怕 5→8 封顶 */
+  for (let i = 0; i < nCreep; i++) push('creeper');
+  push(n >= 3 ? 'husk' : 'zombie'); /* 3 波起僵尸晋级尸壳(谱系内升层) */
+  if (n >= 4) push('wither_skeleton'); /* 4 波起精英护卫 */
+  if (n >= 6) push('wither_skeleton'); /* 6 波起双护卫(封顶编成) */
+  return {spawns,
+    hpMult: Math.min(1 + ADV_DEN.WAVE_HP_STEP * (n - 1), ADV_DEN.WAVE_HP_MAX),
+    spdMult: Math.min(1 + ADV_DEN.WAVE_SPD_STEP * (n - 1), ADV_DEN.WAVE_SPD_MAX),
+    dmgMult: Math.min(1 + ADV_DEN.WAVE_DMG_STEP * (n - 1), ADV_DEN.WAVE_DMG_MAX)};
+}
 
 /* 副本建场: 整图岩体(y0~roof+1 实心——巨洞从岩体里掏出来, 矿腔镶矿/岩壁
-   体感/天空光全遮都依赖实心; 雾把远处吃掉, 观感与性能的平衡点), 掏出大厅/
-   走廊/矿腔/宝箱室, 地面混铺苔石/泥, 祭坛+回程门+发光岩簇。确定性重放红线:
-   零 Math.random; 矿藏走 advTryOre 白名单(矿位跨天回填在副本同样生效) */
+   体感/天空光全遮都依赖实心; 雾把远处吃掉, 观感与性能的平衡点), 掏出
+   大厅/七房/弯曲隧道, 地面混铺苔石/泥, 关底王座+壁雕+火把, 深处祭坛,
+   回程门+发光岩簇。确定性重放红线: 零 Math.random; 矿藏走 advTryOre
+   白名单(矿位跨天回填在副本同样生效); 镶矿在隧道之后(门洞格已空不镶) */
 function advDenBuild() {
   const D = ADV_DEN;
   for (let x = 0; x < WORLD_W; x++) {
@@ -134,73 +231,104 @@ function advDenBuild() {
       if (r > 0.965) setBlockRaw(x, D.ground + 1, z, B_GLOWSTONE); /* 地面微光簇(~3% 列) */
     }
   }
-  /* 刷怪祭坛: 3×3 苔石台 + 中央巢之心 + 四角黑曜石柱(柱顶发光岩)——副本的视觉锚 */
-  SceneKit.fill(D.altar.x - 1, D.ground + 1, D.altar.z - 1, D.altar.x + 1, D.ground + 1, D.altar.z + 1, 14);
+  /* 大厅中央路标(祭坛已迁走): 2×2 苔石墩+顶灯——十字路口的集散灯塔 */
+  SceneKit.fill(h.cx - 1, D.ground + 1, h.cz - 1, h.cx, D.ground + 1, h.cz, 14);
+  setBlockRaw(h.cx, D.ground + 2, h.cz, B_GLOWSTONE);
+  /* 七房掏空+地面混铺(盐值分层防与大厅同噪; 苔石/泥地/微光簇同款配比) */
+  const ROOM_SALT = {nestA: 8401, nestB: 8403, mineA: 8405, mineB: 8407,
+    chestR: 8409, bossR: 8411, altarR: 8413};
+  for (const key of Object.keys(D.rooms)) {
+    const rm = D.rooms[key];
+    for (let x = rm.x1; x <= rm.x2; x++) {
+      for (let z = rm.z1; z <= rm.z2; z++) {
+        for (let y = D.ground + 1; y <= D.ground + rm.h; y++) setBlockRaw(x, y, z, 0);
+        const r = SceneKit.rand(x, z, ROOM_SALT[key]);
+        setBlockRaw(x, D.ground, z, r > 0.82 ? 14 : (r < 0.08 ? 2 : 3));
+        if (r > 0.955) setBlockRaw(x, D.ground + 1, z, B_GLOWSTONE);
+      }
+    }
+  }
+  /* 巢房「窝」观感: 房心 3×3 苔石垫(苦力怕的床) */
+  for (const nk of ['nestA', 'nestB']) {
+    const c = advDenRoomCenter(nk);
+    SceneKit.fill(c.x - 1, D.ground, c.z - 1, c.x + 1, D.ground, c.z + 1, 14);
+  }
+  /* 弯曲隧道(先掏后镶矿的顺序红线: 隧道在镶矿之前) */
+  for (const pts of ADV_DEN_TUNNELS) {
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1]; const b = pts[i];
+      SceneKit.fill(Math.min(a[0], b[0]) - 1, D.ground + 1, a[1] - 1,
+          Math.max(a[0], b[0]) + 1, D.ground + 4, a[1] + 1, 0); /* x 段(宽 3) */
+      SceneKit.fill(b[0] - 1, D.ground + 1, Math.min(a[1], b[1]) - 1,
+          b[0] + 1, D.ground + 4, Math.max(a[1], b[1]) + 1, 0); /* z 段(宽 3) */
+    }
+  }
+  advDenMineRoom(104, 73, [B_COAL_ORE, B_IRON_ORE], 8201); /* 矿腔 A: 煤铁(东北) */
+  advDenMineRoom(104, 87, [B_GOLD_ORE, B_DIAMOND_ORE], 8301); /* 矿腔 B: 金钻(东南) */
+  /* 宝箱室: 宝箱+两角落地站膛火把(thin 悬空会被清扫治愈, 神殿先例) */
+  setBlockRaw(D.chest.x, D.chest.y, D.chest.z, B_CHEST);
+  setBlockRaw(D.rooms.chestR.x1 + 1, D.ground + 1, D.rooms.chestR.z1 + 1, B_TORCH);
+  setBlockRaw(D.rooms.chestR.x2 - 1, D.ground + 1, D.rooms.chestR.z2 - 1, B_TORCH);
+  /* 关底王座大房间(用户拍板: 最后关底大房=苦力怕王, 有布置有火把照亮):
+     北端黑曜石王座台(3×3+角灯) + 四角黑曜石柱(顶发光岩) + 北墙苦力怕脸
+     壁雕(黑曜石底/发光岩眼口) + 六支落地火把——王座房是副本唯一亮堂的房 */
+  const BR = D.rooms.bossR;
+  SceneKit.fill(D.boss.x - 1, D.ground + 1, D.boss.z - 1, D.boss.x + 1, D.ground + 1,
+      D.boss.z + 1, B_OBSIDIAN); /* 王座台(王脚踩 ground+2, 布防表 y 同源) */
+  for (const cn of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+    setBlockRaw(D.boss.x + cn[0], D.ground + 2, D.boss.z + cn[1], B_GLOWSTONE); /* 台角灯 */
+  }
+  for (const pc of [[BR.x1 + 1, BR.z1 + 1], [BR.x2 - 1, BR.z1 + 1],
+    [BR.x1 + 1, BR.z2 - 1], [BR.x2 - 1, BR.z2 - 1]]) {
+    for (let y = D.ground + 2; y <= D.ground + 6; y++) setBlockRaw(pc[0], y, pc[1], B_OBSIDIAN);
+    setBlockRaw(pc[0], D.ground + 7, pc[1], B_GLOWSTONE); /* 房角柱+顶灯 */
+  }
+  const FACE = ['.GG.GG.', '.GG.GG.', '..GGG..', '.GGGGG.', '.GG.GG.', '.GG.GG.'];
+  for (let fy = 0; fy < FACE.length; fy++) {
+    for (let fx = 0; fx < 7; fx++) {
+      setBlockRaw(D.boss.x - 3 + fx, D.ground + 8 - fy, BR.z1, B_OBSIDIAN); /* 壁雕底板 */
+      if (FACE[fy][fx] === 'G') {
+        setBlockRaw(D.boss.x - 3 + fx, D.ground + 8 - fy, BR.z1, B_GLOWSTONE); /* 眼与嘴 */
+      }
+    }
+  }
+  for (const tc of [[74, 36], [90, 36], [74, 48], [90, 48], [77, 44], [87, 44]]) {
+    setBlockRaw(tc[0], D.ground + 1, tc[1], B_TORCH); /* 落地站膛火把×6 */
+  }
+  /* 深处刷怪祭坛房(从大厅迁来, 用户拍板: 副本深处的另外一个房间): 3×3 苔石
+     台+中央巢之心(微红光)+四角黑曜石柱(顶发光岩)——波次从这里涌出; 刻意
+     不放火把(祭坛房保持黑暗, MC 刷怪笼地牢口径) */
+  SceneKit.fill(D.altar.x - 1, D.ground + 1, D.altar.z - 1, D.altar.x + 1, D.ground + 1,
+      D.altar.z + 1, 14);
   setBlockRaw(D.altar.x, D.ground + 1, D.altar.z, B_SPAWNER);
   for (const cn of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-    for (let y = D.ground + 2; y <= D.ground + 5; y++) setBlockRaw(D.altar.x + cn[0], y, D.altar.z + cn[1], B_OBSIDIAN);
-    setBlockRaw(D.altar.x + cn[0], D.ground + 6, D.altar.z + cn[1], B_GLOWSTONE);
+    for (let y = D.ground + 2; y <= D.ground + 4; y++) {
+      setBlockRaw(D.altar.x + cn[0], y, D.altar.z + cn[1], B_OBSIDIAN);
+    }
+    setBlockRaw(D.altar.x + cn[0], D.ground + 5, D.altar.z + cn[1], B_GLOWSTONE);
   }
   advPortalFrame(setBlockRaw, D.ground, D.gate.px, D.gate.pz); /* 回程裂隙门(常亮, 厅内北缘) */
-  /* 矿藏廊: 东墙洞口 → 东向走廊(净空 4) → 两间矿腔(煤铁腔/金钻腔, 壁镶矿
-     高密度——「越危险越富」的实体) + 尽头宝箱室(B_CHEST 接全局账户)。
-     门洞先掏再镶矿(顺序红线): 镶矿走 advTryOre「只镶进石头」, 门洞格已空
-     自然不镶——白名单账实一致(矿位回填不会在门洞里长出矿挡路) */
-  SceneKit.fill(h.cx + h.r - 2, D.ground + 1, D.altar.z - 1, 112, D.ground + 4, D.altar.z + 1, 0); /* 洞口+走廊 */
-  SceneKit.fill(101, D.ground + 1, 77, 102, D.ground + 3, 78, 0); /* 腔 A 门洞(穿墙接走廊) */
-  SceneKit.fill(101, D.ground + 1, 82, 102, D.ground + 3, 83, 0); /* 腔 B 门洞 */
-  advDenMineRoom(102, 74, [B_COAL_ORE, B_IRON_ORE], 8201); /* 矿腔 A: 煤铁(走廊北侧) */
-  advDenMineRoom(102, 86, [B_GOLD_ORE, B_DIAMOND_ORE], 8301); /* 矿腔 B: 金钻(走廊南侧) */
-  SceneKit.fill(114, D.ground + 1, D.altar.z - 2, 118, D.ground + 3, D.altar.z + 2, 0); /* 宝箱室腔 */
-  setBlockRaw(D.chest.x, D.chest.y, D.chest.z, B_CHEST);
-  setBlockRaw(114, D.ground + 1, D.altar.z - 2, B_TORCH); /* 角落落地站膛(thin 悬空会被清扫治愈, 神殿先例) */
-  setBlockRaw(118, D.ground + 1, D.altar.z + 2, B_TORCH);
 }
 
-/* 矿腔(建场件): 7×5 腔室掏空 + 四壁高密度镶矿(两种矿交替, advTryOre 只镶
-   进石头+白名单记账——矿位回填在副本同样生效); salt 分层防与地面混铺同噪 */
+/* 矿腔镶矿(建场件): 房间已掏空, 四壁高密度镶矿(两种矿交替, advTryOre 只镶
+   进石头+白名单记账——矿位回填在副本同样生效); 先掏后镶(顺序红线):
+   隧道/门洞格已空自然不镶——白名单账实一致(回填不在门洞里长矿挡路) */
 function advDenMineRoom(cx, cz, ores, salt) {
   const D = ADV_DEN;
-  SceneKit.fill(cx - 3, D.ground + 1, cz - 2, cx + 3, D.ground + 4, cz + 2, 0);
-  for (let x = cx - 3; x <= cx + 3; x++) {
-    for (const z of [cz - 3, cz + 3]) {
+  for (let x = cx - 4; x <= cx + 4; x++) {
+    for (const z of [cz - 4, cz + 4]) {
       for (let y = D.ground + 1; y <= D.ground + 4; y++) {
         if (SceneKit.rand(x, y * 61 + z, salt) > 0.45) advTryOre(x, y, z, ores[(x + z) % 2]);
       }
     }
   }
-  for (let z = cz - 2; z <= cz + 2; z++) {
-    for (const x of [cx - 4, cx + 4]) {
+  for (let z = cz - 3; z <= cz + 3; z++) {
+    for (const x of [cx - 5, cx + 5]) {
       for (let y = D.ground + 1; y <= D.ground + 4; y++) {
         if (SceneKit.rand(x, y * 61 + z, salt + 1) > 0.45) advTryOre(x, y, z, ores[(x + z) % 2]);
       }
     }
   }
-}
-
-/* 副本刷怪光照门(单表达式): 方块光 0(火把圈=防刷怪圈, 教学与主世界一致)
-   且天空光 ≤7——穹顶内天空光恒 0 天然过; 无时间维度(副本恒暗, 冻结的
-   dayTime 不参与——advNightCanSpawn 的 internalSky 项在这里恒不可用) */
-function advDenCanSpawn(skyAt, blockAt) {
-  return blockAt === 0 && skyAt <= 7;
-}
-
-/* 副本刷怪节拍(advNestStep 同构: 状态进 · {spawn, t} 出): 存量满配额 → 不刷
-   且计时归零; 未满累计到拍出刷怪令(落点/取种/光照复核在壳层——光照不过本拍
-   作废, 夜怪同款「逐拍独立」) */
-function advDenStep(alive, t, dt) {
-  const m = advSpawnPulse(alive < ADV_DEN.CAP, t, dt, ADV_DEN.TRY_S); /* 刷怪核心薄壳 */
-  return {spawn: m.fire, t: m.t};
-}
-
-/* 祭坛出生环带掷点(角度/半径均匀, 巢穴出生环带同款几何; 环心=祭坛中心) */
-function advDenSpot(rnd) {
-  return advRingSpot(ADV_DEN.altar.x + 0.5, ADV_DEN.altar.z + 0.5, ADV_DEN.RING_LO, ADV_DEN.RING_HI, rnd);
-}
-
-/* 副本池权重取种(advEruptStep 同构; 浮点尽头兜底末段) */
-function advDenPick(rnd) {
-  return advWeightedPick(ADV_DEN.POOL, rnd);
 }
 
 /* ============================================================
@@ -237,8 +365,8 @@ const ADV_DIMS = [
     mood: 'nether', /* 洞穴水声 ambient——副本的洞穴语义同源(den-nest D13) */
     dayCycle: false, /* 副本恒暗, dayTime 暂停(下界 D10 同口径) */
     spawn: {x: ADV_DEN.base.x, y: ADV_DEN.ground + 1, z: ADV_DEN.base.z, yaw: Math.PI},
-    /* 大厅南侧开阔区, 面朝北一眼看到祭坛; 坐标唯一权威在 ADV_DEN, 加载期派生 */
-    hud: {banner: '🕳️ 怪物巢穴 · 黑暗深处', showMobs: true}, /* 恒暗不显时段行; 怪物行照显(副本有怪——配额观感) */
+    /* 大厅南侧开阔区, 面朝北; 坐标唯一权威在 ADV_DEN, 加载期派生 */
+    hud: {banner: '🕳️ 苦力怕巢穴 · 深处', showMobs: true}, /* 恒暗不显时段行; 怪物行照显(副本有怪——波次观感) */
     assets: null}, /* 副本素材预留缝(null=走缺省方块集, GLOSSARY『副本素材』) */
 ];
 
@@ -261,5 +389,6 @@ if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_DIMS, advDimRow, advMusicMood,
     ADV_NETHER, advNetherBuild,
     ADV_ERUPT, advEruptStep,
-    ADV_DEN, advDenBuild, advDenMineRoom, advDenCanSpawn, advDenStep, advDenSpot, advDenPick};
+    ADV_DEN, ADV_DEN_TUNNELS, ADV_DEN_GUARDS, advDenRoomCenter,
+    advDenBuild, advDenMineRoom, advDenStep, advDenWavePlan};
 }
