@@ -110,6 +110,11 @@ const MOB_TYPES = {
     proto: 'bomber', family: ['plant']}, // 个体特化=扑袭+读条取消(原型分支)
   creaking: {name: '嘎枝', hp: 30, dmg: 5, speed: 3.0, range: 2.2, cd: 1.1, h: 1.7, hitR: 0.5,
     proto: 'skirmisher', family: ['plant']},
+  /* 苦力怕王(副本关底 boss, 2026-10-30 用户拍板): 放大版苦力怕——同 bomber 原型
+     (引信自爆), 更厚的血(120)与更大的自爆半径; 对玩家伤害仍走 ADV_DMG_CAP 封顶 */
+  creeper_king: {name: '苦力怕王', hp: 120, dmg: 33, speed: 2.1, range: 2.6, cd: 1.6, h: 2.8,
+    hitR: 1.05, boom: true, boss: true, fuseS: 1.4, boomR: 3.4, proto: 'bomber',
+    family: ['plant']},
   /* —— 龙族(主族 dragon, 单员族): 家传无(龙息即本体特化, 原型分支) —— */
   dragon: {name: '末影龙', hp: 300, dmg: 7, speed: 4.4, range: 17, cd: 4.5, h: 3.0, fly: true, hitR: 2.2, boss: true,
     proto: 'diver', family: ['dragon']},
@@ -163,6 +168,9 @@ const MOB_DROPS = {
   zombie: {rolls: [['rotten_flesh', 1, 1]], rare: [['iron_ingot', 0.05]]}, // MC 稀有铁锭 0.83% → 5%(§3.1)
   skeleton: {rolls: [['bone', 1, 1]]}, // 箭二期(弓物品化)
   creeper: {rolls: [['gunpowder', 1, 1]]},
+  /* 苦力怕王战利品(用户拍板 2026-10-30): 保底 10 火药(0 加成——「更多火药」整数口径)
+     + 稀有掉落必得钻石剑(概率 1, 副本唯一钻石剑产地之外的惊喜出口) */
+  creeper_king: {rolls: [['gunpowder', 10, 0]], rare: [['sword_diamond', 1]]},
   spider: {rolls: [['string', 1, 1]]},
   slime: {rolls: [['slimeball', 1, 1]]}, // MC 需玩家击杀口径: 本游戏击杀者只有玩家, 天然满足
   /* F4 农场一家(二期设计稿 §4.5, 儿童配平「保底 1+50%+1」沿用): 生肉+副产物 */

@@ -7,7 +7,7 @@
    加载方式与 mobs.test 的 THREE 桩), 对注册表数据做完整性/语义钉:
    · 完整性: 每个可部署怪 proto 合法 · family 键全注册 · 每怪必归种族(无兜底族)
    · 语义钉: 僵尸猪灵/僵尸疣猪兽主族=猪猪一家带僵尸血统(一身两族) · 草木族/守卫组归组
-   · 分组查询: Mobs.families() 11 种族 · 37 怪各归一桶 · 顺序按 FAMILIES.order
+   · 分组查询: Mobs.families() 11 种族 · 38 怪各归一桶 · 顺序按 FAMILIES.order
    · 掉落表: MOB_DROPS 结构/逐格(随迁自 test/blocks-fields.test.js 的怪物段)
    · 恒等锚: Mobs.types === 注册表 MOB_TYPES(壳经共享词法环境直读, 无影子拷贝) */
 const test = require('node:test');
@@ -168,9 +168,9 @@ test('F4 spawnable 收窄: 可部署=可战斗部署 — 排除 passive 四键, 
   for (const k of ['cow', 'pig', 'sheep', 'chicken']) {
     assert.ok(!dep.includes(k), '农场动物 ' + k + ' 不进可战斗部署清单');
   }
-  /* 既有 37 战斗怪一只不少(竞技场 MIX_POOL/演习场 RANGE_MOB_KEYS 零改动的前提) */
-  assert.strictEqual(dep.length, 37, '战斗部署清单仍为 37 怪');
-  for (const k of ['zombie', 'skeleton', 'creeper', 'spider', 'slime', 'shulker', 'dragon']) {
+  /* 既有 37 战斗怪一只不少 + 苦力怕王(§7 副本关底) → 38 */
+  assert.strictEqual(dep.length, 38, '战斗部署清单 38 怪(37+苦力怕王)');
+  for (const k of ['zombie', 'skeleton', 'creeper', 'creeper_king', 'spider', 'slime', 'shulker', 'dragon']) {
     assert.ok(dep.includes(k), '战斗怪 ' + k + ' 仍在清单');
   }
   assert.ok(!dep.includes('mix'), 'mix 伪类型照旧排除');
@@ -186,7 +186,7 @@ test('F4 families 无农场桶: 被动动物不进展示分组(面板归组走 s
   assert.strictEqual(groups.length, 11, '展示分组仍是 11 个战斗种族');
 });
 
-test('families(): 11 种族各归一桶 · 37 怪全覆盖 · 无兜底桶 · 顺序按 FAMILIES.order', () => {
+test('families(): 11 种族各归一桶 · 38 怪全覆盖 · 无兜底桶 · 顺序按 FAMILIES.order', () => {
   const groups = Mobs.families();
   assert.equal(groups.length, 11, '展示分组 = 11 个种族, 实为 ' + groups.length);
   const seen = [];
@@ -195,8 +195,8 @@ test('families(): 11 种族各归一桶 · 37 怪全覆盖 · 无兜底桶 · �
     assert.ok(FAMILIES[g.key], '分桶应已注册: ' + g.key);
     for (const k of g.members) seen.push(k);
   }
-  assert.equal(seen.length, 37);
-  assert.equal(new Set(seen).size, 37, '每怪只归一桶(主族归组)');
+  assert.equal(seen.length, 38);
+  assert.equal(new Set(seen).size, 38, '每怪只归一桶(主族归组)');
   assert.deepEqual([...new Set(seen)].sort(), [...Mobs.spawnable()].sort());
   assert.ok(!groups.find((g) => g.key === 'lone' || g.key === 'other'), '独行侠兜底桶已撤');
   const pig = groups.find((g) => g.key === 'pig_line');
@@ -211,8 +211,9 @@ test('families(): 11 种族各归一桶 · 37 怪全覆盖 · 无兜底桶 · �
   assert.deepEqual([...guard.members].sort(),
       ['elder_guardian', 'golem', 'guardian', 'warden'],
       '守卫组(职责组) = 铁傀儡/监守者/守卫者/远古守卫者');
-  assert.deepEqual(groups.find((g) => g.key === 'plant').members.sort(), ['creaking', 'creeper'],
-      '草木族 = 苦力怕+嘎枝');
+  assert.deepEqual(groups.find((g) => g.key === 'plant').members.sort(),
+      ['creaking', 'creeper', 'creeper_king'],
+      '草木族 = 苦力怕+嘎枝+苦力怕王(§7 关底 boss 归主族)');
   assert.deepEqual(groups.find((g) => g.key === 'dragon').members, ['dragon'], '龙族 = 末影龙(单员族)');
   assert.deepEqual(groups.find((g) => g.key === 'sea').members, ['shulker'], '海族 = 潜影贝(单员族)');
   const orders = groups.map((g) => FAMILIES[g.key].order);
@@ -270,4 +271,13 @@ test('MOB_DROPS 结构: rolls=[itemId,保底,加成次数], rare=[itemId,概率]
   }
   assert.deepEqual(MOB_DROPS.zombie.rare, [['iron_ingot', 0.05]],
       '僵尸稀有铁锭: MC 0.83% → 5%(设计稿 §3.3)');
+  /* 苦力怕王战利品(§7 用户拍板): 10 火药整付 + 必得钻石剑 */
+  const ck = MOB_DROPS.creeper_king;
+  assert.ok(ck, 'MOB_DROPS 有苦力怕王');
+  assert.deepEqual(ck.rolls, [['gunpowder', 10, 0]], '王掉 10 火药(无加成掷骰——整数口径)');
+  assert.deepEqual(ck.rare, [['sword_diamond', 1]], '王必掉钻石剑(概率 1)');
+  assert.ok(MOB_TYPES.creeper_king.boss && MOB_TYPES.creeper_king.boom,
+      '王行带 boss+boom 旗标(bomber 原型, 引信自爆)');
+  assert.ok(MOB_TYPES.creeper_king.hp > MOB_TYPES.creeper.hp * 3,
+      '王血量 ≥3×常款(关底体格)');
 });

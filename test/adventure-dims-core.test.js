@@ -30,7 +30,7 @@ const api = vm.runInContext(`({
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
-/* 刷怪三件(候选 2): advEruptStep/advDenStep/advDenSpot/advDenPick 薄壳经全局名消费 */
+/* 刷怪三件(候选 2): advEruptStep/advDenStep 薄壳经全局名消费(波次环带掷点在 advDenWavePlan 内组装) */
 Object.assign(globalThis, require('../js/adventure-spawn-core.js'));
 /* 上一层共享词法: ADV_PORTAL/advPortalFrame/advOreSpotsReset/advTryOre/advOreSpots */
 Object.assign(globalThis, require('../js/adventure-core.js'));

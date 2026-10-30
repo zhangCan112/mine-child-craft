@@ -972,7 +972,8 @@ function advOnKill(m) {/* 击杀观感(CombatKit.killBurst, nether 同源): 碎�
    掉落在 onDeath 回调; 任务记账只认亲手击杀(挥击/箭/TNT 三路都经此——
    TNT 掀方块不算挖掘, 但炸死怪物算战果)。
    F4(二期设计稿 §4.5): passive 动物 verb 用「收获」(温和口径替代「击杀」),
-   kill_mob 记账排除——冒险章战斗步只认怪物, 动物是收获不是战斗 */
+   kill_mob 记账排除——冒险章战斗步只认怪物, 动物是收获不是战斗;
+   苦力怕王(§7 关底)击杀有专属话术与 toast——关底仪式感 */
   ADV.killCount++;
   const passive = !!(m.cfg && m.cfg.passive);
   if (!passive) {
@@ -980,6 +981,27 @@ function advOnKill(m) {/* 击杀观感(CombatKit.killBurst, nether 同源): 碎�
     advTally('kill_' + m.type, 1); /* 怪种分账(T8 远征章): 沼骸步按种认, 与总账并行 */
   }
   CombatKit.killBurst(m, ADV.killCount, {verb: passive ? '收获' : '击杀'});
+  if (m.type === 'creeper_king') {
+    advToast('👑 打败了苦力怕王！');
+    advSpeak('哇！你打败了苦力怕王！它是这座巢穴里最厉害的守护者，拿走它的宝藏吧！');
+  }
+}
+
+/* 苦力怕自爆结算(bomber 原型, 副本 §7): AOE 伤玩家(伤害走 advMobDmg 封顶
+   通道, 与近战同一条儿童红线), 不拆方块——副本岩体是可探索空间不是矿场,
+   「爆炸开矿」的唯一出口仍是 TNT(D4 口径不松动); 自爆无掉落(MC 口径),
+   观感与 TNT 同一视觉语言(Fx.boom+boom 音) */
+function advCreepBoom(m, p) {
+  const R = m.cfg.boomR || 2.6; /* 王座 3.4 / 常款 2.6(mob-registry fuseS/boomR) */
+  Fx.boom(m.pos.x, m.pos.y + 0.9, m.pos.z, {r1: R + 1, n: 12});
+  advSfx('boom');
+  Mobs.remove(m); /* 自爆残躯立即移除(引擎回收管线, 竞技场同款) */
+  const d = Math.hypot(p.pos.x - m.pos.x, p.pos.z - m.pos.z);
+  if (!p.dead && d <= R && Math.abs(p.pos.y - m.pos.y) < 3) {
+    const r = Mobs.hit(p, advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.9);
+    if (r.freshDead) advPlayerDied();
+    else advHurt.hit(r);
+  }
 }
 
 /* 受击提醒已收 CombatKit.mkHurtAlarm(C6-T3, advHurt 实例 — nether 全套同源):
@@ -992,13 +1014,28 @@ function advMobAI(dt) {
   for (const m of Mobs.list()) {
     if (m.dead || m.gone || m.cfg.passive) continue; /* F4 牧场动物走 advHerdTick(恐惧游荡), 不进战斗 AI */
     CombatCore.tickCadence(m, dt); /* 攻击节拍(战斗核心, 与竞技场/下界同一条) */
+    /* 苦力怕引信推进(bomber 原型, 副本 §7): 点着就站桩膨胀+白闪倒数(竞技场
+       tickCreepFuse 同构), 到点自爆; 读条早期(<0.35s)玩家拉开 2.2×range
+       可取消——「看到绿朋友鼓起来就后退」是可教的动作课 */
+    if (m.__fuse >= 0) {
+      m.__fuse += dt;
+      const ft = m.cfg.fuseS || 1.15; /* 王 1.4s 留反应窗(mob-registry 行内注释) */
+      const fp = Math.min(1, m.__fuse / ft);
+      Mobs.scaleTo(m, 1 + fp * 0.35); /* 引信膨胀 */
+      const fv = Math.sin(m.__fuse * 25) > 0 ? 1.9 : 1;
+      Mobs.pulseTint(m, fv, fv, fv); /* 引信白闪(instanceColor 增亮) */
+      if (m.__fuse >= ft) {
+        advCreepBoom(m, p);
+        continue; /* 已自爆移除, 本帧不再走 AI/步态 */
+      }
+    }
     /* 家锚(收队/索敌的 leash 原点): 夜怪=出生环点(昼夜 D5, 不归巢穴), 巢穴怪=本巢 */
     const home = m.__nightHome || advMapRow.nests[m.nest != null ? m.nest : 0];
     const dxP = p.pos.x - m.pos.x; const dzP = p.pos.z - m.pos.z;
     const distP = Math.hypot(dxP, dzP) || 1e-9;
     const hx = home.x - m.pos.x; const hz = home.z - m.pos.z;
     const distHome = Math.hypot(hx, hz) || 1e-9;
-    const speed = m.cfg.speed || 2;
+    const speed = (m.cfg.speed || 2) * (m.speedMult || 1); /* 波次强化走逐实例乘数(§7), cfg 是共享表禁改 */
     let moved = 0; /* 本帧实际速度(喂步态) */
     const aggro = !p.dead && distP <= ADV_NEST_AGGRO_R && distHome <= ADV_NEST_LEASH_R;
     if (aggro) {
@@ -1014,6 +1051,20 @@ function advMobAI(dt) {
           m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
           advArrows.shootFromMob(m, p, {speed: ADV_ARROW_SPEED, dmg: advMobDmg(m),
             kpow: 0.6, g: 6, life: 2.5}); /* 骷髅箭(伤害封顶 ADV_DMG_CAP 在纯核心) */
+        }
+      } else if (m.cfg.boom) {/* 苦力怕族: 压上→贴身点引信(站桩自爆); 读条早期
+          玩家跑远即取消(竞技场 moveBoom 同款判据); 无近战平A——引信即全部 */
+        if (m.__fuse >= 0) {
+          if (m.__fuse < 0.35 && distP > m.cfg.range * 2.2) {
+            m.__fuse = -1;
+            Mobs.scaleTo(m, 1);
+            Mobs.pulseTint(m, 1, 1, 1); /* 收引信回常态 */
+          }
+        } else if (distP <= m.cfg.range + 0.4 && Math.abs(p.pos.y - m.pos.y) < 2.5) {
+          m.__fuse = 0;
+          advSfx('fuse'); /* 起燃嘶声(音效注册表 'fuse') */
+        } else {
+          Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
         }
       } else if (distP > m.cfg.range) {/* 近战逼近 */
         Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
@@ -1870,10 +1921,12 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     dayCycleOn = drow.dayCycle; /* 维度恒停 dayTime(日月天体随之隐藏, D10/D6) */
     setPlayerGlow(false); /* 灯笼随身光熄灭(维度不亮不耗, 门禁见 update) */
     advLanternT = 0; /* 耗秒累计器归零(回主世界从整秒重新累计) */
-    if (dim === 'den') advDenT = 0; /* 副本刷怪节拍器复位(den 专属, 不进表) */
+    if (dim === 'den') {
+      advDenT = 0; advDenWave = 0; /* 副本波次状态复位(den 专属, 不进表; 重进由 advDenSeed 重铺) */
+    }
     ModeKit.spawn(drow.spawn.x, drow.spawn.y, drow.spawn.z, {yaw: drow.spawn.yaw}); /* 行落点(结构常量派生) */
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
-    if (dim === 'den') advDenSeed(); /* 副本怪首刷(守卫在场, 节拍器补员; den 专属) */
+    if (dim === 'den') advDenSeed(); /* 副本进场布防(§7: 守卫+祭坛房第一波; 清怪后波次补员; den 专属) */
   } else {
     loadScene(() => {/* 主世界基座确定性重建(当前地图行 build) + 当前桶重放; 不跑
         applySweep——那是 init 旧档治愈专用, 切回来的世界本来就是干净的 */
@@ -1937,13 +1990,15 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
    怪物巢穴副本壳段 (den-nest-design §3) — 副本刷怪/入口站桩/涌出接线
    ------------------------------------------------------------
    副本 = 探险第三维度 advDim 'den'(切界装配读维度行 ADV_DIMS, 见
-   advSetDim): 节拍/光照门/掷点/取种纯函数在 adventure-dims-core
-   (ADV_DEN 副本段), 本段只做落地: 祭坛环带刷怪(家锚=祭坛, advMobAI
-   leash 复用) + 主世界黑巢洞口紫门的入口站桩 + 夜间巢口涌出(涌出节拍
-   纯函数 advEruptStep 亦在 adventure-dims-core, 落地挂在缺省夜怪铺法
+   advSetDim): 布防表/波次计划/弯隧道纯数据与纯函数在 adventure-dims-core
+   (ADV_DEN 副本段), 本段只做落地: 进场布防+清怪波次(§7 苦力怕主题改造,
+   家锚=房心, advMobAI leash 复用) + 苦力怕引信自爆(bomber 分支在 advMobAI)
+   + 主世界黑巢洞口紫门的入口站桩 + 夜间巢口涌出(涌出节拍纯函数
+   advEruptStep 亦在 adventure-dims-core, 落地挂在缺省夜怪铺法
    advNightLayRing 尾部)。
    ============================================================ */
-let advDenT = 0; /* 副本刷怪节拍器(秒, advDenStep 的状态; advSetDim den 分支复位) */
+let advDenT = 0; /* 副本清怪计时(秒, advDenStep 的状态; 全清才累计, 见怪即归零) */
+let advDenWave = 0; /* 当前波次(1 起; 进场铺布防+第一波, 全清 WAVE_S 秒后递增) */
 function advDenAlive() {/* 副本怪存量(advNightAlive 同口径: 尸体/已移除/动物不算) */
   let n = 0;
   for (const m of Mobs.list()) {
@@ -1951,26 +2006,35 @@ function advDenAlive() {/* 副本怪存量(advNightAlive 同口径: 尸体/已�
   }
   return n;
 }
-function advDenSpawnOne() {/* 单只副本怪: 祭坛环带掷点 → 光照门复核(火把圈=防刷怪圈,
-    不过本拍作废——夜怪同款逐拍独立) → spawn + 家锚 + 落位修正。返 boolean 供首刷计数 */
-  const s = advDenSpot(Math.random);
-  const bx = Math.floor(s.x); const bz = Math.floor(s.z);
-  if (bx < 0 || bz < 0 || bx >= WORLD_W || bz >= WORLD_D) return false;
-  if (!advDenCanSpawn(lightSkyAt(bx, ADV_DEN.ground + 1, bz),
-      lightBlockAt(bx, ADV_DEN.ground + 1, bz))) return false;
-  const m = Mobs.spawn(advDenPick(Math.random), s.x, s.z, {yaw: 0});
-  m.pos.y = ADV_DEN.ground + 1; /* spawn 贴列顶(穹顶), 显式落厅地面(Mobs 许可直写, 女巫先例) */
-  m.__nightHome = {x: ADV_DEN.altar.x + 0.5, z: ADV_DEN.altar.z + 0.5}; /* 家锚=祭坛(advMobAI leash 原点, 祭坛周围游荡) */
-  return true;
+function advDenLay(list, mult) {/* 布防落地(固定守卫与波次共用): spawn 贴列顶
+    (副本岩顶, 女巫先例的显式落位) + 波次三乘数(hp 走 spawn 的 hpMult 通道,
+    速度/伤害走逐实例字段——cfg 是共享注册表对象, 严禁原地改) + 家锚=房心 */
+  for (const g of list) {
+    const m = Mobs.spawn(g.type, g.x + 0.5, g.z + 0.5,
+        {yaw: 0, hpMult: mult ? mult.hpMult : 1});
+    m.pos.y = (g.y != null ? g.y : ADV_DEN.ground + 1);
+    if (mult && mult.spdMult) m.speedMult = mult.spdMult;
+    if (mult && mult.dmgMult) m.dmgMult = mult.dmgMult;
+    m.__nightHome = {x: g.hx != null ? g.hx : g.x + 0.5, z: g.hz != null ? g.hz : g.z + 0.5};
+  }
 }
-function advDenSeed() {/* 副本怪首刷: 进副本即有守卫(节拍器随后补员) */
-  for (let k = 0; k < 2; k++) advDenSpawnOne();
+function advDenSeed() {/* 副本进场布防(§7): 固定守卫(大厅/两翼/关底王座) +
+    祭坛房第一波; 之后全清 WAVE_S 秒出更强的一波(advDenTick 补位) */
+  advDenWave = 1;
+  advDenT = 0;
+  advDenLay(ADV_DEN_GUARDS);
+  const w1 = advDenWavePlan(1, Math.random);
+  advDenLay(w1.spawns, w1);
 }
-function advDenTick(dt) {/* 副本刷怪节拍(update 每帧, den 门禁内): 纯函数节拍
-    (配额未满 2.5s 一拍) → 掷点+光照门落地 */
-  const step = advDenStep(advDenAlive(), advDenT, dt);
+function advDenTick(dt) {/* 副本波次节拍(update 每帧, den 门禁内): 门=全清
+    (怪还活着计时归零)——清空累计 WAVE_S 秒出下一波; 节拍纯函数在 dims-core */
+  const step = advDenStep(advDenAlive() === 0, advDenT, dt);
   advDenT = step.t;
-  if (step.spawn) advDenSpawnOne();
+  if (step.spawn) {
+    advDenWave++;
+    const w = advDenWavePlan(advDenWave, Math.random);
+    advDenLay(w.spawns, w);
+  }
 }
 
 /* ---------- 副本入口门(den-nest §2.1; 2026-10-30 从「巢厅巢之心旁半径站桩」迁到洞口
@@ -2028,8 +2092,8 @@ function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——
   advSfx('portal_travel'); /* 双段式第二段: 与遮罩满格同拍 */
   if (advVeil.kind === 'den') {
     advSetDim('den'); /* 换桶/建场/暗黑天穹/首刷在切界装配(den-nest §3.3 ②) */
-    advSpeak('你钻进了怪物巢穴深处！');
-    advToast('🕳️ 钻进了怪物巢穴深处！');
+    advSpeak('你钻进了苦力怕巢穴深处！');
+    advToast('🕳️ 钻进了苦力怕巢穴深处！');
     return;
   }
   const row = ADV_MAPS.find((r) => r.id === advVeil.to);
@@ -3290,7 +3354,7 @@ const AdventureMode = mkMode({
     advExitSpot = null;
     advMood = null; /* 首帧 update 按当下昼夜补报场景曲(main 随后会先报基线 adventure) */
     advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7): 转场不跨场次(巢穴门已共用此状态) */
-    advDenT = 0; /* 副本刷怪节拍器复位(维度不进档, 重进恒主世界) */
+    advDenT = 0; advDenWave = 0; /* 副本波次状态复位(维度不进档, 重进恒主世界) */
     advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
     advGateLockT = 0; /* 锁门提示节流复位 */
