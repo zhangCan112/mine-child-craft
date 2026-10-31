@@ -69,6 +69,11 @@ const ArenaCore = (() => {
     wither_skeleton_spider_jockey: 430, illusioner: 260, blaze: 280, ghast: 320, magma_cube: 190, guardian: 330,
     elder_guardian: 1000, shulker: 200, vindicator: 560, evoker: 300, pillager: 210,
     ravager: 1150, wither: 3000, warden: 4800,
+    /* 苦力怕谱系两 boss(2026-10-31 补漏 — 入谱时漏登记, unitPower 返 undefined
+       → 面板 NaN+自动配平把 count 写成 NaN, 见守门单测): 突变 hp 60+引信爆
+       居苦力怕 195 与王之间; 王 hp 120+全场最高 33 爆伤+最大爆径, 居
+       蛮兵 950 与劫掠兽 1150 之间 — 谱系「数值阶梯居中」口径同款 */
+    mutant_creeper: 480, creeper_king: 1050,
   };
 
   /* 地形方块别名(config 的 BLOCKS id, 名字见注册表): 免魔法数字散在地形代码里 */
@@ -208,9 +213,13 @@ const ArenaCore = (() => {
     return Math.round(pool.reduce((s, k)=>s+ARENA_POWER[k], 0) / pool.length);
   }
   /* 混编按族等权分桶(谱系第一期机制消费): 先均匀抽主族再族内均匀抽成员 —
-     成员均匀会让大家族(僵尸一家 4 只)挤掉小家族(软软族 2 只)的出场名额 */
+     成员均匀会让大家族(僵尸一家 4 只)挤掉小家族(软软族 2 只)的出场名额。
+     不预置 lone 空桶: MIX_FAMS=桶键全集, 空桶进了键集就会被抽中, 抽中即
+     返回 undefined 怪种(部署时 Mobs.spawn 炸 TypeError, 开战一只怪都出
+     不来) — lone 只在真有无族怪落桶时按需创建(注册表侧「每怪必归种族」
+     由 test/mob-registry.test.js 守门, 本函数对空桶不变量另有单测) */
   function mixBuckets(pool, mobTypes) {
-    const b = {lone: []};
+    const b = {};
     for (const k of pool) {
       const fam = ((mobTypes[k].family)||[])[0] || 'lone';
       (b[fam] = b[fam] || []).push(k);

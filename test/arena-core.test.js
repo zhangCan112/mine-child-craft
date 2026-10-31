@@ -76,6 +76,25 @@ test('战力: ARENA_POWER 键集都在 mob-registry MOB_TYPES(菜单文案直读
   assert.ok(ArenaCore.ARENA_POWER.warden > ArenaCore.ARENA_POWER.zombie, '配平序: 监守者远强于僵尸');
 });
 
+test('战力完整性(反向守门): 每个可部署战斗怪都有有限正战力(漏行=选它编队即 NaN)', () => {
+  /* 2026-10-31 事故: 苦力怕王/突变巨型苦力怕入谱时漏登记战力 — unitPower
+     返 undefined → teamPower=NaN, 且默认开启的自动配平把对侧 count 也写成
+     NaN(Math.max(1, NaN)=NaN 穿透钳制), 面板数量直接显示 NaN。
+     正向(表键都是注册种)由上一条守, 这条守反向覆盖。 */
+  const battle = Object.keys(cfg.MOB_TYPES)
+      .filter((k) => k !== 'mix' && !cfg.MOB_TYPES[k].passive);
+  assert.ok(battle.length >= 40, '战斗怪清单非抽样');
+  for (const k of battle) {
+    const p = ArenaCore.ARENA_POWER[k];
+    assert.ok(typeof p === 'number' && Number.isFinite(p) && p > 0,
+        k + ' 缺战力登记(选它做编队 → 面板战力/数量 NaN)');
+  }
+  /* 混编均值也必须有限: 池=非 boss 非飞(mixPool 口径), 均值 NaN 会经
+     unitPower('mix') 毒化配平两侧 */
+  const pool = battle.filter((k) => !cfg.MOB_TYPES[k].boss && !cfg.MOB_TYPES[k].fly);
+  assert.ok(Number.isFinite(ArenaCore.mixAvgPower(pool)), '混编池战力均值有限');
+});
+
 test('地形别名: ID_* 恒等 config 的 BLOCKS id(免魔法数字的口径没漂)', () => {
   const expect = {ID_GRASS: 1, ID_STONE: 3, ID_COBBLE: 4, ID_BRICK: 13, ID_MOSS: 14,
     ID_BLUEWOOL: 15, ID_REDWOOL: 16, ID_QUARTZ: 17, ID_GLASS: 18, ID_LAMP: 19};
@@ -257,7 +276,7 @@ test('编队池: mixPool 滤掉 Boss/飞行, mixBuckets 按主族分桶(无族�
   const fakeTypes = {
     zombie: {family: ['zombie_line']},
     stray: {family: ['skeleton_line']},
-    golem: {}, // 无族标签 → lone(独行侠桶天然存在)
+    golem: {}, // 无族标签 → lone(桶按需创建, 见下一条空桶不变量)
     warden: {boss: true},
     phantom: {fly: true},
   };
@@ -268,6 +287,24 @@ test('编队池: mixPool 滤掉 Boss/飞行, mixBuckets 按主族分桶(无族�
   assert.deepStrictEqual(buckets.skeleton_line, ['stray']);
   assert.deepStrictEqual(buckets.lone, ['golem']);
   assert.deepStrictEqual(Object.keys(buckets).sort(), ['lone', 'skeleton_line', 'zombie_line']);
+});
+
+test('回归: mixBuckets 永不产出空桶(空桶进 MIX_FAMS 键集 = pickMix 抽中返回 undefined, 部署炸 TypeError 开战不刷怪)', () => {
+  /* 2026-10-31 真实事故: 旧实现预置 {lone: []}, 而 mob-registry 已「每怪必归
+     种族」(独行侠撤销), lone 永远空桶 — 混编开战每次约 1/N 概率抽中空桶,
+     deploySpawnQueue 逐帧卡死在同一坏条目上, 场上一只怪都出不来。 */
+  const allFamilied = { // 真实注册表现状镜像: 全员有族
+    zombie: {family: ['zombie_line']},
+    stray: {family: ['skeleton_line']},
+    golem: {family: ['guard']},
+  };
+  const buckets = ArenaCore.mixBuckets(Object.keys(allFamilied), allFamilied);
+  assert.deepStrictEqual(buckets,
+      {zombie_line: ['zombie'], skeleton_line: ['stray'], guard: ['golem']},
+      '全员有族时 lone 键不应出现');
+  for (const [fam, members] of Object.entries(buckets)) {
+    assert.ok(members.length > 0, '桶 ' + fam + ' 必须非空(pickMix 按 fams 均匀抽, 空桶=抽 undefined)');
+  }
 });
 
 test('混编均值: mixAvgPower 按 ARENA_POWER 池内平均(四舍五入)', () => {

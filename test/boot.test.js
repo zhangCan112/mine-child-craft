@@ -9,7 +9,10 @@
    执行错误在这里原样复现。
    覆盖面: ① 全脚本依序加载无错 ② MODES 影子清单上锁 — 键集与模式
    注册表等价 / 每键是对象且 init 可调 / 训练营(focus/math)预算契约 /
-   switchMode 全 id 不抛且 MODES.cur 落位。注册表加行漏改 main.js 手写
+   switchMode 全 id 不抛且 MODES.cur 落位 / ③ 竞技场开战部署冒烟 —
+   mix 编队 startBattle → 泵帧 → 部署队列清空+场上怪种全注册(2026-10-31
+   「混编开战不刷怪」事故的消费端防线: 桶不变量在 test/arena-core.test.js,
+   这里守真实加载序下的全链)。注册表加行漏改 main.js 手写
    的 MODES, 在②当场红, 而不是等孩子点新卡炸 undefined.init()(boot 只
    默认进 arena, 探测不到其余六键)。源文本静态防线在
    test/mode-registry.test.js — 双道防线, 任一被误删另一道仍守。 */
@@ -184,4 +187,37 @@ test('switchMode 全 id 不抛: 注册表每个模式可切换且 MODES.cur 落�
     assert.strictEqual(vm.runInContext('MODES.cur && MODES.cur.id', ctx), id,
         id + ' 切换后 MODES.cur 应落位');
   }
+});
+
+test('开战部署冒烟: mix 编队 startBattle → 泵帧 → 队列清空+怪种全注册(状态探针, 不恢复现场)', () => {
+  const ctx = boot();
+  vm.runInContext('switchMode("arena")', ctx);
+  assert.strictEqual(vm.runInContext('MODES.cur && MODES.cur.id', ctx), 'arena');
+  /* 2026-10-31「混编开战不刷怪」事故的消费端防线: mixBuckets 预置空 lone
+     桶时 pickMix 抽中返回 undefined 怪种, deploySpawnQueue 逐帧卡死同一坏
+     条目(update 抛错且主循环当帧渲染后全跳过) — 桶不变量已由
+     test/arena-core.test.js 锁死, 这里守真实加载序下的部署全链。
+     performance.now 桩恒 0: 部署每帧预算判定恒真, 一帧全出, 泵 60 帧足够 */
+  assert.doesNotThrow(
+      () => vm.runInContext('cfgA.type = "mix"; cfgB.type = "mix"; startBattle()', ctx),
+      'mix 编队开战应不抛');
+  assert.ok(vm.runInContext('spawnQueue.length', ctx) > 0, '开战后部署队列应有待部署怪');
+  for (let i = 0; i < 60; i++) {
+    assert.doesNotThrow(() => vm.runInContext('MODES.cur.update(0.016)', ctx),
+        '开战后泵帧应不抛(部署炸错=逐帧卡死, 即「开战不刷怪」症状本体)');
+  }
+  const r = JSON.parse(vm.runInContext(`
+    (() => {
+      let alive = 0; let badType = 0;
+      for (const m of Mobs.list()) {
+        if (!MOB_TYPES[m.type]) badType++;
+        if (!m.dead && !m.gone) alive++;
+      }
+      return JSON.stringify({queue: spawnQueue.length, alive, badType, state: battleState});
+    })()
+  `, ctx));
+  assert.strictEqual(r.state, 'fighting', '开战后应进入战斗态');
+  assert.strictEqual(r.queue, 0, '部署队列应清空(怪全部入场)');
+  assert.strictEqual(r.badType, 0, '每只已部署怪的 type 都应是 MOB_TYPES 注册种(undefined 怪种在此现形)');
+  assert.ok(r.alive > 0, '场上应有存活怪物(开战刷新)');
 });
