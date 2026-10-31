@@ -126,17 +126,23 @@ const MOB_TYPES = {
     proto: 'skirmisher', family: ['plant']},
   /* 突变巨型苦力怕(副本西翼两巢房小 boss, 2026-10-30 用户拍板; Mutant Creatures
      模组同源怪, 调研底座 docs/mc-mutant-creeper-research.md): 苦力怕谱系中层。
-     体型按调研口径(高 ≈1.4 倍 → h 2.4/scale 1.4, 宽 ≈3.3 倍的体感由 hitR 0.7
-     补足——本 kit 只做等比 scale); 模组 HP 120 与本项目苦力怕王同值——转译
+     体型按调研口径(高 ≈1.4 倍 → scale 1.4; 宽 ≈3.3 倍的体感由 hitR 0.7
+     补足——本 kit 只做等比 scale); h 2.8 随 2026-10-31 躯干加长版模型抬高
+     (视觉高 ≈3.2 格, 命中柱与头顶名条跟上——与王同档, 横向仍小于王 hitR 0.7<1.05);
+     模组 HP 120 与本项目苦力怕王同值——转译
      调低到 60(谱系阶梯: 王仍是关底最强, 小 boss 血量 ≈2×常款); 引信 2.5s 与
      自爆半径 2.9 介于常款(3s/2.6)与王(2s/3.4)之间; 对玩家伤害走 ADV_DMG_CAP 封顶 */
-  mutant_creeper: {name: '突变巨型苦力怕', hp: 60, dmg: 33, speed: 2.6, range: 2.2, cd: 2, h: 2.4,
+  mutant_creeper: {name: '突变巨型苦力怕', hp: 60, dmg: 33, speed: 2.6, range: 2.2, cd: 2, h: 2.8,
     hitR: 0.7, boom: true, boss: true, fuseS: 2.5, boomR: 2.9, proto: 'bomber',
     family: ['plant']},
   /* 苦力怕王(副本关底 boss, 2026-10-30 用户拍板): 放大版苦力怕——同 bomber 原型
      (引信自爆), 更厚的血(120)与更大的自爆半径; 引信 2s 比常款(3s)更果断——
-     王不犹豫; 对玩家伤害仍走 ADV_DMG_CAP 封顶 */
-  creeper_king: {name: '苦力怕王', hp: 120, dmg: 33, speed: 2.1, range: 2.6, cd: 1.6, h: 2.8,
+     王不犹豫; 对玩家伤害仍走 ADV_DMG_CAP 封顶。
+     造型 2026-10-31 王者威仪版(用户拍板): 体型=常款整 2 倍(look scale 2.0,
+     旧 1.6)+全套冠冕(金箍带/四角尖桩/红宝石)+紫底金边王披风; 视觉身高
+     ≈3.25 格、冠尖到 ≈3.9 格——h 3.5=命中柱(箭矢可中头部/冠下), 名牌
+     (h+0.55≈4.05)恰在冠尖之上不被遮挡 */
+  creeper_king: {name: '苦力怕王', hp: 120, dmg: 33, speed: 2.1, range: 2.6, cd: 1.6, h: 3.5,
     hitR: 1.05, boom: true, boss: true, fuseS: 2, boomR: 3.4, proto: 'bomber',
     family: ['plant']},
   /* —— 龙族(主族 dragon, 单员族): 家传无(龙息即本体特化, 原型分支) —— */
