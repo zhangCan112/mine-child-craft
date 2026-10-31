@@ -5,7 +5,8 @@
    灾厄村民基座(villager 血统: 头 8×10×8+鼻+长袍, 研究笔记 §5 灾厄帮)
    + 四级歪帽追加骨(10×2×10 檐 → 7×4×7 → 4×4×4 → 1×2×1, 逐级 rx
    前倾 — 官方逐级弯折的 rx 近似)。毒药瓶 = armL 追加(weaponArm
-   同侧); 紫袍+尖鼻痣画进贴图。
+   同侧); 紫袍+尖鼻痣画进贴图。2026-10-31 对齐官方图: 帽改黑呢+
+   绿箍带(旧版深紫帽撤销), 鼻改棕长鼻。
    interface: declare('witch', {...}) — 单一声明
    依赖: js/mob-look-kit.js(先载); 键 ∈ mob-registry.js MOB_TYPES
    可测性声明: 纯声明数据, 由 test/mob-look.test.js 键集/覆盖断言
@@ -27,25 +28,28 @@ MobLookKit.declare('witch', {
     const SKIN = [154, 138, 154]; const SKIN2 = [128, 112, 128];
     const DARK = [30, 24, 32]; const EYE = [64, 92, 138];
     const ROBE = [112, 74, 130]; const ROBE2 = [88, 58, 100];
-    const HAT = [66, 46, 74]; const HAT2 = [48, 34, 54];
+    const HAT = [34, 30, 38]; const HAT2 = [22, 20, 28]; /* 黑呢帽 */
+    const BAND = [96, 176, 64]; /* 帽箍绿带 */
     const POTION = [138, 216, 74];
-    /* 头(8×10): 灰紫肤 · 鹰钩鼻区 · 蓝瞳 · 鼻痣 */
+    /* 头(8×10): 灰紫肤 · 蓝瞳 · 抿嘴 */
     const F = R.head.front;
     g.noise(F, SKIN, 0.05);
     g.fill([F[0] + 1, F[1] + 4, 2, 2], EYE); g.fill([F[0] + 5, F[1] + 4, 2, 2], EYE);
     g.fill([F[0] + 3, F[1] + 8, 2, 1], DARK); /* 抿嘴 */
     for (const f of ['back', 'left', 'right', 'top']) g.noise(R.head[f], SKIN, 0.05);
     g.noise(R.head.bottom, SKIN, 0.05); g.mul(R.head.bottom, 0.8);
-    /* 鼻(head2): 深肤+鼻头痣 */
-    g.noiseAll(R.head2, SKIN2, 0.05);
-    g.px(R.head2.front[0] + 1, R.head2.front[1] + 3, DARK); /* 鼻痣(女巫辨识件) */
+    /* 鼻(head2): 棕长鼻+鼻头痣(女巫辨识件) */
+    g.noiseAll(R.head2, [150, 112, 86], 0.05);
+    g.px(R.head2.front[0] + 1, R.head2.front[1] + 3, DARK); /* 鼻痣 */
     g.mul(R.head2.bottom, 0.85);
-    /* 四级歪帽(head3~6): 深紫呢+帽褶阴影 */
+    /* 四级歪帽(head3~6): 黑呢+帽褶阴影 · 帽身一级箍绿带 */
     for (const part of [R.head3, R.head4, R.head5, R.head6]) {
       g.noiseAll(part, HAT, 0.06);
     }
     g.fill([R.head3.front[0], R.head3.front[1], R.head3.front[2], 1], HAT2); /* 檐口阴影 */
-    g.fill([R.head4.front[0] + 2, R.head4.front[1] + 2, 3, 1], HAT2); /* 帽褶 */
+    g.fill([R.head4.front[0], R.head4.front[1] + R.head4.front[3] - 2,
+      R.head4.front[2], 1], BAND); /* 帽箍绿带 */
+    g.fill([R.head4.front[0] + 2, R.head4.front[1] + 1, 3, 1], HAT2); /* 帽褶 */
     g.fill([R.head5.front[0] + 1, R.head5.front[1] + 1, 2, 1], HAT2); /* 帽褶 */
     /* 身: 紫袍双件 · 领口+下摆压暗 */
     g.noiseAll(R.root, ROBE, 0.05);

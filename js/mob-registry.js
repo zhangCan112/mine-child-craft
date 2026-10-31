@@ -2,8 +2,8 @@
 /* ============================================================
    怪物注册表 (MobRegistry, 术语见 GLOSSARY「怪物库」「怪物谱系」) — 引擎层
    ------------------------------------------------------------
-   怪物种类清单的唯一权威: 数值表 MOB_TYPES(43 键 = 38 战斗怪 + F4 农场四怪 +
-   mix 伪类型) · 谱系两维表 FAMILIES/PROTOS · 击杀掉落表 MOB_DROPS(10 键)。
+   怪物种类清单的唯一权威: 数值表 MOB_TYPES(48 键 = 43 战斗怪 + F4 农场四怪 +
+   mix 伪类型) · 谱系两维表 FAMILIES/PROTOS · 击杀掉落表 MOB_DROPS(13 键)。
    四表纯数据零函数, 表间零程序性引用(键名的语义关联由 test/mob-registry.test.js
    闭环); 消费方(怪物库 mobs.js · 竞技场 arena.js · 掷骰 drops.js)经共享词法
    环境读全局名, 只派生不复制。2026-10 自 config.js 拆出(架构治理候选 8 T1,
@@ -45,6 +45,16 @@ const MOB_TYPES = {
   bogged: {name: '沼骸', hp: 24, dmg: 6, speed: 2.5, range: 14, cd: 2.8, h: 1.9, ranged: true, hitR: 0.55,
     proto: 'archer', family: ['skeleton_line']},
   wither_skeleton: {name: '凋灵骷髅', hp: 30, dmg: 13, speed: 2.5, range: 2.4, cd: 1.3, h: 2.4, hitR: 0.6,
+    proto: 'charger', family: ['skeleton_line']},
+  /* 蜘蛛骑士三家(2026-10-31 用户票, 图源官方蜘蛛骑士): 骑手坐在蜘蛛背上的
+     复合怪 — 造型一张网(骑手人形骨+蜘蛛基座, 见 mob-look/*_spider_jockey.js),
+     数值 = 骑手攻性 + 蜘蛛腿劲(speed/hitR 取坐骑档); 主族 skeleton_line
+     (骑手身份领家传, 面板归骷髅一家桶) */
+  skeleton_spider_jockey: {name: '骷髅蜘蛛骑士', hp: 32, dmg: 6, speed: 3.0, range: 14, cd: 2.4, h: 2.1, hitR: 0.7,
+    ranged: true, proto: 'archer', family: ['skeleton_line']},
+  stray_spider_jockey: {name: '流浪者蜘蛛骑士', hp: 36, dmg: 6, speed: 2.9, range: 14, cd: 2.6, h: 2.1, hitR: 0.7,
+    ranged: true, proto: 'archer', family: ['skeleton_line']},
+  wither_skeleton_spider_jockey: {name: '凋灵骷髅蜘蛛骑士', hp: 48, dmg: 13, speed: 3.0, range: 2.6, cd: 1.2, h: 2.5, hitR: 0.8,
     proto: 'charger', family: ['skeleton_line']},
   /* —— 虫虫族(主族 arthropod, 家传·疾爬突进) —— */
   spider: {name: '蜘蛛', hp: 24, dmg: 3, speed: 3.0, range: 2.2, cd: 1.2, h: 0.9, hitR: 0.65,
@@ -104,6 +114,10 @@ const MOB_TYPES = {
     proto: 'charger', family: ['illager']},
   witch: {name: '女巫', hp: 39, dmg: 9, speed: 2.5, range: 14, cd: 3.0, h: 2.0, ranged: true, hitR: 0.45,
     proto: 'archer', family: ['illager']}, // raider 圈: 村民的邪恶亲戚(物种归帮, 原版亦此划分)
+  /* 幻术师(2026-10-31 用户票, Java 版未实装怪按官方图入册): 弓射+幻术的
+     灾厄施法者 — 本游戏取弓手原型(archer), 族内战力居掠夺者与唤魔者之间 */
+  illusioner: {name: '幻术师', hp: 36, dmg: 6, speed: 2.5, range: 14, cd: 2.8, h: 1.9, hitR: 0.55,
+    ranged: true, proto: 'archer', family: ['illager']},
   /* —— 独行侠已撤销(用户拍板"不要不伦不类的兜底族"): 每怪必归种族, 单员族合法 —— */
   /* —— 草木族(主族 plant): 植物身子的怪(家传三期补) —— */
   creeper: {name: '苦力怕', hp: 28, dmg: 33, speed: 3.1, range: 2.0, cd: 9, h: 1.7, boom: true, hitR: 0.5,
@@ -186,6 +200,10 @@ const MOB_DROPS = {
      的额外甜头, 不动王「必得钻石剑」的唯一性 */
   mutant_creeper: {rolls: [['gunpowder', 4, 2]], rare: [['iron_ingot', 0.25]]},
   spider: {rolls: [['string', 1, 1]]},
+  /* 蜘蛛骑士三家(2026-10-31): 骑手掉骨 + 坐骑掉线 — 一怪双掉落 */
+  skeleton_spider_jockey: {rolls: [['bone', 1, 1], ['string', 1, 1]]},
+  stray_spider_jockey: {rolls: [['bone', 1, 1], ['string', 1, 1]]},
+  wither_skeleton_spider_jockey: {rolls: [['bone', 1, 1], ['string', 1, 1]]},
   slime: {rolls: [['slimeball', 1, 1]]}, // MC 需玩家击杀口径: 本游戏击杀者只有玩家, 天然满足
   /* F4 农场一家(二期设计稿 §4.5, 儿童配平「保底 1+50%+1」沿用): 生肉+副产物 */
   cow: {rolls: [['raw_beef', 1, 1], ['leather', 1, 1]]},

@@ -3,9 +3,11 @@
    造型档案 · 蜘蛛 (spider) — 引擎层 (术语见 GLOSSARY「造型档案」)
    ------------------------------------------------------------
    官方虫形骨架(docs/mc-mob-models-research.md §5 虫虫族): 头 8³ 前置 +
-   前体 6³ + 腹 10×8×12 + 8 条长腿。官方每腿独立骨(bedrock spider.geo
-   8 条 leg 骨各自摆) — 落成 legL1..4/legR1..4 一腿一骨, 步态相位
-   交错(mobs.js gait 蜘蛛式分支驱动), 不再整槽齐摆。官方 Java 版
+   前体 6³ + 腹 10×8×12 + 8 条长腿。骨架几何已收进造型档案 kit 的
+   spider 基座(2026-10-31 蜘蛛骑士三家入册时上提 — 与骷髅基座同惯例,
+   本尊与骑士共用一付骨头, UV 号段经基座参数重排): 官方每腿独立骨
+   (bedrock spider.geo 8 条 leg 骨各自摆) — 落成 legL1..4/legR1..4
+   一腿一骨, 步态相位交错(mobs.js gait 蜘蛛式分支驱动); 官方 Java 版
    腿 pivot 挤前体 + 杆绕 y 放射(前/后腿 ±45° 朝外) — ry 立方体级
    转向落成扇形分布, 腿影罩住全身不再叠成一点; 腿形在官方 16×2×2
    水平直杆基础上做两段折线(股 8px 微斜 + 胫 8px 陡折触地, 立方体级
@@ -13,54 +15,12 @@
    换划水感 — 引擎步态可见优先(illager 长袍下摆同款取舍)。八眼簇/
    螯肢/腹背人字纹画进贴图。
    interface: declare('spider', {...}) — 单一声明
-   依赖: js/mob-look-kit.js(先载); 键 ∈ mob-registry.js MOB_TYPES
+   依赖: js/mob-look-kit.js(先载, spider 基座); 键 ∈ mob-registry.js MOB_TYPES
    可测性声明: 纯声明数据, 由 test/mob-look.test.js 键集/覆盖断言
    ============================================================ */
 MobLookKit.declare('spider', {
+  base: ['spider'],
   debris: 0x2a2226,
-  bones: {
-    head: {add: [{origin: [-4, 5, -11], size: [8, 8, 8], uv: [32, 0]}], pivot: [0, 9, -3]},
-    root: {add: [
-      {origin: [-3, 6, -3], size: [6, 6, 6], uv: [0, 0]}, /* 前体 */
-      {origin: [-5, 5, 3], size: [10, 8, 12], uv: [0, 20]}, /* 腹 */
-    ], pivot: [0, 9, 0]},
-    /* 八腿一腿一骨(pivot 挤前体 + ry 放射, 官方 Java 版手法): 前腿朝前外
-       45° · 后腿朝后外 45°(ry), 扇形罩住全身; 两段折线下垂(rz, 前后腿
-       加大补偿放射后的垂距损失)触地, 左右 ry/rz 反号。
-       八腿段全共区两块 UV(通体深色, 共区无感) */
-    legL1: {pivot: [-4, 9, 2], add: [
-      {origin: [-12, 8, 1], size: [8, 2, 2], ry: 0.785, rz: 0.5, uv: [0, 44]},
-      {origin: [-19, 4, 1], size: [8, 2, 2], ry: 0.785, rz: 1.0, uv: [0, 48]},
-    ]},
-    legL2: {pivot: [-4, 9, 1], add: [
-      {origin: [-12, 8, 0], size: [8, 2, 2], ry: 0.26, rz: 0.35, uv: [0, 44]},
-      {origin: [-19, 4, 0], size: [8, 2, 2], ry: 0.26, rz: 0.7, uv: [0, 48]},
-    ]},
-    legL3: {pivot: [-4, 9, 0], add: [
-      {origin: [-12, 8, -1], size: [8, 2, 2], ry: -0.26, rz: 0.35, uv: [0, 44]},
-      {origin: [-19, 4, -1], size: [8, 2, 2], ry: -0.26, rz: 0.7, uv: [0, 48]},
-    ]},
-    legL4: {pivot: [-4, 9, -1], add: [
-      {origin: [-12, 8, -2], size: [8, 2, 2], ry: -0.785, rz: 0.5, uv: [0, 44]},
-      {origin: [-19, 4, -2], size: [8, 2, 2], ry: -0.785, rz: 1.0, uv: [0, 48]},
-    ]},
-    legR1: {pivot: [4, 9, 2], add: [
-      {origin: [4, 8, 1], size: [8, 2, 2], ry: -0.785, rz: -0.5, uv: [0, 44]},
-      {origin: [11, 4, 1], size: [8, 2, 2], ry: -0.785, rz: -1.0, uv: [0, 48]},
-    ]},
-    legR2: {pivot: [4, 9, 1], add: [
-      {origin: [4, 8, 0], size: [8, 2, 2], ry: -0.26, rz: -0.35, uv: [0, 44]},
-      {origin: [11, 4, 0], size: [8, 2, 2], ry: -0.26, rz: -0.7, uv: [0, 48]},
-    ]},
-    legR3: {pivot: [4, 9, 0], add: [
-      {origin: [4, 8, -1], size: [8, 2, 2], ry: 0.26, rz: -0.35, uv: [0, 44]},
-      {origin: [11, 4, -1], size: [8, 2, 2], ry: 0.26, rz: -0.7, uv: [0, 48]},
-    ]},
-    legR4: {pivot: [4, 9, -1], add: [
-      {origin: [4, 8, -2], size: [8, 2, 2], ry: 0.785, rz: -0.5, uv: [0, 44]},
-      {origin: [11, 4, -2], size: [8, 2, 2], ry: 0.785, rz: -1.0, uv: [0, 48]},
-    ]},
-  },
   tex: {size: 64, paint: (g, R) => {
     const BODY = [66, 52, 56]; const BODY2 = [46, 36, 40];
     const LEG = [44, 34, 38]; const LEG2 = [34, 26, 30]; /* 胫节比股节暗(体积感) */

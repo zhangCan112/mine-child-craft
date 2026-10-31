@@ -5,6 +5,7 @@
    灾厄村民基座官方等比(研究笔记 §5 灾厄帮 — 逐字核对同卫道士)。
    弩 = armL 追加横臂条(官方挂 rightItem 的简化, weaponArm 同侧);
    兜帽画进贴图(旧 rig 的三叠尖帽按官方口径改为头顶/后脑布兜)。
+   2026-10-31 对齐官方图: 暗红衣装(旧版土褐撤销), 布兜调暖棕。
    interface: declare('pillager', {...}) — 单一声明
    依赖: js/mob-look-kit.js(先载); 键 ∈ mob-registry.js MOB_TYPES
    可测性声明: 纯声明数据, 由 test/mob-look.test.js 键集/覆盖断言
@@ -12,13 +13,13 @@
 MobLookKit.declare('pillager', {
   base: ['illager'],
   weaponArm: 'armL',
-  debris: 0x5a5a4a,
+  debris: 0x6a3a34,
   bones: {armL: {add: [{origin: [1, 7, -2], size: [7, 2, 2], uv: [26, 40]}]}}, /* 弩(横臂) */
   tex: {size: 64, paint: (g, R) => {
     const SKIN = [176, 176, 154]; const SKIN2 = [150, 150, 128];
     const DARK = [30, 30, 24]; const EYE = [64, 92, 138];
-    const HOOD = [58, 58, 48]; const HOOD2 = [42, 42, 34];
-    const ROBE = [90, 90, 74]; const ROBE2 = [70, 70, 56];
+    const HOOD = [58, 50, 42]; const HOOD2 = [42, 36, 30];
+    const ROBE = [106, 44, 40]; const ROBE2 = [82, 32, 30]; /* 暗红衣装 */
     const WOOD = [74, 58, 40];
     /* 头(8×10): 灰肤 · 兜帽罩顶+后脑+两鬓(只露脸) · 蓝瞳 */
     const F = R.head.front;

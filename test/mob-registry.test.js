@@ -7,7 +7,7 @@
    加载方式与 mobs.test 的 THREE 桩), 对注册表数据做完整性/语义钉:
    · 完整性: 每个可部署怪 proto 合法 · family 键全注册 · 每怪必归种族(无兜底族)
    · 语义钉: 僵尸猪灵/僵尸疣猪兽主族=猪猪一家带僵尸血统(一身两族) · 草木族/守卫组归组
-   · 分组查询: Mobs.families() 11 种族 · 39 怪各归一桶 · 顺序按 FAMILIES.order
+   · 分组查询: Mobs.families() 11 种族 · 43 怪各归一桶 · 顺序按 FAMILIES.order
    · 掉落表: MOB_DROPS 结构/逐格(随迁自 test/blocks-fields.test.js 的怪物段)
    · 恒等锚: Mobs.types === 注册表 MOB_TYPES(壳经共享词法环境直读, 无影子拷贝) */
 const test = require('node:test');
@@ -169,8 +169,9 @@ test('F4 spawnable 收窄: 可部署=可战斗部署 — 排除 passive 四键, 
   for (const k of ['cow', 'pig', 'sheep', 'chicken']) {
     assert.ok(!dep.includes(k), '农场动物 ' + k + ' 不进可战斗部署清单');
   }
-  /* 既有 37 战斗怪一只不少 + 苦力怕王(§7 副本关底) + 突变巨型苦力怕(§7 小 boss) → 39 */
-  assert.strictEqual(dep.length, 39, '战斗部署清单 39 怪(37+苦力怕王+突变巨型苦力怕)');
+  /* 既有 37 战斗怪一只不少 + 苦力怕王(§7 副本关底) + 突变巨型苦力怕(§7 小 boss)
+     + 蜘蛛骑士三家(2026-10-31) + 幻术师(2026-10-31) → 43 */
+  assert.strictEqual(dep.length, 43, '战斗部署清单 43 怪(37+苦力怕王+突变巨型苦力怕+蜘蛛骑士三家+幻术师)');
   for (const k of ['zombie', 'skeleton', 'creeper', 'mutant_creeper', 'creeper_king', 'spider', 'slime',
     'shulker', 'dragon']) {
     assert.ok(dep.includes(k), '战斗怪 ' + k + ' 仍在清单');
@@ -188,7 +189,7 @@ test('F4 families 无农场桶: 被动动物不进展示分组(面板归组走 s
   assert.strictEqual(groups.length, 11, '展示分组仍是 11 个战斗种族');
 });
 
-test('families(): 11 种族各归一桶 · 39 怪全覆盖 · 无兜底桶 · 顺序按 FAMILIES.order', () => {
+test('families(): 11 种族各归一桶 · 43 怪全覆盖 · 无兜底桶 · 顺序按 FAMILIES.order', () => {
   const groups = Mobs.families();
   assert.equal(groups.length, 11, '展示分组 = 11 个种族, 实为 ' + groups.length);
   const seen = [];
@@ -197,8 +198,8 @@ test('families(): 11 种族各归一桶 · 39 怪全覆盖 · 无兜底桶 · �
     assert.ok(FAMILIES[g.key], '分桶应已注册: ' + g.key);
     for (const k of g.members) seen.push(k);
   }
-  assert.equal(seen.length, 39);
-  assert.equal(new Set(seen).size, 39, '每怪只归一桶(主族归组)');
+  assert.equal(seen.length, 43);
+  assert.equal(new Set(seen).size, 43, '每怪只归一桶(主族归组)');
   assert.deepEqual([...new Set(seen)].sort(), [...Mobs.spawnable()].sort());
   assert.ok(!groups.find((g) => g.key === 'lone' || g.key === 'other'), '独行侠兜底桶已撤');
   const pig = groups.find((g) => g.key === 'pig_line');

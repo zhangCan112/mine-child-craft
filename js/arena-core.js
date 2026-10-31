@@ -65,7 +65,8 @@ const ArenaCore = (() => {
     cave_spider: 85, silverfish: 40, endermite: 55, slime: 130, enderman: 480, witch: 300,
     husk: 160, drowned: 160, stray: 170, bogged: 150, phantom: 190, vex: 260, creaking: 200,
     zombified_piglin: 230, piglin: 200, piglin_brute: 950, hoglin: 420, zoglin: 430,
-    wither_skeleton: 350, blaze: 280, ghast: 320, magma_cube: 190, guardian: 330,
+    wither_skeleton: 350, skeleton_spider_jockey: 220, stray_spider_jockey: 230,
+    wither_skeleton_spider_jockey: 430, illusioner: 260, blaze: 280, ghast: 320, magma_cube: 190, guardian: 330,
     elder_guardian: 1000, shulker: 200, vindicator: 560, evoker: 300, pillager: 210,
     ravager: 1150, wither: 3000, warden: 4800,
   };

@@ -4,7 +4,7 @@
    通过 interface 驱动(spawn/update/hit/near/clear/onDeath — 界面即测试面):
    出厂契约(战斗节拍置零)/ 数值 / 受击死亡 / 击杀事件 / 圆域查询 / 尸体回收。
    THREE 以最小桩注入: 加载期只 new 矩阵临时量, 断言不依赖其语义。
-   造型档案(票③起 mobs.js 硬依赖): 装载真 kit+42 份声明(与浏览器共享词法
+   造型档案(票③起 mobs.js 硬依赖): 装载真 kit+46 份声明(与浏览器共享词法
    环境同构 — vm 注入); 测试只走纯逻辑路径(clear 先清表再 render, 批次
    几何/材质的 THREE·document 段不被触达)。 */
 const test = require('node:test');

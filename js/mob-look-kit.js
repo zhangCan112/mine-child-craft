@@ -114,7 +114,9 @@ const MobLookKit = (() => {
      quad: 四足(牛/猪/羊…) — 官方「竖模 bind_pose 90°」的等价水平盒(预躺平,
      推导注引研究笔记 §5); wool 参数 = 身/头同盒 inflate 的**羊毛独立骨**
      (woolBody/woolHead, 剪毛态可整骨隐藏, 羊; 研究笔记 §5 农场一家);
-     bodyUV/headUV/legUVs 参数 = 大怪 128 档的布局重排覆写 */
+     bodyUV/headUV/legUVs 参数 = 大怪 128 档的布局重排覆写
+     spider: 蜘蛛(虫虫族) — 头前置+前体+腹+八腿一腿一骨(手法与参数见本表内注);
+     headKey = 头骨键名覆写(蜘蛛骑士把 'head' 让给骑手), UV 号段可覆写 */
   const BASES = {
     humanoid(o) {
       o = o || {};
@@ -156,6 +158,47 @@ const MobLookKit = (() => {
           {origin: [0, 0, -2], size: [4, 12, 4], uv: [0, 40]}, /* 与右腿共区(同色靴) */
         ]},
       };
+    },
+    /* spider: 蜘蛛骨架(虫虫族) — 头 8³ 前置+前体 6³+腹 10×8×12+八腿一腿一骨。
+       官方 Java 版手法与参数全收在这里(腿 pivot 挤前体+ry 放射+两段折线 rz
+       下垂, 前后腿加大补偿; 推导与事故注引见 spider.js 头注释), 本尊与三家
+       蜘蛛骑士共用同一骨架。headKey = 头骨键名(蜘蛛骑士把 'head' 让给骑手
+       ——facePixels 裁骑手脸作面板头像, 蜘蛛头改名 spiderHead 静态骨);
+       headUV/bodyUVs/legUVs = 骑士 64 档贴图重排覆写(quad 同惯例) */
+    spider(o) {
+      o = o || {};
+      const hk = o.headKey || 'head';
+      const headUV = o.headUV || [32, 0];
+      const bodyUVs = o.bodyUVs || [[0, 0], [0, 20]]; /* 前体/腹 */
+      const legUVs = o.legUVs || [[0, 44], [0, 48]]; /* 股/胫各一区(八腿共区) */
+      const out = {};
+      out[hk] = {pivot: [0, 9, -3], cubes: [{origin: [-4, 5, -11], size: [8, 8, 8], uv: headUV}]};
+      out.root = {pivot: [0, 9, 0], cubes: [
+        {origin: [-3, 6, -3], size: [6, 6, 6], uv: bodyUVs[0]}, /* 前体 */
+        {origin: [-5, 5, 3], size: [10, 8, 12], uv: bodyUVs[1]}, /* 腹 */
+      ]};
+      /* 八腿一腿一骨(与本尊逐字同参): 前腿朝前外 45° · 后腿朝后外 45°(ry),
+         两段折线下垂(rz), 左右反号; 四对 pivot z 2/1/0/−1 扇形交错
+         (腿盒 z 原点比 pivot 低 1px), 声明序 legL1..4 → legR1..4 */
+      const RY = [0.785, 0.26, -0.26, -0.785];
+      const RZ = [[0.5, 1.0], [0.35, 0.7], [0.35, 0.7], [0.5, 1.0]];
+      for (let i = 0; i < 4; i++) {
+        const pz = 2 - i;
+        const zo = pz - 1;
+        out['legL' + (i + 1)] = {pivot: [-4, 9, pz], cubes: [
+          {origin: [-12, 8, zo], size: [8, 2, 2], ry: RY[i], rz: RZ[i][0], uv: legUVs[0]},
+          {origin: [-19, 4, zo], size: [8, 2, 2], ry: RY[i], rz: RZ[i][1], uv: legUVs[1]},
+        ]};
+      }
+      for (let i = 0; i < 4; i++) {
+        const pz = 2 - i;
+        const zo = pz - 1;
+        out['legR' + (i + 1)] = {pivot: [4, 9, pz], cubes: [
+          {origin: [4, 8, zo], size: [8, 2, 2], ry: -RY[i], rz: -RZ[i][0], uv: legUVs[0]},
+          {origin: [11, 4, zo], size: [8, 2, 2], ry: -RY[i], rz: -RZ[i][1], uv: legUVs[1]},
+        ]};
+      }
+      return out;
     },
     quad(o) {
       const body = {
