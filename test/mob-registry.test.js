@@ -7,7 +7,7 @@
    加载方式与 mobs.test 的 THREE 桩), 对注册表数据做完整性/语义钉:
    · 完整性: 每个可部署怪 proto 合法 · family 键全注册 · 每怪必归种族(无兜底族)
    · 语义钉: 僵尸猪灵/僵尸疣猪兽主族=猪猪一家带僵尸血统(一身两族) · 草木族/守卫组归组
-   · 分组查询: Mobs.families() 11 种族 · 38 怪各归一桶 · 顺序按 FAMILIES.order
+   · 分组查询: Mobs.families() 11 种族 · 39 怪各归一桶 · 顺序按 FAMILIES.order
    · 掉落表: MOB_DROPS 结构/逐格(随迁自 test/blocks-fields.test.js 的怪物段)
    · 恒等锚: Mobs.types === 注册表 MOB_TYPES(壳经共享词法环境直读, 无影子拷贝) */
 const test = require('node:test');
@@ -118,8 +118,9 @@ test('谱系语义钉: 僵尸猪灵/僵尸疣猪兽主族=猪猪一家且带僵�
   assert.ok(zog.includes('zombie_line'), '僵尸疣猪兽应带僵尸血统副族');
 });
 
-test('谱系语义钉: 苦力怕/嘎枝归草木族; 铁傀儡归守卫组(职责组)', () => {
+test('谱系语义钉: 苦力怕/突变巨型苦力怕/嘎枝归草木族; 铁傀儡归守卫组(职责组)', () => {
   assert.deepEqual(MOB_TYPES.creeper.family, ['plant'], '苦力怕=草木族(植物身子)');
+  assert.deepEqual(MOB_TYPES.mutant_creeper.family, ['plant'], '突变巨型苦力怕=草木族(苦力怕谱系小 boss)');
   assert.deepEqual(MOB_TYPES.creaking.family, ['plant'], '嘎枝=草木族(木头身子)');
   assert.deepEqual(MOB_TYPES.golem.family, ['guard'], '铁傀儡=守卫组(与监守者同守卫)');
 });
@@ -168,9 +169,10 @@ test('F4 spawnable 收窄: 可部署=可战斗部署 — 排除 passive 四键, 
   for (const k of ['cow', 'pig', 'sheep', 'chicken']) {
     assert.ok(!dep.includes(k), '农场动物 ' + k + ' 不进可战斗部署清单');
   }
-  /* 既有 37 战斗怪一只不少 + 苦力怕王(§7 副本关底) → 38 */
-  assert.strictEqual(dep.length, 38, '战斗部署清单 38 怪(37+苦力怕王)');
-  for (const k of ['zombie', 'skeleton', 'creeper', 'creeper_king', 'spider', 'slime', 'shulker', 'dragon']) {
+  /* 既有 37 战斗怪一只不少 + 苦力怕王(§7 副本关底) + 突变巨型苦力怕(§7 小 boss) → 39 */
+  assert.strictEqual(dep.length, 39, '战斗部署清单 39 怪(37+苦力怕王+突变巨型苦力怕)');
+  for (const k of ['zombie', 'skeleton', 'creeper', 'mutant_creeper', 'creeper_king', 'spider', 'slime',
+    'shulker', 'dragon']) {
     assert.ok(dep.includes(k), '战斗怪 ' + k + ' 仍在清单');
   }
   assert.ok(!dep.includes('mix'), 'mix 伪类型照旧排除');
@@ -186,7 +188,7 @@ test('F4 families 无农场桶: 被动动物不进展示分组(面板归组走 s
   assert.strictEqual(groups.length, 11, '展示分组仍是 11 个战斗种族');
 });
 
-test('families(): 11 种族各归一桶 · 38 怪全覆盖 · 无兜底桶 · 顺序按 FAMILIES.order', () => {
+test('families(): 11 种族各归一桶 · 39 怪全覆盖 · 无兜底桶 · 顺序按 FAMILIES.order', () => {
   const groups = Mobs.families();
   assert.equal(groups.length, 11, '展示分组 = 11 个种族, 实为 ' + groups.length);
   const seen = [];
@@ -195,8 +197,8 @@ test('families(): 11 种族各归一桶 · 38 怪全覆盖 · 无兜底桶 · �
     assert.ok(FAMILIES[g.key], '分桶应已注册: ' + g.key);
     for (const k of g.members) seen.push(k);
   }
-  assert.equal(seen.length, 38);
-  assert.equal(new Set(seen).size, 38, '每怪只归一桶(主族归组)');
+  assert.equal(seen.length, 39);
+  assert.equal(new Set(seen).size, 39, '每怪只归一桶(主族归组)');
   assert.deepEqual([...new Set(seen)].sort(), [...Mobs.spawnable()].sort());
   assert.ok(!groups.find((g) => g.key === 'lone' || g.key === 'other'), '独行侠兜底桶已撤');
   const pig = groups.find((g) => g.key === 'pig_line');
@@ -212,8 +214,8 @@ test('families(): 11 种族各归一桶 · 38 怪全覆盖 · 无兜底桶 · �
       ['elder_guardian', 'golem', 'guardian', 'warden'],
       '守卫组(职责组) = 铁傀儡/监守者/守卫者/远古守卫者');
   assert.deepEqual(groups.find((g) => g.key === 'plant').members.sort(),
-      ['creaking', 'creeper', 'creeper_king'],
-      '草木族 = 苦力怕+嘎枝+苦力怕王(§7 关底 boss 归主族)');
+      ['creaking', 'creeper', 'creeper_king', 'mutant_creeper'],
+      '草木族 = 苦力怕+嘎枝+苦力怕王+突变巨型苦力怕(§7 小 boss 归主族)');
   assert.deepEqual(groups.find((g) => g.key === 'dragon').members, ['dragon'], '龙族 = 末影龙(单员族)');
   assert.deepEqual(groups.find((g) => g.key === 'sea').members, ['shulker'], '海族 = 潜影贝(单员族)');
   const orders = groups.map((g) => FAMILIES[g.key].order);
@@ -284,4 +286,23 @@ test('MOB_DROPS 结构: rolls=[itemId,保底,加成次数], rare=[itemId,概率]
   assert.strictEqual(MOB_TYPES.creeper.fuseS, 3, '苦力怕引信 3 秒(儿童反应窗)');
   assert.strictEqual(MOB_TYPES.creeper_king.fuseS, 2, '王引信 2 秒(比常款果断——王不犹豫)');
   assert.ok(MOB_TYPES.creeper_king.fuseS < MOB_TYPES.creeper.fuseS, '王引信短于常款');
+  /* 突变巨型苦力怕(2026-10-30 第六批拍板): 小 boss 数值阶梯全部居中——
+     血量/引信/自爆半径都在常款与王之间; boss 旗标=不进竞技场混合编队池 */
+  const mc = MOB_TYPES.mutant_creeper;
+  const ckT = MOB_TYPES.creeper_king;
+  assert.ok(mc.boss && mc.boom, '突变小 boss 行带 boss+boom 旗标(bomber 原型)');
+  assert.ok(mc.hp > MOB_TYPES.creeper.hp && mc.hp < ckT.hp,
+      '小 boss 血量介于常款(28)与王(120)之间: ' + mc.hp);
+  assert.ok(MOB_TYPES.creeper.fuseS > mc.fuseS && mc.fuseS > ckT.fuseS,
+      '引信阶梯: 常款 3s > 突变 2.5s > 王 2s(越强越果断)');
+  assert.strictEqual(mc.boomR, 2.9, '小 boss 自爆半径显式值(介于常款缺省 2.6 与王 3.4)');
+  assert.strictEqual(ckT.boomR, 3.4, '王自爆半径 3.4 不变(关底体格)');
+  /* 突变巨型苦力怕战利品(2026-10-30 第六批): 掉落阶梯居中——保底 4 火药+50%×2 掷
+     (4~6, 高于常款 1~2, 低于王 10); 25% 稀有铁锭是小 boss 甜头, 王的必得钻石剑仍唯一 */
+  const mcd = MOB_DROPS.mutant_creeper;
+  assert.ok(mcd, 'MOB_DROPS 有突变巨型苦力怕');
+  assert.deepEqual(mcd.rolls, [['gunpowder', 4, 2]], '小 boss 保底 4 火药+50%×2 掷(4~6)');
+  assert.ok(mcd.rolls[0][1] > MOB_DROPS.creeper.rolls[0][1] && mcd.rolls[0][1] < ck.rolls[0][1],
+      '火药保底阶梯: 常款(1) < 突变小 boss(4) < 王(10)');
+  assert.deepEqual(mcd.rare, [['iron_ingot', 0.25]], '小 boss 稀有铁锭 25%');
 });

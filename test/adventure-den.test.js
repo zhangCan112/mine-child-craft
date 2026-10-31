@@ -372,25 +372,33 @@ test('副本布防表: 全部怪落在所属房腔地板上 · 家锚=房心 · 
     assert.ok(inRoom(g.x, g.z), g.type + ' 布防位在房腔内(' + g.x + ',' + g.z + ')');
     assert.ok(g.hx != null && g.hz != null, g.type + ' 家锚(房心)存在');
   }
-  /* 谱系分层统计(布防+第一波): 苦力怕(含王) ≥60%(用户拍板), 且四种族齐上
-     (草木族主力/虫虫族/僵尸一家/骷髅一家——「按谱系和层级有高有低」) */
+  /* 谱系分层统计(布防+第一波): 苦力怕族(含突变小 boss 与王) ≥60%(用户拍板),
+     且四种族齐上(草木族主力/虫虫族/僵尸一家/骷髅一家——「按谱系和层级有高有低」) */
   const w1 = Dims.advDenWavePlan(1, () => 0.5);
   const all = Dims.ADV_DEN_GUARDS.map((g) => g.type).concat(w1.spawns.map((s) => s.type));
-  const nCreep = all.filter((t) => t === 'creeper' || t === 'creeper_king').length;
+  const nCreep = all.filter((t) => t === 'creeper' || t === 'mutant_creeper' || t === 'creeper_king').length;
   assert.ok(nCreep / all.length >= 0.6,
       '苦力怕族占比 ≥60%: ' + nCreep + '/' + all.length);
-  for (const need of ['creeper', 'creeper_king', 'silverfish', 'cave_spider', 'spider',
+  for (const need of ['creeper', 'mutant_creeper', 'creeper_king', 'silverfish', 'cave_spider', 'spider',
     'endermite', 'zombie', 'wither_skeleton']) {
     assert.ok(all.includes(need), '地底生态多样性含 ' + need);
   }
   assert.strictEqual(Dims.ADV_DEN_GUARDS.filter((g) => g.type === 'creeper_king').length, 1,
       '苦力怕王恰一位(关底 boss)');
+  /* 突变巨型苦力怕小 boss(2026-10-30 第六批拍板): 恰两只, 巢 A/B 各驻一窝 */
+  const mutants = Dims.ADV_DEN_GUARDS.filter((g) => g.type === 'mutant_creeper');
+  assert.strictEqual(mutants.length, 2, '突变巨型苦力怕恰两只(小 boss)');
+  for (const key of ['nestA', 'nestB']) {
+    const r = DEN.rooms[key];
+    const inNest = mutants.filter((g) => g.x >= r.x1 && g.x <= r.x2 && g.z >= r.z1 && g.z <= r.z2);
+    assert.strictEqual(inNest.length, 1, key + ' 恰驻一只突变小 boss(窝主)');
+  }
 });
 
 test('副本布防表: 布防位与家锚收敛位都在进场落点索敌圈外(传送落地安全缓冲)', () => {
   /* 2026-10-30 用户反馈「刚传送门口2个苦力怕」: 落点默认不在怪物攻击范围
      是儿童红线。索敌=distP ≤ AGGRO_R(12); 收队聚齐=家锚 ± HOME_R(2)。
-     两口径对全表 28 只钉死——大厅北移之外, 未来加怪也进不了落点圈 */
+     两口径对全表 30 只钉死——大厅北移之外, 未来加怪也进不了落点圈 */
   for (const g of Dims.ADV_DEN_GUARDS) {
     const dSpawn = Math.hypot(g.x + 0.5 - DEN.base.x, g.z + 0.5 - DEN.base.z);
     assert.ok(dSpawn > Core.ADV_NEST_AGGRO_R,

@@ -152,7 +152,8 @@ const ADV_DEN_TUNNELS = [
 
 /* 固定布防表(进场一次; 祭坛房波次另算): 按谱系与层级有高有低——低级层
    苦力怕为绝对主力(≥60%), 虫虫族/僵尸一家为中层, 凋灵骷髅为关底精英,
-   苦力怕王是 boss。hx/hz=家锚(AI leash 原点=房心, 怪守在本房; 大厅例外=
+   苦力怕王是 boss, 突变巨型苦力怕是西翼两巢房的窝主小 boss(2026-10-30 第六批)。
+   hx/hz=家锚(AI leash 原点=房心, 怪守在本房; 大厅例外=
    厅北集结点——进场落点安全缓冲, 布防位/家锚距落点 > 索敌半径 12 有测试钉死);
    y 缺省地面 ground+1, 王座台上的王 y=ground+2 */
 const ADV_DEN_GUARDS = [
@@ -166,14 +167,17 @@ const ADV_DEN_GUARDS = [
   {type: 'creeper', x: 78, z: 71, hx: 80, hz: 72},
   {type: 'creeper', x: 88, z: 73, hx: 80, hz: 72},
   {type: 'zombie', x: 71, z: 83, hx: 80, hz: 72},
-  /* 西翼·苦力怕巢 A/B(低级层大本营) */
+  /* 西翼·苦力怕巢 A/B(低级层大本营; 巢房小 boss=突变巨型苦力怕, 2026-10-30
+     第六批拍板: 一窝一只窝主, 掉落阶梯高于常款低于苦力怕王) */
   {type: 'creeper', x: 44, z: 87, hx: 46, hz: 88}, {type: 'creeper', x: 48, z: 90, hx: 46, hz: 88},
   {type: 'creeper', x: 46, z: 85, hx: 46, hz: 88}, {type: 'creeper', x: 49, z: 87, hx: 46, hz: 88},
   {type: 'creeper', x: 43, z: 91, hx: 46, hz: 88}, {type: 'creeper', x: 47, z: 92, hx: 46, hz: 88},
+  {type: 'mutant_creeper', x: 46, z: 90, hx: 46, hz: 88}, /* 巢 A 窝主(小 boss) */
   {type: 'silverfish', x: 45, z: 89, hx: 46, hz: 88},
   {type: 'creeper', x: 44, z: 69, hx: 46, hz: 70}, {type: 'creeper', x: 48, z: 72, hx: 46, hz: 70},
   {type: 'creeper', x: 46, z: 67, hx: 46, hz: 70}, {type: 'creeper', x: 49, z: 69, hx: 46, hz: 70},
   {type: 'creeper', x: 43, z: 73, hx: 46, hz: 70}, {type: 'creeper', x: 47, z: 74, hx: 46, hz: 70},
+  {type: 'mutant_creeper', x: 46, z: 71, hx: 46, hz: 70}, /* 巢 B 窝主(小 boss) */
   {type: 'cave_spider', x: 45, z: 71, hx: 46, hz: 70},
   /* 东翼·矿腔(地底生态多样性: 虫虫族+僵尸一家, 用户拍板允带其他地底生物) */
   {type: 'cave_spider', x: 103, z: 72, hx: 104, hz: 73}, {type: 'cave_spider', x: 106, z: 75, hx: 104, hz: 73},

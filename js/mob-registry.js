@@ -2,8 +2,8 @@
 /* ============================================================
    怪物注册表 (MobRegistry, 术语见 GLOSSARY「怪物库」「怪物谱系」) — 引擎层
    ------------------------------------------------------------
-   怪物种类清单的唯一权威: 数值表 MOB_TYPES(42 键 = 37 战斗怪 + F4 农场四怪 +
-   mix 伪类型) · 谱系两维表 FAMILIES/PROTOS · 击杀掉落表 MOB_DROPS(9 键)。
+   怪物种类清单的唯一权威: 数值表 MOB_TYPES(43 键 = 38 战斗怪 + F4 农场四怪 +
+   mix 伪类型) · 谱系两维表 FAMILIES/PROTOS · 击杀掉落表 MOB_DROPS(10 键)。
    四表纯数据零函数, 表间零程序性引用(键名的语义关联由 test/mob-registry.test.js
    闭环); 消费方(怪物库 mobs.js · 竞技场 arena.js · 掷骰 drops.js)经共享词法
    环境读全局名, 只派生不复制。2026-10 自 config.js 拆出(架构治理候选 8 T1,
@@ -110,6 +110,15 @@ const MOB_TYPES = {
     fuseS: 3, proto: 'bomber', family: ['plant']}, // 个体特化=扑袭+读条取消(原型分支); 引信 3s(用户拍板 2026-10-30 加长——儿童反应窗)
   creaking: {name: '嘎枝', hp: 30, dmg: 5, speed: 3.0, range: 2.2, cd: 1.1, h: 1.7, hitR: 0.5,
     proto: 'skirmisher', family: ['plant']},
+  /* 突变巨型苦力怕(副本西翼两巢房小 boss, 2026-10-30 用户拍板; Mutant Creatures
+     模组同源怪, 调研底座 docs/mc-mutant-creeper-research.md): 苦力怕谱系中层。
+     体型按调研口径(高 ≈1.4 倍 → h 2.4/scale 1.4, 宽 ≈3.3 倍的体感由 hitR 0.7
+     补足——本 kit 只做等比 scale); 模组 HP 120 与本项目苦力怕王同值——转译
+     调低到 60(谱系阶梯: 王仍是关底最强, 小 boss 血量 ≈2×常款); 引信 2.5s 与
+     自爆半径 2.9 介于常款(3s/2.6)与王(2s/3.4)之间; 对玩家伤害走 ADV_DMG_CAP 封顶 */
+  mutant_creeper: {name: '突变巨型苦力怕', hp: 60, dmg: 33, speed: 2.6, range: 2.2, cd: 2, h: 2.4,
+    hitR: 0.7, boom: true, boss: true, fuseS: 2.5, boomR: 2.9, proto: 'bomber',
+    family: ['plant']},
   /* 苦力怕王(副本关底 boss, 2026-10-30 用户拍板): 放大版苦力怕——同 bomber 原型
      (引信自爆), 更厚的血(120)与更大的自爆半径; 引信 2s 比常款(3s)更果断——
      王不犹豫; 对玩家伤害仍走 ADV_DMG_CAP 封顶 */
@@ -172,6 +181,10 @@ const MOB_DROPS = {
   /* 苦力怕王战利品(用户拍板 2026-10-30): 保底 10 火药(0 加成——「更多火药」整数口径)
      + 稀有掉落必得钻石剑(概率 1, 副本唯一钻石剑产地之外的惊喜出口) */
   creeper_king: {rolls: [['gunpowder', 10, 0]], rare: [['sword_diamond', 1]]},
+  /* 突变巨型苦力怕战利品(副本小 boss, 2026-10-30 用户拍板): 掉落阶梯居中——
+     保底 4 火药+50%×2 掷(4~6, 高于常款 1~2, 低于王 10); 25% 稀有铁锭是小 boss
+     的额外甜头, 不动王「必得钻石剑」的唯一性 */
+  mutant_creeper: {rolls: [['gunpowder', 4, 2]], rare: [['iron_ingot', 0.25]]},
   spider: {rolls: [['string', 1, 1]]},
   slime: {rolls: [['slimeball', 1, 1]]}, // MC 需玩家击杀口径: 本游戏击杀者只有玩家, 天然满足
   /* F4 农场一家(二期设计稿 §4.5, 儿童配平「保底 1+50%+1」沿用): 生肉+副产物 */
