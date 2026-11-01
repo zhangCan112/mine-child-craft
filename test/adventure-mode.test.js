@@ -954,9 +954,9 @@ test('T14 掉落链路(行为): 击杀回调 → Drops.spawn 逐条落地(表与
   assert.ok(dropsState.spawned[0].n >= 1 && dropsState.spawned[0].n <= 2, '保底 1 + 50% 加成 1');
   assert.strictEqual(dropsState.spawned[0].x, 86, '落点 = 击杀点');
   assert.strictEqual(dropsState.spawned[0].y, 25.8, '高度 = 击杀点上方 0.8');
-  /* 未收录怪种不掉落(空手骷髅马之类不炸) */
+  /* 未收录怪种不掉落不炸(2026-11-01 按族补齐后战斗怪全覆盖, 真实键仅剩 mix 伪类型) */
   dropsState.spawned.length = 0;
-  mobsState.deathCbs[0]({type: 'dragon', pos: {x: 0, y: 10, z: 0}});
+  mobsState.deathCbs[0]({type: 'mix', pos: {x: 0, y: 10, z: 0}});
   assert.strictEqual(dropsState.spawned.length, 0, '掉落表没写就是没有(不抛错)');
 });
 

@@ -82,8 +82,10 @@ test('rollDrops rare 独立掷骰: 与加成掷互不相干(两个方向都验)'
 });
 
 test('rollDrops 未注册怪种返回空数组(掉落表未收录 = 不掉落, 不抛错)', () => {
+  /* 2026-11-01 按族补齐后 43 战斗怪全覆盖(反向守门在 mob-registry.test.js),
+     「真实键无条目」仅剩 mix 伪类型——它不是怪, 不掉落; no_such_mob 兜未注册键 */
   const {rollDrops} = loadDrops();
-  eq(rollDrops('golem', seqRand([])), []);
+  eq(rollDrops('mix', seqRand([])), []);
   eq(rollDrops('no_such_mob', seqRand([])), []);
 });
 

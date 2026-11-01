@@ -3,7 +3,8 @@
    怪物注册表 (MobRegistry, 术语见 GLOSSARY「怪物库」「怪物谱系」) — 引擎层
    ------------------------------------------------------------
    怪物种类清单的唯一权威: 数值表 MOB_TYPES(48 键 = 43 战斗怪 + F4 农场四怪 +
-   mix 伪类型) · 谱系两维表 FAMILIES/PROTOS · 击杀掉落表 MOB_DROPS(13 键)。
+   mix 伪类型) · 谱系两维表 FAMILIES/PROTOS · 击杀掉落表 MOB_DROPS(47 键 =
+   43 战斗怪全覆盖 + F4 农场四怪)。
    四表纯数据零函数, 表间零程序性引用(键名的语义关联由 test/mob-registry.test.js
    闭环); 消费方(怪物库 mobs.js · 竞技场 arena.js · 掷骰 drops.js)经共享词法
    环境读全局名, 只派生不复制。2026-10 自 config.js 拆出(架构治理候选 8 T1,
@@ -15,6 +16,18 @@
    语义钉/掉落表结构/Mobs.types 恒等锚; 表内容逐字迁自 config.js, 迁移基线
    255a57c 经 JSON 恒等对账)
    ============================================================ */
+
+/* ---------- 新怪入谱清单(加一只战斗怪要同步的五处, 漏项由守门测试红提示) ----------
+   ① 本文件 MOB_TYPES 数值行(新族再补 FAMILIES 行; proto 取值 ⊆ PROTOS, 谱系
+     完整性测试守门)
+   ② 本文件 MOB_DROPS 掉落行(战斗怪必填, 漏键 test/mob-registry.test.js 反向
+     守门红; 物品 id ⊆ ITEMS 由 test/drops.test.js 交叉断言)
+   ③ js/mob-look/<type>.js 造型档案(一怪一文件, 文件名=MOB_TYPES 键, 键集=
+     文件集由 test/mob-look.test.js 断言)
+   ④ js/modes/arena.js ARENA_POWER 战力行(漏登 unitPower=NaN, test/arena-core.
+     test.js 战力完整性反向守门红)
+   ⑤ 可选: arena.js 的 FAMILY_SKILLS/MOB_QUIRKS(族技能/个体特化, 不登记=无特技)
+   mix 伪类型除外(编队按钮非怪)。收尾 npm test 全绿再交。 */
 
 /* ---------- 怪物数值表 (js/mobs.js 怪物库用; 竞技场与坦克演习场共用) ----------
    数值按 Minecraft 原版等比映射(与初代五怪同口径):
@@ -190,14 +203,24 @@ const FAMILIES = {
 /* grazer = 「无战斗」原型占位(F4 牧场动物): 游荡归 Mobs 通用本能, 竞技场族技能表无 farm_line 条目即不发技能 */
 const PROTOS = ['charger', 'archer', 'bomber', 'ambusher', 'diver', 'turret', 'splitter', 'skirmisher', 'grazer'];
 
-/* ---------- 怪物掉落表 (物品与合成一期, 设计稿 §3.3) ----------
+/* ---------- 怪物掉落表 (物品与合成一期起, 设计稿 §3.3) ----------
    儿童配平: 击杀必得保底数, 再以 50% 掷「加成次数」次(替代 MC 66%×0-2 的空手可能)。
    rolls: [itemId, 保底, 加成次数] · rare: [itemId, 概率](独立小概率额外掉落)。
-   一期: 战斗四怪 + 史莱姆; 二期补下界四条/三期动物(设计稿 §3.3 注释口径)。
+   43 战斗怪全覆盖(2026-11-01 retro 按族补齐, 漏键由 test/mob-registry.test.js 反向守门红):
+   同族照族内既有口径(僵尸一家→腐肉 · 骷髅一家→骨 · 虫虫族→线 · 软软族→粘液球);
+   MC 原版掉落物未注册的物品(末影珍珠/烈焰棒/下界之星/海晶碎片等)以既有物品代位并
+   逐行注明口径, 不硬造新物品(注册新掉落物属独立决策); F4 农场四怪照二期设计稿 §4.5。
    消费者: Drops.rollDrops(T7) — 掷骰语义在此表, 表只存数据。 */
 const MOB_DROPS = {
   zombie: {rolls: [['rotten_flesh', 1, 1]], rare: [['iron_ingot', 0.05]]}, // MC 稀有铁锭 0.83% → 5%(§3.1)
+  /* 僵尸一家照僵尸口径(腐肉+5% 稀有铁锭); 溺尸 MC 另掉铜锭(未注册)不另设 */
+  husk: {rolls: [['rotten_flesh', 1, 1]], rare: [['iron_ingot', 0.05]]},
+  drowned: {rolls: [['rotten_flesh', 1, 1]], rare: [['iron_ingot', 0.05]]},
   skeleton: {rolls: [['bone', 1, 1]]}, // 箭二期(弓物品化)
+  /* 骷髅一家照骷髅口径(骨, 箭同骷髅二期不设); 凋灵骷髅加 MC 煤(双条目同蜘蛛骑士先例) */
+  stray: {rolls: [['bone', 1, 1]]},
+  bogged: {rolls: [['bone', 1, 1]]},
+  wither_skeleton: {rolls: [['bone', 1, 1], ['coal', 1, 1]]},
   creeper: {rolls: [['gunpowder', 1, 1]]},
   /* 苦力怕王战利品(用户拍板 2026-10-30): 保底 10 火药(0 加成——「更多火药」整数口径)
      + 稀有掉落必得钻石剑(概率 1, 副本唯一钻石剑产地之外的惊喜出口) */
@@ -206,12 +229,46 @@ const MOB_DROPS = {
      保底 4 火药+50%×2 掷(4~6, 高于常款 1~2, 低于王 10); 25% 稀有铁锭是小 boss
      的额外甜头, 不动王「必得钻石剑」的唯一性 */
   mutant_creeper: {rolls: [['gunpowder', 4, 2]], rare: [['iron_ingot', 0.25]]},
+  creaking: {rolls: [['stick', 1, 2]]}, // MC 原版无掉落; 木头身子→木棍读法
   spider: {rolls: [['string', 1, 1]]},
+  /* 虫虫族照蜘蛛口径(线); MC 蜘蛛眼未注册代位, 蠹虫/末影螨原版无掉落——族口径+儿童不空手 */
+  cave_spider: {rolls: [['string', 1, 1]]},
+  silverfish: {rolls: [['string', 1, 1]]},
+  endermite: {rolls: [['string', 1, 1]]},
   /* 蜘蛛骑士三家(2026-10-31): 骑手掉骨 + 坐骑掉线 — 一怪双掉落 */
   skeleton_spider_jockey: {rolls: [['bone', 1, 1], ['string', 1, 1]]},
   stray_spider_jockey: {rolls: [['bone', 1, 1], ['string', 1, 1]]},
   wither_skeleton_spider_jockey: {rolls: [['bone', 1, 1], ['string', 1, 1]]},
   slime: {rolls: [['slimeball', 1, 1]]}, // MC 需玩家击杀口径: 本游戏击杀者只有玩家, 天然满足
+  magma_cube: {rolls: [['slimeball', 1, 1]]}, // 软软族照史莱姆口径; MC 岩浆膏(需烧炼)未注册代位
+  /* —— 猪猪一家战斗五怪(人形猪按随身金饰读法, 野兽猪照猪掉肉; 僵尸血统带腐肉) —— */
+  piglin: {rolls: [['gold_ingot', 1, 1]]}, // MC 原版无掉落; 金甲金剑的金缘读法, 儿童不空手
+  piglin_brute: {rolls: [['gold_ingot', 2, 1]]}, // 精英档: 保底 2 居猪灵与 boss 之间
+  zombified_piglin: {rolls: [['rotten_flesh', 1, 1]], rare: [['gold_ingot', 0.05]]}, // MC 腐肉+金粒(未注册→金锭); 腐肉随僵尸血统
+  hoglin: {rolls: [['raw_porkchop', 2, 1]]}, // MC 生猪排 2~4 → 保底 2+加成 1
+  zoglin: {rolls: [['rotten_flesh', 1, 2]]}, // MC 腐肉 1~3
+  /* —— 鬼一族(MC 族内无统一掉落, 逐怪按原版物品找注册代位) —— */
+  ghast: {rolls: [['gunpowder', 1, 1]]}, // MC 火药(恶魂之泪未注册)
+  phantom: {rolls: [['leather', 1, 1]]}, // MC 幻翼膜(未注册)→皮革代位(皮膜读法)
+  blaze: {rolls: [['coal', 1, 1]]}, // §3.3 二期原划 blaze_rod(燃料 12 件, 未注册)→煤炭代位(同为燃料语义)
+  wither: {rolls: [['bone', 4, 0]], rare: [['diamond', 1]]}, // boss 整数口径同苦力怕王; MC 下界之星(未注册)→必得钻石奖杯
+  enderman: {rolls: [['iron_ingot', 1, 1]], rare: [['diamond', 0.05]]}, // MC 末影珍珠(未注册); 高阶怪: 保底铁锭+5% 稀有钻石(僵尸稀有铁升档)
+  vex: {rolls: [['iron_nugget', 1, 1]]}, // MC 原版无掉落; 铁剑小妖→铁粒小件(铁锭 1/9)
+  /* —— 守卫组(铁傀儡是 MC 原版铁锭大户; 监守者按 boss 整数口径) —— */
+  golem: {rolls: [['iron_ingot', 3, 2]]}, // MC 铁锭 3~5
+  warden: {rolls: [['iron_ingot', 5, 0]], rare: [['diamond', 1]]}, // boss 整数口径; MC 幽匿催发体(未注册)→必得钻石奖杯
+  guardian: {rolls: [['iron_nugget', 1, 2]]}, // MC 海晶碎片+鳕鱼(均未注册)→铁粒代位
+  elder_guardian: {rolls: [['iron_nugget', 4, 2]], rare: [['iron_ingot', 0.25]]}, // 小 boss 阶梯同突变巨型苦力怕口径(保底 4+50%×2 掷, 25% 稀有)
+  /* —— 灾厄帮(MC 掉落物多未注册, 按帮派随身物件代位) —— */
+  vindicator: {rolls: [['iron_ingot', 1, 1]]}, // MC 铁斧 8.5%(工具不作怪掉, 王的钻石剑是唯一例外)→铁锭代位
+  evoker: {rolls: [['gold_ingot', 1, 1]]}, // MC 绿宝石+不死图腾(均未注册)→金锭代位
+  pillager: {rolls: [['iron_nugget', 1, 2]]}, // MC 偶掉弩(未注册)→铁粒小件
+  ravager: {rolls: [['leather', 2, 1]]}, // MC 鞍(未注册)→皮革代位(兽皮读法)
+  witch: {rolls: [['glass', 1, 1]]}, // MC 玻璃瓶(红石/糖未注册)→玻璃代位
+  illusioner: {rolls: [['iron_nugget', 1, 1]]}, // MC 未实装无官方掉落→掠夺者同款(帮派口径)
+  /* —— 龙族/海族(单员族, MC 掉落物未注册代位) —— */
+  dragon: {rolls: [['gold_ingot', 4, 0]], rare: [['diamond', 1]]}, // boss 整数口径; 龙之宝库读法, MC 龙蛋(未注册)→必得钻石奖杯
+  shulker: {rolls: [['clay_ball', 1, 2]]}, // MC 潜影壳(未注册)→黏土球代位(贝壳陶土读法)
   /* F4 农场一家(二期设计稿 §4.5, 儿童配平「保底 1+50%+1」沿用): 生肉+副产物 */
   cow: {rolls: [['raw_beef', 1, 1], ['leather', 1, 1]]},
   pig: {rolls: [['raw_porkchop', 1, 1]]},

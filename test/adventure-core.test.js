@@ -1370,7 +1370,8 @@ test('击杀掉落清单变体: 加成与稀有都掷中/骷髅保底骨头/未�
   assert.strictEqual(both[1].y, 25.8, '掉落点 = 尸体落点 y+0.8(碎块中蹦出)');
   const sk = Core.advDeathDrops({type: 'skeleton', pos: {x: 0, y: 24, z: 0}}, () => 0.99);
   assert.deepStrictEqual(sk.map((s) => [s.id, s.n]), [['bone', 1]], '骷髅保底骨头');
-  assert.deepStrictEqual(Core.advDeathDrops({type: 'dragon', pos: {x: 0, y: 10, z: 0}}, () => 0.5), [],
+  /* 2026-11-01 按族补齐后 dragon 有掉落(金锭+必得钻石)——「真实键无条目」仅剩 mix 伪类型 */
+  assert.deepStrictEqual(Core.advDeathDrops({type: 'mix', pos: {x: 0, y: 10, z: 0}}, () => 0.5), [],
       '掉落表没写就是没有(不抛错)');
 });
 

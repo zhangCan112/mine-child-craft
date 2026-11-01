@@ -8,7 +8,7 @@
    · 完整性: 每个可部署怪 proto 合法 · family 键全注册 · 每怪必归种族(无兜底族)
    · 语义钉: 僵尸猪灵/僵尸疣猪兽主族=猪猪一家带僵尸血统(一身两族) · 草木族/守卫组归组
    · 分组查询: Mobs.families() 11 种族 · 43 怪各归一桶 · 顺序按 FAMILIES.order
-   · 掉落表: MOB_DROPS 结构/逐格(随迁自 test/blocks-fields.test.js 的怪物段)
+   · 掉落表: MOB_DROPS 结构/逐格 + 战斗怪全覆盖反向守门(随迁自 test/blocks-fields.test.js 的怪物段)
    · 恒等锚: Mobs.types === 注册表 MOB_TYPES(壳经共享词法环境直读, 无影子拷贝) */
 const test = require('node:test');
 const assert = require('node:assert');
@@ -226,6 +226,14 @@ test('families(): 11 种族各归一桶 · 43 怪全覆盖 · 无兜底桶 · �
 });
 
 /* ============ MOB_DROPS(设计稿 §3.3: 保底 1 + 50% 加成 1) — 随迁自 test/blocks-fields.test.js ============ */
+
+test('MOB_DROPS 反向守门: 每只可战斗部署怪必有掉落条目(2026-11-01 按族补齐, 稀疏表退役)', () => {
+  /* 与 arena-core 战力完整性反向守门同款: 正向键集⊆MOB_TYPES 防死键(下方),
+     反向 spawnable⊆MOB_DROPS 防漏键——加怪五处同步之一, 漏了这里就红 */
+  const missing = Mobs.spawnable().filter((k) => !MOB_DROPS[k]);
+  assert.deepEqual(missing, [],
+      '战斗怪缺 MOB_DROPS 条目(见 mob-registry.js 头注「新怪入谱清单」): ' + missing.join(', '));
+});
 
 test('MOB_DROPS: 一期怪物齐全且键都是 MOB_TYPES 里的真实怪', () => {
   for (const m of ['zombie', 'skeleton', 'creeper', 'spider', 'slime']) {
