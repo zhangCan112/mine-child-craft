@@ -58,22 +58,23 @@ const Levels = require('../js/robot-levels.js');
 global.paramsFor = Levels.paramsFor;
 global.boardSeed = Levels.boardSeed;
 global.boardOpts = Levels.boardOpts;
+global.mkBoardUnique = Levels.mkBoardUnique;
 global.ROBOT_PACKS = Levels.ROBOT_PACKS;
 const RobotWorld = require('../js/robot-world.js');
 
 const SOFT_ID = 6; // robot-world ROBOT_BLOCKS.soft(木板箱)
 const GROUND_Y = 12; // ROBOT_GROUND
 
-/* 找一块「自动演示会炸格」的真盘: 带3 normal 关(previewSec>0 才有自动
-   演示; 带3 非 relay 包轮换出 golem(smash)/creeper(boom)), 解里含 S 卡、
-   且 S 步真炸(intents 'skill'), par 最短优先(测试提速) */
+/* 找一块「自动演示会拆格」的真盘: 带3 normal 关(previewSec>0 才有自动
+   演示; 带3 非 relay 包轮换 v7 起全铁傀儡——smash 砸碎木板箱同走
+   editBlock, 与 boom 炸格共用复原互锁), 解里含 S 卡、且 S 步真拆
+   (intents 'skill'), par 最短优先(测试提速) */
 function pickBoomBoard() {
   let best = null;
   for (const level of Levels.ROBOT_LEVELS) {
-    if (level.kind !== 'normal' || Levels.paramsFor(level).skill !== 'boom') continue;
+    if (level.kind !== 'normal' || Levels.paramsFor(level).skill !== 'smash') continue;
     for (let boardIdx = 0; boardIdx < 4; boardIdx++) {
-      const board = RobotCore.mkBoard(Levels.boardSeed(level.i, boardIdx),
-          Levels.boardOpts(level));
+      const board = Levels.mkBoardUnique(level, boardIdx);
       const sol = RobotCore.parSolution(board);
       if (!sol || !sol.includes('S')) continue;
       const sim = RobotCore.mkSim(board);
@@ -96,7 +97,7 @@ function pickBoomBoard() {
   return best;
 }
 
-/* S 步炸的是「面前一格」: 从 sim 态取朝向邻格(同 skillBoom 取格式) */
+/* S 步拆的是「面前一格」: 从 sim 态取朝向邻格(同 skillBoom 取格式) */
 function boomCellOf(picked) {
   const sim = RobotCore.mkSim(picked.board);
   for (let i = 0; i < picked.skillAt; i++) {
@@ -111,8 +112,8 @@ function boomCellOf(picked) {
   };
 }
 
-/* 前缀 = 解里走到「踩上炸坑格」那一步为止(S 炸 → 打盹×2 吞卡 → 穿坑的 F)
-   ——保证脚印会落在坑格上, 复原互锁(pitPrevAt)被真实覆盖 */
+/* 前缀 = 解里走到「踩上拆坑格」那一步为止(S 拆 → 穿坑的 F; boom 盘打盹
+   吞卡的垫卡也在解里)——保证脚印会落在坑格上, 复原互锁(pitPrevAt)被真实覆盖 */
 function prefixToBoomCell(picked) {
   const cell = boomCellOf(picked).board;
   const sim = RobotCore.mkSim(picked.board);

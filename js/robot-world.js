@@ -13,7 +13,7 @@
        stop()} — o = {onStep(i, intent) 程序条卡拉OK高亮, onDone(status, sim)};
        status ∈ win/bonk/splash/out; tick 由 RobotMode.update 每帧喂
    依赖(均经全局名, 调用期解析): RobotCore(js/robot-core.js) ·
-     boardSeed/boardOpts/paramsFor/ROBOT_PACKS(js/robot-levels.js, 加载序
+     mkBoardUnique/boardSeed/boardOpts/paramsFor/ROBOT_PACKS(js/robot-levels.js, 加载序
      在本文件之前) · Mobs(js/mobs.js, 意图 API setPos/steer/settle/gait/
      scaleTo/stagger/remove — 位移/朝向零直写, pose 叠加与 pos.y 例外见
      mobs.js 白名单) · loadScene/setBlockRaw/getBlock/editBlock/markDirty/
@@ -188,7 +188,7 @@ const RobotWorld = (() => {
   function build(level, boardIdx) {
     if (cur) stop(); // 换盘先收旧场(stop 全套: 计时/木偶/世界, 幂等)
     clearFx(); // 兜底再收一次观感挂件(幂等 — 正常路径 stop 已清)
-    const board = RobotCore.mkBoard(boardSeed(level.i, boardIdx), boardOpts(level));
+    const board = mkBoardUnique(level, boardIdx);
     const G = ROBOT_GROUND;
     const x0 = 64 - Math.floor(board.w / 2);
     const z0 = 64 - Math.floor(board.h / 2);

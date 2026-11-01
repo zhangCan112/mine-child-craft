@@ -174,11 +174,13 @@ function placeFeatures(rnd, cand, count, taken) {
 }
 
 /* mkBoard(seed, opts): opts = {w, h, skill, softPath, waterPath, ledgePath,
-   groundDecor, waterDecor, parCap, turnsMin} —— 特征量按包/带给(skill 约束在
-   robot-levels 的关卡参数里把关, 这里对错配静默少放: softPath 仅 boom/smash
-   生效等); parCap = BFS 最短解预算(0/缺省 = 不设闸, 单测手工盘用);
-   turnsMin = 最短解必须包含的最少转向卡数(形状闸③, 0/缺省 = 目标偏置游走
-   旧行为; 装不下时逐级静默降档) */
+   groundDecor, waterDecor, parCap, turnsMin, dz} —— 特征量按包/带给(skill
+   约束在 robot-levels 的关卡参数里把关, 这里对错配静默少放: softPath 仅
+   boom/smash 生效等); parCap = BFS 最短解预算(0/缺省 = 不设闸, 单测手工盘
+   用); turnsMin = 最短解必须包含的最少转向卡数(形状闸③, 0/缺省 = 同行
+   直路游走; 装不下时逐级静默降档; t≥3 时地洞装饰清零=形状优先装饰让位,
+   洞只可能抄近路不可能帮弯); dz = 纵深覆盖(盘位风味防重抽样, 缺省 = 恒
+   取上限 = par 贴预算) */
 function mkBoard(seed, opts) {
   const o = opts || {};
   const w = o.w || 6; const h = o.h || 6;
@@ -217,20 +219,28 @@ function mkBoard(seed, opts) {
     let start;
     let goal;
     if (turnsMin > 0) {
-      /* 转向盘: dz 在 [needDz, maxDz] 内确定性抽样(低段=贴预算, 高段=留
-         装饰近路余量), 方向五五开; z0 取值域保证 zg 不越界 */
-      const needDz = Math.ceil(turnsMin / 2);
+      /* 转向盘: dz 恒取上限(v5 曲线单调, 用户红线「每一关应该越来越难」)
+         —— par = (w-1)+dz+t+skillExtra 恰满预算(cap>0 时 par = parCap 逐字
+         成立); 装饰近路想再省卡必省转弯卡, 被形状闸拦下重试 ⇒ 收盘盘 par
+         恒 = 预算, par 阶梯 = 槽位阶梯逐关不降。方向(down)仍五五开。
+         o.dz = 盘位风味覆盖(v7 防重: boardOpts 按盘位抽样纵深, 钳在
+         [⌈t/2⌉, maxDz]; 锚盘不传 = 恒取上限) */
       const maxDz = (o.parCap || 0) > 0 ?
         Math.min(h - 1, o.parCap - (w - 1) - turnsMin - skillExtra) : h - 1;
-      const dzMag = needDz + Math.floor(rnd() * (maxDz - needDz + 1));
+      const dzMag = (o.dz != null) ?
+        Math.max(Math.ceil(turnsMin / 2), Math.min(maxDz, o.dz)) :
+        maxDz;
       const down = rnd() < 0.5;
       const z0Min = down ? 0 : dzMag;
       const z0Max = down ? h - 1 - dzMag : h - 1;
       start = {x: 0, z: z0Min + Math.floor(rnd() * (z0Max - z0Min + 1))};
       goal = {x: w - 1, z: down ? start.z + dzMag : start.z - dzMag};
     } else {
+      /* 直路盘: 同行目标(水平走廊) —— 仅教学带走法关(F 教学)使用: 同行
+         ⇒ 最短解恒 3 卡纯直线, 第一关恒最简单(v5 曲线单调红线: 旧随机
+         行目标会让游走出 7 卡带转弯的长程序, 难度倒挂) */
       start = {x: 0, z: Math.floor(rnd() * h)};
-      goal = {x: w - 1, z: Math.floor(rnd() * h)};
+      goal = {x: w - 1, z: start.z};
     }
     const path = turnsMin > 0 ?
       carveShapedPath(rnd, w, h, start, goal, turnsMin) :
@@ -263,14 +273,19 @@ function mkBoard(seed, opts) {
       for (const idx of water) cells[idx] = CELL.WATER;
       for (const idx of ledge) cells[idx] = CELL.LEDGE;
     }
-    /* 装饰: 非路径非特征的硬墙里开洞(近路可能)与小水面(危险观感) */
+    /* 装饰: 非路径非特征的硬墙里开洞(近路可能)与小水面(危险观感)。
+       形状优先, 装饰让位(v4): t≥3 转向盘开地洞数清零——3 转走廊 par 恰满
+       预算时, 任何邻走廊地洞都是「省一张转弯卡」的近路(3×3 盘 2 个洞与
+       走廊/终点相邻的概率≈1, 2026-11-01 带3 苦力怕 3 转 3×3 探针实锤 80
+       attempt 全败落兜底直路); 水面洞只挡路不抄路, 保留 */
     const free = [];
+    const groundDecor = turnsMin >= 3 ? 0 : (o.groundDecor || 0);
     for (let i = 0; i < cells.length; i++) {
       if (cells[i] === CELL.HARD) free.push(i);
     }
     const decor = RandCore.shuffle(rnd, free);
     let di = 0;
-    for (let k = 0; k < (o.groundDecor || 0) && di < decor.length; k++, di++) {
+    for (let k = 0; k < groundDecor && di < decor.length; k++, di++) {
       cells[decor[di]] = CELL.GROUND;
     }
     for (let k = 0; k < (o.waterDecor || 0) && di < decor.length; k++, di++) {

@@ -89,15 +89,15 @@ test('编排: 包键全注册 · tier 1..19 带内不减 · 解锁关恰在包�
 
 /* ============ paramsFor: 曲线边界 ============ */
 
-test('paramsFor: 槽位主轴(带0 1/3/4 → 带1~3 6/8/10) · 尺寸 3..7 · 演示消退带语义', () => {
+test('paramsFor: 槽位主轴(带0 1/6 → 带1~3 8/9/10) · 尺寸 3..7 · 演示消退带语义', () => {
   for (const l of ROBOT_LEVELS) {
     const p = Levels.paramsFor(l);
     assert.ok(p.w >= 3 && p.w <= 7 && p.h === p.w, 'i=' + l.i + ' 尺寸有界(3..7)');
     if (l.band === 0) {
-      assert.strictEqual(p.slots, l.kind === 'tut' ? 1 : l.kind === 'decode' ? 3 : 4);
+      assert.strictEqual(p.slots, l.kind === 'tut' ? 1 : 6);
       assert.strictEqual(p.previewSec, 0, '带0 无消退');
     } else {
-      assert.strictEqual(p.slots, [0, 6, 8, 10][l.band]);
+      assert.strictEqual(p.slots, [0, 8, 9, 10][l.band]);
     }
     if (l.band >= 2) assert.ok(p.previewSec >= 3 && p.previewSec <= 8, '消退秒数 3..8');
     else assert.strictEqual(p.trapRate, 0, '陷阱卡带2 起才有');
@@ -114,27 +114,27 @@ test('paramsFor: 槽位主轴(带0 1/3/4 → 带1~3 6/8/10) · 尺寸 3..7 · �
       assert.strictEqual(p.skill, meta.skill || null, 'i=' + l.i + ' skill 与包一致');
     }
     assert.strictEqual(p.boards, 4, '每关 4 盘');
-    /* 转弯爬坡曲线(D15 v3): 带0 tut k3+ 与 normal k12-17 各 1 转(w=3
-       微型盘放行) · 带1 k8-15 smash 1 转 → k16-24 2 转 3×3(boom 教学期
-       直路=D13 数学) · 带2 k10-19 2 转 → k20-24 3 转 · 带3 1→2→3 转带末
-       俯冲, boom 天花板 1 转 —— 带内不减(台阶不变陡) */
+    /* 转弯爬坡曲线(D15 v6 前段上移一档): 带0 1(tut k0-2; 第 1 关第 1 盘
+       在 boardOpts 特批直路)→2(k3+ 全线: tut/decode/normal/boss) · 带1
+       boom 1/smash 2 · 带2 2(k0-14)→3(k15+) · 带3 恒 3 —— 跨带不回降,
+       par 阶梯 4→5→7→8→10 逐关只升不降 */
     if (l.band === 0) {
       assert.strictEqual(p.turnsMin,
-          (l.kind === 'tut' && l.k >= 3) ||
-          (l.kind === 'normal' && l.k >= 12 && l.k <= 17) ? 1 : 0,
-          'i=' + l.i + ' 带0 tut k3+ / normal k12-17 开 1 转');
+          (l.kind === 'tut' && l.k < 3) ? 1 : 2,
+          'i=' + l.i + ' 带0 tut k0-2 1 转(第 1 关第 1 盘特批直路) / 其余 2 转');
     } else if (l.band === 1) {
-      assert.strictEqual(p.turnsMin,
-          meta.skill === 'smash' ? (l.k < 16 ? 1 : 2) : 0,
-          'i=' + l.i + ' 带1 smash k8-15 1 转 / k16-24 2 转 / boom 教学期直路');
+      assert.strictEqual(p.turnsMin, meta.skill === 'smash' ? 2 : 1,
+          'i=' + l.i + ' 带1 boom 1 转 / smash 2 转');
     } else if (l.band === 2) {
-      assert.strictEqual(p.turnsMin, l.k < 10 ? 1 : l.k < 20 ? 2 : 3,
-          'i=' + l.i + ' 带2 k10 起 2 转 / k20 起 3 转');
+      assert.strictEqual(p.turnsMin, l.k < 15 ? 2 : 3,
+          'i=' + l.i + ' 带2 k0-14 2 转 / k15+ 3 转');
     } else {
-      assert.strictEqual(p.turnsMin,
-          meta.skill === 'boom' ? 1 : (l.k < 5 ? 1 : l.k < 18 ? 2 : 3),
-          'i=' + l.i + ' 带3 1→2→3 转(boom 天花板 1 转)');
+      assert.strictEqual(p.turnsMin, 3, 'i=' + l.i + ' 带3 恒 3 转');
     }
+    /* 预算闸(v6): tut = 5(1 转 k0-2)/6(2 转 k3+, 直接驱动 5/6 次点按),
+       其余 = 槽位 */
+    assert.strictEqual(p.parCap, l.kind === 'tut' ? (l.k < 3 ? 5 : 6) : p.slots,
+        'i=' + l.i + ' parCap = tut 5/6 / 其余槽位');
     if (!meta.skill || meta.skill === 'boom' || meta.skill === 'smash') {
       assert.strictEqual(p.waterPath, 0, '非滑翔包不出水面路');
       assert.strictEqual(p.ledgePath, 0, '非攀爬包不出高台路');
@@ -144,13 +144,26 @@ test('paramsFor: 槽位主轴(带0 1/3/4 → 带1~3 6/8/10) · 尺寸 3..7 · �
 
 /* ============ presetFor / debugPresetFor: 预置程序派生 ============ */
 
+/* 第 1 关特批(v6): 盘1 恒 3 卡内直线, 盘2-4 与第 2/3 关全带弯 */
+test('第 1 关盘1 特批直路, 盘2-4 与第 2/3 关全带弯(用户拍板 v6)', () => {
+  const l1 = ROBOT_LEVELS[0];
+  assert.strictEqual(Levels.boardOpts(l1, 0).turnsMin, 0, '第 1 关第 1 盘特批直路');
+  assert.strictEqual(Levels.boardOpts(l1, 1).turnsMin, 1, '第 1 关盘2 起带弯');
+  for (const i of [1, 2]) {
+    for (let bd = 0; bd < 4; bd++) {
+      assert.strictEqual(Levels.boardOpts(ROBOT_LEVELS[i], bd).turnsMin, 1,
+          '第 ' + (i + 1) + ' 关盘' + bd + ' 全带弯');
+    }
+  }
+});
+
 test('presetFor: 解码关预置=最短解去尾卡, 补一张即赢; debugPresetFor 必坏', () => {
   const decodes = ROBOT_LEVELS.filter((l) => l.kind === 'decode');
   assert.ok(decodes.length === 4);
   for (const l of decodes) {
     const preset = Levels.presetFor(l, 0);
     assert.ok(Array.isArray(preset) && preset.length >= 1, 'i=' + l.i + ' 有预置');
-    const board = global.RobotCore.mkBoard(Levels.boardSeed(l.i, 0), Levels.boardOpts(l));
+    const board = Levels.mkBoardUnique(l, 0);
     const sol = global.RobotCore.parSolution(board);
     assert.deepStrictEqual(preset, sol.slice(0, -1), '预置=解去尾卡');
     /* 孩子补尾卡后应可赢: 预置 + BFS 解尾卡 === 完整解 */
@@ -162,7 +175,7 @@ test('presetFor: 解码关预置=最短解去尾卡, 补一张即赢; debugPrese
   for (const l of debugs) {
     const broken = Levels.debugPresetFor(l, 0);
     assert.ok(Array.isArray(broken), 'i=' + l.i + ' 有坏程序');
-    const board = global.RobotCore.mkBoard(Levels.boardSeed(l.i, 0), Levels.boardOpts(l));
+    const board = Levels.mkBoardUnique(l, 0);
     assert.notStrictEqual(global.RobotCore.simulate(board, broken).status, 'win',
         '预置坏程序必须跑不赢(找错关成立)');
   }
@@ -257,12 +270,17 @@ test('boardSeed/boardOpts: 抽样 14 关 × 4 盘全部可解(参数→棋盘闭
 
 /* ============ 可通关闭环(全量): 三闸落地的产品级回归网 ============ */
 
-test('全量 100 关 × 4 盘: 非 tut 盘 par ≤ 槽位(超预算=不可通关), 特技盘最短解必含 S, 转向请求必足额', () => {
+test('全量 100 关 × 4 盘: 非 tut 盘 par ≤ 槽位(超预算=不可通关), 特技盘最短解必含 S, 转向请求必足额, 直线盘只许带0 走法教学, 逐关 par 只升不降', () => {
+  let prevParMax = 0;
   for (const l of ROBOT_LEVELS) {
     const p = Levels.paramsFor(l);
+    let parMax = 0;
     for (let bd = 0; bd < 4; bd++) {
-      const board = global.RobotCore.mkBoard(Levels.boardSeed(l.i, bd), Levels.boardOpts(l));
-      const par = global.RobotCore.parOf(board);
+      const opts = Levels.boardOpts(l, bd); // 生效请求(含第 1 关盘1 特批直路)
+      const board = global.RobotCore.mkBoard(Levels.boardSeed(l.i, bd), opts);
+      const sol = global.RobotCore.parSolution(board);
+      const par = sol.length;
+      parMax = Math.max(parMax, par);
       assert.ok(par > 0, 'i=' + l.i + ' 盘' + bd + ' (' + l.pack + ') 必须可解');
       if (l.kind !== 'tut') { // tut 直接驱动不受槽位限
         assert.ok(par <= p.slots,
@@ -274,20 +292,29 @@ test('全量 100 关 × 4 盘: 非 tut 盘 par ≤ 槽位(超预算=不可通关
           smash: global.RobotCore.CELL.SOFT, climb: global.RobotCore.CELL.LEDGE,
           glide: global.RobotCore.CELL.WATER}[p.skill];
         if (board.cells.includes(want)) {
-          const sol = global.RobotCore.parSolution(board);
           assert.ok(sol.includes('S'),
               'i=' + l.i + ' 盘' + bd + ' 特征在盘上, 最短解必须用特技卡(教学承重)');
         }
       }
-      /* 形状闸(D15): 请求转弯的关, 最短解转向卡必须足额(否则 L/R 课程线
+      /* 形状闸(D15): 请求转弯的盘, 最短解转向卡必须足额(否则 L/R 课程线
          断供——2026-10-29 审计: 修前带1~3 共 300 盘 100% 零转弯) */
-      if (p.turnsMin > 0) {
-        const sol = global.RobotCore.parSolution(board);
-        const tc = sol.filter((c) => c === 'L' || c === 'R').length;
-        assert.ok(tc >= p.turnsMin,
-            'i=' + l.i + ' 盘' + bd + ' 转向数 ' + tc + ' < 请求 ' + p.turnsMin +
+      const tc = sol.filter((c) => c === 'L' || c === 'R').length;
+      if (opts.turnsMin > 0) {
+        assert.ok(tc >= opts.turnsMin,
+            'i=' + l.i + ' 盘' + bd + ' 转向数 ' + tc + ' < 请求 ' + opts.turnsMin +
             '(转弯教学落空)');
       }
+      /* 直线盘白名单(v6): 0 转盘只许第 1 关第 1 盘(全游戏第一盘, F 走法
+         首秀, 用户拍板「除了第一关第一盘都带点弯」) */
+      if (tc === 0) {
+        assert.ok(l.i === 0 && bd === 0,
+            'i=' + l.i + ' 盘' + bd + ' 非第一盘出直线盘(难度曲线倒挂)');
+      }
     }
+    /* 曲线单调红线(v5): 逐关 par 峰值只升不降
+       (用户「每一关应该越来越难」——旧版第 1 关 par 7 > 第 10 关 par 3) */
+    assert.ok(parMax >= prevParMax,
+        'i=' + l.i + ' par 峰值 ' + parMax + ' < 上关 ' + prevParMax + '(难度倒挂)');
+    prevParMax = parMax;
   }
 });
