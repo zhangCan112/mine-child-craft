@@ -1,0 +1,20 @@
+# 最小 CI(2026-11-01 retro #2): 守门此前全凭本地 npm test 纪律, 无人肉兜底。
+# 仓库零运行时依赖, devDependencies 仅 lint 工具链; package-lock.json 在库, npm ci 可复现安装。
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test-and-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run lint
