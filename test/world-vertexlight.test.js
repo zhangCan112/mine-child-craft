@@ -29,6 +29,9 @@ function mkThree() {
     setRGB(r, g, b) {
       this.r = r; this.g = g; this.b = b; return this;
     }
+    setScalar(s) {
+      this.r = s; this.g = s; this.b = s; return this;
+    }
   };
   T.Vector3 = class {
     constructor(x = 0, y = 0, z = 0) {
@@ -99,6 +102,11 @@ function mkThree() {
       Object.assign(this, o); this.onBeforeCompile = null;
     }
   };
+  T.MeshBasicMaterial = class { // 云层材质(云段): Object.assign 形 + color 缺省
+    constructor(o) {
+      Object.assign(this, o); this.color = this.color || new T.Color(0xffffff);
+    }
+  };
   T.BufferGeometry = class {
     constructor() {
       this.attrs = {};
@@ -121,9 +129,19 @@ function mkThree() {
   T.Mesh = class {
     constructor(g, m) {
       this.geometry = g; this.material = m;
+      this.position = new T.Vector3(); this.rotation = {x: 0, y: 0, z: 0};
+      this.scale = new T.Vector3();
     }
   };
-  T.BoxGeometry = class {}; T.EdgesGeometry = class {};
+  T.BoxGeometry = class {}; T.EdgesGeometry = class {}; T.PlaneGeometry = class {}; // 云片几何
+  T.Group = class { // 云层容器(云段): children + add + visible
+    constructor() {
+      this.children = []; this.visible = true;
+    }
+    add(o) {
+      this.children.push(o);
+    }
+  };
   T.LineBasicMaterial = class {
     constructor(o) {
       Object.assign(this, o);

@@ -9,8 +9,8 @@
      近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
       级联清单, 设计稿 block-lifecycle D3; 编辑经 setBlockLit 连带双通道光场
       增量, 昼夜 §3.3/D4) / applySweep(世界卫生清扫, P14/D9)
-      / applyDaylight(昼夜场景驱动: 天色/平行光强/日月轨道 + 顶点光材质
-      uniforms uDim/uSkyFloor 节拍, 设计稿 mc-daylight-torch §2.3/§4.2)
+      / applyDaylight(昼夜场景驱动: 天色/平行光强/日月轨道/云层漂移 +
+      顶点光材质 uniforms uDim/uSkyFloor 节拍, 设计稿 mc-daylight-torch §2.3/§4.2)
       / setPlayerGlow(玩家随身光机制缝: 方块光 uniform + 实体侧 PointLight,
       政策归 D7) / setSkyBase(白日天色基准调制缝: 冒险地图 T6 换端点,
       昼夜插值仍在 applyDaylight) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件可写:
@@ -111,6 +111,59 @@ function makeCelestialSprite(isSun) {
 const sunSprite = makeCelestialSprite(true);
 const moonSprite = makeCelestialSprite(false);
 
+/* ---------- 云层(上界观感): 高空像素云片缓慢东漂 ----------
+   MC 同款观感: 扁平云片挂世界顶上空, 形状是固定种子 LCG 撒出的块团
+   (同 seed 同图, 贴图图集惯例; 零外部素材), 底层淡蓝灰错位露边一圈
+   = 廉价立体感。位移由 dayTime 派生(暂停即停、同刻同位置, 与昼夜共用
+   唯一时间源); 显隐随 dayCycleOn(日月天体同口径: 探险上界唯一显示,
+   下界/副本/其余模式不显示); 以玩家为参照回绕(日月轨道同惯例), 走到
+   世界边缘头顶仍有云。材质 fog: false(云不受雾影响, MC 同款), 不吃光
+   ——夜暗由 applyDaylight 按同一 skyDim 折线手动调制。 */
+function makeCloudTexture(seed) {
+  const c = document.createElement('canvas');
+  c.width = 64; c.height = 32;
+  const g = c.getContext('2d');
+  let s = seed;
+  const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  for (let i = 0; i < 12; i++) {
+    const w = 8 + rnd() * 16; const h = 5 + rnd() * 8;
+    const x = 12 + rnd() * (52 - w); const y = 8 + rnd() * (24 - h);
+    g.fillStyle = '#dde6f2'; /* 底层淡蓝灰, +1px 露边 */
+    g.fillRect(Math.round(x) + 1, Math.round(y) + 1, Math.round(w), Math.round(h));
+    g.fillStyle = '#ffffff'; /* 上层纯白云面 */
+    g.fillRect(Math.round(x), Math.round(y), Math.round(w), Math.round(h));
+  }
+  const tex = new THREE.CanvasTexture(c);
+  tex.magFilter = THREE.NearestFilter; /* 近处保持像素颗粒 */
+  return tex;
+}
+const CLOUD_COUNT = 9; const CLOUD_Y = 96; const CLOUD_R = 150; const CLOUD_DRIFT = 360;
+/* 世界顶 48 的两倍高空; 回绕半径(雾距 230 内); 每游戏日(20 分钟)漂 360 格 ≈ 0.3 格/秒 */
+const cloudMats = [7, 23, 57].map((seed) => new THREE.MeshBasicMaterial({
+  map: makeCloudTexture(seed), transparent: true, opacity: 0.92,
+  depthWrite: false, fog: false, side: THREE.DoubleSide}));
+const cloudGroup = new THREE.Group();
+cloudGroup.visible = false; /* 缺省隐藏, applyDaylight 按 dayCycleOn 驱动 */
+const cloudBases = (() => {
+  /* 固定种子撒基座: 玩家参照回绕的相对锚点(确定性) */
+  let s = 991;
+  const rnd = () => (s = (s * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff;
+  return Array.from({length: CLOUD_COUNT},
+      () => ({x: (rnd() * 2 - 1) * CLOUD_R, z: (rnd() * 2 - 1) * CLOUD_R}));
+})();
+for (let i = 0; i < CLOUD_COUNT; i++) {
+  const m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), cloudMats[i % 3]);
+  m.rotation.x = -Math.PI / 2; /* 水平云片(俯仰都能看, DoubleSide 兜飞行穿云) */
+  m.scale.set(40 + (i % 3) * 8, 20 + (i % 2) * 6, 1);
+  cloudGroup.add(m);
+}
+scene.add(cloudGroup);
+function wrapRange(v, min, max) {
+  /* 回绕: 值域 [min,max) 循环(玩家移动不露怯) */
+  const span = max - min;
+  return ((v - min) % span + span) % span + min;
+}
+
 /* 每帧昼夜驱动(§2.3 驱动表): 天色/雾/AmbientLight/sun 强度/光斑显隐按
    颜色比较键值变化才写(量化 50 tick ≈ 2.5s, 颜色阶进无感); 日月轨道逐帧
    连续跟随。dayCycleOn=false 时以 tick 0 口径复位白天观感(幂等, 探险
@@ -127,6 +180,9 @@ function applyDaylight() {
     /* 实体变暗: 怪/Avatar/掉落物走 Lambert, 环境光随时间衰减自动生效(§4.3) */
     ambientLight.intensity = 0.65 * Daylight.renderBright(15 - dim);
     sun.intensity = 0.75 * (1 - dim / 11);
+    /* 云随昼夜同调: 白天纯白 → 夜深灰(云不吃光也不受雾, 手动跟同一折线) */
+    const cloudB = 1 - (dim / 11) * 0.75;
+    for (const cm of cloudMats) cm.color.setScalar(cloudB);
     /* 顶点光材质 uniforms(D3 §4.2/§4.4): 与天色同一比较键节拍(50 tick 量化,
        夜色阶进无感); uSkyFloor 两态 — 探险(dayCycleOn)真实洞穴/夜, 其余模式
        恒 15 ≈ 现状观感(向后兼容, 关循环复位幂等) */
@@ -140,6 +196,18 @@ function applyDaylight() {
   moonSprite.position.set(pos.x - Math.cos(a) * 170, pos.y - Math.sin(a) * 170, pos.z + 40);
   sunSprite.visible = dayCycleOn && Math.sin(a) >= -0.15;
   moonSprite.visible = dayCycleOn && -Math.sin(a) >= -0.15;
+  /* 云层漂移: 显隐随 dayCycleOn(cleanup/切模式经本函数复位隐藏, 幂等);
+     位移 = dayTime 派生的 x 向东漂, 以玩家为中心回绕(日月轨道同惯例) */
+  cloudGroup.visible = dayCycleOn;
+  if (dayCycleOn) {
+    const drift = (t / DAYLIGHT.TICKS) * CLOUD_DRIFT;
+    for (let i = 0; i < CLOUD_COUNT; i++) {
+      cloudGroup.children[i].position.set(
+          wrapRange(pos.x + cloudBases[i].x + drift, pos.x - CLOUD_R, pos.x + CLOUD_R),
+          CLOUD_Y,
+          wrapRange(pos.z + cloudBases[i].z, pos.z - CLOUD_R, pos.z + CLOUD_R));
+    }
+  }
   /* 灯笼随身光逐帧跟随(§8.3 机制缝, setPlayerGlow 开启时): 挂点取玩家胸口
      高度 — 方块侧 uniform 顶点衰减 + 实体侧 PointLight 同位 */
   if (playerGlowOn) {
