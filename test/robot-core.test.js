@@ -175,6 +175,22 @@ test('转向盘特征钳 1: 走廊无旁路时双软必爆预算 → 静默少�
   assert.ok(straight.softList.length >= 1, '直路盘多特征请求保留(旧行为)');
 });
 
+test('转向盘装饰让位(v4): t≥3 请求下地洞清零, 高装饰请求不再产出抄近路直路盘', () => {
+  /* 带3 苦力怕同源配置(w3 cap10 t3 groundDecor2): 修复前 80 attempt 全败
+     落兜底直路——3×3 扣走廊只剩 4 个硬格, 2 个装饰洞与走廊/终点相邻概率
+     ≈1, 洞=省一张转弯卡的近路(形状/教学双闸全灭); 修复后 3 转足额 */
+  for (let seed = 0; seed < 40; seed++) {
+    const b = RobotCore.mkBoard(seed, {w: 3, h: 3, skill: 'boom', softPath: 1,
+      groundDecor: 2, waterDecor: 1, parCap: 10, turnsMin: 3});
+    const sol = RobotCore.parSolution(b);
+    assert.ok(Array.isArray(sol), 'seed ' + seed + ' 必有解(不落兜底直路)');
+    const tc = sol.filter((c) => c === 'L' || c === 'R').length;
+    assert.ok(tc >= 3,
+        'seed ' + seed + ' 3 转足额(装饰让位), 实得 ' + tc);
+    assert.strictEqual(b.softList.length, 1, 'seed ' + seed + ' 特征钳 1 照常');
+  }
+});
+
 
 /* ============ stepSim: 全意图分支(手工字符画棋盘) ============ */
 
