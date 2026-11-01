@@ -37,6 +37,10 @@ test('注册表全量: 设计稿 §3.1 + §3.5 一期补给包条目全部注册
     'log', 'planks', 'stick', 'coal', 'charcoal',
     'iron_ore', 'iron_ingot', 'gold_ore', 'gold_ingot', 'diamond',
     'gunpowder', 'bone', 'bone_meal', 'string', 'slimeball',
+    // 怪物掉落·正典转正件(2026-11-01 拍板, 正典取证 docs/mc-mob-drops-research.md)
+    'ender_pearl', 'blaze_rod', 'nether_star', 'phantom_membrane', 'spider_eye',
+    'magma_cream', 'gold_nugget', 'shulker_shell', 'prismarine_shard',
+    'prismarine_crystals', 'copper_ingot', 'ghast_tear',
     'wheat', 'wheat_seeds',
     // §3.5 一期补给包: 黏土-红砖链 / 石砖链 / 剪刀 / 苔石 / 树叶
     'clay_ball', 'brick', 'bricks', 'stone_bricks', 'mossy_cobble', 'leaves', 'shears',

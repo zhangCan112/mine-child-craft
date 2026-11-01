@@ -315,3 +315,33 @@ test('MOB_DROPS 结构: rolls=[itemId,保底,加成次数], rare=[itemId,概率]
       '火药保底阶梯: 常款(1) < 突变小 boss(4) < 王(10)');
   assert.deepEqual(mcd.rare, [['iron_ingot', 0.25]], '小 boss 稀有铁锭 25%');
 });
+
+test('MOB_DROPS 代位转正逐格钉(2026-11-01 拍板, 正典取证 docs/mc-mob-drops-research.md)', () => {
+  /* 正典纯净拍板: 凋灵必得下界之星(boss 整数口径同苦力怕王, 骨×4/钻石奖杯退役);
+     末影人珍珠换铁+钻(5% 钻石退役) */
+  assert.deepEqual(MOB_DROPS.wither.rolls, [['nether_star', 1, 0]], '凋灵必得下界之星 1');
+  assert.strictEqual(MOB_DROPS.wither.rare, undefined, '凋灵稀有钻石退役(正典纯净)');
+  assert.deepEqual(MOB_DROPS.enderman.rolls, [['ender_pearl', 1, 1]], '末影人掉珍珠(保底1+加成1)');
+  assert.strictEqual(MOB_DROPS.enderman.rare, undefined, '末影人 5% 钻石退役(正典纯净)');
+  /* 0-1·50% 型照拍板③: 保底 1 + 50% 加成 1(正典可能空手 → 儿童必得) */
+  assert.deepEqual(MOB_DROPS.blaze.rolls, [['blaze_rod', 1, 1]], '烈焰棒转正');
+  assert.deepEqual(MOB_DROPS.phantom.rolls, [['phantom_membrane', 1, 1]], '幻翼膜转正');
+  assert.deepEqual(MOB_DROPS.magma_cube.rolls, [['magma_cream', 1, 1]], '岩浆膏转正');
+  assert.deepEqual(MOB_DROPS.shulker.rolls, [['shulker_shell', 1, 1]], '潜影壳转正');
+  /* 海晶双件: 守卫者碎片 1~2; 远古小 boss 阶梯 2~3(沿用既有 2:1 阶梯口径) */
+  assert.deepEqual(MOB_DROPS.guardian.rolls,
+      [['prismarine_shard', 1, 1], ['prismarine_crystals', 1, 1]], '守卫者海晶双件');
+  assert.deepEqual(MOB_DROPS.elder_guardian.rolls,
+      [['prismarine_shard', 2, 1], ['prismarine_crystals', 1, 1]], '远古守卫者小 boss 阶梯');
+  /* 附加件拍板: 恶魂之泪/蜘蛛眼在正典主掉落之外加掉(保底1+加成1); 稀有槽照正典稀有语义
+     (铜锭 11% 直录; 僵尸猪灵金锭 2.5%→5% 同僵尸铁先例, 金粒转正为常规保底) */
+  assert.deepEqual(MOB_DROPS.ghast.rolls, [['gunpowder', 1, 1], ['ghast_tear', 1, 1]],
+      '恶魂火药+泪双掉(泪转正加掉)');
+  assert.deepEqual(MOB_DROPS.cave_spider.rolls, [['string', 1, 1], ['spider_eye', 1, 1]],
+      '洞穴蜘蛛线+蜘蛛眼双掉(眼转正加掉)');
+  assert.deepEqual(MOB_DROPS.drowned.rare, [['copper_ingot', 0.11]], '溺尸稀有铜锭 11% 直录');
+  assert.deepEqual(MOB_DROPS.zombified_piglin.rolls,
+      [['rotten_flesh', 1, 1], ['gold_nugget', 1, 1]], '僵尸猪灵腐肉+金粒双掉(金粒转正)');
+  assert.deepEqual(MOB_DROPS.zombified_piglin.rare, [['gold_ingot', 0.05]],
+      '僵尸猪灵稀有金锭 2.5%→5% 不变');
+});

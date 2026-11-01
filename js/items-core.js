@@ -47,6 +47,22 @@ const ITEMS = {
   string: {name: '线', icon: '🧵'}, // 蜘蛛 → 弓弦/羊毛(MC white_wool 正典, farm-and-recipe D1)
   slimeball: {name: '粘液球', icon: '🟢'}, // 收集品(出口=粘液块/拴绳, 均依赖不存在的功能——登记在案不硬造, farm-and-recipe D4)
 
+  /* —— 怪物掉落·正典转正件(2026-11-01 拍板, 正典取证 docs/mc-mob-drops-research.md):
+     代位物品升级为 MC 正典物品, 全部无配方收集品(出口登记在案不硬造, slimeball 先例);
+     烈焰棒例外带燃料=正典烧炼 12 件(设计稿 §3.3 二期划档落地); emoji 占位, 像素图归 icons.js —— */
+  ender_pearl: {name: '末影珍珠', icon: '🔮'}, // 末影人; 正典投掷传送/末影之眼; 堆叠照本表 64(正典 16, 设计稿 §2 两档锁定, 偏离登记在案)
+  blaze_rod: {name: '烈焰棒', icon: '🔆', fuel: 12}, // 烈焰人; 正典熔炉燃料 120 秒=12 件(wiki Blaze_Rod §Fuel)
+  nether_star: {name: '下界之星', icon: '⭐'}, // 凋灵必得; 正典合成信标; boss 奖杯件
+  phantom_membrane: {name: '幻翼膜', icon: '🫧'}, // 幻翼; 正典缓降药水/鞘翅修复
+  spider_eye: {name: '蜘蛛眼', icon: '👁️'}, // 洞穴蜘蛛; 正典可食用(带毒)/酿造——毒性 debuff 儿童版不做, 照收集品登记在案
+  magma_cream: {name: '岩浆膏', icon: '🌋'}, // 岩浆怪(中大型); 正典抗火药水/岩浆块
+  gold_nugget: {name: '金粒', icon: '🔸'}, // 僵尸猪灵; 正典 9 粒合 1 金锭(配方出口登记在案)
+  shulker_shell: {name: '潜影壳', icon: '🐚'}, // 潜影贝(正典 0-1·50%); 正典仅合成潜影盒
+  prismarine_shard: {name: '海晶碎片', icon: '🔹'}, // 守卫者双怪; 正典海晶灯系; 怪物之外无获取途径(wiki 物品页仅 Mob Loot 一章)
+  prismarine_crystals: {name: '海晶砂粒', icon: '❄️'}, // 守卫者双怪; 正典海晶灯(怪外可挖海晶灯得)
+  copper_ingot: {name: '铜锭', icon: '🥉'}, // 溺尸稀有; 正典铜块/望远镜等
+  ghast_tear: {name: '恶魂之泪', icon: '💧'}, // 恶魂; 正典再生药水/末影水晶
+
   /* —— 农耕链(二期开放; 一期先注册, 配方书引用不炸) —— */
   wheat: {name: '小麦', icon: '🌾'},
   wheat_seeds: {name: '小麦种子', icon: '🌱'}, // 一期来源: 打草丛 50%(D7)

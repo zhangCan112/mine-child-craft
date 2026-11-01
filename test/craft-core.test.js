@@ -296,9 +296,10 @@ test('烧炼表: 十条映射与任务合同逐条一致(铁/金粗矿·木炭·
   });
 });
 
-test('燃料择优序: 读 ITEMS fuel 字段按热值降序(煤→木炭→原木→木板→木棍→树苗, D8; 树苗半件 MC 正典补链 D1——注册表序在木棍后同值稳定排序)', () => {
+test('燃料择优序: 读 ITEMS fuel 字段按热值降序(烈焰棒 12→煤→木炭→原木→木板→木棍→树苗; 烈焰棒 2026-11-01 转正即燃料王)', () => {
   const {FUEL} = loadCraft();
-  assert.deepStrictEqual([...FUEL], ['coal', 'charcoal', 'log', 'planks', 'stick', 'sapling']);
+  /* 树苗半件 MC 正典补链 D1——注册表序在木棍后同值稳定排序 */
+  assert.deepStrictEqual([...FUEL], ['blaze_rod', 'coal', 'charcoal', 'log', 'planks', 'stick', 'sapling']);
 });
 
 /* ============ 热值与烧炼查询 ============ */
@@ -307,6 +308,7 @@ test('fuelUnits: 煤/木炭 8 件 · 木质 1.5 · 木棍 0.5 · 非燃料与未
   const {fuelUnits} = loadCraft();
   assert.strictEqual(fuelUnits('coal'), 8);
   assert.strictEqual(fuelUnits('charcoal'), 8);
+  assert.strictEqual(fuelUnits('blaze_rod'), 12, '烈焰棒正典 12 件(2026-11-01 转正, 燃料新王)');
   assert.strictEqual(fuelUnits('log'), 1.5);
   assert.strictEqual(fuelUnits('planks'), 1.5);
   assert.strictEqual(fuelUnits('stick'), 0.5);

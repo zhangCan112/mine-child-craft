@@ -260,10 +260,10 @@ test('熔炉装配: refundAll 退出收场 — 三笔尽力入包·余量静默�
 test('熔炉装配: 燃料余量比 — 无燃料按最高热值锚估, 没在烧一律 0(F2 口径上收)', () => {
   const {st, inv} = mkStation();
   fillInv(inv);
-  setState(st, {input: {id: 'iron_ore', n: 1}, fuel: null, heat: 2}); /* 煤热值 8 锚估 */
+  setState(st, {input: {id: 'iron_ore', n: 1}, fuel: null, heat: 2}); /* 最高热值锚估: 烈焰棒 12(转正登顶, 超煤 8) */
   st.open(KEY);
   const ffill = collectByClass(st.panel.root, 'mkp-ffill')[0];
-  assert.strictEqual(ffill.style.width, '25%', 'r = 2/8 = 0.25(无燃料锚最高热值)');
+  assert.strictEqual(ffill.style.width, '17%', 'r = 2/12 ≈ 0.17(无燃料锚最高热值)');
   const fire = collectByClass(st.panel.root, 'mkp-fire')[0];
   assert.ok(!fire.classList.contains('mkp-fire-out'), '燃烧中(有热有料)');
 });

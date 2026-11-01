@@ -207,15 +207,18 @@ const PROTOS = ['charger', 'archer', 'bomber', 'ambusher', 'diver', 'turret', 's
    儿童配平: 击杀必得保底数, 再以 50% 掷「加成次数」次(替代 MC 66%×0-2 的空手可能)。
    rolls: [itemId, 保底, 加成次数] · rare: [itemId, 概率](独立小概率额外掉落)。
    43 战斗怪全覆盖(2026-11-01 retro 按族补齐, 漏键由 test/mob-registry.test.js 反向守门红):
-   同族照族内既有口径(僵尸一家→腐肉 · 骷髅一家→骨 · 虫虫族→线 · 软软族→粘液球);
-   MC 原版掉落物未注册的物品(末影珍珠/烈焰棒/下界之星/海晶碎片等)以既有物品代位并
-   逐行注明口径, 不硬造新物品(注册新掉落物属独立决策); F4 农场四怪照二期设计稿 §4.5。
+   同族照族内既有口径(僵尸一家→腐肉 · 骷髅一家→骨 · 虫虫族→线 · 软软族→粘液球); F4 农场四怪照二期设计稿 §4.5。
+   2026-11-01 拍板: 12 只代位怪升级为正典物品(末影珍珠/烈焰棒/下界之星等, 注册见 items-core.js,
+   逐条正典取证 docs/mc-mob-drops-research.md)——rolls=正典常规掉落(0-1·50% 型折算保底1+50%加成1),
+   rare=正典稀有掉落(铜锭 11% 直录, 金锭 2.5%→5% 同僵尸铁先例); 凋灵/末影人代位期附加件
+   (骨×4/5% 钻石)退役=正典纯净拍板。正典零掉落七怪(蠹虫/末影螨/恼鬼/猪灵双怪/幻术师/嘎枝)
+   照族口径掉落维持——保底≥1 是结构守门(「儿童不空手」, 测试断言在案), 拍板不破例。
    消费者: Drops.rollDrops(T7) — 掷骰语义在此表, 表只存数据。 */
 const MOB_DROPS = {
   zombie: {rolls: [['rotten_flesh', 1, 1]], rare: [['iron_ingot', 0.05]]}, // MC 稀有铁锭 0.83% → 5%(§3.1)
-  /* 僵尸一家照僵尸口径(腐肉+5% 稀有铁锭); 溺尸 MC 另掉铜锭(未注册)不另设 */
+  /* 僵尸一家照僵尸口径(腐肉+5% 稀有铁锭) */
   husk: {rolls: [['rotten_flesh', 1, 1]], rare: [['iron_ingot', 0.05]]},
-  drowned: {rolls: [['rotten_flesh', 1, 1]], rare: [['iron_ingot', 0.05]]},
+  drowned: {rolls: [['rotten_flesh', 1, 1]], rare: [['copper_ingot', 0.11]]}, // MC 铜锭稀有 11%(玩家击杀, 每级抢夺+2%, 本游戏无抢夺)→11% 直录(2026-11-01 转正, 原铁锭代位退役)
   skeleton: {rolls: [['bone', 1, 1]]}, // 箭二期(弓物品化)
   /* 骷髅一家照骷髅口径(骨, 箭同骷髅二期不设); 凋灵骷髅加 MC 煤(双条目同蜘蛛骑士先例) */
   stray: {rolls: [['bone', 1, 1]]},
@@ -231,34 +234,34 @@ const MOB_DROPS = {
   mutant_creeper: {rolls: [['gunpowder', 4, 2]], rare: [['iron_ingot', 0.25]]},
   creaking: {rolls: [['stick', 1, 2]]}, // MC 原版无掉落; 木头身子→木棍读法
   spider: {rolls: [['string', 1, 1]]},
-  /* 虫虫族照蜘蛛口径(线); MC 蜘蛛眼未注册代位, 蠹虫/末影螨原版无掉落——族口径+儿童不空手 */
-  cave_spider: {rolls: [['string', 1, 1]]},
+  /* 虫虫族照蜘蛛口径(线); 蜘蛛眼 2026-11-01 转正(洞穴蜘蛛加掉); 蠹虫/末影螨正典零掉落——族口径维持(保底≥1 守门, 拍板不破例) */
+  cave_spider: {rolls: [['string', 1, 1], ['spider_eye', 1, 1]]}, // MC 线 0-2·66.67% + 蜘蛛眼 0-1·33.33%(玩家击杀)→眼折算保底1+加成1
   silverfish: {rolls: [['string', 1, 1]]},
   endermite: {rolls: [['string', 1, 1]]},
   /* 蜘蛛骑士三家(2026-10-31): 骑手掉骨 + 坐骑掉线 — 一怪双掉落 */
   skeleton_spider_jockey: {rolls: [['bone', 1, 1], ['string', 1, 1]]},
   stray_spider_jockey: {rolls: [['bone', 1, 1], ['string', 1, 1]]},
   wither_skeleton_spider_jockey: {rolls: [['bone', 1, 1], ['string', 1, 1]]},
-  slime: {rolls: [['slimeball', 1, 1]]}, // MC 需玩家击杀口径: 本游戏击杀者只有玩家, 天然满足
-  magma_cube: {rolls: [['slimeball', 1, 1]]}, // 软软族照史莱姆口径; MC 岩浆膏(需烧炼)未注册代位
+  slime: {rolls: [['slimeball', 1, 1]]}, // MC 粘液球 0-2·66.67%(现行 wiki 无玩家击杀标注——仅经验条目需要, 勘误 2026-11-01 见调研 §5)
+  magma_cube: {rolls: [['magma_cream', 1, 1]]}, // MC 岩浆膏 0-1·25%(中大型, 非青蛙击杀)→保底1+加成1(2026-11-01 转正, 原粘液球代位退役)
   /* —— 猪猪一家战斗五怪(人形猪按随身金饰读法, 野兽猪照猪掉肉; 僵尸血统带腐肉) —— */
   piglin: {rolls: [['gold_ingot', 1, 1]]}, // MC 原版无掉落; 金甲金剑的金缘读法, 儿童不空手
   piglin_brute: {rolls: [['gold_ingot', 2, 1]]}, // 精英档: 保底 2 居猪灵与 boss 之间
-  zombified_piglin: {rolls: [['rotten_flesh', 1, 1]], rare: [['gold_ingot', 0.05]]}, // MC 腐肉+金粒(未注册→金锭); 腐肉随僵尸血统
+  zombified_piglin: {rolls: [['rotten_flesh', 1, 1], ['gold_nugget', 1, 1]], rare: [['gold_ingot', 0.05]]}, // MC 腐肉 0-1+金粒 0-1+稀有金锭 2.5%(玩家击杀)→金粒转正保底1+加成1, 金锭 5% 同僵尸铁先例; 腐肉随僵尸血统
   hoglin: {rolls: [['raw_porkchop', 2, 1]]}, // MC 生猪排 2~4 → 保底 2+加成 1
   zoglin: {rolls: [['rotten_flesh', 1, 2]]}, // MC 腐肉 1~3
   /* —— 鬼一族(MC 族内无统一掉落, 逐怪按原版物品找注册代位) —— */
-  ghast: {rolls: [['gunpowder', 1, 1]]}, // MC 火药(恶魂之泪未注册)
-  phantom: {rolls: [['leather', 1, 1]]}, // MC 幻翼膜(未注册)→皮革代位(皮膜读法)
-  blaze: {rolls: [['coal', 1, 1]]}, // §3.3 二期原划 blaze_rod(燃料 12 件, 未注册)→煤炭代位(同为燃料语义)
-  wither: {rolls: [['bone', 4, 0]], rare: [['diamond', 1]]}, // boss 整数口径同苦力怕王; MC 下界之星(未注册)→必得钻石奖杯
-  enderman: {rolls: [['iron_ingot', 1, 1]], rare: [['diamond', 0.05]]}, // MC 末影珍珠(未注册); 高阶怪: 保底铁锭+5% 稀有钻石(僵尸稀有铁升档)
+  ghast: {rolls: [['gunpowder', 1, 1], ['ghast_tear', 1, 1]]}, // MC 火药 0-2 + 恶魂之泪 0-1(无抢夺扩量)→泪转正保底1+加成1(原「泪未做」补齐)
+  phantom: {rolls: [['phantom_membrane', 1, 1]]}, // MC 幻翼膜 0-1·50%(玩家击杀)→保底1+加成1(2026-11-01 转正, 原皮革代位退役)
+  blaze: {rolls: [['blaze_rod', 1, 1]]}, // MC 烈焰棒 0-1·50%(玩家击杀)→保底1+加成1(转正; 燃料 12 件=§3.3 二期划档落地, 原煤炭代位退役)
+  wither: {rolls: [['nether_star', 1, 0]]}, // MC 下界之星必得(无论死法)→boss 整数口径必得 1; 代位期骨×4+钻石奖杯退役(正典纯净拍板)
+  enderman: {rolls: [['ender_pearl', 1, 1]]}, // MC 末影珍珠 0-1·50%→保底1+加成1(转正); 代位期铁锭+5% 稀有钻石退役(正典纯净拍板)
   vex: {rolls: [['iron_nugget', 1, 1]]}, // MC 原版无掉落; 铁剑小妖→铁粒小件(铁锭 1/9)
   /* —— 守卫组(铁傀儡是 MC 原版铁锭大户; 监守者按 boss 整数口径) —— */
   golem: {rolls: [['iron_ingot', 3, 2]]}, // MC 铁锭 3~5
   warden: {rolls: [['iron_ingot', 5, 0]], rare: [['diamond', 1]]}, // boss 整数口径; MC 幽匿催发体(未注册)→必得钻石奖杯
-  guardian: {rolls: [['iron_nugget', 1, 2]]}, // MC 海晶碎片+鳕鱼(均未注册)→铁粒代位
-  elder_guardian: {rolls: [['iron_nugget', 4, 2]], rare: [['iron_ingot', 0.25]]}, // 小 boss 阶梯同突变巨型苦力怕口径(保底 4+50%×2 掷, 25% 稀有)
+  guardian: {rolls: [['prismarine_shard', 1, 1], ['prismarine_crystals', 1, 1]]}, // MC 碎片 0-2·66.67%+砂粒 0-1·40%→双件各保底1+加成1(2026-11-01 转正, 原铁粒代位退役; 鳕鱼/随机鱼组件不扩, 调研 §2 在案)
+  elder_guardian: {rolls: [['prismarine_shard', 2, 1], ['prismarine_crystals', 1, 1]]}, // 小 boss 阶梯: 碎片保底 2(守卫者 2 倍口径沿用); MC 砂粒 33.33%/湿海绵必得(海绵方块件不扩)——原铁粒代位退役
   /* —— 灾厄帮(MC 掉落物多未注册, 按帮派随身物件代位) —— */
   vindicator: {rolls: [['iron_ingot', 1, 1]]}, // MC 铁斧 8.5%(工具不作怪掉, 王的钻石剑是唯一例外)→铁锭代位
   evoker: {rolls: [['gold_ingot', 1, 1]]}, // MC 绿宝石+不死图腾(均未注册)→金锭代位
@@ -268,7 +271,7 @@ const MOB_DROPS = {
   illusioner: {rolls: [['iron_nugget', 1, 1]]}, // MC 未实装无官方掉落→掠夺者同款(帮派口径)
   /* —— 龙族/海族(单员族, MC 掉落物未注册代位) —— */
   dragon: {rolls: [['gold_ingot', 4, 0]], rare: [['diamond', 1]]}, // boss 整数口径; 龙之宝库读法, MC 龙蛋(未注册)→必得钻石奖杯
-  shulker: {rolls: [['clay_ball', 1, 2]]}, // MC 潜影壳(未注册)→黏土球代位(贝壳陶土读法)
+  shulker: {rolls: [['shulker_shell', 1, 1]]}, // MC 潜影壳 0-1·50%(页源 dropchance=0.5, 每级抢夺+6.25%)→保底1+加成1(2026-11-01 转正, 原黏土球代位退役)
   /* F4 农场一家(二期设计稿 §4.5, 儿童配平「保底 1+50%+1」沿用): 生肉+副产物 */
   cow: {rolls: [['raw_beef', 1, 1], ['leather', 1, 1]]},
   pig: {rolls: [['raw_porkchop', 1, 1]]},

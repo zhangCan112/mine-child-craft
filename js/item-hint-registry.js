@@ -42,6 +42,20 @@ const ITEM_HINTS = {
   string: '蜘蛛吐的细丝线',
   slimeball: '软软弹弹的小球球',
 
+  /* —— 怪物掉落·正典转正件(2026-11-01) —— */
+  ender_pearl: '末影人掉的绿珍珠',
+  blaze_rod: '烈焰人掉的火棒，特别耐烧',
+  nether_star: '打败凋灵得到的星星宝贝',
+  phantom_membrane: '幻翼掉的薄薄的膜',
+  spider_eye: '蜘蛛掉的眼睛，黑亮亮',
+  magma_cream: '岩浆怪挤出的橙色膏',
+  gold_nugget: '僵尸猪灵掉的小金粒',
+  shulker_shell: '潜影贝背上的紫壳',
+  prismarine_shard: '守卫者掉的蓝绿碎片',
+  prismarine_crystals: '守卫者掉的亮晶晶砂粒',
+  copper_ingot: '溺尸掉的橙亮铜锭',
+  ghast_tear: '恶魂掉的眼泪',
+
   /* —— 农耕链 —— */
   wheat: '金黄的麦子，能做面包',
   wheat_seeds: '种在地里，长出小麦',
