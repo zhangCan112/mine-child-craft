@@ -2063,17 +2063,23 @@ let advDenTodayOverride = null; /* 日键覆写(测试缝): 每日刷新用例�
 function advDenTodayKey() {/* 每日副本的「今天」(D20): 真钟=DailyBudget 同一日期串 */
   return advDenTodayOverride || DailyBudget.budgetDateStr(Date.now());
 }
-function advDenAlive() {/* 副本怪存量(advNightAlive 同口径: 尸体/已移除/动物不算) */
+function advDenWaveAlive() {/* 当波波次怪存量(波次门专用, advNightAlive 同口径:
+    尸体/已移除/动物不算)——只数带 __denWave 标的实体。2026-11-02 用户实测修正
+    「祭坛打完一波就没再出」: 旧口径 advDenAlive 数全副本活怪, 30 只固定守卫
+    散在七房不清完波次永不推进; 收窄=当波全清, 守卫清不清只影响探索不掉波次
+    (den-nest D22) */
   let n = 0;
   for (const m of Mobs.list()) {
+    if (m.__denWave == null) continue;
     if (!m.dead && !m.gone && m.cfg && !m.cfg.passive) n++;
   }
   return n;
 }
-function advDenLay(list, mult) {/* 布防落地(固定守卫与波次共用): spawn 贴列顶
+function advDenLay(list, mult, waveTag) {/* 布防落地(固定守卫与波次共用): spawn 贴列顶
     (副本岩顶, 女巫先例的显式落位) + 波次三乘数(hp 走 spawn 的 hpMult 通道,
     速度/伤害走逐实例字段——cfg 是共享注册表对象, 严禁原地改) + 家锚=房心。
-    守卫条目可带 gi(守卫表序)→ 实体标 __denGuard(阵亡入档键, D20) */
+    守卫条目可带 gi(守卫表序)→ 实体标 __denGuard(阵亡入档键, D20);
+    waveTag=波次号 → 实体标 __denWave(波次门只数当波怪, 见 advDenWaveAlive) */
   for (const g of list) {
     const m = Mobs.spawn(g.type, g.x + 0.5, g.z + 0.5,
         {yaw: 0, hpMult: mult ? mult.hpMult : 1});
@@ -2081,6 +2087,7 @@ function advDenLay(list, mult) {/* 布防落地(固定守卫与波次共用): sp
     if (mult && mult.spdMult) m.speedMult = mult.spdMult;
     if (mult && mult.dmgMult) m.dmgMult = mult.dmgMult;
     if (g.gi != null) m.__denGuard = g.gi;
+    if (waveTag != null) m.__denWave = waveTag;
     m.__nightHome = {x: g.hx != null ? g.hx : g.x + 0.5, z: g.hz != null ? g.hz : g.z + 0.5};
   }
 }
@@ -2099,18 +2106,19 @@ function advDenSeed(fresh) {/* 副本进场布防(§7+D20): fresh=全新(每日�
   advDenDaily.wave = fresh ? 1 : Math.max(1, advDenDaily.wave || 1);
   if (!fresh && advDenDaily.chestDone) return; /* 同日已通关: 熄火到明天(D20) */
   const w = advDenWavePlan(advDenDaily.wave, Math.random);
-  advDenLay(w.spawns, w);
+  advDenLay(w.spawns, w, advDenDaily.wave);
 }
-function advDenTick(dt) {/* 副本波次节拍(update 每帧, den 门禁内): 门=全清
-    (怪还活着计时归零)——清空累计 WAVE_S 秒出下一波; 第 WAVES 波全清 → 刷
-    战利品宝箱(恰一次); 封顶判据在纯核 advDenStep, 壳层只落地(§7.5/D15)。
-    波次/通关旗直接读写 advDenDaily(每日态=唯一权威, 档随 payload 落盘, D20) */
-  const step = advDenStep(advDenAlive() === 0, advDenT, dt, advDenDaily.wave, advDenDaily.chestDone);
+function advDenTick(dt) {/* 副本波次节拍(update 每帧, den 门禁内): 门=当波全清
+    (波次怪还活着计时归零——固定守卫不挡波次, 见 advDenWaveAlive)——清空累计
+    WAVE_S 秒出下一波; 第 WAVES 波全清 → 刷战利品宝箱(恰一次); 封顶判据在纯核
+    advDenStep, 壳层只落地(§7.5/D15/D22)。波次/通关旗直接读写 advDenDaily
+    (每日态=唯一权威, 档随 payload 落盘, D20) */
+  const step = advDenStep(advDenWaveAlive() === 0, advDenT, dt, advDenDaily.wave, advDenDaily.chestDone);
   advDenT = step.t;
   if (step.spawn) {
     advDenDaily.wave++;
     const w = advDenWavePlan(advDenDaily.wave, Math.random);
-    advDenLay(w.spawns, w);
+    advDenLay(w.spawns, w, advDenDaily.wave);
   }
   if (step.chest) {
     advDenDaily.chestDone = true;

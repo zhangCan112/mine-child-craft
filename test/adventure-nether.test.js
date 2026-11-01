@@ -1524,6 +1524,28 @@ test('副本 5 轮封顶真世界: 第 5 波全清刷战利品宝箱 · 敲碎�
   Drops.clear();
 });
 
+/* ============ 波次门收窄=当波全清(D22, 2026-11-02 用户实测修正) ============ */
+
+test('副本波次门: 守卫活着不挡下一波 — 只数当波波次怪(旧口径 30 守卫卡死波次)', () => {
+  freshC();
+  AN.advSetDim('den');
+  /* 进场=固定守卫+第 1 波(都带桩实体)。只清波次怪, 七房守卫全留——
+     旧 advDenAlive 口径下这是「没清完」, 波次永不推进(用户实测的卡死现场) */
+  assert.ok(mobsSpawnedC.some((m) => m.__denWave === 1), '第 1 波带 __denWave 标');
+  const nWave1 = mobsSpawnedC.filter((m) => m.__denWave != null).length;
+  assert.ok(nWave1 >= 6, '第 1 波至少 6 只(5 苦力怕+1 僵尸)');
+  listResultC = mobsSpawnedC.filter((m) => m.__denWave == null); /* 守卫全留 */
+  assert.ok(listResultC.length >= 30, '守卫 ' + listResultC.length + ' 只在场(前置: 门不认守卫)');
+  AM.update(ADV_DEN.WAVE_S + 0.5); /* 当波全清 10s → 第 2 波照出 */
+  assert.ok(mobsSpawnedC.some((m) => m.__denWave === 2), '守卫未清完第 2 波照出(D22)');
+  /* 反向: 波次怪活着计时归零——留一只第 2 波怪, 再跑 30s 不出第 3 波 */
+  listResultC = mobsSpawnedC.slice();
+  const n2 = mobsSpawnedC.length;
+  AM.update(30);
+  assert.strictEqual(mobsSpawnedC.length, n2, '当波怪活着不出下一波(门仍认波次怪)');
+  AN.advSetDim('overworld');
+});
+
 /* ============ 每日副本刷新真世界流程(D20, 2026-10-30 四批拍板) ============ */
 
 test('每日副本真世界: 同日续局(破坏保留+尸账不复活+补给不重来) · 次日彻底复原', () => {

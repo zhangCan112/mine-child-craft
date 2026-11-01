@@ -190,10 +190,12 @@ const ADV_DEN_GUARDS = [
   {type: 'creeper_king', x: 82, z: 37, y: ADV_DEN.ground + 2, hx: 82, hz: 42},
 ];
 
-/* 波次节拍(advSpawnPulse 组装) + 5 轮封顶: 门=「全清」——怪还活着计时归零,
-   全清后累计到 WAVE_S 出波令并归零; wave 达 WAVES 后不再出波——第 WAVES 波
-   全清即发 chest 信号(宝箱祭坛房刷出, chestDone=false 才发=恰一次), 之后熄火
-   (t 恒 0, 奖励即现不等 10s)。逐拍独立(出令后布防/刷箱在壳层, 整拍作废不结转) */
+/* 波次节拍(advSpawnPulse 组装) + 5 轮封顶: 门=「当波全清」——cleared 由壳层
+   只数当波波次怪喂入(固定守卫是七房生态不挡波次, 2026-11-02 收窄, den-nest
+   D22): 怪还活着计时归零, 全清后累计到 WAVE_S 出波令并归零; wave 达 WAVES 后
+   不再出波——第 WAVES 波全清即发 chest 信号(宝箱祭坛房刷出, chestDone=false
+   才发=恰一次), 之后熄火(t 恒 0, 奖励即现不等 10s)。逐拍独立(出令后布防/刷箱
+   在壳层, 整拍作废不结转) */
 function advDenStep(cleared, t, dt, wave, chestDone) {
   const w = Math.max(1, Math.floor(wave || 1));
   if (w >= ADV_DEN.WAVES) {
