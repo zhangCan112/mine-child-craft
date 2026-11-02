@@ -18,6 +18,7 @@
    坐标, 世界装配层负责平移到装场基面。
    interface: MATH_CELL_COLORS · mathWorldSymParams · mirrorStage(reflect
      装场参数: 镜面独占正中一列, 两侧摆放区紧贴对称) · mkWorldTranslate ·
+     translateNearMiss(平移近似: 形状全对仅整座错位时的纠偏量) ·
      mkWorldTangram · mkWorldBuild · mkWorldPick · mkWorldHidden ·
      mkWorldCount · bridgePlan · bridgeGrade · mkBridgePuzzle(最省桥
      US20: 两岸地形+可证最少块数 par / 三判据判分 / 出题包装) ·
@@ -134,6 +135,46 @@ const BuildWorldCore = (() => {
       PuzzleCore.translatePattern(sample.concat(moved), -b.x0, 0, -b.z0);
     return {offset: {dx, dz}, sample: sampleN, half: sampleN, solution,
       box: {w: b.w, d: b.d, h: b.h}};
+  }
+
+  /* 平移近似纠偏(2026-11 摆位迷惑票): 孩子摆的 cells 若整体=平移像
+     (解减样品)的平移——形状/层完全一致, 只是整座错位——返回纠偏量
+     {dx, dz}(摆回正确位置的反向平移); 形状不对/多摆/缺块/空摆返回
+     null。缺省摆放界=谜题包围盒 box(装配层 wwStage 画布), 错位整份
+     顶出界的格子会被摆放界拦下, 孩子手里那份天然缺顶边 — 判定按
+     「像平移后裁进 box」逐格等, 裁外格允许缺席, 其余每一格都要对上
+     (界外已摆的 cells 一并忽略, 物理摆不进来的防御)。只产话术数据
+     不改判分 — 判分语义仍是 gradeSymmetry 精确判。 */
+  function translateNearMiss(placed, pz) {
+    if (!placed || !placed.length || !pz || !pz.half || !pz.solution ||
+        !pz.box) return null;
+    const want = pz.solution.filter((c) => !pz.half.some((s) =>
+      keyOf(s) === keyOf(c)));
+    if (!want.length) return null;
+    const inBox = (c) => c.x >= 0 && c.x < pz.box.w && c.z >= 0 && c.z < pz.box.d;
+    const got = new Set(placed.filter(inBox).map(keyOf));
+    if (!got.size) return null;
+    /* 错位候选穷举: |平移|越出 box 的候选连一格都留不进画布, 自然
+       落选 — 候选集有界且 box 很小, 交卷时一次调用开销可忽略 */
+    for (let oz = -pz.box.d; oz <= pz.box.d; oz++) {
+      for (let ox = -pz.box.w; ox <= pz.box.w; ox++) {
+        if (!ox && !oz) continue;
+        let hit = 0;
+        let ok = true;
+        for (const c of want) {
+          const nx = c.x + ox; const nz = c.z + oz;
+          if (!inBox({x: nx, z: nz})) continue; // 裁外格: 界内缺席才判死
+          if (!got.has(nx + ',' + c.y + ',' + nz)) {
+            ok = false;
+            break;
+          }
+          hit++;
+        }
+        /* 界内格逐格全中且不多摆(缺一块=形状不全对, 不给话术) */
+        if (ok && hit === got.size) return {dx: -ox || 0, dz: -oz || 0};
+      }
+    }
+    return null;
   }
 
   /* ---------- mirror/tangram 拼组恰填(★★) ---------- */
@@ -587,8 +628,8 @@ const BuildWorldCore = (() => {
   }
 
   return {MATH_CELL_COLORS, mathWorldSymParams, mirrorStage, mkWorldTranslate,
-    mkWorldTangram, mkWorldBuild, mkWorldPick, mkWorldHidden, mkWorldCount,
-    bridgePlan, bridgeGrade, mkBridgePuzzle, bridgeOk, mkWorldDualView,
+    translateNearMiss, mkWorldTangram, mkWorldBuild, mkWorldPick, mkWorldHidden,
+    mkWorldCount, bridgePlan, bridgeGrade, mkBridgePuzzle, bridgeOk, mkWorldDualView,
     blueprintPixels, digitCells, worldNumChoices, boundsOf, keyOf};
 })();
 

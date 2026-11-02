@@ -146,6 +146,44 @@ test('mkWorldTranslate: 解=样本∪平移像 · 照解摆判对(gradeSymmetry)
   assert.ok(pz.box.w >= 4 && pz.box.d >= 2, '画布容纳两份图案');
 });
 
+test('translateNearMiss: 形状全对仅错位=纠偏量 · 摆对/形状错/多摆/空摆=无话术', () => {
+  const movedOf = (pz) => pz.solution.filter((c) => !pz.half.some((h) => key(h) === key(c)));
+  const pz = BuildWorldCore.mkWorldTranslate({seed: 21, span: 12, layerRate: 0});
+  const moved = movedOf(pz);
+  assert.strictEqual(BuildWorldCore.translateNearMiss(moved, pz), null, '摆对=不给纠偏');
+  assert.strictEqual(BuildWorldCore.translateNearMiss([], pz), null, '空摆=不给纠偏');
+  /* 整座错位 → 纠偏量恰为反向平移(-0 归一为 0, 话术侧 if 判定与
+     deepStrictEqual 都不吃 -0) */
+  const nz = (v) => v || 0;
+  const shift = (cells, ox, oz) => cells.map((c) => ({...c, x: c.x + ox, z: c.z + oz}));
+  assert.deepStrictEqual(
+      BuildWorldCore.translateNearMiss(shift(moved, 1, 0), pz),
+      {dx: -1, dz: 0}, '整座右偏1格 → 往左纠回');
+  assert.deepStrictEqual(
+      BuildWorldCore.translateNearMiss(shift(moved, 0, -2), pz),
+      {dx: 0, dz: 2}, '整座前偏2格 → 往后纠回');
+  /* 摆放界裁剪(装配层把顶出画布的格子拦下): 缺了顶边仍算形状全对 */
+  const inBox = (box) => (c) => c.x >= 0 && c.x < box.w && c.z >= 0 && c.z < box.d;
+  const clipped = shift(moved, 1, 0).filter(inBox(pz.box));
+  assert.deepStrictEqual(
+      BuildWorldCore.translateNearMiss(clipped, pz),
+      {dx: -1, dz: 0}, '顶边被界拦下的错位整份仍给纠偏');
+  const lifted = moved.map((c) => ({...c, y: c.y + 1}));
+  assert.strictEqual(BuildWorldCore.translateNearMiss(lifted, pz), null,
+      '层也对不上(抬高一层)=形状不全对');
+  const extra = moved.concat([{...moved[0], x: moved[0].x - 5}]);
+  assert.strictEqual(BuildWorldCore.translateNearMiss(extra, pz), null, '多摆=不给纠偏');
+  /* 全谱回归: 任意整数错位 → 纠偏量恰为反向平移(20 种子 × 邻域错位) */
+  for (let s = 0; s < 20; s++) {
+    const p2 = BuildWorldCore.mkWorldTranslate({seed: s, span: 12, layerRate: 0.2});
+    const ox = (s % 3) - 1; const oz = ((s >> 1) % 3) - 1; // -1..1
+    if (!ox && !oz) continue;
+    assert.deepStrictEqual(
+        BuildWorldCore.translateNearMiss(shift(movedOf(p2), ox, oz), p2),
+        {dx: nz(-ox), dz: nz(-oz)}, 'seed' + s + ' 错位(' + ox + ',' + oz + ')的反向纠偏');
+  }
+});
+
 /* ============ mirror/tangram: 拼组恰填 ============ */
 
 test('mkWorldTangram: 目标轮廓 4..12 格 · 连通 · 解=轮廓抬一层 · 恰填判分', () => {

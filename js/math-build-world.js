@@ -188,8 +188,10 @@ function wwTopEdgeTorches(x0, z0, w) {
   }
 }
 /* 候选牌(图纸牌/数字牌共用): 宽度超 28(平台一行放不下)自动折两行;
-   slots = [{w, d, value?, draw(bx,bz)}] — value = 数字牌的数值(判分
-   比较值), 图纸牌缺省按下标判分 */
+   slots = [{w, d, h?, value?, draw(bx,bz)}] — d=底座深(立式墙牌=1),
+   h=立式墙高(牌面像素行数, 缺省 1), draw 在墙线 z=bz(底座正中)自下
+   而上画行; value = 数字牌的数值(判分比较值), 图纸牌缺省按下标判分。
+   boards 行带 ymax(墙顶世界 y), 点选判定的 y 窗据此放宽 */
 function wwBoardRow(slots, zLine) {
   const W = MATH_WORLD;
   const gap = 2;
@@ -216,11 +218,22 @@ function wwBoardRow(slots, zLine) {
       const x0 = bx; const z0 = line - Math.floor(s.d / 2);
       SceneKit.fill(x0 - 1, W.groundY + 1, z0 - 1, x0 + s.w, W.groundY + 1, z0 + s.d, W.boardBlock);
       s.draw(x0, z0);
-      boards.push({x0: x0 - 1, z0: z0 - 1, x1: x0 + s.w, z1: z0 + s.d, idx: i, value: s.value});
+      boards.push({x0: x0 - 1, z0: z0 - 1, x1: x0 + s.w, z1: z0 + s.d, idx: i, value: s.value,
+        ymax: W.groundY + 1 + (s.h || 1)});
       bx += s.w + 2 + gap;
     }
   });
   return boards;
+}
+
+/* 纠偏方向话术(mirror/translate 交卷近似用): 玩家出生画布南侧正对
+   谜面(同全场出生口径) — 世界 +x=右 · +z=后, 与「往右搬一份」的
+   dx>0 口径一致; 返回如「往左挪1格再往后挪2格」, 无偏移返回空串 */
+function wwShiftWords(dx, dz) {
+  const parts = [];
+  if (dx) parts.push('往' + (dx > 0 ? '右' : '左') + '挪' + Math.abs(dx) + '格');
+  if (dz) parts.push('往' + (dz > 0 ? '后' : '前') + '挪' + Math.abs(dz) + '格');
+  return parts.join('再');
 }
 
 /* ---------- 变体表: 出题 · 装场 · 话术 ---------- */
@@ -287,21 +300,40 @@ const MATH_WORLD_VARIANTS = {
         layerRate: sec.params.layerRate})};
     },
     build(t) {
-      const p = t.pz; const {x0, z0} = wwStage(p.box.w, p.box.d);
+      const p = t.pz; const W = MATH_WORLD;
+      const {x0, z0} = wwStage(p.box.w, p.box.d);
       wwCellsToWorld(p.sample, x0, z0, MATH_WORLD.groundY + 1);
-      /* 目标区四角玻璃角框(定区域不给逐格答案) */
+      /* 样品框 + 目标框: 两只等大玻璃方框嵌地面(镜像关「镜子」的同款
+         分界物 — 只定区域不给逐格答案, 框 = 图案包围盒, 贴着框摆=
+         正确位置。曾只有四颗玻璃角点, 「形状对了却总判失败」无从
+         对齐, 2026-11 摆位迷惑票收编) */
       const Y = MATH_WORLD.groundY;
+      const frame = (fx0, fz0, fx1, fz1) => {
+        SceneKit.fill(fx0, Y, fz0, fx1, Y, fz0, W.markerBlock);
+        SceneKit.fill(fx0, Y, fz1, fx1, Y, fz1, W.markerBlock);
+        SceneKit.fill(fx0, Y, fz0, fx0, Y, fz1, W.markerBlock);
+        SceneKit.fill(fx1, Y, fz0, fx1, Y, fz1, W.markerBlock);
+      };
+      const sb = BuildWorldCore.boundsOf(p.sample);
+      frame(x0 + sb.x0 - 1, z0 + sb.z0 - 1, x0 + sb.x0 + sb.w, z0 + sb.z0 + sb.d);
       const tgt = p.solution.filter((c) => !p.sample.some((s) =>
         wwKey(s.x, s.y, s.z) === wwKey(c.x, c.y, c.z)));
       const tb = BuildWorldCore.boundsOf(tgt);
-      for (const [gx, gz] of [[tb.x0 - 1, tb.z0 - 1], [tb.x0 + tb.w, tb.z0 - 1],
-        [tb.x0 - 1, tb.z0 + tb.d], [tb.x0 + tb.w, tb.z0 + tb.d]]) {
-        setBlockRaw(x0 + gx, Y, z0 + gz, MATH_WORLD.markerBlock);
-      }
-      return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h};
+      frame(x0 + tb.x0 - 1, z0 + tb.z0 - 1, x0 + tb.x0 + tb.w, z0 + tb.z0 + tb.d);
+      return {mode: 'place', pz: p, x0, z0, w: p.box.w, d: p.box.d, h: p.box.h,
+        /* 交卷失败但形状全对(整座差几格): 给一句可执行的纠偏话术
+           (translateNearMiss 纯核心产数据), 判分语义不变 — 交卷仍判
+           本试次, 话术只管让孩子知道「就差位置」 */
+        failHint(cells) {
+          const nm = BuildWorldCore.translateNearMiss(cells, p);
+          if (!nm) return null;
+          return '形状全对啦！整座图案' + wwShiftWords(nm.dx, nm.dz) +
+            '，贴着玻璃方框再试一次！';
+        }};
     },
     speak(p) {
-      return '照着图案的样子，往右搬一份，摆进玻璃角框里！' + MATH_WORLD.askS;
+      return '照着图案的样子，往右搬一份，摆进右边的玻璃方框里，贴着框摆！' +
+        MATH_WORLD.askS;
     },
   },
   'mirror/tangram': {
@@ -348,12 +380,20 @@ const MATH_WORLD_VARIANTS = {
       wwCellsToWorld(p.cells, x0 + 12 - Math.floor(sb.w / 2) - sb.x0,
           z0 + 4 - sb.z0, MATH_WORLD.groundY + 1);
       const boards = wwBoardRow(p.candidates.map((c) => ({
-        w: c.w, d: c.d,
+        w: c.w, d: 1, h: c.d,
         draw(bx, bz) {
-          for (let i = 0; i < c.top.length; i++) {
-            if (c.top[i] > 0) {
-              setBlockRaw(bx + i % c.w, MATH_WORLD.groundY + 2, bz + Math.floor(i / c.w),
-                  MATH_WORLD.colBlock[c.top[i]]);
+          /* 立式墙牌: 俯视图立起来给孩子读 — 平铺台顶时牌面(y=22..23)恒在
+              眼高(22.62)之上, 顶面从地面看是背面不可见, 孩子只看得到最南
+              一排侧脸色条(2026-11「只见摆放不见图纸」票); 墙行 r 自下而上 =
+              图纸行 d-1-r(南缘贴地, 沿南缘折立), 左右与建筑南视同序, 判分
+              口径(下标)零变化 */
+          for (let row = 0; row < c.d; row++) {
+            for (let x = 0; x < c.w; x++) {
+              const v = c.top[row * c.w + x] || 0;
+              if (v) {
+                setBlockRaw(bx + x, MATH_WORLD.groundY + 2 + (c.d - 1 - row), bz,
+                    MATH_WORLD.colBlock[v]);
+              }
             }
           }
         },
@@ -508,11 +548,14 @@ function wwBuildCountScene(t) {
   const boards = wwBoardRow(p.cands.map((v) => {
     const ds = String(v).split('').map(Number); // 多位数 = 逐位拼牌(个十百, 位间 1 格)
     return {
-      w: ds.length * 3 + (ds.length - 1), d: 5, value: v,
+      w: ds.length * 3 + (ds.length - 1), d: 1, h: 5, value: v,
       draw(bx, bz) {
+        /* 数字立式墙牌(同图纸牌: 平铺只有底行色条可读); digitCells 行 0
+            在上 → 墙行 r 自下而上取 4-dy */
         ds.forEach((d, i) => {
           for (const [dx, dy] of BuildWorldCore.digitCells(d)) {
-            setBlockRaw(bx + i * 4 + dx, MATH_WORLD.groundY + 2, bz + dy, MATH_WORLD.digitBlock);
+            setBlockRaw(bx + i * 4 + dx, MATH_WORLD.groundY + 2 + (4 - dy), bz,
+                MATH_WORLD.digitBlock);
           }
         });
       },
@@ -579,7 +622,14 @@ function runBuildWorld(section, h) {
       PuzzleCore.gradeSymmetry(cells, trial.pz);
   }
   function gradeNow(cells) {
-    settle(gradeWith(cells));
+    const ok = gradeWith(cells);
+    /* 交卷失败纠偏缝(trial.failHint 可注入, 现仅 mirror/translate 用):
+       判分与节拍语义不变, 只把「差在哪」先说给孩子听 */
+    if (!ok && trial.failHint) {
+      const msg = trial.failHint(cells);
+      if (msg) hint(msg);
+    }
+    settle(ok);
   }
   function childCells() {
     const out = [];
@@ -658,7 +708,7 @@ function runBuildWorld(section, h) {
     if (trial.mode === 'choice') {
       for (const b of trial.boards) {
         if (hit.x >= b.x0 && hit.x <= b.x1 && hit.z >= b.z0 && hit.z <= b.z1 &&
-            hit.y > MATH_WORLD.groundY && hit.y <= MATH_WORLD.groundY + 2) {
+            hit.y > MATH_WORLD.groundY && hit.y <= (b.ymax || MATH_WORLD.groundY + 2)) {
           /* 数字牌判值(answer 是数值), 图纸牌判下标(answer 是下标) */
           settle(b.value !== undefined ? b.value === trial.pz.answer : b.idx === trial.pz.answer);
           return;
