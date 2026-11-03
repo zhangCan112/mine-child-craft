@@ -446,7 +446,25 @@ test('craft 面板: 卡序=可制造在前缺料在后(同档稳定=原配方序
   panel.remove();
 });
 
-test('craft 面板: 合成后该配方卡置顶(材料尽仍第一, 置顶优先于亮灰)', () => {
+test('craft 面板: 合成后该配方卡置顶(仍可制造时从次位跳第一)', () => {
+  const doc = mkDoc();
+  const inv = {slots: [
+    ...Array(9).fill(null), {id: 'log', n: 2}, {id: 'planks', n: 5}, {id: 'stick', n: 2},
+    {id: 'coal', n: 2}, ...Array(13).fill(null),
+  ]};
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_TORCH], onCraft() {}});
+  panel.show();
+  collect(panel.root, 'mkp-card')[1].onclick(); // 点火把卡 = 一键摆入(coal1+stick1)
+  const out = collect(panel.root, 'mkp-oslot')[0];
+  out._ev.pointerdown({preventDefault() {}});
+  out._ev.pointerup(); // 短按一发 → 4 火把入包
+  /* 合成后 coal1+stick1 仍够再造 → 火把从配方序第二跳第一, planks 让位次之 */
+  assert.deepStrictEqual(collect(panel.root, 'mkp-card').map((c) => c.dataset.recipe),
+      ['torch', 'planks'], '刚做过且仍可造 → 置顶第一');
+  panel.remove();
+});
+
+test('craft 面板: 合成后材料尽(灰卡)不置顶, 沉回缺料档原配方序', () => {
   const doc = mkDoc();
   const inv = {slots: [
     ...Array(9).fill(null), {id: 'log', n: 2}, {id: 'planks', n: 5}, {id: 'stick', n: 2},
@@ -457,10 +475,11 @@ test('craft 面板: 合成后该配方卡置顶(材料尽仍第一, 置顶优先
   collect(panel.root, 'mkp-card')[1].onclick(); // 点木镐卡 = 一键摆入(planks3+stick2)
   const out = collect(panel.root, 'mkp-oslot')[0];
   out._ev.pointerdown({preventDefault() {}});
-  out._ev.pointerup(); // 短按一发 → 木镐入包, 格内材料耗尽
-  /* 木镐再缺 planks(5-3=2<3) 已灰, 仍排第一; planks 可造次之; 火把缺 stick 垫底 */
+  out._ev.pointerup(); // 短按一发 → 木镐入包, 材料尽
+  /* 木镐缺 planks(5-3=2<3) 已灰: 不置顶, 沉回缺料档(配方序); planks 可造第一,
+     火把缺 stick 同档按配方序垫底 */
   assert.deepStrictEqual(collect(panel.root, 'mkp-card').map((c) => c.dataset.recipe),
-      ['pick_wood', 'planks', 'torch'], '刚做过的卡置顶(优先于亮灰判定)');
+      ['planks', 'pick_wood', 'torch'], '灰卡不置顶: 缺料档内保持原配方序');
   panel.remove();
 });
 

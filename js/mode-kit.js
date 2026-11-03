@@ -30,8 +30,8 @@
    设计定稿 docs/item-hint-design.md)。
    引擎层(world/input)对本文件零依赖; 本文件属应用层。
    interface: mkMode · mkHotbar · mkMainAct · mkHeldSync(手持感知同步件) ·
-              mkMobPicker(选怪按钮组) · mkCraftPanel(刚做过→可制造→缺料
-              排序+卡片 DOM 复用) · mkFurnacePanel ·
+              mkMobPicker(选怪按钮组) · mkCraftPanel(刚做过且仍可造→可制造→
+              缺料排序+卡片 DOM 复用) · mkFurnacePanel ·
               mkChestPanel(三者=内部底座 mkPanelShell+差异段, 均含 cellAt
               查询面) · sortInv · spawn · lookName · confirmBtn ·
               editHit(挖/放编辑原语) · mkHoldMine(触屏按住连挖驱动)
@@ -590,7 +590,7 @@ function mkPanelShell(cfg) {
    长按 0.4s 连做 0.3s/发至材料尽(拍板④; 防误合由「摆错不产出」天然承担,
    旧两步制确认钮退役)。配方卡=BE 口径一键摆入(拍板③): fillGrid 自动
    摆材料, 缺料格留空, 重复点卡=再备一套; 站点外只列 hand 级卡(正典配方
-   书口径)。卡序=刚做过→可制造→缺料(置顶优先于亮灰), 卡片 DOM 按签名复用。关面板格内材料退回背包(MC 工作台口径)。
+   书口径)。卡序=刚做过且仍可造置顶→可制造→缺料(材料尽的灰卡不置顶), 卡片 DOM 按签名复用。关面板格内材料退回背包(MC 工作台口径)。
    挂载幂等: 同一遮罩节点反复 show 只挂一次, remove 可重复调 */
 function mkCraftPanel(opts) {
   const o = opts || {};
@@ -829,7 +829,7 @@ function mkCraftPanel(opts) {
     const hit = matchNow(); /* 先记命中配方(gridCraft 不回配方, 排序置顶依据) */
     const res = gridCraft(cells, inv, station(), visibleRecipes());
     if (!res.ok) return false;
-    lastCraftId = hit ? hit.id : null; /* 材料尽连做停后该卡仍置顶(刚做的排第一) */
+    lastCraftId = hit ? hit.id : null; /* 记刚合成的配方(置顶口径, 灰卡闸门在 cardRank) */
     if (o.onCraft) o.onCraft({item: res.out.item, n: res.out.n, leftover: res.leftover});
     refresh(); // 格内数量/产出槽实时重读
     return true;
@@ -859,10 +859,11 @@ function mkCraftPanel(opts) {
     if (it && it.block) return 'block';
     return 'all'; // 未归类(材料): 只在「全部」页出现
   }
-  /* 卡序比较: 刚做过(lastCraftId 命中) → 可制造 → 其余; 置顶优先于亮灰 —
-     合成后材料耗尽该卡仍第一(「刚刚做的排第一」口径); 同档稳定排序=原配方序 */
+  /* 卡序比较: 刚做过(lastCraftId 命中)且仍可制造 → 置顶; 可制造 → 次档;
+     其余(缺料灰卡)沉尾 — 材料尽的刚做卡不置顶(2026-11-04 用户口径:
+     灰卡排第一反而挡住下一个能做的), 同档稳定排序=原配方序 */
   function cardRank(r, check) {
-    if (r.id === lastCraftId) return 0;
+    if (r.id === lastCraftId && check.ok) return 0;
     return check.ok ? 1 : 2;
   }
   function renderCards() {
