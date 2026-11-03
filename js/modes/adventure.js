@@ -1604,9 +1604,21 @@ function advTrySleep(hit, lookId) {/* 点击床(§7.2 时钟改版, 挖掘左键
   return true;
 }
 
-/* 点击门开关 → kit 薄转发(使用先于放置/挖掘的次序在 onMouse 编排, 不变) */
+/* 点击门开关 → kit 薄转发(左键/⛏️键空手专属, 2026-11-04 拆门票: 此前左右两条链
+   都走开关, 蓄力挖掘永远进不去=门拆不掉; 现口径左键=开关/右键=拆, 对门不再进蓄力) */
 function advTryDoor(hit, lookId) {
   return advPlaceKit.tryDoorToggle(hit, lookId);
+}
+
+/* 右键/触屏轻点拆门(2026-11-04 用户票「左键是开关门, 右键可以拆掉门, pad 对应
+   两键」——轻点=aimClick(2) 同路拆除, ⛏️键空手=aimClick(0) 同路开关): 命中门
+   任一半 → kit breakBlock 破坏结算一条链(doorBreakApply 配对整扇回收 ×1+记账
+   +掉落, 与蓄力挖到点同一出口, 不造第二份规则)。返回 true=消费了本次点击 */
+function advTryDoorRemove(hit, lookId) {
+  if (!hit || !advIsDoor(lookId)) return false;
+  advPlaceKit.breakBlock(hit.x, hit.y, hit.z, lookId, {drops: true});
+  advToast('🚪 门拆下来啦');
+  return true;
 }
 
 /* ============================================================
@@ -3741,7 +3753,8 @@ const AdventureMode = mkMode({
     精确命中故在最前)/箱子走近点击开面板(引导链 v2, 站点缓存外故按点击块直算距离), 准星锥内有
     活怪→挥击(T14, 持弓=空手伤害 3 点——2026-10-28 Route A 拍板回归 MC 正典,
     射箭只在右键/触屏专用键), 否则吃/挖掘蓄力(T12); 右键放置; 床=点击开时钟拨盘
-    (昼夜 D6 时钟改版, 判据与拨盘在 advTrySleep) */
+    (昼夜 D6 时钟改版, 判据与拨盘在 advTrySleep); 门=左键开关/右键拆(2026-11-04
+    用户票「门拆不来了」, advTryDoor/advTryDoorRemove) */
     if (ADV.panelOpen || advFurnace.isOpen() || ADV.chestOpen || advSleep.on) return; /* 面板/睡觉黑屏遮罩兜底: 不挖不放不打 */
     if (button === 0) {
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
@@ -3752,7 +3765,7 @@ const AdventureMode = mkMode({
       }
       if (advUseStation(hit, lookId)) return; /* 熔炉/箱子: 走近开面板(见下) */
       if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6, 使用先于打/挖) */
-      if (advTryDoor(hit, lookId)) return; /* 门: 点击开关(设计稿 §4.2, 使用先于打/挖) */
+      if (advTryDoor(hit, lookId)) return; /* 门: 左键开关(⛏️键空手同路, 设计稿 §4.2; 右键拆=advTryDoorRemove) */
       if (advMelee.aim(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖;
         持弓=空手 3 点——2026-10-28 Route A 回归 MC 正典, 射箭走右键/触屏专用键) */
         advMelee.swing(advGetPEnt());
@@ -3767,7 +3780,7 @@ const AdventureMode = mkMode({
       const lookId = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
       if (advUseStation(hit, lookId)) return;
       if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6 §7.2, 使用先于吃/放) */
-      if (advTryDoor(hit, lookId)) return; /* 门: 点击开关(设计稿 §4.2, 使用先于吃/放) */
+      if (advTryDoorRemove(hit, lookId)) return; /* 门: 右键拆除(触屏轻点同路, 2026-11-04 用户票; 开关走左键) */
       if (advTryEat()) return;
       if (advTryThrowSnowball()) return; /* 手持雪球: 掷出(T9, 使用档在吃与放置之间) */
       if (advTryUseHeld()) return; /* 手持使用动作物品(弓/种子/骨粉): 注册表驱动使用(farm-and-recipe D3

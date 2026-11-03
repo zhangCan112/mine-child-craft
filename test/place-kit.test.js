@@ -213,13 +213,22 @@ test('place-kit: 门 — 结构放置两格+开关成对换 id+门口站人拒�
   assert.strictEqual(api.getBlock(16, 13, 20), api.B_DOOR, '关回实心');
 });
 
-test('place-kit: 门配对破坏 — 挖任一半整扇回收+掉 1 扇(经 cascade.drop)', () => {
+test('place-kit: 门配对破坏 — 挖任一半整扇回收+恰掉 1 扇(2026-11-04 双掉修复: 下半自带表, 计划不双发)', () => {
   reset();
+  api.setBlockRaw(16, 13, 20, api.B_DOOR); api.setBlockRaw(16, 14, 20, api.B_DOOR_TOP);
   ed.breakBlock(16, 13, 20, api.B_DOOR, {time: 1, drops: true});
   assert.strictEqual(api.getBlock(16, 13, 20), 0, '下扇清');
   assert.strictEqual(api.getBlock(16, 14, 20), 0, '上扇配对清(整扇回收)');
-  assert.ok(drops.some((d) => d[0] === 'door' && d[1] === 1), '掉 1 扇(不双掉)');
+  assert.strictEqual(drops.filter((d) => d[0] === 'door').reduce((s, d) => s + d[1], 0), 1,
+      '挖下半恰掉 1 扇(drop 表常规掷得+计划不补发, 此前双掉)');
   assert.strictEqual(wearCalls, 1, '破坏成功磨损钩');
+  /* 挖上半: 上半无 drop 表, 由计划补发 1(合计仍恰 1) */
+  reset();
+  api.setBlockRaw(16, 13, 20, api.B_DOOR); api.setBlockRaw(16, 14, 20, api.B_DOOR_TOP);
+  ed.breakBlock(16, 14, 20, api.B_DOOR_TOP, {time: 1, drops: true});
+  assert.strictEqual(api.getBlock(16, 13, 20), 0, '下扇配对清');
+  assert.strictEqual(drops.filter((d) => d[0] === 'door').reduce((s, d) => s + d[1], 0), 1,
+      '挖上半恰掉 1 扇(计划补发, 上半无表)');
 });
 
 /* ============ ②b 床: 两格放置/配对破坏 (两格床改版, 门同款缝) ============ */

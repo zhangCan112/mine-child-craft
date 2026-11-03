@@ -1605,10 +1605,10 @@ test('advDoorTogglePlan: 四向耦合(2026-11-04) — 沿 z 并排双门 z±1 �
 test('advDoorBreakPlan: 挖下连上/挖上连下/挖门下支撑整扇弹出 · drop 恒 1 · 空格过滤', () => {
   const world = {};
   const rd = (x, y, z) => (world[x + ',' + y + ',' + z] || 0);
-  /* 挖掉下半(y 已清 0): 收上半 */
+  /* 挖掉下半(y 已清 0): 收上半; 下半自带 drop 表已常规掷掉, 计划不补发(2026-11-04 双掉修复) */
   world['1,26,1'] = api.B_DOOR_TOP;
   assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 1, 25, 1),
-      {cells: [{x: 1, y: 26, z: 1}], drop: 1}, '挖下半 → 收上半, 掉 1');
+      {cells: [{x: 1, y: 26, z: 1}], drop: 0}, '挖下半 → 收上半不补发(防双掉)');
   /* 挖掉上半: 连下半整扇回收 */
   world['1,26,1'] = 0; world['1,24,1'] = api.B_DOOR;
   assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 1, 25, 1),

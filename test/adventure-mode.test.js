@@ -1186,6 +1186,27 @@ test('T12 挖掘行为链: 蓄力到点破坏 — 记账/掉落物 spawn/耐久 
   clearAim();
 });
 
+test('门·左键开关/右键拆除(2026-11-04 用户票「门拆不来了」): onMouse(0) 成对换开态不进蓄力 · onMouse(2) 整扇两格清+恰掉门×1', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  const set = (x, y, z, id) => {
+    api.worldCells[(y * D + z) * W + x] = id;
+  };
+  set(spot.x, 25, spot.z, B_DOOR); set(spot.x, 26, spot.z, B_DOOR_TOP); /* 地上摆一扇门 */
+  const hit = {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0};
+  AdventureMode.onMouse(0, hit); /* 左键(触屏 ⛏️ 键空手同路 aimClick(0)): 开关门 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), B_DOOR_OPEN, '左键: 下半换开态 id');
+  assert.strictEqual(cell(spot.x, 26, spot.z), B_DOOR_TOP_OPEN, '左键: 上半成对随动');
+  assert.strictEqual(A.advMine.down, false, '左键对门不进蓄力(拆不掉的根因: 两键全被开关吞)');
+  AdventureMode.onMouse(2, hit); /* 右键(触屏轻点同路 aimClick(2)): 拆门 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '右键: 下半清');
+  assert.strictEqual(cell(spot.x, 26, spot.z), 0, '右键: 上半配对连清(整扇回收)');
+  assert.strictEqual(globalThis.Drops.list().filter((d) => d.id === 'door')
+      .reduce((s, d) => s + d.n, 0), 1, '恰掉 1 扇门(doorBreakApply 配对政策, 不双掉)');
+  assert.strictEqual(A.advMine.down, false, '右键不进蓄力');
+});
+
 test('T12 挖掘行为链: 松手态换目标熄火 — 单击的蓄力不跟准星漂到别的方块', () => {
   mem.clear();
   freshInit();

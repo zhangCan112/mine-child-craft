@@ -2130,7 +2130,10 @@ function advDoorTogglePlan(read, lookId, p, x, y, z) {
 
 /* 门配对破坏计划(MC 口径: 挖任一半=整扇消失、掉 1 扇; 挖门正下方支撑=
    整扇弹出)。壳在世界已清格后调用(read 反映挖后状态), 对返回 cells 逐格
-   editBlock+记账, drop 走掉落物通道(上半 drop 字段留空防双掉, 表自洽)。
+   editBlock+记账, drop 走掉落物通道。补发口径(2026-11-04 双掉修复, 床
+   advBedBreakPlan 同款): 下半自带 drop 表——挖到下半(蓄力到点/TNT 掀/右键
+   拆)常规掷已掉 1, 计划不补发; 上半无表, 挖到上半才由计划补发 1; 挖支撑
+   两半都没掷过表, 计划补发 1。
    返回 {cells:[{x,y,z} 非空格], drop: 0|1} */
 function advDoorBreakPlan(read, x, y, z) {
   const up = read(x, y + 1, z); const dn = read(x, y - 1, z);
@@ -2140,11 +2143,11 @@ function advDoorBreakPlan(read, x, y, z) {
     if (read(x, y + 2, z) !== 0) cells.push({x, y: y + 2, z});
     return {cells, drop: 1};
   }
-  /* 挖掉的是下半: 收上半 */
+  /* 挖掉的是下半(自带表已常规掷掉): 收上半, 不补发 */
   if (up === B_DOOR_TOP || up === B_DOOR_TOP_OPEN) {
-    return {cells: [{x, y: y + 1, z}], drop: 1};
+    return {cells: [{x, y: y + 1, z}], drop: 0};
   }
-  /* 挖掉的是上半: 连下半整扇回收 */
+  /* 挖掉的是上半(无表): 连下半整扇回收, 计划补发 1 */
   if (advIsDoorLower(dn)) {
     return {cells: [{x, y: y - 1, z}], drop: 1};
   }

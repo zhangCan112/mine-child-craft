@@ -110,9 +110,11 @@ glass_pane: {name: '玻璃板', icon: '🪟', block: 68}, // 常规单格放置�
 ### 3.3 advDoorBreakPlan(read, x, y, z) → {cells, drop}
 
 配对破坏政策（MC 口径：挖任一半=整扇消失、掉 1 扇门；挖门正下方支撑=门整扇弹出）：
-挖掉的格是门 → 连带另半格；挖掉的格**正上方**是门下半 → 连带整扇；`drop` 恒 `'door'` ×1
-（上半不掉、双半不双掉——上半 drop 字段留空即自洽）。壳在挖方与 TNT 两个移除点之后
-调用，对 cells 逐格 `advMarkEdit + editBlock`，drop 走既有掉落物通道。
+挖掉的格是门 → 连带另半格；挖掉的格**正上方**是门下半 → 连带整扇。`drop` 为计划补发
+口径（2026-11-04 双掉修复，床 advBedBreakPlan 同款）：**下半自带 drop 表**——蓄力挖到
+点/TNT 掀掉/右键拆除（§4.2）的常规掷已掉 1，挖到下半时计划不补发（drop 0）；上半无
+表，挖到上半由计划补发 1；挖支撑两半都没掷过表，补发 1。壳在挖方与 TNT 两个移除点
+之后调用，对 cells 逐格 `advMarkEdit + editBlock`，drop 走既有掉落物通道。
 
 ## 4. 壳接线（modes/adventure.js，全部有先例）
 
@@ -120,9 +122,14 @@ glass_pane: {name: '玻璃板', icon: '🪟', block: 68}, // 常规单格放置�
    nether_portal 分支旁加 `if (s && s.id === 'door') return advPlaceDoor(hit);`——
    走 advDoorSiteOk → 两格 `advMarkEdit + editBlock`（非 setBlockRaw，见 2.1）→
    TTS「门放好啦」+ door_swing 音。
-2. **交互**：`onMouse` 两条链（左/右键）在 `advTrySleep` 之后插 `advTryDoor(hit, lookId)`
-   （「使用先于放置」链序，床先例）——读 lookId ∈ 4 门 id 即走 advDoorTogglePlan，
-   `editBlock` 两格 + door_swing 音 + 话术「吱呀～门开啦/关门啦」。
+2. **交互**（2026-11-04 修订：左键开关、右键拆门）：`onMouse` 左键链（触屏 ⛏️ 键
+   空手同路 aimClick(0)）在 `advTrySleep` 之后插 `advTryDoor(hit, lookId)`——读
+   lookId ∈ 4 门 id 即走 advDoorTogglePlan，`editBlock` 两格 + door_swing 音 +
+   话术「吱呀～门开啦/关门啦」；右键链（触屏轻点同路 aimClick(2)）改插
+   `advTryDoorRemove`——kit `breakBlock` 破坏结算一条链（doorBreakApply 配对整扇
+   回收 ×1，与蓄力挖到点同一出口）。此前两条链都走开关：对门蓄力挖掘永远进不去，
+   门拆不掉（用户实测 2026-11-04「门我拆不来了」）；pad 两对应键 = ⛏️ 键空手开关、
+   轻点拆除。
 3. **挖方**：挖方结算点（L1471 附近）在 advCascadeApply 之后调 advDoorBreakPlan；
    TNT 的 `edit` 回调（L1895）同款补调（TNT 掀门=整扇消失+掉 1，掀掉的不进任务 P6 口径）。
 4. **音效**：audio-registry 新 kind **`door_swing`**（纯 synth：低频方木叩 `{type:'square',
@@ -191,7 +198,7 @@ glass_pane: {name: '玻璃板', icon: '🪟', block: 68}, // 常规单格放置�
 | test/craft-core.test.js | 35→**37**（头注释 breakdown 同步）；新断言：door/pane 图案、station、产出 3/16、镜像可摆、matchGrid 往返 |
 | test/blocks-fields.test.js | 「不占 64+」红线 → **69+**（63 已被熄门 B_PORTAL_DIM 先占，合并修订）；新增 64~68 字段断言（pane 旗标、开关 solid 对、drop 缺省、glass 旗标只在 68） |
 | test/items-core.test.js | block 字段值域 1~62 → **1~68**；注册表全量清单补 2 键 |
-| test/adventure-core.test.js | 新增 advDoorSiteOk / advDoorTogglePlan / advDoorBreakPlan 纯函数断言（站点拒放四态、上/下半命中、玩家占位拒关、挖下连上、挖地弹门、drop 恒 1） |
+| test/adventure-core.test.js | 新增 advDoorSiteOk·advDoorTogglePlan·advDoorBreakPlan 断言（站点/半门/占位/连拆/弹门；drop 补发口径防双掉） |
 | test/mesh-core.test.js | pushPane 几何：玻璃板中柱/连接臂四边形数与坐标、门开/关顶点位置、邻实心连接 |
 | test/icons-item.test.js · test/item-hint-registry.test.js | 键集全量等价自动守门——补 ITEM_PIX 字符画 ×2、ITEM_HINTS ×2 即绿 |
 | test/audio-registry.test.js | 字面量扫描自动守门——注册 door_swing 即绿；死键断言（'door' 不迁）保持并加注释 |
