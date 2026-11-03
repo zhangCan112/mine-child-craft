@@ -232,6 +232,7 @@ const mobsState = {spawned: [], deathCbs: []};
 const dropsState = {spawned: [], cbs: []};
 const hitLog = [];
 const moveLog = [];
+const settleLog = []; /* Mobs.settle 调用记录(贴地收尾布线断言, 2026-11 悬空/嵌地修复) */
 let listResult = [];
 let nextHit = {hp: 10, dead: false, freshDead: false};
 const ADV_MOB_CFG = {/* 四怪数值摘自 mob-registry.js MOB_TYPES(巢穴池, 行为断言所需最小集)
@@ -286,6 +287,10 @@ globalThis.Mobs = {
     m.pos.z += dz;
   },
   gait() {},
+  settle(m) {/* 贴地收尾(2026-11 修复起模式 AI 位移后逐帧调真库此口): 窄面桩只记账
+      不动 Y —— 现有 y 相关断言(引信门 |Δy|<2.5 / 攻击门 |Δy|<3)不漂移 */
+    settleLog.push(m);
+  },
   debrisColor() {
     return 0x1a2b3c;
   },
@@ -438,6 +443,7 @@ function freshInit() {
   spoken.length = 0;
   hitLog.length = 0;
   moveLog.length = 0;
+  settleLog.length = 0;
   listResult = [];
   nextHit = {hp: 10, dead: false, freshDead: false};
   AdventureMode.init();
@@ -2698,6 +2704,40 @@ test('F4 恐惧游荡: 玩家靠近 ≤2.5 让开(×0.8 背向) · 受击存活 
   AdventureMode.update(1 / 60);
   assert.ok(!moveLog.some((e) => e.m === cow), '逃窜结束且玩家在圈外: 不动(不追击不恋战)');
   assert.ok(!hitLog.some((h) => h.m.pos === globalThis.pos), '全程不反击(hitLog 里只有玩家挥击的那一记)');
+});
+
+test('贴地收尾: 战斗 AI 与牧场驱动每帧 settle —— move 只走 x/z, Y 随地形收敛的布线钉', () => {
+  /* 2026-11 探险怪「天上走/地里钻」回归: advMobAI/advHerdTick 只调 move(引擎
+     stepMove 只写 x/z)不调 settle, 怪的 Y 冻结在出生值——上坡逐列越嵌越深/
+     下坡悬空。真库 settle 是 Y 收敛唯一口(竞技场 updateMobs 每帧收尾先例),
+     本测试钉住「模式位移后逐帧调 settle」的布线(改前红/改后绿) */
+  mem.clear();
+  freshInit();
+  globalThis.yaw = 0;
+  /* 战斗 AI: 僵尸挂夜怪家锚 __nightHome=自身位(distHome=0 恒在收队半径内),
+     距玩家 4.5 ∈ (range 2.1, 索敌 12) → 逼近分支逐帧 move+settle */
+  globalThis.pos.x = 40; globalThis.pos.y = 25; globalThis.pos.z = 50;
+  const zb = mkAdvMob('zombie', 40, 25, 45.5, {__nightHome: {x: 40, z: 45.5}});
+  listResult = [zb];
+  settleLog.length = 0;
+  AdventureMode.update(1 / 60);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(settleLog.filter((m) => m === zb).length, 2,
+      'advMobAI 每帧收尾 settle(两帧两记, 不动 Y 的窄面桩只证布线)');
+  /* 牧场: 玩家贴近牛恰 2.5(让开圈沿含等号) → 恐惧游荡分支同样收尾 */
+  globalThis.pos.x = 47; globalThis.pos.y = 25; globalThis.pos.z = 82;
+  const cow = mkAdvMob('cow', 47, 25, 79.5);
+  listResult = [cow];
+  settleLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(settleLog.filter((m) => m === cow).length, 1, 'advHerdTick 让开分支同样 settle');
+  /* 静止牲畜也收尾: 玩家走远 + 闲逛关掉(站桩吃草帧走分支尾兜底, 栏下被掏空不悬空) */
+  globalThis.pos.z = 90;
+  cow.__fleeT = 0; cow.__ambleT = 999; cow.__ambleWalk = false;
+  settleLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(settleLog.filter((m) => m === cow).length, 1, '站桩吃草帧也 settle');
+  listResult = [];
 });
 
 test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索引不复活(牧场不重生, MC 口径)', () => {

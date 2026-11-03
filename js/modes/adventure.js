@@ -1101,6 +1101,9 @@ function advMobAI(dt) {
       const sp = speed * 0.6;
       Mobs.move(m, hx / distHome * sp * dt, hz / distHome * sp * dt); moved = sp;
     }
+    Mobs.settle(m, dt); /* 贴地收尾(竞技场 updateMobs 同一条式): move 只走 x/z,
+       Y 不随之收敛则上坡嵌地/下坡悬空(Y 冻结在出生值病灶的修点); 飞行怪走
+       引擎 settle 内部分支缓回巡航高度, 模式层不另判 fly */
     Mobs.gait(m, dt, moved, ADV_ATTACK_T); /* 步态+战斗姿态(引擎同一入口) */
   }
 }
@@ -1197,6 +1200,7 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
         const c = advHerdClamp(m.pos.x, m.pos.z);
         m.pos.x = c.x; m.pos.z = c.z;
       }
+      Mobs.settle(m, dt); /* 贴地收尾(advMobAI 同款): 让开/逃窜也随地形走 */
       continue;
     }
     /* 闲逛: 换向计时自持(私有字段不落盘——动物位置本就不存档, 设计稿 §6 差异清单);
@@ -1213,6 +1217,8 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
         m.pos.x = c.x; m.pos.z = c.z;
       }
     }
+    Mobs.settle(m, dt); /* 贴地收尾(advMobAI 同款): 闲逛与站桩吃草帧都随地形收敛
+       (栏下被掏空不悬空; 恐惧分支在 continue 前已自收) */
   }
 }
 

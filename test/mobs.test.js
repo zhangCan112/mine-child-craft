@@ -207,6 +207,41 @@ test('怪物库: 意图 API — move/shift/setPos/steer/heal/setMaxHp/remove/set
   Mobs.clear();
 });
 
+test('怪物库: settle 贴地收敛 — 天上落回/上 1 格爬/下坎落 · move 不碰 Y(模式收尾布线的引擎面依据)', () => {
+  /* 2026-11 探险怪「天上走/地里钻」修复的引擎面: move 只写 x/z(stepMove),
+     Y 收敛唯一口是 settle(指数逼近, dt≥0.1 收敛系数取满单帧贴齐)。地面三态
+     各钉一记; 深埋 ≥3 格的指数不跨界(groundUnderAt 深扫口径)不在本测试面内 */
+  Mobs.clear();
+  const origTop = globalThis.groundTop;
+  try {
+    const m = Mobs.spawn('zombie', 10, 10, {});
+    /* 天上出生(门面/环点错层): 落回列顶+1 */
+    globalThis.groundTop = () => 11;
+    m.pos.y = 40;
+    Mobs.settle(m, 0.1);
+    assert.strictEqual(m.pos.y, 12, '悬空 40 → 落回 groundTop+1');
+    /* 上 1 格台阶: 台阶门(≤1.05)放行的对偶面 —— 脚随列顶抬升 */
+    globalThis.groundTop = () => 12;
+    Mobs.settle(m, 0.1);
+    assert.strictEqual(m.pos.y, 13, '脚 12/列顶 12 → 抬到 13');
+    /* 下坎: 走下 1 格地 → 落到新列顶+1(不悬空) */
+    globalThis.groundTop = () => 8;
+    Mobs.settle(m, 0.1);
+    assert.strictEqual(m.pos.y, 9, '脚 13/列顶 8 → 落到 9');
+    /* move 契约钉: 只走 x/z 不碰 Y —— 模式层必须自己收尾 settle 的根因面 */
+    globalThis.groundTop = () => 12;
+    const st = Mobs.spawn('hoglin', 12, 10, {});
+    st.pos.y = 12;
+    Mobs.move(st, 0.5, 0.5);
+    assert.strictEqual(st.pos.y, 12, 'move 后 Y 原地(收敛责任在 settle)');
+    Mobs.settle(st, 0.1);
+    assert.strictEqual(st.pos.y, 13, 'settle 后贴齐新列顶+1');
+  } finally {
+    globalThis.groundTop = origTop; /* 文件级桩还原(后续测试仍按平地 11 跑) */
+    Mobs.clear();
+  }
+});
+
 test('怪物库: gait 攻击姿态窗口(第 4 参) — 挥臂(人形)/头前扑(四足) · 相位钳制 · 每帧幂等', () => {
   Mobs.clear();
   const z = Mobs.spawn('zombie', 10, 10, {});
