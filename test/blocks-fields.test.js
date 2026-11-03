@@ -113,6 +113,7 @@ test('门四态字段(设计稿 §2.2): 全带 pane 旗标 · 关门实心/开�
   const o = c.BLOCKS[c.B_DOOR_OPEN]; const ot = c.BLOCKS[c.B_DOOR_TOP_OPEN];
   for (const b of [d, dt, o, ot]) {
     assert.strictEqual(b.pane, true, b.name + ' 应带 pane 竖直薄板旗标(mesh 路由)');
+    assert.strictEqual(b.door, true, b.name + ' 应带 door 门族旗标(mesh 朝向/铰链现算, 2026-11-04)');
     assert.ok(!b.thin, b.name + ' 不得挂 thin(thin=贴地板渲染+级联失撑误判, 设计稿 §2.2)');
     assert.strictEqual(b.hard, 3.0, b.name + ' MC 硬度 3');
     assert.strictEqual(b.tool, 'axe', b.name + ' 斧头加速(MC 口径)');

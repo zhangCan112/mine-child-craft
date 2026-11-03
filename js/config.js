@@ -428,13 +428,13 @@ BLOCKS[B_LOOT_CHEST] = {name: '战利品宝箱', top: [0.72, 0.22, 0.18], side: 
 const B_LOOT_CHEST_SMALL=72;
 BLOCKS[B_LOOT_CHEST_SMALL] = {name: '低档奖励箱', top: [0.72, 0.22, 0.18], side: [0.66, 0.20, 0.16],
   bottom: [0.55, 0.16, 0.14], hard: 1.33, tool: null, tier: 0};
-BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true,
+BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true, door: true,
   hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // MC 硬度 3 斧头加速; 关=实心挡人挡光
-BLOCKS[B_DOOR_TOP] = {name: '门(上)', all: [0.66, 0.52, 0.33], pane: true,
+BLOCKS[B_DOOR_TOP] = {name: '门(上)', all: [0.66, 0.52, 0.33], pane: true, door: true,
   hard: 3.0, tool: 'axe', tier: 0}; // 无 drop: 挖任一半整扇回收 1 扇(配对政策), 防双掉
-BLOCKS[B_DOOR_OPEN] = {name: '门(开)', all: [0.66, 0.52, 0.33], pane: true, solid: false,
+BLOCKS[B_DOOR_OPEN] = {name: '门(开)', all: [0.66, 0.52, 0.33], pane: true, door: true, solid: false,
   hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // 开=可穿行, 非 solid 即透光(开门放光进屋)
-BLOCKS[B_DOOR_TOP_OPEN] = {name: '门(上·开)', all: [0.66, 0.52, 0.33], pane: true, solid: false,
+BLOCKS[B_DOOR_TOP_OPEN] = {name: '门(上·开)', all: [0.66, 0.52, 0.33], pane: true, door: true, solid: false,
   hard: 3.0, tool: 'axe', tier: 0};
 BLOCKS[B_GLASS_PANE] = {name: '玻璃板', all: [0.75, 0.90, 0.95], pane: true, glass: true,
   hard: 0.3, tool: null, tier: 0, drop: [['glass_pane', 1, 0]]}; // MC 无精准采集不掉 → 零惩罚掉自身(玻璃同款)

@@ -541,6 +541,52 @@ test('门·开铰链现算(2026-10-28): 东邻实心 → 板贴东缘(贴墙站)
       ['102.0000', '102.1875'], '西邻实心 → 板贴西缘(默认铰链不变)');
 });
 
+test('门·南北墙朝向现算(2026-11-04): 墙沿 z → 闭=板贴西缘横跨 z · 开=铰链贴墙缘', () => {
+  const m = loadMeshCoreOnce();
+  const opt = paneOpt();
+  /* 南北墙: 门(3,5,3) 的 z±1 邻是石头 → 门面东西(镜像转 90°), 此前固定几何
+     在南北墙里关态横插通道、开态反堵门洞(用户实测「开门方向不对」根因) */
+  const pC = mkPack(1);
+  pC.set(3, 5, 3, m.B_DOOR);
+  pC.set(3, 5, 2, 3);
+  pC.set(3, 5, 4, 3);
+  const rc = m.MeshCore.meshChunk(pC, opt);
+  assert.strictEqual(quads(rc.atlas), 6, '南北墙关门 6 面(2 大面+4 边条)');
+  const xs = new Set();
+  for (let i = 0; i < rc.atlas.positions.length; i += 3) xs.add(rc.atlas.positions[i].toFixed(4));
+  assert.deepStrictEqual([...xs].sort(), ['102.0000', '102.1875'], '南北墙关门板体贴西缘(薄 x)');
+  const zsC = new Set();
+  for (let i = 0; i < rc.atlas.positions.length; i += 3) zsC.add(rc.atlas.positions[i + 2].toFixed(4));
+  assert.deepStrictEqual([...zsC].sort(), ['102.0000', '103.0000'], '关门横跨 z 全宽');
+  /* 开门(南邻实心铰链): 板转到南缘 z ∈ {103-3/16, 103} 横跨 x */
+  const pO = mkPack(1);
+  pO.set(3, 5, 3, m.B_DOOR_OPEN);
+  pO.set(3, 5, 4, 3);
+  const ro = m.MeshCore.meshChunk(pO, opt);
+  const zs = new Set();
+  for (let i = 0; i < ro.atlas.positions.length; i += 3) zs.add(ro.atlas.positions[i + 2].toFixed(4));
+  assert.deepStrictEqual([...zs].sort(),
+      [(102 + 1 - 0.1875).toFixed(4), (102 + 1).toFixed(4)], '南墙开门板贴南缘(贴墙站)');
+});
+
+test('门·地上双门镜像铰链(2026-11-04): 铰链侧是邻门无墙 → 贴对侧外缘(两扇各贴外侧)', () => {
+  const m = loadMeshCoreOnce();
+  const opt = paneOpt();
+  /* 西邻是另一扇门(开门态, 无任何墙): 开门板贴东缘外侧——双开门镜像, 不再
+     双双贴西同侧相抵(用户实测地上摆双门观感不对) */
+  const p = mkPack(1);
+  p.set(3, 5, 3, m.B_DOOR_OPEN);
+  p.set(2, 5, 3, m.B_DOOR_OPEN);
+  const r = m.MeshCore.meshChunk(p, opt);
+  const xs = new Set();
+  for (let i = 0; i < r.atlas.positions.length; i += 3) {
+    const px = r.atlas.positions[i];
+    if (px >= 102) xs.add(px.toFixed(4)); /* 只看东扇(lx=3), 西扇贴西外缘不混入 */
+  }
+  assert.deepStrictEqual([...xs].sort(),
+      [(102 + 1 - 0.1875).toFixed(4), (102 + 1).toFixed(4)], '西邻是门 → 板贴东缘外侧');
+});
+
 test('门·面光取面朝向邻格(2026-10-27 修): 关门自身格光恒 0 — 两大面各吃邻格光(整扇黑病根)', () => {
   const m = loadMeshCoreOnce();
   const p = mkPackL(1);

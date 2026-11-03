@@ -2095,9 +2095,10 @@ function advDoorSiteOk(read, p, x, y, z) {
 /* 门开关计划(交互纯段): lookId 命中门任一半 → 定位下半格 → 产出两格的
    成对换 id 写入(64↔66 / 65↔67, 状态即 id)。关门且玩家站门洞 → 拒
    (children 话术由壳出; 怪物不查, 附录 B)。开不查人(开门永不受阻)。
-   双开耦合(MC 口径, 2026-10-28): x±1 直接相邻列的下半同状态门随动同开同关,
-   关门占位检查含随动列; 只耦合直接相邻一列不链式传播(三连门点中间带两扇
-   = 可接受退化)。2 格门洞放两扇即成双开门, 一点全开。
+   双开耦合(MC 口径, 2026-11-04 修订): 四向(x±1/z±1)直接相邻门列随动写入目标态
+   (南北墙双门/地上沿 z 摆的双门此前不在 x±1 内各开各的; 目标态同步让状态发散
+   一步收敛), 关门占位检查含随动列; 只耦合直接相邻一列不链式传播(三连门点中间
+   带两扇 = 可接受退化)。2 格门洞放两扇即成双开门, 一点全开。
    返回 {ok:true, writes:[{x,y,z,id}×2 或 ×4], open} | {ok:false} */
 function advDoorTogglePlan(read, lookId, p, x, y, z) {
   if (!advIsDoor(lookId)) return {ok: false};
@@ -2109,12 +2110,20 @@ function advDoorTogglePlan(read, lookId, p, x, y, z) {
   const topId = read(x, ly + 1, z);
   const writes = [{x, y: ly, z, id: opening ? B_DOOR_OPEN : B_DOOR},
     {x, y: ly + 1, z, id: opening ? (topId === B_DOOR_TOP ? B_DOOR_TOP_OPEN : topId) : B_DOOR_TOP}];
-  for (const dx of [-1, 1]) {
-    if (read(x + dx, ly, z) !== lowId) continue; /* 相邻列非同状态门 → 不耦合 */
-    if (!opening && advDoorPlayerIn(p, x + dx, ly, z)) return {ok: false, reason: 'occupied'};
-    const nTop = read(x + dx, ly + 1, z);
-    writes.push({x: x + dx, y: ly, z, id: opening ? B_DOOR_OPEN : B_DOOR},
-        {x: x + dx, y: ly + 1, z, id: opening ? (nTop === B_DOOR_TOP ? B_DOOR_TOP_OPEN : nTop) : B_DOOR_TOP});
+  /* 双开耦合(2026-11-04 修订): 四向直接相邻门列(x±1/z±1, 南北墙双门与地上
+     沿 z 摆的双门此前各开各的)随动写入**目标态**(非「同状态才耦合」——状态
+     发散(开侧放新门等)一步收敛同态); 已在目标态零写入(占位检查仍含);
+     只耦合直接相邻一列不链式传播(三连门点中间带两扇 = 可接受退化) */
+  const lo = opening ? B_DOOR_OPEN : B_DOOR;
+  for (const [dx, dz] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) {
+    const nx = x + dx; const nz = z + dz;
+    const nLow = read(nx, ly, nz);
+    if (!advIsDoorLower(nLow)) continue;
+    if (!opening && advDoorPlayerIn(p, nx, ly, nz)) return {ok: false, reason: 'occupied'};
+    const nTop = read(nx, ly + 1, nz);
+    const hi = opening ? (nTop === B_DOOR_TOP ? B_DOOR_TOP_OPEN : nTop) : B_DOOR_TOP;
+    if (nLow === lo && nTop === hi) continue; /* 已在目标态: 不产冗余写入 */
+    writes.push({x: nx, y: ly, z: nz, id: lo}, {x: nx, y: ly + 1, z: nz, id: hi});
   }
   return {ok: true, open: opening, writes};
 }
