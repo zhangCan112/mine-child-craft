@@ -30,7 +30,8 @@
    设计定稿 docs/item-hint-design.md)。
    引擎层(world/input)对本文件零依赖; 本文件属应用层。
    interface: mkMode · mkHotbar · mkMainAct · mkHeldSync(手持感知同步件) ·
-              mkMobPicker(选怪按钮组) · mkCraftPanel · mkFurnacePanel ·
+              mkMobPicker(选怪按钮组) · mkCraftPanel(刚做过→可制造→缺料
+              排序+卡片 DOM 复用) · mkFurnacePanel ·
               mkChestPanel(三者=内部底座 mkPanelShell+差异段, 均含 cellAt
               查询面) · sortInv · spawn · lookName · confirmBtn ·
               editHit(挖/放编辑原语) · mkHoldMine(触屏按住连挖驱动)
@@ -46,7 +47,7 @@
      effects 的 showToast(editHit 底层守卫话术, 经 typeof 守卫)——
      editHit/mkHoldMine 两件(2026-10-26 建造/竞技场镜像收编)全部
      交互期调用, 精简装载的 Node 单测不触发即不依赖 ·
-     icons 的 iconOf 与
+     icons 的 iconOf/iconOfGray(灰版加载序守卫, 见 kitIconHtml) 与
      button-icons 的 btnImg/BTN_PIX(两者加载序在本文件之后, 但全部
      调用发生在用户交互期, 彼时已加载完毕) · item-hint-registry 的
      hintForItem/hintForSlot 与 speech 的 SpeechKit(后两者经 typeof 守卫:
@@ -377,9 +378,11 @@ const KIT_TABS = [
    渲染知识单份收口(原 hotbar/三面板七处誊写): 'data:' 前缀喂 img.src ·
    文本喂 icon span · '' 跳过; img 与 span 的 class 由调用方成对给出
    (格子 'pic'/icon · 卡片 'big'/icon big · chip 'mini'/icon mini —— 与
-   CSS 观感契约对齐, 不设默认值) */
-function kitIconHtml(id, imgCls, iconCls) {
-  const ic = iconOf(id);
+   CSS 观感契约对齐, 不设默认值); 第 4 参 gray 换 iconOfGray 灰版(缺料观感) */
+function kitIconHtml(id, imgCls, iconCls, gray) {
+  /* icons.js 加载序在本文件之后, typeof 守卫与 hintForItem 先例一致;
+     emoji 回落无灰版, 由调用方 .dim/.lack 的 opacity 兜底 */
+  const ic = gray && typeof iconOfGray === 'function' ? iconOfGray(id) : iconOf(id);
   return ic.startsWith('data:') ?
     '<img class="' + imgCls + '" alt="" src="' + ic + '">' :
     (ic ? '<span class="' + iconCls + '">' + ic + '</span>' : '');
@@ -392,12 +395,12 @@ function kitCellHtml(stack) {
 }
 
 /* 材料 chip(配方卡缺料 / 宝箱扩容账单同观感): 比例模式(ratio 立显或缺料且
-   有 have 数)显 have/need, 其余显 ×n; lack 附灰显类 */
+   有 have 数)显 have/need, 其余显 ×n; lack 附灰显类+灰版图标 */
 function kitChipHtml(id, need, have, lack, ratio) {
   const b = (ratio || (lack && have != null)) ? '<b>' + have + '/' + need + '</b>' :
     '<b>×' + need + '</b>';
   return '<span class="mkp-chip' + (lack ? ' lack' : '') + '" data-id="' + id + '">' +
-      kitIconHtml(id, 'mini', 'icon mini') + b + '</span>';
+      kitIconHtml(id, 'mini', 'icon mini', lack) + b + '</span>';
 }
 
 /* ---------- mkPanelShell — 面板族公共骨架的内部底座(评审候选 2, 不对外) ----------
@@ -587,7 +590,7 @@ function mkPanelShell(cfg) {
    长按 0.4s 连做 0.3s/发至材料尽(拍板④; 防误合由「摆错不产出」天然承担,
    旧两步制确认钮退役)。配方卡=BE 口径一键摆入(拍板③): fillGrid 自动
    摆材料, 缺料格留空, 重复点卡=再备一套; 站点外只列 hand 级卡(正典配方
-   书口径)。关面板格内材料退回背包(MC 工作台口径)。
+   书口径)。卡序=刚做过→可制造→缺料(置顶优先于亮灰), 卡片 DOM 按签名复用。关面板格内材料退回背包(MC 工作台口径)。
    挂载幂等: 同一遮罩节点反复 show 只挂一次, remove 可重复调 */
 function mkCraftPanel(opts) {
   const o = opts || {};
@@ -597,6 +600,8 @@ function mkCraftPanel(opts) {
   let pickIdx = -1; // 点选搬运的起手背包槽号(-1 无起手); 整理/关面板即收手
   let pickCell = -1; // 摆放格起手下标(-1 无起手); 与 pickIdx 互斥
   const cells = new Array(9).fill(null); // 摆放台 9 格槽堆({id,n}|null), 面板持有(2×2 站点为 UI 锁格)
+  let lastCraftId = null; // 刚合成命中的配方 id(卡序置顶口径, craftOnce 里更新)
+  const cardCache = new Map(); // 配方 id → {el, sig}: 卡片 DOM 复用(签名未变直接回挂旧节点)
   /* 公共骨架(遮罩/box/头/✕/背包格区/Esc/生命周期)吃差异配置: 整理头钮 +
      关面板退料收手 + 卸载停连做; 组装序(main/quest/摆放台/配方书)归本段 */
   const shell = mkPanelShell({doc, inv,
@@ -821,8 +826,10 @@ function mkCraftPanel(opts) {
 
   /* 合成执行: 产出槽点击/连做共用; visibleRecipes 作匹配集(与预览同口径) */
   function craftOnce() {
+    const hit = matchNow(); /* 先记命中配方(gridCraft 不回配方, 排序置顶依据) */
     const res = gridCraft(cells, inv, station(), visibleRecipes());
     if (!res.ok) return false;
+    lastCraftId = hit ? hit.id : null; /* 材料尽连做停后该卡仍置顶(刚做的排第一) */
     if (o.onCraft) o.onCraft({item: res.out.item, n: res.out.n, leftover: res.leftover});
     refresh(); // 格内数量/产出槽实时重读
     return true;
@@ -852,10 +859,19 @@ function mkCraftPanel(opts) {
     if (it && it.block) return 'block';
     return 'all'; // 未归类(材料): 只在「全部」页出现
   }
+  /* 卡序比较: 刚做过(lastCraftId 命中) → 可制造 → 其余; 置顶优先于亮灰 —
+     合成后材料耗尽该卡仍第一(「刚刚做的排第一」口径); 同档稳定排序=原配方序 */
+  function cardRank(r, check) {
+    if (r.id === lastCraftId) return 0;
+    return check.ok ? 1 : 2;
+  }
   function renderCards() {
+    const list = visibleRecipes()
+        .filter((r) => tab === 'all' || cardTab(r) === tab) // 未归类只随「全部」
+        .map((r) => ({r, check: canCraft(inv, r, station())})); // 排序/渲染共用一份判定
+    list.sort((a, b) => cardRank(a.r, a.check) - cardRank(b.r, b.check));
     cards.innerHTML = '';
-    visibleRecipes().filter((r) => tab === 'all' || cardTab(r) === tab) // 未归类只随「全部」
-        .forEach((r) => cards.appendChild(cardEl(r)));
+    for (const e of list) cards.appendChild(cardEl(e.r, e.check));
   }
   function renderTabs() {
     tabs.innerHTML = '';
@@ -871,20 +887,22 @@ function mkCraftPanel(opts) {
       tabs.appendChild(b);
     });
   }
-  function cardEl(r) {
-    const d = doc.createElement('div');
-    d.dataset.recipe = r.id;
-    /* 亮灰判定: canCraft(inv, recipe, stationOk)(craft-core 三形状 missing 驱动灰显) */
-    const check = canCraft(inv, r, station());
+  /* 卡片渲染+DOM 复用: refresh 高频全量重建会丢弃已解码位图(40 张卡同步
+     重解码 ~150 张 base64 图, iPad 长列表卡顿主源), 改按签名 sig=类名+内容
+     命中缓存直接回挂旧节点(同步任务内 appendChild 不触发重解码, onclick
+     闭包仍指向同一配方对象无需重接); check=canCraft 判定, 由 renderCards
+     排序/渲染共用一份传入 */
+  function cardEl(r, check) {
     const lackHave = {}; // id → have(单候选缺料)
     const lackAny = new Set(); // 任选组全缺的候选
     let stationLack = false;
+    /* 亮灰判定: craft-core 三形状 missing 驱动 */
     for (const m of check.missing) {
       if (m.station) stationLack = true; // 站点未解锁 → 徽标灰
       else if (m.id != null) lackHave[m.id] = m.have;
       else if (m.any) m.any.forEach((c) => lackAny.add(c));
     }
-    d.className = 'mkp-card' + (check.ok ? '' : ' dim');
+    const cls = 'mkp-card' + (check.ok ? '' : ' dim');
     let chips = '';
     for (const [key, val] of Object.entries(shapeCost(r))) {/* 派生计费(crafting-grid §4) */
       const e = costEntry(key, val); // 候选数组+数量(inventory-core 统一形状)
@@ -896,11 +914,19 @@ function mkCraftPanel(opts) {
     const badge = KIT_STATION_BADGE[r.station] || '';
     const badgeHtml = badge ?
       '<span class="mkp-badge' + (stationLack ? ' lack' : '') + '">' + btnImg(badge) + '</span>' : '';
-    d.innerHTML = badgeHtml +
-      '<div class="mkp-out">' + kitIconHtml(r.out.item, 'big', 'icon big') +
+    const html = badgeHtml +
+      '<div class="mkp-out">' + kitIconHtml(r.out.item, 'big', 'icon big', !check.ok) +
       (r.out.n > 1 ? '<b class="mkp-n">×' + r.out.n + '</b>' : '') + '</div>' +
       '<div class="mkp-chips">' + chips + '</div>';
+    const sig = cls + '\u0000' + html; // 观感全量签名: 类名+内容, 未变即复用
+    const hit = cardCache.get(r.id);
+    if (hit && hit.sig === sig) return hit.el;
+    const d = doc.createElement('div');
+    d.dataset.recipe = r.id;
+    d.className = cls;
+    d.innerHTML = html;
     d.onclick = ()=>tapCard(r); /* 点卡=BE 一键摆入(拍板③), 合成走产出槽 */
+    cardCache.set(r.id, {el: d, sig});
     return d;
   }
 

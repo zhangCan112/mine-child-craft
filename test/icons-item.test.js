@@ -1,5 +1,5 @@
 'use strict';
-/* 像素图标工坊·物品图标 (js/icons.js 的 itemIcon/iconOf) 单测 — node --test (零依赖)
+/* 像素图标工坊·物品图标 (js/icons.js 的 itemIcon/iconOf/iconOfGray) 单测 — node --test (零依赖)
    运行: node --test test/icons-item.test.js
    加载器: 同一 vm context 先执行 items-core.js 再执行 icons.js(镜像 index.html
    238→258 行的共享词法环境顺序); document/canvas 桩注入(mode-kit.test.js 先例,
@@ -49,7 +49,7 @@ function loadIcons() {
   const ctx = vm.createContext({console, document: fakeDoc});
   vm.runInContext(read('items-core.js'), ctx, {filename: 'items-core.js'});
   vm.runInContext(read('icons.js'), ctx, {filename: 'icons.js'});
-  vm.runInContext('globalThis.__i = {itemIcon, iconOf, ITEM_PIX, ITEMS, tankIcon};', ctx);
+  vm.runInContext('globalThis.__i = {itemIcon, iconOf, iconOfGray, ITEM_PIX, ITEMS, tankIcon};', ctx);
   return {h: ctx.__i, canvases};
 }
 
@@ -173,4 +173,59 @@ test('生态地图件: 三花共用一张 FLOWER_ART 换三套色板; 雪球/冰
   /* 色板走色: 雪球白 / 冰青蓝 — 三者主色互不相同(换板不是换键) */
   assert.strictEqual(h.ITEM_PIX.snowball.map.m, '#eceff2', '雪球白色板');
   assert.strictEqual(h.ITEM_PIX.ice.map.f, '#a8cbe8', '冰冰色板');
+});
+
+/* ============ 灰版图标(2026-11 合成面板缺料观感): iconOfGray ============ */
+
+test('灰版缓存: 同 id 二次调用不再新建画布; 与彩版缓存互不串台', () => {
+  const {h, canvases} = loadIcons();
+  h.itemIcon('coal'); // 彩版先入缓存
+  const n = canvases.length;
+  h.iconOfGray('coal'); // 灰版首次: 自画一对画布(不读彩版缓存)
+  assert.strictEqual(canvases.length, n + 2, '小图+大图一对新画布');
+  h.iconOfGray('coal');
+  assert.strictEqual(canvases.length, n + 2, '二次调用走灰版缓存');
+});
+
+test('灰版去饱和: 逐格位置不变, 色通道离散度压到 0.4 档(GRAY_MIX=0.6)', () => {
+  const {h, canvases} = loadIcons();
+  h.itemIcon('apple');
+  const colorFills = lastSmall(canvases).ctx._fills.slice();
+  h.iconOfGray('apple');
+  const grayFills = lastSmall(canvases).ctx._fills;
+  assert.strictEqual(grayFills.length, colorFills.length, '填充格数不变(只换色不换形)');
+  const rgb = (c) => {
+    const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(c);
+    return m ? [parseInt(m[1], 16), parseInt(m[2], 16), parseInt(m[3], 16)] : null;
+  };
+  const spread = (a) => Math.max(...a) - Math.min(...a);
+  let changed = 0;
+  for (let i = 0; i < grayFills.length; i++) {
+    assert.deepStrictEqual([grayFills[i][1], grayFills[i][2]], [colorFills[i][1], colorFills[i][2]],
+        '第 ' + i + ' 格位置不变');
+    const a = rgb(colorFills[i][0]);
+    const b = rgb(grayFills[i][0]);
+    assert.ok(a && b, 'apple 色板应为 hex 记法: ' + colorFills[i][0]);
+    if (spread(a) > 0) {
+      assert.ok(spread(b) <= Math.ceil(spread(a) * 0.4) + 2,
+          '通道离散度被压缩: ' + colorFills[i][0] + ' → ' + grayFills[i][0]);
+    }
+    if (colorFills[i][0] !== grayFills[i][0]) changed++;
+  }
+  assert.ok(changed > 0, '灰版与彩版颜色确有不同');
+});
+
+test('灰版 alpha 保留: glass 半透明面的 rgba alpha 原样带过去(0.30)', () => {
+  const {h, canvases} = loadIcons();
+  h.iconOfGray('glass');
+  const fills = lastSmall(canvases).ctx._fills.map((f) => f[0]);
+  assert.ok(fills.some((c) => c.endsWith(',0.30)')), '半透明面 alpha 保留: ' + fills.join(' '));
+});
+
+test('灰版回落: 无像素图回落 iconOf(emoji 原样), 未注册返回空串', () => {
+  const {h, canvases} = loadIcons();
+  delete h.ITEM_PIX.bow_item;
+  assert.strictEqual(h.iconOfGray('bow_item'), h.ITEMS.bow_item.icon, 'emoji 回落与 iconOf 同值');
+  assert.strictEqual(h.iconOfGray('no_such_item'), '', '未注册返回空串(调用方判空跳过)');
+  assert.strictEqual(canvases.length, 0, '回落路径不创建画布');
 });

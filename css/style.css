@@ -1604,6 +1604,11 @@ body.dev-on .mode-card.dev {
   background: rgb(0 0 0 / 30%);
   border: 3px solid rgb(255 255 255 / 22%);
   border-radius: 10px;
+
+  /* 长配方书滚动性能(2026-11): 视口外卡跳过渲染, 回滚只补可见差异;
+     108px=卡高估值(94~116 折中), 旧引擎不识别自动忽略零危害 */
+  content-visibility: auto;
+  contain-intrinsic-size: auto 108px;
 }
 
 .mkp-card:active {
@@ -1611,8 +1616,7 @@ body.dev-on .mode-card.dev {
 }
 
 .mkp-card.dim {
-  opacity: 0.45;
-  filter: grayscale(0.55); /* 缺什么灰什么(D8) */
+  opacity: 0.45; /* 缺什么灰什么(D8): 灰观感改走 iconOfGray 灰版图标(免整卡离屏栅格化) */
 }
 
 /* ---------- 摆放台(crafting-grid 设计稿 §5): 3×3 格 + 箭头 + 产出槽 ----------
@@ -1840,8 +1844,7 @@ body.dev-on .mode-card.dev {
 }
 
 .mkp-chip.lack {
-  opacity: 0.45;
-  filter: grayscale(0.6); /* 缺料图标灰显 */
+  opacity: 0.45; /* 缺料图标灰显: 灰版走 iconOfGray(免离屏栅格化), emoji 回落退纯 opacity */
 }
 
 /* ---------- 任务卡容器(T15 填内容) ---------- */

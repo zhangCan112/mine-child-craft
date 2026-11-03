@@ -430,6 +430,83 @@ test('craft 面板: 缺料→卡片 dim+chip lack(have/need), 补料刷新恢复
   panel.remove();
 });
 
+/* ============ 2026-11 卡序排序(刚做过→可制造→缺料) + 卡片 DOM 复用 ============ */
+
+test('craft 面板: 卡序=可制造在前缺料在后(同档稳定=原配方序)', () => {
+  const doc = mkDoc();
+  /* planks5+stick2+coal1 无 log: 木镐/火把可造, 木板缺料 */
+  const inv = {slots: [
+    ...Array(9).fill(null), {id: 'planks', n: 5}, {id: 'stick', n: 2}, {id: 'coal', n: 1},
+    ...Array(15).fill(null),
+  ]};
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK, R_TORCH], onCraft() {}});
+  panel.show();
+  assert.deepStrictEqual(collect(panel.root, 'mkp-card').map((c) => c.dataset.recipe),
+      ['pick_wood', 'torch', 'planks'], '两亮卡在前(原序), 缺料卡垫底');
+  panel.remove();
+});
+
+test('craft 面板: 合成后该配方卡置顶(材料尽仍第一, 置顶优先于亮灰)', () => {
+  const doc = mkDoc();
+  const inv = {slots: [
+    ...Array(9).fill(null), {id: 'log', n: 2}, {id: 'planks', n: 5}, {id: 'stick', n: 2},
+    {id: 'coal', n: 1}, ...Array(13).fill(null),
+  ]};
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK, R_TORCH], onCraft() {}});
+  panel.show();
+  collect(panel.root, 'mkp-card')[1].onclick(); // 点木镐卡 = 一键摆入(planks3+stick2)
+  const out = collect(panel.root, 'mkp-oslot')[0];
+  out._ev.pointerdown({preventDefault() {}});
+  out._ev.pointerup(); // 短按一发 → 木镐入包, 格内材料耗尽
+  /* 木镐再缺 planks(5-3=2<3) 已灰, 仍排第一; planks 可造次之; 火把缺 stick 垫底 */
+  assert.deepStrictEqual(collect(panel.root, 'mkp-card').map((c) => c.dataset.recipe),
+      ['pick_wood', 'planks', 'torch'], '刚做过的卡置顶(优先于亮灰判定)');
+  panel.remove();
+});
+
+test('craft 面板: 卡片 DOM 复用 — 观感签名未变回挂旧节点, 变了才重建', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'log', n: 2}, {id: 'planks', n: 5},
+    ...Array(16).fill(null)]};
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK], onCraft() {}});
+  panel.show();
+  const before = collect(panel.root, 'mkp-card');
+  assert.deepStrictEqual(before.map((c) => c.dataset.recipe), ['planks', 'pick_wood'],
+      '亮卡在前: planks 可造, pick 缺 stick');
+  inv.slots[9] = null; // 清 log → planks 卡亮转灰(签名变), pick 卡观感不变
+  panel.refresh();
+  const after = collect(panel.root, 'mkp-card');
+  assert.strictEqual(after[1], before[1], 'pick 卡签名未变 → 复用同一 DOM 节点');
+  assert.notStrictEqual(after[0], before[0], 'planks 卡亮→灰签名变 → 重建新节点');
+  assert.ok(after[0]._cls.has('dim'), '重建节点带上 dim 类');
+  panel.remove();
+});
+
+test('craft 面板: 灰卡产物与缺料 chip 走 iconOfGray 灰版, 亮卡零灰版', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'log', n: 2}, ...Array(17).fill(null)]};
+  const grayLog = [];
+  globalThis.iconOfGray = (id) => {
+    grayLog.push(id);
+    return 'data:image/png;base64,GRAY';
+  };
+  try {
+    const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK], onCraft() {}});
+    panel.show();
+    const cards = collect(panel.root, 'mkp-card');
+    assert.deepStrictEqual(cards.map((c) => c.dataset.recipe), ['planks', 'pick_wood']);
+    assert.ok(cards[0].innerHTML.includes('data:image/png;base64,AA'), '亮卡产物走 iconOf 彩版');
+    assert.ok(!cards[0].innerHTML.includes('GRAY'), '亮卡零灰版');
+    assert.ok(cards[1].innerHTML.includes('GRAY'), '灰卡产物+缺料 chip 走灰版');
+    assert.ok(grayLog.includes('pick_wood') && grayLog.includes('planks') &&
+        grayLog.includes('stick'), '灰卡产物与两个缺料 chip 均取灰版');
+    assert.ok(!grayLog.includes('log'), '亮卡 log chip 不取灰版');
+    panel.remove();
+  } finally {
+    delete globalThis.iconOfGray; /* 还原全局(镜像 hintForItem 桩口径) */
+  }
+});
+
 test('craft 面板: 站点外只列 hand 级卡(正典配方书口径), 近台全列 + 外圈锁格', () => {
   const doc = mkDoc();
   const inv = {slots: new Array(27).fill(null)};

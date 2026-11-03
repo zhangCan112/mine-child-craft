@@ -46,7 +46,7 @@ function tankIcon() {
    工具 16 条共用 4 张字符画, '#'主/'+'亮/'-'暗/'o'描边 四字符按四阶色板
    替换 — 色板与 held-item.js mkToolDef 同源(木/石/铁/钻), 视觉
    口径单一。风格参考 MC 观感语言, 全部程序自绘(版权口径 D13)。
-   interface: itemIcon(itemId)·iconOf(itemId)·ITEM_PIX(字符画数据表)
+   interface: itemIcon(itemId)·iconOf(itemId)·iconOfGray(itemId)(灰版)·ITEM_PIX(字符画数据表)
    依赖: ITEMS(items-core.js, 加载序先于本文件(见 index.html))
    可测性: 绘制走 document.createElement, Node 单测注入 canvas 桩
    (test/icons-item.test.js); 字符画数据段零依赖可直接断言。
@@ -1280,4 +1280,60 @@ function iconOf(itemId) {
     return ITEMS[itemId].icon || '';
   }
   return '';
+}
+
+/* ---------- 灰版图标(2026-11 合成面板缺料观感联动) ---------- */
+
+/* 灰版缓存 — 键同 ITEM_ICON_CACHE, 色板不变画一次即可(缺料卡数量大头) */
+const ITEM_ICON_GRAY = {};
+
+/* 去饱和混合比: 0=原色, 1=纯灰。原 CSS filter 三档 0.55/0.6/1.0 肉眼不可辨, 单档统一 */
+const GRAY_MIX = 0.6;
+
+/* 单色去饱和: 解析 #rrggbb / rgb() / rgba() 后向亮度灰插值(alpha 原样保留);
+   解析不了的颜色原样返回 — 宁彩色不可错画。 */
+function desatColor(color) {
+  const hex = /^#([0-9a-f]{6})$/i.exec(color);
+  if (hex) {
+    const n = parseInt(hex[1], 16);
+    return mixGray((n >> 16) & 255, (n >> 8) & 255, n & 255, null);
+  }
+  const fn = /^rgba?\(([^)]+)\)$/i.exec(color);
+  if (fn) {
+    const parts = fn[1].split(',').map((s) => s.trim());
+    const rgbOk = parts.length >= 3 &&
+        parts.slice(0, 3).every((p) => /^\d+(\.\d+)?$/.test(p));
+    const alpha = parts[3] === undefined ? null : Number(parts[3]);
+    if (rgbOk && (alpha === null || (Number.isFinite(alpha) && alpha >= 0 && alpha <= 1))) {
+      return mixGray(Number(parts[0]), Number(parts[1]), Number(parts[2]), alpha);
+    }
+  }
+  return color;
+}
+
+/* 三通道向亮度灰插值(GRAY_MIX 档)后回格式化色串: 无 alpha 出 #rrggbb, 带则 rgba() */
+function mixGray(r, g, b, alpha) {
+  const lum = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
+  const mix = (c) => Math.round(c + (lum - c) * GRAY_MIX);
+  if (alpha === null) {
+    const to2 = (c) => mix(c).toString(16).padStart(2, '0');
+    return '#' + to2(r) + to2(g) + to2(b);
+  }
+  return 'rgba(' + mix(r) + ',' + mix(g) + ',' + mix(b) + ',' + alpha.toFixed(2) + ')';
+}
+
+/* 灰版统一出口: 有像素画 → 色板逐色去饱和后复用 drawArt 管线重画;
+   无像素画回落 iconOf(emoji 无从灰化, 由调用方 opacity 兜底)。 */
+function iconOfGray(itemId) {
+  if (!ITEM_PIX[itemId]) return iconOf(itemId);
+  if (!Object.prototype.hasOwnProperty.call(ITEM_ICON_GRAY, itemId)) {
+    const def = ITEM_PIX[itemId];
+    const grayMap = {};
+    for (const ch of Object.keys(def.map)) grayMap[ch] = desatColor(def.map[ch]);
+    const small = document.createElement('canvas');
+    small.width = small.height = 16;
+    drawArt(small.getContext('2d'), def.art, grayMap);
+    ITEM_ICON_GRAY[itemId] = pixToURL64(small);
+  }
+  return ITEM_ICON_GRAY[itemId];
 }

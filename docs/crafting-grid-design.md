@@ -101,6 +101,25 @@ craft-core 只做编排——与现行 `craft()` 同口径，不做第二份扣�
   （adventure 接 Drops.spawn，零惩罚口径；MC 2×2 格「保留摆放」不跟随，
   统一退料更简单）。
 
+### 5.1 卡片排序与长列表渲染性能（2026-11）
+
+- **卡序排序**：刚做过（`lastCraftId` 命中）→ 可制造（canCraft ok）→ 缺料；
+  置顶优先于亮灰（合成后材料耗尽该卡仍第一，「刚刚做的排第一」）；
+  同档稳定排序=原配方序；排序应用于所有页签。
+- **卡片 DOM 复用**：refresh 原先 `innerHTML=''` 全量重建 ~40 张卡，会丢弃
+  已解码位图并同步重解码 ~150 张 base64 图（iPad 长列表滚动卡顿主源）。
+  改为 `cardCache`（配方 id → {el, sig}），签名 sig=类名+内容 html 未变
+  直接回挂旧节点（同步任务内挂回不触发重解码）。
+- **灰观感改走灰版图标**：`.mkp-card.dim`/`.mkp-chip.lack` 删
+  `filter: grayscale`（逐卡离屏栅格化），灰卡产物与缺料 chip 改走
+  `iconOfGray`（icons.js 色板字符串去饱和重画，单档 GRAY_MIX=0.6，
+  emoji 回落无灰版由 opacity 兜底）。`.mkp-badge.lack` 保留 filter：
+  徽标是 button-icons 像素图无灰版替换，且 24×24 静态小面积非滚动热点
+  （与 .mkp-cell.dim/.mkp-fire-out 同口径）。
+- **content-visibility**：`.mkp-card` 加 `content-visibility: auto;
+  contain-intrinsic-size: auto 108px`（108=卡高 94~116 折中），视口外卡
+  跳过渲染，回滚只补可见差异；旧引擎不识别自动忽略零危害。
+
 ## 6. 模块改动清单
 
 | 文件 | 改动 |
