@@ -305,6 +305,7 @@ globalThis.Mobs = {
   gait() {},
   settle() {}, /* 贴地收尾(2026-11 修复起模式 AI 位移后逐帧调): no-op 窄面桩对齐真库,
       本文件 advMobAI 经 showroom dev 换皮复用, 桩不动 Y 免现断言漂移 */
+  walkDist: () => 0, /* 实走距离(2026-11 穿墙票起索敌走此口): 0=总可达, 旧直线语义(完整 AI 用例) */
   debrisColor: () => 0xffffff,
 };
 

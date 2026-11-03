@@ -242,6 +242,99 @@ test('怪物库: settle 贴地收敛 — 天上落回/上 1 格爬/下坎落 · 
   }
 });
 
+test('怪物库: 高墙拦截 — 列顶远高于脚且身体有实心=墙, move 不得入(2026-11 穿墙票回归钉)', () => {
+  /* 旧 groundUnderAt 地下分支把墙在脚层的块顶当"地板"(top≈脚高 → 台阶门
+     高差 1 放行), 高墙被逐列穿过。新判据: 脚层/头层有实心 → 返回列顶, 门拦 */
+  Mobs.clear();
+  const origTop = globalThis.groundTop; const origBlock = globalThis.getBlock;
+  const origSolid = globalThis.isSolid;
+  try {
+    /* 世界: 平地块在 11; 墙列 x=12 自 11 垒到 14(高 3, 顶 14 > 脚 12+1.5) */
+    const solidAt = (x, y) => (x === 12 && y >= 11 && y <= 14) || y === 11;
+    globalThis.getBlock = (x, y, z) => (solidAt(x, y) ? 1 : 0);
+    globalThis.isSolid = (id) => id !== 0;
+    globalThis.groundTop = (x, z) => {
+      for (let y = 40; y > 0; y--) if (solidAt(x, y)) return y;
+      return 0;
+    };
+    const m = Mobs.spawn('zombie', 10.5, 10.5, {}); /* 脚 y=12 */
+    Mobs.move(m, 1.4, 0); /* 到 11.9(墙前开地照走) */
+    assert.ok(Math.abs(m.pos.x - 11.9) < 1e-9, '墙前开地照走');
+    Mobs.move(m, 1.0, 0); /* 目的列 = 墙(12) → 拦 */
+    assert.ok(Math.abs(m.pos.x - 11.9) < 1e-9, '高墙列不得入(旧口径当 1 级台阶放行穿墙)');
+    Mobs.settle(m, 0.1);
+    assert.ok(Math.abs(m.pos.y - 12) < 1e-9, '墙前原地贴地不受墙列影响');
+  } finally {
+    globalThis.groundTop = origTop; globalThis.getBlock = origBlock;
+    globalThis.isSolid = origSolid;
+    Mobs.clear();
+  }
+});
+
+test('怪物库: 洞底贴地保留 — 列顶远高于脚但身体净空(悬顶洞道)照走不误拦', () => {
+  /* 穿墙拦截的另一面: 怪物巢穴副本/黑巢洞道(上有悬顶脚下净空)必须仍可走
+     且贴洞底——墙判据只认"身体高度有实心", 不误伤洞道 */
+  Mobs.clear();
+  const origTop = globalThis.groundTop; const origBlock = globalThis.getBlock;
+  const origSolid = globalThis.isSolid; const origWH = globalThis.WORLD_H;
+  try {
+    /* 世界: 平地块在 11; 洞道列 x=12 顶板在 20(身体 12/13 净空, 洞底 11) */
+    const solidAt = (x, y) => (x === 12 && y === 20) || y === 11;
+    globalThis.WORLD_H = 40; /* 地下扫的下界口径(groundUnderAt 深扫消费) */
+    globalThis.getBlock = (x, y, z) => (solidAt(x, y) ? 1 : 0);
+    globalThis.isSolid = (id) => id !== 0;
+    globalThis.groundTop = (x, z) => {
+      for (let y = 40; y > 0; y--) if (solidAt(x, y)) return y;
+      return 0;
+    };
+    const m = Mobs.spawn('zombie', 10.5, 10.5, {});
+    Mobs.move(m, 1.4, 0);
+    Mobs.move(m, 1.0, 0); /* 入洞道列 */
+    assert.ok(Math.abs(m.pos.x - 12.9) < 1e-9, '洞道列照走(身体净空不是墙)');
+    Mobs.settle(m, 0.1);
+    assert.ok(Math.abs(m.pos.y - 12) < 1e-9, '贴洞底(顶板 20 不扰地板 11)');
+  } finally {
+    globalThis.groundTop = origTop; globalThis.getBlock = origBlock;
+    globalThis.isSolid = origSolid; globalThis.WORLD_H = origWH;
+    Mobs.clear();
+  }
+});
+
+test('怪物库: walkDist 实走距离 — 平地直线/同列 0/预算尽/高墙拦断/绕行计程/立柱末步', () => {
+  Mobs.clear();
+  const origTop = globalThis.groundTop; const origBlock = globalThis.getBlock;
+  const origSolid = globalThis.isSolid; const origWH = globalThis.WORLD_H;
+  try {
+    globalThis.WORLD_H = 40;
+    globalThis.isSolid = (id) => id !== 0;
+    const install = (solidAt) => {
+      globalThis.getBlock = (x, y, z) => (solidAt(x, y, z) ? 1 : 0);
+      globalThis.groundTop = (x, z) => {
+        for (let y = 40; y > 0; y--) if (solidAt(x, y, z)) return y;
+        return 0;
+      };
+    };
+    /* 平地: 直线计程 + 同列 0 + 预算尽 */
+    install(() => false);
+    assert.strictEqual(Mobs.walkDist(0.5, 0.5, 12, 3.5, 0.5, 12), 3, '平地: 3 列步');
+    assert.strictEqual(Mobs.walkDist(0.5, 0.5, 12, 0.9, 0.2, 12), 0, '同列: 0');
+    assert.strictEqual(Mobs.walkDist(0.5, 0.5, 12, 3.5, 0.5, 2), Infinity, '预算尽: ∞');
+    /* 无限长高墙(x=2 全 z 垒 11..14): 拦断 → ∞ */
+    install((x, y) => (x === 2 && y >= 11 && y <= 14) || y === 11);
+    assert.strictEqual(Mobs.walkDist(0.5, 0.5, 12, 4.5, 0.5, 12), Infinity, '墙后不可达(视觉外)');
+    /* 有限高墙(x=2, 仅 z∈[-1,1]): 绕行计程——最短绕 z=±2, 4+4=8 步 */
+    install((x, y, z) => (x === 2 && z >= -1 && z <= 1 && y >= 11 && y <= 14) || y === 11);
+    assert.strictEqual(Mobs.walkDist(0.5, 0.5, 12, 4.5, 0.5, 12), 8, '绕行按实际步数计程');
+    /* 立柱末步: 目标列 x=3 垒 11..13(比脚高 2, 逾台阶门)——末步免爬仍可达 */
+    install((x, y) => (x === 3 && y >= 11 && y <= 13) || y === 11);
+    assert.strictEqual(Mobs.walkDist(0.5, 0.5, 12, 3.5, 0.5, 12), 3, '玩家立柱上: 末步免爬照达(贴柱集结)');
+  } finally {
+    globalThis.groundTop = origTop; globalThis.getBlock = origBlock;
+    globalThis.isSolid = origSolid; globalThis.WORLD_H = origWH;
+    Mobs.clear();
+  }
+});
+
 test('怪物库: gait 攻击姿态窗口(第 4 参) — 挥臂(人形)/头前扑(四足) · 相位钳制 · 每帧幂等', () => {
   Mobs.clear();
   const z = Mobs.spawn('zombie', 10, 10, {});

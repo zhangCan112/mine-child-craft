@@ -233,6 +233,8 @@ const dropsState = {spawned: [], cbs: []};
 const hitLog = [];
 const moveLog = [];
 const settleLog = []; /* Mobs.settle 调用记录(贴地收尾布线断言, 2026-11 悬空/嵌地修复) */
+const walkLog = []; /* Mobs.walkDist 调用记录(实走索敌布线断言, 2026-11 穿墙修复) */
+let nextWalkDist = 0; /* walkDist 脚本返回值(0=总可达: 现有测试全按旧直线语义绿) */
 let listResult = [];
 let nextHit = {hp: 10, dead: false, freshDead: false};
 const ADV_MOB_CFG = {/* 四怪数值摘自 mob-registry.js MOB_TYPES(巢穴池, 行为断言所需最小集)
@@ -290,6 +292,11 @@ globalThis.Mobs = {
   settle(m) {/* 贴地收尾(2026-11 修复起模式 AI 位移后逐帧调真库此口): 窄面桩只记账
       不动 Y —— 现有 y 相关断言(引信门 |Δy|<2.5 / 攻击门 |Δy|<3)不漂移 */
     settleLog.push(m);
+  },
+  walkDist(x0, z0, y0, x1, z1, budget) {/* 实走距离(2026-11 穿墙票起索敌走此口):
+      窄面桩只记账返脚本值 nextWalkDist(真 BFS 行为面在 mobs.test.js) */
+    walkLog.push({x0, z0, y0, x1, z1, budget});
+    return nextWalkDist;
   },
   debrisColor() {
     return 0x1a2b3c;
@@ -444,6 +451,8 @@ function freshInit() {
   hitLog.length = 0;
   moveLog.length = 0;
   settleLog.length = 0;
+  walkLog.length = 0;
+  nextWalkDist = 0;
   listResult = [];
   nextHit = {hp: 10, dead: false, freshDead: false};
   AdventureMode.init();
@@ -2737,6 +2746,49 @@ test('贴地收尾: 战斗 AI 与牧场驱动每帧 settle —— move 只走 x/
   settleLog.length = 0;
   AdventureMode.update(1 / 60);
   assert.strictEqual(settleLog.filter((m) => m === cow).length, 1, '站桩吃草帧也 settle');
+  listResult = [];
+});
+
+test('索敌视野=实走距离: 墙后(walkDist=∞)不追不动 · 直线超圈不查 · 可达照追 · 隔墙不出手', () => {
+  /* 2026-11 穿墙票: 旧口径 aggro 按直线量距——墙后玩家在半径内被假索敌,
+     怪贴脸穿墙追。新口径走 Mobs.walkDist(实走搜索), 本测试钉模式布线
+     (真 BFS 的墙/绕行/立柱行为面在 mobs.test.js); 家锚在脚下(distHome=0)
+     时非索敌态站桩不动, 不误触收队 */
+  mem.clear();
+  freshInit();
+  globalThis.yaw = 0;
+  globalThis.pos.x = 40; globalThis.pos.y = 25; globalThis.pos.z = 50;
+  const zb = mkAdvMob('zombie', 40, 25, 45.5, {__nightHome: {x: 40, z: 45.5}});
+  /* 墙后: 直线 4.5 在索敌圈内但实走 ∞ → 站桩不动(不假索敌) */
+  listResult = [zb];
+  nextWalkDist = Infinity;
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.ok(!moveLog.some((e) => e.m === zb), '实走超圈: 不追不动(大于警觉范围就站桩)');
+  assert.ok(walkLog.some((e) => e.z0 === 45.5 && e.z1 === 50), '直线在圈内 → 查了实走距离');
+  /* 直线超圈: 不查(直线是实走的下界, 粗筛短路免空跑) */
+  globalThis.pos.z = 80; /* 直线 34.5 > 索敌 12 */
+  walkLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(walkLog.length, 0, '直线超圈不发起搜索(下界短路)');
+  /* 可达(实走 3 ≤ 12): 追击照旧(逼近分支 move 在账; __wdT=0 越过 0.4s 节流窗立即重查) */
+  globalThis.pos.z = 50;
+  nextWalkDist = 3;
+  zb.__wdT = 0; /* 清节流钟: 下一帧即重查实走距离(F4 测试 poke 私有字段同款) */
+  moveLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.ok(moveLog.some((e) => e.m === zb), '实走在圈内: 照常追击');
+  /* 隔墙不出手: 直线 2 在攻击圈内但实走 ∞(薄墙后) → 不打; 实走 ≤2 照打 */
+  const zb2 = mkAdvMob('zombie', 40, 25, 48, {__nightHome: {x: 40, z: 48}, attackCd: 0});
+  nextWalkDist = Infinity;
+  listResult = [zb2];
+  hitLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.ok(!hitLog.some((h) => h.m.pos === globalThis.pos), '隔墙不出手(贴身攻击实走门 ≤2)');
+  nextWalkDist = 2;
+  zb2.__wdT = 0; /* 同上: 立即重查 */
+  AdventureMode.update(1 / 60);
+  assert.ok(hitLog.some((h) => h.m.pos === globalThis.pos), '实走 ≤2 照打(直线攻击圈不受损)');
   listResult = [];
 });
 

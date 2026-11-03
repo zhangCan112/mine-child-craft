@@ -486,6 +486,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     steer() {}, move() {}, gait() {},
     settle() {}, /* 贴地收尾(2026-11 修复起模式 AI 位移后逐帧调): no-op 窄面桩对齐
         真库(本夹具 listResultC 不注入怪物, AI 循环恒空转不触发) */
+    walkDist: () => 0, /* 实走距离(2026-11 穿墙票起索敌走此口): no-op 窄面桩(同上, 恒空转) */
     scaleTo() {}, pulseTint() {}, /* 引信膨胀/白闪(bomber 分支消费, 真库意图 API 窄面对齐) */
     debrisColor() {
       return 0x1a2b3c;

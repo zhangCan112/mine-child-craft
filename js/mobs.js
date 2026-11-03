@@ -12,7 +12,8 @@
    interface: spawn / update / render / hit / near / clear / onDeath /
               list / face / hasSlot / gait / stagger / pulseTint / scaleTo /
                debrisColor / spawnable /
-               move / shift / setPos / steer / heal / setMaxHp / remove / settle
+               move / shift / setPos / steer / heal / setMaxHp / remove / settle /
+               walkDist(实走距离·索敌口径)
    玩法(战斗AI/阵营/晋升/表扬话术)在模式层; 模式可在 spawn 返回的
    mob 上挂私有字段(tierNode/tierGeos 等挂件, dispose 时若存在一并回收)。
    模式可写引擎字段的白名单(除此之外引擎字段对模式只读):
@@ -294,16 +295,21 @@ const Mobs = (() => {
     m.label.scale.set(LABEL_BASE_W*ls, LABEL_BASE_H*ls, 1);
   }
 
-  /* 脚下地面顶 y(地下空间感知): 列顶即地面(地表怪——groundTop 原语义,
-     记忆化热点不动); 列顶远高于脚(怪在洞里: 怪物巢穴副本/黑巢洞道等
-     地下空间) → 从脚位向下扫描首个实心格顶。洞判据阈值 1.5(正常台阶
-     高差 ≤1.05, MobCore.stepMove 同源); 世界查询归引擎本份, 地下语义
-     不含任何玩法知识(副本/洞道是应用层概念) */
+  /* 脚下地面顶 y(地下空间感知+穿墙拦截): 列顶即地面(地表怪——groundTop
+     原语义, 记忆化热点不动); 列顶远高于脚 → 两态分流: 身体高度(脚层/头层)
+     有实心块 = 墙, 返回列顶交台阶门拦(stepMove 比高差, 2026-11 穿墙票——
+     旧判据把墙在脚层的块顶当"地板", 高墙被当 1 级台阶逐列放行, 怪物穿墙
+     的病根); 脚下净空才是洞(怪物巢穴副本/黑巢洞道等地下空间) → 从脚位
+     向下扫描首个实心格顶。洞判据阈值 1.5(正常台阶高差 ≤1.05,
+     MobCore.stepMove 同源); 世界查询归引擎本份, 地下语义不含任何玩法
+     知识(副本/洞道是应用层概念) */
   function groundUnderAt(x, z, refY) {
     const bx = Math.floor(x); const bz = Math.floor(z);
     const top = groundTop(bx, bz);
     if (top <= refY + 1.5) return top;
-    let s = Math.min(Math.floor(refY), WORLD_H - 2);
+    const fy = Math.floor(refY);
+    if (isSolid(getBlock(bx, fy, bz)) || isSolid(getBlock(bx, fy + 1, bz))) return top; /* 墙 */
+    let s = Math.min(fy, WORLD_H - 2);
     for (; s > 0; s--) if (getBlock(bx, s, bz) !== 0) break;
     return s;
   }
@@ -431,6 +437,39 @@ const Mobs = (() => {
     } else if (gp.y !== m.flyHome) {
       gp.y += (m.flyHome-gp.y)*Math.min(1, dt*2); // 被震落后缓慢回到巡航高度(不贴地怪飞)
     }
+  }
+
+  /* 实走距离(索敌视野的穿墙口径, 2026-11 用户票): 从 (x0,z0) 脚高 y0 到
+     (x1,z1) 的 4 邻广度搜索——列边判据与 stepMove 同一条式(邻列地板比本列
+     地板高 ≤1.05 放行, 下坎随意), 地板查询 groundUnderAt(墙列不可入同源)。
+     末步入目标列免爬高: 玩家立柱/墙头也算"走到"(贴柱集结是正典观感, 视线
+     本就无阻); budget 格内未达返回 Infinity(墙后/绕路超圈 = 视觉外)。
+     列粒度(目标列即到达), 距离=步数(每列 1); 同列首达即最短(掉落/爬升的
+     脚高差路径取首达, 索敌口径够用) */
+  function walkDist(x0, z0, y0, x1, z1, budget) {
+    const sx = Math.floor(x0); const sz = Math.floor(z0);
+    const tx = Math.floor(x1); const tz = Math.floor(z1);
+    if (sx === tx && sz === tz) return 0;
+    const seen = new Set([sx + ',' + sz]);
+    const q = [sx, sz, y0, 0]; /* 扁平四元组 FIFO(BFS 首达即最短) */
+    for (let head = 0; head < q.length; head += 4) {
+      const cx = q[head]; const cz = q[head + 1];
+      const fy = q[head + 2]; const d = q[head + 3];
+      if (d >= budget) continue; /* 预算尽不再扩 */
+      for (let k = 0; k < 4; k++) {
+        const nx = cx + (k === 0 ? 1 : k === 1 ? -1 : 0);
+        const nz = cz + (k === 2 ? 1 : k === 3 ? -1 : 0);
+        const key = nx + ',' + nz;
+        if (seen.has(key)) continue;
+        const last = nx === tx && nz === tz;
+        const top = groundUnderAt(nx, nz, fy);
+        if (!last && top - (fy - 1) > 1.05) continue; /* 爬逾 1 拦(末步免爬) */
+        if (last) return d + 1;
+        seen.add(key);
+        q.push(nx, nz, top + 1, d + 1);
+      }
+    }
+    return Infinity;
   }
 
   /* 逐怪种碎块配色(击杀碎块观感, 竞技场/演习场共用) — 造型档案 debris
@@ -588,6 +627,6 @@ const Mobs = (() => {
   return {types: MOB_TYPES, spawn, update, render, hit, near, clear, onDeath,
     list: ()=>mobList, face, hasSlot, gait, stagger, pulseTint, scaleTo,
     debrisColor, spawnable, families,
-    move, shift, setPos, steer, heal, setMaxHp, remove, settle};
+    move, shift, setPos, steer, heal, setMaxHp, remove, settle, walkDist};
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Mobs;

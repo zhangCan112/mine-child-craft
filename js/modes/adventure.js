@@ -1058,7 +1058,18 @@ function advMobAI(dt) {
     const distHome = Math.hypot(hx, hz) || 1e-9;
     const speed = (m.cfg.speed || 2) * (m.speedMult || 1); /* 波次强化走逐实例乘数(§7), cfg 是共享表禁改 */
     let moved = 0; /* 本帧实际速度(喂步态) */
-    const aggro = !p.dead && distP <= ADV_NEST_AGGRO_R && distHome <= ADV_NEST_LEASH_R;
+    /* 索敌视野=实走距离(2026-11 穿墙票): 直线量距可穿墙——墙后玩家在半径内
+       会被假索敌, 怪贴脸穿墙追。改走 Mobs.walkDist(4 邻实走搜索, 墙列不可入),
+       超圈=视觉外站桩不动。直线是实走的下界, 先粗筛免空跑; 0.4s 节流缓存
+       (私有字段 __wdT/__wdD 不落盘, 怪物本就不进档) */
+    if (!p.dead && distP <= ADV_NEST_AGGRO_R) {
+      m.__wdT = (m.__wdT || 0) - dt;
+      if (m.__wdT <= 0) {
+        m.__wdT = 0.4;
+        m.__wdD = Mobs.walkDist(m.pos.x, m.pos.z, m.pos.y, p.pos.x, p.pos.z, ADV_NEST_AGGRO_R);
+      }
+    } else m.__wdD = Infinity;
+    const aggro = !p.dead && m.__wdD <= ADV_NEST_AGGRO_R && distHome <= ADV_NEST_LEASH_R;
     if (aggro) {
       Mobs.steer(m, Math.atan2(dxP, dzP));
       if (m.cfg.ranged) {/* 骷髅: 炮台巡航(7 格), 太远逼近太近拉开, 节拍到就放箭 */
@@ -1075,14 +1086,15 @@ function advMobAI(dt) {
         }
       } else if (m.cfg.boom) {/* 苦力怕族: 压上→贴身点引信(站桩自爆); 读条早期
           (前 30%——常款 3s 引信即 0.9s 内)玩家跑远即取消(竞技场 moveBoom 同款
-          判据, 窗口随引信时长等比); 无近战平A——引信即全部 */
+          判据, 窗口随引信时长等比); 无近战平A——引信即全部; 贴身门带实走
+          __wdD ≤3(对角列余量, 穿墙票)——隔薄墙直线 2.4 内也不点引信 */
         if (m.__fuse >= 0) {
           if (m.__fuse < (m.cfg.fuseS || 1.15) * 0.3 && distP > m.cfg.range * 2.2) {
             m.__fuse = -1;
             Mobs.scaleTo(m, 1);
             Mobs.pulseTint(m, 1, 1, 1); /* 收引信回常态 */
           }
-        } else if (distP <= m.cfg.range + 0.4 && Math.abs(p.pos.y - m.pos.y) < 2.5) {
+        } else if (distP <= m.cfg.range + 0.4 && Math.abs(p.pos.y - m.pos.y) < 2.5 && m.__wdD <= 3) {
           m.__fuse = 0;
           advSfx('fuse'); /* 起燃嘶声(音效注册表 'fuse') */
         } else {
@@ -1090,7 +1102,9 @@ function advMobAI(dt) {
         }
       } else if (distP > m.cfg.range) {/* 近战逼近 */
         Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
-      } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.attackCd <= 0) {/* 贴身攻击玩家 */
+      } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.__wdD <= 2 && m.attackCd <= 0) {/* 贴身攻击玩家:
+          实走门 ≤2 格——隔薄墙直线 2.1 内也不出手(穿墙票; 立柱/墙头玩家
+          由 walkDist 末步免爬可达, 不误伤) */
         m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
         const r = Mobs.hit(p, advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4);
         if (r.freshDead) advPlayerDied();
