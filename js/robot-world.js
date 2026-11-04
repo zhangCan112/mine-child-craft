@@ -298,13 +298,12 @@ const RobotWorld = (() => {
       placePuppets();
     }
     function placePuppets() {
+      /* setPos 内部序自带贴地(缺省 dt=1 = 旧显式 settle(mob, 1) 一步落格语义) */
       Mobs.setPos(mobA, wx(board.start.x), wz(board.start.z));
       Mobs.steer(mobA, yawOf(board.start.dir));
-      Mobs.settle(mobA, 1); // dt=1 → 贴地系数拉满, 一步落格
       if (mobB && handover) {
         Mobs.setPos(mobB, wx(handover.x), wz(handover.z));
         Mobs.steer(mobB, 0); // 面向镜头(+Z 南)等待接力
-        Mobs.settle(mobB, 1);
       }
     }
 
@@ -598,9 +597,9 @@ const RobotWorld = (() => {
       anim.t += dt;
       const k = Math.min(1, anim.t / anim.dur);
       if (anim.kind === 'move') {
-        Mobs.setPos(anim.mob, anim.fx + (anim.tx - anim.fx) * k, anim.fz + (anim.tz - anim.fz) * k);
+        /* 内部序贴地传帧 dt: 爬台阶坎自然贴地(LEDGE 抬升/炸坑低洼都靠它, 同旧显式 settle) */
+        Mobs.setPos(anim.mob, anim.fx + (anim.tx - anim.fx) * k, anim.fz + (anim.tz - anim.fz) * k, dt);
         Mobs.steer(anim.mob, anim.y0 + yawDelta(anim.y0, anim.y1) * k);
-        Mobs.settle(anim.mob, dt); // 爬台阶坎自然贴地(LEDGE 抬升/炸坑低洼都靠它)
       } else if (anim.kind === 'turn') {
         Mobs.steer(anim.mob, anim.y0 + yawDelta(anim.y0, anim.y1) * k);
       } else if (anim.kind === 'spin') {

@@ -24,8 +24,10 @@
    · pose 等关节角 经 gait() 写入(战斗覆盖在其返回值之上叠加)
      · pos.y       垂直特技(跃起砸地/悬浮压制)直写; 水平位移一律走意图 API
      · 瞬时效果与结构变更一律走意图 API: pulseTint(引信白闪) / stagger(硬直) /
-       scaleTo(引信膨胀·阶级放大) / move·shift·setPos(水平位移) / steer(面向) /
-       heal·setMaxHp(生命) / remove(立即移除) / settle(贴地回巡航) —
+       scaleTo(引信膨胀·阶级放大) / move·setPos(水平位移, 内部序自带贴地收尾) /
+       shift(无碰撞平移, 飞行高度归模式) / steer(面向) /
+       heal·setMaxHp(生命) / remove(立即移除) /
+       settle(贴地回巡航, 独立出口: 无位移收敛兜底) —
        不直写 tr/tg/tb/staggerT/drawScale/pos.x/pos.z/yaw/hp/maxHp/gone,
      免得正确性依赖"Mobs.update → 模式 → Mobs.render"的帧序。
    实例数组归本模块私有: list() 返回内部引用(只读约定),
@@ -399,19 +401,25 @@ const Mobs = (() => {
   function scaleTo(m, s) {
     m.drawScale = s;
   } // 体型(引信膨胀/阶级放大)
-  /* 位移族: 战斗 AI 不再直写 pos/yaw —
-     move   地面步进(x/z 分轴走台阶规则, 爬坡/拦高墙)
-     shift  无碰撞平移(飞行单位的巡航/盘旋)
-     setPos 几何回弹的绝对落位(边界约束把单位拉回场内) */
-  function move(m, dx, dz) {
+  /* 位移族: 战斗 AI 不再直写 pos/yaw — 贴地是 move/setPos 的内部序收尾
+     (2026-11-04 候选②: 「位移后必须 settle」配对纪律从 6 个调用点收回引擎,
+     位移即贴地、调用方不可见; settle 保留独立出口给无位移收敛兜底) —
+     move   地面步进(x/z 分轴走台阶规则, 爬坡/拦高墙) ─▶ settle(m, dt)
+     shift  无碰撞平移(飞行单位的巡航/盘旋; 不贴地)
+     setPos 绝对落位(几何回弹/瞬移/归位) ─▶ 落位即贴地(地面; dt 缺省 1=一步贴齐) */
+  function move(m, dx, dz, dt) {
     MobCore.stepMove(m, dx, 0, (bx, bz) => groundUnderAt(bx, bz, m.pos.y));
     MobCore.stepMove(m, 0, dz, (bx, bz) => groundUnderAt(bx, bz, m.pos.y));
+    settle(m, dt); /* 内部序收尾: 位移即贴地(上坡嵌地/下坡悬空从调用方义务降为不可能) */
   }
   function shift(m, dx, dz) {
     m.pos.x += dx; m.pos.z += dz;
   }
-  function setPos(m, x, z) {
+  function setPos(m, x, z, dt) {
     m.pos.x = x; m.pos.z = z;
+    if (!m.cfg.fly) settle(m, dt); /* 内部序收尾: 落位即贴地(dt 经 settle 缺省 1 =
+       瞬移/归位一步落格)。fly 不收尾: 俯冲/巡航高度归模式管(竞技场逐帧钳回不炸
+       俯冲高度), 显式 settle 仍可驱 fly 分支缓回巡航 */
   }
   function steer(m, yaw) {
     m.yaw = yaw;
@@ -427,9 +435,10 @@ const Mobs = (() => {
   function remove(m) {
     m.gone = true;
   }
-  /* 贴地/回巡航高度(游荡本能的同一条式, 战斗 AI 收尾复用);
+  /* 贴地/回巡航高度(游荡本能的同一条式; 也是 move/setPos 内部序的收尾段);
+     dt 缺省 1 = 一步贴齐(忘传 dt 不再产出 NaN——2026-11-04 候选②);
      贴地目标走 groundUnderAt(地下空间感知: 列顶远高于脚时贴脚下洞底) */
-  function settle(m, dt) {
+  function settle(m, dt = 1) {
     const gp = m.pos;
     if (!m.cfg.fly) {
       const ty = groundUnderAt(gp.x, gp.z, gp.y) + 1;
@@ -492,6 +501,7 @@ const Mobs = (() => {
     } else {
       MobCore.stepMove(m, kdx/l*0.9*kpow, 0, (bx, bz) => groundUnderAt(bx, bz, m.pos.y));
       MobCore.stepMove(m, 0, kdz/l*0.9*kpow, (bx, bz) => groundUnderAt(bx, bz, m.pos.y));
+      settle(m); /* 击退也是位移: 一步贴齐(硬直帧的 Y 冻结随之消失, 2026-11-04 候选②) */
     }
     if (r.freshDead) {
       sfx('death');
