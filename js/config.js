@@ -432,6 +432,16 @@ BLOCKS[B_LOOT_CHEST] = {name: '战利品宝箱', top: [0.72, 0.22, 0.18], side: 
 const B_LOOT_CHEST_SMALL=72;
 BLOCKS[B_LOOT_CHEST_SMALL] = {name: '低档奖励箱', top: [0.72, 0.22, 0.18], side: [0.66, 0.20, 0.16],
   bottom: [0.55, 0.16, 0.14], hard: 1.33, tool: null, tier: 0};
+
+/* ---------- 远古残骸 (id 73, 装备系统 T7, docs/equipment-design.md §2.3) ----------
+   下界合金链的矿源(物品 ancient_debris 装备 T2 已有, 熔炉烧碎片 SMELTS 同批):
+   号段顺延 73 首用(红线外推 74+, blocks-fields 号段测试同步); hard/工具对齐
+   矿石档(四矿全 3.0 pick), tier 4 = 钻石镐门槛(正典一致; 下界镐 tier 5 亦过
+   ——craft-core 采集门禁 tool.tier >= blockDef.tier); 掉落 1 残骸。贴图见
+   texture-atlas(T_DEBRIS 正典螺旋纹格, §4.4), 散布见 adventure-dims-core
+   (advNetherBuild 地下层种子化点缀, 确定性重放红线)。 */
+const B_ANCIENT_DEBRIS=73;
+BLOCKS[B_ANCIENT_DEBRIS] = {name: '远古残骸', all: [0.33, 0.24, 0.21], hard: 3.0, tool: 'pick', tier: 4, drop: [['ancient_debris', 1, 0]]};
 BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true, door: true, doorLower: true,
   hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // MC 硬度 3 斧头加速; 关=实心挡人挡光
 BLOCKS[B_DOOR_TOP] = {name: '门(上)', all: [0.66, 0.52, 0.33], pane: true, door: true,

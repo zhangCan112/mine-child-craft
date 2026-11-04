@@ -10,7 +10,8 @@
    存量基础方块升级款(草顶/泥土/石头颗粒/圆石/苔石/木板缝/木头年轮树皮/树叶孔洞/沙子颗粒) +
    黑巢地上件(黑曜石/发光岩——巢穴观感票; 门面/熄门贴图三试三否, 2026-10-30
    拍板回退玻璃通道平紫半透明, 见 docs/den-nest-design.md §2.1) +
-   战利品宝箱 71(红金双格, den-nest §7.5)。风格参考
+   战利品宝箱 71(红金双格, den-nest §7.5) + 远古残骸 73(正典上下螺旋纹,
+   装备系统 T7, docs/equipment-design.md §4.4)。风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
    创建) — Node 可逐像素直测; 噪点/斑点全用种子化伪随机, 同 seed 同图。
@@ -26,7 +27,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 52 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 53 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -67,6 +68,7 @@ const TextureAtlas = (() => {
   const T_GLOWSTONE = 49; /* 发光岩(34): 琥珀底+亮金斑团(MC 萤石马赛克观感) */
   const T_LOOT_SIDE = 50; /* 战利品宝箱侧(71): 深红箱体+上下金箍带+中央金锁扣(den-nest §7.5 D16) */
   const T_LOOT_TOP = 51; /* 战利品宝箱顶盖: 红盖+金边框+中央金扣横条(双格同图=MC 双箱观感) */
+  const T_DEBRIS = 52; /* 远古残骸(73): 正典上下螺旋纹——暗棕底同心方环亮带(装备系统 T7) */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -578,6 +580,26 @@ const TextureAtlas = (() => {
     }
     for (let i=0; i<4; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [255, 244, 182]);
   };
+  /* 远古残骸(73, 装备系统 T7): 正典上下螺旋纹——暗棕斑驳底 + 同心方环亮带
+     (距中心切比雪夫半径 1/5 两道「回」形环, 环线带小抖动; MC 残骸顶面的
+     方环漩涡观感), 中心 2×2 撒 2 粒亮棕晶粒(侧面斑驳语言)。与黑曜石/
+     下界岩同批暗调 */
+  PAINTERS[T_DEBRIS] = (px, rng)=>{
+    noiseFill(px, rng, [56, 38, 32], 0.08);
+    const band = (x, y) => {
+      const j = 1 + (rng() * 2 - 1) * 0.05;
+      setP(px, x, y, [92 * j | 0, 64 * j | 0, 50 * j | 0]);
+    };
+    for (let y = 0; y < TILE; y++) {
+      for (let x = 0; x < TILE; x++) {
+        const ring = Math.max(Math.abs(x - 7.5), Math.abs(y - 7.5)) - 0.5;
+        if (ring === 1 || ring === 5) band(x, y);
+      }
+    }
+    for (let i = 0; i < 2; i++) {
+      setP(px, 7 + Math.floor(rng() * 2), 7 + Math.floor(rng() * 2), [104, 74, 54]);
+    }
+  };
   /* 战利品宝箱(副本通关奖励, den-nest §7.5 D16): 红金经典配色——深红木板箱体
       (planksBase 同行构红色版) + 上下金箍带 + 中央金锁扣; 顶盖红底金边框+中央
       金扣横条。双格同图(左右同款)=MC 双箱观感, 系统刷出固定贴墙无朝向语义 */
@@ -669,6 +691,9 @@ const TextureAtlas = (() => {
          画师格位, count 仍 52)——「新 id 好认物, 红金好认箱」, 单格 vs 双格
          一眼分大小 */
       [B_LOOT_CHEST_SMALL]: {top: T_LOOT_TOP, side: T_LOOT_SIDE, bottom: T_LOOT_SIDE},
+      /* 远古残骸 73(装备系统 T7): 正典上下螺旋纹整格同图(上下/四面同纹,
+         MC 残骸各面同款观感), 标准图集通道渲染 */
+      [B_ANCIENT_DEBRIS]: T_DEBRIS,
     },
   };
 

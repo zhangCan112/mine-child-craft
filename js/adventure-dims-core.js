@@ -15,7 +15,7 @@
    interface: 维度注册表 ADV_DIMS(行字段: id/build 建场序列/sky 天穹四
      参数/mood 曲目/dayCycle 昼夜开关/spawn 进场落点(加载期从结构常量
      派生)/hud{banner,showMobs}/assets 预留缝) · advDimRow(id) 取行 ·
-     advMusicMood(维度×昼夜→mood 桥接) · ADV_NETHER/advNetherBuild ·
+     advMusicMood(维度×昼夜→mood 桥接) · ADV_NETHER/ADV_DEBRIS(装备 T7 残骸散布参数)/advNetherBuild ·
      ADV_ERUPT/advEruptStep · ADV_DEN/ADV_DEN_TUNNELS(弯隧道折线)/
      ADV_DEN_GUARDS(固定布防表)/advDenRoomCenter(房心) · advDenBuild/
      advDenMineRoom/advDenStep(清怪波次节拍+5 轮封顶 chest 信号)/advDenWavePlan(波次计划)
@@ -41,6 +41,12 @@
    design.md §3.2) — 2026-10-30 维度 vocabulary 归家迁入, 行为零改动
    ============================================================ */
 const ADV_NETHER = {ground: 20, portal: {px: 24, pz: 24}, base: {x: 25.5, z: 30.5}};
+
+/* 远古残骸散布参数(装备 T7, 设计稿 §2.3): 地下 deep 层内每格 p 概率成点
+   (SceneKit.rand(x, y*61+z, salt) 同 advDenMineRoom 口径; ADV_NETHER 形状
+   被测试钉死, 散布参数独立成件)。64×64 地图×5 层×p ≈ 60 块——稀有但
+   挖井必得, 钻石镐 tier 4 才采得动(config 门禁), 下界合金链矿源。 */
+const ADV_DEBRIS = {p: 0.003, deep: 5};
 /*   下界平地顶层 y(脚踩 21; 下界地面是平的) / 回程门框位置(门基 by 用
       ground 派生) / 下界落点(离门数格, 在无熔岩的出生区内) */
 
@@ -58,6 +64,20 @@ function advNetherBuild() {
       if (SceneKit.rand(Math.floor(x / 3), Math.floor(z / 3), 7) > 0.93) {
         setBlockRaw(x, ADV_NETHER.ground, z, B_LAVA);
       } /* 3×3 成片的熔岩池(同 3×3 索引喂 rand, 格内同池成片) */
+    }
+  }
+  /* 远古残骸地下层散布(装备 T7, 设计稿 §2.3): 只镶进刚铺的下界岩地层——
+     深处 deep 层低概率成点, 要挖井下去才够得着(MC「深藏稀有」观感,
+     钻镐门槛 tier 4 在 config 门禁)。确定性重放红线: SceneKit.rand
+     (x, y*61+z, salt) 种子化, 零 Math.random, 重进同图同分布;
+     salt 9 = 熔岩池 7 之外的独立随机流。 */
+  for (let x = 0; x < WORLD_W; x++) {
+    for (let z = 0; z < WORLD_D; z++) {
+      for (let y = ADV_NETHER.ground - ADV_DEBRIS.deep; y < ADV_NETHER.ground; y++) {
+        if (SceneKit.rand(x, y * 61 + z, 9) > 1 - ADV_DEBRIS.p) {
+          setBlockRaw(x, y, z, B_ANCIENT_DEBRIS);
+        }
+      }
     }
   }
 }
@@ -499,7 +519,7 @@ function advMusicMood(dim, isNight) {
 
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_DIMS, advDimRow, advMusicMood,
-    ADV_NETHER, advNetherBuild,
+    ADV_NETHER, ADV_DEBRIS, advNetherBuild,
     ADV_ERUPT, advEruptStep,
     ADV_DEN, ADV_DEN_TUNNELS, ADV_DEN_GUARDS, advDenRoomCenter,
     advDenBuild, advDenMineRoom, advDenStep, advDenWavePlan,

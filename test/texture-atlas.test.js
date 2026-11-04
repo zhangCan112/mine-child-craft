@@ -21,7 +21,8 @@ function loadAtlas() {
       'globalThis.__t = { TextureAtlas, MeshCore, BLOCKS,' +
       ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING,' +
       ' B_BED, B_BED_FOOT, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID,' +
-      ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_LOOT_CHEST, B_LOOT_CHEST_SMALL };', ctx);
+      ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_LOOT_CHEST, B_LOOT_CHEST_SMALL,' +
+      ' B_ANCIENT_DEBRIS };', ctx);
   return ctx.__t;
 }
 
@@ -76,8 +77,8 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 52,
-      '已绘制格数 = 52(PAINTERS 0~51 连续; 门面宏格已随贴图回退删除, 50/51=战利品宝箱)');
+  assert.strictEqual(t.TextureAtlas.count, 53,
+      '已绘制格数 = 53(PAINTERS 0~52 连续; 门面宏格已随贴图回退删除, 50/51=战利品宝箱, 52=远古残骸)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   const bed = t.TextureAtlas.layout.tiles[t.B_BED];
@@ -96,7 +97,7 @@ test('布局+像素: 战利品宝箱(71)入集 — 顶/侧分格红金配色, �
   assert.strictEqual(e.bottom, e.side, '底面几乎不可见复用侧格(箱子 51 同款省格)');
   /* 低档奖励箱 72(D18): 单格低档款复用 71 红金同格——映射全同零新增格位 */
   const sm = t.TextureAtlas.layout.tiles[t.B_LOOT_CHEST_SMALL];
-  assert.deepStrictEqual(sm, e, '72 与 71 同图集映射(top/side/bottom 全同, count 仍 52)');
+  assert.deepStrictEqual(sm, e, '72 与 71 同图集映射(top/side/bottom 全同, 零新增格位)');
   for (const idx of [e.top, e.side]) {
     assert.ok(Number.isInteger(idx) && idx >= 0 && idx < t.TextureAtlas.count,
         '格号 ' + idx + ' 应在 [0,' + t.TextureAtlas.count + ')');
@@ -455,5 +456,25 @@ test('makeCanvas: doc 桩注入 — 尺寸按图集, putImageData 像素与 pain
   assert.ok(captured, '应 putImageData 一次');
   for (let i=0; i<all.pixels.length; i++) {
     assert.strictEqual(captured.img.data[i], all.pixels[i], '画布像素应与 paintAll 一致(偏移 ' + i + ')');
+  }
+});
+
+/* ============ 远古残骸(73, 装备系统 T7): 正典上下螺旋纹 ============ */
+
+test('布局+像素: 远古残骸(73)入集 — 整格同图同心方环螺旋纹, 全不透明(装备系统 T7)', () => {
+  const t = loadAtlas();
+  const idx = t.TextureAtlas.layout.tiles[t.B_ANCIENT_DEBRIS];
+  assert.strictEqual(typeof idx, 'number', '残骸整格同图(上下同纹, 数值简写)');
+  const all = t.TextureAtlas.paintAll();
+  const px = tilePixels(t, all, idx);
+  for (const p of px) assert.strictEqual(p[3], 255, '残骸像素全不透明(实心立方)');
+  /* 螺旋纹判据: 主对角线上亮环带与暗底交替落点(对角线切比雪夫环序:
+     i≤7 → 7−i, i≥8 → i−8; 亮环钉在半径 1/5 → 采样点 2/6/9/13;
+     亮度以 R 通道 66 为界——环色带 rng 抖动但两带间有缝) */
+  for (const i of [2, 6, 9, 13]) {
+    assert.ok(px[i * 16 + i][0] > 66, '对角线 ' + i + ' 应落亮环带(螺旋纹), R=' + px[i * 16 + i][0]);
+  }
+  for (const i of [0, 4, 15]) {
+    assert.ok(px[i * 16 + i][0] < 66, '对角线 ' + i + ' 应落暗底(螺旋间隙), R=' + px[i * 16 + i][0]);
   }
 });

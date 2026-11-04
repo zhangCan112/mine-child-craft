@@ -109,6 +109,15 @@ interface: EQUIP_SLOTS · mkWorn() · wornPut(worn, slot, stack) → {worn, out}
 - 散布：adventure-dims-core 下界地形段（现平整地面循环旁），种子化散布地下层
   （RandCore.seedAt 口径，重进同图同分布——确定性重放红线）。
 
+> 实施注（2026-11-05）：块 id=73（号段红线测试同步外推 74+）；贴图 = T_DEBRIS
+> 格（暗棕斑驳底 + 距中心切比雪夫半径 1/5 两道「回」形亮环带，整格四面同图）；
+> 散布 = `ADV_DEBRIS {p: 0.003, deep: 5}` 独立常量（ADV_NETHER 形状被测试钉死，
+> 不掺入），口径实落 `SceneKit.rand(x, y*61+z, 9)`（salt 9 独立随机流）——与
+> 同文件 advDenMineRoom/熔岩池散布同机制，RandCore.seedAt 是关卡/小节种子派生
+> 口径，本处逐格掷点用 rand 更直接；确定性重放红线同样满足（经验实测 0.293%
+> ≈ 期望 0.3%，全图约 387 块、列命中 1.5%，比正典稀有度略稀）。深度层 =
+> y ∈ [ground−5, ground−1]，表面不可见、挖井才得。
+
 ## §3 数值表（正典 → 儿童折算）
 
 **盔甲（helmet/chestplate/leggings/boots；pts 正典逐字 · dur = 正典 ×2 取整）**
@@ -246,7 +255,9 @@ texture-atlas 新格：正典「上下螺旋纹、侧面斑驳」观感语言像
 > wear 使用档派生生成 + mkArmorBar 装备条 + advTryWear/advWornTakeOff 换装编排 +
 > 存档 armor 键（三处白名单 + 无档 init 兜底）；T6 收官（2026-11-05）：战斗单一
 > 漏斗 advHitPlayer（近战/自爆/骷髅箭三链收口，`Mobs.hit(p` 源码钉=0 执法）+
-> 命中磨损破碎仪式（advWearArmorOnHit 原地落账）+ kbResist 击退抗性。余 T7 → T8。
+> 命中磨损破碎仪式（advWearArmorOnHit 原地落账）+ kbResist 击退抗性；T7 收官
+> （2026-11-05）：B_ANCIENT_DEBRIS=73（号段红线外推 74+）+ T_DEBRIS 螺旋纹贴图 +
+> advNetherBuild 地下层种子化散布 + drop ancient_debris。余 T8。
 
 ## 附录 B：MC 差异登记表
 

@@ -26,6 +26,7 @@ const api = vm.runInContext(`({
   getBlock, setBlockRaw, SceneKit, Daylight, BLOCKS,
   WORLD_W, WORLD_D, WORLD_H,
   B_NETHERRACK, B_LAVA, B_GLOWSTONE, B_SPAWNER, B_OBSIDIAN, B_CHEST, B_TORCH,
+  B_ANCIENT_DEBRIS, /* 远古残骸(装备 T7): advNetherBuild 地下层散布经全局名消费 */
   B_LOOT_CHEST_SMALL, /* 宝箱室小宝箱(D19: advDenBuild 建场引用) */
   B_PORTAL, B_NETHER_BRICK,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE,

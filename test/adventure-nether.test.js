@@ -30,6 +30,7 @@ const api = vm.runInContext(`({
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_BED_FOOT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_NETHER_BRICK,
+  B_ANCIENT_DEBRIS, /* 远古残骸(装备 T7): advNetherBuild 地下层散布经全局名消费 */
   B_SPAWNER, /* 黑巢巢之心(den-nest: home 行 build 经 advBuildDenNest 消费) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
 })`, eng);
@@ -125,12 +126,12 @@ test('下界门框: advPortalFrame 与退役前原版逐格一致(收集器 sink
   }
 });
 
-test('下界建场: advNetherBuild 确定性重放(两遍逐字节一致) + 地层全下界岩 + 出生区无熔岩', () => {
+test('下界建场: advNetherBuild 确定性重放(两遍逐字节一致) + 地层全下界岩(残骸除外) + 出生区无熔岩 + 远古残骸地下层散布(装备 T7)', () => {
   const G = Dims.ADV_NETHER.ground;
   vm.runInContext('worldCells.fill(0)', eng);
   Dims.advNetherBuild();
   const a = snapshot();
-  let bad = 0; /* 违规格计数: 熔岩只许在顶层且不进出生区 · 其余按层全下界岩/空气 */
+  let bad = 0; /* 违规格计数: 熔岩只许在顶层且不进出生区 · 残骸只在地下 deep 层 · 其余按层全下界岩/空气 */
   for (let y = 0; y < H; y++) {
     for (let z = 0; z < D; z++) {
       for (let x = 0; x < W; x++) {
@@ -139,13 +140,17 @@ test('下界建场: advNetherBuild 确定性重放(两遍逐字节一致) + 地�
           if (y !== G || (x < 44 && z < 44)) bad++; /* 熔岩只在顶层, 且不进出生区 */
           continue;
         }
+        if (id === api.B_ANCIENT_DEBRIS) {
+          if (y < G - Dims.ADV_DEBRIS.deep || y >= G) bad++; /* 残骸只在地下 deep 层(表面挖不到, 要挖井下去) */
+          continue;
+        }
         if (y < G && id !== api.B_NETHERRACK) bad++;
         else if (y === G && id !== api.B_NETHERRACK) bad++;
         else if (y > G && id !== 0) bad++;
       }
     }
   }
-  assert.strictEqual(bad, 0, 'y<G 全下界岩 · y=G 下界岩或熔岩 · y>G 空气');
+  assert.strictEqual(bad, 0, 'y<G 全下界岩(残骸除外且限深层) · y=G 下界岩或熔岩 · y>G 空气');
   /* 熔岩真的长出来了(2026-10-27 修活): 原版 hashRand(...) > 0.93 恒假
      (hashRand 输出域截断 [0,0.5), scene-kit.js 头注释登记的已知特性,
      散布应走 SceneKit.rand)——退役前的 nether 地形一块熔岩都不生成,
@@ -159,6 +164,18 @@ test('下界建场: advNetherBuild 确定性重放(两遍逐字节一致) + 地�
   }
   assert.ok(lava > 0, '下界应有熔岩池(修活后 SceneKit.rand 全域)');
   assert.ok(lava < (W - 44) * (D - 44) / 3, '熔岩不成海(阈值 0.93 的成片点缀)');
+  /* 远古残骸(装备 T7): 地下层种子化散布 — 既非零也非泛滥(稀有矿观感);
+     分布确定性已由上方两遍建场逐字节复现钉死(零 Math.random 红线) */
+  let debris = 0;
+  for (let y = 0; y < H; y++) {
+    for (let z = 0; z < D; z++) {
+      for (let x = 0; x < W; x++) {
+        if (cell(x, y, z) === api.B_ANCIENT_DEBRIS) debris++;
+      }
+    }
+  }
+  assert.ok(debris > 0, '下界应有远古残骸(地下层散布, 钻镐门槛的合金矿源)');
+  assert.ok(debris < W * D * Dims.ADV_DEBRIS.deep * 0.01, '残骸稀有不成层(密度 <1%)');
   /* 清场重建: 逐字节复现(SceneKit.rand 种子化, 零 Math.random — 确定性重放红线) */
   vm.runInContext('worldCells.fill(0)', eng);
   Dims.advNetherBuild();
@@ -305,6 +322,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
     B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_TNT,
     B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_NETHER_BRICK,
+    B_ANCIENT_DEBRIS, /* 远古残骸(装备 T7): 壳层切下界建场散布经全局名消费 */
     B_LOOT_CHEST, /* 战利品宝箱(§7.5: 5 轮通关刷箱断言) */
     B_LOOT_CHEST_SMALL, /* 低档奖励箱(§7.5 D18: 小箱计划经全局名消费, TNT 链要它) */
     B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
@@ -1597,4 +1615,11 @@ test('每日副本真世界: 同日续局(破坏保留+尸账不复活+补给不
   AN.advSetDim('overworld');
   AN.advDenTodaySet(null);
   Drops.clear();
+});
+
+/* ============ 远古残骸散布(装备系统 T7, 设计稿 §2.3): 常量钉 + 建场断言在上方建场测试内 ============ */
+
+test('下界常量: ADV_DEBRIS 散布参数形状钉死(装备 T7 施工契约 — ADV_NETHER 形状已被上方测试钉死, 散布参数独立成件)', () => {
+  assert.deepStrictEqual(Dims.ADV_DEBRIS, {p: 0.003, deep: 5},
+      '残骸散布参数: 地下 deep 层内每格 p 概率成点(64×64×5×p ≈ 60 块, 稀有但挖井必得)');
 });
