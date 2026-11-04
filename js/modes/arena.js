@@ -68,10 +68,9 @@ function landSkill(m, gp, it) {
       dmg: it.shock.dmg, fallOff: it.shock.fallOff, kpow: it.shock.kpow,
       stagger: it.shock.stagger, dyGate: it.shock.dyGate});
   }
-  if (it.tp) { // 颤栗瞬移: 起点粒子 → 落点三连(位移/贴地/面向) → 落点粒子
+  if (it.tp) { // 颤栗瞬移: 起点粒子 → 落点二连(位移贴地/面向) → 落点粒子
     Fx.pop(gp.x, gp.y+1, gp.z, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
-    Mobs.setPos(m, it.tp.x, it.tp.z);
-    Mobs.settle(m); // 贴地回站
+    Mobs.setPos(m, it.tp.x, it.tp.z); /* 内部序贴地(缺省 dt=1 一步落格) — 旧显式 settle 缺 dt 的 NaN 隐患顺带修掉 */
     Mobs.steer(m, it.steerYaw);
     Fx.pop(it.tp.x, gp.y+1, it.tp.z, {color: 0xd06bff, r0: 0.4, r1: 2.2, dur: 0.35, opacity: 0.85});
   }

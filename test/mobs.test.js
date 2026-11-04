@@ -207,10 +207,11 @@ test('怪物库: 意图 API — move/shift/setPos/steer/heal/setMaxHp/remove/set
   Mobs.clear();
 });
 
-test('怪物库: settle 贴地收敛 — 天上落回/上 1 格爬/下坎落 · move 不碰 Y(模式收尾布线的引擎面依据)', () => {
-  /* 2026-11 探险怪「天上走/地里钻」修复的引擎面: move 只写 x/z(stepMove),
-     Y 收敛唯一口是 settle(指数逼近, dt≥0.1 收敛系数取满单帧贴齐)。地面三态
-     各钉一记; 深埋 ≥3 格的指数不跨界(groundUnderAt 深扫口径)不在本测试面内 */
+test('怪物库: settle 贴地收敛 — 天上落回/上 1 格爬/下坎落 · move/setPos 内部序自带贴地(位移后必贴地契约)', () => {
+  /* 2026-11-04 候选②契约翻转: 「位移后必须 settle」配对纪律收回引擎——move/setPos
+     内部序收尾贴地, 调用方不可见; settle 保留独立出口(无位移收敛兜底, dt 缺省
+     1=一步贴齐, dt≥0.1 收敛系数取满单帧贴齐)。地面三态各钉一记; 深埋 ≥3 格的
+     指数不跨界(groundUnderAt 深扫口径)不在本测试面内 */
   Mobs.clear();
   const origTop = globalThis.groundTop;
   try {
@@ -220,6 +221,10 @@ test('怪物库: settle 贴地收敛 — 天上落回/上 1 格爬/下坎落 · 
     m.pos.y = 40;
     Mobs.settle(m, 0.1);
     assert.strictEqual(m.pos.y, 12, '悬空 40 → 落回 groundTop+1');
+    /* 缺省 dt=1: 一步贴齐(忘传 dt 不再产出 NaN——arena 末影人瞬移桩教训) */
+    m.pos.y = 40;
+    Mobs.settle(m);
+    assert.strictEqual(m.pos.y, 12, 'settle 缺省 dt=1 → 单帧贴齐');
     /* 上 1 格台阶: 台阶门(≤1.05)放行的对偶面 —— 脚随列顶抬升 */
     globalThis.groundTop = () => 12;
     Mobs.settle(m, 0.1);
@@ -228,16 +233,34 @@ test('怪物库: settle 贴地收敛 — 天上落回/上 1 格爬/下坎落 · 
     globalThis.groundTop = () => 8;
     Mobs.settle(m, 0.1);
     assert.strictEqual(m.pos.y, 9, '脚 13/列顶 8 → 落到 9');
-    /* move 契约钉: 只走 x/z 不碰 Y —— 模式层必须自己收尾 settle 的根因面 */
+    /* move 契约钉(2026-11-04 翻转): 位移即贴地(引擎内部序收尾)——
+       上坡嵌地/下坡悬空从「调用方义务」降为「不可能」 */
     globalThis.groundTop = () => 12;
     const st = Mobs.spawn('hoglin', 12, 10, {});
     st.pos.y = 12;
-    Mobs.move(st, 0.5, 0.5);
-    assert.strictEqual(st.pos.y, 12, 'move 后 Y 原地(收敛责任在 settle)');
+    Mobs.move(st, 0.5, 0.5, 0.1);
+    assert.strictEqual(st.pos.y, 13, 'move 后已贴地(内部序收尾, dt=0.1 收敛系数取满)');
     Mobs.settle(st, 0.1);
-    assert.strictEqual(st.pos.y, 13, 'settle 后贴齐新列顶+1');
+    assert.strictEqual(st.pos.y, 13, '独立出口 settle 幂等(已贴地再收尾不动)');
   } finally {
     globalThis.groundTop = origTop; /* 文件级桩还原(后续测试仍按平地 11 跑) */
+    Mobs.clear();
+  }
+});
+
+test('怪物库: hit 击退贴地 — 击退也是位移, 内部序契约覆盖(跨列击退一步落新地形)', () => {
+  /* 候选②(2026-11-04): hit 的地面击退位移后补 settle——旧口径 Y 冻结在受击前
+     (竞技场硬直帧整段不收敛), 被击退跨下坎会悬空/上坡会嵌地 */
+  Mobs.clear();
+  const origTop = globalThis.groundTop;
+  try {
+    /* 世界: x<12 列顶 11, x≥12 列顶 8(下坎) */
+    globalThis.groundTop = (x) => (Math.floor(x) >= 12 ? 8 : 11);
+    const m = Mobs.spawn('zombie', 10.5, 10.5, {}); /* 脚 y=12 */
+    Mobs.hit(m, 1, 1, 0, 2); /* 向 +x 击退 1.8: 跨到列顶 8 的低地 */
+    assert.strictEqual(m.pos.y, 9, '击退跨下坎 → 一步贴齐新列顶+1(不再冻结)');
+  } finally {
+    globalThis.groundTop = origTop;
     Mobs.clear();
   }
 });

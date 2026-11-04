@@ -1075,9 +1075,9 @@ function advMobAI(dt) {
       if (m.cfg.ranged) {/* 骷髅: 炮台巡航(7 格), 太远逼近太近拉开, 节拍到就放箭 */
         const want = 7;
         if (distP > want) {
-          Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
+          Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt, dt); moved = speed;
         } else if (distP < want - 2) {
-          Mobs.move(m, -dxP / distP * speed * dt, -dzP / distP * speed * dt); moved = speed;
+          Mobs.move(m, -dxP / distP * speed * dt, -dzP / distP * speed * dt, dt); moved = speed;
         }
         if (Math.abs(p.pos.y - m.pos.y) < 3 && distP <= want && m.attackCd <= 0) {
           m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
@@ -1098,10 +1098,10 @@ function advMobAI(dt) {
           m.__fuse = 0;
           advSfx('fuse'); /* 起燃嘶声(音效注册表 'fuse') */
         } else {
-          Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
+          Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt, dt); moved = speed;
         }
       } else if (distP > m.cfg.range) {/* 近战逼近 */
-        Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt); moved = speed;
+        Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt, dt); moved = speed;
       } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.__wdD <= 2 && m.attackCd <= 0) {/* 贴身攻击玩家:
           实走门 ≤2 格——隔薄墙直线 2.1 内也不出手(穿墙票; 立柱/墙头玩家
           由 walkDist 末步免爬可达, 不误伤) */
@@ -1113,10 +1113,10 @@ function advMobAI(dt) {
     } else if (distHome > ADV_NEST_HOME_R) {/* 收队: 慢步回巢(掉头不恋战) */
       Mobs.steer(m, Math.atan2(hx, hz));
       const sp = speed * 0.6;
-      Mobs.move(m, hx / distHome * sp * dt, hz / distHome * sp * dt); moved = sp;
+      Mobs.move(m, hx / distHome * sp * dt, hz / distHome * sp * dt, dt); moved = sp;
     }
-    Mobs.settle(m, dt); /* 贴地收尾(竞技场 updateMobs 同一条式): move 只走 x/z,
-       Y 不随之收敛则上坡嵌地/下坡悬空(Y 冻结在出生值病灶的修点); 飞行怪走
+    Mobs.settle(m, dt); /* 无位移收敛兜底(引擎 move/setPos 内部序已贴地):
+       站桩帧/den 布防直写 y 的落点残差在此收敛; 飞行怪走
        引擎 settle 内部分支缓回巡航高度, 模式层不另判 fly */
     Mobs.gait(m, dt, moved, ADV_ATTACK_T); /* 步态+战斗姿态(引擎同一入口) */
   }
@@ -1208,13 +1208,12 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
     m.__fleeT = st.fleeT;
     if (st.speed > 0) {/* 恐惧: 背向玩家让开/逃窜(模型面朝 +Z, steer 同 wanderStep 口径) */
       Mobs.steer(m, Math.atan2(dx, dz));
-      Mobs.move(m, dx / dist * st.speed * dt, dz / dist * st.speed * dt);
+      Mobs.move(m, dx / dist * st.speed * dt, dz / dist * st.speed * dt, dt);
       Mobs.gait(m, dt, st.speed);
       if (inPen) {/* 栏内钳制: 位移后强钳回内带(出栏防线+存量收回) */
         const c = advHerdClamp(m.pos.x, m.pos.z);
-        m.pos.x = c.x; m.pos.z = c.z;
+        Mobs.setPos(m, c.x, c.z, dt); /* 钳回走意图出口: 引擎内部序自动贴地(白名单合规) */
       }
-      Mobs.settle(m, dt); /* 贴地收尾(advMobAI 同款): 让开/逃窜也随地形走 */
       continue;
     }
     /* 闲逛: 换向计时自持(私有字段不落盘——动物位置本就不存档, 设计稿 §6 差异清单);
@@ -1224,15 +1223,15 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
     if (am.walk) {
       const sp = (m.cfg.speed || 1) * ADV_HERD_AMBLE_MULT;
       Mobs.steer(m, Math.atan2(Math.cos(am.dir), Math.sin(am.dir)));
-      Mobs.move(m, Math.cos(am.dir) * sp * dt, Math.sin(am.dir) * sp * dt);
+      Mobs.move(m, Math.cos(am.dir) * sp * dt, Math.sin(am.dir) * sp * dt, dt);
       Mobs.gait(m, dt, sp);
       if (inPen) {/* 栏内钳制: 同逃窜分支 */
         const c = advHerdClamp(m.pos.x, m.pos.z);
-        m.pos.x = c.x; m.pos.z = c.z;
+        Mobs.setPos(m, c.x, c.z, dt); /* 钳回走意图出口: 引擎内部序自动贴地(白名单合规) */
       }
     }
-    Mobs.settle(m, dt); /* 贴地收尾(advMobAI 同款): 闲逛与站桩吃草帧都随地形收敛
-       (栏下被掏空不悬空; 恐惧分支在 continue 前已自收) */
+    Mobs.settle(m, dt); /* 无位移收敛兜底(引擎 move/setPos 内部序已贴地): 站桩吃草帧仍随地形收敛
+       (栏下被掏空不悬空; 逃窜分支的贴地已由引擎内部序收走) */
   }
 }
 
