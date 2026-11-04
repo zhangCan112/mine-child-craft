@@ -147,6 +147,40 @@ test('规范: 模式文件零直写玩家六绑定 — 传送/出生走 ModeKit.
   }
 });
 
+/* ---------- 怪物位移守门(候选⑤便宜的半边, 2026-11-04) ----------
+   模式可写引擎字段的白名单唯一权威在 mobs.js 头注释——「模式不直写引擎的
+   位移字段」此前只有评论执法(advHerdTick 曾直写栏内钳制, 候选②已改走
+   Mobs.setPos)。口径: 只禁水平位 pos.x/z(pos.y 是白名单垂直特技——跃起砸地/
+   悬浮压制, arena 六处 gp.y 直写合法); (?!=) 防 == 误报; 已知盲区=别名写法
+   (const gp = m.pos; gp.x = …)抓不到——现存模式层为零(双口径 grep 验证),
+   真出现靠评审/后续别名登记规则补; 只扫 js/modes/(js 根壳按 C7-T2 同款不在面)。 */
+test('规范: 模式文件零直写怪物实体水平位移 — 位移走 Mobs.move/setPos(内部序贴地)', () => {
+  const re = /\.pos\.(?:x|z)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/;
+  const modeFiles = jsModules.filter((p) => rel(p).startsWith('js/modes/'));
+  assert.ok(modeFiles.length >= 7, 'js/modes 应至少 7 个模式文件 — 扫描空集 = 守门静默失效');
+  for (const p of modeFiles) {
+    fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+      assert.ok(!re.test(line), rel(p) + ':' + (i + 1) + ' [怪物实体水平直写] ' + line.trim() +
+          ' — 位移走 Mobs.move/setPos(引擎内部序贴地); 白名单唯一权威在 mobs.js 头注释');
+    });
+  }
+});
+
+/* ---------- 竞技场列边判据单源(候选④, 2026-11-04) ----------
+   arena 本地 stepMove 的地面查询注入必须走引擎 Mobs.groundUnderAt(墙拦/
+   洞底贴地唯一权威)——旧 groundTop 注入停在穿墙票/②内部序两代之前, 玩家
+   在场内搭悬空结构即可触发分歧(头顶桥挡路/吸怪上桥)。源码钉防静默回潮:
+   arena-mode 零测试夹具, 有人把注入改回 groundTop 只有这条钉能红。 */
+test('规范: 竞技场列边判据注入引擎 groundUnderAt — 地面语义单源, 本地只留圆形边界', () => {
+  const arena = jsModules.find((p) => rel(p) === 'js/modes/arena.js');
+  assert.ok(arena, 'js/modes/arena.js 应在模块清单内 — 扫描空集 = 守门静默失效');
+  const src = fs.readFileSync(arena, 'utf8');
+  assert.ok(/MobCore\.stepMove\(m, mx, mz, \(bx, bz\) => Mobs\.groundUnderAt\(/.test(src),
+      'arena stepMove 注入必须走 Mobs.groundUnderAt(引擎列边判据唯一权威)');
+  assert.ok(!/MobCore\.stepMove\(m, mx, mz, groundTop\)/.test(src),
+      '旧 groundTop 注入必须绝迹(候选④: 列边语义单源)');
+});
+
 /* ---------- 第一人称手持视图装载序 (first-person-hand T2a) ----------
    装载序 held-item → hand-view → avatar 是设计契约(docs/first-person-hand-design.md
    Interface 块装载序注)。hand-view.js 对 HeldItems/CameraRig 全部调用期解析 —

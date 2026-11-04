@@ -182,6 +182,8 @@ test('怪物库: 意图 API — move/shift/setPos/steer/heal/setMaxHp/remove/set
   const m = Mobs.spawn('zombie', 10, 10, {});
   Mobs.move(m, 1.5, 0); /* 平地(stub 恒 11)无高差, 全额步进 */
   assert.ok(Math.abs(m.pos.x - 11.5) < 1e-9, 'move: 地面步进(台阶规则)');
+  assert.strictEqual(typeof Mobs.groundUnderAt, 'function',
+      'groundUnderAt 导出(候选④: 竞技场列边判据注入消费, 引擎单源)');
   Mobs.shift(m, 0, 2);
   assert.ok(Math.abs(m.pos.z - 12) < 1e-9, 'shift: 无碰撞平移');
   Mobs.setPos(m, 3, 4);

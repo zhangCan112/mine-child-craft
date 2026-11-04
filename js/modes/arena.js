@@ -181,12 +181,15 @@ function arenaFlyClamp(m) {
   clampToArena(m, ArenaCore.FLY_KNOCK_R);
 }
 
-/* 移动: 圆形边界约束 + 怪物核心的台阶规则 */
+/* 移动: 圆形边界约束(玩法几何, 留在本地) + 怪物核心的台阶规则 —
+   列边判据注入引擎 groundUnderAt(2026-11-04 候选④: 旧 groundTop 注入停在
+   穿墙票/内部序两代之前, 玩家在场内搭悬空结构即可触发分歧——头顶桥挡路/
+   吸怪上桥; 引擎查询单源后从桥下照走) */
 function stepMove(m, mx, mz) {
   const nx = m.pos.x+mx; const nz = m.pos.z+mz;
   const ddx = nx-ArenaCore.ARENA.cx; const ddz = nz-ArenaCore.ARENA.cz;
   if (Math.hypot(ddx, ddz) > ArenaCore.ARENA.rIn-1.2) return;
-  MobCore.stepMove(m, mx, mz, groundTop);
+  MobCore.stepMove(m, mx, mz, (bx, bz) => Mobs.groundUnderAt(bx, bz, m.pos.y));
 }
 
 /* 受击: 通用部分(扣血/闪白/踉跄/击退/死亡)归怪物库; 金身/守卫减伤/鬼族阴风/击杀结算归玩法 */
@@ -879,8 +882,8 @@ function wanderTick(m, dt, gp) {
   const speed = 1.1;
   stepMove(m, Math.sin(m.yaw)*speed*dt, 0);
   stepMove(m, 0, Math.cos(m.yaw)*speed*dt);
-  const ty = groundTop(Math.floor(gp.x), Math.floor(gp.z)) + 1;
-  gp.y += (ty-gp.y)*Math.min(1, dt*10);
+  Mobs.settle(m, dt); /* 贴地收尾(2026-11-04 候选④: 手抄公式退役 — 同一条式
+     但查询统一 groundUnderAt, 悬空结构下不再把怪吸上桥面) */
   return speed;
 }
 
@@ -916,6 +919,7 @@ function separateMobs(dt) {
             const ux = dx/d; const uz = dz/d;
             stepMove(a, -ux*push, 0); stepMove(a, 0, -uz*push);
             stepMove(b, ux*push, 0); stepMove(b, 0, uz*push);
+            Mobs.settle(a); Mobs.settle(b); /* 挤开也是位移: 补收敛兜底(候选④, 平底零观感差) */
           }
         }
       }
