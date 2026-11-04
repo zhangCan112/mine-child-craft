@@ -227,13 +227,15 @@ texture-atlas 新格：正典「上下螺旋纹、侧面斑驳」观感语言像
 | T7 | B_ANCIENT_DEBRIS 块/贴图/散布/掉落 | config 号段交叉 + dims-core 散布确定性断言 |
 | T8 | ItemHint 全量补齐 + GLOSSARY 词条 + docs/README 登记 + 全量回归 | item-hint 守门自动拦漏；npm test + lint 清零 |
 
-> 进度注（2026-11-04）：T1–T3 收官——T1 落 equipment-core 八接口 + items 增量
+> 进度注（2026-11-04）：T1–T4 收官——T1 落 equipment-core 八接口 + items 增量
 > （24 盔甲行 + 金银阶工具 8 行 + 下界材料 3 行）+ 提示行 35 条；T2 落 RECIPES
 > 33 条（§2.1 实施修正：下界装备 8 件无直配方=升级唯一来路）+ SMELTS 1 条；
-> T3 落像素图标（盔甲 4 画×6 板 + 金银工具两阶 + 下界材料 3 键，T3_PENDING/
-> drops 两豁免集已清空收紧——icons-item 键集守门恢复全额覆盖）+ mkArmorDef
-> 惰性首做（§4.2 实施修正）+ mkToolDef 扩金/下界两阶（工具 def 24 条）；
-> T6 的 kit 侧缝提前完成。余 T4（Avatar.setArmor 穿戴层）→ T5 → T6 → T7 → T8。
+> T3 落像素图标（盔甲 4 画×6 板 + 金银工具两阶 + 下界材料 3 键，两豁免集已
+> 清空收紧）+ mkArmorDef 惰性首做（§4.2 实施修正）+ mkToolDef 扩金/下界两阶；
+> T4 落 ARMOR_TIER_COLORS 穿戴层色板（§7.3 层板，双色板纪律两阶逐对钉）+
+> Avatar.setArmor 骨挂 overlay（五面盒前开脸/主盒+双肩帽/上 2/3 盒+髋带/
+> 下 1/4 盒+鞋头，尺寸=骨盒 +1px，同目标幂等——四槽 id 签名，磨损不重建）
+> + boot 冒烟（THREE 段全路径）；T6 的 kit 侧缝提前完成。余 T5 → T6 → T7 → T8。
 
 ## 附录 B：MC 差异登记表
 

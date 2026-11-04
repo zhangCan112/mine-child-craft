@@ -221,3 +221,27 @@ test('开战部署冒烟: mix 编队 startBattle → 泵帧 → 队列清空+怪
   assert.strictEqual(r.badType, 0, '每只已部署怪的 type 都应是 MOB_TYPES 注册种(undefined 怪种在此现形)');
   assert.ok(r.alive > 0, '场上应有存活怪物(开战刷新)');
 });
+
+/* ============ 装备 T4: Avatar.setArmor 穿戴层冒烟(THREE 段执行链) ============ */
+
+test('装备 T4 冒烟: setArmor 单穿/全穿/换件/卸空 + update 泵帧不炸(THREE 桩全放行罩执行链)', () => {
+  const ctx = boot();
+  assert.doesNotThrow(() => vm.runInContext(`
+    /* T1 管线造 worn: 手工栈形经 wornPut 穿入(equipment-core 全局已加载) */
+    const w = mkWorn();
+    Avatar.setArmor(w); /* 空穿声明(幂等起点, 卸甲路径) */
+    w.helmet = {id: 'helmet_iron', dur: 330};
+    Avatar.setArmor(w); /* 单穿头盔 */
+    w.chestplate = {id: 'chestplate_netherite', dur: 1184};
+    w.leggings = {id: 'leggings_gold', dur: 210};
+    w.boots = {id: 'boots_diamond', dur: 858};
+    Avatar.setArmor(w); /* 四槽全穿 */
+    w.helmet = {id: 'helmet_diamond', dur: 726}; /* 换件(同槽异件) */
+    Avatar.setArmor(w);
+    w.helmet.dur = 3; /* 磨损只变 dur: 同目标幂等, 不重建 */
+    Avatar.setArmor(w);
+    Avatar.update(1 / 30, 10); /* 泵帧: overlay 层与动画链共存 */
+    Avatar.setArmor(mkWorn()); /* 全卸(退场/死亡卸甲路径) */
+    Avatar.update(1 / 30, 10);
+  `, ctx), 'setArmor 全路径应在桩环境完整跑通(结构逻辑归 held-item 工厂直测)');
+});

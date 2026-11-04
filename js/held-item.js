@@ -183,6 +183,21 @@ const ARMOR_SIDE_COLORS = {
   gold: 0xe9b115, diamond: 0x4ee1d2, netherite: 0x5d565d,
 };
 
+/* 穿戴层色板(装备 T4 / 设计稿 §4.3): Avatar.setArmor 的 overlay 盒单色,
+   值=调研 mc-equipment-research §7.3 **盔甲层贴图色板**(humanoid 层主色;
+   皮革=wiki 默认染色)——与 §7.2 **物品图标色板**(icons.js PIX_TIER/
+   ARMOR_TIER 用)是两套独立调色, 勿混: 金 层 #e0b230 ≠ 图标 #e9b115、
+   下界 层 #49393f ≠ 图标 #5d565d(双色板纪律, 两处测试互钉)。收本文件
+   与 TOOL_HEAD_COLORS 同居同惯例(T4 消费面=avatar 经全局名读)。 */
+const ARMOR_TIER_COLORS = {
+  leather: 0xa06540,
+  chain: 0xa4a5a4,
+  iron: 0xd1d1d1,
+  gold: 0xe0b230,
+  diamond: 0x30d0be,
+  netherite: 0x49393f,
+};
+
 const mkArmorDef = (id) => {
   const a = armorOf(id); /* 盔甲判据单份在 items-core(T1), 本文件只读不复制 */
   if (!a) throw new Error('mkArmorDef: 非盔甲 id → ' + id);
@@ -422,6 +437,8 @@ const HeldItems = {
      (本入口即那段装配代码的单测直调面), 非运行时按需入口——运行时
      消费方一律读 defs, 不经此现做 */
   mkToolDef,
+  /* 穿戴层色板(装备 T4): Avatar.setArmor 消费(经全局名亦可, 出口供单测直调) */
+  ARMOR_TIER_COLORS,
   /* 盔甲 def 工厂: 物品 id → 全新薄片 def(装备 T3)。加载期已批量生成
      24 条进 defs(单测直调面), 非盔甲 id 抛错(mkToolDef 同款纪律) */
   mkArmorDef,

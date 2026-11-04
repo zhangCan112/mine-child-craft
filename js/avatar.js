@@ -14,7 +14,11 @@
    解析: 工具/方块/薄片/空手; 换物走「下沉-换-抬起」装备动画, MC 口径
    沉到底才换网格, 连续切换从当前高度续沉不跳变) / swing(挥一次右臂,
    连点连挥, 对空也挥; 与装备动画独立叠加互不打断) / flash(受击闪红:
-   全身向红插值再淡出, 传秒数)。
+   全身向红插值再淡出, 传秒数) / setArmor(worn 声明目标穿戴, 装备 T4:
+   骨挂 overlay 盒四槽型——头盔=头骨挂五面盒前开脸 / 胸甲=身骨挂主盒+
+   双肩帽 / 护腿=双腿骨上 2/3 盒+髋带挂身骨 / 靴子=双腿骨下 1/4 盒+鞋头;
+   尺寸=对应骨盒 +1px, 颜色=HeldItems.ARMOR_TIER_COLORS 穿戴层色板;
+   同目标幂等——四槽 id 集不变即不动, 磨损只变 dur 不重建)。
    建模与动画全部是 implementation。
    人物面向 -Z, 与玩家视线一致。
    依赖: world.js 的 scene, voxel.js 的 pos/vel/yaw/pitch/onGround/
@@ -95,6 +99,76 @@ const Avatar = (() => {
     swingT = 0;
   } // 连点重置 = 连挥
 
+  /* ---------- 穿戴层 (setArmor, 装备 T4 / 设计稿 §4.3) ----------
+     骨挂 overlay 盒: 头盔=头骨五面盒(前开脸露五官, 正典盔甲层语言) ·
+     胸甲=身骨主盒+双肩帽 · 护腿=双腿骨上 2/3 盒+髋带(挂身骨) ·
+     靴子=双腿骨下 1/4 盒+鞋头。尺寸=对应骨盒(官方等比 8/12/4px, 与
+     mob-look player 档案同源)各向 +1px; 位置=复制本体盒中心再按段偏移
+     (数据驱动对齐, 零硬编码关节)。颜色=ARMOR_TIER_COLORS 穿戴层色板
+     (held-item.js, §7.3 层板——与图标色板两套独立调色)。
+     同目标幂等: 四槽 id 集不变即不动(磨损只变 dur, 不重建网格)。
+     穿/卸即时贴身, 不走手持物装备动画(MC 穿戴即时口径)。 */
+  const SCALE = puppet.scale; // 官方 px → 格(mob-look-kit 建模换算, 缺省 1)
+  const armorMeshes = []; // [{bone, mesh}] 卸甲/换件的全量清单
+  let armorSig = ''; // 当前穿戴四槽 id 签名(幂等判据; ''=空穿)
+
+  /* 挂一只 overlay 盒: 尺寸 px×SCALE · 位置=本体盒中心 + opts 偏移(dx/dy
+     段内 px) · hideFront 前脸透明(头盔开脸——BoxGeometry 材质数组 -z=index 5) */
+  function addArmorBox(bone, w, h, d, color, opts) {
+    opts = opts || {};
+    const geo = new THREE.BoxGeometry(w * SCALE, h * SCALE, d * SCALE);
+    const solid = new THREE.MeshLambertMaterial({color});
+    let mesh;
+    if (opts.hideFront) {
+      const open = new THREE.MeshLambertMaterial({transparent: true, opacity: 0});
+      mesh = new THREE.Mesh(geo, [solid, solid, solid, solid, solid, open]);
+    } else {
+      mesh = new THREE.Mesh(geo, solid);
+    }
+    const src = bone.children[0]; /* 本体盒 mesh: 位置=骨盒中心(相对关节) */
+    mesh.position.copy(src.position);
+    if (opts.dx) mesh.position.x += opts.dx * SCALE;
+    if (opts.dy) mesh.position.y += opts.dy * SCALE;
+    bone.add(mesh);
+    armorMeshes.push({bone, mesh});
+  }
+
+  function setArmor(worn) {
+    /* 四槽 id 签名: 槽形 {id, dur}|null → id|''(armorOf 判据单份在 items-core) */
+    const sig = EQUIP_SLOTS.map((s) => (worn && worn[s] ? worn[s].id : '')).join(',');
+    if (sig === armorSig) return; /* 同目标幂等(磨损/重声明不动网格) */
+    armorSig = sig;
+    for (const e of armorMeshes) e.bone.remove(e.mesh); /* 卸旧全量 */
+    armorMeshes.length = 0;
+    if (!worn) return;
+    const colorOf = (id) => HeldItems.ARMOR_TIER_COLORS[armorOf(id).tier];
+    const body = puppet.bones.body; /* 躯干骨(mob-look-kit 槽位 root 改名 body) */
+    /* 头盔: 头盒 8×8×8 +1px → 9×9×9, 前开脸 */
+    if (worn.helmet) addArmorBox(head, 9, 9, 9, colorOf(worn.helmet.id), {hideFront: true});
+    /* 胸甲: 身盒 8×12×4 +1px → 主盒 9×13×5 + 双肩帽 5×2×5(顶上两角对称) */
+    if (worn.chestplate) {
+      const c = colorOf(worn.chestplate.id);
+      addArmorBox(body, 9, 13, 5, c);
+      addArmorBox(body, 5, 2, 5, c, {dx: -2.5, dy: 7});
+      addArmorBox(body, 5, 2, 5, c, {dx: 2.5, dy: 7});
+    }
+    /* 护腿: 腿盒 4×12×4 上 2/3 → 每腿 5×9×5(段内上移对齐上部) + 髋带 9×3×5(挂身骨下缘) */
+    if (worn.leggings) {
+      const c = colorOf(worn.leggings.id);
+      addArmorBox(legL, 5, 9, 5, c, {dy: 1});
+      addArmorBox(legR, 5, 9, 5, c, {dy: 1});
+      addArmorBox(body, 9, 3, 5, c, {dy: -5});
+    }
+    /* 靴子: 腿盒下 1/4 → 每腿 5×4×5(段内下移) + 鞋头前伸 5×2×3(-z 前) */
+    if (worn.boots) {
+      const c = colorOf(worn.boots.id);
+      addArmorBox(legL, 5, 4, 5, c, {dy: -4});
+      addArmorBox(legR, 5, 4, 5, c, {dy: -4});
+      addArmorBox(legL, 5, 2, 3, c, {dy: -5});
+      addArmorBox(legR, 5, 2, 3, c, {dy: -5});
+    }
+  }
+
   function flash(d) {
     flashT = d;
   } // 受击闪红(模式层意图 API, 观感)
@@ -159,5 +233,5 @@ const Avatar = (() => {
     }
   }
 
-  return {update, setItem, swing, flash};
+  return {update, setItem, swing, flash, setArmor};
 })();

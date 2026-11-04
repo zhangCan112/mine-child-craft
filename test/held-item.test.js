@@ -519,3 +519,18 @@ test('mkArmorDef 出口纪律: defFor 命中 defs 条目(非薄片兜底); 越�
       '非盔甲 id 工厂抛错(mkToolDef 同款纪律)');
   assert.throws(() => HeldItems.mkArmorDef('no_such'), /盔甲/);
 });
+
+test('ARMOR_TIER_COLORS 穿戴层色板: 调研 §7.3 层贴图色板值锚——与图标色板两套独立调色(双色板纪律钉)', () => {
+  const {HeldItems} = loadHeld();
+  const C = HeldItems.ARMOR_TIER_COLORS;
+  assert.strictEqual(C.leather, 0xa06540, '皮革=wiki 默认染色(§3 S1)');
+  assert.strictEqual(C.chain, 0xa4a5a4, '锁链层板灰');
+  assert.strictEqual(C.iron, 0xd1d1d1, '铁层板');
+  assert.strictEqual(C.gold, 0xe0b230, '金层板 #e0b230(§7.3 主色)');
+  assert.strictEqual(C.diamond, 0x30d0be, '钻层板');
+  assert.strictEqual(C.netherite, 0x49393f, '下界层板暗紫灰');
+  /* 双色板纪律: 层板≠图标板——两阶逐对钉死防混用回潮(§7.3 要点:
+     金 层 #e0b230 vs 图标 #e9b115; 下界 层 #49393f vs 图标 #5d565d) */
+  assert.notStrictEqual(C.gold, 0xe9b115);
+  assert.notStrictEqual(C.netherite, 0x5d565d);
+});
