@@ -257,7 +257,7 @@ texture-atlas 新格：正典「上下螺旋纹、侧面斑驳」观感语言像
 > 漏斗 advHitPlayer（近战/自爆/骷髅箭三链收口，`Mobs.hit(p` 源码钉=0 执法）+
 > 命中磨损破碎仪式（advWearArmorOnHit 原地落账）+ kbResist 击退抗性；T7 收官
 > （2026-11-05）：B_ANCIENT_DEBRIS=73（号段红线外推 74+）+ T_DEBRIS 螺旋纹贴图 +
-> advNetherBuild 地下层种子化散布 + drop ancient_debris。余 T8。
+> advNetherBuild 地下层种子化散布 + drop ancient_debris；T8 收官（2026-11-05，工单收官）：GLOSSARY 装备核心（EquipmentCore）词条落地（词条一览计数 61 · 贴图图集补 73 远古残骸提及 · ModeKit 词条补 mkArmorBar 装备条/interface）——ItemHint 经侦察确认 T2 已全量（35 条在其守门测试「ITEMS 全键⊆ITEM_HINTS」强制覆盖下，零补笔）、docs/README 登记 T1 已做（零改动）。六材质盔甲四件套 + 金/下界合金两阶工具 + 下界合金合成链全量落地。
 
 ## 附录 B：MC 差异登记表
 
