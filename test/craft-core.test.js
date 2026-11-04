@@ -96,12 +96,13 @@ test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派�
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 随身 13 + 工作台级 28 共 41 条, id 唯一(crafting-grid §3 + 下界 D3 + 雪球 T9 + 门/玻璃板 + 补链 D1 + 大背包)', () => {
+test('配方全量: 随身 12 + 工作台级 62 共 74 条, id 唯一(crafting-grid §3 + 下界 D3 + 雪球 T9 + 门/玻璃板 + 补链 D1 + 大背包 + 装备 T2 合成链)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 41,
-      '全表 41 条(随身 13 + 工具 16 + 站点件 8 + 门/玻璃板 2 + 大背包 1 + 传送门 1), 实际 ' + RECIPES.length);
+  assert.strictEqual(RECIPES.length, 74,
+      '全表 74 条(随身 12 + 工具 20 + 盔甲 20 + 站点件 8 + 门/玻璃板 2 + 大背包 1 + ' +
+      '下界升级 8 + 合金锭 1 + 传送门 1; 下界装备 8 件无直配方=升级唯一来路, 正典口径), 实际 ' + RECIPES.length);
   // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9 + 补链 D1 砂岩/羊毛)
   for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
     'bone_meal', 'iron_nuggets', 'snow', 'sandstone', 'wool']) {
@@ -109,13 +110,21 @@ test('配方全量: 随身 13 + 工作台级 28 共 41 条, id 唯一(crafting-g
     assert.ok(r, '随身配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
   }
-  // 工作台级: 工具 16 + furnace/chest/bed/lantern/golden_apple/tnt/bow_item/bread + door/glass_pane + 铁粒回炉(9 格 D1) + 大背包
+  // 工作台级: 工具 24(6 阶) + 盔甲 24 + 站点件 8 + 门/玻璃板 + 铁粒回炉 + 大背包
+  //   + 金银阶工具 8 + 下界升级 8(id=产物 id, 下界装备唯一来路) + 合金锭
   const tableIds = ['pick_wood', 'pick_stone', 'pick_iron', 'pick_diamond',
     'axe_wood', 'axe_stone', 'axe_iron', 'axe_diamond',
     'sword_wood', 'sword_stone', 'sword_iron', 'sword_diamond',
     'shovel_wood', 'shovel_stone', 'shovel_iron', 'shovel_diamond',
+    'pick_gold', 'axe_gold', 'sword_gold', 'shovel_gold',
+    'pick_netherite', 'axe_netherite', 'sword_netherite', 'shovel_netherite',
+    'helmet_leather', 'helmet_chain', 'helmet_iron', 'helmet_gold', 'helmet_diamond', 'helmet_netherite',
+    'chestplate_leather', 'chestplate_chain', 'chestplate_iron',
+    'chestplate_gold', 'chestplate_diamond', 'chestplate_netherite',
+    'leggings_leather', 'leggings_chain', 'leggings_iron', 'leggings_gold', 'leggings_diamond', 'leggings_netherite',
+    'boots_leather', 'boots_chain', 'boots_iron', 'boots_gold', 'boots_diamond', 'boots_netherite',
     'furnace', 'chest', 'bed', 'lantern', 'golden_apple', 'tnt', 'bow_item', 'bread',
-    'door', 'glass_pane', 'iron_ingot', 'bag_upgrade'];
+    'door', 'glass_pane', 'iron_ingot', 'bag_upgrade', 'netherite_ingot'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');
@@ -157,14 +166,21 @@ test('条目形状: out{n≥1}·shape 合法(rows/any 二选一, 规约=id|候�
   }
 });
 
-test('正典归属不变式: station hand ⇔ 图案 ≤2×2(随身格放得下), table ⇔ 越界(研究稿 §1)', () => {
+test('正典归属不变式: station hand ⇔ 图案 ≤2×2(随身格放得下), table ⇔ 越界(研究稿 §1; 下界升级件例外登记)', () => {
   const {RECIPES} = loadCraft();
+  /* 下界升级 8 件刻意台级(设计稿 equipment-design §2.1 拍板: 终局重铸仪式
+     不进随身格——台级双格 shapeless, 图案 2 格本放得下 2×2)——shears 豁免
+     先例同款显式登记 */
+  const UPGRADE_TABLE = new Set(['pick_netherite', 'axe_netherite', 'sword_netherite',
+    'shovel_netherite', 'helmet_netherite', 'chestplate_netherite',
+    'leggings_netherite', 'boots_netherite']);
   for (const r of RECIPES) {
     const [w, hh] = bboxOf(r);
     if (r.station === 'hand') {
       assert.ok(w <= 2 && hh <= 2, r.id + ' hand 级图案应 ≤2×2, 实际 ' + w + '×' + hh);
     } else {
-      assert.ok(w > 2 || hh > 2, r.id + ' table 级图案应 >2×2(否则随身可做, 迁 hand)');
+      assert.ok(w > 2 || hh > 2 || UPGRADE_TABLE.has(r.id),
+          r.id + ' table 级图案应 >2×2(否则随身可做, 迁 hand; 升级件除外)');
     }
   }
 });
@@ -262,11 +278,12 @@ test('雪球→雪块(T9): 4 雪球 2×2 → 1 雪块 — canCraft 预检 + 2×2
   assert.strictEqual(h.count(full, 'snowball'), 4, '背包另一摞不动(料从摆放格扣, MC 口径)');
 });
 
-test('工具 16 条: 4 模板 × 4 材质阶, 材料计费随阶替换(shapeCost 派生)', () => {
+test('工具 20 条: 4 模板 × 5 直合成材质阶(金阶随装备 T2; 下界无直配方=升级唯一来路), 材料计费随阶替换(shapeCost 派生)', () => {
   const {RECIPES, shapeCost} = loadCraft();
   const by = {};
   for (const r of RECIPES) by[r.id] = r;
-  const mats = {wood: 'planks', stone: 'cobble', iron: 'iron_ingot', diamond: 'diamond'};
+  const mats = {wood: 'planks', stone: 'cobble', iron: 'iron_ingot', diamond: 'diamond',
+    gold: 'gold_ingot'};
   const cnt = {pick: [3, 2], axe: [3, 2], sword: [2, 1], shovel: [1, 2]}; // §5.4 材+棍
   for (const [mat, itemId] of Object.entries(mats)) {
     for (const [kind, [m, s]] of Object.entries(cnt)) {
@@ -280,7 +297,7 @@ test('工具 16 条: 4 模板 × 4 材质阶, 材料计费随阶替换(shapeCost
   }
 });
 
-test('烧炼表: 十条映射与任务合同逐条一致(铁/金粗矿·木炭·石→圆石循环·玻璃·红砖·F4 生→熟肉四条)', () => {
+test('烧炼表: 十一条映射与任务合同逐条一致(铁/金粗矿·木炭·石→圆石循环·玻璃·红砖·F4 四条·远古残骸→碎片 T2)', () => {
   const {SMELTS} = loadCraft();
   assert.deepStrictEqual({...SMELTS}, {
     iron_ore: 'iron_ingot',
@@ -293,6 +310,7 @@ test('烧炼表: 十条映射与任务合同逐条一致(铁/金粗矿·木炭·
     raw_porkchop: 'cooked_porkchop',
     raw_chicken: 'cooked_chicken',
     raw_mutton: 'cooked_mutton',
+    ancient_debris: 'netherite_scrap', // 装备系统 T2: 正典熔炉/高炉同产物, 本仓单炉同套时长
   });
 });
 
@@ -329,6 +347,7 @@ test('smeltOf: 十条烧炼映射逐条命中, 未登记原料返回 null', () =
   assert.strictEqual(smeltOf('raw_porkchop'), 'cooked_porkchop');
   assert.strictEqual(smeltOf('raw_chicken'), 'cooked_chicken');
   assert.strictEqual(smeltOf('raw_mutton'), 'cooked_mutton');
+  assert.strictEqual(smeltOf('ancient_debris'), 'netherite_scrap', '装备 T2: 残骸→碎片(下界链第二环)');
   assert.strictEqual(smeltOf('cooked_beef'), null, '熟肉不可再烧');
   assert.strictEqual(smeltOf('bread'), null, '食物不可烧');
   assert.strictEqual(smeltOf('not_registered'), null);
@@ -822,4 +841,121 @@ test('breakTime: 有 hard 的可挖方块行为不变(声明式改造零回归)'
   assert.strictEqual(breakTime(dirt, null).time, 0.9, '泥土徒手 0.9s');
   assert.strictEqual(breakTime(tuft, null).time, 0.15, 'hard 0 触下限');
   assert.strictEqual(breakTime(stone, mkStack('pick_diamond')).drops, true, '钻镐石头掉圆石');
+});
+
+/* ============ 装备系统 T2 合成链(设计稿 equipment-design §2): 盔甲 24 + 升级 8 + 合金锭 ============ */
+
+test('盔甲 20 条: 4 正典图案模板 × 5 直合成材质(下界 4 件唯一来路=升级, 正典口径) — station 全 table · 产物 1 件', () => {
+  const {RECIPES, shapeCost} = loadCraft();
+  const by = {};
+  for (const r of RECIPES) by[r.id] = r;
+  /* 材质映射(设计稿 §2.1): 铁链=铁粒(D4 同款口径); 下界合金盔甲只升级不直合
+     (正典锻造口径, 配方全量测试 74 条口径同源) */
+  const mats = {leather: 'leather', chain: 'iron_nugget', iron: 'iron_ingot',
+    gold: 'gold_ingot', diamond: 'diamond'};
+  /* 正典图案逐格(minecraft.wiki Crafting/Armor): 头盔桥形 5 材 · 胸甲环形缺
+     中上 8 材 · 护腿顶排+双侧柱 7 材 · 靴子双侧柱对 4 材(3 宽 2 高) */
+  const shapes = {
+    helmet: [['X', 'X', 'X'], ['X', null, 'X']],
+    chestplate: [['X', null, 'X'], ['X', 'X', 'X'], ['X', 'X', 'X']],
+    leggings: [['X', 'X', 'X'], ['X', null, 'X'], ['X', null, 'X']],
+    boots: [['X', null, 'X'], ['X', null, 'X']],
+  };
+  const matCost = {helmet: 5, chestplate: 8, leggings: 7, boots: 4};
+  for (const [mat, ingot] of Object.entries(mats)) {
+    for (const slot of Object.keys(shapes)) {
+      const id = slot + '_' + mat;
+      const r = by[id];
+      assert.ok(r, id + ' 配方应存在');
+      assert.strictEqual(r.station, 'table', id + ' 台级(全盔甲 station=table)');
+      assert.deepStrictEqual({...r.out}, {item: id, n: 1}, id + ' 产物 1 件');
+      const want = shapes[slot].map((row) => row.map((c) => (c === 'X' ? ingot : null)));
+      assert.deepStrictEqual(JSON.parse(JSON.stringify(r.shape.rows)), want,
+          id + ' 图案=正典模板 × ' + mat);
+      const c = {};
+      for (const [k, v] of Object.entries(shapeCost(r))) c[k] = v;
+      assert.deepStrictEqual(c, {[ingot]: matCost[slot]}, id + ' 计费=正典材料量(shapeCost 派生)');
+    }
+  }
+});
+
+test('盔甲合成端到端: 铁帽 5 铁锭桥形 — matchGrid 平移镜像 · gridCraft 产栈满耐久 330', () => {
+  const h = loadCraft();
+  const {RECIPES, matchGrid, gridCraft} = h;
+  const r = RECIPES.find((x) => x.id === 'helmet_iron');
+  assert.ok(r, 'helmet_iron 配方应存在');
+  // 桥形顶格: 上行三锭 + 中行两侧
+  assert.strictEqual(matchGrid(cellsWith([[0, 'iron_ingot'], [1, 'iron_ingot'], [2, 'iron_ingot'],
+    [3, 'iron_ingot'], [5, 'iron_ingot']]), r), true, '桥形顶格命中');
+  // 平移到右下(图案 3×2 在 3×3 台内下移一行)
+  assert.strictEqual(matchGrid(cellsWith([[3, 'iron_ingot'], [4, 'iron_ingot'], [5, 'iron_ingot'],
+    [6, 'iron_ingot'], [8, 'iron_ingot']]), r), true, '平移一行命中');
+  // 镜像对桥形对称图案本就同构(逐行逆序=自身); 底排 3 锭的倒摆不中(垂直翻转)
+  assert.strictEqual(matchGrid(cellsWith([[6, 'iron_ingot'], [7, 'iron_ingot'], [8, 'iron_ingot'],
+    [3, 'iron_ingot'], [5, 'iron_ingot']]), r), false, '垂直翻转(倒戴)不中');
+  // 端到端: 材料在包, 台级摆入 → helmet_iron 满耐久 330 入包
+  const inv = invWith(h, [['iron_ingot', 5]]);
+  const cells = cellsWith([[0, 'iron_ingot'], [1, 'iron_ingot'], [2, 'iron_ingot'],
+    [3, 'iron_ingot'], [5, 'iron_ingot']]);
+  const out = gridCraft(cells, inv, true);
+  assert.strictEqual(out.ok, true, 'gridCraft ok');
+  assert.deepStrictEqual({...out.out}, {item: 'helmet_iron', n: 1});
+  const made = inv.slots.find((s) => s && s.id === 'helmet_iron');
+  assert.strictEqual(made.dur, 330, '盔甲产物满耐久(mkStack 经 armor.dur, T1 管线自动)');
+});
+
+test('下界合金升级 8 条: 台级 any 双格(钻石件+锭) — 重铸满耐久新件(设计稿 §2.1 拍板, 耐久不继承)', () => {
+  const h = loadCraft();
+  const {RECIPES, shapeCost, matchGrid, gridCraft} = h;
+  const eight = ['pick_diamond', 'axe_diamond', 'sword_diamond', 'shovel_diamond',
+    'helmet_diamond', 'chestplate_diamond', 'leggings_diamond', 'boots_diamond'];
+  for (const from of eight) {
+    const to = from.replace('_diamond', '_netherite');
+    const r = RECIPES.find((x) => x.id === to);
+    assert.ok(r, to + ' 升级配方应存在(id=产物 id, 下界装备唯一来路=升级)');
+    assert.strictEqual(r.station, 'table', to + ' 台级重铸仪式(不变式测试例外登记)');
+    assert.deepStrictEqual({...r.out}, {item: to, n: 1}, to + ' 产物 1 件');
+    assert.deepStrictEqual([...r.shape.any], [from, 'netherite_ingot'], to + ' 双格 shapeless');
+    const c = {};
+    for (const [k, v] of Object.entries(shapeCost(r))) c[k] = v;
+    assert.deepStrictEqual(c, {[from]: 1, netherite_ingot: 1}, to + ' 计费=旧件 1+锭 1');
+  }
+  // 匹配语义: any 双格平移任意两格皆中; 错料/多件不中
+  const pick = RECIPES.find((x) => x.id === 'pick_netherite');
+  assert.strictEqual(matchGrid(cellsWith([[4, 'pick_diamond'], [8, 'netherite_ingot']]), pick),
+      true, '平移不顶格也中(shapeless)');
+  assert.strictEqual(matchGrid(cellsWith([[0, 'pick_diamond'], [1, 'netherite_scrap']]), pick),
+      false, '碎片≠锭(烧炼在前, 升级在后)');
+  assert.strictEqual(matchGrid(cellsWith([[0, 'pick_diamond'], [1, 'netherite_ingot'],
+    [2, 'netherite_ingot']]), pick), false, '多一件不中(多重集恰好相等)');
+  // 端到端: 台级摆入 → 产栈满耐久 2000(重铸=崭新下界合金, 附录 B #2)
+  const inv = invWith(h, [['pick_diamond', 1], ['netherite_ingot', 1]]);
+  const cells = cellsWith([[0, 'pick_diamond'], [1, 'netherite_ingot']]);
+  const out = gridCraft(cells, inv, true);
+  assert.strictEqual(out.ok, true, '升级 gridCraft ok');
+  assert.deepStrictEqual({...out.out}, {item: 'pick_netherite', n: 1});
+  const made = inv.slots.find((s) => s && s.id === 'pick_netherite');
+  assert.strictEqual(made.dur, 2000, '重铸满耐久 2000(durOf 单一权威, 不继承旧件余量)');
+});
+
+test('合金锭: 4 碎片+4 金锭 any 八格台级(正典 shapeless) — 下界链第三环闭环', () => {
+  const {RECIPES, shapeCost, matchGrid} = loadCraft();
+  const r = RECIPES.find((x) => x.id === 'netherite_ingot');
+  assert.ok(r, '合金锭配方应存在(id=产物 id)');
+  assert.strictEqual(r.station, 'table', '8 格需 3×3 台级');
+  assert.deepStrictEqual({...r.out}, {item: 'netherite_ingot', n: 1});
+  assert.deepStrictEqual([...r.shape.any].sort(),
+      ['gold_ingot', 'gold_ingot', 'gold_ingot', 'gold_ingot',
+        'netherite_scrap', 'netherite_scrap', 'netherite_scrap', 'netherite_scrap'],
+      '正典 4 碎片+4 金锭 shapeless');
+  const c = {};
+  for (const [k, v] of Object.entries(shapeCost(r))) c[k] = v;
+  assert.deepStrictEqual(c, {netherite_scrap: 4, gold_ingot: 4}, '计费 4+4(shapeCost 派生)');
+  // 多重集恰好相等: 3 碎片缺一不中 · 4+4 平移中
+  assert.strictEqual(matchGrid(cellsWith([[0, 'netherite_scrap'], [1, 'netherite_scrap'],
+    [2, 'netherite_scrap'], [3, 'gold_ingot'], [4, 'gold_ingot'], [5, 'gold_ingot'],
+    [6, 'gold_ingot']]), r), false, '缺一碎片不中');
+  assert.strictEqual(matchGrid(cellsWith([[0, 'netherite_scrap'], [1, 'netherite_scrap'],
+    [3, 'netherite_scrap'], [4, 'netherite_scrap'], [5, 'gold_ingot'], [6, 'gold_ingot'],
+    [7, 'gold_ingot'], [8, 'gold_ingot']]), r), true, '4+4 平移命中');
 });

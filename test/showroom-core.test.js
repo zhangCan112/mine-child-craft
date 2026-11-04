@@ -56,7 +56,7 @@ test('供给核心: 套餐形状 — 行 {id,n} · ≤27 行 · 全 id ∈ ITEMS
 
 /* ============ ② 同步不变量: 全配方可合成 ============ */
 
-test('供给核心: 同步不变量 — 套餐背包出发, RECIPES 每条配方 canCraft 全绿(站点门禁放开)', () => {
+test('供给核心: 同步不变量 — 套餐背包出发, 直配方 canCraft 全绿; 升级链两步可达(先合成钻石件再升级)', () => {
   const p = Core.showroomPocket();
   const inv = api.mkInventory();
   for (const row of p.rows) {
@@ -65,17 +65,26 @@ test('供给核心: 同步不变量 — 套餐背包出发, RECIPES 每条配方
   }
   for (const r of api.RECIPES) {
     const check = api.canCraft(inv, r, true);
-    assert.ok(check.ok, '配方可合成: ' + r.id + ' 缺 ' + JSON.stringify(check.missing));
+    if (check.ok) continue;
+    /* 下界升级 8 配方(装备 T2)不计入套餐——材料=钻石装备成品(8 件不可堆叠
+       行撑爆 27 格背包), 语义=两步可达: 缺料必须是包内材料可合成的成品 */
+    assert.ok(Core.isNetheriteUpgrade(r), '非升级配方必须直绿: ' + r.id + ' 缺 ' + JSON.stringify(check.missing));
+    for (const m of check.missing) {
+      assert.ok(api.RECIPES.some((x) => x.out.item === m.id),
+          '升级缺料 ' + m.id + ' 应为其他配方产物(两步可达)');
+      assert.strictEqual(api.count(inv, m.id), 0, '缺料 ' + m.id + ' 确实不在包(断言有效)');
+    }
   }
 });
 
-test('供给核心: 套餐+溢出 = 全配方材料并集(预算溢出不丢材料, 进补箱)', () => {
+test('供给核心: 套餐+溢出 = 直配方材料并集(升级配方两步可达不计入; 预算溢出不丢材料, 进补箱)', () => {
   const p = Core.showroomPocket();
   const have = new Set();
   for (const row of p.rows) have.add(row.id);
   for (const row of p.overflow) have.add(row.id);
   const need = new Set();
   for (const r of api.RECIPES) {
+    if (Core.isNetheriteUpgrade(r)) continue; /* 升级链两步可达, 不进并集(见同步不变量) */
     for (const [key, val] of Object.entries(api.shapeCost(r))) {
       const e = api.costEntry(key, val);
       if (e) for (const c of e.cands) need.add(c);

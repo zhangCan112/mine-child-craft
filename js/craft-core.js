@@ -35,10 +35,12 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 41 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
-      雪球 T9 + 门/玻璃板 2 条 + 补链 3 条 + 大背包 1 条, 图案逐条查证自
+   RECIPES 配方表 — 82 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
+      雪球 T9 + 门/玻璃板 2 条 + 补链 3 条 + 大背包 1 条 + 装备系统 T2 合成链
+      41 条[盔甲 24 + 金银阶工具 8 + 下界升级 8 + 合金锭 1], 图案逐条查证自
       minecraft.wiki——大背包为原创件, docs/bag-and-drop-design.md §2),
-      见 docs/mc-crafting-grid-research.md §3 与 docs/door-window-research.md)
+      见 docs/mc-crafting-grid-research.md §3 · docs/door-window-research.md ·
+      docs/equipment-design.md §2)
    条目形状: id 配方卡键 · out {item, n} 产物 · station 'hand'|'table'
    · shape 图案(crafting-grid §3):
        {rows: [[格子规约|null, ...], ...]}  有序(行列=图案最小包围盒,
@@ -129,6 +131,64 @@ const RECIPES = [
   {id: 'shovel_diamond', out: {item: 'shovel_diamond', n: 1}, station: 'table',
     shape: {rows: [['diamond'], ['stick'], ['stick']]}},
 
+  /* —— 金银阶工具 8 条(装备系统 T2, 设计稿 §2.1): 与既有四阶四模板同构,
+     材质列替换 gold_ingot; 下界合金 4 件无直配方(正典唯一来路=台级升级, 表尾) —— */
+  {id: 'pick_gold', out: {item: 'pick_gold', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], [null, 'stick', null], [null, 'stick', null]]}},
+  {id: 'axe_gold', out: {item: 'axe_gold', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot', 'gold_ingot'], ['gold_ingot', 'stick'], [null, 'stick']]}},
+  {id: 'sword_gold', out: {item: 'sword_gold', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot'], ['gold_ingot'], ['stick']]}},
+  {id: 'shovel_gold', out: {item: 'shovel_gold', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot'], ['stick'], ['stick']]}},
+  // 下界合金 4 件无直合成(正典: 锻造升级唯一来路, 见表尾升级段; 配方 id 同占一位)
+
+  /* —— 盔甲 24 条(装备系统 T2, 设计稿 §2.1): station 全 table, 图案逐条
+     对照 minecraft.wiki 正典——头盔桥形 5 材 · 胸甲环形缺中上 8 材 ·
+     护腿顶排+双侧柱 7 材 · 靴子双侧柱对 4 材; 材质映射 皮革=leather ·
+     铁链=iron_nugget(D4) · 铁/金/钻=对应锭 · 下界=netherite_ingot —— */
+  {id: 'helmet_leather', out: {item: 'helmet_leather', n: 1}, station: 'table',
+    shape: {rows: [['leather', 'leather', 'leather'], ['leather', null, 'leather']]}},
+  {id: 'helmet_chain', out: {item: 'helmet_chain', n: 1}, station: 'table',
+    shape: {rows: [['iron_nugget', 'iron_nugget', 'iron_nugget'], ['iron_nugget', null, 'iron_nugget']]}},
+  {id: 'helmet_iron', out: {item: 'helmet_iron', n: 1}, station: 'table',
+    shape: {rows: [['iron_ingot', 'iron_ingot', 'iron_ingot'], ['iron_ingot', null, 'iron_ingot']]}},
+  {id: 'helmet_gold', out: {item: 'helmet_gold', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', null, 'gold_ingot']]}},
+  {id: 'helmet_diamond', out: {item: 'helmet_diamond', n: 1}, station: 'table',
+    shape: {rows: [['diamond', 'diamond', 'diamond'], ['diamond', null, 'diamond']]}},
+  {id: 'chestplate_leather', out: {item: 'chestplate_leather', n: 1}, station: 'table',
+    shape: {rows: [['leather', null, 'leather'], ['leather', 'leather', 'leather'], ['leather', 'leather', 'leather']]}},
+  {id: 'chestplate_chain', out: {item: 'chestplate_chain', n: 1}, station: 'table',
+    shape: {rows: [['iron_nugget', null, 'iron_nugget'], ['iron_nugget', 'iron_nugget', 'iron_nugget'], ['iron_nugget', 'iron_nugget', 'iron_nugget']]}},
+  {id: 'chestplate_iron', out: {item: 'chestplate_iron', n: 1}, station: 'table',
+    shape: {rows: [['iron_ingot', null, 'iron_ingot'], ['iron_ingot', 'iron_ingot', 'iron_ingot'], ['iron_ingot', 'iron_ingot', 'iron_ingot']]}},
+  {id: 'chestplate_gold', out: {item: 'chestplate_gold', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot', null, 'gold_ingot'], ['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', 'gold_ingot', 'gold_ingot']]}},
+  {id: 'chestplate_diamond', out: {item: 'chestplate_diamond', n: 1}, station: 'table',
+    shape: {rows: [['diamond', null, 'diamond'], ['diamond', 'diamond', 'diamond'], ['diamond', 'diamond', 'diamond']]}},
+  {id: 'leggings_leather', out: {item: 'leggings_leather', n: 1}, station: 'table',
+    shape: {rows: [['leather', 'leather', 'leather'], ['leather', null, 'leather'], ['leather', null, 'leather']]}},
+  {id: 'leggings_chain', out: {item: 'leggings_chain', n: 1}, station: 'table',
+    shape: {rows: [['iron_nugget', 'iron_nugget', 'iron_nugget'], ['iron_nugget', null, 'iron_nugget'], ['iron_nugget', null, 'iron_nugget']]}},
+  {id: 'leggings_iron', out: {item: 'leggings_iron', n: 1}, station: 'table',
+    shape: {rows: [['iron_ingot', 'iron_ingot', 'iron_ingot'], ['iron_ingot', null, 'iron_ingot'], ['iron_ingot', null, 'iron_ingot']]}},
+  {id: 'leggings_gold', out: {item: 'leggings_gold', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', null, 'gold_ingot'], ['gold_ingot', null, 'gold_ingot']]}},
+  {id: 'leggings_diamond', out: {item: 'leggings_diamond', n: 1}, station: 'table',
+    shape: {rows: [['diamond', 'diamond', 'diamond'], ['diamond', null, 'diamond'], ['diamond', null, 'diamond']]}},
+  {id: 'boots_leather', out: {item: 'boots_leather', n: 1}, station: 'table',
+    shape: {rows: [['leather', null, 'leather'], ['leather', null, 'leather']]}},
+  {id: 'boots_chain', out: {item: 'boots_chain', n: 1}, station: 'table',
+    shape: {rows: [['iron_nugget', null, 'iron_nugget'], ['iron_nugget', null, 'iron_nugget']]}},
+  {id: 'boots_iron', out: {item: 'boots_iron', n: 1}, station: 'table',
+    shape: {rows: [['iron_ingot', null, 'iron_ingot'], ['iron_ingot', null, 'iron_ingot']]}},
+  {id: 'boots_gold', out: {item: 'boots_gold', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot', null, 'gold_ingot'], ['gold_ingot', null, 'gold_ingot']]}},
+  {id: 'boots_diamond', out: {item: 'boots_diamond', n: 1}, station: 'table',
+    shape: {rows: [['diamond', null, 'diamond'], ['diamond', null, 'diamond']]}},
+
+
   /* —— 站点件与补给包(crafting-grid §3 站点件图案: 环形/棋盘/横排) —— */
   {id: 'furnace', out: {item: 'furnace', n: 1}, station: 'table', // 8 圆石环形围一圈, 无需煤
     shape: {rows: [['cobble', 'cobble', 'cobble'], ['cobble', null, 'cobble'], ['cobble', 'cobble', 'cobble']]}},
@@ -163,6 +223,30 @@ const RECIPES = [
   //   farm-and-recipe D4 挂账清偿); 手持使用扩容 +6 主格, 一次性(已扩容配方卡隐藏)
   {id: 'bag_upgrade', out: {item: 'bag_upgrade', n: 1}, station: 'table',
     shape: {rows: [['string', null, 'string'], ['leather', 'leather', 'leather'], ['leather', 'leather', 'leather']]}},
+  /* —— 下界合金升级 8 条 + 合金锭(装备系统 T2, 设计稿 §2.1): 台级 shapeless
+     双格/八格——升级件刻意台级(终局重铸仪式不进随身格, 不变式测试例外登记);
+     正典锻造台保留耐久 vs 本仓 gridCraft 产栈满耐久——「重铸崭新」话术对齐
+     实现(附录 B #2); 配方 id=产物 id(下界装备唯一来路=升级, 无同名直配方) —— */
+  {id: 'pick_netherite', out: {item: 'pick_netherite', n: 1}, station: 'table',
+    shape: {any: ['pick_diamond', 'netherite_ingot']}},
+  {id: 'axe_netherite', out: {item: 'axe_netherite', n: 1}, station: 'table',
+    shape: {any: ['axe_diamond', 'netherite_ingot']}},
+  {id: 'sword_netherite', out: {item: 'sword_netherite', n: 1}, station: 'table',
+    shape: {any: ['sword_diamond', 'netherite_ingot']}},
+  {id: 'shovel_netherite', out: {item: 'shovel_netherite', n: 1}, station: 'table',
+    shape: {any: ['shovel_diamond', 'netherite_ingot']}},
+  {id: 'helmet_netherite', out: {item: 'helmet_netherite', n: 1}, station: 'table',
+    shape: {any: ['helmet_diamond', 'netherite_ingot']}},
+  {id: 'chestplate_netherite', out: {item: 'chestplate_netherite', n: 1}, station: 'table',
+    shape: {any: ['chestplate_diamond', 'netherite_ingot']}},
+  {id: 'leggings_netherite', out: {item: 'leggings_netherite', n: 1}, station: 'table',
+    shape: {any: ['leggings_diamond', 'netherite_ingot']}},
+  {id: 'boots_netherite', out: {item: 'boots_netherite', n: 1}, station: 'table',
+    shape: {any: ['boots_diamond', 'netherite_ingot']}},
+  // 合金锭: 正典 shapeless 4 碎片+4 金锭(烧炼碎片→锭, 下界链第三环)
+  {id: 'netherite_ingot', out: {item: 'netherite_ingot', n: 1}, station: 'table',
+    shape: {any: ['netherite_scrap', 'netherite_scrap', 'netherite_scrap', 'netherite_scrap',
+      'gold_ingot', 'gold_ingot', 'gold_ingot', 'gold_ingot']}},
   // 下界传送门(下界并入探险 D3): 8 金锭环形+中心钻石, 全表最贵合成压轴; 放下长出整座门(结构放置, 探险壳拦截)
   {id: 'nether_portal', out: {item: 'nether_portal', n: 1}, station: 'table',
     shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', 'diamond', 'gold_ingot'], ['gold_ingot', 'gold_ingot', 'gold_ingot']]}},
@@ -184,6 +268,7 @@ const SMELTS = {
   raw_porkchop: 'cooked_porkchop', // F4: 生猪排→熟猪排
   raw_chicken: 'cooked_chicken', // F4: 生鸡肉→熟鸡肉
   raw_mutton: 'cooked_mutton', // F4: 生羊肉→熟羊肉
+  ancient_debris: 'netherite_scrap', // 装备系统 T2: 残骸→碎片(正典熔炉/高炉同产物, 本仓单炉同套时长)
 };
 
 const SMELT_T = 2.5; /* 每件烧炼秒数(D8: MC 10s → 儿童缩短; 附录 B 差异清单)。

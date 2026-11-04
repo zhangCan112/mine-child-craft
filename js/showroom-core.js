@@ -34,7 +34,7 @@
      返回与冒险壳存档缝同形可整体换装的 store——load=喂篡改 payload
      (全解锁任务档/顶格预填宝箱档/房内出生世界档), 落盘面全 noop(丢弃
      一切), mark 正常(edits 活在内存账本里)。U3 只出不接线, U4 消费。
-   interface: SHOWROOM · showroomPocket · showroomCrateRows ·
+   interface: SHOWROOM · showroomPocket · isNetheriteUpgrade · showroomCrateRows ·
      showroomDisplays · showroomCrateStock · showroomDisplayBlocks ·
      showroomDevLayout · showroomFlatRegion · showroomPaintFlat/
      PaintHouse/PaintHall/PaintBasement/PaintSite · showroomWorldEditsCompute
@@ -85,15 +85,26 @@ const SHOWROOM = {
   ],
 };
 
-/* ---------- 背包套餐: RECIPES 全配方材料并集 ----------
+/* ---------- 背包套餐: RECIPES 直配方材料并集 ----------
    「所有条件都满足」的最小充分集: 揣着这包, 冒险里任何配方都能当场合成
    (站点门禁在体验馆面板恒开, 不需材料以外的条件)。遍历按配方登记序
    (稳定且与配方书同序), 候选数组(煤/木炭任选等)逐个展开; 每 id 一行
-   n=stackMax(材料 64/可耗损 1, 一行一槽与旧表同形)。 */
+   n=stackMax(材料 64/可耗损 1, 一行一槽与旧表同形)。
+   下界升级 8 配方不计入(装备系统 T2): 它们的「材料」是钻石装备成品——
+   8 件不可堆叠行把并集撑到 33 行 > 27 格背包, 物理装不下; 语义上升级链
+   在体验馆是两步可达(先用包内材料合成钻石件, 再拾级升级)——套餐不含
+   成品, 演示叙事「做一把钻石镐→重铸升级」更真实。判据 shape.any 双格
+   含锭且产物=自身(合金锭配方 any 八格不误伤, 照进并集)。 */
+function isNetheriteUpgrade(recipe) {
+  return !!recipe.shape.any && recipe.shape.any.length === 2 &&
+    recipe.shape.any.includes('netherite_ingot') && recipe.out.item === recipe.id;
+}
+
 function showroomPocket() {
   const seen = new Set();
   const ids = [];
   for (const recipe of RECIPES) {
+    if (isNetheriteUpgrade(recipe)) continue; /* 升级材料=装备成品, 两步可达(见上) */
     for (const [key, val] of Object.entries(shapeCost(recipe))) {
       const e = costEntry(key, val); /* 候选数组+数量(inventory-core 统一形状, canCraft 同款解读) */
       if (!e) continue;
@@ -494,7 +505,7 @@ function mkShowroomStore(bag) {/* bag 可注入(U4 门面消费: 包壳真档 in
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {SHOWROOM, showroomPocket, showroomCrateRows, showroomDisplays,
+  module.exports = {SHOWROOM, showroomPocket, isNetheriteUpgrade, showroomCrateRows, showroomDisplays,
     showroomCrateStock, showroomDisplayBlocks, showroomDevLayout, showroomFlatRegion,
     showroomPaintFlat, showroomPaintHouse, showroomPaintHall, showroomPaintBasement,
     showroomPaintSite, showroomWorldEditsCompute, showroomWorldEdits, showroomSceneKeys,

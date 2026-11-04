@@ -529,13 +529,23 @@ test('体验馆: 套餐 — stock 行形状/≤27/全 id ∈ ITEMS/n=stackMax(�
   }
 });
 
-test('体验馆: 进场即全开 — dev bag 照套餐重铸, RECIPES 每条配方 canCraft 全绿', () => {
+test('体验馆: 进场即全开 — dev bag 照套餐重铸, 直配方 canCraft 全绿(升级链两步可达不计入)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   assert.strictEqual(inv, A.advGetInv(), '门面 getInv = 壳的背包 inv(dev bag 包同一引用)');
   for (const r of api.RECIPES) {
     const check = api.canCraft(inv, r, true);
-    assert.ok(check.ok, '配方可合成: ' + r.id + ' 缺 ' + JSON.stringify(check.missing));
+    if (check.ok) continue;
+    /* 下界升级 8 配方(装备 T2): 套餐不含钻石装备成品(8 行撑爆 27 格)——
+       缺料必须是其他配方产物(先合成旧件, 再拾级升级) */
+    const isUpgradeCard = api.RECIPES.some((x) => x.out.item === r.id) &&
+      r.shape.any && r.shape.any.length === 2;
+    assert.ok(isUpgradeCard,
+        '仅升级配方允许缺料: ' + r.id + ' 缺 ' + JSON.stringify(check.missing));
+    for (const m of check.missing) {
+      assert.ok(api.RECIPES.some((x) => x.out.item === m.id),
+          '升级缺料 ' + m.id + ' 应为其他配方产物(两步可达)');
+    }
   }
 });
 
