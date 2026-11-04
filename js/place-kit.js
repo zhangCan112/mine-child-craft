@@ -5,10 +5,11 @@
    探险(js/modes/adventure.js)与体验馆(js/modes/showroom.js)「放置/破坏/
    门开关」三段装配的共享 kit(docs/showroom-design.md §8, 两消费者塑形)。
    规则全在纯函数(adventure-core 的 advPlaceCheck/advDoorSiteOk/
-   advDoorTogglePlan/advDoorBreakPlan/advBedSiteOk/advBedBreakPlan/
+   advDoorTogglePlan/advBedSiteOk/
    advPortalSiteOk/advPortalFrame/
    advIsDoor/advMineStep/advCascadeLedger + craft-core 的 breakTime +
-   drops 的 rollBlockDrop), 本 kit 只收编两模式镜像的壳段, 不造第二份
+   drops 的 rollBlockDrop + paired-block-core 的 advPairedBlockRows 行表),
+   本 kit 只收编两模式镜像的壳段, 不造第二份
    规则实现; 消费方政策全走 opts 缝(与 FurnaceKit 的语义事件缝同一思路):
      opts.inv — 背包对象(引用稳定)或 () => 背包(进场换新), 内部取数器归一
      opts.sel — () => 选中槽号(快捷栏选中态归消费方)
@@ -30,15 +31,17 @@
      opts.mesh — {touch(x,z), flush()} setBlockRaw 直写后的网格收口
      opts.hardText(id) — 无 hard 方块话术(空串=不出声)
    interface: PlaceKit.mkEditor(opts) → editor {tryPlace · placeDoor ·
-     placePortal · tryDoorToggle · breakBlock · doorBreakApply ·
-     lootChestApply · applyCascade ·
+     placePortal · tryDoorToggle · breakBlock · pairedBreakApply ·
+     applyCascade ·
      mineTick(mine,hit,dt,view) · mineStop(mine) · tickTimers(dt)} ·
      PlaceKit.aimHit()(静态: 准星命中, Node 无相机件返 null)
      mine 状态形状 {down,t,key,need,drops,swingT} 与探险 advMine 同形。
      view 形状 {held(按住), panelOpen(面板遮罩)}。
    依赖(均经全局名, 调用期解析): js/adventure-core.js 的纯函数族(加载序在
-     本文件之前) · js/adventure-dims-core.js 的 advLootChestPlan(宝箱配对
-     计划)/advLootChestSmallPlan(低档单格计划, D18) · js/craft-core.js 的 breakTime · js/drops.js 的
+     本文件之前) · js/paired-block-core.js 的 advPairedBlockRows(配对方块
+     行注册表, 2026-11-04 架构评审候选①, 加载序在本文件之前) ·
+     js/adventure-dims-core.js 的 advLootChestPlan/advLootChestSmallPlan
+     (宝箱计划, 经行表消费, D16/D18) · js/craft-core.js 的 breakTime · js/drops.js 的
      rollBlockDrop · js/items-core.js 的 ITEMS/isTool · js/inventory-core.js
      的 remove · js/config.js 的 BLOCKS/PLAYER · js/voxel.js 的 getBlock/
      editBlock/setBlockRaw/blockKey/collidesAtPlayer · js/world.js 的
@@ -71,48 +74,26 @@ function mkEditor(opts) {
     if (r.felled && o.onFelled) o.onFelled();
   }
 
-  /* 门配对破坏(设计稿 §4.3): 任何移除点(挖方/TNT)清格后调用——挖任一半/
-     挖门下支撑=整扇消失+掉 1 扇(政策在 advDoorBreakPlan, MC 口径);
-     door 格无级联旗标, editBlock 级联清单恒空, 统一走全链防漂移 */
-  function doorBreakApply(bx, by, bz, quest) {
-    const plan = advDoorBreakPlan(getBlock, bx, by, bz);
-    for (const c of plan.cells) {
-      if (o.onEdit) o.onEdit(c.x, c.y, c.z, 0);
-      applyCascade(editBlock(c.x, c.y, c.z, 0), quest);
+  /* 配对方块破坏(行注册表单编排, js/paired-block-core.js 家族清单唯一
+     权威, 2026-11-04 架构评审候选①): 任何移除点(蓄力链/TNT 链/右键拆)
+     清格后同走此一处——逐行跑计划, 命中行: 余格清格+记账+级联, drops 逐条
+     落地(门/床补发扇与宝箱掉落表同形), 行钩(宝箱探宝 tally 缝 D19)恰一发;
+     触发格身份门(bed/lchest 旗标)在计划内。行序=小箱先于大箱(D18);
+     quest 穿透级联(蓄力链 true/TNT 链 false, 掉落不受 quest 影响) */
+  function pairedBreakApply(bx, by, bz, quest, id) {
+    const ctx = {id, rnd: Math.random};
+    for (const row of advPairedBlockRows) {
+      const plan = row.plan(getBlock, bx, by, bz, ctx);
+      if (!plan) continue;
+      for (const c of plan.cells) {
+        if (o.onEdit) o.onEdit(c.x, c.y, c.z, 0);
+        applyCascade(editBlock(c.x, c.y, c.z, 0), quest);
+      }
+      for (const d of plan.drops) {
+        if (sink.drop) sink.drop(d.id, d.n, bx + 0.5, by + 0.5, bz + 0.5);
+      }
+      if (row.hook && o[row.hook]) o[row.hook](bx, by, bz, id, quest);
     }
-    if (plan.drop > 0 && sink.drop) sink.drop('door', plan.drop, bx + 0.5, by + 0.5, bz + 0.5);
-  }
-
-  /* 床配对破坏(两格床改版, 门配对同款): 任何移除点清格后调用——挖任一半=
-     整床消失(政策在 advBedBreakPlan 正典形认亲, 两床并排不拆错邻床);
-     drop=1 仅挖床尾时由计划补发(床头自带 drop 表走常规掷, 不双发) */
-  function bedBreakApply(bx, by, bz, quest) {
-    const plan = advBedBreakPlan(getBlock, bx, by, bz);
-    for (const c of plan.cells) {
-      if (o.onEdit) o.onEdit(c.x, c.y, c.z, 0);
-      applyCascade(editBlock(c.x, c.y, c.z, 0), quest);
-    }
-    if (plan.drop > 0 && sink.drop) sink.drop('bed', plan.drop, bx + 0.5, by + 0.5, bz + 0.5);
-  }
-
-  /* 奖励箱破坏(战利品宝箱家族, den-nest §7.5 D16/D18): 任何移除点清格后调用。
-      先按破坏块 id 认小箱(单格整箱无配对——advLootChestSmallPlan), 不是小箱
-      再回退大箱四邻认亲(挖任一半=整箱消失, 政策在 advLootChestPlan)——先小箱
-      后配对: 小箱挨着大箱也不误吃大箱的配对。drops=各自掉落表掷骰恰一次(表与
-      掷骰在 adventure-dims-core——副本词汇归家), 逐条经 cascade.drop 落地。
-      宝箱无级联旗标, 级联清单恒空(形状对齐床/门)。quest 穿透级联: 蓄力链
-      true / TNT 链 false(掉落不受 quest 影响) */
-  function lootChestApply(bx, by, bz, quest, id) {
-    const plan = advLootChestSmallPlan(id) || advLootChestPlan(getBlock, bx, by, bz);
-    if (!plan) return;
-    for (const c of plan.cells) {
-      if (o.onEdit) o.onEdit(c.x, c.y, c.z, 0);
-      applyCascade(editBlock(c.x, c.y, c.z, 0), quest);
-    }
-    for (const d of plan.drops) {
-      if (sink.drop) sink.drop(d.id, d.n, bx + 0.5, by + 0.5, bz + 0.5);
-    }
-    if (o.onLootChestBreak) o.onLootChestBreak(bx, by, bz, id, quest); /* 破坏后钩(D19: 探宝 tally 缝, TNT 链同样经此) */
   }
 
   /* 破坏结算: 碎屑(editBlock 内置同色 Fx.debrisBurst)+记账+级联+掉落+磨损。
@@ -120,9 +101,7 @@ function mkEditor(opts) {
   function breakBlock(x, y, z, id, bt) {
     if (o.onEdit) o.onEdit(x, y, z, 0); /* 触发格先记账(级联移动可能落回此格, 后写覆盖才对) */
     applyCascade(editBlock(x, y, z, 0), true); /* 蓄力链视同亲手挖(P6) */
-    doorBreakApply(x, y, z, true); /* 门配对破坏(挖任一半/挖门下支撑=整扇回收) */
-    bedBreakApply(x, y, z, true); /* 床配对破坏(挖任一半=整床回收, 两格床改版) */
-    lootChestApply(x, y, z, true, id); /* 奖励箱破坏(小箱 id 认主/大箱配对, D16/D18) */
+    pairedBreakApply(x, y, z, true, id); /* 配对方块破坏(门/床/宝箱行表驱动: 挖任一半整结构回收) */
     if (id === B_SAPLING && sink.sapling) sink.sapling(x, y, z); /* 挖树苗撤计时 */
     if (BLOCKS[id] && BLOCKS[id].crop && sink.crop) sink.crop(x, y, z); /* 挖麦苗撤生长计时(farm-and-recipe D3, crop 身份旗标) */
     if (o.sfx) o.sfx('hit');
@@ -364,7 +343,7 @@ function mkEditor(opts) {
   }
 
   return {tryPlace, placeDoor, placePortal, tryDoorToggle, breakBlock,
-    doorBreakApply, lootChestApply, applyCascade, mineTick, mineStop,
+    pairedBreakApply, applyCascade, mineTick, mineStop,
     tickTimers, resetTimers};
 }
 

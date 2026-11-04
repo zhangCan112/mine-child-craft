@@ -64,9 +64,10 @@
       advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——advNestStep 薄壳/
       advNightStepPool 组装消费, 加载序先于本文件) · config.js 的
       BLOCKS/B_* 常量/世界(门段政策消费 B_DOOR 系 id; 门段 interface: advIsDoor/
-      advIsDoorLower/advDoorSiteOk/advDoorTogglePlan/advDoorBreakPlan——
-      放置校验/开关计划/配对破坏, docs/door-window-design.md §3; 床两格结构
-      interface: advBedSiteOk/advBedBreakPlan——放置校验/配对破坏, 两格床改版)
+      advIsDoorLower/advDoorSiteOk/advDoorTogglePlan——身份旗标判据/放置校验/
+      开关计划, docs/door-window-design.md §3; 床两格结构 interface:
+      advBedSiteOk——放置校验, 两格床改版; 配对破坏计划已迁
+      js/paired-block-core.js 配对方块行注册表, 2026-11-04 架构评审候选①)
      尺寸 · daylight-core 的 Daylight(昼夜 D5 夜怪判定与 D6 睡觉夜窗) ·
      voxel.js 的 getBlock/setBlockRaw/hashRand · scene-kit.js 的
      SceneKit · items-core 的 ITEMS/toolOf/stackMax/durOf · inventory-core
@@ -2061,18 +2062,23 @@ function advPortalExit(x, y, z, yaw) {
 /* ============================================================
    门与玻璃板段 (docs/door-window-design.md §3) — 合成家具政策
    ------------------------------------------------------------
-   门 = 2 格真结构(拍板①), 成对自洽全在此段(引擎零改动): 级联旗标不可用
-   (isSupport=实心判定, 下半开门态非实心会误判失撑, 见设计稿 §2.2), 改走
-   「放置校验 / 开关计划 / 配对破坏」三个纯函数 + 壳在放置/交互/挖方/TNT
-   四个移除点接线。玻璃板无专门政策——常规单格放置路径天然成立。
+   门 = 2 格真结构(拍板①), 放置校验/开关计划在此段(引擎零改动): 级联旗标
+   不可用(isSupport=实心判定, 下半开门态非实心会误判失撑, 见设计稿 §2.2),
+   走「放置校验 / 开关计划」纯函数 + 配对破坏在配对方块行注册表
+   (js/paired-block-core.js, 2026-11-04 架构评审候选①), 壳与 kit 只认行表。
+   玻璃板无专门政策——常规单格放置路径天然成立。
    ============================================================ */
 /* 门四态 id 集(下/上半 × 关/开, config B_DOOR~B_DOOR_TOP_OPEN):
-   身份判据只认 id, 不含位置/朝向条件(级联身份原则同款) */
+   身份判据读 config 旗标(door/doorLower, config.js:410 哲学——mesh-core
+   同源; 配对方块行注册表 js/paired-block-core.js 消费同款), 不含位置/
+   朝向条件(级联身份原则同款) */
 function advIsDoor(id) {
-  return id === B_DOOR || id === B_DOOR_OPEN || id === B_DOOR_TOP || id === B_DOOR_TOP_OPEN;
+  const b = BLOCKS[id];
+  return !!(b && b.door);
 }
 function advIsDoorLower(id) {
-  return id === B_DOOR || id === B_DOOR_OPEN;
+  const b = BLOCKS[id];
+  return !!(b && b.door && b.doorLower);
 }
 
 /* 玩家(浮点 {x,y,z})是否占据 (x,y,z) 与 (x,y+1,z) 两格之一(按脚/头格判) */
@@ -2128,36 +2134,15 @@ function advDoorTogglePlan(read, lookId, p, x, y, z) {
   return {ok: true, open: opening, writes};
 }
 
-/* 门配对破坏计划(MC 口径: 挖任一半=整扇消失、掉 1 扇; 挖门正下方支撑=
-   整扇弹出)。壳在世界已清格后调用(read 反映挖后状态), 对返回 cells 逐格
-   editBlock+记账, drop 走掉落物通道。补发口径(2026-11-04 双掉修复, 床
-   advBedBreakPlan 同款): 下半自带 drop 表——挖到下半(蓄力到点/TNT 掀/右键
-   拆)常规掷已掉 1, 计划不补发; 上半无表, 挖到上半才由计划补发 1; 挖支撑
-   两半都没掷过表, 计划补发 1。
-   返回 {cells:[{x,y,z} 非空格], drop: 0|1} */
-function advDoorBreakPlan(read, x, y, z) {
-  const up = read(x, y + 1, z); const dn = read(x, y - 1, z);
-  /* 挖掉门下方块: 下方整扇弹出 */
-  if (advIsDoorLower(up)) {
-    const cells = [{x, y: y + 1, z}];
-    if (read(x, y + 2, z) !== 0) cells.push({x, y: y + 2, z});
-    return {cells, drop: 1};
-  }
-  /* 挖掉的是下半(自带表已常规掷掉): 收上半, 不补发 */
-  if (up === B_DOOR_TOP || up === B_DOOR_TOP_OPEN) {
-    return {cells: [{x, y: y + 1, z}], drop: 0};
-  }
-  /* 挖掉的是上半(无表): 连下半整扇回收, 计划补发 1 */
-  if (advIsDoorLower(dn)) {
-    return {cells: [{x, y: y - 1, z}], drop: 1};
-  }
-  return {cells: [], drop: 0};
-}
+/* 门配对破坏计划: 已迁 js/paired-block-core.js(配对方块行注册表, 2026-11-04
+   架构评审候选①)——三态补发口径在彼处唯一权威; 门身份判据仍在此文件
+   (advIsDoor/advIsDoorLower 读 config door/doorLower 旗标)。 */
 
-/* ---------- 床两格结构 (两格床改版 2026-10-29, 门结构放置/配对破坏同款缝) ----------
+/* ---------- 床两格结构 (两格床改版 2026-10-29, 门结构放置同款缝) ----------
    床头 53 + 床尾 69 成对, 取向不存档(确定性重放红线): 配对用正典形
-   「床头恒在轴向较小坐标端」从世界状态唯一重建——放置按此形落格,
-   破坏按此形认亲, 两床并排同轴相接也拆不错邻床。 */
+   「床头恒在轴向较小坐标端」从世界状态唯一重建——放置按此形落格
+   (advBedSiteOk); 配对破坏按此形认亲(advBedBreakPlan, 已迁
+   js/paired-block-core.js 配对方块行注册表, 正典形判据+触发格身份门随迁)。 */
 /* 床放置校验: 目标格与床头格(沿玩家朝向的邻格)全空气 + 两格下方实心支撑
    (级联同判据) + 玩家不入两格(advDoorPlayerIn 同款两格高判)。
    返回 {ok:true, cells:[{x,y,z,id}×2 床头/床尾]} | {ok:false, reason} */
@@ -2182,26 +2167,8 @@ function advBedSiteOk(read, p, yaw, x, y, z) {
   ]};
 }
 
-/* 床配对破坏计划(门配对同款: 挖任一半=整床消失、掉 1 张; 世界已清格后调用,
-   四邻找另一半——候选须满足正典形「头.axis < 尾.axis」才算真配对, 两床并排
-   同轴相接时防拆错邻床)。drop: 挖的是床尾(无 drop 半)才由计划补发 1(床头
-   自带 drop 表走常规掷掉, 不双发); lone 半(老档/TNT 拆半)无配对不补发。
-   返回 {cells:[{x,y,z} 非空格], drop: 0|1} */
-function advBedBreakPlan(read, x, y, z) {
-  for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    const px = x + d[0]; const pz = z + d[1];
-    const nid = read(px, y, pz);
-    if (nid !== B_BED && nid !== B_BED_FOOT) continue;
-    const onX = d[0] !== 0; /* 轴向坐标: 床头须严格小于床尾(正典形) */
-    const headAxis = (nid === B_BED) ? (onX ? px : pz) : (onX ? x : z);
-    const footAxis = (nid === B_BED) ? (onX ? x : z) : (onX ? px : pz);
-    if (headAxis >= footAxis) continue;
-    /* 伙伴=床头(53) → 被挖的是床尾(无 drop 半), 计划补发 1; 伙伴=床尾 → 被挖的
-       是床头(自带 drop 表走常规掷), 不双发 */
-    return {cells: [{x: px, y, z: pz}], drop: nid === B_BED ? 1 : 0};
-  }
-  return {cells: [], drop: 0};
-}
+/* 床配对破坏计划: 已迁 js/paired-block-core.js(配对方块行注册表, 2026-11-04
+   架构评审候选①)——正典形认亲 + 触发格身份门(bed 旗标)在彼处唯一权威 */
 
 /* ---------- 门号段存档迁移(2026-10-28 用户报告「关门能穿/开门过不去」根因) ----------
    门与玻璃板首落地号段 63~67(6461fa9), 熄门 B_PORTAL_DIM 占 63 后整体 +1
@@ -2302,9 +2269,9 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_PORTAL, advPortalFrame,
     advInPortal, advPortalSiteOk, advPortalExit,
     ADV_DEN_NEST_DOOR,
-    advIsDoor, advIsDoorLower, advDoorSiteOk, advDoorTogglePlan, advDoorBreakPlan,
+    advIsDoor, advIsDoorLower, advDoorSiteOk, advDoorTogglePlan,
     advDoorIdsStale, advDoorIdsMigrate,
-    advBedSiteOk, advBedBreakPlan,
+    advBedSiteOk,
     ADV_WHEAT_GROW, advHoeOk, advPlantOk, advWheatNext, advRipenOk,
     ADV_RECIPE_UNLOCK, advUnlockedRecipes, advRecipeUnlockedNew};
 }

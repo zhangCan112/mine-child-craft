@@ -340,11 +340,13 @@ BLOCKS[B_WOOL] = {name: '羊毛', all: [0.92, 0.92, 0.92], hard: 0.8, tool: null
   drop: [['wool', 1, 0]]};
 /* 床(昼夜 D6 §7.1; 2026-10-29 两格床改版——差异 #1 撤销, 床占 2 格=MC 正典形状):
    床头 53 + 床尾 69 成对(门四态「结构即 id」同款, 取向不存档——确定性重放红线,
-   配对用「床头恒在轴向较小坐标端」的正典形重建, advBedBreakPlan 邻接推断)。
+   配对用「床头恒在轴向较小坐标端」的正典形重建, advBedBreakPlan(配对方块
+   行注册表 js/paired-block-core.js)邻接推断)。
    thin 旗标白送: 失撑脱落(cascade); hard 0 徒手秒碎回收。
    bed 身份旗标: mesh-core 图集通道按旗标走「薄块扁盒+床贴图」路径(床头四邻
    扫床尾定朝向旋转枕头贴图) · held-item 按旗标装配床形手持件。
    床尾无 drop(床头上半无 drop 门同款防双掉): 挖任一半经 advBedBreakPlan
+   (js/paired-block-core.js, 触发格身份门读 bed 旗标)
    整床回收 1 张。老档单格床= lone 床头(枕头朝北缺省), 可睡可挖不迁移。 */
 BLOCKS[B_BED] = {name: '床头', top: [0.90, 0.30, 0.30], all: [0.75, 0.22, 0.22], thin: 0.55,
   solid: false, bed: true, bedHead: true, hard: 0, tool: null, tier: 0, drop: [['bed', 1, 0]]};
@@ -386,7 +388,9 @@ BLOCKS[B_FLOWER_W] = {name: '雏菊', all: [0.93, 0.93, 0.91], thin: 0.65, solid
    即透光(LightCore: opaque=实心且非玻璃)。玻璃板 glass:true 走透光(窗户采光),
    solid 缺省 = 整格挡人(格粒度口径, 附录 B)。
    pane 旗标 = 竖直薄板渲染身份(mesh-core pushPane 路由, B_PORTAL 的 portal
-   旗标先例); 一律**不挂级联旗标**——级联 isSupport=实心判定, 门上半的支撑
+   旗标先例); door/doorLower 旗标 = 门族身份判据唯一权威(advIsDoor/
+   advIsDoorLower 读旗标; 配对方块行注册表 js/paired-block-core.js 同源,
+   bed/lchest 旗标同哲学); 一律**不挂级联旗标**——级联 isSupport=实心判定, 门上半的支撑
    (下半)开门态非实心会误判失撑, thin 又同时驱动贴地板/十字片渲染; 门成对
    自洽走探险模式政策(设计稿 §3), 玻璃板无旗标=失撑浮空, 恰与 MC 一致。 */
 const B_DOOR=64; const B_DOOR_TOP=65; const B_DOOR_OPEN=66; const B_DOOR_TOP_OPEN=67;
@@ -428,11 +432,11 @@ BLOCKS[B_LOOT_CHEST] = {name: '战利品宝箱', top: [0.72, 0.22, 0.18], side: 
 const B_LOOT_CHEST_SMALL=72;
 BLOCKS[B_LOOT_CHEST_SMALL] = {name: '低档奖励箱', top: [0.72, 0.22, 0.18], side: [0.66, 0.20, 0.16],
   bottom: [0.55, 0.16, 0.14], hard: 1.33, tool: null, tier: 0};
-BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true, door: true,
+BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true, door: true, doorLower: true,
   hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // MC 硬度 3 斧头加速; 关=实心挡人挡光
 BLOCKS[B_DOOR_TOP] = {name: '门(上)', all: [0.66, 0.52, 0.33], pane: true, door: true,
   hard: 3.0, tool: 'axe', tier: 0}; // 无 drop: 挖任一半整扇回收 1 扇(配对政策), 防双掉
-BLOCKS[B_DOOR_OPEN] = {name: '门(开)', all: [0.66, 0.52, 0.33], pane: true, door: true, solid: false,
+BLOCKS[B_DOOR_OPEN] = {name: '门(开)', all: [0.66, 0.52, 0.33], pane: true, door: true, doorLower: true, solid: false,
   hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // 开=可穿行, 非 solid 即透光(开门放光进屋)
 BLOCKS[B_DOOR_TOP_OPEN] = {name: '门(上·开)', all: [0.66, 0.52, 0.33], pane: true, door: true, solid: false,
   hard: 3.0, tool: 'axe', tier: 0};

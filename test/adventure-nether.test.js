@@ -520,6 +520,8 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
   Object.assign(globalThis, require('../js/adventure-maps-core.js'));
   Object.assign(globalThis, require('../js/adventure-dims-core.js')); /* 维度规格核心: 壳层读表
      ADV_DIMS/advDimRow(index.html 加载序同构) */
+  Object.assign(globalThis, require('../js/paired-block-core.js')); /* 配对方块行注册表
+     (2026-11-04 候选①, dims-core 之后同 index.html; TNT 链经全局名消费) */
   const CraftCoreC = require('../js/craft-core.js');
   Object.assign(globalThis, {SMELT_T: CraftCoreC.SMELT_T, smeltStep: CraftCoreC.smeltStep,
     furnaceRefund: CraftCoreC.furnaceRefund});

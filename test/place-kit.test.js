@@ -55,6 +55,8 @@ const AdventureCore = require('../js/adventure-core.js');
 Object.assign(globalThis, AdventureCore); /* advPlaceCheck/advDoorSiteOk/advMineStep 等纯函数 */
 Object.assign(globalThis, require('../js/adventure-dims-core.js')); /* advLootChestPlan(宝箱配对计划,
     place-kit 调用期经全局名消费; dims-core 加载期自包含, 直 require 安全) */
+Object.assign(globalThis, require('../js/paired-block-core.js')); /* advPairedBlockRows(配对方块
+    行注册表, 2026-11-04 候选①——place-kit 调用期经全局名消费) */
 const CraftCore = require('../js/craft-core.js');
 Object.assign(globalThis, {breakTime: CraftCore.breakTime});
 globalThis.Fx = {debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}}; /* 碎屑观感桩 */
@@ -333,6 +335,29 @@ test('place-kit: 低档奖励箱单格破坏 — id 认主恰掉补给表+破坏
   api.setBlockRaw(36, 13, 36, 3);
   ed.breakBlock(36, 13, 36, 3, {time: 2, drops: true});
   assert.deepStrictEqual(chestBreaks, [], '非奖励箱破坏不发后钩');
+});
+
+test('place-kit: 配对方块触发格身份门(2026-11-04 候选①) — 挖邻格不误收床/宝箱(编排层全行表走一遍)', () => {
+  /* 床头(36)床尾(37)沿 x, 挖床尾正后方石头(37,13,37)——旧床计划正典形校验
+     对垂直方向邻格失效会误收床头; 身份门(bed 旗标)在编排层钉死 */
+  reset();
+  api.setBlockRaw(36, 13, 36, api.B_BED); api.setBlockRaw(37, 13, 36, api.B_BED_FOOT);
+  api.setBlockRaw(37, 13, 37, 3);
+  ed.breakBlock(37, 13, 37, 3, {time: 2, drops: true});
+  assert.strictEqual(api.getBlock(36, 13, 36), api.B_BED, '床头不动');
+  assert.strictEqual(api.getBlock(37, 13, 36), api.B_BED_FOOT, '床尾不动');
+  assert.strictEqual(drops.filter((d) => d[0] === 'bed').length, 0,
+      '零床掉落(触发格身份门拦住; 石头自身常规表掉落不计)');
+  /* 大箱贴墙(30/31), 挖贴墙石头(32,13,36)——旧四邻认亲无触发格门会整箱误收 */
+  reset();
+  api.setBlockRaw(30, 13, 36, api.B_LOOT_CHEST); api.setBlockRaw(31, 13, 36, api.B_LOOT_CHEST);
+  api.setBlockRaw(32, 13, 36, 3);
+  ed.breakBlock(32, 13, 36, 3, {time: 2, drops: true});
+  assert.strictEqual(api.getBlock(30, 13, 36), api.B_LOOT_CHEST, '大箱左半不动');
+  assert.strictEqual(api.getBlock(31, 13, 36), api.B_LOOT_CHEST, '大箱右半不动');
+  assert.strictEqual(drops.filter((d) => d[0] === 'diamond' || d[0] === 'gunpowder').length, 0,
+      '零战利品掉落(身份门拦住; 石头自身常规表掉落不计)');
+  assert.deepStrictEqual(chestBreaks, [], '非宝箱触发不发探宝后钩');
 });
 
 /* ============ ③ 传送门: 结构长出+网格收口 ============ */

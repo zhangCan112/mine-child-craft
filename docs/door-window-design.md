@@ -107,14 +107,19 @@ glass_pane: {name: '玻璃板', icon: '🪟', block: 68}, // 常规单格放置�
 目标态同步让状态发散（开侧放新门等）一步收敛同态。关门占位检查含随动列；只耦合
 直接相邻一列，不链式传播——2 格门洞放两扇即成双开门，一点全开全关。
 
-### 3.3 advDoorBreakPlan(read, x, y, z) → {cells, drop}
+### 3.3 advDoorBreakPlan(read, x, y, z, ctx) → null | {cells, drops}
 
 配对破坏政策（MC 口径：挖任一半=整扇消失、掉 1 扇门；挖门正下方支撑=门整扇弹出）：
-挖掉的格是门 → 连带另半格；挖掉的格**正上方**是门下半 → 连带整扇。`drop` 为计划补发
+挖掉的格是门 → 连带另半格；挖掉的格**正上方**是门下半 → 连带整扇。`drops` 为计划补发
 口径（2026-11-04 双掉修复，床 advBedBreakPlan 同款）：**下半自带 drop 表**——蓄力挖到
-点/TNT 掀掉/右键拆除（§4.2）的常规掷已掉 1，挖到下半时计划不补发（drop 0）；上半无
-表，挖到上半由计划补发 1；挖支撑两半都没掷过表，补发 1。壳在挖方与 TNT 两个移除点
-之后调用，对 cells 逐格 `advMarkEdit + editBlock`，drop 走既有掉落物通道。
+点/TNT 掀掉/右键拆除（§4.2）的常规掷已掉 1，挖到下半时计划不补发（drops []）；上半无
+表，挖到上半由计划补发 1；挖支撑两半都没掷过表，补发 1。破坏编排（place-kit
+pairedBreakApply）对 cells 逐格 `advMarkEdit + editBlock`，drops 走既有掉落物通道。
+**2026-11-04 架构评审候选①**：计划迁 js/paired-block-core.js（配对方块行注册表，家族
+唯一清单：door/bed/lootChest/lootChestSmall 四行，统一契约 `null | {cells, drops}`，
+ctx={id 触发格破坏前方块号, rnd}）；门/床身份判据改读 config 旗标（door/doorLower，
+mesh 同源）；移除点不再逐个点名接线——蓄力/TNT/右键全走同一编排（TNT 链此前漏接床
+的口子随注册表补上）。
 
 ## 4. 壳接线（modes/adventure.js，全部有先例）
 
@@ -126,12 +131,13 @@ glass_pane: {name: '玻璃板', icon: '🪟', block: 68}, // 常规单格放置�
    空手同路 aimClick(0)）在 `advTrySleep` 之后插 `advTryDoor(hit, lookId)`——读
    lookId ∈ 4 门 id 即走 advDoorTogglePlan，`editBlock` 两格 + door_swing 音 +
    话术「吱呀～门开啦/关门啦」；右键链（触屏轻点同路 aimClick(2)）改插
-   `advTryDoorRemove`——kit `breakBlock` 破坏结算一条链（doorBreakApply 配对整扇
+   `advTryDoorRemove`——kit `breakBlock` 破坏结算一条链（pairedBreakApply 配对整扇
    回收 ×1，与蓄力挖到点同一出口）。此前两条链都走开关：对门蓄力挖掘永远进不去，
    门拆不掉（用户实测 2026-11-04「门我拆不来了」）；pad 两对应键 = ⛏️ 键空手开关、
    轻点拆除。
-3. **挖方**：挖方结算点（L1471 附近）在 advCascadeApply 之后调 advDoorBreakPlan；
-   TNT 的 `edit` 回调（L1895）同款补调（TNT 掀门=整扇消失+掉 1，掀掉的不进任务 P6 口径）。
+3. **挖方/TNT**：破坏结算（蓄力/TNT/右键三移除点）统一经 place-kit breakBlock →
+   pairedBreakApply 行表驱动（2026-11-04 候选①收编；此前挖方调 advDoorBreakPlan、
+   TNT 需手工点名门+宝箱两个 apply——漏接床的漂移温床，注册表后消失）。
 4. **音效**：audio-registry 新 kind **`door_swing`**（纯 synth：低频方木叩 `{type:'square',
    f0:180, f1:95, fT:0.09, dur:0.12, g:0.09}`，prio 1，coolMs 150 防连点爆音）。
    **不得叫 `door`**——那是 TNT 密室时代的死键，`test/audio-registry.test.js` 断言其不迁。

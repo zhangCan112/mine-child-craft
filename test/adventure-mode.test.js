@@ -380,6 +380,9 @@ Object.assign(globalThis, require('../js/adventure-maps-core.js'));
 /* 维度规格核心(adventure-core → maps-core → dims-core → 壳, index.html 加载序同构):
     壳层 advSetDim/HUD/advSyncMood/ADV_SCENE_KEYS 经全局名读表 ADV_DIMS/advDimRow */
 Object.assign(globalThis, require('../js/adventure-dims-core.js'));
+/* 配对方块行注册表(2026-11-04 候选①, 加载序 dims-core 之后同 index.html):
+    place-kit/TNT 链经全局名消费 advPairedBlockRows */
+Object.assign(globalThis, require('../js/paired-block-core.js'));
 /* 烧炼三件(SMELT_T/smeltStep/furnaceRefund)已迁 craft-core(2026-10 归属错位修复):
    Node 侧 require 真模块铺到全局, 浏览器侧 index.html 里 craft-core 先于本批加载同构 */
 const CraftCore = require('../js/craft-core.js');
@@ -1218,7 +1221,7 @@ test('门·左键开关/右键拆除(2026-11-04 用户票「门拆不来了」):
   assert.strictEqual(cell(spot.x, 25, spot.z), 0, '右键: 下半清');
   assert.strictEqual(cell(spot.x, 26, spot.z), 0, '右键: 上半配对连清(整扇回收)');
   assert.strictEqual(globalThis.Drops.list().filter((d) => d.id === 'door')
-      .reduce((s, d) => s + d.n, 0), 1, '恰掉 1 扇门(doorBreakApply 配对政策, 不双掉)');
+      .reduce((s, d) => s + d.n, 0), 1, '恰掉 1 扇门(pairedBreakApply 配对政策, 不双掉)');
   assert.strictEqual(A.advMine.down, false, '右键不进蓄力');
 });
 
@@ -1853,6 +1856,43 @@ test('T13 TNT 短按/按住二分(D3): 按住 0.25s+ 转蓄力挖走回收, 短�
   AdventureMode.update(0.05); /* 引信首帧: 火花弧观感 */
   assert.ok(calls.some((c) => c[0] === 'arc'), '短按=点燃(现状口径不变, 引信火花在列)');
   clearAim();
+});
+
+test('T13 TNT 掀床=整床回收(2026-11-04 架构评审候选①: TNT 链漏接床的补线, 门/宝箱同族口径) — 掀床尾连床头+恰掉 1 张', () => {
+  mem.clear();
+  freshInit();
+  /* 几何确定性: TNT 抬高一格(y26, 柱顶)——床尾(sx−3,25) d=hypot(3,1)=3.16
+     入半径(ADV_TNT_R 3.5)且其支承(sx−3,24) d=hypot(3,2)=3.61 出半径(不走
+     thin 失撑级联, 直接破坏路径可达配对计划); 床头(sx−4,25) d=4.12 出半径
+     → 床尾被掀(身份门放行) → 床头由配对计划回收+补发 1 张 */
+  const spot = (() => {
+    for (let x = 8; x < 50; x++) {
+      for (let z = 3; z < 50; z++) {
+        if (cell(x, 24, z) === 1 && cell(x, 25, z) === 0 && cell(x, 26, z) === 0 &&
+            cell(x - 1, 25, z) === 0 && cell(x - 2, 25, z) === 0 &&
+            cell(x - 3, 25, z) === 0 && cell(x - 4, 25, z) === 0) return {x, z};
+      }
+    }
+    throw new Error('找不到带西向余量的干净草地');
+  })();
+  const set = (x, y, z, id) => {
+    api.worldCells[(y * D + z) * W + x] = id;
+  };
+  set(spot.x, 25, spot.z, 2); /* 柱块: TNT 垫高一格 */
+  set(spot.x, 26, spot.z, api.B_TNT);
+  set(spot.x - 4, 25, spot.z, api.B_BED); set(spot.x - 3, 25, spot.z, api.B_BED_FOOT); /* 正典形: 床头在较小坐标端 */
+  holdOnly(null);
+  calls.length = 0;
+  AdventureMode.onMouse(0, {x: spot.x, y: 26, z: spot.z, nx: 0, ny: 1, nz: 0}); /* 空手短按点燃 */
+  AdventureMode.update(0.05); /* 松手即点燃 */
+  AdventureMode.update(0.05); /* 引信首帧 */
+  pos.x = spot.x + 20; pos.z = spot.z + 20; /* 玩家走远(不伤玩家口径) */
+  for (let i = 0; i < 31; i++) AdventureMode.update(0.05); /* 烧完 1.45s 引信起爆 */
+  assert.strictEqual(cell(spot.x, 26, spot.z), 0, 'TNT 源块清除');
+  assert.strictEqual(cell(spot.x - 3, 25, spot.z), 0, '床尾被掀(半径内, 直接破坏路径)');
+  assert.strictEqual(cell(spot.x - 4, 25, spot.z), 0, '床头配对连清(整床回收——TNT 链此前沿用 lone 半)');
+  assert.strictEqual(globalThis.Drops.list().filter((d) => d.id === 'bed')
+      .reduce((s, d) => s + d.n, 0), 1, '恰掉 1 张床(床尾无表由计划补发, 不双掉)');
 });
 
 test('T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落走 shearDrop 专属表', () => {

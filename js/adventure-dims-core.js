@@ -257,7 +257,7 @@ const ADV_DEN_LOOT_SMALL = {
 /* 宝箱掉落掷骰(rollDrops 同语义: 保底必得 + 逐次 50% 加成 + rare 独立掷):
    rnd 可注入(测试确定性, 缺省 Math.random), table 可注入(缺省大箱表
    ADV_DEN_LOOT——旧调用零改动, D18 低档表注入), 返回 [{id, n}] 供破坏计划
-   逐条落地——消费方(place-kit lootChestApply/TNT 链)不再各自掷骰 */
+   逐条落地——消费方(配对方块行注册表 js/paired-block-core.js)不再各自掷骰 */
 function advDenLootRoll(rnd, table) {
   const r = rnd || Math.random;
   const t = table || ADV_DEN_LOOT;
@@ -273,11 +273,16 @@ function advDenLootRoll(rnd, table) {
   return out;
 }
 
-/* 战利品宝箱配对破坏计划(床配对同款缝, D16): 触发格已清格后调用, 四邻找
-   另一半(同 id 相邻即配对——系统刷出固定贴墙, 无取向歧义也无相邻双箱),
-   drops=宝箱掉落表掷骰一次(恰一次, 双格不双掉)。返回 null=此处无宝箱
-   (触发格无相邻宝箱——防 TNT 同拍双掷/孤儿格双掉) */
-function advLootChestPlan(read, x, y, z, rnd) {
+/* 战利品宝箱配对破坏计划(床配对同款缝, D16; 配对方块行契约, 家族清单在
+   js/paired-block-core.js): 触发格已清格后调用, 四邻找另一半(同 id 相邻
+   即配对——系统刷出固定贴墙, 无取向歧义也无相邻双箱), drops=宝箱掉落表
+   掷骰一次(恰一次, 双格不双掉)。返回 null=无匹配(统一契约)。
+   触发格身份门(2026-11-04 架构评审候选①登记): ctx.id 读 lchest 旗标——
+   四邻认亲只对「刚破坏的格自身是大箱半」成立, 防挖邻格(贴墙的石/土)误收
+   整箱; ctx={id 触发格破坏前方块号, rnd 注入掷骰} */
+function advLootChestPlan(read, x, y, z, ctx) {
+  const tb = BLOCKS[ctx.id];
+  if (!tb || !tb.lchest) return null;
   const cells = [];
   for (const d of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
     if (read(x + d[0], y, z + d[1]) === B_LOOT_CHEST) {
@@ -285,7 +290,7 @@ function advLootChestPlan(read, x, y, z, rnd) {
     }
   }
   if (!cells.length) return null;
-  return {cells, drops: advDenLootRoll(rnd)};
+  return {cells, drops: advDenLootRoll(ctx.rnd)};
 }
 
 /* 低档奖励箱破坏计划(§7.5/D18): 单格整箱**无配对**——破坏的格子本身就是

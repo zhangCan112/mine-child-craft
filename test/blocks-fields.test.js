@@ -122,6 +122,9 @@ test('门四态字段(设计稿 §2.2): 全带 pane 旗标 · 关门实心/开�
   assert.strictEqual(dt.solid, undefined, '关门(上)实心');
   assert.strictEqual(o.solid, false, '开门(下)可穿行, 非 solid 即透光');
   assert.strictEqual(ot.solid, false, '开门(上)可穿行');
+  assert.strictEqual(d.doorLower, true, '关门(下)带 doorLower(身份判据单源: advIsDoorLower 读旗标, 2026-11-04 候选①)');
+  assert.strictEqual(o.doorLower, true, '开门(下)带 doorLower');
+  assert.ok(!dt.doorLower && !ot.doorLower, '上两态无 doorLower(上半身份= door 且非 doorLower)');
   assert.deepStrictEqual([...d.drop[0]].slice(0, 2), ['door', 1], '下半掉门 ×1');
   assert.strictEqual(o.drop[0][0], 'door', '开门态挖掉同样掉门');
   assert.ok(!dt.drop && !ot.drop, '上半无 drop: 整扇回收走配对政策, 防双掉');
