@@ -147,6 +147,21 @@ test('规范: 模式文件零直写玩家六绑定 — 传送/出生走 ModeKit.
   }
 });
 
+/* ---------- 竞技场列边判据单源(候选④, 2026-11-04) ----------
+   arena 本地 stepMove 的地面查询注入必须走引擎 Mobs.groundUnderAt(墙拦/
+   洞底贴地唯一权威)——旧 groundTop 注入停在穿墙票/②内部序两代之前, 玩家
+   在场内搭悬空结构即可触发分歧(头顶桥挡路/吸怪上桥)。源码钉防静默回潮:
+   arena-mode 零测试夹具, 有人把注入改回 groundTop 只有这条钉能红。 */
+test('规范: 竞技场列边判据注入引擎 groundUnderAt — 地面语义单源, 本地只留圆形边界', () => {
+  const arena = jsModules.find((p) => rel(p) === 'js/modes/arena.js');
+  assert.ok(arena, 'js/modes/arena.js 应在模块清单内 — 扫描空集 = 守门静默失效');
+  const src = fs.readFileSync(arena, 'utf8');
+  assert.ok(/MobCore\.stepMove\(m, mx, mz, \(bx, bz\) => Mobs\.groundUnderAt\(/.test(src),
+      'arena stepMove 注入必须走 Mobs.groundUnderAt(引擎列边判据唯一权威)');
+  assert.ok(!/MobCore\.stepMove\(m, mx, mz, groundTop\)/.test(src),
+      '旧 groundTop 注入必须绝迹(候选④: 列边语义单源)');
+});
+
 /* ---------- 第一人称手持视图装载序 (first-person-hand T2a) ----------
    装载序 held-item → hand-view → avatar 是设计契约(docs/first-person-hand-design.md
    Interface 块装载序注)。hand-view.js 对 HeldItems/CameraRig 全部调用期解析 —

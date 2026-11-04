@@ -47,7 +47,7 @@
 const ArenaCore = (() => {
   /* ---------- 竞技场几何参数(本模式唯一消费者, 归位自 config.js) ---------- */
   const ARENA = {
-    cx: WORLD_W/2, cz: WORLD_D/2, // 中心 (64,64)
+    cx: WORLD_W/2, cz: WORLD_D/2, // 中心随 config 派生(扩容后 WORLD=160 → 80,80)
     floorY: 14, // 场地地面顶层方块 y
     rIn: 36, // 内墙半径
     rOut: 40, // 外墙半径

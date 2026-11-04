@@ -13,7 +13,8 @@
               list / face / hasSlot / gait / stagger / pulseTint / scaleTo /
                debrisColor / spawnable /
                move / shift / setPos / steer / heal / setMaxHp / remove / settle /
-               walkDist(实走距离·索敌口径)
+               walkDist(实走距离·索敌口径) /
+               groundUnderAt(列边判据查询: 墙拦/洞底贴地单源, 竞技场移动注入消费)
    玩法(战斗AI/阵营/晋升/表扬话术)在模式层; 模式可在 spawn 返回的
    mob 上挂私有字段(tierNode/tierGeos 等挂件, dispose 时若存在一并回收)。
    模式可写引擎字段的白名单(除此之外引擎字段对模式只读):
@@ -637,6 +638,6 @@ const Mobs = (() => {
   return {types: MOB_TYPES, spawn, update, render, hit, near, clear, onDeath,
     list: ()=>mobList, face, hasSlot, gait, stagger, pulseTint, scaleTo,
     debrisColor, spawnable, families,
-    move, shift, setPos, steer, heal, setMaxHp, remove, settle, walkDist};
+    move, shift, setPos, steer, heal, setMaxHp, remove, settle, walkDist, groundUnderAt};
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = Mobs;
