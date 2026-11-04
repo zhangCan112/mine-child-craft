@@ -73,11 +73,12 @@ function collect(el, cls, out) {
       桩只留 icons/button-icons/hint 等 UI 侧自持件 —— */
 {
   const ctx = vm.createContext({console});
-  for (const f of ['items-core.js', 'inventory-core.js', 'craft-core.js']) {
+  for (const f of ['items-core.js', 'inventory-core.js', 'craft-core.js', 'equipment-core.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext(`globalThis.__g = {ITEMS, toolOf, stackMax, durOf, costEntry, shapeCost, canCraft,
-    matchGrid, gridCraft, fillGrid, remove, add, count, take, mkInventory, mkStack, RECIPES};`, ctx);
+    matchGrid, gridCraft, fillGrid, remove, add, count, take, mkInventory, mkStack, RECIPES,
+    EQUIP_SLOTS, mkWorn};`, ctx);
   const g = ctx.__g;
   for (const k of Object.keys(g)) globalThis[k] = g[k];
 }
@@ -1459,4 +1460,63 @@ test('可变容量: 33 槽背包区按现长度重画(24 主格 + 9 快捷镜像
   assert.strictEqual(cells.length, 42, '24 主格 + 9 镜像 + 摆放台 9');
   assert.ok(cells[23].innerHTML.includes('data:image/png'), '主格末格=槽 32(扩容区)有内容');
   panel.remove();
+});
+
+/* ============ 装备 T5: mkArmorBar 装备条(四槽像素图标 · 空槽虚位 · 点槽脱下意图) ============ */
+
+test('装备条形状: 四槽按钮按头/胸/腿/靴序 · data-slot 标记 · 空槽虚位(.off)', () => {
+  const doc = mkDoc();
+  const bar = ModeKit.mkArmorBar({doc, mount: doc.body, onUnequip() {}});
+  const slots = collect(bar.root, 'armorbar-slot');
+  assert.deepStrictEqual(slots.map((s) => s.dataset.slot),
+      ['helmet', 'chestplate', 'leggings', 'boots'], '四槽序=EQUIP_SLOTS 展示序');
+  assert.ok(slots.every((s) => s._cls.has('off')), '初值全空: 空槽虚位');
+  bar.dispose();
+  assert.strictEqual(bar.root.parentNode, null, 'dispose 摘除(探险退场清理)');
+});
+
+test('装备条 update: 有件槽显像素图标 · 空槽虚位; 签名节流 — 同 id 签名不重画(炉三槽推进同惯例)', () => {
+  const doc = mkDoc();
+  let iconCalls = 0;
+  const saveIcon = globalThis.iconOf;
+  globalThis.iconOf = (id) => {
+    iconCalls++;
+    return 'data:image/png;base64,' + id;
+  };
+  try {
+    const bar = ModeKit.mkArmorBar({doc, mount: doc.body, onUnequip() {}});
+    const worn = {helmet: {id: 'helmet_iron', dur: 330}, chestplate: null,
+      leggings: null, boots: {id: 'boots_gold', dur: 100}};
+    bar.update(worn);
+    const slots = collect(bar.root, 'armorbar-slot');
+    assert.ok(!slots[0]._cls.has('off'), '头盔有件: 虚位撤');
+    assert.ok(slots[0].innerHTML.includes('helmet_iron'), '头盔槽显像素图标(iconOf 出口)');
+    assert.ok(slots[1]._cls.has('off'), '胸甲空槽: 虚位');
+    assert.ok(!slots[3]._cls.has('off'), '靴子有件');
+    const afterFirst = iconCalls;
+    bar.update({helmet: {id: 'helmet_iron', dur: 3}, chestplate: null,
+      leggings: null, boots: {id: 'boots_gold', dur: 99}});
+    assert.strictEqual(iconCalls, afterFirst, '磨损(dur 变 id 不变)不改签名: 不重画(常驻条无闪烁)');
+    bar.update({helmet: null, chestplate: null, leggings: null, boots: null});
+    assert.ok(collect(bar.root, 'armorbar-slot').every((s) => s._cls.has('off')), '全卸: 回虚位');
+    bar.update(worn); /* 重新穿上: 签名变, 重画 */
+    assert.ok(iconCalls > afterFirst, '签名变化: 重画(脱下再穿上路径)');
+  } finally {
+    globalThis.iconOf = saveIcon;
+  }
+});
+
+test('装备条点槽: click 派发 onUnequip(slot) — 脱下意图归模式层(满包拒绝政策在消费方)', () => {
+  const doc = mkDoc();
+  const got = [];
+  const bar = ModeKit.mkArmorBar({doc, mount: doc.body,
+    onUnequip: (slot) => got.push(slot)});
+  bar.update({helmet: {id: 'helmet_iron', dur: 1}, chestplate: null,
+    leggings: null, boots: null});
+  const slots = collect(bar.root, 'armorbar-slot');
+  slots[0]._ev.click();
+  assert.deepStrictEqual(got, ['helmet'], '点头盔槽 → onUnequip(helmet)');
+  slots[2]._ev.click();
+  assert.deepStrictEqual(got, ['helmet', 'leggings'], '空槽也报意图(模式层判空礼貌回应)');
+  bar.dispose();
 });

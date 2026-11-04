@@ -161,6 +161,7 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
      dayTime}; 繁育畜剪毛时刻挂 bred 条目上)——跨天长回判据的持久化半边 */
   defaults: {edits: [], map: 'home', pos: null, hp: null, furnaces: [],
     den: null, /* 每日副本态(D20): {day 'Y-M-D', wave, chestDone, deadGuards 守卫表序} */
+    armor: null, /* 穿戴档(装备 T5): null=老档/无档(decode wornNormalize → 空穿) */
     livestock: ADV_SCENE_KEYS.reduce((o, k) => {/* 桶集注册表派生(加维度零手抄) */
       o[k] = {dead: [], bred: [], sheared: {}};
       return o;
@@ -175,6 +176,7 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     hp: (typeof st.hp === 'number') ? st.hp : null,
     furnaces: advFurnaceClean(st.furnaces), /* 空炉条目清扫(存档防膨胀) */
     den: st.den || null, /* 每日副本态(D20) */
+    armor: st.armor || null, /* 穿戴档直取(装备 T5: worn 归一形状, decode 侧归一兜底) */
     livestock: st.livestock || {},
     oreRegen: st.oreRegen || {},
     dayTime: (typeof st.dayTime === 'number') ? st.dayTime : 0}),
@@ -185,6 +187,7 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     hp: (typeof sv.hp === 'number') ? sv.hp : null,
     furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1]))), /* 非法炉态整条拒收 */
     den: advDenDailyDecode(sv.den), /* 每日副本态归一(老档/坏档 null=首进全新, D20) */
+    armor: wornNormalize(sv.armor), /* 穿戴档归一(装备 T5 §7: 老档缺键→空穿, 坏件逐条丢弃, 幂等) */
     livestock: advLivestockDecode(sv.livestock), /* 按图分桶归一(三代档形收敛) */
     oreRegen: advOreRegenDecode(sv.oreRegen), /* 矿位开采账归一(缺省 {}) */
     dayTime: (typeof sv.dayTime === 'number' && sv.dayTime >= 0 && sv.dayTime < DAYLIGHT.TICKS) ?
@@ -228,6 +231,7 @@ const advJournal = mkWorldJournal(advWorldSlot, {
     pos: advDim !== 'overworld' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw},
     /* 维度不进档(nether D9+den D8 单点判据, dimension-registry §2) */
     hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, oreRegen: advOreRegen, dayTime,
+    armor: advWorn, /* 穿戴档(装备 T5): worn 归一形状, init 侧 wornNormalize 兜底老档缺键 */
     den: advDenDaily}), /* 每日副本态(D20): 同日续局/次日重置的持久半边 */
   onFlush: () => {/* 伴随联写经存档 store 缝: U3 换装 dev store 后三档联写自动跟丢弃语义 */
     advStore.saveBag(); /* 背包存档经背包壳(ADR 0002), 形状与时机不变 */
@@ -767,6 +771,11 @@ function advEnvHurt(dmg, line) {
     每帧喂 {hp, maxHp, 世界坐标}(头顶 2.2 格), 重绘节流收在深接口 */
 const advHpBar = CombatKit.mkHpBar();
 let advBubbles = null; /* 溺气泡条(liquid D10, init 建/cleanup 收) */
+/* 穿戴状态(装备 T5, 设计稿 §5/§7): worn 归一形状(equipment-core mkWorn 形),
+   wear/脱下/破碎唯一改写口在本文件三函数(编排红线); 观感经 Avatar.setArmor,
+   档随 journal payload armor 键(init decode wornNormalize 兜底老档缺键) */
+let advWorn = mkWorn();
+let advArmorBar = null; /* 装备条(init 建/cleanup 收, mkArmorBar 签名节流) */
 
 /* ---------- 提醒账本(S4): 判据纯函数在 adventure-core, 这里只持账本与话术 ---------- */
 const advWarnLow = new Set(); /* 已低耐久预警的工具 id(advWearWarn 消费; 破板即 delete 重置) */
@@ -2720,10 +2729,74 @@ function advTryExpandBag() {
   return true;
 }
 
+/* ---------- 穿戴编排(装备 T5, 设计稿 §5): wear/脱下/观感/档 三事收口 ----------
+   政策全在本层(行为不进注册表红线): wornPut 换装 → 被换下旧件回背包(满包=
+   拒绝穿戴+话术, 零损失红线——先 add 旧件再消耗手持, add 余量>0 即整体回退)
+   → 手持件消耗进槽 → Avatar.setArmor 观感对齐 → journal touch(armor 键随节
+   流落盘) → sfx+toast+TTS。手持互斥=穿上即从背包移除(mkHeldSync 哨兵语义不
+   变——手持槽没了自然回落空手)。破碎清槽归 T6 同一改写口。 */
+function advSyncArmor() {
+  Avatar.setArmor(advWorn); /* 观感对齐(T4 骨挂 overlay, 同目标幂等) */
+  if (advArmorBar) advArmorBar.update(advWorn); /* 装备条重画(kit 签名节流, 磨损不闪) */
+}
+
+/* 盔甲槽形入包(耐久保真): add 给满耐久(mkStack)会把磨损余量洗满——零损失
+   红线的暗面, 故手动占首个空位塞 {id, n:1, dur}(盔甲不可堆叠, 与 add 的
+   空位阶段语义等价; 返回余量 1=满包) */
+function advAddPiece(id, dur) {
+  const i = advInv.slots.findIndex((s) => !s);
+  if (i < 0) return 1;
+  advInv.slots[i] = {id, n: 1, dur};
+  return 0;
+}
+
+function advTryWear() {
+  const sel = advHb.sel;
+  const s = advInv.slots[sel];
+  if (!s || !isArmor(s.id)) return false; /* 非盔甲: 回落常规链(wornPut 拒收三路前置) */
+  const a = armorOf(s.id);
+  const r = wornPut(advWorn, a.slot, s); /* 纯函数: advWorn 不动, 旧件从 out 交还 */
+  if (r.out && advAddPiece(r.out.id, r.out.dur) > 0) {
+    advSpeak('背包装不下啦，先腾个格子再换吧！');
+    advToast('🎒 背包满了，换不了装备');
+    return true; /* 恒算使用 attempt(弓同口径): 满包不消耗不换装(未动任何账) */
+  }
+  remove(advInv, sel, 1); /* 手持件消耗进槽(穿上=从背包移除) */
+  advWorn = r.worn;
+  advSyncHotbar();
+  advSyncArmor();
+  advSyncHeldVisual(); /* 手持互斥: 槽没了, 手持观感回落空手 */
+  advStore.touch(); /* armor 键随 journal 节流落盘(payload 读 advWorn 活引用) */
+  advSfx('level'); /* 仪式音(穿上=小小晋升感, 扩容同款) */
+  advSpeak('穿上' + ITEMS[s.id].name + '啦，更厉害了！');
+  advToast('🛡️ 穿上了' + ITEMS[s.id].name);
+  return true;
+}
+
+function advWornTakeOff(slot) {
+  const piece = advWorn[slot];
+  if (!piece) {
+    advSpeak('这里还空着呢，先穿上盔甲吧！');
+    return;
+  }
+  if (advAddPiece(piece.id, piece.dur) > 0) {
+    advSpeak('背包装不下啦，先腾个格子再脱吧！');
+    advToast('🎒 背包满了，脱不下来');
+    return; /* 零损失红线: 满包不脱(槽里东西不消失) */
+  }
+  advWorn = {...advWorn, [slot]: null}; /* 槽清空(其余槽原样, 纯浅拷不动入参) */
+  advSyncHotbar();
+  advSyncArmor();
+  advStore.touch();
+  advSpeak('脱下了' + ITEMS[piece.id].name);
+  advToast('👕 脱下了' + ITEMS[piece.id].name);
+}
+
 const advUseRun = {shoot: () => advTryShootBow(),
   plant: () => advTryPlant(), ripen: () => advTryRipen(),
   expand_bag: () => advTryExpandBag(),
-  shear: () => advTryShear()}; /* 使用动作注册表 act 键 → 执行器
+  shear: () => advTryShear(),
+  wear: () => advTryWear()}; /* 使用动作注册表 act 键 → 执行器
    (行为不进注册表——「战斗政策在模式层」红线, 手持物注册表词条同款口径;
     plant/ripen 为农田链两键, farm-and-recipe D3; expand_bag 为扩容件, 2026-10;
     shear 为剪羊毛键, 2026-10-28) */
@@ -3554,6 +3627,11 @@ const AdventureMode = mkMode({
       /* 流体写格入节流窗: 漏置位 → 只动水时永不触发 5s 落盘, 关页即丢水位(mark 自带置脏) */
     });
     advBubbles = mkBubbleBar(); /* 溺气泡条(liquid D10): 剩 3 泡 TTS 提醒, 气满藏条 */
+    /* 穿戴档换装(装备 T5): decode 侧 wornNormalize 已归一有档; **无档路径**
+       走 defaults clone 不经 decode(save-slot load 语义) → armor=null 仍会漏进,
+       init 侧再兜一层(幂等, 与 livestock defaults「两条路径都成立」同款纪律) */
+    advWorn = wornNormalize(advLoad.armor || null);
+    advArmorBar = mkArmorBar({onUnequip: advWornTakeOff}); /* HUD 常驻装备条(点槽=脱下意图) */
     advOreRegen = advOreRegenDecode(advLoad.oreRegen); /* 矿位开采账换装(生态恢复; 归一兜底——
        dev store/旧档缺键 → 空账; 先于 loadScene, 回填在其内结算) */
     advDenDaily = advLoad.den || null; /* 每日副本态收养(D20): 老档/坏档 null=首进全新 */
@@ -3662,6 +3740,9 @@ const AdventureMode = mkMode({
     if (advBubbles) {
       advBubbles.dispose(); advBubbles = null; /* 溺气泡条收 DOM(liquid D10) */
     }
+    if (advArmorBar) {
+      advArmorBar.dispose(); advArmorBar = null; /* 装备条收 DOM(装备 T5, 重进重建) */
+    }
     Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
     advReclaimThrown(); /* 退出模式前收回丢弃件(零损失红线): 未捡回的原样回家 */
     Drops.clear(); /* 清掉落物+解除收集回调 */
@@ -3731,6 +3812,7 @@ const AdventureMode = mkMode({
       advEnvHurt(FLUID.lavaDps, '好烫！快离开岩浆！');
     }
     if (advBubbles) advBubbles.update(playerAirS / FLUID.airMaxS); /* 溺气泡条(liquid D10) */
+    if (advArmorBar) advArmorBar.update(advWorn); /* 装备条(kit 签名节流——非 worn 变更帧零重画) */
     if (advDim === 'overworld') {/* 维度门禁(§3.3 泛化, T6 + den-nest §3.2): 人在下界/副本时
         停掉主世界专属子系统——树苗计时若在别界跑, 树会长在「当前世界」且足迹记账进
         别界桶(串档事故); 巢穴节律/夜怪刷怪/牧场 AI 是主世界怪的系统(池随当前地图行);
@@ -3879,6 +3961,7 @@ function advSaveView() {/* 四份存档的可断言快照(只读缝): 与 journa
       firstNight: ADV.quest.firstNight},
     chest: {size: advChest.size, slots: advChest.slots.slice()},
     inv: serialize(advInv),
+    armor: advWorn, /* 穿戴档透出(装备 T5: worn 归一形状, 与 journal payload 同源) */
   };
 }
 AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
@@ -3895,6 +3978,8 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
     advDenTodayOverride = v; /* 日键覆写(每日刷新用例模拟跨天) */
   },
   advNetherState: () => ({dim: advDim, map: advMap, portalCd: advPortalCd, exitSpot: advExitSpot}),
-  advMineHardText, advHudLines};
+  advMineHardText, advHudLines,
+  advWornState: () => advWorn, /* 穿戴档只读快照(装备 T5 测试挂点; 形状=mkWorn 归一形) */
+  advWornTakeOff}; /* 装备条点槽的同一条脱下编排(模式层回包, 装备 T5) */
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;

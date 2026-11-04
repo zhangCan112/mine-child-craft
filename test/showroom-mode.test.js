@@ -116,7 +116,8 @@ const eng = vm.createContext({console: {log() {}, warn() {}, error() {}},
   groundTop: () => 24, /* world.js 顶层函数的桩(adventure-mode.test 同款) */
 });
 for (const f of ['js/config.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js',
-  'js/items-core.js', 'js/item-use-registry.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/mob-registry.js',
+  'js/items-core.js', 'js/equipment-core.js', 'js/item-use-registry.js',
+  'js/inventory-core.js', 'js/craft-core.js', 'js/mob-registry.js',
   'js/daylight-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
@@ -124,7 +125,8 @@ const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, 
   mkInventory, add, count, remove,
   take, moveSlot, damageTool, serialize, deserialize, costEntry, shapeCost, canCraft, matchGrid, gridCraft, fillGrid,
   RECIPES, SMELTS, FUEL, fuelUnits, smeltOf, breakTime,
-  HOTBAR_SLOTS, INV_SLOTS, WORLD_W, WORLD_D, WORLD_H, PLAYER, IS_TOUCH, FLUID, DAYLIGHT,
+  HOTBAR_SLOTS, INV_SLOTS, EQUIP_SLOTS, /* 装备四槽表: require 的 mkArmorBar 调用期经全局名消费 */
+  WORLD_W, WORLD_D, WORLD_H, PLAYER, IS_TOUCH, FLUID, DAYLIGHT,
   BLOCKS, B_FURNACE, B_CRAFT, B_CHEST, B_BED, B_TORCH, B_DOOR, B_DOOR_TOP, B_DOOR_OPEN,
   B_DOOR_TOP_OPEN, B_GLASS_PANE, B_TNT,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY,
@@ -260,7 +262,8 @@ globalThis.setPlayerGlow = (on) => calls.push(['glow', on]);
 globalThis.setFluidEditSink = () => {}; /* 流体账本缝(world.js 太重): 空桩 */
 globalThis.playerAirS = 15; /* 溺气余秒: 恒满气(气泡条藏, adventure 同款) */
 globalThis.camera = {}; /* 相机件: shootFromAim 的取景入参(raycastVoxel 缺席, aimHit 守卫返 null) */
-globalThis.Avatar = {swing() {}, flash() {}, setItem() {}}; /* 挥臂/闪红观感桩 */
+globalThis.Avatar = {swing() {}, flash() {}, setItem() {}, setArmor() {}}; /* 挥臂/闪红/穿戴观感桩
+    (装备 T5: setArmor 冒烟桩不记账——showroom 行为断言不涉甲, nether 段同款) */
 globalThis.Fx = {debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}}; /* 观感桩 */
 
 /* ---------- 怪物库桩(窄面桩法, 行为断言全走调用记录; 玩家实体受击走真实
@@ -381,7 +384,8 @@ Object.assign(eng, {
   mkWorldJournal: globalThis.mkWorldJournal, fluidCell: globalThis.fluidCell,
   editBlock: globalThis.editBlock, applySweep: globalThis.applySweep,
   ModeKit, mkMode: globalThis.mkMode, mkMainAct: globalThis.mkMainAct,
-  mkBubbleBar: globalThis.mkBubbleBar, FurnaceKit: globalThis.FurnaceKit,
+  mkBubbleBar: globalThis.mkBubbleBar, mkArmorBar: ModeKit.mkArmorBar, /* 装备条(装备 T5): 真件, 假 DOM 惰性渲染 */
+  FurnaceKit: globalThis.FurnaceKit,
   PlaceKit: globalThis.PlaceKit, CombatKit: globalThis.CombatKit, CombatCore: globalThis.CombatCore,
 });/* 注: pos/vel/yaw/pitch/onGround/flyMode/Drops 是 eng 词法绑定(voxel/drops 顶层),
     属性赋值只会被词法遮蔽——Node 侧已改为直接共享词法对象(见上方提取/包装) */

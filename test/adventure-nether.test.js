@@ -18,11 +18,12 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
 for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
-  'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
+  'js/items-core.js', 'js/equipment-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, hashRand, SceneKit,
+  EQUIP_SLOTS, mkWorn, wornPut, wornNormalize, armorOf, isArmor, /* 装备核心(T5 壳层经全局名消费) */
   WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_BED_FOOT,
@@ -448,7 +449,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     callsC.push(['swing']);
   }, flash() {
     callsC.push(['flash']);
-  }};
+  }, setArmor() {}}; /* 穿戴观感(T4): 冒烟桩不记账——nether 段行为断言不涉甲 */
   /* fake 怪物库(窄面形状对齐真库; 行为断言走记录) */
   const MOB_CFG_C = {
     zombie: {name: '僵尸', hp: 30, dmg: 5, speed: 2.3, range: 2.1, cd: 1.1, h: 1.9, hitR: 0.55},
@@ -509,6 +510,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
   globalThis.mkMode = ModeKitC.mkMode;
   globalThis.mkMainAct = ModeKitC.mkMainAct;
   globalThis.mkBubbleBar = ModeKitC.mkBubbleBar;
+  globalThis.mkArmorBar = ModeKitC.mkArmorBar; /* 装备条(装备 T5): 真件, 假 DOM 惰性渲染 */
   globalThis.ModeKit = ModeKitC;
   ModeKitC.spawn = (x, y, z, o) => {/* 镜像真 kitSpawn 写 pos/yaw */
     callsC.push(['spawn', x, y, z, o]);

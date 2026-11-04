@@ -52,3 +52,25 @@ test('bow_item 有 shoot 动作(adventure.js advUseRun 绑执行器); 普通物�
   assert.strictEqual(u.itemUses(''), null, '空键 → null');
   assert.strictEqual(u.itemUses('nope'), null, '未注册物品 → null');
 });
+
+/* ============ 装备 T5: 盔甲 wear 使用档(派生生成, 手抄 24 行必漂移) ============ */
+
+test('装备 T5: 盔甲 24 行派生生成 — act wear · icon wear · label 穿上(ITEMS 盔甲键集派生, FUEL 同惯例)', () => {
+  const u = loadUses();
+  const slots = ['helmet', 'chestplate', 'leggings', 'boots'];
+  const tiers = ['leather', 'chain', 'iron', 'gold', 'diamond', 'netherite'];
+  for (const slot of slots) {
+    for (const tier of tiers) {
+      const id = slot + '_' + tier;
+      const uses = u.itemUses(id);
+      assert.ok(uses, id + ' 应有使用档(穿上)');
+      /* vm 跨 realm: map 沿 receiver realm 构造返回 vm 数组——Array.from 收口
+         (normMissing 先例), 条目对象逐个展开回宿主再比 */
+      assert.deepStrictEqual(Array.from(uses, (e) => ({...e})),
+          [{act: 'wear', icon: 'wear', label: '穿上'}], id + ' 档内容');
+    }
+  }
+  /* 稀疏表纪律不破: 非盔甲不派生(工具/材料无 wear 档) */
+  assert.strictEqual(u.itemUses('pick_netherite'), null, '工具不派生 wear 档');
+  assert.strictEqual(u.itemUses('netherite_ingot'), null, '材料不派生 wear 档');
+});

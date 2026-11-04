@@ -36,6 +36,15 @@ const ITEM_USES = {
   shears: [{act: 'shear', icon: 'shear', label: '剪羊毛'}],
 };
 
+/* 盔甲 wear 使用档派生(装备 T5, 设计稿 §5): 由 ITEMS 盔甲键集**派生生成**
+   ——FUEL 从 ITEMS 派生同惯例(craft-core 先例), 手抄 24 行必漂移(新增盔甲
+   行自动有档, 零手工清单)。act 'wear' 执行器在探险层(行为不进注册表红线);
+   判据 isArmor 单份在 items-core(加载序在前, 顶层派生合法——本表其余键是
+   稀疏手抄, 盔甲是唯一派生段)。 */
+for (const id of Object.keys(ITEMS)) {
+  if (isArmor(id)) ITEM_USES[id] = [{act: 'wear', icon: 'wear', label: '穿上'}];
+}
+
 /* 物品键 → 使用动作条目; 无专属使用动作返回 null(调用方回落常规使用链) */
 function itemUses(itemId) {
   return ITEM_USES[itemId] || null;

@@ -76,7 +76,7 @@ const ROOT = path.join(__dirname, '..');
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
 for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js',
   'js/cascade-core.js', 'js/scene-kit.js',
-  'js/items-core.js', 'js/item-use-registry.js',
+  'js/items-core.js', 'js/equipment-core.js', 'js/item-use-registry.js',
   'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
@@ -95,6 +95,7 @@ const api = vm.runInContext(`({
   B_LOOT_CHEST_SMALL, /* 低档奖励箱(den-nest §7.5 D18: 小箱 id 认主经全局名消费) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime, itemUses,
+  EQUIP_SLOTS, mkWorn, wornPut, wornNormalize, armorOf, isArmor,
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   BAG_EXPAND_SLOTS, BAG_MAX_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
@@ -223,6 +224,8 @@ globalThis.Avatar = {setItem(id) {
   calls.push(['swing']);
 }, flash() {
   calls.push(['flash']);
+}, setArmor(worn) {
+  calls.push(['setArmor', worn ? EQUIP_SLOTS.map((s) => (worn[s] ? worn[s].id : '')).join(',') : '']);
 }};
 /* ---------- fake 怪物库/掉落物库(T14 战斗段): 窄面形状对齐真库 ----------
    行为断言全部走调用记录(spawned/hitLog/moveLog), 不伸手进模式内部;
@@ -361,6 +364,7 @@ const ModeKit = require('../js/mode-kit.js');
 globalThis.mkMode = ModeKit.mkMode;
 globalThis.mkMainAct = ModeKit.mkMainAct; /* 智能主动作分派(手持感知): touch 列表顶层即消费 */
 globalThis.mkBubbleBar = ModeKit.mkBubbleBar; /* 溺气泡条(liquid D10): 真件, 假 DOM 惰性渲染 */
+globalThis.mkArmorBar = ModeKit.mkArmorBar; /* 装备条(装备 T5): 真件, 假 DOM 惰性渲染 */
 globalThis.ModeKit = ModeKit;
 globalThis.setFluidEditSink = () => {}; /* 流体账本缝(liquid D8): world.js 太重——空桩(账本入档断言不涉流体) */
 globalThis.playerAirS = 15; /* 溺气余秒(liquid D9): voxel 真件在 vm, 物理不在 Node 跑——恒满气(气泡条藏) */
@@ -3691,4 +3695,86 @@ test('维度规格收口: ADV_SCENE_KEYS 两注册表派生(桶键=地图行+维
   assert.ok(Array.isArray(Dims) && Dims.length === 2, '两维度行(nether/den)');
   const want = [...globalThis.ADV_MAPS.map((r) => r.id), ...Dims.map((r) => r.id)].sort();
   assert.deepStrictEqual(Object.keys(A.advSceneEdits).sort(), want, '分桶键全集=ADV_MAPS+ADV_DIMS 派生');
+});
+
+
+/* ============ 装备 T5: wear 使用档 + 装备条脱下编排 + 存档 armor 键 ============ */
+
+/* 槽形浅拷回宿主(adventure.js 是宿主 require, 但 wornPut 返回对象由 vm eng
+   realm 的函数构造——跨 realm 一层展开即够) */
+const localW = (p) => (p ? {...p} : null);
+
+test('装备 T5: wear 执行器 — 穿上=手持消耗进槽+观感对齐; 换装旧件回包(零损失红线)', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  inv.slots[0] = api.mkStack('helmet_iron'); /* 直写快捷栏首格(可控落槽) */
+  AdventureMode.hotbar.select(0);
+  AdventureMode.onMouse(2); /* 右键 = 使用档派发(advTryUseHeld → wear) */
+  assert.deepStrictEqual(localW(A.advWornState().helmet),
+      {id: 'helmet_iron', dur: 330}, '穿上=槽形满耐久(wornPut dur 缺省兜底)');
+  assert.strictEqual(api.count(inv, 'helmet_iron'), 0, '手持件消耗进槽(穿上=从背包移除, 手持互斥)');
+  assert.ok(calls.some((c) => c[0] === 'setArmor' && String(c[1]).includes('helmet_iron')),
+      'Avatar.setArmor 已声明(T4 观感对齐)');
+  /* 换装: 金帽穿上 → 旧件铁帽原样回包 */
+  inv.slots[0] = api.mkStack('helmet_gold');
+  AdventureMode.hotbar.select(0);
+  AdventureMode.onMouse(2);
+  assert.deepStrictEqual(localW(A.advWornState().helmet),
+      {id: 'helmet_gold', dur: 154}, '换装金帽入槽');
+  assert.strictEqual(api.count(inv, 'helmet_iron'), 1, '被换下旧件回包(零损失红线)');
+  assert.strictEqual(api.count(inv, 'helmet_gold'), 0, '新件已消耗');
+  /* 拒收路径: 手持非盔甲右键 → 不走 wear(回落吃/放置链) */
+  inv.slots[0] = api.mkStack('leather');
+  AdventureMode.hotbar.select(0);
+  AdventureMode.onMouse(2);
+  assert.deepStrictEqual(localW(A.advWornState().helmet),
+      {id: 'helmet_gold', dur: 154}, '非盔甲不动穿戴(wornPut 拒收三路)');
+  AdventureMode.cleanup();
+});
+
+test('装备 T5: 装备条脱下编排 — 点槽旧件回包+槽清空; 空槽礼貌话术不炸', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  inv.slots[0] = api.mkStack('chestplate_diamond');
+  AdventureMode.hotbar.select(0);
+  AdventureMode.onMouse(2); /* 穿上 */
+  assert.ok(A.advWornState().chestplate, '前置: 已穿上钻甲');
+  A.advWornTakeOff('chestplate'); /* 装备条点槽的同一条编排(模式层回包) */
+  assert.strictEqual(A.advWornState().chestplate, null, '脱下=槽清空');
+  assert.strictEqual(api.count(inv, 'chestplate_diamond'), 1, '旧件回包(零损失)');
+  A.advWornTakeOff('boots'); /* 空槽点按 */
+  assert.ok(spoken.length > 0 || calls.some((c) => c[0] === 'toast'),
+      '空槽礼貌回应(话术或 toast, 不炸)');
+  A.advWornTakeOff('boots'); /* 再点一次: 幂等不炸 */
+  AdventureMode.cleanup();
+});
+
+test('装备 T5: 存档 armor 键 roundtrip — cleanup 落盘重进恢复; 老档无键 → 空穿; advSaveView 透出', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  inv.slots[0] = api.mkStack('chestplate_netherite');
+  inv.slots[1] = api.mkStack('boots_leather');
+  AdventureMode.hotbar.select(0);
+  AdventureMode.onMouse(2);
+  AdventureMode.hotbar.select(1);
+  AdventureMode.onMouse(2);
+  AdventureMode.cleanup(); /* 落盘(journal payload armor 键随节流窗口 flush) */
+  freshInit(); /* 重进 */
+  const w = A.advWornState();
+  assert.deepStrictEqual(localW(w.chestplate),
+      {id: 'chestplate_netherite', dur: 1184}, '胸甲穿戴恢复(重进原样)');
+  assert.deepStrictEqual(localW(w.boots),
+      {id: 'boots_leather', dur: 130}, '靴子穿戴恢复');
+  const view = A.getSaveView().armor;
+  assert.deepStrictEqual(localW(view.chestplate),
+      {id: 'chestplate_netherite', dur: 1184}, 'advSaveView 透出(四份存档快照缝)');
+  /* 老档无 armor 键 → 空穿(wornNormalize 兜底, 全新档同路径) */
+  mem.clear(); /* 清存储介质: 下一 init 读不到任何档(armor 键缺失的归一路径) */
+  freshInit();
+  const w0 = A.advWornState();
+  /* vm 跨 realm: EQUIP_SLOTS 是 vm 数组, map 沿 receiver realm 构造——
+     展开拷回宿主再 map(null 是 primitive, 元素无原型差) */
+  assert.deepStrictEqual([...EQUIP_SLOTS].map((s) => w0[s]), [null, null, null, null],
+      '老档缺 armor 键 → 四槽全空(wornNormalize 幂等兜底)');
+  AdventureMode.cleanup();
 });

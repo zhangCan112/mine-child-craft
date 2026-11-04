@@ -793,6 +793,29 @@ const TRASH_ART = [ // 垃圾桶: 提手 + 盖沿 + 双浅条桶身(丢弃头钮
   '................',
 ];
 
+/* ---------- 穿上(盔甲穿戴键, 装备 T5 — 胸甲观感白色 glyph): 四槽通用动作
+   语义(头盔/靴子行也用它), 不复用物品色板——部位/材质变体走 itemIcon
+   单一来源, 这里只画"穿"这个动作; 形状语言与物品工坊 CHESTPLATE_ART
+   同构(双肩甲+躯干+腰缝, 光源恒左上) ---------- */
+const WEAR_ART = [
+  '................',
+  '................',
+  '................',
+  '...KKKK..KKKK...',
+  '...KWWKKKKWWK...',
+  '..KWWWWWWWWWWK..',
+  '..KWWWWWWWWWWK..',
+  '..KWWWWWWWWWWK..',
+  '..KWWLLWWWWWWK..',
+  '..KWWLLWWWWGGK..',
+  '..KWWWWWWWWGGK..',
+  '...KWWWWWWGGK...',
+  '...KGGGGGGGGK...',
+  '...KKKKKKKKKK...',
+  '................',
+  '................',
+];
+
 const BTN_PIX = {
   /* 方向与播放 */
   left: {art: ARROW_LEFT_ART, map: BTN_GLYPH},
@@ -819,6 +842,7 @@ const BTN_PIX = {
   /* 功能动作 */
   flame: {art: FLAME_ART, map: {f: '#e8632c', 2: '#ff9d2e', 3: '#ffd83d'}},
   fly: {art: FLY_ART, map: BTN_GLYPH},
+  wear: {art: WEAR_ART, map: BTN_GLYPH}, /* 穿上(装备 T5): 胸甲观感 glyph, 四槽通用动作键 */
   boom: {art: BOOM_ART, map: {y: '#ff9d2e', Y: '#ffd83d', W: '#ffffff'}},
   rocket: {art: ROCKET_ART, map: {K: '#14161a', R: '#d0342c', W: '#ffffff', L: '#eef1f5', G: '#8a8f98', y: '#ffd83d'}},
   sun: {art: SUN_ART, map: {y: '#f2b93b', Y: '#ffdf6b', W: '#fff3b0'}}, /* 昼夜时段 HUD(探险, D1) */

@@ -34,7 +34,9 @@
               缺料排序+卡片 DOM 复用) · mkFurnacePanel ·
               mkChestPanel(三者=内部底座 mkPanelShell+差异段, 均含 cellAt
               查询面) · sortInv · spawn · lookName · confirmBtn ·
-              editHit(挖/放编辑原语) · mkHoldMine(触屏按住连挖驱动)
+              editHit(挖/放编辑原语) · mkHoldMine(触屏按住连挖驱动) ·
+              mkArmorBar(装备条, 装备 T5: 四槽像素图标+空槽虚位+点槽脱下
+              意图——回包政策归模式层; 签名节流重画, 磨损不闪)
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax/durOf ·
      inventory-core 的 HOTBAR_SLOTS/costEntry/remove/add · craft-core 的
      RECIPES/canCraft/matchGrid/gridCraft/fillGrid/FUEL/fuelUnits/smeltOf ·
@@ -1351,6 +1353,65 @@ function mkBubbleBar(opts) {
   };
 }
 
+/* ---------- mkArmorBar: 装备条(装备 T5, 设计稿 §5) ----------
+   HUD 常驻四槽穿戴状态条: 像素图标(iconOf 统一出口)+空槽虚位(.off);
+   点槽=脱下意图 onUnequip(slot)——回包政策(满包拒绝+话术)归模式层,
+   本件只报意图不执行。签名节流重画(update 内四槽 id 签名, 炉三槽推进
+   同惯例): 磨损只变 dur 不重画, 常驻条无闪烁。
+   opts:
+     doc/mount      文档与容器注入(Node 单测假 doc 先例)
+     onUnequip(slot) 点槽脱下意图回调(必传——无政策不挂条)
+     visible()      显隐供给(缺省恒显; 探险传模式状态)
+   吐出 {update(worn) · dispose()}。 */
+function mkArmorBar(opts) {
+  const o = opts || {};
+  const doc = o.doc || document;
+  const mount = o.mount || doc.body;
+  const root = doc.createElement('div');
+  root.className = 'armorbar';
+  const slots = [];
+  for (const slot of EQUIP_SLOTS) {/* 槽序=装备核心四槽表(展示序单一权威) */
+    const b = doc.createElement('button');
+    b.className = 'armorbar-slot off';
+    b.dataset.slot = slot;
+    b.addEventListener('click', () => {
+      if (typeof o.onUnequip === 'function') o.onUnequip(slot);
+    });
+    root.appendChild(b);
+    slots.push(b);
+  }
+  mount.appendChild(root);
+  let sig = '';
+  return {
+    update(worn) {
+      const vis = o.visible ? o.visible() : true;
+      root.style.display = vis ? 'flex' : 'none';
+      if (!vis) return;
+      const s = EQUIP_SLOTS.map((k) => (worn && worn[k] ? worn[k].id : '')).join(',');
+      if (s === sig) return; /* 签名节流: 同四槽 id 不重画(磨损不闪) */
+      sig = s;
+      EQUIP_SLOTS.forEach((k, i) => {
+        const piece = worn && worn[k];
+        const el = slots[i];
+        if (piece) {
+          el.classList.remove('off');
+          /* iconOf 调用期经全局名解析(icons.js 加载序在本文件之后, mkBubbleBar
+             的 btnIcon 同款防御式——工坊缺位回落键名不静默丢) */
+          const url = (typeof iconOf === 'function') ? iconOf(piece.id) : piece.id;
+          el.innerHTML = '<img src="' + url + '" alt="">';
+        } else {
+          el.classList.add('off');
+          el.innerHTML = '';
+        }
+      });
+    },
+    dispose() {
+      if (root.parentNode) root.parentNode.removeChild(root);
+    },
+    root, /* 挂载/子树断言出口(mode-kit 面板件同惯例) */
+  };
+}
+
 /* ---------- mkMobPicker: 选怪按钮组(评审候选 6, 三处誊写收编) ----------
    「Mobs.face(k) 头像 img + 名字 + families() 谱系分组簇(组头+组员) +
    data-type + active 高亮」的按钮制造术在竞技场双队面板(.mob-btns)/
@@ -1515,6 +1576,6 @@ function mkMode(cfg) {
 
 const ModeKit = {mkMode, mkHotbar, mkMainAct, mkHeldSync, editHit, mkHoldMine,
   mkMobPicker, mkCraftPanel,
-  mkFurnacePanel, mkChestPanel, mkBubbleBar, sortInv,
+  mkFurnacePanel, mkChestPanel, mkBubbleBar, mkArmorBar, sortInv,
   spawn: kitSpawn, lookName, confirmBtn};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;
