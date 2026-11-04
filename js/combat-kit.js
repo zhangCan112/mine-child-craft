@@ -14,7 +14,9 @@
    随战斗 vocabulary 归位)。
    interface: mkFighter(policy)→ent · mkHurtAlarm(cfg)→{hit(r),tick(dt),reset()} ·
      mkMelee(cfg{skip?(m)})→{aim(p),swing(p),swingAction(p,spec),tick(dt),reset()} ·
-     mkArrows(cfg{skip?(m)})→{shootFromMob(m,tg,spec)·shootFromAim(spec)·update(dt)·clear()·count()} ·
+     mkArrows(cfg{skip?(m), hurtPlayer?(dmg,kpow)→{dmg,kpow} 怪弹命中玩家前
+       政策变换, 装备系统 T6})→{shootFromMob(m,tg,spec)·shootFromAim(spec)·
+       update(dt)·clear()·count()} ·
      killBurst(m,count,cfg?) · resetFighter(e) · mkHpBar(opts)→{update,dispose}
    依赖(均经全局名, 调用期解析): CombatCore(js/combat-core.js — leadAim/
      hitBody/stepShot) · Mobs(js/mobs.js — list/hit/debrisColor) ·
@@ -242,10 +244,13 @@ function mkArrows(cfg) {
           removeAt(i);
         }
       } else if (o.player) {
-        /* 怪弹 → 打玩家(致命走死亡政策, 受击走提醒) */
+        /* 怪弹 → 打玩家(致命走死亡政策, 受击走提醒)。hurtPlayer 缝(装备
+           系统 T6): 命中前 dmg/kpow 可经政策变换——探险注入「盔甲减伤+击退
+           抗性」合一函数, kit 不知盔甲; 缺省原样透传(既有实例零改动) */
         const p = o.player();
         if (p && !p.dead && CombatCore.hitBody(r, p)) {
-          const res = Mobs.hit(p, a.dmg, p.pos.x - r.x, p.pos.z - r.z, a.kpow);
+          const t = o.hurtPlayer ? o.hurtPlayer(a.dmg, a.kpow) : {dmg: a.dmg, kpow: a.kpow};
+          const res = Mobs.hit(p, t.dmg, p.pos.x - r.x, p.pos.z - r.z, t.kpow);
           if (o.onHitPlayer) o.onHitPlayer(res);
           removeAt(i);
         }

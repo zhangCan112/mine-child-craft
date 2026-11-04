@@ -34,6 +34,10 @@ const ITEM_HINTS = {
   gold_ore: '金色的矿石，烧出金锭',
   gold_ingot: '黄澄澄的金子，能做金苹果',
   diamond: '亮晶晶的宝贝，能做最棒的工具',
+  // 下界合金链(装备系统 2026-11): 残骸→碎片→锭的烧炼铸造链
+  ancient_debris: '藏在下界的黑硬块，烧一烧有宝贝',
+  netherite_scrap: '烧远古残骸得到的碎片',
+  netherite_ingot: '碎片加金锭铸的最硬锭子',
 
   /* —— 怪物掉落材料 —— */
   rotten_flesh: '僵尸掉的小肉，饿了能吃',
@@ -125,23 +129,58 @@ const ITEM_HINTS = {
   /* —— 大背包(2026-10, docs/bag-and-drop-design.md §2): 拿在手里点一下就变大 —— */
   bag_upgrade: '拿在手里点一下，背包就能多装 6 格',
 
-  /* —— 工具 16 条 = 4 阶 × 镐/斧/剑/锹(镐讲能挖到什么——挖矿门槛是任务链卡点) —— */
+  /* —— 工具 24 条 = 6 阶 × 镐/斧/剑/锹(镐讲能挖到什么——挖矿门槛是任务链卡点;
+        金阶快而脆 · 下界合金全场最棒, 装备系统 2026-11) —— */
   pick_wood: '能挖石头的木头镐',
   pick_stone: '更硬啦，能挖铁矿石',
   pick_iron: '硬邦邦，能挖到钻石',
   pick_diamond: '最棒的镐子，什么都挖得动',
+  pick_gold: '挖石头飞快的金镐，就是不经用',
+  pick_netherite: '全场最棒的镐，什么矿都挖得动',
   axe_wood: '砍树更快的小斧头',
   axe_stone: '砍树更快的石斧头',
   axe_iron: '锋利的铁斧，砍树飞快',
   axe_diamond: '最棒的斧头，砍树超快',
+  axe_gold: '砍树超快的金斧头',
+  axe_netherite: '全场最厉害的斧头',
   sword_wood: '打怪用的小木剑',
   sword_stone: '石头剑，更厉害一点',
   sword_iron: '锋利的铁剑，真厉害',
   sword_diamond: '最厉害的剑，闪闪发光',
+  sword_gold: '亮闪闪的金剑，好看又厉害',
+  sword_netherite: '全场最厉害的剑',
   shovel_wood: '挖土和沙子的小铲子',
   shovel_stone: '挖土更快的石铲子',
   shovel_iron: '挖土飞快的铁铲子',
   shovel_diamond: '最棒的铲子，挖土超快',
+  shovel_gold: '挖土超快的金铲子',
+  shovel_netherite: '全场最快的铲子',
+
+  /* —— 盔甲 24 条 = 6 材质 × 4 件套(装备系统 2026-11: 讲穿上的好处, 不念数值) —— */
+  helmet_leather: '软软的皮帽子，戴着防护',
+  chestplate_leather: '皮背心，穿上打怪不那么痛',
+  leggings_leather: '皮裤子，护住两条腿',
+  boots_leather: '皮靴子，走路稳稳的',
+  helmet_chain: '小铁环圈编成的帽子',
+  chestplate_chain: '小铁环圈编成的背心',
+  leggings_chain: '小铁环圈编成的裤子',
+  boots_chain: '小铁环圈编成的靴子',
+  helmet_iron: '硬邦邦的铁帽子',
+  chestplate_iron: '结实的铁甲，保护身体',
+  leggings_iron: '铁裤子，腿不怕撞啦',
+  boots_iron: '铁靴子，踩什么都不怕',
+  helmet_gold: '亮晶晶的金帽子，真神气',
+  chestplate_gold: '金闪闪的护甲，又漂亮又结实',
+  leggings_gold: '金裤子，亮闪闪真好看',
+  boots_gold: '金靴子，穿上亮闪闪',
+  helmet_diamond: '钻石头盔，超级坚硬',
+  chestplate_diamond: '钻石护甲，最坚固的背心',
+  leggings_diamond: '钻石护腿，又硬又帅气',
+  boots_diamond: '钻石靴子，跑跳都轻快',
+  helmet_netherite: '下界合金头盔，全场最棒',
+  chestplate_netherite: '下界合金护甲，怪兽推不动',
+  leggings_netherite: '下界合金护腿，超级帅气',
+  boots_netherite: '下界合金靴子，又硬又酷',
 };
 
 /* ------------------------------------------------------------

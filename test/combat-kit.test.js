@@ -288,6 +288,36 @@ test('mkMelee: skip 豁免不被选为目标(探险幼崽免伤), 成年目标�
   assert.ok(guarded.aim(p), '成年目标不受豁免影响');
 });
 
+/* ============ hurtPlayer 变换缝(装备系统 T6) ============ */
+
+test('mkArrows hurtPlayer 缝: 怪弹命中玩家前 dmg/kpow 可经政策变换(kit 不知盔甲)', () => {
+  const d = loadCombatKit();
+  const arr = d.ck.mkArrows({
+    player: () => ({pos: {x: 0, y: 10, z: -6}, cfg: {h: 1.8, hitR: 0.55}, dead: false}),
+    onHitPlayer: () => {},
+    /* 探险侧将注入「盔甲减伤 + 击退抗性」合一函数; 此处字面量证缝通用 */
+    hurtPlayer: (dmg, kpow) => ({dmg: dmg - 2, kpow: kpow * 0.5})});
+  const shooter = {pos: {x: 0, y: 10, z: 0}, vel: {x: 0, z: 0}, cfg: {h: 1.8}};
+  arr.shootFromMob(shooter, {pos: {x: 0, y: 10, z: -6}, vel: {x: 0, z: 0}, cfg: {h: 1.8}},
+      {speed: 20, dmg: 6, kpow: 0.6, g: 0, life: 5});
+  for (let i = 0; i < 40 && arr.count(); i++) arr.update(0.05);
+  assert.strictEqual(d.log.hits.length, 1, '命中玩家恰好一次');
+  assert.strictEqual(d.log.hits[0].dmg, 4, '6−2=4: 伤害经变换后进 Mobs.hit');
+  assert.strictEqual(d.log.hits[0].kpow, 0.3, '击退同样过缝(0.6×0.5)');
+});
+
+test('mkArrows hurtPlayer 缝缺省=原样透传(向后兼容, 雪球等既有实例零改动)', () => {
+  const d = loadCombatKit();
+  const arr = d.ck.mkArrows({player: () => ({pos: {x: 0, y: 10, z: -6}, cfg: {h: 1.8, hitR: 0.55},
+    dead: false}), onHitPlayer: () => {}});
+  const shooter = {pos: {x: 0, y: 10, z: 0}, vel: {x: 0, z: 0}, cfg: {h: 1.8}};
+  arr.shootFromMob(shooter, {pos: {x: 0, y: 10, z: -6}, vel: {x: 0, z: 0}, cfg: {h: 1.8}},
+      {speed: 20, dmg: 6, kpow: 0.6, g: 0, life: 5});
+  for (let i = 0; i < 40 && arr.count(); i++) arr.update(0.05);
+  assert.strictEqual(d.log.hits[0].dmg, 6, '未注入缝=原始伤害');
+  assert.strictEqual(d.log.hits[0].kpow, 0.6, '未注入缝=原始击退');
+});
+
 test('mkArrows: skip 豁免玩家弹直接穿过(不命中不消耗不结算)', () => {
   const d = loadCombatKit();
   d.setMobs([mobAt(0, -3, {pos: {x: 0, y: 2, z: -3}, __baby: true})]);

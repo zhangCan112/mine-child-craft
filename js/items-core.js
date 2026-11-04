@@ -2,15 +2,18 @@
 /* ============================================================
    物品核心 (ItemsCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
-   物品注册表 ITEMS 是全游戏物品的唯一数据源(材料/放置型/食物/工具四类
-   条目, 加物品 = 加一行纯数据); 外加五个无状态纯函数: stackMax 堆叠
-   上限 · mkStack 造一摞(工具带满耐久) · isTool 工具判定 · toolOf 工具
-   参数查询 · durOf 可耗损物满耐久查询(工具/灯笼, 昼夜 D7 §8.1)。
+   物品注册表 ITEMS 是全游戏物品的唯一数据源(材料/放置型/食物/工具/
+   盔甲五类条目, 加物品 = 加一行纯数据); 外加七个无状态纯函数: stackMax
+   堆叠上限 · mkStack 造一摞(可耗损物带满耐久) · isTool 工具判定 ·
+   toolOf 工具参数查询 · isArmor 盔甲判定 · armorOf 盔甲参数查询 ·
+   durOf 可耗损物满耐久查询(工具/盔甲/灯笼, 昼夜 D7 §8.1)。
    icon 为 emoji 占位(正式像素图标归 icons.js 的 itemIcon/T8)。
    零 THREE 零 DOM, 且不依赖 config.js — 放置型的 block 字段存方块 id
    数字, 号段断言在单测, 与方块表的交叉校验归 test/drops.test.js。
-   interface: ITEMS · stackMax(id) · mkStack(id, n=1) · isTool(id) · toolOf(id) · durOf(id)
-   依赖: 无(纯数据+纯函数; 数值出处 docs/item-crafting-design.md §3.1/§3.5/D9)
+   interface: ITEMS · stackMax(id) · mkStack(id, n=1) · isTool(id) · toolOf(id) ·
+     isArmor(id) · armorOf(id) · durOf(id)
+   依赖: 无(纯数据+纯函数; 数值出处 docs/item-crafting-design.md §3.1/§3.5/D9 ·
+     盔甲与金银阶工具 docs/equipment-design.md §3, 正典取证 mc-equipment-research.md)
    可测性: 零 THREE·零 DOM·有单测(test/items-core.test.js, vm 直测)
    ============================================================ */
 
@@ -22,6 +25,7 @@
      · full 旗标=吃了直接回满血(F3 金苹果, 二期设计稿 §3)
      · dur 满耐久秒数=可耗损物(D7 灯笼: 不可堆叠+mkStack 满耐久, isTool 不动)
      · tool {kind, tier, dmg, dur, speed} 工具五元组(D9 数值表)
+     · armor {slot, tier, pts, tough, dur, kb?} 盔甲五元组(装备系统, 设计稿 §3)
    ------------------------------------------------------------ */
 const ITEMS = {
   /* —— 木材链(砍树起步) —— */
@@ -39,6 +43,11 @@ const ITEMS = {
   gold_ore: {name: '金矿石', icon: '🟡'}, // 粗矿口径: 需熔炼
   gold_ingot: {name: '金锭', icon: '🟨'},
   diamond: {name: '钻石', icon: '💎'},
+  // 下界合金链(装备系统, docs/equipment-design.md §1.1/§2): 残骸下界挖得→烧出碎片→铸合金锭;
+  // 粗矿口径无 block(铁矿石/金矿石同款, 挖得即入包)
+  ancient_debris: {name: '远古残骸', icon: '🪨'}, // 下界地下散布(方块号段/贴图/掉落归 T7 落块)
+  netherite_scrap: {name: '下界合金碎片', icon: '🟫'}, // 烧远古残骸得(正典熔炉/高炉同产物)
+  netherite_ingot: {name: '下界合金锭', icon: '🟪'}, // 4 碎片+4 金锭铸成(正典 shapeless); 下界合金装备唯一材料
 
   /* —— 怪物掉落材料(MOB_DROPS 掷骰产物, 设计稿 §3.3) —— */
   rotten_flesh: {name: '腐肉', icon: '🥓', food: 2}, // 僵尸; 儿童版无饥饿debuff, 回 2 血
@@ -137,25 +146,64 @@ const ITEMS = {
   /* —— 二期占位(§3.2 配方书全表引用 bow_item, 一期卡片不点亮) —— */
   bow_item: {name: '弓', icon: '🏹'},
 
-  /* —— 工具 16 条 = 4 阶(木/石/铁/钻) × 镐/斧/剑/锹(D9 数值表, 逐格有单测断言) ——
-     键名与手持物注册表 defs 同名(T4 mkToolDef 生成观感), Avatar.setItem 直用;
-     耐久 ≈ MC×2(拍板③) · 速度照搬 MC · dmg 对齐「hp≈原版×1.5」折算惯例 · tier=挖掘等级 */
+  /* —— 工具 24 条 = 6 阶 × 镐/斧/剑/锹(D9 数值表 + 金银阶 2026-11, 逐格有单测断言) ——
+     键名与手持物注册表 defs 同名(mkToolDef 生成观感; 金/下界合金两阶观感归 T3 扩生成表),
+     Avatar.setItem 直用; 耐久 ≈ MC×2(拍板③) · 速度照搬 MC · dmg 对齐「hp≈原版×1.5」
+     折算惯例 · tier=挖掘等级; 金阶=快而脆(speed 12 全场最快, tier 1 木阶门禁, dur 80),
+     下界合金 tier 5 > 钻 4(设计稿 §3 折算注锁定) */
   pick_wood: {name: '木镐', icon: '⛏️', tool: {kind: 'pick', tier: 1, dmg: 3, dur: 120, speed: 2}},
   pick_stone: {name: '石镐', icon: '⛏️', tool: {kind: 'pick', tier: 2, dmg: 4, dur: 260, speed: 4}},
   pick_iron: {name: '铁镐', icon: '⛏️', tool: {kind: 'pick', tier: 3, dmg: 6, dur: 500, speed: 6}},
   pick_diamond: {name: '钻石镐', icon: '⛏️', tool: {kind: 'pick', tier: 4, dmg: 8, dur: 1500, speed: 8}},
+  pick_gold: {name: '金镐', icon: '⛏️', tool: {kind: 'pick', tier: 1, dmg: 3, dur: 80, speed: 12}},
+  pick_netherite: {name: '下界合金镐', icon: '⛏️', tool: {kind: 'pick', tier: 5, dmg: 10, dur: 2000, speed: 9}},
   axe_wood: {name: '木斧', icon: '🪓', tool: {kind: 'axe', tier: 1, dmg: 5, dur: 120, speed: 2}},
   axe_stone: {name: '石斧', icon: '🪓', tool: {kind: 'axe', tier: 2, dmg: 6, dur: 260, speed: 4}},
   axe_iron: {name: '铁斧', icon: '🪓', tool: {kind: 'axe', tier: 3, dmg: 8, dur: 500, speed: 6}},
   axe_diamond: {name: '钻石斧', icon: '🪓', tool: {kind: 'axe', tier: 4, dmg: 10, dur: 1500, speed: 8}},
+  axe_gold: {name: '金斧', icon: '🪓', tool: {kind: 'axe', tier: 1, dmg: 5, dur: 80, speed: 12}},
+  axe_netherite: {name: '下界合金斧', icon: '🪓', tool: {kind: 'axe', tier: 5, dmg: 12, dur: 2000, speed: 9}},
   sword_wood: {name: '木剑', icon: '🗡️', tool: {kind: 'sword', tier: 1, dmg: 7, dur: 120, speed: 2}},
   sword_stone: {name: '石剑', icon: '🗡️', tool: {kind: 'sword', tier: 2, dmg: 9, dur: 260, speed: 4}},
   sword_iron: {name: '铁剑', icon: '🗡️', tool: {kind: 'sword', tier: 3, dmg: 11, dur: 500, speed: 6}},
   sword_diamond: {name: '钻石剑', icon: '🗡️', tool: {kind: 'sword', tier: 4, dmg: 13, dur: 1500, speed: 8}},
+  sword_gold: {name: '金剑', icon: '🗡️', tool: {kind: 'sword', tier: 1, dmg: 7, dur: 80, speed: 12}},
+  sword_netherite: {name: '下界合金剑', icon: '🗡️', tool: {kind: 'sword', tier: 5, dmg: 15, dur: 2000, speed: 9}},
   shovel_wood: {name: '木锹', icon: '🥄', tool: {kind: 'shovel', tier: 1, dmg: 2, dur: 120, speed: 2}},
   shovel_stone: {name: '石锹', icon: '🥄', tool: {kind: 'shovel', tier: 2, dmg: 3, dur: 260, speed: 4}},
   shovel_iron: {name: '铁锹', icon: '🥄', tool: {kind: 'shovel', tier: 3, dmg: 4, dur: 500, speed: 6}},
   shovel_diamond: {name: '钻石锹', icon: '🥄', tool: {kind: 'shovel', tier: 4, dmg: 5, dur: 1500, speed: 8}},
+  shovel_gold: {name: '金锹', icon: '🥄', tool: {kind: 'shovel', tier: 1, dmg: 2, dur: 80, speed: 12}},
+  shovel_netherite: {name: '下界合金锹', icon: '🥄', tool: {kind: 'shovel', tier: 5, dmg: 6, dur: 2000, speed: 9}},
+
+  /* —— 盔甲 24 条 = 6 材质 × 4 件套(装备系统, docs/equipment-design.md §1.1/§3):
+     armor {slot, tier, pts, tough, dur, kb?}: pts/tough 正典逐字(minecraft.wiki Armor),
+     dur ≈ 正典×2(拍板③同折算), kb 击退抗性仅下界合金 0.1/件(D10);
+     键名 kind_tier 惯例(镜像工具行与生成循环, 不用正典 leather_helmet 前缀式) —— */
+  helmet_leather: {name: '皮革帽', icon: '🪖', armor: {slot: 'helmet', tier: 'leather', pts: 1, tough: 0, dur: 110}},
+  helmet_chain: {name: '锁链帽', icon: '🪖', armor: {slot: 'helmet', tier: 'chain', pts: 2, tough: 0, dur: 330}},
+  helmet_iron: {name: '铁帽', icon: '🪖', armor: {slot: 'helmet', tier: 'iron', pts: 2, tough: 0, dur: 330}},
+  helmet_gold: {name: '金帽', icon: '🪖', armor: {slot: 'helmet', tier: 'gold', pts: 2, tough: 0, dur: 154}},
+  helmet_diamond: {name: '钻石帽', icon: '🪖', armor: {slot: 'helmet', tier: 'diamond', pts: 3, tough: 2, dur: 726}},
+  helmet_netherite: {name: '下界合金帽', icon: '🪖', armor: {slot: 'helmet', tier: 'netherite', pts: 3, tough: 3, dur: 814, kb: 0.1}},
+  chestplate_leather: {name: '皮革甲', icon: '🦺', armor: {slot: 'chestplate', tier: 'leather', pts: 3, tough: 0, dur: 160}},
+  chestplate_chain: {name: '锁链甲', icon: '🦺', armor: {slot: 'chestplate', tier: 'chain', pts: 5, tough: 0, dur: 480}},
+  chestplate_iron: {name: '铁甲', icon: '🦺', armor: {slot: 'chestplate', tier: 'iron', pts: 6, tough: 0, dur: 480}},
+  chestplate_gold: {name: '金甲', icon: '🦺', armor: {slot: 'chestplate', tier: 'gold', pts: 5, tough: 0, dur: 224}},
+  chestplate_diamond: {name: '钻石甲', icon: '🦺', armor: {slot: 'chestplate', tier: 'diamond', pts: 8, tough: 2, dur: 1056}},
+  chestplate_netherite: {name: '下界合金甲', icon: '🦺', armor: {slot: 'chestplate', tier: 'netherite', pts: 8, tough: 3, dur: 1184, kb: 0.1}},
+  leggings_leather: {name: '皮革裤', icon: '👖', armor: {slot: 'leggings', tier: 'leather', pts: 2, tough: 0, dur: 150}},
+  leggings_chain: {name: '锁链裤', icon: '👖', armor: {slot: 'leggings', tier: 'chain', pts: 4, tough: 0, dur: 450}},
+  leggings_iron: {name: '铁裤', icon: '👖', armor: {slot: 'leggings', tier: 'iron', pts: 5, tough: 0, dur: 450}},
+  leggings_gold: {name: '金裤', icon: '👖', armor: {slot: 'leggings', tier: 'gold', pts: 3, tough: 0, dur: 210}},
+  leggings_diamond: {name: '钻石裤', icon: '👖', armor: {slot: 'leggings', tier: 'diamond', pts: 6, tough: 2, dur: 990}},
+  leggings_netherite: {name: '下界合金裤', icon: '👖', armor: {slot: 'leggings', tier: 'netherite', pts: 6, tough: 3, dur: 1110, kb: 0.1}},
+  boots_leather: {name: '皮革靴', icon: '🥾', armor: {slot: 'boots', tier: 'leather', pts: 1, tough: 0, dur: 130}},
+  boots_chain: {name: '锁链靴', icon: '🥾', armor: {slot: 'boots', tier: 'chain', pts: 1, tough: 0, dur: 390}},
+  boots_iron: {name: '铁靴', icon: '🥾', armor: {slot: 'boots', tier: 'iron', pts: 2, tough: 0, dur: 390}},
+  boots_gold: {name: '金靴', icon: '🥾', armor: {slot: 'boots', tier: 'gold', pts: 1, tough: 0, dur: 182}},
+  boots_diamond: {name: '钻石靴', icon: '🥾', armor: {slot: 'boots', tier: 'diamond', pts: 3, tough: 2, dur: 858}},
+  boots_netherite: {name: '下界合金靴', icon: '🥾', armor: {slot: 'boots', tier: 'netherite', pts: 3, tough: 3, dur: 962, kb: 0.1}},
 };
 
 /* ------------------------------------------------------------
@@ -191,12 +239,24 @@ function toolOf(id) {
   return (ITEMS[id] && ITEMS[id].tool) || null;
 }
 
-/* 可耗损物满耐久查询(昼夜 D7 §8.1): 工具取 tool.dur, 带 dur 字段的
-   耗损物(灯笼)取 dur, 其余/未注册返回 0 — 「可扣耐久」与「不可堆叠」
-   两判定的单一权威; isTool 语义不动(灯笼不挖不砍, 无工具五元组) */
+/* 盔甲判定: 注册条目带 armor 字段即盔甲(六材质四件套, 装备系统) */
+function isArmor(id) {
+  return !!(ITEMS[id] && ITEMS[id].armor);
+}
+
+/* 盔甲参数查询: 返回 armor 五元组 {slot, tier, pts, tough, dur, kb?};
+   非盔甲/未注册返回 null — equipment-core 穿戴/减伤与装备条 UI 的取数口 */
+function armorOf(id) {
+  return (ITEMS[id] && ITEMS[id].armor) || null;
+}
+
+/* 可耗损物满耐久查询(昼夜 D7 §8.1): 工具取 tool.dur, 盔甲取 armor.dur,
+   带 dur 字段的耗损物(灯笼)取 dur, 其余/未注册返回 0 — 「可扣耐久」与
+   「不可堆叠」两判定的单一权威; isTool 语义不动(灯笼/盔甲不挖不砍) */
 function durOf(id) {
   const it = ITEMS[id];
   if (!it) return 0;
   if (it.tool) return it.tool.dur;
+  if (it.armor) return it.armor.dur;
   return typeof it.dur === 'number' ? it.dur : 0;
 }
