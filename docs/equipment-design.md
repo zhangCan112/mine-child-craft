@@ -204,6 +204,13 @@ texture-atlas 新格：正典「上下螺旋纹、侧面斑驳」观感语言像
 - 环境伤害 `advEnvHurt` 不改（D8）。
 - 破碎 = 消失（工具同款「归零消失」）；死亡不掉装备（零惩罚）。
 
+> 实施注（2026-11-05）：漏斗三件 = `advArmorFold`（减伤+kb 合一变换，兼作箭矢
+> `hurtPlayer` 缝的注入形，kit 不知盔甲）+ `advWearArmorOnHit`（原地落账磨损
+> 仪式——档引用恒定，advSaveView/journal 活引用免重取）+ `advHitPlayer`（受击
+> 唯一入口，hit→wear 序，致命一击也照磨）。「巢穴武点位」经查无独立代码——
+> 副本守卫同走 advMobAi 近战链，三条实链（近战/自爆/骷髅箭）收口后以
+> `Mobs.hit(p` 源码钉 = 0 执法防回潮。
+
 ## §7 存档与状态伴生清点（conventions §1.12）
 
 - payload 新键 `armor`（`worn` 归一形状）；`defaults.armor = mkWorn()`、encode 直取、
@@ -235,7 +242,11 @@ texture-atlas 新格：正典「上下螺旋纹、侧面斑驳」观感语言像
 > T4 落 ARMOR_TIER_COLORS 穿戴层色板（§7.3 层板，双色板纪律两阶逐对钉）+
 > Avatar.setArmor 骨挂 overlay（五面盒前开脸/主盒+双肩帽/上 2/3 盒+髋带/
 > 下 1/4 盒+鞋头，尺寸=骨盒 +1px，同目标幂等——四槽 id 签名，磨损不重建）
-> + boot 冒烟（THREE 段全路径）；T6 的 kit 侧缝提前完成。余 T5 → T6 → T7 → T8。
+> + boot 冒烟（THREE 段全路径）；T6 的 kit 侧缝提前完成。T5 收官（2026-11-05）：
+> wear 使用档派生生成 + mkArmorBar 装备条 + advTryWear/advWornTakeOff 换装编排 +
+> 存档 armor 键（三处白名单 + 无档 init 兜底）；T6 收官（2026-11-05）：战斗单一
+> 漏斗 advHitPlayer（近战/自爆/骷髅箭三链收口，`Mobs.hit(p` 源码钉=0 执法）+
+> 命中磨损破碎仪式（advWearArmorOnHit 原地落账）+ kbResist 击退抗性。余 T7 → T8。
 
 ## 附录 B：MC 差异登记表
 

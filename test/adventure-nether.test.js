@@ -24,6 +24,7 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, hashRand, SceneKit,
   EQUIP_SLOTS, mkWorn, wornPut, wornNormalize, armorOf, isArmor, /* 装备核心(T5 壳层经全局名消费) */
+  armorPoints, toughPoints, armorReduce, kbResist, wornWear, /* 装备战斗件(T6 漏斗经全局名消费) */
   WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_BED_FOOT,

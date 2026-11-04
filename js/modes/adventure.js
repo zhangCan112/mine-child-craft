@@ -727,7 +727,9 @@ const advMelee = CombatKit.mkMelee({range: ADV_MELEE_R, cooldown: ADV_SWING_CD,
   },
   onKill: (m) => advOnKill(m)});
 const advArrows = CombatKit.mkArrows({color: 0xd8d0b8, player: advGetPEnt,
+  hurtPlayer: advArmorFold, /* 减伤+击退抗性缝(装备 T6): 命中玩家前过折算, kit 不知盔甲 */
   onHitPlayer: (res) => {
+    advWearArmorOnHit(); /* 命中磨损(装备 T6): 骷髅箭同吃甲(漏斗同序 hit→wear) */
     if (res.freshDead) advPlayerDied();
     else advHurt.hit(res);
   }});
@@ -772,10 +774,44 @@ function advEnvHurt(dmg, line) {
 const advHpBar = CombatKit.mkHpBar();
 let advBubbles = null; /* 溺气泡条(liquid D10, init 建/cleanup 收) */
 /* 穿戴状态(装备 T5, 设计稿 §5/§7): worn 归一形状(equipment-core mkWorn 形),
-   wear/脱下/破碎唯一改写口在本文件三函数(编排红线); 观感经 Avatar.setArmor,
-   档随 journal payload armor 键(init decode wornNormalize 兜底老档缺键) */
+   wear/脱下/破碎唯一改写口在本文件三函数(advTryWear/advWornTakeOff/
+   advWearArmorOnHit, 编排红线); 观感经 Avatar.setArmor, 档随 journal
+   payload armor 键(init decode wornNormalize 兜底老档缺键) */
 let advWorn = mkWorn();
 let advArmorBar = null; /* 装备条(init 建/cleanup 收, mkArmorBar 签名节流) */
+
+/* ---------- 战斗受击单一漏斗(装备 T6, 设计稿 §6): 减伤→受击→磨损三段收口 ----------
+   怪物近战/苦力怕自爆/骷髅箭(经 hurtPlayer 缝)三链全走此漏斗——正典减伤
+   armorReduce(盔甲点/韧性取自穿戴档)先折 → Mobs.hit 结算(击退经 kbResist
+   折 kpow, D10) → wornWear 命中磨损 1/件(破碎件话术+槽清空+观感对齐,
+   归零消失=工具同款)。环境伤害不经漏斗(advEnvHurt 原值直扣, D8)。 */
+function advArmorFold(dmg, kpow) {/* 减伤+击退抗性合一变换(mkArrows hurtPlayer 缝注入形,
+    kit 不知盔甲——折算用的穿戴档归探险层自有) */
+  return {dmg: armorReduce(dmg, armorPoints(advWorn), toughPoints(advWorn)),
+    kpow: kpow * (1 - kbResist(advWorn))};
+}
+function advWearArmorOnHit() {/* 命中磨损仪式: 每件 dur−1, 破件话术+槽清空+观感对齐 */
+  const worn = advWorn;
+  if (!EQUIP_SLOTS.some((s) => worn[s])) return; /* 空穿零开销(不换档不 touch) */
+  const wr = wornWear(worn, 1); /* 纯函数: 破件入 broke 清单, 返回值槽已清空 */
+  for (const s of EQUIP_SLOTS) worn[s] = wr.worn[s]; /* 原地落账(档引用恒定——
+    advSaveView/journal 活引用消费方免重取; 改写口红线见上方 advWorn 声明) */
+  for (const slot of wr.broke) {
+    const id = (worn[slot] || {}).id; /* 破件 id 取自磨损前快照(wr.worn 槽已空) */
+    const name = (ITEMS[id] && ITEMS[id].name) || id;
+    advSpeak(name + '碎掉了！不怕，再做一件更棒的吧！');
+    advToast('💔 ' + name + ' 碎掉了');
+  }
+  if (wr.broke.length) advSyncArmor(); /* 破件观感对齐(overlay 卸件+装备条卸格) */
+  advStore.touch(); /* 磨损余量/破碎随 journal 节流落盘(payload 读 advWorn 活引用) */
+}
+function advHitPlayer(dmg, kdx, kdz, kpow, line) {/* 玩家受击唯一入口(三链收口) */
+  const f = advArmorFold(dmg, kpow);
+  const r = Mobs.hit(advGetPEnt(), f.dmg, kdx, kdz, f.kpow);
+  advWearArmorOnHit(); /* hit → wear(设计稿 §6 序): 致命一击也照磨(破碎=消失) */
+  if (r.freshDead) advPlayerDied();
+  else advHurt.hit({hp: r.hp, line});
+}
 
 /* ---------- 提醒账本(S4): 判据纯函数在 adventure-core, 这里只持账本与话术 ---------- */
 const advWarnLow = new Set(); /* 已低耐久预警的工具 id(advWearWarn 消费; 破板即 delete 重置) */
@@ -1027,9 +1063,7 @@ function advCreepBoom(m, p) {
   Mobs.remove(m); /* 自爆残躯立即移除(引擎回收管线, 竞技场同款) */
   const d = Math.hypot(p.pos.x - m.pos.x, p.pos.z - m.pos.z);
   if (!p.dead && d <= R && Math.abs(p.pos.y - m.pos.y) < 3) {
-    const r = Mobs.hit(p, advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.9);
-    if (r.freshDead) advPlayerDied();
-    else advHurt.hit(r);
+    advHitPlayer(advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.9); /* 漏斗收口(装备 T6) */
   }
 }
 
@@ -1115,9 +1149,7 @@ function advMobAI(dt) {
           实走门 ≤2 格——隔薄墙直线 2.1 内也不出手(穿墙票; 立柱/墙头玩家
           由 walkDist 末步免爬可达, 不误伤) */
         m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
-        const r = Mobs.hit(p, advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4);
-        if (r.freshDead) advPlayerDied();
-        else advHurt.hit(r);
+        advHitPlayer(advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4); /* 漏斗收口(装备 T6) */
       }
     } else if (distHome > ADV_NEST_HOME_R) {/* 收队: 慢步回巢(掉头不恋战) */
       Mobs.steer(m, Math.atan2(hx, hz));
@@ -2734,7 +2766,7 @@ function advTryExpandBag() {
    拒绝穿戴+话术, 零损失红线——先 add 旧件再消耗手持, add 余量>0 即整体回退)
    → 手持件消耗进槽 → Avatar.setArmor 观感对齐 → journal touch(armor 键随节
    流落盘) → sfx+toast+TTS。手持互斥=穿上即从背包移除(mkHeldSync 哨兵语义不
-   变——手持槽没了自然回落空手)。破碎清槽归 T6 同一改写口。 */
+   变——手持槽没了自然回落空手)。破碎清槽在 advWearArmorOnHit(装备 T6 同一改写口)。 */
 function advSyncArmor() {
   Avatar.setArmor(advWorn); /* 观感对齐(T4 骨挂 overlay, 同目标幂等) */
   if (advArmorBar) advArmorBar.update(advWorn); /* 装备条重画(kit 签名节流, 磨损不闪) */
@@ -3943,6 +3975,7 @@ const AdventureMode = mkMode({
     · 交互链入口: advBreakBlock · advOnCraft · advInvMove · advChest{Deposit,Withdraw,Expand}
       · advPanelClose(幂等守卫回归锚点) · advMineHardText(挖不动话术判据)
       · advSleepClockConfirm(拨盘「睡觉」确认, 测试与触屏共用行为面)
+      · advHitPlayer/advEnvHurt(战斗受击漏斗与环境对照, 装备 T6 测试挂点)
     · 查询 seam: advStationOk · advNightRead · advQuestPaint(重画并返回任务卡) · advHudLines(HUD 行)
     已删键的行为面等价物: advPlayerDied→onVoidFall · advGoHome→onKey('KeyH') ·
     advChestOpenPanel/advChestClose→点击与 onKey('Tab') · advExplode→TNT 引信行为链 ·
@@ -3980,6 +4013,7 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advNetherState: () => ({dim: advDim, map: advMap, portalCd: advPortalCd, exitSpot: advExitSpot}),
   advMineHardText, advHudLines,
   advWornState: () => advWorn, /* 穿戴档只读快照(装备 T5 测试挂点; 形状=mkWorn 归一形) */
+  advHitPlayer, advEnvHurt, /* 战斗受击两缝(装备 T6 测试挂点: 漏斗行为面/D8 环境对照) */
   advWornTakeOff}; /* 装备条点槽的同一条脱下编排(模式层回包, 装备 T5) */
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;

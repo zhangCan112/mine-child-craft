@@ -96,6 +96,7 @@ const api = vm.runInContext(`({
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   ITEMS, isTool, toolOf, stackMax, mkStack, durOf, breakTime, itemUses,
   EQUIP_SLOTS, mkWorn, wornPut, wornNormalize, armorOf, isArmor,
+  armorPoints, toughPoints, armorReduce, kbResist, wornWear, /* 装备战斗件(T6 漏斗经全局名消费) */
   mkInventory, add, count, remove, moveSlot, damageTool, serialize, deserialize, HOTBAR_SLOTS, INV_SLOTS,
   BAG_EXPAND_SLOTS, BAG_MAX_SLOTS,
   raycastVoxel, collidesAtPlayer, rollBlockDrop, rollDrops, MOB_DROPS, Drops,
@@ -3777,4 +3778,88 @@ test('装备 T5: 存档 armor 键 roundtrip — cleanup 落盘重进恢复; 老�
   assert.deepStrictEqual([...EQUIP_SLOTS].map((s) => w0[s]), [null, null, null, null],
       '老档缺 armor 键 → 四槽全空(wornNormalize 幂等兜底)');
   AdventureMode.cleanup();
+});
+
+/* ============ 装备 T6: 战斗单一漏斗(减伤+击退抗性) + 命中磨损破碎仪式 ============ */
+
+/* 全套穿上 helper: 走真实 wear 执行器(T5 同路径, 逐件手持右键) */
+function wearAll(inv, ids) {
+  for (const id of ids) {
+    inv.slots[0] = api.mkStack(id);
+    AdventureMode.hotbar.select(0);
+    AdventureMode.onMouse(2);
+  }
+}
+
+test('装备 T6: 战斗漏斗 — 减伤/击退抗性经穿戴档折算(正典公式手算锚); 空穿原样透传', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  /* 空穿: armor=0 → cut=0 原样; kb=0 → kpow 不动 */
+  hitLog.length = 0; nextHit = {hp: 25, dead: false, freshDead: false};
+  A.advHitPlayer(5, 1, 0, 0.5);
+  assert.strictEqual(hitLog.length, 1, '漏斗恰收口一次 Mobs.hit');
+  assert.strictEqual(hitLog[0].dmg, 5, '空穿零减伤(公式 armor=0 → 原样)');
+  assert.strictEqual(hitLog[0].kpow, 0.5, '空穿零击退抗性');
+  /* 全钻(armor 20/tough 8): inner=20−5/4=18.75 → cut=18.75/25=0.75 → 5→1.25;
+     钻石无 kb 属性 → kpow 原样(D10 抗性只下界合金有) */
+  wearAll(inv, ['helmet_diamond', 'chestplate_diamond', 'leggings_diamond', 'boots_diamond']);
+  hitLog.length = 0;
+  A.advHitPlayer(5, 1, 0, 0.5);
+  assert.strictEqual(hitLog[0].dmg, 1.25, '正典公式手算锚: 5×(1−18.75/25)=1.25');
+  assert.strictEqual(hitLog[0].kpow, 0.5, '钻石无击退抗性 → kpow 原样');
+  /* 全下界(armor 20/tough 12/kb 0.4): inner=20−5/5=19 → cut=19/25=0.76 → 5→1.2;
+     kpow 0.5×(1−0.4)=0.3(0.5 是精确半格, 浮点尾差不外漏) */
+  wearAll(inv, ['helmet_netherite', 'chestplate_netherite', 'leggings_netherite', 'boots_netherite']);
+  hitLog.length = 0;
+  A.advHitPlayer(5, 1, 0, 0.5);
+  assert.strictEqual(hitLog[0].dmg, 1.2, '下界韧性 12: 5×(1−19/25)=1.2(手算锚)');
+  assert.strictEqual(hitLog[0].kpow, 0.3, 'kb 0.4 → kpow×0.6=0.3(D10)');
+  AdventureMode.cleanup();
+});
+
+test('装备 T6: 命中磨损与破碎仪式 — 每件 dur−1; 归零槽清空+破话术+观感对齐+随档落盘', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_leather', 'chestplate_leather']);
+  const w = A.advWornState();
+  w.helmet.dur = 1; /* 直写近破耐久(测试注入尸账, inv.slots 直写同款手法) */
+  nextHit = {hp: 27, dead: false, freshDead: false};
+  spoken.length = 0;
+  A.advHitPlayer(3, 1, 0, 0.4);
+  assert.strictEqual(w.helmet, null, '磨到 0 → 槽清空(破碎=消失, 工具同款口径)');
+  assert.strictEqual(w.chestplate.dur, 159, '未破件 dur−1(命中磨损 1/件)');
+  assert.ok(spoken.some((s) => String(s).indexOf('碎掉了') >= 0), '破碎 TTS 话术(安抚不吓人)');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('\u{1F494}') >= 0),
+      '破碎 toast(💔 报件名)');
+  const lastSet = calls.filter((c) => c[0] === 'setArmor').pop();
+  assert.ok(lastSet && String(lastSet[1]).indexOf('helmet_leather') < 0, '观感对齐: 破件已从 overlay 卸下');
+  AdventureMode.cleanup(); /* 落盘(journal armor 键随节流窗口 flush) */
+  freshInit();
+  assert.strictEqual(A.advWornState().helmet, null, '破碎随档落盘(重进不复活)');
+  assert.strictEqual(A.advWornState().chestplate.dur, 159, '磨损余量随档落盘');
+  AdventureMode.cleanup();
+});
+
+test('装备 T6: 环境伤害不吃甲(D8) + 致死分支走死亡政策(漏斗不抢戏)', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_diamond', 'chestplate_diamond', 'leggings_diamond', 'boots_diamond']);
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp;
+  A.advEnvHurt(10, '测试环境伤');
+  assert.strictEqual(pe.hp, hp0 - 10, '环境伤害原值直扣(advEnvHurt 不经漏斗, D8)');
+  calls.length = 0; spoken.length = 0;
+  nextHit = {hp: 0, dead: true, freshDead: true};
+  A.advHitPlayer(30, 1, 0, 0);
+  assert.ok(calls.some((c) => c[0] === 'spawn'), '致死走 advPlayerDied(重生政策)');
+  assert.ok(spoken.some((s) => /[不怕|别怕|休息]/.test(String(s))), '死亡安抚话术(与 T14 同缝)');
+  AdventureMode.cleanup();
+});
+
+test('装备 T6: 单一漏斗源码钉 — 玩家直挨 Mobs.hit 绝迹(近战/自爆/箭矢全收口)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js/modes/adventure.js'), 'utf8');
+  assert.strictEqual((src.match(/Mobs\.hit\(p\b/g) || []).length, 0,
+      '玩家直调 Mobs.hit(p 绝迹——受击全走 advHitPlayer 漏斗');
+  assert.ok(/Mobs\.hit\(advGetPEnt\(\)/.test(src), '漏斗内恰一次玩家受击结算(单一权威)');
+  assert.ok(/hurtPlayer:\s*advArmorFold/.test(src), '箭矢链注入减伤缝(kit 不知盔甲, 怪弹同吃甲)');
 });
