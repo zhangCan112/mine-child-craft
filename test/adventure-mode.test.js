@@ -1120,7 +1120,8 @@ test('T14 骷髅远程: 索敌内保持距离放箭, 箭沿预测弹道命中玩
 
 test('T12 蓄力纯函数: advMineStep — breakTime 真值驱动(时间累积/换目标/清零直测在 adventure-core.test.js)', () => {
   const step = advMineStep;
-  /* breakTime 真值驱动: 徒手石头 7.5s(§0 现状口径) · 木镐匹配 1.125s · tier 不足 drops:false */
+  /* breakTime 真值驱动: 徒手石头 7.5s · 木镐匹配 1.125s · tier 不足 drops:false
+     (2026-11-04 起 kit 蓄力链对 drops:false 不起蓄力=挖不动, 本测试只守 advMineStep 累计契约) */
   const bare = api.breakTime(api.BLOCKS[3], null);
   assert.strictEqual(bare.time, 7.5, '徒手石头 7.5s');
   assert.strictEqual(bare.drops, false, '石头 tier1 徒手不掉落');
@@ -1274,10 +1275,10 @@ test('T12 挖掘行为链: 掉落物真空拾取 — update 喂玩家胸口点 �
   pos.x = keep.x; pos.y = keep.y; pos.z = keep.z; /* 复位共享玩家位 */
 });
 
-test('T12 挖掘行为链: tier 不足 — 徒手/低阶镐挖铁矿只碎不掉 + TTS 节流提示', () => {
+test('T12 挖掘行为链: tier 不足 — 挖不动就是真挖不动: 方块原地不动+不起蓄力+TTS 提示(2026-11-04 用户票)', () => {
   mem.clear();
   freshInit();
-  holdOnly('pick_wood', 1, 120); /* 木镐 tier1 < 铁矿 tier2: 品类对速度生效 3×5/2=7.5s, 不掉落(D1) */
+  holdOnly('pick_wood', 1, 120); /* 木镐 tier1 < 铁矿 tier2: drops:false = 挖不动(原「只碎不掉」废止) */
   const spot = findGrassSpot();
   api.setBlockRaw(spot.x, 24, spot.z, 0); /* 竖井直达铁矿(测试布景) */
   api.setBlockRaw(spot.x, 23, spot.z, 0);
@@ -1286,11 +1287,12 @@ test('T12 挖掘行为链: tier 不足 — 徒手/低阶镐挖铁矿只碎不掉
   globalThis.CameraRig = {aim: () => ({origin: {x: spot.x + 0.5, y: 24.5, z: spot.z + 0.5},
     dir: {x: 0, y: -1, z: 0}})};
   AdventureMode.onMouse(0, {x: spot.x, y: 22, z: spot.z, nx: 0, ny: 1, nz: 0});
-  AdventureMode.update(0.01); /* 首帧锁定目标并算出 breakTime */
-  assert.strictEqual(A.advMine.need, 7.5, '品类对 tier 不足: 3×5/2 = 7.5(JE 保留工具速度, breakTime 驱动)');
-  for (let i = 0; i < 17 && cell(spot.x, 22, spot.z) !== 0; i++) AdventureMode.update(0.5); /* 7.5s 蓄满 */
-  assert.strictEqual(cell(spot.x, 22, spot.z), 0, '可挖(慢) — 破坏照样发生');
-  assert.ok(!globalThis.Drops.list().some((d) => d.id === 'iron_ore'), 'tier 不足不掉落(只碎)');
+  AdventureMode.update(0.01); /* 首帧: tier 门禁命中 — 不起蓄力只提醒 */
+  assert.strictEqual(A.advMine.t, 0, '挖不动不起蓄力(t 恒 0)');
+  assert.strictEqual(cell(spot.x, 22, spot.z), api.B_IRON_ORE, '方块原地不动(真挖不动)');
+  for (let i = 0; i < 24; i++) AdventureMode.update(0.5); /* 按住 12s 也不破 */
+  assert.strictEqual(cell(spot.x, 22, spot.z), api.B_IRON_ORE, '按住再久方块也不消失');
+  assert.ok(!globalThis.Drops.list().some((d) => d.id === 'iron_ore'), 'tier 不足零掉落');
   assert.strictEqual(api.count(A.advGetInv(), 'iron_ore'), 0, '背包没有铁矿石');
   assert.ok(spoken.some((s) => String(s).indexOf('更硬') >= 0), 'TTS 提示换更硬的镐子');
   clearAim();
@@ -2326,7 +2328,8 @@ test('大宝箱箱轨容量(ADR 0007): 放一箱 +9 → 挖掉 −9 → 超容�
   for (let i = 0; i < 27; i++) inv.slots[i] = {id: 'pick_iron', n: 1, dur: 1};
   for (let i = 0; i < 27; i++) A.advChestDeposit(i);
   assert.strictEqual(chest().slots.filter(Boolean).length, 27, '27 格全占(工具整槽搬不并堆)');
-  A.advBreakBlock(spot.x + 1, 25, spot.z, api.B_CHEST, {time: 1, drops: false});
+  /* drops:true: 2026-11-04 起 drops:false=拒绝破坏(挖不动), 本测试意旨箱子账本非 tier 门 */
+  A.advBreakBlock(spot.x + 1, 25, spot.z, api.B_CHEST, {time: 1, drops: true});
   assert.strictEqual(chest().size, 18, '挖掉一箱: 容量 27→18(随现存箱子数缩放)');
   assert.ok(chest().slots[26], '第 27 格存量仍在档(不清理不丢失)');
   assert.strictEqual(chest().slots.filter(Boolean).length, 27, '挖箱不动账户内容(零损失口径)');

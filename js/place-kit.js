@@ -96,9 +96,24 @@ function mkEditor(opts) {
     }
   }
 
+  /* 「需要更硬的镐子」节流提醒(3s, tierT 账本 tickTimers 递减): tier 不足的
+     唯一话术出口(蓄力链起手与 breakBlock 直调兜底同用, 不造第二份文案) */
+  function tierHint() {
+    if (tierT > 0) return;
+    tierT = 3;
+    if (o.speak) o.speak('需要更硬的镐子哦！');
+    if (o.say) o.say('⛏️ 换更硬的镐子才能挖到宝贝');
+  }
+
   /* 破坏结算: 碎屑(editBlock 内置同色 Fx.debrisBurst)+记账+级联+掉落+磨损。
-     bt 为破坏时的 breakTime 结果(drops:false = tier 不足, 只碎不掉+节流提示) */
+     bt 为破坏时的 breakTime 结果(drops:false = tier 不足)——2026-11-04 用户票
+     「挖不动就是真挖不动」: tier 不足整链拒绝, 方块原地不动只节流提醒
+     (原「可挖慢速只碎不掉」口径废止; 磨损只认破坏成功) */
   function breakBlock(x, y, z, id, bt) {
+    if (!bt.drops) {/* tier 不足: 拒绝破坏(方块原地不动), 节流提醒(直调路径同守蓄力门) */
+      tierHint();
+      return;
+    }
     if (o.onEdit) o.onEdit(x, y, z, 0); /* 触发格先记账(级联移动可能落回此格, 后写覆盖才对) */
     applyCascade(editBlock(x, y, z, 0), true); /* 蓄力链视同亲手挖(P6) */
     pairedBreakApply(x, y, z, true, id); /* 配对方块破坏(门/床/宝箱行表驱动: 挖任一半整结构回收) */
@@ -106,14 +121,6 @@ function mkEditor(opts) {
     if (BLOCKS[id] && BLOCKS[id].crop && sink.crop) sink.crop(x, y, z); /* 挖麦苗撤生长计时(farm-and-recipe D3, crop 身份旗标) */
     if (o.sfx) o.sfx('hit');
     if (o.wear) o.wear(); /* 破坏成功 −1(工具匹配与否都扣, MC 口径; 徒手无槽可扣) */
-    if (!bt.drops) {/* tier 不足: 可挖慢速但掉落不触发(§3.4) */
-      if (tierT <= 0) {
-        tierT = 3;
-        if (o.speak) o.speak('需要更硬的镐子哦！');
-        if (o.say) o.say('⛏️ 换更硬的镐子才能挖到宝贝');
-      }
-      return;
-    }
     const held = invOf().slots[o.sel()];
     /* 剪刀 × shearDrop 掷专属表(D2); 爆炸路径不传工具走默认表(TNT 链自 roll) */
     for (const d of rollBlockDrop(BLOCKS[id], null, held)) {
@@ -316,6 +323,12 @@ function mkEditor(opts) {
     }
     const s = invOf().slots[o.sel()];
     const bt = breakTime(def, s && isTool(s.id) ? s : null); /* 非工具手持 = 徒手口径 */
+    if (!bt.drops) {/* tier 不足: 挖不动就是真挖不动(2026-11-04 用户票) — 不起蓄力,
+      节流提醒换工具; 同上方无 hard 先例(方块原地不动) */
+      tierHint();
+      mineStop(mine);
+      return;
+    }
     Object.assign(mine, advMineStep(mine, aimKey, bt, dt));
     mine.swingT += dt; /* 挥动循环: 节拍触发消费方观感(swingPose 循环归 Avatar) */
     if (mine.swingT >= ADV_MINE_SWING) {

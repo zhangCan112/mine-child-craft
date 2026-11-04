@@ -297,6 +297,22 @@ test('place-kit: 宝箱配对破坏 — 挖任一半整箱消失+掉落表恰掷
   assert.strictEqual(drops.length, 0, '无配对不掉战利品');
 });
 
+/* ============ ②c+ tier 不足: 挖不动就是真挖不动 (2026-11-04 用户票) ============ */
+
+test('place-kit: tier 不足破坏拒绝 — 方块原地不动+零掉落+不磨损+节流提醒(直调兜底同守蓄力门)', () => {
+  reset();
+  api.setBlockRaw(20, 13, 20, 3); /* 石头(tier1: 徒手 drops:false) */
+  ed.breakBlock(20, 13, 20, 3, {time: 7.5, drops: false});
+  assert.strictEqual(api.getBlock(20, 13, 20), 3, '方块原地不动(真挖不动, 原「只碎不掉」废止)');
+  assert.strictEqual(journal.length, 0, '世界未改动不记账');
+  assert.strictEqual(drops.length, 0, '零掉落');
+  assert.strictEqual(wearCalls, 0, '没破坏成功不磨损');
+  assert.ok(says.some((m) => String(m).indexOf('更硬') >= 0), '节流提醒换更硬的镐子');
+  ed.breakBlock(20, 13, 20, 3, {time: 7.5, drops: false}); /* 节流窗内再调 */
+  assert.strictEqual(api.getBlock(20, 13, 20), 3, '仍然原地不动');
+  assert.strictEqual(says.filter((m) => String(m).indexOf('更硬') >= 0).length, 1, '节流窗内不重发');
+});
+
 /* ============ ②d 低档奖励箱: 单格整箱 id 认主 (den-nest §7.5 D18/D19) ============ */
 
 test('place-kit: 低档奖励箱单格破坏 — id 认主恰掉补给表+破坏后钩(挨着大箱不误吃配对)', () => {

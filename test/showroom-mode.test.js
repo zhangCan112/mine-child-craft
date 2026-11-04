@@ -785,7 +785,8 @@ test('体验馆: 箱轨容量(ADR 0007 修正) — 展馆造箱也 +9 · 挖箱 
   ShowroomMode.onMouse(2, {x: 46, y: G, z: 57, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(ShowroomMode.chest().size, before + 18, '造箱 B: 再 +9');
   /* 挖掉一箱: 容量随之缩回(随现存箱子数缩放) */
-  A.advBreakBlock(46, G + 1, 57, api.B_CHEST, {time: 1, drops: false});
+  /* drops:true: 2026-11-04 起 drops:false=拒绝破坏(挖不动), 本测试意旨箱轨容量非 tier 门 */
+  A.advBreakBlock(46, G + 1, 57, api.B_CHEST, {time: 1, drops: true});
   assert.strictEqual(ShowroomMode.chest().size, before + 9, '挖掉 B: 缩回 +9 格');
   inv.slots[0] = held0;
 });

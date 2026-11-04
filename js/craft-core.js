@@ -15,7 +15,8 @@
    smeltStep 烧炼单步(节拍常量 SMELT_T 与表同居, 2026-10 自 adventure-core
    迁入——步进政策与烧炼表同一权威) · furnaceRefund 退炉政策(同批迁入) ·
    breakTime 破坏时间(MC JE 正交口径: 品类对即吃速度乘数, canHarvest
-   管 ×1.5/×5 与掉落; 封顶 8s 下限 0.15s, tier 不足可挖慢速但不掉落
+   管 ×1.5/×5 与掉落; 封顶 8s 下限 0.15s; tier 不足 drops:false = 挖不动
+   (2026-11-04 用户票: 消费侧不起蓄力, 方块原地不动)
    — 挖掘硬度修正 D1; 无 hard = 声明式不可破坏(含 TNT 免疫判据,
    下界并入探险 D5): time Infinity + drops false)。
    背包操作全部经背包核心接口(count/take/add, 扣料与任选判定的语义
@@ -467,8 +468,9 @@ function fillGrid(inv, recipe, cells) {
    · 品类对(不看等级) → 工具速度乘数生效 — 哪怕 tier 不够也生效;
    · canHarvest(tier 0, 或品类对且等级够) → ×1.5/×5 系数与掉落门禁。
    t = hard × (canHarvest ? 1.5 : 5) / 速度乘数
-   封顶 8s(儿童去绝望感) · 下限 0.15s · tier 不足 → 可挖慢速但 drops:false
-   (掉落不触发, 模式层负责提示与图标闪烁)。
+   封顶 8s(儿童去绝望感) · 下限 0.15s · tier 不足 → drops:false
+   (2026-11-04 用户票「挖不动就是真挖不动」: 消费侧按不可挖处理——蓄力链
+   不起进度、破坏链整链拒绝, 方块原地不动; 本函数仍如实给时间与 drops 判定)。
    无 hard(null/undefined)= 声明式不可破坏(含 TNT 免疫判据, 下界并入探险
    D5): 直接返回 {time: Infinity, drops: false}, 与工具无关; 消费侧语义
    !isFinite(bt.time) = 不可破坏(替代旧 NaN 意外——NaN 比较恒假只是碰巧
