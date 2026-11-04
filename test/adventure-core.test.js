@@ -1025,21 +1025,8 @@ test('两格床放置校验: advBedSiteOk — 两格空气+各自下方实心+�
       {ok: false, reason: 'inside'}, '玩家在床头格 → 拒(advDoorPlayerIn 同款)');
 });
 
-test('两格床配对破坏: advBedBreakPlan — 正典形认亲(并排两床不拆错邻床)/drop 分配(挖床尾补 1, 挖床头不补)', () => {
-  /* 挖床头(5), 床尾在东(6): 伙伴=床尾 → 床头常规掷已发 1, 计划不补 */
-  assert.deepStrictEqual(Core.advBedBreakPlan((x, y, z) => (x === 6 && z === 5 ? 69 : 0), 5, 13, 5),
-      {cells: [{x: 6, y: 13, z: 5}], drop: 0}, '挖床头: 清床尾, 不补发');
-  /* 挖床尾(5), 床头在西(4): 伙伴=床头 → 床尾无 drop 表, 计划补发 1 */
-  assert.deepStrictEqual(Core.advBedBreakPlan((x, y, z) => (x === 4 && z === 5 ? 53 : 0), 5, 13, 5),
-      {cells: [{x: 4, y: 13, z: 5}], drop: 1}, '挖床尾: 清床头, 补发 1');
-  /* 两床并排同轴相接 [头4][尾5·被挖][头6][尾7]: 正典形唯一认亲 → 清(4)不拆错(7) */
-  const row = (x, y, z) => (z === 5 ? ({4: 53, 6: 53, 7: 69}[x] || 0) : 0);
-  assert.deepStrictEqual(Core.advBedBreakPlan(row, 5, 13, 5),
-      {cells: [{x: 4, y: 13, z: 5}], drop: 1}, '并排两床: 候选两床头, 正典形(头<尾)唯一认亲头4, 不拆错头6的床尾7');
-  /* lone 半(老档单格床/TNT 拆半): 无配对不补发 */
-  assert.deepStrictEqual(Core.advBedBreakPlan((x, y, z) => 0, 5, 13, 5),
-      {cells: [], drop: 0}, '无邻半 → 空计划');
-});
+/* 两格床配对破坏计划: 已迁 test/paired-block-core.test.js(配对方块行注册表,
+   2026-11-04 架构评审候选①——advBedBreakPlan 随迁, 正典形/身份门在彼处) */
 
 test('D6 睡觉转场: advSleepStep — 渐黑 1.5s → 停 2s(唤醒沿) → 渐亮 1.5s ≈ 5s(MC 101 tick 观感)', () => {
   const S = Core;
@@ -1602,28 +1589,8 @@ test('advDoorTogglePlan: 四向耦合(2026-11-04) — 沿 z 并排双门 z±1 �
   assert.strictEqual(plan3.writes.length, 6, 'x 向与 z 向随动列都写入');
 });
 
-test('advDoorBreakPlan: 挖下连上/挖上连下/挖门下支撑整扇弹出 · drop 恒 1 · 空格过滤', () => {
-  const world = {};
-  const rd = (x, y, z) => (world[x + ',' + y + ',' + z] || 0);
-  /* 挖掉下半(y 已清 0): 收上半; 下半自带 drop 表已常规掷掉, 计划不补发(2026-11-04 双掉修复) */
-  world['1,26,1'] = api.B_DOOR_TOP;
-  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 1, 25, 1),
-      {cells: [{x: 1, y: 26, z: 1}], drop: 0}, '挖下半 → 收上半不补发(防双掉)');
-  /* 挖掉上半: 连下半整扇回收 */
-  world['1,26,1'] = 0; world['1,24,1'] = api.B_DOOR;
-  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 1, 25, 1),
-      {cells: [{x: 1, y: 24, z: 1}], drop: 1}, '挖上半 → 连下半, 掉 1');
-  /* 挖门正下方支撑: 整扇弹出(下半+上半) */
-  world['1,24,1'] = 0; world['2,26,2'] = api.B_DOOR_OPEN; world['2,27,2'] = api.B_DOOR_TOP_OPEN;
-  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 2, 25, 2),
-      {cells: [{x: 2, y: 26, z: 2}, {x: 2, y: 27, z: 2}], drop: 1}, '挖支撑 → 整扇弹出(开门态同款)');
-  /* 上半残留缺失时不产出空格(防空 editBlock) */
-  world['2,27,2'] = 0;
-  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 2, 25, 2),
-      {cells: [{x: 2, y: 26, z: 2}], drop: 1}, '上格已空 → 只收现存半扇');
-  /* 普通方块: 无门牵连 */
-  assert.deepStrictEqual(Core.advDoorBreakPlan(rd, 9, 25, 9), {cells: [], drop: 0}, '无关方块零牵连');
-});
+/* 门配对破坏计划三态: 已迁 test/paired-block-core.test.js(配对方块行注册表,
+   2026-11-04 架构评审候选①——advDoorBreakPlan 随迁, drops 统一形状在彼处) */
 
 /* ============ 门号段存档迁移(2026-10-28 关门能穿/开门挡路根因修复) ============ */
 

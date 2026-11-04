@@ -1632,8 +1632,8 @@ function advTryDoor(hit, lookId) {
 
 /* 右键/触屏轻点拆门(2026-11-04 用户票「左键是开关门, 右键可以拆掉门, pad 对应
    两键」——轻点=aimClick(2) 同路拆除, ⛏️键空手=aimClick(0) 同路开关): 命中门
-   任一半 → kit breakBlock 破坏结算一条链(doorBreakApply 配对整扇回收 ×1+记账
-   +掉落, 与蓄力挖到点同一出口, 不造第二份规则)。返回 true=消费了本次点击 */
+   任一半 → kit breakBlock 破坏结算一条链(pairedBreakApply 配对整扇回收 ×1+
+   记账+掉落, 与蓄力挖到点同一出口, 不造第二份规则)。返回 true=消费了本次点击 */
 function advTryDoorRemove(hit, lookId) {
   if (!hit || !advIsDoor(lookId)) return false;
   advPlaceKit.breakBlock(hit.x, hit.y, hit.z, lookId, {drops: true});
@@ -2492,16 +2492,12 @@ function advPlaceDoor(hit) {
   return advPlaceKit.placeDoor(hit);
 }
 
-/* 门配对破坏 → kit 薄转发(TNT 链 quest=false 同走此处, 口径不变) */
-function advDoorBreakApply(bx, by, bz, quest) {
-  advPlaceKit.doorBreakApply(bx, by, bz, quest);
-}
-
-/* 奖励箱破坏 → kit 薄转发(TNT 链 quest=false 同走此处, 门配对同款口径;
-    蓄力链在 kit breakBlock 内直调, 不经此转发。id=被破坏方块号: 小箱按 id
-    认主(D18), 大箱靠四邻认亲不依赖它——TNT 源块位传 B_TNT 即「不是小箱」) */
-function advLootChestBreakApply(bx, by, bz, quest, id) {
-  advPlaceKit.lootChestApply(bx, by, bz, quest, id);
+/* 配对方块破坏 → kit 薄转发(TNT 链 quest=false 同走此处; 门/床/宝箱全族
+    一张行注册表 js/paired-block-core.js, 移除点不再逐个点名接线——
+    2026-11-04 架构评审候选①; 蓄力链在 kit breakBlock 内直调, 不经此转发。
+    id=被破坏方块号: 触发格身份门(bed/lchest 旗标)读它) */
+function advPairedBreakApply(bx, by, bz, quest, id) {
+  advPlaceKit.pairedBreakApply(bx, by, bz, quest, id);
 }
 
 /* 树苗挂表: 20s 后长成(D7); 重进经 advRescanSaplings 全图重建计时 */
@@ -3110,11 +3106,10 @@ function advFuseTick(dt) {/* 引信倒计时: 顶上火花弧观感 + 到点起�
    不伤玩家——儿童挖矿神器口径(D4 只给火药一个挖矿出口) */
 const advExplodeSink = {
   ignite: advIgnite,
-  edit: (bx, by, bz, id) => {/* 触发格先记账(级联移动可能落回此格) → 破坏+级联记账(不进任务, P6); id 由 advExplodeCells 透传(小箱认主, D18) */
+  edit: (bx, by, bz, id) => {/* 触发格先记账(级联移动可能落回此格) → 破坏+级联记账(不进任务, P6); id 由 advExplodeCells 透传(配对方块触发格身份门读它) */
     advMarkEdit(bx, by, bz, 0);
     advCascadeApply(editBlock(bx, by, bz, 0), false);
-    advDoorBreakApply(bx, by, bz, false); /* TNT 掀门=整扇回收(不进任务, P6 口径) */
-    advLootChestBreakApply(bx, by, bz, false, id); /* TNT 掀奖励箱=整箱消失+战利品(小箱 id 认主/大箱配对兜底, D16/D18) */
+    advPairedBreakApply(bx, by, bz, false, id); /* TNT 掀配对方块=整结构回收(门/床/宝箱行表驱动, 不进任务 P6; 床 2026-11-04 补接线) */
   },
   sapling: (bx, by, bz) => advSaplings.delete(blockKey(bx, by, bz)),
   crop: (bx, by, bz) => advWheats.delete(blockKey(bx, by, bz)), /* 掀掉麦苗撤生长计时(D3) */
@@ -3126,8 +3121,7 @@ function advExplode(x, y, z) {
      不进任务(P6: TNT 掀掉的不算——级联同理) */
   advMarkEdit(x, y, z, 0);
   advCascadeApply(editBlock(x, y, z, 0), false);
-  advDoorBreakApply(x, y, z, false); /* 源块正上方若立着门, 一并整扇回收 */
-  advLootChestBreakApply(x, y, z, false, B_TNT); /* 源块贴着宝箱同理(四邻认亲; 源块本身是 TNT 非小箱) */
+  advPairedBreakApply(x, y, z, false, B_TNT); /* 源块正上方若立着门, 一并整扇回收(TNT 非配对方块, 床/箱行身份门自拒) */
   advExplodeCells(x, y, z, getBlock, advExplodeSink);
   for (const w of advTntWave(Mobs.list(), x, y, z)) {/* 波及怪物: 线性衰减伤害+击退 */
     if (w.m.__baby) continue; /* 幼崽免伤: TNT 不波及(生态恢复差异 6, 零惩罚) */

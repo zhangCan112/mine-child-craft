@@ -515,19 +515,22 @@ test('战利品宝箱掷骰: 保底必得 + 50% 加成 + 钻石恒得 — 注入
   for (const e of Dims.ADV_DEN_LOOT.rare) assert.ok(ITEMS[e[0]], 'rare 物品已注册: ' + e[0]);
 });
 
-test('战利品宝箱配对计划: 四邻认亲 · 恰一次掉落 · 无相邻宝箱返 null(D16)', () => {
+test('战利品宝箱配对计划: 四邻认亲 · 恰一次掉落 · 无相邻宝箱返 null(D16) · 触发格身份门(2026-11-04 候选①)', () => {
   const L = DEN.loot;
   const at = (x, y, z) => (x === L.x || x === L.x + 1) && y === L.y && z === L.z ? api.B_LOOT_CHEST : 0;
   /* 挖左半(触发格已清): 右半在东邻 → cells=[右], drops 恰掷一次 */
-  const pA = Dims.advLootChestPlan(at, L.x, L.y, L.z, () => 0.9);
+  const pA = Dims.advLootChestPlan(at, L.x, L.y, L.z, {id: api.B_LOOT_CHEST, rnd: () => 0.9});
   assert.deepStrictEqual(pA.cells, [{x: L.x + 1, y: L.y, z: L.z}], '东邻右半入计划');
   assert.strictEqual(pA.drops.length, 5, '掉落恰掷一次(保底 4 条 + 钻石, 0.9 全不中)');
   /* 挖右半: 左半在西邻 → 对称 */
-  const pB = Dims.advLootChestPlan(at, L.x + 1, L.y, L.z, () => 0.9);
+  const pB = Dims.advLootChestPlan(at, L.x + 1, L.y, L.z, {id: api.B_LOOT_CHEST, rnd: () => 0.9});
   assert.deepStrictEqual(pB.cells, [{x: L.x, y: L.y, z: L.z}], '西邻左半入计划');
   /* 无相邻宝箱(孤儿格): null——防 TNT 同拍双掷/双掉 */
-  assert.strictEqual(Dims.advLootChestPlan(() => 0, 80, 7, 80, () => 0.9), null,
+  assert.strictEqual(Dims.advLootChestPlan(() => 0, 80, 7, 80, {id: api.B_LOOT_CHEST, rnd: () => 0.9}), null,
       '四周皆空: 无宝箱可配, 返 null');
+  /* 触发格身份门(lchest 旗标): 非大箱 id 触发(挖贴墙邻格) → null 不误收整箱 */
+  assert.strictEqual(Dims.advLootChestPlan(at, L.x + 2, L.y, L.z, {id: 3, rnd: () => 0.9}), null,
+      '挖贴墙石头(非 lchest id) → null, 箱与战利品纹丝不动');
 });
 
 /* ============ 低档奖励箱纯件(§7.5 D18, 2026-10-30 三批拍板) ============ */

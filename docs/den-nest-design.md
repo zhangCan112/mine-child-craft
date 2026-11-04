@@ -292,8 +292,11 @@ advDenTick 只落地：出波令 →wave+1 布防；chest 信号 → 刷宝箱+�
 - 刷出：深处祭坛房北墙贴墙 2 格（ADV_DEN.loot，跨 x 62~63 @ z22 面朝南厅），setBlockRaw
   直写不记账（回程门同款互锁红线），mesh 两列当帧收口；win 琶音+TTS/toast 庆祝。
 - 敲碎：蓄力挖掘链照走（hard 1.33 → 徒手 ≈2s）；配对破坏计划 advLootChestPlan（床配对
-  同款缝，挂在 place-kit breakBlock 与 TNT 链两处）→ 另一半同拍清除+记账，掉落表掷骰
-  恰一次、逐条 Drops.spawn（走 D14 修好的副本掉落物理）。
+  同款缝；2026-11-04 架构评审候选①起挂配对方块行注册表 js/paired-block-core.js——
+  蓄力/TNT/右键全部移除点同走一张行表，不再逐点接线）→ 另一半同拍清除+记账，掉落表掷骰
+  恰一次、逐条 Drops.spawn（走 D14 修好的副本掉落物理）。**触发格身份门**（2026-11-04
+  候选①登记）：ctx.id 读 lchest 旗标——四邻认亲只对「刚破坏的格自身是大箱半」成立，
+  防挖贴墙邻格（石/土）误收整箱；旧无门行为是漂移温床（挖宝箱旁的墙=白得整箱战利品）。
 - 掉落表（已拍板）：ADV_DEN_LOOT = 火药 3+50% 加成 1 · 铁锭 2+50% · 金锭 1+50% ·
   苹果 2 · 钻石必得——用户 2026-10-30 拍板「就用当前占位表」，初版即终版。
 - 持久化：无专用账。宝箱出现本身是会话演出（波次同命）；打碎记录经 edits 生效——
@@ -302,9 +305,11 @@ advDenTick 只落地：出波令 →wave+1 布防；chest 信号 → 刷宝箱+�
 **施工落点**：config.js（B_LOOT_CHEST=71）· texture-atlas.js（格 50/51 红金画师+layout 行）·
 adventure-dims-core.js（WAVES/loot 常量 + advDenStep 扩展 + ADV_DEN_LOOT/advDenLootRoll/
 advLootChestPlan）· modes/adventure.js（advDenChestDone 态 + advDenTick 刷箱 +
-advDenLootSpawn + TNT 链挂配对破坏）· place-kit.js（lootChestApply 配对破坏分支）·
+advDenLootSpawn + TNT 链挂配对破坏）· place-kit.js（pairedBreakApply 配对破坏编排, 候选①）·
+js/paired-block-core.js（家族行注册表, 候选①）·
 mesh-core **零改动**（标准图集立方体通道）。测试：adventure-den（封顶节拍/掷骰/配对计划/
-2 秒口径）· place-kit（配对破坏契约）· texture-atlas（格 50/51 像素）· adventure-nether
+2 秒口径/身份门）· place-kit（配对破坏契约/身份门编排层）· paired-block-core（家族行表/
+门床计划/身份门）· texture-atlas（格 50/51 像素）· adventure-nether
 （真世界 5 轮流程→刷箱→打碎→重进不再现）。
 
 **低档小奖励箱**（D18，2026-10-30 第三批拍板 · 体验馆试玩工位）：

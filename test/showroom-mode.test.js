@@ -327,6 +327,8 @@ Object.assign(globalThis, AdventureCore); /* advChestPut/advSwingDmg/ADV_GROUND/
 Object.assign(globalThis, require('../js/adventure-maps-core.js')); /* ADV_MAPS/ADV_UNLOCK_KEYS 等 */
 Object.assign(globalThis, require('../js/adventure-dims-core.js')); /* ADV_DIMS/advLootChestPlan 等——
     place-kit 宝箱配对计划经全局名消费(index.html 全量加载同构, TNT 链要它) */
+Object.assign(globalThis, require('../js/paired-block-core.js')); /* advPairedBlockRows(配对方块行
+    注册表, 2026-11-04 候选①, dims-core 之后同 index.html; TNT 链要它) */
 const CraftCore = require('../js/craft-core.js');
 Object.assign(globalThis, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
   furnaceRefund: CraftCore.furnaceRefund});
@@ -395,6 +397,8 @@ Object.assign(eng, AdventureCore); /* 冒险纯核心常量表与政策纯函数
 Object.assign(eng, require('../js/adventure-maps-core.js')); /* 地图注册表(缓存实例) */
 Object.assign(eng, require('../js/adventure-dims-core.js')); /* 维度规格注册表(ADV_DIMS/advDimRow,
    dimension-registry——壳层 ADV_SCENE_KEYS 加载期派生消费) */
+Object.assign(eng, require('../js/paired-block-core.js')); /* 配对方块行注册表(advPairedBlockRows,
+   2026-11-04 候选①——place-kit editor 调用期经全局名消费, dims-core 之后同 index.html) */
 Object.assign(eng, {SMELT_T: CraftCore.SMELT_T, smeltStep: CraftCore.smeltStep,
   furnaceRefund: CraftCore.furnaceRefund});
 Object.assign(eng, {SHOWROOM: ShowroomCore.SHOWROOM, showroomPocket: ShowroomCore.showroomPocket,
