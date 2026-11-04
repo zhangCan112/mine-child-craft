@@ -147,6 +147,25 @@ test('规范: 模式文件零直写玩家六绑定 — 传送/出生走 ModeKit.
   }
 });
 
+/* ---------- 怪物位移守门(候选⑤便宜的半边, 2026-11-04) ----------
+   模式可写引擎字段的白名单唯一权威在 mobs.js 头注释——「模式不直写引擎的
+   位移字段」此前只有评论执法(advHerdTick 曾直写栏内钳制, 候选②已改走
+   Mobs.setPos)。口径: 只禁水平位 pos.x/z(pos.y 是白名单垂直特技——跃起砸地/
+   悬浮压制, arena 六处 gp.y 直写合法); (?!=) 防 == 误报; 已知盲区=别名写法
+   (const gp = m.pos; gp.x = …)抓不到——现存模式层为零(双口径 grep 验证),
+   真出现靠评审/后续别名登记规则补; 只扫 js/modes/(js 根壳按 C7-T2 同款不在面)。 */
+test('规范: 模式文件零直写怪物实体水平位移 — 位移走 Mobs.move/setPos(内部序贴地)', () => {
+  const re = /\.pos\.(?:x|z)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/;
+  const modeFiles = jsModules.filter((p) => rel(p).startsWith('js/modes/'));
+  assert.ok(modeFiles.length >= 7, 'js/modes 应至少 7 个模式文件 — 扫描空集 = 守门静默失效');
+  for (const p of modeFiles) {
+    fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
+      assert.ok(!re.test(line), rel(p) + ':' + (i + 1) + ' [怪物实体水平直写] ' + line.trim() +
+          ' — 位移走 Mobs.move/setPos(引擎内部序贴地); 白名单唯一权威在 mobs.js 头注释');
+    });
+  }
+});
+
 /* ---------- 竞技场列边判据单源(候选④, 2026-11-04) ----------
    arena 本地 stepMove 的地面查询注入必须走引擎 Mobs.groundUnderAt(墙拦/
    洞底贴地唯一权威)——旧 groundTop 注入停在穿墙票/②内部序两代之前, 玩家
