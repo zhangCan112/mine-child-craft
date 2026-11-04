@@ -404,13 +404,9 @@ test('交叉: ITEMS 工具 id ⊆ HeldItems.defs(Avatar.setItem 直用; shears �
   const h = loadDrops();
   /* shears 曾因无手持观感豁免(白色板状口径)——2026-10-28 剪刀像素薄片
      def 落地(held-item shears 条目), 豁免集清空、断言全额收紧 */
-  /* 金/下界合金 8 工具: 数值行随装备系统 T1 落地(items-core.test 逐格锁定),
-     mkToolDef 生成表金银两阶扩表归 T3(设计稿 equipment-design §8 工单)——
-     shears 先例同款显式登记, T3 落地清空收紧 */
-  const exempt = new Set([
-    'pick_gold', 'axe_gold', 'sword_gold', 'shovel_gold',
-    'pick_netherite', 'axe_netherite', 'sword_netherite', 'shovel_netherite',
-  ]);
+  /* 金/下界合金 8 工具豁免(装备 T1 时序登记)——T3 mkToolDef 扩两阶落地
+     (gold/netherite 生成 8 条 def), 豁免集清空、断言全额收紧 */
+  const exempt = new Set([]);
   const kinds = new Set(['pick', 'axe', 'sword', 'shovel', 'hoe']);
   const missing = Object.entries(h.ITEMS)
       .filter(([id, it]) => it.tool && kinds.has(it.tool.kind) && !exempt.has(id))

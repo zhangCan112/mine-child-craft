@@ -69,34 +69,17 @@ test('加载: 顶层暴露 itemIcon/iconOf/ITEM_PIX, tankIcon 既有函数不受
   assert.strictEqual(typeof h.tankIcon, 'function'); // 范围纪律: T8 不动既有图标
 });
 
-/* ============ 一期全量替换: 54 键覆盖防错网 ============ */
+/* ============ 一期全量替换: 全键覆盖防错网 ============ */
 
-/* 装备系统 35 键待画(盔甲 24 + 金/下界工具 8 + 下界材料 3)——像素图标
-   归设计稿 equipment-design §8 T3 交付, 数值行随 T1 先行落地。显式登记
-   = shears 先例(drops.test.js 同款豁免机制): 运行时 emoji 占位回落安全
-   (iconOf 无像素图返 icon 字段, 回落测试在下方), T3 落地时清空收紧、
-   两处键集断言自动恢复全额覆盖。 */
-const T3_PENDING = new Set([
-  'pick_gold', 'axe_gold', 'sword_gold', 'shovel_gold',
-  'pick_netherite', 'axe_netherite', 'sword_netherite', 'shovel_netherite',
-  'ancient_debris', 'netherite_scrap', 'netherite_ingot',
-  'helmet_leather', 'helmet_chain', 'helmet_iron', 'helmet_gold', 'helmet_diamond', 'helmet_netherite',
-  'chestplate_leather', 'chestplate_chain', 'chestplate_iron',
-  'chestplate_gold', 'chestplate_diamond', 'chestplate_netherite',
-  'leggings_leather', 'leggings_chain', 'leggings_iron', 'leggings_gold', 'leggings_diamond', 'leggings_netherite',
-  'boots_leather', 'boots_chain', 'boots_iron', 'boots_gold', 'boots_diamond', 'boots_netherite',
-]);
-
-test('全量覆盖: ITEM_PIX 键集与 ITEMS 一致(T3 待画键豁免; 以后加物品漏画图标当场红)', () => {
+test('全量覆盖: ITEM_PIX 键集与 ITEMS 完全一致(以后加物品漏画图标当场红; 装备 T3 豁免已清空收紧)', () => {
   const {h} = loadIcons();
-  const want = Object.keys(h.ITEMS).filter((id) => !T3_PENDING.has(id)).sort();
-  assert.deepStrictEqual(Object.keys(h.ITEM_PIX).sort(), want);
+  assert.deepStrictEqual(
+      Object.keys(h.ITEM_PIX).sort(), Object.keys(h.ITEMS).sort());
 });
 
-test('全量出口: 每个在画 ITEMS 键 iconOf 返回 dataURL、itemIcon 返回 64×64 dataURL', () => {
+test('全量出口: 每个 ITEMS 键 iconOf 返回 dataURL、itemIcon 返回 64×64 dataURL', () => {
   const {h, canvases} = loadIcons();
   for (const id of Object.keys(h.ITEMS)) {
-    if (T3_PENDING.has(id)) continue; /* T3 待画: 不渲染即无画布, 下方计数仍全覆盖 */
     assert.ok(h.iconOf(id).startsWith('data:image/png'), id + ' iconOf 应为 dataURL');
     assert.strictEqual(h.itemIcon(id), STUB_URL, id + ' itemIcon');
   }
@@ -245,4 +228,70 @@ test('灰版回落: 无像素图回落 iconOf(emoji 原样), 未注册返回空�
   assert.strictEqual(h.iconOfGray('bow_item'), h.ITEMS.bow_item.icon, 'emoji 回落与 iconOf 同值');
   assert.strictEqual(h.iconOfGray('no_such_item'), '', '未注册返回空串(调用方判空跳过)');
   assert.strictEqual(canvases.length, 0, '回落路径不创建画布');
+});
+
+/* ============ 装备 T3: 盔甲 4 画 × 6 板 + 金银工具 + 下界材料(设计稿 §4.1) ============ */
+
+test('盔甲 24 键: 4 画共用一张字符画 × 六阶色板(正典「同形换色板」机制, 调研 §7.2)', () => {
+  const {h} = loadIcons();
+  const tiers = ['leather', 'chain', 'iron', 'gold', 'diamond', 'netherite'];
+  for (const slot of ['helmet', 'chestplate', 'leggings', 'boots']) {
+    const arts = new Set();
+    const mains = new Set();
+    for (const tier of tiers) {
+      const def = h.ITEM_PIX[slot + '_' + tier];
+      assert.ok(def, slot + '_' + tier + ' 应有像素图标');
+      arts.add(def.art);
+      mains.add(def.map['#']);
+    }
+    assert.strictEqual(arts.size, 1, slot + ' 六阶共用一张字符画(4 art × 6 板=24 键)');
+    assert.strictEqual(mains.size, 6, slot + ' 六阶主色互不相同(换板不是换形)');
+  }
+});
+
+test('盔甲密度锚: 不透明像素数 自绘逼近正典(头 78/胸 138/腿 104/靴 88, ±8 容差——调研 §7.2)', () => {
+  const {h} = loadIcons();
+  const density = (id) => h.ITEM_PIX[id].art.reduce((n, row) =>
+    n + [...row].filter((ch) => ch !== '.').length, 0);
+  const anchors = {helmet: [78, 70, 86], chestplate: [138, 130, 146],
+    leggings: [104, 96, 112], boots: [88, 80, 96]};
+  for (const [slot, [want, lo, hi]] of Object.entries(anchors)) {
+    const n = density(slot + '_iron');
+    assert.ok(n >= lo && n <= hi,
+        slot + ' 密度 ' + n + ' 应在正典 ' + want + ' ±8 内(自绘逼近不逐像素追)');
+  }
+});
+
+test('下界金粒高光: 六阶 g 槽 下界=金亮、他阶=本阶亮色融入(设计稿 §4.1 个别点金)', () => {
+  const {h} = loadIcons();
+  for (const slot of ['helmet', 'chestplate', 'leggings', 'boots']) {
+    for (const tier of ['leather', 'chain', 'iron', 'gold', 'diamond']) {
+      assert.strictEqual(h.ITEM_PIX[slot + '_' + tier].map.g,
+          h.ITEM_PIX[slot + '_' + tier].map['+'],
+          slot + '_' + tier + ' g 槽融入亮色(无金粒)');
+    }
+    assert.strictEqual(h.ITEM_PIX[slot + '_netherite'].map.g, '#e9b115',
+        slot + '_netherite g 槽=金粒亮(正典下界盔甲金粒点缀)');
+  }
+});
+
+test('金银阶工具 8 键: 金板亮黄系/下界板暗紫灰系(PIX_TIER 扩两阶, 工具循环 4 画×6 板)', () => {
+  const {h, canvases} = loadIcons();
+  assert.strictEqual(h.ITEM_PIX.pick_gold.map['#'], '#e9b115', '金镐主色=金板');
+  assert.strictEqual(h.ITEM_PIX.sword_netherite.map['#'], '#5d565d', '下界剑主色=暗紫灰板');
+  h.itemIcon('pick_gold');
+  const colors = lastSmall(canvases).ctx._fills.map((f) => f[0]);
+  assert.ok(colors.includes('#e9b115'), '金镐绘制含金主色');
+});
+
+test('下界链材料 3 键: 残骸新画(深底棕纹) · 碎片/锭复用团块/梯形换下界板(共用形先例)', () => {
+  const {h} = loadIcons();
+  const d = h.ITEM_PIX.ancient_debris;
+  assert.ok(d, 'ancient_debris 应有像素图标');
+  assert.strictEqual(d.map['#'], '#312828', '残骸深紫灰底');
+  assert.strictEqual(d.map.b, '#8a6a4a', '残骸棕纹(化石斑观感)');
+  assert.strictEqual(h.ITEM_PIX.netherite_scrap.art, h.ITEM_PIX.coal.art,
+      '碎片复用团块形(coal 同款共用形先例)');
+  assert.strictEqual(h.ITEM_PIX.netherite_ingot.art, h.ITEM_PIX.iron_ingot.art,
+      '合金锭复用锭梯形(iron_ingot 同款共用形先例)');
 });

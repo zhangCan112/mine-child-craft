@@ -99,7 +99,6 @@ test('工具 def 注册: 4 种 × 4 阶共 16 键(kind_tier 命名, 键名与物
     }
   }
 });
-
 test('四阶色板: 每个工具 def 至少一个部件色等于该阶材质色', () => {
   const {HeldItems} = loadHeld();
   for (const tier of Object.keys(TIER_HEAD_COLORS)) {
@@ -126,7 +125,8 @@ test('四阶剑 = 同形换色板像素薄片: 单 art 部件, art 键=物品 id
 test('mkToolDef 工厂: 越界 kind/tier 显式抛错, 不静默产出残缺 def', () => {
   const {HeldItems} = loadHeld();
   assert.throws(() => HeldItems.mkToolDef('hammer', 'wood'), /kind/);
-  assert.throws(() => HeldItems.mkToolDef('pick', 'gold'), /tier/);
+  assert.throws(() => HeldItems.mkToolDef('pick', 'leather'), /tier/,
+      '皮革无工具行(PIX_TIER 仅扩有工具物品的金银两阶)');
 });
 
 /* ============ swingPose: 挥击关节角的纯数学 ============ */
@@ -464,4 +464,58 @@ test('mkArtMats 材质数组: face=FrontSide(镜像幽灵回归锁) + alphaTest 
   }
   assert.strictEqual(HeldItems.mkArtMats({art: 'nope', color: 0}), null,
       '工坊键缺失回落 null(纯色薄板, Node 既有口径)');
+});
+
+/* ============ 装备 T3: 金银阶工具 + 盔甲手持薄片(设计稿 §4.2) ============ */
+
+test('金银阶工具 def: TOOL_HEAD_COLORS 扩两阶 → 生成循环 24 条(金=亮黄/下界=暗紫灰头)', () => {
+  const {HeldItems} = loadHeld();
+  const heads = {gold: 0xe9b115, netherite: 0x5d565d};
+  const labels = {gold: '金', netherite: '下界合金'};
+  for (const [tier, color] of Object.entries(heads)) {
+    for (const kind of Object.keys(KIND_NAMES)) {
+      const id = kind + '_' + tier;
+      const def = HeldItems.defs[id];
+      assert.ok(def, 'defs 里应有 ' + id + '(豁免清空: drops 交叉守门恢复全额)');
+      assert.strictEqual(def.label, labels[tier] + KIND_NAMES[kind], id + ' label');
+      assert.ok(def.parts.some((p) => p.color === color), id + ' 工具头=' + tier + ' 阶色');
+    }
+  }
+  assert.throws(() => HeldItems.mkToolDef('pick', 'chain'), /tier/,
+      '锁链同样无工具行(工具只有 wood/stone/iron/diamond/gold/netherite 六阶)');
+});
+
+test('mkArmorDef 24 条: 图标挤出薄片(art=物品 id) · 侧面阶色 · 手持物族档, defFor 惰性首做驻 defs', () => {
+  const {HeldItems, ITEMS} = loadHeld();
+  const tiers = ['leather', 'chain', 'iron', 'gold', 'diamond', 'netherite'];
+  const slots = ['helmet', 'chestplate', 'leggings', 'boots'];
+  const side = {leather: 0xa06540, chain: 0x969696, iron: 0xd8dde4,
+    gold: 0xe9b115, diamond: 0x4ee1d2, netherite: 0x5d565d};
+  for (const slot of slots) {
+    for (const tier of tiers) {
+      const id = slot + '_' + tier;
+      const def = HeldItems.defFor(id);
+      assert.ok(def, 'defFor 应产出 ' + id + '(顶层零表依赖 → 惰性首做驻 defs)');
+      assert.ok(HeldItems.defs[id], id + ' 首做后驻 defs(等同注册, 后续恒等)');
+      assert.strictEqual(HeldItems.defFor(id), HeldItems.defs[id],
+          id + ' defFor 返回恒等引用(驻 defs 后直取)');
+      assert.strictEqual(def.label, ITEMS[id].name, id + ' label=物品中文名');
+      assert.strictEqual(def.parts.length, 1, id + ' 单薄片部件(item/generated 正典)');
+      const p = def.parts[0];
+      assert.strictEqual(p.art, id, id + ' art 键=ITEM_PIX 盔甲键(图标贴图挤出)');
+      assert.strictEqual(p.color, side[tier], id + ' 挤出侧面=阶色');
+      assert.ok(p.d < p.w * 0.2, id + ' 薄片(厚远小于宽)');
+      assert.deepStrictEqual([...def.fp.rot], [0, -1.5708, 0.4363],
+          id + ' 第一人称=手持物族(正典 handheld/generated 同值)');
+    }
+  }
+});
+
+test('mkArmorDef 出口纪律: defFor 命中 defs 条目(非薄片兜底); 越界 id 抛错不静默', () => {
+  const {HeldItems} = loadHeld();
+  assert.strictEqual(HeldItems.defFor('helmet_iron'), HeldItems.defs['helmet_iron'],
+      'defFor(盔甲 id) 直取 defs(Avatar.setItem 同一通道)');
+  assert.throws(() => HeldItems.mkArmorDef('pick_wood'), /盔甲/,
+      '非盔甲 id 工厂抛错(mkToolDef 同款纪律)');
+  assert.throws(() => HeldItems.mkArmorDef('no_such'), /盔甲/);
 });

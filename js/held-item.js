@@ -4,8 +4,10 @@
    ------------------------------------------------------------
    手持物的唯一数据源: 部件表 + 握持姿态 + 第一人称姿态(fp 两族常量)
    + 挥击/待机参数。
-   两级供给: defs 注册表(个性武器 = 加一份纯数据; 镐/斧/剑/锹四阶
-   工具 = mkToolDef 加载期批量生成 16 条, 工厂供单测直调) +
+   两级供给: defs 注册表(个性武器 = 加一份纯数据; 镐/斧/剑/锹六阶
+   工具 = mkToolDef 加载期批量生成 24 条, 工厂供单测直调; 盔甲 24 条 =
+   mkArmorDef 工厂经 defFor 惰性首做驻 defs——held-item 顶层零表依赖,
+   index.html 加载序 held-item 在 items-core 之前, 装备 T3) +
    defFor 惰性出口(运行时一律经此: wall 薄块(火把) → mkTorchDef 细棒
    +炭头, bed 薄块(床) → mkBlockDef 床形装配, 方块 → mkBlockDef 方块本体,
    棒状材料 → mkRodDef, 其余注册
@@ -67,17 +69,22 @@ const FP_SWING = {
    键名与物品 id 逐字一致, 供 Avatar.setItem 直用, 见设计稿 §3.1/D2;
    hoe/sword 是观感族模板——无同名物品, defFor 永不命中)。 */
 
-/* 材质四阶色板: 工具头颜色(工单 T4 / 设计稿 §3.1 抄录) */
+/* 材质六阶色板: 工具头颜色(工单 T4 / 设计稿 §3.1 抄录; 金银阶随装备 T3
+   扩入——图标色板同源, 调研 mc-equipment-research §7.2; 锁链/皮革无工具行
+   故不进本表, mkToolDef 越界抛错守门) */
 const TOOL_HEAD_COLORS = {
   wood: 0x8a5a2b,
   stone: 0x8a8f98,
   iron: 0xd8dde4,
   diamond: 0x4ee1d2,
+  gold: 0xe9b115,
+  netherite: 0x5d565d,
 };
 
 /* 标签用字: 阶名(钻石不带「石」字, 同设计稿 §3.1 name 口径) × 种名 */
 const KIND_LABELS = {pick: '镐', axe: '斧', sword: '剑', shovel: '锹'};
-const TIER_LABELS = {wood: '木', stone: '石', iron: '铁', diamond: '钻石'};
+const TIER_LABELS = {wood: '木', stone: '石', iron: '铁', diamond: '钻石',
+  gold: '金', netherite: '下界合金'};
 
 /* 工具头部件表: 每种一套(c 为该阶材质色; 部件坐标系以握点为原点, -Z 为前) */
 const TOOL_HEAD_PARTS = {
@@ -163,6 +170,39 @@ for (const kind of Object.keys(TOOL_HEAD_PARTS)) {
     TOOL_DEFS[kind + '_' + tier] = mkToolDef(kind, tier);
   }
 }
+
+/* ---------- 盔甲手持薄片 (mkArmorDef, 装备 T3 / 设计稿 §4.2) ----------
+   MC 口径: 盔甲手持 = 图标挤出薄片(item/generated——原版非方块物品统一为
+   16×16 贴图挤出薄片模型, 与弓/剪刀/剑同管线), art 键=ITEM_PIX 盔甲键
+   (工坊同形换板 24 键, icons.js), 挤出侧面=阶色单色; grip/swing 走手持物
+   族档(工具组同款前移离臂 + 镐/锄中档挥击——盔甲拿起看的场景是「摆一下」,
+   不需要个性档)。24 条经 defFor 惰性首做驻 HELD_DEFS(顶层零表依赖纪律,
+   见下方 ARMOR 段注释; defFor 返回恒等引用, 键名=物品 id)。 */
+const ARMOR_SIDE_COLORS = {
+  leather: 0xa06540, chain: 0x969696, iron: 0xd8dde4,
+  gold: 0xe9b115, diamond: 0x4ee1d2, netherite: 0x5d565d,
+};
+
+const mkArmorDef = (id) => {
+  const a = armorOf(id); /* 盔甲判据单份在 items-core(T1), 本文件只读不复制 */
+  if (!a) throw new Error('mkArmorDef: 非盔甲 id → ' + id);
+  return {
+    label: ITEMS[id].name,
+    parts: [
+      /* 薄片中点抬高让握点落在片下部(持甲展示的观感, shears 同款手法) */
+      {w: 0.62, h: 0.62, d: 0.05, color: ARMOR_SIDE_COLORS[a.tier], art: id, pos: [0, 0.14, 0]},
+    ],
+    grip: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
+    fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(generated 与 handheld 正典同值) */
+    swing: {dur: 0.24, amp: 1.3, curlZ: 0.12},
+    sway: {idle: 0.03},
+  };
+};
+
+/* 24 个盔甲 def 不在加载期生成——held-item 顶层零表依赖纪律(index.html
+   加载序 held-item 在 items-core 之前, 顶层读 ITEMS/armorOf 必炸): 首做
+   驻 defs 由 defFor 惰性完成(调用期表已全在), 效果等同加载期注册——
+   defs 最终含 24 条, defFor 返回恒等引用, 新增盔甲行零手工清单 */
 
 const HELD_DEFS = {
   /* 锄头: 木柄 + 铁箍 + 前伸锄刃, 部件坐标系以握点为原点, -Z 为前 */
@@ -253,7 +293,9 @@ const HELD_DEFS = {
     sway: {idle: 0.03},
   },
 
-  /* 镐/斧/剑/锹 × 木/石/铁/钻 共 16 条: mkToolDef 批量生成(见上方工厂段) */
+  /* 镐/斧/剑/锹 × 六阶共 24 条: mkToolDef 批量生成(TOOL_HEAD_COLORS 是
+     本文件自有常量, 加载期安全); 盔甲 24 条不在字面展开——defFor 惰性
+     首做驻入(见 mkArmorDef 段注释, 顶层不触碰 ITEMS 纪律) */
   ...TOOL_DEFS,
 };
 
@@ -380,6 +422,9 @@ const HeldItems = {
      (本入口即那段装配代码的单测直调面), 非运行时按需入口——运行时
      消费方一律读 defs, 不经此现做 */
   mkToolDef,
+  /* 盔甲 def 工厂: 物品 id → 全新薄片 def(装备 T3)。加载期已批量生成
+     24 条进 defs(单测直调面), 非盔甲 id 抛错(mkToolDef 同款纪律) */
+  mkArmorDef,
   /* 惰性 def 工厂(单测直调面, 运行时一律经 defFor): mkBlockDef 收数字
       方块 id, mkTorchDef 收数字方块 id(wall 薄块, 火把), mkRodDef/mkPlateDef
       收物品 id; 越界返回 null 不抛 */
@@ -401,6 +446,7 @@ const HeldItems = {
       if (!it) return null;
       if (it.block != null) def = mkTorchDef(it.block) || mkBlockDef(it.block);
       else if (ROD_IDS.indexOf(id) >= 0) def = mkRodDef(id);
+      else if (armorOf(id)) def = HELD_DEFS[id] = mkArmorDef(id); /* 盔甲薄片: 惰性首做驻 defs(T3) */
       else def = mkPlateDef(id);
     }
     return def.fp ? def : {...def, fp: fpOf(FP_HANDHELD)};
