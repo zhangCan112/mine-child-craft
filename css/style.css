@@ -1588,6 +1588,96 @@ body.dev-on .mode-card.dev {
   box-shadow: 0 0 8px rgb(255 255 255 / 45%);
 }
 
+/* ---------- L1 一级分栏(装备 T9): 合成|装备 页签 + 两页容器 ---------- */
+.mkp-l1tabs {
+  display: flex;
+  gap: 8px;
+}
+
+.mkp-l1tab {
+  width: 44px;
+  height: 40px;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  background: rgb(0 0 0 / 32%);
+  border: 2px solid rgb(255 255 255 / 30%);
+  border-radius: 8px;
+}
+
+.mkp-l1tab.on {
+  background: rgb(255 255 255 / 18%);
+  border-color: #fff;
+  box-shadow: 0 0 8px rgb(255 255 255 / 45%);
+}
+
+.mkp-page {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mkp-page.off {
+  display: none;
+}
+
+/* ---------- 装备页: 纸娃娃定格预览 + 四槽穿戴 + 盔甲点 ---------- */
+.mkp-equiprow {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+}
+
+.mkp-dollbox {
+  flex: none;
+  width: 116px;
+  height: 150px;
+  overflow: hidden;
+  background: rgb(0 0 0 / 30%);
+  border: 2px solid rgb(255 255 255 / 22%);
+  border-radius: 10px;
+}
+
+.mkp-dollcv canvas {
+  display: block;
+}
+
+.mkp-eslots {
+  display: grid;
+  grid-template-columns: repeat(2, 58px);
+  gap: 10px;
+}
+
+.mkp-eslot {
+  position: relative;
+  width: 58px;
+  height: 58px;
+  padding: 0;
+  cursor: pointer;
+  background: rgb(0 0 0 / 30%);
+  border: 3px solid rgb(255 255 255 / 22%);
+  border-radius: 10px;
+}
+
+.mkp-eslot.off {
+  border-style: dashed;
+}
+
+.mkp-eslot .dur {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  left: 4px;
+  height: 5px;
+  border-radius: 3px;
+}
+
+.mkp-pts {
+  font-size: 15px;
+  font-weight: 700;
+  text-shadow: 0 1px 2px #000;
+}
+
 /* ---------- 配方卡: 产物大图 + 材料 chip + 站点徽标 ---------- */
 .mkp-cards {
   display: flex;

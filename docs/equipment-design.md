@@ -242,6 +242,7 @@ texture-atlas 新格：正典「上下螺旋纹、侧面斑驳」观感语言像
 | T6 | advHitPlayer 漏斗 + mkArrows hurtPlayer 缝 + 磨损破碎仪式 | combat-kit 缝契约 + 探险减伤/磨损行为断言 |
 | T7 | B_ANCIENT_DEBRIS 块/贴图/散布/掉落 | config 号段交叉 + dims-core 散布确定性断言 |
 | T8 | ItemHint 全量补齐 + GLOSSARY 词条 + docs/README 登记 + 全量回归 | item-hint 守门自动拦漏；npm test + lint 清零 |
+| T9 | 背包面板 L1 分栏（合成/装备）+ 纸娃娃定格预览 + 一键穿上 + armor-overlay 抽件（§9） | mode-kit 页签改写 + 装备页契约组 + adventure-mode advTryWearSlot 行为组 + boot 冒烟 |
 
 > 进度注（2026-11-04）：T1–T4 收官——T1 落 equipment-core 八接口 + items 增量
 > （24 盔甲行 + 金银阶工具 8 行 + 下界材料 3 行）+ 提示行 35 条；T2 落 RECIPES
@@ -258,6 +259,88 @@ texture-atlas 新格：正典「上下螺旋纹、侧面斑驳」观感语言像
 > 命中磨损破碎仪式（advWearArmorOnHit 原地落账）+ kbResist 击退抗性；T7 收官
 > （2026-11-05）：B_ANCIENT_DEBRIS=73（号段红线外推 74+）+ T_DEBRIS 螺旋纹贴图 +
 > advNetherBuild 地下层种子化散布 + drop ancient_debris；T8 收官（2026-11-05，工单收官）：GLOSSARY 装备核心（EquipmentCore）词条落地（词条一览计数 61 · 贴图图集补 73 远古残骸提及 · ModeKit 词条补 mkArmorBar 装备条/interface）——ItemHint 经侦察确认 T2 已全量（35 条在其守门测试「ITEMS 全键⊆ITEM_HINTS」强制覆盖下，零补笔）、docs/README 登记 T1 已做（零改动）。六材质盔甲四件套 + 金/下界合金两阶工具 + 下界合金合成链全量落地。
+
+## §9 背包面板一级分栏 + 装备页（T9，2026-11-05 需求）
+
+用户需求：①人物装备栏——可把装备穿上/脱下，并看到人物装备效果；②背包面板
+取消「全部」长列表，新增「装备」分栏；③UI 参考业界成熟布局。三项拍板
+（2026-11-05 问询确认）：**取消「全部」页签**（拆 工具/食物/方块/材料 四类）·
+**3D 定格预览**（不旋转、零 rAF 循环，worn 变化按需重画一帧——省电口径，
+照顾低配 iPad）· **一键穿上**（装备页点背包格盔甲件直接上身）。
+
+### 9.1 结构：mkp-main 一级分栏（合成 | 装备）+ 底部共用背包区
+
+MC 背包正典布局（顶部功能区 + 底部物品栏）落进 mkCraftPanel：
+
+    mkp-head（标题/整理/丢弃/✕ — 不动）
+    mkp-l1tabs   合成(table 图标) · 装备(wear 图标) — 仅 opts.equip 提供时渲染
+    mkp-pagecraft  摆放台 → 配方页签 → 配方卡（原合成功能区，页签口径见 9.2）
+    mkp-pageequip  mkp-equiprow（纸娃娃 mkp-dollbox + 四槽 mkp-eslot）→ mkp-pts 盔甲点
+    mkp-grid + mkp-hotrow（背包 18 主格 + 9 快捷镜像 — 移至面板底部，两页共用）
+
+aside 任务卡、furnace/chest 面板零改动。页切换 = 显隐翻转 + refresh 只重画
+当前页（renderBench/renderCards 归 craft 页，装备槽/预览归 equip 页）；
+**切页同时收起手**（pickIdx/pickCell 清——起手槽号语义不跨页，与丢弃态
+先收手同款；红测试逼出的真实 UX 修复：高亮跨页残留是谜之状态）。
+opts.equip 缺省时无 L1 页签、无装备页——mkCraftPanel 向后兼容
+（现消费者 adventure.js 一处）。
+
+### 9.2 合成页页签：去「全部」增「材料」
+
+KIT_TABS = tool/food/block/mat（图标式零文字不变）；cardTab 判据回落
+'mat'（原回落 all——未归类材料不再有长列表页，材料页承接）。默认页签
+tool（首造工具是主动作）。mat 图标零新画：BTN_DELEGATE 加
+`mat: () => itemIcon('stick')`（委托物品工坊，单一像素来源纪律）。
+
+### 9.3 装备页：纸娃娃定格预览 + 四槽 + 盔甲点
+
+- 预览（js/paper-doll.js 新件 mkPaperDoll）：MobLookKit.puppet('player') 独立
+  实例 + mkArmorOverlay 穿戴几何（9.4）；自建小 WebGLRenderer **惰性建**
+  （首次 paint 才建），worn 变化按需重画一帧——零 rAF 循环；面板 unmount
+  dispose（renderer.dispose + forceContextLoss + 遍历释放几何/材质）。
+  hide 不 dispose（重开复用，免频繁建渲染器）。
+- 槽位：EQUIP_SLOTS 序（equipment-core 唯一权威，mkArmorBar 同源）。
+  button.mkp-eslot data-slot · 空槽 .off 虚位 · 有件显 icon + 耐久条
+  （piece.dur/durOf(id)）；点槽一律报 onSlot(slot)（空槽也报——话术归
+  模式层 advWornTakeOff）。
+- 盔甲点行 mkp-pts：armorPoints 经 opts.equip.pts() 注入（mode-kit 零装备
+  数值知识）。装备页全部数据经 **equip 注入面** {worn, pts, onSlot,
+  onWearAt, mkPreview}——mode-kit 保持零 THREE（预览经 mkPreview 工厂缝、
+  测试用桩工厂）。
+
+### 9.4 穿戴几何抽件（js/armor-overlay.js）
+
+Avatar.setArmor 内联闭包（骨挂 overlay 盒四槽几何）抽成
+mkArmorOverlay(puppet) → {apply(worn), dispose()} 作单份权威：Avatar 委托
+（脚本序 armor-overlay 先于 avatar——载入即建），纸娃娃共享，几何不落
+双份。幂等签名（四槽 id 集）与尺寸/配色口径逐字平移（§4.3）；dispose
+仅纸娃娃消费（Avatar 跨模式存活不释放）。
+
+### 9.5 穿脱交互：一键穿上（政策链沿用）
+
+- 装备页点背包格（主格/快捷镜像同缝）盔甲件（isArmor 判据）= onWearAt(i)
+  意图 → advTryWear(i)：advTryWear 加槽参（缺省 advHb.sel——wear 使用档
+  执行器形态不变），沿用其政策链（wornPut 换装/旧件满包礼貌拒绝不消耗/
+  消耗进槽/观感对齐/存档/话术）。非盔甲件保持点选搬运；丢弃态拦截优先
+  不变；合成页背包格行为完全不变。
+- advSyncArmor 加面板刷新钩：ADV.panelOpen 时 advPanel.refresh()（预览
+  一帧重画 + 槽位重读；拾取刷新同先例）。
+- 新挂点 advTryWearSlot(i)（指定槽穿上意图——行为测试面，登记挂点清单）。
+
+### 9.6 测试先行清单（TDD）
+
+- mode-kit.test.js：页签测试改写（四页/默认 tool/材料归 mat——改写而非
+  回避；DOM 复用断言改**恒签名灰卡桩 + 按 recipe id 取节点对比**——
+  亮度档位翻转会让稳定排序换位、索引对比失义）；背包区移底 → mkp-cell
+  收集序 = 摆放台 9 → 主格 18 → 快捷镜像 9（旧索引机械映射；触发
+  refresh 的点击后整树重建、引用失效须重取）；新增 L1 分栏契约组
+  （无 equip 不渲染 L1 页签 · equip 缝槽位/pts/惰性预览恰建一次/点槽
+  onSlot/点盔甲件 onWearAt · 非盔甲走搬运/unmount dispose）。
+- adventure-mode.test.js：advTryWearSlot 行为组（免选中指定槽穿上/旧件
+  回包零损失/满包拒绝不消耗；**测试隔离**：组前 mem.clear() 清存储介质——
+  前测 cleanup 落盘的 armor 键被 init 读回会让首穿实为换装、回包计数
+  翻倍，全文件既有惯例的补课）。
+- boot 冒烟自动罩新脚本（index.html 解析装载 + THREE 桩全放行）。
 
 ## 附录 B：MC 差异登记表
 

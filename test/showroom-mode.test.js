@@ -728,14 +728,29 @@ test('体验馆: station 行为断言 — 远离工作台台级配方随处可�
       必假; 政策缝 advStationGate(面板 opts 消费的同一函数)恒真 */
   assert.strictEqual(A.advStationOk(), false, '4 格内无工作台(真实站点门禁为假)');
   assert.strictEqual(SRV.advStationGate(), true, 'advStationGate 恒真(dev: 台级配方随处可摆)');
-  /* 隐藏配方全点亮: bread ∈ mode-kit 隐藏清单, dev 政策下面板卡片在场且不灰 */
+  /* 隐藏配方全点亮: bread ∈ mode-kit 隐藏清单, dev 政策下面板卡片在场且不灰
+     (T9 页签化: 面包归食物页、铁锭等台级材料归材料页——切到对应页签再读卡) */
   ShowroomMode.onKey('Tab');
-  const bread = findCardByRecipe(ShowroomMode.sr.craft.panel.root, 'bread');
-  assert.ok(bread, '隐藏配方面包卡片在场(hiddenRecipesOpen)');
+  const root = ShowroomMode.sr.craft.panel.root;
+  const tabBtn = (key) => {/* 页签钮 dataset.tab(T9); fake DOM 递归同 findCardByRecipe */
+    const walk = (el) => {
+      if (el.dataset && el.dataset.tab === key) return el;
+      for (const c of el.children || []) {
+        const r = walk(c);
+        if (r) return r;
+      }
+      return null;
+    };
+    return walk(root);
+  };
+  tabBtn('mat').onclick(); /* 材料页: iron_ingot(RECIPES 首个台级配方, 锭=材料) */
   const tableR = api.RECIPES.find((r) => r.station === 'table');
-  const card = findCardByRecipe(ShowroomMode.sr.craft.panel.root, tableR.id);
+  const card = findCardByRecipe(root, tableR.id);
   assert.ok(card, '台级配方卡片在场(远离工作台): ' + tableR.id);
   assert.ok(!card.classList.contains('dim'), '台级配方不灰(station 门禁被 dev 政策放开)');
+  tabBtn('food').onclick(); /* 食物页: 面包卡在此 */
+  const bread = findCardByRecipe(root, 'bread');
+  assert.ok(bread, '隐藏配方面包卡片在场(hiddenRecipesOpen)');
   ShowroomMode.onKey('Tab');
 });
 

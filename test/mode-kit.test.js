@@ -78,7 +78,7 @@ function collect(el, cls, out) {
   }
   vm.runInContext(`globalThis.__g = {ITEMS, toolOf, stackMax, durOf, costEntry, shapeCost, canCraft,
     matchGrid, gridCraft, fillGrid, remove, add, count, take, mkInventory, mkStack, RECIPES,
-    EQUIP_SLOTS, mkWorn};`, ctx);
+    EQUIP_SLOTS, mkWorn, isArmor};`, ctx);
   const g = ctx.__g;
   for (const k of Object.keys(g)) globalThis[k] = g[k];
 }
@@ -90,6 +90,8 @@ const R_PICK = {id: 'pick_wood', out: {item: 'pick_wood', n: 1}, station: 'table
   shape: {rows: [['planks', 'planks', 'planks'], [null, 'stick', null], [null, 'stick', null]]}};
 const R_TORCH = {id: 'torch', out: {item: 'torch', n: 4}, station: 'hand',
   shape: {rows: [[['coal', 'charcoal']], ['stick']]}};
+const R_SWORD = {id: 'sword_wood', out: {item: 'sword_wood', n: 1}, station: 'hand',
+  shape: {rows: [['planks'], ['planks'], ['stick']]}}; // 木剑(2板1棍): T9 页签化后工具页同类双桩
 
 /* mode-kit 引用的自由变量 → 测试注入全局属性 (浏览器里来自 world.js/input.js) */
 globalThis.pos = {set(x, y, z) {
@@ -259,8 +261,8 @@ test('craft 面板: 挂载/卸载幂等 + 背包网格 18 主格+9 快捷镜像+
   panel.show(); // 再挂 → 不重复
   assert.strictEqual(doc.body.children.length, 1);
   const cells = collect(panel.root, 'mkp-cell');
-  assert.strictEqual(cells.length, 36); // 18 主格 + 9 快捷镜像 + 摆放台 3×3(DOM 序: 摆放台在后)
-  assert.ok(cells[0].innerHTML.includes('data:image/png;base64,AA')); // 主格首格 = 槽 9 的木板
+  assert.strictEqual(cells.length, 36); // 18 主格 + 9 快捷镜像 + 摆放台 3×3(T9 DOM 序: 摆放台在前)
+  assert.ok(cells[9].innerHTML.includes('data:image/png;base64,AA')); // 主格首格 = 槽 9 的木板
   assert.ok(collect(panel.root, 'mkp-quest').length === 1); // 任务卡占位容器(T15 填)
   assert.strictEqual(collect(panel.root, 'mkp-oslot').length, 1); // 产出槽(crafting-grid §5)
   panel.remove();
@@ -282,7 +284,7 @@ test('craft 面板: 🧹 整理按钮 → sortInv 就地合并 + onSort 通知 +
   assert.deepStrictEqual(inv.slots[9], {id: 'planks', n: 60}); // 主格首格合并
   assert.strictEqual(sorted, 1);
   const cells = collect(panel.root, 'mkp-cell');
-  assert.ok(cells[0].innerHTML.includes('60')); // 主格首格已重画(网格顺序=槽 9 起)
+  assert.ok(cells[9].innerHTML.includes('60')); // 主格首格已重画(网格顺序=槽 9 起, T9 摆放台在前)
   panel.remove();
 });
 
@@ -298,13 +300,13 @@ test('craft 面板: 点非空格起手高亮(pick 类), 点目标格 → onMove(
     moves.push([from, to]);
   }});
   panel.show();
-  collect(panel.root, 'mkp-cell')[18].onclick(); // 快捷镜像首格 = 槽 0: 起手
+  collect(panel.root, 'mkp-cell')[27].onclick(); // 快捷镜像首格 = 槽 0: 起手(T9 镜像格 DOM 序 27~35)
   let cells = collect(panel.root, 'mkp-cell'); // refresh 重建, 重取
-  assert.ok(cells[18]._cls.has('pick'), '起手格高亮');
-  cells[0].onclick(); // 主格首格 = 槽 9(空位): 搬去那里
+  assert.ok(cells[27]._cls.has('pick'), '起手格高亮');
+  cells[9].onclick(); // 主格首格 = 槽 9(空位): 搬去那里
   assert.deepStrictEqual(moves, [[0, 9]], 'onMove 报模式层执行(空位/并堆/对调政策不在面板)');
   cells = collect(panel.root, 'mkp-cell');
-  assert.ok(!cells[18]._cls.has('pick'), '搬运后收高亮');
+  assert.ok(!cells[27]._cls.has('pick'), '搬运后收高亮');
   panel.remove();
 });
 
@@ -318,12 +320,12 @@ test('craft 面板: 搬运边界 — 再点原格=放下, 无起手点空格=无
     moves.push([from, to]);
   }});
   panel.show();
-  collect(panel.root, 'mkp-cell')[18].onclick(); // 槽 0 起手
-  collect(panel.root, 'mkp-cell')[18].onclick(); // 再点原格 → 放下
+  collect(panel.root, 'mkp-cell')[27].onclick(); // 槽 0 起手(T9: 镜像格 DOM 序 27~35)
+  collect(panel.root, 'mkp-cell')[27].onclick(); // 再点原格 → 放下
   assert.deepStrictEqual(moves, []);
-  assert.ok(!collect(panel.root, 'mkp-cell')[18]._cls.has('pick'), '放下后无高亮');
-  collect(panel.root, 'mkp-cell')[3].onclick(); // 无起手 + 空格 → 无事
-  collect(panel.root, 'mkp-cell')[19].onclick(); // 无起手 + 空格(快捷镜像) → 无事
+  assert.ok(!collect(panel.root, 'mkp-cell')[27]._cls.has('pick'), '放下后无高亮');
+  collect(panel.root, 'mkp-cell')[12].onclick(); // 无起手 + 空格 → 无事
+  collect(panel.root, 'mkp-cell')[28].onclick(); // 无起手 + 空格(快捷镜像) → 无事
   assert.deepStrictEqual(moves, []);
   panel.remove();
 });
@@ -340,11 +342,11 @@ test('craft 面板: onMove 后整幅重画反映搬移结果(面板只重读 inv
   };
   const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onMove: move});
   panel.show();
-  collect(panel.root, 'mkp-cell')[0].onclick(); // 槽 9 起手
-  collect(panel.root, 'mkp-cell')[5].onclick(); // 搬去槽 14
-  const cells = collect(panel.root, 'mkp-cell'); // DOM 序: 主格 18 格在前, 快捷镜像 9 格在后
-  assert.ok(!cells[0].innerHTML.includes('data:image'), '槽 9 已腾空');
-  assert.ok(cells[5].innerHTML.includes('data:image/png;base64,AA'), '槽 14 收到木板');
+  collect(panel.root, 'mkp-cell')[9].onclick(); // 槽 9 起手(T9: 摆放台 9 格 DOM 序在前)
+  collect(panel.root, 'mkp-cell')[14].onclick(); // 搬去槽 14
+  const cells = collect(panel.root, 'mkp-cell'); // DOM 序(T9): 摆放台 9 → 主格 18 → 镜像 9
+  assert.ok(!cells[9].innerHTML.includes('data:image'), '槽 9 已腾空');
+  assert.ok(cells[14].innerHTML.includes('data:image/png;base64,AA'), '槽 14 收到木板');
   panel.remove();
 });
 
@@ -359,14 +361,14 @@ test('craft 面板: 🧹 整理收起搬运起手(主格重排后起手槽号失
     moves.push([from, to]);
   }});
   panel.show();
-  collect(panel.root, 'mkp-cell')[18].onclick(); // 槽 0 起手
+  collect(panel.root, 'mkp-cell')[27].onclick(); // 槽 0 起手(T9: 镜像格 DOM 序 27~35)
   collect(panel.root, 'mkp-sort')[0].onclick(); // 整理 → 收起手
-  assert.ok(!collect(panel.root, 'mkp-cell')[18]._cls.has('pick'), '整理后无高亮');
+  assert.ok(!collect(panel.root, 'mkp-cell')[27]._cls.has('pick'), '整理后无高亮');
   assert.deepStrictEqual(moves, [], '整理不是搬运');
-  collect(panel.root, 'mkp-cell')[18].onclick(); // 重新起手
+  collect(panel.root, 'mkp-cell')[27].onclick(); // 重新起手
   panel.close(); // 关面板 → 下次打开不带旧高亮
   panel.show();
-  assert.ok(!collect(panel.root, 'mkp-cell')[18]._cls.has('pick'), '重开无残留高亮');
+  assert.ok(!collect(panel.root, 'mkp-cell')[27]._cls.has('pick'), '重开无残留高亮');
   panel.remove();
 });
 
@@ -374,25 +376,27 @@ test('craft 面板: 🧹 整理收起搬运起手(主格重排后起手槽号失
 
 test('craft 面板: 卡片=产物大图+×数量+材料chip×数+站点徽标, 任选材料逐候选', () => {
   const doc = mkDoc();
-  /* 备齐三卡材料(齐料亮卡, chip 无 lack 类可精确计数) */
+  /* 备齐三卡材料(齐料亮卡, chip 无 lack 类可精确计数); T9 页签化: 卡按类分页看 */
   const inv = {slots: [
     ...Array(9).fill(null), {id: 'log', n: 2}, {id: 'planks', n: 5}, {id: 'stick', n: 3},
     {id: 'coal', n: 1}, ...Array(13).fill(null),
   ]};
   const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK, R_TORCH], onCraft() {}});
   panel.show();
-  const cards = collect(panel.root, 'mkp-card');
-  assert.strictEqual(cards.length, 3);
+  pickTab(panel, 'tool');
+  const pickCard = collect(panel.root, 'mkp-card')[0]; // 工具页: 木镐
+  assert.ok(pickCard.innerHTML.includes('data-btn="table"')); // table 级徽标(像素图标桩标记)
+  assert.strictEqual((pickCard.innerHTML.match(/class="mkp-chip"/g) || []).length, 2); // planks + stick
+  assert.ok(pickCard.innerHTML.includes('×3'));
+  pickTab(panel, 'block');
+  const cards = collect(panel.root, 'mkp-card'); // 方块页: 木板+火把(双亮原序)
+  assert.strictEqual(cards.length, 2);
   const planksCard = cards[0];
   assert.ok(planksCard.innerHTML.includes('src="data:image/png;base64,AA"')); // 产物像素大图
   assert.ok(planksCard.innerHTML.includes('×4')); // 产物数量
   assert.ok(!planksCard.innerHTML.includes('data-btn="table"')); // hand 级无徽标
   assert.strictEqual((planksCard.innerHTML.match(/class="mkp-chip"/g) || []).length, 1); // log×1
-  const pickCard = cards[1];
-  assert.ok(pickCard.innerHTML.includes('data-btn="table"')); // table 级徽标(像素图标桩标记)
-  assert.strictEqual((pickCard.innerHTML.match(/class="mkp-chip"/g) || []).length, 2); // planks + stick
-  assert.ok(pickCard.innerHTML.includes('×3'));
-  const torchCard = cards[2];
+  const torchCard = cards[1];
   assert.strictEqual((torchCard.innerHTML.match(/class="mkp-chip"/g) || []).length, 3); // 任选 coal/charcoal + stick
   panel.remove();
 });
@@ -404,11 +408,16 @@ test('craft 面板: bread/bone_meal/bow_item 默认过滤, opts.allow 放开', (
     {id, out: {item: id, n: 1}, station: 'table', shape: {rows: [['wheat'], ['wheat'], ['wheat']]}}));
   const p1 = mkCraftPanel({doc, inv, recipes: [...hidden, R_PLANKS], onCraft() {}});
   p1.show();
-  assert.strictEqual(collect(p1.root, 'mkp-card').length, 1); // 只剩 planks
+  pickTab(p1, 'mat');
+  assert.strictEqual(collect(p1.root, 'mkp-card').length, 0); // 材料页: bone_meal/bow_item 全滤
+  pickTab(p1, 'block');
+  assert.strictEqual(collect(p1.root, 'mkp-card').length, 1); // 只剩 planks(方块页常驻)
   p1.remove();
   const p2 = mkCraftPanel({doc, inv, recipes: [...hidden, R_PLANKS], allow: ['bread'], onCraft() {}});
   p2.show();
-  assert.strictEqual(collect(p2.root, 'mkp-card').length, 2); // bread 放开
+  pickTab(p2, 'food');
+  assert.strictEqual(collect(p2.root, 'mkp-card').length, 1); // bread 放开(食物页可见)
+  assert.strictEqual(collect(p2.root, 'mkp-card')[0].dataset.recipe, 'bread');
   p2.remove();
 });
 
@@ -419,6 +428,7 @@ test('craft 面板: 缺料→卡片 dim+chip lack(have/need), 补料刷新恢复
   const inv = {slots: new Array(27).fill(null)};
   const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {}});
   panel.show();
+  pickTab(panel, 'block'); // planks 归方块页(T9 页签化)
   let card = collect(panel.root, 'mkp-card')[0];
   assert.ok(card._cls.has('dim')); // 空背包缺原木 → 整卡灰(真 canCraft 驱动)
   assert.ok(card.innerHTML.includes('class="mkp-chip lack"')); // 缺的材料灰显
@@ -435,15 +445,16 @@ test('craft 面板: 缺料→卡片 dim+chip lack(have/need), 补料刷新恢复
 
 test('craft 面板: 卡序=可制造在前缺料在后(同档稳定=原配方序)', () => {
   const doc = mkDoc();
-  /* planks5+stick2+coal1 无 log: 木镐/火把可造, 木板缺料 */
+  /* T9 页签化: 跨类卡序断言改工具页同类双桩(木剑 hand 级/木镐 table 级);
+     planks5+stick2 恰够镐(3+2)与剑(2+1) → 双亮, 按原配方序 */
   const inv = {slots: [
-    ...Array(9).fill(null), {id: 'planks', n: 5}, {id: 'stick', n: 2}, {id: 'coal', n: 1},
-    ...Array(15).fill(null),
+    ...Array(9).fill(null), {id: 'planks', n: 5}, {id: 'stick', n: 2},
+    ...Array(16).fill(null),
   ]};
-  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK, R_TORCH], onCraft() {}});
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PICK, R_SWORD], onCraft() {}});
   panel.show();
   assert.deepStrictEqual(collect(panel.root, 'mkp-card').map((c) => c.dataset.recipe),
-      ['pick_wood', 'torch', 'planks'], '两亮卡在前(原序), 缺料卡垫底');
+      ['pick_wood', 'sword_wood'], '双亮卡在前(同档稳定=原配方序)');
   panel.remove();
 });
 
@@ -455,72 +466,83 @@ test('craft 面板: 合成后该配方卡置顶(仍可制造时从次位跳第�
   ]};
   const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_TORCH], onCraft() {}});
   panel.show();
+  pickTab(panel, 'block'); // 双配方同归方块页(T9 页签化)
   collect(panel.root, 'mkp-card')[1].onclick(); // 点火把卡 = 一键摆入(coal1+stick1)
   const out = collect(panel.root, 'mkp-oslot')[0];
   out._ev.pointerdown({preventDefault() {}});
   out._ev.pointerup(); // 短按一发 → 4 火把入包
-  /* 合成后 coal1+stick1 仍够再造 → 火把从配方序第二跳第一, planks 让位次之 */
+  /* 合成后 coal1+stick1 仍够再造 → 火把从次位跳第一(刚做过置顶), planks 让位 */
   assert.deepStrictEqual(collect(panel.root, 'mkp-card').map((c) => c.dataset.recipe),
       ['torch', 'planks'], '刚做过且仍可造 → 置顶第一');
   panel.remove();
 });
 
-test('craft 面板: 合成后材料尽(灰卡)不置顶, 沉回缺料档原配方序', () => {
+test('craft 面板: 合成后材料尽(灰卡)不置顶, 沉回缺料档垫底', () => {
   const doc = mkDoc();
+  /* T9 页签化: 跨类三配方 → 双 block 桩(木板常亮/火把刚做转灰) */
   const inv = {slots: [
     ...Array(9).fill(null), {id: 'log', n: 2}, {id: 'planks', n: 5}, {id: 'stick', n: 2},
     {id: 'coal', n: 1}, ...Array(13).fill(null),
   ]};
-  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK, R_TORCH], onCraft() {}});
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_TORCH], onCraft() {}});
   panel.show();
-  collect(panel.root, 'mkp-card')[1].onclick(); // 点木镐卡 = 一键摆入(planks3+stick2)
+  pickTab(panel, 'block'); // 双配方同归方块页
+  collect(panel.root, 'mkp-card')[1].onclick(); // 点火把卡 = 一键摆入(coal1+stick1)
   const out = collect(panel.root, 'mkp-oslot')[0];
   out._ev.pointerdown({preventDefault() {}});
-  out._ev.pointerup(); // 短按一发 → 木镐入包, 材料尽
-  /* 木镐缺 planks(5-3=2<3) 已灰: 不置顶, 沉回缺料档(配方序); planks 可造第一,
-     火把缺 stick 同档按配方序垫底 */
+  out._ev.pointerup(); // 短按一发 → 4 火把入包, 煤尽 → 火把灰
+  /* 刚做灰卡不置顶: 可造木板在前, 灰卡垫底(2026-11-04 口径: 灰卡排第一反而挡住下一个能做的) */
   assert.deepStrictEqual(collect(panel.root, 'mkp-card').map((c) => c.dataset.recipe),
-      ['planks', 'pick_wood', 'torch'], '灰卡不置顶: 缺料档内保持原配方序');
+      ['planks', 'torch'], '灰卡不置顶: 沉回缺料档垫底');
   panel.remove();
 });
 
 test('craft 面板: 卡片 DOM 复用 — 观感签名未变回挂旧节点, 变了才重建', () => {
   const doc = mkDoc();
-  const inv = {slots: [...Array(9).fill(null), {id: 'log', n: 2}, {id: 'planks', n: 5},
+  /* T9 页签化: 工具页三桩——剑亮/镐灰(stick 1/2)/同产物异配方灰卡(cobblestone
+     恒缺 0/1 签名恒定); 清棍驱动两卡签名变化, 恒定灰卡对照复用行为 */
+  const R_SWORD_B = {id: 'sword_wood_b', out: {item: 'sword_wood', n: 1}, station: 'hand',
+    shape: {rows: [['cobblestone']]}}; // 同产物异配方: cobblestone 恒缺 → 灰卡签名恒定
+  const inv = {slots: [...Array(9).fill(null), {id: 'planks', n: 5}, {id: 'stick', n: 1},
     ...Array(16).fill(null)]};
-  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK], onCraft() {}});
+  const panel = mkCraftPanel({doc, inv, recipes: [R_SWORD, R_PICK, R_SWORD_B], onCraft() {}});
   panel.show();
   const before = collect(panel.root, 'mkp-card');
-  assert.deepStrictEqual(before.map((c) => c.dataset.recipe), ['planks', 'pick_wood'],
-      '亮卡在前: planks 可造, pick 缺 stick');
-  inv.slots[9] = null; // 清 log → planks 卡亮转灰(签名变), pick 卡观感不变
+  assert.deepStrictEqual(before.map((c) => c.dataset.recipe),
+      ['sword_wood', 'pick_wood', 'sword_wood_b'], '亮卡在前(剑), 灰卡按配方序垫底');
+  inv.slots[10] = null; // 棍清空 → 剑亮转灰/镐灰加深(两卡签名变), 恒灰卡不变
   panel.refresh();
   const after = collect(panel.root, 'mkp-card');
-  assert.strictEqual(after[1], before[1], 'pick 卡签名未变 → 复用同一 DOM 节点');
-  assert.notStrictEqual(after[0], before[0], 'planks 卡亮→灰签名变 → 重建新节点');
-  assert.ok(after[0]._cls.has('dim'), '重建节点带上 dim 类');
+  const byRecipe = (arr, id) => arr.find((c) => c.dataset.recipe === id);
+  assert.strictEqual(byRecipe(after, 'sword_wood_b'), byRecipe(before, 'sword_wood_b'),
+      '签名未变 → 复用同一 DOM 节点(重建会丢已解码位图)');
+  assert.notStrictEqual(byRecipe(after, 'sword_wood'), byRecipe(before, 'sword_wood'),
+      '亮→灰签名变 → 重建新节点');
+  assert.ok(byRecipe(after, 'sword_wood')._cls.has('dim'), '重建节点带上 dim 类');
   panel.remove();
 });
 
 test('craft 面板: 灰卡产物与缺料 chip 走 iconOfGray 灰版, 亮卡零灰版', () => {
   const doc = mkDoc();
-  const inv = {slots: [...Array(9).fill(null), {id: 'log', n: 2}, ...Array(17).fill(null)]};
+  /* T9 页签化: 工具页同类双桩 — 镐双缺(planks0/3+stick1/2)灰, 剑恰料亮 */
+  const inv = {slots: [...Array(9).fill(null), {id: 'planks', n: 2}, {id: 'stick', n: 1},
+    ...Array(16).fill(null)]};
   const grayLog = [];
   globalThis.iconOfGray = (id) => {
     grayLog.push(id);
     return 'data:image/png;base64,GRAY';
   };
   try {
-    const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK], onCraft() {}});
+    const panel = mkCraftPanel({doc, inv, recipes: [R_PICK, R_SWORD], onCraft() {}});
     panel.show();
     const cards = collect(panel.root, 'mkp-card');
-    assert.deepStrictEqual(cards.map((c) => c.dataset.recipe), ['planks', 'pick_wood']);
+    assert.deepStrictEqual(cards.map((c) => c.dataset.recipe), ['sword_wood', 'pick_wood']);
     assert.ok(cards[0].innerHTML.includes('data:image/png;base64,AA'), '亮卡产物走 iconOf 彩版');
     assert.ok(!cards[0].innerHTML.includes('GRAY'), '亮卡零灰版');
     assert.ok(cards[1].innerHTML.includes('GRAY'), '灰卡产物+缺料 chip 走灰版');
     assert.ok(grayLog.includes('pick_wood') && grayLog.includes('planks') &&
         grayLog.includes('stick'), '灰卡产物与两个缺料 chip 均取灰版');
-    assert.ok(!grayLog.includes('log'), '亮卡 log chip 不取灰版');
+    assert.ok(!grayLog.includes('sword_wood'), '亮卡产物与剑 chip 不取灰版');
     panel.remove();
   } finally {
     delete globalThis.iconOfGray; /* 还原全局(镜像 hintForItem 桩口径) */
@@ -530,20 +552,20 @@ test('craft 面板: 灰卡产物与缺料 chip 走 iconOfGray 灰版, 亮卡零�
 test('craft 面板: 站点外只列 hand 级卡(正典配方书口径), 近台全列 + 外圈锁格', () => {
   const doc = mkDoc();
   const inv = {slots: new Array(27).fill(null)};
-  const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK],
+  const panel = mkCraftPanel({doc, inv, recipes: [R_SWORD, R_PICK],
     station: () => false, onCraft() {}});
   panel.show();
   assert.strictEqual(collect(panel.root, 'mkp-card').length, 1, '站点外: table 卡不列, hand 卡在列');
-  assert.ok(collect(panel.root, 'mkp-card')[0].dataset.recipe === 'planks');
-  const bench = collect(panel.root, 'mkp-cell').slice(27); // 摆放台 9 格(DOM 序在后)
+  assert.ok(collect(panel.root, 'mkp-card')[0].dataset.recipe === 'sword_wood');
+  const bench = collect(panel.root, 'mkp-cell').slice(0, 9); // 摆放台 9 格(T9: DOM 序在前)
   assert.strictEqual(bench.filter((c) => c._cls.has('lock')).length, 5, '外圈 5 格锁定(左上 2×2 激活)');
   assert.ok(bench[2]._cls.has('lock') && !bench[4]._cls.has('lock'), '下标 2 锁/4 激活');
   assert.strictEqual(typeof bench[2].onclick, 'undefined', '锁定格不接点击(无搬入)');
   panel.close();
-  const panel2 = mkCraftPanel({doc, inv, recipes: [R_PLANKS, R_PICK], onCraft() {}});
+  const panel2 = mkCraftPanel({doc, inv, recipes: [R_SWORD, R_PICK], onCraft() {}});
   panel2.show(); // 缺省 station 恒 true
   assert.strictEqual(collect(panel2.root, 'mkp-card').length, 2, '近台: 全列');
-  assert.strictEqual(collect(panel2.root, 'mkp-cell').slice(27).filter((c) => c._cls.has('lock')).length, 0);
+  assert.strictEqual(collect(panel2.root, 'mkp-cell').slice(0, 9).filter((c) => c._cls.has('lock')).length, 0);
   panel2.remove();
   panel.remove();
 });
@@ -561,19 +583,19 @@ test('craft 面板: 点背包格→摆放格整摞入格(真 remove 扣槽)+onGr
       gridMoves++;
     }});
   panel.show();
-  collect(panel.root, 'mkp-cell')[0].onclick(); // 主格首格(槽 9)起手
-  collect(panel.root, 'mkp-cell')[27].onclick(); // 摆放台格 0: 整摞入格
+  collect(panel.root, 'mkp-cell')[9].onclick(); // 主格首格(槽 9)起手
+  collect(panel.root, 'mkp-cell')[0].onclick(); // 摆放台格 0: 整摞入格
   assert.strictEqual(inv.slots[9], null, 'remove 真扣整摞');
   let all = collect(panel.root, 'mkp-cell');
-  assert.ok(all[27].innerHTML.includes('12'), '摆放格显示 12 件');
+  assert.ok(all[0].innerHTML.includes('12'), '摆放格显示 12 件');
   assert.strictEqual(gridMoves, 1);
   // 异种拒绝: 起 log 点已有 planks 的格 0
-  all[1].onclick(); // 槽 10(log)起手
-  collect(panel.root, 'mkp-cell')[27].onclick(); // 格 0 异种 → 拒绝
+  all[10].onclick(); // 槽 10(log)起手
+  collect(panel.root, 'mkp-cell')[0].onclick(); // 格 0 异种 → 拒绝
   assert.ok(inv.slots[10] && inv.slots[10].id === 'log', '异种拒绝: 原槽不动');
   assert.strictEqual(gridMoves, 1, '拒绝不算搬');
   all = collect(panel.root, 'mkp-cell');
-  assert.ok(all[1]._cls.has('pick'), '起手保留(收手不散)');
+  assert.ok(all[10]._cls.has('pick'), '起手保留(收手不散)');
   panel.remove();
 });
 
@@ -584,10 +606,10 @@ test('craft 面板: 工具/可耗损物不入格(durOf>0 拒绝, 避开耐久重
   ]};
   const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {}});
   panel.show();
-  collect(panel.root, 'mkp-cell')[0].onclick(); // 工具起手
-  collect(panel.root, 'mkp-cell')[27].onclick(); // 摆放格 → 拒绝
+  collect(panel.root, 'mkp-cell')[9].onclick(); // 工具起手
+  collect(panel.root, 'mkp-cell')[0].onclick(); // 摆放格 → 拒绝
   assert.deepStrictEqual({...inv.slots[9]}, {id: 'pick_wood', n: 1, dur: 120}, '工具原槽不动');
-  const bench = collect(panel.root, 'mkp-cell')[27];
+  const bench = collect(panel.root, 'mkp-cell')[0];
   assert.strictEqual(bench.innerHTML, '', '摆放格保持空');
   panel.remove();
 });
@@ -599,20 +621,20 @@ test('craft 面板: 摆放格→背包格整摞退回(真 add 收包); 格→格
   ]};
   const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {}});
   panel.show();
-  collect(panel.root, 'mkp-cell')[0].onclick(); // 槽 9 起手
-  collect(panel.root, 'mkp-cell')[27].onclick(); // 入格 0(12 件)
-  collect(panel.root, 'mkp-cell')[27].onclick(); // 格 0 起手
-  collect(panel.root, 'mkp-cell')[5].onclick(); // 点背包格 → 整摞退回
+  collect(panel.root, 'mkp-cell')[9].onclick(); // 槽 9 起手
+  collect(panel.root, 'mkp-cell')[0].onclick(); // 入格 0(12 件)
+  collect(panel.root, 'mkp-cell')[0].onclick(); // 格 0 起手
+  collect(panel.root, 'mkp-cell')[14].onclick(); // 点背包格 → 整摞退回
   assert.deepStrictEqual({...inv.slots[0]}, {id: 'planks', n: 12}, 'add 收包落首个空位(快捷栏槽 0)');
-  assert.strictEqual(collect(panel.root, 'mkp-cell')[27].innerHTML, '', '格 0 已腾空');
+  assert.strictEqual(collect(panel.root, 'mkp-cell')[0].innerHTML, '', '格 0 已腾空');
   // 同种并堆: 先入一摞, 再从背包入第二摞(堆叠上限经 stackMax(items-core), 12+12=24)
   inv.slots[9] = {id: 'planks', n: 12}; /* 模式层等价直改回填 */
-  collect(panel.root, 'mkp-cell')[0].onclick(); // 槽 9 起手
-  collect(panel.root, 'mkp-cell')[27].onclick(); // 入格 0(12 件)
+  collect(panel.root, 'mkp-cell')[9].onclick(); // 槽 9 起手
+  collect(panel.root, 'mkp-cell')[0].onclick(); // 入格 0(12 件)
   inv.slots[10] = {id: 'planks', n: 12};
-  collect(panel.root, 'mkp-cell')[1].onclick(); // 槽 10 起手
-  collect(panel.root, 'mkp-cell')[27].onclick(); // 再入格 0 → 并堆
-  assert.ok(collect(panel.root, 'mkp-cell')[27].innerHTML.includes('24'),
+  collect(panel.root, 'mkp-cell')[10].onclick(); // 槽 10 起手
+  collect(panel.root, 'mkp-cell')[0].onclick(); // 再入格 0 → 并堆
+  assert.ok(collect(panel.root, 'mkp-cell')[0].innerHTML.includes('24'),
       '同种并堆到 24(入格容量走 stackMax, 64 魔数已清零)');
   assert.strictEqual(panel.cellAt(9), null, '查询面 cellAt: 槽 9 已整摞入格');
   panel.remove();
@@ -626,9 +648,10 @@ test('craft 面板: 点卡=BE 一键摆入(真 fillGrid) → 产出槽亮 → �
     outs.push(out);
   }});
   panel.show();
+  pickTab(panel, 'block'); // planks 归方块页(T9 页签化)
   collect(panel.root, 'mkp-card')[0].onclick(); // 点卡 = 一键摆入(拍板③)
   assert.deepStrictEqual({...inv.slots[9]}, {id: 'log', n: 1}, 'fillGrid 真扣背包 1 件');
-  const bench = collect(panel.root, 'mkp-cell')[27];
+  const bench = collect(panel.root, 'mkp-cell')[0];
   assert.ok(bench.innerHTML.includes('🥓'), '原木 1 件入格 0(单件不显数量, emoji 图标)');
   let out = collect(panel.root, 'mkp-oslot')[0];
   assert.ok(out._cls.has('on'), '摆对图案 → 产出槽亮(预览 planks ×4)');
@@ -653,9 +676,10 @@ test('craft 面板: 重复点卡=再备一套, 产出槽长按连做 0.3s/发至
     outs.push(out);
   }});
   panel.show();
+  pickTab(panel, 'block'); // planks 归方块页(T9 页签化)
   collect(panel.root, 'mkp-card')[0].onclick(); // 备第一套
   collect(panel.root, 'mkp-card')[0].onclick(); // 再点 = 备第二套(格 0 n=2)
-  const bench = collect(panel.root, 'mkp-cell')[27];
+  const bench = collect(panel.root, 'mkp-cell')[0];
   assert.ok(bench.innerHTML.includes('2'), '两套备料');
   const out = collect(panel.root, 'mkp-oslot')[0]; /* 产出槽不随 refresh 重建 */
   out._ev.pointerdown({preventDefault() {}});
@@ -688,8 +712,8 @@ test('craft 面板: 关面板格内材料退回背包; 满包装不下经 onRetu
       closed = true;
     }});
   panel.show();
-  collect(panel.root, 'mkp-cell')[17].onclick(); // 主格末格(槽 26 log)起手
-  collect(panel.root, 'mkp-cell')[27].onclick(); // 入摆放格
+  collect(panel.root, 'mkp-cell')[26].onclick(); // 主格末格(槽 26 log)起手
+  collect(panel.root, 'mkp-cell')[0].onclick(); // 入摆放格
   assert.strictEqual(inv.slots[26], null);
   inv.slots[26] = {id: 'stone', n: 64}; // 模拟期间模式层填满该槽(熔炉产物入包等)
   panel.close(); // 关面板 → 退料: 满包 add 拒收 → onReturnLeft
@@ -705,42 +729,160 @@ test('craft 面板: 关面板格内材料退回背包; 满包装不下经 onRetu
       lefts2.push(l);
     }});
   p2.show();
-  collect(p2.root, 'mkp-cell')[0].onclick();
-  collect(p2.root, 'mkp-cell')[27].onclick(); // 入格
+  collect(p2.root, 'mkp-cell')[9].onclick();
+  collect(p2.root, 'mkp-cell')[0].onclick(); // 入格
   p2.close();
   assert.deepStrictEqual(lefts2, [], '装得下: 静默退包');
   assert.deepStrictEqual({...inv2.slots[0]}, {id: 'log', n: 1}, '原木回包(add 落首个空位)');
   p2.remove();
 });
 
-/* ============ T10 分类页签(图标式: 全部/工具/食物/方块) ============ */
+/* ============ T9 一级分栏(合成|装备) + 分类页签改版(去「全部」增「材料」) ============ */
 
-test('craft 面板: 页签过滤 — 工具/食物/方块各归其页, 材料只在全部', () => {
+/* 页签点击 helper: 按键名点页签(生产端 dataset.tab 可测锚点) */
+function pickTab(panel, key) {
+  const t = collect(panel.root, 'mkp-tab').find((b) => b.dataset.tab === key);
+  assert.ok(t, '页签 ' + key + ' 应在(写测试别点错名)');
+  t.onclick();
+}
+
+/* equip 缝桩: 装备页全部数据/意图经此注入(生产=adventure 装配), log 记调用 */
+function mkEquipStub(worn) {
+  const log = {slots: [], wears: [], paints: 0, built: 0, disposed: 0};
+  return {log, equip: {
+    worn: () => worn,
+    pts: () => 5,
+    onSlot: (s) => log.slots.push(s),
+    onWearAt: (i) => log.wears.push(i),
+    mkPreview() {/* 桩工厂(生产=PaperDoll, mode-kit 零 THREE) */
+      log.built++;
+      return {el: fakeEl(), paint: () => log.paints++, dispose: () => log.disposed++};
+    },
+  }};
+}
+
+test('craft 面板: 页签改版 — 工具/食物/方块/材料四页, 默认工具页, 材料归材料页(全部页退役)', () => {
   const doc = mkDoc();
   const inv = {slots: new Array(27).fill(null)};
   const recipes = [
     R_PLANKS, // planks(block) → 方块页
     R_PICK, // 工具
     {id: 'apple_hand', out: {item: 'apple', n: 1}, station: 'hand', shape: {rows: [['planks']]}}, // 食物
-    {id: 'stick', out: {item: 'stick', n: 4}, station: 'hand', shape: {rows: [['planks'], ['planks']]}}, // 材料: 仅全部
+    {id: 'stick', out: {item: 'stick', n: 4}, station: 'hand', shape: {rows: [['planks'], ['planks']]}}, // 材料: 材料页
   ];
   const panel = mkCraftPanel({doc, inv, recipes, onCraft() {}});
   panel.show();
   const tabs = collect(panel.root, 'mkp-tab');
-  assert.strictEqual(tabs.length, 4); // grid/pick/apple/brick 像素图标式零文字
-  assert.ok(tabs[0].innerHTML.includes('data-btn="grid"')); // 全部页签=物品格图标(桩标记)
-  assert.strictEqual(collect(panel.root, 'mkp-card').length, 4); // 默认全部
-  tabs[1].onclick(); // ⛏️ 工具
+  assert.strictEqual(tabs.length, 4); // pick/apple/brick/stick 图标式零文字(grid 全部页退役)
+  assert.strictEqual(collect(panel.root, 'mkp-card').length, 1); // 默认工具页(首造工具是主动作)
+  assert.strictEqual(collect(panel.root, 'mkp-card')[0].dataset.recipe, 'pick_wood');
+  pickTab(panel, 'food');
   assert.strictEqual(collect(panel.root, 'mkp-card').length, 1);
-  assert.ok(collect(panel.root, 'mkp-card')[0].dataset.recipe === 'pick_wood');
-  assert.ok(collect(panel.root, 'mkp-tab')[1]._cls.has('on')); // 当前页签高亮(重建后重取)
-  tabs[2].onclick(); // 🍎 食物
+  pickTab(panel, 'block');
   assert.strictEqual(collect(panel.root, 'mkp-card').length, 1);
-  tabs[3].onclick(); // 🧱 方块
-  assert.strictEqual(collect(panel.root, 'mkp-card').length, 1);
-  assert.ok(collect(panel.root, 'mkp-card')[0].dataset.recipe === 'planks');
-  tabs[0].onclick(); // 📦 全部(材料回归)
-  assert.strictEqual(collect(panel.root, 'mkp-card').length, 4);
+  assert.strictEqual(collect(panel.root, 'mkp-card')[0].dataset.recipe, 'planks');
+  pickTab(panel, 'mat');
+  assert.strictEqual(collect(panel.root, 'mkp-card').length, 1); // 材料页承接原「全部」的未归类
+  assert.strictEqual(collect(panel.root, 'mkp-card')[0].dataset.recipe, 'stick');
+  assert.ok(collect(panel.root, 'mkp-tab').find((b) => b.dataset.tab === 'mat')._cls.has('on'),
+      '当前页签高亮(重建后重取)');
+  assert.strictEqual(collect(panel.root, 'mkp-l1tab').length, 0,
+      '缺省无 equip 缝 → 零 L1 页签(向后兼容)');
+  panel.remove();
+});
+
+test('craft 面板: L1 分栏 — equip 缝才渲染 合成/装备 两页签, 页切翻转显隐+惰性建预览', () => {
+  const doc = mkDoc();
+  const inv = {slots: new Array(27).fill(null)};
+  const stub = mkEquipStub(null);
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PICK], onCraft() {}, equip: stub.equip});
+  panel.show();
+  const l1 = collect(panel.root, 'mkp-l1tab');
+  assert.strictEqual(l1.length, 2);
+  assert.ok(l1[0].innerHTML.includes('data-btn="table"'), '合成页签=工作台图标(零新画)');
+  assert.ok(l1[1].innerHTML.includes('data-btn="wear"'), '装备页签=胸甲 glyph(T5 已有)');
+  const pageCraft = collect(panel.root, 'mkp-pagecraft')[0];
+  const pageEquip = collect(panel.root, 'mkp-pageequip')[0];
+  assert.ok(!pageCraft._cls.has('off'), '默认合成页亮');
+  assert.ok(pageEquip._cls.has('off'), '装备页藏');
+  assert.strictEqual(stub.log.built, 0, '合成页不建预览(惰性)');
+  l1[1].onclick(); // 切装备页
+  assert.ok(pageCraft._cls.has('off') && !pageEquip._cls.has('off'), '页切翻转');
+  assert.strictEqual(stub.log.built, 1, '首次进装备页惰性建预览(恰一次)');
+  assert.strictEqual(stub.log.paints, 1, '进页 paint 一帧(零 rAF 按需重画)');
+  l1[0].onclick(); // 切回合成页
+  assert.ok(!pageCraft._cls.has('off') && pageEquip._cls.has('off'), '切回合成页');
+  assert.strictEqual(stub.log.built, 1, '合成页不重建预览');
+  panel.remove();
+  assert.strictEqual(stub.log.disposed, 1, 'unmount → 预览 dispose(渲染器退役)');
+});
+
+test('craft 面板: 装备页 — 四槽 EQUIP_SLOTS 序 + 空槽虚位 + 有件图标/耐久条 + 点槽报 onSlot + 盔甲点', () => {
+  const doc = mkDoc();
+  const inv = {slots: new Array(27).fill(null)};
+  const worn = {helmet: {id: 'helmet_iron', dur: 300}, chestplate: null,
+    leggings: null, boots: null};
+  const stub = mkEquipStub(worn);
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PICK], onCraft() {}, equip: stub.equip});
+  panel.show();
+  collect(panel.root, 'mkp-l1tab')[1].onclick(); // 进装备页
+  const slots = collect(panel.root, 'mkp-eslot');
+  assert.strictEqual(slots.length, 4);
+  assert.deepStrictEqual(slots.map((s) => s.dataset.slot),
+      ['helmet', 'chestplate', 'leggings', 'boots'], '槽序=equipment-core 四槽表(展示序唯一权威)');
+  assert.ok(!slots[0]._cls.has('off'), '有件槽实位');
+  assert.ok(slots[0].innerHTML.includes('🥓'), '槽内图标(iconOf 桩 emoji 回落)');
+  assert.ok(slots[0].innerHTML.includes('91%'), '槽内耐久条比例 300/330(四舍五入)');
+  assert.ok(slots[1]._cls.has('off') && slots[1].innerHTML === '', '空槽虚位(.off 空内容)');
+  slots[1].onclick();
+  assert.deepStrictEqual(stub.log.slots, ['chestplate'], '点槽报 onSlot 意图(空槽也报, 政策归模式层)');
+  slots[3].onclick();
+  assert.deepStrictEqual(stub.log.slots, ['chestplate', 'boots']);
+  assert.ok(collect(panel.root, 'mkp-pts')[0].innerHTML.includes('5'), '盔甲点经 pts() 注入');
+  panel.remove();
+});
+
+test('craft 面板: 装备页一键穿上 — 点背包盔甲件报 onWearAt(槽号); 非盔甲/合成页照旧点选搬运', () => {
+  const doc = mkDoc();
+  const inv = {slots: [{id: 'boots_leather', n: 1, dur: 10}, ...Array(8).fill(null),
+    {id: 'helmet_iron', n: 1, dur: 300}, {id: 'planks', n: 5}, ...Array(16).fill(null)]};
+  const stub = mkEquipStub(null);
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PICK], onCraft() {}, equip: stub.equip});
+  panel.show();
+  let cells = collect(panel.root, 'mkp-cell');
+  cells[9].onclick(); // 合成页点盔甲件(槽 9)
+  assert.deepStrictEqual(stub.log.wears, [], '合成页照旧点选搬运(一键穿上只归装备页)');
+  cells = collect(panel.root, 'mkp-cell'); // refresh 重建, 重取
+  assert.ok(cells[9]._cls.has('pick'), '起手高亮(搬运状态机不受影响)');
+  collect(panel.root, 'mkp-l1tab')[1].onclick(); // 切装备页
+  cells = collect(panel.root, 'mkp-cell');
+  cells[9].onclick(); // 装备页点同一盔甲件
+  assert.deepStrictEqual(stub.log.wears, [9], '一键穿上: 报 onWearAt(槽号)');
+  assert.ok(!collect(panel.root, 'mkp-cell')[9]._cls.has('pick'), '不进搬运状态机(上身即清手)');
+  cells = collect(panel.root, 'mkp-cell');
+  cells[10].onclick(); // 非盔甲件(木板)
+  assert.deepStrictEqual(stub.log.wears, [9], '非盔甲不报穿上');
+  assert.ok(collect(panel.root, 'mkp-cell')[10]._cls.has('pick'), '非盔甲照旧起手搬运');
+  collect(panel.root, 'mkp-cell')[27].onclick(); // 快捷镜像首格(槽 0 皮靴)
+  assert.deepStrictEqual(stub.log.wears, [9, 0], '快捷镜像格同缝一键穿上');
+  panel.remove();
+});
+
+test('craft 面板: 装备页预览 — worn 变化 refresh 重画一帧, hide 重开复用不重建', () => {
+  const doc = mkDoc();
+  const inv = {slots: new Array(27).fill(null)};
+  const worn = {helmet: null, chestplate: null, leggings: null, boots: null};
+  const stub = mkEquipStub(worn);
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PICK], onCraft() {}, equip: stub.equip});
+  panel.show();
+  collect(panel.root, 'mkp-l1tab')[1].onclick(); // 进装备页
+  assert.strictEqual(stub.log.paints, 1);
+  worn.helmet = {id: 'helmet_iron', dur: 330}; // 模拟穿戴变化(模式层已动账)
+  panel.refresh();
+  assert.strictEqual(stub.log.paints, 2, 'worn 变化 → refresh 重画一帧(零 rAF 按需)');
+  panel.hide();
+  panel.show();
+  assert.strictEqual(stub.log.built, 1, 'hide 重开复用预览(不重建 renderer)');
   panel.remove();
 });
 
@@ -1242,12 +1384,12 @@ test('物品提示: 背包格点击读被点物品; 点灰卡=一键摆入+读�
         shape: {rows: [['planks', 'planks', 'planks'], [null, 'stick', null], [null, 'stick', null]]}},
     ], onCraft() {}});
     panel.show();
-    collect(panel.root, 'mkp-cell')[0].onclick(); /* 槽 9 起手: 读木板 */
+    collect(panel.root, 'mkp-cell')[9].onclick(); /* 槽 9 起手: 读木板 */
     let bubble = collect(doc.body, 'hint-bubble')[0];
     assert.ok(String(bubble.innerHTML).includes('原木锯成的板子'), '背包格点击出提示');
-    const card = collect(panel.root, 'mkp-card')[1]; /* 木镐卡(缺棍 → 灰) */
+    const card = collect(panel.root, 'mkp-card')[0]; /* 木镐卡(tool 页, 缺棍 → 灰; T9 DOM 序+页签化) */
     card.onclick(); /* 点灰卡 = 一键摆入(缺料格留空) + 读产物提示 */
-    const bench = collect(panel.root, 'mkp-cell').slice(27);
+    const bench = collect(panel.root, 'mkp-cell').slice(0, 9); /* 摆放台 9 格(T9: DOM 序在前) */
     assert.ok(bench[0].innerHTML.includes('data:image/png;base64,AA'), '三块板已部分摆入(拍板③)');
     assert.strictEqual(collect(panel.root, 'mkp-oslot')[0]._cls.has('on'), false, '棍缺摆不中 → 产出槽不亮');
     bubble = collect(doc.body, 'hint-bubble')[0];
@@ -1414,18 +1556,18 @@ test('丢弃: craft armed → 点背包格报 onDrop(槽号); 空格不动; 关�
   btn.onclick();
   assert.ok(btn._cls.has('on'), 'armed 头钮点亮');
   assert.ok(collect(panel.root, 'mkp-grid')[0]._cls.has('dropmode'), '背包格红边警示类');
-  collect(panel.root, 'mkp-cell')[0].onclick(); /* 主格首格=槽 9(木板) */
+  collect(panel.root, 'mkp-cell')[9].onclick(); /* 主格首格=槽 9(木板; T9 摆放格 DOM 序在前) */
   assert.deepStrictEqual(dropped, [9], '整摞丢弃报槽号');
   assert.strictEqual(inv.slots[9], null, '模式层已扣包');
-  collect(panel.root, 'mkp-cell')[0].onclick(); /* 现在是空格 */
+  collect(panel.root, 'mkp-cell')[9].onclick(); /* 现在是空格 */
   assert.deepStrictEqual(dropped, [9], '空格不报丢弃');
   panel.close(); /* ✕ 统一出口 → 收丢弃态 */
   assert.ok(!btn._cls.has('on'), '关面板收态');
   /* 恢复搬运: 起手(槽 9 放回一摞) → 点目标格 = onMove 而非 onDrop */
   inv.slots[9] = {id: 'planks', n: 3};
   const cells = collect(panel.root, 'mkp-cell');
-  cells[0].onclick(); /* 起手槽 9 */
-  cells[1].onclick(); /* 目标槽 10(空) */
+  cells[9].onclick(); /* 起手槽 9 */
+  cells[10].onclick(); /* 目标槽 10(空) */
   assert.deepStrictEqual(moves, [[9, 10]], '收态后点选搬运恢复');
   assert.deepStrictEqual(dropped, [9], '收态后不再报丢弃');
   panel.remove();
@@ -1457,8 +1599,8 @@ test('可变容量: 33 槽背包区按现长度重画(24 主格 + 9 快捷镜像
   const panel = mkCraftPanel({doc, inv, recipes: [R_PLANKS], onCraft() {}});
   panel.show();
   const cells = collect(panel.root, 'mkp-cell');
-  assert.strictEqual(cells.length, 42, '24 主格 + 9 镜像 + 摆放台 9');
-  assert.ok(cells[23].innerHTML.includes('data:image/png'), '主格末格=槽 32(扩容区)有内容');
+  assert.strictEqual(cells.length, 42, '摆放台 9 + 24 主格 + 9 镜像(T9: 摆放台 DOM 序在前)');
+  assert.ok(cells[32].innerHTML.includes('data:image/png'), '主格末格=槽 32(扩容区)有内容');
   panel.remove();
 });
 

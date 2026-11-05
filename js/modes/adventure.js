@@ -607,6 +607,17 @@ const advPanel = ModeKit.mkCraftPanel({
     }
     return base;
   },
+  /* 装备页数据/意图缝(装备 T9, 设计稿 §9.3): mode-kit 零装备知识, 全由本层
+     注入——worn/pts 取数 · 点槽脱下(onSlot→advWornTakeOff 同 T5 编排) ·
+     点格穿上(onWearAt→advTryWear, 政策链同 wear 使用档) · 预览工厂
+     (mkPreview→mkPaperDoll, 惰性建: 首次进装备页才碰 THREE) */
+  equip: {
+    worn: () => advWorn,
+    pts: () => armorPoints(advWorn),
+    onSlot: (s) => advWornTakeOff(s),
+    onWearAt: (i) => advTryWear(i),
+    mkPreview: (p) => mkPaperDoll(p),
+  },
   onCraft: advOnCraft,
   onMove: (from, to) => advInvMove(from, to), /* 背包格点选搬运(政策在本层, 面板只管格子) */
   onDrop: (slot) => advDropSlot(slot), /* 丢弃头钮→整摞扔地上(2026-10, 政策在 advDropSlot) */
@@ -2770,6 +2781,8 @@ function advTryExpandBag() {
 function advSyncArmor() {
   Avatar.setArmor(advWorn); /* 观感对齐(T4 骨挂 overlay, 同目标幂等) */
   if (advArmorBar) advArmorBar.update(advWorn); /* 装备条重画(kit 签名节流, 磨损不闪) */
+  if (ADV.panelOpen) advPanel.refresh(); /* 面板开着: 装备页槽位/预览一帧重画
+    (装备 T9; 拾取刷新同先例——刷新单一路径=模式层动账后 advPanel.refresh) */
 }
 
 /* 盔甲槽形入包(耐久保真): add 给满耐久(mkStack)会把磨损余量洗满——零损失
@@ -2782,8 +2795,9 @@ function advAddPiece(id, dur) {
   return 0;
 }
 
-function advTryWear() {
-  const sel = advHb.sel;
+function advTryWear(at) {
+  const sel = typeof at === 'number' ? at : advHb.sel; /* 装备 T9 槽参: 装备页
+    一键穿上免选中(指定槽); 缺省=手持槽(wear 使用档原路径不变) */
   const s = advInv.slots[sel];
   if (!s || !isArmor(s.id)) return false; /* 非盔甲: 回落常规链(wornPut 拒收三路前置) */
   const a = armorOf(s.id);
@@ -3962,8 +3976,9 @@ const AdventureMode = mkMode({
 
 /* T12~T15 的接线挂点(内部接口, 不进模式公共行为; 2026-10 评审候选 5 收敛为 20 键测试面,
     下界相位装配追加 5 键、冒险地图 T6 追加 advSetMap、T5 圈层高度场与审查修复
-    advSlimeWaterOk 再追加、时钟改版追加 advSleepClock/advSleepClockConfirm——
-    现 30 键(键计数以本清单为准); 键清单即 interface——
+    advSlimeWaterOk 再追加、时钟改版追加 advSleepClock/advSleepClockConfirm、
+    装备 T9 追加 advTryWearSlot——
+    现 31 键(键计数以本清单为准); 键清单即 interface——
     adventure-core 常量表与纯函数经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
       · advSleepClock(时钟拨盘态) · advNetherState(下界相位·地图态只读快照: dim/map/portalCd/exitSpot)
@@ -3976,6 +3991,7 @@ const AdventureMode = mkMode({
       · advPanelClose(幂等守卫回归锚点) · advMineHardText(挖不动话术判据)
       · advSleepClockConfirm(拨盘「睡觉」确认, 测试与触屏共用行为面)
       · advHitPlayer/advEnvHurt(战斗受击漏斗与环境对照, 装备 T6 测试挂点)
+      · advTryWearSlot(指定槽穿上意图, 装备 T9 装备页一键穿上行为面)
     · 查询 seam: advStationOk · advNightRead · advQuestPaint(重画并返回任务卡) · advHudLines(HUD 行)
     已删键的行为面等价物: advPlayerDied→onVoidFall · advGoHome→onKey('KeyH') ·
     advChestOpenPanel/advChestClose→点击与 onKey('Tab') · advExplode→TNT 引信行为链 ·
@@ -4014,6 +4030,8 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advMineHardText, advHudLines,
   advWornState: () => advWorn, /* 穿戴档只读快照(装备 T5 测试挂点; 形状=mkWorn 归一形) */
   advHitPlayer, advEnvHurt, /* 战斗受击两缝(装备 T6 测试挂点: 漏斗行为面/D8 环境对照) */
-  advWornTakeOff}; /* 装备条点槽的同一条脱下编排(模式层回包, 装备 T5) */
+  advWornTakeOff, /* 装备条点槽的同一条脱下编排(模式层回包, 装备 T5) */
+  advTryWearSlot: (i) => advTryWear(i)}; /* 指定槽穿上(装备 T9: 装备页点格
+    一键穿上, 与 wear 使用档同链——免选中, 行为测试面) */
 
 if (typeof module !== 'undefined' && module.exports) module.exports = AdventureMode;

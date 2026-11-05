@@ -3750,6 +3750,39 @@ test('装备 T5: 装备条脱下编排 — 点槽旧件回包+槽清空; 空槽�
   AdventureMode.cleanup();
 });
 
+/* ============ 装备 T9: 装备页一键穿上(advTryWear 槽参 — 免选中指定槽) ============ */
+
+test('装备 T9: advTryWearSlot — 免选中指定槽穿上(装备页点格同链); 换装旧件回包; 满包拒绝不消耗', () => {
+  mem.clear(); /* 测试隔离(存储介质清空, 全文件惯例): 前测 cleanup 落盘的
+     armor 键不得被本测 init 读回——否则首穿实为换装, 档内旧件提前入包,
+     回包计数翻倍(穿戴档跨测试泄漏, 与 3802 行 roundtrip 尾段同款手法) */
+  freshInit();
+  const inv = A.advGetInv();
+  inv.slots[5] = api.mkStack('helmet_iron'); /* 非选中槽(装备页点格语义, 不动 hotbar.sel) */
+  A.advTryWearSlot(5);
+  assert.deepStrictEqual(localW(A.advWornState().helmet),
+      {id: 'helmet_iron', dur: 330}, '指定槽穿上=槽形满耐久(wornPut dur 缺省兜底)');
+  assert.strictEqual(inv.slots[5], null, '源槽消耗(穿上=从背包移除)');
+  assert.ok(calls.some((c) => c[0] === 'setArmor' && String(c[1]).includes('helmet_iron')),
+      'Avatar.setArmor 已声明(观感对齐)');
+  /* 换装: 金帽从指定槽穿上 → 铁帽原样回包(零损失红线) */
+  inv.slots[6] = api.mkStack('helmet_gold');
+  A.advTryWearSlot(6);
+  assert.deepStrictEqual(localW(A.advWornState().helmet), {id: 'helmet_gold', dur: 154});
+  assert.strictEqual(api.count(inv, 'helmet_iron'), 1, '被换下旧件回包');
+  assert.strictEqual(inv.slots[6], null, '新件已消耗');
+  /* 满包拒绝: 背包塞满 → 换装不动账(旧件装不下, 零损失) */
+  for (let i = 0; i < inv.slots.length; i++) {
+    if (!inv.slots[i]) inv.slots[i] = {id: 'stone', n: 64};
+  }
+  inv.slots[7] = api.mkStack('helmet_iron');
+  A.advTryWearSlot(7);
+  assert.deepStrictEqual(localW(A.advWornState().helmet), {id: 'helmet_gold', dur: 154},
+      '满包: 换装不发生');
+  assert.ok(inv.slots[7], '新件不消耗(未动任何账)');
+  AdventureMode.cleanup();
+});
+
 test('装备 T5: 存档 armor 键 roundtrip — cleanup 落盘重进恢复; 老档无键 → 空穿; advSaveView 透出', () => {
   freshInit();
   const inv = A.advGetInv();
