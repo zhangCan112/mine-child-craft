@@ -1611,6 +1611,13 @@ body.dev-on .mode-card.dev {
   box-shadow: 0 0 8px rgb(255 255 255 / 45%);
 }
 
+/* 页签图标约束(.mkp-tab .bi 同款): btnImg 画布自然尺寸 48px 会撑破
+   44×40 页签钮——不约束就是「图标溢出框外」(2026-11-05 用户截图反馈) */
+.mkp-l1tab .bi {
+  width: 24px;
+  height: 24px;
+}
+
 .mkp-page {
   display: flex;
   flex-direction: column;
@@ -1630,8 +1637,8 @@ body.dev-on .mode-card.dev {
 
 .mkp-dollbox {
   flex: none;
-  width: 116px;
-  height: 150px;
+  width: 140px;
+  height: 176px;
   overflow: hidden;
   background: rgb(0 0 0 / 30%);
   border: 2px solid rgb(255 255 255 / 22%);

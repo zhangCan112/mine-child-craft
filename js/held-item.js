@@ -102,7 +102,8 @@ const TOOL_HEAD_PARTS = {
   /* 剑: MC 正典「16×16 像素贴图挤出薄片」(item/handheld→builtin/generated,
      原版资产无 3D 盒几何 — docs/mc-sword-model-research.md §1/§5.1), 与
      bow_item/shears 同管线: art 部件经 mkArtMats 贴工坊字符画(正反面镜像
-     + alphaTest 裁透明角), color 留阶色作挤出侧面单色; 四阶同形换色板即
+     + alphaTest 裁透明角, 挤出侧壁不可见(「相框」artifact, mkArtMats 详注);
+      四阶同形换色板即
      正典做法(§2.4), artKey 由 mkToolDef 传 kind_tier(=ITEM_PIX 工具键) */
   sword: (c, artKey) => [
     /* 对角全长 0.62·√2≈0.88(旧盒剑 0.84, 尺度感不跳变); pos 抬移把
@@ -116,16 +117,24 @@ const TOOL_HEAD_PARTS = {
   ],
 };
 
-/* 握持分档: 剑照正典 handheld display, 其余三种与锄头同位。
-   前移+前倾统一口径(2026-10-24 用户观感反馈两轮: 前端再前倾 15°),
-   工具头端离开小臂, 不贴臂竖立;
-   剑 = 正典 thirdperson_righthand [0,-90,55]° 直接折弧度(bow_item 同款
-   「薄片件照抄正典 display」路线——贴图对角线长轴正是正典 sprite 朝向,
-   不做预旋转; docs/mc-sword-model-research.md §3/§5.4, 数值=调参起点) */
+/* 握持分档: 镐斧锹统一一档; 剑=正典 thirdperson [0,-90,55]° 复刻+MC
+   translation [1.13,3.2,1.13]/16 抬持折算(2026-11-06 四轮观感收官)。
+   剑史: 正典直折「尖戳腋」(旧 pos.y 坠手 -0.5, 尖悬甲袖带 1.22~1.53)
+   → 加前倾 20°/40.7° 两轮仍贴身 → 并入工具档「越修越离谱」——texel 级
+   探针(建入 BoxGeometry 面镜像)复现截图定位真根因: 薄片背面镜像。
+   玩家面朝相机时第三人称看到 -z 背面(水平镜像), 工具档前倾下镜像把
+   尖/柄两端对调: 剑尖贴胸内被身体挡住, 柄尾甩外下垂到膝=拎着剑耷拉。
+   终案回正典旋转: RY(-90°) 使薄片侧棱对前后相机=薄刃剪影(正典第三
+   人称剑观感, 镜像换面在剪影上不显形), RZ(55°) 长轴上仰微前; 与一轮
+   的关键差=抬高(MC translation y +3.2/16, 尖过甲袖顶: 站立 1.58 > 袖顶
+   1.53), z -0.18 前移避开甲袖前脸。几何探针四姿态: 躯干距≥0.14 ·
+   袖距≥0.04(站立 0.09) · 柄段距手 0.08。镐斧锹=盒体几何无贴图镜像
+   问题, 维持 2026-10-24 前移+前倾口径;
+   正典第三人称 display 折算记录: docs/mc-sword-model-research.md §3/§5.4 */
 const TOOL_GRIPS = {
   pick: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
   axe: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
-  sword: {pos: [0, -0.50, -0.10], rot: [0, -1.5708, 0.9599]},
+  sword: {pos: [0.10, -0.30, -0.18], rot: [0, -1.5708, 0.9599]},
   shovel: {pos: [0, -0.50, -0.10], rot: [-0.71, 0, 0]},
 };
 
@@ -174,7 +183,8 @@ for (const kind of Object.keys(TOOL_HEAD_PARTS)) {
 /* ---------- 盔甲手持薄片 (mkArmorDef, 装备 T3 / 设计稿 §4.2) ----------
    MC 口径: 盔甲手持 = 图标挤出薄片(item/generated——原版非方块物品统一为
    16×16 贴图挤出薄片模型, 与弓/剪刀/剑同管线), art 键=ITEM_PIX 盔甲键
-   (工坊同形换板 24 键, icons.js), 挤出侧面=阶色单色; grip/swing 走手持物
+   (工坊同形换板 24 键, icons.js), 挤出侧壁不可见(「相框」artifact 同剑,
+   mkArtMats 详注); grip/swing 走手持物
    族档(工具组同款前移离臂 + 镐/锄中档挥击——盔甲拿起看的场景是「摆一下」,
    不需要个性档)。24 条经 defFor 惰性首做驻 HELD_DEFS(顶层零表依赖纪律,
    见下方 ARMOR 段注释; defFor 返回恒等引用, 键名=物品 id)。 */
@@ -250,7 +260,7 @@ const HELD_DEFS = {
       {w: 0.62, h: 0.62, d: 0.05, color: 0xd8dde4, art: 'sword_iron', pos: [0.17, 0.17, 0]},
     ],
     /* 挂在右臂手部枢轴: 正典 thirdperson [0,-90,55]° 折弧度(同 TOOL_GRIPS.sword) */
-    grip: {pos: [0, -0.50, -0.10], rot: [0, -1.5708, 0.9599]},
+    grip: {pos: [0.10, -0.30, -0.18], rot: [0, -1.5708, 0.9599]},
     fp: fpOf(FP_HANDHELD), /* 第一人称: 手持物族(正典 handheld, 剑同族) */
     /* 挥击: 比锄头更快更阔(剑感) */
     swing: {dur: 0.2, amp: 1.6, curlZ: 0.05},
@@ -502,7 +512,11 @@ const HeldItems = {
 
   /* 像素贴图薄板材质(art 部件): 图标工坊字符画 → CanvasTexture 关平滑(像素
      风), 只贴 ±Z 两大面(薄板正/背面同图, 背面镜像=MC 挤出薄片同款观感),
-     挤出侧面用 color 单色近似; alphaTest 裁透明角(弓弧中空处透出背景)。
+     alphaTest 裁透明角(弓弧中空处透出背景); 挤出侧面**不可见**(2026-11-06
+     用户报告「拿着相框」: 单色侧壁围着整张矩形走, sprite 透明区没有几何,
+     斜视角下侧壁投影成悬空亮色边框——MC 的逐像素挤出只沿不透明像素轮廓
+     包边, 单盒近似做不到 → 撤壁, 侧视变纸片=可接受代价; visible=false
+     走 r128 渲染器逐 group 检查, 零绘制成本)。
      工坊(icons.js 的 ITEM_PIX/drawArt 全局, 加载序在本文件之后)或画布
      不可用 → null(回落纯色薄板, Node 单测口径) */
   mkArtMats(p) {
@@ -522,6 +536,7 @@ const HeldItems = {
        反馈环: 透孔射线命中背面内侧 DoubleSide=红 / FrontSide=绿) */
     const face = new THREE.MeshLambertMaterial({map: tex, alphaTest: 0.5, side: THREE.FrontSide});
     const edge = new THREE.MeshLambertMaterial({color: p.color});
+    edge.visible = false; /* 相框回归锁: 见上注 */
     return [edge, edge, edge, edge, face, face]; /* BoxGeometry 面序 [+x,-x,+y,-y,+z,-z] */
   },
 

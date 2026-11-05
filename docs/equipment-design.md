@@ -169,11 +169,36 @@ interface: EQUIP_SLOTS · mkWorn() · wornPut(worn, slot, stack) → {worn, out}
   index.html 加载序 held-item 在 items-core 之前，顶层读 ITEMS/armorOf 必炸；
   惰性首做效果等同注册：defs 最终含 24 条、defFor 返回恒等引用、新增盔甲行
   零手工清单），未注册回落薄片兜底不变。
+- **剑握持终案**（2026-11-06 用户观感反馈四轮收官）：`TOOL_GRIPS.sword` =
+  **正典 thirdperson `[0,-90,55]°` 复刻 + MC translation `[1.13,3.2,1.13]/16`
+  抬持折算**（pos `[0.10,−0.30,−0.18]`）。四轮史：①正典直折「尖戳腋」
+  （旧 pos.y 坠手 −0.5，尖悬甲袖带 1.22~1.53）→ ②③加前倾 20°/40.7° 两轮
+  仍贴身 → ④并入工具档「越修越离谱」——**texel 级探针（建入 BoxGeometry
+  面镜像）复现截图定位真根因：薄片背面镜像**。玩家面朝相机时第三人称
+  看到的是 −z 背面（水平镜像），工具档前倾下镜像把尖/柄两端对调：剑尖
+  贴胸内被身体挡住、柄尾甩外下垂到膝（截图逐点吻合）。终案回正典旋转：
+  `RY(−90°)` 使薄片侧棱对前后相机=薄刃剪影（正典第三人称剑观感，镜像
+  换面在剪影上不显形），`RZ(55°)` 长轴上仰微前；**抬高是与①的关键差**
+  （MC translation y=+3.2/16 上抬，尖过甲袖顶：站立 1.58 > 袖顶 1.53），
+  z −0.18 前移避开甲袖前脸。几何探针四姿态：躯干距 ≥0.14 · 袖距 ≥0.04 ·
+  柄段距手 0.08 · 尖全程 ≥1.37。镐斧锹=盒体几何无镜像问题，口径不变
+  （2026-10-24 前移+前倾）。调参不判红（mc-sword-model-research §5.4
+  同口径，正典折算记录留档）。
+- **薄片挤出侧壁退役**（2026-11-06 用户观感反馈「拿着相框」）：`mkArtMats`
+  侧壁材质 `visible=false`（留 color 兼容字段）——单盒近似的单色侧壁围着
+  整张矩形走，sprite 透明区没有几何包边，斜视角下侧壁投影成悬空亮色边框；
+  MC 的逐像素挤出只沿不透明像素轮廓包边，单盒近似做不到 → 撤壁，薄片=
+  双面 sprite（侧视变纸片=可接受代价；r128 渲染器逐 group 检查
+  material.visible，零绘制成本）。剑/弓/剪刀/盔甲薄片全管线同享；
+  FrontSide 镜像幽灵锁（2026-10-29）与 alphaTest 裁角口径不变，回归锁
+  held-item.test.js mkArtMats 组。
 
 ### 4.3 穿戴观感（avatar.js）
 
 - `Avatar.setArmor(worn)`：声明目标穿戴（同目标幂等）；实现为骨挂 overlay 盒——
-  头盔=头骨挂五面盒（前开脸，正典盔甲层语言）；胸甲=身骨挂主盒+双肩帽；
+  头盔=头骨挂整盒+面具前脸（额带+眼窗+护颊+护鼻，前脸贴图 alphaTest 抠窗
+  露五官，正典盔甲层语言）；胸甲=身骨挂主盒+臂骨挂甲袖（正典肩甲语言=
+  臂上段袖筒）；
   护腿=双腿骨挂上 2/3 盒+髋带（挂身骨）；靴子=双腿骨挂下 1/4 盒+鞋头。
   尺寸=对应骨盒 inflate +1px（长袍 overlay 先例），颜色=材质 tier 的**穿戴层
   色板**（`ARMOR_TIER_COLORS` 表收 held-item.js，TOOL_HEAD_COLORS 同居同惯例）。
@@ -242,7 +267,7 @@ texture-atlas 新格：正典「上下螺旋纹、侧面斑驳」观感语言像
 | T6 | advHitPlayer 漏斗 + mkArrows hurtPlayer 缝 + 磨损破碎仪式 | combat-kit 缝契约 + 探险减伤/磨损行为断言 |
 | T7 | B_ANCIENT_DEBRIS 块/贴图/散布/掉落 | config 号段交叉 + dims-core 散布确定性断言 |
 | T8 | ItemHint 全量补齐 + GLOSSARY 词条 + docs/README 登记 + 全量回归 | item-hint 守门自动拦漏；npm test + lint 清零 |
-| T9 | 背包面板 L1 分栏（合成/装备）+ 纸娃娃定格预览 + 一键穿上 + armor-overlay 抽件（§9） | mode-kit 页签改写 + 装备页契约组 + adventure-mode advTryWearSlot 行为组 + boot 冒烟 |
+| T9 | 背包面板 L1 分栏（合成/装备）+ 纸娃娃定格预览 + 一键穿上 + armor-overlay 抽件（§9）；二轮三页签改版（背包\|装备\|造物）+ 盔甲图标重画 + overlay 双色化（2026-11-05 用户反馈） | mode-kit 页签改写 + 装备页契约组 + adventure-mode advTryWearSlot 行为组 + boot 冒烟 |
 
 > 进度注（2026-11-04）：T1–T4 收官——T1 落 equipment-core 八接口 + items 增量
 > （24 盔甲行 + 金银阶工具 8 行 + 下界材料 3 行）+ 提示行 35 条；T2 落 RECIPES
@@ -266,26 +291,48 @@ texture-atlas 新格：正典「上下螺旋纹、侧面斑驳」观感语言像
 取消「全部」长列表，新增「装备」分栏；③UI 参考业界成熟布局。三项拍板
 （2026-11-05 问询确认）：**取消「全部」页签**（拆 工具/食物/方块/材料 四类）·
 **3D 定格预览**（不旋转、零 rAF 循环，worn 变化按需重画一帧——省电口径，
-照顾低配 iPad）· **一键穿上**（装备页点背包格盔甲件直接上身）。
+照顾低配 iPad）· **一键穿上**（点背包格盔甲件直接上身）。
 
-### 9.1 结构：mkp-main 一级分栏（合成 | 装备）+ 底部共用背包区
+> **二轮 UX 改版（2026-11-05 同日用户截图反馈）**：一轮落地后用户实测提出
+> 三点——①页签图标溢出按钮框外；②盔甲穿身上观感丑（单色盒「刷漆」感）、
+> 盔甲图标丑（左偏不对称）；③背包+手持栏太靠下，提为第一页签、总页签变
+> 三个（背包|装备|造物）。收口：**9.1 三页签结构**（底部共用背包区退役）·
+> **9.4 盔甲 overlay 双色化**（shade/tint 派生描边，不引第二色板）·
+> **icons.js 四张盔甲字符画对称重画**（密度锚 ±8 内）· 纸娃娃放大
+> 140×176（相机几何复核不动）。
 
-MC 背包正典布局（顶部功能区 + 底部物品栏）落进 mkCraftPanel：
+### 9.1 结构：mkp-main 一级三页签（背包 | 装备 | 造物）
+
+**二轮改版收口**（一轮为「合成|装备两页签 + 底部共用背包区」）：背包+手持栏
+从面板底部提为**第一页**（面板即 MC「背包」本义），底部共用背包区退役；
+装备页签仅 equip 缝提供才渲染（缺省=背包|造物两页签，向后兼容语义不变）：
 
     mkp-head（标题/整理/丢弃/✕ — 不动）
-    mkp-l1tabs   合成(table 图标) · 装备(wear 图标) — 仅 opts.equip 提供时渲染
+    mkp-l1tabs   背包(bagup 图标) · 装备(wear, 仅 equip 缝) · 造物(table 图标)
+    mkp-pagebag    mkp-grid + mkp-hotrow（18 主格 + 9 快捷镜像 — 第一页）
+    mkp-pageequip  mkp-equiprow（纸娃娃 mkp-dollbox 140×176 + 四槽）→ mkp-pts
     mkp-pagecraft  摆放台 → 配方页签 → 配方卡（原合成功能区，页签口径见 9.2）
-    mkp-pageequip  mkp-equiprow（纸娃娃 mkp-dollbox + 四槽 mkp-eslot）→ mkp-pts 盔甲点
-    mkp-grid + mkp-hotrow（背包 18 主格 + 9 快捷镜像 — 移至面板底部，两页共用）
 
-aside 任务卡、furnace/chest 面板零改动。页切换 = 显隐翻转 + refresh 只重画
-当前页（renderBench/renderCards 归 craft 页，装备槽/预览归 equip 页）；
-**切页同时收起手**（pickIdx/pickCell 清——起手槽号语义不跨页，与丢弃态
-先收手同款；红测试逼出的真实 UX 修复：高亮跨页残留是谜之状态）。
-opts.equip 缺省时无 L1 页签、无装备页——mkCraftPanel 向后兼容
-（现消费者 adventure.js 一处）。
+mkp-cell DOM 收集序随背包页提前：**主格 18（槽 9~26）→ 快捷镜像 9（槽 0~8）
+→ 摆放台 9**。台格恒在 DOM（renderBench 恒重画，9 格便宜——跨页退回后
+回造物页不显幽灵物品），造物页才可见。
 
-### 9.2 合成页页签：去「全部」增「材料」
+页切换 = 显隐翻转 + refresh 按页重画（背包格/台格恒重画，配方卡只归造物页，
+装备槽/预览只归 equip 页）；**每次 show 落背包页**（页状态跨开合不保留）。
+**起手跨页保留**（二轮核心搬运路径）：背包页点格起手 → 切造物页点台格=
+入格；台格起手 → 切背包页点背包格=退回——两态各归其页消费，互不越界。
+一轮的「切页收手」就此反转：彼时背包格两页共用，收手防高亮跨页残留；
+三页签后背包格只在一页，保留起手恰是跨页搬运功能本身。整理/丢弃/关面板
+仍收手（语义重排，一轮修复不回退）。
+
+aside 任务卡、furnace/chest 面板零改动。opts.equip 缺省时无装备页签、
+无装备页——mkCraftPanel 向后兼容（现消费者 adventure.js 一处）。
+
+**页签图标约束**（二轮补，截图问题①的根因修复）：`.mkp-l1tab .bi` 24×24
+——btnImg 画布自然尺寸 48px 会撑破 44×40 页签钮（`.mkp-tab .bi` 有而
+l1tab 漏）。
+
+### 9.2 造物页分类页签：去「全部」增「材料」（一轮 T9 落地，现挂造物页内）
 
 KIT_TABS = tool/food/block/mat（图标式零文字不变）；cardTab 判据回落
 'mat'（原回落 all——未归类材料不再有长列表页，材料页承接）。默认页签
@@ -316,15 +363,51 @@ mkArmorOverlay(puppet) → {apply(worn), dispose()} 作单份权威：Avatar 委
 双份。幂等签名（四槽 id 集）与尺寸/配色口径逐字平移（§4.3）；dispose
 仅纸娃娃消费（Avatar 跨模式存活不释放）。
 
+**错位根因修复（2026-11-05 用户截图定位）**：overlay 位置原「复制骨
+children[0] 的 position」拿到的恒为 (0,0,0)——puppet 每骨全部盒体烘成
+一只合体 mesh（slotGeo g.translate 进顶点），mesh 自身零位，overlay 全
+挂在**骨枢轴**上（head 枢轴在颈部、body 枢轴在肩部 → 「头盔卡脖、
+胸甲套头」；此前「盔甲丑/怪」的主因即此，配色只是叠加项）。改 player
+官方等比常量显式定位：头 +4 / 身 −6 / 双肩帽 +1 / 腿 −5 / 靴 −10 px
+（盒中心相对骨枢轴，与 mob-look-kit player 档案同源）。
+
+**二轮观感二修（2026-11-05 用户反馈迭代）**：单色盒「刷漆」观感先以双色
+描边条（shade/tint 派生）修补，用户实测仍嫌丑，**终版上贴图**——每 tier
+两张 16×16 程序生成 CanvasTexture（盒身 `armorTierTexture` + 前脸
+`armorFrontTexture`，模块级缓存键 `tier` / `tier#front`，全表至多十二张；
+缓存三态口径：`{c,paint}`=首次建、CanvasTexture=命中直返、null=回落标记，
+**命中误当画笔组调 .paint 即炸**——2026-11-05 换件炸点已修并钉回归测试
+test/armor-overlay.test.js）：底色仍取 §7.3 层色板（唯一色源），明暗全走
+派生（板缝/铆钉/
+锁子网纹/晶纹按材质风格差异化：leather 缝线、chain 网点、iron/gold
+板缝+铆钉、diamond 斜晶纹、netherite 火山斑），NearestFilter 关平滑保
+像素风，六面同图（横板缝跨面对齐）。几何同步简化：双色描边条盒退役
+（层次画进图里）；画布/THREE 不可用回落纯色（Node 冒烟口径，held-item
+mkArtMats 同款纪律）。
+
+**三轮观感三修（2026-11-05 用户反馈「额头要有遮挡、盔甲盖肩与上臂」）**：
+①头盔前脸**面具化**——前开脸（整脸透明）退役，改 `armorFrontTexture`
+前脸贴图（同缓存表，键 `tier#front`，仅贴 -z 前脸=BoxGeometry 面序
+index 5）：额头横带+护颊柱+下颌带实甲，眼窗 clearRect 抠透明（前脸材质
+alphaTest 0.5，免 transparent 排序）露五官，中央护鼻竖脊贯通把窗分左右
+两窗（正典面具造型）。②胸甲肩部覆盖重做——双肩帽（挂身骨）退役，改
+臂骨挂甲袖 5×5×5（armR dx −1 / armL dx +1、dy 0，盖 y19.5~24.5 肩段）：
+正典肩甲语言=臂上段袖筒，肩与上臂全覆盖。
+
 ### 9.5 穿脱交互：一键穿上（政策链沿用）
 
-- 装备页点背包格（主格/快捷镜像同缝）盔甲件（isArmor 判据）= onWearAt(i)
+- 背包页点背包格（主格/快捷镜像同缝）盔甲件（isArmor 判据）= onWearAt(i)
   意图 → advTryWear(i)：advTryWear 加槽参（缺省 advHb.sel——wear 使用档
   执行器形态不变），沿用其政策链（wornPut 换装/旧件满包礼貌拒绝不消耗/
   消耗进槽/观感对齐/存档/话术）。非盔甲件保持点选搬运；丢弃态拦截优先
-  不变；合成页背包格行为完全不变。
+  不变。（二轮三页签：穿上入口随背包格搬家到背包页——装备页已无背包格
+  可点；盔甲件点了就穿、穿了可脱，无搬运必要，搬运让路）。
 - advSyncArmor 加面板刷新钩：ADV.panelOpen 时 advPanel.refresh()（预览
   一帧重画 + 槽位重读；拾取刷新同先例）。
+- **进场观感对账**（残影修复, 2026-11-05 用户反馈）：Avatar 跨模式存活，
+  上局 overlay 网格不会自己消失——init 读档换装 advWorn 后必调
+  advSyncArmor() 一次（体验馆 dev 账不落盘，重进 worn 已空，不对账就是
+  「装备没了身上还有甲」；setArmor 同目标幂等，零成本）。
 - 新挂点 advTryWearSlot(i)（指定槽穿上意图——行为测试面，登记挂点清单）。
 
 ### 9.6 测试先行清单（TDD）
@@ -341,6 +424,19 @@ mkArmorOverlay(puppet) → {apply(worn), dispose()} 作单份权威：Avatar 委
   前测 cleanup 落盘的 armor 键被 init 读回会让首穿实为换装、回包计数
   翻倍，全文件既有惯例的补课）。
 - boot 冒烟自动罩新脚本（index.html 解析装载 + THREE 桩全放行）。
+
+**二轮测试面（2026-11-05 三页签改版）**：mode-kit.test.js 按映射表机械改
+索引（主格 9~26→[0..17]、镜像 0~8→[18..26]、台格→[27..35]）；卡片/摆放台
+用例先进造物页（pickL1 helper，walk dataset.page）；L1 组重写三页签
+（缺省=背包|造物两页签 · 有 equip 缝=三页签 · 默认背包页 · show 每次落
+背包页）；穿上用例改背包页口径（入口搬家）。showroom-mode.test.js 助手
+先点 L1 'craft' 再走分类页签。
+
+**三轮测试面（2026-11-05 面具/甲袖改版）**：armor-overlay.test.js 新建
+（document+THREE 双桩走浏览器路径——boot 冒烟只罩 Node 回落路径，测不到
+贴图缓存命中分支）：换件复调命中已缓存纹理不炸且同实例复用（2026-11-05
+炸点回归）· 前脸挂 -z=index 5 与盒身分图 · 甲袖挂臂骨 · 同签名幂等 ·
+无 document 纯色回落路径直断言。
 
 ## 附录 B：MC 差异登记表
 

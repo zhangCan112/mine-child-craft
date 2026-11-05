@@ -11,7 +11,8 @@
    本件(设计稿 §9.3), 桩工厂替身让 mode-kit 单测保持零 THREE。
    interface: mkPaperDoll(opts) → {el · paint(worn) · dispose()}
      opts.doc    文档注入(缺省 document)
-     opts.w/h    画布尺寸 px(缺省 116×150, CSS 同款观感)
+     opts.w/h    画布尺寸 px(缺省 140×176, CSS 同款观感; 2026-11-05
+                  二轮放大——旧 116×150 娃娃太小看不清盔甲双色)
      paint(worn) 声明穿戴并按需重画一帧(四槽 id 签名幂等——同穿戴不重画)
      dispose()   释放渲染器/几何/材质; 幂等(重复调无害)
    依赖(均经全局名, 调用期解析): mob-look-kit.js 的 MobLookKit.puppet,
@@ -24,8 +25,8 @@
 function mkPaperDoll(opts) {
   const o = opts || {};
   const doc = o.doc || document;
-  const W = o.w || 116;
-  const H = o.h || 150;
+  const W = o.w || 140;
+  const H = o.h || 176;
   const el = doc.createElement('div');
   el.className = 'mkp-dollcv';
   let built = null; // {renderer, scene, camera, puppet, overlay, sig} 惰性首建

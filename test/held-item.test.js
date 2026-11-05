@@ -452,11 +452,13 @@ function loadHeldWithArtStub() {
   return ctx.__h;
 }
 
-test('mkArtMats 材质数组: face=FrontSide(镜像幽灵回归锁) + alphaTest 裁角 + 未登记 art 回落 null', () => {
+test('mkArtMats 材质数组: face=FrontSide(镜像幽灵回归锁) + 侧壁不可见(相框回归锁) + alphaTest 裁角 + 未登记 art 回落 null', () => {
   const {HeldItems, THREE} = loadHeldWithArtStub();
   const mats = HeldItems.mkArtMats({art: 'x', color: 0x123456});
   assert.ok(Array.isArray(mats) && mats.length === 6, 'BoxGeometry 六面材质数组');
-  assert.strictEqual(mats[0].opts.color, 0x123456, '挤出侧面=color 单色');
+  assert.strictEqual(mats[0].opts.color, 0x123456, '侧壁留 color(回落字段兼容)');
+  assert.strictEqual(mats[0].visible, false,
+      '挤出侧壁必须不可见(单色侧壁围矩形=sprite 透明区悬空「相框」, 2026-11-06 用户报告)');
   for (const i of [4, 5]) {
     assert.strictEqual(mats[i].opts.side, THREE.FrontSide,
         '±Z 面必须 FrontSide(DoubleSide 透孔渲染镜像背面=2026-10-29 破相)');

@@ -138,7 +138,7 @@ _Avoid_: 相机跟随、第三人称开关（那是它的 implementation）
 _Avoid_: 玩家皮肤（那是官方素材概念，本项目皮肤程序自绘归造型档案）、人物模型（散称）
 
 **穿戴几何 overlay（ArmorOverlay）**:
-四槽盔甲骨挂 overlay 几何的唯一权威（js/armor-overlay.js，引擎层渲染件，装备 T9 自 avatar.js T4 内联闭包抽件，docs/equipment-design.md §9.4）：`mkArmorOverlay(puppet) → {apply(worn), dispose()}`——盔 9×9×9 前开脸、胸甲主盒+双肩帽、护腿+髋带、靴+鞋头；apply 按四槽 id 集签名幂等（同穿戴零重建），配色经 HeldItems.ARMOR_TIER_COLORS 材质档取色（配色单一来源）。消费方两处共享同一几何权威：avatar.js（玩家身上 setArmor 委托，载入即建、跨模式存活不释放）与 paper-doll.js（纸娃娃预览，unmount 才 dispose）。
+四槽盔甲骨挂 overlay 几何的唯一权威（js/armor-overlay.js，引擎层渲染件，装备 T9 自 avatar.js T4 内联闭包抽件，docs/equipment-design.md §9.4）：`mkArmorOverlay(puppet) → {apply(worn), dispose()}`——盔 9×9×9 面具前脸（额带+眼窗+护颊+护鼻，前脸贴图 alphaTest 抠窗露五官）、胸甲主盒+臂骨挂甲袖（正典肩甲语言=臂上段袖筒）、护腿+髋带、靴+鞋头；apply 按四槽 id 集签名幂等（同穿戴零重建），观感=每 tier 程序生成 16×16 像素贴图（底色经 HeldItems.ARMOR_TIER_COLORS 穿戴层色板取色，唯一色源；画布/THREE 不可用回落纯色）。消费方两处共享同一几何权威：avatar.js（玩家身上 setArmor 委托，载入即建、跨模式存活不释放）与 paper-doll.js（纸娃娃预览，unmount 才 dispose）。
 _Avoid_: 各处自画盔甲盒（几何双份漂移）、把分档配色誊写进本件（单份在手持物注册表）
 
 **纸娃娃预览（PaperDoll）**:

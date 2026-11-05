@@ -1154,7 +1154,12 @@ function advMobAI(dt) {
         } else {
           Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt, dt); moved = speed;
         }
-      } else if (distP > m.cfg.range) {/* 近战逼近 */
+      } else if (distP > m.cfg.range ||
+          (m.__wdD > 2 && distP > 1.2)) {/* 近战逼近+贴脸续进(2026-11-06 用户票
+          「站着不动怪物不打」死锁修复: 原逼近只在 range 圈外驱动, 怪停在圈上
+          但列距 >2(对角跨柱角)时攻击门不开也不追=永久僵立, 玩家一动/一打
+          几何变了才出手; 放行走门未开时继续贴到 1.2 格内——开阔地该距离列距
+          必 ≤2 即出手, 隔墙物理贴墙到不了 1.2, 穿墙禁令(下分支实走门)不动摇 */
         Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt, dt); moved = speed;
       } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.__wdD <= 2 && m.attackCd <= 0) {/* 贴身攻击玩家:
           实走门 ≤2 格——隔薄墙直线 2.1 内也不出手(穿墙票; 立柱/墙头玩家
@@ -3678,6 +3683,10 @@ const AdventureMode = mkMode({
        init 侧再兜一层(幂等, 与 livestock defaults「两条路径都成立」同款纪律) */
     advWorn = wornNormalize(advLoad.armor || null);
     advArmorBar = mkArmorBar({onUnequip: advWornTakeOff}); /* HUD 常驻装备条(点槽=脱下意图) */
+    advSyncArmor(); /* 进场观感对账(残影修复, 2026-11-05 用户反馈): Avatar 跨
+      模式存活, 上局穿过的 overlay 网格不会自己消失——读档 worn 可能已空
+      (体验馆 dev 账不落盘), 不对账就是「装备没了身上还有甲」; setArmor
+      同目标幂等, 每次进场跑一次零成本 */
     advOreRegen = advOreRegenDecode(advLoad.oreRegen); /* 矿位开采账换装(生态恢复; 归一兜底——
        dev store/旧档缺键 → 空账; 先于 loadScene, 回填在其内结算) */
     advDenDaily = advLoad.den || null; /* 每日副本态收养(D20): 老档/坏档 null=首进全新 */

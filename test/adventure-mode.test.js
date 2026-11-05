@@ -2809,6 +2809,17 @@ test('索敌视野=实走距离: 墙后(walkDist=∞)不追不动 · 直线超�
   zb2.__wdT = 0; /* 同上: 立即重查 */
   AdventureMode.update(1 / 60);
   assert.ok(hitLog.some((h) => h.m.pos === globalThis.pos), '实走 ≤2 照打(直线攻击圈不受损)');
+  /* 贴脸续进(2026-11-06 僵立票回归锁): 直线在攻击圈内但列距 >2(对角跨柱
+     角) → 继续逼近不僵立(原版停圈上既不开打也不追=玩家站着永远不被打),
+     且列距 >2 仍不出手(穿墙门不动摇) */
+  const zb3 = mkAdvMob('zombie', 40, 25, 48, {__nightHome: {x: 40, z: 48}, attackCd: 0});
+  nextWalkDist = 3;
+  listResult = [zb3];
+  moveLog.length = 0;
+  hitLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.ok(moveLog.some((e) => e.m === zb3), '列距 >2 未开打: 继续逼近不僵立(死锁回归锁)');
+  assert.ok(!hitLog.some((h) => h.m.pos === globalThis.pos), '列距 >2 不出手(穿墙门不动摇)');
   listResult = [];
 });
 

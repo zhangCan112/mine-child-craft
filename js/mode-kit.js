@@ -15,9 +15,11 @@
    只读查询面; 图标/格子/chip 渲染单份收口 kitIconHtml/kitCellHtml/
    kitChipHtml): mkCraftPanel(3×3 摆放台站点外锁外圈+配方卡一键摆入+
    产出槽点击一发/长按连做, 交互语义权威 docs/crafting-grid-design.md
-   §5; T9 一级分栏 合成|装备 两页+分类页签四页(工具/食物/方块/材料,
-   「全部」退役)+装备页(纸娃娃定格预览+四槽穿戴+一键穿上, 数据与意图
-   全经 opts.equip 缝注入, 设计权威 docs/equipment-design.md §9)) ·
+   §5; T9 一级三页签 背包|装备|造物(2026-11-05 二轮: 背包+手持栏提为
+   第一页, 底部共用背包区退役; 装备页签 equip 缝条件渲染)+造物页分类
+   页签四页(工具/食物/方块/材料, 「全部」退役)+装备页(纸娃娃定格预览+
+   四槽穿戴+背包页一键穿上, 数据与意图全经 opts.equip 缝注入,
+   设计权威 docs/equipment-design.md §9)) ·
    mkFurnacePanel(三槽+进度条+燃料余量条, 常驻背包区手动放料/
    点击报意图回调, docs/furnace-design.md F2) · mkChestPanel(大宝箱,
    政策与存档在模式层回调, 顶格档隐藏扩容行)。
@@ -599,11 +601,13 @@ function mkPanelShell(cfg) {
    旧两步制确认钮退役)。配方卡=BE 口径一键摆入(拍板③): fillGrid 自动
    摆材料, 缺料格留空, 重复点卡=再备一套; 站点外只列 hand 级卡(正典配方
    书口径)。卡序=刚做过且仍可造置顶→可制造→缺料(材料尽的灰卡不置顶), 卡片 DOM 按签名复用。关面板格内材料退回背包(MC 工作台口径)。
-   装备页(T9): L1 页签 合成|装备 切换(图标 show 期注入, 整理钮同款延迟
-   口径), 页内纸娃娃定格预览(mkPreview 工厂缝, 零 rAF 按需一帧)+四槽
-   穿戴(点槽报 onSlot, 空槽也报)+盔甲点(pts); 背包格区移面板底部两页
-   共用(MC 正典布局), 装备页点背包盔甲件=一键穿上 onWearAt(丢弃态拦截
-   优先; 政策链与刷新全归模式层, 本件只报意图)。
+   L1 三页签(T9 §9.1; 2026-11-05 二轮 UX 改版, 用户截图反馈): 背包|
+   装备|造物——背包+手持栏从面板底部提为第一页(面板即 MC「背包」本义,
+   底部共用背包区退役); 装备页签仍 equip 缝条件渲染(缺省=两页签,
+   向后兼容)。页签图标 show 期注入(整理钮同款延迟口径)。装备页: 页内
+   纸娃娃定格预览(mkPreview 工厂缝, 零 rAF 按需一帧)+四槽穿戴(点槽报
+   onSlot=脱下, 空槽也报)+盔甲点(pts); 背包页点盔甲件=一键穿上
+   onWearAt(丢弃态拦截优先; 政策链与刷新全归模式层, 本件只报意图)。
    挂载幂等: 同一遮罩节点反复 show 只挂一次, remove 可重复调 */
 function mkCraftPanel(opts) {
   const o = opts || {};
@@ -652,51 +656,60 @@ function mkCraftPanel(opts) {
   function paintChrome() {
     shell.paintChrome(btnImg('grid') + ' 背包', ()=>{
       sortBtn.innerHTML = btnImg('sort') + '整理';
+      const L1_ICON = {bag: 'bagup', equip: 'wear', craft: 'table'};
       l1Els.forEach((b) => {/* L1 页签图标同款 show 期注入(构造期 button-icons 未就位) */
-        b.innerHTML = btnImg(b.dataset.page === 'craft' ? 'table' : 'wear');
+        b.innerHTML = btnImg(L1_ICON[b.dataset.page]);
       });
     });
   }
 
-  /* —— L1 一级分栏(装备 T9, 设计稿 §9.1): 合成|装备 两页签(equip 缝提供
-     才渲染——缺省零 L1, 向后兼容) + 两页容器; 背包格区移面板底部两页共用
-     (MC 正典布局)。DOM 组装序 = head → l1tabs → 合成页 → 装备页 → grid
-     → hotrow(mkp-cell 收集序随之: 摆放台 9 → 主格 → 镜像, 测试锚点) —— */
+  /* —— L1 一级分栏(装备 T9 §9.1; 2026-11-05 二轮 UX 改版: 三页签) ——
+     背包|装备|造物 三页(用户拍板: 背包+手持栏从面板底部提上来做第一页签,
+     面板即 MC「背包」本义); 装备页签仍 equip 缝条件渲染(缺省=两页签,
+     向后兼容)。底部共用背包区退役——背包自成一页。DOM 组装序 = head →
+     l1tabs → 背包页(grid+hotrow) → 装备页 → 造物页(bench+配方);
+     mkp-cell 收集序随之: 主格 18 → 快捷镜像 9 → 摆放台 9(测试锚点) —— */
   const l1tabs = doc.createElement('div');
   l1tabs.className = 'mkp-l1tabs';
   main.appendChild(l1tabs);
-  const pageCraft = doc.createElement('div');
-  pageCraft.className = 'mkp-page mkp-pagecraft';
-  main.appendChild(pageCraft);
+  const pageBag = doc.createElement('div');
+  pageBag.className = 'mkp-page mkp-pagebag';
+  main.appendChild(pageBag);
   const pageEquip = doc.createElement('div');
   pageEquip.className = 'mkp-page mkp-pageequip off';
   main.appendChild(pageEquip);
-  let page = 'craft'; // 当前一级页('craft'|'equip'; 无 equip 缝恒 craft)
+  const pageCraft = doc.createElement('div');
+  pageCraft.className = 'mkp-page mkp-pagecraft off';
+  main.appendChild(pageCraft);
+  let page = 'bag'; // 当前一级页('bag'|'equip'|'craft'; 默认背包=面板本义)
   const l1Els = [];
-  if (o.equip) {
-    [{key: 'craft', icon: 'table'}, {key: 'equip', icon: 'wear'}].forEach((t) => {
-      const b = doc.createElement('button');
-      b.className = 'mkp-l1tab' + (t.key === 'craft' ? ' on' : '');
-      b.dataset.page = t.key;
-      b.onclick = () => setPage(t.key);
-      l1tabs.appendChild(b);
-      l1Els.push(b);
-    });
-  }
-  /* 页切换: 收起手(槽号语义不跨页, 与丢弃态收手同款) + 显隐翻转
-     (classList, 不动 style) + refresh 重画当前页内容 */
+  [{key: 'bag', icon: 'bagup'}, {key: 'equip', icon: 'wear', equipOnly: true},
+    {key: 'craft', icon: 'table'}].forEach((t) => {
+    if (t.equipOnly && !o.equip) return; // 装备页签: equip 缝提供才渲染
+    const b = doc.createElement('button');
+    b.className = 'mkp-l1tab' + (t.key === page ? ' on' : '');
+    b.dataset.page = t.key;
+    b.onclick = () => setPage(t.key);
+    l1tabs.appendChild(b);
+    l1Els.push(b);
+  });
+  /* 页切换: 显隐翻转(classList, 不动 style) + refresh 重画当前页内容。
+     起手跨页保留(二轮三页签的核心搬运路径): 背包页起手(pickIdx=槽号)→
+     造物页点台格=入格; 台格起手(pickCell=下标)→背包页点背包格=退回——
+     两态各归其页消费, 互不越界。整理/丢弃/关面板仍收手(语义重排,
+     一轮修复不回退); 装备页无格可点, 无收手需求 */
   function setPage(p) {
     page = p;
-    pickIdx = -1; pickCell = -1;
     l1Els.forEach((b) => b.classList.toggle('on', b.dataset.page === p));
-    pageCraft.classList.toggle('off', p !== 'craft');
+    pageBag.classList.toggle('off', p !== 'bag');
     pageEquip.classList.toggle('off', p !== 'equip');
+    pageCraft.classList.toggle('off', p !== 'craft');
     refresh();
   }
 
   /* —— 背包网格(18 主格 槽 9~26 + 9 快捷栏镜像 槽 0~8): 骨架在底座,
-     挂载移两页之后(底部共用区, T9) —— */
-  main.appendChild(shell.grid); main.appendChild(shell.hotrow);
+     挂进背包页(第一页签, 2026-11-05 从面板底部提上来) —— */
+  pageBag.appendChild(shell.grid); pageBag.appendChild(shell.hotrow);
 
   /* —— 摆放台(crafting-grid §5): 3×3 常驻, 站点外仅左上 2×2 激活;
      产出槽 = matchGrid 命中亮起, 点击一发/长按连做(拍板④) —— */
@@ -789,9 +802,12 @@ function mkCraftPanel(opts) {
       refresh();
       return;
     }
-    if (page === 'equip' && o.equip && o.equip.onWearAt && inv.slots[i] &&
-        isArmor(inv.slots[i].id)) { // 装备页一键穿上(T9): 盔甲件意图直报,
-      o.equip.onWearAt(i); // 政策链(换装回包/满包拒绝)与刷新归模式层
+    if (o.equip && o.equip.onWearAt && inv.slots[i] &&
+        isArmor(inv.slots[i].id)) { // 点背包盔甲件=一键穿上(T9 一轮契约;
+      // 二轮三页签后背包格只在背包页, 穿上入口随格搬家, 不再限装备页)。
+      // 政策链(换装回包/满包拒绝)与刷新全归模式层, 本件只报意图;
+      // 搬运让路: 盔甲件点了就穿(穿了可脱, 无搬运必要)
+      o.equip.onWearAt(i);
       return;
     }
     if (pickCell >= 0) { // 摆放格起手 → 点背包格: 整摞退回(经 add, 零损失)
@@ -1135,19 +1151,21 @@ function mkCraftPanel(opts) {
     stashCells();
   }
   function refresh() {/* 重画内容不碰开合态(语义统一): 关着时调 refresh 不再弹面板;
-     按当前一级页重画对应内容(T9), 背包格区两页共用恒重画 */
+     按当前一级页重画(三页签): 背包页=网格+快捷镜像, 装备页=槽位/盔甲点/预览
+     一帧, 造物页=摆放台+配方卡; 页签钮与背包格恒重画(便宜, 27 格) */
     renderTabs();
     renderGrid();
+    renderBench(); /* 台格恒重画(9 格便宜): 跨页退回后回造物页不显幽灵物品 */
     if (page === 'equip') {
       renderEquip(); /* 槽位/盔甲点/预览一帧(签名节流在预览件内) */
-    } else {
-      renderBench(); /* 摆放台(锁定态/起手高亮/产出槽)随站点与摆放实时重读 */
-      renderCards();
+    } else if (page === 'craft') {
+      renderCards(); /* 卡片列表较贵(iconOf 逐卡), 只在造物页渲染 */
     }
   }
   function show() {
+    setPage('bag'); /* 每次打开落背包页(拍板: 第一页=背包, 页状态跨开合不保留);
+                       setPage 内含 refresh, 替代原先的显式调用 */
     paintChrome();
-    refresh();
     shell.show(); /* 复明 + 幂等挂载 + Esc 监听 */
   }
   return {root, questEl: quest, show, hide: shell.hide, close: shell.close,

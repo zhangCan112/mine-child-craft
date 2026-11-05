@@ -732,9 +732,9 @@ test('体验馆: station 行为断言 — 远离工作台台级配方随处可�
      (T9 页签化: 面包归食物页、铁锭等台级材料归材料页——切到对应页签再读卡) */
   ShowroomMode.onKey('Tab');
   const root = ShowroomMode.sr.craft.panel.root;
-  const tabBtn = (key) => {/* 页签钮 dataset.tab(T9); fake DOM 递归同 findCardByRecipe */
+  const btnBy = (attr, key) => {/* 页签钮递归找(fake DOM 无 querySelector; attr='tab'分类页|'page'一级页) */
     const walk = (el) => {
-      if (el.dataset && el.dataset.tab === key) return el;
+      if (el.dataset && el.dataset[attr] === key) return el;
       for (const c of el.children || []) {
         const r = walk(c);
         if (r) return r;
@@ -743,12 +743,13 @@ test('体验馆: station 行为断言 — 远离工作台台级配方随处可�
     };
     return walk(root);
   };
-  tabBtn('mat').onclick(); /* 材料页: iron_ingot(RECIPES 首个台级配方, 锭=材料) */
+  btnBy('page', 'craft').onclick(); /* 二轮三页签: 先进造物页(默认背包页) */
+  btnBy('tab', 'mat').onclick(); /* 材料页: iron_ingot(RECIPES 首个台级配方, 锭=材料) */
   const tableR = api.RECIPES.find((r) => r.station === 'table');
   const card = findCardByRecipe(root, tableR.id);
   assert.ok(card, '台级配方卡片在场(远离工作台): ' + tableR.id);
   assert.ok(!card.classList.contains('dim'), '台级配方不灰(station 门禁被 dev 政策放开)');
-  tabBtn('food').onclick(); /* 食物页: 面包卡在此 */
+  btnBy('tab', 'food').onclick(); /* 食物页: 面包卡在此 */
   const bread = findCardByRecipe(root, 'bread');
   assert.ok(bread, '隐藏配方面包卡片在场(hiddenRecipesOpen)');
   ShowroomMode.onKey('Tab');
