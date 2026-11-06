@@ -86,6 +86,8 @@ let wearCalls = 0;
 let felled = 0;
 let sel = 0;
 let playerPos = {x: 20.5, y: 13, z: 20.5};
+let stubEdge = null; /* T7: 模拟边界屏障判据命中格((x,y,z)=>bool, null=未命中)——
+    ADV 形 stub 的屏障分支(advMineHardText 同构: 判据命中给占位文案) */
 
 const inv = api.mkInventory();
 for (const row of [['planks', 10], ['torch', 5], ['door', 3], ['nether_portal', 1], ['log', 5], ['bed', 3]]) {
@@ -116,7 +118,14 @@ const ed = PlaceKit.mkEditor({
   ring: (p) => rings.push(p),
   swing: () => {},
   mesh: {touch: (x, z) => touches.push([x, z]), flush: () => flushes++},
-  hardText: () => '这块挖不动',
+  /* 硬块话术 stub(T7 扩签名 (id,x,y,z) 后的 ADV 形): 屏障格命中给占位文案;
+     无 hard 方块给话术(既有口径); 有 hard 方块返空串(真实政策=advMineHardText
+     对可挖件静默)——PK mineTick 起手统一问询后, 恒非空老 stub 会把一切挖掘
+     变拒绝, 故按消费方真实政策塑形 */
+  hardText: (id, x, y, z) => {
+    if (stubEdge && stubEdge(x, y, z)) return '屏障格挖不动(占位, 终稿归 T8)';
+    return (BLOCKS[id] && BLOCKS[id].hard == null) ? '这块挖不动' : '';
+  },
 });
 function reset() {
   journal.length = 0; placed.length = 0; drops.length = 0; mined.length = 0;
@@ -468,3 +477,218 @@ test('农田撤表(farm-and-recipe D3): 直接挖麦与级联脱落(挖耕地)�
   assert.ok(cropCleared.some((c) => c[0] === 22 && c[1] === 14 && c[2] === 30),
       '级联脱落的麦苗同样撤计时(重进不复活半截麦)');
 });
+
+/* ============ ⑥ T7 边界守卫(方案 P2/P3): hardText 扩签名 + placeGuard 缝 ============ */
+
+/* 守卫对照 editor(独立背包防扣件串扰): placeGuard 模拟「x≤9 列=三向禁放柱足迹」,
+   调用坐标全录(edgeGuardCalls)——验证目标格与结构 cell 都判的挂点面 */
+function mkEdgeInv() {
+  const iv = api.mkInventory();
+  for (const row of [['planks', 10], ['door', 3], ['bed', 3], ['nether_portal', 1]]) api.add(iv, row[0], row[1]);
+  return iv;
+}
+const edEdgeInv = mkEdgeInv();
+const edgeSays = [];
+const edgeGuardCalls = [];
+let edgeSel = 0;
+let edgeYaw = 0;
+let edgeGuardFn = (x) => x <= 9; /* 模拟禁放柱判据(x≤9 列), 用例可切换形态 */
+const edEdge = PlaceKit.mkEditor({
+  inv: edEdgeInv,
+  sel: () => edgeSel,
+  pos: () => ({x: 20.5, y: 13, z: 20.5}),
+  yaw: () => edgeYaw, /* 床放置轴向(床头异列 cell 用例需朝西) */
+  onEdit: () => {},
+  cascade: {},
+  say: (m) => edgeSays.push(m),
+  mesh: {touch: () => {}, flush: () => {}},
+  hardText: () => '',
+  placeGuard: (x, y, z) => {
+    edgeGuardCalls.push([x, y, z]);
+    return edgeGuardFn(x, y, z);
+  },
+});
+
+test('T7 边界守卫(P3): placeGuard 命中 — 单格放置拒绝+话术+不扣件(守卫收目标格坐标)', () => {
+  edgeSays.length = 0; edgeGuardCalls.length = 0;
+  edgeSel = 0; /* planks */
+  const hit = {x: 4, y: 12, z: 20, nx: 0, ny: 1, nz: 0}; /* 目标格 (4,13,20) 落禁放列 */
+  assert.strictEqual(edEdge.tryPlace(hit), false, '禁放列放置拒绝');
+  assert.strictEqual(api.getBlock(4, 13, 20), 0, '方块未落');
+  assert.strictEqual(api.count(edEdgeInv, 'planks'), 10, '不扣物品');
+  assert.ok(edgeSays.some((m) => String(m).includes('放不了')), '拒绝话术(占位)');
+  assert.deepStrictEqual(edgeGuardCalls, [[4, 13, 20]], '守卫恰收目标格 (tx,ty,tz)');
+});
+
+test('T7 边界守卫(P3): placeGuard 命中 — 门结构拒绝(两 cell 同列, 判到首格命中即拒)', () => {
+  edgeSays.length = 0; edgeGuardCalls.length = 0;
+  edgeSel = 1; /* door */
+  const hit = {x: 3, y: 12, z: 24, nx: 0, ny: 1, nz: 0}; /* 门基 (3,13,24) 禁放列; 上格 (3,14,24) 同列 */
+  assert.strictEqual(edEdge.tryPlace(hit), false, '门基在禁放列 → 拒');
+  assert.strictEqual(api.count(edEdgeInv, 'door'), 3, '不扣扇');
+  assert.deepStrictEqual(edgeGuardCalls, [[3, 13, 24]],
+      '守卫恰收门 cell 坐标(两格同列, 首格命中短路——同列故上格必同判据)');
+});
+
+test('T7 边界守卫(P3): placeGuard — 床床头/床尾异列两 cell 都在守卫看管下', () => {
+  edgeSel = 2; /* bed */
+  edgeYaw = Math.PI / 2; /* 朝西: 床头=床尾 x−1(主导轴), 与床尾异列 */
+  /* a) 床头格 (9,13,26) 在 x≤9 禁区(cells 正典形=床头在前), 命中即拒。
+     z=26 空走廊(不与既有测试落格走廊 20/30/32/36 撞) */
+  edgeSays.length = 0; edgeGuardCalls.length = 0;
+  assert.strictEqual(edEdge.tryPlace({x: 10, y: 12, z: 26, nx: 0, ny: 1, nz: 0}), false,
+      '床头 cell 落禁放列 → 整床拒');
+  assert.strictEqual(api.count(edEdgeInv, 'bed'), 3, '不扣床');
+  assert.deepStrictEqual(edgeGuardCalls, [[9, 13, 26]], '床头 cell 判过(异列也拦)');
+  /* b) 换判据 x≥10(床尾禁区): 床头 (9) 放行判过 → 床尾 (10,13,26) 判过命中——
+     第二格(结构 cell)确实也在守卫看管下, 仅判目标格的挂点漏不了它 */
+  edgeSays.length = 0; edgeGuardCalls.length = 0;
+  edgeGuardFn = (x) => x >= 10;
+  assert.strictEqual(edEdge.tryPlace({x: 10, y: 12, z: 26, nx: 0, ny: 1, nz: 0}), false,
+      '床尾 cell 落禁放列 → 整床拒');
+  assert.deepStrictEqual(edgeGuardCalls, [[9, 13, 26], [10, 13, 26]],
+      '两 cell 顺序判过(床头放行后床尾仍被守卫拦住)');
+  edgeGuardFn = (x) => x <= 9;
+  edgeYaw = 0;
+});
+
+test('T7 边界守卫(P3): placeGuard — 传送门结构列整判(门基不在禁区, 边柱列在也拒)', () => {
+  edgeSays.length = 0; edgeGuardCalls.length = 0;
+  edgeSel = 3; /* nether_portal */
+  const hit = {x: 10, y: 12, z: 30, nx: 0, ny: 1, nz: 0}; /* 门基 (10,13,30) x=10 不在 x≤9;
+      结构包围盒 x 9..16(w6)——边柱/塔楼列 x=9 命中(z 循环首个 tz−1=29) */
+  assert.strictEqual(edEdge.tryPlace(hit), false, '结构边列落禁放柱 → 整座拒');
+  assert.strictEqual(api.count(edEdgeInv, 'nether_portal'), 1, '不扣座');
+  assert.deepStrictEqual(edgeGuardCalls, [[9, 13, 29]],
+      '守卫收结构包围盒列坐标(超出目标格的 x=9 列也被判)');
+  /* 全列覆盖段: 判据永不命中 → 门立起, 断言盒列 x 9..16 每列都被守卫看过、
+     盒外 (x=8/17) 没判——包围盒与 advPortalSiteOk 同源不放大 */
+  edgeSays.length = 0; edgeGuardCalls.length = 0;
+  edgeGuardFn = () => false;
+  assert.strictEqual(edEdge.tryPlace(hit), true, '判据不命中 → 结构放行成功');
+  assert.strictEqual(api.count(edEdgeInv, 'nether_portal'), 0, '正常扣 1 座');
+  const xs = [...new Set(edgeGuardCalls.map((c) => c[0]))].sort((a, b) => a - b);
+  assert.deepStrictEqual(xs, [9, 10, 11, 12, 13, 14, 15, 16],
+      '结构列 x 9..16 逐列判(门框+塔楼+步道整面)');
+});
+
+test('T7 边界守卫(R9): placeGuard 未注入(体验馆形态) — 同禁区坐标照常放置零影响', () => {
+  reset();
+  sel = slotOf('planks');
+  const hit = {x: 4, y: 12, z: 36, nx: 0, ny: 1, nz: 0}; /* (4,13,36)=edEdge 的禁区坐标 */
+  assert.strictEqual(ed.tryPlace(hit), true, '未注入守卫 → 放行(现有 ed 全部既有断言同证)');
+  assert.strictEqual(api.getBlock(4, 13, 36), 6, '方块落格');
+  assert.strictEqual(api.count(inv, 'planks'), 6, '扣件正常(此前库存 7; 行为与现状一致)');
+});
+
+test('T7 屏障格挖掘拒绝(P2): 有 hard 方块坐标命中判据 — 不起蓄力+原地不动+话术节流', () => {
+  reset();
+  stubEdge = (x, y, z) => (x === 4 && z === 2); /* 模拟 advEdgeProtectedAt 命中格 */
+  sel = slotOf('pick_wood');
+  api.setBlockRaw(4, 13, 2, 3); /* 石头(hard 1.5——屏障件与带内可挖件同 id, 靠坐标判据分) */
+  const mine = {down: true, t: 0, key: '', need: 0, drops: true, swingT: 0};
+  ed.mineTick(mine, {x: 4, y: 13, z: 2}, 3, {held: true, panelOpen: false}); /* 3s 一步远超蓄力时长 */
+  assert.strictEqual(api.getBlock(4, 13, 2), 3, '方块原地不动(真挖不动)');
+  assert.strictEqual(mine.down, false, '不起蓄力(mineStop)');
+  assert.strictEqual(mine.t, 0, '零蓄力进度');
+  assert.ok(says.some((m) => String(m).includes('挖不动')), '屏障拒绝话术出现');
+  const n = says.length;
+  mine.down = true;
+  ed.mineTick(mine, {x: 4, y: 13, z: 2}, 3, {held: true, panelOpen: false});
+  assert.strictEqual(says.length, n, '3s 节流窗内不重发(继承「挖不动」节流链)');
+  ed.resetTimers();
+  stubEdge = null;
+});
+
+test('T7 hardText 扩签名回归: 老签名 (id) 注入不炸+新签名起手收到目标格坐标', () => {
+  /* 老形态: 单参 stub(消费方既有写法)——PK 多收三参不炸, 无 hard 拒绝行为同现状。
+     手持非工具(planks→徒手口径, 同既有测试惯例——真工具栈走 items-core 的
+     toolOf, 该链既有测试未铺, 不在本测范围) */
+  const legacyInv = api.mkInventory();
+  api.add(legacyInv, 'planks', 1);
+  const legacy = PlaceKit.mkEditor({
+    inv: legacyInv,
+    sel: () => 0,
+    pos: () => ({x: 20.5, y: 13, z: 20.5}),
+    onEdit: () => {},
+    cascade: {},
+    say: () => {}, speak: () => {},
+    hardText: (id) => (BLOCKS[id] && BLOCKS[id].hard == null) ? '老签名话术' : '',
+  });
+  api.setBlockRaw(26, 13, 26, api.B_PORTAL); /* 传送门面(hard==null=声明式不可破坏族) */
+  const mine = {down: true, t: 0, key: '', need: 0, drops: true, swingT: 0};
+  assert.doesNotThrow(() => legacy.mineTick(mine, {x: 26, y: 13, z: 26}, 0.1, {held: true, panelOpen: false}),
+      '老签名 (id) 注入多收参不炸');
+  assert.strictEqual(mine.down, false, '无 hard 拒绝链行为同现状');
+  /* 新签名: 有 hard 方块(石头)起手问询也发生, 坐标=准星格 */
+  const seen = [];
+  const modernInv = api.mkInventory();
+  api.add(modernInv, 'planks', 1);
+  const modern = PlaceKit.mkEditor({
+    inv: modernInv,
+    sel: () => 0,
+    pos: () => ({x: 20.5, y: 13, z: 20.5}),
+    onEdit: () => {},
+    cascade: {},
+    hardText: (id, x, y, z) => {
+      seen.push([id, x, y, z]);
+      return ''; /* 空串=放行 */
+    },
+  });
+  api.setBlockRaw(28, 13, 28, 3); /* 石头(hard 1.5) */
+  const m2 = {down: true, t: 0, key: '', need: 0, drops: true, swingT: 0};
+  modern.mineTick(m2, {x: 28, y: 13, z: 28}, 0.1, {held: true, panelOpen: false});
+  assert.deepStrictEqual(seen, [[3, 28, 13, 28]], '有 hard 方块起手问询恰一次, 收到 (id,x,y,z)');
+});
+
+/* ============ ⑦ T7 边界守卫(R10 补口·波次二): cascadeGuard 缝 ============ */
+
+test('T7 边界守卫(R10 补口): cascadeGuard — 受保护格剔除(账本/掉落/felled 不出), 未注入恒等', () => {
+  /* 守卫 kit: 模拟「x===10 格=屏障格」——契约=guard 返回的清单才进账本
+     (复原直写由消费方在 guard 内做, 壳测试以剔除代) */
+  const marks = [];
+  const drops = [];
+  let felledSeen = 0;
+  const edG = PlaceKit.mkEditor({
+    inv: mkEdgeInv(),
+    sel: () => 0,
+    pos: () => ({x: 20.5, y: 13, z: 20.5}),
+    yaw: () => 0,
+    onEdit: () => {},
+    cascade: {
+      mark: (x, y, z, id) => marks.push([x, y, z, id]),
+      drop: (id, n, x, y, z) => drops.push([Math.floor(x), Math.floor(y), Math.floor(z)]),
+    },
+    onFelled: () => felledSeen++,
+    say: () => {},
+    mesh: {touch: () => {}, flush: () => {}},
+    hardText: () => '',
+    cascadeGuard: (removed) => removed.filter((r) => r.x !== 10),
+  });
+  /* 桩脚土格(11)合法 + 屏障原木格(10, fell=true)被级联放倒——guard 剔除后
+     账本只剩土格(移除项恒记 0, advCascadeLedger 口径): 屏障格零记账/零掉落/
+     felled 不喊(纯桩倒不算整树倒) */
+  edG.applyCascade([{x: 10, y: 20, z: 10, id: 5}, {x: 11, y: 20, z: 10, id: 2}], false);
+  assert.deepStrictEqual(marks, [[11, 20, 10, 0]], '账本只收未剔除格(屏障格不记账)');
+  assert.strictEqual(drops.filter((d) => d[0] === 10).length, 0, '屏障格零掉落(掷骰不出)');
+  assert.strictEqual(felledSeen, 0, '纯屏障格被剔除 → felled 不喊(整树倒观感不误触)');
+  /* 对照: 不注 guard → 同形清单原样进账本+fell 上旗(未注入=恒等, R9 形态) */
+  const marks2 = [];
+  let felled2 = 0;
+  const edP = PlaceKit.mkEditor({
+    inv: mkEdgeInv(),
+    sel: () => 0,
+    pos: () => ({x: 20.5, y: 13, z: 20.5}),
+    yaw: () => 0,
+    onEdit: () => {},
+    cascade: {mark: (x, y, z, id) => marks2.push([x, y, z, id]), drop: () => {}},
+    onFelled: () => felled2++,
+    say: () => {},
+    mesh: {touch: () => {}, flush: () => {}},
+    hardText: () => '',
+  });
+  edP.applyCascade([{x: 10, y: 20, z: 10, id: 5}], false);
+  assert.deepStrictEqual(marks2, [[10, 20, 10, 0]], '未注入恒等: 清单原样进账本(移除项记 0)');
+  assert.strictEqual(felled2, 1, '未注入恒等: fell 原样上旗(onFelled 在册)');
+});
+

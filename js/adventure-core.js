@@ -60,11 +60,17 @@
       ——维度专属段(ADV_NETHER/advNetherBuild/ADV_ERUPT/advEruptStep/
       ADV_DEN/advDenBuild/副本刷怪四件套/advMusicMood)已迁
       js/adventure-dims-core.js(2026-10-30, docs/dimension-registry-design.md) ·
-      四方向过渡带(〔边界原型·T2~T5〕, docs/world-edge-design/*-spec.md 轻量原型):
-      ADV_EDGE_SKY 天/雾锚点表·advEdgeSkyAt(按玩家到边距离的分段 lerp+主导边
-      混合, 纯函数)·advBuildEdgeBands(带内地表确定性改写+屏障件+远景剪影, home
-      图专属, advBuildWorld 总装内建)·advEdgeBarriersHidden(?edgeUnlocked=1
-      走查开关, 壳写入——隐藏三向屏障件供对比走查)
+      四方向过渡带(〔边界转正·T7〕2026-11-06 定稿收编, 源出 T2~T5 spec 走查
+      定稿, docs/world-edge-design/*-spec.md): ADV_EDGE_SKY 天/雾锚点表·
+      advEdgeSkyAt(按玩家到边距离的分段 lerp+主导边混合, 纯函数)·
+      ADV_EDGE_HOME_SKY(腹地快速旁路共享常量, P5①)·advBuildEdgeBands(带内
+      地表确定性改写+屏障件+远景剪影, 正式建场件, home 图专属, advBuildWorld
+      总装内建)·advEdgeNorthMountainH(北山体几何唯一权威, 保护判据与测试
+      共用)·advEdgeBarriersHidden+advSetEdgeBarriersHidden(解锁态单一开关
+      与唯一写入口——T8 将把此开关从 ?edgeUnlocked=1 URL 走查参数换成解锁
+      进度驱动, 隐藏三向屏障件)·advEdgeProtectedAt/
+      advEdgeProtectedZone(边界保护政策纯函数, T7 转正新增: T6 修订 v2 不可挖
+      判据/三向足迹列禁放判据——三向随 advEdgeBarriersHidden 开关, 东向恒保护)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
       advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——advNestStep 薄壳/
       advNightStepPool 组装消费, 加载序先于本文件) · config.js 的
@@ -501,7 +507,7 @@ function advInRect(x, z, r) {/* 矩形含界判据(建场件占位/避让共用,
 
 function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含洞口小丘)/巢穴/门阵广场/农田/围栏/小径(T5 建场件全避)
   + 2026-10-27 扩容新增(松林圈让位给针叶松/望塔/石阵/花田/南池——橡树不进新元素场)
-  + 〔边界原型·T2~T5〕四方向过渡带——橡树不进带: 首跑观测 56 棵有 33 棵落带内
+  + 〔边界转正·T7〕四方向过渡带——橡树不进带: 首跑观测 56 棵有 33 棵落带内
   (雪原橡树/沙面橡树/西带水面立树/穿沙暴墙), 「少数过渡杂木」前提不成立且破
   「树脚下草皮」不变量; 带内树由带建场件自管(云杉/孤杉/圆冠树同 spec 语言) */
   if (z <= 23 || z >= 128 || x <= 31 || x >= 128) return true;
@@ -808,14 +814,16 @@ function advScatterFlowers() {/* 花丛草场(T5, §2.4 核心圈): 蒲公英黄
 }
 
 /* ============================================================
-   〔边界原型·T2~T5〕四方向过渡带（观感件, 走查用, T7 转正收编）
+   〔边界转正·T7〕四方向过渡带（正式观感建场件, 2026-11-06 定稿收编）
    ------------------------------------------------------------
-   docs/world-edge-design/{north,south,west,east}-spec.md 的轻量游戏内原型:
-   带内地表渐变(确定性改写) + 未解锁屏障件(雪崩堆/沙暴墙静态化/迷雾深水带/
-   东向栅栏+告示牌拼块) + 远景剪影。红线: 零 Math.random(散布全走
-   SceneKit.rand 坐标哈希, 两次建场逐字节一致); 带是 home 图专属(总装只挂
-   advBuildWorld, 三张远征图不挂); 机制(边缘传送/白闪/音效/未解锁判定与拦截/
-   屏障保护旗标/存档档形)一律不做, 归 T7/T8。
+   docs/world-edge-design/{north,south,west,east}-spec.md 定稿的游戏内实现
+   (T2~T5 轻量原型经两轮实机走查通过后转正): 带内地表渐变(确定性改写) +
+   未解锁屏障件(雪崩堆/沙暴墙静态化/迷雾深水带/东向栅栏+告示牌拼块) +
+   远景剪影。红线: 零 Math.random(散布全走 SceneKit.rand 坐标哈希, 两次建场
+   逐字节一致); 带是 home 图专属(总装只挂 advBuildWorld, 三张远征图不挂);
+   政策层(T7 转正新增: 不可挖判据/禁放柱/翻越拦截)见段末「边界保护政策」
+   (advEdgeProtectedAt/advEdgeProtectedZone); 边缘传送/白闪/音效/解锁判定
+   与存档档形归 T8。
    落位坐标口径: 北=−z 带 z∈[0,24) 全 x · 南=+z 带 z∈[128,160) 全 x ·
    西=−x 带 x∈[0,32) 全 z · 东=+x 带 x∈[128,159](栅栏线 x157/隔离带 x158~159),
    世界 160×160×48。
@@ -825,8 +833,10 @@ function advScatterFlowers() {/* 花丛草场(T5, §2.4 核心圈): 蒲公英黄
    (「黑巢从沼泽里长出来」, 见 west-spec 走查修订段)。
    ============================================================ */
 
-let advEdgeBarriersHidden = false; /* 屏障隐藏走查开关(壳读 ?edgeUnlocked=1 写入,
-   建场前置位即全屏隐藏三向屏障; 东向栅栏无解锁语义不随此开关) */
+let advEdgeBarriersHidden = false; /* 解锁态单一开关(壳写入, 建场前置位即全屏
+   隐藏三向屏障; 东向栅栏无解锁语义不随此开关)。T8 边界登记: T8 将把此开关
+   从 URL 走查参数(?edgeUnlocked=1)换成解锁进度驱动, 判据/清场重建经
+   advSetEdgeBarriersHidden 单一口径自动跟随(R6) */
 function advSetEdgeBarriersHidden(v) {
   advEdgeBarriersHidden = !!v;
 } /* 唯一写入口:
@@ -848,6 +858,15 @@ const ADV_EDGE_SKY = {
     [15, 0x9ea8a3, 0.88, 0xbcc5bf], [8, 0x9ea8a3, 0.9, 0xbcc5bf], [2, 0x9ea8a3, 1, 0xbcc5bf]],
   east: [[36, 0x8fc7ff, 0, null], [8, 0x8fc7ff, 0.2, null], [2, 0x8fc7ff, 0.5, null]],
 };
+
+/* P5 可选优化①腹地旁路的返回共享常量: {dir:null, sky/fogC=home 天色, fog:0}。
+   只读契约——消费方(advEdgeSkyTick/测试)不得改写, 改写会跨帧污染共享引用。 */
+const ADV_EDGE_HOME_SKY_RET = {dir: null, sky: ADV_EDGE_HOME_SKY, fog: 0, fogC: ADV_EDGE_HOME_SKY};
+/* 旁路阈值=四向首锚最大值(现表=west 68), 从表派生不抄死值——表改锚自动跟随。
+   旁路触发区 ⊆ 全向进度 ≤0 区(进度 t>0 需 d<该向首锚), 命中时全量路径本就
+   返回 home 档, 故共享常量直返与全量路径逐字段相同=行为等价(构造保证, 测试另钉)。 */
+const ADV_EDGE_SKY_HOME_D = Math.max(ADV_EDGE_SKY.north[0][0], ADV_EDGE_SKY.south[0][0],
+    ADV_EDGE_SKY.west[0][0], ADV_EDGE_SKY.east[0][0]);
 
 function advEdgeRgb(hex) {/* hex → [r,g,b](0..1) */
   return [(hex >> 16 & 255) / 255, (hex >> 8 & 255) / 255, (hex & 255) / 255];
@@ -876,9 +895,17 @@ function advEdgeRowsAt(rows, d) {/* 分段线性: d 落在相邻锚点间按比�
 }
 
 function advEdgeSkyAt(x, z) {/* 玩家位 → 边界天/雾观感(纯函数, 单测可断言)。
-  混合口径(保守, 登记归 T7 复核): 四方向各算进度 t∈[0,1], 取 t 最大者为主导边
+  混合口径(保守, T7 转正断言已钉: 测试「边界天/雾」块+P5① 旁路等价): 四方向各算
+  进度 t∈[0,1], 取 t 最大者为主导边
   ——角部两带同时邻边时只表现更近的一条边, 不叠加混色(north-spec §1 留口的
   「四角重叠归属」在观感上的最小裁定; 同分按北/南/西/东检序取先) */
+  /* P5 可选优化①腹地快速旁路: 距四缘均 > 最远首锚(west 68=ADV_EDGE_SKY_HOME_D)
+     → 四向进度全 ≤0, 直接原引用返回 home 共享常量(零查表零分配, 主城腹地
+     绝大多数帧命中; 等价性见 ADV_EDGE_SKY_HOME_D 注, 测试钉原引用与边界值)。 */
+  if (x > ADV_EDGE_SKY_HOME_D && z > ADV_EDGE_SKY_HOME_D &&
+      WORLD_W - 1 - x > ADV_EDGE_SKY_HOME_D && WORLD_D - 1 - z > ADV_EDGE_SKY_HOME_D) {
+    return ADV_EDGE_HOME_SKY_RET;
+  }
   const cand = [['north', z], ['south', WORLD_D - 1 - z], ['west', x], ['east', WORLD_W - 1 - x]];
   let best = null;
   for (const [dir, d] of cand) {
@@ -966,8 +993,10 @@ function advEdgeNorthPile(x, z) {/* 雪堆: 单块雪 */
 }
 
 function advEdgeNorthSpruce(x, z, salt) {/* 寒带落雪杉(advPineTree 同语言冠架): 原木干+
-  锥形叶冠, 冠顶帽与冠肩两层正交位盖 B_SNOW——「落满雪的针叶树」观感, 零新贴图
-  (2026-11-06 走查修订: 雪原里绿树不合理, 全带杉一律落雪, 角叶留绿透针叶底色)。
+  锥形叶冠, 冠顶帽与冠肩两层正交位盖覆雪树叶 B_SNOWY_LEAVES——「落满雪的针叶树」
+  观感 (2026-11-06 走查修订: 雪原里绿树不合理, 全带杉一律落雪, 角叶留绿透针叶底色;
+  同日 T12 级联修订: 冠盖原盖 B_SNOW 无级联性质, 树倒后悬空残留——换覆雪树叶
+  (need:{id:5,dist:4} 与树叶同口径), 树倒冠雪随冠一起消散, 用户实机走查拍板)。
   雪根座: 干基先垫雪(洼地越深垫越高), 干基恒 ≥y26——雪原杉永不呈现「y25/26
   双格原木干柱」剖面, 树根埋雪堆也合寒带语义, 不与家园侧选树/砍树级联口径相撞 */
   const sid = advEdgeSurfaceId(x, z);
@@ -981,14 +1010,15 @@ function advEdgeNorthSpruce(x, z, salt) {/* 寒带落雪杉(advPineTree 同语�
   const ped = 1 + Math.max(0, -hgt); /* 雪根座: 高度场 -n → 垫 n+1 层 */
   for (let i = 1; i <= ped; i++) setBlockRaw(x, top + i, z, B_SNOW);
   advPineTree(x, top + ped + 1, z, salt);
-  /* 与 advPineTree 同式复算干高: 冠顶(crown)与冠肩(crown-1)的正交四叶换雪
-     (只覆叶不覆干, 读到的叶才换), 顶帽换雪 */
+  /* 与 advPineTree 同式复算干高: 冠顶(crown)与冠肩(crown-1)的正交四叶换覆雪树叶
+     (只覆叶不覆干, 读到的叶才换), 顶帽换覆雪树叶——三处皆是「叶位换叶种」,
+     树叶级联性质原样(覆雪叶 need 同口径), 树倒冠盖随冠清零无悬浮残雪 */
   const crown = top + ped + 1 + (4 + Math.floor(SceneKit.rand(x + 7, z + 3, salt) * 3));
   for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    if (getBlock(x + dx, crown, z + dz) === 7) setBlockRaw(x + dx, crown, z + dz, B_SNOW);
-    if (getBlock(x + dx, crown - 1, z + dz) === 7) setBlockRaw(x + dx, crown - 1, z + dz, B_SNOW);
+    if (getBlock(x + dx, crown, z + dz) === 7) setBlockRaw(x + dx, crown, z + dz, B_SNOWY_LEAVES);
+    if (getBlock(x + dx, crown - 1, z + dz) === 7) setBlockRaw(x + dx, crown - 1, z + dz, B_SNOWY_LEAVES);
   }
-  setBlockRaw(x, crown + 1, z, B_SNOW);
+  setBlockRaw(x, crown + 1, z, B_SNOWY_LEAVES);
 }
 
 function advEdgeNorthMountainH(x, z) {/* 山体格高纯函数(0=足迹外): 峰高/半宽/脊线段锚
@@ -1017,7 +1047,8 @@ function advEdgeNorthBarrier() {/* 未解锁屏障=巍峨高山脊(北 spec §4,
   连绵山脊横贯全带, 每 16 列一段锚(峰高 13~18 / 半宽 5~7 / 脊线 z 9~11 微蜿蜒),
   段间线性插值=山势起伏无锯齿; 剖面几何唯一权威=advEdgeNorthMountainH(纯函数)。
   剖面为凹坡: 南麓起步 1~2 级 1 格缓阶(看得见脚点=「爬的欲望」), 随即升到 ≥2
-  格级差(本游戏跳跃约 1 格, 翻不过——屏障语义不变, 保护旗标归 T7, 本原型可挖)。
+  格级差(本游戏跳跃约 1 格, 翻不过——屏障语义不变, 不可挖保护判据已落地
+  (advEdgeProtectedAt, T7 转正))。
   雪顶石身: 石芯(id 3)+顶盖 B_SNOW 1~3 层随峰高加厚, 檐下缘散 B_ICE 冻舌;
   南麓碎石坡(雪堆/裸石)稀疏点景。东端 x144 起峰高线性收没(让位东带栅栏/小镇
   天际线, x157 后山体退场)。豁免走地表守卫天然让位: 巢丘(土面)/山洞口小丘
@@ -1249,8 +1280,9 @@ function advEdgeSouthBarrier() {/* 未解锁屏障=连绵大沙丘(南 spec §4 
   起伏(4..10 高渐次, 丘非墙), 剖面四段=迎风坡脚(h1 ≥2)→陡升(h2−h1=2)→脊顶(C)→
   背风肩(h4=C−2 缓落接沙海); 砂岩只做脊顶零星露头(非柱芯节奏); 屏障语义不变:
   坡脚级差 ≥2(跳跃 1.42 格翻不过)+陡升级差恒 2(垫脚石即便够到坡脚顶也止步于此),
-  位置 z144..147 与 spec §4 一致; 「不可挖不可替换」保护旗标仍归 T7;
-  沙暴动效语义归 T7 评估(沙丘地形可作解锁态地形底) */
+  位置 z144..147 与 spec §4 一致; 不可挖/禁放保护判据已落地(advEdgeProtectedAt/
+  advEdgeProtectedZone, T7 转正); 沙暴动效销项: 不做(C4, 2026-11-06——纯沙丘
+  地形无特效件, 走查通过; 沙丘地形直接作解锁态「沙暴散去」的地形底) */
   if (advEdgeBarriersHidden) return;
   for (let x = 0; x < WORLD_W; x++) {
     const C = advEdgeSouthCrest(x);
@@ -1323,15 +1355,16 @@ function advEdgeWestPools() {/* 水洼(②③⑥⑦ patch): 2 格宽(沿 x)+泥�
   }
 }
 
-function advEdgeWestBarrier() {/* 迷雾深水带的点睛件: 苔石冒头 ×2(暗示水深路断)+
-  岸边兰花(过不去的地方也开着花); 横雾带不走物件——由天/雾锚点在屏障处的
-  0.88 浓度档承担(advEdgeSkyAt west 行) */
+function advEdgeWestBarrier() {/* 迷雾深水带的点睛件: 苔石冒头 ×2(暗示水深路断);
+   横雾带不走物件——由天/雾锚点在屏障处的 0.88 浓度档承担(advEdgeSkyAt west 行)。
+   T7 转正(E3 销项): 岸边兰花 (13,47)/(13,105) 两处调用删除——落点在深水带列
+   (x13..18), advEdgeDecorate 水面守卫恒拒=从未落花的死调用(观感零变化, 逐格
+   核对两格顶上恒空); 「岸边兰花」观感诉求登记备查——若补须挪 x12/x19 泥岸列,
+   属新观感须再走查, 默认不做 */
   for (const [sx, sz] of [[15, 48], [16, 104]]) {
     const top = ADV_GROUND + advHeightAt(sx, sz);
     if (getBlock(sx, top, sz) === B_WATER) setBlockRaw(sx, top + 1, sz, 14);
   }
-  advEdgeDecorate(13, 47, B_ORCHID);
-  advEdgeDecorate(13, 105, B_ORCHID);
 }
 
 function advEdgeWestHut() {/* 远景·高脚木屋剪影(西 spec §5): 原木桩柱 ×4 + 木板屋身 +
@@ -1388,12 +1421,18 @@ function advEdgeWest() {
   advEdgeWestOrchids();
 }
 
-/* ---------- 东带·小镇(x∈[128,159], ①②③ 段, 东 spec §3/§5/§6) ---------- */
+/* ---------- 东带·小镇(x∈[128,159], ①②③ 段, 东 spec §3/§5/§6) ----------
+   T7 拍板 Q1 销项登记(2026-11-06, 登记偏差全维持走查通过现状):
+   ①栅栏碰撞「1.5 格(MC 先例)」≈桩 2/缝 1 的整格近似——跳缝=翻越彩蛋;
+   ②花田红花无图集格位, 维持黄/白二色;
+   ③告示牌牌面=拼块形制无字;
+   ④远景剪影以石色替代(深蓝灰系无格位)。未来升级(牌面写字/深蓝灰格位/红花)
+   一律走独立图集票, 不回 T7。 */
 
 function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插值, 渐变全靠地表块
   种类密度——①入口段土路斑 1 patch(x132~135, 主径线 z73~76)·②渐密段土斑
   2 patch + 花田 2 处(主径两侧各 5 朵)。登记偏差: 花田「黄/红/白」红花无图集
-  格位(零新贴图), 以黄/白二色铺(归 T7) */
+  格位(零新贴图), 以黄/白二色铺(T7 拍板 Q1 销项: 维持二色) */
   const dirt = () => [2, 0];
   advEdgeRewrite(132, 135, 73, 76, dirt);
   advEdgeRewrite(140, 143, 70, 73, dirt);
@@ -1408,7 +1447,8 @@ function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插�
 }
 
 function advEdgeEastSign() {/* 告示牌(东 spec §5): 立式双柱牌 x156, 板面朝主径;
-  告示牌文字暂不实现(拼块形制即可, 任务口径); 保护旗标归 T7 */
+  牌面=拼块形制无字(T7 拍板 Q1 销项); 不可挖保护判据已落地(advEdgeProtectedAt
+  东向恒保护, T7 转正) */
   const x = 156;
   const yb = ADV_GROUND + advHeightAt(x, 74);
   for (const z of [73, 76]) {
@@ -1419,7 +1459,9 @@ function advEdgeEastSign() {/* 告示牌(东 spec §5): 立式双柱牌 x156, �
 
 function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间留缝是设计本体
   ——原木柱(2 高)每 3 格一根, 缝格木板横杆(1 高), 缝口净空露出剪影=「看得见、
-  过不去、但不堵心」; 碰撞 1.5 格与保护旗标归 T7(本原型不拦, 翻越=彩蛋口径) */
+  过不去、但不堵心」; 碰撞≈桩 2/缝 1 整格近似(T7 拍板 Q1 销项, 跳缝=翻越彩蛋);
+  挖/替换保护判据已落地(advEdgeProtectedAt 东向恒保护), 放置不设禁放柱
+  (翻越=彩蛋口径, T7 转正) */
   for (let z = 0; z < WORLD_D; z++) {
     const y = ADV_GROUND + advHeightAt(157, z) + 1;
     if (z % 3 === 0) {
@@ -1454,8 +1496,9 @@ function advEdgeEastTree(x, baseY, z) {/* 圆冠树(贴边裁冠版, SceneKit.tr
 
 function advEdgeEastSkyline() {/* 小镇远景剪影(东 spec §6): 房屋×4+钟楼×1+圆冠树×2+
   灯点 4 粒, 落栅栏外隔离带 x158~159(体素拼块=「近看不穿帮」约束的便宜实现)。
-  登记偏差: 深蓝灰 #5A6B7A 系无图集格位(零新贴图), 以石色剪影替代, 走查校准
-  归 T7; 灯点=火把(夜间发光, 「还没建好但已经有灯亮着」的情绪钩子) */
+  登记偏差: 深蓝灰 #5A6B7A 系无图集格位(零新贴图), 以石色剪影替代(T7 拍板 Q1
+  销项: 维持石色, 深蓝灰新格位走独立图集票); 灯点=火把(夜间发光, 「还没建好但
+  已经有灯亮着」的情绪钩子) */
   const houses = [[24, 3], [56, 5], [88, 4], [120, 3]]; /* [z, 高]——高低错落 3~5 格 */
   let lamps = 0;
   for (const [z, h] of houses) {
@@ -1488,7 +1531,7 @@ function advEdgeEast() {
   advEdgeEastSkyline();
 }
 
-/* ---------- 四角交接·post-pass(〔边界原型·T2~T5〕第 5 员工, 2026-11-06) ----------
+/* ---------- 四角交接·post-pass(〔边界转正·T7〕第 5 员工, 2026-11-06) ----------
    四向带区总装后的一处收口: 相邻两个目标生态在角区「握手」——地形让势 + 植物
    消长, 零悬空/零浮树/零穿模。四角定义: NW=x0..31×z0..23, NE=x128..159×z0..23,
    SW=x0..31×z128..159, SE=x128..159×z128..159。红线遵守: 不改写四向已审函数段
@@ -1505,13 +1548,32 @@ function advEdgeEast() {
    z159 的桩杆脚下是水(真悬空); NE 角=山体东端收势已让位栅栏, 唯 z12..15 雪线
    贴栅栏过直。 */
 
+/* ---------- 四角梯度参数(T7 P7 提常量, 四 spec 四角交接小节出处; 原式逐字
+   搬运含浮点运算序——快照零漂移, 验收=重构前后 advBuildWorld 逐字节一致。
+   命名口径: 数据表=CONSTANT_CASE; 公式型梯度(返回函数的常量)走 adv camelCase
+   (new-cap 红线: 大写名按构造函数把门), 同段集中不改) ---------- */
+const ADV_EDGE_CORNER_NW_P_ICE = [0.75, 0.55, 0.35, 0.15];
+/* NW 浮冰密度(按 z16..19 索引): 北密南疏(north/west spec 四角交接) */
+const ADV_EDGE_CORNER_NW_P_MUD = [0.6, 0.45, 0.3, 0.15];
+/* NW 泥融密度(按 z16..19 索引): 同向北强 */
+const ADV_EDGE_CORNER_NE_P_THAW = [0.7, 0.6, 0.45, 0.25];
+/* NE 融雪密度(按 z12..15 索引): 北强南弱, 往带内递减(north/east spec 四角交接) */
+const advEdgeCornerSwFz = (z) => Math.max(0, 1 - (z - 128) / 14);
+/* SW 带缘衰减(z128..142): 愈深入沙带愈轻, z142 归零(south/west spec 四角交接) */
+const ADV_EDGE_CORNER_SW_P_WATER = {135: 0.55, 136: 0.4, 138: 0.3, 139: 0.2, 140: 0.12, 141: 0.06, 142: 0.03};
+/* SW 潮尾概率(z135..142 逐键; z137 缺键=该行不落水) */
+const advEdgeCornerSeFz = (z) => Math.max(0, Math.min(1, (138 - z) / 10 + 0.25));
+/* SE 草甸楔带缘强(z128..138): apron 前收势(east/south spec 四角交接) */
+const advEdgeCornerSeP = (x) => Math.max(0, Math.min(1, (x - 136) / 21));
+/* SE 草甸楔横向强: 近栅栏强、西向弱 */
+
 function advEdgeCornerNW() {/* NW 角·雪原×沼泽(冻沼渐变): 西带深水带/泥楔被北带雪原
   改写挡到 z16 才现身(单格水洼嵌雪=马赛克断层)——补一段向北渐冻: 水面→冰(浮冰
   越北越密, 接 z15 纯雪带), 泥面→雪覆草(越北越融, 草探头=消长); 西带兰花 ramp
   穿带误落雪/冰/石面者, 脚下换融斑泥点(植株原地留=融雪湖畔开花)。盐 8502/8503/8504 */
   for (let z = 16; z <= 19; z++) {
-    const pIce = [0.75, 0.55, 0.35, 0.15][z - 16]; /* 浮冰密度: 北密南疏 */
-    const pMud = [0.6, 0.45, 0.3, 0.15][z - 16]; /* 泥融密度: 同向北强 */
+    const pIce = ADV_EDGE_CORNER_NW_P_ICE[z - 16];
+    const pMud = ADV_EDGE_CORNER_NW_P_MUD[z - 16];
     for (let x = 0; x <= 31; x++) {
       const t = ADV_GROUND + advHeightAt(x, z);
       const sid = getBlock(x, t, z);
@@ -1544,7 +1606,7 @@ function advEdgeCornerNE() {/* NE 角·雪山×小镇(镇郊融雪楔): 山体�
   北越稀(草线绕栅栏北端轻微回勾, 与 p2 草雪混铺行相接); 山体足迹格(顶上有石/冰)
   与已定稿的远排小杉(x118..142)天然让位。盐 8501 */
   for (let z = 12; z <= 15; z++) {
-    const p = [0.7, 0.6, 0.45, 0.25][z - 12]; /* 融雪密度: 北强南弱(往带内递减) */
+    const p = ADV_EDGE_CORNER_NE_P_THAW[z - 12];
     for (let x = 146; x <= 156; x++) {
       const t = ADV_GROUND + advHeightAt(x, z);
       if (getBlock(x, t, z) !== B_SNOW) continue;
@@ -1561,14 +1623,14 @@ function advEdgeCornerSW() {/* SW 角·沙丘×沼泽(沙洲没入沼泽): 南�
   (南带 W 行同语言)向南渐稀归零。误落沙面的兰花换枯灌木(沙地语义, 原地换种)。
   盐 8505/8507/8504 */
   for (let z = 128; z <= 142; z++) {
-    const fz = Math.max(0, 1 - (z - 128) / 14); /* 带缘衰减: 愈深入沙带愈轻, z142 归零 */
+    const fz = advEdgeCornerSwFz(z);
     for (let x = 0; x <= 31; x++) {
       const t = ADV_GROUND + advHeightAt(x, z);
       if (getBlock(x, t, z) !== 8) continue; /* 只融沙(G 行泥/水已是沼泽语言) */
       if (getBlock(x, t + 1, z) !== 0) continue; /* 耐旱树/仙人掌/饰件脚下不掏 */
       /* 潮尾优先(只列 x13..18): 沙面→绿洲水(水面+沙底), 向南渐稀 */
       if (x >= 13 && x <= 18 && z >= 135) {
-        const pW = {135: 0.55, 136: 0.4, 138: 0.3, 139: 0.2, 140: 0.12, 141: 0.06, 142: 0.03}[z];
+        const pW = ADV_EDGE_CORNER_SW_P_WATER[z];
         if (pW && SceneKit.rand(x, z, 8507) < pW) {
           setBlockRaw(x, t, z, B_WATER);
           setBlockRaw(x, t - 1, z, 8);
@@ -1608,12 +1670,12 @@ function advEdgeCornerSE() {/* SE 角·沙丘×小镇(流沙半埋栅栏+草甸�
     }
   }
   for (let z = 128; z <= 138; z++) {
-    const fz = Math.max(0, Math.min(1, (138 - z) / 10 + 0.25)); /* 带缘强、apron 前收势 */
+    const fz = advEdgeCornerSeFz(z);
     for (let x = 144; x <= 157; x++) {
       const t = ADV_GROUND + advHeightAt(x, z);
       if (getBlock(x, t, z) !== 8) continue; /* 只接平沙(G 行草皮/脊线不碰) */
       if (getBlock(x, t + 1, z) !== 0) continue; /* 仙人掌/枯灌木/草丛脚下不掏 */
-      const p = Math.max(0, Math.min(1, (x - 136) / 21)) * fz; /* 近栅栏强、西向弱 */
+      const p = advEdgeCornerSeP(x) * fz;
       if (SceneKit.rand(x, z, 8506) < p) setBlockRaw(x, t, z, 1); /* 草皮: 镇郊草甸南侵 */
     }
   }
@@ -1654,14 +1716,14 @@ function advBuildEdgeBands() {/* 边界带总装(确定性): 建场序挂结构�
   advEdgeSouth();
   advEdgeWest();
   advEdgeEast();
-  advEdgeCorners(); /* 〔边界原型·T2~T5〕四角交接(第 5 员工): 见四角段头注 */
+  advEdgeCorners(); /* 〔边界转正·T7〕四角交接(第 5 员工): 见四角段头注 */
 }
 
 function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模式同款架构);
   T5 核心圈四件(广场/农田/围栏/小径)在地形与既有结构之后、树之前——树与散布件
   经避让判据/顶上无物判据自动让位; 2026-10-27 主题五件入列: 南池/望塔/石阵随
   结构段, 松林随树段, 花田殿后(贴草皮顶上无物判据, 不叠草丛);
-  〔边界原型·T2~T5〕四方向过渡带挂结构段末(带是 home 图专属, 远征图不挂) */
+  〔边界转正·T7〕四方向过渡带挂结构段末(带是 home 图专属, 远征图不挂) */
   advBaseTerrain();
   advBuildLake();
   advScatterOres();
@@ -1676,12 +1738,72 @@ function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模
   advBuildPond();
   advBuildTower();
   advBuildStones();
-  advBuildEdgeBands(); /* 〔边界原型·T2~T5〕四方向过渡带(观感, 走查用, T7 转正收编) */
+  advBuildEdgeBands(); /* 〔边界转正·T7〕四方向过渡带(正式建场件, T7 转正收编) */
   advPlantTrees();
   advBuildPineGrove(); /* 松林圈内橡树已被避让判据排除, 序仅定确定性 */
   advScatterTufts(); /* 树立好再撒草丛(顶上无物判据吃树干占位) */
   advScatterFlowers();
   advBuildMeadow();
+}
+
+/* ---------- 边界保护政策(T7 转正新增, 施工方案 §2 P2/P3; 判据依据 T6 修订 v2
+   唯一保护清单) ----------
+   选型=「坐标+件纯函数」(方案 P2 裁定): 零状态(无模块级 Set/旗标位)·零
+   THREE/DOM·零 Math.random·零建场改动。同源原则(方案 R3): 判据直接调用各向
+   建场权威函数/同一坐标式, 不抄几何公式第二份; 实施中发现判据与建场漂移,
+   以建场为准修判据。三向保护随 advEdgeBarriersHidden 单一开关缝(R6: 解锁态
+   屏障件未建=无件可保; T8 把开关换成进度驱动时本判据自动跟随); 东向栅栏/
+   告示牌/栈桩无解锁语义, 恒保护。消费方(波次一·乙 / 波次二 TEST): 挖掘守卫
+   与放置替换守卫经 hardText 扩缝调 advEdgeProtectedAt; 翻越拦截经
+   opts.placeGuard 注入调 advEdgeProtectedZone——两者均为事件路径(mineTick
+   起手/tryPlace 点击), 零逐帧成本(方案 §3.2-5)。 */
+
+function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁屏障件+
+  东向栅栏/告示牌/栈桩=像基岩, 不可挖不可替换) */
+  const lock = !advEdgeBarriersHidden; /* 三向未解锁态(东向不随开关, 见段头注) */
+  const top = ADV_GROUND + advHeightAt(x, z); /* 列地形面(与带内地表改写同一高度权威) */
+  /* 北·山体列: 几何唯一权威=advEdgeNorthMountainH(Barrier 建体同源), 命中
+     范围以函数现算为准(当前种子实测 z4..15; 北 spec §7 旧矩形 z∈[11,13]
+     已失准不用)。误伤登记(R2 同款): 让势格无山体实体也在保——山洞口小丘
+     (x61..62/z6..13 泥面)/敞廊空气面落在山体足迹内, 洞口顶面挖/放受限,
+     解锁态随开关整体让开; G2 实机走查复核接受度 */
+  if (lock && advEdgeNorthMountainH(x, z) > 0 && y >= top) return true;
+  /* 南·沙丘脊列 z144..147: 权威剖面在 advEdgeSouthBarrier(脊体立带内沙面,
+     top+1..top+h), y≥地形面整段在保(含脊顶砂岩露头; south-spec §4) */
+  if (lock && z >= 144 && z <= 147 && y >= top) return true;
+  /* 西·迷雾深水带列 x13..18: 权威=advEdgeWestSurface k13..18 的[水,泥底]
+     列带+advEdgeWestBarrier 苔石冒头(top+1)——水体格(面)/泥岸格(底)/苔石
+     坐标一格不落(west-spec §4; 判据按列带坐标不读块 id, 角区后写换装
+     (NW 融冰/SW 潮尾水)天然同在保) */
+  if (lock && x >= 13 && x <= 18 && y >= top - 1 && y <= top + 1) return true;
+  /* 东·栅栏线 x157(east-spec §5): 杆/桩基 y0 恒在(全 z 无条件写, 判据同式
+     无条件), 桩顶 y0+1 只 z%3===0 桩位, 栈桩 y0−1 只 z153/154/159(SE 角
+     post-pass 原木桩脚; 已逐格核对三格均实落桩=建场实录) */
+  if (x === 157) {
+    const y0 = top + 1; /* = ADV_GROUND + advHeightAt(157,z)+1(advEdgeEastFence 同式) */
+    if (y === y0) return true;
+    if (z % 3 === 0 && y === y0 + 1) return true;
+    if ((z === 153 || z === 154 || z === 159) && y === y0 - 1) return true;
+  }
+  /* 东·告示牌 x156(east-spec §5): 双柱 z73/76=yb+1..yb+3, 板面 z74/75=
+     yb+3..yb+4; 锚 yb 取 advHeightAt(156,74)(advEdgeEastSign 同式) */
+  if (x === 156) {
+    const yb = ADV_GROUND + advHeightAt(156, 74);
+    if ((z === 73 || z === 76) && y >= yb + 1 && y <= yb + 3) return true;
+    if ((z === 74 || z === 75) && y >= yb + 3 && y <= yb + 4) return true;
+  }
+  return false;
+}
+
+function advEdgeProtectedZone(x, z) {/* 翻越拦截判据(P3, T6 v2 授权口径): 三向
+  屏障足迹列整列禁放(y 全高——垫塔/架桥第一格必落禁放列, 零旁路, 判据最简
+  纯 x/z 不读高度场); 东向恒 false=翻栅栏彩蛋(拍板语义: 桩 2 格跳不过,
+  缝格木板 1 格可跳) */
+  const lock = !advEdgeBarriersHidden;
+  if (lock && advEdgeNorthMountainH(x, z) > 0) return true; /* 北: 山体足迹列 */
+  if (lock && z >= 144 && z <= 147) return true; /* 南: 沙丘脊列(south-spec §4) */
+  if (lock && x >= 13 && x <= 18) return true; /* 西: 深水带列(west-spec §4) */
+  return false;
 }
 
 /* ---------- 死亡政策(纯函数段): 满血 + 回出生点 + 背包保留(零惩罚哲学) ---------- */
@@ -3127,6 +3249,8 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_EDGE_SKY, advEdgeRgb, advEdgeSkyAt, advBuildEdgeBands,
     advEdgeNorth, advEdgeSouth, advEdgeWest, advEdgeEast,
     advSetEdgeBarriersHidden,
+    advEdgeProtectedAt, advEdgeProtectedZone,
+    advEdgeNorthMountainH, ADV_EDGE_HOME_SKY, /* T7 转正测试消费(找山体列/旁路原引用钉) */
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_PER, ADV_CHEST_TIERS, advChestNext,
     advChestCapacity, advCountChestEdits, advChestPut, advChestTake,

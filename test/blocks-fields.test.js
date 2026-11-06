@@ -30,7 +30,7 @@ function loadCfg() {
     B_DEAD_BUSH, B_ORCHID, B_FLOWER_Y, B_FLOWER_W,
     B_LAVA, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM,
     B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
-    B_SPAWNER, B_LOOT_CHEST, B_LOOT_CHEST_SMALL, B_ANCIENT_DEBRIS,
+    B_SPAWNER, B_LOOT_CHEST, B_LOOT_CHEST_SMALL, B_ANCIENT_DEBRIS, B_SNOWY_LEAVES,
   };`, ctx);
   return ctx.__c;
 }
@@ -87,7 +87,7 @@ test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽�
 
 /* ============ 门与玻璃板 id 段(64~68, docs/door-window-design.md §2) ============ */
 
-test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 74+(69~73 已占)', () => {
+test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 75+(69~74 已占)', () => {
   const c = loadCfg();
   const expect = {B_DOOR: 64, B_DOOR_TOP: 65, B_DOOR_OPEN: 66, B_DOOR_TOP_OPEN: 67, B_GLASS_PANE: 68};
   for (const [k, id] of Object.entries(expect)) {
@@ -95,17 +95,19 @@ test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_POR
     assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
     assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
-  /* 红线: 存档按数字 id 记, 74+ 是后续号段预留
+  /* 红线: 存档按数字 id 记, 75+ 是后续号段预留
      (69=两格床改版床尾 B_BED_FOOT 2026-10-29 · 70=怪物巢穴之心 B_SPAWNER, den-nest D9 ·
      71=战利品宝箱 B_LOOT_CHEST, den-nest §7.5 D16 · 72=低档奖励箱 B_LOOT_CHEST_SMALL, D18 ·
-     73=远古残骸 B_ANCIENT_DEBRIS, 装备系统 T7) */
+     73=远古残骸 B_ANCIENT_DEBRIS, 装备系统 T7 · 74=覆雪树叶 B_SNOWY_LEAVES, 世界边界 T12) */
   assert.strictEqual(c.B_SPAWNER, 70, '巢穴之心占 70(den-nest-design 号段顺延)');
   assert.strictEqual(c.B_LOOT_CHEST, 71, '战利品宝箱占 71(den-nest §7.5 号段顺延)');
   assert.strictEqual(c.B_LOOT_CHEST_SMALL, 72, '低档奖励箱占 72(den-nest §7.5 D18 号段顺延)');
   assert.strictEqual(c.B_ANCIENT_DEBRIS, 73, '远古残骸占 73(装备系统 T7 号段顺延)');
-  assert.ok(c.BLOCKS[70] && c.BLOCKS[71] && c.BLOCKS[72] && c.BLOCKS[73], 'BLOCKS[70]/[71]/[72]/[73] 应有定义');
+  assert.strictEqual(c.B_SNOWY_LEAVES, 74, '覆雪树叶占 74(世界边界 T12 号段顺延)');
+  assert.ok(c.BLOCKS[70] && c.BLOCKS[71] && c.BLOCKS[72] && c.BLOCKS[73] && c.BLOCKS[74],
+      'BLOCKS[70]/[71]/[72]/[73]/[74] 应有定义');
   for (const id of Object.keys(c.BLOCKS)) {
-    assert.ok(Number(id) <= 73, 'BLOCKS 出现 74+ 方块 id: ' + id + '(号段红线)');
+    assert.ok(Number(id) <= 74, 'BLOCKS 出现 75+ 方块 id: ' + id + '(号段红线)');
   }
 });
 
@@ -119,6 +121,24 @@ test('远古残骸字段(装备 T7): hard/工具对齐矿石档 + tier 4 钻镐�
   assert.strictEqual(b.tool, 'pick', '镐类方块(矿族同款)');
   assert.strictEqual(b.tier, 4, '钻石镐门槛(正典一致; 下界镐 tier 5 亦过 — craft-core 门禁 tool.tier >= blockDef.tier)');
   assert.deepStrictEqual([...b.drop[0]], ['ancient_debris', 1, 0], '掉落 1 远古残骸(熔炉烧碎片, SMELTS 装备 T2)');
+});
+
+/* ============ 覆雪树叶字段段(74, 世界边界 T12, docs/world-edge-design/north-spec.md §11) ============ */
+
+test('覆雪树叶字段(世界边界 T12): 逐字段对齐树叶 7 只差观感白 + need 同口径进级联(树倒冠雪随冠消散)', () => {
+  const c = loadCfg();
+  const b = c.BLOCKS[c.B_SNOWY_LEAVES];
+  const leaf = c.BLOCKS[7];
+  assert.strictEqual(b.name, '覆雪树叶');
+  assert.strictEqual(b.hard, leaf.hard, 'hard 对齐树叶 0.2(剪刀加速档)');
+  assert.strictEqual(b.tool, leaf.tool, 'tool 对齐树叶(剪刀品类 D2)');
+  assert.strictEqual(b.tier, leaf.tier, 'tier 对齐树叶 0');
+  assert.deepEqual(b.drop, leaf.drop, 'drop 同树叶默认表(树苗 12%/苹果 4%/木棍 8%)');
+  assert.deepEqual(b.shearDrop, leaf.shearDrop, 'shearDrop 同树叶(剪覆雪叶得绿树叶, MC 口径)');
+  assert.strictEqual(b.need.id, 5, '依赖原木(与树叶同口径)');
+  assert.strictEqual(b.need.dist, 4, 'taxicab 4(树叶同款 — 本票核心: 级联规则③失依即落, 树倒冠雪不残留)');
+  assert.ok(!b.thin && b.solid === undefined, '整格实心方块(树叶同款: 无 solid 旗标=实心可承重)');
+  assert.ok(b.all[0] > 0.8 && b.all[2] > 0.9, '观感雪白系(R>0.8/B>0.9), 只差观感不差字段');
 });
 
 test('门四态字段(设计稿 §2.2): 全带 pane 旗标 · 关门实心/开门 solid:false · 下半有 drop 上半无(防双掉) · 硬度 3 斧头(MC 同值)', () => {

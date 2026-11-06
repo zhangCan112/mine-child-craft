@@ -16,7 +16,8 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
 for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
-  'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
+  'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js',
+  'js/cascade-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
@@ -28,6 +29,8 @@ const api = vm.runInContext(`({
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_ICE, B_SANDSTONE, B_GLOWSTONE, B_CHEST, /* 扩容主题五件建场件消费(望塔灯/箱, 松林/花田/南池) */
   B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID, /* 边界带建场件消费(〔边界原型·T2~T5〕: 雪覆草/枯灌木/兰花) */
+  B_SNOWY_LEAVES, /* 覆雪树叶(〔世界边界·T12〕: 北带落雪杉冠盖件, 级联随冠消散) */
+  CascadeCore, /* 方块级联核心(T12 行为断言: 镜像 world.js editBlock 装配直调破坏链) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK, /* 黑巢/巢穴副本建场件消费(den-nest: 巢之心/祭坛柱/洞口紫门) */
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
@@ -749,14 +752,15 @@ test('北带走查修订(2026-11-06): 巍峨高山脊剖面 + 落雪寒带杉 + 
     assert.strictEqual(cell(x, pt + peak, pz), api.B_SNOW, '峰顶雪盖(x=' + x + ')');
     assert.ok(isRock(cell(x, pt + Math.max(1, peak - 3), pz)), '雪下石身/冻壁(x=' + x + ')');
   }
-  /* 落雪寒带杉: 原木干→叶冠→冠顶帽雪的三连剖面(5→7→B_SNOW)逐列清点——
+  /* 落雪寒带杉: 原木干→叶冠→冠顶帽覆雪叶的三连剖面(5→7→B_SNOWY_LEAVES)逐列清点——
      山根孤杉+坡麓云杉(命中山体足迹的落位由守卫跳过)+远景3+远排5, 落雪率
-     全数(绿杉绝迹); 下限留跳过余量, 规模由三连剖面口径钉住 */
+     全数(绿杉绝迹); 下限留跳过余量, 规模由三连剖面口径钉住
+     (T12: 冠顶帽原盖 B_SNOW 无级联性质树倒残留, 换覆雪树叶 74) */
   let snowySpruce = 0;
   for (let x = 0; x < W; x++) {
     for (let z = 0; z < 24; z++) {
       for (let y = 21; y <= 44; y++) {
-        if (cell(x, y, z) === 5 && cell(x, y + 1, z) === 7 && cell(x, y + 2, z) === api.B_SNOW) {
+        if (cell(x, y, z) === 5 && cell(x, y + 1, z) === 7 && cell(x, y + 2, z) === api.B_SNOWY_LEAVES) {
           snowySpruce++;
           break;
         }
@@ -784,6 +788,72 @@ test('北带走查修订(2026-11-06): 巍峨高山脊剖面 + 落雪寒带杉 + 
     }
   }
   assert.ok(coldDress >= 12, '山前坡地寒带件成规模(实测 ' + coldDress + ', 雪堆/裸石/坡裙)');
+});
+
+/* ============ 北带覆雪级联(T12, G2 实机走查用户反馈): 树倒冠雪随冠消散 ============ */
+
+test('北带覆雪级联(T12): 砍落雪杉树干→干柱+树冠+覆雪冠盖全部清零(无悬浮残雪)', () => {
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  /* 找树: 三连剖面口径(5→7→B_SNOWY_LEAVES, 与上测同式); 取邻树 4 格外的独株
+     ——邻树冠缘正交位互进扫描盒会让「残雪清零」混入他树格, 独株口径排除 */
+  const trunks = [];
+  for (let x = 0; x < W; x++) {
+    for (let z = 0; z < 24; z++) {
+      for (let y = 21; y <= 44; y++) {
+        if (cell(x, y, z) === 5 && cell(x, y + 1, z) === 7 && cell(x, y + 2, z) === api.B_SNOWY_LEAVES) {
+          trunks.push({x, y, z});
+          break;
+        }
+      }
+    }
+  }
+  assert.ok(trunks.length >= 20, '落雪杉成林可测(实测 ' + trunks.length + ' 株)');
+  const isolated = trunks.filter((t) => !trunks.some((o) => o !== t &&
+      Math.abs(o.x - t.x) <= 4 && Math.abs(o.z - t.z) <= 4) &&
+      t.x >= 3 && t.x <= 156); /* 盒扫描留边界余量: dx±2 不越界(越界读回卷数据误红) */
+  assert.ok(isolated.length > 0, '存在无邻树干扰的独株(带内 ~28 株, 散布稀疏必有)');
+  const tree = isolated[0];
+  /* 建场几何钉死(与 advEdgeNorthSpruce 冠盖三处一一对应): 顶帽(crown+1)+冠顶/
+     冠肩两层正交位 = 覆雪冠盖; 冠顶中心叶 = 树叶(角叶留绿口径) */
+  const snowyCells = [{x: tree.x, y: tree.y + 2, z: tree.z}];
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    snowyCells.push({x: tree.x + dx, y: tree.y, z: tree.z + dz});
+    snowyCells.push({x: tree.x + dx, y: tree.y + 1, z: tree.z + dz});
+  }
+  for (const g of snowyCells) {
+    assert.strictEqual(cell(g.x, g.y, g.z), api.B_SNOWY_LEAVES,
+        '建场覆雪冠盖在场 (' + g.x + ',' + g.y + ',' + g.z + ')');
+  }
+  assert.strictEqual(cell(tree.x, tree.y + 1, tree.z), 7, '冠顶中心叶仍是树叶(只覆正交位与顶帽)');
+  let baseY = tree.y;
+  while (cell(tree.x, baseY - 1, tree.z) === 5) baseY--;
+  const trunkLen = tree.y - baseY + 1;
+  assert.ok(trunkLen >= 4, '干柱成规模(实测 ' + trunkLen + ' 节)');
+  /* 破坏链直调(镜像 world.js editBlock 装配: 触发格清 0 + cascadeRemove,
+     place-kit.test 同惯例; 砍任何一节=整树倒, 就砍三连剖面命中的干顶节) */
+  const removed = vm.runInContext(
+      'CascadeCore.cascadeRemove(getBlock, setBlockRaw, ' + tree.x + ', ' + tree.y + ', ' +
+      tree.z + ', 5, CascadeCore.mkPolicy(BLOCKS))', eng);
+  /* 本票核心断言: 干柱 + 树冠包围盒(dx/dz ±2, 冠底 y-4~冠上 y+3)无任何残叶残雪
+     ——旧 bug 是冠盖 B_SNOW 无级联性质悬空残留; 覆雪树叶 need 同口径随冠清零 */
+  for (let y = baseY; y <= tree.y; y++) {
+    assert.strictEqual(cell(tree.x, y, tree.z), 0, '干柱清零 y=' + y);
+  }
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let y = tree.y - 4; y <= tree.y + 3; y++) {
+        const id = cell(tree.x + dx, y, tree.z + dz);
+        assert.ok(id !== 7 && id !== api.B_SNOWY_LEAVES,
+            '无悬浮残叶残雪 (' + (tree.x + dx) + ',' + y + ',' + (tree.z + dz) + ') 实测 id=' + id);
+      }
+    }
+  }
+  /* 雪根座不被连带(非 fell 非 need): 只清树体不啃地表雪 */
+  assert.strictEqual(cell(tree.x, baseY - 1, tree.z), api.B_SNOW, '雪根座保留(级联口径不越界)');
+  /* 清单完备: removed 覆盖干柱+树冠+覆雪冠盖(数量级守门, 消费方掉落/任务按清单走) */
+  assert.ok(removed.length >= trunkLen + snowyCells.length,
+      '级联清单覆盖全树(实测 ' + removed.length + ' ≥ 干' + trunkLen + '+覆雪' + snowyCells.length + ')');
 });
 
 test('西带走查修订(2026-11-06): 黑巢副本迁驻沼泽门——落位避让/涌出锚随迁/带改写不噬副本件', () => {
@@ -975,6 +1045,176 @@ test('四角交接(第 5 员工 2026-11-06): NW 冻沼渐变/NE 融雪楔/SW 沙
   let oDeep = 0;
   for (let x = 19; x <= 23; x++) for (let z = 0; z < D; z++) if (cell(x, top(x, z) + 1, z) === api.B_ORCHID) oDeep++;
   assert.ok(oDeep >= 3, '交互守门: 西带兰花 ramp ③段在场(实测 ' + oDeep + ' ≥3)');
+});
+
+/* ============ T7 转正·波次二(P2 判据逐坐标/开关门控/P3 禁放柱/P4 edits 重放/P5 旁路) ============
+   政策层判据=坐标纯函数(波次一落地), 这里逐条钉口径; 坐标锚点对 2026-11-06 建场
+   实测(北山列 (0,7) h2/南脊 z144..147 面高24/西带 x13..18 面24 水体/东栅栏 z81
+   桩基 y23/告示牌 yb=23)。判据只读高度场与山体函数, 不读 worldCells——不建场直测。 */
+const edgeTop = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z); /* 列地形面(本块局部 helper) */
+
+test('T7 转正 P2: advEdgeProtectedAt 逐坐标 — 三向屏障体/东栅栏栈桩告示牌 true, 地下/上界/普通带格/x158 false', () => {
+  /* 北山体列: 用建场权威函数现算找列(不抄坐标死值), 面以上整列在保 */
+  let nCol = null;
+  for (let x = 0; x < 40 && !nCol; x++) {
+    for (let z = 0; z < 24 && !nCol; z++) {
+      if (Core.advEdgeNorthMountainH(x, z) >= 2) nCol = {x, z, h: Core.advEdgeNorthMountainH(x, z)};
+    }
+  }
+  assert.ok(nCol, '北带存在 h≥2 山体列(权威函数现算)');
+  const nTop = edgeTop(nCol.x, nCol.z);
+  assert.ok(Core.advEdgeProtectedAt(nCol.x, nTop, nCol.z), '北山体面格 true');
+  assert.ok(Core.advEdgeProtectedAt(nCol.x, nTop + 1, nCol.z), '北山体面+1 true');
+  assert.ok(Core.advEdgeProtectedAt(nCol.x, nTop + nCol.h, nCol.z), '北山体顶格 true(整列 y≥top)');
+  assert.strictEqual(Core.advEdgeProtectedAt(nCol.x, nTop - 1, nCol.z), false, '北山体地下格 false(y≥top 下界钉死)');
+  /* 南·沙丘脊列 z144..147: 面上整段在保, 出脊/地下 false */
+  for (const z of [144, 145, 146, 147]) {
+    assert.ok(Core.advEdgeProtectedAt(80, edgeTop(80, z), z), '南脊格 z' + z + ' true');
+    assert.ok(Core.advEdgeProtectedAt(80, edgeTop(80, z) + 3, z), '南脊上空 z' + z + ' true');
+  }
+  assert.strictEqual(Core.advEdgeProtectedAt(80, edgeTop(80, 148), 148), false, '南出脊 z148 false');
+  assert.strictEqual(Core.advEdgeProtectedAt(80, edgeTop(80, 145) - 1, 145), false, '南脊地下格 false');
+  /* 西·迷雾深水带列 x13..18: y∈[面-1, 面+1] 水体/泥底/苔石带在保, 越界 false */
+  for (const x of [13, 15, 18]) {
+    assert.ok(Core.advEdgeProtectedAt(x, edgeTop(x, 80) - 1, 80), '西泥底 x' + x + ' true');
+    assert.ok(Core.advEdgeProtectedAt(x, edgeTop(x, 80), 80), '西水面 x' + x + ' true');
+    assert.ok(Core.advEdgeProtectedAt(x, edgeTop(x, 80) + 1, 80), '西水面+1 x' + x + ' true');
+    assert.strictEqual(Core.advEdgeProtectedAt(x, edgeTop(x, 80) + 2, 80), false, '西带上界外 x' + x + ' false');
+  }
+  assert.strictEqual(Core.advEdgeProtectedAt(12, edgeTop(12, 80), 80), false, '西出带 x12 false');
+  assert.strictEqual(Core.advEdgeProtectedAt(19, edgeTop(19, 80), 80), false, '西出带 x19 false');
+  /* 东·栅栏线 x157: 桩基恒保/桩顶只 z%3===0/缝格上方可站(翻越彩蛋的落点语义) */
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 1, 81), '东桩基 z81 true');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 2, 81), '东桩顶 z81 true(81%3===0)');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 78) + 1, 78), '东桩基 z78 true');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 80) + 1, 80), '东横杆 z80 true');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, edgeTop(157, 80) + 2, 80), false, '东缝格上方 z80 false(可站跳缝)');
+  /* 东·栈桩 z153/154/159(SE 角 post-pass 桩脚)与告示牌 x156 */
+  for (const z of [153, 154, 159]) {
+    assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, z), z), '栈桩格 z' + z + ' true');
+    assert.strictEqual(Core.advEdgeProtectedAt(157, edgeTop(157, z) - 1, z), false, '栈桩下方土格 z' + z + ' false');
+  }
+  const yb = Core.ADV_GROUND + Core.advHeightAt(156, 74);
+  assert.ok(Core.advEdgeProtectedAt(156, yb + 1, 73), '告示牌柱下格 true');
+  assert.ok(Core.advEdgeProtectedAt(156, yb + 3, 73), '告示牌柱顶格 true');
+  assert.ok(Core.advEdgeProtectedAt(156, yb + 3, 74), '告示牌板面下缘 true');
+  assert.ok(Core.advEdgeProtectedAt(156, yb + 4, 74), '告示牌板面上缘 true');
+  assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 1, 74), false, '板面下方空气格 false(只钉板/柱体)');
+  /* 普通带内格与隔离带: 判据全 false(带内可挖可建=放开语义) */
+  assert.strictEqual(Core.advEdgeProtectedAt(30, edgeTop(30, 2), 2), false, '北带普通雪格 false');
+  assert.strictEqual(Core.advEdgeProtectedAt(80, edgeTop(80, 100), 100), false, '南带普通沙格 false');
+  assert.strictEqual(Core.advEdgeProtectedAt(158, edgeTop(158, 80) + 1, 80), false, 'x158 隔离带剪影件可挖 false(登记口径)');
+});
+
+test('T7 转正·开关门控: advSetEdgeBarriersHidden(true) 三向放行/东向恒保护, 复位还原(先采后断+即复位防渗漏)', () => {
+  /* 找北山体列(判据现算), 采样全部判据值 → 置 hidden → 再采 → 立即复位 → 断言 */
+  let nCol = null;
+  for (let x = 0; x < 40 && !nCol; x++) {
+    for (let z = 0; z < 24 && !nCol; z++) {
+      if (Core.advEdgeNorthMountainH(x, z) >= 2) nCol = {x, z};
+    }
+  }
+  const nY = edgeTop(nCol.x, nCol.z);
+  const sample = () => ({
+    n: Core.advEdgeProtectedAt(nCol.x, nY, nCol.z),
+    s: Core.advEdgeProtectedAt(80, edgeTop(80, 145), 145),
+    w: Core.advEdgeProtectedAt(15, edgeTop(15, 80), 80),
+    ePost: Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 1, 81),
+    eSign: Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 3, 74),
+    zoneN: Core.advEdgeProtectedZone(nCol.x, nCol.z),
+    zoneW: Core.advEdgeProtectedZone(15, 80),
+  });
+  const before = sample();
+  Core.advSetEdgeBarriersHidden(true);
+  const gated = sample();
+  Core.advSetEdgeBarriersHidden(false); /* 采样完立即复位——断言再抛也不渗漏后续测试 */
+  const after = sample();
+  /* 解锁态: 三向判据整体放行(屏障件未建=无件可保, R6), 东向无解锁语义恒保 */
+  assert.strictEqual(gated.n, false, '隐藏后北判据放行');
+  assert.strictEqual(gated.s, false, '隐藏后南判据放行');
+  assert.strictEqual(gated.w, false, '隐藏后西判据放行');
+  assert.strictEqual(gated.zoneN, false, '隐藏后北禁放柱放行');
+  assert.strictEqual(gated.zoneW, false, '隐藏后西禁放柱放行');
+  assert.ok(gated.ePost, '东桩基恒保护(隐藏不豁免)');
+  assert.ok(gated.eSign, '东告示牌恒保护');
+  /* 复位还原 + 与解锁前逐值一致(单一开关往返无损) */
+  assert.deepStrictEqual(after, before, '复位后全部判据还原(与解锁前逐值一致)');
+  assert.ok(before.n && before.s && before.w && before.zoneN && before.zoneW, '解锁前三向判据在保(前提自检)');
+});
+
+test('T7 转正 P3: advEdgeProtectedZone 禁放柱 — 三向足迹列 true, 东向/普通格/x158 false(翻栅栏彩蛋口径)', () => {
+  let nCol = null;
+  for (let x = 0; x < 40 && !nCol; x++) {
+    for (let z = 0; z < 24 && !nCol; z++) {
+      if (Core.advEdgeNorthMountainH(x, z) >= 2) nCol = {x, z};
+    }
+  }
+  assert.ok(Core.advEdgeProtectedZone(nCol.x, nCol.z), '北山体足迹列禁放 true');
+  for (const z of [144, 145, 146, 147]) assert.ok(Core.advEdgeProtectedZone(80, z), '南脊列 z' + z + ' 禁放 true');
+  for (const x of [13, 15, 18]) assert.ok(Core.advEdgeProtectedZone(x, 80), '西深水带列 x' + x + ' 禁放 true');
+  assert.strictEqual(Core.advEdgeProtectedZone(157, 81), false, '东栅栏列禁放 false(翻越=彩蛋, 拍板语义)');
+  assert.strictEqual(Core.advEdgeProtectedZone(80, 80), false, '腹地普通格禁放 false');
+  assert.strictEqual(Core.advEdgeProtectedZone(158, 80), false, 'x158 隔离带禁放 false');
+  assert.strictEqual(Core.advEdgeProtectedZone(80, 143), false, '南出脊 z143 禁放 false');
+  assert.strictEqual(Core.advEdgeProtectedZone(12, 80), false, '西出带 x12 禁放 false');
+});
+
+test('T7 转正 P4: 老档 edits 重放 — 玩家块赢过带面/四角 post-pass, 禁放列旧件重放保留(口径③)', () => {
+  /* 走真实账本语义: mark("x,y,z"→id) → 清场重建(带建场覆写) → journal.replay
+     ({block: setBlockRaw}) 赢回。机制=advBuildWorld→replay 既有序(P4 口径),
+     零新机制, 断言钉「玩家赢」不被未来改动漂移。 */
+  const {mkWorldJournal} = require('../js/world-journal-core.js');
+  const J = mkWorldJournal({load: () => null, save: () => {}});
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  /* 三格: ①北带普通雪面 ②SW 角 post-pass 泥格(重建必改写它) ③西禁放列水面+1 */
+  let nCell = null;
+  for (let x = 30; x < 50 && !nCell; x++) {
+    for (let z = 2; z < 21 && !nCell; z++) {
+      if (!Core.advEdgeProtectedZone(x, z) && cell(x, edgeTop(x, z), z) === api.B_SNOW) nCell = [x, edgeTop(x, z), z];
+    }
+  }
+  let pCell = null;
+  for (let x = 0; x < 32 && !pCell; x++) {
+    if (cell(x, edgeTop(x, 132), 132) === 2) pCell = [x, edgeTop(x, 132), 132];
+  }
+  const wCell = [15, edgeTop(15, 60) + 1, 60];
+  assert.ok(nCell, '北带普通雪面格在册(前提)');
+  assert.ok(pCell, 'SW 角 post-pass 泥格在册(前提)');
+  assert.ok(Core.advEdgeProtectedZone(15, 60), '旧件格在禁放列(口径③前提)');
+  /* 玩家改动: 三格各放一块木板(账本裸值), 再清场重建 → 全被带建场覆写 */
+  for (const [x, y, z] of [nCell, pCell, wCell]) {
+    setBlockRaw(x, y, z, 6);
+    J.mark(x + ',' + y + ',' + z, 6);
+  }
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  assert.strictEqual(cell(nCell[0], nCell[1], nCell[2]), api.B_SNOW, '重建后雪格还原(玩家块被覆写=前提成立)');
+  assert.strictEqual(cell(pCell[0], pCell[1], pCell[2]), 2, '重建后 post-pass 泥格还原(覆写发生)');
+  assert.strictEqual(cell(wCell[0], wCell[1], wCell[2]), 0, '重建后禁放列旧件格为空(带面不建该格)');
+  /* 账本重放 → 玩家块全部赢回(重放不受放置守卫拦=禁放只拦新放置) */
+  J.replay({block: (x, y, z, id) => setBlockRaw(x, y, z, id), fluid: () => {}});
+  assert.strictEqual(cell(nCell[0], nCell[1], nCell[2]), 6, '重放赢过带面(雪格复原玩家块)');
+  assert.strictEqual(cell(pCell[0], pCell[1], pCell[2]), 6, '重放赢过四角 post-pass(泥格复原玩家块)');
+  assert.strictEqual(cell(wCell[0], wCell[1], wCell[2]), 6, '禁放列旧档重放保留(口径③)');
+});
+
+test('T7 转正 P5①: 腹地快速旁路 — 四缘均 >68 返共享常量(原引用相等), 锚距边界值走全量路径且值等价', () => {
+  const h1 = Core.advEdgeSkyAt(80, 80);
+  const h2 = Core.advEdgeSkyAt(90, 90);
+  assert.strictEqual(h1, h2, '腹地两次调用返回同一共享常量对象(零分配)');
+  assert.strictEqual(h1.dir, null, '腹地 dir:null');
+  assert.strictEqual(h1.sky, Core.ADV_EDGE_HOME_SKY, '腹地 sky 即 home 常量表(原引用)');
+  assert.strictEqual(h1.fog, 0, '腹地 fog:0');
+  assert.deepStrictEqual(h1.fogC, [0.56, 0.78, 1], '腹地 fogC=home 天色');
+  /* 边界值: x=68(west 首锚恰等)与 x=91(east 距 68 恰等)不触发旁路(条件为严格 >),
+     但全量路径对全向 ≤0 本就返 home 档 → 与旁路返回逐字段相同(行为等价钉死) */
+  const wEdge = Core.advEdgeSkyAt(68, 80);
+  assert.notStrictEqual(wEdge, h1, 'west 锚距格走全量路径(新对象)');
+  assert.deepStrictEqual(wEdge, {dir: null, sky: [0.56, 0.78, 1], fog: 0, fogC: [0.56, 0.78, 1]}, 'west 边界值与旁路逐字段相同');
+  const eEdge = Core.advEdgeSkyAt(91, 91);
+  assert.notStrictEqual(eEdge, h1, 'east 锚距格走全量路径(新对象)');
+  assert.deepStrictEqual(eEdge, {dir: null, sky: [0.56, 0.78, 1], fog: 0, fogC: [0.56, 0.78, 1]}, 'east 边界值与旁路逐字段相同');
 });
 
 /* ============ 政策纯函数段(逐条钉口径) ============ */
@@ -2289,4 +2529,62 @@ test('生态恢复·繁育归群: kind→群号(重播落位锚点)', () => {
   assert.strictEqual(Core.advBreedHerdOf('pig'), 1);
   assert.strictEqual(Core.advBreedHerdOf('chicken'), 1);
   assert.strictEqual(Core.advBreedHerdOf('zombie'), 0, '查无回落 0');
+});
+
+/* ============ T7 性能钉测(P6·A9, env 门控; 施工方案 §3.1.3 口径) ============
+   建场一次性耗时的回归钉测: vm 独立 context 同款装载真引擎件+adventure-core
+   (不污染共享 eng 与 require 版 Core), 预热 2 次后全量/禁带各 5 次建场取中位;
+   「禁带对照」=context 内把 advBuildEdgeBands 函数声明绑定覆盖为空函数再跑
+   advBuildWorld(顶层函数声明绑定可写, 方案基线脚本已验证此法可行)。
+   断言两道——基线登记(Node/Windows/2026-11-06, 含 T12 前口径):
+   全量 median 655.2ms / 禁带 median 362.6ms(带建场增量倍率 0.807):
+   ①倍率主口径(抗机器抖动): (全量中位−禁带中位)/禁带中位 ≤ 0.93
+     = 基线 0.807×1.15 余量(实施噪音/判据纯函数增量各留口);
+   ②防呆线: 全量中位 ≤ 1500ms(防真实回归——回归通常翻倍, 此线不误报正常波动)。
+   超线先复核基线(换机/CI 口径漂移)再判回归, 不硬调阈值。 */
+
+test('T7 性能钉测: 带建场增量倍率 ≤0.93 + 全量中位 ≤1500ms(env 门控 T7_PERF=1)', {skip: process.env.T7_PERF === '1' ? false :
+  '性能钉测默认跳过(不拖慢 npm test); 设 T7_PERF=1 启用(施工方案 §3.1.3)'}, () => {
+  /* 独立 context 装载: 引擎件清单与文件头共享 eng 完全一致, 追加
+     adventure-spawn-core(刷怪三件, 加载序先于 adventure-core)与
+     adventure-core 本体(全局名调用期解析, 建场读写同一 context 世界;
+     两文件尾部均为防御式 module.exports, vm 装载安全) */
+  const pEng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
+  for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
+    'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js', 'js/cascade-core.js',
+    'js/adventure-spawn-core.js', 'js/adventure-core.js']) {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), pEng, {filename: f});
+  }
+  const run = (src) => vm.runInContext(src, pEng);
+  const timed = () => {/* 清场后建场一次, 返回 advBuildWorld 耗时 ms */
+    const t0 = performance.now();
+    run('advBuildWorld()');
+    return performance.now() - t0;
+  };
+  const median = (xs) => xs.slice().sort((a, b) => a - b)[2]; /* 5 样本取中位(第 3 序) */
+  /* 预热 2 次(JIT/初次装载热点, 不计入样本) */
+  run('worldCells.fill(0)');
+  timed();
+  run('worldCells.fill(0)');
+  timed();
+  /* 全量 5 次(含带+四角 post-pass, 转正后完整口径) */
+  const full = [];
+  for (let i = 0; i < 5; i++) {
+    run('worldCells.fill(0)');
+    full.push(timed());
+  }
+  /* 禁带对照 5 次: 覆盖 context 副本内 advBuildEdgeBands 绑定为空函数——
+     独立 context 隔离, 覆盖不渗漏共享 eng(本块即终点, 无需恢复) */
+  run('advBuildEdgeBands = function() {};');
+  const bare = [];
+  for (let i = 0; i < 5; i++) {
+    run('worldCells.fill(0)');
+    bare.push(timed());
+  }
+  const medFull = median(full);
+  const medBare = median(bare);
+  const ratio = (medFull - medBare) / medBare; /* 带建场增量/禁带建场(倍率主口径) */
+  assert.ok(ratio <= 0.93, '带建场增量倍率 ' + ratio.toFixed(3) + ' 超阈值 0.93' +
+      '(基线 0.807, Node/Windows/2026-11-06; 超线先复核基线再判回归)');
+  assert.ok(medFull <= 1500, '全量建场中位 ' + medFull.toFixed(1) + 'ms 超防呆线 1500ms(基线 655.2ms)');
 });

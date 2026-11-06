@@ -31,6 +31,7 @@ const api = vm.runInContext(`({
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   B_NETHERRACK, B_LAVA, B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_NETHER_BRICK,
   B_ANCIENT_DEBRIS, /* 远古残骸(装备 T7): advNetherBuild 地下层散布经全局名消费 */
+  B_SNOWY_LEAVES, /* 覆雪树叶(世界边界 T12): 北带落雪杉冠盖件, 建场经全局名消费 */
   B_SPAWNER, /* 黑巢巢之心(den-nest: home 行 build 经 advBuildDenNest 消费) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
 })`, eng);

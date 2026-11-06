@@ -37,7 +37,7 @@
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口/丢弃与扩容
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调) ·
-     advEdgeSkyTick(〔边界原型·T2~T5〕边界天/雾渐变编排: 混合色走 setSkyBase
+     advEdgeSkyTick(〔边界转正·T7〕边界天/雾渐变编排: 混合色走 setSkyBase
      缝+雾距直写, home 图专属, 锚点纯函数在 adventure-core.advEdgeSkyAt)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
       adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
@@ -1741,23 +1741,36 @@ function advApplySky(k) {
   if (typeof sun !== 'undefined') sun.intensity = k.sunI;
 }
 
-/* ---------- 〔边界原型·T2~T5〕边界天/雾渐变编排（走查用, T7 转正收编） ----------
+/* ---------- 〔边界转正·T7〕边界天/雾渐变编排（T7 转正收编, 2026-11-06 定稿） ----------
    只走既有缝, 不另开直写通道: 天/雾色经 world.js setSkyBase 换白日端点——
    昼夜插值仍归 applyDaylight(渐变与昼夜切换不打架的结构保证); 雾距是
    advApplySky 的私产口径(只写 scene.fog.near/far, 不碰颜色)。混合色/雾浓度
    由 adventure-core 的 advEdgeSkyAt 纯函数算(home 图专属: 下界/副本与他图
    不跑; 他图/退场的天色复位由 advApplyMapPalette/advMapRowCleanup 既有链负责)。
    雾浓度→雾距映射: home 全量 near90/far230 ↔ 全雾 near4/far36, 中间线性。 */
-let advEdgeSkyKey = null; /* 上次写入的量化键(同值不重写, 免逐帧 churn daylightKey) */
+function advEdgeSkyQ8(v) {/* 天/雾色 8bit 量化档(P5②共用): 旧字符串键的逐通道
+  档位原样保留(8bit 色档/百分位雾档), 只换键表示不换档 */
+  return Math.round(v * 255);
+}
+let advEdgeSkyKeyHi = null; /* P5②量化键·高 31bit: 天色 RGB8×3(24bit)×128 + 雾百分位 7bit。
+  七通道全打包需 55bit, 超 JS number 2^53 精确域(3.6e16 > 9.0e15, 该量级 ULP=8 会让
+  相邻键碰撞=同值误判漏写), 拆 Hi/Lo 双 number(均 ≤2^31 严格精确)保「七通道元组 ↔
+  键对」双射 */
+let advEdgeSkyKeyLo = null; /* P5②量化键·低 24bit: 雾色 RGB8×3 */
 function advEdgeSkyTick() {
   if (advDim !== 'overworld' || advMap !== 'home') return;
   if (typeof setSkyBase !== 'function' || typeof scene === 'undefined' || !scene.fog) return;
   const m = advEdgeSkyAt(Math.floor(pos.x), Math.floor(pos.z));
-  const q = (v) => Math.round(v * 255);
-  const key = q(m.sky[0]) + ',' + q(m.sky[1]) + ',' + q(m.sky[2]) + ',' +
-    Math.round(m.fog * 100) + ',' + q(m.fogC[0]) + ',' + q(m.fogC[1]) + ',' + q(m.fogC[2]);
-  if (key === advEdgeSkyKey) return;
-  advEdgeSkyKey = key;
+  /* P5 可选优化②量化键零分配: 旧「每帧 q 闭包 + 7 通道 round + 字符串拼接」
+     改整数对比较, 每帧键分配归零(腹地帧连 m 都走 P5① 共享常量=全帧零分配);
+     量化档位逐通道不变 → 同值不重写的 memo 判定与旧字符串键逐位等价(双射)。 */
+  const keyHi = ((advEdgeSkyQ8(m.sky[0]) * 256 + advEdgeSkyQ8(m.sky[1])) * 256 +
+    advEdgeSkyQ8(m.sky[2])) * 128 + Math.round(m.fog * 100);
+  const keyLo = (advEdgeSkyQ8(m.fogC[0]) * 256 + advEdgeSkyQ8(m.fogC[1])) * 256 +
+    advEdgeSkyQ8(m.fogC[2]);
+  if (keyHi === advEdgeSkyKeyHi && keyLo === advEdgeSkyKeyLo) return;
+  advEdgeSkyKeyHi = keyHi;
+  advEdgeSkyKeyLo = keyLo;
   setSkyBase(m.sky, m.fogC);
   scene.fog.near = Math.round(90 + (4 - 90) * m.fog);
   scene.fog.far = Math.round(230 + (36 - 230) * m.fog);
@@ -2515,6 +2528,21 @@ const advPlaceKit = PlaceKit.mkEditor({
   onConsume: advSyncHotbar,
   onPortalPlaced: (by, px, pz) => advBeamAdd(by, px, pz), /* 这扇门的光束顺路锚上(切界时随全量重锚) */
   cascade: advCascadeSink,
+  /* T7 R10 补口(波次二): 级联链豁免——屏障件脚下的普通地形可被炸/挖(放开语义,
+     判据只保件不保土), 但 fell 连桩判定(cascade-core P15)会把原木桩/栈桩整串
+     放倒, 且级联移除在 editBlock→cascadeRemove 内已直写世界(不经 sink 四出口、
+     不留 edit 记账)——上波次一只拦 sink 挡不住这条旁路。cascadeGuard 在账本前
+     把受保护格原位复原(直写+网格收口, 不掷掉落)并从清单剔除(纯桩倒不喊整树倒);
+     TNT/蓄力链/配对方块三路径同经 applyCascade, 一缝收口。判据复用
+     advEdgeTntProtected(场景门同款, 下界/副本静默) */
+  cascadeGuard: (removed) => removed.filter((r) => {
+    if (!advEdgeTntProtected(r.x, r.y, r.z)) return true;
+    if (r.id && !getBlock(r.x, r.y, r.z)) {
+      setBlockRaw(r.x, r.y, r.z, r.id); /* 原位复原(voxel setBlockRaw 自失效高度缓存) */
+      advMeshTouch(r.x, r.z); /* 复原格网格收口(直写不经 editBlock 的触链) */
+    }
+    return false;
+  }),
   onFelled: () => {/* 整树倒: 只为含原木的级联喊话(火把/草丛脱落不出声) */
     advSpeak('哇！大树倒啦！');
     advToast('🌳 大树倒啦！');
@@ -2527,6 +2555,16 @@ const advPlaceKit = PlaceKit.mkEditor({
   swing: () => Avatar.swing(),
   mesh: {touch: advMeshTouch, flush: advMeshFlush},
   hardText: advMineHardText,
+  /* T7 禁放柱守卫(方案 P3): 三向屏障足迹列整列禁放(北山体/南沙脊/西深水带,
+     y 全高; 东向不设禁放柱=翻栅栏彩蛋, 拍板语义), 翻越拦截口径=垫塔/架桥
+     第一格必落禁放列。场景门=主世界 home 图(边界带只建在 home, 下界/副本
+     共享坐标域必须排除——advSceneKey 同款判); 判据消费 AC 契约函数
+     advEdgeProtectedZone(波次一甲并行落地, typeof 守卫=未落地时静默不拦)。
+     showroom 与冒险共用本 kit 实例(v2 统一终态, showroom.js「pk = advPlaceKit」),
+     其世界同为 home 边界带世界=守卫语义一致非误伤; R9 的「不误伤无边界带
+     世界」由场景门保证(下界/副本零影响) */
+  placeGuard: (x, y, z) => advDim === 'overworld' && advMap === 'home' &&
+      typeof advEdgeProtectedZone === 'function' && advEdgeProtectedZone(x, z),
 });
 function advCascadeApply(removed, quest) {
   return advPlaceKit.applyCascade(removed, quest);
@@ -2540,7 +2578,21 @@ function advBreakBlock(x, y, z, id, bt) {
 /* 「挖不动」话术(微默认3, D5/D7): 无 hard 方块 = 声明式不可破坏, 蓄力链不起
    进度, 改给 3s 节流的儿童话术(节流账本在 place-kit 实例内, tickTimers 递减);
    判据用 ADV_B 集中解析(精简装载守卫), 其余无 hard 方块(水等)保持静默 */
-function advMineHardText(id) {/* 目标格 → 话术(纯 seam, 单测直触); 空串 = 不出声 */
+function advMineHardText(id, x, y, z) {/* 目标格 → 话术(纯 seam, 单测直触); 空串 = 不出声。
+    T7 扩签名 (id,x,y,z): 坐标供边界屏障判据(PK mineTick 起手统一问询——屏障
+    件与带内可挖件同 id, 只有坐标判据能分; 老调用 (id) 形态坐标缺席=undefined,
+    屏障分支自然跳过零影响) */
+  /* T7 屏障拒绝(方案 P2): 判据命中(未解锁屏障体)→分向占位文案。文案骨架=各向
+     spec 建议(北=§6 例句原文; 南/西=§7/§6 挡路主案改「挖不动」同族占位;
+     东=§7 拒绝话术原文), 称谓与终稿归 T8 话术过目——R8 纪律: 不改文案骨架。
+     判据消费 AC 契约函数 advEdgeProtectedAt(波次一甲并行落地, typeof 守卫=
+     甲未落地时此分支静默零炸); 分向检序对齐 E10(北/南/西/东, 阈值=带缘 32/128) */
+  if (x != null && typeof advEdgeProtectedAt === 'function' && advEdgeProtectedAt(x, y, z)) {
+    if (z <= 31) return '这堆雪冻得硬邦邦的，挖不动——先去把任务做完，它自己会让开的！';
+    if (z >= 128) return '沙丘晒得硬邦邦的，挖不动——先去把任务做完，等风停了它就让路！';
+    if (x <= 31) return '这片雾塘又深又沉，挖不动——先去把任务做完，沼泽会一直等你！';
+    return '栅栏和牌子还不能拆哦～小镇还没盖好呢！';
+  }
   if (id === ADV_B.portal || id === ADV_B.obsidian) return '传送门是魔法做的，挖不动哦';
   if (id === ADV_B.netherrack || id === ADV_B.glowstone || id === ADV_B.brick) {
     return '这块石头太硬啦，挖不动哦';
@@ -3251,16 +3303,42 @@ function advFuseTick(dt) {/* 引信倒计时: 顶上火花弧观感 + 到点起�
    70% 掷骰掉落(纯段 advExplodeCells 在 adventure-core, read/sink 注入) +
    波及怪物受击(线性衰减, 清单纯函数 advTntWave)。
    不伤玩家——儿童挖矿神器口径(D4 只给火药一个挖矿出口) */
+/* T7 TNT 链豁免判据(R10, 方案 P2): 屏障格爆炸豁免——防 TNT 掀屏障绕过守卫。
+   逐字核对结论: 爆炸格结算的遍历+掷骰在 AC 纯段 advExplodeCells, 但破坏动作
+   经 sink 注入落在本文件(advExplodeSink)——守卫拦 sink 四出口(edit/sapling/
+   crop/drop)即整格豁免: 方块原地不动+不撤计时+不掷掉落(防「块不掉物」的
+   掷骰刷物口)。源块清除(advExplode 直清段)不设防: 源块=TNT 自身格, 新放置
+   已被 placeGuard 拦在禁放列外, 正常玩法无此形态(老档旧 TNT 自清不属掀屏障,
+   口径登记备查)。场景门与 placeGuard 同款; 判据消费 AC 契约函数
+   advEdgeProtectedAt(波次一甲并行落地, typeof 守卫=未落地时静默)。
+   【R10 补口(波次二)】sink 四出口拦不住级联链: 脚下普通地形被炸/挖(放开语义)
+   → fell 连桩判定把原木桩/栈桩整串放倒, 移除在 cascadeRemove 内已直写——
+   补 cascadeGuard 缝(见 advPlaceKit 注入处)在账本前复原+剔除。 */
+function advEdgeTntProtected(x, y, z) {
+  if (advDim !== 'overworld' || advMap !== 'home') return false;
+  return typeof advEdgeProtectedAt === 'function' && advEdgeProtectedAt(x, y, z);
+}
 const advExplodeSink = {
   ignite: advIgnite,
   edit: (bx, by, bz, id) => {/* 触发格先记账(级联移动可能落回此格) → 破坏+级联记账(不进任务, P6); id 由 advExplodeCells 透传(配对方块触发格身份门读它) */
+    if (advEdgeTntProtected(bx, by, bz)) return; /* T7: 屏障格跳过破坏(R10) */
     advMarkEdit(bx, by, bz, 0);
     advCascadeApply(editBlock(bx, by, bz, 0), false);
     advPairedBreakApply(bx, by, bz, false, id); /* TNT 掀配对方块=整结构回收(门/床/宝箱行表驱动, 不进任务 P6; 床 2026-11-04 补接线) */
   },
-  sapling: (bx, by, bz) => advSaplings.delete(blockKey(bx, by, bz)),
-  crop: (bx, by, bz) => advWheats.delete(blockKey(bx, by, bz)), /* 掀掉麦苗撤生长计时(D3) */
-  drop: (id, n, x, y, z) => Drops.spawn(id, n, x, y, z),
+  sapling: (bx, by, bz) => {
+    if (advEdgeTntProtected(bx, by, bz)) return; /* T7: 豁免格不撤树苗计时(方块在=照常生长, R10 整格豁免) */
+    advSaplings.delete(blockKey(bx, by, bz));
+  },
+  crop: (bx, by, bz) => {
+    if (advEdgeTntProtected(bx, by, bz)) return; /* T7: 豁免格不撤生长计时(同上; farm-and-recipe D3) */
+    advWheats.delete(blockKey(bx, by, bz)); /* 掀掉麦苗撤生长计时(D3) */
+  },
+  drop: (id, n, x, y, z) => {
+    /* T7: 方块未破坏不掉物(掷骰落点=格坐标 floor(+0.5/+0.8) 还原, 防掷骰刷物, R10) */
+    if (advEdgeTntProtected(Math.floor(x), Math.floor(y), Math.floor(z))) return;
+    Drops.spawn(id, n, x, y, z);
+  },
 };
 function advExplode(x, y, z) {
   Fx.boom(x + 0.5, y + 0.5, z + 0.5, {r1: ADV_TNT_R + 1.5, n: 14});
@@ -3651,12 +3729,14 @@ const AdventureMode = mkMode({
     advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
     advGateLockT = 0; /* 锁门提示节流复位 */
-    advEdgeSkyKey = null; /* 〔边界原型·T2~T5〕渐变量化键复位(进场首帧必写——
-       上局可能停在带内, 按键跳写会漏掉首帧渐变) */
+    advEdgeSkyKeyHi = null; advEdgeSkyKeyLo = null; /* 〔边界转正·T7〕渐变量化键复位(进场首帧必写——
+       上局可能停在带内, 按键跳写会漏掉首帧渐变; P5②拆双键双复位) */
     if (typeof advSetEdgeBarriersHidden === 'function') {
       advSetEdgeBarriersHidden(typeof location !== 'undefined' &&
-        /edgeUnlocked=1/.test(location.search || '')); /* 走查开关: ?edgeUnlocked=1
-        隐藏三向屏障件(对比走查用; 建场在下方 loadScene, 先于建场置位生效) */
+        /edgeUnlocked=1/.test(location.search || '')); /* 解锁态过渡参数:
+        ?edgeUnlocked=1 隐藏三向屏障件(进度驱动落地前的解锁态预览缝;
+        T8 将换解锁进度驱动, AC advEdgeBarriersHidden 注已登记。建场在
+        下方 loadScene, 先于建场置位生效) */
     }
     advMap = advLoad.map;
     advApplyMapRow(ADV_MAPS.find((r) => r.id === advMap) || ADV_HOME_ROW);
@@ -3817,8 +3897,8 @@ const AdventureMode = mkMode({
     advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7) */
     advVeilReset(); /* 渐晕遮罩收起(T7): 中途退出模式不留紫屏 */
     advGateLockT = 0; /* 锁门提示节流复位 */
-    advEdgeSkyKey = null; /* 〔边界原型·T2~T5〕渐变量化键复位(重进首帧必写);
-       天/雾色复位由下行 advMapRowCleanup 内含(setSkyBase(null)+advApplySky) */
+    advEdgeSkyKeyHi = null; advEdgeSkyKeyLo = null; /* 〔边界转正·T7〕渐变量化键复位(重进首帧必写;
+       P5②拆双键双复位); 天/雾色复位由下行 advMapRowCleanup 内含(setSkyBase(null)+advApplySky) */
     advMapRowCleanup(); /* 行调色板复位内含 advApplySky(ADV_SKY_OVER), 不另重复调用 */
     advBeamsClear(); /* 红天光束不渗进其他模式 */
     advStore.journal.edits = advSceneEdits.home;
@@ -3869,7 +3949,7 @@ const AdventureMode = mkMode({
   update(dt) {
     advStore.tick(); /* 世界存档节流 5s(build 同款, 时序收编 journal) */
     advSyncMood(); /* 场景曲随昼夜/维度走(同值空转; 首帧补报夜间重进) */
-    advEdgeSkyTick(); /* 〔边界原型·T2~T5〕边界天/雾渐变(home 图专属, 同值空转):
+    advEdgeSkyTick(); /* 〔边界转正·T7〕边界天/雾渐变(home 图专属, 同值空转):
         走 setSkyBase/雾距既有缝, 昼夜插值仍归 applyDaylight */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */

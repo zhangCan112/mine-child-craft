@@ -11,7 +11,9 @@
    黑巢地上件(黑曜石/发光岩——巢穴观感票; 门面/熄门贴图三试三否, 2026-10-30
    拍板回退玻璃通道平紫半透明, 见 docs/den-nest-design.md §2.1) +
    战利品宝箱 71(红金双格, den-nest §7.5) + 远古残骸 73(正典上下螺旋纹,
-   装备系统 T7, docs/equipment-design.md §4.4)。风格参考
+   装备系统 T7, docs/equipment-design.md §4.4) + 覆雪树叶 74(深绿针叶底+白雪
+   覆盖大部, 世界边界 T12——北带落雪杉冠盖件, 级联随冠消散, north-spec §11)。
+   风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
    创建) — Node 可逐像素直测; 噪点/斑点全用种子化伪随机, 同 seed 同图。
@@ -27,7 +29,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 53 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 54 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -69,6 +71,7 @@ const TextureAtlas = (() => {
   const T_LOOT_SIDE = 50; /* 战利品宝箱侧(71): 深红箱体+上下金箍带+中央金锁扣(den-nest §7.5 D16) */
   const T_LOOT_TOP = 51; /* 战利品宝箱顶盖: 红盖+金边框+中央金扣横条(双格同图=MC 双箱观感) */
   const T_DEBRIS = 52; /* 远古残骸(73): 正典上下螺旋纹——暗棕底同心方环亮带(装备系统 T7) */
+  const T_SNOWY_LEAVES = 53; /* 覆雪树叶(74): 深绿针叶底+白雪覆盖大部(世界边界 T12) */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -224,6 +227,19 @@ const TextureAtlas = (() => {
     noiseFill(px, rng, [51, 128, 56], 0.14); // 强噪叶团
     for (let i=0; i<10; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [34, 96, 40]);
     for (let i=0; i<9; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [0, 0, 0], 0); // 孔洞透隙
+  };
+  PAINTERS[T_SNOWY_LEAVES] = (px, rng)=>{ // 覆雪树叶(74, 世界边界 T12): 松针深绿底+
+    // 白雪覆盖大部(MC 覆雪针叶语言)——树冠上的雪叶与绿冠同语言, 只差雪层观感;
+    // 逐列雪深 9~14 像素(确定性掷深, 下缘参差露针叶底色), 雪色近雪块(0.93,0.95,0.98)
+    noiseFill(px, rng, [51, 128, 56], 0.14); // 针叶底(树叶同款强噪)
+    for (let i=0; i<10; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [34, 96, 40]); // 深叶斑
+    for (let x=0; x<TILE; x++) {
+      const depth = 9 + Math.floor(rng() * 6); // 本列雪深 9~14
+      for (let y=0; y<depth; y++) {
+        const v = 1 + (rng() * 2 - 1) * 0.04; // 雪面微噪(雪花颗粒感)
+        setP(px, x, y, [237 * v, 242 * v, 250 * v]);
+      }
+    }
   };
   PAINTERS[T_COAL_ORE] = (px, rng)=>{
     stoneBase(px, rng); oreSpots(px, rng, [30, 30, 32], [70, 70, 74], 4);
@@ -694,6 +710,9 @@ const TextureAtlas = (() => {
       /* 远古残骸 73(装备系统 T7): 正典上下螺旋纹整格同图(上下/四面同纹,
          MC 残骸各面同款观感), 标准图集通道渲染 */
       [B_ANCIENT_DEBRIS]: T_DEBRIS,
+      /* 覆雪树叶 74(世界边界 T12): 深绿针叶底+白雪覆盖大部整格同图, 标准图集
+         通道渲染(树叶 7 同款立方体通道); 北带落雪杉冠盖专用件 */
+      [B_SNOWY_LEAVES]: T_SNOWY_LEAVES,
     },
   };
 

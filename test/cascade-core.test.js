@@ -100,11 +100,14 @@ test('mkPolicy: 身份判定从 config 真件派生 — fell/need/thin/support �
   assert.strictEqual(p.needOf(7).id, 5, '树叶依赖原木');
   assert.strictEqual(p.needOf(7).dist, 4, 'taxicab 4(BE 口径, 设计稿 P4)');
   assert.strictEqual(p.needOf(5), null, '原木无 need 规则');
+  assert.strictEqual(p.needOf(74).id, 5, '覆雪树叶依赖原木(世界边界 T12: 与树叶同口径进级联)');
+  assert.strictEqual(p.needOf(74).dist, 4, '覆雪树叶 taxicab 4(树倒冠雪随冠消散)');
   assert.strictEqual(p.isSupport(48), false, 'thin 族不承重');
   assert.strictEqual(p.isSupport(7), true, '树叶实心可承重(MC 口径)');
+  assert.strictEqual(p.isSupport(74), true, '覆雪树叶实心可承重(树叶同款: 无 solid 旗标)');
   assert.strictEqual(p.isSupport(24), false, '水面不承重');
   assert.strictEqual(p.isSupport(1), true, '草地承重');
-  assert.strictEqual(p.needRules.length, 1, 'need 规则表恰一条(树叶)');
+  assert.strictEqual(p.needRules.length, 2, 'need 规则表恰两条(树叶+覆雪树叶, T12 同口径)');
 });
 
 /* ============ 设计稿速查表逐行 ============ */

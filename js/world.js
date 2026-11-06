@@ -67,7 +67,7 @@ let dayTime = 0;
 let dayCycleOn = false;
 let daylightKey = null; /* 上次已写入的颜色比较键(dayTime 量化 50 tick); null=首帧必写 */
 let skyBaseDay = null; /* 白日天色基准端点(冒险地图 T6 换装; null=缺省蓝, 消费 daylight-core skyColor) */
-let skyFogBaseDay = null; /* 白日雾色基准端点(缺省 null=随天色; 〔边界原型·T2~T5〕
+let skyFogBaseDay = null; /* 白日雾色基准端点(缺省 null=随天色; 〔边界转正·T7〕
    西向沼泽锚点用——雾色与天色分槽, 昼夜插值同走 skyColor) */
 function setSkyBase(c, fogC) {/* 天基色调制缝(T6, 模式侧唯一入口): c=[r,g,b](0..1)换白日端点,
     null/非法复位缺省; fogC 为可选雾色基准(缺省/非法=雾色随天色, 既有调用零改动);

@@ -442,6 +442,21 @@ BLOCKS[B_LOOT_CHEST_SMALL] = {name: '低档奖励箱', top: [0.72, 0.22, 0.18], 
    (advNetherBuild 地下层种子化点缀, 确定性重放红线)。 */
 const B_ANCIENT_DEBRIS=73;
 BLOCKS[B_ANCIENT_DEBRIS] = {name: '远古残骸', all: [0.33, 0.24, 0.21], hard: 3.0, tool: 'pick', tier: 4, drop: [['ancient_debris', 1, 0]]};
+
+/* ---------- 覆雪树叶 (id 74, 世界边界 T12, docs/world-edge-design/north-spec.md §11) ----------
+   北带落雪杉冠盖专用(2026-11-06 G2 实机走查用户拍板): 冠盖原盖 B_SNOW 雪块没有
+   「树叶」的级联性质, 树被砍倒(级联整树清零)后冠上雪块悬空残留——新增一种白色
+   树叶性质的方块, 落雪杉冠盖改用它, 树倒即随冠一起消散。字段逐项对齐树叶 id 7
+   (T7「零新贴图」口径由本票用户实机走查后覆盖, 仅此一个新格位): 只差观感(白)
+   ——all 换雪白系; hard/tool/tier/drop/shearDrop 同表(剪覆雪叶得绿树叶, 儿童口径
+   一致); need {id:5, dist:4} 是本票核心字段——级联规则③(失依即落)读它, 与树叶
+   同口径进级联收集(cascade-core mkPolicy 派生, 非 id 白名单)。雪根座/地上积雪等
+   B_SNOW 用途不动(不属树冠, 无级联问题)。老档兼容: 树是建场件重进重建, 无需迁移。 */
+const B_SNOWY_LEAVES=74;
+BLOCKS[B_SNOWY_LEAVES] = {name: '覆雪树叶', all: [0.88, 0.91, 0.95],
+  hard: 0.2, tool: 'shears', tier: 0,
+  drop: [['sapling', 0, 0.12], ['apple', 0, 0.04], ['stick', 0, 0.08]],
+  shearDrop: [['leaves', 1, 0]], need: {id: 5, dist: 4}};
 BLOCKS[B_DOOR] = {name: '门', all: [0.66, 0.52, 0.33], pane: true, door: true, doorLower: true,
   hard: 3.0, tool: 'axe', tier: 0, drop: [['door', 1, 0]]}; // MC 硬度 3 斧头加速; 关=实心挡人挡光
 BLOCKS[B_DOOR_TOP] = {name: '门(上)', all: [0.66, 0.52, 0.33], pane: true, door: true,

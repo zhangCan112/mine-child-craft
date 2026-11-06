@@ -131,6 +131,7 @@ const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, 
   B_DOOR_TOP_OPEN, B_GLASS_PANE, B_TNT,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY,
   B_SANDSTONE, B_SNOW, B_ICE, B_PORTAL, B_PORTAL_DIM, B_OBSIDIAN, B_NETHERRACK,
+  B_SNOWY_LEAVES, /* 覆雪树叶(世界边界 T12): 北带落雪杉冠盖件, 建场经全局名消费 */
   B_GLOWSTONE, B_NETHER_BRICK,
   getBlock, setBlockRaw, getFluidLv, setFluidLv, world, worldCells, worldEvents,
   blockKey, collidesAtPlayer, rollBlockDrop, rollDrops,

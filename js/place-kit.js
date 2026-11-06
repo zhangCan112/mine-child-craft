@@ -29,7 +29,16 @@
      opts.say/speak/sfx — 观感三件(体验馆 dev 降噪全不传=静默)
      opts.ring(p)/opts.swing() — 准星进度环/挥动观感
      opts.mesh — {touch(x,z), flush()} setBlockRaw 直写后的网格收口
-     opts.hardText(id) — 无 hard 方块话术(空串=不出声)
+     opts.hardText(id, x, y, z) — 不可破坏话术缝(空串=不出声): ①无 hard 方块
+        (传送门等, 既有)②边界屏障格(T7 P2: 有 hard 方块坐标落在未解锁屏障体,
+        政策拒绝; 老注入 (id) 签名多收三参天然向后兼容——JS 语义)
+     opts.placeGuard(tx, ty, tz) — 禁放柱守卫缝(T7 P3, true=拒绝): 命中→拒绝+
+        话术+不扣物品, 未注入=不拦(体验馆形态零影响, R9——不进共享纯函数
+        advPlaceCheck, 挂消费方注入层, 无边界带的世界不被误伤)
+      opts.cascadeGuard(removed) — 级联清单守卫缝(T7 R10 补口, 波次二): 级联移除
+        在 editBlock→cascadeRemove 内已直写世界, 本缝在账本前给消费方一个
+        「原位复原受保护格+从清单剔除」的口(探险=屏障格豁免); 未注入=恒等
+        (体验馆/零边界带世界零影响)
    interface: PlaceKit.mkEditor(opts) → editor {tryPlace · placeDoor ·
      placePortal · tryDoorToggle · breakBlock · pairedBreakApply ·
      applyCascade ·
@@ -63,13 +72,25 @@ function mkEditor(opts) {
   const o = opts || {};
   const invOf = (typeof o.inv === 'function') ? o.inv : () => o.inv; /* 两供给形态归一 */
   const sink = o.cascade || {}; /* 级联账本 sink(advCascadeLedger 形状) */
+  const guard = o.placeGuard || null; /* T7 禁放柱守卫缝(方案 P3, hardText 先例同构):
+    (tx,ty,tz)→true=拒绝; 未注入=不拦(体验馆形态零影响, R9——守卫不进共享纯函数
+    advPlaceCheck, 只在消费方注入层生效, 无边界带的世界不被误伤) */
   let tierT = 0; /* 「需要更硬的镐子」TTS 节流(3s, tickTimers 递减) */
   let hardT = 0; /* 「挖不动」话术节流(3s, tickTimers 递减; 微默认3) */
+
+  /* 守卫命中统一出口: 儿童话术占位(与门/床既有拒绝话术同族; 分向文案骨架归
+     各向 spec §6/§7 建议、终稿归 T8 话术过目——R8 纪律)+拒绝, 调用方不扣物品 */
+  function guardReject() {
+    if (o.say) o.say('🚧 大自然的边界还没让开，这里放不了哦');
+    return false;
+  }
 
   /* 级联块结算(方块级联设计稿 D4/D5/P6): 记账编排纯段在 adventure-core
      (advCascadeLedger, 存档红线件), 编辑动作经 sink 接线到消费方; 整树倒
      观感走 opts.onFelled。quest=true 蓄力链视同玩家亲手挖, TNT 链传 false */
   function applyCascade(removed, quest) {
+    if (o.cascadeGuard) removed = o.cascadeGuard(removed); /* T7 R10: 受保护格被
+      级联放倒时消费方原位复原+剔除(移除已在 cascadeRemove 内直写发生) */
     const r = advCascadeLedger(removed, quest, sink);
     if (r.felled && o.onFelled) o.onFelled();
   }
@@ -147,6 +168,9 @@ function mkEditor(opts) {
       return false; /* 不扣物品, 换个地方再试 */
     }
     for (const c of ok.cells) {
+      if (guard && guard(c.x, c.y, c.z)) return guardReject(); /* T7: 禁放柱(门两 cell 逐格判) */
+    }
+    for (const c of ok.cells) {
       editBlock(c.x, c.y, c.z, c.id);
       if (o.onEdit) o.onEdit(c.x, c.y, c.z, c.id);
     }
@@ -174,6 +198,9 @@ function mkEditor(opts) {
           ok.reason === 'nosupport' ? '🛏️ 床要放在地上哦' : '🛏️ 床头那边要空着才放得下');
       }
       return false; /* 不扣物品, 换个地方再试 */
+    }
+    for (const c of ok.cells) {
+      if (guard && guard(c.x, c.y, c.z)) return guardReject(); /* T7: 禁放柱(床两 cell 逐格判——床头沿朝向可与床尾异列) */
     }
     for (const c of ok.cells) {
       editBlock(c.x, c.y, c.z, c.id);
@@ -204,6 +231,14 @@ function mkEditor(opts) {
         o.say(ok.reason === 'inside' ? '🌀 站远一点再放哦！' : '🌀 这里太挤啦，找一块大空地！');
       }
       return false; /* 不扣物品, 换个地方再试 */
+    }
+    /* T7: 门框+塔楼+步道列整判(结构占列 x: tx-1..tx+ADV_PORTAL.w, z: tz-1..tz+1,
+       与 advPortalSiteOk 包围盒同源——advPortalFrame 会写的每列都拦; 列判与 y
+       无关, ty 透传) */
+    for (let gx = tx - 1; gx <= tx + ADV_PORTAL.w; gx++) {
+      for (const gz of [tz - 1, tz, tz + 1]) {
+        if (guard && guard(gx, ty, gz)) return guardReject();
+      }
     }
     advPortalFrame((x, y, z, id) => {
       setBlockRaw(x, y, z, id); /* 直写不走 editBlock: 整座门是原子结构, 不触发级联/掉落 */
@@ -243,6 +278,7 @@ function mkEditor(opts) {
       if (o.say) o.say('这里放不了哦');
       return false;
     }
+    if (guard && guard(pc.x, pc.y, pc.z)) return guardReject(); /* T7: 禁放柱拒绝(目标格=落点, 含覆盖落点) */
     if (replace && lookId === B_SAPLING && sink.sapling) sink.sapling(pc.x, pc.y, pc.z); /* 盖掉树苗撤计时 */
     const moved = editBlock(pc.x, pc.y, pc.z, it.block); /* 放置触发仅 fall(P9): 半空沙即落 */
     if (o.onEdit) o.onEdit(pc.x, pc.y, pc.z, it.block);
@@ -303,14 +339,19 @@ function mkEditor(opts) {
     }
     const id = hit ? getBlock(hit.x, hit.y, hit.z) : 0;
     const def = id ? BLOCKS[id] : null;
-    if (!def || def.hard == null) {/* 空气/水/创造专属(字段缺失即不可采集, T2 判据) */
-      if (def) {/* 有实体定义但无 hard = 声明式不可破坏: 节流话术, 不起蓄力 */
-        const hardTxt = o.hardText ? o.hardText(id) : '';
-        if (hardTxt && hardT <= 0) {
-          hardT = 3;
-          if (o.speak) o.speak(hardTxt);
-          if (o.say) o.say('⛏️ ' + hardTxt);
-        }
+    /* 话术缝起手统一问询(硬块话术, T7 扩签名 (id,x,y,z)): ①无 hard 声明式不可
+       破坏(传送门/水等, 字段缺失判据, 既有)②边界屏障格(T7 P2: 有 hard 的方块
+       坐标落在未解锁屏障体上——屏障件与带内可挖件同 id, 只有坐标判据能分,
+       政策拒绝)——两者共用「挖不动就是真挖不动」既有拒绝链: 不起蓄力+方块
+       原地不动+hardT 3s 节流话术, 不造第二份拒绝机制。老注入 (id) 签名多收
+       三参天然向后兼容(JS 语义); 判据纯函数零分配, 只在按住+准星命中时到达
+       (事件路径, T7 §3.2 每帧审计口径); 空串=放行进蓄力(既有语义) */
+    const hardTxt = (def && o.hardText) ? o.hardText(id, hit.x, hit.y, hit.z) : '';
+    if (!def || def.hard == null || hardTxt) {/* 空气/水/创造专属/屏障格: 统一拒绝出口 */
+      if (hardTxt && hardT <= 0) {
+        hardT = 3;
+        if (o.speak) o.speak(hardTxt);
+        if (o.say) o.say('⛏️ ' + hardTxt);
       }
       mineStop(mine);
       return;

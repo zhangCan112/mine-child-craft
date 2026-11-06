@@ -22,7 +22,7 @@ function loadAtlas() {
       ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING,' +
       ' B_BED, B_BED_FOOT, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID,' +
       ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_LOOT_CHEST, B_LOOT_CHEST_SMALL,' +
-      ' B_ANCIENT_DEBRIS };', ctx);
+      ' B_ANCIENT_DEBRIS, B_SNOWY_LEAVES };', ctx);
   return ctx.__t;
 }
 
@@ -77,10 +77,16 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 53,
-      '已绘制格数 = 53(PAINTERS 0~52 连续; 门面宏格已随贴图回退删除, 50/51=战利品宝箱, 52=远古残骸)');
+  assert.strictEqual(t.TextureAtlas.count, 54,
+      '已绘制格数 = 54(PAINTERS 0~53 连续; 门面宏格已随贴图回退删除, 50/51=战利品宝箱, 52=远古残骸, 53=覆雪树叶)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
+  /* 覆雪树叶 74(世界边界 T12): 独立格位整格同图 — 与树叶 7(T_LEAVES)分格,
+     与雪块(T_SNOW)也分格(三个观感各司其职) */
+  const snowyLeaves = t.TextureAtlas.layout.tiles[t.B_SNOWY_LEAVES];
+  assert.strictEqual(typeof snowyLeaves, 'number', '覆雪树叶整格同图(数值简写)');
+  assert.notStrictEqual(snowyLeaves, t.TextureAtlas.layout.tiles[7], '覆雪树叶与树叶分格(白观感独立)');
+  assert.notStrictEqual(snowyLeaves, t.TextureAtlas.layout.tiles[t.B_SNOW], '覆雪树叶与雪块分格(针叶底独立)');
   const bed = t.TextureAtlas.layout.tiles[t.B_BED];
   assert.notStrictEqual(bed.top, bed.side, '床头顶(枕+毯)与侧(毯沿+木框)应分格(床观感票)');
   const foot = t.TextureAtlas.layout.tiles[t.B_BED_FOOT];
@@ -477,4 +483,28 @@ test('布局+像素: 远古残骸(73)入集 — 整格同图同心方环螺旋�
   for (const i of [0, 4, 15]) {
     assert.ok(px[i * 16 + i][0] < 66, '对角线 ' + i + ' 应落暗底(螺旋间隙), R=' + px[i * 16 + i][0]);
   }
+});
+
+/* ============ 覆雪树叶(74, 世界边界 T12): 深绿针叶底+白雪覆盖大部 ============ */
+
+test('布局+像素: 覆雪树叶(74)入集 — 整格同图雪盖针叶底, 全不透明, 雪层覆盖过半(世界边界 T12)', () => {
+  const t = loadAtlas();
+  const idx = t.TextureAtlas.layout.tiles[t.B_SNOWY_LEAVES];
+  assert.strictEqual(typeof idx, 'number', '覆雪树叶整格同图(数值简写)');
+  const all = t.TextureAtlas.paintAll();
+  const px = tilePixels(t, all, idx);
+  for (const p of px) assert.strictEqual(p[3], 255, '覆雪树叶像素全不透明(实心立方, 与树叶 7 的孔洞透隙不同)');
+  /* 覆雪判据(画师: 逐列雪深 9~14, 确定性): y≤8 恒在雪层内(depth≥9)、y≥15
+     恒露针叶底(depth≤14)——雪是冷白 R>200 且 B>R(微蓝), 露绿 G>R(绿主导) */
+  const at = (x, y) => px[y * 16 + x];
+  for (const [x, y] of [[0, 2], [8, 2], [15, 2], [8, 8]]) {
+    assert.ok(at(x, y)[0] > 200 && at(x, y)[2] >= at(x, y)[0],
+        '雪层 (' + x + ',' + y + ') 应冷雪白 R>200/B≥R, 实测 R=' + at(x, y)[0] + ' B=' + at(x, y)[2]);
+  }
+  for (const [x, y] of [[0, 15], [8, 15], [15, 15]]) {
+    assert.ok(at(x, y)[1] > at(x, y)[0], '底层 (' + x + ',' + y + ') 应露针叶绿(G>R), 实测 G=' + at(x, y)[1]);
+  }
+  let snowN = 0;
+  for (const p of px) if (p[0] > 200) snowN++; /* 针叶底 R≤58, R>200 只命中雪 */
+  assert.ok(snowN > 128, '雪覆盖过半(实测 ' + snowN + '/256, MC 覆雪针叶语言)');
 });

@@ -89,6 +89,7 @@ const api = vm.runInContext(`({
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
+  B_SNOWY_LEAVES, /* 覆雪树叶(世界边界 T12: 北带落雪杉冠盖件, 建场经全局名消费) */
   B_PORTAL, B_PORTAL_DIM, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
   B_SPAWNER, /* 黑巢巢之心(den-nest: home 行 build 经 advBuildDenNest 消费) */
   B_LOOT_CHEST, /* 战利品宝箱(den-nest §7.5: place-kit 宝箱配对计划经全局名消费) */
@@ -3917,3 +3918,112 @@ test('装备 T6: 单一漏斗源码钉 — 玩家直挨 Mobs.hit 绝迹(近战/�
   assert.ok(/Mobs\.hit\(advGetPEnt\(\)/.test(src), '漏斗内恰一次玩家受击结算(单一权威)');
   assert.ok(/hurtPlayer:\s*advArmorFold/.test(src), '箭矢链注入减伤缝(kit 不知盔甲, 怪弹同吃甲)');
 });
+
+/* ============ T7 转正·波次二(TNT 屏障豁免/分向文案/P5 静止帧性能) ============ */
+
+test('T7 转正 TNT: 爆炸覆盖东栅栏件 — 屏障格原地不动+零掉落(掷骰口), 普通带内格照常破坏', () => {
+  mem.clear();
+  freshInit();
+  const topY = (x, z) => AdventureCore.ADV_GROUND + AdventureCore.advHeightAt(x, z);
+  /* 锚点 (155,81)(2026-11-06 建场实测): 草面 y22/上空 y23, 东栅栏桩 z81 基 y23
+     两高, 爆球 r=3.5 覆盖 6 个保护格(桩两高+横杆 z79/80/82/83); 东向无禁放柱,
+     TNT 可放(翻越彩蛋同源口径)。前提格断言先钉, 建场漂移时报得明白 */
+  assert.strictEqual(cell(155, topY(155, 81), 81), 1, '锚点草面在册(建场确定性前提)');
+  assert.strictEqual(cell(157, topY(157, 81) + 1, 81), 5, '东栅栏桩基在爆球覆盖内(前提)');
+  assert.strictEqual(AdventureCore.advEdgeProtectedAt(155, topY(155, 81) + 1, 81), false,
+      '锚点上方非保护格(东向无禁放柱, TNT 可放)');
+  holdOnly('tnt', 1);
+  pos.x = 155.5; pos.y = 25; pos.z = 83.5;
+  AdventureMode.onMouse(2, {x: 155, y: topY(155, 81), z: 81, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(155, topY(155, 81) + 1, 81), api.B_TNT, 'TNT 落东带腹地(放置守卫不拦东向)');
+  holdOnly(null);
+  calls.length = 0;
+  aimDownAt({x: 155, z: 81}); /* 准星 fake: 蓄力链瞄准 TNT(直下命中 y23) */
+  AdventureMode.onMouse(0, {x: 155, y: topY(155, 81) + 1, z: 81, nx: 0, ny: 1, nz: 0});
+  AdventureMode.update(0.05); /* 短按判定(D3): 松手即点燃 */
+  AdventureMode.update(0.05); /* 引信首帧: 火花弧观感 */
+  assert.ok(calls.some((c) => c[0] === 'arc'), '短按点燃引信');
+  pos.x = 100.5; pos.z = 100.5; /* 走远(腹地), 引信烧完起爆 */
+  listResult = [];
+  for (let i = 0; i < 34; i++) AdventureMode.update(0.05); /* 引信 1.5s(ADV_TNT_FUSE)烧完 */
+  assert.ok(calls.some((c) => c[0] === 'boom'), '起爆发生(Fx.boom)');
+  /* 屏障 6 格原地不动(桩两高 z81 + 横杆 z79/80/82/83; 高度随地形现算) */
+  assert.strictEqual(cell(157, topY(157, 81) + 1, 81), 5, '栅栏桩基原地不动');
+  assert.strictEqual(cell(157, topY(157, 81) + 2, 81), 5, '栅栏桩顶原地不动');
+  for (const z of [79, 83]) assert.strictEqual(cell(157, topY(157, z) + 1, z), 6, '栅栏横杆原地不动 z' + z);
+  for (const z of [80, 82]) assert.strictEqual(cell(157, topY(157, z) + 1, z), 6, '栅栏横杆原地不动 z' + z);
+  assert.strictEqual(calls.filter((c) => c[0] === 'edit' &&
+      AdventureCore.advEdgeProtectedAt(c[1], c[2], c[3])).length, 0,
+  '受保护格零破坏记账(sink 守卫拦直接破坏, cascadeGuard 复原不留级联账)');
+  assert.ok(calls.some((c) => c[0] === 'edit' && c[1] === 157), '桩脚普通土格照常破坏(放开语义, 只保件不保土)');
+  /* 屏障件格零掉落: 掷骰落点=被毁格中心(+0.5/+0.8), 对 6 个在爆球内的保护格
+     中心做邻域匹配(桩脚泥土的合法掉落落点也在 x157 列, 只按列过滤会误伤) */
+  const protCenters = [];
+  for (const z of [79, 80, 81, 82, 83]) {
+    const y0 = topY(157, z) + 1;
+    for (const y of (z % 3 === 0 ? [y0, y0 + 1] : [y0])) protCenters.push([157.5, y + 0.8, z + 0.5]);
+  }
+  const badDrops = globalThis.Drops.list().filter((d) => protCenters.some(([cx2, cy2, cz2]) =>
+    Math.abs(d.x - cx2) < 0.3 && Math.abs(d.y - cy2) < 0.3 && Math.abs(d.z - cz2) < 0.3));
+  assert.strictEqual(badDrops.length, 0, '屏障件格零掉落物(掷骰刷物口已堵; 桩脚泥土掉落合法在列)');
+  /* 普通带内格照常破坏(守卫不误伤放开语义) */
+  assert.strictEqual(cell(154, topY(154, 81), 81), 0, '普通草皮对照格照常炸掉');
+  assert.ok(calls.some((c) => c[0] === 'edit' && c[1] === 154 && c[2] === topY(154, 81) &&
+      c[3] === 81 && c[4] === 0), '对照格破坏记账在列');
+  assert.strictEqual(cell(155, topY(155, 81) + 1, 81), 0, 'TNT 源块清除');
+  AdventureMode.cleanup();
+  clearAim();
+});
+
+test('T7 转正 文案: advMineHardText 分向命中非空+两两不同, 普通格空串, 老签名不炸', () => {
+  mem.clear();
+  freshInit();
+  const topY = (x, z) => AdventureCore.ADV_GROUND + AdventureCore.advHeightAt(x, z);
+  let nCol = null;
+  for (let x = 0; x < 40 && !nCol; x++) {
+    for (let z = 0; z < 24 && !nCol; z++) {
+      if (AdventureCore.advEdgeNorthMountainH(x, z) >= 2) nCol = [x, topY(x, z), z];
+    }
+  }
+  /* 分向检序对齐 E10(北 z≤31/南 z≥128/西 x≤31/其余=东); id 只进普通分支,
+     屏障文案由坐标判据决定(屏障件与带内可挖件同 id, 只有坐标能分) */
+  const texts = {
+    north: A.advMineHardText(api.B_SNOW, nCol[0], nCol[1], nCol[2]),
+    south: A.advMineHardText(api.B_SANDSTONE, 80, topY(80, 145), 145),
+    west: A.advMineHardText(api.B_WATER, 15, topY(15, 80), 80),
+    east: A.advMineHardText(5, 157, topY(157, 81) + 1, 81),
+  };
+  for (const k of Object.keys(texts)) assert.ok(texts[k].length > 0, k + ' 向屏障文案非空');
+  assert.strictEqual(new Set(Object.values(texts)).size, 4, '四向文案两两不同(分向命中, 不钉全文)');
+  assert.strictEqual(A.advMineHardText(api.B_SNOW, 80, topY(80, 100), 100), '',
+      '带内普通格无屏障文案(放开语义)');
+  assert.strictEqual(A.advMineHardText(api.B_SNOW), '', '老签名 (id) 普通块返空串(向后兼容)');
+  assert.ok(A.advMineHardText(api.B_OBSIDIAN).length > 0, '老签名硬块文案保留(传送门魔法不炸)');
+  AdventureMode.cleanup();
+});
+
+test('T7 转正 P5: 静止玩家 120 帧 — setSkyBase 调用 ≤2(首帧写一次), 腹地旁路+量化键 memo 生效', () => {
+  mem.clear();
+  freshInit();
+  /* 装 fake scene+计数器(先例: 装→断言→delete 防渗漏); setSkyBase/scene 缺席时
+     advEdgeSkyTick 守卫早退, 装上后走全链 */
+  const skyCalls = [];
+  globalThis.setSkyBase = (sky, fogC) => skyCalls.push([sky, fogC]);
+  globalThis.scene = {background: {set() {}}, fog: {color: {set() {}}, near: 90, far: 230},
+    add() {}, remove() {}};
+  try {
+    pos.x = 80.5; pos.y = 25; pos.z = 80.5; /* 腹地: 四缘均 >68 → P5① 旁路共享常量 */
+    for (let i = 0; i < 120; i++) AdventureMode.update(0.05);
+    assert.ok(skyCalls.length >= 1, '首帧至少写一次(旁路不是死路)');
+    assert.ok(skyCalls.length <= 2, '静止 120 帧 setSkyBase 调用 ' + skyCalls.length + ' ≤ 2(量化键 memo 同值不重写)');
+    assert.deepStrictEqual(skyCalls[0][0], [0.56, 0.78, 1], '首写天色=home 档(旁路返回值)');
+    assert.deepStrictEqual(skyCalls[0][1], [0.56, 0.78, 1], '首写雾色=home 天色');
+    assert.strictEqual(scene.fog.near, 90, '腹地雾距=home 档 near90');
+    assert.strictEqual(scene.fog.far, 230, '腹地雾距=home 档 far230');
+  } finally {
+    AdventureMode.cleanup(); /* 复位 mode 内部态(含量化键) */
+    delete globalThis.setSkyBase;
+    delete globalThis.scene;
+  }
+});
+

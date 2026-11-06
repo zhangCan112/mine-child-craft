@@ -29,6 +29,7 @@ const api = vm.runInContext(`({
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   B_SNOW, B_SANDSTONE, B_GLOWSTONE, B_CHEST,
   B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID, B_CACTUS, /* 边界带建场件(〔边界原型·T2~T5〕带内建场引用) */
+  B_SNOWY_LEAVES, /* 覆雪树叶(世界边界 T12): 北带落雪杉冠盖件, 建场经全局名消费 */
   B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK, B_LOOT_CHEST, B_LOOT_CHEST_SMALL,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
