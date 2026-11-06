@@ -10,6 +10,7 @@
 
 - [conventions.md](conventions.md) — 工程与代码规范正文（改任何代码前读）
 - [worktree-pitfalls.md](worktree-pitfalls.md) — worktree 生命周期安全清单（开/删 worktree 前必读）
+- [held-sprite-tuning-playbook.md](held-sprite-tuning-playbook.md) — 手持薄片朝向调参手册（调任何手持物角度前读：旋钮模型/前倾=RZ−45° 恒等式/探针骨架/死路存档）
 - [google-style-research.md](google-style-research.md) · [project-structure-research.md](project-structure-research.md) — 规范正文的两份依据调研
 - [agent-context-research.md](agent-context-research.md) — 文档/注释体量与分层的依据调研
 - ADR（不可逆决策日志，编号单调不复用）：[0001 每日预算单键](adr/0001-daily-budget-single-key.md) · [0002 专注接物品系统](adr/0002-focus-loot-integration.md) · [0003 音频入库](adr/0003-audio-assets-in-repo.md) · [0004 并行水位面](adr/0004-parallel-fluid-level-plane.md) · [0005 统一冒险壳](adr/0005-unified-adventure-shell-dev-profile.md) · [0006 生态恢复机制](adr/0006-eco-recovery.md) · [0007 大宝箱两轨容量](adr/0007-chest-two-track-capacity.md) · [0008 专注第六维搜索](adr/0008-search-sixth-dim.md)

@@ -294,13 +294,15 @@ test('fp 形状: defFor 全路径产物含 fp 且 pos/rot/scale 三键齐(工具
   }
 });
 
-test('fp 族正确: 方块两形=方块族(rotY 45°/scale1), 工具/锄/剑/弓/薄片/棒=手持物族(rot[-90,25]°)', () => {
+test('fp 族正确: 方块两形=方块族(rotY 45°/scale1), 工具/锄/弓/薄片/棒=手持物族(rot[-90,25]°), 剑=对角补偿档(RZ70°)', () => {
   const {HeldItems} = loadHeld();
   /* 期望值独立于实现: 正典折算(mc-first-person-hand-research Q4)照常量注释抄录
      —— 方块 [0,45,0]/scale0.40(本体 0.38 已内建 → 1.0);
         手持物 [0,-90,25]+[1.13,3.2,1.13]/16+0.68(工具全长 ~0.85 → 0.68/0.85≈0.8) */
   const BLOCK = {pos: [0, 0, 0], rot: [0, 0.785, 0], scale: 1.0};
   const HAND = {pos: [1.13 / 16, 3.2 / 16, 1.13 / 16], rot: [0, -1.5708, 0.4363], scale: 0.8};
+  /* 剑例外档期望值独立于实现抄录: sprite 对角 45° 补偿(held-item.js FP_SWORD) */
+  const SWORD = {pos: [1.13 / 16, 3.2 / 16, 1.13 / 16], rot: [0, -1.5708, 1.2217], scale: 0.8};
   const eq3 = (actual, want, tag) => {
     assert.ok(Array.isArray(actual) && actual.length === 3, tag + ' 三元数');
     actual.forEach((n, i) => assert.ok(Math.abs(n - want[i]) < 1e-9, tag + ' 第' + i + '分量'));
@@ -313,7 +315,12 @@ test('fp 族正确: 方块两形=方块族(rotY 45°/scale1), 工具/锄/剑/弓
   /* 方块族: 单色盒(木板) + top/side 三件盒(原木) + 数字方块 id(石英) + 工厂直调 */
   for (const id of ['planks', 'log', 17]) same(HeldItems.defFor(id), BLOCK, '方块 ' + id);
   /* 手持物族: defs 全部 20 条(弓/剪刀正典 display 与 handheld 同值=继承)逐一 + 薄片 + 棒 */
-  for (const [id, def] of Object.entries(HeldItems.defs)) same(def, HAND, '手持物 ' + id);
+  for (const [id, def] of Object.entries(HeldItems.defs)) {
+    if (id === 'sword' || id.startsWith('sword_')) continue; /* 剑族(模板+五阶)=对角补偿档, 断言见下 */
+    same(def, HAND, '手持物 ' + id);
+  }
+  same(HeldItems.defs.sword, SWORD, '剑模板(对角补偿档 RZ70°)');
+  same(HeldItems.mkToolDef('sword', 'iron'), SWORD, '工具剑工厂(对角补偿档)');
   same(HeldItems.defFor('apple'), HAND, '薄片 apple');
   same(HeldItems.defFor('stick'), HAND, '棒 stick');
   same(HeldItems.defFor('torch'), HAND, '火把 torch(手持态正典 handheld 族)');
