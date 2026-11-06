@@ -12,8 +12,8 @@
       / applyDaylight(昼夜场景驱动: 天色/平行光强/日月轨道/云层漂移 +
       顶点光材质 uniforms uDim/uSkyFloor 节拍, 设计稿 mc-daylight-torch §2.3/§4.2)
       / setPlayerGlow(玩家随身光机制缝: 方块光 uniform + 实体侧 PointLight,
-      政策归 D7) / setSkyBase(白日天色基准调制缝: 冒险地图 T6 换端点,
-      昼夜插值仍在 applyDaylight) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件可写:
+      政策归 D7) / setSkyBase(白日天色基准调制缝: 冒险地图 T6 换端点, 可选雾色
+      基准槽, 昼夜插值仍在 applyDaylight) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件可写:
       main.js 推进·模式层换景) / pumpFluids(流体计划刻泵, 设计稿 liquid D5)
       / activateFluids(装场全场激活) / setFluidEditSink(流体写格→模式账本
       的缝, Tank 钩子先例) / raycast / camera / renderer / scene。
@@ -67,11 +67,16 @@ let dayTime = 0;
 let dayCycleOn = false;
 let daylightKey = null; /* 上次已写入的颜色比较键(dayTime 量化 50 tick); null=首帧必写 */
 let skyBaseDay = null; /* 白日天色基准端点(冒险地图 T6 换装; null=缺省蓝, 消费 daylight-core skyColor) */
-function setSkyBase(c) {/* 天基色调制缝(T6, 模式侧唯一入口): c=[r,g,b](0..1)换白日端点,
-    null/非法复位缺省; 昼夜插值仍走 applyDaylight(只换起点色, 设计 §2.1)。
+let skyFogBaseDay = null; /* 白日雾色基准端点(缺省 null=随天色; 〔边界原型·T2~T5〕
+   西向沼泽锚点用——雾色与天色分槽, 昼夜插值同走 skyColor) */
+function setSkyBase(c, fogC) {/* 天基色调制缝(T6, 模式侧唯一入口): c=[r,g,b](0..1)换白日端点,
+    null/非法复位缺省; fogC 为可选雾色基准(缺省/非法=雾色随天色, 既有调用零改动);
+    昼夜插值仍走 applyDaylight(只换起点色, 设计 §2.1)。
     比较键作废让下一帧立即重刷天色/雾色(不等 50 tick 阶进) */
   skyBaseDay = (Array.isArray(c) && c.length === 3 && c.every((v) => typeof v === 'number')) ?
       [c[0], c[1], c[2]] : null;
+  skyFogBaseDay = (Array.isArray(fogC) && fogC.length === 3 && fogC.every((v) => typeof v === 'number')) ?
+      [fogC[0], fogC[1], fogC[2]] : null;
   daylightKey = null;
 }
 
@@ -175,8 +180,9 @@ function applyDaylight() {
     daylightKey = key;
     const dim = Daylight.skyDim(t);
     const c = Daylight.skyColor(t, skyBaseDay); /* 白日端点可被 setSkyBase 换装(T6) */
+    const fc = Daylight.skyColor(t, skyFogBaseDay || skyBaseDay); /* 雾色基准缺省随天色 */
     scene.background.setRGB(c[0], c[1], c[2]);
-    scene.fog.color.setRGB(c[0], c[1], c[2]);
+    scene.fog.color.setRGB(fc[0], fc[1], fc[2]);
     /* 实体变暗: 怪/Avatar/掉落物走 Lambert, 环境光随时间衰减自动生效(§4.3) */
     ambientLight.intensity = 0.65 * Daylight.renderBright(15 - dim);
     sun.intensity = 0.75 * (1 - dim / 11);

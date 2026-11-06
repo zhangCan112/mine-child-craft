@@ -1,0 +1,402 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" width="1600" height="420" font-family="'Microsoft YaHei','PingFang SC',sans-serif">
+  <!--
+    T2 · 北向雪原边 · 概念断面图（草案 v1 · 待用户评审 · designer·北 2026-11-06）
+    视向：home → 北（−z）行走方向的侧剖断面；1 格 = 16px（横向），主断面 7 行深。
+    throwaway 概念稿：结论折叠进 T2 Resolution 后本图留档，不进代码。
+    分区（x 轴 / 世界 z）：home 腹地 z≥24（x 32..512）｜ 过渡带 24 格 z=0..23（x 512..896）
+    ｜ 世界尽头 z=0 越线瞬传（x 896 虚线）｜ 雪原（目标世界）x 896..1104 ｜ 远景剪影+全雾 x 1104..1560。
+    主视图=未解锁态（含雪崩堆屏障）；底部窄横带=解锁态同视角对比（纵向压缩 2:1，横向同刻度）。
+    依据：拍板 2/5/6/8/9；mc-world-border-research §5（借形不借罚/天色先行/大件深色远景/4 格混铺窗口）。
+  -->
+  <title>T2 北向雪原边概念断面图（草案 v1）</title>
+  <defs>
+    <!-- 顶天条：home #8FC7FF → 雪原 #CCDEF5；锚点按世界 z 换算 x：z=36→x320 起变、z=24→x512、z=12→x704、z=6→x800 纯 -->
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"    stop-color="#8FC7FF"/>
+      <stop offset="0.20" stop-color="#8FC7FF"/>
+      <stop offset="0.32" stop-color="#A7D0FB"/>
+      <stop offset="0.44" stop-color="#C0D9F7"/>
+      <stop offset="0.50" stop-color="#CCDEF5"/>
+      <stop offset="1"    stop-color="#CCDEF5"/>
+    </linearGradient>
+    <!-- 右端雾罩：把雪世界尽头溶进天色（雾=渲染边界，不出现世界断面） -->
+    <linearGradient id="fogR" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"   stop-color="#CCDEF5" stop-opacity="0"/>
+      <stop offset="0.5" stop-color="#CCDEF5" stop-opacity="0.55"/>
+      <stop offset="1"   stop-color="#CCDEF5" stop-opacity="0.95"/>
+    </linearGradient>
+    <!-- 远景地面：向下溶进雾色 -->
+    <linearGradient id="vistaGnd" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#CFDFF2"/>
+      <stop offset="1" stop-color="#F0F5FC"/>
+    </linearGradient>
+  </defs>
+
+  <!-- 画布纸底 -->
+  <rect x="0" y="0" width="1600" height="420" fill="#F7FAFD"/>
+
+  <!-- ===== 顶天条 + 远景空气（同一横向渐变，铺到地平线 y176） ===== -->
+  <rect x="0" y="0" width="1600" height="176" fill="url(#sky)"/>
+
+  <!-- 像素云（色随天条同步变冷） -->
+  <g>
+    <rect x="140" y="66" width="56" height="12" fill="#FFFFFF"/>
+    <rect x="150" y="58" width="28" height="8"  fill="#FFFFFF"/>
+    <rect x="400" y="70" width="46" height="10" fill="#FFFFFF" opacity="0.95"/>
+    <rect x="408" y="64" width="24" height="6"  fill="#FFFFFF" opacity="0.95"/>
+    <rect x="820" y="64" width="44" height="12" fill="#F2F7FF"/>
+    <rect x="828" y="58" width="20" height="6"  fill="#F2F7FF"/>
+    <rect x="1060" y="58" width="38" height="10" fill="#EAF1FB"/>
+    <rect x="1300" y="64" width="52" height="14" fill="#DFEAF8"/>
+    <rect x="1310" y="58" width="26" height="6"  fill="#DFEAF8"/>
+    <rect x="1480" y="66" width="40" height="10" fill="#D8E5F5"/>
+  </g>
+
+  <!-- ===== 远景：雪世界剪影（迷你尺度=距离暗示；大件深色才穿雾可读，调研 §3） ===== -->
+  <g>
+    <!-- 冰湖横带（三段=向雾手动 lerp） -->
+    <rect x="1140" y="168" width="160" height="8" fill="#A1C7EF"/>
+    <rect x="1300" y="168" width="120" height="8" fill="#B3CFEE"/>
+    <rect x="1420" y="168" width="140" height="8" fill="#C4DAF3"/>
+    <rect x="1150" y="170" width="30" height="2" fill="#CBE0F6"/>
+    <rect x="1220" y="170" width="30" height="2" fill="#D3E4F7"/>
+    <!-- 云杉林剪影：近深→远淡 -->
+    <g fill="#3F7057">
+      <rect x="1108" y="162" width="20" height="14"/>
+      <rect x="1111" y="150" width="14" height="12"/>
+      <rect x="1114" y="142" width="8"  height="8"/>
+      <rect x="1116" y="138" width="4"  height="4" fill="#F4F8FC"/>
+    </g>
+    <g fill="#4E7F63">
+      <rect x="1160" y="164" width="16" height="12"/>
+      <rect x="1163" y="154" width="10" height="10"/>
+      <rect x="1166" y="148" width="4"  height="6"/>
+    </g>
+    <g fill="#6E96B4">
+      <rect x="1220" y="164" width="14" height="12"/>
+      <rect x="1223" y="156" width="8"  height="8"/>
+    </g>
+    <g fill="#8FAECC">
+      <rect x="1280" y="166" width="12" height="10"/>
+      <rect x="1283" y="160" width="6"  height="6"/>
+    </g>
+    <g fill="#9FBCD6">
+      <rect x="1340" y="168" width="10" height="8"/>
+    </g>
+    <!-- 冰崖：大件远景（受光面/背光面两色+雪盖） -->
+    <rect x="1360" y="150" width="84" height="26" fill="#B9CFEA"/>
+    <rect x="1372" y="120" width="60" height="30" fill="#B9CFEA"/>
+    <rect x="1360" y="150" width="20" height="26" fill="#CBDCEC"/>
+    <rect x="1424" y="120" width="8"  height="60" fill="#9FB6D8"/>
+    <rect x="1372" y="120" width="60" height="4"  fill="#E2ECF9"/>
+    <!-- 远排小杉 -->
+    <g fill="#AFC9E4">
+      <rect x="1470" y="166" width="10" height="10"/>
+      <rect x="1502" y="164" width="12" height="12"/>
+      <rect x="1538" y="167" width="9"  height="9"/>
+    </g>
+    <!-- 远景地面：向下溶雾，无底线=无断面 -->
+    <rect x="1104" y="176" width="456" height="112" fill="url(#vistaGnd)"/>
+  </g>
+
+  <!-- ===== 主断面地块（每格 16px，y 176..288） ===== -->
+  <!-- 深层：row3-6 全宽共用泥层——「同一片大地换了件衣服」 -->
+  <rect x="32" y="224" width="1072" height="32" fill="#5C4028"/>
+  <rect x="32" y="256" width="1072" height="32" fill="#523A26"/>
+  <!-- row2 -->
+  <rect x="32"  y="208" width="480" height="16" fill="#6B4A30"/>
+  <rect x="512" y="208" width="384" height="16" fill="#9A7B54"/>
+  <rect x="896" y="208" width="208" height="16" fill="#C9D6E4"/>
+  <!-- row1 -->
+  <rect x="32"  y="192" width="480" height="16" fill="#7A5638"/>
+  <rect x="512" y="192" width="384" height="16" fill="#B9C9DC"/>
+  <rect x="896" y="192" width="208" height="16" fill="#DDE6F2"/>
+  <!-- row0 · home 草原 c0..29（x32..512） -->
+  <rect x="32" y="176" width="480" height="16" fill="#6EBD57"/>
+  <rect x="48"  y="176" width="16" height="6" fill="#63B34E"/>
+  <rect x="144" y="176" width="16" height="6" fill="#63B34E"/>
+  <rect x="272" y="176" width="16" height="6" fill="#63B34E"/>
+  <rect x="336" y="176" width="16" height="6" fill="#63B34E"/>
+  <rect x="464" y="176" width="16" height="6" fill="#63B34E"/>
+  <!-- home 水塘 c24..25 -->
+  <rect x="416" y="176" width="32" height="16" fill="#4073D9"/>
+  <rect x="420" y="181" width="22" height="2" fill="#6C93E8"/>
+  <rect x="426" y="186" width="12" height="2" fill="#6C93E8"/>
+  <!-- home 橡树 c4 -->
+  <rect x="84"  y="126" width="40" height="24" fill="#4E9A3C"/>
+  <rect x="92"  y="118" width="24" height="8"  fill="#5FAF4A"/>
+  <rect x="84"  y="146" width="40" height="6"  fill="#3D8A32"/>
+  <rect x="100" y="150" width="8"  height="26" fill="#6B4D30"/>
+  <!-- home 草丛+小花 -->
+  <rect x="64"  y="171" width="4" height="5" fill="#4E9A3C"/>
+  <rect x="176" y="171" width="4" height="5" fill="#4E9A3C"/>
+  <rect x="256" y="171" width="4" height="5" fill="#4E9A3C"/>
+  <rect x="320" y="171" width="4" height="5" fill="#4E9A3C"/>
+  <rect x="288" y="170" width="4" height="4" fill="#F2D24B"/>
+
+  <!-- row0 · 过渡带 c30..53（x512..896，z=54−c：23→0）6 patch 混铺 -->
+  <!-- p1 草9:雪1 -->
+  <rect x="512" y="176" width="16" height="16" fill="#6EBD57"/>
+  <rect x="528" y="176" width="16" height="16" fill="#6EBD57"/>
+  <rect x="544" y="176" width="16" height="7"  fill="#F4F8FC"/>
+  <rect x="544" y="183" width="16" height="5"  fill="#B9C9DC"/>
+  <rect x="544" y="188" width="16" height="4"  fill="#8A6B48"/>
+  <rect x="560" y="176" width="16" height="16" fill="#6EBD57"/>
+  <!-- p2 雪草过半+初雪堆 -->
+  <rect x="576" y="176" width="16" height="7"  fill="#F4F8FC"/>
+  <rect x="576" y="183" width="16" height="5"  fill="#B9C9DC"/>
+  <rect x="576" y="188" width="16" height="4"  fill="#8A6B48"/>
+  <rect x="592" y="176" width="16" height="16" fill="#6EBD57"/>
+  <rect x="608" y="176" width="16" height="7"  fill="#F4F8FC"/>
+  <rect x="608" y="183" width="16" height="5"  fill="#B9C9DC"/>
+  <rect x="608" y="188" width="16" height="4"  fill="#8A6B48"/>
+  <rect x="624" y="176" width="16" height="7"  fill="#F4F8FC"/>
+  <rect x="624" y="183" width="16" height="5"  fill="#B9C9DC"/>
+  <rect x="624" y="188" width="16" height="4"  fill="#8A6B48"/>
+  <rect x="592" y="168" width="16" height="8"  fill="#F4F8FC"/>
+  <rect x="596" y="164" width="8"  height="4"  fill="#F7FAFF"/>
+  <!-- p3 雪草/雪对半+孤杉 -->
+  <rect x="640" y="176" width="16" height="7"  fill="#F4F8FC"/>
+  <rect x="640" y="183" width="16" height="5"  fill="#B9C9DC"/>
+  <rect x="640" y="188" width="16" height="4"  fill="#8A6B48"/>
+  <rect x="656" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="656" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <rect x="672" y="176" width="16" height="7"  fill="#F4F8FC"/>
+  <rect x="672" y="183" width="16" height="5"  fill="#B9C9DC"/>
+  <rect x="672" y="188" width="16" height="4"  fill="#8A6B48"/>
+  <rect x="688" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="688" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <!-- 孤杉 c38（雪尖+三层深绿冠） -->
+  <rect x="630" y="146" width="36" height="12" fill="#2E5D46"/>
+  <rect x="636" y="134" width="24" height="12" fill="#356650"/>
+  <rect x="642" y="122" width="12" height="12" fill="#3D7157"/>
+  <rect x="644" y="118" width="8"  height="4"  fill="#F4F8FC"/>
+  <rect x="646" y="158" width="4"  height="18" fill="#4A3A28"/>
+  <!-- p4 雪:雪草3:1（屏障段 c41..43 见屏障组） -->
+  <rect x="704" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="704" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <rect x="720" y="176" width="16" height="7"  fill="#F4F8FC"/>
+  <rect x="720" y="183" width="16" height="5"  fill="#B9C9DC"/>
+  <rect x="720" y="188" width="16" height="4"  fill="#8A6B48"/>
+  <rect x="736" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="736" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <rect x="752" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="752" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <!-- p5 雪+云杉·冰点 -->
+  <rect x="768" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="768" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <rect x="784" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="784" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <rect x="800" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="800" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <rect x="816" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="816" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <rect x="816" y="176" width="16" height="16" fill="#A1C7EF" opacity="0.82"/>
+  <rect x="818" y="181" width="10" height="2"  fill="#D8E8F8" opacity="0.9"/>
+  <!-- p5 云杉 c47 -->
+  <rect x="774" y="146" width="36" height="12" fill="#2E5D46"/>
+  <rect x="780" y="134" width="24" height="12" fill="#356650"/>
+  <rect x="786" y="122" width="12" height="12" fill="#3D7157"/>
+  <rect x="788" y="118" width="8"  height="4"  fill="#F4F8FC"/>
+  <rect x="790" y="158" width="4"  height="18" fill="#4A3A28"/>
+  <!-- p5 雪堆 c48 -->
+  <rect x="800" y="168" width="16" height="8"  fill="#F4F8FC"/>
+  <rect x="804" y="164" width="8"  height="4"  fill="#F7FAFF"/>
+  <!-- p6 纯雪→冰湖缘（c50..53） -->
+  <rect x="832" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="832" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <rect x="848" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="848" y="176" width="16" height="2"  fill="#FBFDFF"/>
+  <rect x="848" y="168" width="16" height="8"  fill="#F4F8FC"/>
+  <rect x="852" y="164" width="8"  height="4"  fill="#F7FAFF"/>
+  <rect x="864" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="864" y="176" width="16" height="16" fill="#A1C7EF" opacity="0.82"/>
+  <rect x="866" y="181" width="10" height="2"  fill="#D8E8F8" opacity="0.9"/>
+  <rect x="880" y="176" width="16" height="16" fill="#EDF2FA"/>
+  <rect x="880" y="176" width="16" height="16" fill="#A1C7EF" opacity="0.82"/>
+  <rect x="882" y="181" width="10" height="2"  fill="#D8E8F8" opacity="0.9"/>
+
+  <!-- row0 · 雪原纯色段 c54..67（x896..1104，越线后·目标世界） -->
+  <rect x="896"  y="176" width="208" height="16" fill="#EDF2FA"/>
+  <rect x="896"  y="176" width="208" height="2"  fill="#FBFDFF"/>
+  <rect x="912"  y="168" width="16" height="8"  fill="#F4F8FC"/>
+  <rect x="916"  y="164" width="8"  height="4"  fill="#F7FAFF"/>
+  <!-- 雪原云杉 c58 -->
+  <rect x="946"  y="146" width="36" height="12" fill="#2E5D46"/>
+  <rect x="952"  y="134" width="24" height="12" fill="#356650"/>
+  <rect x="958"  y="122" width="12" height="12" fill="#3D7157"/>
+  <rect x="960"  y="118" width="8"  height="4"  fill="#F4F8FC"/>
+  <rect x="964"  y="158" width="4"  height="18" fill="#4A3A28"/>
+  <!-- 雪原冰塘 c62..63 -->
+  <rect x="1024" y="176" width="32" height="16" fill="#A1C7EF" opacity="0.85"/>
+  <rect x="1030" y="181" width="20" height="2"  fill="#D8E8F8"/>
+  <!-- 雪原雪堆 c66 -->
+  <rect x="1088" y="168" width="16" height="8"  fill="#F4F8FC"/>
+  <rect x="1092" y="164" width="8"  height="4"  fill="#F7FAFF"/>
+
+  <!-- 底线（只画到 x1104：远景由雾溶掉，无断面） -->
+  <rect x="32" y="288" width="1072" height="3" fill="#3A4A63"/>
+
+  <!-- ===== 世界尽头 z=0（x896）：越线瞬传线——不画门、不画墙 ===== -->
+  <line x1="896" y1="176" x2="896" y2="288" stroke="#5C7BA8" stroke-width="1.5" stroke-dasharray="4,4" opacity="0.8"/>
+  <text x="896" y="171" font-size="9" fill="#5C7BA8" text-anchor="middle">z=0</text>
+
+  <!-- ===== 比例尺小人（≈2 格）c40，站屏障前 ===== -->
+  <rect x="668" y="144" width="10" height="9"  fill="#F2C9A2"/>
+  <rect x="666" y="153" width="14" height="13" fill="#4A7AB4"/>
+  <rect x="667" y="166" width="5"  height="10" fill="#4A3A28"/>
+  <rect x="674" y="166" width="5"  height="10" fill="#4A3A28"/>
+  <text x="672" y="139" font-size="9" fill="#2A3B55" text-anchor="middle">≈2 格</text>
+
+  <!-- ===== 未解锁屏障＝雪崩堆（c41..43＝z11..13，x688..736；主视图·拍板 8） ===== -->
+  <g>
+    <!-- c41 高3 -->
+    <rect x="688" y="128" width="16" height="48" fill="#EDF2FA"/>
+    <rect x="688" y="128" width="16" height="3"  fill="#FBFDFF"/>
+    <rect x="700" y="128" width="4"  height="48" fill="#D6E2F2"/>
+    <rect x="692" y="158" width="8"  height="8"  fill="#8A6B48"/>
+    <rect x="692" y="124" width="10" height="4"  fill="#F0F5FB"/>
+    <!-- c42 高4 -->
+    <rect x="704" y="112" width="16" height="64" fill="#EDF2FA"/>
+    <rect x="704" y="112" width="16" height="3"  fill="#FBFDFF"/>
+    <rect x="704" y="136" width="16" height="8"  fill="#B9C9DC"/>
+    <rect x="708" y="148" width="8"  height="12" fill="#8A6B48"/>
+    <rect x="716" y="112" width="4"  height="64" fill="#D6E2F2"/>
+    <rect x="706" y="108" width="12" height="4"  fill="#F0F5FB"/>
+    <!-- c43 高3（嵌 B_ICE 冰块=「冻硬了」的闪光点） -->
+    <rect x="720" y="128" width="16" height="48" fill="#EDF2FA"/>
+    <rect x="720" y="128" width="16" height="3"  fill="#FBFDFF"/>
+    <rect x="722" y="146" width="12" height="16" fill="#A1C7EF" opacity="0.85"/>
+    <rect x="724" y="150" width="8"  height="2"  fill="#D8E8F8"/>
+    <rect x="732" y="128" width="4"  height="48" fill="#D6E2F2"/>
+    <rect x="722" y="124" width="10" height="4"  fill="#F0F5FB"/>
+    <!-- 半埋云杉（右基·「雪刚塌下来」的叙事件；截短埋雪，不依赖旋转） -->
+    <rect x="736" y="146" width="24" height="10" fill="#2E5D46"/>
+    <rect x="740" y="138" width="16" height="8"  fill="#356650"/>
+    <rect x="744" y="134" width="8"  height="4"  fill="#F4F8FC"/>
+    <rect x="744" y="156" width="6"  height="8"  fill="#4A3A28"/>
+    <rect x="740" y="162" width="6"  height="8"  fill="#4A3A28"/>
+    <!-- 基部雪堆（左小右大，把底边埋出弧感） -->
+    <rect x="682" y="170" width="10" height="6"  fill="#F4F8FC"/>
+    <rect x="732" y="168" width="40" height="8"  fill="#F4F8FC"/>
+    <rect x="736" y="164" width="32" height="4"  fill="#F7FAFF"/>
+    <!-- 屏障名牌+引线 -->
+    <line x1="746" y1="126" x2="746" y2="142" stroke="#A65446" stroke-width="1" stroke-dasharray="2,2" opacity="0.6"/>
+    <text x="752" y="124" font-size="10" fill="#A65446" font-weight="bold">雪崩堆</text>
+  </g>
+
+  <!-- B_SNOWY_GRASS 块结构标注（指 p3 雪草块） -->
+  <text x="452" y="108" font-size="11" fill="#2A3B55">B_SNOWY_GRASS＝顶雪白 / 侧雪泥过渡 / 底泥（雪堆·云杉为点缀件）</text>
+  <line x1="600" y1="112" x2="600" y2="166" stroke="#2A3B55" stroke-width="1" stroke-dasharray="2,3" opacity="0.5"/>
+
+  <!-- 右端雾罩：盖住远景右缘，世界在雾里收尾 -->
+  <rect x="1420" y="96" width="140" height="193" fill="url(#fogR)"/>
+
+  <!-- ===== 天条文字标注 ===== -->
+  <text x="32" y="26" font-size="17" font-weight="bold" fill="#1F3A5F">T2 · 北向雪原边 概念断面图（草案 v1 · 待用户评审）</text>
+  <text x="32" y="45" font-size="11" fill="#3A5578">designer·北 · 2026-11-06 · 便宜/粗糙/可反应的概念稿（prototype 精神）：只定方向观感，数值与块序在轻量原型实机走查后定稿</text>
+  <text x="32" y="70" font-size="12" font-weight="bold" fill="#1F3A5F">home 天/雾 #8FC7FF</text>
+  <text x="800" y="70" font-size="11" fill="#2A3B55" text-anchor="middle">顶天条：天/雾两端同步 lerp（雾色＝天色）· z=36 起感 → z=6 纯雪原色（天色比脚下先行 12~18 格）</text>
+  <text x="1568" y="70" font-size="12" font-weight="bold" fill="#2A3B55" text-anchor="end">雪原 天/雾 #CCDEF5</text>
+
+  <!-- ===== patch 标尺（带内 6×4 格混铺窗口） ===== -->
+  <rect x="512" y="300" width="384" height="2" fill="#3A4A63"/>
+  <g stroke="#3A4A63" stroke-width="2">
+    <line x1="512" y1="296" x2="512" y2="302"/>
+    <line x1="576" y1="296" x2="576" y2="302"/>
+    <line x1="640" y1="296" x2="640" y2="302"/>
+    <line x1="704" y1="296" x2="704" y2="302"/>
+    <line x1="768" y1="296" x2="768" y2="302"/>
+    <line x1="832" y1="296" x2="832" y2="302"/>
+    <line x1="896" y1="296" x2="896" y2="302"/>
+  </g>
+  <g font-size="10" fill="#3A5578" text-anchor="middle">
+    <text x="544" y="314">p1</text>
+    <text x="608" y="314">p2</text>
+    <text x="672" y="314">p3</text>
+    <text x="736" y="314">p4</text>
+    <text x="800" y="314">p5</text>
+    <text x="864" y="314">p6</text>
+  </g>
+  <text x="904" y="307" font-size="10" fill="#3A5578">← 定稿带宽 24 格＝6 个 4 格 patch（混铺窗口）</text>
+
+  <!-- ===== 分区标签（行A） ===== -->
+  <g font-size="11" fill="#2A3B55" text-anchor="middle">
+    <text x="272"  y="330">home 草原 z≥24（向右＝向北 −z）</text>
+    <text x="704"  y="330">过渡带 z=0..23（混铺渐变·越线前）</text>
+    <text x="1000" y="330">雪原（越线后·目标世界）B_SNOW 纯色段</text>
+    <text x="1350" y="330">远景（雪世界）：云杉林剪影·冰湖·冰崖 — 大件深色·雾中显影</text>
+  </g>
+  <!-- 块序列说明（行B） -->
+  <text x="800" y="346" font-size="11" fill="#2A3B55" text-anchor="middle">块序列 p1→p6：草9:雪1 → 雪草过半+初雪堆 → 雪草/雪对半+孤杉 → 雪:雪草3:1（屏障段）→ 雪+云杉·冰点 → 纯雪→冰湖缘 ｜ 带内实为 4×4 patch 二维混铺，此为一维断面投影</text>
+  <!-- 屏障与尽头（行C） -->
+  <text x="480" y="360" font-size="11" text-anchor="middle"><tspan fill="#A65446" font-weight="bold">▍未解锁屏障＝雪崩堆</tspan><tspan fill="#2A3B55">：B_SNOW 壳＋雪泥芯露头＋B_ICE 冰块＋半埋云杉 ｜ 高3~4格·厚3格·横贯全带宽，无豁口无台阶（不是「能挖开」的样子）</tspan></text>
+  <text x="1160" y="360" font-size="11" fill="#2A3B55" text-anchor="middle">▽ z=0 尽头：越线瞬传（白闪＋音效·T8）— 不画门、不画墙</text>
+
+  <!-- ===== 解锁态对比条（同视角·纵向压缩 2:1，横向同刻度） ===== -->
+  <rect x="0" y="362" width="1600" height="16" fill="url(#sky)"/>
+  <!-- 远景+雾 -->
+  <rect x="1104" y="378" width="456" height="32" fill="url(#vistaGnd)"/>
+  <rect x="1420" y="362" width="140" height="51" fill="url(#fogR)"/>
+  <!-- home -->
+  <rect x="32"  y="378" width="480" height="8"  fill="#6EBD57"/>
+  <rect x="32"  y="386" width="480" height="24" fill="#7A5638"/>
+  <rect x="416" y="378" width="32" height="8"  fill="#4073D9"/>
+  <!-- 过渡带 row0（同块序，屏障位按 p3/p4 配比补齐=通路连续） -->
+  <rect x="512" y="378" width="16" height="8" fill="#6EBD57"/>
+  <rect x="528" y="378" width="16" height="8" fill="#6EBD57"/>
+  <rect x="544" y="378" width="16" height="8" fill="#CBD8E6"/>
+  <rect x="560" y="378" width="16" height="8" fill="#6EBD57"/>
+  <rect x="576" y="378" width="16" height="8" fill="#CBD8E6"/>
+  <rect x="592" y="378" width="16" height="8" fill="#6EBD57"/>
+  <rect x="608" y="378" width="16" height="8" fill="#CBD8E6"/>
+  <rect x="624" y="378" width="16" height="8" fill="#CBD8E6"/>
+  <rect x="640" y="378" width="16" height="8" fill="#CBD8E6"/>
+  <rect x="656" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="672" y="378" width="16" height="8" fill="#CBD8E6"/>
+  <rect x="688" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="704" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="720" y="378" width="16" height="8" fill="#CBD8E6"/>
+  <rect x="736" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="752" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="768" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="784" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="800" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="816" y="378" width="16" height="8" fill="#A1C7EF" opacity="0.82"/>
+  <rect x="832" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="848" y="378" width="16" height="8" fill="#EDF2FA"/>
+  <rect x="864" y="378" width="16" height="8" fill="#A1C7EF" opacity="0.82"/>
+  <rect x="880" y="378" width="16" height="8" fill="#A1C7EF" opacity="0.82"/>
+  <rect x="512" y="386" width="384" height="12" fill="#B9C9DC"/>
+  <rect x="512" y="398" width="384" height="12" fill="#7A5638"/>
+  <!-- 小杉两株 -->
+  <rect x="638" y="366" width="16" height="6"  fill="#2E5D46"/>
+  <rect x="642" y="362" width="8"  height="4"  fill="#356650"/>
+  <rect x="644" y="372" width="3"  height="6"  fill="#4A3A28"/>
+  <rect x="784" y="366" width="16" height="6"  fill="#2E5D46"/>
+  <rect x="788" y="362" width="8"  height="4"  fill="#356650"/>
+  <rect x="790" y="372" width="3"  height="6"  fill="#4A3A28"/>
+  <!-- 雪原 -->
+  <rect x="896"  y="378" width="208" height="8"  fill="#EDF2FA"/>
+  <rect x="896"  y="386" width="208" height="12" fill="#C9D6E4"/>
+  <rect x="896"  y="398" width="208" height="12" fill="#7A5638"/>
+  <rect x="1024" y="378" width="32" height="8" fill="#A1C7EF" opacity="0.85"/>
+  <!-- 原屏障位：绿=开放（借 MC 边界三态色语言） -->
+  <g stroke="#40FF80" stroke-width="2" stroke-dasharray="3,3">
+    <line x1="688" y1="378" x2="688" y2="410"/>
+    <line x1="736" y1="378" x2="736" y2="410"/>
+  </g>
+  <path d="M 706 389 L 712 380 L 718 389 Z" fill="#40FF80"/>
+  <text x="712" y="376" font-size="9" fill="#1E7A45" text-anchor="middle">原屏障位</text>
+  <!-- 尽头线（两态都在：它是传送线不是墙） -->
+  <line x1="896" y1="378" x2="896" y2="410" stroke="#5C7BA8" stroke-width="1.2" stroke-dasharray="3,3" opacity="0.8"/>
+  <!-- 底线 -->
+  <rect x="32" y="410" width="1072" height="3" fill="#3A4A63"/>
+  <!-- 对比条标题 -->
+  <text x="32" y="373" font-size="11" font-weight="bold" fill="#1F3A5F">解锁态对比（同视角·纵向压缩 2:1）：屏障消失 → 通路直通雪原</text>
+  <text x="1568" y="373" font-size="10" fill="#2A3B55" text-anchor="end">绿＝开放（借 MC 边界三态色语言）</text>
+
+  <!-- 底注 -->
+  <text x="32" y="419" font-size="9" fill="#5A6E8C">概念稿供方向评审 · 两步走第二步（轻量原型）实机走查后定稿 · 不含任何代码改动 · 带内可挖可建，唯屏障件受保护（T6 v2 · 2026-11-06）</text>
+  <text x="1568" y="419" font-size="9" fill="#5A6E8C" text-anchor="end">palette：home 草#6EBD57·天#8FC7FF·水#4073D9 ｜ 雪原 地#EDF2FA·天#CCDEF5·冰湖#A1C7EF</text>
+</svg>

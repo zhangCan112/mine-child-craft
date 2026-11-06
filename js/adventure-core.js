@@ -59,7 +59,12 @@
       黑巢主巢 ADV_NESTS[3](den 旗标行)/ADV_DEN_NEST_DOOR(洞口涌出锚点)
       ——维度专属段(ADV_NETHER/advNetherBuild/ADV_ERUPT/advEruptStep/
       ADV_DEN/advDenBuild/副本刷怪四件套/advMusicMood)已迁
-      js/adventure-dims-core.js(2026-10-30, docs/dimension-registry-design.md)
+      js/adventure-dims-core.js(2026-10-30, docs/dimension-registry-design.md) ·
+      四方向过渡带(〔边界原型·T2~T5〕, docs/world-edge-design/*-spec.md 轻量原型):
+      ADV_EDGE_SKY 天/雾锚点表·advEdgeSkyAt(按玩家到边距离的分段 lerp+主导边
+      混合, 纯函数)·advBuildEdgeBands(带内地表确定性改写+屏障件+远景剪影, home
+      图专属, advBuildWorld 总装内建)·advEdgeBarriersHidden(?edgeUnlocked=1
+      走查开关, 壳写入——隐藏三向屏障件供对比走查)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
       advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——advNestStep 薄壳/
       advNightStepPool 组装消费, 加载序先于本文件) · config.js 的
@@ -91,19 +96,26 @@ const ADV_PITS = [ /* 露天矿坑: 阶梯漏斗坑(每级 1 格 — 玩家跳�
 /* 山洞: 2 宽台阶隧道 y23→y3, 穴室镶钻; T5 洞口挪北边缘 (62,10), 隧道**向南**深潜
    (原隧道向北 zStart72→zEnd52, 方向反转——穴室 z30 在最深处), 深险圈入口 */
 const ADV_CAVE = {x1: 61, x2: 62, zStart: 10, steps: 20, y0: 23, zEnd: 30};
-const ADV_NESTS = [ /* 怪物巢穴位点(土丘洞穴): 难度序 = 距小屋由近到远(设计稿 §2.4 巢穴梯度, 单测锁单调递增);
+const ADV_NESTS = [ /* 怪物巢穴位点(土丘洞穴): 难度序 = 三普通巢距小屋由近到远(设计稿 §2.4 巢穴梯度,
+  单测只锁普通巢单调递增——黑巢 2026-11-06 迁西带后难度移交门序, 见下行 den 行);
   kinds=本巢刷怪池(主打种在前, 重复即权重), 节律见巢穴战斗段(T14);
   den:true = 黑巢主巢(docs/den-nest-design.md §2)——地表巨丘+深洞道+巢厅巢之心,
   建场走 advBuildDenNest 分派(普通巢走 advBuildNest), 刷怪/AI/避让与普通巢同机制 */
   {x: 44, z: 60, kinds: ['zombie', 'zombie', 'skeleton']}, /* 近巢·资源圈: 僵尸一家(温和) */
   {x: 96, z: 36, kinds: ['spider', 'spider', 'zombie']}, /* 中巢·矿业圈: 虫虫族主打蜘蛛 */
   {x: 20, z: 16, kinds: ['creeper', 'creeper', 'spider']}, /* 远巢·深险圈: 草木族苦力怕(最难) */
-  {x: 100, z: 8, den: true, kinds: ['cave_spider', 'zombie', 'skeleton']}, /* 黑巢·深险圈北缘:
+  {x: 26, z: 72, den: true, kinds: ['cave_spider', 'zombie', 'skeleton']}, /* 黑巢·沼泽门(西带入口段):
       主巢(副本入口)。cave_spider 首秀=它的家(den-nest D7, MC 刷怪笼地牢正典);
-      洞口涌出锚点 door 在丘南敞廊外(夜袭涌出的出生点, 节拍见 ADV_ERUPT 段) */
+      洞口涌出锚点 door 在丘南敞廊外(夜袭涌出的出生点, 节拍见 ADV_ERUPT 段)。
+      2026-11-06 走查修订: 自北带东段 (100,8) 迁驻西带——苦力怕的副本蹲雪山边不合理,
+      改驻沼泽门(西 spec 走查修订段)。落位口径: 丘体 r5 全在带内(x21..31)且裙边
+      离深水带 k13~18 两格外(x21>18), 避高脚木屋(x0~4,z22~26)/铁坑压平圈(24,44),
+      丘心 z72 偏北于 home 中轴(z≈81)——从家看得见, 不挡西向观感主轴; 副本难度
+      改由「沼泽门=门阵解锁链末环」承担, 不再由距小屋距离梯度承担 */
 ];
-const ADV_DEN_NEST_DOOR = {x: 100.5, z: 15.5}; /* 黑巢洞口外涌出点(夜怪从洞里爬出来的落位,
-    敞廊南缘外 2 格——出生即「爬出洞口」观感, 家锚=洞口在壳层挂) */
+const ADV_DEN_NEST_DOOR = {x: ADV_NESTS[3].x + 0.5, z: ADV_NESTS[3].z + 7.5}; /* 黑巢洞口外涌出点(夜怪从洞里爬出来的落位,
+    敞廊南缘外 2 格——出生即「爬出洞口」观感, 家锚=洞口在壳层挂)。
+    派生自 ADV_NESTS[3](单一权威, 不抄第二份坐标)——2026-11-06 副本迁驻西带, 锚随表走 */
 /* 四矿物深度带(D5: 煤 y12~20 簇 4-8 · 铁 y6~16 簇 3-5 · 金 y2~10 簇 2-3 · 钻 y0~5 簇 1-2)
    p=种子点密度(每列), 盐值分层避免矿种互相踩散列 */
 const ADV_ORES = [
@@ -425,7 +437,7 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
   }
   setBlockRaw(n.x - 1, 22, n.z + 6, 3);
   setBlockRaw(n.x, 22, n.z + 6, 3);
-  /* 进厅台阶(z25~28, y11→y8, 1 格级) + 巢厅(9×7, 地板 y7 填石/腔 y8~11 掏空) */
+  /* 进厅台阶(巢心 z+17..z+20, y11→y8, 1 格级) + 巢厅(9×7, 地板 y7 填石/腔 y8~11 掏空) */
   for (let i = 12; i <= 15; i++) {
     const z = n.z + 5 + i;
     const y = 23 - i; /* i=12→y11 · i=15→y8(曾误写 35-i: 台阶铺到地表层, 洞道→厅断桥) */
@@ -435,7 +447,7 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
     }
   }
   SceneKit.fill(n.x - 4, 7, n.z + 16, n.x + 4, 7, n.z + 22, 3); /* 厅地板 */
-  SceneKit.fill(n.x - 4, 8, n.z + 17, n.x + 4, 11, n.z + 22, 0); /* 厅腔(z25..30)——北墙 z24 保留:
+  SceneKit.fill(n.x - 4, 8, n.z + 17, n.x + 4, 11, n.z + 22, 0); /* 厅腔(巢心 z+17..z+22)——北墙(z+16)保留:
       洞道末步垫底不被掏(洞道→台阶→厅的 1 格级动线完整, 不出「直接掉进厅」) */
   /* 厅台阶重铺(厅腔 fill 在台阶之后跑, 掏空了前两步垫底——垫块须回铺):
      z+17 顶 y10(站 11)·z+18 顶 y9(站 10)·z+19 顶 y8(站 9, x 列同格由巢之心占位=
@@ -444,7 +456,7 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
   setBlockRaw(n.x, 10, n.z + 17, 3);
   setBlockRaw(n.x - 1, 9, n.z + 18, 3);
   setBlockRaw(n.x, 9, n.z + 18, 3);
-  setBlockRaw(n.x - 1, 8, n.z + 19, 3); /* 台阶末块(x100 同格是巢之心) */
+  setBlockRaw(n.x - 1, 8, n.z + 19, 3); /* 台阶末块(东邻格同层即巢之心) */
   setBlockRaw(n.x, 8, n.z + 19, B_SPAWNER); /* 怪物巢穴之心: 巢厅地标(2026-10-30 起不再
       判定副本入口——入口已迁洞口紫门), 立在厅地板上的凸格(腔第一层) */
   setBlockRaw(n.x - 3, 8, n.z + 21, B_GLOWSTONE); /* 角落微光路标 */
@@ -488,7 +500,11 @@ function advInRect(x, z, r) {/* 矩形含界判据(建场件占位/避让共用,
 }
 
 function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含洞口小丘)/巢穴/门阵广场/农田/围栏/小径(T5 建场件全避)
-  + 2026-10-27 扩容新增(松林圈让位给针叶松/望塔/石阵/花田/南池——橡树不进新元素场) */
+  + 2026-10-27 扩容新增(松林圈让位给针叶松/望塔/石阵/花田/南池——橡树不进新元素场)
+  + 〔边界原型·T2~T5〕四方向过渡带——橡树不进带: 首跑观测 56 棵有 33 棵落带内
+  (雪原橡树/沙面橡树/西带水面立树/穿沙暴墙), 「少数过渡杂木」前提不成立且破
+  「树脚下草皮」不变量; 带内树由带建场件自管(云杉/孤杉/圆冠树同 spec 语言) */
+  if (z <= 23 || z >= 128 || x <= 31 || x >= 128) return true;
   const h = ADV_HUT;
   if (x >= h.x1 - 2 && x <= h.x2 + 2 && z >= h.z1 - 2 && z <= h.z2 + 2) return true;
   if (Math.hypot(x - ADV_LAKE.cx, z - ADV_LAKE.cz) <= ADV_LAKE.r + 2) return true;
@@ -791,10 +807,861 @@ function advScatterFlowers() {/* 花丛草场(T5, §2.4 核心圈): 蒲公英黄
   }
 }
 
+/* ============================================================
+   〔边界原型·T2~T5〕四方向过渡带（观感件, 走查用, T7 转正收编）
+   ------------------------------------------------------------
+   docs/world-edge-design/{north,south,west,east}-spec.md 的轻量游戏内原型:
+   带内地表渐变(确定性改写) + 未解锁屏障件(雪崩堆/沙暴墙静态化/迷雾深水带/
+   东向栅栏+告示牌拼块) + 远景剪影。红线: 零 Math.random(散布全走
+   SceneKit.rand 坐标哈希, 两次建场逐字节一致); 带是 home 图专属(总装只挂
+   advBuildWorld, 三张远征图不挂); 机制(边缘传送/白闪/音效/未解锁判定与拦截/
+   屏障保护旗标/存档档形)一律不做, 归 T7/T8。
+   落位坐标口径: 北=−z 带 z∈[0,24) 全 x · 南=+z 带 z∈[128,160) 全 x ·
+   西=−x 带 x∈[0,32) 全 z · 东=+x 带 x∈[128,159](栅栏线 x157/隔离带 x158~159),
+   世界 160×160×48。
+   地表改写守卫: 只换「草皮顶块」(id 1)——巢丘/洞口小丘/矿坑/铺装/水面天然不碰;
+   南花海(ADV_MEADOW)加豁免圈(沙化毁花海)。〔2026-11-06 迁注〕黑巢巨丘原踞北屏障线
+   充天然续障, 迁西带腹地(26,72)后不再承担屏障——丘基草皮被西带改写换装成泥面
+   (「黑巢从沼泽里长出来」, 见 west-spec 走查修订段)。
+   ============================================================ */
+
+let advEdgeBarriersHidden = false; /* 屏障隐藏走查开关(壳读 ?edgeUnlocked=1 写入,
+   建场前置位即全屏隐藏三向屏障; 东向栅栏无解锁语义不随此开关) */
+function advSetEdgeBarriersHidden(v) {
+  advEdgeBarriersHidden = !!v;
+} /* 唯一写入口:
+   壳与各测试域经导出消费(模块 let 不随 exports 过 vm/Node 域墙——showroom/
+   adventure-mode 直写会 ReferenceError; 浏览器共享词法下同归此口) */
+
+/* ---------- 天/雾锚点表与混合纯函数(壳层经 world.js setSkyBase 缝消费) ---------- */
+
+const ADV_EDGE_HOME_SKY = [0.56, 0.78, 1]; /* home 纯天/纯雾 #8FC7FF */
+
+/* 行格式: [到边距离 d(格), 天色 hex, 雾浓度 0..1, 雾色 hex|null(缺省随天色)],
+   d 降序; 全部数值逐字取自各 spec 锚点表(北 §3/南 §3/西 §3; 东向 §4 拍板
+   「保持 home 天色不做全带渐变」, 只留栅栏前雾起的走查校准档) */
+const ADV_EDGE_SKY = {
+  north: [[36, 0x8fc7ff, 0, null], [24, 0xa7d0fb, 0.15, null],
+    [12, 0xc0d9f7, 0.35, null], [6, 0xccdef5, 0.55, null], [0, 0xccdef5, 1, null]],
+  south: [[32, 0x8fc7ff, 0, null], [16, 0xbaccce, 0.25, null], [0, 0xe6d19e, 0.55, null]],
+  west: [[68, 0x8fc7ff, 0, null], [40, 0x8ac0f4, 0.08, null], [24, 0x93b3d8, 0.3, null],
+    [15, 0x9ea8a3, 0.88, 0xbcc5bf], [8, 0x9ea8a3, 0.9, 0xbcc5bf], [2, 0x9ea8a3, 1, 0xbcc5bf]],
+  east: [[36, 0x8fc7ff, 0, null], [8, 0x8fc7ff, 0.2, null], [2, 0x8fc7ff, 0.5, null]],
+};
+
+function advEdgeRgb(hex) {/* hex → [r,g,b](0..1) */
+  return [(hex >> 16 & 255) / 255, (hex >> 8 & 255) / 255, (hex & 255) / 255];
+}
+
+function advEdgeRowsAt(rows, d) {/* 分段线性: d 落在相邻锚点间按比例插值, 两端 clamp */
+  if (d >= rows[0][0]) {
+    const r = rows[0];
+    return {sky: advEdgeRgb(r[1]), fog: r[2], fogC: advEdgeRgb(r[3] !== null ? r[3] : r[1])};
+  }
+  for (let i = 0; i < rows.length - 1; i++) {
+    const a = rows[i]; const b = rows[i + 1];
+    if (d > b[0]) {
+      const t = (a[0] - d) / (a[0] - b[0]);
+      const mix = (x, y) => x + (y - x) * t;
+      const sa = advEdgeRgb(a[1]); const sb = advEdgeRgb(b[1]);
+      const fa = advEdgeRgb(a[3] !== null ? a[3] : a[1]);
+      const fb = advEdgeRgb(b[3] !== null ? b[3] : b[1]);
+      return {sky: [mix(sa[0], sb[0]), mix(sa[1], sb[1]), mix(sa[2], sb[2])],
+        fog: mix(a[2], b[2]),
+        fogC: [mix(fa[0], fb[0]), mix(fa[1], fb[1]), mix(fa[2], fb[2])]};
+    }
+  }
+  const r = rows[rows.length - 1];
+  return {sky: advEdgeRgb(r[1]), fog: r[2], fogC: advEdgeRgb(r[3] !== null ? r[3] : r[1])};
+}
+
+function advEdgeSkyAt(x, z) {/* 玩家位 → 边界天/雾观感(纯函数, 单测可断言)。
+  混合口径(保守, 登记归 T7 复核): 四方向各算进度 t∈[0,1], 取 t 最大者为主导边
+  ——角部两带同时邻边时只表现更近的一条边, 不叠加混色(north-spec §1 留口的
+  「四角重叠归属」在观感上的最小裁定; 同分按北/南/西/东检序取先) */
+  const cand = [['north', z], ['south', WORLD_D - 1 - z], ['west', x], ['east', WORLD_W - 1 - x]];
+  let best = null;
+  for (const [dir, d] of cand) {
+    const rows = ADV_EDGE_SKY[dir];
+    const t = (rows[0][0] - d) / (rows[0][0] - rows[rows.length - 1][0]);
+    if (t <= 0) continue;
+    if (!best || t > best.t) best = {dir, d, t: Math.min(1, t)};
+  }
+  if (!best) return {dir: null, sky: ADV_EDGE_HOME_SKY, fog: 0, fogC: ADV_EDGE_HOME_SKY};
+  const m = advEdgeRowsAt(ADV_EDGE_SKY[best.dir], best.d);
+  return {dir: best.dir, sky: m.sky, fog: m.fog, fogC: m.fogC};
+}
+
+/* ---------- 带内地表确定性改写(共享缝) ---------- */
+
+const ADV_EDGE_KEEP = [ /* 带内豁免圈: 观感件不被带覆盖(南花海——沙化毁花海) */
+  {cx: ADV_MEADOW.cx, cz: ADV_MEADOW.cz, r: ADV_MEADOW.r + 1},
+];
+function advEdgeKeep(x, z) {
+  for (const c of ADV_EDGE_KEEP) if (Math.hypot(x - c.cx, z - c.cz) <= c.r) return true;
+  return false;
+}
+
+function advEdgeRewrite(x1, x2, z1, z2, pick) {/* 矩形带内草皮顶块确定性改写:
+  pick(x,z) 返回 [地表 id, 垫底 id]; B_ICE 特例=冰面下垫水+泥(雪原湖先例) */
+  for (let x = x1; x <= x2; x++) {
+    for (let z = z1; z <= z2; z++) {
+      if (advEdgeKeep(x, z)) continue;
+      const top = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, top, z) !== 1) continue; /* 只换草皮(结构/坑/水天然不碰) */
+      const pair = pick(x, z);
+      setBlockRaw(x, top, z, pair[0]);
+      if (pair[1]) setBlockRaw(x, top - 1, z, pair[1]);
+      if (pair[0] === B_ICE) {
+        setBlockRaw(x, top - 1, z, B_WATER);
+        setBlockRaw(x, top - 2, z, 2);
+      }
+    }
+  }
+}
+
+function advEdgeSurfaceId(x, z) {/* 列表面块 id(带内装饰守卫用) */
+  return getBlock(x, ADV_GROUND + advHeightAt(x, z), z);
+}
+
+function advEdgeDecorate(x, z, id) {/* 顶上无物才落(草丛/花同款判据); 脚下须实感地面 */
+  const top = ADV_GROUND + advHeightAt(x, z);
+  const sid = getBlock(x, top, z);
+  if (sid === 0 || sid === B_WATER) return false;
+  if (getBlock(x, top + 1, z) !== 0) return false;
+  setBlockRaw(x, top + 1, z, id);
+  return true;
+}
+
+/* ---------- 北带·雪原(z∈[0,24), 6 patch 序, 北 spec §2/§4/§5) ---------- */
+
+function advEdgeNorthSurface(x, z) {/* patch 表(2026-11-06 走查修订: 植物过渡节奏)——
+  草85:雪草15 → 草45:雪草55 → 雪60:雪草40 → 纯雪 → 纯雪→冰湖缘(每 patch 独立盐值,
+  混铺在 4×4 patch 窗口内交错): 草皮占比沿 z 递减, home 草丛/花(「脚下草皮」判据)
+  随之在带内自然渐稀——植物过渡发生在带内而非带缘一刀切 */
+  const k = Math.floor((23 - z) / 4); /* 0..5 = p1..p6 */
+  const r = SceneKit.rand(x, z, 8101 + k);
+  if (k === 0) return r < 0.15 ? [B_SNOWY_GRASS, 0] : [1, 0];
+  if (k === 1) return r < 0.55 ? [B_SNOWY_GRASS, 0] : [1, 0];
+  if (k === 2) return r < 0.6 ? [B_SNOW, 0] : [B_SNOWY_GRASS, 0];
+  if (k === 3) return [B_SNOW, 0];
+  if (k === 4) return [B_SNOW, 0];
+  /* p6: 冰湖缘——z 越北冰越多, z0 整行成镜面横带(远景「冰湖横带」的带内落地) */
+  if (z === 0) return [B_ICE, 0];
+  return SceneKit.rand(x, z, 8106) < 0.3 + (3 - z) * 0.1 ? [B_ICE, 0] : [B_SNOW, 0];
+}
+
+function advEdgeNorthStand(x, z) {/* 带内材质守卫(装饰只落雪原面上); 黑巢 POI 圈不落
+  ——巢丘/敞廊是副本门脸, 装饰杉冠会顶高入口剖面列(观感守); 半径 9 = ADV_FLATS
+  黑巢压平圈同款。黑巢 2026-11-06 走查修订迁驻西带(26,72), 本圈随 ADV_NESTS 表键
+  自动跟走、北带内已是无害空转——原样保留, 防表键回迁时北带装饰失守 */
+  if (Math.hypot(x - ADV_NESTS[3].x, z - ADV_NESTS[3].z) <= 9) return false;
+  const sid = advEdgeSurfaceId(x, z);
+  return sid === B_SNOW || sid === B_SNOWY_GRASS || sid === B_ICE;
+}
+
+function advEdgeNorthPile(x, z) {/* 雪堆: 单块雪 */
+  if (!advEdgeNorthStand(x, z)) return;
+  advEdgeDecorate(x, z, B_SNOW);
+}
+
+function advEdgeNorthSpruce(x, z, salt) {/* 寒带落雪杉(advPineTree 同语言冠架): 原木干+
+  锥形叶冠, 冠顶帽与冠肩两层正交位盖 B_SNOW——「落满雪的针叶树」观感, 零新贴图
+  (2026-11-06 走查修订: 雪原里绿树不合理, 全带杉一律落雪, 角叶留绿透针叶底色)。
+  雪根座: 干基先垫雪(洼地越深垫越高), 干基恒 ≥y26——雪原杉永不呈现「y25/26
+  双格原木干柱」剖面, 树根埋雪堆也合寒带语义, 不与家园侧选树/砍树级联口径相撞 */
+  const sid = advEdgeSurfaceId(x, z);
+  /* 草皮也接(只此一件放宽 stand): 渐衰草皮上的雪杉=过渡带「树线」语义;
+     其余建造面(巢丘/敞廊/水/裸岩)照旧排除 */
+  if (sid !== 1 && sid !== B_SNOWY_GRASS && sid !== B_SNOW && sid !== B_ICE) return;
+  if (advEdgeNorthMountainH(x, z) > 0) return; /* 山体足迹不落杉(几何同一权威) */
+  const hgt = advHeightAt(x, z);
+  const top = ADV_GROUND + hgt;
+  if (getBlock(x, top + 1, z) !== 0) return;
+  const ped = 1 + Math.max(0, -hgt); /* 雪根座: 高度场 -n → 垫 n+1 层 */
+  for (let i = 1; i <= ped; i++) setBlockRaw(x, top + i, z, B_SNOW);
+  advPineTree(x, top + ped + 1, z, salt);
+  /* 与 advPineTree 同式复算干高: 冠顶(crown)与冠肩(crown-1)的正交四叶换雪
+     (只覆叶不覆干, 读到的叶才换), 顶帽换雪 */
+  const crown = top + ped + 1 + (4 + Math.floor(SceneKit.rand(x + 7, z + 3, salt) * 3));
+  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
+    if (getBlock(x + dx, crown, z + dz) === 7) setBlockRaw(x + dx, crown, z + dz, B_SNOW);
+    if (getBlock(x + dx, crown - 1, z + dz) === 7) setBlockRaw(x + dx, crown - 1, z + dz, B_SNOW);
+  }
+  setBlockRaw(x, crown + 1, z, B_SNOW);
+}
+
+function advEdgeNorthMountainH(x, z) {/* 山体格高纯函数(0=足迹外): 峰高/半宽/脊线段锚
+  插值 + t^2.6 凹坡剖面, 东端收势同款折算——Barrier 建体与 Dress 落杉共用同一
+  几何权威(杉不落足迹: 干埋石里会让「砍树重建复活半截山」成为级联红线破绽) */
+  if (x < 0 || x >= WORLD_W || z < 1 || z > 23) return 0;
+  const s = Math.min(9, Math.floor(x / 16));
+  const f = (x - s * 16) / 16;
+  const H0 = 13 + Math.floor(SceneKit.rand(s, 0, 8141) * 6);
+  const H1 = 13 + Math.floor(SceneKit.rand(s + 1, 0, 8141) * 6);
+  const W0 = 5 + Math.floor(SceneKit.rand(s, 1, 8142) * 3);
+  const W1 = 5 + Math.floor(SceneKit.rand(s + 1, 1, 8142) * 3);
+  const Z0 = 9 + Math.floor(SceneKit.rand(s, 2, 8143) * 3);
+  const Z1 = 9 + Math.floor(SceneKit.rand(s + 1, 2, 8143) * 3);
+  let H = Math.round(H0 + (H1 - H0) * f);
+  const W = Math.round(W0 + (W1 - W0) * f);
+  const zc = Math.round(Z0 + (Z1 - Z0) * f);
+  if (x >= 144) H = Math.round(H * Math.max(0, 1 - (x - 144) / 13));
+  const dz = Math.abs(z - zc);
+  if (dz >= W) return 0;
+  return Math.max(0, Math.round(H * Math.pow((W - dz) / W, 2.6)));
+}
+
+function advEdgeNorthBarrier() {/* 未解锁屏障=巍峨高山脊(北 spec §4, 2026-11-06 走查修订
+  替换雪崩堆矮丘——用户反馈「雪山也是墙的感觉, 要巍峨高山、有爬的欲望」):
+  连绵山脊横贯全带, 每 16 列一段锚(峰高 13~18 / 半宽 5~7 / 脊线 z 9~11 微蜿蜒),
+  段间线性插值=山势起伏无锯齿; 剖面几何唯一权威=advEdgeNorthMountainH(纯函数)。
+  剖面为凹坡: 南麓起步 1~2 级 1 格缓阶(看得见脚点=「爬的欲望」), 随即升到 ≥2
+  格级差(本游戏跳跃约 1 格, 翻不过——屏障语义不变, 保护旗标归 T7, 本原型可挖)。
+  雪顶石身: 石芯(id 3)+顶盖 B_SNOW 1~3 层随峰高加厚, 檐下缘散 B_ICE 冻舌;
+  南麓碎石坡(雪堆/裸石)稀疏点景。东端 x144 起峰高线性收没(让位东带栅栏/小镇
+  天际线, x157 后山体退场)。豁免走地表守卫天然让位: 巢丘(土面)/山洞口小丘
+  (泥面)/两处敞廊(空气面)不落山体——洞口与洞道从山体鞍部/山腹穿过(山压洞顶=
+  「山腹隧道」观感, 动线零改动)。盐值 8141~8145(北带 81xx 段未用位, 旧雪崩堆
+  8131/8132 随件退役)。 */
+  if (advEdgeBarriersHidden) return;
+  for (let x = 0; x < WORLD_W; x++) {
+    for (let z = 1; z <= 23; z++) {
+      const h = advEdgeNorthMountainH(x, z);
+      if (h <= 0) continue;
+      const top = ADV_GROUND + advHeightAt(x, z);
+      const sid = getBlock(x, top, z);
+      if (sid !== B_SNOW && sid !== B_SNOWY_GRASS && sid !== B_ICE) continue;
+      const cap = h >= 11 ? 3 : (h >= 7 ? 2 : 1); /* 雪盖随峰高: 高峰 3 层矮峰 1 层 */
+      for (let i = 1; i <= h; i++) {
+        let id = 3; /* 石身 */
+        if (i > h - cap) {
+          id = B_SNOW; /* 顶盖雪 */
+        } else if (i > h - cap - 2 && SceneKit.rand(x, z + i * 7, 8144) < 0.15) {
+          id = B_ICE; /* 檐下冻舌: 雪线正下方偶发冻结带 */
+        }
+        setBlockRaw(x, top + i, z, id);
+      }
+    }
+    /* 南麓碎石坡: 山足外缘稀疏雪包/裸石(寒带点景, 顶上无物才落; 山足行从
+       MountainH 剖面反推, 与山体几何同一权威) */
+    if (SceneKit.rand(x, 0, 8145) < 0.1) {
+      let foot = 0;
+      for (let z = 23; z >= 1; z--) {
+        if (advEdgeNorthMountainH(x, z) > 0) {
+          foot = z;
+          break;
+        }
+      }
+      const zr = foot + 1 + Math.floor(SceneKit.rand(x, 1, 8145) * 2);
+      if (foot > 0 && zr <= 23) {
+        advEdgeDecorate(x, zr, SceneKit.rand(x, 2, 8145) < 0.5 ? B_SNOW : 3);
+      }
+    }
+  }
+}
+
+function advEdgeNorthDress() {/* p1~p3 装饰件(北 spec §2 表 2026-11-06 走查修订):
+  160 列分 10 窗, 每窗按密度落位, 窗内坐标散列决定(确定性); 植物过渡节奏与地表
+  查表联动——z19~21 草缘零星雪堆(home 植物渐稀处寒带件登场), z16~18 山根孤杉+
+  雪堆, z13~15 坡麓云杉+雪堆(寒带植被渐密; 命中山体足迹的杉由落杉守卫自动跳过
+  =树线贴着山根走); 全带杉一律落雪(冠盖见 advEdgeNorthSpruce); 旧 p5 冰点随
+  山体占地并入取消 */
+  const fR = (w, k, salt, n) => Math.floor(SceneKit.rand(w, k, salt) * n);
+  for (let w = 0; w < 10; w++) {
+    const bx = w * 16;
+    advEdgeNorthPile(bx + fR(w, 1, 8111, 16), 19 + fR(w, 2, 8111, 3)); /* p1 草缘初雪堆 */
+    advEdgeNorthSpruce(bx + fR(w, 3, 8121, 16), 16 + fR(w, 4, 8121, 3), 8122); /* p2 山根孤杉(落雪) */
+    advEdgeNorthPile(bx + fR(w, 5, 8123, 16), 16 + fR(w, 6, 8123, 3)); /* p2 雪堆 */
+    advEdgeDecorate(bx + fR(w, 7, 8125, 16), 15 + fR(w, 8, 8125, 6), 3); /* 裸石: 寒带碎石点景 */
+    advEdgeNorthSpruce(bx + fR(w, 9, 8126, 16), 14 + fR(w, 10, 8126, 3), 8124); /* p3 坡麓云杉(落雪) */
+    advEdgeNorthPile(bx + fR(w, 11, 8127, 16), 13 + fR(w, 12, 8127, 3)); /* p3 雪堆 */
+    advEdgeNorthPile(bx + fR(w, 13, 8133, 16), 1 + fR(w, 14, 8133, 3)); /* p6 冰湖缘雪堆(山北麓) */
+  }
+}
+
+function advEdgeNorthFar() {/* 远景剪影(北 spec §5, 2026-11-06 走查修订): 主剪影已是
+  高山脊本体(见 advEdgeNorthBarrier), 本段只留山脚点景——落雪云杉 3 株+冰崖一件
+  (B_ICE 崖身+雪盖, 山足冰川舌)+远排小杉, 全部地形生成物, 零新贴图 */
+  advEdgeNorthSpruce(80, 3, 8134);
+  advEdgeNorthSpruce(86, 2, 8135);
+  advEdgeNorthSpruce(92, 3, 8136);
+  /* 冰崖: 崖身 3~4 高 + 雪盖(z0..2 在山体足迹外, 山脚下临冰湖) */
+  for (let x = 40; x <= 43; x++) {
+    for (let z = 0; z <= 2; z++) {
+      if (!advEdgeNorthStand(x, z)) continue;
+      const top = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, top + 1, z) !== 0) continue;
+      const h = 3 + ((x + z) % 2 === 0 ? 1 : 0);
+      for (let i = 1; i <= h; i++) setBlockRaw(x, top + i, z, B_ICE);
+      setBlockRaw(x, top + h + 1, z, B_SNOW);
+    }
+  }
+  for (let x = 118; x <= 142; x += 6) advEdgeNorthSpruce(x, 2, 8137 + x); /* 远排小杉——
+    z=2 起(非 z=1): setBlockRaw 无界检查, z=1 的冠层 dz=-2 会把叶子写进 z=-1,
+    平面数组下标回卷落南缘 z159 行(污染南带+破确定性); z=2 起冠层贴 z0 冰面
+    走真实空气守卫; 山体足迹 z≥3 且 z3 处剖面值恒 0, 本排不受山体影响 */
+}
+
+function advEdgeNorth() {
+  advEdgeRewrite(0, WORLD_W - 1, 0, 23, advEdgeNorthSurface);
+  advEdgeNorthDress();
+  advEdgeNorthBarrier();
+  advEdgeNorthFar();
+}
+
+/* ---------- 南带·沙漠(z∈[128,160), 32 列查表, 南 spec §2/§4) ---------- */
+
+const ADV_EDGE_SOUTH_ROW = 'GGGGSGGSSGSSSSSSSSSSSSSSSWWSSSS'; /* b0..31 查表(spec §2 权威
+  + 走查反馈修订 2026-11-06): G=保留草皮 S=沙(8) W=绿洲水+沙底; 沙斑点注释与 §3
+  「b4 才见沙斑」以查表为准; 修订: b13 草残点改沙——apron z139..143 全裸沙不落件
+  (防垫脚/搭桥翻丘, 见 south-spec 走查反馈修订·修订1) */
+function advEdgeSouthSurface(x, z) {
+  const c = ADV_EDGE_SOUTH_ROW[z - 128];
+  if (c === 'G') return [1, 0];
+  if (c === 'S') return [8, 0];
+  return [B_WATER, 8]; /* W */
+}
+
+function advEdgeSouthSwell(x, z) {/* 背风沙海起伏高度(z148..159): 双正弦叠加取整 0..3,
+  0=丘间洼地(远端零星绿意的落点); 确定性纯函数, 与主脊线合成「一大片沙丘丘原」 */
+  if (z < 148 || z > 159) return 0;
+  const sw = 1.6 * Math.sin(x * 0.083 + z * 0.19 + 2.1) + 1.2 * Math.sin(x * 0.031 + 0.7);
+  return Math.max(0, Math.round(sw));
+}
+
+function advEdgeSouthTop(x, z) {/* 带内柱顶(地形 + 沙海堆高): 丘区饰件/露头坐落基准 */
+  return ADV_GROUND + advHeightAt(x, z) + advEdgeSouthSwell(x, z);
+}
+
+function advEdgeSouthCrest(x) {/* 主脊线高度场(4..10): 双正弦不同周期叠加, 沿 x 连绵
+  起伏(相邻列高度变化 ≤~0.3=缓), 4 下限保屏障语义、10 上限不压远景天际线 */
+  const h = 7 + 2.2 * Math.sin(x * 0.11 + 1.7) + 1.6 * Math.sin(x * 0.041 + 0.6);
+  return Math.max(4, Math.min(10, Math.round(h)));
+}
+
+function advEdgeSouthDecorate(x, z, id) {/* 丘区版饰件落位: 坐标含沙海堆高,
+  判据同 advEdgeDecorate(脚下实感地面 + 顶上无物才落) */
+  const top = advEdgeSouthTop(x, z);
+  const sid = getBlock(x, top, z);
+  if (sid === 0 || sid === B_WATER) return false;
+  if (getBlock(x, top + 1, z) !== 0) return false;
+  setBlockRaw(x, top + 1, z, id);
+  return true;
+}
+
+function advEdgeSouthScrub(x, z, salt) {/* 低矮耐旱树(走查修订 2「多点低矮的树」):
+  矮干(原木 1~2) + 扁小冠(3×3 缺角 + 顶心), 总高 3~4=home 橡树/松杉一半高;
+  冠层只落空气格(树同款守卫), x 越界守卫(冠层 dx±1 会写邻列, 平面回卷前例见
+  advEdgeNorthFar 注) */
+  if (x < 1 || x > WORLD_W - 2) return false;
+  const top = advEdgeSouthTop(x, z);
+  if (getBlock(x, top, z) !== 8) return false; /* 只立沙面/丘面(草面归 home 树) */
+  if (getBlock(x, top + 1, z) !== 0) return false;
+  const th = 1 + (SceneKit.rand(x, z, salt) > 0.5 ? 1 : 0);
+  for (let i = 1; i <= th; i++) setBlockRaw(x, top + i, z, 5);
+  const cy = top + th + 1; /* 冠心层 */
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      if (Math.abs(dx) === 1 && Math.abs(dz) === 1 && SceneKit.rand(x + dx, z + dz, salt + 1) > 0.5) continue;
+      if (getBlock(x + dx, cy, z + dz) === 0) setBlockRaw(x + dx, cy, z + dz, 7);
+    }
+  }
+  if (getBlock(x, cy + 1, z) === 0) setBlockRaw(x, cy + 1, z, 7); /* 顶心 */
+  return true;
+}
+
+function advEdgeSouthOutcrop(x, z) {/* 砂岩露头: 2~3 高单柱 + 贴脚一块(坐标含丘面
+  堆高, 基部半埋进丘面=岩石露头观感) */
+  const top = advEdgeSouthTop(x, z);
+  const h = 2 + (SceneKit.rand(x, z, 8204) > 0.5 ? 1 : 0);
+  for (let i = 1; i <= h; i++) setBlockRaw(x, top + i, z, B_SANDSTONE);
+  setBlockRaw(x + 1, top + 1, z, B_SANDSTONE);
+}
+
+function advEdgeSouthDress() {/* 段C 饰件(南 spec §2 + 走查反馈修订 2·植被过渡):
+  入口侧 b0..b3 草丛+花密度较高逐行渐降 → 带内沙斑(b4..b10)零星草丛渐稀 + 低矮
+  耐旱树(b5..b8, 距 apron ≥8 列=树冠搭不了桥) → 背风沙海(b20..b31)丘原起伏 +
+  洼地零星草丛/低矮树; b10/b28 枯灌木 · b21 仙人掌 2 高 · b23/b25 砂岩露头沿用;
+  apron z139..143 裸沙不落件(修订 1: 防垫脚翻丘); 建场序=先堆沙海后落饰件
+  (饰件坐标吃堆高, 不被沙海埋掉) */
+  for (let x = 0; x < WORLD_W; x++) {
+    /* 入口侧 home 植被(草面上, 0.26→0.20→0.15→0.10 逐行渐降; 花不在此撒——
+    花田(ADV_MEADOW)花海 r 圈已自然漫到 z137, 「花丛只在核心圈/花田/东带」的
+    全图扫描口径不被南带新花破掉) */
+    if (SceneKit.rand(x, 128, 8212) > 0.74) advEdgeSouthDecorate(x, 128, B_GRASS_TUFT);
+    if (SceneKit.rand(x, 129, 8212) > 0.80) advEdgeSouthDecorate(x, 129, B_GRASS_TUFT);
+    if (SceneKit.rand(x, 130, 8212) > 0.85) advEdgeSouthDecorate(x, 130, B_GRASS_TUFT);
+    if (SceneKit.rand(x, 131, 8212) > 0.90) advEdgeSouthDecorate(x, 131, B_GRASS_TUFT);
+    /* 带内沙斑零星草丛(0.12→0.08→0.05 渐稀, 只长沙面=「沙里一撮撮绿」) */
+    if (SceneKit.rand(x, 132, 8215) > 0.88 && advEdgeSurfaceId(x, 132) === 8) {
+      advEdgeSouthDecorate(x, 132, B_GRASS_TUFT);
+    }
+    if (SceneKit.rand(x, 135, 8215) > 0.92 && advEdgeSurfaceId(x, 135) === 8) {
+      advEdgeSouthDecorate(x, 135, B_GRASS_TUFT);
+    }
+    if (SceneKit.rand(x, 138, 8215) > 0.95 && advEdgeSurfaceId(x, 138) === 8) {
+      advEdgeSouthDecorate(x, 138, B_GRASS_TUFT);
+    }
+    /* 低矮耐旱树(沙斑里零星; z≤136 距坡脚 z144 ≥8 列, 树冠够不着坡脚) */
+    if (SceneKit.rand(x, 134, 8216) > 0.955) {
+      advEdgeSouthScrub(x, 133 + Math.floor(SceneKit.rand(x, 135, 8217) * 4), 8218);
+    }
+    /* b10/b28 枯灌木(沿用 spec §2) */
+    if (SceneKit.rand(x, 138, 8201) > 0.92) advEdgeSouthDecorate(x, 138, B_DEAD_BUSH);
+    if (SceneKit.rand(x, 156, 8202) > 0.92) advEdgeSouthDecorate(x, 156, B_DEAD_BUSH);
+  }
+  /* 背风沙海: 0..3 丘原起伏(只堆沙面, 绿洲水不碰; 先堆后饰) */
+  for (let z = 148; z <= 159; z++) {
+    for (let x = 0; x < WORLD_W; x++) {
+      const sh = advEdgeSouthSwell(x, z);
+      if (sh <= 0) continue;
+      const top = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, top, z) !== 8) continue;
+      for (let i = 1; i <= sh; i++) setBlockRaw(x, top + i, z, 8);
+    }
+  }
+  /* b21 仙人掌 2 高(沿用 spec §2, 丘面坐标) + b23/b25 砂岩露头(沿用 spec §5) */
+  for (let x = 6; x < WORLD_W; x += 12) {
+    const t = advEdgeSouthTop(x, 149);
+    if (getBlock(x, t, 149) === 8 && getBlock(x, t + 1, 149) === 0) {
+      setBlockRaw(x, t + 1, 149, B_CACTUS);
+      setBlockRaw(x, t + 2, 149, B_CACTUS);
+    }
+  }
+  advEdgeSouthOutcrop(52, 151);
+  advEdgeSouthOutcrop(104, 153);
+  /* 沙海零星绿意(修订 2 的远端档): 草丛只落洼地(堆高=0), 低矮树沙面上零星;
+  x 从 1 起(冠层 dx±1 越界守卫在 advEdgeSouthScrub 内) */
+  for (let x = 1; x < WORLD_W - 1; x++) {
+    if (SceneKit.rand(x, 152, 8219) > 0.958) {
+      advEdgeSouthScrub(x, 150 + Math.floor(SceneKit.rand(x, 153, 8220) * 7), 8221);
+    }
+    const vz = 150 + Math.floor(SceneKit.rand(x, 155, 8222) * 8);
+    if (SceneKit.rand(x, 155, 8223) > 0.955 && advEdgeSouthSwell(x, vz) === 0) {
+      advEdgeSouthDecorate(x, vz, B_GRASS_TUFT);
+    }
+  }
+}
+
+function advEdgeSouthBarrier() {/* 未解锁屏障=连绵大沙丘(南 spec §4 + 走查反馈修订 1·
+  2026-11-06): 原沙暴墙柱阵被走查读成「一堵墙」——改沙丘丘原语言: 脊线沿 x 双正弦
+  起伏(4..10 高渐次, 丘非墙), 剖面四段=迎风坡脚(h1 ≥2)→陡升(h2−h1=2)→脊顶(C)→
+  背风肩(h4=C−2 缓落接沙海); 砂岩只做脊顶零星露头(非柱芯节奏); 屏障语义不变:
+  坡脚级差 ≥2(跳跃 1.42 格翻不过)+陡升级差恒 2(垫脚石即便够到坡脚顶也止步于此),
+  位置 z144..147 与 spec §4 一致; 「不可挖不可替换」保护旗标仍归 T7;
+  沙暴动效语义归 T7 评估(沙丘地形可作解锁态地形底) */
+  if (advEdgeBarriersHidden) return;
+  for (let x = 0; x < WORLD_W; x++) {
+    const C = advEdgeSouthCrest(x);
+    const h1 = Math.max(2, Math.round(C / 2)); /* 迎风坡脚: 级差 ≥2=跳不过 */
+    const h2 = Math.min(C, Math.max(h1 + 2, C - 2)); /* 陡升: 级差 ≥2 续障(C ≥ h1+2 恒成立) */
+    const h4 = Math.max(1, C - 2); /* 背风肩: 缓落进沙海 */
+    for (const [z, h] of [[144, h1], [145, h2], [146, C], [147, h4]]) {
+      const top = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, top, z) !== 8) continue; /* 只立在带内沙面上 */
+      for (let i = 1; i <= h; i++) setBlockRaw(x, top + i, z, 8);
+    }
+    /* 脊顶砂岩零星露头: 脊顶 1~2 块换砂岩(岩石从沙脊里探头, 走查修订「零星点缀」) */
+    if (SceneKit.rand(x, 146, 8224) > 0.93) {
+      const top = ADV_GROUND + advHeightAt(x, 146);
+      if (getBlock(x, top + C, 146) === 8) {
+        setBlockRaw(x, top + C, 146, B_SANDSTONE);
+        if (SceneKit.rand(x, 147, 8225) > 0.5) setBlockRaw(x, top + C - 1, 146, B_SANDSTONE);
+      }
+    }
+  }
+}
+
+function advEdgeSouth() {
+  advEdgeRewrite(0, WORLD_W - 1, 128, 159, advEdgeSouthSurface);
+  advEdgeSouthDress();
+  advEdgeSouthBarrier();
+}
+
+/* ---------- 西带·沼泽(x∈[0,32), 7 patch 序, 西 spec §2/§4/§5) ---------- */
+
+function advEdgeWestSurface(x, z) {/* 带内格序 k=31−x(东→西): 草掺泥25% → 泥嵌草斑
+  → 全泥 →〔屏障深水带 k13~18〕→ 泥+苔石斑 → 沼泽暗绿 → 沼泽纯色。
+  登记偏差: ⑥⑦「暗绿 #4D753D」无图集格位(零新贴图红线), 以泥/草混铺替代 */
+  /* 黑巢涌出走廊钉泥(走查修订 2026-11-06): 洞口前坪 z+6..z+9 双列钉泥面——
+     草丛不长上门脸(colTop 断言: 入口剖面列不被草丛顶高, 涌出怪落位不踩草皮缝) */
+  const ddx = x - ADV_NESTS[3].x; const ddz = z - ADV_NESTS[3].z;
+  if (ddx >= -1 && ddx <= 0 && ddz >= 6 && ddz <= 9) return [2, 0];
+  const k = 31 - x;
+  const r = SceneKit.rand(x, z, 8301);
+  if (k <= 3) return r < 0.25 ? [2, 0] : [1, 0];
+  if (k <= 7) return r < 0.75 ? [2, 0] : [1, 0];
+  if (k <= 12) return [2, 0];
+  if (k <= 18) return [B_WATER, 2]; /* 迷雾深水带: 六格水体南北贯穿(泥底=沼泽水洼先例) */
+  if (k <= 22) return r < 0.18 ? [14, 0] : [2, 0]; /* 苔石斑(id 14 T_MOSSY) */
+  if (k <= 26) return r < 0.75 ? [2, 0] : [1, 0];
+  return [2, 0];
+}
+
+function advEdgeWestPools() {/* 水洼(②③⑥⑦ patch): 2 格宽(沿 x)+泥底, 稀疏确定性;
+  守卫=地表草/泥(屏障水带与丘体不碰); 走查修订(2026-11-06): 密度西向渐密
+  (②段 0.8% → ③段 1.25%, 入口水洼稀→带内密, 配合兰花 ramp 的植被过渡),
+  黑巢 r9 圈不落(副本迁驻西带随迁的守卫——水洼不淹洞口台阶/敞廊前坪,
+  r9=ADV_FLATS 黑巢压平圈同款口径) */
+  for (let z = 0; z < WORLD_D; z++) {
+    for (let x = 0; x < 31; x++) {
+      const k = 31 - x;
+      const inPool = (k >= 4 && k <= 12) || (k >= 23 && k <= 26) || k >= 27;
+      if (!inPool) continue;
+      if (SceneKit.rand(x, z, 8302) <= (k <= 7 ? 0.992 : 0.9875)) continue;
+      for (const px of [x, x + 1]) {
+        const ddx = px - ADV_NESTS[3].x; const ddz = z - ADV_NESTS[3].z;
+        if (ddx * ddx + ddz * ddz <= 81) continue; /* 黑巢 r9 圈: 副本门脸前坪不淹 */
+        const top = ADV_GROUND + advHeightAt(px, z);
+        const sid = getBlock(px, top, z);
+        if (sid !== 1 && sid !== 2) continue;
+        setBlockRaw(px, top, z, B_WATER);
+        setBlockRaw(px, top - 1, z, 2);
+      }
+    }
+  }
+}
+
+function advEdgeWestBarrier() {/* 迷雾深水带的点睛件: 苔石冒头 ×2(暗示水深路断)+
+  岸边兰花(过不去的地方也开着花); 横雾带不走物件——由天/雾锚点在屏障处的
+  0.88 浓度档承担(advEdgeSkyAt west 行) */
+  for (const [sx, sz] of [[15, 48], [16, 104]]) {
+    const top = ADV_GROUND + advHeightAt(sx, sz);
+    if (getBlock(sx, top, sz) === B_WATER) setBlockRaw(sx, top + 1, sz, 14);
+  }
+  advEdgeDecorate(13, 47, B_ORCHID);
+  advEdgeDecorate(13, 105, B_ORCHID);
+}
+
+function advEdgeWestHut() {/* 远景·高脚木屋剪影(西 spec §5): 原木桩柱 ×4 + 木板屋身 +
+  阶梯屋顶, 立在屏障以西雾区(块件只管形体, 「雾中显影」由天/雾锚点承担);
+  暖窗光=顶沿火把(夜间发光, 实心下方=清扫安全); 桩脚从各自地面顶到地板, 地形
+  起伏不悬空(超埋段被地形吞掉=雾中半埋, 可接受) */
+  const x1 = 0; const x2 = 4; const z1 = 22; const z2 = 26;
+  for (const [cx, cz] of [[x1, z1], [x2, z1], [x1, z2], [x2, z2]]) {
+    const t = ADV_GROUND + advHeightAt(cx, cz);
+    for (let y = t + 1; y <= ADV_GROUND + 3; y++) setBlockRaw(cx, y, cz, 5);
+  }
+  SceneKit.fill(x1, ADV_GROUND + 4, z1, x2, ADV_GROUND + 4, z2, 6); /* 地板 y28 */
+  for (const y of [ADV_GROUND + 5, ADV_GROUND + 6]) {
+    SceneKit.fill(x1, y, z1, x2, y, z1, 6);
+    SceneKit.fill(x1, y, z2, x2, y, z2, 6);
+    SceneKit.fill(x1, y, z1 + 1, x1, y, z2 - 1, 6);
+    SceneKit.fill(x2, y, z1 + 1, x2, y, z2 - 1, 6);
+  }
+  SceneKit.fill(x1, ADV_GROUND + 7, z1, x2, ADV_GROUND + 7, z2, 6); /* 顶 y31 */
+  SceneKit.fill(x1 + 1, ADV_GROUND + 8, z1 + 1, x2 - 1, ADV_GROUND + 8, z2 - 1, 6); /* 阶梯上层 */
+  setBlockRaw(x1, ADV_GROUND + 8, z1 + 1, B_TORCH); /* 暖窗光 */
+  advEdgeDecorate(6, 20, B_ORCHID); /* 木屋近旁兰花 ×2(远景清单) */
+  advEdgeDecorate(6, 28, B_ORCHID);
+}
+
+function advEdgeWestOrchids() {/* ⑤段/⑦段兰花散布(西 spec §2 表): 稀疏确定性;
+  走查修订(2026-11-06): 增入口段渐密 ramp(x28..31 0.3% → x24..27 0.5% →
+  x19..23 0.8%, 盐 8305 新档不踩既有 83xx)——home 草丛随带内草皮份额自然消长
+  (改写段草皮东密西疏), 兰花反向渐密, 植被消长全程发生在带内;
+  黑巢 r9 圈不落(副本门脸不长花, 压平圈同款口径) */
+  for (let z = 0; z < WORLD_D; z++) {
+    if (SceneKit.rand(11, z, 8303) > 0.995) {
+      advEdgeDecorate(10 + Math.floor(SceneKit.rand(11, z, 8304) * 4), z, B_ORCHID);
+    }
+    if (SceneKit.rand(2, z, 8303) > 0.995) {
+      advEdgeDecorate(Math.floor(SceneKit.rand(2, z, 8304) * 5), z, B_ORCHID);
+    }
+    for (let x = 19; x <= 31; x++) {
+      const k = 31 - x;
+      const p = k <= 3 ? 0.003 : (k <= 7 ? 0.005 : 0.008);
+      if (SceneKit.rand(x, z, 8305) <= 1 - p) continue;
+      const ddx = x - ADV_NESTS[3].x; const ddz = z - ADV_NESTS[3].z;
+      if (ddx * ddx + ddz * ddz <= 81) continue; /* 黑巢 r9 圈 */
+      advEdgeDecorate(x, z, B_ORCHID);
+    }
+  }
+}
+
+function advEdgeWest() {
+  advEdgeRewrite(0, 31, 0, WORLD_D - 1, advEdgeWestSurface);
+  advEdgeWestPools();
+  advEdgeWestBarrier();
+  advEdgeWestHut();
+  advEdgeWestOrchids();
+}
+
+/* ---------- 东带·小镇(x∈[128,159], ①②③ 段, 东 spec §3/§5/§6) ---------- */
+
+function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插值, 渐变全靠地表块
+  种类密度——①入口段土路斑 1 patch(x132~135, 主径线 z73~76)·②渐密段土斑
+  2 patch + 花田 2 处(主径两侧各 5 朵)。登记偏差: 花田「黄/红/白」红花无图集
+  格位(零新贴图), 以黄/白二色铺(归 T7) */
+  const dirt = () => [2, 0];
+  advEdgeRewrite(132, 135, 73, 76, dirt);
+  advEdgeRewrite(140, 143, 70, 73, dirt);
+  advEdgeRewrite(148, 151, 76, 79, dirt);
+  for (let i = 0; i < 5; i++) {
+    advEdgeDecorate(144 + (i % 3), 66 + i * 2,
+        SceneKit.rand(i, 0, 8401) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
+    advEdgeDecorate(144 + ((i + 1) % 3), 84 - i * 2,
+        SceneKit.rand(i, 1, 8401) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
+  }
+  advEdgeRewrite(152, 156, 74, 75, dirt); /* ③主径: 与既有东向小径同轴延长 */
+}
+
+function advEdgeEastSign() {/* 告示牌(东 spec §5): 立式双柱牌 x156, 板面朝主径;
+  告示牌文字暂不实现(拼块形制即可, 任务口径); 保护旗标归 T7 */
+  const x = 156;
+  const yb = ADV_GROUND + advHeightAt(x, 74);
+  for (const z of [73, 76]) {
+    for (let y = yb + 1; y <= yb + 3; y++) setBlockRaw(x, y, z, 5);
+  }
+  SceneKit.fill(x, yb + 3, 74, x, yb + 4, 75, 6); /* 板面(两柱间 2×2) */
+}
+
+function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间留缝是设计本体
+  ——原木柱(2 高)每 3 格一根, 缝格木板横杆(1 高), 缝口净空露出剪影=「看得见、
+  过不去、但不堵心」; 碰撞 1.5 格与保护旗标归 T7(本原型不拦, 翻越=彩蛋口径) */
+  for (let z = 0; z < WORLD_D; z++) {
+    const y = ADV_GROUND + advHeightAt(157, z) + 1;
+    if (z % 3 === 0) {
+      setBlockRaw(157, y, z, 5);
+      setBlockRaw(157, y + 1, z, 5);
+    } else {
+      setBlockRaw(157, y, z, 6);
+    }
+  }
+}
+
+function advEdgeEastTree(x, baseY, z) {/* 圆冠树(贴边裁冠版, SceneKit.tree 同语言):
+  树干原木 4~6 高 + 冠层叶只落空气格; lx ≥ WORLD_W 不写——隔离带 x158 贴世界
+  东缘, rad2 冠层的 lx=160 会 OOB 泄进 x=0 西缘列(平面数组回卷), 冠层就地裁半 */
+  const th = 4 + Math.floor(SceneKit.rand(x + 7, z + 3, 8402) * 3);
+  for (let i = 0; i < th; i++) setBlockRaw(x, baseY + i, z, 5);
+  const top = baseY + th;
+  for (let dy = -1; dy <= 1; dy++) {
+    const rad = dy === 1 ? 1 : 2;
+    for (let dx = -rad; dx <= rad; dx++) {
+      for (let dz = -rad; dz <= rad; dz++) {
+        if (dx === 0 && dz === 0 && dy < 1) continue;
+        if (Math.abs(dx) === rad && Math.abs(dz) === rad && rad === 2) continue;
+        const lx = x + dx; const ly = top + dy - 1; const lz = z + dz;
+        if (lx >= WORLD_W) continue; /* 贴边裁冠(界外不写) */
+        if (getBlock(lx, ly, lz) === 0) setBlockRaw(lx, ly, lz, 7);
+      }
+    }
+  }
+  setBlockRaw(x, top, z, 7);
+}
+
+function advEdgeEastSkyline() {/* 小镇远景剪影(东 spec §6): 房屋×4+钟楼×1+圆冠树×2+
+  灯点 4 粒, 落栅栏外隔离带 x158~159(体素拼块=「近看不穿帮」约束的便宜实现)。
+  登记偏差: 深蓝灰 #5A6B7A 系无图集格位(零新贴图), 以石色剪影替代, 走查校准
+  归 T7; 灯点=火把(夜间发光, 「还没建好但已经有灯亮着」的情绪钩子) */
+  const houses = [[24, 3], [56, 5], [88, 4], [120, 3]]; /* [z, 高]——高低错落 3~5 格 */
+  let lamps = 0;
+  for (const [z, h] of houses) {
+    const top = ADV_GROUND + advHeightAt(158, z);
+    for (let x = 158; x <= 159; x++) {
+      for (let y = top + 1; y <= top + h; y++) setBlockRaw(x, y, z, 3);
+    }
+    /* 窗灯 ×3(首屋留白凑「3 窗灯+1 塔灯=4 粒」) */
+    if (z !== 24) {
+      setBlockRaw(158, top + h + 1, z, B_TORCH);
+      lamps++;
+    }
+  }
+  const tt = ADV_GROUND + advHeightAt(158, 74); /* 钟楼: 塔身 7 高全场最高 + 尖顶 + 顶灯 */
+  for (let x = 158; x <= 159; x++) {
+    for (let y = tt + 1; y <= tt + 7; y++) setBlockRaw(x, y, 74, 3);
+  }
+  setBlockRaw(158, tt + 8, 74, 5);
+  setBlockRaw(159, tt + 8, 74, B_TORCH);
+  lamps++;
+  advEdgeEastTree(158, ADV_GROUND + advHeightAt(158, 40) + 1, 40); /* 圆冠树 ×2(贴边裁冠) */
+  advEdgeEastTree(158, ADV_GROUND + advHeightAt(158, 108) + 1, 108);
+  return lamps;
+}
+
+function advEdgeEast() {
+  advEdgeEastDress();
+  advEdgeEastSign();
+  advEdgeEastFence();
+  advEdgeEastSkyline();
+}
+
+/* ---------- 四角交接·post-pass(〔边界原型·T2~T5〕第 5 员工, 2026-11-06) ----------
+   四向带区总装后的一处收口: 相邻两个目标生态在角区「握手」——地形让势 + 植物
+   消长, 零悬空/零浮树/零穿模。四角定义: NW=x0..31×z0..23, NE=x128..159×z0..23,
+   SW=x0..31×z128..159, SE=x128..159×z128..159。红线遵守: 不改写四向已审函数段
+   (本段只换世界已有表面块, 顶上有物一律跳过=树脚/仙人掌/饰件脚下不掏); 东带
+   定稿件(栅栏 x157/告示牌/主径/花田/剪影/圆冠树)坐标零重叠——栈桩落在栅栏件
+   正下方的水面格, 不写栅栏坐标; 北山脊/南沙丘主体剖面不动(角区只做端部收尾
+   让势); 黑巢 r9 圈不在本段射程(西带中段, 非角区)。装饰盐 8501~8507(85xx 新段,
+   全仓 grep 无撞号: 北 81xx/南 82xx/西 83xx/东 84xx/远征图 62xx~64xx)。
+   建场次序背景(2026-11-06 勘察结论): advBuildEdgeBands 北→南→西→东, 后写者赢
+   ——但 advEdgeRewrite 只换草皮(id 1), 北带雪/南带沙顶住后续改写, 故: NW 角=
+   北雪压西沼(西向泥水只在草皮行 z16..23 现身成马赛克); SW 角=南带 G 行草皮被
+   西带改写成泥水, 与沙行拼成条纹马赛克, 深水带 x13..18 在 z135 一刀切断;
+   SE 角=东栅栏后写嵌进沙丘脊迎风面(读作流沙半埋)且绿洲水行 z153/154/南缘水
+   z159 的桩杆脚下是水(真悬空); NE 角=山体东端收势已让位栅栏, 唯 z12..15 雪线
+   贴栅栏过直。 */
+
+function advEdgeCornerNW() {/* NW 角·雪原×沼泽(冻沼渐变): 西带深水带/泥楔被北带雪原
+  改写挡到 z16 才现身(单格水洼嵌雪=马赛克断层)——补一段向北渐冻: 水面→冰(浮冰
+  越北越密, 接 z15 纯雪带), 泥面→雪覆草(越北越融, 草探头=消长); 西带兰花 ramp
+  穿带误落雪/冰/石面者, 脚下换融斑泥点(植株原地留=融雪湖畔开花)。盐 8502/8503/8504 */
+  for (let z = 16; z <= 19; z++) {
+    const pIce = [0.75, 0.55, 0.35, 0.15][z - 16]; /* 浮冰密度: 北密南疏 */
+    const pMud = [0.6, 0.45, 0.3, 0.15][z - 16]; /* 泥融密度: 同向北强 */
+    for (let x = 0; x <= 31; x++) {
+      const t = ADV_GROUND + advHeightAt(x, z);
+      const sid = getBlock(x, t, z);
+      if (sid === B_WATER) {
+        if (SceneKit.rand(x, z, 8502) < pIce) {
+          setBlockRaw(x, t, z, B_ICE);
+          if (getBlock(x, t - 1, z) === 2) setBlockRaw(x, t - 1, z, B_WATER); /* 冰下垫水(北带冰湖先例) */
+        }
+      } else if (sid === 2 && getBlock(x, t + 1, z) === 0 &&
+          SceneKit.rand(x, z, 8503) < pMud) {
+        setBlockRaw(x, t, z, B_SNOWY_GRASS);
+      }
+    }
+  }
+  /* 误落兰花脚下换泥(只动地表不搬植株) */
+  for (let z = 0; z <= 23; z++) {
+    for (let x = 0; x <= 31; x++) {
+      const t = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, t + 1, z) !== B_ORCHID) continue;
+      const sid = getBlock(x, t, z);
+      if (sid === B_SNOW || sid === B_SNOWY_GRASS || sid === 3) {
+        setBlockRaw(x, t, z, 2); /* 融斑泥点; 冰面不换——z0 冰湖镜带整行冰是北带定稿 */
+      }
+    }
+  }
+}
+
+function advEdgeCornerNE() {/* NE 角·雪山×小镇(镇郊融雪楔): 山体东端收势(x144 起峰高
+  线性收没)已由 MountainH 让位栅栏, 角区只补一小步——x146..156 雪面→雪覆草, 越
+  北越稀(草线绕栅栏北端轻微回勾, 与 p2 草雪混铺行相接); 山体足迹格(顶上有石/冰)
+  与已定稿的远排小杉(x118..142)天然让位。盐 8501 */
+  for (let z = 12; z <= 15; z++) {
+    const p = [0.7, 0.6, 0.45, 0.25][z - 12]; /* 融雪密度: 北强南弱(往带内递减) */
+    for (let x = 146; x <= 156; x++) {
+      const t = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, t, z) !== B_SNOW) continue;
+      if (getBlock(x, t + 1, z) !== 0) continue; /* 山体足迹/饰件不换 */
+      if (SceneKit.rand(x, z, 8501) < p) setBlockRaw(x, t, z, B_SNOWY_GRASS);
+    }
+  }
+}
+
+function advEdgeCornerSW() {/* SW 角·沙丘×沼泽(沙洲没入沼泽): 南带 G 行草皮被西带改写
+  成泥/水后与沙行拼成条纹马赛克, 深水带 x13..18 在 z135 一刀切断——补两笔让势:
+  ①角区西半沙面→泥(75%)/草斑(25%), 强度随距西缘/带缘衰减(角区东缘让给沙丘,
+  脊线 z144..147 与丘原 z148+ 冻结不碰); ②潮尾: 深水带列的沙面接回绿洲水+沙底
+  (南带 W 行同语言)向南渐稀归零。误落沙面的兰花换枯灌木(沙地语义, 原地换种)。
+  盐 8505/8507/8504 */
+  for (let z = 128; z <= 142; z++) {
+    const fz = Math.max(0, 1 - (z - 128) / 14); /* 带缘衰减: 愈深入沙带愈轻, z142 归零 */
+    for (let x = 0; x <= 31; x++) {
+      const t = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, t, z) !== 8) continue; /* 只融沙(G 行泥/水已是沼泽语言) */
+      if (getBlock(x, t + 1, z) !== 0) continue; /* 耐旱树/仙人掌/饰件脚下不掏 */
+      /* 潮尾优先(只列 x13..18): 沙面→绿洲水(水面+沙底), 向南渐稀 */
+      if (x >= 13 && x <= 18 && z >= 135) {
+        const pW = {135: 0.55, 136: 0.4, 138: 0.3, 139: 0.2, 140: 0.12, 141: 0.06, 142: 0.03}[z];
+        if (pW && SceneKit.rand(x, z, 8507) < pW) {
+          setBlockRaw(x, t, z, B_WATER);
+          setBlockRaw(x, t - 1, z, 8);
+          continue;
+        }
+      }
+      const p = Math.max(0, 1 - x / 36) * fz; /* 西缘强、角区东缘弱(沙丘东行不碰) */
+      if (p <= 0.02) continue;
+      const r = SceneKit.rand(x, z, 8505);
+      /* 草斑只铺 x≤18(深水带以西的沼泽侧): x19..23 是西带「全泥段」——
+         西带植被过渡单测钉死该列带全 z 无草皮(rDeep===0), 草皮语言不得越列 */
+      if (x <= 18 && r < p * 0.25) setBlockRaw(x, t, z, 1); /* 草斑: home 草皮随散布长草丛 */
+      else if (r < p) setBlockRaw(x, t, z, 2); /* 泥: 沼泽吞沙 */
+    }
+  }
+  /* 误落沙面的兰花→枯灌木(沙地语义) */
+  for (let z = 128; z <= 159; z++) {
+    for (let x = 0; x <= 31; x++) {
+      const t = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, t + 1, z) === B_ORCHID && getBlock(x, t, z) === 8) {
+        setBlockRaw(x, t + 1, z, B_DEAD_BUSH);
+      }
+    }
+  }
+}
+
+function advEdgeCornerSE() {/* SE 角·沙丘×小镇(流沙半埋栅栏+草甸南侵): 东栅栏后写嵌进
+  沙丘脊迎风面(z144..147 的嵌木读作「流沙半埋栅栏」, 脊线剖面冻结不动)——真悬空
+  只有一处: 绿洲水行 z153/154 与南缘水 z159 的桩/杆脚下是水, 落原木栈桩支起(栅栏
+  桩打在水床的读法, 坐标在栅栏件正下方, 不写栅栏件本身); 镇南郊补草甸南侵楔:
+  近栅栏平沙→草皮(草丛随散布归乡, 两端植物此消彼长), apron z139..143 净空(防垫脚
+  翻丘, 南带走查修订 1)不碰——楔止步 z138; 仙人掌/枯灌木/草丛脚下不掏。盐 8506 */
+  for (const z of [153, 154, 159]) {
+    const t = ADV_GROUND + advHeightAt(157, z);
+    if (getBlock(157, t, z) === B_WATER && getBlock(157, t + 1, z) !== 0) {
+      setBlockRaw(157, t, z, 5); /* 原木栈桩(半埋水面格, 支起栅栏桩/杆) */
+    }
+  }
+  for (let z = 128; z <= 138; z++) {
+    const fz = Math.max(0, Math.min(1, (138 - z) / 10 + 0.25)); /* 带缘强、apron 前收势 */
+    for (let x = 144; x <= 157; x++) {
+      const t = ADV_GROUND + advHeightAt(x, z);
+      if (getBlock(x, t, z) !== 8) continue; /* 只接平沙(G 行草皮/脊线不碰) */
+      if (getBlock(x, t + 1, z) !== 0) continue; /* 仙人掌/枯灌木/草丛脚下不掏 */
+      const p = Math.max(0, Math.min(1, (x - 136) / 21)) * fz; /* 近栅栏强、西向弱 */
+      if (SceneKit.rand(x, z, 8506) < p) setBlockRaw(x, t, z, 1); /* 草皮: 镇郊草甸南侵 */
+    }
+  }
+}
+
+function advEdgeCornerSweep() {/* 角区收尾安检: 植物件(草丛/枯灌木/兰花/花)脚下是水
+  的悬空株一律垫泥洲(水面格换泥, 植株原地落脚)——南带 G 行草丛先落、西带改写/池
+  水后至造成的「草丛漂水面」在角区归零(零悬空红线) */
+  for (const [x1, x2, z1, z2] of [
+    [0, 31, 0, 23], [128, 159, 0, 23], [0, 31, 128, 159], [128, 159, 128, 159]]) {
+    for (let z = z1; z <= z2; z++) {
+      for (let x = x1; x <= x2; x++) {
+        const t = ADV_GROUND + advHeightAt(x, z);
+        const pid = getBlock(x, t + 1, z);
+        if (pid !== B_GRASS_TUFT && pid !== B_DEAD_BUSH && pid !== B_ORCHID &&
+            pid !== B_FLOWER_Y && pid !== B_FLOWER_W) continue;
+        if (getBlock(x, t, z) !== B_WATER) continue;
+        setBlockRaw(x, t, z, 2); /* 泥洲垫脚 */
+      }
+    }
+  }
+}
+
+function advEdgeCorners() {/* 四角 post-pass 总入口(挂 advBuildEdgeBands 末, 一处收口):
+  先让势后安检——各角函数只换表面块/垫桩, 零 Math.random(SceneKit.rand 确定性) */
+  advEdgeCornerNW();
+  advEdgeCornerNE();
+  advEdgeCornerSW();
+  advEdgeCornerSE();
+  advEdgeCornerSweep();
+}
+
+function advBuildEdgeBands() {/* 边界带总装(确定性): 建场序挂结构段之后/植被之前——
+  带内地表换装后, 草丛/花田的「脚下草皮」判据天然不在雪/沙/泥上重播; 橡树落位
+  清单(advTreeSpots 纯函数)不受影响, 少数树落进带内=可接受的过渡杂木;
+  北→南→西→东后写者赢, 末尾四角 post-pass 收口(相邻生态角区握手+角区安检) */
+  advEdgeNorth();
+  advEdgeSouth();
+  advEdgeWest();
+  advEdgeEast();
+  advEdgeCorners(); /* 〔边界原型·T2~T5〕四角交接(第 5 员工): 见四角段头注 */
+}
+
 function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模式同款架构);
   T5 核心圈四件(广场/农田/围栏/小径)在地形与既有结构之后、树之前——树与散布件
   经避让判据/顶上无物判据自动让位; 2026-10-27 主题五件入列: 南池/望塔/石阵随
-  结构段, 松林随树段, 花田殿后(贴草皮顶上无物判据, 不叠草丛) */
+  结构段, 松林随树段, 花田殿后(贴草皮顶上无物判据, 不叠草丛);
+  〔边界原型·T2~T5〕四方向过渡带挂结构段末(带是 home 图专属, 远征图不挂) */
   advBaseTerrain();
   advBuildLake();
   advScatterOres();
@@ -809,6 +1676,7 @@ function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模
   advBuildPond();
   advBuildTower();
   advBuildStones();
+  advBuildEdgeBands(); /* 〔边界原型·T2~T5〕四方向过渡带(观感, 走查用, T7 转正收编) */
   advPlantTrees();
   advBuildPineGrove(); /* 松林圈内橡树已被避让判据排除, 序仅定确定性 */
   advScatterTufts(); /* 树立好再撒草丛(顶上无物判据吃树干占位) */
@@ -2256,6 +3124,9 @@ if (typeof module !== 'undefined' && module.exports) {
     advOreSpots, advOreSpotsReset,
     ADV_STONE_EGG_CD, ADV_STONE_HINT_CD, ADV_STONE_EGG_GIFT,
     advStoneAltarHit, advStoneEggPick,
+    ADV_EDGE_SKY, advEdgeRgb, advEdgeSkyAt, advBuildEdgeBands,
+    advEdgeNorth, advEdgeSouth, advEdgeWest, advEdgeEast,
+    advSetEdgeBarriersHidden,
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_PER, ADV_CHEST_TIERS, advChestNext,
     advChestCapacity, advCountChestEdits, advChestPut, advChestTake,

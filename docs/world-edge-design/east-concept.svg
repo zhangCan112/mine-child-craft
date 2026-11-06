@@ -1,0 +1,175 @@
+<svg viewBox="0 0 1600 420" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',system-ui,sans-serif">
+  <!-- ===== 天空：保持 home #8FC7FF，不做全带渐变 ===== -->
+  <rect x="0" y="0" width="1600" height="208" fill="#8FC7FF"/>
+  <!-- 地平线 4 档暖晕（日出方向语义 + 剪影逆光底） -->
+  <rect x="0" y="208" width="1600" height="16" fill="#9ED2F7"/>
+  <rect x="0" y="224" width="1600" height="16" fill="#C4E2EF"/>
+  <rect x="0" y="240" width="1600" height="16" fill="#E8ECD3"/>
+  <rect x="0" y="256" width="1600" height="16" fill="#F4E6C0"/>
+
+  <!-- ===== 地表行（1 格 16px）：草原 → 土斑 patch → 花田 → 土路主径 ===== -->
+  <g shape-rendering="crispEdges">
+    <rect x="0" y="272" width="704" height="16" fill="#6EBD57"/>
+    <rect x="704" y="272" width="64" height="16" fill="#A9834F"/>
+    <rect x="768" y="272" width="160" height="16" fill="#6EBD57"/>
+    <rect x="928" y="272" width="64" height="16" fill="#A9834F"/>
+    <rect x="992" y="272" width="32" height="16" fill="#6EBD57"/>
+    <rect x="1024" y="272" width="180" height="16" fill="#B9975B"/>
+    <!-- patch 边界缝（块感） -->
+    <rect x="703" y="272" width="1" height="16" fill="#000000" opacity="0.15"/>
+    <rect x="767" y="272" width="1" height="16" fill="#000000" opacity="0.15"/>
+    <rect x="927" y="272" width="1" height="16" fill="#000000" opacity="0.15"/>
+    <rect x="991" y="272" width="1" height="16" fill="#000000" opacity="0.15"/>
+    <rect x="1023" y="272" width="1" height="16" fill="#000000" opacity="0.15"/>
+    <rect x="0" y="287" width="1204" height="1" fill="#5C4026" opacity="0.6"/>
+    <!-- 主径小石子 -->
+    <rect x="1060" y="279" width="4" height="4" fill="#8A6A42"/>
+    <rect x="1130" y="276" width="3" height="3" fill="#8A6A42"/>
+  </g>
+
+  <!-- ===== 地层剖面（5 档渐深） ===== -->
+  <g shape-rendering="crispEdges">
+    <rect x="0" y="288" width="1204" height="16" fill="#9A7B50"/>
+    <rect x="0" y="304" width="1204" height="16" fill="#8A6A42"/>
+    <rect x="0" y="320" width="1204" height="16" fill="#7A5B36"/>
+    <rect x="0" y="336" width="1204" height="16" fill="#6A4C2C"/>
+    <rect x="0" y="352" width="1204" height="16" fill="#5C4026"/>
+    <rect x="200" y="322" width="4" height="4" fill="#7E7E7E"/>
+    <rect x="500" y="338" width="4" height="4" fill="#7E7E7E"/>
+    <rect x="900" y="306" width="4" height="4" fill="#7E7E7E"/>
+  </g>
+
+  <!-- ===== 草丛 / 花（home 件 + 村落感花田） ===== -->
+  <g shape-rendering="crispEdges">
+    <!-- home 草丛 ×3 + 白花 ×1 -->
+    <rect x="128" y="258" width="2" height="14" fill="#4E9B3E"/><rect x="132" y="254" width="2" height="18" fill="#4E9B3E"/><rect x="136" y="260" width="2" height="12" fill="#4E9B3E"/>
+    <rect x="330" y="256" width="2" height="16" fill="#4E9B3E"/><rect x="334" y="260" width="2" height="12" fill="#4E9B3E"/>
+    <rect x="528" y="258" width="2" height="14" fill="#4E9B3E"/><rect x="532" y="254" width="2" height="18" fill="#4E9B3E"/><rect x="536" y="260" width="2" height="12" fill="#4E9B3E"/>
+    <rect x="230" y="258" width="2" height="14" fill="#4E9B3E"/><rect x="228" y="252" width="6" height="6" fill="#F5F5F0"/>
+    <!-- 花田 patch ①（格 56~57）：黄×3 红×2 -->
+    <rect x="900" y="260" width="2" height="12" fill="#4E9B3E"/><rect x="897" y="254" width="6" height="6" fill="#F2C14E"/>
+    <rect x="918" y="262" width="2" height="10" fill="#4E9B3E"/><rect x="915" y="256" width="6" height="6" fill="#E25C4A"/>
+    <rect x="934" y="259" width="2" height="13" fill="#4E9B3E"/><rect x="931" y="253" width="6" height="6" fill="#F2C14E"/>
+    <rect x="948" y="262" width="2" height="10" fill="#4E9B3E"/><rect x="945" y="256" width="6" height="6" fill="#E25C4A"/>
+    <!-- 花田 patch ②（格 62~63）：红×2 白×2 -->
+    <rect x="996" y="261" width="2" height="11" fill="#4E9B3E"/><rect x="993" y="255" width="6" height="6" fill="#E25C4A"/>
+    <rect x="1010" y="259" width="2" height="13" fill="#4E9B3E"/><rect x="1007" y="253" width="6" height="6" fill="#F5F5F0"/>
+  </g>
+
+  <!-- ===== 栅栏外雾区（世界缘 1204 以右＝视野延展，非可走格子） ===== -->
+  <g shape-rendering="crispEdges">
+    <rect x="1204" y="240" width="79" height="128" fill="#F5F1DC"/>
+    <rect x="1283" y="240" width="79" height="128" fill="#EDE8D2"/>
+    <rect x="1362" y="240" width="79" height="128" fill="#E5DFC6"/>
+    <rect x="1441" y="240" width="79" height="128" fill="#DCD5B9"/>
+    <rect x="1520" y="240" width="80" height="128" fill="#D3CCB0"/>
+  </g>
+
+  <!-- ===== 远景小镇剪影（大件·深色·信标先例） ===== -->
+  <g shape-rendering="crispEdges">
+    <!-- 房 1 -->
+    <rect x="1248" y="224" width="48" height="48" fill="#5A6B7A"/>
+    <polygon points="1244,226 1296,226 1270,206" fill="#4E5F6E"/>
+    <rect x="1266" y="240" width="3" height="3" fill="#F2C14E"/>
+    <!-- 房 2（两层） -->
+    <rect x="1304" y="208" width="36" height="64" fill="#5A6B7A"/>
+    <rect x="1312" y="232" width="3" height="3" fill="#F2C14E"/>
+    <!-- 钟楼 -->
+    <rect x="1352" y="152" width="32" height="120" fill="#4A5A68"/>
+    <polygon points="1348,154 1388,154 1368,126" fill="#3E4C58"/>
+    <rect x="1363" y="168" width="10" height="10" fill="#E8D9A0"/>
+    <rect x="1364" y="122" width="4" height="4" fill="#F2C14E"/>
+    <!-- 房 3 -->
+    <rect x="1392" y="232" width="40" height="40" fill="#5A6B7A"/>
+    <rect x="1404" y="244" width="3" height="3" fill="#F2C14E"/>
+    <!-- 房 4 -->
+    <rect x="1440" y="216" width="40" height="56" fill="#5A6B7A"/>
+    <polygon points="1436,218 1480,218 1456,202" fill="#4E5F6E"/>
+    <!-- 圆树 ×2 -->
+    <rect x="1500" y="228" width="24" height="20" fill="#55666F"/><rect x="1510" y="248" width="4" height="24" fill="#4E5F6E"/>
+    <rect x="1540" y="236" width="24" height="18" fill="#55666F"/><rect x="1550" y="254" width="4" height="18" fill="#4E5F6E"/>
+    <!-- 剪影脚雾横带（贴地平线渐隐） -->
+    <rect x="1236" y="264" width="364" height="8" fill="#E7E1CB" opacity="0.5"/>
+  </g>
+
+  <!-- ===== 到达画面：玩家 / 告示牌 / 木栅栏 ===== -->
+  <g shape-rendering="crispEdges">
+    <!-- 玩家（1.6 格高） -->
+    <rect x="1047" y="246" width="10" height="10" fill="#E8B58A"/>
+    <rect x="1046" y="256" width="12" height="10" fill="#3AA0B8"/>
+    <rect x="1046" y="266" width="12" height="6" fill="#4A5568"/>
+    <!-- 告示牌「小镇建造中」（立栅栏前 1 格 x=156，字朝图内） -->
+    <rect x="1062" y="248" width="4" height="24" fill="#8B5A2B"/>
+    <rect x="1118" y="248" width="4" height="24" fill="#8B5A2B"/>
+    <rect x="1056" y="216" width="72" height="32" fill="#C89858" stroke="#5C3A1A" stroke-width="1.5"/>
+    <text x="1092" y="237" font-size="13" fill="#4A2E14" text-anchor="middle" font-weight="bold">小镇建造中</text>
+    <!-- 木栅栏（横贯东缘 x=157，桩间留缝＝看得见后面的剪影） -->
+    <rect x="1155" y="232" width="15" height="40" fill="#F7F3E0"/><rect x="1155" y="256" width="15" height="16" fill="#D9D6BE"/>
+    <rect x="1177" y="232" width="15" height="40" fill="#F7F3E0"/><rect x="1177" y="256" width="15" height="16" fill="#D9D6BE"/>
+    <rect x="1199" y="232" width="5" height="40" fill="#F7F3E0"/><rect x="1199" y="256" width="5" height="16" fill="#D9D6BE"/>
+    <rect x="1148" y="238" width="56" height="6" fill="#9C6B35" stroke="#5C3A1A" stroke-width="1"/>
+    <rect x="1148" y="254" width="56" height="6" fill="#9C6B35" stroke="#5C3A1A" stroke-width="1"/>
+    <rect x="1148" y="232" width="7" height="40" fill="#8B5A2B" stroke="#5C3A1A" stroke-width="1"/>
+    <rect x="1170" y="232" width="7" height="40" fill="#8B5A2B" stroke="#5C3A1A" stroke-width="1"/>
+    <rect x="1192" y="232" width="7" height="40" fill="#8B5A2B" stroke="#5C3A1A" stroke-width="1"/>
+  </g>
+
+  <!-- ===== 话术气泡（走到栅栏前触发） ===== -->
+  <g>
+    <rect x="940" y="158" width="210" height="76" rx="6" fill="#FFFFFF" fill-opacity="0.96" stroke="#2B2B2B" stroke-width="1.5"/>
+    <polygon points="1044,234 1062,234 1053,248" fill="#FFFFFF" stroke="#2B2B2B" stroke-width="1.5"/>
+    <rect x="1046" y="236" width="14" height="10" fill="#FFFFFF" fill-opacity="0.96"/>
+    <text x="956" y="180" font-size="13" fill="#2B2B2B">小镇还在建造中！</text>
+    <text x="956" y="202" font-size="13" fill="#2B2B2B">等盖好了，这里会很热闹哦～</text>
+    <text x="956" y="224" font-size="10" fill="#666666">触发：走到栅栏前≤2格（SpeechKit/toast）</text>
+  </g>
+
+  <!-- ===== 世界缘虚线 ===== -->
+  <line x1="1204" y1="208" x2="1204" y2="368" stroke="#888888" stroke-width="1.5" stroke-dasharray="5 4"/>
+  <text x="1208" y="186" font-size="10" fill="#555555">x=160 世界硬缘</text>
+  <text x="1208" y="200" font-size="10" fill="#555555">（栅栏后 2 格隔离带 x158~159）</text>
+
+  <!-- ===== 标注层 ===== -->
+  <g fill="#2B2B2B">
+    <text x="800" y="22" font-size="13" text-anchor="middle" font-weight="bold">东向·小镇边 概念断面 mockup（T5 designer·东 2026-11-06）— 便宜粗糙版·供拍板方向</text>
+    <text x="24" y="44" font-size="12">天色：保持 home #8FC7FF，不做全带渐变（东向无目标世界调色板）</text>
+    <text x="24" y="62" font-size="12">地平线 4 档暖晕（→#F4E6C0）：日出方向语义＋给剪影当逆光底</text>
+    <polygon points="1136,36 1146,40 1136,44" fill="#2B2B2B"/>
+    <text x="1150" y="44" font-size="11">右端＝面朝东所见（到达画面·比例放开示意）</text>
+    <!-- 带宽标注线 -->
+    <line x1="640" y1="88" x2="1152" y2="88" stroke="#666666" stroke-width="1"/>
+    <polygon points="640,88 648,84 648,92" fill="#666666"/>
+    <polygon points="1152,88 1144,84 1144,92" fill="#666666"/>
+    <text x="896" y="80" font-size="12" text-anchor="middle">过渡带 32 格（x 128~159）· 带内可挖可放（仅栅栏＋告示牌受保护）</text>
+    <!-- 三段节奏 -->
+    <text x="646" y="108" font-size="10">① 入口段 12 格：草70%＋土斑1patch</text>
+    <text x="838" y="108" font-size="10">② 渐密段 12 格：土斑2patch＋花田2处</text>
+    <text x="1048" y="108" font-size="10">③ 主径＋到达 8 格</text>
+    <!-- home 段 -->
+    <text x="60" y="130" font-size="11">home 草原（示意 40 格·图内实际仍有 ~128 格）</text>
+    <line x1="180" y1="136" x2="180" y2="260" stroke="#666666" stroke-width="1"/>
+    <!-- 栅栏/告示牌标注 -->
+    <text x="1180" y="130" font-size="11">木栅栏横贯东缘（x=157·碰撞 1.5 格·桩间留缝）</text>
+    <text x="1180" y="146" font-size="11">＋告示牌「小镇建造中」立 x=156（字朝图内）</text>
+    <line x1="1240" y1="152" x2="1176" y2="230" stroke="#666666" stroke-width="1"/>
+    <line x1="1300" y1="152" x2="1128" y2="226" stroke="#666666" stroke-width="1"/>
+    <!-- 剪影标注 -->
+    <text x="1236" y="84" font-size="11">远景小镇剪影（雾中不可达；落地方式 T7 定）：房屋×4＋圆树×2</text>
+    <text x="1236" y="100" font-size="11">＋钟楼×1（穿雾大件·深色·信标先例）＋灯点 4 粒「已有灯亮着」</text>
+    <line x1="1400" y1="106" x2="1370" y2="120" stroke="#666666" stroke-width="1"/>
+  </g>
+
+  <!-- ===== 图例 ===== -->
+  <g font-size="11" fill="#2B2B2B">
+    <rect x="24" y="382" width="14" height="14" fill="#6EBD57"/><text x="44" y="393">草地(home)</text>
+    <rect x="130" y="382" width="14" height="14" fill="#A9834F"/><text x="150" y="393">土路斑</text>
+    <rect x="216" y="382" width="14" height="14" fill="#B9975B"/><text x="236" y="393">土路主径</text>
+    <rect x="316" y="382" width="6" height="6" fill="#F2C14E"/><rect x="326" y="382" width="6" height="6" fill="#E25C4A"/><rect x="336" y="382" width="6" height="6" fill="#F5F5F0"/><text x="350" y="393">花田</text>
+    <rect x="404" y="382" width="14" height="14" fill="#8B5A2B"/><text x="424" y="393">木栅栏</text>
+    <rect x="500" y="382" width="14" height="14" fill="#C89858"/><text x="520" y="393">告示牌</text>
+    <rect x="596" y="382" width="14" height="14" fill="#5A6B7A"/><text x="616" y="393">远景剪影</text>
+    <rect x="700" y="382" width="14" height="14" fill="#EDE8D2"/><text x="720" y="393">雾/暖晕</text>
+    <rect x="812" y="382" width="14" height="14" fill="#8FC7FF"/><text x="832" y="393">天色(home 不变)</text>
+    <text x="1000" y="393" fill="#555555">注：草色全程不插值，渐变靠地表块密度（T1§2.4）· 话术触发＝栅栏前≤2格</text>
+  </g>
+</svg>

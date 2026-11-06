@@ -497,13 +497,14 @@ test('探险模式: 注册表行在场(gated 共享儿童时限 + 派生脚本�
 test('探险模式: init 建场 — 草原地层/出生小屋/出生点/快捷栏 9 槽镜像背包', () => {
   freshInit();
   /* 地层随圈层高度场(T5): 表面=24+advHeightAt 处草 / 下 4 层泥 / 再下石头到 y0;
-     (10,10) 在深险圈——采样列的表面高度按高度场取, 层序随之 */
-  const sy = A.ADV.ground + AdventureMode.adv.heightAt(10, 10);
-  assert.strictEqual(cell(10, sy, 10), 1, '(10,10) 表面草皮贴高度场 y' + sy);
-  assert.strictEqual(cell(10, sy - 1, 10), 2, '表面下泥土(上层)');
-  assert.strictEqual(cell(10, sy - 4, 10), 2, '泥土第 4 层');
-  assert.strictEqual(cell(10, sy - 5, 10), 3, '泥层下石头');
-  assert.strictEqual(cell(10, 0, 10), 3, '直到 y0 都是石头');
+     (40,110) 在深险圈——采样列的表面高度按高度场取, 层序随之
+     (〔边界原型·T2~T5〕原 (10,10) 已落进北/西带改写区, 采样列换到四带之外) */
+  const sy = A.ADV.ground + AdventureMode.adv.heightAt(40, 110);
+  assert.strictEqual(cell(40, sy, 40), 1, '(40,110) 表面草皮贴高度场 y' + sy);
+  assert.strictEqual(cell(40, sy - 1, 40), 2, '表面下泥土(上层)');
+  assert.strictEqual(cell(40, sy - 4, 40), 2, '泥土第 4 层');
+  assert.strictEqual(cell(40, sy - 5, 40), 3, '泥层下石头');
+  assert.strictEqual(cell(40, 0, 40), 3, '直到 y0 都是石头');
   /* 出生小屋: 原木角柱 + 木板墙/地板/顶 + 北门洞; 工作台/熔炉不送(任务链要有仪式感) */
   const hut = A.ADV.hut;
   assert.strictEqual(cell(hut.x1, 25, hut.z1), 5, '角柱是原木');
@@ -702,7 +703,9 @@ test('探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞/门
       }
     }
   }
-  assert.ok(total >= 62 && total <= 78, '全图树(橡树+松林) ~70 棵: ' + total);
+  /* 〔边界原型·T2~T5〕带内树入账: 橡树 37(带区候选已排)+松林 ~14+
+     带内云杉 ~28(孤杉/云杉/远景/远排, 黑巢 POI 圈不落)+黑巢敞廊木柱 1 */
+  assert.ok(total >= 62 && total <= 88, '全图树(橡树+松林+带内云杉) ~82 棵: ' + total);
   assert.ok(pines >= 12, '松林圈内松树成林(实测 ' + pines + ')');
   assert.strictEqual(total, outside, '保护区内一棵树都不种(生成时就避开, 不靠后清理)');
 });
@@ -1176,11 +1179,17 @@ test('T12 草丛散布: 确定性 + 只长草地顶 + 密度可发现不铺满(T
   freshInit();
   const tufts = countId(api.B_GRASS_TUFT);
   assert.ok(tufts >= 250 && tufts <= 1200, '草原上可发现但不铺满: ' + tufts + ' 丛');
-  let onGrass = 0;
+  let onGrass = 0; let bandTufts = 0;
   for (let y = 0; y < H; y++) {
     for (let z = 0; z < D; z++) {
       for (let x = 0; x < W; x++) {
         if (cell(x, y, z) === api.B_GRASS_TUFT) {
+          if (z >= 128) {
+            bandTufts++; /* 〔边界原型·T2~T5〕南带沙斑草丛是带建场件(南 spec 走查反馈
+              修订 2026-11-06「多点小草」: 沙丘地里长草=设计本体), 归 adventure-core
+              边界带题验收, 不入 home 草地散布口径(东带花丛同款豁免先例) */
+            continue;
+          }
           assert.strictEqual(cell(x, y - 1, z), 1, '草丛脚下直接是草皮');
           assert.strictEqual(y, A.ADV.ground + AdventureMode.adv.heightAt(x, z) + 1,
               '草丛在本地表面上一层(T5 起随圈层丘体贴地)');
@@ -1189,7 +1198,8 @@ test('T12 草丛散布: 确定性 + 只长草地顶 + 密度可发现不铺满(T
       }
     }
   }
-  assert.strictEqual(onGrass, tufts, '每丛脚下都是草地(不占沙/水/矿坑/铺装)');
+  assert.strictEqual(onGrass, tufts - bandTufts,
+      '带外每丛脚下都是草地(不占沙/水/矿坑/铺装; 南带带建件单算 ' + bandTufts + ' 丛)');
   const again = (freshInit(), countId(api.B_GRASS_TUFT));
   assert.strictEqual(again, tufts, '重进草丛位置完全复现(确定性散布)');
 });

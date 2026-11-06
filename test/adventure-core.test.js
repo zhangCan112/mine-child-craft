@@ -27,6 +27,7 @@ const api = vm.runInContext(`({
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_ICE, B_SANDSTONE, B_GLOWSTONE, B_CHEST, /* 扩容主题五件建场件消费(望塔灯/箱, 松林/花田/南池) */
+  B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID, /* 边界带建场件消费(〔边界原型·T2~T5〕: 雪覆草/枯灌木/兰花) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK, /* 黑巢/巢穴副本建场件消费(den-nest: 巢之心/祭坛柱/洞口紫门) */
   ITEMS, isTool, toolOf, breakTime, stackMax, durOf,
@@ -104,8 +105,8 @@ test('T5 坐标迁移: 湖/两坑/山洞/三巢钉死设计稿 §2.4 圈层表, 
   assert.deepStrictEqual([Core.ADV_CAVE.x1, Core.ADV_CAVE.x2, Core.ADV_CAVE.zStart, Core.ADV_CAVE.zEnd],
       [61, 62, 10, 30], '山洞口北缘 (62,10), 隧道向南深潜到穴室 z30');
   assert.ok(Core.ADV_CAVE.zEnd > Core.ADV_CAVE.zStart, '方向反转: 原隧道向北(zStart72→zEnd52), 现向南');
-  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => [n.x, n.z]), [[44, 60], [96, 36], [20, 16], [100, 8]],
-      '四巢难度序: 近僵尸(44,60) / 中蜘蛛(96,36) / 远苦力怕(20,16) / 黑巢主巢(100,8)');
+  assert.deepStrictEqual(Core.ADV_NESTS.map((n) => [n.x, n.z]), [[44, 60], [96, 36], [20, 16], [26, 72]],
+      '四巢落位: 近僵尸(44,60) / 中蜘蛛(96,36) / 远苦力怕(20,16) / 黑巢主巢(26,72)——黑巢 2026-11-06 走查修订迁驻西带沼泽门(原北带东段 (100,8))');
   assert.deepStrictEqual(Core.ADV_NESTS.map((n) => n.kinds[0]), ['zombie', 'spider', 'creeper', 'cave_spider'],
       '巢穴主打种随难度递进(僵尸一家→虫虫族→草木族苦力怕→洞穴蜘蛛, den-nest D7)');
   assert.ok(Core.ADV_NESTS[3].den === true, '黑巢行带 den 旗标(建场分派 advBuildDenNest)');
@@ -115,16 +116,19 @@ test('T5 坐标迁移: 湖/两坑/山洞/三巢钉死设计稿 §2.4 圈层表, 
       '出生点坐标与压平 y24 不动');
 });
 
-test('T5 圈层断言: 四巢距小屋距离单调递增(近<中<远<黑巢, 风险-距离梯度)', () => {
+test('T5 圈层断言: 三普通巢距小屋距离单调递增(风险-距离梯度); 黑巢改驻沼泽门(走查修订 2026-11-06)', () => {
   const cx = (Core.ADV_HUT.x1 + Core.ADV_HUT.x2) / 2;
   const cz = (Core.ADV_HUT.z1 + Core.ADV_HUT.z2) / 2;
   const ds = Core.ADV_NESTS.map((n) => Math.hypot(n.x - cx, n.z - cz));
-  assert.ok(ds[0] < ds[1] && ds[1] < ds[2] && ds[2] < ds[3],
-      '巢穴难度距小屋单调递增: ' + ds.map((d) => d.toFixed(1)).join(' < '));
+  assert.ok(ds[0] < ds[1] && ds[1] < ds[2],
+      '三普通巢距小屋单调递增: ' + ds.slice(0, 3).map((d) => d.toFixed(1)).join(' < '));
+  /* 黑巢副本难度不再由距离梯度承担(迁驻西带后必然近于远巢): 沼泽=门阵解锁链
+     末环(home→desert→snow→swamp), 「最后解锁的门后蹲着最终副本」即难度叙事;
+     距离只保下限(不贴家), 详细落位/避让断言在西带走查修订测试块 */
+  assert.ok(ds[3] >= 25, '黑巢离小屋有基本威胁距离: ' + ds[3].toFixed(1));
   assert.ok(ds[0] >= 25 && ds[0] <= 45, '近巢落在资源圈 25~45: ' + ds[0].toFixed(1));
   assert.ok(ds[1] >= 40 && ds[1] <= 60, '中巢落在矿业圈 40~60: ' + ds[1].toFixed(1));
   assert.ok(ds[2] > 60, '远巢落在深险圈 >60: ' + ds[2].toFixed(1));
-  assert.ok(ds[3] > 60, '黑巢落在深险圈 >60: ' + ds[3].toFixed(1));
 });
 
 test('T5 迁移形状: 新坐标的湖心/坑底/洞口/穴室逐格断言(对真生成世界)', () => {
@@ -196,8 +200,10 @@ test('T5 高度场: 既有结构压平区归 0 — 小屋/湖盆/两坑口/山�
 test('T5 地形接入: 地层随高度场 — 表面=24+advHeightAt 处草皮, 下 4 层泥再下石; 树随丘扎根不悬空', () => {
   Core.advBuildWorld();
   const surf = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
-  /* 深险圈采样列: 表面贴高度场, 层序随之 */
-  for (const [x, z] of [[10, 10], [120, 120], [5, 80], [80, 5]]) {
+  /* 深险圈采样列: 表面贴高度场, 层序随之
+     (〔边界原型·T2~T5〕原 (10,10)/(5,80)/(80,5) 已落进北/西带改写区,
+     采样列换到四带之外, 继续钉「层序贴高度场」的语义) */
+  for (const [x, z] of [[40, 110], [120, 120], [35, 80], [80, 30]]) {
     const sy = surf(x, z);
     assert.strictEqual(cell(x, sy, z), 1, '(' + x + ',' + z + ') 表面草皮贴高度场 y' + sy);
     assert.strictEqual(cell(x, sy - 1, z), 2, '(' + x + ',' + z + ') 表面下泥层');
@@ -341,7 +347,7 @@ test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴�
   Core.advBuildWorld();
   const c = {x: 61, z: 81};
   const m = Core.ADV_MEADOW;
-  let n = 0; let meadowN = 0; const kinds = new Set();
+  let n = 0; let meadowN = 0; let bandN = 0; const kinds = new Set();
   for (let y = 0; y < H; y++) {
     for (let z = 0; z < D; z++) {
       for (let x = 0; x < W; x++) {
@@ -349,6 +355,11 @@ test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴�
         if (id !== api.B_FLOWER_Y && id !== api.B_FLOWER_W) continue;
         if (Math.hypot(x - m.cx, z - m.cz) <= m.r + 1) {
           meadowN++; /* 花田密铺区单算(扩容主题五件, 自己的验收在下一题) */
+          continue;
+        }
+        if (x >= 128) {
+          bandN++; /* 〔边界原型·T2~T5〕东带花田是带建场件(主径两侧各 5 朵),
+            不属「核心圈散布」口径, 归边界带测试验收 */
           continue;
         }
         n++;
@@ -362,6 +373,7 @@ test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴�
   }
   assert.ok(n >= 6 && n <= 90, '密度 ~2% 可发现不铺满: ' + n + ' 丛');
   assert.strictEqual(kinds.size, 2, '黄白两款都有');
+  assert.strictEqual(bandN, 10, '东带花田恰 10 丛(主径两侧各 5; 带内无树候选不覆写)');
   assert.ok(meadowN >= 100, '花田密铺单算不混入核心圈口径(实测 ' + meadowN + ' 丛)');
 });
 
@@ -427,7 +439,10 @@ test('扩容主题五件: 松林/望塔/石阵/花田/南池建场落位(确定�
   const p = Core.ADV_POND;
   assert.strictEqual(cell(p.cx, 24, p.cz), api.B_WATER, '南池洼心水面 y24');
   assert.strictEqual(cell(p.cx, 23, p.cz), 8, '南池沙底');
-  assert.strictEqual(cell(p.cx, 24, p.cz + p.r + 2), 1, '池外一圈草皮');
+  /* 〔边界原型·T2~T5〕池南环被南带 b11 沙化(查表权威)——沙漠过渡带吞到池南岸
+     =绿洲观感; 北环仍在带外保草(压平区边缘回归草地的原判据保留在北环) */
+  assert.strictEqual(cell(p.cx, 24, p.cz + p.r + 2), 8, '池外南环=南带沙(b11)');
+  assert.strictEqual(cell(p.cx, 24, p.cz - p.r - 2), 1, '池外北环仍草皮(带外)');
   /* 望塔: 基座/环墙/门洞/平台灯砖/宝箱/垛口 + 内旋楼梯逐级(7×7 外沿,
     2026-10-27 重构: 内旋梯收掉旧版「塔底死屋+外挂折返梯」的可发现性缺陷;
     2026-10-28 用户拍板: 楼梯改红蓝羊毛逐级交替——石梯在石砖墙里不显眼) */
@@ -505,6 +520,461 @@ test('扩容主题五件: 松林/望塔/石阵/花田/南池建场落位(确定�
     }
   }
   assert.ok(meadow >= 100, '花田密铺规模(实测 ' + meadow + ' 丛)');
+});
+
+/* ============ 边界带(〔边界原型·T2~T5〕观感走查用, T7 转正收编) ============
+   四方向过渡带纯核心段: 天/雾锚点混合是纯函数(直调), 建场落位对真 worldCells
+   断言(advBuildWorld 总装内建, 树/草丛链的确定性覆写按首跑观测钉死口径)。 */
+
+test('边界天/雾: advEdgeSkyAt 锚点 lerp+主导边+clamp(纯函数逐条钉口径)', () => {
+  const near = (a, b) => Math.abs(a - b) < 1e-9;
+  const rgbIs = (m, hex, label) => {
+    const e = Core.advEdgeRgb(hex);
+    assert.ok(near(m[0], e[0]) && near(m[1], e[1]) && near(m[2], e[2]),
+        label + ' (实测 ' + m.map((v) => v.toFixed(4)).join(',') + ')');
+  };
+  /* 腹地: 四方向进度 t 均 ≤0 → home 全量(纯天 #8FC7FF 端点/纯雾) */
+  const home = Core.advEdgeSkyAt(80, 80);
+  assert.strictEqual(home.dir, null, '腹地无主导边');
+  assert.deepStrictEqual(home.sky, [0.56, 0.78, 1], '腹地天色=home 端点');
+  assert.strictEqual(home.fog, 0, '腹地零雾');
+  assert.deepStrictEqual(home.fogC, [0.56, 0.78, 1], '腹地雾色随天色');
+  /* 北 z12: 恰落 0xa7d0fb→0xc0d9f7 段的 b 端(t=0)→锚点值原样(北 spec §3) */
+  const n12 = Core.advEdgeSkyAt(80, 12);
+  assert.strictEqual(n12.dir, 'north');
+  rgbIs(n12.sky, 0xc0d9f7, '北 z12 天色锚点 #C0D9F7');
+  assert.strictEqual(n12.fog, 0.35, '北 z12 雾浓度锚点档');
+  rgbIs(n12.fogC, 0xc0d9f7, '北雾色缺省随天色(null→sky)');
+  /* 北 z3: 尾段(0.55→1)半程 → 天色同色恒 #CCDEF5, 雾 0.775 */
+  const n3 = Core.advEdgeSkyAt(80, 3);
+  assert.strictEqual(n3.dir, 'north');
+  rgbIs(n3.sky, 0xccdef5, '北尾段天色恒 #CCDEF5');
+  assert.ok(near(n3.fog, 0.775), '北 z3 雾浓度半程 0.775');
+  /* 北 z0: 末锚点 clamp → 全雾 */
+  assert.strictEqual(Core.advEdgeSkyAt(80, 0).fog, 1, '北 z0 clamp 全雾');
+  /* 南 z143: b16 锚点(0xbaccce, 0.25)(南 spec §3) */
+  const s143 = Core.advEdgeSkyAt(80, 143);
+  assert.strictEqual(s143.dir, 'south');
+  rgbIs(s143.sky, 0xbaccce, '南 z143 天色锚点 #BACCCE');
+  assert.strictEqual(s143.fog, 0.25, '南 z143 雾浓度锚点档');
+  /* 西 x15: 恰落 0.88 浓度档, 雾色独立锚点 #BCC5BF(不随天色, 西 spec §3) */
+  const w15 = Core.advEdgeSkyAt(15, 80);
+  assert.strictEqual(w15.dir, 'west');
+  rgbIs(w15.sky, 0x9ea8a3, '西 x15 天色锚点 #9EA8A3');
+  assert.strictEqual(w15.fog, 0.88, '西 x15 雾浓度锚点档');
+  rgbIs(w15.fogC, 0xbcc5bf, '西向雾色独立锚点 #BCC5BF(fogC 分槽)');
+  /* 东 x150: 天色全程 home 不渐变(东 spec §4 拍板), 只雾随距线性起 */
+  const e150 = Core.advEdgeSkyAt(150, 80);
+  assert.strictEqual(e150.dir, 'east');
+  rgbIs(e150.sky, 0x8fc7ff, '东带天色恒 home #8FC7FF');
+  assert.ok(near(e150.fog, (27 / 28) * 0.2), '东 x150 雾随距线性(27/28 档)');
+  /* 角部混合口径(保守裁定, 登记 T7 复核): 主导边=四方向进度 t 最大者
+     ——西北角 (3,3) 西 t=65/66 > 北 t=33/36 → 落西;
+     同分按北/南/西/东先检序: (24,12) 北 t=西 t=2/3 → 取北 */
+  assert.strictEqual(Core.advEdgeSkyAt(3, 3).dir, 'west', '西北角进度比较落西');
+  assert.strictEqual(Core.advEdgeSkyAt(24, 12).dir, 'north', '同分检序北优先');
+});
+
+test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节一致', () => {
+  /* 先清场再建: 守卫式写入(冠层只落空气/装饰顶上无物才落)只保证
+     「清场重建」语义, 覆着已建世界的连建不在此列(与文件首测同口径) */
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  const a = snapshot();
+  const top = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  /* 北带: p5(z5) 纯雪段(采样列避洞穴口丘 x58~66); z0 整行冰湖镜带, 冰面下垫水 */
+  for (const x of [10, 40, 90, 150]) {
+    assert.strictEqual(cell(x, top(x, 5), 5), api.B_SNOW, '北 p5 纯雪 x' + x);
+  }
+  let iceRow = 0;
+  for (let x = 0; x < W; x++) if (cell(x, top(x, 0), 0) === api.B_ICE) iceRow++;
+  assert.strictEqual(iceRow, W, '北 z0 整行冰湖镜带(160 列)');
+  assert.strictEqual(cell(80, top(80, 0) - 1, 0), api.B_WATER, '冰面下垫水(雪原湖先例)');
+  /* 北屏障=巍峨高山脊(走查反馈修订 2026-11-06, 原雪崩堆矮丘被读成「墙」):
+     山体列计——x≤147 峰高全带 ≥10(屏障级高墙, 远巢丘体/洞口小丘段地表守卫
+     天然豁免; 黑巢 2026-11-06 已迁西带, 北带此段无巢丘); x144 起东端收势
+     让位东带栅栏/小镇天际线, 收势段不计数 */
+  let ridgeCols = 0;
+  for (let x = 0; x <= 156; x++) {
+    let hMax = 0;
+    for (let z = 1; z <= 23; z++) {
+      const t = top(x, z);
+      for (let y = t + 1; y <= t + 20; y++) {
+        const id = cell(x, y, z);
+        if (id === 3 || id === api.B_SNOW || id === api.B_ICE) hMax = Math.max(hMax, y - t);
+      }
+    }
+    if (hMax >= 10) ridgeCols++;
+  }
+  assert.ok(ridgeCols > 140, '高山脊横贯规模(实测 ' + ridgeCols + '/157 列, 东端收势段不计)');
+  /* 南带: b16(z144) 沙; 屏障=连绵大沙丘(走查反馈修订 2026-11-06, 原沙暴墙柱阵被
+     读成「墙」): 脊线 z144..147 全 x 横贯且沿 x 起伏(4..10, 丘非墙), 迎风坡脚
+     级差 ≥2 + 陡升段级差 ≥2 = 跳跃 1.42 格翻不过(屏障语义不变); apron z139..143
+     裸沙不落件(防垫脚/搭桥, b13 草残点随之改沙); 砂岩只做脊顶零星露头;
+     花田豁免圈保草: (72,138) 圈内 b10 虽查表为 S 仍保草, 圈外同行沙化 */
+  assert.strictEqual(cell(80, top(80, 144), 144), 8, '南 b16 沙面');
+  const duneH = (x, z) => {
+    const t = top(x, z); let h = 0;
+    while (h < 12 && cell(x, t + 1 + h, z) !== 0) h++;
+    return h;
+  };
+  let crestLo = 99; let crestHi = 0; let footLo = 99; let riseLo = 99; let bare = 0;
+  for (let x = 0; x < W; x++) {
+    crestLo = Math.min(crestLo, duneH(x, 146));
+    crestHi = Math.max(crestHi, duneH(x, 146));
+    footLo = Math.min(footLo, duneH(x, 144));
+    riseLo = Math.min(riseLo, duneH(x, 145) - duneH(x, 144));
+    if (x < 32 || x > 156) continue; /* bare 只采样南带自件领土(邻带穿越件见下) */
+    let clean = true;
+    for (let z = 139; z <= 143; z++) if (cell(x, top(x, z) + 1, z) !== 0) clean = false;
+    if (clean) bare++;
+  }
+  assert.ok(crestLo >= 4 && crestHi <= 10, '脊顶高度落在 4..10(实测 ' + crestLo + '..' + crestHi + ')');
+  assert.ok(crestHi - crestLo >= 3, '脊线沿 x 起伏(实测 ' + crestLo + '..' + crestHi + ', 丘非墙)');
+  assert.ok(footLo >= 2, '迎风坡脚全 x 级差 ≥2(实测 min ' + footLo + ', 跳跃翻不过)');
+  assert.ok(riseLo >= 2, '陡升段全 x 级差 ≥2(实测 min ' + riseLo + ', 垫脚石也止步)');
+  assert.strictEqual(bare, 125, 'apron z139..143 南带自件不落(实测 ' + bare + '/125 列;' +
+      ' 采样 x32..156: x19..31 西带兰花 ramp 与 x157 东栅栏是邻带走查件穿越不在此口径;' +
+      ' 坡脚→陡升恒 2 级差保证其垫脚也止步)');
+  let crestRock = 0;
+  for (let x = 0; x < W; x++) {
+    const t = top(x, 146);
+    for (let y = t + 1; y <= t + 11; y++) {
+      if (cell(x, y, 146) === api.B_SANDSTONE) {
+        crestRock++;
+        break;
+      }
+    }
+  }
+  assert.strictEqual(crestRock, 12, '脊顶砂岩零星露头恰 12 列(p>0.93 首跑观测钉死, 非柱芯节奏)');
+  assert.strictEqual(cell(72, top(72, 138), 138), 1, '花田豁免圈 b10 保草');
+  assert.strictEqual(cell(60, top(60, 138), 138), 8, '豁免圈外同行沙化');
+  /* 南绿洲: b26..27(z154..155) 水面+沙底 */
+  assert.strictEqual(cell(20, top(20, 154), 154), api.B_WATER, '绿洲水面');
+  assert.strictEqual(cell(20, top(20, 154) - 1, 154), 8, '绿洲沙底');
+  /* 南带植被过渡(走查反馈修订 2): 入口(b0..b3)草丛花密 → 带内沙斑渐稀 →
+     远端沙海洼地零星——消长发生在带内; 低矮耐旱树=沙面矮干(5)+扁小冠(7),
+     干顶叶下相邻且总高 ≤4(与 home 高树剖面区分, 探测锚: 沙面上 5 上叠 7) */
+  const tuftRows = (z1, z2) => {
+    let n = 0;
+    for (let z = z1; z <= z2; z++) {
+      for (let x = 0; x < W; x++) if (cell(x, top(x, z) + 1, z) === api.B_GRASS_TUFT) n++;
+    }
+    return n;
+  };
+  const entryTuft = tuftRows(128, 131); const midTuft = tuftRows(132, 138); const farTuft = tuftRows(148, 159);
+  assert.ok(entryTuft > midTuft, '入口草丛密于带内(实测 ' + entryTuft + '>' + midTuft + ', 植被过渡)');
+  assert.ok(midTuft >= 30, '带内沙斑零星草丛成规模(实测 ' + midTuft + ')');
+  assert.strictEqual(farTuft, 5, '远端沙海洼地零星草丛恰 5 丛(洼地守卫; 计数钉死)');
+  let scrub = 0;
+  for (let z = 132; z <= 157; z++) {
+    for (let x = 0; x < W; x++) {
+      if (cell(x, top(x, z), z) !== 8) continue; /* 只数沙面上的(home 高树草面排除) */
+      for (let y = top(x, z) + 1; y <= top(x, z) + 6; y++) {
+        if (cell(x, y, z) === 5 && cell(x, y + 1, z) === 7) {
+          scrub++;
+          break;
+        }
+      }
+    }
+  }
+  assert.strictEqual(scrub, 8, '低矮耐旱树恰 8 棵(矮干+扁小冠; 首跑观测钉死整段规模)');
+  /* 西带: 迷雾深水带 x13..18(泥底) + 苔石冒头点睛 + 高脚木屋(远景件) */
+  for (const [x, z] of [[13, 30], [15, 80], [18, 110]]) {
+    assert.strictEqual(cell(x, top(x, z), z), api.B_WATER, '西深水带 (' + x + ',' + z + ')');
+    assert.strictEqual(cell(x, top(x, z) - 1, z), 2, '西水洼泥底 (' + x + ',' + z + ')');
+  }
+  assert.strictEqual(cell(15, top(15, 48) + 1, 48), 14, '深水带苔石冒头 (15,48)');
+  assert.strictEqual(cell(16, top(16, 104) + 1, 104), 14, '深水带苔石冒头 (16,104)');
+  assert.strictEqual(cell(2, Core.ADV_GROUND + 4, 24), 6, '高脚木屋地板 y28');
+  assert.strictEqual(cell(0, Core.ADV_GROUND + 8, 23), api.B_TORCH, '木屋暖窗火把(顶沿, 脚下实心)');
+  /* 东带: 主径土面 + 告示牌(双柱+板面) + 木栅栏 x157(桩 z%3==0 两高原木,
+     缝格 1 高横杆——缝口留空是设计本体) + 隔离带 x158~159 剪影(房屋/钟楼)。
+     野树候选确定性穿杆(树干无条件覆写、树叶只落空气格): 首跑观测全数在场,
+     计数钉死整段规模(候选若变, 这里最先报警) */
+  assert.strictEqual(cell(154, top(154, 74), 74), 2, '东主径土面(与既有东向小径同轴)');
+  const yb = top(156, 74);
+  assert.strictEqual(cell(156, yb + 1, 73), 5, '告示牌立柱(z73)');
+  assert.strictEqual(cell(156, yb + 3, 74), 6, '告示牌板面(主径上方)');
+  assert.strictEqual(cell(156, yb + 3, 75), 6, '告示牌板面(z75)');
+  let posts = 0; let rails = 0;
+  for (let z = 0; z < D; z++) {
+    const y = top(157, z) + 1;
+    if (z % 3 === 0 && cell(157, y, z) === 5 && cell(157, y + 1, z) === 5) posts++;
+    if (z % 3 !== 0 && cell(157, y, z) === 6) rails++;
+  }
+  assert.strictEqual(posts, Math.floor((D - 1) / 3) + 1,
+      '栅栏桩全数在场(实测 ' + posts + '；带内无树候选, 首跑零缺失)');
+  assert.strictEqual(rails, D - (Math.floor((D - 1) / 3) + 1),
+      '横杆全数在场(实测 ' + rails + '；树叶只落空气格, 不啃横杆)');
+  const tt = top(158, 74);
+  assert.strictEqual(cell(158, tt + 1, 74), 3, '钟楼塔身石(隔离带)');
+  assert.strictEqual(cell(158, tt + 8, 74), 5, '钟楼尖顶');
+  assert.strictEqual(cell(159, tt + 8, 74), api.B_TORCH, '钟楼顶灯');
+  assert.strictEqual(cell(158, top(158, 24) + 1, 24), 3, '剪影房屋墙(首屋)');
+  /* 清场重建: 带改写+植被覆写全链逐字节复现(SceneKit.rand 确定性, 零 Math.random) */
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  assert.deepStrictEqual(snapshot(), a, '两次建场 worldCells 逐块一致(含边界带)');
+});
+
+test('北带走查修订(2026-11-06): 巍峨高山脊剖面 + 落雪寒带杉 + 植物过渡', () => {
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  const top = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  const isRock = (id) => id === 3 || id === api.B_SNOW || id === api.B_ICE;
+  /* 山脊剖面(南→北, 采样列避洞口小丘 x59~65): 起步 1~2 格缓阶(看得见脚点=
+     「爬的欲望」)→ 随即 ≥3 格级差陡壁(本游戏跳跃约 1 格, 翻不过, 屏障语义
+     不变); 峰高 ≥12(巍峨, 替换 3~4 高矮丘); 峰顶雪盖 + 雪下石身/冻壁 */
+  for (const x of [6, 34, 70, 118, 138]) {
+    const prof = [];
+    for (let z = 23; z >= 1; z--) {
+      const t = top(x, z);
+      let h = 0;
+      /* 自地表向上「连续」石/雪才算山体: 山体是实心柱; 落雪杉的冠雪/远景冰崖
+         下方是干叶或空气, 连续性断开, 天然不计入 */
+      while (h < 22 && isRock(cell(x, t + 1 + h, z))) h++;
+      prof.push(h);
+    }
+    const peak = Math.max(...prof);
+    assert.ok(peak >= 12, '山体巍峨(x=' + x + ' 峰高 ' + peak + ' ≥12, 非矮丘)');
+    const solid = prof.filter((h) => h > 0);
+    assert.ok(solid.length >= 3 && solid[0] <= 2,
+        '南麓起步缓阶可望(x=' + x + ' 首阶 ' + solid[0] + ' ≤2)');
+    let wall = 0;
+    for (let i = 1; i < prof.length; i++) wall = Math.max(wall, prof[i - 1] - prof[i]);
+    assert.ok(wall >= 3, '山势陡壁级差(x=' + x + ' 最大级差 ' + wall + ' ≥3, 跳跃 1 格翻不过)');
+    const pz = 23 - prof.indexOf(peak);
+    const pt = top(x, pz);
+    assert.strictEqual(cell(x, pt + peak, pz), api.B_SNOW, '峰顶雪盖(x=' + x + ')');
+    assert.ok(isRock(cell(x, pt + Math.max(1, peak - 3), pz)), '雪下石身/冻壁(x=' + x + ')');
+  }
+  /* 落雪寒带杉: 原木干→叶冠→冠顶帽雪的三连剖面(5→7→B_SNOW)逐列清点——
+     山根孤杉+坡麓云杉(命中山体足迹的落位由守卫跳过)+远景3+远排5, 落雪率
+     全数(绿杉绝迹); 下限留跳过余量, 规模由三连剖面口径钉住 */
+  let snowySpruce = 0;
+  for (let x = 0; x < W; x++) {
+    for (let z = 0; z < 24; z++) {
+      for (let y = 21; y <= 44; y++) {
+        if (cell(x, y, z) === 5 && cell(x, y + 1, z) === 7 && cell(x, y + 2, z) === api.B_SNOW) {
+          snowySpruce++;
+          break;
+        }
+      }
+    }
+  }
+  assert.ok(snowySpruce >= 20, '落雪寒带杉成林(实测 ' + snowySpruce + '/≥20 株, 绿杉绝迹)');
+  /* 植物过渡: 草丛(home 植物, 「脚下草皮」判据)入口段密→山前带稀——消长发生在
+     带内; 山前坡地寒带件(雪堆/裸石/坡裙)成规模接管 */
+  const tuftRows = (z1, z2) => {
+    let n = 0;
+    for (let z = z1; z <= z2; z++) {
+      for (let x = 0; x < W; x++) if (cell(x, top(x, z) + 1, z) === api.B_GRASS_TUFT) n++;
+    }
+    return n;
+  };
+  const entryTuft = tuftRows(20, 23); const midTuft = tuftRows(16, 19);
+  assert.ok(entryTuft > midTuft, '入口草丛密于山前带(实测 ' + entryTuft + '>' + midTuft + ', 植物过渡)');
+  assert.ok(entryTuft >= 6, '入口段草丛仍成规模(实测 ' + entryTuft + ')');
+  let coldDress = 0;
+  for (let z = 15; z <= 21; z++) {
+    for (let x = 0; x < W; x++) {
+      const id = cell(x, top(x, z) + 1, z);
+      if (id === api.B_SNOW || id === 3) coldDress++;
+    }
+  }
+  assert.ok(coldDress >= 12, '山前坡地寒带件成规模(实测 ' + coldDress + ', 雪堆/裸石/坡裙)');
+});
+
+test('西带走查修订(2026-11-06): 黑巢副本迁驻沼泽门——落位避让/涌出锚随迁/带改写不噬副本件', () => {
+  const den = Core.ADV_NESTS[3];
+  /* 落位: 丘体 r5 全在西带且裙边离深水带(k13~18=x13..18)两格外; 压平圈 r9
+     避开北带改写区(z<24)与南带; 避铁坑压平圈(24,44 r13)不叠盘; 高脚木屋
+     (x0~4,z22~26)在西带极北, 与丘体相距远大于圈距(x 向 ≥17) */
+  assert.ok(den.x - 5 >= 19 && den.x + 5 <= 31,
+      '丘体 r5 全在西带内(x>18 不咬深水带, x<=31 不出带): ' + den.x);
+  assert.ok(den.z - 9 >= 24 && den.z + 9 <= 119,
+      '压平圈 r9 避开北/南带改写区: z=' + den.z);
+  assert.ok(Math.hypot(den.x - 24, den.z - 44) > 22, '避铁坑压平圈(24,44): 两盘不叠');
+  /* 洞口涌出锚=巢行派生(单一权威): 副本搬家锚自动跟走, 不存在第二份坐标 */
+  assert.strictEqual(Core.ADV_DEN_NEST_DOOR.x, den.x + 0.5, '涌出锚 x=巢心+0.5(派生自表)');
+  assert.strictEqual(Core.ADV_DEN_NEST_DOOR.z, den.z + 7.5, '涌出锚 z=巢心+7.5(敞廊南缘外 2 格)');
+  Core.advBuildWorld();
+  /* 带改写不噬副本件: 建场序=巢丘先、带改写后, 而带改写只换「草皮顶块」——
+     门楣(地表位 y24)是发光岩、敞廊口是净空、台阶顶是石, 天然不在改写靶上;
+     水洼/兰花带 r9 守卫, 洞口前坪不被淹不长花 */
+  assert.strictEqual(cell(den.x, 24, den.z + 3), api.B_GLOWSTONE, '巢穴之门门楣(地表位)在场');
+  assert.strictEqual(cell(den.x - 1, 21, den.z + 3), api.B_OBSIDIAN, '巢穴之门黑曜石门槛在场');
+  assert.strictEqual(cell(den.x, 23, den.z + 7), 3, '南口台阶顶块(涌出点列)在场');
+  assert.strictEqual(cell(den.x - 1, 24, den.z + 5), 0, '敞廊口净空(带改写不回填)');
+  let apronWater = 0;
+  for (let dz = 6; dz <= 9; dz++) {
+    for (const dx of [-1, 0]) {
+      if (cell(den.x + dx, 24, den.z + dz) === api.B_WATER) apronWater++;
+    }
+  }
+  assert.strictEqual(apronWater, 0, '洞口前坪 z+6..z+9 双列全程无水洼(r9 守卫)');
+  let apronOrchid = 0;
+  for (let dx = -9; dx <= 9; dx++) {
+    for (let dz = -9; dz <= 9; dz++) {
+      if (dx * dx + dz * dz > 81) continue;
+      if (cell(den.x + dx, 25, den.z + dz) === api.B_ORCHID) apronOrchid++;
+    }
+  }
+  assert.strictEqual(apronOrchid, 0, '黑巢 r9 圈内无兰花(装饰守卫跟迁)');
+  /* 带内地表换装照常吃前坪草皮(泥面整合=「黑巢蹲在沼泽里」): 涌出走廊钉泥,
+     入口剖面列不被草丛/水洼顶高(与 adventure-den stands 断言同口径) */
+  const stands = (x, dz) => {
+    for (let y = H - 1; y >= 0; y--) {
+      if (cell(x, y, den.z + dz) !== 0) return y + 1;
+    }
+    return 0;
+  };
+  assert.deepStrictEqual([stands(den.x - 1, 5), stands(den.x - 1, 6), stands(den.x - 1, 7), stands(den.x - 1, 8)],
+      [23, 23, 24, 25], '西面黑巢南口剖面 1 格级(洞口步/回填/回填/泥坪)');
+  assert.deepStrictEqual([stands(den.x, 5), stands(den.x, 6), stands(den.x, 7), stands(den.x, 8)],
+      [23, 23, 24, 25], '涌出点列剖面 1 格级(走廊钉泥, 草丛不上门脸)');
+  for (const dz of [8, 9]) {
+    assert.strictEqual(cell(den.x, 24, den.z + dz), 2, '涌出走廊钉泥 (' + den.x + ',' + (den.z + dz) + ')');
+  }
+});
+
+test('西带植被过渡(走查修订 2026-11-06): 入口草皮份额东→西递减 + 兰花入口 ramp 西向渐密', () => {
+  Core.advBuildWorld();
+  const top = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  /* home 植物消长: 草丛只长草皮(advScatterTufts 判据), 而带内草皮份额按 patch
+     递减(①75% → ②25% → ③全泥)——草丛密度随草皮份额自然衰减, 消长在带内完成 */
+  const grassRate = (x1, x2) => {
+    let g = 0; let n = 0;
+    for (let x = x1; x <= x2; x++) {
+      for (let z = 0; z < D; z++) {
+        n++;
+        if (cell(x, top(x, z), z) === 1) g++;
+      }
+    }
+    return g / n;
+  };
+  const rIn = grassRate(28, 31); const rMid = grassRate(24, 27); const rDeep = grassRate(19, 23);
+  assert.ok(rIn > rMid && rMid > rDeep,
+      '草皮份额入口→带内递减(home 草丛随之渐稀): ' +
+      [rIn, rMid, rDeep].map((v) => v.toFixed(2)).join(' > '));
+  assert.strictEqual(rDeep, 0, '全泥段无草皮(home 植物清零)');
+  /* 沼泽植物渐密: 兰花入口 ramp(①段 0.3% → ②段 0.5% → ③段 0.8%)西向递增 */
+  const orchids = (x1, x2) => {
+    let c = 0;
+    for (let x = x1; x <= x2; x++) {
+      for (let z = 0; z < D; z++) {
+        if (cell(x, top(x, z) + 1, z) === api.B_ORCHID) c++;
+      }
+    }
+    return c;
+  };
+  const oIn = orchids(28, 31); const oMid = orchids(24, 27); const oDeep = orchids(19, 23);
+  assert.ok(oIn <= oMid && oMid <= oDeep,
+      '入口兰花西向渐密(实测 ' + oIn + '/' + oMid + '/' + oDeep + ')');
+  assert.ok(oDeep >= 3, '③段兰花 ramp 在场(实测 ' + oDeep + ')');
+  /* 水洼同节奏渐密: ②段(x24..27)密度低于③段(x19..23)——同为 0.0125 档的
+     ③段保持原观感, ②段降档 0.008(入口水洼稀) */
+  const pools = (x1, x2) => {
+    let c = 0;
+    for (let x = x1; x <= x2; x++) {
+      for (let z = 0; z < D; z++) {
+        if (cell(x, top(x, z), z) === api.B_WATER) c++;
+      }
+    }
+    return c;
+  };
+  const pIn = pools(24, 27); const pDeep = pools(19, 23);
+  assert.ok(pIn > 0 && pDeep > 0 && pIn < pDeep,
+      '水洼入口段稀于带内段(实测 ' + pIn + ' vs ' + pDeep + ')');
+});
+
+test('四角交接(第 5 员工 2026-11-06): NW 冻沼渐变/NE 融雪楔/SW 沙洲入沼/SE 栈桩+草甸南侵', () => {
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  const top = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  const topId = (x, z) => cell(x, top(x, z), z);
+  /* NW 角(x0..31×z0..23) 冻沼渐变: 西带泥水只活在草皮行(z16..23), 与北带纯雪
+     在 z16 一刀切——post-pass 把水面冻成浮冰(越北越密, 接 z15 纯雪)、泥面融成
+     雪覆草(越北越融)。首跑观测钉死(浮冰列受散列摆动, 泥列单调即梯度本体) */
+  const rowId = (z, id) => {
+    let n = 0;
+    for (let x = 0; x <= 31; x++) if (topId(x, z) === id) n++;
+    return n;
+  };
+  assert.deepStrictEqual([16, 17, 18, 19].map((z) => rowId(z, 2)), [3, 5, 6, 8],
+      'NW 泥面向北渐融(雪覆草向北渐密=消长梯度, 首跑钉死)');
+  const iceSum = [16, 17, 18, 19].reduce((s, z) => s + rowId(z, api.B_ICE), 0);
+  assert.ok(iceSum >= 2 && rowId(16, api.B_ICE) >= rowId(19, api.B_ICE),
+      'NW 水面结冰向北增厚(浮冰渐冻, 接 z15 纯雪)');
+  assert.strictEqual(rowId(15, api.B_WATER) + rowId(15, 2), 0,
+      'NW z15 纯雪带不受角区 blend 侵染(北带定稿行原样)');
+  assert.strictEqual(rowId(0, api.B_ICE), 32, 'NW z0 冰湖镜带整行冰(兰花脚下换泥不碰冰面)');
+  /* NE 角(x128..159×z0..23) 融雪楔: x146..156 雪面→雪覆草, 草线绕栅栏北端回勾;
+     山体足迹格(顶上有石)天然跳过; 楔外(x128..140)是 p2 patch 自己的草雪混铺 */
+  const wed = (z, id) => {
+    let n = 0;
+    for (let x = 146; x <= 156; x++) if (topId(x, z) === id) n++;
+    return n;
+  };
+  assert.deepStrictEqual([12, 13, 14, 15].map((z) => wed(z, api.B_SNOWY_GRASS)), [5, 5, 4, 4],
+      'NE 镇郊融雪楔成规模(雪覆草楔, 首跑钉死)');
+  assert.strictEqual(wed(11, api.B_SNOWY_GRASS), 0, 'NE 楔止步 z11(p3 纯雪段不侵染)');
+  /* SW 角(x0..31×z128..159) 沙洲没入沼泽: 角区西半沙面→泥/草斑(草斑限 x≤18,
+     x19..23 全泥段是西带单测钉死的 rDeep===0 列带), 深水带 x13..18 潮尾向南
+     渐稀归零; 脊线 z144..147 与 apron 净空寸步不碰 */
+  assert.deepStrictEqual([rowId(132, 8), rowId(132, 2), rowId(132, 1)], [22, 7, 3],
+      'SW 沙行 z132 被泥/草斑咬掉 10 格(条纹马赛克→渐变, 首跑钉死)');
+  let tide = 0;
+  for (let z = 138; z <= 142; z++) for (let x = 13; x <= 18; x++) if (topId(x, z) === api.B_WATER) tide++;
+  assert.ok(tide >= 2 && tide <= 6, 'SW 深水带潮尾在场且渐稀(实测 ' + tide + '/30 格, 沙面不一刀切)');
+  let swCrest = 0;
+  for (let z = 144; z <= 147; z++) for (let x = 0; x <= 31; x++) if (topId(x, z) !== 8) swCrest++;
+  assert.strictEqual(swCrest, 0, 'SW 脊线 x0..31 z144..147 全沙顶(南沙丘主体剖面冻结)');
+  /* SE 角(x128..159×z128..159) 栈桩+草甸南侵: 绿洲水行 z153/154 与南缘水 z159
+     的栅栏桩/杆脚下是水(建场序: 南带先、东栅栏后写)——原木栈桩落在栅栏件
+     正下方的水面格支起(不写栅栏坐标); 草甸南侵楔只吃 z≤138 平沙, apron
+     z139..143 净空与脊线剖面冻结 */
+  for (const z of [153, 154, 159]) {
+    assert.strictEqual(topId(157, z), 5, 'SE 栈桩支起水上栅栏件 (157,z' + z + ')');
+    assert.strictEqual(cell(157, top(157, z) + 1, z) !== 0, true, 'SE 水上栅栏件在场 (157,z' + z + ')');
+  }
+  assert.strictEqual(cell(157, top(157, 144) + 1, 144), 5,
+      'SE 栅栏桩本体原样(z144 迎风面嵌木=流沙半埋读法, 东带冻结)');
+  assert.strictEqual(cell(157, top(157, 145) + 1, 145), 6,
+      'SE 栅栏横杆本体原样(z145, 东带冻结)');
+  assert.strictEqual(cell(157, top(157, 146) + 1, 146), 6, 'SE 栅栏横杆本体原样(z146, 东带冻结)');
+  let wedge = 0;
+  for (const z of [132, 135, 136, 138]) {
+    for (let x = 144; x <= 157; x++) if (topId(x, z) === 1) wedge++;
+  }
+  assert.strictEqual(wedge, 15, 'SE 草甸南侵楔恰 15 格(沙行转草, 草丛随散布归乡; 首跑钉死)');
+  let apron = 0;
+  for (let z = 139; z <= 143; z++) for (let x = 32; x <= 143; x++) if (topId(x, z) !== 8) apron++;
+  assert.strictEqual(apron, 0, 'SE apron z139..143 x32..143 净空(防垫脚翻丘, 南带修订 1 不破)');
+  let seCrest = 0;
+  for (let z = 144; z <= 147; z++) for (let x = 128; x <= 159; x++) if (topId(x, z) === 1) seCrest++;
+  assert.strictEqual(seCrest, 0, 'SE 脊线全带无草顶(草楔止步 z138, 丘体冻结)');
+  /* 四角收尾安检: 植物件(草丛/枯灌木/兰花/花)脚下是水的悬空株=零(泥洲垫脚) */
+  let floatPlants = 0;
+  for (const [x1, x2, z1, z2] of [[0, 31, 0, 23], [128, 159, 0, 23], [0, 31, 128, 159], [128, 159, 128, 159]]) {
+    for (let z = z1; z <= z2; z++) {
+      for (let x = x1; x <= x2; x++) {
+        const pid = cell(x, top(x, z) + 1, z);
+        if ((pid === api.B_GRASS_TUFT || pid === api.B_DEAD_BUSH || pid === api.B_ORCHID ||
+            pid === api.B_FLOWER_Y || pid === api.B_FLOWER_W) && topId(x, z) === api.B_WATER) floatPlants++;
+      }
+    }
+  }
+  assert.strictEqual(floatPlants, 0, '四角悬空植物=零(零悬空红线)');
+  /* 与邻带单测的交互口径: 草皮份额 rDeep 全泥段钉 0、兰花 ramp 西向渐密——
+     本段改动(草斑限列/兰花沙面换枯灌木)不得破这两条 */
+  let rDeepG = 0;
+  for (let x = 19; x <= 23; x++) for (let z = 0; z < D; z++) if (topId(x, z) === 1) rDeepG++;
+  assert.strictEqual(rDeepG, 0, '交互守门: x19..23 全 z 无草皮(西带植被过渡 rDeep===0)');
+  let oDeep = 0;
+  for (let x = 19; x <= 23; x++) for (let z = 0; z < D; z++) if (cell(x, top(x, z) + 1, z) === api.B_ORCHID) oDeep++;
+  assert.ok(oDeep >= 3, '交互守门: 西带兰花 ramp ③段在场(实测 ' + oDeep + ' ≥3)');
 });
 
 /* ============ 政策纯函数段(逐条钉口径) ============ */

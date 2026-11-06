@@ -36,7 +36,9 @@
      onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(31 键:
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口/丢弃与扩容
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
-     adventure-core 的常量表与纯函数不再转发——测试侧 core 直调)
+     adventure-core 的常量表与纯函数不再转发——测试侧 core 直调) ·
+     advEdgeSkyTick(〔边界原型·T2~T5〕边界天/雾渐变编排: 混合色走 setSkyBase
+     缝+雾距直写, home 图专属, 锚点纯函数在 adventure-core.advEdgeSkyAt)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
       adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
        index.html 加载序在 adventure-core 之前) ·
@@ -1737,6 +1739,28 @@ function advApplySky(k) {
   scene.fog.near = k.fogNear;
   scene.fog.far = k.fogFar;
   if (typeof sun !== 'undefined') sun.intensity = k.sunI;
+}
+
+/* ---------- 〔边界原型·T2~T5〕边界天/雾渐变编排（走查用, T7 转正收编） ----------
+   只走既有缝, 不另开直写通道: 天/雾色经 world.js setSkyBase 换白日端点——
+   昼夜插值仍归 applyDaylight(渐变与昼夜切换不打架的结构保证); 雾距是
+   advApplySky 的私产口径(只写 scene.fog.near/far, 不碰颜色)。混合色/雾浓度
+   由 adventure-core 的 advEdgeSkyAt 纯函数算(home 图专属: 下界/副本与他图
+   不跑; 他图/退场的天色复位由 advApplyMapPalette/advMapRowCleanup 既有链负责)。
+   雾浓度→雾距映射: home 全量 near90/far230 ↔ 全雾 near4/far36, 中间线性。 */
+let advEdgeSkyKey = null; /* 上次写入的量化键(同值不重写, 免逐帧 churn daylightKey) */
+function advEdgeSkyTick() {
+  if (advDim !== 'overworld' || advMap !== 'home') return;
+  if (typeof setSkyBase !== 'function' || typeof scene === 'undefined' || !scene.fog) return;
+  const m = advEdgeSkyAt(Math.floor(pos.x), Math.floor(pos.z));
+  const q = (v) => Math.round(v * 255);
+  const key = q(m.sky[0]) + ',' + q(m.sky[1]) + ',' + q(m.sky[2]) + ',' +
+    Math.round(m.fog * 100) + ',' + q(m.fogC[0]) + ',' + q(m.fogC[1]) + ',' + q(m.fogC[2]);
+  if (key === advEdgeSkyKey) return;
+  advEdgeSkyKey = key;
+  setSkyBase(m.sky, m.fogC);
+  scene.fog.near = Math.round(90 + (4 - 90) * m.fog);
+  scene.fog.far = Math.round(230 + (36 - 230) * m.fog);
 }
 
 /* ---------- 地图行换装与调色板(T6) ----------
@@ -3627,6 +3651,13 @@ const AdventureMode = mkMode({
     advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
     advGateLockT = 0; /* 锁门提示节流复位 */
+    advEdgeSkyKey = null; /* 〔边界原型·T2~T5〕渐变量化键复位(进场首帧必写——
+       上局可能停在带内, 按键跳写会漏掉首帧渐变) */
+    if (typeof advSetEdgeBarriersHidden === 'function') {
+      advSetEdgeBarriersHidden(typeof location !== 'undefined' &&
+        /edgeUnlocked=1/.test(location.search || '')); /* 走查开关: ?edgeUnlocked=1
+        隐藏三向屏障件(对比走查用; 建场在下方 loadScene, 先于建场置位生效) */
+    }
     advMap = advLoad.map;
     advApplyMapRow(ADV_MAPS.find((r) => r.id === advMap) || ADV_HOME_ROW);
     const advBuckets = advSceneEditsDecode(advLoad); /* 幂等再归一(decode 坏档兜底路径
@@ -3786,6 +3817,8 @@ const AdventureMode = mkMode({
     advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7) */
     advVeilReset(); /* 渐晕遮罩收起(T7): 中途退出模式不留紫屏 */
     advGateLockT = 0; /* 锁门提示节流复位 */
+    advEdgeSkyKey = null; /* 〔边界原型·T2~T5〕渐变量化键复位(重进首帧必写);
+       天/雾色复位由下行 advMapRowCleanup 内含(setSkyBase(null)+advApplySky) */
     advMapRowCleanup(); /* 行调色板复位内含 advApplySky(ADV_SKY_OVER), 不另重复调用 */
     advBeamsClear(); /* 红天光束不渗进其他模式 */
     advStore.journal.edits = advSceneEdits.home;
@@ -3836,6 +3869,8 @@ const AdventureMode = mkMode({
   update(dt) {
     advStore.tick(); /* 世界存档节流 5s(build 同款, 时序收编 journal) */
     advSyncMood(); /* 场景曲随昼夜/维度走(同值空转; 首帧补报夜间重进) */
+    advEdgeSkyTick(); /* 〔边界原型·T2~T5〕边界天/雾渐变(home 图专属, 同值空转):
+        走 setSkyBase/雾距既有缝, 昼夜插值仍归 applyDaylight */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */

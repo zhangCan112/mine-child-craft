@@ -28,6 +28,7 @@ const api = vm.runInContext(`({
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_BED_FOOT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W,
   B_SNOW, B_SANDSTONE, B_GLOWSTONE, B_CHEST,
+  B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID, B_CACTUS, /* 边界带建场件(〔边界原型·T2~T5〕带内建场引用) */
   B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK, B_LOOT_CHEST, B_LOOT_CHEST_SMALL,
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
@@ -111,15 +112,15 @@ test('黑巢建场: 巢厅/巢之心/发光岩落位 + 洞道向南深潜连通(
   assert.strictEqual(skirtObs, 0, '丘裙无随机黑块(黑块只留在丘冠/丘身)');
 });
 
-test('黑巢入口动线·南口: 台阶回填后剖面 1 格级(x99/x100 双列, 涌出点列不困人)', () => {
+test('黑巢入口动线·南口: 台阶回填后剖面 1 格级(巢心列/西邻列 双列, 涌出点列不困人)', () => {
   clearWorld();
   Core.advBuildWorld();
   /* 洞口步 z+5 站 23 → 回填 z+6 站 23(平走) → 回填 z+7 站 24 → 南侧草皮 z+8 站 25 */
   const stands = (x) => [5, 6, 7, 8].map((dz) => colTop(x, DN.z + dz) + 1);
   assert.deepStrictEqual(stands(DN.x - 1), [23, 23, 24, 25],
-      'x99 剖面(洞口步/回填/回填/草皮)——修前 z+6/z+7 站 22/21 是 4 格壕沟');
+      '西邻列(DN.x-1)剖面(洞口步/回填/回填/草皮)——修前 z+6/z+7 站 22/21 是 4 格壕沟');
   assert.deepStrictEqual(stands(DN.x), [23, 23, 24, 25],
-      'x100 剖面(夜袭涌出点列)全程 1 格级, 出洞口爬得回来');
+      '巢心列(DN.x)剖面(夜袭涌出点列)全程 1 格级, 出洞口爬得回来');
   for (const x of [DN.x - 1, DN.x]) {
     for (const yy of [21, 22, 23]) {
       assert.strictEqual(cell(x, yy, DN.z + 7), 3, '南口台阶回填非空 (' + x + ',' + yy + ',' + (DN.z + 7) + ')');
@@ -137,7 +138,7 @@ test('黑巢入口动线·进厅: 台阶铺在洞道→厅动线上(垫底不被
     assert.strictEqual(cell(DN.x, yy, DN.z + dz), 3,
         '进厅踏面非空 (' + DN.x + ',' + yy + ',' + (DN.z + dz) + ')');
   }
-  assert.strictEqual(cell(DN.x - 1, 8, DN.z + 19), 3, '末块踏面 x99');
+  assert.strictEqual(cell(DN.x - 1, 8, DN.z + 19), 3, '末块踏面(巢心西邻列)');
   /* 净空: 每级踏面上方一格是掏空腔, 玩家站得进(台阶 carve y..y+3 与厅腔叠加) */
   assert.strictEqual(cell(DN.x, 12, DN.z + 16), 0, '洞道末步净空');
   assert.strictEqual(cell(DN.x, 11, DN.z + 17), 0, '首步净空');
@@ -158,7 +159,7 @@ test('巢穴洞口紫门: 2×2 B_PORTAL 门面+黑曜石门槛+发光岩门楣(�
     assert.strictEqual(cell(gx, 21, DZ), api.B_OBSIDIAN, '黑曜石门槛 (' + gx + ',21,' + DZ + ')');
     assert.strictEqual(cell(gx, 24, DZ), api.B_GLOWSTONE, '发光岩门楣 (' + gx + ',24,' + DZ + ')');
   }
-  /* 门面格可走入(B_PORTAL solid:false): 玩家脚格落 (x99..100, y22..23, z11) 即触发域
+  /* 门面格可走入(B_PORTAL solid:false): 玩家脚格落 (巢心列与西邻列, y22~23, 门面 z=DN.z+3) 即触发域
      ——壳层 advDenDoorAt 与此同源派生, 建场/判定不漂移 */
   /* 门框柱(巢穴观感票): 门面两侧贴廊壁各一根黑曜石柱(y22~24)——经典门框观感,
      远看即「这里有一扇门」; 廊壁格在敞廊 fill 之外, 触发域不动 */
@@ -183,8 +184,8 @@ test('黑巢丘顶·苦力怕王半身像: 基座/像身/头/正典脸纹/金冠
     assert.strictEqual(cell(fx, 36, DN.z + 2), api.B_OBSIDIAN, '眼 (' + fx + ',36)');
     assert.strictEqual(cell(fx, 34, DN.z + 2), api.B_OBSIDIAN, '垂腿 (' + fx + ',34)');
   }
-  assert.strictEqual(cell(DN.x, 35, DN.z + 2), api.B_OBSIDIAN, '嘴心上 (100,35)');
-  assert.strictEqual(cell(DN.x, 34, DN.z + 2), api.B_OBSIDIAN, '嘴心下 (100,34)');
+  assert.strictEqual(cell(DN.x, 35, DN.z + 2), api.B_OBSIDIAN, '嘴心上(巢心列,y35)');
+  assert.strictEqual(cell(DN.x, 34, DN.z + 2), api.B_OBSIDIAN, '嘴心下(巢心列,y34)');
   assert.strictEqual(cell(DN.x, 37, DN.z + 2), 14, '眉带无脸纹(脸只占 y34~36)');
   /* 金冠四尖桩(发光岩, 头顶四角 y38~39, 夜间灯塔) */
   for (const [cx, cz] of [[-2, -2], [2, -2], [-2, 2], [2, 2]]) {

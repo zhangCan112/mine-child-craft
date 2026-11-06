@@ -1,0 +1,235 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 420" width="1600" height="420" font-family="'Microsoft YaHei','PingFang SC',sans-serif">
+  <!--
+    T3 · 南向沙漠边 · 概念断面图（未解锁态 + 底部解锁态对比条）
+    视向：home → 南(+z) 行走方向的侧剖断面；1 格 = 16px。
+    throwaway 概念稿：结论折叠进 T3 Resolution 后本图留档，不进代码。
+    分区（x 轴）：home 0..544 ｜ 过渡带 32 格 544..1056（z 128..159）｜ 目的地示意 1056..1600。
+  -->
+  <defs>
+    <!-- 天条：左 #8FC7FF（home）→ 右 #E6D19E（沙漠）；锚点 x=544(b0) 起变、x=800(屏障)≈#BACCCE、x=1056(缘)到位 -->
+    <linearGradient id="sky" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"    stop-color="#8FC7FF"/>
+      <stop offset="0.34" stop-color="#8FC7FF"/>
+      <stop offset="0.50" stop-color="#BACCCE"/>
+      <stop offset="0.66" stop-color="#E6D19E"/>
+      <stop offset="1"    stop-color="#E6D19E"/>
+    </linearGradient>
+    <!-- 地平线雾带：左冷白蓝 → 右暖白沙（雾=渲染边界，MC 官方口径） -->
+    <linearGradient id="fog" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0"    stop-color="#DCE9F7" stop-opacity="0.95"/>
+      <stop offset="0.34" stop-color="#E2ECF3" stop-opacity="0.80"/>
+      <stop offset="0.66" stop-color="#F2E8CE" stop-opacity="0.85"/>
+      <stop offset="1"    stop-color="#F2E8CE" stop-opacity="0.95"/>
+    </linearGradient>
+    <!-- 沙暴墙柱体竖向渐变 -->
+    <linearGradient id="gust" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#E6D19E"/>
+      <stop offset="1" stop-color="#B89A5E"/>
+    </linearGradient>
+    <!-- 斜纹动画（静帧示意；实施时缓慢向右上漂移——借 MC 边界墙之形） -->
+    <pattern id="stripe" width="14" height="14" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
+      <rect width="5" height="14" fill="#F2E8CE" fill-opacity="0.5"/>
+    </pattern>
+  </defs>
+
+  <!-- ===== 天条（y 0..144） ===== -->
+  <rect x="0" y="0" width="1600" height="144" fill="url(#sky)"/>
+  <!-- 远景：带内后段雾中暖色起伏带×2（纯渐变色带，零新贴图） -->
+  <path d="M864,142 q40,-14 90,-10 q50,4 102,-8 l0,18 l-192,0 z" fill="#DCC9A0" opacity="0.35"/>
+  <path d="M900,142 q40,-8 80,-6 q40,2 76,-4 l0,10 l-156,0 z" fill="#C9AE7C" opacity="0.4"/>
+  <!-- 目的地沙丘剪影×2（大件深色，雾中显影） -->
+  <path d="M1330,142 q60,-30 120,-26 q70,4 150,-14 l0,40 l-270,0 z" fill="#DCC9A0" opacity="0.5"/>
+  <path d="M1380,142 q50,-18 110,-14 q60,4 110,-6 l0,16 l-220,0 z" fill="#C9AE7C" opacity="0.75"/>
+  <!-- 目的地剪影：沙漠神殿（传送后实见；未解锁≈不可见） -->
+  <path d="M1180,142 L1250,58 L1320,142 Z" fill="#8A744A" opacity="0.45"/>
+  <path d="M1236,142 L1250,100 L1264,142 Z" fill="#6B5A3A" opacity="0.6"/>
+  <line x1="1204" y1="96" x2="1296" y2="96" stroke="#7A6440" stroke-width="2" opacity="0.5"/>
+  <!-- 雾带（地平线上 26px） -->
+  <rect x="0" y="118" width="1600" height="26" fill="url(#fog)"/>
+
+  <!-- ===== 天条标注 ===== -->
+  <text x="16" y="16" font-size="15" font-weight="bold" fill="#1F3E5C">南向沙漠边 · 过渡带概念断面（未解锁态）—— 视向：home → 南(+z) ｜ 1 格 = 16px</text>
+  <text x="1584" y="16" font-size="10" fill="#2A4A6A" text-anchor="end">T3 · designer·南 · 概念稿(throwaway) · 2026-11-06</text>
+  <text x="16" y="56" font-size="11" fill="#1F3E5C">天/雾渐变：带起点 b0 即开始 lerp —— 天色先行于脚下块变化（MC「温度→天色」官方同构）</text>
+  <!-- 天/雾锚点：三角 + hex -->
+  <path d="M539,138 l10,0 l-5,7 z" fill="#1F3E5C" opacity="0.85"/>
+  <path d="M795,138 l10,0 l-5,7 z" fill="#1F3E5C" opacity="0.85"/>
+  <path d="M1051,138 l10,0 l-5,7 z" fill="#1F3E5C" opacity="0.85"/>
+  <text x="520" y="130" font-size="10" fill="#1F3E5C">#8FC7FF</text>
+  <text x="764" y="130" font-size="10" fill="#1F3E5C">#BACCCE 沙暴天</text>
+  <text x="1066" y="130" font-size="10" fill="#1F3E5C">#E6D19E ＝ 票面端点(0.90,0.82,0.62)</text>
+  <text x="868" y="104" font-size="10" fill="#2A4A6A">远景：雾中暖色起伏带×2（渐变色带 · 零新贴图）</text>
+  <text x="1332" y="70" font-size="10" fill="#2A4A6A">目的地剪影：沙漠神殿（传送后实见 · 未解锁≈不可见）</text>
+  <!-- 屏障标注 -->
+  <text x="664" y="42" font-size="11" fill="#1F3E5C">未解锁屏障：沙暴墙（特效件 · 非方块＝不可挖 · 斜纹缓漂动画 · 借 MC 边界墙「形」无伤害「罚」）</text>
+  <line x1="806" y1="46" x2="816" y2="26" stroke="#3A3A3A" stroke-width="1" opacity="0.5"/>
+
+  <!-- ===== 目的地地面罩（未解锁的朦胧感，天条不罩） ===== -->
+  <rect x="1056" y="144" width="544" height="160" fill="#F2E8CE" opacity="0.28"/>
+
+  <!-- ===== 断面地块 ===== -->
+  <!-- 地下层（y 176..288） -->
+  <rect x="0" y="176" width="544" height="64" fill="#8A5C34"/>
+  <rect x="0" y="240" width="544" height="48" fill="#7A4E2A"/>
+  <rect x="544" y="176" width="192" height="112" fill="#96703F"/>
+  <rect x="736" y="176" width="128" height="112" fill="#A5824F"/>
+  <rect x="864" y="176" width="192" height="112" fill="#C4B48B"/>
+  <rect x="1056" y="176" width="544" height="64" fill="#C9B98F"/>
+  <rect x="1056" y="240" width="544" height="48" fill="#B8A67E"/>
+  <!-- 带内地下 4 格 cell 级混铺 patch（示意，弱对比） -->
+  <rect x="608" y="176" width="64" height="112" fill="#DBCCA8" opacity="0.25"/>
+  <rect x="736" y="176" width="64" height="112" fill="#DBCCA8" opacity="0.25"/>
+  <rect x="864" y="176" width="64" height="112" fill="#7A4E2A" opacity="0.22"/>
+  <rect x="992" y="176" width="64" height="112" fill="#7A4E2A" opacity="0.18"/>
+  <!-- 基岩暗带（y 288..304） -->
+  <rect x="0" y="288" width="1600" height="16" fill="#6B5A44"/>
+
+  <!-- 表面块下行（y 160..176，随上块深一档） -->
+  <rect x="544" y="160" width="64" height="16" fill="#8A5C34"/>
+  <rect x="608" y="160" width="16" height="16" fill="#C4B48B"/>
+  <rect x="624" y="160" width="32" height="16" fill="#8A5C34"/>
+  <rect x="656" y="160" width="32" height="16" fill="#C4B48B"/>
+  <rect x="688" y="160" width="16" height="16" fill="#8A5C34"/>
+  <rect x="704" y="160" width="48" height="16" fill="#C4B48B"/>
+  <rect x="752" y="160" width="16" height="16" fill="#8A5C34"/>
+  <rect x="768" y="160" width="192" height="16" fill="#C4B48B"/>
+  <rect x="960" y="160" width="32" height="16" fill="#3E8894"/>
+  <rect x="992" y="160" width="64" height="16" fill="#C4B48B"/>
+
+  <!-- 表面块上行（y 144..160）：home 段 + 带内 32 列查表序列 + 目的地段 -->
+  <rect x="0" y="144" width="544" height="16" fill="#6EBD57"/>
+  <!-- 带内逐列（b0..31，查表序列：草草草草 沙草草沙 沙草沙沙 沙草沙沙 沙沙沙沙沙沙 沙沙沙沙沙沙 水水 沙沙沙沙） -->
+  <g stroke="#000000" stroke-opacity="0.10" stroke-width="0.5">
+    <rect x="544"  y="144" width="64"  height="16" fill="#6EBD57"/>
+    <rect x="608"  y="144" width="16"  height="16" fill="#DBCCA8"/>
+    <rect x="624"  y="144" width="32"  height="16" fill="#6EBD57"/>
+    <rect x="656"  y="144" width="32"  height="16" fill="#DBCCA8"/>
+    <rect x="688"  y="144" width="16"  height="16" fill="#6EBD57"/>
+    <rect x="704"  y="144" width="48"  height="16" fill="#DBCCA8"/>
+    <rect x="752"  y="144" width="16"  height="16" fill="#6EBD57"/>
+    <rect x="768"  y="144" width="288" height="16" fill="#DBCCA8"/>
+    <rect x="960"  y="144" width="32"  height="16" fill="#4D99A6"/>
+    <rect x="992"  y="144" width="64"  height="16" fill="#DBCCA8"/>
+  </g>
+  <!-- 带内块界细线（纯沙长段内保留方块读感） -->
+  <path d="M784,144 V160 M800,144 V160 M816,144 V160 M832,144 V160 M848,144 V160 M880,144 V160 M896,144 V160 M912,144 V160 M928,144 V160 M944,144 V160 M1008,144 V160 M1024,144 V160 M1040,144 V160" stroke="#5A4632" stroke-width="1" opacity="0.12"/>
+  <!-- 沙斑 / 草残点（混铺的「斑」语言） -->
+  <rect x="582" y="154" width="5" height="4" fill="#DBCCA8" opacity="0.8"/>
+  <rect x="596" y="148" width="5" height="4" fill="#DBCCA8" opacity="0.8"/>
+  <rect x="646" y="154" width="5" height="4" fill="#DBCCA8" opacity="0.8"/>
+  <rect x="694" y="150" width="5" height="4" fill="#DBCCA8" opacity="0.8"/>
+  <rect x="758" y="154" width="5" height="4" fill="#6EBD57" opacity="0.9"/>
+  <rect x="774" y="150" width="5" height="4" fill="#6EBD57" opacity="0.85"/>
+  <rect x="822" y="155" width="4" height="3" fill="#6EBD57" opacity="0.45"/>
+  <!-- 绿洲水洼高光（b26..27） -->
+  <line x1="962" y1="150" x2="990" y2="150" stroke="#7FC4CC" stroke-width="2" opacity="0.7"/>
+  <!-- 砂岩露头（b23 / b25） -->
+  <rect x="912" y="136" width="16" height="8" fill="#D9C08A" stroke="#B99F68" stroke-width="1"/>
+  <rect x="944" y="138" width="16" height="6" fill="#D9C08A" stroke="#B99F68" stroke-width="1" opacity="0.9"/>
+  <!-- 沙丘起伏线（顶面 ±1 格阶梯高差，段C） -->
+  <path d="M872,144 l8,0 l4,-8 l12,0 l4,-6 l16,0 l4,6 l12,0 l4,8 l8,0 z" fill="#E8DDBC" stroke="#B8A67E" stroke-width="1"/>
+  <path d="M984,144 l8,0 l4,-6 l14,0 l4,-4 l12,0 l4,4 l14,0 l4,6 l8,0 z" fill="#E8DDBC" stroke="#B8A67E" stroke-width="1" opacity="0.85"/>
+  <!-- 枯灌木（b10 · 草枯先兆件） -->
+  <path d="M708,144 l-3,-9 M712,144 l0,-11 M716,144 l3,-8 M710,144 l-1,-6" stroke="#8A6B42" stroke-width="1.5" fill="none"/>
+  <path d="M996,144 l-2,-7 M1000,144 l0,-8 M1004,144 l2,-6" stroke="#8A6B42" stroke-width="1.5" fill="none"/>
+  <!-- 仙人掌（b21 两格高；目的地内一株三格高） -->
+  <g fill="#4E8B3A" stroke="#37642A" stroke-width="1">
+    <rect x="886" y="118" width="8" height="26"/>
+    <rect x="878" y="124" width="8" height="4"/>
+    <rect x="878" y="124" width="4" height="8"/>
+    <rect x="1110" y="104" width="8" height="40"/>
+    <rect x="1102" y="112" width="8" height="4"/>
+    <rect x="1102" y="112" width="4" height="10"/>
+    <rect x="1122" y="120" width="8" height="4"/>
+    <rect x="1126" y="120" width="4" height="8"/>
+  </g>
+  <!-- 目的地绿洲（水+沙底，沙漠建场先例做法） -->
+  <rect x="1440" y="144" width="80" height="16" fill="#4D99A6"/>
+  <rect x="1440" y="160" width="80" height="16" fill="#3E8894"/>
+  <line x1="1446" y1="150" x2="1516" y2="150" stroke="#7FC4CC" stroke-width="2" opacity="0.6"/>
+
+  <!-- ===== 未解锁屏障：沙暴墙（b16..19，x 800..864，横跨整条南缘） ===== -->
+  <g>
+    <rect x="800" y="28" width="16" height="116" fill="url(#gust)" opacity="0.92"/>
+    <rect x="816" y="28" width="16" height="116" fill="url(#gust)" opacity="0.92"/>
+    <rect x="832" y="28" width="16" height="116" fill="url(#gust)" opacity="0.92"/>
+    <rect x="848" y="28" width="16" height="116" fill="url(#gust)" opacity="0.92"/>
+    <rect x="800" y="28" width="64" height="116" fill="url(#stripe)"/>
+    <!-- 墙顶翻卷沙檐 -->
+    <path d="M796,34 C802,20 810,26 814,18 C820,8 828,16 832,10 C838,2 846,10 850,6 C856,2 862,8 864,14 L864,34 Z" fill="#E2D3AC" opacity="0.95"/>
+    <!-- 飘散沙尾 -->
+    <path d="M866,30 q28,-10 56,-4" stroke="#D9C08A" stroke-width="3" fill="none" opacity="0.55" stroke-dasharray="7 5"/>
+    <path d="M860,52 q34,-2 62,10" stroke="#D9C08A" stroke-width="2.5" fill="none" opacity="0.35" stroke-dasharray="6 6"/>
+    <!-- 底部卷起沙浪 -->
+    <path d="M794,144 q3,-7 6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0 t6,0" stroke="#D9C08A" stroke-width="2" fill="none"/>
+  </g>
+  <!-- 话术气泡（文案给 T8 过目） -->
+  <g>
+    <rect x="616" y="56" width="176" height="52" rx="8" fill="#FFFDF2" stroke="#B8955A" stroke-width="1.5"/>
+    <path d="M700,108 L718,108 L706,124 Z" fill="#FFFDF2" stroke="#B8955A" stroke-width="1.5"/>
+    <text x="626" y="76" font-size="12" fill="#6B4A1F">风沙太大啦，</text>
+    <text x="626" y="94" font-size="12" fill="#6B4A1F">先回去做任务吧！</text>
+  </g>
+
+  <!-- ===== 南缘钳制面 + 越线瞬传位置标（机制归 T8，此处只标位置） ===== -->
+  <rect x="1053" y="0" width="6" height="304" fill="#FFFFFF" opacity="0.25"/>
+  <line x1="1056" y1="0" x2="1056" y2="304" stroke="#FFFFFF" stroke-width="4" opacity="0.3"/>
+  <line x1="1056" y1="0" x2="1056" y2="304" stroke="#FFFFFF" stroke-width="1.5" stroke-dasharray="8 5" opacity="0.9"/>
+  <text x="1064" y="158" font-size="10" fill="#1F3E5C">南缘钳制面 z≈159.5</text>
+  <text x="1064" y="174" font-size="10" fill="#1F3E5C">越线 → 白闪瞬传（T8）</text>
+  <text x="1066" y="190" font-size="10" fill="#5A4632">目的地世界（沙漠图）示意 —— 传送后所见（T8）</text>
+
+  <!-- ===== 地下层标注（白字贴深底） ===== -->
+  <text x="16" y="190" font-size="11" fill="#FFF6E3">home 草原（z&lt;128 · 不变色）</text>
+  <text x="620" y="196" font-size="10" fill="#FFF6E3">枯灌木 B_DEAD_BUSH · 草枯先兆件（先于仙人掌出现）</text>
+  <line x1="712" y1="148" x2="700" y2="188" stroke="#FFF6E3" stroke-width="1" opacity="0.5"/>
+  <text x="866" y="196" font-size="10" fill="#FFF6E3">仙人掌 B_CACTUS</text>
+  <text x="946" y="196" font-size="10" fill="#5A4632">砂岩露头 B_SANDSTONE</text>
+  <text x="950" y="172" font-size="10" fill="#FFF6E3">绿洲水洼（水+沙底 · 可选件）</text>
+  <text x="868" y="120" font-size="10" fill="#1F3E5C">沙丘起伏线（顶面 ±1 格阶梯高差）</text>
+  <!-- 段标（基岩带上白字） -->
+  <text x="548" y="300" font-size="10" fill="#FFF6E3">① 草掺沙斑 b0..11</text>
+  <text x="740" y="300" font-size="10" fill="#FFF6E3">② 混匀 b12..15</text>
+  <text x="802" y="300" font-size="10" fill="#FFF6E3">③ 屏障段 b16..19</text>
+  <text x="896" y="300" font-size="10" fill="#FFF6E3">④ 沙底纯化 b20..31</text>
+
+  <!-- ===== 底部标注区（y 304..348） ===== -->
+  <line x1="544" y1="304" x2="1056" y2="304" stroke="#666666" stroke-width="1"/>
+  <line x1="544" y1="300" x2="544" y2="308" stroke="#666666" stroke-width="1"/>
+  <line x1="800" y1="300" x2="800" y2="308" stroke="#666666" stroke-width="1"/>
+  <line x1="1056" y1="300" x2="1056" y2="308" stroke="#666666" stroke-width="1"/>
+  <text x="560" y="318" font-size="11" fill="#3A3A3A">带宽定稿 32 格（z 128..159）· 带内可挖可建（T6 v2）· 唯一保护件＝沙暴墙（不可挖/不可替换）</text>
+  <text x="560" y="334" font-size="11" fill="#3A3A3A">块序列（查表定稿 · 保建场确定性）：草×4 → 沙斑渐密(→60%) → 混匀(草残25%) → 纯沙 → 砂岩/仙人掌/绿洲 → 沙丘起伏 → 缘</text>
+  <text x="560" y="348" font-size="10" fill="#3A3A3A">palette｜草地 #6EBD57 · 沙 #DBCCA8 · 砂岩 #D9C08A · 沙漠天 #E6D19E · 绿洲水 #4D99A6 · home 天 #8FC7FF</text>
+  <text x="1584" y="348" font-size="10" fill="#3A3A3A" text-anchor="end">全部件用现有图集格位 · 零新贴图（沙暴墙=特效件除外）</text>
+
+  <!-- ===== 解锁态对比条（y 348..420，同视角） ===== -->
+  <line x1="0" y1="352" x2="1600" y2="352" stroke="#999999" stroke-width="1" stroke-dasharray="6 4"/>
+  <text x="16" y="346" font-size="11" font-weight="bold" fill="#3A3A3A">↓ 解锁态（同视角对比）</text>
+  <!-- 迷你天条：同一 #8FC7FF→#E6D19E 渐变，无沙暴墙遮挡 -->
+  <rect x="0" y="356" width="1600" height="14" fill="url(#sky)"/>
+  <!-- 迷你断面：草 → 混铺 → 沙（屏障位留空=通道） -->
+  <rect x="0" y="370" width="608" height="10" fill="#6EBD57"/>
+  <rect x="608" y="370" width="64" height="10" fill="#9CC274"/>
+  <rect x="672" y="370" width="64" height="10" fill="#B7CC96"/>
+  <rect x="736" y="370" width="64" height="10" fill="#C9CF9B"/>
+  <rect x="800" y="370" width="800" height="10" fill="#DBCCA8"/>
+  <rect x="0" y="380" width="800" height="16" fill="#8A5C34"/>
+  <rect x="800" y="380" width="800" height="16" fill="#C4B48B"/>
+  <rect x="0" y="396" width="1600" height="4" fill="#6B5A44"/>
+  <!-- 屏障散去的沙（残留几缕横向飘带） -->
+  <path d="M792,360 q28,6 56,0" stroke="#D9C08A" stroke-width="2.5" fill="none" opacity="0.5" stroke-dasharray="5 4"/>
+  <path d="M800,366 q24,-4 48,2" stroke="#D9C08A" stroke-width="2" fill="none" opacity="0.3" stroke-dasharray="4 4"/>
+  <!-- 通道开启箭头（绿=开放，借 MC 三态色语言） -->
+  <path d="M806,382 h34 v-5 l16,9 l-16,9 v-5 h-34 z" fill="#40B060" opacity="0.9"/>
+  <!-- 迷你神殿（显影） -->
+  <path d="M1182,370 L1250,354 L1318,370 Z" fill="#8A744A" opacity="0.9"/>
+  <path d="M1242,370 L1250,360 L1258,370 Z" fill="#6B5A3A" opacity="0.95"/>
+  <text x="1330" y="364" font-size="10" fill="#2A4A6A">神殿显影（可选奖励特效 · fallback=仅雾渐变）</text>
+  <!-- 迷你缘线 -->
+  <line x1="1056" y1="356" x2="1056" y2="396" stroke="#FFFFFF" stroke-width="3" opacity="0.5"/>
+  <line x1="1056" y1="356" x2="1056" y2="396" stroke="#FFFFFF" stroke-width="1" stroke-dasharray="6 4" opacity="0.9"/>
+  <text x="1064" y="366" font-size="10" fill="#1F3E5C">直走至缘 → 白闪瞬传（T8）</text>
+  <!-- 条标注 -->
+  <text x="16" y="412" font-size="12" fill="#3A3A3A">解锁态：沙暴散去 · 通道开启（绿=开放，借 MC 三态色语言）· 神殿显影 · 可直走至缘越线传送</text>
+</svg>
