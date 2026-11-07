@@ -86,7 +86,7 @@ const ADV_WATER_ALL_DEFAULT = [BLOCKS[B_WATER].all[0], BLOCKS[B_WATER].all[1],
 const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
   pits: ADV_PITS, cave: ADV_CAVE, nests: advMapRow.nests,
   player: {hp: 30, maxHp: 30}, quest: {step: 0, counts: {}}, panelOpen: false,
-  chestOpen: false, killCount: 0, swingCd: 0, homeCd: -1e9};
+  chestOpen: false, killCount: 0, homeCd: -1e9};
 
 /* ---------- 会话复位注册表(子系统自注册, camp-kit onStop「退出收口权」同形) ----------
    「新会话归零」知识的唯一登记处: 各子系统段把复位件 push 进来, init 与 cleanup
@@ -95,7 +95,13 @@ const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
    复位却写 false)。纪律: 只收「会话级运行时状态归零」; init 独有的首查预置
    (advQuestT/advBagT/advWarnLow/advPickT 等)与 cleanup 独有的观感拆卸(面板 DOM/
    血条/监听)不进表; 依赖读档/场景顺序的复位留在原位; advSceneLeave 是场景级
-   清单(切图/切界要保住 advDim 等会话态), 不跑本表、只共用子系统件(advTntReset)。 */
+   清单(切图/切界要保住 advDim 等会话态), 不跑本表、只共用子系统件(advTntReset)。
+   残余审计(卡3, 2026-11-07): 其余顶层状态皆有主——init 换装(advChest/advWorn/
+   advLivestockAll/advOreRegen/advUnlockedSeen/advDenDaily)、advNightReset 对齐
+   (advNightT/advWasNight/advDawnLit)、时间戳/按住类自愈(ADV.homeCd 时间戳节流/
+   advClockDragging window pointerup/advMouseHeld onHold(false))、设计性不复位
+   (advStoneGifted 全会话一次零惩罚); ADV.swingCd 死字段已移除(真冷却在
+   advMelee kit, reset 口径), 钟盘全局拖拽监听随 cleanup 摘除(堆积修复)。 */
 const advSessionResets = [];
 function advRunSessionResets() {
   for (const fn of advSessionResets) fn();
@@ -1668,22 +1674,27 @@ function advClockBuild() {/* 建面板 DOM(壳模式专用): 遮罩+盒+表盘+�
       advClockRefresh();
     }
   };
+  /* 拨针拖拽(pointer 事件, 触屏/鼠标同源): down 开拖 + move 现算 + up 收。
+     监听句柄随单例透出(cleanup 摘除)——window 全局挂接每次重建都净堆一对,
+     不摘会无限累积(守卫使旧监听幂等, 但同帧重复重绘) */
+  const onMove = (e) => {
+    if (!advClockDragging) return;
+    const t = advClockPointTick(e);
+    if (t != null) {
+      advSleepClock.target = t;
+      advClockRefresh();
+    }
+  };
+  const onUp = () => {
+    advClockDragging = false;
+  };
   if (typeof window !== 'undefined' && window.addEventListener) {
-    window.addEventListener('pointermove', (e) => {
-      if (!advClockDragging) return;
-      const t = advClockPointTick(e);
-      if (t != null) {
-        advSleepClock.target = t;
-        advClockRefresh();
-      }
-    });
-    window.addEventListener('pointerup', () => {
-      advClockDragging = false;
-    });
+    window.addEventListener('pointermove', onMove);
+    window.addEventListener('pointerup', onUp);
   }
   document.body.appendChild(root);
   root.style.display = 'none';
-  return {root, box, cv, read};
+  return {root, box, cv, read, onMove, onUp};
 }
 
 function advSleepClockOpen(x, y, z) {/* 开拨盘(怪圈已过): 缺省拨到清晨(tick 0)=MC 一键跳夜的正典等价 */
@@ -4102,6 +4113,10 @@ const AdventureMode = mkMode({
     advSleepClock.on = false; /* 拨盘开着退出模式: 状态复位(panelOpen 已归零) */
     if (advClockDom) { // 拨盘 DOM 随模式卸载, 重进惰性重建
       if (advClockDom.root.parentNode) advClockDom.root.parentNode.removeChild(advClockDom.root);
+      if (advClockDom.onMove && typeof window !== 'undefined' && window.removeEventListener) {
+        window.removeEventListener('pointermove', advClockDom.onMove);
+        window.removeEventListener('pointerup', advClockDom.onUp); /* 全局拖拽监听随单例摘 */
+      }
       advClockDom = null;
     }
     advSleepFadeReset(); /* 遮罩归零还 CSS transition, 不渗入其他模式 */
