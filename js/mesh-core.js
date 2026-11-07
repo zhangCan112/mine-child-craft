@@ -6,8 +6,7 @@
    方块图集 texture-atlas; 图集内薄块走十字面片、床走薄块扁盒 pushBedBox、
    火把走专用小盒 pushTorch
    (MC 同款, mc-torch-model-research §1/§2)、pane 旗标走竖直薄板
-   pushPane — 门/玻璃板, docs/door-window-design.md §5)与
-   LOD 降采样粗网格。
+   pushPane — 门/玻璃板, docs/door-window-design.md §5)。
    零 THREE · 零 DOM ·
    加载零副作用 →
    Node 可直接加载单测; 同一份代码在主线程(world.js 兜底路径)与
@@ -24,7 +23,7 @@
    顶点光(D3, docs/mc-daylight-torch-design.md §4.1): 四通道每顶点产出
    sky/block 两个标量(值=等级/15) — 普通面与 pane 竖直薄板取面朝向邻格光
    (关门是 opaque 挡光格、自身格恒 0, 取自身格会整扇黑——2026-10-27 修),
-   十字片/薄块取自身格(火把自亮), LOD 仅天空二值 0/15·block 恒 0;
+   十字片/薄块取自身格(火把自亮);
    无光照载荷的旧 pack 回落全亮(sky 15 · block 0), 存量调用方零侵入。
    ============================================================ */
 
@@ -122,23 +121,6 @@ const MeshCore = (() => {
       t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
       t.n += 4;
     }
-  }
-
-  /* 通用四边形: 按面朝向取单位角点, 各轴按尺寸缩放(cor∈{0,1} → 0/尺寸)
-     y 轴用 y0+cor[1]*sy — 顶面 sy=0(共面), 裙边 y0=邻格顶 · sy=高差。
-     LOD 顶点光: 仅天空二值(设计稿 §4.1, block 恒 0 — 火把点光不进 LOD) */
-  function pushQuad(t, f, x, y0, z, sx, sy, sz, col, lvSky) {
-    const face = FACES[f];
-    for (let c=0; c<4; c++) {
-      const cor = face.corners[c];
-      t.positions.push(x+cor[0]*sx, y0+cor[1]*sy, z+cor[2]*sz);
-      t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
-      t.colors.push(col[0], col[1], col[2]);
-      t.sky.push(lvSky);
-      t.block.push(0);
-    }
-    t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
-    t.n += 4;
   }
 
   /* 十字面片(草丛/麦/树苗等入集薄块): 两个对角面各正反两绘 —
@@ -540,67 +522,5 @@ const MeshCore = (() => {
     return {solid: S.n>0 ? S : null, glass: G.n>0 ? G : null, tnt: T.n>0 ? T : null, atlas: A.n>0 ? A : null};
   }
 
-  /* ---------- LOD 降采样: 区块 → 顶面+侧裙粗网格 (Distant Horizons 思路) ----------
-     每格 step×step 列合并: 格高 = 列表面最大高(薄块不算表面), 顶色取
-     最高列的顶面方块。相邻格矮差处出裙边; 区块周界对 0 出裙边(藏在
-     地形内部不可见, 格差处呈现为阶梯 — 体素风允许的误差)。 */
-  function meshChunkLod(pack, opts) {
-    const step = (CHUNK % opts.step === 0) ? opts.step : 2; // 非整除护栏: 静默丢边缘格不如回落
-    const cells = pack.cells; const w = pack.w; const d = pack.d;
-    const bx = pack.bx; const bz = pack.bz; const yMax = pack.yMax;
-    /* 合并列顶面之上的天空光 → 二值 0/15(设计稿 §4.1): 直灌带恒 15, 阈值 8
-       只是量化口径; 无光照载荷回落全亮。aBlock 恒 0 由 pushQuad 落实 */
-    const skyArr = pack.sky || null;
-    const lodSky = (lx, lz, top)=>{
-      if (!skyArr) return 15;
-      const sy = top + 1;
-      if (sy >= pack.h) return 15; // 世界顶之上 = 敞开天光
-      return skyArr[(sy*d + lz)*w + lx] >= 8 ? 15 : 0;
-    };
-    const n = Math.floor(CHUNK/step);
-    const hs = new Int16Array(n*n); // 格高(-1=空格)
-    const ids = new Uint8Array(n*n); // 格顶面方块 id
-    for (let gx=0; gx<n; gx++) {
-      for (let gz=0; gz<n; gz++) {
-        let hTop = -1; let idTop = 0;
-        for (let sx=0; sx<step; sx++) {
-          for (let sz=0; sz<step; sz++) {
-            const lx = gx*step+sx; const lz = gz*step+sz;
-            for (let y=yMax; y>=0; y--) { // 自上而下找表面(跳过薄块)
-              const id = cells[(y*d+lz)*w+lx];
-              if (id!==0 && !BLOCKS[id].thin) {
-                if (y > hTop) {
-                  hTop = y; idTop = id;
-                }
-                break;
-              }
-            }
-          }
-        }
-        hs[gx*n+gz] = hTop; ids[gx*n+gz] = idTop;
-      }
-    }
-    const S = mkCh();
-    for (let gx=0; gx<n; gx++) {
-      for (let gz=0; gz<n; gz++) {
-        const h = hs[gx*n+gz]; const id = ids[gx*n+gz];
-        if (h < 0) continue;
-        const X = bx+gx*step; const Z = bz+gz*step; const topY = h+1;
-        const lvSky = lodSky(gx*step, gz*step, h)/15; // 合并列一格一值: 顶面与裙边共用
-        pushQuad(S, 3, X, topY, Z, step, 0, step, faceColor(id, [0, 1, 0]), lvSky); // 顶面
-        const side = faceColor(id, [1, 0, 0]);
-        const nh = (nx, nz)=> (nx<0||nz<0||nx>=n||nz>=n) ? -1 : hs[nx*n+nz]; // 周界外按 -1 → 裙边到地
-        const emit = (f, X0, Z0, sx, sz, hN)=>{ // 邻格顶 hN+1..topY
-          if (h > hN) pushQuad(S, f, X0, hN+1, Z0, sx, topY-(hN+1), sz, side, lvSky);
-        };
-        emit(1, X+step, Z, 0, step, nh(gx+1, gz)); // +X
-        emit(0, X, Z, 0, step, nh(gx-1, gz)); // -X
-        emit(5, X, Z+step, step, 0, nh(gx, gz+1)); // +Z
-        emit(4, X, Z, step, 0, nh(gx, gz-1)); // -Z
-      }
-    }
-    return {solid: S.n>0 ? S : null};
-  }
-
-  return {meshChunk, meshChunkLod};
+  return {meshChunk};
 })();

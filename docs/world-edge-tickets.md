@@ -282,7 +282,7 @@ G2 实机走查用户反馈（2026-11-06）：「树上的雪树砍了后我还�
 
 ## T14 · 距离环 LOD 层退役（用户拍板「放弃这种技术」）
 
-> 标签：`wayfinder:task`（引擎机制退役，用户实机拍板）｜状态：open（2026-11-07 用户拍板立票，即派施工）｜blocked-by：无｜blocks：无
+> 标签：`wayfinder:task`（引擎机制退役，用户实机拍板）｜状态：closed（2026-11-07 拍板当日施工完成，主会话 git diff 全量核实收口；实机复验〔雪原/沙漠走动闪动应消失〕与 iPad 内存注并入 T10 总走查）｜blocked-by：无｜blocks：无
 
 ### Question
 
@@ -306,6 +306,14 @@ G2 实机走查用户反馈（2026-11-06）：「树上的雪树砍了后我还�
 **风险登记（复验注）**：iPad5（A9 低核）全图全细节常驻 GPU 内存上升——LOD 立项动机即此；预期量级数十 MB 可承受，但需 **iPad 实机复验**（初始装载铺满时长+帧率），并入 T10 走查清单。
 
 **红线**：T13 双材质修复（无 mip 纹理沸腾）不在本票掺和；config B_* 方块段禁碰；确定性红线不动。
+
+**施工结果（2026-11-07 拍板当日完成，主会话 git diff 全量核实）**：
+- 10 文件 M、净 -231 行：world.js 形态机（lodMeshes/desiredState/maintainRings/mountChunkLod/serveChunkKey kind 分支/『none』惰性丢弃）全拆，**meshGen+token 防陈旧响应与 rebuildAll 渐进铺满保留**；mesh-worker kind 协议字段（请求+响应）整体删除（留死字段正是本票要退役的东西），恒走 meshChunk；mesh-core `meshChunkLod` 删 + **pushQuad 孤儿一并删**（grep 证实 LOD 独占）；config VIEW 三参数与 IS_LOWCORE_TOUCH 环分档退役（**本体保留**——world.js DPR 分档与 perf-kit 仍消费）；ringCenter/ringQueue→distCenter/fillQueue 改名（「环」随退役消失）。
+- 测试面：world-rings.test.js 语义改写（全图 100 区块驻留/走远零翻转/**VIEW 三参数 undefined 防复活钉**+低核与桌面 VIEW 键集一致），mesh-worker 协议锁同步，mesh-core LOD 四测删（T9 先例），vertexlight 注释同步。
+- 文档：GLOSSARY「距离环」词条退役改写（_Avoid_ 挂旧名与死参数，「复活须先立票」）+「场景装填」「网格化核心」两词条同步；ipad5-performance-design.md §7 修订登记（立项动机→拍板退役+内存预期数十 MB+iPad 复验归 T10）。
+- 收口清理（主会话）：config.js B_PORTAL/物品段两处「LOD 降采样跳过 thin」过时告诫改退役注记——施工时红线禁碰、收口时解禁，纯注释行为零变化。
+- 门禁：npm test **1715 tests / 1714 pass / 0 fail / 1 skip**（T7_PERF env 门控，常态）+ `T7_PERF=1` 定向过 + lint 零错。
+- 留置拍板：world-rings.test.js **文件名不改**（rings 成历史词，GLOSSARY _Avoid_ 已登记；改名牵连 world.js 注释与 GLOSSARY 引用点，不值）。历史调研/计划文档（chunk-streaming-lod-research.md 等）保留原文。
 
 ---
 

@@ -30,7 +30,7 @@ _Avoid_: 流水系统/水物理（散称）、把水位编进方块 id 段（已
 _Avoid_: 倒树系统（树只是第一个消费者）、物理引擎（无刚体无连续力学）、把级联政策（掉落/任务）写进引擎
 
 **场景装填（loadScene）**:
-world.js 渲染 adapter 的建场 seam：loadScene(buildFn) = 清场 → 批量建 → 收尾入队一步到位。"建完必须 rebuildAll 否则整场不可见"的收尾纪律收在 seam 里（曾有模式漏调，进场一片天蓝）；收尾是渐进的——全部区块按距玩家距离入距离环队列（近处优先），由 pumpRemesh 每帧按预算构建，进场先见脚下、远景数帧铺满。清场幂等。编辑管线同理由 pumpRemesh 自动收口脏区块——漏调 flushDirty 最迟下帧入队，不再永远不可见。
+world.js 渲染 adapter 的建场 seam：loadScene(buildFn) = 清场 → 批量建 → 收尾入队一步到位。"建完必须 rebuildAll 否则整场不可见"的收尾纪律收在 seam 里（曾有模式漏调，进场一片天蓝）；收尾是渐进的——全部区块按距玩家距离入铺满队列（近处优先），由 pumpRemesh 每帧按预算构建，进场先见脚下、远景数帧铺满。清场幂等。编辑管线同理由 pumpRemesh 自动收口脏区块——漏调 flushDirty 最迟下帧入队，不再永远不可见。
 _Avoid_: clearWorld+build+rebuildAll 三连（历史惯用套路）、手动 flushDirty（即时提交的可选优化，不再是必需）
 
 **世界改动日志（WorldJournal）**:
@@ -54,16 +54,16 @@ _Avoid_: 昼夜系统（散称）、把折线/窗口判据散写回消费方（�
 _Avoid_: 光照系统/光照引擎（散称）、把传播/撤光算法写进 voxel 或 world（算法单份在这里：存储在 voxel、烘焙在网格化核心、场景接线在 world）、光衰减与挡光判据散写第二份（mkPolicy 是唯一装配缝）
 
 **网格化核心（MeshCore）**:
-区块数据 → 顶点裸数组 的纯变换（js/mesh-core.js，零 THREE · 零 DOM，有单测）：全细节四通道（实心/玻璃/TNT 贴图/贴图图集——atlas 布局经 opts.atlas 注入，与 tntTiles 同惯例，未注入时入集方块回落纯色通道）与 LOD 降采样粗网格（每 lodStep×lodStep 列合并采样，顶面+裙边）。输入是体素模型的 packChunkData 打包（含邻块边界圈供跨区块剔面），hashRand 由调用方注入——同一份代码在主线程（同步兜底）与网格 Worker（http 服务主路径）里运行，布局即跨线程契约。
+区块数据 → 顶点裸数组 的纯变换（js/mesh-core.js，零 THREE · 零 DOM，有单测）：全细节四通道（实心/玻璃/TNT 贴图/贴图图集——atlas 布局经 opts.atlas 注入，与 tntTiles 同惯例，未注入时入集方块回落纯色通道）。输入是体素模型的 packChunkData 打包（含邻块边界圈供跨区块剔面），hashRand 由调用方注入——同一份代码在主线程（同步兜底）与网格 Worker（http 服务主路径）里运行，布局即跨线程契约。
 _Avoid_: 网格生成器（散称）、把 THREE 装配混进纯核心
 
 **贴图图集**:
 程序化 16×16 像素画风方块贴图的图集（js/texture-atlas.js，引擎层）：新方块 36~50 全量（四矿嵌斑/草丛/耕地/麦四阶段/工作台/熔炉/火把/树苗/黏土）+ 存量基础方块升级款（草顶/泥土/石头颗粒/圆石/苔石/木板缝/木头年轮树皮/树叶孔洞/沙子）+ 黑巢地上件（黑曜石/发光岩——2026-10-30 巢穴观感票，此前纯色兜底是「黑巢读不出黑」的根因；门面/熄门不入集——贴图三试三否已回退，见「怪物巢穴（Den）」）+ 副本战利品宝箱（71 红金双格·2026-10-30 二批，den-nest §7.5；72 低档奖励箱复用同格——同日三批 D18，零新增画师格位）+ 远古残骸（73 螺旋纹整格·装备系统 T7，docs/equipment-design.md §2.3——暗棕斑驳底+同心方环亮带，正典残骸观感）+ 覆雪树叶（74 雪盖针叶整格·世界边界 T12，docs/world-edge-design/north-spec.md §11——松针深绿底+白雪覆盖大部，北带落雪杉冠盖件：need 与树叶同口径，树倒冠雪随冠消散）+ 冰（56 冰裂纹整格·世界边界·T8，G3 走查拍板 2026-11-07——淡蓝冰底+深蓝裂纹折线+霜斑高光，北带冰湖缘/山足冻舌/雪原冻湖共用；原 glass 纯色半透在雪原读作「脏渍」，入集随手摘 glass 旗标走 74 同款标准不透明通道），像素全部自绘（零外部素材，MC 观感语言逐块手调）。像素先写进纯数据缓冲、画布只是惰性壳——Node 可逐像素直测；噪点/斑点用种子化伪随机，同 seed 同图（重进世界观感逐像素一致）。layout（方块 id→格号）是网格化核心的 UV 契约：经 opts.atlas 注入（与 tntTiles 同惯例），Worker 侧 importScripts 共读；未入集方块（水等玻璃透渲件与未升级存量）仍走 faceColor 纯色兜底。interface：layout / count / paintAll / tileUV / makeCanvas。
 _Avoid_: 材质包（那是外部素材，这里全部程序自绘）、把图集布局散写在渲染层（layout 是唯一权威）
 
-**距离环（Chunk Rings）**:
-近实远虚的渲染预算分配（world.js，参数在 config 的 VIEW）：环心=玩家（驾驶中=坦克）——全细节环内实时构建完整网格，LOD 环用降采样粗网格（成本 ~1/lodStep²），更远卸载（GPU 释放、体素数据保留、走近重建）。低核触屏档（IS_LOWCORE_TOUCH，A9 级如 iPad 5）环半径收紧 full/lod 8/15→6/10，雾不动=观感边界不变（docs/ipad5-performance-design.md §7）。环形态在消费端决定（pump 出队时按当前距离选 full/lod，走远的惰性丢弃），入队侧只登记缺口；编辑永远优先于环填充。
-_Avoid_: 视距（那是渲染边界=雾，见 VIEW）、把卸载叫删除（数据还在 worldCells）
+**距离环（Chunk Rings）**（2026-11-07 已退役，词条保留作历史索引）:
+旧机制=近实远虚的渲染预算分配（曾住 world.js，参数曾挂 config 的 VIEW）：环心=玩家（驾驶中=坦克）——全细节环内实时构建完整网格，LOD 环用降采样粗网格（成本 ~1/lodStep²），更远卸载（GPU 释放、体素数据保留、走近重建）；低核触屏档（IS_LOWCORE_TOUCH）环半径收紧 full/lod 8/15→6/10。**2026-11-07 用户实机拍板全局退役**（docs/world-edge-tickets.md T14）：探针实测 10×10 chunk 小图上桌面档 full 环 8 chunk 近乎覆盖全图——LOD 收益趋零，代价是跨区块批量形态翻转（沙漠图北→南一趟 158 chunk·次、单批最大 100 chunk 整图重排，原地晃动同触发），正是「雪地/沙漠斑驳块走动疯狂闪动」的根因②，拍板原文「如果你为了边界交互处好看用了什么特殊技术的话，我建议放弃这种方式」。现行语义=**全图全细节常驻**：每 chunk 只建 full mesh（四通道），进场经 rebuildAll 渐进铺满（近处优先）后全部驻留，不随距离卸载/降级；meshGen+token 防陈旧响应与编辑重建走 Worker 的管线不变。环半径分档随退役消失（IS_LOWCORE_TOUCH 只剩 DPR 上限一处消费）；全细节常驻的内存上升预期数十 MB，iPad 实机复验归 T10。
+_Avoid_: 近实远虚/环形态机/fullChunks·lodChunks·lodStep（旧机制与死参数——2026-11-07 退役，复活须先立票）、把铺满队列叫环队列（历史名——ringQueue/ringQueued 已更名 fillQueue/fillQueued）
 
 **Fx**:
 特效的唯一入口：爆炸组合、冲击波球、闪电弧（arc）、落雷（bolt，盒段拼装的粗闪电）、碎块、震屏。条目形状与动画是它的 implementation，调用方不可见。

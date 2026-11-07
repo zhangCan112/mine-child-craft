@@ -5,9 +5,9 @@
    回传结果。本测试以 importScripts+self+postMessage 桩精确复刻
    DedicatedWorker 全局, 校验消息协议(跨线程契约)与纯核心接线。
    消息协议(与 world.js serveChunkKey 对应):
-   请求 {gen,cx,cz,token,kind,cells:ArrayBuffer,w,d,h,border,bx,bz,yMax}
-   响应 {gen,cx,cz,token,kind,res} — res 为 MeshCore 四通道(solid/glass/
-   tnt/atlas)/LOD 裸数组 */
+   请求 {gen,cx,cz,token,cells:ArrayBuffer,w,d,h,border,bx,bz,yMax}
+   响应 {gen,cx,cz,token,res} — res 为 MeshCore 四通道(solid/glass/
+   tnt/atlas)裸数组; kind 字段随 LOD 层退役(T14, 全细节单形态)已删。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -38,32 +38,27 @@ function loadWorker() {
 }
 
 /* 请求消息构造: 与 voxel.js packChunkData 输出同构(cells 随消息转移) */
-function mkMsg(kind) {
-  const border = kind === 'full' ? 1 : 0;
+function mkMsg() {
+  const border = 1;
   const w = 16 + 2*border; const d = 16 + 2*border;
   const cells = new Uint8Array(w*d*48);
   const set = (lx, y, lz, id)=>{
     cells[(y*d+lz)*w+lx] = id;
   };
-  if (kind === 'full') {
-    set(border+1, 5, border+1, 3); // 内部一块石头
-  } else {
-    for (let lx=0; lx<16; lx++) for (let lz=0; lz<16; lz++) set(lx, 0, lz, 2); // 平地
-  }
-  return {gen: 7, cx: 2, cz: 3, token: 1, kind, cells: cells.buffer,
+  set(border+1, 5, border+1, 3); // 内部一块石头
+  return {gen: 7, cx: 2, cz: 3, token: 1, cells: cells.buffer,
     w, d, h: 48, border, bx: 32-border, bz: 48-border, yMax: 5};
 }
 
-test('mesh-worker: full 请求 → 纯核心四通道 + 协议字段原样回程', () => {
+test('mesh-worker: 网格请求 → 纯核心四通道 + 协议字段原样回程', () => {
   const w = loadWorker();
-  w.onmessage({data: mkMsg('full')});
+  w.onmessage({data: mkMsg()});
   assert.strictEqual(w.out.length, 1);
   const r = w.out[0];
   assert.strictEqual(r.gen, 7);
   assert.strictEqual(r.cx, 2);
   assert.strictEqual(r.cz, 3);
   assert.strictEqual(r.token, 1);
-  assert.strictEqual(r.kind, 'full');
   /* 石头(T9 起入方块图集): 走 atlas 通道, UV 经 TypedArray 转移回传 */
   assert.strictEqual(r.res.solid, null);
   assert.strictEqual(r.res.glass, null);
@@ -74,21 +69,11 @@ test('mesh-worker: full 请求 → 纯核心四通道 + 协议字段原样回程
   assert.strictEqual(r.res.atlas.uvs.length, 24*2); // 24 顶点 UV
 });
 
-test('mesh-worker: lod 请求 → 降采样粗网格(step 取 config 的 VIEW.lodStep)', () => {
-  const w = loadWorker();
-  w.onmessage({data: mkMsg('lod')});
-  const r = w.out[0];
-  assert.strictEqual(r.kind, 'lod');
-  assert.ok(r.res.solid, '平地必有粗网格');
-  const n = 16/2; const perim = 4*n;
-  assert.strictEqual(r.res.solid.indices.length/6, n*n + perim); // 64 顶面+32 周界裙边
-});
-
 /* ============ 光照圈协议 (D3, 设计稿 §3.4/§4.1) ============ */
 
 test('mesh-worker: 请求携 sky/block 光照圈 → 顶点光随网格回传(火把自身格 block=14)', () => {
   const w = loadWorker();
-  const m = mkMsg('full');
+  const m = mkMsg();
   /* 火把(48, thin+wall)入图集专用小盒通道 — 自身格光照 sky=6 · block=14(§4.1 取自身格) */
   const w18 = 18; const d18 = 18;
   const sky = new Uint8Array(w18*d18*48);
@@ -115,7 +100,7 @@ test('mesh-worker: 请求携 sky/block 光照圈 → 顶点光随网格回传(�
 
 test('mesh-worker: 旧协议消息(无 sky/block) → 回落全亮, 不炸', () => {
   const w = loadWorker();
-  w.onmessage({data: mkMsg('full')}); // 不带 sky/block 字段
+  w.onmessage({data: mkMsg()}); // 不带 sky/block 字段
   const r = w.out[0];
   assert.ok(r.res.atlas, '网格照常产出');
   for (const v of r.res.atlas.sky) assert.ok(Math.abs(v - 1) < 1e-9, '无载荷回落 sky 全亮=1');
@@ -124,7 +109,7 @@ test('mesh-worker: 旧协议消息(无 sky/block) → 回落全亮, 不炸', () 
 
 test('mesh-worker: levels 水位通道随消息转移, 流动水顶面按水位缩放(liquid D7 协议)', () => {
   const w = loadWorker();
-  const msg = mkMsg('full');
+  const msg = mkMsg();
   const border = 1;
   const wCells = new Uint8Array(msg.cells);
   const levels = new Uint8Array(wCells.length);

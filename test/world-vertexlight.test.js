@@ -348,7 +348,7 @@ test('setPlayerGlow: uGlowR 两态 · PointLight 惰性创建/隐藏 · uGlowPos
 
 test('serveChunkKey: Worker 消息携带 sky/block 光照圈 + 三缓冲零拷贝转移', () => {
   const w = loadWorld({worker: true});
-  w.pos.set(64, 30, 64); // 环心居中: 全部区块 ≤ fullChunks → kind 全 'full'(border=1)
+  w.pos.set(64, 30, 64); // 全图常驻: 全部区块照常派发(border=1 邻块边界圈)
   w.rebuildAll();
   for (let i = 0; i < 10; i++) w.pumpRemesh(64);
   assert.ok(w.sent.length >= 64, '全部区块经 Worker 派发: ' + w.sent.length);

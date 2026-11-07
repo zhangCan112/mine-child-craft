@@ -3,7 +3,7 @@
    运行: node --test test/mesh-core.test.js
    加载器与 Worker 环境完全一致: config.js + mesh-core.js 依序共享词法环境
    (浏览器 <script defer> / Worker importScripts / Node vm 三者同构)。
-   被测 seam: MeshCore.meshChunk(全细节三通道) / MeshCore.meshChunkLod(降采样)。
+   被测 seam: MeshCore.meshChunk(全细节四通道)。
    输入 pack 由测试手工构造(与 voxel.js packChunkData 的输出同构),
    hashRand 由调用方注入(纯核心零全局依赖, 与 combat-core 同惯例)。
    D3 顶点光: 四通道每顶点 sky/block 属性(等级/15) — 普通面取面朝向邻格,
@@ -207,51 +207,9 @@ test('meshChunk: 空区块三通道全空(null)', () => {
   assert.strictEqual(r.tnt, null);
 });
 
-/* ============ meshChunkLod · 降采样粗网格 ============ */
-
-test('meshChunkLod: 平地 → (16/step)² 顶面 + 周界裙边(与全细节网格的地图边缘行为一致), 顶面色取自方块注册表', () => {
-  const m = loadMeshCore();
-  const p = mkPack(0);
-  for (let lx=0; lx<16; lx++) for (let lz=0; lz<16; lz++) p.set(lx, 0, lz, 2); // 泥土地
-  const r = m.MeshCore.meshChunkLod(p, {step: 2});
-  const n = 16/2; // 8×8 格
-  const perim = 4*n; // 四条边各 n 格的向外裙边(角格两条都计)
-  assert.strictEqual(quads(r.solid), n*n + perim, '64 顶面 + 32 周界裙边(内部格高等 → 无裙边)');
-  const c = m.BLOCKS[2].all;
-  assert.ok(Math.abs(r.solid.colors[0] - c[0]) < 1e-9 && Math.abs(r.solid.colors[2] - c[2]) < 1e-9);
-  let maxY = 0;
-  for (let i=1; i<r.solid.positions.length; i+=3) maxY = Math.max(maxY, r.solid.positions[i]);
-  assert.strictEqual(maxY, 1, '最高点 = 地面高+1');
-});
-
-test('meshChunkLod: 高塔抬升所在格顶面, 对低邻格四面出裙边', () => {
-  const m = loadMeshCore();
-  const p = mkPack(0);
-  for (let lx=0; lx<16; lx++) for (let lz=0; lz<16; lz++) p.set(lx, 0, lz, 2);
-  for (let y=0; y<=2; y++) p.set(2, y, 2, 3); // 3 高石柱, 落 step=2 的格 (1,1)
-  const r = m.MeshCore.meshChunkLod(p, {step: 2});
-  const n = 16/2; const perim = 4*n;
-  assert.strictEqual(quads(r.solid), n*n + 4 + perim, '64 顶面 + 塔格对低邻格 4 裙边 + 32 周界裙边');
-  let maxY = 0;
-  for (let i=1; i<r.solid.positions.length; i+=3) maxY = Math.max(maxY, r.solid.positions[i]);
-  assert.strictEqual(maxY, 3, '塔格顶面 y = 2+1');
-});
-
-test('meshChunkLod: 薄块不算表面 — 引线塔不抬升格高', () => {
-  const m = loadMeshCore();
-  const p = mkPack(0);
-  for (let lx=0; lx<16; lx++) for (let lz=0; lz<16; lz++) p.set(lx, 0, lz, 2);
-  p.set(4, 1, 4, m.B_FUSE); // 贴地引线, 叠在泥土上
-  const r = m.MeshCore.meshChunkLod(p, {step: 2});
-  const n = 16/2; const perim = 4*n;
-  assert.strictEqual(quads(r.solid), n*n + perim, '引线不产生裙边/抬升');
-  const c = m.BLOCKS[2].all;
-  assert.ok(Math.abs(r.solid.colors[0] - c[0]) < 1e-9, '表面色仍是泥土(引线被跳过)');
-});
-
 /* ============ 顶点光属性 (D3, 设计稿 §4.1) ============ */
 /* 断言口径: 通道的 sky/block 数组与顶点等长, 值 = 等级/15;
-   普通面取面朝向邻格光, 十字片/薄块取自身格, LOD 合并列天空二值 */
+   普通面取面朝向邻格光, 十字片/薄块取自身格 */
 
 /* 按面法线收集四边形的 4 顶点序号(sky/block 是单标量属性, 下标=顶点序) */
 function quadsByNormal(ch) {
@@ -400,42 +358,6 @@ test('顶点光: 无光照载荷的 pack 回落全亮(sky=15/block=0) — 既有
     for (const v of ch.sky) assert.ok(Math.abs(v - 1) < 1e-9, '回落 sky 全亮=1');
     for (const v of ch.block) assert.strictEqual(v, 0, '回落 block=0');
   }
-});
-
-test('顶点光: LOD 通道仅天空二值 0/15 + block 恒 0 — 远处夜色统一变暗', () => {
-  const m = loadMeshCore();
-  /* 平地: 顶面之上的格 sky=15 → 二值 15 */
-  const p = mkPack(0);
-  p.sky = new Uint8Array(p.w*p.d*48);
-  for (let lx=0; lx<16; lx++) {
-    for (let lz=0; lz<16; lz++) {
-      p.set(lx, 0, lz, 2);
-      p.sky[(1*p.d + lz)*p.w + lx] = 15; // 地表之上
-    }
-  }
-  /* 模拟一格被顶棚罩住(浮空顶棚的阴影落在地表之上): 该合并格的采样列
-     (合并格首列 (4,4), §4.1 一格一值)地表之上格 sky=3 → 二值 0 */
-  p.set(5, 0, 5, 3);
-  p.sky[(1*p.d + 4)*p.w + 4] = 3;
-  const r = m.MeshCore.meshChunkLod(p, {step: 2});
-  assert.strictEqual(r.solid.block.length, r.solid.positions.length/3);
-  for (const v of r.solid.block) assert.strictEqual(v, 0, 'LOD aBlock 恒 0(火把点光不进 LOD)');
-  /* 按四边形断言(顶点坐标在格边界与邻格裙边共点, 不能按位置归属): 每面
-     内部四顶点同值(一格一值), 被罩合并格的顶面恰一面全暗, 其余全亮 */
-  let dark = 0; let lit = 0;
-  for (let q=0; q<r.solid.indices.length; q+=6) {
-    const vs = [0, 1, 2, 3].map((i) => r.solid.sky[r.solid.indices[q+i]]);
-    assert.ok(vs.every((v) => Math.abs(v - vs[0]) < 1e-9), '同一四边形顶点必须同值(合并列一格一值)');
-    if (vs[0] < 1e-9) dark++; else if (Math.abs(vs[0] - 1) < 1e-9) lit++;
-    else assert.fail('LOD 天空光必须二值 0/15, 实得 ' + vs[0]);
-  }
-  assert.strictEqual(dark, 1, '被罩格顶面恰一面全暗(该格无裙边: 邻格同高)');
-  assert.ok(lit >= 90, '其余面全亮: ' + lit);
-  /* 无载荷 LOD 同样回落全亮 */
-  const p2 = mkPack(0);
-  for (let lx=0; lx<16; lx++) for (let lz=0; lz<16; lz++) p2.set(lx, 0, lz, 2);
-  const r2 = m.MeshCore.meshChunkLod(p2, {step: 2});
-  for (const v of r2.solid.sky) assert.ok(Math.abs(v - 1) < 1e-9, 'LOD 无载荷回落全亮');
 });
 
 /* ============ 薄块分色 (D3 兑现 D6 惰性 top 字段, 设计稿 §7.1) ============ */

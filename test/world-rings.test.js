@@ -1,10 +1,11 @@
 'use strict';
-/* 距离环 + 编辑管线集成测试 (js/world.js) — node --test (零依赖)
+/* 全图常驻 + 编辑管线集成测试 (js/world.js) — node --test (零依赖)
    运行: node --test test/world-rings.test.js
    手法与 boot.test.js 相同: THREE/DOM 以全放行桩代之, 驱动真实的
-   pumpRemesh 管线(Worker 构造在桩环境抛错 → 正好覆盖同步兜底路径),
-   断言距离环的公开可观察行为: 近块进全细节表 · 远块进 LOD 表 ·
-   玩家移动后环切换(升级/降级) · 编辑优先消费。 */
+   pumpRemesh 管线(Worker 构造在桩环境抛错 → 正好覆盖同步兜底路径)。
+   距离环 LOD 层 2026-11-07 退役(T14 用户拍板), 本文件从「距离环形态机」
+   语义改写为「全图全细节常驻」语义: 建场渐进铺满(近块/远块全进全细节
+   表) · 玩家移动不触发卸载/降级 · 编辑优先消费 · 环参数退役防复活钉。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -58,38 +59,38 @@ function loadWorld(env) { // env: 沙盒键覆盖(低核档用例注入触屏+2�
     'mesh-core.js', 'texture-atlas.js', 'world.js']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
-  /* 桥: 距离环的公开可观察状态(词法名 → 外部访问) */
+  /* 桥: 全图常驻的公开可观察状态(词法名 → 外部访问) */
   vm.runInContext(`
     globalThis.__w = {
       clearWorld, rebuildAll, pumpRemesh, pos, setBlockRaw, markDirty, flushDirty,
-      get full(){ return chunkMeshes; }, get lod(){ return lodMeshes; },
-      get ringQueueLen(){ return ringQueue.length; },
+      get full(){ return chunkMeshes; },
+      get fillQueueLen(){ return fillQueue.length; },
       VIEW, NCX, NCZ,
     };
   `, ctx);
   return ctx.__w;
 }
 
-/* 排空队列: pump 每帧预算 8, 跑到两队列皆空(渐进构建的"数帧内铺满") */
+/* 排空队列: pump 每帧预算 8, 跑到铺满队列空(渐进构建的"数帧内铺满") */
 function drain(w, frames) {
   for (let i=0; i<frames; i++) w.pumpRemesh(8);
 }
 
-test('距离环: 建场渐进铺满 — 近块全细节, 远块降采样 LOD', () => {
+test('全图常驻: 建场渐进铺满 — 近块远块全细节, 全图 100 区块驻留(含空气区块空记账)', () => {
   const w = loadWorld();
   w.clearWorld();
   w.pos.set(8, 10, 8); // 玩家在区块(0,0)中心附近
   w.setBlockRaw(8, 5, 8, 3); // 近处: 区块(0,0)
-  w.setBlockRaw(120, 5, 120, 3); // 远处: 区块(7,7), 距环心 ~10.6 区块 > fullChunks(8)
+  w.setBlockRaw(120, 5, 120, 3); // 远处: 区块(7,7) — 旧距离环语义会降 LOD, 现在全细节
   w.rebuildAll();
   drain(w, 20);
-  assert.ok(w.full.has('0,0'), '近块应进全细节表');
-  assert.ok(w.lod.has('7,7'), '远块应进 LOD 表');
-  assert.ok(!w.full.has('7,7'), '远块不该有全细节网格');
-  assert.strictEqual(w.ringQueueLen, 0, '队列应排空');
+  assert.ok(w.full.has('0,0'), '近块进全细节表');
+  assert.ok(w.full.has('7,7'), '远块也进全细节表(不再降 LOD)');
+  assert.strictEqual(w.full.size, w.NCX * w.NCZ, '全图区块全驻留(空气区块记空数组)');
+  assert.strictEqual(w.fillQueueLen, 0, '铺满队列应排空');
 });
 
-test('距离环: 玩家走远后环切换 — 远块升级全细节, 原近块降级 LOD', () => {
+test('全图常驻: 玩家走远 — 不卸载不降级, 零形态翻转', () => {
   const w = loadWorld();
   w.clearWorld();
   w.pos.set(8, 10, 8);
@@ -97,10 +98,12 @@ test('距离环: 玩家走远后环切换 — 远块升级全细节, 原近块�
   w.setBlockRaw(120, 5, 120, 3);
   w.rebuildAll();
   drain(w, 20);
+  const sizeBefore = w.full.size;
   w.pos.set(120, 10, 120); // 走到对角
   drain(w, 20);
-  assert.ok(w.full.has('7,7'), '新位置附近应升级为全细节');
-  assert.ok(w.lod.has('0,0'), '原位置应降级为 LOD');
+  assert.ok(w.full.has('0,0') && w.full.has('7,7'), '两地区块都保持全细节驻留');
+  assert.strictEqual(w.full.size, sizeBefore, '驻留数不变(无卸载)');
+  assert.strictEqual(w.fillQueueLen, 0, '移动不产生新缺口(无形态切换队列)');
 });
 
 test('编辑管线: markDirty 的区块下帧被消费(同步兜底路径)', () => {
@@ -117,22 +120,12 @@ test('编辑管线: markDirty 的区块下帧被消费(同步兜底路径)', () 
   assert.ok(w.full.has('0,0'), '重建后仍在全细节表');
 });
 
-test('距离环·低核档收紧: 触屏+≤2核 → full 6/lod 10, 环外区块不驻留(桌面档不变)', () => {
+test('全图常驻·退役钉: VIEW 不再有距离环参数, 低核档不再分档环半径', () => {
   const desk = loadWorld(); // 缺省沙盒: 桌面
-  assert.strictEqual(desk.VIEW.fullChunks, 8, '桌面档全细节半径不动');
-  assert.strictEqual(desk.VIEW.lodChunks, 15, '桌面档 LOD 半径不动');
-  const w = loadWorld({navigator: {maxTouchPoints: 5, hardwareConcurrency: 2}}); // 低核触屏
-  assert.strictEqual(w.VIEW.fullChunks, 6);
-  assert.strictEqual(w.VIEW.lodChunks, 10);
-  w.clearWorld();
-  w.pos.set(8, 10, 8);
-  w.setBlockRaw(8, 5, 8, 3); // 近块: 区块(0,0), d=0 → 全细节
-  w.setBlockRaw(88, 5, 88, 3); // 中距: 区块(5,5), d≈7.07 → 低核档落 LOD(桌面档会是 full)
-  w.setBlockRaw(152, 5, 152, 3); // 对角远块: 区块(9,9), d≈12.7 > lodChunks(10) → 不驻留
-  w.rebuildAll();
-  drain(w, 20);
-  assert.ok(w.full.has('0,0'), '近块仍全细节');
-  assert.ok(w.lod.has('5,5') && !w.full.has('5,5'), '低核档中距块提前进 LOD');
-  assert.ok(!w.full.has('9,9') && !w.lod.has('9,9'), '低核档环外区块不驻留');
-  assert.strictEqual(w.ringQueueLen, 0, '队列应排空');
+  assert.strictEqual(desk.VIEW.fullChunks, undefined, 'fullChunks 已退役');
+  assert.strictEqual(desk.VIEW.lodChunks, undefined, 'lodChunks 已退役');
+  assert.strictEqual(desk.VIEW.lodStep, undefined, 'lodStep 已退役');
+  const low = loadWorld({navigator: {maxTouchPoints: 5, hardwareConcurrency: 2}}); // 低核触屏
+  assert.deepStrictEqual(Object.keys(low.VIEW), Object.keys(desk.VIEW), '低核档与桌面档 VIEW 键集一致(环半径分档退役)');
+  assert.strictEqual(low.VIEW.fogNear, desk.VIEW.fogNear, '雾观感边界不受档位影响');
 });

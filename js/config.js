@@ -88,24 +88,14 @@ const CAM = {
    TANK/TANK_MODELS/IS_TOUCH/faceColor — 怪物四表(MOB_TYPES/FAMILIES/PROTOS/
    MOB_DROPS)已迁往 js/mob-registry.js(-registry 契约, 2026-10 候选 8) */
 
-/* ---------- 远景与距离环 (world.js 渲染 adapter 用) ----------
+/* ---------- 远景 (world.js 渲染 adapter 用) ----------
    雾即渲染边界(Minecraft 官方同款语义: render distance 别名 fog):
-   far 只需略过雾终点即可。距离环两层(调研见
-   docs/chunk-streaming-lod-research.md §7):
-   ≤fullChunks 全细节实时构建 · fullChunks~lodChunks 降采样粗网格
-   (每 lodStep×lodStep 列合并采样, 成本 ~1/lodStep²) · 更远卸载(GPU
-   释放, 数据保留, 走近重建)。128×128 时代远角才进 LOD 环; 2026-10-27 扩容
-   10×10(160×160)后环自动生效(调大 NCX/NCZ 环即自动适配的既定口径),
-   GPU 对象数按环面积封顶。 */
+   far 只需略过雾终点即可。区块网格全图全细节常驻 — 距离环 LOD 层
+   (fullChunks/lodChunks/lodStep 三参数与 IS_LOWCORE_TOUCH 环半径分档)
+   2026-11-07 用户拍板退役(docs/world-edge-tickets.md T14: 10×10 小图上
+   环收益趋零, 批量形态翻转正是「斑驳块走动疯狂闪动」根因), 死参数不留。 */
 const VIEW = {
   fogNear: 90, fogFar: 230, far: 240,
-  /* 环半径分档: 低核触屏(A9 级 iPad, IS_LOWCORE_TOUCH)收紧 full 8→6 / lod 15→10 —
-     驻留几何/显存按环面积(πr²)收缩, 环外区块提前卸载(GPU 释放); 雾不动=观感边界
-     不变, 只是粗网格更早出现。桌面与强触屏保持 8/15(全设备零回归, 设计稿
-     docs/ipad5-performance-design.md §7 落地记录)。Worker 侧只消费 lodStep, 不受分档影响 */
-  fullChunks: IS_LOWCORE_TOUCH ? 6 : 8, // 全细节环半径(区块)
-  lodChunks: IS_LOWCORE_TOUCH ? 10 : 15, // LOD 环半径(区块; ×16 格 ≈ 雾终点)
-  lodStep: 2, // LOD 采样步长(格/边; 须整除 CHUNK=16, 否则回落 2)
   dispatch: 8, // Worker 每帧派发上限(派发只含打包+postMessage, 帧成本极低; 同步兜底预算由 pumpRemesh 入参)
 };
 
@@ -272,9 +262,10 @@ BLOCKS[B_NETHERRACK]= {name: '下界岩', all: [0.52, 0.28, 0.16]};
 BLOCKS[B_OBSIDIAN] = {name: '黑曜石', all: [0.10, 0.08, 0.16]};
 BLOCKS[B_NETHER_BRICK]= {name: '下界砖', all: [0.48, 0.20, 0.16]};
 BLOCKS[B_GLOWSTONE] = {name: '发光岩', all: [1.00, 0.85, 0.45], light: 15};
-/* 传送门面: 门内口的紫色半透明门面。glass 走透明渲染通道(勿用 thin —
-   LOD 降采样会跳过 thin 块, 远处门面会消失); solid:false 可直接走入
-   (传送判定只看坐标区间, 不看点位); portal 旗标 = 门面唯一身份 */
+/* 传送门面: 门内口的紫色半透明门面。glass 走透明渲染通道(勿用 thin 的
+   历史顾虑=LOD 降采样会跳过 thin 块致远处消失——LOD 已 2026-11-07 退役
+   (T14), 该顾虑不再成立, glass 通道仍是不变的观感选择); solid:false 可
+   直接走入(传送判定只看坐标区间, 不看点位); portal 旗标 = 门面唯一身份 */
 BLOCKS[B_PORTAL] = {name: '传送门面', all: [0.50, 0.20, 0.80], glass: true, solid: false, portal: true};
 /* 熄灭门面(冒险地图 T7 收口, 2026-10-27 用户拍板): 未解锁地图门的暗紫微光门面——
    读得出「这是传送门, 只是还没开」, 不再是空洞黑框。同走 glass 透渲通道/
@@ -287,7 +278,7 @@ BLOCKS[B_PORTAL_DIM] = {name: '熄灭门面', all: [0.24, 0.10, 0.38], glass: tr
    四矿: 石头底色+矿斑的纯色近似(嵌斑贴图归 T9 图集) · 硬度 3 = MC 矿石原值
    tier 门槛照 MC 标签口径平移(手0/木1/石2/铁3/钻4): 煤1(木镐) 铁2(石镐) 金3/钻3(铁镐) — 设计稿 D5
    掉落: 铁/金掉矿石物品(粗矿口径, 需熔炼), 煤/钻直接掉成品
-   薄块(thin)一律 solid:false 不挡人(B_FUSE 同款); 勿用 thin 做远观物(LOD 降采样会跳过)
+   薄块(thin)一律 solid:false 不挡人(B_FUSE 同款); 「勿用 thin 做远观物」的告诫随 LOD 层退役失效(T14, 2026-11-07)
    B_SAPLING 附录 A 的 id 栏未编号(「—」), 36~49 已被 14 方块占满 → 顺延 50(号段不冲突);
    B_CHEST 是引导链 v2 新增件(51, docs/story-quest-research.md)——不在附录 A, 号段顺延同款 */
 const B_COAL_ORE=36; const B_IRON_ORE=37; const B_GOLD_ORE=38; const B_DIAMOND_ORE=39;

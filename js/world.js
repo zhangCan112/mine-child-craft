@@ -1,12 +1,12 @@
 'use strict';
 /* ============================================================
-   渲染 adapter（World · 术语见 GLOSSARY.md 的"场景装填/距离环"）— 引擎层
+   渲染 adapter（World · 术语见 GLOSSARY.md 的"场景装填/全图常驻"）— 引擎层
    ------------------------------------------------------------
-   体素模型的渲染端: 场景/灯光/贴图/区块网格(全细节+LOD)/编辑管线/高亮。
+   体素模型的渲染端: 场景/灯光/贴图/区块网格(全图全细节常驻)/编辑管线/高亮。
    纯体素数据(存取/碰撞/物理/射线/光场存储/水位面)在 js/voxel.js — 本文件不定义游戏规则。
    interface: loadScene(建场 seam: 清场→批量建→流体激活→光场全量→渐进收尾入队) / markDirty /
-     pumpRemesh(每帧按预算构建, 编辑优先于环填充) / maintainRings(距离环:
-     近实远虚三档) / rebuildAll / editBlock·editBlockDirty(破坏返回方块
+     pumpRemesh(每帧按预算构建, 编辑优先于铺满填充) / rebuildAll(全图全细节
+     常驻: 渐进铺满) / editBlock·editBlockDirty(破坏返回方块
       级联清单, 设计稿 block-lifecycle D3; 编辑经 setBlockLit 连带双通道光场
       增量, 昼夜 §3.3/D4) / applySweep(世界卫生清扫, P14/D9)
       / applyDaylight(昼夜场景驱动: 天色/平行光强/日月轨道/云层漂移 +
@@ -278,7 +278,7 @@ const tntMat = new THREE.MeshLambertMaterial({map: makeTntTexture(), side: THREE
    alphaTest 裁切让植物十字面片与树叶孔洞呈镂空观感(不透明像素照常
    渲染, 无透明排序负担); 256×256 正方形 2 的幂——图集通道现已禁 mip
    (透明边修复, 见 makeAtlasTexture), 尺寸口径对 TNT 图集仍成立。
-   typeof 防御与下方 ringCenter 的 Tank 同款: texture-atlas.js 的 script
+   typeof 防御与下方 distCenter 的 Tank 同款: texture-atlas.js 的 script
    行由集成者加入 index.html, 并入前 boot 冒烟不炸(缺图集 → 纯色兜底)。 */
 const ATLAS_LAYOUT = (typeof TextureAtlas !== 'undefined') ? TextureAtlas.layout : null;
 function makeAtlasTexture() {
@@ -392,11 +392,10 @@ function setPlayerGlow(on) {
 }
 
 /* ---------- 区块网格装配 (纯几何在 MeshCore, 此处只做 THREE 装配与场景挂载) ----------
-   四通道: solid(不透明)/glass(玻璃)/tnt(TNT贴图)/atlas(方块图集); LOD 通道单网格。
+   四通道: solid(不透明)/glass(玻璃)/tnt(TNT贴图)/atlas(方块图集)。
    几何生成走 js/mesh-core.js 纯核心 — 同一份代码在主线程(同步兜底)与
    js/mesh-worker.js(http 服务主路径)里运行, 输出裸数组经 makeGeo 装配。 */
 const chunkMeshes = new Map(); // 全细节: key → [Mesh...]
-const lodMeshes = new Map(); // LOD 粗网格: key → Mesh
 function chunkKey(cx, cz) {
   return cx+','+cz;
 }
@@ -429,8 +428,8 @@ const addSceneMesh = (geo, mat)=>{
 };
 
 /* 全细节上挂: 替换该区块全部既有网格(先统一释放再重建)。
-   空结果也记账(空数组) — "已服务但无网格"与"未服务"必须可区分, 否则距离环
-   会把空气区块当缺口无限重排(测试 test/world-rings.test.js 锁定此行为) */
+   空结果也记账(空数组) — "已服务但无网格"与"未服务"必须可区分
+   (测试 test/world-rings.test.js 锁定此行为) */
 function mountChunk(cx, cz, r) {
   const k = chunkKey(cx, cz);
   unloadChunk(k);
@@ -439,61 +438,46 @@ function mountChunk(cx, cz, r) {
   if (r.glass) arr.push(addSceneMesh(makeGeo(r.glass), glassMat));
   if (r.tnt) arr.push(addSceneMesh(makeTexGeo(r.tnt), tntMat));
   if (r.atlas) arr.push(addSceneMesh(makeTexGeo(r.atlas), atlasMat)); // 方块图集通道
-  chunkMeshes.set(k, arr); // 空区块记空数组: 环状态机的"已服务"凭据
-}
-/* LOD 上挂: 顶替全细节(降采样网格成本 ~1/step², 远景视觉等价 — 雾中不可辨) */
-function mountChunkLod(cx, cz, r) {
-  const k = chunkKey(cx, cz);
-  unloadChunk(k);
-  lodMeshes.set(k, r && r.solid ? addSceneMesh(makeGeo(r.solid), blockMat) : null); // null=已服务无网格(空气区块)
+  chunkMeshes.set(k, arr); // 空区块记空数组: 铺满账面的"已服务"凭据
 }
 
-/* 区块三通道网格的统一释放(重建替换与清场共用一条规则) */
+/* 区块网格的统一释放(重建替换与清场共用一条规则) */
 function disposeChunkArr(arr) {
   arr.forEach((m)=>{
     scene.remove(m); m.geometry.dispose();
   });
 }
 
-/* 一个区块的完整卸载(全细节 + LOD, 含空记账条目) — 上挂替换/环维护/清场的
-   唯一释放入口, 两个 Map 的键必须同进同退(残留会挡住环重建) */
+/* 一个区块的完整卸载(含空记账条目) — 上挂替换与清场的唯一释放入口
+   (残留条目会挡住重建账面)。距离环按距离卸载已退役(T14): 卸载只剩
+   重建替换与清场两条路径 */
 function unloadChunk(k) {
   const f = chunkMeshes.get(k);
   if (f) disposeChunkArr(f);
   chunkMeshes.delete(k);
-  const l = lodMeshes.get(k);
-  if (l) disposeChunkArr([l]);
-  lodMeshes.delete(k);
 }
 
-/* ---------- 距离环 · 近实远虚 (调研与参数语义: docs/chunk-streaming-lod-research.md §7) ----------
-   玩家(或驾驶中的坦克)为环心: ≤fullChunks 全细节实时构建 · 到 lodChunks
-   降采样粗网格(成本 ~1/lodStep²) · 更远卸载(GPU 释放, 数据保留, 走近重建)。
-   环切换在消费端(pump 出队时按当前距离决定形态), 入队侧只登记缺口 —
-   队列条目不会因走远而失效(出队时按 'none' 惰性丢弃)。 */
-function ringCenter() {
+/* ---------- 铺满顺序: 距玩家(驾驶中=坦克)近者优先 ----------
+   全图全细节常驻 — 距离环形态机(full/lod/none 三档)已 2026-11-07 退役
+   (T14 用户拍板「放弃这种技术」), 环心/距离只剩一处消费: rebuildAll
+   按远近排序入队(进场先见脚下, 远景数帧内铺满)。 */
+function distCenter() {
   if (typeof Tank === 'object' && Tank.driving && Tank.driving()) {
-    const t = Tank.at(); // 驾驶中: 坦克是环心
+    const t = Tank.at(); // 驾驶中: 坦克是量距中心
     return {x: t.x, z: t.z};
   }
   return {x: pos.x, z: pos.z};
 }
-function chunkDist(cx, cz) { // 区块中心到环心的距离(区块单位)
-  const c = ringCenter();
+function chunkDist(cx, cz) { // 区块中心到量距中心的距离(区块单位)
+  const c = distCenter();
   return Math.hypot(cx + 0.5 - c.x/CHUNK, cz + 0.5 - c.z/CHUNK);
-}
-function desiredState(cx, cz) {
-  const d = chunkDist(cx, cz);
-  if (d <= VIEW.fullChunks) return 'full';
-  if (d <= VIEW.lodChunks) return 'lod';
-  return 'none';
 }
 
 /* ---------- 网格 Worker (http 服务主路径; file:// 直开自动降级同步构建) ----------
    同源 http 下 Worker 规范保证合法(MDN Worker: same-origin); file:// 下
    构造抛错 → try/catch 兜底走同步路径(同一队列, 只是消费者不同)。
-   协议: 请求 {gen,cx,cz,token,kind,cells(ArrayBuffer 转移),sky·block(光照圈 D3 同款转移),pack 元数据} →
-   响应 {gen,cx,cz,token,kind,res}。gen=清场次号(旧响应整体作废);
+   协议: 请求 {gen,cx,cz,token,cells(ArrayBuffer 转移),sky·block(光照圈 D3 同款转移),pack 元数据} →
+   响应 {gen,cx,cz,token,res}。gen=清场次号(旧响应整体作废);
    token=同区块递增(在途期间再入队, 旧响应丢弃)。 */
 let meshWorker = null;
 let workerTried = false;
@@ -513,8 +497,7 @@ function ensureWorker() {
       const fl = inFlight.get(k);
       if (!fl || fl.token !== m.token) return; // 已被更新的请求取代
       inFlight.delete(k);
-      if (m.kind === 'full') mountChunk(m.cx, m.cz, m.res);
-      else mountChunkLod(m.cx, m.cz, m.res);
+      mountChunk(m.cx, m.cz, m.res);
     };
     meshWorker.onerror = ()=>{ // 加载失败等: 回落同步, 在途区块回队
       meshWorker = null;
@@ -530,67 +513,39 @@ function ensureWorker() {
   } // file://: SecurityError / 测试桩: ReferenceError → 同步兜底
 }
 
-/* 消费一个区块 key: 按当前环形态走 Worker 或同步构建。
-   kind→构建参数的映射与 js/mesh-worker.js 的 onmessage 各持一份(跨线程
+/* 消费一个区块 key: 全细节构建走 Worker 或同步兜底(两者同一份 MeshCore)。
+   请求/响应协议与 js/mesh-worker.js 的 onmessage 各持一份(跨线程
    无法共享函数), 改协议须两边同步改 — test/mesh-worker.test.js 锁协议 */
 /* 全细节 opts: hashRand 来自 voxel.js, 图集布局来自 texture-atlas.js — 均单一来源 */
 const MESH_OPTS = {hashRand, tntTiles: TNT_TILES, atlas: ATLAS_LAYOUT};
 function serveChunkKey(k) {
   const c = k.split(','); const cx = +c[0]; const cz = +c[1];
   if (cx<0||cz<0||cx>=NCX||cz>=NCZ) return false;
-  const st = desiredState(cx, cz);
-  if (st === 'none') return false; // 走远了: 惰性丢弃
   ensureWorker();
   if (meshWorker) {
-    const pack = packChunkData(cx, cz, st === 'full' ? 1 : 0);
+    const pack = packChunkData(cx, cz, 1); // border=1: 含邻块边界圈供跨区块剔面
     const token = (meshToken.get(k) || 0) + 1;
     meshToken.set(k, token);
     inFlight.set(k, {token, gen: meshGen});
     meshWorker.postMessage(
-        {gen: meshGen, cx, cz, token, kind: st, cells: pack.cells.buffer,
+        {gen: meshGen, cx, cz, token, cells: pack.cells.buffer,
           sky: pack.sky.buffer, block: pack.block.buffer, /* 光照圈(D3, §3.4): 与 cells 同形, 布局即契约 */
           levels: pack.levels.buffer, /* 水位通道(liquid D7): 与 cells 同形 */
           w: pack.w, d: pack.d, h: pack.h, border: pack.border, bx: pack.bx, bz: pack.bz, yMax: pack.yMax},
         [pack.cells.buffer, pack.sky.buffer, pack.block.buffer, pack.levels.buffer]); // transferable: 所有权零拷贝转移
-  } else if (st === 'full') {
-    mountChunk(cx, cz, MeshCore.meshChunk(packChunkData(cx, cz, 1), MESH_OPTS));
   } else {
-    mountChunkLod(cx, cz, MeshCore.meshChunkLod(packChunkData(cx, cz, 0), {step: VIEW.lodStep}));
+    mountChunk(cx, cz, MeshCore.meshChunk(packChunkData(cx, cz, 1), MESH_OPTS));
   }
   return true;
 }
 
-/* 环维护: 卸载远区块 · 登记形态缺口/需切换的区块(近处优先)。
-   环心跨界才全扫 — 同区块内的小位移不重算(消除 fullChunks 边界上的
-   形态抖动, 也免大地图每帧全扫); 清场后由 rebuildAll 全量入队兜底 */
-const ringQueue = []; // 距离环填充队列(已按距离排序)
-const ringQueued = new Set();
-let ringCcx = -1e9; let ringCcz = -1e9; // 上次全扫的环心区块
-function maintainRings() {
-  const c = ringCenter();
-  const ncx = Math.floor(c.x/CHUNK); const ncz = Math.floor(c.z/CHUNK);
-  if (ncx === ringCcx && ncz === ringCcz) return; // 未跨界: 环状态不变
-  ringCcx = ncx; ringCcz = ncz;
-  for (let cx=0; cx<NCX; cx++) {
-    for (let cz=0; cz<NCZ; cz++) {
-      const k = chunkKey(cx, cz);
-      const d = chunkDist(cx, cz);
-      if (d > VIEW.lodChunks) { // 卸载环: GPU 释放, 数据保留
-        unloadChunk(k);
-        continue;
-      }
-      const wantFull = d <= VIEW.fullChunks;
-      const hasFull = chunkMeshes.has(k); const hasLod = lodMeshes.has(k);
-      if (wantFull ? hasFull : hasLod) continue; // 已是目标形态
-      if (ringQueued.has(k) || remeshQueued.has(k) || inFlight.has(k)) continue;
-      ringQueued.add(k);
-      ringQueue.push({k, d});
-    }
-  }
-  ringQueue.sort((a, b)=>a.d-b.d); // 近处优先(≤ 数百项, 每帧排序无感)
-}
+/* 铺满队列(全图全细节常驻的渐进装载面): rebuildAll 全量入队(近处优先),
+   pump 每帧按预算出队; 无补扫 — chunk 不卸载就不产生新缺口(距离环
+   形态机 2026-11-07 退役, T14) */
+const fillQueue = []; // 铺满队列(已按距离排序)
+const fillQueued = new Set();
 
-/* 收尾纪律的渐进版: 全部区块入环队列(近处优先), 由 pump 每帧按预算构建 —
+/* 收尾纪律的渐进版: 全部区块入铺满队列(近处优先), 由 pump 每帧按预算构建 —
    进场先见脚下, 远景数帧内铺满; 建场不再一次性顶爆帧预算 */
 function rebuildAll() {
   const all = [];
@@ -601,8 +556,8 @@ function rebuildAll() {
   }
   all.sort((a, b)=>a.d-b.d);
   for (const it of all) {
-    if (!ringQueued.has(it.k)) {
-      ringQueued.add(it.k); ringQueue.push(it);
+    if (!fillQueued.has(it.k)) {
+      fillQueued.add(it.k); fillQueue.push(it);
     }
   }
 }
@@ -672,7 +627,7 @@ const LIGHT_POLICY = LightCore.mkPolicy(BLOCKS);
 /* ---------- 编辑期光照增量(设计稿 §3.3, D4): 唯一编辑 choke point 的光场缝制 ----------
    setBlockLit = setBlockRaw + LightCore.updateEdit: 写格(setBlockRaw 之后、
    applyCascade 之前)即增量更新双通道光场, 返回脏格包围盒 → 覆盖区块与既有
-   编辑同一 dirtyChunks 队列(pumpRemesh 同一消费, 编辑优先于距离环的既有
+   编辑同一 dirtyChunks 队列(pumpRemesh 同一消费, 编辑优先于铺满填充的既有
    纪律自然生效)。级联连带: cascadeRemove/cascadePlace/cascadeSweep 的级联
    条目不回环 editBlock, 而是经 write 回调直写 setBlockRaw —— 把本包装作为
    write 传入即全覆盖(移动条目落点的旧值在写入前读得, 逐条目事后补账拿
@@ -858,8 +813,7 @@ function flushDirty() { // 记账收口: 脏区块转入重建队列
 function pumpRemesh(n) { // 每帧出队(主循环每帧调用; 同步预算 n, Worker 派发上限 VIEW.dispatch)
   flushDirty(); // 自动收口: 漏调 flushDirty 的脏区块最迟本帧入队(不再永远不可见); 批量编辑后手动 flush 仍是可选的即时提交
   ensureWorker();
-  maintainRings();
-  /* 编辑优先(玩家正看着), 环填充其次; Worker 路径下"出队"只是打包+派发,
+  /* 编辑优先(玩家正看着), 铺满其次; Worker 路径下"出队"只是打包+派发,
      帧成本极低 — 网格在后台算, 响应异步回来挂载(视觉滞后 ≤2 帧不变) */
   let budget = meshWorker ? VIEW.dispatch : n;
   while (budget > 0 && remeshQueue.length) {
@@ -867,9 +821,9 @@ function pumpRemesh(n) { // 每帧出队(主循环每帧调用; 同步预算 n, 
     remeshQueued.delete(k);
     if (serveChunkKey(k)) budget--;
   }
-  while (budget > 0 && ringQueue.length) {
-    const it = ringQueue.shift();
-    ringQueued.delete(it.k);
+  while (budget > 0 && fillQueue.length) {
+    const it = fillQueue.shift();
+    fillQueued.delete(it.k);
     if (serveChunkKey(it.k)) budget--;
   }
 }
@@ -884,12 +838,10 @@ function clearWorld() {
   dirtyChunks.clear();
   remeshQueue.length = 0;
   remeshQueued.clear();
-  ringQueue.length = 0;
-  ringQueued.clear();
-  ringCcx = ringCcz = -1e9; // 环缓存作废: 新世界的环维护必须重新全扫
+  fillQueue.length = 0;
+  fillQueued.clear();
   for (const k of chunkMeshes.keys()) unloadChunk(k);
   chunkMeshes.clear();
-  lodMeshes.clear();
 }
 
 /* ---------- 水下/岩浆内雾色(liquid D10, 头部口径) ----------

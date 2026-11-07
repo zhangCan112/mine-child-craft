@@ -3,7 +3,7 @@
    网格化 Worker — http 服务下的网格构建主路径 (调研 §7②b)
    ------------------------------------------------------------
    与主线程共享同一份代码: importScripts 依次加载 config.js(方块注册
-   表/VIEW/TNT_TILES) · voxel.js(hashRand 单一来源) · mesh-core.js
+   表/TNT_TILES) · voxel.js(hashRand 单一来源) · mesh-core.js
    (网格化纯核心) · texture-atlas.js(方块图集布局, MeshCore opts.atlas
    共读)。世界数据不共享 — 每次请求随消息携带区块打包
    (voxel.js packChunkData 的输出, ArrayBuffer transferable 零拷贝),
@@ -26,9 +26,7 @@ self.onmessage = (e)=>{
     w: m.w, d: m.d, h: m.h,
     border: m.border, bx: m.bx, bz: m.bz, yMax: m.yMax,
   };
-  const res = m.kind === 'full' ?
-    MeshCore.meshChunk(pack, {hashRand, tntTiles: TNT_TILES, atlas: TextureAtlas.layout}) :
-    MeshCore.meshChunkLod(pack, {step: VIEW.lodStep});
+  const res = MeshCore.meshChunk(pack, {hashRand, tntTiles: TNT_TILES, atlas: TextureAtlas.layout});
   /* 裸数组 → TypedArray 转移回传: 普通 number[] 的结构化克隆逐元素装箱
      (最慢路径), TypedArray 走 transfer 零拷贝, 主线程侧 Float32BufferAttribute
      可直接视图、setIndex 直接包装 — 不再有第二次拷贝 */
@@ -57,6 +55,6 @@ self.onmessage = (e)=>{
     return out;
   };
   self.postMessage(
-      {gen: m.gen, cx: m.cx, cz: m.cz, token: m.token, kind: m.kind, res: conv(res)},
+      {gen: m.gen, cx: m.cx, cz: m.cz, token: m.token, res: conv(res)},
       transfer);
 };
