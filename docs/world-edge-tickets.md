@@ -192,7 +192,7 @@ MC 官方在「世界边界」与「群系过渡」上的观感语言是什么�
 
 ## T9 · home 三扇门阵移除与导航收尾
 
-> 标签：`wayfinder:task`｜状态：open｜blocked-by：T8｜blocks：T10
+> 标签：`wayfinder:task`｜状态：closed（2026-11-07 实施完成，主会话以 git diff 全量核实收口；三门退场+新话术实机观感并入 T10 总走查）｜blocked-by：T8｜blocks：T10
 
 ### Question
 
@@ -200,7 +200,16 @@ MC 官方在「世界边界」与「群系过渡」上的观感语言是什么�
 
 ### Resolution
 
-（待解）
+（2026-11-07 实施完成，后台 subagent 施工、主会话以 git diff 全量核实收口——12 文件 +354/−456，未预授权文件（effects/showroom 两 js 一 css）核实为纯注释措辞零行为）
+
+- **数据源摘除（js/adventure-maps-core.js）**：home 行 `gates`→`[]`——查表机制原样保留（advGatesBuild/advGateAt/advGateHoldStep 对空表天然零命中，壳循环空转；远征图回程门仍走同一份机制）；回程门/下界门/玩家自放门/巢穴之门全链路未动（票面红线）。
+- **回家落点唯一权威易主**：新增 `ADV_HOME_EDGE_GATES` 三锚（north {px:58,pz:23}/south {px:54,pz:128}/west {px:31,pz:70}，与 T11 主题带矩形同源口径）+ `advHomeArriveGate(fromMapId)` 来向反查（经 ADV_EDGE_DIR_MAP 反查不抄方向表，未知图兜底南锚）；壳 advVeilArrive 落点二分——回 home 走来向缘锚（从哪缘越线出去回哪缘：落点 (60.5,26)/(56.5,126)/(34,72.5) 探针实测平草实底净空）、去远征图走对应回程门；锚位刻意不落触发线口袋（落脚即距「一步再传送」过近，北缘还会落山脊背侧）。旧 `gates.find||gates[0]` 路径对空表会炸 undefined，已随二分移除。
+- **门体通用化（js/adventure-core.js）**：`advPortalFrame`/`advPortalFrameX` look 四建材换装退役（签名 4 参，恒经典下界建材——唯一消费方 home 门阵没了；tw/cr 常量名保留=B_OBSIDIAN/NETHER_BRICK 映射，place-kit/dims-core 调用方全 4 参核实零改动）；`ADV_GATE_PLAZA.gates` 副本与 `ADV_GATE_PLAZA_PAD` 整删，树/草/花避让改用 PLAZA 整矩形（铺装 id4≠1 的地面检查天然排除，广场建场逻辑零变）。
+- **锁门机制整体退役（js/modes/adventure.js）**：`advGateLockTick` 全家（半径/节流常量、两处复位、update hook）；近前引导职责归 advEdgeHintAt 30s 分级话术独自承担（G3 拍板节流不变）。
+- **解锁仪式改版**：`advUnlockRite` 拆二分——home=gate_unlock 琶音+白闪让开（T8 Q4 拍板 rite 骨架原样保留，方向句归到达段 0.4s 播，白闪满格同图重建=建场读键新地貌）；远征图=纯播报「○○的路打开啦！回到家里就能看到！」。旧「点亮门面」（运行时熄→亮 B_PORTAL 覆写）与 Fx.pop 冲击波随门退役。
+- **任务文案方向化（R9 兑现）**：q16「去东边的广场看一看」；q17/q20/q23 解锁 hint 改「南/北/西边的路打开啦！朝○○一直走，○○就会让开，送你去○○咯」——全部指向方向+地平线，零门引用。
+- **测试（6 文件）**：删 T7-1b（rite 门面 mesh 特写）/T7-3b（锁门话术）两项——机制不存在即无覆盖对象，覆盖损失有意接受；替代覆盖=旧门区零门体钉+三锚落点数值钉+「T8 边缘传送真任务链」端到端（广场真踩点→rite 泵→南缘越线→desert+q17 接棒）。全量 `npm test` **1720 tests：1719 pass / 0 fail / 1 skip**（T7_PERF 门控默认跳）+ `npm run lint` 零错误 + `T7_PERF=1` 性能钉测原阈值过（subagent 实跑，改动面为纯删除+表行新增，无逐帧新增路径）。
+- **登记（不修）**：①GLOSSARY「传送门阵」词条与交叉引用过时——归主会话本次收口改写；②「门阵」字样 js/test 内余 28 处均为合法拆除说明/沿革留档注释（GATE_PLAZA 标识符更名波及四方判定不值）；③docs/ 历史工件旧「门阵」叙述按约定不改；④`advMapArriveAt` 硬编码 y=ADV_GROUND+1=25——三锚落点已实测实底，后续再动锚值必须重探（环境陷阱）。
 
 ---
 

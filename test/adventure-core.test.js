@@ -132,7 +132,7 @@ test('T5 圈层断言: 三普通巢距小屋距离单调递增(风险-距离梯�
   const ds = Core.ADV_NESTS.map((n) => Math.hypot(n.x - cx, n.z - cz));
   assert.ok(ds[0] < ds[1] && ds[1] < ds[2],
       '三普通巢距小屋单调递增: ' + ds.slice(0, 3).map((d) => d.toFixed(1)).join(' < '));
-  /* 黑巢副本难度不再由距离梯度承担(迁驻西带后必然近于远巢): 沼泽=门阵解锁链
+  /* 黑巢副本难度不再由距离梯度承担(迁驻西带后必然近于远巢): 沼泽=解锁链
      末环(home→desert→snow→swamp), 「最后解锁的门后蹲着最终副本」即难度叙事;
      距离只保下限(不贴家), 详细落位/避让断言在西带走查修订测试块 */
   assert.ok(ds[3] >= 25, '黑巢离小屋有基本威胁距离: ' + ds[3].toFixed(1));
@@ -230,23 +230,50 @@ test('T5 地形接入: 地层随高度场 — 表面=24+advHeightAt 处草皮, �
   }
 });
 
-test('T5 门阵广场: 屋东 15×15 圆石满铺 + 三扇门位进常量(难度序, 门体归 T7)', () => {
+test('T5 家园广场: 屋东 15×15 圆石满铺(〔世界边界·T9〕纯地标, 三门退役后广场保留)', () => {
   const p = Core.ADV_GATE_PLAZA;
   assert.deepStrictEqual([p.x1, p.x2, p.z1, p.z2], [78, 92, 74, 88],
       '屋东 x78-92 z74-88(§2.4 核心圈; 2026-10-27 用户拍板东移离小屋远点)');
-  assert.strictEqual(p.gates.length, 3, '三扇门位(每图一扇)');
-  const seen = new Set();
-  for (const g of p.gates) {
-    assert.ok(g.px >= p.x1 - 1 && g.px + 5 <= p.x2 + 1, '门框 6 宽(px..px+5)落广场含塔位余量: px=' + g.px);
-    assert.ok(g.pz >= p.z1 && g.pz <= p.z2, '门面 z 行在广场内: pz=' + g.pz);
-    seen.add(g.px + ',' + g.pz);
-  }
-  assert.strictEqual(seen.size, 3, '三门位互不重合');
+  assert.strictEqual(p.gates, undefined, '门位登记已随 T9 门阵退役(gates 字段整体摘除)');
   Core.advBuildWorld();
   for (let x = p.x1; x <= p.x2; x++) {
     for (let z = p.z1; z <= p.z2; z++) {
       assert.strictEqual(cell(x, 24, z), 4, '广场圆石满铺 (' + x + ',' + z + ')');
     }
+  }
+});
+
+test('〔世界边界·T9〕home 门阵拆除钉: 旧门区零残留 + 广场铺装保留 + 三锚回家落点安全', () => {
+  /* 旧三扇门包围盒外扩(北两扇 z76 塔楼 x94 / 南扇 z88 步道 z89, 外扩到
+     x77..95 z73..90 y24..34 一网打尽门框/门面/塔楼/冠带/灯柱/步道) */
+  Core.advBuildWorld();
+  const B_PORTAL_DIM = vm.runInContext('B_PORTAL_DIM', eng);
+  const OLD = [api.B_PORTAL, B_PORTAL_DIM, api.B_OBSIDIAN, api.B_NETHER_BRICK, api.B_GLOWSTONE];
+  for (let x = 77; x <= 95; x++) {
+    for (let z = 73; z <= 90; z++) {
+      for (let y = 24; y <= 34; y++) {
+        assert.ok(!OLD.includes(cell(x, y, z)),
+            '旧门区零残留 @(' + x + ',' + y + ',' + z + ')=' + cell(x, y, z) +
+            '(门体是壳级建场件, home 行 gates 恒空后连壳 advGatesBuild 也零命中——双保险)');
+      }
+    }
+  }
+  /* 广场铺装仍是家园地标(T9 拍板: 保留, q16 visit_plaza 触发矩形照旧消费) */
+  assert.strictEqual(cell(80, 24, 80), 4, '广场圆石铺装仍在(80,80)');
+  /* 三锚回家落点安全钉: 实底草皮 y24 顶 + 脚/头格空气 + 远离越线触发口袋
+     (north z<1 / south z≥159 / west x<1 各 ≥2 行——落脚不「一步再传送」) */
+  const anchors = [ /* [落点 x, 落点 z, 名称] — advHomeArriveGate×advMapArriveAt 数值钉在 maps-core 测 */
+    [56.5, 126, '南缘锚(沙漠回家)'], [60.5, 26, '北缘锚(雪原回家)'], [34, 72.5, '西缘锚(沼泽回家)']];
+  for (const [ax, az, nm] of anchors) {
+    for (const cx of [Math.floor(ax), Math.floor(ax) + 1]) {
+      for (const cz of [Math.floor(az), Math.ceil(az)]) {/* 落点 straddle 的两格都验 */
+        assert.strictEqual(cell(cx, 24, cz), 1, nm + ' 落点实底草皮 @(' + cx + ',' + cz + ')');
+        assert.strictEqual(cell(cx, 25, cz), 0, nm + ' 落点脚格空气 @(' + cx + ',' + cz + ')');
+        assert.strictEqual(cell(cx, 26, cz), 0, nm + ' 落点头格空气 @(' + cx + ',' + cz + ')');
+      }
+    }
+    assert.ok(Math.floor(az) >= 3 && Math.floor(az) <= 157, nm + ' 远离南北触发线口袋');
+    assert.ok(Math.floor(ax) >= 3, nm + ' 远离西触发线口袋');
   }
 });
 
@@ -1356,7 +1383,7 @@ test('核心任务表: 16 条主线形状齐 + 谓词口径抽样(全量逐条�
 
 test('远征章(T8): 追加在终章之后 — 11 条(引导 1 + 每图 3 + 巢穴宝箱 1), 前 16 条序不变(老档 step 不回退)', () => {
   assert.strictEqual(Core.ADV_QUESTS.length, 27, '主线 16 + 远征章 11(den-nest D12 追加巢穴宝箱条)');
-  assert.strictEqual(Core.ADV_QUESTS[16].id, 'q16_plaza', '第 17 条 = home 门阵广场引导(远征章首条)');
+  assert.strictEqual(Core.ADV_QUESTS[16].id, 'q16_plaza', '第 17 条 = home 家园广场引导(远征章首条)');
   assert.strictEqual(Core.ADV_QUESTS[16].unlock, 'desert', '广场引导完成点亮沙漠门(线性链第一环)');
   assert.strictEqual(Core.ADV_QUESTS[19].id, 'q19_temple', '第 20 条 = 沙漠神殿宝箱(远征章链尾)');
   assert.strictEqual(Core.ADV_QUESTS[19].unlock, 'snow', '神殿宝箱完成点亮雪原门(线性链第二环)');

@@ -1107,7 +1107,7 @@ body.dev-on .mode-card.dev {
 }
 
 /* 传送门渐晕·白闪变体(世界边界 T8): 边缘越线传送/解锁让开演出共用——中心
-   暖白、边缘淡金的径向渐变, 忌纯白刺眼忌纯黑(调研 D3 幼儿口径, 与紫门阵
+   暖白、边缘淡金的径向渐变, 忌纯白刺眼忌纯黑(调研 D3 幼儿口径, 与紫地图门
    同一 #portalVeil 元素换装: js 侧 advVeilFire kind=edge/rite 挂本 class,
    advVeilReset 摘除回紫色); 透明度逐帧直驱仍归 #portalVeil 基段 */
 #portalVeil.edge {

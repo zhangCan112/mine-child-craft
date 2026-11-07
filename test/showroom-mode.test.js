@@ -645,9 +645,9 @@ test('体验馆: 统一装场 — 展馆结构经壳的建场+重放链在场(�
   assert.strictEqual(api.getBlock(63, G - 1, 60), 4, '腔顶石壳(上承房内地板)');
   assert.strictEqual(api.getBlock(55, G - 4, 47), api.B_DIAMOND_ORE, '矿样墙: 钻');
   assert.strictEqual(api.getBlock(75, G - 5, 71), 4, '楼梯井踏步在位');
-  /* 基座世界在场(整地圈外的 home 图建场件): 门阵广场圆石铺装(坐标避开三扇门
-      的门框平面 pz=76/88 与塔列, 帧 x88..93 属雪原门 x 向) */
-  assert.strictEqual(api.getBlock(90, G, 80), 4, '门阵广场圆石(基座建场在展馆外完好)');
+  /* 基座世界在场(整地圈外的 home 图建场件): 家园广场圆石铺装(T9 拆门后广场=纯地标,
+      帧 (90,80) 落铺装带内; 旧「避开门框平面」注解随 T9 拆门退役) */
+  assert.strictEqual(api.getBlock(90, G, 80), 4, '家园广场圆石(基座建场在展馆外完好)');
 });
 
 test('体验馆: 统一进场 — 房内出生(篡改档 pos)·昼夜接线·昼夜时刻恒清晨(dev 档不落盘)', () => {
@@ -1530,7 +1530,7 @@ test('体验馆 U4: 换装生命周期 — dev 会话真档零写入 · cleanup 
   assert.ok(calls.some((c) => c[0] === 'spawn' && c[1] === ADV_SPAWN.x && c[3] === ADV_SPAWN.z),
       '真档出生=ADV_SPAWN(门口两步, 非篡改档房内)');
   assert.strictEqual(api.getBlock(55, G, 55) !== 6, true, '真档世界=home 基座(展馆不在)');
-  assert.strictEqual(api.getBlock(90, G, 80), 4, '真档世界建场完好(门阵广场圆石, 避开门框平面)');
+  assert.strictEqual(api.getBlock(90, G, 80), 4, '真档世界建场完好(家园广场圆石, T9 拆门后纯地标)');
   AdventureMode.cleanup(); /* 真档退场: flush 走真链路落盘——与 dev 会话零写入对照 */
   assert.ok(mem.size >= 1, '真档会话落盘在位(还原后写链路健康, dev 零写入非断管)');
 });
@@ -1741,9 +1741,8 @@ test('体验馆 U3: footprint 选址核查 — 不压水面 · 硬结构清单�
   noRect(ADV_FARM, '农田(含水路)');
   noRect({x1: ADV_CAVE.x1 - 3, x2: ADV_CAVE.x2 + 3, z1: ADV_CAVE.zStart - 5, z2: ADV_CAVE.zEnd + 4},
       '山洞(洞口小丘+隧道+穴室)');
-  for (const g of ADV_GATE_PLAZA.gates) {
-    assert.ok(h.z2 < g.pz, '门面/塔列平面(z=' + g.pz + ')在 footprint 之外');
-  }
+  /* 〔世界边界·T9〕home 门阵退役: 门平面不相交断言随门拆除失义(旧门区零门体钉
+      在 adventure-core 测); 展馆压家园广场铺装西北角由压界①显式登记, 不另设矩形断言 */
   /* 登记压界三处(布局常量坐标被既有测试锁死, 压界如下登记——恰好这些, 漂移即红) */
   let paving = 0;
   for (let x = h.x1; x <= h.x2; x++) {
@@ -1751,7 +1750,7 @@ test('体验馆 U3: footprint 选址核查 — 不压水面 · 硬结构清单�
       if (api.getBlock(x, ADV_GROUND, z) === 4) paving++;
     }
   }
-  assert.strictEqual(paving, 4, '压界①: 门阵广场铺装西北角恰 4 格(重放后覆上木地板)');
+  assert.strictEqual(paving, 4, '压界①: 家园广场铺装西北角恰 4 格(重放后覆上木地板)');
   let fence = 0;
   for (let x = h.x1; x <= 54; x++) {
     for (const y of [ADV_GROUND + 1, ADV_GROUND + 2]) {

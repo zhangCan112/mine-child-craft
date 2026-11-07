@@ -51,9 +51,9 @@
      石阵夜晚彩蛋(2026-10-27): ADV_STONE_EGG_CD/ADV_STONE_HINT_CD/
      ADV_STONE_EGG_GIFT/advStoneAltarHit(灯坛命中)/advStoneEggPick(昼夜
      分支裁决——观感归壳) ·
-      传送门段(门阵/下界/副本三家共用, docs/nether-merge-design.md §3.2):
-      ADV_PORTAL 常量 · advPortalFrame(整座门, set 注入; 可选
-      look 主题建材——门阵观感精细化, 缺省经典下界门逐字不变) ·
+      传送门段(远征回程门/下界门/玩家自放门三家共用, docs/nether-merge-design.md §3.2):
+      ADV_PORTAL 常量 · advPortalFrame(整座门, set 注入; 经典下界建材四参
+      ——look 主题换装随〔世界边界·T9〕home 门阵退役删除) ·
       advInPortal(内口判定, read 注入) · advPortalSiteOk(放置校验,
       read 注入) · advPortalExit(传送出口, 来向退 2.5 格+yaw 反向) ·
       黑巢主巢 ADV_NESTS[3](den 旗标行)/ADV_DEN_NEST_DOOR(洞口涌出锚点)
@@ -126,7 +126,7 @@ const ADV_NESTS = [ /* 怪物巢穴位点(土丘洞穴): 难度序 = 三普通�
       改驻沼泽门(西 spec 走查修订段)。落位口径: 丘体 r5 全在带内(x21..31)且裙边
       离深水带 k13~18 两格外(x21>18), 避高脚木屋(x0~4,z22~26)/铁坑压平圈(24,44),
       丘心 z72 偏北于 home 中轴(z≈81)——从家看得见, 不挡西向观感主轴; 副本难度
-      改由「沼泽门=门阵解锁链末环」承担, 不再由距小屋距离梯度承担 */
+      改由「沼泽门=解锁链末环」承担, 不再由距小屋距离梯度承担 */
 ];
 const ADV_DEN_NEST_DOOR = {x: ADV_NESTS[3].x + 0.5, z: ADV_NESTS[3].z + 7.5}; /* 黑巢洞口外涌出点(夜怪从洞里爬出来的落位,
     敞廊南缘外 2 格——出生即「爬出洞口」观感, 家锚=洞口在壳层挂)。
@@ -142,29 +142,14 @@ const ADV_ORES = [
 const ADV_TREES = 56; /* 橡树林目标棵数(候选按散列值排序取前 N, 空间无偏)——
   2026-10-27 扩容 160×160 后按面积比例上调(40×1.56≈56, 密度感不稀释) */
 
-/* ---------- T5 家园核心圈新建场件(设计稿 §2.4): 门阵广场/初始农田/畜牧围栏/圆石小径 ---------- */
-/* 门阵广场(§2.3 门阵/§2.4 核心圈): 屋东 15×15 压平+圆石铺装; 三扇门位只登记坐标
-   (px..px+5 为 6 宽门框, ADV_PORTAL 口径)——门体 advPortalFrame 归 T7 建, 门→目标图
-   绑定归 T4 注册表各行 gatePos; gates 数组序 = 难度序(home→desert→snow→swamp 解锁链)。
-   2026-10-27 用户拍板: 广场东移 8 格(屋墙 x64 → 塔楼 x79, 门离小屋远一倍不止),
-   坐标零重排——广场尺寸/三门品字位关系原样平移 */
+/* ---------- T5 家园核心圈新建场件(设计稿 §2.4): 家园广场/初始农田/畜牧围栏/圆石小径 ---------- */
+/* 家园广场(§2.4 核心圈): 屋东 15×15 压平+圆石铺装——〔世界边界·T9〕home 三扇
+   门阵退役(拍板 7: 边缘传送是去远征图的唯一入口)后, 广场是纯家园地标:
+   q16 visit_plaza 触发矩形/植被建场避让照旧消费本矩形; 名字里的 GATE 是
+   旧门阵沿革留档(改名将波及 q16 触发/避让/展馆/测试四方, 不值)。
+   2026-10-27 用户拍板沿革: 广场东移 8 格(屋墙 x64 → 塔楼 x79) */
 const ADV_GATE_PLAZA = {
   x1: 78, x2: 92, z1: 74, z2: 88,
-  gates: [
-    {px: 80, pz: 76}, /* 门一·北缘西段(沙漠之门) — 与 ADV_MAPS home 行 gates 同值对齐
-      (绑定权威在 maps-core, 此处是建场避让用的副本, 一致性由
-      adventure-maps-core.test.js 断言守门; T5 旧位随 T7 门阵装配作废) */
-    {px: 88, pz: 76}, /* 门二·北缘东段(雪原之门, 塔楼 x94 外溢广场) */
-    {px: 80, pz: 88}, /* 门三·南缘西段(沼泽之门, 步道 z89 外溢广场) */
-  ],
-};
-/* 广场外扩门体足迹(塔楼 px-1/px+6 与步道 pz±1 的并集外接矩形): 植被避让用——
-   T7 门体建场后步道会覆盖草皮, 草丛/树落在足迹上会「长在砖上」或被门框顶掉 */
-const ADV_GATE_PLAZA_PAD = {
-  x1: ADV_GATE_PLAZA.gates.reduce((m, g) => Math.min(m, g.px - 1), 999),
-  x2: ADV_GATE_PLAZA.gates.reduce((m, g) => Math.max(m, g.px + 6), 0),
-  z1: ADV_GATE_PLAZA.gates.reduce((m, g) => Math.min(m, g.pz - 1), 999),
-  z2: ADV_GATE_PLAZA.gates.reduce((m, g) => Math.max(m, g.pz + 1), 0),
 };
 /* 初始农田(§2.4 核心圈·屋南): 4×3 耕地+熟麦(点亮种子→小麦→面包教学第一环), 西缘 x1-1 列水路(从简) */
 const ADV_FARM = {x1: 59, x2: 62, z1: 86, z2: 88};
@@ -218,7 +203,7 @@ const ADV_FLATS = [ /* 结构压平区清单(heightAt 的 flats 参数, 全部�
   {cx: ADV_NESTS[2].x, cz: ADV_NESTS[2].z, r: 8}, /* 远巢丘 */
   {cx: ADV_NESTS[3].x, cz: ADV_NESTS[3].z, r: 9}, /* 黑巢主巢丘+洞口敞廊(den-nest §2):
       丘 r5 比普通巢大一圈, 压平半径随之 9 */
-  {cx: (ADV_GATE_PLAZA.x1 + ADV_GATE_PLAZA.x2) / 2, /* 门阵广场(含门体外扩) */
+  {cx: (ADV_GATE_PLAZA.x1 + ADV_GATE_PLAZA.x2) / 2, /* 家园广场(T9 后纯地标) */
     cz: (ADV_GATE_PLAZA.z1 + ADV_GATE_PLAZA.z2) / 2, r: 12},
   {cx: (ADV_FARM.x1 + ADV_FARM.x2) / 2, cz: (ADV_FARM.z1 + ADV_FARM.z2) / 2, r: 5}, /* 农田+水路 */
   {cx: (ADV_PEN.x1 + ADV_PEN.x2) / 2, cz: (ADV_PEN.z1 + ADV_PEN.z2) / 2, r: 12}, /* 畜牧围栏 */
@@ -478,7 +463,7 @@ function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(
   /* 巢穴之门(den-nest §2.1; 2026-10-30 用户拍板: 入口从「巢厅巢之心旁站桩」迁到洞口
      ——「传送门不知道在哪, 莫名被传送」): 画廊北端(z+3, 楼梯尽头)小门——黑曜石门槛+
      2×2 B_PORTAL 紫门面+发光岩门楣(画廊露天采光, 下楼梯即见); 触发在壳层
-     advPortalTick(advDenDoorAt 认领, 门阵同款站桩 2s 可反悔)。建场直写不进 edits
+     advPortalTick(advDenDoorAt 认领, 地图门同款站桩 2s 可反悔)。建场直写不进 edits
      账本(光束扫描/nether 判据不误认——壳层查表先行认领) */
   for (const gx of [n.x - 1, n.x]) {
     setBlockRaw(gx, 21, n.z + 3, B_OBSIDIAN); /* 黑曜石门槛(嵌画廊地板, 经典门基) */
@@ -514,7 +499,7 @@ function advInRect(x, z, r) {/* 矩形含界判据(建场件占位/避让共用,
   return x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2;
 }
 
-function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含洞口小丘)/巢穴/门阵广场/农田/围栏/小径(T5 建场件全避)
+function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含洞口小丘)/巢穴/家园广场/农田/围栏/小径(T5 建场件全避)
   + 2026-10-27 扩容新增(松林圈让位给针叶松/望塔/石阵/花田/南池——橡树不进新元素场)
   + 〔边界转正·T7〕四方向过渡带——橡树不进带: 首跑观测 56 棵有 33 棵落带内
   (雪原橡树/沙面橡树/西带水面立树/穿沙暴墙), 「少数过渡杂木」前提不成立且破
@@ -532,7 +517,8 @@ function advTreeBlocked(x, z) {/* 树木禁区: 出生区/湖/矿坑/山洞(含�
   const c = ADV_CAVE;
   /* 隧道向南: 洞口小丘在北(zStart-5), 穴室在南(zEnd+4) */
   if (x >= c.x1 - 3 && x <= c.x2 + 3 && z >= c.zStart - 5 && z <= c.zEnd + 4) return true;
-  if (advInRect(x, z, ADV_GATE_PLAZA_PAD) || advInRect(x, z, ADV_FARM) || advInRect(x, z, ADV_PEN)) return true;
+  /* 广场改用整矩形(T9 门体足迹 PAD 退役) */
+  if (advInRect(x, z, ADV_GATE_PLAZA) || advInRect(x, z, ADV_FARM) || advInRect(x, z, ADV_PEN)) return true;
   for (const r of ADV_PATH) {
     if (advInRect(x, z, r)) return true;
   }
@@ -576,7 +562,6 @@ function advScatterTufts() {/* 草丛散布(T11 缺口, D7 草丛链): 确定性
         if (Math.hypot(x - n.x, z - n.z) < 3) nearNest = true;
       }
       if (nearNest) continue;
-      if (advInRect(x, z, ADV_GATE_PLAZA_PAD)) continue; /* 避门体足迹(T7): 步道覆盖草皮, 草会长在砖上 */
       const top = ADV_GROUND + advHeightAt(x, z); /* 表面随圈层丘体(T5): 草丛跟草皮走 */
       if (getBlock(x, top, z) !== 1) continue; /* 脚下是草地(沙岸/湖/矿坑/铺装天然排除) */
       if (getBlock(x, top + 1, z) !== 0) continue; /* 顶上无物(树干/小屋墙不占) */
@@ -585,8 +570,8 @@ function advScatterTufts() {/* 草丛散布(T11 缺口, D7 草丛链): 确定性
   }
 }
 
-function advBuildPlaza() {/* 门阵广场(T5, §2.4 核心圈): 压平区(ADV_FLATS)上圆石满铺;
-  三扇门位只登记在 ADV_GATE_PLAZA——门体(advPortalFrame)归 T7 建 */
+function advBuildPlaza() {/* 家园广场(T5, §2.4 核心圈): 压平区(ADV_FLATS)上圆石满铺;
+  〔世界边界·T9〕三门退役后是纯地标铺装, 建场逻辑零变 */
   const p = ADV_GATE_PLAZA;
   for (let x = p.x1; x <= p.x2; x++) {
     for (let z = p.z1; z <= p.z2; z++) setBlockRaw(x, ADV_GROUND, z, 4);
@@ -813,7 +798,6 @@ function advScatterFlowers() {/* 花丛草场(T5, §2.4 核心圈): 蒲公英黄
       if (SceneKit.rand(x, z, 9201) < 0.98) continue;
       if (Math.hypot(x - ADV_HUT_C.x, z - ADV_HUT_C.z) > ADV_RING.CORE) continue;
       if (advInRect(x, z, ADV_PEN)) continue;
-      if (advInRect(x, z, ADV_GATE_PLAZA_PAD)) continue; /* 避门体足迹(T7): 同草丛口径 */
       const top = ADV_GROUND + advHeightAt(x, z);
       if (getBlock(x, top, z) !== 1) continue;
       if (getBlock(x, top + 1, z) !== 0) continue;
@@ -2115,7 +2099,7 @@ const ADV_HERD_AMBLE_MULT = 0.5; /* 闲逛速度系数(吃草步, 六成时间�
 const ADV_HERD_AMBLE_WALK_P = 0.6; /* 闲逛掷点在走概率(四成时间站着吃草, 设计稿 §4.3) */
 
 function advLivestockHerdOk(x, z, trees) {/* 群位约束(设计稿 §4.4): 离出生点 ≥15 · 避湖/
-  矿坑/巢穴/山洞/小屋(外扩裕量盖过群内环带) · 避树干 ±3 盒 · T5 起避门阵广场/农田/小径
+  矿坑/巢穴/山洞/小屋(外扩裕量盖过群内环带) · 避树干 ±3 盒 · T5 起避家园广场/农田/小径
   (群位挪进围栏后此三条为防御性约束, 供 T4 异图复用); 零世界读——基础草原面
   在禁区外天然是整块平草地(advBaseTerrain), 不必逐格验草 */
   if (Math.hypot(x - ADV_SPAWN.x, z - ADV_SPAWN.z) < ADV_LIVESTOCK_SPAWN_R) return false;
@@ -2772,17 +2756,18 @@ const ADV_QUESTS = [
     prog: (c) => Math.min(c.craft_sword_diamond || 0, 1), check: (c) => (c.craft_sword_diamond || 0) >= 1},
   /* 远征章(T8, 冒险地图设计稿 §2.3 解锁链): 追加在终章之后——前 16 条序不变,
      老档 step 不回退(已通关档 step=16 顺位接棒远征章, 称号保留); 线性解锁链
-     home→desert→snow→swamp, unlock 字段 = 该任务完成时点亮的门(目标图 id),
-     壳层置 ADV_UNLOCK_KEYS[unlock] 键(键名权威在 adventure-maps-core, T4)。
+     home→desert→snow→swamp, unlock 字段 = 该任务完成时开放的远征方向(目标图
+     id, 〔世界边界·T9〕home 门阵退役后「开放」= 解开对应边缘屏障, 不再点亮
+     广场门体), 壳层置 ADV_UNLOCK_KEYS[unlock] 键(键名权威在 adventure-maps-core, T4)。
      counts 新增四类(事件处仍只 += 不判断): visit_<图> 到达记账(站桩切图时) ·
      chest_<结构> 结构宝箱开箱(建场件坐标判定, 玩家自放箱不算) ·
      throw_<物品> 投掷件数 · kill_<怪种> 按怪种击杀(与 kill_mob 并行记账) */
-  {id: 'q16_plaza', icon: '🏛️', goal: '去门阵广场看一看', target: 1, unlock: 'desert',
-    hint: '小屋东边有一座门阵广场，走过去看一看吧！',
-    praise: '找到门阵广场啦！你观察得真仔细！',
+  {id: 'q16_plaza', icon: '🏛️', goal: '去东边的广场看一看', target: 1, unlock: 'desert',
+    hint: '小屋东边有一座石头广场，沿着小径走过去看一看吧！',
+    praise: '找到广场啦！你观察得真仔细！',
     prog: (c) => Math.min(c.visit_plaza || 0, 1), check: (c) => (c.visit_plaza || 0) >= 1},
   {id: 'q17_desert', icon: '🏜️', goal: '走进黄沙沙漠', target: 1,
-    hint: '沙漠之门亮起来啦！站进门里等一等，就去黄沙沙漠咯！',
+    hint: '南边的路打开啦！朝南边大沙丘一直走，沙子就会让开，送你去黄沙沙漠咯！',
     praise: '到黄沙沙漠啦！你真勇敢！',
     prog: (c) => Math.min(c.visit_desert || 0, 1), check: (c) => (c.visit_desert || 0) >= 1},
   {id: 'q18_cactus', icon: '🌵', goal: '挖 3 根仙人掌', target: 3,
@@ -2794,7 +2779,7 @@ const ADV_QUESTS = [
     praise: '神殿宝箱打开啦！你像小侦探一样厉害！',
     prog: (c) => Math.min(c.chest_temple || 0, 1), check: (c) => (c.chest_temple || 0) >= 1},
   {id: 'q20_snow', icon: '🌨️', goal: '走进白雪雪原', target: 1,
-    hint: '雪原之门亮起来啦！站进门里等一等，就去玩雪咯！',
+    hint: '北边的路打开啦！朝北边大雪山一直走，雪就会让开，送你去白雪雪原咯！',
     praise: '到白雪雪原啦！雪白的世界真漂亮！',
     prog: (c) => Math.min(c.visit_snow || 0, 1), check: (c) => (c.visit_snow || 0) >= 1},
   {id: 'q21_snowball', icon: '❄️', goal: '扔 5 个雪球', target: 5,
@@ -2806,7 +2791,7 @@ const ADV_QUESTS = [
     praise: '雪屋宝箱打开啦！你找得真仔细！',
     prog: (c) => Math.min(c.chest_igloo || 0, 1), check: (c) => (c.chest_igloo || 0) >= 1},
   {id: 'q23_swamp', icon: '🌿', goal: '走进青苔沼泽', target: 1,
-    hint: '沼泽之门也亮起来啦！站进门里等一等，就去探险咯！',
+    hint: '西边的路打开啦！朝西边浓雾一直走，雾就会散开，送你去青苔沼泽咯！',
     praise: '到青苔沼泽啦！你的胆子越来越大啦！',
     prog: (c) => Math.min(c.visit_swamp || 0, 1), check: (c) => (c.visit_swamp || 0) >= 1},
   {id: 'q24_bogged', icon: '⚔️', goal: '打跑 2 只小沼骸', target: 2,
@@ -2823,7 +2808,7 @@ const ADV_QUESTS = [
     prog: (c) => Math.min(c.chest_den || 0, 1), check: (c) => (c.chest_den || 0) >= 1},
 ];
 
-/* 门解锁链反查(§2.3 锁门话术与点亮仪式共用): 目标图 id → 挂 unlock 的那条
+/* 解锁链反查(§2.3 锁定话术与开放仪式共用): 目标图 id → 挂 unlock 的那条
    任务(每图至多一条, 表结构由单测锁定); home 恒开/未知图 → null 不炸 */
 function advUnlockQuest(mapId) {
   return ADV_QUESTS.find((q) => q.unlock === mapId) || null;
@@ -3079,7 +3064,7 @@ function advLanternStep(s, dt, heldId, dur, skyDim) {
 /* ============================================================
    传送门段 (docs/nether-merge-design.md §3.2) — 门词汇三家共用
    ------------------------------------------------------------
-   门阵/下界/巢穴副本三家共用的传送门结构与判定留本文件
+   地图门/下界/巢穴副本三家共用的传送门结构与判定留本文件
    (ADV_PORTAL 门框几何·advPortalFrame 整门建场·advInPortal O(1) 内口判定·
    advPortalSiteOk 放置校验·advPortalExit 落点口径)。维度专属段
    (ADV_NETHER/advNetherBuild、ADV_ERUPT/advEruptStep、ADV_DEN 副本段与
@@ -3094,19 +3079,19 @@ const ADV_PORTAL = {w: 6, h: 7, cd: 0.8};
    set(x,y,z,id) 注入缝: 场景基座传 setBlockRaw, 玩家放置传「setBlockRaw+
    逐格记账」sink(结构以 edits 形态存在, 重放即重建——与 journal 互锁
    红线同构)。
-   look 观感主题(2026-10-27 门阵精细化, 缺省 undefined = 经典下界门):
-   {tower 塔楼主体, crown 冠带, path 步道主砖, pathAlt 步道花砖} 四建材随
-   目的地换装(ADV_MAPS home 行 gates[].look——沙漠砂岩/雪原雪冰/沼泽苔石),
-   并附步道前缘双火把灯柱; 黑曜石门框环(底边/顶边/侧柱/四角发光岩)与紫色
-   门面**永不换装**——「传送门魔法」的辨识底座。逐格契约: 内口 4×5 门面
-   (px+1..px+4 / by+1..by+5 / 单 z 平面)与结构包围盒(px-1..px+W,
-   pz-1..pz+1)不变——advGateAt/advPortalSiteOk/光束锚定全靠它 */
-function advPortalFrame(set, by, px, pz, look) {
+   〔世界边界·T9〕look 观感主题退役: 曾有 {tower, crown, path, pathAlt}
+   四建材随目的地换装 + 步道前缘双火把灯柱(2026-10-27 home 门阵精细化)
+   ——唯一消费方门阵退役后参数删除, 全部门体恒经典下界建材(黑曜石框环/
+   下界砖步道, 紫色门面**永不换装**——「传送门魔法」的辨识底座)。
+   逐格契约: 内口 4×5 门面(px+1..px+4 / by+1..by+5 / 单 z 平面)与结构
+   包围盒(px-1..px+W, pz-1..pz+1)不变——advGateAt/advPortalSiteOk/光束
+   锚定全靠它 */
+function advPortalFrame(set, by, px, pz) {
   const W = ADV_PORTAL.w; const H = ADV_PORTAL.h;
-  const tw = look ? look.tower : B_OBSIDIAN; /* 塔楼主体(缺省黑曜石=经典) */
-  const cr = look ? look.crown : B_OBSIDIAN; /* 冠带: 塔顶带/门楣横带 */
-  const p1 = look ? look.path : B_NETHER_BRICK; /* 步道主砖 */
-  const p2 = look ? look.pathAlt : p1; /* 步道花砖(缺省同主砖=经典整铺) */
+  const tw = B_OBSIDIAN; /* 塔楼主体(经典下界建材) */
+  const cr = B_OBSIDIAN; /* 冠带: 塔顶带/门楣横带 */
+  const p1 = B_NETHER_BRICK; /* 步道主砖 */
+  const p2 = p1; /* 步道花砖(与主砖同材=经典整铺) */
   for (let x = px; x <= px + W - 1; x++) set(x, by, pz, B_OBSIDIAN); /* 底边 */
   for (let x = px; x <= px + W - 1; x++) set(x, by + H - 1, pz, B_OBSIDIAN); /* 顶边 */
   for (let y = by + 1; y <= by + H - 2; y++) {
@@ -3130,10 +3115,6 @@ function advPortalFrame(set, by, px, pz, look) {
       set(x, by, pz + dz, dz < 0 ? (((x - px) % 2 === 0) ? p1 : p2) : p1);
     }
   }
-  if (look) {/* 门前灯柱(主题门限定): 步道前缘两端火把, 夜里给门阵引光 */
-    set(px - 1, by + 1, pz + 1, B_TORCH);
-    set(px + W, by + 1, pz + 1, B_TORCH);
-  }
 }
 
 /* x 平面门体变体(〔世界边界·T8〕world-edge-t8-plan §2 T8-C): 门面法线 ±x 的
@@ -3142,12 +3123,12 @@ function advPortalFrame(set, by, px, pz, look) {
    **转置包装**(几何零第二份, 同源原则): 内层 advPortalFrame 以原点为锚建
    标准 z 平面门, 写入缝做坐标转置 (x,y,z) → set(px+z, y, pz+x, id)——得
    x∈[px−1,px+1]、z∈[pz−1,pz+6] 的镜像门, 内口 4×5 门面在 x=px 单平面上;
-   黑曜石框/门面/发光岩/步道/火把全继承, 观感件零重写。所有 z_local=0 元素
+   黑曜石框/门面/发光岩/步道全继承, 观感件零重写。所有 z_local=0 元素
    (底/顶边/柱/门面/发光岩/门楣/塔楼)全落 x=px 单平面, 塔楼在 (px,·,pz−1)/
    (px,·,pz+6), 步道在 x=px±1。消费点(advGatesBuild/advGateAt/光束锚 x 平面
    分派)归波次二壳层, 本体只建场 */
-function advPortalFrameX(set, by, px, pz, look) {
-  advPortalFrame((x, y, z, id) => set(px + z, y, pz + x, id), by, 0, 0, look);
+function advPortalFrameX(set, by, px, pz) {
+  advPortalFrame((x, y, z, id) => set(px + z, y, pz + x, id), by, 0, 0);
 }
 
 /* 传送门内口判定(O(1), 免门位注册表): 玩家浮点坐标 → 脚格(floor x,
@@ -3354,7 +3335,7 @@ function advDoorIdsMigrate(sv) {/* 原地移位 63~67 → +1; 无旧档特征原
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_GROUND, ADV_HUT, ADV_SPAWN, ADV_LAKE, ADV_PITS, ADV_CAVE, ADV_NESTS,
     ADV_ORES, ADV_TREES, ADV_RING, ADV_HUT_C, ADV_FLATS, advRingAmp, advHeightAt,
-    ADV_GATE_PLAZA, ADV_GATE_PLAZA_PAD, ADV_FARM, ADV_PEN, ADV_PATH, advInRect,
+    ADV_GATE_PLAZA, ADV_FARM, ADV_PEN, ADV_PATH, advInRect,
     ADV_PINE, ADV_TOWER, ADV_STONES, ADV_MEADOW, ADV_POND,
     advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
     advBuildPit, advTryOre, advBuildCave, advBuildHut, advBuildNest, advTreeBlocked,
@@ -3393,7 +3374,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advEdgeOpenDir, advEdgeTransitDirAt, advEdgeHintAt,
     advEdgeProtectedAt, advEdgeProtectedZone,
     ADV_EDGE_NIGHT_POOL, advEdgeThemeAt, advEdgeNightPoolAt, /* 〔世界边界·T11〕过渡带主题夜怪判据 */
-    advEdgeNorthMountainH, ADV_EDGE_HOME_SKY, /* T7 转正测试消费(找山体列/旁路原引用钉) */
+    advEdgeNorthMountainH, advEdgeSouthCrest, ADV_EDGE_HOME_SKY, /* T7/T9 测试消费(找山体/沙丘屏障列) */
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_PER, ADV_CHEST_TIERS, advChestNext,
     advChestCapacity, advCountChestEdits, advChestPut, advChestTake,

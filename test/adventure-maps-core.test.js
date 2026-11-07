@@ -86,7 +86,12 @@ test('注册表: 四行齐 · id 唯一 · 每行字段齐 · home 行引用 ADV
     assert.strictEqual(typeof r.build, 'function', r.id + ' 建场函数');
     assert.ok(Array.isArray(r.nests) && r.nests.length >= 2, r.id + ' 巢穴池 2+ 巢');
     assert.ok(Array.isArray(r.nightPool) && r.nightPool.length >= 2, r.id + ' 夜怪池非空');
-    assert.ok(Array.isArray(r.gates) && r.gates.length >= 1, r.id + ' 门位非空');
+    if (r.id === 'home') {
+      assert.ok(Array.isArray(r.gates) && r.gates.length === 0,
+          r.id + ' home 行 gates 恒空数组(〔世界边界·T9〕门阵退役, 字段保留=壳循环天然零命中)');
+    } else {
+      assert.ok(Array.isArray(r.gates) && r.gates.length >= 1, r.id + ' 门位非空(回程门)');
+    }
     for (const g of r.gates) {
       assert.ok(g.to && Number.isInteger(g.px) && Number.isInteger(g.pz), r.id + ' 门位 {to,px,pz}');
       /* 〔世界边界·T8〕face-aware 界内盒: z 平面门(face north/south/缺省)框横跨
@@ -153,33 +158,19 @@ test('注册表: 替换语义红线 — 三张远征图双池换防(desert/husk,
   }
 });
 
-test('注册表: 门位网 — home 三扇门阵互不重叠且各指一张远征图; 远征图各一门回 home; to 双向成环', () => {
+test('注册表: 门位网 — home 行恒空数组(T9 门阵退役); 远征图各一门回 home; 去向绑定由 ADV_EDGE_DIR_MAP 承担', () => {
   const home = Maps.ADV_MAPS[0];
   const exped = Maps.ADV_MAPS.filter((r) => r.id !== 'home');
-  assert.strictEqual(home.gates.length, 3, 'home 门阵三扇(desert/snow/swamp 各一)');
-  assert.deepStrictEqual(home.gates.map((g) => g.to).sort(), ['desert', 'snow', 'swamp']);
-  const box = (g) => [g.px - 1, g.px + ADV_PORTAL.w, g.pz - 1, g.pz + 1]; /* 含塔楼/步道的包围盒 */
-  for (let i = 0; i < home.gates.length; i++) {
-    for (let j = i + 1; j < home.gates.length; j++) {
-      const a = box(home.gates[i]); const b = box(home.gates[j]);
-      const overlap = a[0] <= b[1] && b[0] <= a[1] && a[2] <= b[3] && b[2] <= a[3];
-      assert.ok(!overlap, 'home 门 ' + home.gates[i].to + ' 与 ' + home.gates[j].to + ' 不重叠');
-    }
-  }
+  assert.strictEqual(home.gates.length, 0,
+      'home gates 恒空(〔世界边界·T9〕拍板 7: 边缘传送是去远征图的唯一入口)');
   for (const r of exped) {
     assert.strictEqual(r.gates.length, 1, r.id + ' 单门回 home');
     assert.strictEqual(r.gates[0].to, 'home', r.id + ' 回程门指向 home');
   }
-  /* 门位副本一致性(T8): adventure-core 的 ADV_GATE_PLAZA.gates 是建场植被避让用的
-     副本(绑定权威在此表)——两份漂移会让草丛/树长在门体上, 逐门钉死同值 */
-  const Core = require('../js/adventure-core.js');
-  assert.strictEqual(Core.ADV_GATE_PLAZA.gates.length, home.gates.length, '副本门数一致');
-  for (let i = 0; i < home.gates.length; i++) {
-    assert.strictEqual(Core.ADV_GATE_PLAZA.gates[i].px, home.gates[i].px,
-        '副本门位 x 同值: ' + home.gates[i].to + '(漂移=植被长在门体上)');
-    assert.strictEqual(Core.ADV_GATE_PLAZA.gates[i].pz, home.gates[i].pz,
-        '副本门位 z 同值: ' + home.gates[i].to);
-  }
+  /* 去向绑定(旧 home 门阵的 to 字段职责)改由边缘方向表单一权威承担(T9):
+     反查链 advHomeArriveGate 消费同一份表, 三向齐全即回家锚三向齐全 */
+  assert.deepStrictEqual(Maps.ADV_EDGE_DIR_MAP, {north: 'snow', south: 'desert', west: 'swamp'},
+      '边缘方向→目标图绑定(north/snow · south/desert · west/swamp)');
 });
 
 /* ============ 政策纯函数段(逐条钉口径, 纯数据进出零世界读) ============ */
@@ -251,14 +242,21 @@ test('政策: 到达落点 — 回程门内侧 2.5 格 · 面朝外(advPortalExi
   }
 });
 
-test('政策: 指定门位到达落点 — advMapArriveAt(gate) 与 advMapArrive 同口径; home 三门各得各的落点', () => {
-  const home = Maps.ADV_MAPS[0];
-  for (const g of home.gates) {/* home 多门: 回程落点跟着来时的门走(沙漠门进沙漠门出) */
-    const sp = Maps.advMapArriveAt(g);
-    assert.deepStrictEqual(sp,
-        {x: g.px + 2.5, y: ADV_GROUND + 1, z: g.pz + 0.5 + 2.5, yaw: 0},
-        home.gates.find((m) => m.to === g.to) && g.to + ' 门位落点=门内侧 2.5 格面朝外');
+test('政策: 回家来向锚落点 — ADV_HOME_EDGE_GATES 三锚数值钉(T9 家园落点唯一权威) · 兜底南锚', () => {
+  /* home 三门退役(T9): 回家落点=来向缘虚拟门位锚, 复用 advMapArriveAt 单一
+     权威(锚面内侧 2.5 格面朝图内)。三锚落点数值为探针实测平草净空钉死
+     (改锚必须重跑建场探针: 落点进 h-1 浅洼/触发线口袋/黑巢土丘都会困住孩子) */
+  const pins = {desert: {x: 56.5, z: 126, yaw: Math.PI}, /* 南缘锚 (54,128) → 落 (56.5,126) 面朝北 */
+    snow: {x: 60.5, z: 26, yaw: 0}, /* 北缘锚 (58,23) → 落 (60.5,26) 面朝南 */
+    swamp: {x: 34, z: 72.5, yaw: Math.PI / 2}}; /* 西缘锚 (31,70) → 落 (34,72.5) 面朝东 */
+  for (const [mid, p] of Object.entries(pins)) {
+    const a = Maps.advMapArriveAt(Maps.advHomeArriveGate(mid));
+    assert.deepStrictEqual(a, {x: p.x, y: ADV_GROUND + 1, z: p.z, yaw: p.yaw},
+        mid + ' 回家锚落点(来向缘内侧 2.5 格)');
   }
+  /* 来向图→锚由 ADV_EDGE_DIR_MAP 反查(单一权威); 未知图兜底南锚(总数函数不炸) */
+  assert.strictEqual(Maps.advHomeArriveGate('nether'), Maps.ADV_HOME_EDGE_GATES.south,
+      '未知来向图兜底南缘锚');
   const desert = Maps.ADV_MAPS.find((r) => r.id === 'desert');
   assert.deepStrictEqual(Maps.advMapArriveAt(desert.gates[0]), Maps.advMapArrive(desert),
       'advMapArrive(row) = gates[0] 的便捷版(远征图单门恒等)');
@@ -553,8 +551,9 @@ test('沼泽建场: 女巫小屋 — 高脚木屋(原木柱脚+木板屋体) + �
 
 /* ============ 门位完整性(对建场后的真实世界断言, 票据验收) ============ */
 
-test('门位: 四图门位不落水 · 地表压平净空不撞结构(T7 门体的落位前提)', () => {
-  /* 各图地表方块清单(home 含 T5 门阵广场的圆石铺装) */
+test('门位: 远征图门位不落水 · 地表压平净空不撞结构(T7 门体的落位前提; home 行恒空天然跳过)', () => {
+  /* 各图地表方块清单(home 行 gates 恒空〔世界边界·T9〕, 循环天然跳过;
+     home 建场后的旧门区零残留与三锚落点安全钉在 adventure-core.test.js) */
   const groundOf = {home: [1, 4], desert: [8], snow: [api.B_SNOWY_GRASS], swamp: [1]};
   for (const r of Maps.ADV_MAPS) {
     clearWorld();
@@ -570,21 +569,18 @@ test('门位: 四图门位不落水 · 地表压平净空不撞结构(T7 门体�
               r.id + ' 门区地表压平为' + r.name + '地表 @(' + x + ',' + z + ')=' + cell(x, ADV_GROUND, z));
           for (let y = ADV_GROUND + 1; y <= ADV_GROUND + ADV_PORTAL.h + 2; y++) {
             const id = cell(x, y, z);
-            const ok = id === 0 || (r.id === 'home' && id === api.B_GRASS_TUFT); /* home 现散布场
-              允许 thin 草丛(solid:false 不挡门体, T7 门基座覆盖; T5 重排后压平区不再散草) */
-            assert.ok(ok, r.id + ' 门区净空(不撞结构/植被) @(' + x + ',' + y + ',' + z + ')=' + id);
+            assert.ok(id === 0,
+                r.id + ' 门区净空(不撞结构/植被) @(' + x + ',' + y + ',' + z + ')=' + id);
           }
         }
       }
       /* 落点走廊: 门南侧到落点+2 格也是平地净空(advMapArrive 的面朝外前提) */
-      const a = Maps.advMapArrive(r.id === 'home' ? Maps.ADV_MAPS.find((m) => m.id === 'desert') : r);
-      if (r.id !== 'home') {
-        for (let z = g.pz + 1; z <= Math.floor(a.z) + 2; z++) {
-          assert.ok(groundOf[r.id].includes(cell(g.px + 2, ADV_GROUND, z)),
-              r.id + ' 落点走廊地表 @(' + (g.px + 2) + ',' + z + ')');
-          assert.strictEqual(cell(g.px + 2, ADV_GROUND + 1, z), 0, r.id + ' 落点走廊净空');
-          assert.strictEqual(cell(g.px + 3, ADV_GROUND + 1, z), 0, r.id + ' 落点走廊净空(东列)');
-        }
+      const a = Maps.advMapArrive(r);
+      for (let z = g.pz + 1; z <= Math.floor(a.z) + 2; z++) {
+        assert.ok(groundOf[r.id].includes(cell(g.px + 2, ADV_GROUND, z)),
+            r.id + ' 落点走廊地表 @(' + (g.px + 2) + ',' + z + ')');
+        assert.strictEqual(cell(g.px + 2, ADV_GROUND + 1, z), 0, r.id + ' 落点走廊净空');
+        assert.strictEqual(cell(g.px + 3, ADV_GROUND + 1, z), 0, r.id + ' 落点走廊净空(东列)');
       }
     }
   }
@@ -630,11 +626,8 @@ test('T8 落点泛化: 无 face 回归钉逐字段 · face north 逐字节恒等
     p.yaw = p.yaw % (Math.PI * 2);
     return p;
   };
-  /* 无 face(home 三扇): 逐字段与旧公式相等(回归钉——老断言零改动的语义保证) */
-  for (const g of Maps.ADV_MAPS[0].gates) {
-    assert.deepStrictEqual(Maps.advMapArriveAt(g), legacy(g.px, g.pz),
-        'home→' + g.to + ' 无 face=旧公式逐字段相等');
-  }
+  /* 无 face 纯防御口径(T9 后现网全部门位均带 face): 字面量回归钉逐字段与
+     旧公式相等(老断言零改动的语义保证) */
   /* 三图旧位 (58,70) 无 face 回归钉(门挪缘前的位, 数值等价锚绝不动) */
   assert.deepStrictEqual(Maps.advMapArriveAt({px: 58, pz: 70}), legacy(58, 70),
       '旧位 (58,70) 无 face=旧公式逐字节相等');

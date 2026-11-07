@@ -504,17 +504,12 @@ const ADV_MAPS = [
       water: [0.25, 0.45, 0.85], sky: [0.56, 0.78, 1.00],
     },
     build: advBuildWorld,
-    gates: [ /* 三扇门阵(T5 广场压平区 x78-92 z74-88 内品字落位, 门体 T7 建;
-       现散布场校准: 落位避树冠/树干, 撞上的只有 thin 草丛——门基座直接覆盖。
-       look = 门体观感主题(2026-10-27 精细化): 塔楼/冠带/步道主砖/步道花砖
-       随目的地换装——沙漠砂岩+沙花砖/雪原雪块+冰花砖/沼泽苔石+泥花砖, 另附
-       步道前缘双火把灯柱; 黑曜石门框环与门面不换装(传送门辨识底座)) */
-      {to: 'desert', px: 80, pz: 76,
-        look: {tower: B_SANDSTONE, crown: 8, path: B_SANDSTONE, pathAlt: 8}},
-      {to: 'snow', px: 88, pz: 76,
-        look: {tower: B_SNOW, crown: B_ICE, path: B_SNOW, pathAlt: B_ICE}},
-      {to: 'swamp', px: 80, pz: 88,
-        look: {tower: 14, crown: 5, path: 14, pathAlt: 2}},
+    gates: [ /* 〔世界边界·T9〕home 三扇门阵退役(拍板 7: 边缘传送是去远征图的
+       唯一入口)——数据源摘除后本行恒空数组: 壳 advGatesBuild/advGateAt 对空表
+       天然零命中(查表机制保留, 远征图回程门仍走同一份); 回家落点权威改由
+       ADV_HOME_EDGE_GATES/advHomeArriveGate 承担(见 advMapArriveAt 下方)。
+       屋东 T5 广场(圆石铺装)是家园地标不是门阵附属——保留, q16 visit_plaza
+       触发矩形与建场避让照旧消费 */
     ],
     livestock: 'herds', /* 四畜全套留 home(设计稿 §10 拍板⑤) */
   }, ADV_HOME_ROW),
@@ -645,10 +640,11 @@ const ADV_GATE_FACE = {
 };
 
 /* 指定门位的到达落点(face 感知泛化, 〔世界边界·T8〕): 站进绑定 g.to 图的
-    门后, 落在 g 这扇门自身内侧 2.5 格、面朝图内——门阵多门时回程落点跟着
+    门后, 落在 g 这扇门自身内侧 2.5 格、面朝图内——地图多门时回程落点跟着
     来时的门走(沙漠门进沙漠门出, §2.3「落地就在门跟前, 门在身后」)。
     门心/内向向量/朝向全从 gate.face 查 ADV_GATE_FACE 单一权威; face 缺省
-    (=undefined, home 门阵三扇与旧档均无 face)→ north 口径, 与旧公式
+    (=undefined, 纯防御口径——T9 后现网全部门位均带 face: 远征回程门随图常量
+    派生, home 侧回家锚见 ADV_HOME_EDGE_GATES)→ north 口径, 与旧公式
     advPortalExit(px+2.5, G+1, pz+0.5, π) 逐字节等价——旧公式恰是「北缘门」
     的特例(sin(π)·2.5 ≈ 3e-16, 在 px+2.5 的半 ulp 内舍回精确值; 测试组 3
     回归钉)。y 恒基准地表上方(门位压平区, 建场保证 y24 顶面) */
@@ -662,9 +658,32 @@ function advMapArriveAt(g) {
 }
 
 /* 到达落点(行便捷版): 取 gates[0]——远征图单门=回程门, 与泛化版恒等;
-    home 多门场景请用 advMapArriveAt(对应门), 各门落点不同 */
+    home 门阵退役后(T9)请用 advHomeArriveGate 的来向锚, 本函数不再喂 home 行
+    (gates[0]=undefined 会炸——壳层 advMapSpawn 的 home 分支走 ADV.spawn 不经此) */
 function advMapArrive(row) {
   return advMapArriveAt(row.gates[0]); /* 远征图单门=回程门 */
+}
+
+/* home 侧到达门位(〔世界边界·T9〕home 三门退役后的回家落点唯一权威):
+   远征图回程门站桩回家 → 落在 home 对应边缘、贴腹地侧的虚拟门位锚上,
+   复用 advMapArriveAt 单一权威(锚面内侧 2.5 格面朝图内)——从哪缘越线出去,
+   回来仍在那缘跟前。锚行=各主题带贴 home 腹地的一线(北 z23/南 z128/西 x31,
+   与 T11 主题带矩形 z∈[0,24)/z∈[128,160)/x∈[0,32) 同源口径), 刻意**不落
+   触发线口袋**(north z<1/south z≥159/west x<1 的贴墙位——落脚即距「一步
+   再传送」过近, 北缘还会落在山脊背侧出不来); 三锚落点 (60.5,26)/(56.5,126)/
+   (34,72.5) 探针实测平草净空(y24 顶, 脚/头格空气), 带外或带入口缓冲带上 */
+const ADV_HOME_EDGE_GATES = {
+  north: {px: 58, pz: 23, face: 'north'}, /* ←白雪雪原回家: 落 (60.5, 26.0) 面朝南 */
+  south: {px: 54, pz: 128, face: 'south'}, /* ←黄沙沙漠回家: 落 (56.5, 126.0) 面朝北
+     (px=54 使落点 straddle x56/57——x58..68 在 z122..131 是 h-1 浅洼带, 探针实测
+     56/57 双格平草 y24 顶无草丛, 全 home 图南缘唯一平草落点窗) */
+  west: {px: 31, pz: 70, face: 'west'}, /* ←青苔沼泽回家: 落 (34.0, 72.5) 面朝东 */
+};
+/* 来向图 → home 对应缘虚拟门位(ADV_EDGE_DIR_MAP 反查, 单一权威不抄方向表);
+    未知图兜底南缘(总数函数, 调用方无需判空——advMapArriveAt 直喂不炸) */
+function advHomeArriveGate(fromMapId) {
+  const dir = Object.keys(ADV_EDGE_DIR_MAP).find((d) => ADV_EDGE_DIR_MAP[d] === fromMapId);
+  return (dir && ADV_HOME_EDGE_GATES[dir]) || ADV_HOME_EDGE_GATES.south;
 }
 
 /* 死亡回家计划(§10 拍板②, nether 合并 D11 回家口径的地图行化):
@@ -701,5 +720,6 @@ if (typeof module !== 'undefined' && module.exports) {
     advSwampBuild, advSwampTerrain, advSwampHut, advSwampScatter, advMapNest,
     ADV_UNLOCK_KEYS, advMapUnlocked, ADV_EDGE_DIR_MAP, advEdgeDirUnlocked,
     ADV_GATE_FACE, ADV_GATE_HOLD_T, advGateHoldStep, advMapChestKey,
+    ADV_HOME_EDGE_GATES, advHomeArriveGate,
     advMapArriveAt, advMapArrive, advMapDeathPlan, advTempleTrapOn, advTempleTrapCells};
 }

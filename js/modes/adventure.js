@@ -10,7 +10,7 @@
    · 物品/合成/烧炼/大宝箱/任务链 → docs/item-crafting-design.md ·
      docs/story-quest-research.md
    · 下界相位/传送门 → docs/nether-merge-design.md
-   · 多地图远征/门阵 → docs/adventure-maps-design.md
+   · 多地图远征/地图门 → docs/adventure-maps-design.md
    · 怪物巢穴副本(黑巢/den 维度/夜袭涌出) → docs/den-nest-design.md
    · 维度规格注册表(ADV_DIMS: 下界/副本切界政策一行注册) → docs/dimension-registry-design.md
    · 昼夜·夜怪·床·灯笼 → docs/mc-daylight-torch-design.md §2/§6/§7/§8
@@ -47,7 +47,7 @@
       adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
        index.html 加载序在 adventure-core 之前) ·
       adventure-maps-core 的 ADV_MAPS/advMapArrive/advMapArriveAt/
-       advMapUnlocked/advGateHoldStep(地图行数据与门阵政策, index.html
+       advMapUnlocked/advGateHoldStep(地图行数据与地图门政策, index.html
       加载序: adventure-core → adventure-maps-core → 本文件) ·
      backpack.js 的 Backpack · config.js 的 BLOCKS/PLAYER/B_* 常量 ·
      voxel.js 的 getBlock/blockKey/raycastVoxel/collidesAtPlayer ·
@@ -1721,8 +1721,8 @@ function advTryDoorRemove(hit, lookId) {
    分桶 edits 在文件头 advSceneEdits 段; 门框建场/内口判定/放置校验/出口
    折算纯核心在 adventure-core 下界段(ADV_PORTAL/ADV_NETHER 等), 地图行
    数据在 adventure-maps-core(ADV_MAPS)。本段只做装配: 换桶→重装场景
-   (地图行 build+当前桶重放→门阵建场)→调色板→清场→出生→站点重扫→节拍器复位→
-   光束重锚一条链, 以及 update 内的传送触发节拍(地图门站桩/nether 门即时分流, T7 装配见下「传送门阵」段)。
+   (地图行 build+当前桶重放→门体建场)→调色板→清场→出生→站点重扫→节拍器复位→
+   光束重锚一条链, 以及 update 内的传送触发节拍(地图门站桩/nether 门即时分流, T7 装配见下「地图门」段)。
    ============================================================ */
 
 /* ---------- 下界方块段 id 集中解析(精简装载守卫, mode-kit typeof 先例) ----------
@@ -1820,7 +1820,7 @@ function advMapRowCleanup() {/* 退场复位(T6): 图账本/行视图/调色板�
 
 /* ---------- 传送门紫色光束(常驻动效): 特效唯一入口 Fx.portalBeam ----------
      多门多束(advBeamHs 句柄清单); 锚定 = 下界/副本回程门(固定坐标) + home 巢穴
-     之门(advDenDoor 查表, 建场件不在 edits) + 门阵亮门(建场件) + 当前桶 edits
+     之门(advDenDoor 查表, 建场件不在 edits) + 地图门建场(建场件) + 当前桶 edits
      里值===B_PORTAL 的格子(玩家门只以 edits 形态存在)——按 z 分组、同 z 相邻
      x 连续段为一个内口(内口 4×5 全格是门面, min-x/min-y 各退 1 即门基)。
      切界先全清再重锚; Node/fake Fx 无入口时句柄为 null 占位, remove 无害 */
@@ -1846,7 +1846,7 @@ function advBeamsClear() {/* 全清(切界/cleanup): 悬空句柄再 remove 无�
   advBeamHs.length = 0;
 }
 function advBeamsRelayout() {/* 重锚当前界全部门: 下界/副本回程门(基座, 不在 edits) +
-    home 巢穴之门(查表派生) + 地图门阵亮门(建场件, 不在 edits) + edits 扫描 */
+    home 巢穴之门(查表派生) + 地图门建场(建场件, 不在 edits) + edits 扫描 */
   if (advDim === 'nether') {
     advBeamAdd(ADV_NETHER.ground, ADV_NETHER.portal.px, ADV_NETHER.portal.pz);
   } else if (advDim === 'den') {
@@ -1857,7 +1857,7 @@ function advBeamsRelayout() {/* 重锚当前界全部门: 下界/副本回程门
       if (advGateIsX(g)) advBeamAddX(ADV_GROUND, g.px, g.pz); /* x 平面门: 锚点转置 */
       else advBeamAdd(ADV_GROUND, g.px, g.pz);
     }
-    /* 巢穴之门(2026-10-30 巢穴观感票补束): 建场直写不在 edits 也不在门阵——
+    /* 巢穴之门(2026-10-30 巢穴观感票补束): 建场直写不在 edits 也不在地图门表——
        advDenDoor 查表派生(单一权威, 巢门坐标不抄第二份; home 图限定与
        advPortalTick 认领同口径), 2×2 面束宽高显式传实值(缺省=下界门 4×5) */
     if (advMap === 'home' && ADV_B.portal) {
@@ -1886,26 +1886,30 @@ function advBeamsRelayout() {/* 重锚当前界全部门: 下界/副本回程门
   }
 }
 
-/* ---------- 传送门阵(票据 T7, 设计稿 §2.3/§4): 建场/绑定/解锁读 ----------
+/* ---------- 地图门(票据 T7/T9, 设计稿 §4): 建场/绑定/解锁读 ----------
+     〔世界边界·T9〕home 三扇门阵退役(拍板 7: 边缘传送是去远征图的唯一入口)
+     ——现仅远征图单回程门(home 行 gates 恒空数组, 下方循环天然零命中; 查表
+     机制保留, 旧档与「门体不进 edits 账本」口径不变)。
      门→目标图的绑定 = 当前地图行 gates 固定坐标表(ADV_MAPS 各行, T4 权威);
      门体是建场件(setBlockRaw 直写不记账, 与 nether 回程门同款互锁口径——
      每次装场重建同一份, 门体不进 edits 账本); 解锁读任务档 counts 键
-     (advMapUnlocked, 点亮仪式归 T8); 门框/门面方块走「声明式不可破坏」
+     (advMapUnlocked, 开放仪式归 T8); 门框/门面方块走「声明式不可破坏」
      (无 hard 字段, 蓄力链给 advMineHardText 儿童话术——nether 门先例) */
 function advGateLit(g) {/* 门亮否: 目标图解锁(回程门 to=home 恒亮); 纯读任务档 */
   return advMapUnlocked(g.to, ADV.quest.counts);
 }
 function advGateIsX(g) {/* 门面法线 ±x 的门(face east/west, 〔世界边界·T8〕):
-    沼泽东缘回程门走 advPortalFrameX 转置镜像; face 缺省(home 门阵三扇)=z 平面 */
+    沼泽东缘回程门走 advPortalFrameX 转置镜像; face 缺省=z 平面 */
   return g.face === 'east' || g.face === 'west';
 }
-function advGatesBuild() {/* 当前图门阵建场(loadScene 基座段收尾, 不记账): home 三扇
-    门阵 + 远征图单回程门; 熄门立框+**暗紫微光门面**(2026-10-27 用户拍板: 从「只立框
-    空洞黑」改为 B_PORTAL_DIM——读得出「这是传送门, 只是还没开」; 无 portal 旗标且
-    id 不同, advInPortal 天然不命中=「不可触发」口径不变), T8 点亮仪式以 B_PORTAL
-    原位覆写换装门体才「长亮脸」。
+function advGatesBuild() {/* 当前图门建场(loadScene 基座段收尾, 不记账): 远征图单
+    回程门(home 行 gates 恒空数组〔世界边界·T9〕, 循环天然零命中); 熄门立框+
+    **暗紫微光门面**(2026-10-27 用户拍板: 从「只立框空洞黑」改为 B_PORTAL_DIM——
+    读得出「这是传送门, 只是还没开」; 无 portal 旗标且 id 不同, advInPortal
+    天然不命中=「不可触发」口径不变), T8 点亮仪式以 B_PORTAL 原位覆写换装
+    门体才「长亮脸」。
     ADV_B.portal=0(精简装载守卫)时整体静默——门体核心引用下界方块常量 */
-  if (advDim !== 'overworld' || !ADV_B.portal || !ADV_B.obsidian) return; /* 非主世界无门阵(副本回程门/下界回程门在 advSetDim 建场段) */
+  if (advDim !== 'overworld' || !ADV_B.portal || !ADV_B.obsidian) return; /* 非主世界无门(副本回程门/下界回程门在 advSetDim 建场段) */
   for (const g of advMapRow.gates) {
     const lit = advGateLit(g);
     (advGateIsX(g) ? advPortalFrameX : advPortalFrame)((x, y, z, id) => {
@@ -1914,13 +1918,12 @@ function advGatesBuild() {/* 当前图门阵建场(loadScene 基座段收尾, �
         return;
       }
       setBlockRaw(x, y, z, id);
-    }, ADV_GROUND, g.px, g.pz, g.look); /* g.look = 门体主题建材(home 门阵三扇各配,
-      远征图回程门无 look=经典下界门; 熄/亮只换门面格, 建材两态同款);
-      门面平面按 face 分派(x 平面门走转置镜像——修波次一过渡态: 沼泽门
+    }, ADV_GROUND, g.px, g.pz); /* 全部门恒经典下界建材(g.look 随 T9 门阵退役
+      删除); 门面平面按 face 分派(x 平面门走转置镜像——修波次一过渡态: 沼泽门
       (154,70) 若仍走 z 平面会写到 x=160 越界行) */
   }
 }
-function advGateAt(x, z) {/* 门阵包围盒查表(advInPortal 命中后): 玩家脚格落在当前行
+function advGateAt(x, z) {/* 门包围盒查表(advInPortal 命中后): 玩家脚格落在当前行
     某扇门的门面平面 → 返回该门 {to,px,pz}; 未命中返回 null = 玩家自放的
     nether 门(保持 D6 即时语义)。z 平面门: fx∈门框 6 宽且 fz=门面 z; x 平面门
     (face east/west, 转置镜像): 恰好对调——fx=门面 x 且 fz∈门框 6 宽(组 8 钉的
@@ -2072,7 +2075,7 @@ function advFurnaceSettle(sceneKey) {/* 炉态核销(参照 decode 侧 advFurnac
      换装共通清单抽 advSceneLeave(nether 合并既有清单照抄扩位): 换桶→清蓄力/
      TNT 判定/炉面板/光束/火焰/树苗计时/引信→清怪清掉落清箭→重挂实体回调。
      advSetDim 切维度(nether 期间 advMap 保持最后主世界图), advSetMap 切主世界
-     图(T7 的门阵站桩触发器接此; 本票可被测试直调) */
+     图(T7 的地图门站桩触发器接此; 本票可被测试直调) */
 function advSceneLeave() {/* 离开当前场景的共通清单: 世界无关观感/实体/计时一次清空 */
   advStore.journal.edits = advSceneEdits[advSceneKey()]; /* 换桶: mark/flush 动态查 J.edits, 记账/重放/落盘自动跟桶 */
   advMineStop(); /* 蓄力目标在旧世界: 清零(准星跨世界无意义) */
@@ -2099,14 +2102,14 @@ function advMapSpawn(spot) {/* 主世界缺省出生: 显式点 > home 出生账
 }
 function advOverworldReload() {/* 主世界当前图整场重建(〔世界边界·T8〕提单一实现):
     advSetDim overworld 分支与 advVeilArrive rite 分支(解锁让开同图重建)共用
-    这一份 loadScene 体——advBuildScene 基座确定性重建+当前桶重放+门阵重建+
+    这一份 loadScene 体——advBuildScene 基座确定性重建+当前桶重放+门体重建+
     树苗/麦/树位重挂+矿位回填+站点重扫+炉键核销。纯重构: 行为与原内联闭包
     逐字节一致(既有换图/下界切换断言回归保障)。不跑 applySweep——那是 init
     旧档治愈专用, 切回来的世界本来就是干净的 */
   loadScene(() => {
     advBuildScene(advMapRow);
     advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
-    advGatesBuild(); /* 门阵重建(T7): 重放之后立门——玩家对门区的误放被门体盖回 */
+    advGatesBuild(); /* 地图门重建(T7): 重放之后立门——玩家对门区的误放被门体盖回 */
     advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
     advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
     advRescanTreeRegen(); /* 凋零树位重挂恢复计时(仅 home 图有树位清单) */
@@ -2173,7 +2176,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
   advSyncMood(); /* 切界即换场景曲: 下界=nether / 回上界按当下昼夜 */
 }
 
-function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装配终点): 地图行
+function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 地图门站桩传送的装配终点): 地图行
     换装(池/计时器) → 共通清场 → 行调色板(先于 loadScene——水色烘进重建网格)
     → loadScene(行 build+当前桶重放) → 昼夜复位 → 出生(回程门口径) → 站点
     重扫 → 炉键核销 → 怪物重播 → 光束重锚。dayTime 全局单钟不随图重置 */
@@ -2187,7 +2190,7 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 门阵触发器的装
   loadScene(() => {
     advBuildScene(row);
     advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
-    advGatesBuild(); /* 门阵重建(T7): 重放之后立门(远征图回程门常亮) */
+    advGatesBuild(); /* 地图门重建(T7): 重放之后立门(远征图回程门常亮) */
     advRescanSaplings();
     advRescanWheats();
     advRescanTreeRegen();
@@ -2308,7 +2311,7 @@ function advDenLootSpawn() {/* 第 5 波全清: 战利品宝箱刷出(深处祭�
 /* ---------- 副本入口门(den-nest §2.1; 2026-10-30 从「巢厅巢之心旁半径站桩」迁到洞口
    画廊北端的显眼紫门——用户反馈「传送门不知道在哪, 莫名被传送」): 门体在
    advBuildDenNest 建场(黑曜石门槛+2×2 B_PORTAL 门面+发光岩门楣), 触发收编进
-   advPortalTick(advDenDoorAt 认领 → 门阵同款站桩 2s 可反悔, 与门阵共用
+   advPortalTick(advDenDoorAt 认领 → 地图门同款站桩 2s 可反悔, 与地图门共用
    advGateHold)。巢厅巢之心(B_SPAWNER)保留为地标, 不再判定 */
 const advDenDoor = {/* 门面判定盒: 与 advBuildDenNest 门体同源派生(z 平面含界) */
   x1: ADV_NESTS[3].x - 1, x2: ADV_NESTS[3].x,
@@ -2320,7 +2323,7 @@ function advDenDoorAt(x, y, z) {/* 脚格落入门面(脚层 y22~23 即身体整
       fy >= advDenDoor.y1 && fy <= advDenDoor.y2;
 }
 
-/* ---------- 门阵站桩与渐晕遮罩(票据 T7, 设计稿 §4.1 时序) ----------
+/* ---------- 地图门站桩与渐晕遮罩(票据 T7, 设计稿 §4.1 时序) ----------
      时序: 门面内站桩 2s(走出门面即刻归零, 可反悔; 纯步进 advGateHoldStep 在
      adventure-maps-core) → 站满进渐晕: 400ms 淡入 → 满格瞬间切图(advSetMap,
      同步实测一二帧) → 400ms 淡出 + 到达音/TTS 播报。全程 2.8s(遮罩红线 ≤5s,
@@ -2329,7 +2332,7 @@ function advDenDoorAt(x, y, z) {/* 脚格落入门面(脚层 y22~23 即身体整
 const advGateHold = {t: 0}; /* 门面站桩秒累计(advGateHoldStep 的状态; nether 门不入账) */
 const ADV_VEIL_T = 0.4; /* 渐晕单段时长秒(双段共 0.8s) */
 /* 渐晕转场态: idle/in/out · to=目标图 · from=来时图(找对应回程门) ·
-   kind=map 门阵切图 | den 巢穴副本(advVeilArrive 分流, den-nest §3.3) */
+   kind=map 地图门切图 | den 巢穴副本(advVeilArrive 分流, den-nest §3.3) */
 const advVeil = {phase: 'idle', t: 0, to: '', from: '', kind: 'map'};
 function advVeilEl() {/* #portalVeil 渐晕遮罩(index.html; Node 测试取 document 桩, 缺席静默) */
   return (typeof document !== 'undefined' && document.getElementById) ?
@@ -2343,7 +2346,7 @@ function advVeilSet(op) {/* 直驱渐晕透明度(advFadeSet 同款: 关 transit
 }
 function advVeilEdgeCls(on) {/* 白闪变体 class 开关(〔世界边界·T8〕): kind='edge'/'rite'
     挂 #portalVeil.edge(css 白色径向渐变——忌纯白刺眼忌纯黑, 调研 D3 幼儿口径),
-    map/den 门阵维持紫色不挂。el/classList 缺席静默(Node 假 DOM 有桩) */
+    map/den 维持紫色不挂。el/classList 缺席静默(Node 假 DOM 有桩) */
   const el = advVeilEl();
   if (el && el.classList) el.classList.toggle('edge', !!on);
 }
@@ -2355,13 +2358,13 @@ function advVeilReset() {/* 收尾/中断: 转场归零 + 遮罩收起 + 白闪�
 }
 function advVeilFire(gate) {/* 站满发令: 开渐晕转场 + 进冷却(0.8s 盖过整个转场窗, 防连触)。
     gate.kind='den'(巢穴副本入口, den-nest §3.3)/'edge'(边缘越线, 世界边界·T8)/
-    'rite'(解锁让开演出, 世界边界·T8)缺省 'map'(门阵切图) */
+    'rite'(解锁让开演出, 世界边界·T8)缺省 'map'(地图门切图) */
   advVeil.phase = 'in';
   advVeil.t = 0;
   advVeil.to = gate.to;
   advVeil.from = advMap; /* 来时图: 到达侧找 to===from 的那扇门(沙漠门进沙漠门出) */
   advVeil.kind = gate.kind || 'map';
-  advVeilEdgeCls(advVeil.kind === 'edge' || advVeil.kind === 'rite'); /* 白闪变体(紫门阵不挂) */
+  advVeilEdgeCls(advVeil.kind === 'edge' || advVeil.kind === 'rite'); /* 白闪变体(紫门不挂) */
   advGateHold.t = 0;
   advPortalCd = ADV_PORTAL.cd;
 }
@@ -2393,8 +2396,12 @@ function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——
   }
   const row = ADV_MAPS.find((r) => r.id === advVeil.to);
   if (!row || row.id === advMap) return; /* 未知键/已在该图(死亡竞态): 静默 */
-  const g = row.gates.find((q) => q.to === advVeil.from) || row.gates[0]; /* 对应门, 单门图兜底 */
-  advSetMap(advVeil.to, advMapArriveAt(g)); /* 回程门落点(advPortalExit 口径) */
+  /* 落点权威二分(〔世界边界·T9〕): 回 home 走来向缘虚拟门位锚(家已无门阵,
+      沙漠回家落南缘/雪原北缘/沼泽西缘——从哪缘出去回哪缘); 去远征图走
+      对应回程门(单门图兜底 gates[0]) */
+  const g = (advVeil.to === 'home') ? advHomeArriveGate(advVeil.from) :
+    (row.gates.find((q) => q.to === advVeil.from) || row.gates[0]);
+  advSetMap(advVeil.to, advMapArriveAt(g)); /* advMapArriveAt 单一权威(锚/门内侧 2.5 格) */
   if (advVeil.to !== 'home') advTally('visit_' + advVeil.to, 1); /* 到达记账(T8 发现型): home 无此键 */
   const home = advVeil.to === 'home';
   advSpeak(home ? '回到家啦！' : '到' + row.name + '啦！');
@@ -2417,38 +2424,8 @@ function advVeilTick(dt) {/* 转场推进(update 每帧): 淡入→满格沿→�
   if (advVeil.t >= ADV_VEIL_T) advVeilReset();
 }
 
-/* ---------- 锁门提示(T7, §2.3): 熄门不可触发, 走近给儿童话术 ----------
-     解锁=任务链点亮(§2.3), 本段只读 counts 键; 话术**按任务进度分级**(2026-10-27
-     用户实测踩坑收口): 前置任务(挂 unlock 的那条, advUnlockQuest 反查)还没成为
-     当前步时不剧透未来步(任务卡「一步步揭示」同款), 只说「先做完手上的任务」——
-     照旧话术会把孩子引去「做了也不亮」的地方(如主链没走完时对他说「去门阵广场
-     看一看」, 他站进去毫无反馈) */
-let advGateLockT = 0; /* 锁门提示节流秒(6s, update 递减) */
-const ADV_GATE_LOCK_R = 3.5; /* 提示半径: 玩家到门中心的格数 */
-const ADV_GATE_LOCK_CD = 6; /* 同门口提示间隔(不啰嗦) */
-function advGateLockTick(dt) {
-  advGateLockT = Math.max(0, advGateLockT - dt);
-  if (advGateLockT > 0 || advDim !== 'overworld') return;
-  for (const g of advMapRow.gates) {
-    if (advGateLit(g)) continue; /* 亮门不提示 */
-    if (Math.hypot(pos.x - (g.px + ADV_PORTAL.w / 2), pos.z - (g.pz + 0.5)) > ADV_GATE_LOCK_R) continue;
-    const row = ADV_MAPS.find((r) => r.id === g.to);
-    const nm = row ? row.name : '';
-    const uq = advUnlockQuest(g.to); /* 前置任务(挂 unlock 的那条): 缺位兜底泛称 */
-    if (!uq || ADV.quest.step < ADV_QUESTS.indexOf(uq)) {/* 链还没走到: 泛指先做任务 */
-      advSpeak('这扇门还在睡觉呢！先把任务卡上的任务做完，' + nm + '之门就会亮起来');
-      advToast('🔒 先做完任务卡的任务，' + nm + '之门就会亮起来');
-    } else {/* 前置任务已是当前步: 点名具体做什么 */
-      advSpeak('先' + uq.goal + '，' + nm + '之门就会亮起来');
-      advToast('🔒 先' + uq.goal + '，' + nm + '之门就会亮起来');
-    }
-    advGateLockT = ADV_GATE_LOCK_CD;
-    break; /* 一次只提一扇(两门贴近时也不叠话) */
-  }
-}
-
 function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/头格任一在紫色
-    门面内(advInPortal, 玩家门/回程门/门阵同一条判据) → 门阵包围盒查表分流
+    门面内(advInPortal, 玩家门/回程门/地图门同一条判据) → 门包围盒查表分流
     (advGateAt, T7): 命中=地图门走站桩(2s 可反悔), 否则=玩家 nether 门即时切界。
     巢穴洞口紫门由 advDenDoorAt 认领(2026-10-30 从巢之心旁站桩迁来, 同走站桩;
     不认领就会坠进 nether 即时切界——B_PORTAL 全局同判据的代价, 必须先拦)。
@@ -2462,10 +2439,10 @@ function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/�
     advGateHold.t = advGateHoldStep(advGateHold.t, false, dt).t; /* 走出门面即刻归零(可反悔红线) */
     return;
   }
-  let gate = advGateAt(pos.x, pos.z); /* 门→目标图绑定: 门阵包围盒查表 */
+  let gate = advGateAt(pos.x, pos.z); /* 门→目标图绑定: 门包围盒查表 */
   const denDoor = !gate && advDim === 'overworld' && advMap === 'home' &&
       advDenDoorAt(pos.x, pos.y, pos.z); /* 巢穴洞口紫门认领(主世界 home 限定) */
-  if (denDoor) gate = {to: 'den', kind: 'den'}; /* 伪门对象: 复用门阵站桩/渐晕整链 */
+  if (denDoor) gate = {to: 'den', kind: 'den'}; /* 伪门对象: 复用地图门站桩/渐晕整链 */
   const was = advGateHold.t;
   const hold = advGateHoldStep(advGateHold.t, !!gate, dt); /* 站桩步进只对地图门累计 */
   advGateHold.t = hold.t;
@@ -2501,12 +2478,12 @@ function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/�
      advEdgeOpenDir 都在 adventure-core, 这里只装配); 锁定向走近屏障近地带=
      节流 30s 分向话术(advEdgeHintAt, 引导回任务不传送)。触发读 pos 在壳层,
      引擎零改动(R8); 早退链 O(1) 零分配零世界读(§3 性能口径) */
-let advEdgeHintT = 0; /* 近前引导话术节流秒(函数顶递减——advGateLockT 同款 timer) */
+let advEdgeHintT = 0; /* 近前引导话术节流秒(函数顶递减) */
 const ADV_EDGE_HINT_CD = 30; /* 同缘带提示间隔(不啰嗦; G3 实机走查拍板 2026-11-07:
     6s 太密改 30s——孩子走近听一遍就够, 停在近前 30s 后才再提) */
 /* 目的图→来向方向词(ADV_EDGE_DIR_MAP 反查表, rite 播报用); 分向话术素材
-    (占位, 终稿归 G3 话术过目环节): 拟人+指回任务+给期待, 一律**不引用门阵**
-    (R9——T9 要拆门阵, 指向只用方向词/地平线) */
+    (占位, 终稿归 G3 话术过目环节): 拟人+指回任务+给期待, 一律**不引用门**
+    (R9 已随 T9 兑现——home 门阵拆除, 指向只用方向词/地平线) */
 const ADV_EDGE_DIR_OF = {snow: 'north', desert: 'south', swamp: 'west'};
 const ADV_EDGE_SIDE_TXT = {
   north: {mid: '北边', far: '北边雪山', open: '雪就会让开的'},
@@ -2532,7 +2509,7 @@ function advEdgeTick(dt) {/* 边缘机制装配(update 每帧, advEdgeSkyTick �
   const st = ADV_EDGE_SIDE_TXT[hint];
   const uq = advUnlockQuest(ADV_EDGE_DIR_MAP[hint]); /* 前置任务(挂 unlock 的那条) */
   if (!uq || ADV.quest.step < ADV_QUESTS.indexOf(uq)) {/* 链还没走到: 泛指先做任务
-      (不剧透未来步——advGateLockTick 2026-10-27 踩坑教训同款分级) */
+      (不剧透未来步——2026-10-27 用户实测踩坑教训同款分级) */
     advSpeak(st.far + '那边的路还在睡觉呢！先把任务卡上的任务做完，' + st.open +
         '，就能去' + nm + '啦！');
     advToast('🔒 先做完任务卡的任务，通往' + nm + '的路就会打开');
@@ -3560,7 +3537,7 @@ function advTally(kind, n) {/* 任务计数: 事件挂点只 += 不做判断(推
   advStore.touch();
 }
 
-/* 发现型记账(远征章 T8): 玩家脚格进 home 门阵广场 → visit_plaza 首次记账
+/* 发现型记账(远征章 T8): 玩家脚格进 home 家园广场 → visit_plaza 首次记账
    (查后写去重, 与 advQuestMine 首钻判定同款——目标型键只记一次) */
 function advQuestVisitTick() {
   if (ADV.quest.counts.visit_plaza || advDim !== 'overworld' || advMap !== 'home') return;
@@ -3638,7 +3615,7 @@ function advQuestTick(dt) {
   advSfx(q.finale ? 'win' : 'level');
   advToast('✅ ' + q.icon + ' ' + q.goal + ' 完成！');
   if (q.finale) {/* 终章: 称号入档(step 走到下一步不再查) + 烟花, 重进不重复授予;
-      远征章接棒(T8): 钻石剑后门阵召唤——终章句并句远征首条引导(老玩家无缝知道下一步) */
+      远征章接棒(T8): 钻石剑后远征召唤——终章句并句远征首条引导(老玩家无缝知道下一步) */
     st.title = ADV_QUEST_TITLE;
     const nxt = ADV_QUESTS[st.step + 1];
     advSpeak(q.praise + '你获得了「' + ADV_QUEST_TITLE + '」称号！为你放烟花！' +
@@ -3651,8 +3628,8 @@ function advQuestTick(dt) {
     if (nxt) advToast(nxt.icon + ' 新任务：' + nxt.goal);
   }
   st.step += 1;
-  if (q.unlock) {/* 解锁链(T8, §2.3): 完成挂 unlock 的任务 → 任务档 counts 置
-      T4 键名键(解锁即成就, 语义同源) → 点亮仪式; 键在 save 前置位(落盘含键) */
+  if (q.unlock) {/* 解锁链(T8/T9, §2.3): 完成挂 unlock 的任务 → 任务档 counts 置
+      T4 键名键(解锁即成就, 语义同源) → 开放仪式; 键在 save 前置位(落盘含键) */
     ADV.quest.counts[ADV_UNLOCK_KEYS[q.unlock]] = 1;
     advStore.touch();
     advUnlockRite(q.unlock);
@@ -3661,44 +3638,25 @@ function advQuestTick(dt) {
   advQuestPaint();
 }
 
-/* 门点亮仪式(T8, §2.3「看着门亮起来」): 解锁键置位后的观感接线 —
-   gate_unlock 四音琶音 + 门位冲击波 + 当前图门面运行时熄→亮(增量补 B_PORTAL
-   门面, setBlockRaw 不记账与建场同口径; T7 只在装场读一次键, 会话内切换在此)
-   + Fx.portalBeam 常驻光束重锚(增量一束; 切图全量重锚归 advBeamsRelayout)。
-   玩家不在门所在图时(远征图完成点亮 home 的门)只播报, 门面等回 home 由
-   advGatesBuild 读键路径覆盖——「回家就能看到」 */
+/* 边缘开放仪式(T8 仪式骨架 + 〔世界边界·T9〕改版): 解锁键置位后的观感接线 —
+   gate_unlock 四音琶音 + home 图白闪让开(满格瞬间同图重建, advVeilArrive rite
+   分支 0.4s 后播方向句) / 远征图纯播报。home 三扇门阵退役后「点亮门面」
+   g-branch 与 Fx.pop 冲击波整体删除——「开放」的观感=屏障让开的新地貌
+   (建场读键), 不再有门面变脸; 远征图完成时门在 home 对应缘(不在当前图),
+   只播报「回到家里就能看到」(建场读键延迟生效, 零额外机制) */
 function advUnlockRite(mapId) {
   advSfx('gate_unlock');
+  if (advDim === 'overworld' && advMap === 'home') {
+    /* 解锁让开演出(〔世界边界·T8〕拍板 Q4 原样保留): 琶音先落, 白闪其后
+        一拍不抢戏(R7); 白闪满格瞬间同图重建归 advVeilArrive rite 分支
+        (屏障让开=建场读键), 方向句在到达段播 */
+    advVeilFire({to: mapId, kind: 'rite'});
+    return;
+  }
   const row = ADV_MAPS.find((r) => r.id === mapId);
   const nm = row ? row.name : mapId;
-  let g = (advDim === 'overworld') ? advMapRow.gates.find((q) => q.to === mapId) : null;
-  if (g && !ADV_B.portal) g = null; /* 精简装载守卫(ADV_B 同款): 无门面方块不补格 */
-  if (g) {
-    (advGateIsX(g) ? advPortalFrameX : advPortalFrame)((x, y, z, id) => {
-      if (id === ADV_B.portal) {
-        setBlockRaw(x, y, z, id); /* 只补门面(框熄门时已立) */
-        advMeshTouch(x, z); /* 门面格同拍入脏队列: 当帧重网格立刻可见(不标脏=黑框) */
-      }
-    }, ADV_GROUND, g.px, g.pz, g.look); /* 主题建材与建场同款(g.look, 点亮只换门面);
-        门面平面按 face 分派(z 平面/x 平面镜像, 现任务链点亮只发生在 home 门阵
-        三扇 z 平面门——分派为 T9 后沼泽门点亮留的单一实现) */
-    advMeshFlush();
-    if (advGateIsX(g)) advBeamAddX(ADV_GROUND, g.px, g.pz); /* 常驻光束: 亮门才有束(熄门无门面口径) */
-    else advBeamAdd(ADV_GROUND, g.px, g.pz);
-    Fx.pop(g.px + (advGateIsX(g) ? 0.5 : ADV_PORTAL.w / 2), ADV_GROUND + 2,
-        g.pz + (advGateIsX(g) ? ADV_PORTAL.w / 2 : 0.5),
-        {color: 0xb676f2, r0: 0.3, r1: 2.6, dur: 0.8}); /* 紫色门面同款色系冲击波(锚随门面平面) */
-  }
-  advSpeak(nm + '之门亮起来啦！' + (g ? '' : '回到家里就能看到！'));
-  advToast('✨ ' + nm + '之门亮起来啦！');
-  if (advDim === 'overworld' && advMap === 'home') {
-    /* 解锁让开演出(〔世界边界·T8〕拍板 Q4): 既有仪式(琶音/门面亮/冲击波)先落,
-        白闪其后一拍不抢戏(R7); 白闪满格瞬间同图重建归 advVeilArrive rite 分支
-        (屏障让开=建场读键) */
-    advVeilFire({to: mapId, kind: 'rite'});
-  }
-  /* 玩家在远征图/别界完成点亮: 上面 g=null 的「回到家里就能看到」播报已带
-      「回家就能看到」语义——不白闪不重建(建场读键延迟生效, 零额外机制) */
+  advSpeak(nm + '的路打开啦！回到家里就能看到！');
+  advToast('✨通往' + nm + '的路打开啦！');
 }
 
 /* 任务卡(背包面板 aside, 打开背包即见): 当前步大图标+进度条, 已完成步划线史,
@@ -3729,7 +3687,7 @@ function advQuestPaint() {
    观感(Fx/SpeechKit/Drops)在此。点击中心灯坛: 夜里 = 四色烟花 + 远古牧人小
    故事 + 首次赠灯笼(Drops 真空拾取, 全会话一次防连点刷); 白天 = 温和提示
    「等天黑再来」(零惩罚不强迫)。距离口径与站点同半径(太远只提示) ---------- */
-let advStoneEggT = 0; /* 点击节流秒(update 递减, advGateLockT 同款) */
+let advStoneEggT = 0; /* 点击节流秒(update 递减, 同款节流 timer) */
 let advStoneGifted = false; /* 灯笼已赠旗(全会话一次, 不入档——重开页面可再得, 零惩罚) */
 
 function advStoneEggActivate(hit) {/* 灯坛点击(轻点/右键共用入口 advUseStation 转接) */
@@ -3851,11 +3809,10 @@ const AdventureMode = mkMode({
     advPortalCd = 0;
     advExitSpot = null;
     advMood = null; /* 首帧 update 按当下昼夜补报场景曲(main 随后会先报基线 adventure) */
-    advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7): 转场不跨场次(巢穴门已共用此状态) */
+    advGateHold.t = 0; /* 地图门/巢穴门站桩归零(T7): 转场不跨场次(巢穴门已共用此状态) */
     advDenT = 0; /* 副本计时复位(维度不进档, 重进恒主世界); 波次/通关旗走 advDenDaily(D20), init 收养档值不动 */
     advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
-    advGateLockT = 0; /* 锁门提示节流复位 */
     advEdgeHintT = 0; /* 边缘近前引导节流复位(〔世界边界·T8〕, 同族 timer 惯例) */
     advEdgeSkyKeyHi = null; advEdgeSkyKeyLo = null; /* 〔边界转正·T7〕渐变量化键复位(进场首帧必写——
        上局可能停在带内, 按键跳写会漏掉首帧渐变; P5②拆双键双复位) */
@@ -3955,7 +3912,7 @@ const AdventureMode = mkMode({
       advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
       advRescanTreeRegen(); /* 凋零树位重挂恢复计时(仅 home 图; 清扫之后跑) */
       advOreRegenTick(); /* 到期矿位回填(跨天口径; 只结本场景的账, 重放后结算) */
-      advGatesBuild(); /* 门阵建场(T7): 治愈之后立门——门体不被清扫/重放翻动, 每次装场同一份 */
+      advGatesBuild(); /* 地图门建场(T7): 治愈之后立门——门体不被清扫/重放翻动, 每次装场同一份 */
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
     ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
@@ -4029,9 +3986,8 @@ const AdventureMode = mkMode({
     advPortalCd = 0;
     advExitSpot = null;
     advMood = null; /* 下一场/下一模式重新同步(不把本场缓存带出去) */
-    advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7) */
+    advGateHold.t = 0; /* 地图门/巢穴门站桩归零(T7) */
     advVeilReset(); /* 渐晕遮罩收起(T7): 中途退出模式不留紫屏 */
-    advGateLockT = 0; /* 锁门提示节流复位 */
     advEdgeHintT = 0; /* 边缘近前引导节流复位(〔世界边界·T8〕; counts 引用不清——
         R10: 进场 init 重注入同对象幂等) */
     advEdgeSkyKeyHi = null; advEdgeSkyKeyLo = null; /* 〔边界转正·T7〕渐变量化键复位(重进首帧必写;
@@ -4093,7 +4049,7 @@ const AdventureMode = mkMode({
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */
-    advQuestVisitTick(); /* 发现型记账(T8): 脚格进门阵广场首记 visit_plaza(每帧查, 内部去重) */
+    advQuestVisitTick(); /* 发现型记账(T8): 脚格进家园广场首记 visit_plaza(每帧查, 内部去重) */
     advBagTick(dt); /* 背包快满提醒(S4②): 0.5s 节流查占用槽 */
     advSmeltTtsT = Math.max(0, advSmeltTtsT - dt); /* 完成播报节流递减(T13) */
     advFurnace.tick(dt); /* 烧炼节律常开(面板只是回显, 烧成经 kit onMade 回调), ✕ 关闭对账(T13);
@@ -4102,8 +4058,7 @@ const AdventureMode = mkMode({
     advFuseTick(dt); /* TNT 引信倒计时到点起爆(T13, 先于怪物 AI——当帧爆炸位置不漂移) */
     advTntTapTick(dt); /* TNT 短按/按住判定(D3): 转蓄力需先于 advMineTick 同帧生效 */
     advSleepTick(dt); /* 床·睡觉转场推进(昼夜 D6): 遮罩直驱+唤醒沿跳拨盘时刻/设床边出生点 */
-    advVeilTick(dt); /* 门阵渐晕转场推进(T7): 淡入→满格切图→淡出(先于传送触发: 发令帧从零起淡) */
-    advGateLockTick(dt); /* 锁门提示(T7): 走近熄门给「完成任务就会亮」话术(节流) */
+    advVeilTick(dt); /* 地图门渐晕转场推进(T7): 淡入→满格切图→淡出(先于传送触发: 发令帧从零起淡) */
     advStoneEggT = Math.max(0, advStoneEggT - dt); /* 石阵灯坛点击节流递减(彩蛋段) */
     advPortalTick(dt); /* 传送触发(§3.3/T7): 冷却递减 + 门面判定 → 地图门站桩/nether 切界分流(巢穴洞口紫门在此认领) */
     advTempleTrapTick(); /* 神殿可疑地板踩塌(审查修复 P1): 站上 2×2 砂岩地板即塌入宝箱室 */
