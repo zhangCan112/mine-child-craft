@@ -925,9 +925,17 @@ function advSlimeWaterOk(x, z) {/* 史莱姆夜刷水边门(审查修复 P4, 设
 function advNightLayRing(dt) {/* 环带铺怪(缺省夜怪铺法, 政策缝 advProfile.nightLay 的缺省实现,
     U2 抽出不改一字): 纯函数节拍(夜间每 2s 一拍)掷环带+光照门出单 → 壳层按配额
     (CAP−现存怪数, 含巢穴怪)落地并挂私有字段; 节拍器 advNightT 是本铺法的私有状态。
+    〔世界边界·T11〕池来源换装: home 图按落点邻接带主题查表换池(过渡带主题夜怪),
+    腹地/东带与远征图回落当前行池——只换「铺什么怪」不换「怎么铺」, 节拍/环带/
+    光照门/CAP 配额/清场/家锚全走既有路径。
     U4 体验馆注入「入夜上沿固定点位铺 N 只」铺法(D5 拍板①, 全带 __nightMob 标记),
     清场两侧同源共用 advSweepNightMobs(下降沿/睡醒温和清场) */
-  const r = advNightStepPool(advNightT, dt, dayTime, advNightRead, pos, Math.random, advMapRow.nightPool);
+  /* 〔世界边界·T11〕主题池查表(home 图门控: 带矩形是 home 图专属几何, 远征图
+     坐标会撞矩形——按当前地图行门控防串装; 未命中=null → 行池回落, 与现状
+     逐位一致。判据 O(1) 零分配, 每帧消费零逐帧新增) */
+  const nightPool = advMapRow.id === 'home' ?
+    (advEdgeNightPoolAt(pos.x, pos.z) || advMapRow.nightPool) : advMapRow.nightPool;
+  const r = advNightStepPool(advNightT, dt, dayTime, advNightRead, pos, Math.random, nightPool);
   advNightT = r.t;
   if (r.spawn && advNightAlive() < ADV_NIGHT.CAP &&
       (r.spawn.type !== 'slime' || advSlimeWaterOk(r.spawn.x, r.spawn.z))) {

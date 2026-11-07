@@ -206,7 +206,7 @@ MC 官方在「世界边界」与「群系过渡」上的观感语言是什么�
 
 ## T11 · 过渡带主题夜怪（邻接世界主题换怪）
 
-> 标签：`wayfinder:task`（HITL，实机走查环节需用户）｜状态：open（2026-11-06 用户拍板立票）｜blocked-by：T7｜blocks：无
+> 标签：`wayfinder:task`（HITL，实机走查环节需用户）｜状态：open（2026-11-06 用户拍板立票；2026-11-07 实施完成，待实机走查后 closed）｜blocked-by：T7｜blocks：无
 
 ### Question
 
@@ -214,7 +214,14 @@ MC 官方在「世界边界」与「群系过渡」上的观感语言是什么�
 
 ### Resolution
 
-（待解）
+（2026-11-07 实施，主会话以 git diff 核实收口）
+
+- **判据（js/adventure-core.js 〔世界边界·T11〕段）**：`advEdgeThemeAt(x,z)` 落点→邻接带主题 O(1) 纯函数——带矩形与建场权威同源（北 z∈[0,24) / 南 z∈[128,160) / 西 x∈[0,32)，与 T7 保护判据 advEdgeProtectedZone 的落位坐标口径同文；角区检序北→南→西承 T8 先例），腹地与东带（x≥128）=null；`ADV_EDGE_NIGHT_POOL` 主题池表（snow=stray / desert=husk / swamp=bogged，[种,权重] 二元组与 ADV_NIGHT.POOL 同构，权重位留同构不改配额语义）；`advEdgeNightPoolAt` 池解析缝（命中返共享引用零分配）。
+- **西带选型：沼骸 bogged**——在册怪种全表核对（MOB_TYPES + mob-look/bogged.js 均在册）按沼泽主题选型：MC 官方沼泽骷髅变体，且与远征沼泽图夜池主角同款（adventure-maps-core swamp 行 nightPool 同怪），主题语言跨「home 过渡带/远征图」一致，零新资产。北流浪者/南尸壳照用户拍板落表；**东向维持 home 同池**（栅栏彩蛋收尾方向，票面两案取维持）。
+- **壳装配（js/modes/adventure.js 仅 advNightLayRing 一处）**：池来源换装——home 图按落点查主题池、未命中/远征图回落当前行池（`advMapRow.id==='home'` 门控防远征图坐标撞带矩形串装）；节拍/环带/光照门/CAP/清场/家锚全未动——只换「铺什么怪」不换「怎么铺」，CAP 儿童红线不松动。体验馆 dev 固定点位铺法（D5 拍板①）独立缝不受影响。
+- **性能红线**：判据 O(1) 整数比较、零逐帧新增——T7_PERF 钉测原阈值过。
+- **测试**：adventure-core 判据组 ×3（主题逐带钉+边界值+角区检序 / 配置表+在册交叉+CAP 不动 / 池解析缝零分配+注入出单）+ adventure-mode 铺法组 ×2（三带实铺 / 腹地同池回落+远征图行池防串装）；全量 npm test 1722（1721 pass/0 fail/1 skip=T7_PERF 默认跳）+ lint 零错误。
+- **登记（顺带发现，未修）**：①黑巢涌出通道固定苦力怕（den-nest 副本主题语义，与过渡带主题不同源，现状正确）；②环带掷点可落带外仍按玩家所邻主题铺怪（与票面「按玩家落点邻接主题查表」语义一致，实机走查留意观感）；③带缘常量三处并存（主题带矩形/近前引导区/触发线，语义不同已互指同源出处，改带需随建场同步）。
 
 ---
 

@@ -1886,6 +1886,52 @@ function advEdgeProtectedZone(x, z) {/* 翻越拦截判据(P3, T6 v2 授权口�
   return false;
 }
 
+/* ============================================================
+   〔世界边界·T11〕过渡带主题夜怪（邻接世界主题换怪, T7 拍板 Q2 立票实施）
+   ------------------------------------------------------------
+   2026-11-06 用户拍板「按主题换怪」（未采纳「全域同池」推荐,
+   docs/world-edge-tickets.md T11 段为权威）: home 图过渡带夜间刷怪按
+   玩家落点邻接带主题换怪。判据=落点 → 邻接带主题 O(1) 查表, 主题池返回
+   共享常量引用或 null——壳层夜怪铺法每帧消费零分配零世界读（性能红线
+   同 T7: 零逐帧新增）。
+   · 带矩形与四带建场权威同源（不抄第二份几何）: 北 z<24=advEdgeNorth
+     建场矩形 z0..23 / 南 z≥128=advEdgeSouth z128..159 / 西 x<32=
+     advEdgeWest x0..31（本文件 T2~T5 建场段「落位坐标口径」段头同文;
+     改带先改建场, 本判据数值随改）。东向不设主题（x≥128 → null=home
+     同池——小镇是彩蛋收尾方向, 票面「东向或维持 home 同池」取维持）。
+   · 四角重叠归属按既有检序北→南→西取先（advEdgeTransitDirAt/advEdgeHintAt
+     同款裁定; 东向无主题不参序）。
+   · 怪种配置表: 北雪原带=流浪者 stray / 南沙漠带=尸壳 husk（用户拍板
+     既定, 皮肤资产在册 mob-look）; 西沼泽带=沼骸 bogged（在册怪种按
+     沼泽主题选型: MC 官方沼泽骷髅变体, 与远征沼泽图夜池主角同款——
+     adventure-maps-core swamp 行 nightPool 同怪, T2 池参数化先例）。
+   · 与夜怪封顶兼容: 只换「铺什么怪」不换「怎么铺」——ADV_NIGHT.CAP/
+     环带/光照门/节拍/清场/家锚全走既有路径（壳 advNightLayRing 只换
+     池来源一行, js/modes/adventure.js 同名段）。
+   ============================================================ */
+const ADV_EDGE_NIGHT_POOL = {/* 带主题 → 夜怪池（格式同 ADV_NIGHT.POOL 的
+   [种, 权重] 二元组清单; 各带单种——主题换怪是「换主角」不是「换整池」,
+   权重位留池格式同构, CAP 配额语义不变） */
+  snow: [['stray', 1]], /* 北雪原带: 流浪者(雪原骷髅变体) */
+  desert: [['husk', 1]], /* 南沙漠带: 尸壳(沙漠僵尸变体) */
+  swamp: [['bogged', 1]], /* 西沼泽带: 沼骸(沼泽骷髅变体, 选型理由见段头) */
+};
+
+function advEdgeThemeAt(x, z) {/* 玩家落点 → 邻接带主题键(纯几何 O(1) 查表,
+    零分配零世界读; 命中返回 ADV_EDGE_NIGHT_POOL 键, 带外腹地返回 null=
+    home 同池)。带缘数值与四带建场矩形一字同源(见段头), 角区检序北→南→西 */
+  if (z < 24) return 'snow'; /* 北带 z∈[0,24) 全 x(advEdgeNorth z0..23) */
+  if (z >= 128) return 'desert'; /* 南带 z∈[128,160) 全 x(advEdgeSouth z128..159) */
+  if (x < 32) return 'swamp'; /* 西带 x∈[0,32) 全 z(advEdgeWest x0..31) */
+  return null; /* 腹地与东带(x≥128)=home 同池(东向不设主题) */
+}
+
+function advEdgeNightPoolAt(x, z) {/* 落点 → 主题夜怪池(壳层铺法的换装缝):
+    命中返回共享池引用(零分配), 未命中 null=壳回落当前地图行池(现状逐位) */
+  const theme = advEdgeThemeAt(x, z);
+  return theme ? ADV_EDGE_NIGHT_POOL[theme] : null;
+}
+
 /* ---------- 死亡政策(纯函数段): 满血 + 回出生点 + 背包保留(零惩罚哲学) ---------- */
 function advDeathPlan(player, spawn) {
   return {hp: player.maxHp, x: spawn.x, y: spawn.y, z: spawn.z, yaw: spawn.yaw, keepInv: true};
@@ -3346,6 +3392,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advSetEdgeBarriersHidden, advSetEdgeUnlockCounts,
     advEdgeOpenDir, advEdgeTransitDirAt, advEdgeHintAt,
     advEdgeProtectedAt, advEdgeProtectedZone,
+    ADV_EDGE_NIGHT_POOL, advEdgeThemeAt, advEdgeNightPoolAt, /* 〔世界边界·T11〕过渡带主题夜怪判据 */
     advEdgeNorthMountainH, ADV_EDGE_HOME_SKY, /* T7 转正测试消费(找山体列/旁路原引用钉) */
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,
     ADV_CHEST_SLOTS, ADV_CHEST_START, ADV_CHEST_PER, ADV_CHEST_TIERS, advChestNext,

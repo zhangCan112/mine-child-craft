@@ -2825,3 +2825,57 @@ test('T8 西带两态建场(组 9): 锁定回归水带 · 解锁泥岸步道(恰
   Core.advSetEdgeUnlockCounts(null);
   assert.strictEqual(Core.advEdgeSkyAt(15, 80).fog, 0.88, '复位后选表回锁定档(换表条件不触发)');
 });
+
+/* ============ 〔世界边界·T11〕过渡带主题夜怪判据(world-edge-tickets T11) ============ */
+
+test('T11 主题判据: 四带落点→主题逐带钉 · 带缘边界值 · 腹地/东带=home 同池 · 角区检序', () => {
+  const t = Core.advEdgeThemeAt;
+  /* 逐带钉(带矩形与四带建场权威同源: 北 z0..23/南 z128..159/西 x0..31) */
+  assert.strictEqual(t(80, 10), 'snow', '北带 (80,10) → snow 主题');
+  assert.strictEqual(t(80, 145), 'desert', '南带 (80,145) → desert 主题');
+  assert.strictEqual(t(10, 80), 'swamp', '西带 (10,80) → swamp 主题');
+  assert.strictEqual(t(150, 80), null, '东带 (150,80) → null=home 同池(东向不设主题, 票面「东向维持」)');
+  assert.strictEqual(t(80, 80), null, '腹地 (80,80) → null=home 同池');
+  /* 带缘边界值(与建场矩形一字对齐: z<24 / z≥128 / x<32) */
+  assert.strictEqual(t(80, 23.9), 'snow', 'z=23.9 仍在北带');
+  assert.strictEqual(t(80, 24), null, 'z=24 已出北带(腹地行)');
+  assert.strictEqual(t(80, 127.9), null, 'z=127.9 未进南带');
+  assert.strictEqual(t(80, 128), 'desert', 'z=128 进南带');
+  assert.strictEqual(t(31.9, 80), 'swamp', 'x=31.9 仍在西带');
+  assert.strictEqual(t(32, 80), null, 'x=32 已出西带');
+  /* 角区检序北→南→西取先(advEdgeTransitDirAt/advEdgeHintAt 同款裁定; 东向无主题不参序) */
+  assert.strictEqual(t(10, 10), 'snow', 'NW 角区北先');
+  assert.strictEqual(t(150, 10), 'snow', 'NE 角区北先于东');
+  assert.strictEqual(t(10, 150), 'desert', 'SW 角区南先于西');
+  assert.strictEqual(t(150, 150), 'desert', 'SE 角区南先于东');
+});
+
+test('T11 怪种配置表: 北 stray/南 husk/西 bogged 单种池 · 键集恰三 · 在册交叉 · CAP 不松动', () => {
+  assert.deepStrictEqual(Core.ADV_EDGE_NIGHT_POOL.snow, [['stray', 1]], '北雪原带=流浪者(用户拍板既定)');
+  assert.deepStrictEqual(Core.ADV_EDGE_NIGHT_POOL.desert, [['husk', 1]], '南沙漠带=尸壳(用户拍板既定)');
+  assert.deepStrictEqual(Core.ADV_EDGE_NIGHT_POOL.swamp, [['bogged', 1]], '西沼泽带=沼骸(在册沼泽主题选型)');
+  assert.deepStrictEqual(Object.keys(Core.ADV_EDGE_NIGHT_POOL).sort(), ['desert', 'snow', 'swamp'],
+      '键集恰三: 东向/腹地不设键(home 同池走行池回落)');
+  /* 与在册怪种交叉(数值表 mob-registry 唯一权威; 造型档案一怪一文件) */
+  const types = vm.runInContext('MobRegistry.MOB_TYPES', eng);
+  for (const t of ['stray', 'husk', 'bogged']) {
+    assert.ok(types[t], '怪种在册 MOB_TYPES: ' + t);
+    assert.ok(fs.existsSync(path.join(ROOT, 'js', 'mob-look', t + '.js')),
+        '造型档案在册 mob-look/' + t + '.js');
+  }
+  /* 夜怪封顶红线不松动(儿童口径: 只换铺什么怪, 不换怎么铺) */
+  assert.strictEqual(Core.ADV_NIGHT.CAP, 12, 'ADV_NIGHT.CAP 仍 12(T11 不松动)');
+});
+
+test('T11 池解析缝: 命中返共享池引用(零分配) · 未命中 null 回落 · 主题池经 advNightStepPool 出单', () => {
+  assert.strictEqual(Core.advEdgeNightPoolAt(80, 10), Core.ADV_EDGE_NIGHT_POOL.snow, '北带返共享引用');
+  assert.strictEqual(Core.advEdgeNightPoolAt(80, 145), Core.ADV_EDGE_NIGHT_POOL.desert, '南带返共享引用');
+  assert.strictEqual(Core.advEdgeNightPoolAt(10, 80), Core.ADV_EDGE_NIGHT_POOL.swamp, '西带返共享引用');
+  assert.strictEqual(Core.advEdgeNightPoolAt(150, 80), null, '东带 null=行池回落');
+  assert.strictEqual(Core.advEdgeNightPoolAt(80, 80), null, '腹地 null=行池回落');
+  /* 主题池与池注入通道(T2)同构: 到拍出单=主题怪(单种池任 rnd 必中主角) */
+  const r = Core.advNightStepPool(1.9, 0.2, 18000, () => ({sky: 15, block: 0}),
+      {x: 80, z: 10}, Math.random, Core.advEdgeNightPoolAt(80, 10));
+  assert.strictEqual(r.spawn.type, 'stray', '北带主题池出单=流浪者');
+  assert.strictEqual(r.spawn.x !== undefined && r.spawn.z !== undefined, true, '出单带环带落点(铺法路径不变)');
+});

@@ -42,7 +42,7 @@ _Avoid_: advEdits/buildEdits 直接当账本误以为还有模式层实现（历
 _Avoid_: 把四份档的读写散写回行为函数（历史形态——24 个函数 28 处触点已收拢）、为 dev 造第二份 journal 实现（槽注入即得）、绕过缝直碰槽与背包实例、cleanup 时不还原真档缺省（dev 装配会渗进下一个模式）
 
 **冒险壳政策缝（AdventureProfile）**:
-冒险壳政策点的唯一读取面（js/modes/adventure.js 顶层，冒险壳统一 U2，ADR 0005）：death（'home' 切图回出生点｜'inPlace' 原地满血复活）· sleepWakeSetsSpawn（睡醒设床边出生点开关）· nightLay(dt)（夜怪铺法：缺省环带节拍 advNightLayRing｜体验馆入夜上沿固定点位、边沿状态自持）· speak/sfx/toast（媒体三通道——壳内直接调用点全量经薄包装 advSpeak/advSfx/advToast 路由）· stationAlwaysOpen/hiddenRecipesOpen（合成站点门禁与隐藏配方）· leftoverDrops（满包余量掉地上拾回｜静默丢弃，三处余量一个实现 advLeftoverSpawn）。缺省值 = 现行冒险行为**逐字等价**（`advProfileDefault` 是还原锚点）；体验馆整体替换为 dev 政策值（D5 拍板保留项：原地复活/床边无出生点/固定点位夜怪）。kit 装配在脚本加载期而换装在 init 前——station 传函数、allow 用 getter，调用期动态求值，换装即生效。
+冒险壳政策点的唯一读取面（js/modes/adventure.js 顶层，冒险壳统一 U2，ADR 0005）：death（'home' 切图回出生点｜'inPlace' 原地满血复活）· sleepWakeSetsSpawn（睡醒设床边出生点开关）· nightLay(dt)（夜怪铺法：缺省环带节拍 advNightLayRing——T11 起 home 图按落点邻接带主题换怪种〔advEdgeThemeAt 判据 + ADV_EDGE_NIGHT_POOL 池表，东带与腹地 home 同池；CAP/节拍不动〕｜体验馆入夜上沿固定点位、边沿状态自持）· speak/sfx/toast（媒体三通道——壳内直接调用点全量经薄包装 advSpeak/advSfx/advToast 路由）· stationAlwaysOpen/hiddenRecipesOpen（合成站点门禁与隐藏配方）· leftoverDrops（满包余量掉地上拾回｜静默丢弃，三处余量一个实现 advLeftoverSpawn）。缺省值 = 现行冒险行为**逐字等价**（`advProfileDefault` 是还原锚点）；体验馆整体替换为 dev 政策值（D5 拍板保留项：原地复活/床边无出生点/固定点位夜怪）。kit 装配在脚本加载期而换装在 init 前——station 传函数、allow 用 getter，调用期动态求值，换装即生效。
 _Avoid_: 往壳里加政策分支不经缝（历史形态——死亡切图/睡醒出生点/夜怪铺法三处焊死在编排函数里已拆）、把编排当政策参数化（update 喂序/onMouse 使用链是编排契约不是政策，两侧同一份）、给内部相位逻辑建缝（维度门禁等 dev 同行为的不设缝）
 
 **昼夜核心（DaylightCore）**:

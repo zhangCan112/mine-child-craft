@@ -4193,3 +4193,63 @@ test('T8 组7 解锁演出: home 完成点亮 → rite 白闪后北山正面格�
   AdventureMode.cleanup();
 });
 
+/* ============ 〔世界边界·T11〕过渡带主题夜怪铺法(world-edge-tickets T11) ============ */
+
+test('T11 主题换怪铺法: 北带铺流浪者 · 南带铺尸壳 · 西带铺沼骸(环带节拍/CAP/家锚路径不变)', () => {
+  const run = (x, z, want, label) => {
+    mem.clear();
+    freshInit();
+    listResult = []; /* 怪物存量 0 → 配额 = CAP − 0(D5 同款口径) */
+    globalThis.dayTime = 18000; /* 午夜 */
+    globalThis.pos.x = x; globalThis.pos.z = z; /* 落点进带(主题判据读玩家位) */
+    const before = mobsState.spawned.length; /* init 的巢穴+牧场存量(不进配额口径) */
+    for (let i = 0; i < 110; i++) AdventureMode.update(0.1); /* 11s > 5 拍: 带内掷环必有界内过光拍 */
+    const night = mobsState.spawned.slice(before).filter((m) => m.__nightMob && !m.__erupt);
+    assert.ok(night.length >= 1, label + ': 到拍至少出一只(测试世界光场全 0=暗)');
+    for (const m of night) {
+      assert.strictEqual(m.type, want, label + ': 铺出主题怪 ' + m.type);
+      const d = Math.hypot(m.pos.x - x, m.pos.z - z);
+      assert.ok(d >= ADV_NIGHT.RING_LO - 1 && d <= ADV_NIGHT.RING_HI + 1,
+          label + ': 环带落位不变(只换怪不换铺法): ' + d.toFixed(1));
+      assert.ok(m.__nightHome && m.__nightHome.x === m.pos.x && m.__nightHome.z === m.pos.z,
+          label + ': 家锚=出生环点(既有机制复用)');
+    }
+  };
+  run(80, 20, 'stray', '北带 (80,20)');
+  run(80, 140, 'husk', '南带 (80,140)');
+  run(20, 80, 'bogged', '西带 (20,80)');
+});
+
+test('T11 同池回落: 腹地铺 home 同池 · 远征图行池不被带矩形串装(地图行门控)', () => {
+  /* 腹地(带外 home 区): home 同池逐位现状 */
+  mem.clear();
+  freshInit();
+  listResult = [];
+  globalThis.dayTime = 18000;
+  globalThis.pos.x = 80; globalThis.pos.z = 80;
+  const before = mobsState.spawned.length;
+  for (let i = 0; i < 110; i++) AdventureMode.update(0.1);
+  const night = mobsState.spawned.slice(before).filter((m) => m.__nightMob && !m.__erupt);
+  assert.ok(night.length >= 1, '腹地到拍至少出一只');
+  for (const m of night) {
+    assert.ok(ADV_NIGHT.POOL.some((p) => p[0] === m.type), '腹地 home 同池种: ' + m.type);
+  }
+  /* 远征图门控: 沙漠图玩家坐标撞 home 北带矩形, 铺的仍是本图行池(防串装) */
+  mem.clear();
+  freshInit();
+  listResult = [];
+  const drow = ADV_MAPS.find((r) => r.id === 'desert');
+  A.advSetMap('desert', advMapArrive(drow));
+  globalThis.dayTime = 18000;
+  globalThis.pos.x = 80; globalThis.pos.z = 10; /* 坐标撞 home 北带矩形 */
+  const before2 = mobsState.spawned.length;
+  for (let i = 0; i < 110; i++) AdventureMode.update(0.1);
+  const dNight = mobsState.spawned.slice(before2).filter((m) => m.__nightMob && !m.__erupt);
+  assert.ok(dNight.length >= 1, '沙漠图到拍至少出一只');
+  for (const m of dNight) {
+    assert.ok(drow.nightPool.some((p) => p[0] === m.type), '沙漠图行池种(不串北带主题): ' + m.type);
+    assert.notStrictEqual(m.type, 'stray', '无北带流浪者串装(行池门控)');
+  }
+  A.advSetMap('home', A.ADV.spawn); /* 切回 home: 行视图复位, 不串扰后续测试 */
+});
+
