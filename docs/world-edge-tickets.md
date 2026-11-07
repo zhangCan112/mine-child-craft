@@ -252,7 +252,7 @@ G2 实机走查用户反馈（2026-11-06）：「树上的雪树砍了后我还�
 
 ## T13 · 雪原远处纹理沸腾（实机「斑驳块疯狂闪动」排查）
 
-> 标签：`wayfinder:task`（实机走查 bug 排查）｜状态：open（2026-11-07 用户实机反馈立票；根因已定位至代码已知遗留代价，待实机分诊确认后实施修复）｜blocked-by：无｜blocks：无
+> 标签：`wayfinder:task`（实机走查 bug 排查）｜状态：open（2026-11-07 双根因实锤：①无 mip 纹理沸腾=本票拆双材质修复，实施待派；②距离环形态翻转=转 T14 退役）｜blocked-by：无｜blocks：无
 
 ### Question
 
@@ -274,13 +274,44 @@ G2 实机走查用户反馈（2026-11-06）：「树上的雪树砍了后我还�
 1. **正解=拆双材质**（注释预留方案）：图集按格「全不透明/含镂空」分流——实心格材质开 mip（NearestMipmapLinearFilter+anisotropy，防格间串色需格间 padding 或实心块独立画布），镂空薄块（花草/火把/门板/树叶孔洞）维持禁 mip 保 alphaTest 边缘。工程面：texture-atlas 布局（per-tile 不透明表/padding）、mesh-core atlas 通道分流（协议随动）、world.js 双材质挂载、测试面广——中等工程量，宜立施工票排期。
 2. **轻量缓解（可先行）**：雪原/北带雾距适度拉近，把 shimmer 高发区推进雾中（观感代价=能见度下降）。
 
-**待实机分诊（用户暂离未答，下次确认）**：①设备（iPad 低核档 shimmer 更烈？）②闪动块范围（整片雪地/仅冰斑/零星块）③闪动形态（像素沸腾/块消失再现/纹理↔纯色切换/亮暗）④站住不动是否仍闪（站住即停=shimmering 实锤；站住仍闪→转查每帧重建/透明排序）。
+**待实机分诊（2026-11-07 用户已答）**：①设备=**电脑**（桌面浏览器，排除低核档因素）；②**沙漠图也有同类问题**（非雪原独有）；③用户第二张高清截图拍到关键实证：**中景巨大纯绿/纯白无纹理方块墙**=LOD 粗网格树冠/雪盖（meshChunkLod「高塔抬升+裙边」把树冠拉成纯色大墙）——**第二根因实锤：距离环形态翻转**。探针 v5 实测（照抄 world.js 形态机语义）：沙漠图北缘→南缘往返一趟 **158 chunk·次翻转、最大单批 100 chunk（整图重排）**、同批区块去程降 lod/回程升 full；原地小范围晃动 20 次亦触发 100 chunk·次。桌面档 full=8 chunk vs 地图 10×10 chunk——玩家每次跨区块边界都可能触发批量形态翻转=「斑驳出现的块疯狂闪动」。
+
+**根因②（LOD 形态翻转）转 T14 退役处置（用户拍板「放弃这种技术」）**；根因①（无 mip 纹理沸腾）仍待拆双材质实施。
+
+---
+
+## T14 · 距离环 LOD 层退役（用户拍板「放弃这种技术」）
+
+> 标签：`wayfinder:task`（引擎机制退役，用户实机拍板）｜状态：open（2026-11-07 用户拍板立票，即派施工）｜blocked-by：无｜blocks：无
+
+### Question
+
+用户实机反馈「雪地/沙漠斑驳块走动时疯狂闪动」（T13 排查，双根因）。根因②=距离环形态翻转（探针 v5 实锤：沙漠图北缘→南缘往返 **158 chunk·次翻转、最大单批 100 chunk 整图重排**；原地晃动 20 次亦 100 chunk·次；树冠/雪盖在 LOD 纯色裙边大墙与 full 纹理间批量切换=「斑驳出现的块」）。用户拍板原文：**「如果你为了边界交互处好看用了什么特殊技术的话，我建议放弃这种方式，看起来体验不好，可能对性能影响也大」**。
+
+### Resolution
+
+（2026-11-07 拍板采纳，派工实施）
+
+**澄清记录**：距离环 LOD（近实远虚 chunk 流送）非为世界边界观感而设——系引擎建场即有的性能机制（docs/chunk-streaming-lod-research.md，立项动机含 iPad5 内存压力，docs/ipad5-performance-design.md §7）。但本游戏地图定型为 160×160（10×10 chunk）：桌面档 full 环=8 chunk **几乎覆盖全图**，LOD 层收益趋零（仅玩家贴边时对侧半图降 lod），代价（形态批量翻转闪动+树冠裙边纯色大墙观感冲击）真实。用户拍板成立：**全局退役 LOD 层，全图全细节常驻**。
+
+**实施范围**（subagent 施工，git diff 为准）：
+- js/world.js：`lodMeshes`/`desiredState`/`maintainRings` 形态机/`mountChunkLod`/serveChunkKey 的 kind 分支退役；meshGen/token 防陈旧响应机制**保留**（编辑重建仍走 Worker）；rebuildAll 渐进铺满保留（初始装载 amortized）。
+- js/mesh-worker.js：kind=lod 协议分支退役。
+- js/mesh-core.js：`meshChunkLod` 删除（T9 先例：机制不存在即无覆盖对象）。
+- js/config.js：`VIEW.lodStep`/`lodChunks`/`fullChunks`（若无消费方）与 `IS_LOWCORE_TOUCH` 环半径分档退役；**VIEW 其余字段（fog/far 等）禁碰**。
+- 测试面：world-rings.test.js（「距离环」语义→「全图常驻」或随机制删）、mesh-worker.test.js lod 协议断言删、画质降档环联动断言删。
+- 文档：GLOSSARY「距离环」词条改写、ipad5-performance-design.md 修订登记、本票 Resolution、map.md。
+- 门禁：npm test 全量绿 + lint 零错 + T7_PERF=1 过。
+
+**风险登记（复验注）**：iPad5（A9 低核）全图全细节常驻 GPU 内存上升——LOD 立项动机即此；预期量级数十 MB 可承受，但需 **iPad 实机复验**（初始装载铺满时长+帧率），并入 T10 走查清单。
+
+**红线**：T13 双材质修复（无 mip 纹理沸腾）不在本票掺和；config B_* 方块段禁碰；确定性红线不动。
 
 ---
 
 ## T10 · 验收收尾
 
-> 标签：`wayfinder:task`（HITL）｜状态：open｜blocked-by：T7 T8 T9｜blocks：无（图终点）
+> 标签：`wayfinder:task`（HITL）｜状态：open｜blocked-by：T13 T14｜blocks：无（图终点）
 
 ### Question
 
