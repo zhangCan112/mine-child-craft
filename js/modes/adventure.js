@@ -1994,6 +1994,18 @@ function advGateAt(x, z) {/* 门包围盒查表(advInPortal 命中后): 玩家�
 /* ---------- 上界怪播种/实体回调重挂(init 与切界共用) ----------
      Mobs.clear/Drops.clear 会解除死亡/收集回调(与实例同生命周期)——切界清场
      后必须重挂, 回挂在 init 与 advSetDim 是同一份(单一实现) */
+function advEntitiesClear() {/* 实体清场件(原 sceneLeave/init/cleanup 三处手抄收编):
+    怪/掉落/箭/雪球/弩箭五池一并清 + 地上丢弃件收回包(零损失红线)。执行序=
+    原三处手抄的共同序(Mobs → reclaim → Drops → 箭/雪球/弩箭)。引擎回调重挂
+    (advHookEntityCbs)不进件: 三口时机各异——sceneLeave 立即重挂 / init 延后
+    重挂 / cleanup 退场不挂(下一口按需) */
+  Mobs.clear(); /* 清怪+解除击杀回调(与实例同生命周期, 重挂见下 advHookEntityCbs) */
+  advReclaimThrown(); /* 丢弃件收回包(零损失红线: 扔下的宝贝不蒸发) */
+  Drops.clear(); /* 清掉落物+解除收集回调 */
+  advArrows.clear();
+  advSnowballs.clear(); /* 雪球(T9: 双实例清场纪律) */
+  advBolts.clear(); /* 玩家弓箭(弓物品化: 三实例清场纪律) */
+}
 function advHookEntityCbs() {
   Mobs.onDeath((m) => {/* 击杀掉落链路(D6): 掷骰→逐条 spawn(尸体落点上方 0.8)。
       F4 牧场记账并进同一回调: 初始畜挂清单索引(死畜账只增不减), 繁育畜按
@@ -2137,12 +2149,8 @@ function advSceneLeave() {/* 离开当前场景的共通清单: 世界无关观�
   advFlamesClear(); /* 炉口火焰 Sprite 同理(炉态随档跨场保留, 观感不跨) */
   advSaplings.clear(); /* 树苗计时不跨场(进图重扫重建, 防旧图坐标在新图长树——串档事故) */
   advTreeRegen.clear(); /* 凋零树位恢复计时同不跨场(同款串档防线) */
-  Mobs.clear(); /* 怪/掉落/箭不跨场: 门只渡人(下界无怪, 回主世界重播) */
-  advReclaimThrown(); /* 丢弃件切图前收回包(零损失红线: 扔下的宝贝不换图蒸发) */
-  Drops.clear();
-  advArrows.clear();
-  advSnowballs.clear(); /* 雪球同收(T9: 双实例清场纪律) */
-  advBolts.clear(); /* 玩家弓箭同收(三实例清场纪律) */
+  advEntitiesClear(); /* 实体五池清+丢弃件收回包(不跨场: 门只渡人——下界无怪,
+     回主世界重播; 零损失红线见件内注释) */
   advHookEntityCbs(); /* clear 解除回调: 重挂(击杀掉落/收集并线, init 同一份) */
 }
 function advMapSpawn(spot) {/* 主世界缺省出生: 显式点 > home 出生账本 > 远征图回程门
@@ -4031,12 +4039,7 @@ const AdventureMode = mkMode({
     advBagArmed = true; /* S4② 快满提醒复位(进场满包会在首查时提醒一次) */
     advBagT = ADV_BAG_CHECK_T; /* 首查在进场半秒后(欢迎语音先落地不被顶掉) */
     /* —— 巢穴战斗段(T14): 清残留 → 重挂引擎回调(clear 会解除, 每次进场重挂) → 三巢首刷 */
-    Mobs.clear();
-    advReclaimThrown(); /* 重进/换图回收丢弃件(零损失红线, 同 advSceneLeave 口径) */
-    Drops.clear(); /* 重进清残留掉落物(挖掘/击杀两链共用; 并解除旧收集回调) */
-    advArrows.clear(); /* 上一场的箭不渗进来 */
-    advSnowballs.clear(); /* 上一场的雪球不渗进来(T9) */
-    advBolts.clear(); /* 上一场的玩家弓箭不渗进来(弓物品化) */
+    advEntitiesClear(); /* 实体五池清+丢弃件收回包(上一场残留不渗进来; 件见回调重挂段) */
     ADV.killCount = 0;
     advMelee.reset(); advHurt.reset(); /* 冷却/受击节流不复场 */
     advPickBuf.clear(); advPickT = 0;
@@ -4084,12 +4087,8 @@ const AdventureMode = mkMode({
     if (advArmorBar) {
       advArmorBar.dispose(); advArmorBar = null; /* 装备条收 DOM(装备 T5, 重进重建) */
     }
-    Mobs.clear(); /* 清怪+解除击杀回调: 不渗进其他模式 */
-    advReclaimThrown(); /* 退出模式前收回丢弃件(零损失红线): 未捡回的原样回家 */
-    Drops.clear(); /* 清掉落物+解除收集回调 */
-    advArrows.clear(); /* 箭矢网格一并摘除 */
-    advSnowballs.clear(); /* 雪球网格一并摘除(T9) */
-    advBolts.clear(); /* 玩家弓箭网格一并摘除(弓物品化) */
+    advEntitiesClear(); /* 实体五池清+丢弃件收回包(不渗进其他模式; 回调重挂不在
+       cleanup——下一口 init/sceneLeave 各自按需重挂) */
     advFlamesClear(); /* F2: 炉口火焰 Sprite 一并摘除(炉态随档保留, 观感重建) */
     advPanel.remove(); /* 卸载面板 DOM */
     advFurnace.panel.remove(); /* T13: 熔炉面板一并卸载 */
