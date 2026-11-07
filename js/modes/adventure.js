@@ -478,6 +478,7 @@ const advTouchBase = [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2
     特殊物品的使用动作键由 advTouchMainSync 边沿重声明追加 */
   {icon: 'pick', label: '挖/放', holdAct: mkMainAct(advMainPlaceable)},
   {icon: 'chest', label: '背包', act: () => advPanelToggle(), rare: true},
+  {icon: 'doc', label: '任务', act: () => advQuestReminder(), rare: true}, /* 📖 任务提醒(2026-11-07 用户票, 同 Q 键) */
   {icon: 'house', label: '回家', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
 ];
 function advTouchList() {/* 触屏条清单 = 基表 + 空手锄地键 + 手持物品的使用动作键(使用动作
@@ -3683,6 +3684,30 @@ function advQuestPaint() {
   return advPanel.questEl; /* 重画并返回任务卡(只读查询面) */
 }
 
+/* 任务提醒(2026-11-07 用户票「有时候玩家不知道自己该做哪个任务了」): 任务卡在
+   背包面板里, 不开背包看不见; 完成链的 TTS 引导只在步进瞬间播一次, 走神即失。
+   📖 触屏键/桌面 Q 键随时唤出: TTS 播当前任务+进度+指路(6 岁口语口径), toast
+   同句带进度数字; 2s 节流防连点刷屏(performance 防御式同 advGoHome 先例) */
+let advQuestRemindAt = -1e9; /* 上次播报时刻(s, performance/Date 双源) */
+const ADV_QUEST_REMIND_CD = 2; /* 节流秒 */
+function advQuestReminder() {
+  const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
+  if (now - advQuestRemindAt < ADV_QUEST_REMIND_CD) return;
+  advQuestRemindAt = now;
+  const st = ADV.quest;
+  const q = ADV_QUESTS[st.step];
+  if (!q) {/* 全部完成(含终章称号): 免查档, 有称号报称号 */
+    advSpeak('所有任务都完成啦！' + (st.title ? '你是「' + st.title + '」！' : '') + '自由探险咯！');
+    advToast('🎉 任务全部完成，自由探险！');
+    return;
+  }
+  const p = Math.min(q.prog(st.counts), q.target);
+  const left = q.target - p;
+  const progSay = p <= 0 ? '' : (left > 0 ? '，已经做好 ' + p + ' 步、还差 ' + left + ' 步' : '，就差一点点啦！');
+  advSpeak('当前任务：' + q.goal + progSay + '。' + q.hint);
+  advToast('📖 ' + q.goal + '（' + p + '/' + q.target + '）');
+}
+
 /* ---------- 石阵夜晚彩蛋(2026-10-27 用户拍板): 判据/节流常量在 adventure-core,
    观感(Fx/SpeechKit/Drops)在此。点击中心灯坛: 夜里 = 四色烟花 + 远古牧人小
    故事 + 首次赠灯笼(Drops 真空拾取, 全会话一次防连点刷); 白天 = 温和提示
@@ -3814,6 +3839,7 @@ const AdventureMode = mkMode({
     advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
     advEdgeHintT = 0; /* 边缘近前引导节流复位(〔世界边界·T8〕, 同族 timer 惯例) */
+    advQuestRemindAt = -1e9; /* 任务提醒节流戳复位(2026-11-07 用户票, 同族 timer 惯例: 重进=新会话) */
     advEdgeSkyKeyHi = null; advEdgeSkyKeyLo = null; /* 〔边界转正·T7〕渐变量化键复位(进场首帧必写——
        上局可能停在带内, 按键跳写会漏掉首帧渐变; P5②拆双键双复位) */
     if (typeof advSetEdgeBarriersHidden === 'function') {
@@ -4165,6 +4191,7 @@ const AdventureMode = mkMode({
       }
       advPanelToggle(); /* 🎒/Tab 开关背包+配方书 */
     }
+    if (code === 'KeyQ') advQuestReminder(); /* 📖 任务提醒(2026-11-07 用户票): Q=Quest, 播当前任务+进度 */
     if (code === 'KeyH') advGoHome(); /* 🏠 回小屋(受困逃生口, 桌面键) */
   },
 

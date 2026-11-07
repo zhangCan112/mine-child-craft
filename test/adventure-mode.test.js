@@ -2088,6 +2088,37 @@ test('T15 步进链(行为): 捡齐 5 原木 → 表扬 TTS+完成 toast+音效+
   assert.strictEqual(A.ADV.quest.counts.collect_log, 5, '重进恢复 counts');
 });
 
+test('任务提醒(2026-11-07 用户票): Q 键唤出当前任务+进度 — TTS+toast 同句, 2s 节流防连点, 全完成态分支', () => {
+  mem.clear();
+  freshInit();
+  /* 触屏初表带「任务」键(rare 顶部小键区, 与 🎒🏠 同区, 与桌面 Q 键同源):
+     freshInit 触发触屏声明 → setTouchActions 假桩捕获动作表 */
+  assert.ok(Array.isArray(touchList) && touchList.some((b) => b.label === '任务' && typeof b.act === 'function'),
+      '触屏基表带「任务」提醒键');
+  /* 进度中态: 捡 3 根原木 → 报任务+差值, toast 带数字 */
+  dropsState.cbs[0]('log', 3);
+  spoken.length = 0;
+  calls.length = 0;
+  AdventureMode.onKey('KeyQ');
+  assert.ok(spoken.some((s) => String(s).indexOf('当前任务') >= 0 && String(s).indexOf('原木') >= 0),
+      'TTS 报当前任务(第 1 步原木)');
+  assert.ok(spoken.some((s) => String(s).indexOf('还差 2 步') >= 0), 'TTS 报进度差值(3/5 → 还差 2 步)');
+  assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('3/5') >= 0), 'toast 带进度数字');
+  /* 节流: 真实时钟下紧接第二次必然落在 2s 窗内 → 静默 */
+  spoken.length = 0;
+  calls.length = 0;
+  AdventureMode.onKey('KeyQ');
+  assert.strictEqual(spoken.length, 0, '节流窗内不重播(防连点刷屏)');
+  assert.strictEqual(calls.length, 0, '节流窗内不刷 toast');
+  /* 全完成态: step 越过末条 → 免查档报自由探险(freshInit 重置节流戳=新会话, 免等 2s 真实时钟) */
+  freshInit();
+  spoken.length = 0;
+  calls.length = 0;
+  A.ADV.quest.step = 99;
+  AdventureMode.onKey('KeyQ');
+  assert.ok(spoken.some((s) => String(s).indexOf('自由探险') >= 0), '全完成态播「自由探险」(不查越界步)');
+});
+
 test('T15 老档归一化: {step:N} 无 counts → 补空表当前步从零继续; counts 损坏同样归一', () => {
   mem.clear();
   mem.set('adventure_quest_save', JSON.stringify({_v: 1, step: 6})); /* step 0 基: QUESTS[6] = 挖 8 圆石(引导链 v2 位次) */
@@ -2865,8 +2896,8 @@ test('剪羊毛行为链: 右键对准羊 → 掉羊毛 1~3 + 羊进没毛态 + 
   mem.clear();
   freshInit();
   holdOnly('shears', 1, 500);
-  /* 触屏条边沿重声明: 选中剪刀 → 基表 3 键 + ✂️ 剪羊毛键 */
-  assert.ok(Array.isArray(touchList) && touchList.length === 4, '触屏条 = 基表 3 + 剪羊毛键 1');
+  /* 触屏条边沿重声明: 选中剪刀 → 基表 4 键(2026-11-07 用户票起基表含「任务」键) + ✂️ 剪羊毛键 */
+  assert.ok(Array.isArray(touchList) && touchList.length === 5, '触屏条 = 基表 4 + 剪羊毛键 1');
   const useKey = touchList.find((b) => b.icon === 'shear');
   assert.ok(useKey && useKey.label === '剪羊毛', '剪羊毛专用键: shear 图标(委托剪刀物品图)+无障碍名');
   globalThis.dayTime = 5000; /* 剪毛时刻(落账断言用) */
@@ -3477,8 +3508,8 @@ test('弓射击(2026-10-28 Route A): 右键/射箭键沿准星放箭 → 弹步�
   assert.ok(calls.some((c) => c[0] === 'touchMain' && c[1] === 'pick' && c[2] === '挖/打'),
       '主键恒镐·挖/放(持弓=空手挖/打——弓态主键已撤, 弓图标由专用键承载)');
   /* 触屏条边沿重声明(2026-10-28 拍板「弓 = 射箭 + 空手两个键」): 选中弓 →
-     setTouchActions 收到基表 3 键 + 🏹 射箭键 */
-  assert.ok(Array.isArray(touchList) && touchList.length === 4, '触屏条 = 基表 3 + 射箭键 1');
+     setTouchActions 收到基表 4 键(2026-11-07 用户票起基表含「任务」键) + 🏹 射箭键 */
+  assert.ok(Array.isArray(touchList) && touchList.length === 5, '触屏条 = 基表 4 + 射箭键 1');
   const useKey = touchList.find((b) => b.icon === 'bow');
   assert.ok(useKey && useKey.label === '射箭', '射箭专用键: bow 图标(委托弓物品图)+无障碍名');
   globalThis.camera = {};
