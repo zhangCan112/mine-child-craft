@@ -22,6 +22,7 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
 }
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, blockKey, isOpaque, SceneKit, Daylight,
+  groundTop, /* 〔世界边界·T8〕组 8/9 建场: AMC 建场族(Node 域 require)消费真 groundTop */
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_BED_FOOT, Daylight, DAYLIGHT,
@@ -43,6 +44,12 @@ Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 scri
 Object.assign(globalThis, require('../js/adventure-spawn-core.js'));
 
 const Core = require('../js/adventure-core.js');
+/* 〔世界边界·T8〕上一层共享词法: AC 建场链(advEdgeOpenDir)调用期解析消费
+   AMC 的 advEdgeDirUnlocked/ADV_EDGE_DIR_MAP——挂全局须在 AC 之后(AMC 装载
+   期读 advBuildWorld, maps-core.test.js 同款先例) */
+Object.assign(globalThis, Core);
+const Maps8 = require('../js/adventure-maps-core.js'); /* 〔世界边界·T8〕组 8/9 建场与图常量消费 */
+Object.assign(globalThis, Maps8);
 
 /* ---------- 世界快照与统计助手(对真 worldCells 断言) ---------- */
 const W = api.WORLD_W;
@@ -2550,9 +2557,12 @@ test('T7 性能钉测: 带建场增量倍率 ≤0.93 + 全量中位 ≤1500ms(en
      adventure-core 本体(全局名调用期解析, 建场读写同一 context 世界;
      两文件尾部均为防御式 module.exports, vm 装载安全) */
   const pEng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
+  /* 〔世界边界·T8〕AMC 挂 context: AC 建场链 advEdgeOpenDir 调用期解析消费
+     advEdgeDirUnlocked(清单加载序 AC 之后) */
   for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
     'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js', 'js/cascade-core.js',
-    'js/adventure-spawn-core.js', 'js/adventure-core.js']) {
+    'js/adventure-spawn-core.js', 'js/adventure-core.js',
+    'js/adventure-maps-core.js']) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), pEng, {filename: f});
   }
   const run = (src) => vm.runInContext(src, pEng);
@@ -2587,4 +2597,231 @@ test('T7 性能钉测: 带建场增量倍率 ≤0.93 + 全量中位 ≤1500ms(en
   assert.ok(ratio <= 0.93, '带建场增量倍率 ' + ratio.toFixed(3) + ' 超阈值 0.93' +
       '(基线 0.807, Node/Windows/2026-11-06; 超线先复核基线再判回归)');
   assert.ok(medFull <= 1500, '全量建场中位 ' + medFull.toFixed(1) + 'ms 超防呆线 1500ms(基线 655.2ms)');
+});
+
+/* ============ 〔世界边界·T8〕边缘传送判据层(波次一, world-edge-t8-plan §4 组 1/4/8/9) ============ */
+
+test('T8 触发线(组 1): 贴钳制面最外行 · east 恒 null · 角区检序北→南→西 · 钳制域边界值', () => {
+  const t = Core.advEdgeTransitDirAt;
+  assert.strictEqual(t(80, 0.5), 'north', '(80,0.5) 北缘行');
+  assert.strictEqual(t(80, 159.5), 'south', '(80,159.5) 南缘行');
+  assert.strictEqual(t(0.5, 80), 'west', '(0.5,80) 西缘行');
+  assert.strictEqual(t(159.5, 80), null, '东缘无传送(T5 定稿收尾, 栅栏彩蛋不触发)');
+  assert.strictEqual(t(80, 80), null, '腹地不触发');
+  assert.strictEqual(t(0.5, 0.5), 'north', 'NW 角区检序北先');
+  assert.strictEqual(t(159.5, 0.5), 'north', 'NE 角区检序北先(南→西→东前取北)');
+  assert.strictEqual(t(0.5, 159.5), 'south', 'SW 角区检序南先于西');
+  assert.strictEqual(t(80, 0.2), 'north', 'z=0.2 钳制可达域内(PLAYER.hz=0.2)可触发');
+  assert.strictEqual(t(0.2, 80), 'west', 'x=0.2 钳制可达域内');
+  assert.strictEqual(t(80, 1.0), null, 'z=1.0 已离开最外行不触发');
+});
+
+test('T8 引导区(组 1): 锁定向命中 · 解锁态静默 · 强制缝静默 · 东向恒 null · 角区检序', () => {
+  const h = Core.advEdgeHintAt;
+  assert.strictEqual(h(80, 10), 'north', '北山麓带内(z≤18)锁定=引导北(北 spec §2)');
+  assert.strictEqual(h(80, 145), 'south', '南 apron 带(z≥140)锁定=引导南(south-spec §2)');
+  assert.strictEqual(h(10, 80), 'west', '西深水带东缘外圈(x≤22)锁定=引导西(west-spec §4)');
+  assert.strictEqual(h(159, 80), null, '东向恒 null(任何状态)');
+  assert.strictEqual(h(80, 80), null, '腹地无引导');
+  assert.strictEqual(h(5, 10), 'north', 'NW 角区检序北先');
+  Core.advSetEdgeUnlockCounts({unlockedSnow: 1});
+  assert.strictEqual(h(80, 10), null, '北解锁=静默(先判开放)');
+  assert.strictEqual(h(10, 80), 'west', '他向解锁不串扰(分向门控)');
+  Core.advSetEdgeUnlockCounts(null);
+  Core.advSetEdgeBarriersHidden(true);
+  assert.strictEqual(h(80, 10), null, '强制缝全开=静默(OR 缝降级为调试全开)');
+  assert.strictEqual(Core.advEdgeOpenDir('south'), true, '强制缝下单一开放判据三向全 true');
+  Core.advSetEdgeBarriersHidden(false);
+  assert.strictEqual(Core.advEdgeOpenDir('south'), false, '缝复位回派生层(counts 缺省=锁)');
+});
+
+test('T8 FrameX 镜像(组 4): 转置格集逐格相等 · 内口 4×5 单平面 · 包盒 x±1 / z−1..+6', () => {
+  const A = new Map(); const B = new Map();
+  const put = (m) => (x, y, z, id) => m.set(((y * D + z) * W + x), id);
+  const G = Core.ADV_GROUND; const bx = 100; const bz = 100;
+  Core.advPortalFrame(put(A), G, 0, 0);
+  Core.advPortalFrameX(put(B), G, bx, bz);
+  /* 转置恒等: A(x,y,z) ↔ B(bx+z, y, bz+x) 逐格(含未写格=undefined 对)——
+     遍历域 x∈[−1,6] z∈[−1,7] 盖满两门全包盒 */
+  let written = 0;
+  for (let y = G; y <= G + Core.ADV_PORTAL.h + 3; y++) {
+    for (let z = -1; z <= 7; z++) {
+      for (let x = -1; x <= 6; x++) {
+        const a = A.get(((y * D + z) * W + x));
+        const b = B.get(((y * D + (bz + x)) * W + (bx + z)));
+        assert.strictEqual(b, a, '转置 (' + x + ',' + y + ',' + z + ')');
+        if (a !== undefined) written++;
+      }
+    }
+  }
+  assert.strictEqual(written, A.size, '遍历域盖满 A 全部写入格(无遗漏)');
+  /* 内口 4×5 门面在 x=px 单平面(转置后所有 z_local=0 元素落 x=px) */
+  let face = 0;
+  for (let y = G + 1; y <= G + 5; y++) {
+    for (let z = bz + 1; z <= bz + 4; z++) {
+      assert.strictEqual(B.get(((y * D + z) * W + bx)), B_PORTAL, '内口 (' + bx + ',' + y + ',' + z + ')');
+      assert.notStrictEqual(B.get(((y * D + z) * W + bx - 1)), B_PORTAL, 'x=px−1 无门面(单平面)');
+      assert.notStrictEqual(B.get(((y * D + z) * W + bx + 1)), B_PORTAL, 'x=px+1 无门面(单平面)');
+      face++;
+    }
+  }
+  assert.strictEqual(face, 20, '内口 4×5=20 格');
+  /* 包盒: 全部写入格 x∈[px−1,px+1] · z∈[pz−1,pz+6](塔楼 (px,·,pz−1)/(px,·,pz+6)) */
+  for (const [k] of B) {
+    const x = k % W; const zr = Math.floor(k / W) % D;
+    assert.ok(x >= bx - 1 && x <= bx + 1 && zr >= bz - 1 && zr <= bz + 6,
+        '包盒 @x=' + x + ',z=' + zr);
+  }
+});
+
+test('T8 回程门落位(组 8): 三图新位门框格集 · 旧位无门体 · 落点可站立 · advGateAt 镜像谓词契约', () => {
+  const G = Core.ADV_GROUND;
+  /* 壳 advGateAt 契约镜像(z 平面现契约 fz===g.pz && fx∈[px,px+w−1]; 波次二
+     x 平面分支 fx===g.px && fz∈[pz,pz+w−1], 方案 §2 T8-C——组 8 用谓词互证门面格集) */
+  const hitZ = (g, fx, fz) => fz === g.pz && fx >= g.px && fx <= g.px + Core.ADV_PORTAL.w - 1;
+  const hitX = (g, fx, fz) => fx === g.px && fz >= g.pz && fz <= g.pz + Core.ADV_PORTAL.w - 1;
+  const stand = (p, name) => {
+    const fx = Math.floor(p.x); const fz = Math.floor(p.z);
+    assert.ok(!isOpaque(cell(fx, p.y, fz)) && !isOpaque(cell(fx, p.y + 1, fz)),
+        name + ' 落点脚/头格无实心 @(' + fx + ',' + fz + ')');
+    assert.ok(isOpaque(cell(fx, p.y - 1, fz)), name + ' 落点脚下是实心地');
+  };
+  const noOldGate = (name) => {
+    let n = 0;
+    for (let y = G; y <= G + 9; y++) {
+      for (let x = 56; x <= 65; x++) {
+        const id = cell(x, y, 70);
+        if (id === B_PORTAL || id === B_OBSIDIAN) n++;
+      }
+    }
+    assert.strictEqual(n, 0, name + ' 旧位 (58,70) 无门体残留(门=建场件, 重进自然消失)');
+  };
+
+  /* desert (58,3) 北缘 · z 平面 */
+  vm.runInContext('worldCells.fill(0)', eng);
+  Maps8.advDesertBuild();
+  Core.advPortalFrame(setBlockRaw, G, 58, 3);
+  for (let y = G + 1; y <= G + 5; y++) {
+    for (let x = 59; x <= 62; x++) {
+      assert.strictEqual(cell(x, y, 3), B_PORTAL, 'desert 内口 @(' + x + ',' + y + ',3)');
+      assert.ok(hitZ({px: 58, pz: 3}, x, 3), 'desert 内口命中 z 平面谓词');
+    }
+  }
+  noOldGate('desert');
+  const pd = Maps8.advMapArriveAt(Maps8.ADV_DESERT.gate);
+  assert.strictEqual(pd.z, 6, 'desert 落点 z=3+3(北缘门内侧)');
+  assert.strictEqual(pd.yaw, 0, 'desert face north yaw 0');
+  stand(pd, 'desert');
+
+  /* snow (58,155) 南缘 · z 平面 */
+  vm.runInContext('worldCells.fill(0)', eng);
+  Maps8.advSnowBuild();
+  Core.advPortalFrame(setBlockRaw, G, 58, 155);
+  for (let y = G + 1; y <= G + 5; y++) {
+    for (let x = 59; x <= 62; x++) {
+      assert.strictEqual(cell(x, y, 155), B_PORTAL, 'snow 内口 @(' + x + ',' + y + ',155)');
+      assert.ok(hitZ({px: 58, pz: 155}, x, 155), 'snow 内口命中 z 平面谓词');
+    }
+  }
+  noOldGate('snow');
+  const ps = Maps8.advMapArriveAt(Maps8.ADV_SNOW.gate);
+  assert.strictEqual(ps.z, 153, 'snow 落点 z=155−2(南缘门内侧)');
+  stand(ps, 'snow');
+
+  /* swamp (154,70) 东缘 · x 平面 */
+  vm.runInContext('worldCells.fill(0)', eng);
+  Maps8.advSwampBuild();
+  Core.advPortalFrameX(setBlockRaw, G, 154, 70);
+  for (let y = G + 1; y <= G + 5; y++) {
+    for (let z = 71; z <= 74; z++) {
+      assert.strictEqual(cell(154, y, z), B_PORTAL, 'swamp 内口 @(154,' + y + ',' + z + ')');
+      assert.ok(hitX({px: 154, pz: 70}, 154, z), 'swamp 内口命中 x 平面谓词');
+      assert.ok(cell(153, y, z) !== B_PORTAL && cell(155, y, z) !== B_PORTAL,
+          'swamp 门面单 x 平面 @y=' + y + ',z=' + z);
+    }
+  }
+  noOldGate('swamp');
+  const pw = Maps8.advMapArriveAt(Maps8.ADV_SWAMP.gate);
+  assert.strictEqual(pw.x, 152, 'swamp 落点 x=154−2(东缘门内侧)');
+  stand(pw, 'swamp');
+  assert.ok(!hitX({px: 154, pz: 70}, 154, 76), 'x 平面谓词偏出 z 跨度不命中(z=76 塔楼列外)');
+  /* 注册表 face 随图常量单一权威派生(不复制) */
+  const rowOf = (id) => Maps8.ADV_MAPS.find((r) => r.id === id);
+  assert.strictEqual(rowOf('desert').gates[0].face, Maps8.ADV_DESERT.gate.face, 'desert face 派生');
+  assert.strictEqual(rowOf('snow').gates[0].face, Maps8.ADV_SNOW.gate.face, 'snow face 派生');
+  assert.strictEqual(rowOf('swamp').gates[0].face, Maps8.ADV_SWAMP.gate.face, 'swamp face 派生');
+});
+
+test('T8 西带两态建场(组 9): 锁定回归水带 · 解锁泥岸步道(恰 3 苔石恰 1 水洼) · 冒头让位 · 两态确定性 · 缺省=T7 现状 · 雾减半', () => {
+  const G = Core.ADV_GROUND;
+  const topOf = (x, z) => G + Core.advHeightAt(x, z); /* 列地形面(带内改写同款权威) */
+  const rebuild = () => {/* 清场(fill 0)后全量重建: 解锁态换装以草皮守卫为前提,
+     必须从空世界起建(壳层 rite/换图走 loadScene 清场链同构) */
+    vm.runInContext('worldCells.fill(0)', eng);
+    Core.advBuildWorld();
+  };
+
+  /* 锁定态(缺省全锁): 两次建场逐字节一致 + k13..18 列顶水(现状回归; 抽查行
+     z64..106 避开铁坑西缘带 z38..50/NW 角融冰 z16..19/南带角区 z≥128——
+     改写守卫「只换草皮」在这些区天然跳过, T7 现状同款) */
+  rebuild();
+  const lockA = snapshot();
+  rebuild();
+  assert.ok(lockA.equals(snapshot()), '锁定态两次建场逐字节一致');
+  for (let z = 64; z <= 106; z += 6) {
+    for (let x = 13; x <= 18; x++) {
+      assert.strictEqual(cell(x, topOf(x, z), z), B_WATER, '锁定 (' + x + ',' + z + ') 列顶水');
+    }
+  }
+  /* 冒头在位(锁定) */
+  assert.strictEqual(cell(15, topOf(15, 48) + 1, 48), 14, '锁定冒头 (15,48)');
+  assert.strictEqual(cell(16, topOf(16, 104) + 1, 104), 14, '锁定冒头 (16,104)');
+
+  /* 解锁态: 两次建场逐字节一致 + 泥岸步道 + 冒头让位; 普查限定 z∈[24,127]
+     (掷点域同款: 北避 NW 角角区换装, 南避南带绿洲水/沙的 SW 角区后写覆盖) */
+  Core.advSetEdgeUnlockCounts({unlockedSwamp: 1});
+  rebuild();
+  const openA = snapshot();
+  rebuild();
+  assert.ok(openA.equals(snapshot()), '解锁态两次建场逐字节一致');
+  let mossy = 0; let water = 0;
+  for (let x = 13; x <= 18; x++) {
+    for (let z = 24; z <= 127; z++) {
+      const id = cell(x, topOf(x, z), z);
+      if (id === 14) mossy++;
+      if (id === B_WATER) water++;
+    }
+  }
+  assert.strictEqual(mossy, 3, '解锁态深水带列顶恰 3 苔石垫脚(west-spec §4.3)');
+  assert.strictEqual(water, 1, '解锁态深水带列顶恰 1 残留小水洼');
+  assert.strictEqual(cell(13, topOf(13, 108), 108), 14, '苔石垫脚 (13,108)');
+  assert.strictEqual(cell(14, topOf(14, 122), 122), 14, '苔石垫脚 (14,122)');
+  assert.strictEqual(cell(15, topOf(15, 84), 84), 14, '苔石垫脚 (15,84)');
+  assert.strictEqual(cell(16, topOf(16, 98), 98), B_WATER, '残留水洼 (16,98)');
+  assert.strictEqual(cell(16, topOf(16, 98) - 1, 98), 2, '水洼泥底');
+  assert.ok(cell(15, topOf(15, 48) + 1, 48) !== 14, '冒头 (15,48) 让位(解锁态该格无水体)');
+  assert.ok(cell(16, topOf(16, 104) + 1, 104) !== 14, '冒头 (16,104) 让位');
+
+  /* 复位 counts=null 重建 → 与缺省首建逐字节一致(缺省=T7 现状最强钉, 组 10 红线) */
+  Core.advSetEdgeUnlockCounts(null);
+  rebuild();
+  assert.ok(snapshot().equals(lockA), 'counts 复位重建=缺省首建逐字节一致(老档零迁移)');
+
+  /* 西带雾: 锁定锚 0.88/0.9/1 → 开放减半 0.44/0.45/0.5; sky/fogC/锚点距离不变 */
+  const fogC = Core.advEdgeRgb(0xbcc5bf);
+  for (const [x, fLock, fOpen] of [[15, 0.88, 0.44], [8, 0.9, 0.45], [2, 1, 0.5]]) {
+    Core.advSetEdgeUnlockCounts(null);
+    const lk = Core.advEdgeSkyAt(x, 80);
+    assert.strictEqual(lk.dir, 'west', 'x=' + x + ' 主导边 west');
+    assert.strictEqual(lk.fog, fLock, 'x=' + x + ' 锁定雾档(原表)');
+    assert.deepStrictEqual(lk.fogC, fogC, 'x=' + x + ' 锁定雾色');
+    Core.advSetEdgeUnlockCounts({unlockedSwamp: 1});
+    const op = Core.advEdgeSkyAt(x, 80);
+    assert.strictEqual(op.fog, fOpen, 'x=' + x + ' 开放雾减半档');
+    assert.deepStrictEqual(op.sky, lk.sky, 'x=' + x + ' 天色不变');
+    assert.deepStrictEqual(op.fogC, lk.fogC, 'x=' + x + ' 雾色不变');
+    assert.strictEqual(op.dir, 'west', 'x=' + x + ' 主导边不变');
+  }
+  Core.advSetEdgeUnlockCounts(null);
+  assert.strictEqual(Core.advEdgeSkyAt(15, 80).fog, 0.88, '复位后选表回锁定档(换表条件不触发)');
 });

@@ -66,11 +66,17 @@
       ADV_EDGE_HOME_SKY(腹地快速旁路共享常量, P5①)·advBuildEdgeBands(带内
       地表确定性改写+屏障件+远景剪影, 正式建场件, home 图专属, advBuildWorld
       总装内建)·advEdgeNorthMountainH(北山体几何唯一权威, 保护判据与测试
-      共用)·advEdgeBarriersHidden+advSetEdgeBarriersHidden(解锁态单一开关
-      与唯一写入口——T8 将把此开关从 ?edgeUnlocked=1 URL 走查参数换成解锁
-      进度驱动, 隐藏三向屏障件)·advEdgeProtectedAt/
-      advEdgeProtectedZone(边界保护政策纯函数, T7 转正新增: T6 修订 v2 不可挖
-      判据/三向足迹列禁放判据——三向随 advEdgeBarriersHidden 开关, 东向恒保护)
+      共用)·advEdgeBarriersHidden+advSetEdgeBarriersHidden(强制全开调试缝
+      与唯一写入口——URL ?edgeUnlocked=1 走查参数驱动; 〔世界边界·T8〕降级:
+      OR 垫在进度派生之下)·advEdgeUnlockCounts+advSetEdgeUnlockCounts(解锁
+      进度账唯一写入口, 壳 init 注入 quest counts 引用不复制)·
+      advEdgeOpenDir(单一开放判据: 强制缝 OR advEdgeDirUnlocked 派生——屏障
+      建场早退/保护门控/西带地表分支/西带雾表四方共吃)·advEdgeTransitDirAt
+      (越线传送触发线纯几何, east 恒 null)+advEdgeHintAt(锁定向屏障近前
+      引导区, 解锁态静默)·ADV_EDGE_SKY_WEST_OPEN(西带解锁态雾减半表,
+      advEdgeSkyAt 换表)·advEdgeProtectedAt/advEdgeProtectedZone(边界保护
+      政策纯函数, T7 转正新增: T6 修订 v2 不可挖判据/三向足迹列禁放判据
+      ——三向随 advEdgeOpenDir 逐向门控, 东向恒保护)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
       advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——advNestStep 薄壳/
       advNightStepPool 组装消费, 加载序先于本文件) · config.js 的
@@ -83,7 +89,10 @@
      voxel.js 的 getBlock/setBlockRaw/hashRand · scene-kit.js 的
      SceneKit · items-core 的 ITEMS/toolOf/stackMax/durOf · inventory-core
      的 add · craft-core 的 fuelUnits/smeltOf/SMELT_T · drops.js 的 rollDrops/
-     rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件)
+     rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件) ·
+     adventure-maps-core.js 的 advEdgeDirUnlocked/ADV_EDGE_DIR_MAP(〔世界
+     边界·T8〕解锁派生消费, 加载序后于本文件——共享 defer 词法调用期解析,
+     index.html 顺序 spawn-core → 本文件 → maps-core → dims → modes)
    可测性: 零 THREE·零 DOM·有单测(test/adventure-core.test.js,
      vm 装真引擎件直测, 地形确定性对着真散布函数断言)
    ============================================================ */
@@ -822,8 +831,9 @@ function advScatterFlowers() {/* 花丛草场(T5, §2.4 核心圈): 蒲公英黄
    远景剪影。红线: 零 Math.random(散布全走 SceneKit.rand 坐标哈希, 两次建场
    逐字节一致); 带是 home 图专属(总装只挂 advBuildWorld, 三张远征图不挂);
    政策层(T7 转正新增: 不可挖判据/禁放柱/翻越拦截)见段末「边界保护政策」
-   (advEdgeProtectedAt/advEdgeProtectedZone); 边缘传送/白闪/音效/解锁判定
-   与存档档形归 T8。
+   (advEdgeProtectedAt/advEdgeProtectedZone); 边缘传送判据层(触发线/引导区/
+   单一开放判据/西带解锁两态/雾减半表)〔世界边界·T8〕已落本段, 白闪/音效/
+   壳装配与存档档形归波次二(壳)——判据全部纯函数可单测。
    落位坐标口径: 北=−z 带 z∈[0,24) 全 x · 南=+z 带 z∈[128,160) 全 x ·
    西=−x 带 x∈[0,32) 全 z · 东=+x 带 x∈[128,159](栅栏线 x157/隔离带 x158~159),
    世界 160×160×48。
@@ -833,15 +843,55 @@ function advScatterFlowers() {/* 花丛草场(T5, §2.4 核心圈): 蒲公英黄
    (「黑巢从沼泽里长出来」, 见 west-spec 走查修订段)。
    ============================================================ */
 
-let advEdgeBarriersHidden = false; /* 解锁态单一开关(壳写入, 建场前置位即全屏
-   隐藏三向屏障; 东向栅栏无解锁语义不随此开关)。T8 边界登记: T8 将把此开关
-   从 URL 走查参数(?edgeUnlocked=1)换成解锁进度驱动, 判据/清场重建经
-   advSetEdgeBarriersHidden 单一口径自动跟随(R6) */
+let advEdgeBarriersHidden = false; /* 强制全开调试缝(壳写入: URL ?edgeUnlocked=1
+   走查参数驱动, 拍板 Q5 保留——T10 实机走查测「解锁态传送」有此缝不必先打穿
+   任务链, 登记为调试缝不属玩家可达面)。〔世界边界·T8〕已降级: 进度驱动的
+   单一开放判据是 advEdgeOpenDir(OR 语义把本开关垫在派生层下), 建场早退/
+   保护门控/西带地表分支/西带雾表四方共吃那一口 */
 function advSetEdgeBarriersHidden(v) {
   advEdgeBarriersHidden = !!v;
 } /* 唯一写入口:
    壳与各测试域经导出消费(模块 let 不随 exports 过 vm/Node 域墙——showroom/
    adventure-mode 直写会 ReferenceError; 浏览器共享词法下同归此口) */
+
+let advEdgeUnlockCounts = null; /* 解锁进度账(壳 init 注入 ADV.quest.counts
+   **引用不复制**——任务链原地写键自动可见, 零重注入; null=缺省全锁, 与 T7
+   现状行为逐位一致, 老档零迁移) */
+function advSetEdgeUnlockCounts(counts) {
+  advEdgeUnlockCounts = counts || null; /* 唯一写入口(advSetEdgeBarriersHidden
+     同款缝模式; 传 falsy 一律归 null=全锁) */
+}
+
+function advEdgeOpenDir(dir) {/* 单一开放判据(〔世界边界·T8〕, 四方共吃一口):
+   强制缝 OR 解锁派生——advEdgeDirUnlocked(AMC, advMapUnlocked 复用不绕过)
+   查 advEdgeUnlockCounts; counts 缺省(null)=三向全锁, 行为与 T7 单开关
+   false 逐位一致。消费方: 三向屏障建场早退/保护政策逐向门控/西带解锁态
+   地表分支/西带雾表换档 + 壳传送触发与引导(波次二装配) */
+  return advEdgeBarriersHidden || advEdgeDirUnlocked(dir, advEdgeUnlockCounts);
+}
+
+function advEdgeTransitDirAt(x, z) {/* 越线传送触发线(纯几何, 解锁判定分离可
+   分维测试): 「中心进入最外一行格」与碰撞钳制面等效(voxel.js physics 把玩家
+   中心钳在 [PLAYER.hx, WORLD_W−PLAYER.hx] × [PLAYER.hz, WORLD_D−PLAYER.hz],
+   hx=hz=0.2, floor 坐标 === 0 或 === 尺寸−1 即物理可达的贴墙位); east 恒
+   null=东向无传送语义(T5 定稿收尾, 栅栏彩蛋跳缝进 x158~159 条带不触发);
+   角区检序北→南→西取先(advEdgeSkyAt cand 检序同源——NE 走查定稿同款裁定) */
+  if (z < 1) return 'north';
+  if (z >= WORLD_D - 1) return 'south';
+  if (x < 1) return 'west';
+  return null;
+}
+
+function advEdgeHintAt(x, z) {/* 锁定向屏障近前引导区(纯几何): 命中返回该向
+   (壳节流 30s 播分向话术), 先判开放——已开放→null(解锁态静默); 东向恒 null。
+   带缘常量与各 spec 带矩形同源(不抄第二份几何): 北 z≤18=山体南麓带内(北
+   spec §2, 山体足迹 z4..15)/南 z≥140=apron z139..143 起(south-spec §2)/
+   西 x≤22=深水带 x13..18 东缘外一圈(west-spec §4); 角区检序同 transit */
+  if (z <= 18 && !advEdgeOpenDir('north')) return 'north';
+  if (z >= 140 && !advEdgeOpenDir('south')) return 'south';
+  if (x <= 22 && !advEdgeOpenDir('west')) return 'west';
+  return null;
+}
 
 /* ---------- 天/雾锚点表与混合纯函数(壳层经 world.js setSkyBase 缝消费) ---------- */
 
@@ -857,6 +907,17 @@ const ADV_EDGE_SKY = {
   west: [[68, 0x8fc7ff, 0, null], [40, 0x8ac0f4, 0.08, null], [24, 0x93b3d8, 0.3, null],
     [15, 0x9ea8a3, 0.88, 0xbcc5bf], [8, 0x9ea8a3, 0.9, 0xbcc5bf], [2, 0x9ea8a3, 1, 0xbcc5bf]],
   east: [[36, 0x8fc7ff, 0, null], [8, 0x8fc7ff, 0.2, null], [2, 0x8fc7ff, 0.5, null]],
+};
+
+/* 西带解锁态雾表(〔世界边界·T8〕west-spec §4.3「横雾带 opacity 约减半」):
+   仅 west 行, 锚点距离/天色/雾色与 ADV_EDGE_SKY.west 逐位相同, 雾浓度整行
+   减半(0.08/0.3/0.88/0.9/1 → 0.04/0.15/0.44/0.45/0.5)——步道露出的同时
+   留「沼泽气息」。北/南/东不设解锁表(山体/沙丘消失不改天色目标, 雪原/
+   沙漠 palette 渐变照旧)。advEdgeSkyAt 在主导边=west 且开放时换本表;
+   counts 缺省(全锁)选表与现状逐位一致(测试组 9 钉) */
+const ADV_EDGE_SKY_WEST_OPEN = {
+  west: [[68, 0x8fc7ff, 0, null], [40, 0x8ac0f4, 0.04, null], [24, 0x93b3d8, 0.15, null],
+    [15, 0x9ea8a3, 0.44, 0xbcc5bf], [8, 0x9ea8a3, 0.45, 0xbcc5bf], [2, 0x9ea8a3, 0.5, 0xbcc5bf]],
 };
 
 /* P5 可选优化①腹地旁路的返回共享常量: {dir:null, sky/fogC=home 天色, fog:0}。
@@ -915,7 +976,10 @@ function advEdgeSkyAt(x, z) {/* 玩家位 → 边界天/雾观感(纯函数, 单
     if (!best || t > best.t) best = {dir, d, t: Math.min(1, t)};
   }
   if (!best) return {dir: null, sky: ADV_EDGE_HOME_SKY, fog: 0, fogC: ADV_EDGE_HOME_SKY};
-  const m = advEdgeRowsAt(ADV_EDGE_SKY[best.dir], best.d);
+  /* 〔世界边界·T8〕西带解锁态换雾表(浓度减半档); 其余向/锁定态走原表逐位不变 */
+  const rows = best.dir === 'west' && advEdgeOpenDir('west') ?
+    ADV_EDGE_SKY_WEST_OPEN.west : ADV_EDGE_SKY[best.dir];
+  const m = advEdgeRowsAt(rows, best.d);
   return {dir: best.dir, sky: m.sky, fog: m.fog, fogC: m.fogC};
 }
 
@@ -1055,7 +1119,8 @@ function advEdgeNorthBarrier() {/* 未解锁屏障=巍峨高山脊(北 spec §4,
   (泥面)/两处敞廊(空气面)不落山体——洞口与洞道从山体鞍部/山腹穿过(山压洞顶=
   「山腹隧道」观感, 动线零改动)。盐值 8141~8145(北带 81xx 段未用位, 旧雪崩堆
   8131/8132 随件退役)。 */
-  if (advEdgeBarriersHidden) return;
+  if (advEdgeOpenDir('north')) return; /* 〔世界边界·T8〕单一开放判据换源:
+     强制缝或北随 snow 解锁即不建山体(建场读键, 清场重建自动生效) */
   for (let x = 0; x < WORLD_W; x++) {
     for (let z = 1; z <= 23; z++) {
       const h = advEdgeNorthMountainH(x, z);
@@ -1283,7 +1348,8 @@ function advEdgeSouthBarrier() {/* 未解锁屏障=连绵大沙丘(南 spec §4 
   位置 z144..147 与 spec §4 一致; 不可挖/禁放保护判据已落地(advEdgeProtectedAt/
   advEdgeProtectedZone, T7 转正); 沙暴动效销项: 不做(C4, 2026-11-06——纯沙丘
   地形无特效件, 走查通过; 沙丘地形直接作解锁态「沙暴散去」的地形底) */
-  if (advEdgeBarriersHidden) return;
+  if (advEdgeOpenDir('south')) return; /* 〔世界边界·T8〕单一开放判据换源:
+     强制缝或南随 desert 解锁即不建沙丘 */
   for (let x = 0; x < WORLD_W; x++) {
     const C = advEdgeSouthCrest(x);
     const h1 = Math.max(2, Math.round(C / 2)); /* 迎风坡脚: 级差 ≥2=跳不过 */
@@ -1325,7 +1391,21 @@ function advEdgeWestSurface(x, z) {/* 带内格序 k=31−x(东→西): 草掺�
   if (k <= 3) return r < 0.25 ? [2, 0] : [1, 0];
   if (k <= 7) return r < 0.75 ? [2, 0] : [1, 0];
   if (k <= 12) return [2, 0];
-  if (k <= 18) return [B_WATER, 2]; /* 迷雾深水带: 六格水体南北贯穿(泥底=沼泽水洼先例) */
+  if (k <= 18) {/* 迷雾深水带: 六格水体南北贯穿(泥底=沼泽水洼先例)。〔世界边界·T8〕
+      解锁态换泥岸步道(west-spec §4.3 定稿内容: 同格位同坐标, 不挪带不挪传送线)
+      ——泥面打底, 最西四列(k15..18)各散一个落点: k16..18 苔石垫脚×3/k15 残留
+      小水洼 1 格; 锁定态冒头位 (15,48)/(16,104) 在解锁态不再落水,
+      advEdgeWestBarrier 的水守卫自然让位(两处无头, 无需改 barrier)。盐 8306
+      (83xx 段新档, 8301~8305 已在册不踩); 掷点域收窄 z∈[24,127]: 北避 NW 角
+      z16..19(CornerSweep 融冰区), 南避 z≥128(南带沙行会被改写守卫「只换草皮」
+      跳过 → 垫脚不足 3); 以世界 x 掷(最西四列各恰一落点, 确定性逐字节可钉:
+      实算 x13→z108/x14→z122/x15→z84 苔石, x16→z98 水洼) */
+    if (!advEdgeOpenDir('west')) return [B_WATER, 2];
+    if (x > 16) return [2, 0]; /* x17/18(靠岸两列 k13/k14)纯泥, 不落垫脚 */
+    const wz = 24 + Math.floor(SceneKit.rand(x, 0, 8306) * 104);
+    if (z !== wz) return [2, 0];
+    return x === 16 ? [B_WATER, 2] : [14, 0]; /* x16 残留水洼/x13..15 苔石垫脚 */
+  }
   if (k <= 22) return r < 0.18 ? [14, 0] : [2, 0]; /* 苔石斑(id 14 T_MOSSY) */
   if (k <= 26) return r < 0.75 ? [2, 0] : [1, 0];
   return [2, 0];
@@ -1751,31 +1831,32 @@ function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模
    选型=「坐标+件纯函数」(方案 P2 裁定): 零状态(无模块级 Set/旗标位)·零
    THREE/DOM·零 Math.random·零建场改动。同源原则(方案 R3): 判据直接调用各向
    建场权威函数/同一坐标式, 不抄几何公式第二份; 实施中发现判据与建场漂移,
-   以建场为准修判据。三向保护随 advEdgeBarriersHidden 单一开关缝(R6: 解锁态
-   屏障件未建=无件可保; T8 把开关换成进度驱动时本判据自动跟随); 东向栅栏/
-   告示牌/栈桩无解锁语义, 恒保护。消费方(波次一·乙 / 波次二 TEST): 挖掘守卫
+   以建场为准修判据。三向保护随 advEdgeOpenDir 单一开放判据**逐向**门控
+   (〔世界边界·T8〕落地: 强制缝 OR 解锁派生, T7 的 R6「判据自动跟随」承诺
+   由它兑现——分向解锁只让开对应向); 东向栅栏/告示牌/栈桩无解锁语义,
+   恒保护。消费方(波次一·乙 / 波次二 TEST): 挖掘守卫
    与放置替换守卫经 hardText 扩缝调 advEdgeProtectedAt; 翻越拦截经
    opts.placeGuard 注入调 advEdgeProtectedZone——两者均为事件路径(mineTick
    起手/tryPlace 点击), 零逐帧成本(方案 §3.2-5)。 */
 
 function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁屏障件+
   东向栅栏/告示牌/栈桩=像基岩, 不可挖不可替换) */
-  const lock = !advEdgeBarriersHidden; /* 三向未解锁态(东向不随开关, 见段头注) */
   const top = ADV_GROUND + advHeightAt(x, z); /* 列地形面(与带内地表改写同一高度权威) */
   /* 北·山体列: 几何唯一权威=advEdgeNorthMountainH(Barrier 建体同源), 命中
      范围以函数现算为准(当前种子实测 z4..15; 北 spec §7 旧矩形 z∈[11,13]
      已失准不用)。误伤登记(R2 同款): 让势格无山体实体也在保——山洞口小丘
      (x61..62/z6..13 泥面)/敞廊空气面落在山体足迹内, 洞口顶面挖/放受限,
-     解锁态随开关整体让开; G2 实机走查复核接受度 */
-  if (lock && advEdgeNorthMountainH(x, z) > 0 && y >= top) return true;
+     解锁态随判据整体让开; G2 实机走查复核接受度 */
+  if (!advEdgeOpenDir('north') && advEdgeNorthMountainH(x, z) > 0 && y >= top) return true;
   /* 南·沙丘脊列 z144..147: 权威剖面在 advEdgeSouthBarrier(脊体立带内沙面,
      top+1..top+h), y≥地形面整段在保(含脊顶砂岩露头; south-spec §4) */
-  if (lock && z >= 144 && z <= 147 && y >= top) return true;
+  if (!advEdgeOpenDir('south') && z >= 144 && z <= 147 && y >= top) return true;
   /* 西·迷雾深水带列 x13..18: 权威=advEdgeWestSurface k13..18 的[水,泥底]
      列带+advEdgeWestBarrier 苔石冒头(top+1)——水体格(面)/泥岸格(底)/苔石
      坐标一格不落(west-spec §4; 判据按列带坐标不读块 id, 角区后写换装
-     (NW 融冰/SW 潮尾水)天然同在保) */
-  if (lock && x >= 13 && x <= 18 && y >= top - 1 && y <= top + 1) return true;
+     (NW 融冰/SW 潮尾水)天然同在保; 〔世界边界·T8〕解锁态判据让开与地表
+     换泥岸步道同口advEdgeOpenDir, 步道块可正常挖放) */
+  if (!advEdgeOpenDir('west') && x >= 13 && x <= 18 && y >= top - 1 && y <= top + 1) return true;
   /* 东·栅栏线 x157(east-spec §5): 杆/桩基 y0 恒在(全 z 无条件写, 判据同式
      无条件), 桩顶 y0+1 只 z%3===0 桩位, 栈桩 y0−1 只 z153/154/159(SE 角
      post-pass 原木桩脚; 已逐格核对三格均实落桩=建场实录) */
@@ -1796,13 +1877,12 @@ function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁�
 }
 
 function advEdgeProtectedZone(x, z) {/* 翻越拦截判据(P3, T6 v2 授权口径): 三向
-  屏障足迹列整列禁放(y 全高——垫塔/架桥第一格必落禁放列, 零旁路, 判据最简
-  纯 x/z 不读高度场); 东向恒 false=翻栅栏彩蛋(拍板语义: 桩 2 格跳不过,
+  未解锁屏障足迹列整列禁放(y 全高——垫塔/架桥第一格必落禁放列, 零旁路, 判据
+  最简纯 x/z 不读高度场); 东向恒 false=翻栅栏彩蛋(拍板语义: 桩 2 格跳不过,
   缝格木板 1 格可跳) */
-  const lock = !advEdgeBarriersHidden;
-  if (lock && advEdgeNorthMountainH(x, z) > 0) return true; /* 北: 山体足迹列 */
-  if (lock && z >= 144 && z <= 147) return true; /* 南: 沙丘脊列(south-spec §4) */
-  if (lock && x >= 13 && x <= 18) return true; /* 西: 深水带列(west-spec §4) */
+  if (!advEdgeOpenDir('north') && advEdgeNorthMountainH(x, z) > 0) return true; /* 北: 山体足迹列 */
+  if (!advEdgeOpenDir('south') && z >= 144 && z <= 147) return true; /* 南: 沙丘脊列(south-spec §4) */
+  if (!advEdgeOpenDir('west') && x >= 13 && x <= 18) return true; /* 西: 深水带列(west-spec §4) */
   return false;
 }
 
@@ -3010,6 +3090,20 @@ function advPortalFrame(set, by, px, pz, look) {
   }
 }
 
+/* x 平面门体变体(〔世界边界·T8〕world-edge-t8-plan §2 T8-C): 门面法线 ±x 的
+   门——沼泽东缘回程门「内侧 2.5 格面朝图内」字面成立的唯一几何(z 平面门的
+   内向位移会落进门框柱/塔楼柱实心格, 孩子东行回家还得侧身蹭门)。实现用
+   **转置包装**(几何零第二份, 同源原则): 内层 advPortalFrame 以原点为锚建
+   标准 z 平面门, 写入缝做坐标转置 (x,y,z) → set(px+z, y, pz+x, id)——得
+   x∈[px−1,px+1]、z∈[pz−1,pz+6] 的镜像门, 内口 4×5 门面在 x=px 单平面上;
+   黑曜石框/门面/发光岩/步道/火把全继承, 观感件零重写。所有 z_local=0 元素
+   (底/顶边/柱/门面/发光岩/门楣/塔楼)全落 x=px 单平面, 塔楼在 (px,·,pz−1)/
+   (px,·,pz+6), 步道在 x=px±1。消费点(advGatesBuild/advGateAt/光束锚 x 平面
+   分派)归波次二壳层, 本体只建场 */
+function advPortalFrameX(set, by, px, pz, look) {
+  advPortalFrame((x, y, z, id) => set(px + z, y, pz + x, id), by, 0, 0, look);
+}
+
 /* 传送门内口判定(O(1), 免门位注册表): 玩家浮点坐标 → 脚格(floor x,
    floor y, floor z)与头格(+1)任一为 B_PORTAL 即在门内——玩家放置的门
    与下界回程门同一条判据; read 为方块读 seam(壳传 getBlock) */
@@ -3247,8 +3341,10 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_STONE_EGG_CD, ADV_STONE_HINT_CD, ADV_STONE_EGG_GIFT,
     advStoneAltarHit, advStoneEggPick,
     ADV_EDGE_SKY, advEdgeRgb, advEdgeSkyAt, advBuildEdgeBands,
+    ADV_EDGE_SKY_WEST_OPEN, /* 〔世界边界·T8〕组 9 钉「缺省选表逐位一致」消费 */
     advEdgeNorth, advEdgeSouth, advEdgeWest, advEdgeEast,
-    advSetEdgeBarriersHidden,
+    advSetEdgeBarriersHidden, advSetEdgeUnlockCounts,
+    advEdgeOpenDir, advEdgeTransitDirAt, advEdgeHintAt,
     advEdgeProtectedAt, advEdgeProtectedZone,
     advEdgeNorthMountainH, ADV_EDGE_HOME_SKY, /* T7 转正测试消费(找山体列/旁路原引用钉) */
     ADV_QUEST_CHECK_T, ADV_QUEST_TITLE, ADV_MINE_TALLY, ADV_QUESTS, advUnlockQuest,
@@ -3261,7 +3357,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_LANTERN, advLanternStep,
     ADV_TNT_TAP_T, advTntTapStep, advCascadeLedger, advGrowMark,
     advExplodeCells, advTntWave, ADV_HERD_AMBLE_WALK_P, advAmbleStep,
-    ADV_PORTAL, advPortalFrame,
+    ADV_PORTAL, advPortalFrame, advPortalFrameX,
     advInPortal, advPortalSiteOk, advPortalExit,
     ADV_DEN_NEST_DOOR,
     advIsDoor, advIsDoorLower, advDoorSiteOk, advDoorTogglePlan,

@@ -38,7 +38,11 @@
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调) ·
      advEdgeSkyTick(〔边界转正·T7〕边界天/雾渐变编排: 混合色走 setSkyBase
-     缝+雾距直写, home 图专属, 锚点纯函数在 adventure-core.advEdgeSkyAt)
+     缝+雾距直写, home 图专属, 锚点纯函数在 adventure-core.advEdgeSkyAt) ·
+      advEdgeTick(〔世界边界·T8〕边缘传送触发+近前引导装配: home 图专属,
+      触发线/引导区/开放判据纯函数在 adventure-core(advEdgeTransitDirAt/
+      advEdgeHintAt/advEdgeOpenDir), 方向映射在 adventure-maps-core
+      (ADV_EDGE_DIR_MAP); 白闪变体挂 #portalVeil.edge(css))
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
       adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
        index.html 加载序在 adventure-core 之前) ·
@@ -1822,6 +1826,13 @@ function advBeamAdd(by, px, pz, mw, mh) {/* 单门一束(束心=门基宽中点/
   advBeamHs.push(Fx.portalBeam ? Fx.portalBeam(px + w / 2 + 1, by + 1, pz + 0.5,
       {w: w, h: h}) : null);
 }
+function advBeamAddX(by, px, pz) {/* x 平面门一束(〔世界边界·T8〕advBeamAdd 转置镜像):
+    Fx.portalBeam 是竖直光柱(boltBox 缩放柱体, x/z 对称无朝向), 锚点按转置
+    (px+0.5, by+1, pz+w/2+1) 落在门面中线上即可 */
+  const w = ADV_PORTAL.w - 2; const h = ADV_PORTAL.h - 2;
+  advBeamHs.push(Fx.portalBeam ? Fx.portalBeam(px + 0.5, by + 1, pz + w / 2 + 1,
+      {w: w, h: h}) : null);
+}
 function advBeamsClear() {/* 全清(切界/cleanup): 悬空句柄再 remove 无害 */
   for (const h of advBeamHs) if (h && Fx.removeBeam) Fx.removeBeam(h);
   advBeamHs.length = 0;
@@ -1834,7 +1845,9 @@ function advBeamsRelayout() {/* 重锚当前界全部门: 下界/副本回程门
     advBeamAdd(ADV_DEN.ground, ADV_DEN.gate.px, ADV_DEN.gate.pz); /* 副本回程裂隙门(常亮) */
   } else {
     for (const g of advMapRow.gates) {
-      if (advGateLit(g)) advBeamAdd(ADV_GROUND, g.px, g.pz); /* 亮门才有束(熄门无门面) */
+      if (!advGateLit(g)) continue; /* 亮门才有束(熄门无门面) */
+      if (advGateIsX(g)) advBeamAddX(ADV_GROUND, g.px, g.pz); /* x 平面门: 锚点转置 */
+      else advBeamAdd(ADV_GROUND, g.px, g.pz);
     }
     /* 巢穴之门(2026-10-30 巢穴观感票补束): 建场直写不在 edits 也不在门阵——
        advDenDoor 查表派生(单一权威, 巢门坐标不抄第二份; home 图限定与
@@ -1874,6 +1887,10 @@ function advBeamsRelayout() {/* 重锚当前界全部门: 下界/副本回程门
 function advGateLit(g) {/* 门亮否: 目标图解锁(回程门 to=home 恒亮); 纯读任务档 */
   return advMapUnlocked(g.to, ADV.quest.counts);
 }
+function advGateIsX(g) {/* 门面法线 ±x 的门(face east/west, 〔世界边界·T8〕):
+    沼泽东缘回程门走 advPortalFrameX 转置镜像; face 缺省(home 门阵三扇)=z 平面 */
+  return g.face === 'east' || g.face === 'west';
+}
 function advGatesBuild() {/* 当前图门阵建场(loadScene 基座段收尾, 不记账): home 三扇
     门阵 + 远征图单回程门; 熄门立框+**暗紫微光门面**(2026-10-27 用户拍板: 从「只立框
     空洞黑」改为 B_PORTAL_DIM——读得出「这是传送门, 只是还没开」; 无 portal 旗标且
@@ -1883,22 +1900,31 @@ function advGatesBuild() {/* 当前图门阵建场(loadScene 基座段收尾, �
   if (advDim !== 'overworld' || !ADV_B.portal || !ADV_B.obsidian) return; /* 非主世界无门阵(副本回程门/下界回程门在 advSetDim 建场段) */
   for (const g of advMapRow.gates) {
     const lit = advGateLit(g);
-    advPortalFrame((x, y, z, id) => {
+    (advGateIsX(g) ? advPortalFrameX : advPortalFrame)((x, y, z, id) => {
       if (id === ADV_B.portal && !lit) {
         if (ADV_B.portalDim) setBlockRaw(x, y, z, ADV_B.portalDim); /* 熄门: 门面降级微光 */
         return;
       }
       setBlockRaw(x, y, z, id);
     }, ADV_GROUND, g.px, g.pz, g.look); /* g.look = 门体主题建材(home 门阵三扇各配,
-      远征图回程门无 look=经典下界门; 熄/亮只换门面格, 建材两态同款) */
+      远征图回程门无 look=经典下界门; 熄/亮只换门面格, 建材两态同款);
+      门面平面按 face 分派(x 平面门走转置镜像——修波次一过渡态: 沼泽门
+      (154,70) 若仍走 z 平面会写到 x=160 越界行) */
   }
 }
 function advGateAt(x, z) {/* 门阵包围盒查表(advInPortal 命中后): 玩家脚格落在当前行
-    某扇门的门面平面(fx∈门框 6 宽, fz=门面 z) → 返回该门 {to,px,pz};
-    未命中返回 null = 玩家自放的 nether 门(保持 D6 即时语义) */
+    某扇门的门面平面 → 返回该门 {to,px,pz}; 未命中返回 null = 玩家自放的
+    nether 门(保持 D6 即时语义)。z 平面门: fx∈门框 6 宽且 fz=门面 z; x 平面门
+    (face east/west, 转置镜像): 恰好对调——fx=门面 x 且 fz∈门框 6 宽(组 8 钉的
+    镜像谓词契约 fx===g.px && fz∈[pz, pz+ADV_PORTAL.w−1]) */
   if (advDim !== 'overworld') return null;
   const fx = Math.floor(x); const fz = Math.floor(z);
   for (const g of advMapRow.gates) {
+    if (advGateIsX(g)) {
+      if (fx !== g.px) continue; /* 门面是单 x 平面(advPortalFrameX 口径) */
+      if (fz >= g.pz && fz <= g.pz + ADV_PORTAL.w - 1) return g;
+      continue;
+    }
     if (fz !== g.pz) continue; /* 门面是单 z 平面(advPortalFrame 口径) */
     if (fx >= g.px && fx <= g.px + ADV_PORTAL.w - 1) return g;
   }
@@ -2063,6 +2089,24 @@ function advMapSpawn(spot) {/* 主世界缺省出生: 显式点 > home 出生账
   if (advMap === 'home') return ADV.spawn;
   return advMapArrive(advMapRow);
 }
+function advOverworldReload() {/* 主世界当前图整场重建(〔世界边界·T8〕提单一实现):
+    advSetDim overworld 分支与 advVeilArrive rite 分支(解锁让开同图重建)共用
+    这一份 loadScene 体——advBuildScene 基座确定性重建+当前桶重放+门阵重建+
+    树苗/麦/树位重挂+矿位回填+站点重扫+炉键核销。纯重构: 行为与原内联闭包
+    逐字节一致(既有换图/下界切换断言回归保障)。不跑 applySweep——那是 init
+    旧档治愈专用, 切回来的世界本来就是干净的 */
+  loadScene(() => {
+    advBuildScene(advMapRow);
+    advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
+    advGatesBuild(); /* 门阵重建(T7): 重放之后立门——玩家对门区的误放被门体盖回 */
+    advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
+    advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
+    advRescanTreeRegen(); /* 凋零树位重挂恢复计时(仅 home 图有树位清单) */
+    advOreRegenTick(); /* 到期矿位回填(跨天口径; 只结本场景的账) */
+    advRescanStations();
+    advFurnaceSettle(advMap);
+  });
+}
 function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前桶重放) → 换天/昼夜门 →
     清场 → 出生 → 站点重扫 → 光束重锚。spot 显式出生点: 死亡/回家传小屋
     (ADV.spawn 账本, 与 advPortalExit 无关), 正常回上界缺省用 advExitSpot
@@ -2106,18 +2150,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     ModeKit.spawn(drow.spawn.x, drow.spawn.y, drow.spawn.z, {yaw: drow.spawn.yaw}); /* 行落点(结构常量派生) */
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
   } else {
-    loadScene(() => {/* 主世界基座确定性重建(当前地图行 build) + 当前桶重放; 不跑
-        applySweep——那是 init 旧档治愈专用, 切回来的世界本来就是干净的 */
-      advBuildScene(advMapRow);
-      advStore.journal.replay({block: setBlockRaw, fluid: setFluidLv});
-      advGatesBuild(); /* 门阵重建(T7): 重放之后立门——玩家对门区的误放被门体盖回 */
-      advRescanSaplings(); /* 世界里的树苗重挂 20s 计时(计时 Map 不落盘) */
-      advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
-      advRescanTreeRegen(); /* 凋零树位重挂恢复计时(仅 home 图有树位清单) */
-      advOreRegenTick(); /* 到期矿位回填(跨天口径; 只结本场景的账) */
-      advRescanStations();
-      advFurnaceSettle(advMap);
-    });
+    advOverworldReload();
     advApplyMapPalette(advMapRow); /* 行调色板换装(home 行=缺省同值, 天色随后由昼夜驱动接管) */
     dayCycleOn = true;
     applyDaylight(); /* 恢复到暂停时刻的天色/光强/日月 */
@@ -2300,27 +2333,54 @@ function advVeilSet(op) {/* 直驱渐晕透明度(advFadeSet 同款: 关 transit
   el.style.transition = 'none';
   el.style.opacity = op;
 }
-function advVeilReset() {/* 收尾/中断: 转场归零 + 遮罩收起(不渗其他模式) */
+function advVeilEdgeCls(on) {/* 白闪变体 class 开关(〔世界边界·T8〕): kind='edge'/'rite'
+    挂 #portalVeil.edge(css 白色径向渐变——忌纯白刺眼忌纯黑, 调研 D3 幼儿口径),
+    map/den 门阵维持紫色不挂。el/classList 缺席静默(Node 假 DOM 有桩) */
+  const el = advVeilEl();
+  if (el && el.classList) el.classList.toggle('edge', !!on);
+}
+function advVeilReset() {/* 收尾/中断: 转场归零 + 遮罩收起 + 白闪变体摘除(不渗其他模式) */
   advVeil.phase = 'idle';
   advVeil.t = 0;
+  advVeilEdgeCls(false);
   advVeilSet(0);
 }
 function advVeilFire(gate) {/* 站满发令: 开渐晕转场 + 进冷却(0.8s 盖过整个转场窗, 防连触)。
-    gate.kind='den'(巢穴副本入口, den-nest §3.3)缺省 'map'(门阵切图) */
+    gate.kind='den'(巢穴副本入口, den-nest §3.3)/'edge'(边缘越线, 世界边界·T8)/
+    'rite'(解锁让开演出, 世界边界·T8)缺省 'map'(门阵切图) */
   advVeil.phase = 'in';
   advVeil.t = 0;
   advVeil.to = gate.to;
   advVeil.from = advMap; /* 来时图: 到达侧找 to===from 的那扇门(沙漠门进沙漠门出) */
   advVeil.kind = gate.kind || 'map';
+  advVeilEdgeCls(advVeil.kind === 'edge' || advVeil.kind === 'rite'); /* 白闪变体(紫门阵不挂) */
   advGateHold.t = 0;
   advPortalCd = ADV_PORTAL.cd;
 }
-function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——den=切副本 / map=切图 */
+function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——den=切副本 / rite=解锁
+    让开同图重建 / map(含 edge)=切图(kind='edge' 天然落入 map 到达路径零改动:
+    ADV_MAPS.find(to) → gates.find(to===from)=挪边后的回程门 → advSetMap+到达
+    记账+portal_travel 音+播报, 世界边界·T8) */
   advSfx('portal_travel'); /* 双段式第二段: 与遮罩满格同拍 */
   if (advVeil.kind === 'den') {
     advSetDim('den'); /* 换桶/建场/暗黑天穹/首刷在切界装配(den-nest §3.3 ②) */
     advSpeak('你钻进了苦力怕巢穴深处！');
     advToast('🕳️ 钻进了苦力怕巢穴深处！');
+    return;
+  }
+  if (advVeil.kind === 'rite') {
+    /* 解锁让开演出(〔世界边界·T8〕拍板 Q4): 白闪满格瞬间**同图重建**(屏障显隐
+        是建场读键, advOverworldReload 整链≈换图量级, 满格遮蔽下同步执行——
+        孩子看到: 白闪起→白闪退=屏障让开的新地貌, 与换图同款体验)。不切图
+        不记账不清场实体(任务档键已在仪式前置位, 重建读键即让开) */
+    advOverworldReload();
+    advBeamsClear(); /* 仪式增量束先摘: 重锚单一权威(rebuild 后门态读键已变) */
+    advBeamsRelayout();
+    const rrow = ADV_MAPS.find((r) => r.id === advVeil.to);
+    const rtxt = ADV_EDGE_SIDE_TXT[ADV_EDGE_DIR_OF[advVeil.to]];
+    advSpeak('通往' + (rrow ? rrow.name : '') + '的路打开啦！从家的' +
+        (rtxt ? rtxt.mid : '') + '一直走就能到！');
+    advToast('🧭 通往' + (rrow ? rrow.name : '') + '的路打开啦！');
     return;
   }
   const row = ADV_MAPS.find((r) => r.id === advVeil.to);
@@ -2424,6 +2484,53 @@ function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/�
     advSetDim('overworld');
     advSpeak('回到上界啦');
     advToast('🏡 回到上界啦');
+  }
+}
+
+/* ---------- 边缘传送触发与近前引导(〔世界边界·T8〕, T8-A/T8-B 壳装配) ----------
+     home 图专属两条线(远征图无触发线): 开放向走到最外一行格=越线瞬间传送
+     (无站桩, 拍板 6——判据纯函数 advEdgeTransitDirAt/单一开放判据
+     advEdgeOpenDir 都在 adventure-core, 这里只装配); 锁定向走近屏障近地带=
+     节流 30s 分向话术(advEdgeHintAt, 引导回任务不传送)。触发读 pos 在壳层,
+     引擎零改动(R8); 早退链 O(1) 零分配零世界读(§3 性能口径) */
+let advEdgeHintT = 0; /* 近前引导话术节流秒(函数顶递减——advGateLockT 同款 timer) */
+const ADV_EDGE_HINT_CD = 30; /* 同缘带提示间隔(不啰嗦; G3 实机走查拍板 2026-11-07:
+    6s 太密改 30s——孩子走近听一遍就够, 停在近前 30s 后才再提) */
+/* 目的图→来向方向词(ADV_EDGE_DIR_MAP 反查表, rite 播报用); 分向话术素材
+    (占位, 终稿归 G3 话术过目环节): 拟人+指回任务+给期待, 一律**不引用门阵**
+    (R9——T9 要拆门阵, 指向只用方向词/地平线) */
+const ADV_EDGE_DIR_OF = {snow: 'north', desert: 'south', swamp: 'west'};
+const ADV_EDGE_SIDE_TXT = {
+  north: {mid: '北边', far: '北边雪山', open: '雪就会让开的'},
+  south: {mid: '南边', far: '南边大沙丘', open: '沙子就会让开的'},
+  west: {mid: '西边', far: '西边雾气', open: '雾就会散开的'},
+};
+function advEdgeTick(dt) {/* 边缘机制装配(update 每帧, advEdgeSkyTick 相邻位,
+    同 gate advDim==='overworld' && advMap==='home'): 早退链(冷却/转场中/睡觉,
+    advPortalTick 同款口径)→触发线判据→开放即 advVeilFire(白闪+冷却在 veil 段);
+    未解锁→近前引导节流话术 */
+  advEdgeHintT = Math.max(0, advEdgeHintT - dt);
+  if (advPortalCd > 0 || advVeil.phase !== 'idle' || advSleep.on) return; /* 冷却/白闪进行中/睡觉不触发 */
+  if (advDim !== 'overworld' || advMap !== 'home') return; /* 边缘机制 home 图专属(两比较先退) */
+  const dir = advEdgeTransitDirAt(Math.floor(pos.x), Math.floor(pos.z));
+  if (dir && advEdgeOpenDir(dir)) {
+    advVeilFire({to: ADV_EDGE_DIR_MAP[dir], kind: 'edge'}); /* 越线瞬间传送(无站桩, 拍板 6) */
+    return;
+  }
+  const hint = advEdgeHintAt(Math.floor(pos.x), Math.floor(pos.z));
+  if (!hint || advEdgeHintT > 0) return; /* 未命中近前带/节流窗内: 静默 */
+  advEdgeHintT = ADV_EDGE_HINT_CD;
+  const nm = (ADV_MAPS.find((r) => r.id === ADV_EDGE_DIR_MAP[hint]) || {}).name || '';
+  const st = ADV_EDGE_SIDE_TXT[hint];
+  const uq = advUnlockQuest(ADV_EDGE_DIR_MAP[hint]); /* 前置任务(挂 unlock 的那条) */
+  if (!uq || ADV.quest.step < ADV_QUESTS.indexOf(uq)) {/* 链还没走到: 泛指先做任务
+      (不剧透未来步——advGateLockTick 2026-10-27 踩坑教训同款分级) */
+    advSpeak(st.far + '那边的路还在睡觉呢！先把任务卡上的任务做完，' + st.open +
+        '，就能去' + nm + '啦！');
+    advToast('🔒 先做完任务卡的任务，通往' + nm + '的路就会打开');
+  } else {/* 前置任务已是当前步: 点名具体做什么 */
+    advSpeak('先' + uq.goal + '，' + st.open + '，通往' + nm + '的路就打开啦！');
+    advToast('🔒 先' + uq.goal + '，通往' + nm + '的路就打开啦');
   }
 }
 
@@ -3559,19 +3666,31 @@ function advUnlockRite(mapId) {
   let g = (advDim === 'overworld') ? advMapRow.gates.find((q) => q.to === mapId) : null;
   if (g && !ADV_B.portal) g = null; /* 精简装载守卫(ADV_B 同款): 无门面方块不补格 */
   if (g) {
-    advPortalFrame((x, y, z, id) => {
+    (advGateIsX(g) ? advPortalFrameX : advPortalFrame)((x, y, z, id) => {
       if (id === ADV_B.portal) {
         setBlockRaw(x, y, z, id); /* 只补门面(框熄门时已立) */
         advMeshTouch(x, z); /* 门面格同拍入脏队列: 当帧重网格立刻可见(不标脏=黑框) */
       }
-    }, ADV_GROUND, g.px, g.pz, g.look); /* 主题建材与建场同款(g.look, 点亮只换门面) */
+    }, ADV_GROUND, g.px, g.pz, g.look); /* 主题建材与建场同款(g.look, 点亮只换门面);
+        门面平面按 face 分派(z 平面/x 平面镜像, 现任务链点亮只发生在 home 门阵
+        三扇 z 平面门——分派为 T9 后沼泽门点亮留的单一实现) */
     advMeshFlush();
-    advBeamAdd(ADV_GROUND, g.px, g.pz); /* 常驻光束: 亮门才有束(熄门无门面口径) */
-    Fx.pop(g.px + ADV_PORTAL.w / 2, ADV_GROUND + 2, g.pz + 0.5,
-        {color: 0xb676f2, r0: 0.3, r1: 2.6, dur: 0.8}); /* 紫色门面同款色系冲击波 */
+    if (advGateIsX(g)) advBeamAddX(ADV_GROUND, g.px, g.pz); /* 常驻光束: 亮门才有束(熄门无门面口径) */
+    else advBeamAdd(ADV_GROUND, g.px, g.pz);
+    Fx.pop(g.px + (advGateIsX(g) ? 0.5 : ADV_PORTAL.w / 2), ADV_GROUND + 2,
+        g.pz + (advGateIsX(g) ? ADV_PORTAL.w / 2 : 0.5),
+        {color: 0xb676f2, r0: 0.3, r1: 2.6, dur: 0.8}); /* 紫色门面同款色系冲击波(锚随门面平面) */
   }
   advSpeak(nm + '之门亮起来啦！' + (g ? '' : '回到家里就能看到！'));
   advToast('✨ ' + nm + '之门亮起来啦！');
+  if (advDim === 'overworld' && advMap === 'home') {
+    /* 解锁让开演出(〔世界边界·T8〕拍板 Q4): 既有仪式(琶音/门面亮/冲击波)先落,
+        白闪其后一拍不抢戏(R7); 白闪满格瞬间同图重建归 advVeilArrive rite 分支
+        (屏障让开=建场读键) */
+    advVeilFire({to: mapId, kind: 'rite'});
+  }
+  /* 玩家在远征图/别界完成点亮: 上面 g=null 的「回到家里就能看到」播报已带
+      「回家就能看到」语义——不白闪不重建(建场读键延迟生效, 零额外机制) */
 }
 
 /* 任务卡(背包面板 aside, 打开背包即见): 当前步大图标+进度条, 已完成步划线史,
@@ -3729,6 +3848,7 @@ const AdventureMode = mkMode({
     advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
     advVeilReset(); /* 渐晕遮罩收起归零(T7) */
     advGateLockT = 0; /* 锁门提示节流复位 */
+    advEdgeHintT = 0; /* 边缘近前引导节流复位(〔世界边界·T8〕, 同族 timer 惯例) */
     advEdgeSkyKeyHi = null; advEdgeSkyKeyLo = null; /* 〔边界转正·T7〕渐变量化键复位(进场首帧必写——
        上局可能停在带内, 按键跳写会漏掉首帧渐变; P5②拆双键双复位) */
     if (typeof advSetEdgeBarriersHidden === 'function') {
@@ -3767,6 +3887,13 @@ const AdventureMode = mkMode({
        历史计数不追溯(玩家挖过什么无法从世界状态重建); step 钳进表界(表外=终章完成) */
     if (!ADV.quest.counts || typeof ADV.quest.counts !== 'object') ADV.quest.counts = {};
     ADV.quest.step = Math.max(0, Math.min(ADV.quest.step | 0, ADV_QUESTS.length));
+    if (typeof advSetEdgeUnlockCounts === 'function') {
+      advSetEdgeUnlockCounts(ADV.quest.counts); /* 解锁进度账注入(〔世界边界·T8〕):
+          **引用不复制**——任务链原地写键(ADV.quest.counts[...] = 1)自动可见,
+          零重注入; 放在 counts 归一化之后(老档补空表再注入)。cleanup 不清
+          引用(R10: 进场重注入同对象幂等), AC 侧 counts 缺省 null=全锁与
+          T7 现状逐位一致 */
+    }
     /* 大宝箱账户(引导链 v2 / ADR 0007): 存档 size 字段=阶梯基础格 base(老档
        零迁移——老档无箱子数概念, base=老 size 恰好兼容); chests 从五桶世界
        账本现算, size=总容量=base+9×chests; 槽位数组补齐到容量但永不截断——
@@ -3897,6 +4024,8 @@ const AdventureMode = mkMode({
     advGateHold.t = 0; /* 门阵/巢穴门站桩归零(T7) */
     advVeilReset(); /* 渐晕遮罩收起(T7): 中途退出模式不留紫屏 */
     advGateLockT = 0; /* 锁门提示节流复位 */
+    advEdgeHintT = 0; /* 边缘近前引导节流复位(〔世界边界·T8〕; counts 引用不清——
+        R10: 进场 init 重注入同对象幂等) */
     advEdgeSkyKeyHi = null; advEdgeSkyKeyLo = null; /* 〔边界转正·T7〕渐变量化键复位(重进首帧必写;
        P5②拆双键双复位); 天/雾色复位由下行 advMapRowCleanup 内含(setSkyBase(null)+advApplySky) */
     advMapRowCleanup(); /* 行调色板复位内含 advApplySky(ADV_SKY_OVER), 不另重复调用 */
@@ -3951,6 +4080,8 @@ const AdventureMode = mkMode({
     advSyncMood(); /* 场景曲随昼夜/维度走(同值空转; 首帧补报夜间重进) */
     advEdgeSkyTick(); /* 〔边界转正·T7〕边界天/雾渐变(home 图专属, 同值空转):
         走 setSkyBase/雾距既有缝, 昼夜插值仍归 applyDaylight */
+    advEdgeTick(dt); /* 〔世界边界·T8〕边缘传送触发+近前引导(home 图专属):
+        早退链→越线瞬间白闪传送(解锁向)/近前话术节流(锁定向) */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */

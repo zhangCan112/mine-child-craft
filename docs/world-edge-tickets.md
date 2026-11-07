@@ -170,7 +170,7 @@ MC 官方在「世界边界」与「群系过渡」上的观感语言是什么�
 
 ## T8 · 边缘传送机制 + 解锁判定 + 回程门挪边
 
-> 标签：`wayfinder:task`（HITL，话术文案需用户过目）｜状态：open｜blocked-by：T7 T6｜blocks：T9 T10
+> 标签：`wayfinder:task`（HITL，话术文案需用户过目）｜状态：closed（2026-11-07 三波次施工完成 + G3 实机走查通过）｜blocked-by：T7 T6｜blocks：T9 T10
 
 ### Question
 
@@ -180,7 +180,13 @@ MC 官方在「世界边界」与「群系过渡」上的观感语言是什么�
 
 ### Resolution
 
-（待解）
+（2026-11-07 三波次施工完成 + G3 实机走查通过；施工方案 [world-edge-t8-plan.md](world-edge-t8-plan.md) §7 六拍板题+三波次编排+G1~G4 门禁）
+
+- **波次一（纯函数/常量）**：adventure-core 边缘纯函数群——advEdgeTransitDirAt（触发线贴碰撞钳制面，east 恒 null）/advEdgeHintAt（近前引导区）/advEdgeOpenDir（单一开放判据=强制缝 OR 解锁派生）/advSetEdgeUnlockCounts（政策缝，null=全锁与 T7 现状逐位一致，老档零迁移）；adventure-maps-core ADV_EDGE_DIR_MAP/advEdgeDirUnlocked（复用 advMapUnlocked 不绕过）。
+- **波次二（壳装配）**：advEdgeTick 传送链（advVeilFire kind='edge' 白闪+0.8s 冷却防抖；到达链零改动落挪边回程门）+近前话术（分级不剧透未来步，advGateLockTick 踩坑教训同款）+解锁让开演出（advUnlockRite 末尾 kind='rite' → advVeilArrive 同图重建 advOverworldReload，R6 背书零新机制；不切图不记账不清场实体）+回程门挪边（advPortalFrameX x 平面泛化+ADV_GATE_FACE_*+advMapArriveAt face 泛化；沙漠北缘 (58,3)/雪原南缘 (58,155)/沼泽东缘 (154,70)，旧位 (58,70) 无门体）+#portalVeil.edge 白闪 CSS 变体。
+- **六拍板题**（HITL 经济：五题技术定档代裁走查未遭否决——白闪 0.8s 沿用门阵节拍/复用到达琶音/解锁演出=白闪+同图重建（R6）/`?edgeUnlocked=1` 保留 OR 强制全开调试缝/回程门三坐标如上；**Q3 用户拍板维持西向软屏障**：锁定态可蹚水到西缘，不传送零伤害，T10 复核）。
+- **G3 实机走查拍板（2026-11-07）**：话术终稿通过（拟人+指回任务+给期待占位未遭否决即终稿）；**密度拍板节流 6s→30s**（ADV_EDGE_HINT_CD=30，组 6 断言重写 30s 时序——观察窗必须 > CD，消化帧大步长 30.1）；走查附加拍板**冰贴图升级**（B_ICE 原 glass 纯色半透在雪原读作「脏渍」→入集 T_ICE=54 整格冰裂纹+摘 glass 走 74 同款标准不透明通道，「零新贴图」第二次用户授权突破〔74 覆雪树叶先例〕；摘旗标连带挡光/不透明副作用已接受，岸边观感列入 T12 复验）。
+- **门禁**：npm test 全量 1717（1716 pass/0 fail/1 skip=T7_PERF 默认跳）+ lint 零错误 + T7_PERF 钉测原阈值过（6.4s）；GLOSSARY 四词条（边缘传送/触发线/回程门挪边/白闪变体）+ 总账 Decisions T8 行随波次三收口。
 
 ---
 
@@ -214,7 +220,7 @@ MC 官方在「世界边界」与「群系过渡」上的观感语言是什么�
 
 ## T12 · 落雪杉覆雪级联残留修复（白色树叶方块）
 
-> 标签：`wayfinder:task`（HITL 走查 bug 反馈）｜状态：open（2026-11-06 G2 走查用户反馈立票；实施完成，待 G2 实机复验后 closed）｜blocked-by：无｜blocks：无
+> 标签：`wayfinder:task`（HITL 走查 bug 反馈）｜状态：open（2026-11-06 G2 走查用户反馈立票；实施完成，待实机复验后 closed——复验清单见 Resolution 复验注）｜blocked-by：无｜blocks：无
 
 ### Question
 
@@ -223,6 +229,8 @@ G2 实机走查用户反馈（2026-11-06）：「树上的雪树砍了后我还�
 ### Resolution
 
 （2026-11-06 实施）核实级联口径=cascade-core `mkPolicy` 从 BLOCKS 派生性质字段（非 id 白名单），树叶走 `need:{id:5,dist:4}`（规则③失依即落）→ 新方块 B_SNOWY_LEAVES（id 74）逐字段对齐树叶 7、need 同口径，树倒冠雪随冠消散。改动：config.js 新方块段（号段顺延 74，红线外推 75+）· texture-atlas.js 新格位 T_SNOWY_LEAVES=53（松针深绿底+白雪覆盖大部，count 54）· adventure-core.js advEdgeNorthSpruce 冠盖三处落位换 id（雪根座/山体雪盖/冰崖不动）· 测试：blocks-fields（号段 75+ 红线+字段档）· texture-atlas（count+像素判据：全不透明/雪层过半/底层露绿）· cascade-core（needRules 恰两条+isSupport）· adventure-core（三连剖面 5→7→74+北带覆雪级联行为断言：挖干→干柱+树冠包围盒无残叶残雪+雪根座保留）· 建场件消费的五个测试文件 api 清单补挑（require 链全局名供给）。north-spec.md §11 登记修订 · GLOSSARY.md 图集词条顺笔。npm test 全量 1705 绿 + lint 零错误。
+
+**复验注（2026-11-07）**：复验清单随 T8 冰贴图扩大为两项——①覆雪杉级联（原定项：砍北带落雪杉看覆雪随树消散）；②冰贴图岸边观感（T8 G3 拍板冰入集+摘 glass：冰下垫水变暗/对实心邻居剔面为已接受副作用，岸边过渡观感待实机复核）——两项可并入下次走查一并看，通过即 closed。
 
 ---
 

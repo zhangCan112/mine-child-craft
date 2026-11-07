@@ -3531,6 +3531,9 @@ test('T8 站桩穿门端到端: 点亮的沙漠门站 2s → 渐晕切图 → �
   A.ADV.quest.counts.visit_plaza = 1;
   AdventureMode.update(0.55);
   assert.strictEqual(A.ADV.quest.counts.unlockedDesert, 1, '解锁键已置');
+  /* T8 rite 白闪(解锁让开演出)随解锁同拍起: 先让它走完(0.4s 满格同图重建)+
+      吃掉 0.8s 传送冷却, 再进门面站桩——不然冷却窗吞掉站桩窗(老时间线修正) */
+  for (let i = 0; i < 55; i++) AdventureMode.update(1 / 60); /* ~0.92s: rite 到达+冷却归零 */
   const dg = ADV_MAPS[0].gates[0];
   /* 站进门面(脚格=门面格): 站桩 2s 蓄能 → 渐晕 0.4s 满格切图 */
   pos.x = dg.px + 2.5; pos.y = 25; pos.z = dg.pz + 0.5;
@@ -4025,5 +4028,168 @@ test('T7 转正 P5: 静止玩家 120 帧 — setSkyBase 调用 ≤2(首帧写一
     delete globalThis.setSkyBase;
     delete globalThis.scene;
   }
+});
+
+/* ============ 世界边界 T8 波次二(壳装配): 边缘传送/近前引导/解锁演出 — 组 5/6/7 ============ */
+
+test('T8 组5 边缘传送端到端: 解锁沙漠→南缘行推帧→白闪切 desert+回程门内侧落点+面朝图内+记账/音/播报/冷却; 冷却防抖+veil 非空闲不二触', () => {
+  mem.clear();
+  freshInit();
+  /* counts 注入解锁沙漠(init 已把 ADV.quest.counts 同一对象缝给 AC——引用写键即生效) */
+  A.ADV.quest.counts.unlockedDesert = 1;
+  /* 南缘行(floor z = WORLD_D-1 = 碰撞钳制面贴墙位): 触发线纯几何命中 */
+  pos.x = 40.5; pos.y = 25; pos.z = (api.WORLD_D - 1) + 0.5;
+  spoken.length = 0;
+  AdventureMode.update(1 / 60); /* 首帧: 越线瞬间 advVeilFire(kind edge, 无站桩) */
+  assert.strictEqual(A.advNetherState().map, 'home', '发令帧: 白闪未满格不切图');
+  assert.strictEqual(A.advNetherState().portalCd, AdventureCore.ADV_PORTAL.cd - 1 / 60,
+      '发令同拍进冷却(0.8s 盖过转场窗; 同帧 advPortalTick 已衰减一帧, 精确口径)');
+  assert.ok(globalThis.document.getElementById('portalVeil').classList.contains('edge'),
+      '白闪变体 class 已挂(#portalVeil.edge, 忌纯白纯黑的暖白渐变)');
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s: 满格切图 */
+  const g = ADV_MAPS.find((r) => r.id === 'desert').gates[0]; /* 回程门(北缘 (58,3) face north) */
+  assert.strictEqual(A.advNetherState().map, 'desert', '切到沙漠图(kind=edge 天然落入 map 到达路径)');
+  assert.ok(Math.abs(pos.x - (g.px + 2.5)) < 1e-9 && Math.abs(pos.z - (g.pz + 3.0)) < 1e-9,
+      '落点=新门内侧 2.5 格(advMapArriveAt face north: (px+2.5, pz+3.0))');
+  assert.strictEqual(globalThis.yaw, 0, 'yaw 面朝图内(face north → yawIn 0)');
+  assert.strictEqual(A.ADV.quest.counts.visit_desert, 1, '到达记账 visit_desert(q17 任务链继续成立)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'portal_travel'), '到达琶音(零新资产, Q2)');
+  assert.ok(spoken.some((s) => String(s).indexOf('黄沙沙漠') >= 0), '到达播报');
+  /* —— 冷却防抖: 落地即回 home 南缘行, 冷却窗内不二次传送, 过后可 —— */
+  A.advSetMap('home', A.ADV.spawn);
+  pos.x = 40.5; pos.z = (api.WORLD_D - 1) + 0.5; /* 再站南缘行 */
+  calls.length = 0;
+  for (let i = 0; i < 18; i++) AdventureMode.update(1 / 60); /* 0.3s < 余冷却: 早退链吃掉 */
+  assert.strictEqual(A.advNetherState().map, 'home', '冷却窗内缘行不二次传送');
+  assert.strictEqual(calls.filter((x) => x[0] === 'sfx' && x[1] === 'portal_travel').length, 0,
+      '防抖窗内零到达音(veil 非空闲/冷却双保险, 恰一次传送)');
+  for (let i = 0; i < 36; i++) AdventureMode.update(1 / 60); /* 冷却过期→再发令→满格 */
+  assert.strictEqual(A.advNetherState().map, 'desert', '冷却过后可再传送');
+  assert.strictEqual(A.ADV.quest.counts.visit_desert, 2, '二次到达记账(可重复走)');
+  for (let i = 0; i < 25; i++) AdventureMode.update(1 / 60); /* 淡出收尾: veil 全窗走完 */
+  assert.ok(!globalThis.document.getElementById('portalVeil').classList.contains('edge'),
+      '到达+淡出后白闪 class 摘除(advVeilReset, 不渗其他模式)');
+  AdventureMode.cleanup();
+});
+
+test('T8 组5b 沼泽门 x 平面分派: 旧 z 平面过渡态的 x=160 越界回卷写消除(卷绕列无门体格+门面在 x=px 平面)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetMap('swamp');
+  const rg = ADV_MAPS.find((r) => r.id === 'swamp').gates[0]; /* 东缘 (154,70) face east */
+  assert.strictEqual(rg.face, 'east', '前提: 沼泽门贴东缘(x 平面门)');
+  /* 修前: advGatesBuild 不分派, z 平面 advPortalFrame 会把塔楼/步道写到
+      x=px+6=160(越界)——worldCells 行主序下卷绕污染下一 z 行的 x=0 列
+      (z69/70/71 写 → (0,·,70/71/72))。修后: advGateIsX → advPortalFrameX
+      转置镜像, 结构 x∈[px-1,px+1] 全部界内, 卷绕列必须干净 */
+  const gateIds = [api.B_OBSIDIAN, api.B_NETHER_BRICK, api.B_GLOWSTONE, api.B_PORTAL];
+  for (let y = 23; y <= 32; y++) {
+    for (const z of [69, 70, 71, 72]) {
+      assert.ok(!gateIds.includes(cell(0, y, z)),
+          '回卷列 (0,' + y + ',' + z + ') 无门体格(x=160 越界写消除)');
+    }
+  }
+  assert.strictEqual(cell(rg.px, 25, rg.pz + 2), api.B_PORTAL,
+      '回程门常亮: 内口门面在 x=px 单平面(转置镜像几何)');
+  AdventureMode.cleanup();
+});
+
+test('T8 组6 解锁拦截: counts 全锁三向缘行零切图; 北近前区 30s 节流(31s 窗恰 1 次、62s 累计恰 2 次)+含世界名+分级点名; 解锁态静默; 东向任何状态零话术零传送', () => {
+  mem.clear();
+  freshInit(); /* counts 缺省={} = 三向全锁(老档零迁移口径) */
+  /* 三向缘行: 锁定向零切图(物理挡住之外, 判据层也不放行) */
+  for (const [ex, ez] of [[40.5, 0.5], [40.5, (api.WORLD_D - 1) + 0.5], [0.5, 80.5]]) {
+    pos.x = ex; pos.y = 25; pos.z = ez;
+    AdventureMode.update(1 / 60);
+    AdventureMode.update(1 / 60);
+    assert.strictEqual(A.advNetherState().map, 'home', '全锁缘行零切图 (' + ex + ',' + ez + ')');
+  }
+  /* 北近前区(z≤18 山体南麓带内): 节流 30s(G3 实机走查拍板 2026-11-07, 6s 太密) →
+      每 30s 窗至多一提; 占位含该向世界名。先用大步长消化上一腿缘行遗留的
+      节流窗(计时器归零当帧仍处西缘 → 播的是西向, 清掉不计入) */
+  pos.x = 40.5; pos.z = 17.5;
+  AdventureMode.update(30.1);
+  spoken.length = 0;
+  for (let i = 0; i < 310; i++) AdventureMode.update(0.1); /* 31s: 过 30s 窗恰一提 */
+  const n = spoken.filter((s) => String(s).indexOf('白雪雪原') >= 0).length;
+  assert.ok(n === 1, '31s 窗内北向话术恰 1 次(30s 节流, 实得 ' + n + ')');
+  for (let i = 0; i < 310; i++) AdventureMode.update(0.1); /* 再 31s: 窗过再提一次 */
+  const n2 = spoken.filter((s) => String(s).indexOf('白雪雪原') >= 0).length;
+  assert.ok(n2 === 2, '62s 累计恰 2 次(间隔≥30s 节流窗, 实得 ' + n2 + ')');
+  assert.ok(spoken.some((s) => String(s).indexOf('任务卡') >= 0),
+      '链未走到: 泛指任务卡(不剧透未来步, advGateLockTick 分级镜像)');
+  /* 分级: 前置任务已是当前步(q19 神殿宝箱 unlock snow) → 点名 goal */
+  A.ADV.quest.step = 19;
+  spoken.length = 0;
+  AdventureMode.update(30.1); /* 过 30s 节流窗 */
+  assert.ok(spoken.some((s) => String(s).indexOf('打开沙漠神殿的宝箱') >= 0),
+      '前置任务已当前步: 点名具体做什么');
+  /* 解锁态静默: 北随 snow 解锁 → advEdgeHintAt 开放向返 null(零话术——
+      此处 z=17.5 不在触发线上, 只验 hint 静默不验传送) */
+  A.ADV.quest.counts.unlockedSnow = 1;
+  spoken.length = 0;
+  AdventureMode.update(6.1);
+  AdventureMode.update(0.2);
+  assert.strictEqual(spoken.filter((s) => String(s).indexOf('白雪雪原') >= 0).length, 0,
+      '解锁态近前区 hint 静默(单一开放判据)');
+  assert.strictEqual(A.advNetherState().map, 'home', '近前区不是触发线: 不传送');
+  /* 东向任何状态: 触发线/hint 判据恒 null → 零话术零传送(T5 收尾语义) */
+  A.ADV.quest.counts.unlockedDesert = 1;
+  A.ADV.quest.counts.unlockedSwamp = 1;
+  pos.x = (api.WORLD_W - 1) + 0.5; pos.z = 80.5;
+  spoken.length = 0;
+  for (let i = 0; i < 30; i++) AdventureMode.update(0.1); /* 3s: 覆盖节流窗多帧 */
+  assert.strictEqual(A.advNetherState().map, 'home', '东缘行零传送(全解锁态也一样)');
+  assert.strictEqual(spoken.length, 0, '东向零话术(栅栏收尾不打扰彩蛋)');
+  AdventureMode.cleanup();
+});
+
+test('T8 组7 解锁演出: home 完成点亮 → rite 白闪后北山正面格变空气+保护解除+边缘播报; 远征图完成点亮 → 不切图+回家语义播报+切回 home 后山体不存在', () => {
+  /* —— A: home 上完成 q19(挂 unlock snow) —— */
+  mem.clear();
+  freshInit();
+  const topY = (x, z) => AdventureCore.ADV_GROUND + AdventureCore.advHeightAt(x, z);
+  let mCol = null;
+  for (let x = 0; x < api.WORLD_W && !mCol; x++) {
+    for (let z = 1; z <= 23 && !mCol; z++) {
+      if (AdventureCore.advEdgeNorthMountainH(x, z) >= 2 && cell(x, topY(x, z) + 1, z) !== 0) {
+        mCol = [x, topY(x, z) + 1, z]; /* 山体正面格(建场在册前提) */
+      }
+    }
+  }
+  assert.ok(mCol, '前提: 北山体列在册(锁定态建场)');
+  A.ADV.quest.step = 19;
+  A.ADV.quest.counts.chest_temple = 1;
+  spoken.length = 0;
+  AdventureMode.update(0.55); /* q19 完成 → 解锁键置位 → 点亮仪式 → rite 白闪起 */
+  assert.strictEqual(A.ADV.quest.counts.unlockedSnow, 1, '解锁键置位(q19.unlock=snow)');
+  assert.ok(globalThis.document.getElementById('portalVeil').classList.contains('edge'),
+      'rite 白闪变体 class 已挂(与 edge 同款暖白渐变)');
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* 白闪满格: 同图重建 */
+  assert.strictEqual(cell(mCol[0], mCol[1], mCol[2]), 0, '白闪后山体正面格变空气(屏障让开=建场读键)');
+  assert.strictEqual(AdventureCore.advEdgeProtectedAt(mCol[0], mCol[1], mCol[2]), false,
+      '同格保护解除(逐向门控换源单一开放判据)');
+  assert.ok(spoken.some((s) => String(s).indexOf('通往白雪雪原的路打开啦') >= 0),
+      '边缘播报出现(方向词指路, 不引用门阵 R9)');
+  assert.strictEqual(A.advNetherState().map, 'home', '同图重建不切图');
+  assert.strictEqual(A.ADV.quest.counts.visit_snow, undefined, 'rite 不记账(到达型键留给真到达)');
+  assert.ok(!globalThis.document.getElementById('portalVeil').classList.contains('edge'), '白闪退场 class 摘除');
+  /* —— B: 远征图完成点亮 → 只播报不白闪; 切回 home 建场读键延迟生效 —— */
+  mem.clear();
+  freshInit();
+  A.advSetMap('desert');
+  A.ADV.quest.step = 19;
+  A.ADV.quest.counts.chest_temple = 1;
+  spoken.length = 0;
+  AdventureMode.update(0.55); /* 在沙漠图完成 q19 */
+  assert.strictEqual(A.advNetherState().map, 'desert', '远征图完成点亮: 地图不切');
+  assert.ok(spoken.some((s) => String(s).indexOf('回到家里就能看到') >= 0),
+      '播报含「回家就能看到」语义(建场读键延迟生效)');
+  assert.ok(!globalThis.document.getElementById('portalVeil').classList.contains('edge'),
+      '不白闪(rite 只在 home 图触发)');
+  A.advSetMap('home', A.ADV.spawn); /* 切回 home: 装场读键 */
+  assert.strictEqual(cell(80, topY(80, 10) + 1, 10), 0,
+      '切回 home 后北山体不存在(新建场读解锁键, x80 中段山体列抽查)');
+  AdventureMode.cleanup();
 });
 

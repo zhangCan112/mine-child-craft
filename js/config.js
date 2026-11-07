@@ -355,9 +355,10 @@ BLOCKS[B_BED_FOOT] = {name: '床尾', all: [0.75, 0.22, 0.22], thin: 0.55,
   solid: false, bed: true, hard: 0, tool: null, tier: 0}; // 无 drop: 防双掉(见上)
 
 /* 生态地图新方块 (id 54~62, 冒险模式生态地图设计稿 §6) — 雪原/沙漠/沼泽三图资源,
-   号段顺延同款(B_SAPLING/B_CHEST/B_WOOL/B_BED 先例)。B_ICE 不入贴图图集——
-   glass 透光透渲与玻璃同走纯色通道; 半滑物理二期。B_CACTUS 儿童版无触碰伤害
-   (设计稿幼儿红线)。雪块挖掉得 4 雪球(雪仗弹药, 黏土 4 球同款; 合成反向归 T9)。 */
+   号段顺延同款(B_SAPLING/B_CHEST/B_WOOL/B_BED 先例)。B_ICE 2026-11-07 G3 走查
+   拍板入集画冰裂纹(原 glass 纯色半透在雪原上读作「脏渍」; 73/74 先例第二次用户
+   授权突破「零新贴图」)。B_CACTUS 儿童版无触碰伤害(设计稿幼儿红线)。
+   雪块挖掉得 4 雪球(雪仗弹药, 黏土 4 球同款; 合成反向归 T9)。 */
 const B_SNOW=54; const B_SNOWY_GRASS=55; const B_ICE=56; const B_CACTUS=57;
 const B_SANDSTONE=58; const B_DEAD_BUSH=59;
 const B_ORCHID=60; const B_FLOWER_Y=61; const B_FLOWER_W=62;
@@ -365,8 +366,8 @@ BLOCKS[B_SNOW] = {name: '雪块', all: [0.93, 0.95, 0.98],
   hard: 0.2, tool: 'shovel', tier: 0, drop: [['snowball', 4, 0]]}; // MC 硬度 0.2; 雪原地表/雪堆
 BLOCKS[B_SNOWY_GRASS] = {name: '雪覆草', top: [0.93, 0.95, 0.98], side: [0.68, 0.58, 0.51], bottom: [0.55, 0.40, 0.27],
   hard: 0.6, tool: 'shovel', tier: 0, drop: [['dirt', 1, 0]]}; // 掉泥土(草地同款); top 白 side 雪泥带 bottom 泥
-BLOCKS[B_ICE] = {name: '冰', all: [0.63, 0.78, 0.94], glass: true,
-  hard: 0.5, tool: null, tier: 0, drop: [['ice', 1, 0]]}; // MC 掉无 → 零惩罚哲学掉自身(玻璃同款); 冰面/冻湖
+BLOCKS[B_ICE] = {name: '冰', all: [0.63, 0.78, 0.94],
+  hard: 0.5, tool: null, tier: 0, drop: [['ice', 1, 0]]}; // MC 掉无 → 零惩罚哲学掉自身(玻璃同款); 冰面/冻湖(贴图入集 T8, 半滑物理二期)
 BLOCKS[B_CACTUS] = {name: '仙人掌', all: [0.29, 0.53, 0.22],
   hard: 0.4, tool: null, tier: 0, drop: [['cactus', 1, 0]]}; // 沙漠绿柱; 无触碰伤害(儿童版)
 BLOCKS[B_SANDSTONE] = {name: '砂岩', all: [0.85, 0.78, 0.57],

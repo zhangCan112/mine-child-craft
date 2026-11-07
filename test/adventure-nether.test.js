@@ -1326,9 +1326,12 @@ test('T7-4 回程门: 远征图站满 2s 回 home, 落在来时那扇门的门�
   freshC(seedQuestC({unlockedSwamp: 1}));
   AN.advSetMap('swamp');
   const rg = gateOf('swamp', 'home');
-  globalThis.pos.x = rg.px + 2.5;
+  /* T8 沼泽门挪东缘 (154,70) face east = x 平面门(advPortalFrameX 转置镜像):
+      门面是单 x 平面 fx===px、内口 z∈[pz+1..pz+4]——站桩位跟着门面平面走
+      (原 z 平面位 (px+2.5, pz+0.5) 在镜像门几何里不是门面格) */
+  globalThis.pos.x = rg.px + 0.5;
   globalThis.pos.y = Core.ADV_GROUND + 1;
-  globalThis.pos.z = rg.pz + 0.5;
+  globalThis.pos.z = rg.pz + 2.5;
   AM.update(2.1); /* 站满 */
   AM.update(0.45); /* 渐晕满格 → 切回 home */
   assert.strictEqual(AN.advNetherState().map, 'home', '回程门站满切回 home');

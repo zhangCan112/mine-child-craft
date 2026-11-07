@@ -38,6 +38,9 @@ Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 scri
 Object.assign(globalThis, require('../js/adventure-spawn-core.js'));
 const Core = require('../js/adventure-core.js');
 Object.assign(globalThis, Core); /* 上一层共享词法(adventure-maps-core.test 同款惯例): dims-core 建场经全局名消费 advTryOre 等 */
+/* 〔世界边界·T8〕AMC 挂全局(index.html 加载序 AC → maps-core → dims):
+   AC 建场链 advEdgeOpenDir 调用期解析消费 advEdgeDirUnlocked */
+Object.assign(globalThis, require('../js/adventure-maps-core.js'));
 const Dims = require('../js/adventure-dims-core.js'); /* 维度规格核心(dimension-registry): 巢穴副本段随迁至此 */
 
 const W = api.WORLD_W;

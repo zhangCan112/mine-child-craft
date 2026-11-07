@@ -64,21 +64,18 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
   const count = t.TextureAtlas.count;
   /* 51=B_CHEST(引导链 v2) · 52=B_WOOL(F4) · 53=B_BED(床观感票: 床顶/床侧两张) ·
    * 54~62=生态地图(冒险模式设计稿 §6) *
-   * 不入集例外: 56=B_ICE(glass 透光透渲走纯色通道, 玻璃同款, 票据 T1 红线) */
+   * 56=B_ICE 原钉「不入集走纯色兜底」(票据 T1 零新贴图红线)——2026-11-07 G3
+   * 走查拍板反转入集画冰裂纹(原 glass 纯色半透在雪原读作「脏渍」; 73/74 先例
+   * 第二次用户授权突破), 随手摘 glass 旗标走标准通道 */
   for (let id=36; id<=62; id++) {
-    if (id === t.B_ICE) {
-      assert.ok(!(id in t.TextureAtlas.layout.tiles),
-          '方块 ' + id + '(' + t.BLOCKS[id].name + ') 不入图集 — 走纯色兜底通道');
-      continue;
-    }
     assert.ok(t.BLOCKS[id], 'id ' + id + ' 应在 BLOCKS 注册');
     for (const idx of tileSet(t, id)) {
       assert.ok(Number.isInteger(idx) && idx >= 0 && idx < count,
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 54,
-      '已绘制格数 = 54(PAINTERS 0~53 连续; 门面宏格已随贴图回退删除, 50/51=战利品宝箱, 52=远古残骸, 53=覆雪树叶)');
+  assert.strictEqual(t.TextureAtlas.count, 55,
+      '已绘制格数 = 55(PAINTERS 0~54 连续; 门面宏格已随贴图回退删除, 50/51=战利品宝箱, 52=远古残骸, 53=覆雪树叶, 54=冰)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   /* 覆雪树叶 74(世界边界 T12): 独立格位整格同图 — 与树叶 7(T_LEAVES)分格,
@@ -87,6 +84,11 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
   assert.strictEqual(typeof snowyLeaves, 'number', '覆雪树叶整格同图(数值简写)');
   assert.notStrictEqual(snowyLeaves, t.TextureAtlas.layout.tiles[7], '覆雪树叶与树叶分格(白观感独立)');
   assert.notStrictEqual(snowyLeaves, t.TextureAtlas.layout.tiles[t.B_SNOW], '覆雪树叶与雪块分格(针叶底独立)');
+  /* 冰 56(世界边界·T8 G3 走查拍板 2026-11-07): 整格同图入集 — 与雪块分格
+     (淡蓝裂纹冰面观感独立, 原纯色半透在雪原读作「脏渍」的根治钉) */
+  const ice = t.TextureAtlas.layout.tiles[t.B_ICE];
+  assert.strictEqual(typeof ice, 'number', '冰整格同图入集(数值简写)');
+  assert.notStrictEqual(ice, t.TextureAtlas.layout.tiles[t.B_SNOW], '冰与雪块分格(裂纹冰面独立)');
   const bed = t.TextureAtlas.layout.tiles[t.B_BED];
   assert.notStrictEqual(bed.top, bed.side, '床头顶(枕+毯)与侧(毯沿+木框)应分格(床观感票)');
   const foot = t.TextureAtlas.layout.tiles[t.B_BED_FOOT];

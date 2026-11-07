@@ -17,17 +17,23 @@
      建场与行数据都从这里派生) · 建场函数族 advDesertBuild/
      advSnowBuild/advSwampBuild(每图建场总装, 签名零参同 advBuildWorld) ·
      政策纯函数 advMapUnlocked(门解锁判定, 任务档 counts 键
-     unlockedDesert/unlockedSnow/unlockedSwamp)/advGateHoldStep(门面
-     站桩步进, 2s 可反悔, 状态进 {t,fire} 出)/advMapArriveAt(指定门位
-     到达落点: 回程门内侧 2.5 格、面朝外——advPortalExit 同口径;
-     advMapArrive(row)=gates[0] 便捷版)/
+     unlockedDesert/unlockedSnow/unlockedSwamp)/ADV_EDGE_DIR_MAP+
+     advEdgeDirUnlocked(边缘传送方向→目的图映射与解锁派生, 复用
+     advMapUnlocked 不绕过——AC advEdgeOpenDir 单一开放判据消费)/
+     advGateHoldStep(门面站桩步进, 2s 可反悔, 状态进 {t,fire} 出)/
+     ADV_GATE_FACE(门贴缘朝向→落点几何唯一权威: 门心偏移/内向单位向量/
+     面朝图内 yaw 显式常量)/advMapArriveAt(指定门位到达落点, face 感知
+     泛化: 门内侧 2.5 格、面朝图内, face 缺省→north 口径与旧公式逐字节
+     等价; advMapArrive(row)=gates[0] 便捷版)/
      advMapDeathPlan(死亡回家: 远征图死=满血+home 门口, 地图行化) ·
      advTempleTrapOn/advTempleTrapCells(神殿可疑地板踩塌判定与塌落格清单,
      审查修复 P1——运行时踩塌机制在壳层 advTempleTrapTick)
    依赖(均经全局名, 调用期解析): adventure-core.js 的 ADV_GROUND/
-     ADV_SPAWN/ADV_PORTAL/ADV_HOME_ROW/advBuildWorld/advDeathPlan/
-     advPortalExit(index.html 加载序: adventure-core → 本文件 →
-     modes/adventure; 门几何常量复用 ADV_PORTAL 不另定义) · config.js
+     ADV_SPAWN/ADV_PORTAL/ADV_HOME_ROW/advBuildWorld/advDeathPlan
+     (index.html 加载序: adventure-core → 本文件 → modes/adventure;
+     门几何常量复用 ADV_PORTAL 不另定义; 本文件 advEdgeDirUnlocked/
+     ADV_EDGE_DIR_MAP 被 AC 政策段 advEdgeOpenDir 调用期解析反向消费
+     ——共享 defer 词法环境双向成立) · config.js
      的 B_* 生态方块常量(54~62)与 WORLD_W/WORLD_D/WORLD_H ·
      scene-kit.js 的 SceneKit(fill/tree/rand/heightAt 高度场) ·
      voxel.js 的 setBlockRaw/getBlock
@@ -38,11 +44,16 @@
 /* ============================================================
    图常量 — 每图结构坐标/巢穴池/门位/散布盐的唯一权威
    (ADV_MAPS 行的 nests/gates/witchHut 从这里派生同引用, 坐标不在
-   两处写; 布局口径: 回程门统一 (58,70), 落点在门南侧开阔区——
-   advMapArrive 的面朝外前提; 远征图无床无熔炉, 死了回家 §2.2)
+   两处写; 布局口径: 〔世界边界·T8〕回程门挪到面向 home 的那条图缘
+   (沙漠北缘/雪原南缘/沼泽东缘, 拍板 8——罗盘核对: home 北缘通雪原
+   ⇒ 雪原门开南缘, home 南缘通沙漠 ⇒ 沙漠门开北缘, home 西缘通沼泽
+   ⇒ 沼泽门开东缘); gate.face=门贴缘朝向唯一权威(落点内向向量与门体
+   平面朝向都从它派生, 见 ADV_GATE_FACE/advMapArriveAt), 落点=回程门
+   内侧 2.5 格面朝图内; 远征图无床无熔炉, 死了回家 §2.2)
    ============================================================ */
 const ADV_DESERT = {/* 黄沙沙漠: 沙丘地形 + 砂岩神殿 + 绿洲 + 尸壳替换僵尸 */
-  gate: {px: 58, pz: 70}, /* 回程门框位(门体 T7 经 advPortalFrame 建, 此处只登记) */
+  gate: {px: 58, pz: 3, face: 'north'}, /* 回程门框位(〔世界边界·T8〕挪北缘 (58,3):
+      home 在沙漠图北方; z 平面门, 门体壳经 advPortalFrame 建, 此处只登记) */
   temple: {cx: 64, cz: 40, r: 7, trapY: 24}, /* 沙漠神殿: 砂岩空心金字塔(塔内可入) +
       地下宝箱室; trapY=可疑地板层(室内地表 y24 中央 2×2 砂岩显眼底板, 踩塌入口
       ——审查修复 P1: 埋两层沙下孩子踩不到, 改室内可见可踩; 运行时机制在壳层) */
@@ -59,7 +70,8 @@ const ADV_DESERT = {/* 黄沙沙漠: 沙丘地形 + 砂岩神殿 + 绿洲 + 尸�
 };
 
 const ADV_SNOW = {/* 白雪雪原: 雪堆地形 + 冰面湖 + 雪屋 + 流浪者替换骷髅 */
-  gate: {px: 58, pz: 70},
+  gate: {px: 58, pz: 155, face: 'south'}, /* 回程门框位(〔世界边界·T8〕挪南缘 (58,155):
+      home 在雪原图南方; z 平面门) */
   hut: {cx: 40, cz: 40, r: 4}, /* 雪屋: 雪块圆顶(球半径 4) + 地下宝箱室 */
   lakes: [ /* 冰封小湖: 冰面 + 冰下水体 */
     {cx: 92, cz: 28, r: 8},
@@ -74,7 +86,10 @@ const ADV_SNOW = {/* 白雪雪原: 雪堆地形 + 冰面湖 + 雪屋 + 流浪者
 };
 
 const ADV_SWAMP = {/* 青苔沼泽: 平地浅水洼 + 垂藤橡树 + 沼骸替换骷髅 + 女巫小屋 */
-  gate: {px: 58, pz: 70},
+  gate: {px: 154, pz: 70, face: 'east'}, /* 回程门框位(〔世界边界·T8〕挪东缘 (154,70):
+      home 在沼泽图东方; x 平面门(门面法线 ±x, 内口 4×5 在 x=px 单平面)——
+      「内侧 2.5 格面朝图内」字面成立的唯一几何, 门体壳经 advPortalFrameX 建,
+      world-edge-t8-plan §2 T8-C) */
   hut: {x: 90, z: 42}, /* 女巫小屋: 高脚木屋(原木柱脚+木板屋体), witch 常驻位 */
   pools: [ /* 浅水洼: 水面齐 y24 可趟, 泥岸环绕 */
     {cx: 22, cz: 26, r: 4},
@@ -512,7 +527,8 @@ const ADV_MAPS = [
     build: advDesertBuild,
     nests: ADV_DESERT.nests,
     nightPool: [['husk', 2], ['creeper', 1], ['spider', 1]], /* home 夜池 zombie 位→husk */
-    gates: [{to: 'home', px: ADV_DESERT.gate.px, pz: ADV_DESERT.gate.pz}],
+    gates: [{to: 'home', px: ADV_DESERT.gate.px, pz: ADV_DESERT.gate.pz,
+      face: ADV_DESERT.gate.face}], /* face 随图常量派生(〔世界边界·T8〕单一权威不复制) */
     livestock: 'none',
   },
   {
@@ -524,7 +540,8 @@ const ADV_MAPS = [
     build: advSnowBuild,
     nests: ADV_SNOW.nests,
     nightPool: [['stray', 2], ['zombie', 1], ['creeper', 1]], /* 主角换流浪者 */
-    gates: [{to: 'home', px: ADV_SNOW.gate.px, pz: ADV_SNOW.gate.pz}],
+    gates: [{to: 'home', px: ADV_SNOW.gate.px, pz: ADV_SNOW.gate.pz,
+      face: ADV_SNOW.gate.face}], /* face 随图常量派生(〔世界边界·T8〕单一权威不复制) */
     livestock: 'none',
   },
   {
@@ -536,7 +553,8 @@ const ADV_MAPS = [
     build: advSwampBuild,
     nests: ADV_SWAMP.nests,
     nightPool: [['bogged', 2], ['zombie', 1], ['slime', 1]], /* 沼骸主角+史莱姆夜池 */
-    gates: [{to: 'home', px: ADV_SWAMP.gate.px, pz: ADV_SWAMP.gate.pz}],
+    gates: [{to: 'home', px: ADV_SWAMP.gate.px, pz: ADV_SWAMP.gate.pz,
+      face: ADV_SWAMP.gate.face}], /* face 随图常量派生(〔世界边界·T8〕单一权威不复制) */
     livestock: 'none',
     witchHut: {x: ADV_SWAMP.hut.x, z: ADV_SWAMP.hut.z}, /* 女巫小屋常驻标记(T6 壳 spawn 消费) */
   },
@@ -556,6 +574,21 @@ function advMapUnlocked(mapId, counts) {
   if (mapId === 'home') return true;
   const k = ADV_UNLOCK_KEYS[mapId];
   return !!(k && counts && counts[k]);
+}
+
+/* 边缘传送方向映射(〔世界边界·T8〕拍板 5 唯一权威): home 触发线方向 →
+    目的图(北=雪原/南=沙漠/西=沼泽, 罗盘核对见图常量段头注)。east 无键=
+    东向无传送语义的自文档表达(T5 定稿收尾, 栅栏彩蛋跳缝不触发) */
+const ADV_EDGE_DIR_MAP = {north: 'snow', south: 'desert', west: 'swamp'};
+
+/* 边缘传送解锁派生(复用不绕过): 触发线方向 → 目的图 → advMapUnlocked——
+    home 恒开/缺键全锁语义自动继承; east 查表得 undefined → false 自然
+    语义(无传送方向恒锁)。AC 侧 advEdgeOpenDir(单一开放判据)消费本函数;
+    分向解锁: 北随 snow/南随 desert/西随 swamp——解锁链逐图(q16 广场→
+    desert/q19 神殿→snow/q22 雪屋→swamp), T9 后边缘传送是唯一入口,
+    三向一体会锁死任务链 */
+function advEdgeDirUnlocked(dir, counts) {
+  return advMapUnlocked(ADV_EDGE_DIR_MAP[dir], counts);
 }
 
 /* 结构宝箱坐标 → 探宝型任务计数键(T8): 三座结构的建场宝箱各记一键
@@ -595,14 +628,36 @@ function advGateHoldStep(s, inGate, dt) {
   return {t: 0, fire: true};
 }
 
-/* 指定门位的到达落点(advPortalExit 同口径的泛化): 站进绑定 g.to 图的门后,
-    落在 g 这扇门自身内侧 2.5 格、面朝外——门阵多门时回程落点跟着来时的门走
-    (沙漠门进沙漠门出, §2.3「落地就在门跟前, 门在身后」)。虚拟玩家从门面
-    朝 -z 进门(yaw=π), 出口=沿来向退 2.5 格(门南侧)+yaw 反向(朝 +z 背对门);
-    y 取基准地表上方(门位压平区, 建场保证 y24 顶面) */
+/* 门贴缘朝向 → 落点几何口径(〔世界边界·T8〕唯一权威, advMapArriveAt 消费):
+    cx/cz=门心相对 gate.px/pz 的偏移(z 平面门(face north/south)内口 x 跨
+    ADV_PORTAL.w 取中 → px+2.5, 门面单 z 平面取中 → pz+0.5; x 平面门(face
+    east/west)经 advPortalFrameX 转置镜像, 内口 z 跨取中 → pz+2.5, 门面单
+    x 平面 → px+0.5); inx/inz=内向单位向量(指向图内, 落点=门心+内向×2.5);
+    yawIn=面朝图内朝向(forward=(sin yaw, cos yaw) 约定)——**显式常量不经
+    atan2 派生**(±0 的符号会把 −π 混进来, 破坏与旧公式的逐字节等价), east
+    取 3π/2 写 π/2+π(归一域 [0,2π); 出口另有 %2π 防御)。west 行当前三图
+    未用(沼泽门开东缘), x 平面对称完备留档(未来西缘门直接用) */
+const ADV_GATE_FACE = {
+  north: {cx: 2.5, cz: 0.5, inx: 0, inz: 1, yawIn: 0},
+  south: {cx: 2.5, cz: 0.5, inx: 0, inz: -1, yawIn: Math.PI},
+  east: {cx: 0.5, cz: 2.5, inx: -1, inz: 0, yawIn: Math.PI / 2 + Math.PI},
+  west: {cx: 0.5, cz: 2.5, inx: 1, inz: 0, yawIn: Math.PI / 2},
+};
+
+/* 指定门位的到达落点(face 感知泛化, 〔世界边界·T8〕): 站进绑定 g.to 图的
+    门后, 落在 g 这扇门自身内侧 2.5 格、面朝图内——门阵多门时回程落点跟着
+    来时的门走(沙漠门进沙漠门出, §2.3「落地就在门跟前, 门在身后」)。
+    门心/内向向量/朝向全从 gate.face 查 ADV_GATE_FACE 单一权威; face 缺省
+    (=undefined, home 门阵三扇与旧档均无 face)→ north 口径, 与旧公式
+    advPortalExit(px+2.5, G+1, pz+0.5, π) 逐字节等价——旧公式恰是「北缘门」
+    的特例(sin(π)·2.5 ≈ 3e-16, 在 px+2.5 的半 ulp 内舍回精确值; 测试组 3
+    回归钉)。y 恒基准地表上方(门位压平区, 建场保证 y24 顶面) */
 function advMapArriveAt(g) {
-  const p = advPortalExit(g.px + 2.5, ADV_GROUND + 1, g.pz + 0.5, Math.PI);
-  p.yaw = p.yaw % (Math.PI * 2); /* π+π=2π 归一 0: 与朝向等价, 免壳层拿到裸 6.28 */
+  const f = ADV_GATE_FACE[g.face || 'north'];
+  const p = {x: g.px + f.cx + f.inx * 2.5, y: ADV_GROUND + 1,
+    z: g.pz + f.cz + f.inz * 2.5, yaw: f.yawIn};
+  p.yaw = p.yaw % (Math.PI * 2); /* 归一域 [0,2π): yawIn 显式常量本已归一,
+    此行防御新 face 笔误(旧公式 π+π=2π→0 同款口径, 免壳层拿到裸 6.28) */
   return p;
 }
 
@@ -644,6 +699,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advDesertBuild, advDesertTerrain, advDesertTemple, advDesertPlants,
     advSnowBuild, advSnowTerrain, advSnowTree, advSnowHut, advSnowScatter,
     advSwampBuild, advSwampTerrain, advSwampHut, advSwampScatter, advMapNest,
-    ADV_UNLOCK_KEYS, advMapUnlocked, ADV_GATE_HOLD_T, advGateHoldStep, advMapChestKey,
+    ADV_UNLOCK_KEYS, advMapUnlocked, ADV_EDGE_DIR_MAP, advEdgeDirUnlocked,
+    ADV_GATE_FACE, ADV_GATE_HOLD_T, advGateHoldStep, advMapChestKey,
     advMapArriveAt, advMapArrive, advMapDeathPlan, advTempleTrapOn, advTempleTrapCells};
 }

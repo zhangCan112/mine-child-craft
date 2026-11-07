@@ -36,6 +36,8 @@ Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 scri
 Object.assign(globalThis, require('../js/adventure-core.js'));
 
 const Maps = require('../js/adventure-maps-core.js');
+Object.assign(globalThis, Maps); /* 〔世界边界·T8〕advEdgeDirUnlocked 挂全局:
+   AC 建场链 advEdgeOpenDir 调用期解析消费(共享 defer 词法环境的 Node 复刻) */
 
 /* ---------- 世界快照与统计助手(对真 worldCells 断言) ---------- */
 const W = api.WORLD_W;
@@ -87,8 +89,16 @@ test('注册表: 四行齐 · id 唯一 · 每行字段齐 · home 行引用 ADV
     assert.ok(Array.isArray(r.gates) && r.gates.length >= 1, r.id + ' 门位非空');
     for (const g of r.gates) {
       assert.ok(g.to && Number.isInteger(g.px) && Number.isInteger(g.pz), r.id + ' 门位 {to,px,pz}');
-      assert.ok(g.px >= 2 && g.px + ADV_PORTAL.w < W - 2 && g.pz >= 3 && g.pz < D - 3,
-          r.id + '→' + g.to + ' 门框在界内(留塔楼/步道外沿)');
+      /* 〔世界边界·T8〕face-aware 界内盒: z 平面门(face north/south/缺省)框横跨
+         x(px-1..px+w 含塔楼/步道外沿); x 平面门(face east/west, advPortalFrameX
+         转置镜像)框横跨 z(pz-1..pz+w), x 跨度只有 px-1..px+1——各按面轴查界 */
+      if (g.face === 'east' || g.face === 'west') {
+        assert.ok(g.px >= 2 && g.px < W - 2 && g.pz >= 3 && g.pz + ADV_PORTAL.w < D - 2,
+            r.id + '→' + g.to + ' 门框在界内(x 平面: 留塔楼/步道外沿)');
+      } else {
+        assert.ok(g.px >= 2 && g.px + ADV_PORTAL.w < W - 2 && g.pz >= 3 && g.pz < D - 3,
+            r.id + '→' + g.to + ' 门框在界内(留塔楼/步道外沿)');
+      }
     }
     assert.ok(typeof r.livestock === 'string', r.id + ' 畜牧分布键');
     /* 调色板四元组: 每个 RGB 数组值域 [0,1] */
@@ -229,11 +239,15 @@ test('政策: 到达落点 — 回程门内侧 2.5 格 · 面朝外(advPortalExi
   assert.deepStrictEqual(sp,
       {x: g.px + 2.5, y: ADV_GROUND + 1, z: g.pz + 0.5 + 2.5, yaw: 0},
       '落点=回程门内侧 2.5 格, 面朝外');
+  /* 〔世界边界·T8〕面朝图内的朝向随 gate.face 派生(ADV_GATE_FACE.yawIn 显式
+     常量: north 0/south π/east 3π/2)——回程门挪缘后各图面朝方向各不同;
+     desert face north 数值与旧公式恒等(回归锚不动), snow/swamp 按面查表 */
   for (const r of Maps.ADV_MAPS.filter((m) => m.id !== 'home')) {
     const a = Maps.advMapArrive(r);
     assert.ok(a.x > 1 && a.x < W - 1 && a.z > 1 && a.z < D - 1, r.id + ' 落点在界内');
     assert.strictEqual(a.y, ADV_GROUND + 1, r.id + ' 落点站基准地表(门位压平区)');
-    assert.strictEqual(a.yaw, 0, r.id + ' 面朝外(朝南远离门)');
+    assert.strictEqual(a.yaw, Maps.ADV_GATE_FACE[r.gates[0].face].yawIn,
+        r.id + ' 面朝图内(门在身后, 随 face 派生)');
   }
 });
 
@@ -574,6 +588,76 @@ test('门位: 四图门位不落水 · 地表压平净空不撞结构(T7 门体�
       }
     }
   }
+});
+
+/* ============ 〔世界边界·T8〕边缘传送判据(波次一, world-edge-t8-plan §4 组 2/3) ============ */
+
+test('T8 解锁派生: counts 缺省三向全锁 · 单键分向 · 全键 · east 无键恒锁 · 真值语义 · 方向映射唯一权威', () => {
+  const u = Maps.advEdgeDirUnlocked;
+  /* 缺省(null/undefined/{} 缺键)=全锁——老档零迁移口径(组 2) */
+  assert.strictEqual(u('north', undefined), false, '缺 counts=north 锁');
+  assert.strictEqual(u('south', undefined), false, '缺 counts=south 锁');
+  assert.strictEqual(u('west', undefined), false, '缺 counts=west 锁');
+  assert.strictEqual(u('north', {}), false, '空 counts=锁');
+  assert.strictEqual(u('south', {unlockedSnow: 1}), false, 'snow 键不解锁 south(分向不串扰)');
+  /* 单键分向(拍板 5: 北随 snow/南随 desert/西随 swamp) */
+  assert.strictEqual(u('south', {unlockedDesert: 1}), true, 'unlockedDesert=1 → south 开');
+  assert.strictEqual(u('north', {unlockedDesert: 1}), false, 'unlockedDesert=1 → north 仍锁');
+  assert.strictEqual(u('west', {unlockedDesert: 1}), false, 'unlockedDesert=1 → west 仍锁');
+  assert.strictEqual(u('north', {unlockedSnow: 1}), true, 'unlockedSnow=1 → north 开');
+  assert.strictEqual(u('west', {unlockedSwamp: 1}), true, 'unlockedSwamp=1 → west 开');
+  /* 全键三向全开 */
+  const all = {unlockedDesert: 1, unlockedSnow: 1, unlockedSwamp: 1};
+  assert.strictEqual(u('north', all), true, '全键 north 开');
+  assert.strictEqual(u('south', all), true, '全键 south 开');
+  assert.strictEqual(u('west', all), true, '全键 west 开');
+  /* east 无键=恒 false(东向无传送语义的自文档表达) */
+  assert.strictEqual(u('east', all), false, 'east 无键恒 false');
+  assert.strictEqual(u('east', undefined), false, 'east 缺 counts 亦 false');
+  /* 复用 advMapUnlocked 语义: 缺键/0=锁, 真值=开(不绕过) */
+  assert.strictEqual(u('south', {unlockedDesert: 0}), false, '0=锁');
+  assert.strictEqual(u('west', {unlockedSwamp: 'yes'}), true, '真值=开');
+  /* 方向映射唯一权威(拍板 5) */
+  assert.deepStrictEqual(Maps.ADV_EDGE_DIR_MAP, {north: 'snow', south: 'desert', west: 'swamp'},
+      'ADV_EDGE_DIR_MAP 三键与指派');
+});
+
+test('T8 落点泛化: 无 face 回归钉逐字段 · face north 逐字节恒等 · south/east 落点+yaw · y 恒 · 归一域 [0,2π)', () => {
+  /* 旧公式锚(泛化前行为): advPortalExit(px+2.5, G+1, pz+0.5, π) 出口 %2π */
+  const legacy = (px, pz) => {
+    const p = {x: px + 2.5 - Math.sin(Math.PI) * 2.5, y: ADV_GROUND + 1,
+      z: pz + 0.5 - Math.cos(Math.PI) * 2.5, yaw: Math.PI + Math.PI};
+    p.yaw = p.yaw % (Math.PI * 2);
+    return p;
+  };
+  /* 无 face(home 三扇): 逐字段与旧公式相等(回归钉——老断言零改动的语义保证) */
+  for (const g of Maps.ADV_MAPS[0].gates) {
+    assert.deepStrictEqual(Maps.advMapArriveAt(g), legacy(g.px, g.pz),
+        'home→' + g.to + ' 无 face=旧公式逐字段相等');
+  }
+  /* 三图旧位 (58,70) 无 face 回归钉(门挪缘前的位, 数值等价锚绝不动) */
+  assert.deepStrictEqual(Maps.advMapArriveAt({px: 58, pz: 70}), legacy(58, 70),
+      '旧位 (58,70) 无 face=旧公式逐字节相等');
+  /* face north 与旧公式逐字节恒等(旧公式恰是北缘门特例: sin(π)·2.5 尾差在半 ulp 内舍回) */
+  assert.deepStrictEqual(Maps.advMapArriveAt({px: 58, pz: 3, face: 'north'}), legacy(58, 3),
+      'face north=旧公式逐字节恒等');
+  /* face south: 落 (px+2.5, pz−2.0) yaw π(门在身后南侧, 面朝图内北上) */
+  assert.deepStrictEqual(Maps.advMapArriveAt({px: 58, pz: 155, face: 'south'}),
+      {x: 60.5, y: ADV_GROUND + 1, z: 153, yaw: Math.PI}, 'south 落点(门心−z×2.5)+yaw π');
+  /* face east: 落 (px−2.0, pz+2.5) yaw 3π/2(门在身后东侧, 面朝图内西行);
+     yaw 期望写 π/2+π 勿写 π*1.5(ulp 风险——与实现同一表达式恒等) */
+  const aE = Maps.advMapArriveAt({px: 154, pz: 70, face: 'east'});
+  assert.strictEqual(aE.x, 152, 'east x=px−2.0');
+  assert.strictEqual(aE.z, 72.5, 'east z=pz+2.5(cos(π/2) 尾差在半 ulp 内舍回)');
+  assert.strictEqual(aE.yaw, Math.PI / 2 + Math.PI, 'east yaw=3π/2');
+  assert.strictEqual(aE.y, ADV_GROUND + 1, 'y 恒基准地表');
+  /* 四向 y 恒 + yaw 归一域 [0,2π) */
+  for (const f of ['north', 'south', 'east', 'west']) {
+    const a = Maps.advMapArriveAt({px: 80, pz: 80, face: f});
+    assert.strictEqual(a.y, ADV_GROUND + 1, f + ' y 恒');
+    assert.ok(a.yaw >= 0 && a.yaw < Math.PI * 2, f + ' yaw 在归一域 [0,2π)');
+  }
+  assert.strictEqual(Maps.ADV_GATE_FACE.west.yawIn, Math.PI / 2, 'west 行对称完备(yaw π/2)');
 });
 
 

@@ -199,7 +199,9 @@ test('生态地图薄块: 枯灌木/三花 thin 十字片一律 solid:false; 雪
   for (const k of ['B_SNOW', 'B_SNOWY_GRASS', 'B_ICE', 'B_CACTUS', 'B_SANDSTONE']) {
     assert.ok(!c.BLOCKS[c[k]].thin, c[k] + ' 是整块, 不应有 thin');
   }
-  assert.strictEqual(c.BLOCKS[c.B_ICE].glass, true, '冰 glass 透光透渲(与玻璃同通道, 不入图集)');
+  /* 冰 56 原 glass:true 走玻璃通道(票据 T1)——2026-11-07 G3 走查拍板摘旗标入集
+     画冰裂纹(73/74 先例第二次用户授权突破零新贴图), 走 74 同款标准不透明通道 */
+  assert.strictEqual(c.BLOCKS[c.B_ICE].glass, undefined, '冰不再走玻璃通道(贴图入集, T8 拍板)');
 });
 
 
