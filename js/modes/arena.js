@@ -1211,6 +1211,16 @@ function resetBattleFx() {
     scene.remove(b.mesh); b.mesh.material.dispose();
   }
   beams.length = 0;
+  for (const b of breathBalls) scene.remove(b.mesh); // 龙息弹: 几何/材质共享常驻, 只摘网格
+  breathBalls.length = 0;
+  /* 毒云: 走到期同款拆解(独自材质), 不留到重开/重进后
+     继续按 tick 伤新怪(伤害 tick 不看 battleState, 残云会追着下一场打) */
+  for (const c of clouds) {
+    scene.remove(c.disc); c.disc.material.dispose();
+    c.puffs.forEach((p)=> scene.remove(p)); // 几何共享常驻
+    c.puffMat.dispose();
+  }
+  clouds.length = 0;
 }
 
 function startBattle() {

@@ -245,3 +245,22 @@ test('装备 T4 冒烟: setArmor 单穿/全穿/换件/卸空 + update 泵帧不�
     Avatar.update(1 / 30, 10);
   `, ctx), 'setArmor 全路径应在桩环境完整跑通(结构逻辑归 held-item 工厂直测)');
 });
+
+/* ============ 竞技场战场特效账本收口: 残留龙息弹/毒云重开即拆 ============ */
+
+test('竞技场 FX 收口: 残留龙息弹/毒云在重开(startBattle→resetBattleFx)即拆, 独自材质按到期路径 dispose', () => {
+  const ctx = boot();
+  /* 造两笔活账: 一颗飞行中的龙息弹(共享几何/材质, 只摘网格) +
+     一朵毒云(独自 disc 材质 + 六朵 puff + 独自 puffMat, 按到期路径拆) */
+  vm.runInContext(`
+    globalThis.__fxDispose = 0;
+    breathBalls.push({mesh: {}});
+    clouds.push({disc: {material: {dispose() { globalThis.__fxDispose++; }}},
+      puffs: [{}, {}, {}, {}, {}, {}],
+      puffMat: {dispose() { globalThis.__fxDispose++; }}});
+    startBattle(); /* 与按 R 同一条重开路(退场 cleanup 也走 resetBattleFx) */
+  `, ctx);
+  assert.strictEqual(vm.runInContext('breathBalls.length', ctx), 0, '龙息弹账本清空');
+  assert.strictEqual(vm.runInContext('clouds.length', ctx), 0, '毒云账本清空');
+  assert.strictEqual(vm.runInContext('globalThis.__fxDispose', ctx), 2, '独自材质两份都 dispose(不泄漏 GPU 资源)');
+});

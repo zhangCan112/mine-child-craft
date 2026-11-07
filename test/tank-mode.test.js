@@ -446,6 +446,15 @@ test('选怪面板: 数量 +/- 生效, 面板内部署按钮按当前选择撒�
   assert.ok(!elCache['mobPicker']._cls.has('open'), '部署即关面板');
 });
 
+test('选怪面板: 开着面板退场, cleanup 关闭(.open 不渗进菜单/其他模式)', () => {
+  TankRangeMode.onKey('KeyM'); /* 开面板(泄漏场景: 面板开着走 Esc→主菜单/换模式) */
+  assert.ok(elCache['mobPicker']._cls.has('open'), '前置: 面板开着');
+  TankRangeMode.cleanup();
+  assert.ok(!elCache['mobPicker']._cls.has('open'), 'cleanup 关闭静态浮层');
+  TankRangeMode.onKey('KeyM');
+  assert.ok(elCache['mobPicker']._cls.has('open'), '收口后再开仍正常(重进模式可用)');
+});
+
 test('HUD: 驾驶中报剩余怪物数(怪物库 list 只读视图)', () => {
   const hudEl = elCache['hud'];
   listResult = [{}, {}, {}]; /* 三只存活 */

@@ -387,6 +387,8 @@ const TankRangeMode = mkMode({
   }, // Esc/主菜单进选坦克页时刷新高亮(与建造模式同钩子)
 
   cleanup() {
+    togglePicker(false); /* 选怪面板是 index.html 静态浮层: .open 类不随模式卸载,
+       开着退场会渗进菜单/其他模式(pkClose/pkGo 之外的第三条关闭路=模式边界) */
     Tank.clear();
     Mobs.clear(); // 共享怪物: 回收名牌/挂件并冲刷批次
   },
