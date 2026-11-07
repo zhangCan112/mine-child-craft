@@ -410,7 +410,7 @@ globalThis.mkWorldJournal = WorldJournal.mkWorldJournal;
 globalThis.fluidCell = WorldJournal.fluidCell;
 
 const AdventureMode = require('../js/modes/adventure.js');
-const A = AdventureMode.adv; /* 内部挂点(20 键: 状态账本/存档 seam getSaveView/布置缝/
+const A = AdventureMode.adv; /* 内部挂点(33 键: 状态账本/存档 seam getSaveView/布置缝/
   交互链入口/查询 seam——清单见 adventure.js 尾部注释); adventure-core 的常量表与
   纯函数经上方 Object.assign(globalThis, AdventureCore) 直调, 不再经挂点转发 */
 
@@ -2963,6 +2963,7 @@ test('剪羊毛隔天长回: dayTime 回绕沿(自然过午夜/睡醒跳零) →
   AdventureMode.onMouse(2, {x: 47, y: 24, z: 79, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(sheep.__sheared, true, '前提: 已剪');
   sheep.__fleeT = 0; sheep.__ambleT = 999; sheep.__ambleWalk = false; /* 静置便于断言 */
+  AdventureMode.update(1 / 60); /* 对表帧: prevT=5000(账本随会话复位后, 首帧语义=对表) */
   globalThis.dayTime = 100; /* 模拟回绕沿(5000 → 过午夜 → 次日 100) */
   AdventureMode.update(1 / 60); /* 跨沿帧: 日计数 +1 → 长回施加 */
   assert.strictEqual(sheep.__sheared, false, '隔一天毛长回来');
@@ -2998,6 +2999,48 @@ test('剪毛跨档: 剪毛账随世界档 → 重进没毛态复现; 离场跨�
   assert.strictEqual(back.__sheared, undefined, '跨天后重进: 有毛(不挂没毛态)');
   assert.strictEqual(back.hideSlots, undefined, '羊毛 overlay 正常显示');
   assert.deepStrictEqual(A.getSaveView().world.livestock.home.sheared, {}, '过期剪毛账播种时销');
+});
+
+test('会话复位注册表收口①: 节流器/羊毛跨沿账本重进归零(卡1观察项, 行为变更拍板)', () => {
+  mem.clear();
+  freshInit();
+  A.advSessionLedgerSet({woolPrevT: 6000, woolDayN: 5, farmHintT: 3,
+    breedT: 2, smeltTtsT: 9, stoneEggT: 30}); /* 污染六件账(写入测试缝) */
+  AdventureMode.cleanup();
+  const t = A.advSessionLedger();
+  assert.strictEqual(t.woolPrevT, null, 'cleanup: prevT 归 null(重进重对表)');
+  assert.strictEqual(t.woolDayN, 0, 'cleanup: 会话日计数归零');
+  assert.strictEqual(t.farmHintT, 0, 'cleanup: 农田引导节流归零');
+  assert.strictEqual(t.breedT, 0, 'cleanup: 繁育节拍归零');
+  assert.strictEqual(t.smeltTtsT, 0, 'cleanup: 熔炼播报节流归零');
+  assert.strictEqual(t.stoneEggT, 0, 'cleanup: 石阵点击节流归零');
+});
+
+test('会话复位注册表收口②: stale prevT 重进不伪计回绕 — 当天剪的毛不提前长回', () => {
+  mem.clear();
+  freshInit();
+  holdOnly('shears', 1, 500);
+  globalThis.dayTime = 5000;
+  globalThis.yaw = 0;
+  pos.x = 47; pos.y = 25; pos.z = 82;
+  listResult = [mkAdvMob('sheep', 47, 25, 80, {__livestockIdx: 2})];
+  AdventureMode.onMouse(2, {x: 47, y: 24, z: 79, nx: 0, ny: 1, nz: 0});
+  listResult = [];
+  globalThis.dayTime = 6000;
+  AdventureMode.update(1 / 60); /* herd tick 首帧对表 → prevT=6000(同天不跨沿) */
+  AdventureMode.cleanup();
+  /* 重进采用比 prevT 早的时刻(5s 落盘节流窗内丢新值的旧档形态)——老账本会把
+     5500<6000 误判成回绕沿 → 当天剪的毛立即长回 */
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  sv.dayTime = 5500;
+  mem.set('adventure_world_save', JSON.stringify(sv));
+  freshInit();
+  const again = mobsState.spawned.find((m) => m.__livestockIdx === 2);
+  assert.strictEqual(again.__sheared, true, '前提: 同天重进没毛态复现');
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advSessionLedger().woolDayN, 0, '首帧重对表: 不伪计新的一天');
+  assert.strictEqual(again.__sheared, true, '当天剪的毛不提前长回(伪回绕回归钉)');
+  assert.deepStrictEqual(again.hideSlots, ['woolBody', 'woolHead'], '羊毛 overlay 仍隐藏');
 });
 
 test('剪过毛的羊死亡不掉羊毛(MC 口径): 肉照掉, 击杀账照走', () => {

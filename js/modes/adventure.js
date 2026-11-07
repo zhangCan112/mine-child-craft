@@ -33,7 +33,7 @@
    任务/宝箱, 触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档
    adapter 缺省装配, 触点口径见该缝头注释)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
-     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(31 键:
+     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(33 键:
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口/丢弃与扩容
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调) ·
@@ -1245,6 +1245,11 @@ function advMobAI(dt) {
 const ADV_WOOL_SLOTS = ['woolBody', 'woolHead']; /* 羊毛独立骨槽名(造型档案 quad wool 参数派生) */
 let advWoolPrevT = null; /* 跨沿检测的上帧 dayTime(null=未初始化, 首帧对表) */
 let advWoolDayN = 0; /* 会话日计数(检测到 dayTime 回绕/睡醒跳零即 +1) */
+advSessionResets.push(() => {
+  advWoolPrevT = null;
+  advWoolDayN = 0;
+}); /* 会话复位: 跨沿账本归零(prevT 重对表——stale 上帧值遇重进更早的 dayTime
+   会伪计回绕沿, 当天剪的毛提前长回; 原从不复位, 观察项收口) */
 function advWoolSeed(m, sAt) {/* 重进播种剪毛态(施加, advSeedMapMobs 消费):
     sAt=剪毛时刻 dayTime; 当前时刻 ≥ 剪毛时刻 = 尚未跨天(挂没毛态),
     < 剪毛时刻 = 离场期间已长回(返 true 让调用方销账); 无账返 false */
@@ -1347,6 +1352,9 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
    冷却, 幼崽挂三件(体型/免伤旗/成长计时); 活畜上限闸门(初始 10 + 余量 6)。
    一帧至多添一只(上限逼近时逐拍生效); 粉絮爆点=小爱心观感(Fx 现成件)。 */
 let advBreedT = 0;
+advSessionResets.push(() => {
+  advBreedT = 0;
+}); /* 会话复位: 繁育节拍归零(重进首查即跑; 原从不复位, 观察项收口) */
 function advBreedTick(dt) {
   advBreedT -= dt;
   if (advBreedT > 0) return;
@@ -3129,6 +3137,9 @@ function advTryShear() {
    世界写=setBlockRaw 直写+记账+收口(advGrowTree 同款), 扣件经背包核心
    remove(雪球掷出同款), 引导话术 3s 节流(挖不动话术同拍)。 */
 let advFarmHintT = 0; /* 引导话术节流账本(update 递减) */
+advSessionResets.push(() => {
+  advFarmHintT = 0;
+}); /* 会话复位: 农田引导节流归零(重进可重提示; 原从不复位, 观察项收口) */
 function advFarmHint(text) {
   if (advFarmHintT > 0) return;
   advFarmHintT = 3;
@@ -3358,6 +3369,9 @@ function advRescanStations() {
    完成播报节流计时(原 advFurnaceTick 的节律尾钩拆归 update)。 */
 const advFurnaces = advFurnace.map; /* 炉态 Map(引用即 kit 的 Map, init 重灌/火焰差异增删消费) */
 let advSmeltTtsT = 0; /* 完成播报节流计时(update 递减, kit onMade 消费) */
+advSessionResets.push(() => {
+  advSmeltTtsT = 0;
+}); /* 会话复位: 熔炼完成播报节流归零(重进首件即报; 原从不复位, 观察项收口) */
 
 /* ---------- 炉口火焰(F2 点燃观感, 设计稿 §2.1): 纯观感层, 不进方块数据/存档 ----------
    燃烧判定 heat>0 && input(与 smeltStep 推进条件一致——无料有热不算烧);
@@ -3779,6 +3793,9 @@ function advQuestReminder() {
    故事 + 首次赠灯笼(Drops 真空拾取, 全会话一次防连点刷); 白天 = 温和提示
    「等天黑再来」(零惩罚不强迫)。距离口径与站点同半径(太远只提示) ---------- */
 let advStoneEggT = 0; /* 点击节流秒(update 递减, 同款节流 timer) */
+advSessionResets.push(() => {
+  advStoneEggT = 0;
+}); /* 会话复位: 石阵点击节流归零(重进首点即响应; 原从不复位, 观察项收口) */
 let advStoneGifted = false; /* 灯笼已赠旗(全会话一次, 不入档——重开页面可再得, 零惩罚) */
 
 function advStoneEggActivate(hit) {/* 灯坛点击(轻点/右键共用入口 advUseStation 转接) */
@@ -4302,6 +4319,18 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advDenState: () => advDenDaily, /* 每日副本态(D20 测试挂点: 活绑定读/注入尸账) */
   advDenTodaySet: (v) => {
     advDenTodayOverride = v; /* 日键覆写(每日刷新用例模拟跨天) */
+  },
+  advSessionLedger: () => ({woolPrevT: advWoolPrevT, woolDayN: advWoolDayN,
+    farmHintT: advFarmHintT, breedT: advBreedT, smeltTtsT: advSmeltTtsT,
+    stoneEggT: advStoneEggT}), /* 会话节流/跨沿账本只读快照(注册表复位用例断言面) */
+  advSessionLedgerSet: (o) => {
+    /* 同上写入缝(advDenTodaySet 先例): 污染账本验证注册表复位 */
+    if ('woolPrevT' in o) advWoolPrevT = o.woolPrevT;
+    if ('woolDayN' in o) advWoolDayN = o.woolDayN;
+    if ('farmHintT' in o) advFarmHintT = o.farmHintT;
+    if ('breedT' in o) advBreedT = o.breedT;
+    if ('smeltTtsT' in o) advSmeltTtsT = o.smeltTtsT;
+    if ('stoneEggT' in o) advStoneEggT = o.stoneEggT;
   },
   advNetherState: () => ({dim: advDim, map: advMap, portalCd: advPortalCd, exitSpot: advExitSpot}),
   advMineHardText, advHudLines,
