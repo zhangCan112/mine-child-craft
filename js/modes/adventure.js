@@ -88,6 +88,19 @@ const ADV = {ground: ADV_GROUND, spawn: ADV_SPAWN, hut: ADV_HUT, lake: ADV_LAKE,
   player: {hp: 30, maxHp: 30}, quest: {step: 0, counts: {}}, panelOpen: false,
   chestOpen: false, killCount: 0, swingCd: 0, homeCd: -1e9};
 
+/* ---------- 会话复位注册表(子系统自注册, camp-kit onStop「退出收口权」同形) ----------
+   「新会话归零」知识的唯一登记处: 各子系统段把复位件 push 进来, init 与 cleanup
+   两口各跑一遍——新增子系统只登记一处, 复位知识随子系统段落走(此前同一批复位行
+   在 init/cleanup 两处手抄, 已发生值域漂移: advTouchUseOn 声明 'boot' 域、init
+   复位却写 false)。纪律: 只收「会话级运行时状态归零」; init 独有的首查预置
+   (advQuestT/advBagT/advWarnLow/advPickT 等)与 cleanup 独有的观感拆卸(面板 DOM/
+   血条/监听)不进表; 依赖读档/场景顺序的复位留在原位; advSceneLeave 是场景级
+   清单(切图/切界要保住 advDim 等会话态), 不跑本表、只共用子系统件(advTntReset)。 */
+const advSessionResets = [];
+function advRunSessionResets() {
+  for (const fn of advSessionResets) fn();
+}
+
 /* ---------- 世界/任务两份存档(D12): mkSaveSlot 语义, SyncDB 槽创建即注册回填 ----------
     全局唯一背包存档不在此开键——经背包壳 js/backpack.js 唯一持有
     (ADR 0002: 专注训练营等未来消费方同走该壳, 不得自开键) */
@@ -218,6 +231,12 @@ let advChest = {size: ADV_CHEST_START, base: ADV_CHEST_START, chests: 0, slots: 
 let advDim = 'overworld'; /* 当前维度(切界唯一入口 advSetDim; nether 期间 advMap 不动) */
 let advPortalCd = 0; /* 传送冷却秒(ADV_PORTAL.cd): 落地空眩晕, 两界门都不触发 */
 let advExitSpot = null; /* 回上界落点(进门时刻 advPortalExit 的记录, 最后进入者优先 D6) */
+/* 维度相位会话复位(注册表): 重进恒主世界(维度不进档), 冷却/回程点随会话归零 */
+advSessionResets.push(() => {
+  advDim = 'overworld';
+  advPortalCd = 0;
+  advExitSpot = null;
+});
 const advSceneEdits = {}; /* 桶账本(advSceneEditsDecode 归一化形状; init 装桶) */
 for (const k of ADV_SCENE_KEYS) advSceneEdits[k] = new Map();
 function advSceneKey() {/* 当前场景键(地图 id | 'nether' | 'den')——换桶/炉键/火焰门禁的单一口径 */
@@ -455,6 +474,10 @@ function advMainPlaceable() {/* 智能主动作的手持判定(纯 seam, 单测�
 }
 let advTouchUseOn = 'boot'; /* 触屏条状态签名('boot'=未声明 | 'hand'=空手(基表+锄地键) |
    物品id(有使用档, 基表+使用键) | 'item'=普通物品(基表)): 状态翻转才重声明条 */
+advSessionResets.push(() => {
+  advTouchUseOn = 'boot';
+}); /* 会话复位回到「未声明」(曾漂移成 false——值域外魔法值;
+   行为侥幸等价: 两者都必然触发边沿重声明) */
 function advTouchMainSync() {/* 主动作键观感随手持刷新(放置=砖块/其余=镐,
    2026-10-24 手持感知拍板; 持弓主键不再是弓态——2026-10-28 Route A 拍板:
    主键恒挖/打(MC 正典回归), 弓图标由专用射箭键承载); 特殊物品 = 基表 +
@@ -594,6 +617,12 @@ function advOnCraft(out) {/* 合成成功(T13, D8): TTS 具体表扬(产物名�
   advTally('craft_' + out.item, out.n); /* T15: 合成件数记账(事件处只 +=, 推进归节流查) */
   if (firstGold) advGoldRite(); /* F3: 首获判据取自记账前的 counts(与钻石同口径); 仪式放最后, TTS 压过常规表扬 */
 }
+/* 面板开合旗标会话复位(注册表): panelOpen=mkMode chrome 的面板开关真值, chestOpen=
+   大宝箱面板开态(引导链 v2)——init/cleanup 两处手抄收编此处 */
+advSessionResets.push(() => {
+  ADV.panelOpen = false;
+  ADV.chestOpen = false;
+}); /* 引导链 v2: 箱子面板开态一并复位 */
 const advPanel = ModeKit.mkCraftPanel({
   inv: advInv,
   station: advStationGate, /* 站点门禁经政策缝(缺省 4 格门禁; U4 体验馆恒真) */
@@ -949,6 +978,9 @@ function advNightLayRing(dt) {/* 环带铺怪(缺省夜怪铺法, 政策缝 advP
       换装(showroom 固定点位)后自然不跑, home 图以外无主巢不跑 */
 }
 let advEruptT = 0; /* 涌出节拍器(秒, advEruptStep 的状态; advNightReset 对齐) */
+advSessionResets.push(() => {
+  advEruptT = 0;
+}); /* 会话复位: 涌出节拍器归零(原 init 手抄, advNightReset 同拍口径) */
 function advEruptAlive() {/* 涌出怪存量(QUOTA 配额分母: 本铺法自持记账) */
   let n = 0;
   for (const m of Mobs.list()) {
@@ -994,6 +1026,9 @@ function advNightTick(dt) {/* 夜怪节拍 + 入夜/黎明两个跨沿(设计稿
    (三前置与持满 1 秒节拍纯函数 advLanternStep 在 adventure-core.js)
    ============================================================ */
 let advLanternT = 0; /* 耗秒累计器(秒, advLanternStep 的状态; init 复位) */
+advSessionResets.push(() => {
+  advLanternT = 0;
+}); /* 会话复位: 灯笼耗秒累计器归零, 重进从整秒重新累计(原 init/cleanup 手抄) */
 
 function advLanternTick(dt) {/* 灯笼政策(§8.2): 纯函数出三决策(累计/点亮/扣单)
   → setPlayerGlow 开关随身光(world.js 机制缝: 方块侧 uGlowPos/uGlowR 顶点衰减
@@ -1770,6 +1805,11 @@ let advEdgeSkyKeyHi = null; /* P5②量化键·高 31bit: 天色 RGB8×3(24bit)�
   相邻键碰撞=同值误判漏写), 拆 Hi/Lo 双 number(均 ≤2^31 严格精确)保「七通道元组 ↔
   键对」双射 */
 let advEdgeSkyKeyLo = null; /* P5②量化键·低 24bit: 雾色 RGB8×3 */
+advSessionResets.push(() => {
+  advEdgeSkyKeyHi = null;
+  advEdgeSkyKeyLo = null;
+}); /* 会话复位: 双量化键复位(重进首帧必写——上局可能停在带内, 按键跳写会漏掉
+   首帧渐变; P5②拆双键双复位; 原 init/cleanup 手抄) */
 function advEdgeSkyTick() {
   if (advDim !== 'overworld' || advMap !== 'home') return;
   if (typeof setSkyBase !== 'function' || typeof scene === 'undefined' || !scene.fog) return;
@@ -2032,6 +2072,9 @@ function advNightReset() {/* 夜怪账本对齐当下(昼夜 D5): 节拍器归�
    advMusicMood 在 adventure-dims-core 读维度行)。advMood 是已报给 AudioMixer 的缓存 — 同值不重复报,
    换值才触发 1.2s 淡出 + 1.5~4s 后新曲。 */
 let advMood = null; /* null = 本场尚未同步(首帧 update 必报一次) */
+advSessionResets.push(() => {
+  advMood = null;
+}); /* 会话复位: 场景曲缓存清(下一场重新同步, 不把本场缓存带出去) */
 function advSyncMood() {
   const m = advMusicMood(advDim, Daylight.isNight(dayTime));
   if (m === advMood) return;
@@ -2080,13 +2123,12 @@ function advFurnaceSettle(sceneKey) {/* 炉态核销(参照 decode 侧 advFurnac
 function advSceneLeave() {/* 离开当前场景的共通清单: 世界无关观感/实体/计时一次清空 */
   advStore.journal.edits = advSceneEdits[advSceneKey()]; /* 换桶: mark/flush 动态查 J.edits, 记账/重放/落盘自动跟桶 */
   advMineStop(); /* 蓄力目标在旧世界: 清零(准星跨世界无意义) */
-  advTntTap = null; /* TNT 短按判定同上(按住状态不跨场) */
+  advTntReset(); /* TNT 短按判定同上 + 已点燃引信一并清(TNT 链子系统件, init/cleanup 注册表共用) */
   if (advFurnace.isOpen()) advFurnace.close(); /* 炉面板绑定旧场景炉: 先收 */
   advBeamsClear(); /* 光束句柄全清再重锚(旧世界的束不跨场) */
   advFlamesClear(); /* 炉口火焰 Sprite 同理(炉态随档跨场保留, 观感不跨) */
   advSaplings.clear(); /* 树苗计时不跨场(进图重扫重建, 防旧图坐标在新图长树——串档事故) */
   advTreeRegen.clear(); /* 凋零树位恢复计时同不跨场(同款串档防线) */
-  advFuses.length = 0; /* 已点燃的 TNT 不跨场引爆(会在新图坐标起爆——串档事故) */
   Mobs.clear(); /* 怪/掉落/箭不跨场: 门只渡人(下界无怪, 回主世界重播) */
   advReclaimThrown(); /* 丢弃件切图前收回包(零损失红线: 扔下的宝贝不换图蒸发) */
   Drops.clear();
@@ -2226,6 +2268,10 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 地图门站桩传送
    ============================================================ */
 let advDenT = 0; /* 副本清怪计时(秒, advDenStep 的状态; 全清才累计, 见怪即归零;
     会话内计时器, 重进归零不落档) */
+advSessionResets.push(() => {
+  advDenT = 0;
+}); /* 会话复位: 副本计时归零(维度不进档重进恒主世界;
+   波次/通关旗走 advDenDaily 档值, init 收养不动) */
 let advDenDaily = null; /* 每日副本态(D20): {day 'Y-M-D', wave, chestDone, deadGuards
     守卫表序}——世界档 den 字段(init 收养/进副本判同异日); 同日续局=怪尸/波次/
     通关旗保持, 次日重置=一切还原(真实日历日, 与每日预算/图章同钟) */
@@ -2331,6 +2377,9 @@ function advDenDoorAt(x, y, z) {/* 脚格落入门面(脚层 y22~23 即身体整
      真正看不见画面仅 0.8s); 渐晕是紫白径向渐变(index.html #portalVeil +
      css/style.css, 幼儿忌纯黑)。冷却复用 ADV_PORTAL.cd(落地空眩晕, 两类门同款) */
 const advGateHold = {t: 0}; /* 门面站桩秒累计(advGateHoldStep 的状态; nether 门不入账) */
+advSessionResets.push(() => {
+  advGateHold.t = 0;
+}); /* 会话复位: 门面站桩归零(T7, 转场不跨场次; 巢穴门已共用此状态) */
 const ADV_VEIL_T = 0.4; /* 渐晕单段时长秒(双段共 0.8s) */
 /* 渐晕转场态: idle/in/out · to=目标图 · from=来时图(找对应回程门) ·
    kind=map 地图门切图 | den 巢穴副本(advVeilArrive 分流, den-nest §3.3) */
@@ -2357,6 +2406,7 @@ function advVeilReset() {/* 收尾/中断: 转场归零 + 遮罩收起 + 白闪�
   advVeilEdgeCls(false);
   advVeilSet(0);
 }
+advSessionResets.push(() => advVeilReset()); /* 会话复位: 渐晕遮罩收起归零(T7; 中途退出不留紫屏) */
 function advVeilFire(gate) {/* 站满发令: 开渐晕转场 + 进冷却(0.8s 盖过整个转场窗, 防连触)。
     gate.kind='den'(巢穴副本入口, den-nest §3.3)/'edge'(边缘越线, 世界边界·T8)/
     'rite'(解锁让开演出, 世界边界·T8)缺省 'map'(地图门切图) */
@@ -2480,6 +2530,10 @@ function advPortalTick(dt) {/* 传送触发(update 每帧): 冷却递减 + 脚/�
      节流 30s 分向话术(advEdgeHintAt, 引导回任务不传送)。触发读 pos 在壳层,
      引擎零改动(R8); 早退链 O(1) 零分配零世界读(§3 性能口径) */
 let advEdgeHintT = 0; /* 近前引导话术节流秒(函数顶递减) */
+advSessionResets.push(() => {
+  advEdgeHintT = 0;
+}); /* 会话复位: 边缘近前引导节流归零(世界边界·T8;
+   counts 引用不清——R10: 进场 init 重注入同对象幂等) */
 const ADV_EDGE_HINT_CD = 30; /* 同缘带提示间隔(不啰嗦; G3 实机走查拍板 2026-11-07:
     6s 太密改 30s——孩子走近听一遍就够, 停在近前 30s 后才再提) */
 /* 目的图→来向方向词(ADV_EDGE_DIR_MAP 反查表, rite 播报用); 分向话术素材
@@ -3273,6 +3327,9 @@ function advPickupTick(dt) {
     隔墙不算「靠近」——advStationOk 的视线缝一并管住播报, 门外不误报);
     开着配方书走近 → 亮灰实时重算(table 级卡片点亮) */
 let advTableNear = false;
+advSessionResets.push(() => {
+  advTableNear = false;
+}); /* 会话复位: 工作台接近旗归零 */
 function advStationTick() {
   const near = advStationOk();
   if (near && !advTableNear) {
@@ -3368,6 +3425,12 @@ function advFlameTick(dt) {/* 节律: 相位累计 → 差异增删(燃烧判定
 
 /* ---------- TNT 链(D4): 放置走 advTryPlace → 点击点燃 → 引信 → 爆炸 ---------- */
 const advFuses = []; /* 已点燃引信 {x,y,z,t,sparkT} */
+function advTntReset() {/* TNT 链会话复位(原 init/cleanup/advSceneLeave 三处手抄收编一处):
+    短按判定与已点燃引信一并清(引信不跨场引爆——会在新图坐标起爆, 串档事故) */
+  advTntTap = null;
+  advFuses.length = 0;
+}
+advSessionResets.push(advTntReset); /* 按引用登记(advSceneLeave 场景级清单也直接调它) */
 function advIgnite(x, y, z) {/* 点击点燃(手持任意, onMouse 左键最前拦截); 重复点击不叠加 */
   for (const f of advFuses) {
     if (f.x === x && f.y === y && f.z === z) return;
@@ -3689,6 +3752,9 @@ function advQuestPaint() {
    📖 触屏键/桌面 Q 键随时唤出: TTS 播当前任务+进度+指路(6 岁口语口径), toast
    同句带进度数字; 2s 节流防连点刷屏(performance 防御式同 advGoHome 先例) */
 let advQuestRemindAt = -1e9; /* 上次播报时刻(s, performance/Date 双源) */
+advSessionResets.push(() => {
+  advQuestRemindAt = -1e9;
+}); /* 会话复位: 任务提醒节流戳复位(2026-11-07 用户票, 同族 timer 惯例: 重进=新会话) */
 const ADV_QUEST_REMIND_CD = 2; /* 节流秒 */
 function advQuestReminder() {
   const now = (typeof performance !== 'undefined' ? performance.now() : Date.now()) / 1000;
@@ -3830,18 +3896,9 @@ const AdventureMode = mkMode({
     /* 地图/维度相位装桶(D8/D9 泛化, T6): 维度不进档——重进恒主世界(下界退出时
        pos 存 null); map 键恢复最后主世界图(老档缺省 home), 桶从档收养
        (Map 原样/数组转 Map/旧档缺省空——decode 已归一, 此处整只换装) */
-    advDim = 'overworld';
-    advPortalCd = 0;
-    advExitSpot = null;
-    advMood = null; /* 首帧 update 按当下昼夜补报场景曲(main 随后会先报基线 adventure) */
-    advGateHold.t = 0; /* 地图门/巢穴门站桩归零(T7): 转场不跨场次(巢穴门已共用此状态) */
-    advDenT = 0; /* 副本计时复位(维度不进档, 重进恒主世界); 波次/通关旗走 advDenDaily(D20), init 收养档值不动 */
-    advEruptT = 0; /* 涌出节拍器复位(advNightReset 同拍口径) */
-    advVeilReset(); /* 渐晕遮罩收起归零(T7) */
-    advEdgeHintT = 0; /* 边缘近前引导节流复位(〔世界边界·T8〕, 同族 timer 惯例) */
-    advQuestRemindAt = -1e9; /* 任务提醒节流戳复位(2026-11-07 用户票, 同族 timer 惯例: 重进=新会话) */
-    advEdgeSkyKeyHi = null; advEdgeSkyKeyLo = null; /* 〔边界转正·T7〕渐变量化键复位(进场首帧必写——
-       上局可能停在带内, 按键跳写会漏掉首帧渐变; P5②拆双键双复位) */
+    advRunSessionResets(); /* 会话复位注册表跑表(维度相位/触屏基表态/面板旗/计时器/
+       遮罩/量化键等, 登记点见各子系统段; 进场首帧必写口径——上局可能停在带内,
+       按键跳写会漏掉首帧渐变) */
     if (typeof advSetEdgeBarriersHidden === 'function') {
       advSetEdgeBarriersHidden(typeof location !== 'undefined' &&
         /edgeUnlocked=1/.test(location.search || '')); /* 解锁态过渡参数:
@@ -3946,19 +4003,12 @@ const AdventureMode = mkMode({
     advBeamsClear(); /* init 无 advSceneLeave: 旧句柄先摘(重进幂等纪律, 同切界) */
     advBeamsRelayout(); /* 光束重锚(init 也锚: 亮门/巢穴之门的常驻束不再等首次切图/切界才出现) */
     advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
-    ADV.panelOpen = false;
-    ADV.chestOpen = false; /* 引导链 v2: 箱子面板一并复位 */
     advFurnace.reset(); /* T4: 炉态/绑定/开态/签名复位(kit Map 引用不变, 开态真值在 kit 不设镜像); 档里有什么恢复什么(F1) */
     advFlamesClear(); /* F2: 炉口火焰一并复位(上一场的观感不渗进来) */
     for (const [k, s] of advLoad.furnaces) advFurnaces.set(k, s); /* F1: 每炉独立炉态重进照旧(decode 已过滤非法) */
     advFurnaceSettle(advMap); /* D14: 当前图炉键对重放后的世界核销(块没了炉态丢); 他图/界键进那张图建场后再核 */
-    advFuses.length = 0;
-    advTableNear = false;
     advMineStop(); /* 蓄力状态复位(上次退出可能按住) */
-    advTntTap = null; /* TNT 短按判定复位(上次退出可能按在 TNT 上) */
     advMouseListeners(true); /* 桌面按住连挖检测(capture) */
-    advTouchUseOn = false; /* 触屏条回到基表态(mkMode init 已声明 advTouchBase);
-      持弓进场时随后的 advSyncHotbar → advTouchMainSync 边沿重声明补射箭键 */
     advSyncHotbar();
     advWarnLow.clear(); /* S4① 预警账本复位: 新一命重新预警 */
     advBagArmed = true; /* S4② 快满提醒复位(进场满包会在首查时提醒一次) */
@@ -3974,7 +4024,6 @@ const AdventureMode = mkMode({
     advMelee.reset(); advHurt.reset(); /* 冷却/受击节流不复场 */
     advPickBuf.clear(); advPickT = 0;
     advNestT.fill(0);
-    advLanternT = 0; /* 灯笼耗秒累计器归零(昼夜 D7: 重进从整秒重新累计) */
     const pe = advGetPEnt(); /* 进场血量随世界档(重进保留残血); 老档/坏档 → 满血 */
     pe.hp = advHpIn; ADV.player.hp = advHpIn;
     advHookEntityCbs(); /* 击杀掉落/收集并线两回调(Mobs/Drops.clear 解除后重挂, 切界共用同一份) */
@@ -4005,24 +4054,12 @@ const AdventureMode = mkMode({
        与下界换天(applySky)都不再被每帧昼夜驱动打扰 */
     dayCycleOn = false;
     applyDaylight();
-    /* 下界相位·地图态复位(D9/D10/T6): 维度/冷却/回程点归零, 图账本回 home,
-       天空雾距复位(applyDaylight 只管天色, fog near/far 是 advApplySky 的私产),
-       行调色板复位(天基色/水色不渗其他模式), 光束句柄摘除, journal 桶换回 home */
-    advDim = 'overworld';
-    advPortalCd = 0;
-    advExitSpot = null;
-    advMood = null; /* 下一场/下一模式重新同步(不把本场缓存带出去) */
-    advGateHold.t = 0; /* 地图门/巢穴门站桩归零(T7) */
-    advVeilReset(); /* 渐晕遮罩收起(T7): 中途退出模式不留紫屏 */
-    advEdgeHintT = 0; /* 边缘近前引导节流复位(〔世界边界·T8〕; counts 引用不清——
-        R10: 进场 init 重注入同对象幂等) */
-    advEdgeSkyKeyHi = null; advEdgeSkyKeyLo = null; /* 〔边界转正·T7〕渐变量化键复位(重进首帧必写;
-       P5②拆双键双复位); 天/雾色复位由下行 advMapRowCleanup 内含(setSkyBase(null)+advApplySky) */
+    advRunSessionResets(); /* 会话复位注册表跑表(维度相位/遮罩/计时/量化键等归零,
+       登记点见各子系统段; 天/雾色复位由下行 advMapRowCleanup 内含) */
     advMapRowCleanup(); /* 行调色板复位内含 advApplySky(ADV_SKY_OVER), 不另重复调用 */
     advBeamsClear(); /* 红天光束不渗进其他模式 */
-    advStore.journal.edits = advSceneEdits.home;
+    advStore.journal.edits = advSceneEdits.home; /* journal 桶换回 home */
     setPlayerGlow(false); /* 灯笼随身光一并熄灭(昼夜 D7): PointLight 不渗入其他模式 */
-    advLanternT = 0; /* 耗秒累计器复位(重进从整秒重新累计) */
     setFluidEditSink(null); /* 流体账本缝解除(liquid D8: 不渗进其他模式) */
     if (advBubbles) {
       advBubbles.dispose(); advBubbles = null; /* 溺气泡条收 DOM(liquid D10) */
@@ -4037,8 +4074,6 @@ const AdventureMode = mkMode({
     advSnowballs.clear(); /* 雪球网格一并摘除(T9) */
     advBolts.clear(); /* 玩家弓箭网格一并摘除(弓物品化) */
     advFlamesClear(); /* F2: 炉口火焰 Sprite 一并摘除(炉态随档保留, 观感重建) */
-    ADV.panelOpen = false;
-    ADV.chestOpen = false;
     advPanel.remove(); /* 卸载面板 DOM */
     advFurnace.panel.remove(); /* T13: 熔炉面板一并卸载 */
     advChestPanel.remove(); /* 引导链 v2: 箱子面板一并卸载 */
@@ -4054,12 +4089,9 @@ const AdventureMode = mkMode({
       advClockDom = null;
     }
     advSleepFadeReset(); /* 遮罩归零还 CSS transition, 不渗入其他模式 */
-    advTntTap = null; /* TNT 短按判定一并复位 */
     advSaplings.clear(); /* 计时不落盘, 重进经全图扫描重建 */
     advTreeRegen.clear(); /* 恢复计时同不落盘, 重进经 advRescanTreeRegen 重建 */
-    advFuses.length = 0; /* 引信不落盘 */
     advStations.clear(); /* 站点缓存重进由 advRescanStations 重建 */
-    advTableNear = false;
     advPlaceKit.resetTimers(); /* 话术节流复位(账本在 place-kit 实例) */
     advRingDispose();
     advHpBar.dispose(); /* 头顶血条回收(S2 深接口) */
