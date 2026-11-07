@@ -478,7 +478,7 @@ const advTouchBase = [ /* ⛏️ 智能主动作键(手持感知, 用户拍板 2
     特殊物品的使用动作键由 advTouchMainSync 边沿重声明追加 */
   {icon: 'pick', label: '挖/放', holdAct: mkMainAct(advMainPlaceable)},
   {icon: 'chest', label: '背包', act: () => advPanelToggle(), rare: true},
-  {icon: 'doc', label: '任务', act: () => advQuestReminder(), rare: true}, /* 📖 任务提醒(2026-11-07 用户票, 同 Q 键) */
+  {icon: 'quest', label: '任务', act: () => advQuestReminder(), rare: true}, /* ❗ 任务提醒(2026-11-07 用户票, 同 Q 键): MMO 黄叹号 */
   {icon: 'house', label: '回家', act: () => advGoHome(), rare: true}, /* 受困逃生口: 回出生小屋(60s 冷却) */
 ];
 function advTouchList() {/* 触屏条清单 = 基表 + 空手锄地键 + 手持物品的使用动作键(使用动作

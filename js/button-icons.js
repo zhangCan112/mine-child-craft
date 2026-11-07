@@ -217,6 +217,27 @@ const BELL_ART = [
   '................',
 ];
 
+/* ---------- 任务叹号(MMO 任务标记惯例, 2026-11-07 用户票「和魔兽世界的一样」:
+   上宽下窄锥形条+独立方点, 亮黄主体+暗黄侧影+黑描边) ---------- */
+const QUEST_ART = [
+  '................',
+  '................',
+  '.....KKKKKK.....',
+  '....KYYYYYYK....',
+  '....KYYYYYYK....',
+  '....KYyYYYYK....',
+  '....KYYYYYYK....',
+  '....KYYYYYYK....',
+  '....KYyYYYYK....',
+  '....KYYYYYYK....',
+  '.....KYYYYK.....',
+  '.....KKKKKK.....',
+  '................',
+  '.....KyyyyK.....',
+  '.....KKKKKK.....',
+  '................',
+];
+
 /* ---------- 小屋(回家按钮/建造场景卡 — 红顶木墙) ---------- */
 const HOUSE_ART = [
   '................',
@@ -829,6 +850,7 @@ const BTN_PIX = {
   /* 菜单与面板 */
   note: {art: NOTE_ART, map: {...BTN_GLYPH, Y: '#f0c53a', y: '#c79a22'}},
   bell: {art: BELL_ART, map: {K: '#14161a', Y: '#f0c53a', l: '#f8e08a', y: '#c79a22'}},
+  quest: {art: QUEST_ART, map: {K: '#14161a', Y: '#ffd83d', y: '#c79a22'}}, /* 任务提醒键(2026-11-07 用户票): MMO 黄叹号 */
   house: {art: HOUSE_ART, map: {K: '#14161a', R: '#b5533c', r: '#8f3a2a', P: '#b1804f', p: '#7d5432', D: '#5d3f21'}},
   lock: {art: LOCK_ART, map: {K: '#14161a', I: '#b0b7c0', i: '#8a9198'}},
   chart: {art: CHART_ART, map: {K: '#14161a', G: '#58c14e', L: '#8ce07e'}},
