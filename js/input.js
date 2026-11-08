@@ -113,6 +113,13 @@ document.addEventListener('selectstart', (e)=>{
   if (t && t.closest && t.closest('input, textarea, select, [contenteditable]')) return;
   e.preventDefault();
 });
+/* 平台缩放护栏(平板误操作: 双指捏合整页放大→部分按钮移出可达区点不到):
+   iOS Safari 自 iOS 10 起为无障碍忽略 viewport 的 user-scalable=no, CSS 的
+   pan-x pan-y 旧引擎又不认 — 手势事件层拦死。gesture* 只在双指捏合时发,
+   单指操作/摇杆+按钮同按不受影响; 桌面无此事件, 挂监听无害。
+   双击缩放归 touch.css 根块(manipulation→pan-x pan-y 降级链)。 */
+document.addEventListener('gesturestart', (e)=> e.preventDefault());
+document.addEventListener('gesturechange', (e)=> e.preventDefault());
 renderer.domElement.addEventListener('click', ()=>{
   if (IS_TOUCH || locked) return;
   requestLock();

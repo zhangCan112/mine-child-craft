@@ -127,3 +127,14 @@ test('Input 命名空间: 旧散全局名仅剩 setTouchActions 过渡薄别名(
   assert.strictEqual(alias.hasMain, 'undefined',
       'refreshTouchMain 已随消费方收口撤销(adventure.js 走 Input.refreshMain)');
 });
+
+/* ============ 平台缩放护栏: 双指捏合手势事件层拦死(平板误操作) ============ */
+
+test('平台缩放护栏: gesturestart/gesturechange 全局拦死(双指捏合 preventDefault; 单指与多点同按不在此列)', () => {
+  const got = [];
+  doc.fire('gesturestart', {preventDefault: () => got.push('start')});
+  doc.fire('gesturechange', {preventDefault: () => got.push('change')});
+  assert.deepStrictEqual(got, ['start', 'change'],
+      '捏合手势两事件都应 preventDefault(Safari 无障碍层会无视 meta 的 user-scalable=no)');
+  /* 对照: 单指路径的事件(tap/drag/hold)不经 gesture* 派发, 这里无监听器可误伤 */
+});
