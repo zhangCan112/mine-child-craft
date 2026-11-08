@@ -2545,6 +2545,17 @@ function advGolemSiteOk(x, y, z, read) {/* 召唤结构判据(纯函数, read �
 const ADV_GOLEM_R_SIGHT = 12; /* 索敌视野(格): 锚点巡逻半径同宽, 守护即守锚点圈 */
 const ADV_GOLEM_R_LOSE = 16; /* 丢锁半径: 追击出此圈即放弃(不离锚太远, 拍板⑤) */
 const ADV_GOLEM_R_PATROL = 12; /* 巡逻半径(锚点缓步圈内; 超出=归位走回) */
+const ADV_GOLEM_R_PATROL_SOFT = 10; /* 巡逻软圈(用户票: 圈沿前后反复抖动): 巡逻在走
+    且朝向圈外、越此圈即弧巡缓转向家(每帧 ω·dt, 越近硬圈转越急)——先于硬圈 12
+    拐弯, 巡逻永不触达 return 边界; 硬圈归位只留给追击释放/超界放置等非巡逻来路 */
+const ADV_GOLEM_ARC_W = 3; /* 弧巡转向基速(rad/s, 随深度 ×0.5~×1.5): 转弯半径
+    ≈ speed/ω ≈ 0.7~1.3 格, 观感=沿领地边缘遛弯。一报用「立即折向家」是 180°
+    单帧掉头, 拉锯抖动仍在(二报)——掉头必须改连续弧线 */
+const ADV_GOLEM_ARC_MAX_OFF = 1.92; /* 圈沿重掷朝向离家最大偏角(110°): 外向重掷+
+    缓转来不及拐 = 重越硬圈触发归位(圈沿模式抖振)——圈沿重掷一律拉回向内半平面 */
+const ADV_GOLEM_ARC_IN_DOT = 0.15; /* 弧巡停转阈(·dh): 朝向与家向夹 ≤arccos(0.15)≈
+    81°(切向再向内 ~9°)即停转沿弦走回——停在天量切向(dot≈0)会 1 帧蹭转 30 帧直走,
+    等效转速 ω/30, 贴圈螺旋外漂仍会重越硬圈(探针实测归位触发 71 次) */
 const ADV_GOLEM_HEAL = 28; /* 修理一锭回血(正典「1 锭=一档裂纹」: ceil(110/4)) */
 const ADV_GOLEM_BIRTH_T = 0.9; /* 召唤诞生动画时长(秒): 缩放 0.25→1 拼装爬升,
     落地时金圈+叮一声——「铁块塔散开拼出傀儡」的激动态(用户票: 召唤要有过程) */
@@ -2583,13 +2594,43 @@ function advGolemStep(gm, env) {/* 三态机决策(纯函数): env={dt, rnd, can
   }
   const hx = gm.__golemHome.x + 0.5 - gm.pos.x; const hz = gm.__golemHome.z + 0.5 - gm.pos.z;
   const dh = Math.hypot(hx, hz) || 1e-9;
-  if (dh > ADV_GOLEM_R_PATROL) {/* 归位: 走回锚点(慢步, 收队同款节拍) */
-    return {mode: 'return', ux: hx / dh, uz: hz / dh, move: true, speedMult: 0.6};
+  if (dh > ADV_GOLEM_R_PATROL) {/* 归位: 走回锚点(慢步, 收队同款节拍)。amb 向家
+      续拍(朝向=家向照走)——交回巡逻时朝向天然向内, 不给弧巡留外向旧账 */
+    return {mode: 'return', ux: hx / dh, uz: hz / dh, move: true, speedMult: 0.6,
+      amb: {t: gm.__golemAmbT || 0, dir: Math.atan2(hx, hz), walk: true}};
   }
+  const reroll = (gm.__golemAmbT || 0) - env.dt <= 0; /* 本帧节拍重掷(advAmbleStep
+      的 nt=t−dt≤0 同判): 圈沿约束只该落在重掷帧的新朝向上 */
   const amb = advAmbleStep(gm.__golemAmbT || 0, gm.__golemAmbDir || 0,
       !!gm.__golemAmbWalk, env.dt, env.rnd); /* 巡逻: 锚点圈内缓步游走(牧场同款节拍) */
-  return {mode: 'patrol', ux: Math.sin(amb.dir), uz: Math.cos(amb.dir),
-    move: amb.walk, amb};
+  let dir = amb.dir;
+  /* 软圈弧巡(用户票二报: 一报的立即折向=180° 单帧掉头, 圈沿拉锯抖动仍在):
+     ① 圈沿重掷约束——新朝向拉回「离家 ≤110°」(外向重掷+缓转来不及拐=重越硬圈);
+     ② 连续弧转——在走、越软圈且朝向未足够向内(朝向·家向 < 0.15·dh, 即切向
+        再向内 ~9° 之前)每帧朝家向缓转 ω·dt(越近硬圈越急), 转够即沿弦自然走回。
+     **弧向逐帧写回 amb.dir**(壳回写 __golemAmbDir)——下一帧在已转方向上续转,
+     不写回=每帧都从冻结的旧外向起步, 等于没转 */
+  if (dh > ADV_GOLEM_R_PATROL_SOFT) {
+    const home = Math.atan2(hx, hz);
+    if (reroll && amb.walk) {
+      let off = home - dir;
+      off = Math.atan2(Math.sin(off), Math.cos(off)); /* 卷绕到 (-π, π] */
+      if (Math.abs(off) > ADV_GOLEM_ARC_MAX_OFF) {
+        dir = home + Math.sign(off) * ADV_GOLEM_ARC_MAX_OFF;
+      }
+    }
+    if (amb.walk && Math.sin(dir) * hx + Math.cos(dir) * hz <
+        ADV_GOLEM_ARC_IN_DOT * dh) {
+      const depth = Math.min(1, (dh - ADV_GOLEM_R_PATROL_SOFT) /
+          (ADV_GOLEM_R_PATROL - ADV_GOLEM_R_PATROL_SOFT));
+      const omega = ADV_GOLEM_ARC_W * (0.5 + depth);
+      let diff = home - dir;
+      diff = Math.atan2(Math.sin(diff), Math.cos(diff)); /* 卷绕到 (-π, π] */
+      dir += Math.sign(diff) * Math.min(Math.abs(diff), omega * env.dt);
+    }
+  }
+  return {mode: 'patrol', ux: Math.sin(dir), uz: Math.cos(dir),
+    move: amb.walk, amb: {t: amb.t, dir, walk: amb.walk}};
 }
 
 function advGolemsNorm(v) {/* golems 桶归一(D6, 拍板 P3 存活跨档): {图键: [{x, z, hp}]}

@@ -2608,6 +2608,55 @@ test('傀儡三态机: advGolemStep — 锁定至死追击/射程内站桩出手
   assert.strictEqual(typeof s.amb.walk, 'boolean', 'amb.walk 走停(壳回写 __golemAmbWalk)');
 });
 
+/* 巡逻软圈闭环回归(用户票「圈沿前后反复抖动」+ 二报「折返后圈沿仍有抖动」):
+   决策→施加位移→节拍回写, 与壳 advGolemTick 施加序同(水平面)——rnd 恒 0=恒朝
+   +z 外向节拍(2s 一掷, 恒在走)。初版无软圈: 6s 起被 patrol/return 逐帧换向钉死
+   圈沿(探针 60s: 归位触发 607 次/0.5s 窗掉头 1213 次); 一报软圈「立即折向家」:
+   归位归零, 但每次越圈=180° 单帧掉头(探针: 圈沿掉头 28 次/最大单帧转向 3.14rad);
+   二报弧巡: 每帧朝家缓转 ω·dt——圈沿掉头 0/单帧转向限 ω·dt 量级 */
+test('傀儡巡逻软圈: 圈沿不抖——越软圈朝外弧巡缓转向家(写回节拍), 巡逻永不触发归位', () => {
+  const dt = 1 / 30;
+  const gm = {pos: {x: 0.5, y: 25, z: 0.5}, cfg: {range: 3}, attackCd: 0,
+    __golemHome: {x: 0, z: 0}, __golemTarget: null};
+  let returns = 0; let prevMode = 'patrol';
+  let prevUx = 0; let prevUz = 0; let burstFlips = 0; let lastFlipT = -9;
+  let rimSnap = 0; let lastAmbT = -1;
+  let t = 0;
+  for (let i = 0; i < 30 * 30; i++) {/* 30s: 初版 6s 即开始圈沿抖振 */
+    const step = Core.advGolemStep(gm, {dt, rnd: () => 0, candidates: []});
+    if (step.mode === 'return' && prevMode !== 'return') returns++;
+    prevMode = step.mode;
+    const reroll = !!(step.amb && step.amb.t > lastAmbT + 1e-9); /* 节拍重掷帧(换向豁免) */
+    if (step.amb) {/* 壳回写三件套(__golemAmb*) */
+      lastAmbT = step.amb.t;
+      gm.__golemAmbT = step.amb.t;
+      gm.__golemAmbDir = step.amb.dir;
+      gm.__golemAmbWalk = step.amb.walk;
+    }
+    const dh = Math.hypot(gm.pos.x - 0.5, gm.pos.z - 0.5);
+    if (step.move) {
+      const dot = Math.max(-1, Math.min(1, step.ux * prevUx + step.uz * prevUz));
+      if (dot < 0) {
+        if (t - lastFlipT < 0.5) burstFlips++;
+        lastFlipT = t;
+      }
+      if (!reroll && dh > 9.5 && (prevUx || prevUz)) {
+        rimSnap = Math.max(rimSnap, Math.acos(dot)); /* 圈沿单帧转向角 */
+      }
+      prevUx = step.ux; prevUz = step.uz;
+      const sp = 2 * (step.speedMult || 1); /* 壳: cfg.speed(2)×speedMult */
+      gm.pos.x += step.ux * sp * dt;
+      gm.pos.z += step.uz * sp * dt;
+    }
+    t += dt;
+  }
+  assert.strictEqual(returns, 0, '巡逻不越硬圈: 归位零触发(初版圈沿逐帧抖振)');
+  assert.strictEqual(burstFlips, 0, '无 0.5s 窗内掉头(拉锯签名)');
+  assert.ok(rimSnap <= 0.5,
+      `圈沿单帧转向 ≤0.5rad(一报折向=3.14rad 掉头, 弧巡限 ω·dt≈0.15), 实测 ${rimSnap.toFixed(2)}`);
+  assert.ok(Math.hypot(gm.pos.x - 0.5, gm.pos.z - 0.5) <= 12, '活动半径收在巡逻圈内');
+});
+
 test('傀儡敌怪谓词与桶归一: advGolemEnemy(苦力怕在内, passive/友军/亡者除外) · advGolemsNorm(键白名单+hp 边界+异形丢弃)', () => {
   /* 敌怪谓词(advGolemStep 候选收集共用): 苦力怕在内(P1: 无视头号威胁读不出守护) */
   const base = {pos: {x: 0, y: 25, z: 0}, dead: false, gone: false};
