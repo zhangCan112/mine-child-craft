@@ -31,6 +31,7 @@ function loadCfg() {
     B_LAVA, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM,
     B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
     B_SPAWNER, B_LOOT_CHEST, B_LOOT_CHEST_SMALL, B_ANCIENT_DEBRIS, B_SNOWY_LEAVES,
+    B_IRON_BLOCK, B_PUMPKIN, B_CARVED_PUMPKIN,
   };`, ctx);
   return ctx.__c;
 }
@@ -87,7 +88,7 @@ test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽�
 
 /* ============ 门与玻璃板 id 段(64~68, docs/door-window-design.md §2) ============ */
 
-test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 75+(69~74 已占)', () => {
+test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 78+(69~77 已占)', () => {
   const c = loadCfg();
   const expect = {B_DOOR: 64, B_DOOR_TOP: 65, B_DOOR_OPEN: 66, B_DOOR_TOP_OPEN: 67, B_GLASS_PANE: 68};
   for (const [k, id] of Object.entries(expect)) {
@@ -95,20 +96,48 @@ test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_POR
     assert.ok(c.BLOCKS[id], 'BLOCKS[' + id + '] 应有定义');
     assert.strictEqual(typeof c.BLOCKS[id].name, 'string');
   }
-  /* 红线: 存档按数字 id 记, 75+ 是后续号段预留
+  /* 红线: 存档按数字 id 记, 78+ 是后续号段预留
      (69=两格床改版床尾 B_BED_FOOT 2026-10-29 · 70=怪物巢穴之心 B_SPAWNER, den-nest D9 ·
      71=战利品宝箱 B_LOOT_CHEST, den-nest §7.5 D16 · 72=低档奖励箱 B_LOOT_CHEST_SMALL, D18 ·
-     73=远古残骸 B_ANCIENT_DEBRIS, 装备系统 T7 · 74=覆雪树叶 B_SNOWY_LEAVES, 世界边界 T12) */
+     73=远古残骸 B_ANCIENT_DEBRIS, 装备系统 T7 · 74=覆雪树叶 B_SNOWY_LEAVES, 世界边界 T12 ·
+     75~77=怪物合成材料件 B_IRON_BLOCK/B_PUMPKIN/B_CARVED_PUMPKIN, mob-crafting T1) */
   assert.strictEqual(c.B_SPAWNER, 70, '巢穴之心占 70(den-nest-design 号段顺延)');
   assert.strictEqual(c.B_LOOT_CHEST, 71, '战利品宝箱占 71(den-nest §7.5 号段顺延)');
   assert.strictEqual(c.B_LOOT_CHEST_SMALL, 72, '低档奖励箱占 72(den-nest §7.5 D18 号段顺延)');
   assert.strictEqual(c.B_ANCIENT_DEBRIS, 73, '远古残骸占 73(装备系统 T7 号段顺延)');
   assert.strictEqual(c.B_SNOWY_LEAVES, 74, '覆雪树叶占 74(世界边界 T12 号段顺延)');
+  assert.strictEqual(c.B_IRON_BLOCK, 75, '铁块占 75(mob-crafting T1 号段顺延)');
+  assert.strictEqual(c.B_PUMPKIN, 76, '南瓜占 76(mob-crafting T1 号段顺延)');
+  assert.strictEqual(c.B_CARVED_PUMPKIN, 77, '雕刻南瓜占 77(mob-crafting T1 号段顺延)');
   assert.ok(c.BLOCKS[70] && c.BLOCKS[71] && c.BLOCKS[72] && c.BLOCKS[73] && c.BLOCKS[74],
       'BLOCKS[70]/[71]/[72]/[73]/[74] 应有定义');
+  assert.ok(c.BLOCKS[75] && c.BLOCKS[76] && c.BLOCKS[77], 'BLOCKS[75]/[76]/[77] 应有定义');
   for (const id of Object.keys(c.BLOCKS)) {
-    assert.ok(Number(id) <= 74, 'BLOCKS 出现 75+ 方块 id: ' + id + '(号段红线)');
+    assert.ok(Number(id) <= 77, 'BLOCKS 出现 78+ 方块 id: ' + id + '(号段红线)');
   }
+});
+
+/* ============ 怪物合成材料件字段段(75~77, docs/mob-crafting-design.md D1) ============ */
+
+test('怪物合成材料件字段: 掉落自指(挖啥得啥) + 铁块石镐门槛 tier 2 + 南瓜斧加速 hard 1.0(雕刻同)', () => {
+  const c = loadCfg();
+  const rows = [
+    ['B_IRON_BLOCK', '铁块', 'iron_block'],
+    ['B_PUMPKIN', '南瓜', 'pumpkin'],
+    ['B_CARVED_PUMPKIN', '雕刻南瓜', 'carved_pumpkin'],
+  ];
+  for (const [k, name, item] of rows) {
+    const b = c.BLOCKS[c[k]];
+    assert.strictEqual(b.name, name, k + ' 中文名');
+    assert.deepStrictEqual([...b.drop[0]], [item, 1, 0], k + ' 掉落自指(零惩罚哲学)');
+  }
+  assert.strictEqual(c.BLOCKS[c.B_IRON_BLOCK].hard, 5.0, '铁块 hard=MC 原值 5.0');
+  assert.strictEqual(c.BLOCKS[c.B_IRON_BLOCK].tool, 'pick', '铁块镐类方块(矿族同款)');
+  assert.strictEqual(c.BLOCKS[c.B_IRON_BLOCK].tier, 2, '铁块=石镐门槛(铁矿石同档)');
+  assert.strictEqual(c.BLOCKS[c.B_PUMPKIN].hard, 1.0, '南瓜 hard=MC 原值 1.0');
+  assert.strictEqual(c.BLOCKS[c.B_PUMPKIN].tool, 'axe', '南瓜斧加速');
+  assert.strictEqual(c.BLOCKS[c.B_CARVED_PUMPKIN].hard, 1.0, '雕刻南瓜 hard 与南瓜同');
+  assert.strictEqual(c.BLOCKS[c.B_CARVED_PUMPKIN].tool, 'axe', '雕刻南瓜斧加速');
 });
 
 /* ============ 远古残骸字段段(73, 装备系统 T7, docs/equipment-design.md §2.3) ============ */

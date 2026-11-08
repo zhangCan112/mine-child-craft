@@ -460,6 +460,22 @@ BLOCKS[B_DOOR_TOP_OPEN] = {name: '门(上·开)', all: [0.66, 0.52, 0.33], pane:
 BLOCKS[B_GLASS_PANE] = {name: '玻璃板', all: [0.75, 0.90, 0.95], pane: true, glass: true,
   hard: 0.3, tool: null, tier: 0, drop: [['glass_pane', 1, 0]]}; // MC 无精准采集不掉 → 零惩罚掉自身(玻璃同款)
 
+/* ---------- 怪物合成材料件 (id 75~77, docs/mob-crafting-design.md D1) ----------
+   铁块/南瓜/雕刻南瓜(2026-11-08): 友方铁傀儡 T 形召唤的材料链(正典取证
+   docs/iron-golem-research.md §1——4 铁块 T 形+雕刻南瓜最后放)。三件均普通
+   实心块, 无级联旗标(正典不参与重力/失撑, 设计稿附录 B18「结构不绑命」)。
+   hard 照 MC 原值: 铁块 5.0(石镐门槛 tier 2, 铁矿石同档) · 南瓜 1.0(斧加速,
+   雕刻同)。掉落自指=挖啥得啥(冰/玻璃板零惩罚同款); 雕刻南瓜来路=剪刀对
+   南瓜使用原地变换(D3, 差异 B16)或挖已雕刻块。贴图入集 texture-atlas
+   (南瓜分面: 顶茎图/侧棱瓣, 雕刻换刻脸格)。 */
+const B_IRON_BLOCK=75; const B_PUMPKIN=76; const B_CARVED_PUMPKIN=77;
+BLOCKS[B_IRON_BLOCK] = {name: '铁块', all: [0.85, 0.87, 0.89],
+  hard: 5.0, tool: 'pick', tier: 2, drop: [['iron_block', 1, 0]]};
+BLOCKS[B_PUMPKIN] = {name: '南瓜', top: [0.60, 0.44, 0.13], side: [0.80, 0.49, 0.12], bottom: [0.60, 0.44, 0.13],
+  hard: 1.0, tool: 'axe', tier: 0, drop: [['pumpkin', 1, 0]]};
+BLOCKS[B_CARVED_PUMPKIN] = {name: '雕刻南瓜', top: [0.60, 0.44, 0.13], side: [0.80, 0.49, 0.12], bottom: [0.60, 0.44, 0.13],
+  hard: 1.0, tool: 'axe', tier: 0, drop: [['carved_pumpkin', 1, 0]]};
+
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段
    (Object.assign 赋值式, 原 soft 旗标先例已随死旗标清偿删除)。hard = MC 硬度原值(徒手石头 7.5s 口径的来源) ·

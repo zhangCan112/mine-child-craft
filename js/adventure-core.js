@@ -1805,6 +1805,7 @@ function advBuildWorld() {/* 建场总装: 场景函数确定性重建(build 模
   advBuildEdgeBands(); /* 〔边界转正·T7〕四方向过渡带(正式建场件, T7 转正收编) */
   advPlantTrees();
   advBuildPineGrove(); /* 松林圈内橡树已被避让判据排除, 序仅定确定性 */
+  advPlantPumpkins(); /* 南瓜生长点(mob-crafting T2): 树后草丛前——占位预检让位树干, 草丛/花田顶上无物判据让位南瓜 */
   advScatterTufts(); /* 树立好再撒草丛(顶上无物判据吃树干占位) */
   advScatterFlowers();
   advBuildMeadow();
@@ -2471,6 +2472,157 @@ function advOreRefillPlan(entries, read) {/* 到期矿位结算分流(纯函数)
     else drop.push(e);
   }
   return {fill, drop};
+}
+
+/* ============================================================
+   南瓜生长点 (mob-crafting-design D2) — 纯函数段 + 建场播撒
+   ------------------------------------------------------------
+   插件三件套同矿位恢复(位置记录=常量清单/类型=B_PUMPKIN 单值/基底检查
+   =拒绝式预检): 点位是 home 农田东南的 3 处草地常量(零世界读, 确定性
+   重放红线——清单不随玩家改动漂移, advLivestockSpots 投影同款)。采集记
+   采集时 dayTime 归壳 pumpkinRegen 桶(羊毛长回同款游戏日时钟), 回填只回
+   空气位(玩家改建永久优先)。
+   ============================================================ */
+const ADV_PUMPKIN_SPOTS_XZ = [ /* 农田东南草地 3 处(拍板②「生长几个」取下限): 几何
+   对位避农田(ADV_FARM)/水路(x58 列)/小径南下段(ADV_PATH[4])/围栏(ADV_PEN)/
+   广场(ADV_GATE_PLAZA); y 建场期经 advHeightAt 派生(圈层高度场唯一权威,
+   常量点在核心圈幅 0 → y25) */
+  {x: 64, z: 90}, {x: 66, z: 91}, {x: 68, z: 92},
+];
+
+function advPumpkinSpots() {/* 点位清单(单测直触): xz 常量 + advHeightAt 派生种植面
+   ——零世界读保持(清单不随玩家改动漂移); i=桶键(稳定下标, 世界档只存它) */
+  return ADV_PUMPKIN_SPOTS_XZ.map((s, i) =>
+    ({i, x: s.x, y: ADV_GROUND + advHeightAt(s.x, s.z) + 1, z: s.z}));
+}
+
+function advPumpkinSpotOpen(x, y, z, read) {/* 拒绝式预检(纯函数, read 注入测试直驱):
+   位上空气 + 底下有支撑——浮空南瓜不成立; 树干/玩家建筑占位天然让位 */
+  return read(x, y, z) === 0 && read(x, y - 1, z) !== 0;
+}
+
+function advCarveOk(id) {/* 雕刻判据(mob-crafting D3 纯段, 单测直触): 目标=B_PUMPKIN
+   才可雕(剪刀右键目标分派的方块半边; 羊归 advMelee.aim 实体半边) */
+  return id === B_PUMPKIN;
+}
+
+/* ============================================================
+   铁傀儡召唤 (mob-crafting-design D4) — 结构判据纯函数
+   ------------------------------------------------------------
+   正放直立 T(拍板①形态=结构召唤): 头=雕刻南瓜, 身体竖柱双铁块,
+   手臂两轴向任一双铁块; 另一轴向臂候选位+选定轴向臂上方共四格
+   必须空气(差异 B4 照搬: 草丛/水占位即阻断, 玩家自查)。
+   返回 null=不成立 / {axis:'x'|'z'}=成立带轴向(壳层选臂外 spawn 侧)。
+   横放/倒放不识别(差异 B); 触发=雕刻南瓜最后就位(advMarkEdit 挂钩,
+   放置/雕刻两条路汇此缝), 重放不经此缝(老档重进不重复召唤)。
+   ============================================================ */
+const ADV_GOLEM_MAX = 3; /* 傀儡上限(提案 P2): 满员结构照常成立但不召唤 */
+
+function advGolemSiteOk(x, y, z, read) {/* 召唤结构判据(纯函数, read 注入测试直驱):
+   身体(x,y−1,z)+(x,y−2,z)双铁块 + 手臂(x±1 或 z±1, y−1)双铁块 + 四空气位 */
+  if (read(x, y, z) !== B_CARVED_PUMPKIN) return null; /* 头=雕刻南瓜(本体) */
+  if (read(x, y - 1, z) !== B_IRON_BLOCK || read(x, y - 2, z) !== B_IRON_BLOCK) return null;
+  let okX = read(x - 1, y - 1, z) === B_IRON_BLOCK && read(x + 1, y - 1, z) === B_IRON_BLOCK &&
+    read(x, y - 1, z - 1) === 0 && read(x, y - 1, z + 1) === 0 &&
+    read(x - 1, y, z) === 0 && read(x + 1, y, z) === 0; /* x 轴向: 臂+另一轴臂位空+肩上位空 */
+  let okZ = read(x, y - 1, z - 1) === B_IRON_BLOCK && read(x, y - 1, z + 1) === B_IRON_BLOCK &&
+    read(x - 1, y - 1, z) === 0 && read(x + 1, y - 1, z) === 0 &&
+    read(x, y, z - 1) === 0 && read(x, y, z + 1) === 0; /* z 轴向: 同构换轴 */
+  if (okX) return {axis: 'x'};
+  if (okZ) return {axis: 'z'};
+  return null;
+}
+
+/* ============================================================
+   铁傀儡 AI (mob-crafting-design D5) — 决策纯函数段
+   ------------------------------------------------------------
+   三态机(巡逻/索敌/归位): 决策在此(advHerdStep/advAmbleStep 先例),
+   位移与攻击结算归壳 advGolemTick(Mobs.move/steer 意图 API——友军
+   不进 advMobAI 战斗轨)。索敌=锁定至死(正典单一目标口径): 锁回写
+   gm.__golemTarget 由壳持有, 目标死亡/出 R_LOSE 即丢锁回落归位。
+   击飞不搬(拍板④): 壳层攻击结算击退参数恒 0。
+   ============================================================ */
+const ADV_GOLEM_R_SIGHT = 12; /* 索敌视野(格): 锚点巡逻半径同宽, 守护即守锚点圈 */
+const ADV_GOLEM_R_LOSE = 16; /* 丢锁半径: 追击出此圈即放弃(不离锚太远, 拍板⑤) */
+const ADV_GOLEM_R_PATROL = 12; /* 巡逻半径(锚点缓步圈内; 超出=归位走回) */
+const ADV_GOLEM_HEAL = 28; /* 修理一锭回血(正典「1 锭=一档裂纹」: ceil(110/4)) */
+const ADV_GOLEM_BIRTH_T = 0.9; /* 召唤诞生动画时长(秒): 缩放 0.25→1 拼装爬升,
+    落地时金圈+叮一声——「铁块塔散开拼出傀儡」的激动态(用户票: 召唤要有过程) */
+
+function advGolemEnemy(m) {/* 敌怪谓词(纯函数): 存活非傀儡非 passive 牧场四怪——
+   苦力怕在内(P1 拍板: 夜怪主力是苦力怕, 守护怪无视头号威胁读不出守护) */
+  return !m.dead && !m.gone && !m.__golem && !(m.cfg && m.cfg.passive);
+}
+
+function advGolemStep(gm, env) {/* 三态机决策(纯函数): env={dt, rnd, candidates:[{m,d}]}
+   (候选敌怪由壳收集——决策零世界扫描); 返回 {mode, ux, uz, move, speedMult,
+   attack, target, amb}: ux/uz=单位方向向量(壳施加 move/steer), amb=游荡节拍
+   回写(__golemAmb* 私有字段, 不落盘——游荡位置存档口径与牧场一致) */
+  let t = gm.__golemTarget;
+  if (t && (t.dead || t.gone || !advGolemEnemy(t))) t = null; /* 目标已死/已回收 */
+  if (t) {
+    const dx = t.pos.x - gm.pos.x; const dz = t.pos.z - gm.pos.z;
+    if (Math.hypot(dx, dz) > ADV_GOLEM_R_LOSE) t = null; /* 追出丢锁圈 */
+  }
+  if (!t) {/* 无锁: 视野内最近敌怪锁定(单一目标, 正典口径) */
+    let best = null; let bd = ADV_GOLEM_R_SIGHT;
+    for (const c of env.candidates) {
+      if (c.d < bd) {
+        bd = c.d; best = c.m; /* 最近者锁定 */
+      }
+    }
+    t = best;
+  }
+  gm.__golemTarget = t;
+  if (t) {
+    const dx = t.pos.x - gm.pos.x; const dz = t.pos.z - gm.pos.z;
+    const d = Math.hypot(dx, dz) || 1e-9;
+    return {mode: 'chase', ux: dx / d, uz: dz / d,
+      move: d > gm.cfg.range, /* 射程内停步站桩(攻击门在壳) */
+      attack: d <= gm.cfg.range + 0.4 && gm.attackCd <= 0, target: t};
+  }
+  const hx = gm.__golemHome.x + 0.5 - gm.pos.x; const hz = gm.__golemHome.z + 0.5 - gm.pos.z;
+  const dh = Math.hypot(hx, hz) || 1e-9;
+  if (dh > ADV_GOLEM_R_PATROL) {/* 归位: 走回锚点(慢步, 收队同款节拍) */
+    return {mode: 'return', ux: hx / dh, uz: hz / dh, move: true, speedMult: 0.6};
+  }
+  const amb = advAmbleStep(gm.__golemAmbT || 0, gm.__golemAmbDir || 0,
+      !!gm.__golemAmbWalk, env.dt, env.rnd); /* 巡逻: 锚点圈内缓步游走(牧场同款节拍) */
+  return {mode: 'patrol', ux: Math.sin(amb.dir), uz: Math.cos(amb.dir),
+    move: amb.walk, amb};
+}
+
+function advGolemsNorm(v) {/* golems 桶归一(D6, 拍板 P3 存活跨档): {图键: [{x, z, hp}]}
+   只收整数格坐标与 (0, golem maxHp] 血量条目(修理投资跨档不丢), 异形整条丢弃,
+   坏桶置空——livestock 归一先例同构。
+   键白名单三级回退: ADV_SCENE_KEYS(壳, 经典脚本共享词法) → ADV_MAPS/ADV_DIMS
+   注册表派生(同真键集, Node require 域可见) → 空。**键集不可见时若退成空集,
+   归一返 {} 会把整桶真数据刷没**(壳侧 advGolemsLoad 补键循环只补空数组不救
+   数据)——注册表回退保证两种装载域(browser/Node 测试)都拿得到真键集 */
+  const maxHp = (typeof MOB_TYPES !== 'undefined' && MOB_TYPES.golem) ? MOB_TYPES.golem.hp : 110;
+  const keys = (typeof ADV_SCENE_KEYS !== 'undefined') ? ADV_SCENE_KEYS :
+    [].concat(typeof ADV_MAPS !== 'undefined' ? ADV_MAPS.map((r) => r.id) : [],
+      typeof ADV_DIMS !== 'undefined' ? ADV_DIMS.map((r) => r.id) : []);
+  const out = {};
+  for (const k of keys) out[k] = [];
+  if (!v || typeof v !== 'object' || Array.isArray(v)) return out;
+  for (const k of keys) {
+    const arr = v[k];
+    if (!Array.isArray(arr)) continue;
+    out[k] = arr.filter((g) => g && typeof g === 'object' &&
+      Number.isInteger(g.x) && Number.isInteger(g.z) &&
+      Number.isInteger(g.hp) && g.hp > 0 && g.hp <= maxHp);
+  }
+  return out;
+}
+
+function advPlantPumpkins() {/* 建场播撒(确定性建场件): 只种空气位——挂在树后,
+   树干/松占位天然让位; 草丛/花田的顶上无物判据在本函数之后播撒, 也让位南瓜;
+   不记 edits(建场件同牧场散布口径)——玩家挖走/覆盖由 journal 重放兜底,
+   采集经壳 mined sink 记 pumpkinRegen, 次游戏日 advPumpkinRegenTick 回填 */
+  for (const s of advPumpkinSpots()) {
+    if (advPumpkinSpotOpen(s.x, s.y, s.z, getBlock)) setBlockRaw(s.x, s.y, s.z, B_PUMPKIN);
+  }
 }
 
 /* ============================================================
@@ -3342,6 +3494,10 @@ if (typeof module !== 'undefined' && module.exports) {
     advBuildPlaza, advBuildFarm, advBuildPen, advBuildPath, advScatterFlowers,
     advBuildPond, advBuildTower, advBuildStones, advPineTree, advBuildPineGrove, advBuildMeadow,
     advPlantTrees, advTreeSpots, advScatterTufts, advBuildWorld, advDeathPlan,
+    ADV_PUMPKIN_SPOTS_XZ, advPumpkinSpots, advPumpkinSpotOpen, advPlantPumpkins, advCarveOk,
+    ADV_GOLEM_MAX, advGolemSiteOk,
+    ADV_GOLEM_R_SIGHT, ADV_GOLEM_R_LOSE, ADV_GOLEM_R_PATROL, ADV_GOLEM_HEAL, ADV_GOLEM_BIRTH_T,
+    advGolemEnemy, advGolemStep, advGolemsNorm,
     ADV_NEST_MIN, ADV_NEST_MAX, ADV_NEST_RESPAWN_T, ADV_NEST_AGGRO_R, ADV_NEST_LEASH_R,
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,
     ADV_SWING_CD, ADV_FIST_DMG, ADV_AIM_COS, ADV_ATTACK_T, ADV_ARROW_SPEED, ADV_PICKUP_WINDOW,

@@ -1204,6 +1204,27 @@ const PANE_ART = [
   '................',
 ];
 
+/* 南瓜字符画(mob-crafting T1): 一张画两用——雕刻版暗脸槽 k=深棕刻痕,
+   未雕刻版 k=暗橙棱影(零第二张画, 共用形换色板同款惯例); w=短茎 */
+const PUMPKIN_FACE_ART = [
+  '................',
+  '.......ww.......',
+  '......ww........',
+  '....dddddddd....',
+  '..ddmmmmmllmdd..',
+  '.dmmlmlllmllmd..',
+  '.dmlkkllllkkld..',
+  '.dmlkkllllkkld..',
+  '.dmlllllllllld..',
+  '.dmlllllllllld..',
+  '.dmllklklklkld..',
+  '.dmmllklklklmd..',
+  '..dmllllllllmd..',
+  '...ddmmmmmddd...',
+  '................',
+  '................',
+];
+
 /* ------------------------------------------------------------
    ITEM_PIX 字符画数据表 — 键集与 ITEMS 完全一致(test 防错网断言),
    共用形状(矿炭/矿石/锭/粉堆/圆球/砖墙)多条目复用同 art 换色板
@@ -1309,6 +1330,11 @@ const ITEM_PIX = {
     '#': '#312828', '+': '#473e3f', '-': '#241f20', 'b': '#8a6a4a'}},
   netherite_scrap: {art: COAL_ART, map: {c: '#5d565d', L: '#766a76', d: '#312828'}},
   netherite_ingot: {art: INGOT_ART, map: {'#': '#5d565d', '+': '#766a76', '-': '#312828'}},
+  /* 怪物合成件(mob-crafting T1): 铁块复用方块立方形换银白板(stone 同构先例);
+     南瓜/雕刻共用 PUMPKIN_FACE_ART——未雕刻版暗脸槽映射暗橙棱影(零第二张画) */
+  iron_block: {art: STONE_ART, map: {s: '#d8dde4', L: '#eef1f5', d: '#9aa1a8'}},
+  pumpkin: {art: PUMPKIN_FACE_ART, map: {m: '#d0781e', l: '#eda34a', d: '#9a5410', k: '#b96a12', w: '#7a5228'}},
+  carved_pumpkin: {art: PUMPKIN_FACE_ART, map: {m: '#d0781e', l: '#eda34a', d: '#9a5410', k: '#3a2208', w: '#7a5228'}},
 };
 
 /* 工具 24 条 = 4 种字符画 × 六阶色板('#'主/'+'亮/'-'暗/'o'描边), 柄色固定;

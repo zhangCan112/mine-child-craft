@@ -615,7 +615,7 @@ test('体验馆: 统一装场 — 展馆结构经壳的建场+重放链在场(�
       可依, P14 清扫每场都会收走, 陈了等于空位)逐件在台面(y G+2 扫描区) */
   const found = new Set();
   for (let x = 54; x <= 72; x++) {
-    for (let z = 51; z <= 66; z++) {
+    for (let z = 51; z <= 71; z++) {
       const b = api.getBlock(x, G + 2, z);
       if (b) found.add(b);
     }
@@ -1624,7 +1624,7 @@ test('体验馆 U3: 重放后结构全覆盖 — 墙/顶/门/窗/站点件/床/�
   /* 展台展品: 派生方块清单(U5 起 need 旗标块在派生层排除)的方块都在台面(y g+2 扫描区) */
   const found = new Set();
   for (let x = 54; x <= 72; x++) {
-    for (let z = 51; z <= 66; z++) {
+    for (let z = 51; z <= 71; z++) {
       const b = api.getBlock(x, g + 2, z);
       if (b) found.add(b);
     }

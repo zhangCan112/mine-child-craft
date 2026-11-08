@@ -31,6 +31,7 @@ const api = vm.runInContext(`({
   B_SNOW, B_ICE, B_SANDSTONE, B_GLOWSTONE, B_CHEST, /* 扩容主题五件建场件消费(望塔灯/箱, 松林/花田/南池) */
   B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID, /* 边界带建场件消费(〔边界原型·T2~T5〕: 雪覆草/枯灌木/兰花) */
   B_SNOWY_LEAVES, /* 覆雪树叶(〔世界边界·T12〕: 北带落雪杉冠盖件, 级联随冠消散) */
+  B_IRON_BLOCK, B_PUMPKIN, B_CARVED_PUMPKIN, /* 怪物合成材料件(mob-crafting T1/T2) */
   CascadeCore, /* 方块级联核心(T12 行为断言: 镜像 world.js editBlock 装配直调破坏链) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
   B_SPAWNER, B_OBSIDIAN, B_PORTAL, B_NETHER_BRICK, /* 黑巢/巢穴副本建场件消费(den-nest: 巢之心/祭坛柱/洞口紫门) */
@@ -2481,6 +2482,163 @@ test('生态恢复·矿位回填: 跨天到期 + 空气才回填(被占销账=�
   ], read);
   assert.deepStrictEqual(plan.fill, [{scene: 'home', x: 1, y: 2, z: 3}], '只回填空气位');
   assert.deepStrictEqual(plan.drop.map((e) => e.x).sort(), [2, 3], '被占位销账');
+});
+
+/* ============ 南瓜生长点(docs/mob-crafting-design.md D2, mob-crafting T2) ============ */
+
+test('南瓜生长点清单: 3 处常量派生 — y 经高度场 · 避农田/水路/小径/围栏/广场 · 建场播撒在位', () => {
+  Core.advBuildWorld(); /* 对真生成世界断言(清单本身零世界读) */
+  const spots = Core.advPumpkinSpots();
+  assert.strictEqual(spots.length, 3, '3 处(拍板②「生长几个」取下限)');
+  assert.deepStrictEqual(spots.map((s) => s.i), [0, 1, 2], '索引稳定(采集账桶键)');
+  for (const s of spots) {
+    assert.strictEqual(s.y, Core.ADV_GROUND + Core.advHeightAt(s.x, s.z) + 1, 'y 与圈层高度场同源派生');
+    assert.ok(!Core.advInRect(s.x, s.z, Core.ADV_FARM), '避农田');
+    assert.ok(!Core.advInRect(s.x, s.z, Core.ADV_PEN), '避围栏');
+    assert.ok(!Core.advInRect(s.x, s.z, Core.ADV_GATE_PLAZA), '避广场');
+    for (const r of Core.ADV_PATH) {
+      assert.ok(!Core.advInRect(s.x, s.z, r), '避小径: ' + s.x + ',' + s.z);
+    }
+    assert.ok(!(s.x === 58 && s.z >= 86 && s.z <= 88), '避农田西缘水路列');
+    assert.strictEqual(api.getBlock(s.x, s.y - 1, s.z), 1, '脚下是草地(播撒基底)');
+    assert.strictEqual(api.getBlock(s.x, s.y, s.z), api.B_PUMPKIN, '建场播撒在位(B_PUMPKIN, 树干占位即红)');
+  }
+});
+
+test('南瓜拒绝式预检: advPumpkinSpotOpen — 位上空气+底下支撑才开放(占位/浮空两路拒绝)', () => {
+  const read = (x, y) => (y === 24 ? 1 : (y === 25 && x === 66 ? 77 : 0)); /* 草皮层; x66 位上被占 */
+  assert.strictEqual(Core.advPumpkinSpotOpen(64, 25, 90, read), true, '空气+草皮支撑=开放');
+  assert.strictEqual(Core.advPumpkinSpotOpen(66, 25, 91, read), false, '位上被占(树干/玩家建筑)=拒绝');
+  assert.strictEqual(Core.advPumpkinSpotOpen(68, 26, 92, read), false, '脚下无支撑(浮空位)=拒绝');
+});
+
+test('南瓜雕刻判据: advCarveOk — 只认 B_PUMPKIN(雕刻南瓜/空气/其他皆拒)', () => {
+  assert.strictEqual(Core.advCarveOk(api.B_PUMPKIN), true, '南瓜可雕');
+  assert.strictEqual(Core.advCarveOk(api.B_CARVED_PUMPKIN), false, '已雕的不再雕(幂等)');
+  assert.strictEqual(Core.advCarveOk(0), false, '空气拒');
+  assert.strictEqual(Core.advCarveOk(1), false, '草皮拒');
+});
+
+test('召唤结构判据: advGolemSiteOk — 正放直立 T 两轴向成立 · 缺件/四空气位/头身份负例', () => {
+  const IRON = api.B_IRON_BLOCK;
+  const HEAD = api.B_CARVED_PUMPKIN;
+  const mk = (cells) => (x, y, z) => (cells.get(x + ',' + y + ',' + z) || 0);
+  /* x 轴向正放 T: 头(5,27,9) 胸(5,26,9) 脚(5,25,9) 臂(4/6,26,9) */
+  const tX = new Map([['5,27,9', HEAD], ['5,26,9', IRON], ['5,25,9', IRON],
+    ['4,26,9', IRON], ['6,26,9', IRON]]);
+  assert.deepStrictEqual(Core.advGolemSiteOk(5, 27, 9, mk(tX)), {axis: 'x'}, 'x 轴向成立');
+  /* z 轴向正放 T: 臂(5,26,8/10) */
+  const tZ = new Map([['5,27,9', HEAD], ['5,26,9', IRON], ['5,25,9', IRON],
+    ['5,26,8', IRON], ['5,26,10', IRON]]);
+  assert.deepStrictEqual(Core.advGolemSiteOk(5, 27, 9, mk(tZ)), {axis: 'z'}, 'z 轴向成立');
+  /* 负例族 */
+  const noFoot = new Map(tX); noFoot.delete('5,25,9');
+  assert.strictEqual(Core.advGolemSiteOk(5, 27, 9, mk(noFoot)), null, '缺脚格拒');
+  const oneArm = new Map(tX); oneArm.delete('6,26,9');
+  assert.strictEqual(Core.advGolemSiteOk(5, 27, 9, mk(oneArm)), null, '单臂拒(双铁块才成)');
+  const cross = new Map(tX); cross.set('5,26,8', IRON); /* 另一轴臂位被占=十字歧义 */
+  assert.strictEqual(Core.advGolemSiteOk(5, 27, 9, mk(cross)), null, '另一轴臂位非空气拒(B4)');
+  const shoulder = new Map(tX); shoulder.set('4,27,9', 3); /* 肩上位被石头占 */
+  assert.strictEqual(Core.advGolemSiteOk(5, 27, 9, mk(shoulder)), null, '肩上位非空气拒(B4)');
+  const rawHead = new Map(tX); rawHead.set('5,27,9', api.B_PUMPKIN); /* 普通南瓜当头 */
+  assert.strictEqual(Core.advGolemSiteOk(5, 27, 9, mk(rawHead)), null, '头必须雕刻南瓜(普通南瓜拒)');
+  const grass = new Map(tX); grass.set('5,26,8', api.B_GRASS_TUFT); /* 草丛占位(非空气即阻断) */
+  assert.strictEqual(Core.advGolemSiteOk(5, 27, 9, mk(grass)), null, '草丛占另一轴臂位拒(判据=id 0)');
+  assert.strictEqual(Core.advGolemSiteOk(5, 27, 9, mk(new Map())), null, '空世界拒');
+});
+
+test('傀儡三态机: advGolemStep — 锁定至死追击/射程内站桩出手/丢锁圈回落/最近锁定/归位/巡逻', () => {
+  const enemy = (x, z, extra) => Object.assign(
+      {pos: {x, y: 25, z}, dead: false, gone: false, cfg: {}}, extra || {});
+  const mk = (px, pz, extra) => Object.assign({
+    pos: {x: px, y: 25, z: pz}, cfg: {range: 3}, attackCd: 0,
+    __golemHome: {x: 10, z: 10}, __golemTarget: null}, extra || {});
+  const env = (cands) => ({dt: 1 / 60, rnd: () => 0.5, candidates: cands || []});
+  /* chase: 视野内候选 → 锁回写+朝向+射程外移动不出手 */
+  const gm = mk(10, 10);
+  const t1 = enemy(14, 10);
+  let s = Core.advGolemStep(gm, env([{m: t1, d: 4}]));
+  assert.strictEqual(s.mode, 'chase', '追击态');
+  assert.strictEqual(gm.__golemTarget, t1, '锁回写 gm.__golemTarget(单一目标, 正典口径)');
+  assert.strictEqual(s.target, t1, '决策返 target(壳据此结算)');
+  assert.strictEqual(s.ux, 1, '单位朝向 x');
+  assert.strictEqual(s.uz, 0, '单位朝向 z');
+  assert.strictEqual(s.move, true, '4 > range 3: 移动');
+  assert.strictEqual(s.attack, false, '4 > 3.4: 攻击门未开');
+  /* 站桩出手: 射程内+cd 好 → attack; cd 冷却中 → 只站桩 */
+  gm.__golemTarget = null; /* 清上一步的锁(锁定至死: 不清会劫持本段候选) */
+  const t2 = enemy(12.8, 10);
+  s = Core.advGolemStep(gm, env([{m: t2, d: 2.8}]));
+  assert.strictEqual(s.move, false, '2.8 ≤ range 3: 射程内停步站桩');
+  assert.strictEqual(s.attack, true, '2.8 ≤ 3.4 且 cd 好: 出手');
+  gm.attackCd = 1;
+  s = Core.advGolemStep(gm, env([{m: t2, d: 2.8}]));
+  assert.strictEqual(s.attack, false, 'cd 冷却中不出手(拍子门在决策)');
+  /* 锁定至死: 既有锁优先于视野(候选空也追); 出 R_LOSE 16 即丢锁回落 */
+  gm.attackCd = 0;
+  const far = enemy(25, 10); /* 15 格: > R_SIGHT 12 但 < R_LOSE 16 */
+  gm.__golemTarget = far;
+  s = Core.advGolemStep(gm, env([]));
+  assert.strictEqual(s.mode, 'chase', '锁定至死: 候选空仍追既有锁(正典单一目标口径)');
+  gm.__golemTarget = enemy(27, 10); /* 17 格 > R_LOSE 16 */
+  s = Core.advGolemStep(gm, env([]));
+  assert.strictEqual(gm.__golemTarget, null, '追出丢锁圈即丢锁(不离锚太远, 拍板⑤)');
+  assert.strictEqual(s.mode, 'patrol', '丢锁+在锚圈内 → 回巡逻');
+  /* 已死目标即丢锁(目标死亡/回收两路同一判据) */
+  gm.__golemTarget = enemy(12, 10, {dead: true});
+  s = Core.advGolemStep(gm, env([]));
+  assert.strictEqual(gm.__golemTarget, null, '目标已死丢锁');
+  /* 无锁: 视野内最近者锁定 */
+  const a = enemy(20, 10); const b = enemy(12, 10);
+  s = Core.advGolemStep(gm, env([{m: a, d: 10}, {m: b, d: 2}]));
+  assert.strictEqual(s.target, b, '最近候选优先');
+  /* 归位: 离锚超巡逻半径 12 → 慢步走回(锚=格中心: 实体放半格点上, 朝向才正交) */
+  s = Core.advGolemStep(mk(24.5, 10.5), env([]));
+  assert.strictEqual(s.mode, 'return', '归位态');
+  assert.strictEqual(s.speedMult, 0.6, '慢步(收队同款节拍)');
+  assert.strictEqual(s.ux, -1, '朝锚点方向 x');
+  assert.strictEqual(s.uz, 0, '朝锚点方向 z');
+  assert.strictEqual(s.move, true, '归位在走');
+  /* 巡逻: 锚圈内缓步游走(牧场同款节拍, amb 由壳回写 __golemAmb*) */
+  gm.__golemTarget = null; /* 清最近锁定段留下的锁(同理) */
+  s = Core.advGolemStep(gm, env([]));
+  assert.strictEqual(s.mode, 'patrol', '锚圈内巡逻');
+  assert.strictEqual(typeof s.amb.t, 'number', 'amb.t 节拍(壳回写 __golemAmbT)');
+  assert.strictEqual(typeof s.amb.dir, 'number', 'amb.dir 朝向(壳回写 __golemAmbDir)');
+  assert.strictEqual(typeof s.amb.walk, 'boolean', 'amb.walk 走停(壳回写 __golemAmbWalk)');
+});
+
+test('傀儡敌怪谓词与桶归一: advGolemEnemy(苦力怕在内, passive/友军/亡者除外) · advGolemsNorm(键白名单+hp 边界+异形丢弃)', () => {
+  /* 敌怪谓词(advGolemStep 候选收集共用): 苦力怕在内(P1: 无视头号威胁读不出守护) */
+  const base = {pos: {x: 0, y: 25, z: 0}, dead: false, gone: false};
+  assert.strictEqual(Core.advGolemEnemy(Object.assign({}, base, {cfg: {}})), true, '近战夜怪=敌');
+  assert.strictEqual(Core.advGolemEnemy(Object.assign({}, base, {cfg: {boom: true}})), true,
+      '苦力怕在内(守护怪无视苦力怕读不出守护, P1 拍板)');
+  assert.strictEqual(Core.advGolemEnemy(Object.assign({}, base, {cfg: {}, dead: true})), false, '已死非敌');
+  assert.strictEqual(Core.advGolemEnemy(Object.assign({}, base, {cfg: {}, gone: true})), false, '已回收非敌');
+  assert.strictEqual(Core.advGolemEnemy(Object.assign({}, base, {cfg: {}, __golem: true})), false,
+      '友军傀儡非敌(傀儡互不打)');
+  assert.strictEqual(Core.advGolemEnemy(Object.assign({}, base, {cfg: {passive: true}})), false,
+      '牧场动物非敌(不追牛羊鸡)');
+  /* 桶归一: advGolemsNorm 经 require 在 Node 域跑, typeof 解析 Node 全局——
+     真键集派生自壳(ADV_MAPS+ADV_DIMS 拼接, adventure.js L82)并经 advGolemsLoad
+     补全, 那条链在 adventure-mode 侧测; 这里注入固定键集钉白名单语义
+     (node --test 每文件独立进程, globalThis 注入无跨文件污染) */
+  globalThis.ADV_SCENE_KEYS = ['home', 'desert', 'den'];
+  const empty = {home: [], desert: [], den: []};
+  assert.deepStrictEqual(Core.advGolemsNorm(null), empty, '无档 → 全空桶');
+  assert.deepStrictEqual(Core.advGolemsNorm(42), empty, '非对象坏桶 → 全空桶');
+  assert.deepStrictEqual(Core.advGolemsNorm([{x: 1}]), empty, '数组坏桶 → 全空桶');
+  assert.deepStrictEqual(
+      Core.advGolemsNorm({home: [{x: 90, z: 90, hp: 110}], desert: 'x', den: [{x: 3, z: 4, hp: 1}]}),
+      {home: [{x: 90, z: 90, hp: 110}], desert: [], den: [{x: 3, z: 4, hp: 1}]},
+      '合法条目保留(含血量下界 1), 非数组键置空');
+  assert.deepStrictEqual(Core.advGolemsNorm({home: [
+    {x: 1.5, z: 2, hp: 5}, {x: 1, z: 2, hp: 0}, {x: 1, z: 2, hp: 111},
+    {x: 1, z: 2}, {x: 1, z: 2, hp: 'x'}, 'x', null,
+  ]}), empty, '异形条目整条丢弃(非整数坐标/血量越界(0,110]/缺 hp/非对象)');
+  assert.strictEqual('junk' in Core.advGolemsNorm({junk: [{x: 1, z: 2, hp: 5}]}), false,
+      '键集白名单: 未知键不透出(不扩散)');
 });
 
 test('生态恢复·树位占位预检: 拒绝式逐条 + 四角不算 + replaceable 放行', () => {

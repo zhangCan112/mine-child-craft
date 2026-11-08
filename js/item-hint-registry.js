@@ -31,6 +31,7 @@ const ITEM_HINTS = {
   iron_ore: '放进熔炉烧一烧，变铁锭',
   iron_ingot: '结实的铁，能做好多工具',
   iron_nugget: '小小的铁粒，做灯笼要用',
+  iron_block: '九个铁锭压成的大铁块，能搭铁傀儡',
   gold_ore: '金色的矿石，烧出金锭',
   gold_ingot: '黄澄澄的金子，能做金苹果',
   diamond: '亮晶晶的宝贝，能做最棒的工具',
@@ -38,6 +39,10 @@ const ITEM_HINTS = {
   ancient_debris: '藏在下界的黑硬块，烧一烧有宝贝',
   netherite_scrap: '烧远古残骸得到的碎片',
   netherite_ingot: '碎片加金锭铸的最硬锭子',
+
+  /* —— 怪物合成件(mob-crafting-design D1): 铁傀儡召唤材料 —— */
+  pumpkin: '野地里长的大南瓜，剪一剪变南瓜头',
+  carved_pumpkin: '刻好脸的南瓜头，搭铁傀儡要用它',
 
   /* —— 怪物掉落材料 —— */
   rotten_flesh: '僵尸掉的小肉，饿了能吃',

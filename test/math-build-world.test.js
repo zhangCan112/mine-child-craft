@@ -70,6 +70,7 @@ function mkFakeCanvas(els) {
 
 function loadBuildWorld() {
   const els = [];
+  const appended = []; // document.body.appendChild 记录(屏底答案条断言用)
   const clearCalls = [];
   const touchLog = [];
   const hbLog = [];
@@ -90,7 +91,9 @@ function loadBuildWorld() {
     document: {
       createElement: (tag) => (tag === 'canvas' ? mkFakeCanvas(els) : mkFakeEl(els)),
       getElementById: () => null,
-      body: {appendChild() {}},
+      body: {appendChild(el) {
+        appended.push(el);
+      }},
     },
     SpeechKit: {speak: (s) => spoken.push(String(s)), cancel() {}},
     sfx() {},
@@ -142,7 +145,7 @@ function loadBuildWorld() {
   vm.runInContext('globalThis.__t = { runBuildWorld, MATH_WORLD, MATH_WORLD_VARIANTS };', ctx);
   return {
     t: sandbox.__t, run: sandbox.__t.runBuildWorld, MATH_WORLD: sandbox.__t.MATH_WORLD,
-    spoken, hints, edits, clearCalls, timers, blocks,
+    spoken, hints, edits, clearCalls, timers, blocks, appended,
     flush(max) {
       let n = 0;
       while (timers.length && n < (max || 200)) {
@@ -356,20 +359,23 @@ test('mirror/translate 交卷近似: 形状全对整座差一格 → 纠偏话�
 
 /* ============ 教学关操作教学(kind='tutorial' 首试次, P1) ============ */
 
-test('教学关首试次: 玩法口播前先插操作教学 — 摆一摆教瞄准/撤除/交卷, 搭一搭补换色', () => {
+test('教学关首试次: 操作教学与玩法口播合并一句 — SpeechKit cancel-then-speak, 分句前句被顶掉(真机修); 摆一摆教瞄准/撤除/交卷, 搭一搭补换色', () => {
   /* 摆一摆(mirror/reflect, 全场第 4 关) */
   let d = loadBuildWorld();
   d.run({family: 'mirror', variant: 'reflect', tier: 1, kind: 'tutorial',
     params: {span: 12, layerRate: 0, trials: 1}, seed: 5}, {onTrial() {}, end() {}});
+  assert.strictEqual(d.spoken.length, 1,
+      '教学句与玩法句同一句说出(分两次 speak 真机里前句被 cancel)');
   assert.ok(d.spoken[0].includes('用鼠标瞄准') && d.spoken[0].includes('发光石'),
-      '首句是操作教学(含瞄准与交卷指引): ' + JSON.stringify(d.spoken[0]));
-  assert.strictEqual(d.spoken.length, 2, '教学句在前, 玩法口播在后');
+      '教学句在前段(含瞄准与交卷指引): ' + JSON.stringify(d.spoken[0]));
+  assert.ok(d.spoken[0].includes('魔法镜'), '玩法口播跟在同一句后段');
   d.flush();
   d.flush();
-  /* 搭一搭(plan/build, 全场第 5 关): 再补一句热栏换色 */
+  /* 搭一搭(plan/build, 全场第 5 关): 教学句再补热栏换色 */
   d = loadBuildWorld();
   d.run({family: 'plan', variant: 'build', tier: 1, kind: 'tutorial',
     params: {blocks: 12, trials: 1}, seed: 5}, {onTrial() {}, end() {}});
+  assert.strictEqual(d.spoken.length, 1, '搭一搭同样合并一句');
   assert.ok(d.spoken[0].includes('用鼠标瞄准') && d.spoken[0].includes('换颜色'),
       '搭一搭教学句含换色指引: ' + JSON.stringify(d.spoken[0]));
   d.flush();
@@ -462,5 +468,85 @@ test('plan/hidden 装配级: 数字牌立式墙牌整列可读 · 点击墙牌�
   h.onMouse(0, {x: bA.x0 + 1, y: W.groundY + 6, z: bA.z0 + 1}); // 墙顶行(旧界 y≤22 必红)
   assert.strictEqual(trials.length, 1, '点数字牌墙顶行判分(ymax 放宽生效)');
   assert.strictEqual(trials[0].ok, true, '点答案数字牌判对');
+  h.stop();
+});
+
+/* ============ 屏底答案条(2026-11「点选教学太弱」票) ============ */
+
+/* 选答类试次亮出可直点的答案条(fake DOM children 只增不清, 多试次断言取尾窗);
+   判分与世界内点牌同一 settle 口径 — 本组测试钉: ①pick 一候选一钮(缩略图);
+   ②直点即判分, 错钮判本试次不过; ③hidden 数字钮按数值判(同数字牌口径);
+   ④stop 收起答案条 */
+test('plan/pick 答案条: 候选俯视缩略图直点判分 — 点错判本试次不过, 下一试次换图重建', () => {
+  const d = loadBuildWorld();
+  const trials = [];
+  const sec = {family: 'plan', variant: 'pick', tier: 1, kind: 'normal',
+    params: {blocks: 12, max: 20, trials: 2}, seed: 11};
+  const h = d.run(sec, {onTrial: (t) => trials.push(t), end() {}});
+  const bar = d.appended.find((el) => el.id === 'mathWorldChoices');
+  assert.ok(bar, '答案条已挂到 body');
+  assert.strictEqual(bar.style.display, 'flex', '选答试次亮出答案条');
+  const pz = BuildWorldCore.mkWorldPick({seed: RandCore.seedAt(sec.seed, 0), blocks: 12});
+  assert.strictEqual(bar.children.length, pz.candidates.length, '一候选一钮');
+  assert.ok(bar.children.every((b) => b.children.length === 1 && b.children[0].width > 0),
+      'pick 钮内是画了像素图的 canvas 缩略图');
+  /* 点一张错图 → 判本试次不过 */
+  bar.children.find((b, i) => i !== pz.answer).onpointerdown({preventDefault() {}});
+  assert.strictEqual(trials.length, 1, '答案条直点即判分');
+  assert.strictEqual(trials[0].ok, false, '点错图判本试次不过');
+  d.flush(); // 结算 → 下一试次(换谜面, 答案条同位重建)
+  const pz2 = BuildWorldCore.mkWorldPick({seed: RandCore.seedAt(sec.seed, 1), blocks: 12});
+  const items2 = bar.children.slice(-pz2.candidates.length); // fake DOM 尾窗 = 本试次的钮
+  assert.strictEqual(items2.length, pz2.candidates.length, '下一试次按新候选重建选项');
+  items2[pz2.answer].onpointerdown({preventDefault() {}});
+  assert.strictEqual(trials.length, 2, '第二试次答案条直点判分');
+  assert.strictEqual(trials[1].ok, true, '点新谜面的真图判对');
+  assert.strictEqual(d.hints.length, 0, '已作答不触发提醒');
+  h.stop();
+});
+
+test('plan/hidden 答案条: 数字选项按数值判(同世界内数字牌口径) · stop 收起', () => {
+  const d = loadBuildWorld();
+  const trials = [];
+  const sec = {family: 'plan', variant: 'hidden', tier: 1, kind: 'normal',
+    params: {blocks: 30, max: 30, trials: 1}, seed: 13};
+  const h = d.run(sec, {onTrial: (t) => trials.push(t), end() {}});
+  const bar = d.appended.find((el) => el.id === 'mathWorldChoices');
+  const pz = BuildWorldCore.mkWorldHidden({seed: RandCore.seedAt(sec.seed, 0),
+    blocks: 30, max: 30});
+  assert.strictEqual(bar.children.length, pz.cands.length, '一数值一钮');
+  bar.children[pz.cands.indexOf(pz.answer)].onpointerdown({preventDefault() {}});
+  assert.strictEqual(trials.length, 1, '数字钮直点判分');
+  assert.strictEqual(trials[0].ok, true, '点答案数值判对');
+  h.stop();
+  assert.strictEqual(bar.style.display, 'none', 'stop 收起答案条(不残留到其他模式)');
+});
+
+test('选答类首试次口播: 答案条指引 + 玩法句合并一句; 第二试次不再插播', () => {
+  const d = loadBuildWorld();
+  const trials = [];
+  const sec = {family: 'plan', variant: 'pick', tier: 1, kind: 'normal',
+    params: {blocks: 12, max: 20, trials: 2}, seed: 11};
+  const h = d.run(sec, {onTrial: (t) => trials.push(t), end() {}});
+  assert.strictEqual(d.spoken.length, 1, '首试次一句合并说完(cancel-then-speak 修复)');
+  assert.ok(d.spoken[0].includes('下面的牌子') && d.spoken[0].includes('像小鸟一样'),
+      '答案条指引在前段, 玩法句(从上往下看)在后段: ' + JSON.stringify(d.spoken[0]));
+  const bar = d.appended.find((el) => el.id === 'mathWorldChoices');
+  bar.children[0].onpointerdown({preventDefault() {}}); // 任意点一钮结算
+  d.flush(); // 结算 → 下一试次
+  assert.strictEqual(d.spoken.length, 2, '第二试次只报玩法句');
+  assert.ok(!d.spoken[1].includes('下面的牌子'), '答案条指引不逐试次重播');
+  h.stop();
+});
+
+test('选答类首试次 8s 无作答 → 温柔提醒恰一次(开口+toast)', () => {
+  const d = loadBuildWorld();
+  const sec = {family: 'plan', variant: 'pick', tier: 1, kind: 'normal',
+    params: {blocks: 12, max: 20, trials: 2}, seed: 11};
+  const h = d.run(sec, {onTrial() {}, end() {}});
+  d.flush(); // 无作答: 队列里只有首试次提醒计时器(作答才有 next)
+  assert.deepStrictEqual(d.hints, ['点下面的牌子回答哦'],
+      '8s 无作答提醒一次: ' + JSON.stringify(d.hints));
+  assert.ok(d.spoken.some((s) => s.includes('是哪个就点哪个')), '提醒同时开口说');
   h.stop();
 });

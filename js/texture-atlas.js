@@ -13,7 +13,8 @@
    拍板回退玻璃通道平紫半透明, 见 docs/den-nest-design.md §2.1) +
    战利品宝箱 71(红金双格, den-nest §7.5) + 远古残骸 73(正典上下螺旋纹,
    装备系统 T7, docs/equipment-design.md §4.4) + 覆雪树叶 74(深绿针叶底+白雪
-   覆盖大部, 世界边界 T12——北带落雪杉冠盖件, 级联随冠消散, north-spec §11)。
+   覆盖大部, 世界边界 T12——北带落雪杉冠盖件, 级联随冠消散, north-spec §11) +
+   怪物合成材料件 75~77(南瓜分面/雕刻刻脸/铁块金属框, mob-crafting T1)。
    风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
@@ -30,7 +31,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 55 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 59 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -74,6 +75,10 @@ const TextureAtlas = (() => {
   const T_DEBRIS = 52; /* 远古残骸(73): 正典上下螺旋纹——暗棕底同心方环亮带(装备系统 T7) */
   const T_SNOWY_LEAVES = 53; /* 覆雪树叶(74): 深绿针叶底+白雪覆盖大部(世界边界 T12) */
   const T_ICE = 54; /* 冰(56): 淡蓝冰面+深蓝裂纹折线+霜斑高光(世界边界·T8 G3 走查拍板) */
+  const T_PUMPKIN_TOP = 55; /* 南瓜顶(76): 棱瓣底+深色边环+中央棕短茎 */
+  const T_PUMPKIN_SIDE = 56; /* 南瓜侧(76): 橙底竖棱瓣(MC 南瓜观感) */
+  const T_CARVED_PUMPKIN = 57; /* 雕刻南瓜(77): 棱瓣底+刻脸(倒三角眼+竖齿嘴) */
+  const T_IRON_BLOCK = 58; /* 铁块(75): 银灰金属底+深框线+内亮方+四角铆点 */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -671,6 +676,60 @@ const TextureAtlas = (() => {
     for (let y=7; y<=8; y++) for (let x=5; x<=10; x++) setP(px, x, y, [184, 140, 44]); // 中央扣横条
     setP(px, 7, 7, [255, 232, 150]); // 扣面高光
   };
+  /* ---------- 怪物合成材料件(mob-crafting-design D1): 南瓜三格 + 铁块一格 ----------
+     南瓜侧画一次(pumpkinSide)三格共用底: 顶面叠边环+短茎, 雕刻侧叠刻脸——
+     同一格底保证棱纹连续(整块南瓜三面观感一致)。 */
+  const PUMPKIN_BODY = [204, 122, 32]; const PUMPKIN_DARK = [156, 88, 18]; const PUMPKIN_LIGHT = [232, 160, 62];
+  function pumpkinSide(px, rng) { // 橙底+四条竖深棱+错位亮斑(MC 南瓜侧的瓣纹)
+    noiseFill(px, rng, PUMPKIN_BODY, 0.06);
+    for (const x of [2, 6, 10, 14]) {
+      for (let y=0; y<TILE; y++) setP(px, x, y, PUMPKIN_DARK);
+      for (let y=0; y<TILE; y++) if (rng() < 0.4) setP(px, x + 1, y, PUMPKIN_DARK);
+    }
+    for (const x of [0, 4, 8, 12]) {
+      for (let y=0; y<TILE; y++) if (rng() < 0.3) setP(px, x, y, PUMPKIN_LIGHT);
+    }
+  }
+  PAINTERS[T_PUMPKIN_SIDE] = (px, rng)=>pumpkinSide(px, rng);
+  PAINTERS[T_PUMPKIN_TOP] = (px, rng)=>{ // 顶面: 棱瓣底+深色边环+中央短茎(3×4 棕块)
+    pumpkinSide(px, rng);
+    for (let i=0; i<TILE; i++) {
+      setP(px, i, 0, PUMPKIN_DARK); setP(px, i, TILE - 1, PUMPKIN_DARK);
+      setP(px, 0, i, PUMPKIN_DARK); setP(px, TILE - 1, i, PUMPKIN_DARK);
+    }
+    for (let y=6; y<=9; y++) for (let x=6; x<=9; x++) setP(px, x, y, [124, 96, 44]);
+    setP(px, 7, 6, [150, 120, 58]); // 茎高光
+  };
+  PAINTERS[T_CARVED_PUMPKIN] = (px, rng)=>{ // 刻脸: 两只倒三角眼+三行竖齿嘴(暗棕内芯)
+    pumpkinSide(px, rng);
+    const CARVE = [74, 44, 14];
+    for (const cx of [3, 10]) { // 眼: 3 宽顶行+中央 1 像素收尖
+      setP(px, cx, 5, CARVE); setP(px, cx + 1, 5, CARVE); setP(px, cx + 2, 5, CARVE);
+      setP(px, cx + 1, 6, CARVE);
+    }
+    for (let y=10; y<=12; y++) { // 嘴: 横带内留竖齿缝(中行 x%3==1 不画=牙)
+      for (let x=3; x<=12; x++) {
+        const tooth = (y === 11 && x % 3 === 1);
+        if (!tooth) setP(px, x, y, CARVE);
+      }
+    }
+  };
+  PAINTERS[T_IRON_BLOCK] = (px, rng)=>{ // 铁块: 银灰底+深框+内亮方+四角铆点(MC 铁块观感)
+    noiseFill(px, rng, [212, 214, 218], 0.04);
+    for (let i=0; i<TILE; i++) {
+      setP(px, i, 0, [156, 160, 168]); setP(px, i, TILE - 1, [156, 160, 168]);
+      setP(px, 0, i, [156, 160, 168]); setP(px, TILE - 1, i, [156, 160, 168]);
+    }
+    for (let i=3; i<=12; i++) { // 内芯方框: 上/左亮线+下/右暗线(浮雕感)
+      setP(px, i, 3, [228, 230, 234]); setP(px, 3, i, [228, 230, 234]);
+      setP(px, i, 12, [198, 200, 206]); setP(px, 12, i, [198, 200, 206]);
+    }
+    for (const [x, y] of [[2, 2], [13, 2], [2, 13], [13, 13]]) { // 四角铆点(2×2)
+      setP(px, x, y, [110, 114, 122]); setP(px, x + 1, y, [110, 114, 122]);
+      setP(px, x, y + 1, [110, 114, 122]); setP(px, x + 1, y + 1, [140, 144, 152]);
+    }
+  };
+
   /* ---------- 布局: 方块 id → 格号(MeshCore opts.atlas 载荷) ----------
      number = 全格同图; {top,side,bottom} = 分面。底面共享泥土/木板格是
      刻意复用: 面朝下几乎不可见, 省格即少一处 mipmap 串色面。 */
@@ -738,6 +797,12 @@ const TextureAtlas = (() => {
          glass 旗标走 74 同款不透明通道入集(73/74 先例第二次用户授权突破
          「零新贴图」); 冰湖缘混铺/山足冰崖/檐下冻舌/雪原冻湖四处共用 */
       [B_ICE]: T_ICE,
+      /* 怪物合成材料件 75~77(mob-crafting T1): 南瓜分面(顶=茎图/侧=棱瓣, 底
+         复用顶格——面朝下几乎不可见同款省格), 雕刻南瓜侧换刻脸格(四面同脸,
+         取向不存档红线, 设计稿差异 B19); 铁块整格同图 */
+      [B_PUMPKIN]: {top: T_PUMPKIN_TOP, side: T_PUMPKIN_SIDE, bottom: T_PUMPKIN_TOP},
+      [B_CARVED_PUMPKIN]: {top: T_PUMPKIN_TOP, side: T_CARVED_PUMPKIN, bottom: T_PUMPKIN_TOP},
+      [B_IRON_BLOCK]: T_IRON_BLOCK,
     },
   };
 

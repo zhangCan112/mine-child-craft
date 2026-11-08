@@ -27,6 +27,7 @@ const api = vm.runInContext(`({
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_FARMLAND, B_WHEAT_3,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_CACTUS, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
   B_SNOWY_LEAVES, /* 覆雪树叶(世界边界 T12): 北带落雪杉冠盖件, 建场经全局名消费 */
+  B_IRON_BLOCK, B_PUMPKIN, B_CARVED_PUMPKIN, /* 怪物合成材料件(mob-crafting T1/T2: 南瓜建场播撒经全局名消费) */
   B_FLOWER_Y, B_FLOWER_W,
   B_CHEST, B_PORTAL, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
   B_SPAWNER, /* 黑巢巢之心(den-nest: home 行 build 经 advBuildDenNest 消费) */

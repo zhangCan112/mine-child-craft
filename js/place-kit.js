@@ -137,6 +137,8 @@ function mkEditor(opts) {
     }
     if (o.onEdit) o.onEdit(x, y, z, 0); /* 触发格先记账(级联移动可能落回此格, 后写覆盖才对) */
     applyCascade(editBlock(x, y, z, 0), true); /* 蓄力链视同亲手挖(P6) */
+    if (sink.mined) sink.mined(id, x, y, z); /* 触发格(亲手挖)开采记账(生态恢复/南瓜账, 2026-11-08 补起点:
+      级联清单不含触发格(cascadeRemove 只收连带块)——此前挖掘链 mined 从未触发, oreRegen 只剩 TNT 连带路在记) */
     pairedBreakApply(x, y, z, true, id); /* 配对方块破坏(门/床/宝箱行表驱动: 挖任一半整结构回收) */
     if (id === B_SAPLING && sink.sapling) sink.sapling(x, y, z); /* 挖树苗撤计时 */
     if (BLOCKS[id] && BLOCKS[id].crop && sink.crop) sink.crop(x, y, z); /* 挖麦苗撤生长计时(farm-and-recipe D3, crop 身份旗标) */

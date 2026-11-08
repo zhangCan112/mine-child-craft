@@ -21,7 +21,7 @@
    交互(纯鼠标/触屏, 无键盘依赖): 放置类右键/轻点/触屏放置主键=对准
      画布放置, 左键/触屏撤除键=撤除自己摆的块(样品与场地不可拆),
      发光石=「好啦」交卷(摆对自动过关, 交卷判错计一次试次); 选答类
-     点数字牌/图纸牌。
+     点屏底答案条(触屏可直点)或世界内数字牌/图纸牌, 判分同路。
    世界轨纪律(design §3): 进场装场 · 退出清场(经 stop/模式切换),
      不写建造存档; 图纸由 blueprintPixels 纯投影画 2D 像素图
      (不用引擎相机远拍)。
@@ -147,6 +147,71 @@ function wwPaintBlueprint(bp) {
       ctx.fillRect(x * s, z * s, s - 2, s - 2);
     }
   }
+}
+
+/* ---------- 屏底答案条(选答类变体的可直点选项, 2026-11「点选教学太弱」票) ----------
+   触屏进行态 DOM 可点(#touchUI 按钮同款先例), 孩子点大图/大数字即作答,
+   不必理解「瞄准射线点世界里的牌子」; 桌面指针锁定时 DOM 点不到(世界
+   HUD 同一约束), 答案条降级为选项对照图, 作答仍走世界内答案牌 — 判分
+   同一 settle 口径(wwChoicePick 与 onMouse 的 choice 分支同路, 不开第
+   二套判分)。选项内容按谜题形状派生(wwChoiceItems): pick=俯视图纸
+   缩略图 · hidden/countall=数字 · dualview=序号点(候选建筑位次)。 */
+let wwChoicesEl = null;
+let wwChoiceJudge = null; // 判分缝: 活跃引擎实例进场时注入 wwChoicePick(单实例活跃), 退场摘除
+function wwEnsureChoices() {
+  if (wwChoicesEl) return;
+  wwChoicesEl = document.createElement('div');
+  wwChoicesEl.id = 'mathWorldChoices';
+  document.body.appendChild(wwChoicesEl);
+}
+function wwChoicesShow(items) {
+  wwEnsureChoices();
+  wwChoicesEl.innerHTML = '';
+  (items || []).forEach((it, i) => {
+    const b = document.createElement('button');
+    b.className = 'mw-choice';
+    if (it.rows) { // 图纸缩略图: blueprintPixels 色行画像素图(mw-blueprint 同手法)
+      const s = 20;
+      const cv = document.createElement('canvas');
+      cv.width = it.rows[0].length * s;
+      cv.height = it.rows.length * s;
+      const ctx = cv.getContext('2d');
+      for (let z = 0; z < it.rows.length; z++) {
+        for (let x = 0; x < it.rows[z].length; x++) {
+          if (it.rows[z][x]) {
+            ctx.fillStyle = it.rows[z][x];
+            ctx.fillRect(x * s, z * s, s - 2, s - 2);
+          }
+        }
+      }
+      b.appendChild(cv);
+    } else {
+      b.textContent = it.label;
+    }
+    b.onpointerdown = (e) => {
+      e.preventDefault();
+      if (wwChoiceJudge) wwChoiceJudge(i, it, b);
+    };
+    wwChoicesEl.appendChild(b);
+  });
+  wwChoicesEl.style.display = (items && items.length) ? 'flex' : 'none';
+}
+function wwChoicesHide() {
+  if (wwChoicesEl) wwChoicesEl.style.display = 'none';
+}
+/* 谜题形状 → 答案条选项(单一出口, 未知形状返 null=隐藏) */
+function wwChoiceItems(pz) {
+  if (Array.isArray(pz.candidates) && pz.candidates.length &&
+      pz.candidates[0].top !== undefined) { // pick: 候选俯视图(candidates=[{w,d,top,ok}])
+    return pz.candidates.map((c) => ({rows: BuildWorldCore.blueprintPixels(c)}));
+  }
+  if (Array.isArray(pz.cands)) { // hidden/countall: 数字牌数值(value 判值同世界内数字牌)
+    return pz.cands.map((v) => ({label: String(v), value: v}));
+  }
+  if (Array.isArray(pz.candidates)) { // dualview: 候选=[{cells,ok}] → 序号点=世界内建筑位次
+    return pz.candidates.map((c, i) => ({label: String(i + 1)}));
+  }
+  return null;
 }
 
 /* ---------- 装场地基(平台 + 居中石英画布) ---------- */
@@ -401,7 +466,7 @@ const MATH_WORLD_VARIANTS = {
       return {mode: 'choice', pz: p, x0, z0, w: 24, d: 20, boards};
     },
     speak() {
-      return '看一看这座建筑，从下面的图纸里，点出从上往下看的样子！';
+      return '看这座小房子！像小鸟一样从天上往下看，房顶的图案是下面哪张呢？点出那张图纸！';
     },
   },
   'plan/hidden': {
@@ -581,6 +646,7 @@ function runBuildWorld(section, h) {
   let stopped = false;
   let trial = null; // 当前试次现场(build 返回值)
   let hintT = 0; // 拆不动/放不进提示节流
+  let gen = 0; // 试次代数: 迟到定时器(首试次提醒)据此自废
 
   const titleHtml = '<span class="mw-ico">' + (MATH_META[section.family] ?
       MATH_META[section.family].icon : '') + '</span>' +
@@ -593,6 +659,17 @@ function runBuildWorld(section, h) {
     hintT = now;
     showToast(msg);
   }
+
+  /* 答案条点选 → 判分(与世界内点牌同一 settle 口径); 所点按钮即时
+     对/错着色(结算环在世界内, DOM 侧补一个孩子可追踪的记号) */
+  function wwChoicePick(i, it, btn) {
+    if (!trial || settled || stopped || trial.mode !== 'choice') return;
+    const ok = it.value !== undefined ? it.value === trial.pz.answer :
+        i === trial.pz.answer;
+    if (btn && btn.classList) btn.classList.add(ok ? 'hit' : 'off');
+    settle(ok);
+  }
+  wwChoiceJudge = wwChoicePick; // 挂判分缝: 模块级答案条按钮 → 本实例判分
 
   function settle(ok) {
     if (settled || stopped) return;
@@ -646,6 +723,7 @@ function runBuildWorld(section, h) {
     }
     if (hh.progress) hh.progress(idx, n);
     settled = false;
+    gen++;
     const seed = RandCore.seedAt(section.seed === undefined ? 0 : section.seed, idx);
     const made = spec.make(section, seed);
     /* 装场 seam: 清场 → 建场 → 收尾入队一步到位(退出/换关清场幂等,
@@ -690,14 +768,30 @@ function runBuildWorld(section, h) {
     wwHudShow(titleHtml, (idx + 1) + ' / ' + n, !!trial.blueprint);
     wwHudProgress(idx, n);
     if (trial.blueprint) wwPaintBlueprint(trial.pz.blueprint);
-    /* 教学关首试次(kind='tutorial', 全场第 4 关摆一摆/第 5 关搭一搭):
-       孩子第一次接触指针瞄准+放置 — 玩法口播前先插一句操作教学
-       (瞄准/放置/撤除/交卷, 搭一搭再补换色); 常规关不插播 */
+    /* 选答类亮屏底答案条(触屏直点作答, 桌面锁定时作对照图); 放置类收起 */
+    wwChoicesShow(trial.mode === 'choice' ? wwChoiceItems(trial.pz) : null);
+    /* 教学口播一句合并说完(SpeechKit 是 cancel-then-speak, 分次 speak
+       前句被顶掉 — 教学句旧写法在真实浏览器里听不见, 2026-11「点选教学
+       太弱」票顺修): 教学关首试次先讲操作(place: 瞄准/撤除/交卷, 搭一搭
+       补换色), 选答类首试次讲屏底答案条; 其余只报玩法句 */
+    let say = '';
     if (section.kind === 'tutorial' && idx === 0 && trial.mode === 'place') {
-      wwSpeak('用鼠标瞄准白色画布，按下就放一块；点已放的可以拿走；摆好啦，敲一下发光石！' +
-          (section.family === 'plan' ? '点下面的小方块可以换颜色！' : ''));
+      say += '用鼠标瞄准白色画布，按下就放一块；点已放的可以拿走；摆好啦，敲一下发光石！' +
+          (section.family === 'plan' ? '点下面的小方块可以换颜色！' : '');
     }
-    wwSpeak(spec.speak(trial.pz, trial));
+    if (idx === 0 && trial.mode === 'choice') {
+      say += '下面的牌子就是答案！想好了，就点一点那张对的！';
+    }
+    wwSpeak(say + spec.speak(trial.pz, trial));
+    if (idx === 0 && trial.mode === 'choice') {
+      /* 首试次 8s 无作答 → 温柔提醒一次(gen/settled 双闸: 已答/过期不插话) */
+      const g = gen;
+      T.after(8000, () => {
+        if (g !== gen || settled || stopped) return;
+        wwSpeak('下面的牌子里，是哪个就点哪个哦！');
+        hint('点下面的牌子回答哦');
+      });
+    }
     idx++;
   }
 
@@ -779,6 +873,8 @@ function runBuildWorld(section, h) {
       T.stop();
       trial = null;
       mathWorldHb.hide();
+      wwChoicesHide(); // 屏底答案条收起(随引擎退场)
+      wwChoiceJudge = null; // 摘判分缝(不泄漏到其他模式)
       if (typeof setTouchActions === 'function') setTouchActions(null);
       if (wwHud) wwHud.style.display = 'none';
       if (typeof mathRoot !== 'undefined' && mathRoot) mathRoot.style.display = 'block'; // 复明 DOM 屏

@@ -90,6 +90,7 @@ const api = vm.runInContext(`({
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
   B_SNOWY_LEAVES, /* 覆雪树叶(世界边界 T12: 北带落雪杉冠盖件, 建场经全局名消费) */
+  B_IRON_BLOCK, B_PUMPKIN, B_CARVED_PUMPKIN, /* 怪物合成材料件(mob-crafting T1/T2: 召唤材料+南瓜生长点) */
   B_PORTAL, B_PORTAL_DIM, B_OBSIDIAN, B_GLOWSTONE, B_NETHER_BRICK,
   B_SPAWNER, /* 黑巢巢之心(den-nest: home 行 build 经 advBuildDenNest 消费) */
   B_LOOT_CHEST, /* 战利品宝箱(den-nest §7.5: place-kit 宝箱配对计划经全局名消费) */
@@ -252,12 +253,17 @@ const ADV_MOB_CFG = {/* 四怪数值摘自 mob-registry.js MOB_TYPES(巢穴池, 
   pig: {name: '猪', hp: 15, dmg: 0, speed: 1.3, range: 0, cd: 0, h: 0.9, hitR: 0.6, passive: true},
   sheep: {name: '羊', hp: 12, dmg: 0, speed: 1.2, range: 0, cd: 0, h: 1.2, hitR: 0.65, passive: true},
   chicken: {name: '鸡', hp: 6, dmg: 0, speed: 1.5, range: 0, cd: 0, h: 0.7, hitR: 0.35, passive: true},
+  golem: {name: '铁傀儡', hp: 110, dmg: 15, speed: 2.0, range: 3.0, cd: 1.6, h: 2.8, hitR: 1.0},
+  /* golem 行摘 mob-registry.js MOB_TYPES.golem(mob-crafting T5) */
 };
 globalThis.Mobs = {
   spawn(type, x, z, opts) {
+    const cfg = ADV_MOB_CFG[type] || {hp: 20, dmg: 3, speed: 2, range: 2, cd: 1, h: 1.8, hitR: 0.55};
     const m = {type, pos: {x, y: 25, z}, dead: false, gone: false, yaw: 0, attackCd: 0, attackT: 0,
-      target: null, nest: -1,
-      cfg: ADV_MOB_CFG[type] || {hp: 20, dmg: 3, speed: 2, range: 2, cd: 1, h: 1.8, hitR: 0.55}};
+      target: null, nest: -1, cfg,
+      hp: cfg.hp, maxHp: cfg.hp, /* 生命族字段照抄真库 spawn(mobs.js L209): 召唤入桶
+          hp:m.hp 与重召 min(g.hp, maxHp) 都消费它, fake 缺字段会 NaN 化 */
+    };
     mobsState.spawned.push(m);
     return m;
   },
@@ -294,6 +300,12 @@ globalThis.Mobs = {
     m.pos.z += dz;
   },
   gait() {},
+  scaleTo(m, s) {/* 体型(引信膨胀/傀儡诞生拼装缩放, 镜像真库 mobs.js scaleTo) */
+    m.drawScale = s;
+  },
+  pulseTint(m, r, g, b) {/* 帧内瞬时着色(镜像真库意图 API) */
+    m.tr = r; m.tg = g; m.tb = b;
+  },
   settle(m) {/* 无位移收敛兜底口(2026-11-04 候选②起贴地随引擎 move/setPos 内部序,
       模式帧尾只剩兜底调用): 窄面桩只记账不动 Y —— y 相关断言(引信门 |Δy|<2.5 /
       攻击门 |Δy|<3)不漂移 */
@@ -408,11 +420,16 @@ globalThis.Backpack = require('../js/backpack.js');
 globalThis.WorldJournal = require('../js/world-journal-core.js');
 globalThis.mkWorldJournal = WorldJournal.mkWorldJournal;
 globalThis.fluidCell = WorldJournal.fluidCell;
+globalThis.DailyBudget = require('../js/daily-budget.js'); /* 每日预算(零 DOM, Node 直载):
+  budgetDateStr 经全局名被 advOreMined/繁育账消费——挖掘起点记账(2026-11-08 补)活了
+  之前 mined sink 从未触发, 这条全局缺失被掩盖(T15 钻石测试现形) */
+globalThis.budgetDateStr = DailyBudget.budgetDateStr;
 
 const AdventureMode = require('../js/modes/adventure.js');
-const A = AdventureMode.adv; /* 内部挂点(33 键: 状态账本/存档 seam getSaveView/布置缝/
-  交互链入口/查询 seam——清单见 adventure.js 尾部注释); adventure-core 的常量表与
-  纯函数经上方 Object.assign(globalThis, AdventureCore) 直调, 不再经挂点转发 */
+const A = AdventureMode.adv; /* 内部挂点(键计数以 adventure.js 尾部清单为准——
+    mob-crafting T5/T6 起含 advGolemsAll/advGolemTick/advTryRepairGolem/
+    advSweepNightMobs); adventure-core 的常量表与纯函数经上方
+    Object.assign(globalThis, AdventureCore) 直调, 不再经挂点转发 */
 
 /* ---------- 世界快照与统计助手(对真 worldCells 断言) ---------- */
 const W = api.WORLD_W;
@@ -3438,6 +3455,435 @@ test('昼夜 D7 灯笼燃尽: 耐久归零整槽消失 + TTS 安抚「灯笼用�
   /* 破灯笼不会误伤工具预警账本: 再做一盏满耐久(合成管线) */
   api.add(A.advGetInv(), 'lantern', 1);
   assert.deepStrictEqual({...A.advGetInv().slots[0]}, {id: 'lantern', n: 1, dur: 300}, '新灯笼满耐久入包(回填首个空位)');
+});
+
+/* ============ 南瓜生长点(docs/mob-crafting-design.md D2, mob-crafting T2) ============ */
+
+test('南瓜生长点: 建场播撒 3 处在场 — 采集经挖掘链掉南瓜物品+记采集时 dayTime', () => {
+  mem.clear();
+  freshInit();
+  const spots = advPumpkinSpots(); /* core 直调(globalThis) */
+  assert.strictEqual(spots.length, 3, '3 处生长点');
+  for (const s of spots) {
+    assert.strictEqual(cell(s.x, s.y, s.z), api.B_PUMPKIN, '播撒在位(' + s.x + ',' + s.z + ')');
+    assert.strictEqual(cell(s.x, s.y - 1, s.z), 1, '草皮基底(浮空不成立)');
+  }
+  /* 采集: 真挖掘链(advBreakBlock → cascade → mined sink) — 掉落+账双断言 */
+  const nDrops = dropsState.spawned.length;
+  A.advBreakBlock(spots[0].x, spots[0].y, spots[0].z, api.B_PUMPKIN, {time: 1, drops: true});
+  assert.strictEqual(cell(spots[0].x, spots[0].y, spots[0].z), 0, '挖走');
+  assert.ok(dropsState.spawned.length > nDrops, '掉南瓜物品(普通掉落链)');
+  assert.strictEqual(A.advPumpkinRegen()['0'], dayTime, '采集账记采集时 dayTime(点位 0 桶键)');
+});
+
+test('南瓜跨游戏日回填: 到期位空回填+edits 记账 · 未到期留账 · 被占销账 · 孤儿/坏账销', () => {
+  mem.clear();
+  freshInit();
+  const spots = advPumpkinSpots();
+  api.setBlockRaw(spots[0].x, spots[0].y, spots[0].z, 0); /* 布景: 位 0/1 挖空(不经链) */
+  api.setBlockRaw(spots[1].x, spots[1].y, spots[1].z, 0);
+  const regen = A.advPumpkinRegen();
+  regen['0'] = 5; /* 采集于昨日时段(dayTime 5, 当前回绕后 0) → 到期 */
+  regen['1'] = 0; /* 当日采集(dayTime 0) → 未到期 */
+  regen['2'] = 5; /* 位上南瓜还在(被占) → 销账路 */
+  regen['9'] = 5; /* 孤儿键(越界点位) → 销 */
+  regen['x'] = 'bad'; /* 坏值 → 内存侧兜底销 */
+  A.advPumpkinRegenTick();
+  assert.strictEqual(cell(spots[0].x, spots[0].y, spots[0].z), api.B_PUMPKIN, '到期位空 → 回填');
+  assert.strictEqual(cell(spots[1].x, spots[1].y, spots[1].z), 0, '未到期不回填(一游戏日一茬)');
+  assert.strictEqual(regen['0'], undefined, '结算销账(回填不留尾账)');
+  assert.strictEqual(regen['1'], 0, '未到期留账');
+  assert.strictEqual(regen['2'], undefined, '被占销账(玩家改建永久优先)');
+  assert.strictEqual(regen['9'], undefined, '孤儿账销');
+  assert.strictEqual(regen['x'], undefined, '坏账销');
+  assert.strictEqual(cell(spots[2].x, spots[2].y, spots[2].z), api.B_PUMPKIN, '被占位原样(不顶掉)');
+  /* edits 记账: 回填走 advMarkEdit(重放幂等红线) — saveView 与落盘 JSON 同一份 encode */
+  const k = spots[0].x + ',' + spots[0].y + ',' + spots[0].z;
+  const hit = A.getSaveView().world.edits.home.find((e) => e[0] === k);
+  assert.ok(hit && hit[1] === api.B_PUMPKIN, '回填经 advMarkEdit 入账(重放幂等)');
+});
+
+test('南瓜重进不复播: 当日采集档重进仍空(播撒被重放压回, 无同日刷洞), 跨日结算回填', () => {
+  mem.clear();
+  freshInit();
+  const spots = advPumpkinSpots();
+  A.advBreakBlock(spots[0].x, spots[0].y, spots[0].z, api.B_PUMPKIN, {time: 1, drops: true});
+  assert.strictEqual(A.advPumpkinRegen()['0'], 0, '采集入账(dayTime 0)');
+  AdventureMode.cleanup(); /* 强制落盘(剪毛跨档测试同款手法) */
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  assert.deepStrictEqual(sv.pumpkinRegen, {'0': 0}, '采集账随世界档落盘');
+  freshInit(); /* 重进: 建场播撒 → journal 重放(压回挖空) → 装场结算(未到期) */
+  assert.strictEqual(cell(spots[0].x, spots[0].y, spots[0].z), 0, '当日采集: 重进不复活');
+  assert.strictEqual(A.advPumpkinRegen()['0'], 0, '采集账跨档保留(未到期)');
+  A.advPumpkinRegen()['0'] = 5; /* 模拟已跨游戏日(账值 > 当前 dayTime) */
+  A.advPumpkinRegenTick();
+  assert.strictEqual(cell(spots[0].x, spots[0].y, spots[0].z), api.B_PUMPKIN, '跨游戏日结算回填');
+});
+
+test('南瓜雕刻: 剪刀右键 B_PUMPKIN → 原地变换 B_CARVED_PUMPKIN(记账+耐久扣+pick), 非南瓜静默', () => {
+  mem.clear();
+  freshInit();
+  const s = advPumpkinSpots()[0];
+  aimDownAt({x: s.x, z: s.z}); /* 准星 fake: 正下方射线 → 命中南瓜顶面(x,25,z) */
+  holdOnly('shears', 1, 500); /* 持剪刀(耐久 500) */
+  pos.x = s.x + 0.5; pos.y = 25; pos.z = s.z + 2.5;
+  AdventureMode.onMouse(2, {x: s.x, y: s.y, z: s.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(s.x, s.y, s.z), api.B_CARVED_PUMPKIN, '原地变换雕刻南瓜(不掉落不捡起, 差异 B16)');
+  assert.strictEqual(A.advJournal.edits.get(s.x + ',' + s.y + ',' + s.z), api.B_CARVED_PUMPKIN,
+      '雕刻进世界档账本(活体编辑=D4 召唤检测缝, 重放幂等)');
+  assert.strictEqual(A.advGetInv().slots[0].dur, 499, '雕一次扣 1 耐久(剪毛同管线)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'pick'), '正反馈叮(既有键 pick)');
+  assert.ok(spoken.some((t) => t.includes('雕')), '成功话术');
+  /* 非南瓜: 雕刻分派静默不误伤(再点草皮→无变换无音效; attempt 恒真不落放置) */
+  calls.length = 0;
+  const g = findGrassSpot();
+  aimDownAt({x: g.x, z: g.z});
+  AdventureMode.onMouse(2, {x: g.x, y: 24, z: g.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(g.x, 24, g.z), 1, '草皮原样(非南瓜不误伤)');
+  assert.strictEqual(calls.some((c) => c[0] === 'sfx' && c[1] === 'pick'), false, '无雕刻音效');
+  clearAim();
+});
+
+test('召唤接线: 雕刻南瓜最后就位 → golem 塔位破壳+__golem+家锚 · 塔材消耗(拆头重放不能再召)', () => {
+  mem.clear();
+  freshInit();
+  const gx = 90; const gz = 90; /* 空旷区搭塔(避核心圈) */
+  api.setBlockRaw(gx, 25, gz, api.B_IRON_BLOCK); /* 脚 */
+  api.setBlockRaw(gx, 26, gz, api.B_IRON_BLOCK); /* 胸 */
+  api.setBlockRaw(gx - 1, 26, gz, api.B_IRON_BLOCK); /* 臂西 */
+  api.setBlockRaw(gx + 1, 26, gz, api.B_IRON_BLOCK); /* 臂东 */
+  aimDownAt({x: gx, z: gz}); /* 准星射线命中胸格顶面 → 放置目标 (gx,27,gz) */
+  holdOnly('carved_pumpkin', 1);
+  pos.x = gx + 0.5; pos.y = 25; pos.z = gz + 2.5;
+  const nBefore = mobsState.spawned.filter((m) => m.type === 'golem').length;
+  dropsState.spawned.length = 0;
+  calls.length = 0;
+  AdventureMode.onMouse(2, {x: gx, y: 26, z: gz, nx: 0, ny: 1, nz: 0});
+  const golems = mobsState.spawned.filter((m) => m.type === 'golem');
+  assert.strictEqual(golems.length, nBefore + 1, '召唤出一只铁傀儡');
+  const gm = golems[golems.length - 1];
+  assert.strictEqual(gm.__golem, true, '__golem 双标记(友方身份)');
+  assert.deepStrictEqual(gm.__golemHome, {x: gx, z: gz}, '家锚=塔位(D5 巡逻锚)');
+  assert.strictEqual(gm.pos.x, gx + 0.5, '破壳而出: 立于塔位中心(先消耗后落地)');
+  assert.strictEqual(gm.pos.z, gz + 0.5, '破壳而出: z 同锚列中心');
+  assert.strictEqual(gm.pos.y, 25, '脚踩塔基地面(塔基自报 y-2 显式落位——列顶口径在地下维度=岩穹顶)');
+  /* 塔材消耗(2026-11-08 用户票: 拆头重放能再召=白嫖刷傀儡; 正典同——JE 搭建
+     成功材料随生成消失): 五格全空, 账上最后写赢=空气(重进重放不复活塔) */
+  assert.strictEqual(cell(gx, 25, gz), 0, '塔材消耗: 脚格空');
+  assert.strictEqual(cell(gx, 26, gz), 0, '塔材消耗: 胸格空');
+  assert.strictEqual(cell(gx - 1, 26, gz), 0, '塔材消耗: 臂西空');
+  assert.strictEqual(cell(gx + 1, 26, gz), 0, '塔材消耗: 臂东空');
+  assert.strictEqual(cell(gx, 27, gz), 0, '塔材消耗: 头格空(拆头重放落空, 判据无从成立)');
+  const sv = A.getSaveView().world.edits.home;
+  assert.strictEqual(sv.find((e) => e[0] === gx + ',26,' + gz)[1], 0, '消耗入账(空气最后写赢)');
+  assert.strictEqual(dropsState.spawned.length, 0, '消耗不掉落(不是拆塔返还, 是合成代价)');
+  /* 诞生仪式观感: 塔材逐格碎屑(5 格) + 重锤一声 + 诞生态挂上(缩放动画由 tick 消费) */
+  assert.ok(calls.filter((c) => c[0] === 'debris').length >= 5, '塔材逐格碎屑(头橙/铁灰)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'boom'), '重锤一声(塔散傀儡立)');
+  assert.strictEqual(gm.__golemBirthT, 0, '诞生仪式态(advGolemTick 拼装缩放的种子)');
+  clearAim();
+});
+
+test('诞生仪式: advGolemTick 拼装缩放 0.25→1 站桩不走 AI, 落地金圈+叮+还原; 桶重召不重播', () => {
+  mem.clear();
+  freshInit();
+  summonGolemAt(90, 90);
+  const gm = mobsState.spawned.filter((m) => m.type === 'golem')[0];
+  listResult = [gm]; /* fake 面: tick 走 Mobs.list() */
+  calls.length = 0;
+  A.advGolemTick(0.3); /* 1/3 进度 */
+  assert.strictEqual(gm.drawScale, 0.25 + 0.75 / 3, '缩放爬升(0.25→1 线性拼装)');
+  assert.ok(Math.abs(gm.tr - 1.4) < 1e-6, '越拼越亮(tint 1+0.6×(1−p))');
+  assert.strictEqual(calls.some((c) => c[0] === 'pop'), false, '未完成不收尾');
+  A.advGolemTick(0.7); /* 跨过 0.9s(0.3+0.7≥T, 浮点安全) → 落地 */
+  assert.strictEqual(gm.drawScale, 1, '落地满体型');
+  assert.strictEqual(gm.__golemBirthT, undefined, '诞生态销(只此一次)');
+  assert.strictEqual(gm.tr, 1, '着色还原');
+  assert.ok(calls.some((c) => c[0] === 'pop'), '落地金圈');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'pick'), '落地叮一声');
+  calls.length = 0;
+  A.advGolemTick(0.5); /* 完成后正常 AI 巡逻(游荡节拍回写), 不再触发仪式 */
+  assert.strictEqual(calls.some((c) => c[0] === 'pop'), false, '仪式不重播');
+  /* 桶重召(respawn 路)不带诞生态: cleanup 落盘+freshInit 装场重召走全链
+     (advGolemsRespawn 是模块内函数不在挂点面, 经装场驱动) */
+  gm.gone = true; /* 模拟清场 */
+  mobsState.spawned.length = 0;
+  AdventureMode.cleanup();
+  freshInit();
+  const reborn = mobsState.spawned.filter((m) => m.type === 'golem')[0];
+  assert.ok(reborn, '前提: 桶重召出一只');
+  assert.strictEqual(reborn.__golemBirthT, undefined, '重召不重播诞生仪式(直接满体型)');
+  assert.strictEqual(reborn.drawScale, undefined, '重召不写缩放(引擎缺省满体型)');
+  listResult = [];
+});
+
+test('召唤重放不重召: 老档重进塔不复活(消耗账最后写赢)+按桶 1 只(重放走 setBlockRaw 不经 advMarkEdit 红线)', () => {
+  mem.clear();
+  freshInit();
+  const gx = 90; const gz = 90;
+  api.setBlockRaw(gx, 25, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx, 26, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx - 1, 26, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx + 1, 26, gz, api.B_IRON_BLOCK);
+  aimDownAt({x: gx, z: gz});
+  holdOnly('carved_pumpkin', 1);
+  pos.x = gx + 0.5; pos.y = 25; pos.z = gz + 2.5;
+  AdventureMode.onMouse(2, {x: gx, y: 26, z: gz, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(mobsState.spawned.filter((m) => m.type === 'golem').length, 1, '前提: 已召唤一只');
+  AdventureMode.cleanup(); /* 强制落盘(南瓜跨档测试同款手法) */
+  freshInit(); /* 重进: journal 重放按账序回放(放置→消耗), 最后写赢=空气——塔不复活 */
+  assert.strictEqual(cell(gx, 27, gz), 0, '重进头格空气(消耗账重放, 塔不复活——拆头再召无从谈起)');
+  assert.strictEqual(cell(gx, 25, gz), 0, '重进脚格空气(同上)');
+  /* T6 起桶随档落盘(payload 修后), 重进按桶重召 1 只(D6 拍板 P3 存活跨档);
+     红线不变式=journal 重放不 mint 新傀儡: 恰好 1 只(桶里那只), 重放若重召会是 2 */
+  const golems = mobsState.spawned.filter((m) => m.type === 'golem');
+  assert.strictEqual(golems.length, 1, '重进恰好 1 只(桶重召复原, 重放零新召唤)');
+  assert.deepStrictEqual(golems[0].__golemHome, {x: gx, z: gz}, '重召家锚=桶锚(非重放 mint 的新召)');
+  assert.strictEqual(golems[0].__golemBirthT, undefined, '重召不播诞生仪式');
+  clearAim();
+});
+
+test('召唤上限: ADV_GOLEM_MAX 3 只 — 满员结构成立但不召唤+钉死话术', () => {
+  mem.clear();
+  freshInit();
+  const gx = 90; const gz = 90;
+  api.setBlockRaw(gx, 25, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx, 26, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx - 1, 26, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx + 1, 26, gz, api.B_IRON_BLOCK);
+  aimDownAt({x: gx, z: gz});
+  holdOnly('carved_pumpkin', 1);
+  pos.x = gx + 0.5; pos.y = 25; pos.z = gz + 2.5;
+  listResult = [0, 1, 2].map((i) => ({type: 'golem', __golem: true, dead: false, gone: false})); /* 满员 */
+  AdventureMode.onMouse(2, {x: gx, y: 26, z: gz, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(mobsState.spawned.filter((m) => m.type === 'golem').length, 0, '满员不 spawn');
+  assert.strictEqual(cell(gx, 27, gz), api.B_CARVED_PUMPKIN, '结构照常成立(头在位)');
+  assert.ok(spoken.some((t) => t.includes('铁傀儡够多啦')), '满员钉死话术');
+  clearAim();
+});
+
+test('副本召唤落位: den 显式落厅地面(列顶=岩穹, 不落位=站穹顶看不见)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('den'); /* 切界唯一入口进副本(建场+布防走真缝; den 是地下巨洞:
+      整图岩体掏洞, groundTop 列顶=岩穹顶 y39, 厅地面顶面=ADV_DEN.ground+1) */
+  const DEN = globalThis.ADV_DEN; /* 维度规格(rooms/ground 坐标唯一权威) */
+  /* 大厅内开阔位搭塔(厅心 80,80 r14): 脚7/胸8/臂8/头9——塔基自报脚踩面 7 */
+  const gx = 80; const gz = 90; const fy = DEN.ground + 1;
+  api.setBlockRaw(gx, fy, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx, fy + 1, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx - 1, fy + 1, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx + 1, fy + 1, gz, api.B_IRON_BLOCK);
+  holdOnly('carved_pumpkin', 1);
+  pos.x = gx + 0.5; pos.y = fy; pos.z = gz + 2.5;
+  aimDownAt({x: gx, z: gz});
+  AdventureMode.onMouse(2, {x: gx, y: fy + 1, z: gz, nx: 0, ny: 1, nz: 0});
+  const golems = mobsState.spawned.filter((m) => m.type === 'golem');
+  assert.strictEqual(golems.length, 1, '前提: 副本里召唤出一只');
+  assert.strictEqual(golems[0].pos.y, fy, '傀儡落厅地面(修复前=岩穹顶 y40, 玩家看不见却照打怪)');
+  assert.strictEqual(golems[0].pos.x, gx + 0.5, '塔壳原位破壳(锚列随壳消耗清空, 恰容身)');
+  assert.deepStrictEqual(golems[0].__golemHome, {x: gx, z: gz}, '家锚=塔位(桶键=den, 跨档口径不变)');
+  clearAim();
+});
+
+test('副本傀儡生命周期: 同日进出照存(重召落厅地面+桶血复原) · 次日重置除名(副本一切同命)', () => {
+  mem.clear();
+  A.advDenTodaySet(null); /* 日键还原真钟(防前用例覆写残留) */
+  freshInit();
+  A.advSetDim('den');
+  const DEN = globalThis.ADV_DEN;
+  const gx = 80; const gz = 90; const fy = DEN.ground + 1;
+  api.setBlockRaw(gx, fy, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx, fy + 1, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx - 1, fy + 1, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx + 1, fy + 1, gz, api.B_IRON_BLOCK);
+  aimDownAt({x: gx, z: gz});
+  holdOnly('carved_pumpkin', 1);
+  pos.x = gx + 0.5; pos.y = fy; pos.z = gz + 2.5;
+  AdventureMode.onMouse(2, {x: gx, y: fy + 1, z: gz, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(mobsState.spawned.filter((m) => m.type === 'golem').length, 1,
+      '前提: 副本里召唤一只');
+  A.advGolemsAll().den[0].hp = 50; /* 桶血改半(修理投资的档面形态; 实体血不回写桶) */
+  /* —— 同日离开 → 再进: 傀儡照存(重召), 家锚+桶血复原, 同样落厅地面 —— */
+  A.advSetDim('overworld', {x: 80.5, y: 26, z: 80.5, yaw: 0});
+  A.advSetDim('den');
+  let golems = mobsState.spawned.filter((m) => m.type === 'golem');
+  assert.strictEqual(golems.length, 1, '同日重进: 傀儡重召(桶唯一权威)');
+  assert.strictEqual(golems[0].hp, 50, '桶血复原(修理投资不丢)');
+  assert.strictEqual(golems[0].pos.y, fy, '重召同样显式落厅地面(不落穹顶)');
+  assert.deepStrictEqual(golems[0].__golemHome, {x: gx, z: gz}, '家锚=桶锚');
+  assert.strictEqual(golems[0].__golemBirthT, undefined, '重召不播诞生仪式');
+  /* —— 次日(日键覆写模拟跨天): 军全新, 傀儡除名不再存在 —— */
+  A.advDenTodaySet('2099-01-02');
+  A.advSetDim('overworld', {x: 80.5, y: 26, z: 80.5, yaw: 0});
+  A.advSetDim('den');
+  golems = mobsState.spawned.filter((m) => m.type === 'golem');
+  assert.strictEqual(golems.length, 0, '次日重进: 傀儡不存在(桶已随日除名)');
+  assert.deepStrictEqual(A.advGolemsAll().den, [], '桶除名(不复活也不留死账)');
+  assert.strictEqual(A.advDenState().wave, 1, '波次归 1(日重置 D20 既有口径)');
+  A.advDenTodaySet(null);
+  clearAim();
+});
+
+/* ============ mob-crafting T5/T6: 傀儡 AI/修理/报复 + golems 桶持久化 ============ */
+
+/* 搭塔召唤一件套(召唤接线三测试同款布景): 空旷区 (gx,gz) 直立 T + 准星放头 → 傀儡落地 */
+function summonGolemAt(gx, gz) {
+  api.setBlockRaw(gx, 25, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx, 26, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx - 1, 26, gz, api.B_IRON_BLOCK);
+  api.setBlockRaw(gx + 1, 26, gz, api.B_IRON_BLOCK);
+  aimDownAt({x: gx, z: gz});
+  holdOnly('carved_pumpkin', 1);
+  pos.x = gx + 0.5; pos.y = 25; pos.z = gz + 2.5;
+  AdventureMode.onMouse(2, {x: gx, y: 26, z: gz, nx: 0, ny: 1, nz: 0});
+}
+
+test('修理傀儡: 手持铁锭对近旁受伤傀儡 → 扣 1 锭回 28 血+桶同步; 满血 noop 不扣锭, 非铁锭/无傀儡近旁回落', () => {
+  mem.clear();
+  freshInit();
+  summonGolemAt(90, 90);
+  const gm = mobsState.spawned.filter((m) => m.type === 'golem')[0];
+  assert.ok(gm, '前提: 已召唤一只');
+  listResult = [gm]; /* fake 面: 修理扫描走 Mobs.list()(召唤只进 spawned 桶) */
+  gm.hp = 54; /* 模拟守夜挨打(110−56) */
+  pos.x = gm.pos.x; pos.z = gm.pos.z; /* 贴身(3 格近旁扫描, 不走准星) */
+  holdOnly('iron_ingot', 2);
+  calls.length = 0;
+  assert.strictEqual(A.advTryRepairGolem(), true, '有锭+近旁受伤傀儡: 修理成立');
+  assert.strictEqual(gm.hp, 82, '54+28=82(一锭一档裂纹, ceil(110/4))');
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 1, '扣 1 锭');
+  assert.strictEqual(A.advGolemsAll().home[0].hp, 82, '桶 hp 同步(修理投资跨档不丢)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'pick'), '正反馈叮');
+  assert.strictEqual(A.advTryRepairGolem(), true, '再修: 成立');
+  assert.strictEqual(gm.hp, 110, '82+28 封顶 maxHp 110');
+  assert.strictEqual(A.advGolemsAll().home[0].hp, 110, '桶同步满血');
+  /* 满血 noop: 消费意图(不回落放置=铁锭满血右键无事)但不扣锭+节流话术 */
+  holdOnly('iron_ingot', 1);
+  assert.strictEqual(A.advTryRepairGolem(), true, '满血使用: 仍算 attempt(本不可放置, 零损失)');
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 1, '满血不扣锭');
+  assert.ok(spoken.some((t) => t.includes('不用修')), '满血话术');
+  /* 非铁锭: 返 false 回落使用链 */
+  holdOnly('shears', 1, 500);
+  assert.strictEqual(A.advTryRepairGolem(), false, '非铁锭不修');
+  /* 无傀儡近旁: 返 false 回落(铁锭无放置语义=零损失), 不扣锭 */
+  holdOnly('iron_ingot', 1);
+  pos.x = 10; pos.z = 10;
+  assert.strictEqual(A.advTryRepairGolem(), false, '3 格近旁无傀儡: 回落');
+  assert.strictEqual(api.count(A.advGetInv(), 'iron_ingot'), 1, '回落不扣锭');
+  listResult = [];
+  clearAim();
+});
+
+test('傀儡出手与夜怪报复: 出手挂 __hurtBy+零击退 → 近战夜怪转火傀儡; 骷髅/苦力怕不分派; 傀儡回收仇恨解除; 友军不进战斗轨', () => {
+  mem.clear();
+  freshInit();
+  globalThis.yaw = 0;
+  globalThis.pos.x = 70; globalThis.pos.y = 25; globalThis.pos.z = 78; /* 玩家在东, 与傀儡方位岔开 */
+  const gm = mkAdvMob('golem', 62, 25, 76, {__golem: true, __golemHome: {x: 60, z: 76}, attackCd: 0});
+  const zb = mkAdvMob('zombie', 62, 25, 78, {__nightHome: {x: 62, z: 78}, attackCd: 99});
+  const sk = mkAdvMob('skeleton', 66, 25, 76, {__nightHome: {x: 66, z: 76}, attackCd: 99,
+    __hurtBy: 'golem', __hurtByMob: gm}); /* 曾被傀儡打过(标记在身) */
+  const cr = mkAdvMob('creeper', 64, 25, 74, {__nightHome: {x: 64, z: 74}, attackCd: 99,
+    __hurtBy: 'golem', __hurtByMob: gm,
+    cfg: Object.assign({}, ADV_MOB_CFG.creeper, {boom: true, fuseS: 3})}); /* 照抄注册表 boom 族 */
+  listResult = [gm, zb, sk, cr];
+  nextWalkDist = 0; /* 索敌实走门全员放行 */
+  /* 傀儡一帧直调: 候选三人取最近(zombie 2 格) → 出手一记 */
+  hitLog.length = 0;
+  A.advGolemTick(1 / 60);
+  assert.strictEqual(hitLog.length, 1, '傀儡出手一记');
+  assert.strictEqual(hitLog[0].m, zb, '打的是最近夜怪');
+  assert.strictEqual(hitLog[0].kdx, 0, '零击退 x(拍板④不击飞)');
+  assert.strictEqual(hitLog[0].kdz, 0, '零击退 z');
+  assert.strictEqual(hitLog[0].kpow, 0, '零击退强度');
+  assert.strictEqual(zb.__hurtBy, 'golem', '报复标记挂上(advMobAI 侧分派转火的缝)');
+  assert.strictEqual(zb.__hurtByMob, gm, '仇恨对象=出手傀儡');
+  /* 报复分派(主 update 一帧): 近战僵尸转火傀儡; 骷髅箭道/苦力怕引信是玩家通道不分派 */
+  AdventureMode.update(1 / 60);
+  assert.ok(Math.abs(zb.yaw - Math.atan2(0, -2)) < 1e-6, '近战僵尸转火傀儡(不盯玩家)');
+  assert.ok(Math.abs(sk.yaw - Math.atan2(70 - 66, 78 - 76)) < 1e-6, '骷髅不分派: 仍瞄玩家(实现注记)');
+  assert.ok(Math.abs(cr.yaw - Math.atan2(70 - 64, 78 - 74)) < 1e-6, '苦力怕不分派: 仍盯玩家(实现注记)');
+  /* 仇恨随傀儡回收解除 → 回落盯玩家 */
+  gm.gone = true;
+  zb.__wdT = 0; sk.__wdT = 0; cr.__wdT = 0; /* 清实走节流钟: 下一帧立即重查(穿墙票同款 poke) */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(zb.__hurtBy, null, '仇恨随傀儡回收解除');
+  assert.ok(Math.abs(zb.yaw - Math.atan2(8, 0)) < 1e-6, '回落盯玩家(东向)');
+  /* 友军不进 advMobAI 战斗轨(回归钉): 傀儡在玩家 2.8 格+nests[0](44,60) 牵引圈内
+     也绝不锁玩家出手——漏 skip 会 home 回落 nests[0] 照常 aggro, 反手打玩家 10 伤 */
+  const gm2 = mkAdvMob('golem', 50, 25, 64, {__golem: true, __golemHome: {x: 50, z: 64}, attackCd: 0});
+  globalThis.pos.x = 52; globalThis.pos.z = 66;
+  listResult = [gm2];
+  nextWalkDist = 0;
+  hitLog.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(hitLog.length, 0, '傀儡贴脸玩家零出手(advMobAI skip __golem)');
+  listResult = [];
+});
+
+test('清场免疫: advSweepNightMobs 只收 __nightMob — 傀儡/牧场怪不带该字段天然豁免(负空间钉死)', () => {
+  mem.clear();
+  freshInit();
+  const gm = mkAdvMob('golem', 62, 25, 76, {__golem: true, __golemHome: {x: 60, z: 76}});
+  const zb = mkAdvMob('zombie', 58, 25, 76, {__nightMob: true});
+  const cow = mkAdvMob('cow', 47, 25, 80);
+  listResult = [gm, zb, cow];
+  calls.length = 0;
+  spoken.length = 0;
+  const n = A.advSweepNightMobs();
+  assert.strictEqual(n, 1, '只清夜怪一只');
+  assert.strictEqual(zb.gone, true, '夜怪收走(灰白烟+remove)');
+  assert.strictEqual(gm.gone, false, '傀儡豁免: 清场不误伤友军(改白名单此条即红)');
+  assert.strictEqual(cow.gone, false, '牧场动物豁免(同口径)');
+  assert.ok(spoken.some((t) => t.includes('天亮了')), '清场 TTS');
+  assert.ok(calls.some((c) => c[0] === 'debris'), '灰白烟碎屑观感');
+  listResult = [];
+});
+
+test('傀儡死亡: onDeath 出桶销账(家锚匹配)+掉铁锭 3~5(MOB_DROPS 既有行, 净亏成本无刷铁漏洞)', () => {
+  mem.clear();
+  freshInit();
+  summonGolemAt(90, 90);
+  assert.strictEqual(A.advGolemsAll().home.length, 1, '前提: 召唤入桶(锚+满血)');
+  const gm = mobsState.spawned.filter((m) => m.type === 'golem')[0];
+  dropsState.spawned.length = 0;
+  mobsState.deathCbs[0](gm); /* 走真实 onDeath 回调(出账+掉落同帧, F4 死畜测试同款手法) */
+  assert.deepStrictEqual(A.advGolemsAll().home, [], '死亡出桶(锚点 (x,z) 销账, 当天不再复活)');
+  assert.strictEqual(dropsState.spawned.length, 1, '掉落一条 roll(golem 表单行)');
+  assert.strictEqual(dropsState.spawned[0].id, 'iron_ingot', '掉铁锭(MOB_DROPS.golem)');
+  assert.ok(dropsState.spawned[0].n >= 3 && dropsState.spawned[0].n <= 5,
+      '3~5 锭(36 锭成本掉 4±1, 无刷铁漏洞)');
+  assert.strictEqual(dropsState.spawned[0].x, gm.pos.x, '尸体落点 x');
+  assert.strictEqual(dropsState.spawned[0].y, 25.8, '落点上方 0.8(击杀碎块观感)');
+  clearAim();
+});
+
+test('golems 桶持久化: 召唤随档落盘 → 重进按桶重召(家锚+hp 复原, 落点同几何); 死亡跨档不复活', () => {
+  mem.clear();
+  freshInit();
+  summonGolemAt(90, 90);
+  A.advGolemsAll().home[0].hp = 80; /* 模拟修理过的 80 血(修理投资跨档不丢, D6 拍板 P3) */
+  AdventureMode.cleanup(); /* 强制落盘(南瓜跨档测试同款手法) */
+  const sv = JSON.parse(mem.get('adventure_world_save'));
+  assert.deepStrictEqual(sv.golems.home, [{x: 90, z: 90, hp: 80}],
+      '桶随世界档落盘, 形状 {x,z,hp}(不存 axis/游荡位)');
+  freshInit(); /* 重进: 直接 freshInit 勿 mem.clear(读档重进测试惯例) */
+  let golems = mobsState.spawned.filter((m) => m.type === 'golem');
+  assert.strictEqual(golems.length, 1, '装场按桶重召一只');
+  const gm = golems[0];
+  assert.deepStrictEqual(gm.__golemHome, {x: 90, z: 90}, '家锚=存档位(游荡位置不存档, 牧场同口径)');
+  assert.strictEqual(gm.hp, 80, 'hp 从桶恢复(min(g.hp, maxHp), 修理投资不丢)');
+  assert.strictEqual(gm.pos.x, 90.5, '破壳原位复原(塔锚列中心, 召唤/重召同几何)');
+  /* 死亡销账 → 跨档不再复活(拍板③) */
+  mobsState.deathCbs[0](gm);
+  AdventureMode.cleanup();
+  freshInit();
+  golems = mobsState.spawned.filter((m) => m.type === 'golem');
+  assert.strictEqual(golems.length, 0, '死亡跨档不复活(桶无条目)');
+  assert.deepStrictEqual(JSON.parse(mem.get('adventure_world_save')).golems.home, [],
+      '空桶落盘(不复活有据)');
+  clearAim();
 });
 
 /* ============ T8 任务链与门解锁(远征章, 冒险地图设计稿 §2.3) ============ */

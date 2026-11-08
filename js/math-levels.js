@@ -179,7 +179,10 @@ const MATH_VARIANTS = {
   ],
   plan: [ /* E 搭一搭: 按图搭建 → 空间计数与视角推理 (T4/T6) */
     {id: 'build', name: '看图施工'},
-    {id: 'pick', name: '反向选图'},
+    {id: 'pick', name: '反向选图',
+      /* 变体级 rule(报幕即讲玩法): 反向任务与族话术「照图纸搭」方向
+         相反, 族 rule 会讲反 — 首遇前就把「从上往下看」讲给孩子 */
+      rule: '反向选图：像小鸟一样从天上往下看这座建筑，把它的房顶图纸点出来！'},
     {id: 'hidden', name: '隐藏块推理'},
     {id: 'countall', name: '数方块', kind: 'challenge',
       rule: '数方块：藏起来的也要数，点出正确答案！'},

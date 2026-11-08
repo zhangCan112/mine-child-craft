@@ -34,6 +34,10 @@ const ITEM_USES = {
   /* 剪羊毛使用档(2026-10-28): 手持剪刀对准羊使用 = 剪毛不伤羊(温和收获
      口径, F4 牧场延伸); 行为在模式层执行器 act 'shear', 剪毛账/长回政策同 */
   shears: [{act: 'shear', icon: 'shear', label: '剪羊毛'}],
+  /* 修理傀儡使用档(mob-crafting D5): 手持铁锭对准受伤铁傀儡使用 = 扣 1 锭
+     回一档血(正典「1 锭=一档裂纹」); 行为在模式层执行器 act 'repair_golem',
+     满血 noop 节流同 */
+  iron_ingot: [{act: 'repair_golem', icon: 'repair', label: '修理傀儡'}],
 };
 
 /* 盔甲 wear 使用档派生(装备 T5, 设计稿 §5): 由 ITEMS 盔甲键集**派生生成**

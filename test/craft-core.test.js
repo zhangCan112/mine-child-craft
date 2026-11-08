@@ -96,16 +96,16 @@ test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派�
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 随身 12 + 工作台级 62 共 74 条, id 唯一(crafting-grid §3 + 下界 D3 + 雪球 T9 + 门/玻璃板 + 补链 D1 + 大背包 + 装备 T2 合成链)', () => {
+test('配方全量: 随身 13 + 工作台级 63 共 76 条, id 唯一(基线 74 + 怪物合成 T1 铁块/拆包 2 条)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 74,
-      '全表 74 条(随身 12 + 工具 20 + 盔甲 20 + 站点件 8 + 门/玻璃板 2 + 大背包 1 + ' +
-      '下界升级 8 + 合金锭 1 + 传送门 1; 下界装备 8 件无直配方=升级唯一来路, 正典口径), 实际 ' + RECIPES.length);
-  // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9 + 补链 D1 砂岩/羊毛)
+  assert.strictEqual(RECIPES.length, 76,
+      '全表 76 条(基线 74 + 怪物合成 T1 铁块/拆包 2 条, docs/mob-crafting-design.md D1; ' +
+      '下界装备 8 件无直配方=升级唯一来路, 正典口径), 实际 ' + RECIPES.length);
+  // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9 + 补链 D1 砂岩/羊毛 + 怪物合成 T1 拆包)
   for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
-    'bone_meal', 'iron_nuggets', 'snow', 'sandstone', 'wool']) {
+    'bone_meal', 'iron_nuggets', 'snow', 'sandstone', 'wool', 'iron_ingots']) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '随身配方 ' + id + ' 应存在');
     assert.strictEqual(r.station, 'hand', id + ' 应为 hand 级');
@@ -124,7 +124,7 @@ test('配方全量: 随身 12 + 工作台级 62 共 74 条, id 唯一(crafting-g
     'leggings_leather', 'leggings_chain', 'leggings_iron', 'leggings_gold', 'leggings_diamond', 'leggings_netherite',
     'boots_leather', 'boots_chain', 'boots_iron', 'boots_gold', 'boots_diamond', 'boots_netherite',
     'furnace', 'chest', 'bed', 'lantern', 'golden_apple', 'tnt', 'bow_item', 'bread',
-    'door', 'glass_pane', 'iron_ingot', 'bag_upgrade', 'netherite_ingot'];
+    'door', 'glass_pane', 'iron_ingot', 'iron_block', 'bag_upgrade', 'netherite_ingot'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');

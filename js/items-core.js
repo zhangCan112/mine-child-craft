@@ -143,6 +143,14 @@ const ITEMS = {
   flower_y: {name: '蒲公英', icon: '🌼', block: 61}, // B_FLOWER_Y(61); 家园花丛草场
   flower_w: {name: '雏菊', icon: '🌼', block: 62}, // B_FLOWER_W(62)
 
+  /* —— 怪物合成件(mob-crafting-design D1, 2026-11-08): 友方铁傀儡 T 形召唤材料链 ——
+     正典取证 docs/iron-golem-research.md §1(结构召唤: 4 铁块 T 形+雕刻南瓜收尾,
+     不是工作台合成); 雕刻南瓜来路=剪刀对南瓜使用(原地变换, 设计稿差异 B16),
+     挖已雕刻块亦得。铁块硬 5.0 石镐门槛(B_IRON_BLOCK=75 号段顺延) */
+  iron_block: {name: '铁块', icon: '⬜', block: 75}, // 9 铁锭合成(MC 正典, 反向拆包配对); 召唤塔身材料
+  pumpkin: {name: '南瓜', icon: '🟠', block: 76}, // 野生长点采集(mob-crafting T2 跨日回填); 剪刀雕刻成召唤头
+  carved_pumpkin: {name: '雕刻南瓜', icon: '🎃', block: 77}, // T 形最后一块=召唤触发(iron-golem-research §1.1)
+
   /* —— 二期占位(§3.2 配方书全表引用 bow_item, 一期卡片不点亮) —— */
   bow_item: {name: '弓', icon: '🏹'},
 

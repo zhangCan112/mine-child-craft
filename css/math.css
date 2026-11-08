@@ -1198,6 +1198,64 @@ button.m-mark:hover {
   background: #2f353d;
 }
 
+/* ---------- 屏底答案条(math-build-world.js 渲染, 2026-11「点选教学太弱」票):
+   选答类变体的可直点选项 — 触屏进行态 DOM 可点(#touchUI 同款先例),
+   点大图/大数字即作答; 桌面指针锁定时点不到, 答案条只作选项对照图,
+   作答走世界内答案牌(判分与世界内点牌同路, 见 wwChoicePick) */
+#mathWorldChoices {
+  position: fixed;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  display: none;
+  gap: 12px;
+  pointer-events: auto;
+}
+
+#mathWorldChoices .mw-choice {
+  display: flex;
+  min-width: 76px;
+  min-height: 76px;
+  padding: 6px 10px;
+  border: 3px solid rgb(255 255 255 / 45%);
+  border-radius: 14px;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 55%);
+  color: #fff;
+  font-family: 'Segoe UI', Arial, sans-serif;
+  font-size: 34px;
+  font-weight: 800;
+  text-shadow: 0 2px 4px #000;
+}
+
+#mathWorldChoices .mw-choice canvas {
+  image-rendering: pixelated;
+  background: #2f353d;
+}
+
+#mathWorldChoices .mw-choice.hit {
+  border-color: #7cfc00;
+}
+
+#mathWorldChoices .mw-choice.off {
+  opacity: 0.35;
+}
+
+@media (width <= 700px) {
+  #mathWorldChoices {
+    gap: 8px;
+  }
+
+  #mathWorldChoices .mw-choice {
+    min-width: 56px;
+    min-height: 56px;
+    padding: 4px 8px;
+    font-size: 26px;
+  }
+}
+
 
 /* ============================================================
    T8 · 激励回路样式 — 矿袋 HUD 槽位/战利品贝塞尔飞入/结算列队回顾

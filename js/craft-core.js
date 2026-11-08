@@ -35,9 +35,10 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 82 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
+   RECIPES 配方表 — 84 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
       雪球 T9 + 门/玻璃板 2 条 + 补链 3 条 + 大背包 1 条 + 装备系统 T2 合成链
-      41 条[盔甲 24 + 金银阶工具 8 + 下界升级 8 + 合金锭 1], 图案逐条查证自
+      41 条[盔甲 24 + 金银阶工具 8 + 下界升级 8 + 合金锭 1] + 怪物合成 T1 铁块/拆包
+      2 条, 图案逐条查证自
       minecraft.wiki——大背包为原创件, docs/bag-and-drop-design.md §2),
       见 docs/mc-crafting-grid-research.md §3 · docs/door-window-research.md ·
       docs/equipment-design.md §2)
@@ -247,6 +248,14 @@ const RECIPES = [
   {id: 'netherite_ingot', out: {item: 'netherite_ingot', n: 1}, station: 'table',
     shape: {any: ['netherite_scrap', 'netherite_scrap', 'netherite_scrap', 'netherite_scrap',
       'gold_ingot', 'gold_ingot', 'gold_ingot', 'gold_ingot']}},
+  // 怪物合成材料件(mob-crafting-design D1): 铁块=9 锭无序(正典 shapeless 3×3)——
+  //   友方铁傀儡 T 形召唤的塔身材料; 拆包反向(1 块→9 锭, bone_meal 单材料 any
+  //   先例, iron_nuggets 双向链同款口径); 压轴传送门配方之前插入(最末契约不动)
+  {id: 'iron_block', out: {item: 'iron_block', n: 1}, station: 'table',
+    shape: {any: ['iron_ingot', 'iron_ingot', 'iron_ingot', 'iron_ingot', 'iron_ingot',
+      'iron_ingot', 'iron_ingot', 'iron_ingot', 'iron_ingot']}},
+  {id: 'iron_ingots', out: {item: 'iron_ingot', n: 9}, station: 'hand',
+    shape: {any: ['iron_block']}},
   // 下界传送门(下界并入探险 D3): 8 金锭环形+中心钻石, 全表最贵合成压轴; 放下长出整座门(结构放置, 探险壳拦截)
   {id: 'nether_portal', out: {item: 'nether_portal', n: 1}, station: 'table',
     shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', 'diamond', 'gold_ingot'], ['gold_ingot', 'gold_ingot', 'gold_ingot']]}},

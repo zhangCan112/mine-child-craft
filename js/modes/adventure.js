@@ -160,6 +160,18 @@ function advOreRegenDecode(v) {/* 矿位开采账归一(生态恢复 C 通道): 
   }
   return out;
 }
+function advPumpkinRegenDecode(v) {/* 南瓜采集账归一(mob-crafting T2): 只收 {'0'..'2': 采集时
+    dayTime}(游戏日时钟域 0..TICKS), 异形键值整条丢弃(坏档兜底空账) */
+  const out = {};
+  if (v && typeof v === 'object' && !Array.isArray(v)) {
+    const n = advPumpkinSpots().length;
+    for (const k in v) {
+      if (/^\d+$/.test(k) && +k < n && Number.isInteger(v[k]) &&
+        v[k] >= 0 && v[k] < DAYLIGHT.TICKS) out[k] = v[k];
+    }
+  }
+  return out;
+}
 function advDenDailyDecode(v) {/* 每日副本态归一(D20): 只收 {day 'Y-M-D', wave ≥1 整数,
    chestDone 布尔, deadGuards 整数数组}, 异形整条丢弃 null(老档/坏档=首进全新) */
   if (!v || typeof v !== 'object' || typeof v.day !== 'string' ||
@@ -191,10 +203,13 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
       o[k] = {dead: [], bred: [], sheared: {}};
       return o;
     }, {}),
-    oreRegen: {}, dayTime: 0},
+    oreRegen: {}, pumpkinRegen: {},
+    golems: ADV_SCENE_KEYS.reduce((o, k) => (o[k] = [], o), {}), /* golems 桶(D6 拍板 P3):
+      {图键: [{x, z, hp}]} 召唤入桶/死亡出桶/修理更 hp——存活跨档, 死亡销账 */
+    dayTime: 0},
   /* livestock defaults 桶集从 ADV_SCENE_KEYS 派生: 无档路径 clone(defaults) 不经 decode
      (save-slot load 语义), 半形状 defaults 会让播种读 undefined 桶——
-     形状必须两条路径都成立 */
+     形状必须两条路径都成立; golems 桶同款两条路径纪律 */
   encode: (st) => ({edits: advSceneEditsEncode(st.edits),
     map: st.map,
     pos: st.pos || null,
@@ -204,6 +219,8 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     armor: st.armor || null, /* 穿戴档直取(装备 T5: worn 归一形状, decode 侧归一兜底) */
     livestock: st.livestock || {},
     oreRegen: st.oreRegen || {},
+    pumpkinRegen: st.pumpkinRegen || {},
+    golems: st.golems || {},
     dayTime: (typeof st.dayTime === 'number') ? st.dayTime : 0}),
   decode: (sv) => ({edits: advSceneEditsDecode(sv), /* 桶归一(三档型兼容, 幂等) */
     map: ADV_MAPS.some((r) => r.id === sv.map) ? sv.map : 'home',
@@ -215,6 +232,8 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     armor: wornNormalize(sv.armor), /* 穿戴档归一(装备 T5 §7: 老档缺键→空穿, 坏件逐条丢弃, 幂等) */
     livestock: advLivestockDecode(sv.livestock), /* 按图分桶归一(三代档形收敛) */
     oreRegen: advOreRegenDecode(sv.oreRegen), /* 矿位开采账归一(缺省 {}) */
+    pumpkinRegen: advPumpkinRegenDecode(sv.pumpkinRegen), /* 南瓜采集账归一(mob-crafting T2, 缺省 {}) */
+    golems: advGolemsLoad(sv.golems), /* golems 桶归一+键集补全(D6: 异形条目丢弃, 缺省全空桶) */
     dayTime: (typeof sv.dayTime === 'number' && sv.dayTime >= 0 && sv.dayTime < DAYLIGHT.TICKS) ?
       sv.dayTime : 0}), /* 越界/坏档兜底清晨 */
 });
@@ -261,7 +280,10 @@ const advJournal = mkWorldJournal(advWorldSlot, {
     map: advMap, /* 当前主世界图键(nether/den 期间保持最后主世界图) */
     pos: advDim !== 'overworld' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw},
     /* 维度不进档(nether D9+den D8 单点判据, dimension-registry §2) */
-    hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, oreRegen: advOreRegen, dayTime,
+    hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, oreRegen: advOreRegen,
+    pumpkinRegen: advPumpkinRegen, dayTime,
+    golems: advGolemsAll, /* golems 桶随世界档(mob-crafting D6: 存活跨档——漏此键
+        桶只在内存, 重进全丢; slot encode/decode 与本 payload 两处都要在) */
     armor: advWorn, /* 穿戴档(装备 T5): worn 归一形状, init 侧 wornNormalize 兜底老档缺键 */
     den: advDenDaily}), /* 每日副本态(D20): 同日续局/次日重置的持久半边 */
   onFlush: () => {/* 伴随联写经存档 store 缝: U3 换装 dev store 后三档联写自动跟丢弃语义 */
@@ -279,6 +301,19 @@ let advLivestockAll = ADV_SCENE_KEYS.reduce((o, k) => {/* 牧场账按图/维度
     游荡位置不存档, 重进回群位锚点 */
 let advOreRegen = {}; /* 矿位开采账(生态恢复 C 通道): '<场景>:x,y,z'→'Y-M-D' 开采日,
     跨天回填(拍板②); init 从世界档换装, 回填/销账即 touch */
+let advPumpkinRegen = {}; /* 南瓜采集账(mob-crafting T2): '<点位索引>'→采集时 dayTime,
+    游戏日一茬(羊毛长回同款时钟): 回填判据=账值>当前 dayTime(跨过午夜回绕沿),
+    账值即完整状态(无会话计数); init 从世界档换装 */
+function advGolemsLoad(v) {/* golems 桶换装缝(壳侧): core 归一(advGolemsNorm) + 键集补全
+   ——ADV_SCENE_KEYS 权威在本文件(L82), Node require 域装载 core 时它未到场,
+   core 侧键白名单循环是空集; 本缝保证两路径(无档 defaults/有档 decode)桶键恒全 */
+  const out = advGolemsNorm(v);
+  for (const k of ADV_SCENE_KEYS) if (!Array.isArray(out[k])) out[k] = [];
+  return out;
+}
+let advGolemsAll = advGolemsLoad(null); /* golems 桶(mob-crafting D6 拍板 P3): {图键:
+    [{x, z, hp}]}——召唤入桶/死亡出桶/修理更 hp, 存活跨档; init 从世界档换装,
+    变更即 touch */
 const advTreeRegen = new Map(); /* 凋零树位恢复计时 "x,y,z"→{x,y,z,left}; 计时不落盘,
     重进经 advRescanTreeRegen 重建(树苗同惯例; 仅 home 图——树位清单是 home 常量派生) */
 /* 站点坐标缓存(T13): "x,y,z"→{x,y,z,id}——B_CRAFT/B_FURNACE 只可能来自玩家
@@ -298,6 +333,9 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
   /* ADR 0007: 箱子进账/出账(放置/挖除/TNT 掀/覆盖同走此缝) → 容量随之重算;
      结构宝箱不在账本里, 天然不触发 */
   if ((id === B_CHEST) !== (pv === B_CHEST)) advChestResync();
+  /* 召唤检测缝(mob-crafting D4): 放雕刻南瓜/剪普通南瓜两条路都汇此(活体编辑);
+     重放走 setBlockRaw 不经本函数——老档重进不重复召唤(红线, 测试钉死) */
+  if (id === B_CARVED_PUMPKIN) advGolemTrySummon(x, y, z);
 }
 function advMeshTouch(x, z) {/* setBlockRaw 直写后的网格收口(点亮仪式/自放门/树长成共用):
     setBlockRaw 只写 worldCells 不入脏队列——直写的门面/门体/树要等跨环或重进才被
@@ -768,8 +806,9 @@ const advHurt = CombatKit.mkHurtAlarm({setHp: (v) => {
 }});
 const advMelee = CombatKit.mkMelee({range: ADV_MELEE_R, cooldown: ADV_SWING_CD,
   aimCos: ADV_AIM_COS, /* 准星锥门槛(纯方向, 不依赖相机 — lookDir 同式 yaw 朝向) */
-  skip: (m) => !!m.__baby, /* 幼崽免伤(生态恢复差异 6): 不被选为目标——挥击落空,
-    点击自然落到挖掘/放置, 静默保护(零惩罚, 不给伤害也不给击退) */
+  skip: (m) => !!m.__baby || !!m.__golem, /* 幼崽免伤(生态恢复差异 6) + 友军傀儡免伤
+    (mob-crafting D5): 不被选为目标——挥击落空, 点击自然落到挖掘/放置/使用,
+    静默保护(零惩罚, 不给伤害也不给击退) */
   dmg: () => {
     const held = advInv.slots[advHb.sel];
     return advSwingDmg(held ? held.id : '');
@@ -1142,7 +1181,10 @@ function advCreepBoom(m, p) {
 function advMobAI(dt) {
   const p = advGetPEnt();
   for (const m of Mobs.list()) {
-    if (m.dead || m.gone || m.cfg.passive) continue; /* F4 牧场动物走 advHerdTick(恐惧游荡), 不进战斗 AI */
+    if (m.dead || m.gone || m.cfg.passive || m.__golem) continue; /* F4 牧场动物走 advHerdTick(恐惧游荡),
+        友军傀儡走 advGolemTick 三态机(mob-crafting D5)——两族都不进战斗 AI。
+        傀儡漏 skip 会在此被当战斗怪: 家锚回落 nests[0], 塔近巢时照常 aggro
+        对玩家出手(壳 3332 行注释「友军不进 advMobAI 战斗轨」的本意) */
     CombatCore.tickCadence(m, dt); /* 攻击节拍(战斗核心, 与竞技场/下界同一条) */
     /* 苦力怕引信推进(bomber 原型, 副本 §7): 点着就站桩膨胀+白闪倒数(竞技场
        tickCreepFuse 同构), 到点自爆; 读条早期(前 30%)玩家拉开 2.2×range
@@ -1160,9 +1202,22 @@ function advMobAI(dt) {
         continue; /* 已自爆移除, 本帧不再走 AI/步态 */
       }
     }
+    /* 报复分派(mob-crafting D5): 被傀儡打过的近战夜怪转火那只傀儡(正典被打必
+       报复; 仇恨随傀儡死亡/回收即解除, 回落盯玩家)。骷髅/苦力怕不分派——
+       箭道/引信是玩家伤害通道, 傀儡 DPS 拦截即守护(实现注记, 测试钉近战报复);
+       默认只盯玩家: 傀儡不打它就不结仇 */
+    let tgt = p;
+    if (m.__hurtBy === 'golem' && !m.cfg.ranged && !m.cfg.boom) {
+      const g = m.__hurtByMob;
+      if (g && !g.dead && !g.gone) {
+        tgt = g;
+      } else {
+        m.__hurtBy = null; m.__hurtByMob = null; /* 仇恨对象没了: 解除回落盯玩家 */
+      }
+    }
     /* 家锚(收队/索敌的 leash 原点): 夜怪=出生环点(昼夜 D5, 不归巢穴), 巢穴怪=本巢 */
     const home = m.__nightHome || advMapRow.nests[m.nest != null ? m.nest : 0];
-    const dxP = p.pos.x - m.pos.x; const dzP = p.pos.z - m.pos.z;
+    const dxP = tgt.pos.x - m.pos.x; const dzP = tgt.pos.z - m.pos.z;
     const distP = Math.hypot(dxP, dzP) || 1e-9;
     const hx = home.x - m.pos.x; const hz = home.z - m.pos.z;
     const distHome = Math.hypot(hx, hz) || 1e-9;
@@ -1172,14 +1227,14 @@ function advMobAI(dt) {
        会被假索敌, 怪贴脸穿墙追。改走 Mobs.walkDist(4 邻实走搜索, 墙列不可入),
        超圈=视觉外站桩不动。直线是实走的下界, 先粗筛免空跑; 0.4s 节流缓存
        (私有字段 __wdT/__wdD 不落盘, 怪物本就不进档) */
-    if (!p.dead && distP <= ADV_NEST_AGGRO_R) {
+    if (!tgt.dead && distP <= ADV_NEST_AGGRO_R) {
       m.__wdT = (m.__wdT || 0) - dt;
       if (m.__wdT <= 0) {
         m.__wdT = 0.4;
-        m.__wdD = Mobs.walkDist(m.pos.x, m.pos.z, m.pos.y, p.pos.x, p.pos.z, ADV_NEST_AGGRO_R);
+        m.__wdD = Mobs.walkDist(m.pos.x, m.pos.z, m.pos.y, tgt.pos.x, tgt.pos.z, ADV_NEST_AGGRO_R);
       }
     } else m.__wdD = Infinity;
-    const aggro = !p.dead && m.__wdD <= ADV_NEST_AGGRO_R && distHome <= ADV_NEST_LEASH_R;
+    const aggro = !tgt.dead && m.__wdD <= ADV_NEST_AGGRO_R && distHome <= ADV_NEST_LEASH_R;
     if (aggro) {
       Mobs.steer(m, Math.atan2(dxP, dzP));
       if (m.cfg.ranged) {/* 骷髅: 炮台巡航(7 格), 太远逼近太近拉开, 节拍到就放箭 */
@@ -1217,11 +1272,16 @@ function advMobAI(dt) {
           几何变了才出手; 放行走门未开时继续贴到 1.2 格内——开阔地该距离列距
           必 ≤2 即出手, 隔墙物理贴墙到不了 1.2, 穿墙禁令(下分支实走门)不动摇 */
         Mobs.move(m, dxP / distP * speed * dt, dzP / distP * speed * dt, dt); moved = speed;
-      } else if (Math.abs(p.pos.y - m.pos.y) < 2.5 && m.__wdD <= 2 && m.attackCd <= 0) {/* 贴身攻击玩家:
+      } else if (Math.abs(tgt.pos.y - m.pos.y) < 2.5 && m.__wdD <= 2 && m.attackCd <= 0) {/* 贴身攻击:
           实走门 ≤2 格——隔薄墙直线 2.1 内也不出手(穿墙票; 立柱/墙头玩家
-          由 walkDist 末步免爬可达, 不误伤) */
+          由 walkDist 末步免爬可达, 不误伤)。目标分派: 玩家走受击漏斗,
+          傀儡走零击退命中(报复转火, mob-crafting D5) */
         m.attackCd = m.cfg.cd; m.attackT = ADV_ATTACK_T;
-        advHitPlayer(advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4); /* 漏斗收口(装备 T6) */
+        if (tgt === p) {
+          advHitPlayer(advMobDmg(m), p.pos.x - m.pos.x, p.pos.z - m.pos.z, 0.4); /* 漏斗收口(装备 T6) */
+        } else {
+          Mobs.hit(tgt, advMobDmg(m), 0, 0, 0); /* 打傀儡零击退(拍板④不击飞) */
+        }
       }
     } else if (distHome > ADV_NEST_HOME_R) {/* 收队: 慢步回巢(掉头不恋战) */
       Mobs.steer(m, Math.atan2(hx, hz));
@@ -1304,7 +1364,10 @@ function advHerdTick(dt) {/* 恐惧游荡(update 每帧): 决策纯函数段在 
    踏石到栏顶差恰 1 牲畜爬得出, 钳制是兜底防线(出栏个体同被收回);
    帧首兼管剪羊毛跨天账本(dayTime 回绕沿检测 → 毛长回施加, 见上段) */
   if (advWoolPrevT == null) advWoolPrevT = dayTime; /* 首帧对表(不把装场当跨天) */
-  else if (dayTime < advWoolPrevT) advWoolDayN++; /* 回绕沿(自然过午夜/睡醒跳零)= 新的一天 */
+  else if (dayTime < advWoolPrevT) {
+    advWoolDayN++; /* 回绕沿(自然过午夜/睡醒跳零)= 新的一天 */
+    advPumpkinRegenTick(); /* 南瓜游戏日一茬(mob-crafting T2): 睡醒/过夜当帧结账 */
+  }
   advWoolPrevT = dayTime;
   const p = advGetPEnt();
   const inPen = advMap === 'home'; /* 四畜全套留 home, 他图无牲畜不钳 */
@@ -2037,6 +2100,14 @@ function advHookEntityCbs() {
       if (bi >= 0) bucket.bred.splice(bi, 1);
       advStore.touch();
     }
+    if (m.__golem) {/* 傀儡死亡销账(mob-crafting D6 拍板③): 桶除名——当天/跨档均不再
+       复活; 掉落走 MOB_DROPS.golem 既有行(铁锭 3~5: 净亏 36 锭成本 → 遗物 4 锭,
+       天然无刷铁漏洞); 家锚匹配=桶条目键(锚唯一) */
+      const arr = advGolemsAll[advSceneKey()];
+      const gi = arr.findIndex((g) => g.x === m.__golemHome.x && g.z === m.__golemHome.z);
+      if (gi >= 0) arr.splice(gi, 1);
+      advStore.touch();
+    }
     for (const s of advDeathDrops(m)) {
       if (m.__sheared && s.id === 'wool') continue; /* 剪过毛的羊身上没毛可掉(MC 口径; 肉照掉) */
       Drops.spawn(s.id, s.n, s.x, s.y, s.z);
@@ -2184,6 +2255,8 @@ function advOverworldReload() {/* 主世界当前图整场重建(〔世界边界
     advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
     advRescanTreeRegen(); /* 凋零树位重挂恢复计时(仅 home 图有树位清单) */
     advOreRegenTick(); /* 到期矿位回填(跨天口径; 只结本场景的账) */
+    advPumpkinRegenTick(); /* 到期南瓜位回填(mob-crafting T2: 只结 home 的账) */
+    advGolemsRespawn(); /* 按桶重召当前图傀儡(mob-crafting D6: 存活跨档, 家锚+hp 复原) */
     advRescanStations();
     advFurnaceSettle(advMap);
   });
@@ -2201,9 +2274,15 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     const step = advDenDailyStep(advDenDaily, advDenTodayKey());
     advDenDaily = step.state;
     denFresh = step.fresh;
-    if (denFresh) advSceneEdits.den.clear(); /* 桶清=地形破坏愈合+玩家摆设清——
-        次日军全新(小宝箱补给随建场回来=一天一次); 炉态由 advFurnaceSettle
-        对重放后世界自动核销, 不用另清 */
+    if (denFresh) {
+      advSceneEdits.den.clear(); /* 桶清=地形破坏愈合+玩家摆设清——
+          次日军全新(小宝箱补给随建场回来=一天一次); 炉态由 advFurnaceSettle
+          对重放后世界自动核销, 不用另清 */
+      advGolemsAll.den.length = 0; /* 副本傀儡随日除名(用户票 2026-11-08: 副本一切
+          同命——同日进出照存(下方 advGolemsRespawn 重召), 次日军全新=傀儡一并
+          清; D6 的「存活跨档」在副本收窄为「存活同日」) */
+      advStore.touch(); /* 除名与桶清入档(5s 节流; 不摸=立即关页旧账随重放回归) */
+    }
   }
   const drow = advDimRow(dim);
   if (drow) {/* 维度相位(下界/巢穴副本): 建场序列/天穹/昼夜/落点全读维度行
@@ -2227,6 +2306,8 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
         advSpeak('新的一天，怪物巢穴刷新啦，所有怪物都回来了！');
       }
       advDenSeed(denFresh); /* 布防: 全新=全量守卫+第一波; 同日=活守卫+断点波(D20) */
+      advGolemsRespawn(); /* 按桶重召副本傀儡(切界装场之 den 足, D6; fresh 日桶已清
+          =自然零召, 同日=家锚+桶血复原——用户票 2026-11-08: 同日反复进出都该在) */
     }
     ModeKit.spawn(drow.spawn.x, drow.spawn.y, drow.spawn.z, {yaw: drow.spawn.yaw}); /* 行落点(结构常量派生) */
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
@@ -2265,6 +2346,8 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 地图门站桩传送
     advRescanWheats();
     advRescanTreeRegen();
     advOreRegenTick();
+    advPumpkinRegenTick(); /* 到期南瓜位回填(mob-crafting T2: 只结 home 的账) */
+    advGolemsRespawn(); /* 按桶重召当前图傀儡(mob-crafting D6: 存活跨档, 家锚+hp 复原) */
     advRescanStations();
     advFurnaceSettle(advMap);
   });
@@ -2896,11 +2979,21 @@ function advBuildScene(row) {/* 建场统一缝(init/切图/回界三处共用):
   advOreSpotsReset();
   row.build();
 }
-function advOreMined(id, x, y, z) {/* 矿位开采记账(级联账本 mined sink——挖掘/TNT
-   两路同经 advCascadeLedger): 被移除的是矿石 → 记开采日(跨天回填依据), 当日不回填 */
-  if (!advIsOre(id)) return;
-  advOreRegen[advOreKey(advSceneKey(), x, y, z)] = budgetDateStr();
-  advStore.touch();
+function advOreMined(id, x, y, z) {/* 生态恢复开采记账(级联账本 mined sink——挖掘/TNT
+   两路同经 advCascadeLedger): 矿石记开采日(oreRegen 跨天回填依据), home 南瓜
+   生长点记采集时 dayTime(pumpkinRegen 游戏日一茬, mob-crafting T2), 当日均不回填 */
+  if (advIsOre(id)) {
+    advOreRegen[advOreKey(advSceneKey(), x, y, z)] = budgetDateStr();
+    advStore.touch();
+    return;
+  }
+  if (id === B_PUMPKIN && advMap === 'home') {
+    const hit = advPumpkinSpots().find((s) => s.x === x && s.y === y && s.z === z);
+    if (hit) {
+      advPumpkinRegen[hit.i] = dayTime;
+      advStore.touch();
+    }
+  }
 }
 function advRescanTreeRegen() {/* 进场重扫(advRescanSaplings 同拍同法): 凋零树位逐个
    挂抖动恢复计时——SceneKit.rand 派生 ±JIT 错峰; 树位清单是 home 常量派生,
@@ -2957,6 +3050,37 @@ function advOreRegenTick() {/* 到期矿位回填(跨天拍板②): 只结当前
   if (n) {
     advMeshFlush();
     advToast('⛏️ 矿山慢慢长回来了一些！');
+  }
+}
+
+function advPumpkinRegenTick() {/* 到期南瓜位回填(mob-crafting T2 游戏日一茬): 账值
+    (采集时 dayTime)>当前 dayTime = 期间跨过午夜回绕沿(自然过夜/睡醒跳零同判)
+    → 位空回填(edits 记账+网格收口, 重放幂等), 位上被占销账(玩家改建永久优先);
+    未到期留账(同游戏日采集), 坏账销(档侧归一兜底, 内存侧防孤儿)。仅 home 图
+    结账——他图场景未装, 直写会串桶; 调用点=三处装场结算 + advHerdTick 回绕沿 */
+  if (advMap !== 'home') return;
+  const keys = Object.keys(advPumpkinRegen);
+  if (!keys.length) return; /* 空账速返(常见路径) */
+  const spots = advPumpkinSpots();
+  let n = 0;
+  for (const k of keys) {
+    const s = spots[+k];
+    const at = advPumpkinRegen[k];
+    if (!s || !Number.isInteger(at) || at < 0 || at >= DAYLIGHT.TICKS) {
+      delete advPumpkinRegen[k];
+      continue;
+    } /* 坏账/孤儿账销 */
+    if (!(at > dayTime)) continue; /* 未到期: 留账(回绕沿后再结) */
+    delete advPumpkinRegen[k]; /* 结算即销账(回填/占位放弃两路都不留尾账) */
+    if (!advPumpkinSpotOpen(s.x, s.y, s.z, getBlock)) continue; /* 被占: 玩家改建优先 */
+    setBlockRaw(s.x, s.y, s.z, B_PUMPKIN);
+    advMarkEdit(s.x, s.y, s.z, B_PUMPKIN);
+    advMeshTouch(s.x, s.z);
+    n++;
+  }
+  if (n) {
+    advMeshFlush();
+    advToast('🎃 田里的南瓜又长出来啦！');
   }
 }
 
@@ -3097,10 +3221,11 @@ const advUseRun = {shoot: () => advTryShootBow(),
   plant: () => advTryPlant(), ripen: () => advTryRipen(),
   expand_bag: () => advTryExpandBag(),
   shear: () => advTryShear(),
+  repair_golem: () => advTryRepairGolem(),
   wear: () => advTryWear()}; /* 使用动作注册表 act 键 → 执行器
    (行为不进注册表——「战斗政策在模式层」红线, 手持物注册表词条同款口径;
     plant/ripen 为农田链两键, farm-and-recipe D3; expand_bag 为扩容件, 2026-10;
-    shear 为剪羊毛键, 2026-10-28) */
+    shear 为剪羊毛键, 2026-10-28; repair_golem 为傀儡修理键, mob-crafting D5) */
 function advTryUseHeld() {/* 使用档通用分派(2026-10-28 Route A): 选中物品在使用动作
    注册表有条目 → 逐 act 调执行器, 有使用动作的物品点击恒算使用 attempt
    不落放置(弓同雪球口径); 未注册物品返 false 回落吃/放置链 */
@@ -3147,9 +3272,210 @@ function advTryShear() {
     advMelee.swingAction(advGetPEnt(), {act: () => advShearSheep(m)});
   } else if (m) {
     advFarmHint(m.type === 'sheep' ? '这只羊刚剪过啦，等毛长回来再剪哦' : '要对着毛茸茸的羊才能剪哦');
+  } else {
+    advTryCarve(); /* 实体半边落空 → 方块半边: 准星命中南瓜即雕刻(mob-crafting D3
+      目标分派), 指空/非南瓜静默(恒算使用 attempt 不落放置, 弓同口径) */
   }
   return true;
 }
+
+/* ---------- 剪刀雕刻南瓜(mob-crafting D3, 剪毛档复用) ----------
+   手持剪刀对准 B_PUMPKIN 使用: 原地变换 B_CARVED_PUMPKIN(不掉落不捡起, 差异
+   B16 改造——少一次放拾循环; 雕刻出的雕刻南瓜可挖走(掉 carved_pumpkin, D1 掉落
+   自指)摆去别处搭)。advMarkEdit 记账=活体编辑——D4 召唤检测缝(实现票 T4 接:
+   T 形齐了就地出傀儡, 正典「剪一下即生成」)。扣剪刀耐久(剪毛同一条管线)+pick
+   正反馈叮; 桌面右键与触屏 ✂️ 键同达(advTryShear 分派, 入口零新增);
+   swingAction 与剪羊共用一条冷却轨道(防连点连雕) */
+function advTryCarve() {
+  const hit = advAimHit();
+  if (!hit || !advCarveOk(getBlock(hit.x, hit.y, hit.z))) return;
+  advMelee.swingAction(advGetPEnt(), {act: () => {
+    if (getBlock(hit.x, hit.y, hit.z) !== B_PUMPKIN) return; /* 块还在才雕(挥动间隙被掀走则作废, TNT 点燃同款) */
+    setBlockRaw(hit.x, hit.y, hit.z, B_CARVED_PUMPKIN);
+    advMarkEdit(hit.x, hit.y, hit.z, B_CARVED_PUMPKIN); /* 记账钩自然触发 D4 检测(T4) */
+    advMeshTouch(hit.x, hit.z);
+    advMeshFlush();
+    advWearHeld('shear'); /* 雕一次扣 1 耐久(剪毛同款) */
+    advSfx('pick');
+    advToast('🎃 南瓜雕出笑脸啦！');
+    advSpeak('咔嚓！南瓜雕好啦，放到铁块塔顶试试吧');
+  }});
+}
+
+/* ---------- 铁傀儡召唤(mob-crafting D4, advMarkEdit 单点挂钩) ----------
+   触发=雕刻南瓜就位的活体编辑(放置/雕刻两路汇 advMarkEdit 缝; 重放不经此
+   ——老档重进不重复召唤红线)。结构成立: **先消耗塔材(壳散成碎屑)再落地**——
+   Mobs.spawn 落塔锚列中心 (x+0.5, z+0.5), 傀儡从塔壳原位破壳拼装立起(用户票;
+   原臂外落点废除——头格随壳消耗, 免站南瓜头的顾虑不存在, 贴墙塔也不再需要
+   镜像列兜底; 召唤/重召同几何, 桶只存家锚), 挂 __golem + __golemHome={x,z}
+   家锚(D5 巡逻锚), 入桶(D6 拍板 P3 存活跨档)。**结构消耗**(2026-11-08 用户票:
+   拆头重放能再召=白嫖刷傀儡; 正典同——JE 搭建成功 4 铁块+南瓜随生成消失,
+   36 锭一座傀儡): 直写空气+记账+网格收口(南瓜回填同款四连), 账上最后写赢=
+   空气, 重放不复活塔。事后拆塔不影响已召唤傀儡的语义不变(傀儡独立于塔)。
+   诞生仪式: 挂 __golemBirthT(advGolemTick 拼装缩放, 落地金圈) + 壳散逐格碎屑
+   (头橙/铁灰) + 重锤音。上限 ADV_GOLEM_MAX(提案 P2): 满员结构成立不召唤**
+   也不消耗**(塔留给玩家), 钉死话术「铁傀儡够多啦」。形状不成立: 静默(随便
+   放个雕刻南瓜不叨叨) */
+function advGolemTrySummon(x, y, z) {
+  const site = advGolemSiteOk(x, y, z, getBlock);
+  if (!site) return;
+  const n = Mobs.list().filter((m) => m.__golem && !m.dead && !m.gone).length;
+  if (n >= ADV_GOLEM_MAX) {
+    advSpeak('铁傀儡够多啦，先让它们守着吧');
+    advToast('🤖 铁傀儡够多啦');
+    return;
+  }
+  /* 塔材消耗五格(先消耗再落地——破壳叙事: 壳先散, 傀儡在空出的原位拼装;
+     groundTop 同时回到地形口径): 头(本格)+身两格+臂两格(axis 定向)——记账
+     必须走 advMarkEdit(不记=重进 edits 重放把塔复活), 记的值是空气不触发
+     召唤缝(判据只认头=雕刻南瓜) */
+  const cells = [[x, y, z], [x, y - 1, z], [x, y - 2, z]];
+  if (site.axis === 'x') cells.push([x - 1, y - 1, z], [x + 1, y - 1, z]);
+  else cells.push([x, y - 1, z - 1], [x, y - 1, z + 1]);
+  for (const [bx, by, bz] of cells) {
+    setBlockRaw(bx, by, bz, 0);
+    advMarkEdit(bx, by, bz, 0);
+    Fx.debrisBurst(bx + 0.5, by + 0.5, bz + 0.5, 5,
+        {color: by === y ? 0xe68a2e : 0xcdd0d8, life: 0.7}); /* 壳散: 头橙/铁灰(造型档案 debris 同源) */
+    advMeshTouch(bx, bz);
+  }
+  advMeshFlush();
+  const m = advGolemSpawnAt(x, z, y - 2); /* 脚踩面=塔基自报: 腿格 y-2 立在 y-3
+      地面上, 地面顶面即 y-2——傀儡立于塔壳原位破壳(显式落位见 advGolemSpawnAt) */
+  m.__golemBirthT = 0; /* 诞生仪式态(advGolemTick 消费; 桶重召不带此态=不重播) */
+  advGolemsAll[advSceneKey()].push({x, z, hp: m.hp}); /* 入桶(D6): 锚+满血(修理另更) */
+  advStore.touch();
+  advSfx('boom'); /* 重锤一声: 壳散傀儡立(落地叮在诞生完成时) */
+  advToast('🤖 铁傀儡站起来啦！');
+  advSpeak('哇！铁块拼起来啦，铁傀儡活啦！它会守护这一片哦');
+}
+
+function advGolemSpawnAt(x, z, floorY) {/* 傀儡落点唯一实现(召唤/重召两路同几何):
+    塔锚列中心 (x+0.5, z+0.5) 贴地——召唤路先消耗塔材再落地, 傀儡恰从塔壳原位
+    **破壳而出**(用户票; 三格塔壳刚清空, 2.8 高恰容身; 贴墙塔也成立——锚列本身
+    必是空气, 原臂外撞岩体换镜像列的兜底随落点废除)。floorY=脚踩面(召唤路=塔基
+    自报 y-2): **必须显式落位**——Mobs.spawn 的 groundTop 是「列顶」口径, 地下
+    维度(副本巨洞, 整图岩体掏洞)列顶=岩穹顶, 不写傀儡会站到穹顶上——玩家看不见、
+    AI 却照打怪(用户票); 缺省(主世界重召路, 列顶=地面)维持旧口径, 副本重召由
+    advGolemsRespawn 传厅地面(同款显式落位)。返回实体 */
+  const m = Mobs.spawn('golem', x + 0.5, z + 0.5, {yaw: 0});
+  if (floorY != null) m.pos.y = floorY;
+  m.__golem = true;
+  m.__golemHome = {x, z};
+  return m;
+}
+
+function advGolemsRespawn() {/* 装场后按桶重召当前场景傀儡(D6 拍板 P3): 家锚=
+    存档位(游荡位置不存档, 牧场同口径), hp 逐只恢复(修理投资不丢);
+    死亡销账后桶无条目=不再复活(拍板③)。塔不在也照召(塔材召唤即已消耗,
+    傀儡独立于塔——桶是唯一权威)。装场挂点: init(advSeedMapMobs 之后)/
+    切图(advSetMap)/切界(overworld 走 advOverworldReload; den 走 advSetDim
+    den 分支——副本傀儡同日进出照存, 次日随桶清除名, 用户票 2026-11-08)。
+    副本地下巨洞列顶=岩穹, 重召显式落厅地面(advDenLay 同款显式 y);
+    主世界列顶=地面, 缺省口径不变 */
+  for (const g of advGolemsAll[advSceneKey()] || []) {
+    const m = advGolemSpawnAt(g.x, g.z,
+        advDim === 'den' ? ADV_DEN.ground + 1 : undefined);
+    m.hp = Math.min(g.hp, m.maxHp);
+  }
+}
+
+/* ---------- 友方傀儡三态机(mob-crafting D5, 每帧 update 挂钩) ----------
+   决策纯函数 advGolemStep 在 core; 位移走 Mobs.move/steer 意图 API
+   (advHerdTick 先例——友军不进 advMobAI 战斗轨); 攻击结算在此:
+   命中挂 __hurtBy 报复标记(advMobAI 分派转火) + Mobs.hit 击退参数恒 0
+   (拍板④不击飞)。游荡节拍 __golemAmb* 私有字段不落盘(牧场同口径,
+   重进回锚点)。敌怪候选每帧收集(存活非傀儡非 passive, 苦力怕在内 P1) */
+function advGolemTick(dt) {
+  for (const gm of Mobs.list()) {
+    if (gm.dead || gm.gone || !gm.__golem) continue;
+    if (gm.__golemBirthT != null) {/* 诞生仪式(召唤现场限一次, 桶重召不带此态):
+        缩放 0.25→1 拼装爬升 + 越拼越亮的铁光, 站桩不走 AI 不出手; 落地
+        金圈+叮一声收尾(用户票: 召唤要有过程才激动) */
+      gm.__golemBirthT += dt;
+      const p = Math.min(1, gm.__golemBirthT / ADV_GOLEM_BIRTH_T);
+      Mobs.scaleTo(gm, 0.25 + 0.75 * p);
+      Mobs.pulseTint(gm, 1 + (1 - p) * 0.6, 1 + (1 - p) * 0.6, 1 + (1 - p) * 0.6);
+      Mobs.settle(gm, dt); /* 贴地收敛照走(无位移) */
+      if (p >= 1) {
+        delete gm.__golemBirthT;
+        Mobs.scaleTo(gm, 1);
+        Mobs.pulseTint(gm, 1, 1, 1); /* 着色还原(下帧引擎 tintFlash 管线接管) */
+        Fx.pop(gm.pos.x, gm.pos.y + 1.4, gm.pos.z, {color: 0xffd23f, r0: 0.3, r1: 2.2, dur: 0.6});
+        advSfx('pick');
+      }
+      continue;
+    }
+    CombatCore.tickCadence(gm, dt); /* 攻击节拍(战斗核心同一条) */
+    const candidates = [];
+    for (const m of Mobs.list()) {
+      if (m === gm || !advGolemEnemy(m)) continue;
+      candidates.push({m, d: Math.hypot(m.pos.x - gm.pos.x, m.pos.z - gm.pos.z)});
+    }
+    const step = advGolemStep(gm, {dt, rnd: Math.random, candidates});
+    Mobs.steer(gm, Math.atan2(step.ux, step.uz));
+    let moved = 0;
+    if (step.amb) {/* 游荡节拍回写(纯函数重掷结果, 壳持有——advHerdTick 同款) */
+      gm.__golemAmbT = step.amb.t;
+      gm.__golemAmbDir = step.amb.dir;
+      gm.__golemAmbWalk = step.amb.walk;
+    }
+    if (step.move) {
+      const sp = (gm.cfg.speed || 2) * (step.speedMult || 1);
+      Mobs.move(gm, step.ux * sp * dt, step.uz * sp * dt, dt);
+      moved = sp;
+    }
+    if (step.attack && step.target) advGolemStrike(gm, step.target);
+    Mobs.settle(gm, dt); /* 贴地收敛(advMobAI 同款兜底) */
+    Mobs.gait(gm, dt, moved, ADV_ATTACK_T); /* 步态+战斗姿态(引擎同一入口) */
+  }
+}
+
+function advGolemStrike(gm, t) {/* 傀儡攻击结算: cd/挥击姿态+报复标记+零击退命中 */
+  gm.attackCd = gm.cfg.cd;
+  gm.attackT = ADV_ATTACK_T;
+  t.__hurtBy = 'golem'; /* 报复标记(D5 正典被打必报复): advMobAI 侧分派转火 */
+  t.__hurtByMob = gm; /* 仇恨对象(死亡/回收即解除, 分派侧判) */
+  Mobs.hit(t, advMobDmg(gm), 0, 0, 0); /* 击退参数恒 0: 受击零位移(拍板④不击飞,
+    抗性语义=受击不位移; 伤害走夜怪封顶漏斗同一条) */
+  advSfx('hit');
+}
+
+/* ---------- 修理傀儡(mob-crafting D5, 铁锭使用档 act 'repair_golem') ----------
+   手持铁锭对准近旁受伤友方傀儡使用: 扣 1 锭回 ADV_GOLEM_HEAL(正典「1 锭=
+   一档裂纹」) + 桶 hp 同步(D6 修理投资跨档不丢) + pick 正反馈叮 + TTS;
+   满血 noop+话术节流(农田链同款); 触屏使用键按选中物签名自动出现;
+   无傀儡近旁返 false 回落使用链(铁锭本无放置语义, 无事发生) */
+function advTryRepairGolem() {
+  const slot = advHb.sel;
+  const s = advInv.slots[slot];
+  if (!s || s.id !== 'iron_ingot') return false;
+  const p = advGetPEnt();
+  let best = null; let bd = ADV_GOLEM_R_REPAIR;
+  for (const m of Mobs.list()) {
+    if (m.dead || m.gone || !m.__golem) continue;
+    const d = Math.hypot(m.pos.x - p.pos.x, m.pos.z - p.pos.z);
+    if (d < bd) {
+      bd = d; best = m; /* 最近者(修理 3 格近旁扫描) */
+    }
+  }
+  if (!best) return false;
+  if (best.hp >= best.maxHp) {
+    advFarmHint('它满满的，不用修啦');
+    return true;
+  }
+  remove(advInv, slot, 1); /* 扣 1 锭(背包核心, 雪球掷出同款) */
+  best.hp = Math.min(best.maxHp, best.hp + ADV_GOLEM_HEAL);
+  const arr = advGolemsAll[advSceneKey()];
+  const g = arr.find((g) => g.x === best.__golemHome.x && g.z === best.__golemHome.z);
+  if (g) g.hp = best.hp; /* 桶同步: 修理投资跨档不丢(拍板 P3) */
+  advStore.touch();
+  advSfx('pick');
+  advToast('🔧 傀儡修好一些啦！');
+  advSpeak('咔嚓，铁块贴上去，傀儡精神多啦！');
+  return true;
+}
+const ADV_GOLEM_R_REPAIR = 3; /* 修理近旁距离(格): 手递手修, 不隔远取锭 */
 
 /* ---------- 农田交互三执行器(farm-and-recipe 设计稿 D3) ----------
    纯判定(advHoeOk/advPlantOk/advWheatNext/advRipenOk)在 adventure-core;
@@ -3513,6 +3839,7 @@ const advExplodeSink = {
     if (advEdgeTntProtected(bx, by, bz)) return; /* T7: 屏障格跳过破坏(R10) */
     advMarkEdit(bx, by, bz, 0);
     advCascadeApply(editBlock(bx, by, bz, 0), false);
+    advOreMined(id, bx, by, bz); /* 被炸格开采记账(与挖掘链同账, 2026-11-08 补起点——级联清单不含触发格) */
     advPairedBreakApply(bx, by, bz, false, id); /* TNT 掀配对方块=整结构回收(门/床/宝箱行表驱动, 不进任务 P6; 床 2026-11-04 补接线) */
   },
   sapling: (bx, by, bz) => {
@@ -4011,6 +4338,9 @@ const AdventureMode = mkMode({
       同目标幂等, 每次进场跑一次零成本 */
     advOreRegen = advOreRegenDecode(advLoad.oreRegen); /* 矿位开采账换装(生态恢复; 归一兜底——
        dev store/旧档缺键 → 空账; 先于 loadScene, 回填在其内结算) */
+    advPumpkinRegen = advPumpkinRegenDecode(advLoad.pumpkinRegen); /* 南瓜采集账换装(mob-crafting T2;
+       归一兜底——dev store/旧档缺键 → 空账) */
+    advGolemsAll = advGolemsLoad(advLoad.golems); /* golems 桶换装(D6; 归一+键集补全——旧档缺键 → 全空桶) */
     advDenDaily = advLoad.den || null; /* 每日副本态收养(D20): 老档/坏档 null=首进全新 */
     loadScene(() => {/* 场景装填 seam: 清场→建场(当前地图行 build, T6)→收尾入队一步到位 */
       advBuildScene(advMapRow);
@@ -4031,6 +4361,11 @@ const AdventureMode = mkMode({
       advRescanWheats(); /* 未熟麦重挂生长计时(farm-and-recipe D3, 计时 Map 不落盘) */
       advRescanTreeRegen(); /* 凋零树位重挂恢复计时(仅 home 图; 清扫之后跑) */
       advOreRegenTick(); /* 到期矿位回填(跨天口径; 只结本场景的账, 重放后结算) */
+      advPumpkinRegenTick(); /* 到期南瓜位回填(mob-crafting T2: 只结 home 的账, 重放后结算) */
+      /* 傀儡重召**不挂这里**(mob-crafting D6): init 的 advEntitiesClear 在 loadScene
+         之后(4320 巢穴战斗段), 挂进 loadScene 召出来即被清——init 侧重召移到
+         advSeedMapMobs 之后(4333, 与巢穴怪/牧场播种同批); 切图/切界的清场都
+         在各自 loadScene 之前, 两处钩挂 loadScene 内是安全的 */
       advGatesBuild(); /* 地图门建场(T7): 治愈之后立门——门体不被清扫/重放翻动, 每次装场同一份 */
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
@@ -4064,6 +4399,8 @@ const AdventureMode = mkMode({
     advLivestockAll = advLivestockDecode(advLoad.livestock); /* 牧场账换装(档形 v2 归一——dev store
         字面量/二代老档数组均收敛 {dead,bred}; 世界档 decode 同一函数, 双路径同口径) */
     advSeedMapMobs(); /* 当前行巢穴首刷 + 牧场清单/女巫常驻(切图/回界的怪物重播共用同一份, T6) */
+    advGolemsRespawn(); /* 按桶重召当前图傀儡(mob-crafting D6: 存活跨档, 家锚+hp 复原)——
+        必在 advEntitiesClear(4320)之后: 与巢穴怪/牧场播种同批, 不然召出即被清 */
     const qNow = ADV_QUESTS[ADV.quest.step]; /* 进场欢迎句带上当前步引导(hint 并句, 防 cancel 打断;
         「小小探险家」字样留给终章称号的仪式感) */
     advSpeak('欢迎来到探险草原！' + (qNow ? qNow.hint : '任务全部完成啦，自由探险咯！'));
@@ -4185,6 +4522,8 @@ const AdventureMode = mkMode({
     if (advDim !== 'nether') {
       advMobAI(dt); /* 战斗 AI: 主世界巢穴怪+副本怪共用一套(下界无怪不跑;
           副本怪家锚 __nightHome=祭坛, leash/收队/索敌零改动) */
+      advGolemTick(dt); /* 友方傀儡三态机(mob-crafting D5): 巡逻/索敌/归位——
+          与战斗 AI 互斥的两条驱动(advHerdTick 同款拆轨), 无傀儡零开销 */
     }
     Mobs.update(dt);
     Mobs.render();
@@ -4285,11 +4624,15 @@ const AdventureMode = mkMode({
 /* T12~T15 的接线挂点(内部接口, 不进模式公共行为; 2026-10 评审候选 5 收敛为 20 键测试面,
     下界相位装配追加 5 键、冒险地图 T6 追加 advSetMap、T5 圈层高度场与审查修复
     advSlimeWaterOk 再追加、时钟改版追加 advSleepClock/advSleepClockConfirm、
-    装备 T9 追加 advTryWearSlot——
-    现 31 键(键计数以本清单为准); 键清单即 interface——
+    装备 T9 追加 advTryWearSlot、怪物合成 T2 追加 advPumpkinRegen/advPumpkinRegenTick、
+    T5/T6 追加 advGolemsAll/advGolemTick/advTryRepairGolem/advSweepNightMobs——
+    现 37 键(键计数以本清单为准); 键清单即 interface——
     adventure-core 常量表与纯函数经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
       · advSleepClock(时钟拨盘态) · advNetherState(下界相位·地图态只读快照: dim/map/portalCd/exitSpot)
+      · advPumpkinRegen(南瓜采集账访问器, mob-crafting T2 测试播种缝) · advPumpkinRegenTick(回填直调)
+      · advGolemsAll(golems 桶访问器, T6 断言缝) · advGolemTick(AI 直调, 清场测试用)
+      · advTryRepairGolem(修理直调, 行为面同触屏键) · advSweepNightMobs(清场直调, 免疫测试缝)
     · 存档面: advJournal(世界档记账 seam) · getSaveView(四份存档只读快照)
     · 布置缝: advGetInv · advGetPEnt · advFurnace(熔炉站点直达: map/state/at/open/
       close/isOpen/autoFill/manualPut/slotClick/drop) · advFlameCount
@@ -4313,7 +4656,9 @@ function advSaveView() {/* 四份存档的可断言快照(只读缝): 与 journa
     world: {edits: advSceneEditsEncode(advSceneEdits),
       map: advMap,
       pos: advDim !== 'overworld' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw}, /* 维度不进档(与 journal payload 同判据) */
-      hp: ADV.player.hp, furnaces: advFurnaceClean(advFurnaces), livestock: advLivestockAll, dayTime},
+      hp: ADV.player.hp, furnaces: advFurnaceClean(advFurnaces), livestock: advLivestockAll, dayTime,
+      pumpkinRegen: Object.assign({}, advPumpkinRegen) /* 南瓜采集账浅拷贝透出(mob-crafting T2 测试缝) */,
+      golems: advGolemsAll /* golems 桶透出(D6, livestock 同款引用) */},
     quest: {step: ADV.quest.step, counts: ADV.quest.counts, title: ADV.quest.title,
       firstNight: ADV.quest.firstNight},
     chest: {size: advChest.size, slots: advChest.slots.slice()},
@@ -4322,6 +4667,9 @@ function advSaveView() {/* 四份存档的可断言快照(只读缝): 与 journa
   };
 }
 AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
+  advPumpkinRegen: () => advPumpkinRegen, advPumpkinRegenTick,
+  advGolemsAll: () => advGolemsAll, advGolemTick, advTryRepairGolem, /* mob-crafting T5/T6 测试缝 */
+  advSweepNightMobs, /* 黎明/床跳夜清场直调(清场免疫测试缝: 傀儡无 __nightMob 天然跳过) */
   advGetInv: () => advInv, advGetPEnt, advMine, advSaplings, advSleep, advSleepClock,
   advSleepClockConfirm,
   heightAt: advHeightAt, /* T5 圈层高度场(建场件与测试共用的唯一高度权威) */
