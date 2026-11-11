@@ -1509,9 +1509,9 @@ test('副本波次门: 守卫活着不挡下一波 — 只数当波波次怪(旧
   AN.advSetDim('overworld');
 });
 
-/* ============ 每日副本刷新真世界流程(D20, 2026-10-30 四批拍板) ============ */
+/* ============ 副本窗口真世界流程(D20→D23 两日窗口, 2026-10-30 四批 + 2026-11-11 用户票) ============ */
 
-test('每日副本真世界: 同日续局(破坏保留+尸账不复活+补给不重来) · 次日彻底复原', () => {
+test('副本窗口真世界: 窗内续局(破坏保留+尸账不复活+补给不重来) · 第二天仍续局 · 第三日彻底复原', () => {
   freshC();
   AN.advDenTodaySet('2026-10-30');
   AN.advSetDim('den');
@@ -1519,10 +1519,10 @@ test('每日副本真世界: 同日续局(破坏保留+尸账不复活+补给不
   const ty = ADV_DEN.ground + 1;
   const CH = ADV_DEN.chest;
   const n0 = mobsSpawnedC.length;
-  assert.ok(n0 > 0, '全新日进场布防在场(守卫+首波)');
+  assert.ok(n0 > 0, '全新窗口进场布防在场(守卫+首波)');
   assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), apiC.B_LOOT_CHEST_SMALL,
-      '全新日: 宝箱室小宝箱在场(建场预置)');
-  /* Day A: 破坏室角火把 + 敲碎小宝箱(补给落地) */
+      '全新窗口: 宝箱室小宝箱在场(建场预置)');
+  /* 建局日: 破坏室角火把 + 敲碎小宝箱(补给落地) */
   AN.advBreakBlock(cr.x1 + 1, ty, cr.z1 + 1, apiC.B_TORCH, {time: 2, drops: true});
   dropsSpawnedC.length = 0;
   AN.advBreakBlock(CH.x, CH.y, CH.z, apiC.B_LOOT_CHEST_SMALL, {time: 2, drops: true});
@@ -1530,27 +1530,157 @@ test('每日副本真世界: 同日续局(破坏保留+尸账不复活+补给不
   assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), 0, '小宝箱已敲碎');
   /* 模拟打死一只守卫: 尸账入档(D20) */
   AN.advDenState().deadGuards.push(0);
-  /* 同日重进: 破坏保留 + 小宝箱不回来 + 布防恰少一只(尸账生效, 波次整波重铺)。
+  /* 窗内重进: 破坏保留 + 小宝箱不回来 + 布防恰少一只(尸账生效, 波次整波重铺)。
      (量测口径: 进 den 前 advSceneLeave→Mobs.clear 清桩, 进场后计数=本次布防量) */
   AN.advSetDim('overworld');
   AN.advSetDim('den');
   assert.strictEqual(mobsSpawnedC.length, n0 - 1,
-      '同日重进: 布防恰少一只(打死的守卫不复活)');
-  assert.strictEqual(apiC.getBlock(cr.x1 + 1, ty, cr.z1 + 1), 0, '同日: 破坏的火把不恢复');
-  assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), 0, '同日: 小宝箱不回来(补给一次)');
-  /* 次日: 一切还原——地形愈合+小宝箱回来+全量布防+尸账清零+日键翻篇 */
+      '窗内重进: 布防恰少一只(打死的守卫不复活)');
+  assert.strictEqual(apiC.getBlock(cr.x1 + 1, ty, cr.z1 + 1), 0, '窗内: 破坏的火把不恢复');
+  assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), 0, '窗内: 小宝箱不回来(补给一次)');
+  /* 第二天(D23 两日窗口): 仍续局——尸账/破坏/通关旗都保持, 日键不翻篇 */
   AN.advSetDim('overworld');
   AN.advDenTodaySet('2026-10-31');
   AN.advSetDim('den');
-  assert.strictEqual(mobsSpawnedC.length, n0, '次日: 全量布防(守卫全回来)');
-  assert.strictEqual(apiC.getBlock(cr.x1 + 1, ty, cr.z1 + 1), apiC.B_TORCH, '次日: 破坏愈合(火把回来)');
+  assert.strictEqual(mobsSpawnedC.length, n0 - 1, '窗口第二天: 打死的守卫仍不复活(D23)');
+  assert.strictEqual(apiC.getBlock(cr.x1 + 1, ty, cr.z1 + 1), 0, '窗口第二天: 破坏仍保留');
+  assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), 0, '窗口第二天: 补给仍不重来');
+  assert.strictEqual(AN.advDenState().day, '2026-10-30', '窗口第二天: 日键不翻篇(建局日身份)');
+  /* 第三日(出窗): 一切还原——地形愈合+小宝箱回来+全量布防+尸账清零+日键翻篇 */
+  AN.advSetDim('overworld');
+  AN.advDenTodaySet('2026-11-01');
+  AN.advSetDim('den');
+  assert.strictEqual(mobsSpawnedC.length, n0, '第三日: 全量布防(守卫全回来)');
+  assert.strictEqual(apiC.getBlock(cr.x1 + 1, ty, cr.z1 + 1), apiC.B_TORCH, '第三日: 破坏愈合(火把回来)');
   assert.strictEqual(apiC.getBlock(CH.x, CH.y, CH.z), apiC.B_LOOT_CHEST_SMALL,
-      '次日: 小宝箱回来(补给一天一次)');
-  assert.deepStrictEqual(AN.advDenState().deadGuards, [], '次日: 守卫尸账清零');
-  assert.strictEqual(AN.advDenState().day, '2026-10-31', '日键翻篇入档');
+      '第三日: 小宝箱回来(补给窗口一次)');
+  assert.deepStrictEqual(AN.advDenState().deadGuards, [], '第三日: 守卫尸账清零');
+  assert.strictEqual(AN.advDenState().day, '2026-11-01', '日键翻篇入档');
   AN.advSetDim('overworld');
   AN.advDenTodaySet(null);
   Drops.clear();
+});
+
+/* ============ 副本关页续局(D23, 2026-11-11 用户票: 关页面再回, 怪与人都在原位) ============ */
+
+test('关页续局·快照取材: 在副本内落盘刷活怪/落点快照(傀儡不入快照, golems 桶专管)', () => {
+  freshC();
+  AN.advDenTodaySet('2026-10-30');
+  AN.advSetDim('den');
+  /* 手工装三个假怪进 list()(守卫+波次怪+傀儡): 傀儡该被快照跳过 */
+  const g1 = Mobs.spawn('creeper', 46.4, 88.6);
+  g1.pos = {x: 46.4, y: 25.2, z: 88.6};
+  g1.hp = 9; g1.maxHp = 28;
+  g1.__denGuard = 12;
+  g1.__nightHome = {x: 46, z: 88};
+  const w1 = Mobs.spawn('zombie', 80.3, 72.7);
+  w1.pos = {x: 80.3, y: 25, z: 72.7};
+  w1.hp = 22; w1.maxHp = 30;
+  w1.__denWave = 1;
+  w1.speedMult = 1.15; w1.dmgMult = 1.1;
+  w1.__nightHome = {x: 80, z: 72};
+  const go = Mobs.spawn('golem', 80, 80);
+  go.__golem = true;
+  listResultC = [g1, w1, go];
+  pos.x = 60.5; pos.y = 26; pos.z = 84.5; yaw = 0.5;
+  AN.advJournal.flush(); /* 在副本内落盘(payload: 快照刷新半边) */
+  const sv = JSON.parse(memC.get('adventure_world_save'));
+  assert.strictEqual(sv.denMobs.length, 2, '快照恰两怪(傀儡被 __golem 跳过)');
+  assert.deepStrictEqual(sv.denMobs[0], {t: 'creeper', x: 46.4, y: 25.2, z: 88.6,
+    hp: 9, mhp: 28, gi: 12, wv: null, spd: null, dmg: null, hx: 46, hz: 88},
+  '守卫快照: 位置/残血/账键/家锚逐字段');
+  assert.deepStrictEqual(sv.denMobs[1], {t: 'zombie', x: 80.3, y: 25, z: 72.7,
+    hp: 22, mhp: 30, gi: null, wv: 1, spd: 1.15, dmg: 1.1, hx: 80, hz: 72},
+  '波次怪快照: 波标+乘数逐字段');
+  assert.deepStrictEqual(sv.denPos, {x: 60.5, y: 26, z: 84.5, yaw: 0.5}, '落点快照随行');
+  /* 出副本: 快照即清(关页时人在哪, 重进就在哪) */
+  AN.advSetDim('overworld');
+  AN.advJournal.flush();
+  const sv2 = JSON.parse(memC.get('adventure_world_save'));
+  assert.deepStrictEqual(sv2.denMobs, [], '出副本: 活怪快照清空');
+  assert.strictEqual(sv2.denPos, null, '出副本: 落点快照清空');
+  AN.advDenTodaySet(null);
+  listResultC = [];
+});
+
+test('关页续局·真重载: 上次退出停在副本且窗口未翻篇 → init 直回副本(人物回落点, 活怪原位原血)', () => {
+  const D0 = DailyBudget.budgetDateStr(Date.now());
+  const GY = ADV_DEN.ground + 1;
+  freshC((m) => m.set('adventure_world_save', JSON.stringify({
+    _v: 2,
+    map: 'home',
+    den: {day: D0, wave: 2, chestDone: false, deadGuards: [1]},
+    denPos: {x: 90.5, y: GY, z: 85.5, yaw: 2},
+    denMobs: [
+      {t: 'creeper', x: 60.5, y: GY, z: 70.5, hp: 14, mhp: 28, gi: 3, wv: null,
+        spd: null, dmg: null, hx: 60, hz: 70},
+      {t: 'zombie', x: 80.3, y: GY, z: 72.7, hp: 10, mhp: 30, gi: null, wv: 2,
+        spd: 1.2, dmg: 1.1, hx: 80, hz: 72},
+    ],
+  })));
+  /* freshC 已跑 init: 续局判据命中 → 应已身在副本 */
+  assert.strictEqual(AN.advNetherState().dim, 'den', 'init 续局: 直回副本维度');
+  assert.strictEqual(pos.x, 90.5, '人物回快照落点 x');
+  assert.strictEqual(pos.z, 85.5, '人物回快照落点 z');
+  assert.strictEqual(yaw, 2, '人物回快照朝向');
+  assert.strictEqual(mobsSpawnedC.length, 2, '活怪按快照回场(不重铺整波)');
+  const [m1, m2] = mobsSpawnedC;
+  assert.strictEqual(m1.type, 'creeper');
+  assert.strictEqual(m1.pos.y, GY, '显式落位(不站岩穹顶)');
+  assert.strictEqual(m1.hp, 14, '残血原样(打过的伤不白打)');
+  assert.strictEqual(m1.maxHp, 28, 'maxHp 快照直还(波乘数定格)');
+  assert.strictEqual(m1.__denGuard, 3, '守卫账键照带(阵亡入档链不断)');
+  assert.deepStrictEqual(m1.__nightHome, {x: 60, z: 70}, '家锚快照还原');
+  assert.strictEqual(m2.__denWave, 2, '波标照带(当波门照数)');
+  assert.strictEqual(m2.speedMult, 1.2, '速度乘数还原');
+  assert.strictEqual(m2.dmgMult, 1.1, '伤害乘数还原');
+  assert.strictEqual(AN.advDenState().wave, 2, '断点波号不变(第 2 波接着打)');
+  AN.advSetDim('overworld');
+});
+
+test('关页续局·翻篇重置: 快照在但窗口已过 → init 回主世界复活点(与改版前重置一致)', () => {
+  const D2 = DailyBudget.budgetDateStr(Date.now() + 2 * 86400000); /* 建局日后天=出窗 */
+  const GY = ADV_DEN.ground + 1;
+  freshC((m) => m.set('adventure_world_save', JSON.stringify({
+    _v: 2,
+    map: 'home',
+    den: {day: D2, wave: 4, chestDone: false, deadGuards: [2, 7]},
+    denPos: {x: 90.5, y: GY, z: 85.5, yaw: 2},
+    denMobs: [{t: 'creeper', x: 60.5, y: GY, z: 70.5, hp: 14, mhp: 28, gi: 3, wv: null,
+      spd: null, dmg: null, hx: 60, hz: 70}],
+  })));
+  assert.strictEqual(AN.advNetherState().dim, 'overworld', '出窗: 不回副本(重置语义)');
+  assert.strictEqual(pos.x, globalThis.ADV_SPAWN.x, '重置回复活点(小屋, 与改版前一致)');
+  assert.strictEqual(pos.z, globalThis.ADV_SPAWN.z, '复活点 z');
+  AN.advJournal.flush(); /* 驱动一次落盘: 过期快照的出清随 payload 入档 */
+  const sv = JSON.parse(memC.get('adventure_world_save'));
+  assert.deepStrictEqual(sv.denMobs, [], '过期活怪快照作废(init 侧出清)');
+  assert.strictEqual(sv.denPos, null, '过期落点快照作废');
+});
+
+test('关页续局·通关宝箱: 通关刷箱落账——窗内重进重放复原(没敲就下线回来还在) · 跨窗桶清重跑', () => {
+  freshC();
+  AN.advDenTodaySet('2026-10-30');
+  AN.advSetDim('den');
+  AN.advDenState().wave = 5; /* 直跳第 5 波(封顶) */
+  listResultC = []; /* 当波全清 */
+  AM.update(ADV_DEN.WAVE_S + 0.5); /* 计时到拍 → chest 信号 → 宝箱刷出 */
+  const L = ADV_DEN.loot;
+  assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), apiC.B_LOOT_CHEST, '第 5 波全清: 宝箱在场');
+  assert.notStrictEqual(apiC.getBlock(L.x + 1, L.y, L.z), 0, '双格宝箱另一半在场');
+  /* 窗内出再进: 落账重放 → 宝箱复原(改版前直写不记账, 关页即丢) */
+  AN.advSetDim('overworld');
+  AN.advSetDim('den');
+  assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), apiC.B_LOOT_CHEST,
+      '窗内重进: 宝箱经重放复原(通关进度不丢)');
+  /* 跨窗: 桶清 → 宝箱账随桶清, 军全新重跑再刷 */
+  AN.advSetDim('overworld');
+  AN.advDenTodaySet('2026-11-02');
+  AN.advSetDim('den');
+  assert.strictEqual(apiC.getBlock(L.x, L.y, L.z), 0, '跨窗: 宝箱随桶清(全新重跑)');
+  AN.advSetDim('overworld');
+  AN.advDenTodaySet(null);
+  listResultC = [];
 });
 
 /* ============ 远古残骸散布(装备系统 T7, 设计稿 §2.3): 常量钉 + 建场断言在上方建场测试内 ============ */

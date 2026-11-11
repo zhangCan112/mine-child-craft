@@ -114,20 +114,29 @@ test('行 build 建场确定性: 两维度各两遍逐字节一致(确定性重�
   }
 });
 
-/* ============ 每日副本刷新判据(D20, 真实日历日键注入) ============ */
+/* ============ 副本刷新判据(D20→D23 两日窗口, 真实日历日键注入) ============ */
 
-test('每日副本刷新判据: 同日续局原样带出 · 异日/首日/老档归全新(状态归零)', () => {
+test('副本刷新判据·两日窗口: 建局日/次日续局原样带出 · 第三日/首日/老档归全新(状态归零)', () => {
   const prev = {day: '2026-10-30', wave: 3, chestDone: false, deadGuards: [2, 5]};
-  /* 同日: 续局——状态原样(怪尸/波次/通关旗都保持) */
-  assert.deepStrictEqual(Dims.advDenDailyStep(prev, '2026-10-30'),
-      {fresh: false, state: prev}, '同日 = 续局(fresh:false)');
-  /* 异日: 全新——日键翻篇, 状态归零(波次回 1/旗清/尸账清) */
-  assert.deepStrictEqual(Dims.advDenDailyStep(prev, '2026-10-31'),
-      {fresh: true, state: {day: '2026-10-31', wave: 1, chestDone: false, deadGuards: []}},
-      '次日 = 一切还原(D20 拍板)');
+  /* 建局日当天: 续局——状态原样(怪尸/波次/通关旗都保持) */
+  assert.deepStrictEqual(Dims.advDenDailyStep(prev, '2026-10-30', '2026-10-29'),
+      {fresh: false, state: prev}, '建局日 = 续局(fresh:false)');
+  /* 窗口第二天: 仍续局(D23 两日窗口——一天打不完, 放宽到两天) */
+  assert.deepStrictEqual(Dims.advDenDailyStep(prev, '2026-10-31', '2026-10-30'),
+      {fresh: false, state: prev}, '次日 = 仍在窗口内续局(D23)');
+  /* 第三日: 出窗——全新(波次回 1/旗清/尸账清) */
+  assert.deepStrictEqual(Dims.advDenDailyStep(prev, '2026-11-01', '2026-10-31'),
+      {fresh: true, state: {day: '2026-11-01', wave: 1, chestDone: false, deadGuards: []}},
+      '第三日 = 两日窗口翻篇一切还原(D23 拍板)');
   /* 老档/坏档(null): 首进即全新 */
-  assert.deepStrictEqual(Dims.advDenDailyStep(null, '2026-10-30').fresh, true,
+  assert.deepStrictEqual(Dims.advDenDailyStep(null, '2026-10-30', '2026-10-29').fresh, true,
       '无档 = 全新(老档兼容)');
+  /* 兼容口径: 不传 yesterday = 旧每日语义(次日即翻篇)——老调用零改动 */
+  assert.strictEqual(Dims.advDenDailyStep(prev, '2026-10-31').fresh, true,
+      '缺 yesterday 参数 = 旧每日口径(次日全新, 向后兼容)');
+  /* 断档跳跃(隔两天再进): 全新且日键重锚 */
+  assert.strictEqual(Dims.advDenDailyStep(prev, '2026-11-05', '2026-11-04').fresh, true,
+      '长期缺席再进 = 全新(窗口按最新建局日重开)');
 });
 
 /* ============ 炉键前缀守门(源文本: 壳层 ADV_FURN_PREFIX 键集 ⊇ 维度行 id) ============ */

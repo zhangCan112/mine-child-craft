@@ -3686,7 +3686,7 @@ test('副本召唤落位: den 显式落厅地面(列顶=岩穹, 不落位=站穹
   clearAim();
 });
 
-test('副本傀儡生命周期: 同日进出照存(重召落厅地面+桶血复原) · 次日重置除名(副本一切同命)', () => {
+test('副本傀儡生命周期: 同窗进出照存(重召落厅地面+桶血复原) · 跨窗重置除名(副本一切同命)', () => {
   mem.clear();
   A.advDenTodaySet(null); /* 日键还原真钟(防前用例覆写残留) */
   freshInit();
@@ -3713,14 +3713,14 @@ test('副本傀儡生命周期: 同日进出照存(重召落厅地面+桶血复�
   assert.strictEqual(golems[0].pos.y, fy, '重召同样显式落厅地面(不落穹顶)');
   assert.deepStrictEqual(golems[0].__golemHome, {x: gx, z: gz}, '家锚=桶锚');
   assert.strictEqual(golems[0].__golemBirthT, undefined, '重召不播诞生仪式');
-  /* —— 次日(日键覆写模拟跨天): 军全新, 傀儡除名不再存在 —— */
+  /* —— 跨窗(日键覆写模拟出窗): 军全新, 傀儡除名不再存在 —— */
   A.advDenTodaySet('2099-01-02');
   A.advSetDim('overworld', {x: 80.5, y: 26, z: 80.5, yaw: 0});
   A.advSetDim('den');
   golems = mobsState.spawned.filter((m) => m.type === 'golem');
-  assert.strictEqual(golems.length, 0, '次日重进: 傀儡不存在(桶已随日除名)');
+  assert.strictEqual(golems.length, 0, '跨窗重进: 傀儡不存在(桶已随窗除名)');
   assert.deepStrictEqual(A.advGolemsAll().den, [], '桶除名(不复活也不留死账)');
-  assert.strictEqual(A.advDenState().wave, 1, '波次归 1(日重置 D20 既有口径)');
+  assert.strictEqual(A.advDenState().wave, 1, '波次归 1(跨窗重置 D20/D23 既有口径)');
   A.advDenTodaySet(null);
   clearAim();
 });

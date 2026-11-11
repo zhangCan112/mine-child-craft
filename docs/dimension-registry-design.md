@@ -27,7 +27,7 @@
 | D2 | **行为等价红线**：nether/den 两行落地后既有行为逐字等价，唯一例外是 D3 | 既有测试（adventure-nether/den/mode）零改动全绿是收口正确性的证明 |
 | D3 | **D8 偏差修复**：journal payload 与 advSaveView 的 pos 判据单点化为 `advDim !== 'overworld' ? null : {...}` | den-nest D8 明文「pos 副本期间存 null（维度不进档）」，实现只判 nether——den 坐标落档重进会出生在主世界地下岩层（收口前探索发现的出血点） |
 | D4 | 表只收**纯数据字段 + build 建场闭包**，不设生命周期钩子（onEnter/tick 等）；维度差异（nether 回程门框、den 矿位白名单先清后建）收进 build 闭包 | 带钩子的表 interface 会与 implementation 一样宽（shallow）；「update 里跑什么」是否值得缝，等第三个副本现身再定 |
-| D5 | 三条**全局判据**不设行字段（不变量不是每维政策）：pos 进档（D3）、死亡语义（nether/den 逐字相同折叠为单分支）、`ADV_SCENE_KEYS` 派生 | 「维度不进档」是维度概念的不变量；行字段冗余 |
+| D5 | 三条**全局判据**不设行字段（不变量不是每维政策）：pos 进档（D3）、死亡语义（nether/den 逐字相同折叠为单分支）、`ADV_SCENE_KEYS` 派生 | 「维度不进档」是维度概念的不变量；行字段冗余。D23（den-nest 2026-11-11）注：副本关页续局新增世界档 `denPos`/`denMobs` 副本专属字段——pos 判据本身不动（den 期间 pos 仍存 null），副本位置/活怪走 den 词汇字段，不变量无违例 |
 | D6 | `advMusicMood` 随迁 dims-core（vocabulary 归家）；`ADV_FURN_PREFIX` **维持 S2 单份权威不动**，加守门测试（维度行 id ⊆ 前缀表键集） | 前缀知识拆两份会破坏 S2 修复的「单份」性质；守门同样达成忘配即炸 |
 | D7 | 派生收口杀四处手抄清单：`ADV_SCENE_KEYS`（地图行+维度行派生）、livestock 运行账与档 defaults 桶集（ADV_SCENE_KEYS 生成）、decode 坏键兜底（map 键 ∈ ADV_MAPS id）、showroom `showroomSceneKeys`（两注册表派生+回落清单补 den） | 加维度的边际成本=「一行注册+一处前缀」，桶/键/兜底自动跟随；showroom 漏 den 桶是收口前探索发现的第四处清单漂移（原先靠壳 decode 归一兜住） |
 | D8 | 维度 vocabulary 随迁 dims-core：`ADV_NETHER`/`advNetherBuild`、`ADV_DEN`/`advDenBuild`/`advDenMineRoom`/刷怪四件套、`ADV_ERUPT`/`advEruptStep`、`advMusicMood`；**不搬**：`ADV_PORTAL`/`advPortalFrame`/`advInPortal`/`advPortalSiteOk`/`advPortalExit`（门词汇三家共用）、`ADV_NESTS`/`advBuildDenNest`/`ADV_DEN_NEST_DOOR`（home 图巢穴词汇） | 同一种东西同一个家：地图建场住 maps-core 先例 → 维度建场住 dims-core；机械搬移零逻辑改动 |
