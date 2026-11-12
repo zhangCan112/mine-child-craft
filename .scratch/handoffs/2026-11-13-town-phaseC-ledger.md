@@ -8,14 +8,16 @@
 
 | 票 | 状态 | 主/执行 | 回执/证据 |
 |---|---|---|---|
-| T-PREFAB-01 tower-belfry | 施工中（测试 26/26 绿，待票主验收+提交+回执） | tdd-engineer ses_e2fca882bffej1jJezdNH023c8（绿方主内派发） | 已催收（2026-11-13） |
+| T-PREFAB-01 tower-belfry | **票清 ✅（2026-11-13）** 评审有条件通过→4 修复项全落地（建议级 d535f04 + 阻塞级裁决 d92e5b7：4×4 同心登记裁决/PO-pending）；26/26+lint 绿；spec 未动（勘误挂 PO 确认） | tdd-engineer ses_e2fca882bffej1jJezdNH023c8（绿方 ses_e2fc688cdffe0ct61gSl5yUw1R） | commits：a333f8a+d535f04+d92e5b7；评审 ses_e2de26980ffeyrk6uSmG4lx4B8 |
 | T-PREFAB-02..08 | 未派（串行等 01 收口：同文件 js/prefab-kit.js / test/prefab-kit.test.js） | — | — |
-| T-PREFAB-09 复用行校验 | 未派（依赖 01..07） | — | — |
+| T-PREFAB-09 复用行校验 | 未派（依赖 01..07） | — | 收口账（reviewer 备注转入）：GLOSSARY「蓝图件库」词条与 town-prefab-specs §2.3 基底表仍列三行，M0 收口时随全量新行刷新 |
 | T-MAP-01..04 | 阻塞（依赖 prefab 线） | — | — |
 | T-UI-00 入口卡 token | **已收口 ✅（2026-11-13 本岗验收通过）** | PO→scrum-master 安排；ui-designer ses_e2f96f8dfffevaYWQWoz2NB45z 执行；analyst-manager 需求线审核 | commit d412cff；回执 .scratch/handoffs/2026-11-12-T-UI-00-receipt.md（已归档提交）；验收依据=派单 brief 验收项齐备（路径/对齐说明/lint/conventions/commit），conventions 既有失败与本票无关且已由本岗修复 |
 | T-UI-01..05 | 阻塞（T-MAP-02 等；ui-designer 路标票按 PO 指示走提票→scrum-master 安排线） | — | — |
 
 ## 环境事件与处理
+
+- 2026-11-13：**T-PREFAB-01 spec 歧义裁决（PO-pending）**：reviewer 发现 town-prefab-specs.md §4.1 塔身文面自相矛盾（「5×5 主体」vs「6×6 内缩 1 圈=4×4」，且偶宽 6×6 与奇宽 5×5 无法同心）；ask_user 报 PO（600s）超时未答复 → 按预批编排落推荐默认**② 4×4 同心**（登记裁决，可推翻）；spec 文本未动，勘误一行（5×5→4×4）挂待 PO 确认后由需求线落。若 PO 推翻选 5×5：改令走一轮红绿（几何+测试，改动量小）。
 
 - 2026-11-12：subagent(architect) 权限被拒 → ask_user → 用户修复后重试成功。
 - 2026-11-12：subagent(ui-designer) 权限被拒 → ask_user → PO 拍板「提票出来，scrum-master 安排」→ UI 线改走派单 brief（.scratch/handoffs/2026-11-12-T-UI-00-dispatch-brief.md，commit 573668f）。
