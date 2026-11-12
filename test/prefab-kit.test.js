@@ -825,7 +825,7 @@ test('脚印包含·tower-belfry: ×4 朝向 × mirror × 变体 — 每笔写 �
   }
 });
 
-test('形状·tower-belfry: 地基 6×6/塔身 5×5 分层/钟室 6×6 开敞/钟体占位/顶饰分层(缺省)', () => {
+test('形状·tower-belfry: 地基 6×6/塔身 4×4 同心分层/钟室 6×6 开敞/钟体占位/顶饰分层(缺省)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
@@ -834,15 +834,21 @@ test('形状·tower-belfry: 地基 6×6/塔身 5×5 分层/钟室 6×6 开敞/�
   for (const [x, z] of towerBaseCells(ax, az)) {
     assert.strictEqual(k.cell(x, y0, z), TOWER_IDS.base, '地基 dy=0 (' + (x - ax) + ',' + (z - az) + ')');
   }
-  /* dy=1..7 塔身 5×5 主体(内缩 1 圈): 外圈 -2/3 列在该层无塔身(地基外露), 内域有 wall/pillar */
+  /* dy=1..7 塔身 4×4 同心主体([-1,2]², 6×6 内缩1圈; 裁决: PO 超时默认落板 2026-11-13 采纳 4×4) */
   for (let dy = 1; dy <= 7; dy++) {
-    let bodyCount = 0;
     for (let dx = -1; dx <= 2; dx++) {
       for (let dz = -1; dz <= 2; dz++) {
-        if (k.cell(ax + dx, y0 + dy, az + dz) !== 0) bodyCount++;
+        assert.notStrictEqual(k.cell(ax + dx, y0 + dy, az + dz), 0,
+            '塔身 dy=' + dy + ' 4×4 域实心 (' + dx + ',' + dz + ')');
       }
     }
-    assert.ok(bodyCount >= 16, '塔身 dy=' + dy + ' 5×5 主体有实心(计数 ' + bodyCount + ')');
+    for (let dx = -2; dx <= 3; dx++) {
+      for (let dz = -2; dz <= 3; dz++) {
+        if (dx >= -1 && dx <= 2 && dz >= -1 && dz <= 2) continue;
+        assert.strictEqual(k.cell(ax + dx, y0 + dy, az + dz), 0,
+            '塔身 dy=' + dy + ' 域外空 (' + dx + ',' + dz + ')');
+      }
+    }
   }
   /* dy=8..10 钟室外扩 6×6 开敞亭式: 四面开口, 柱脚保留, 室内有钟体占位 2×2×2(ids.bell) */
   let bellCount = 0;
