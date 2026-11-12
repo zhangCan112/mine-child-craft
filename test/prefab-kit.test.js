@@ -771,3 +771,204 @@ test('错误两档·P1 行: mat/top/rock 必传缺→throw; torches/exit 子键�
   k.clear(); k.pf.place('mound', 80, 24, 80, {top: 2, rock: 14, salt: 0});
   assert.ok(c.equals(k.snap()), 'salt 非有限数回落 0 同形');
 });
+
+/* ============ T-PREFAB-01 tower-belfry(钟塔, 新增行) ============ */
+
+const TOWER_IDS = {/* ids 槽子键白名单(§4.1): 显式注入避免依赖默认裸数字 */
+  base: 58, wall: 6, pillar: 5, trim: 47, roof: 40, bell: 41, window: 20, flag: 35,
+};
+
+function towerBaseCells(ax, az) {/* dy=0 地基 6×6: dx,dz ∈ [-2,3] */
+  const out = [];
+  for (let dx = -2; dx <= 3; dx++) {
+    for (let dz = -2; dz <= 3; dz++) out.push([ax + dx, az + dz]);
+  }
+  return out;
+}
+
+test('脚印包含·tower-belfry: ×4 朝向 × mirror × 变体 — 每笔写 ∈ footOf 同参盒, footOf 零写', () => {
+  const k = loadKit();
+  const spy = k.spySet();
+  const variants = [
+    ['缺省', {ids: TOWER_IDS}],
+    ['高档 14', {ids: TOWER_IDS, heightTier: 14}],
+    ['高档 16', {ids: TOWER_IDS, heightTier: 16}],
+    ['无门龛无旗', {ids: TOWER_IDS, hasDoorNiche: false, flags: false}],
+    ['钟室非全敞(按 v 开关)', {ids: TOWER_IDS, openBelfry: false}],
+    ['换材质', {ids: Object.assign({}, TOWER_IDS, {base: 1, wall: 2, bell: 3, roof: 4})}],
+  ];
+  for (const face of ['south', 'west', 'north', 'east']) {
+    for (const mirror of [false, true]) {
+      for (const [name, vv] of variants) {
+        const v = Object.assign({}, vv, {face, mirror});
+        k.clear();
+        spy.reset();
+        const box = k.pf.place('tower-belfry', 80, 24, 80, v);
+        const writes = spy.rec();
+        assert.ok(writes.length > 0, name + ' ' + face + (mirror ? '+m' : '') + ' 有写(防全空假绿)');
+        for (const w of writes) {
+          assert.ok(w[0] >= box.x1 && w[0] <= box.x2 && w[1] >= box.y1 && w[1] <= box.y2 &&
+              w[2] >= box.z1 && w[2] <= box.z2,
+          name + ' ' + face + (mirror ? '+m' : '') + ' 写 (' + w + ') ⊄ 盒 ' + JSON.stringify(box));
+        }
+        const n = spy.rec().length;
+        assert.deepStrictEqual(k.pf.footOf('tower-belfry', 80, 24, 80, v), box,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
+        assert.strictEqual(spy.rec().length, n, 'footOf 零写');
+        /* footOf 覆盖最大 6×6 外廓与全高 dy0..14(含檐/顶饰; 旗面若出挑计入盒) */
+        assert.ok(box.x2 - box.x1 + 1 >= 6 && box.z2 - box.z1 + 1 >= 6,
+            name + ' ' + face + ' footOf 平面至少覆盖 6×6 外廓');
+        assert.ok(box.y1 <= 24 && box.y2 >= 24 + 14,
+            name + ' ' + face + ' footOf 覆盖 dy0..14 全高');
+      }
+    }
+  }
+});
+
+test('形状·tower-belfry: 地基 6×6/塔身 5×5 分层/钟室 6×6 开敞/钟体占位/顶饰分层(缺省)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS});
+  /* dy=0 地基 6×6 */
+  for (const [x, z] of towerBaseCells(ax, az)) {
+    assert.strictEqual(k.cell(x, y0, z), TOWER_IDS.base, '地基 dy=0 (' + (x - ax) + ',' + (z - az) + ')');
+  }
+  /* dy=1..7 塔身 5×5 主体(内缩 1 圈): 外圈 -2/3 列在该层无塔身(地基外露), 内域有 wall/pillar */
+  for (let dy = 1; dy <= 7; dy++) {
+    let bodyCount = 0;
+    for (let dx = -1; dx <= 2; dx++) {
+      for (let dz = -1; dz <= 2; dz++) {
+        if (k.cell(ax + dx, y0 + dy, az + dz) !== 0) bodyCount++;
+      }
+    }
+    assert.ok(bodyCount >= 16, '塔身 dy=' + dy + ' 5×5 主体有实心(计数 ' + bodyCount + ')');
+  }
+  /* dy=8..10 钟室外扩 6×6 开敞亭式: 四面开口, 柱脚保留, 室内有钟体占位 2×2×2(ids.bell) */
+  let bellCount = 0;
+  for (let dx = -2; dx <= 3; dx++) {
+    for (let dz = -2; dz <= 3; dz++) {
+      for (let dy = 8; dy <= 10; dy++) {
+        if (k.cell(ax + dx, y0 + dy, az + dz) === TOWER_IDS.bell) bellCount++;
+      }
+    }
+  }
+  assert.ok(bellCount >= 8, '钟体占位 2×2×2(ids.bell) 存在(计数 ' + bellCount + ')');
+  /* dy=11..14 顶饰: 有 roof/trim 实体, 且总体封顶不高于 footOf 上界 */
+  let roofCount = 0;
+  for (let dx = -2; dx <= 3; dx++) {
+    for (let dz = -2; dz <= 3; dz++) {
+      for (let dy = 11; dy <= 14; dy++) {
+        const id = k.cell(ax + dx, y0 + dy, az + dz);
+        if (id === TOWER_IDS.roof || id === TOWER_IDS.trim) roofCount++;
+      }
+    }
+  }
+  assert.ok(roofCount > 0, '顶饰 dy11..14 有屋顶/饰件实体');
+  assert.strictEqual(k.cell(ax, y0 + 15, az), 0, '缺省 heightTier=15 时 dy15 无实体(封顶于 14)');
+});
+
+test('形状·tower-belfry: 前立面装饰门龛 dy1..3(开)/关, 侧窗位 dy4..6, 钟室四面开敞(openBelfry)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south', hasDoorNiche: true});
+  /* 前立面朝 +dz: front face 列 dz=+2(5×5 主体前沿), 门龛在中线 dy1..3 */
+  let nicheAir = 0;
+  for (let dy = 1; dy <= 3; dy++) {
+    if (k.cell(ax, y0 + dy, az + 2) === 0 || k.cell(ax, y0 + dy, az + 2) === TOWER_IDS.window) nicheAir++;
+  }
+  assert.ok(nicheAir >= 1, '前立面中线 dy1..3 有装饰门龛/内衬视觉(开口或浅色内衬)');
+  /* 侧窗位 dy4..6: 左右侧(±x)中线存在 window 或开口位 */
+  let sideWindow = 0;
+  for (let dy = 4; dy <= 6; dy++) {
+    const leftW = k.cell(ax - 1, y0 + dy, az + 1) === TOWER_IDS.window ||
+        k.cell(ax - 1, y0 + dy, az) === TOWER_IDS.window;
+    const rightW = k.cell(ax + 2, y0 + dy, az + 1) === TOWER_IDS.window ||
+        k.cell(ax + 2, y0 + dy, az) === TOWER_IDS.window;
+    if (leftW || rightW) sideWindow++;
+  }
+  assert.ok(sideWindow >= 1, '侧面 dy4..6 有小窗位(ids.window)');
+  /* 关门龛: 同位不应比开启态更空(墙体/内衬保留) */
+  k.clear();
+  k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south', hasDoorNiche: false});
+  assert.notStrictEqual(k.cell(ax, y0 + 2, az + 2), 0, 'hasDoorNiche=false 时前立面中线 dy2 非空气洞');
+  /* openBelfry=true: 钟室四面开敞(中段非全封墙) */
+  k.clear();
+  k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, openBelfry: true});
+  let openSides = 0;
+  if (k.cell(ax, y0 + 9, az - 2) === 0) openSides++;
+  if (k.cell(ax, y0 + 9, az + 3) === 0) openSides++;
+  if (k.cell(ax - 2, y0 + 9, az) === 0) openSides++;
+  if (k.cell(ax + 3, y0 + 9, az) === 0) openSides++;
+  assert.ok(openSides >= 2, 'openBelfry=true 钟室 dy9 四面存在开敞面(计数 ' + openSides + ')');
+});
+
+test('逐朝向·tower-belfry: 前立面(+dz, face0=south)门龛/窗随 face 旋转, mirror 翻转 dx', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  /* face0=south: 门龛在 (0, dy1..3, +2) 前沿中线(相对锚) */
+  k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south'});
+  assert.ok(k.cell(ax, y0 + 2, az + 2) === 0 || k.cell(ax, y0 + 2, az + 2) === TOWER_IDS.window,
+      'south 前立面门龛位在 z+2');
+  /* west: (dx,dz)->(-dz,dx), 门龛前沿转到 x-2 */
+  k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'west'});
+  assert.ok(k.cell(ax - 2, y0 + 2, az) === 0 || k.cell(ax - 2, y0 + 2, az) === TOWER_IDS.window,
+      'west 前立面门龛位在 x-2');
+  /* north: (-dx,-dz), 门龛前沿转到 z-2 */
+  k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'north'});
+  assert.ok(k.cell(ax, y0 + 2, az - 2) === 0 || k.cell(ax, y0 + 2, az - 2) === TOWER_IDS.window,
+      'north 前立面门龛位在 z-2');
+  /* east: (dz,-dx), 门龛前沿转到 x+3 或 x+2(朝东 6×6 外廓前沿) */
+  k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'east'});
+  const eastNiche = k.cell(ax + 2, y0 + 2, az) === 0 || k.cell(ax + 2, y0 + 2, az) === TOWER_IDS.window ||
+      k.cell(ax + 3, y0 + 2, az) === 0 || k.cell(ax + 3, y0 + 2, az) === TOWER_IDS.window;
+  assert.ok(eastNiche, 'east 前立面门龛位随朝向旋转到东侧');
+  /* mirror: 先翻 dx 后旋转(south) — 左右侧特征左右互换, 门龛中轴仍在前沿 */
+  k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south', mirror: true});
+  assert.ok(k.cell(ax, y0 + 2, az + 2) === 0 || k.cell(ax, y0 + 2, az + 2) === TOWER_IDS.window,
+      'south+mirror 门龛中轴仍在前沿');
+});
+
+test('确定性: tower-belfry 同参两次逐字节一致(多朝向×变体)', () => {
+  const k = loadKit();
+  const builds = [
+    () => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS}),
+    () => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, face: 'east', mirror: true, heightTier: 16}),
+    () => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, face: 'north', hasDoorNiche: false, flags: false}),
+  ];
+  for (const build of builds) {
+    k.clear(); build();
+    const a = k.snap();
+    k.clear(); build();
+    assert.ok(a.equals(k.snap()), '同参两次建场终态逐字节一致');
+    assert.ok(a.some((v) => v !== 0), '场内确有方块(防全空假绿)');
+  }
+});
+
+test('错误两档·tower-belfry: 未知 v 键/ids 子键/face 非法→throw; heightTier 钳域 14..16(数值域)', () => {
+  const k = loadKit();
+  assert.throws(() => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, facee: 'north'}),
+      /v 键/, '未知 v 键');
+  assert.throws(() => k.pf.footOf('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, foo: 1}),
+      /v 键/, 'footOf 同走未知 v 键检');
+  assert.throws(() => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, face: 'up'}),
+      /face/, 'face 非法');
+  assert.throws(() => k.pf.place('tower-belfry', 80, 24, 80, {ids: Object.assign({}, TOWER_IDS, {roofx: 1})}),
+      /ids/, 'ids 未知子键');
+  /* heightTier 档{14,15,16} 钳域: 越界钳到边界, 不 throw */
+  k.clear();
+  const bLow = k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, heightTier: 10});
+  const sLow = k.snap();
+  k.clear();
+  const b14 = k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, heightTier: 14});
+  assert.ok(sLow.equals(k.snap()), 'heightTier 低于档位钳至 14 同形');
+  assert.deepStrictEqual(bLow, b14, '钳后脚印盒一致(低档)');
+  k.clear();
+  const bHigh = k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, heightTier: 99});
+  const sHigh = k.snap();
+  k.clear();
+  const b16 = k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, heightTier: 16});
+  assert.ok(sHigh.equals(k.snap()), 'heightTier 高于档位钳至 16 同形');
+  assert.deepStrictEqual(bHigh, b16, '钳后脚印盒一致(高档)');
+});

@@ -183,16 +183,23 @@ function pfMerge(row, id, v) {
       capSwap: !!ex.capSwap, landing: !!ex.landing};
   }
   /* 标量轴收放(只钳行声明的): stilt-hut 台阶 · under-room 室形/竖井/
-     地板深/盐 · 布尔轴 mirror/door/chest 同款按声明收放 */
+     地板深/盐 · tower-belfry 高度档钳域 · 布尔轴按声明收放 */
   if (pfHas(d, 'steps')) e.steps = pfNum(e.steps);
   if (pfHas(d, 'half')) e.half = pfNum(e.half);
   if (pfHas(d, 'cavH')) e.cavH = pfNum(e.cavH);
   if (pfHas(d, 'shaft')) e.shaft = pfNum(e.shaft);
   if (pfHas(d, 'floorDy')) e.floorDy = pfDy(e.floorDy);
   if (pfHas(d, 'salt')) e.salt = pfInt(e.salt);
+  if (pfHas(d, 'heightTier')) {
+    const ht = Math.floor(Number(e.heightTier));
+    e.heightTier = Number.isFinite(ht) ? Math.max(14, Math.min(16, ht)) : 15;
+  }
   if (pfHas(d, 'mirror')) e.mirror = !!e.mirror;
   if (pfHas(d, 'door')) e.door = !!e.door;
   if (pfHas(d, 'chest')) e.chest = !!e.chest;
+  if (pfHas(d, 'openBelfry')) e.openBelfry = !!e.openBelfry;
+  if (pfHas(d, 'hasDoorNiche')) e.hasDoorNiche = !!e.hasDoorNiche;
+  if (pfHas(d, 'flags')) e.flags = !!e.flags;
   return e;
 }
 
@@ -450,6 +457,112 @@ const PF_ROWS = {
         }
       }
       return {x1, y1: y + 1, z1, x2, y2: y + 3, z2};
+    },
+  },
+  'tower-belfry': {
+    /* 钟塔: 地基+塔身+钟室+顶饰的竖向地标件(town-prefab-specs §4.1). 锚=塔心
+       投影, 局部轴 dx 横/dz 前后/dy 竖; face0=south=前立面朝 +dz */
+    facing0: 'south',
+    defaults: {
+      face: 'south',
+      mirror: false,
+      heightTier: 15, /* 档 {14,15,16} 钳域, 影响顶饰比例/封顶 */
+      openBelfry: true,
+      hasDoorNiche: true,
+      flags: true,
+      ids: {base: 58, wall: 6, pillar: 5, trim: 47, roof: 40, bell: 41, window: 20, flag: 35},
+    },
+    kernel(e, x, y, z, orient, put) {
+      const ids = e.ids; const tier = e.heightTier;
+      const topDy = tier - 1; /* 缺省 15→封顶 dy14 */
+      const inBase = (dx, dz) => dx >= -2 && dx <= 3 && dz >= -2 && dz <= 3;
+      /* dy=0 地基 6×6 */
+      for (let dx = -2; dx <= 3; dx++) {
+        for (let dz = -2; dz <= 3; dz++) put(dx, 0, dz, ids.base);
+      }
+      /* dy=1..7 塔身 5×5 主体(内缩1圈, dx/dz -1..2 实心) + 四角立柱 + 中线竖缝装饰 */
+      for (let dy = 1; dy <= 7; dy++) {
+        for (let dx = -1; dx <= 2; dx++) {
+          for (let dz = -1; dz <= 2; dz++) {
+            const corner = (dx === -1 || dx === 2) && (dz === -1 || dz === 2);
+            let id = corner ? ids.pillar : ids.wall;
+            /* 四面中线竖缝装饰(后于墙体): 边中点位覆写 trim */
+            const onEdge = dx === -1 || dx === 2 || dz === -1 || dz === 2;
+            const midX = (dx === 0 || dx === 1) && (dz === -1 || dz === 2);
+            const midZ = (dz === 0 || dz === 1) && (dx === -1 || dx === 2);
+            if (onEdge && !corner && (midX || midZ)) id = ids.trim;
+            put(dx, dy, dz, id);
+          }
+        }
+      }
+      /* 前立面装饰门龛 dy1..3(南向 +dz 前沿 z=2 中线 dx 0..1): 浅色内衬/开口视觉 */
+      for (let dy = 1; dy <= 3; dy++) put(0, dy, 2, e.hasDoorNiche ? ids.window : ids.wall);
+      /* 侧面 dy4..6 小窗位(ids.window) */
+      for (let dy = 4; dy <= 6; dy++) {
+        put(-1, dy, 0, ids.window);
+        put(2, dy, 0, ids.window);
+      }
+      /* dy=8..10 钟室 6×6 外扩亭式: 柱脚保留, 四面开敞(受 openBelfry), 檐层围合 */
+      for (let dy = 8; dy <= 10; dy++) {
+        for (let dx = -2; dx <= 3; dx++) {
+          for (let dz = -2; dz <= 3; dz++) {
+            const corner = (dx === -2 || dx === 3) && (dz === -2 || dz === 3);
+            const edge = dx === -2 || dx === 3 || dz === -2 || dz === 3;
+            if (!edge) continue; /* 室内先空, 后放钟体 */
+            if (corner) {
+              put(dx, dy, dz, ids.pillar);
+              continue;
+            }
+            if (e.openBelfry && dy < 10) {
+              /* 四面开敞: 中段边开口 */
+              const mid = (dx === 0 || dx === 1) || (dz === 0 || dz === 1);
+              if (mid) {
+                put(dx, dy, dz, 0);
+                continue;
+              }
+            }
+            /* 檐层围合(dy==10)或柱间封边 */
+            put(dx, dy, dz, dy === 10 ? ids.trim : ids.pillar);
+          }
+        }
+      }
+      /* 钟体占位 2×2×2(ids.bell), 室内中心偏上 */
+      for (let dx = 0; dx <= 1; dx++) {
+        for (let dz = 0; dz <= 1; dz++) {
+          for (let dy = 8; dy <= 9; dy++) put(dx, dy, dz, ids.bell);
+        }
+      }
+      /* dy=11..14 顶饰: 阶梯收分小屋顶+顶尖饰件(随 tier, 封顶于 topDy) */
+      for (let dy = 11; dy <= topDy; dy++) {
+        const inset = dy <= 12 ? 0 : 1; /* 逐层收分 */
+        const x1 = -2 + inset; const x2 = 3 - inset; const z1 = -2 + inset; const z2 = 3 - inset;
+        if (x1 > x2 || z1 > z2) continue;
+        for (let dx = x1; dx <= x2; dx++) {
+          for (let dz = z1; dz <= z2; dz++) {
+            const edge = dx === x1 || dx === x2 || dz === z1 || dz === z2;
+            const isTop = dy === topDy;
+            put(dx, dy, dz, isTop && !edge ? ids.trim : ids.roof);
+          }
+        }
+      }
+      /* 檐下小旗装饰(受 flags): 面积小, 放在钟室檐下外侧计入 foot */
+      if (e.flags) {
+        put(-2, 10, -1, ids.flag);
+        put(3, 10, 1, ids.flag);
+      }
+    },
+    foot(e, x, y, z, orient) {
+      const tier = e.heightTier;
+      const topDy = Math.max(14, tier - 1); /* 覆盖 dy0..14 全高, 高档可更高 */
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of [-2, 3]) {
+        for (const dz of [-2, 3]) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + topDy, z2};
     },
   },
 };
