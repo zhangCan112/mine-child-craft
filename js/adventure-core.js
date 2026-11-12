@@ -737,27 +737,9 @@ function advStoneEggPick(coolT, night) {/* 点击时刻的分支裁决: 节流�
   return night ? 'egg' : 'hint';
 }
 
-function advPineTree(x, baseY, z, salt) {/* 松树: 原木 4-6 高 + 锥形叶冠(下宽上尖+顶帽)
-  ——雪原 advSnowTree 同语言的针叶形, 自持盐值不跨模块借雪原件(同形保留备案,
-  maps-core S3 先例); 叶贴干 ≤2 格, need:dist4 内不失撑 */
-  const th = 4 + Math.floor(SceneKit.rand(x + 7, z + 3, salt) * 3);
-  for (let i = 0; i < th; i++) setBlockRaw(x, baseY + i, z, 5);
-  const top = baseY + th;
-  for (let ly = baseY + 2; ly <= top; ly++) {
-    const rad = ly >= top - 1 ? 1 : 2;
-    for (let dx = -rad; dx <= rad; dx++) {
-      for (let dz = -rad; dz <= rad; dz++) {
-        if (dx === 0 && dz === 0 && ly < top) continue; /* 让位树干 */
-        if (Math.abs(dx) === rad && Math.abs(dz) === rad && rad === 2) continue; /* 削角 */
-        if (getBlock(x + dx, ly, z + dz) === 0) setBlockRaw(x + dx, ly, z + dz, 7);
-      }
-    }
-  }
-  setBlockRaw(x, top + 1, z, 7); /* 顶帽 */
-}
-
 function advBuildPineGrove() {/* 松林: 圈内候选确定性掷点取前 N(空间无偏, advTreeSpots
-  同法), 橡树散布避让本圈(advTreeBlocked), 松随高度场扎根(丘上不悬空) */
+   同法), 橡树散布避让本圈(advTreeBlocked), 松随高度场扎根(丘上不悬空);
+   树形几何走 SceneKit 树家族(2026-11-12 收编, 同盐同形零变更) */
   const g = ADV_PINE;
   const cands = [];
   for (let x = 2; x < WORLD_W - 2; x++) {
@@ -769,7 +751,7 @@ function advBuildPineGrove() {/* 松林: 圈内候选确定性掷点取前 N(空
   }
   cands.sort((a, b) => (a.r - b.r) || (a.x - b.x) || (a.z - b.z));
   for (const cd of cands.slice(0, g.n)) {
-    advPineTree(cd.x, ADV_GROUND + advHeightAt(cd.x, cd.z) + 1, cd.z, g.salt + 1);
+    SceneKit.pine(cd.x, ADV_GROUND + advHeightAt(cd.x, cd.z) + 1, cd.z, g.salt + 1);
   }
 }
 
@@ -1040,7 +1022,8 @@ function advEdgeNorthPile(x, z) {/* 雪堆: 单块雪 */
   advEdgeDecorate(x, z, B_SNOW);
 }
 
-function advEdgeNorthSpruce(x, z, salt) {/* 寒带落雪杉(advPineTree 同语言冠架): 原木干+
+function advEdgeNorthSpruce(x, z, salt) {/* 寒带落雪杉(落位政策+雪根座; 锥冠几何与
+  覆雪置换走 SceneKit.pineSnowy, 2026-11-12 树家族收编): 原木干+
   锥形叶冠, 冠顶帽与冠肩两层正交位盖覆雪树叶 B_SNOWY_LEAVES——「落满雪的针叶树」
   观感 (2026-11-06 走查修订: 雪原里绿树不合理, 全带杉一律落雪, 角叶留绿透针叶底色;
   同日 T12 级联修订: 冠盖原盖 B_SNOW 无级联性质, 树倒后悬空残留——换覆雪树叶
@@ -1057,16 +1040,9 @@ function advEdgeNorthSpruce(x, z, salt) {/* 寒带落雪杉(advPineTree 同语�
   if (getBlock(x, top + 1, z) !== 0) return;
   const ped = 1 + Math.max(0, -hgt); /* 雪根座: 高度场 -n → 垫 n+1 层 */
   for (let i = 1; i <= ped; i++) setBlockRaw(x, top + i, z, B_SNOW);
-  advPineTree(x, top + ped + 1, z, salt);
-  /* 与 advPineTree 同式复算干高: 冠顶(crown)与冠肩(crown-1)的正交四叶换覆雪树叶
-     (只覆叶不覆干, 读到的叶才换), 顶帽换覆雪树叶——三处皆是「叶位换叶种」,
-     树叶级联性质原样(覆雪叶 need 同口径), 树倒冠盖随冠清零无悬浮残雪 */
-  const crown = top + ped + 1 + (4 + Math.floor(SceneKit.rand(x + 7, z + 3, salt) * 3));
-  for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) {
-    if (getBlock(x + dx, crown, z + dz) === 7) setBlockRaw(x + dx, crown, z + dz, B_SNOWY_LEAVES);
-    if (getBlock(x + dx, crown - 1, z + dz) === 7) setBlockRaw(x + dx, crown - 1, z + dz, B_SNOWY_LEAVES);
-  }
-  setBlockRaw(x, crown + 1, z, B_SNOWY_LEAVES);
+  /* 覆雪锥冠: 家族两遍式置换(冠顶/冠肩正交四叶换雪叶+顶帽), crown 家族内部
+     派生——旧「同式复算干高找 crown」段随收编删除 */
+  SceneKit.pineSnowy(x, top + ped + 1, z, salt, B_SNOWY_LEAVES);
 }
 
 function advEdgeNorthMountainH(x, z) {/* 山体格高纯函数(0=足迹外): 峰高/半宽/脊线段锚
@@ -1230,24 +1206,14 @@ function advEdgeSouthDecorate(x, z, id) {/* 丘区版饰件落位: 坐标含沙�
   return true;
 }
 
-function advEdgeSouthScrub(x, z, salt) {/* 低矮耐旱树(走查修订 2「多点低矮的树」):
-  矮干(原木 1~2) + 扁小冠(3×3 缺角 + 顶心), 总高 3~4=home 橡树/松杉一半高;
-  冠层只落空气格(树同款守卫), x 越界守卫(冠层 dx±1 会写邻列, 平面回卷前例见
-  advEdgeNorthFar 注) */
+function advEdgeSouthScrub(x, z, salt) {/* 低矮耐旱树(走查修订 2「多点低矮的树」) 落位
+  政策薄壳: 矮干+扁小冠的几何走 SceneKit.scrub(2026-11-12 树家族收编, 同盐同形零
+  变更), 总高 3~4=home 橡树/松杉一半高; 界内/沙面/顶上净空判据在此 */
   if (x < 1 || x > WORLD_W - 2) return false;
   const top = advEdgeSouthTop(x, z);
   if (getBlock(x, top, z) !== 8) return false; /* 只立沙面/丘面(草面归 home 树) */
   if (getBlock(x, top + 1, z) !== 0) return false;
-  const th = 1 + (SceneKit.rand(x, z, salt) > 0.5 ? 1 : 0);
-  for (let i = 1; i <= th; i++) setBlockRaw(x, top + i, z, 5);
-  const cy = top + th + 1; /* 冠心层 */
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dz = -1; dz <= 1; dz++) {
-      if (Math.abs(dx) === 1 && Math.abs(dz) === 1 && SceneKit.rand(x + dx, z + dz, salt + 1) > 0.5) continue;
-      if (getBlock(x + dx, cy, z + dz) === 0) setBlockRaw(x + dx, cy, z + dz, 7);
-    }
-  }
-  if (getBlock(x, cy + 1, z) === 0) setBlockRaw(x, cy + 1, z, 7); /* 顶心 */
+  SceneKit.scrub(x, top, z, salt);
   return true;
 }
 
@@ -1537,27 +1503,6 @@ function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间
   }
 }
 
-function advEdgeEastTree(x, baseY, z) {/* 圆冠树(贴边裁冠版, SceneKit.tree 同语言):
-  树干原木 4~6 高 + 冠层叶只落空气格; lx ≥ WORLD_W 不写——隔离带 x158 贴世界
-  东缘, rad2 冠层的 lx=160 会 OOB 泄进 x=0 西缘列(平面数组回卷), 冠层就地裁半 */
-  const th = 4 + Math.floor(SceneKit.rand(x + 7, z + 3, 8402) * 3);
-  for (let i = 0; i < th; i++) setBlockRaw(x, baseY + i, z, 5);
-  const top = baseY + th;
-  for (let dy = -1; dy <= 1; dy++) {
-    const rad = dy === 1 ? 1 : 2;
-    for (let dx = -rad; dx <= rad; dx++) {
-      for (let dz = -rad; dz <= rad; dz++) {
-        if (dx === 0 && dz === 0 && dy < 1) continue;
-        if (Math.abs(dx) === rad && Math.abs(dz) === rad && rad === 2) continue;
-        const lx = x + dx; const ly = top + dy - 1; const lz = z + dz;
-        if (lx >= WORLD_W) continue; /* 贴边裁冠(界外不写) */
-        if (getBlock(lx, ly, lz) === 0) setBlockRaw(lx, ly, lz, 7);
-      }
-    }
-  }
-  setBlockRaw(x, top, z, 7);
-}
-
 function advEdgeEastSkyline() {/* 小镇远景剪影(东 spec §6): 房屋×4+钟楼×1+圆冠树×2+
   灯点 4 粒, 落栅栏外隔离带 x158~159(体素拼块=「近看不穿帮」约束的便宜实现)。
   登记偏差: 深蓝灰 #5A6B7A 系无图集格位(零新贴图), 以石色剪影替代(T7 拍板 Q1
@@ -1583,8 +1528,10 @@ function advEdgeEastSkyline() {/* 小镇远景剪影(东 spec §6): 房屋×4+�
   setBlockRaw(158, tt + 8, 74, 5);
   setBlockRaw(159, tt + 8, 74, B_TORCH);
   lamps++;
-  advEdgeEastTree(158, ADV_GROUND + advHeightAt(158, 40) + 1, 40); /* 圆冠树 ×2(贴边裁冠) */
-  advEdgeEastTree(158, ADV_GROUND + advHeightAt(158, 108) + 1, 108);
+  /* 圆冠树 ×2(贴边裁冠: 树家族带盐口径+内核越界守卫, 2026-11-12 收编,
+     同盐 8402 同形零变更——x158 冠层 lx=160 界外就地裁半) */
+  SceneKit.tree(158, ADV_GROUND + advHeightAt(158, 40) + 1, 40, 8402);
+  SceneKit.tree(158, ADV_GROUND + advHeightAt(158, 108) + 1, 108, 8402);
   return lamps;
 }
 
@@ -3533,7 +3480,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advBaseTerrain, advBuildLake, advOreCluster, advScatterOres,
     advBuildPit, advTryOre, advBuildCave, advBuildHut, advBuildNest, advTreeBlocked,
     advBuildPlaza, advBuildFarm, advBuildPen, advBuildPath, advScatterFlowers,
-    advBuildPond, advBuildTower, advBuildStones, advPineTree, advBuildPineGrove, advBuildMeadow,
+    advBuildPond, advBuildTower, advBuildStones, advBuildPineGrove, advBuildMeadow,
     advPlantTrees, advTreeSpots, advScatterTufts, advBuildWorld, advDeathPlan,
     ADV_PUMPKIN_SPOTS_XZ, advPumpkinSpots, advPumpkinSpotOpen, advPlantPumpkins, advCarveOk,
     ADV_GOLEM_MAX, advGolemSiteOk,

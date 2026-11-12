@@ -118,8 +118,8 @@ _Avoid_: 把放置合法性/门结构/级联规则抄进 kit 或模式层（规�
 _Avoid_: 逐移除点接线清单（历史形态——TNT 漏接床的根因）、在 kit 或模式层造第二份找伴/补发判据（「防双掉」口径唯一权威在各 plan）、身份判据硬编码 id 集（config 旗标是唯一真值源，mesh-core 同源）、doorBreakApply/bedBreakApply/lootChestApply（历史名——三份镜像 apply 已收编 pairedBreakApply 单编排）
 
 **SceneKit**:
-坐在体素模型之上的场景搭建工具：填充、种树、确定性散布。四个游玩模式（竞技场/建造/坦克演习场/探险）的场景构建共用它。
-_Avoid_: fillB / plantTree / fxHash（历史名，已归并）
+坐在体素模型之上的场景搭建工具：填充、树家族、确定性散布、高度场。树家族 = 树形几何的单一权威（2026-11-12 六份散装树函数收编）：圆冠 tree（可选盐，缺省 hashRand 口径）· 锥冠 pine（松/云杉同形换盐）· 覆雪锥冠 pineSnowy（snowLeafId 注入，crown 家族内部派生）· 矮丛 scrub。成员按形命名不按图命名；几何与落位政策分线——立面包门禁/雪根座/散布密度留调用方；越界守卫在家族内核（界外不写，防平面回卷）。四个游玩模式（竞技场/建造/坦克演习场/探险）的场景构建共用它。maps-core 树形抄本备案（S3）已随收编撤销。
+_Avoid_: fillB / plantTree / fxHash（历史名，已归并）· advPineTree / advSnowTree / advEdgeEastTree（历史名——几何已归并树家族）· 把树形几何再散写回模式层（advEdgeNorthSpruce / advEdgeSouthScrub 保留为落位政策薄壳，几何段走家族）
 
 **画质核心（QualityCore）**:
 触屏 DPR 自适应的纯决策核心：主循环每半秒喂一个 fps 采样——降档快（持续低帧 3 秒即降，不受冷却）、升档慢（持续高帧 30 秒且度过降档后 60 秒冷却才升）、45~55fps 死区不积累证据、升档观察窗（升后 60 个采样）内又降则该档本场封顶。低核触屏（config 的 IS_LOWCORE_TOUCH：触屏且 ≤2 逻辑核，A9 级如 iPad 5）初始 DPR 上限 LOWCORE_DPR_MAX=1.5 且 mk 语义=初始即本场封顶，档内仍可自适应回落（docs/ipad5-performance-design.md 票①）。低电量守卫 mkLpmGuard：吃主循环每帧原始 rAF 间隔（毫秒），紧带 31.5~36ms 连续 60 帧判定系统把 rAF 钉在 30fps（WebKit 无查询 API），锁存期间调用方冻结喂采样——LPM 的 30fps 不是"带不动"，防一路降到下限钉死；任一快帧（<31.5ms）解锁重攒。interface：mk / step / mkLpmGuard。初始 DPR 拉满在渲染 adapter（world.js），换档的 setPixelRatio 施加在主循环，核心不碰 renderer；桌面端不参与自适应。

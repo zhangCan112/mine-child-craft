@@ -312,25 +312,6 @@ function advSnowTerrain() {/* 雪堆地层: heightAt 幅度 2 起伏 + 全铺雪
   }
 }
 
-function advSnowTree(x, baseY, z) {/* 云杉: 原木 4-6 高 + 锥形叶冠——「现有树形
-    换色口径」: 复用原木(5)/树叶(7) 两方块, 尖塔轮廓(下宽上尖+顶帽)与
-    橡树圆冠(SceneKit.tree)拉开辨识; 叶贴干 ≤2 格, need:dist4 内不失撑 */
-  const th = 4 + Math.floor(SceneKit.rand(x + 7, z + 3, ADV_SNOW.salt + 5) * 3);
-  for (let i = 0; i < th; i++) setBlockRaw(x, baseY + i, z, 5);
-  const top = baseY + th;
-  for (let ly = baseY + 2; ly <= top; ly++) {
-    const rad = ly >= top - 1 ? 1 : 2;
-    for (let dx = -rad; dx <= rad; dx++) {
-      for (let dz = -rad; dz <= rad; dz++) {
-        if (dx === 0 && dz === 0 && ly < top) continue; /* 让位树干 */
-        if (Math.abs(dx) === rad && Math.abs(dz) === rad && rad === 2) continue; /* 削角 */
-        if (getBlock(x + dx, ly, z + dz) === 0) setBlockRaw(x + dx, ly, z + dz, 7);
-      }
-    }
-  }
-  setBlockRaw(x, top + 1, z, 7); /* 顶帽 */
-}
-
 function advSnowHut() {/* 雪屋: 雪块圆顶(球壳 r4, 室内掏空) + 南门洞 + 地下宝箱室
     (屋内雪面挖开即入——雪块硬度 0.2, 儿童三四下; 宝箱+火把+东侧出路楼梯) */
   const h = ADV_SNOW.hut;
@@ -389,7 +370,8 @@ function advSnowScatter() {/* 云杉 ~22(候选按散列值排序取前 N, advTr
   cands.sort((a, b) => (a.r - b.r) || (a.x - b.x) || (a.z - b.z));
   for (const cd of cands.slice(0, 22)) {
     const y = groundTop(cd.x, cd.z);
-    if (getBlock(cd.x, y, cd.z) === B_SNOWY_GRASS) advSnowTree(cd.x, y + 1, cd.z);
+    /* 云杉=锥冠家族换盐(2026-11-12 收编, 盐 ADV_SNOW.salt+5 同形零变更) */
+    if (getBlock(cd.x, y, cd.z) === B_SNOWY_GRASS) SceneKit.pine(cd.x, y + 1, cd.z, ADV_SNOW.salt + 5);
   }
 }
 
@@ -716,7 +698,7 @@ function advTempleTrapCells() {/* 踩塌时清空的格清单: 中央 2×2 砂�
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {ADV_MAPS, ADV_DESERT, ADV_SNOW, ADV_SWAMP,
     advDesertBuild, advDesertTerrain, advDesertTemple, advDesertPlants,
-    advSnowBuild, advSnowTerrain, advSnowTree, advSnowHut, advSnowScatter,
+    advSnowBuild, advSnowTerrain, advSnowHut, advSnowScatter,
     advSwampBuild, advSwampTerrain, advSwampHut, advSwampScatter, advMapNest,
     ADV_UNLOCK_KEYS, advMapUnlocked, ADV_EDGE_DIR_MAP, advEdgeDirUnlocked,
     ADV_GATE_FACE, ADV_GATE_HOLD_T, advGateHoldStep, advMapChestKey,
