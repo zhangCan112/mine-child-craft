@@ -893,7 +893,7 @@ test('形状·tower-belfry: 前立面装饰门龛 dy1..3(开)/关, 侧窗位 dy4
   k.clear();
   k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south', hasDoorNiche: false});
   assert.notStrictEqual(k.cell(ax, y0 + 2, az + 2), 0, 'hasDoorNiche=false 时前立面中线 dy2 非空气洞');
-  /* openBelfry=true: 钟室四面开敞(中段非全封墙) */
+  /* openBelfry=true: 钟室四面开敞(中段四面均有开口) */
   k.clear();
   k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, openBelfry: true});
   let openSides = 0;
@@ -901,7 +901,7 @@ test('形状·tower-belfry: 前立面装饰门龛 dy1..3(开)/关, 侧窗位 dy4
   if (k.cell(ax, y0 + 9, az + 3) === 0) openSides++;
   if (k.cell(ax - 2, y0 + 9, az) === 0) openSides++;
   if (k.cell(ax + 3, y0 + 9, az) === 0) openSides++;
-  assert.ok(openSides >= 2, 'openBelfry=true 钟室 dy9 四面存在开敞面(计数 ' + openSides + ')');
+  assert.strictEqual(openSides, 4, 'openBelfry=true 钟室 dy9 四面全开敞(计数 ' + openSides + ')');
 });
 
 test('逐朝向·tower-belfry: 前立面(+dz, face0=south)门龛/窗随 face 旋转, mirror 翻转 dx', () => {
@@ -924,10 +924,19 @@ test('逐朝向·tower-belfry: 前立面(+dz, face0=south)门龛/窗随 face 旋
   const eastNiche = k.cell(ax + 2, y0 + 2, az) === 0 || k.cell(ax + 2, y0 + 2, az) === TOWER_IDS.window ||
       k.cell(ax + 3, y0 + 2, az) === 0 || k.cell(ax + 3, y0 + 2, az) === TOWER_IDS.window;
   assert.ok(eastNiche, 'east 前立面门龛位随朝向旋转到东侧');
-  /* mirror: 先翻 dx 后旋转(south) — 左右侧特征左右互换, 门龛中轴仍在前沿 */
+  /* mirror: 先翻 dx 后旋转(south) — 非对称旗位左右互换(镜像非 no-op), 门龛中轴仍在前沿 */
+  k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south'});
+  const flagA = [ax - 2, y0 + 10, az - 1];
+  const flagB = [ax + 3, y0 + 10, az + 1];
+  assert.strictEqual(k.cell(flagA[0], flagA[1], flagA[2]), TOWER_IDS.flag, 'south 旗位A在左后');
+  assert.strictEqual(k.cell(flagB[0], flagB[1], flagB[2]), TOWER_IDS.flag, 'south 旗位B在右前');
   k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south', mirror: true});
   assert.ok(k.cell(ax, y0 + 2, az + 2) === 0 || k.cell(ax, y0 + 2, az + 2) === TOWER_IDS.window,
       'south+mirror 门龛中轴仍在前沿');
+  assert.notStrictEqual(k.cell(flagA[0], flagA[1], flagA[2]), TOWER_IDS.flag,
+      'south+mirror 非对称旗位A不再原位(镜像生效)');
+  assert.strictEqual(k.cell(ax + 2, y0 + 10, az - 1), TOWER_IDS.flag,
+      'south+mirror 旗位A镜像后落左后对称位');
 });
 
 test('确定性: tower-belfry 同参两次逐字节一致(多朝向×变体)', () => {

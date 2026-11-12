@@ -205,8 +205,8 @@ function pfMerge(row, id, v) {
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。三行: stilt-hut(P0 高脚木屋对)/under-room/mound
-   (P1 地下宝箱室与巢穴丘), 按形命名不按图命名 */
+   kernel(几何内核)。四行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔), 按形命名不按图命名 */
 const PF_ROWS = {
   'stilt-hut': {
     facing0: 'south',
@@ -475,7 +475,6 @@ const PF_ROWS = {
     kernel(e, x, y, z, orient, put) {
       const ids = e.ids; const tier = e.heightTier;
       const topDy = tier - 1; /* 缺省 15→封顶 dy14 */
-      const inBase = (dx, dz) => dx >= -2 && dx <= 3 && dz >= -2 && dz <= 3;
       /* dy=0 地基 6×6 */
       for (let dx = -2; dx <= 3; dx++) {
         for (let dz = -2; dz <= 3; dz++) put(dx, 0, dz, ids.base);
