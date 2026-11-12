@@ -8,7 +8,13 @@
    各一组) · 形状第二意见(手推, 防转写双方同错) · 脚印包含(setBlockRaw 换
    记录 spy, 写出格 ⊆ footOf 同参盒 + footOf 零写) · 逐朝向(门洞/台阶/火把
    世界格=变换表手算值) · 确定性(同参两次逐字节一致) · 源文本守门(零
-   config 方块常量/零 Math 随机/零 THREE); 另错误两档(拼写 throw/数值钳)。 */
+   config 方块常量/零 Math 随机/零 THREE); 另错误两档(拼写 throw/数值钳)。
+   P1 收编票(under-room/mound 两行, 行为零变更): 同款手法追加五组——四份
+   oracle(神殿室段/雪屋室段/advMapNest 三图参数/advBuildNest, 必要前置
+   地层先铺后比对) · 两行形状第二意见 · 两行脚印包含(×4 朝向×mirror×
+   变体) · 确定性+异盐散布不同 · P1 行错误两档(必传缺/torches 枚举/
+   exit 子键/floorDy 负域钳); P0 断言中「P1 未立」的未知 id 钉改用
+   watchtower(机械翻转, 非迁就实现)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -25,10 +31,11 @@ function loadKit() {/* vm 装载链: 引擎件按 index.html 序; api 经上下�
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
   }
   const api = vm.runInContext(
-      '({PrefabKit, SceneKit, setBlockRaw, worldCells, WORLD_W, WORLD_D, WORLD_H})', eng);
+      '({PrefabKit, SceneKit, setBlockRaw, getBlock, worldCells, WORLD_W, WORLD_D, WORLD_H})', eng);
   const W = api.WORLD_W; const D = api.WORLD_D;
   return {
     pf: api.PrefabKit, fill: api.SceneKit.fill, set: api.setBlockRaw,
+    rand: api.SceneKit.rand, get: api.getBlock,
     W, D, H: api.WORLD_H,
     cell: (x, y, z) => vm.runInContext('worldCells', eng)[(y * D + z) * W + x],
     snap: () => Buffer.from(vm.runInContext('worldCells', eng)),
@@ -346,8 +353,9 @@ test('确定性: 同参两次独立建场, 全图逐字节一致(4 朝向×两�
 test('错误两档: 未知 id/未知 v 键/face 非法/terrain 缺 ground→throw; 数值域→钳', () => {
   const k = loadKit();
   /* 第一档(装场期炸=拼写防火墙): place 与 footOf 同走合并校验路径 */
-  assert.throws(() => k.pf.place('under-room', 80, 24, 80), /未知蓝图/, '未知 id(P1 未立)');
-  assert.throws(() => k.pf.footOf('mound', 80, 24, 80), /未知蓝图/, 'footOf 未知 id');
+  assert.throws(() => k.pf.place('watchtower', 80, 24, 80), /未知蓝图/,
+      '未知 id(P1 已立 under-room/mound, 改用仍未立 id)');
+  assert.throws(() => k.pf.footOf('watchtower', 80, 24, 80), /未知蓝图/, 'footOf 未知 id');
   assert.throws(() => k.pf.place('stilt-hut', 80, 24, 80, {facee: 'north'}), /v 键/, '未知 v 键(拼写)');
   assert.throws(() => k.pf.place('stilt-hut', 80, 24, 80, {face: 'up'}), /face/, 'face 非法');
   assert.throws(() => k.pf.place('stilt-hut', 80, 24, 80, {piles: 'terrain'}), /ground/,
@@ -372,4 +380,394 @@ test('源文本守门: prefab-kit.js 零 config 方块常量 · 零 Math 随机 
   assert.ok(!/B_[A-Z]/.test(src), '引擎层零玩法知识: 不读任何 config 方块常量');
   assert.ok(!src.includes('Math.random'), '本件无散布无随机源(零 Math 随机)');
   assert.ok(!src.includes('THREE'), '零 THREE(纯核心可单测)');
+});
+
+/* ============ P1·under-room/mound 两行(34ec79d 同款手法) ============ */
+
+/* 神殿款 v: 收编调用形逐字(advDesertTemple 室段拍板——材质=砂岩裸数字) */
+const TEMPLE_V = {
+  half: 3, cavH: 4, floorDy: -7, shaft: 2, trap: true, torches: 'pair',
+  exit: {steps: 7, width: 3, capSwap: true, landing: true},
+  mat: 58,
+};
+
+/* ---- P1 oracle: 收编前函数体逐字转写(34ec79d 后工作区), 只作对照基准 ----
+   h = {fill, set, get, rand, G: ADV_GROUND(24)}; 方块 id 裸数字(58 砂岩/
+   54 雪块/55 雪覆草/51 宝箱/48 火把/8 沙/3 石/2 泥=收编前图常量现值);
+   旧体循环变量 h 与 harness 形参撞名处机械改名 hh(语义零变) */
+
+function preSand(k, ax, az) {/* 沙漠平坦地层(神殿压平带口径): 石 0..20/砂岩 21..23/沙 24
+    ——capSwap(读沙 8)与垫脚(读空气)的分支路径要吃到真地层才不是空转 */
+  k.fill(ax - 4, 0, az - 3, ax + 12, 20, az + 3, 3);
+  k.fill(ax - 4, 21, az - 3, ax + 12, 23, az + 3, 58);
+  k.fill(ax - 4, 24, az - 3, ax + 12, 24, az + 3, 8);
+}
+
+function preSnow(k, ax, az) {/* 雪原平坦地层(雪屋压平带口径): 石 0..19/泥 20..23/雪覆草 24 */
+  k.fill(ax - 3, 0, az - 3, ax + 10, 19, az + 3, 3);
+  k.fill(ax - 3, 20, az - 3, ax + 10, 23, az + 3, 2);
+  k.fill(ax - 3, 24, az - 3, ax + 10, 24, az + 3, 55);
+}
+
+function oracleTempleRoom(h, cx, cz) {/* 旧 adventure-maps-core.js advDesertTemple 室段 */
+  h.fill(cx - 3, 17, cz - 3, cx + 3, 17, cz + 3, 58); /* 室地板 */
+  h.fill(cx - 3, 18, cz - 3, cx + 3, 21, cz + 3, 0); /* 室腔 */
+  h.fill(cx - 3, 22, cz - 3, cx + 3, 23, cz + 3, 58); /* 室顶+地基 */
+  h.fill(cx - 1, 22, cz - 1, cx, 23, cz, 0); /* 竖井 2×2 西北象限 */
+  h.fill(cx - 1, 24, cz - 1, cx, 24, cz, 58); /* 可疑地板(trapY=24) */
+  h.set(cx, 20, cz, 51);
+  h.set(cx - 2, 18, cz - 2, 48);
+  h.set(cx + 2, 18, cz + 2, 48);
+  for (let i = 0; i <= 6; i++) {
+    const x = cx + 4 + i; const y = 19 + i;
+    h.fill(x, y, cz - 1, x, y + 2, cz + 1, 0); /* 净空 */
+    for (let z = cz - 1; z <= cz + 1; z++) {
+      for (let yy = y + 3; yy <= h.G; yy++) {
+        if (h.get(x, yy, z) === 8) h.set(x, yy, z, 58); /* 沙顶盖砂岩 */
+      }
+    }
+    if (h.get(x, y - 1, cz) === 0) h.set(x, y - 1, cz, 58); /* 垫脚 */
+  }
+  h.fill(cx + 10, h.G, cz - 1, cx + 11, h.G, cz + 1, 8); /* 出口沙平台 */
+}
+
+function oracleSnowRoom(h, cx, cz) {/* 旧 advSnowHut 地下宝箱室段 */
+  h.fill(cx - 2, 18, cz - 2, cx + 2, 18, cz + 2, 54); /* 室地板 */
+  h.fill(cx - 2, 19, cz - 2, cx + 2, 21, cz + 2, 0); /* 室腔 */
+  h.fill(cx - 2, 22, cz - 2, cx + 2, 23, cz + 2, 54); /* 室顶 */
+  h.set(cx, 20, cz, 51);
+  h.set(cx - 1, 19, cz - 1, 48);
+  for (let i = 0; i <= 5; i++) {/* 东侧 1 宽出路台阶 */
+    const x = cx + 3 + i; const y = 19 + i;
+    for (let yy = y; yy <= y + 2; yy++) h.set(x, yy, cz, 0);
+    if (h.get(x, y - 1, cz) === 0) h.set(x, y - 1, cz, 54); /* 垫脚(雪) */
+  }
+}
+
+function oracleMapNest(h, n, top, rock) {/* 旧 advMapNest(盐 5102, 三图口径) */
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      const d = Math.hypot(dx, dz);
+      if (d > 2) continue;
+      const hh = d < 0.8 ? 3 : (d < 1.8 ? 2 : 1);
+      for (let y = h.G + 1; y <= h.G + hh; y++) {
+        const id = (d >= 0.8 && h.rand(n.x + dx, n.z + dz, 5102) > 0.72) ? rock : top;
+        h.set(n.x + dx, y, n.z + dz, id);
+      }
+    }
+  }
+  for (const y of [h.G + 1, h.G + 2]) h.set(n.x, y, n.z + 2, 0); /* 洞口朝南 */
+}
+
+function oracleBuildNest(h, n) {/* 旧 advBuildNest(home 巢, 盐 5101) */
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      const d = Math.hypot(dx, dz);
+      if (d > 2) continue;
+      const hh = d < 0.8 ? 3 : (d < 1.8 ? 2 : 1);
+      for (let y = 25; y <= h.G + hh; y++) {
+        const id = (d >= 0.8 && h.rand(n.x + dx, n.z + dz, 5101) > 0.72) ? 14 : 2;
+        h.set(n.x + dx, y, n.z + dz, id);
+      }
+    }
+  }
+  for (const y of [25, 26]) h.set(n.x, y, n.z + 2, 0); /* 洞口朝南 */
+}
+
+/* ============ P1① oracle 等价(等价红线: 缺省/收编调用路径逐字节) ============ */
+
+test('oracle 等价·神殿室段: 预铺沙层后神殿款逐字节=旧 advDesertTemple 室段(三锚)', () => {
+  const k = loadKit();
+  const h = {fill: k.fill, set: k.set, get: k.get, rand: k.rand, G: 24};
+  /* 真锚(64,40)+两处搬位锚(证坐标无关); 前置地层=神殿压平带口径 */
+  for (const [ax, az] of [[64, 40], [40, 60], [100, 80]]) {
+    k.clear(); preSand(k, ax, az);
+    k.pf.place('under-room', ax, 24, az, TEMPLE_V);
+    const a = k.snap();
+    k.clear(); preSand(k, ax, az); oracleTempleRoom(h, ax, az);
+    assert.ok(a.equals(k.snap()), '神殿室段终态逐字节一致: (' + ax + ',' + az + ')');
+    assert.ok(a.some((v) => v !== 0), '场内确有方块(防全空假绿)');
+  }
+  /* 盒手算值: 室 x±3 / 出路末级 x+10 / 平台 x+11 / y 地板 17..末级净空上沿 27 */
+  assert.deepStrictEqual({...k.pf.footOf('under-room', 64, 24, 40, TEMPLE_V)},
+      {x1: 61, y1: 17, z1: 37, x2: 75, y2: 27, z2: 43}, '神殿款脚印盒=手算盒');
+});
+
+test('oracle 等价·雪屋室段: 预铺雪原层后缺省款(只注 mat)逐字节=旧 advSnowHut 室段(三锚)', () => {
+  const k = loadKit();
+  const h = {fill: k.fill, set: k.set, get: k.get, rand: k.rand, G: 24};
+  for (const [ax, az] of [[40, 40], [60, 60], [100, 80]]) {
+    k.clear(); preSnow(k, ax, az);
+    k.pf.place('under-room', ax, 24, az, {mat: 54});
+    const a = k.snap();
+    k.clear(); preSnow(k, ax, az); oracleSnowRoom(h, ax, az);
+    assert.ok(a.equals(k.snap()), '雪屋室段终态逐字节一致: (' + ax + ',' + az + ')');
+    assert.ok(a.some((v) => v !== 0), '场内确有方块(防全空假绿)');
+  }
+  /* 盒手算值: 室 x±2 / 出路末级 x+8 / y 地板 18..末级净空上沿 26(无平台无盖) */
+  assert.deepStrictEqual({...k.pf.footOf('under-room', 40, 24, 40, {mat: 54})},
+      {x1: 38, y1: 18, z1: 38, x2: 48, y2: 26, z2: 42}, '雪屋款脚印盒=手算盒');
+});
+
+test('oracle 等价·巢穴丘: 三图参数与 home 参数(盐 5101)逐字节=旧 advMapNest/advBuildNest', () => {
+  const k = loadKit();
+  const h = {fill: k.fill, set: k.set, get: k.get, rand: k.rand, G: 24};
+  const cases = [ /* 真巢锚+真参数(desert 8/58 · snow 54/3 · swamp 2/14 · home 2/14) */
+    [[24, 28], {top: 8, rock: 58}, (hh, n) => oracleMapNest(hh, n, 8, 58)],
+    [[28, 60], {top: 54, rock: 3}, (hh, n) => oracleMapNest(hh, n, 54, 3)],
+    [[22, 58], {top: 2, rock: 14}, (hh, n) => oracleMapNest(hh, n, 2, 14)],
+    [[60, 60], {top: 2, rock: 14, salt: 5101}, (hh, n) => oracleBuildNest(hh, n)],
+  ];
+  for (const [[nx, nz], v, oracle] of cases) {
+    k.clear();
+    k.pf.place('mound', nx, 24, nz, v);
+    const a = k.snap();
+    k.clear(); oracle(h, {x: nx, z: nz});
+    assert.ok(a.equals(k.snap()), '巢穴丘终态逐字节一致: (' + nx + ',' + nz + ') ' + JSON.stringify(v));
+    assert.ok(a.some((b) => b !== 0), '场内确有方块(防全空假绿)');
+  }
+  assert.deepStrictEqual({...k.pf.footOf('mound', 24, 24, 28, {top: 8, rock: 58})},
+      {x1: 22, y1: 25, z1: 26, x2: 26, y2: 27, z2: 30}, 'mound 脚印盒=手算盒');
+});
+
+/* ============ P1② 形状第二意见(手推, 防转写双方同错) ============ */
+
+test('形状·under-room 神殿款: 三明治层界/竖井西北偏置/可疑地板 2×2/出路逐级/沙盖/平台', () => {
+  const k = loadKit();
+  const ax = 64; const az = 40;
+  k.clear(); preSand(k, ax, az);
+  k.pf.place('under-room', ax, 24, az, TEMPLE_V);
+  /* 三明治 7×7: 地板 y17 砂岩/腔 y18~21 空/顶 y22~23 两层砂岩——腔内宝箱
+     (y20)与双火把(y18)是后写者赢的覆写格, want 制逐格核 */
+  for (let dx = -3; dx <= 3; dx++) {
+    for (let dz = -3; dz <= 3; dz++) {
+      assert.strictEqual(k.cell(ax + dx, 17, az + dz), 58, '室地板 y17');
+      for (let y = 18; y <= 21; y++) {
+        let want = 0;
+        if (dx === 0 && dz === 0 && y === 20) want = 51; /* 宝箱 */
+        if (Math.abs(dx) === 2 && Math.abs(dz) === 2 && dx === dz && y === 18) want = 48;
+        assert.strictEqual(k.cell(ax + dx, y, az + dz), want, '室腔 y' + y);
+      }
+      for (let y = 22; y <= 23; y++) {
+        const shaft = dx >= -1 && dx <= 0 && dz >= -1 && dz <= 0;
+        assert.strictEqual(k.cell(ax + dx, y, az + dz), shaft ? 0 : 58,
+            '室顶 y' + y + '(竖井 2×2 西北象限掏穿)');
+      }
+    }
+  }
+  /* 竖井: 顶两层西北象限 2×2 掏穿(63..64)×(39..40); 竖井外室顶完好 */
+  for (const x of [63, 64]) {
+    for (const z of [39, 40]) {
+      for (const y of [22, 23]) assert.strictEqual(k.cell(x, y, z), 0, '竖井掏穿');
+      assert.strictEqual(k.cell(x, 24, z), 58, '可疑地板(竖井正上)');
+    }
+  }
+  assert.strictEqual(k.cell(65, 22, 41), 58, '竖井外室顶完好');
+  assert.strictEqual(k.cell(62, 24, 40), 8, '可疑地板外原沙未动(2×2 精确)');
+  /* 宝箱+对角双火把(±2, y18 落地站膛站 y17 地板) */
+  assert.strictEqual(k.cell(64, 20, 40), 51, '宝箱(室心中轴 y20)');
+  assert.strictEqual(k.cell(62, 18, 38), 48, '西北火把');
+  assert.strictEqual(k.cell(66, 18, 42), 48, '东南火把');
+  assert.strictEqual(k.cell(62, 17, 38), 58, '火把站膛=室地板');
+  /* 出路逐级: 净空 3 高 3 宽; 石层实底不垫脚(空气才垫); 沙盖只换沙 */
+  assert.strictEqual(k.cell(68, 18, 40), 3, 'i0 垫脚位=石层(非 0 不垫)');
+  for (let i = 0; i <= 6; i++) {
+    const x = ax + 4 + i; const y = 19 + i;
+    for (let yy = y; yy <= y + 2; yy++) {
+      assert.strictEqual(k.cell(x, yy, az), 0, '出路净空 i' + i + ' y' + yy);
+    }
+    assert.strictEqual(k.cell(x, y + 3, az - 1), i <= 2 ? 58 : 0,
+        '净空上沿再上一层(盖/空气) i' + i);
+  }
+  /* 地表 y24 剖面(沿走廊中轴): 室外原沙→沙盖置换→净空掏空→出口平台 */
+  assert.strictEqual(k.cell(67, 24, 40), 8, '室外原沙未动');
+  for (const x of [68, 69, 70]) assert.strictEqual(k.cell(x, 24, 40), 58, '沙柱盖砂岩');
+  for (const x of [71, 72, 73]) assert.strictEqual(k.cell(x, 24, 40), 0, '净空掏到地表');
+  assert.strictEqual(k.cell(74, 24, 40), 8, '出口平台(末级位)');
+  assert.strictEqual(k.cell(75, 24, 39), 8, '出口平台(末级+1, 3 宽)');
+  assert.strictEqual(k.cell(76, 24, 40), 8, '平台外原沙(未越界)');
+});
+
+test('形状·under-room 雪屋款: 5×5 三明治/单火把/出路 1 宽无盖无平台', () => {
+  const k = loadKit();
+  const ax = 40; const az = 40;
+  k.clear(); preSnow(k, ax, az);
+  k.pf.place('under-room', ax, 24, az, {mat: 54});
+  /* 三明治 5×5: 地板 y18 雪/腔 y19~21 空/顶 y22~23 两层雪——腔内宝箱(y20)
+     与单火把(y19)是后写者赢的覆写格, want 制逐格核 */
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      assert.strictEqual(k.cell(ax + dx, 18, az + dz), 54, '室地板 y18');
+      for (let y = 19; y <= 21; y++) {
+        let want = 0;
+        if (dx === 0 && dz === 0 && y === 20) want = 51; /* 宝箱 */
+        if (dx === -1 && dz === -1 && y === 19) want = 48; /* 火把 */
+        assert.strictEqual(k.cell(ax + dx, y, az + dz), want, '室腔 y' + y);
+      }
+      for (let y = 22; y <= 23; y++) {
+        assert.strictEqual(k.cell(ax + dx, y, az + dz), 54, '室顶 y' + y);
+      }
+    }
+  }
+  /* 无竖井无可疑地板: 室顶上无 2×2 特殊层(原地层原样) */
+  assert.strictEqual(k.cell(ax, 24, az), 55, '雪屋无 trap: 室心地表=原雪覆草');
+  assert.strictEqual(k.cell(ax - 1, 22, az - 1), 54, '雪屋无 shaft: 室顶完好');
+  /* 宝箱+单火把(西北内角, y19 站 y18 地板) */
+  assert.strictEqual(k.cell(40, 20, 40), 51, '宝箱');
+  assert.strictEqual(k.cell(39, 19, 39), 48, '单火把');
+  assert.strictEqual(k.cell(39, 18, 39), 54, '火把站膛=室地板');
+  /* 出路: 1 宽净空 3; 垫脚石层实底不垫; 无沙盖; 无平台 */
+  assert.strictEqual(k.cell(43, 18, 40), 3, 'i0 垫脚位=石层(非 0 不垫)');
+  assert.strictEqual(k.cell(43, 19, 39), 3, '走廊 1 宽(z±1 未掏)');
+  assert.strictEqual(k.cell(43, 24, 40), 55, '无 capSwap: 地表原样');
+  for (let i = 0; i <= 5; i++) {
+    const x = ax + 3 + i; const y = 19 + i;
+    for (let yy = y; yy <= y + 2; yy++) {
+      assert.strictEqual(k.cell(x, yy, az), 0, '出路净空 i' + i + ' y' + yy);
+    }
+  }
+  assert.strictEqual(k.cell(49, 24, 40), 55, '无出口平台(原雪覆草未被覆写)');
+});
+
+test('形状·mound: 三层丘体/掷点喂世界坐标/朝南洞口精确格', () => {
+  const k = loadKit();
+  const nx = 60; const nz = 60;
+  k.clear();
+  k.pf.place('mound', nx, 24, nz, {top: 2, rock: 14});
+  /* 锚层不写; 中心柱 3 高全 top(d=0 <0.8 不掷点) */
+  assert.strictEqual(k.cell(nx, 24, nz), 0, '锚层不写');
+  for (let y = 25; y <= 27; y++) assert.strictEqual(k.cell(nx, y, nz), 2, '中心柱 top');
+  assert.strictEqual(k.cell(nx, 28, nz), 0, '丘顶上无物');
+  /* 中环(d<1.8) 2 高 · 缘环(d∈[1.8,2]) 1 高——掷点>0.72 换 rock,
+     且散列喂世界坐标(喂局部系即错值: 坐标契约探针) */
+  const mid = k.rand(nx + 1, nz, 5102) > 0.72 ? 14 : 2;
+  for (let y = 25; y <= 26; y++) assert.strictEqual(k.cell(nx + 1, y, nz), mid, '中环掷点');
+  const rim = k.rand(nx + 2, nz, 5102) > 0.72 ? 14 : 2;
+  assert.strictEqual(k.cell(nx + 2, 25, nz), rim, '缘环掷点');
+  assert.strictEqual(k.cell(nx + 2, 26, nz), 0, '缘环 1 高');
+  /* 洞口朝南 2 高(r2 缘格先写后被掏); 丘外零写入 */
+  assert.strictEqual(k.cell(nx, 25, nz + 2), 0, '洞口下格');
+  assert.strictEqual(k.cell(nx, 26, nz + 2), 0, '洞口上格');
+  assert.strictEqual(k.cell(nx, 27, nz + 2), 0, '洞口顶上无物');
+  assert.strictEqual(k.cell(nx, 25, nz + 3), 0, '丘外 z+3');
+  assert.strictEqual(k.cell(nx + 2, 25, nz + 2), 0, '丘外角(d 2.83>2)');
+});
+
+/* ============ P1③ 脚印包含(spy): 写出格 ⊆ footOf; footOf 零写 ============ */
+
+test('脚印包含: under-room × 4 朝向 × mirror × 抽样 v 变体 — 每笔写 ∈ footOf 盒', () => {
+  const k = loadKit();
+  const spy = k.spySet();
+  const variants = [
+    ['雪屋款', {mat: 54}],
+    ['神殿款', TEMPLE_V],
+    ['神殿款换材质', Object.assign({}, TEMPLE_V, {mat: 6, ids: {chest: 71, torch: 47, cap: 9, land: 9}})],
+    ['缩室+单格竖井+可疑地板', {mat: 54, half: 1, cavH: 2, floorDy: -4, shaft: 1, trap: true,
+      exit: {steps: 3, width: 2}}],
+    ['无出口', {mat: 54, exit: {steps: 0}}],
+    ['宽出口平台无盖', {mat: 54, half: 3, cavH: 4, floorDy: -7,
+      exit: {steps: 7, width: 3, landing: true}}],
+  ];
+  for (const face of ['south', 'west', 'north', 'east']) {
+    for (const mirror of [false, true]) {
+      for (const [name, vv] of variants) {
+        const v = Object.assign({}, vv, {face, mirror});
+        k.clear();
+        spy.reset();
+        const box = k.pf.place('under-room', 80, 24, 80, v);
+        const writes = spy.rec();
+        assert.ok(writes.length > 0, name + ' ' + face + (mirror ? '+m' : '') + ' 有写(防全空假绿)');
+        for (const w of writes) {
+          assert.ok(w[0] >= box.x1 && w[0] <= box.x2 && w[1] >= box.y1 && w[1] <= box.y2 &&
+              w[2] >= box.z1 && w[2] <= box.z2,
+          name + ' ' + face + (mirror ? '+m' : '') + ' 写 (' + w + ') ⊄ 盒 ' +
+              JSON.stringify(box));
+        }
+        const n = spy.rec().length;
+        assert.deepStrictEqual(k.pf.footOf('under-room', 80, 24, 80, v), box,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
+        assert.strictEqual(spy.rec().length, n, 'footOf 零写');
+      }
+    }
+  }
+});
+
+test('脚印包含: mound × 4 朝向 × mirror × 抽样 v 变体 — 每笔写 ∈ footOf 盒', () => {
+  const k = loadKit();
+  const spy = k.spySet();
+  const variants = [
+    ['desert 款', {top: 8, rock: 58}],
+    ['swamp 款', {top: 2, rock: 14}],
+    ['home 款(盐 5101)', {top: 2, rock: 14, salt: 5101}],
+    ['snow 款', {top: 54, rock: 3}],
+  ];
+  for (const face of ['south', 'west', 'north', 'east']) {
+    for (const mirror of [false, true]) {
+      for (const [name, vv] of variants) {
+        const v = Object.assign({}, vv, {face, mirror});
+        k.clear();
+        spy.reset();
+        const box = k.pf.place('mound', 80, 24, 80, v);
+        const writes = spy.rec();
+        assert.ok(writes.length > 0, name + ' ' + face + (mirror ? '+m' : '') + ' 有写(防全空假绿)');
+        for (const w of writes) {
+          assert.ok(w[0] >= box.x1 && w[0] <= box.x2 && w[1] >= box.y1 && w[1] <= box.y2 &&
+              w[2] >= box.z1 && w[2] <= box.z2,
+          name + ' ' + face + (mirror ? '+m' : '') + ' 写 (' + w + ') ⊄ 盒 ' +
+              JSON.stringify(box));
+        }
+        const n = spy.rec().length;
+        assert.deepStrictEqual(k.pf.footOf('mound', 80, 24, 80, v), box,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
+        assert.strictEqual(spy.rec().length, n, 'footOf 零写');
+      }
+    }
+  }
+});
+
+/* ============ P1④ 确定性 + 错误两档(P1 行) ============ */
+
+test('确定性: under-room/mound 同参两次逐字节一致; mound 异盐散布不同', () => {
+  const k = loadKit();
+  const builds = [
+    () => k.pf.place('under-room', 64, 24, 40, TEMPLE_V),
+    () => k.pf.place('under-room', 60, 24, 60, {mat: 54}),
+    () => k.pf.place('mound', 60, 24, 60, {top: 2, rock: 14}),
+  ];
+  for (const build of builds) {
+    k.clear(); build();
+    const a = k.snap();
+    k.clear(); build();
+    assert.ok(a.equals(k.snap()), '同参两次建场终态逐字节一致');
+    assert.ok(a.some((v) => v !== 0), '场内确有方块(防全空假绿)');
+  }
+  /* 异盐=异纹理: 同锚同材质只换盐, 散布 pattern 必不同(掷点喂世界坐标) */
+  k.clear(); k.pf.place('mound', 60, 24, 60, {top: 2, rock: 14, salt: 5101});
+  const a = k.snap();
+  k.clear(); k.pf.place('mound', 60, 24, 60, {top: 2, rock: 14, salt: 5102});
+  assert.ok(!a.equals(k.snap()), 'mound 异盐散布不同');
+});
+
+test('错误两档·P1 行: mat/top/rock 必传缺→throw; torches/exit 子键→throw; floorDy 负域钳', () => {
+  const k = loadKit();
+  assert.throws(() => k.pf.place('under-room', 80, 24, 80), /mat 必传/, 'under-room 缺 mat');
+  assert.throws(() => k.pf.footOf('under-room', 80, 24, 80), /mat 必传/, 'footOf 同走必传检');
+  assert.throws(() => k.pf.place('mound', 80, 24, 80), /top 必传/, 'mound 缺 top');
+  assert.throws(() => k.pf.place('mound', 80, 24, 80, {top: 2}), /rock 必传/, 'mound 缺 rock');
+  assert.throws(() => k.pf.place('under-room', 80, 24, 80, {mat: 58, torches: 'pairx'}),
+      /torches/, 'torches 枚举');
+  assert.throws(() => k.pf.place('under-room', 80, 24, 80, {mat: 58, exit: {step: 3}}),
+      /exit/, 'exit 未知子键');
+  assert.throws(() => k.pf.place('mound', 80, 24, 80, {top: 2, rock: 14, sal: 1}),
+      /v 键/, 'mound 未知 v 键');
+  /* 第二档(几何数值域→钳): floorDy 负域收敛 ±255(深埋=全裁界外场全空) */
+  k.clear(); k.pf.place('under-room', 80, 24, 80, {mat: 58, floorDy: -999});
+  const a = k.snap();
+  k.clear(); k.pf.place('under-room', 80, 24, 80, {mat: 58, floorDy: -255});
+  assert.ok(a.equals(k.snap()), 'floorDy −999 钳 −255 同形');
+  assert.ok(!a.some((v) => v !== 0), '深埋全裁界外(场全空)');
+  k.clear(); k.pf.place('mound', 80, 24, 80, {top: 2, rock: 14, salt: 'x'});
+  const c = k.snap();
+  k.clear(); k.pf.place('mound', 80, 24, 80, {top: 2, rock: 14, salt: 0});
+  assert.ok(c.equals(k.snap()), 'salt 非有限数回落 0 同形');
 });

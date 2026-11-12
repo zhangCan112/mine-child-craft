@@ -122,7 +122,7 @@ _Avoid_: 逐移除点接线清单（历史形态——TNT 漏接床的根因）�
 _Avoid_: fillB / plantTree / fxHash（历史名，已归并）· advPineTree / advSnowTree / advEdgeEastTree（历史名——几何已归并树家族）· 把树形几何再散写回模式层（advEdgeNorthSpruce / advEdgeSouthScrub 保留为落位政策薄壳，几何段走家族）
 
 **蓝图件库（PrefabKit）**:
-引擎层组合件（js/prefab-kit.js，坐 SceneKit 原语层之上，零 THREE 零 DOM，有同名单测）：具名建筑蓝图的几何单一权威——一份蓝图=几何内核+脚印声明+变种参数面，消费方一句落位。interface：PrefabKit.place(id, x, y, z, v?)（返回世界脚印盒）· PrefabKit.footOf(id, x, y, z, v?)（同参同盒零写纯查询——测试「写出格⊆脚印盒」口径，未来 flats/blocked 接线的现成缝，本期不接线）。行表 kit 自持（stilt-hut/under-room/mound 按形命名不按图命名，树家族同纪律）；变种=调用方 v 对象显式覆写（材质注入/尺寸/家具开关/桩脚模式/顶形/台阶），朝向 face 四正交向+mirror（缺省=行现朝向，格点整数旋转恒等映射保等价迁移逐字节）；掷域派生 rolls 占坑 null（第一个真消费者来前不填细形，D9 纪律）。错误模式两档：未知 id/未知 v 键/face 非法/terrain 缺 ground→throw（拼写防火墙）；几何数值域→钳。越界守卫逐格界外不写（树家族同款）。
+引擎层组合件（js/prefab-kit.js，坐 SceneKit 原语层之上，零 THREE 零 DOM，有同名单测）：具名建筑蓝图的几何单一权威——一份蓝图=几何内核+脚印声明+变种参数面，消费方一句落位。interface：PrefabKit.place(id, x, y, z, v?)（返回世界脚印盒）· PrefabKit.footOf(id, x, y, z, v?)（同参同盒零写纯查询——测试「写出格⊆脚印盒」口径，未来 flats/blocked 接线的现成缝，本期不接线）。行表 kit 自持（stilt-hut/under-room/mound 按形命名不按图命名，树家族同纪律）；变种=调用方 v 对象显式覆写（材质注入/尺寸/室形与出路/家具开关/桩脚模式/顶形/台阶/散布盐），朝向 face 四正交向+mirror（缺省=行现朝向，旋转序=face−行 facing0 的 90° 倍数，缺省恒等映射保等价迁移逐字节）；掷点=SceneKit.rand 世界坐标散列、盐经 v.salt 轴（mound 首消费——散列喂变换后世界坐标，换系即换纹理红线）。错误模式两档：未知 id/未知 v 键/face 非法/terrain 缺 ground/必传轴缺（mat/top/rock）→throw（拼写防火墙）；几何数值域→钳。越界守卫逐格界外不写（树家族同款）。
 _Avoid_: 把蓝图写成带生命周期钩子的表行（ADV_DIMS D4 警告——interface 会与 implementation 一样宽）、材质/方块 id 焊进引擎（id 注入，缺省裸数字）、散列喂局部系坐标（旧代码散列世界坐标，换系即换纹理——等价红线）、脚印接线 flats/blocked（未来票）
 
 **画质核心（QualityCore）**:

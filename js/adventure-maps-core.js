@@ -36,7 +36,8 @@
      ——共享 defer 词法环境双向成立) · config.js
      的 B_* 生态方块常量(54~62)与 WORLD_W/WORLD_D/WORLD_H ·
      scene-kit.js 的 SceneKit(fill/tree/rand/heightAt 高度场) ·
-     voxel.js 的 setBlockRaw/getBlock
+     voxel.js 的 setBlockRaw/getBlock · prefab-kit.js 的 PrefabKit
+     (under-room/mound 行, 2026-11-12 P1 收编: 神殿室/雪屋室/巢穴丘几何)
    可测性: 零 THREE·零 DOM·有单测(test/adventure-maps-core.test.js,
      vm 装真引擎件直测, 建场确定性对着真散布函数逐字节断言)
    ============================================================ */
@@ -114,20 +115,11 @@ const ADV_SWAMP = {/* 青苔沼泽: 平地浅水洼 + 垂藤橡树 + 沼骸替�
 
 /* 参数化巢穴丘(advBuildNest 同形状, 方块随图换): top=丘体方块,
    rock=点缀方块——desert 沙+砂岩 / snow 雪块+石头 / swamp 泥+苔石
-   (与 home 巢同观感)。kinds 池在图常量 nests 里, 刷怪归壳(T6) */
+   (与 home 巢同观感)。kinds 池在图常量 nests 里, 刷怪归壳(T6)。
+   2026-11-12 P1 薄壳化: 形与掷点判据归 PrefabKit 'mound' 行(签名/调用点
+   不动, 缺省盐 5102=三图口径; 掷点喂变换后世界坐标=旧实现同款) */
 function advMapNest(n, top, rock) {
-  for (let dx = -2; dx <= 2; dx++) {
-    for (let dz = -2; dz <= 2; dz++) {
-      const d = Math.hypot(dx, dz);
-      if (d > 2) continue;
-      const h = d < 0.8 ? 3 : (d < 1.8 ? 2 : 1);
-      for (let y = ADV_GROUND + 1; y <= ADV_GROUND + h; y++) {
-        const id = (d >= 0.8 && SceneKit.rand(n.x + dx, n.z + dz, 5102) > 0.72) ? rock : top;
-        setBlockRaw(n.x + dx, y, n.z + dz, id);
-      }
-    }
-  }
-  for (const y of [ADV_GROUND + 1, ADV_GROUND + 2]) setBlockRaw(n.x, y, n.z + 2, 0); /* 洞口朝南 */
+  PrefabKit.place('mound', n.x, ADV_GROUND, n.z, {top, rock});
 }
 
 /* ---------- 黄沙沙漠 ---------- */
@@ -185,33 +177,15 @@ function advDesertTemple() {/* 沙漠神殿: 砂岩**空心**金字塔(MC 原版
     附录 B #5: 无爆炸无致死; 运行时踩塌机制在壳层, 审查修复 P1) + 东侧出路
     楼梯(矿坑 1 格级教训, 不困人) */
   const t = ADV_DESERT.temple;
-  /* 地下宝箱室 7×7×4(先掏, 金字塔再压顶) */
-  SceneKit.fill(t.cx - 3, 17, t.cz - 3, t.cx + 3, 17, t.cz + 3, B_SANDSTONE); /* 室地板 */
-  SceneKit.fill(t.cx - 3, 18, t.cz - 3, t.cx + 3, 21, t.cz + 3, 0); /* 室腔 */
-  SceneKit.fill(t.cx - 3, 22, t.cz - 3, t.cx + 3, 23, t.cz + 3, B_SANDSTONE); /* 室顶+地基 */
-  /* 室顶竖井: 中央 2×2 掏穿 y22~23——室内地面的可疑地板正下方, 踩塌即坠入 */
-  SceneKit.fill(t.cx - 1, 22, t.cz - 1, t.cx, 23, t.cz, 0);
-  /* 可疑地板: 室内地表(y24)中央 2×2 砂岩显眼底板——周围是沙, 「颜色不一样的
-      地板」踩上去就塌(P1: 从埋两层沙下改为室内可见可踩; 砂岩无 fall 旗,
-      悬井而建不被 P14 清扫) */
-  SceneKit.fill(t.cx - 1, t.trapY, t.cz - 1, t.cx, t.trapY, t.cz, B_SANDSTONE);
-  setBlockRaw(t.cx, 20, t.cz, B_CHEST);
-  setBlockRaw(t.cx - 2, 18, t.cz - 2, B_TORCH); /* 照明(防室内刷怪+不困黑的); 落地站
-      膛(y18 站室地板 y17)——悬空 thin 会被 P14 清扫首进治愈, 违反桶重放确定性红线 */
-  setBlockRaw(t.cx + 2, 18, t.cz + 2, B_TORCH);
-  /* 东侧出路: 1 格级楼梯 y19→y25 回地表(穿地层向东); 楼梯道上方沙柱换砂岩盖
-      (fall 旗沙被掏空后悬空 → 首进清扫迁移, 同红线) */
-  for (let i = 0; i <= 6; i++) {
-    const x = t.cx + 4 + i; const y = 19 + i;
-    SceneKit.fill(x, y, t.cz - 1, x, y + 2, t.cz + 1, 0); /* 净空 */
-    for (let z = t.cz - 1; z <= t.cz + 1; z++) {
-      for (let yy = y + 3; yy <= ADV_GROUND; yy++) {
-        if (getBlock(x, yy, z) === 8) setBlockRaw(x, yy, z, B_SANDSTONE); /* 沙顶盖砂岩(稳定地层) */
-      }
-    }
-    if (getBlock(x, y - 1, t.cz) === 0) setBlockRaw(x, y - 1, t.cz, B_SANDSTONE); /* 垫脚 */
-  }
-  SceneKit.fill(t.cx + 10, ADV_GROUND, t.cz - 1, t.cx + 11, ADV_GROUND, t.cz + 1, 8); /* 出口沙平台 */
+  /* 地下宝箱室 7×7×4(先掏, 金字塔再压顶)——几何收编 PrefabKit 'under-room'
+     神殿款(2026-11-12 P1, 零行为变更): 锚=室心地表格(t.cx, ADV_GROUND, t.cz),
+     floorDy=−7; 可疑地板 y 行内从室顶+地表关系派生(=t.trapY 24), 图常量
+     trapY 仍是壳层踩塌判据(advTempleTrap*)的权威, 零触碰 */
+  PrefabKit.place('under-room', t.cx, ADV_GROUND, t.cz, {
+    half: 3, cavH: 4, floorDy: -7, shaft: 2, trap: true, torches: 'pair',
+    exit: {steps: 7, width: 3, capSwap: true, landing: true},
+    mat: B_SANDSTONE,
+  });
   /* 金字塔 8 级(底 15×15 → 顶尖 1×1), 塔底 y25 起于地表 y24 之上——**每级只砌
       外圈 1 格厚**(空心, 塔内可站人); 北面塔脚留 2×2 门洞(lv0~1 跳过——南面有
       外楼梯、东侧有出路楼梯, 门开北面互不打架) */
@@ -326,17 +300,10 @@ function advSnowHut() {/* 雪屋: 雪块圆顶(球壳 r4, 室内掏空) + 南门
     }
   }
   SceneKit.fill(h.cx - 1, ADV_GROUND + 1, h.cz + h.r, h.cx, ADV_GROUND + 2, h.cz + h.r, 0); /* 门洞朝南 2×2 */
-  /* 地下宝箱室 5×5×3(y19~21) */
-  SceneKit.fill(h.cx - 2, 18, h.cz - 2, h.cx + 2, 18, h.cz + 2, B_SNOW); /* 室地板 */
-  SceneKit.fill(h.cx - 2, 19, h.cz - 2, h.cx + 2, 21, h.cz + 2, 0); /* 室腔 */
-  SceneKit.fill(h.cx - 2, 22, h.cz - 2, h.cx + 2, 23, h.cz + 2, B_SNOW); /* 室顶(屋内地面下) */
-  setBlockRaw(h.cx, 20, h.cz, B_CHEST);
-  setBlockRaw(h.cx - 1, 19, h.cz - 1, B_TORCH); /* 落地站膛(y19 站室地板 y18, 悬空 thin 会被清扫治愈) */
-  for (let i = 0; i <= 5; i++) {/* 东侧 1 宽出路台阶 y19→y24 */
-    const x = h.cx + 3 + i; const y = 19 + i;
-    for (let yy = y; yy <= y + 2; yy++) setBlockRaw(x, yy, h.cz, 0);
-    if (getBlock(x, y - 1, h.cz) === 0) setBlockRaw(x, y - 1, h.cz, B_SNOW);
-  }
+  /* 地下宝箱室 5×5×3(y19~21)——几何收编 PrefabKit 'under-room' 雪屋款
+     (2026-11-12 P1, 零行为变更): 缺省形即雪屋安全款(室 5×5/腔 3/单火把/
+     出路 6 步 1 宽), 锚=室心地表格(h.cx, ADV_GROUND, h.cz), floorDy=−6 */
+  PrefabKit.place('under-room', h.cx, ADV_GROUND, h.cz, {mat: B_SNOW});
 }
 
 function advSnowBlocked(x, z) {/* 植被禁区: 门区/雪屋(含出路外延)/冰湖/巢穴 */

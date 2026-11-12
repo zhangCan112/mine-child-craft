@@ -87,8 +87,10 @@
       js/paired-block-core.js 配对方块行注册表, 2026-11-04 架构评审候选①)
      尺寸 · daylight-core 的 Daylight(昼夜 D5 夜怪判定与 D6 睡觉夜窗) ·
      voxel.js 的 getBlock/setBlockRaw/hashRand · scene-kit.js 的
-     SceneKit · items-core 的 ITEMS/toolOf/stackMax/durOf · inventory-core
-     的 add · craft-core 的 fuelUnits/smeltOf/SMELT_T · drops.js 的 rollDrops/
+     SceneKit · prefab-kit.js 的 PrefabKit(mound 行, 2026-11-12 P1 收编:
+     home 巢穴丘几何) · items-core 的 ITEMS/toolOf/stackMax/durOf ·
+     inventory-core 的 add · craft-core 的 fuelUnits/smeltOf/SMELT_T ·
+     drops.js 的 rollDrops/
      rollBlockDrop(加载序: 上述文件在 index.html 均先于本文件) ·
      adventure-maps-core.js 的 advEdgeDirUnlocked/ADV_EDGE_DIR_MAP(〔世界
      边界·T8〕解锁派生消费, 加载序后于本文件——共享 defer 词法调用期解析,
@@ -371,19 +373,10 @@ function advBuildHut() {/* 出生小屋: 原木角柱+木板墙/顶/地, 北门�
   SceneKit.fill(doorX, 25, h.z1, doorX, 26, h.z1, 0); /* 北门洞 */
 }
 
-function advBuildNest(n) {/* 怪物巢穴: 苔石点缀的土丘 + 朝南洞口(刷怪归 T14) */
-  for (let dx = -2; dx <= 2; dx++) {
-    for (let dz = -2; dz <= 2; dz++) {
-      const d = Math.hypot(dx, dz);
-      if (d > 2) continue;
-      const h = d < 0.8 ? 3 : (d < 1.8 ? 2 : 1);
-      for (let y = 25; y <= ADV_GROUND + h; y++) {
-        const id = (d >= 0.8 && SceneKit.rand(n.x + dx, n.z + dz, 5101) > 0.72) ? 14 : 2;
-        setBlockRaw(n.x + dx, y, n.z + dz, id);
-      }
-    }
-  }
-  for (const y of [25, 26]) setBlockRaw(n.x, y, n.z + 2, 0); /* 洞口朝南 */
+function advBuildNest(n) {/* 怪物巢穴: 苔石点缀的土丘 + 朝南洞口(刷怪归 T14)。
+    2026-11-12 P1 薄壳化: 形与掷点判据归 PrefabKit 'mound' 行(签名/调用点
+    不动; 盐 5101 显式传保现值——三图口径缺省 5102) */
+  PrefabKit.place('mound', n.x, ADV_GROUND, n.z, {top: 2, rock: 14, salt: 5101});
 }
 
 function advBuildDenNest(n) {/* 黑巢主巢(den-nest-design §2): 黑石巨丘(r5, 黑石王冠——
