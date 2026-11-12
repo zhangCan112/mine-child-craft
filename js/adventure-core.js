@@ -1397,25 +1397,15 @@ function advEdgeWestBarrier() {/* 迷雾深水带的点睛件: 苔石冒头 ×2(
   }
 }
 
-function advEdgeWestHut() {/* 远景·高脚木屋剪影(西 spec §5): 原木桩柱 ×4 + 木板屋身 +
-  阶梯屋顶, 立在屏障以西雾区(块件只管形体, 「雾中显影」由天/雾锚点承担);
-  暖窗光=顶沿火把(夜间发光, 实心下方=清扫安全); 桩脚从各自地面顶到地板, 地形
-  起伏不悬空(超埋段被地形吞掉=雾中半埋, 可接受) */
-  const x1 = 0; const x2 = 4; const z1 = 22; const z2 = 26;
-  for (const [cx, cz] of [[x1, z1], [x2, z1], [x1, z2], [x2, z2]]) {
-    const t = ADV_GROUND + advHeightAt(cx, cz);
-    for (let y = t + 1; y <= ADV_GROUND + 3; y++) setBlockRaw(cx, y, cz, 5);
-  }
-  SceneKit.fill(x1, ADV_GROUND + 4, z1, x2, ADV_GROUND + 4, z2, 6); /* 地板 y28 */
-  for (const y of [ADV_GROUND + 5, ADV_GROUND + 6]) {
-    SceneKit.fill(x1, y, z1, x2, y, z1, 6);
-    SceneKit.fill(x1, y, z2, x2, y, z2, 6);
-    SceneKit.fill(x1, y, z1 + 1, x1, y, z2 - 1, 6);
-    SceneKit.fill(x2, y, z1 + 1, x2, y, z2 - 1, 6);
-  }
-  SceneKit.fill(x1, ADV_GROUND + 7, z1, x2, ADV_GROUND + 7, z2, 6); /* 顶 y31 */
-  SceneKit.fill(x1 + 1, ADV_GROUND + 8, z1 + 1, x2 - 1, ADV_GROUND + 8, z2 - 1, 6); /* 阶梯上层 */
-  setBlockRaw(x1, ADV_GROUND + 8, z1 + 1, B_TORCH); /* 暖窗光 */
+function advEdgeWestHut() {/* 远景·高脚木屋剪影(西 spec §5): 几何已收编
+    PrefabKit(蓝图件库 P0: 西带款 v——5×5/桩脚逐柱跟地形/无门/阶梯顶/顶沿火把,
+    等价迁移零行为变更), 立在屏障以西雾区(「雾中显影」由天/雾锚点承担);
+    近旁兰花是落位政策, 留壳不进 kit */
+  PrefabKit.place('stilt-hut', 2, ADV_GROUND, 24, {
+    size: {hx: 2, back: 2, front: 2},
+    piles: 'terrain', ground: advHeightAt,
+    door: false, roof: 'stepped', chest: false, torch: 'rim', steps: 0,
+  });
   advEdgeDecorate(6, 20, B_ORCHID); /* 木屋近旁兰花 ×2(远景清单) */
   advEdgeDecorate(6, 28, B_ORCHID);
 }

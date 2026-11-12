@@ -116,6 +116,7 @@ const eng = vm.createContext({console: {log() {}, warn() {}, error() {}},
   groundTop: () => 24, /* world.js 顶层函数的桩(adventure-mode.test 同款) */
 });
 for (const f of ['js/config.js', 'js/voxel.js', 'js/cascade-core.js', 'js/scene-kit.js',
+  'js/prefab-kit.js', /* 蓝图件库(P0): 建场薄壳调用期解析消费 */
   'js/items-core.js', 'js/equipment-core.js', 'js/item-use-registry.js',
   'js/inventory-core.js', 'js/craft-core.js', 'js/mob-registry.js',
   'js/daylight-core.js', 'js/drops.js']) {
@@ -135,7 +136,7 @@ const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, 
   B_GLOWSTONE, B_NETHER_BRICK,
   getBlock, setBlockRaw, getFluidLv, setFluidLv, world, worldCells, worldEvents,
   blockKey, collidesAtPlayer, rollBlockDrop, rollDrops,
-  Daylight, SceneKit, Drops})`, eng);
+  Daylight, SceneKit, PrefabKit, Drops})`, eng);
 Object.assign(globalThis, api); /* 模式/供给核心/放置链经全局名消费这些真件 */
 /* 玩家状态绑定(pos/vel 是 voxel.js 的顶层词法绑定): 壳在 eng 里读到的是 eng 词法
     对象——Node 侧(CombatKit/测试断言)必须与之同一引用, 否则距离判定/血量断言

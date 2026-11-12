@@ -16,12 +16,13 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
 for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
+  'js/prefab-kit.js', /* 蓝图件库(P0): advEdgeWestHut/advSwampHut 薄壳调用期解析消费 */
   'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js',
   'js/cascade-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
-  getBlock, setBlockRaw, blockKey, isOpaque, SceneKit, Daylight,
+  getBlock, setBlockRaw, blockKey, isOpaque, SceneKit, PrefabKit, Daylight,
   groundTop, /* 〔世界边界·T8〕组 8/9 建场: AMC 建场族(Node 域 require)消费真 groundTop */
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
@@ -2794,6 +2795,7 @@ test('T7 性能钉测: 带建场增量倍率 ≤0.93 + 全量中位 ≤1500ms(en
   /* 〔世界边界·T8〕AMC 挂 context: AC 建场链 advEdgeOpenDir 调用期解析消费
      advEdgeDirUnlocked(清单加载序 AC 之后) */
   for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
+    'js/prefab-kit.js', /* 蓝图件库(P0): advEdgeWestHut/advSwampHut 薄壳调用期解析消费 */
     'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js', 'js/cascade-core.js',
     'js/adventure-spawn-core.js', 'js/adventure-core.js',
     'js/adventure-maps-core.js']) {

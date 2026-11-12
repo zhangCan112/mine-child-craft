@@ -18,11 +18,12 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
 for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
+  'js/prefab-kit.js', /* 蓝图件库(P0): advEdgeWestHut/advSwampHut 薄壳调用期解析消费 */
   'js/items-core.js', 'js/equipment-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
-  getBlock, setBlockRaw, hashRand, SceneKit,
+  getBlock, setBlockRaw, hashRand, SceneKit, PrefabKit,
   EQUIP_SLOTS, mkWorn, wornPut, wornNormalize, armorOf, isArmor, /* 装备核心(T5 壳层经全局名消费) */
   armorPoints, toughPoints, armorReduce, kbResist, wornWear, /* 装备战斗件(T6 漏斗经全局名消费) */
   WORLD_W, WORLD_D, WORLD_H,
@@ -310,7 +311,8 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
   /* ---------- 真引擎件: 与 adventure-mode.test.js 同一装载序 + cascade-core ---------- */
   const engC = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
   for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js',
-    'js/cascade-core.js', 'js/scene-kit.js', 'js/items-core.js', 'js/item-use-registry.js',
+    'js/cascade-core.js', 'js/scene-kit.js', 'js/prefab-kit.js', /* 蓝图件库(P0): 建场薄壳调用期解析消费 */
+    'js/items-core.js', 'js/item-use-registry.js',
     'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), engC, {filename: f});
   }
@@ -318,7 +320,8 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
       advDenTodayKey 消费 budgetDateStr(导出平铺; adventure.js 经 require 装载,
       自由标识符走 Node 全局) */
   apiC = vm.runInContext(`({
-    getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, world, worldCells, SceneKit,
+    getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, world, worldCells,
+    SceneKit, PrefabKit,
     groundTop, lightSkyAt, lightBlockAt,
     BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID,
     B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,

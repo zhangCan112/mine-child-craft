@@ -18,11 +18,12 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
 for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js', 'js/scene-kit.js',
+  'js/prefab-kit.js', /* 蓝图件库(P0): advEdgeWestHut/advSwampHut 薄壳调用期解析消费 */
   'js/items-core.js', 'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 const api = vm.runInContext(`({
-  getBlock, setBlockRaw, SceneKit, Daylight, BLOCKS, breakTime, ITEMS,
+  getBlock, setBlockRaw, SceneKit, PrefabKit, Daylight, BLOCKS, breakTime, ITEMS,
   WORLD_W, WORLD_D, WORLD_H,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_SAPLING, B_TORCH, B_TNT, B_GRASS_TUFT, B_BED, B_BED_FOOT,

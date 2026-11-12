@@ -410,27 +410,12 @@ function advSwampTerrain() {/* 沼泽地层: 平地草/泥/石(home 口径, 无�
   }
 }
 
-function advSwampHut() {/* 女巫小屋(MC 沼泽小屋同款位): 高脚木屋——原木柱脚
-    y25~27 撑起木板屋体(地板 y28/墙 y29~30/顶 y31), 南门洞+台阶进门;
-    屋内宝箱+火把。witch 常驻位在图常量(ADV_SWAMP.hut), spawn 归壳 T6 */
+function advSwampHut() {/* 女巫小屋(MC 沼泽小屋同款位): 高脚木屋——几何已收编
+    PrefabKit(蓝图件库 P0: stilt-hut 缺省 v=沼泽款现值, 等价迁移零行为变更);
+    witch 常驻位在图常量(ADV_SWAMP.hut), spawn 归壳 T6; 植被禁区(advSwampBlocked
+    含小屋+台阶盒)与台阶走向是落位政策, 留壳不进 kit */
   const h = ADV_SWAMP.hut;
-  for (const cn of [[h.x - 2, h.z - 1], [h.x + 2, h.z - 1], [h.x - 2, h.z + 1], [h.x + 2, h.z + 1]]) {
-    for (let y = ADV_GROUND + 1; y <= ADV_GROUND + 3; y++) setBlockRaw(cn[0], y, cn[1], 5); /* 柱脚 */
-  }
-  SceneKit.fill(h.x - 2, ADV_GROUND + 4, h.z - 1, h.x + 2, ADV_GROUND + 4, h.z + 2, 6); /* 地板 */
-  for (const y of [ADV_GROUND + 5, ADV_GROUND + 6]) {/* 墙(留南门洞) */
-    SceneKit.fill(h.x - 2, y, h.z - 1, h.x + 2, y, h.z - 1, 6);
-    SceneKit.fill(h.x - 2, y, h.z + 2, h.x + 2, y, h.z + 2, 6);
-    SceneKit.fill(h.x - 2, y, h.z, h.x - 2, y, h.z + 1, 6);
-    SceneKit.fill(h.x + 2, y, h.z, h.x + 2, y, h.z + 1, 6);
-  }
-  SceneKit.fill(h.x, ADV_GROUND + 5, h.z + 2, h.x, ADV_GROUND + 6, h.z + 2, 0); /* 南门洞 2 高 */
-  SceneKit.fill(h.x - 2, ADV_GROUND + 7, h.z - 1, h.x + 2, ADV_GROUND + 7, h.z + 2, 6); /* 顶 */
-  setBlockRaw(h.x, ADV_GROUND + 4, h.z, B_CHEST);
-  setBlockRaw(h.x - 2, ADV_GROUND + 5, h.z - 1, B_TORCH); /* 西墙火把 */
-  for (let i = 0; i <= 2; i++) {/* 台阶: y25..y27 三级到地板平步(1 格级) */
-    setBlockRaw(h.x, ADV_GROUND + 1 + i, h.z + 5 - i, 6);
-  }
+  PrefabKit.place('stilt-hut', h.x, ADV_GROUND, h.z);
 }
 
 function advSwampBlocked(x, z) {/* 植被禁区: 门区/小屋(含台阶)/水洼(+泥岸)/巢穴 */
