@@ -1,11 +1,13 @@
 # Midport Village 村民角色设计（Town Villagers Design）
 
-> 文档状态：**设计权威（城镇角色收束稿）**  
+> 文档状态：**设计权威（城镇角色收束稿，已对齐素材库框架分工）**  
 > 产出日期：2026-11-12  
 > 事实底座：[`docs/minecraft-movie-town-research.md`](minecraft-movie-town-research.md)  
 > 角色视觉细化定稿（canonical）：[`docs/design/town-villagers-visual-spec.md`](design/town-villagers-visual-spec.md)  
 > 地图/场景归位：[`docs/town-map-design.md`](town-map-design.md)  
-> 素材制作输入：[`docs/town-assets-requirements.md`](town-assets-requirements.md)
+> 素材制作输入：[`docs/town-assets-requirements.md`](town-assets-requirements.md)  
+> **素材件库就绪规格（建筑/场景件与植被映射）**：[`docs/design/town-prefab-specs.md`](design/town-prefab-specs.md)（角色/NPC/生物与 UI 属独立资产域，不入 PrefabKit/SceneKit 几何蓝图）  
+> **UI 设计定稿**：[`docs/design/town-ui-entry-hud-spec.md`](design/town-ui-entry-hud-spec.md)、[`docs/design/town-ui-dialog-spec.md`](design/town-ui-dialog-spec.md)
 
 ## 1. 目的与整合说明
 
@@ -356,5 +358,7 @@
 
 - 角色视觉细化 canonical：[`docs/design/town-villagers-visual-spec.md`](design/town-villagers-visual-spec.md)（实现落地备注/派生规则以该文为准）。
 - 电影事实与证据分级：[`docs/minecraft-movie-town-research.md`](minecraft-movie-town-research.md)。
+- **素材件库就绪规格**：[`docs/design/town-prefab-specs.md`](design/town-prefab-specs.md)（建筑/场景件 PrefabKit 与植被 SceneKit 映射；角色/氛围动物/手持附件不入其几何行表）。
+- **UI 设计定稿**：[`docs/design/town-ui-entry-hud-spec.md`](design/town-ui-entry-hud-spec.md)、[`docs/design/town-ui-dialog-spec.md`](design/town-ui-dialog-spec.md)（对话框/提示等 UI 边界以 UI 定稿为准）。
 - 模型结构/比例语言：`docs/mc-mob-models-research.md`；铁傀儡机制与表现语义：`docs/iron-golem-research.md`。
 - 地图归位：[`docs/town-map-design.md`](town-map-design.md)。

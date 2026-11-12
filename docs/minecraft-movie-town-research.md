@@ -2,7 +2,8 @@
 
 > 产出目的：为后续 `town-map-design` / `town-villagers-design` / `town-assets-requirements` 提供带引用的事实底座。  
 > 调研日期：2026-11-12（基于本次可获取的公开资料）。  
-> 口径声明：**只认一手信源优先**。但受当前网络抓取限制，部分电影画面细节无法直接逐帧核验；对无法从一手信源文本直接确认的点，本文明确标注“未在一手信源中确认/推测（基于公开剧照/画廊说明观察）”，不编造。
+> 口径声明：**只认一手信源优先**。但受当前网络抓取限制，部分电影画面细节无法直接逐帧核验；对无法从一手信源文本直接确认的点，本文明确标注“未在一手信源中确认/推测（基于公开剧照/画廊说明观察）”，不编造。  
+> 素材件库就绪规格（后续落库对齐）：[`docs/design/town-prefab-specs.md`](design/town-prefab-specs.md)（建筑/场景件→PrefabKit 蓝图名与 `v` 面，植被→SceneKit 树家族 `tree/pine/pineSnowy/scrub`；材质 id 注入、几何与落位政策分线，以框架契约为准）。
 
 ## 摘要
 
@@ -172,3 +173,8 @@
 - [9] 仓库内既有调研：`docs/mc-mob-models-research.md`（2026-10-26，基于 Mojang bedrock-samples 等）。
 
 **未查到/未能直接确认的信源缺口**：Warner Bros./Legendary/Mojang 发布的 Midport Village 专项设定图、场景平面图、官方材质/色板表、含逐镜头村庄布局说明的官方制作笔记（本次未检索到可公开访问的一手页面文本）。因此建筑精确数量、尺寸比例、完整材质清单与部分活动细节在本文中按规则降级为“未在一手信源中确认/推测”或“默认待确认建议”。  
+
+## 后续对齐路标（框架与 UI）
+
+- **素材件库就绪规格**：[docs/design/town-prefab-specs.md](design/town-prefab-specs.md)（将本调研母题转译为 PrefabKit 蓝图件/SceneKit 植被映射时的落库契约）。
+- **UI 设计定稿**：[`docs/design/town-ui-entry-hud-spec.md`](design/town-ui-entry-hud-spec.md)、[`docs/design/town-ui-dialog-spec.md`](design/town-ui-dialog-spec.md)。

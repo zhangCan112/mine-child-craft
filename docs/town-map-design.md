@@ -1,11 +1,12 @@
 # Midport Village 城镇地图设计（Town Map Design）
 
-> 文档状态：**设计权威（城镇设计收束稿）**  
+> 文档状态：**设计权威（城镇设计收束稿，已对齐 PrefabKit/SceneKit 素材库框架）**  
 > 产出日期：2026-11-12  
 > 事实底座：[`docs/minecraft-movie-town-research.md`](minecraft-movie-town-research.md)（保留其一手信源引用与证据分级，不在本文重复造源）  
 > 建筑/地标视觉细化定稿：[`docs/design/town-buildings-visual-spec.md`](design/town-buildings-visual-spec.md)（材质色板、P0/P1/P2 体量与三视图/立面文字规格的唯一视觉细化权威）  
 > 村民/角色视觉细化定稿：[`docs/design/town-villagers-visual-spec.md`](design/town-villagers-visual-spec.md)（角色清单、配色与三视图文字规格的唯一视觉细化权威）  
-> 关联文档：[`docs/town-villagers-design.md`](town-villagers-design.md) · [`docs/town-assets-requirements.md`](town-assets-requirements.md)
+> **素材件库就绪规格（PrefabKit/SceneKit 映射与变种面）**：[`docs/design/town-prefab-specs.md`](design/town-prefab-specs.md)（建筑/关键场景件→PrefabKit 蓝图名与 v 面，植被→SceneKit 树家族；冲突处以框架契约为准）  
+> 关联文档：[`docs/town-villagers-design.md`](town-villagers-design.md) · [`docs/town-assets-requirements.md`](town-assets-requirements.md) · **UI 设计定稿**：[`docs/design/town-ui-entry-hud-spec.md`](design/town-ui-entry-hud-spec.md)、[`docs/design/town-ui-dialog-spec.md`](design/town-ui-dialog-spec.md)
 
 ## 1. 目的、范围与口径
 
@@ -114,7 +115,7 @@ flowchart TB
 
 ## 4. 功能分区、建筑清单与体量
 
-> 体量/材质/立面细节以 [`docs/design/town-buildings-visual-spec.md`](design/town-buildings-visual-spec.md) 为准；本节做地图归位与可达性/功能整合。
+> 体量/材质/立面细节以 [`docs/design/town-buildings-visual-spec.md`](design/town-buildings-visual-spec.md) 为准；**素材件落库契约（PrefabKit 蓝图名/脚印/`v` 变种面/材质注入槽，或 SceneKit/场景拼装分类）以 [`docs/design/town-prefab-specs.md`](design/town-prefab-specs.md) 为准**；本节做地图归位与可达性/功能整合。冲突处以框架契约为准（材质 id 注入不焊死、按形命名、几何与落位政策分线）。
 
 ### 4.1 分区说明
 
@@ -127,22 +128,22 @@ flowchart TB
 | 远景层（最北） | 可玩区外 | 层次与电影母题还原 | 壮阔但不压迫 | **不可达**（剪影/碰撞边界外） |
 | 彩蛋区（P2，可选） | 广场南侧/边角 | 趣味观赏、奖励感 | 幽默、安全 | **可达（若启用）**，不做挑战 |
 
-### 4.2 建筑与地标清单（整合 P0/P1/P2）
+### 4.2 建筑与地标清单（整合 P0/P1/P2）与 PrefabKit/SceneKit 映射
 
-| ID | 名称 | 分区 | 优先级 | 占地/高度(方块) | 核心特征与可达性 | 来源口径 |
-|---|---|---:|---:|---|---|---|
-| P0-01 | 中心广场与钟塔 Plaza & Bell Tower | 中心 Hub | P0 | 广场 28×28；钟塔 6×6，高 14-16 | 竖向主焦点、四面开敞钟室、广场留白通廊；集会/导览锚点。**可达**（广场全开放；钟塔内部是否可进由实现定，默认外观锚点）。 | 钟塔/开放市集【电影原样】；集会锚点用法【建议为游戏性调整】 |
-| P0-02 | Steve's Lava Chicken! | 东侧商业 | P0 | 10×8，高 7-8（含招牌） | 大招牌+橙色暖光装饰（儿童化，无真实熔岩/火焰威胁）；趣味互动锚点。**可达**（门前/店面交互区）。 | 命名地标【电影原样】；熔岩意象暖光化【建议为游戏性调整】 |
-| P1-01 | Steve's Secret Stash! | 西侧生活边角 | P1 | 6×6，高 5-6 | 小而隐蔽但友好的储藏小屋。**可达**（探索发现点）。 | 命名地标【电影原样】；位置简化【建议为游戏性调整】 |
-| P1-02 | 风车 Windmill | 北侧田园 | P1 | 6×6，高 12-14 | 天际线地标；默认叶片静态造型。**可达**（基座周边）。 | 【电影原样】；静态优先【建议为游戏性调整】 |
-| P1-03 | 小农田与田埂 Farm Plot | 北侧田园 | P1 | 8×12~10×14（成组） | 生活气息与寻物背景；低围栏不阻塞主视线。**可达**（田埂边行走）。 | 村庄生活感【建议为游戏性调整，呼应 MC 语义】 |
-| P1-04 | 民居 A（单层小屋） | 西侧生活 | P1 | 8×7，高 6 | 亲切居住氛围、模块化复用。**可达**（门前花坛/入口区）。 | 村庄建筑群【电影原样】母题；简化【建议为游戏性调整】 |
-| P1-05 | 民居 B（双层联排感） | 西侧生活 | P1 | 10×8，高 8-9 | 错落轮廓丰富街区。**可达**。 | 同上 |
-| P2-01 | 高跳板与小水池 High Jump & Tiny Pool | 南侧/边角彩蛋 | P2 | 跳板 6-8 长高 4-5；水池 2×2~3×3 | 幽默比例反差、**静态观赏、无危险高度叙事**。**可达（若启用）**。 | 【电影原样】趣味元素；去危险化【建议为游戏性调整】 |
-| P2-02 | 额外市集小摊变体 | 广场边缘 | P2 | 3×2~4×3，高 3-4 | 面包/花束/果篮抽象摊位，增强热闹感。**可达**。 | 开放市集【电影原样】 |
-| R-01 | 拱形山体 Arch-shaped Mountain | 北侧远景 | 远景必做 | 视觉高出可玩区 24-40 | 聚落背屏剪影。**不可达**。 | 【电影原样】 |
-| R-02 | 远处崖顶房屋 Distant Cliff Homes | 远景高处 | 远景建议 | 1-2 栋简化轮廓 | 层次剪影。**不可达**。 | 【电影原样】 |
-| R-03 | 神庙 Temple 剪影 | 远景一角 | 远景可选 | 小体量低细节 | 异域轮廓点缀。**不可达**。 | 【电影原样】（细节未确认，低细节） |
+| ID | 名称 | 分区 | 优先级 | 占地/高度(方块) | 核心特征与可达性 | PrefabKit/SceneKit 映射（摘要） | 来源口径 |
+|---|---|---:|---:|---|---|---|---|
+| P0-01 | 中心广场与钟塔 Plaza & Bell Tower | 中心 Hub | P0 | 广场 28×28；钟塔 6×6，高 14-16 | 竖向主焦点、四面开敞钟室、广场留白通廊；集会/导览锚点。**可达**（广场全开放；钟塔内部是否可进由实现定，默认外观锚点）。 | 钟塔 **需新增** `tower-belfry`（按形命名）；广场铺装属**场景拼装/地表模块**（`SceneKit.fill`/铺装逻辑）→ 详见 [prefab-specs §4.1, §5.2](design/town-prefab-specs.md#41-tower-belfry钟塔需新增) | 钟塔/开放市集【电影原样】；集会锚点用法【建议为游戏性调整】 |
+| P0-02 | Steve's Lava Chicken! | 东侧商业 | P0 | 10×8，高 7-8（含招牌） | 大招牌+橙色暖光装饰（儿童化，无真实熔岩/火焰威胁）；趣味互动锚点。**可达**（门前/店面交互区）。 | **需新增** `shop-awning`（暖光意象为装饰块，材质经 `v.ids.glow/sign*` 注入，禁熔岩/火语义）→ [§4.2](design/town-prefab-specs.md#42-shop-awninglava-chicken-店铺需新增) | 命名地标【电影原样】；熔岩意象暖光化【建议为游戏性调整】 |
+| P1-01 | Steve's Secret Stash! | 西侧生活边角 | P1 | 6×6，高 5-6 | 小而隐蔽但友好的储藏小屋。**可达**（探索发现点）。 | 地上 **需新增** `stash-hut`；地下储藏语义可**复用现有** `under-room`（作 `cache-cellar` 基底，覆写 `mat/half/cavH/floorDy/shaft/trap/exit/ids`）→ [§4.3, §4.9](design/town-prefab-specs.md#43-stash-hut秘密储藏小屋需新增) | 命名地标【电影原样】；位置简化【建议为游戏性调整】 |
+| P1-02 | 风车 Windmill | 北侧田园 | P1 | 6×6，高 12-14 | 天际线地标；默认叶片静态造型。**可达**（基座周边）。 | **需新增** `windmill-tower`（`sailStatic` 默认 true，叶片计入 `footOf`）→ [§4.4](design/town-prefab-specs.md#44-windmill-tower风车需新增) | 【电影原样】；静态优先【建议为游戏性调整】 |
+| P1-03 | 小农田与田埂 Farm Plot | 北侧田园 | P1 | 8×12~10×14（成组） | 生活气息与寻物背景；低围栏不阻塞主视线。**可达**（田埂边行走）。 | **场景拼装/地表模块**（`SceneKit.fill` + 围栏/作物点位散布），不入 PrefabKit 行表 → [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 村庄生活感【建议为游戏性调整，呼应 MC 语义】 |
+| P1-04 | 民居 A（单层小屋） | 西侧生活 | P1 | 8×7，高 6 | 亲切居住氛围、模块化复用。**可达**（门前花坛/入口区）。 | **需新增** `cottage-gable` → [§4.5](design/town-prefab-specs.md#45-cottage-gable民居-a需新增) | 村庄建筑群【电影原样】母题；简化【建议为游戏性调整】 |
+| P1-05 | 民居 B（双层联排感） | 西侧生活 | P1 | 10×8，高 8-9 | 错落轮廓丰富街区。**可达**。 | **需新增** `house-loft` → [§4.6](design/town-prefab-specs.md#46-house-loft民居-b需新增) | 同上 |
+| P2-01 | 高跳板与小水池 High Jump & Tiny Pool | 南侧/边角彩蛋 | P2 | 跳板 6-8 长高 4-5；水池 2×2~3×3 | 幽默比例反差、**静态观赏、无危险高度叙事**。**可达（若启用）**。 | **需新增** `board-pool`（静态水色块，非流体系统）→ [§4.8](design/town-prefab-specs.md#48-board-pool高跳板与小水池彩蛋需新增p2) | 【电影原样】趣味元素；去危险化【建议为游戏性调整】 |
+| P2-02 | 额外市集小摊变体 | 广场边缘 | P2 | 3×2~4×3，高 3-4 | 面包/花束/果篮抽象摊位，增强热闹感。**可达**。 | **需新增** `stall-canopy`（`theme/size` 经 `v` 覆写，材质注入）→ [§4.7](design/town-prefab-specs.md#47-stall-canopy市集摊位需新增) | 开放市集【电影原样】 |
+| R-01 | 拱形山体 Arch-shaped Mountain | 北侧远景 | 远景必做 | 视觉高出可玩区 24-40 | 聚落背屏剪影。**不可达**。 | **场景拼装/地表模块**（大体量低细节，不入 PrefabKit）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 【电影原样】 |
+| R-02 | 远处崖顶房屋 Distant Cliff Homes | 远景高处 | 远景建议 | 1-2 栋简化轮廓 | 层次剪影。**不可达**。 | **场景拼装**（低细节剪影）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 【电影原样】 |
+| R-03 | 神庙 Temple 剪影 | 远景一角 | 远景可选 | 小体量低细节 | 异域轮廓点缀。**不可达**。 | **场景拼装**（可选极简轮廓）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 【电影原样】（细节未确认，低细节） |
 
 ### 4.3 路网与可读性规则
 
@@ -169,6 +170,10 @@ flowchart TB
 ### 5.3 声音/节奏（设计建议，供资产与实现阶段）
 
 - **【建议为游戏性调整】** 环境音以轻快柔和为主（风、脚步、轻微市集氛围），不使用警报/战斗强刺激音效；角色反馈配合图标+中文 TTS 友好，节奏舒缓。
+
+### 5.4 植被与树形承接（对齐 SceneKit）
+
+- **【电影原样】** 樱花点缀与田园绿植气质。**【建议为游戏性调整】** 树/植被几何一律挂 **SceneKit 树家族**（`SceneKit.tree` 圆冠 / `pine` / `pineSnowy` / `scrub`），不在地图文档中写散装树体素几何；**落位政策（选点、密度、包门禁/雪根座/不遮挡视线）仍属调用方**。详见 [`docs/design/town-prefab-specs.md` §5.1](design/town-prefab-specs.md#51-植被件挂-scenekit-树家族落位政策属调用方)。
 
 ## 6. 与现有探险模式/注意力训练玩法的结合点（设计建议）
 
@@ -221,6 +226,8 @@ flowchart TB
 ## 9. 引用与对齐说明
 
 - 电影事实、一手信源引用与证据缺口：见 [`docs/minecraft-movie-town-research.md`](minecraft-movie-town-research.md)（S1-S9 及“未在一手信源中确认/推测”口径，本文不新增一手信源）。
+- **素材件库就绪规格与 PrefabKit/SceneKit 映射**：见 [`docs/design/town-prefab-specs.md`](design/town-prefab-specs.md)（与 `js/prefab-kit.js`/`js/scene-kit.js` 契约对齐）。
 - 建筑视觉/色板/三视图：见 [`docs/design/town-buildings-visual-spec.md`](design/town-buildings-visual-spec.md)。
 - 村民与生物视觉：见 [`docs/town-villagers-design.md`](town-villagers-design.md) 与 [`docs/design/town-villagers-visual-spec.md`](design/town-villagers-visual-spec.md)。
+- **UI 设计定稿**：[`docs/design/town-ui-entry-hud-spec.md`](design/town-ui-entry-hud-spec.md)、[`docs/design/town-ui-dialog-spec.md`](design/town-ui-dialog-spec.md)（入口卡/HUD/小地图/对话框等边界由 UI 定稿明确）。
 - MC 机制与模型语言复用参考：`docs/mc-mob-models-research.md`、`docs/iron-golem-research.md`、`GLOSSARY.md`（术语保持一致）。

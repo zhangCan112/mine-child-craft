@@ -1,8 +1,10 @@
 # Midport Village 素材需求清单（Town Assets Requirements）
 
-> 文档状态：**设计权威（素材制作输入）**  
+> 文档状态：**设计权威（素材制作输入，已对齐 PrefabKit/SceneKit 素材库框架）**  
 > 产出日期：2026-11-12  
-> 输入依据：[`docs/town-map-design.md`](town-map-design.md) · [`docs/town-villagers-design.md`](town-villagers-design.md) · [`docs/design/town-buildings-visual-spec.md`](design/town-buildings-visual-spec.md) · [`docs/design/town-villagers-visual-spec.md`](design/town-villagers-visual-spec.md) · [`docs/minecraft-movie-town-research.md`](minecraft-movie-town-research.md)
+> 输入依据：[`docs/town-map-design.md`](town-map-design.md) · [`docs/town-villagers-design.md`](town-villagers-design.md) · [`docs/design/town-buildings-visual-spec.md`](design/town-buildings-visual-spec.md) · [`docs/design/town-villagers-visual-spec.md`](design/town-villagers-visual-spec.md) · [`docs/minecraft-movie-town-research.md`](minecraft-movie-town-research.md)  
+> **素材件库就绪规格（PrefabKit/SceneKit 映射一一对应）**：[`docs/design/town-prefab-specs.md`](design/town-prefab-specs.md)（建筑/关键场景件/植被的蓝图名、脚印、`v` 变种面与材质注入槽唯一落库契约；冲突处以框架契约为准）  
+> **UI 设计定稿**：[`docs/design/town-ui-entry-hud-spec.md`](design/town-ui-entry-hud-spec.md)、[`docs/design/town-ui-dialog-spec.md`](design/town-ui-dialog-spec.md)
 
 ## 1. 目的与使用方式
 
@@ -33,39 +35,45 @@
 - **状态后缀**：`_ok`/`_crack1`/`_crack2`/`_crack3`/`_crack4`（傀儡裂纹）、`_day`/`_night`（可选光照态）、`_open`/`_idle` 等。
 - **交付建议**：源文件（可编辑）+ 导出运行资产；附一份资产索引表（id、优先级、依赖、状态数、备注）与色板对照；三视图/立面文字规格已在 design docs 中，资产评审以其为对照。
 
-## 4. 建筑与地标素材
+## 4. 建筑与地标素材（与 PrefabKit/SceneKit 映射一一对应）
 
-| 资产 ID | 名称 | 类型 | 规格/体量（方块） | 贴图/材质要点 | 状态/变体 | 数量 | 优先级 | 依赖/备注 |
-|---|---|---|---|---|---:|---:|---:|---|
-| B-P0-01 | 中心广场与钟塔 | 建筑+场景块 | 广场 28×28；钟塔 6×6 高14-16（分层见 buildings spec §7.1） | 浅石铺装 `#D9CDBE`、中石路缘 `#B8AA98`、暖木塔身、陶橙/暖褐顶、暖金钟 `#E3B23C` | 基础；可选夜灯点 | 1 组 | P0 | 依赖道路模块衔接；钟塔视线焦点不可遮挡 |
-| B-P0-02 | Steve's Lava Chicken! | 建筑地标 | 10×8 高7-8（§7.2） | 暖木/陶橙顶/奶油布幔/天蓝招牌底 `#7EC8E3`；橙色暖光装饰块意象（非熔岩） | 基础；招牌图形层可独立 | 1 | P0 | 招牌内容图标化（鸡+餐盘+暖橙光），文案定稿待 UI |
-| B-P1-01 | Steve's Secret Stash! | 建筑 | 6×6 高5-6 | 暖木-中/深、铁灰小配件、中石基座；友好隐蔽感 | 基础 | 1 | P1 | 可复用箱/桶小道具 |
-| B-P1-02 | 风车 Windmill | 建筑地标 | 6×6 高12-14（§7.5） | 暖木塔身、奶油/浅木叶片、暖褐顶、铁灰轴心 | **默认静态**；动态旋转【待 PO 确认】 | 1 | P1 | 叶片与轴心可分件便于后续可选动画 |
-| B-P1-03 | 小农田与田埂 | 场景组块 | 8×12~10×14 成组 | 泥土褐 `#8B6A4E`、草绿 `#7FB069`、作物黄绿 `#B7C96B`、暖木围栏 | 1-2 种作物变体 | 1-2 组 | P1 | 依赖植被/围栏模块 |
-| B-P1-04 | 民居 A（单层） | 建筑模块 | 8×7 高6（§7.3） | 暖木墙、陶橙顶、浅石基座、奶油窗框 | 基础；门窗明暗可选 | 1-2 | P1 | 可与 B 组合街区 |
-| B-P1-05 | 民居 B（双层） | 建筑模块 | 10×8 高8-9（§7.4） | 暖木-浅/中混搭、陶橙错落顶、布幔点缀 | 基础 | 1-2 | P1 | 轮廓与 A 错落 |
-| B-P2-01 | 高跳板与小水池 | 彩蛋地标 | 跳板 6-8 长高4-5；池 2×2~3×3（§5.3） | 暖木跳板、浅石池沿、水色 `#8FD3E8`（静态） | 静态观赏 | 1 组 | P2 | 去危险化，无高度挑战 |
-| B-P2-02 | 额外市集小摊变体 | 场景道具组 | 3×2~4×3 高3-4 | 木架+彩色布棚（奶油/樱粉/天蓝）+抽象道具色块 | 2-3 主题变体 | 2-4 | P2 | 可并入 P0 广场丰富度 |
-| B-R-01 | 拱形山体剪影 | 远景 | 高出可玩区 24-40（视觉） | 暖灰石 `#B7B0A6`+绿植斑块，低细节 | 单体 | 1 | P1(远景必做) | 不可达，碰撞边界外 |
-| B-R-02 | 崖顶房屋剪影 | 远景 | 1-2 栋低细节轮廓 | 陶橙屋顶点缀 | 1-2 种 | 1-2 | P1 | 不可达 |
-| B-R-03 | 神庙剪影 | 远景可选 | 小体量低细节 | 浅石+暖木色块，无宗教符号细节 | 单体 | 0-1 | P2 | 细节未确认 |
+> 映射列说明：`需新增 Prefab`=建议新增蓝图行（按形命名，`v`/材质注入/`footOf` 见 [prefab-specs](design/town-prefab-specs.md)）；`复用 Prefab`=直接用现有 `stilt-hut`/`under-room`/`mound` 并覆写 `v`；`SceneKit`=树家族；`场景拼装/地表`=不入 PrefabKit 行表。材质色为观感基线，落库时经 `ids/mat` 等槽注入不焊死。
 
-## 5. 环境道具与植被素材
+| 资产 ID | 名称 | 类型 | 规格/体量（方块） | 贴图/材质要点（注入基线） | 状态/变体 | 数量 | 优先级 | PrefabKit/SceneKit 映射 | 依赖/备注 |
+|---|---|---|---|---|---|---:|---:|---|---|
+| B-P0-01 | 中心广场与钟塔 | 建筑+场景块 | 广场 28×28；钟塔 6×6 高14-16（分层见 buildings spec §7.1） | 浅石铺装 `#D9CDBE`、中石路缘 `#B8AA98`、暖木塔身、陶橙/暖褐顶、暖金钟 `#E3B23C` | 基础；可选夜灯点 | 1 组 | P0 | 钟塔 **需新增 Prefab** `tower-belfry`；广场 **场景拼装/地表** → [§4.1,§5.2](design/town-prefab-specs.md#41-tower-belfry钟塔需新增) | 依赖道路模块衔接；钟塔视线焦点不可遮挡 |
+| B-P0-02 | Steve's Lava Chicken! | 建筑地标 | 10×8 高7-8（§7.2） | 暖木/陶橙顶/奶油布幔/天蓝招牌底 `#7EC8E3`；橙色暖光装饰块意象（非熔岩） | 基础；招牌图形层可独立 | 1 | P0 | **需新增 Prefab** `shop-awning`（`v.windowGlow=warm` 仅装饰块意象）→ [§4.2](design/town-prefab-specs.md#42-shop-awninglava-chicken-店铺需新增) | 招牌内容图标化（鸡+餐盘+暖橙光），文案定稿待 UI（`docs/design/town-ui-*.md`，待定稿） |
+| B-P1-01 | Steve's Secret Stash! | 建筑 | 6×6 高5-6 | 暖木-中/深、铁灰小配件、中石基座；友好隐蔽感 | 基础 | 1 | P1 | 地上 **需新增 Prefab** `stash-hut`；地下储藏可 **复用 Prefab** `under-room`（`cache-cellar` 覆写）→ [§4.3,§4.9](design/town-prefab-specs.md#43-stash-hut秘密储藏小屋需新增) | 可复用箱/桶小道具（道具散布，非蓝图几何） |
+| B-P1-02 | 风车 Windmill | 建筑地标 | 6×6 高12-14（§7.5） | 暖木塔身、奶油/浅木叶片、暖褐顶、铁灰轴心 | **默认静态**；动态旋转【待 PO 确认】 | 1 | P1 | **需新增 Prefab** `windmill-tower`（`sailStatic` 默认 true）→ [§4.4](design/town-prefab-specs.md#44-windmill-tower风车需新增) | 叶片与轴心可分件便于后续可选动画（几何/foot 含外伸） |
+| B-P1-03 | 小农田与田埂 | 场景组块 | 8×12~10×14 成组 | 泥土褐 `#8B6A4E`、草绿 `#7FB069`、作物黄绿 `#B7C96B`、暖木围栏 | 1-2 种作物变体 | 1-2 组 | P1 | **场景拼装/地表**（`SceneKit.fill`/田埂与围栏点位）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 依赖植被/围栏模块 |
+| B-P1-04 | 民居 A（单层） | 建筑模块 | 8×7 高6（§7.3） | 暖木墙、陶橙顶、浅石基座、奶油窗框 | 基础；门窗明暗可选 | 1-2 | P1 | **需新增 Prefab** `cottage-gable` → [§4.5](design/town-prefab-specs.md#45-cottage-gable民居-a需新增) | 可与 B 组合街区 |
+| B-P1-05 | 民居 B（双层） | 建筑模块 | 10×8 高8-9（§7.4） | 暖木-浅/中混搭、陶橙错落顶、布幔点缀 | 基础 | 1-2 | P1 | **需新增 Prefab** `house-loft` → [§4.6](design/town-prefab-specs.md#46-house-loft民居-b需新增) | 轮廓与 A 错落 |
+| B-P2-01 | 高跳板与小水池 | 彩蛋地标 | 跳板 6-8 长高4-5；池 2×2~3×3（§5.3） | 暖木跳板、浅石池沿、水色 `#8FD3E8`（静态） | 静态观赏 | 1 组 | P2 | **需新增 Prefab** `board-pool`（静态，非流体）→ [§4.8](design/town-prefab-specs.md#48-board-pool高跳板与小水池彩蛋需新增p2) | 去危险化，无高度挑战 |
+| B-P2-02 | 额外市集小摊变体 | 场景道具组 | 3×2~4×3 高3-4 | 木架+彩色布棚（奶油/樱粉/天蓝）+抽象道具色块 | 2-3 主题变体 | 2-4 | P2 | **需新增 Prefab** `stall-canopy`（`theme/size` + `ids` 注入）→ [§4.7](design/town-prefab-specs.md#47-stall-canopy市集摊位需新增) | 可并入 P0 广场丰富度 |
+| B-R-01 | 拱形山体剪影 | 远景 | 高出可玩区 24-40（视觉） | 暖灰石 `#B7B0A6`+绿植斑块，低细节 | 单体 | 1 | P1(远景必做) | **场景拼装**（不可达，不入 PrefabKit）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 碰撞边界外 |
+| B-R-02 | 崖顶房屋剪影 | 远景 | 1-2 栋低细节轮廓 | 陶橙屋顶点缀 | 1-2 种 | 1-2 | P1 | **场景拼装** → [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 不可达 |
+| B-R-03 | 神庙剪影 | 远景可选 | 小体量低细节 | 浅石+暖木色块，无宗教符号细节 | 单体 | 0-1 | P2 | **场景拼装** → [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 细节未确认 |
 
-| 资产 ID | 名称 | 类型 | 规格/尺度建议 | 贴图/材质要点 | 状态/变体 | 数量 | 优先级 | 依赖/备注 |
-|---|---|---|---|---|---:|---:|---:|---|
-| E-01 | 广场铺装模块 | 地表/模块 | 1×1/2×2 拼块 | 浅石 `#D9CDBE` 主、中石 `#B8AA98` 纹样/路缘 | 2-3 拼接变体 | 1 套 | P0 | 主路/广场通用 |
-| E-02 | 主路/支路模块 | 地表/模块 | 宽 4-5 / 2-3 路段件 | 浅石+中石边；支路可混暖木/碎石暗示 | 直/弧/交叉口 | 1 套 | P0 | 回望可见钟塔原则 |
-| E-03 | 樱花树 | 植被地标 | 树冠径 5-7，高 6-7 | 树冠 `#F7C6D9`，树干 `#8C6A4A`；可选落花色块 | 基础 | 1-2 | P0 | 广场核心 1 棵必备（buildings spec） |
-| E-04 | 普通绿植/灌木/树篱 | 植被 | 1×1~2×2 | 草绿 `#7FB069`、叶绿 `#4F8A5B` | 2-3 变体 | 若干 | P1 | 点缀不遮挡门窗招牌 |
-| E-05 | 花坛/盆栽 | 道具 | 1×1~2×1 | 暖木/石盆 + 樱粉/奶油/天蓝小花块 | 2 变体 | 若干 | P1 | 路口/门前提示 |
-| E-06 | 木桶/箱/货物堆 | 道具 | 1×1×1~2×1×1 | 暖木+铁灰箍；友好储物感 | 2-3 变体 | 若干 | P1 | 广场/店侧/Secret Stash 氛围 |
-| E-07 | 灯柱/挂灯（装饰） | 道具 | 高 3-4 | 暖金灯罩 `#E3B23C`+奶油灯体；夜态暖光 `#FFD89A` 可选 | 日态/夜态(可选) | 4-8 | P1 | 夜态【待 PO 确认】默认不做发光版 |
-| E-08 | 栅栏/围栏 | 道具模块 | 高 1-1.5，段件 | 暖木 | 直/角 | 1 套 | P1 | 农田/动物区低围栏 |
-| E-09 | 旗帜/布幔/花环 | 装饰 | 小面积挂件 | 樱粉 `#F2B8C6`/天蓝 `#7EC8E3`/奶油 `#F3E6C8` | 2-3 配色 | 若干 | P1 | 面积 <15%，不抢地标 |
-| E-10 | 路标/指引色块（低对比） | 交互辅助道具 | 1×1 小件 | 与环境协调的高可读色块（天蓝/暖金点） | 1-2 | 若干 | P1 | 服务 6 岁寻路与注意力引导 |
+## 5. 环境道具与植被素材（与 SceneKit/场景分类一一对应）
 
-## 6. 村民与生物素材
+> 树形几何统一挂 **SceneKit 树家族**（`tree` 圆冠 / `pine` / `pineSnowy` / `scrub`），不写散装树体素几何；**落位政策（选点/密度/包门禁/不遮挡视线）属调用方**。材质注入/覆写现状见 [prefab-specs §5.1](design/town-prefab-specs.md#51-植被件挂-scenekit-树家族落位政策属调用方)。
+
+| 资产 ID | 名称 | 类型 | 规格/尺度建议 | 贴图/材质要点（注入/覆写基线） | 状态/变体 | 数量 | 优先级 | PrefabKit/SceneKit 映射 | 依赖/备注 |
+|---|---|---|---|---|---|---:|---:|---|---|
+| E-01 | 广场铺装模块 | 地表/模块 | 1×1/2×2 拼块 | 浅石 `#D9CDBE` 主、中石 `#B8AA98` 纹样/路缘 | 2-3 拼接变体 | 1 套 | P0 | **场景拼装/地表**（`SceneKit.fill`/铺装逻辑）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 主路/广场通用 |
+| E-02 | 主路/支路模块 | 地表/模块 | 宽 4-5 / 2-3 路段件 | 浅石+中石边；支路可混暖木/碎石暗示 | 直/弧/交叉口 | 1 套 | P0 | **场景拼装/地表** → [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 回望可见钟塔原则 |
+| E-03 | 樱花树 | 植被地标 | 树冠径 5-7，高 6-7（圆冠语义） | 树冠 `#F7C6D9`，树干 `#8C6A4A`；可选落花色块 | 基础 | 1-2 | P0 | **SceneKit `tree`**（圆冠几何；粉冠材质为调用方覆写/扩展点，**不写散装树几何**）→ [§5.1](design/town-prefab-specs.md#51-植被件挂-scenekit-树家族落位政策属调用方) | 广场核心 1 棵必备（buildings spec） |
+| E-04 | 普通绿植/灌木/树篱 | 植被 | 1×1~2×2（或乔木尺度） | 草绿 `#7FB069`、叶绿 `#4F8A5B` | 2-3 变体 | 若干 | P1 | **SceneKit `scrub`（矮丛）或 `tree`/`pine`（乔木）**，落位属调用方 → [§5.1](design/town-prefab-specs.md#51-植被件挂-scenekit-树家族落位政策属调用方) | 点缀不遮挡门窗招牌 |
+| E-05 | 花坛/盆栽 | 道具 | 1×1~2×1 | 暖木/石盆 + 樱粉/奶油/天蓝小花块 | 2 变体 | 若干 | P1 | **场景拼装/道具散布**（可选后续微型 Prefab）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 路口/门前提示 |
+| E-06 | 木桶/箱/货物堆 | 道具 | 1×1×1~2×1×1 | 暖木+铁灰箍；友好储物感 | 2-3 变体 | 若干 | P1 | **场景拼装/道具散布** → [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 广场/店侧/Secret Stash 氛围 |
+| E-07 | 灯柱/挂灯（装饰） | 道具 | 高 3-4 | 暖金灯罩 `#E3B23C`+奶油灯体；夜态暖光 `#FFD89A` 可选 | 日态/夜态(可选) | 4-8 | P1 | **场景拼装/道具散布** → [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 夜态【待 PO 确认】默认不做发光版 |
+| E-08 | 栅栏/围栏 | 道具模块 | 高 1-1.5，段件 | 暖木 | 直/角 | 1 套 | P1 | **场景拼装/地表模块**（段件拼装）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 农田/动物区低围栏 |
+| E-09 | 旗帜/布幔/花环 | 装饰 | 小面积挂件 | 樱粉 `#F2B8C6`/天蓝 `#7EC8E3`/奶油 `#F3E6C8` | 2-3 配色 | 若干 | P1 | **场景拼装/道具散布**（或附属建筑 `v` 装饰位）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 面积 <15%，不抢地标 |
+| E-10 | 路标/指引色块（低对比） | 交互辅助道具 | 1×1 小件 | 与环境协调的高可读色块（天蓝/暖金点） | 1-2 | 若干 | P1 | **场景拼装/道具散布**；交互表现边界归 UI → [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 服务 6 岁寻路与注意力引导；UI 见 `docs/design/town-ui-*.md`（待定稿） |
+
+## 6. 村民与生物素材（非 PrefabKit/SceneKit 几何蓝图域）
+
+> 角色/NPC/氛围动物为独立资产域（模型/贴图/动画），不入 PrefabKit/SceneKit 行表；映射关系以 [prefab-specs §5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) 与 [villagers visual spec](design/town-villagers-visual-spec.md) 为准。
 
 **角色贴图整图分辨率基线（【打样后补·默认已采纳，PO 可推翻】2026-11-12，打样实测可用，MC 体素惯例量级）**：村民 64×64，铁傀儡 64×80。  
 **动物贴图整图分辨率基线（【铺开后补·默认已采纳，PO 可推翻】2026-11-12）**：A01 小花鸡 / A02 咪喵 32×32，A03 小褐驼 48×48。  
@@ -91,7 +99,7 @@
 
 ## 7. 交互、提示与 UI 相关素材（与玩法锚点配套）
 
-> 具体 UI 布局/控件视觉不在本阶段建筑/角色 visual spec 范围；以下为地图与注意力训练锚点落地所需的最小素材清单（**设计建议**）。
+> **UI 具体视觉与交互设计**见 [`docs/design/town-ui-entry-hud-spec.md`](design/town-ui-entry-hud-spec.md)、[`docs/design/town-ui-dialog-spec.md`](design/town-ui-dialog-spec.md)（入口卡/HUD/小地图/村民对话框等由 UI 设计定稿统一裁决）。以下为地图与注意力训练锚点落地所需的最小素材清单（**设计建议**，不替代 UI 定稿），不入 PrefabKit/SceneKit 几何蓝图。
 
 | 资产 ID | 名称 | 类型 | 规格/要点 | 状态/变体 | 数量 | 优先级 | 依赖/备注 |
 |---|---|---|---|---|---:|---:|---:|---|
@@ -154,6 +162,8 @@
 - [ ] 动物贴图分辨率基线已定（鸡/猫 32×32、羊驼 48×48）
 - [ ] 地图分区与可达性与 `town-map-design.md` 一致
 - [ ] P0/P1/P2 优先级跨文档对齐，无关键地标/角色遗漏
+- [ ] **建筑/环境件/植被与 `docs/design/town-prefab-specs.md` 一件不落互查**（PrefabKit 蓝图名或复用行、SceneKit 树家族、场景拼装分类一致）
 - [ ] 所有资产为自绘/自建，无官方受版权保护像素素材搬运
 - [ ] Lava Chicken 无真实熔岩/火焰/烫伤表现；整体无威胁与惊吓元素
 - [ ] 命名、状态后缀与交付索引可追溯到本清单 ID
+- [ ] UI 相关资产边界与路标已对齐（[`docs/design/town-ui-entry-hud-spec.md`](design/town-ui-entry-hud-spec.md)、[`docs/design/town-ui-dialog-spec.md`](design/town-ui-dialog-spec.md)）

@@ -3,7 +3,8 @@
 > 产出文件：`docs/design/town-buildings-visual-spec.md`  
 > 角色：ui-designer（建筑/地标/环境视觉与布局视觉要素）  
 > 日期：2026-11-12  
-> 状态：定稿（供 business-analyst 汇总并入主设计文档与 spec）
+> 状态：定稿（供 business-analyst 汇总并入主设计文档与 spec，**已对齐 PrefabKit/SceneKit 素材库框架**）  
+> 素材件库就绪规格（几何落库契约）：[`docs/design/town-prefab-specs.md`](town-prefab-specs.md) — 建筑/关键场景件→PrefabKit 蓝图名、`footOf`、`v` 变种与材质注入槽；植被→SceneKit 树家族（`tree`/`pine`/`pineSnowy`/`scrub`）；冲突处以框架契约为准。
 
 ## 1. 目的与范围
 
@@ -104,6 +105,7 @@
 - **摊位构成**：木架 + 顶棚布幔 + 台面道具（面包/果篮/花束等抽象色块，友好生活化）；高度 3-4 方块，保证 6 岁玩家视线可越过看清远处地标。
 - **氛围锚点**：广场内 1 棵樱花树（树冠直径 5-7，高 6-7）+ 1-2 个花坛/木桶装饰，形成“热闹但有秩序”的聚集感。
 - **【建议为游戏性调整】**：摊位数量与密度以不遮挡路径和钟塔视线为先；不放置拥挤围栏。
+- **素材库映射**：摊位几何对应 **需新增 Prefab** `stall-canopy`（`theme/size`、材质 `ids` 注入）；铺装/道具散布属**场景拼装**；樱花树几何挂 **SceneKit `tree`**（圆冠，落位属调用方）→ 见 [`town-prefab-specs.md` §4.7, §5.1, §5.2](town-prefab-specs.md#47-stall-canopy市集摊位需新增)。
 
 ### 6.2 道路与铺装
 - **主路**：浅石铺装（`#D9CDBE`）+ 中石边缘（`#B8AA98`），宽 4-5，连接广场与各 P0/P1 地标；轻微弧线避免呆板，但不设置迷宫分叉。
@@ -120,6 +122,7 @@
 - **樱花树【电影原样参考】**：至少 1 棵位于广场核心区，可另配 1 棵于风车或民居旁；树冠粉白柔和（`#F7C6D9`），树干 `#8C6A4A`，地面可零星落花色块点缀（可选）。
 - **绿植层次**：草地基底 `#7FB069` + 灌木/树篱 `#4F8A5B` + 花坛点色（樱粉/奶油/天蓝小花块）。
 - **分布原则**：广场“疏朗”、巷道“点缀”、农田“成片但规整”；避免遮挡门窗与招牌。
+- **SceneKit 对齐（框架契约）**：树/植被几何统一挂 **SceneKit 树家族**（圆冠 `SceneKit.tree` / 锥冠 `pine` / 覆雪 `pineSnowy` / 矮丛 `scrub`，按形命名）；**几何与落位政策分线**——选点、密度、包门禁、不遮挡视线属调用方。樱花粉冠观感在当前 `tree` 内核固定叶 id 现状下由调用方覆写层/后续扩展承接，**本文不写散装树体素几何**。→ [`town-prefab-specs.md` §5.1](town-prefab-specs.md#51-植被件挂-scenekit-树家族落位政策属调用方)。
 
 ### 6.5 远景剪影建议（可达性标注）
 
@@ -428,5 +431,6 @@ y0      ▓▓▓▓▓
 - 本文件为**建筑/地标/环境视觉定稿**，可直接作为资产清单拆分与场景搭建的视觉输入。
 - 下游对接建议：
   - business-analyst：将本规格并入主 spec/tickets，绑定 P0/P1/P2 验收点与待 PO 确认项。
-  - 实现/资产线：按 §4 色板与 §5/§7 体量规格落地；NPC 站位与动线细化需与村民/NPC 设计合并评审。
+  - 实现/资产线：按 §4 色板与 §5/§7 体量规格落地，并对照 [`town-prefab-specs.md`](town-prefab-specs.md) 落 PrefabKit 蓝图（按形命名、`v` 显式覆写、材质 id 注入不焊死、`footOf` 脚印与越界守卫）与 SceneKit 植被家族调用；NPC 站位与动线细化需与村民/NPC 设计合并评审。
+  - **UI 具体视觉与交互设计**：入口卡/HUD/小地图/村民对话框等见 [`town-ui-entry-hud-spec.md`](town-ui-entry-hud-spec.md)、[`town-ui-dialog-spec.md`](town-ui-dialog-spec.md)；本文件不承担 UI 视觉设计。
 - 若后续 PO 调整规模或地标优先级，优先保持 P0（广场钟塔 + Lava Chicken）结构与色盘不变，以确保城镇识别度稳定。
