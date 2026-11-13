@@ -229,10 +229,11 @@ function pfMerge(row, id, v) {
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。七行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   kernel(几何内核)。八行: stilt-hut(P0 高脚木屋对)/under-room/mound
    (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔)/shop-awning
    (T-PREFAB-02 店身+前廊遮檐铺面)/stash-hut(T-PREFAB-03 秘密储藏小屋)/
-   windmill-tower(T-PREFAB-04 风车塔), 按形命名不按图命名 */
+   windmill-tower(T-PREFAB-04 风车塔)/cottage-gable(T-PREFAB-05 民居 A),
+   按形命名不按图命名 */
 const PF_ROWS = {
   'stilt-hut': {
     facing0: 'south',
@@ -856,7 +857,8 @@ const PF_ROWS = {
       face: 'south', /* 缺省=行 facing0(恒等映射) */
       mirror: false,
       hasChimney: true, /* 装饰烟囱(无烟): 缺省 true, 可关 */
-      windowLit: false, /* 窗亮观感开关(同形域, 不改脚印) */
+      windowLit: false, /* 预留缝: 当前无几何效果(材质兑现待 spec 补 lit/glow 口径), 脚印同形域 */
+      /* trim 为预留槽: 当前未消费(几何兑现机会见 §7.3 四角柱/窗框), 可注入但静默无效 */
       ids: {base: 58, wall: 6, roof: 40, trim: 5, window: 20, door: 6, chimney: 3},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z/put 未用: 自管朝向与写笔 */
