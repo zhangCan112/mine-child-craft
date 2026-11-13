@@ -19,7 +19,8 @@
    v 键集 = 行 defaults 键集(唯一权威, 未知键即炸); 检查按行声明收放(行
    defaults 没声明的轴不查, 各行只认自己的键面)。错误两档: 拼写域(未知
    id · 未知 v 键含 size/ids/exit 子键 · 枚举值非法 face/piles/roof/
-   roofPitch/torch/torches/windowGlow/signVariant · piles:'terrain' 缺 ground · 行 require
+   roofPitch/size(sm|md)/theme(bread|flower|fruit|generic)/torch/torches/
+   windowGlow/signVariant · piles:'terrain' 缺 ground · 行 require
    必传轴缺 mat/top/rock)
    →throw(装场期炸=测试当场红); 几何数值域(size/steps/half 等负值或非
    整数, ground 非有限数)→钳。朝向=整数格点旋转表(90° 倍数恒整数格,
@@ -92,6 +93,12 @@ function pfStiltPiles(e) {
     [-e.size.hx, e.size.back], [e.size.hx, e.size.back]];
 }
 
+/* stall-canopy 布幔缺省的 theme 映射单份(§4.7「布幔奶油/樱粉/天蓝 canopy
+   按 theme 注入」→现调色板): bread/generic→52 羊毛奶油 · flower→16 红羊毛
+   (樱粉最近似, 现调色板无粉色块) · fruit→15 蓝羊毛天蓝; 显式 v.ids.canopy
+   覆写映射(pfMerge 判显式后才注入) */
+const PF_STALL_CANOPY = {bread: 52, flower: 16, fruit: 15, generic: 52};
+
 /* 变种合并+校验: 键白名单=行 defaults 键集; 拼写域全在此一次验,
    place/footOf 共用(纯查询同样炸=同一防火墙)。检查按行声明收放:
    行 defaults 没声明的轴不查(under-room 无 piles/roof/torch/size,
@@ -149,7 +156,18 @@ function pfMerge(row, id, v) {
   if (pfHas(d, 'roofPitch') && e.roofPitch !== 'low' && e.roofPitch !== 'mid') {
     throw new Error('PrefabKit: roofPitch 非法「' + e.roofPitch + '」(low/mid)');
   }
-  if (d.size !== undefined) {
+  /* stall-canopy theme 枚举(同款第一档): 市集主题四档——canopy 缺省
+      映射的注入源(注入见下 ids 合并之后) */
+  if (pfHas(d, 'theme') && e.theme !== 'bread' && e.theme !== 'flower' &&
+      e.theme !== 'fruit' && e.theme !== 'generic') {
+    throw new Error('PrefabKit: theme 非法「' + e.theme + '」(bread/flower/fruit/generic)');
+  }
+  /* stall-canopy size 枚举轴(第一档, 按行 defaults.size 的类型判别——
+      区别于 stilt-hut {hx,back,front} 对象轴): 值域 sm/md, 对象形亦拒收 */
+  if (typeof d.size === 'string' && e.size !== 'sm' && e.size !== 'md') {
+    throw new Error('PrefabKit: size 非法「' + e.size + '」(sm/md)');
+  }
+  if (d.size !== undefined && typeof d.size !== 'string') {
     let sz = d.size;
     if (v !== undefined && v.size !== undefined) {
       if (typeof v.size !== 'object' || v.size === null) {
@@ -179,6 +197,13 @@ function pfMerge(row, id, v) {
       mats = Object.assign({}, d.ids, v.ids);
     }
     e.ids = mats;
+  }
+  /* stall-canopy 布幔缺省按 theme 注入(§4.7「canopy 按 theme 注入」):
+      未显式给 v.ids.canopy 时按 theme 补映射(显式 canopy 已在上方合并
+      胜出, theme 不反杀); 部分注入的其余槽已由 Object.assign 回落行缺省 */
+  if (pfHas(d, 'theme') && (v === undefined || v.ids === undefined ||
+      v.ids.canopy === undefined)) {
+    e.ids = Object.assign({}, e.ids, {canopy: PF_STALL_CANOPY[e.theme]});
   }
   if (d.exit !== undefined) {
     let ex = d.exit;
@@ -231,11 +256,12 @@ function pfMerge(row, id, v) {
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。九行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   kernel(几何内核)。十行: stilt-hut(P0 高脚木屋对)/under-room/mound
    (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔)/shop-awning
    (T-PREFAB-02 店身+前廊遮檐铺面)/stash-hut(T-PREFAB-03 秘密储藏小屋)/
    windmill-tower(T-PREFAB-04 风车塔)/cottage-gable(T-PREFAB-05 民居 A)/
-   house-loft(T-PREFAB-06 民居 B 双层挑窗/错顶形), 按形命名不按图命名 */
+   house-loft(T-PREFAB-06 民居 B 双层挑窗/错顶形)/stall-canopy(T-PREFAB-07
+   市集摊位), 按形命名不按图命名 */
 const PF_ROWS = {
   'stilt-hut': {
     facing0: 'south',
@@ -1045,6 +1071,79 @@ const PF_ROWS = {
         }
       }
       return {x1, y1: y, z1, x2, y2: y + 8, z2};
+    },
+  },
+  'stall-canopy': {
+    /* 市集摊位: 木架+顶棚布幔+台面柜身+后沿货品色块的开放摊位
+        (town-prefab-specs §4.7, 视觉对照 buildings-visual-spec §6.1/
+        §5.3 P2-02——低高度不遮挡钟塔视线)。锚=摊位地面中心投影,
+        局部轴 dx 横/dz 前后/dy 竖, face0=south=摊面(顾客侧)朝 +dz;
+        占地奇偶偏置同 pfSpan 口径: sm 3×2(dx∈[-1,1] 奇宽居中×dz∈[-1,0]
+        偶深 NW 偏置)总高 3 · md 4×3(dx∈[-2,1] 偶宽 NW 偏置×dz∈[-1,1]
+        奇深居中)总高 4。层序(序即几何): dy0 全幅台面柜身→dy1 四角柱+
+        后沿(dz=-1)中段货品色块(sm 单格 (0,-1)/md 两格 (-1..0,-1) NW
+        偏置偶簇, 均不在四角柱位覆写无冲突)→高款柱腿更长(md 柱 dy1..2,
+        sm 柱仅 dy1——两档高差落棚架腿)→顶层全幅布幔(sm dy2/md dy3),
+        顶层之上一层无物。theme 四档几何同形仅材质差异: canopy 缺省按
+        theme 注入(见 pfMerge/PF_STALL_CANOPY); 无光/火语义槽位(ids
+        白名单无 torch/glow, §8 去威胁红线) */
+    facing0: 'south',
+    defaults: {
+      face: 'south', /* 缺省=行 facing0(恒等映射) */
+      mirror: false,
+      size: 'sm', /* 枚举轴(区别于 stilt-hut 对象轴): sm=3×2×3/md=4×3×4 */
+      theme: 'generic', /* 市集主题四档: canopy 缺省映射的注入源 */
+      /* 材质注入, 缺省裸数字(§4.7 口径→现调色板): frame 木头暖木四角柱
+          (tower pillar/cottage trim 先例) · canopy 羊毛奶油布幔(generic
+          档显式缺省, 实际按 theme 于 pfMerge 注入覆缺) · counter 木板
+          暖木-中台面柜身(stilt 地板/店身墙先例) · goods 金矿暖金货品
+          色块(shop signAccent 先例) */
+      ids: {frame: 5, canopy: 52, counter: 6, goods: 38},
+    },
+    kernel(e, x, y, z, orient, put) {/* x/y/z/orient 未用: 纯局部系直写,
+        朝向与镜像统一走 place 传入的 put 通道不自管朝向(pfOrient -dx
+        先翻后旋盒平移口径: sm 奇宽 dx 对称形 mirror 同盒同形/md 偶宽
+        [-2,1]→[-1,2] 盒东移一格, shop-awning/house-loft 先例) */
+      const ids = e.ids;
+      const md = e.size === 'md';
+      const dxLo = md ? -2 : -1; /* dxHi 恒 1(两档东界同) */
+      const dzHi = md ? 1 : 0; /* dzLo 恒 -1(后沿/摊面基准同) */
+      /* dy0 台面柜身: 恰全 footprint 实心 counter, 域外无物 */
+      for (let dx = dxLo; dx <= 1; dx++) {
+        for (let dz = -1; dz <= dzHi; dz++) put(dx, 0, dz, ids.counter);
+      }
+      /* 柱腿 dy1..legTop: 恰四角 frame/层(高款腿更长, 两档高差落棚架腿) */
+      const legTop = md ? 2 : 1;
+      for (let dy = 1; dy <= legTop; dy++) {
+        for (const [px, pz] of [[dxLo, -1], [1, -1], [dxLo, dzHi], [1, dzHi]]) {
+          put(px, dy, pz, ids.frame);
+        }
+      }
+      /* dy1 后沿(dz=-1)中段货品色块: sm 单格 (0,-1)/md 两格 (-1..0,-1) */
+      const goodsLo = md ? -1 : 0;
+      for (let dx = goodsLo; dx <= 0; dx++) put(dx, 1, -1, ids.goods);
+      /* 顶层全幅布幔: sm dy2/md dy3 恰全 footprint canopy, 封顶之上一层无物 */
+      const topDy = md ? 3 : 2;
+      for (let dx = dxLo; dx <= 1; dx++) {
+        for (let dz = -1; dz <= dzHi; dz++) put(dx, topDy, dz, ids.canopy);
+      }
+    },
+    /* 脚印: 同参纯算术投影——随 size 变体外包围盒, 平面 4 角过同一张
+        朝向表(90° 旋转盒恒轴对齐; mirror 含 -dx 翻转被 min/max 包络),
+        y 域取写笔最低/最高层(dy0 台面..顶层布幔) */
+    foot(e, x, y, z, orient) {
+      const md = e.size === 'md';
+      const xs = md ? [-2, 1] : [-1, 1];
+      const zs = md ? [-1, 1] : [-1, 0];
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of xs) {
+        for (const dz of zs) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + (md ? 3 : 2), z2};
     },
   },
 };
