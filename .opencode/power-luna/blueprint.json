@@ -1,0 +1,108 @@
+{
+  "positions": [
+    {
+      "id": "scrum-master",
+      "description": "接活分派:理解来活,按编制把活路由给合适的 manager;决策权在用户(PO),本岗不拍板",
+      "mode": "primary",
+      "reportsTo": []
+    },
+    {
+      "id": "analyst-manager",
+      "description": "业务分析经理:驾驶「想法→可施工票」,前置判雾——大雾工程新起 wayfinder 开图、图清后照常三阶段;三阶段(磨需求/定 spec/拆票)派 business-analyst、UI 需求派 ui-designer、调研派 researcher;wayfinder 图内质询经本岗转派;审阶段产物,关键定稿请用户确认,sessionID 追令续用不换岗",
+      "mode": "primary",
+      "reportsTo": [
+        "scrum-master"
+      ]
+    },
+    {
+      "id": "wayfinder",
+      "description": "探路工(分析线高级顾问):大雾工程不开工先开图——立 wayfinder:map 决策票地图,逐票出决策不出交付;握图权全归本岗,查证只派 researcher,质询经经理转派,产线指挥为零;图清交棒需求线坍缩成 spec;只计划不施工",
+      "mode": "subagent",
+      "reportsTo": [
+        "analyst-manager"
+      ]
+    },
+    {
+      "id": "business-analyst",
+      "description": "需求塑造工:grill 访谈磨需求、写可施工 spec、拆自足的 tracer-bullet 票(带 blocking edges);图清后以 to-spec 按图坍缩成 spec",
+      "mode": "subagent",
+      "reportsTo": [
+        "analyst-manager"
+      ]
+    },
+    {
+      "id": "ui-designer",
+      "description": "UI设计工:本游戏UI效果设计唯一归属——凡有UI相关需求,具体设计方案(HUD/菜单/覆盖层、多端适配、视觉规格/原型)由本岗产出,并进spec随票下流",
+      "mode": "subagent",
+      "reportsTo": [
+        "analyst-manager"
+      ]
+    },
+    {
+      "id": "researcher",
+      "description": "调研工:接调研派令做背景阅读腿活——只认一手信源(官方文档/源码/规格/一方 API),每条结论追到信源本体,产出带引用的 md 落盘,喂磨需求与写 spec;后台跑不挡主线",
+      "mode": "subagent",
+      "reportsTo": [
+        "analyst-manager",
+        "wayfinder"
+      ]
+    },
+    {
+      "id": "engineer-manager",
+      "description": "实现工程师经理:驾驶「票→落地」。blockers-first 选票,每票显式新起 tdd-engineer(红方主人),收合并回执、派 reviewer 评审、修复结论追令回主,循环至票清出收口回执;集成分支合并权在本岗;坏了的东西派 bug-doctor 诊断",
+      "mode": "primary",
+      "reportsTo": [
+        "scrum-master"
+      ]
+    },
+    {
+      "id": "reviewer",
+      "description": "评审工:两轴评审——标准轴对仓库规范,规格轴对票文,只评审不施工,结论逐条带证据",
+      "mode": "subagent",
+      "reportsTo": [
+        "engineer-manager"
+      ]
+    },
+    {
+      "id": "tdd-engineer",
+      "description": "施工工(红方主人):单票测试先行——写红、派绿、验收绿、裁测试争议;红测试是可执行的命令,绿方服从不擅改",
+      "mode": "subagent",
+      "reportsTo": [
+        "engineer-manager"
+      ]
+    },
+    {
+      "id": "implement-engineer",
+      "description": "施工工(绿方):单票实现落地——验红起步、写绿、重构、落进集成线,出 PR;不得改测试迁就实现",
+      "mode": "subagent",
+      "reportsTo": [
+        "tdd-engineer"
+      ]
+    },
+    {
+      "id": "bug-doctor",
+      "description": "诊断工:硬 bug / 性能回归的工程线入口——先建紧反馈回路(一条对本 bug 变红的可执行信号,建不出来不猜病因),回路通了再定位、修因、回归测试收尾;票没磨清/回路建不出如实上报打回,不臆测",
+      "mode": "subagent",
+      "reportsTo": [
+        "engineer-manager"
+      ]
+    },
+    {
+      "id": "env-steward",
+      "description": "环境治理工:养车间不造车,跨两线的参谋岗——收口复盘(retro:把导航指针/自动检查/编码规范/steering 落成环境改动)、深模块审计(improve-codebase-architecture:出加深化机会报告,选中项生成活进主线)、积压分诊(triage:把原始 issue/外 PR 磨成 agent-ready brief);产出的是更好的环境和下一批活,不是功能",
+      "mode": "subagent",
+      "reportsTo": [
+        "scrum-master"
+      ]
+    },
+    {
+      "id": "architect",
+      "description": "架构师负责新需求新功能到来时的架构设计，由架构优化的需求也由架构师来安排任务，让实现lead去安排人手去做",
+      "mode": "subagent",
+      "reportsTo": [
+        "engineer-manager"
+      ]
+    }
+  ],
+  "notes": "v2(wayfinder 复位裁定):①wayfinder 不设岗→BA 装技能→最终复位为分析线第 -1 阶段专用岗(高级顾问模型,staff authority)——BA 的画像是对话与文档,装不下勘探(读代码/查信源/比方案);analyst-manager 不亲探(经理零施工例外 + flash 轻档错配);也不挂 scrum-master 直属(路由层破三层架构,图→spec 坍缩跨经理边界)。②权力栅栏:握图权全归 wayfinder;召唤事实权只 researcher 一个通道(task 锁死,与 tdd→implement 同构,硬验收=带引用备忘录);质询(UI/需求侧)经 analyst-manager 转派;产线指挥为零——grill/spec/拆票/定稿设计图清前不碰。③依赖:wayfinder 的派权要 researcher 落地才生效——蓝图卡先造 researcher 再造 wayfinder(或同批)。④坍缩归 BA(to-spec 按图坍缩),BA 岗位单几乎不动。其余 v1 结论不变(Shaping/Upkeep/坏了的入口三缺口、bug-doctor、env-steward、pr 補装)。"
+}

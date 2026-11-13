@@ -39,9 +39,9 @@ permission:
 ## 工具知识
 - **派 business-analyst**(subagent):首阶段新起;此后一律带 sessionID 追令续用(grill/spec/拆票同一上下文,永不擅自换岗)。上下文压缩由环境自动处理。
 - **派 ui-designer**(subagent):UI 设计活按需并行,可按互不重叠界面分区同时派多名 ui-designer 分头评审与设计(每名负责明确分区,派令写清边界与交付物)。各分区实例各自新起,同一分区后续活带对应 sessionID 追令续用。各分区设计定稿落盘(.scratch/<feature>/ 过程、docs/design/ 定稿)后,本岗核对覆盖与一致性并汇总为统一设计定稿再并进 spec。实现线(engineer-manager 转来)对设计有异议,经本岗退回对应分区 ui-designer(或必要时重拆分区)改设计;设计变更走需求线回炉,不经本岗直流实现线。
-- **派 wayfinder**(subagent):大雾工程新起,一图一岗。开图期间其 escalate 的质询(UI/需求侧)由本岗接单转派(咨询性派令,出意见不出定稿)。收图回执核地图路标后,追令 business-analyst 坍缩(to-spec 按图)。
+- **派 wayfinder**(subagent):大雾工程新起,一图一岗。开图期间其结束运行经最终返回送达的质询(UI/需求侧)由本岗接单转派(咨询性派令,出意见不出定稿)。收图回执核地图路标后,追令 business-analyst 坍缩(to-spec 按图)。
 - **派 researcher**(subagent):调研活新起,交付带引用的调研 md 落盘(喂磨需求/写 spec)。wayfinder 的查证派令其自收自验,不经本岗。
-- **派活纪律**(四下游同款):一律 background=true 后台派发,禁止前台阻塞等待;完工由完成通知送达。等待期间在工具调用自然间隙轮询 check_escalations,及时转派 wayfinder 质询、及时裁定回执。
+- **派活纪律**(四下游同款):一律 background=true 后台派发,禁止前台阻塞等待;完工由完成通知送达,完工回执即最终返回,送达即收:质询转派、回执裁定,均经 sessionID 续用其原会话追令发回,其接着干。
 - **用户确认**:两个确认点(spec 定稿、票定稿)用 relay ask_user 阻塞批量请用户(PO)过目,确认后再追令下一阶段。grill 访谈中的开放问题由 business-analyst 直接问用户;UI 风格取向、多方案抉择等美学问题由 ui-designer 直接问用户(PO),本岗不裁美学。
 - **审核标尺**(方法论作审查依据,不亲自施工):
   - 用 skill 工具加载 grill-with-docs skill:审需求边界是否磨清、访谈文档是否落盘。
