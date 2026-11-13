@@ -25,7 +25,8 @@
 index.html        # 唯一入口；经典 <script defer> 按依赖顺序加载全部 js
 js/               # 引擎与应用模块，平铺，一文件一模块
 js/modes/         # 游玩模式层（<modeId>.js，清单权威在 mode-registry.js）
-js/mob-look/      # 造型档案声明（<type>.js 一怪一文件，文件名=declare 键 ∈ MOB_TYPES∪{player}；
+js/mob-look/      # 造型档案声明（<type>.js 一怪一文件，文件名=declare 键 ∈ MOB_TYPES∪{player} ∪ town_*
+                  #   （键集=镇民注册表 town-npc-registry；白名单超集口径，非 MOB_TYPES 键必 town_ 前缀）；
                   #   基座/换算/贴图的缝在 mob-look-kit.js，键集与布局合法性由 test/mob-look.test.js 断言）
 css/              # 按端拆分：style(桌面) → focus(训练营) → touch(触屏)，按此顺序覆盖
 test/             # node --test 单测，与 js 模块镜像命名
@@ -282,3 +283,8 @@ id 命名偏离见 §6。
   全局 `user-select: none` 只有无前缀版，WebKit 只认 `-webkit-user-select`，规则在
   iPad 上从未生效；§6 登记 #11（css/touch.css 行内豁免）+ js/input.js 增
   `selectstart` 全局兜底（表单控件放行）。
+- 2026-11-14：§1.1 mob-look 行键集口径回写（T-NPC-06 F1，非新约定）：白名单测试
+  test/mob-look.test.js 已改源为「存量键集 ⊆ MOB_TYPES∪player · 非 MOB_TYPES 键必
+  town_ 前缀且 ∈ 镇民注册表键集」（T-NPC-01 §6.5 / T-NPC-03 §4.2 两轮授权改源，
+  14 个 town_* 镇民档案不入战斗注册表），§1.1 补 ∪ town_*（键集=镇民注册表
+  town-npc-registry）对齐现状。
