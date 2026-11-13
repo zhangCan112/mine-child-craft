@@ -4,6 +4,7 @@
 > 产出日期：2026-11-12  
 > 适用分支/工件：`town-design`（Phase B 仅架构与票据，不含实现代码）  
 > 权威输入：[`docs/town-map-design.md`](town-map-design.md) · [`docs/town-villagers-design.md`](town-villagers-design.md) · [`docs/design/town-prefab-specs.md`](design/town-prefab-specs.md) · [`docs/design/town-ui-entry-hud-spec.md`](design/town-ui-entry-hud-spec.md) · [`docs/design/town-ui-dialog-spec.md`](design/town-ui-dialog-spec.md) · [`docs/design/town-buildings-visual-spec.md`](design/town-buildings-visual-spec.md) · [`docs/design/town-villagers-visual-spec.md`](design/town-villagers-visual-spec.md) · [`docs/town-assets-requirements.md`](town-assets-requirements.md) · [`docs/minecraft-movie-town-research.md`](minecraft-movie-town-research.md) · [`docs/adventure-maps-design.md`](adventure-maps-design.md) · [`docs/dimension-registry-design.md`](dimension-registry-design.md) · [`GLOSSARY.md`](../GLOSSARY.md) · [`MISSION.md`](../MISSION.md) · [`docs/conventions.md`](conventions.md)
+> **2026-11-13 PO 变更**：集成 seam 变更——城镇改以 `ADV_DIMS` 维度行接入冒险模式（[ADR-0011](adr/0011-town-dimension-seam-and-entry-transit.md)，取代 ADR-0009），撤独立模式入口三件套。本文 §3.1／§6（独立模式集成设计）与 §11 T-MAP-02 保留历史语境；**新缝施工单／撤卡节拍／salvage 裁定／需求线残留处置见 §13**。
 
 ## 1. 目标与边界
 
@@ -26,7 +27,7 @@
 
 ## 3. 架构决策总览（不可逆项见 ADR）
 
-1. **集成 seam（ADR 0009）**：城镇作为**独立游玩模式** `town`（ModeRegistry 行 + `js/modes/town.js`）接入，不并入 `ADV_MAPS`/`ADV_DIMS`。理由：城镇为和平漫游+NPC 轻任务语义，无巢穴/夜怪池/门阵解锁/维度战斗政策；独立模式可最小化对 adventure 状态机侵入，依赖方向清晰（应用模式 → 引擎 kit）。与“探险/训练营结合”通过共享交互语言、可复用 kit 与后续入口联动承接（见 §6），不以运行时并入 adventure 壳为前提。
+1. **集成 seam（ADR 0009）**：城镇作为**独立游玩模式** `town`（ModeRegistry 行 + `js/modes/town.js`）接入，不并入 `ADV_MAPS`/`ADV_DIMS`。理由：城镇为和平漫游+NPC 轻任务语义，无巢穴/夜怪池/门阵解锁/维度战斗政策；独立模式可最小化对 adventure 状态机侵入，依赖方向清晰（应用模式 → 引擎 kit）。与“探险/训练营结合”通过共享交互语言、可复用 kit 与后续入口联动承接（见 §6），不以运行时并入 adventure 壳为前提。（**2026-11-13 PO 变更取代**：独立模式缝被维度缝取代——城镇以 `ADV_DIMS` 维度行接入，撤独立入口三件套，见 [ADR-0011](adr/0011-town-dimension-seam-and-entry-transit.md) 与本文 §13；本条保留历史语境。）
 2. **素材流入与 sole authority（ADR 0010）**：建筑/关键场景件按 `town-prefab-specs.md` **逐项 ingest 入 PrefabKit 行表**（形状驱动、材质注入、`v` 显式覆写、`footOf` 同参同盒）；植被用 SceneKit 树家族；地表/道路/远景/小道具散布归场景拼装（调用方）。樱花粉冠等材质差异按“调用方覆写层/后续扩展点”处理，不在本阶段改写 SceneKit 树内核契约、且不把树几何散写回模式层。冲突裁决一律以 prefab-specs + PrefabKit/SceneKit 契约为准。
 3. **UI 分工与 route**：分区 A（`town-ui-entry-hud-spec.md`）与分区 B（`town-ui-dialog-spec.md`）按 §0.3 接口协作；**所有 UI 实现/规格落地票必须标注 ui-designer route**（见 §7.3）。
 
@@ -68,6 +69,8 @@
 - 禁止在引擎行内硬编码“Lava Chicken/钟塔”等玩法命名语义；按形命名已由 spec 锁定。
 
 ## 6. 与现有系统的集成设计
+
+> **2026-11-13 PO 变更**：§6.1（独立模式入口/模式页）随 [ADR-0011](adr/0011-town-dimension-seam-and-entry-transit.md) 撤卡节拍撤除；§6.2「不接入 ADV_MAPS/ADV_DIMS」变为「以 `ADV_DIMS` 维度行接入」——两节保留历史语境，现行为以 ADR-0011 + [`town-map-design.md` §6.3](town-map-design.md) 为准；§6.3 存档最小化原则不变（维度 pos 不进档先例自动满足）。
 
 ### 6.1 ModeRegistry / 入口与模式页
 
@@ -128,12 +131,13 @@
 ## 10. 交付物索引（本 Phase B）
 
 - 架构设计：本文档
-- ADR：[`docs/adr/0009-town-standalone-mode.md`](adr/0009-town-standalone-mode.md)、[`docs/adr/0010-town-prefab-ingest-and-material-authority.md`](adr/0010-town-prefab-ingest-and-material-authority.md)
+- ADR：[`docs/adr/0009-town-standalone-mode.md`](adr/0009-town-standalone-mode.md)（**2026-11-13 PO 变更：已被 0011 取代**）、[`docs/adr/0010-town-prefab-ingest-and-material-authority.md`](adr/0010-town-prefab-ingest-and-material-authority.md)、[`docs/adr/0011-town-dimension-seam-and-entry-transit.md`](adr/0011-town-dimension-seam-and-entry-transit.md)
 - 票据拆解与 PO 摘要：§11、§12
 
 ## 11. Tracer-bullet 票据拆解
 
 > 约定：**TDD 先行**适用于 Prefab ingest 与新增纯核心（`-core`）；每票自包含验收与 blocking。UI 票一律 `ui_designer_route=required`。实现顺序硬约束：**(1) Prefab ingest → (2) Town map assembly → (3) UI wiring**（同组内可按 blocking 并行）。
+> **2026-11-13 PO 变更**：T-MAP-01..04 已施工交付（台账关票先例 99ed7a0）；其产物处置（保留/转用途/撤除）逐件裁定见 §13.3——T-MAP-02 产物（模式骨架三件套）随新缝撤卡节拍撤除；新缝施工单 T-SEAM-01..05 见 §13.1。
 
 | 票号 | 标题 | 类型 | 依赖 | blocking(阻塞) | 验收（摘要） | ui_designer_route | 需 tdd | 关键产物/备注 |
 |---|---|---|---|---|---|---|---|---|
@@ -147,7 +151,7 @@
 | T-PREFAB-08 | ingest `board-pool`（P2 彩蛋） | prefab-ingest | 可并行（可后置优先级但仍属 ingest 组） | T-MAP-*（若启用 P2） | §4.8：静态水色占位块、无流体/危险语义；`footOf` 含跳板+池联合盒 | no | yes | 同上；受 M2 范围确认 |
 | T-PREFAB-09 | 复用行验收与材质映射基线（`under-room`/`mound`） | prefab-ingest(集成校验) | T-PREFAB-01..07 | T-MAP-* | `cache-cellar` 以 `under-room`、`hill-mound` 以 `mound` 的 `v` 覆写样例在测试或夹具中可复现；不新增行不破坏既有契约 | no | yes(补充用例) | 测试/夹具用例 |
 | T-MAP-01 | `town-map-core` 布局与建场计划（纯数据） | town-assembly(core) | T-PREFAB-01..07,09 | T-MAP-02,T-MAP-03 | 产出 ~96×96 核心区锚点/分区/Prefab 实例清单（id,x,y,z,v,face）+ 地表/道路/远景/散布分类标记；与 `town-map-design` §3-§4、`prefab-specs` §3 映射一致；确定性输出可测 | no | yes | `js/town-map-core.js` + `test/town-map-core.test.js`（建议） |
-| T-MAP-02 | `town` 模式骨架与 `loadScene` 装配 | town-assembly(mode) | T-MAP-01, T-UI-00 | T-MAP-03,T-UI-* | ModeRegistry 行、`index.html` 卡/页/script、`js/modes/town.js` 最小可进场；`loadScene` 顺序正确、出生点面向广场/可回望钟塔意图；`npm test`/boot 绿 | A(入口卡) | partial(纯逻辑下沉 core) | 模式注册三件套 + 入口 UI 骨架 |
+| T-MAP-02 | `town` 模式骨架与 `loadScene` 装配 | town-assembly(mode) | T-MAP-01, T-UI-00 | T-MAP-03,T-UI-* | ModeRegistry 行、`index.html` 卡/页/script、`js/modes/town.js` 最小可进场；`loadScene` 顺序正确、出生点面向广场/可回望钟塔意图；`npm test`/boot 绿 | A(入口卡) | partial(纯逻辑下沉 core) | 模式注册三件套 + 入口 UI 骨架（**2026-11-13 PO 变更**：本票产物随新缝撤卡节拍撤除——ADR-0011 决策 5/6d，装配意图由 town 维度行 build 闭包继承） |
 | T-MAP-03 | 建筑/场景件/植被与地表拼装落地 | town-assembly(scene) | T-MAP-01,T-MAP-02 | T-UI-02,T-UI-03 | 按计划调用 `PrefabKit.place`（材质注入集中映射）+ SceneKit 树/`fill` + 道具散布；樱花材质覆写策略落在调用方；无散装树几何；关键地标可达与视线通廊符合 map 设计 | no | partial | 建场函数与材质映射常量 |
 | T-MAP-04 | 交互锚点与轻任务状态钩子（无 UI 细化） | town-assembly(logic) | T-MAP-02 | T-UI-02,T-UI-03 | 注册 NPC/地标/道具交互点与目标 id 协议（供指引/提示消费）；与 B 会话状态机接口对齐（§0.3）；零惩罚可离开 | no | yes(若抽 core) | `town-ui-core` 或等价状态模块 |
 | T-UI-00 | 入口卡与进出过渡视觉规格落地准备 | ui-wiring(spec/design handoff) | 无 | T-MAP-02,T-UI-01 | 输出实现可直接引用的 token/资产占位清单（卡片色/图标/文案默认值 U1-U3）；过渡节奏与禁止项清单对齐 | **required (A)** | no | ui-designer 交付物/批注；`ui_refs: entry-hud-spec §3` |
@@ -176,6 +180,8 @@
 
 城镇以**独立模式 `town`（小镇漫步）**落地：先把 `town-prefab-specs` 的建筑件 **TDD ingest 进 PrefabKit**，再用 **SceneKit + 场景拼装**组装 ~96×96 和平小镇，最后按 **UI 分区 A/B（强制 ui-designer 路由）**接入 HUD/指引/对话与轻任务提示；不改动 adventure 地图/维度注册表语义。
 
+（**2026-11-13 PO 变更**：集成口径已被维度缝取代——城镇以 `ADV_DIMS` 维度行接入冒险模式，主路尽头白闪过场进镇，撤独立模式入口；见 [ADR-0011](adr/0011-town-dimension-seam-and-entry-transit.md) 与本文 §13。素材 ingest 与 UI 分区结论不受影响。）
+
 ### 12.2 价值与范围
 
 - **交付价值**：可识别的 Midport Village 空间骨架 + 可发现的点选交互 UI（入口、提示、指引、会话）+ 可扩展的轻任务锚点，为 6 岁低压探索与注意力友好“观察-寻找-回应”提供载体。
@@ -200,5 +206,69 @@
 - **工程门槛**：每合并批次 `npm test`、`npm run lint` 通过；Prefab ingest 票附同名测试证据。
 - **体验门槛**：纯鼠标点选可完成“进入→识别地标→获得提示→点选交互/对话”主路径；无倒计时/无失败惩罚 UI；过程性表扬反馈符合 MISSION。
 - **一致性门槛**：几何/材质落位与 `town-prefab-specs.md` 一致；UI 行为与 A/B specs 接口边界一致；新增文档已入 `docs/README.md` 索引。
+
+## 13. 新缝施工单与撤卡节拍（**2026-11-13 PO 变更**，ADR-0011 承载）
+
+> **变更背景**：PO 拍板进镇=冒险模式 home 图主路尽头维度过场、撤独立模式入口（急件与停工令原文见 `.scratch/handoffs/2026-11-13-urgent-po-change-detach-town-entry.md`）。机制权威=[`town-map-design.md` §6.3](town-map-design.md)；ADR=[`adr/0011-town-dimension-seam-and-entry-transit.md`](adr/0011-town-dimension-seam-and-entry-transit.md)；视觉权威=[`design/town-entry-transition-visual-spec.md`](design/town-entry-transition-visual-spec.md)；事实底座（坐标/file:line 唯一权威）=`.scratch/town-seam-change/research-map-facts.md`。本节票据沿用 §11 体例；**恒开放政策为 PO 拍板（§8 M9）——任何票不得引入条件开放变体（任务解锁/时段窗/渐进解锁一律挡回）**。
+
+### 13.1 新缝施工单（T-SEAM-01..05）
+
+| 票号 | 标题 | 类型 | 依赖 | blocking(阻塞) | 验收（摘要） | ui_designer_route | 需 tdd | 关键产物/备注 |
+|---|---|---|---|---|---|---|---|---|
+| T-SEAM-01 | `ADV_DIMS` town 维度行注册（ADV_TOWN 结构常量+炉键前缀+加载位上移） | town-dim(core) | 无（`js/town-map-core.js`/`js/town-assembly-core.js` 已交付） | T-SEAM-02,03,04,05 | 按 [`town-map-design.md` §6.3.3](town-map-design.md) 行规格表逐字段落 town 行：id `'town'`／build 闭包（先懒引现 `townBuild`，T-SEAM-05 改直引）／sky 暖亮白天四参（值随实施按 buildings visual spec §4 色板定）／mood `'calm'`／**dayCycle:false**（恒白天≠恒夜，引擎语义见 §6.3.3）／spawn `{x:79,y:25,z:112,yaw:0}` 派生自 `TOWN_MAP.anchors`（js/town-map-core.js:44-47，y=groundY+1 站立面，face:'north'→yaw 0 按 townSpawnIntent/townYawOfFace 派生口径）／hud `{banner:'🏘️ 小镇 · Midport Village', showMobs:false}`（横幅文案终稿归 ui-designer）／assets `null`。**ADV_TOWN 结构常量**：坐标唯一权威仍是 TOWN_MAP（GLOSSARY「城镇地图核心」），ADV_TOWN 只派生引用（core/groundY 引 `TOWN_MAP.core`、spawn 引 `TOWN_MAP.anchors`）**不抄第二份坐标**。`ADV_FURN_PREFIX` 加 town 键（js/modes/adventure.js:2238，守门测试锁，键位占空）。`js/town-map-core.js` script 加载位上移至 `adventure-maps-core.js` 之后、`adventure-dims-core.js` 之前（index.html 现 :377 行上移到 :369 行之后；ADV_TOWN 加载期派生读 TOWN_MAP，nether/den 先例口径）。验收：`test/adventure-dims-core.test.js` 扩段（行完备性/炉键守门/ADV_TOWN 单份权威断言=不出现第二份坐标字面量/ADV_SCENE_KEYS 派生集含 town——showroom/livestock 桶自动跟随，残留#5 判断在此验证）；AudioRegistry 核对 mood:'calm' 键（缺曲登记音频资产线补曲票，**不阻塞**维度行落地，残留#1）；三条全局判据零新分支（pos 不进档/死亡单分支/分桶派生） | no | yes | `js/adventure-dims-core.js` 维度段 + `test/adventure-dims-core.test.js` 扩段 + `index.html` script 行移动 |
+| T-SEAM-02 | 去程：east 带式触发线+恒开放+到达面扩展+门口开间 | town-seam(shell) | T-SEAM-01 | T-SEAM-03,05 | ① 触发线：`advEdgeTransitDirAt` 加 east 分支 `x ≥ 157 且 z ∈ [74,75]`（js/adventure-core.js:832-841 现状「east 恒 null」处；轴向带式判据，检序插入位无冲突）；② **恒开放**：`advEdgeOpenDir` east 短路开放（js/adventure-core.js:824-830），收口「east 查表 undefined→false 恒锁」派生面（js/adventure-maps-core.js:519-521）——**无条件开放，不挂任务解锁键**（q16 解锁链不动、east 不进 ADV_UNLOCK_KEYS）；**必需件 1**：`ADV_EDGE_DIR_MAP` 加 `east:'town'` 键（js/adventure-maps-core.js:508-511 现无 east 键）；③ **到达面扩展（唯一机制增量）**：`advVeilArrive` 新增 ADV_DIMS 分流→`advSetDim`（den 分流 js/modes/adventure.js:2665-2669 同文件先例），**分支必须插在 map 路径守卫之前**（:2686-2687 `!row` 与 `row.id === advMap` 两守卫会吞本缝到达——town 不在 ADV_MAPS、town 维度期间 advMap 冻结在 home）；到达播报**分支内定值**「到小镇啦！」+toast（den 先例，行契约不加 name 字段，ADR-0011 决策 2）；visit_town 到达记账可选（`advTally` 发现型 T8 惯例，工程线裁量不阻塞，残留#2）；任务链不挂 town。④ 门口开间建场几何：z74~75 两格栅栏桩/横杆让位（桩位让至开间两侧邻格），开间内无栅栏件、其余段不可挖保护照旧；⑤ 栅栏保护拒绝话术改稿：js/modes/adventure.js:2979 现句「小镇还没盖好呢」与随时可去矛盾，替换文案以视觉 spec §B.4 定稿为准。验收：home 主径踩线（x≥157 且 z∈[74,75]）白闪进镇落 spawn 锚面北望广场；偏离主径的栅栏段不触发；翻越彩蛋（z 出带）不触发、落隔离带照旧；近前引导区 east 恒 null 零改动；**GLOSSARY 词条随行**：「边缘传送」定义正文「east 恒无传送语义」+_Avoid「东向加传送」改写、「传送门阵」「边缘传送是去远征图的唯一入口」句更新含 town（§6.3.6 #1 名实同步）；`npm test` 全绿（east 触发几何纯函数单测） | no | partial（触发判据纯函数直测） | `js/adventure-core.js`/`js/adventure-maps-core.js`/`js/modes/adventure.js` + home 建场几何段 + `GLOSSARY.md`（east 词条行） |
+| T-SEAM-03 | 回程：镇侧带式触发线+east 来向锚（双向边缘白闪收口） | town-seam(shell) | T-SEAM-01（镇维度在场方可回程） | T-SEAM-05 | 按 §6.3.5 裁定（双向边缘白闪，无门件）：① 壳层 town 维度分支挂回程触发线（「不进表」清单惯例，早退链=冷却/白闪中/睡觉同款纪律）：判据 `z ≥ 132（任意 x）`（南向镇口带式；缓冲 5 格=防误触参数可微调、判据形状不变）→ `advVeilFire({to:'home', kind:'edge'})` 复用现成白闪整链（0.4s×2/0.8s 冷却/满格同步切/portal_travel 音）；② **必需件 2**：`ADV_HOME_EDGE_GATES` 加 east 锚（js/adventure-maps-core.js:609-615 现三向锚 east 无；约 (154.5,75) 面朝西，门口内侧 2.5 格、所落格可站立、锚位不落触发线口袋，精确值施工探针实测取值——三向现锚同款）；③ **来向取值口径**：现 `advVeilFire` 的 from=advMap（js/modes/adventure.js:2654），维度期间 advMap 冻结在 home，直喂 `advHomeArriveGate('home')` 反查落空兜底南锚=错误落点——镇侧发令须以来向场景 id 喂反查（到达侧维度态读 `advDim`，或发令显式带 from；施工二选一，验收锚=从镇内越线回 home 落 east 锚面西）；④ 到达播报「回到家啦！」现成句沿用。验收：镇内南缘越线白闪回 home 门口内侧 east 锚（约 (154.5,75) 面西）；南彩蛋带（z94~127）零误触；回 home 后主世界昼夜照转（镇内时间冻结不外溢，js/modes/adventure.js:2376）；`npm test` 全绿 | no | partial | `js/modes/adventure.js` 壳层 town 维度分支 + `js/adventure-maps-core.js` east 锚 |
+| T-SEAM-04 | 镇内交互机宿主挂载（adventure 壳 town 分支） | town-seam(shell) | T-SEAM-01 | T-SEAM-05；解阻 T-UI-01..03 | ADR-0011 决策 6a 落地：`townInteractBoot`/`townTargets`（js/modes/town.js:126、:132-135，T-MAP-04 产物）宿主迁 **adventure 壳 town 分支**（「不进表」清单惯例）——`advSetDim('town')` 专属步建机（den 专属步先例：advDenT 复位+advDenSeed 首刷，dimension-registry-design.md §5），`townTargets` 状态归壳层 town 分支，离镇弃机、下次进场新机不串轮；`mkTownTargets` 本体（js/town-interact-core.js）与同名单测**零改动**（「T-UI 票只换 emit 实现，不改机器」契约保持）；落地时在 dimension-registry-design.md §5「不进表」清单补 town 分支登记（登记性回填一句话，设计权威新增条目非改写）。验收：进镇建机（交互注册快照与目标状态机可用）/离镇再进新机不串轮；boot 冒烟绿；**T-UI 挂点语境就此定锚**：T-UI-01 HUD 挂 adventure 壳维度态 chrome（横幅已由 hud.banner 承担）、T-UI-05 走查起点=主菜单进冒险→主路→白闪进镇全程 adventure 壳 | no | no | `js/modes/adventure.js` town 分支 + dimension-registry-design.md §5 清单登记回填 |
+| T-SEAM-05 | 撤卡三件套+装配件迁移+词条改写债随行（**收尾原子节拍**） | town-seam(detach) | T-SEAM-01..04 全绿 | 无（发布节拍终点） | **原子收口单提交**：① 撤 `index.html:95-99` 小镇卡 + `:380` `js/modes/town.js` script 标签；② 撤 `js/mode-registry.js:32` town 行；③ 六纯装配件机械迁 `js/adventure-dims-core.js` 维度段（ADR-0011 决策 6b，D8 同构）：`TOWN_PHASE_ORDER`(:37)/`townYawOfFace`(:42-51)/`townSpawnIntent`(:56-60)/`townAssemblyPhases`(:65-72)/`townConsumeOp`(:81-108)/`townBuild`(:114-120)，T-SEAM-01 的懒闭包改直引，`js/modes/town.js` 模式壳（:143-151）作废、**全文件退场**；④ `test/town-mode.test.js` 断言随迁并入 `test/adventure-dims-core.test.js`（同名单测约定），本测试文件退场；⑤ **GLOSSARY 词条改写债随行**（§6.3.6 登记，撤卡即名实相符时机）：「小镇漫步（TownMode）」词条重定义→「小镇维度」立新词（init 链/模式态词条面随壳作废退役）；「城镇地图核心（TownMapCore）」消费方路径改指 dims-core 维度段（原「js/modes/town.js 起被 TownMode 的 townAssemblyPhases/townSpawnIntent 消费」）。验收：撤卡触发 `MODE_REGISTRY` 三重命名测试面（AGENTS.md 硬规则；**以 `npm test` 红点为准，残留#4**），红点清零；boot 冒烟绿；主菜单无小镇卡；进镇/回程/交互/镇内交互机全链绿；`npm test`+`npm run lint` 零错误。**任何中间态不得出现「无入口可进镇」**（本票 blocking=T-SEAM-01..04 全绿） | no | yes（断言随迁） | `index.html`/`js/mode-registry.js`/`js/modes/town.js`（删）/`js/adventure-dims-core.js`/`test/town-mode.test.js`（删）+`test/adventure-dims-core.test.js` 扩段/`GLOSSARY.md`（TownMode/城镇地图核心词条） |
+
+### 13.2 关键 blocking 边与撤卡节拍
+
+- 依赖汇总：`T-SEAM-01` → `T-SEAM-02/03/04`（镇维度在场是去程到达/回程发令/交互机挂载的前提）→ `T-SEAM-05`（收尾原子节拍）。T-SEAM-02 与 T-SEAM-03 相互独立可并行（去程/回程各触两侧几何），同文件（`js/modes/adventure.js` 壳段）合并序由 engineer-manager 派工时对齐。
+- **撤卡节拍一句话**：撤卡是**收尾节拍**——T-SEAM-01..04 全绿后 T-SEAM-05 原子收口（撤三件套+六装配件迁移+TownMode 词条改写同一提交），全程 `npm test` 红点驱动；任何中间态不出现「无入口可进镇」，也不出现「双入口并存」超过一个施工批次。
+- east-spec 话术改稿随行关系（视觉 spec §A.4/§B.3/B.4 已带替换文案）：**代码侧**拒绝话术随 T-SEAM-02 改稿（:2979）；**文档侧** `docs/world-edge-design/east-spec.md` 主话术退役与告示牌改读归 ui-designer 域随撤卡节拍收口（不阻塞施工票，T-SEAM-05 票尾知会需求线/ui-designer）；告示牌拼块专属图案归 UI-01 资产票（视觉 spec §B.3 主案），不在本表。
+- 儿童时限：进镇改走探险维度相位后随探险模式共享（GLOSSARY「儿童时限」，§6.3.0），撤卡后无独立时限面、无新账本——T-SEAM-05 验收含 `boot.test` 预算契约绿。
+
+### 13.3 salvage 裁定表（ADR-0011 决策 6 兑现，停工令「不回滚」边界内）
+
+**票级处置（T-MAP-01..04）**：
+
+| 票 | 产物 | 处置 | 口径 |
+|---|---|---|---|
+| T-MAP-01 | `js/town-map-core.js`（TOWN_MAP 九段/townBuildSteps）+ 同名单测 | **保留+升格** | TOWN_MAP 九段直接成为 town 维度 build 的**布局唯一权威**（§6.3.3 单份权威纪律）；ADV_TOWN 只派生引用不抄坐标；script 加载位上移随 T-SEAM-01 |
+| T-MAP-02 | ModeRegistry 行+index.html 卡/页/script+`js/modes/town.js` 最小可进场 | **撤除**（=T-SEAM-05 撤卡三件套本体） | 台账标记历史工件（关票记录保留勿删改）；「出生面向广场/可回望钟塔」装配意图由维度行 build 闭包继承（townBuild 内 ModeKit.spawn 已然其后） |
+| T-MAP-03 | `js/town-assembly-core.js`（townAssemblyOps 规划器+材质映射）+ 同名单测 | **保留+转用途** | `townAssemblyOps(townBuildSteps())` 被 town 维度 build 闭包原样消费；樱花覆写等调用方策略随迁 dims-core 维度段（机械搬移零逻辑改动） |
+| T-MAP-04 | `js/town-interact-core.js`（mkTownTargets）+ 同名单测；boot 接线（townTargets/townInteractBoot） | **保留 core+转宿主** | core 文件与测试零改动；宿主接线迁 adventure 壳 town 分支（ADR-0011 决策 6a，T-SEAM-04）；T-UI 线消费面不变 |
+
+**文件级处置（`js/modes/town.js` 151 行拆解，research §3.1 全表）**：
+
+| 件 | 位置 | 去向 | 随行票 |
+|---|---|---|---|
+| `TOWN_PHASE_ORDER` | :37 | 迁 `js/adventure-dims-core.js` 维度段 | T-SEAM-05 |
+| `townYawOfFace` | :42-51 | 迁 dims-core 维度段 | T-SEAM-05 |
+| `townSpawnIntent` | :56-60 | 迁 dims-core 维度段（ADV_TOWN spawn 派生口径同源） | T-SEAM-05 |
+| `townAssemblyPhases` | :65-72 | 迁 dims-core 维度段 | T-SEAM-05 |
+| `townConsumeOp` | :81-108（op 执行器=引擎触点唯一面） | 迁 dims-core 维度段 | T-SEAM-05 |
+| `townBuild` | :114-120 | 迁 dims-core 维度段；T-SEAM-01 期间原地懒引、T-SEAM-05 直引 | T-SEAM-01（懒引）/05（迁移） |
+| `townTargets`/`townInteractBoot` | :126、:132-135 | 宿主迁 adventure 壳 town 分支（不进表清单惯例） | T-SEAM-04 |
+| `TownMode = mkMode(...)` | :143-151 | **作废撤除**（模式壳三步 init 链随卡退场；输入流/requestLock 归 adventure 壳现成链） | T-SEAM-05 |
+| script 标签 | index.html:380 | 撤除 | T-SEAM-05 |
+
+> 镇口件（回程视觉地标，残留#3）：**首版不入 TOWN_MAP 九段**（ADR-0011 决策 6c——机制面不依赖、触发线全带宽无走错面、回程视觉引导由视觉 spec §B.5 铺装渐稀+路口轻提示语言覆盖）；登记为**可选蓝图增量票**不派，若 PO 走查后想要则走蓝图数据增量（现成件复用、增量入 TOWN_MAP 九段数据、机制零动）。
+
+### 13.4 需求线残留五条的票面处置（登记不阻塞，不新开争议）
+
+| # | 残留 | 处置注记 |
+|---|---|---|
+| 1 | mood:'calm' 曲目若 AudioRegistry 无现成键 | T-SEAM-01 验收核对；缺曲→登记**音频资产线补曲票**，维度行落地不阻塞（§6.3.3 mood 行注记） |
+| 2 | visit_town 到达记账可选 | T-SEAM-02 票面可选项（发现型 T8 惯例，工程线裁量）；任务链不挂 town（引导链 v2 十五步不动） |
+| 3 | 镇口件可选蓝图增量 | **已裁**：首版不入九段，登记可选增量票不派（§13.3 表后注） |
+| 4 | MODE_REGISTRY 三重命名测试断言行号未核 | T-SEAM-05 验收口径：**以 `npm test` 红点为准**（test/mode-registry.test.js + conventions/boot 断言面） |
+| 5 | showroom town 桶显式引用未核 | T-SEAM-01 验收断言：ADV_SCENE_KEYS 派生集含 town（D7 派生先例自动跟随），施工时验证（js/modes/adventure.js:82 派生面 + showroomSceneKeys 派生） |
+
+### 13.5 本线不承载（边界登记）
+
+- **T-UI-00..05 brief 重发/解阻派工**：归 engineer-manager（受损清单=`.scratch/handoffs/2026-11-13-tui-briefs-impact-list.md`；「镇的宿主形态终裁方=BA」一项已由 ADR-0011 决策 6a 终裁承接——town=维度行、模式壳撤除，T-UI-01 HUD 挂点语境与 T-UI-05 走查起点见 T-SEAM-04 验收栏）。
+- **视觉/话术/图标/过场体感**：归 ui-designer（`design/town-entry-transition-visual-spec.md` 定稿，已定稿 commit 本文只引用）。
+- **设计权威改写**：本文与 ADR-0011 只引用不修改 [`town-map-design.md` §6.3](town-map-design.md)、视觉 spec、GLOSSARY（T-SEAM 票内的词条改写债是 §6.3.6 预登记的随实现落地项，非设计变更）；途中再发现设计冲突→登记回报，不擅自改权威。
 
 ---

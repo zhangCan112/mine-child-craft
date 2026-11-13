@@ -1,6 +1,8 @@
 # ADR 0009: 城镇（Midport Village）以独立 `town` 模式接入，不并入冒险地图/维度注册表
 
-日期：2026-11-12 · 状态：已采纳
+> **2026-11-13 PO 变更取代注记**：本文被 [ADR-0011](0011-town-dimension-seam-and-entry-transit.md) 取代——小镇改以 `ADV_DIMS` 维度行接入冒险模式（home 图主路尽头白闪过场进镇），撤独立模式入口三件套（决策 1 与撤卡对象即本文装配缝）；机制规格见 [town-map-design.md §6.3](../town-map-design.md)。旧缝工件不回滚：T-MAP-01..04 与 T-PREFAB 全线蓝图/core 工件保留，salvage 裁定见 ADR-0011 决策 6 与 [town-architecture-design.md §13](../town-architecture-design.md)。本文其余记录保留历史语境。
+
+日期：2026-11-12 · 状态：已被 0011 取代（2026-11-13 PO 变更）
 
 ## 背景
 
