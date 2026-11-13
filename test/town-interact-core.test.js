@@ -397,9 +397,9 @@ test('机器: 确定性与零突变 — 同序列同事件轨迹 · snapshot 拷
   const {ctx} = interactBoot();
   const seq = 'm.focus(\'bell-tower\'); m.found(\'bell-tower\'); m.focus(\'task:find-bread\');';
   probe(ctx, 'var __emittedA = []; var a = mkTownTargets({emit: (n, p) => __emittedA.push(n)});' +
-      'var ma = a;' + seq);
+      'var m = a;' + seq);
   probe(ctx, 'var __emittedB = []; var b = mkTownTargets({emit: (n, p) => __emittedB.push(n)});' +
-      'var mb = b;' + seq);
+      'var m = b;' + seq);
   assert.deepStrictEqual([...probe(ctx, '__emittedB')], [...probe(ctx, '__emittedA')],
       '同序列 → 同事件轨迹(纯逻辑确定性)');
   assert.strictEqual(probe(ctx, 'JSON.stringify(a.snapshot())'),
@@ -408,8 +408,8 @@ test('机器: 确定性与零突变 — 同序列同事件轨迹 · snapshot 拷
   probe(ctx, 'var s1 = a.snapshot(); s1.states[\'bell-tower\'] = \'active\'; s1.focusId = \'x\';');
   assert.strictEqual(probe(ctx, 'a.snapshot().states[\'bell-tower\']'), 'done',
       'snapshot 返回拷贝(外部改写不反渗)');
-  assert.strictEqual(probe(ctx, 'a.snapshot().focusId'), null,
-      'snapshot focusId 隔离(上例本就 null; focus 后再验)');
+  assert.strictEqual(probe(ctx, 'a.snapshot().focusId'), 'task:find-bread',
+      'snapshot focusId 拷贝隔离(seq 末步 focus 真值不被 s1 改写反渗)');
   probe(ctx, 'a.focus(\'windmill\'); var s2 = a.snapshot(); s2.focusId = \'tampered\';');
   assert.strictEqual(probe(ctx, 'a.snapshot().focusId'), 'windmill', 'focusId 拷贝隔离复验');
   /* 源清单只读: 机器全操作后 TOWN_INTERACTS 深度不变 */
