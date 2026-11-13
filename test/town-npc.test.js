@@ -167,15 +167,29 @@ function bareCtx() {
 }
 
 let ctxCache = null;
+let restoreHostStub = null;
 function adapterCtx() {
   if (ctxCache) return ctxCache;
   const adpPath = path.join(ROOT, ADP_REL);
   if (!fs.existsSync(adpPath)) {
     throw new Error('装载链缺少 ' + ADP_REL + '(T-NPC-05 红期: 渲染适配件未落实现)');
   }
+  /* kit 系宿主域 require 实例, 闭包自由变量 THREE/document 按词法作用域
+     解析宿主 global(vm 沙盒桩对其结构性不可见)——桩挂宿主 global
+     (mob-look.test.js 321 先例), 同一实例共享给 vm ctx: vm 内脚本与
+     桥接表达式解析的 THREE 与 kit 构造同类(instanceof 才成立) */
+  const three = stubThree();
+  const prevThree = global.THREE; const prevDoc = global.document;
+  global.THREE = three;
+  global.document = stubDocument;
+  restoreHostStub = () => {
+    global.THREE = prevThree;
+    global.document = prevDoc;
+  };
+  process.on('exit', restoreHostStub);
   const ctx = vm.createContext({
     console: {log() {}, warn() {}, error() {}},
-    MobLookKit, THREE: stubThree(), document: stubDocument,
+    MobLookKit, THREE: three, document: stubDocument,
   });
   const files = fs.readdirSync(LOOK_DIR)
       .filter((f) => f.startsWith('town_') && f.endsWith('.js')).sort()
@@ -320,8 +334,8 @@ test('bones 逐骨透传: 与 kit 直产键集一致 · G01 flower 骨在册 · 
 test('placeTownNpc: 站位=(x, y+1, z) · 返回恰四键与 position 一致 · 入参零突变', () => {
   const b = bridge(adapterCtx());
   const r = b.place('V01', {x: 3, y: 10, z: 7, face: 'north'});
-  assert.deepStrictEqual(r.retKeys, ['x', 'yaw', 'y', 'z'],
-      '返回恰四键 {x,y,z,yaw}(零内部引用: 不携带 puppet/root/bones)');
+  assert.deepStrictEqual(r.retKeys, ['x', 'y', 'yaw', 'z'],
+      '返回恰四键 {x,y,z,yaw}(零内部引用: 不携带 puppet/root/bones; 字典序)');
   assert.deepStrictEqual(r.ret, {x: 3, y: 11, z: 7, yaw: 0},
       '返回值=站位面 (x, y+1, z) + yaw(townSpawnIntent 先例)');
   assert.deepStrictEqual(r.pos, [3, 11, 7],
