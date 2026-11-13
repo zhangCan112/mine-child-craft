@@ -284,7 +284,7 @@ id 命名偏离见 §6。
   iPad 上从未生效；§6 登记 #11（css/touch.css 行内豁免）+ js/input.js 增
   `selectstart` 全局兜底（表单控件放行）。
 - 2026-11-14：§1.1 mob-look 行键集口径回写（T-NPC-06 F1，非新约定）：白名单测试
-  test/mob-look.test.js 已改源为「存量键集 ⊆ MOB_TYPES∪player · 非 MOB_TYPES 键必
+  test/mob-look.test.js 已改源为「存量键集(MOB_TYPES∪player)⊆ 造型键集 · 非 MOB_TYPES 键必
   town_ 前缀且 ∈ 镇民注册表键集」（T-NPC-01 §6.5 / T-NPC-03 §4.2 两轮授权改源，
   14 个 town_* 镇民档案不入战斗注册表），§1.1 补 ∪ town_*（键集=镇民注册表
   town-npc-registry）对齐现状。
