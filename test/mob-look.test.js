@@ -31,14 +31,31 @@ declareAll(MobLookKit);
 /* T-NPC-01 白名单改源: 键集口径从「等式」放宽为「超集 + 前缀域」——
    存量键集(= MOB_TYPES 全怪除 mix 伪类型 + player) ⊆ keys(注册表加怪
    漏档案仍红); 非 MOB_TYPES 键必 town_ 前缀(氛围 NPC 走 mob-look 共享
-   管线但不入战斗注册表, 防私生怪; town 键 ∈ 村民注册表键集的消费端
-   断言随 T-NPC-03 落地接手) */
+   管线但不入战斗注册表, 防私生怪)。T-NPC-03 白名单改源收口: town 键
+   ∈ 镇民注册表键集(消费端断言, conventions §1.2 -registry; 注册表
+   缺席=红期明确中文错) */
 const MIGRATED = Object.keys(MOB_TYPES).filter((k) => k !== 'mix')
     .concat(['player']).sort();
 
+const REG_REL = 'js/town-npc-registry.js';
+
+/* T-NPC-03 消费端供源: 注册表键集从 js/town-npc-registry.js 读(唯一权威),
+   本测试只消费不复制——私生 town look(有档案无注册行)在此即红。
+   TOWN_NPCS 是纯数据, 裸沙盒装载即可读(校验在 townNpcRegistry 调用期)。 */
+function regTownKeys() {
+  const regPath = path.join(ROOT, REG_REL);
+  if (!fs.existsSync(regPath)) {
+    throw new Error('装载链缺少 ' + REG_REL + '(T-NPC-03 红期: 注册表未落实现)');
+  }
+  const ctx = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+  vm.runInContext(fs.readFileSync(regPath, 'utf8'), ctx, {filename: REG_REL});
+  return vm.runInContext('TOWN_NPCS.map((r) => r.key)', ctx);
+}
+
 /* ============ 测试 ============ */
 
-test('造型档案: 注册表 — 文件名=声明键 · 存量键集 ⊆ keys · 非 MOB_TYPES 键必 town_ 前缀', () => {
+test('造型档案: 注册表 — 文件名=声明键 · 存量键集 ⊆ keys · town 键 ∈ 镇民注册表键集', () => {
+  const townRegKeys = regTownKeys();
   for (const f of lookFiles) {
     const key = path.basename(f, '.js');
     assert.ok(MobLookKit.has(key), f + ' 应声明与文件名同键的造型');
@@ -52,6 +69,8 @@ test('造型档案: 注册表 — 文件名=声明键 · 存量键集 ⊆ keys �
     assert.ok(look, k + ' 应可绘制');
     if (k === 'player' || k in MOB_TYPES) continue;
     assert.ok(k.startsWith('town_'), '造型键 ' + k + ' 不在 MOB_TYPES 且无 town_ 前缀(拼错/私生怪)');
+    assert.ok(townRegKeys.includes(k),
+        'town 造型键 ' + k + ' 不在 TOWN_NPCS 注册表键集(T-NPC-03 白名单改源: 私生 look 即红)');
   }
 });
 
