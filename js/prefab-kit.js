@@ -197,7 +197,8 @@ function pfMerge(row, id, v) {
       capSwap: !!ex.capSwap, landing: !!ex.landing};
   }
   /* 标量轴收放(只钳行声明的): stilt-hut 台阶 · under-room 室形/竖井/
-     地板深/盐 · tower-belfry 高度档钳域 · 布尔轴按声明收放 */
+     地板深/盐 · tower-belfry 高度档钳域 · windmill-tower 叶展档钳域 ·
+     布尔轴按声明收放 */
   if (pfHas(d, 'steps')) e.steps = pfNum(e.steps);
   if (pfHas(d, 'half')) e.half = pfNum(e.half);
   if (pfHas(d, 'cavH')) e.cavH = pfNum(e.cavH);
@@ -208,6 +209,11 @@ function pfMerge(row, id, v) {
     const ht = Math.floor(Number(e.heightTier));
     e.heightTier = Number.isFinite(ht) ? Math.max(14, Math.min(16, ht)) : 15;
   }
+  /* windmill-tower 叶展档钳域 [3,4](heightTier 档先例; 非有限数回落缺省 4) */
+  if (pfHas(d, 'bladeSpan')) {
+    const bs = Math.floor(Number(e.bladeSpan));
+    e.bladeSpan = Number.isFinite(bs) ? Math.max(3, Math.min(4, bs)) : 4;
+  }
   if (pfHas(d, 'mirror')) e.mirror = !!e.mirror;
   if (pfHas(d, 'door')) e.door = !!e.door;
   if (pfHas(d, 'doorOpen')) e.doorOpen = !!e.doorOpen; /* shop-awning 门洞敞开 */
@@ -215,15 +221,16 @@ function pfMerge(row, id, v) {
   if (pfHas(d, 'openBelfry')) e.openBelfry = !!e.openBelfry;
   if (pfHas(d, 'hasDoorNiche')) e.hasDoorNiche = !!e.hasDoorNiche;
   if (pfHas(d, 'flags')) e.flags = !!e.flags;
+  if (pfHas(d, 'sailStatic')) e.sailStatic = !!e.sailStatic; /* windmill 叶轮静态 */
   return e;
 }
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。六行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   kernel(几何内核)。七行: stilt-hut(P0 高脚木屋对)/under-room/mound
    (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔)/shop-awning
-   (T-PREFAB-02 店身+前廊遮檐铺面)/stash-hut(T-PREFAB-03 秘密储藏小屋),
-   按形命名不按图命名 */
+   (T-PREFAB-02 店身+前廊遮檐铺面)/stash-hut(T-PREFAB-03 秘密储藏小屋)/
+   windmill-tower(T-PREFAB-04 风车塔), 按形命名不按图命名 */
 const PF_ROWS = {
   'stilt-hut': {
     facing0: 'south',
@@ -731,6 +738,106 @@ const PF_ROWS = {
         }
       }
       return {x1, y1: y, z1, x2, y2: y + (e.roofPitch === 'mid' ? 5 : 4), z2};
+    },
+  },
+  'windmill-tower': {
+    /* 风车塔: 中石基座+收分塔身+暖褐锥顶+四臂叶轮的竖向天际线地标
+       (town-prefab-specs §4.4, 视觉对照 buildings-visual-spec §7.5——
+       风车天际线母题, 门窗小而友好)。锚=塔基地面中心投影, 局部轴 dx 横/
+       dz 前后/dy 竖, face0=south=叶轮面朝 +dz; 偶宽 NW 偏置同 pfSpan
+       口径: 6→[-3,2]², 5×5 居中 [-2,2]², 4×4 [-2,1]², 2×2 [-1,0]²。
+       叶片组件(叶+轴)受 sailStatic 整体收放(§4.4「资产可分件预留」——
+       动态旋转属实现/动画选型, 蓝图只给静态造型; false=组件整体不入
+       几何, 塔体独立成景); 无光/火语义槽位(ids 白名单无 torch/glow,
+       §8 去威胁红线——机械件无裸露危险) */
+    facing0: 'south',
+    defaults: {
+      face: 'south', /* 缺省=行 facing0(恒等映射) */
+      mirror: false,
+      sailStatic: true, /* 叶轮静态: true=叶片组件(叶+轴)入几何/0 值钳 false */
+      bladeSpan: 4, /* 叶展档 [3,4]: 4=臂顶 dy12(总高 13)/3=收短 dy11(总高 12) */
+      /* 材质注入, 缺省裸数字(§4.4 口径→现调色板): base 石头中石基座 ·
+          wall 木板暖木-浅塔身(现调色板木板暖木-中近似) · roof 红砖暖褐
+          檐层与锥顶(顶先例 40) · trim 木头暖木-中箍带与小窗 · blade 羊毛
+          奶油叶面 · axle 金属铁灰轴心 */
+      ids: {base: 3, wall: 6, roof: 40, trim: 5, blade: 52, axle: 12},
+    },
+    kernel(e, x, y, z, orient, put) {/* x/y/z 未用: 纯局部系直写(无地形读数) */
+      const ids = e.ids; const S = e.bladeSpan;
+      /* dy=0 基座: 恰 6×6 实心板(dx,dz∈[-3,2]), 域外无物 */
+      for (let dx = -3; dx <= 2; dx++) {
+        for (let dz = -3; dz <= 2; dz++) put(dx, 0, dz, ids.base);
+      }
+      /* dy=1..4 塔身 5×5 实心([-2,2]², 收分第一段): dy3 箍带=该层周界
+          trim(§7.5「横向箍带 2 圈」拍板其一, 增强结构感) */
+      for (let dy = 1; dy <= 4; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          for (let dz = -2; dz <= 2; dz++) {
+            const edge = dx === -2 || dx === 2 || dz === -2 || dz === 2;
+            put(dx, dy, dz, dy === 3 && edge ? ids.trim : ids.wall);
+          }
+        }
+      }
+      /* dy=5..7 塔身 4×4 实心([-2,1]², 收分第二段): dy6 箍带=周界 trim */
+      for (let dy = 5; dy <= 7; dy++) {
+        for (let dx = -2; dx <= 1; dx++) {
+          for (let dz = -2; dz <= 1; dz++) {
+            const edge = dx === -2 || dx === 1 || dz === -2 || dz === 1;
+            put(dx, dy, dz, dy === 6 && edge ? ids.trim : ids.wall);
+          }
+        }
+      }
+      /* dy=8 檐层 4×4=roof · dy=9 锥顶 2×2([-1,0]²)=roof 封顶, 域外空 */
+      for (let dx = -2; dx <= 1; dx++) {
+        for (let dz = -2; dz <= 1; dz++) put(dx, 8, dz, ids.roof);
+      }
+      for (let dx = -1; dx <= 0; dx++) {
+        for (let dz = -1; dz <= 0; dz++) put(dx, 9, dz, ids.roof);
+      }
+      /* 门洞 1w×2h 前沿中轴 (0,dy1..2,2)=掏空气 · 小窗 (0,4,2)=trim
+          (§7.5 y4 小窗居中拍板): 塔身后写覆写——序即几何 */
+      put(0, 1, 2, 0);
+      put(0, 2, 2, 0);
+      put(0, 4, 2, ids.trim);
+      /* 叶片组件(sailStatic 才写; 塔体后写, 覆写檐层——序即几何): 轴心
+          ids.axle 3 连格——根 (0,8,1) 覆写檐/连杆 (0,8,2)/轮心 (0,8,3);
+          轮面 dz=3(塔前沿外 1 格, 叶轮悬于塔面——真实风车母题)四臂十字,
+          臂宽 2 偶宽西偏 [-1,0] 同 pfSpan: 上臂 dy9..8+S · 下臂 dy8-S..7 ·
+          东西臂 dx∈[1,S]/[-S,-1] 贴 dy∈{7,8} */
+      if (e.sailStatic) {
+        for (let dz = 1; dz <= 3; dz++) put(0, 8, dz, ids.axle);
+        for (let dy = 9; dy <= 8 + S; dy++) {/* 上臂 */
+          for (const dx of [-1, 0]) put(dx, dy, 3, ids.blade);
+        }
+        for (let dy = 8 - S; dy <= 7; dy++) {/* 下臂 */
+          for (const dx of [-1, 0]) put(dx, dy, 3, ids.blade);
+        }
+        for (let dx = -S; dx <= S; dx++) {/* 东西臂(避开轮心 dx=0) */
+          if (dx === 0) continue;
+          put(dx, 7, 3, ids.blade);
+          put(dx, 8, 3, ids.blade);
+        }
+      }
+    },
+    /* 脚印: 同参纯算术投影——动态=纯塔体盒([-3,2]²×dy0..9, bladeSpan
+        不参与); 静态并入叶展保守盒(dx∈[-S,S]×dz∈[-3,3]×dy0..8+S)。
+        平面 4 角过同一张朝向表(90° 旋转盒恒轴对齐), y 域取写笔最低/
+        最高层 */
+    foot(e, x, y, z, orient) {
+      const S = e.bladeSpan;
+      const corners = [[-3, 2], [-3, -3], [2, 2], [2, -3]]; /* 塔体 [-3,2]² */
+      if (e.sailStatic) {
+        for (const dx of [-S, S]) {
+          for (const dz of [-3, 3]) corners.push([dx, dz]); /* 叶展保守域 */
+        }
+      }
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const [dx, dz] of corners) {
+        const o = orient(dx, dz);
+        x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+        z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+      }
+      return {x1, y1: y, z1, x2, y2: y + (e.sailStatic ? 8 + S : 9), z2};
     },
   },
 };
