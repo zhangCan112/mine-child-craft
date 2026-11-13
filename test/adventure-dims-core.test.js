@@ -250,6 +250,22 @@ test('ADV_SCENE_KEYS 派生集含 town: 壳层两注册表派生/showroom/livest
       'decode 兜底三级回退含 ADV_DIMS 派生(adventure-core 键白名单)');
 });
 
+test('showroomSceneKeys 回落清单含 town: 回落面与派生面一致(两回落分支对齐 nether/den 条目形状)', () => {
+  /* 干净 vm 域(零注册表零污染): 复刻纯 Node 回落环境, 真调用回落分支 */
+  const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/showroom-core.js'), 'utf8'), eng,
+      {filename: 'js/showroom-core.js'});
+  const keys0 = vm.runInContext('showroomSceneKeys()', eng);
+  assert.ok(Array.isArray(keys0) && keys0.includes('home') && keys0.includes('nether') &&
+      keys0.includes('den'), '零注册表走固定清单(回落分支自检在册)');
+  assert.ok(keys0.includes('town'), '零注册表回落清单含 town(与派生面一致——showroom 桶回落环境不缺 town)');
+  vm.runInContext('ADV_MAPS = [{id: \'home\'}]', eng);
+  const keys1 = vm.runInContext('showroomSceneKeys()', eng);
+  assert.ok(keys1.includes('nether') && keys1.includes('den'),
+      'dims 内层回落分支自检在册(ADV_MAPS 在场 ADV_DIMS 缺席)');
+  assert.ok(keys1.includes('town'), 'ADV_DIMS 缺席的 dims 回落清单含 town(对齐 nether/den 条目形状)');
+});
+
 test('三条全局判据零新分支: 维度判据无 town 特判(pos 不进档/死亡单分支/分桶派生)', () => {
   const shell = fs.readFileSync(path.join(ROOT, 'js/modes/adventure.js'), 'utf8');
   const coreSrc = fs.readFileSync(path.join(ROOT, 'js/adventure-core.js'), 'utf8');

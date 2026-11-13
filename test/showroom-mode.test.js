@@ -1790,7 +1790,8 @@ test('体验馆 U3: 世界档 payload(真账本) — home 桶=派生条目 · �
   assert.strictEqual(p.dayTime, 0, '清晨起步');
   assert.deepStrictEqual(p.furnaces, [], '炉空');
   assert.deepStrictEqual(Object.keys(p.livestock).sort(),
-      ['den', 'desert', 'home', 'nether', 'snow', 'swamp', 'town'], '死畜七桶空账(桶集随 ADV_DIMS 对齐, dimension-registry; town 空桶 T-SEAM-01 派生跟随)');
+      ['den', 'desert', 'home', 'nether', 'snow', 'swamp', 'town'],
+      '死畜七桶空账(桶集随 ADV_DIMS 对齐, dimension-registry; town 空桶 T-SEAM-01 派生跟随)');
 });
 
 test('体验馆 U3: dev store 丢弃语义 — 落盘面全 noop · mark 进内存账本 · 三档再读仍篡改', () => {

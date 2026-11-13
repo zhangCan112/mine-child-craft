@@ -545,7 +545,7 @@ const ADV_DIMS = [
     assets: null}, /* 副本素材预留缝(null=走缺省方块集, GLOSSARY『副本素材』) */
 ];
 
-/* 维度行查询(壳层与桥接政策的取行唯一入口): 'nether'|'den' → 行 | undefined */
+/* 维度行查询(壳层与桥接政策的取行唯一入口): 'nether'|'den'|'town' → 行 | undefined */
 function advDimRow(id) {
   return ADV_DIMS.find((r) => r.id === id);
 }

@@ -378,10 +378,10 @@ function showroomSceneKeys() {/* 分桶键全集: 两注册表派生(ADV_MAPS+AD
     同口径, 2026-10-30 补 den 桶——原先漏抄, 靠壳 decode 归一兜住; 回落清单须与
     ADV_DIMS 键集同步); 无注册表环境回落固定清单 */
   if (typeof ADV_MAPS !== 'undefined') {
-    const dims = (typeof ADV_DIMS !== 'undefined') ? ADV_DIMS.map((r) => r.id) : ['nether', 'den'];
+    const dims = (typeof ADV_DIMS !== 'undefined') ? ADV_DIMS.map((r) => r.id) : ['nether', 'den', 'town'];
     return ADV_MAPS.map((r) => r.id).concat(dims);
   }
-  return ['home', 'desert', 'snow', 'swamp', 'nether', 'den'];
+  return ['home', 'desert', 'snow', 'swamp', 'nether', 'den', 'town'];
 }
 
 function showroomEmptyBuckets() {/* 五桶空账本(edits/livestock 共用的桶形): 键集随注册表, 只增不减 */
