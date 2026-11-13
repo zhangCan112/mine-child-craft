@@ -12,6 +12,7 @@ permission:
     "bug-doctor": "allow"
     "reviewer": "allow"
     "tdd-engineer": "allow"
+    "architect": "allow"
 ---
 
 # engineer-manager
