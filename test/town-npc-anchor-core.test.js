@@ -55,11 +55,15 @@ const cheb = (x1, z1, x2, z2) => Math.max(Math.abs(x1 - x2), Math.abs(z1 - z2));
 function makeFacings(c) {
   const t = c.TOWN_MAP;
   const foots = t.prefab.map((p) => ({p, b: c.PrefabKit.footOf(p.id, p.x, p.y, p.z,
-    Object.assign({}, p.v, {face: p.face}))}));
+      Object.assign({}, p.v, {face: p.face}))}));
   return {
     foots,
-    footHit(x, z) { return foots.filter((f) => overlapXZ(pointBox(x, z), f.b)); },
-    gapFootMin(x, z) { return Math.min(...foots.map((f) => gapXZ(pointBox(x, z), f.b))); },
+    footHit(x, z) {
+      return foots.filter((f) => overlapXZ(pointBox(x, z), f.b));
+    },
+    gapFootMin(x, z) {
+      return Math.min(...foots.map((f) => gapXZ(pointBox(x, z), f.b)));
+    },
     gapGround(id, x, z) {
       const g = t.ground.find((r) => r.id === id);
       return gapXZ(pointBox(x, z), {x1: g.x1, x2: g.x2, z1: g.z1, z2: g.z2});
@@ -69,22 +73,34 @@ function makeFacings(c) {
     },
     gapPrefabTheme(theme, x, z) {
       return Math.min(...foots.filter((f) => f.p.v && f.p.v.theme === theme)
-        .map((f) => gapXZ(pointBox(x, z), f.b)));
+          .map((f) => gapXZ(pointBox(x, z), f.b)));
     },
-    towerFoot() { return foots.find((f) => f.p.id === 'tower-belfry').b; },
-    gapTower(x, z) { return gapXZ(pointBox(x, z), this.towerFoot()); },
-    eastOfTower(x, z) { return x > (this.towerFoot().x1 + this.towerFoot().x2) / 2; },
+    towerFoot() {
+      return foots.find((f) => f.p.id === 'tower-belfry').b;
+    },
+    gapTower(x, z) {
+      return gapXZ(pointBox(x, z), this.towerFoot());
+    },
+    eastOfTower(x, z) {
+      return x > (this.towerFoot().x1 + this.towerFoot().x2) / 2;
+    },
     chebScatter(id, x, z) {
       const s = t.scatter.find((r) => r.id === id);
       return cheb(x, z, s.x, s.z);
     },
-    gapScatterMin(x, z) { return Math.min(...t.scatter.map((s) => cheb(x, z, s.x, s.z))); },
+    gapScatterMin(x, z) {
+      return Math.min(...t.scatter.map((s) => cheb(x, z, s.x, s.z)));
+    },
     chebAnchor(id, x, z) {
       const a = t.anchors.find((r) => r.id === id);
       return cheb(x, z, a.x, a.z);
     },
-    gapAnchorMin(x, z) { return Math.min(...t.anchors.map((a) => cheb(x, z, a.x, a.z))); },
-    inPlaza(x, z) { return x >= t.plaza.x1 && x <= t.plaza.x2 && z >= t.plaza.z1 && z <= t.plaza.z2; },
+    gapAnchorMin(x, z) {
+      return Math.min(...t.anchors.map((a) => cheb(x, z, a.x, a.z)));
+    },
+    inPlaza(x, z) {
+      return x >= t.plaza.x1 && x <= t.plaza.x2 && z >= t.plaza.z1 && z <= t.plaza.z2;
+    },
     onRoad(id, x, z) {
       const r = t.roads.find((rr) => rr.id === id);
       return x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2;
@@ -110,7 +126,9 @@ const SEM = [
   {id: 'npc:v06', face: 'east', why: 'flower 摊西邻, 面摊',
     ok: (x, z, F) => F.gapPrefabTheme('flower', x, z) <= 2},
   {id: 'npc:v07', face: 'west', why: 'lava-chicken 锚旁门前, 面店(建议坐标压 shop-awning 足印且距锚 1, 约束赢微调)',
-    ok: (x, z, F) => { const d = F.chebAnchor('lava-chicken', x, z); return d >= 2 && d <= 3; }},
+    ok: (x, z, F) => {
+      const d = F.chebAnchor('lava-chicken', x, z); return d >= 2 && d <= 3;
+    }},
   {id: 'npc:v08', face: 'east', why: '钟塔足印外东侧(建议坐标在实际足印西侧, 约束赢微调)',
     ok: (x, z, F) => F.eastOfTower(x, z) && F.gapTower(x, z) <= 2},
   {id: 'npc:v09', face: 'north', why: 'farm-b 南缘, 面田',
