@@ -7,6 +7,8 @@
 > 设计权威（不得推翻）：[`town-ui-dialog-spec.md`](town-ui-dialog-spec.md) **§2（A/B 边界与接口）、§4（视觉）、§5（会话分层与状态机）、§6（选项与无压力关闭）、§7（会话内表扬）、§10（B1-B8 待 PO 确认点）**；[`town-ui-entry-hud-spec.md`](town-ui-entry-hud-spec.md) **§0.3（A/B 接口契约）**；架构约束 [`../town-architecture-design.md`](../town-architecture-design.md) **§7.1/§7.2**
 > 票面：`.scratch/handoffs/2026-11-13-T-UI-04-dispatch-brief.md`（T-UI-01/03、T-MAP-04 未完成，**最早可开工条件未满足**——本文件为预排稿，解阻后即插即用）
 > 勘误提示：票面写「dialog-spec §8（B1-B8）」为**指针漂移**——B1-B8 实际在 **§10**；本文件按 §10 现状引用（勘误登记见 §9）
+>
+> **【2026-11-13 PO 变更·已核对】** 独立入口卡撤除、进入改「主路尽头白闪过场」（新缝权威 `town-entry-transition-visual-spec.md`）。本文件是**镇内会话 UI 预排，与入口缝正交**：§1-§9 全部规格不受影响。唯一受损引用面=§1.2「双蓝澄清」行对 `town-ui-entry-tokens.md` §1.2 入口卡 token 的引用（该章已随入口卡撤除作废）——已加注记改指存活权威；entry-hud-spec 引用面（§0.3/§4.3/§4.4/§6.2）均为存活章节。无需重发。变更溯源：`.scratch/town-seam-change/research-map-facts.md`。
 
 ---
 
@@ -54,6 +56,8 @@
 | `--town-dlg-done` | `#9BCF7A`（麦绿） | notes-ui §2 | 完成勾/徽章角标（不另造「完成绿」） |
 
 > **双蓝澄清（非矛盾，防实现混用）**：B 侧会话引导语汇取**村民盘 Sky Cloth `#7EC8D8`**；A 侧入口卡点缀/高亮备选取**建筑盘布幔-天蓝 `#7EC8E3`**（`town-ui-entry-tokens.md` §1.2、entry-hud §6.2）。两色分属两套色盘、各有 spec 正确引用；实现不得把两个色值当同义名互换。圆角语言统一 12–20px（逻辑像素），Panel 取上限 20。
+>
+> 【2026-11-13 PO 变更·核对】上一行对 `town-ui-entry-tokens.md` §1.2 的引用已随入口卡撤除**作废**（该章 token 进受损盘点态）；本行的存活权威 = **entry-hud-spec §6.2**（镇内高亮备选色，未受变更影响）。双蓝结论不变：B 侧 `#7EC8D8`（村民盘）/ A 侧 `#7EC8E3`（建筑盘）仍分属两套色盘，不得互换。
 
 **尺寸与布局 token**（值取 dialog-spec §4.2/§4.3/§4.5；CSS 逻辑像素，按参考分辨率统一缩放）：
 
@@ -407,8 +411,8 @@ dialogBadgesAfter(badges, praiseEvent) → badges'// 徽章累积（cap=badgesMa
 ## 10. 引用
 
 - [`town-ui-dialog-spec.md`](town-ui-dialog-spec.md)（§2、§4–§7、§10 B1–B8——设计权威）
-- [`town-ui-entry-hud-spec.md`](town-ui-entry-hud-spec.md)（§0.3 接口契约；§4.3 末段/§6.2 会话收敛实际落点；§4.4 表扬节奏）
-- [`town-ui-entry-tokens.md`](town-ui-entry-tokens.md)（token 体例先例；A 侧入口 token）
+- [`town-ui-entry-hud-spec.md`](town-ui-entry-hud-spec.md)（§0.3 接口契约；§4.3 末段/§6.2 会话收敛实际落点；§4.4 表扬节奏。**【2026-11-13 PO 变更·核对】** 所引章节均存活；该文件 §3 入口卡章已废弃，与本文件无引用关系）
+- [`town-ui-entry-tokens.md`](town-ui-entry-tokens.md)（token 体例先例；A 侧入口 token。**【2026-11-13 PO 变更·核对】** 延续面=token 命名体例（`--town-dlg-*` 体例来源，存活）；其 §1 入口卡 token 已作废、§1.2 引用改指 entry-hud-spec §6.2（见 §1.2 双蓝澄清核对注记），受损盘点见该文件顶部专章）
 - [`../town-architecture-design.md`](../town-architecture-design.md)（§7.1/§7.2 UI 接线架构与约束；§11 票据拆解）
 - [`../town-assets-requirements.md`](../town-assets-requirements.md)（§7 UI-01~05、§8 音频语义）
 - [`../../MISSION.md`](../../MISSION.md)、[`../../GLOSSARY.md`](../../GLOSSARY.md)

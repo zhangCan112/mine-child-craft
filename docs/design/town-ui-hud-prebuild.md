@@ -4,8 +4,10 @@
 > 产出日期：2026-11-13
 > 角色：ui-designer（town-design Phase C · 分区 A · 并区派单三票同源预排）
 > 范围：**纯设计文档**（不改 `js/`、`test/`、`index.html`、`css/`；实现线照票施工）
-> 设计权威（不得推翻）：[`town-ui-entry-hud-spec.md`](town-ui-entry-hud-spec.md) **§0.3、§4（4.1-4.6）、§5（5.1-5.3）、§6（6.1-6.5）、§8（U4-U8）**；token 体例与色盘延续 [`town-ui-entry-tokens.md`](town-ui-entry-tokens.md)（T-UI-00 先例）；会话边界对齐 [`town-ui-dialog-spec.md`](town-ui-dialog-spec.md) **§2**；架构与性能约束 [`../town-architecture-design.md`](../town-architecture-design.md) **§7.1-§7.2、§8、§4.2（`town-ui-core` 建议落点）**；资产语义 [`../town-assets-requirements.md`](../town-assets-requirements.md) **§7（UI-01~05）**
+> 设计权威（不得推翻）：[`town-ui-entry-hud-spec.md`](town-ui-entry-hud-spec.md) **§0.3、§4（4.1-4.6）、§5（5.1-5.3）、§6（6.1-6.5）、§8（U4-U8）**；token 体例与色盘延续 [`town-ui-entry-tokens.md`](town-ui-entry-tokens.md)（T-UI-00 先例）；会话边界对齐 [`town-ui-dialog-spec.md`](town-ui-dialog-spec.md) **§2**；架构与性能约束 [`../town-architecture-design.md`](../town-architecture-design.md) **§7.1-§7.2、§8、§4.2（`town-ui-core` 建议落点）**；资产语义 [`../town-assets-requirements.md`](../town-assets-requirements.md) **§7（UI-01~05）**  
 > 使命约束：[`../../MISSION.md`](../../MISSION.md)（6 岁、纯鼠标点选、图标+中文 TTS、无键盘/指针锁定依赖、过程性表扬、零惩罚、零倒计时）
+>
+> **【2026-11-13 PO 变更·已核对】** 独立入口卡撤除、进入改「主路尽头白闪过场」（新缝权威 [`town-entry-transition-visual-spec.md`](town-entry-transition-visual-spec.md)）。本文件是**镇内 UI 预排，与入口缝正交**：§1-§7 规格（HUD 布局/指引/高亮/token 色板）全部不受影响，实现动工照常待解阻。两处引用面已逐处加注记（§1.1 命名体例行 / §2.4 U2 策略行）；引用权威中 entry-hud-spec **§3 入口卡章已废弃**，本文件 ui_refs（§0.3/§4/§5/§6/§8 U4-U8）均为存活章节，无需重发。变更溯源：`.scratch/town-seam-change/research-map-facts.md`。
 
 ---
 
@@ -27,7 +29,7 @@
 |---|---|---|
 | 容器结构 | `#hud` 内挂 `#townHud` 子容器（随模式 chrome 显隐），内分四层槽：`.town-hud-card`（L1）/ `.town-hud-pointer`（L2）/ `.town-hud-praise`（L3）/ `.town-hud-sys`（L4） | 全局 `#hud` 是既有模式 HUD 挂点（`index.html` 现状）；town 子容器统一命名空间便于样式隔离与卸载。L2 槽位由 T-UI-01 预留、T-UI-02 填充内容 |
 | CSS 落点 | 建议新增 `css/town.css`（沿用 focus/math/robot 各模式独立 css 先例）+ `index.html` link 接线 | 具体文件切分以实现票与 T-MAP-02 骨架合并序为准（合并权 engineer-manager） |
-| 命名体例 | 类名 `town-hud-*`、CSS 变量 `--town-hud-*`，延续 T-UI-00 的 `--town-card-*` 层级语言 | 同一色盘/命名体例扩展，不另起炉灶 |
+| 命名体例 | 类名 `town-hud-*`、CSS 变量 `--town-hud-*`，延续 T-UI-00 的 `--town-card-*` 层级语言 | 同一色盘/命名体例扩展，不另起炉灶。**【2026-11-13 PO 变更·核对】**「体例延续」指命名法与文档体例（存活，见 `town-ui-entry-tokens.md` 受损盘点章 §0′.1 末行）；`--town-card-*` 色值 token 本身已随入口卡撤除作废——本文件 §1.2 HUD 色板取色自 buildings §4 / dialog-spec，与入口卡 token 无依赖，不受影响 |
 
 ### 1.2 色彩 Token（HUD 侧扩展；色值来源逐项标注）
 
@@ -131,7 +133,7 @@ stateDiagram-v2
 
 | 项目 | 规格 |
 |---|---|
-| 形态 | 卡片右端小喇叭图标按钮（自绘/UI-01 风格像素喇叭；首版可 emoji `🔊` 占位——同 U2 的 emoji 占位策略） |
+| 形态 | 卡片右端小喇叭图标按钮（自绘/UI-01 风格像素喇叭；首版可 emoji `🔊` 占位——同 U2 的 emoji 占位策略。**【2026-11-13 PO 变更·核对】** U2 已语境迁移（hud-spec §8 U2 行），但「emoji 占位先行、后续换 UI-01 风格像素图标」策略本身存活，本行照旧适用） |
 | 热区 | ≥44×44 CSS px 等效（图标 20-24px + padding 补足；§4.2/§6.4） |
 | 行为 | 点选即重播当前提示**完整友好句**一次（短标签只是辅助，TTS 才是完整句——§4.3）；不改变状态机状态；连点去抖（进行中则忽略新请求，避免重叠抢话） |
 | 通道 | 经统一语音出口（`SpeechKit`/既有音频约定）排队；与 B 侧会话播报的仲裁遵循 dialog-spec §2.2「TTS 通道」行（会话播报优先级高于氛围/提示） |
@@ -390,7 +392,7 @@ hud-spec §0.3「指引目标」行规定 A 只消费「**目标类型 + 位置/
 ## 10. 引用
 
 - [`town-ui-entry-hud-spec.md`](town-ui-entry-hud-spec.md)（§0.3、§4、§5、§6、§8——设计权威）
-- [`town-ui-entry-tokens.md`](town-ui-entry-tokens.md)（T-UI-00 先例：token 体例/色盘/命名延续）
+- [`town-ui-entry-tokens.md`](town-ui-entry-tokens.md)（T-UI-00 先例：token 体例/色盘/命名延续。**【2026-11-13 PO 变更·核对】** 延续面=命名体例/文档体例（存活）；其 §1 入口卡 token 与 §2 旧过渡参数已作废/平移（见该文件顶部受损盘点章），本文件 §1.2 色板取色自 buildings §4 不受影响）
 - [`town-ui-dialog-spec.md`](town-ui-dialog-spec.md)（§2 接口边界、§4.1 色板、§7.3 反馈分工）
 - [`../town-architecture-design.md`](../town-architecture-design.md)（§4.2 `town-ui-core` 落点、§7 UI 接线架构、§8 性能约束、§11 票据）
 - [`../town-assets-requirements.md`](../town-assets-requirements.md)（§7 UI-01~05、§2 版权与像素基线）
