@@ -2235,7 +2235,7 @@ function advSyncMood() {
      参照 nether 合并的 'n|' 先例: 各图炉位互不串档; home(=两界时代的上界)不
      前缀 → 旧档天然兼容。**前缀知识单份在 ADV_FURN_PREFIX**(审查修复 S2: 正则/
      场景数组原先各持一份字面量, 加第五张图要改三处——两处派生物全部从表派生) */
-const ADV_FURN_PREFIX = {home: '', desert: 'd|', snow: 's|', swamp: 'w|', nether: 'n|', den: 'k|'};
+const ADV_FURN_PREFIX = {home: '', desert: 'd|', snow: 's|', swamp: 'w|', nether: 'n|', den: 'k|', town: ''};
 const ADV_FURN_PREFIXED = Object.keys(ADV_FURN_PREFIX) /* 带前缀场景清单(表派生, 长度序同表序) */
     .filter((s) => ADV_FURN_PREFIX[s])
     .sort((a, b) => ADV_FURN_PREFIX[b].length - ADV_FURN_PREFIX[a].length);

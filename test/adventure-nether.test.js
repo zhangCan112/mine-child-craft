@@ -1319,7 +1319,7 @@ test('审查修复 P1: 神殿可疑地板 — 站上塌入宝箱室(4 格清空+
 /* ============ 审查修复 P2：死畜账按图分桶(code-review Spec 半成品项) ============
     档形 {图:[idx..]} 五桶(与 edits/furnaces 同口径); 老档 {dead:[..]} 单账→home 桶。 */
 
-test('审查修复 P2: 死畜账按图分桶 — 老档单账迁 home 桶 · 六桶恒写全 · 往返一致', () => {
+test('审查修复 P2: 死畜账按图分桶 — 老档单账迁 home 桶 · 七桶恒写全 · 往返一致', () => {
   /* 老档单账: 已杀 1 号牛 → home 桶吸收, 重进只播 9 只 */
   freshC((m) => m.set('adventure_world_save', JSON.stringify({_v: 1,
     edits: [], pos: null, hp: null, furnaces: [], livestock: {dead: [1]}, dayTime: 0})));
@@ -1327,11 +1327,12 @@ test('审查修复 P2: 死畜账按图分桶 — 老档单账迁 home 桶 · 六
   assert.strictEqual(idx1.length, 0, '老档单账 dead:[1] → home 桶吸收(1 号牛不重生)');
   const alive = mobsSpawnedC.filter((m) => m.__livestockIdx != null);
   assert.strictEqual(alive.length, 9, '其余 9 只照播(10-1)');
-  /* 落盘 = 新分桶形状: 六桶恒写全(den-nest D8: den 副本桶并入同一封套) */
+  /* 落盘 = 新分桶形状: 七桶恒写全(den-nest D8: den 副本桶并入同一封套;
+      town 空桶随 T-SEAM-01 维度行派生自动跟随, 恒空不播种 §6.3.3) */
   AN.advJournal.flush();
   const sv = JSON.parse(memC.get('adventure_world_save'));
   assert.deepStrictEqual(Object.keys(sv.livestock).sort(),
-      ['den', 'desert', 'home', 'nether', 'snow', 'swamp'], '六桶恒写全(形状确定)');
+      ['den', 'desert', 'home', 'nether', 'snow', 'swamp', 'town'], '七桶恒写全(形状确定)');
   assert.deepStrictEqual(sv.livestock.home, {dead: [1], bred: [], sheared: {}}, 'home 桶带已杀索引(v3 三栏)');
   assert.deepStrictEqual(sv.livestock.desert, {dead: [], bred: [], sheared: {}}, '远征桶空');
   /* encode→decode→encode 档文本恒等(往返一致) */

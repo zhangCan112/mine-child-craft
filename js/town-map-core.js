@@ -136,3 +136,10 @@ function townBuildSteps() {
   }
   return steps;
 }
+
+/* Node require 域导出守卫(浏览器域零影响——经典 script 词法共享不需要它):
+   adventure-dims-core 的 Node 装载兜底经 require 取 TOWN_MAP 自举挂全局,
+   镇件同名单测走 vm 域惯例不受此导出影响(无 module 即跳过) */
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {TOWN_MAP, townBuildSteps};
+}

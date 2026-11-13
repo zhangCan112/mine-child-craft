@@ -2767,8 +2767,9 @@ test('F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 
   assert.deepStrictEqual(A.getSaveView().world.livestock,
       {home: {dead: [0], bred: [], sheared: {}}, desert: {dead: [], bred: [], sheared: {}},
         snow: {dead: [], bred: [], sheared: {}}, swamp: {dead: [], bred: [], sheared: {}},
-        nether: {dead: [], bred: [], sheared: {}}, den: {dead: [], bred: [], sheared: {}}},
-      '死畜索引顺手落账(同一回调; v3 三栏桶: dead/bred/sheared 剪毛账; den 桶 den-nest D8)');
+        nether: {dead: [], bred: [], sheared: {}}, den: {dead: [], bred: [], sheared: {}},
+        town: {dead: [], bred: [], sheared: {}}},
+      '死畜索引顺手落账(同一回调; v3 三栏桶: dead/bred/sheared 剪毛账; den 桶 den-nest D8; town 空桶 §6.3.3 恒空不播种)');
   /* 收获观感 + 不记账(挥击行为链: 准星锥内命中, 脚本 freshDead) */
   globalThis.yaw = 0;
   pos.x = 40; pos.y = 25; pos.z = 50;
@@ -2894,7 +2895,7 @@ test('F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索
   const deadBuckets = {home: {dead: [victim.__livestockIdx], bred: [], sheared: {}},
     desert: {dead: [], bred: [], sheared: {}}, snow: {dead: [], bred: [], sheared: {}},
     swamp: {dead: [], bred: [], sheared: {}}, nether: {dead: [], bred: [], sheared: {}},
-    den: {dead: [], bred: [], sheared: {}}};
+    den: {dead: [], bred: [], sheared: {}}, town: {dead: [], bred: [], sheared: {}}};
   assert.deepStrictEqual(A.getSaveView().world.livestock, deadBuckets, '死畜账在内存(v3 三栏桶形状)');
   assert.ok(dropsState.spawned.length >= 1, '掉落照常(收获链不断)');
   AdventureMode.cleanup();
@@ -4232,7 +4233,7 @@ test('退场回收: advReclaimThrown 把地上丢弃件收回包(耐久原样); 
 });
 test('维度规格收口: ADV_SCENE_KEYS 两注册表派生(桶键=地图行+维度行, 加维度零手抄)', () => {
   const Dims = globalThis.ADV_DIMS;
-  assert.ok(Array.isArray(Dims) && Dims.length === 2, '两维度行(nether/den)');
+  assert.ok(Array.isArray(Dims) && Dims.length === 3, '三维度行(nether/den/town)');
   const want = [...globalThis.ADV_MAPS.map((r) => r.id), ...Dims.map((r) => r.id)].sort();
   assert.deepStrictEqual(Object.keys(A.advSceneEdits).sort(), want, '分桶键全集=ADV_MAPS+ADV_DIMS 派生');
 });

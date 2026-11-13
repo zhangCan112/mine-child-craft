@@ -466,6 +466,32 @@ function advDenMineRoom(cx, cz, ores, salt) {
   }
 }
 
+/* Node require 域装载兜底: ADV_TOWN 加载期派生读 TOWN_MAP, 浏览器经 index.html
+   script 序(town-map-core 先于本文件)经典 script 词法共享恒可见, 不进此分支;
+   Node CJS 域未铺垫时经此自举挂 globalThis(裸名经 global 可见)——各 require
+   方零手工铺垫(town-map-core 零依赖纯数据, 侧效应为零) */
+if (typeof TOWN_MAP === 'undefined' && typeof require === 'function') {
+  globalThis.TOWN_MAP = require('./town-map-core.js').TOWN_MAP;
+}
+
+/* ============================================================
+   小镇维度段 (T-SEAM-01, docs/town-map-design.md §6.3.3 /
+   docs/adr/0011 决策 1) — ADV_TOWN 结构常量: town 维度的坐标系
+   派生面(ADV_NETHER/ADV_DEN 结构常量同款口径)
+   ------------------------------------------------------------
+   ADV_TOWN 只做派生引用, 坐标唯一权威仍是 TOWN_MAP(GLOSSARY
+   「城镇地图核心」布局唯一权威)——core 引 TOWN_MAP.core(核心区
+   闭域+地平基高), spawnAnchor 引 TOWN_MAP.anchors 出生锚(南主路
+   上面北望广场), 不抄第二份坐标。加载期依赖: 本常量顶层派生读
+   TOWN_MAP, 浏览器靠 index.html script 序(town-map-core 先于本
+   文件)保证; Node CJS 域由上方装载兜底自举, 各 require 方零手工
+   铺垫。
+   town 建场装配件链(townBuild 本体)留 js/modes/town.js(T-SEAM-05
+   才迁 dims-core), 行 build 闭包调用期懒引(闭包体跨文件调用期
+   解析)。
+   ============================================================ */
+const ADV_TOWN = {core: TOWN_MAP.core, spawnAnchor: TOWN_MAP.anchors.find((anchor) => anchor.id === 'spawn')};
+
 /* ============================================================
    维度注册表 ADV_DIMS — 本文件的成立理由(docs/dimension-registry-design.md)
    ------------------------------------------------------------
@@ -503,6 +529,20 @@ const ADV_DIMS = [
     /* 大厅南侧开阔区, 面朝北; 坐标唯一权威在 ADV_DEN, 加载期派生 */
     hud: {banner: '🕳️ 苦力怕巢穴 · 深处', showMobs: true}, /* 恒暗不显时段行; 怪物行照显(副本有怪——波次观感) */
     assets: null}, /* 副本素材预留缝(null=走缺省方块集, GLOSSARY『副本素材』) */
+  {id: 'town', /* 小镇相位(docs/town-map-design.md §6.3.3, ADR 0011 决策 1) */
+    build: () => {/* 建场懒引现有装配件链(townBuild 本体=js/modes/town.js;
+        建场直写不记账——互锁红线; 装配件迁 dims-core=T-SEAM-05 节拍, 本票不迁) */
+      townBuild();
+    },
+    sky: {color: 0x7ec8e3, fogNear: 90, fogFar: 230, sunI: 0.85}, /* 暖亮白天(视觉 spec §4.1 布幔-天蓝色板; 恒白天观感由此承担) */
+    mood: 'calm', /* calm-piano 曲目键(AudioRegistry BGM 表在册) */
+    dayCycle: false, /* 时间冻结+天体/云隐藏+基底亮光, ≠恒夜——nether/den 的恒夜
+        观感来自它们行上的暗 sky 参, town 暖亮 sky 参即恒白天, 零机制扩展 */
+    spawn: {x: ADV_TOWN.spawnAnchor.x, y: ADV_TOWN.core.groundY + 1, z: ADV_TOWN.spawnAnchor.z, yaw: 0},
+    /* 落点在南主路上, yaw 0=face:'north'(townYawOfFace 派生口径)面北望广场;
+        坐标唯一权威在 TOWN_MAP, 此处加载期从 ADV_TOWN 派生(行不做坐标权威) */
+    hud: {banner: '🏘️ 小镇 · Midport Village', showMobs: false}, /* 无怪隐怪物行(§6.3.4 机制无怪=因, 行参隐行=观感果) */
+    assets: null}, /* 副本素材预留缝(null=走缺省方块集, GLOSSARY『副本素材』) */
 ];
 
 /* 维度行查询(壳层与桥接政策的取行唯一入口): 'nether'|'den' → 行 | undefined */
@@ -521,7 +561,7 @@ function advMusicMood(dim, isNight) {
 }
 
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {ADV_DIMS, advDimRow, advMusicMood,
+  module.exports = {ADV_DIMS, advDimRow, advMusicMood, ADV_TOWN,
     ADV_NETHER, ADV_DEBRIS, advNetherBuild,
     ADV_ERUPT, advEruptStep,
     ADV_DEN, ADV_DEN_TUNNELS, ADV_DEN_GUARDS, advDenRoomCenter,
