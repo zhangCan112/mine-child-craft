@@ -32,11 +32,23 @@
 - **材质现状（实现约束）**：`tree`/`pine`/`scrub` 内核当前写固定原木/树叶 id（5/7）；`pineSnowy` 的雪叶 id 可注入。若城镇需异色叶（如樱花冠），属“调用方覆写层/后续蓝图扩展点”，本文在件规格中显式标注，不在文档里写散装树几何。
 
 ### 2.3 现有蓝图基底（可复用）
+
+> 行表清单唯一权威 = `js/prefab-kit.js` `PF_ROWS`（T-PREFAB-01..07 全量 ingest 后九行实现；§4.8 `board-pool` 经 PO 2026-11-13 裁决推迟未实现，spec 保留待收口再议）。缺省材质经 T-PREFAB-09 逐槽实义核真（危险/错义 id 不作缺省，§5.2 行内安全缺省）。
+
 | id（按形） | 形态 | `facing0` | 关键 `v` 面（摘要） | 材质注入槽 | 典型复用指向 |
 |---|---|---|---|---|---|
 | `stilt-hut` | 高脚木屋（桩脚+地板+墙环+门洞+顶/帽+家具+台阶） | `south` | `size{hx,back,front}` · `piles(fixed/terrain)` · `ground` · `door` · `roof(flat/stepped)` · `chest` · `torch(wall/rim/none)` · `steps` · `mirror` · `face` | `ids{log,plank,chest,torch}` | 小体量高脚/木构小屋基底（需较大形变时建议新增件而非硬套） |
-| `under-room` | 三明治埋室（地板/腔/顶+竖井+可疑地板+出路） | `east` | `mat`(必传) · `half` · `cavH` · `floorDy` · `shaft` · `trap` · `torches(solo/pair)` · `chest` · `exit{steps,width,capSwap,landing}` · `mirror` · `face` | `ids{chest,torch,cap,land}` + `mat` | 地下储藏/埋室类场景件基底 |
-| `mound` | r2 圆底三层土丘+南向洞口+点缀掷点 | `south` | `top`(必传) · `rock`(必传) · `salt` · `mirror` · `face` | `top`/`rock` | 丘体/小土包/彩蛋地形件基底（材质注入即改观感） |
+| `under-room` | 三明治埋室（地板/腔/顶+竖井+可疑地板+出路） | `east` | `mat`(必传) · `half` · `cavH` · `floorDy` · `shaft` · `trap` · `torches(solo/pair)` · `chest` · `exit{steps,width,capSwap,landing}` · `mirror` · `face` | `ids{chest,torch,cap,land}` + `mat` | 地下储藏/埋室类场景件基底（`cache-cellar` §4.9） |
+| `mound` | r2 圆底三层土丘+南向洞口+点缀掷点 | `south` | `top`(必传) · `rock`(必传) · `salt` · `mirror` · `face` | `top`/`rock` | 丘体/小土包/彩蛋地形件基底（`hill-mound` §4.10，材质注入即改观感） |
+| `tower-belfry` | 钟塔（地基+收分塔身+开敞钟室+阶梯顶饰） | `south` | `heightTier(14-16 钳)` · `openBelfry` · `hasDoorNiche` · `flags` · `mirror` · `face` | `ids{base,wall,pillar,trim,roof,bell,window,flag}` | 竖向地标基底 |
+| `shop-awning` | 临街铺面（店身+前廊遮檐+招牌层） | `south` | `doorOpen` · `windowGlow(warm/none)` · `signVariant(icon/blank)` · `mirror` · `face` | `ids{base,wall,roof,trim,awning,signBg,signAccent,glow,window}` | 店面/带招牌铺面基底 |
+| `stash-hut` | 秘密储藏小屋（中石基座+墙环+双层小巧顶） | `south` | `roofPitch(low/mid)` · `door` · `mirror` · `face` | `ids{base,wall,roof,trim,door,metalAccent}` | 小体量储藏/点缀小屋基底 |
+| `windmill-tower` | 风车塔（收分塔身+锥顶+静态四臂叶轮） | `south` | `sailStatic` · `bladeSpan(3-4 钳)` · `mirror` · `face` | `ids{base,wall,roof,trim,blade,axle}` | 竖向天际线地标基底 |
+| `cottage-gable` | 民居 A（单层人字/阶梯顶小屋） | `south` | `hasChimney` · `windowLit`(预留缝) · `mirror` · `face` | `ids{base,wall,roof,trim,window,door,chimney}` | 单层民居模块基底 |
+| `house-loft` | 民居 B（双层错顶+挑窗阳台） | `south` | `balcony` · `awningAccent` · `mirror` · `face` | `ids{base,wallA,wallB,roof,trim,window,door,balcony}` | 双层街区民居基底 |
+| `stall-canopy` | 市集摊位（木架+顶棚布幔+台面货品） | `south` | `size(sm/md)` · `theme(bread/flower/fruit/generic)` · `mirror` · `face` | `ids{frame,canopy,counter,goods}` | 开放摊位基底 |
+
+> **mirror 盒口径两式并存**（T-PREFAB-09 评估挂账）：偶宽域统一 put 通道 −dx 先翻后旋=脚印盒平移一格（shop-awning/stash-hut/house-loft/stall-canopy）vs cottage-gable kernel 自管 cgO 域内镜像盒不动——同 kit 两种行为，跨行统一属行为变更（四张已清票的既有测试钉死现口径），挂架构线单独票议；本表按行如实登记。`board-pool`（§4.8）状态：PO 2026-11-13 裁决推迟——未实现、不排期，收口时再议。
 
 ## 3. 城镇素材件总览与映射
 

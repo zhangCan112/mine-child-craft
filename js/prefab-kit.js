@@ -14,16 +14,17 @@
      config.js 的 WORLD_W/WORLD_D/WORLD_H(越界守卫, scene-kit skInWorld
      同款先例) + scene-kit.js 的 SceneKit.rand(mound 掷点, 世界坐标散列),
      加载序: config → voxel → scene-kit → 本文件 → 使用方。
+   缺省材质逐槽对 config 实义核真(T-PREFAB-09 材质基线: 危险/错义 id 禁作
+   缺省, 测试黑名单钉死; 注入是调用方自由)。
    可测性声明: 零三维渲染库 · 零 DOM · 有同名单测(test/prefab-kit.test.js)。
    ------------------------------------------------------------
    v 键集 = 行 defaults 键集(唯一权威, 未知键即炸); 检查按行声明收放(行
    defaults 没声明的轴不查, 各行只认自己的键面)。错误两档: 拼写域(未知
-   id · 未知 v 键含 size/ids/exit 子键 · 枚举值非法 face/piles/roof/
-   roofPitch/size(sm|md)/theme(bread|flower|fruit|generic)/torch/torches/
-   windowGlow/signVariant · piles:'terrain' 缺 ground · 行 require
-   必传轴缺 mat/top/rock)
+   id · 未知 v 键含 size/ids/exit 子键 · 枚举值非法(PF_ENUMS 十轴) ·
+   piles:'terrain' 缺 ground · 行 require 必传轴缺 mat/top/rock)
    →throw(装场期炸=测试当场红); 几何数值域(size/steps/half 等负值或非
-   整数, ground 非有限数)→钳。朝向=整数格点旋转表(90° 倍数恒整数格,
+   整数, ground 非有限数)→钳。枚举轴值域单份在 PF_ENUMS(§1.10 升格),
+   错误消息由表派生。朝向=整数格点旋转表(90° 倍数恒整数格,
    零浮点), 旋转序=(face−行 facing0) 的 90° 倍数, 缺省 face=行 facing0 →
    序 0 恒等——恒等路径与直写代码同构, 是等价迁移逐字节红线的结构保证。
    越界守卫逐格静默不写(树家族先例; 东带剪影贴边裁件是既有实践)。
@@ -39,6 +40,12 @@ function pfCell(x, y, z, id) {
 /* 朝向表: 旋转序=(face−行 facing0) 的 90° 倍数(k1 把 (dx,dz)→(−dz,dx),
    k2/k3 连乘), mirror 先翻 dx 后旋转; 全整数格点运算零浮点。缺省
    face=行 facing0 → 序 0 恒等(内核局部系=收编前直写坐标系) */
+/* 两类写笔并存(T-PREFAB-09 ⑤评估结论, 注释明示零行为变更): 统一 put 通道=
+   place 内联 orient 写笔(全行默认; mirror=-dx 先翻后旋, 偶宽域脚印盒平移
+   一格——shop-awning/stash-hut/house-loft/stall-canopy 口径) vs cottage-gable
+   kernel 自管 cgO(域内镜像 -1-dx, 盒不动)。收编需 pfOrient 补偶宽偏置镜像
+   参数并回归四行已清票, 属行为变更——挂架构线单独票议(T-05 评审建议 B 档
+   先落注释明示) */
 const PF_FACE_K = {south: 0, west: 1, north: 2, east: 3};
 const PF_ROTS = [
   (dx, dz) => [dx, dz],
@@ -99,6 +106,24 @@ function pfStiltPiles(e) {
    覆写映射(pfMerge 判显式后才注入) */
 const PF_STALL_CANOPY = {bread: 52, flower: 16, fruit: 15, generic: 52};
 
+/* 枚举轴值域表(conventions §1.10 升格: 值域清单原散在实现链/头注释/错误
+   消息/规格 ≥3 处且逐行追加已生漂移——单份数据源+循环消费, 错误消息由表
+   派生; face 恒查=全行共有轴, size 为双型轴——stall-canopy 字符串枚举档
+   受检/stilt-hut 对象档走下方形状校验故循环内按 typeof 收; 循环键序=检查
+   位序, 多错位先后者与收编前一致(test/prefab-kit.test.js 逐字钉)) */
+const PF_ENUMS = {
+  face: 'north/east/south/west',
+  piles: 'fixed/terrain',
+  roof: 'flat/stepped',
+  torch: 'wall/rim/none',
+  torches: 'solo/pair',
+  windowGlow: 'warm/none',
+  signVariant: 'icon/blank',
+  roofPitch: 'low/mid',
+  theme: 'bread/flower/fruit/generic',
+  size: 'sm/md',
+};
+
 /* 变种合并+校验: 键白名单=行 defaults 键集; 拼写域全在此一次验,
    place/footOf 共用(纯查询同样炸=同一防火墙)。检查按行声明收放:
    行 defaults 没声明的轴不查(under-room 无 piles/roof/torch/size,
@@ -123,49 +148,18 @@ function pfMerge(row, id, v) {
       throw new Error('PrefabKit: ' + key + ' 必传(id ' + id + ')');
     }
   }
-  if (!pfHas(PF_FACE_K, e.face)) {
-    throw new Error('PrefabKit: face 非法「' + e.face + '」(north/east/south/west)');
-  }
-  if (pfHas(d, 'piles')) {
-    if (e.piles !== 'fixed' && e.piles !== 'terrain') {
-      throw new Error('PrefabKit: piles 非法「' + e.piles + '」(fixed/terrain)');
+  /* 枚举轴校验(PF_ENUMS 单源): face 恒查, 其余按行声明收放(行 defaults 没
+     声明的轴不查——各行只认自己的键面); piles:'terrain' 的 ground 注入检
+     随 piles 轴就地(位序=收编前) */
+  for (const axis of Object.keys(PF_ENUMS)) {
+    if (axis !== 'face' && !pfHas(d, axis)) continue;
+    if (axis === 'size' && typeof d.size !== 'string') continue;
+    if (!PF_ENUMS[axis].split('/').includes(e[axis])) {
+      throw new Error('PrefabKit: ' + axis + ' 非法「' + e[axis] + '」(' + PF_ENUMS[axis] + ')');
     }
-    if (e.piles === 'terrain' && typeof e.ground !== 'function') {
+    if (axis === 'piles' && e.piles === 'terrain' && typeof e.ground !== 'function') {
       throw new Error('PrefabKit: piles:\'terrain\' 必传 ground(x,z) 注入缝(引擎不认识地形权威)');
     }
-  }
-  if (pfHas(d, 'roof') && e.roof !== 'flat' && e.roof !== 'stepped') {
-    throw new Error('PrefabKit: roof 非法「' + e.roof + '」(flat/stepped)');
-  }
-  if (pfHas(d, 'torch') && e.torch !== 'wall' && e.torch !== 'rim' && e.torch !== 'none') {
-    throw new Error('PrefabKit: torch 非法「' + e.torch + '」(wall/rim/none)');
-  }
-  if (pfHas(d, 'torches') && e.torches !== 'solo' && e.torches !== 'pair') {
-    throw new Error('PrefabKit: torches 非法「' + e.torches + '」(solo/pair)');
-  }
-  /* shop-awning 双枚举(roof/torch 同款第一档): 暖橙装饰光意象仅 warm/none
-     两档(禁火语义), 招牌文字不硬编码几何故仅 icon/blank */
-  if (pfHas(d, 'windowGlow') && e.windowGlow !== 'warm' && e.windowGlow !== 'none') {
-    throw new Error('PrefabKit: windowGlow 非法「' + e.windowGlow + '」(warm/none)');
-  }
-  if (pfHas(d, 'signVariant') && e.signVariant !== 'icon' && e.signVariant !== 'blank') {
-    throw new Error('PrefabKit: signVariant 非法「' + e.signVariant + '」(icon/blank)');
-  }
-  /* stash-hut 顶档枚举(同款第一档): 小巧屋顶收放仅两档——low=檐层即封顶
-     (总高 5)/mid=dy5 内缩顶封顶(总高 6, 缺省) */
-  if (pfHas(d, 'roofPitch') && e.roofPitch !== 'low' && e.roofPitch !== 'mid') {
-    throw new Error('PrefabKit: roofPitch 非法「' + e.roofPitch + '」(low/mid)');
-  }
-  /* stall-canopy theme 枚举(同款第一档): 市集主题四档——canopy 缺省
-      映射的注入源(注入见下 ids 合并之后) */
-  if (pfHas(d, 'theme') && e.theme !== 'bread' && e.theme !== 'flower' &&
-      e.theme !== 'fruit' && e.theme !== 'generic') {
-    throw new Error('PrefabKit: theme 非法「' + e.theme + '」(bread/flower/fruit/generic)');
-  }
-  /* stall-canopy size 枚举轴(第一档, 按行 defaults.size 的类型判别——
-      区别于 stilt-hut {hx,back,front} 对象轴): 值域 sm/md, 对象形亦拒收 */
-  if (typeof d.size === 'string' && e.size !== 'sm' && e.size !== 'md') {
-    throw new Error('PrefabKit: size 非法「' + e.size + '」(sm/md)');
   }
   if (d.size !== undefined && typeof d.size !== 'string') {
     let sz = d.size;
@@ -525,7 +519,15 @@ const PF_ROWS = {
       openBelfry: true,
       hasDoorNiche: true,
       flags: true,
-      ids: {base: 58, wall: 6, pillar: 5, trim: 47, roof: 40, bell: 41, window: 20, flag: 35},
+      /* 材质注入, 缺省裸数字(§4.1 语义→现调色板, T-PREFAB-09 逐槽实义核真;
+          旧错号 trim:47=熔炉/roof:40=草丛/bell:41=耕地/window:20=TNT/flag:35=
+          传送门面 已修, 禁回退——测试材质基线钉死): base 砂岩浅石 · wall 木板
+          暖木-浅 · pillar 木头暖木-中 · trim 木头暖木-深(全行 trim 先例) ·
+          roof 红砖陶橙顶饰 · bell 金矿暖金钟体(§4.1「bell 暖金」, shop
+          signAccent 先例) · window 玻璃浅色内衬(shop/house-loft 先例) ·
+          flag 红羊毛檐下小旗(§4.1「樱粉或天蓝」之樱粉最近似, stall flower
+          先例) */
+      ids: {base: 58, wall: 6, pillar: 5, trim: 5, roof: 9, bell: 38, window: 18, flag: 16},
     },
     kernel(e, x, y, z, orient, put) {
       const ids = e.ids; const tier = e.heightTier;
@@ -787,11 +789,13 @@ const PF_ROWS = {
       mirror: false,
       sailStatic: true, /* 叶轮静态: true=叶片组件(叶+轴)入几何/0 值钳 false */
       bladeSpan: 4, /* 叶展档 [3,4]: 4=臂顶 dy12(总高 13)/3=收短 dy11(总高 12) */
-      /* 材质注入, 缺省裸数字(§4.4 口径→现调色板): base 石头中石基座 ·
-          wall 木板暖木-浅塔身(现调色板木板暖木-中近似) · roof 红砖暖褐
-          檐层与锥顶(顶先例 40) · trim 木头暖木-中箍带与小窗 · blade 羊毛
-          奶油叶面 · axle 金属铁灰轴心 */
-      ids: {base: 3, wall: 6, roof: 40, trim: 5, blade: 52, axle: 12},
+      /* 材质注入, 缺省裸数字(§4.4 口径→现调色板, T-PREFAB-09 逐槽实义核真;
+          旧错号 roof:40=草丛 thin 可穿行 已修禁回退——原注「顶先例 40」系
+          错号循环引用, 红砖 9 才是 shop/house-loft 顶先例, 测试材质基线
+          钉死): base 石头中石基座 · wall 木板暖木-浅塔身 · roof 红砖暖褐
+          檐层与锥顶 · trim 木头箍带与小窗 · blade 羊毛奶油叶面 · axle 金属
+          轴心 */
+      ids: {base: 3, wall: 6, roof: 9, trim: 5, blade: 52, axle: 12},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z 未用: 纯局部系直写(无地形读数) */
       const ids = e.ids; const S = e.bladeSpan;
@@ -886,8 +890,12 @@ const PF_ROWS = {
       mirror: false,
       hasChimney: true, /* 装饰烟囱(无烟): 缺省 true, 可关 */
       windowLit: false, /* 预留缝: 当前无几何效果(材质兑现待 spec 补 lit/glow 口径), 脚印同形域 */
-      /* trim 为预留槽: 当前未消费(几何兑现机会见 §7.3 四角柱/窗框), 可注入但静默无效 */
-      ids: {base: 58, wall: 6, roof: 40, trim: 5, window: 20, door: 6, chimney: 3},
+      /* 材质注入, 缺省裸数字(T-PREFAB-09 逐槽实义核真; 旧错号 roof:40=草丛
+          thin 可穿行/window:20=TNT 可点燃 已修禁回退——T-06 house-loft 同款
+          逐字沿袭错号, 测试材质基线钉死): base 砂岩浅石 · wall 木板暖木 ·
+          roof 红砖陶橙阶梯顶 · trim 木头(预留槽未消费) · window 玻璃浅色
+          内衬 · door 木板门叶 · chimney 石头装饰烟囱(无烟) */
+      ids: {base: 58, wall: 6, roof: 9, trim: 5, window: 18, door: 6, chimney: 3},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z/put 未用: 自管朝向与写笔 */
       const ids = e.ids;

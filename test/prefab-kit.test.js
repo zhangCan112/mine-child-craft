@@ -31,11 +31,11 @@ function loadKit() {/* vm 装载链: 引擎件按 index.html 序; api 经上下�
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
   }
   const api = vm.runInContext(
-      '({PrefabKit, SceneKit, setBlockRaw, getBlock, worldCells, WORLD_W, WORLD_D, WORLD_H})', eng);
+      '({PrefabKit, SceneKit, setBlockRaw, getBlock, worldCells, BLOCKS, WORLD_W, WORLD_D, WORLD_H})', eng);
   const W = api.WORLD_W; const D = api.WORLD_D;
   return {
     pf: api.PrefabKit, fill: api.SceneKit.fill, set: api.setBlockRaw,
-    rand: api.SceneKit.rand, get: api.getBlock,
+    rand: api.SceneKit.rand, get: api.getBlock, blocks: api.BLOCKS,
     W, D, H: api.WORLD_H,
     cell: (x, y, z) => vm.runInContext('worldCells', eng)[(y * D + z) * W + x],
     snap: () => Buffer.from(vm.runInContext('worldCells', eng)),
@@ -2744,4 +2744,128 @@ test('错误两档·stall-canopy: 未知 v 键/ids 子键(含 torch/glow 去威�
   k.pf.place('stall-canopy', 80, 24, 80, {ids: STALL_IDS, mirror: true});
   assert.ok(m1.equals(k.snap()), 'mirror=1 钳 true 同形');
   assert.ok(m1.includes(STALL_IDS.canopy), '钳 true 建场正常(布幔在位, 防全空假绿)');
+});
+
+/* ============ T-PREFAB-09 复用行校验与材质映射基线 ============ */
+/* 两块红面(bugfix 基线票, 断言按修复后正确基线写): ①三行缺省材质逐槽实义核真
+   ——已知错号(T-06 评审票外发现, 逐字沿袭先例): tower-belfry trim:47=熔炉/
+   roof:40=草丛/bell:41=耕地/window:20=TNT/flag:35=传送门面, cottage-gable
+   roof:40/window:20, windmill-tower roof:40(T-06 已修 house-loft 同款); 修正值
+   按 spec §4 材质口径+全行先例: 顶=9 红砖陶橙/暖褐 · 窗=18 玻璃浅色内衬(shop/
+   house-loft 先例) · trim=5 木头暖木-深(全行 trim 先例) · bell=38 金矿暖金
+   (§4.1「bell 暖金」, shop signAccent/stall goods 先例) · flag=16 红羊毛
+   (§4.1「樱粉或天蓝」之樱粉最近似, stall-canopy flower→16 先例+PO 备忘)。
+   ②全行缺省建场安全审计可执行化: 城镇七行(T-01..07)零危险旗标块(tnt/fuse/
+   portal/fluid/crop/thin/replaceable/door/bed/lchest 旗标即判据)+全行零功能/
+   下界/传送门系错用; 收编三行(stilt-hut/under-room/mound)火把 48=既有探险
+   语义(oracle 锁死), 不按旗标检、只检显式清单。
+   另一块防回归面(绿态自证, 重构前后同绿): 枚举校验链九轴+size 双型错误消息
+   逐字钉——pfMerge 表驱动收编(§1.10 升格: 清单≥3 处+新轴漂移史)的等价基线。 */
+
+test('材质基线·全行缺省建场安全: 城镇七行零危险旗标块 + 全行零功能/下界/传送门系错用(T-09 审计可执行化)', () => {
+  const k = loadKit();
+  /* 危险旗标(判据单份在 config BLOCKS 旗标, 测试动态派生不复制): 20 TNT(tnt) ·
+     21 引线(fuse/thin) · 35 传送门面(portal) · 24/25 水岩浆(fluid) · 42..45 麦
+     (crop/thin) · 40 草丛(thin/replaceable) · 64..67 门(door) · 53/69 床(bed) ·
+     48 火把(wall/thin/replaceable——收编三行既有语义, 城镇七行缺省不含) */
+  const DANGER_FLAGS = ['tnt', 'fuse', 'portal', 'fluid', 'crop', 'thin',
+    'replaceable', 'door', 'bed', 'lchest'];
+  /* 功能/下界/传送门系显式清单(旗标不可判的错义): 30/31/33/34 下界系 · 41 耕地 ·
+     46 工作台 · 47 熔炉 · 63 熄灭门面 · 70..72 巢穴之心与战利品宝箱系——
+     城镇行缺省永禁(注入是调用方自由, 缺省须安全, spec §5.2 行内安全缺省) */
+  const BAD_EXPLICIT = [30, 31, 33, 34, 41, 46, 47, 63, 70, 71, 72];
+  const townRows = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
+    'cottage-gable', 'house-loft', 'stall-canopy'];
+  const legacyRows = [['stilt-hut', undefined], ['under-room', {mat: 58}],
+    ['mound', {top: 2, rock: 14}]];
+  for (const [id, v] of [...townRows.map((r) => [r, undefined]), ...legacyRows]) {
+    k.clear();
+    k.pf.place(id, 80, 24, 80, v);
+    const snap = k.snap();
+    assert.ok(snap.some((b) => b !== 0), id + ' 建场非空(防全空假绿)');
+    for (const bid of BAD_EXPLICIT) {
+      assert.ok(!snap.includes(bid), id + ' 缺省建场含功能/下界系错用块 ' + bid);
+    }
+    if (!townRows.includes(id)) continue; /* 收编三行: 火把/宝箱=既有语义止于显式清单 */
+    for (const bid of new Set(snap)) {
+      const b = k.blocks[bid];
+      if (!b) continue;
+      for (const f of DANGER_FLAGS) {
+        assert.ok(!b[f], id + ' 缺省建场含危险旗标块 ' + bid + '(' + f + ' 旗标)');
+      }
+    }
+  }
+});
+
+test('材质基线·tower-belfry 缺省逐槽(修复后核对表): trim5/roof9/bell38/window18/flag16', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('tower-belfry', ax, y0, az); /* 全缺省 */
+  assert.strictEqual(k.cell(ax, y0, az), 58, 'base=58 砂岩浅石基座(§4.1「base 浅石」)');
+  assert.strictEqual(k.cell(ax, y0 + 1, az + 1), 6, 'wall=6 木板暖木-浅(塔身内域 dy1)');
+  assert.strictEqual(k.cell(ax - 1, y0 + 1, az - 1), 5, 'pillar=5 木头暖木-中(四角立柱)');
+  assert.strictEqual(k.cell(ax, y0 + 1, az - 1), 5, 'trim=5 木头暖木-深(中线竖缝)——旧 47=熔炉功能方块错用, 已修');
+  assert.strictEqual(k.cell(ax, y0 + 11, az), 9, 'roof=9 红砖陶橙(顶饰)——旧 40=草丛 thin 可穿行, 已修');
+  assert.strictEqual(k.cell(ax, y0 + 8, az), 38, 'bell=38 金矿暖金(钟体 2×2×2)——旧 41=耕地功能方块错用, 已修');
+  assert.strictEqual(k.cell(ax - 1, y0 + 4, az), 18, 'window=18 玻璃浅色内衬(侧窗 dy4..6)——旧 20=TNT 可点燃, 已修');
+  assert.strictEqual(k.cell(ax - 2, y0 + 10, az - 1), 16, 'flag=16 红羊毛(檐下小旗, 樱粉最近似·stall flower 先例)——旧 35=传送门面, 已修');
+});
+
+test('材质基线·cottage-gable 缺省逐槽(修复后核对表): roof9/window18(T-06 同款错号清除)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('cottage-gable', ax, y0, az); /* 全缺省 */
+  assert.strictEqual(k.cell(ax, y0, az), 58, 'base=58 砂岩浅石基座');
+  assert.strictEqual(k.cell(ax, y0 + 1, az - 3), 6, 'wall=6 木板(后墙 dy1)');
+  assert.strictEqual(k.cell(ax, y0 + 4, az), 9, 'roof=9 红砖陶橙(阶梯顶 dy4 全覆)——旧 40=草丛 thin 可穿行, 已修');
+  assert.strictEqual(k.cell(ax + 1, y0 + 2, az + 3), 18, 'window=18 玻璃(前窗 2w×2h)——旧 20=TNT 可点燃, 已修');
+  assert.strictEqual(k.cell(ax - 1, y0 + 1, az + 3), 6, 'door=6 木板门叶(1w×2h)');
+  assert.strictEqual(k.cell(ax - 2, y0 + 5, az - 3), 3, 'chimney=3 石头(装饰烟囱无烟)');
+});
+
+test('材质基线·windmill-tower 缺省逐槽(修复后核对表): roof9(暖褐檐层与锥顶)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('windmill-tower', ax, y0, az); /* 全缺省 */
+  assert.strictEqual(k.cell(ax, y0, az), 3, 'base=3 石头中石基座');
+  assert.strictEqual(k.cell(ax, y0 + 1, az), 6, 'wall=6 木板暖木-浅(塔身 5×5 内域 dy1)');
+  assert.strictEqual(k.cell(ax + 2, y0 + 3, az + 2), 5, 'trim=5 木头箍带(dy3 周界)');
+  assert.strictEqual(k.cell(ax, y0 + 8, az), 9, 'roof=9 红砖暖褐(檐层 dy8 与锥顶)——旧 40=草丛 thin 可穿行, 已修');
+  assert.strictEqual(k.cell(ax - 1, y0 + 9, az + 3), 52, 'blade=52 羊毛奶油叶面(上臂 dy9)');
+  assert.strictEqual(k.cell(ax, y0 + 8, az + 1), 12, 'axle=12 金属轴心');
+});
+
+test('枚举校验链·十轴错误消息逐字钉(pfMerge 表驱动收编的等价基线, 重构前后同绿)', () => {
+  const k = loadKit();
+  /* 每轴一行: 声明该轴的行 × 非法值 → 逐字消息(值域单份在表, 收编后由表派生) */
+  const cases = [
+    ['stilt-hut', {face: 'up'}, 'PrefabKit: face 非法「up」(north/east/south/west)'],
+    ['stilt-hut', {piles: 'both'}, 'PrefabKit: piles 非法「both」(fixed/terrain)'],
+    ['stilt-hut', {roof: 'pointy'}, 'PrefabKit: roof 非法「pointy」(flat/stepped)'],
+    ['stilt-hut', {torch: 'floor'}, 'PrefabKit: torch 非法「floor」(wall/rim/none)'],
+    ['under-room', {mat: 58, torches: 'trio'}, 'PrefabKit: torches 非法「trio」(solo/pair)'],
+    ['shop-awning', {windowGlow: 'fire'}, 'PrefabKit: windowGlow 非法「fire」(warm/none)'],
+    ['shop-awning', {signVariant: 'text'}, 'PrefabKit: signVariant 非法「text」(icon/blank)'],
+    ['stash-hut', {roofPitch: 'high'}, 'PrefabKit: roofPitch 非法「high」(low/mid)'],
+    ['stall-canopy', {theme: 'fish'}, 'PrefabKit: theme 非法「fish」(bread/flower/fruit/generic)'],
+    ['stall-canopy', {size: 'lg'}, 'PrefabKit: size 非法「lg」(sm/md)'],
+  ];
+  for (const [id, v, msg] of cases) {
+    assert.throws(() => k.pf.place(id, 80, 24, 80, v), {message: msg},
+        id + ' ' + JSON.stringify(v) + ' 消息逐字');
+  }
+  /* 多错位序等价钉: piles:'terrain' 缺 ground 与 roof 非法并存时, ground 检先于
+     roof 枚举检(现行为——表驱动收编必须保序: ground 检随 piles 轴就地, 不后置) */
+  assert.throws(() => k.pf.place('stilt-hut', 80, 24, 80, {piles: 'terrain', roof: 'pointy'}),
+      /必传 ground/, '多错位序: piles ground 检先于 roof 枚举检');
+  /* size 双型轴: stilt-hut 对象档不受枚举检(走形状校验合法放行), stall-canopy
+      字符串枚举档对象形拒收 */
+  k.clear();
+  k.pf.place('stilt-hut', 80, 24, 80, {size: {hx: 1, back: 1, front: 1}});
+  assert.ok(k.snap().some((b) => b !== 0), 'stilt-hut 对象档 size 合法建场');
+  assert.throws(() => k.pf.place('stall-canopy', 80, 24, 80, {size: {hx: 1}}),
+      /size 非法/, 'stall-canopy 对象形拒收(本行 size=字符串枚举轴)');
 });
