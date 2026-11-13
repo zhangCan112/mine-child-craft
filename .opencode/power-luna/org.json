@@ -1,0 +1,44 @@
+{
+  "positions": [
+    "scrum-master",
+    "analyst-manager",
+    "business-analyst",
+    "engineer-manager",
+    "implement-engineer",
+    "tdd-engineer",
+    "reviewer",
+    "ui-designer",
+    "wayfinder",
+    "researcher",
+    "bug-doctor",
+    "env-steward",
+    "architect"
+  ],
+  "edges": {
+    "analyst-manager": [
+      "business-analyst",
+      "researcher",
+      "ui-designer",
+      "wayfinder"
+    ],
+    "scrum-master": [
+      "analyst-manager",
+      "engineer-manager",
+      "env-steward"
+    ],
+    "engineer-manager": [
+      "architect",
+      "reviewer",
+      "tdd-engineer"
+    ],
+    "bug-doctor": [
+      "researcher"
+    ],
+    "tdd-engineer": [
+      "implement-engineer"
+    ],
+    "wayfinder": [
+      "researcher"
+    ]
+  }
+}
