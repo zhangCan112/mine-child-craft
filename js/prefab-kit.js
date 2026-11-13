@@ -18,8 +18,8 @@
    ------------------------------------------------------------
    v 键集 = 行 defaults 键集(唯一权威, 未知键即炸); 检查按行声明收放(行
    defaults 没声明的轴不查, 各行只认自己的键面)。错误两档: 拼写域(未知
-   id · 未知 v 键含 size/ids/exit 子键 · 枚举值非法 face/piles/roof/torch/
-   torches/windowGlow/signVariant · piles:'terrain' 缺 ground · 行 require
+   id · 未知 v 键含 size/ids/exit 子键 · 枚举值非法 face/piles/roof/
+   roofPitch/torch/torches/windowGlow/signVariant · piles:'terrain' 缺 ground · 行 require
    必传轴缺 mat/top/rock)
    →throw(装场期炸=测试当场红); 几何数值域(size/steps/half 等负值或非
    整数, ground 非有限数)→钳。朝向=整数格点旋转表(90° 倍数恒整数格,
@@ -144,6 +144,11 @@ function pfMerge(row, id, v) {
   if (pfHas(d, 'signVariant') && e.signVariant !== 'icon' && e.signVariant !== 'blank') {
     throw new Error('PrefabKit: signVariant 非法「' + e.signVariant + '」(icon/blank)');
   }
+  /* stash-hut 顶档枚举(同款第一档): 小巧屋顶收放仅两档——low=檐层即封顶
+     (总高 5)/mid=dy5 内缩顶封顶(总高 6, 缺省) */
+  if (pfHas(d, 'roofPitch') && e.roofPitch !== 'low' && e.roofPitch !== 'mid') {
+    throw new Error('PrefabKit: roofPitch 非法「' + e.roofPitch + '」(low/mid)');
+  }
   if (d.size !== undefined) {
     let sz = d.size;
     if (v !== undefined && v.size !== undefined) {
@@ -215,9 +220,10 @@ function pfMerge(row, id, v) {
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。五行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   kernel(几何内核)。六行: stilt-hut(P0 高脚木屋对)/under-room/mound
    (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔)/shop-awning
-   (T-PREFAB-02 店身+前廊遮檐铺面), 按形命名不按图命名 */
+   (T-PREFAB-02 店身+前廊遮檐铺面)/stash-hut(T-PREFAB-03 秘密储藏小屋),
+   按形命名不按图命名 */
 const PF_ROWS = {
   'stilt-hut': {
     facing0: 'south',
@@ -651,6 +657,80 @@ const PF_ROWS = {
         }
       }
       return {x1, y1: y, z1, x2, y2: y + 7, z2};
+    },
+  },
+  'stash-hut': {
+    /* 秘密储藏小屋: 中石基座+墙环+双层小巧屋顶的储藏氛围点(town-prefab-specs
+       §4.3, 视觉对照 buildings-visual-spec §5.2 P1-01——「小而神秘但友好」,
+       无阴暗压迫)。锚=小屋地面中心投影, 局部轴 dx 横/dz 前后/dy 竖,
+       face0=south=门面朝 +dz; 偶宽 6 NW 偏置同 pfSpan 口径: dx,dz∈[-3,2]
+       (宽=坐标差+1=6, 中心偏置 −0.5)。门侧箱/桶=外部道具散布不入蓝图
+       (spec §4.3 明示不强绑), 内域空腔无家具; 无光/火语义槽位(ids 白名单
+       无 torch/glow, §8 去威胁红线) */
+    facing0: 'south',
+    defaults: {
+      face: 'south', /* 缺省=行 facing0(恒等映射) */
+      mirror: false,
+      roofPitch: 'mid', /* 顶档: mid=dy5 内缩顶封顶(总高 6, 缺省)/low=dy4
+          檐层即封顶(总高 5)——高 5-6 读作含 dy0 基座总层数 */
+      door: true, /* true=门叶块在位(ids.door 材质有几何生命)/false=门洞敞开空气 */
+      /* 材质注入, 缺省裸数字(§4.3 语义→现调色板): base 石头中石基座 ·
+          wall 木板暖木-中墙体 · roof/trim 木头暖木-深屋顶与屋檐(小巧屋顶
+          同檐材族) · door 木板门叶(上下半同材, 开合语义归交互层) ·
+          metalAccent 金属铁灰小配件(门侧点缀, §4.3「可选」拍板槽位常驻) */
+      ids: {base: 3, wall: 6, roof: 5, trim: 5, door: 6, metalAccent: 12},
+    },
+    kernel(e, x, y, z, orient, put) {/* x/y/z 未用: 纯局部系直写(无地形读数) */
+      const ids = e.ids;
+      /* dy=0 基座: 恰 6×6 实心板(dx,dz∈[-3,2]), 域外无物 */
+      for (let dx = -3; dx <= 2; dx++) {
+        for (let dz = -3; dz <= 2; dz++) put(dx, 0, dz, ids.base);
+      }
+      /* dy=1..3 墙环: 周界 wall, 内域不写=空腔(无家具——箱/桶属外部道具);
+          前沿 dz=2 的门叶/门侧小配件后写覆写——序即几何 */
+      for (let dy = 1; dy <= 3; dy++) {
+        for (let dx = -3; dx <= 2; dx++) {
+          for (let dz = -3; dz <= 2; dz++) {
+            const onRing = dx === -3 || dx === 2 || dz === -3 || dz === 2;
+            if (!onRing) continue; /* 内域空 */
+            put(dx, dy, dz, ids.wall);
+          }
+        }
+      }
+      /* 门叶 1w×2h 前沿中轴 (0,dy1..2,2): true=door 材质/false=掏空气(门洞
+          敞开); 门上 dy3 恒墙(环写已补); 门叶在 mirror 轴上格 dx=0(翻 dx
+          不变式); 门侧铁灰小配件 (1,1,2) 恰一格, 居门东侧偏一格(受 door
+          开合不动) */
+      put(0, 1, 2, e.door ? ids.door : 0);
+      put(0, 2, 2, e.door ? ids.door : 0);
+      put(1, 1, 2, ids.metalAccent);
+      /* dy=4 檐层: 恰 6×6——周界 trim(暖木-深屋檐)+内芯 4×4[-2,1]² roof */
+      for (let dx = -3; dx <= 2; dx++) {
+        for (let dz = -3; dz <= 2; dz++) {
+          const onRing = dx === -3 || dx === 2 || dz === -3 || dz === 2;
+          put(dx, 4, dz, onRing ? ids.trim : ids.roof);
+        }
+      }
+      /* dy=5 内缩顶(仅 mid): 恰 4×4[-2,1]² roof 封顶, 域外空; low 封顶
+          dy4——封顶上一层无物 */
+      if (e.roofPitch === 'mid') {
+        for (let dx = -2; dx <= 1; dx++) {
+          for (let dz = -2; dz <= 1; dz++) put(dx, 5, dz, ids.roof);
+        }
+      }
+    },
+    /* 脚印: 同参纯算术投影——平面 4 角([-3,2]² 过同一张朝向表, 90° 旋转下
+       盒仍轴对齐), y 域取写笔最低/最高层(dy0 基座..dy5 内缩顶随 roofPitch) */
+    foot(e, x, y, z, orient) {
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of [-3, 2]) {
+        for (const dz of [-3, 2]) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + (e.roofPitch === 'mid' ? 5 : 4), z2};
     },
   },
 };

@@ -1274,3 +1274,245 @@ test('错误两档·shop-awning: 未知 v 键/ids 子键/face/windowGlow/signVar
   k.pf.place('shop-awning', 80, 24, 80, {ids: SHOP_IDS, doorOpen: 1});
   assert.strictEqual(k.cell(79, 25, 83), 0, 'doorOpen=1 钳 true: 门洞敞开');
 });
+
+/* ============ T-PREFAB-03 stash-hut(秘密储藏小屋, 新增行) ============ */
+
+/* ids 槽子键白名单(§4.3): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字)。
+   metalAccent=铁灰小配件点缀——§4.3「可选」拍板(回执登记): 槽位常驻白名单,
+   几何=门侧小配件恰一格 */
+const STASH_IDS = {
+  base: 120, wall: 121, roof: 122, trim: 123, door: 124, metalAccent: 125,
+};
+
+/* 局部系契约(字面域钉死, 防宽度漂移): face0=south 门面朝 +dz; 锚=小屋地面
+    中心投影(偶宽 6 NW 偏置同 pfSpan 口径: 6→dx,dz∈[-3,2], 宽=2−(−3)+1=6,
+    中心偏置 −0.5)。dy0 中石基座=恰 6×6 实心板; dy1..3 墙环(周界 wall, 内域
+    空无家具——箱/桶属外部道具散布, §4.3 明示不强绑); 门叶 1w×2h 局部
+    (0,dy1..2,dz2)=ids.door, door=false 敞开门洞, 门上 dy3 补墙; 门侧铁灰
+    小配件 (1,1,2)=metalAccent 一格; dy4 檐层=恰 6×6(周界 trim 暖木-深屋檐
+    +内芯 4×4[-2,1]² roof); roofPitch=mid(缺省)→dy5 再内缩恰 4×4 roof 封顶
+    (总高 6), low→封顶 dy4(总高 5)——高 5-6 读作含 dy0 基座总层数; 封顶上一
+    层无物。红线: 无光/火语义槽位(ids 白名单无 torch/glow, 去威胁钉在错误
+    档), 门侧箱/桶不入蓝图。 */
+
+test('脚印包含·stash-hut: ×4 朝向 × mirror × 变体 — 每笔写 ∈ footOf 同参盒, footOf 零写', () => {
+  const k = loadKit();
+  const spy = k.spySet();
+  const variants = [
+    ['缺省(mid)', {ids: STASH_IDS}],
+    ['low 顶', {ids: STASH_IDS, roofPitch: 'low'}],
+    ['无门叶(敞开)', {ids: STASH_IDS, door: false}],
+    ['low+无门叶', {ids: STASH_IDS, roofPitch: 'low', door: false}],
+    ['换材质(部分注入)', {ids: Object.assign({}, STASH_IDS, {base: 1, roof: 2, door: 3})}],
+  ];
+  for (const face of ['south', 'west', 'north', 'east']) {
+    for (const mirror of [false, true]) {
+      for (const [name, vv] of variants) {
+        const v = Object.assign({}, vv, {face, mirror});
+        k.clear();
+        spy.reset();
+        const box = k.pf.place('stash-hut', 80, 24, 80, v);
+        const writes = spy.rec();
+        assert.ok(writes.length > 0, name + ' ' + face + (mirror ? '+m' : '') + ' 有写(防全空假绿)');
+        for (const w of writes) {
+          assert.ok(w[0] >= box.x1 && w[0] <= box.x2 && w[1] >= box.y1 && w[1] <= box.y2 &&
+              w[2] >= box.z1 && w[2] <= box.z2,
+          name + ' ' + face + (mirror ? '+m' : '') + ' 写 (' + w + ') ⊄ 盒 ' + JSON.stringify(box));
+        }
+        const n = spy.rec().length;
+        assert.deepStrictEqual(k.pf.footOf('stash-hut', 80, 24, 80, v), box,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
+        assert.strictEqual(spy.rec().length, n, 'footOf 零写');
+        /* footOf 恰 6×6 底×全高: 方角 90° 旋转平面恰 6×6, y1=锚层基座,
+           y2 随 roofPitch(low=dy4 总高 5/mid=dy5 总高 6)——§4.3 高 5-6 域 */
+        assert.strictEqual(box.x2 - box.x1 + 1, 6,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 平面恰宽 6');
+        assert.strictEqual(box.z2 - box.z1 + 1, 6,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 平面恰深 6');
+        assert.strictEqual(box.y1, 24, name + ' ' + face + ' footOf 下界=锚层基座 dy0');
+        assert.strictEqual(box.y2, v.roofPitch === 'low' ? 28 : 29,
+            name + ' ' + face + ' footOf 上界随 roofPitch');
+      }
+    }
+  }
+});
+
+test('形状·stash-hut: 基座 6×6/墙环 dy1..3 内域空/门叶 1w×2h/门侧小配件/檐层 6×6/内缩顶(mid 缺省)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS});
+  /* 缺省(mid)盒手算值: dx,dz∈[-3,2]×dy0..5 */
+  assert.deepStrictEqual({...k.pf.footOf('stash-hut', ax, y0, az, {ids: STASH_IDS})},
+      {x1: 77, y1: 24, z1: 77, x2: 82, y2: 29, z2: 82}, '缺省脚印盒=手算盒');
+  /* dy=0 基座: 恰 6×6 实心 base, 域外空 */
+  for (let dx = -5; dx <= 4; dx++) {
+    for (let dz = -5; dz <= 4; dz++) {
+      const inBase = dx >= -3 && dx <= 2 && dz >= -3 && dz <= 2;
+      assert.strictEqual(k.cell(ax + dx, y0, az + dz), inBase ? STASH_IDS.base : 0,
+          '基座 dy0 (' + dx + ',' + dz + ') ' + (inBase ? '实心' : '域外空'));
+    }
+  }
+  /* dy=1..3 墙环: 周界实(want 制: 门叶/门上补墙/门侧小配件)/内域空(无家具)/环外空 */
+  for (let dy = 1; dy <= 3; dy++) {
+    for (let dx = -5; dx <= 4; dx++) {
+      for (let dz = -5; dz <= 4; dz++) {
+        const inBox = dx >= -3 && dx <= 2 && dz >= -3 && dz <= 2;
+        const onRing = inBox && (dx === -3 || dx === 2 || dz === -3 || dz === 2);
+        const id = k.cell(ax + dx, y0 + dy, az + dz);
+        if (!onRing) {
+          assert.strictEqual(id, 0, '墙环 dy' + dy + ' 内域/环外空 (' + dx + ',' + dz + ')');
+          continue;
+        }
+        let want = STASH_IDS.wall;
+        if (dx === 0 && dz === 2 && dy <= 2) want = STASH_IDS.door; /* 门叶 1w×2h */
+        if (dx === 1 && dz === 2 && dy === 1) want = STASH_IDS.metalAccent; /* 门侧小配件 */
+        assert.strictEqual(id, want, '墙环 dy' + dy + ' (' + dx + ',' + dz + ')');
+      }
+    }
+  }
+  /* dy=4 檐层: 恰 6×6——周界 trim(暖木-深屋檐)+内芯 4×4[-2,1]² roof */
+  for (let dx = -5; dx <= 4; dx++) {
+    for (let dz = -5; dz <= 4; dz++) {
+      let want = 0;
+      if (dx >= -3 && dx <= 2 && dz >= -3 && dz <= 2) {
+        const onRing = dx === -3 || dx === 2 || dz === -3 || dz === 2;
+        want = onRing ? STASH_IDS.trim : STASH_IDS.roof;
+      }
+      assert.strictEqual(k.cell(ax + dx, y0 + 4, az + dz), want,
+          '檐层 dy4 (' + dx + ',' + dz + ')');
+    }
+  }
+  /* dy=5 内缩顶(mid): 恰 4×4[-2,1]² roof 域外空; dy=6 全空(封顶于 5) */
+  for (let dx = -5; dx <= 4; dx++) {
+    for (let dz = -5; dz <= 4; dz++) {
+      const inTop = dx >= -2 && dx <= 1 && dz >= -2 && dz <= 1;
+      assert.strictEqual(k.cell(ax + dx, y0 + 5, az + dz), inTop ? STASH_IDS.roof : 0,
+          '内缩顶 dy5 (' + dx + ',' + dz + ')');
+      assert.strictEqual(k.cell(ax + dx, y0 + 6, az + dz), 0, 'dy6 全空(封顶于 dy5)');
+    }
+  }
+});
+
+test('形状·stash-hut 变体: door=false 门洞敞开全场零门叶/low 顶 dy5 全空檐层仍在(防假绿)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  /* door=false: 门叶 1×2 掏空气, 全场零 door 块; 其余几何不动(配件/门上墙抽查) */
+  k.clear();
+  k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, door: false});
+  assert.strictEqual(k.cell(ax, y0 + 1, az + 2), 0, '无门叶: 门洞下格敞开');
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), 0, '无门叶: 门洞上格敞开');
+  assert.strictEqual(k.cell(ax, y0 + 3, az + 2), STASH_IDS.wall, '无门叶: 门上 dy3 补墙');
+  assert.strictEqual(k.cell(ax + 1, y0 + 1, az + 2), STASH_IDS.metalAccent,
+      '无门叶: 门侧小配件不动');
+  assert.strictEqual(k.cell(ax, y0 + 4, az), STASH_IDS.roof, '无门叶: 檐层内芯不动');
+  assert.ok(!k.snap().includes(STASH_IDS.door), 'door=false 全场零门叶块');
+  /* roofPitch=low: dy5 全空(封顶 dy4), dy4 檐层/内芯仍在(防整板消失), 盒收 y2=dy4 */
+  k.clear();
+  k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, roofPitch: 'low'});
+  for (let dx = -5; dx <= 4; dx++) {
+    for (let dz = -5; dz <= 4; dz++) {
+      assert.strictEqual(k.cell(ax + dx, y0 + 5, az + dz), 0, 'low 顶: dy5 全空');
+    }
+  }
+  assert.strictEqual(k.cell(ax - 3, y0 + 4, az), STASH_IDS.trim, 'low 顶: 檐层周界仍在(西缘)');
+  assert.strictEqual(k.cell(ax, y0 + 4, az), STASH_IDS.roof, 'low 顶: 檐层内芯仍在');
+  assert.strictEqual(k.cell(ax, y0 + 1, az + 2), STASH_IDS.door, 'low 顶: 门叶不动(轴独立)');
+  assert.deepStrictEqual(
+      {...k.pf.footOf('stash-hut', ax, y0, az, {ids: STASH_IDS, roofPitch: 'low'})},
+      {x1: 77, y1: 24, z1: 77, x2: 82, y2: 28, z2: 82}, 'low 顶盒=手算盒(总高 5)');
+  assert.ok(k.snap().includes(STASH_IDS.roof), 'low 顶: roof 块仍在(防全空假绿)');
+});
+
+test('逐朝向·stash-hut: 门叶/门侧小配件/檐角随 face 旋转(face0=south 朝 +dz), mirror 翻 dx 非对称差分', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  /* 手算表: k1(west)=(dx,dz)→(-dz,dx) · k2(north)=(-dx,-dz) · k3(east)=(dz,-dx);
+     门叶局部 (0,dy1..2,2) · 小配件 (1,1,2) · 檐角 (2,4,2) */
+  const faces = [ /* [face, 门叶格, 小配件格, 檐角格]
+      [裁决登记 T-PREFAB-03: 门叶列初版多包一层方括号, door[0]=数组/door[1]=
+       undefined 恒 NaN 索引红——红方笔误(绿方指认属实, 数值经 PF_ROTS 手算
+       复核无误), 红方亲修拍平, 非断言弱化] */
+    ['west', [78, 80], [78, 81], [78, 82]],
+    ['north', [80, 78], [79, 78], [78, 78]],
+    ['east', [82, 80], [82, 79], [82, 78]],
+  ];
+  for (const [face, door, latch, corner] of faces) {
+    k.clear();
+    k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, face});
+    for (const dy of [1, 2]) {
+      assert.strictEqual(k.cell(door[0], y0 + dy, door[1]), STASH_IDS.door,
+          face + ' 门叶 y' + dy);
+    }
+    assert.strictEqual(k.cell(latch[0], y0 + 1, latch[1]), STASH_IDS.metalAccent,
+        face + ' 门侧小配件随朝向');
+    assert.strictEqual(k.cell(corner[0], y0 + 4, corner[1]), STASH_IDS.trim,
+        face + ' 檐角(周界)随朝向');
+  }
+  /* south 恒等基线: 门叶/配件在 z+2 前沿, 基座西缘在 dx-3/东缘外 dx3 */
+  k.clear();
+  k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, face: 'south'});
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), STASH_IDS.door, 'south 门叶在 z+2 中轴');
+  assert.strictEqual(k.cell(ax + 1, y0 + 1, az + 2), STASH_IDS.metalAccent,
+      'south 小配件在门东侧');
+  assert.strictEqual(k.cell(ax - 3, y0, az), STASH_IDS.base, 'south 基座西缘=dx-3');
+  assert.strictEqual(k.cell(ax + 3, y0, az), 0, 'south 基座东缘外(dx3 域外)');
+  /* mirror 非对称差分(偶宽体 [-3,2] 关于 dx=0 不对称): 先翻 dx 后旋转——门叶
+      在 dx=0 中轴 mirror 不动(轴上格不变式); 小配件 1→-1; 盒缘 [-3,2]→[-2,3]
+      西缘让格/东缘补格双翻转 */
+  k.clear();
+  k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, face: 'south', mirror: true});
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), STASH_IDS.door, 'south+mirror 门叶仍在中轴');
+  assert.strictEqual(k.cell(ax - 1, y0 + 1, az + 2), STASH_IDS.metalAccent,
+      'south+mirror 小配件翻到门西侧');
+  assert.strictEqual(k.cell(ax + 1, y0 + 1, az + 2), STASH_IDS.wall,
+      'south+mirror 原小配件位补墙');
+  assert.strictEqual(k.cell(ax + 3, y0, az), STASH_IDS.base, 'south+mirror 基座东移(dx3 入域)');
+  assert.strictEqual(k.cell(ax - 3, y0, az), 0, 'south+mirror 基座西让(dx-3 出域)');
+  assert.strictEqual(k.cell(ax + 3, y0 + 4, az), STASH_IDS.trim, 'south+mirror 檐层东缘随盒');
+});
+
+test('确定性: stash-hut 同参两次逐字节一致(多朝向×变体)', () => {
+  const k = loadKit();
+  const builds = [
+    () => k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS}),
+    () => k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, face: 'east', mirror: true}),
+    () => k.pf.place('stash-hut', 80, 24, 80, {
+      ids: STASH_IDS, face: 'north', roofPitch: 'low', door: false,
+    }),
+  ];
+  for (const build of builds) {
+    k.clear(); build();
+    const a = k.snap();
+    k.clear(); build();
+    assert.ok(a.equals(k.snap()), '同参两次建场终态逐字节一致');
+    assert.ok(a.some((v) => v !== 0), '场内确有方块(防全空假绿)');
+  }
+});
+
+test('错误两档·stash-hut: 未知 v 键/ids 子键(含 torch/glow 去威胁钉)/face/roofPitch 非法→throw; door 钳布尔', () => {
+  const k = loadKit();
+  /* 第一档(装场期炸=拼写防火墙): place 与 footOf 同走合并校验路径 */
+  assert.throws(() => k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, facee: 'north'}),
+      /v 键/, '未知 v 键(拼写)');
+  assert.throws(() => k.pf.footOf('stash-hut', 80, 24, 80, {ids: STASH_IDS, foo: 1}),
+      /v 键/, 'footOf 同走未知 v 键检');
+  assert.throws(() => k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, face: 'up'}),
+      /face/, 'face 非法');
+  assert.throws(() => k.pf.place('stash-hut', 80, 24, 80,
+      {ids: Object.assign({}, STASH_IDS, {roofx: 1})}), /ids/, 'ids 未知子键');
+  assert.throws(() => k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, roofPitch: 'high'}),
+      /roofPitch/, 'roofPitch 枚举非法(仅 low/mid)');
+  /* 去威胁钉(§4.3/§8): 本行无光/火语义槽位——torch/glow 子键不在白名单即炸 */
+  assert.throws(() => k.pf.place('stash-hut', 80, 24, 80,
+      {ids: Object.assign({}, STASH_IDS, {torch: 48})}), /ids/, '无 torch 槽(零火语义)');
+  assert.throws(() => k.pf.place('stash-hut', 80, 24, 80,
+      {ids: Object.assign({}, STASH_IDS, {glow: 19})}), /ids/, '无 glow 槽(零暖光意象)');
+  /* 第二档(布尔轴收放不炸): door 非布尔按真值钳 */
+  k.clear();
+  k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, door: 0});
+  assert.strictEqual(k.cell(80, 25, 82), 0, 'door=0 钳 false: 门洞敞开');
+  k.clear();
+  k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, door: 1});
+  assert.strictEqual(k.cell(80, 25, 82), STASH_IDS.door, 'door=1 钳 true: 门叶在位');
+});
