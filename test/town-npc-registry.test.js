@@ -67,8 +67,23 @@ function registryCtx() {
 }
 
 function reg() {
-  return vm.runInContext('({TOWN_NPCS, townNpcRegistry, TOWN_SESSION_KINDS,' +
+  const raw = vm.runInContext('({TOWN_NPCS, townNpcRegistry, TOWN_SESSION_KINDS,' +
     ' TOWN_NPC_ANCHORS, townTargetOf})', registryCtx());
+  /* 先摊平进宿主域(vm 域产物过不了 deepStrictEqual 跨域原型比对,
+     town-npc-anchor-core.test.js:181 先例); 函数经包装层桥接, 数据 JSON 往返
+     同 realm 化——断言面语义不变, 只换 harness 载体。 */
+  return {
+    TOWN_NPCS: JSON.parse(JSON.stringify(raw.TOWN_NPCS)),
+    TOWN_NPC_ANCHORS: JSON.parse(JSON.stringify(raw.TOWN_NPC_ANCHORS)),
+    TOWN_SESSION_KINDS: Array.from(raw.TOWN_SESSION_KINDS),
+    /* 冻结性属源对象本身, JSON 往返不保——桥接一条查询面 */
+    sessionKindsFrozen: Object.isFrozen(raw.TOWN_SESSION_KINDS),
+    townNpcRegistry(list) {
+      const arg = list === undefined ? undefined : JSON.parse(JSON.stringify(list));
+      return JSON.parse(JSON.stringify(raw.townNpcRegistry(arg)));
+    },
+    townTargetOf: (entry, snap) => JSON.parse(JSON.stringify(raw.townTargetOf(entry, snap))),
+  };
 }
 
 /* ---------- 独立真源二: 票面/PO 冻结定值表(期望值来自设计文档字面, 非实现自算) ----------
@@ -173,7 +188,7 @@ test('注册表: 越域抛错 — id/key 重复 · sessionKind 越域 · 动物�
   assert.throws(() => townNpcRegistry(bad((l) => {
     l[0].sessionKind = 'play';
   })), (e) => e.message.includes('play'),
-      'sessionKind 越五值域构造即抛(冻结域 greet|tour|seek|help|care)');
+  'sessionKind 越五值域构造即抛(冻结域 greet|tour|seek|help|care)');
   assert.throws(() => townNpcRegistry(bad((l) => {
     byId(l, 'A01').sessionKind = 'greet';
   })), (e) => e.message.includes('A01'), '动物带 sessionKind 构造即抛(纯氛围非交互)');
@@ -189,11 +204,11 @@ test('注册表: 越域抛错 — key 无 look · anchorId 不在册', () => {
   assert.throws(() => townNpcRegistry(bad((l) => {
     l[0].key = 'town_ghost';
   })), (e) => e.message.includes('town_ghost'),
-      'key 必有 look(MobLookKit.has 调用期解析, 私生键即抛)');
+  'key 必有 look(MobLookKit.has 调用期解析, 私生键即抛)');
   assert.throws(() => townNpcRegistry(bad((l) => {
     l[0].anchorId = 'npc:v99';
   })), (e) => e.message.includes('npc:v99'),
-      'anchorId 必在 TOWN_NPC_ANCHORS 在册(锚点在册性)');
+  'anchorId 必在 TOWN_NPC_ANCHORS 在册(锚点在册性)');
 });
 
 /* ============================================================
@@ -221,9 +236,9 @@ test('注册表: 协议形状 — 11 交互 sessionKind ∈ 五值 · 3 动物�
 
 test('注册表: 协议冻结消费 — 五值冻结 · townTargetOf 恰六键不受影响', () => {
   const c = reg();
-  assert.deepStrictEqual(Array.from(c.TOWN_SESSION_KINDS),
+  assert.deepStrictEqual(c.TOWN_SESSION_KINDS,
       ['greet', 'tour', 'seek', 'help', 'care'], '会话五值(冻结协议, 只消费不改源)');
-  assert.ok(Object.isFrozen(c.TOWN_SESSION_KINDS), 'TOWN_SESSION_KINDS 冻结');
+  assert.ok(c.sessionKindsFrozen, 'TOWN_SESSION_KINDS 源对象冻结(桥接查询)');
   const t = c.townTargetOf({id: 'x', kind: 'npc', iconKey: 'i', label: '钟塔'},
       {anchor: {x: 0, y: 0, z: 0}, state: 'active'});
   assert.deepStrictEqual(Object.keys(t).sort(),
