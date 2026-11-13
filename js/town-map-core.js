@@ -6,7 +6,7 @@
    (核心区/广场常量 + 分区/锚点/Prefab 实例/路网/地表/远景/散布七清单)
    外加一个建场步骤平铺纯函数, 藏住全部坐标拍板; 建场装配与材质注入只
    消费不自定坐标。
-   interface: 全局 TOWN_MAP 八段(core{核心区闭域+size/groundY} · plaza
+   interface: 全局 TOWN_MAP 九段(core{核心区闭域+size/groundY} · plaza
      {广场闭域} · zones 六带清单 · anchors/prefab/roads/ground/backdrop/
      scatter 七清单, 闭区间整数坐标, z 小=北) · 纯函数 townBuildSteps()
      → 步骤数组: 按 phase 全序 ['ground','backdrop','road','prefab',
