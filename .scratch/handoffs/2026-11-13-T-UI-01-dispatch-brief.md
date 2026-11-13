@@ -4,6 +4,12 @@
 > 安排：PO 转 scrum-master 安排执行（ui-designer route，实现票）
 > 回执：完成后合并回执交回 engineer-manager 收口（并入 town-design 分支，三门零错）
 
+> **【2026-11-13 PO 变更·brief 重发注记】**（engineer-manager 重发 2026-11-14；依据：`docs/adr/0011-town-dimension-seam-and-entry-transit.md` + `docs/town-architecture-design.md` §13 T-SEAM 票链 + `.scratch/handoffs/2026-11-13-tui-briefs-impact-list.md`）
+> - 独立入口撤除，进镇=冒险 home 图主路尽头白闪进镇维度过场（ADR-0011）。本票规格消费面（entry-hud-spec §4 L1-L4、§8 U4-U8）**零改动**（impact list 已核），仅接缝/依赖改锚：
+> - **依赖改锚**：原「T-MAP-02（模式骨架）」随撤卡节拍撤除（T-SEAM-05），可进场前提由 T-SEAM-01（ADV_DIMS town 维度行）承接；T-MAP-04 产物保留，townInteractBoot 宿主迁 adventure 壳 town 分支（T-SEAM-04，ADR-0011 决策 6a）。
+> - **接缝句作废**：下文并行冲突段「T-MAP 线会改 index.html/js/mode-registry.js/js/modes/town.js」随独立缝撤除失效——新缝施工单=T-SEAM-01..05（§13）；本票 HUD 挂点语境=**adventure 壳维度态 chrome**（镇名横幅已由维度行 hud.banner 承担）；与 T-SEAM-02/03 同文件（js/modes/adventure.js 壳段）的合并序由 engineer-manager 派工时对齐（合并权在 engineer-manager）。
+> - **最早可开工条件改锚**：T-SEAM-04 落地即解阻本票（§13.2）。
+
 ## 票面（对齐 docs/town-architecture-design.md §11）
 
 | 字段 | 值 |

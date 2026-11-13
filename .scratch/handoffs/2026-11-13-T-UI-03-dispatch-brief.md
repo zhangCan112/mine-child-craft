@@ -4,6 +4,11 @@
 > 安排：PO 转 scrum-master 安排执行（ui-designer route，实现票）
 > 回执：完成后合并回执交回 engineer-manager 收口（并入 town-design 分支，三门零错）
 
+> **【2026-11-13 PO 变更·brief 重发注记】**（engineer-manager 重发 2026-11-14；依据同 T-UI-01 重发注记：ADR-0011 + town-architecture-design.md §13 + tui-briefs-impact-list.md）
+> - 四态高亮规格全量**零改动**（impact list 已核）；entry-hud-spec §6.1「出口/返回入口」行语义更新为**回程边缘白闪预案**（双向边缘白闪，无门件，ADR-0011 决策 4 / town-map-design.md §6.3.5），四态规格本身不动。
+> - **接缝句作废**：下文并行冲突段「与 T-MAP-03 场景装配（js/modes/town.js 建场段）接缝」随独立缝撤除失效——建场装配由 T-SEAM-01 town 维度行 build 闭包消费现 townAssemblyOps/townBuildSteps（T-MAP-03 产物**保留+转用途**），装配件迁移与撤壳在 T-SEAM-05；同文件合并序派工时与 engineer-manager 对齐。
+> - **依赖改锚**：T-MAP-03/T-MAP-04 → T-SEAM-01/T-SEAM-04（§13.1）；T-UI-01 依赖不变。
+
 ## 票面（对齐 docs/town-architecture-design.md §11）
 
 | 字段 | 值 |

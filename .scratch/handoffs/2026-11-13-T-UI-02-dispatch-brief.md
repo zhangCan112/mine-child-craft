@@ -4,6 +4,11 @@
 > 安排：PO 转 scrum-master 安排执行（ui-designer route，实现票）
 > 回执：完成后合并回执交回 engineer-manager 收口（并入 town-design 分支，三门零错）
 
+> **【2026-11-13 PO 变更·brief 重发注记】**（engineer-manager 重发 2026-11-14；依据同 T-UI-01 重发注记：ADR-0011 + town-architecture-design.md §13 + tui-briefs-impact-list.md）
+> - 规格消费面（entry-hud-spec §5 5.1-5.3、§8 U4/U5）**零改动**（impact list 已核）；目标 id 协议消费不变——`mkTownTargets` core 零改动（ADR-0011 决策 6d：T-MAP-04 保留 core+转宿主）。
+> - **接缝句作废**：下文并行冲突段「与 T-MAP 线 index.html/js/modes/town.js 接缝」随独立缝撤除失效——改按 T-SEAM 票链（§13）；宿主形态终裁=adventure 壳 town 分支（ADR-0011 决策 6a），指引器运行语境=镇维度态。
+> - **依赖改锚**：T-MAP-04 → T-SEAM-04（交互机宿主挂载）解阻；T-UI-01 依赖不变。
+
 ## 票面（对齐 docs/town-architecture-design.md §11）
 
 | 字段 | 值 |
