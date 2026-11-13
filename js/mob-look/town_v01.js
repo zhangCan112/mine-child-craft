@@ -17,6 +17,7 @@
    ============================================================ */
 MobLookKit.declare('town_v01', {
   base: ['illager'],
+  greet: 'browlift', /* gen CAST greet(眉抬, 表情帧元数据, 消费在 T-NPC-03) */
   debris: 0xf4d9a6, /* V01 袍主 #F4D9A6(CAST[0].pal.a, 碎块色=服装主色) */
   bones: {armL: {add: [
     /* 面包篮 4×3×3(尺寸/挂臂是硬的; origin=手底 y12 下挂, 篮背藏进臂内) */
