@@ -224,16 +224,18 @@ function pfMerge(row, id, v) {
   if (pfHas(d, 'sailStatic')) e.sailStatic = !!e.sailStatic; /* windmill 叶轮静态 */
   if (pfHas(d, 'hasChimney')) e.hasChimney = !!e.hasChimney; /* cottage-gable 装饰烟囱(无烟) */
   if (pfHas(d, 'windowLit')) e.windowLit = !!e.windowLit; /* cottage-gable 窗亮观感开关 */
+  if (pfHas(d, 'balcony')) e.balcony = !!e.balcony; /* house-loft 二层小阳台收放 */
+  if (pfHas(d, 'awningAccent')) e.awningAccent = !!e.awningAccent; /* house-loft 布幔点缀收放 */
   return e;
 }
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。八行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   kernel(几何内核)。九行: stilt-hut(P0 高脚木屋对)/under-room/mound
    (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔)/shop-awning
    (T-PREFAB-02 店身+前廊遮檐铺面)/stash-hut(T-PREFAB-03 秘密储藏小屋)/
-   windmill-tower(T-PREFAB-04 风车塔)/cottage-gable(T-PREFAB-05 民居 A),
-   按形命名不按图命名 */
+   windmill-tower(T-PREFAB-04 风车塔)/cottage-gable(T-PREFAB-05 民居 A)/
+   house-loft(T-PREFAB-06 民居 B 双层挑窗/错顶形), 按形命名不按图命名 */
 const PF_ROWS = {
   'stilt-hut': {
     facing0: 'south',
@@ -914,6 +916,133 @@ const PF_ROWS = {
       }
       /* 8×7 基座/檐同域, 全写入落在 dy0..5(含后侧装饰烟囱, 无烟), 高 6 */
       return {x1, y1: y, z1, x2, y2: y + 5, z2};
+    },
+  },
+  'house-loft': {
+    /* 民居 B: 双层挑窗/错顶形联排感民居(town-prefab-specs §4.6, 视觉对照
+       buildings-visual-spec §7.4——双层错落丰富轮廓, 与民居 A 组合成街区)。
+       锚=地面中心投影, 局部轴 dx 横/dz 前后/dy 竖, face0=south=门窗立面朝
+       +dz; 偶宽 NW 偏置同 pfSpan 口径(shop-awning 同尺寸 10×8 先例):
+       宽 10→dx∈[-5,4], 深 8→dz∈[-4,3](平面恰 10×8)。dy0 浅石基座; dy1..3
+       一层墙环(内域空腔无家具, cottage/stash 先例)+前门 1w×2h+一层窗 2 组
+       (前窗 2w×2h+东侧窗); dy4..6 二层内缩一圈 8×6 墙环(§7.4「略内缩或
+       挑窗体量感」落内缩档, 挑窗细节归纹理层)+二层前立面窗 2 组(窗面随
+       内缩退至 dz=2)+前立面外挑小阳台(balcony 缺省 true: 2×1 暖木平台
+       dy4+两端矮栏 dy5); dy7 低屋面全域+dy8 高屋面北半内缩 8×4——前后
+       错落陶橙顶(错高落差 1 层为本票拍的默认), dy9 无物, 总高 9(错顶最
+       高点计入)。awningAccent 缺省 true(布幔点缀, cottage hasChimney 装饰
+       缺省 true 先例): 一层前窗上沿窗楣 2 格 trim(§7.4「可挂天蓝小布幔
+       一角」的几何占位, 色彩归纹理层), false 落回窗材——差分同盒。材质
+       经 ids 注入不焊死; 无光/火语义槽位(ids 白名单无 torch/glow,
+       §8 去威胁红线)。 */
+    facing0: 'south',
+    defaults: {
+      face: 'south', /* 缺省=行 facing0(恒等映射) */
+      mirror: false,
+      balcony: true, /* 二层前立面小阳台(平台+矮栏): 缺省 true, 可关 */
+      awningAccent: true, /* 布幔点缀(窗楣占位): 缺省 true, 可关 */
+      /* 材质注入, 缺省裸数字(§4.6 语义→现调色板): base 砂岩浅石基座 ·
+         wallA 木板暖木-浅一层面板(暖木-浅/中混搭的浅档) · wallB 木板
+         暖木-中后墙面(混搭的中档) · roof 红砖陶橙错落顶 · trim 木头
+         暖木-深角柱与窗楣 · window 玻璃浅色内衬 · door 木板门叶 ·
+         balcony 木头暖木-深阳台平台与矮栏(§7.4「2×1 暖木平台+矮栏
+         视觉」, 同 trim 材质族) */
+      ids: {base: 58, wallA: 6, wallB: 5, roof: 40, trim: 5, window: 20, door: 6, balcony: 5},
+    },
+    kernel(e, x, y, z, orient, put) {/* x/y/z/orient 未用: 纯局部系直写,
+        朝向与镜像统一走 place 传入的 put 通道, kernel 不自管朝向(票文
+        拍板口径; mirror=标准 pfOrient -dx 先翻后旋, 偶宽 [-5,4]→[-4,5]
+        盒平移一格, shop-awning/stash-hut 先例, 区别于 cottage-gable
+        「域内镜像盒不动」的自管 cgO) */
+      const ids = e.ids;
+      /* 写序=覆写优先级(后写者赢, 序即几何): 基座→一层墙环→门窗(覆写
+          前立面)→二层墙环→二层窗(覆写二层前立面)→外挑阳台(二层立面外
+          空域, 不覆写)→错落顶(立面之上)→布幔窗楣(覆写窗上沿) */
+      /* dy=0 基座: 恰 10×8 实心板, 域外无物 */
+      for (let dx = -5; dx <= 4; dx++) {
+        for (let dz = -4; dz <= 3; dz++) put(dx, 0, dz, ids.base);
+      }
+      /* dy=1..3 一层墙环(周界实/内域 8×6 空腔无家具): 暖木-浅/中混搭——
+          四角 trim 角柱(tower-belfry corner 先例)/后墙面 dz=-4=wallB/
+          侧山墙+前立面=wallA */
+      for (let dy = 1; dy <= 3; dy++) {
+        for (let dx = -5; dx <= 4; dx++) {
+          for (let dz = -4; dz <= 3; dz++) {
+            const corner = (dx === -5 || dx === 4) && (dz === -4 || dz === 3);
+            const onRing = corner || dx === -5 || dx === 4 || dz === -4 || dz === 3;
+            if (!onRing) continue; /* 内域空腔 */
+            let id = dz === -4 ? ids.wallB : ids.wallA;
+            if (corner) id = ids.trim;
+            put(dx, dy, dz, id);
+          }
+        }
+      }
+      /* 前门 1w×2h(dx=-1, dy1..2, dz=3)=door 材质块常在(本行无 door 开关
+          轴); 一层前窗组 2w×2h(dx∈[1,2], dy2..3, dz=3)+东侧窗(一层窗第
+          2 组, cottage 侧窗先例)——后写覆写前立面 */
+      put(-1, 1, 3, ids.door);
+      put(-1, 2, 3, ids.door);
+      for (let dx = 1; dx <= 2; dx++) {
+        for (let dy = 2; dy <= 3; dy++) put(dx, dy, 3, ids.window);
+      }
+      put(4, 2, 0, ids.window);
+      /* dy=4..6 二层墙环: 内缩一圈 8×6(dx∈[-4,3]×dz∈[-3,2]), 混搭同
+          一层口径(角柱 trim/后墙 wallB/面板 wallA) */
+      for (let dy = 4; dy <= 6; dy++) {
+        for (let dx = -4; dx <= 3; dx++) {
+          for (let dz = -3; dz <= 2; dz++) {
+            const corner = (dx === -4 || dx === 3) && (dz === -3 || dz === 2);
+            const onRing = corner || dx === -4 || dx === 3 || dz === -3 || dz === 2;
+            if (!onRing) continue; /* 内域空腔 */
+            let id = dz === -3 ? ids.wallB : ids.wallA;
+            if (corner) id = ids.trim;
+            put(dx, dy, dz, id);
+          }
+        }
+      }
+      /* 二层窗 2 组(前立面 dz=2——窗面随内缩退一格, 挑窗体量感): 组①
+          dx∈[-3,-2] · 组② dx∈[1,2](阳台落地窗位, 呼应 §7.4 Front 图
+          「阳台窗」), 各 2w×2h dy5..6——后写覆写二层前立面 */
+      for (const wx of [-3, -2, 1, 2]) {
+        for (let dy = 5; dy <= 6; dy++) put(wx, dy, 2, ids.window);
+      }
+      /* 前立面外挑小阳台(balcony 收放, §7.4「2×1 暖木平台+矮栏视觉」):
+          平台 dy4 dx∈[1,2]×dz=3 悬挑于二层立面外一格(下方即一层前墙)+
+          矮栏 dy5 两端各一格——二层立面外空域, 不覆写墙体 */
+      if (e.balcony) {
+        for (let dx = 1; dx <= 2; dx++) put(dx, 4, 3, ids.balcony);
+        put(1, 5, 3, ids.balcony);
+        put(2, 5, 3, ids.balcony);
+      }
+      /* dy=7 低屋面: 全域 10×8=roof; dy=8 高屋面: 北半内缩 8×4(dx∈[-4,3]×
+          dz∈[-4,-1])——前后错落陶橙顶(高屋面在北, §7.4 Top 图错落屋顶
+          面; 错高落差 1 层), dy9 无物(封顶 dy8, 总高 9) */
+      for (let dx = -5; dx <= 4; dx++) {
+        for (let dz = -4; dz <= 3; dz++) put(dx, 7, dz, ids.roof);
+      }
+      for (let dx = -4; dx <= 3; dx++) {
+        for (let dz = -4; dz <= -1; dz++) put(dx, 8, dz, ids.roof);
+      }
+      /* 布幔点缀(awningAccent 收放): 一层前窗上沿窗楣 dx∈[1,2]×dy3 一行
+          2 格 trim(§7.4「可挂天蓝小布幔一角」的几何占位, 色彩归纹理层)——
+          后写覆写窗上沿, 关=落回窗材(差分真实且同盒) */
+      if (e.awningAccent) {
+        for (let dx = 1; dx <= 2; dx++) put(dx, 3, 3, ids.trim);
+      }
+    },
+    /* 脚印: 同参纯算术投影——平面 4 角([-5,4]×[-4,3] 过同一张朝向表, 90°
+        旋转盒恒轴对齐; mirror 含 -dx 翻转, 偶宽体盒平移一格同被 4 角
+        min/max 包络), y 域取写笔最低/最高层(dy0 基座..dy8 错顶最高点) */
+    foot(e, x, y, z, orient) {
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of [-5, 4]) {
+        for (const dz of [-4, 3]) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + 8, z2};
     },
   },
 };

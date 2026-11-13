@@ -2102,3 +2102,308 @@ test('错误两档·cottage-gable: 未知 v 键/ids 子键/face 非法→throw; 
   k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, windowLit: 1});
   assert.ok(k.snap().some((v) => v !== 0), 'windowLit 真值可建场(开关被接受)');
 });
+
+/* ============ T-PREFAB-06 house-loft(民居 B, 新增行) ============ */
+
+/* ids 槽子键白名单(§4.6): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字)。
+   wallA/wallB=暖木-浅/中混搭墙材 · balcony=二层前立面小阳台平台材质槽
+   (§7.4「2×1 暖木平台+矮栏视觉」) */
+const LOFT_IDS = {
+  base: 150, wallA: 151, wallB: 152, roof: 153, trim: 154,
+  window: 155, door: 156, balcony: 157,
+};
+
+/* 局部系契约(对齐票文 §4.6 + buildings-visual-spec §7.4): face0=south 门窗立面
+   朝 +dz; 锚=地面中心投影。偶宽 NW 偏置同 pfSpan 口径(shop-awning 同尺寸
+   10×8 先例): 宽 10→dx∈[-5,4], 深 8→dz∈[-4,3](平面恰 10×8)。dy0 浅石基座
+   10×8 实心; dy1..3 一层墙环(周界实/内域 8×6 空腔无家具, cottage/stash 先例)
+   +前门 1w×2h=ids.door 材质块(常在, 本行无 door 开关轴)+一层窗(≥2 格
+   ids.window)+暖木-浅/中混搭(wallA/wallB 都在); dy4..6 二层体量(略内缩或挑窗
+   体量感, 内缩量/挑窗细节不钉——实现落合理默认并记备忘)+二层窗(≥2 格
+   ids.window)+前立面小阳台(balcony 缺省 true: 前立面平面 ≥2 格 ids.balcony,
+   y∈dy4..6; false=全场零 balcony 块); dy7..8 错高/错落陶橙顶(roof 两层都有,
+   dy8 覆盖恒小于 dy7——错落差分, 落差数值不钉), dy9 无物, 总高 9(错顶最高点
+   计入)。awningAccent 缺省 true(布幔点缀, 参照 cottage hasChimney 装饰缺省
+   true 先例, PO 知悉批次): 与 false 差分非空(开关有几何生命), 同盒。
+   mirror=标准 pfOrient(-dx 先翻后旋, 偶宽 [-5,4]→[-4,5] 盒平移一格——
+   shop-awning/stash-hut 先例口径; 与 cottage「域内镜像盒不动」两先例并存,
+   本票选盒平移并以此差分钉死, kernel 走统一 put 通道不自管朝向——挂账架构线
+   的挂账侧记)。脚印 10×8×高 9 与 footOf 同参同盒(4 角过朝向表)。 */
+
+function loftFrontOf(box, face) {/* 前立面平面(face0=south 前沿 dz=3 过朝向表后的世界面) */
+  if (face === 'south') return {axis: 'z', at: box.z2, min: box.x1, max: box.x2};
+  if (face === 'north') return {axis: 'z', at: box.z1, min: box.x1, max: box.x2};
+  if (face === 'west') return {axis: 'x', at: box.x1, min: box.z1, max: box.z2};
+  return {axis: 'x', at: box.x2, min: box.z1, max: box.z2}; /* east */
+}
+
+function loftCellAt(k, f, a, y) {/* 前立面平面格: f.axis='z' 时 a=x 固定 z, 否则 a=z 固定 x */
+  return f.axis === 'z' ? k.cell(a, y, f.at) : k.cell(f.at, y, a);
+}
+
+test('脚印包含·house-loft: ×4 朝向 × mirror × 变体 — 每笔写 ∈ footOf 同参盒, footOf 零写', () => {
+  const k = loadKit();
+  const spy = k.spySet();
+  const variants = [
+    ['缺省', {ids: LOFT_IDS}],
+    ['无阳台', {ids: LOFT_IDS, balcony: false}],
+    ['无布幔', {ids: LOFT_IDS, awningAccent: false}],
+    ['无阳台+无布幔', {ids: LOFT_IDS, balcony: false, awningAccent: false}],
+    ['换材质(部分注入)', {ids: Object.assign({}, LOFT_IDS, {base: 1, roof: 2, balcony: 3})}],
+  ];
+  for (const face of ['south', 'west', 'north', 'east']) {
+    for (const mirror of [false, true]) {
+      for (const [name, vv] of variants) {
+        const v = Object.assign({}, vv, {face, mirror});
+        k.clear();
+        spy.reset();
+        const box = k.pf.place('house-loft', 80, 24, 80, v);
+        const writes = spy.rec();
+        assert.ok(writes.length > 0, name + ' ' + face + (mirror ? '+m' : '') + ' 有写(防全空假绿)');
+        for (const w of writes) {
+          assert.ok(w[0] >= box.x1 && w[0] <= box.x2 && w[1] >= box.y1 && w[1] <= box.y2 &&
+              w[2] >= box.z1 && w[2] <= box.z2,
+          name + ' ' + face + (mirror ? '+m' : '') + ' 写 (' + w + ') ⊄ 盒 ' + JSON.stringify(box));
+        }
+        const n = spy.rec().length;
+        assert.deepStrictEqual(k.pf.footOf('house-loft', 80, 24, 80, v), box,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
+        assert.strictEqual(spy.rec().length, n, 'footOf 零写');
+        /* 脚印 10×8×高 9(错顶最高点计入): 方角 90° 旋转下平面仍 10×8, 装饰开关不改盒 */
+        const spanX = box.x2 - box.x1 + 1;
+        const spanZ = box.z2 - box.z1 + 1;
+        assert.strictEqual(Math.max(spanX, spanZ), 10,
+            name + ' ' + face + (mirror ? '+m' : '') + ' 平面长边 10');
+        assert.strictEqual(Math.min(spanX, spanZ), 8,
+            name + ' ' + face + (mirror ? '+m' : '') + ' 平面短边 8');
+        assert.strictEqual(box.y1, 24, name + ' ' + face + ' footOf 下界=锚层基座 dy0');
+        assert.strictEqual(box.y2, 32, name + ' ' + face + ' footOf 封顶 dy8(总高 9)');
+      }
+    }
+  }
+});
+
+test('形状·house-loft: 10×8 基座/一层墙环+门 1×2+窗/二层窗+前立面阳台/错高顶 dy7..8(缺省)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('house-loft', ax, y0, az, {ids: LOFT_IDS, face: 'south'});
+  /* 缺省盒手算值: dx∈[-5,4]×dz∈[-4,3]×dy0..8 → 10×8×9 */
+  assert.deepStrictEqual({...k.pf.footOf('house-loft', ax, y0, az, {ids: LOFT_IDS, face: 'south'})},
+      {x1: 75, y1: 24, z1: 76, x2: 84, y2: 32, z2: 83}, '缺省脚印盒=手算盒');
+  /* dy=0 基座: 恰 10×8 实心 base, 域外空(余量一圈) */
+  for (let dx = -7; dx <= 6; dx++) {
+    for (let dz = -6; dz <= 5; dz++) {
+      const inBase = dx >= -5 && dx <= 4 && dz >= -4 && dz <= 3;
+      assert.strictEqual(k.cell(ax + dx, y0, az + dz), inBase ? LOFT_IDS.base : 0,
+          '基座 dy0 (' + dx + ',' + dz + ') ' + (inBase ? '实心' : '域外空'));
+    }
+  }
+  /* 一层 dy1..3: 周界实(墙/门/窗材质块)/内域 8×6 空腔(无家具, cottage/stash 先例);
+      wallA/wallB 混搭都在; 一层窗≥2 格; 前立面(dz=3 前沿)门列 1w×2h=ids.door */
+  let wallA = 0; let wallB = 0; let win1 = 0;
+  for (let dy = 1; dy <= 3; dy++) {
+    for (let dx = -5; dx <= 4; dx++) {
+      for (let dz = -4; dz <= 3; dz++) {
+        const onRing = dx === -5 || dx === 4 || dz === -4 || dz === 3;
+        const id = k.cell(ax + dx, y0 + dy, az + dz);
+        if (!onRing) {
+          assert.strictEqual(id, 0, '一层 dy' + dy + ' 内域空 (' + dx + ',' + dz + ')');
+          continue;
+        }
+        assert.notStrictEqual(id, 0, '一层 dy' + dy + ' 周界实 (' + dx + ',' + dz + ')');
+        if (id === LOFT_IDS.wallA) wallA++;
+        if (id === LOFT_IDS.wallB) wallB++;
+        if (id === LOFT_IDS.window) win1++;
+      }
+    }
+  }
+  assert.ok(wallA > 0 && wallB > 0,
+      '一层暖木-浅/中混搭(wallA=' + wallA + ' wallB=' + wallB + ' 都在)');
+  assert.ok(win1 >= 2, '一层窗≥2 格 ids.window(一组 2 宽)');
+  let doorCols = 0;
+  for (let dx = -4; dx <= 3; dx++) {
+    if (k.cell(ax + dx, y0 + 1, az + 3) === LOFT_IDS.door &&
+        k.cell(ax + dx, y0 + 2, az + 3) === LOFT_IDS.door) doorCols++;
+  }
+  assert.ok(doorCols >= 1, '前立面 dy1..2 有 1×2 门(ids.door 材质块)');
+  /* 二层 dy4..6: 二层窗≥2 格(双层可读); 前立面平面小阳台 ≥2 格 ids.balcony
+      (2×1 平台, §7.4), 阳台格 y∈dy4..6——二层体量在, 内缩量/挑窗细节不钉 */
+  let win2 = 0;
+  for (let dx = -5; dx <= 4; dx++) {
+    for (let dz = -4; dz <= 3; dz++) {
+      for (let dy = 4; dy <= 6; dy++) {
+        if (k.cell(ax + dx, y0 + dy, az + dz) === LOFT_IDS.window) win2++;
+      }
+    }
+  }
+  assert.ok(win2 >= 2, '二层窗≥2 格 ids.window(二层窗 2 组)');
+  let balcFront = 0;
+  for (let dx = -5; dx <= 4; dx++) {
+    for (let dy = 4; dy <= 6; dy++) {
+      if (k.cell(ax + dx, y0 + dy, az + 3) === LOFT_IDS.balcony) balcFront++;
+    }
+  }
+  assert.ok(balcFront >= 2, '前立面二层小阳台 ≥2 格 ids.balcony(2×1 平台)');
+  /* dy7..8 错高/错落顶: roof 两层都有, dy8 覆盖恒小于 dy7(错落差分, 落差数值
+      不钉); dy9 无物(封顶 dy8, 总高 9) */
+  let roof7 = 0; let roof8 = 0;
+  for (let dx = -5; dx <= 4; dx++) {
+    for (let dz = -4; dz <= 3; dz++) {
+      if (k.cell(ax + dx, y0 + 7, az + dz) === LOFT_IDS.roof) roof7++;
+      if (k.cell(ax + dx, y0 + 8, az + dz) === LOFT_IDS.roof) roof8++;
+      assert.strictEqual(k.cell(ax + dx, y0 + 9, az + dz), 0, 'dy9 无物(封顶 dy8)');
+    }
+  }
+  assert.ok(roof7 > 0 && roof8 > 0, '错高顶 dy7..8 均有 roof 实体');
+  assert.ok(roof8 < roof7, '错落差分: dy8 覆盖(' + roof8 + ') < dy7 覆盖(' + roof7 + ')');
+});
+
+test('形状·house-loft 变体: balcony=false 零阳台块/awningAccent 差分真实且同盒/缺省=显式 true(防假绿)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  /* 缺省=装饰在位(PO 知悉批次: 装饰性元素缺省 true, cottage hasChimney 先例):
+      无 balcony/awningAccent 键 ≡ 两键显式 true(逐字节同形) */
+  k.clear();
+  k.pf.place('house-loft', ax, y0, az, {ids: LOFT_IDS, face: 'south'});
+  const sDef = k.snap();
+  k.clear();
+  k.pf.place('house-loft', ax, y0, az,
+      {ids: LOFT_IDS, balcony: true, awningAccent: true, face: 'south'});
+  assert.ok(sDef.equals(k.snap()), '缺省=balcony+awningAccent 显式 true 同形');
+  /* balcony=false: 全场零 balcony 块; 其余几何不动(基座/门/屋顶/窗抽查, 防整件消失) */
+  k.clear();
+  k.pf.place('house-loft', ax, y0, az, {ids: LOFT_IDS, balcony: false, face: 'south'});
+  assert.ok(!k.snap().includes(LOFT_IDS.balcony), 'balcony=false 全场零阳台块');
+  assert.strictEqual(k.cell(ax, y0, az), LOFT_IDS.base, '无阳台: 基座不动');
+  let doorOff = 0;
+  for (let dx = -4; dx <= 3; dx++) {
+    if (k.cell(ax + dx, y0 + 1, az + 3) === LOFT_IDS.door &&
+        k.cell(ax + dx, y0 + 2, az + 3) === LOFT_IDS.door) doorOff++;
+  }
+  assert.ok(doorOff >= 1, '无阳台: 前门仍在');
+  assert.ok(k.snap().includes(LOFT_IDS.roof), '无阳台: 屋顶仍在');
+  assert.ok(k.snap().includes(LOFT_IDS.window), '无阳台: 窗仍在');
+  /* awningAccent 开关: true(=缺省) 与 false 差分非空(布幔点缀有几何生命, 开关非
+      no-op); 同参同盒(点缀不出脚印) */
+  k.clear();
+  const bOn = k.pf.place('house-loft', ax, y0, az, {ids: LOFT_IDS, awningAccent: true, face: 'south'});
+  const sOn = k.snap();
+  k.clear();
+  const bOff = k.pf.place('house-loft', ax, y0, az, {ids: LOFT_IDS, awningAccent: false, face: 'south'});
+  const sOff = k.snap();
+  assert.ok(!sOn.equals(sOff), 'awningAccent 开关差分非空(布幔点缀有几何生命)');
+  assert.deepStrictEqual(bOff, bOn, '布幔点缀不改脚印盒(同形域)');
+});
+
+test('逐朝向·house-loft: 前门/窗/阳台随 face 旋转(face0=south 朝 +dz), mirror 盒平移一格非对称差分(shop 口径)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  for (const face of ['south', 'west', 'north', 'east']) {
+    k.clear();
+    k.pf.place('house-loft', ax, y0, az, {ids: LOFT_IDS, face});
+    const box = k.pf.footOf('house-loft', ax, y0, az, {ids: LOFT_IDS, face});
+    const f = loftFrontOf(box, face);
+    /* 前立面平面: 门列 1w×2h(ids.door dy1..2)+窗格(ids.window, 双层任一层)+
+        阳台格(ids.balcony, y∈dy4..6)——三要素随朝向旋转到各自前平面 */
+    let door = 0; let win = 0; let balc = 0;
+    for (let a = f.min + 1; a <= f.max - 1; a++) {
+      if (loftCellAt(k, f, a, y0 + 1) === LOFT_IDS.door &&
+          loftCellAt(k, f, a, y0 + 2) === LOFT_IDS.door) door++;
+      for (let dy = 1; dy <= 6; dy++) {
+        if (loftCellAt(k, f, a, y0 + dy) === LOFT_IDS.window) win++;
+      }
+      for (let dy = 4; dy <= 6; dy++) {
+        if (loftCellAt(k, f, a, y0 + dy) === LOFT_IDS.balcony) balc++;
+      }
+    }
+    assert.ok(door >= 1, face + ' 前立面有 1×2 门(随朝向旋转)');
+    assert.ok(win >= 1, face + ' 前立面有窗格(随朝向旋转)');
+    assert.ok(balc >= 2, face + ' 前立面有小阳台(随朝向旋转)');
+  }
+  /* mirror 差分(shop-awning/stash-hut 先例口径: 标准 -dx 先翻后旋, 偶宽体
+      [-5,4] 关于 dx=0 不对称 → 盒平移一格): south 基座西缘在 dx-5/东缘外 dx5;
+      south+mirror 东补西让双翻转; 门/阳台仍在前立面平面 */
+  k.clear();
+  k.pf.place('house-loft', ax, y0, az, {ids: LOFT_IDS, face: 'south'});
+  assert.strictEqual(k.cell(75, y0, 80), LOFT_IDS.base, 'south 基座西缘=dx-5');
+  assert.strictEqual(k.cell(85, y0, 80), 0, 'south 基座东缘外(dx5 域外)');
+  k.clear();
+  k.pf.place('house-loft', ax, y0, az, {ids: LOFT_IDS, face: 'south', mirror: true});
+  assert.strictEqual(k.cell(85, y0, 80), LOFT_IDS.base, 'south+mirror 基座东移(dx5 入域)');
+  assert.strictEqual(k.cell(75, y0, 80), 0, 'south+mirror 基座西让(dx-5 出域)');
+  const bm = k.pf.footOf('house-loft', ax, y0, az, {ids: LOFT_IDS, face: 'south', mirror: true});
+  const fm = loftFrontOf(bm, 'south');
+  let doorM = 0; let balcM = 0;
+  for (let a = fm.min + 1; a <= fm.max - 1; a++) {
+    if (loftCellAt(k, fm, a, y0 + 1) === LOFT_IDS.door &&
+        loftCellAt(k, fm, a, y0 + 2) === LOFT_IDS.door) doorM++;
+    for (let dy = 4; dy <= 6; dy++) {
+      if (loftCellAt(k, fm, a, y0 + dy) === LOFT_IDS.balcony) balcM++;
+    }
+  }
+  assert.ok(doorM >= 1, 'south+mirror 前门仍在前立面');
+  assert.ok(balcM >= 2, 'south+mirror 小阳台仍在前立面');
+  /* east+mirror: 旋转+镜像复合——门仍在东侧前平面 */
+  k.clear();
+  k.pf.place('house-loft', ax, y0, az, {ids: LOFT_IDS, face: 'east', mirror: true});
+  const be = k.pf.footOf('house-loft', ax, y0, az, {ids: LOFT_IDS, face: 'east', mirror: true});
+  const fe = loftFrontOf(be, 'east');
+  let doorE = 0;
+  for (let a = fe.min + 1; a <= fe.max - 1; a++) {
+    if (loftCellAt(k, fe, a, y0 + 1) === LOFT_IDS.door &&
+        loftCellAt(k, fe, a, y0 + 2) === LOFT_IDS.door) doorE++;
+  }
+  assert.ok(doorE >= 1, 'east+mirror 前门仍在东侧前平面(旋转+镜像复合)');
+});
+
+test('确定性: house-loft 同参两次逐字节一致(多朝向×变体)', () => {
+  const k = loadKit();
+  const builds = [
+    () => k.pf.place('house-loft', 80, 24, 80, {ids: LOFT_IDS}),
+    () => k.pf.place('house-loft', 80, 24, 80,
+        {ids: LOFT_IDS, face: 'east', mirror: true, balcony: false}),
+    () => k.pf.place('house-loft', 80, 24, 80, {ids: LOFT_IDS, face: 'north', awningAccent: false}),
+    () => k.pf.place('house-loft', 80, 24, 80,
+        {ids: LOFT_IDS, face: 'west', mirror: true, balcony: false, awningAccent: false}),
+  ];
+  for (const build of builds) {
+    k.clear(); build();
+    const a = k.snap();
+    k.clear(); build();
+    assert.ok(a.equals(k.snap()), '同参两次建场终态逐字节一致');
+    assert.ok(a.some((v) => v !== 0), '场内确有方块(防全空假绿)');
+  }
+});
+
+test('错误两档·house-loft: 未知 v 键/ids 子键(含 torch/glow 去威胁钉)/face 非法→throw; balcony/awningAccent 钳布尔', () => {
+  const k = loadKit();
+  /* 第一档(装场期炸=拼写防火墙): place 与 footOf 同走合并校验路径 */
+  assert.throws(() => k.pf.place('house-loft', 80, 24, 80, {ids: LOFT_IDS, balconyy: true}),
+      /v 键/, '未知 v 键(拼写)');
+  assert.throws(() => k.pf.footOf('house-loft', 80, 24, 80, {ids: LOFT_IDS, foo: 1}),
+      /v 键/, 'footOf 同走未知 v 键检');
+  assert.throws(() => k.pf.place('house-loft', 80, 24, 80, {ids: LOFT_IDS, face: 'up'}),
+      /face/, 'face 非法');
+  assert.throws(() => k.pf.place('house-loft', 80, 24, 80,
+      {ids: Object.assign({}, LOFT_IDS, {roofx: 1})}), /ids/, 'ids 未知子键');
+  /* 去威胁钉(§4.6/§8): 民居无光/火语义槽位——torch/glow 子键不在白名单即炸 */
+  assert.throws(() => k.pf.place('house-loft', 80, 24, 80,
+      {ids: Object.assign({}, LOFT_IDS, {torch: 48})}), /ids/, '无 torch 槽(零火语义)');
+  assert.throws(() => k.pf.place('house-loft', 80, 24, 80,
+      {ids: Object.assign({}, LOFT_IDS, {glow: 19})}), /ids/, '无 glow 槽(零光意象)');
+  /* 第二档(布尔轴收放不炸): balcony/awningAccent 非布尔按真值钳(door 先例) */
+  k.clear();
+  k.pf.place('house-loft', 80, 24, 80, {ids: LOFT_IDS, balcony: 0});
+  const b0 = k.snap();
+  k.clear();
+  k.pf.place('house-loft', 80, 24, 80, {ids: LOFT_IDS, balcony: false});
+  assert.ok(b0.equals(k.snap()), 'balcony=0 钳 false 同形');
+  k.clear();
+  k.pf.place('house-loft', 80, 24, 80, {ids: LOFT_IDS, awningAccent: 1});
+  const a1 = k.snap();
+  k.clear();
+  k.pf.place('house-loft', 80, 24, 80, {ids: LOFT_IDS, awningAccent: true});
+  assert.ok(a1.equals(k.snap()), 'awningAccent=1 钳 true 同形');
+  assert.ok(a1.includes(LOFT_IDS.door), '钳 true 建场正常(门在位, 防全空假绿)');
+});
