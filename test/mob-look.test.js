@@ -228,6 +228,18 @@ test('造型档案: 确定性 — 同 type 两次声明+绘制逐字节一致(�
       '重进世界观感逐像素一致(程序生成存档口径)');
 });
 
+test('造型档案: 贴图缓冲返回形状 — 键集恰 {w,h,buf}(size=w 兼容字段退役 T-NPC-06 F3)', () => {
+  /* 红→绿: textureBuffer 曾带 size:w 兼容读法, 对 64×80 的 town_g01 它是
+     错误行距(w 冒充整幅宽, 未来读者信它是坑); T-NPC-02 三循环已全改
+     w/h 读法(改源即证零读者), 兼容字段退役, 返回形状收口恰三键。
+     样本覆盖方形存量(zombie/player)、非方形(town_g01 64×80)、小画布(town_a03)。 */
+  for (const type of ['zombie', 'player', 'town_g01', 'town_a03']) {
+    assert.deepStrictEqual(Object.keys(MobLookKit.textureBuffer(type)).sort(),
+        ['buf', 'h', 'w'],
+        type + ' textureBuffer 返回键集恰 {w,h,buf}(size 字段对非方形画布是错误行距)');
+  }
+});
+
 /* ---- 几何 UV 桩: 只到 slotGeo/puppet 需要的形状(真渲染由 boot 冒烟) ----
    黑缝回归背景: UV 曾用枢轴系坐标且端点压矩形外缘, 顶点采到未涂间隙
    → 模型部件整片纯黑(玩家胳膊/头/左脚案); 覆盖测试只保证矩形涂满,

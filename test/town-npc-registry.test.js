@@ -366,3 +366,42 @@ test('注册表: 纯函数 — 快照透传+label+faceSrc · 同参同输出 · 
   assert.deepStrictEqual(townNpcRegistry([TOWN_NPCS[0]]).length, 1,
       '参数清单可用(缺省参数 TOWN_NPCS)');
 });
+
+/* ---------- T-NPC-06 F4: greet 帧双源 join 对账(独立真源三: look 文件
+   declare 元数据, 捕获桩同 town-npc-look.test.js「表情帧元数据」款)。
+   look greet(T-NPC-02 源)与注册表 expression.greet(T-NPC-03 源)原各被
+   自己的冻结定值表钉死、无 join——两源各带各的表一致漂移时不被抓住;
+   此断言直接对源对账(票面二选一裁决: 择对账断言, 不改注册表派生;
+   择 registry.test 侧因装具已装载 14 look 文件, 零新依赖不引入环)。 ---------- */
+function lookDeclareMeta() {
+  const captured = {};
+  const ctx = vm.createContext({MobLookKit: {declare: (k, def) => {
+    captured[k] = def;
+  }}});
+  for (const f of fs.readdirSync(LOOK_DIR)
+      .filter((n) => n.startsWith('town_') && n.endsWith('.js')).sort()) {
+    vm.runInContext(fs.readFileSync(path.join(LOOK_DIR, f), 'utf8'), ctx, {filename: f});
+  }
+  return captured;
+}
+
+test('注册表: greet 帧双源 join 对账 — look declare greet == expression.greet(10 村民逐 id; G01/动物两侧皆无)', () => {
+  const c = reg();
+  const meta = lookDeclareMeta();
+  let joined = 0;
+  for (const r of c.TOWN_NPCS) {
+    assert.ok(meta[r.key], r.id + ' look 声明缺失: ' + r.key);
+    if (r.category === 'villager') {
+      assert.strictEqual(meta[r.key].greet, r.expression.greet,
+          r.id + ' greet 帧双源漂移: look ' + r.key + '.greet=' + meta[r.key].greet +
+          ' vs 注册表 expression.greet=' + r.expression.greet +
+          '(T-NPC-06 F4 join 对账, 修源须两侧同改)');
+      joined++;
+    } else {
+      assert.strictEqual(meta[r.key].greet, undefined,
+          r.id + ' 非村民 look 不带 greet 元数据(02 票: 无表情帧体系)');
+      assert.ok(!('expression' in r), r.id + ' 非村民注册行无 expression 字段(03 票行形状)');
+    }
+  }
+  assert.strictEqual(joined, 10, 'join 对账恰覆盖十村民(14 实体全量走查)');
+});
