@@ -987,3 +987,290 @@ test('错误两档·tower-belfry: 未知 v 键/ids 子键/face 非法→throw; h
   assert.ok(sHigh.equals(k.snap()), 'heightTier 高于档位钳至 16 同形');
   assert.deepStrictEqual(bHigh, b16, '钳后脚印盒一致(高档)');
 });
+
+/* ============ T-PREFAB-02 shop-awning(Lava Chicken 店, 新增行) ============ */
+
+/* ids 槽子键白名单(§4.2): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字) */
+const SHOP_IDS = {
+  base: 110, wall: 111, roof: 112, trim: 113, awning: 114,
+  signBg: 115, signAccent: 116, glow: 117, window: 118,
+};
+
+/* 局部系契约(字面域钉死, 防宽度漂移): face0=south 店面朝 +dz; 锚=店身地面中心
+   投影(偶宽 NW 偏置同 pfSpan 约定: 宽 10→dx∈[-5,4], 深 8→dz∈[-4,3])。
+   dy0 地台=店身 10×8+前廊外延 dz=4(共 10×9); dy1..4 店身墙环(四角 trim 角柱·
+   前立面门洞 2w×3h dx∈[-1,0]·展示窗 2w×2h dx∈[-4,-3]与[2,3] dy3..4);
+   dy5 檐层=店身 roof+前廊遮檐 dz=4 全宽 awning(前檐突出=遮檐, 奶油布幔);
+   dy6 阶梯顶内缩一圈 8×6; dy7 招牌板宽 6(dx∈[-3,2])挑出前廊上空 dz=4(几何只留
+   板体); dy≥8 无物。红线: 无熔岩/火方块语义, glow 仅暖橙装饰块意象(§4.2/§8)。 */
+
+test('脚印包含·shop-awning: ×4 朝向 × mirror × 变体 — 每笔写 ∈ footOf 同参盒, footOf 零写', () => {
+  const k = loadKit();
+  const spy = k.spySet();
+  const variants = [
+    ['缺省', {ids: SHOP_IDS}],
+    ['关门', {ids: SHOP_IDS, doorOpen: false}],
+    ['无暖光', {ids: SHOP_IDS, windowGlow: 'none'}],
+    ['素招牌', {ids: SHOP_IDS, signVariant: 'blank'}],
+    ['关门+无暖光+素招牌', {ids: SHOP_IDS, doorOpen: false, windowGlow: 'none', signVariant: 'blank'}],
+    ['换材质(部分注入)', {ids: Object.assign({}, SHOP_IDS, {base: 1, roof: 2, awning: 3})}],
+  ];
+  for (const face of ['south', 'west', 'north', 'east']) {
+    for (const mirror of [false, true]) {
+      for (const [name, vv] of variants) {
+        const v = Object.assign({}, vv, {face, mirror});
+        k.clear();
+        spy.reset();
+        const box = k.pf.place('shop-awning', 80, 24, 80, v);
+        const writes = spy.rec();
+        assert.ok(writes.length > 0, name + ' ' + face + (mirror ? '+m' : '') + ' 有写(防全空假绿)');
+        for (const w of writes) {
+          assert.ok(w[0] >= box.x1 && w[0] <= box.x2 && w[1] >= box.y1 && w[1] <= box.y2 &&
+              w[2] >= box.z1 && w[2] <= box.z2,
+          name + ' ' + face + (mirror ? '+m' : '') + ' 写 (' + w + ') ⊄ 盒 ' + JSON.stringify(box));
+        }
+        const n = spy.rec().length;
+        assert.deepStrictEqual(k.pf.footOf('shop-awning', 80, 24, 80, v), box,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
+        assert.strictEqual(spy.rec().length, n, 'footOf 零写');
+        /* footOf 覆盖 10×8 地台+前廊外延(平面至少 10×9)与 dy0..7 全高(含招牌挑出) */
+        const spanX = box.x2 - box.x1 + 1;
+        const spanZ = box.z2 - box.z1 + 1;
+        assert.ok(Math.max(spanX, spanZ) >= 10 && Math.min(spanX, spanZ) >= 9,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 平面至少覆盖 10×9(地台+前廊)');
+        assert.ok(box.y1 <= 24 && box.y2 >= 24 + 7,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 覆盖 dy0..7 全高');
+      }
+    }
+  }
+});
+
+test('形状·shop-awning: 地台 10×9/墙环 dy1..4 四角角柱/门洞 2w×3h/展示窗/檐层+遮檐/内缩顶/招牌板(缺省)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('shop-awning', ax, y0, az, {ids: SHOP_IDS});
+  /* 缺省盒手算值: 店身 dx[-5,4]×dz[-4,4](含前廊)×dy0..7 */
+  assert.deepStrictEqual({...k.pf.footOf('shop-awning', ax, y0, az, {ids: SHOP_IDS})},
+      {x1: 75, y1: 24, z1: 76, x2: 84, y2: 31, z2: 84}, '缺省脚印盒=手算盒');
+  /* dy=0 地台: 店身 10×8(dx∈[-5,4]×dz∈[-4,3])+前廊外延 dz=4 → 恰 10×9 实心 base, 域外全空 */
+  for (let dx = -7; dx <= 6; dx++) {
+    for (let dz = -6; dz <= 6; dz++) {
+      const inPlat = dx >= -5 && dx <= 4 && dz >= -4 && dz <= 4;
+      assert.strictEqual(k.cell(ax + dx, y0, az + dz), inPlat ? SHOP_IDS.base : 0,
+          '地台 dy0 (' + dx + ',' + dz + ') ' + (inPlat ? '实心' : '域外空'));
+    }
+  }
+  /* dy=1..4 店身墙环(店身周界, 不含前廊): 周界实/内域空/环外空(含前廊上空 dz=4) */
+  for (let dy = 1; dy <= 4; dy++) {
+    for (let dx = -7; dx <= 6; dx++) {
+      for (let dz = -6; dz <= 6; dz++) {
+        const onRing = dx >= -5 && dx <= 4 && dz >= -4 && dz <= 3 &&
+            (dx === -5 || dx === 4 || dz === -4 || dz === 3);
+        const id = k.cell(ax + dx, y0 + dy, az + dz);
+        if (!onRing) {
+          assert.strictEqual(id, 0, '店身 dy' + dy + ' 环外空 (' + dx + ',' + dz + ')');
+          continue;
+        }
+        /* 门洞 2w×3h 敞开格(缺省 doorOpen=true)豁免「周界实」——由下方墙环材质
+            地图钉死为 0(裁决 T-PREFAB-02: 首环循环漏豁免系测试笔误, 门洞=空气
+            是派单契约与变体/错误/逐朝向/stilt-hut 先例的多数派口径) */
+        const doorHole = dz === 3 && dx >= -1 && dx <= 0 && dy <= 3;
+        if (!doorHole) {
+          assert.notStrictEqual(id, 0, '店身 dy' + dy + ' 周界实 (' + dx + ',' + dz + ')');
+        }
+      }
+    }
+    for (let dx = -4; dx <= 3; dx++) {
+      for (let dz = -3; dz <= 2; dz++) {
+        assert.strictEqual(k.cell(ax + dx, y0 + dy, az + dz), 0, '店身 dy' + dy + ' 内域空');
+      }
+    }
+  }
+  /* 墙环材质全钉: 四角 trim 角柱(暖木-深)·前立面(dz=3)门洞/窗/墙·侧后墙 wall */
+  for (let dy = 1; dy <= 4; dy++) {
+    for (let dx = -5; dx <= 4; dx++) {
+      for (const dz of [-4, -3, -2, -1, 0, 1, 2, 3]) {
+        const onRing = dx === -5 || dx === 4 || dz === -4 || dz === 3;
+        if (!onRing) continue;
+        const corner = (dx === -5 || dx === 4) && (dz === -4 || dz === 3);
+        let want = SHOP_IDS.wall;
+        if (corner) want = SHOP_IDS.trim;
+        if (dz === 3 && !corner) {/* 前立面地图 */
+          if (dx >= -4 && dx <= -3 && dy >= 3) want = SHOP_IDS.glow; /* 左展示窗 2w×2h */
+          if (dx >= 2 && dx <= 3 && dy >= 3) want = SHOP_IDS.glow; /* 右展示窗 2w×2h */
+          if (dx >= -1 && dx <= 0 && dy <= 3) want = 0; /* 门洞 2w×3h 敞开(doorOpen) */
+        }
+        assert.strictEqual(k.cell(ax + dx, y0 + dy, az + dz), want,
+            '墙环材质 dy' + dy + ' (' + dx + ',' + dz + ')');
+      }
+    }
+  }
+  /* dy=5 檐层: 店身 10×8 roof + 前廊遮檐 dz=4 全宽 awning(前檐突出), 域外空 */
+  for (let dx = -7; dx <= 6; dx++) {
+    for (let dz = -6; dz <= 6; dz++) {
+      let want = 0;
+      if (dx >= -5 && dx <= 4 && dz >= -4 && dz <= 3) want = SHOP_IDS.roof;
+      if (dx >= -5 && dx <= 4 && dz === 4) want = SHOP_IDS.awning;
+      assert.strictEqual(k.cell(ax + dx, y0 + 5, az + dz), want, '檐层 dy5 (' + dx + ',' + dz + ')');
+    }
+  }
+  /* dy=6 阶梯顶内缩一圈: 恰 8×6(dx∈[-4,3]×dz∈[-3,2]) roof, 域外(含遮檐上空)全空 */
+  for (let dx = -7; dx <= 6; dx++) {
+    for (let dz = -6; dz <= 6; dz++) {
+      const inTop = dx >= -4 && dx <= 3 && dz >= -3 && dz <= 2;
+      assert.strictEqual(k.cell(ax + dx, y0 + 6, az + dz), inTop ? SHOP_IDS.roof : 0,
+          '阶梯顶 dy6 (' + dx + ',' + dz + ')');
+    }
+  }
+  /* dy=7 招牌层: 横向板体恰宽 6(dx∈[-3,2])×1 厚, 挑出前廊上空 dz=4, 板体∈{signBg,signAccent};
+     层内板外全空; dy=8 全空(封顶于 7); icon 变体板上有图形区分块(signAccent≥1) */
+  let accent = 0; let bg = 0;
+  for (let dx = -7; dx <= 6; dx++) {
+    for (let dz = -6; dz <= 6; dz++) {
+      const id = k.cell(ax + dx, y0 + 7, az + dz);
+      const onBoard = dx >= -3 && dx <= 2 && dz === 4;
+      if (onBoard) {
+        assert.ok(id === SHOP_IDS.signBg || id === SHOP_IDS.signAccent,
+            '招牌板 dy7 (' + dx + ',' + dz + ') ∈ {signBg,signAccent}');
+        if (id === SHOP_IDS.signAccent) accent++;
+        if (id === SHOP_IDS.signBg) bg++;
+      } else {
+        assert.strictEqual(id, 0, '招牌层 dy7 板外空 (' + dx + ',' + dz + ')');
+      }
+      assert.strictEqual(k.cell(ax + dx, y0 + 8, az + dz), 0, 'dy8 全空(封顶于 dy7)');
+    }
+  }
+  assert.strictEqual(accent + bg, 6, '招牌板恰 6 格宽(宽 6-7 居中, 本契约钉 6)');
+  assert.ok(accent >= 1 && bg >= 1, 'icon 变体: 板上有 signAccent 图形区区分块且有底板');
+});
+
+test('形状·shop-awning 变体: 关门补墙/无暖光窗区浅色且全场零 glow/素招牌零 signAccent(去威胁红线)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  /* doorOpen=false: 门洞 2w×3h 补墙(无敞开感), 其余几何不动(窗/角柱/地台抽查) */
+  k.clear();
+  k.pf.place('shop-awning', ax, y0, az, {ids: SHOP_IDS, doorOpen: false});
+  for (let dy = 1; dy <= 3; dy++) {
+    for (const dx of [-1, 0]) {
+      assert.strictEqual(k.cell(ax + dx, y0 + dy, az + 3), SHOP_IDS.wall,
+          '关门: 门洞补墙 dy' + dy + ' dx' + dx);
+    }
+  }
+  assert.strictEqual(k.cell(ax - 4, y0 + 3, az + 3), SHOP_IDS.glow, '关门款窗区不变(左)');
+  assert.strictEqual(k.cell(ax + 3, y0 + 4, az + 3), SHOP_IDS.glow, '关门款窗区不变(右)');
+  assert.strictEqual(k.cell(ax - 5, y0 + 2, az + 3), SHOP_IDS.trim, '关门款角柱不变');
+  assert.strictEqual(k.cell(ax, y0, az + 4), SHOP_IDS.base, '关门款前廊地台不变');
+  /* windowGlow=none: 窗区=window 浅色内衬, 全场零 glow 块(暖橙装饰光意象关闭) */
+  k.clear();
+  k.pf.place('shop-awning', ax, y0, az, {ids: SHOP_IDS, windowGlow: 'none'});
+  for (let dy = 3; dy <= 4; dy++) {
+    for (const dx of [-4, -3, 2, 3]) {
+      assert.strictEqual(k.cell(ax + dx, y0 + dy, az + 3), SHOP_IDS.window,
+          '无暖光: 窗区浅色内衬 dy' + dy + ' dx' + dx);
+    }
+  }
+  assert.ok(!k.snap().includes(SHOP_IDS.glow), 'windowGlow=none 全场零 glow 块');
+  assert.strictEqual(k.cell(ax - 1, y0 + 2, az + 3), 0, '无暖光款门洞仍敞开(doorOpen 独立轴)');
+  /* signVariant=blank: 招牌板全 signBg, 全场零 signAccent(图形区归纹理层) */
+  k.clear();
+  k.pf.place('shop-awning', ax, y0, az, {ids: SHOP_IDS, signVariant: 'blank'});
+  for (const dx of [-3, -2, -1, 0, 1, 2]) {
+    assert.strictEqual(k.cell(ax + dx, y0 + 7, az + 4), SHOP_IDS.signBg,
+        '素招牌: 板体全 signBg dx' + dx);
+  }
+  assert.ok(!k.snap().includes(SHOP_IDS.signAccent), 'blank 变体全场零 signAccent');
+  assert.ok(k.snap().includes(SHOP_IDS.signBg), 'blank 板体仍在(防整板消失假绿)');
+});
+
+test('逐朝向·shop-awning: 门洞/遮檐/招牌随 face 旋转(face0=south 朝 +dz), mirror 翻 dx 非对称差分', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  /* 手算表: k1(west)=(dx,dz)→(-dz,dx) · k2(north)=(-dx,-dz) · k3(east)=(dz,-dx);
+     门洞局部 (dx∈[-1,0], dy1..3, dz=3) · 遮檐 (·, 5, 4) · 招牌板 (dx∈[-3,2], 7, 4) */
+  const onBoard = (id) => id === SHOP_IDS.signBg || id === SHOP_IDS.signAccent;
+  const faces = [ /* [face, 门洞两格, 遮檐格, 招牌行固定轴(计数行)] */
+    ['west', [[77, 79], [77, 80]], [76, 80], ['x', 76]],
+    ['north', [[80, 77], [81, 77]], [80, 76], ['z', 76]],
+    ['east', [[83, 80], [83, 81]], [84, 80], ['x', 84]],
+  ];
+  for (const [face, door, awn, [axis, at]] of faces) {
+    k.clear();
+    k.pf.place('shop-awning', ax, y0, az, {ids: SHOP_IDS, face});
+    for (const dy of [1, 2, 3]) {
+      for (const [px, pz] of door) {
+        assert.strictEqual(k.cell(px, y0 + dy, pz), 0, face + ' 门洞敞开 y' + dy);
+      }
+    }
+    assert.strictEqual(k.cell(awn[0], y0 + 5, awn[1]), SHOP_IDS.awning,
+        face + ' 遮檐随朝向(前廊侧)');
+    let board = 0;
+    for (let t = 70; t <= 90; t++) {
+      const id = axis === 'x' ? k.cell(at, y0 + 7, t) : k.cell(t, y0 + 7, at);
+      if (onBoard(id)) board++;
+    }
+    assert.strictEqual(board, 6, face + ' 招牌板宽 6 随朝向旋转');
+    assert.ok(onBoard(axis === 'x' ? k.cell(at, y0 + 7, az) : k.cell(ax, y0 + 7, at)),
+        face + ' 招牌板中段在位');
+  }
+  /* south 恒等基线: 门洞 (79..80,·,83), 遮檐 (·,29,84), 平台西缘在 75/东缘在 84 */
+  k.clear();
+  k.pf.place('shop-awning', ax, y0, az, {ids: SHOP_IDS, face: 'south'});
+  assert.strictEqual(k.cell(79, y0 + 2, 83), 0, 'south 门洞左格敞开');
+  assert.strictEqual(k.cell(80, y0 + 2, 83), 0, 'south 门洞右格敞开');
+  assert.strictEqual(k.cell(75, y0, 80), SHOP_IDS.base, 'south 平台西缘=dx-5');
+  assert.strictEqual(k.cell(85, y0, 80), 0, 'south 平台东缘外(dx5 域外)');
+  /* mirror 非对称差分(偶宽体 [-5,4] 关于 dx=0 不对称): 先翻 dx 后旋转——
+     门洞 [-1,0]→[0,1], 体 [-5,4]→[-4,5]: 西缘补格/东缘让格双翻转 */
+  k.clear();
+  k.pf.place('shop-awning', ax, y0, az, {ids: SHOP_IDS, face: 'south', mirror: true});
+  assert.strictEqual(k.cell(79, y0 + 2, 83), SHOP_IDS.wall, 'south+mirror 门洞左格翻成墙');
+  assert.strictEqual(k.cell(80, y0 + 2, 83), 0, 'south+mirror 门洞中轴格仍敞开');
+  assert.strictEqual(k.cell(81, y0 + 2, 83), 0, 'south+mirror 门洞右移到 dx=1');
+  assert.strictEqual(k.cell(85, y0, 80), SHOP_IDS.base, 'south+mirror 平台东移(dx5 入域)');
+  assert.strictEqual(k.cell(75, y0, 80), 0, 'south+mirror 平台西让(dx-5 出域)');
+  assert.strictEqual(k.cell(80, y0 + 5, 84), SHOP_IDS.awning, 'south+mirror 遮檐仍在前廊侧');
+});
+
+test('确定性: shop-awning 同参两次逐字节一致(多朝向×变体)', () => {
+  const k = loadKit();
+  const builds = [
+    () => k.pf.place('shop-awning', 80, 24, 80, {ids: SHOP_IDS}),
+    () => k.pf.place('shop-awning', 80, 24, 80, {ids: SHOP_IDS, face: 'east', mirror: true}),
+    () => k.pf.place('shop-awning', 80, 24, 80, {
+      ids: SHOP_IDS, face: 'north',
+      doorOpen: false, windowGlow: 'none', signVariant: 'blank',
+    }),
+  ];
+  for (const build of builds) {
+    k.clear(); build();
+    const a = k.snap();
+    k.clear(); build();
+    assert.ok(a.equals(k.snap()), '同参两次建场终态逐字节一致');
+    assert.ok(a.some((v) => v !== 0), '场内确有方块(防全空假绿)');
+  }
+});
+
+test('错误两档·shop-awning: 未知 v 键/ids 子键/face/windowGlow/signVariant 非法→throw; doorOpen 钳布尔', () => {
+  const k = loadKit();
+  /* 第一档(装场期炸=拼写防火墙): place 与 footOf 同走合并校验路径 */
+  assert.throws(() => k.pf.place('shop-awning', 80, 24, 80, {ids: SHOP_IDS, facee: 'north'}),
+      /v 键/, '未知 v 键(拼写)');
+  assert.throws(() => k.pf.footOf('shop-awning', 80, 24, 80, {ids: SHOP_IDS, foo: 1}),
+      /v 键/, 'footOf 同走未知 v 键检');
+  assert.throws(() => k.pf.place('shop-awning', 80, 24, 80, {ids: SHOP_IDS, face: 'up'}),
+      /face/, 'face 非法');
+  assert.throws(() => k.pf.place('shop-awning', 80, 24, 80,
+      {ids: Object.assign({}, SHOP_IDS, {awnin: 1})}), /ids/, 'ids 未知子键');
+  assert.throws(() => k.pf.place('shop-awning', 80, 24, 80, {ids: SHOP_IDS, windowGlow: 'fire'}),
+      /windowGlow/, 'windowGlow 枚举非法(暖橙装饰光意象仅 warm/none, 禁火语义)');
+  assert.throws(() => k.pf.place('shop-awning', 80, 24, 80, {ids: SHOP_IDS, signVariant: 'text'}),
+      /signVariant/, 'signVariant 枚举非法(文字不硬编码几何, 仅 icon/blank)');
+  /* 第二档(布尔轴收放不炸): doorOpen 非布尔按真值钳 */
+  k.clear();
+  k.pf.place('shop-awning', 80, 24, 80, {ids: SHOP_IDS, doorOpen: 0});
+  assert.strictEqual(k.cell(79, 25, 83), SHOP_IDS.wall, 'doorOpen=0 钳 false: 门洞补墙');
+  k.clear();
+  k.pf.place('shop-awning', 80, 24, 80, {ids: SHOP_IDS, doorOpen: 1});
+  assert.strictEqual(k.cell(79, 25, 83), 0, 'doorOpen=1 钳 true: 门洞敞开');
+});

@@ -19,7 +19,8 @@
    v 键集 = 行 defaults 键集(唯一权威, 未知键即炸); 检查按行声明收放(行
    defaults 没声明的轴不查, 各行只认自己的键面)。错误两档: 拼写域(未知
    id · 未知 v 键含 size/ids/exit 子键 · 枚举值非法 face/piles/roof/torch/
-   torches · piles:'terrain' 缺 ground · 行 require 必传轴缺 mat/top/rock)
+   torches/windowGlow/signVariant · piles:'terrain' 缺 ground · 行 require
+   必传轴缺 mat/top/rock)
    →throw(装场期炸=测试当场红); 几何数值域(size/steps/half 等负值或非
    整数, ground 非有限数)→钳。朝向=整数格点旋转表(90° 倍数恒整数格,
    零浮点), 旋转序=(face−行 facing0) 的 90° 倍数, 缺省 face=行 facing0 →
@@ -135,6 +136,14 @@ function pfMerge(row, id, v) {
   if (pfHas(d, 'torches') && e.torches !== 'solo' && e.torches !== 'pair') {
     throw new Error('PrefabKit: torches 非法「' + e.torches + '」(solo/pair)');
   }
+  /* shop-awning 双枚举(roof/torch 同款第一档): 暖橙装饰光意象仅 warm/none
+     两档(禁火语义), 招牌文字不硬编码几何故仅 icon/blank */
+  if (pfHas(d, 'windowGlow') && e.windowGlow !== 'warm' && e.windowGlow !== 'none') {
+    throw new Error('PrefabKit: windowGlow 非法「' + e.windowGlow + '」(warm/none)');
+  }
+  if (pfHas(d, 'signVariant') && e.signVariant !== 'icon' && e.signVariant !== 'blank') {
+    throw new Error('PrefabKit: signVariant 非法「' + e.signVariant + '」(icon/blank)');
+  }
   if (d.size !== undefined) {
     let sz = d.size;
     if (v !== undefined && v.size !== undefined) {
@@ -196,6 +205,7 @@ function pfMerge(row, id, v) {
   }
   if (pfHas(d, 'mirror')) e.mirror = !!e.mirror;
   if (pfHas(d, 'door')) e.door = !!e.door;
+  if (pfHas(d, 'doorOpen')) e.doorOpen = !!e.doorOpen; /* shop-awning 门洞敞开 */
   if (pfHas(d, 'chest')) e.chest = !!e.chest;
   if (pfHas(d, 'openBelfry')) e.openBelfry = !!e.openBelfry;
   if (pfHas(d, 'hasDoorNiche')) e.hasDoorNiche = !!e.hasDoorNiche;
@@ -205,8 +215,9 @@ function pfMerge(row, id, v) {
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。四行: stilt-hut(P0 高脚木屋对)/under-room/mound
-   (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔), 按形命名不按图命名 */
+   kernel(几何内核)。五行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔)/shop-awning
+   (T-PREFAB-02 店身+前廊遮檐铺面), 按形命名不按图命名 */
 const PF_ROWS = {
   'stilt-hut': {
     facing0: 'south',
@@ -565,6 +576,81 @@ const PF_ROWS = {
         }
       }
       return {x1, y1: y, z1, x2, y2: y + topDy, z2};
+    },
+  },
+  'shop-awning': {
+    /* 商店: 店身+前廊遮檐+招牌层的临街铺面(town-prefab-specs §4.2, 视觉对照
+       buildings-visual-spec §7.2 与 §8 去威胁红线——「熔岩」仅作暖橙装饰
+       块意象, 禁真实熔岩/明火)。锚=店身地面中心投影, 局部轴 dx 横/dz 前后/
+       dy 竖, face0=south=店面朝 +dz; 偶宽 NW 偏置同 pfSpan 口径: 宽 10→
+       dx∈[-5,4], 深 8→dz∈[-4,3], 前廊向 +dz 外延 dz=4 一格(平面共 10×9) */
+    facing0: 'south',
+    defaults: {
+      face: 'south', /* 缺省=行 facing0(恒等映射) */
+      mirror: false,
+      doorOpen: true, /* 门洞 2w×3h: true 掏空气(白天敞开感)/false 补墙 */
+      windowGlow: 'warm', /* 展示窗区: warm=glow 暖橙装饰块 / none=window 浅色内衬 */
+      signVariant: 'icon', /* 招牌板: icon=底板+图形区 / blank=全底板(图形归纹理层) */
+      /* 材质注入, 缺省裸数字(§4.2 语义→现调色板): base 砂岩浅石地台 ·
+         wall 木板暖木 · roof 红砖陶橙 · trim 木头暖木-深 · awning 羊毛
+         奶油布幔 · signBg 蓝羊毛天蓝 · signAccent 金矿暖金 · glow 灯块
+         暖橙装饰光(灯块非火, §8 允许意象) · window 玻璃浅色内衬 */
+      ids: {base: 58, wall: 6, roof: 9, trim: 5, awning: 52,
+        signBg: 15, signAccent: 38, glow: 19, window: 18},
+    },
+    kernel(e, x, y, z, orient, put) {/* x/y/z 未用: 纯局部系直写(无地形读数) */
+      const ids = e.ids;
+      /* dy=0 地台: 店身 10×8(dx∈[-5,4]×dz∈[-4,3])+前廊外延 dz=4 → 恰 10×9 全 base */
+      for (let dx = -5; dx <= 4; dx++) {
+        for (let dz = -4; dz <= 4; dz++) put(dx, 0, dz, ids.base);
+      }
+      /* dy=1..4 店身墙环(店身周界, 不含前廊; 内域不写=空): 四角角柱=trim
+         (暖木-深); 前立面 dz=3 逐格覆写门洞/展示窗——后写者赢, 序即几何 */
+      for (let dy = 1; dy <= 4; dy++) {
+        for (let dx = -5; dx <= 4; dx++) {
+          for (let dz = -4; dz <= 3; dz++) {
+            const corner = (dx === -5 || dx === 4) && (dz === -4 || dz === 3);
+            const onRing = corner || dx === -5 || dx === 4 || dz === -4 || dz === 3;
+            if (!onRing) continue; /* 内域空 */
+            let id = corner ? ids.trim : ids.wall;
+            if (dz === 3 && !corner) {/* 前立面地图 */
+              const win = (dx >= -4 && dx <= -3) || (dx >= 2 && dx <= 3);
+              if (win && dy >= 3) id = e.windowGlow === 'warm' ? ids.glow : ids.window; /* 展示窗 2w×2h */
+              if (dx >= -1 && dx <= 0 && dy <= 3) id = e.doorOpen ? 0 : ids.wall; /* 门洞 2w×3h */
+            }
+            put(dx, dy, dz, id);
+          }
+        }
+      }
+      /* dy=5 檐层: 店身 10×8=roof + 前廊 dz=4 全宽=awning(前檐突出=前廊遮檐) */
+      for (let dx = -5; dx <= 4; dx++) {
+        for (let dz = -4; dz <= 3; dz++) put(dx, 5, dz, ids.roof);
+        put(dx, 5, 4, ids.awning);
+      }
+      /* dy=6 阶梯顶内缩一圈: 恰 8×6(dx∈[-4,3]×dz∈[-3,2])=roof, 域外空 */
+      for (let dx = -4; dx <= 3; dx++) {
+        for (let dz = -3; dz <= 2; dz++) put(dx, 6, dz, ids.roof);
+      }
+      /* dy=7 招牌板: 恰宽 6(dx∈[-3,2])×1 厚, dz=4 挑出前廊上空; icon=中央
+         图形区 2 格 signAccent(图标化「鸡+餐盘+暖橙光」占位, 细化归纹理/
+         资产层)夹 signBg 底板, blank=全底板; dy≥8 无物(封顶于 7) */
+      for (let dx = -3; dx <= 2; dx++) {
+        const emblem = e.signVariant === 'icon' && dx >= -1 && dx <= 0;
+        put(dx, 7, 4, emblem ? ids.signAccent : ids.signBg);
+      }
+    },
+    /* 脚印: 同参纯算术投影——平面外廓 4 角(店身宽 10×前廊外延 dz=4)过同一
+       张朝向表, y 域取写笔最低/最高层(dy0 地台..dy7 招牌) */
+    foot(e, x, y, z, orient) {
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of [-5, 4]) {
+        for (const dz of [-4, 4]) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + 7, z2};
     },
   },
 };
