@@ -122,8 +122,8 @@ const TOWN_MAP = {
 };
 
 /* 建场步骤平铺: 六清单按 phase 全序展开成一张步骤表, 每步 = 源条目
-   浅拷贝 + phase 标签——不共享可变引用、不改源清单, 同参同输出
-   (纯函数红线, 两次调用深度相等; 消费方按序装场即可, 无需知道分段)。 */
+   浅拷贝 + phase 标签——嵌套 v 仍与源清单共享引用, 消费方只读(不改源清单,
+   同参同输出; 纯函数红线, 两次调用深度相等; 消费方按序装场即可, 无需知道分段)。 */
 function townBuildSteps() {
   const phases = [['ground', TOWN_MAP.ground], ['backdrop', TOWN_MAP.backdrop],
     ['road', TOWN_MAP.roads], ['prefab', TOWN_MAP.prefab],
