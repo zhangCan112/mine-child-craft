@@ -4,17 +4,20 @@
    ------------------------------------------------------------
    一句话职责: town 模式装配壳——平铺消费 townAssemblyOps(townBuildSteps())
    逐 op 经 townConsumeOp 落世界(引擎触点唯一面), 锚点段消费出生意图,
-   藏住装配序与 op 执行细节; 锚点交互注册归 T-MAP-04。
+   藏住装配序与 op 执行细节; 锚点交互注册与轻任务状态机在本文件建机
+   (协议与数据归 town-interact-core.js, T-MAP-04; UI 消费归 T-UI 线)。
    interface: TownMode(mkMode 壳, id='town'; init = loadScene(townBuild)
-     → ModeKit.spawn(townSpawnIntent()) → requestLock(U3 点卡直进)) ·
+     → townInteractBoot() → ModeKit.spawn(townSpawnIntent()) → requestLock(U3 点卡直进)) ·
      townConsumeOp(op) 执行器(op 词表封闭 {fill,tree,scrub,recolor,place}
      → 引擎唯一触点面) · townAssemblyPhases(steps) 纯函数(平铺步骤按
      权威 phase 序分组, 只含非空段且组序恒等于权威序, 同段条目保持输入
-     相对次序) · townSpawnIntent() 纯函数(spawn 锚点 → 站立面 y+1 与
+     相对次序) · townInteractBoot() 注册启动(建交互注册快照与目标机器
+      入模式态 townTargets, 事件 emit 缺省空实现) · townSpawnIntent() 纯函数(spawn 锚点 → 站立面 y+1 与
      朝向 yaw) · townYawOfFace(face) 纯函数(四正交 face → yaw, 前向向量
      (-sin,-cos))
    依赖(均经全局名, 调用期解析; index.html 加载序 js/town-map-core.js →
-     js/town-assembly-core.js → 本文件 → main.js, 引擎件皆在前):
+     js/town-assembly-core.js → js/town-interact-core.js → 本文件 →
+      main.js, 引擎件皆在前):
      js/town-map-core.js 的 TOWN_MAP/townBuildSteps ·
      js/town-assembly-core.js 的 townAssemblyOps · js/scene-kit.js 的
      SceneKit(fill/tree/scrub 树家族几何) · js/prefab-kit.js 的 PrefabKit
@@ -116,9 +119,25 @@ function townBuild() {
   ModeKit.spawn(it.x, it.y, it.z, {yaw: it.yaw});
 }
 
+/* ---------- 交互锚点注册(T-MAP-04): 模式运行态 seam(T-UI 线消费) ----------
+   townTargets 持交互注册快照与目标状态机, init 期 townInteractBoot 建机
+   (每次进场新机, 不串轮); 本票无 UI 消费端, 事件 emit 用空实现旁路
+   (T-UI 票只换 emit 实现, 不改机器)。boot 是纯核心动作, 不触引擎缝。 */
+let townTargets; /* 模式运行态: 进场建机, T-UI 线经此查目标与焦点状态 */
+
+/* 注册启动: 建交互机器(构造期即跑注册校验, 坏清单即抛)写入模式态;
+   注册核心不在装载序时跳过(引擎替身沙盒最小装载容差, 与装具对
+   assembly-core 的 existsSync 容缺席同款); 交互锚点/轻任务的目标 id、
+   图标语义键与坐标全部源自注册核心, 本函数不自定任何数据。 */
+function townInteractBoot() {
+  if (typeof mkTownTargets === 'undefined') return;
+  townTargets = mkTownTargets({emit: () => {}});
+}
+
 /* ---------- 模式壳: 骨架薄壳(无自有资源, mkMode 缺省 chrome/score 即可) ----------
    init 全链顺序钉死: ① loadScene(townBuild) 装配(内含 anchor 段出生——
-   §5.1.6 锚点末段纪律, 先建场后落人) → ② requestLock(U3 点卡直进:
+   §5.1.6 锚点末段纪律, 先建场后落人) → ② townInteractBoot()(交互注册
+   启动, 纯核心建机不触引擎缝) → ③ requestLock(U3 点卡直进:
    请求指针锁/触屏进行中, 无出发页无二次确认)。hud/hotbar/cleanup/
    update/onKey 骨架期不需要就不写(HUD 归 T-UI-01)。 */
 const TownMode = mkMode({
@@ -126,6 +145,7 @@ const TownMode = mkMode({
 
   init() {
     loadScene(townBuild); /* 场景装填 seam: 清场→建场→收尾重建一步到位(装配在先) */
+    townInteractBoot(); /* 交互锚点注册启动(T-MAP-04; 纯核心建机, 不触引擎缝) */
     requestLock(); /* U3 直进(出生在 loadScene 内 anchor 段, 已然其后) */
   },
 });
