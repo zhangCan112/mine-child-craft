@@ -1839,3 +1839,266 @@ test('错误两档·windmill-tower: 未知 v 键/ids 子键(含 torch/glow 去�
   assert.ok(sHi.equals(k.snap()), 'bladeSpan 高于档位钳至 4 同形');
   assert.deepStrictEqual(bHi, b4, '钳后脚印盒一致(高档)');
 });
+
+/* ============ T-PREFAB-05 cottage-gable(民居 A, 新增行) ============ */
+
+/* ids 槽子键白名单(§4.5): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字)。
+   chimney=后侧装饰烟囱(无烟)材质槽; windowLit 为观感变体开关(与 ids.window 同槽)。 */
+const COTTAGE_IDS = {
+  base: 140, wall: 141, roof: 142, trim: 143, window: 144, door: 145, chimney: 146,
+};
+
+/* 局部系契约(对齐票文): face0=south 门窗立面朝 +dz; 锚=小屋地面中心投影。
+   偶宽 8 NW 偏置同 pfSpan 口径: dx∈[-4,3]; 奇深 7 居中: dz∈[-3,3](平面恰 8×7)。
+   dy0 基座 8×7; dy1..3 墙体+前门 1w×2h+前窗 2w×2h+侧窗; dy4..5 陶橙阶梯顶;
+   后侧装饰烟囱(无烟)可选, 受 hasChimney; windowLit 观感开关(缺省 false)。
+   脚印 8×7×高 6(含檐出挑)与 footOf 同参同盒一致。 */
+
+function cottageFootDims(box) {
+  return {w: box.x2 - box.x1 + 1, d: box.z2 - box.z1 + 1, h: box.y2 - box.y1 + 1};
+}
+
+function cottageFrontDz(box, face) {
+  if (face === 'south') return box.z2;
+  if (face === 'north') return box.z1;
+  if (face === 'east') return box.x2;
+  return box.x1; /* west */
+}
+
+function cottageRearDz(box, face) {
+  if (face === 'south') return box.z1;
+  if (face === 'north') return box.z2;
+  if (face === 'east') return box.x1;
+  return box.x2; /* west */
+}
+
+function cottageSideCols(box, face) {
+  if (face === 'south' || face === 'north') {
+    return {axis: 'x', frontAxis: 'z', min: box.x1, max: box.x2};
+  }
+  return {axis: 'z', frontAxis: 'x', min: box.z1, max: box.z2};
+}
+
+function cellAt(k, axis, frontAxis, av, fv, y) {
+  if (axis === 'x' && frontAxis === 'z') return k.cell(av, y, fv);
+  return k.cell(fv, y, av);
+}
+
+test('脚印包含·cottage-gable: ×4 朝向 × mirror × 变体 — 每笔写 ∈ footOf 同参盒, footOf 零写', () => {
+  const k = loadKit();
+  const spy = k.spySet();
+  const variants = [
+    ['缺省', {ids: COTTAGE_IDS}],
+    ['无烟囱', {ids: COTTAGE_IDS, hasChimney: false}],
+    ['窗亮', {ids: COTTAGE_IDS, windowLit: true}],
+    ['无烟囱+窗亮', {ids: COTTAGE_IDS, hasChimney: false, windowLit: true}],
+    ['换材质(部分注入)', {ids: Object.assign({}, COTTAGE_IDS, {base: 1, roof: 2, chimney: 3})}],
+  ];
+  for (const face of ['south', 'west', 'north', 'east']) {
+    for (const mirror of [false, true]) {
+      for (const [name, vv] of variants) {
+        const v = Object.assign({}, vv, {face, mirror});
+        k.clear();
+        spy.reset();
+        const box = k.pf.place('cottage-gable', 80, 24, 80, v);
+        const writes = spy.rec();
+        assert.ok(writes.length > 0, name + ' ' + face + (mirror ? '+m' : '') + ' 有写(防全空假绿)');
+        for (const w of writes) {
+          assert.ok(w[0] >= box.x1 && w[0] <= box.x2 && w[1] >= box.y1 && w[1] <= box.y2 &&
+              w[2] >= box.z1 && w[2] <= box.z2,
+          name + ' ' + face + (mirror ? '+m' : '') + ' 写 (' + w + ') ⊄ 盒 ' + JSON.stringify(box));
+        }
+        const n = spy.rec().length;
+        assert.deepStrictEqual(k.pf.footOf('cottage-gable', 80, 24, 80, v), box,
+            name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
+        assert.strictEqual(spy.rec().length, n, 'footOf 零写');
+        const dim = cottageFootDims(box);
+        /* 脚印 8×7 × 高 6(含檐出挑)与 foot 一致: 方角 90° 旋转下平面仍 8×7, 高域恒 6 */
+        assert.strictEqual(Math.max(dim.w, dim.d), 8, name + ' ' + face + ' 平面长边 8');
+        assert.strictEqual(Math.min(dim.w, dim.d), 7, name + ' ' + face + ' 平面短边 7');
+        assert.strictEqual(box.y1, 24, name + ' ' + face + ' footOf 下界=锚层基座 dy0');
+        assert.strictEqual(dim.h, 6, name + ' ' + face + ' footOf 高 6(含檐/顶)');
+        assert.strictEqual(box.y2, 29, name + ' ' + face + ' footOf 封顶 dy5');
+      }
+    }
+  }
+});
+
+test('形状·cottage-gable: 8×7 基座/墙体 dy1..3/前门 1×2/前窗 2×2/侧窗/陶橙阶梯顶 dy4..5/后侧装饰烟囱(无烟)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('cottage-gable', ax, y0, az, {ids: COTTAGE_IDS, face: 'south'});
+  const box = k.pf.footOf('cottage-gable', ax, y0, az, {ids: COTTAGE_IDS, face: 'south'});
+  const dim = cottageFootDims(box);
+  assert.strictEqual(dim.w, 8, 'south 基座宽 8(dx)');
+  assert.strictEqual(dim.d, 7, 'south 基座深 7(dz)');
+  /* dy=0 基座 8×7 实心 base */
+  let baseCount = 0;
+  for (let x = box.x1; x <= box.x2; x++) {
+    for (let z = box.z1; z <= box.z2; z++) {
+      if (k.cell(x, y0, z) === COTTAGE_IDS.base) baseCount++;
+    }
+  }
+  assert.strictEqual(baseCount, 56, '基座 dy0 恰 8×7=56 格 base');
+  /* dy=1..3 墙体存在且内域空(屋内可读) */
+  let wallOrOpen = 0; let innerNonZero = 0;
+  for (let dy = 1; dy <= 3; dy++) {
+    for (let x = box.x1; x <= box.x2; x++) {
+      for (let z = box.z1; z <= box.z2; z++) {
+        const edge = x === box.x1 || x === box.x2 || z === box.z1 || z === box.z2;
+        const id = k.cell(x, y0 + dy, z);
+        if (edge && id !== 0) wallOrOpen++;
+        if (!edge && id !== 0) innerNonZero++;
+      }
+    }
+  }
+  assert.ok(wallOrOpen > 0, 'dy1..3 墙环周界有实体');
+  assert.strictEqual(innerNonZero, 0, 'dy1..3 内域空腔(无家具填充)');
+  /* 前门 1×2(前立面朝 +dz, dy1..2 连续两格开口或门材质) */
+  const fz = cottageFrontDz(box, 'south');
+  let frontDoorCols = 0;
+  for (let x = box.x1 + 1; x <= box.x2 - 1; x++) {
+    const a = k.cell(x, y0 + 1, fz);
+    const b = k.cell(x, y0 + 2, fz);
+    const isDoor = (a === 0 || a === COTTAGE_IDS.door) && (b === 0 || b === COTTAGE_IDS.door);
+    if (isDoor) frontDoorCols++;
+  }
+  assert.ok(frontDoorCols >= 1, '前立面 dy1..2 存在 1×2 门洞/门位');
+  /* 前窗 2×2(前立面 dy2..3 或 dy1..2 区有连续 2 宽 window) */
+  let frontWindow2 = false;
+  for (let dyBase = 1; dyBase <= 2; dyBase++) {
+    for (let x = box.x1 + 1; x <= box.x2 - 2; x++) {
+      const a = k.cell(x, y0 + dyBase, fz); const b = k.cell(x + 1, y0 + dyBase, fz);
+      const c = k.cell(x, y0 + dyBase + 1, fz); const d = k.cell(x + 1, y0 + dyBase + 1, fz);
+      if (a === COTTAGE_IDS.window && b === COTTAGE_IDS.window &&
+          c === COTTAGE_IDS.window && d === COTTAGE_IDS.window) frontWindow2 = true;
+    }
+  }
+  assert.ok(frontWindow2, '前立面存在 2×2 前窗(ids.window)');
+  /* 侧窗: 至少一侧墙面(非前后立面)在 dy1..3 出现 window */
+  let sideWindow = 0;
+  for (let dy = 1; dy <= 3; dy++) {
+    for (let z = box.z1 + 1; z <= box.z2 - 1; z++) {
+      if (k.cell(box.x1, y0 + dy, z) === COTTAGE_IDS.window) sideWindow++;
+      if (k.cell(box.x2, y0 + dy, z) === COTTAGE_IDS.window) sideWindow++;
+    }
+  }
+  assert.ok(sideWindow >= 1, '侧面 dy1..3 存在侧窗(ids.window)');
+  /* dy=4..5 陶橙阶梯顶: 有 roof 实体且 dy4 覆盖不小于 dy5(阶梯收分) */
+  let roof4 = 0; let roof5 = 0;
+  for (let x = box.x1; x <= box.x2; x++) {
+    for (let z = box.z1; z <= box.z2; z++) {
+      if (k.cell(x, y0 + 4, z) === COTTAGE_IDS.roof) roof4++;
+      if (k.cell(x, y0 + 5, z) === COTTAGE_IDS.roof) roof5++;
+    }
+  }
+  assert.ok(roof4 > 0 && roof5 > 0, 'dy4..5 均有屋顶实体(ids.roof)');
+  assert.ok(roof4 >= roof5, 'dy4..5 呈阶梯顶收分(dy4 覆盖 >= dy5)');
+  assert.strictEqual(k.cell(ax, y0 + 6, az), 0, '封顶于 dy5, dy6 无实体(总高 6)');
+  /* 后侧装饰烟囱(无烟)可选: 缺省 hasChimney=true, 后侧存在 chimney 且烟囱上方无额外非空(无烟) */
+  const rz = cottageRearDz(box, 'south');
+  let chimneyCount = 0; let chimneyAbove = 0;
+  for (let x = box.x1; x <= box.x2; x++) {
+    for (let y = y0 + 4; y <= box.y2 + 1; y++) {
+      if (k.cell(x, y, rz) === COTTAGE_IDS.chimney) {
+        chimneyCount++;
+        if (k.cell(x, y + 1, rz) !== 0) chimneyAbove++;
+      }
+    }
+  }
+  assert.ok(chimneyCount >= 1, '缺省 hasChimney=true 后侧存在装饰烟囱(ids.chimney)');
+  assert.strictEqual(chimneyAbove, 0, '烟囱为无烟装饰(烟囱正上方无烟/火块)');
+});
+
+test('形状·cottage-gable: hasChimney=false 无烟囱; windowLit 开关被接受且与缺省同盒', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  const boxOff = k.pf.place('cottage-gable', ax, y0, az, {ids: COTTAGE_IDS, hasChimney: false, face: 'south'});
+  const rz = cottageRearDz(boxOff, 'south');
+  let chimneyCount = 0;
+  for (let x = boxOff.x1; x <= boxOff.x2; x++) {
+    for (let y = y0; y <= boxOff.y2 + 2; y++) {
+      if (k.cell(x, y, rz) === COTTAGE_IDS.chimney) chimneyCount++;
+    }
+  }
+  assert.strictEqual(chimneyCount, 0, 'hasChimney=false 时后侧无烟囱');
+  k.clear();
+  const boxLit = k.pf.place('cottage-gable', ax, y0, az, {ids: COTTAGE_IDS, windowLit: true, face: 'south'});
+  const boxDef = k.pf.footOf('cottage-gable', ax, y0, az, {ids: COTTAGE_IDS, windowLit: false, face: 'south'});
+  assert.deepStrictEqual(boxLit, boxDef, 'windowLit 观感开关不改变脚印盒(同形域)');
+});
+
+test('逐朝向·cottage-gable: 前立面门窗/后侧烟囱随 face 旋转, mirror 不破坏脚印与必需元素', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  for (const face of ['south', 'west', 'north', 'east']) {
+    k.clear();
+    k.pf.place('cottage-gable', ax, y0, az, {ids: COTTAGE_IDS, face, hasChimney: true});
+    const box = k.pf.footOf('cottage-gable', ax, y0, az, {ids: COTTAGE_IDS, face, hasChimney: true});
+    const fz = cottageFrontDz(box, face);
+    const rz = cottageRearDz(box, face);
+    const sc = cottageSideCols(box, face);
+    let frontDoor = false; let frontWin = false; let rearChimney = false;
+    for (let a = sc.min + 1; a <= sc.max - 1; a++) {
+      const d1 = cellAt(k, sc.axis, sc.frontAxis, a, fz, y0 + 1);
+      const d2 = cellAt(k, sc.axis, sc.frontAxis, a, fz, y0 + 2);
+      if ((d1 === 0 || d1 === COTTAGE_IDS.door) && (d2 === 0 || d2 === COTTAGE_IDS.door)) frontDoor = true;
+      const w1 = cellAt(k, sc.axis, sc.frontAxis, a, fz, y0 + 2);
+      const w2 = cellAt(k, sc.axis, sc.frontAxis, a, fz, y0 + 3);
+      if (w1 === COTTAGE_IDS.window || w2 === COTTAGE_IDS.window) frontWin = true;
+      if (cellAt(k, sc.axis, sc.frontAxis, a, rz, y0 + 4) === COTTAGE_IDS.chimney ||
+          cellAt(k, sc.axis, sc.frontAxis, a, rz, y0 + 5) === COTTAGE_IDS.chimney) rearChimney = true;
+    }
+    assert.ok(frontDoor, face + ' 前立面存在门位(随朝向旋转)');
+    assert.ok(frontWin, face + ' 前立面存在窗位(随朝向旋转)');
+    assert.ok(rearChimney, face + ' 后侧存在烟囱(随朝向旋转)');
+  }
+  k.clear();
+  const b0 = k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, face: 'south', mirror: false});
+  k.clear();
+  const bm = k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, face: 'south', mirror: true});
+  assert.deepStrictEqual(bm, b0, 'mirror 变换保持脚印盒同域(对称 8×7)');
+});
+
+test('确定性: cottage-gable 同参两次逐字节一致(多朝向×变体)', () => {
+  const k = loadKit();
+  const builds = [
+    () => k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS}),
+    () => k.pf.place('cottage-gable', 80, 24, 80,
+        {ids: COTTAGE_IDS, face: 'east', mirror: true, hasChimney: false}),
+    () => k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, face: 'north', windowLit: true}),
+    () => k.pf.place('cottage-gable', 80, 24, 80,
+        {ids: COTTAGE_IDS, face: 'west', mirror: true, hasChimney: false, windowLit: true}),
+  ];
+  for (const build of builds) {
+    k.clear(); build();
+    const a = k.snap();
+    k.clear(); build();
+    assert.ok(a.equals(k.snap()), '同参两次建场终态逐字节一致');
+    assert.ok(a.some((v) => v !== 0), '场内确有方块(防全空假绿)');
+  }
+});
+
+test('错误两档·cottage-gable: 未知 v 键/ids 子键/face 非法→throw; 布尔变体收放', () => {
+  const k = loadKit();
+  assert.throws(() => k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, facee: 'north'}),
+      /v 键/, '未知 v 键');
+  assert.throws(() => k.pf.footOf('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, unknown: 1}),
+      /v 键/, 'footOf 同走未知 v 键检');
+  assert.throws(() => k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, face: 'up'}),
+      /face/, 'face 非法');
+  assert.throws(() => k.pf.place('cottage-gable', 80, 24, 80,
+      {ids: Object.assign({}, COTTAGE_IDS, {roofx: 1})}), /ids/, 'ids 未知子键');
+  /* 布尔收放不炸(door/hasChimney 先例): 非布尔按真值钳 */
+  k.clear();
+  k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, hasChimney: 0});
+  const off = k.snap();
+  k.clear();
+  k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, hasChimney: false});
+  assert.ok(off.equals(k.snap()), 'hasChimney=0 钳 false 同形');
+  k.clear();
+  k.pf.place('cottage-gable', 80, 24, 80, {ids: COTTAGE_IDS, windowLit: 1});
+  assert.ok(k.snap().some((v) => v !== 0), 'windowLit 真值可建场(开关被接受)');
+});

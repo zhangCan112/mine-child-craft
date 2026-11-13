@@ -222,6 +222,8 @@ function pfMerge(row, id, v) {
   if (pfHas(d, 'hasDoorNiche')) e.hasDoorNiche = !!e.hasDoorNiche;
   if (pfHas(d, 'flags')) e.flags = !!e.flags;
   if (pfHas(d, 'sailStatic')) e.sailStatic = !!e.sailStatic; /* windmill 叶轮静态 */
+  if (pfHas(d, 'hasChimney')) e.hasChimney = !!e.hasChimney; /* cottage-gable 装饰烟囱(无烟) */
+  if (pfHas(d, 'windowLit')) e.windowLit = !!e.windowLit; /* cottage-gable 窗亮观感开关 */
   return e;
 }
 
@@ -838,6 +840,78 @@ const PF_ROWS = {
         z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
       }
       return {x1, y1: y, z1, x2, y2: y + (e.sailStatic ? 8 + S : 9), z2};
+    },
+  },
+  'cottage-gable': {
+    /* 民居 A: 单层人字/阶梯顶小屋(town-prefab-specs §4.5, 视觉对照
+       buildings-visual-spec §7.3——友好可读, 无烟火烟囱)。锚=小屋地面中心
+       投影, 局部轴 dx 横/dz 前后/dy 竖, face0=south=门窗立面朝 +dz;
+       偶宽 8 NW 偏置 dx∈[-4,3], 奇深 7 居中 dz∈[-3,3](平面恰 8×7)。
+       dy0 基座实心; dy1..3 墙环(内域空腔无家具)+前门 1w×2h+前窗 2w×2h
+       +侧窗; dy4..5 陶橙阶梯顶收分(檐层出挑计入脚印, foot=写域同盒);
+       后侧装饰烟囱(无烟, 受 hasChimney)可选; windowLit 为观感开关(脚印
+       同形域)。材质经 ids 注入, 不焊死。 */
+    facing0: 'south',
+    defaults: {
+      face: 'south', /* 缺省=行 facing0(恒等映射) */
+      mirror: false,
+      hasChimney: true, /* 装饰烟囱(无烟): 缺省 true, 可关 */
+      windowLit: false, /* 窗亮观感开关(同形域, 不改脚印) */
+      ids: {base: 58, wall: 6, roof: 40, trim: 5, window: 20, door: 6, chimney: 3},
+    },
+    kernel(e, x, y, z, orient, put) {/* x/y/z/put 未用: 自管朝向与写笔 */
+      const ids = e.ids;
+      const rot = PF_ROTS[(PF_FACE_K[e.face] - PF_FACE_K['south'] + 4) % 4];
+      const cgO = (dx, dz) => rot(e.mirror ? -1 - dx : dx, dz); /* 偶宽域内镜像, 盒同域 */
+      const cgPut = (dx, dy, dz, id) => {
+        const o = cgO(dx, dz);
+        pfCell(x + o[0], y + dy, z + o[1], id);
+      };
+      /* dy=0 基座: 恰 8×7 实心板 */
+      for (let dx = -4; dx <= 3; dx++) {
+        for (let dz = -3; dz <= 3; dz++) cgPut(dx, 0, dz, ids.base);
+      }
+      /* dy=1..3 墙环: 周界 wall, 内域不写=空腔(无家具) */
+      for (let dy = 1; dy <= 3; dy++) {
+        for (let dx = -4; dx <= 3; dx++) {
+          for (let dz = -3; dz <= 3; dz++) {
+            const onRing = dx === -4 || dx === 3 || dz === -3 || dz === 3;
+            if (onRing) cgPut(dx, dy, dz, ids.wall);
+          }
+        }
+      }
+      /* 前立面(+dz, dz=3)开口与窗: 门 1w×2h dx=-1, dy1..2(门材质在位) */
+      cgPut(-1, 1, 3, ids.door);
+      cgPut(-1, 2, 3, ids.door);
+      /* 前窗 2w×2h: dx∈[1,2], dy2..3 连续 ids.window */
+      for (let dx = 1; dx <= 2; dx++) {
+        for (let dy = 2; dy <= 3; dy++) cgPut(dx, dy, 3, ids.window);
+      }
+      /* 侧窗: 右侧墙面 x=3(非前后立面) dy2 放 ids.window */
+      cgPut(3, 2, 0, ids.window);
+      /* dy=4..5 陶橙阶梯顶: dy4 全覆 8×7, dy5 内缩一圈 6×5(收分) */
+      for (let dx = -4; dx <= 3; dx++) {
+        for (let dz = -3; dz <= 3; dz++) cgPut(dx, 4, dz, ids.roof);
+      }
+      for (let dx = -3; dx <= 2; dx++) {
+        for (let dz = -2; dz <= 2; dz++) cgPut(dx, 5, dz, ids.roof);
+      }
+      /* 后侧装饰烟囱(无烟): hasChimney 时后沿 dz=-3 单格 dy5,
+         正上方 dy6 无物(无烟); foot 已覆盖 dy0..5 */
+      if (e.hasChimney) cgPut(-2, 5, -3, ids.chimney);
+    },
+    foot(e, x, y, z, orient) {
+      const rot = PF_ROTS[(PF_FACE_K[e.face] - PF_FACE_K['south'] + 4) % 4];
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of [-4, 3]) {
+        for (const dz of [-3, 3]) {
+          const o = rot(dx, dz); /* 盒同域: 不随 mirror 平移 */
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      /* 8×7 基座/檐同域, 全写入落在 dy0..5(含后侧装饰烟囱, 无烟), 高 6 */
+      return {x1, y1: y, z1, x2, y2: y + 5, z2};
     },
   },
 };
