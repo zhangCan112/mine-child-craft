@@ -8,7 +8,8 @@
    docs/mc-mob-models-research.md — Mojang bedrock-samples 核对,
    版权口径 D13: 只取结构比例, 像素自绘)。本 kit 负责: 基座生成 →
    px 换算(怪物 z 镜像成 +Z 朝向 / 玩家 −Z 原生傀儡) → 六面 UV 铺展
-   → 程序贴图(纯数据缓冲+种子化随机, 画布惰性, texture-atlas 同惯例)
+   → 程序贴图(纯数据缓冲+种子化随机, 画布惰性, texture-atlas 同惯例;
+   画布两态: tex{size} 方形(存量)与 tex{w,h} 非方形 — T-NPC-01)
    → 头像裁切(head 正面 16×16, 替代手绘 face) → 碎块色查询。
    UV 铺展约定(kit 自有口径, 非 MC 换皮兼容; 面均按「自立方体外部看」定向):
      front=[u+d,v+d,w,h](官方北面=脸) · back=[u+2d+w,v+d,w,h]
@@ -57,15 +58,16 @@ const MobLookKit = (() => {
      六面批量(评审收口: 替代声明文件里 130+ 处六面枚举循环):
      g.fillAll(part, c) / g.noiseAll(part, c, amp) — part = regions 的
      单部件六面组(如 R.head)。
-     rect = [u, v, w, h](贴图像素矩形, 一般取自 regions()); c = [r,g,b] 0..255 */
+     rect = [u, v, w, h](贴图像素矩形, 一般取自 regions()); c = [r,g,b] 0..255; mkSheet 按 (w,h) 两态画布(方形存量逐字节不变) */
   const FACES = ['front', 'back', 'left', 'right', 'top', 'bottom'];
-  function mkSheet(size, seed) {
-    const buf = new Uint8ClampedArray(size * size * 4);
+  /* mkSheet 画布两态: 方形 h=w 存量不变, 非方形按 (w,h) */
+  function mkSheet(w, h, seed) {
+    const buf = new Uint8ClampedArray(w * h * 4);
     const rng = mulberry32(seed);
     const put = (x, y, c) => {
       x |= 0; y |= 0;
-      if (x < 0 || y < 0 || x >= size || y >= size) return;
-      const o = (y * size + x) * 4;
+      if (x < 0 || y < 0 || x >= w || y >= h) return;
+      const o = (y * w + x) * 4;
       buf[o] = c[0]; buf[o + 1] = c[1]; buf[o + 2] = c[2]; buf[o + 3] = 255;
     };
     const each = (rect, fn) => {
@@ -81,7 +83,8 @@ const MobLookKit = (() => {
         put(x, y, [c[0] * v, c[1] * v, c[2] * v]);
       }),
       mul: (rect, f) => each(rect, (x, y) => {
-        const o = (y * size + x) * 4;
+        if (x < 0 || y < 0 || x >= w || y >= h) return; /* 按轴裁界(越界段不透 wrap) */
+        const o = (y * w + x) * 4;
         if (buf[o + 3] === 0) return;
         buf[o] *= f; buf[o + 1] *= f; buf[o + 2] *= f;
       }),
@@ -322,16 +325,25 @@ const MobLookKit = (() => {
     return out;
   }
 
-  /* ---------- 贴图: 纯数据缓冲(缓存, Node 可逐像素直测) ---------- */
+  /* ---------- 贴图: 纯数据缓冲(缓存, Node 可逐像素直测) ----------
+     画布两态: tex{size:n} 方形(存量 48 怪+player 零漂移)与 tex{w,h} 非方形
+     (G01 64×80 基线等); 返回 {w, h, buf} 且 size=w 保留(存量兼容读法) */
   const bufCache = {};
   function textureBuffer(type) {
     if (bufCache[type]) return bufCache[type];
     const look = looks[type];
-    const size = (look.tex && look.tex.size) || 64;
-    const sheet = mkSheet(size, seedOf(type));
+    const t = look.tex || {};
+    const w = t.w || t.size || 64;
+    const h = t.h || t.size || 64;
+    const sheet = mkSheet(w, h, seedOf(type));
     look.tex.paint(sheet, regions(type));
-    bufCache[type] = {size, buf: sheet.buf};
+    bufCache[type] = {w, h, size: w, buf: sheet.buf}; /* size=w 兼容存量读 */
     return bufCache[type];
+  }
+  /* 画布两态解析: {size:n}→n×n, {w,h}→w×h(几何/傀儡 UV 归一化按轴用) */
+  function texDims(look) {
+    const t = look.tex || {};
+    return [t.w || t.size || 64, t.h || t.size || 64];
   }
 
   /* ---------- 几何(THREE 惰性): 逐立方体盒 + as-seen UV → 合并 BufferGeometry ---------- */
@@ -362,7 +374,7 @@ const MobLookKit = (() => {
     const cu = Math.min(1, Math.max(0, u)); const cv = Math.min(1, Math.max(0, v));
     return [r[0] + 0.5 + cu * (r[2] - 1), r[1] + 0.5 + cv * (r[3] - 1)];
   }
-  function slotGeo(slot, texSize, mirror, scale) {
+  function slotGeo(slot, texW, texH, mirror, scale) {
     const positions = []; const normals = []; const uvs = []; const indices = [];
     const s = (scale || 1) * PX;
     let n = 0;
@@ -386,7 +398,7 @@ const MobLookKit = (() => {
            喂平移后坐标会把整面 UV 推出矩形 → 采到未涂间隙 = 模型黑块 */
         const t = asSeen(pos.getX(i) - off.x, pos.getY(i) - off.y, pos.getZ(i) - off.z,
             nor.getX(i), nor.getY(i), nor.getZ(i), ex, ey, ez, rects, mirror);
-        uvs.push(t[0] / texSize, 1 - t[1] / texSize); /* canvas 顶行 = v 大(THREE flipY) */
+        uvs.push(t[0] / texW, 1 - t[1] / texH); /* canvas 顶行 = v 大(THREE flipY); UV 按轴归一 */
       }
       const idx = g.index;
       for (let i = 0; i < idx.count; i++) indices.push(idx.getX(i) + n);
@@ -407,9 +419,10 @@ const MobLookKit = (() => {
     if (matCache[type]) return matCache[type];
     const tex = textureBuffer(type);
     const cv = document.createElement('canvas');
-    cv.width = cv.height = tex.size;
+    cv.width = tex.w;
+    cv.height = tex.h;
     const ctx2d = cv.getContext('2d');
-    const img = ctx2d.createImageData(tex.size, tex.size); /* 不用 new ImageData(引导桩沙箱无此全局) */
+    const img = ctx2d.createImageData(tex.w, tex.h); /* 不用 new ImageData(引导桩沙箱无此全局) */
     img.data.set(tex.buf);
     ctx2d.putImageData(img, 0, 0);
     const t = new THREE.CanvasTexture(cv);
@@ -435,11 +448,11 @@ const MobLookKit = (() => {
     };
     return rigCache[type];
   }
-  /* 怪物路径逐槽几何(+Z 镜像, 尺寸含 inflate) */
+  /* 怪物路径逐槽几何(+Z 镜像, 尺寸含 inflate); 外部签名不动(js/mobs.js:69 消费) */
   function slotGeoOf(type, slot) {
     const look = looks[type];
-    const size = (look.tex && look.tex.size) || 64;
-    return slotGeo(slot, size, true, look.scale);
+    const dims = texDims(look);
+    return slotGeo(slot, dims[0], dims[1], true, look.scale);
   }
 
   /* ---------- puppet: avatar.js 消费(−Z 原生; 逐骨 Group+Mesh, 手持物挂臂骨) ---------- */
@@ -448,13 +461,13 @@ const MobLookKit = (() => {
     const s = (look.scale || 1) * PX;
     const slots = toSlots(type, false);
     const mat = material(type);
-    const size = (look.tex && look.tex.size) || 64;
+    const dims = texDims(look);
     const root = new THREE.Group();
     const bones = {};
     for (const name of Object.keys(slots)) {
       const g = new THREE.Group();
       g.position.fromArray(slots[name].joint);
-      g.add(new THREE.Mesh(slotGeo(slots[name], size, false, look.scale), mat));
+      g.add(new THREE.Mesh(slotGeo(slots[name], dims[0], dims[1], false, look.scale), mat));
       root.add(g);
       bones[name === 'root' ? 'body' : name] = g; /* 槽位 root(身体)改名 body 让位傀儡根 */
     }
@@ -474,7 +487,7 @@ const MobLookKit = (() => {
     for (let y = 0; y < rect[3]; y++) {
       for (let x = 0; x < rect[2]; x++) {
         const gx = rect[0] + x; const gy = rect[1] + y;
-        const o = (gy * tex.size + gx) * 4;
+        const o = (gy * tex.w + gx) * 4; /* 行距按轴(非方形行距=w) */
         out[(oy + y) * 16 + (ox + x)] = [tex.buf[o], tex.buf[o + 1], tex.buf[o + 2]];
       }
     }

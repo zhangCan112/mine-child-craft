@@ -28,24 +28,30 @@ function declareAll(kit) {
 }
 declareAll(MobLookKit);
 
-/* 票②收尾翻转: 白名单 = MOB_TYPES 全怪(除 mix 伪类型) + player —
-   注册表新增怪而漏建档案文件时, 键集断言直接红(设计文档 §5) */
+/* T-NPC-01 白名单改源: 键集口径从「等式」放宽为「超集 + 前缀域」——
+   存量键集(= MOB_TYPES 全怪除 mix 伪类型 + player) ⊆ keys(注册表加怪
+   漏档案仍红); 非 MOB_TYPES 键必 town_ 前缀(氛围 NPC 走 mob-look 共享
+   管线但不入战斗注册表, 防私生怪; town 键 ∈ 村民注册表键集的消费端
+   断言随 T-NPC-03 落地接手) */
 const MIGRATED = Object.keys(MOB_TYPES).filter((k) => k !== 'mix')
     .concat(['player']).sort();
 
 /* ============ 测试 ============ */
 
-test('造型档案: 注册表 — 文件名=声明键 · 键集=票①白名单 · 键 ∈ MOB_TYPES∪player', () => {
+test('造型档案: 注册表 — 文件名=声明键 · 存量键集 ⊆ keys · 非 MOB_TYPES 键必 town_ 前缀', () => {
   for (const f of lookFiles) {
     const key = path.basename(f, '.js');
     assert.ok(MobLookKit.has(key), f + ' 应声明与文件名同键的造型');
   }
-  assert.deepStrictEqual(MobLookKit.keys().sort(), MIGRATED.slice().sort(),
-      '票①白名单之外多出的键要入册(或改白名单)');
-  for (const k of MobLookKit.keys()) {
-    assert.ok(k === 'player' || k in MOB_TYPES, '造型键 ' + k + ' 不在 MOB_TYPES(拼错/私生怪)');
+  const keys = MobLookKit.keys();
+  for (const need of MIGRATED) {
+    assert.ok(keys.includes(need), '存量造型键缺档案: ' + need + '(注册表加怪必须配 look 文件)');
+  }
+  for (const k of keys) {
     const look = MobLookKit.textureBuffer(k) && k; /* 顺带触发下面覆盖测试的入口 */
     assert.ok(look, k + ' 应可绘制');
+    if (k === 'player' || k in MOB_TYPES) continue;
+    assert.ok(k.startsWith('town_'), '造型键 ' + k + ' 不在 MOB_TYPES 且无 town_ 前缀(拼错/私生怪)');
   }
 });
 

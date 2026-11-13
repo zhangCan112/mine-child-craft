@@ -1,0 +1,840 @@
+{
+  "town_v01": {
+    "tex": {
+      "w": 64,
+      "h": 64
+    },
+    "faces": {
+      "armL": {
+        "front": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a4636",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "back": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a4636",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "left": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a4636",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "right": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a4636",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "top": {
+          "w": 4,
+          "h": 4,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8"
+          ]
+        },
+        "bottom": {
+          "w": 4,
+          "h": 4,
+          "rows": [
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "b98558b98558b98558b98558",
+            "b98558b98558b98558b98558"
+          ]
+        }
+      },
+      "armL2": {
+        "front": {
+          "w": 4,
+          "h": 3,
+          "rows": [
+            "5a46365a46365a46365a4636",
+            "b57a4a5a4636b57a4a5a4636",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "back": {
+          "w": 4,
+          "h": 3,
+          "rows": [
+            "5a46365a46365a46365a4636",
+            "b57a4a5a4636b57a4a5a4636",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "left": {
+          "w": 3,
+          "h": 3,
+          "rows": [
+            "5a46365a46365a4636",
+            "b57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4a"
+          ]
+        },
+        "right": {
+          "w": 3,
+          "h": 3,
+          "rows": [
+            "5a46365a46365a4636",
+            "b57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4a"
+          ]
+        },
+        "top": {
+          "w": 4,
+          "h": 3,
+          "rows": [
+            "d9a441d9a441f7e3b5f7e3b5",
+            "d9a441d9a441f7e3b5f7e3b5",
+            "5a46365a46365a46365a4636"
+          ]
+        },
+        "bottom": {
+          "w": 4,
+          "h": 3,
+          "rows": [
+            "5a46365a46365a46365a4636",
+            "5a46365a46365a46365a4636",
+            "5a46365a46365a46365a4636"
+          ]
+        }
+      },
+      "armL3": {
+        "front": {
+          "w": 3,
+          "h": 2,
+          "rows": [
+            "f7e3b5f7e3b5f7e3b5",
+            "d9a441d9a441d9a441"
+          ]
+        },
+        "back": {
+          "w": 3,
+          "h": 2,
+          "rows": [
+            "f7e3b5f7e3b5f7e3b5",
+            "d9a441d9a441d9a441"
+          ]
+        },
+        "left": {
+          "w": 2,
+          "h": 2,
+          "rows": [
+            "f7e3b5f7e3b5",
+            "d9a441d9a441"
+          ]
+        },
+        "right": {
+          "w": 2,
+          "h": 2,
+          "rows": [
+            "f7e3b5f7e3b5",
+            "d9a441d9a441"
+          ]
+        },
+        "top": {
+          "w": 3,
+          "h": 2,
+          "rows": [
+            "f7e3b5f7e3b5f7e3b5",
+            "f7e3b5f7e3b5f7e3b5"
+          ]
+        },
+        "bottom": {
+          "w": 3,
+          "h": 2,
+          "rows": [
+            "d9a441d9a441d9a441",
+            "d9a441d9a441d9a441"
+          ]
+        }
+      },
+      "armR": {
+        "front": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a4636",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "back": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a4636",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "left": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a4636",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "right": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a4636",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "top": {
+          "w": 4,
+          "h": 4,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8"
+          ]
+        },
+        "bottom": {
+          "w": 4,
+          "h": 4,
+          "rows": [
+            "c89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6a",
+            "b98558b98558b98558b98558",
+            "b98558b98558b98558b98558"
+          ]
+        }
+      },
+      "head": {
+        "front": {
+          "w": 8,
+          "h": 10,
+          "rows": [
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "c89a6a5a46365a46365a46365a46365a46365a4636c89a6a",
+            "c89a6aeaf7f22f5d50c89a6ac89a6a2f5d50eaf7f2c89a6a",
+            "c89a6a2f5d502f5d50c89a6ac89a6a2f5d502f5d50c89a6a",
+            "c89a6ac89a6ac89a6ab98558c89a6ac89a6ac89a6ac89a6a",
+            "d6aa7ac89a6ac89a6ab98558c89a6ac89a6ac89a6ad6aa7a",
+            "c89a6ac89a6ac89a6ab98558c89a6ac89a6ac89a6ac89a6a",
+            "c89a6a5a4636c89a6ab98558c89a6ac89a6a5a4636c89a6a",
+            "c89a6ac89a6a5a46365a46365a46365a4636c89a6ac89a6a"
+          ]
+        },
+        "back": {
+          "w": 8,
+          "h": 10,
+          "rows": [
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6b57a4ab57a4af4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6b57a4ab57a4af4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "left": {
+          "w": 8,
+          "h": 10,
+          "rows": [
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ab98558b98558c89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ab98558b98558c89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "right": {
+          "w": 8,
+          "h": 10,
+          "rows": [
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ab98558b98558c89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ab98558b98558c89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a",
+            "c89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6ac89a6a"
+          ]
+        },
+        "top": {
+          "w": 8,
+          "h": 8,
+          "rows": [
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6b57a4ab57a4af4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6b57a4ab57a4af4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6",
+            "f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6f4d9a6"
+          ]
+        },
+        "bottom": {
+          "w": 8,
+          "h": 8,
+          "rows": [
+            "b98558b98558b98558b98558b98558b98558b98558b98558",
+            "b98558b98558b98558b98558b98558b98558b98558b98558",
+            "b98558b98558b98558b98558b98558b98558b98558b98558",
+            "b98558b98558b98558b98558b98558b98558b98558b98558",
+            "b98558b98558b98558b98558b98558b98558b98558b98558",
+            "b98558b98558b98558b98558b98558b98558b98558b98558",
+            "b98558b98558b98558b98558b98558b98558b98558b98558",
+            "b98558b98558b98558b98558b98558b98558b98558b98558"
+          ]
+        }
+      },
+      "head2": {
+        "front": {
+          "w": 2,
+          "h": 4,
+          "rows": [
+            "b98558c89a6a",
+            "b98558c89a6a",
+            "b98558c89a6a",
+            "b98558b98558"
+          ]
+        },
+        "back": {
+          "w": 2,
+          "h": 4,
+          "rows": [
+            "b98558b98558",
+            "b98558b98558",
+            "b98558b98558",
+            "b98558b98558"
+          ]
+        },
+        "left": {
+          "w": 2,
+          "h": 4,
+          "rows": [
+            "b98558b98558",
+            "b98558b98558",
+            "b98558b98558",
+            "b98558b98558"
+          ]
+        },
+        "right": {
+          "w": 2,
+          "h": 4,
+          "rows": [
+            "b98558b98558",
+            "b98558b98558",
+            "b98558b98558",
+            "b98558b98558"
+          ]
+        },
+        "top": {
+          "w": 2,
+          "h": 2,
+          "rows": [
+            "c89a6ac89a6a",
+            "c89a6ac89a6a"
+          ]
+        },
+        "bottom": {
+          "w": 2,
+          "h": 2,
+          "rows": [
+            "b98558b98558",
+            "b98558b98558"
+          ]
+        }
+      },
+      "legL": {
+        "front": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "back": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "left": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "right": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "top": {
+          "w": 4,
+          "h": 4,
+          "rows": [
+            "5a46365a46365a46365a4636",
+            "5a46365a46365a46365a4636",
+            "5a46365a46365a46365a4636",
+            "5a46365a46365a46365a4636"
+          ]
+        },
+        "bottom": {
+          "w": 4,
+          "h": 4,
+          "rows": [
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        }
+      },
+      "legR": {
+        "front": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "back": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "left": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "right": {
+          "w": 4,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        },
+        "top": {
+          "w": 4,
+          "h": 4,
+          "rows": [
+            "5a46365a46365a46365a4636",
+            "5a46365a46365a46365a4636",
+            "5a46365a46365a46365a4636",
+            "5a46365a46365a46365a4636"
+          ]
+        },
+        "bottom": {
+          "w": 4,
+          "h": 4,
+          "rows": [
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4a"
+          ]
+        }
+      },
+      "root": {
+        "front": {
+          "w": 8,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d85a46365a4636f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4ab57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ad9a441b57a4ab57a4ab57a4ab57a4a",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8"
+          ]
+        },
+        "back": {
+          "w": 8,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8b57a4af2e8d8f2e8d8b57a4af2e8d8f2e8d8",
+            "f2e8d8f2e8d8b57a4af2e8d8f2e8d8b57a4af2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8b57a4af2e8d8b57a4af2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8b57a4af2e8d8b57a4af2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8b57a4ab57a4af2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8b57a4ab57a4af2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8b57a4af2e8d8f2e8d8b57a4af2e8d8f2e8d8",
+            "f2e8d8f2e8d8b57a4af2e8d8f2e8d8b57a4af2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4ab57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4ab57a4ab57a4ab57a4ab57a4a",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8"
+          ]
+        },
+        "left": {
+          "w": 6,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4ab57a4ab57a4a",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8"
+          ]
+        },
+        "right": {
+          "w": 6,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "b57a4ab57a4ab57a4ab57a4ab57a4ab57a4a",
+            "b57a4ab57a4ab57a4ab57a4ab57a4ab57a4a",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8"
+          ]
+        },
+        "top": {
+          "w": 8,
+          "h": 6,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8c89a6ac89a6af2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8c89a6ac89a6af2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8"
+          ]
+        },
+        "bottom": {
+          "w": 8,
+          "h": 6,
+          "rows": [
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636"
+          ]
+        }
+      },
+      "root2": {
+        "front": {
+          "w": 8,
+          "h": 12,
+          "rows": [
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a4636f4d9a6f4d9a6f4d9a6f4d9a65a4636f2e8d8",
+            "f2e8d85a46365a46365a46365a46365a46365a4636f2e8d8"
+          ]
+        },
+        "back": {
+          "w": 8,
+          "h": 12,
+          "rows": [
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "f2e8d85a46365a46365a46365a46365a46365a4636f2e8d8"
+          ]
+        },
+        "left": {
+          "w": 6,
+          "h": 12,
+          "rows": [
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a46365a46365a4636"
+          ]
+        },
+        "right": {
+          "w": 6,
+          "h": 12,
+          "rows": [
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a4636f2e8d8f2e8d8f2e8d8f2e8d8f2e8d8",
+            "5a46365a46365a46365a46365a46365a4636"
+          ]
+        },
+        "top": {
+          "w": 8,
+          "h": 6,
+          "rows": [
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636"
+          ]
+        },
+        "bottom": {
+          "w": 8,
+          "h": 6,
+          "rows": [
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636",
+            "5a46365a46365a46365a46365a46365a46365a46365a4636"
+          ]
+        }
+      }
+    }
+  }
+}
