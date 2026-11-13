@@ -327,7 +327,8 @@ const MobLookKit = (() => {
 
   /* ---------- 贴图: 纯数据缓冲(缓存, Node 可逐像素直测) ----------
      画布两态: tex{size:n} 方形(存量 48 怪+player 零漂移)与 tex{w,h} 非方形
-     (G01 64×80 基线等); 返回 {w, h, buf} 且 size=w 保留(存量兼容读法) */
+     (G01 64×80 基线等); 返回恰 {w, h, buf}——size=w 兼容字段已退役
+     (T-NPC-06 F3: 该字段对非方形画布是错误行距, 全仓读者已改读 w/h) */
   const bufCache = {};
   function textureBuffer(type) {
     if (bufCache[type]) return bufCache[type];
@@ -337,7 +338,7 @@ const MobLookKit = (() => {
     const h = t.h || t.size || 64;
     const sheet = mkSheet(w, h, seedOf(type));
     look.tex.paint(sheet, regions(type));
-    bufCache[type] = {w, h, size: w, buf: sheet.buf}; /* size=w 兼容存量读 */
+    bufCache[type] = {w, h, buf: sheet.buf};
     return bufCache[type];
   }
   /* 画布两态解析: {size:n}→n×n, {w,h}→w×h(几何/傀儡 UV 归一化按轴用) */
