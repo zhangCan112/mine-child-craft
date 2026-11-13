@@ -941,13 +941,15 @@ const PF_ROWS = {
       mirror: false,
       balcony: true, /* 二层前立面小阳台(平台+矮栏): 缺省 true, 可关 */
       awningAccent: true, /* 布幔点缀(窗楣占位): 缺省 true, 可关 */
-      /* 材质注入, 缺省裸数字(§4.6 语义→现调色板): base 砂岩浅石基座 ·
-         wallA 木板暖木-浅一层面板(暖木-浅/中混搭的浅档) · wallB 木板
-         暖木-中后墙面(混搭的中档) · roof 红砖陶橙错落顶 · trim 木头
-         暖木-深角柱与窗楣 · window 玻璃浅色内衬 · door 木板门叶 ·
-         balcony 木头暖木-深阳台平台与矮栏(§7.4「2×1 暖木平台+矮栏
-         视觉」, 同 trim 材质族) */
-      ids: {base: 58, wallA: 6, wallB: 5, roof: 40, trim: 5, window: 20, door: 6, balcony: 5},
+      /* 材质注入, 缺省裸数字(§4.6 语义→现调色板, 均为真方块 id——评审
+          必须修改真): base 砂岩浅石基座(58) · wallA 木板一层面板(6) ·
+         wallB 木头后墙面(5, 与 trim/balcony 同方块——同料异名槽, 混搭
+         靠 6 木板/5 木头两档真方块成立) · roof 红砖陶橙错落顶(9,
+         shop-awning 先例; 40=草丛 thin 可穿行不可作顶) · trim 木头
+         角柱与窗楣(5) · window 玻璃浅色内衬(18, shop 先例; 20=TNT
+         触 §8 去威胁红线, 禁作缺省窗) · door 木板门叶(6) · balcony
+         木头阳台平台与矮栏(5, §7.4「2×1 暖木平台+矮栏视觉」, 同 trim 料) */
+      ids: {base: 58, wallA: 6, wallB: 5, roof: 9, trim: 5, window: 18, door: 6, balcony: 5},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z/orient 未用: 纯局部系直写,
         朝向与镜像统一走 place 传入的 put 通道, kernel 不自管朝向(票文

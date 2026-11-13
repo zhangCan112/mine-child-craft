@@ -2220,6 +2220,12 @@ test('形状·house-loft: 10×8 基座/一层墙环+门 1×2+窗/二层窗+前�
   }
   assert.ok(wallA > 0 && wallB > 0,
       '一层暖木-浅/中混搭(wallA=' + wallA + ' wallB=' + wallB + ' 都在)');
+  /* 角柱逐槽钉(评审建议⑤, shop-awning 逐槽钉先例): LOFT_IDS.trim 此前
+      零断言引用, 角柱/窗楣写笔回归会静默绿——不同角不同层抽两格钉死 */
+  assert.strictEqual(k.cell(ax - 5, y0 + 1, az - 4), LOFT_IDS.trim,
+      '一层西北角柱=trim dy1(逐槽钉)');
+  assert.strictEqual(k.cell(ax + 4, y0 + 2, az + 3), LOFT_IDS.trim,
+      '一层东南角柱=trim dy2(逐槽钉)');
   assert.ok(win1 >= 2, '一层窗≥2 格 ids.window(一组 2 宽)');
   let doorCols = 0;
   for (let dx = -4; dx <= 3; dx++) {
