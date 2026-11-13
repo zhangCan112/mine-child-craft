@@ -140,7 +140,9 @@ test('造型档案: 贴图布局合法性 — 六面矩形不出界 · 不同盒
       for (const face of Object.keys(R[part])) rects.push([type, part, face, R[part][face]]);
     }
     for (const [type2, part, face, r] of rects) {
-      assert.ok(r[0] >= 0 && r[1] >= 0 && r[0] + r[2] <= tex.size && r[1] + r[3] <= tex.size,
+      /* T-NPC-02 票面授权改源: 出界判据按 texDims 的 w/h(原 tex.size=w 兼容读,
+         v 轴按 64 对 64×80 的 town_g01 假红); 方形造型 w==h==size 行为零漂移 */
+      assert.ok(r[0] >= 0 && r[1] >= 0 && r[0] + r[2] <= tex.w && r[1] + r[3] <= tex.h,
           type2 + ' ' + part + '.' + face + ' 出界: ' + JSON.stringify(r));
     }
     for (let i = 0; i < rects.length; i++) {
@@ -167,7 +169,8 @@ test('造型档案: 贴图全覆盖 — 用到的六面区域逐像素必画(alp
         const r = R[part][face];
         for (let y = 0; y < r[3]; y++) {
           for (let x = 0; x < r[2]; x++) {
-            const o = ((r[1] + y) * tex.size + (r[0] + x)) * 4;
+            /* T-NPC-02 票面授权改源: 缓冲行距按 w(原 tex.size 兼容读) */
+            const o = ((r[1] + y) * tex.w + (r[0] + x)) * 4;
             assert.strictEqual(tex.buf[o + 3], 255,
                 type + ' ' + part + '.' + face + ' 有未画像素(贴图缺角=模型黑洞)');
           }
@@ -312,12 +315,14 @@ test('造型档案: 几何 UV 落点 — 逐顶点采样已涂纹素(模型黑�
             (face >= 2 && face < 4 && (c.size[0] === 0 || c.size[2] === 0)) ||
             (face >= 4 && (c.size[0] === 0 || c.size[1] === 0));
         if (degFace) continue;
-        /* NearestFilter 语义: texel = floor(uv * size), 两轴各自越界即黑缝 */
-        const x = Math.floor(uvs[i * 2] * tex.size);
-        const y = Math.floor((1 - uvs[i * 2 + 1]) * tex.size);
-        assert.ok(x >= 0 && y >= 0 && x < tex.size && y < tex.size,
+        /* NearestFilter 语义: texel = floor(uv * dims), 两轴各自越界即黑缝。
+           T-NPC-02 票面授权改源: 按 texDims 的 w/h 读(原 floor(v*size) 对
+           64×80 采样读错纹素假绿); 方形造型 w==h==size 行为零漂移 */
+        const x = Math.floor(uvs[i * 2] * tex.w);
+        const y = Math.floor((1 - uvs[i * 2 + 1]) * tex.h);
+        assert.ok(x >= 0 && y >= 0 && x < tex.w && y < tex.h,
             label + ' UV 出贴图: (' + uvs[i * 2] + ',' + uvs[i * 2 + 1] + ')');
-        assert.strictEqual(tex.buf[(y * tex.size + x) * 4 + 3], 255,
+        assert.strictEqual(tex.buf[(y * tex.w + x) * 4 + 3], 255,
             label + ' 顶点#' + i + ' 采到未涂纹素(' + x + ',' + y + ') = 模型黑缝');
       }
     };
