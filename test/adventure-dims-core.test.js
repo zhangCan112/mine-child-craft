@@ -220,7 +220,7 @@ test('ADV_TOWN 单份权威: core/spawnAnchor 引用 TOWN_MAP 同对象(不抄�
   assert.strictEqual(Dims.ADV_TOWN.spawnAnchor, a,
       'spawnAnchor 引用 TOWN_MAP.anchors spawn 锚(=== 同对象引用)');
   const dimsSrc = fs.readFileSync(path.join(ROOT, 'js/adventure-dims-core.js'), 'utf8');
-  const seg = dimsSrc.slice(dimsSrc.indexOf('ADV_TOWN'), dimsSrc.indexOf('const ADV_DIMS'));
+  const seg = dimsSrc.slice(dimsSrc.indexOf('const ADV_TOWN'), dimsSrc.indexOf('const ADV_DIMS'));
   assert.ok(seg.includes('TOWN_MAP.core') && seg.includes('TOWN_MAP.anchors'),
       'ADV_TOWN 定义段显式派生引用 TOWN_MAP(core/groundY 与 spawn 全引权威)');
   assert.ok(!/[xyz]1?\s*:\s*-?\d/.test(seg) && !/groundY\s*:\s*\d/.test(seg),

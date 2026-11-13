@@ -22,18 +22,23 @@
        · ADV_DEN_LOOT(宝箱掉落表)/advDenLootRoll/advLootChestPlan(宝箱配对破坏计划)
       · ADV_DEN_LOOT_SMALL(低档掉落表)/advLootChestSmallPlan(低档单格破坏计划, D18)
       · advDenDailyStep(副本刷新判据, D20/D23 两日窗口——日键注入, core 零 Date 依赖)
+      · ADV_TOWN(town 维度结构常量{core, spawnAnchor}: 加载期从 TOWN_MAP 派生——
+      同对象引用, 零坐标字面量, 坐标唯一权威在 town-map-core)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
      advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——涌出/副本节拍
      薄壳组装, 加载序先于 adventure-core) · adventure-core.js 的 advPortalFrame/
      advOreSpotsReset/advTryOre(建场调用期消费; index.html 加载序:
-     adventure-spawn-core → adventure-core → adventure-maps-core → 本文件 → modes/adventure →
-     showroom-core) · config.js 的 B_*、WORLD_* 与 voxel.js 的
+     adventure-spawn-core → adventure-core → adventure-maps-core → town-map-core →
+     本文件 → modes/adventure → showroom-core) · town-map-core.js 的 TOWN_MAP(ADV_TOWN
+     加载期派生读它, Node CJS 域本文件自举兜底 require) · config.js 的 B_*、WORLD_* 与 voxel.js 的
      setBlockRaw/getBlock、scene-kit.js 的 SceneKit(建场期) ·
      daylight-core.js 的 Daylight(涌出夜门)
    可测性: 零 THREE·零 DOM·有单测(test/adventure-dims-core.test.js;
    vm 装真引擎件+adventure-core 铺全局后 require 直测, adventure-maps-
    core.test 同款惯例——本文件顶层 spawn 派生与建场函数体都经全局名
-   读 adventure-core 的符号, Node 侧须先 Object.assign 全局)
+   读 adventure-core 的符号, Node 侧须先 Object.assign 全局; town 行另有
+   town 系装具前提: vm 补装 town-map/assembly/mode 后提取 TOWN_MAP 挂
+   全局, 须先于 require 本文件(ADV_TOWN 加载期派生)——测试文件头自记)
    ============================================================ */
 
 /* ============================================================
