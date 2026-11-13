@@ -443,6 +443,7 @@ _Avoid_: debug 模式（散称——DEV 是旗标名）、把 dev 判定写进�
 
 **小镇漫步（TownMode）**:
 town 模式的骨架壳（js/modes/town.js，mkMode 门面 id='town'；注册表行 gated:true 共享儿童时限 · page:false 无出发页 · mood calm）：Midport Village 漫步玩法的进场底座——init 全链顺序钉死「loadScene(townBuild) 按建场 phase 全序装配 → ModeKit.spawn(锚点出生) → requestLock（U3 点卡直进：点卡即请求指针锁/触屏进行中，无二次确认）」；装配按权威 phase 序分组消费 TownMapCore 步骤表（骨架期只消费 anchor 段出生恰一次，实拼几何归 T-MAP-03、锚点交互归 T-MAP-04）。出生意图=townSpawnIntent()：spawn 锚 y+1 站立面 + face 派生朝向（yaw=0 北望广场/回望钟塔走廊）。interface：TownMode · townAssemblyPhases(steps)（平铺步骤按权威 phase 序分组，只含非空段、组序恒等权威序、同段保输入序、零副作用）· townSpawnIntent() · townYawOfFace(face)（四正交 face→yaw，前向向量 (-sin,-cos) 同引擎 camera-rig lookDir）。
+**2026-11-13 PO 变更**（注记；实现未动，词条待新 ADR 落地后随实现重写，防名实不符）：独立模式入口撤（MODE_REGISTRY 卡/模式页/模式壳停用，ADR-0009 停用待新 ADR 取代），进镇改走冒险 home 图主路尽头的维度过场——触发线→白闪 kind='edge'→advSetDim 进 town 维度（机制规格定稿见 docs/town-map-design.md §6.3）；回程已裁定双向边缘白闪（无门件）。随实现预告：新立「小镇维度（Town Dimension）」词条（预告，暂不立正式词条）；「边缘传送」词条 east 表述（含 _Avoid_「东向加传送」）届时一并改写；「城镇地图核心」词条消费方路径（js/modes/town.js）随装配件新宿主更新。
 _Avoid_: 城镇模式（散称别名）、town.js 直写玩家六绑定（出生只走 ModeKit.spawn）、绕过分组函数直拼清单（装配纪律=组序恒等权威序，不信输入序）
 
 ### 玩法时间预算
