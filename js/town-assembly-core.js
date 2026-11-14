@@ -48,7 +48,17 @@
    主题化+md 叶饰+角旗; 弃 38 金矿旧材质), canopy/canopyTrim 仍不入行
    (引擎侧 PF_STALL_CANOPY/PF_STALL_TRIM theme 映射单源, 双源即漂移)。
    goodsLeaf 两槽=61/62 树叶薄块, T-09 审计按槽名豁免 thin/replaceable
-   (花坛三槽先例)。 */
+   Step E 扩键登记(arch 岗, 2026-11-15; op 派生 v2, scene 需求表 10 项):
+   ground +fieldRidge/fieldFence/shrineCore/shrineEdge(farm-rows 田垄/
+   wayshrine 断头小坪); road +curbLane(支路缘石 4, curb 13 本轮接线);
+   backdrop +mountainSnow/mountainMoss/mountainGrass/boulder/cliffWall/
+   cliffFrame/cliffRoof/cliffLamp/cliffWindow(山体分色 54/14/1+山脚苔石
+   14+崖屋 v2 拆键 52/17/9/19/18; cliffHome 6 保留=legacy 几何单源);
+   props +tuft/flagPole/flowerbedRing/barrel/pumpkin+flagCloth 四色组+
+   flowerCore 两组(散布草丛/旗/花坛/木桶/南瓜; 作物 42-45 走派生字面,
+   场景语义不入 palette)。新 kind 全走可选字段(bands/style/curb/
+   v.tone/v.cloth), 现 steps 条目行为逐字节不变(dims 零连累;
+   花坛三槽=同款先例)。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
@@ -69,10 +79,16 @@ const TOWN_PALETTE = {
       goodsFruit: 76, goodsLeaf1: 61, goodsLeaf2: 62, flag: 78},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
-  ground: {plaza: 17, farm: 41, plazaBand: 58},
-  road: {main: 13, lane: 4, curb: 13},
-  backdrop: {mountain: 3, cliffHome: 6},
-  props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6},
+  ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,
+    shrineCore: 13, shrineEdge: 4},
+  road: {main: 13, lane: 4, curb: 13, curbLane: 4},
+  backdrop: {mountain: 3, cliffHome: 6, mountainSnow: 54, mountainMoss: 14,
+    mountainGrass: 1, boulder: 14, cliffWall: 52, cliffFrame: 17, cliffRoof: 9,
+    cliffLamp: 19, cliffWindow: 18},
+  props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6,
+    tuft: 40, flagPole: 5, flowerbedRing: 40, barrel: 5, pumpkin: 76,
+    flagCloth: {sakura: 78, blue: 15, quartz: 17, red: 16},
+    flowerCore: {y: 61, w: 62}},
   tree: {sakuraLeaf: 78},
 };
 
@@ -92,36 +108,136 @@ function townAssemblyOps(steps) {
     id: pal.terrain.filler});
   ops.push({op: 'fill', x1: core.x1, y1: groundY, z1: core.z1, x2: core.x2, y2: groundY, z2: core.z2,
     id: pal.terrain.surface});
+  /* 山体合脊预扫(#7 五段弧形): 同列多条目重叠域取 max——先收集
+     列→顶映射, mountain 逐柱派生统一取合脊顶(单条目=自身, 行为不变) */
+  const ridgeTop = {};
+  for (const b of steps) {
+    if (b.phase === 'backdrop' && b.kind === 'mountain') {
+      const bcx = (b.x1 + b.x2) / 2;
+      const bhalf = (b.x2 - b.x1) / 2;
+      for (let x = b.x1; x <= b.x2; x++) {
+        const bt = (x - bcx) / bhalf;
+        const btop = Math.round(b.topY * (1 - bt * bt) + groundY * (bt * bt));
+        ridgeTop[x] = Math.max(ridgeTop[x] || 0, btop);
+      }
+    }
+  }
   for (const s of steps) {
     if (s.phase === 'ground') {
       /* 地表铺装: ground/road 类条目无 y 字段, 一律取 core.groundY(地表基高) */
-      const id = s.kind === 'plaza' ? pal.ground.plaza :
-        s.kind === 'farm' ? pal.ground.farm : null;
-      if (!id) {
+      if (s.kind === 'plaza' || s.kind === 'farm') {
+        const id = s.kind === 'plaza' ? pal.ground.plaza : pal.ground.farm;
+        ops.push({op: 'fill', x1: s.x1, y1: groundY, z1: s.z1, x2: s.x2, y2: groundY,
+          z2: s.z2, id});
+      } else if (s.kind === 'farm-rows') {
+        /* 田垄(#4): 全域 41 沟底先铺, 再逐行条带覆写——行号 r=z-z1,
+           周期 5: r%5===0 田埂 58 / 其余 42+(r%5)-1 作物轮转(42/43/44/45
+           相位混排); 域四边 y+1 每 2 格 5 号围栏桩(x 侧含四角, z 侧
+           自 z1+2 起步不重复)。作物=场景语义块(T-09 审计辖 prefab 段,
+           ground 段场景叙事不注册旗标豁免); 走向锚定 x(条带按 z 切行) */
+        ops.push({op: 'fill', x1: s.x1, y1: groundY, z1: s.z1, x2: s.x2, y2: groundY,
+          z2: s.z2, id: pal.ground.farm});
+        for (let z = s.z1; z <= s.z2; z++) {
+          const r = z - s.z1;
+          const id = r % 5 === 0 ? pal.ground.fieldRidge : 42 + (r % 5) - 1;
+          ops.push({op: 'fill', x1: s.x1, y1: groundY, z1: z, x2: s.x2, y2: groundY,
+            z2: z, id});
+        }
+        for (let x = s.x1; x <= s.x2; x += 2) {
+          ops.push({op: 'fill', x1: x, y1: groundY + 1, z1: s.z1, x2: x,
+            y2: groundY + 1, z2: s.z1, id: pal.ground.fieldFence});
+          ops.push({op: 'fill', x1: x, y1: groundY + 1, z1: s.z2, x2: x,
+            y2: groundY + 1, z2: s.z2, id: pal.ground.fieldFence});
+        }
+        for (let z = s.z1 + 2; z <= s.z2; z += 2) {
+          ops.push({op: 'fill', x1: s.x1, y1: groundY + 1, z1: z, x2: s.x1,
+            y2: groundY + 1, z2: z, id: pal.ground.fieldFence});
+          ops.push({op: 'fill', x1: s.x2, y1: groundY + 1, z1: z, x2: s.x2,
+            y2: groundY + 1, z2: z, id: pal.ground.fieldFence});
+        }
+      } else if (s.kind === 'wayshrine') {
+        /* 断头小坪(#6): 全域边环 4 先写+内缩一格 13 芯后写——条目须排
+           在 road 段之后(steps 序即写序, 后写者赢才不被路体覆盖),
+           既存信标灯柱归 scatter 条目(本件不管) */
+        ops.push({op: 'fill', x1: s.x1, y1: groundY, z1: s.z1, x2: s.x2, y2: groundY,
+          z2: s.z2, id: pal.ground.shrineEdge});
+        ops.push({op: 'fill', x1: s.x1 + 1, y1: groundY, z1: s.z1 + 1, x2: s.x2 - 1,
+          y2: groundY, z2: s.z2 - 1, id: pal.ground.shrineCore});
+      } else {
         throw new Error('townAssemblyOps: ground 条目「' + s.id + '」kind 非法「' + s.kind +
-          '」(合法域 plaza|farm)');
+          '」(合法域 plaza|farm|farm-rows|wayshrine)');
       }
-      ops.push({op: 'fill', x1: s.x1, y1: groundY, z1: s.z1, x2: s.x2, y2: groundY, z2: s.z2, id});
     } else if (s.phase === 'backdrop') {
       if (s.kind === 'mountain') {
-        /* 拱形山体逐柱满覆盖: 顶高沿二次拱形自两缘(落地=地表基高)升至
-           脊线 topY, 双中心列同高(压钟塔 38); 每柱自 y0 满填(崖体无悬空) */
-        const cx = (s.x1 + s.x2) / 2;
-        const half = (s.x2 - s.x1) / 2;
+        /* 拱形山体逐柱满覆盖+合脊(#7 五段弧形): 顶高沿二次拱形自两缘
+           (落地=地表基高)升至脊线 topY, 列顶取 ridgeTop 预扫合脊(同列
+           多条目重叠域取 max, 单条目=自身行为不变); 每柱自 y0 满填
+           (崖体无悬空)。条目 bands 字段显式启用三段分色——基段
+           y0..groundY-1 石 3 单笔不变, 表层 groundY..30 苔 14(南缘
+           z27..28 两行草坡 1 过渡)/31..39 石 3/40..顶 雪 54, 空段跳笔;
+           缺省(无 bands)全 3 单色逐柱单笔(旧 pin 逐字节不动) */
         for (let x = s.x1; x <= s.x2; x++) {
-          const t = (x - cx) / half;
-          const top = Math.round(s.topY * (1 - t * t) + groundY * (t * t));
-          ops.push({op: 'fill', x1: x, y1: 0, z1: s.z1, x2: x, y2: top, z2: s.z2,
-            id: pal.backdrop.mountain});
+          const top = ridgeTop[x];
+          if (!s.bands) {
+            ops.push({op: 'fill', x1: x, y1: 0, z1: s.z1, x2: x, y2: top, z2: s.z2,
+              id: pal.backdrop.mountain});
+            continue;
+          }
+          ops.push({op: 'fill', x1: x, y1: 0, z1: s.z1, x2: x, y2: groundY - 1,
+            z2: s.z2, id: pal.backdrop.mountain});
+          const seg = (yA, yB, zA, zB, id) => {
+            if (yA > yB || zA > zB) return;
+            ops.push({op: 'fill', x1: x, y1: yA, z1: zA, x2: x, y2: yB, z2: zB, id});
+          };
+          const sZ1 = Math.max(s.z1, 27); const sZ2 = Math.min(s.z2, 28);
+          const midTop = Math.min(top, 30);
+          seg(groundY, midTop, s.z1, sZ1 - 1, pal.backdrop.mountainMoss);
+          seg(groundY, midTop, sZ1, sZ2, pal.backdrop.mountainGrass);
+          seg(groundY, midTop, sZ2 + 1, s.z2, pal.backdrop.mountainMoss);
+          seg(31, Math.min(top, 39), s.z1, s.z2, pal.backdrop.mountain);
+          seg(40, top, s.z1, s.z2, pal.backdrop.mountainSnow);
         }
       } else if (s.kind === 'cliff-home') {
-        /* 崖顶房屋: 锚(中心 x/z)±1 的 3×3×6 盒(baseY..topY-1, 数据
-           baseY/topY 差恒 6), 坐山体肩部 */
-        ops.push({op: 'fill', x1: s.x - 1, y1: s.baseY, z1: s.z - 1, x2: s.x + 1, y2: s.topY - 1,
-          z2: s.z + 1, id: pal.backdrop.cliffHome});
+        if (s.style === 'v2') {
+          /* 崖顶房屋 v2 造型(#8, style 字段显式启用; 缺省 legacy=旧
+             3×3×6 单盒 pin 逐字节不动): 白墙 52 主体+石英角柱 17 四根+
+             窗 18 四脸中格(baseY+2 层, 十字两笔, 后写覆墙不撞角柱)+
+             橙顶 9 双层阶梯(顶盖 3×3+内缩芯)+顶缘灯点 19×2(x±1)。
+             baseY/topY 数据差恒 6 不变, v2 总高 7(顶缘层) */
+          const wallTop = s.topY - 2;
+          ops.push({op: 'fill', x1: s.x - 1, y1: s.baseY, z1: s.z - 1,
+            x2: s.x + 1, y2: wallTop, z2: s.z + 1, id: pal.backdrop.cliffWall});
+          for (const [px, pz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
+            ops.push({op: 'fill', x1: s.x + px, y1: s.baseY, z1: s.z + pz,
+              x2: s.x + px, y2: wallTop, z2: s.z + pz, id: pal.backdrop.cliffFrame});
+          }
+          ops.push({op: 'fill', x1: s.x - 1, y1: s.baseY + 2, z1: s.z,
+            x2: s.x + 1, y2: s.baseY + 2, z2: s.z, id: pal.backdrop.cliffWindow});
+          ops.push({op: 'fill', x1: s.x, y1: s.baseY + 2, z1: s.z - 1,
+            x2: s.x, y2: s.baseY + 2, z2: s.z + 1, id: pal.backdrop.cliffWindow});
+          ops.push({op: 'fill', x1: s.x - 1, y1: s.topY - 1, z1: s.z - 1,
+            x2: s.x + 1, y2: s.topY - 1, z2: s.z + 1, id: pal.backdrop.cliffRoof});
+          ops.push({op: 'fill', x1: s.x, y1: s.topY, z1: s.z, x2: s.x,
+            y2: s.topY, z2: s.z, id: pal.backdrop.cliffRoof});
+          ops.push({op: 'fill', x1: s.x - 1, y1: s.topY, z1: s.z,
+            x2: s.x + 1, y2: s.topY, z2: s.z, id: pal.backdrop.cliffLamp});
+        } else {
+          /* 崖顶房屋 legacy: 锚(中心 x/z)±1 的 3×3×6 盒(baseY..topY-1,
+             数据 baseY/topY 差恒 6), 坐山体肩部 */
+          ops.push({op: 'fill', x1: s.x - 1, y1: s.baseY, z1: s.z - 1,
+            x2: s.x + 1, y2: s.topY - 1, z2: s.z + 1, id: pal.backdrop.cliffHome});
+        }
+      } else if (s.kind === 'scrub') {
+        /* 山脚矮丛(#7): 域 z26..31 出核心区散布断言辖域, 落 backdrop
+           段同款确定性盐(op 同 scatter.scrub; top=脚下表面格) */
+        ops.push({op: 'scrub', x: s.x, top: s.y, z: s.z, salt: s.x * 131 + s.z});
+      } else if (s.kind === 'boulder') {
+        /* 山脚苔石点(#7): 单格 14 于表面格上一格 */
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1,
+          z2: s.z, id: pal.backdrop.boulder});
       } else {
         throw new Error('townAssemblyOps: backdrop 条目「' + s.id + '」kind 非法「' + s.kind +
-          '」(合法域 mountain|cliff-home)');
+          '」(合法域 mountain|cliff-home|scrub|boulder)');
       }
     } else if (s.phase === 'road') {
       const id = s.kind === 'main' ? pal.road.main :
@@ -131,6 +247,25 @@ function townAssemblyOps(steps) {
           '」(合法域 main|lane)');
       }
       ops.push({op: 'fill', x1: s.x1, y1: groundY, z1: s.z1, x2: s.x2, y2: groundY, z2: s.z2, id});
+      if (s.curb) {
+        /* 缘石带(#5, 条目 curb 字段显式启用): 路体后写两侧外扩一格
+           同层细条——长轴判走向(|dx|>=|dz| 沿 x, 两侧=z1-1/z2+1; 否则
+           沿 z, 两侧=x1-1/x2+1); main 用 curb 13/lane 用 curbLane 4。
+           外扩格越域/撞邻归 scene 切清单避让(本件纯派生不管避让) */
+        const cid = s.kind === 'main' ? pal.road.curb : pal.road.curbLane;
+        const alongX = (s.x2 - s.x1) >= (s.z2 - s.z1);
+        if (alongX) {
+          ops.push({op: 'fill', x1: s.x1, y1: groundY, z1: s.z1 - 1, x2: s.x2,
+            y2: groundY, z2: s.z1 - 1, id: cid});
+          ops.push({op: 'fill', x1: s.x1, y1: groundY, z1: s.z2 + 1, x2: s.x2,
+            y2: groundY, z2: s.z2 + 1, id: cid});
+        } else {
+          ops.push({op: 'fill', x1: s.x1 - 1, y1: groundY, z1: s.z1, x2: s.x1 - 1,
+            y2: groundY, z2: s.z2, id: cid});
+          ops.push({op: 'fill', x1: s.x2 + 1, y1: groundY, z1: s.z1, x2: s.x2 + 1,
+            y2: groundY, z2: s.z2, id: cid});
+        }
+      }
     } else if (s.phase === 'prefab') {
       /* 建筑件: face 在条目顶层(不在 v 内), ids 集中注入——v/ids 一律新
          对象(op 消费方改写不反渗源清单与 palette 单源) */
@@ -167,9 +302,45 @@ function townAssemblyOps(steps) {
           id: pal.props.signPost});
         ops.push({op: 'fill', x1: s.x, y1: s.y + 3, z1: s.z, x2: s.x, y2: s.y + 3, z2: s.z,
           id: pal.props.signBoard});
+      } else if (s.kind === 'tuft') {
+        /* 草丛散布点(#1): 单格 40 于表面格上一格。定点枚举(域+步距+
+           hashRand)归 scene 切清单——本件只收单点条目(零依赖红线:
+           散布确定性走引擎函数, 规划器不掷点), 新散布 kind 同口径 */
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1,
+          z2: s.z, id: pal.props.tuft});
+      } else if (s.kind === 'flower') {
+        /* 花散布点(#2): 单格 61/62, v.tone 选键(缺省 y=蒲公英 61,
+           w=雏菊 62)——与花坛芯共用 flowerCore 组(语义同为花, 单源) */
+        const tone = s.v && s.v.tone === 'w';
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1,
+          z2: s.z, id: tone ? pal.props.flowerCore.w : pal.props.flowerCore.y});
+      } else if (s.kind === 'flag') {
+        /* 旗(#3): 柱 2 高 5+旗面 1 块(杆顶 y+3, 读作旗杆顶旗), v.cloth
+           四色选键(缺省 sakura 樱粉)——钟塔脚四角各一, 色即方位叙事 */
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 2,
+          z2: s.z, id: pal.props.flagPole});
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 3, z1: s.z, x2: s.x, y2: s.y + 3,
+          z2: s.z, id: pal.props.flagCloth[(s.v && s.v.cloth) || 'sakura']});
+      } else if (s.kind === 'flowerbed') {
+        /* 花坛(#10): y+1 层 3×3——边环 8 格 40 草丛围+中央花芯 v.tone
+           选键(61/62)。确定性落点(广场角/建筑门前)归 scene 切清单 */
+        ops.push({op: 'fill', x1: s.x - 1, y1: s.y + 1, z1: s.z - 1, x2: s.x + 1,
+          y2: s.y + 1, z2: s.z + 1, id: pal.props.flowerbedRing});
+        const btone = s.v && s.v.tone === 'w';
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1,
+          z2: s.z, id: btone ? pal.props.flowerCore.w : pal.props.flowerCore.y});
+      } else if (s.kind === 'barrel') {
+        /* 木桶(#10): 单格 5 于表面格上一格 */
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1,
+          z2: s.z, id: pal.props.barrel});
+      } else if (s.kind === 'pumpkin') {
+        /* 南瓜(#10): 单格 76 于表面格上一格 */
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1,
+          z2: s.z, id: pal.props.pumpkin});
       } else {
         throw new Error('townAssemblyOps: scatter 条目「' + s.id + '」kind 非法「' + s.kind +
-          '」(合法域 sakura|scrub|lamp|signpost)');
+          '」(合法域 sakura|scrub|lamp|signpost|tuft|flower|flag|flowerbed|' +
+          'barrel|pumpkin)');
       }
     } else if (s.phase !== 'anchor') {
       /* anchor 段零 op(出生归模式层恰一次); 其余未知 phase 抛拼写域错误 */

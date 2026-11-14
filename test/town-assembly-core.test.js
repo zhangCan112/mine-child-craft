@@ -22,8 +22,8 @@
    ⑥ 几何: 基底三层垫底(序列最前 = 后写者赢的显式见证)/广场农田铺装/路网/
       拱形山体逐柱(中心 44 压钟塔 38 · 两缘 24)/崖屋 3×3×6 坐山体上;
    ⑦ 通廊与不可达(op 层): 出生回望走廊 x78..80×z76..111×y≥25 零写入
-      (map-design §4.3 视线管理; 塔足 z2=75), 空隙带 z29..31 零写入(远景带
-      不可达的执行见证——山体 z2=28 与核心区 z1=32 之间无立地);
+      (map-design §4.3 视线管理; 塔足 z2=75), 空隙带 z29..31 体块零写入
+      (Step E 起单格贴地点缀豁免——远景不可达=无立地面, 非无装饰);
    ⑧ 确定性: 同参同输出;
    ⑨ 微改守门: town-map-core 头注释/GLOSSARY TownMapCore 词条「八段→九段」
       措辞随本票校正(九键清单的事实修正, 数据零改动)。
@@ -62,10 +62,16 @@ const PALETTE_WANT = {
       goodsFruit: 76, goodsLeaf1: 61, goodsLeaf2: 62, flag: 78},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
-  ground: {plaza: 17, farm: 41, plazaBand: 58},
-  road: {main: 13, lane: 4, curb: 13},
-  backdrop: {mountain: 3, cliffHome: 6},
-  props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6},
+  ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,
+    shrineCore: 13, shrineEdge: 4},
+  road: {main: 13, lane: 4, curb: 13, curbLane: 4},
+  backdrop: {mountain: 3, cliffHome: 6, mountainSnow: 54, mountainMoss: 14,
+    mountainGrass: 1, boulder: 14, cliffWall: 52, cliffFrame: 17, cliffRoof: 9,
+    cliffLamp: 19, cliffWindow: 18},
+  props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6,
+    tuft: 40, flagPole: 5, flowerbedRing: 40, barrel: 5, pumpkin: 76,
+    flagCloth: {sakura: 78, blue: 15, quartz: 17, red: 16},
+    flowerCore: {y: 61, w: 62}},
   tree: {sakuraLeaf: 78},
 };
 /* T-09 基线两清单(权威 = test/prefab-kit.test.js 材质基线段, 逐字同源) */
@@ -394,6 +400,167 @@ test('几何: 拱形山体逐柱满覆盖(中心 44 压钟塔 38 · 两缘 24) �
     'id 6 与路牌 signBoard 共值, 牌在核心区 z≥32 不入集');
 });
 
+/* ---------- ⑥b op 派生 v2(scene 需求表 10 项): 合成 steps 契约 ---------- */
+
+test('op 派生 v2: 合成 steps 各新 kind 派生几何与字段缺省(ground/backdrop/road/scatter)', () => {
+  const ctx = loadCore();
+  /* 纯函数直验: 合成 steps 直接喂 townAssemblyOps(零引擎零掷点),
+     groundY=24(真地图 core); 条目顺序=steps 序, op 序=派生序。
+     剥全域垫底三笔(域特征=core 全域, ⑥ 几何段已钉其形), 只验派生 */
+  const run = (steps) => JSON.parse(probe(ctx,
+      'JSON.stringify(townAssemblyOps(' + JSON.stringify(steps) + ').filter(' +
+      '(o) => !(o.x1 === TOWN_MAP.core.x1 && o.x2 === TOWN_MAP.core.x2 && ' +
+      'o.z1 === TOWN_MAP.core.z1 && o.z2 === TOWN_MAP.core.z2)))'));
+  const eq = (a, w) => a.op === w.op && a.x1 === w.x1 && a.y1 === w.y1 &&
+      a.z1 === w.z1 && a.x2 === w.x2 && a.y2 === w.y2 && a.z2 === w.z2 &&
+      a.id === w.id;
+  /* ground: farm-rows(#4) */
+  const fr = run([{phase: 'ground', id: 't-farm', kind: 'farm-rows',
+    x1: 10, z1: 20, x2: 13, z2: 22}]);
+  const frF = fr.filter((o) => o.op === 'fill');
+  assert.ok(frF.some((o) => eq(o, {op: 'fill', x1: 10, y1: 24, z1: 20,
+    x2: 13, y2: 24, z2: 22, id: 41})), '田垄: 全域 41 沟底先铺');
+  assert.ok(frF.some((o) => eq(o, {op: 'fill', x1: 10, y1: 24, z1: 20,
+    x2: 13, y2: 24, z2: 20, id: 58})), '田垄: r=0 行=58 田埂');
+  assert.ok(frF.some((o) => eq(o, {op: 'fill', x1: 10, y1: 24, z1: 21,
+    x2: 13, y2: 24, z2: 21, id: 42})), '田垄: r=1 行=42 作物轮转');
+  assert.ok(frF.some((o) => eq(o, {op: 'fill', x1: 10, y1: 24, z1: 22,
+    x2: 13, y2: 24, z2: 22, id: 43})), '田垄: r=2 行=43 相位混排');
+  assert.ok(frF.filter((o) => o.y1 === 25).length > 0 &&
+      frF.filter((o) => o.y1 === 25).every((o) => o.id === 5),
+  '田垄: y25 层全为 5 号围栏桩');
+  /* ground: wayshrine(#6, 序=后写者赢) */
+  const ws = run([{phase: 'ground', id: 't-ws', kind: 'wayshrine',
+    x1: 0, z1: 0, x2: 4, z2: 4}]).filter((o) => o.op === 'fill');
+  assert.ok(ws.length === 2 &&
+      eq(ws[0], {op: 'fill', x1: 0, y1: 24, z1: 0, x2: 4, y2: 24, z2: 4, id: 4}) &&
+      eq(ws[1], {op: 'fill', x1: 1, y1: 24, z1: 1, x2: 3, y2: 24, z2: 3, id: 13}),
+  '断头小坪: 边环 4 先写+内缩芯 13 后写(序=后写者赢, 须排 road 后)');
+  /* road: curb(#5) */
+  const rc = run([{phase: 'road', id: 't-r1', kind: 'main',
+    x1: 10, z1: 20, x2: 20, z2: 20, curb: true}]);
+  assert.ok(rc.some((o) => eq(o, {op: 'fill', x1: 10, y1: 24, z1: 19,
+    x2: 20, y2: 24, z2: 19, id: 13})) &&
+      rc.some((o) => eq(o, {op: 'fill', x1: 10, y1: 24, z1: 21,
+        x2: 20, y2: 24, z2: 21, id: 13})), '缘石: main 沿 x 两侧外扩=13');
+  const lc = run([{phase: 'road', id: 't-r2', kind: 'lane',
+    x1: 20, z1: 10, x2: 20, z2: 30, curb: true}]);
+  assert.ok(lc.some((o) => eq(o, {op: 'fill', x1: 19, y1: 24, z1: 10,
+    x2: 19, y2: 24, z2: 30, id: 4})), '缘石: lane 沿 z 外扩 x1-1=4');
+  const nc = run([{phase: 'road', id: 't-r3', kind: 'main',
+    x1: 10, z1: 20, x2: 20, z2: 20}]);
+  assert.strictEqual(nc.filter((o) => o.op === 'fill').length, 1,
+      'curb 缺省: 仅路体单笔(现行为逐字节不变)');
+  /* backdrop: mountain bands(#7)+缺省+合脊 */
+  const mb = run([{phase: 'backdrop', id: 't-m1', kind: 'mountain',
+    x1: 10, z1: 26, x2: 12, z2: 28, topY: 44, bands: true}]);
+  const col = (arr, x) => arr.filter((o) => o.op === 'fill' && o.x1 === x && o.x2 === x);
+  assert.ok(col(mb, 11).some((o) => o.y1 === 24 && o.y2 === 30 &&
+    o.z1 === 26 && o.z2 === 26 && o.id === 14), '分色: 苔 14 表层(z26 行)');
+  assert.ok(col(mb, 11).some((o) => o.y1 === 24 && o.y2 === 30 &&
+    o.z1 === 27 && o.z2 === 28 && o.id === 1), '分色: 南缘 z27..28 草坡 1 过渡');
+  assert.ok(col(mb, 11).some((o) => o.y1 === 31 && o.y2 === 39 && o.id === 3),
+      '分色: 中段石 3');
+  assert.ok(col(mb, 11).some((o) => o.y1 === 40 && o.y2 === 44 && o.id === 54),
+      '分色: 顶雪 54');
+  assert.ok(col(mb, 10).every((o) => o.y2 <= 24),
+      '分色: 缘列合脊顶 24(31/40 段空段跳笔)');
+  const m0 = run([{phase: 'backdrop', id: 't-m2', kind: 'mountain',
+    x1: 10, z1: 26, x2: 12, z2: 28, topY: 44}]);
+  assert.strictEqual(m0.filter((o) => o.op === 'fill').length, 3,
+      'mountain 缺省: 逐柱单笔(与旧 pin 同形)');
+  assert.ok(m0.every((o) => o.id === 3), 'mountain 缺省: 全 3 单色');
+  const mm = run([
+    {phase: 'backdrop', id: 'mt-a', kind: 'mountain',
+      x1: 10, z1: 26, x2: 12, z2: 28, topY: 30},
+    {phase: 'backdrop', id: 'mt-b', kind: 'mountain',
+      x1: 11, z1: 26, x2: 13, z2: 28, topY: 40},
+  ]);
+  /* B 拱心 x12(自身顶 40); A x12 自身公式仅 24——A 条目该列笔读到 40
+     即合脊; B x11 缘列自身公式落地 24, 读到 A 脊 30 亦即合脊 */
+  const x12 = mm.filter((o) => o.op === 'fill' && o.x1 === 12 && o.x2 === 12);
+  assert.ok(x12.length === 2 && x12.every((o) => o.y2 === 40),
+      '合脊: 重叠列取 max(A 条目 x12 笔自身仅 24, 读到 B 脊 40)');
+  const bx11 = mm.filter((o) => o.op === 'fill' && o.x1 === 11 && o.x2 === 11);
+  assert.ok(bx11.length === 2 && bx11.every((o) => o.y2 === 30),
+      '合脊: B 条目 x11 缘笔取 A 脊 30(自身公式落地 24)');
+  /* backdrop: cliff-home v2(#8)+legacy 缺省 */
+  const cv = run([{phase: 'backdrop', id: 't-c1', kind: 'cliff-home',
+    x: 55, z: 21, baseY: 41, topY: 47, style: 'v2'}]);
+  assert.ok(cv.some((o) => eq(o, {op: 'fill', x1: 54, y1: 41, z1: 20,
+    x2: 56, y2: 45, z2: 22, id: 52})), 'v2: 白墙 52 主体 baseY..topY-2');
+  assert.strictEqual(cv.filter((o) => o.id === 17).length, 4,
+      'v2: 石英角柱 17×4');
+  assert.ok(cv.some((o) => eq(o, {op: 'fill', x1: 54, y1: 43, z1: 21,
+    x2: 56, y2: 43, z2: 21, id: 18})), 'v2: 窗 18 十字(baseY+2)');
+  assert.ok(cv.some((o) => eq(o, {op: 'fill', x1: 54, y1: 46, z1: 20,
+    x2: 56, y2: 46, z2: 22, id: 9})) &&
+      cv.some((o) => eq(o, {op: 'fill', x1: 55, y1: 47, z1: 21,
+        x2: 55, y2: 47, z2: 21, id: 9})), 'v2: 橙顶 9 双层阶梯(顶盖+内缩芯)');
+  assert.ok(cv.some((o) => eq(o, {op: 'fill', x1: 54, y1: 47, z1: 21,
+    x2: 56, y2: 47, z2: 21, id: 19})), 'v2: 顶缘灯点 19(topY 层 x±1)');
+  const cl = run([{phase: 'backdrop', id: 't-c2', kind: 'cliff-home',
+    x: 55, z: 21, baseY: 41, topY: 47}]);
+  assert.ok(cl.length === 1 && eq(cl[0], {op: 'fill', x1: 54, y1: 41, z1: 20,
+    x2: 56, y2: 46, z2: 22, id: 6}), 'cliff-home 缺省 legacy: 3×3×6 盒 6(旧 pin 逐字节)');
+  /* backdrop: scrub/boulder(#7) */
+  const bs = run([{phase: 'backdrop', id: 't-s1', kind: 'scrub',
+    x: 20, y: 24, z: 30}]);
+  assert.deepStrictEqual(bs, [{op: 'scrub', x: 20, top: 24, z: 30,
+    salt: 20 * 131 + 30}], '山脚矮丛: 确定性盐同款 op');
+  const bd = run([{phase: 'backdrop', id: 't-b1', kind: 'boulder',
+    x: 21, y: 24, z: 30}]);
+  assert.ok(eq(bd[0], {op: 'fill', x1: 21, y1: 25, z1: 30, x2: 21, y2: 25,
+    z2: 30, id: 14}), '山脚苔石: 单格 14 y+1');
+  /* scatter 六新 kind(#1/#2/#3/#10) */
+  const sc = run([
+    {phase: 'scatter', id: 's1', kind: 'tuft', x: 70, y: 24, z: 90},
+    {phase: 'scatter', id: 's2', kind: 'flower', x: 72, y: 24, z: 90},
+    {phase: 'scatter', id: 's3', kind: 'flower', x: 74, y: 24, z: 90, v: {tone: 'w'}},
+    {phase: 'scatter', id: 's4', kind: 'flag', x: 76, y: 24, z: 69},
+    {phase: 'scatter', id: 's5', kind: 'flag', x: 78, y: 24, z: 69, v: {cloth: 'blue'}},
+    {phase: 'scatter', id: 's6', kind: 'flag', x: 80, y: 24, z: 69, v: {cloth: 'quartz'}},
+    {phase: 'scatter', id: 's7', kind: 'flag', x: 82, y: 24, z: 69, v: {cloth: 'red'}},
+    {phase: 'scatter', id: 's8', kind: 'flowerbed', x: 84, y: 24, z: 90},
+    {phase: 'scatter', id: 's9', kind: 'flowerbed', x: 88, y: 24, z: 90, v: {tone: 'w'}},
+    {phase: 'scatter', id: 's10', kind: 'barrel', x: 90, y: 24, z: 90},
+    {phase: 'scatter', id: 's11', kind: 'pumpkin', x: 92, y: 24, z: 90},
+  ]);
+  assert.ok(eq(sc[0], {op: 'fill', x1: 70, y1: 25, z1: 90, x2: 70, y2: 25,
+    z2: 90, id: 40}), '草丛: 单格 40 y+1');
+  assert.ok(eq(sc[1], {op: 'fill', x1: 72, y1: 25, z1: 90, x2: 72, y2: 25,
+    z2: 90, id: 61}), '花: 缺省 tone y=61 蒲公英');
+  assert.ok(eq(sc[2], {op: 'fill', x1: 74, y1: 25, z1: 90, x2: 74, y2: 25,
+    z2: 90, id: 62}), '花: v.tone w=62 雏菊');
+  assert.ok(eq(sc[3], {op: 'fill', x1: 76, y1: 25, z1: 69, x2: 76, y2: 26,
+    z2: 69, id: 5}) && eq(sc[4], {op: 'fill', x1: 76, y1: 27, z1: 69,
+    x2: 76, y2: 27, z2: 69, id: 78}), '旗: 柱 2 高 5+杆顶 y+3 面 78 缺省');
+  assert.ok(eq(sc[5], {op: 'fill', x1: 78, y1: 25, z1: 69, x2: 78, y2: 26,
+    z2: 69, id: 5}) && eq(sc[6], {op: 'fill', x1: 78, y1: 27, z1: 69,
+    x2: 78, y2: 27, z2: 69, id: 15}), '旗: v.cloth blue=15(柱+面两笔)');
+  assert.ok(eq(sc[8], {op: 'fill', x1: 80, y1: 27, z1: 69, x2: 80, y2: 27,
+    z2: 69, id: 17}), '旗: quartz=17');
+  assert.ok(eq(sc[10], {op: 'fill', x1: 82, y1: 27, z1: 69, x2: 82, y2: 27,
+    z2: 69, id: 16}), '旗: red=16');
+  assert.ok(eq(sc[11], {op: 'fill', x1: 83, y1: 25, z1: 89, x2: 85, y2: 25,
+    z2: 91, id: 40}) && eq(sc[12], {op: 'fill', x1: 84, y1: 25, z1: 90,
+    x2: 84, y2: 25, z2: 90, id: 61}), '花坛: 3×3 环 40+芯 61(tone y)');
+  assert.ok(eq(sc[13], {op: 'fill', x1: 87, y1: 25, z1: 89, x2: 89, y2: 25,
+    z2: 91, id: 40}) && eq(sc[14], {op: 'fill', x1: 88, y1: 25, z1: 90,
+    x2: 88, y2: 25, z2: 90, id: 62}), '花坛: 芯 62(tone w)');
+  assert.ok(eq(sc[15], {op: 'fill', x1: 90, y1: 25, z1: 90, x2: 90, y2: 25,
+    z2: 90, id: 5}), '木桶: 单格 5 y+1');
+  assert.ok(eq(sc[16], {op: 'fill', x1: 92, y1: 25, z1: 90, x2: 92, y2: 25,
+    z2: 90, id: 76}), '南瓜: 单格 76 y+1');
+  /* 合法域消息已扩(错误域抽查) */
+  assert.throws(() => run([{phase: 'ground', id: 'x', kind: 'orchard'}]),
+      /farm-rows\|wayshrine/, 'ground 合法域消息已扩');
+  assert.throws(() => run([{phase: 'backdrop', id: 'y', kind: 'henge'}]),
+      /scrub\|boulder/, 'backdrop 合法域消息已扩');
+  assert.throws(() => run([{phase: 'scatter', id: 'z', kind: 'statue'}]),
+      /tuft\|flower\|flag/, 'scatter 合法域消息已扩');
+});
+
 /* ---------- ⑦ 通廊与不可达(op 层) ---------- */
 
 test('通廊与不可达(op 层): 出生回望走廊零写入 · 空隙带 z29..31 零写入', () => {
@@ -406,8 +573,16 @@ test('通廊与不可达(op 层): 出生回望走廊零写入 · 空隙带 z29..
   assert.ok(boxOps.every((o) => !overlaps(o, CORRIDOR.x1, CORRIDOR.x2,
       CORRIDOR.y1, 47, CORRIDOR.z1, CORRIDOR.z2)),
   '出生回望走廊 x78..80×z76..111×y≥25 零非 place 写入(塔足 z2=75 → 走廊 z1=76; §4.3 视线管理)');
-  assert.ok(boxOps.every((o) => !overlaps(o, 0, 159, 0, 47, 29, 31)),
-      '空隙带 z29..31 全域零写入(山体 z2=28 · 核心区 z1=32 之间无立地=远景不可达执行见证)');
+  /* 空隙带 z29..31: 体块零写入(tree/recolor/跨 y fill/y>27 fill/scrub
+     top>27 仍拦)——Step E 起贴地点缀豁免(scene 需求表 #7 山脚散布域
+     z26..31 跨空隙带): 单格贴地 fill(y1===y2 且 y≤27)与贴地 scrub
+     (top≤27)合法——远景不可达=无立地面, 非无装饰(groundY=24 基准) */
+  const giant = boxOps.filter((o) =>
+    (o.op !== 'fill' && o.op !== 'scrub') ||
+    (o.op === 'fill' && (o.y1 !== o.y2 || o.y2 > 27)) ||
+    (o.op === 'scrub' && o.top > 27));
+  assert.ok(giant.every((o) => !overlaps(o, 0, 159, 0, 47, 29, 31)),
+      '空隙带 z29..31 体块零写入(tree/recolor/跨 y fill/y>27 fill/scrub top>27 仍拦; 单格贴地点缀 y≤27 豁免=远景不可达无立地面非无装饰)');
 });
 
 /* ---------- ⑧ 确定性 ---------- */

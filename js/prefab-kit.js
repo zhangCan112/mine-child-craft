@@ -103,14 +103,19 @@ function pfStiltPiles(e) {
 /* stall-canopy 布幔缺省的 theme 映射单份(§4.7「布幔奶油/樱粉/天蓝 canopy
    按 theme 注入」→现调色板 v2 字库): bread/generic→52 羊毛奶油 ·
    flower→78 粉羊毛樱粉(v2: 16 大红出局, 78 已入字库——树 pinkLeaf 先例) ·
-   fruit→15 蓝羊毛天蓝; 显式 v.ids.canopy 覆写映射(pfMerge 判显式后才注入) */
-const PF_STALL_CANOPY = {bread: 52, flower: 78, fruit: 15, generic: 52};
+   fruit→15 蓝羊毛天蓝 · fish→15 同天蓝(鱼水色) · pumpkin→76 南瓜亮橙
+   (Step E: fish/pumpkin 档配平, scene 需求表摊位扩展); 显式 v.ids.canopy
+   覆写映射(pfMerge 判显式后才注入) */
+const PF_STALL_CANOPY = {bread: 52, flower: 78, fruit: 15, fish: 15,
+  pumpkin: 76, generic: 52};
 
 /* stall-canopy 顶层滚边(双层阶梯顶 tier2 前条)的 theme 映射单份(Step D:
    顶改双层阶梯——tier1 主色=canopy 上表, tier2 副色=本表, 奶油×樱粉
    对偶保六摊位家族相似): bread/generic→78 粉羊毛 · flower→52 羊毛奶油
-   (主副互换) · fruit→52; 显式 v.ids.canopyTrim 覆写映射(同 canopy 口径) */
-const PF_STALL_TRIM = {bread: 78, flower: 52, fruit: 52, generic: 78};
+   (主副互换) · fruit→52 · fish→52 同奶油 · pumpkin→78 粉羊毛(Step E
+   配平同法); 显式 v.ids.canopyTrim 覆写映射(同 canopy 口径) */
+const PF_STALL_TRIM = {bread: 78, flower: 52, fruit: 52, fish: 52,
+  pumpkin: 78, generic: 78};
 
 /* 枚举轴值域表(conventions §1.10 升格: 值域清单原散在实现链/头注释/错误
    消息/规格 ≥3 处且逐行追加已生漂移——单份数据源+循环消费, 错误消息由表
@@ -126,7 +131,7 @@ const PF_ENUMS = {
   windowGlow: 'warm/none',
   signVariant: 'icon/blank',
   roofPitch: 'low/mid',
-  theme: 'bread/flower/fruit/generic',
+  theme: 'bread/flower/fruit/fish/pumpkin/generic',
   size: 'sm/md',
 };
 
@@ -1236,7 +1241,7 @@ const PF_ROWS = {
         dy2 后沿中景叶饰(花叶/面包堆顶; sm dy2 即 tier1 顶无空间)→双层
         阶梯顶: tier1 全 footprint(sm dy2/md dy3)主色布幔+tier2 前条
         dz=dzHi(sm dy3/md dy4)副色滚边+前角格 flag 角旗(零额外增高)。
-        theme 四档几何同形仅材质差异: canopy/canopyTrim 缺省按 theme 注入
+        theme 六档几何同形仅材质差异: canopy/canopyTrim 缺省按 theme 注入
         (见 pfMerge/PF_STALL_CANOPY/PF_STALL_TRIM), 货物/叶饰按 theme 选
         槽; 无光/火语义槽位(ids 白名单无 torch/glow, §8 去威胁红线) */
     facing0: 'south',
@@ -1244,7 +1249,7 @@ const PF_ROWS = {
       face: 'south', /* 缺省=行 facing0(恒等映射) */
       mirror: false,
       size: 'sm', /* 枚举轴(区别于 stilt-hut 对象轴): sm=3×2×4/md=4×3×5 */
-      theme: 'generic', /* 市集主题四档: canopy/canopyTrim 注入与货物选槽源 */
+      theme: 'generic', /* 市集主题六档: canopy/canopyTrim 注入与货物选槽源 */
       /* 材质注入, 缺省裸数字(§4.7 口径→现调色板 v2; Step D 扩键):
           frame 木头暖木四角柱(tower pillar/cottage trim 先例) · canopy
           羊毛顶棚主幔(generic 档显式缺省, 实际按 theme 于 pfMerge 注入
@@ -1280,17 +1285,22 @@ const PF_ROWS = {
       }
       /* dy1 后沿(dz=-1)中段货品色块: sm 单格 (0,-1)/md 两格 (-1..0,-1)
           ——v2 货物主题化(§3 G): bread/generic→goodsBread 石英堆/flower→
-          goodsFlower 粉羊毛/fruit→goodsFruit 南瓜亮橙(显式注入按槽覆写) */
+          goodsFlower 粉羊毛/fruit→goodsFruit 南瓜亮橙/fish→goodsBread
+          石英堆(银白冰台读法)/pumpkin→goodsFruit 同橙(Step E 配平;
+          显式注入按槽覆写) */
       const GOODS_OF = {bread: 'goodsBread', flower: 'goodsFlower',
-        fruit: 'goodsFruit', generic: 'goodsBread'};
+        fruit: 'goodsFruit', fish: 'goodsBread', pumpkin: 'goodsFruit',
+        generic: 'goodsBread'};
       const goodsLo = md ? -1 : 0;
       for (let dx = goodsLo; dx <= 0; dx++) {
         put(dx, 1, -1, ids[GOODS_OF[e.theme]]);
       }
       /* md 中景叶饰(dy2 后沿, tier1 之下货堆加高): 仅 md(sm dy2 即 tier1
           顶无空间)——flower 双叶 goodsLeaf1/2@(-1..0,2,-1)/fruit 单叶
-          goodsLeaf1@(0,2,-1)/bread·generic 面包堆顶 goodsBread@(-1,2,-1)
-          (与 dy1 货同槽两格高=堆叠读法) */
+          goodsLeaf1@(0,2,-1)/其余档(bread/fish/pumpkin/generic)案面货
+          加高堆顶@(-1,2,-1)(与 dy1 货同槽两格高=堆叠读法; Step E 起
+          else 槽跟案面货走——bread/fish/generic 仍 goodsBread, pumpkin
+          goodsFruit 南瓜堆两格高, 既有四档行为逐字节不变) */
       if (md) {
         if (e.theme === 'flower') {
           put(-1, 2, -1, ids.goodsLeaf1);
@@ -1298,7 +1308,7 @@ const PF_ROWS = {
         } else if (e.theme === 'fruit') {
           put(0, 2, -1, ids.goodsLeaf1);
         } else {
-          put(-1, 2, -1, ids.goodsBread);
+          put(-1, 2, -1, ids[GOODS_OF[e.theme]]);
         }
       }
       /* 双层阶梯顶(§3 G v2): tier1 全 footprint(sm dy2/md dy3)=canopy

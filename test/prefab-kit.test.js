@@ -2634,8 +2634,11 @@ const STALL_IDS = {
    与 dy1 货同槽两格高; sm dy2 即 tier1 顶无空间——几何硬约束)→双层阶梯顶:
    tier1 全 footprint(sm dy2/md dy3)=canopy 主色+tier2 前条 dz=dzHi(sm dy3/md
    dy4)=canopyTrim 副色(pfMerge PF_STALL_TRIM 按 theme 注入)+前角格 (1,dzHi)=
-   flag 角旗(零额外增高, 低高度不遮挡钟塔视线), 封顶之上一层无物。theme 四档
-   (bread/flower/fruit/generic)几何同形仅材质差异: canopy/canopyTrim 缺省按
+   flag 角旗(零额外增高, 低高度不遮挡钟塔视线), 封顶之上一层无物。theme 六档
+   (bread/flower/fruit/fish/pumpkin/generic; Step E 配平 fish/pumpkin——
+   canopy fish→15 同天蓝/pumpkin→76 南瓜橙, canopyTrim fish→52/pumpkin→78,
+   货物 fish→goodsBread 冰台读法/pumpkin→goodsFruit 同橙)几何同形仅材质差异:
+   canopy/canopyTrim 缺省按
    theme 注入——canopy: bread/generic→52 奶油 · flower→78 樱粉(16 大红出局,
    78 已入字库) · fruit→15 天蓝; canopyTrim: bread/generic→78 · flower/fruit→52
    (奶油×樱粉对偶); 显式 ids.canopy/canopyTrim 覆写映射, 部分注入其余槽回落缺省。
@@ -3001,8 +3004,8 @@ test('错误两档·stall-canopy: 未知 v 键/ids 子键(含 torch/glow 去威�
       /size/, 'size 对象形拒收(本行 size=枚举轴, 区别于 stilt-hut)');
   assert.throws(() => k.pf.footOf('stall-canopy', 80, 24, 80, {size: 'lg'}),
       /size/, 'footOf 同走 size 枚举检');
-  assert.throws(() => k.pf.place('stall-canopy', 80, 24, 80, {theme: 'fish'}),
-      /theme/, 'theme 枚举拼写域(bread/flower/fruit/generic)');
+  assert.throws(() => k.pf.place('stall-canopy', 80, 24, 80, {theme: 'shark'}),
+      /theme/, 'theme 枚举拼写域(bread/flower/fruit/fish/pumpkin/generic)');
   assert.throws(() => k.pf.place('stall-canopy', 80, 24, 80,
       {ids: Object.assign({}, STALL_IDS, {canopyy: 1})}), /ids/, 'ids 未知子键');
   /* 去威胁钉(§4.7/§8): 摊位无光/火语义槽位——torch/glow 子键不在白名单即炸 */
@@ -3208,7 +3211,7 @@ test('枚举校验链·十轴错误消息逐字钉(pfMerge 表驱动收编的等
     ['shop-awning', {windowGlow: 'fire'}, 'PrefabKit: windowGlow 非法「fire」(warm/none)'],
     ['shop-awning', {signVariant: 'text'}, 'PrefabKit: signVariant 非法「text」(icon/blank)'],
     ['stash-hut', {roofPitch: 'high'}, 'PrefabKit: roofPitch 非法「high」(low/mid)'],
-    ['stall-canopy', {theme: 'fish'}, 'PrefabKit: theme 非法「fish」(bread/flower/fruit/generic)'],
+    ['stall-canopy', {theme: 'shark'}, 'PrefabKit: theme 非法「shark」(bread/flower/fruit/fish/pumpkin/generic)'],
     ['stall-canopy', {size: 'lg'}, 'PrefabKit: size 非法「lg」(sm/md)'],
   ];
   for (const [id, v, msg] of cases) {
