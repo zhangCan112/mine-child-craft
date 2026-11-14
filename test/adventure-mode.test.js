@@ -83,12 +83,17 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
 /* T-SEAM-02 town 系装具 vm 补装(dims-core.test.js 同款惯例): ADV_DIMS town 行
    build 懒引 townBuild(装配件暂住 js/modes/town.js, T-SEAM-05 才迁)——到达测试
    advSetDim('town') 经全局名解析消费; mkMode/ModeKit 空壳只通 vm 域, 不沾 CJS 域真实件 */
-vm.runInContext('var mkMode = (cfg) => Object.assign({}, cfg); ' +
-    'var ModeKit = {spawn() {}};', eng, {filename: 'town-shell-stubs'});
-for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js', 'js/modes/town.js']) {
+const townShellStubs = 'var mkMode = (cfg) => Object.assign({}, cfg); var ModeKit = {spawn() {}}; ' +
+    'var loadScene = () => {}; var requestLock = () => {};'; /* 后两个空壳(T-SEAM-04 共存期
+    隔离用例驱动 TownMode.init 原链所需; eng 域除 init 外无人调用, 零串扰) */
+vm.runInContext(townShellStubs, eng, {filename: 'town-shell-stubs'});
+for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js',
+  'js/town-interact-core.js', 'js/modes/town.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
-Object.assign(globalThis, vm.runInContext('({TOWN_MAP, townBuild})', eng));
+Object.assign(globalThis, vm.runInContext('({TOWN_MAP, townBuild, mkTownTargets})', eng)); /* mkTownTargets
+    提取 Node 全局(T-SEAM-04: 壳层 advSetDim 建机步经全局名消费 core 工厂, CJS 域调用期解析;
+    机器内部 townInteractRegistry 等闭包变量在 eng 域词法解析, 与 townBuild 提取同款) */
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, isOpaque, world, worldCells,
   SceneKit, PrefabKit,
@@ -4959,3 +4964,169 @@ test('T-SEAM-03 east 锚所落格可站立(建场探针, 三向现锚同款): �
   }
   AdventureMode.cleanup();
 });
+
+
+/* ============ T-SEAM-04 镇内交互机宿主挂载(adventure 壳 town 分支, ADR-0011 决策 6a) ============
+   观测缝契约(本票新增, advNetherState 先例同款形状): A.advTownState() →
+   {targets: advTownTargets}——壳层镇内交互机只读快照(targets=机器引用,
+   可调 focus/found/reset/snapshot 四方法 + 引用比较验换代)。建机函数
+   advTownInteractBoot(模式壳 townInteractBoot 先例形状+adv 前缀), 弃机
+   行为面由用例锁(内联或函数由实现定, 源文本不重复锚弃机名)。 */
+
+test('T-SEAM-04 进镇建机(直达): advSetDim(\'town\') 专属步建机 — 壳层机器在位 · 注册快照九条全 active · ' +
+    'focus/found/reset/snapshot 接口面完整(对齐 T-MAP-04 core 行为)', () => {
+  mem.clear();
+  freshInit();
+  assert.ok(!A.advTownState().targets, '未进镇无机器(壳层运行态初始化为空)');
+  A.advSetDim('town'); /* 切界唯一入口直达(去程链路已由 T-SEAM-02 专测覆盖) */
+  assert.strictEqual(A.advNetherState().dim, 'town', '直达镇维度');
+  const t = A.advTownState().targets;
+  assert.ok(t, '进镇即建机: 壳层机器在位(advSetDim(\'town\') 专属步, den 专属步 advDenSeed 同位先例)');
+  const snap = t.snapshot();
+  const ids = Object.keys(snap.states);
+  assert.strictEqual(ids.length, 9, '交互注册快照九条(TOWN_INTERACTS M8 默认清单, 坐标单源锚点)');
+  for (const id of ids) {
+    assert.strictEqual(snap.states[id], 'active', '初始全 active(' + id + ')');
+  }
+  assert.strictEqual(snap.focusId, null, '初始无主目标');
+  for (const k of ['focus', 'found', 'reset', 'snapshot']) {
+    assert.strictEqual(typeof t[k], 'function', '接口面.' + k + ' 在位(T-UI 消费面就绪)');
+  }
+  /* core 行为对齐: focus 迁移+found 单向 active→done(emit 缺省空实现旁路不炸) */
+  const f = t.focus('bell-tower');
+  assert.ok(f.changed, 'focus 迁移成功(core 同款)');
+  assert.strictEqual(t.snapshot().focusId, 'bell-tower', '主目标在位');
+  const fd = t.found('task:tour-plaza');
+  assert.ok(fd.changed, 'found 迁移成功(core 同款)');
+  assert.strictEqual(t.snapshot().states['task:tour-plaza'], 'done', '轻任务达成态在位');
+  A.advSetDim('overworld'); /* 离镇退场(弃机详测见专条) */
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-04 进镇建机(端到端): 主径踩线白闪进镇后机器在位(T-SEAM-02 链路零扰动 · emit 空实现旁路 events 面照常)', () => {
+  mem.clear();
+  freshInit();
+  globalThis.pos.x = 157.2; globalThis.pos.y = 25; globalThis.pos.z = 74.5;
+  AdventureMode.update(1 / 60); /* 越线瞬间发令(无站桩) */
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s 满格到达 */
+  assert.strictEqual(A.advNetherState().dim, 'town', '白闪满格进镇(T-SEAM-02 链路照旧)');
+  const t = A.advTownState().targets;
+  assert.ok(t, '端到端进镇机器在位(到达分流 advSetDim(\'town\') 同一专属步)');
+  assert.strictEqual(Object.keys(t.snapshot().states).length, 9, '注册快照九条');
+  const r = t.focus('windmill');
+  assert.ok(r.changed && Array.isArray(r.events), 'events 面照常可得(emit 缺省空实现旁路, T-UI 票只换 emit 不改机器)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-04 离镇弃机+再进新机不串轮: found/focus 状态离镇即清 — 两轮进镇状态隔离(第一轮 done/focus 不泄漏第二轮) · 机器引用换代 · 回程白闪路径同链弃机', () => {
+  mem.clear();
+  freshInit();
+  /* 第一轮进镇: 交互状态留痕 */
+  A.advSetDim('town');
+  const t1 = A.advTownState().targets;
+  assert.ok(t1, '第一轮进镇建机');
+  t1.found('task:tour-plaza');
+  t1.found('task:find-bread');
+  t1.focus('bell-tower');
+  assert.strictEqual(t1.snapshot().states['task:tour-plaza'], 'done', '第一轮状态留痕(前置)');
+  assert.strictEqual(t1.snapshot().focusId, 'bell-tower', '第一轮主目标留痕(前置)');
+  A.advSetDim('overworld'); /* 离镇(advSetDim 离开 town) */
+  assert.ok(!A.advTownState().targets, '离镇弃机: 状态清空(下次进场新机不串轮的弃机半边)');
+  /* 第二轮进镇: 新机, 第一轮状态零泄漏 */
+  A.advSetDim('town');
+  const t2 = A.advTownState().targets;
+  assert.ok(t2, '第二轮进镇建机');
+  assert.notStrictEqual(t2, t1, '新机引用换代(每次进场新机, 不复用旧机)');
+  for (const [id, st] of Object.entries(t2.snapshot().states)) {
+    assert.strictEqual(st, 'active', '第二轮全 active(第一轮 done 不泄漏: ' + id + ')');
+  }
+  assert.strictEqual(t2.snapshot().focusId, null, '第二轮无主目标(第一轮 focus 不泄漏)');
+  /* 回程白闪路径(维度→overworld 到达, T-SEAM-03 链)同链弃机 */
+  globalThis.pos.x = 79; globalThis.pos.y = 25; globalThis.pos.z = 132.5;
+  AdventureMode.update(1 / 60); /* 回程发令(镇侧带式 z≥132) */
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* 满格到达 */
+  assert.strictEqual(A.advNetherState().dim, 'overworld', '回程白闪出镇');
+  assert.ok(!A.advTownState().targets, '回程到达(维度→overworld)同链弃机');
+  A.advSetDim('town');
+  const t3 = A.advTownState().targets;
+  assert.ok(t3 && t3 !== t2, '回程路径后再进亦新机');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-04 镇内幂等: 重复 advSetDim(\'town\') 不重置机器(dim===advDim 首行守卫 · 建机只在进镇沿, 非每帧非每调用)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const t = A.advTownState().targets;
+  assert.ok(t, '进镇建机(前置)');
+  t.found('task:tour-plaza');
+  A.advSetDim('town'); /* 镇内重复调用(dim===advDim 首行幂等守卫) */
+  const t2 = A.advTownState().targets;
+  assert.strictEqual(t2, t, '重复进镇调用不重建不重置(同一机器引用)');
+  assert.strictEqual(t2.snapshot().states['task:tour-plaza'], 'done', '状态存活(镇内状态不被重复进镇洗掉)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-04 den 先例形状对齐: 建机调用挂在 advSetDim 切界缝(town 专属步, den 专属步 advDenSeed 同位先例 · 非每帧)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const head = src.indexOf('function advSetDim(');
+  const next = src.indexOf('function advSetMap(', head);
+  assert.ok(head >= 0 && next > head, 'advSetDim 函数体可定位');
+  const body = src.slice(head, next);
+  assert.ok(body.indexOf('advTownInteractBoot') >= 0,
+      '建机调用在 advSetDim 函数体内(town 专属步; 弃机行为面已由不串轮用例锁死, 源文本不重复锚弃机名)');
+});
+
+test('T-SEAM-04 core 零改动守门: 壳层只消费 mkTownTargets 工厂 — 机器逻辑五件面零复制于 adventure.js' +
+    '(「T-UI 票只换 emit 不改机器」契约, diff 零 hunk 由 commit 证据承担)', () => {
+  const advSrc = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const coreSrc = fs.readFileSync(path.join(ROOT, 'js', 'town-interact-core.js'), 'utf8');
+  assert.ok(advSrc.indexOf('mkTownTargets(') >= 0, '壳层消费 mkTownTargets 工厂(只消费不复制)');
+  for (const [frag, what] of [
+    ['function mkTownTargets', '工厂本体'],
+    ['function townInteractRegistry', '注册派生'],
+    ['function townTargetOf', '目标形状'],
+    ['const TOWN_INTERACTS', '注册清单'],
+    ['const TOWN_UI_EVENTS', '事件名表'],
+  ]) {
+    assert.ok(coreSrc.indexOf(frag) >= 0, what + ' 在 core(基线在位)');
+    assert.ok(advSrc.indexOf(frag) < 0, what + ' 零复制于壳层(adventure.js 只消费不定义)');
+  }
+  const coreTestSrc = fs.readFileSync(path.join(ROOT, 'test', 'town-interact-core.test.js'), 'utf8');
+  assert.ok(coreTestSrc.indexOf('town-interact-core') >= 0,
+      'core 同名单测指向不变(零改动基线)');
+});
+
+test('T-SEAM-04 共存期隔离: 壳层建机与模式壳旧接线两宿主互不触碰 — TownMode.init 原链照常建机(旧缝可进场, 05 才撤) · 引用与状态双向隔离(单模式激活事实)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const shellT = A.advTownState().targets;
+  assert.ok(shellT, '壳层进镇建机(前置)');
+  assert.strictEqual(vm.runInContext('townTargets', eng), undefined,
+      '模式壳 townTargets 不被壳层触碰(变量空间隔离: 壳层建机只写壳层运行态)');
+  vm.runInContext('TownMode.init()', eng); /* 模式壳原 init 三步链(loadScene stub→boot→requestLock stub) */
+  const modeT = vm.runInContext('townTargets', eng);
+  assert.ok(modeT, '模式壳 init 原链建机在位(townInteractBoot 旧接线不受扰, T-MAP-04 原样)');
+  assert.notStrictEqual(modeT, shellT, '两宿主机器互不共享(单模式激活事实, 引用隔离)');
+  assert.strictEqual(A.advTownState().targets, shellT, '壳层机器不被模式壳建机触碰(反向隔离)');
+  modeT.found('task:visit-stash');
+  assert.strictEqual(modeT.snapshot().states['task:visit-stash'], 'done', '模式壳机器状态留痕');
+  assert.strictEqual(shellT.snapshot().states['task:visit-stash'], 'active', '壳层机器状态不受模式壳影响(状态隔离)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-04 登记回填: dimension-registry-design.md §5 不进表清单有 town 分支登记(票面授权的一句话新增, 设计权威新增条目非改写)', () => {
+  const doc = fs.readFileSync(path.join(ROOT, 'docs', 'dimension-registry-design.md'), 'utf8');
+  const s5 = doc.indexOf('## 5. 「不进表」清单');
+  const s6 = doc.indexOf('## 6. 新副本施工单');
+  assert.ok(s5 >= 0 && s6 > s5, '§5 节可定位');
+  const body = doc.slice(s5, s6);
+  assert.ok(body.indexOf('town') >= 0,
+      '§5 不进表清单有 town 分支登记(建机/弃机宿主挂壳层, ADR-0011 决策 6a 落地登记)');
+});
+
