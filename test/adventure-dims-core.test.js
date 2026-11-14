@@ -575,10 +575,10 @@ test('通廊与不可达(T-SEAM-05 迁入, 世界层): 出生回望走廊全空 
   assert.strictEqual(cell(16, 24, 20), 3, '山体西缘 topY=24 @(16,24,20)');
   assert.strictEqual(cell(16, 25, 20), 0, '西缘柱顶即止 @(16,25,20)');
   assert.strictEqual(cell(143, 24, 20), 3, '山体东缘 topY=24 @(143,24,20)');
-  assert.strictEqual(cell(40, 36, 16), 6, '崖屋 A 底 6 @(40,36,16)');
-  assert.strictEqual(cell(40, 41, 16), 6, '崖屋 A 顶 6 @(40,41,16)');
-  assert.strictEqual(cell(112, 35, 20), 6, '崖屋 B 底 6 @(112,35,20)');
-  assert.strictEqual(cell(112, 40, 20), 6, '崖屋 B 顶 6 @(112,40,20)');
+  assert.strictEqual(cell(56, 41, 22), 6, '崖屋 A 底 6 @(56,41,22)');
+  assert.strictEqual(cell(56, 46, 22), 6, '崖屋 A 顶 6 @(56,46,22)');
+  assert.strictEqual(cell(103, 41, 22), 6, '崖屋 B 底 6 @(103,41,22)');
+  assert.strictEqual(cell(103, 46, 22), 6, '崖屋 B 顶 6 @(103,46,22)');
 });
 
 test('确定性(T-SEAM-05 迁入): 清场重建两遍 worldCells 全量逐格相等(装配全链确定性重放)', () => {
