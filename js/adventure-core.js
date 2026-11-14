@@ -833,6 +833,8 @@ function advEdgeOpenDir(dir) {/* 单一开放判据(〔世界边界·T8〕, 四�
   return advEdgeBarriersHidden || advEdgeDirUnlocked(dir, advEdgeUnlockCounts);
 }
 
+const ADV_TOWN_GATE_OPEN_Z = [74, 75]; /* 门口开间主径带(town-map-design §6.3.1, T-SEAM-02):
+   east 主径轴线 z74~75 两格开间——越线触发/回程门墩/东栅栏让位/开间保护四处同源消费 */
 function advEdgeTransitDirAt(x, z) {/* 越线传送触发线(纯几何, 解锁判定分离可
    分维测试): 「中心进入最外一行格」与碰撞钳制面等效(voxel.js physics 把玩家
    中心钳在 [PLAYER.hx, WORLD_W−PLAYER.hx] × [PLAYER.hz, WORLD_D−PLAYER.hz],
@@ -844,7 +846,7 @@ function advEdgeTransitDirAt(x, z) {/* 越线传送触发线(纯几何, 解锁�
   if (z < 1) return 'north';
   if (z >= WORLD_D - 1) return 'south';
   if (x < 1) return 'west';
-  if (x >= 157 && (z === 74 || z === 75)) return 'east'; /* 主径带内即触发 */
+  if (x >= 157 && ADV_TOWN_GATE_OPEN_Z.includes(z)) return 'east'; /* 主径带内即触发 */
   return null;
 }
 
@@ -1471,7 +1473,7 @@ function advEdgeEastArrivePad() {/* 回家门墩(T-SEAM-03, town-map-design §6.
   (带区高度场 −1=地表 y23, 三向现锚皆 heightAt 0 唯 east 缺——advMapArriveAt
   y=ADV_GROUND+1 的「门位压平区建场保证 y24 顶面」口径在此兑现)。主径土面
   同材质垫高成门槛读法(2 格全幅跨主径), 探针实测 y24 实垫 y25/26 净空 */
-  for (const z of [74, 75]) {
+  for (const z of ADV_TOWN_GATE_OPEN_Z) {
     setBlockRaw(154, ADV_GROUND + advHeightAt(154, z) + 1, z, 2);
   }
 }
@@ -1495,7 +1497,7 @@ function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间
   主径轴线 z74~75 两格让位——开间内无栅栏件(主径自此穿栅栏而过), 桩位让至
   开间两侧邻格 z73/76(各一根两高原木桩=门框读法), 其余段形制照旧 */
   for (let z = 0; z < WORLD_D; z++) {
-    if (z === 74 || z === 75) continue; /* 门口开间: 两格净空无杆无桩 */
+    if (ADV_TOWN_GATE_OPEN_Z.includes(z)) continue; /* 门口开间: 两格净空无杆无桩 */
     const y = ADV_GROUND + advHeightAt(157, z) + 1;
     if (z === 73 || z === 76 || z % 3 === 0) {/* 常规桩位 + 开间侧邻门框桩(z73/76 让位至此, 恒两高) */
       setBlockRaw(157, y, z, 5);
@@ -1800,7 +1802,7 @@ function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁�
      z153/154/159(SE 角 post-pass 原木桩脚; 已逐格核对三格均实落桩=建场实录) */
   if (x === 157) {
     const y0 = top + 1; /* = ADV_GROUND + advHeightAt(157,z)+1(advEdgeEastFence 同式) */
-    if (z === 74 || z === 75) return false; /* T-SEAM-02 门口开间: 栅栏层让保护(开间即通路, §6.3.1) */
+    if (ADV_TOWN_GATE_OPEN_Z.includes(z)) return false; /* T-SEAM-02 门口开间: 栅栏层让保护(开间即通路, §6.3.1) */
     if (z === 73 || z === 76) return y === y0 || y === y0 + 1; /* 侧邻门框桩两高在保 */
     if (y === y0) return true;
     if (z % 3 === 0 && y === y0 + 1) return true;

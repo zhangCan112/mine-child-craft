@@ -4873,7 +4873,7 @@ const AdventureMode = mkMode({
     装备 T9 追加 advTryWearSlot、怪物合成 T2 追加 advPumpkinRegen/advPumpkinRegenTick、
     T5/T6 追加 advGolemsAll/advGolemTick/advTryRepairGolem/advSweepNightMobs、
     T-SEAM-04 追加 advTownState(壳层镇内交互机只读快照, ADR-0011 决策 6a)——
-    现 37 键(键计数以本清单为准); 键清单即 interface——
+    现 38 键(键计数以本清单为准); 键清单即 interface——
     adventure-core 常量表与纯函数经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
       · advSleepClock(时钟拨盘态) · advNetherState(下界相位·地图态只读快照: dim/map/portalCd/exitSpot)
