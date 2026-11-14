@@ -93,13 +93,64 @@ function mkTownUi(deps) {
   deps = deps || {};
   /* 无件两栖: document 缺席(Node/沙盒)时用内置最小元素桩——状态与 DOM
      映射全链照走, root 语义不变(挂载后非 null); 真件浏览器不受此支影响 */
+  /* live 只读集合视图(S-1 契约收紧 2026-11-14): children 面模拟真元素
+     HTMLCollection——length/整数索引可读、可迭代、只读快照方法在册;
+     无 pop/push 等变更法(拿到的是集合视图, 不是可变数组), 子件增删唯一
+     通道=appendChild/removeChild(真 DOM 契约)。 */
+  function liveKids(kids) {
+    const methods = {
+      item(i) {
+        return kids[i];
+      },
+      find(fn) {
+        return kids.find(fn);
+      },
+      filter(fn) {
+        return kids.filter(fn);
+      },
+      map(fn) {
+        return kids.map(fn);
+      },
+      forEach(fn) {
+        return kids.forEach(fn);
+      },
+      slice(...a) {
+        return kids.slice(...a);
+      },
+      indexOf(x) {
+        return kids.indexOf(x);
+      },
+      includes(x) {
+        return kids.includes(x);
+      },
+    };
+    return new Proxy(methods, {
+      get(t, k) {
+        if (k === 'length') {
+          return kids.length;
+        }
+        if (typeof k === 'string' && /^[0-9]+$/.test(k)) {
+          return kids[+k];
+        }
+        if (k === Symbol.iterator) {
+          return () => kids[Symbol.iterator]();
+        }
+        return t[k];
+      },
+    });
+  }
   function mkHeadlessDoc() {
     function mkEl(tag) {
       const classes = new Set();
       const attrs = {}; /* 闭包私有(F1): 公开面只走 get/setAttribute=真实 DOM 面 */
+      const kids = []; /* 闭包私有(S-1): children 只暴露 live 只读视图 */
+      const view = liveKids(kids);
       const el = {
-        tag, children: [], parent: null, hidden: false, textContent: '',
+        tag, parent: null, hidden: false, textContent: '',
         style: {}, onclick: null,
+        get children() {
+          return view;
+        },
         classList: {
           add(...cs) {
             for (const c of cs) classes.add(c);
@@ -118,8 +169,15 @@ function mkTownUi(deps) {
           return attrs[k];
         },
         appendChild(c) {
-          el.children.push(c);
+          kids.push(c);
           c.parent = el;
+          return c;
+        },
+        removeChild(c) {
+          const i = kids.indexOf(c);
+          if (i < 0) throw new Error('NotFoundError: removeChild 的实参不是子件');
+          kids.splice(i, 1);
+          c.parent = null;
           return c;
         },
         click() {

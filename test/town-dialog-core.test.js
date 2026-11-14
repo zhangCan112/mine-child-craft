@@ -9,8 +9,10 @@
    全走公共 seam(冻结常量+工厂+纯派生函数)。红期 js/town-dialog-core.js 缺席全红。
    偏离登记(prebuild §5.2 草案→实现定稿): ① mkDialogMachine 不收 now()——conventions
    -core 契约零墙钟(先例 mkTownTargets 签名不含 now), praise 停留节奏归装配层 timer;
-   ② dialogEventsFor 增第 4 参 intentType——close 三值路由(deferred|done|continue)
-   由 (from, intent) 共同决定(prebuild §2.3 表), 三参形状不够表达;
+   ② dialogEventsFor 未单列成函数——事件派发内联进 mkDialogMachine.handle(职责
+   折叠, 功能等价; close 三值(deferred|done|continue)路由由 (from, intent) 在
+   handle 内共同决定, prebuild §2.3 表; 登记文本更正 2026-11-14, 原记「增第 4 参
+   intentType」与实现不符);
    ③ 意图词表增 confirm(respond→praise 桥接, 矩阵行「确认即入 praise」), 裁 replay
    不进机器(§6.2 重播不改变状态, 装配层 TTS 直执行)。 */
 const test = require('node:test');

@@ -50,14 +50,44 @@ try {
 /* fake DOM 元素(记录桩): 只实现适配层许用的最小面(创建/挂树/类名/显隐/
    文本/属性/onclick); 无 innerHTML/querySelector——适配层不重建不反查。
    __classOps 计数器(T-UI-03 加法扩展): 签名门控零操作断言的观测面,
-   既有测试不读不影响。 */
+   既有测试不读不影响。
+   S-1 契约收紧(2026-11-14): children 不再是裸数组——liveKids 只读集合
+   视图(无 pop/push 等变更法), 子件增删唯一通道=appendChild/removeChild,
+   与真元素 HTMLCollection 同面(裸数组让 clearChildren 的 children.pop
+   假绿, 真机 live 集合无 pop 即 TypeError)。 */
+function liveKids(kids) {
+  const methods = {
+    item: (i) => kids[i],
+    find: (fn) => kids.find(fn),
+    filter: (fn) => kids.filter(fn),
+    map: (fn) => kids.map(fn),
+    forEach: (fn) => kids.forEach(fn),
+    slice: (...a) => kids.slice(...a),
+    indexOf: (x) => kids.indexOf(x),
+    includes: (x) => kids.includes(x),
+  };
+  return new Proxy(methods, {
+    get(t, k) {
+      if (k === 'length') return kids.length;
+      if (typeof k === 'string' && /^[0-9]+$/.test(k)) return kids[+k];
+      if (k === Symbol.iterator) return () => kids[Symbol.iterator]();
+      return t[k];
+    },
+  });
+}
+
 function fakeEl(tag) {
   const classes = new Set();
   const attrs = {}; /* 闭包私有(F1): 公开面只走 get/setAttribute=真实 DOM 面 */
+  const kids = []; /* 闭包私有(S-1): children 只暴露 live 只读视图 */
   const classOps = {add: 0, remove: 0};
+  const view = liveKids(kids);
   const el = {
-    tag, children: [], parent: null, hidden: false, textContent: '',
+    tag, parent: null, hidden: false, textContent: '',
     style: {}, onclick: null,
+    get children() {
+      return view;
+    },
     __classOps: classOps,
     classList: {
       add(...cs) {
@@ -79,8 +109,15 @@ function fakeEl(tag) {
       return attrs[k];
     },
     appendChild(c) {
-      el.children.push(c);
+      kids.push(c);
       c.parent = el;
+      return c;
+    },
+    removeChild(c) {
+      const i = kids.indexOf(c);
+      if (i < 0) throw new Error('NotFoundError: removeChild 的实参不是子件');
+      kids.splice(i, 1);
+      c.parent = null;
       return c;
     },
     click() {
@@ -774,7 +811,8 @@ test('高亮层挂载: mount 创建 town-hl-layer+按 hlSource 每条目一标(d
   rec.ui.sync();
   const layer2 = hlLayerOf(rec);
   assert.strictEqual(layer2, layer, '高亮层引用恒等(mount 幂等)');
-  assert.deepStrictEqual(layer2.children, refs, '标记子件引用恒等(不重建)');
+  /* S-1: children 是 live 只读视图, 展开成序列比元素恒等(语义同前) */
+  assert.deepStrictEqual([...layer2.children], refs, '标记子件引用恒等(不重建)');
 });
 
 test('事件驱动悬停: mousemove 瞄准命中→is-hover 他标 default; 换瞄互斥切换; 瞄空全 default; sync 改视不判命中(mousemove 才判, 事件驱动口径)', () => {
@@ -920,7 +958,8 @@ test('签名门控零操作(架构 §8 脏标口径): 同 aim 重复 mousemove�
   rec.fire('mousemove', {}); /* 同 aim 重复事件 */
   rec.fire('mousemove', {});
   assert.strictEqual(hlLayerOf(rec), layer, '重复事件高亮层引用恒等');
-  assert.deepStrictEqual(hlLayerOf(rec).children, refs,
+  /* S-1: children 是 live 只读视图, 展开成序列比元素恒等(语义同前) */
+  assert.deepStrictEqual([...hlLayerOf(rec).children], refs,
       '重复事件标记引用恒等(零重建 DOM)');
   const opsAfter = layer.children.map((c) => ({
     add: c.__classOps.add, remove: c.__classOps.remove}));
@@ -1048,13 +1087,36 @@ test('集成链 T-UI-03: 进镇九标→mousemove 瞄钟塔 is-hover→按下反
   for (const f of ordered) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
   }
-  /* 在笼 fake doc(文档级监听宿主+事件泵, 与 harness fakeDoc 同形) */
+  /* 在笼 fake doc(文档级监听宿主+事件泵, 与 harness fakeDoc 同形);
+     S-1 契约收紧(2026-11-14): children=live 只读视图(无 pop/push),
+     增删唯一通道=appendChild/removeChild(与真元素 HTMLCollection 同面) */
   vm.runInContext(
       'var __listeners = {};\n' +
+      'function __liveKids(kids) {\n' +
+      '  var methods = {\n' +
+      '    item: function(i) { return kids[i]; },\n' +
+      '    find: function(fn) { return kids.find(fn); },\n' +
+      '    filter: function(fn) { return kids.filter(fn); },\n' +
+      '    map: function(fn) { return kids.map(fn); },\n' +
+      '    forEach: function(fn) { return kids.forEach(fn); },\n' +
+      '    slice: function() { return Array.prototype.slice.apply(kids, arguments); },\n' +
+      '    indexOf: function(x) { return kids.indexOf(x); },\n' +
+      '    includes: function(x) { return kids.includes(x); }\n' +
+      '  };\n' +
+      '  return new Proxy(methods, {get: function(t, k) {\n' +
+      '    if (k === "length") return kids.length;\n' +
+      '    if (typeof k === "string" && /^[0-9]+$/.test(k)) return kids[+k];\n' +
+      '    if (k === Symbol.iterator) return function() { return kids[Symbol.iterator](); };\n' +
+      '    return t[k];\n' +
+      '  }});\n' +
+      '}\n' +
       'function __el(tag) {\n' +
       '  var classes = {};\n' +
       '  var attrs = {};\n' + /* 闭包私有: 公开面只走 get/setAttribute(F1) */
-      '  var el = {tag: tag, children: [], parent: null, hidden: false,\n' +
+      '  var kids = [];\n' +
+      '  var view = __liveKids(kids);\n' +
+      '  var el = {tag: tag, parent: null, hidden: false,\n' +
+      '    get children() { return view; },\n' +
       '    textContent: \'\', style: {}, onclick: null,\n' +
       '    classList: {\n' +
       '      add: function() { for (var i = 0; i < arguments.length; i++) classes[arguments[i]] = true; },\n' +
@@ -1063,7 +1125,12 @@ test('集成链 T-UI-03: 进镇九标→mousemove 瞄钟塔 is-hover→按下反
       '    },\n' +
       '    setAttribute: function(k, v) { attrs[k] = String(v); },\n' +
       '    getAttribute: function(k) { return attrs[k]; },\n' +
-      '    appendChild: function(c) { el.children.push(c); c.parent = el; return c; },\n' +
+      '    appendChild: function(c) { kids.push(c); c.parent = el; return c; },\n' +
+      '    removeChild: function(c) {\n' +
+      '      var i = kids.indexOf(c);\n' +
+      '      if (i < 0) throw new Error("NotFoundError: removeChild 非子件");\n' +
+      '      kids.splice(i, 1); c.parent = null; return c;\n' +
+      '    },\n' +
       '    click: function() { if (el.onclick) el.onclick({}); }\n' +
       '  };\n' +
       '  return el;\n' +
@@ -1472,6 +1539,36 @@ test('CSS 守门切片: town.css 含 --town-dlg- token 段(热区 44/64+panel �
       '零警示红(§6.3: 无红叉; Market Red 仅 #d96b52 温暖点缀)');
   assert.ok(css.includes('prefers-reduced-motion'),
       '克制动效降级在册(零闪烁惊吓, §4.5)');
+  /* 双蓝澄清(prebuild §1.2, F2 2026-11-14): B 侧会话引导=村民盘 Sky
+     Cloth #7EC8D8, A 侧 HUD=建筑盘布幔-天蓝 #7EC8E3 — 分属两套色盘,
+     实现不得把两值当同义名互换 */
+  assert.ok(css.includes('--town-dlg-guide: #7ec8d8'),
+      'B 侧引导 token --town-dlg-guide: #7ec8d8 在册(prebuild §1.2 村民盘)');
+  const thumbAt = css.indexOf('.town-dlg-thumb');
+  const thumbBlock = css.slice(thumbAt, css.indexOf('}', thumbAt));
+  assert.ok(thumbBlock.includes('var(--town-dlg-guide)'),
+      'thumb 引导色走 B 侧自有 token var(--town-dlg-guide)');
+  assert.ok(!thumbBlock.includes('--town-hud-sky'),
+      'thumb 不得引用 A 侧 --town-hud-sky(双蓝不得互换, F2)');
+});
+
+test('源文本守门(S-1): js/town-ui.js 的 .children 上不得直接调数组方法' +
+    '(HTMLCollection 陷阱, 2026-11-14 阻断级评审教训)', () => {
+  /* 真浏览器 element.children 是 live HTMLCollection: 既无 pop/push 等
+     变更法, 也无 filter/map 等读法 — clearChildren 直调 children.pop 在
+     真机上每次调用即 TypeError(任务会话二次渲染断链/关闭链面板隐藏分支
+     炸→dlgPraise 🌟 残留屏上); 假 doc 的 children 是纯数组时行为测试
+     全绿零感知, 故装具面已收紧为 live 只读视图(liveKids), 源文本一并
+     锁死: .children 上的数组方法直调一律禁止(增删走 appendChild/
+     removeChild, 遍历走 for-of/length/索引), 仿 math-paradigms 守门先例 */
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'town-ui.js'), 'utf8');
+  const bad = src.match(new RegExp(
+      '\\.children\\.(?:pop|push|shift|unshift|splice|filter|forEach|map|some|every' +
+      '|reduce|reduceRight|find|findIndex|findLast|findLastIndex|includes|indexOf' +
+      '|join|slice|concat|sort|reverse|flat|flatMap|fill|copyWithin|at' +
+      '|entries|keys|values)\\(', 'g'));
+  assert.ok(!bad, '.children 是 live 集合视图: 数组方法直调禁止' +
+      '(增删走 appendChild/removeChild), 命中: ' + bad);
 });
 
 test('E2E 集成链 T-UI-04: 真四件同笼(镜像 index.html 装载序)进镇→点选接任务→seek→点中目标→' +
@@ -1499,8 +1596,26 @@ test('E2E 集成链 T-UI-04: 真四件同笼(镜像 index.html 装载序)进镇�
       'var __doc = (function() {' +
       'var listeners = {}; var listenersOf = function(t) {' +
       'return listeners[t] || []; };' +
+      /* S-1 契约收紧(2026-11-14): children=live 只读视图(无 pop/push),
+         增删唯一通道=appendChild/removeChild(真元素 HTMLCollection 同面) */
+      'var liveKids = function(kids) {' +
+      'var methods = {item: function(i) { return kids[i]; },' +
+      'find: function(fn) { return kids.find(fn); },' +
+      'filter: function(fn) { return kids.filter(fn); },' +
+      'map: function(fn) { return kids.map(fn); },' +
+      'forEach: function(fn) { return kids.forEach(fn); },' +
+      'slice: function() { return Array.prototype.slice.apply(kids, arguments); },' +
+      'indexOf: function(x) { return kids.indexOf(x); },' +
+      'includes: function(x) { return kids.includes(x); }};' +
+      'return new Proxy(methods, {get: function(t, k) {' +
+      'if (k === "length") return kids.length;' +
+      'if (typeof k === "string" && /^[0-9]+$/.test(k)) return kids[+k];' +
+      'if (k === Symbol.iterator) return function() { return kids[Symbol.iterator](); };' +
+      'return t[k]; }}); };' +
       'var mkEl = function(tag) { var classes = []; var attrs = {};' +
-      'return {tag: tag, children: [], parent: null, hidden: false,' +
+      'var kids = []; var view = liveKids(kids);' +
+      'return {tag: tag, parent: null, hidden: false,' +
+      'get children() { return view; },' +
       'textContent: "", style: {}, onclick: null,' +
       'classList: {add: function() { for (var i = 0; i < arguments.length; i++) {' +
       'if (classes.indexOf(arguments[i]) < 0) classes.push(arguments[i]); } },' +
@@ -1509,7 +1624,10 @@ test('E2E 集成链 T-UI-04: 真四件同笼(镜像 index.html 装载序)进镇�
       'contains: function(c) { return classes.indexOf(c) >= 0; }},' +
       'setAttribute: function(k, v) { attrs[k] = String(v); },' +
       'getAttribute: function(k) { return k in attrs ? attrs[k] : null; },' +
-      'appendChild: function(c) { this.children.push(c); },' +
+      'appendChild: function(c) { kids.push(c); },' +
+      'removeChild: function(c) { var i = kids.indexOf(c);' +
+      'if (i < 0) { throw new Error("NotFoundError: removeChild 非子件"); }' +
+      'kids.splice(i, 1); return c; },' +
       'click: function() { if (this.onclick) this.onclick({}); }}; };' +
       'var body = mkEl("body");' +
       'return {body: body, createElement: mkEl, getElementById: function() {' +
