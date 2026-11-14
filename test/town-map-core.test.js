@@ -161,7 +161,9 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
     'shop-awning': {min: 8, max: 10, y: [7, 8]}, /* 店 10×8(含前廊 10×9) 高 7-8 */
     'stash-hut': {min: 6, max: 6, y: [5, 6]}, /* 小屋 6×6 高 5-6 */
     'windmill-tower': {min: 6, max: 9, y: [12, 14]}, /* 风车塔体 6×6+叶展 高 12-14 */
-    'cottage-gable': {min: 7, max: 8, y: [6, 6]}, /* 民居 A 8×7 高 6 */
+    /* 民居 A 8×7 高 7(v2 双坡+阶梯山墙, checkpoint 批准几何升级;
+       旧值 6 见 map-design §4.2, 被总纲 §3 G 取代) */
+    'cottage-gable': {min: 7, max: 8, y: [7, 7]},
     'house-loft': {min: 8, max: 10, y: [8, 9]}, /* 民居 B 10×8 高 8-9 */
     'stall-canopy': {min: 2, max: 4, y: [3, 4]}, /* 摊位 3×2~4×3 高 3-4 */
     'under-room': {min: 3, max: 12, y: null}, /* 埋室形状随 v(半宽/出路), 只验界内 */

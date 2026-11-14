@@ -522,8 +522,9 @@ const PF_ROWS = {
       heightTier: 16, /* 档 {14,15,16} 钳域, 封顶比例(缺省 16=顶旗档) */
       flags: true,
       /* 材质注入, 缺省裸数字(总纲 §2 字库→现调色板, T-PREFAB-09 逐槽实义
-          核真): base 石砖中石基座 · wall 石英奶油白填墙(half-timber 墙面) ·
-          pillar/trim 木头暖木-深(角柱与腰线/檐层/门楣——half-timber 框架) ·
+          核真): base 石砖中石基座 · wall 石英奶油白填墙(half-timber 墙面,
+          石英主导) · pillar/trim 木头暖木-深(角柱与门楣/檐层——half-timber
+          框架) ·
           roof 红砖陶橙阶梯顶 · bell 灯块自发光金钟 · window 玻璃板前窗 ·
           flag 粉羊毛顶旗(樱粉) · door/doorTop 门叶两格(关态成对块) */
       ids: {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
@@ -539,22 +540,22 @@ const PF_ROWS = {
           for (let dz = -2; dz <= 3; dz++) put(dx, dy, dz, ids.base);
         }
       }
-      /* dy2..9 塔身: 恰 4×4×8 实心([-1,2]²)half-timber——石英填墙+四角
-          深木角柱贯通+dy5/dy9 两道周界腰线(边中格覆深木, 外读水平木带) */
+      /* dy2..9 塔身: 恰 4×4×8 实心([-1,2]²)half-timber——石英填墙+四角深木
+          角柱贯通。PO 裁决(2026-11-15, 石英主导重平衡): 原 dy5/dy9 两道周界
+          木腰线撤除——4 宽脸面角柱已占 50% 宽, 再叠腰线致木主导、远读似旧
+          木墙(shot 12 误判旧墙残留即此因); 水平节奏改由门楣/窗楣/檐层承担,
+          边中格恒石英板(与风车白塔读感一致) */
       for (let dy = 2; dy <= 9; dy++) {
         for (let dx = -1; dx <= 2; dx++) {
           for (let dz = -1; dz <= 2; dz++) {
             const corner = (dx === -1 || dx === 2) && (dz === -1 || dz === 2);
-            const edge = dx === -1 || dx === 2 || dz === -1 || dz === 2;
-            let id = corner ? ids.pillar : ids.wall;
-            if (!corner && edge && (dy === 5 || dy === 9)) id = ids.trim;
-            put(dx, dy, dz, id);
+            put(dx, dy, dz, corner ? ids.pillar : ids.wall);
           }
         }
       }
       /* 前立面 dz=2 覆写(后写者赢, 序即几何): 门叶两格 (0,2..3,2)=
           door/doorTop(关态成对块) + 门楣 (0,4,2)=trim + 前窗 2w×2h
-          (0..1,6..7,2)=window 玻璃板(门-楣-腰线-窗-腰线的立面节奏) */
+          (0..1,6..7,2)=window 玻璃板(门-楣-石英板带-窗的立面节奏) */
       put(0, 2, 2, ids.door);
       put(0, 3, 2, ids.doorTop);
       put(0, 4, 2, ids.trim);
@@ -612,24 +613,36 @@ const PF_ROWS = {
     },
   },
   'shop-awning': {
-    /* 商店: 店身+前廊遮檐+招牌层的临街铺面(town-prefab-specs §4.2, 视觉对照
-       buildings-visual-spec §7.2 与 §8 去威胁红线——「熔岩」仅作暖橙装饰
-       块意象, 禁真实熔岩/明火)。锚=店身地面中心投影, 局部轴 dx 横/dz 前后/
-       dy 竖, face0=south=店面朝 +dz; 偶宽 NW 偏置同 pfSpan 口径: 宽 10→
-       dx∈[-5,4], 深 8→dz∈[-4,3], 前廊向 +dz 外延 dz=4 一格(平面共 10×9) */
+    /* 商店 v2(视觉重制总纲 §3 G+checkpoint 定稿): 三段式立面店身+前廊柱廊+
+       招牌层的临街铺面(town-prefab-specs §4.2 契约不变; 视觉对照 buildings-
+       visual-spec §7.2 与 §8 去威胁红线——「熔岩」仅作暖橙装饰意象, 禁真实
+       熔岩/明火, 19 灯块=暖光非火)。锚=店身地面中心投影, 局部轴 dx 横/
+       dz 前后/dy 竖, face0=south=店面朝 +dz; 偶宽 NW 偏置同 pfSpan 口径:
+       宽 10→dx∈[-5,4], 深 8→dz∈[-4,3], 前廊向 +dz 外延 dz=4 一格(平面
+       共 10×9)。v2 几何: 墙环改「石英抹灰门脸+木板侧后墙」混搭(§3 M「6
+       木板为主, 17 石英抹灰混搭」), 前廊立深木柱廊(柱 dy1..3+柱顶横梁
+       dy4), 橱窗=68 玻璃板+窗台 19 内藏暖光带(warm 档), 遮檐双层布幔
+       (dy5 天蓝主幔+dy6 奶油上滚边, §2 布幔=15/17), 招牌改「端框 5 深木
+       +板 76 南瓜亮橙(§2「亮橙-招牌」)+icon 中央徽 17 石英剪影」(checkpoint
+       定稿: 19 灯勾边克制不做——灯块只入窗台光带, §8 红线); 门前桶/南瓜
+       陈设省略(checkpoint 裁决: 归 scene 线摊位陈设范畴)。总高不变 dy7
+       封顶, footprint 10×9×8 契约不动。 */
     facing0: 'south',
     defaults: {
       face: 'south', /* 缺省=行 facing0(恒等映射) */
       mirror: false,
-      doorOpen: true, /* 门洞 2w×3h: true 掏空气(白天敞开感)/false 补墙 */
-      windowGlow: 'warm', /* 展示窗区: warm=glow 暖橙装饰块 / none=window 浅色内衬 */
-      signVariant: 'icon', /* 招牌板: icon=底板+图形区 / blank=全底板(图形归纹理层) */
-      /* 材质注入, 缺省裸数字(§4.2 语义→现调色板): base 砂岩浅石地台 ·
-         wall 木板暖木 · roof 红砖陶橙 · trim 木头暖木-深 · awning 羊毛
-         奶油布幔 · signBg 蓝羊毛天蓝 · signAccent 金矿暖金 · glow 灯块
-         暖橙装饰光(灯块非火, §8 允许意象) · window 玻璃浅色内衬 */
-      ids: {base: 58, wall: 6, roof: 9, trim: 5, awning: 52,
-        signBg: 15, signAccent: 38, glow: 19, window: 18},
+      doorOpen: true, /* 门洞 2w×3h: true 掏空气(白天敞开店门)/false 补抹灰墙 */
+      windowGlow: 'warm', /* 橱窗窗台带: warm=glow 19 内藏暖光 / none=plaster 抹灰 */
+      signVariant: 'icon', /* 招牌板: icon=板+中央徽 / blank=全板(徽退场, 零 17) */
+      /* 材质注入, 缺省裸数字(视觉重制 §2 字库 v2 重映射): base 石砖基座 ·
+         wall 木板侧后墙 · plaster 石英抹灰门脸(v2 新槽) · trim 深木角柱/
+         廊柱/横梁/招牌端框 · roof 红砖陶橙 · awning 天蓝主幔(v2 换值) ·
+         awningTrim 奶油上滚边(v2 新槽) · signBg 南瓜亮橙招牌板(旧 15 蓝
+         →76, 招牌语义归「亮橙」字库行) · signAccent 石英白徽(旧 38 金矿
+         →17, checkpoint 定稿) · glow 灯块窗台内藏暖光 · window 玻璃板
+         橱窗(旧 18 玻璃→68 玻璃板, 大面橱窗用带框板) */
+      ids: {base: 13, wall: 6, plaster: 17, trim: 5, roof: 9, awning: 15,
+        awningTrim: 17, signBg: 76, signAccent: 17, glow: 19, window: 68},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z 未用: 纯局部系直写(无地形读数) */
       const ids = e.ids;
@@ -638,38 +651,53 @@ const PF_ROWS = {
         for (let dz = -4; dz <= 4; dz++) put(dx, 0, dz, ids.base);
       }
       /* dy=1..4 店身墙环(店身周界, 不含前廊; 内域不写=空): 四角角柱=trim
-         (暖木-深); 前立面 dz=3 逐格覆写门洞/展示窗——后写者赢, 序即几何 */
+         (深木); 前立面 dz=3 门脸格=plaster 抹灰/侧后墙=wall 木板——后写者赢,
+         序即几何; 前立面逐格覆写橱窗/窗台光带/门洞 */
       for (let dy = 1; dy <= 4; dy++) {
         for (let dx = -5; dx <= 4; dx++) {
           for (let dz = -4; dz <= 3; dz++) {
             const corner = (dx === -5 || dx === 4) && (dz === -4 || dz === 3);
             const onRing = corner || dx === -5 || dx === 4 || dz === -4 || dz === 3;
             if (!onRing) continue; /* 内域空 */
-            let id = corner ? ids.trim : ids.wall;
-            if (dz === 3 && !corner) {/* 前立面地图 */
+            let id = corner ? ids.trim : (dz === 3 ? ids.plaster : ids.wall);
+            if (dz === 3 && !corner) {/* 前立面门脸地图 */
               const win = (dx >= -4 && dx <= -3) || (dx >= 2 && dx <= 3);
-              if (win && dy >= 3) id = e.windowGlow === 'warm' ? ids.glow : ids.window; /* 展示窗 2w×2h */
-              if (dx >= -1 && dx <= 0 && dy <= 3) id = e.doorOpen ? 0 : ids.wall; /* 门洞 2w×3h */
+              if (win) {/* 橱窗 2w×2h: dy3..4=68 玻璃板; 窗台 dy2=19 内藏暖光带 */
+                id = dy >= 3 ? ids.window :
+                  (dy === 2 ? (e.windowGlow === 'warm' ? ids.glow : ids.plaster) :
+                    ids.plaster); /* dy1 窗基=抹灰(光带只在窗台层) */
+              }
+              if (dx >= -1 && dx <= 0 && dy <= 3) id = e.doorOpen ? 0 : ids.plaster; /* 门洞 2w×3h */
             }
             put(dx, dy, dz, id);
           }
         }
       }
-      /* dy=5 檐层: 店身 10×8=roof + 前廊 dz=4 全宽=awning(前檐突出=前廊遮檐) */
+      /* 前廊柱廊(dz=4): 柱 dy1..3 落 dx∈{-5,-2,1,4} 四根 trim 深木柱
+         (两端+门两侧)+dy4 柱顶横梁全宽 trim 一条——廊下空间可穿行 */
+      for (const px of [-5, -2, 1, 4]) {
+        for (let dy = 1; dy <= 3; dy++) put(px, dy, 4, ids.trim);
+      }
+      for (let dx = -5; dx <= 4; dx++) put(dx, 4, 4, ids.trim);
+      /* dy=5 檐层: 店身 10×8=roof + 前廊 dz=4 全宽=awning 天蓝主幔(前檐突出=遮檐) */
       for (let dx = -5; dx <= 4; dx++) {
         for (let dz = -4; dz <= 3; dz++) put(dx, 5, dz, ids.roof);
         put(dx, 5, 4, ids.awning);
       }
-      /* dy=6 阶梯顶内缩一圈: 恰 8×6(dx∈[-4,3]×dz∈[-3,2])=roof, 域外空 */
+      /* dy=6 屋顶内缩一圈 8×6(dx∈[-4,3]×dz∈[-3,2])=roof, 域外空; 前廊
+         dz=4 全宽一行=awningTrim 奶油上滚边——双层布幔阶梯(下蓝大上白窄) */
       for (let dx = -4; dx <= 3; dx++) {
         for (let dz = -3; dz <= 2; dz++) put(dx, 6, dz, ids.roof);
       }
-      /* dy=7 招牌板: 恰宽 6(dx∈[-3,2])×1 厚, dz=4 挑出前廊上空; icon=中央
-         图形区 2 格 signAccent(图标化「鸡+餐盘+暖橙光」占位, 细化归纹理/
-         资产层)夹 signBg 底板, blank=全底板; dy≥8 无物(封顶于 7) */
+      for (let dx = -5; dx <= 4; dx++) put(dx, 6, 4, ids.awningTrim);
+      /* dy=7 招牌板: 恰宽 6(dx∈[-3,2])×1 厚, dz=4 挑出前廊上空——
+         checkpoint 定稿「端框 5+板 76+icon 徽 17@-1..0」: 两端 trim 端框/
+         中间 signBg 亮橙板/icon 档中央 dx∈[-1,0] signAccent 白徽(剪影
+         读法)/blank 档全板零 17(徽退场); dy≥8 无物(封顶于 7) */
       for (let dx = -3; dx <= 2; dx++) {
-        const emblem = e.signVariant === 'icon' && dx >= -1 && dx <= 0;
-        put(dx, 7, 4, emblem ? ids.signAccent : ids.signBg);
+        const frameEnd = dx === -3 || dx === 2;
+        const emblem = !frameEnd && e.signVariant === 'icon' && dx >= -1 && dx <= 0;
+        put(dx, 7, 4, frameEnd ? ids.trim : emblem ? ids.signAccent : ids.signBg);
       }
     },
     /* 脚印: 同参纯算术投影——平面外廓 4 角(店身宽 10×前廊外延 dz=4)过同一
@@ -880,26 +908,43 @@ const PF_ROWS = {
     },
   },
   'cottage-gable': {
-    /* 民居 A: 单层人字/阶梯顶小屋(town-prefab-specs §4.5, 视觉对照
-       buildings-visual-spec §7.3——友好可读, 无烟火烟囱)。锚=小屋地面中心
-       投影, 局部轴 dx 横/dz 前后/dy 竖, face0=south=门窗立面朝 +dz;
-       偶宽 8 NW 偏置 dx∈[-4,3], 奇深 7 居中 dz∈[-3,3](平面恰 8×7)。
-       dy0 基座实心; dy1..3 墙环(内域空腔无家具)+前门 1w×2h+前窗 2w×2h
-       +侧窗; dy4..5 陶橙阶梯顶收分(檐层出挑计入脚印, foot=写域同盒);
-       后侧装饰烟囱(无烟, 受 hasChimney)可选; windowLit 为观感开关(脚印
-       同形域)。材质经 ids 注入, 不焊死。 */
+    /* 民居 A v2(视觉重制总纲 §3 G): 单层「阶梯山墙双坡顶」小屋
+       (town-prefab-specs §4.5 契约不变, 视觉对照 buildings-visual-spec
+       §7.3——友好可读, 无烟火烟囱)。锚=小屋地面中心投影, 局部轴 dx 横/
+       dz 前后/dy 竖, face0=south=门窗立面朝 +dz; 偶宽 8 NW 偏置 dx∈[-4,3],
+       奇深 7 居中 dz∈[-3,3](平面恰 8×7)。
+       v2 几何(§3 M 三段式+§3 G 字面): dy0 石砖基座; dy1..3 墙环(四角深木
+       柱+木板环, 内域空腔无家具)+墙根花坛(门窗域外前墙根 5 格: 草丛/花
+       cross 薄块零成本点缀)+前门 64/65 关态成对门叶(总纲 §2 字库)+前窗
+       「石英框楣 17+玻璃 18」(§3 G「窗框(17 框+18 玻璃)」)+侧窗; 屋顶改
+       「双坡+阶梯山墙」: 脊沿 dz 前后向(门窗立面即山墙立面), dy4 檐层全
+       覆 8×7 → dy5 第二阶 roof 4×5+前后山墙带 wall(dx∈[-2,1]×dz=±3) →
+       dy6 脊带 roof 2×5+山墙顶尖 wall(dx∈[-1,0]×dz=±3)——阶梯三角山墙
+       封端, 总高 dy6(foot y2=y+6, 旧 y+5+1); 后侧装饰烟囱(hasChimney,
+       无烟): dy5=chimney 圆石身+dy6=trim 深木口(总纲「4 石+烟囱口 5 深
+       木」, 54 雪块为山顶尖塔语义与白天态不符, 总纲原文自弃稿裁决);
+       windowLit 预留缝保留(无几何效果, 脚印同形域)。材质经 ids 注入,
+       不焊死。 */
     facing0: 'south',
     defaults: {
       face: 'south', /* 缺省=行 facing0(恒等映射) */
       mirror: false,
       hasChimney: true, /* 装饰烟囱(无烟): 缺省 true, 可关 */
       windowLit: false, /* 预留缝: 当前无几何效果(材质兑现待 spec 补 lit/glow 口径), 脚印同形域 */
-      /* 材质注入, 缺省裸数字(T-PREFAB-09 逐槽实义核真; 旧错号 roof:40=草丛
-          thin 可穿行/window:20=TNT 可点燃 已修禁回退——T-06 house-loft 同款
-          逐字沿袭错号, 测试材质基线钉死): base 砂岩浅石 · wall 木板暖木 ·
-          roof 红砖陶橙阶梯顶 · trim 木头(预留槽未消费) · window 玻璃浅色
-          内衬 · door 木板门叶 · chimney 石头装饰烟囱(无烟) */
-      ids: {base: 58, wall: 6, roof: 9, trim: 5, window: 18, door: 6, chimney: 3},
+      /* 材质注入, 缺省裸数字(视觉重制 §2 字库 v2 重映射; 旧错号 roof:40=
+          草丛 thin 可穿行/window:20=TNT 已修禁回退): base 石砖基座(旧 58
+          砂岩) · wall 木板墙环 · trim 深木角柱+烟囱口(旧预留槽未消费,
+          v2 起消费) · frame 石英窗框楣(v2 新槽) · roof 红砖陶橙双坡顶 ·
+          window 玻璃小窗(民居 18 玻璃, 区别于 shop 橱窗 68 玻璃板) ·
+          door 门叶下格(旧 6 木板→64 真门叶, 总纲 §2「门 64/65」) ·
+          doorTop 门上叶(v2 新槽, 关态成对) · chimney 圆石烟囱身(旧 3
+          石头→4, §2「中石-路缘/纹样」4 圆石) · bedGrass/bedFlower1/
+          bedFlower2 墙根花坛 cross 薄块(v2 新槽×3: 40 草丛/61 蒲公英/
+          62 雏菊, §2「地被零成本点缀」; T-09 审计槽名豁免 thin/
+          replaceable——点缀语义, door/doorTop 槽名豁免先例) */
+      ids: {base: 13, wall: 6, trim: 5, frame: 17, roof: 9, window: 18,
+        door: 64, doorTop: 65, chimney: 4,
+        bedGrass: 40, bedFlower1: 61, bedFlower2: 62},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z/put 未用: 自管朝向与写笔 */
       const ids = e.ids;
@@ -909,38 +954,66 @@ const PF_ROWS = {
         const o = cgO(dx, dz);
         pfCell(x + o[0], y + dy, z + o[1], id);
       };
-      /* dy=0 基座: 恰 8×7 实心板 */
+      /* dy=0 基座: 恰 8×7 实心板(石砖) */
       for (let dx = -4; dx <= 3; dx++) {
         for (let dz = -3; dz <= 3; dz++) cgPut(dx, 0, dz, ids.base);
       }
-      /* dy=1..3 墙环: 周界 wall, 内域不写=空腔(无家具) */
+      /* dy=1..3 墙环: 四角深木柱 trim+周界 wall 木板, 内域不写=空腔(无家具) */
       for (let dy = 1; dy <= 3; dy++) {
         for (let dx = -4; dx <= 3; dx++) {
           for (let dz = -3; dz <= 3; dz++) {
-            const onRing = dx === -4 || dx === 3 || dz === -3 || dz === 3;
-            if (onRing) cgPut(dx, dy, dz, ids.wall);
+            const corner = (dx === -4 || dx === 3) && (dz === -3 || dz === 3);
+            const onRing = corner || dx === -4 || dx === 3 || dz === -3 || dz === 3;
+            if (onRing) cgPut(dx, dy, dz, corner ? ids.trim : ids.wall);
           }
         }
       }
-      /* 前立面(+dz, dz=3)开口与窗: 门 1w×2h dx=-1, dy1..2(门材质在位) */
+      /* 墙根花坛(v2 新增): 前墙根 dz=3 门窗域外格(dy1, 后写覆写墙根)——
+         门左带 3 格(草丛/蒲公英/草丛)+窗下 2 格(雏菊/草丛), cross 薄块
+         贴地读法=花从墙根长出 */
+      cgPut(-4, 1, 3, ids.bedGrass);
+      cgPut(-3, 1, 3, ids.bedFlower1);
+      cgPut(-2, 1, 3, ids.bedGrass);
+      cgPut(1, 1, 3, ids.bedFlower2);
+      cgPut(2, 1, 3, ids.bedGrass);
+      /* 前门(dx=-1, dy1..2, dz=3): 64 门叶下格+65 门上叶——关态成对块,
+         后写覆写墙环(v2 真门叶, 旧 6 木板门叶) */
       cgPut(-1, 1, 3, ids.door);
-      cgPut(-1, 2, 3, ids.door);
-      /* 前窗 2w×2h: dx∈[1,2], dy2..3 连续 ids.window */
-      for (let dx = 1; dx <= 2; dx++) {
-        for (let dy = 2; dy <= 3; dy++) cgPut(dx, dy, 3, ids.window);
-      }
-      /* 侧窗: 右侧墙面 x=3(非前后立面) dy2 放 ids.window */
+      cgPut(-1, 2, 3, ids.doorTop);
+      /* 前窗 2w×2h(dx∈[1,2], dz=3): dy2=18 玻璃+dy3=17 石英框楣——
+         「窗框(17 框+18 玻璃)」(后写覆写墙环) */
+      cgPut(1, 2, 3, ids.window);
+      cgPut(2, 2, 3, ids.window);
+      cgPut(1, 3, 3, ids.frame);
+      cgPut(2, 3, 3, ids.frame);
+      /* 侧窗: 右侧墙面 dx=3(非前后立面) dy2 一格 window */
       cgPut(3, 2, 0, ids.window);
-      /* dy=4..5 陶橙阶梯顶: dy4 全覆 8×7, dy5 内缩一圈 6×5(收分) */
+      /* dy=4 檐层: roof 全覆 8×7(出挑计入脚印) */
       for (let dx = -4; dx <= 3; dx++) {
         for (let dz = -3; dz <= 3; dz++) cgPut(dx, 4, dz, ids.roof);
       }
-      for (let dx = -3; dx <= 2; dx++) {
+      /* dy=5 屋面第二阶: roof 4×5(dx∈[-2,1]×dz∈[-2,2])+前后山墙带
+         wall(dx∈[-2,1]×dz=±3)——阶梯山墙封端(山墙从檐上生, 门窗面
+         即山墙立面) */
+      for (let dx = -2; dx <= 1; dx++) {
         for (let dz = -2; dz <= 2; dz++) cgPut(dx, 5, dz, ids.roof);
+        cgPut(dx, 5, -3, ids.wall);
+        cgPut(dx, 5, 3, ids.wall);
       }
-      /* 后侧装饰烟囱(无烟): hasChimney 时后沿 dz=-3 单格 dy5,
-         正上方 dy6 无物(无烟); foot 已覆盖 dy0..5 */
-      if (e.hasChimney) cgPut(-2, 5, -3, ids.chimney);
+      /* dy=6 脊带: roof 2×5(dx∈[-1,0]×dz∈[-2,2])+山墙顶尖
+         wall(dx∈[-1,0]×dz=±3)——阶梯三角收顶; dy≥7 无物 */
+      for (let dx = -1; dx <= 0; dx++) {
+        for (let dz = -2; dz <= 2; dz++) cgPut(dx, 6, dz, ids.roof);
+        cgPut(dx, 6, -3, ids.wall);
+        cgPut(dx, 6, 3, ids.wall);
+      }
+      /* 后侧装饰烟囱(无烟; hasChimney 收放): dz=-3 后沿 dx=-2——
+         dy5=chimney 圆石身(后写覆写同格山墙带)+dy6=trim 深木口
+         (「4 石+口 5 深木」, 白天态无烟, 口即顶格) */
+      if (e.hasChimney) {
+        cgPut(-2, 5, -3, ids.chimney);
+        cgPut(-2, 6, -3, ids.trim);
+      }
     },
     foot(e, x, y, z, orient) {
       const rot = PF_ROTS[(PF_FACE_K[e.face] - PF_FACE_K['south'] + 4) % 4];
@@ -952,42 +1025,47 @@ const PF_ROWS = {
           z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
         }
       }
-      /* 8×7 基座/檐同域, 全写入落在 dy0..5(含后侧装饰烟囱, 无烟), 高 6 */
-      return {x1, y1: y, z1, x2, y2: y + 5, z2};
+      /* 8×7 基座/檐同域, 全写入落在 dy0..6(双坡脊带/山墙顶尖/烟囱口
+         同高 dy6, 无烟), 高 7(旧 6+1: 山墙阶梯与脊带上移) */
+      return {x1, y1: y, z1, x2, y2: y + 6, z2};
     },
   },
   'house-loft': {
-    /* 民居 B: 双层挑窗/错顶形联排感民居(town-prefab-specs §4.6, 视觉对照
-       buildings-visual-spec §7.4——双层错落丰富轮廓, 与民居 A 组合成街区)。
-       锚=地面中心投影, 局部轴 dx 横/dz 前后/dy 竖, face0=south=门窗立面朝
-       +dz; 偶宽 NW 偏置同 pfSpan 口径(shop-awning 同尺寸 10×8 先例):
-       宽 10→dx∈[-5,4], 深 8→dz∈[-4,3](平面恰 10×8)。dy0 浅石基座; dy1..3
-       一层墙环(内域空腔无家具, cottage/stash 先例)+前门 1w×2h+一层窗 2 组
-       (前窗 2w×2h+东侧窗); dy4..6 二层内缩一圈 8×6 墙环(§7.4「略内缩或
-       挑窗体量感」落内缩档, 挑窗细节归纹理层)+二层前立面窗 2 组(窗面随
-       内缩退至 dz=2)+前立面外挑小阳台(balcony 缺省 true: 2×1 暖木平台
-       dy4+两端矮栏 dy5); dy7 低屋面全域+dy8 高屋面北半内缩 8×4——前后
-       错落陶橙顶(错高落差 1 层为本票拍的默认), dy9 无物, 总高 9(错顶最
-       高点计入)。awningAccent 缺省 true(布幔点缀, cottage hasChimney 装饰
-       缺省 true 先例): 一层前窗上沿窗楣 2 格 trim(§7.4「可挂天蓝小布幔
-       一角」的几何占位, 色彩归纹理层), false 落回窗材——差分同盒。材质
-       经 ids 注入不焊死; 无光/火语义槽位(ids 白名单无 torch/glow,
+    /* 民居 B v2(视觉重制总纲 §3 G): 双层「挑窗/错顶/布幔阳台」联排感
+       民居(town-prefab-specs §4.6 契约不变, 视觉对照 buildings-visual-
+       spec §7.4——双层错落丰富轮廓, 与民居 A 组合成街区)。锚=地面中心
+       投影, 局部轴 dx 横/dz 前后/dy 竖, face0=south=门窗立面朝 +dz;
+       偶宽 NW 偏置同 pfSpan 口径(shop-awning 同尺寸 10×8 先例): 宽 10→
+       dx∈[-5,4], 深 8→dz∈[-4,3](平面恰 10×8)。
+       v2 几何(§3 M 三段式+§3 G 字面): dy0 石砖基座; dy1..3 一层墙环
+       (四角深木柱+前侧木板/后墙石英抹灰混搭)+前门 64/65 关态成对门叶+
+       一层窗「框楣 17+玻璃 18」(窗楣布幔: awningAccent true 覆 15 天蓝
+       小布幔, §7.4「可挂天蓝小布幔一角」落真布幔块)+东侧窗; dy4..6 二层
+       内缩一圈 8×6 墙环+二层窗组①真挑窗(dx∈[-3,-2]: dy4 trim 托架+
+       dy5..6 窗体外挑 dz=3 至一层立面线, 「二层挑窗」体量感; 组②
+       dx∈[1,2] 阳台落地窗保持 dz=2)+前立面外挑小阳台(balcony: dy4 暖木
+       平台+dy5 布幔帘栏 awning 天蓝——「布幔阳台」); dy7 低屋面全域
+       (周界 trim 深木檐口线+内域 roof, §3 M「檐口 5 深木描边」)+dy8 高
+       屋面北半内缩 8×4 全 roof——前后错落陶橙顶, dy9 无物, 总高 9 不变。
+       材质经 ids 注入不焊死; 无光/火语义槽位(ids 白名单无 torch/glow,
        §8 去威胁红线)。 */
     facing0: 'south',
     defaults: {
       face: 'south', /* 缺省=行 facing0(恒等映射) */
       mirror: false,
-      balcony: true, /* 二层前立面小阳台(平台+矮栏): 缺省 true, 可关 */
-      awningAccent: true, /* 布幔点缀(窗楣占位): 缺省 true, 可关 */
-      /* 材质注入, 缺省裸数字(§4.6 语义→现调色板, 均为真方块 id——评审
-          必须修改真): base 砂岩浅石基座(58) · wallA 木板一层面板(6) ·
-         wallB 木头后墙面(5, 与 trim/balcony 同方块——同料异名槽, 混搭
-         靠 6 木板/5 木头两档真方块成立) · roof 红砖陶橙错落顶(9,
-         shop-awning 先例; 40=草丛 thin 可穿行不可作顶) · trim 木头
-         角柱与窗楣(5) · window 玻璃浅色内衬(18, shop 先例; 20=TNT
-         触 §8 去威胁红线, 禁作缺省窗) · door 木板门叶(6) · balcony
-         木头阳台平台与矮栏(5, §7.4「2×1 暖木平台+矮栏视觉」, 同 trim 料) */
-      ids: {base: 58, wallA: 6, wallB: 5, roof: 9, trim: 5, window: 18, door: 6, balcony: 5},
+      balcony: true, /* 二层前立面小阳台(暖木平台+布幔帘栏): 缺省 true, 可关 */
+      awningAccent: true, /* 一层窗楣布幔(15 天蓝真块): 缺省 true, false 落回窗框楣 */
+      /* 材质注入, 缺省裸数字(视觉重制 §2 字库 v2 重映射, 均为真方块 id):
+          base 石砖基座(旧 58 砂岩) · wallA 木板前侧墙(6 不变) · wallB
+          石英抹灰后墙(旧 5 木头→17, §3 M「17 石英抹灰混搭」) · roof 红
+          砖陶橙错落顶(9 不变) · trim 深木角柱/挑窗托架/檐口线(5 不变) ·
+          window 玻璃小窗(18 不变, 民居口径) · frame 石英窗框楣(v2 新槽,
+          「17 框+18 玻璃」) · door 门叶下格(旧 6 木板→64 真门叶) ·
+          doorTop 门上叶(v2 新槽, 关态成对) · balcony 暖木阳台平台(5
+          不变, §7.4「2×1 暖木平台」) · awning 天蓝布幔(v2 新槽: 窗楣
+          布幔+阳台帘栏, §2「天蓝-布幔」; 布幔真块化替代旧 trim 占位) */
+      ids: {base: 13, wallA: 6, wallB: 17, roof: 9, trim: 5, window: 18,
+        frame: 17, door: 64, doorTop: 65, balcony: 5, awning: 15},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z/orient 未用: 纯局部系直写,
         朝向与镜像统一走 place 传入的 put 通道, kernel 不自管朝向(票文
@@ -996,15 +1074,15 @@ const PF_ROWS = {
         「域内镜像盒不动」的自管 cgO) */
       const ids = e.ids;
       /* 写序=覆写优先级(后写者赢, 序即几何): 基座→一层墙环→门窗(覆写
-          前立面)→二层墙环→二层窗(覆写二层前立面)→外挑阳台(二层立面外
-          空域, 不覆写)→错落顶(立面之上)→布幔窗楣(覆写窗上沿) */
-      /* dy=0 基座: 恰 10×8 实心板, 域外无物 */
+          前立面)→窗楣布幔(覆写窗框)→二层墙环→二层窗/挑窗(覆写二层
+          前立面)→阳台(立面外空域, 不覆写)→错落顶(立面之上) */
+      /* dy=0 基座: 恰 10×8 实心板(石砖), 域外无物 */
       for (let dx = -5; dx <= 4; dx++) {
         for (let dz = -4; dz <= 3; dz++) put(dx, 0, dz, ids.base);
       }
-      /* dy=1..3 一层墙环(周界实/内域 8×6 空腔无家具): 暖木-浅/中混搭——
-          四角 trim 角柱(tower-belfry corner 先例)/后墙面 dz=-4=wallB/
-          侧山墙+前立面=wallA */
+      /* dy=1..3 一层墙环(周界实/内域 8×6 空腔无家具): 三段式混搭——
+          四角 trim 角柱(tower/cottage 先例)/后墙面 dz=-4=wallB 石英抹灰/
+          前侧墙 dz=3+侧山墙=wallA 木板 */
       for (let dy = 1; dy <= 3; dy++) {
         for (let dx = -5; dx <= 4; dx++) {
           for (let dz = -4; dz <= 3; dz++) {
@@ -1017,17 +1095,22 @@ const PF_ROWS = {
           }
         }
       }
-      /* 前门 1w×2h(dx=-1, dy1..2, dz=3)=door 材质块常在(本行无 door 开关
-          轴); 一层前窗组 2w×2h(dx∈[1,2], dy2..3, dz=3)+东侧窗(一层窗第
-          2 组, cottage 侧窗先例)——后写覆写前立面 */
+      /* 前门(dx=-1, dy1..2, dz=3): 64 门叶下格+65 门上叶——关态成对块,
+         后写覆写前立面(v2 真门叶); 一层前窗 2w×2h(dx∈[1,2]): dy2=18
+         玻璃+dy3=17 石英框楣+东侧窗(dx=4, dy2)——后写覆写前立面 */
       put(-1, 1, 3, ids.door);
-      put(-1, 2, 3, ids.door);
-      for (let dx = 1; dx <= 2; dx++) {
-        for (let dy = 2; dy <= 3; dy++) put(dx, dy, 3, ids.window);
-      }
+      put(-1, 2, 3, ids.doorTop);
+      for (let dx = 1; dx <= 2; dx++) put(dx, 2, 3, ids.window);
+      for (let dx = 1; dx <= 2; dx++) put(dx, 3, 3, ids.frame);
       put(4, 2, 0, ids.window);
+      /* 窗楣布幔(awningAccent 收放): true 时前窗框楣 dy3 行覆 awning
+         天蓝布幔 2 格(§7.4「天蓝小布幔一角」真块化; 后写覆写框楣),
+         false=保留石英框楣——差分真实且同盒 */
+      if (e.awningAccent) {
+        for (let dx = 1; dx <= 2; dx++) put(dx, 3, 3, ids.awning);
+      }
       /* dy=4..6 二层墙环: 内缩一圈 8×6(dx∈[-4,3]×dz∈[-3,2]), 混搭同
-          一层口径(角柱 trim/后墙 wallB/面板 wallA) */
+          一层口径(角柱 trim/后墙 dz=-3=wallB 抹灰/前侧+侧山墙=wallA) */
       for (let dy = 4; dy <= 6; dy++) {
         for (let dx = -4; dx <= 3; dx++) {
           for (let dz = -3; dz <= 2; dz++) {
@@ -1040,39 +1123,46 @@ const PF_ROWS = {
           }
         }
       }
-      /* 二层窗 2 组(前立面 dz=2——窗面随内缩退一格, 挑窗体量感): 组①
-          dx∈[-3,-2] · 组② dx∈[1,2](阳台落地窗位, 呼应 §7.4 Front 图
-          「阳台窗」), 各 2w×2h dy5..6——后写覆写二层前立面 */
-      for (const wx of [-3, -2, 1, 2]) {
-        for (let dy = 5; dy <= 6; dy++) put(wx, dy, 2, ids.window);
+      /* 二层窗组①真挑窗(dx∈[-3,-2], §3 G「二层挑窗」): dy4 trim 托架
+          2 格(dz=3, 挑窗底托, 立面外空域)+dy5..6 窗体外挑 dz=3 至一层
+          立面线(dy5=18 玻璃/dy6=17 框楣, 后写覆写; 与二层墙 dz=2 错一
+          格=凸出体量感); 组②阳台落地窗(dx∈[1,2], dy5..6)保持 dz=2
+          (窗面随内缩, 阳台位呼应 §7.4 Front 图「阳台窗」) */
+      for (const wx of [-3, -2]) {
+        put(wx, 4, 3, ids.trim);
+        put(wx, 5, 3, ids.window);
+        put(wx, 6, 3, ids.frame);
       }
-      /* 前立面外挑小阳台(balcony 收放, §7.4「2×1 暖木平台+矮栏视觉」):
-          平台 dy4 dx∈[1,2]×dz=3 悬挑于二层立面外一格(下方即一层前墙)+
-          矮栏 dy5 两端各一格——二层立面外空域, 不覆写墙体 */
+      for (const wx of [1, 2]) {
+        put(wx, 5, 2, ids.window);
+        put(wx, 6, 2, ids.frame);
+      }
+      /* 前立面外挑小阳台(balcony 收放, 「布幔阳台」): 平台 dy4 dx∈[1,2]
+          ×dz=3 暖木(悬挑于二层立面外一格, 下方即一层前墙)+帘栏 dy5
+          dx∈[1,2]×dz=3 awning 天蓝布幔帘(布幔垂坠读法, 替代旧 trim 矮
+          栏)——立面外空域, 不覆写墙体 */
       if (e.balcony) {
         for (let dx = 1; dx <= 2; dx++) put(dx, 4, 3, ids.balcony);
-        put(1, 5, 3, ids.balcony);
-        put(2, 5, 3, ids.balcony);
+        for (let dx = 1; dx <= 2; dx++) put(dx, 5, 3, ids.awning);
       }
-      /* dy=7 低屋面: 全域 10×8=roof; dy=8 高屋面: 北半内缩 8×4(dx∈[-4,3]×
-          dz∈[-4,-1])——前后错落陶橙顶(高屋面在北, §7.4 Top 图错落屋顶
-          面; 错高落差 1 层), dy9 无物(封顶 dy8, 总高 9) */
+      /* dy=7 低屋面: 全域 10×8——周界一圈 trim 深木檐口线(§3 M「檐口 5」
+          描边读法)+内域 roof; dy=8 高屋面: 北半内缩 8×4(dx∈[-4,3]×
+          dz∈[-4,-1])全 roof 覆写(错高落差 1 层; 高层带无檐线=错层次),
+          dy9 无物(封顶 dy8, 总高 9 不变) */
       for (let dx = -5; dx <= 4; dx++) {
-        for (let dz = -4; dz <= 3; dz++) put(dx, 7, dz, ids.roof);
+        for (let dz = -4; dz <= 3; dz++) {
+          const rim = dx === -5 || dx === 4 || dz === -4 || dz === 3;
+          put(dx, 7, dz, rim ? ids.trim : ids.roof);
+        }
       }
       for (let dx = -4; dx <= 3; dx++) {
         for (let dz = -4; dz <= -1; dz++) put(dx, 8, dz, ids.roof);
       }
-      /* 布幔点缀(awningAccent 收放): 一层前窗上沿窗楣 dx∈[1,2]×dy3 一行
-          2 格 trim(§7.4「可挂天蓝小布幔一角」的几何占位, 色彩归纹理层)——
-          后写覆写窗上沿, 关=落回窗材(差分真实且同盒) */
-      if (e.awningAccent) {
-        for (let dx = 1; dx <= 2; dx++) put(dx, 3, 3, ids.trim);
-      }
     },
     /* 脚印: 同参纯算术投影——平面 4 角([-5,4]×[-4,3] 过同一张朝向表, 90°
         旋转盒恒轴对齐; mirror 含 -dx 翻转, 偶宽体盒平移一格同被 4 角
-        min/max 包络), y 域取写笔最低/最高层(dy0 基座..dy8 错顶最高点) */
+        min/max 包络), y 域取写笔最低/最高层(dy0 基座..dy8 错顶最高点;
+        挑窗/阳台 dz=3 在平面域内) */
     foot(e, x, y, z, orient) {
       let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
       for (const dx of [-5, 4]) {

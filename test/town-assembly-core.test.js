@@ -40,15 +40,20 @@ const ROOT = path.join(__dirname, '..');
 const CORE_SRC = path.join(ROOT, 'js', 'town-assembly-core.js');
 
 /* ③ 钉值独立字面量: 设计权威(map-design §3-§4 + prefab-specs §4 材质语义 +
-   T-09 基线)的测试侧转录, 不引用实现常量(反同义反复)。 */
+   T-09 基线; v2 起以 town-visual-revamp-spec §2 字库为准)的测试侧转录,
+   不引用实现常量(反同义反复)。扩键登记见 town-assembly-core.js 头注释。 */
 const PALETTE_WANT = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
       window: 68, flag: 78, door: 64, doorTop: 65},
-    'shop-awning': {base: 58, wall: 6, roof: 9, trim: 5, awning: 52, signBg: 15, signAccent: 38, glow: 19, window: 18},
+    'shop-awning': {base: 13, wall: 6, plaster: 17, trim: 5, roof: 9,
+      awning: 15, awningTrim: 17, signBg: 76, signAccent: 17, glow: 19, window: 68},
     'windmill-tower': {base: 13, wall: 17, roof: 9, trim: 5, blade: 6, axle: 76, accent: 17},
-    'cottage-gable': {base: 58, wall: 6, roof: 9, trim: 5, window: 18, door: 6, chimney: 3},
-    'house-loft': {base: 58, wallA: 6, wallB: 5, roof: 9, trim: 5, window: 18, door: 6, balcony: 5},
+    'cottage-gable': {base: 13, wall: 6, trim: 5, frame: 17, roof: 9, window: 18,
+      door: 64, doorTop: 65, chimney: 4,
+      bedGrass: 40, bedFlower1: 61, bedFlower2: 62},
+    'house-loft': {base: 13, wallA: 6, wallB: 17, roof: 9, trim: 5, window: 18,
+      frame: 17, door: 64, doorTop: 65, balcony: 5, awning: 15},
     'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 6, metalAccent: 12},
     'under-room': {chest: 51, torch: 48, cap: 8, land: 58},
     'stall-canopy': {frame: 5, counter: 6, goods: 38},
@@ -140,7 +145,7 @@ test('palette 完整性: 七段结构在册 · prefab 八行对齐实例清单 �
       'stall-canopy 缺 canopy 键: 布幔 theme 映射单源引擎侧 PF_STALL_CANOPY(双源即漂移)');
 });
 
-test('T-09 材质安全基线: 城镇七行零危险旗标(door/doorTop 槽名豁免)+零显式错用 · under-room 只检显式(火把既有语义)', () => {
+test('T-09 材质安全基线: 城镇七行零危险旗标(door/doorTop 门叶+bed* 花坛槽名豁免)+零显式错用 · under-room 只检显式(火把既有语义)', () => {
   const ctx = loadCore();
   const report = JSON.parse(probe(ctx, `JSON.stringify((() => {
     const FLAGS = ${JSON.stringify(DANGER_FLAGS)};
@@ -153,10 +158,15 @@ test('T-09 材质安全基线: 城镇七行零危险旗标(door/doorTop 槽名�
         if (!town.includes(row)) continue; /* 收编行: 旗标检止于显式清单(prefab-kit 先例) */
         const def = BLOCKS[bid];
         for (const f of FLAGS) {
-          /* v2 门叶两格按槽名豁免(总纲 §2 字库: 门=64/65 关态成对块, tower
-             先例 cottage/shop 复用; 槽值仍受 BAD 显式清单管辖, 非槽名门族块
-             66/67 开态等仍违例) */
-          if (f === 'door' && (slot === 'door' || slot === 'doorTop')) continue;
+          /* v2 槽名豁免(总纲 §2 字库; prefab-kit EXEMPT_SLOT_FLAGS 同源):
+             door/doorTop 槽=关态门叶 64/65 豁免 door 旗标; bedGrass/
+             bedFlower1/bedFlower2 槽=墙根花坛 40/61/62 薄块点缀豁免 thin/
+             replaceable。槽值仍受 BAD 显式清单管辖, 非槽名门族块/裸草花仍违例 */
+          if ((f === 'door' && (slot === 'door' || slot === 'doorTop')) ||
+              ((f === 'thin' || f === 'replaceable') &&
+                  (slot === 'bedGrass' || slot === 'bedFlower1' || slot === 'bedFlower2'))) {
+            continue;
+          }
           if (def && def[f]) out.flag.push(row + '.' + slot + '=' + bid + '(' + f + ')');
         }
       }
@@ -257,6 +267,11 @@ test('place 执行见证: 13 实例全落场 — pfMerge 行键×蓝图键面耦
   const windOp = places.find((o) => o.id === 'windmill-tower');
   assert.strictEqual(windOp.v.ids.accent, PALETTE_WANT.prefab['windmill-tower'].accent,
       'windmill 行 accent 槽已并入 place v');
+  const cotOp = places.find((o) => o.id === 'cottage-gable');
+  assert.strictEqual(cotOp.v.ids.bedGrass, PALETTE_WANT.prefab['cottage-gable'].bedGrass,
+      'cottage 行 bedGrass 槽(花坛)已并入 place v');
+  assert.strictEqual(cotOp.v.ids.frame, PALETTE_WANT.prefab['cottage-gable'].frame,
+      'cottage 行 frame 槽(窗框楣)已并入 place v');
   for (const o of places) {
     rec.length = 0;
     const box = vm.runInContext(

@@ -31,15 +31,27 @@
    ——stall-canopy 布幔 canopy 键不在此(引擎侧 theme 映射 PF_STALL_CANOPY
    单源, 双源即漂移)。ground.plazaBand/road.curb 两键为本轮新字库槽位
    (广场边带砂岩 58/路缘石砖 13): 只登记不接线, 消费归 scene 师下一批
-   steps 扩 kind, 本件派生分支域不变。 */
+   steps 扩 kind, 本件派生分支域不变。
+   Step C 扩键登记(arch 岗, 2026-11-15; pfMerge 行键⊆蓝图缺省 ids 键,
+   行与蓝图 kernel 同 commit): shop-awning +plaster/awningTrim(抹灰门脸/
+   布幔上滚边), 换值 signBg 15→76/signAccent 38→17/awning 52→15/window
+   18→68; cottage-gable +frame/doorTop/bedGrass/bedFlower1/bedFlower2
+   (窗框楣/门上叶/墙根花坛三格), 换值 base 58→13/door 6→64/chimney
+   3→4; house-loft +frame/doorTop/awning(窗框楣/门上叶/布幔), 换值
+   base 58→13/wallB 5→17/door 6→64。花坛三槽=40/61/62 cross 薄块,
+   T-09 审计按槽名豁免 thin/replaceable(door/doorTop 槽名豁免先例)。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
       window: 68, flag: 78, door: 64, doorTop: 65},
-    'shop-awning': {base: 58, wall: 6, roof: 9, trim: 5, awning: 52, signBg: 15, signAccent: 38, glow: 19, window: 18},
+    'shop-awning': {base: 13, wall: 6, plaster: 17, trim: 5, roof: 9,
+      awning: 15, awningTrim: 17, signBg: 76, signAccent: 17, glow: 19, window: 68},
     'windmill-tower': {base: 13, wall: 17, roof: 9, trim: 5, blade: 6, axle: 76, accent: 17},
-    'cottage-gable': {base: 58, wall: 6, roof: 9, trim: 5, window: 18, door: 6, chimney: 3},
-    'house-loft': {base: 58, wallA: 6, wallB: 5, roof: 9, trim: 5, window: 18, door: 6, balcony: 5},
+    'cottage-gable': {base: 13, wall: 6, trim: 5, frame: 17, roof: 9, window: 18,
+      door: 64, doorTop: 65, chimney: 4,
+      bedGrass: 40, bedFlower1: 61, bedFlower2: 62},
+    'house-loft': {base: 13, wallA: 6, wallB: 17, roof: 9, trim: 5, window: 18,
+      frame: 17, door: 64, doorTop: 65, balcony: 5, awning: 15},
     'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 6, metalAccent: 12},
     'under-room': {chest: 51, torch: 48, cap: 8, land: 58},
     'stall-canopy': {frame: 5, counter: 6, goods: 38},
