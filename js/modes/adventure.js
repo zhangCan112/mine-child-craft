@@ -46,7 +46,11 @@
       advTownReturnTick(T-SEAM-03 镇侧回程触发线装配: town 维度专属,
       z≥132 带式白闪回 home, 线值常量 ADV_TOWN_RETURN_Z; 几何=
       town-map-design §6.3.5, east 来向锚在 adventure-maps-core
-      ADV_HOME_EDGE_GATES)
+      ADV_HOME_EDGE_GATES) ·
+      advTownInteractBoot(T-SEAM-04 镇内交互宿主建机: 进镇建 mkTownTargets
+      机器/离镇弃机, 每次进场新机不串轮, core 只消费不复制) ·
+      advTownTargets(壳层镇内交互机运行态, 经 advTownState 挂点透出;
+      与模式壳 town.js 旧接线两宿主变量空间互不触碰)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
       adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
        index.html 加载序在 adventure-core 之前) ·
@@ -4872,6 +4876,7 @@ const AdventureMode = mkMode({
     adventure-core 常量表与纯函数经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
       · advSleepClock(时钟拨盘态) · advNetherState(下界相位·地图态只读快照: dim/map/portalCd/exitSpot)
+      · advTownState(镇内交互机只读快照)
       · advPumpkinRegen(南瓜采集账访问器, mob-crafting T2 测试播种缝) · advPumpkinRegenTick(回填直调)
       · advGolemsAll(golems 桶访问器, T6 断言缝) · advGolemTick(AI 直调, 清场测试用)
       · advTryRepairGolem(修理直调, 行为面同触屏键) · advSweepNightMobs(清场直调, 免疫测试缝)
