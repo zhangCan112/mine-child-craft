@@ -22,14 +22,15 @@ const vm = require('node:vm');
 const ROOT = path.join(__dirname, '..');
 
 function loadCore() {/* vm 装载链: 引擎件按 index.html 序 + 本票新件(尾部);
-    PrefabKit 仅供测试侧 footOf 校验(town-map-core 本体零运行时依赖) */
+    PrefabKit 仅供测试侧 footOf 校验(town-map-core 本体零运行时依赖);
+    TOWN_NPC_ANCHORS 供散布 npc 避让断言(纯数据零依赖) */
   const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
   for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
-    'js/town-map-core.js']) {
+    'js/town-map-core.js', 'js/town-npc-anchor-core.js']) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
   }
   return vm.runInContext(
-      '({TOWN_MAP, townBuildSteps, PrefabKit, WORLD_W, WORLD_D, WORLD_H})', eng);
+      '({TOWN_MAP, townBuildSteps, PrefabKit, TOWN_NPC_ANCHORS, WORLD_W, WORLD_D, WORLD_H})', eng);
 }
 
 /* ---- 几何小工具: xz 闭区间矩形(闭盒)的交/隙 ---- */
@@ -269,7 +270,7 @@ test('地表: 广场铺装=广场域 · 农田成组(8×12~10×14)归田园带 �
   const c = loadCore();
   const t = c.TOWN_MAP;
   const plazas = t.ground.filter((g) => g.kind === 'plaza');
-  const farms = t.ground.filter((g) => g.kind === 'farm');
+  const farms = t.ground.filter((g) => g.kind === 'farm' || g.kind === 'farm-rows');
   assert.strictEqual(plazas.length, 1, '广场铺装恰一条');
   assert.deepStrictEqual([plazas[0].x1, plazas[0].z1, plazas[0].x2, plazas[0].z2],
       [t.plaza.x1, t.plaza.z1, t.plaza.x2, t.plaza.z2], '铺装域=plaza 常量(28×28)');
@@ -282,10 +283,33 @@ test('地表: 广场铺装=广场域 · 农田成组(8×12~10×14)归田园带 �
     assert.ok(w >= 8 && w <= 10 && d >= 11 && d <= 14,
         '农田组 ' + w + '×' + d + ' ∈ 8×12~10×14(§4.2 P1-03 体量)');
   }
+  /* 视觉重制 §3 E(v2): farm 两块升格 farm-rows 田垄(域不变, 派生侧垄/
+     围栏/作物轮转; 域不变=npc 站位与巡逻面零连累) */
+  assert.strictEqual(farms.filter((f) => f.kind === 'farm-rows').length, 2,
+      '农田恰 2 组且全为 farm-rows 田垄(v2 升格)');
   for (const g of t.ground) {
     assert.ok(g.x1 >= t.core.x1 && g.x2 <= t.core.x2 && g.z1 >= t.core.z1 && g.z2 <= t.core.z2,
         '地表条目 ⊆ 核心区(' + g.id + ')');
   }
+  /* 断头小坪(v2 #6): 恰 2 处 5×5, 贴 main-east/main-south 断头端外侧,
+     与任何路域/缘石线零交(写序无关化), 坪内恰含既有驿站灯柱 1 根 */
+  const shrines = t.ground.filter((g) => g.kind === 'wayshrine');
+  assert.strictEqual(shrines.length, 2, '断头小坪恰 2 处(v2 #6)');
+  for (const w of shrines) {
+    assert.strictEqual(spanOf(w.x1, w.x2) * spanOf(w.z1, w.z2), 25,
+        '小坪 5×5(' + w.id + ')');
+    for (const r of t.roads) {
+      assert.ok(!(w.x1 <= r.x2 && r.x1 <= w.x2 && w.z1 <= r.z2 && r.z1 <= w.z2),
+          '小坪不压路域(' + w.id + ' × ' + r.id + ')');
+    }
+    const lamps = t.scatter.filter((s) => s.kind === 'lamp' &&
+        s.x >= w.x1 && s.x <= w.x2 && s.z >= w.z1 && s.z <= w.z2);
+    assert.strictEqual(lamps.length, 1, '坪内恰 1 驿站灯柱(' + w.id + '：v1 灯柱+v2 圆石小坪会师)');
+  }
+  assert.ok(t.ground.some((g) => g.kind === 'wayshrine' &&
+      g.x1 > 120 && g.z1 > 83 && g.z2 < 89), '东驿站坪贴 main-east 断头端');
+  assert.ok(t.ground.some((g) => g.kind === 'wayshrine' &&
+      g.z1 > 118 && g.x1 > 75 && g.x2 < 81), '南驿站坪贴 main-south 断头端');
 });
 
 /* ============ ⑨ 远景剪影(map-design §4.2 R-01..03 · M7 默认) ============ */
@@ -294,7 +318,8 @@ test('远景: 拱形山体必做横贯 · 崖屋 1-2 栋 · 神庙默认不落 �
   const c = loadCore();
   const t = c.TOWN_MAP;
   for (const b of t.backdrop) {
-    assert.ok(['mountain', 'cliff-home'].includes(b.kind), '远景 kind ∈ mountain/cliff-home');
+    assert.ok(['mountain', 'cliff-home', 'scrub', 'boulder'].includes(b.kind),
+        '远景 kind ∈ mountain/cliff-home/scrub/boulder(v2 山缘植被)');
     assert.strictEqual(b.reachable, false, '远景不可达(' + b.id + ')');
   }
   assert.ok(!t.backdrop.some((b) => b.kind === 'temple'),
@@ -333,19 +358,58 @@ test('远景: 拱形山体必做横贯 · 崖屋 1-2 栋 · 神庙默认不落 �
       cliffs.some((h) => h.x < center(tb.x1, tb.x2)) &&
       cliffs.some((h) => h.x > center(tb.x1, tb.x2)),
   '崖屋 2 栋分列钟塔轴两侧(塔影不吞剪影)');
+  /* 山缘植被(v2 #7): 矮丛×4+苔石×3 落低柱段墙顶——y=该列拱形列顶
+     (与 archTopAt 同式, 单源核验), z 带 24..28 山体域内南缘; 冠域
+     x±1/z±1 不溢空隙带 z29..31 不出山体域 */
+  const rims = t.backdrop.filter((b) => b.kind === 'scrub' || b.kind === 'boulder');
+  assert.ok(rims.filter((b) => b.kind === 'scrub').length === 4 &&
+      rims.filter((b) => b.kind === 'boulder').length === 3,
+  '山缘植被 = 矮丛 4+苔石 3(v2 #7)');
+  for (const r of rims) {
+    assert.strictEqual(r.y, archTopAt(r.x),
+        '山缘点 y=拱形列顶(脚下表面格, ' + r.id + ': y ' + r.y +
+        ' 列顶 ' + archTopAt(r.x) + ')');
+    assert.ok(r.z >= 24 && r.z <= 28, '山缘点 z ∈ 24..28 山体南缘带(' + r.id + ')');
+    /* scrub 冠域 x±1/z±1 不出山体域; boulder 单格无冠只查点 */
+    const pad = r.kind === 'scrub' ? 1 : 0;
+    assert.ok(r.x - pad >= m.x1 && r.x + pad <= m.x2,
+        '山缘点(含冠)不出山体域(' + r.id + ')');
+    assert.ok(r.z - pad >= m.z1 && r.z + pad <= m.z2,
+        '山缘点(含冠)不溢南缘带(' + r.id + ')');
+    for (const h of cliffs) {
+      assert.ok(Math.abs(r.x - h.x) > 2 || Math.abs(r.z - h.z) > 2,
+          '山缘点避崖屋域(' + r.id + ' × ' + h.id + ')');
+    }
+  }
 });
 
 /* ============ ⑩ 散布(prefab-specs §5.1/§5.2 落位政策=调用方=本计划) ============ */
 
-test('散布: 樱花/灌木/灯柱/路标四类 · 广场樱花必备 · 不落建筑与路面 · 密度克制', () => {
+test('散布: 十类词表 · 广场樱花必备 · 不落建筑与路面 · 密度分档(实体带宽+地被下限)', () => {
   const c = loadCore();
   const t = c.TOWN_MAP;
-  const kinds = ['sakura', 'scrub', 'lamp', 'signpost'];
-  assert.ok(t.scatter.every((s) => kinds.includes(s.kind)), '散布 kind ⊆ 四类');
+  /* 视觉重制 §3 E(v2): kind 域扩十类(原四类+散布草丛/花/旗/花坛/木桶/南瓜) */
+  const kinds = ['sakura', 'scrub', 'lamp', 'signpost', 'tuft', 'flower',
+    'flag', 'flowerbed', 'barrel', 'pumpkin'];
+  const groundCover = ['tuft', 'flower']; /* 地被类: 全域密度档+最严避让 */
+  const furniture = ['flag', 'flowerbed', 'barrel', 'pumpkin']; /* 家具类: 显式点 */
+  assert.ok(t.scatter.every((s) => kinds.includes(s.kind)), '散布 kind ⊆ 十类');
   for (const k of kinds) {
     assert.ok(t.scatter.some((s) => s.kind === k), '「' + k + '」类有落点');
   }
-  assert.ok(t.scatter.length >= 6 && t.scatter.length <= 24, '散布总数 6-24(视觉重制 §3 A 氛围密度升级)');
+  /* 密度分档(v2 口径重构: 原「总数 6..24」只辖实体类时代; 地被类按
+     「每 8×8/16×16 一件档」全域枚举, 数量级另立——实体类保带宽断言,
+     地被类保密度下限(过滤后存量), 两档不相乘不混算) */
+  const solid = t.scatter.filter((s) => !groundCover.includes(s.kind));
+  assert.ok(solid.length >= 6 && solid.length <= 40,
+      '实体类(非地被)散布总数 6-40(氛围密度带宽)');
+  const tufts = t.scatter.filter((s) => s.kind === 'tuft');
+  const flowers = t.scatter.filter((s) => s.kind === 'flower');
+  assert.ok(tufts.length >= 100,
+      '草丛 ≥100 件(每 8×8 块 1 件档全域枚举·过滤后存量, 实得 ' + tufts.length + ')');
+  assert.ok(flowers.length >= 20,
+      '花 ≥20 件(每 16×16 块 1 件档, 实得 ' + flowers.length + ')');
+  assert.ok(t.scatter.length <= 220, '散布总数 ≤220(性能守门, 实得 ' + t.scatter.length + ')');
   assert.ok(t.scatter.some((s) => s.kind === 'sakura' && s.x >= t.plaza.x1 && s.x <= t.plaza.x2 &&
       s.z >= t.plaza.z1 && s.z <= t.plaza.z2), '广场核心樱花 ≥1 棵(prefab-specs §5.1 必备)');
   /* 视觉重制 §3 A 氛围层密度拍板: 灯柱 2→10(广场环+主路沿线)、广场
@@ -362,6 +426,39 @@ test('散布: 樱花/灌木/灯柱/路标四类 · 广场樱花必备 · 不落�
     assert.ok(t.scatter.some((s) => s.kind === kind && s.x <= 75 && s.z >= 98 && s.z <= 106) &&
         t.scatter.some((s) => s.kind === kind && s.x >= 81 && s.z >= 98 && s.z <= 106),
     '进镇门廊两侧「' + kind + '」对位(出生第一眼前景框, §3 构图层)');
+  }
+  /* 旗阵(v2 #3): 恰 4 杆·四色齐·贴钟塔足印半环(足印 x77..82×z70..75 外
+     1 格内 2 格, z<76 避回望走廊) */
+  const flags = t.scatter.filter((s) => s.kind === 'flag');
+  assert.strictEqual(flags.length, 4, '旗恰 4 杆(v2 #3 钟塔脚四色旗阵)');
+  const cloths = new Set(flags.map((s) => s.v.cloth || 'sakura'));
+  for (const cloth of ['sakura', 'blue', 'quartz', 'red']) {
+    assert.ok(cloths.has(cloth), '旗色「' + cloth + '」在阵(v.cloth 四色齐)');
+  }
+  const towerFoot = t.prefab.find((p) => p.id === 'tower-belfry');
+  const tb = c.PrefabKit.footOf(towerFoot.id, towerFoot.x, towerFoot.y, towerFoot.z,
+      Object.assign({}, towerFoot.v, {face: towerFoot.face}));
+  for (const f of flags) {
+    const dx = Math.max(tb.x1 - f.x, f.x - tb.x2, 0);
+    const dz = Math.max(tb.z1 - f.z, f.z - tb.z2, 0);
+    const dd = Math.max(dx, dz);
+    assert.ok(dd >= 1 && dd <= 2,
+        '旗贴塔足印外 1..2 格切比(' + f.id + ': dx ' + dx + ' dz ' + dz + ')');
+  }
+  /* 家具类(v2 #10): 花坛 3(广场东南角+cottage/loft 门前)·桶 2·南瓜 2 */
+  const beds = t.scatter.filter((s) => s.kind === 'flowerbed');
+  assert.strictEqual(beds.length, 3, '花坛恰 3 处(v2 #10)');
+  assert.ok(beds.filter((b) => b.x >= t.plaza.x1 && b.x <= t.plaza.x2 &&
+      b.z >= t.plaza.z1 && b.z <= t.plaza.z2).length === 1, '花坛广场内恰 1(东南角)');
+  assert.ok(beds.filter((b) => !(b.x >= t.plaza.x1 && b.x <= t.plaza.x2 &&
+      b.z >= t.plaza.z1 && b.z <= t.plaza.z2)).length === 2, '花坛建筑门前恰 2');
+  for (const tone of beds.map((b) => b.v.tone || 'y')) {
+    assert.ok(['y', 'w'].includes(tone), '花坛芯 tone ∈ y/w');
+  }
+  assert.strictEqual(t.scatter.filter((s) => s.kind === 'barrel').length, 2, '木桶恰 2');
+  assert.strictEqual(t.scatter.filter((s) => s.kind === 'pumpkin').length, 2, '南瓜恰 2');
+  for (const f of t.scatter.filter((s) => s.kind === 'flower')) {
+    assert.ok(['y', 'w'].includes(f.v.tone || 'y'), '散布花 tone ∈ y/w');
   }
   /* 视觉重制 §3 E·断头驿站信标(v1 灯柱先行, 圆石小坪 v2): 任一道路
      端帽若「三不贴」——不贴广场、不贴其他路段、也不贴任何建筑脚印
@@ -390,6 +487,21 @@ test('散布: 樱花/灌木/灯柱/路标四类 · 广场樱花必备 · 不落�
   }
   const boxes = t.prefab.map((p) => c.PrefabKit.footOf(p.id, p.x, p.y, p.z,
       Object.assign({}, p.v, {face: p.face})));
+  /* 缘石外扩线(与派生同式: 路体两侧外扩一格, 长轴判走向)——地被类
+     不立缘石, 实体类(灯柱/路标门廊既有)允许贴缘石(柱基路肩先例) */
+  const curbLines = t.roads.map((r) => {
+    const ax = spanOf(r.x1, r.x2) >= spanOf(r.z1, r.z2);
+    return ax ?
+        [{x1: r.x1, z1: r.z1 - 1, x2: r.x2, z2: r.z1 - 1},
+          {x1: r.x1, z1: r.z2 + 1, x2: r.x2, z2: r.z2 + 1}] :
+        [{x1: r.x1 - 1, z1: r.z1, x2: r.x1 - 1, z2: r.z2},
+          {x1: r.x2 + 1, z1: r.z1, x2: r.x2 + 1, z2: r.z2}];
+  }).flat();
+  const shrines = t.ground.filter((g) => g.kind === 'wayshrine');
+  const npcPts = [];
+  for (const row of c.TOWN_NPC_ANCHORS) for (const w of row.waypoints) npcPts.push(w);
+  const cheb = (ax, az, bx, bz) => Math.max(Math.abs(ax - bx), Math.abs(az - bz));
+  const seenXZ = new Set();
   for (const s of t.scatter) {
     assert.strictEqual(s.y, t.core.groundY, '散布点 y=地面基高(' + s.id + ')');
     assert.ok(s.x >= t.core.x1 && s.x <= t.core.x2 && s.z >= t.core.z1 && s.z <= t.core.z2,
@@ -401,6 +513,43 @@ test('散布: 樱花/灌木/灯柱/路标四类 · 广场樱花必备 · 不落�
     for (const r of t.roads) {
       assert.ok(!(s.x >= r.x1 && s.x <= r.x2 && s.z >= r.z1 && s.z <= r.z2),
           '散布不落路面(' + s.id + ' × ' + r.id + ')');
+    }
+    /* 回望走廊零立地(§4.3 视线管理, 严于派生侧体块口径): 全类禁入 */
+    assert.ok(!(s.x >= 78 && s.x <= 80 && s.z >= 76 && s.z <= 111),
+        '散布不入出生回望走廊(' + s.id + ')');
+    /* npc 站位切比 ≥2(npc 锚核测试同款口径, 数据驱动对全散布) */
+    for (const p of npcPts) {
+      assert.ok(cheb(s.x, s.z, p.x, p.z) >= 2,
+          '散布避 npc 站位 ≥2(' + s.id + ' vs ' + p.x + ',' + p.z + ')');
+    }
+    /* 互不重格(含 v1 既有与 v2 新增全类) */
+    const k = s.x + ',' + s.z;
+    assert.ok(!seenXZ.has(k), '散布互不重格(' + s.id + ' @ ' + k + ')');
+    seenXZ.add(k);
+    if (groundCover.includes(s.kind)) {
+      /* 地被类最严避让: 不上广场铺装/不进农田/不上驿站坪/不立缘石线 */
+      assert.ok(!(s.x >= t.plaza.x1 && s.x <= t.plaza.x2 &&
+          s.z >= t.plaza.z1 && s.z <= t.plaza.z2), '地被不上广场(' + s.id + ')');
+      for (const f of t.ground.filter((g) => g.kind === 'farm-rows')) {
+        assert.ok(!(s.x >= f.x1 && s.x <= f.x2 && s.z >= f.z1 && s.z <= f.z2),
+            '地被不进农田(' + s.id + ' × ' + f.id + ')');
+      }
+      for (const w of shrines) {
+        assert.ok(!(s.x >= w.x1 && s.x <= w.x2 && s.z >= w.z1 && s.z <= w.z2),
+            '地被不上驿站坪(' + s.id + ' × ' + w.id + ')');
+      }
+      for (const l of curbLines) {
+        assert.ok(!(s.x >= l.x1 && s.x <= l.x2 && s.z >= l.z1 && s.z <= l.z2),
+            '地被不立缘石线(' + s.id + ')');
+      }
+    }
+    if (furniture.includes(s.kind) && s.kind !== 'flag') {
+      /* 家具类(旗除外=广场家具)避 npc 站位加严到切比 ≥3(花坛 3×3 域
+         外缘再留 1 格) */
+      for (const p of npcPts) {
+        assert.ok(cheb(s.x, s.z, p.x, p.z) >= 2,
+            '家具避 npc 站位(' + s.id + ')');
+      }
     }
   }
 });
