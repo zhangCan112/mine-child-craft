@@ -311,6 +311,23 @@ test('远景: 拱形山体必做横贯 · 崖屋 1-2 栋 · 神庙默认不落 �
         '崖屋落在山体域内(' + h.id + ')');
     assert.ok(h.baseY < h.topY && h.topY <= c.WORLD_H - 1, '崖屋高度域良序界内');
   }
+  /* 视觉重制 §3 B 可见性拍板: 崖屋盒顶须高出装配侧拱形公式
+     round(topY·(1-t²)+groundY·t²)(与 town-assembly-core backdrop 段
+     同式)的局部脊高 ≥3 格, 剪影才从山体里读出来; 且 2 栋分列钟塔
+     影轴两侧, 不被塔影吞(塔半宽张角 ~4°, ±14° 侧位安全) */
+  const archTopAt = (x) => {
+    const tt = (x - center(m.x1, m.x2)) / ((m.x2 - m.x1) / 2);
+    return Math.round(m.topY * (1 - tt * tt) + t.core.groundY * (tt * tt));
+  };
+  for (const h of cliffs) {
+    assert.ok(h.topY - 1 >= archTopAt(h.x) + 3,
+        '崖屋盒顶高出局部脊线 ≥3 格(剪影可见, ' + h.id + ': 脊 ' +
+        archTopAt(h.x) + ' 顶 ' + (h.topY - 1) + ')');
+  }
+  assert.ok(cliffs.length === 2 &&
+      cliffs.some((h) => h.x < center(tb.x1, tb.x2)) &&
+      cliffs.some((h) => h.x > center(tb.x1, tb.x2)),
+  '崖屋 2 栋分列钟塔轴两侧(塔影不吞剪影)');
 });
 
 /* ============ ⑩ 散布(prefab-specs §5.1/§5.2 落位政策=调用方=本计划) ============ */
@@ -326,8 +343,21 @@ test('散布: 樱花/灌木/灯柱/路标四类 · 广场樱花必备 · 不落�
   assert.ok(t.scatter.length >= 6 && t.scatter.length <= 24, '散布总数 6-24(视觉重制 §3 A 氛围密度升级)');
   assert.ok(t.scatter.some((s) => s.kind === 'sakura' && s.x >= t.plaza.x1 && s.x <= t.plaza.x2 &&
       s.z >= t.plaza.z1 && s.z <= t.plaza.z2), '广场核心樱花 ≥1 棵(prefab-specs §5.1 必备)');
+  /* 视觉重制 §3 A 氛围层密度拍板: 灯柱 2→10(广场环+主路沿线)、广场
+     樱花 ≥3(核心 1+角樱 2) */
   const lamps = t.scatter.filter((s) => s.kind === 'lamp');
   assert.ok(lamps.length >= 10, '灯柱 ≥10(广场环+主路沿线, §3 A)');
+  const plazaSakuras = t.scatter.filter((s) => s.kind === 'sakura' &&
+      s.x >= t.plaza.x1 && s.x <= t.plaza.x2 && s.z >= t.plaza.z1 && s.z <= t.plaza.z2);
+  assert.ok(plazaSakuras.length >= 3, '广场樱花 ≥3(核心 1+角樱 2, §3 A)');
+  /* 视觉重制 §3 构图层·进镇门廊: spawn(面北望钟塔)前方主路两侧
+     x≤75/x≥81 各有樱花+灯柱对位(z 98..106), 树冠覆路缘成「穿过樱
+     花拱门望钟塔」的出生第一眼前景框 */
+  for (const kind of ['sakura', 'lamp']) {
+    assert.ok(t.scatter.some((s) => s.kind === kind && s.x <= 75 && s.z >= 98 && s.z <= 106) &&
+        t.scatter.some((s) => s.kind === kind && s.x >= 81 && s.z >= 98 && s.z <= 106),
+    '进镇门廊两侧「' + kind + '」对位(出生第一眼前景框, §3 构图层)');
+  }
   /* 视觉重制 §3 E·断头驿站信标(v1 灯柱先行, 圆石小坪 v2): 任一道路
      端帽若「三不贴」——不贴广场、不贴其他路段、也不贴任何建筑脚印
      (贴建筑=目的地终站, 如 lane-farm 尽头的风车)——判为断头, 其

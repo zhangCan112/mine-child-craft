@@ -112,26 +112,41 @@ const TOWN_MAP = {
     {id: 'farm-b', kind: 'farm', x1: 80, z1: 46, x2: 88, z2: 57},
   ],
   /* 远景剪影(§4.2 R-01/R-02; R-03 神庙 M7 可选默认不落): 拱形山体
-      横贯聚落背屏(宽 ≥ 核心区宽, 顶高过钟塔), 崖顶房屋 1-2 栋落
-      山体域内; 全部不可达, 装配归 T-MAP-02 场景拼装。 */
+      横贯聚落背屏(宽 ≥ 核心区宽, 顶高过钟塔), 崖顶房屋 2 栋落
+      山体域内; 全部不可达, 装配归 T-MAP-02 场景拼装。
+      视觉重制 §3 B 拍板: 崖屋从旧位(x40/x112, 距脊线远+塔影+雾距
+      三重吃掉)移到脊线最高肩段 x56/x103——装配侧拱形公式下局部脊高
+      恰 41, 屋盒 y41..46 露出脊线 5 格成剪影, 且分列钟塔影轴(塔半宽
+      张角 ~4°)两侧 ~14° 不被塔影吞; 白墙 52/17+橙顶 9+19 灯点的造型
+      字段走 assembly 侧(见交付报告新 kind 需求表)。 */
   backdrop: [
     {id: 'mountain-arch', kind: 'mountain', x1: 16, z1: 8, x2: 143, z2: 28, topY: 44, reachable: false},
-    {id: 'cliff-home-a', kind: 'cliff-home', x: 40, z: 16, baseY: 36, topY: 42, reachable: false},
-    {id: 'cliff-home-b', kind: 'cliff-home', x: 112, z: 20, baseY: 35, topY: 41, reachable: false},
+    {id: 'cliff-home-a', kind: 'cliff-home', x: 56, z: 22, baseY: 41, topY: 47, reachable: false},
+    {id: 'cliff-home-b', kind: 'cliff-home', x: 103, z: 22, baseY: 41, topY: 47, reachable: false},
   ],
   /* 散布(prefab-specs §5.1/§5.2 落位政策归调用方=本计划): 樱花/灌木/
-      灯柱/路标四类(视觉重制 §3 A 密度升级, 灯柱 2→10); 逐点避让全部
-      建筑脚印与路面, y=地面基高。两组构图意图:
-      ① 广场家具: 灯柱环(南 77,92/北 74,67/东 91,80/东南 91,90, 让
-        G01 巡逻环 x66/x92/z66/z92 线不压柱)沿摊位簇与塔脚空隙补暖光;
-      ② 断头驿站信标(v1 先落灯柱, 圆石小坪 v2): main-east 东端
+      灯柱/路标四类(视觉重制 §3 A 密度升级); 广场核心樱花必备; 逐点
+      避让全部建筑脚印与路面, y=地面基高。三组构图意图:
+      ① 进镇门廊(出生第一眼): spawn(79,112) 面北主路 x76..80 两侧灯柱
+        x75/x81 + 樱花 x75/x83 对位(z101..105 交错), 树冠 ±2 恰覆/贴路缘
+        成「穿过樱花拱门望钟塔」前景框; e 树 x83 让出生回望走廊 x78..80
+        (冠幅 81..85 不入走廊, 走廊零写见 adventure-dims 同名测试);
+      ② 广场家具: 角樱 2(西北 67,69/东北 88,67, 避 npc 站位 90,68 与
+        G01 角点 66,66 各 ≥2)+灯柱环(南 77,92/北 74,67/东 91,80/东南
+        91,90, 让 G01 巡逻环 x66/x92/z66/z92 线不压柱)沿摊位簇与塔脚
+        空隙补暖光;
+      ③ 断头驿站信标(v1 先落灯柱, 圆石小坪 v2): main-east 东端
         (121,86)/main-south 南端(79,119)/lane-west 西端(47,79) 路尽头
         各 1 灯, 消解「断头扎草地」;
-      角樱 2/进镇门廊樱花对位 2(出生第一眼构图)与崖屋脊线复位走第二笔
-      (需 arch 侧配套 pin 同步, 见 .scratch/town-design/receipts/)。 */
+      草丛 40/花 61/62 全域散布与钟塔脚旗阵为新 kind, 按「新 kind 协议」
+      二版交(见交付报告需求表), 本版克制不加。 */
   scatter: [
     {id: 'sakura-plaza', kind: 'sakura', x: 68, y: 24, z: 88},
     {id: 'sakura-farm', kind: 'sakura', x: 78, y: 24, z: 52},
+    {id: 'sakura-corner-ne', kind: 'sakura', x: 88, y: 24, z: 67},
+    {id: 'sakura-corner-nw', kind: 'sakura', x: 67, y: 24, z: 69},
+    {id: 'sakura-gate-w', kind: 'sakura', x: 75, y: 24, z: 101},
+    {id: 'sakura-gate-e', kind: 'sakura', x: 83, y: 24, z: 102},
     {id: 'scrub-west', kind: 'scrub', x: 60, y: 24, z: 70},
     {id: 'scrub-east', kind: 'scrub', x: 98, y: 24, z: 92},
     {id: 'lamp-plaza', kind: 'lamp', x: 77, y: 24, z: 92},
