@@ -19,7 +19,10 @@
       hud-spec §4.3 第 3/4 条);
    ⑤ CSS token 对齐守门: css/town.css 落点存在+色板 token 值(prebuild
       §1.2, 取色 buildings §4)+安全区/热区 token+四槽类名+减少动态降级
-      (hud-spec §4.3 动效行)。
+      (hud-spec §4.3 动效行);
+   ⑥ 方位指引纯决策面(T-UI-02): 指引目标解析/距离三档/方位离散/指引签名
+      (prebuild §5 函数 3-6, hud-spec §5.2 Landmark Pointer)+指引器 CSS
+      结构类与 reduced-motion 停呼吸守门。
    装具: vm 单件装载(纯核心零依赖, 加载即证明; 红期 town-ui-core.js 缺席
    全红)。红期 css/town.css 缺席→⑤ 红。 */
 const test = require('node:test');
@@ -381,4 +384,167 @@ test('CSS: css/town.css 在位且四槽命名空间/色板 token/安全区热区
   }
   /* 减少动态偏好降级(hud-spec §4.3 动效行: 降级为纯淡入淡出、停呼吸) */
   assert.ok(css.includes('prefers-reduced-motion'), '缺 prefers-reduced-motion 降级块');
+});
+
+/* ============================================================
+   ⑥ 方位指引纯决策面(T-UI-02; prebuild §5 函数 3-6+§3.3 阈值口径;
+      hud-spec §5.2 Landmark Pointer 默认)——全走纯函数 seam,
+      零 DOM 零墙钟, 阈值消费 TOWN_UI_PARAMS.P_D1_NEARBY/P_D2_NEAR。
+   ============================================================ */
+
+/* 指引回落锚(N 端测试固定值; 装配层生产取 TOWN_MAP.anchors bell-tower) */
+const FB_ANCHOR = {x: 79, y: 24, z: 76};
+
+test('指引目标解析(prebuild §5 函数 3): 有目标=原样 target; null+钟塔回落=fallback 携回落锚; null+hidden=off; 策略越域抛错', () => {
+  const {ctx} = coreBoot();
+  assert.strictEqual(probe(ctx, 'typeof townPointerTarget'), 'function',
+      '缺 townPointerTarget 纯函数(prebuild §5 函数 3: 指引目标解析, T-UI-02)');
+  /* 有目标: 原样透传(mode=target), 回落策略只管 null 情形 */
+  const withTarget = probeJson(ctx,
+      'JSON.stringify(townPointerTarget(' +
+      '{id: \'farm\', kind: \'landmark\', iconKey: \'farm\', label: \'小农田\', ' +
+      'anchor: {x: 71, y: 24, z: 58}, state: \'active\'}, ' +
+      '{fallback: \'hidden\', fallbackAnchor: {x: 79, y: 24, z: 76}}))');
+  assert.strictEqual(withTarget.mode, 'target', '有目标=目标态(策略不抢活目标)');
+  assert.strictEqual(withTarget.iconKey, 'farm', '目标态图标=目标 iconKey(UI-01 语义键透传)');
+  assert.deepStrictEqual(withTarget.anchor, {x: 71, y: 24, z: 58},
+      '目标态锚点=目标锚点(指向几何的唯一锚源)');
+  /* null+钟塔回落(U5 默认): 弱提示携回落锚(默认指钟塔方位, 保留回家语义 §3.1) */
+  const fallback = probeJson(ctx,
+      'JSON.stringify(townPointerTarget(null, ' +
+      '{fallback: \'belltower-fallback\', fallbackAnchor: {x: 79, y: 24, z: 76}}))');
+  assert.strictEqual(fallback.mode, 'fallback', 'null+U5 默认=钟塔弱提示态(§5.2 可见性策略)');
+  assert.strictEqual(fallback.iconKey, 'belltower', '弱提示图标恒钟塔(回家/集合锚点语义)');
+  assert.deepStrictEqual(fallback.anchor, {x: 79, y: 24, z: 76},
+      '弱提示锚点=注入的钟塔回落锚(核心零依赖, 锚由装配层喂)');
+  /* null+hidden 策略: 全收起(off), 锚图标皆空(零方向零图标断言) */
+  const off = probeJson(ctx,
+      'JSON.stringify(townPointerTarget(null, {fallback: \'hidden\'}))');
+  assert.strictEqual(off.mode, 'off', 'null+hidden=off(无目标全收起档)');
+  assert.strictEqual(off.anchor, null, 'off 态零锚点(不伪造方向)');
+  assert.strictEqual(off.iconKey, null, 'off 态零图标');
+  /* 策略越域: 拼写域抛错(本仓纯函数越域抛错惯例, registry 同款) */
+  assert.throws(() => probe(ctx,
+      'townPointerTarget(null, {fallback: \'always-visible\'})'),
+  /belltower-fallback|hidden|越域|fallback/,
+  '回落策略越域须抛错(域恰 belltower-fallback|hidden 两值, 静默吞拼写错=漂移温床)');
+});
+
+test('距离分档(prebuild §5 函数 4): 边界恰等逐个(P_D1=12 nearby 需在视野; P_D2=40 near; >40 far); inView=false nearby 不可达; 阈值注入生效', () => {
+  const {ctx} = coreBoot();
+  assert.strictEqual(probe(ctx, 'typeof townPointerBand'), 'function',
+      '缺 townPointerBand 纯函数(prebuild §5 函数 4: 距离三档定性, T-UI-02)');
+  const band = (d, v, b) => probeJson(ctx,
+      'JSON.stringify(townPointerBand(' + d + ', ' + v + ', ' +
+      (b ? b : 'null') + '))');
+  /* 边界恰等(P-D1=12): ≤12 且在视野角内=就在附近(§3.3 判定口径) */
+  assert.strictEqual(band(12, true), 'nearby', 'dist 恰=12 且在视野→nearby(≤P_D1 含等号)');
+  assert.strictEqual(band(12, false), 'near', 'dist 恰=12 但不在视野→near(附近档需在视野内)');
+  assert.strictEqual(band(0, true), 'nearby', 'dist=0(踩在锚上)且在视野→nearby');
+  assert.strictEqual(band(11.9, true), 'nearby', 'dist<12 在视野→nearby');
+  assert.strictEqual(band(12.1, true), 'near', 'dist 恰过 12→near(边界不含外沿)');
+  /* 边界恰等(P-D2=40): ≤40=near(近, 双环), >40=far(远, 单细环) */
+  assert.strictEqual(band(40, true), 'near', 'dist 恰=40→near(≤P_D2 含等号)');
+  assert.strictEqual(band(40, false), 'near', 'dist 恰=40 不在视野→near(near/far 不依赖视野)');
+  assert.strictEqual(band(40.1, true), 'far', 'dist 恰过 40→far(边界不含外沿)');
+  assert.strictEqual(band(120, true), 'far', '远距→far(儿童化三档不显数字)');
+  /* 阈值注入生效(P-D1/P-D2 可注入覆盖, prebuild §5 函数 4 注入位) */
+  assert.strictEqual(band(5, true, '{nearby: 5, near: 10}'), 'nearby',
+      '注入阈值后 5≤5 且在视野→nearby');
+  assert.strictEqual(band(5, false, '{nearby: 5, near: 10}'), 'near',
+      '注入阈值后 5 但不在视野→near(inView 短路不随注入失效)');
+  assert.strictEqual(band(5.1, true, '{nearby: 5, near: 10}'), 'near',
+      '注入阈值后恰过 5→near');
+  assert.strictEqual(band(10.1, true, '{nearby: 5, near: 10}'), 'far',
+      '注入阈值后恰过 10→far');
+});
+
+test('方位离散(prebuild §5 函数 5): 四正交向恰等边界归属明确(前含 ±45°); 左右后全覆盖无间隙; yaw 回绕(±360°)不变; 零位移归 front', () => {
+  const {ctx} = coreBoot();
+  assert.strictEqual(probe(ctx, 'typeof townPointerHeading'), 'function',
+      '缺 townPointerHeading 纯函数(prebuild §5 函数 5: 4 方位离散, T-UI-02)');
+  const heading = (dx, dz, y) => probeJson(ctx,
+      'JSON.stringify(townPointerHeading(' + dx + ', ' + dz + ', ' + y + '))');
+  /* 朝向约定: 前向=(-sin yaw, -cos yaw)(camera-rig lookDir 同式, yaw=0 面北 -Z) */
+  assert.strictEqual(heading(0, -5, 0), 'front', '面北目标在北→front(正交向恰等)');
+  assert.strictEqual(heading(5, 0, 0), 'right', '面北目标在东→right(右手 = +X)');
+  assert.strictEqual(heading(-5, 0, 0), 'left', '面北目标在西→left');
+  assert.strictEqual(heading(0, 5, 0), 'behind', '面北目标在南→behind(恰反向)');
+  /* 45° 边界: 恰在对角线上归 front(±45° 含等号, 「恰在前方=front」预排口径) */
+  assert.strictEqual(heading(5, -5, 0), 'front', '东北恰 45°→front(边界含等号)');
+  assert.strictEqual(heading(-5, -5, 0), 'front', '西北恰 45°→front(对称边界)');
+  assert.strictEqual(heading(6, -4, 0), 'right', '东北偏东(>45°)→right(边界外沿换档)');
+  assert.strictEqual(heading(-6, -4, 0), 'left', '西北偏西(>45°)→left');
+  /* 135° 边界: 恰在对角线上归侧向(≤135° 仍侧档), 越过归 behind */
+  assert.strictEqual(heading(5, 5, 0), 'right', '东南恰 135°→right(侧档含等号)');
+  assert.strictEqual(heading(-5, 5, 0), 'left', '西南恰 135°→left');
+  assert.strictEqual(heading(5, 6, 0), 'behind', '东南偏南(>135°)→behind(全覆无间隙)');
+  assert.strictEqual(heading(-5, 6, 0), 'behind', '西南偏南(>135°)→behind');
+  /* 面向变化: 同一目标随玩家朝向换档(yaw=±90° 正交验证) */
+  assert.strictEqual(heading(-5, 0, Math.PI / 2), 'front', '面西(yaw=π/2)目标在西→front');
+  assert.strictEqual(heading(5, 0, -Math.PI / 2), 'front', '面东(yaw=-π/2)目标在东→front');
+  assert.strictEqual(heading(0, -5, -Math.PI / 2), 'left', '面东目标在北→left(朝向驱动档位)');
+  /* yaw 回绕: ±360° 同向不换档(预排「朝向回绕正确」) */
+  assert.strictEqual(heading(0, -5, 2 * Math.PI), 'front', 'yaw=2π≡0→front(回绕不变)');
+  assert.strictEqual(heading(0, -5, -2 * Math.PI), 'front', 'yaw=-2π≡0→front(负回绕不变)');
+  assert.strictEqual(heading(0, -5, 3 * Math.PI), 'behind', 'yaw=3π≡π→behind(多圈回绕)');
+  /* 零位移退化: 玩家踩在锚上→front(站上目标即「在视野」, 配 dist=0 → nearby) */
+  assert.strictEqual(heading(0, 0, 0), 'front', '零位移(踩锚)→front(不伪造方位, 配合 nearby 档)');
+});
+
+test('指引签名(prebuild §5 函数 6+§3.4 脏标口径): 同入参恒等; 四分量任一变化签名必变(无闪烁承诺的 core 半边)', () => {
+  const {ctx} = coreBoot();
+  assert.strictEqual(probe(ctx, 'typeof townPointerSig'), 'function',
+      '缺 townPointerSig 纯函数(prebuild §5 函数 6: targetId|state|档位 签名, T-UI-02)');
+  const sig = (id, st, b, h) => probeJson(ctx,
+      'JSON.stringify(townPointerSig(' + (id === null ? 'null' : "'" + id + "'") +
+      ", '" + st + "', '" + b + "', '" + h + "'))");
+  assert.strictEqual(typeof sig('bell-tower', 'active', 'near', 'front'), 'string',
+      '签名是字符串(DOM 脏标比较载体)');
+  assert.strictEqual(sig('bell-tower', 'active', 'near', 'front'),
+      sig('bell-tower', 'active', 'near', 'front'),
+      '同入参恒等签名(同位姿重复计算恒等——§3.4 无闪烁承诺 core 半边)');
+  assert.notStrictEqual(sig('bell-tower', 'active', 'near', 'front'),
+      sig('farm', 'active', 'near', 'front'), '目标 id 变→签名变');
+  assert.notStrictEqual(sig('bell-tower', 'active', 'near', 'front'),
+      sig('bell-tower', 'done', 'near', 'front'), '目标状态变→签名变');
+  assert.notStrictEqual(sig('bell-tower', 'active', 'near', 'front'),
+      sig('bell-tower', 'active', 'nearby', 'front'), '距离档变→签名变');
+  assert.notStrictEqual(sig('bell-tower', 'active', 'near', 'front'),
+      sig('bell-tower', 'active', 'near', 'left'), '方位档变→签名变');
+  /* null 目标 id 亦可签名(无目标回落态同样进脏标对账, 不炸不歧义) */
+  assert.strictEqual(sig(null, 'fallback', 'near', 'behind'),
+      sig(null, 'fallback', 'near', 'behind'), 'null 目标恒等签名(回落态可对账)');
+  assert.notStrictEqual(sig(null, 'fallback', 'near', 'behind'),
+      sig('bell-tower', 'fallback', 'near', 'behind'), 'null 与有值 id 签名可区分');
+});
+
+test('CSS(T-UI-02): 指引器徽章/中心图标/方位指针/距离档/方位档/目标回落态类落位 + 呼吸动效与 reduced-motion 停呼吸(prebuild §3.1/§3.4)', () => {
+  const file = path.join(ROOT, 'css', 'town.css');
+  assert.ok(fs.existsSync(file), '缺 css/town.css');
+  const css = fs.readFileSync(file, 'utf8');
+  /* 徽章三件套类(DOM↔CSS 契约: 适配层按这些类名落结构) */
+  for (const cls of ['town-hud-pointer-badge', 'town-hud-pointer-icon',
+    'town-hud-pointer-arrow']) {
+    assert.ok(css.includes('.' + cls), '指引器结构类缺失: .' + cls);
+  }
+  /* 距离三档类(注意 band-near 用词边界防 band-nearby 前缀误配) */
+  assert.ok(css.match(/\.band-nearby/), '距离档类缺失: .band-nearby(就在附近)');
+  assert.ok(css.match(/\.band-near\b/), '距离档类缺失: .band-near(近)');
+  assert.ok(css.match(/\.band-far\b/), '距离档类缺失: .band-far(远)');
+  /* 方位四档类(指针离散转动载体, CSS transition 承担低频插值) */
+  for (const cls of ['is-front', 'is-left', 'is-right', 'is-behind']) {
+    assert.ok(css.match(new RegExp('\\.' + cls + '\\b')), '方位档类缺失: .' + cls);
+  }
+  /* 目标态/回落态(weak hint 50% 半透明弱提示, U5 默认) */
+  assert.ok(css.match(/\.is-target\b/), '目标态类缺失: .is-target');
+  assert.ok(css.match(/\.is-fallback\b/), '回落态类缺失: .is-fallback(钟塔弱提示)');
+  /* 呼吸动效(附近档柔光呼吸 ≥1s 周期)与 reduced-motion 停呼吸(§3.4 动效行) */
+  assert.ok(css.includes('town-hud-pointer-breathe'), '缺指引器呼吸动效(附近档柔光呼吸)');
+  const reducedAt = css.indexOf('prefers-reduced-motion');
+  assert.ok(reducedAt >= 0, '缺 prefers-reduced-motion 降级块');
+  const reducedBlock = css.slice(reducedAt);
+  assert.ok(reducedBlock.includes('town-hud-pointer-breathe') &&
+      reducedBlock.includes('animation: none'),
+  'reduced-motion 须停指引器呼吸(动效克制: 降级为静态柔光)');
 });

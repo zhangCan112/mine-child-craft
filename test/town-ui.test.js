@@ -16,7 +16,11 @@
    ④ 会话避让监听侧: dialogEvent(dialog open/close)→非必要 HUD 收敛,
       dialog 本体零依赖(T-UI-04 域, 本票只做监听 seam);
    ⑤ 真件集成链: 真 town-interact-core 机器+真 town-ui-core 核心+适配层
-      三件在 vm 同笼, 机器 focus/found 事件经 emit 实接线驱动卡片全链。
+      三件在 vm 同笼, 机器 focus/found 事件经 emit 实接线驱动卡片全链;
+   ⑦ 集成链 T-UI-02: 真机器 focus→指引出指向→found 回落钟塔→回程收敛
+      零残留→再进新机弱提示干净(TOWN_MAP 真锚点同笼, 位姿 poseRef 注入);
+   ⑧ 方位指引适配(T-UI-02): 徽章内容/位姿驱动档位/nearby 视野门槛/
+      found 回落/签名门控不重建/无位姿降级——L2 槽填充(槽类名不变)。
    装具: fake DOM 记录桩(经典脚本适配层无 THREE 硬依赖, DOM 走注入;
    adventure-mode.test.js fakeEl 先例简化版)。红期 js/town-ui.js 缺席全红。 */
 const test = require('node:test');
@@ -113,8 +117,10 @@ function fakeTimer() {
   return rec;
 }
 
-/* 组装一只被测适配层: deps 全注入(零全局泄漏), 返回记录面+被测件 */
-function mkHarness(machineRef) {
+/* 组装一只被测适配层: deps 全注入(零全局泄漏), 返回记录面+被测件;
+   poseRef 可注入位姿采样源(T-UI-02 指引几何输入; 缺省=适配层生产缺省,
+   Node 沙盒读不到 voxel 全局 pos/yaw → null) */
+function mkHarness(machineRef, poseRef) {
   const doc = fakeDoc();
   const rec = {speech: fakeSpeech(), timer: fakeTimer(), pages: []};
   rec.ui = townUi.mkTownUi({
@@ -123,6 +129,7 @@ function mkHarness(machineRef) {
     speech: rec.speech.speech,
     timer: rec.timer,
     showPage: (id) => rec.pages.push(id),
+    poseRef: poseRef,
   });
   rec.doc = doc;
   return rec;
@@ -143,7 +150,7 @@ const TARGET = {id: 'bell-tower', kind: 'landmark', iconKey: 'belltower', label:
    ① 进镇出现 / 离镇收敛(机器身份对账)
    ============================================================ */
 
-test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻状态 / L2 槽位空留(T-UI-02 域) / L4 回菜单钮', () => {
+test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻状态 / L2 指引器徽章(T-UI-02) / L4 回菜单钮', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
   const machine = {snapshot: () => ({focusId: null, states: {}})};
   const rec = mkHarness(() => machine);
@@ -157,8 +164,12 @@ test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻
   slotOf(rec.ui, 'town-hud-sys');
   assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
       '进场且无任务=探索中轻状态(P-V1)');
-  assert.strictEqual(slotOf(rec.ui, 'town-hud-pointer').children.length, 0,
-      'L2 槽位只预留零内容(方位指引实现归 T-UI-02, 本票不越界)');
+  const pointerSlot = slotOf(rec.ui, 'town-hud-pointer');
+  assert.strictEqual(pointerSlot.children.length, 1,
+      'L2 指引器徽章就位(T-UI-02: 槽内恰一徽章子件, 不重建不多挂)');
+  assert.ok(pointerSlot.children[0] &&
+      pointerSlot.children[0].classList.contains('town-hud-pointer-badge'),
+      '指引器=圆形徽章形态(prebuild §3.1; 槽类名 town-hud-pointer 不变)');
   const sys = slotOf(rec.ui, 'town-hud-sys');
   const home = sys.children.find((c) => c.attrs['aria-label'] === '回主菜单');
   assert.ok(home, 'L4 默认仅「返回主菜单」图标钮(prebuild §2.1)');
@@ -384,4 +395,220 @@ test('集成链: 真 mkTownTargets(emit 实接 townUiTargetEvent) focus/found �
   vm.runInContext('__machine = null; __ui.sync();', ctx);
   assert.strictEqual(vm.runInContext('__ui.root.hidden', ctx), true,
       '弃机→HUD 收敛(集成半边收口)');
+});
+
+/* ============================================================
+   ⑦ 集成链 T-UI-02: 方位指引全链(真机器+真核心+适配层同笼,
+      TOWN_MAP 真锚点在笼——回落锚/指向几何吃真值)
+   ============================================================ */
+
+test('集成链 T-UI-02: 白闪进镇弱提示→真机器 focus 出指向→sync 位姿随动→found 回落钟塔→回程收敛零残留→再进新机弱提示干净', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  /* vm 同笼(⑥ 同款装具): town-map-core 在笼→TOWN_MAP 全局词法在位,
+     适配层回落锚/指向几何消费真锚点(bell-tower 79,24,76 / lava-chicken 105,24,79);
+     位姿经 poseRef 注入 __pose(模拟 voxel 全局 pos/yaw 同形) */
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const closure = ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
+    'js/town-map-core.js', 'js/town-assembly-core.js', 'js/town-interact-core.js',
+    'js/town-ui-core.js', 'js/town-ui.js'];
+  const ordered = closure
+      .filter((f) => html.indexOf(f) >= 0)
+      .sort((a, b) => html.indexOf(a) - html.indexOf(b));
+  const ctx = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+  for (const f of ordered) {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
+  }
+  const badgeOf = () => vm.runInContext(
+      '(function() { var s = __ui.root.children.filter(function(c) { ' +
+      'return c.classList.contains("town-hud-pointer"); })[0]; ' +
+      'return s.children[0]; })()', ctx);
+  vm.runInContext('var __pose = {x: 79, y: 25, z: 96, yaw: 0}; ' +
+      'var __machine = null; ' +
+      'var __ui = mkTownUi({machineRef: function() { return __machine; }, ' +
+      'poseRef: function() { return __pose; }});', ctx);
+  /* 白闪进镇(建机同形): 主路上弱提示在位, 指向钟塔回家(锚 79,76: 正前 20 格→near) */
+  vm.runInContext('__machine = mkTownTargets(' +
+      '{emit: function(n, p) { __ui.targetEvent(n, p); }}); __ui.sync();', ctx);
+  let badge = badgeOf();
+  assert.ok(badge, '进镇即有指引器徽章(弱提示不缺席)');
+  assert.ok(badge.classList.contains('is-fallback'), '进镇无目标=钟塔弱提示(U5 默认)');
+  assert.ok(badge.classList.contains('is-front') && badge.classList.contains('band-near'),
+      '弱提示指向钟塔方位(面北正前 20 格→front+near, 回家语义保留)');
+  /* 真机器 focus(炸鸡店, 锚 105,79): 目标态+方位/距离档吃真锚点 */
+  vm.runInContext('__machine.focus(\'lava-chicken\')', ctx);
+  badge = badgeOf();
+  assert.ok(badge.classList.contains('is-target'), '真机器 focus 事件→目标态');
+  const iconEl = badge.children.find((c) => c.classList.contains('town-hud-pointer-icon'));
+  assert.ok(iconEl && iconEl.textContent === '🍗',
+      '中心图标随目标切换(UI-01 marker 语义键, emoji 占位策略同 L1)');
+  assert.ok(badge.classList.contains('is-right') && badge.classList.contains('band-near'),
+      '指向几何吃真锚点(主路 79,96 望 105,79: 前右约 57°→right; 约 31 格→near)');
+  /* sync 位姿采样: 走近并面向炸鸡店→front+nearby(≤12 格且在视野角内) */
+  vm.runInContext('__pose = {x: 101, y: 25, z: 79, yaw: -Math.PI / 2};', ctx);
+  vm.runInContext('__ui.sync();', ctx);
+  badge = badgeOf();
+  assert.ok(badge.classList.contains('is-front') && badge.classList.contains('band-nearby'),
+      '位姿采样→档位随动(面东 4 格在视野→nearby, 事件+低频采样驱动非每帧)');
+  /* mock found: done 目标不再指→回落钟塔弱提示(验收锚: found 后回落语义) */
+  vm.runInContext('__machine.found(\'lava-chicken\')', ctx);
+  badge = badgeOf();
+  assert.ok(badge.classList.contains('is-fallback') &&
+      !badge.classList.contains('is-target'),
+      'found→done 目标不再指, 回落钟塔弱提示(§5.2/U5 口径)');
+  assert.ok(badge.children.find((c) => c.classList.contains('town-hud-pointer-icon'))
+      .textContent === '🗼', '回落图标=钟塔(回家/集合锚点语义)');
+  /* 回程收敛: 弃机→HUD 收敛 */
+  vm.runInContext('__machine = null; __ui.sync();', ctx);
+  assert.strictEqual(vm.runInContext('__ui.root.hidden', ctx), true, '回程→HUD 收敛');
+  /* 再进新机(远位姿): 弱提示干净重算——第一轮目标零残留(不串轮的指引半边) */
+  vm.runInContext('__pose = {x: 140, y: 25, z: 140, yaw: 0};', ctx);
+  vm.runInContext('__machine = mkTownTargets(' +
+      '{emit: function(n, p) { __ui.targetEvent(n, p); }}); __ui.sync();', ctx);
+  badge = badgeOf();
+  assert.ok(badge, '再进新机徽章在位');
+  assert.ok(!badge.classList.contains('is-target'),
+      '第一轮目标零残留(新机新会话, focus/found 不跨轮泄漏)');
+  assert.ok(badge.classList.contains('is-fallback') &&
+      badge.classList.contains('band-far'),
+      '新机弱提示按新位姿重算(远处 88 格→far, 签名自进镇重算非陈旧档)');
+});
+
+/* ============================================================
+   ⑧ 方位指引适配(T-UI-02; prebuild §3.1-§3.4): L2 槽填充的行为面——
+      fake DOM 注入装具(mkHarness 第二参 poseRef), 全走槽/徽章/类名 seam。
+   ============================================================ */
+
+/* 指引测试用非钟塔目标(与回落图标 🗼 区分, 断言可辨) */
+const FARM_TARGET = {id: 'farm', kind: 'landmark', iconKey: 'farm', label: '小农田',
+  anchor: {x: 60, y: 24, z: 60}, state: 'active'};
+
+function badgeOf(rec) {
+  const slot = slotOf(rec.ui, 'town-hud-pointer');
+  const badge = slot.children[0];
+  assert.ok(badge, '指引器徽章未挂出(槽内零子件)');
+  return badge;
+}
+
+function pointerIconOf(badge) {
+  return badge.children.find((c) => c.classList.contains('town-hud-pointer-icon'));
+}
+
+test('指引器目标指向: 无目标=U5 钟塔弱提示; focus→目标态+图标切换+方位/距离档(位姿注入); sync 位姿采样→档位随动', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  let pose = {x: 61.5, y: 25, z: 76.5, yaw: 0}; /* 面北(voxel 前向 -Z 同式) */
+  const rec = mkHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+      () => pose);
+  rec.ui.sync();
+  let badge = badgeOf(rec);
+  assert.strictEqual(badge.classList.contains('is-fallback'), true,
+      '无目标=钟塔弱提示态(U5 belltower-fallback 默认)');
+  assert.strictEqual(pointerIconOf(badge).textContent, '🗼',
+      '弱提示图标恒钟塔(回家/集合锚点, §5.2 可见性策略)');
+  /* 沙盒无 TOWN_MAP(回落锚缺)→弱提示零方位档(不伪造方向) */
+  assert.strictEqual(badge.classList.contains('is-front'), false,
+      '无回落锚不伪造方位档(核心零依赖, 锚缺席降级为仅图标弱提示)');
+
+  rec.ui.targetEvent('town-ui/target/focus', {target: FARM_TARGET});
+  badge = badgeOf(rec);
+  assert.strictEqual(badge.classList.contains('is-target'), true,
+      'focus→目标态(验收锚: focus 事件驱动指向目标锚点)');
+  assert.strictEqual(pointerIconOf(badge).textContent, '🌾',
+      '中心图标随目标切换(farm→🌾, UI-01 marker 语义键透传)');
+  /* 目标锚(60,60) - 位姿(61.5,76.5): 前偏西约 5°→front; 约 16.6 格→near */
+  assert.strictEqual(badge.classList.contains('is-front'), true,
+      '方位档=front(目标在前向 ±45° 扇内, 4 方位离散 P-A1)');
+  assert.strictEqual(badge.classList.contains('band-near'), true,
+      '距离档=near(16.6 格: ≤P_D2 40 且 >P_D1 12)');
+
+  pose = {x: 61.5, y: 25, z: 76.5, yaw: -Math.PI / 2}; /* 转身面东 */
+  rec.ui.sync(); /* sync 位姿采样(低频, 非每帧) */
+  badge = badgeOf(rec);
+  assert.strictEqual(badge.classList.contains('is-left'), true,
+      'sync 位姿采样→方位档随动(同一目标转身后换 left)');
+  assert.strictEqual(badge.classList.contains('is-front'), false,
+      '方位档类互斥(旧档摘除, 不残留)');
+
+  pose = {x: 0, y: 25, z: 0, yaw: 0}; /* 远走: 距锚约 84.9 格 */
+  rec.ui.sync();
+  badge = badgeOf(rec);
+  assert.strictEqual(badge.classList.contains('band-far'), true,
+      '距离档=far(>P_D2 40 格, 三档定性不显数字)');
+
+  pose = {x: 61, y: 25, z: 61, yaw: 0}; /* 走近并面向: 距锚 √2 格 */
+  rec.ui.sync();
+  badge = badgeOf(rec);
+  assert.strictEqual(badge.classList.contains('band-nearby'), true,
+      '距离档=nearby(≤P_D1 12 格且在视野角内, 「就在附近」态)');
+});
+
+test('nearby 档需在视野内(prebuild §5 函数 4): ≤12 格但背对目标→near 不升 nearby(指针仍指引转向)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const pose = {x: 61, y: 25, z: 61, yaw: Math.PI}; /* 踩在锚旁却面南(背对) */
+  const rec = mkHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+      () => pose);
+  rec.ui.sync();
+  rec.ui.targetEvent('town-ui/target/focus', {target: FARM_TARGET});
+  const badge = badgeOf(rec);
+  assert.strictEqual(badge.classList.contains('band-near'), true,
+      '近距(√2 格)但不在视野角内→near(降档不升 nearby)');
+  assert.strictEqual(badge.classList.contains('band-nearby'), false,
+      'inView=false 时 nearby 不可达(附近档需在视野内, 鼓励观察世界)');
+});
+
+test('found 后回落钟塔弱提示(验收锚 §5.2/U5): done 目标不再指→is-fallback+钟塔图标', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+      () => ({x: 61.5, y: 25, z: 76.5, yaw: 0}));
+  rec.ui.sync();
+  rec.ui.targetEvent('town-ui/target/focus', {target: FARM_TARGET});
+  assert.strictEqual(badgeOf(rec).classList.contains('is-target'), true, '前置: 目标态');
+  rec.ui.targetEvent('town-ui/target/update', {id: 'farm', state: 'done'});
+  const badge = badgeOf(rec);
+  assert.strictEqual(badge.classList.contains('is-fallback'), true,
+      'found→done 目标不再指, 回落钟塔弱提示(U5: 无活动目标=钟塔弱提示)');
+  assert.strictEqual(badge.classList.contains('is-target'), false, '目标态摘除');
+  assert.strictEqual(pointerIconOf(badge).textContent, '🗼',
+      '回落图标=钟塔(农场 🌾 已换下, 回家语义保留)');
+});
+
+test('签名门控不重建 DOM(架构 §8 签名/脏标刷新): 同目标重复 focus 与同位姿重复 sync→徽章子件引用恒等', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const pose = {x: 61.5, y: 25, z: 76.5, yaw: 0};
+  const rec = mkHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+      () => pose);
+  rec.ui.sync();
+  rec.ui.targetEvent('town-ui/target/focus', {target: FARM_TARGET});
+  const slot = slotOf(rec.ui, 'town-hud-pointer');
+  const badge = badgeOf(rec); /* 红期=断言红(徽章未挂出), 不以装具炸代替 */
+  const icon = pointerIconOf(badge);
+  rec.ui.targetEvent('town-ui/target/focus', {target: FARM_TARGET}); /* 重复同值 */
+  assert.strictEqual(slot.children.length, 1, '重复 focus 不多挂子件');
+  assert.strictEqual(slot.children[0], badge, '重复 focus 徽章引用恒等(零重建 DOM)');
+  assert.strictEqual(pointerIconOf(badge), icon, '图标子件引用恒等(中心不交叉重建)');
+  rec.ui.sync(); /* 同位姿重复采样 */
+  assert.strictEqual(slot.children[0], badge, '同位姿 sync 徽章引用恒等(签名不变零 DOM 操作)');
+  assert.strictEqual(badge.classList.contains('is-front'), true, '档位保持不抖动');
+});
+
+test('无位姿/无锚点降级不炸: poseRef 缺省(Node 沙盒 null)→目标态徽章照出, 零方位/距离档, sync 不炸', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync(); /* Node 沙盒: 无 voxel 全局 pos/yaw → 缺省 poseRef null */
+  rec.ui.targetEvent('town-ui/target/focus', {target: FARM_TARGET});
+  const badge = badgeOf(rec);
+  assert.strictEqual(badge.classList.contains('is-target'), true,
+      '无位姿目标态徽章照出(指引几何缺输入只降档不炸装配)');
+  for (const h of ['is-front', 'is-left', 'is-right', 'is-behind']) {
+    assert.strictEqual(badge.classList.contains(h), false,
+        '无位姿不得伪造方位档: ' + h);
+  }
+  for (const b of ['band-far', 'band-near', 'band-nearby']) {
+    assert.strictEqual(badge.classList.contains(b), false,
+        '无位姿不得伪造距离档: ' + b);
+  }
+  assert.doesNotThrow(() => rec.ui.sync(), '无位姿 sync 采样不炸(防御缺省)');
+
+  rec.ui.dialogEvent('town-ui/dialog/open', {});
+  assert.strictEqual(slotOf(rec.ui, 'town-hud-pointer').hidden, true,
+      'L2 会话收敛既有契约不破(T-UI-01 P-H2, 指引内容之上仍收敛)');
 });
