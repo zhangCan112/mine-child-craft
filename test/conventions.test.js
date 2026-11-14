@@ -197,3 +197,112 @@ test('规范: hand-view.js 装载序 held-item → hand-view → avatar(经典�
   assert.ok(at('hand-view.js') < at('avatar.js'),
       'hand-view.js 必须先于 avatar.js 装载(design Interface 装载序)');
 });
+
+/* ---------- 假 DOM 装具单一来源(A1, 2026-11-14) ----------
+   依据 docs/conventions.md §7.2: test/ 假元素一律 require test/helpers/fake-dom.js
+   的 mkEl, 测试文件禁自定义元素工厂。缘起: T-UI-03/04 两度复发——本地副本假 DOM
+   暴露非标准面(attrs 私有小平面/裸数组 children), 生产照装具形状写而非照真实
+   DOM 契约写, 三门全绿真机即炸; 「第四站点」= 再造一份本地工厂继续撒谎。
+   已登记例外(专用驱动桩, 非通用元素工厂, 各自装具理由见其文件头):
+   - test/math-world.test.js mkFakeEl: id 注册表解析 + canvas getContext 专用装具
+   - test/math-paradigms.test.js mkFakeEl: 惰性确定性桩(FIFO 时钟流程测试)
+   - test/math-track.test.js mkFakeEl: 惰性确定性桩(同上族)
+   - test/math-build-world.test.js mkFakeEl: 惰性确定性桩(canvas 共享 CTX_2D)
+   - test/focus-paradigms.test.js mkFakeElDrv: 定时驱动观察桩(名字不匹配正则, 登记备查)
+   不在扫描面: vm 笼源码串(town-ui.test.js __el, 已是标准面同形)、生产 headless
+   (js/town-ui.js mkHeadlessDoc, 业务文件, 与工厂同形——收敛走工程线票)。 */
+test('规范: 假 DOM 元素工厂单一来源 — test/ 禁自定义 fakeEl/mkEl 工厂, 一律用 test/helpers/fake-dom.js', () => {
+  const FACTORY_RE = /(?:function\s+|\bconst\s+)(fakeEl|mkEl|mkFakeEl)\s*[=(]/g;
+  const ALLOW = {
+    'test/math-world.test.js': ['mkFakeEl'],
+    'test/math-paradigms.test.js': ['mkFakeEl'],
+    'test/math-track.test.js': ['mkFakeEl'],
+    'test/math-build-world.test.js': ['mkFakeEl'],
+  };
+  assert.ok(fs.existsSync(path.join(ROOT, 'test', 'helpers', 'fake-dom.js')),
+      'test/helpers/fake-dom.js 缺失 — 假 DOM 唯一来源被删, 守门静默失效');
+  const hits = [];
+  for (const p of testFiles) {
+    const src = fs.readFileSync(path.join(ROOT, p), 'utf8');
+    for (const m of src.matchAll(FACTORY_RE)) {
+      const allowed = (ALLOW[p] || []).includes(m[1]);
+      assert.ok(allowed,
+          p + ' 自定义假 DOM 元素工厂 ' + m[1] + ' — 一律 require test/helpers/fake-dom.js ' +
+          '的 mkEl(防「第四站点」, conventions §7.2); 确需专用驱动桩须在此登记例外+理由');
+      hits.push(p);
+    }
+  }
+  assert.ok(hits.length >= 4, '例外登记应命中 ≥4 处 — 扫描空集 = 守门静默失效');
+});
+
+test('规范: 假 DOM 工厂 smoke — 标准面行为抽验(className↔classList / live children / 属性私有 / NotFoundError)', () => {
+  const {mkEl} = require('./helpers/fake-dom.js');
+  const el = mkEl('div');
+  el.className = 'a b';
+  assert.ok(el.classList.contains('a') && el.classList.contains('b'), 'className 赋值↔classList 同步');
+  const kid = mkEl('span');
+  el.appendChild(kid);
+  assert.strictEqual(kid.parentNode, el, 'appendChild 挂 parentNode(标准名)');
+  assert.strictEqual(kid.parent, el, 'appendChild 挂 parent(town-ui 生产 headless 历史名)');
+  assert.strictEqual(el.children.length, 1, 'children live 视图 length');
+  assert.throws(() => el.removeChild(mkEl()), /NotFoundError/, 'removeChild 非子件即抛(真 DOM 语义)');
+  el.innerHTML = '<p>x</p>';
+  assert.strictEqual(el.children.length, 0, 'innerHTML 赋值清空子件(真 DOM 覆盖语义)');
+  el.setAttribute('data-k', 'v');
+  assert.strictEqual(el.getAttribute('data-k'), 'v', '属性走 get/setAttribute 公开面');
+  assert.ok(!('attrs' in el), '无 attrs 私有小平面(T-UI-03 教训: 生产不可照抄装具私有面)');
+  assert.strictEqual(typeof el.children.push, 'undefined', 'children 无 push 变更法(S-1: 裸数组让 children.pop 假绿)');
+  el.classList.add('x');
+  assert.strictEqual(el.__classOps.add, 1, '__classOps 按调用次计数(签名门控观测面)');
+});
+
+/* ---------- GLOSSARY 词条确定性检查(A2, 2026-11-14) ----------
+   缝线 retro 建议 4: 词条一览 declared 计数=实际 + 一览条目↔正文词条双向对齐。
+   手修计数漂移史 69→70→71→74(两度手数出错), 确定性检查一次到位——
+   收录/改名/除名一律改 GLOSSARY 后由本断言验平, 不再手数。 */
+test('规范: GLOSSARY 词条一览 declared 计数=实际, 一览与正文词条双向对齐', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'GLOSSARY.md'), 'utf8');
+  const lines = src.split('\n');
+  /* 正文面: ### 分区 → **词条名**: 清单 */
+  const bodySections = new Map();
+  let cur = null;
+  for (const L of lines) {
+    const h = L.match(/^### (.+)$/);
+    if (h) {
+      cur = h[1].trim();
+      bodySections.set(cur, new Set());
+      continue;
+    }
+    if (cur) {
+      /* 词条头形态: **名字**: 或 **名字**（退役标注）: —— 标注括号是 §1.11 生命周期内容 */
+      const e = L.match(/^\*\*(.+?)\*\*(?:（[^）]*）)?\s*:/);
+      if (e) bodySections.get(cur).add(e[1].trim());
+    }
+  }
+  /* 一览面: - **分区**（N）: 条目 · 条目 …… */
+  const idxRe = /^- \*\*(.+?)\*\*（(\d+)）:\s*(.*)$/;
+  let idxSections = 0;
+  let idxEntries = 0;
+  for (const L of lines) {
+    const m = L.match(idxRe);
+    if (!m) continue;
+    idxSections++;
+    const names = m[3].split('·').map((s) => s.trim()).filter(Boolean);
+    assert.strictEqual(names.length, Number(m[2]),
+        'GLOSSARY 词条一览「' + m[1] + '」declared=' + m[2] + ' 实际=' + names.length + ' — 手数漂移');
+    idxEntries += names.length;
+    const body = bodySections.get(m[1]);
+    assert.ok(body, 'GLOSSARY 一览分区「' + m[1] + '」在正文无对应 ### 小节');
+    const idxSet = new Set(names);
+    for (const n of idxSet) {
+      assert.ok(body.has(n),
+          'GLOSSARY 一览条目「' + n + '」在正文「' + m[1] + '」小节无 **' + n + '**: 词条');
+    }
+    for (const n of body) {
+      assert.ok(idxSet.has(n),
+          'GLOSSARY 正文词条「' + n + '」未登记进词条一览「' + m[1] + '」(收录/改名须同步一览)');
+    }
+  }
+  assert.ok(idxSections >= 4, 'GLOSSARY 一览应 ≥4 分区 — 扫描空集 = 守门静默失效');
+  assert.ok(idxEntries >= 100, 'GLOSSARY 一览应 ≥100 词条 — 扫描空集 = 守门静默失效');
+});

@@ -30,58 +30,19 @@ const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
 
-/* ---------- 假 DOM(mode-kit 惰性渲染用, showroom-mode.test 同款本地副本) ---------- */
-function fakeEl() {
-  const el = {
-    children: [], _cls: new Set(), style: {}, dataset: {}, textContent: '',
-    addEventListener() {},
-    appendChild(c) {
-      c.parentNode = this;
-      this.children.push(c);
-      return c;
-    },
-    removeChild(c) {
-      c.parentNode = null;
-      const i = this.children.indexOf(c);
-      if (i >= 0) this.children.splice(i, 1);
-      return c;
-    },
-    querySelector(sel) {
-      if (!this['q_' + sel]) this['q_' + sel] = fakeEl();
-      return this['q_' + sel];
-    },
-  };
-  let html = '';
-  Object.defineProperty(el, 'innerHTML', {
-    get: () => html,
-    set: (v) => {
-      html = String(v);
-      el.children.length = 0; /* innerHTML 重写即清子节点(真 DOM 语义) */
-    },
-  });
-  Object.defineProperty(el, 'className', {
-    get: () => [...el._cls].join(' '),
-    set: (v) => {
-      el._cls.clear();
-      String(v).split(/\s+/).filter(Boolean).forEach((c) => el._cls.add(c));
-    },
-  });
-  Object.defineProperty(el, 'classList', {value: {
-    add: (c)=>el._cls.add(c), remove: (c)=>el._cls.delete(c),
-    toggle: (c, v)=>{
-      const on = (v === undefined) ? !el._cls.has(c) : v;
-      if (on) el._cls.add(c); else el._cls.delete(c);
-    },
-    contains: (c)=>el._cls.has(c),
-  }});
-  return el;
-}
+/* ---------- 假 DOM(mode-kit 惰性渲染用) — 工厂唯一来源 test/helpers/fake-dom.js
+   (conventions §7.2 单一来源; 原为 showroom-mode.test 同款本地副本, 已删) ---------- */
+const {mkEl} = require('./helpers/fake-dom.js');
 
 globalThis.performance = {now: () => 0};
 const elCache = {};
 globalThis.document = {
-  createElement: () => fakeEl(),
-  getElementById: (id) => (elCache[id] = elCache[id] || fakeEl()),
+  createElement: () => mkEl(),
+  getElementById: (id) => (elCache[id] = elCache[id] || mkEl()),
+  /* mode-kit show 的挂载守卫 `root.parentNode !== doc.body` 契约要求 doc 有 body
+     (js/mode-kit.js:555); 旧桩无 body 时 undefined !== undefined 恒假、静默跳挂
+     ——装具谎言, 工厂标准语义下必补(conventions §7.5: 装具对照真实契约补面) */
+  body: mkEl(),
 };
 
 /* ---------- 真件: 纯核心三件(vm 共享词法环境) + 两 require 件 ---------- */

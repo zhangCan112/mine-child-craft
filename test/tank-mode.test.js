@@ -6,25 +6,9 @@
 const test = require('node:test');
 const assert = require('node:assert');
 
-function fakeEl() {
-  const el = {
-    children: [], _cls: new Set(), style: {}, innerHTML: '', textContent: '', dataset: {},
-    addEventListener() {}, appendChild(c) {
-      this.children.push(c); return c;
-    },
-    querySelector(sel) {
-      if (!this['q_' + sel]) this['q_' + sel] = fakeEl(); return this['q_' + sel];
-    },
-  };
-  Object.defineProperty(el, 'classList', {value: {
-    add: (c)=>el._cls.add(c), remove: (c)=>el._cls.delete(c),
-    toggle: (c, v)=>{
-      const on = (v === undefined) ? !el._cls.has(c) : v; if (on) el._cls.add(c); else el._cls.delete(c);
-    },
-    contains: (c)=>el._cls.has(c),
-  }});
-  return el;
-}
+/* 假 DOM — 工厂唯一来源 test/helpers/fake-dom.js
+   (conventions §7.2 单一来源; 原为家族 B 精简本地副本, 已删) */
+const {mkEl} = require('./helpers/fake-dom.js');
 
 /* mode-kit 在模块加载时捕获 document/MK — 必须先注入再 require;
    getElementById 按 id 记忆化, 测试才能拿到 MK.hud 捕获的同一元素;
@@ -33,8 +17,10 @@ let fakeClock = 0;
 globalThis.performance = {now: () => fakeClock};
 const elCache = {};
 globalThis.document = {
-  createElement: () => fakeEl(),
-  getElementById: (id) => (elCache[id] = elCache[id] || fakeEl()),
+  createElement: () => mkEl(),
+  getElementById: (id) => (elCache[id] = elCache[id] || mkEl()),
+  /* mode-kit show 挂载守卫契约要求 doc.body(同 furnace-kit.test 注) */
+  body: mkEl(),
 };
 const ModeKit = require('../js/mode-kit.js');
 globalThis.CombatKit = require('../js/combat-kit.js'); /* 玩家战斗壳(C6-T3): 击杀观感真模块 */
@@ -337,8 +323,8 @@ test('共享怪物: init 按默认配置一次性部署(僵尸×6, 带游荡栅�
   assert.ok(mobsState.spawned.every((s) => s.type === 'zombie'), '默认僵尸');
   assert.ok(mobsState.spawned.every((s) => s.opts && s.opts.wander && s.opts.wander.x0 === 18), '带游荡栅栏(怪物库游荡本能)');
   assert.ok(mobsState.spawned.every((s) => Math.hypot(s.x - 56, s.z - 94) >= 12), '不刷在坦克脸上');
-  const pkFlat = () => elCache['pkMobBtns'].children /* 内联簇: 按钮/组头嵌在 fam-group 簇里 */
-      .flatMap((c) => c.className === 'fam-group' ? c.children : [c]);
+  const pkFlat = () => [...elCache['pkMobBtns'].children] /* live 视图先拷实数组(标准迭代面) */
+      .flatMap((c) => c.className === 'fam-group' ? [...c.children] : [c]);
   const pkBtns = () => pkFlat().filter((c) => c.dataset.type);
   const pkHeads = () => pkFlat().filter((c) => c.className === 'fam-head');
   assert.strictEqual(pkBtns().length, 6, '选怪面板动态生成全部怪种按钮' +
@@ -424,13 +410,13 @@ test('选怪面板: 🐛 触屏按钮与 M 键开关游戏内浮动面板(不复
   const bugBtn = touchList.find((b) => b.icon === 'creeper');
   assert.ok(bugBtn, '触屏有换怪按钮(苦力怕像素头像)');
   bugBtn.act();
-  assert.ok(picker._cls.has('open'), '👾 开面板');
+  assert.ok(picker.classList.contains('open'), '👾 开面板');
   bugBtn.act();
-  assert.ok(!picker._cls.has('open'), '再点关闭');
+  assert.ok(!picker.classList.contains('open'), '再点关闭');
   TankRangeMode.onKey('KeyM');
-  assert.ok(picker._cls.has('open'), 'M 键同入口开关');
+  assert.ok(picker.classList.contains('open'), 'M 键同入口开关');
   TankRangeMode.onKey('KeyM');
-  assert.ok(!picker._cls.has('open'), 'M 键再关');
+  assert.ok(!picker.classList.contains('open'), 'M 键再关');
 });
 
 test('选怪面板: 数量 +/- 生效, 面板内部署按钮按当前选择撒怪并关面板', () => {
@@ -443,16 +429,16 @@ test('选怪面板: 数量 +/- 生效, 面板内部署按钮按当前选择撒�
   assert.strictEqual(elCache['pkCnt'].textContent, 7, '减一回到 7');
   elCache['pkGo'].onclick(); /* 部署 */
   assert.strictEqual(mobsState.spawned.length, 7, '按面板数量撒 7 只');
-  assert.ok(!elCache['mobPicker']._cls.has('open'), '部署即关面板');
+  assert.ok(!elCache['mobPicker'].classList.contains('open'), '部署即关面板');
 });
 
 test('选怪面板: 开着面板退场, cleanup 关闭(.open 不渗进菜单/其他模式)', () => {
   TankRangeMode.onKey('KeyM'); /* 开面板(泄漏场景: 面板开着走 Esc→主菜单/换模式) */
-  assert.ok(elCache['mobPicker']._cls.has('open'), '前置: 面板开着');
+  assert.ok(elCache['mobPicker'].classList.contains('open'), '前置: 面板开着');
   TankRangeMode.cleanup();
-  assert.ok(!elCache['mobPicker']._cls.has('open'), 'cleanup 关闭静态浮层');
+  assert.ok(!elCache['mobPicker'].classList.contains('open'), 'cleanup 关闭静态浮层');
   TankRangeMode.onKey('KeyM');
-  assert.ok(elCache['mobPicker']._cls.has('open'), '收口后再开仍正常(重进模式可用)');
+  assert.ok(elCache['mobPicker'].classList.contains('open'), '收口后再开仍正常(重进模式可用)');
 });
 
 test('HUD: 驾驶中报剩余怪物数(怪物库 list 只读视图)', () => {
@@ -477,12 +463,13 @@ test('进场放当前型号: init 以 selModel(默认迷彩战车)放置, 重建
 
 test('出发配置页: 坦克卡按 order 排序, 点卡只改选择不重建, 出发才进场', () => {
   const grid = elCache['tankPick'];
-  grid.children.length = 0;
+  /* 清场: live 集合无 length 赋值面, 走 removeChild 唯一通道(conventions §7.2) */
+  while (grid.children.length) grid.removeChild(grid.children[0]);
   TankRangeMode.buildMenu(); /* 与 main.js 同入口(main 的 buildMenu 钩子) */
   assert.strictEqual(grid.children.length, 2, '每个型号一张卡: ' + grid.children.length);
   assert.ok(grid.children.every((c) => c.dataset.model), '卡片带 data-model');
   const card = grid.children.find((c) => c.dataset.model === 'thunder');
-  assert.ok(card && !card._cls.has('active'), '当前是迷彩战车, 雷霆卡未高亮');
+  assert.ok(card && !card.classList.contains('active'), '当前是迷彩战车, 雷霆卡未高亮');
   calls.length = 0; spoken.length = 0;
   card.onclick(); /* 点卡 = 只选不进场 */
   assert.ok(!has('loadScene'), '点卡不重建');
@@ -491,7 +478,7 @@ test('出发配置页: 坦克卡按 order 排序, 点卡只改选择不重建, �
   assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('雷霆战神') >= 0),
       '选中有提示: ' + JSON.stringify(calls));
   const last = [...grid.children].reverse().find((c) => c.dataset.model === 'thunder');
-  assert.ok(last._cls.has('active'), '选后雷霆战神卡高亮(重绘取最后一张)');
+  assert.ok(last.classList.contains('active'), '选后雷霆战神卡高亮(重绘取最后一张)');
   /* 出发: 换了型号 → 重建演习场放置雷霆战神 + 回战场 */
   elCache['tankGoBtn'].onclick();
   assert.ok(has('lock'), '出发回战场');
@@ -502,15 +489,16 @@ test('出发配置页: 坦克卡按 order 排序, 点卡只改选择不重建, �
 
 test('出发配置页: 怪物一行 6 卡(fake 7 种, mix 排除)与 👾 面板共用 mobCfg, 选完出发部署该怪', () => {
   const mrow = elCache['tankMobPick'];
-  mrow.children.length = 0;
+  /* 清场: live 集合无 length 赋值面, 走 removeChild 唯一通道(conventions §7.2) */
+  while (mrow.children.length) mrow.removeChild(mrow.children[0]);
   TankRangeMode.buildMenu();
   assert.strictEqual(mrow.children.length, 5 + 1, '怪物一行动态生成全部怪种卡(fake 6 种, mix 排除)');
   const sk = mrow.children.find((c) => c.dataset.type === 'skeleton');
-  assert.ok(sk && !sk._cls.has('active'), '默认僵尸, 骷髅卡未高亮');
+  assert.ok(sk && !sk.classList.contains('active'), '默认僵尸, 骷髅卡未高亮');
   mobsState.spawned.length = 0;
   sk.onclick(); /* 选骷髅 */
   const sk2 = [...mrow.children].reverse().find((c) => c.dataset.type === 'skeleton');
-  assert.ok(sk2._cls.has('active'), '选后骷髅卡高亮');
+  assert.ok(sk2.classList.contains('active'), '选后骷髅卡高亮');
   calls.length = 0;
   elCache['tankGoBtn'].onclick(); /* 出发: 怪种变了 → 重建并部署骷髅 */
   assert.ok(has('loadScene'), '怪种变化也重建');

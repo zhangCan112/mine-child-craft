@@ -10,61 +10,21 @@ const vm = require('node:vm');
 const ModeKit = require('../js/mode-kit.js');
 const {mkMode, mkHotbar, mkCraftPanel, mkFurnacePanel, mkChestPanel, sortInv, confirmBtn, spawn} = ModeKit;
 
-function fakeEl() {
-  const el = {
-    children: [], _cls: new Set(), _ev: {}, style: {}, dataset: {}, textContent: '',
-    addEventListener(type, fn) {
-      el._ev[type] = fn; // 记录监听器, 供测试手动派发(T10 面板点击/长按)
-    },
-    appendChild(c) {
-      c.parentNode = this; // 面板挂载幂等判定用(T10)
-      this.children.push(c); return c;
-    },
-    removeChild(c) {
-      c.parentNode = null;
-      const i = this.children.indexOf(c);
-      if (i >= 0) this.children.splice(i, 1);
-      return c;
-    },
-    querySelector(sel) {
-      if (!this['q_' + sel]) this['q_' + sel] = fakeEl(); return this['q_' + sel];
-    },
-  };
-  let html = '';
-  Object.defineProperty(el, 'innerHTML', { // 赋值覆盖子节点(对齐真 DOM 覆盖语义)
-    get: () => html,
-    set: (v) => {
-      html = String(v);
-      el.children.length = 0; // 解析不出元素, 但至少清掉 appendChild 的旧子节点
-    },
-  });
-  Object.defineProperty(el, 'className', { // 赋值同步 _cls(对齐真 DOM className↔classList)
-    get: () => [...el._cls].join(' '),
-    set: (v) => {
-      el._cls.clear();
-      String(v).split(/\s+/).filter(Boolean).forEach((c) => el._cls.add(c));
-    },
-  });
-  Object.defineProperty(el, 'classList', {value: {
-    add: (c)=>el._cls.add(c), remove: (c)=>el._cls.delete(c),
-    toggle: (c, v)=>{
-      const on = (v === undefined) ? !el._cls.has(c) : v; if (on) el._cls.add(c); else el._cls.delete(c);
-    },
-    contains: (c)=>el._cls.has(c),
-  }});
-  return el;
-}
-const fakeDoc = {createElement: () => fakeEl()};
+/* ---------- 假 DOM(mode-kit 惰性渲染用) — 工厂唯一来源 test/helpers/fake-dom.js
+   (conventions §7.2 单一来源; 监听记录面 _ev last-wins 已收编进工厂) ---------- */
+const {mkEl} = require('./helpers/fake-dom.js');
 
-/* 面板用 doc: body 也是 fakeEl(挂载/卸载可观测) */
+const fakeDoc = {createElement: () => mkEl()};
+
+/* 面板用 doc: body 也是假元素(挂载/卸载可观测) */
 function mkDoc() {
-  return {createElement: () => fakeEl(), body: fakeEl()};
+  return {createElement: () => mkEl(), body: mkEl()};
 }
 
-/* 按 class 递归收集子树元素(fakeEl 无 querySelectorAll, 测试自遍历) */
+/* 按 class 递归收集子树元素(工厂有 querySelector 但逐选择器缓存语义不同, 测试自遍历) */
 function collect(el, cls, out) {
   out = out || [];
-  if (el._cls && el._cls.has(cls)) out.push(el);
+  if (el.classList && el.classList.contains(cls)) out.push(el);
   (el.children || []).forEach((c) => collect(c, cls, out));
   return out;
 }
@@ -151,7 +111,7 @@ globalThis.Mobs = {
 /* ============ hotbar 选块状态机 ============ */
 
 test('hotbar: 数字键选块(1-based), 越界忽略', () => {
-  const mount = fakeEl();
+  const mount = mkEl();
   const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: 'a'}, {icon: 'b'}, {icon: 'c'}]});
   hb.show();
   assert.strictEqual(mount.children.length, 3);
@@ -163,7 +123,7 @@ test('hotbar: 数字键选块(1-based), 越界忽略', () => {
 });
 
 test('hotbar: 滚轮双向环绕', () => {
-  const mount = fakeEl();
+  const mount = mkEl();
   const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: 'a'}, {icon: 'b'}, {icon: 'c'}]});
   const mode = mkMode({id: 'x', hotbar: hb});
   mode.onWheel(1); mode.onWheel(1);
@@ -175,22 +135,22 @@ test('hotbar: 滚轮双向环绕', () => {
 });
 
 test('hotbar: cnt 实时重读与 empty 态', () => {
-  const mount = fakeEl();
+  const mount = mkEl();
   let n = 0;
   const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: '🧵', lbl: '引线', cnt: ()=>n}]});
   hb.show();
   const slot = mount.children[0];
-  assert.ok(slot._cls.has('empty')); // 0 库存 → empty
+  assert.ok(slot.classList.contains('empty')); // 0 库存 → empty
   n = 5;
   hb.refresh();
-  assert.strictEqual(slot['q_.cnt'].textContent, 5);
-  assert.ok(!slot._cls.has('empty'));
+  assert.strictEqual(slot.querySelector('.cnt').textContent, 5);
+  assert.ok(!slot.classList.contains('empty'));
 });
 
 /* ============ T10 item 槽型: 像素图标+数量+耐久条 ============ */
 
 test('item 槽: dataURL 喂 img.src / emoji 文本喂 icon / 名称走 ITEMS', () => {
-  const mount = fakeEl();
+  const mount = mkEl();
   const hb = mkHotbar({doc: fakeDoc, mount,
     items: [{item: 'planks'}, {item: 'rotten_flesh'}]});
   hb.show();
@@ -204,26 +164,26 @@ test('item 槽: dataURL 喂 img.src / emoji 文本喂 icon / 名称走 ITEMS', (
 });
 
 test('item 槽: refresh 重读数量(>1 才显)与耐久条宽/档位, 归零 empty', () => {
-  const mount = fakeEl();
+  const mount = mkEl();
   let n = 1; let r = 0.75;
   const hb = mkHotbar({doc: fakeDoc, mount,
     items: [{item: 'pick_wood', cnt: () => n, dur: () => r}]});
   hb.show();
   const slot = mount.children[0];
-  const fill = slot['q_.dur i'];
-  assert.strictEqual(slot['q_.cnt'].textContent, ''); // 单件工具不显数量
+  const fill = slot.querySelector('.dur i');
+  assert.strictEqual(slot.querySelector('.cnt').textContent, ''); // 单件工具不显数量
   assert.strictEqual(fill.style.width, '75%');
-  assert.ok(fill._cls.has('bar-hi')); // ≥50% 绿档
+  assert.ok(fill.classList.contains('bar-hi')); // ≥50% 绿档
   n = 5; r = 0.3;
   hb.refresh();
-  assert.strictEqual(slot['q_.cnt'].textContent, '5');
+  assert.strictEqual(slot.querySelector('.cnt').textContent, '5');
   assert.strictEqual(fill.style.width, '30%');
-  assert.ok(fill._cls.has('bar-mid')); // 25%~50% 黄档
+  assert.ok(fill.classList.contains('bar-mid')); // 25%~50% 黄档
   n = 0; r = 0.1;
   hb.refresh();
-  assert.ok(slot._cls.has('empty')); // 数量归零 → empty 态
+  assert.ok(slot.classList.contains('empty')); // 数量归零 → empty 态
   assert.strictEqual(fill.style.width, '10%');
-  assert.ok(fill._cls.has('bar-lo')); // <25% 红档
+  assert.ok(fill.classList.contains('bar-lo')); // <25% 红档
 });
 
 /* ============ T10 sortInv: 一键整理(同项合并·首现序) ============ */
@@ -302,11 +262,11 @@ test('craft 面板: 点非空格起手高亮(pick 类), 点目标格 → onMove(
   panel.show();
   collect(panel.root, 'mkp-cell')[18].onclick(); // 快捷镜像首格 = 槽 0: 起手(二轮镜像格 DOM 序 18~26)
   let cells = collect(panel.root, 'mkp-cell'); // refresh 重建, 重取
-  assert.ok(cells[18]._cls.has('pick'), '起手格高亮');
+  assert.ok(cells[18].classList.contains('pick'), '起手格高亮');
   cells[0].onclick(); // 主格首格 = 槽 9(空位): 搬去那里
   assert.deepStrictEqual(moves, [[0, 9]], 'onMove 报模式层执行(空位/并堆/对调政策不在面板)');
   cells = collect(panel.root, 'mkp-cell');
-  assert.ok(!cells[18]._cls.has('pick'), '搬运后收高亮');
+  assert.ok(!cells[18].classList.contains('pick'), '搬运后收高亮');
   panel.remove();
 });
 
@@ -323,7 +283,7 @@ test('craft 面板: 搬运边界 — 再点原格=放下, 无起手点空格=无
   collect(panel.root, 'mkp-cell')[18].onclick(); // 槽 0 起手(二轮: 镜像格 DOM 序 18~26)
   collect(panel.root, 'mkp-cell')[18].onclick(); // 再点原格 → 放下
   assert.deepStrictEqual(moves, []);
-  assert.ok(!collect(panel.root, 'mkp-cell')[18]._cls.has('pick'), '放下后无高亮');
+  assert.ok(!collect(panel.root, 'mkp-cell')[18].classList.contains('pick'), '放下后无高亮');
   collect(panel.root, 'mkp-cell')[3].onclick(); // 无起手 + 空格 → 无事
   collect(panel.root, 'mkp-cell')[19].onclick(); // 无起手 + 空格(快捷镜像) → 无事
   assert.deepStrictEqual(moves, []);
@@ -363,12 +323,12 @@ test('craft 面板: 🧹 整理收起搬运起手(主格重排后起手槽号失
   panel.show();
   collect(panel.root, 'mkp-cell')[18].onclick(); // 槽 0 起手(二轮: 镜像格 DOM 序 18~26)
   collect(panel.root, 'mkp-sort')[0].onclick(); // 整理 → 收起手
-  assert.ok(!collect(panel.root, 'mkp-cell')[18]._cls.has('pick'), '整理后无高亮');
+  assert.ok(!collect(panel.root, 'mkp-cell')[18].classList.contains('pick'), '整理后无高亮');
   assert.deepStrictEqual(moves, [], '整理不是搬运');
   collect(panel.root, 'mkp-cell')[18].onclick(); // 重新起手
   panel.close(); // 关面板 → 下次打开不带旧高亮
   panel.show();
-  assert.ok(!collect(panel.root, 'mkp-cell')[18]._cls.has('pick'), '重开无残留高亮');
+  assert.ok(!collect(panel.root, 'mkp-cell')[18].classList.contains('pick'), '重开无残留高亮');
   panel.remove();
 });
 
@@ -434,13 +394,13 @@ test('craft 面板: 缺料→卡片 dim+chip lack(have/need), 补料刷新恢复
   pickL1(panel, 'craft'); // 二轮: 配方卡在造物页
   pickTab(panel, 'block'); // planks 归方块页(T9 页签化)
   let card = collect(panel.root, 'mkp-card')[0];
-  assert.ok(card._cls.has('dim')); // 空背包缺原木 → 整卡灰(真 canCraft 驱动)
+  assert.ok(card.classList.contains('dim')); // 空背包缺原木 → 整卡灰(真 canCraft 驱动)
   assert.ok(card.innerHTML.includes('class="mkp-chip lack"')); // 缺的材料灰显
   assert.ok(card.innerHTML.includes('>0/1<')); // have/need 计数
   inv.slots[9] = {id: 'log', n: 1}; // 模式层入包路径的等价直改(背包引用共享)
   panel.refresh();
   card = collect(panel.root, 'mkp-card')[0];
-  assert.ok(!card._cls.has('dim'));
+  assert.ok(!card.classList.contains('dim'));
   assert.ok(!card.innerHTML.includes('lack'));
   panel.remove();
 });
@@ -526,7 +486,7 @@ test('craft 面板: 卡片 DOM 复用 — 观感签名未变回挂旧节点, 变
       '签名未变 → 复用同一 DOM 节点(重建会丢已解码位图)');
   assert.notStrictEqual(byRecipe(after, 'sword_wood'), byRecipe(before, 'sword_wood'),
       '亮→灰签名变 → 重建新节点');
-  assert.ok(byRecipe(after, 'sword_wood')._cls.has('dim'), '重建节点带上 dim 类');
+  assert.ok(byRecipe(after, 'sword_wood').classList.contains('dim'), '重建节点带上 dim 类');
   panel.remove();
 });
 
@@ -568,15 +528,16 @@ test('craft 面板: 站点外只列 hand 级卡(正典配方书口径), 近台�
   assert.strictEqual(collect(panel.root, 'mkp-card').length, 1, '站点外: table 卡不列, hand 卡在列');
   assert.ok(collect(panel.root, 'mkp-card')[0].dataset.recipe === 'sword_wood');
   const bench = collect(panel.root, 'mkp-cell').slice(27, 36); // 摆放台 9 格(二轮: 台格 DOM 序 27~35)
-  assert.strictEqual(bench.filter((c) => c._cls.has('lock')).length, 5, '外圈 5 格锁定(左上 2×2 激活)');
-  assert.ok(bench[2]._cls.has('lock') && !bench[4]._cls.has('lock'), '下标 2 锁/4 激活');
-  assert.strictEqual(typeof bench[2].onclick, 'undefined', '锁定格不接点击(无搬入)');
+  assert.strictEqual(bench.filter((c) => c.classList.contains('lock')).length, 5, '外圈 5 格锁定(左上 2×2 激活)');
+  assert.ok(bench[2].classList.contains('lock') && !bench[4].classList.contains('lock'), '下标 2 锁/4 激活');
+  assert.ok(!bench[2].onclick, '锁定格不接点击(无搬入; 真 DOM 未接 handler=null/undefined, 断 falsy)');
   panel.close();
   const panel2 = mkCraftPanel({doc, inv, recipes: [R_SWORD, R_PICK], onCraft() {}});
   panel2.show(); // 缺省 station 恒 true
   pickL1(panel2, 'craft'); // 二轮: 配方卡/摆放台在造物页
   assert.strictEqual(collect(panel2.root, 'mkp-card').length, 2, '近台: 全列');
-  assert.strictEqual(collect(panel2.root, 'mkp-cell').slice(27, 36).filter((c) => c._cls.has('lock')).length, 0);
+  assert.strictEqual(
+      collect(panel2.root, 'mkp-cell').slice(27, 36).filter((c) => c.classList.contains('lock')).length, 0);
   panel2.remove();
   panel.remove();
 });
@@ -610,7 +571,7 @@ test('craft 面板: 点背包格→摆放格整摞入格(真 remove 扣槽)+onGr
   assert.strictEqual(gridMoves, 1, '拒绝不算搬');
   pickL1(panel, 'bag'); // 回背包页验起手保留(收手不散)
   all = collect(panel.root, 'mkp-cell');
-  assert.ok(all[1]._cls.has('pick'), '起手保留(收手不散)');
+  assert.ok(all[1].classList.contains('pick'), '起手保留(收手不散)');
   panel.remove();
 });
 
@@ -676,12 +637,12 @@ test('craft 面板: 点卡=BE 一键摆入(真 fillGrid) → 产出槽亮 → �
   const bench = collect(panel.root, 'mkp-cell')[27];
   assert.ok(bench.innerHTML.includes('🥓'), '原木 1 件入格 0(单件不显数量, emoji 图标)');
   let out = collect(panel.root, 'mkp-oslot')[0];
-  assert.ok(out._cls.has('on'), '摆对图案 → 产出槽亮(预览 planks ×4)');
+  assert.ok(out.classList.contains('on'), '摆对图案 → 产出槽亮(预览 planks ×4)');
   out._ev.pointerdown({preventDefault() {}});
   out._ev.pointerup(); // 短按 → 合成一发
   assert.deepStrictEqual(outs, [{item: 'planks', n: 4, leftover: 0}]);
   out = collect(panel.root, 'mkp-oslot')[0];
-  assert.ok(out._cls.has('off'), '格扣空 → 产出槽复灰');
+  assert.ok(out.classList.contains('off'), '格扣空 → 产出槽复灰');
   // 摆空点产出槽: 不合成, 不炸
   out._ev.pointerdown({preventDefault() {}});
   out._ev.pointerup();
@@ -788,7 +749,7 @@ function mkEquipStub(worn) {
     onWearAt: (i) => log.wears.push(i),
     mkPreview() {/* 桩工厂(生产=PaperDoll, mode-kit 零 THREE) */
       log.built++;
-      return {el: fakeEl(), paint: () => log.paints++, dispose: () => log.disposed++};
+      return {el: mkEl(), paint: () => log.paints++, dispose: () => log.disposed++};
     },
   }};
 }
@@ -817,7 +778,7 @@ test('craft 面板: 页签改版 — 工具/食物/方块/材料四页, 默认�
   pickTab(panel, 'mat');
   assert.strictEqual(collect(panel.root, 'mkp-card').length, 1); // 材料页承接原「全部」的未归类
   assert.strictEqual(collect(panel.root, 'mkp-card')[0].dataset.recipe, 'stick');
-  assert.ok(collect(panel.root, 'mkp-tab').find((b) => b.dataset.tab === 'mat')._cls.has('on'),
+  assert.ok(collect(panel.root, 'mkp-tab').find((b) => b.dataset.tab === 'mat').classList.contains('on'),
       '当前页签高亮(重建后重取)');
   assert.deepStrictEqual(collect(panel.root, 'mkp-l1tab').map((b) => b.dataset.page),
       ['bag', 'craft'], '缺省无 equip 缝 → 背包|造物两页签(装备页签才需 equip 缝)');
@@ -840,20 +801,20 @@ test('craft 面板: L1 三页签 — 背包|装备|造物(equip 缝), 默认背�
   const pageBag = collect(panel.root, 'mkp-pagebag')[0];
   const pageCraft = collect(panel.root, 'mkp-pagecraft')[0];
   const pageEquip = collect(panel.root, 'mkp-pageequip')[0];
-  assert.ok(!pageBag._cls.has('off'), '默认背包页亮(面板即背包本义)');
-  assert.ok(pageCraft._cls.has('off') && pageEquip._cls.has('off'), '造物/装备页藏');
+  assert.ok(!pageBag.classList.contains('off'), '默认背包页亮(面板即背包本义)');
+  assert.ok(pageCraft.classList.contains('off') && pageEquip.classList.contains('off'), '造物/装备页藏');
   assert.strictEqual(collect(panel.root, 'mkp-card').length, 0, '背包页无配方卡');
   assert.strictEqual(stub.log.built, 0, '背包页不建预览(惰性)');
   l1[1].onclick(); // 切装备页
-  assert.ok(pageBag._cls.has('off') && pageCraft._cls.has('off') && !pageEquip._cls.has('off'),
-      '页切翻转');
+  assert.ok(pageBag.classList.contains('off') && pageCraft.classList.contains('off') &&
+      !pageEquip.classList.contains('off'), '页切翻转');
   assert.strictEqual(stub.log.built, 1, '首次进装备页惰性建预览(恰一次)');
   assert.strictEqual(stub.log.paints, 1, '进页 paint 一帧(零 rAF 按需重画)');
   l1[2].onclick(); // 切造物页
-  assert.ok(!pageCraft._cls.has('off') && pageEquip._cls.has('off'), '造物页亮');
+  assert.ok(!pageCraft.classList.contains('off') && pageEquip.classList.contains('off'), '造物页亮');
   assert.strictEqual(collect(panel.root, 'mkp-card').length, 1, '造物页默认工具页(首造工具是主动作)');
   l1[0].onclick(); // 切回背包页
-  assert.ok(!pageBag._cls.has('off') && pageCraft._cls.has('off'), '切回背包页');
+  assert.ok(!pageBag.classList.contains('off') && pageCraft.classList.contains('off'), '切回背包页');
   assert.strictEqual(stub.log.built, 1, '非装备页不重建预览');
   panel.remove();
   assert.strictEqual(stub.log.disposed, 1, 'unmount → 预览 dispose(渲染器退役)');
@@ -872,10 +833,10 @@ test('craft 面板: 装备页 — 四槽 EQUIP_SLOTS 序 + 空槽虚位 + 有件
   assert.strictEqual(slots.length, 4);
   assert.deepStrictEqual(slots.map((s) => s.dataset.slot),
       ['helmet', 'chestplate', 'leggings', 'boots'], '槽序=equipment-core 四槽表(展示序唯一权威)');
-  assert.ok(!slots[0]._cls.has('off'), '有件槽实位');
+  assert.ok(!slots[0].classList.contains('off'), '有件槽实位');
   assert.ok(slots[0].innerHTML.includes('🥓'), '槽内图标(iconOf 桩 emoji 回落)');
   assert.ok(slots[0].innerHTML.includes('91%'), '槽内耐久条比例 300/330(四舍五入)');
-  assert.ok(slots[1]._cls.has('off') && slots[1].innerHTML === '', '空槽虚位(.off 空内容)');
+  assert.ok(slots[1].classList.contains('off') && slots[1].innerHTML === '', '空槽虚位(.off 空内容)');
   slots[1].onclick();
   assert.deepStrictEqual(stub.log.slots, ['chestplate'], '点槽报 onSlot 意图(空槽也报, 政策归模式层)');
   slots[3].onclick();
@@ -894,11 +855,11 @@ test('craft 面板: 背包页一键穿上 — 点背包盔甲件报 onWearAt(槽
   let cells = collect(panel.root, 'mkp-cell');
   cells[0].onclick(); // 主格首格(槽 9)盔甲件
   assert.deepStrictEqual(stub.log.wears, [9], '一键穿上: 报 onWearAt(槽号)');
-  assert.ok(!collect(panel.root, 'mkp-cell')[0]._cls.has('pick'), '不进搬运状态机(上身即清手)');
+  assert.ok(!collect(panel.root, 'mkp-cell')[0].classList.contains('pick'), '不进搬运状态机(上身即清手)');
   cells = collect(panel.root, 'mkp-cell');
   cells[1].onclick(); // 非盔甲件(木板)
   assert.deepStrictEqual(stub.log.wears, [9], '非盔甲不报穿上');
-  assert.ok(collect(panel.root, 'mkp-cell')[1]._cls.has('pick'), '非盔甲照旧起手搬运');
+  assert.ok(collect(panel.root, 'mkp-cell')[1].classList.contains('pick'), '非盔甲照旧起手搬运');
   cells = collect(panel.root, 'mkp-cell');
   cells[18].onclick(); // 快捷镜像首格(槽 0 皮靴)
   assert.deepStrictEqual(stub.log.wears, [9, 0], '快捷镜像格同缝一键穿上');
@@ -1047,9 +1008,9 @@ test('furnace 面板: 不可入炉物 dim 灰显 — 可烧/燃料亮显, 其余
   const panel = mkFurnacePanel({doc, inv, onAutoFill() {}, onPut() {}});
   panel.show();
   const cells = collect(panel.root, 'mkp-cell');
-  assert.ok(!cells[3]._cls.has('dim'), '可烧物亮显');
-  assert.ok(!cells[4]._cls.has('dim'), '燃料亮显');
-  assert.ok(cells[5]._cls.has('dim'), '不可烧也非燃料 → dim 灰显');
+  assert.ok(!cells[3].classList.contains('dim'), '可烧物亮显');
+  assert.ok(!cells[4].classList.contains('dim'), '燃料亮显');
+  assert.ok(cells[5].classList.contains('dim'), '不可烧也非燃料 → dim 灰显');
   panel.remove();
 });
 
@@ -1097,7 +1058,7 @@ test('furnace 面板: 放料后背包格跟随重画 — onPut/onAutoFill 动包
    Esc 用例在此手动派发) */
 function mkDocEv() {
   const downs = [];
-  const doc = {createElement: () => fakeEl(), body: fakeEl(),
+  const doc = {createElement: () => mkEl(), body: mkEl(),
     addEventListener(type, fn) {
       /* 同真 DOM 口径: 同回调重复注册去重(面板幂等 show 依赖此语义) */
       if (type === 'keydown' && !downs.includes(fn)) downs.push(fn);
@@ -1248,7 +1209,7 @@ test('KeyB 默认暂停(不转发), 其余键转发给模式', () => {
 });
 
 test('init: chrome 施加 + hotbar 现身 + touch 声明', () => {
-  const mount = fakeEl();
+  const mount = mkEl();
   const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: 'a'}]});
   const mode = mkMode({id: 'x', hotbar: hb, chrome: {hotbar: 'flex'}, touch: [{label: '⬆️'}], init() {}});
   mode.init();
@@ -1285,7 +1246,7 @@ test('mkMainAct: 空手/工具/食物 → aimClick(0) 挖打起步, 返回值非
 /* ============ mkHeldSync: 手持感知同步件(评审候选 6, 五件套收编) ============ */
 
 test('mkHeldSync: 哨兵槽/数字方块判定 — isBlock() 与 itemId()(铁锹映射不外泄)', () => {
-  const mount = fakeEl();
+  const mount = mkEl();
   const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: 'a'}, {icon: 'b'}, {icon: 'c'}]});
   const held = ModeKit.mkHeldSync(['shovel', 6, 5], hb);
   hb.select(0); // 'shovel' 哨兵槽
@@ -1299,7 +1260,7 @@ test('mkHeldSync: 哨兵槽/数字方块判定 — isBlock() 与 itemId()(铁锹
 });
 
 test('mkHeldSync: sync 调 Avatar.setItem 与主动作键图标切换(铲↔砖块)', () => {
-  const mount = fakeEl();
+  const mount = mkEl();
   const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: 'a'}, {icon: 'b'}]});
   const held = ModeKit.mkHeldSync(['shovel', 6], hb);
   const setItems = [];
@@ -1322,7 +1283,7 @@ test('mkHeldSync: sync 调 Avatar.setItem 与主动作键图标切换(铲↔砖�
 });
 
 test('mkHeldSync: Avatar/Input 缺装时 sync 静默不炸(精简装载守卫)', () => {
-  const mount = fakeEl();
+  const mount = mkEl();
   const hb = mkHotbar({doc: fakeDoc, mount, items: [{icon: 'a'}, {icon: 'b'}]});
   const savedInput = globalThis.Input;
   delete globalThis.Input;
@@ -1363,7 +1324,7 @@ test('自定义 onVoidFall 优先 (模式自定义坠落语义)', () => {
 
 test('confirmBtn: 首点武装, 再点执行, 超时还原', (t) => {
   t.mock.timers.enable({apis: ['setTimeout']});
-  const btn = fakeEl();
+  const btn = mkEl();
   let done = 0;
   confirmBtn(btn, {label: '重置 ↺', confirm: '⚠ 确认', onConfirm() {
     done++;
@@ -1386,7 +1347,7 @@ test('confirmBtn: 首点武装, 再点执行, 超时还原', (t) => {
 test('物品提示: hotbar 点选 → 气泡显名字+说明; 空槽静默不改写气泡', (t) => {
   t.mock.timers.enable({apis: ['setTimeout']}); /* 气泡 3.2s 淡出走 mock */
   const doc = mkDoc();
-  const mount = fakeEl();
+  const mount = mkEl();
   globalThis.hintForSlot = (it) => (!it || it.item !== 'planks' ? null :
       {name: '木板', desc: '原木锯成的板子', tts: '木板，原木锯成的板子'});
   try {
@@ -1429,7 +1390,7 @@ test('物品提示: 背包格点击读被点物品; 点灰卡=一键摆入+读�
     card.onclick(); /* 点灰卡 = 一键摆入(缺料格留空) + 读产物提示 */
     const bench = collect(panel.root, 'mkp-cell').slice(27, 36); /* 摆放台 9 格(台格 DOM 序 27~35) */
     assert.ok(bench[0].innerHTML.includes('data:image/png;base64,AA'), '三块板已部分摆入(拍板③)');
-    assert.strictEqual(collect(panel.root, 'mkp-oslot')[0]._cls.has('on'), false, '棍缺摆不中 → 产出槽不亮');
+    assert.strictEqual(collect(panel.root, 'mkp-oslot')[0].classList.contains('on'), false, '棍缺摆不中 → 产出槽不亮');
     bubble = collect(doc.body, 'hint-bubble')[0];
     assert.ok(String(bubble.innerHTML).includes('木镐'), '点灰卡读产物提示(名字)');
     assert.ok(String(bubble.innerHTML).includes('能挖石头的木头镐'), '读产物提示(说明)');
@@ -1451,9 +1412,9 @@ test('物品提示: 背包格点击读被点物品; 点灰卡=一键摆入+读�
 
 test('mkMobPicker: 谱系分组渲染 — 组头+组员簇, 头像与名字, data-type', () => {
   const doc = mkDoc();
-  const mount = fakeEl();
+  const mount = mkEl();
   ModeKit.mkMobPicker({doc, mount, onPick() {}}).render();
-  const grps = mount.children.filter((c) => c._cls.has('fam-group'));
+  const grps = mount.children.filter((c) => c.classList.contains('fam-group'));
   assert.strictEqual(grps.length, 3, '三族簇: zombie_line / skeleton_line / lone');
   assert.deepStrictEqual(collect(mount, 'fam-head').map((h) => h.textContent),
       ['zombie_line', 'skeleton_line', 'lone'], '组头文本=族名');
@@ -1472,7 +1433,7 @@ test('mkMobPicker: 谱系分组渲染 — 组头+组员簇, 头像与名字, dat
 
 test('mkMobPicker: headKeys 前置功能位(不归族) + 点击 onPick + 选中态自动重读', () => {
   const doc = mkDoc();
-  const mount = fakeEl();
+  const mount = mkEl();
   let cur = 'zombie'; const picks = [];
   ModeKit.mkMobPicker({
     doc, mount, headKeys: ['mix'], activeOf: () => cur,
@@ -1482,16 +1443,16 @@ test('mkMobPicker: headKeys 前置功能位(不归族) + 点击 onPick + 选中�
   }).render();
   assert.strictEqual(mount.children[0].dataset.type, 'mix', 'mix 按钮平铺在最前(不进族簇)');
   assert.ok(String(mount.children[0].innerHTML).includes('data:face:mix'), '功能位同款头像渲染');
-  assert.ok(!mount.children[0]._cls.has('active'), '初始选中僵尸, mix 未高亮');
+  assert.ok(!mount.children[0].classList.contains('active'), '初始选中僵尸, mix 未高亮');
   cur = 'mix'; // 消费方口径: onPick 里写配置, 此处以同效直改模拟
   mount.children[0].onclick();
   assert.deepStrictEqual(picks, ['mix'], '点击报 onPick(键)');
-  assert.ok(mount.children[0]._cls.has('active'), '点击后经 activeOf 重读 → mix 高亮');
+  assert.ok(mount.children[0].classList.contains('active'), '点击后经 activeOf 重读 → mix 高亮');
 });
 
 test('mkMobPicker: 未注册键兜底显键名(不静默丢, 面板分组「不丢桶」同款口径)', () => {
   const doc = mkDoc();
-  const mount = fakeEl();
+  const mount = mkEl();
   ModeKit.mkMobPicker({doc, mount, headKeys: ['ghost'], onPick() {}}).render();
   const b = mount.children[0];
   assert.strictEqual(b.dataset.type, 'ghost');
@@ -1501,7 +1462,7 @@ test('mkMobPicker: 未注册键兜底显键名(不静默丢, 面板分组「不�
 
 test('mkMobPicker: groupOf 恒 null 平铺(出发配置页卡片流) + itemTag/itemCls/itemHtml 观感差异', () => {
   const doc = mkDoc();
-  const mount = fakeEl();
+  const mount = mkEl();
   ModeKit.mkMobPicker({
     doc, mount,
     groupOf: () => null,
@@ -1514,10 +1475,10 @@ test('mkMobPicker: groupOf 恒 null 平铺(出发配置页卡片流) + itemTag/i
   }).render();
   assert.strictEqual(collect(mount, 'fam-group').length, 0, '平铺口径: 不建谱系组头');
   assert.strictEqual(mount.children.length, 4, '四怪四卡直接挂容器');
-  assert.ok(mount.children.every((c) => c._cls.has('scene-card')), 'itemCls 附加类');
+  assert.ok(mount.children.every((c) => c.classList.contains('scene-card')), 'itemCls 附加类');
   assert.ok(String(mount.children[0].innerHTML).includes('<h2>僵尸</h2>'), 'itemHtml 卡片结构(.big + h2)');
   const sk = mount.children.find((c) => c.dataset.type === 'skeleton');
-  assert.ok(sk._cls.has('active'), 'activeOf 供给的键高亮');
+  assert.ok(sk.classList.contains('active'), 'activeOf 供给的键高亮');
 });
 
 /* ============ editHit 覆盖放置(2026-10-28 花草火把票, 建造/竞技场路径) ============ */
@@ -1592,15 +1553,15 @@ test('丢弃: craft armed → 点背包格报 onDrop(槽号); 空格不动; 关�
   panel.show();
   const btn = collect(panel.root, 'mkp-drop')[0];
   btn.onclick();
-  assert.ok(btn._cls.has('on'), 'armed 头钮点亮');
-  assert.ok(collect(panel.root, 'mkp-grid')[0]._cls.has('dropmode'), '背包格红边警示类');
+  assert.ok(btn.classList.contains('on'), 'armed 头钮点亮');
+  assert.ok(collect(panel.root, 'mkp-grid')[0].classList.contains('dropmode'), '背包格红边警示类');
   collect(panel.root, 'mkp-cell')[0].onclick(); /* 主格首格=槽 9(木板) */
   assert.deepStrictEqual(dropped, [9], '整摞丢弃报槽号');
   assert.strictEqual(inv.slots[9], null, '模式层已扣包');
   collect(panel.root, 'mkp-cell')[0].onclick(); /* 现在是空格 */
   assert.deepStrictEqual(dropped, [9], '空格不报丢弃');
   panel.close(); /* ✕ 统一出口 → 收丢弃态 */
-  assert.ok(!btn._cls.has('on'), '关面板收态');
+  assert.ok(!btn.classList.contains('on'), '关面板收态');
   /* 恢复搬运: 起手(槽 9 放回一摞) → 点目标格 = onMove 而非 onDrop */
   inv.slots[9] = {id: 'planks', n: 3};
   const cells = collect(panel.root, 'mkp-cell');
@@ -1650,7 +1611,7 @@ test('装备条形状: 四槽按钮按头/胸/腿/靴序 · data-slot 标记 · 
   const slots = collect(bar.root, 'armorbar-slot');
   assert.deepStrictEqual(slots.map((s) => s.dataset.slot),
       ['helmet', 'chestplate', 'leggings', 'boots'], '四槽序=EQUIP_SLOTS 展示序');
-  assert.ok(slots.every((s) => s._cls.has('off')), '初值全空: 空槽虚位');
+  assert.ok(slots.every((s) => s.classList.contains('off')), '初值全空: 空槽虚位');
   bar.dispose();
   assert.strictEqual(bar.root.parentNode, null, 'dispose 摘除(探险退场清理)');
 });
@@ -1669,16 +1630,16 @@ test('装备条 update: 有件槽显像素图标 · 空槽虚位; 签名节流 �
       leggings: null, boots: {id: 'boots_gold', dur: 100}};
     bar.update(worn);
     const slots = collect(bar.root, 'armorbar-slot');
-    assert.ok(!slots[0]._cls.has('off'), '头盔有件: 虚位撤');
+    assert.ok(!slots[0].classList.contains('off'), '头盔有件: 虚位撤');
     assert.ok(slots[0].innerHTML.includes('helmet_iron'), '头盔槽显像素图标(iconOf 出口)');
-    assert.ok(slots[1]._cls.has('off'), '胸甲空槽: 虚位');
-    assert.ok(!slots[3]._cls.has('off'), '靴子有件');
+    assert.ok(slots[1].classList.contains('off'), '胸甲空槽: 虚位');
+    assert.ok(!slots[3].classList.contains('off'), '靴子有件');
     const afterFirst = iconCalls;
     bar.update({helmet: {id: 'helmet_iron', dur: 3}, chestplate: null,
       leggings: null, boots: {id: 'boots_gold', dur: 99}});
     assert.strictEqual(iconCalls, afterFirst, '磨损(dur 变 id 不变)不改签名: 不重画(常驻条无闪烁)');
     bar.update({helmet: null, chestplate: null, leggings: null, boots: null});
-    assert.ok(collect(bar.root, 'armorbar-slot').every((s) => s._cls.has('off')), '全卸: 回虚位');
+    assert.ok(collect(bar.root, 'armorbar-slot').every((s) => s.classList.contains('off')), '全卸: 回虚位');
     bar.update(worn); /* 重新穿上: 签名变, 重画 */
     assert.ok(iconCalls > afterFirst, '签名变化: 重画(脱下再穿上路径)');
   } finally {

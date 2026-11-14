@@ -23,21 +23,9 @@ const vm = require('node:vm');
 
 const hasOwn = (o, k) => Object.prototype.hasOwnProperty.call(o, k);
 
-function fakeEl() {
-  const el = {
-    children: [], style: {}, dataset: {}, innerHTML: '', textContent: '',
-    classList: {add() {}, remove() {}, toggle() {}, contains() {
-      return false;
-    }},
-    appendChild(c) {
-      return c;
-    }, addEventListener() {}, remove() {},
-    querySelector() {
-      return fakeEl();
-    }, onclick: null,
-  };
-  return el;
-}
+/* 假 DOM — 工厂唯一来源 test/helpers/fake-dom.js(conventions §7.2);
+   下文 mkFakeElDrv 是定时驱动观察桩(专用装具, 守门例外登记), 非同一面 */
+const {mkEl} = require('./helpers/fake-dom.js');
 
 function loadFocus() {
   const spoken = [];
@@ -45,7 +33,7 @@ function loadFocus() {
     console, Math, JSON, Object, Array, Date, Number,
     performance: {now: () => 0},
     setTimeout: () => 0, clearTimeout: () => {}, // 计时器不触发: 只测同步路径
-    document: {createElement: () => fakeEl()},
+    document: {createElement: () => mkEl()},
     /* 依赖注入: 话术已移居 modes/focus.js, 图标在 focus-icons.js — 调用期全局名给桩 */
     SpeechKit: {speak(s) {
       spoken.push(s);
@@ -121,7 +109,7 @@ test('focusDispatch: 六维各归各的引擎, 未知维度返回 none', () => {
 test('runFocusLevel: master 关真进六维连续小节(报幕"新游戏"且可 stop)', () => {
   const {fp, spoken} = loadFocus();
   const h = {progress() {}, showRule() {}, end() {}};
-  const ctrl = fp.runFocusLevel(fp.FOCUS_LEVELS[99], fakeEl(), h, 0);
+  const ctrl = fp.runFocusLevel(fp.FOCUS_LEVELS[99], mkEl(), h, 0);
   assert.ok(spoken.some((s) => s.indexOf('新游戏：') >= 0), '第一节开跑即报幕: ' + spoken.join('/'));
   assert.ok(ctrl && typeof ctrl.stop === 'function', '返回可停止的控制柄');
   assert.doesNotThrow(()=> ctrl.stop(), 'stop 幂等安全');
@@ -352,7 +340,7 @@ test('gonogo disguiseRate=0: 整局无伪装(不出现绿宝石), noSet 扩 coal
   const p = Object.assign(d.fp.paramsFor('gonogo', 7), {trials: 40, demo: false});
   assert.strictEqual(p.disguiseRate, 0, 'tier7 无伪装(tier<8 为 0)');
   const mcBase = d.log.mc.length; // FOCUS_META 构造期已调 mcIcon(卡面图标), 记基线
-  d.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   d.flush();
   assert.strictEqual(ended.length, 1, '整局驱动到 h.end');
@@ -377,7 +365,7 @@ test('gonogo disguiseRate=1: 每个 No-Go 试次都掷中伪装(整局只有钻�
   const ended = [];
   const p = Object.assign(d.fp.paramsFor('gonogo', 11), {trials: 30, demo: false});
   assert.strictEqual(p.disguiseRate, 1);
-  d.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   d.flush();
   assert.strictEqual(ended.length, 1);
@@ -392,7 +380,7 @@ test('gonogo disguiseRate=1: 每个 No-Go 试次都掷中伪装(整局只有钻�
 test('gonogo 教学演示: 该点的=钻石, 不该点的固定显性 TNT(不被扩充集/伪装骰分心)', () => {
   const d = loadFocusDrv({seed: 99});
   const p = Object.assign(d.fp.paramsFor('gonogo', 8), {trials: 6, demo: true});
-  d.fp.runFocusLevel({dim: 'gonogo', kind: 'tutorial', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'gonogo', kind: 'tutorial', params: p}, mkEl(),
       {progress() {}, end() {}});
   d.flush();
   const demo = d.els.filter((e) => e.className === 'f-stim hint');
@@ -405,7 +393,7 @@ test('cpt 干扰物: stone 之外 coal/iron_ore 走物品像素图, similar 档�
   const d = loadFocusDrv({seed: 5});
   const ended = [];
   const p = Object.assign(d.fp.paramsFor('cpt', 5), {trials: 30, similar: false});
-  d.fp.runFocusLevel({dim: 'cpt', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'cpt', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   d.flush();
   assert.strictEqual(ended.length, 1);
@@ -413,7 +401,7 @@ test('cpt 干扰物: stone 之外 coal/iron_ore 走物品像素图, similar 档�
   assert.ok(icons.includes('iron_ore'), 'cpt noSet 扩 iron_ore(像素版口径): ' + icons.join(','));
   const sim = loadFocusDrv({seed: 5});
   const ps = Object.assign(sim.fp.paramsFor('cpt', 10), {trials: 20, similar: true});
-  sim.fp.runFocusLevel({dim: 'cpt', kind: 'normal', params: ps}, fakeEl(), {progress() {}, end() {}});
+  sim.fp.runFocusLevel({dim: 'cpt', kind: 'normal', params: ps}, mkEl(), {progress() {}, end() {}});
   sim.flush();
   const icons2 = drvEls(sim, 'f-stim').map((e) => (e.innerHTML.match(/data:icon:(\w+)/) || [])[1]);
   assert.ok(icons2.every((n) => ['diamond', 'stone', 'emerald'].includes(n)),
@@ -424,7 +412,7 @@ test('gonogo 伪装绿宝石: 物品系统未注册时回落训练营自有管�
   const d = loadFocusDrv({seed: 7, noPix: ['emerald']}); // 模拟真实 iconOf: emerald→''
   const p = Object.assign(d.fp.paramsFor('gonogo', 11), {trials: 30, demo: false});
   const mcBase = d.log.mc.length;
-  d.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end() {}});
   d.flush();
   const htmls = drvEls(d, 'f-stim').map((e) => e.innerHTML);
@@ -439,7 +427,7 @@ test('gonogo 伪装绿宝石: 物品系统未注册时回落训练营自有管�
    ——真浏览器一次物理点击两事件都到), 返回每序列 {len, ok} 与终局统计 */
 function driveCorsi(d, params, clickMode) {
   const ended = [];
-  d.fp.runFocusLevel({dim: 'corsi', kind: 'normal', params}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'corsi', kind: 'normal', params}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   const hint = drvEls(d, 'f-corsi-hint')[0];
   const grid = drvEls(d, 'f-corsi-grid')[0];
@@ -546,7 +534,7 @@ test('onTrial gonogo: 每正式试次恰一次, 教学演示不计, 超时试次
   const d = loadFocusDrv({seed: 13});
   const events = [];
   const p = Object.assign(d.fp.paramsFor('gonogo', 8), {trials: 15, demo: true});
-  d.fp.runFocusLevel({dim: 'gonogo', kind: 'tutorial', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'gonogo', kind: 'tutorial', params: p}, mkEl(),
       {progress() {}, end() {}, onTrial: (t) => events.push(t)});
   d.flush();
   /* 引擎现状预算语义: demo 2 试次计入 trials, 正式 = trials-2 */
@@ -559,7 +547,7 @@ test('onTrial flanker: 点对方向 streak 连涨, demo 不计, 超时算错归�
   const events = [];
   /* 现状预算语义: demo 2 计入 trials → trials=10 时正式 8(5 对+1 错+2 超时) */
   const p = Object.assign(d.fp.paramsFor('flanker', 3), {trials: 10, demo: true, len: 3});
-  d.fp.runFocusLevel({dim: 'flanker', kind: 'tutorial', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'flanker', kind: 'tutorial', params: p}, mkEl(),
       {progress() {}, end() {}, onTrial: (t) => events.push(t)});
   const btns = drvEls(d, 'f-big-btn');
   /* 步进驱动: processed 计数保证「当前批未点击前不推进」(否则 FIFO 会把
@@ -597,7 +585,7 @@ test('onTrial corsi: 每序列恰一次(完成或点错), 教学序列不计', (
   const events = [];
   const p = Object.assign(d.fp.paramsFor('corsi', 2), {demo: true});
   const ended = [];
-  d.fp.runFocusLevel({dim: 'corsi', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'corsi', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
   const hint = drvEls(d, 'f-corsi-hint')[0];
   const tiles = drvEls(d, 'f-corsi-tile');
@@ -624,7 +612,7 @@ test('corsi 教学脚手架: 点错原序列重演(不推进), 正式关无此�
   const d = loadFocusDrv({seed: 19});
   const ended = [];
   const p = Object.assign(d.fp.paramsFor('corsi', 2), {demo: true, scaffold: true});
-  d.fp.runFocusLevel({dim: 'corsi', kind: 'tutorial', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'corsi', kind: 'tutorial', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   const hint = drvEls(d, 'f-corsi-hint')[0];
   const tiles = drvEls(d, 'f-corsi-tile');
@@ -653,7 +641,7 @@ test('onTrial switch: 每试次恰一次, demo 两试次不计; 不传 onTrial �
   const events = [];
   const p = Object.assign(d.fp.paramsFor('switch', 3), {trials: 7, demo: true});
   const ended = [];
-  d.fp.runFocusLevel({dim: 'switch', kind: 'tutorial', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'switch', kind: 'tutorial', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
   let mark = 0;
   /* 现状预算语义: demo 2 计入 trials → 正式批 = trials-2 = 5, 总批 = trials */
@@ -672,7 +660,7 @@ test('onTrial switch: 每试次恰一次, demo 两试次不计; 不传 onTrial �
   const ended2 = [];
   d2.fp.runFocusLevel({dim: 'switch', kind: 'tutorial',
     params: Object.assign(d2.fp.paramsFor('switch', 3), {trials: 7, demo: true})},
-  fakeEl(), {progress() {}, end: (s) => ended2.push(s)});
+  mkEl(), {progress() {}, end: (s) => ended2.push(s)});
   d2.flush(); // switch 等点击, 未点也须停在等待而非抛错
   assert.ok(Array.isArray(ended2) && ended2.length === 0, '未点完=未终局, 但加载运行零异常');
 });
@@ -681,7 +669,7 @@ test('onTrial master: 五小节事件全部上报, dim=各小节维度, 总数=�
   const d = loadFocusDrv({seed: 31});
   const events = [];
   const ended = [];
-  d.fp.runFocusLevel(d.fp.FOCUS_LEVELS[99], fakeEl(),
+  d.fp.runFocusLevel(d.fp.FOCUS_LEVELS[99], mkEl(),
       {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
   let swMark = 0; let corsiMark = 0;
   for (let guard = 0; guard < 400 && ended.length === 0; guard++) {
@@ -763,7 +751,7 @@ test('runSearch: 首回合纯目标+中性填料, 三轮找齐驱动到局末, a
   const d = loadFocusDrv({seed: 7});
   const ended = [];
   const p = Object.assign(d.fp.paramsFor('search', 12), {demo: false});
-  d.fp.runFocusLevel({dim: 'search', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'search', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   const round0 = drvEls(d, 'f-search-cell');
   assert.strictEqual(round0.length, p.cols*4, '首回合格数 = cols×rows');
@@ -799,7 +787,7 @@ test('runSearch: 低档(tier<8)整局无绿宝石; 教学关首回合目标带 h
   const d = loadFocusDrv({seed: 11});
   const ended = [];
   const p = Object.assign(d.fp.paramsFor('search', 3), {demo: true});
-  d.fp.runFocusLevel({dim: 'search', kind: 'tutorial', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'search', kind: 'tutorial', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   const round0 = drvEls(d, 'f-search-cell');
   const hinted = round0.filter((e) => e.className.split(' ').includes('hint'));
@@ -822,7 +810,7 @@ test('runSearch: 钻石格位随机分布(回归: 铺格曾走洗牌序, 第一�
   const p = Object.assign(d.fp.paramsFor('search', 3), {demo: false});
   const seen = new Set(); let mark = 0;
   for (let g = 0; g < 30; g++) {
-    d.fp.runFocusLevel({dim: 'search', kind: 'normal', params: p}, fakeEl(),
+    d.fp.runFocusLevel({dim: 'search', kind: 'normal', params: p}, mkEl(),
         {progress() {}, end() {}});
     const cells = drvEls(d, 'f-search-cell').slice(mark); // 本局首回合格(创建序=渲染序)
     mark += cells.length;
@@ -864,7 +852,7 @@ test('runEcho: 声序列/答案点阵/每回合恰一次事件 — 数对全部�
   const events = [];
   const ended = [];
   const p = {trials: 2, barkMin: 2, barkMax: 3, isi: 100, decoyRate: 0};
-  d.fp.runEcho(fakeEl(), p, d.fp.mkAdapt(0),
+  d.fp.runEcho(mkEl(), p, d.fp.mkAdapt(0),
       {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
   let mark = 0;
   for (let guard = 0; guard < 30 && ended.length === 0; guard++) {
@@ -898,7 +886,7 @@ test('runEcho: 数错回合报错归零; decoyRate 混入猫叫但不计入答�
   const events = [];
   const ended = [];
   const p = {trials: 2, barkMin: 2, barkMax: 3, isi: 100, decoyRate: 1};
-  d.fp.runEcho(fakeEl(), p, d.fp.mkAdapt(0),
+  d.fp.runEcho(mkEl(), p, d.fp.mkAdapt(0),
       {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
   let mark = 0;
   for (let guard = 0; guard < 30 && ended.length === 0; guard++) {
@@ -949,7 +937,7 @@ test('gonogo 拆弹: 误点进引信窗不终局, 窗内再点=拆弹按答对�
     /* goRate=0 单 No-Go 试次; disguiseRate=1 → 呈绿宝石(伪装全量) */
     const p = Object.assign(d.fp.paramsFor('gonogo', 12),
         {trials: 1, goRate: 0, dur: 900, demo: false, isi: 100});
-    d.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: p}, fakeEl(),
+    d.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: p}, mkEl(),
         {progress() {}, end: (s) => ended.push(s), onTrial: (t) => events.push(t)});
     return {d, events, ended, p};
   };
@@ -980,7 +968,7 @@ test('gonogo 拆弹: 误点进引信窗不终局, 窗内再点=拆弹按答对�
   const again = loadFocusDrv({seed: 33});
   const pC = Object.assign(again.fp.paramsFor('gonogo', 11),
       {trials: 1, goRate: 0, dur: 900, demo: false, isi: 100});
-  again.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: pC}, fakeEl(),
+  again.fp.runFocusLevel({dim: 'gonogo', kind: 'normal', params: pC}, mkEl(),
       {progress() {}, end: (s) => c.ended.push(s), onTrial: (t) => c.events.push(t)});
   drvEls(again, 'f-stim')[0].onmousedown();
   assert.strictEqual(c.events.length, 1, '无拆弹档: 误点立即终局');
@@ -994,7 +982,7 @@ test('flanker len9: 全行贴图带小尺寸类 f-creeper-sm, len<9 不带', () 
   const p = Object.assign(d.fp.paramsFor('flanker', 18), {trials: 3, demo: false});
   assert.strictEqual(p.len, 9);
   const ended = [];
-  d.fp.runFocusLevel({dim: 'flanker', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'flanker', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   d.flush();
   assert.strictEqual(ended.length, 1);
@@ -1004,7 +992,7 @@ test('flanker len9: 全行贴图带小尺寸类 f-creeper-sm, len<9 不带', () 
   const d2 = loadFocusDrv({seed: 8});
   const p2 = Object.assign(d2.fp.paramsFor('flanker', 10), {trials: 2, demo: false});
   assert.strictEqual(p2.len, 5);
-  d2.fp.runFocusLevel({dim: 'flanker', kind: 'normal', params: p2}, fakeEl(), {progress() {}, end() {}});
+  d2.fp.runFocusLevel({dim: 'flanker', kind: 'normal', params: p2}, mkEl(), {progress() {}, end() {}});
   d2.flush();
   assert.ok(drvEls(d2, 'f-creeper').every((e) => !e.className.includes('f-creeper-sm')), 'len5 常规尺寸');
 });
@@ -1013,7 +1001,7 @@ test('flanker neutralRate=1: 两侧全中立生物头像(无方向线索), 中�
   const d = loadFocusDrv({seed: 12, noPix: []});
   const p = Object.assign(d.fp.paramsFor('flanker', 13), {trials: 3, demo: false, neutralRate: 1, mobMix: 0});
   const ended = [];
-  d.fp.runFocusLevel({dim: 'flanker', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'flanker', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   d.flush();
   assert.strictEqual(ended.length, 1);
@@ -1031,7 +1019,7 @@ test('flanker neutralRate=1: 两侧全中立生物头像(无方向线索), 中�
   /* 教学演示行不被新参数分心: demo 两行全苦力怕 */
   const d2 = loadFocusDrv({seed: 12});
   const p2 = Object.assign(d2.fp.paramsFor('flanker', 13), {trials: 3, demo: true, neutralRate: 1, mobMix: 1});
-  d2.fp.runFocusLevel({dim: 'flanker', kind: 'tutorial', params: p2}, fakeEl(), {progress() {}, end() {}});
+  d2.fp.runFocusLevel({dim: 'flanker', kind: 'tutorial', params: p2}, mkEl(), {progress() {}, end() {}});
   const btns = drvEls(d2, 'f-big-btn');
   let processed = 0;
   for (let i = 0; i < 2; i++) { // demo 两行点掉(点击才推进)
@@ -1050,7 +1038,7 @@ test('flanker mobMix=1: 行内恰混入 1~2 只非苦力怕生物(怪物种类),
   const d = loadFocusDrv({seed: 14});
   const p = Object.assign(d.fp.paramsFor('flanker', 15), {trials: 5, demo: false, mobMix: 1, neutralRate: 0});
   const ended = [];
-  d.fp.runFocusLevel({dim: 'flanker', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'flanker', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   d.flush();
   assert.strictEqual(ended.length, 1);
@@ -1096,7 +1084,7 @@ test('switch choices: tier10 起每试次 5 块(参数驱动), 干扰项图标�
   const p = Object.assign(d.fp.paramsFor('switch', 10), {trials: 6, demo: false});
   assert.strictEqual(p.choices, 5);
   const ended = [];
-  d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   const log = driveSwitch(d, p, {end() {}}, p.trials);
   assert.strictEqual(log.length, p.trials);
@@ -1116,7 +1104,7 @@ test('switch bivalent=1: 颜色/材质规则下干扰项与目标同大小(大�
   const d = loadFocusDrv({seed: 33, noPix: ['wool_red', 'wool_blue', 'wool_yellow']});
   const p = Object.assign(d2Params(d), {bivalent: 1});
   const ended = [];
-  d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   const log = driveSwitch(d, p, {}, p.trials);
   let checked = 0;
@@ -1140,7 +1128,7 @@ test('switch bivalent=1: 大小规则下干扰项用目标同族图标(材质线
   /* rules=3 + 每试次切换, 保证大小规则必然出场 */
   const p = Object.assign(d.fp.paramsFor('switch', 14), {trials: 14, demo: false, switchEvery: 1, bivalent: 1});
   const ended = [];
-  d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   const log = driveSwitch(d, p, {}, p.trials);
   let checked = 0;
@@ -1159,7 +1147,7 @@ test('switch bivalent=0: 干扰项大小随机(不总是与目标匹配)', () =>
   const d = loadFocusDrv({seed: 37, noPix: ['wool_red', 'wool_blue', 'wool_yellow']});
   const p = Object.assign(d2Params(d), {bivalent: 0});
   const ended = [];
-  d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, fakeEl(),
+  d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, mkEl(),
       {progress() {}, end: (s) => ended.push(s)});
   const log = driveSwitch(d, p, {}, p.trials);
   let mismatched = 0; let checked = 0;
@@ -1180,7 +1168,7 @@ test('switch switchJitter=true: 切换间隔随机 1~3(不可预测); false 时�
     const d = loadFocusDrv({seed, noPix: ['wool_red', 'wool_blue', 'wool_yellow']});
     const p = Object.assign(d.fp.paramsFor('switch', tier), {trials: 16, demo: false, switchEvery: 2});
     const ended = [];
-    d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, fakeEl(),
+    d.fp.runFocusLevel({dim: 'switch', kind: 'normal', params: p}, mkEl(),
         {progress() {}, end: (s) => ended.push(s)});
     let mark = 0;
     const switchAt = [];
@@ -1609,7 +1597,7 @@ test('focusDispatch: kind=check(每日体检)与 master 同走六维连跑路径
 test('runFocusLevel: 体检 level(FOCUS_CHECK_PARAMS)真进六维连跑且报幕可停', () => {
   const {fp, spoken} = loadFocus();
   const h = {progress() {}, showRule() {}, end() {}};
-  const ctrl = fp.runFocusLevel({kind: 'check', dim: 'switch', sections: fp.FOCUS_CHECK_PARAMS}, fakeEl(), h, 0);
+  const ctrl = fp.runFocusLevel({kind: 'check', dim: 'switch', sections: fp.FOCUS_CHECK_PARAMS}, mkEl(), h, 0);
   assert.ok(spoken.some((s) => s.indexOf('新游戏：') >= 0), '第一节开跑即报幕: ' + spoken.join('/'));
   assert.ok(ctrl && typeof ctrl.stop === 'function', '返回可停止的控制柄');
   assert.doesNotThrow(()=> ctrl.stop(), 'stop 幂等安全');

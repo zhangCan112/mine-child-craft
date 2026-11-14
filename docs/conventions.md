@@ -15,6 +15,7 @@
 | 代码风格 | JS/CSS/HTML 以 Google 官方指南为基线，本地偏离全部登记在 §6 | ESLint + Stylelint + htmlhint |
 | 结构 | 一文件一模块：文件名即模块索引（§1） | test/conventions.test.js + 命名语法 |
 | 改完必跑 | `npm test`（含 boot 全链冒烟与规范守门）+ `npm run lint` | AGENTS.md 承诺 + 提交纪律 |
+| 装具与环境 | 测试假 DOM 一律 test/helpers/fake-dom.js；vm 装载/红因分类/Windows 纪律见 §7 | test/conventions.test.js + .scratch/run-green.js + 纪律 |
 | 新约定 | 先过 §1.10 升格判据；不可逆决策写 ADR | docs/adr/ |
 
 ## 1. 工程结构：一文件一模块
@@ -250,6 +251,69 @@ id 命名偏离见 §6。
 
 新增偏离必须登记在此表并给理由；未登记的偏离视为违规。
 
+## 7. 测试装具与环境纪律（2026-11-14 retro 沉淀）
+
+> 出处：2026-11-14 两份 retro（入口缝线 + 村民波次一）的机械错误与环境债收敛。
+> 判断题能机器判的落测试断言/脚本，不能机器判的如实登记为约定并给证据指针——
+> 不硬造防线。本节各条标注执行者；「勿拆」属性同已落地防线。
+
+### 7.1 Node 测试 vm 装载规约（村民债 2 三连坑成文——评审执行）
+
+vm 沙盒与宿主跨域三条铁律（同族坑三连后成文，**新红测立票默认引用本节**）：
+
+1. **宿主域摊平门面**：vm 沙盒对象与宿主对象原型不同 realm，`deepStrictEqual` 按原型比对必假红——vm 域产物先摊平进宿主域（数据 JSON 往返 / `Array.from` 拷回 / 逐字段抄写）再断言；
+2. **跨域断言走桥接查询**：冻结性、函数行为等 JSON 往返不保的面，桥接一条查询面回宿主域断言（「冻结性属源对象本身, JSON 往返不保——桥接一条查询面」先例，town-npc-registry.test.js）；
+3. **桩挂宿主 global + 共享实例保 instanceof**：ESM/script 混载下闭包自由变量按定义处词法作用域解析——THREE/document 等桩塞进 vm ctx 拦不住宿主域闭包，桩必须挂宿主 global 且宿主/vm 共享同一实例（mob-look.test.js `global.THREE = stubThree()` 先例）。
+
+先例指针（动装具前先读）：test/prefab-kit.test.js:122（vm 对象先摊平进 Node 域）、
+test/town-npc-registry.test.js:72（先摊平+桥接查询）、test/adventure-mode.test.js:150（快照桥接）、
+test/math-levels.test.js:1128（Array.from 拷回本 realm）、test/tank-mode.test.js:41（mkMode 全局桥接）、
+test/mob-look.test.js:331（桩挂宿主 global 共享实例）。
+执行者：评审（红测立票引用）+ 装具改动现场自检。
+
+### 7.2 假 DOM 装具单一来源（缝线 A1——守门测试执行）
+
+test/ 假元素一律 `require('./helpers/fake-dom.js')` 的 `mkEl`；测试文件禁止自定义元素工厂
+（`fakeEl`/`mkEl`/`mkFakeEl` 定义即红）。缘起：T-UI-03/04 两度复发——本地副本假 DOM 暴露
+非标准面（attrs 私有小平面/裸数组 children），生产照装具形状写而非照真实 DOM 契约写，
+三门全绿真机即炸；「第四站点」=再造一份本地工厂继续撒谎。工厂面清单与设计缘起见
+test/helpers/fake-dom.js 头注释（面收敛一处改处处改）。
+
+登记例外（专用驱动桩非通用元素工厂，理由见各自文件头）：math-world / math-paradigms /
+math-track / math-build-world 的 `mkFakeEl`、focus-paradigms 的 `mkFakeElDrv`（守门断言
+内 `ALLOW` 表是唯一权威）。不在扫描面：vm 笼源码串（town-ui.test.js `__el`，标准面同形）、
+生产 headless（js/town-ui.js mkHeadlessDoc——业务文件，与工厂同形；收敛走工程线票）。
+测试体清场/探针走标准面：清子件用 `while (el.children.length) el.removeChild(el.children[0])`
+（js/town-ui.js clearChildren 同款），类名探针用 `classList.contains`——live 集合无
+`length` 赋值面，裸 `_cls` 探针随工厂收敛一并绝迹。
+执行者：test/conventions.test.js「假 DOM 元素工厂单一来源」+「工厂 smoke」两条断言。
+
+### 7.3 Windows/PowerShell 提交与日志纪律（村民债 4 模板化——纪律登记）
+
+- git 提交消息避免 `~` `#` em-dash（扫描器拒）；多语句拆单条，commit 用多个 `-m`；
+- 日志落盘一律工具直写（write/edit 或 `.scratch/run-green.js`），**禁 `| Out-File` 管道**
+  （GBK 代码页把中文写成混合编码，日志报废重写）；中文核对 grep/read 直读文件；
+- 起服务先探 8080 占用，`node server.js <port>` 换口（多分区同机冲突）。
+
+执行者：纪律（评审抽查）。本节是「对策散在交接文与各票派令」的模板化收敛，替代逐派令重发。
+
+### 7.4 红基线红因分类留痕（缝线建议 2——脚本面+纪律面）
+
+装具炸（TypeError/ReferenceError 等）**≠**断言红（AssertionError）——红自证必须区分表述，
+以日志实读为准，勿凭印象写（先例：T-UI-05 回执红因 800ms 失真）。机械面：
+`.scratch/run-green.js` 捕获到失败输出时自动在日志尾段追加 `[red-cause]` 分类段
+（断言红/装具炸嫌疑的 Error 类名计数 + 失败测试清单）；回执引用该段，不手写红因。
+执行者：run-green.js 分类段（机械）+ 回执表述纪律（人）。
+
+### 7.5 DOM 交互码写前对照 MDN 标准面（缝线建议 1——纪律登记）
+
+新 DOM 交互代码写码前对照 MDN 标准面；「stub 真实化」后自问「还有哪个面没核」
+（classList/attrs/children/click/contains/removeChild/parent…）——T-UI-04 判例：
+按列举修了三处面仍漏 children 维度，第二次渲染即断。生产代码禁读装具私有小平面
+（`.attrs` 等），一律以真实 Element 契约为准（js/town-ui.js 禁 `.attrs` 直读 +
+禁 `.children.数组方法` 直调的源码切片守门已在库）。
+执行者：评审 + 既有源码切片守门（面扩列随守门走，不另立清单脚本——第二份清单必漂移）。
+
 ## 变更记录
 
 - 2026-10-22：初版。基于两份调研报告成文；同日完成存量全量对齐（ESLint 清零 21057→0、
@@ -288,3 +352,12 @@ id 命名偏离见 §6。
   town_ 前缀且 ∈ 镇民注册表键集」（T-NPC-01 §6.5 / T-NPC-03 §4.2 两轮授权改源，
   14 个 town_* 镇民档案不入战斗注册表），§1.1 补 ∪ town_*（键集=镇民注册表
   town-npc-registry）对齐现状。
+- 2026-11-14：§7 新增「测试装具与环境纪律」（两份 retro 环境改进落地，env-steward 线）：
+  7.1 Node 测试 vm 装载规约（村民债 2 三连坑成文）、7.2 假 DOM 装具单一来源
+  （工厂 test/helpers/fake-dom.js + test/conventions.test.js 守门断言 + 工厂 smoke）、
+  7.3 Windows 提交与日志纪律模板化（村民债 4）、7.4 红基线红因分类（.scratch/run-green.js
+  机械分类段 + 回执表述纪律）、7.5 DOM 交互码 MDN 标准面自检；§0 速览补「装具与环境」行。
+  同日 GLOSSARY 一览↔正文双向对齐修正（确定性检查首战抓获的漂移：城镇地图核心索引名
+  去「数据件」后缀对齐被守门钉死的正文头、7 条目随正文归位游戏模式分区 38→45、
+  大分块 74→67、玩法时间预算正文头形态统一为 **词条**: 惯例式）；
+  新增 GLOSSARY 一览计数=实际+双向对齐确定性检查（A2，手数漂移史 69→70→71→74 一次到位）。

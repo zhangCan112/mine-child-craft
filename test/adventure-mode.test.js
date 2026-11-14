@@ -13,60 +13,18 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-/* ---------- 假 DOM(mode-kit 惰性渲染用) ---------- */
-function fakeEl() {
-  const el = {
-    children: [], _cls: new Set(), style: {}, dataset: {}, textContent: '',
-    addEventListener() {},
-    appendChild(c) {
-      c.parentNode = this;
-      this.children.push(c);
-      return c;
-    },
-    removeChild(c) {
-      c.parentNode = null;
-      const i = this.children.indexOf(c);
-      if (i >= 0) this.children.splice(i, 1);
-      return c;
-    },
-    querySelector(sel) {
-      if (!this['q_' + sel]) this['q_' + sel] = fakeEl();
-      return this['q_' + sel];
-    },
-  };
-  let html = '';
-  Object.defineProperty(el, 'innerHTML', {
-    get: () => html,
-    set: (v) => {
-      html = String(v);
-      el.children.length = 0;
-    },
-  });
-  Object.defineProperty(el, 'className', {
-    get: () => [...el._cls].join(' '),
-    set: (v) => {
-      el._cls.clear();
-      String(v).split(/\s+/).filter(Boolean).forEach((c) => el._cls.add(c));
-    },
-  });
-  Object.defineProperty(el, 'classList', {value: {
-    add: (c)=>el._cls.add(c), remove: (c)=>el._cls.delete(c),
-    toggle: (c, v)=>{
-      const on = (v === undefined) ? !el._cls.has(c) : v;
-      if (on) el._cls.add(c); else el._cls.delete(c);
-    },
-    contains: (c)=>el._cls.has(c),
-  }});
-  return el;
-}
+/* ---------- 假 DOM(mode-kit 惰性渲染用) — 工厂唯一来源 test/helpers/fake-dom.js
+   (conventions §7.2: 测试文件禁自定义元素工厂, 防「第四站点」漏网; 本文件原为
+   家族 B 原型副本, T-UI-03/04 教训后收敛) ---------- */
+const {mkEl} = require('./helpers/fake-dom.js');
 
 const fakeClock = 0;
 globalThis.performance = {now: () => fakeClock};
 const elCache = {};
-const docBody = fakeEl();
+const docBody = mkEl();
 globalThis.document = {
-  createElement: () => fakeEl(),
-  getElementById: (id) => (elCache[id] = elCache[id] || fakeEl()),
+  createElement: () => mkEl(),
+  getElementById: (id) => (elCache[id] = elCache[id] || mkEl()),
   body: docBody,
 };
 
@@ -921,10 +879,10 @@ test('探险模式: 死亡政策 — 背包保留 + 回出生点满血 + TTS 安
 test('探险模式: 🎒/Tab 开关背包配方书面板(本单只挂上, 合成站点解锁归 T13)', () => {
   mem.clear();
   freshInit();
-  const panelRoot = docBody.children.find((c)=>c._cls.has('mkp-mask'));
+  const panelRoot = docBody.children.find((c)=>c.classList.contains('mkp-mask'));
   assert.ok(!panelRoot || panelRoot.parentNode !== docBody, '进场默认不开面板');
   AdventureMode.onKey('Tab');
-  const root = docBody.children.find((c)=>c._cls.has('mkp-mask'));
+  const root = docBody.children.find((c)=>c.classList.contains('mkp-mask'));
   assert.ok(root, 'Tab 打开背包+配方书面板(自建遮罩挂 body)');
   assert.notStrictEqual(root.style.display, 'none', '面板可见');
   AdventureMode.onKey('Tab');

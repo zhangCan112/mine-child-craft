@@ -13,6 +13,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {mkEl} = require('./helpers/fake-dom.js'); /* 假 DOM 工厂唯一来源(conventions §7.2) */
 
 /* ---------- 真引擎件: 与 adventure-core.test.js 同一加载序, 共享一个 vm 词法环境 ---------- */
 const ROOT = path.join(__dirname, '..');
@@ -255,58 +256,14 @@ let listResultC = []; /* Mobs.list() 可注入结果 */
 
 function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入时执行一次 */
   if (AM) return;
-  /* ---------- 假 DOM(mode-kit 惰性渲染用, 与 adventure-mode.test.js 同款) ---------- */
-  function fakeEl() {
-    const el = {
-      children: [], _cls: new Set(), style: {}, dataset: {}, textContent: '',
-      addEventListener() {},
-      appendChild(c) {
-        c.parentNode = this;
-        this.children.push(c);
-        return c;
-      },
-      removeChild(c) {
-        c.parentNode = null;
-        const i = this.children.indexOf(c);
-        if (i >= 0) this.children.splice(i, 1);
-        return c;
-      },
-      querySelector(sel) {
-        if (!this['q_' + sel]) this['q_' + sel] = fakeEl();
-        return this['q_' + sel];
-      },
-    };
-    let html = '';
-    Object.defineProperty(el, 'innerHTML', {
-      get: () => html,
-      set: (v) => {
-        html = String(v);
-        el.children.length = 0;
-      },
-    });
-    Object.defineProperty(el, 'className', {
-      get: () => [...el._cls].join(' '),
-      set: (v) => {
-        el._cls.clear();
-        String(v).split(/\s+/).filter(Boolean).forEach((c) => el._cls.add(c));
-      },
-    });
-    Object.defineProperty(el, 'classList', {value: {
-      add: (c)=>el._cls.add(c), remove: (c)=>el._cls.delete(c),
-      toggle: (c, v)=>{
-        const on = (v === undefined) ? !el._cls.has(c) : v;
-        if (on) el._cls.add(c); else el._cls.delete(c);
-      },
-      contains: (c)=>el._cls.has(c),
-    }});
-    return el;
-  }
+  /* ---------- 假 DOM(mode-kit 惰性渲染用) — 工厂唯一来源 test/helpers/fake-dom.js
+     (conventions §7.2 单一来源; 原与 adventure-mode.test.js 同款的本地副本已删) ---------- */
   globalThis.performance = {now: () => 0};
   const elCache = {};
   globalThis.document = {
-    createElement: () => fakeEl(),
-    getElementById: (id) => (elCache[id] = elCache[id] || fakeEl()),
-    body: fakeEl(),
+    createElement: () => mkEl(),
+    getElementById: (id) => (elCache[id] = elCache[id] || mkEl()),
+    body: mkEl(),
   };
   /* ---------- 真引擎件: 与 adventure-mode.test.js 同一装载序 + cascade-core ---------- */
   const engC = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});

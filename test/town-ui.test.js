@@ -47,92 +47,21 @@ try {
   townUi = null;
 }
 
-/* fake DOM 元素(记录桩): 只实现适配层许用的最小面(创建/挂树/类名/显隐/
-   文本/属性/onclick); 无 innerHTML/querySelector——适配层不重建不反查。
-   __classOps 计数器(T-UI-03 加法扩展): 签名门控零操作断言的观测面,
-   既有测试不读不影响。
-   S-1 契约收紧(2026-11-14): children 不再是裸数组——liveKids 只读集合
-   视图(无 pop/push 等变更法), 子件增删唯一通道=appendChild/removeChild,
-   与真元素 HTMLCollection 同面(裸数组让 clearChildren 的 children.pop
-   假绿, 真机 live 集合无 pop 即 TypeError)。 */
-function liveKids(kids) {
-  const methods = {
-    item: (i) => kids[i],
-    find: (fn) => kids.find(fn),
-    filter: (fn) => kids.filter(fn),
-    map: (fn) => kids.map(fn),
-    forEach: (fn) => kids.forEach(fn),
-    slice: (...a) => kids.slice(...a),
-    indexOf: (x) => kids.indexOf(x),
-    includes: (x) => kids.includes(x),
-  };
-  return new Proxy(methods, {
-    get(t, k) {
-      if (k === 'length') return kids.length;
-      if (typeof k === 'string' && /^[0-9]+$/.test(k)) return kids[+k];
-      if (k === Symbol.iterator) return () => kids[Symbol.iterator]();
-      return t[k];
-    },
-  });
-}
-
-function fakeEl(tag) {
-  const classes = new Set();
-  const attrs = {}; /* 闭包私有(F1): 公开面只走 get/setAttribute=真实 DOM 面 */
-  const kids = []; /* 闭包私有(S-1): children 只暴露 live 只读视图 */
-  const classOps = {add: 0, remove: 0};
-  const view = liveKids(kids);
-  const el = {
-    tag, parent: null, hidden: false, textContent: '',
-    style: {}, onclick: null,
-    get children() {
-      return view;
-    },
-    __classOps: classOps,
-    classList: {
-      add(...cs) {
-        classOps.add += 1;
-        for (const c of cs) classes.add(c);
-      },
-      remove(...cs) {
-        classOps.remove += 1;
-        for (const c of cs) classes.delete(c);
-      },
-      contains(c) {
-        return classes.has(c);
-      },
-    },
-    setAttribute(k, v) {
-      attrs[k] = String(v);
-    },
-    getAttribute(k) {
-      return attrs[k];
-    },
-    appendChild(c) {
-      kids.push(c);
-      c.parent = el;
-      return c;
-    },
-    removeChild(c) {
-      const i = kids.indexOf(c);
-      if (i < 0) throw new Error('NotFoundError: removeChild 的实参不是子件');
-      kids.splice(i, 1);
-      c.parent = null;
-      return c;
-    },
-    click() {
-      if (el.onclick) el.onclick({});
-    },
-  };
-  return el;
-}
+/* fake DOM 元素 — 工厂唯一来源 test/helpers/fake-dom.js(conventions §7.2)。
+   本文件 fakeEl 原是 T-UI 线落地的标准面记录桩原型(适配层许用最小面: 创建/挂树/
+   类名/显隐/文本/属性/onclick; S-1 契约: children 是 live 只读集合视图非裸数组,
+   F1 契约: 属性闭包私有公开面只走 get/setAttribute; __classOps 计数器做签名门控
+   零操作断言)——现连 同款形状的 js/town-ui.js mkHeadlessDoc 一起收编为全仓唯一
+   工厂, T-UI-03/04「装具私有小平面被生产照抄」教训的面收敛款。
+   文档级监听/注入泵仍在本文件 fakeDoc(文档桩非元素工厂)。 */
+const {mkEl} = require('./helpers/fake-dom.js');
 
 function fakeDoc() {
-  const body = fakeEl('body');
+  const body = mkEl('body');
   const listeners = {};
   return {
     body,
-    createElement: (tag) => fakeEl(tag),
+    createElement: (tag) => mkEl(tag),
     getElementById: () => null,
     /* 文档级监听记录(T-UI-03 加法扩展): 事件驱动命中的注入泵与摘除断言 */
     addEventListener: (type, fn) => {
@@ -1012,8 +941,8 @@ test('降级不炸: camRef null→mousemove 后全标隐藏(零伪造位置); �
   assert.deepStrictEqual(rec.interact, [], '无 cam 点选零派发(不伪造结算)');
   /* 裸 doc: 无 addEventListener 宿主(vm boot 沙盒头插 doc 形)→不挂监听不炸 */
   const bare = {
-    body: fakeEl('body'),
-    createElement: (tag) => fakeEl(tag),
+    body: mkEl('body'),
+    createElement: (tag) => mkEl(tag),
     getElementById: () => null,
   };
   const bareUi = townUi.mkTownUi({

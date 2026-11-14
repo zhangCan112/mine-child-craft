@@ -344,7 +344,9 @@ test('微改守门: town-map-core 头注释与 GLOSSARY 词条「八段→九段
   assert.ok(!/八段/.test(coreSrc) && /九段/.test(coreSrc),
       'town-map-core interface 行「八段」→「九段」(TOWN_MAP 实有九键: core/plaza/zones + 六清单)');
   const gloss = fs.readFileSync(path.join(ROOT, 'GLOSSARY.md'), 'utf8');
-  const at = gloss.indexOf('城镇地图核心（TownMapCore）');
+  /* 定位锚用正文词条头形态(带换行+**: 后缀): 词条一览索引行也含同名条目
+     (A2 双向对齐后), 裸名 indexOf 会先命中索引行致切片失效——精确锚非放宽 */
+  const at = gloss.indexOf('\n**城镇地图核心（TownMapCore）**:');
   assert.ok(at > 0, 'GLOSSARY TownMapCore 词条在场(装具自检)');
   const entry = gloss.slice(at, gloss.indexOf('\n### ', at));
   assert.ok(!/八段/.test(entry) && /九段/.test(entry), '词条段数措辞同校「九段」');

@@ -42,60 +42,17 @@ const vm = require('node:vm');
 
 const ROOT = path.join(__dirname, '..');
 
-/* ---------- 假 DOM(mode-kit 惰性渲染用, adventure-mode.test 同款) ---------- */
-function fakeEl() {
-  const el = {
-    children: [], _cls: new Set(), style: {}, dataset: {}, textContent: '',
-    addEventListener() {},
-    appendChild(c) {
-      c.parentNode = this;
-      this.children.push(c);
-      return c;
-    },
-    removeChild(c) {
-      c.parentNode = null;
-      const i = this.children.indexOf(c);
-      if (i >= 0) this.children.splice(i, 1);
-      return c;
-    },
-    querySelector(sel) {
-      if (!this['q_' + sel]) this['q_' + sel] = fakeEl();
-      return this['q_' + sel];
-    },
-  };
-  let html = '';
-  Object.defineProperty(el, 'innerHTML', {
-    get: () => html,
-    set: (v) => {
-      html = String(v);
-      el.children.length = 0; /* innerHTML 重写即清子节点(真 DOM 语义, 重渲染计数不失真) */
-    },
-  });
-  Object.defineProperty(el, 'className', {
-    get: () => [...el._cls].join(' '),
-    set: (v) => {
-      el._cls.clear();
-      String(v).split(/\s+/).filter(Boolean).forEach((c) => el._cls.add(c));
-    },
-  });
-  Object.defineProperty(el, 'classList', {value: {
-    add: (c)=>el._cls.add(c), remove: (c)=>el._cls.delete(c),
-    toggle: (c, v)=>{
-      const on = (v === undefined) ? !el._cls.has(c) : v;
-      if (on) el._cls.add(c); else el._cls.delete(c);
-    },
-    contains: (c)=>el._cls.has(c),
-  }});
-  return el;
-}
+/* ---------- 假 DOM(mode-kit 惰性渲染用) — 工厂唯一来源 test/helpers/fake-dom.js
+   (conventions §7.2 单一来源; 原为 adventure-mode.test 同款本地副本, 已删) ---------- */
+const {mkEl} = require('./helpers/fake-dom.js');
 
 const fakeClock = 0;
 globalThis.performance = {now: () => fakeClock};
 const elCache = {};
-const docBody = fakeEl();
+const docBody = mkEl();
 globalThis.document = {
-  createElement: () => fakeEl(),
-  getElementById: (id) => (elCache[id] = elCache[id] || fakeEl()),
+  createElement: () => mkEl(),
+  getElementById: (id) => (elCache[id] = elCache[id] || mkEl()),
   body: docBody, /* mkBubbleBar 等面板件的挂载点(adventure-mode.test 同款) */
 };
 
@@ -247,7 +204,7 @@ globalThis.SyncDB = {
 globalThis.switchMode = (id) => calls.push(['switchMode', id]);
 globalThis.showPage = (id) => calls.push(['showPage', id]);
 globalThis.uiPause = () => calls.push(['uiPause']);
-globalThis.overlay = fakeEl();
+globalThis.overlay = mkEl();
 globalThis.fps = 60;
 globalThis.setFly = (v)=> {
   globalThis.flyMode = v;
@@ -440,7 +397,8 @@ function freshEnter() {
   dropCalls.length = 0;
   dropsTicks.length = 0;
   mobsRig.hits.length = 0;
-  elCache['hotbar'].children.length = 0;
+  /* 热键栏清场: live 集合无 length 赋值面, 走 removeChild 唯一通道(conventions §7.2) */
+  while (elCache['hotbar'].children.length) elCache['hotbar'].removeChild(elCache['hotbar'].children[0]);
   collectCbs.length = 0; /* switchMode 兜底清共享实体账(Drops.clear 解除回调)的同拍 */
   ShowroomMode.init();
 }

@@ -21,6 +21,8 @@
 - 新模式 = index.html 加卡/页/script + mode-registry.js 加行（三重命名有测试断言）。
 - 注释用中文；模块头注释走 `====` 五要素契约（conventions.md §1.7）。
 - 新约定先过 conventions.md §1.10 升格判据；不可逆决策写 docs/adr/。
+- 测试装具假 DOM 一律 require test/helpers/fake-dom.js 的 mkEl（禁自定义元素工厂，守门测试执法）；
+  vm 装载/红因分类/Windows 提交纪律见 conventions.md §7。
 
 ## 收尾前必跑
 

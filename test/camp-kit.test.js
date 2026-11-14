@@ -24,6 +24,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {mkEl} = require('./helpers/fake-dom.js'); /* 假 DOM 工厂唯一来源(conventions §7.2) */
 
 function loadCampKit() {
   const log = {accrued: [], flushed: 0, cleared: 0, tocleared: 0, cancelled: 0, pages: []};
@@ -41,17 +42,8 @@ function loadCampKit() {
   let addOverflow = 0; /* >0 时 add 返回余量(满包拒收), 0 = 全收 */
   const timeouts = []; /* setTimeout 桩队列(自动续程/逐星 pop 的到点驱动) */
   let qsaImpl = () => []; /* 家长门按钮查询桩(测试里从渲染 html 捞按钮面) */
-  /* 极简元素桩: 壳骨架的建根/挂屏只碰这些面 */
-  const mkEl = () => ({
-    style: {}, dataset: {}, className: '', id: '', title: '', innerHTML: '', listeners: {},
-    addEventListener(t, fn) {
-      this.listeners[t] = fn;
-    },
-    appendChild(c) {
-      return c;
-    },
-    remove() {},
-  });
+  /* 元素工厂用 test/helpers/fake-dom.js 的 mkEl(唯一来源; 原极简丢弃桩已删——
+     丢弃桩的「appendChild 不挂树」谎言正是 T-UI-04 系教训的温床) */
   const sandbox = {
     console: {warn() {}, log() {}, error() {}},
     Math, JSON, Object, Array, Set, Number, String,
