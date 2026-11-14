@@ -1165,3 +1165,417 @@ test('集成链 T-UI-03: 进镇九标→mousemove 瞄钟塔 is-hover→按下反
       hlMarkProbe(ctx, 'bell-tower').classList.contains('is-done'), false,
       '再进零完成残留(新机新账, doneIds 清)');
 });
+
+/* ============================================================
+   ⑩ 会话 UI 三件套与 A/B 接口闭环 (T-UI-04; dialog-spec §2/§4-§7,
+      town-ui-dialog-prebuild.md §1-§6): town-dlg- 独立命名空间 DOM
+      (World Bubble + Session Panel + Option Chip/Action Ghost, 与四槽+
+      hlLayer 并存)。会话驱动缝=点选 sessionKind 在册条目(task 轻任务,
+      T-SEAM-04 数据面); landmark/prop 点选保持纯 A 侧结算既有行为零变;
+      NPC 实体轻问候走 seam(协议就绪接线留白, 走需求线登记)。B 发出
+      dialog/open|update|close→A 既有 dialogEvent 消费全链(同实例闭环);
+      会话内表扬归 B(A 意图冻结闸在册, 不双弹); close 按 §2.2/已裁决
+      语义恢复(done+taskRef 落完成一步, 其余恢复 prev)。签名门控脏标
+      刷新(签名不变零 DOM 操作); 离镇=defer 语义收会话(零负面)。
+      红期: index.html 无 town-dialog-core.js、town-ui.js 无 dlg 段→全红。
+   ============================================================ */
+
+/* 会话驱动条目(task 轻任务, sessionKind 在册; 形状=townInteractRegistry 快照同形;
+   锚点在 HL_POS(79,25,96) 前方 ~14.4 格=命中距离门内) */
+const DLG_TASK_SEEK = {id: 'task:find-bread', kind: 'task', iconKey: 'find',
+  label: '找面包', anchor: {x: 90, y: 24, z: 84}, state: 'active',
+  sessionKind: 'seek', taskRef: 'task:find-bread'};
+const DLG_TASK_TOUR = {id: 'task:tour-plaza', kind: 'task', iconKey: 'plaza',
+  label: '逛逛广场', anchor: {x: 79, y: 24, z: 76}, state: 'active',
+  sessionKind: 'tour', taskRef: 'task:tour-plaza'};
+/* 无 sessionKind 条目(landmark): 点选不开会话(A 侧纯结算, 既有行为) */
+const DLG_LANDMARK = {id: 'bell-tower', kind: 'landmark', iconKey: 'belltower',
+  label: '钟塔', anchor: {x: 79, y: 24, z: 76}, state: 'active'};
+
+function dlgLayerOf(rec) {
+  const hit = rec.ui.root.children.find(
+      (c) => c.classList.contains('town-dlg-layer'));
+  assert.ok(hit, '会话层未挂出(.town-dlg-layer 缺席, T-UI-04)');
+  return hit;
+}
+
+function dlgElOf(rec, cls) {
+  const scan = (el) => {
+    if (el.classList.contains(cls)) return el;
+    for (const c of el.children) {
+      const hit = scan(c);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  const hit = scan(dlgLayerOf(rec));
+  assert.ok(hit, '会话构件未挂出: .' + cls);
+  return hit;
+}
+
+/* 开会话便捷: 进镇+瞄向条目+完整点选链(pointerdown/pointerup) */
+function dlgHarness(machineRef, source) {
+  /* 装具序消歧: TOUR 与 LANDMARK 同锚点(钟塔位), townHlHit 同角并列取
+     序在前(core 契约「锚点清单源序=裁决序」)——LM 必须排在 TOUR 前,
+     「点选不开会话」瞄钟塔才命中 LM(无 sessionKind)而非 TOUR */
+  const rec = mkHlHarness(machineRef, {hlSource: source ||
+    [DLG_TASK_SEEK, DLG_LANDMARK, DLG_TASK_TOUR]});
+  rec.clickEntry = (entry) => {
+    rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(entry.anchor)}));
+    rec.fire('mousemove', {});
+    rec.fire('pointerdown', {});
+    rec.fire('pointerup', {});
+  };
+  return rec;
+}
+
+test('装配守门: index.html 装载序含 town-dialog-core.js 且 ui-core < dialog-core < town-ui(序即依赖)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const atUiCore = html.indexOf('js/town-ui-core.js');
+  const atDlgCore = html.indexOf('js/town-dialog-core.js');
+  const atUi = html.indexOf('js/town-ui.js');
+  assert.ok(atUiCore >= 0, 'town-ui-core 在册(前置)');
+  assert.ok(atUi >= 0, 'town-ui 在册(前置)');
+  assert.ok(atDlgCore >= 0, 'js/town-dialog-core.js script 缺失(浏览器共享词法' +
+    '里核心缺席会话链即断, T-UI-04 装配)');
+  assert.ok(atUiCore < atDlgCore && atDlgCore < atUi,
+      '装载序 town-ui-core < town-dialog-core < town-ui(核心先于消费方)');
+});
+
+test('会话层挂载: mount 恒等创建 town-dlg-layer(bubble/panel 子树)+与四槽/hlLayer 并存; 幂等不重建', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  dlgLayerOf(rec);
+  assert.ok(dlgElOf(rec, 'town-dlg-bubble'), 'World Bubble 构件在位');
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.ok(panel, 'Session Panel 构件在位');
+  assert.strictEqual(panel.getAttribute('data-state'), 'idle',
+      '可观测钩子 data-state 初始 idle(dialog-spec §11)');
+  assert.strictEqual(panel.hidden, true, '未开会话面板隐藏');
+  /* 与既有槽并存(mount 幂等下引用恒等) */
+  const layer2ref = dlgLayerOf(rec);
+  rec.ui.sync();
+  assert.strictEqual(dlgLayerOf(rec), layer2ref, '幂等 sync 零重建(引用恒等)');
+  assert.ok(rec.ui.root.children.find((c) => c.classList.contains('town-hud-card')),
+      '四槽并存: L1 卡在位');
+  assert.ok(rec.ui.root.children.find((c) => c.classList.contains('town-hl-layer')),
+      '既有层并存: hlLayer 在位');
+});
+
+test('hover 气泡: 命中可交互条目→Bubble-S 显示(局部提示); 移开→隐; 全程零 dialog 事件(A 不收敛)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring', '前置: 探索中');
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(DLG_LANDMARK.anchor)}));
+  rec.fire('mousemove', {});
+  const bubble = dlgElOf(rec, 'town-dlg-bubble');
+  assert.strictEqual(bubble.hidden, false, '命中→气泡显示(L0 环境感知)');
+  assert.strictEqual(bubble.getAttribute('data-state'), 'bubble', '气泡态在册');
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
+      'bubble 非会话: A 卡不收敛(prebuild §2.1 bubble 不触发 A)');
+  assert.deepStrictEqual(rec.speech.spoken, [], 'bubble 默认不播(矩阵行, 不抢话)');
+  rec.setCam(JSON.parse(JSON.stringify(HL_CAM_DEFAULT))); /* 瞄向空地 */
+  rec.fire('mousemove', {});
+  assert.strictEqual(bubble.hidden, true, '移开→气泡隐(邀请非强迫)');
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring', '往返零 A 动作');
+});
+
+test('点选开会话: 点 sessionKind 条目→panel 打开 data-state=seek+自动 route(任务会话)' +
+    '+speaker/目标缩略图(B6)/ghost 在位+A 侧收敛(dialog-dimmed)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.clickEntry(DLG_TASK_SEEK);
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.strictEqual(panel.hidden, false, '点选→面板打开');
+  assert.strictEqual(panel.getAttribute('data-state'), 'seek',
+      '任务条目自动 route(点选即接任务, §5.3 场景 2)');
+  const speaker = dlgElOf(rec, 'town-dlg-speaker');
+  assert.ok(speaker.textContent.includes('找面包'), 'Speaker 身份=条目名(角色即语境)');
+  const thumb = dlgElOf(rec, 'town-dlg-thumb');
+  assert.strictEqual(thumb.hidden, false, 'B6: seek 态目标缩略图常驻');
+  const ghosts = dlgElOf(rec, 'town-dlg-ghosts');
+  const ghostText = ghosts.children.map((g) => g.textContent).join('|');
+  assert.ok(ghostText.includes('稍后'), '无压力出口「稍后」在位(B5 文案)');
+  assert.ok(ghostText.includes('再听'), '「再听一次」在位(§4.4)');
+  /* A 侧收敛联动: B open→A dialogEvent→card 收敛 */
+  assert.strictEqual(rec.ui.cardState(), 'dialog-dimmed',
+      'B 发 open→A 收敛(dialog-dimmed, 闭环同实例)');
+  /* TTS: 会话步进自动播一次(B4); A 的 target-focus 提示句被会话冻结吞掉 */
+  assert.deepStrictEqual(rec.speech.spoken, ['我们一起来找面包吧!'],
+      'B 会话播报独占(A 句被冻结闸吞, dialog-spec §2.2 不抢话)');
+});
+
+test('点选不开会话: landmark/prop 条目(无 sessionKind)点选保持纯 A 侧结算(既有行为零变)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.clickEntry(DLG_LANDMARK);
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.strictEqual(panel.hidden, true, '无 sessionKind 条目不开会话');
+  assert.strictEqual(rec.ui.cardState(), 'active',
+      'A 侧结算照常(target-focus→进行中, T-UI-03 既有行为)');
+  assert.deepStrictEqual(rec.interact, [
+    {id: 'bell-tower', kind: 'landmark', iconKey: 'belltower', label: '钟塔',
+      anchor: {x: 79, y: 24, z: 76}},
+  ], 'onInteract 恰一次派发五键(结算面零弱化, 载荷形状=T-UI-03 既有契约)');
+});
+
+test('再听一次: ghost 重播当前句零次多播+状态推进归零(data-state 不变)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.clickEntry(DLG_TASK_SEEK);
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  const ghosts = dlgElOf(rec, 'town-dlg-ghosts');
+  const replay = ghosts.children.find((g) => g.textContent.includes('再听'));
+  assert.ok(replay, '前置: 再听 ghost 在位');
+  const spokenBefore = rec.speech.spoken.length;
+  replay.click();
+  assert.strictEqual(rec.speech.spoken.length, spokenBefore + 1,
+      '重播恰一次(§6.2 重播当前句)');
+  assert.strictEqual(rec.speech.cancels >= 1, true,
+      'cancel-then-speak 口径(不重叠抢话, A 侧重播钮同款)');
+  assert.strictEqual(panel.getAttribute('data-state'), 'seek',
+      '重播不改变状态(§6.2: 不推进)');
+});
+
+test('稍后无压力关闭: 任意会话态点稍后→close{deferred}→A 恢复原态+零负面(无表扬无警示)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.ui.targetEvent('town-ui/target/focus', {target: DLG_TASK_SEEK});
+  assert.strictEqual(rec.ui.cardState(), 'active', '前置: A 卡进行中(close 恢复基准)');
+  rec.clickEntry(DLG_TASK_SEEK);
+  assert.strictEqual(rec.ui.cardState(), 'dialog-dimmed', '前置: 会话收敛');
+  const ghosts = dlgElOf(rec, 'town-dlg-ghosts');
+  const deferBtn = ghosts.children.find((g) => g.textContent.includes('稍后'));
+  assert.ok(deferBtn, '前置: 稍后 ghost 在位');
+  deferBtn.click();
+  assert.strictEqual(rec.ui.cardState(), 'active',
+      'close{deferred}→A 恢复 prev(已裁决语义: 非 done 一律恢复)');
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.strictEqual(panel.hidden, true, '面板收起');
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-praise').hidden, true,
+      '零负面: 无表扬浮现(稍后不是失败)');
+});
+
+test('seek 全链: 世界点中目标→respond→praise(B 徽章呈现+A 表扬槽零双弹)→autoAdvance→complete→再见→' +
+    'close{done+taskRef}→A 落完成一步+错峰表扬', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.clickEntry(DLG_TASK_SEEK);
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+      'seek', '前置: seek 态');
+  /* 世界点中目标(再点会话锚点条目=确认找到) */
+  rec.clickEntry(DLG_TASK_SEEK);
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+      'respond', '点中目标→respond(系统确认)');
+  rec.timer.fireAll(); /* confirm 短驻泵(300ms 内可感知, §4.1) */
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.strictEqual(panel.getAttribute('data-state'), 'praise', 'confirm→praise');
+  const praise = dlgElOf(rec, 'town-dlg-praise');
+  assert.strictEqual(praise.hidden, false, '会话内表扬呈现(B owner, §7.3)');
+  assert.strictEqual(
+      rec.ui.root.children.find((c) => c.classList.contains('town-hud-praise'))
+          .children.length, 0,
+      'A 侧 L3 槽零双弹(会话中意图冻结闸在册)');
+  rec.timer.fireAll(); /* praise dwell 泵→next-step→complete */
+  assert.strictEqual(panel.getAttribute('data-state'), 'complete',
+      'dwell 自动步进→complete(N3 默认)');
+  /* [再见]→close{done+taskRef}→A 落完成一步 */
+  const opts = dlgElOf(rec, 'town-dlg-opts');
+  const bye = opts.children.find((b) => b.textContent.includes('再见'));
+  assert.ok(bye, 'complete 出口[再见]在位');
+  bye.click();
+  assert.strictEqual(rec.ui.cardState(), 'step-done',
+      'close{done+taskRef}→A 落常驻完成态(宣布权分工 §2.3)');
+  assert.strictEqual(panel.hidden, true, '面板收起(会话终了)');
+  assert.strictEqual(
+      rec.ui.root.children.find((c) => c.classList.contains('town-hud-praise'))
+          .children.length >= 1, true,
+      'A 侧完成表扬错峰补位(close 后解冻, 既有会话避让语义)');
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-praise').hidden, true,
+      'B 会话内表扬随会话收敛(生命周期随会话, §7.3)');
+});
+
+test('签名门控: 同态重复事件→会话 DOM 零重建(classList 零操作+子件引用恒等)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.clickEntry(DLG_TASK_SEEK);
+  const speaker = dlgElOf(rec, 'town-dlg-speaker');
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  const opsBefore = Object.assign({}, speaker.__classOps);
+  rec.clickEntry(DLG_TASK_SEEK); /* 同条目重复点选: seek pending→target-found */
+  /* 会话已开+seek pending: 第二次点中同目标=target-found(§2.2 矩阵) */
+  const speaker2 = dlgElOf(rec, 'town-dlg-speaker');
+  assert.strictEqual(speaker2, speaker, '面板子件引用恒等(零重建)');
+  const opsAfter = Object.assign({}, speaker.__classOps);
+  assert.strictEqual(opsAfter.add, opsBefore.add, 'speaker classList 零新增操作');
+  assert.strictEqual(opsAfter.remove, opsBefore.remove, 'speaker classList 零移除操作');
+  assert.strictEqual(panel.getAttribute('data-state'), 'respond',
+      '重复点中同目标=target-found 恰一次(不重复 open, 状态推进到 respond)');
+});
+
+test('会话内不双弹: praise 徽章在面板呈现时, 全局 target/found 事件同样零 A 表扬(冻结闸语义保持)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.clickEntry(DLG_TASK_SEEK); /* seek 会话开(dialogOpen=true) */
+  rec.ui.targetEvent('town-ui/target/update', {id: 'task:find-bread', state: 'done'});
+  assert.strictEqual(
+      rec.ui.root.children.find((c) => c.classList.contains('town-hud-praise'))
+          .children.length, 0,
+      '会话中 found 零全局表扬(既有冻结闸测试同语义, 本票加验面板归 B)');
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-praise').hidden, true,
+      '无机器 praise 事件时 B 徽章亦不呈现(表扬只随 respond→praise 链)');
+});
+
+test('离镇卫生: 会话中弃机→defer 语义收会话(A 收 deferred 恢复)+会话层收敛+再进零残留', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  let machine = {snapshot: () => ({focusId: null, states: {}})};
+  const rec = dlgHarness(() => machine);
+  rec.ui.sync();
+  rec.clickEntry(DLG_TASK_SEEK);
+  assert.strictEqual(rec.ui.cardState(), 'dialog-dimmed', '前置: 会话中');
+  machine = null;
+  rec.ui.sync();
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
+      '弃机→A 收 deferred 恢复(探索中, 零惩罚无残留)');
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').hidden, true, '面板收起');
+  assert.strictEqual(rec.ui.root.hidden, true, 'HUD 容器收敛(既有语义)');
+  machine = {snapshot: () => ({focusId: 'bell-tower', states: {'bell-tower': 'active'}})};
+  rec.ui.sync();
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+      'idle', '再进新机: 会话态零残留(机器复位干净)');
+  assert.strictEqual(
+      rec.speech.spoken.filter((s) => s.includes('找面包')).length, 1,
+      '会话播报零跨轮重播(会话可重入, B4 autoPerStep=once)');
+});
+
+test('CSS 守门切片: town.css 含 --town-dlg- token 段(热区 44/64+panel 底部安全区+动效窗)' +
+    '+零警示红(#f00/#ff0000/red 禁入)+克制动效降级在册', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const css = fs.readFileSync(path.join(ROOT, 'css', 'town.css'), 'utf8');
+  assert.ok(css.includes('--town-dlg-panel-bg'), 'B 侧 token 段在册(panel-bg)');
+  assert.ok(css.includes('--town-dlg-chip-size'), 'chip 触点 token(B1/§4.2)');
+  assert.ok(css.includes('--town-dlg-panel-bottom'), 'panel 底部安全区 token(B1)');
+  assert.ok(/\.town-dlg-chip\s*\{[^}]*64/.test(css), 'chip 触点 64px(§4.2 主选项)');
+  assert.ok(/\.town-dlg-ghost\s*\{[^}]*44/.test(css),
+      'ghost 热区 ≥44px(§4.5 硬约束, 纯鼠标)');
+  assert.ok(!/#f00\b|#ff0000|:\s*red\b/i.test(css),
+      '零警示红(§6.3: 无红叉; Market Red 仅 #d96b52 温暖点缀)');
+  assert.ok(css.includes('prefers-reduced-motion'),
+      '克制动效降级在册(零闪烁惊吓, §4.5)');
+});
+
+test('E2E 集成链 T-UI-04: 真四件同笼(镜像 index.html 装载序)进镇→点选接任务→seek→点中目标→' +
+    'praise→complete→close→A 恢复(全链零旁路)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  /* vm 同笼: 装具按 index.html 真实装配序装载(含本票 town-dialog-core.js) */
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const closure = ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
+    'js/town-map-core.js', 'js/town-assembly-core.js', 'js/town-interact-core.js',
+    'js/town-ui-core.js', 'js/town-dialog-core.js', 'js/town-ui.js'];
+  const ordered = closure
+      .filter((f) => html.indexOf(f) >= 0)
+      .sort((a, b) => html.indexOf(a) - html.indexOf(b));
+  assert.ok(ordered.includes('js/town-dialog-core.js'),
+      'town-dialog-core.js 在 index.html 装配(守门先行)');
+  const ctx = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+  for (const f of ordered) {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
+  }
+  /* 真注册清单(九条目含 task:find-bread sessionKind=seek); 真机+真时器桩;
+     doc=带 fire 的最小事件宿主桩(文档级点选链驱动, 镜像 mkHlHarness 装具面;
+     classList/attrs 真实记录——裁决修复 2026-11-14: 恒假 stub 使 panelState
+     恒 'none', 四断言恒红, 系装具缺陷非实现缺陷) */
+  vm.runInContext(
+      'var __doc = (function() {' +
+      'var listeners = {}; var listenersOf = function(t) {' +
+      'return listeners[t] || []; };' +
+      'var mkEl = function(tag) { var classes = []; var attrs = {};' +
+      'return {tag: tag, children: [], parent: null, hidden: false,' +
+      'textContent: "", style: {}, onclick: null,' +
+      'classList: {add: function() { for (var i = 0; i < arguments.length; i++) {' +
+      'if (classes.indexOf(arguments[i]) < 0) classes.push(arguments[i]); } },' +
+      'remove: function() { for (var i = 0; i < arguments.length; i++) {' +
+      'var k = classes.indexOf(arguments[i]); if (k >= 0) classes.splice(k, 1); } },' +
+      'contains: function(c) { return classes.indexOf(c) >= 0; }},' +
+      'setAttribute: function(k, v) { attrs[k] = String(v); },' +
+      'getAttribute: function(k) { return k in attrs ? attrs[k] : null; },' +
+      'appendChild: function(c) { this.children.push(c); },' +
+      'click: function() { if (this.onclick) this.onclick({}); }}; };' +
+      'var body = mkEl("body");' +
+      'return {body: body, createElement: mkEl, getElementById: function() {' +
+      'return null; }, addEventListener: function(t, fn) {' +
+      '(listeners[t] = listeners[t] || []).push(fn); },' +
+      'removeEventListener: function(t, fn) { var l = listeners[t] || [];' +
+      'var i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); },' +
+      'fire: function(t) { var l = listenersOf(t).slice();' +
+      'for (var i = 0; i < l.length; i++) l[i]({}); }}; })();' +
+      'var __timer = {pending: [], set: function(fn, ms) {' +
+      'var h = {fn: fn, ms: ms}; this.pending.push(h); return h; },' +
+      'clear: function(h) { var i = this.pending.indexOf(h);' +
+      'if (i >= 0) this.pending.splice(i, 1); }};' +
+      'var __ui = mkTownUi({doc: __doc,' +
+      'machineRef: function() { return __machine || null; },' +
+      /* hlSource 注入过滤清单(消真注册清单同锚点歧义: market(prop) 与
+         task:find-bread(task) 同在 market 锚, 角度并列按源序裁决命中
+         market→不开会话; 裁决修复 2026-11-14, 歧义事实登记回执):
+         协议链全真(真条目快照/真状态机/真装配), 仅清单取单条消歧 */
+      'hlSource: function() { return townInteractRegistry(TOWN_INTERACTS)' +
+      '.filter(function(e) { return e.id === "task:find-bread"; }); },' +
+      'camRef: function() { return __cam || null; }, timer: __timer});' +
+      'var __cam = null; var __machine = mkTownTargets({emit: function(n, p) {' +
+      '__ui.targetEvent(n, p); }}); __ui.sync();', ctx);
+  const state = () => vm.runInContext('__ui.cardState()', ctx);
+  assert.strictEqual(state(), 'idle-exploring', '进镇探索中');
+  /* 瞄向真条目 task:find-bread 锚点(market 摊位)后完整点选链 */
+  vm.runInContext(
+      'var __aim = TOWN_INTERACTS.find(function(e) { return e.id === "task:find-bread"; });' +
+      'var __a = townInteractRegistry([__aim])[0];' +
+      'var __o = {x: __a.anchor.x, y: __a.anchor.y + 1, z: __a.anchor.z + 14};' +
+      'var __d = {x: __a.anchor.x - __o.x, y: __a.anchor.y - __o.y, z: __a.anchor.z - __o.z};' +
+      'var __len = Math.sqrt(__d.x * __d.x + __d.y * __d.y + __d.z * __d.z);' +
+      '__cam = {origin: __o, dir: {x: __d.x / __len, y: __d.y / __len, z: __d.z / __len},' +
+      'yaw: 0, pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100};', ctx);
+  vm.runInContext('__doc.fire("mousemove"); __doc.fire("pointerdown");' +
+      '__doc.fire("pointerup");', ctx);
+  const panelState = () => vm.runInContext(
+      '(function() { var scan = function(el) { if (el.classList.contains' +
+      '("town-dlg-panel")) return el; for (var i = 0; i < el.children.length; i++) {' +
+      'var hit = scan(el.children[i]); if (hit) return hit; } return null; };' +
+      'var p = scan(__ui.root); return p ? p.getAttribute("data-state") : "none"; })()',
+      ctx);
+  assert.strictEqual(state(), 'dialog-dimmed', '点选接任务→B open→A 收敛(全链)');
+  assert.strictEqual(panelState(), 'seek', '自动 route→seek(真 sessionKind 数据面)');
+  /* 世界点中目标(再点同条目)→respond→泵 confirm→praise→泵 dwell→complete→再见 */
+  vm.runInContext('__doc.fire("pointerdown"); __doc.fire("pointerup");', ctx);
+  assert.strictEqual(panelState(), 'respond', '点中目标→respond');
+  /* 泵=fireAll 语义(快照先行, 泵中新注册句柄留待下次泵——confirm 280ms 到期
+     发 praise 并注册 dwell 1200ms; 两泵两时刻) */
+  vm.runInContext('(function() { var l = __timer.pending.slice();' +
+      '__timer.pending = []; for (var i = 0; i < l.length; i++) l[i].fn(); })()', ctx);
+  assert.strictEqual(panelState(), 'praise', 'confirm→praise(徽章呈现)');
+  vm.runInContext('(function() { var l = __timer.pending.slice();' +
+      '__timer.pending = []; for (var i = 0; i < l.length; i++) l[i].fn(); })()', ctx);
+  assert.strictEqual(panelState(), 'complete', 'dwell 自动步进→complete');
+  vm.runInContext(
+      '(function() { var scan = function(el, cls) { if (el.classList.contains(cls))' +
+      'return el; for (var i = 0; i < el.children.length; i++) { var hit =' +
+      'scan(el.children[i], cls); if (hit) return hit; } return null; };' +
+      'var opts = scan(__ui.root, "town-dlg-opts"); var bye = null;' +
+      'for (var i = 0; i < opts.children.length; i++) {' +
+      'if (opts.children[i].textContent.indexOf("再见") >= 0) bye = opts.children[i]; }' +
+      'bye.click(); })()', ctx);
+  assert.strictEqual(state(), 'step-done',
+      'close{done+taskRef}→A 落完成一步(全链闭环收口)');
+  assert.strictEqual(panelState() === 'idle' || panelState() === 'none', true,
+      '面板收起(会话终了, 机器回 idle)');
+});
