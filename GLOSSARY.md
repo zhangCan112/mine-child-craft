@@ -257,6 +257,11 @@ _Avoid_: 城镇地图（散称）——模块名唯一，指代 js/town-map-core
 应用层纯核心（js/town-interact-core.js，零 THREE·零 DOM·零墙钟·零运行时依赖，有同名单测）：城镇场景内交互锚点与轻任务状态钩子的数据与事件协议层——冻结协议常量 TOWN_UI_EVENTS（四事件名表）· TOWN_INTERACT_KINDS（交互四类 landmark|npc|prop|task）· TOWN_SESSION_KINDS（会话五值 greet|tour|seek|help|care），注册清单 TOWN_INTERACTS（九条：六锚点条目 id 恒等 TOWN_MAP.anchors 锚 id，三轻任务 task: 前缀）；townInteractRegistry(清单?) 纯派生（校验拼写域即抛，锚点坐标单源 TOWN_MAP.anchors，taskRef 恒派生自 id，同参同输出零副作用）· townTargetOf（消费最小面恰六键 {id,kind,iconKey,label,anchor,state}）· 状态机 mkTownTargets({emit}) → {focus, found, reset, snapshot}：focus(id|null) 切主目标发 target/focus、found(id) 单向 active→done 发 target/update、reset 全量回 active 零事件、snapshot 拷贝隔离，事件经 events+emit 暴露，状态域只有 active|done（零惩罚）；HUD/指针/对话框只消费此 seam（渲染归 T-UI 线）。
 _Avoid_: 城镇交互系统（散称）、把 HUD/指针渲染/对话框组件写进核心（本件只产数据与事件，观感归 T-UI）、给状态机加失败/倒计时/墙钟语义（零惩罚协议红线）
 
+**城镇 HUD 决策核心（TownUiCore）**:
+应用层纯核心（js/town-ui-core.js，零 THREE·零 DOM·零墙钟·零运行时依赖，有同名单测）：城镇内 HUD 的全部决策拍板单收口——冻结参数表 TOWN_UI_PARAMS（U4-U8+P 前缀布局/收敛/阈值全键，深冻结含区间数组，PO 一处改）· 纯状态机 townHudCardState(state, event) → {state, intents}（五态 hidden|idle-exploring|active|step-done|dialog-dimmed，任意事件序列无失败态零惩罚；intents 恰 praise-show|tts-hint；会话中零新意图）· townHudDimming(state, dialogOpen) → L1-L4 显隐档（L4 恒 normal，安全返回不收敛）· townHintSentence(label) 纯话术（「我们去X吧！」）。适配层只消费此 seam；DOM/语音/计时落地归城镇 HUD 适配层。
+
+_Avoid_: 墙钟/定时语义进核心（停留与表扬节奏归装配层计时）、HUD 决策散写进 adventure.js（拍板唯一在此）、浅冻结核心参数表（区间数组同样 Object.isFrozen）
+
 **镇民注册表（TownNpcRegistry）**:
 应用层纯数据注册表（js/town-npc-registry.js，-registry 契约，零 THREE·零 DOM·零墙钟·零随机，有同名单测）：14 实体（V01~V10 十村民 + G01 铁傀儡 + A01~A03 氛围动物）模型清单的唯一权威——命名/贴图引用/几何血统/配色出处/站位锚引用/交互协议形状一处收口，消费方只派生不复制（不入 MOB_TYPES 战斗注册表，引擎渲染管线由 mob-look-kit 共享，look 白名单走 town_ 前缀域）。interface：TOWN_NPCS（14 行纯数据，行键集按 category 恰好定型：villager/golem 各 15 键 · animal 12 键，动物零交互字段）· townNpcRegistry(list?) 纯函数（校验+快照：id/key 唯一 · category/sessionKind 拼写域 · 动物必无 sessionKind · look 与锚点在册性 · tex 声明一致，违规值进消息构造即抛；快照=源字段透传+label(name)+faceSrc('facePixels')，同参同输出零副作用）。依赖均经全局名调用期解析：MobLookKit（has/textureBuffer）· TOWN_SESSION_KINDS（town-interact-core 冻结五值）· TOWN_NPC_ANCHORS（站位锚在册性）。
 _Avoid_: 镇民清单散称复制（消费方只派生不复制）、把镇民塞进 MOB_TYPES 战斗注册表（镇民不入战斗）、村民表（漏 G01 与动物——注册的是 14 实体不止村民）
@@ -268,6 +273,11 @@ _Avoid_: 站位坐标散写消费方（坐标拍板唯一在本表）、并入 T
 **镇民适配器（TownNpc）**:
 应用层渲染适配件（js/town-npc.js，无后缀 adapter，THREE/DOM 允许且惰性创建，有同名单测）：把注册表条目与造型档案装配成可摆放的渲染傀儡——藏住「注册表→kit 傀儡→站位」装配链，调用方只给 id 与锚点。interface：mkTownNpcPuppet(id, opts?) → 恰四键 {root, bones, look, anchorHeight}（root/bones 系 MobLookKit.puppet(key) 产物透传不改名，look=注册表 key，anchorHeight 格：V 系 2.0/G01 2.7 票面权威字面，动物随几何=声明盒顶字面；显隐预留只透传 bones 不预造 API）· placeTownNpc(puppet, anchor) → 恰四键纯快照 {x, y, z, yaw}（站立面 y+1，townSpawnIntent 先例；入参零突变，不触场景/模式态）。face→yaw 双源登记：本文件自带纯映射与 js/modes/town.js townYawOfFace 语义一致但不引用（禁触文件；双源待宿主会师后消费迁移权威函数消名，T-NPC-10）。依赖均经全局名调用期解析：MobLookKit（puppet(key)）· TOWN_NPCS（id→key 唯一权威）；index.html 挂载归波次二（T-NPC-10）。
 _Avoid_: 镇民渲染散写（装配链单收口在此）、傀儡字段突变（入参零突变，快照出口）、直接引用 townYawOfFace（双源登记，会师前各持各的）
+
+**城镇 HUD 适配层（TownUi）**:
+应用层渲染适配件（js/town-ui.js，无后缀 adapter，DOM/语音/计时落地，有同名单测）：把 TownUiCore 五态决策落成 #townHud 四槽 DOM——机器身份对账（进镇挂/离镇收/新机清，挂点 adventure.js advTownState().targets 只读感知）· townUiTargetEvent(name, payload)（adventure.js 建机步 emit 实参，守卫式）· dialogEvent(name, payload) 会话避让（open 收敛 L1/L2 保持 L4；close 按 prev 恢复，done+taskRef 落完成一步；会话中 praise/tts 意图抑制=会话播报优先）· rAF 250ms 节流对账 · 重播钮 cancel-then-speak。interface：mkTownUi({doc, machineRef, speech, timer, showPage, raf}) → {targetEvent, dialogEvent, sync, start, cardState, root} · TownUi（自动实例）。依赖经全局名调用期解析（core 走 CJS 导出面双栖）；index.html 装载序 interact-core < ui-core < 本件 < mode-registry。
+
+_Avoid_: 装载序错置（core 缺席双栖解析落 null，进镇 feed 即炸）、意图落地绕过会话冻结（会话中弹全局表扬/开麦）、L2 槽位越界造指引（归 T-UI-02）
 
 ### 政策与进度
 
