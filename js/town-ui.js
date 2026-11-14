@@ -342,7 +342,7 @@ function mkTownUi(deps) {
   function markElOf(id) {
     if (!hlLayer) return null;
     for (const c of hlLayer.children) {
-      if (c.attrs && c.attrs['data-hl-id'] === id) return c;
+      if (c.getAttribute('data-hl-id') === id) return c;
     }
     return null;
   }

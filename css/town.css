@@ -359,7 +359,7 @@
   inset-block-end: -4px;
   inset-inline-end: -4px;
   font-size: 14px;
-  color: var(--town-hud-done);
+  color: var(--town-hud-gold-bright);
 }
 
 /* 选中/会话中(A→B 交接): 双圈角框(形: outline+border 嵌套结构)+天蓝
