@@ -2317,6 +2317,10 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     (ADV.spawn 账本, 与 advPortalExit 无关), 正常回上界缺省用 advExitSpot
     (最后进入的门, D6)——其坐标属于离开时的那张图, 回界即回该图 */
   if (dim === advDim) return;
+  if (advDimRow(advDim) === ADV_TOWN_DIM_ROW) advTownTargets = undefined; /* 离镇弃机(T-SEAM-04,
+      ADR-0011 决策 6a): 离开 town 的所有出口同链清机(直呼切界/回程白闪到达/
+      死亡回家), 下次进场新机不串轮; 首行幂等守卫挡住镇内重复调用(建机不重置),
+      行身份比对=回程触发线门先例口径(壳层零 town 字面量特判, dims-core 在册) */
   advDim = dim; /* advMap 不动: 副本/下界期间保持最后主世界图(T6) */
   advSceneLeave();
   let denFresh = false;
@@ -2368,6 +2372,9 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
       advGolemsRespawn(); /* 按桶重召副本傀儡(切界装场之 den 足, D6; fresh 窗桶已清
           =自然零召, 窗内=家锚+桶血复原——用户票 2026-11-08: 反复进出都该在) */
     }
+    if (drow === ADV_TOWN_DIM_ROW) advTownInteractBoot(); /* 进镇建机(T-SEAM-04,
+        ADR-0011 决策 6a): 壳层 town 专属步, den 专属步同位先例(§5 不进表
+        清单); 行身份比对口径同弃机步, 「T-UI 票只换 emit 不改机器」契约 */
     const dsp = spot || drow.spawn; /* 行落点(结构常量派生); D23 关页续局传快照落点 */
     ModeKit.spawn(dsp.x, dsp.y, dsp.z, {yaw: (dsp.yaw != null) ? dsp.yaw : drow.spawn.yaw});
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
@@ -2879,6 +2886,22 @@ function advTownReturnTick(dt) {/* 回程触发装配(update 每帧, advEdgeTick
       (行身份比对见上; 维度冻结期 advMap 不参判) */
   if (pos.z < ADV_TOWN_RETURN_Z) return; /* 未越线(任意 x 带式判据, 无 x 依赖) */
   advVeilFire({to: 'home', kind: 'edge'}); /* 越线瞬间发令(与去程同形, 无站桩) */
+}
+
+/* ---------- 镇内交互机宿主挂载(T-SEAM-04, ADR-0011 决策 6a) ----------
+   mkTownTargets 机器(T-MAP-04 core 产物, 只消费不复制)的壳层宿主: 进镇
+   建机/离镇弃机(「不进表」清单惯例, den 布防留壳同款先例, §5), 每次进场
+   新机不串轮。模式壳 town.js 旧接线共存期独立建机(TownMode.init 原链,
+   05 撤卡才撤), adv 前缀变量名与模式壳 townTargets 两宿主互不触碰(经典
+   script 同词法, 复用同名单会重复声明炸页面)。emit 空实现旁路与模式壳
+   先例同款(T-UI 票只换 emit 不改机器); 不建 UI(DOM/CSS 归 T-UI-01)。 */
+let advTownTargets; /* 壳层运行态: 进镇建机在位, 离镇弃机清空(未进镇=undefined,
+    A.advTownState 挂点透出机器引用) */
+/* 建机(town.js townInteractBoot 先例形状+adv 前缀): 构造期即跑注册校验,
+   坏清单即抛; core 不在装载序时跳过(引擎替身沙盒最小装载容差, town.js 同款) */
+function advTownInteractBoot() {
+  if (typeof mkTownTargets === 'undefined') return;
+  advTownTargets = mkTownTargets({emit: () => {}});
 }
 
 /* 神殿可疑地板踩塌(审查修复 P1): 站上神殿室内中央 2×2 砂岩地板 → 4 格塌空
@@ -4843,7 +4866,8 @@ const AdventureMode = mkMode({
     下界相位装配追加 5 键、冒险地图 T6 追加 advSetMap、T5 圈层高度场与审查修复
     advSlimeWaterOk 再追加、时钟改版追加 advSleepClock/advSleepClockConfirm、
     装备 T9 追加 advTryWearSlot、怪物合成 T2 追加 advPumpkinRegen/advPumpkinRegenTick、
-    T5/T6 追加 advGolemsAll/advGolemTick/advTryRepairGolem/advSweepNightMobs——
+    T5/T6 追加 advGolemsAll/advGolemTick/advTryRepairGolem/advSweepNightMobs、
+    T-SEAM-04 追加 advTownState(壳层镇内交互机只读快照, ADR-0011 决策 6a)——
     现 37 键(键计数以本清单为准); 键清单即 interface——
     adventure-core 常量表与纯函数经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
@@ -4916,6 +4940,9 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
     if ('stoneEggT' in o) advStoneEggT = o.stoneEggT;
   },
   advNetherState: () => ({dim: advDim, map: advMap, portalCd: advPortalCd, exitSpot: advExitSpot}),
+  advTownState: () => ({targets: advTownTargets}), /* 壳层镇内交互机只读快照(T-SEAM-04
+      测试挂点: targets=mkTownTargets 机器引用, 可调 focus/found/reset/snapshot
+      四方法+引用比较验换代; ADR-0011 决策 6a) */
   advMineHardText, advHudLines,
   advWornState: () => advWorn, /* 穿戴档只读快照(装备 T5 测试挂点; 形状=mkWorn 归一形) */
   advHitPlayer, advEnvHurt, /* 战斗受击两缝(装备 T6 测试挂点: 漏斗行为面/D8 环境对照) */

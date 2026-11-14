@@ -83,7 +83,11 @@ ADV_DIMS = [
 3. 涌出接线 `advEruptTick`（home 图夜间第二通道）；
 4. `advSetDim` 内 den 专属步：`advDenT` 复位 + `advDenSeed()` 首刷；
 5. `advBeamsRelayout` 的维度分支（回程门光束锚：nether 取 `portal`、den 取 `gate`，
-   键名不齐——收口时新编目的第 13 处触点，读 dims-core 全局照常工作，登记备查）。
+   键名不齐——收口时新编目的第 13 处触点，读 dims-core 全局照常工作，登记备查）；
+6. town 交互机宿主挂载（ADR-0011 决策 6a）：进镇建机/离镇弃机挂 `advSetDim`
+   壳层 town 专属步（`advTownInteractBoot` 建 `advTownTargets`，每次进场新机
+   不串轮），机器本体仍是 `js/town-interact-core.js` 的 `mkTownTargets` 工厂，
+   表内零钩子。
 
 ## 6. 新副本施工单（本表的成立理由）
 
