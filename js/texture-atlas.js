@@ -14,7 +14,8 @@
    战利品宝箱 71(红金双格, den-nest §7.5) + 远古残骸 73(正典上下螺旋纹,
    装备系统 T7, docs/equipment-design.md §4.4) + 覆雪树叶 74(深绿针叶底+白雪
    覆盖大部, 世界边界 T12——北带落雪杉冠盖件, 级联随冠消散, north-spec §11) +
-   怪物合成材料件 75~77(南瓜分面/雕刻刻脸/铁块金属框, mob-crafting T1)。
+   怪物合成材料件 75~77(南瓜分面/雕刻刻脸/铁块金属框, mob-crafting T1) +
+   粉羊毛 78(城镇重制公共件, revamp-spec §2——羊毛画法换樱粉底, 樱花树冠/布幔/旗阵)。
    风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
@@ -79,6 +80,7 @@ const TextureAtlas = (() => {
   const T_PUMPKIN_SIDE = 56; /* 南瓜侧(76): 橙底竖棱瓣(MC 南瓜观感) */
   const T_CARVED_PUMPKIN = 57; /* 雕刻南瓜(77): 棱瓣底+刻脸(倒三角眼+竖齿嘴) */
   const T_IRON_BLOCK = 58; /* 铁块(75): 银灰金属底+深框线+内亮方+四角铆点 */
+  const T_PINK_WOOL = 59; /* 粉羊毛(78, 城镇重制公共件): 樱粉绒毛底+绒团+蓬松亮点 */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -412,6 +414,13 @@ const TextureAtlas = (() => {
     noiseFill(px, rng, [235, 235, 235], 0.05); // 锚定 faceColor 羊毛白, 观感连续
     for (let i=0; i<12; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [218, 218, 221]);
     for (let i=0; i<8; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [248, 248, 250]);
+  };
+  /* 粉羊毛(78, 城镇重制公共件 revamp-spec §2): 白羊毛同绒毛画法换樱粉底
+     (#F2C2D9 锚定 config faceColor 0.95,0.76,0.85) — 樱花树冠/布幔/旗阵专用件 */
+  PAINTERS[T_PINK_WOOL] = (px, rng)=>{
+    noiseFill(px, rng, [242, 194, 217], 0.05);
+    for (let i=0; i<12; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [224, 172, 200]);
+    for (let i=0; i<8; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [252, 222, 235]);
   };
   /* ---------- 生态地图(冒险模式生态地图设计稿 §6, 票据 T1): 雪原/沙漠/沼泽 ---------- */
   /* 雪块: 低噪雪白底 + 阴影微点 + 对角双像素亮闪(锚定 faceColor 雪白) */
@@ -803,6 +812,9 @@ const TextureAtlas = (() => {
       [B_PUMPKIN]: {top: T_PUMPKIN_TOP, side: T_PUMPKIN_SIDE, bottom: T_PUMPKIN_TOP},
       [B_CARVED_PUMPKIN]: {top: T_PUMPKIN_TOP, side: T_CARVED_PUMPKIN, bottom: T_PUMPKIN_TOP},
       [B_IRON_BLOCK]: T_IRON_BLOCK,
+      /* 粉羊毛 78(城镇重制公共件 revamp-spec §2): 樱花树冠/布幔/旗阵的规格樱粉,
+         白羊毛(52)同画法换粉底整格同图 */
+      [B_PINK_WOOL]: T_PINK_WOOL,
     },
   };
 

@@ -476,6 +476,14 @@ BLOCKS[B_PUMPKIN] = {name: '南瓜', top: [0.60, 0.44, 0.13], side: [0.80, 0.49,
 BLOCKS[B_CARVED_PUMPKIN] = {name: '雕刻南瓜', top: [0.60, 0.44, 0.13], side: [0.80, 0.49, 0.12], bottom: [0.60, 0.44, 0.13],
   hard: 1.0, tool: 'axe', tier: 0, drop: [['carved_pumpkin', 1, 0]]};
 
+/* ---------- 城镇重制公共件 (id 78, docs/design/town-visual-revamp-spec.md §2) ----------
+   粉羊毛(2026-11-14): 樱花树冠/布幔/旗阵的规格色「樱花-粉 #F7C6D9」此前无对应方块,
+   现状以 16 红羊毛充当造成「大红方块树」观感(走查实证 .scratch/town-design/
+   walkthrough-notes.md 差距 #1)。色值 0.95,0.76,0.85 锚定规格樱粉; 与 15 蓝/16 红
+   羊毛同构(无 hard/drop, 建场写入件), 贴图入集 texture-atlas(羊毛画法同款换粉底)。 */
+const B_PINK_WOOL=78;
+BLOCKS[B_PINK_WOOL] = {name: '粉羊毛', all: [0.95, 0.76, 0.85]};
+
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段
    (Object.assign 赋值式, 原 soft 旗标先例已随死旗标清偿删除)。hard = MC 硬度原值(徒手石头 7.5s 口径的来源) ·

@@ -74,8 +74,9 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 59,
-      '已绘制格数 = 59(PAINTERS 0~58 连续; 门面宏格已随贴图回退删除, 50/51=战利品宝箱, 52=远古残骸, 53=覆雪树叶, 54=冰, 55~57=南瓜/刻脸, 58=铁块)');
+  assert.strictEqual(t.TextureAtlas.count, 60,
+      '已绘制格数 = 60(PAINTERS 0~59 连续; 50/51=宝箱, 52=残骸, 53=覆雪叶, 54=冰, 55~57=南瓜/刻脸, ' +
+      '58=铁块, 59=粉羊毛·城镇重制公共件)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   /* 覆雪树叶 74(世界边界 T12): 独立格位整格同图 — 与树叶 7(T_LEAVES)分格,
