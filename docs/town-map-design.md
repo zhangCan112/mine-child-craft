@@ -142,7 +142,7 @@ flowchart TB
 | P1-04 | 民居 A（单层小屋） | 西侧生活 | P1 | 8×7，高 7（v2 几何升级：双坡阶梯山墙，原 6；总纲 `town-visual-revamp-spec.md` §3 G 取代旧值，测试已随步） | 亲切居住氛围、模块化复用。**可达**（门前花坛/入口区）。 | **需新增** `cottage-gable` → [§4.5](design/town-prefab-specs.md#45-cottage-gable民居-a需新增) | 村庄建筑群【电影原样】母题；简化【建议为游戏性调整】 |
 | P1-05 | 民居 B（双层联排感） | 西侧生活 | P1 | 10×8，高 8-9 | 错落轮廓丰富街区。**可达**。 | **需新增** `house-loft` → [§4.6](design/town-prefab-specs.md#46-house-loft民居-b需新增) | 同上 |
 | P2-01 | 高跳板与小水池 High Jump & Tiny Pool | 南侧/边角彩蛋 | P2 | 跳板 6-8 长高 4-5；水池 2×2~3×3 | 幽默比例反差、**静态观赏、无危险高度叙事**。**可达（若启用）**。 | **需新增** `board-pool`（静态水色块，非流体系统）→ [§4.8](design/town-prefab-specs.md#48-board-pool高跳板与小水池彩蛋需新增p2) | 【电影原样】趣味元素；去危险化【建议为游戏性调整】 |
-| P2-02 | 额外市集小摊变体 | 广场边缘 | P2 | 3×2~4×3，高 3-4 | 面包/花束/果篮抽象摊位，增强热闹感。**可达**。 | **需新增** `stall-canopy`（`theme/size` 经 `v` 覆写，材质注入）→ [§4.7](design/town-prefab-specs.md#47-stall-canopy市集摊位需新增) | 开放市集【电影原样】 |
+| P2-02 | 额外市集小摊变体 | 广场边缘 | P2 | 3×2~4×3，高 4-5（v2 几何升级：双层阶梯顶棚，原 3-4；总纲 `town-visual-revamp-spec.md` §3 G 取代旧值，测试已随步） | 面包/花束/果篮抽象摊位，增强热闹感。**可达**。 | **需新增** `stall-canopy`（`theme/size` 经 `v` 覆写，材质注入）→ [§4.7](design/town-prefab-specs.md#47-stall-canopy市集摊位需新增) | 开放市集【电影原样】 |
 | R-01 | 拱形山体 Arch-shaped Mountain | 北侧远景 | 远景必做 | 视觉高出可玩区 24-40 | 聚落背屏剪影。**不可达**。 | **场景拼装/地表模块**（大体量低细节，不入 PrefabKit）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 【电影原样】 |
 | R-02 | 远处崖顶房屋 Distant Cliff Homes | 远景高处 | 远景建议 | 1-2 栋简化轮廓 | 层次剪影。**不可达**。 | **场景拼装**（低细节剪影）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 【电影原样】 |
 | R-03 | 神庙 Temple 剪影 | 远景一角 | 远景可选 | 小体量低细节 | 异域轮廓点缀。**不可达**。 | **场景拼装**（可选极简轮廓）→ [§5.2](design/town-prefab-specs.md#52-不宜入-prefabkit-行表的件明确分类) | 【电影原样】（细节未确认，低细节） |
