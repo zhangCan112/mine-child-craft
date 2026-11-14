@@ -42,7 +42,11 @@
       advEdgeTick(〔世界边界·T8〕边缘传送触发+近前引导装配: home 图专属,
       触发线/引导区/开放判据纯函数在 adventure-core(advEdgeTransitDirAt/
       advEdgeHintAt/advEdgeOpenDir), 方向映射在 adventure-maps-core
-      (ADV_EDGE_DIR_MAP); 白闪变体挂 #portalVeil.edge(css))
+      (ADV_EDGE_DIR_MAP); 白闪变体挂 #portalVeil.edge(css)) ·
+      advTownReturnTick(T-SEAM-03 镇侧回程触发线装配: town 维度专属,
+      z≥132 带式白闪回 home, 线值常量 ADV_TOWN_RETURN_Z; 几何=
+      town-map-design §6.3.5, east 来向锚在 adventure-maps-core
+      ADV_HOME_EDGE_GATES)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
       adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
        index.html 加载序在 adventure-core 之前) ·
@@ -2695,6 +2699,23 @@ function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——
     advToast('🏘️ 到小镇啦！');
     return;
   }
+  if (advVeil.to === 'home' && advDim !== 'overworld') {
+    /* 维度回程到达(T-SEAM-03, ADR-0011 决策 4/§6.3.5): to='home' 而当前在
+        维度=镇内越线白闪的满格瞬间, 同样必须抢在下方 map 守卫之前
+        (row.id===advMap 的 'home'==='home' 会静默吞)。来向口径=到达侧读
+        权威维态 advDim——维度期间 advVeil.from 冻结在 advMap='home',
+        直喂反查落空兜底南锚(实证坑, maps-core 红测试反例锁); town 反查
+        east 锚(门口内侧 2.5 格面西)。切界走 advSetDim('overworld', landing):
+        advSetMap 首行守卫会静默吞维度期间切图(nether 侧行为在册测试锁定,
+        不动守卫), 而 advSetDim overworld 分支自带 advOverworldReload/
+        dayCycleOn=true/applyDaylight 昼夜照转整链, spot 显式落点直喂
+        east 锚落点。播报沿用 to='home' 现成句零新增; home 无 visit 记账 */
+    const g = advHomeArriveGate(advDim); /* 来向=维度 id 喂反查(town→east 锚) */
+    advSetDim('overworld', advMapArriveAt(g)); /* 切界唯一入口; 落点=advMapArriveAt 单一权威 */
+    advSpeak('回到家啦！');
+    advToast('🏡 回到家啦！');
+    return;
+  }
   const row = ADV_MAPS.find((r) => r.id === advVeil.to);
   if (!row || row.id === advMap) return; /* 未知键/已在该图(死亡竞态): 静默 */
   /* 落点权威二分(〔世界边界·T9〕): 回 home 走来向缘虚拟门位锚(家已无门阵,
@@ -2822,6 +2843,42 @@ function advEdgeTick(dt) {/* 边缘机制装配(update 每帧, advEdgeSkyTick �
     advSpeak('先' + uq.goal + '，' + st.open + '，通往' + nm + '的路就打开啦！');
     advToast('🔒 先' + uq.goal + '，通往' + nm + '的路就打开啦');
   }
+}
+
+/* ---------- 镇侧回程触发线(T-SEAM-03, town-map-design §6.3.5, ADR-0011 决策 4) ----------
+   双向边缘白闪收口的回程半边(去程=advEdgeTick 的 east 带, T-SEAM-02): town
+   维度专属带式触发线, 「不进表」清单惯例的 town 专属新分支(维度行不带此缝,
+   den 布防留壳同款先例)。判据 z ≥ 132(任意 x)=核心区南界 z127 外 5 格缓冲:
+   南彩蛋带(z94~127)整段在线北零误触, 镇外过渡带(z128~159)无内容物; 缓冲
+   格数是防误触参数可微调、判据形状不变。触发即 advVeilFire({to:'home',
+   kind:'edge'}) 与去程逐字节同形(零契约变更)复用现成白闪整链(0.4s×2/
+   0.8s 冷却/满格同步切/portal_travel 音), 到达分流在 advVeilArrive 维度
+   回程分支。回程无门件(紫调地图门语义不进镇口), 恒开放不设条件分支。
+   早退链说明(施工探针 probe-return-timing 实证): 端到端契约场景=去程发令
+   28 帧(0.467s)后即踩回程线——此刻 advPortalCd 尚余 0.33s 且去程白闪正处
+   淡出期(phase 'out'), 冷却闸与 idle 闸都会吞掉契约发令; 故本 tick 只挡
+   白闪**推进中**(phase 'in', 转场窗内防连触的承重闸——发令帧起 to/from
+   冻结, 再入会串目标)与睡觉两闸, 'out' 淡出期放行(白闪未散尽的画面上
+   白光再起=回程起步的自然读法); 防回程自连触的其余面: 发令即 phase='in'
+   挡 0.4s 推进窗, 满格到达即离开 town 维度(维度闸接管), 三闸合力无
+   二次传送窗口 */
+const ADV_TOWN_RETURN_Z = 132; /* 镇侧回程触发线 z=132(核心区南界 z127 外 5 格缓冲,
+    南彩蛋带 z94~127 整段在线北零误触; 防误触参数可微调、判据形状不变,
+    几何唯一权威=town-map-design §6.3.5, 不抄第二份几何) */
+const ADV_TOWN_DIM_ROW = ADV_DIMS.find((r) => r.id === 'town'); /* 镇维度行(表内唯一权威):
+    回程触发线的维度门用**行身份比对**(advDimRow(advDim) 是否即此行)——
+    「三条全局判据零新分支」守门禁壳层 advDim 对 'town' 的字面量判据
+    (dims-core 在册), 本缝=ADR-0011 决策 4 明令的「真差异留壳」(den 布防
+    同款先例), 行身份形态两全: 行为上镇维度专属, 文面上零字面维度判据;
+    行若除名则 find=undefined 门恒关(回程静默, 失败安全) */
+function advTownReturnTick(dt) {/* 回程触发装配(update 每帧, advEdgeTick 相邻位,
+    互斥维度门): 早退链(白闪推进中/睡觉)→维度门→带式判据→advVeilFire
+    (白闪+冷却在 veil 段, 到达分流在 advVeilArrive) */
+  if (advVeil.phase === 'in' || advSleep.on) return; /* 白闪推进中/睡觉不触发(淡出期放行, 见上) */
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return; /* 回程触发线镇维度专属
+      (行身份比对见上; 维度冻结期 advMap 不参判) */
+  if (pos.z < ADV_TOWN_RETURN_Z) return; /* 未越线(任意 x 带式判据, 无 x 依赖) */
+  advVeilFire({to: 'home', kind: 'edge'}); /* 越线瞬间发令(与去程同形, 无站桩) */
 }
 
 /* 神殿可疑地板踩塌(审查修复 P1): 站上神殿室内中央 2×2 砂岩地板 → 4 格塌空
@@ -4631,6 +4688,8 @@ const AdventureMode = mkMode({
         走 setSkyBase/雾距既有缝, 昼夜插值仍归 applyDaylight */
     advEdgeTick(dt); /* 〔世界边界·T8〕边缘传送触发+近前引导(home 图专属):
         早退链→越线瞬间白闪传送(解锁向)/近前话术节流(锁定向) */
+    advTownReturnTick(dt); /* T-SEAM-03 镇侧回程触发线(town 维度专属, 与上行
+        互斥维度门): 早退链→z≥132 越线瞬间白闪回 home(§6.3.5) */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */

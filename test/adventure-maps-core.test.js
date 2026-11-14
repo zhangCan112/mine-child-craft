@@ -265,6 +265,34 @@ test('政策: 回家来向锚落点 — ADV_HOME_EDGE_GATES 三锚数值钉(T9 �
       'advMapArrive(row) = gates[0] 的便捷版(远征图单门恒等)');
 });
 
+test('政策: 回家来向锚 east 补键(T-SEAM-03 回程必需件) — advHomeArriveGate(\'town\') 反查 east 锚不落南锚 · 落点门口内侧窗面朝西', () => {
+  /* T-SEAM-03 回程(ADR-0011 决策 4 · town-map-design §6.3.5): 从镇内越线回
+     home 落东主路尽头门口内侧。ADV_EDGE_DIR_MAP 已有 east:'town'(T-SEAM-02),
+     ADV_HOME_EDGE_GATES 缺 east 键 → 反查落空兜底南锚=错误落点。实证坑对照:
+     维度期间 advMap 冻结 home, 直喂 advMap 反查 'home' 同样落空兜底南锚——
+     来向口径二选一(到达侧读 advDim/发令显式 from)归壳层施工裁, 本测试只锁
+     数据面反查链与「直喂冻结值落南锚」的反例对照 */
+  const g = Maps.ADV_HOME_EDGE_GATES.east;
+  assert.ok(g, 'ADV_HOME_EDGE_GATES 补 east 键(T-SEAM-03 必需件 2)');
+  assert.strictEqual(g.face, 'east', 'east 锚 face east(ADV_GATE_FACE.east inx=-1 → 面朝图内即面西)');
+  assert.strictEqual(Maps.advHomeArriveGate('town'), g,
+      '来向 \'town\' 经 ADV_EDGE_DIR_MAP 反查落 east 锚(不兜底)');
+  assert.notStrictEqual(Maps.advHomeArriveGate('town'), Maps.ADV_HOME_EDGE_GATES.south,
+      'east 反查不落南锚(兜底语义不殃及 town)');
+  assert.strictEqual(Maps.advHomeArriveGate('home'), Maps.ADV_HOME_EDGE_GATES.south,
+      '对照: 直喂冻结值 \'home\' 反查落空 → 兜底南锚(「直喂 advMap 会落南锚」反例原文)');
+  /* 落点窗口(§6.3.5「约 (154.5,75) 面朝西」+ advMapArriveAt 数学可达集):
+     门口=东栅栏开间(栅栏线 x157, 开间 z74~75, T-SEAM-02), 内侧 2.5 格 →
+     x∈[154,155]; 主径带 z74~75 取中 → z∈[74.5,75.5]。精确值施工探针实测
+     取值(三向现锚同款口径), 所落格可站立由 adventure-mode.test.js 建场探针
+     专测钉(真世界脚箱四角) */
+  const a = Maps.advMapArriveAt(g);
+  assert.ok(a.x >= 154 && a.x <= 155, '落点 x=门口内侧 2.5 格窗 [154,155]: ' + a.x);
+  assert.ok(a.z >= 74.5 && a.z <= 75.5, '落点 z=主径带中窗 [74.5,75.5]: ' + a.z);
+  assert.strictEqual(a.y, ADV_GROUND + 1, '落点 y=基准地表站立面(三锚同款)');
+  assert.strictEqual(a.yaw, Math.PI * 1.5, '面朝西(yaw 3π/2=face east yawIn)——回程验收锚唯此');
+});
+
 test('政策: 死亡回家 — 满血+home 门口+背包保留+map 标记回 home(零惩罚哲学)', () => {
   const plan = Maps.advMapDeathPlan('desert', {hp: 0, maxHp: 30});
   assert.strictEqual(plan.hp, 30, '满血复活');

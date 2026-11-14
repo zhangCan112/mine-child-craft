@@ -4827,3 +4827,134 @@ test('T-SEAM-02 栅栏保护拒绝话术改稿: east 命中保护判据 → 视�
   assert.ok(east.indexOf('还没盖好') < 0, '旧稿「小镇还没盖好呢」退役(与恒开放矛盾)');
   AdventureMode.cleanup();
 });
+
+
+/* ============ T-SEAM-03 回程: 镇侧带式触发线+east 来向锚(双向边缘白闪收口, 壳行为链) ============ */
+
+test('T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → 落 east 锚(约 154.5,75)面朝西 · 维度回 overworld 昼夜照转 · 播报「回到家啦！」· 白闪整链同款 · 落点不落触发线口袋 · 双向再入镇', () => {
+  mem.clear();
+  freshInit();
+  /* 去程(T-SEAM-02 已清链路, 复用为回程的前提段): 主径踩线白闪进镇 */
+  globalThis.pos.x = 157.2; globalThis.pos.y = 25; globalThis.pos.z = 74.5;
+  AdventureMode.update(1 / 60); /* 越线瞬间发令(无站桩) */
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s 满格到达 */
+  assert.strictEqual(A.advNetherState().dim, 'town', '进镇(town 维度在场方可回程)');
+  assert.strictEqual(globalThis.dayCycleOn, false, '镇内昼夜冻结(dayCycle:false, §6.3.4)');
+  /* 回程发令: 南向镇口带式 z≥132(核心区南界 z127 外 5 格缓冲, §6.3.5);
+     发令帧维态实证=「直喂 advMap 会落南锚」反例的现场 */
+  globalThis.pos.z = 132.5; /* 任意 x: 站主路 x79 */
+  AdventureMode.update(1 / 60); /* 越线瞬间发令 */
+  assert.strictEqual(A.advNetherState().dim, 'town', '回程发令帧: 白闪未满格仍在镇');
+  assert.ok(A.advNetherState().portalCd > 0, '发令即进 0.8s 冷却(盖过转场窗防连触, 去程同款)');
+  assert.strictEqual(A.advNetherState().map, 'home',
+      '维态实证: 维度期间 advMap 冻结 home——来向若直喂 advMap, advHomeArriveGate(\'home\') 反查落空兜底南锚(红测试反例锁)');
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s 满格到达 */
+  assert.strictEqual(A.advNetherState().dim, 'overworld', '回 home: 维度回 overworld');
+  assert.strictEqual(A.advNetherState().map, 'home', '图账 home');
+  assert.strictEqual(globalThis.dayCycleOn, true, '回 home 主世界昼夜照转(镇内时间冻结不外溢)');
+  assert.ok(calls.some((x) => x[0] === 'applyDaylight'), 'applyDaylight 恢复当下天色(昼夜照转)');
+  /* 落点=east 锚门口内侧(§6.3.5 约 (154.5,75)), 绝不落南锚(56.5,126) */
+  const ax = globalThis.pos.x; const az = globalThis.pos.z;
+  assert.ok(ax >= 154 && ax <= 155, '落 east 锚窗 x∈[154,155]: ' + ax);
+  assert.ok(az >= 74.5 && az <= 75.5, '落 east 锚窗 z∈[74.5,75.5]: ' + az);
+  assert.ok(ax > 100 && az < 130, '绝不落南锚(南锚 x=56.5/z=126): ' + ax + ',' + az);
+  assert.strictEqual(globalThis.pos.y, 25, '落基准地表站立面');
+  assert.strictEqual(globalThis.yaw, Math.PI * 1.5, '面朝西(yaw 3π/2)——回程验收锚唯此');
+  assert.ok(spoken.some((s) => String(s).indexOf('回到家啦') >= 0),
+      '到达播报「回到家啦！」(to=\'home\' 现成句沿用, 零新增)');
+  assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('回到家啦') >= 0),
+      '到达 toast 🏡 回到家啦(现成句)');
+  assert.ok(calls.some((x) => x[0] === 'sfx' && x[1] === 'portal_travel'),
+      '白闪整链复用: portal_travel 音(满格第二段, kind=\'edge\' 现成参数)');
+  /* 落点不落触发线口袋: 站锚不动跨过冷却窗, 零二次传送 */
+  for (let i = 0; i < 50; i++) AdventureMode.update(1 / 60); /* >0.8s 冷却走完 */
+  assert.strictEqual(A.advNetherState().map, 'home', '站锚零二次传送(锚位不落触发线口袋)');
+  /* 双向收口(§6.3.5 理由①语言对称): 从锚沿主路向东再踩去程线 → 白闪回镇 */
+  globalThis.pos.x = 157.2; globalThis.pos.z = 74.5;
+  AdventureMode.update(1 / 60); /* 去程发令 */
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'town', '双向收口: 家门口踩线白闪回镇');
+  assert.strictEqual(globalThis.pos.x, 79, '回镇落 spawn 锚(去程语义不变, T-SEAM-02 锚同值)');
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-03 回程触发线 z 逐点: z=131 不触发/z=132 触发(任意 x 带式) · 南彩蛋带整段(z94~127)零误触(抽 z=100/127)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town'); /* 切界唯一入口直达(去程链路已由 T-SEAM-02 专测覆盖) */
+  assert.strictEqual(A.advNetherState().dim, 'town', '直达镇维度');
+  /* 不触发面: z=131(线内一格, floor 判据同源) · 南彩蛋带抽点 z=100/127
+     (整段 z94~127 在触发线北, §6.3.5 零误触面) */
+  for (const [px, pz] of [[79, 131.5], [79, 100.5], [79, 127.5], [30, 127.5]]) {
+    globalThis.pos.x = px; globalThis.pos.y = 25; globalThis.pos.z = pz;
+    for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+    assert.strictEqual(A.advNetherState().dim, 'town',
+        'z=' + pz + ' 不触发(缓冲内一格/南彩蛋带零误触)');
+  }
+  /* 触发面: z=132 任意 x(轴向带式判据无 x 依赖, 抽主路 x79 与镇西 x30) */
+  for (const px of [79, 30]) {
+    globalThis.pos.x = px; globalThis.pos.y = 25; globalThis.pos.z = 132.5;
+    AdventureMode.update(1 / 60); /* 越线瞬间发令 */
+    assert.strictEqual(A.advNetherState().dim, 'town', 'z=132 x=' + px + ' 发令帧仍在镇');
+    assert.ok(A.advNetherState().portalCd > 0, 'z=132 x=' + px + ' 发令进冷却(确系回程发令)');
+    for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60);
+    assert.strictEqual(A.advNetherState().dim, 'overworld', 'z=132 x=' + px + ' 白闪回 home');
+    assert.ok(globalThis.pos.x >= 154 && globalThis.pos.x <= 155 &&
+        globalThis.pos.z >= 74.5 && globalThis.pos.z <= 75.5,
+        'x=' + px + ' 任意 x 同落 east 锚窗(带式判据)');
+    A.advSetDim('town'); /* 归位镇维度继续下一点(切界唯一入口无冷却门) */
+    for (let i = 0; i < 50; i++) AdventureMode.update(1 / 60); /* 回程冷却走空 */
+  }
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-03 回程早退链(镇侧同款纪律): 睡觉转场中不触发 · 解除后照常发令(冷却/白闪中两闸已在端到端发令帧断言)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  for (let i = 0; i < 50; i++) AdventureMode.update(1 / 60); /* 冷却窗走空 */
+  globalThis.pos.x = 79; globalThis.pos.y = 25; globalThis.pos.z = 132.5;
+  A.advSleep.on = true; /* 睡觉转场中(早退链第三闸, advEdgeTick 同款纪律) */
+  A.advSleep.t = 0;
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'town', '睡觉中不触发');
+  A.advSleep.on = false; A.advSleep.t = 0; /* 中断复位(昼夜 D6 同款口径) */
+  AdventureMode.update(1 / 60); /* 解除即照常 */
+  assert.ok(A.advNetherState().portalCd > 0, '解除后越线发令(冷却置位)');
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'overworld', '白闪回 home 照常');
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-03 缓冲常量在位+判据注释回引 §6.3.5(防误触参数可微调, 判据形状不变)', () => {
+  /* 票面①: 缓冲 5 格=防误触参数可微调、判据形状不变(建议常量提取+注释
+     回引 §6.3.5, 不抄第二份几何)——壳层 town 维度分支的线值常量在位守门 */
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const m = src.match(/const\s+(ADV_TOWN_RETURN\w*)\s*=\s*132\b/);
+  assert.ok(m, '镇侧回程触发线常量在位(const ADV_TOWN_RETURN* = 132, 壳层 town 维度分支)');
+  const at = src.indexOf(m[0]);
+  const ctx = src.slice(Math.max(0, at - 400), at + m[0].length + 200);
+  assert.ok(ctx.indexOf('6.3.5') >= 0, '常量注释回引 town-map-design §6.3.5(不抄第二份几何)');
+});
+
+test('T-SEAM-03 east 锚所落格可站立(建场探针, 三向现锚同款): 落点脚箱覆盖格 y24 实垫 y25/26 净空', () => {
+  mem.clear();
+  freshInit(); /* 建场 home 真实世界(建场探针跑真世界, 非表数据自证) */
+  const g = advHomeArriveGate('town'); /* 全局名(maps-core 已铺 Node 全局) */
+  const a = advMapArriveAt(g);
+  assert.ok(a.x >= 154 && a.x <= 155 && a.z >= 74.5 && a.z <= 75.5,
+      '探针目标=east 锚落点(非南锚兜底): ' + a.x + ',' + a.z);
+  /* 玩家脚箱半宽 hx=hz=0.2 → 覆盖格 {floor(x±0.2)}×{floor(z±0.2)} */
+  const xs = [...new Set([Math.floor(a.x - 0.2), Math.floor(a.x + 0.2)])];
+  const zs = [...new Set([Math.floor(a.z - 0.2), Math.floor(a.z + 0.2)])];
+  for (const bx of xs) {
+    for (const bz of zs) {
+      const top = getBlock(bx, 24, bz);
+      assert.ok(top !== 0 && BLOCKS[top] && BLOCKS[top].solid !== false,
+          '(' + bx + ',' + bz + ') y24 实垫可站立: id=' + top);
+      assert.strictEqual(getBlock(bx, 25, bz), 0, '(' + bx + ',' + bz + ') y25 脚格净空');
+      assert.strictEqual(getBlock(bx, 26, bz), 0, '(' + bx + ',' + bz + ') y26 头格净空');
+    }
+  }
+  AdventureMode.cleanup();
+});

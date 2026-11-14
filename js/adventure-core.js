@@ -1466,6 +1466,16 @@ function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插�
   advEdgeRewrite(152, 156, 74, 75, dirt); /* ③主径: 与既有东向小径同轴延长 */
 }
 
+function advEdgeEastArrivePad() {/* 回家门墩(T-SEAM-03, town-map-design §6.3.5):
+  east 来向锚落点 (154.5,75) 脚箱覆盖格 (154,74)/(154,75) 垫到基准地表 y24 顶
+  (带区高度场 −1=地表 y23, 三向现锚皆 heightAt 0 唯 east 缺——advMapArriveAt
+  y=ADV_GROUND+1 的「门位压平区建场保证 y24 顶面」口径在此兑现)。主径土面
+  同材质垫高成门槛读法(2 格全幅跨主径), 探针实测 y24 实垫 y25/26 净空 */
+  for (const z of [74, 75]) {
+    setBlockRaw(154, ADV_GROUND + advHeightAt(154, z) + 1, z, 2);
+  }
+}
+
 function advEdgeEastSign() {/* 告示牌(东 spec §5): 立式双柱牌 x156, 板面朝主径;
   牌面=拼块形制无字(T7 拍板 Q1 销项); 不可挖保护判据已落地(advEdgeProtectedAt
   东向恒保护, T7 转正) */
@@ -1530,6 +1540,7 @@ function advEdgeEastSkyline() {/* 小镇远景剪影(东 spec §6): 房屋×4+�
 
 function advEdgeEast() {
   advEdgeEastDress();
+  advEdgeEastArrivePad(); /* 回家门墩(T-SEAM-03): east 来向锚落点 y24 实垫 */
   advEdgeEastSign();
   advEdgeEastFence();
   advEdgeEastSkyline();
