@@ -4831,7 +4831,8 @@ test('T-SEAM-02 栅栏保护拒绝话术改稿: east 命中保护判据 → 视�
 
 /* ============ T-SEAM-03 回程: 镇侧带式触发线+east 来向锚(双向边缘白闪收口, 壳行为链) ============ */
 
-test('T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → 落 east 锚(约 154.5,75)面朝西 · 维度回 overworld 昼夜照转 · 播报「回到家啦！」· 白闪整链同款 · 落点不落触发线口袋 · 双向再入镇', () => {
+test('T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → 落 east 锚(约 154.5,75)面朝西' +
+    ' · 维度回 overworld 昼夜照转 · 播报「回到家啦！」· 白闪整链同款 · 落点不落触发线口袋 · 双向再入镇', () => {
   mem.clear();
   freshInit();
   /* 去程(T-SEAM-02 已清链路, 复用为回程的前提段): 主径踩线白闪进镇 */
@@ -4901,7 +4902,7 @@ test('T-SEAM-03 回程触发线 z 逐点: z=131 不触发/z=132 触发(任意 x 
     assert.strictEqual(A.advNetherState().dim, 'overworld', 'z=132 x=' + px + ' 白闪回 home');
     assert.ok(globalThis.pos.x >= 154 && globalThis.pos.x <= 155 &&
         globalThis.pos.z >= 74.5 && globalThis.pos.z <= 75.5,
-        'x=' + px + ' 任意 x 同落 east 锚窗(带式判据)');
+    'x=' + px + ' 任意 x 同落 east 锚窗(带式判据)');
     A.advSetDim('town'); /* 归位镇维度继续下一点(切界唯一入口无冷却门) */
     for (let i = 0; i < 50; i++) AdventureMode.update(1 / 60); /* 回程冷却走空 */
   }
