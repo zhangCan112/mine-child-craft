@@ -20,7 +20,8 @@
    ⑦ 集成链 T-UI-02: 真机器 focus→指引出指向→found 回落钟塔→回程收敛
       零残留→再进新机弱提示干净(TOWN_MAP 真锚点同笼, 位姿 poseRef 注入);
    ⑧ 方位指引适配(T-UI-02): 徽章内容/位姿驱动档位/nearby 视野门槛/
-      found 回落/签名门控不重建/无位姿降级——L2 槽填充(槽类名不变)。
+      found 回落/签名门控不重建/无位姿降级——L2 槽填充(槽类名不变);
+      机器身份快照等价分支直测(回归网: 等价新对象多次 sync 不误判换机)。
    装具: fake DOM 记录桩(经典脚本适配层无 THREE 硬依赖, DOM 走注入;
    adventure-mode.test.js fakeEl 先例简化版)。红期 js/town-ui.js 缺席全红。 */
 const test = require('node:test');
@@ -167,9 +168,10 @@ test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻
   const pointerSlot = slotOf(rec.ui, 'town-hud-pointer');
   assert.strictEqual(pointerSlot.children.length, 1,
       'L2 指引器徽章就位(T-UI-02: 槽内恰一徽章子件, 不重建不多挂)');
-  assert.ok(pointerSlot.children[0] &&
+  assert.ok(
+      pointerSlot.children[0] &&
       pointerSlot.children[0].classList.contains('town-hud-pointer-badge'),
-  '指引器=圆形徽章形态(prebuild §3.1; 槽类名 town-hud-pointer 不变)');
+      '指引器=圆形徽章形态(prebuild §3.1; 槽类名 town-hud-pointer 不变)');
   const sys = slotOf(rec.ui, 'town-hud-sys');
   const home = sys.children.find((c) => c.attrs['aria-label'] === '回主菜单');
   assert.ok(home, 'L4 默认仅「返回主菜单」图标钮(prebuild §2.1)');
@@ -452,9 +454,10 @@ test('集成链 T-UI-02: 白闪进镇弱提示→真机器 focus 出指向→syn
   /* mock found: done 目标不再指→回落钟塔弱提示(验收锚: found 后回落语义) */
   vm.runInContext('__machine.found(\'lava-chicken\')', ctx);
   badge = badgeOf();
-  assert.ok(badge.classList.contains('is-fallback') &&
+  assert.ok(
+      badge.classList.contains('is-fallback') &&
       !badge.classList.contains('is-target'),
-  'found→done 目标不再指, 回落钟塔弱提示(§5.2/U5 口径)');
+      'found→done 目标不再指, 回落钟塔弱提示(§5.2/U5 口径)');
   assert.ok(badge.children.find((c) => c.classList.contains('town-hud-pointer-icon'))
       .textContent === '🗼', '回落图标=钟塔(回家/集合锚点语义)');
   /* 回程收敛: 弃机→HUD 收敛 */
@@ -468,9 +471,10 @@ test('集成链 T-UI-02: 白闪进镇弱提示→真机器 focus 出指向→syn
   assert.ok(badge, '再进新机徽章在位');
   assert.ok(!badge.classList.contains('is-target'),
       '第一轮目标零残留(新机新会话, focus/found 不跨轮泄漏)');
-  assert.ok(badge.classList.contains('is-fallback') &&
+  assert.ok(
+      badge.classList.contains('is-fallback') &&
       badge.classList.contains('band-far'),
-  '新机弱提示按新位姿重算(远处 88 格→far, 签名自进镇重算非陈旧档)');
+      '新机弱提示按新位姿重算(远处 88 格→far, 签名自进镇重算非陈旧档)');
 });
 
 /* ============================================================
@@ -611,4 +615,36 @@ test('无位姿/无锚点降级不炸: poseRef 缺省(Node 沙盒 null)→目标
   rec.ui.dialogEvent('town-ui/dialog/open', {});
   assert.strictEqual(slotOf(rec.ui, 'town-hud-pointer').hidden, true,
       'L2 会话收敛既有契约不破(T-UI-01 P-H2, 指引内容之上仍收敛)');
+});
+
+test('机器身份对账·快照等价分支直测(回归网): machineRef 每调返回等价新对象→多次 sync 不误判换机(零 leave/enter), 卡态/指引器稳定', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  /* machineRef 每调造等价新对象: 引用恒不同、snapshot 输出 JSON 全等——
+     直击 sameMachine 快照等价分支(引用恒等快路径全被既有测试走掉,
+     本条封「回归为恒 false→每 sync 误判换机 leave+enter」的洞) */
+  const rec = mkHarness(
+      () => ({snapshot: () => ({focusId: 'farm', states: {farm: 'active'}})}),
+      () => ({x: 61.5, y: 25, z: 76.5, yaw: 0}));
+  rec.ui.sync(); /* 首次对账: 进场 */
+  rec.ui.targetEvent('town-ui/target/focus', {target: FARM_TARGET});
+  assert.strictEqual(rec.ui.cardState(), 'active', '前置: 进行中');
+  const slot = slotOf(rec.ui, 'town-hud-pointer');
+  const badge = slot.children[0];
+  assert.ok(badge && badge.classList.contains('is-target'), '前置: 目标态在指');
+  const cancelsBefore = rec.speech.cancels;
+  const iconBefore = badge.children.find(
+      (c) => c.classList.contains('town-hud-pointer-icon'));
+  rec.ui.sync(); /* 引用不同+快照全等 → sameMachine 快照等价分支 */
+  rec.ui.sync();
+  rec.ui.sync();
+  assert.strictEqual(rec.ui.cardState(), 'active',
+      '卡态稳定(若误判换机: leave→hidden 后 enter 归探索中, active 不复现)');
+  assert.strictEqual(rec.speech.cancels, cancelsBefore,
+      '零 leave(误判换机必经离镇 speech.cancel, 计数不动=对账未出走)');
+  assert.strictEqual(slot.children[0], badge, '徽章引用恒等(签名门控零重建)');
+  assert.strictEqual(badge.children.find(
+      (c) => c.classList.contains('town-hud-pointer-icon')), iconBefore,
+  '图标子件引用恒等(mount 幂等, 对账稳定不重建)');
+  assert.strictEqual(badge.classList.contains('is-target'), true,
+      '目标态保持(focusTarget/doneIds 不被误清→不回落)');
 });
