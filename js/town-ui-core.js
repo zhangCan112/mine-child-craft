@@ -314,9 +314,10 @@ function townHlHit(origin, dir, entries, opts) {
     if (cosAngle < cosLimit - EPS) continue; /* 角度门(含等号, 舍入容差) */
     /* 角度优先(严格大于); 同角并列: task: 前缀条目压过非任务条目
        (T-UI-04F 契约改约), 双方同类→维持源序取前 */
+    /* best.id 同守(非字符串=非任务条目): 04F note N1 防御, 真清单 id 恒字符串实际不可达 */
     const tieTask = cosAngle === bestCos && best !== null &&
       typeof e.id === 'string' && e.id.startsWith('task:') &&
-      !best.id.startsWith('task:');
+      !(typeof best.id === 'string' && best.id.startsWith('task:'));
     if (cosAngle > bestCos || tieTask) {
       best = {id: e.id, dist: d};
       bestCos = cosAngle;

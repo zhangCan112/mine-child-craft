@@ -890,3 +890,20 @@ test('CSS(T-UI-03): 高亮层/标记类落位; 五态类色通道+形通道双�
   assert.ok(!/\bred\b|#f00\b|#ff0000/i.test(css), 'css/town.css 出现警示红语义(零惩罚红线)');
   assert.ok(!/\b(blink|flash)\b/i.test(css), 'css/town.css 出现闪烁动效(§6.5 禁闪烁)');
 });
+
+/* T-UI-05 红锚(04F note N1 防御补齐): tieTask 对非字符串 best.id 不炸——
+   合成条目(非注册清单形状, 真清单 id 恒字符串=实际不可达)并列角下旧实现
+   best.id.startsWith 直接 TypeError; 契约语义不变: task: 前缀条目并列仍优先 */
+test('准星命中判定 tieTask 防御: 非字符串 best.id 并列不炸且 task 条目仍优先(04F note N1, 纯防御)', () => {
+  const {ctx} = coreBoot();
+  const numFirst = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+    '{x: 0, y: 0, z: -1}, [{id: 42, anchor: {x: 0, y: 0, z: -10}}, ' +
+    '{id: \'task:x\', anchor: {x: 0, y: 0, z: -10}}], {}))');
+  assert.strictEqual(numFirst.id, 'task:x',
+      '非字符串 best.id 在前: 并列判定不炸且 task 条目胜出(契约语义不变)');
+  const taskFirst = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+    '{x: 0, y: 0, z: -1}, [{id: \'task:x\', anchor: {x: 0, y: 0, z: -10}}, ' +
+    '{id: 42, anchor: {x: 0, y: 0, z: -10}}], {}))');
+  assert.strictEqual(taskFirst.id, 'task:x',
+      'task 在前: 非字符串后来者不夺位(序无关边界锁)');
+});

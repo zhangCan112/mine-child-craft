@@ -1895,3 +1895,25 @@ test('E2E 真清单点选 T-UI-04F: 不过滤真注册清单三处同锚遮挡�
         occ.taskId + ': 命中对象=task 条目本尊(非同锚 prop/landmark 遮挡)');
   }
 });
+
+/* ============================================================
+   T-UI-05 红锚(交付物 3 默认值落地; 纯追加, 既有断言零触碰)
+   ============================================================ */
+
+/* F5 消解(PO 待裁条款 8): praise 句被 dwell 步进 speech.cancel() 截断——
+   dwell 默认取 praiseTotalMs[1] 上限 2000ms(表扬句完整可听再步进);
+   参数表本身 [1200,2000] 锁不动, 取值点=装配层 dlgDwellMs 单一处 */
+test('T-UI-05 F5: praise dwell 泵默认取 praiseTotalMs 上限档(表扬句完整播完再步进, 不被 cancel 截断)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.clickEntry(DLG_TASK_SEEK); /* 点选接任务→seek */
+  rec.clickEntry(DLG_TASK_SEEK); /* 世界点中目标→respond */
+  rec.timer.fireAll(); /* confirm 短驻泵→praise→dwell 泵入册 */
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+      'praise', '前置: confirm→praise');
+  assert.strictEqual(rec.timer.pending.length, 1,
+      'praise 态在册定时恰一只(dwell 泵; 会话中 A 侧表扬冻结零额外定时)');
+  assert.strictEqual(rec.timer.pending[0].ms, 2000,
+      'dwell 默认=praiseTotalMs[1] 上限档(F5: 1.2s 下限档截断表扬句 cancel-then-speak)');
+});

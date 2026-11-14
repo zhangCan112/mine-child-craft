@@ -738,9 +738,10 @@ function mkTownUi(deps) {
     if (dlg) dlg.handle({type: 'next-step'}); /* N3 dwell 自动步进 */
   }
 
+  /* F5: 取 praiseTotalMs 窗上限——表扬句完整可听再步进(1.2s 下限档会被 cancel 截断, PO 待裁条款 8 消解) */
   function dlgDwellMs() {
     return DIALOG_CORE && DIALOG_CORE.DIALOG_OPTS ?
-      DIALOG_CORE.DIALOG_OPTS.praiseTotalMs[0] : 1200;
+      DIALOG_CORE.DIALOG_OPTS.praiseTotalMs[1] : 2000;
   }
 
   /* 机器 emit 闭环: open/close 转投 A 侧 seam(dialogEvent 同实例),

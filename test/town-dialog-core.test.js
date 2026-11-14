@@ -642,3 +642,22 @@ test('参数表禁区: DIALOG_OPTS 无倒计时/超时/失败/惩罚键(§6.3 �
         '参数表禁词「' + b + '」(零倒计时零失败态)');
   }
 });
+
+/* T-UI-05 红锚(交付物 3 文案落地): dialog-spec §7.1 夸过程不夸标签——话术
+   六态句+面板短文案零标签式表扬词(「真厉害」「你真棒」类禁例); 精确终稿
+   文案归 PO 条款 7, 本锚只锁 §7.1 明文导向(守门防回归) */
+test('T-UI-05 §7.1 守门: 会话话术与面板短文案零标签式表扬词(夸过程不夸标签)', () => {
+  assert.ok(core, 'js/town-dialog-core.js 缺席(红期)');
+  const LABEL_PRAISE = /真厉害|真棒|真聪明/;
+  for (const s of ['greet', 'guide', 'seek', 'help', 'respond', 'praise', 'complete']) {
+    const u = core.dialogUtterFor(s, {npcLabel: '找面包'});
+    if (u) {
+      assert.ok(!LABEL_PRAISE.test(u), s + ' 播报句零标签式表扬词(§7.1): ' + u);
+    }
+    const v = core.dialogViewFor(s, {npcLabel: '找面包'});
+    const body = v && v.panel && v.panel.body;
+    if (body) {
+      assert.ok(!LABEL_PRAISE.test(body), s + ' 面板短文案零标签式表扬词(§7.1): ' + body);
+    }
+  }
+});

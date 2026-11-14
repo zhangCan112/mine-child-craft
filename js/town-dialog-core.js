@@ -118,15 +118,15 @@ const ROUTE_INTENT = {guide: 'tour', seek: 'find', help: 'give'};
 const PENDING_STEP = {guide: true, seek: true, help: true};
 /* 表扬徽章资产映射(prebuild §4.1): 帮助/关爱=flower, 寻找/观察=star */
 const PRAISE_ICON_BY_KIND = {help: 'flower', golem: 'flower'};
-/* 话术模板(§4.4/§8): {n}=目标名插值; 零倒计时零失败语义(§6.3) */
+/* 话术模板(§4.4/§8): {n}=目标名插值; 零倒计时零失败语义(§6.3); 夸过程不夸标签(§7.1) */
 const DIALOG_UTTER_TPL = Object.freeze({
   greet: '你好呀, 见到你真开心!',
   guide: '跟我一起去看看吧!',
   seek: '我们一起来{n}吧!',
   help: '请把东西拿给我吧!',
-  respond: '找到啦, 真厉害!',
+  respond: '找到啦, 你找得真认真!',
   praise: '做得好!给你一颗小星星!',
-  complete: '我们完成啦, 真棒!',
+  complete: '我们完成啦, 你帮了大忙!',
 });
 /* 面板引导短句(§8 短文案 1-4 字辅助语义, 装配层可直用) */
 const PANEL_BODY = Object.freeze({
@@ -135,7 +135,7 @@ const PANEL_BODY = Object.freeze({
   seek: '找到它, 点一点!',
   help: '把东西拿给我吧!',
   respond: '找到啦!',
-  praise: '你真棒!',
+  praise: '谢谢帮忙!',
   complete: '完成啦!',
 });
 
