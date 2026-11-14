@@ -392,8 +392,8 @@ test('CSS: css/town.css 在位且四槽命名空间/色板 token/安全区热区
       零 DOM 零墙钟, 阈值消费 TOWN_UI_PARAMS.P_D1_NEARBY/P_D2_NEAR。
    ============================================================ */
 
-/* 指引回落锚(N 端测试固定值; 装配层生产取 TOWN_MAP.anchors bell-tower) */
-const FB_ANCHOR = {x: 79, y: 24, z: 76};
+/* 指引回落锚在生产由装配层注入(TOWN_MAP.anchors bell-tower=79,24,76);
+   核心零依赖, 本文件探测串一律用内联字面量, 不设共享常量 */
 
 test('指引目标解析(prebuild §5 函数 3): 有目标=原样 target; null+钟塔回落=fallback 携回落锚; null+hidden=off; 策略越域抛错', () => {
   const {ctx} = coreBoot();
@@ -430,7 +430,7 @@ test('指引目标解析(prebuild §5 函数 3): 有目标=原样 target; null+�
   '回落策略越域须抛错(域恰 belltower-fallback|hidden 两值, 静默吞拼写错=漂移温床)');
 });
 
-test('距离分档(prebuild §5 函数 4): 边界恰等逐个(P_D1=12 nearby 需在视野; P_D2=40 near; >40 far); inView=false nearby 不可达; 阈值注入生效', () => {
+test('距离分档(prebuild §5 函数 4): 边界恰等逐个(12 nearby 需在视野; 40 near; >40 far); inView=false nearby 不可达; 阈值注入生效', () => {
   const {ctx} = coreBoot();
   assert.strictEqual(probe(ctx, 'typeof townPointerBand'), 'function',
       '缺 townPointerBand 纯函数(prebuild §5 函数 4: 距离三档定性, T-UI-02)');
@@ -497,8 +497,8 @@ test('指引签名(prebuild §5 函数 6+§3.4 脏标口径): 同入参恒等; �
   assert.strictEqual(probe(ctx, 'typeof townPointerSig'), 'function',
       '缺 townPointerSig 纯函数(prebuild §5 函数 6: targetId|state|档位 签名, T-UI-02)');
   const sig = (id, st, b, h) => probeJson(ctx,
-      'JSON.stringify(townPointerSig(' + (id === null ? 'null' : "'" + id + "'") +
-      ", '" + st + "', '" + b + "', '" + h + "'))");
+      'JSON.stringify(townPointerSig(' + (id === null ? 'null' : '\'' + id + '\'') +
+      ', \'' + st + '\', \'' + b + '\', \'' + h + '\'))');
   assert.strictEqual(typeof sig('bell-tower', 'active', 'near', 'front'), 'string',
       '签名是字符串(DOM 脏标比较载体)');
   assert.strictEqual(sig('bell-tower', 'active', 'near', 'front'),

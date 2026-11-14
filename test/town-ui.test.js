@@ -169,7 +169,7 @@ test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻
       'L2 指引器徽章就位(T-UI-02: 槽内恰一徽章子件, 不重建不多挂)');
   assert.ok(pointerSlot.children[0] &&
       pointerSlot.children[0].classList.contains('town-hud-pointer-badge'),
-      '指引器=圆形徽章形态(prebuild §3.1; 槽类名 town-hud-pointer 不变)');
+  '指引器=圆形徽章形态(prebuild §3.1; 槽类名 town-hud-pointer 不变)');
   const sys = slotOf(rec.ui, 'town-hud-sys');
   const home = sys.children.find((c) => c.attrs['aria-label'] === '回主菜单');
   assert.ok(home, 'L4 默认仅「返回主菜单」图标钮(prebuild §2.1)');
@@ -454,7 +454,7 @@ test('集成链 T-UI-02: 白闪进镇弱提示→真机器 focus 出指向→syn
   badge = badgeOf();
   assert.ok(badge.classList.contains('is-fallback') &&
       !badge.classList.contains('is-target'),
-      'found→done 目标不再指, 回落钟塔弱提示(§5.2/U5 口径)');
+  'found→done 目标不再指, 回落钟塔弱提示(§5.2/U5 口径)');
   assert.ok(badge.children.find((c) => c.classList.contains('town-hud-pointer-icon'))
       .textContent === '🗼', '回落图标=钟塔(回家/集合锚点语义)');
   /* 回程收敛: 弃机→HUD 收敛 */
@@ -470,7 +470,7 @@ test('集成链 T-UI-02: 白闪进镇弱提示→真机器 focus 出指向→syn
       '第一轮目标零残留(新机新会话, focus/found 不跨轮泄漏)');
   assert.ok(badge.classList.contains('is-fallback') &&
       badge.classList.contains('band-far'),
-      '新机弱提示按新位姿重算(远处 88 格→far, 签名自进镇重算非陈旧档)');
+  '新机弱提示按新位姿重算(远处 88 格→far, 签名自进镇重算非陈旧档)');
 });
 
 /* ============================================================
