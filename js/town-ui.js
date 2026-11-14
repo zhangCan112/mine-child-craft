@@ -610,8 +610,11 @@ function mkTownUi(deps) {
      +步进播报(B4 每步一次)+confirm/dwell 泵(墙钟归装配层)。DOM 刷新
      全程签名门控(同态零 classList/零重建), chip/ghost onclick 闭包捕获
      id(不依赖 DOM 属性寻址)。 */
+  /* 清空容器: children 是 live HTMLCollection(真浏览器无 pop 等数组方法,
+     直调即 TypeError, S-1 评审教训)——子件增删唯一通道 appendChild/
+     removeChild, 遍历只认 length/索引(源文本守门锁死数组方法直调) */
   function clearChildren(el) {
-    while (el.children.length) el.children.pop();
+    while (el.children.length) el.removeChild(el.children[0]);
   }
 
   /* 点选会话驱动缝(landmark/prop 纯 A 零变; seek pending 中点中同目标=

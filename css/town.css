@@ -16,6 +16,10 @@
   --town-hud-soft-white: #fff9ec;
   --town-hud-highlight: #f6c96b;
 
+  /* 村民盘 Sky Cloth(B 侧会话引导/链接性交互强调, prebuild §1.2 双蓝澄清);
+     勿与 A 侧 --town-hud-sky(#7EC8E3 建筑盘布幔-天蓝)互换 — 分属两盘 */
+  --town-dlg-guide: #7ec8d8;
+
   /* 布局与安全区 token(§1.3; 值与 js/town-ui-core.js TOWN_UI_PARAMS 同源) */
   --town-hud-safe: clamp(16px, 1.6vw, 24px);
   --town-hit-min: 44px;
@@ -460,7 +464,7 @@
   line-height: 1.4;
 }
 
-/* 目标缩略图(B6): seek 态常驻小徽标, 天蓝底圆牌 */
+/* 目标缩略图(B6): seek 态常驻小徽标, 村民盘蓝底圆牌 */
 .town-dlg-thumb {
   align-self: flex-start;
   min-width: var(--town-hit-min);
@@ -468,7 +472,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--town-hud-sky);
+  background: var(--town-dlg-guide);
   border: 3px solid var(--town-hud-ink);
   border-radius: 12px;
   font-size: 24px;
