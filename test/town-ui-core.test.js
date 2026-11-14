@@ -358,12 +358,13 @@ test('CSS: css/town.css 在位且四槽命名空间/色板 token/安全区热区
     ['--town-hud-sky', '#7ec8e3'], ['--town-hud-done', '#7fb069'],
     ['--town-hud-soft-white', '#fff9ec'], ['--town-hud-highlight', '#f6c96b'],
   ]) {
-    assert.ok(css.includes(token + ':' + hex), '色板 token 缺失或值漂移: ' + token + ' 应为 ' + hex);
+    /* 冒号后带空格: stylelint-config-standard declaration-colon-space-after=always 强制 */
+    assert.ok(css.includes(token + ': ' + hex), '色板 token 缺失或值漂移: ' + token + ' 应为 ' + hex);
   }
   /* 布局与安全区 token(§1.3; 值与 TOWN_UI_PARAMS 同源字面) */
-  assert.ok(css.includes('--town-hud-safe:clamp(16px, 1.6vw, 24px)'),
+  assert.ok(css.includes('--town-hud-safe: clamp(16px, 1.6vw, 24px)'),
       '安全区 token 应为 clamp(16px, 1.6vw, 24px)(hud-spec §4.2)');
-  assert.ok(css.includes('--town-hit-min:44px'), '热区下限 token 应为 44px(§4.2/§6.4)');
+  assert.ok(css.includes('--town-hit-min: 44px'), '热区下限 token 应为 44px(§4.2/§6.4)');
   /* 四槽容器类(§1.1 容器结构; #townHud 子容器四槽) */
   for (const cls of ['town-hud-card', 'town-hud-pointer', 'town-hud-praise', 'town-hud-sys']) {
     assert.ok(css.includes('.' + cls), '四槽类名缺失: .' + cls);
