@@ -12,7 +12,7 @@
      recolor,place}): 基底三层垫底(序列最前=后写者赢的显式见证)后按
      steps 相对次序派生——ground/backdrop/road 段出 fill, prefab 段出
      place(face/ids 注入一律新对象, 源清单只读), scatter 段出
-     tree+recolor(樱花 7→16 覆写落调用方)/scrub(确定性盐)/灯柱路标
+     tree+recolor(樱花 7→78 覆写落调用方)/scrub(确定性盐)/灯柱路标
      fill, anchor 段零 op(出生归模式层恰一次)。
    依赖: 零运行时依赖——本文件不引用任何引擎件/DOM/墙钟符号; 全局
      TOWN_MAP 调用期解析(消费 core.groundY 派生地表基高与基底范围,
@@ -23,12 +23,15 @@
      同参同输出 · 有同名单测(test/town-assembly-core.test.js)。
    ============================================================ */
 
-/* 城镇配色映射(设计权威 docs/town-map-design.md §3-§4 与
-   docs/design/town-prefab-specs.md §4 材质语义 → 现调色板的集中转录;
-   T-PREFAB-09 材质安全基线: 城镇七行零危险旗标/零显式错用, 测试钉死
-   防漂移)。prefab 段按实例 id 取值, 消费方(PrefabKit pfMerge)未指定
-   键回落行缺省——stall-canopy 布幔 canopy 键不在此(引擎侧 theme 映射
-   PF_STALL_CANOPY 单源, 双源即漂移)。 */
+/* 城镇配色映射 v2(设计权威 docs/design/town-visual-revamp-spec.md §2 字库
+   契约与 §3 M 层全表重映射 > 历史语义 docs/town-map-design.md §3-§4 与
+   docs/design/town-prefab-specs.md §4 材质语义; 裁决序见总纲 §1; T-PREFAB-09
+   材质安全基线: 城镇七行零危险旗标/零显式错用, 测试钉死防漂移)。
+   prefab 段按实例 id 取值, 消费方(PrefabKit pfMerge)未指定键回落行缺省
+   ——stall-canopy 布幔 canopy 键不在此(引擎侧 theme 映射 PF_STALL_CANOPY
+   单源, 双源即漂移)。ground.plazaBand/road.curb 两键为本轮新字库槽位
+   (广场边带砂岩 58/路缘石砖 13): 只登记不接线, 消费归 scene 师下一批
+   steps 扩 kind, 本件派生分支域不变。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 58, wall: 6, pillar: 5, trim: 5, roof: 9, bell: 38, window: 18, flag: 16},
@@ -41,11 +44,11 @@ const TOWN_PALETTE = {
     'stall-canopy': {frame: 5, counter: 6, goods: 38},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
-  ground: {plaza: 58, farm: 41},
-  road: {main: 58, lane: 4},
+  ground: {plaza: 17, farm: 41, plazaBand: 58},
+  road: {main: 13, lane: 4, curb: 13},
   backdrop: {mountain: 3, cliffHome: 6},
-  props: {lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6},
-  tree: {sakuraLeaf: 16},
+  props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6},
+  tree: {sakuraLeaf: 78},
 };
 
 /* 装配规划器: 步骤表 → op 列表。纯函数零副作用——只读 steps 与
@@ -125,10 +128,13 @@ function townAssemblyOps(steps) {
         /* 矮丛带确定性盐(同参同丛, SceneKit.scrub 契约): top=脚下表面格 */
         ops.push({op: 'scrub', x: s.x, top: s.y, z: s.z, salt: s.x * 131 + s.z});
       } else if (s.kind === 'lamp') {
-        /* 灯柱=柱3+灯1 两笔 fill(props palette 单源) */
-        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 3, z2: s.z,
+        /* 灯柱三笔(视觉重制 §3 M props 升级): 石英座 1+深木柱 3+灯头 1,
+           总高 5(props palette 单源)——座收底盘、柱修长、灯头悬浮顶 */
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1, z2: s.z,
+          id: pal.props.lampBase});
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 2, z1: s.z, x2: s.x, y2: s.y + 4, z2: s.z,
           id: pal.props.lampPost});
-        ops.push({op: 'fill', x1: s.x, y1: s.y + 4, z1: s.z, x2: s.x, y2: s.y + 4, z2: s.z,
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 5, z1: s.z, x2: s.x, y2: s.y + 5, z2: s.z,
           id: pal.props.lampLight});
       } else if (s.kind === 'signpost') {
         /* 路标=柱2+牌1 两笔 fill */

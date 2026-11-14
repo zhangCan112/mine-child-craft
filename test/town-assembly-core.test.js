@@ -53,11 +53,11 @@ const PALETTE_WANT = {
     'stall-canopy': {frame: 5, counter: 6, goods: 38},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
-  ground: {plaza: 58, farm: 41},
-  road: {main: 58, lane: 4},
+  ground: {plaza: 17, farm: 41, plazaBand: 58},
+  road: {main: 13, lane: 4, curb: 13},
   backdrop: {mountain: 3, cliffHome: 6},
-  props: {lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6},
-  tree: {sakuraLeaf: 16},
+  props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6},
+  tree: {sakuraLeaf: 78},
 };
 /* T-09 基线两清单(权威 = test/prefab-kit.test.js 材质基线段, 逐字同源) */
 const DANGER_FLAGS = ['tnt', 'fuse', 'portal', 'fluid', 'crop', 'thin',
@@ -66,8 +66,8 @@ const BAD_EXPLICIT = [30, 31, 33, 34, 41, 46, 47, 63, 70, 71, 72];
 const TOWN_ROWS = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
   'cottage-gable', 'house-loft', 'stall-canopy'];
 /* 布局权威独立转录(docs/town-map-design.md §3-§4, = TOWN_MAP 数据的测试侧镜像;
-   只抄本测试用到的坐标, 完整性归 test/town-map-core.test.js) */
-const SAKURA = [{id: 'sakura-plaza', x: 68, y: 24, z: 88}, {id: 'sakura-farm', x: 78, y: 24, z: 52}];
+   只抄本测试用到的坐标, 完整性归 test/town-map-core.test.js。樱花株数/点位
+   不在此钉——scene 布局清单高频迭代, ⑤ 段改从 scatter 动态派生防漂移) */
 const SCRUBS = [{id: 'scrub-west', x: 60, y: 24, z: 70}, {id: 'scrub-east', x: 98, y: 24, z: 92}];
 const LAMPS = [{id: 'lamp-plaza', x: 77, y: 24, z: 92}, {id: 'lamp-west', x: 64, y: 24, z: 67}];
 const SIGNS = [{id: 'signpost-plaza', x: 73, y: 24, z: 67}, {id: 'signpost-stash', x: 50, y: 24, z: 95}];
@@ -179,7 +179,7 @@ test('place 调用面: 10 实例一一对应 prefab 段保序 · face/ids 注入
   const places = ops.filter((o) => o.op === 'place');
   const steps = JSON.parse(probe(ctx,
       'JSON.stringify(townBuildSteps().filter((s) => s.phase === "prefab"))'));
-  assert.strictEqual(places.length, steps.length, 'place op 数 = prefab 实例数(10)');
+  assert.strictEqual(places.length, steps.length, 'place op 数 = prefab 实例数(13: 7 建筑+埋室+摊位 6)');
   for (let i = 0; i < places.length; i++) {
     const [op, s] = [places[i], steps[i]];
     assert.strictEqual(op.id, s.id, '实例 ' + i + ' id 对齐保序');
@@ -229,17 +229,22 @@ test('植被道具: op 词表封闭 · 禁 id7 的 fill(无散装树几何) · �
   assert.ok(fills.every((f) => f.id !== 7),
       '零 id7 的 fill: 树叶几何单源 SceneKit 树家族(map-design §5.4), 散装树叶即红');
   /* 樱花: tree op 落散布点位 + recolor 盒(叶域=[y+3,y+6]: SceneKit.tree 叶层
-     ly=top+dy-1 ∈ [top-2,top], 干高 {4,5} × 基 y+1 的并集) */
+     ly=top+dy-1 ∈ [top-2,top], 干高 {4,5} × 基 y+1 的并集)。株数/点位从
+     scatter 清单动态派生(随 scene 布局迭代走, 防过期钉值漂移); op 形
+     (recolor 盒几何与覆写对)仍钉死——那是本件派生逻辑的权威。 */
+  const sakuraSites = JSON.parse(probe(ctx,
+      'JSON.stringify(townBuildSteps().filter((s) => s.phase === "scatter" && s.kind === "sakura"))'));
+  assert.ok(sakuraSites.length > 0, '散布清单樱花在场(装具自检)');
   const trees = ops.filter((o) => o.op === 'tree');
-  assert.deepStrictEqual(trees, SAKURA.map((s) => {
+  assert.deepStrictEqual(trees, sakuraSites.map((s) => {
     return {op: 'tree', x: s.x, y: s.y, z: s.z};
   }),
-  'tree op 恰两株樱花, 位对齐散布清单');
+  'tree op 与散布清单樱花一一对应保序');
   const recolors = ops.filter((o) => o.op === 'recolor');
-  assert.deepStrictEqual(recolors, SAKURA.map((s) => {
+  assert.deepStrictEqual(recolors, sakuraSites.map((s) => {
     return {op: 'recolor', x1: s.x - 2, y1: s.y + 3, z1: s.z - 2,
       x2: s.x + 2, y2: s.y + 6, z2: s.z + 2, from: 7, to: PALETTE_WANT.tree.sakuraLeaf};
-  }), 'recolor 盒恰覆两型干高冠域, 7→16 樱粉覆写(§5.4 覆写策略落调用方)');
+  }), 'recolor 盒恰覆两型干高冠域, 7→78 樱粉覆写(§5.4 覆写策略落调用方)');
   assert.deepStrictEqual(ops.filter((o) => o.op === 'scrub'), SCRUBS.map((s) => {
     return {op: 'scrub', x: s.x, top: s.y, z: s.z, salt: s.x * 131 + s.z};
   }), 'scrub op 两丛带确定性盐(同参同丛, SceneKit.scrub 契约)');
@@ -247,11 +252,13 @@ test('植被道具: op 词表封闭 · 禁 id7 的 fill(无散装树几何) · �
     f.z1 === s.z && f.z2 === s.z);
   for (const s of LAMPS) {
     assert.deepStrictEqual(lampSite(s), [
-      {op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 3, z2: s.z,
+      {op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1, z2: s.z,
+        id: PALETTE_WANT.props.lampBase},
+      {op: 'fill', x1: s.x, y1: s.y + 2, z1: s.z, x2: s.x, y2: s.y + 4, z2: s.z,
         id: PALETTE_WANT.props.lampPost},
-      {op: 'fill', x1: s.x, y1: s.y + 4, z1: s.z, x2: s.x, y2: s.y + 4, z2: s.z,
+      {op: 'fill', x1: s.x, y1: s.y + 5, z1: s.z, x2: s.x, y2: s.y + 5, z2: s.z,
         id: PALETTE_WANT.props.lampLight},
-    ], s.id + ' 灯柱=柱3+灯1 两笔 fill(props palette 单源)');
+    ], s.id + ' 灯柱=座1+柱3+灯1 三笔 fill(props palette 单源, 视觉重制 §3 M)');
   }
   for (const s of SIGNS) {
     assert.deepStrictEqual(lampSite(s), [
@@ -281,9 +288,9 @@ test('几何: 基底三层垫底恰覆核心区(序列最前=后写者赢显式�
       '广场铺装恰一条 28×28(y=地表基高, ground 条目无 y 字段——基高从 core.groundY 派生)');
   assert.strictEqual(fillAt(70, 50, 24).id, PALETTE_WANT.ground.farm, '农田 A 铺耕地');
   assert.strictEqual(fillAt(84, 50, 24).id, PALETTE_WANT.ground.farm, '农田 B 铺耕地');
-  assert.strictEqual(fillAt(79, 100, 24).id, PALETTE_WANT.road.main, '南主路 58');
-  assert.strictEqual(fillAt(60, 63, 24).id, PALETTE_WANT.road.main, '北主路 58');
-  assert.strictEqual(fillAt(110, 86, 24).id, PALETTE_WANT.road.main, '东主路 58');
+  assert.strictEqual(fillAt(79, 100, 24).id, PALETTE_WANT.road.main, '南主路 13 石砖');
+  assert.strictEqual(fillAt(60, 63, 24).id, PALETTE_WANT.road.main, '北主路 13 石砖');
+  assert.strictEqual(fillAt(110, 86, 24).id, PALETTE_WANT.road.main, '东主路 13 石砖');
   assert.strictEqual(fillAt(65, 79, 24).id, PALETTE_WANT.road.lane, '西支路 4');
   assert.strictEqual(fillAt(55, 50, 24).id, PALETTE_WANT.road.lane, '田园支路 4');
   assert.strictEqual(fillAt(60, 95, 24).id, PALETTE_WANT.road.lane, '储藏支路 4');
@@ -306,10 +313,11 @@ test('几何: 拱形山体逐柱满覆盖(中心 44 压钟塔 38 · 两缘 24) �
   assert.ok(cols.every((c) => c.y1 === 0), '每柱自 y0 满填(崖体无悬空)');
   assert.deepStrictEqual(ops.filter((o) => o.op === 'fill' &&
     o.id === PALETTE_WANT.backdrop.cliffHome && o.z2 <= MOUNTAIN.z2), [
-    {op: 'fill', x1: 39, y1: 36, z1: 15, x2: 41, y2: 41, z2: 17, id: PALETTE_WANT.backdrop.cliffHome},
-    {op: 'fill', x1: 111, y1: 35, z1: 19, x2: 113, y2: 40, z2: 21, id: PALETTE_WANT.backdrop.cliffHome},
-  ], '崖顶房屋两栋 3×3×6 盒(baseY..baseY+5, 数据 baseY/topY 差恒 6); ' +
-    '过滤以 z2≤山带28 界定远景——id 6 与路牌 signBoard 共值, 牌在核心区 z≥32 不入集');
+    {op: 'fill', x1: 55, y1: 41, z1: 21, x2: 57, y2: 46, z2: 23, id: PALETTE_WANT.backdrop.cliffHome},
+    {op: 'fill', x1: 102, y1: 41, z1: 21, x2: 104, y2: 46, z2: 23, id: PALETTE_WANT.backdrop.cliffHome},
+  ], '崖顶房屋两栋 3×3×6 盒(baseY..baseY+5, 数据 baseY/topY 差恒 6; x56/x103 脊线' +
+    '肩段露剪影 5 格, 视觉重制 §3 B); 过滤以 z2≤山带28 界定远景——' +
+    'id 6 与路牌 signBoard 共值, 牌在核心区 z≥32 不入集');
 });
 
 /* ---------- ⑦ 通廊与不可达(op 层) ---------- */
