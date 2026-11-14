@@ -39,7 +39,7 @@ function coreBoot() {
     assert.doesNotThrow(() => vm.runInContext(code, ctx, {filename: file}),
         '核心应可加载(顶层炸错在此暴露)');
   }
-  return ctx;
+  return {ctx};
 }
 
 const probe = (ctx, expr) => vm.runInContext(expr, ctx);
@@ -215,12 +215,14 @@ test('状态机: 目标一步完成切「完成一步」(found→step-done)+表�
 test('状态机: found 未聚焦目标同样给完成一步+表扬(零惩罚正向, 验收锚「found→完成一步」)', () => {
   const {ctx} = coreBoot();
   const out = probeJson(ctx,
-      'JSON.stringify(townHudCardState(\'active\', {type: \'target-update\', id: \'task:find-bread\', state: \'done\'}))');
+      'JSON.stringify(townHudCardState(\'active\', {type: \'target-update\', ' +
+      'id: \'task:find-bread\', state: \'done\'}))');
   assert.strictEqual(out.state, 'step-done', '任意目标 found→完成一步(验收锚字面)');
   assert.deepStrictEqual(out.intents, ['praise-show'], '达成即表扬(§4.4 过程性)');
   /* 探索中收到 found: 卡保持轻状态, 表扬照给(不吞正向反馈) */
   const idle = probeJson(ctx,
-      'JSON.stringify(townHudCardState(\'idle-exploring\', {type: \'target-update\', id: \'task:find-bread\', state: \'done\'}))');
+      'JSON.stringify(townHudCardState(\'idle-exploring\', {type: \'target-update\', ' +
+      'id: \'task:find-bread\', state: \'done\'}))');
   assert.strictEqual(idle.state, 'idle-exploring', '无卡时状态不动(轻状态)');
   assert.deepStrictEqual(idle.intents, ['praise-show'], '表扬不因卡收起而吞掉');
 });
@@ -253,16 +255,20 @@ test('状态机: 会话衔接(dialog) — open 收敛进 dialog-dimmed 且意图
 
   /* close continue/deferred → 恢复原态(prev 由装配层记忆携带, 核心每调用无内部状态) */
   const restore = probeJson(ctx,
-      'JSON.stringify(townHudCardState(\'dialog-dimmed\', {type: \'dialog-close\', result: \'continue\', prev: \'active\'}))');
+      'JSON.stringify(townHudCardState(\'dialog-dimmed\', ' +
+      '{type: \'dialog-close\', result: \'continue\', prev: \'active\'}))');
   assert.strictEqual(restore.state, 'active', 'close(continue) 恢复原态 active');
   assert.deepStrictEqual(restore.intents, [], '恢复无副作用');
   const restoreDefer = probe(ctx,
-      'townHudCardState(\'dialog-dimmed\', {type: \'dialog-close\', result: \'deferred\', prev: \'idle-exploring\'}).state');
+      'townHudCardState(\'dialog-dimmed\', ' +
+      '{type: \'dialog-close\', result: \'deferred\', prev: \'idle-exploring\'}).state');
   assert.strictEqual(restoreDefer, 'idle-exploring', 'close(deferred) 恢复原态');
 
   /* close done+taskRef → 唯一落完成一步的 close 入口(B 播局部完成, A 落常驻状态——dialog-spec §2.3 宣布权分工) */
   const closeDone = probeJson(ctx,
-      'JSON.stringify(townHudCardState(\'dialog-dimmed\', {type: \'dialog-close\', result: \'done\', taskRef: \'task:find-bread\', prev: \'active\'}))');
+      'JSON.stringify(townHudCardState(\'dialog-dimmed\', ' +
+      '{type: \'dialog-close\', result: \'done\', taskRef: \'task:find-bread\', ' +
+      'prev: \'active\'}))');
   assert.strictEqual(closeDone.state, 'step-done', 'close(done+taskRef) → step-done');
   assert.deepStrictEqual(closeDone.intents, ['praise-show'], '完成一步伴随表扬');
 
@@ -311,9 +317,9 @@ test('可见性: townHudDimming 在位; 会话开=非必要 HUD 全收敛而 L4 
 test('可见性: 会话关=按卡态恢复(L4 仍恒 normal; 探索中=弱化档 P-V1)', () => {
   const {ctx} = coreBoot();
   const byState = {
-    hidden: 'hidden',
+    'hidden': 'hidden',
     'idle-exploring': 'dim',
-    active: 'normal',
+    'active': 'normal',
     'step-done': 'normal',
     'dialog-dimmed': 'hidden', /* 防御: 未恢复前保持暂隐(close 语义负责恢复) */
   };

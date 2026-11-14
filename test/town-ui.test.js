@@ -31,7 +31,7 @@ const ROOT = path.join(__dirname, '..');
 let townUi = null;
 try {
   townUi = require('../js/town-ui.js');
-} catch (e) {
+} catch {
   townUi = null;
 }
 
@@ -306,7 +306,7 @@ test('会话避让: dialog open→L1/L2 收敛 L4 保持; close(continue)→恢�
 test('接线守门: adventure.js 建机步只换 emit 实参(守卫式) — 判据/触发线/建机弃机步零扰动', () => {
   const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
   assert.ok(src.includes('mkTownTargets({emit:'), '建机步 mkTownTargets 工厂调用在位');
-  assert.ok(src.includes("typeof townUiTargetEvent === 'function'"),
+  assert.ok(src.includes('typeof townUiTargetEvent === \'function\''),
       'emit 实参换 townUiTargetEvent 守卫式(town-ui.js 未装载沙盒退回空旁路)');
   assert.ok(src.includes('if (drow === ADV_TOWN_DIM_ROW) advTownInteractBoot();'),
       '建机调用步原样(宿主建机步不动)');
@@ -342,8 +342,10 @@ test('集成链: 真 mkTownTargets(emit 实接 townUiTargetEvent) focus/found �
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
   }
   /* 复刻 adventure.js 建机步形状: 机器 emit 实接 townUiTargetEvent(守卫同款) */
-  vm.runInContext('var __doc = null; var __ui = mkTownUi({machineRef: function() { return __machine || null; }});', ctx);
-  vm.runInContext('var __machine = mkTownTargets({emit: function(n, p) { __ui.targetEvent(n, p); }}); __ui.sync();', ctx);
+  vm.runInContext('var __doc = null; var __ui = mkTownUi(' +
+      '{machineRef: function() { return __machine || null; }});', ctx);
+  vm.runInContext('var __machine = mkTownTargets(' +
+      '{emit: function(n, p) { __ui.targetEvent(n, p); }}); __ui.sync();', ctx);
 
   const state = () => vm.runInContext('__ui.cardState()', ctx);
   assert.strictEqual(state(), 'idle-exploring', '进镇建机→探索中轻状态');
