@@ -2905,7 +2905,8 @@ let advTownTargets; /* 壳层运行态: 进镇建机在位, 离镇弃机清空(�
    坏清单即抛; core 不在装载序时跳过(引擎替身沙盒最小装载容差, town.js 同款) */
 function advTownInteractBoot() {
   if (typeof mkTownTargets === 'undefined') return;
-  advTownTargets = mkTownTargets({emit: () => {}});
+  /* T-UI-01 只换 emit 不改机器; town-ui.js 未装载沙盒退回空旁路 */
+  advTownTargets = mkTownTargets({emit: (typeof townUiTargetEvent === 'function') ? townUiTargetEvent : () => {}});
 }
 
 /* 神殿可疑地板踩塌(审查修复 P1): 站上神殿室内中央 2×2 砂岩地板 → 4 格塌空

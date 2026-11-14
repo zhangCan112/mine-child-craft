@@ -1,0 +1,172 @@
+/* ============================================================
+ 城镇 HUD 布局与任务提示容器 (T-UI-01 分区 A) — 模式层样式
+ 四槽锚点: L1 提示卡左上 / L2 指引槽上中 / L3 表扬中上 / L4 系统钮右上
+ 色板取自 buildings §4 暖金-天蓝-草绿系(无倒计时/无警示红常态色);
+ 动效窗 150-250ms ease-out, prefers-reduced-motion 降级纯淡入淡出
+ ============================================================ */
+
+:root {
+  /* 色板 token(prebuild §1.2, 取色 buildings §4/dialog-spec; 无警示红) */
+  --town-hud-base: #f4d9a6;
+  --town-hud-ink: #5a4636;
+  --town-hud-gold: #e3b23c;
+  --town-hud-gold-bright: #ffd89a;
+  --town-hud-sky: #7ec8e3;
+  --town-hud-done: #7fb069;
+  --town-hud-soft-white: #fff9ec;
+  --town-hud-highlight: #f6c96b;
+
+  /* 布局与安全区 token(§1.3; 值与 js/town-ui-core.js TOWN_UI_PARAMS 同源) */
+  --town-hud-safe: clamp(16px, 1.6vw, 24px);
+  --town-hit-min: 44px;
+
+  /* 动效 token(§1.4: 出现/退出 150-250ms, 按下回弹 100-120ms, 取窗内单值) */
+  --town-hud-t-in: 200ms;
+  --town-hud-t-out: 200ms;
+  --town-hud-t-tap: 110ms;
+}
+
+/* 容器: 全屏覆盖但零鼠标捕获(不挡世界点选); 高于 #hud 的 10、低于
+   #toast 12/#fade 15/面板 40; 子元素需要点选处单独 pointer-events: auto */
+#townHud {
+  position: fixed;
+  inset: 0;
+  z-index: 11;
+  pointer-events: none;
+}
+
+#townHud[hidden] {
+  display: none;
+}
+
+/* L1 主提示卡: 左上安全区, 横向圆角卡片(图标在左短标签在右), 奶油暖底
+   +深描边+内亮线(bubble 底板语言复用, §1.2) */
+.town-hud-card {
+  position: absolute;
+  inset-block-start: var(--town-hud-safe);
+  inset-inline-start: var(--town-hud-safe);
+  max-width: min(320px, 40vw);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: var(--town-hit-min);
+  padding: 8px 16px;
+  background: rgb(244 217 166 / 94%);
+  border: 3px solid var(--town-hud-ink);
+  border-radius: 14px;
+  box-shadow: inset 0 0 0 3px var(--town-hud-soft-white);
+  color: var(--town-hud-ink);
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0);
+  transition:
+    opacity var(--town-hud-t-in) ease-out,
+    transform var(--town-hud-t-in) ease-out;
+}
+
+.town-hud-card-icon {
+  font-size: 26px;
+  line-height: 1;
+}
+
+.town-hud-card-label {
+  font-size: 20px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* 卡片三态类(五态的 DOM 可见面: hidden 由容器/收敛档承担) */
+.town-hud-card.is-idle-exploring {
+  /* P-V1 无任务「探索中」轻状态: 弱化 50% 档, 位置稳定不闪现 */
+  opacity: 0.5;
+}
+
+.town-hud-card.is-active {
+  box-shadow:
+    inset 0 0 0 3px var(--town-hud-soft-white),
+    0 0 0 2px var(--town-hud-highlight);
+}
+
+.town-hud-card.is-step-done {
+  /* 完成一步: 草绿外环语义(正向无惩罚, 不用考试对勾生硬感) */
+  box-shadow:
+    inset 0 0 0 3px var(--town-hud-soft-white),
+    0 0 0 3px var(--town-hud-done);
+}
+
+/* TTS 重播钮: 卡右端喇叭(emoji 🔊 占位), 44px 热区, 按下回弹 */
+.town-hud-card-tts {
+  min-width: var(--town-hit-min);
+  min-height: var(--town-hit-min);
+  border: 3px solid var(--town-hud-ink);
+  border-radius: 12px;
+  background: var(--town-hud-gold);
+  color: var(--town-hud-ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: transform var(--town-hud-t-tap) ease-out;
+}
+
+.town-hud-card-tts:active {
+  transform: scale(0.97);
+}
+
+/* L2 方位指引槽: 上中(与 L4 右上避让), 本票零内容只锚位(T-UI-02 填充) */
+.town-hud-pointer {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: var(--town-hud-safe);
+  margin: auto;
+  width: fit-content;
+}
+
+/* L3 表扬浮现位: 水平居中、垂直 24vh(带 20vh-28vh, 视线焦点上方,
+   不遮挡准星不与 L2 贴顶位重叠) */
+.town-hud-praise {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 24vh;
+  margin: auto;
+  width: fit-content;
+  font-size: 40px;
+  text-align: center;
+  transition: opacity var(--town-hud-t-out) ease-out;
+}
+
+/* L4 系统轻入口: 右上角边缘, 常驻低干扰小图标(安全返回能力永不收敛) */
+.town-hud-sys {
+  position: absolute;
+  inset-block-start: var(--town-hud-safe);
+  inset-inline-end: var(--town-hud-safe);
+}
+
+.town-hud-sys button {
+  min-width: var(--town-hit-min);
+  min-height: var(--town-hit-min);
+  border: 3px solid var(--town-hud-ink);
+  border-radius: 12px;
+  background: var(--town-hud-sky);
+  color: var(--town-hud-ink);
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  pointer-events: auto;
+  transition: transform var(--town-hud-t-tap) ease-out;
+}
+
+.town-hud-sys button:active {
+  transform: scale(0.97);
+}
+
+/* 减少动态偏好: 降级纯淡入淡出、停呼吸/位移动画(hud-spec §4.3 动效行) */
+@media (prefers-reduced-motion: reduce) {
+  .town-hud-card,
+  .town-hud-praise,
+  .town-hud-card-tts,
+  .town-hud-sys button {
+    transition: none;
+    animation: none;
+    transform: none;
+  }
+}
