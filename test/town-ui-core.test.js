@@ -23,6 +23,12 @@
    ⑥ 方位指引纯决策面(T-UI-02): 指引目标解析/距离三档/方位离散/指引签名
       (prebuild §5 函数 3-6, hud-spec §5.2 Landmark Pointer)+指引器 CSS
       结构类与 reduced-motion 停呼吸守门。
+   ⑦ 高亮/命中纯决策面(T-UI-03): 可交互四态状态类 townHlClass(优先级序
+      done>active>pressed>hover, prebuild §5 函数 7)+会话降噪档
+      townHlDim(§5 函数 8)+高亮签名 townHlSig(§5 函数 9)+准星命中判定
+      townHlHit(视线-锚点夹角+距离双门, 纯几何零 THREE)+屏幕投影
+      townHlProject(DOM 投影小图标定位, prebuild §4.4)+高亮标记 CSS
+      五态色形双通道守门(§6.2 四态/§6.3 色弱形状/prebuild §4.1-§4.2)。
    装具: vm 单件装载(纯核心零依赖, 加载即证明; 红期 town-ui-core.js 缺席
    全红)。红期 css/town.css 缺席→⑤ 红。 */
 const test = require('node:test');
@@ -547,4 +553,306 @@ test('CSS(T-UI-02): 指引器徽章/中心图标/方位指针/距离档/方位�
   assert.ok(reducedBlock.includes('town-hud-pointer-breathe') &&
       reducedBlock.includes('animation: none'),
   'reduced-motion 须停指引器呼吸(动效克制: 降级为静态柔光)');
+});
+
+/* ============================================================
+   ⑦ 高亮/命中纯决策面(T-UI-03; prebuild §4.1-§4.4+§5 函数 7-9;
+      hud-spec §6.1-§6.3)——全走纯函数 seam, 零 THREE 零 DOM 零墙钟。
+      命中判据=准星视线-锚点夹角 ≤ HL_AIM_DEG 且距离 ≤ HL_AIM_MAX_DIST
+      (指针锁定世界: 准星即光标, 事件驱动重算归装配层, 本层只算数)。
+   ============================================================ */
+
+/* 高亮命中/展示参数(T-UI-03 新增键, 消费 TOWN_UI_PARAMS 单一出处) */
+test('参数(T-UI-03): HL_AIM_DEG/HL_AIM_MAX_DIST 在表且冻结(命中判定阈值单源可调)', () => {
+  const {ctx} = coreBoot();
+  const p = probeJson(ctx, 'JSON.stringify(TOWN_UI_PARAMS)');
+  assert.strictEqual(p.HL_AIM_DEG, 8,
+      '准星命中半角 8°(6 岁宽容热区; §6.4 热区余量在指针锁定世界的角度映射)');
+  assert.strictEqual(p.HL_AIM_MAX_DIST, 24,
+      '命中/标记展示最大距离 24 格(广场尺度可点, 远景不误触)');
+  assert.strictEqual(probe(ctx,
+      'Object.isFrozen(TOWN_UI_PARAMS)'), true,
+  '新增键后参数表仍全冻结(锁表防漂移)');
+});
+
+/* 状态类(prebuild §5 函数 7): 优先级序 done > active > pressed > hover >
+   default 即断言面; id 缺席=none(非交互无标记); doneIds 数组/Set 双兼容
+   (装配层自有记忆为 Set, 单测小面用数组)。 */
+test('四态状态类(prebuild §5 函数 7): 六值域恰集; 空入参=none; 单标志逐一; 优先级序 done>active>pressed>hover; doneIds 数组/Set 双兼容', () => {
+  const {ctx} = coreBoot();
+  assert.strictEqual(probe(ctx, 'typeof townHlClass'), 'function',
+      '缺 townHlClass 纯函数(prebuild §5 函数 7: 对象状态类)');
+  assert.strictEqual(probe(ctx, 'townHlClass(null, {})'), 'none',
+      'id 缺席=none(非交互对象无标记, 空入参口径)');
+  assert.strictEqual(probe(ctx, 'townHlClass(\'a\', null)'), 'default',
+      'ctx 缺席=可交互静置默认态(低存在感提示在册)');
+  assert.strictEqual(probe(ctx,
+      'townHlClass(\'a\', {hoveredId: \'a\'})'), 'hover',
+      '悬停标志→hover(§6.2 悬停/可点选态)');
+  assert.strictEqual(probe(ctx,
+      'townHlClass(\'a\', {pressedId: \'a\'})'), 'pressed',
+      '按下标志→pressed(§6.2 按下态)');
+  assert.strictEqual(probe(ctx,
+      'townHlClass(\'a\', {activeId: \'a\'})'), 'active',
+      '选中标志→active(§6.2 选中/会话中态)');
+  assert.strictEqual(probe(ctx,
+      'townHlClass(\'a\', {doneIds: [\'a\']})'), 'done',
+      '完成在册→done(§6.2 完成态, 机器 found/done 对齐)');
+  assert.strictEqual(probe(ctx,
+      'townHlClass(\'b\', {hoveredId: \'a\', pressedId: \'a\', activeId: \'a\', doneIds: [\'a\']})'),
+  'default', '他对象不串态(标志只对命中 id 生效)');
+  assert.strictEqual(probe(ctx,
+      'townHlClass(\'a\', {hoveredId: \'a\', pressedId: \'a\'})'), 'pressed',
+      '优先级: pressed > hover(多标志并存取其一, 序即断言)');
+  assert.strictEqual(probe(ctx,
+      'townHlClass(\'a\', {pressedId: \'a\', activeId: \'a\'})'), 'active',
+      '优先级: active > pressed');
+  assert.strictEqual(probe(ctx,
+      'townHlClass(\'a\', {activeId: \'a\', doneIds: [\'a\']})'), 'done',
+      '优先级: done > active(完成后不再回选中环, 单向迁移语义)');
+  assert.strictEqual(probe(ctx,
+      'townHlClass(\'a\', {doneIds: new Set([\'a\'])})'), 'done',
+      'doneIds 兼容 Set(装配层 doneIds 记忆原形直喂)');
+});
+
+/* 会话降噪档(prebuild §5 函数 8): 会话开=选中环保持 full, 悬停/按下对象
+   min(最低存在感), 其余可交互 off(默认不显示, dialog-spec §2.3 注意力归
+   会话); 非会话恒 full。 */
+test('会话降噪档(prebuild §5 函数 8): 非会话恒 full; 会话中 active=full/hover+pressed=min/其余=off', () => {
+  const {ctx} = coreBoot();
+  assert.strictEqual(probe(ctx, 'typeof townHlDim'), 'function',
+      '缺 townHlDim 纯函数(prebuild §5 函数 8: 有效显示档)');
+  for (const cls of ['default', 'hover', 'pressed', 'active', 'done']) {
+    assert.strictEqual(probe(ctx,
+        'townHlDim(null, false, \'' + cls + '\')'), 'full',
+    '非会话恒 full 不降噪: ' + cls);
+  }
+  assert.strictEqual(probe(ctx,
+      'townHlDim(\'a\', true, \'active\')'), 'full',
+  '会话中选中对象保持柔和选中环(§6.2 Active 行)');
+  assert.strictEqual(probe(ctx,
+      'townHlDim(null, true, \'hover\')'), 'min',
+  '会话中悬停对象降最低存在感档(§4.4 降噪裁决)');
+  assert.strictEqual(probe(ctx,
+      'townHlDim(null, true, \'pressed\')'), 'min',
+  '会话中按下对象降最低存在感档');
+  assert.strictEqual(probe(ctx,
+      'townHlDim(null, true, \'default\')'), 'off',
+  '会话中其余可交互默认不显示(降噪, dialog-spec §2.3)');
+  assert.strictEqual(probe(ctx,
+      'townHlDim(null, true, \'done\')'), 'off',
+  '会话中完成标记收敛(完成语义已由 L1 表扬承担)');
+  assert.strictEqual(probe(ctx,
+      'townHlDim(null, true, \'none\')'), 'off',
+  '非交互在会话中=off(与默认降噪一致)');
+});
+
+/* 高亮签名(prebuild §5 函数 9): 同参恒等, 任一分量变则变(脏标口径,
+   townPointerSig 同款体例)。 */
+test('高亮签名(prebuild §5 函数 9): 同入参恒等; id 与显示档任一变化签名必变(签名门控脏标载体)', () => {
+  const {ctx} = coreBoot();
+  assert.strictEqual(probe(ctx, 'typeof townHlSig'), 'function',
+      '缺 townHlSig 纯函数(prebuild §5 函数 9: 高亮签名)');
+  assert.strictEqual(
+      probe(ctx, 'townHlSig(\'a\', \'hover\') === townHlSig(\'a\', \'hover\')'),
+      true, '同参恒等(重复事件零操作的 core 半边)');
+  assert.strictEqual(
+      probe(ctx, 'townHlSig(\'a\', \'hover\') === townHlSig(\'a\', \'default\')'),
+      false, '显示档变→签名变(状态切换可感知)');
+  assert.strictEqual(
+      probe(ctx, 'townHlSig(\'a\', \'hover\') === townHlSig(\'b\', \'hover\')'),
+      false, '对象 id 变→签名变(跨对象切换可感知)');
+  assert.strictEqual(probe(ctx, 'typeof townHlSig(\'a\', \'default\')'), 'string',
+      '签名为字符串(对账键形态)');
+});
+
+/* 命中判定(纯几何): 视线-锚点夹角 ≤ HL_AIM_DEG(含等号)且欧氏距离 ≤
+   HL_AIM_MAX_DIST(含等号)双门; 通过者取夹角最小(准星指着谁), 并列取
+   序在前; dir 零向量/空表/全部落空 → null。opts {maxDist, deg} 注入
+   覆盖(PO 调参位)。 */
+test('准星命中判定: 正中命中; 夹角/距离边界含等号逐个; 角度优先于距离(准星指着谁); 并列序在前; 零向/空表/背向=miss; opts 注入生效', () => {
+  const {ctx} = coreBoot();
+  assert.strictEqual(probe(ctx, 'typeof townHlHit'), 'function',
+      '缺 townHlHit 纯函数(命中判定纯逻辑下沉 core, 票面交付物 3)');
+  const D8 = Math.PI * 8 / 180;
+  /* 正中: dir 即归一化目标向量 → 夹角 0° 命中, 携距离 */
+  const hitCenter = probeJson(ctx,
+      'JSON.stringify(townHlHit({x: 79, y: 25, z: 96}, {x: 0, y: -1, z: -20}, ' +
+      '[{id: \'bt\', anchor: {x: 79, y: 24, z: 76}}], {}))');
+  assert.strictEqual(hitCenter.id, 'bt', '视线正对锚点→命中');
+  assert.ok(Math.abs(hitCenter.dist - Math.sqrt(401)) < 1e-9,
+      '命中携欧氏距离(√401≈20.02, 面上可判)');
+  /* 夹角边界含等号: 恰 8° 命中, 8.5° 落空(距离同远) */
+  const at8 = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+      '{x: 0, y: 0, z: -1}, [{id: \'a\', anchor: {x: ' +
+      (10 * Math.sin(D8)).toFixed(12) + ', y: 0, z: ' +
+      (-10 * Math.cos(D8)).toFixed(12) + '}}], {}))');
+  assert.strictEqual(at8.id, 'a', '夹角恰=阈值(8°)含等号命中');
+  const D85 = Math.PI * 8.5 / 180;
+  const at85 = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+      '{x: 0, y: 0, z: -1}, [{id: \'a\', anchor: {x: ' +
+      (10 * Math.sin(D85)).toFixed(12) + ', y: 0, z: ' +
+      (-10 * Math.cos(D85)).toFixed(12) + '}}], {}))');
+  assert.strictEqual(at85, null, '夹角超阈值(8.5°)落空(不可交互不误导)');
+  /* 距离边界含等号: 恰 24 命中, 25 落空 */
+  const at24 = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+      '{x: 0, y: 0, z: -1}, [{id: \'a\', anchor: {x: 0, y: 0, z: -24}}], {}))');
+  assert.strictEqual(at24.id, 'a', '距离恰=上限(24 格)含等号命中');
+  const at25 = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+      '{x: 0, y: 0, z: -1}, [{id: \'a\', anchor: {x: 0, y: 0, z: -25}}], {}))');
+  assert.strictEqual(at25, null, '距离超上限(25 格)落空(远景不误触)');
+  /* 角度优先于距离: 2° 偏角在 23 格 胜 1° 偏角…反向构造: 近者偏角大 */
+  const nearWide = {id: 'near', anchor: {x: 10 * Math.sin(Math.PI * 6 / 180),
+    y: 0, z: -10 * Math.cos(Math.PI * 6 / 180)}}; /* 6° 偏角, 10 格 */
+  const farNarrow = {id: 'far', anchor: {x: 23 * Math.sin(Math.PI * 2 / 180),
+    y: 0, z: -23 * Math.cos(Math.PI * 2 / 180)}}; /* 2° 偏角, 23 格 */
+  const byAngle = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+    '{x: 0, y: 0, z: -1}, [' + JSON.stringify(nearWide) + ', ' +
+    JSON.stringify(farNarrow) + '], {}))');
+  assert.strictEqual(byAngle.id, 'far',
+      '角度优先于距离(准星指着谁命中谁, 2°远胜 6°近)');
+  /* 并列同角: 序在前者胜(锚点清单源序=裁决序) */
+  const twinA = {id: 'first', anchor: {x: 0, y: 0, z: -10}};
+  const twinB = {id: 'second', anchor: {x: 0, y: 0, z: -10}};
+  const byOrder = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+    '{x: 0, y: 0, z: -1}, [' + JSON.stringify(twinA) + ', ' +
+    JSON.stringify(twinB) + '], {}))');
+  assert.strictEqual(byOrder.id, 'first', '同角并列取序在前(清单源序即裁决序)');
+  /* miss 三态: 零向量 dir / 空表 / 背向锚点 */
+  assert.strictEqual(probe(ctx,
+      'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0}, ' +
+      '[{id: \'a\', anchor: {x: 0, y: 0, z: -5}}], {}))'), 'null',
+  '零向量视线不伪造命中(无 aim 即无 hover)');
+  assert.strictEqual(probe(ctx,
+      'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: -1}, [], {}))'),
+  'null', '空锚点表=miss');
+  assert.strictEqual(probe(ctx,
+      'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: -1}, ' +
+      '[{id: \'a\', anchor: {x: 0, y: 0, z: 5}}], {}))'), 'null',
+  '背后锚点不命中(准星不回旋)');
+  /* opts 注入覆盖(PO 调参位): deg 收紧后原命中落空 */
+  assert.strictEqual(probe(ctx,
+      'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: -1}, ' +
+      '[{id: \'a\', anchor: {x: ' + (10 * Math.sin(D8)).toFixed(12) +
+      ', y: 0, z: ' + (-10 * Math.cos(D8)).toFixed(12) + '}}], ' +
+      '{deg: 5, maxDist: 24}))'), 'null',
+  'opts 注入生效(deg 收紧→8° 落空, 阈值可调)');
+});
+
+/* 屏幕投影(DOM 投影小图标定位, prebuild §4.4): cam 全裸数字, 标准
+   针孔模型。基准机位: 原点, yaw=0(面北 -Z), pitch=0, fov 90°, aspect 1,
+   视口 100×100 → 正前恰屏心 (50,50); 右偏 5@深 10 → x=75; 上偏 5@深 10
+   → y=25; 背后 null; 屏外 visible=false 坐标仍算(裁剪归 visible)。 */
+test('屏幕投影: 正前=屏心; 右/上偏移手算值逐个; 背后=null; 屏外 visible=false 坐标不炸; yaw/pitch 旋转面正前=屏心', () => {
+  const {ctx} = coreBoot();
+  assert.strictEqual(probe(ctx, 'typeof townHlProject'), 'function',
+      '缺 townHlProject 纯函数(DOM 投影定位纯逻辑, prebuild §4.4)');
+  const run = (expr) => probeJson(ctx, expr);
+  const ahead = run('JSON.stringify(townHlProject({x: 0, y: 0, z: 0, yaw: 0, ' +
+      'pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100}, {x: 0, y: 0, z: -10}))');
+  assert.strictEqual(ahead.x, 50, '正前锚点投影 x=屏心 50(fov90 aspect1 100 视口)');
+  assert.strictEqual(ahead.y, 50, '正前锚点投影 y=屏心 50');
+  assert.strictEqual(ahead.visible, true, '屏内 visible=true');
+  assert.ok(Math.abs(ahead.dist - 10) < 1e-9, '投影携距离(展示距离门共用)');
+  const right = run('JSON.stringify(townHlProject({x: 0, y: 0, z: 0, yaw: 0, ' +
+      'pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100}, {x: 5, y: 0, z: -10}))');
+  assert.strictEqual(right.x, 75, '右偏 5@深 10 → x=(0.5+1)/2*100=75(手算)');
+  assert.strictEqual(right.y, 50, '水平偏移不动 y');
+  const up = run('JSON.stringify(townHlProject({x: 0, y: 0, z: 0, yaw: 0, ' +
+      'pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100}, {x: 0, y: 5, z: -10}))');
+  assert.strictEqual(up.y, 25, '上偏 5@深 10 → y=(1-0.5)/2*100=25(手算)');
+  const behind = run('JSON.stringify(townHlProject({x: 0, y: 0, z: 0, yaw: 0, ' +
+      'pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100}, {x: 0, y: 0, z: 10}))');
+  assert.strictEqual(behind, null, '背后锚点不投影(null, 不伪造位置)');
+  const off = run('JSON.stringify(townHlProject({x: 0, y: 0, z: 0, yaw: 0, ' +
+      'pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100}, {x: 50, y: 0, z: -10}))');
+  assert.strictEqual(off.visible, false, '屏外 visible=false(裁剪语义)');
+  assert.strictEqual(off.x, 300, '屏外坐标照算(sx=5 → x=300, 裁剪不抹算术)');
+  /* 旋转面: yaw=-90°(面东 +X) 正前目标 → 屏心; pitch 45° 仰视 45° 目标 → 屏心 */
+  const east = run('JSON.stringify(townHlProject({x: 0, y: 0, z: 0, ' +
+      'yaw: ' + (-Math.PI / 2) + ', pitch: 0, fovDeg: 90, aspect: 1, ' +
+      'vw: 100, vh: 100}, {x: 10, y: 0, z: 0}))');
+  assert.strictEqual(east.x, 50, 'yaw=-90° 面东: +X 正前=屏心(voxel 朝向式)');
+  const up45 = run('JSON.stringify(townHlProject({x: 0, y: 0, z: 0, yaw: 0, ' +
+      'pitch: ' + (Math.PI / 4) + ', fovDeg: 90, aspect: 1, vw: 100, vh: 100}, ' +
+      '{x: 0, y: 10, z: -10}))');
+  assert.strictEqual(up45.x, 50, 'pitch 45° 仰视: 45° 仰角目标归屏心 x');
+  assert.strictEqual(up45.y, 50, 'pitch 45° 仰视: 45° 仰角目标归屏心 y');
+});
+
+/* CSS 守门(T-UI-03): 高亮层/标记结构类 + 五态类色形双通道逐条
+   (§6.2 四态色值 / §6.3+prebuild §4.2 形状语言: 默认圆→悬停四角框→
+   按下收缩→完成勾角标淡化→选中双圈)+悬停过渡窗 120-160ms+按下回弹
+   t-tap+reduced-motion 覆盖+零警示红零闪烁(§4.5/§6.2 硬约束)。 */
+test('CSS(T-UI-03): 高亮层/标记类落位; 五态类色通道+形通道双通道逐条(6.3 状态不只靠颜色); 过渡窗/回弹/减少动态/零警示红零闪烁', () => {
+  const file = path.join(ROOT, 'css', 'town.css');
+  assert.ok(fs.existsSync(file), '缺 css/town.css');
+  const css = fs.readFileSync(file, 'utf8');
+  /* 结构类(高亮层不占 L1-L4 四槽, 独立 town-hl- 命名空间) */
+  assert.ok(css.includes('.town-hl-layer'), '缺高亮层类: .town-hl-layer');
+  assert.ok(css.includes('.town-hl-mark'), '缺高亮标记类: .town-hl-mark');
+  /* 高亮层零鼠标捕获(不挡世界点选, 容器同款纪律) */
+  const layerBlock = cssBlock(css, '.town-hl-layer');
+  assert.ok(layerBlock.includes('pointer-events: none'),
+      '高亮层必须 pointer-events: none(零鼠标捕获, 不挡世界点选)');
+  /* 规则块提取器: 选择器含 needle 的声明体(多选择器共享块取整块) */
+  function cssBlock(src, needle) {
+    const re = /([^{}]+)\{([^{}]*)\}/g;
+    let m;
+    let body = '';
+    while ((m = re.exec(src)) !== null) {
+      if (m[1].includes(needle)) body += m[2] + '\n';
+    }
+    return body;
+  }
+  /* 五态类在册(色通道+形通道双通道, §6.3「状态不只靠颜色」) */
+  const states = ['.town-hl-mark.is-default', '.town-hl-mark.is-hover',
+    '.town-hl-mark.is-pressed', '.town-hl-mark.is-done', '.town-hl-mark.is-active'];
+  for (const sel of states) {
+    assert.ok(css.includes(sel), '缺五态类: ' + sel);
+  }
+  /* 默认: 圆形柔光圈(形) + 暖金或天蓝(色, §6.2 择一可读) */
+  const def = cssBlock(css, '.town-hl-mark.is-default');
+  assert.ok(def.includes('border-radius: 50%'), '默认态形通道=圆形(border-radius: 50%, prebuild §4.2 形状语言)');
+  assert.ok(def.includes('var(--town-hud-gold)') || def.includes('var(--town-hud-sky)'),
+      '默认态色通道=暖金或天蓝(§6.2 默认态主色, 择一)');
+  /* 悬停: 四角 L 形角框(形: 方角化, 角部结构出现) + 高亮金或天蓝提亮(色) */
+  const hov = cssBlock(css, '.town-hl-mark.is-hover');
+  assert.ok(/border-radius:\s*0/.test(hov), '悬停态形通道=四角角框(border-radius: 0, 角部结构出现, prebuild §4.2)');
+  assert.ok(hov.includes('var(--town-hud-gold-bright)') || hov.includes('var(--town-hud-sky)'),
+      '悬停态色通道=暖金高亮或天蓝提亮(§6.2 悬停行)');
+  /* 按下: 收缩(形: scale 0.97-0.99)+亮度瞬时下调(色通道变体: -8%~-12%)+回弹窗 */
+  const prs = cssBlock(css, '.town-hl-mark.is-pressed');
+  assert.ok(/scale\(0\.9[789]\)/.test(prs), '按下态形通道=收缩 scale(0.97-0.99)(§6.2 按下行)');
+  assert.ok(prs.includes('brightness('), '按下态亮度瞬时下调(brightness -8%~-12%, §6.2「确认点击」)');
+  assert.ok(prs.includes('var(--town-hud-t-tap)'), '按下回弹走 t-tap 窗(100-120ms, §4.6 即时确认)');
+  /* 完成: 勾形/花形角标(形: 符号语义)+淡化+草绿(色; 仅正向) */
+  const done = cssBlock(css, '.town-hl-mark.is-done');
+  assert.ok(/content:\s*['"][^'"]+['"]/.test(done) ||
+      /content:\s*['"][^'"]+['"]/.test(cssBlock(css, '.is-done')),
+  '完成态形通道=勾形/花形角标符号(content 正向符号, 避免考试对勾生硬感)');
+  assert.ok(done.includes('opacity'), '完成态淡化(opacity, §6.2「淡化或消失」)');
+  assert.ok(done.includes('var(--town-hud-done)'), '完成态色通道=草绿 var(--town-hud-done)(§6.2 完成色)');
+  /* 选中: 双圈角框(形: outline+border 嵌套结构)+天蓝(色, 冷静聚焦) */
+  const act = cssBlock(css, '.town-hl-mark.is-active');
+  assert.ok(act.includes('outline'), '选中态形通道=双圈之一(outline, prebuild §4.2 双圈角框)');
+  assert.ok(act.includes('border'), '选中态形通道=双圈之二(border, 嵌套结构)');
+  assert.ok(act.includes('var(--town-hud-sky)'), '选中态色通道=天蓝 var(--town-hud-sky)(§6.2 选中环冷静聚焦)');
+  /* 悬停过渡窗 120-160ms(§6.2; token 在 :root 且被标记 transition 消费) */
+  const tHover = css.match(/--town-hud-t-hover:\s*(\d+)ms/);
+  assert.ok(tHover, '缺悬停过渡 token --town-hud-t-hover');
+  const tHoverMs = parseInt(tHover[1], 10);
+  assert.ok(tHoverMs >= 120 && tHoverMs <= 160,
+      '悬停过渡须在 120-160ms 窗内(§6.2), 现值 ' + tHoverMs + 'ms');
+  const markBlock = cssBlock(css, '.town-hl-mark');
+  assert.ok(markBlock.includes('--town-hud-t-hover'),
+      '标记族过渡消费 t-hover token(悬停过渡窗值单源)');
+  /* 减少动态: 降级块覆盖高亮标记(动效克制对齐既有) */
+  const reducedAt = css.indexOf('prefers-reduced-motion');
+  assert.ok(reducedAt >= 0, '缺 prefers-reduced-motion 降级块');
+  assert.ok(css.slice(reducedAt).includes('town-hl-mark'),
+      'reduced-motion 须覆盖高亮标记(transition 停, 降级纯切换)');
+  /* 零警示红/零闪烁(§4.5+§6.5 UI-03 行: 非闪烁惊吓) */
+  assert.ok(!/\bred\b|#f00\b|#ff0000/i.test(css), 'css/town.css 出现警示红语义(零惩罚红线)');
+  assert.ok(!/\b(blink|flash)\b/i.test(css), 'css/town.css 出现闪烁动效(§6.5 禁闪烁)');
 });

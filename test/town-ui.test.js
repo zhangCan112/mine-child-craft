@@ -21,7 +21,14 @@
       零残留→再进新机弱提示干净(TOWN_MAP 真锚点同笼, 位姿 poseRef 注入);
    ⑧ 方位指引适配(T-UI-02): 徽章内容/位姿驱动档位/nearby 视野门槛/
       found 回落/签名门控不重建/无位姿降级——L2 槽填充(槽类名不变);
-      机器身份快照等价分支直测(回归网: 等价新对象多次 sync 不误判换机)。
+      机器身份快照等价分支直测(回归网: 等价新对象多次 sync 不误判换机);
+   ⑨ 可交互高亮/标记与点选反馈(T-UI-03): 高亮层/标记挂载(mount 幂等
+      引用恒等)·事件驱动命中(mousemove/pointerdown/pointerup 文档级
+      监听, sync 不判命中——架构 §8 口径行为面+源码切片: 无 raycastVoxel/
+      零拦截)·按下反馈与点选结算(onInteract 派发, A 侧不代写玩法)·
+      found 完成态·签名门控零操作(classList 计数器)·会话降噪(active
+      保持/其余隐藏)·降级不炸(无 cam/无监听宿主)·离镇再进卫生·E2E
+      真件集成链(真机器+真核心+适配层同笼, TOWN_INTERACTS 真清单)。
    装具: fake DOM 记录桩(经典脚本适配层无 THREE 硬依赖, DOM 走注入;
    adventure-mode.test.js fakeEl 先例简化版)。红期 js/town-ui.js 缺席全红。 */
 const test = require('node:test');
@@ -41,17 +48,23 @@ try {
 }
 
 /* fake DOM 元素(记录桩): 只实现适配层许用的最小面(创建/挂树/类名/显隐/
-   文本/属性/onclick); 无 innerHTML/querySelector——适配层不重建不反查 */
+   文本/属性/onclick); 无 innerHTML/querySelector——适配层不重建不反查。
+   __classOps 计数器(T-UI-03 加法扩展): 签名门控零操作断言的观测面,
+   既有测试不读不影响。 */
 function fakeEl(tag) {
   const classes = new Set();
+  const classOps = {add: 0, remove: 0};
   const el = {
     tag, children: [], parent: null, hidden: false, textContent: '',
     attrs: {}, style: {}, onclick: null,
+    __classOps: classOps,
     classList: {
       add(...cs) {
+        classOps.add += 1;
         for (const c of cs) classes.add(c);
       },
       remove(...cs) {
+        classOps.remove += 1;
         for (const c of cs) classes.delete(c);
       },
       contains(c) {
@@ -78,10 +91,24 @@ function fakeEl(tag) {
 
 function fakeDoc() {
   const body = fakeEl('body');
+  const listeners = {};
   return {
     body,
     createElement: (tag) => fakeEl(tag),
     getElementById: () => null,
+    /* 文档级监听记录(T-UI-03 加法扩展): 事件驱动命中的注入泵与摘除断言 */
+    addEventListener: (type, fn) => {
+      (listeners[type] = listeners[type] || []).push(fn);
+    },
+    removeEventListener: (type, fn) => {
+      const list = listeners[type] || [];
+      const i = list.indexOf(fn);
+      if (i >= 0) list.splice(i, 1);
+    },
+    fire: (type, evt) => {
+      for (const fn of (listeners[type] || []).slice()) fn(evt || {});
+    },
+    __listeners: listeners,
   };
 }
 
@@ -647,4 +674,483 @@ test('机器身份对账·快照等价分支直测(回归网): machineRef 每调
   '图标子件引用恒等(mount 幂等, 对账稳定不重建)');
   assert.strictEqual(badge.classList.contains('is-target'), true,
       '目标态保持(focusTarget/doneIds 不被误清→不回落)');
+});
+
+/* ============================================================
+   ⑨ 可交互高亮/标记与点选反馈(T-UI-03; prebuild §4.1-§4.4, hud-spec
+      §6.1-§6.3): 高亮层 town-hl-layer+标记 town-hl-mark(独立命名空间,
+      不占 L1-L4 四槽)。命中判定纯逻辑在 core(⑦ 已直测), 本节锁适配
+      行为面: 事件驱动(mousemove/pointerdown/pointerup 文档级监听, sync
+      不判命中)+签名门控脏标+会话降噪+点选结算 onInteract(A 侧不代写
+      玩法, 观察点/物品类玩法侧消费, A 只看状态回流——prebuild §4.3)。
+   ============================================================ */
+
+/* 高亮装具: 机位=广场南主路(79,25,96, 钟塔正前 20 格); cam 形状=
+   {origin, dir, yaw, pitch, fovDeg, aspect, vw, vh}(hit 用 origin+dir,
+   投影用 yaw/pitch/fovDeg/aspect/vw/vh; 装具造最小面, 适配层不交叉校验
+   dir 与 yaw/pitch 一致性)。缺省瞄向正下(脚下无人区, 全员 miss)。 */
+const HL_POS = {x: 79, y: 25, z: 96};
+const HL_A = {id: 'bell-tower', kind: 'landmark', iconKey: 'belltower',
+  label: '钟塔', anchor: {x: 79, y: 24, z: 76}}; /* 正前 20.02 格 */
+const HL_B = {id: 'farm', kind: 'landmark', iconKey: 'farm',
+  label: '小农田', anchor: {x: 85, y: 24, z: 88}}; /* 前右 10.05 格 */
+const HL_C = {id: 'stash', kind: 'prop', iconKey: 'stash',
+  label: '秘密小屋', anchor: {x: 0, y: 24, z: 0}}; /* 约 124 格=展示距离门外 */
+const HL_FIXTURES = [HL_A, HL_B, HL_C];
+const HL_CAM_DEFAULT = {origin: HL_POS, dir: {x: 0, y: -1, z: 0},
+  yaw: 0, pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100};
+
+function hlAimDir(target) { /* 归一化瞄向(装具造输入, 非复算实现) */
+  const dx = target.x - HL_POS.x;
+  const dy = target.y - HL_POS.y;
+  const dz = target.z - HL_POS.z;
+  const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
+  return {x: dx / len, y: dy / len, z: dz / len};
+}
+
+function mkHlHarness(machineRef, opts) {
+  const o = opts || {};
+  const doc = fakeDoc();
+  const rec = {speech: fakeSpeech(), timer: fakeTimer(), pages: [], interact: []};
+  let cam = o.cam === undefined ?
+    JSON.parse(JSON.stringify(HL_CAM_DEFAULT)) : o.cam;
+  const source = o.hlSource === undefined ? HL_FIXTURES : o.hlSource;
+  rec.ui = townUi.mkTownUi({
+    doc,
+    machineRef: machineRef || (() => rec.machine || null),
+    speech: rec.speech.speech,
+    timer: rec.timer,
+    showPage: (id) => rec.pages.push(id),
+    camRef: () => cam,
+    hlSource: () => source,
+    onInteract: (payload) => rec.interact.push(payload),
+  });
+  rec.doc = doc;
+  rec.fire = (type, evt) => doc.fire(type, evt || {});
+  rec.setCam = (c) => {
+    cam = c;
+  };
+  return rec;
+}
+
+function hlLayerOf(rec) {
+  const hit = rec.ui.root.children.find(
+      (c) => c.classList.contains('town-hl-layer'));
+  assert.ok(hit, '高亮层未挂出(.town-hl-layer 缺席, T-UI-03)');
+  return hit;
+}
+
+function markOf(rec, id) {
+  const mark = hlLayerOf(rec).children.find(
+      (c) => c.attrs['data-hl-id'] === id);
+  assert.ok(mark, '高亮标记未挂出: ' + id);
+  return mark;
+}
+
+test('高亮层挂载: mount 创建 town-hl-layer+按 hlSource 每条目一标(data-hl-id/图标/is-default); 展示距离门外标记隐藏; 幂等不重建', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync(); /* 进镇(机器在位)挂载 */
+  const layer = hlLayerOf(rec);
+  assert.strictEqual(layer.children.length, HL_FIXTURES.length,
+      '每条交互对象一标(清单源=hlSource 注入)');
+  const mkA = markOf(rec, 'bell-tower');
+  assert.strictEqual(mkA.attrs['data-hl-id'], 'bell-tower',
+      '标记携对象 id 属性(寻址契约)');
+  assert.strictEqual(mkA.textContent, '🗼',
+      '标记图标随 iconKey(emoji 占位策略同 L1/L2, UI-01 语义键)');
+  assert.strictEqual(mkA.classList.contains('is-default'), true,
+      '初始默认态(可交互静置低存在感提示, §6.2 默认行)');
+  assert.strictEqual(mkA.onclick, null,
+      '标记零 onclick(纯视觉层, 点选走文档级事件链)');
+  assert.strictEqual(markOf(rec, 'stash').hidden, true,
+      '展示距离门外(约 124 格 > 24)标记隐藏(零伪造远标)');
+  /* 幂等: 再 sync 标记引用恒等(挂载不重建) */
+  const refs = layer.children.slice();
+  rec.ui.sync();
+  const layer2 = hlLayerOf(rec);
+  assert.strictEqual(layer2, layer, '高亮层引用恒等(mount 幂等)');
+  assert.deepStrictEqual(layer2.children, refs, '标记子件引用恒等(不重建)');
+});
+
+test('事件驱动悬停: mousemove 瞄准命中→is-hover 他标 default; 换瞄互斥切换; 瞄空全 default; sync 改视不判命中(mousemove 才判, 事件驱动口径)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_A.anchor)}));
+  rec.fire('mousemove', {});
+  const mkA = markOf(rec, 'bell-tower');
+  assert.strictEqual(mkA.classList.contains('is-hover'), true,
+      'mousemove 瞄准钟塔→is-hover(§6.2 悬停态, 鼠标唯一发现通道)');
+  assert.strictEqual(markOf(rec, 'farm').classList.contains('is-hover'), false,
+      '未瞄准对象不 hover(不可交互区域零误导, §4.6)');
+  /* 换瞄互斥: 农场 hover, 钟塔摘 */
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_B.anchor)}));
+  rec.fire('mousemove', {});
+  assert.strictEqual(markOf(rec, 'farm').classList.contains('is-hover'), true,
+      '换瞄农场→farm is-hover');
+  assert.strictEqual(mkA.classList.contains('is-hover'), false,
+      '旧悬停摘除(互斥切换, 不残留)');
+  /* 瞄空(正下脚下无人区): 全 default */
+  rec.setCam(JSON.parse(JSON.stringify(HL_CAM_DEFAULT)));
+  rec.fire('mousemove', {});
+  assert.strictEqual(mkA.classList.contains('is-hover'), false,
+      '瞄空→悬停清除(全 default)');
+  assert.strictEqual(markOf(rec, 'farm').classList.contains('is-hover'), false,
+      '瞄空→农场悬停清除');
+  /* 事件驱动口径: 换 aim 但不发事件→sync 不判命中(hover 保持清除态);
+     随后 mousemove 才命中——命中判定只挂在鼠标事件上 */
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_A.anchor)}));
+  rec.ui.sync();
+  assert.strictEqual(mkA.classList.contains('is-hover'), false,
+      'sync 改视不判命中(无每帧/无每 sync 命中重算, 架构 §8 事件驱动)');
+  rec.fire('mousemove', {});
+  assert.strictEqual(mkA.classList.contains('is-hover'), true,
+      'mousemove 事件才触发命中重算(悬停随事件到位)');
+});
+
+test('架构守门(T-UI-03 源码切片): 文档级三件套监听在册+离镇摘除镜像; 零 raycastVoxel(命中走 core 纯几何); 零拦截(不挡既有输入链)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'town-ui.js'), 'utf8');
+  for (const evt of ['mousemove', 'pointerdown', 'pointerup']) {
+    assert.ok(src.includes("addEventListener('" + evt + "'"),
+        '缺 ' + evt + ' 文档级监听(命中检测事件驱动, 禁每帧)');
+    assert.ok(src.includes("removeEventListener('" + evt + "'"),
+        '缺 ' + evt + ' 摘除镜像(离镇卫生, 监听不泄漏)');
+  }
+  assert.ok(!src.includes('raycastVoxel'),
+      'town-ui.js 不得直接 raycast(命中=core townHlHit 纯几何, 非每帧射线)');
+  assert.ok(!/preventDefault|stopPropagation/.test(src),
+      '监听零拦截(preventDefault/stopPropagation 会挡挖掘/放置/视角既有链)');
+});
+
+test('按下反馈与点选结算: pointerdown→is-pressed(摘 hover); pointerup→onInteract 恰一次派发命中对象载荷+pressed 清回 hover; 未悬停按下零反馈零派发', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_A.anchor)}));
+  rec.fire('mousemove', {});
+  const mkA = markOf(rec, 'bell-tower');
+  assert.strictEqual(mkA.classList.contains('is-hover'), true, '前置: 悬停在册');
+  rec.fire('pointerdown', {});
+  assert.strictEqual(mkA.classList.contains('is-pressed'), true,
+      'pointerdown→按下态(§6.2 按下行: 确认「系统听到了」)');
+  assert.strictEqual(mkA.classList.contains('is-hover'), false,
+      '按下摘悬停(优先级 pressed > hover, 序即断言)');
+  rec.fire('pointerup', {});
+  assert.deepStrictEqual(rec.interact, [
+    {id: 'bell-tower', kind: 'landmark', iconKey: 'belltower', label: '钟塔',
+      anchor: {x: 79, y: 24, z: 76}},
+  ], 'pointerup 命中结算恰一次(onInteract 载荷: id/kind/iconKey/label/anchor)');
+  assert.strictEqual(mkA.classList.contains('is-pressed'), false,
+      '抬起清按下(回弹)');
+  assert.strictEqual(mkA.classList.contains('is-hover'), true,
+      '抬起重归悬停(仍在瞄, hover 恢复)');
+  /* 未悬停按下: 零反馈零派发(不可交互区域不误导, §4.6) */
+  rec.interact.length = 0;
+  rec.setCam(JSON.parse(JSON.stringify(HL_CAM_DEFAULT)));
+  rec.fire('mousemove', {});
+  rec.fire('pointerdown', {});
+  assert.strictEqual(mkA.classList.contains('is-pressed'), false,
+      '未悬停按下零按下反馈(无命中即无 pressed)');
+  rec.fire('pointerup', {});
+  assert.deepStrictEqual(rec.interact, [],
+      '未悬停点选零派发(空放不结算)');
+});
+
+test('点选不动机器(A 侧只看状态回流): 完整点选链后机器 focus/found 零调用(UI 不代写玩法, prebuild §4.3)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const calls = [];
+  const machine = {
+    snapshot: () => ({focusId: null, states: {}}),
+    focus: (id) => calls.push(['focus', id]),
+    found: (id) => calls.push(['found', id]),
+    reset: () => calls.push(['reset']),
+  };
+  const rec = mkHlHarness(() => machine);
+  rec.ui.sync();
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_A.anchor)}));
+  rec.fire('mousemove', {});
+  rec.fire('pointerdown', {});
+  rec.fire('pointerup', {});
+  assert.deepStrictEqual(calls, [],
+      '点选链零机器调用(观察点/物品类由玩法侧消费, A 侧只做反馈+状态回流)');
+});
+
+test('found 完成态: target/update done→标记 is-done(机器 found/done 对齐)+卡态完成一步+表扬(验收锚); 非会话完成标记可见', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.ui.targetEvent('town-ui/target/focus', {target: {
+    id: 'bell-tower', kind: 'landmark', iconKey: 'belltower', label: '钟塔',
+    anchor: {x: 79, y: 24, z: 76}, state: 'active'}});
+  rec.ui.targetEvent('town-ui/target/update', {id: 'bell-tower', state: 'done'});
+  const mkA = markOf(rec, 'bell-tower');
+  assert.strictEqual(mkA.classList.contains('is-done'), true,
+      '机器 found/done→标记完成态(§6.2 完成行, 仅正向)');
+  assert.strictEqual(mkA.classList.contains('is-hover'), false,
+      '完成标记不带悬停态(done 优先级最高, 单向迁移)');
+  assert.strictEqual(mkA.hidden, false,
+      '非会话完成标记可见(淡化由 CSS opacity 承担, 不硬藏)');
+  assert.strictEqual(rec.ui.cardState(), 'step-done',
+      'L1 卡同步完成一步(既有链, 与标记完成同源 doneIds)');
+  assert.ok(slotOf(rec.ui, 'town-hud-praise').children.length >= 1,
+      '完成伴随表扬浮现(零惩罚正向, §4.4)');
+});
+
+test('签名门控零操作(架构 §8 脏标口径): 同 aim 重复 mousemove→标记 classList 零调用+引用恒等; 换态才动类', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_A.anchor)}));
+  rec.fire('mousemove', {});
+  const layer = hlLayerOf(rec);
+  const refs = layer.children.slice();
+  const mkA = markOf(rec, 'bell-tower');
+  const opsBefore = layer.children.map((c) => ({
+    add: c.__classOps.add, remove: c.__classOps.remove}));
+  rec.fire('mousemove', {}); /* 同 aim 重复事件 */
+  rec.fire('mousemove', {});
+  assert.strictEqual(hlLayerOf(rec), layer, '重复事件高亮层引用恒等');
+  assert.deepStrictEqual(hlLayerOf(rec).children, refs,
+      '重复事件标记引用恒等(零重建 DOM)');
+  const opsAfter = layer.children.map((c) => ({
+    add: c.__classOps.add, remove: c.__classOps.remove}));
+  assert.deepStrictEqual(opsAfter, opsBefore,
+      '同态重复事件 classList 零调用(签名不变零 DOM 操作, 无闪烁)');
+  /* 换态才动: 瞄农场→农场标 add 调用发生(签名变了) */
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_B.anchor)}));
+  rec.fire('mousemove', {});
+  const opsB = markOf(rec, 'farm').__classOps;
+  assert.ok(opsB.add > 0, '签名变化→类操作发生(脏标翻转)');
+});
+
+test('会话降噪: dialog open→选中对象标 is-active 保持可见, 其余标隐藏(off); close→恢复 default 可见(prebuild §4.4 降噪裁决)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.ui.targetEvent('town-ui/target/focus', {target: {
+    id: 'farm', kind: 'landmark', iconKey: 'farm', label: '小农田',
+    anchor: {x: 85, y: 24, z: 88}, state: 'active'}});
+  const mkA = markOf(rec, 'bell-tower');
+  const mkB = markOf(rec, 'farm');
+  assert.strictEqual(mkA.hidden, false, '前置: 非会话标记可见');
+  rec.ui.dialogEvent('town-ui/dialog/open', {npcId: 'V01'});
+  assert.strictEqual(mkB.classList.contains('is-active'), true,
+      '会话中选中对象切选中环(§6.2 Active 行, A→B 交接)');
+  assert.strictEqual(mkB.hidden, false,
+      '选中对象保持可见(选中环保持, townHlDim active=full)');
+  assert.strictEqual(mkA.hidden, true,
+      '会话中其余可交互隐藏(默认不显示, 降噪=注意力归会话)');
+  rec.ui.dialogEvent('town-ui/dialog/close', {result: 'continue'});
+  assert.strictEqual(mkA.hidden, false, 'close→其余标记恢复可见');
+  assert.strictEqual(mkB.classList.contains('is-active'), false,
+      'close→选中环摘除(恢复 default)');
+  assert.strictEqual(mkA.classList.contains('is-default'), true,
+      '恢复默认态(降噪随会话解除, 非永久静音)');
+});
+
+test('降级不炸: camRef null→mousemove 后全标隐藏(零伪造位置); 裸 doc(无 addEventListener 宿主=boot 沙盒形)进镇零监听不炸', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.setCam(null); /* 无视采样源(生产=CameraRig/camera 缺席守卫回落) */
+  rec.ui.sync();
+  rec.fire('mousemove', {});
+  for (const f of HL_FIXTURES) {
+    assert.strictEqual(markOf(rec, f.id).hidden, true,
+        '无 cam 全标隐藏(零伪造位置/悬停): ' + f.id);
+  }
+  assert.doesNotThrow(() => rec.fire('pointerdown', {}) || rec.fire('pointerup', {}),
+      '无 cam 按下/抬起不炸(降级全链安全)');
+  assert.deepStrictEqual(rec.interact, [], '无 cam 点选零派发(不伪造结算)');
+  /* 裸 doc: 无 addEventListener 宿主(vm boot 沙盒头插 doc 形)→不挂监听不炸 */
+  const bare = {
+    body: fakeEl('body'),
+    createElement: (tag) => fakeEl(tag),
+    getElementById: () => null,
+  };
+  const bareUi = townUi.mkTownUi({
+    doc: bare,
+    machineRef: () => ({snapshot: () => ({focusId: null, states: {}})}),
+  });
+  assert.doesNotThrow(() => bareUi.sync(),
+      '裸 doc(无监听宿主)进镇不炸(boot 沙盒全放行口径)');
+  assert.ok(bareUi.root, '裸 doc 进镇照常挂载(降级只影响监听面)');
+});
+
+test('离镇再进卫生: leave→三件套监听摘除+hover/pressed 清零; 再进新标零残留(无 hover/pressed/done 类跨轮泄漏)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_A.anchor)}));
+  rec.fire('mousemove', {});
+  rec.fire('pointerdown', {});
+  assert.strictEqual(markOf(rec, 'bell-tower').classList.contains('is-pressed'),
+      true, '前置: 按下在册');
+  const mouseListeners = rec.doc.__listeners.mousemove.length;
+  assert.ok(mouseListeners > 0, '前置: mousemove 监听已挂');
+  rec.machine = null; /* 离镇(弃机) */
+  rec.ui.sync();
+  assert.strictEqual(rec.doc.__listeners.mousemove.length, 0,
+      '离镇摘 mousemove 监听(不泄漏)');
+  assert.strictEqual(rec.doc.__listeners.pointerdown.length, 0,
+      '离镇摘 pointerdown 监听');
+  assert.strictEqual(rec.doc.__listeners.pointerup.length, 0,
+      '离镇摘 pointerup 监听');
+  /* 再进新机: 全新标记零残留 */
+  rec.machine = {snapshot: () => ({focusId: null, states: {}})};
+  rec.ui.sync();
+  for (const f of HL_FIXTURES) {
+    const mk = markOf(rec, f.id);
+    assert.strictEqual(mk.classList.contains('is-hover'), false,
+        '再进零悬停残留: ' + f.id);
+    assert.strictEqual(mk.classList.contains('is-pressed'), false,
+        '再进零按下残留: ' + f.id);
+    assert.strictEqual(mk.classList.contains('is-done'), false,
+        '再进零完成残留(新机新账): ' + f.id);
+  }
+});
+
+test('集成链 T-UI-03: 进镇九标→mousemove 瞄钟塔 is-hover→按下反馈→抬起结算 onInteract→真机器 found is-done+完成一步+表扬→回程收敛零残留→再进干净', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  /* vm 同笼(⑥⑦ 同款装具): 真机器+真核心+适配层; hlSource 走生产缺省
+     (TOWN_INTERACTS+TOWN_MAP 守卫读), camRef/onInteract 注入; 文档级事件
+     经在笼 fake doc 泵(mousemove/pointerdown/pointerup) */
+  /* 笼内探针薄包装: ui 闭在 vm 笼内, 层/标只能笼内按类名/属性寻址;
+     断言红带信息(层/标缺席=断言红, 不裸炸)——与共享 hlLayerOf 同形 */
+  const hlLayerProbe = (context) => {
+    const layer = vm.runInContext('__hlLayer()', context);
+    assert.ok(layer, '高亮层未挂出(.town-hl-layer 缺席, T-UI-03)');
+    return layer;
+  };
+  const hlMarkProbe = (context, id) => {
+    const mark = vm.runInContext('__hlMark(' + JSON.stringify(id) + ')', context);
+    assert.ok(mark, '高亮标记未挂出: ' + id);
+    return mark;
+  };
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const closure = ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
+    'js/town-map-core.js', 'js/town-assembly-core.js', 'js/town-interact-core.js',
+    'js/town-ui-core.js', 'js/town-ui.js'];
+  const ordered = closure
+      .filter((f) => html.indexOf(f) >= 0)
+      .sort((a, b) => html.indexOf(a) - html.indexOf(b));
+  const ctx = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+  for (const f of ordered) {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
+  }
+  /* 在笼 fake doc(文档级监听宿主+事件泵, 与 harness fakeDoc 同形) */
+  vm.runInContext(
+      'var __listeners = {};\n' +
+      'function __el(tag) {\n' +
+      '  var classes = {};\n' +
+      '  var el = {tag: tag, children: [], parent: null, hidden: false,\n' +
+      '    textContent: \'\', attrs: {}, style: {}, onclick: null,\n' +
+      '    classList: {\n' +
+      '      add: function() { for (var i = 0; i < arguments.length; i++) classes[arguments[i]] = true; },\n' +
+      '      remove: function() { for (var i = 0; i < arguments.length; i++) delete classes[arguments[i]]; },\n' +
+      '      contains: function(c) { return !!classes[c]; }\n' +
+      '    },\n' +
+      '    setAttribute: function(k, v) { el.attrs[k] = String(v); },\n' +
+      '    getAttribute: function(k) { return el.attrs[k]; },\n' +
+      '    appendChild: function(c) { el.children.push(c); c.parent = el; return c; },\n' +
+      '    click: function() { if (el.onclick) el.onclick({}); }\n' +
+      '  };\n' +
+      '  return el;\n' +
+      '}\n' +
+      'var __doc = {\n' +
+      '  body: __el(\'body\'),\n' +
+      '  createElement: function(t) { return __el(t); },\n' +
+      '  getElementById: function() { return null; },\n' +
+      '  addEventListener: function(type, fn) { (__listeners[type] = __listeners[type] || []).push(fn); },\n' +
+      '  removeEventListener: function(type, fn) {\n' +
+      '    var list = __listeners[type] || [];\n' +
+      '    var i = list.indexOf(fn); if (i >= 0) list.splice(i, 1);\n' +
+      '  },\n' +
+      '  fire: function(type, evt) {\n' +
+      '    var list = (__listeners[type] || []).slice();\n' +
+      '    for (var i = 0; i < list.length; i++) list[i](evt || {});\n' +
+      '  }\n' +
+      '};\n' +
+      'var __cam = null;\n' +
+      'var __interact = [];\n' +
+      'var __machine = null;\n' +
+      'var __ui = mkTownUi({doc: __doc,\n' +
+      '  machineRef: function() { return __machine; },\n' +
+      '  camRef: function() { return __cam; },\n' +
+      '  onInteract: function(p) { __interact.push(p); }});\n', ctx);
+  /* 笼内探针: 层=ui.root 下类名 town-hl-layer; 标=层内 data-hl-id 寻址 */
+  vm.runInContext(
+      'function __hlLayer() {\n' +
+      '  var kids = __ui.root.children;\n' +
+      '  for (var i = 0; i < kids.length; i++) {\n' +
+      '    if (kids[i].classList.contains("town-hl-layer")) return kids[i];\n' +
+      '  }\n' +
+      '  return null;\n' +
+      '}\n' +
+      'function __hlMark(id) {\n' +
+      '  var layer = __hlLayer();\n' +
+      '  if (!layer) return null;\n' +
+      '  var kids = layer.children;\n' +
+      '  for (var i = 0; i < kids.length; i++) {\n' +
+      '    if (kids[i].attrs && kids[i].attrs["data-hl-id"] === id) return kids[i];\n' +
+      '  }\n' +
+      '  return null;\n' +
+      '}', ctx);
+  /* 白闪进镇: 建机(advTownInteractBoot 同形 emit 实接)→九标在册 */
+  vm.runInContext('__machine = mkTownTargets(' +
+      '{emit: function(n, p) { __ui.targetEvent(n, p); }}); __ui.sync();', ctx);
+  assert.strictEqual(hlLayerProbe(ctx).children.length, 9,
+      'TOWN_INTERACTS 九条目(六锚点+三轻任务)一一挂标(生产缺省清单源)');
+  assert.strictEqual(hlMarkProbe(ctx, 'bell-tower').textContent, '🗼',
+      '钟塔标记图标(UI-01 语义键)');
+  assert.strictEqual(hlMarkProbe(ctx, 'bell-tower').classList.contains('is-default'),
+      true, '初始默认态(低存在感提示在册)');
+  /* 悬停: 机位(79,25,96) 瞄钟塔(79,24,76)——mousemove 事件驱动 */
+  vm.runInContext('__cam = {origin: {x: 79, y: 25, z: 96}, ' +
+      'dir: {x: 0, y: -1 / Math.sqrt(401), z: -20 / Math.sqrt(401)}, ' +
+      'yaw: 0, pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100};', ctx);
+  vm.runInContext('__doc.fire("mousemove");', ctx);
+  assert.strictEqual(
+      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-hover'), true,
+      'mousemove 瞄钟塔→is-hover(E2E 悬停验收锚)');
+  assert.strictEqual(
+      hlMarkProbe(ctx, 'lava-chicken').classList.contains('is-hover'), false,
+      '未瞄准对象不 hover(炸鸡店在 24 格外, 零误导)');
+  /* 按下反馈→抬起结算 */
+  vm.runInContext('__doc.fire("pointerdown");', ctx);
+  assert.strictEqual(
+      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-pressed'), true,
+      '按下反馈(E2E 点选反馈验收锚)');
+  vm.runInContext('__doc.fire("pointerup");', ctx);
+  assert.strictEqual(vm.runInContext('__interact.length', ctx), 1,
+      '抬起结算恰一次派发');
+  assert.strictEqual(vm.runInContext('__interact[0].id', ctx), 'bell-tower',
+      '结算载荷=命中对象 id');
+  assert.strictEqual(vm.runInContext('__interact[0].kind', ctx), 'landmark',
+      '结算载荷=可交互类型(dialog-spec §2.2 载荷面)');
+  /* A 侧不代写玩法: 点选后机器 focus 仍 null */
+  assert.strictEqual(vm.runInContext('__machine.snapshot().focusId', ctx), null,
+      '点选不动机器(A 侧只看状态回流)');
+  /* 真机器 found→完成态(E2E found 完成态验收锚) */
+  vm.runInContext('__machine.found(\'bell-tower\');', ctx);
+  assert.strictEqual(
+      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-done'), true,
+      '真机器 found 事件→标记完成态(§6.2 完成行)');
+  assert.strictEqual(vm.runInContext('__ui.cardState()', ctx), 'step-done',
+      'L1 卡完成一步(机器 done 对齐)');
+  /* 回程收敛: 弃机→HUD 收敛+监听摘除+悬停态清零 */
+  vm.runInContext('__machine = null; __ui.sync();', ctx);
+  assert.strictEqual(vm.runInContext('__ui.root.hidden', ctx), true,
+      '回程→HUD 收敛');
+  assert.strictEqual(vm.runInContext('__listeners.mousemove.length', ctx), 0,
+      '回程→监听摘除零泄漏');
+  /* 再进新机: 干净九标(零 hover/pressed/done 残留) */
+  vm.runInContext('__machine = mkTownTargets(' +
+      '{emit: function(n, p) { __ui.targetEvent(n, p); }}); __ui.sync();', ctx);
+  assert.strictEqual(
+      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-hover'), false,
+      '再进零悬停残留(cam 未变但无事件, 事件驱动口径)');
+  assert.strictEqual(
+      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-done'), false,
+      '再进零完成残留(新机新账, doneIds 清)');
 });
