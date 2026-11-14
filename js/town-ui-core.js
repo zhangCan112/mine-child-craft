@@ -15,7 +15,14 @@
       fallback|off, 回落策略越域抛错) · townPointerBand(dist, inView, bands?)
       纯函数(距离三档定性 nearby|near|far) · townPointerHeading(dx, dz, yaw)
       纯函数(方位四离散 front|left|right|behind) · townPointerSig(targetId,
-      state, band, heading) 纯函数(指引签名, DOM 脏标对账载体)
+      state, band, heading) 纯函数(指引签名, DOM 脏标对账载体) ·
+      townHlClass(id, ctx) 纯函数(可交互四态状态类 default|hover|pressed|
+      active|done|none, 优先级序 done>active>pressed>hover) ·
+      townHlDim(activeId, dialogOpen, hlClass) 纯函数(会话降噪显示档
+      full|min|off) · townHlSig(objectId, displayClass) 纯函数(高亮签名,
+      脏标载体) · townHlHit(origin, dir, entries, opts) 纯函数(准星命中
+      判定: 视线-锚点夹角+距离双门, 角度优先序) · townHlProject(cam, anchor)
+      纯函数(标准针孔屏幕投影, DOM 投影小图标定位)
    依赖: 零运行时依赖——不引用引擎件/件库/DOM/THREE 符号; 事件形状与参数
       默认值出自 docs/design/town-ui-hud-prebuild.md §1-§2/§5-§6 与
       docs/design/town-ui-entry-hud-spec.md §4/§8。
@@ -51,6 +58,10 @@ const TOWN_UI_PARAMS = Object.freeze({
   U8_PROCESS_ITEM: null, /* U8=流程项非视觉参数, 无实现落点(如实标注) */
   P_D1_NEARBY: 12, /* P-D1「就在附近」阈值 ≤12 格(prebuild §6.3) */
   P_D2_NEAR: 40, /* P-D2「近/远」分界 40 格(prebuild §6.3) */
+  HL_AIM_DEG: 8, /* T-UI-03 准星命中半角 8°(6 岁宽容热区, §6.4 热区余量在
+    指针锁定世界的角度映射) */
+  HL_AIM_MAX_DIST: 24, /* T-UI-03 命中/标记展示最大距离 24 格(广场尺度可点,
+    远景不误触, §6.4) */
 });
 
 /* ---------- 提示卡五态状态机(prebuild §2.3; hud-spec §4.3 状态行) ----------
@@ -226,10 +237,126 @@ function townPointerSig(targetId, state, band, heading) {
   return JSON.stringify([targetId, state, band, heading]);
 }
 
+/* ---------- 可交互四态状态类(prebuild §5 函数 7; hud-spec §6.1-§6.2) ----------
+    单对象视角: 对照命中/按下/选中/完成四标志返回恰一状态类, 优先级序
+    done > active > pressed > hover > default(多标志并存取其一, 完成后不
+    再回选中环=单向迁移); id 缺席=none(非交互对象无标记); ctx 缺席=可
+    交互静置默认态。doneIds 兼容 Set/数组双形态(装配层 Set, 小面数组)。 */
+function townHlClass(id, ctx) {
+  if (!id) return 'none';
+  ctx = ctx || {};
+  const done = ctx.doneIds;
+  const isDone = !!done && (typeof done.has === 'function' ?
+    done.has(id) : done.includes(id));
+  if (isDone) return 'done';
+  if (ctx.activeId === id) return 'active';
+  if (ctx.pressedId === id) return 'pressed';
+  if (ctx.hoveredId === id) return 'hover';
+  return 'default';
+}
+
+/* ---------- 会话降噪档(prebuild §5 函数 8; dialog-spec §2.3 注意力归会话) ----------
+    非会话恒 full(标记照常展示); 会话开=选中对象保持 full(柔和选中环),
+    悬停/按下对象降 min(最低存在感档), 其余可交互 off(默认不显示, 完成
+    语义已由 L1 表扬承担同样收敛)。 */
+function townHlDim(activeId, dialogOpen, hlClass) {
+  if (!dialogOpen) return 'full';
+  if (hlClass === 'active') return 'full';
+  if (hlClass === 'hover' || hlClass === 'pressed') return 'min';
+  return 'off';
+}
+
+/* ---------- 高亮签名(prebuild §5 函数 9; townPointerSig 同款体例) ----------
+    二分量(对象id|有效显示档)→签名字符串: 同参恒等, 任一分量变则变;
+    适配层拿它做脏标对账(签名不变零 DOM 操作)。 */
+function townHlSig(objectId, displayClass) {
+  return JSON.stringify([objectId, displayClass]);
+}
+
+/* ---------- 准星命中判定(prebuild §4.1-§4.3; 纯几何零 THREE) ----------
+    指针锁定世界: 准星即光标, 命中判据=视线-锚点夹角 ≤ HL_AIM_DEG(含
+    等号, 1e-9 容差抗舍入)且欧氏距离 ≤ HL_AIM_MAX_DIST(含等号)双门;
+    通过者取夹角最小(准星指着谁), 并列取序在前(锚点清单源序=裁决序);
+    dir 零向量/空表/全部落空 → null。opts {maxDist, deg} 注入覆盖(PO 调
+    调参位, 缺省消费 TOWN_UI_PARAMS 单一出处); dir 允许未归一化(内部分
+    归一)。返回 {id, dist}, 无命中 null。 */
+function townHlHit(origin, dir, entries, opts) {
+  opts = opts || {};
+  const maxDist = opts.maxDist !== undefined ?
+    opts.maxDist : TOWN_UI_PARAMS.HL_AIM_MAX_DIST;
+  const deg = opts.deg !== undefined ?
+    opts.deg : TOWN_UI_PARAMS.HL_AIM_DEG;
+  const EPS = 1e-9;
+  const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
+  if (!len || !entries || !entries.length) return null;
+  const cosLimit = Math.cos(deg * Math.PI / 180);
+  let best = null;
+  let bestCos = -Infinity;
+  for (const e of entries) {
+    if (!e || !e.anchor) continue;
+    const vx = e.anchor.x - origin.x;
+    const vy = e.anchor.y - origin.y;
+    const vz = e.anchor.z - origin.z;
+    const d = Math.sqrt(vx * vx + vy * vy + vz * vz);
+    if (d > maxDist + EPS) continue; /* 距离门(含等号) */
+    let cosAngle;
+    if (d === 0) {
+      cosAngle = 1; /* 踩在锚点上=正中(零向量点积不伪造) */
+    } else {
+      cosAngle = (vx * dir.x + vy * dir.y + vz * dir.z) / (d * len);
+    }
+    if (cosAngle < cosLimit - EPS) continue; /* 角度门(含等号, 舍入容差) */
+    if (cosAngle > bestCos) {/* 角度优先; 同角并列取序在前(严格大于) */
+      best = {id: e.id, dist: d};
+      bestCos = cosAngle;
+    }
+  }
+  return best;
+}
+
+/* ---------- 屏幕投影(prebuild §4.4; 标准针孔模型, DOM 投影定位) ----------
+    cam 全裸数字 {x, y, z, yaw, pitch, fovDeg, aspect, vw, vh}(voxel 朝向
+    式: yaw=0 面北 -Z, pitch 正=仰视; fovDeg 取竖向半角, aspect 横向扩)。
+    相机基: 前向 F=(-sin yaw·cos pitch, sin pitch, -cos yaw·cos pitch),
+    右向 R=(cos yaw, 0, -sin yaw), 上向 U=R×F。深度 t≤0(含背后)=null 不
+    伪造位置; 屏外 visible=false 坐标照算(裁剪归 visible 不抹算术); 屏
+    坐标取整到像素(定位贴像素, 舍入噪声不外溢)。返回 {x, y, visible,
+    dist}(dist=欧氏距离, 与命中/展示距离门共用口径)。 */
+function townHlProject(cam, anchor) {
+  if (!cam || !anchor) return null;
+  const vx = anchor.x - cam.x;
+  const vy = anchor.y - cam.y;
+  const vz = anchor.z - cam.z;
+  const cy = Math.cos(cam.yaw);
+  const sy = Math.sin(cam.yaw);
+  const cp = Math.cos(cam.pitch);
+  const sp = Math.sin(cam.pitch);
+  const fx = -sy * cp;
+  const fy = sp;
+  const fz = -cy * cp;
+  const depth = vx * fx + vy * fy + vz * fz;
+  if (!(depth > 0)) return null; /* 背后/零深/NaN 一律不投影 */
+  const rx = cy;
+  const rz = -sy;
+  const right = vx * rx + vz * rz;
+  /* 上向 U = R×F 分量化: U=(sy·sp, cp, cy·sp) */
+  const upComp = vx * (sy * sp) + vy * cp + vz * (cy * sp);
+  const tanHalf = Math.tan((cam.fovDeg || 90) * Math.PI / 360);
+  const ndcX = right / (depth * tanHalf * (cam.aspect || 1));
+  const ndcY = upComp / (depth * tanHalf);
+  return {
+    x: Math.round((ndcX + 1) / 2 * cam.vw),
+    y: Math.round((1 - ndcY) / 2 * cam.vh),
+    visible: Math.abs(ndcX) <= 1 && Math.abs(ndcY) <= 1,
+    dist: Math.sqrt(vx * vx + vy * vy + vz * vz),
+  };
+}
+
 /* ---------- CJS 导出面(仅 Node require 双栖用: 适配层 js/town-ui.js 在
     Node 沙盒经此解析 core; 浏览器经典 script 走共享词法环境不走此支) ---------- */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {TOWN_UI_PARAMS, townHudCardState, townHudDimming,
     townHintSentence, townPointerTarget, townPointerBand, townPointerHeading,
-    townPointerSig};
+    townPointerSig, townHlClass, townHlDim, townHlSig, townHlHit,
+    townHlProject};
 }

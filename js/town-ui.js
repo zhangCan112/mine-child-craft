@@ -4,24 +4,29 @@
    ------------------------------------------------------------
    一句话职责: 把 town-ui-core 的五态决策落到 #townHud 四槽 DOM——机器
    身份对账(进镇挂/离镇收/新机清)、emit 事件消费、TTS 意图与表扬节奏
-   落地、L2 方位指引器(签名门控脏标刷新, 低频位姿采样驱动档位)、会话
-   避让监听入口。
+   落地、L2 方位指引器(签名门控脏标刷新, 低频位姿采样驱动档位)、可交互
+   高亮层(事件驱动命中+四态标记+点选结算)、会话避让监听入口。
    interface: mkTownUi({doc, machineRef, poseRef, speech, timer, showPage,
-      raf}) → {targetEvent(name, payload), dialogEvent(name, payload),
-      sync(), start(), cardState(), root} · TownUi(自动实例) ·
-      townUiTargetEvent(name, payload)(adventure.js 建机步 emit 实参);
-      poseRef=位姿采样源({x, y, z, yaw}|null, 缺省惰性读 voxel 全局
-      pos/yaw, 沙盒安全)
+      raf, camRef, hlSource, onInteract}) → {targetEvent(name, payload),
+      dialogEvent(name, payload), sync(), start(), cardState(), root} ·
+      TownUi(自动实例) · townUiTargetEvent(name, payload)(adventure.js 建机
+      步 emit 实参); poseRef=位姿采样源({x, y, z, yaw}|null, 缺省惰性读
+      voxel 全局 pos/yaw, 沙盒安全); camRef=视采样源({origin, dir, yaw,
+      pitch, fovDeg, aspect, vw, vh}|null, 缺省 null); hlSource=可交互清单
+      源(缺省 TOWN_INTERACTS 注册派生快照); onInteract=点选结算出口(玩法
+      侧消费, 缺省空旁路)
    依赖(均经全局名, 调用期解析): town-ui-core.js 的 TOWN_UI_PARAMS/
       townHudCardState/townHudDimming/townHintSentence/townPointerTarget/
-      townPointerBand/townPointerHeading/townPointerSig(必须先装载; 经典
+      townPointerBand/townPointerHeading/townPointerSig/townHlClass/
+      townHlDim/townHlSig/townHlHit/townHlProject(必须先装载; 经典
       script 共享词法直用, Node require 走 core 的 CJS 导出面解析);
       speech.js SpeechKit(缺省桩); modes/adventure.js AdventureMode.adv.
       advTownState(缺省机器挂点, 闭包内惰性解析); town-map-core.js
       TOWN_MAP.anchors(bell-tower 回落锚, 惰性解析缺席降级零方位档);
-      voxel 全局 pos/yaw(缺省位姿源, typeof 守卫); 宿主 chrome showPage
-      (缺省 null); index.html 装载序 town-interact-core → town-ui-core →
-      本文件 → mode-registry。
+      town-interact-core.js TOWN_INTERACTS/townInteractRegistry(高亮清单
+      生产缺省, 惰性解析缺席空清单); voxel 全局 pos/yaw(缺省位姿源,
+      typeof 守卫); 宿主 chrome showPage(缺省 null); index.html 装载序
+      town-interact-core → town-ui-core → 本文件 → mode-registry。
    可测性声明: THREE 零依赖·DOM 惰性创建(mount 前零触碰, Node 可安全
       require)·墙钟经注入 timer/raf(rAF 250ms 节流对账)·有同名单测
       (test/town-ui.test.js)。
@@ -45,9 +50,21 @@ const TOWN_CARD_ICONS = {
     core 缺席(装载序破坏)→null: 工厂内防御回落, 不炸加载 ---------- */
 const TOWN_UI_CORE = typeof townHudCardState === 'function' ?
   {TOWN_UI_PARAMS, townHudCardState, townHudDimming, townHintSentence,
-    townPointerTarget, townPointerBand, townPointerHeading, townPointerSig} :
+    townPointerTarget, townPointerBand, townPointerHeading, townPointerSig,
+    townHlClass, townHlDim, townHlSig, townHlHit, townHlProject} :
   (typeof module !== 'undefined' && module.exports ?
     require('./town-ui-core.js') : null);
+
+/* 高亮清单生产缺省(T-UI-03): 交互锚点注册派生快照(id/kind/iconKey/label/
+    anchor 六锚点+三轻任务九条目); TOWN_INTERACTS/townInteractRegistry 缺席
+    (沙盒/装载序破坏)→空清单, 不炸加载。 */
+function townUiHlDefaultSource() {
+  if (typeof townInteractRegistry !== 'function' ||
+    typeof TOWN_INTERACTS === 'undefined') {
+    return [];
+  }
+  return townInteractRegistry(TOWN_INTERACTS);
+}
 
 /* 表扬浮现/完成一步停留节奏(窗内单值): PRAISE_MS 中点 1600ms, 与参数表
     同源派生不另立权威 */
@@ -127,6 +144,12 @@ function mkTownUi(deps) {
     (typeof showPage === 'function' ? showPage : null);
   const rafFn = deps.raf ||
     (typeof requestAnimationFrame === 'function' ? requestAnimationFrame : null);
+  /* T-UI-03 高亮装具注入: camRef=视采样源(命中/投影几何输入, 缺省 null=
+      零伪造全隐藏); hlSource=可交互清单源(缺省走注册派生快照);
+      onInteract=点选结算出口(玩法侧消费, A 侧不代写玩法, 缺省空旁路) */
+  const camRef = deps.camRef || (() => null);
+  const hlSource = deps.hlSource || townUiHlDefaultSource;
+  const onInteract = deps.onInteract || (() => {});
   let root = null; /* 挂载前 null(零常驻 DOM, 未进镇不挂载) */
   let card = null;
   let pointerSlot = null;
@@ -139,6 +162,10 @@ function mkTownUi(deps) {
   let pointerBadge = null; /* L2 指引器徽章(mount 恒等创建, 刷新零重建) */
   let pointerIcon = null;
   let pointerArrow = null;
+  let hlLayer = null; /* T-UI-03 高亮层(mount 恒等创建, 独立 town-hl- 命名空间) */
+  let hoveredId = null; /* 事件驱动命中记忆(仅 mousemove 重算, sync 不判) */
+  let pressedId = null; /* 按下记忆(pointerdown 置/pointerup 清并结算) */
+  const hlStateMemo = new Map(); /* 标记状态签名记忆(id→memo, 脏标对账) */
   let cur = 'hidden'; /* 核心态唯一事实(town-ui-core 状态机输出) */
   let prevMachine;
   let seenMachine = false; /* 首次对账按 m 有无动作(首帧不误判进场) */
@@ -197,6 +224,10 @@ function mkTownUi(deps) {
     praiseSlot.classList.add('town-hud-praise');
     sysSlot = doc.createElement('div');
     sysSlot.classList.add('town-hud-sys');
+    /* T-UI-03 高亮层: 独立命名空间不占 L1-L4 四槽; 零鼠标捕获(css 同款),
+       点选走文档级事件链(mousemove/pointerdown/pointerup), 标记纯视觉 */
+    hlLayer = doc.createElement('div');
+    hlLayer.classList.add('town-hl-layer');
     const homeBtn = doc.createElement('button');
     homeBtn.setAttribute('aria-label', '回主菜单');
     homeBtn.textContent = '🏠';
@@ -209,6 +240,7 @@ function mkTownUi(deps) {
     root.appendChild(pointerSlot);
     root.appendChild(praiseSlot);
     root.appendChild(sysSlot);
+    root.appendChild(hlLayer);
     doc.body.appendChild(root);
   }
 
@@ -295,6 +327,156 @@ function mkTownUi(deps) {
     if (pointerIcon.textContent !== glyph) pointerIcon.textContent = glyph;
   }
 
+  /* ---------- T-UI-03 可交互高亮/标记与点选反馈(hud-spec §6; prebuild §4) ----------
+      事件驱动口径: 命中判定只挂文档级 mousemove/pointerdown/pointerup(零
+      每帧/零每 sync 重算, 架构 §8); 判定本体走 core townHlHit 纯几何
+      (零 raycast), 刷新走签名门控脏标(同态重复事件零 DOM 操作, 无闪烁)。
+      高亮层零鼠标捕获, 标记纯视觉层不代点选(零 onclick); 点选结算经
+      onInteract 出口交玩法侧(机器 focus/found 不由本层调, prebuild §4.3),
+      结算同时把「孩子点了什么」回流自家 L1 卡状态机(机器态不动, 状态回
+      流只进 HUD)。几何输入缺一(无 cam/无锚)即全标隐藏零伪造位置。 */
+  const HL_STATE_CLASSES =
+    ['is-default', 'is-hover', 'is-pressed', 'is-done', 'is-active'];
+
+  function markElOf(id) {
+    if (!hlLayer) return null;
+    for (const c of hlLayer.children) {
+      if (c.attrs && c.attrs['data-hl-id'] === id) return c;
+    }
+    return null;
+  }
+
+  /* 挂标(enterTown 期调用): 每条目一标, 子件按 id 复用不重建(幂等);
+     emoji 占位同 L1/L2 策略(UI-01 语义键), 初始默认态零跨轮残留 */
+  function buildHlMarks() {
+    if (!hlLayer) return;
+    for (const e of hlSource()) {
+      if (!e || !e.id) continue;
+      let mk = markElOf(e.id);
+      if (!mk) {
+        mk = doc.createElement('div');
+        mk.classList.add('town-hl-mark');
+        hlLayer.appendChild(mk);
+      }
+      mk.setAttribute('data-hl-id', e.id);
+      mk.textContent = TOWN_CARD_ICONS[e.iconKey] || '⭐';
+      mk.classList.remove(...HL_STATE_CLASSES);
+      mk.classList.add('is-default');
+      mk.hidden = false;
+    }
+    hlStateMemo.clear(); /* 新会话新账: 首刷全量落位(签名字段全量重置) */
+  }
+
+  /* 标记刷新(签名门控脏标): 状态类=core townHlClass(优先级序), 显示档=
+     core townHlDim(会话降噪), 隐藏=off 档 ∨ 无 cam ∨ 投影缺席 ∨ 屏外 ∨
+     超展示距离门; memo 含签名+状态类+隐藏(位置随事件照写, 类与显隐只在
+     memo 翻转时动——同态重复事件零 classList 调用) */
+  function refreshHl() {
+    if (!hlLayer || !root || root.hidden) return;
+    const cam = camRef();
+    const maxDist = TOWN_UI_CORE.TOWN_UI_PARAMS.HL_AIM_MAX_DIST;
+    const activeId = dialogOpen && focusTarget ? focusTarget.id : null;
+    for (const e of hlSource()) {
+      if (!e || !e.id || !e.anchor) continue;
+      const mk = markElOf(e.id);
+      if (!mk) continue;
+      const cls = TOWN_UI_CORE.townHlClass(e.id,
+          {hoveredId, pressedId, activeId, doneIds});
+      const dim = TOWN_UI_CORE.townHlDim(activeId, dialogOpen, cls);
+      let proj = null;
+      let hidden = dim === 'off' || !cam || !cam.origin;
+      if (!hidden) {
+        /* 投影吃裸数字 cam(hud-spec 装具契约: hit 用 origin+dir, 投影用
+           yaw/pitch/fovDeg/aspect/vw/vh, 不交叉校验 dir 一致性) */
+        proj = TOWN_UI_CORE.townHlProject({
+          x: cam.origin.x, y: cam.origin.y, z: cam.origin.z,
+          yaw: cam.yaw, pitch: cam.pitch, fovDeg: cam.fovDeg,
+          aspect: cam.aspect, vw: cam.vw, vh: cam.vh,
+        }, e.anchor);
+        hidden = !proj || !proj.visible || proj.dist > maxDist;
+      }
+      const memo = TOWN_UI_CORE.townHlSig(e.id, dim) + '|' + cls +
+        '|' + (hidden ? 'h' : 'v');
+      if (hlStateMemo.get(e.id) !== memo) {
+        hlStateMemo.set(e.id, memo);
+        mk.classList.remove(...HL_STATE_CLASSES);
+        mk.classList.add('is-' + cls);
+        if (dim === 'min') mk.classList.add('is-min');
+        else mk.classList.remove('is-min');
+        mk.hidden = hidden;
+      }
+      if (!hidden && proj) {
+        mk.style.left = proj.x + 'px';
+        mk.style.top = proj.y + 'px';
+      }
+    }
+  }
+
+  /* 命中重算(仅鼠标事件到达时跑): cam/清单任一缺席→无命中(零伪造悬停) */
+  function recomputeHit() {
+    const cam = camRef();
+    if (!cam || !cam.origin || !cam.dir) {
+      hoveredId = null;
+      refreshHl();
+      return;
+    }
+    const candidates = [];
+    for (const e of hlSource()) {
+      if (e && e.id && e.anchor) candidates.push({id: e.id, anchor: e.anchor});
+    }
+    const hit = TOWN_UI_CORE.townHlHit(cam.origin, cam.dir, candidates, {});
+    hoveredId = hit ? hit.id : null;
+    refreshHl();
+  }
+
+  /* 结算回流: 「孩子点了什么」进自家 L1 卡状态机(机器不动——focus/found
+     归玩法侧, 架构 §7.1 事件流; 完成一步由玩法侧 found 事件回冲) */
+  function settleFocus(entry) {
+    focusTarget = {id: entry.id, kind: entry.kind, iconKey: entry.iconKey,
+      label: entry.label, anchor: entry.anchor, state: entry.state || 'active'};
+    feed({type: 'target-focus', target: focusTarget});
+  }
+
+  function onHlMove() {
+    recomputeHit(); /* 悬停=鼠标唯一发现通道(§4.6) */
+  }
+
+  function onHlDown() {
+    if (!hoveredId) return; /* 未悬停按下零反馈(不可交互不误导, §4.6) */
+    pressedId = hoveredId;
+    refreshHl(); /* 按下态即时确认「系统听到了」 */
+  }
+
+  function onHlUp() {
+    if (!pressedId) return; /* 空放不结算 */
+    const id = pressedId;
+    pressedId = null;
+    const entry = hlSource().find((e) => e && e.id === id);
+    if (entry && entry.anchor) {
+      settleFocus(entry);
+      /* 恰一次派发命中对象载荷(五键, 协议面=dialog-spec §2.2 载荷形状) */
+      onInteract({id: entry.id, kind: entry.kind, iconKey: entry.iconKey,
+        label: entry.label, anchor: entry.anchor});
+    }
+    refreshHl(); /* 抬起回弹: pressed 清, 仍在瞄→hover 恢复 */
+  }
+
+  /* 文档级三件套挂/摘(离镇卫生: 监听不泄漏); 裸 doc(无监听宿主=boot
+     沙盒形)守卫跳过不炸 */
+  function attachHlListeners() {
+    if (!doc || typeof doc.addEventListener !== 'function') return;
+    doc.addEventListener('mousemove', onHlMove);
+    doc.addEventListener('pointerdown', onHlDown);
+    doc.addEventListener('pointerup', onHlUp);
+  }
+
+  function detachHlListeners() {
+    if (!doc || typeof doc.removeEventListener !== 'function') return;
+    doc.removeEventListener('mousemove', onHlMove);
+    doc.removeEventListener('pointerdown', onHlDown);
+    doc.removeEventListener('pointerup', onHlUp);
+  }
+
   function praiseShow() {
     if (!praiseEl) {
       praiseEl = doc.createElement('span'); /* emoji ⭐ 占位(UI-04 入库前) */
@@ -353,9 +535,14 @@ function mkTownUi(deps) {
     if (root) root.hidden = false;
     doneIds.clear(); /* 新会话新账(机器不串轮) */
     focusTarget = null;
+    hoveredId = null; /* 高亮命中/按下记忆同清(零跨轮残留) */
+    pressedId = null;
     /* 进场喂核心不依赖 DOM 成败(doc 缺席沙盒态照走, applyState 自守卫) */
     feed({type: 'enter'});
     refreshPointer(); /* 进镇弱提示按当帧位姿重算(签名记忆已被离镇清零) */
+    buildHlMarks(); /* 高亮标记挂出(幂等复用, 新机新账) */
+    refreshHl(); /* 按当帧视采样落位/显隐 */
+    attachHlListeners(); /* 文档级三件套(离镇镜像摘除) */
   }
 
   function leaveTown() {
@@ -367,6 +554,9 @@ function mkTownUi(deps) {
     praiseHideH = null;
     elapseH = null;
     pointerSig = null; /* 指引签名记忆清零(再进新机重算零残留) */
+    detachHlListeners(); /* 三件套摘除(监听不泄漏) */
+    hoveredId = null;
+    pressedId = null;
   }
 
   /* 机器身份对账: 引用或快照等价(同一状态机两次 snapshot 拷贝恒等;
@@ -412,11 +602,13 @@ function mkTownUi(deps) {
       focusTarget = payload.target || null;
       feed({type: 'target-focus', target: payload.target || null});
       refreshPointer(); /* 指引随 focus 换目标(签名门控零闪烁) */
+      refreshHl(); /* 高亮随 focus 迁移(选中环/降噪档随事件到位) */
     } else if (name === 'town-ui/target/update') {
       if (!root) mount();
       if (payload.state === 'done') doneIds.add(payload.id);
       feed({type: 'target-update', id: payload.id, state: payload.state});
       refreshPointer(); /* done 目标不再指→回落钟塔(U5), 非-done 档位随动 */
+      refreshHl(); /* 完成态/状态回流随事件落到标记(签名门控) */
     }
     /* 其他(含 town-ui/interact/*——T-UI-03 域): 静默忽略 */
   }
@@ -429,12 +621,14 @@ function mkTownUi(deps) {
       prevCardState = cur;
       dialogOpen = true;
       feed({type: 'dialog-open'});
+      refreshHl(); /* 会话降噪档随开落位(选中环保持/其余隐藏) */
     } else if (name === 'town-ui/dialog/close') {
       /* 先摘会话闸再喂: close(done) 的表扬意图要能落槽(L3 会话中冻结由
          核心承担, 关闸后解冻) */
       dialogOpen = false;
       feed({type: 'dialog-close', result: payload.result,
         taskRef: payload.taskRef, prev: prevCardState});
+      refreshHl(); /* 降噪随会话解除恢复(标记回默认态可见) */
     }
     /* town-ui/dialog/update 等: T-UI-04 未来对接点, 本票无动作 */
   }

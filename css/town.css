@@ -24,6 +24,7 @@
   --town-hud-t-in: 200ms;
   --town-hud-t-out: 200ms;
   --town-hud-t-tap: 110ms;
+  --town-hud-t-hover: 140ms; /* T-UI-03 悬停过渡窗(§6.2: 120-160ms 取中) */
 }
 
 /* 容器: 全屏覆盖但零鼠标捕获(不挡世界点选); 高于 #hud 的 10、低于
@@ -275,4 +276,103 @@
   .town-hud-pointer-arrow {
     transition: none;
   }
+
+  /* 高亮标记(T-UI-03): 过渡停=状态纯切换(动效克制同源) */
+  .town-hl-mark {
+    transition: none;
+    animation: none;
+  }
+}
+
+/* ============================================================
+   可交互高亮/标记 (T-UI-03 分区 A) — 独立 town-hl- 命名空间, 不占
+   L1-L4 四槽; 层零鼠标捕获(点选走文档级事件链); 五态=色+形双通道
+   (hud-spec §6.2 四态色值 / §6.3+prebuild §4.2 形状语言: 默认圆→悬停
+   方角框→按下收缩→完成勾花角标淡化→选中双圈); 悬停过渡窗 t-hover
+   120-160ms、按下回弹 t-tap 100-120ms; 零警示红零闪烁(§4.5/§6.5)
+   ============================================================ */
+
+/* 高亮层: 全屏覆盖但零鼠标捕获(不挡世界点选, 容器同款纪律) */
+.town-hl-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* 标记基座: 绝对定位锚点投影像素位(适配层写 left/top), 负位移自居中;
+   过渡消费 t-hover token(悬停窗值单源) */
+.town-hl-mark {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  min-width: var(--town-hit-min);
+  min-height: var(--town-hit-min);
+  font-size: 26px;
+  line-height: 1;
+  text-align: center;
+  transition:
+    transform var(--town-hud-t-hover) ease-out,
+    opacity var(--town-hud-t-hover) ease-out,
+    filter var(--town-hud-t-hover) ease-out;
+}
+
+/* 默认(可交互未聚焦): 圆形柔光圈(形: 无角无方向)+暖金(色), 低存在感 */
+.town-hl-mark.is-default {
+  border-radius: 50%;
+  color: var(--town-hud-gold);
+  text-shadow: 0 0 6px var(--town-hud-gold-bright);
+}
+
+/* 悬停/可点选: 方角描边框(形: 角部结构出现)+暖金提亮(色)+图标微放大;
+   过渡走 t-hover 窗(§6.2 悬停行 120-160ms) */
+.town-hl-mark.is-hover {
+  border-radius: 0;
+  outline: 2px solid var(--town-hud-gold-bright);
+  outline-offset: 2px;
+  color: var(--town-hud-gold-bright);
+  transform: translate(-50%, -50%) scale(1.08);
+}
+
+/* 按下: 收缩(形: scale 0.97)+亮度瞬时下调(色通道变体 -10%), 回弹走
+   t-tap 窗(§4.6「按下即时确认系统听到了」) */
+.town-hl-mark.is-pressed {
+  border-radius: 0;
+  outline: 2px solid var(--town-hud-gold-bright);
+  outline-offset: 2px;
+  transform: translate(-50%, -50%) scale(0.97);
+  filter: brightness(0.9);
+  transition:
+    transform var(--town-hud-t-tap) ease-out,
+    filter var(--town-hud-t-tap) ease-out;
+}
+
+/* 完成: 勾花角标(形: 正向符号语义, 避免考试对勾生硬感)+淡化(opacity)+
+   草绿(色, 仅正向); 完成标记可见性归适配层, 淡化由本块承担 */
+.town-hl-mark.is-done {
+  border-radius: 50%;
+  color: var(--town-hud-done);
+  opacity: 0.55;
+}
+
+.town-hl-mark.is-done::after {
+  content: '✿';
+  position: absolute;
+  inset-block-end: -4px;
+  inset-inline-end: -4px;
+  font-size: 14px;
+  color: var(--town-hud-done);
+}
+
+/* 选中/会话中(A→B 交接): 双圈角框(形: outline+border 嵌套结构)+天蓝
+   (色, 冷静聚焦) */
+.town-hl-mark.is-active {
+  border-radius: 0;
+  outline: 2px solid var(--town-hud-sky);
+  outline-offset: 2px;
+  border: 2px solid var(--town-hud-sky);
+  color: var(--town-hud-sky);
+}
+
+/* 会话降噪最低存在感档(prebuild §4.4 min 档): 半隐让注意力归会话 */
+.town-hl-mark.is-min {
+  opacity: 0.35;
 }
