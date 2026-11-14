@@ -5,7 +5,9 @@
    一句话职责: 把 town-ui-core 的五态决策落到 #townHud 四槽 DOM——机器
    身份对账(进镇挂/离镇收/新机清)、emit 事件消费、TTS 意图与表扬节奏
    落地、L2 方位指引器(签名门控脏标刷新, 低频位姿采样驱动档位)、可交互
-   高亮层(事件驱动命中+四态标记+点选结算)、会话避让监听入口。
+   高亮层(事件驱动命中+四态标记+点选结算)、会话三件套(B 侧 DOM:
+   World Bubble+Session Panel+Option Chip/Action Ghost, 机器 emit→
+   dialogEvent 同实例闭环)、会话避让监听入口。
    interface: mkTownUi({doc, machineRef, poseRef, speech, timer, showPage,
       raf, camRef, hlSource, onInteract}) → {targetEvent(name, payload),
       dialogEvent(name, payload), sync(), start(), cardState(), root} ·
@@ -20,7 +22,10 @@
       townPointerBand/townPointerHeading/townPointerSig/townHlClass/
       townHlDim/townHlSig/townHlHit/townHlProject(必须先装载; 经典
       script 共享词法直用, Node require 走 core 的 CJS 导出面解析);
-      speech.js SpeechKit(缺省桩); modes/adventure.js AdventureMode.adv.
+      town-dialog-core.js 的 DIALOG_EVENTS/DIALOG_OPTS/mkDialogMachine/
+      dialogViewFor/dialogUtterFor(装载序 town-ui-core < town-dialog-core
+      < 本文件; Node require 同走 CJS 导出面); speech.js SpeechKit(缺省
+      桩); modes/adventure.js AdventureMode.adv.
       advTownState(缺省机器挂点, 闭包内惰性解析); town-map-core.js
       TOWN_MAP.anchors(bell-tower 回落锚, 惰性解析缺席降级零方位档);
       town-interact-core.js TOWN_INTERACTS/townInteractRegistry(高亮清单
@@ -54,6 +59,17 @@ const TOWN_UI_CORE = typeof townHudCardState === 'function' ?
     townHlClass, townHlDim, townHlSig, townHlHit, townHlProject} :
   (typeof module !== 'undefined' && module.exports ?
     require('./town-ui-core.js') : null);
+
+/* 会话核心解析(T-UI-04): 同款双栖。core 缺席(装载序破坏)→null: 会话
+    驱动缝全旁路(点选保持纯 A 侧结算), 不炸加载 */
+const DIALOG_CORE = typeof mkDialogMachine === 'function' ?
+  {DIALOG_EVENTS, DIALOG_OPTS, mkDialogMachine, dialogViewFor,
+    dialogUtterFor} :
+  (typeof module !== 'undefined' && module.exports ?
+    require('./town-dialog-core.js') : null);
+
+/* respond 确认短驻泵窗(<300ms 可感知窗, prebuild §4.1; 墙钟归装配层) */
+const DLG_CONFIRM_MS = 280;
 
 /* 高亮清单生产缺省(T-UI-03): 交互锚点注册派生快照(id/kind/iconKey/label/
     anchor 六锚点+三轻任务九条目); TOWN_INTERACTS/townInteractRegistry 缺席
@@ -164,7 +180,17 @@ function mkTownUi(deps) {
   let pointerIcon = null;
   let pointerArrow = null;
   let hlLayer = null; /* T-UI-03 高亮层(mount 恒等创建, 独立 town-hl- 命名空间) */
+  let dlgLayer = null; /* T-UI-04 会话层(mount 恒等创建, 独立 town-dlg- 命名空间) */
+  let dlgBubble = null;
+  let dlgPanel = null;
+  let dlgSpeaker = null;
+  let dlgThumb = null;
+  let dlgBody = null;
+  let dlgOpts = null;
+  let dlgGhosts = null;
+  let dlgPraise = null;
   let hoveredId = null; /* 事件驱动命中记忆(仅 mousemove 重算, sync 不判) */
+  let hoveredEntry = null; /* 命中条目快照(bubble 文案/会话驱动缝用) */
   let pressedId = null; /* 按下记忆(pointerdown 置/pointerup 清并结算) */
   const hlStateMemo = new Map(); /* 标记状态签名记忆(id→memo, 脏标对账) */
   let cur = 'hidden'; /* 核心态唯一事实(town-ui-core 状态机输出) */
@@ -178,6 +204,16 @@ function mkTownUi(deps) {
   let praiseHideH = null; /* 未决定时句柄(离镇/换机要清) */
   let elapseH = null;
   let rafStarted = false;
+  /* T-UI-04 会话机器与泵(B 侧; emit→onDlgEvent 同实例闭环) */
+  let dlg = null;
+  let dlgCtx = null; /* 会话上下文(entry 快照: 视图/话术派生输入) */
+  let dlgSig = null; /* 会话层签名记忆(脏标对账, 同态零 DOM 操作) */
+  let dlgSentence = ''; /* 当前会话播报句(再听 ghost 口径) */
+  let dlgConfirmH = null; /* respond 确认泵句柄 */
+  let dlgDwellH = null; /* praise 停留泵句柄 */
+  if (DIALOG_CORE) {
+    dlg = DIALOG_CORE.mkDialogMachine({emit: onDlgEvent});
+  } /* enterTown 会重建(新机新会话), 此处先备防进镇前事件 */
 
   function clearHandle(h) {
     if (h) timer.clear(h);
@@ -229,6 +265,41 @@ function mkTownUi(deps) {
        点选走文档级事件链(mousemove/pointerdown/pointerup), 标记纯视觉 */
     hlLayer = doc.createElement('div');
     hlLayer.classList.add('town-hl-layer');
+    /* T-UI-04 会话三件套: 独立 town-dlg- 命名空间(bubble/panel/praise
+       平级; panel 内 speaker/thumb/body/opts/ghosts 子件恒等复用, 刷新
+       只写文本/显隐/children, 零重建——签名门控在 refreshDlg) */
+    dlgLayer = doc.createElement('div');
+    dlgLayer.classList.add('town-dlg-layer');
+    dlgBubble = doc.createElement('div');
+    dlgBubble.classList.add('town-dlg-bubble');
+    dlgBubble.setAttribute('data-state', 'idle');
+    dlgBubble.hidden = true;
+    dlgPanel = doc.createElement('div');
+    dlgPanel.classList.add('town-dlg-panel');
+    dlgPanel.setAttribute('data-state', 'idle');
+    dlgPanel.hidden = true;
+    dlgSpeaker = doc.createElement('div');
+    dlgSpeaker.classList.add('town-dlg-speaker');
+    dlgThumb = doc.createElement('div');
+    dlgThumb.classList.add('town-dlg-thumb');
+    dlgThumb.hidden = true;
+    dlgBody = doc.createElement('div');
+    dlgBody.classList.add('town-dlg-body');
+    dlgOpts = doc.createElement('div');
+    dlgOpts.classList.add('town-dlg-opts');
+    dlgGhosts = doc.createElement('div');
+    dlgGhosts.classList.add('town-dlg-ghosts');
+    dlgPraise = doc.createElement('div');
+    dlgPraise.classList.add('town-dlg-praise');
+    dlgPraise.hidden = true;
+    dlgPanel.appendChild(dlgSpeaker);
+    dlgPanel.appendChild(dlgThumb);
+    dlgPanel.appendChild(dlgBody);
+    dlgPanel.appendChild(dlgOpts);
+    dlgPanel.appendChild(dlgGhosts);
+    dlgLayer.appendChild(dlgBubble);
+    dlgLayer.appendChild(dlgPraise);
+    dlgLayer.appendChild(dlgPanel);
     const homeBtn = doc.createElement('button');
     homeBtn.setAttribute('aria-label', '回主菜单');
     homeBtn.textContent = '🏠';
@@ -242,6 +313,7 @@ function mkTownUi(deps) {
     root.appendChild(praiseSlot);
     root.appendChild(sysSlot);
     root.appendChild(hlLayer);
+    root.appendChild(dlgLayer);
     doc.body.appendChild(root);
   }
 
@@ -418,6 +490,7 @@ function mkTownUi(deps) {
     const cam = camRef();
     if (!cam || !cam.origin || !cam.dir) {
       hoveredId = null;
+      hoveredEntry = null;
       refreshHl();
       return;
     }
@@ -427,6 +500,8 @@ function mkTownUi(deps) {
     }
     const hit = TOWN_UI_CORE.townHlHit(cam.origin, cam.dir, candidates, {});
     hoveredId = hit ? hit.id : null;
+    hoveredEntry = hit ?
+      hlSource().find((e) => e && e.id === hit.id) || null : null;
     refreshHl();
   }
 
@@ -440,6 +515,7 @@ function mkTownUi(deps) {
 
   function onHlMove() {
     recomputeHit(); /* 悬停=鼠标唯一发现通道(§4.6) */
+    refreshDlg(); /* hover 翻转→bubble 显隐随事件(签名门控) */
   }
 
   function onHlDown() {
@@ -454,12 +530,184 @@ function mkTownUi(deps) {
     pressedId = null;
     const entry = hlSource().find((e) => e && e.id === id);
     if (entry && entry.anchor) {
+      onEntryClick(entry); /* 会话驱动缝先挂闸: open 先于 A 回流(settleFocus
+         的 tts-hint 被会话冻结吞, 防 A 句污染会话播报) */
       settleFocus(entry);
       /* 恰一次派发命中对象载荷(五键, 协议面=dialog-spec §2.2 载荷形状) */
       onInteract({id: entry.id, kind: entry.kind, iconKey: entry.iconKey,
         label: entry.label, anchor: entry.anchor});
+      /* 探索中点选开会话的收敛补喂: settleFocus 已把卡带到 active(tts-hint
+         被闸吞), 核心 dialog-open 收敛边只认 active/step-done——此处补一次
+         幂等收敛(已 dimmed 零动作) */
+      if (dlg && dlg.state() !== 'idle') feed({type: 'dialog-open'});
     }
     refreshHl(); /* 抬起回弹: pressed 清, 仍在瞄→hover 恢复 */
+  }
+
+  /* ---------- T-UI-04 会话三件套装配(dialog-spec §2/§4-§7) ----------
+     会话驱动缝: 点选 sessionKind 在册条目→开会话+自动 route(任务会话);
+     会话中点中同目标=target-found(世界点选确认); landmark/prop 点选
+     保持纯 A 侧结算既有行为零变。机器 emit→onDlgEvent 同实例闭环:
+     open/close 转投 dialogEvent(A 收敛/恢复), update 驱动会话 DOM 刷新
+     +步进播报(B4 每步一次)+confirm/dwell 泵(墙钟归装配层)。DOM 刷新
+     全程签名门控(同态零 classList/零重建), chip/ghost onclick 闭包捕获
+     id(不依赖 DOM 属性寻址)。 */
+  function clearChildren(el) {
+    while (el.children.length) el.children.pop();
+  }
+
+  /* 点选会话驱动缝(landmark/prop 纯 A 零变; seek pending 中点中同目标=
+     找到) */
+  function onEntryClick(entry) {
+    if (!dlg || !DIALOG_CORE) return;
+    const snap = dlg.snapshot();
+    if (snap.state === 'idle') {
+      if (!entry.sessionKind) return; /* 无会话语义条目不开会话 */
+      dlgCtx = {npcId: entry.id, npcLabel: entry.label,
+        iconKey: entry.iconKey, sessionKind: entry.sessionKind,
+        taskRef: entry.taskRef || null, targetIconId: entry.iconKey};
+      dlg.handle({type: 'click-npc', payload: {entry}});
+      dlg.handle({type: 'route'}); /* 任务会话点选即接(自动 route) */
+    } else if (entry.id === snap.npcId && snap.hasPendingChoice) {
+      dlg.handle({type: 'target-found', payload: {targetId: entry.id}});
+    }
+  }
+
+  /* 会话层刷新(签名门控脏标): 状态/上下文/徽章级签名不变零 DOM 操作;
+     面板 data-state 是可观测钩子(dialog-spec §11), 恒写不门控 */
+  function refreshDlg() {
+    if (!dlgLayer || !dlg || !root || root.hidden) return;
+    const snap = dlg.snapshot();
+    const view = DIALOG_CORE.dialogViewFor(snap.state, dlgCtx || {});
+    const bubbleText = snap.state === 'idle' && hoveredEntry ?
+      hoveredEntry.label || '' : '';
+    const sig = [snap.state, dlgCtx ? dlgCtx.npcId : null,
+      view.praise ? view.praise.level : '', bubbleText].join('|');
+    if (sig === dlgSig) return;
+    dlgSig = sig;
+    dlgPanel.setAttribute('data-state', snap.state);
+    dlgPanel.hidden = snap.state === 'idle';
+    if (dlgPanel.hidden) {
+      dlgSpeaker.textContent = '';
+      dlgBody.textContent = '';
+      clearChildren(dlgOpts);
+      clearChildren(dlgGhosts);
+    } else {
+      dlgSpeaker.textContent = view.panel.speaker.name;
+      dlgBody.textContent = view.panel.body;
+      renderDlgOptions(view.panel.options);
+      renderDlgGhosts(view.panel.ghosts);
+    }
+    dlgThumb.hidden = !(view.panel && view.panel.thumb);
+    if (view.panel && view.panel.thumb) {
+      /* emoji 占位同 L1/L2 策略(UI-01 语义键入库前) */
+      dlgThumb.textContent = TOWN_CARD_ICONS[dlgCtx.targetIconId] || '⭐';
+    }
+    dlgPraise.hidden = !view.praise;
+    if (view.praise) {
+      dlgPraise.textContent = view.praise.level === 'cheer' ? '🌟' : '⭐';
+    }
+    /* World Bubble 仅 idle 态环境感知(hover 驱动, 局部提示非会话) */
+    dlgBubble.hidden = !(snap.state === 'idle' && hoveredEntry);
+    if (dlgBubble.hidden) {
+      dlgBubble.textContent = '';
+      dlgBubble.setAttribute('data-state', 'idle');
+    } else {
+      dlgBubble.textContent = bubbleText;
+      dlgBubble.setAttribute('data-state', 'bubble');
+    }
+  }
+
+  function renderDlgOptions(options) {
+    clearChildren(dlgOpts);
+    for (const opt of options) {
+      const chip = doc.createElement('button');
+      chip.classList.add('town-dlg-chip');
+      chip.textContent = opt.label;
+      const intent = opt.intent;
+      const optionId = opt.id;
+      chip.onclick = () => {
+        if (!dlg) return;
+        dlg.handle({type: intent, payload: {optionId}});
+      };
+      dlgOpts.appendChild(chip);
+    }
+  }
+
+  function renderDlgGhosts(ghosts) {
+    clearChildren(dlgGhosts);
+    for (const g of ghosts) {
+      const btn = doc.createElement('button');
+      btn.classList.add('town-dlg-ghost');
+      btn.textContent = g.label;
+      const ghostId = g.id;
+      btn.onclick = () => {
+        if (!dlg) return;
+        if (ghostId === 'defer') dlg.handle({type: 'defer'});
+        else if (ghostId === 'replay') replayDlgSentence();
+      };
+      dlgGhosts.appendChild(btn);
+    }
+  }
+
+  /* 再听当前句(§6.2): replay 不进机器(状态不推进), 装配层 TTS 直执行;
+     cancel-then-speak 单通道不重叠抢话 */
+  function replayDlgSentence() {
+    speech.cancel();
+    if (dlgSentence) speech.speak(dlgSentence);
+  }
+
+  /* 会话步进播报(B4 每步自动一次; greet 瞬态不播=矩阵 greet 行) */
+  function speakDlgStep(step) {
+    if (step === 'greet') return;
+    const line = DIALOG_CORE.dialogUtterFor(step, dlgCtx || {});
+    if (!line) return;
+    speech.cancel();
+    dlgSentence = line;
+    speech.speak(line);
+  }
+
+  function dlgConfirmFire() {
+    dlgConfirmH = null;
+    if (dlg) dlg.handle({type: 'confirm'});
+  }
+
+  function dlgDwellFire() {
+    dlgDwellH = null;
+    if (dlg) dlg.handle({type: 'next-step'}); /* N3 dwell 自动步进 */
+  }
+
+  function dlgDwellMs() {
+    return DIALOG_CORE && DIALOG_CORE.DIALOG_OPTS ?
+      DIALOG_CORE.DIALOG_OPTS.praiseTotalMs[0] : 1200;
+  }
+
+  /* 机器 emit 闭环: open/close 转投 A 侧 seam(dialogEvent 同实例),
+     update 驱动刷新+播报+泵(收敛补喂在 onHlUp 链尾: settleFocus 之后) */
+  function onDlgEvent(name, payload) {
+    payload = payload || {};
+    if (name === DIALOG_CORE.DIALOG_EVENTS.OPEN) {
+      dialogEvent(name, payload);
+      refreshDlg();
+    } else if (name === DIALOG_CORE.DIALOG_EVENTS.UPDATE) {
+      refreshDlg();
+      speakDlgStep(payload.step);
+      if (payload.step === 'respond') {
+        clearHandle(dlgConfirmH);
+        dlgConfirmH = timer.set(dlgConfirmFire, DLG_CONFIRM_MS);
+      } else if (payload.step === 'praise') {
+        clearHandle(dlgDwellH);
+        dlgDwellH = timer.set(dlgDwellFire, dlgDwellMs());
+      }
+    } else if (name === DIALOG_CORE.DIALOG_EVENTS.CLOSE) {
+      dialogEvent(name, payload); /* A 恢复/落完成先于会话层收敛 */
+      clearHandle(dlgConfirmH);
+      clearHandle(dlgDwellH);
+      dlgConfirmH = null;
+      dlgDwellH = null;
+      dlgCtx = null;
+      refreshDlg();
+    }
   }
 
   /* 文档级三件套挂/摘(离镇卫生: 监听不泄漏); 裸 doc(无监听宿主=boot
@@ -538,8 +786,16 @@ function mkTownUi(deps) {
     focusTarget = null;
     hoveredId = null; /* 高亮命中/按下记忆同清(零跨轮残留) */
     pressedId = null;
+    hoveredEntry = null;
+    if (DIALOG_CORE) {
+      dlg = DIALOG_CORE.mkDialogMachine({emit: onDlgEvent});
+      dlgCtx = null; /* 新机新会话: 上下文/签名/播报句全清(可重入零串轮) */
+      dlgSig = null;
+      dlgSentence = '';
+    }
     /* 进场喂核心不依赖 DOM 成败(doc 缺席沙盒态照走, applyState 自守卫) */
     feed({type: 'enter'});
+    refreshDlg(); /* 会话层初始落位(data-state=idle 面板隐藏) */
     refreshPointer(); /* 进镇弱提示按当帧位姿重算(签名记忆已被离镇清零) */
     buildHlMarks(); /* 高亮标记挂出(幂等复用, 新机新账) */
     refreshHl(); /* 按当帧视采样落位/显隐 */
@@ -547,13 +803,29 @@ function mkTownUi(deps) {
   }
 
   function leaveTown() {
-    feed({type: 'leave'});
+    if (dlg && dlg.state() !== 'idle') {
+      /* 会话中离镇=defer 语义收会话(A 收 deferred 恢复 prev 卡态, 零
+         负面); close 事件已恢复卡态, 跳过 feed(leave)——leave 会把卡
+         推回 hidden, 覆盖 close 的恢复语义 */
+      dlg.handle({type: 'defer'});
+    } else {
+      feed({type: 'leave'});
+    }
     if (root) root.hidden = true;
     speech.cancel(); /* 提示句不残声 */
     clearHandle(praiseHideH);
     clearHandle(elapseH);
     praiseHideH = null;
     elapseH = null;
+    clearHandle(dlgConfirmH); /* 会话泵随离镇清(零跨轮误发) */
+    clearHandle(dlgDwellH);
+    dlgConfirmH = null;
+    dlgDwellH = null;
+    dlgCtx = null;
+    dlgSentence = '';
+    dlgSig = null; /* 会话层签名记忆清零(再进零残留) */
+    hoveredEntry = null;
+    refreshDlg(); /* 会话层收敛(面板/气泡收起) */
     pointerSig = null; /* 指引签名记忆清零(再进新机重算零残留) */
     detachHlListeners(); /* 三件套摘除(监听不泄漏) */
     hoveredId = null;

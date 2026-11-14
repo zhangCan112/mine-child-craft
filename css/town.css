@@ -376,3 +376,184 @@
 .town-hl-mark.is-min {
   opacity: 0.35;
 }
+
+/* ============================================================
+   T-UI-04 会话三件套 (town-dlg- 独立命名空间; dialog-spec §4/§6,
+   prebuild §1 token/§4.2 热区/§4.5 克制动效)
+   六岁语义: 暖纸底+墨字+天蓝聚焦(同 town-hud 族), 零警示红零倒计时;
+   chip 64px 主选项触点(§4.2), ghost 44px 热区下限(§4.5 纯鼠标);
+   panel 底部居中+安全区让位(B1); 弹入 180ms(§5.4), 零闪烁零惊吓。
+   ============================================================ */
+.town-dlg-layer {
+  /* B 侧 token(色板/动效窗引用 town-hud 族, 单源不另立权威) */
+  --town-dlg-panel-bg: var(--town-hud-soft-white);
+  --town-dlg-chip-size: 64px;
+  --town-dlg-panel-bottom: var(--town-hud-safe);
+  --town-dlg-t-pop: 180ms;
+
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* 层零捕获(同 #townHud), 构件自身开启 */
+}
+
+/* World Bubble: 悬停环境感知的短气泡(Bubble-S), 底部居中不挡世界 */
+.town-dlg-bubble {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: calc(var(--town-dlg-panel-bottom) + 120px);
+  margin-inline: auto;
+  width: fit-content;
+  max-width: min(280px, 60vw);
+  min-height: var(--town-hit-min);
+  display: flex;
+  align-items: center;
+  padding: 6px 18px;
+  background: rgb(255 249 236 / 92%);
+  border: 3px solid var(--town-hud-ink);
+  border-radius: 999px;
+  box-shadow: inset 0 0 0 3px var(--town-hud-soft-white);
+  color: var(--town-hud-ink);
+  font-size: 18px;
+  font-weight: 700;
+  pointer-events: none; /* 纯提示不挡点选 */
+  opacity: 1;
+  transition: opacity var(--town-dlg-t-pop) ease-out;
+}
+
+.town-dlg-bubble[hidden] {
+  display: none;
+}
+
+/* Session Panel: 底部居中卡片(B1), 暖纸底+墨字, 圆角无棱角 */
+.town-dlg-panel {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-end: var(--town-dlg-panel-bottom);
+  margin-inline: auto;
+  width: min(420px, 92vw);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 18px;
+  background: var(--town-dlg-panel-bg);
+  border: 3px solid var(--town-hud-ink);
+  border-radius: 16px;
+  box-shadow: inset 0 0 0 3px rgb(255 255 255 / 60%);
+  color: var(--town-hud-ink);
+  pointer-events: auto;
+  opacity: 1;
+  transition: opacity var(--town-dlg-t-pop) ease-out;
+}
+
+.town-dlg-panel[hidden] {
+  display: none;
+}
+
+.town-dlg-speaker {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--town-hud-ink);
+}
+
+.town-dlg-body {
+  font-size: 17px;
+  line-height: 1.4;
+}
+
+/* 目标缩略图(B6): seek 态常驻小徽标, 天蓝底圆牌 */
+.town-dlg-thumb {
+  align-self: flex-start;
+  min-width: var(--town-hit-min);
+  min-height: var(--town-hit-min);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--town-hud-sky);
+  border: 3px solid var(--town-hud-ink);
+  border-radius: 12px;
+  font-size: 24px;
+  line-height: 1;
+}
+
+.town-dlg-thumb[hidden] {
+  display: none;
+}
+
+/* 选项 chips: 主选项触点 64px(§4.2), 暖金底按下回弹(§4.5) */
+.town-dlg-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.town-dlg-chip {
+  min-width: 64px;
+  min-height: 64px;
+  padding: 8px 18px;
+  background: var(--town-hud-gold);
+  border: 3px solid var(--town-hud-ink);
+  border-radius: 14px;
+  color: var(--town-hud-ink);
+  font-size: 18px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--town-hud-t-tap) ease-out;
+}
+
+.town-dlg-chip:active {
+  transform: scale(0.95);
+}
+
+/* Action ghosts: 无压力出口恒在, 热区 ≥44px(§4.5 硬约束), 低调描边 */
+.town-dlg-ghosts {
+  display: flex;
+  gap: 10px;
+}
+
+.town-dlg-ghost {
+  min-width: var(--town-hit-min);
+  min-height: 44px;
+  padding: 6px 14px;
+  background: transparent;
+  border: 2px solid var(--town-hud-ink);
+  border-radius: 999px;
+  color: var(--town-hud-ink);
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform var(--town-hud-t-tap) ease-out;
+}
+
+.town-dlg-ghost:active {
+  transform: scale(0.95);
+}
+
+/* 会话内表扬徽章(B owner, §7.3): 中上浮现不挡面板, 弹入 180ms */
+.town-dlg-praise {
+  position: absolute;
+  inset-inline: 0;
+  inset-block-start: 30vh;
+  margin-inline: auto;
+  width: fit-content;
+  font-size: 56px;
+  line-height: 1;
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity var(--town-dlg-t-pop) ease-out;
+}
+
+.town-dlg-praise[hidden] {
+  display: none;
+}
+
+/* 克制动效降级(§4.5): 减少动态偏好下全部会话构件零过渡零闪烁 */
+@media (prefers-reduced-motion: reduce) {
+  .town-dlg-bubble,
+  .town-dlg-panel,
+  .town-dlg-chip,
+  .town-dlg-ghost,
+  .town-dlg-praise {
+    transition: none;
+    animation: none;
+  }
+}

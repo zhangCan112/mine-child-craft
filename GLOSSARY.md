@@ -262,6 +262,10 @@ _Avoid_: 城镇交互系统（散称）、把 HUD/指针渲染/对话框组件�
 
 _Avoid_: 墙钟/定时语义进核心（停留与表扬节奏归装配层计时）、HUD 决策散写进 adventure.js（拍板唯一在此）、浅冻结核心参数表（区间数组同样 Object.isFrozen）
 
+**会话状态机纯核心（TownDialogCore）**:
+应用层纯核心（js/town-dialog-core.js，零 THREE·零 DOM·零墙钟·零运行时依赖，有同名单测）：小镇 NPC 会话的全部决策拍板单收口——九态状态机+关闭三值路由+徽章累积+TTS 仲裁+HUD 收敛档+三件套视图/话术派生；DOM/语音/计时落地归城镇 HUD 适配层（js/town-ui.js 会话三件套段）。interface：DIALOG_STATES（冻结九态 idle|bubble|greet|guide|seek|help|respond|praise|complete）· DIALOG_INTENTS（冻结十一意图）· DIALOG_TRANSITIONS（冻结转移表，数组值=多值边：payload.to 显式优先→route 按 sessionKind→next-step 缺省 complete）· DIALOG_OPTS（冻结参数表 B1-B8+N 系，零倒计时零失败键）· TTS_PRIORITIES（五级 ambient 0/aTask 2/step 4/praise 4/replay 5）· DIALOG_EVENTS（事件名常量）· mkDialogMachine({emit}) → {handle, state, snapshot}（非法意图零惩罚拒绝；open 恰发一次；close 三值 deferred|done|continue 且事件先于复位派生；snapshot 深拷贝）· dialogBadgesAfter（尾追加封顶丢新入参零突变）· ttsPlanFor（drop|now|queue 三裁决）· hudConvergenceFor（A 收敛档单源）· dialogViewFor（三件套视图，只出语义键）· dialogUtterFor（{n} 插值，无句态返回 null）。
+_Avoid_: 墙钟/表扬停留节奏进核心（归装配层 timer）、emoji/glyph 进视图（只出语义键，翻译归装配层）、给会话加倒计时/失败/惩罚语义（零压力红线）
+
 **镇民注册表（TownNpcRegistry）**:
 应用层纯数据注册表（js/town-npc-registry.js，-registry 契约，零 THREE·零 DOM·零墙钟·零随机，有同名单测）：14 实体（V01~V10 十村民 + G01 铁傀儡 + A01~A03 氛围动物）模型清单的唯一权威——命名/贴图引用/几何血统/配色出处/站位锚引用/交互协议形状一处收口，消费方只派生不复制（不入 MOB_TYPES 战斗注册表，引擎渲染管线由 mob-look-kit 共享，look 白名单走 town_ 前缀域）。interface：TOWN_NPCS（14 行纯数据，行键集按 category 恰好定型：villager/golem 各 15 键 · animal 12 键，动物零交互字段）· townNpcRegistry(list?) 纯函数（校验+快照：id/key 唯一 · category/sessionKind 拼写域 · 动物必无 sessionKind · look 与锚点在册性 · tex 声明一致，违规值进消息构造即抛；快照=源字段透传+label(name)+faceSrc('facePixels')，同参同输出零副作用）。依赖均经全局名调用期解析：MobLookKit（has/textureBuffer）· TOWN_SESSION_KINDS（town-interact-core 冻结五值）· TOWN_NPC_ANCHORS（站位锚在册性）。
 _Avoid_: 镇民清单散称复制（消费方只派生不复制）、把镇民塞进 MOB_TYPES 战斗注册表（镇民不入战斗）、村民表（漏 G01 与动物——注册的是 14 实体不止村民）
