@@ -70,10 +70,11 @@
       与唯一写入口——URL ?edgeUnlocked=1 走查参数驱动; 〔世界边界·T8〕降级:
       OR 垫在进度派生之下)·advEdgeUnlockCounts+advSetEdgeUnlockCounts(解锁
       进度账唯一写入口, 壳 init 注入 quest counts 引用不复制)·
-      advEdgeOpenDir(单一开放判据: 强制缝 OR advEdgeDirUnlocked 派生——屏障
-      建场早退/保护门控/西带地表分支/西带雾表四方共吃)·advEdgeTransitDirAt
-      (越线传送触发线纯几何, east 恒 null)+advEdgeHintAt(锁定向屏障近前
-      引导区, 解锁态静默)·ADV_EDGE_SKY_WEST_OPEN(西带解锁态雾减半表,
+      advEdgeOpenDir(单一开放判据: east 短路恒开放[T-SEAM-02] OR 强制缝 OR
+      解锁派生——屏障建场早退/保护门控/西带地表分支/西带雾表四方共吃)·
+      advEdgeTransitDirAt(越线传送触发线纯几何, east=主径带式 z74~75)·
+      advEdgeHintAt(锁定向屏障近前引导区, 解锁态静默, east 恒 null)·
+      ADV_EDGE_SKY_WEST_OPEN(西带解锁态雾减半表,
       advEdgeSkyAt 换表)·advEdgeProtectedAt/advEdgeProtectedZone(边界保护
       政策纯函数, T7 转正新增: T6 修订 v2 不可挖判据/三向足迹列禁放判据
       ——三向随 advEdgeOpenDir 逐向门控, 东向恒保护)
@@ -822,22 +823,28 @@ function advSetEdgeUnlockCounts(counts) {
 }
 
 function advEdgeOpenDir(dir) {/* 单一开放判据(〔世界边界·T8〕, 四方共吃一口):
+   east 短路恒开放(T-SEAM-02, ADR-0011 决策 3/§8 M9 PO 拍板「随时可去」
+   ——无任务解锁键/无时段窗/无渐进解锁, 条件开放变体一律挡回), 其余三向
    强制缝 OR 解锁派生——advEdgeDirUnlocked(AMC, advMapUnlocked 复用不绕过)
    查 advEdgeUnlockCounts; counts 缺省(null)=三向全锁, 行为与 T7 单开关
    false 逐位一致。消费方: 三向屏障建场早退/保护政策逐向门控/西带解锁态
    地表分支/西带雾表换档 + 壳传送触发与引导(波次二装配) */
+  if (dir === 'east') return true; /* 恒开放: 短路在 OR 派生前(east 不进解锁键) */
   return advEdgeBarriersHidden || advEdgeDirUnlocked(dir, advEdgeUnlockCounts);
 }
 
 function advEdgeTransitDirAt(x, z) {/* 越线传送触发线(纯几何, 解锁判定分离可
    分维测试): 「中心进入最外一行格」与碰撞钳制面等效(voxel.js physics 把玩家
    中心钳在 [PLAYER.hx, WORLD_W−PLAYER.hx] × [PLAYER.hz, WORLD_D−PLAYER.hz],
-   hx=hz=0.2, floor 坐标 === 0 或 === 尺寸−1 即物理可达的贴墙位); east 恒
-   null=东向无传送语义(T5 定稿收尾, 栅栏彩蛋跳缝进 x158~159 条带不触发);
-   角区检序北→南→西取先(advEdgeSkyAt cand 检序同源——NE 走查定稿同款裁定) */
+   hx=hz=0.2, floor 坐标 === 0 或 === 尺寸−1 即物理可达的贴墙位); east 带式
+   主径触发线(T-SEAM-02, town-map-design §6.3.1——「走到路尽头才触发」: 主径
+   轴线 z74~75×栅栏线 x≥157, 轴向带式判据与三向全缘行形状不同; 壳层传 floor
+   坐标, 与翻越彩蛋天然分流——彩蛋落点 z 出带不触发); 角区检序北→南→西取先
+   (advEdgeSkyAt cand 检序同源——NE 走查定稿同款裁定; east 带居图中部不入角区) */
   if (z < 1) return 'north';
   if (z >= WORLD_D - 1) return 'south';
   if (x < 1) return 'west';
+  if (x >= 157 && (z === 74 || z === 75)) return 'east'; /* 主径带内即触发 */
   return null;
 }
 
@@ -1473,11 +1480,14 @@ function advEdgeEastSign() {/* 告示牌(东 spec §5): 立式双柱牌 x156, �
 function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间留缝是设计本体
   ——原木柱(2 高)每 3 格一根, 缝格木板横杆(1 高), 缝口净空露出剪影=「看得见、
   过不去、但不堵心」; 碰撞≈桩 2/缝 1 整格近似(T7 拍板 Q1 销项, 跳缝=翻越彩蛋);
-  挖/替换保护判据已落地(advEdgeProtectedAt 东向恒保护), 放置不设禁放柱
-  (翻越=彩蛋口径, T7 转正) */
+  挖/替换保护判据已落地(advEdgeProtectedAt 东向段随行), 放置不设禁放柱
+  (翻越=彩蛋口径, T7 转正)。门口开间(T-SEAM-02, town-map-design §6.3.1):
+  主径轴线 z74~75 两格让位——开间内无栅栏件(主径自此穿栅栏而过), 桩位让至
+  开间两侧邻格 z73/76(各一根两高原木桩=门框读法), 其余段形制照旧 */
   for (let z = 0; z < WORLD_D; z++) {
+    if (z === 74 || z === 75) continue; /* 门口开间: 两格净空无杆无桩 */
     const y = ADV_GROUND + advHeightAt(157, z) + 1;
-    if (z % 3 === 0) {
+    if (z === 73 || z === 76 || z % 3 === 0) {/* 常规桩位 + 开间侧邻门框桩(z73/76 让位至此, 恒两高) */
       setBlockRaw(157, y, z, 5);
       setBlockRaw(157, y + 1, z, 5);
     } else {
@@ -1772,11 +1782,15 @@ function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁�
      (NW 融冰/SW 潮尾水)天然同在保; 〔世界边界·T8〕解锁态判据让开与地表
      换泥岸步道同口advEdgeOpenDir, 步道块可正常挖放) */
   if (!advEdgeOpenDir('west') && x >= 13 && x <= 18 && y >= top - 1 && y <= top + 1) return true;
-  /* 东·栅栏线 x157(east-spec §5): 杆/桩基 y0 恒在(全 z 无条件写, 判据同式
-     无条件), 桩顶 y0+1 只 z%3===0 桩位, 栈桩 y0−1 只 z153/154/159(SE 角
-     post-pass 原木桩脚; 已逐格核对三格均实落桩=建场实录) */
+  /* 东·栅栏线 x157(east-spec §5 + T-SEAM-02 门口开间): 开间 z74/75 让保护
+     (开间内无栅栏件, 主径通路——town-map-design §6.3.1 门口开间条), 侧邻
+     门框桩 z73/76 桩基+桩顶两高在保; 其余段照旧——杆/桩基 y0 恒在(全 z
+     无条件写, 判据同式无条件), 桩顶 y0+1 只 z%3===0 桩位, 栈桩 y0−1 只
+     z153/154/159(SE 角 post-pass 原木桩脚; 已逐格核对三格均实落桩=建场实录) */
   if (x === 157) {
     const y0 = top + 1; /* = ADV_GROUND + advHeightAt(157,z)+1(advEdgeEastFence 同式) */
+    if (z === 74 || z === 75) return false; /* T-SEAM-02 门口开间: 栅栏层让保护(开间即通路, §6.3.1) */
+    if (z === 73 || z === 76) return y === y0 || y === y0 + 1; /* 侧邻门框桩两高在保 */
     if (y === y0) return true;
     if (z % 3 === 0 && y === y0 + 1) return true;
     if ((z === 153 || z === 154 || z === 159) && y === y0 - 1) return true;

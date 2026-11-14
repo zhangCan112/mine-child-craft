@@ -171,8 +171,9 @@ test('注册表: 门位网 — home 行恒空数组(T9 门阵退役); 远征图�
   }
   /* 去向绑定(旧 home 门阵的 to 字段职责)改由边缘方向表单一权威承担(T9):
      反查链 advHomeArriveGate 消费同一份表, 三向齐全即回家锚三向齐全 */
-  assert.deepStrictEqual(Maps.ADV_EDGE_DIR_MAP, {north: 'snow', south: 'desert', west: 'swamp'},
-      '边缘方向→目标图绑定(north/snow · south/desert · west/swamp)');
+  assert.deepStrictEqual(Maps.ADV_EDGE_DIR_MAP,
+      {north: 'snow', south: 'desert', west: 'swamp', east: 'town'},
+      '边缘方向→目标绑定(north/snow · south/desert · west/swamp · east/town=T-SEAM-02 必需件)');
 });
 
 /* ============ 政策纯函数段(逐条钉口径, 纯数据进出零世界读) ============ */
@@ -590,7 +591,7 @@ test('门位: 远征图门位不落水 · 地表压平净空不撞结构(T7 门�
 
 /* ============ 〔世界边界·T8〕边缘传送判据(波次一, world-edge-t8-plan §4 组 2/3) ============ */
 
-test('T8 解锁派生: counts 缺省三向全锁 · 单键分向 · 全键 · east 无键恒锁 · 真值语义 · 方向映射唯一权威', () => {
+test('T8 解锁派生: counts 缺省三向全锁 · 单键分向 · 全键 · east 派生不挂解锁键(恒开放走 AC 短路) · 真值语义 · 方向映射唯一权威', () => {
   const u = Maps.advEdgeDirUnlocked;
   /* 缺省(null/undefined/{} 缺键)=全锁——老档零迁移口径(组 2) */
   assert.strictEqual(u('north', undefined), false, '缺 counts=north 锁');
@@ -609,15 +610,21 @@ test('T8 解锁派生: counts 缺省三向全锁 · 单键分向 · 全键 · ea
   assert.strictEqual(u('north', all), true, '全键 north 开');
   assert.strictEqual(u('south', all), true, '全键 south 开');
   assert.strictEqual(u('west', all), true, '全键 west 开');
-  /* east 无键=恒 false(东向无传送语义的自文档表达) */
-  assert.strictEqual(u('east', all), false, 'east 无键恒 false');
+  /* east→town 无解锁键=派生层恒 false(T-SEAM-02: 恒开放在 AC advEdgeOpenDir
+     east 短路开放, 不经本派生; 派生面保持纯查表语义收口不动) */
+  assert.strictEqual(u('east', all), false, 'east 派生恒 false(town 无解锁键)');
   assert.strictEqual(u('east', undefined), false, 'east 缺 counts 亦 false');
   /* 复用 advMapUnlocked 语义: 缺键/0=锁, 真值=开(不绕过) */
   assert.strictEqual(u('south', {unlockedDesert: 0}), false, '0=锁');
   assert.strictEqual(u('west', {unlockedSwamp: 'yes'}), true, '真值=开');
-  /* 方向映射唯一权威(拍板 5) */
-  assert.deepStrictEqual(Maps.ADV_EDGE_DIR_MAP, {north: 'snow', south: 'desert', west: 'swamp'},
-      'ADV_EDGE_DIR_MAP 三键与指派');
+  /* 方向映射唯一权威(拍板 5 + T-SEAM-02 门口缝) */
+  assert.deepStrictEqual(Maps.ADV_EDGE_DIR_MAP,
+      {north: 'snow', south: 'desert', west: 'swamp', east: 'town'},
+      'ADV_EDGE_DIR_MAP 四键与指派(east=town 必需件)');
+  /* 恒开放红线(T-SEAM-02, ADR-0011 决策 3「无任何条件开放分支」): east 不进
+     解锁键表——进镇无任务解锁依赖(q16 解锁链不动/无时段窗/无渐进解锁) */
+  assert.deepStrictEqual(Object.keys(Maps.ADV_UNLOCK_KEYS).sort(),
+      ['desert', 'snow', 'swamp'], 'ADV_UNLOCK_KEYS 键集三图不变(无 east/town 键)');
 });
 
 test('T8 落点泛化: 无 face 回归钉逐字段 · face north 逐字节恒等 · south/east 落点+yaw · y 恒 · 归一域 [0,2π)', () => {

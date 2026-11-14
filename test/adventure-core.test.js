@@ -728,7 +728,8 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   assert.strictEqual(cell(2, Core.ADV_GROUND + 4, 24), 6, '高脚木屋地板 y28');
   assert.strictEqual(cell(0, Core.ADV_GROUND + 8, 23), api.B_TORCH, '木屋暖窗火把(顶沿, 脚下实心)');
   /* 东带: 主径土面 + 告示牌(双柱+板面) + 木栅栏 x157(桩 z%3==0 两高原木,
-     缝格 1 高横杆——缝口留空是设计本体) + 隔离带 x158~159 剪影(房屋/钟楼)。
+     缝格 1 高横杆——缝口留空是设计本体; 门口开间 z74~75 让位, 桩让至两侧
+     邻格 z73/76=T-SEAM-02) + 隔离带 x158~159 剪影(房屋/钟楼)。
      野树候选确定性穿杆(树干无条件覆写、树叶只落空气格): 首跑观测全数在场,
      计数钉死整段规模(候选若变, 这里最先报警) */
   assert.strictEqual(cell(154, top(154, 74), 74), 2, '东主径土面(与既有东向小径同轴)');
@@ -736,16 +737,26 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   assert.strictEqual(cell(156, yb + 1, 73), 5, '告示牌立柱(z73)');
   assert.strictEqual(cell(156, yb + 3, 74), 6, '告示牌板面(主径上方)');
   assert.strictEqual(cell(156, yb + 3, 75), 6, '告示牌板面(z75)');
-  let posts = 0; let rails = 0;
+  /* 门口开间计数(T-SEAM-02): z74~75 让位无栅栏件(专测另钉), 桩位让至两侧
+     邻格 z73/76(门框桩两高, 单列计数); 常规段=桩 53(54−开间雕出 z75)+
+     横杆 103(106−开间雕出 z74−让位升桩 z73/76)。候选若变, 这里最先报警 */
+  let posts = 0; let rails = 0; let flankPosts = 0;
   for (let z = 0; z < D; z++) {
+    if (z === 74 || z === 75) continue; /* 门口开间: 两格净空 */
     const y = top(157, z) + 1;
-    if (z % 3 === 0 && cell(157, y, z) === 5 && cell(157, y + 1, z) === 5) posts++;
-    if (z % 3 !== 0 && cell(157, y, z) === 6) rails++;
+    if (z === 73 || z === 76) {
+      if (cell(157, y, z) === 5 && cell(157, y + 1, z) === 5) flankPosts++;
+    } else if (z % 3 === 0) {
+      if (cell(157, y, z) === 5 && cell(157, y + 1, z) === 5) posts++;
+    } else {
+      if (cell(157, y, z) === 6) rails++;
+    }
   }
-  assert.strictEqual(posts, Math.floor((D - 1) / 3) + 1,
-      '栅栏桩全数在场(实测 ' + posts + '；带内无树候选, 首跑零缺失)');
-  assert.strictEqual(rails, D - (Math.floor((D - 1) / 3) + 1),
-      '横杆全数在场(实测 ' + rails + '；树叶只落空气格, 不啃横杆)');
+  assert.strictEqual(posts, Math.floor((D - 1) / 3),
+      '常规桩全数在场(54−开间雕出 z75; 实测 ' + posts + '；带内无树候选, 首跑零缺失)');
+  assert.strictEqual(flankPosts, 2, '开间两侧让位门框桩 z73/76 两高在场');
+  assert.strictEqual(rails, D - 4 - Math.floor((D - 1) / 3),
+      '横杆全数在场(106−开间雕出 z74−让位升桩 z73/76; 实测 ' + rails + '；树叶只落空气格, 不啃横杆)');
   const tt = top(158, 74);
   assert.strictEqual(cell(158, tt + 1, 74), 3, '钟楼塔身石(隔离带)');
   assert.strictEqual(cell(158, tt + 8, 74), 5, '钟楼尖顶');
@@ -2837,12 +2848,12 @@ test('T7 性能钉测: 带建场增量倍率 ≤0.93 + 全量中位 ≤1500ms(en
 
 /* ============ 〔世界边界·T8〕边缘传送判据层(波次一, world-edge-t8-plan §4 组 1/4/8/9) ============ */
 
-test('T8 触发线(组 1): 贴钳制面最外行 · east 恒 null · 角区检序北→南→西 · 钳制域边界值', () => {
+test('T8 触发线(组 1): 贴钳制面最外行 · east 带式主径判据(T-SEAM-02 详测见专条) · 角区检序北→南→西 · 钳制域边界值', () => {
   const t = Core.advEdgeTransitDirAt;
   assert.strictEqual(t(80, 0.5), 'north', '(80,0.5) 北缘行');
   assert.strictEqual(t(80, 159.5), 'south', '(80,159.5) 南缘行');
   assert.strictEqual(t(0.5, 80), 'west', '(0.5,80) 西缘行');
-  assert.strictEqual(t(159.5, 80), null, '东缘无传送(T5 定稿收尾, 栅栏彩蛋不触发)');
+  assert.strictEqual(t(159.5, 80), null, '东带带外(z80 出 [74,75])不触发(带式判据, 彩蛋落带外照旧)');
   assert.strictEqual(t(80, 80), null, '腹地不触发');
   assert.strictEqual(t(0.5, 0.5), 'north', 'NW 角区检序北先');
   assert.strictEqual(t(159.5, 0.5), 'north', 'NE 角区检序北先(南→西→东前取北)');
@@ -2850,6 +2861,86 @@ test('T8 触发线(组 1): 贴钳制面最外行 · east 恒 null · 角区检�
   assert.strictEqual(t(80, 0.2), 'north', 'z=0.2 钳制可达域内(PLAYER.hz=0.2)可触发');
   assert.strictEqual(t(0.2, 80), 'west', 'x=0.2 钳制可达域内');
   assert.strictEqual(t(80, 1.0), null, 'z=1.0 已离开最外行不触发');
+});
+
+test('T-SEAM-02 east 带式触发线: 主径带逐点(x≥157 且 z∈[74,75]) · 带外不触发 · 角区检序不冲突 · 彩蛋落点天然分流', () => {
+  const t = Core.advEdgeTransitDirAt;
+  /* 主径带内: x≥157 且 z∈[74,75] → 'east'(轴向带式——「走到路尽头才触发」,
+     与既有三向全缘行判据形状不同, town-map-design §6.3.1) */
+  assert.strictEqual(t(157, 74), 'east', '(157,74) 栅栏线×主径轴线=门口开间南列');
+  assert.strictEqual(t(157, 75), 'east', '(157,75) 栅栏线×主径轴线=门口开间北列');
+  assert.strictEqual(t(158, 74), 'east', '(158,74) 隔离带 x158 带内行(判据 x≥157 无上界)');
+  assert.strictEqual(t(159, 75), 'east', '(159,75) 世界硬缘 x159 带内行');
+  /* 带外: 偏离主径的栅栏段/翻越彩蛋落点(z 出带)不触发 */
+  assert.strictEqual(t(157, 73), null, '(157,73) z 出带=开间南邻不触发');
+  assert.strictEqual(t(157, 76), null, '(157,76) z 出带=开间北邻不触发');
+  assert.strictEqual(t(156, 74), null, '(156,74) x=156 栅栏内侧不触发(判据下界 x≥157)');
+  assert.strictEqual(t(156, 75), null, '(156,75) 主径末格不触发');
+  assert.strictEqual(t(157, 100), null, '(157,100) 偏离主径的栅栏段不触发');
+  assert.strictEqual(t(158, 80), null, '(158,80) 彩蛋落隔离带(z 出带)不触发');
+  assert.strictEqual(t(159, 24), null, '(159,24) 剪影屋列(z 出带)不触发');
+  /* 角区检序不冲突(east 带居图中部, 三向角区取先照旧) */
+  assert.strictEqual(t(157, 0), 'north', '(157,0) 北缘行照旧(east 带不入角区)');
+  assert.strictEqual(t(157, 159), 'south', '(157,159) 南缘行照旧');
+  assert.strictEqual(t(0, 74), 'west', '(0,74) 西缘行照旧');
+});
+
+test('T-SEAM-02 east 恒开放: advEdgeOpenDir(east) 无条件 true(不挂任务解锁键/无时段窗/无渐进解锁) · 三向派生照旧', () => {
+  /* 红线口径(ADR-0011 决策 3): 无条件开放——counts 缺省(三向全锁态)/空
+     counts/全键三态下 east 一律 true; 承接旧小镇卡「随时可去」语义 */
+  Core.advSetEdgeUnlockCounts(null);
+  assert.strictEqual(Core.advEdgeOpenDir('east'), true, 'counts 缺省(三向全锁态) east 恒开放');
+  assert.strictEqual(Core.advEdgeOpenDir('north'), false, '同态 north 照锁(恒开放不外溢三向)');
+  Core.advSetEdgeUnlockCounts({});
+  assert.strictEqual(Core.advEdgeOpenDir('east'), true, '空 counts east 恒开放');
+  Core.advSetEdgeUnlockCounts({unlockedDesert: 1, unlockedSnow: 1, unlockedSwamp: 1});
+  assert.strictEqual(Core.advEdgeOpenDir('east'), true, '全键态 east 恒开放');
+  Core.advSetEdgeUnlockCounts(null); /* 复位缺省口径(后续测试互不渗漏) */
+  /* q16 解锁链不动: 广场任务 unlock 仍指 desert(east 不沾任务解锁, 引导链 v2 不动) */
+  assert.strictEqual(Core.ADV_QUESTS.find((q) => q.id === 'q16_plaza').unlock, 'desert',
+      'q16 解锁链不动(广场→desert, east 不进任务解锁)');
+});
+
+test('T-SEAM-02 近前引导区 east 恒 null 零改动: 主径近前全程无引导话术(引导话术层零改动, advEdgeHintAt 不动)', () => {
+  const h = Core.advEdgeHintAt;
+  assert.strictEqual(h(140, 74), null, '(140,74) 主径近前引导区候选格=恒 null');
+  assert.strictEqual(h(150, 75), null, '(150,75) 同上');
+  assert.strictEqual(h(156, 74), null, '(156,74) 门口贴脸格=恒 null');
+});
+
+test('T-SEAM-02 门口开间建场几何: z74~75 栅栏让位(开间内无栅栏件) · 桩位让至开间两侧邻格(z73/76) · 其余段形制与保护照旧', () => {
+  Core.advBuildWorld();
+  const y0 = (z) => Core.ADV_GROUND + Core.advHeightAt(157, z) + 1; /* 杆/桩基面(advEdgeEastFence 同式) */
+  /* 开间内无栅栏件(主径自此穿栅栏而过) */
+  for (const z of [74, 75]) {
+    assert.strictEqual(cell(157, y0(z), z), 0, '(157,y0,' + z + ') 开间内无杆/桩');
+    assert.strictEqual(cell(157, y0(z) + 1, z), 0, '(157,y0+1,' + z + ') 开间内无桩顶');
+  }
+  /* 桩位让至开间两侧邻格: z73/z76 各一根两高原木桩(门框读法) */
+  for (const z of [73, 76]) {
+    assert.strictEqual(cell(157, y0(z), z), 5, '(157,y0,' + z + ') 开间侧邻格落桩基');
+    assert.strictEqual(cell(157, y0(z) + 1, z), 5, '(157,y0+1,' + z + ') 侧邻桩两高');
+  }
+  /* 其余段形制照旧: z%3==0 桩两高/缝格横杆一高(抽样 z72 桩/z78 桩/z81 桩/z82 杆) */
+  assert.strictEqual(cell(157, y0(72), 72), 5, '(z72) 常规桩基照旧');
+  assert.strictEqual(cell(157, y0(72) + 1, 72), 5, '(z72) 常规桩两高照旧');
+  assert.strictEqual(cell(157, y0(78), 78), 5, '(z78) 常规桩基照旧');
+  assert.strictEqual(cell(157, y0(81), 81), 5, '(z81) 远段桩基照旧');
+  assert.strictEqual(cell(157, y0(82), 82), 6, '(z82) 缝格横杆照旧');
+  assert.strictEqual(cell(157, y0(82) + 1, 82), 0, '(z82) 横杆单高照旧');
+  /* 其余段不可挖保护照旧(东向恒保护): 桩基/桩顶/横杆/侧邻桩全在保 */
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(81), 81), true, '(z81) 桩基在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(81) + 1, 81), true, '(z81) 桩顶在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(82), 82), true, '(z82) 横杆在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(73), 73), true, '(z73) 侧邻桩在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(76) + 1, 76), true, '(z76) 侧邻桩顶在保');
+  /* 开间让位同步让保护: 开间两格栅栏层不再报保护(「对其余段照旧」的对照面,
+     门口自成通路——§6.3.1 门口开间条) */
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(74), 74), false, '(z74) 开间栅栏层保护让位');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(75), 75), false, '(z75) 开间栅栏层保护让位');
+  /* 告示牌照旧(收编②零改动抽样) */
+  assert.ok(Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 3, 74),
+      '告示牌板面在保(形制位置不动)');
 });
 
 test('T8 引导区(组 1): 锁定向命中 · 解锁态静默 · 强制缝静默 · 东向恒 null · 角区检序', () => {

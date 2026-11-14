@@ -506,16 +506,17 @@ function advMapUnlocked(mapId, counts) {
 }
 
 /* 边缘传送方向映射(〔世界边界·T8〕拍板 5 唯一权威): home 触发线方向 →
-    目的图(北=雪原/南=沙漠/西=沼泽, 罗盘核对见图常量段头注)。east 无键=
-    东向无传送语义的自文档表达(T5 定稿收尾, 栅栏彩蛋跳缝不触发) */
-const ADV_EDGE_DIR_MAP = {north: 'snow', south: 'desert', west: 'swamp'};
+    目的图/维度(北=雪原/南=沙漠/西=沼泽, 罗盘核对见图常量段头注;
+    east=town=T-SEAM-02 必需件——门口缝进 town 维度, ADR-0011 决策 2) */
+const ADV_EDGE_DIR_MAP = {north: 'snow', south: 'desert', west: 'swamp', east: 'town'};
 
 /* 边缘传送解锁派生(复用不绕过): 触发线方向 → 目的图 → advMapUnlocked——
-    home 恒开/缺键全锁语义自动继承; east 查表得 undefined → false 自然
-    语义(无传送方向恒锁)。AC 侧 advEdgeOpenDir(单一开放判据)消费本函数;
-    分向解锁: 北随 snow/南随 desert/西随 swamp——解锁链逐图(q16 广场→
-    desert/q19 神殿→snow/q22 雪屋→swamp), T9 后边缘传送是唯一入口,
-    三向一体会锁死任务链 */
+    home 恒开/缺键全锁语义自动继承; east 查表得 'town' 但 town 无解锁键
+    (ADV_UNLOCK_KEYS 不收 town)→派生恒 false——恒开放在 AC advEdgeOpenDir
+    east 短路, 不经本派生(T-SEAM-02, ADR-0011 决策 3)。AC 侧 advEdgeOpenDir
+    (单一开放判据)消费本函数; 分向解锁: 北随 snow/南随 desert/西随 swamp——
+    解锁链逐图(q16 广场→desert/q19 神殿→snow/q22 雪屋→swamp), T9 后边缘
+    传送是唯一入口, 三向一体会锁死任务链 */
 function advEdgeDirUnlocked(dir, counts) {
   return advMapUnlocked(ADV_EDGE_DIR_MAP[dir], counts);
 }

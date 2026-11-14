@@ -80,6 +80,15 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
   'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
+/* T-SEAM-02 town 系装具 vm 补装(dims-core.test.js 同款惯例): ADV_DIMS town 行
+   build 懒引 townBuild(装配件暂住 js/modes/town.js, T-SEAM-05 才迁)——到达测试
+   advSetDim('town') 经全局名解析消费; mkMode/ModeKit 空壳只通 vm 域, 不沾 CJS 域真实件 */
+vm.runInContext('var mkMode = (cfg) => Object.assign({}, cfg); ' +
+    'var ModeKit = {spawn() {}};', eng, {filename: 'town-shell-stubs'});
+for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js', 'js/modes/town.js']) {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
+}
+Object.assign(globalThis, vm.runInContext('({TOWN_MAP, townBuild})', eng));
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, isOpaque, world, worldCells,
   SceneKit, PrefabKit,
@@ -4768,3 +4777,53 @@ test('T11 同池回落: 腹地铺 home 同池 · 远征图行池不被带矩形�
   A.advSetMap('home', A.ADV.spawn); /* 切回 home: 行视图复位, 不串扰后续测试 */
 });
 
+
+/* ============ T-SEAM-02 去程: east 带式触发线+恒开放+到达面扩展+门口开间(壳行为链) ============ */
+
+test('T-SEAM-02 去程进镇端到端: 主径踩线带内恒开放白闪 → advSetDim 落 spawn 锚(79,25,112) · 播报/toast · 任务链不挂 town', () => {
+  mem.clear();
+  freshInit();
+  const stepBefore = A.ADV.quest.step;
+  /* 主径踩线: 门口开间带内(x≥157 且 z∈[74,75], 主径轴线) */
+  globalThis.pos.x = 157.2; globalThis.pos.y = 25; globalThis.pos.z = 74.5;
+  AdventureMode.update(1 / 60); /* 首帧: 越线瞬间 advVeilFire(kind edge, 无站桩) */
+  assert.strictEqual(A.advNetherState().map, 'home', '发令帧: 白闪未满格不切图不切界');
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s: 满格瞬间到达 */
+  assert.strictEqual(A.advNetherState().dim, 'town', '白闪满格 → advSetDim 进 town 维度(town 不在 ADV_MAPS, 到达分流守卫前置不得吞)');
+  assert.strictEqual(A.advNetherState().map, 'home', '维度期间 advMap 冻结 home(切界不动图账)');
+  assert.strictEqual(globalThis.pos.x, 79, '落 spawn 锚 x=79(TOWN_MAP.anchors 派生)');
+  assert.strictEqual(globalThis.pos.y, 25, '落 spawn 锚 y=25(groundY+1 站立面)');
+  assert.strictEqual(globalThis.pos.z, 112, '落 spawn 锚 z=112(南主路上)');
+  assert.ok(spoken.some((s) => String(s).indexOf('到小镇啦') >= 0), '到达播报「到小镇啦！」(分支内定值)');
+  assert.ok(calls.some((x) => x[0] === 'toast' && String(x[1]).indexOf('到小镇啦') >= 0), '到达 toast 🏘️ 到小镇啦');
+  assert.strictEqual(A.ADV.quest.step, stepBefore, '任务链不挂 town(引导链 v2 十五步不动)');
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-02 east 触发带外壳: 偏离主径的栅栏段不触发 · 翻越彩蛋落点(z 出带)不触发落隔离带照旧', () => {
+  mem.clear();
+  freshInit();
+  /* 偏离主径: 贴栅栏 z100(带外) */
+  globalThis.pos.x = 156.8; globalThis.pos.y = 25; globalThis.pos.z = 100.5;
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'overworld', '栅栏段带外不触发(带式判据)');
+  /* 翻越彩蛋落点: 隔离带 x158~159 且 z 出带(开间外翻越不触发, 与入口天然分流) */
+  globalThis.pos.x = 158.5; globalThis.pos.z = 73.5;
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'overworld', '彩蛋落点 (158,73) z 出带不触发');
+  globalThis.pos.z = 100.5;
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'overworld', '彩蛋落点 (158,100) 带外不触发');
+  AdventureMode.cleanup();
+});
+
+test('T-SEAM-02 栅栏保护拒绝话术改稿: east 命中保护判据 → 视觉 spec B.4 定稿(指路收尾, 退役「还没盖好」)', () => {
+  mem.clear();
+  freshInit();
+  const topY = (x, z) => AdventureCore.ADV_GROUND + AdventureCore.advHeightAt(x, z);
+  const east = A.advMineHardText(5, 157, topY(157, 81) + 1, 81); /* 远段桩基面(开间外) */
+  assert.strictEqual(east, '栅栏和牌子不能拆哦～从小路走过去就是小镇啦！',
+      'east 拒绝话术=B.4 定稿逐字(保护理由换成指路, 零否定收尾)');
+  assert.ok(east.indexOf('还没盖好') < 0, '旧稿「小镇还没盖好呢」退役(与恒开放矛盾)');
+  AdventureMode.cleanup();
+});

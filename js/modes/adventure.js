@@ -2660,7 +2660,8 @@ function advVeilFire(gate) {/* 站满发令: 开渐晕转场 + 进冷却(0.8s �
 function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——den=切副本 / rite=解锁
     让开同图重建 / map(含 edge)=切图(kind='edge' 天然落入 map 到达路径零改动:
     ADV_MAPS.find(to) → gates.find(to===from)=挪边后的回程门 → advSetMap+到达
-    记账+portal_travel 音+播报, 世界边界·T8) */
+    记账+portal_travel 音+播报, 世界边界·T8)；维度行分流(T-SEAM-02, ADR-0011
+    决策 2): to ∈ ADV_DIMS → advSetDim(den 同文件先例, 分支内定值播报) */
   advSfx('portal_travel'); /* 双段式第二段: 与遮罩满格同拍 */
   if (advVeil.kind === 'den') {
     advSetDim('den'); /* 换桶/建场/暗黑天穹/首刷在切界装配(den-nest §3.3 ②) */
@@ -2681,6 +2682,17 @@ function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——
     advSpeak('通往' + (rrow ? rrow.name : '') + '的路打开啦！从家的' +
         (rtxt ? rtxt.mid : '') + '一直走就能到！');
     advToast('🧭 通往' + (rrow ? rrow.name : '') + '的路打开啦！');
+    return;
+  }
+  if (ADV_DIMS.find((r) => r.id === advVeil.to)) {
+    /* 维度行分流(T-SEAM-02): 必须在下方 map 守卫之前——town 不在 ADV_MAPS
+        (!row 会吞)且维度期间 advMap 冻结 home(row.id===advMap 也会吞),
+        实证坑见 ADR-0011 决策 2; 到达播报分支内定值(den 先例, 维度行
+        不加 name 字段=行契约纯净)。切界不改图账(advSetDim advMap 不动),
+        visit_town 到达记账不做(den 先例不记账) */
+    advSetDim(advVeil.to);
+    advSpeak('到小镇啦！');
+    advToast('🏘️ 到小镇啦！');
     return;
   }
   const row = ADV_MAPS.find((r) => r.id === advVeil.to);
@@ -2969,14 +2981,17 @@ function advMineHardText(id, x, y, z) {/* 目标格 → 话术(纯 seam, 单测�
     屏障分支自然跳过零影响) */
   /* T7 屏障拒绝(方案 P2): 判据命中(未解锁屏障体)→分向占位文案。文案骨架=各向
      spec 建议(北=§6 例句原文; 南/西=§7/§6 挡路主案改「挖不动」同族占位;
-     东=§7 拒绝话术原文), 称谓与终稿归 T8 话术过目——R8 纪律: 不改文案骨架。
+     东=§7 拒绝话术原文, T-SEAM-02 随恒开放改稿→视觉 spec §B.4 定稿见下),
+     称谓与终稿归 T8 话术过目——R8 纪律: 不改文案骨架。
      判据消费 AC 契约函数 advEdgeProtectedAt(波次一甲并行落地, typeof 守卫=
      甲未落地时此分支静默零炸); 分向检序对齐 E10(北/南/西/东, 阈值=带缘 32/128) */
   if (x != null && typeof advEdgeProtectedAt === 'function' && advEdgeProtectedAt(x, y, z)) {
     if (z <= 31) return '这堆雪冻得硬邦邦的，挖不动——先去把任务做完，它自己会让开的！';
     if (z >= 128) return '沙丘晒得硬邦邦的，挖不动——先去把任务做完，等风停了它就让路！';
     if (x <= 31) return '这片雾塘又深又沉，挖不动——先去把任务做完，沼泽会一直等你！';
-    return '栅栏和牌子还不能拆哦～小镇还没盖好呢！';
+    /* T-SEAM-02 east 改稿(视觉 spec §B.4 定稿逐字): 保护理由换成指路,
+       零否定收尾——「还没盖好」与恒开放(随时可去)矛盾, 退役 */
+    return '栅栏和牌子不能拆哦～从小路走过去就是小镇啦！';
   }
   if (id === ADV_B.portal || id === ADV_B.obsidian) return '传送门是魔法做的，挖不动哦';
   if (id === ADV_B.netherrack || id === ADV_B.glowstone || id === ADV_B.brick) {
