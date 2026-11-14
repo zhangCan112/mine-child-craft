@@ -352,12 +352,6 @@ canvas {
   --glow: rgb(78 158 88 / 35%);
 }
 
-/* 城镇漫步: 樱粉主识别色(tokens §1.2) */
-.mode-card.town {
-  --accent: #f2b8c6;
-  --glow: rgb(242 184 198 / 35%);
-}
-
 .mode-card.showroom {
   --accent: #b58ae0;
   --glow: rgb(181 138 224 / 35%);
