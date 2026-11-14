@@ -642,7 +642,8 @@ const ADV_DIMS = [
         建场直写不记账——互锁红线 */
       townBuild();
     },
-    sky: {color: 0x7ec8e3, fogNear: 90, fogFar: 230, sunI: 0.85}, /* 暖亮白天(视觉 spec §4.1 布幔-天蓝色板; 恒白天观感由此承担) */
+    sky: {color: 0xa8cbe0, fogNear: 75, fogFar: 200, sunI: 0.92}, /* 午后暖阳定稿(revamp-spec §3-F: 四档试拍 f0-f4, 档4越「亮而不白」界回退;
+        天穹+雾同色单值通道——雾即奶油天际线, 软化远山; sunI 0.85→0.92 日光微升) */
     mood: 'calm', /* calm-piano 曲目键(AudioRegistry BGM 表在册) */
     dayCycle: false, /* 时间冻结+天体/云隐藏+基底亮光, ≠恒夜——nether/den 的恒夜
         观感来自它们行上的暗 sky 参, town 暖亮 sky 参即恒白天, 零机制扩展 */

@@ -20,6 +20,13 @@
      勿与 A 侧 --town-hud-sky(#7EC8E3 建筑盘布幔-天蓝)互换 — 分属两盘 */
   --town-dlg-guide: #7ec8d8;
 
+  /* 暖纸底面语言(revamp-spec §3-H: 暖色半透明底统一质感; 与 B 侧
+     --town-dlg-panel-bg 同值同语言——Bread Cream #F4D9A6 @ 0.94, 字库暖木奶油系) */
+  --town-hud-surface: rgb(244 217 166 / 94%);
+
+  /* 坐影: 深木暖褐低透明落影, 让悬浮圈/卡「坐进画面」而非贴纸悬浮 */
+  --town-hud-shadow: 0 2px 6px rgb(90 70 54 / 25%);
+
   /* 布局与安全区 token(§1.3; 值与 js/town-ui-core.js TOWN_UI_PARAMS 同源) */
   --town-hud-safe: clamp(16px, 1.6vw, 24px);
   --town-hit-min: 44px;
@@ -44,8 +51,8 @@
   display: none;
 }
 
-/* L1 主提示卡: 左上安全区, 横向圆角卡片(图标在左短标签在右), 奶油暖底
-   +深描边+内亮线(bubble 底板语言复用, §1.2) */
+/* L1 主提示卡: 左上安全区, 横向圆角卡片(图标在左短标签在右), 暖纸半透明底
+   +深木细描边+内亮线+坐影(bubble 底板语言复用, §1.2; revamp-spec §3-H 统一质感) */
 .town-hud-card {
   position: absolute;
   inset-block-start: var(--town-hud-safe);
@@ -53,13 +60,15 @@
   max-width: min(320px, 40vw);
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 12px;
   min-height: var(--town-hit-min);
-  padding: 8px 16px;
-  background: rgb(244 217 166 / 94%);
-  border: 3px solid var(--town-hud-ink);
+  padding: 10px 18px;
+  background: var(--town-hud-surface);
+  border: 2px solid var(--town-hud-ink);
   border-radius: 14px;
-  box-shadow: inset 0 0 0 3px var(--town-hud-soft-white);
+  box-shadow:
+    inset 0 0 0 3px var(--town-hud-soft-white),
+    var(--town-hud-shadow);
   color: var(--town-hud-ink);
   pointer-events: auto;
   opacity: 1;
@@ -89,23 +98,26 @@
 .town-hud-card.is-active {
   box-shadow:
     inset 0 0 0 3px var(--town-hud-soft-white),
-    0 0 0 2px var(--town-hud-highlight);
+    0 0 0 2px var(--town-hud-highlight),
+    var(--town-hud-shadow);
 }
 
 .town-hud-card.is-step-done {
   /* 完成一步: 草绿外环语义(正向无惩罚, 不用考试对勾生硬感) */
   box-shadow:
     inset 0 0 0 3px var(--town-hud-soft-white),
-    0 0 0 3px var(--town-hud-done);
+    0 0 0 3px var(--town-hud-done),
+    var(--town-hud-shadow);
 }
 
 /* TTS 重播钮: 卡右端喇叭(emoji 🔊 占位), 44px 热区, 按下回弹 */
 .town-hud-card-tts {
   min-width: var(--town-hit-min);
   min-height: var(--town-hit-min);
-  border: 3px solid var(--town-hud-ink);
+  border: 2px solid var(--town-hud-ink);
   border-radius: 12px;
   background: var(--town-hud-gold);
+  box-shadow: var(--town-hud-shadow);
   color: var(--town-hud-ink);
   font-size: 20px;
   line-height: 1;
@@ -149,9 +161,10 @@
 .town-hud-sys button {
   min-width: var(--town-hit-min);
   min-height: var(--town-hit-min);
-  border: 3px solid var(--town-hud-ink);
+  border: 2px solid var(--town-hud-ink);
   border-radius: 12px;
   background: var(--town-hud-sky);
+  box-shadow: var(--town-hud-shadow);
   color: var(--town-hud-ink);
   font-size: 20px;
   line-height: 1;
@@ -165,8 +178,9 @@
 }
 
 /* L2 方位指引徽章(T-UI-02, prebuild §3.1): 圆形徽章 64-80px 视口 clamp,
-   奶油底+深描边(L1 卡底板语言同源); 中心图标 32px, 顶部暖金指针扇形按
-   方位档离散转动(150ms 过渡承担低频插值, 动效窗 120-180ms 内取值) */
+   暖纸半透明底+深木细描边(L1 卡底板语言同源)+坐影(不再白圈悬浮);
+   中心图标 32px, 顶部暖金指针扇形按方位档离散转动(150ms 过渡承担低频
+   插值, 动效窗 120-180ms 内取值) */
 .town-hud-pointer-badge {
   position: relative;
   display: flex;
@@ -174,9 +188,10 @@
   justify-content: center;
   width: clamp(64px, 8vw, 80px);
   height: clamp(64px, 8vw, 80px);
-  background: var(--town-hud-base);
-  border: 3px solid var(--town-hud-ink);
+  background: var(--town-hud-surface);
+  border: 2px solid var(--town-hud-ink);
   border-radius: 50%;
+  box-shadow: var(--town-hud-shadow);
   color: var(--town-hud-ink);
 }
 
@@ -215,15 +230,19 @@
   transform: rotate(-90deg);
 }
 
-/* 距离三档视觉差: far 单细环 / near 双环 / nearby 指针淡出+柔光呼吸 */
+/* 距离三档视觉差: far 单细环 / near 双环 / nearby 指针淡出+柔光呼吸
+   (环+坐影组合, 坐影随档保留) */
 .town-hud-pointer-badge.band-far {
-  box-shadow: 0 0 0 2px var(--town-hud-gold);
+  box-shadow:
+    0 0 0 2px var(--town-hud-gold),
+    var(--town-hud-shadow);
 }
 
 .town-hud-pointer-badge.band-near {
   box-shadow:
     0 0 0 2px var(--town-hud-gold),
-    0 0 0 5px var(--town-hud-gold-bright);
+    0 0 0 5px var(--town-hud-gold-bright),
+    var(--town-hud-shadow);
 }
 
 .town-hud-pointer-badge.band-nearby .town-hud-pointer-arrow {
@@ -240,13 +259,15 @@
   100% {
     box-shadow:
       0 0 0 2px var(--town-hud-gold),
-      0 0 10px 4px var(--town-hud-gold-bright);
+      0 0 10px 4px var(--town-hud-gold-bright),
+      var(--town-hud-shadow);
   }
 
   50% {
     box-shadow:
       0 0 0 2px var(--town-hud-gold),
-      0 0 3px 1px var(--town-hud-gold-bright);
+      0 0 3px 1px var(--town-hud-gold-bright),
+      var(--town-hud-shadow);
   }
 }
 
@@ -389,10 +410,12 @@
    panel 底部居中+安全区让位(B1); 弹入 180ms(§5.4), 零闪烁零惊吓。
    ============================================================ */
 .town-dlg-layer {
-  /* B 侧 token(色板/动效窗引用 town-hud 族, 单源不另立权威) */
-  --town-dlg-panel-bg: var(--town-hud-soft-white);
+  /* B 侧 token(色板/动效窗引用 town-hud 族, 单源不另立权威);
+     panel-bg/panel-bottom 为 revamp-spec §3-H 六值裁决定稿
+     (Bread Cream #F4D9A6 @ 0.94 半透明 + 距底 28px) */
+  --town-dlg-panel-bg: rgb(244 217 166 / 94%);
   --town-dlg-chip-size: 64px;
-  --town-dlg-panel-bottom: var(--town-hud-safe);
+  --town-dlg-panel-bottom: 28px;
   --town-dlg-t-pop: 180ms;
 
   position: absolute;
@@ -400,7 +423,8 @@
   pointer-events: none; /* 层零捕获(同 #townHud), 构件自身开启 */
 }
 
-/* World Bubble: 悬停环境感知的短气泡(Bubble-S), 底部居中不挡世界 */
+/* World Bubble: 悬停环境感知的短气泡(Bubble-S), 底部居中不挡世界;
+   暖纸半透明底(panel-bg 同源, dlg-prebuild §1.2「Panel/Bubble 主底」) */
 .town-dlg-bubble {
   position: absolute;
   inset-inline: 0;
@@ -412,10 +436,12 @@
   display: flex;
   align-items: center;
   padding: 6px 18px;
-  background: rgb(255 249 236 / 92%);
-  border: 3px solid var(--town-hud-ink);
+  background: var(--town-dlg-panel-bg);
+  border: 2px solid var(--town-hud-ink);
   border-radius: 999px;
-  box-shadow: inset 0 0 0 3px var(--town-hud-soft-white);
+  box-shadow:
+    inset 0 0 0 3px var(--town-hud-soft-white),
+    var(--town-hud-shadow);
   color: var(--town-hud-ink);
   font-size: 18px;
   font-weight: 700;
@@ -428,21 +454,25 @@
   display: none;
 }
 
-/* Session Panel: 底部居中卡片(B1), 暖纸底+墨字, 圆角无棱角 */
+/* Session Panel: 底部居中卡片(B1), 暖纸半透明底+墨字, 圆角无棱角;
+   宽 min(42vw,600px) 下限 360px / 距底 28px / 圆角 20 / 描边 2px
+   ——revamp-spec §3-H 六值裁决定稿 */
 .town-dlg-panel {
   position: absolute;
   inset-inline: 0;
   inset-block-end: var(--town-dlg-panel-bottom);
   margin-inline: auto;
-  width: min(420px, 92vw);
+  width: clamp(360px, 42vw, 600px);
   display: flex;
   flex-direction: column;
   gap: 8px;
   padding: 14px 18px;
   background: var(--town-dlg-panel-bg);
-  border: 3px solid var(--town-hud-ink);
-  border-radius: 16px;
-  box-shadow: inset 0 0 0 3px rgb(255 255 255 / 60%);
+  border: 2px solid var(--town-hud-ink);
+  border-radius: 20px;
+  box-shadow:
+    inset 0 0 0 3px rgb(255 255 255 / 60%),
+    var(--town-hud-shadow);
   color: var(--town-hud-ink);
   pointer-events: auto;
   opacity: 1;
@@ -473,7 +503,7 @@
   align-items: center;
   justify-content: center;
   background: var(--town-dlg-guide);
-  border: 3px solid var(--town-hud-ink);
+  border: 2px solid var(--town-hud-ink);
   border-radius: 12px;
   font-size: 24px;
   line-height: 1;
@@ -483,11 +513,12 @@
   display: none;
 }
 
-/* 选项 chips: 主选项触点 64px(§4.2), 暖金底按下回弹(§4.5) */
+/* 选项 chips: 主选项触点 64px(§4.2), 间距 16px(§3-H 裁决: 儿童点触容错
+   呼吸感下限), 暖金底按下回弹(§4.5) */
 .town-dlg-opts {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 16px;
 }
 
 .town-dlg-chip {
@@ -495,8 +526,9 @@
   min-height: 64px;
   padding: 8px 18px;
   background: var(--town-hud-gold);
-  border: 3px solid var(--town-hud-ink);
+  border: 2px solid var(--town-hud-ink);
   border-radius: 14px;
+  box-shadow: var(--town-hud-shadow);
   color: var(--town-hud-ink);
   font-size: 18px;
   font-weight: 700;
@@ -532,7 +564,9 @@
   transform: scale(0.95);
 }
 
-/* 会话内表扬徽章(B owner, §7.3): 中上浮现不挡面板, 弹入 180ms */
+/* 会话内表扬徽章(B owner, §7.3): 中上浮现不挡面板; 弹入 pop-in
+   scale 0.6→1.0 / 200ms ease-out-back(revamp-spec §3-H 裁决,
+   cubic-bezier 为 easeOutBack 标准近似), 淡出仍走 opacity 过渡 */
 .town-dlg-praise {
   position: absolute;
   inset-inline: 0;
@@ -543,7 +577,20 @@
   line-height: 1;
   pointer-events: none;
   opacity: 1;
+  animation: town-dlg-praise-pop 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
   transition: opacity var(--town-dlg-t-pop) ease-out;
+}
+
+@keyframes town-dlg-praise-pop {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .town-dlg-praise[hidden] {

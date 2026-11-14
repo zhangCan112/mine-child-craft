@@ -185,11 +185,11 @@ test('炉键前缀守门: ADV_FURN_PREFIX 单份权威键集覆盖全部维度�
 
 /* ============ town 维度行(T-SEAM-01, docs/town-map-design.md §6.3.3 行规格表) ============ */
 
-test('town 行值锚: 暖亮白天四参/mood calm/恒白天/HUD 无怪/spawn 从 TOWN_MAP 加载期派生', () => {
+test('town 行值锚: 午后暖阳四参/mood calm/恒白天/HUD 无怪/spawn 从 TOWN_MAP 加载期派生', () => {
   const t = Dims.advDimRow('town');
   assert.ok(t, 'town 行在册(§6.3.3 逐字段)');
-  assert.deepStrictEqual(t.sky, {color: 0x7ec8e3, fogNear: 90, fogFar: 230, sunI: 0.85},
-      'town 天穹(视觉 spec §4.1 布幔-天蓝暖亮色板; 雾距对齐上界同域, sunI 恒白天亮堂)');
+  assert.deepStrictEqual(t.sky, {color: 0xa8cbe0, fogNear: 75, fogFar: 200, sunI: 0.92},
+      'town 天穹(视觉重制 §3-F 午后暖阳定稿: 四档试拍 f0-f4, 档4越「亮而不白」界回退; 雾即奶油天际线软山)');
   assert.strictEqual(t.mood, 'calm', '曲目 calm(沿用旧模式注册表行 mood 键)');
   assert.strictEqual(t.dayCycle, false,
       'dayCycle:false=时间冻结+天体隐藏+基底亮光, ≠恒夜——暗 sky 参才是恒夜, town 暖亮即恒白天(§6.3.3)');
