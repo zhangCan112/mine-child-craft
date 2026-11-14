@@ -53,10 +53,11 @@ try {
    既有测试不读不影响。 */
 function fakeEl(tag) {
   const classes = new Set();
+  const attrs = {}; /* 闭包私有(F1): 公开面只走 get/setAttribute=真实 DOM 面 */
   const classOps = {add: 0, remove: 0};
   const el = {
     tag, children: [], parent: null, hidden: false, textContent: '',
-    attrs: {}, style: {}, onclick: null,
+    style: {}, onclick: null,
     __classOps: classOps,
     classList: {
       add(...cs) {
@@ -72,10 +73,10 @@ function fakeEl(tag) {
       },
     },
     setAttribute(k, v) {
-      el.attrs[k] = String(v);
+      attrs[k] = String(v);
     },
     getAttribute(k) {
-      return el.attrs[k];
+      return attrs[k];
     },
     appendChild(c) {
       el.children.push(c);
@@ -185,7 +186,8 @@ test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻
   assert.strictEqual(rec.ui.root, null, '未进镇不挂载(零常驻 DOM)');
   rec.ui.sync();
   assert.ok(rec.ui.root, '进镇(机器在位)sync 后挂载');
-  assert.strictEqual(rec.ui.root.attrs.id, 'townHud', '容器 id=townHud(prebuild §1.1)');
+  assert.strictEqual(rec.ui.root.getAttribute('id'), 'townHud',
+      '容器 id=townHud(prebuild §1.1)');
   slotOf(rec.ui, 'town-hud-card');
   slotOf(rec.ui, 'town-hud-pointer');
   slotOf(rec.ui, 'town-hud-praise');
@@ -200,7 +202,8 @@ test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻
       pointerSlot.children[0].classList.contains('town-hud-pointer-badge'),
       '指引器=圆形徽章形态(prebuild §3.1; 槽类名 town-hud-pointer 不变)');
   const sys = slotOf(rec.ui, 'town-hud-sys');
-  const home = sys.children.find((c) => c.attrs['aria-label'] === '回主菜单');
+  const home = sys.children.find(
+      (c) => c.getAttribute('aria-label') === '回主菜单');
   assert.ok(home, 'L4 默认仅「返回主菜单」图标钮(prebuild §2.1)');
   rec.ui.sync(); /* 同机重复对账幂等 */
   assert.strictEqual(rec.ui.cardState(), 'idle-exploring', '重复 sync 不改卡态');
@@ -294,7 +297,8 @@ test('重播钮: 点选重播当前提示完整句一次 — cancel-then-speak �
   assert.ok(rec.speech.cancels >= 1, 'cancel-then-speak(连点不重叠抢话, SpeechKit 统一通道)');
   assert.strictEqual(rec.ui.cardState(), 'active', '重播不改变状态机状态(prebuild §2.4 行为行)');
   /* 热区语义: aria-label 在位(44px 热区由 CSS token 承担, 这里锁可及性标注) */
-  assert.strictEqual(ttsBtn.attrs['aria-label'], '再听一遍', '重播钮可及性标注在位');
+  assert.strictEqual(ttsBtn.getAttribute('aria-label'), '再听一遍',
+      '重播钮可及性标注在位');
 });
 
 test('L4 回菜单钮: 点选走宿主 chrome 页面缝(showPage(main)), 本票不另造退出链', () => {
@@ -302,7 +306,7 @@ test('L4 回菜单钮: 点选走宿主 chrome 页面缝(showPage(main)), 本票�
   const rec = mkHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
   rec.ui.sync();
   const home = slotOf(rec.ui, 'town-hud-sys')
-      .children.find((c) => c.attrs['aria-label'] === '回主菜单');
+      .children.find((c) => c.getAttribute('aria-label') === '回主菜单');
   home.click();
   assert.deepStrictEqual(rec.pages, ['main'],
       'L4 挂宿主 chrome(showPage(main), 模式页 back 按钮先例; mkMode 既有语义)');
@@ -742,7 +746,7 @@ function hlLayerOf(rec) {
 
 function markOf(rec, id) {
   const mark = hlLayerOf(rec).children.find(
-      (c) => c.attrs['data-hl-id'] === id);
+      (c) => c.getAttribute('data-hl-id') === id);
   assert.ok(mark, '高亮标记未挂出: ' + id);
   return mark;
 }
@@ -755,7 +759,7 @@ test('高亮层挂载: mount 创建 town-hl-layer+按 hlSource 每条目一标(d
   assert.strictEqual(layer.children.length, HL_FIXTURES.length,
       '每条交互对象一标(清单源=hlSource 注入)');
   const mkA = markOf(rec, 'bell-tower');
-  assert.strictEqual(mkA.attrs['data-hl-id'], 'bell-tower',
+  assert.strictEqual(mkA.getAttribute('data-hl-id'), 'bell-tower',
       '标记携对象 id 属性(寻址契约)');
   assert.strictEqual(mkA.textContent, '🗼',
       '标记图标随 iconKey(emoji 占位策略同 L1/L2, UI-01 语义键)');
@@ -819,6 +823,10 @@ test('架构守门(T-UI-03 源码切片): 文档级三件套监听在册+离镇�
   }
   assert.ok(!src.includes('raycastVoxel'),
       'town-ui.js 不得直接 raycast(命中=core townHlHit 纯几何, 非每帧射线)');
+  /* F1 守门: 假 DOM 契约面(.attrs)不得泄漏进生产读路径——真实 DOM
+     Element 无 .attrs, 标准面=getAttribute; 假 DOM 已双向实现 */
+  assert.ok(!/\.attrs/.test(src),
+      'town-ui.js 禁直读 .attrs(DOM 标准面=getAttribute, F1 契约面泄漏守门)');
   assert.ok(!/preventDefault|stopPropagation/.test(src),
       '监听零拦截(preventDefault/stopPropagation 会挡挖掘/放置/视角既有链)');
 });
@@ -1045,15 +1053,16 @@ test('集成链 T-UI-03: 进镇九标→mousemove 瞄钟塔 is-hover→按下反
       'var __listeners = {};\n' +
       'function __el(tag) {\n' +
       '  var classes = {};\n' +
+      '  var attrs = {};\n' + /* 闭包私有: 公开面只走 get/setAttribute(F1) */
       '  var el = {tag: tag, children: [], parent: null, hidden: false,\n' +
-      '    textContent: \'\', attrs: {}, style: {}, onclick: null,\n' +
+      '    textContent: \'\', style: {}, onclick: null,\n' +
       '    classList: {\n' +
       '      add: function() { for (var i = 0; i < arguments.length; i++) classes[arguments[i]] = true; },\n' +
       '      remove: function() { for (var i = 0; i < arguments.length; i++) delete classes[arguments[i]]; },\n' +
       '      contains: function(c) { return !!classes[c]; }\n' +
       '    },\n' +
-      '    setAttribute: function(k, v) { el.attrs[k] = String(v); },\n' +
-      '    getAttribute: function(k) { return el.attrs[k]; },\n' +
+      '    setAttribute: function(k, v) { attrs[k] = String(v); },\n' +
+      '    getAttribute: function(k) { return attrs[k]; },\n' +
       '    appendChild: function(c) { el.children.push(c); c.parent = el; return c; },\n' +
       '    click: function() { if (el.onclick) el.onclick({}); }\n' +
       '  };\n' +
@@ -1094,7 +1103,7 @@ test('集成链 T-UI-03: 进镇九标→mousemove 瞄钟塔 is-hover→按下反
       '  if (!layer) return null;\n' +
       '  var kids = layer.children;\n' +
       '  for (var i = 0; i < kids.length; i++) {\n' +
-      '    if (kids[i].attrs && kids[i].attrs["data-hl-id"] === id) return kids[i];\n' +
+      '    if (kids[i].getAttribute("data-hl-id") === id) return kids[i];\n' +
       '  }\n' +
       '  return null;\n' +
       '}', ctx);

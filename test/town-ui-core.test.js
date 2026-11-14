@@ -833,6 +833,11 @@ test('CSS(T-UI-03): 高亮层/标记类落位; 五态类色通道+形通道双�
   '完成态形通道=勾形/花形角标符号(content 正向符号, 避免考试对勾生硬感)');
   assert.ok(done.includes('opacity'), '完成态淡化(opacity, §6.2「淡化或消失」)');
   assert.ok(done.includes('var(--town-hud-done)'), '完成态色通道=草绿 var(--town-hud-done)(§6.2 完成色)');
+  /* prebuild §4.1「草绿+暖金点缀」(评审 F4 规格演进): ✿ 花形角标=暖金
+     亮点缀, 主色草绿留基座 color——草绿+暖金并存即明文配色 */
+  const doneAfter = cssBlock(css, 'is-done::after');
+  assert.ok(doneAfter.includes('var(--town-hud-gold-bright)'),
+      '完成态花形角标=暖金亮点缀(prebuild §4.1 草绿+暖金点缀, F4)');
   /* 选中: 双圈角框(形: outline+border 嵌套结构)+天蓝(色, 冷静聚焦) */
   const act = cssBlock(css, '.town-hl-mark.is-active');
   assert.ok(act.includes('outline'), '选中态形通道=双圈之一(outline, prebuild §4.2 双圈角框)');

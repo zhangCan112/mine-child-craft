@@ -80,9 +80,10 @@ function mkTownUi(deps) {
   function mkHeadlessDoc() {
     function mkEl(tag) {
       const classes = new Set();
+      const attrs = {}; /* 闭包私有(F1): 公开面只走 get/setAttribute=真实 DOM 面 */
       const el = {
         tag, children: [], parent: null, hidden: false, textContent: '',
-        attrs: {}, style: {}, onclick: null,
+        style: {}, onclick: null,
         classList: {
           add(...cs) {
             for (const c of cs) classes.add(c);
@@ -95,10 +96,10 @@ function mkTownUi(deps) {
           },
         },
         setAttribute(k, v) {
-          el.attrs[k] = String(v);
+          attrs[k] = String(v);
         },
         getAttribute(k) {
-          return el.attrs[k];
+          return attrs[k];
         },
         appendChild(c) {
           el.children.push(c);
