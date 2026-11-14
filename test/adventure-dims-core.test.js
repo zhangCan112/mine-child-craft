@@ -445,8 +445,8 @@ test('地表与路网(T-SEAM-05 迁入): 基底三层恰覆核心区 · 广场/�
   assert.strictEqual(cell(127, 24, 127), 1, '核心区对角 surface 恰覆');
   assert.strictEqual(cell(31, 24, 31), 0, '核心区外零基底(远景带无立地的一部分)');
   assert.strictEqual(cell(79, 24, 79), 17, '广场铺装 17 石英(28×28 与核心区同心)');
-  assert.strictEqual(cell(70, 24, 50), 41, '农田 A 耕地 41');
-  assert.strictEqual(cell(84, 24, 50), 41, '农田 B 耕地 41');
+  assert.strictEqual(cell(70, 24, 50), 42, '农田 A 田垄作物 42(farm-rows 行 r=6 轮转)');
+  assert.strictEqual(cell(84, 24, 50), 45, '农田 B 田垄作物 45(farm-rows 行 r=4 轮转)');
   assert.strictEqual(cell(79, 24, 100), 13, '南主路 13 石砖(5 宽)');
   assert.strictEqual(cell(60, 24, 63), 13, '北主路 13 石砖');
   assert.strictEqual(cell(110, 24, 86), 13, '东主路 13 石砖');
@@ -581,15 +581,15 @@ test('通廊与不可达(T-SEAM-05 迁入, 世界层): 出生回望走廊全空 
       '出生回望走廊 x78..80×z76..111×y≥25 全空(塔足 z2=75 → 走廊 z1=76, §4.3 视线管理)');
   assert.strictEqual(nonAir(0, 159, 0, 47, 29, 31), 0,
       '空隙带 z29..31 全域零方块(山体 z2=28 · 核心区 z1=32 之间无立地=远景不可达执行见证)');
-  assert.strictEqual(cell(79, 44, 20), 3, '山脊石 3 @(79,44,20)(顶高过钟塔 38)');
-  assert.strictEqual(cell(80, 44, 20), 3, '山脊石 3 @(80,44,20)');
-  assert.strictEqual(cell(16, 24, 20), 3, '山体西缘 topY=24 @(16,24,20)');
+  assert.strictEqual(cell(79, 44, 20), 54, '山脊雪 54 @(79,44,20)(顶高过钟塔 38)');
+  assert.strictEqual(cell(80, 44, 20), 54, '山脊雪 54 @(80,44,20)');
+  assert.strictEqual(cell(16, 24, 20), 14, '山体西缘苔 14 topY=24 @(16,24,20)');
   assert.strictEqual(cell(16, 25, 20), 0, '西缘柱顶即止 @(16,25,20)');
-  assert.strictEqual(cell(143, 24, 20), 3, '山体东缘 topY=24 @(143,24,20)');
-  assert.strictEqual(cell(56, 41, 22), 6, '崖屋 A 底 6 @(56,41,22)');
-  assert.strictEqual(cell(56, 46, 22), 6, '崖屋 A 顶 6 @(56,46,22)');
-  assert.strictEqual(cell(103, 41, 22), 6, '崖屋 B 底 6 @(103,41,22)');
-  assert.strictEqual(cell(103, 46, 22), 6, '崖屋 B 顶 6 @(103,46,22)');
+  assert.strictEqual(cell(143, 24, 20), 14, '山体东缘苔 14 topY=24 @(143,24,20)');
+  assert.strictEqual(cell(56, 41, 22), 52, '崖屋 A 墙 52 @(56,41,22)');
+  assert.strictEqual(cell(56, 46, 22), 9, '崖屋 A 顶 9 @(56,46,22)');
+  assert.strictEqual(cell(103, 41, 22), 52, '崖屋 B 墙 52 @(103,41,22)');
+  assert.strictEqual(cell(103, 46, 22), 9, '崖屋 B 顶 9 @(103,46,22)');
 });
 
 test('确定性(T-SEAM-05 迁入): 清场重建两遍 worldCells 全量逐格相等(装配全链确定性重放)', () => {
