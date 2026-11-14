@@ -588,31 +588,31 @@ test('四态状态类(prebuild §5 函数 7): 六值域恰集; 空入参=none; �
       'ctx 缺席=可交互静置默认态(低存在感提示在册)');
   assert.strictEqual(probe(ctx,
       'townHlClass(\'a\', {hoveredId: \'a\'})'), 'hover',
-      '悬停标志→hover(§6.2 悬停/可点选态)');
+  '悬停标志→hover(§6.2 悬停/可点选态)');
   assert.strictEqual(probe(ctx,
       'townHlClass(\'a\', {pressedId: \'a\'})'), 'pressed',
-      '按下标志→pressed(§6.2 按下态)');
+  '按下标志→pressed(§6.2 按下态)');
   assert.strictEqual(probe(ctx,
       'townHlClass(\'a\', {activeId: \'a\'})'), 'active',
-      '选中标志→active(§6.2 选中/会话中态)');
+  '选中标志→active(§6.2 选中/会话中态)');
   assert.strictEqual(probe(ctx,
       'townHlClass(\'a\', {doneIds: [\'a\']})'), 'done',
-      '完成在册→done(§6.2 完成态, 机器 found/done 对齐)');
+  '完成在册→done(§6.2 完成态, 机器 found/done 对齐)');
   assert.strictEqual(probe(ctx,
       'townHlClass(\'b\', {hoveredId: \'a\', pressedId: \'a\', activeId: \'a\', doneIds: [\'a\']})'),
   'default', '他对象不串态(标志只对命中 id 生效)');
   assert.strictEqual(probe(ctx,
       'townHlClass(\'a\', {hoveredId: \'a\', pressedId: \'a\'})'), 'pressed',
-      '优先级: pressed > hover(多标志并存取其一, 序即断言)');
+  '优先级: pressed > hover(多标志并存取其一, 序即断言)');
   assert.strictEqual(probe(ctx,
       'townHlClass(\'a\', {pressedId: \'a\', activeId: \'a\'})'), 'active',
-      '优先级: active > pressed');
+  '优先级: active > pressed');
   assert.strictEqual(probe(ctx,
       'townHlClass(\'a\', {activeId: \'a\', doneIds: [\'a\']})'), 'done',
-      '优先级: done > active(完成后不再回选中环, 单向迁移语义)');
+  '优先级: done > active(完成后不再回选中环, 单向迁移语义)');
   assert.strictEqual(probe(ctx,
       'townHlClass(\'a\', {doneIds: new Set([\'a\'])})'), 'done',
-      'doneIds 兼容 Set(装配层 doneIds 记忆原形直喂)');
+  'doneIds 兼容 Set(装配层 doneIds 记忆原形直喂)');
 });
 
 /* 会话降噪档(prebuild §5 函数 8): 会话开=选中环保持 full, 悬停/按下对象

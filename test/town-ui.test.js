@@ -700,7 +700,7 @@ const HL_FIXTURES = [HL_A, HL_B, HL_C];
 const HL_CAM_DEFAULT = {origin: HL_POS, dir: {x: 0, y: -1, z: 0},
   yaw: 0, pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100};
 
-function hlAimDir(target) { /* 归一化瞄向(装具造输入, 非复算实现) */
+function hlAimDir(target) {/* 归一化瞄向(装具造输入, 非复算实现) */
   const dx = target.x - HL_POS.x;
   const dy = target.y - HL_POS.y;
   const dz = target.z - HL_POS.z;
@@ -812,9 +812,9 @@ test('事件驱动悬停: mousemove 瞄准命中→is-hover 他标 default; 换�
 test('架构守门(T-UI-03 源码切片): 文档级三件套监听在册+离镇摘除镜像; 零 raycastVoxel(命中走 core 纯几何); 零拦截(不挡既有输入链)', () => {
   const src = fs.readFileSync(path.join(ROOT, 'js', 'town-ui.js'), 'utf8');
   for (const evt of ['mousemove', 'pointerdown', 'pointerup']) {
-    assert.ok(src.includes("addEventListener('" + evt + "'"),
+    assert.ok(src.includes('addEventListener(\'' + evt + '\''),
         '缺 ' + evt + ' 文档级监听(命中检测事件驱动, 禁每帧)');
-    assert.ok(src.includes("removeEventListener('" + evt + "'"),
+    assert.ok(src.includes('removeEventListener(\'' + evt + '\''),
         '缺 ' + evt + ' 摘除镜像(离镇卫生, 监听不泄漏)');
   }
   assert.ok(!src.includes('raycastVoxel'),
@@ -823,7 +823,8 @@ test('架构守门(T-UI-03 源码切片): 文档级三件套监听在册+离镇�
       '监听零拦截(preventDefault/stopPropagation 会挡挖掘/放置/视角既有链)');
 });
 
-test('按下反馈与点选结算: pointerdown→is-pressed(摘 hover); pointerup→onInteract 恰一次派发命中对象载荷+pressed 清回 hover; 未悬停按下零反馈零派发', () => {
+test('按下反馈与点选结算: pointerdown→is-pressed(摘 hover); pointerup→onInteract 恰一次派发命中对象' +
+    '载荷+pressed 清回 hover; 未悬停按下零反馈零派发', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
   const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
   rec.ui.sync();
@@ -905,7 +906,7 @@ test('签名门控零操作(架构 §8 脏标口径): 同 aim 重复 mousemove�
   rec.fire('mousemove', {});
   const layer = hlLayerOf(rec);
   const refs = layer.children.slice();
-  const mkA = markOf(rec, 'bell-tower');
+  markOf(rec, 'bell-tower'); /* 在册性断言(标记缺席即红, 绑定由 refs/ops 承担) */
   const opsBefore = layer.children.map((c) => ({
     add: c.__classOps.add, remove: c.__classOps.remove}));
   rec.fire('mousemove', {}); /* 同 aim 重复事件 */
@@ -979,7 +980,8 @@ test('降级不炸: camRef null→mousemove 后全标隐藏(零伪造位置); �
 
 test('离镇再进卫生: leave→三件套监听摘除+hover/pressed 清零; 再进新标零残留(无 hover/pressed/done 类跨轮泄漏)', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
-  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  const rec = mkHlHarness(); /* 缺省 machineRef 接线=读 rec.machine(换机观察缝) */
+  rec.machine = {snapshot: () => ({focusId: null, states: {}})}; /* 预置初机(进镇在位) */
   rec.ui.sync();
   rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_A.anchor)}));
   rec.fire('mousemove', {});
