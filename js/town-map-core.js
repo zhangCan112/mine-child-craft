@@ -54,7 +54,8 @@ const TOWN_MAP = {
   ],
   /* Prefab 实例清单(§4.2 映射): P0/P1 全入=七新行+under-room 复用
       (cache-cellar); board-pool 按 PO 2026-11-13 裁决推迟不列, mound
-      本布局不落。字段 {id,x,y,z,v,face,zone}, y 统一=groundY, v 无
+      本布局不落。视觉重制 §3 A: 摊位 3→6(广场 4+主路口 2, 详见摊位
+      簇注)。字段 {id,x,y,z,v,face,zone}, y 统一=groundY, v 无
       ids 槽(材质集中注入归 T-MAP-03)。脚印盒两两无交(布局自洽)。 */
   prefab: [
     {id: 'tower-belfry', x: 79, y: 24, z: 72, v: {}, face: 'south', zone: 'hub'},
@@ -76,6 +77,18 @@ const TOWN_MAP = {
     {id: 'stall-canopy', x: 89, y: 24, z: 75, v: {size: 'sm', theme: 'flower'},
       face: 'west', zone: 'hub'},
     {id: 'stall-canopy', x: 71, y: 24, z: 90, v: {size: 'md', theme: 'fruit'},
+      face: 'north', zone: 'hub'},
+    {/* 摊位 3→6(视觉重制 §3 A 氛围层: 广场 4+主路口 2): 三新摊补广场
+         空角与路口迎面——东北角(md 花)背靠钟塔不进视线走廊 x78..80
+         且不入 G01 巡逻环(z66 行外); 东路口(sm 面包)贴 main-east 入口
+         迎客、盒子 x89..90 让巡逻环 x92 列; 南路口(md 果, 面北朝摊面
+         迎出生动线)、盒子 z89..91 让巡逻环 z92 行。脚印全 ⊆ 广场、两两
+         无交、避 npc 站位与巡逻格(同名单测钉) */
+      id: 'stall-canopy', x: 86, y: 24, z: 68, v: {size: 'md', theme: 'flower'},
+      face: 'south', zone: 'hub'},
+    {id: 'stall-canopy', x: 89, y: 24, z: 87, v: {size: 'sm', theme: 'bread'},
+      face: 'west', zone: 'hub'},
+    {id: 'stall-canopy', x: 83, y: 24, z: 90, v: {size: 'md', theme: 'fruit'},
       face: 'north', zone: 'hub'},
   ],
   /* 路网(§4.3): 三条主路 5 宽放射贴广场三缘(北/东/南), 三条支路 3 宽
@@ -107,8 +120,15 @@ const TOWN_MAP = {
     {id: 'cliff-home-b', kind: 'cliff-home', x: 112, z: 20, baseY: 35, topY: 41, reachable: false},
   ],
   /* 散布(prefab-specs §5.1/§5.2 落位政策归调用方=本计划): 樱花/灌木/
-      灯柱/路标四类各 ≥1, 总数克制(6-16); 广场核心樱花必备; 逐点
-      避让全部建筑脚印与路面, y=地面基高。 */
+      灯柱/路标四类(视觉重制 §3 A 密度升级, 灯柱 2→10); 逐点避让全部
+      建筑脚印与路面, y=地面基高。两组构图意图:
+      ① 广场家具: 灯柱环(南 77,92/北 74,67/东 91,80/东南 91,90, 让
+        G01 巡逻环 x66/x92/z66/z92 线不压柱)沿摊位簇与塔脚空隙补暖光;
+      ② 断头驿站信标(v1 先落灯柱, 圆石小坪 v2): main-east 东端
+        (121,86)/main-south 南端(79,119)/lane-west 西端(47,79) 路尽头
+        各 1 灯, 消解「断头扎草地」;
+      角樱 2/进镇门廊樱花对位 2(出生第一眼构图)与崖屋脊线复位走第二笔
+      (需 arch 侧配套 pin 同步, 见 .scratch/town-design/receipts/)。 */
   scatter: [
     {id: 'sakura-plaza', kind: 'sakura', x: 68, y: 24, z: 88},
     {id: 'sakura-farm', kind: 'sakura', x: 78, y: 24, z: 52},
@@ -116,8 +136,19 @@ const TOWN_MAP = {
     {id: 'scrub-east', kind: 'scrub', x: 98, y: 24, z: 92},
     {id: 'lamp-plaza', kind: 'lamp', x: 77, y: 24, z: 92},
     {id: 'lamp-west', kind: 'lamp', x: 64, y: 24, z: 67},
+    {id: 'lamp-north', kind: 'lamp', x: 74, y: 24, z: 67},
+    {id: 'lamp-east', kind: 'lamp', x: 91, y: 24, z: 80},
+    {id: 'lamp-southeast', kind: 'lamp', x: 91, y: 24, z: 90},
+    {id: 'lamp-north-road', kind: 'lamp', x: 62, y: 24, z: 60},
+    {id: 'lamp-gate-w', kind: 'lamp', x: 75, y: 24, z: 104},
+    {id: 'lamp-gate-e', kind: 'lamp', x: 81, y: 24, z: 105},
+    {id: 'lamp-end-east', kind: 'lamp', x: 121, y: 24, z: 86},
+    {id: 'lamp-end-south', kind: 'lamp', x: 79, y: 24, z: 119},
+    {id: 'lamp-end-west', kind: 'lamp', x: 47, y: 24, z: 79},
     {id: 'signpost-plaza', kind: 'signpost', x: 73, y: 24, z: 67},
     {id: 'signpost-stash', kind: 'signpost', x: 50, y: 24, z: 95},
+    {id: 'signpost-east', kind: 'signpost', x: 95, y: 24, z: 89},
+    {id: 'signpost-south', kind: 'signpost', x: 82, y: 24, z: 94},
   ],
 };
 

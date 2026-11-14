@@ -6,11 +6,11 @@
    同款手法, 词法 const 桥 globalThis)。规格锚 = docs/town-map-design.md §3-§4(布局
    权威)+ docs/design/town-prefab-specs.md §3(件库映射)+ §4.9(cache-cellar 覆写)。
    断言组: ①门面/结构 ②规模口径(~96×96 核心/28×28 广场/主路 4-5 支路 2-3) ③六分区
-   方位语义 ④Prefab 实例清单映射(P0/P1 全入=七新行+under-room 复用; board-pool
+   方位语义 ④Prefab 实例清单映射(P0/P1 全入=七新行+under-room 复用+摊位 6; board-pool
    PO 推迟不列) ⑤脚印合法(footOf 校验·⊆核心区·体量域·分区归属) ⑥实例两两无交
    ⑦路网(厚度域·贴广场连通·不压建筑·门前可达) ⑧地表分类(广场铺装/农田成组)
-   ⑨远景(山体必做/崖屋 1-2/神庙默认不落/不可达) ⑩散布(四类/广场樱花必备/不落
-   建筑与路面) ⑪锚点(spawn 北望·回望钟塔视线通廊) ⑫townBuildSteps 确定性
+   ⑨远景(山体必做/崖屋 1-2 脊线可见/神庙默认不落/不可达) ⑩散布(四类/广场樱花≥3/灯柱≥10/门廊对位/断头信标/
+   不落建筑与路面) ⑪锚点(spawn 北望·回望钟塔视线通廊) ⑫townBuildSteps 确定性
    (phase 全序=架构 §5.1.6 建场序·两调 deepEqual) ⑬源文本守门(纯核心红线)。
    布局数值不逐坐标钉死(实现自由度), 但全部约束(尺寸/方位/间距/映射)在此钉死。 */
 const test = require('node:test');
@@ -120,7 +120,7 @@ test('实例映射: P0/P1 全入=七新行+under-room 复用 · board-pool(PO �
   assert.ok(!ids.includes('board-pool'), 'board-pool 按 PO 2026-11-13 裁决推迟, 不虚构实例');
   assert.ok(!ids.includes('mound'), 'hill-mound 属条件复用件(近景小丘语义时), 本布局不落');
   const stalls = ps.filter((p) => p.id === 'stall-canopy');
-  assert.ok(stalls.length >= 3, '摊位簇成组(≥3, map-design §3.2 市集摊位簇)');
+  assert.strictEqual(stalls.length, 6, '摊位 3→6(视觉重制 §3 A: 广场 4+主路口 2)');
   assert.ok(['bread', 'flower', 'fruit'].every((tm) => stalls.some((p) => p.v.theme === tm)),
       '摊位主题面包/花束/果篮齐(§4.2 P2-02 变体口径)');
   assert.ok(new Set(stalls.map((p) => p.v.size)).size >= 2, '摊位 sm/md 两档都有');
@@ -323,9 +323,36 @@ test('散布: 樱花/灌木/灯柱/路标四类 · 广场樱花必备 · 不落�
   for (const k of kinds) {
     assert.ok(t.scatter.some((s) => s.kind === k), '「' + k + '」类有落点');
   }
-  assert.ok(t.scatter.length >= 6 && t.scatter.length <= 16, '散布总数 6-16(首版密度克制)');
+  assert.ok(t.scatter.length >= 6 && t.scatter.length <= 24, '散布总数 6-24(视觉重制 §3 A 氛围密度升级)');
   assert.ok(t.scatter.some((s) => s.kind === 'sakura' && s.x >= t.plaza.x1 && s.x <= t.plaza.x2 &&
       s.z >= t.plaza.z1 && s.z <= t.plaza.z2), '广场核心樱花 ≥1 棵(prefab-specs §5.1 必备)');
+  const lamps = t.scatter.filter((s) => s.kind === 'lamp');
+  assert.ok(lamps.length >= 10, '灯柱 ≥10(广场环+主路沿线, §3 A)');
+  /* 视觉重制 §3 E·断头驿站信标(v1 灯柱先行, 圆石小坪 v2): 任一道路
+     端帽若「三不贴」——不贴广场、不贴其他路段、也不贴任何建筑脚印
+     (贴建筑=目的地终站, 如 lane-farm 尽头的风车)——判为断头, 其
+     2 格内必有灯柱信标 */
+  const lampNear = (x, z) => t.scatter.some((s) => s.kind === 'lamp' &&
+      Math.max(Math.abs(s.x - x), Math.abs(s.z - z)) <= 2);
+  const prefabBoxes = t.prefab.map((p) => c.PrefabKit.footOf(p.id, p.x, p.y, p.z,
+      Object.assign({}, p.v, {face: p.face})));
+  for (const r of t.roads) {
+    const alongX = spanOf(r.x1, r.x2) >= spanOf(r.z1, r.z2);
+    const caps = alongX ?
+        [{x: r.x1, z: center(r.z1, r.z2)}, {x: r.x2, z: center(r.z1, r.z2)}] :
+        [{x: center(r.x1, r.x2), z: r.z1}, {x: center(r.x1, r.x2), z: r.z2}];
+    for (const cap of caps) {
+      const capBox = alongX ?
+          {x1: cap.x, z1: r.z1, x2: cap.x, z2: r.z2} :
+          {x1: r.x1, z1: cap.z, x2: r.x2, z2: cap.z};
+      const served = gapXZ(capBox, t.plaza) === 0 ||
+          t.roads.some((o) => o !== r && gapXZ(capBox, o) === 0) ||
+          prefabBoxes.some((b) => gapXZ(capBox, b) === 0);
+      if (served) continue;
+      assert.ok(lampNear(cap.x, cap.z),
+          '断头端点灯柱信标(' + r.id + ' 端帽 ' + cap.x + ',' + cap.z + ', §3 E)');
+    }
+  }
   const boxes = t.prefab.map((p) => c.PrefabKit.footOf(p.id, p.x, p.y, p.z,
       Object.assign({}, p.v, {face: p.face})));
   for (const s of t.scatter) {
