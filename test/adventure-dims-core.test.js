@@ -444,12 +444,12 @@ test('地表与路网(T-SEAM-05 迁入): 基底三层恰覆核心区 · 广场/�
   assert.strictEqual(cell(32, 24, 32), 1, '核心区角 surface 恰覆(96×96 居中)');
   assert.strictEqual(cell(127, 24, 127), 1, '核心区对角 surface 恰覆');
   assert.strictEqual(cell(31, 24, 31), 0, '核心区外零基底(远景带无立地的一部分)');
-  assert.strictEqual(cell(79, 24, 79), 58, '广场铺装 58(28×28 与核心区同心)');
+  assert.strictEqual(cell(79, 24, 79), 17, '广场铺装 17 石英(28×28 与核心区同心)');
   assert.strictEqual(cell(70, 24, 50), 41, '农田 A 耕地 41');
   assert.strictEqual(cell(84, 24, 50), 41, '农田 B 耕地 41');
-  assert.strictEqual(cell(79, 24, 100), 58, '南主路 58(5 宽)');
-  assert.strictEqual(cell(60, 24, 63), 58, '北主路 58');
-  assert.strictEqual(cell(110, 24, 86), 58, '东主路 58');
+  assert.strictEqual(cell(79, 24, 100), 13, '南主路 13 石砖(5 宽)');
+  assert.strictEqual(cell(60, 24, 63), 13, '北主路 13 石砖');
+  assert.strictEqual(cell(110, 24, 86), 13, '东主路 13 石砖');
   assert.strictEqual(cell(65, 24, 79), 4, '西支路 4(3 宽)');
   assert.strictEqual(cell(55, 24, 50), 4, '田园支路 4');
   assert.strictEqual(cell(60, 24, 95), 4, '储藏支路 4');
@@ -462,46 +462,49 @@ test('地表与路网(T-SEAM-05 迁入): 基底三层恰覆核心区 · 广场/�
 test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/三摊位实拼格位(集中注入材质落世界)', () => {
   runTownBuild();
   /* 钟塔: 基底先铺/建筑后写的写者赢见证 + 结构五件 */
-  assert.strictEqual(cell(79, 24, 72), 58,
-      '塔基 58 @(79,24,72)(surface 草1 被后写者赢覆写——序即几何)');
-  assert.strictEqual(cell(78, 25, 71), 5, '塔柱 5 @(78,25,71)');
-  assert.strictEqual(cell(79, 25, 71), 5, '塔身中线竖缝 trim 5 @(79,25,71)');
-  assert.strictEqual(cell(78, 28, 72), 18, '塔窗玻璃 18 @(78,28,72)');
+  assert.strictEqual(cell(79, 24, 72), 13,
+      '塔基 13 石砖 @(79,24,72)(surface 草1 被后写者赢覆写——序即几何)');
+  assert.strictEqual(cell(78, 26, 71), 5, '塔身角柱 5 @(78,26,71)(基座上收分塔身四角柱)');
+  assert.strictEqual(cell(79, 26, 71), 17, '塔身石英墙 17 @(79,26,71)');
+  assert.strictEqual(cell(79, 30, 74), 68, '塔窗玻璃板 68 @(79,30,74)');
   for (const x of [79, 80]) {
-    for (const y of [32, 33]) {
+    for (const y of [34, 35]) {
       for (const z of [72, 73]) {
-        assert.strictEqual(cell(x, y, z), 38, '钟体 2×2×2 全 38 @(' + x + ',' + y + ',' + z + ')');
+        assert.strictEqual(cell(x, y, z), 19, '金钟 2×2×2 全 19 @(' + x + ',' + y + ',' + z + ')');
       }
     }
   }
-  assert.strictEqual(cell(77, 34, 71), 16, '檐下旗 16 @(77,34,71)');
-  assert.strictEqual(cell(82, 34, 73), 16, '檐下旗 16 @(82,34,73)');
-  assert.strictEqual(cell(79, 35, 72), 9, '顶饰红砖 9 @(79,35,72)');
-  assert.strictEqual(cell(79, 38, 72), 5, '塔尖 trim 5 @(79,38,72)');
-  /* Lava Chicken 店(face=west 旋转): 招牌/展示窗/遮檐/门洞敞开 */
-  assert.strictEqual(cell(106, 31, 78), 38, '店招暖金 38 @(106,31,78)');
-  assert.strictEqual(cell(106, 31, 79), 38, '店招暖金 38 @(106,31,79)');
-  assert.strictEqual(cell(106, 31, 76), 15, '店招底板天蓝 15 @(106,31,76)');
-  assert.strictEqual(cell(107, 26, 78), 0, '店门洞白天敞开 @(107,26,78)');
-  assert.strictEqual(cell(107, 27, 76), 19, '展示窗灯块暖光 19 @(107,27,76)');
-  assert.strictEqual(cell(106, 29, 74), 52, '前廊遮檐羊毛 52 @(106,29,74)');
-  /* 风车塔(face=south 恒等): 轴/双臂叶/门洞/小窗 */
-  assert.strictEqual(cell(56, 32, 43), 12, '风车轴 12 @(56,32,43)');
-  assert.strictEqual(cell(56, 32, 44), 12, '风车轴 12 @(56,32,44)');
-  assert.strictEqual(cell(56, 32, 45), 12, '风车轴 12 @(56,32,45)');
-  assert.strictEqual(cell(56, 33, 45), 52, '风车上臂叶 52 @(56,33,45)');
-  assert.strictEqual(cell(56, 31, 45), 52, '风车下臂叶 52 @(56,31,45)');
-  assert.strictEqual(cell(56, 24, 42), 3, '风车基座石 3 @(56,24,42)');
-  assert.strictEqual(cell(56, 25, 42), 6, '风车塔身木板 6 @(56,25,42)');
-  assert.strictEqual(cell(56, 25, 44), 0, '风车门洞 @(56,25,44)');
+  assert.strictEqual(cell(77, 36, 71), 78, '钟亭檐角旗 78 樱粉 @(77,36,71)');
+  assert.strictEqual(cell(82, 36, 73), 78, '钟亭檐角旗 78 樱粉 @(82,36,73)');
+  assert.strictEqual(cell(79, 38, 72), 9, '阶梯顶红砖 9 @(79,38,72)');
+  assert.strictEqual(cell(79, 39, 72), 78, '塔顶旗 78 樱粉 @(79,39,72)');
+  /* Lava Chicken 店(face=west 旋转): 招牌橙底石英点缀/展示窗/遮檐/前廊柱廊 */
+  assert.strictEqual(cell(106, 31, 77), 76, '店招橙底 76 @(106,31,77)');
+  assert.strictEqual(cell(106, 31, 79), 17, '店招点缀石英 17 @(106,31,79)');
+  assert.strictEqual(cell(106, 31, 76), 5, '招牌框柱 5 @(106,31,76)');
+  assert.strictEqual(cell(107, 27, 75), 68, '展示窗玻璃板 68 @(107,27,75)');
+  assert.strictEqual(cell(107, 26, 75), 19, '窗内藏暖光 19 @(107,26,75)');
+  assert.strictEqual(cell(106, 29, 74), 15, '前廊遮檐布幔 15 @(106,29,74)');
+  assert.strictEqual(cell(106, 26, 77), 5, '前廊柱 5 @(106,26,77)');
+  /* 风车塔(face=south 恒等): 轴/十字框叶(石英框+木板叶面)/小窗(新蓝图无门洞) */
+  assert.strictEqual(cell(56, 32, 43), 76, '风车轴 76 @(56,32,43)');
+  assert.strictEqual(cell(56, 32, 44), 76, '风车轴 76 @(56,32,44)');
+  assert.strictEqual(cell(56, 32, 45), 76, '风车轴 76 @(56,32,45)');
+  assert.strictEqual(cell(55, 35, 45), 6, '风车上臂木板叶 6 @(55,35,45)');
+  assert.strictEqual(cell(57, 29, 45), 6, '风车下臂木板叶 6 @(57,29,45)');
+  assert.strictEqual(cell(56, 35, 45), 17, '风车叶框石英 17 @(56,35,45)');
+  assert.strictEqual(cell(56, 24, 42), 13, '风车基座石砖 13 @(56,24,42)');
+  assert.strictEqual(cell(56, 25, 42), 17, '风车塔身石英 17 @(56,25,42)');
+  assert.strictEqual(cell(56, 25, 44), 0, '风车门洞 @(56,25,44)(南脸门洞保留)');
+  assert.strictEqual(cell(56, 26, 44), 0, '风车门洞 @(56,26,44)');
   assert.strictEqual(cell(56, 28, 44), 5, '风车小窗 trim @(56,28,44)');
   /* 双民居: cottage(face=south)/loft(face=north 旋转)门叶+屋顶+阳台 */
-  assert.strictEqual(cell(43, 25, 74), 6, 'cottage 门叶 6 @(43,25,74)');
-  assert.strictEqual(cell(43, 26, 74), 6, 'cottage 门叶 6 @(43,26,74)');
-  assert.strictEqual(cell(42, 29, 68), 3, 'cottage 装饰烟囱石 3 @(42,29,68)');
+  assert.strictEqual(cell(43, 25, 74), 64, 'cottage 门 64 @(43,25,74)');
+  assert.strictEqual(cell(43, 26, 74), 65, 'cottage 门上叶 65 @(43,26,74)');
+  assert.strictEqual(cell(42, 29, 68), 4, 'cottage 装饰烟囱石 4 @(42,29,68)');
   assert.strictEqual(cell(44, 28, 71), 9, 'cottage 陶橙顶 9 @(44,28,71)');
-  assert.strictEqual(cell(43, 25, 82), 6, 'loft 门叶 6 @(43,25,82)');
-  assert.strictEqual(cell(43, 26, 82), 6, 'loft 门叶 6 @(43,26,82)');
+  assert.strictEqual(cell(43, 25, 82), 64, 'loft 门 64 @(43,25,82)');
+  assert.strictEqual(cell(43, 26, 82), 65, 'loft 门上叶 65 @(43,26,82)');
   assert.strictEqual(cell(42, 32, 86), 9, 'loft 高屋面 9 @(42,32,86)');
   assert.strictEqual(cell(40, 28, 82), 5, 'loft 挑阳台木 5 @(40,28,82)');
   /* 储藏小屋(face=east 旋转): 门叶+基座 */
@@ -530,21 +533,21 @@ test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/
 
 test('植被与道具(T-SEAM-05 迁入): 樱花=SceneKit 树+樱粉覆写(两型干高冠域全覆盖) · 灌木绿冠 · 灯柱/路标', () => {
   runTownBuild();
-  /* 樱花 A(广场): 立地铺装 58, 干基 5, 冠盒 y[27,30] 内 16 有余且 7 清零 */
-  assert.strictEqual(cell(68, 24, 88), 58, '广场樱花立地=广场铺装 @(68,24,88)');
+  /* 樱花 A(广场): 立地铺装 17 石英, 干基 5, 冠盒 y[27,30] 内 78 有余且 7 清零 */
+  assert.strictEqual(cell(68, 24, 88), 17, '广场樱花立地=广场铺装 17 石英 @(68,24,88)');
   assert.strictEqual(cell(68, 25, 88), 5, '樱花干基 5 @(68,25,88)');
-  let stat = scanPair(66, 70, 27, 30, 86, 90, 16, 7).split('/').map(Number);
-  assert.ok(stat[0] > 0, '樱花 A 冠盒樱粉 16 有 ' + stat[0] + ' 格(覆写生效)');
+  let stat = scanPair(66, 70, 27, 30, 86, 90, 78, 7).split('/').map(Number);
+  assert.ok(stat[0] > 0, '樱花 A 冠盒樱粉叶 78 有 ' + stat[0] + ' 格(覆写生效)');
   assert.strictEqual(stat[1], 0, '樱花 A 冠盒残留绿叶 7 = ' + stat[1] + '(覆写必须清零)');
-  stat = scanPair(65, 71, 26, 32, 85, 91, 16, 7).split('/').map(Number);
+  stat = scanPair(65, 71, 26, 32, 85, 91, 78, 7).split('/').map(Number);
   assert.strictEqual(stat[1], 0, '樱花 A 宽域残留 7 = ' + stat[1] + '(冠盒须覆两型干高全冠域)');
   /* 樱花 B(田园): 立地草 1 */
   assert.strictEqual(cell(78, 24, 52), 1, '田园樱花立地=草 @(78,24,52)');
   assert.strictEqual(cell(78, 25, 52), 5, '樱花干基 5 @(78,25,52)');
-  stat = scanPair(76, 80, 27, 30, 50, 54, 16, 7).split('/').map(Number);
-  assert.ok(stat[0] > 0, '樱花 B 冠盒樱粉 16 有 ' + stat[0] + ' 格');
+  stat = scanPair(76, 80, 27, 30, 50, 54, 78, 7).split('/').map(Number);
+  assert.ok(stat[0] > 0, '樱花 B 冠盒樱粉叶 78 有 ' + stat[0] + ' 格');
   assert.strictEqual(stat[1], 0, '樱花 B 冠盒残留 7 = ' + stat[1]);
-  stat = scanPair(75, 81, 26, 32, 49, 55, 16, 7).split('/').map(Number);
+  stat = scanPair(75, 81, 26, 32, 49, 55, 78, 7).split('/').map(Number);
   assert.strictEqual(stat[1], 0, '樱花 B 宽域残留 7 = ' + stat[1]);
   /* 灌木: SceneKit.scrub 绿冠保留 7(不染) */
   assert.strictEqual(cell(60, 25, 70), 5, '灌木干 5 @(60,25,70)');
@@ -553,10 +556,13 @@ test('植被与道具(T-SEAM-05 迁入): 樱花=SceneKit 树+樱粉覆写(两型
   stat = scanPair(97, 99, 25, 28, 91, 93, 16, 7).split('/').map(Number);
   assert.ok(stat[1] > 0, '灌木 B 冠含绿叶 7 有 ' + stat[1] + ' 格');
   /* 灯柱与路标(props fill) */
-  for (const y of [25, 26, 27]) assert.strictEqual(cell(77, y, 92), 5, '广场灯柱 5 @(' + y + ')');
-  assert.strictEqual(cell(77, 28, 92), 19, '广场灯块 19 @(77,28,92)');
-  assert.strictEqual(cell(64, 25, 67), 5, '西灯柱 5 @(64,25,67)');
-  assert.strictEqual(cell(64, 28, 67), 19, '西灯块 19 @(64,28,67)');
+  assert.strictEqual(cell(77, 25, 92), 17, '广场灯座石英 17 @(77,25,92)(props.lampBase 新槽)');
+  for (const y of [26, 27, 28]) assert.strictEqual(cell(77, y, 92), 5, '广场灯柱 5 @(' + y + ')');
+  assert.strictEqual(cell(77, 29, 92), 19, '广场灯头 19 @(77,29,92)');
+  assert.strictEqual(cell(64, 25, 67), 17, '西灯座石英 17 @(64,25,67)');
+  assert.strictEqual(cell(64, 26, 67), 5, '西灯柱 5 @(64,26,67)');
+  assert.strictEqual(cell(64, 28, 67), 5, '西灯柱 5 @(64,28,67)');
+  assert.strictEqual(cell(64, 29, 67), 19, '西灯头 19 @(64,29,67)');
   assert.strictEqual(cell(73, 25, 67), 5, '广场路标柱 5 @(73,25,67)');
   assert.strictEqual(cell(73, 26, 67), 5, '广场路标柱 5 @(73,26,67)');
   assert.strictEqual(cell(73, 27, 67), 6, '广场路牌 6 @(73,27,67)');
