@@ -667,10 +667,13 @@ test('高亮签名(prebuild §5 函数 9): 同入参恒等; id 与显示档任�
 });
 
 /* 命中判定(纯几何): 视线-锚点夹角 ≤ HL_AIM_DEG(含等号)且欧氏距离 ≤
-   HL_AIM_MAX_DIST(含等号)双门; 通过者取夹角最小(准星指着谁), 并列取
-   序在前; dir 零向量/空表/全部落空 → null。opts {maxDist, deg} 注入
-   覆盖(PO 调参位)。 */
-test('准星命中判定: 正中命中; 夹角/距离边界含等号逐个; 角度优先于距离(准星指着谁); 并列序在前; 零向/空表/背向=miss; opts 注入生效', () => {
+   HL_AIM_MAX_DIST(含等号)双门; 通过者取夹角最小(准星指着谁); 同角并列
+   含 task: 前缀条目时任务条目优先, 均非任务取序在前(T-UI-04F 契约改约,
+   2026-11-14: 真清单 TOWN_INTERACTS 三 task 条目被同锚 prop/landmark
+   源序遮挡→点选接任务全不可达=功能阻断; 清单表序是机器红线不动, 改的
+   是命中裁决契约=town-ui-core 交付面; PO 追认挂 PO 待裁清单条款 9);
+   dir 零向量/空表/全部落空 → null。opts {maxDist, deg} 注入覆盖(PO 调参位)。 */
+test('准星命中判定: 正中命中; 夹角/距离边界含等号逐个; 角度优先于距离(准星指着谁); 并列任务优先(均非任务取序在前, T-UI-04F 改约); 零向/空表/背向=miss; opts 注入生效', () => {
   const {ctx} = coreBoot();
   assert.strictEqual(probe(ctx, 'typeof townHlHit'), 'function',
       '缺 townHlHit 纯函数(命中判定纯逻辑下沉 core, 票面交付物 3)');
@@ -717,7 +720,33 @@ test('准星命中判定: 正中命中; 夹角/距离边界含等号逐个; 角�
   const byOrder = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
     '{x: 0, y: 0, z: -1}, [' + JSON.stringify(twinA) + ', ' +
     JSON.stringify(twinB) + '], {}))');
-  assert.strictEqual(byOrder.id, 'first', '同角并列取序在前(清单源序即裁决序)');
+  assert.strictEqual(byOrder.id, 'first', '同角并列均非任务条目: 取序在前(清单源序仍是非任务并列的裁决序)');
+  /* T-UI-04F 契约改约(2026-11-14): 同锚并列角含 task: 前缀条目→任务优先。
+     断言 1 为改约红(现实现按源序命中 prop); 断言 2/3 是改约边界锁
+     (防「翻转清单」与「任务恒赢」两类假绿/过宽实现)。 */
+  const occlProp = {id: 'market', anchor: {x: 0, y: 0, z: -10}};
+  const occlTask = {id: 'task:find-bread', anchor: {x: 0, y: 0, z: -10}};
+  const tiePropFirst = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+    '{x: 0, y: 0, z: -1}, [' + JSON.stringify(occlProp) + ', ' +
+    JSON.stringify(occlTask) + '], {}))');
+  assert.strictEqual(tiePropFirst.id, 'task:find-bread',
+      '同锚并列角: prop 源序在前仍命中 task(任务接取闭环优先, T-UI-04F 改约)');
+  const tieTaskFirst = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+    '{x: 0, y: 0, z: -1}, [' + JSON.stringify(occlTask) + ', ' +
+    JSON.stringify(occlProp) + '], {}))');
+  assert.strictEqual(tieTaskFirst.id, 'task:find-bread',
+      '同锚并列角序无关: task 在前在后均命中 task(改约不得靠翻转清单达成)');
+  const D2T = Math.PI * 2 / 180;
+  const D6T = Math.PI * 6 / 180;
+  const propNear = {id: 'market', anchor: {x: 10 * Math.sin(D2T), y: 0,
+    z: -10 * Math.cos(D2T)}}; /* 2° 偏角 */
+  const taskWide = {id: 'task:find-bread', anchor: {x: 10 * Math.sin(D6T), y: 0,
+    z: -10 * Math.cos(D6T)}}; /* 6° 偏角 */
+  const byAngleTask = probeJson(ctx, 'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, ' +
+    '{x: 0, y: 0, z: -1}, [' + JSON.stringify(propNear) + ', ' +
+    JSON.stringify(taskWide) + '], {}))');
+  assert.strictEqual(byAngleTask.id, 'market',
+      '非同锚零变化: 角度门先行, task 优先只在并列角生效(准星指着谁不改)');
   /* miss 三态: 零向量 dir / 空表 / 背向锚点 */
   assert.strictEqual(probe(ctx,
       'JSON.stringify(townHlHit({x: 0, y: 0, z: 0}, {x: 0, y: 0, z: 0}, ' +

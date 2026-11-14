@@ -1059,7 +1059,9 @@ test('离镇再进卫生: leave→三件套监听摘除+hover/pressed 清零; �
   }
 });
 
-test('集成链 T-UI-03: 进镇九标→mousemove 瞄钟塔 is-hover→按下反馈→抬起结算 onInteract→真机器 found is-done+完成一步+表扬→回程收敛零残留→再进干净', () => {
+test('集成链 T-UI-03(T-UI-04F 改约): 进镇九标→mousemove 瞄钟塔位 is-hover' +
+    '(同锚并列命中=任务条目)→按下反馈→抬起结算 onInteract→真机器 found is-done' +
+    '+完成一步+表扬→回程收敛零残留→再进干净', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
   /* vm 同笼(⑥⑦ 同款装具): 真机器+真核心+适配层; hlSource 走生产缺省
      (TOWN_INTERACTS+TOWN_MAP 守卫读), camRef/onInteract 注入; 文档级事件
@@ -1183,36 +1185,43 @@ test('集成链 T-UI-03: 进镇九标→mousemove 瞄钟塔 is-hover→按下反
       '钟塔标记图标(UI-01 语义键)');
   assert.strictEqual(hlMarkProbe(ctx, 'bell-tower').classList.contains('is-default'),
       true, '初始默认态(低存在感提示在册)');
-  /* 悬停: 机位(79,25,96) 瞄钟塔(79,24,76)——mousemove 事件驱动 */
+  /* 悬停: 机位(79,25,96) 瞄钟塔(79,24,76)——mousemove 事件驱动。
+     T-UI-04F 改约(2026-11-14): 同锚并列(bell-tower idx0 与 task:tour-plaza
+     idx6 同锚同值)命中裁决=task 前缀条目优先, 悬停载体从钟塔改约为同锚
+     任务条目(真清单三处遮挡修复的装配面直接印证; 锁的机制=is-hover 类
+     翻转, 断言语义零弱化, 逐 hunk 声明见回执; PO 追认挂条款 9) */
   vm.runInContext('__cam = {origin: {x: 79, y: 25, z: 96}, ' +
       'dir: {x: 0, y: -1 / Math.sqrt(401), z: -20 / Math.sqrt(401)}, ' +
       'yaw: 0, pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100};', ctx);
   vm.runInContext('__doc.fire("mousemove");', ctx);
   assert.strictEqual(
-      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-hover'), true,
-      'mousemove 瞄钟塔→is-hover(E2E 悬停验收锚)');
+      hlMarkProbe(ctx, 'task:tour-plaza').classList.contains('is-hover'), true,
+      'mousemove 瞄钟塔位→同锚任务 is-hover(并列 task 优先, T-UI-04F 改约)');
+  assert.strictEqual(
+      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-hover'), false,
+      '同锚 landmark 不 hover(改约遮挡生效: 任务接取优先于观察条目)');
   assert.strictEqual(
       hlMarkProbe(ctx, 'lava-chicken').classList.contains('is-hover'), false,
       '未瞄准对象不 hover(炸鸡店在 24 格外, 零误导)');
   /* 按下反馈→抬起结算 */
   vm.runInContext('__doc.fire("pointerdown");', ctx);
   assert.strictEqual(
-      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-pressed'), true,
-      '按下反馈(E2E 点选反馈验收锚)');
+      hlMarkProbe(ctx, 'task:tour-plaza').classList.contains('is-pressed'), true,
+      '按下反馈(E2E 点选反馈验收锚, 载体=命中任务条目)');
   vm.runInContext('__doc.fire("pointerup");', ctx);
   assert.strictEqual(vm.runInContext('__interact.length', ctx), 1,
       '抬起结算恰一次派发');
-  assert.strictEqual(vm.runInContext('__interact[0].id', ctx), 'bell-tower',
-      '结算载荷=命中对象 id');
-  assert.strictEqual(vm.runInContext('__interact[0].kind', ctx), 'landmark',
+  assert.strictEqual(vm.runInContext('__interact[0].id', ctx), 'task:tour-plaza',
+      '结算载荷=命中对象 id(同锚并列命中任务, T-UI-04F 改约)');
+  assert.strictEqual(vm.runInContext('__interact[0].kind', ctx), 'task',
       '结算载荷=可交互类型(dialog-spec §2.2 载荷面)');
   /* A 侧不代写玩法: 点选后机器 focus 仍 null */
   assert.strictEqual(vm.runInContext('__machine.snapshot().focusId', ctx), null,
       '点选不动机器(A 侧只看状态回流)');
-  /* 真机器 found→完成态(E2E found 完成态验收锚) */
-  vm.runInContext('__machine.found(\'bell-tower\');', ctx);
+  /* 真机器 found→完成态(E2E found 完成态验收锚; 点选谁 found 谁同构搬迁) */
+  vm.runInContext('__machine.found(\'task:tour-plaza\');', ctx);
   assert.strictEqual(
-      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-done'), true,
+      hlMarkProbe(ctx, 'task:tour-plaza').classList.contains('is-done'), true,
       '真机器 found 事件→标记完成态(§6.2 完成行)');
   assert.strictEqual(vm.runInContext('__ui.cardState()', ctx), 'step-done',
       'L1 卡完成一步(机器 done 对齐)');
@@ -1222,14 +1231,15 @@ test('集成链 T-UI-03: 进镇九标→mousemove 瞄钟塔 is-hover→按下反
       '回程→HUD 收敛');
   assert.strictEqual(vm.runInContext('__listeners.mousemove.length', ctx), 0,
       '回程→监听摘除零泄漏');
-  /* 再进新机: 干净九标(零 hover/pressed/done 残留) */
+  /* 再进新机: 干净九标(零 hover/pressed/done 残留; 载体=改约后刚 hover/
+     found 过的 task:tour-plaza, 保「刚动过的标记再进零残留」原语义强度) */
   vm.runInContext('__machine = mkTownTargets(' +
       '{emit: function(n, p) { __ui.targetEvent(n, p); }}); __ui.sync();', ctx);
   assert.strictEqual(
-      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-hover'), false,
+      hlMarkProbe(ctx, 'task:tour-plaza').classList.contains('is-hover'), false,
       '再进零悬停残留(cam 未变但无事件, 事件驱动口径)');
   assert.strictEqual(
-      hlMarkProbe(ctx, 'bell-tower').classList.contains('is-done'), false,
+      hlMarkProbe(ctx, 'task:tour-plaza').classList.contains('is-done'), false,
       '再进零完成残留(新机新账, doneIds 清)');
 });
 
@@ -1255,9 +1265,17 @@ const DLG_TASK_SEEK = {id: 'task:find-bread', kind: 'task', iconKey: 'find',
 const DLG_TASK_TOUR = {id: 'task:tour-plaza', kind: 'task', iconKey: 'plaza',
   label: '逛逛广场', anchor: {x: 79, y: 24, z: 76}, state: 'active',
   sessionKind: 'tour', taskRef: 'task:tour-plaza'};
-/* 无 sessionKind 条目(landmark): 点选不开会话(A 侧纯结算, 既有行为) */
+/* 无 sessionKind 条目(landmark): 点选不开会话(A 侧纯结算, 既有行为)。
+   锚=独立位(65,24,85): T-UI-04F 命中并列新契约下 LM 与 TOUR 同锚并列
+   会被任务恒胜遮挡, 独立锚保「LM 本尊点选」可测(装具造最小面, 非地图
+   权威——地图权威在 TOWN_MAP; 断言语义零弱化) */
 const DLG_LANDMARK = {id: 'bell-tower', kind: 'landmark', iconKey: 'belltower',
-  label: '钟塔', anchor: {x: 79, y: 24, z: 76}, state: 'active'};
+  label: '钟塔', anchor: {x: 65, y: 24, z: 85}, state: 'active'};
+
+/* 同锚 prop 镜像条目(真清单 market prop 与 task:find-bread 同锚且 prop
+   源序在前; T-UI-04F 遮挡修复的装配级回归装具, 与 DLG_TASK_SEEK 同锚) */
+const DLG_PROP_MARKET = {id: 'market', kind: 'prop', iconKey: 'plaza',
+  label: '市集摊位', anchor: {x: 90, y: 24, z: 84}, state: 'active'};
 
 function dlgLayerOf(rec) {
   const hit = rec.ui.root.children.find(
@@ -1282,9 +1300,11 @@ function dlgElOf(rec, cls) {
 
 /* 开会话便捷: 进镇+瞄向条目+完整点选链(pointerdown/pointerup) */
 function dlgHarness(machineRef, source) {
-  /* 装具序消歧: TOUR 与 LANDMARK 同锚点(钟塔位), townHlHit 同角并列取
-     序在前(core 契约「锚点清单源序=裁决序」)——LM 必须排在 TOUR 前,
-     「点选不开会话」瞄钟塔才命中 LM(无 sessionKind)而非 TOUR */
+  /* T-UI-04F 改约对齐(2026-11-14): 命中并列新契约=task: 前缀条目优先——
+     LM(无 sessionKind)与 TOUR(任务)同锚并列时旧「装具序消歧」失效
+     (TOUR 恒胜), 「点选不开会话」须命中 LM 本尊, 故 LM 挪独立锚
+     (65,24,85); 缺省表内顺序不再是消歧手段(清单序不表裁决, 断言语义
+     零弱化, 逐 hunk 声明见回执) */
   const rec = mkHlHarness(machineRef, {hlSource: source ||
     [DLG_TASK_SEEK, DLG_LANDMARK, DLG_TASK_TOUR]});
   rec.clickEntry = (entry) => {
@@ -1385,9 +1405,11 @@ test('点选不开会话: landmark/prop 条目(无 sessionKind)点选保持纯 A
   assert.strictEqual(panel.hidden, true, '无 sessionKind 条目不开会话');
   assert.strictEqual(rec.ui.cardState(), 'active',
       'A 侧结算照常(target-focus→进行中, T-UI-03 既有行为)');
+  /* T-UI-04F 改约对齐: anchor 字面量随装具独立锚(65,24,85)同步——断言
+     语义零弱化(五键载荷形状与「LM 本尊纯 A 结算」不变, 仅坐标随锚搬迁) */
   assert.deepStrictEqual(rec.interact, [
     {id: 'bell-tower', kind: 'landmark', iconKey: 'belltower', label: '钟塔',
-      anchor: {x: 79, y: 24, z: 76}},
+      anchor: {x: 65, y: 24, z: 85}},
   ], 'onInteract 恰一次派发五键(结算面零弱化, 载荷形状=T-UI-03 既有契约)');
 });
 
@@ -1468,6 +1490,44 @@ test('seek 全链: 世界点中目标→respond→praise(B 徽章呈现+A 表扬
       'A 侧完成表扬错峰补位(close 后解冻, 既有会话避让语义)');
   assert.strictEqual(dlgElOf(rec, 'town-dlg-praise').hidden, true,
       'B 会话内表扬随会话收敛(生命周期随会话, §7.3)');
+});
+
+test('T-UI-04F done 后命中仍优先任务: 同锚 prop 源序在前, 完成会话再点同锚=重读任务再开' +
+    '(命中裁决状态盲不跳变=裁决①; 若做②案 done 摘除回退 prop 则在此红)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+      [DLG_PROP_MARKET, DLG_TASK_SEEK]); /* prop 在前=真清单源序镜像 */
+  rec.ui.sync();
+  /* 前置: 完成一轮——点选接任务→点中目标→praise→complete→再见(done) */
+  rec.clickEntry(DLG_TASK_SEEK);
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+      'seek', '前置: 同锚并列命中 task 接取(T-UI-04F 遮挡修复)');
+  rec.clickEntry(DLG_TASK_SEEK);
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+      'respond', '前置: 点中目标');
+  rec.timer.fireAll(); /* confirm 短驻泵 */
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+      'praise', '前置: confirm→praise');
+  rec.timer.fireAll(); /* praise dwell 泵→complete */
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+      'complete', '前置: dwell 自动步进→complete');
+  const bye = dlgElOf(rec, 'town-dlg-opts').children.find(
+      (b) => b.textContent.includes('再见'));
+  assert.ok(bye, '前置: complete 出口[再见]在位');
+  bye.click();
+  assert.strictEqual(rec.ui.cardState(), 'step-done',
+      '前置: close{done+taskRef}→A 落完成一步(任务已 done)');
+  /* 裁决①锁定: done 后命中裁决状态盲(几何输入不含状态)→再点同锚仍命中
+     task→重读会话再开(U6 重播/机器 focus 完成态回看同款无害重玩语义);
+     命中稳定不跳变: done 翻转瞬序悬停目标不从 task 跳到同锚 prop */
+  rec.clickEntry(DLG_TASK_SEEK);
+  assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+      'seek', 'done 后再点=重读任务(会话再开, 无害重玩)');
+  const last = rec.interact[rec.interact.length - 1];
+  assert.strictEqual(last.id, 'task:find-bread',
+      'done 后命中对象恒为 task 条目(②案 done 摘除→prop 可命中在此红)');
+  assert.strictEqual(last.kind, 'task',
+      '命中对象 kind=task(同锚 prop 观察结算不被降级命中替代)');
 });
 
 test('签名门控: 同态重复事件→会话 DOM 零重建(classList 零操作+子件引用恒等)', () => {
@@ -1696,4 +1756,142 @@ test('E2E 集成链 T-UI-04: 真四件同笼(镜像 index.html 装载序)进镇�
       'close{done+taskRef}→A 落完成一步(全链闭环收口)');
   assert.strictEqual(panelState() === 'idle' || panelState() === 'none', true,
       '面板收起(会话终了, 机器回 idle)');
+});
+
+/* ============================================================
+   T-UI-04F 真清单点选 E2E(票面施工内容 3): vm 同笼真注册清单(不过滤)。
+   T-UI-04 E2E 的过滤清单消歧(在册勿动)是同锚遮挡歧义的临时绕行, 本测
+   是该歧义(登记于其票回执)的正解回归: 真清单源序下三处 task 条目被同
+   锚 prop/landmark 遮挡(tour-plaza@钟塔 / find-bread@market /
+   visit-stash@stash), 逐锚断言点选 task 锚→会话开启全链(sessionKind
+   载荷正确+命中对象=task 条目本尊)。
+   红相: 现命中契约按源序裁决→三锚全被同锚条目遮挡→点选不开会话全红。
+   ============================================================ */
+
+/* 真清单同笼装具: 镜像 T-UI-04 E2E(index.html 装载序+liveKids doc 桩),
+   唯二差异=hlSource 真清单全量不过滤+onInteract 结算记录(命中对象断言面);
+   每次调用新 ctx(三锚互不污染, 会话无需跨锚收口) */
+function realTownCtx() {
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const closure = ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
+    'js/town-map-core.js', 'js/town-assembly-core.js', 'js/town-interact-core.js',
+    'js/town-ui-core.js', 'js/town-dialog-core.js', 'js/town-ui.js'];
+  const ordered = closure
+      .filter((f) => html.indexOf(f) >= 0)
+      .sort((a, b) => html.indexOf(a) - html.indexOf(b));
+  assert.ok(ordered.includes('js/town-dialog-core.js'),
+      'town-dialog-core.js 在 index.html 装配(守门先行)');
+  const ctx = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+  for (const f of ordered) {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
+  }
+  vm.runInContext(
+      'var __doc = (function() {' +
+      'var listeners = {}; var listenersOf = function(t) {' +
+      'return listeners[t] || []; };' +
+      /* S-1 契约(2026-11-14): children=live 只读视图, 增删唯一通道=
+         appendChild/removeChild(镜像 T-UI-04 E2E 同款桩, 装具纪律 #12) */
+      'var liveKids = function(kids) {' +
+      'var methods = {item: function(i) { return kids[i]; },' +
+      'find: function(fn) { return kids.find(fn); },' +
+      'filter: function(fn) { return kids.filter(fn); },' +
+      'map: function(fn) { return kids.map(fn); },' +
+      'forEach: function(fn) { return kids.forEach(fn); },' +
+      'slice: function() { return Array.prototype.slice.apply(kids, arguments); },' +
+      'indexOf: function(x) { return kids.indexOf(x); },' +
+      'includes: function(x) { return kids.includes(x); }};' +
+      'return new Proxy(methods, {get: function(t, k) {' +
+      'if (k === "length") return kids.length;' +
+      'if (typeof k === "string" && /^[0-9]+$/.test(k)) return kids[+k];' +
+      'if (k === Symbol.iterator) return function() { return kids[Symbol.iterator](); };' +
+      'return t[k]; }}); };' +
+      'var mkEl = function(tag) { var classes = []; var attrs = {};' +
+      'var kids = []; var view = liveKids(kids);' +
+      'return {tag: tag, parent: null, hidden: false,' +
+      'get children() { return view; },' +
+      'textContent: "", style: {}, onclick: null,' +
+      'classList: {add: function() { for (var i = 0; i < arguments.length; i++) {' +
+      'if (classes.indexOf(arguments[i]) < 0) classes.push(arguments[i]); } },' +
+      'remove: function() { for (var i = 0; i < arguments.length; i++) {' +
+      'var k = classes.indexOf(arguments[i]); if (k >= 0) classes.splice(k, 1); } },' +
+      'contains: function(c) { return classes.indexOf(c) >= 0; }},' +
+      'setAttribute: function(k, v) { attrs[k] = String(v); },' +
+      'getAttribute: function(k) { return k in attrs ? attrs[k] : null; },' +
+      'appendChild: function(c) { kids.push(c); },' +
+      'removeChild: function(c) { var i = kids.indexOf(c);' +
+      'if (i < 0) { throw new Error("NotFoundError: removeChild 非子件"); }' +
+      'kids.splice(i, 1); return c; },' +
+      'click: function() { if (this.onclick) this.onclick({}); }}; };' +
+      'var body = mkEl("body");' +
+      'return {body: body, createElement: mkEl, getElementById: function() {' +
+      'return null; }, addEventListener: function(t, fn) {' +
+      '(listeners[t] = listeners[t] || []).push(fn); },' +
+      'removeEventListener: function(t, fn) { var l = listeners[t] || [];' +
+      'var i = l.indexOf(fn); if (i >= 0) l.splice(i, 1); },' +
+      'fire: function(t) { var l = listenersOf(t).slice();' +
+      'for (var i = 0; i < l.length; i++) l[i]({}); }}; })();' +
+      'var __timer = {pending: [], set: function(fn, ms) {' +
+      'var h = {fn: fn, ms: ms}; this.pending.push(h); return h; },' +
+      'clear: function(h) { var i = this.pending.indexOf(h);' +
+      'if (i >= 0) this.pending.splice(i, 1); }};' +
+      'var __interact = [];' +
+      'var __ui = mkTownUi({doc: __doc,' +
+      'machineRef: function() { return __machine || null; },' +
+      /* T-UI-04F 正解回归: 真清单全量不过滤(与 T-UI-04 E2E 唯一装具分歧) */
+      'hlSource: function() { return townInteractRegistry(TOWN_INTERACTS); },' +
+      'camRef: function() { return __cam || null; }, timer: __timer,' +
+      'onInteract: function(p) { __interact.push(p); }});' +
+      'var __cam = null; var __machine = mkTownTargets({emit: function(n, p) {' +
+      '__ui.targetEvent(n, p); }}); __ui.sync();' +
+      '__panelState = function() { var scan = function(el) {' +
+      'if (el.classList.contains("town-dlg-panel")) return el;' +
+      'for (var i = 0; i < el.children.length; i++) { var hit = scan(el.children[i]);' +
+      'if (hit) return hit; } return null; };' +
+      'var p = scan(__ui.root); return p ? p.getAttribute("data-state") : "none"; };',
+      ctx);
+  return ctx;
+}
+
+test('E2E 真清单点选 T-UI-04F: 不过滤真注册清单三处同锚遮挡逐锚断言——点 task 锚→会话开启' +
+    '(sessionKind 载荷正确)+命中对象=task 本尊', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  /* 三遮挡锚位(TOWN_INTERACTS 源序: prop/landmark 恒在同名锚 task 条目前):
+     bell-tower(idx0)→task:tour-plaza(idx6) · market(idx4)→task:find-bread(idx7)
+     · stash(idx5)→task:visit-stash(idx8)。
+     panelState=route 矩阵形态(ROUTE_BY_KIND={tour:'guide',seek:'seek',help:
+     'help'}, town-dialog-core.js 在库契约, 其同名单测钉死['tour','guide',
+     'tour'])——面板 data-state 是 dialog 机 state 非裸 sessionKind,
+     红方首版误把两者画等号(绿方打回裁决修正, 观测面改约非弱化):
+     sessionKind 载荷正确由「route 只认 sessionKind 才达对应形态」证明 */
+  const occlusions = [
+    {taskId: 'task:tour-plaza', panelState: 'guide', label: '逛逛广场'},
+    {taskId: 'task:find-bread', panelState: 'seek', label: '找面包'},
+    {taskId: 'task:visit-stash', panelState: 'seek', label: '探秘小屋'},
+  ];
+  for (const occ of occlusions) {
+    const ctx = realTownCtx();
+    const run = (expr) => vm.runInContext(expr, ctx);
+    assert.strictEqual(run('__ui.cardState()'), 'idle-exploring',
+        occ.taskId + ': 前置 进镇探索中(真清单同笼装配完成)');
+    /* 瞄向真条目真锚(锚前 ~14.04 格, 距离/角度双门内正中, 镜像 T-UI-04 E2E) */
+    run('var __aim = townInteractRegistry(TOWN_INTERACTS).find(function(e) { ' +
+        'return e.id === ' + JSON.stringify(occ.taskId) + '; });' +
+        'var __o = {x: __aim.anchor.x, y: __aim.anchor.y + 1, z: __aim.anchor.z + 14};' +
+        'var __d = {x: __aim.anchor.x - __o.x, y: __aim.anchor.y - __o.y, ' +
+        'z: __aim.anchor.z - __o.z};' +
+        'var __len = Math.sqrt(__d.x * __d.x + __d.y * __d.y + __d.z * __d.z);' +
+        '__cam = {origin: __o, dir: {x: __d.x / __len, y: __d.y / __len, ' +
+        'z: __d.z / __len}, yaw: 0, pitch: 0, fovDeg: 90, aspect: 1, ' +
+        'vw: 100, vh: 100};');
+    run('__doc.fire("mousemove"); __doc.fire("pointerdown"); __doc.fire("pointerup");');
+    assert.strictEqual(run('__ui.cardState()'), 'dialog-dimmed',
+        occ.taskId + '(' + occ.label + '): 点选接任务→B open→A 收敛(真清单全链)');
+    assert.strictEqual(run('__panelState()'), occ.panelState,
+        occ.taskId + ': 自动 route→' + occ.panelState +
+        '(sessionKind 载荷正确: tour→guide/seek→seek 矩阵形态)');
+    assert.strictEqual(run('__interact.length'), 1,
+        occ.taskId + ': 恰一次结算派发');
+    assert.strictEqual(run('__interact[0].id'), occ.taskId,
+        occ.taskId + ': 命中对象=task 条目本尊(非同锚 prop/landmark 遮挡)');
+  }
 });

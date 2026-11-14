@@ -21,8 +21,10 @@
       townHlDim(activeId, dialogOpen, hlClass) 纯函数(会话降噪显示档
       full|min|off) · townHlSig(objectId, displayClass) 纯函数(高亮签名,
       脏标载体) · townHlHit(origin, dir, entries, opts) 纯函数(准星命中
-      判定: 视线-锚点夹角+距离双门, 角度优先序) · townHlProject(cam, anchor)
-      纯函数(标准针孔屏幕投影, DOM 投影小图标定位)
+      判定: 视线-锚点夹角+距离双门, 角度优先序; 同角并列 task: 前缀条目
+      优先, 双同类取源序[T-UI-04F 改约, 详见函数头]) ·
+      townHlProject(cam, anchor) 纯函数(标准针孔屏幕投影, DOM 投影小图标
+      定位)
    依赖: 零运行时依赖——不引用引擎件/件库/DOM/THREE 符号; 事件形状与参数
       默认值出自 docs/design/town-ui-hud-prebuild.md §1-§2/§5-§6 与
       docs/design/town-ui-entry-hud-spec.md §4/§8。
@@ -276,7 +278,11 @@ function townHlSig(objectId, displayClass) {
 /* ---------- 准星命中判定(prebuild §4.1-§4.3; 纯几何零 THREE) ----------
     指针锁定世界: 准星即光标, 命中判据=视线-锚点夹角 ≤ HL_AIM_DEG(含
     等号, 1e-9 容差抗舍入)且欧氏距离 ≤ HL_AIM_MAX_DIST(含等号)双门;
-    通过者取夹角最小(准星指着谁), 并列取序在前(锚点清单源序=裁决序);
+    通过者取夹角最小(准星指着谁); 同角并列: task: 前缀条目优先于非任务
+    条目(T-UI-04F 契约改约 2026-11-14: 真清单 TOWN_INTERACTS 三 task
+    条目被同锚 prop/landmark 源序遮挡→点选接任务全不可达=功能阻断;
+    清单表序是机器红线不动, 改的是命中裁决契约; PO 追认挂 PO 待裁清单
+    条款 9), 双方同类→维持清单源序取前; 非同角时角度门先行零变化;
     dir 零向量/空表/全部落空 → null。opts {maxDist, deg} 注入覆盖(PO 调
     调参位, 缺省消费 TOWN_UI_PARAMS 单一出处); dir 允许未归一化(内部分
     归一)。返回 {id, dist}, 无命中 null。 */
@@ -306,7 +312,12 @@ function townHlHit(origin, dir, entries, opts) {
       cosAngle = (vx * dir.x + vy * dir.y + vz * dir.z) / (d * len);
     }
     if (cosAngle < cosLimit - EPS) continue; /* 角度门(含等号, 舍入容差) */
-    if (cosAngle > bestCos) {/* 角度优先; 同角并列取序在前(严格大于) */
+    /* 角度优先(严格大于); 同角并列: task: 前缀条目压过非任务条目
+       (T-UI-04F 契约改约), 双方同类→维持源序取前 */
+    const tieTask = cosAngle === bestCos && best !== null &&
+      typeof e.id === 'string' && e.id.startsWith('task:') &&
+      !best.id.startsWith('task:');
+    if (cosAngle > bestCos || tieTask) {
       best = {id: e.id, dist: d};
       bestCos = cosAngle;
     }
