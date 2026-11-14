@@ -204,7 +204,7 @@
 - 会话避让：dialogOpen 闸吞 A 侧 tts-hint（:821+会话冻结测试 `test/town-ui.test.js:1552`）；A 句被闸吞断言 :1395-1396。
 
 ### 9.2 `ttsPlanFor`/`hudConvergenceFor` 零消费——终检记录（接线不做）
-- `DIALOG_CORE` 解构面恰六键（`js/town-ui.js:65-69`）不含 `ttsPlanFor`/`hudConvergenceFor`——两纯函数**参数面在册、装配层零消费**（grep 全库核对：仅 core 定义+core 单测+prebuild 文档引用）。
+- `DIALOG_CORE` 解构面恰五键：`DIALOG_EVENTS`/`DIALOG_OPTS`/`mkDialogMachine`/`dialogViewFor`/`dialogUtterFor`（`js/town-ui.js:65-69`），不含 `ttsPlanFor`/`hudConvergenceFor`——两纯函数**参数面在册、装配层零消费**（grep 全库核对：仅 core 定义+core 单测+prebuild 文档引用）。（2026-11-14 评审订正：初版误记「恰六键」，实为五键。）
 - 语义达成面：B 通道 cancel-then-speak + A 侧会话冻结闸已覆盖「会话播报优先/收敛恢复」行为语义（既有测试在册）；收敛档由 `townHudDimming`+dialogEvent 手工承载。
 - **处置**：接线（完整排队/抢占/收敛单源化）=增强项归 PO 批次（PO 待裁条款 8 后半在册）；本票零接线改动——登记终检记录，不虚勾「已接线」。
 
@@ -212,7 +212,7 @@
 
 ## 10. 文案 §7.1 改写登记（交付物 3 授权域）
 
-> 授权依据：派单交付物 3「违 §7.1 的标签式表扬（「真厉害」「你真棒」类）按权威改写（本票授权域，登记 diff；话术风格总体裁决仍归 PO 条款 7，本票只落 §7.1 明文导向）」。守门锚 `test/town-dialog-core.test.js:649`（禁词表 `真厉害|真棒|真聪明`，防回归）。
+> 授权依据（2026-11-14 评审订正：初版所引「派单交付物 3：违 §7.1 的标签式表扬…本票只落 §7.1 明文导向」在 brief 中不存在，现改照 brief :38 原文并补真实依据链）：派单交付物 3 原文=「**文案/TTS 默认值落地与统一出口排队终检**」——文案落地在本票授权域内；改写边界=dialog-spec §7.1 反馈原则明文导向（禁标签式表扬），话术风格总体裁决仍归 PO 待裁条款 7、F5 dwell 窗归条款 8。守门锚 `test/town-dialog-core.test.js:649`（禁词表 `真厉害|真棒|真聪明`，防回归）。
 
 | 处 | 原句（违例） | 改后 | 依据 |
 |---|---|---|---|

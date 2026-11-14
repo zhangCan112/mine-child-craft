@@ -7,23 +7,23 @@
 
 ## 一、红侧（本岗产物与自证）
 
-三锚纯追加（零删除、禁碰五文件零 hunk），红自证 `99 tests / 96 pass / 3 fail`，失败因逐一吻合预期：
+三锚纯追加（零删除、禁碰五文件零 hunk），红自证 `99 tests / 96 pass / 3 fail`，失败因逐一吻合预期（2026-11-14 评审订正：本表初版文件映射错乱+F5 红因失真，现照走查 §11 表与红日志更正）：
 
-| 锚 | 文件 | 红因 |
+| 锚 | 文件:行 | 红因 |
 | --- | --- | --- |
-| F5 praise dwell 泵默认取 praiseTotalMs[1] 上限 | test/town-ui-core.test.js | dwell 写死 800ms, 表扬句被 cancel 截断 |
-| §7.1 会话话术守门（respond/complete 六态句禁词表） | test/town-dialog-core.test.js | 现文案含「真厉害/真棒」标签式表扬 |
-| §7.1 PANEL_BODY.praise 去标签式短文案守门 | test/town-ui.test.js | praise 句含「你真棒!」 |
+| F5 praise dwell 泵默认取 praiseTotalMs[1] 上限 | test/town-ui.test.js:1906 | 旧泵实际取 `praiseTotalMs[0]`=1200ms, 断言 2000ms 上限档, 红日志 `1200 !== 2000`——表扬句被 1.2s 下限档截断（「写死 800ms」为初版误记; 800ms 是另一参数 `praiseDwellMinMs`, js/town-dialog-core.js:63, §5.4） |
+| §7.1 会话话术守门（respond/complete 六态句禁词表, PANEL_BODY 短文案检查含在本锚内） | test/town-dialog-core.test.js:649 | 现文案含「真厉害/真棒」标签式表扬 |
+| tieTask 非字符串 best.id 防御（04F note N1） | test/town-ui-core.test.js:897 | TypeError: best.id.startsWith is not a function @ js/town-ui-core.js:319（真清单不可达纯防御） |
 
 自证日志：`.scratch/logs/tui05-red.log`（logs 不入 git）。
 
 ## 二、绿侧（派 implement-engineer ses_e25f03c89ffefdsvEYscv4quh2, 前台阻塞派发）
 
-派令自足（票文指针+分支+红测试文件指针），验收标准写死「红测试全绿, 且不得改测试」。绿方回执：三生产文件落地——
+派令自足（票文指针+分支+红测试文件指针），验收标准写死「红测试全绿, 且不得改测试」。绿方回执：三生产文件落地（2026-11-14 评审订正：本节初版职责错挂, 现照走查 §11 表更正）——
 
-- `js/town-ui-core.js`：F5 dwell 泵改取 `PRAISE.praiseTotalMs[1]`=2000ms（兜底常量镜像同步）
-- `js/town-dialog-core.js`：respond/complete 六态句按 dialog-spec §7.1 改写（「找到啦, 你找得真认真!」「我们完成啦, 你帮了大忙!」）；04F note N1 tieTask `typeof best.id` 纯防御
-- `js/town-ui.js`：PANEL_BODY.praise「你真棒!」→「谢谢帮忙!」
+- `js/town-ui.js:742-744`：F5 dwell 泵 `dlgDwellMs()` 改取 `DIALOG_CORE.DIALOG_OPTS.praiseTotalMs[1]`=2000ms（兜底字面 2000 镜像同步）
+- `js/town-ui-core.js:319-320`：04F note N1 tieTask `typeof best.id` 纯防御
+- `js/town-dialog-core.js:138`：PANEL_BODY.praise「你真棒!」→「谢谢帮忙!」; respond/complete 六态句按 dialog-spec §7.1 改写（「找到啦, 你找得真认真!」「我们完成啦, 你帮了大忙!」）
 
 绿方申报 `99/99/0 EXIT 0`。
 
@@ -46,7 +46,7 @@
 2. **触发播报/近前话术未接线**：「我们去小镇啦!」与 B.4 主案均未接线——A.4 兜底（只保留到达播报）成立, 非缺陷; 接线=增强项归 PO 批次。
 3. **守门锚禁词表为最小集**（真厉害|真棒|真聪明）: PO 条款 7 若扩禁词表需同步扩锚（走查清单 §14.4）。
 
-## 六、待 PO 实机人工项（10 项, 详见走查清单 §13）
+## 六、待 PO 实机人工项（12 项, 详见走查清单 §13; 2026-11-14 评审订正: 初版误记 10 项）
 
 白闪过场体感（hold 窗延长预案在案）、镇名牌 banner 终值裁决、告示牌图案读法互文、步行段中段指引体感、触发播报接线裁决、近前话术 B.4 接线、praise dwell 2000ms 听感、真浏览器全链录屏、chip/ghost 实机手感、TTS 实机发音与静音开关。
 
