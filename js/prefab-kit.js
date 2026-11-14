@@ -101,10 +101,16 @@ function pfStiltPiles(e) {
 }
 
 /* stall-canopy 布幔缺省的 theme 映射单份(§4.7「布幔奶油/樱粉/天蓝 canopy
-   按 theme 注入」→现调色板): bread/generic→52 羊毛奶油 · flower→16 红羊毛
-   (樱粉最近似, 现调色板无粉色块) · fruit→15 蓝羊毛天蓝; 显式 v.ids.canopy
-   覆写映射(pfMerge 判显式后才注入) */
-const PF_STALL_CANOPY = {bread: 52, flower: 16, fruit: 15, generic: 52};
+   按 theme 注入」→现调色板 v2 字库): bread/generic→52 羊毛奶油 ·
+   flower→78 粉羊毛樱粉(v2: 16 大红出局, 78 已入字库——树 pinkLeaf 先例) ·
+   fruit→15 蓝羊毛天蓝; 显式 v.ids.canopy 覆写映射(pfMerge 判显式后才注入) */
+const PF_STALL_CANOPY = {bread: 52, flower: 78, fruit: 15, generic: 52};
+
+/* stall-canopy 顶层滚边(双层阶梯顶 tier2 前条)的 theme 映射单份(Step D:
+   顶改双层阶梯——tier1 主色=canopy 上表, tier2 副色=本表, 奶油×樱粉
+   对偶保六摊位家族相似): bread/generic→78 粉羊毛 · flower→52 羊毛奶油
+   (主副互换) · fruit→52; 显式 v.ids.canopyTrim 覆写映射(同 canopy 口径) */
+const PF_STALL_TRIM = {bread: 78, flower: 52, fruit: 52, generic: 78};
 
 /* 枚举轴值域表(conventions §1.10 升格: 值域清单原散在实现链/头注释/错误
    消息/规格 ≥3 处且逐行追加已生漂移——单份数据源+循环消费, 错误消息由表
@@ -193,11 +199,17 @@ function pfMerge(row, id, v) {
     e.ids = mats;
   }
   /* stall-canopy 布幔缺省按 theme 注入(§4.7「canopy 按 theme 注入」):
-      未显式给 v.ids.canopy 时按 theme 补映射(显式 canopy 已在上方合并
-      胜出, theme 不反杀); 部分注入的其余槽已由 Object.assign 回落行缺省 */
+      未显式给 v.ids.canopy/canopyTrim 时按 theme 补映射(显式键已在上方
+      合并胜出, theme 不反杀); 部分注入的其余槽已由 Object.assign 回落
+      行缺省。canopy=顶棚主色(PF_STALL_CANOPY)/canopyTrim=顶层滚边副色
+      (PF_STALL_TRIM), 两表同法各自单源 */
   if (pfHas(d, 'theme') && (v === undefined || v.ids === undefined ||
       v.ids.canopy === undefined)) {
     e.ids = Object.assign({}, e.ids, {canopy: PF_STALL_CANOPY[e.theme]});
+  }
+  if (pfHas(d, 'theme') && (v === undefined || v.ids === undefined ||
+      v.ids.canopyTrim === undefined)) {
+    e.ids = Object.assign({}, e.ids, {canopyTrim: PF_STALL_TRIM[e.theme]});
   }
   if (d.exit !== undefined) {
     let ex = d.exit;
@@ -621,28 +633,33 @@ const PF_ROWS = {
        宽 10→dx∈[-5,4], 深 8→dz∈[-4,3], 前廊向 +dz 外延 dz=4 一格(平面
        共 10×9)。v2 几何: 墙环改「石英抹灰门脸+木板侧后墙」混搭(§3 M「6
        木板为主, 17 石英抹灰混搭」), 前廊立深木柱廊(柱 dy1..3+柱顶横梁
-       dy4), 橱窗=68 玻璃板+窗台 19 内藏暖光带(warm 档), 遮檐双层布幔
-       (dy5 天蓝主幔+dy6 奶油上滚边, §2 布幔=15/17), 招牌改「端框 5 深木
-       +板 76 南瓜亮橙(§2「亮橙-招牌」)+icon 中央徽 17 石英剪影」(checkpoint
-       定稿: 19 灯勾边克制不做——灯块只入窗台光带, §8 红线); 门前桶/南瓜
-       陈设省略(checkpoint 裁决: 归 scene 线摊位陈设范畴)。总高不变 dy7
-       封顶, footprint 10×9×8 契约不动。 */
+        dy4), 橱窗=68 玻璃板+窗台 19 内藏暖光带(warm 档), 遮檐双层布幔
+        (dy5 天蓝主幔+dy6 奶油滚边两端两格, §2 布幔=15/17), 招牌改「端框
+        5 深木+板 76 南瓜亮橙(§2「亮橙-招牌」)+鸡剪影立板」(Step D lead
+        终审定稿: dy6..7 双层立板 8×2 门上方居中——signBird 白身鸡影
+        +signComb 红冠+signLight 灯点两枚; checkpoint 徽记案撤, 「或 17
+        勾勒」可选项未取省格); 门前桶/南瓜陈设省略(checkpoint 裁决: 归
+        scene 线摊位陈设范畴)。总高不变 dy7 封顶, footprint 10×9×8
+        契约不动。 */
     facing0: 'south',
     defaults: {
       face: 'south', /* 缺省=行 facing0(恒等映射) */
       mirror: false,
       doorOpen: true, /* 门洞 2w×3h: true 掏空气(白天敞开店门)/false 补抹灰墙 */
       windowGlow: 'warm', /* 橱窗窗台带: warm=glow 19 内藏暖光 / none=plaster 抹灰 */
-      signVariant: 'icon', /* 招牌板: icon=板+中央徽 / blank=全板(徽退场, 零 17) */
-      /* 材质注入, 缺省裸数字(视觉重制 §2 字库 v2 重映射): base 石砖基座 ·
-         wall 木板侧后墙 · plaster 石英抹灰门脸(v2 新槽) · trim 深木角柱/
-         廊柱/横梁/招牌端框 · roof 红砖陶橙 · awning 天蓝主幔(v2 换值) ·
-         awningTrim 奶油上滚边(v2 新槽) · signBg 南瓜亮橙招牌板(旧 15 蓝
-         →76, 招牌语义归「亮橙」字库行) · signAccent 石英白徽(旧 38 金矿
-         →17, checkpoint 定稿) · glow 灯块窗台内藏暖光 · window 玻璃板
+      signVariant: 'icon', /* 招牌板: icon=鸡剪影立板 / blank=全板(零鸟零灯) */
+      /* 材质注入, 缺省裸数字(视觉重制 §2 字库 v2 重映射; Step D 招牌
+         返工换槽): base 石砖基座 · wall 木板侧后墙 · plaster 石英抹灰
+         门脸(v2 新槽) · trim 深木角柱/廊柱/横梁/招牌端框 · roof 红砖
+         陶橙 · awning 天蓝主幔(v2 换值) · awningTrim 奶油滚边(v2 新槽,
+         Step D 缩两端两格) · signBg 南瓜亮橙招牌板(旧 15 蓝→76) ·
+         signBird 鸡剪影白身(Step D 新槽, 52 羊毛奶油) · signComb 鸡冠
+         (Step D 新槽, 16 红羊毛) · signLight 招牌灯点(Step D 新槽, 19
+         暖光非火 §8 红线) · glow 灯块窗台内藏暖光 · window 玻璃板
          橱窗(旧 18 玻璃→68 玻璃板, 大面橱窗用带框板) */
       ids: {base: 13, wall: 6, plaster: 17, trim: 5, roof: 9, awning: 15,
-        awningTrim: 17, signBg: 76, signAccent: 17, glow: 19, window: 68},
+        awningTrim: 17, signBg: 76, signBird: 52, signComb: 16,
+        signLight: 19, glow: 19, window: 68},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z 未用: 纯局部系直写(无地形读数) */
       const ids = e.ids;
@@ -685,19 +702,29 @@ const PF_ROWS = {
         put(dx, 5, 4, ids.awning);
       }
       /* dy=6 屋顶内缩一圈 8×6(dx∈[-4,3]×dz∈[-3,2])=roof, 域外空; 前廊
-         dz=4 全宽一行=awningTrim 奶油上滚边——双层布幔阶梯(下蓝大上白窄) */
+         dz=4 滚边缩至两端 dx∈{-5,4} 两格 awningTrim(Step D: dz=4 中段
+         让位招牌立板, 滚边成角饰) */
       for (let dx = -4; dx <= 3; dx++) {
         for (let dz = -3; dz <= 2; dz++) put(dx, 6, dz, ids.roof);
       }
-      for (let dx = -5; dx <= 4; dx++) put(dx, 6, 4, ids.awningTrim);
-      /* dy=7 招牌板: 恰宽 6(dx∈[-3,2])×1 厚, dz=4 挑出前廊上空——
-         checkpoint 定稿「端框 5+板 76+icon 徽 17@-1..0」: 两端 trim 端框/
-         中间 signBg 亮橙板/icon 档中央 dx∈[-1,0] signAccent 白徽(剪影
-         读法)/blank 档全板零 17(徽退场); dy≥8 无物(封顶于 7) */
-      for (let dx = -3; dx <= 2; dx++) {
-        const frameEnd = dx === -3 || dx === 2;
-        const emblem = !frameEnd && e.signVariant === 'icon' && dx >= -1 && dx <= 0;
-        put(dx, 7, 4, frameEnd ? ids.trim : emblem ? ids.signAccent : ids.signBg);
+      put(-5, 6, 4, ids.awningTrim);
+      put(4, 6, 4, ids.awningTrim);
+      /* dy6..7 招牌立板: 恰 8×2(dx∈[-4,3]×dz=4), 门上方居中挑出前廊上空
+         (Step D lead 终审鸡剪影案): 端框 trim 两端×2 行/板面 signBg 南瓜
+         亮橙/icon 档行图(dx=-4..3)——dy7=[trim,signBg,signComb,signBird,
+         signBird,signBg,signBg,trim](signComb 红冠+signBird 白身头颈),
+         dy6=[trim,signLight,signBird,signBird,signBg,signBg,signLight,
+         trim](signLight 灯点两枚+signBird 白身); blank 档=端框+全板
+         零鸟零灯; dy≥8 无物(封顶于 7) */
+      const sign7 = ['trim', 'signBg', 'signComb', 'signBird', 'signBird',
+        'signBg', 'signBg', 'trim'];
+      const sign6 = ['trim', 'signLight', 'signBird', 'signBird', 'signBg',
+        'signBg', 'signLight', 'trim'];
+      for (let i = 0; i < 8; i++) {
+        const icon = e.signVariant === 'icon';
+        const end = i === 0 || i === 7;
+        put(i - 4, 7, 4, icon ? ids[sign7[i]] : (end ? ids.trim : ids.signBg));
+        put(i - 4, 6, 4, icon ? ids[sign6[i]] : (end ? ids.trim : ids.signBg));
       }
     },
     /* 脚印: 同参纯算术投影——平面外廓 4 角(店身宽 10×前廊外延 dz=4)过同一
@@ -715,12 +742,15 @@ const PF_ROWS = {
     },
   },
   'stash-hut': {
-    /* 秘密储藏小屋: 中石基座+墙环+双层小巧屋顶的储藏氛围点(town-prefab-specs
-       §4.3, 视觉对照 buildings-visual-spec §5.2 P1-01——「小而神秘但友好」,
-       无阴暗压迫)。锚=小屋地面中心投影, 局部轴 dx 横/dz 前后/dy 竖,
-       face0=south=门面朝 +dz; 偶宽 6 NW 偏置同 pfSpan 口径: dx,dz∈[-3,2]
-       (宽=坐标差+1=6, 中心偏置 −0.5)。门侧箱/桶=外部道具散布不入蓝图
-       (spec §4.3 明示不强绑), 内域空腔无家具; 无光/火语义槽位(ids 白名单
+    /* 秘密储藏小屋 v2(视觉重制总纲 §3 G「小屋+桶堆+51 箱子+苔石点缀」:
+       外部道具升格入蓝图, 取代 town-prefab-specs §4.3「道具散布不入
+       蓝图」旧约——「隐秘储藏」读法): 中石基座(对角苔石)+墙环+双层
+       小巧屋顶+门前桶堆/储物箱陈设(town-prefab-specs §4.3 几何契约
+       不变; 视觉对照 buildings-visual-spec §5.2 P1-01——「小而神秘但
+       友好」, 无阴暗压迫)。锚=小屋地面中心投影, 局部轴 dx 横/dz 前后/
+       dy 竖, face0=south=门面朝 +dz; 偶宽 6 NW 偏置同 pfSpan 口径:
+       dx,dz∈[-3,2] (宽=坐标差+1=6, 中心偏置 −0.5)。门前陈设后写覆写
+       前墙格——序即几何; 内域空腔无家具; 无光/火语义槽位(ids 白名单
        无 torch/glow, §8 去威胁红线) */
     facing0: 'south',
     defaults: {
@@ -728,21 +758,31 @@ const PF_ROWS = {
       mirror: false,
       roofPitch: 'mid', /* 顶档: mid=dy5 内缩顶封顶(总高 6, 缺省)/low=dy4
           檐层即封顶(总高 5)——高 5-6 读作含 dy0 基座总层数 */
-      door: true, /* true=门叶块在位(ids.door 材质有几何生命)/false=门洞敞开空气 */
-      /* 材质注入, 缺省裸数字(§4.3 语义→现调色板): base 石头中石基座 ·
-          wall 木板暖木-中墙体 · roof/trim 木头暖木-深屋顶与屋檐(小巧屋顶
-          同檐材族) · door 木板门叶(上下半同材, 开合语义归交互层) ·
-          metalAccent 金属铁灰小配件(门侧点缀, §4.3「可选」拍板槽位常驻) */
-      ids: {base: 3, wall: 6, roof: 5, trim: 5, door: 6, metalAccent: 12},
+      door: true, /* true=门叶块在位(ids.door/doorTop 材质有几何生命)/
+          false=门洞敞开空气 */
+      /* 材质注入, 缺省裸数字(§4.3 语义→现调色板 v2; Step D 换值+扩键):
+          base 石头中石基座 · wall 木板暖木-中墙体 · roof/trim 木头暖木-深
+          屋顶与屋檐(小巧屋顶同檐材族) · door 木门叶下半(6→64 全局字库
+          门叶统一, cottage/tower 先例) · doorTop 门上叶(Step D 新槽, 65
+          同族上半) · metalAccent 金属铁灰小配件(门侧点缀, §4.3「可选」
+          拍板槽位常驻) · barrel 橡木桶堆(Step D 新槽, 5 木头桶材族) ·
+          chest 储物箱(Step D 新槽, 51 箱子——零危险旗标 T-09 审计免
+          豁免) · mossy 苔石基座点缀(Step D 新槽, 14 苔石「隐秘」读法) */
+      ids: {base: 3, wall: 6, roof: 5, trim: 5, door: 64, doorTop: 65,
+        metalAccent: 12, barrel: 5, chest: 51, mossy: 14},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z 未用: 纯局部系直写(无地形读数) */
       const ids = e.ids;
-      /* dy=0 基座: 恰 6×6 实心板(dx,dz∈[-3,2]), 域外无物 */
+      /* dy=0 基座: 恰 6×6 实心板(dx,dz∈[-3,2]), 对角 (-3,-3)/(2,2) 两格
+          mossy 苔石点缀(隐秘读法), 域外无物 */
       for (let dx = -3; dx <= 2; dx++) {
-        for (let dz = -3; dz <= 2; dz++) put(dx, 0, dz, ids.base);
+        for (let dz = -3; dz <= 2; dz++) {
+          put(dx, 0, dz, (dx === -3 && dz === -3) || (dx === 2 && dz === 2) ?
+            ids.mossy : ids.base);
+        }
       }
-      /* dy=1..3 墙环: 周界 wall, 内域不写=空腔(无家具——箱/桶属外部道具);
-          前沿 dz=2 的门叶/门侧小配件后写覆写——序即几何 */
+      /* dy=1..3 墙环: 周界 wall, 内域不写=空腔(无家具); 门前陈设(门叶/
+          桶堆/箱/小配件)后写覆写前墙格——序即几何 */
       for (let dy = 1; dy <= 3; dy++) {
         for (let dx = -3; dx <= 2; dx++) {
           for (let dz = -3; dz <= 2; dz++) {
@@ -752,12 +792,20 @@ const PF_ROWS = {
           }
         }
       }
-      /* 门叶 1w×2h 前沿中轴 (0,dy1..2,2): true=door 材质/false=掏空气(门洞
-          敞开); 门上 dy3 恒墙(环写已补); 门叶在 mirror 轴上格 dx=0(翻 dx
-          不变式); 门侧铁灰小配件 (1,1,2) 恰一格, 居门东侧偏一格(受 door
-          开合不动) */
+      /* 门叶 1w×2h 前沿中轴 (0,dy1..2,2): v2 上下分槽——dy1=door 下半/
+          dy2=doorTop 门上叶(64/65 全局门叶字库统一); true=在位/false=
+          掏空气(门洞敞开); 门上 dy3 恒墙(环写已补); 门叶在 mirror 轴上
+          格 dx=0(翻 dx 不变式) */
       put(0, 1, 2, e.door ? ids.door : 0);
-      put(0, 2, 2, e.door ? ids.door : 0);
+      put(0, 2, 2, e.door ? ids.doorTop : 0);
+      /* 门前陈设(§3 G 升格): 桶堆 2+2+1——dx∈{-3,-2}×dz=2 前墙格 dy1..2
+          各两格 barrel+顶格 dy3@(-3,2) 靠角错位码放; 储物箱 chest 一格
+          @(-1,1,2) 居门西侧; 门东侧铁灰小配件 (1,1,2)=metalAccent(受
+          door 开合不动) */
+      put(-3, 1, 2, ids.barrel); put(-2, 1, 2, ids.barrel);
+      put(-3, 2, 2, ids.barrel); put(-2, 2, 2, ids.barrel);
+      put(-3, 3, 2, ids.barrel);
+      put(-1, 1, 2, ids.chest);
       put(1, 1, 2, ids.metalAccent);
       /* dy=4 檐层: 恰 6×6——周界 trim(暖木-深屋檐)+内芯 4×4[-2,1]² roof */
       for (let dx = -3; dx <= 2; dx++) {
@@ -1176,31 +1224,40 @@ const PF_ROWS = {
     },
   },
   'stall-canopy': {
-    /* 市集摊位: 木架+顶棚布幔+台面柜身+后沿货品色块的开放摊位
-        (town-prefab-specs §4.7, 视觉对照 buildings-visual-spec §6.1/
-        §5.3 P2-02——低高度不遮挡钟塔视线)。锚=摊位地面中心投影,
-        局部轴 dx 横/dz 前后/dy 竖, face0=south=摊面(顾客侧)朝 +dz;
-        占地奇偶偏置同 pfSpan 口径: sm 3×2(dx∈[-1,1] 奇宽居中×dz∈[-1,0]
-        偶深 NW 偏置)总高 3 · md 4×3(dx∈[-2,1] 偶宽 NW 偏置×dz∈[-1,1]
-        奇深居中)总高 4。层序(序即几何): dy0 全幅台面柜身→dy1 四角柱+
-        后沿(dz=-1)中段货品色块(sm 单格 (0,-1)/md 两格 (-1..0,-1) NW
-        偏置偶簇, 均不在四角柱位覆写无冲突)→高款柱腿更长(md 柱 dy1..2,
-        sm 柱仅 dy1——两档高差落棚架腿)→顶层全幅布幔(sm dy2/md dy3),
-        顶层之上一层无物。theme 四档几何同形仅材质差异: canopy 缺省按
-        theme 注入(见 pfMerge/PF_STALL_CANOPY); 无光/火语义槽位(ids
-        白名单无 torch/glow, §8 去威胁红线) */
+    /* 市集摊位 v2: 木架+双层阶梯顶布幔+台面柜身+后沿主题货品+角旗的开放
+        摊位(town-prefab-specs §4.7 契约几何升级同 cottage 先例; 视觉对照
+        buildings-visual-spec §6.1/§5.3 P2-02——低高度不遮挡钟塔视线)。
+        锚=摊位地面中心投影, 局部轴 dx 横/dz 前后/dy 竖, face0=south=
+        摊面(顾客侧)朝 +dz; 占地奇偶偏置同 pfSpan 口径: sm 3×2(dx∈[-1,1]
+        奇宽居中×dz∈[-1,0] 偶深 NW 偏置)总高 4 · md 4×3(dx∈[-2,1] 偶宽
+        NW 偏置×dz∈[-1,1] 奇深居中)总高 5。层序(序即几何): dy0 全幅台面
+        柜身→dy1 四角柱+后沿(dz=-1)中段主题货品色块(sm 单格 (0,-1)/md
+        两格 (-1..0,-1) NW 偏置偶簇, 均不在四角柱位覆写无冲突)→[仅 md]
+        dy2 后沿中景叶饰(花叶/面包堆顶; sm dy2 即 tier1 顶无空间)→双层
+        阶梯顶: tier1 全 footprint(sm dy2/md dy3)主色布幔+tier2 前条
+        dz=dzHi(sm dy3/md dy4)副色滚边+前角格 flag 角旗(零额外增高)。
+        theme 四档几何同形仅材质差异: canopy/canopyTrim 缺省按 theme 注入
+        (见 pfMerge/PF_STALL_CANOPY/PF_STALL_TRIM), 货物/叶饰按 theme 选
+        槽; 无光/火语义槽位(ids 白名单无 torch/glow, §8 去威胁红线) */
     facing0: 'south',
     defaults: {
       face: 'south', /* 缺省=行 facing0(恒等映射) */
       mirror: false,
-      size: 'sm', /* 枚举轴(区别于 stilt-hut 对象轴): sm=3×2×3/md=4×3×4 */
-      theme: 'generic', /* 市集主题四档: canopy 缺省映射的注入源 */
-      /* 材质注入, 缺省裸数字(§4.7 口径→现调色板): frame 木头暖木四角柱
-          (tower pillar/cottage trim 先例) · canopy 羊毛奶油布幔(generic
-          档显式缺省, 实际按 theme 于 pfMerge 注入覆缺) · counter 木板
-          暖木-中台面柜身(stilt 地板/店身墙先例) · goods 金矿暖金货品
-          色块(shop signAccent 先例) */
-      ids: {frame: 5, canopy: 52, counter: 6, goods: 38},
+      size: 'sm', /* 枚举轴(区别于 stilt-hut 对象轴): sm=3×2×4/md=4×3×5 */
+      theme: 'generic', /* 市集主题四档: canopy/canopyTrim 注入与货物选槽源 */
+      /* 材质注入, 缺省裸数字(§4.7 口径→现调色板 v2; Step D 扩键):
+          frame 木头暖木四角柱(tower pillar/cottage trim 先例) · canopy
+          羊毛顶棚主幔(generic 档显式缺省, 实际按 theme 于 pfMerge 注入
+          覆缺) · canopyTrim 顶层滚边副色(Step D 新槽, PF_STALL_TRIM 按
+          theme 注入, 奶油×樱粉对偶) · counter 木板暖木-中台面柜身(stilt
+          地板/店身墙先例) · goodsBread 石英堆面包货(bread/generic 案;
+          shop plaster 先例, 弃 38 金矿旧材质) · goodsFlower 粉羊毛花束
+          (78 樱粉) · goodsFruit 南瓜亮橙果篮(76) · goodsLeaf1/2 花叶饰
+          (61/62 树叶薄块先例, 仅 md 中景) · flag 角旗(78 樱粉, tier2
+          前角一格) */
+      ids: {frame: 5, canopy: 52, canopyTrim: 78, counter: 6,
+        goodsBread: 17, goodsFlower: 78, goodsFruit: 76,
+        goodsLeaf1: 61, goodsLeaf2: 62, flag: 78},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z/orient 未用: 纯局部系直写,
         朝向与镜像统一走 place 传入的 put 通道不自管朝向(pfOrient -dx
@@ -1221,18 +1278,46 @@ const PF_ROWS = {
           put(px, dy, pz, ids.frame);
         }
       }
-      /* dy1 后沿(dz=-1)中段货品色块: sm 单格 (0,-1)/md 两格 (-1..0,-1) */
+      /* dy1 后沿(dz=-1)中段货品色块: sm 单格 (0,-1)/md 两格 (-1..0,-1)
+          ——v2 货物主题化(§3 G): bread/generic→goodsBread 石英堆/flower→
+          goodsFlower 粉羊毛/fruit→goodsFruit 南瓜亮橙(显式注入按槽覆写) */
+      const GOODS_OF = {bread: 'goodsBread', flower: 'goodsFlower',
+        fruit: 'goodsFruit', generic: 'goodsBread'};
       const goodsLo = md ? -1 : 0;
-      for (let dx = goodsLo; dx <= 0; dx++) put(dx, 1, -1, ids.goods);
-      /* 顶层全幅布幔: sm dy2/md dy3 恰全 footprint canopy, 封顶之上一层无物 */
-      const topDy = md ? 3 : 2;
-      for (let dx = dxLo; dx <= 1; dx++) {
-        for (let dz = -1; dz <= dzHi; dz++) put(dx, topDy, dz, ids.canopy);
+      for (let dx = goodsLo; dx <= 0; dx++) {
+        put(dx, 1, -1, ids[GOODS_OF[e.theme]]);
       }
+      /* md 中景叶饰(dy2 后沿, tier1 之下货堆加高): 仅 md(sm dy2 即 tier1
+          顶无空间)——flower 双叶 goodsLeaf1/2@(-1..0,2,-1)/fruit 单叶
+          goodsLeaf1@(0,2,-1)/bread·generic 面包堆顶 goodsBread@(-1,2,-1)
+          (与 dy1 货同槽两格高=堆叠读法) */
+      if (md) {
+        if (e.theme === 'flower') {
+          put(-1, 2, -1, ids.goodsLeaf1);
+          put(0, 2, -1, ids.goodsLeaf2);
+        } else if (e.theme === 'fruit') {
+          put(0, 2, -1, ids.goodsLeaf1);
+        } else {
+          put(-1, 2, -1, ids.goodsBread);
+        }
+      }
+      /* 双层阶梯顶(§3 G v2): tier1 全 footprint(sm dy2/md dy3)=canopy
+          主色(缺省按 theme 注入); tier2 前条 dz=dzHi(sm dy3/md dy4)=
+          canopyTrim 副色(缺省按 theme 注入, 奶油×樱粉对偶), 前角格
+          (1,dzHi)=flag 角旗——零额外增高, 低高度不遮挡钟塔视线; 封顶
+          之上一层无物 */
+      const tier1 = md ? 3 : 2;
+      for (let dx = dxLo; dx <= 1; dx++) {
+        for (let dz = -1; dz <= dzHi; dz++) put(dx, tier1, dz, ids.canopy);
+      }
+      for (let dx = dxLo; dx <= 1; dx++) {
+        put(dx, tier1 + 1, dzHi, ids.canopyTrim);
+      }
+      put(1, tier1 + 1, dzHi, ids.flag);
     },
     /* 脚印: 同参纯算术投影——随 size 变体外包围盒, 平面 4 角过同一张
         朝向表(90° 旋转盒恒轴对齐; mirror 含 -dx 翻转被 min/max 包络),
-        y 域取写笔最低/最高层(dy0 台面..顶层布幔) */
+        y 域取写笔最低/最高层(dy0 台面..tier2 滚边) */
     foot(e, x, y, z, orient) {
       const md = e.size === 'md';
       const xs = md ? [-2, 1] : [-1, 1];
@@ -1245,7 +1330,7 @@ const PF_ROWS = {
           z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
         }
       }
-      return {x1, y1: y, z1, x2, y2: y + (md ? 3 : 2), z2};
+      return {x1, y1: y, z1, x2, y2: y + (md ? 4 : 3), z2};
     },
   },
 };

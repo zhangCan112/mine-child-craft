@@ -479,9 +479,14 @@ test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/
   assert.strictEqual(cell(79, 38, 72), 9, '阶梯顶红砖 9 @(79,38,72)');
   assert.strictEqual(cell(79, 39, 72), 78, '塔顶旗 78 樱粉 @(79,39,72)');
   /* Lava Chicken 店(face=west 旋转): 招牌橙底石英点缀/展示窗/遮檐/前廊柱廊 */
-  assert.strictEqual(cell(106, 31, 77), 76, '店招橙底 76 @(106,31,77)');
-  assert.strictEqual(cell(106, 31, 79), 17, '店招点缀石英 17 @(106,31,79)');
-  assert.strictEqual(cell(106, 31, 76), 5, '招牌框柱 5 @(106,31,76)');
+  /* Lava Chicken 店(face=west 旋转, k1 (dx,dz)→(-dz,dx)): 招牌鸡剪影立板行图
+     (dy6..7 恰 8×2 @x=106 列/z=75..82, Step D lead 终审)/展示窗/遮檐/前廊柱廊 */
+  const SIGN7W = [5, 76, 16, 52, 52, 76, 76, 5]; /* dy7=[trim,bg,comb,bird,bird,bg,bg,trim] */
+  const SIGN6W = [5, 19, 52, 52, 76, 76, 19, 5]; /* dy6=[trim,light,bird,bird,bg,bg,light,trim] */
+  for (let z = 75; z <= 82; z++) {
+    assert.strictEqual(cell(106, 31, z), SIGN7W[z - 75], '店招立板 dy7 行图 @(' + z + ')');
+    assert.strictEqual(cell(106, 30, z), SIGN6W[z - 75], '店招立板 dy6 行图 @(' + z + ')');
+  }
   assert.strictEqual(cell(107, 27, 75), 68, '展示窗玻璃板 68 @(107,27,75)');
   assert.strictEqual(cell(107, 26, 75), 19, '窗内藏暖光 19 @(107,26,75)');
   assert.strictEqual(cell(106, 29, 74), 15, '前廊遮檐布幔 15 @(106,29,74)');
@@ -508,8 +513,8 @@ test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/
   assert.strictEqual(cell(42, 32, 86), 9, 'loft 高屋面 9 @(42,32,86)');
   assert.strictEqual(cell(40, 28, 82), 5, 'loft 挑阳台木 5 @(40,28,82)');
   /* 储藏小屋(face=east 旋转): 门叶+基座 */
-  assert.strictEqual(cell(51, 25, 98), 6, 'stash 门叶 6 @(51,25,98)');
-  assert.strictEqual(cell(51, 26, 98), 6, 'stash 门叶 6 @(51,26,98)');
+  assert.strictEqual(cell(51, 25, 98), 64, 'stash 门叶 64 @(51,25,98)');
+  assert.strictEqual(cell(51, 26, 98), 65, 'stash 门上叶 65 @(51,26,98)');
   assert.strictEqual(cell(49, 24, 98), 3, 'stash 基座石 3 @(49,24,98)');
   /* 埋室(face=east): 室底/室腔/家具/顶盖/出路 */
   assert.strictEqual(cell(57, 18, 99), 3, '埋室室底石 3 @(57,18,99)');
@@ -524,11 +529,11 @@ test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/
       'exit 无 landing → 地表草1 原样 @(65,24,99)(执行器不得发明 v 没有的几何)');
   /* 三摊位(theme 布幔映射引擎侧单源): 顶棚色三样 + 货品位 */
   assert.strictEqual(cell(70, 27, 68), 52, '面包摊(md)顶 52 @(70,27,68)');
-  assert.strictEqual(cell(89, 26, 75), 16, '花摊(sm)顶 16 @(89,26,75)');
+  assert.strictEqual(cell(89, 26, 75), 78, '花摊(sm)顶 78 樱粉 @(89,26,75)(v2 flower 案)');
   assert.strictEqual(cell(71, 27, 90), 15, '果摊(md)顶 15 @(71,27,90)');
-  assert.strictEqual(cell(69, 25, 67), 38, '面包摊货品 38 @(69,25,67)');
-  assert.strictEqual(cell(90, 25, 75), 38, '花摊货品 38 @(90,25,75)');
-  assert.strictEqual(cell(72, 25, 91), 38, '果摊货品 38 @(72,25,91)');
+  assert.strictEqual(cell(69, 25, 67), 17, '面包摊货品 17(后沿石英堆) @(69,25,67)');
+  assert.strictEqual(cell(90, 25, 75), 78, '花摊货品 78(粉羊毛, face=west 旋转) @(90,25,75)');
+  assert.strictEqual(cell(72, 25, 91), 76, '果摊货品 76(南瓜亮橙, face=north 旋转) @(72,25,91)');
 });
 
 test('植被与道具(T-SEAM-05 迁入): 樱花=SceneKit 树+樱粉覆写(两型干高冠域全覆盖) · 灌木绿冠 · 灯柱/路标', () => {

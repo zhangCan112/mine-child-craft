@@ -1020,11 +1020,13 @@ test('错误两档·tower-belfry: 未知 v 键(旧 openBelfry/hasDoorNiche 拒�
 /* ============ T-PREFAB-02 shop-awning(Lava Chicken 店, 新增行) ============ */
 
 /* ids 槽子键白名单(§4.2): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字)。
-   v2 扩槽 plaster(石英抹灰门脸)/awningTrim(布幔上滚边), 与 kernel/defaults
-   同步(行键⊆缺省键 pfMerge 校验的测试侧同源) */
+   v2 扩槽 plaster(石英抹灰门脸)/awningTrim(布幔上滚边); Step D 招牌返工
+   -signAccent +signBird/signComb/signLight(鸡剪影立板, lead 终审), 与
+   kernel/defaults 同步(行键⊆缺省键 pfMerge 校验的测试侧同源) */
 const SHOP_IDS = {
   base: 110, wall: 111, plaster: 119, trim: 113, roof: 112, awning: 114,
-  awningTrim: 126, signBg: 115, signAccent: 116, glow: 117, window: 118,
+  awningTrim: 126, signBg: 115, signBird: 130, signComb: 131, signLight: 132,
+  glow: 117, window: 118,
 };
 
 /* 局部系契约(字面域钉死, 防宽度漂移): face0=south 店面朝 +dz; 锚=店身地面中心
@@ -1033,9 +1035,11 @@ const SHOP_IDS = {
    前立面抹灰门脸·侧后木板墙·门洞 2w×3h dx∈[-1,0]·橱窗 2w×2h dx∈[-4,-3]与
    [2,3] dy3..4+窗台 dy2 光带)·前廊柱廊 dz=4(柱 dy1..3 dx∈{-5,-2,1,4}+dy4
    横梁全宽); dy5 檐层=店身 roof+前廊遮檐 dz=4 全宽 awning 天蓝主幔; dy6 阶梯
-   顶内缩 8×6+布幔上滚边 dz=4 awningTrim; dy7 招牌宽 6(dx∈[-3,2])挑出前廊上空
-   dz=4(端框 2+板/徽 4); dy≥8 无物。红线: 无熔岩/火方块语义, glow 仅窗台暖光
-   意象(§4.2/§8)。 */
+   顶内缩 8×6+滚边缩两端 dx∈{-5,4} awningTrim(Step D 中段让位招牌)+招牌立板
+   dy6..7 恰 8×2(dx∈[-4,3]×dz=4, 门上方居中): 行图 dy7=[trim,signBg,signComb,
+   signBird,signBird,signBg,signBg,trim]/dy6=[trim,signLight,signBird,signBird,
+   signBg,signBg,signLight,trim](端框 4/板 5/白身 4/冠 1/灯 2=16 格); dy≥8 无物。
+   红线: 无熔岩/火方块语义, glow 仅窗台暖光意象(§4.2/§8)。 */
 
 test('脚印包含·shop-awning: ×4 朝向 × mirror × 变体 — 每笔写 ∈ footOf 同参盒, footOf 零写', () => {
   const k = loadKit();
@@ -1160,38 +1164,36 @@ test('形状·shop-awning: 地台 10×9/墙环 dy1..4 抹灰门脸混搭/门洞 
       assert.strictEqual(k.cell(ax + dx, y0 + 5, az + dz), want, '檐层 dy5 (' + dx + ',' + dz + ')');
     }
   }
-  /* dy=6: 阶梯顶内缩一圈 8×6 roof + 前廊上滚边 dz=4 awningTrim(双层布幔), 其余全空 */
+  /* dy=6: 阶梯顶内缩一圈 8×6 roof + 滚边缩两端 dx∈{-5,4} awningTrim(Step D
+     中段让位招牌立板) + 招牌立板下层行图(dy6 dx∈[-4,3]×dz=4), 其余全空 */
+  const SIGN6 = [SHOP_IDS.trim, SHOP_IDS.signLight, SHOP_IDS.signBird,
+    SHOP_IDS.signBird, SHOP_IDS.signBg, SHOP_IDS.signBg, SHOP_IDS.signLight,
+    SHOP_IDS.trim];
+  const SIGN7 = [SHOP_IDS.trim, SHOP_IDS.signBg, SHOP_IDS.signComb,
+    SHOP_IDS.signBird, SHOP_IDS.signBird, SHOP_IDS.signBg, SHOP_IDS.signBg,
+    SHOP_IDS.trim];
   for (let dx = -7; dx <= 6; dx++) {
     for (let dz = -6; dz <= 6; dz++) {
       let want = 0;
       if (dx >= -4 && dx <= 3 && dz >= -3 && dz <= 2) want = SHOP_IDS.roof;
-      if (dx >= -5 && dx <= 4 && dz === 4) want = SHOP_IDS.awningTrim;
+      if (dz === 4 && (dx === -5 || dx === 4)) want = SHOP_IDS.awningTrim;
+      if (dz === 4 && dx >= -4 && dx <= 3) want = SIGN6[dx + 4];
       assert.strictEqual(k.cell(ax + dx, y0 + 6, az + dz), want, 'dy6 (' + dx + ',' + dz + ')');
     }
   }
-  /* dy=7 招牌层: 横向板体恰宽 6(dx∈[-3,2])×1 厚挑出 dz=4——v2 端框 2 格 trim
-     +中段板/徽(icon: dx∈[-1,0]=signAccent 白徽 2 格+signBg 底板 2 格); 板外全空;
-     dy=8 全空(封顶于 7) */
-  let accent = 0; let bg = 0; let frameEnd = 0;
+  /* dy=7 招牌立板上行: 行图(SIGN7)——端框 2+板 3+红冠 1+白身 2; 板外全空;
+     dy=8 全空(封顶于 7)。立板合计 8×2=16 格: 端框 4/板 5/白身 4/冠 1/灯 2 */
   for (let dx = -7; dx <= 6; dx++) {
     for (let dz = -6; dz <= 6; dz++) {
       const id = k.cell(ax + dx, y0 + 7, az + dz);
-      const onBoard = dx >= -3 && dx <= 2 && dz === 4;
-      if (onBoard) {
-        assert.ok(id === SHOP_IDS.signBg || id === SHOP_IDS.signAccent ||
-            id === SHOP_IDS.trim, '招牌板 dy7 (' + dx + ',' + dz + ') ∈ {端框,板,徽}');
-        if (id === SHOP_IDS.signAccent) accent++;
-        if (id === SHOP_IDS.signBg) bg++;
-        if (id === SHOP_IDS.trim) frameEnd++;
+      if (dz === 4 && dx >= -4 && dx <= 3) {
+        assert.strictEqual(id, SIGN7[dx + 4], '招牌立板 dy7 (' + dx + ') 行图');
       } else {
         assert.strictEqual(id, 0, '招牌层 dy7 板外空 (' + dx + ',' + dz + ')');
       }
       assert.strictEqual(k.cell(ax + dx, y0 + 8, az + dz), 0, 'dy8 全空(封顶于 dy7)');
     }
   }
-  assert.strictEqual(accent + bg + frameEnd, 6, '招牌板恰 6 格宽(宽 6-7 居中, 本契约钉 6)');
-  assert.strictEqual(frameEnd, 2, 'v2 端框恰 2 格(dx=-3 与 dx=2)');
-  assert.ok(accent >= 1 && bg >= 1, 'icon 变体: 板上有 signAccent 徽区且有 signBg 底板');
 });
 
 test('形状·shop-awning 变体: 关门补抹灰/无暖光窗台落灰且全场零 glow/素招牌中段全板零徽端框仍在(去威胁红线)', () => {
@@ -1224,19 +1226,20 @@ test('形状·shop-awning 变体: 关门补抹灰/无暖光窗台落灰且全场
   }
   assert.ok(!k.snap().includes(SHOP_IDS.glow), 'windowGlow=none 全场零 glow 块');
   assert.strictEqual(k.cell(ax - 1, y0 + 2, az + 3), 0, '无暖光款门洞仍敞开(doorOpen 独立轴)');
-  /* signVariant=blank: 招牌中段(dx∈[-2,1])全 signBg 零 signAccent(徽退场);
-     端框 dx∈{-3,2} trim 仍在(端框属板体骨架, 不随 icon 开关) */
+  /* signVariant=blank: 立板 dy6..7 端框 4+全板 signBg 零鸟零灯(signBird/
+     signComb/signLight 全退场); 端框属板体骨架不随 icon 开关 */
   k.clear();
   k.pf.place('shop-awning', ax, y0, az, {ids: SHOP_IDS, signVariant: 'blank'});
-  for (const dx of [-2, -1, 0, 1]) {
-    assert.strictEqual(k.cell(ax + dx, y0 + 7, az + 4), SHOP_IDS.signBg,
-        '素招牌: 中段全底板 dx' + dx);
+  for (const dx of [-4, -3, -2, -1, 0, 1, 2, 3]) {
+    const end = dx === -4 || dx === 3;
+    assert.strictEqual(k.cell(ax + dx, y0 + 7, az + 4),
+        end ? SHOP_IDS.trim : SHOP_IDS.signBg, '素招牌: dy7 全板 dx' + dx);
+    assert.strictEqual(k.cell(ax + dx, y0 + 6, az + 4),
+        end ? SHOP_IDS.trim : SHOP_IDS.signBg, '素招牌: dy6 全板 dx' + dx);
   }
-  assert.ok(!k.snap().includes(SHOP_IDS.signAccent), 'blank 变体全场零 signAccent');
-  for (const dx of [-3, 2]) {
-    assert.strictEqual(k.cell(ax + dx, y0 + 7, az + 4), SHOP_IDS.trim,
-        '素招牌: 端框仍在 dx' + dx);
-  }
+  assert.ok(!k.snap().includes(SHOP_IDS.signBird), 'blank 变体全场零 signBird(鸟退场)');
+  assert.ok(!k.snap().includes(SHOP_IDS.signComb), 'blank 变体全场零 signComb(冠退场)');
+  assert.ok(!k.snap().includes(SHOP_IDS.signLight), 'blank 变体全场零 signLight(灯点退场)');
   assert.ok(k.snap().includes(SHOP_IDS.signBg), 'blank 板体仍在(防整板消失假绿)');
 });
 
@@ -1244,9 +1247,9 @@ test('逐朝向·shop-awning: 门洞/遮檐/招牌随 face 旋转(face0=south �
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   /* 手算表: k1(west)=(dx,dz)→(-dz,dx) · k2(north)=(-dx,-dz) · k3(east)=(dz,-dx);
-     门洞局部 (dx∈[-1,0], dy1..3, dz=3) · 遮檐 (·, 5, 4) · 招牌板 (dx∈[-3,2], 7, 4) */
-  const onBoard = (id) => id === SHOP_IDS.signBg || id === SHOP_IDS.signAccent ||
-    id === SHOP_IDS.trim;
+     门洞局部 (dx∈[-1,0], dy1..3, dz=3) · 遮檐 (·, 5, 4) · 招牌立板 (dx∈[-4,3], dy6..7, dz=4) */
+  const onBoard = (id) => id === SHOP_IDS.signBg || id === SHOP_IDS.signBird ||
+    id === SHOP_IDS.signComb || id === SHOP_IDS.signLight || id === SHOP_IDS.trim;
   const faces = [ /* [face, 门洞两格, 遮檐格, 招牌行固定轴(计数行)] */
     ['west', [[77, 79], [77, 80]], [76, 80], ['x', 76]],
     ['north', [[80, 77], [81, 77]], [80, 76], ['z', 76]],
@@ -1264,12 +1267,14 @@ test('逐朝向·shop-awning: 门洞/遮檐/招牌随 face 旋转(face0=south �
         face + ' 遮檐随朝向(前廊侧)');
     let board = 0;
     for (let t = 70; t <= 90; t++) {
-      const id = axis === 'x' ? k.cell(at, y0 + 7, t) : k.cell(t, y0 + 7, at);
-      if (onBoard(id)) board++;
+      const id7 = axis === 'x' ? k.cell(at, y0 + 7, t) : k.cell(t, y0 + 7, at);
+      const id6 = axis === 'x' ? k.cell(at, y0 + 6, t) : k.cell(t, y0 + 6, at);
+      if (onBoard(id7)) board++;
+      if (onBoard(id6)) board++;
     }
-    assert.strictEqual(board, 6, face + ' 招牌板宽 6 随朝向旋转(含端框)');
+    assert.strictEqual(board, 16, face + ' 招牌立板 8×2 随朝向旋转(dy6+dy7, 含端框)');
     assert.ok(onBoard(axis === 'x' ? k.cell(at, y0 + 7, az) : k.cell(ax, y0 + 7, at)),
-        face + ' 招牌板中段在位');
+        face + ' 招牌立板中段在位');
   }
   /* south 恒等基线: 门洞 (79..80,·,83), 遮檐 (·,29,84), 平台西缘在 75/东缘在 84 */
   k.clear();
@@ -1335,23 +1340,27 @@ test('错误两档·shop-awning: 未知 v 键/ids 子键/face/windowGlow/signVar
 
 /* ============ T-PREFAB-03 stash-hut(秘密储藏小屋, 新增行) ============ */
 
-/* ids 槽子键白名单(§4.3): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字)。
-   metalAccent=铁灰小配件点缀——§4.3「可选」拍板(回执登记): 槽位常驻白名单,
-   几何=门侧小配件恰一格 */
+/* ids 槽子键白名单(§4.3 v2): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字)。
+   Step D §3 G 道具升格: +doorTop(门上叶, 与 door 成对 64/65 同构)/barrel(门前
+   桶堆)/chest(储物箱 51, 零危险旗标免豁免)/mossy(基座对角苔石点缀), 与
+   kernel/defaults 同步(行键⊆缺省键 pfMerge 校验的测试侧同源) */
 const STASH_IDS = {
-  base: 120, wall: 121, roof: 122, trim: 123, door: 124, metalAccent: 125,
+  base: 240, wall: 241, roof: 242, trim: 243, door: 244, doorTop: 245,
+  metalAccent: 246, barrel: 247, chest: 248, mossy: 249,
 };
 
 /* 局部系契约(字面域钉死, 防宽度漂移): face0=south 门面朝 +dz; 锚=小屋地面
     中心投影(偶宽 6 NW 偏置同 pfSpan 口径: 6→dx,dz∈[-3,2], 宽=2−(−3)+1=6,
-    中心偏置 −0.5)。dy0 中石基座=恰 6×6 实心板; dy1..3 墙环(周界 wall, 内域
-    空无家具——箱/桶属外部道具散布, §4.3 明示不强绑); 门叶 1w×2h 局部
-    (0,dy1..2,dz2)=ids.door, door=false 敞开门洞, 门上 dy3 补墙; 门侧铁灰
-    小配件 (1,1,2)=metalAccent 一格; dy4 檐层=恰 6×6(周界 trim 暖木-深屋檐
-    +内芯 4×4[-2,1]² roof); roofPitch=mid(缺省)→dy5 再内缩恰 4×4 roof 封顶
-    (总高 6), low→封顶 dy4(总高 5)——高 5-6 读作含 dy0 基座总层数; 封顶上一
-    层无物。红线: 无光/火语义槽位(ids 白名单无 torch/glow, 去威胁钉在错误
-    档), 门侧箱/桶不入蓝图。 */
+    中心偏置 −0.5)。dy0 中石基座=恰 6×6 实心板, 对角 (-3,-3)/(2,2) 两格 mossy
+    苔石点缀(隐秘读法); dy1..3 墙环(周界 wall, 内域空无家具); 门叶 1w×2h 局部
+    (0,dy1..2,dz2)=dy1 door 下半/dy2 doorTop 上叶(64/65 全局门叶字库同构),
+    door=false 敞开门洞(两格全 0), 门上 dy3 补墙; 门前陈设(§3 G 升格, 后写覆写
+    前墙格——序即几何): 桶堆 2+2+1=dx∈{-3,-2}×dz=2 前墙格 dy1..2 各两格 barrel+
+    顶格 dy3@(-3,2) 靠角错位码放; chest 一格@(-1,1,2) 居门西侧; metalAccent
+    (1,1,2) 居门东侧恰一格(受 door 开合不动); dy4 檐层=恰 6×6(周界 trim 暖木-
+    深屋檐+内芯 4×4[-2,1]² roof); roofPitch=mid(缺省)→dy5 再内缩恰 4×4 roof
+    封顶(总高 6), low→封顶 dy4(总高 5)——高 5-6 读作含 dy0 基座总层数; 封顶上
+    一层无物。红线: 无光/火语义槽位(ids 白名单无 torch/glow, 去威胁钉在错误档)。 */
 
 test('脚印包含·stash-hut: ×4 朝向 × mirror × 变体 — 每笔写 ∈ footOf 同参盒, footOf 零写', () => {
   const k = loadKit();
@@ -1395,7 +1404,7 @@ test('脚印包含·stash-hut: ×4 朝向 × mirror × 变体 — 每笔写 ∈ 
   }
 });
 
-test('形状·stash-hut: 基座 6×6/墙环 dy1..3 内域空/门叶 1w×2h/门侧小配件/檐层 6×6/内缩顶(mid 缺省)', () => {
+test('形状·stash-hut: 苔石基座 6×6/墙环 dy1..3 内域空/门叶 64-65 上下分槽/门前桶堆+箱/檐层/内缩顶(mid 缺省)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
@@ -1403,15 +1412,19 @@ test('形状·stash-hut: 基座 6×6/墙环 dy1..3 内域空/门叶 1w×2h/门�
   /* 缺省(mid)盒手算值: dx,dz∈[-3,2]×dy0..5 */
   assert.deepStrictEqual({...k.pf.footOf('stash-hut', ax, y0, az, {ids: STASH_IDS})},
       {x1: 77, y1: 24, z1: 77, x2: 82, y2: 29, z2: 82}, '缺省脚印盒=手算盒');
-  /* dy=0 基座: 恰 6×6 实心 base, 域外空 */
+  /* dy=0 基座: 恰 6×6 实心 base+对角两格 mossy 苔石, 域外空 */
   for (let dx = -5; dx <= 4; dx++) {
     for (let dz = -5; dz <= 4; dz++) {
       const inBase = dx >= -3 && dx <= 2 && dz >= -3 && dz <= 2;
-      assert.strictEqual(k.cell(ax + dx, y0, az + dz), inBase ? STASH_IDS.base : 0,
-          '基座 dy0 (' + dx + ',' + dz + ') ' + (inBase ? '实心' : '域外空'));
+      const isMossy = (dx === -3 && dz === -3) || (dx === 2 && dz === 2);
+      const want0 = inBase ? (isMossy ? STASH_IDS.mossy : STASH_IDS.base) : 0;
+      assert.strictEqual(k.cell(ax + dx, y0, az + dz), want0,
+          '基座 dy0 (' + dx + ',' + dz + ') ' + (inBase ?
+            (isMossy ? '苔石' : '实心') : '域外空'));
     }
   }
-  /* dy=1..3 墙环: 周界实(want 制: 门叶/门上补墙/门侧小配件)/内域空(无家具)/环外空 */
+  /* dy=1..3 墙环: 周界实(want 制: 门叶 64-65/门上补墙/桶堆/箱/小配件)/
+     内域空(无家具)/环外空 */
   for (let dy = 1; dy <= 3; dy++) {
     for (let dx = -5; dx <= 4; dx++) {
       for (let dz = -5; dz <= 4; dz++) {
@@ -1423,8 +1436,14 @@ test('形状·stash-hut: 基座 6×6/墙环 dy1..3 内域空/门叶 1w×2h/门�
           continue;
         }
         let want = STASH_IDS.wall;
-        if (dx === 0 && dz === 2 && dy <= 2) want = STASH_IDS.door; /* 门叶 1w×2h */
-        if (dx === 1 && dz === 2 && dy === 1) want = STASH_IDS.metalAccent; /* 门侧小配件 */
+        if (dx === 0 && dz === 2 && dy === 1) want = STASH_IDS.door; /* 门叶下格 */
+        if (dx === 0 && dz === 2 && dy === 2) want = STASH_IDS.doorTop; /* 门上叶 */
+        if (dx === 1 && dz === 2 && dy === 1) want = STASH_IDS.metalAccent; /* 门东小配件 */
+        if (dx === -1 && dz === 2 && dy === 1) want = STASH_IDS.chest; /* 门西储物箱 */
+        if (dz === 2 && (dx === -3 || dx === -2) && dy <= 2) {
+          want = STASH_IDS.barrel; /* 桶堆 dy1..2 各两格 */
+        }
+        if (dx === -3 && dz === 2 && dy === 3) want = STASH_IDS.barrel; /* 桶堆顶格 */
         assert.strictEqual(id, want, '墙环 dy' + dy + ' (' + dx + ',' + dz + ')');
       }
     }
@@ -1455,7 +1474,8 @@ test('形状·stash-hut: 基座 6×6/墙环 dy1..3 内域空/门叶 1w×2h/门�
 test('形状·stash-hut 变体: door=false 门洞敞开全场零门叶/low 顶 dy5 全空檐层仍在(防假绿)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
-  /* door=false: 门叶 1×2 掏空气, 全场零 door 块; 其余几何不动(配件/门上墙抽查) */
+  /* door=false: 门叶 1×2 掏空气, 全场零 door/doorTop 块; 其余几何不动(配件/
+     桶堆/门上墙抽查) */
   k.clear();
   k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, door: false});
   assert.strictEqual(k.cell(ax, y0 + 1, az + 2), 0, '无门叶: 门洞下格敞开');
@@ -1463,8 +1483,13 @@ test('形状·stash-hut 变体: door=false 门洞敞开全场零门叶/low 顶 d
   assert.strictEqual(k.cell(ax, y0 + 3, az + 2), STASH_IDS.wall, '无门叶: 门上 dy3 补墙');
   assert.strictEqual(k.cell(ax + 1, y0 + 1, az + 2), STASH_IDS.metalAccent,
       '无门叶: 门侧小配件不动');
+  assert.strictEqual(k.cell(ax - 3, y0 + 1, az + 2), STASH_IDS.barrel,
+      '无门叶: 桶堆不动(轴独立)');
+  assert.strictEqual(k.cell(ax - 1, y0 + 1, az + 2), STASH_IDS.chest,
+      '无门叶: 储物箱不动(轴独立)');
   assert.strictEqual(k.cell(ax, y0 + 4, az), STASH_IDS.roof, '无门叶: 檐层内芯不动');
   assert.ok(!k.snap().includes(STASH_IDS.door), 'door=false 全场零门叶块');
+  assert.ok(!k.snap().includes(STASH_IDS.doorTop), 'door=false 全场零门上叶块');
   /* roofPitch=low: dy5 全空(封顶 dy4), dy4 檐层/内芯仍在(防整板消失), 盒收 y2=dy4 */
   k.clear();
   k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, roofPitch: 'low'});
@@ -1482,49 +1507,66 @@ test('形状·stash-hut 变体: door=false 门洞敞开全场零门叶/low 顶 d
   assert.ok(k.snap().includes(STASH_IDS.roof), 'low 顶: roof 块仍在(防全空假绿)');
 });
 
-test('逐朝向·stash-hut: 门叶/门侧小配件/檐角随 face 旋转(face0=south 朝 +dz), mirror 翻 dx 非对称差分', () => {
+test('逐朝向·stash-hut: 门叶/门侧小配件/储物箱/桶堆随 face 旋转(face0=south 朝 +dz), mirror 翻 dx 非对称差分', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   /* 手算表: k1(west)=(dx,dz)→(-dz,dx) · k2(north)=(-dx,-dz) · k3(east)=(dz,-dx);
-     门叶局部 (0,dy1..2,2) · 小配件 (1,1,2) · 檐角 (2,4,2) */
-  const faces = [ /* [face, 门叶格, 小配件格, 檐角格]
+     门叶局部 (0,dy1..2,2) · 小配件 (1,1,2) · 储物箱 (-1,1,2) · 桶堆底格 (-3,1,2) ·
+     檐角 (2,4,2) */
+  const faces = [ /* [face, 门叶格, 小配件格, 檐角格, 储物箱格, 桶堆底格]
       [裁决登记 T-PREFAB-03: 门叶列初版多包一层方括号, door[0]=数组/door[1]=
        undefined 恒 NaN 索引红——红方笔误(绿方指认属实, 数值经 PF_ROTS 手算
        复核无误), 红方亲修拍平, 非断言弱化] */
-    ['west', [78, 80], [78, 81], [78, 82]],
-    ['north', [80, 78], [79, 78], [78, 78]],
-    ['east', [82, 80], [82, 79], [82, 78]],
+    ['west', [78, 80], [78, 81], [78, 82], [78, 79], [78, 77]],
+    ['north', [80, 78], [79, 78], [78, 78], [81, 78], [83, 78]],
+    ['east', [82, 80], [82, 79], [82, 78], [82, 81], [82, 83]],
   ];
-  for (const [face, door, latch, corner] of faces) {
+  for (const [face, door, latch, corner, boxG, barrelG] of faces) {
     k.clear();
     k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, face});
     for (const dy of [1, 2]) {
-      assert.strictEqual(k.cell(door[0], y0 + dy, door[1]), STASH_IDS.door,
-          face + ' 门叶 y' + dy);
+      const want = dy === 1 ? STASH_IDS.door : STASH_IDS.doorTop;
+      assert.strictEqual(k.cell(door[0], y0 + dy, door[1]), want,
+          face + ' 门叶(64-65 上下分槽) y' + dy);
     }
     assert.strictEqual(k.cell(latch[0], y0 + 1, latch[1]), STASH_IDS.metalAccent,
         face + ' 门侧小配件随朝向');
+    assert.strictEqual(k.cell(boxG[0], y0 + 1, boxG[1]), STASH_IDS.chest,
+        face + ' 储物箱随朝向');
+    assert.strictEqual(k.cell(barrelG[0], y0 + 1, barrelG[1]), STASH_IDS.barrel,
+        face + ' 桶堆底格随朝向');
     assert.strictEqual(k.cell(corner[0], y0 + 4, corner[1]), STASH_IDS.trim,
         face + ' 檐角(周界)随朝向');
   }
-  /* south 恒等基线: 门叶/配件在 z+2 前沿, 基座西缘在 dx-3/东缘外 dx3 */
+  /* south 恒等基线: 门叶/配件/箱在 z+2 前沿, 桶堆占前墙西段, 基座西缘在 dx-3/东缘外 dx3 */
   k.clear();
   k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, face: 'south'});
-  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), STASH_IDS.door, 'south 门叶在 z+2 中轴');
+  assert.strictEqual(k.cell(ax, y0 + 1, az + 2), STASH_IDS.door, 'south 门叶下格在 z+2 中轴');
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), STASH_IDS.doorTop, 'south 门上叶在 z+2 中轴');
   assert.strictEqual(k.cell(ax + 1, y0 + 1, az + 2), STASH_IDS.metalAccent,
       'south 小配件在门东侧');
+  assert.strictEqual(k.cell(ax - 1, y0 + 1, az + 2), STASH_IDS.chest, 'south 储物箱在门西侧');
+  assert.strictEqual(k.cell(ax - 3, y0 + 1, az + 2), STASH_IDS.barrel, 'south 桶堆底格@(-3)');
+  assert.strictEqual(k.cell(ax - 3, y0 + 3, az + 2), STASH_IDS.barrel, 'south 桶堆顶格@(-3,dy3)');
   assert.strictEqual(k.cell(ax - 3, y0, az), STASH_IDS.base, 'south 基座西缘=dx-3');
   assert.strictEqual(k.cell(ax + 3, y0, az), 0, 'south 基座东缘外(dx3 域外)');
   /* mirror 非对称差分(偶宽体 [-3,2] 关于 dx=0 不对称): 先翻 dx 后旋转——门叶
-      在 dx=0 中轴 mirror 不动(轴上格不变式); 小配件 1→-1; 盒缘 [-3,2]→[-2,3]
-      西缘让格/东缘补格双翻转 */
+      在 dx=0 中轴 mirror 不动(轴上格不变式); 小配件 1→-1 与储物箱 -1→1 对调;
+      桶堆 {-3,-2}→{2,3} 翻至东缘(顶格 dy3 翻到 dx3 覆写翻后墙格); 盒缘
+      [-3,2]→[-2,3] 西缘让格/东缘补格双翻转 */
   k.clear();
   k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, face: 'south', mirror: true});
-  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), STASH_IDS.door, 'south+mirror 门叶仍在中轴');
+  assert.strictEqual(k.cell(ax, y0 + 1, az + 2), STASH_IDS.door, 'south+mirror 门叶仍在中轴');
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), STASH_IDS.doorTop, 'south+mirror 门上叶仍在中轴');
   assert.strictEqual(k.cell(ax - 1, y0 + 1, az + 2), STASH_IDS.metalAccent,
       'south+mirror 小配件翻到门西侧');
-  assert.strictEqual(k.cell(ax + 1, y0 + 1, az + 2), STASH_IDS.wall,
-      'south+mirror 原小配件位补墙');
+  assert.strictEqual(k.cell(ax + 1, y0 + 1, az + 2), STASH_IDS.chest,
+      'south+mirror 储物箱翻到门东侧');
+  assert.strictEqual(k.cell(ax + 3, y0 + 1, az + 2), STASH_IDS.barrel,
+      'south+mirror 桶堆翻至东缘(dx3 入域, 覆写翻后墙格)');
+  assert.strictEqual(k.cell(ax + 3, y0 + 3, az + 2), STASH_IDS.barrel,
+      'south+mirror 桶堆顶格翻至 dx3/dy3');
+  assert.strictEqual(k.cell(ax - 3, y0 + 1, az + 2), 0, 'south+mirror 西缘出域(dx-3 无写)');
   assert.strictEqual(k.cell(ax + 3, y0, az), STASH_IDS.base, 'south+mirror 基座东移(dx3 入域)');
   assert.strictEqual(k.cell(ax - 3, y0, az), 0, 'south+mirror 基座西让(dx-3 出域)');
   assert.strictEqual(k.cell(ax + 3, y0 + 4, az), STASH_IDS.trim, 'south+mirror 檐层东缘随盒');
@@ -1551,7 +1593,7 @@ test('确定性: stash-hut 同参两次逐字节一致(多朝向×变体)', () =
 test('错误两档·stash-hut: 未知 v 键/ids 子键(含 torch/glow 去威胁钉)/face/roofPitch 非法→throw; door 钳布尔', () => {
   const k = loadKit();
   /* 第一档(装场期炸=拼写防火墙): place 与 footOf 同走合并校验路径 */
-  assert.throws(() => k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, facee: 'north'}),
+  assert.throws(() => k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, dooor: true}),
       /v 键/, '未知 v 键(拼写)');
   assert.throws(() => k.pf.footOf('stash-hut', 80, 24, 80, {ids: STASH_IDS, foo: 1}),
       /v 键/, 'footOf 同走未知 v 键检');
@@ -1565,14 +1607,33 @@ test('错误两档·stash-hut: 未知 v 键/ids 子键(含 torch/glow 去威胁�
   assert.throws(() => k.pf.place('stash-hut', 80, 24, 80,
       {ids: Object.assign({}, STASH_IDS, {torch: 48})}), /ids/, '无 torch 槽(零火语义)');
   assert.throws(() => k.pf.place('stash-hut', 80, 24, 80,
-      {ids: Object.assign({}, STASH_IDS, {glow: 19})}), /ids/, '无 glow 槽(零暖光意象)');
+      {ids: Object.assign({}, STASH_IDS, {glow: 19})}), /ids/, '无 glow 槽(零光意象)');
   /* 第二档(布尔轴收放不炸): door 非布尔按真值钳 */
   k.clear();
   k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, door: 0});
   assert.strictEqual(k.cell(80, 25, 82), 0, 'door=0 钳 false: 门洞敞开');
   k.clear();
   k.pf.place('stash-hut', 80, 24, 80, {ids: STASH_IDS, door: 1});
-  assert.strictEqual(k.cell(80, 25, 82), STASH_IDS.door, 'door=1 钳 true: 门叶在位');
+  assert.strictEqual(k.cell(80, 25, 82), STASH_IDS.door, 'door=1 钳 true: 门叶下格在位');
+});
+
+test('材质基线·stash-hut 缺省逐槽(v2 核对表): base3/mossy14/door64/doorTop65/barrel5/chest51/metal12', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('stash-hut', ax, y0, az); /* 全缺省 */
+  assert.strictEqual(k.cell(ax, y0, az), 3, 'base=3 石头中石基座(dy0)——不变');
+  assert.strictEqual(k.cell(ax - 3, y0, az - 3), 14, 'mossy=14 苔石(基座对角西北)——Step D 新槽「隐秘」点缀');
+  assert.strictEqual(k.cell(ax + 2, y0, az + 2), 14, 'mossy=14 苔石(对角东南)——Step D 新槽');
+  assert.strictEqual(k.cell(ax, y0 + 1, az - 3), 6, 'wall=6 木板暖木-中(后墙 dy1)——不变');
+  assert.strictEqual(k.cell(ax, y0 + 1, az + 2), 64, 'door=64 门叶下格——旧 6 木板门叶, §2 字库「门 64/65」');
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), 65, 'doorTop=65 门上叶(关态成对)——Step D 新槽');
+  assert.strictEqual(k.cell(ax - 3, y0 + 1, az + 2), 5, 'barrel=5 橡木桶堆(门前西侧底层)——Step D 新槽 §3 G 升格');
+  assert.strictEqual(k.cell(ax - 3, y0 + 3, az + 2), 5, 'barrel=5 桶堆顶格(dy3 靠角错位)');
+  assert.strictEqual(k.cell(ax - 1, y0 + 1, az + 2), 51, 'chest=51 储物箱(门西侧)——Step D 新槽, 零危险旗标免豁免');
+  assert.strictEqual(k.cell(ax + 1, y0 + 1, az + 2), 12, 'metalAccent=12 铁灰小配件(门东侧)——不变');
+  assert.strictEqual(k.cell(ax, y0 + 4, az), 5, 'roof=5 木头(dy4 檐层内芯)——不变');
+  assert.strictEqual(k.cell(ax - 3, y0 + 4, az), 5, 'trim=5 深木(dy4 檐层周界)——同檐材族');
 });
 
 /* ============ T-PREFAB-04 windmill-tower(风车塔, 新增行) ============ */
@@ -2549,28 +2610,39 @@ test('错误两档·house-loft: 未知 v 键/ids 子键(含 torch 去威胁钉)/
 
 /* ============ T-PREFAB-07 stall-canopy(市集摊位, 新增行) ============ */
 
-/* ids 槽子键白名单(§4.7): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字)。
-   frame=木架四角柱 · canopy=顶棚布幔(theme 缺省映射的显式覆写口) · counter=
-   台面柜身 · goods=台面货品色块(细碎货品子层最小自洽: 后沿中段少数格) */
-const STALL_IDS = {frame: 160, canopy: 161, counter: 162, goods: 163};
-
+/* ids 槽子键白名单(§4.7 v2): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字)。
+   Step D 货物主题化拆槽: -goods +goodsBread/goodsFlower/goodsFruit(按 theme
+   选槽, generic→bread 案)+goodsLeaf1/goodsLeaf2(md 中景叶饰, thin/replaceable
+   已按槽名豁免 T-09)+canopyTrim(双层阶梯顶副色, pfMerge PF_STALL_TRIM 注入)
+   +flag(tier2 前角旗), 与 kernel/defaults 同步(行键⊆缺省键校验的测试侧同源)。
+   号段 220..229: 世界场 worldCells=Uint8Array 方块 id 硬上限 255(250..259 段
+   首跑 256..259 回卷 0..3 暴露, 教训入回执); 散值注入 230/231 同域空闲段 */
+const STALL_IDS = {
+  frame: 220, canopy: 221, canopyTrim: 222, counter: 223, goodsBread: 224,
+  goodsFlower: 225, goodsFruit: 226, goodsLeaf1: 227, goodsLeaf2: 228,
+  flag: 229,
+};
 /* 局部系契约(对齐票文 §4.7 + buildings-visual-spec §6.1/§5.3 P2-02): face0=south
    摊面(顾客侧)朝 +dz; 锚=摊位地面中心投影。size 枚举两档推荐默认(PO 知悉批次,
    贴规格区间下/上沿自洽): sm=占地 3×2(dx∈[-1,1] 奇宽居中 × dz∈[-1,0] 偶深 NW
-   偏置同 pfSpan 口径)总高 3(dy0..2) · md=占地 4×3(dx∈[-2,1] 偶宽 NW 偏置 ×
-   dz∈[-1,1] 奇深居中)总高 4(dy0..3)。层序(序即几何): dy0 台面柜身=全 footprint
-   实心 counter(spec「建议主体含台面与棚」)→dy1 四角柱 frame+后沿(dz=back)中段
-   goods 色块(sm 单格 (0,1,-1)/md 两格 (-1..0,1,-1) NW 偏置偶簇)→高款柱腿更长
-   (md 柱 dy1..2, sm 柱仅 dy1——两档高差落棚架腿)→顶层全 footprint canopy 布幔
-   (sm dy2/md dy3), 顶层之上一层无物。theme 四档(bread/flower/fruit/generic)
-   几何同形仅材质差异(备忘): canopy 缺省按 theme 注入——bread/generic→52 羊毛
-   奶油 · flower→16 红羊毛(樱粉最近似, 现调色板无粉色块, 备忘 PO) · fruit→15
-   蓝羊毛天蓝; 缺省 theme='generic'; 显式 ids.canopy 覆写 theme 映射, 部分注入
-   其余槽回落缺省。mirror=标准 pfOrient -dx 先翻后旋(shop-awning/house-loft
-   盒平移口径, 架构线挂账统一中): sm 奇宽 dx 对称形→同盒同形; md 偶宽
-   [-2,1]→[-1,2] 盒东移一格——两档都以此钉死。脚印=随 size 变体外包围盒, 与
-   footOf 同参同盒(4 角过朝向表)。无光/火语义槽位(ids 白名单无 torch/glow,
-   §8 去威胁红线)。 */
+   偏置同 pfSpan 口径)总高 4(dy0..3) · md=占地 4×3(dx∈[-2,1] 偶宽 NW 偏置 ×
+   dz∈[-1,1] 奇深居中)总高 5(dy0..4)。层序(序即几何): dy0 台面柜身=全 footprint
+   实心 counter→dy1 四角柱 frame+后沿(dz=-1)中段货品色块(sm 单格 (0,-1)/md 两格
+   (-1..0,-1) NW 偏置偶簇; 货物按 theme 选槽: bread/generic→goodsBread 17/
+   flower→goodsFlower 78/fruit→goodsFruit 76)→[仅 md]dy2 后沿中景叶饰(flower
+   双叶 61/62@(-1..0,2,-1)/fruit 单叶 61@(0,2,-1)/bread·generic 堆顶 17@(-1,2,-1)
+   与 dy1 货同槽两格高; sm dy2 即 tier1 顶无空间——几何硬约束)→双层阶梯顶:
+   tier1 全 footprint(sm dy2/md dy3)=canopy 主色+tier2 前条 dz=dzHi(sm dy3/md
+   dy4)=canopyTrim 副色(pfMerge PF_STALL_TRIM 按 theme 注入)+前角格 (1,dzHi)=
+   flag 角旗(零额外增高, 低高度不遮挡钟塔视线), 封顶之上一层无物。theme 四档
+   (bread/flower/fruit/generic)几何同形仅材质差异: canopy/canopyTrim 缺省按
+   theme 注入——canopy: bread/generic→52 奶油 · flower→78 樱粉(16 大红出局,
+   78 已入字库) · fruit→15 天蓝; canopyTrim: bread/generic→78 · flower/fruit→52
+   (奶油×樱粉对偶); 显式 ids.canopy/canopyTrim 覆写映射, 部分注入其余槽回落缺省。
+   mirror=标准 pfOrient -dx 先翻后旋(shop-awning/house-loft 盒平移口径, 架构线
+   挂账统一中): sm 奇宽 dx 对称→同盒; md 偶宽 [-2,1]→[-1,2] 盒东移一格——两档
+   都以此钉死。脚印=随 size 变体外包围盒, 与 footOf 同参同盒(4 角过朝向表)。
+   无光/火语义槽位(ids 白名单无 torch/glow, §8 去威胁红线)。 */
 
 function stallFrontOf(box, face) {/* 前平面(=摊面/顾客侧, face0=south 前沿过朝向表) */
   if (face === 'south') return {axis: 'z', at: box.z2, min: box.x1, max: box.x2};
@@ -2597,7 +2669,7 @@ test('脚印包含·stall-canopy: ×4 朝向 × mirror × 变体 — 每笔写 �
     ['缺省 sm', {ids: STALL_IDS}],
     ['md', {ids: STALL_IDS, size: 'md'}],
     ['md 换 theme', {ids: STALL_IDS, size: 'md', theme: 'bread'}],
-    ['部分注入', {ids: {frame: 170, counter: 171}, size: 'sm'}],
+    ['部分注入', {ids: {frame: 230, counter: 231}, size: 'sm'}],
   ];
   for (const face of ['south', 'west', 'north', 'east']) {
     for (const mirror of [false, true]) {
@@ -2618,7 +2690,8 @@ test('脚印包含·stall-canopy: ×4 朝向 × mirror × 变体 — 每笔写 �
             name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
         assert.strictEqual(spy.rec().length, n, 'footOf 零写');
         /* 脚印随 size 变体外包围盒: 方角 90° 旋转平面恒 sm 3×2 / md 4×3(theme
-            同形不改盒), y 域 dy0..顶层(sm 封顶 dy2/md dy3) */
+            同形不改盒), y 域 dy0..tier2(sm 封顶 dy3/md dy4——Step D 双层阶梯顶
+            +1, 旧 3-4 档退役) */
         const md = vv.size === 'md';
         const spanX = box.x2 - box.x1 + 1;
         const spanZ = box.z2 - box.z1 + 1;
@@ -2627,21 +2700,21 @@ test('脚印包含·stall-canopy: ×4 朝向 × mirror × 变体 — 每笔写 �
         assert.strictEqual(Math.min(spanX, spanZ), md ? 3 : 2,
             name + ' ' + face + (mirror ? '+m' : '') + ' 平面短边 ' + (md ? 3 : 2));
         assert.strictEqual(box.y1, 24, name + ' ' + face + ' footOf 下界=锚层台面 dy0');
-        assert.strictEqual(box.y2, md ? 27 : 26,
-            name + ' ' + face + ' footOf 封顶 ' + (md ? 'dy3(总高 4)' : 'dy2(总高 3)'));
+        assert.strictEqual(box.y2, md ? 28 : 27,
+            name + ' ' + face + ' footOf 封顶 ' + (md ? 'dy4(总高 5)' : 'dy3(总高 4)'));
       }
     }
   }
 });
 
-test('形状·stall-canopy sm 缺省档: 3×2×3 台面柜身/四角柱+后沿货品/顶层布幔', () => {
+test('形状·stall-canopy sm 缺省档: 3×2×4 台面柜身/四角柱+后沿货品/双层阶梯顶(tier1+滚边角旗)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
   k.pf.place('stall-canopy', ax, y0, az, {ids: STALL_IDS, face: 'south'});
-  /* 缺省档手算盒: dx∈[-1,1]×dz∈[-1,0]×dy0..2 → 3×2×3 */
+  /* 缺省档手算盒: dx∈[-1,1]×dz∈[-1,0]×dy0..3 → 3×2×4(Step D 总高 3→4) */
   assert.deepStrictEqual({...k.pf.footOf('stall-canopy', ax, y0, az, {ids: STALL_IDS, face: 'south'})},
-      {x1: 79, y1: 24, z1: 79, x2: 81, y2: 26, z2: 80}, 'sm 缺省脚印盒=手算盒');
+      {x1: 79, y1: 24, z1: 79, x2: 81, y2: 27, z2: 80}, 'sm 缺省脚印盒=手算盒');
   /* dy0 台面柜身: 恰 3×2 实心 counter, 域外空(余量一圈) */
   for (let dx = -3; dx <= 3; dx++) {
     for (let dz = -3; dz <= 2; dz++) {
@@ -2650,37 +2723,51 @@ test('形状·stall-canopy sm 缺省档: 3×2×3 台面柜身/四角柱+后沿�
           '台面 dy0 (' + dx + ',' + dz + ') ' + (inBase ? '实心' : '域外空'));
     }
   }
-  /* dy1: 四角柱 frame + 后沿中段 goods 单格 + 前沿中段空(顾客位), 其余空 */
+  /* dy1: 四角柱 frame + 后沿中段货品单格(generic→bread 案=goodsBread) +
+     前沿中段空(顾客位), 其余空 */
   const posts = [[-1, -1], [1, -1], [-1, 0], [1, 0]];
   for (let dx = -1; dx <= 1; dx++) {
     for (let dz = -1; dz <= 0; dz++) {
       const isPost = posts.some((p) => p[0] === dx && p[1] === dz);
       const isGoods = dx === 0 && dz === -1;
       assert.strictEqual(k.cell(ax + dx, y0 + 1, az + dz),
-          isPost ? STALL_IDS.frame : (isGoods ? STALL_IDS.goods : 0),
+          isPost ? STALL_IDS.frame : (isGoods ? STALL_IDS.goodsBread : 0),
           'dy1 (' + dx + ',' + dz + ') ' + (isPost ? '柱' : (isGoods ? '货品' : '空')));
     }
   }
-  /* dy2 顶层布幔: 恰 3×2 全 canopy; dy3 无物(封顶 dy2, 总高 3) */
+  /* dy2 tier1 主色布幔: 恰 3×2 全 canopy(sm 缺省 generic→52) */
   for (let dx = -1; dx <= 1; dx++) {
     for (let dz = -1; dz <= 0; dz++) {
       assert.strictEqual(k.cell(ax + dx, y0 + 2, az + dz), STALL_IDS.canopy,
-          '布幔 dy2 (' + dx + ',' + dz + ')');
-      assert.strictEqual(k.cell(ax + dx, y0 + 3, az + dz), 0, 'dy3 无物(封顶 dy2)');
+          'tier1 布幔 dy2 (' + dx + ',' + dz + ')');
+    }
+  }
+  /* dy3 tier2 前条: dz=0 一条 canopyTrim 副色+前角格 (1,0)=flag 角旗;
+     后沿上方空; dy4 无物(封顶 dy3, 总高 4) */
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 0; dz++) {
+      const want = dz === 0 ? (dx === 1 ? STALL_IDS.flag : STALL_IDS.canopyTrim) : 0;
+      assert.strictEqual(k.cell(ax + dx, y0 + 3, az + dz), want,
+          'tier2 dy3 (' + dx + ',' + dz + ') ' + (want === 0 ? '空' : ''));
+    }
+  }
+  for (let dx = -3; dx <= 3; dx++) {
+    for (let dz = -3; dz <= 2; dz++) {
+      assert.strictEqual(k.cell(ax + dx, y0 + 4, az + dz), 0, 'dy4 无物(封顶 dy3)');
     }
   }
 });
 
-test('形状·stall-canopy md 档: 4×3×4 柱腿两节/后沿货品两格 — 外包围盒随 size 放大', () => {
+test('形状·stall-canopy md 档: 4×3×5 柱腿两节/后沿货品两格+中景堆顶/双层阶梯顶 — 外包围盒随 size 放大', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
   k.pf.place('stall-canopy', ax, y0, az, {ids: STALL_IDS, size: 'md', face: 'south'});
-  /* md 手算盒: dx∈[-2,1]×dz∈[-1,1]×dy0..3 → 4×3×4 */
+  /* md 手算盒: dx∈[-2,1]×dz∈[-1,1]×dy0..4 → 4×3×5(Step D 总高 4→5) */
   assert.deepStrictEqual(
       {...k.pf.footOf('stall-canopy', ax, y0, az, {ids: STALL_IDS, size: 'md', face: 'south'})},
-      {x1: 78, y1: 24, z1: 79, x2: 81, y2: 27, z2: 81}, 'md 脚印盒=手算盒');
-  /* 随 size 变体外包围盒: md 三维都大于 sm(占地 4×3>3×2, 总高 4>3) */
+      {x1: 78, y1: 24, z1: 79, x2: 81, y2: 28, z2: 81}, 'md 脚印盒=手算盒');
+  /* 随 size 变体外包围盒: md 三维都大于 sm(占地 4×3>3×2, 总高 5>4) */
   const smBox = k.pf.footOf('stall-canopy', ax, y0, az, {ids: STALL_IDS, face: 'south'});
   const mdBox = k.pf.footOf('stall-canopy', ax, y0, az,
       {ids: STALL_IDS, size: 'md', face: 'south'});
@@ -2694,80 +2781,126 @@ test('形状·stall-canopy md 档: 4×3×4 柱腿两节/后沿货品两格 — �
           'md 台面 dy0 (' + dx + ',' + dz + ') 实心');
     }
   }
-  /* dy1: 四角柱 frame + 后沿中段 goods 两格(NW 偏置偶簇)——后沿行恰满: 柱/货/货/柱 */
+  /* dy1: 四角柱 frame + 后沿中段货品两格(NW 偏置偶簇, generic→bread 案)——
+     后沿行恰满: 柱/货/货/柱 */
   const posts = [[-2, -1], [1, -1], [-2, 1], [1, 1]];
   for (let dx = -2; dx <= 1; dx++) {
     for (let dz = -1; dz <= 1; dz++) {
       const isPost = posts.some((p) => p[0] === dx && p[1] === dz);
       const isGoods = dz === -1 && (dx === -1 || dx === 0);
       assert.strictEqual(k.cell(ax + dx, y0 + 1, az + dz),
-          isPost ? STALL_IDS.frame : (isGoods ? STALL_IDS.goods : 0),
+          isPost ? STALL_IDS.frame : (isGoods ? STALL_IDS.goodsBread : 0),
           'md dy1 (' + dx + ',' + dz + ') ' + (isPost ? '柱' : (isGoods ? '货品' : '空')));
     }
   }
-  /* dy2 柱腿第二节: 恰 4 角 frame 其余空(高款棚架腿更长——两档高差落腿) */
+  /* dy2 柱腿第二节: 恰 4 角 frame+后沿中景堆顶(generic→bread 案: dy1 货同槽
+     堆顶一格@(-1,2,-1) 两格高读法)其余空(高款棚架腿更长——两档高差落腿) */
   let legs = 0;
   for (let dx = -2; dx <= 1; dx++) {
     for (let dz = -1; dz <= 1; dz++) {
       const isPost = posts.some((p) => p[0] === dx && p[1] === dz);
+      const isLeafTop = dx === -1 && dz === -1;
       const id = k.cell(ax + dx, y0 + 2, az + dz);
-      assert.strictEqual(id, isPost ? STALL_IDS.frame : 0,
-          'md dy2 (' + dx + ',' + dz + ') ' + (isPost ? '柱腿' : '空'));
+      assert.strictEqual(id, isPost ? STALL_IDS.frame :
+          (isLeafTop ? STALL_IDS.goodsBread : 0),
+      'md dy2 (' + dx + ',' + dz + ') ' + (isPost ? '柱腿' :
+          (isLeafTop ? '面包堆顶' : '空')));
       if (id === STALL_IDS.frame) legs++;
     }
   }
   assert.strictEqual(legs, 4, 'md dy2 柱腿恰 4 格');
-  /* dy3 顶层布幔: 恰 4×3 全 canopy; dy4 无物(封顶 dy3, 总高 4) */
+  /* dy3 tier1 主色布幔: 恰 4×3 全 canopy */
   for (let dx = -2; dx <= 1; dx++) {
     for (let dz = -1; dz <= 1; dz++) {
       assert.strictEqual(k.cell(ax + dx, y0 + 3, az + dz), STALL_IDS.canopy,
-          'md 布幔 dy3 (' + dx + ',' + dz + ')');
-      assert.strictEqual(k.cell(ax + dx, y0 + 4, az + dz), 0, 'md dy4 无物(封顶 dy3)');
+          'md tier1 布幔 dy3 (' + dx + ',' + dz + ')');
+    }
+  }
+  /* dy4 tier2 前条: dz=1 一条 canopyTrim 副色+前角格 (1,1)=flag 角旗; dy5 无物
+     (封顶 dy4, 总高 5) */
+  for (let dx = -2; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      const want = dz === 1 ? (dx === 1 ? STALL_IDS.flag : STALL_IDS.canopyTrim) : 0;
+      assert.strictEqual(k.cell(ax + dx, y0 + 4, az + dz), want,
+          'md tier2 dy4 (' + dx + ',' + dz + ') ' + (want === 0 ? '空' : ''));
+    }
+  }
+  for (let dx = -3; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      assert.strictEqual(k.cell(ax + dx, y0 + 5, az + dz), 0, 'md dy5 无物(封顶 dy4)');
     }
   }
 });
 
-test('theme 注入·stall-canopy: canopy 缺省按 theme 映射(52/16/15)四档几何同形, 显式 ids.canopy 覆写', () => {
+test('theme 注入·stall-canopy: canopy/canopyTrim 缺省按 theme 映射四档几何同形, 货物/叶饰选槽差异, 显式键覆写', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   /* 缺省核对表钉实(T-06 硬教训: 缺省裸数字逐槽对 config.js BLOCKS 实义核真,
-      均无 tnt/thin/replaceable/solid:false 旗标): frame=5 木头暖木(柱, tower
-      pillar/cottage trim 先例) · counter=6 木板暖木-中(stilt 地板/店身墙先例) ·
-      goods=38 金矿暖金(shop signAccent 先例) · canopy(generic)=52 羊毛奶油
-      (shop awning 先例) */
+      危险旗标仅 goodsLeaf 两槽 thin/replaceable 已按槽名豁免 T-09): frame=5
+      木头暖木(柱) · counter=6 木板暖木-中 · goodsBread(generic→bread 案)=17
+      石英堆(shop plaster 先例, 弃 38 金矿旧材质) · canopy(generic)=52 羊毛奶油
+      · canopyTrim(generic)=78 粉羊毛(PF_STALL_TRIM 奶油×樱粉对偶) · flag=78
+      樱粉角旗 */
   k.clear();
-  const boxD = k.pf.place('stall-canopy', ax, y0, az, {face: 'south'}); /* 无 ids=全缺省 */
+  const boxD = k.pf.place('stall-canopy', ax, y0, az, {size: 'md', face: 'south'}); /* 无 ids=全缺省 */
   assert.strictEqual(k.cell(ax, y0, az), 6, '缺省台面=6 木板暖木-中');
-  assert.strictEqual(k.cell(ax - 1, y0 + 1, az - 1), 5, '缺省柱=5 木头暖木');
-  assert.strictEqual(k.cell(ax, y0 + 1, az - 1), 38, '缺省货品=38 金矿暖金');
-  assert.strictEqual(k.cell(ax, y0 + 2, az), 52, '缺省布幔(generic)=52 羊毛奶油');
-  /* theme 四档: canopy 缺省映射 bread/generic→52 奶油 · flower→16 红羊毛(樱粉
-      最近似, 现调色板无粉色块——PO 备忘) · fruit→15 蓝羊毛天蓝; 几何同形(同盒+
-      其余槽位不动), 同 canopy 色的 theme 逐字节同形 */
-  const themes = [['bread', 52], ['flower', 16], ['fruit', 15], ['generic', 52]];
+  assert.strictEqual(k.cell(ax - 2, y0 + 1, az - 1), 5, '缺省柱=5 木头暖木');
+  assert.strictEqual(k.cell(ax - 1, y0 + 1, az - 1), 17, '缺省货品(generic→bread 案)=17 石英堆');
+  assert.strictEqual(k.cell(ax, y0 + 3, az), 52, '缺省 tier1 布幔(generic)=52 羊毛奶油');
+  assert.strictEqual(k.cell(ax, y0 + 4, az + 1), 78,
+      '缺省 tier2 滚边(generic)=78 粉羊毛(dz=dzHi 前条)');
+  assert.strictEqual(k.cell(ax + 1, y0 + 4, az + 1), 78, '缺省角旗=78 樱粉(tier2 前角)');
+  /* theme 四档: [theme, canopy, canopyTrim, goods]——canopy 缺省映射 bread/
+      generic→52 · flower→78 · fruit→15; canopyTrim: bread/generic→78 ·
+      flower/fruit→52; 货物选槽 bread/generic→17/flower→78/fruit→76; 叶饰
+      flower 双叶/fruit 单叶/bread·generic 堆顶; 几何同形(同盒+其余槽位不动),
+      同 canopy+trim 色的 theme 逐字节同形 */
+  const themes = [
+    ['bread', 52, 78, 17], ['flower', 78, 52, 78],
+    ['fruit', 15, 52, 76], ['generic', 52, 78, 17],
+  ];
   let refSnap = null;
-  for (const [th, cid] of themes) {
+  for (const [th, cid, tid, gid] of themes) {
     k.clear();
-    const b = k.pf.place('stall-canopy', ax, y0, az, {theme: th, face: 'south'});
+    const b = k.pf.place('stall-canopy', ax, y0, az,
+        {theme: th, size: 'md', face: 'south'});
     assert.deepStrictEqual(b, boxD, th + ' 几何同形: 同盒');
-    assert.strictEqual(k.cell(ax, y0 + 2, az), cid, th + ' 布幔缺省=' + cid + '(按 theme 注入)');
+    assert.strictEqual(k.cell(ax, y0 + 3, az), cid, th + ' tier1 布幔缺省=' + cid + '(按 theme 注入)');
+    assert.strictEqual(k.cell(ax, y0 + 4, az + 1), tid,
+        th + ' tier2 滚边缺省=' + tid + '(按 theme 注入, dz=dzHi 前条)');
+    assert.strictEqual(k.cell(ax - 1, y0 + 1, az - 1), gid, th + ' 货品=' + gid + '(按 theme 选槽)');
     assert.strictEqual(k.cell(ax, y0, az), 6, th + ' 台面不动');
-    assert.strictEqual(k.cell(ax - 1, y0 + 1, az - 1), 5, th + ' 柱不动');
-    assert.strictEqual(k.cell(ax, y0 + 1, az - 1), 38, th + ' 货品不动');
+    assert.strictEqual(k.cell(ax - 2, y0 + 1, az - 1), 5, th + ' 柱不动');
+    if (th === 'flower') {
+      assert.strictEqual(k.cell(ax - 1, y0 + 2, az - 1), 61, th + ' 叶饰 goodsLeaf1=61');
+      assert.strictEqual(k.cell(ax, y0 + 2, az - 1), 62, th + ' 叶饰 goodsLeaf2=62');
+    } else if (th === 'fruit') {
+      assert.strictEqual(k.cell(ax, y0 + 2, az - 1), 61, th + ' 叶饰 goodsLeaf1@(0,2,-1)');
+      assert.strictEqual(k.cell(ax - 1, y0 + 2, az - 1), 0, th + ' (-1) 位空(fruit 单叶)');
+    } else {
+      assert.strictEqual(k.cell(ax - 1, y0 + 2, az - 1), 17, th + ' 面包堆顶=17(与 dy1 货同槽两格高)');
+    }
     if (th === 'bread') {
       refSnap = k.snap();
-    } else if (cid === 52) {
-      assert.ok(refSnap.equals(k.snap()), '同 canopy 色的 theme 逐字节同形(仅材质差异)');
+    } else if (cid === 52 && tid === 78) {
+      assert.ok(refSnap.equals(k.snap()), '同 canopy+trim 色的 theme 逐字节同形(仅材质差异)');
     }
   }
-  /* 显式 ids.canopy 覆写 theme 映射; 部分注入其余槽回落缺省 */
+  /* 显式 ids.canopy/canopyTrim 各自独立覆写 theme 映射; 部分注入其余槽回落缺省 */
   k.clear();
-  k.pf.place('stall-canopy', ax, y0, az, {theme: 'flower', ids: {canopy: 200}, face: 'south'});
+  k.pf.place('stall-canopy', ax, y0, az,
+      {theme: 'flower', ids: {canopy: 200}, face: 'south'});
   assert.strictEqual(k.cell(ax, y0 + 2, az), 200, '显式 canopy 覆写 theme 映射');
-  assert.strictEqual(k.cell(ax, y0 + 1, az - 1), 38, '部分注入: 其余槽回落缺省(货品 38)');
+  assert.strictEqual(k.cell(ax, y0 + 3, az), 52, 'canopyTrim 未显式→回落 PF_STALL_TRIM(flower)=52');
+  assert.strictEqual(k.cell(ax, y0 + 1, az - 1), 78, '部分注入: 货品按 theme 选槽(flower=goodsFlower 78)');
+  k.clear();
+  k.pf.place('stall-canopy', ax, y0, az,
+      {theme: 'flower', ids: {canopyTrim: 201}, face: 'south'});
+  assert.strictEqual(k.cell(ax, y0 + 3, az), 201, '显式 canopyTrim 覆写 theme 映射');
+  assert.strictEqual(k.cell(ax, y0 + 2, az), 78, 'canopy 未显式→回落 PF_STALL_CANOPY(flower)=78');
 });
 
-test('逐朝向·stall-canopy: 台面/布幔随 face 旋转到前平面(face0=south 摊面朝 +dz), mirror sm 同盒同形/md 盒平移一格(shop 口径)', () => {
+test('逐朝向·stall-canopy: 台面/布幔/滚边角旗随 face 旋转到前平面(face0=south 摊面朝 +dz), mirror sm 同盒/md 盒平移一格(shop 口径)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   for (const face of ['south', 'west', 'north', 'east']) {
@@ -2775,49 +2908,57 @@ test('逐朝向·stall-canopy: 台面/布幔随 face 旋转到前平面(face0=so
     k.pf.place('stall-canopy', ax, y0, az, {ids: STALL_IDS, face});
     const box = k.pf.footOf('stall-canopy', ax, y0, az, {ids: STALL_IDS, face});
     const f = stallFrontOf(box, face);
-    /* 前平面=摊面(顾客侧): dy0 台面行 ≥2 格 counter(全宽), 顶层布幔 ≥2 格 canopy */
-    let counter = 0; let canopy = 0;
+    /* 前平面=摊面(顾客侧): dy0 台面行 ≥2 格 counter, tier1 布幔(dy2) ≥2 格
+       canopy, tier2 滚边(dy3) 前条 trim 两格+前角旗一格(随朝向旋转) */
+    let counter = 0; let canopy = 0; let trimC = 0; let flagC = 0;
     for (let a = f.min; a <= f.max; a++) {
       if (stallCellAt(k, f, a, y0) === STALL_IDS.counter) counter++;
       if (stallCellAt(k, f, a, y0 + 2) === STALL_IDS.canopy) canopy++;
+      if (stallCellAt(k, f, a, y0 + 3) === STALL_IDS.canopyTrim) trimC++;
+      if (stallCellAt(k, f, a, y0 + 3) === STALL_IDS.flag) flagC++;
     }
     assert.ok(counter >= 2, face + ' 前平面 dy0 台面行(摊面朝顾客)');
-    assert.ok(canopy >= 2, face + ' 前平面顶层布幔(棚盖摊面)');
+    assert.ok(canopy >= 2, face + ' 前平面 tier1 布幔(棚盖摊面)');
+    assert.strictEqual(trimC, 2, face + ' 前平面 tier2 滚边两格(前条 3 格-角旗 1)');
+    assert.strictEqual(flagC, 1, face + ' 前平面角旗恰 1 格(tier2 前角)');
     /* 后平面: dy1 后沿柱+货品随朝向旋转 */
     const r = stallRearOf(box, face);
     let frame = 0; let goods = 0;
     for (let a = r.min; a <= r.max; a++) {
       const id = stallCellAt(k, r, a, y0 + 1);
       if (id === STALL_IDS.frame) frame++;
-      if (id === STALL_IDS.goods) goods++;
+      if (id === STALL_IDS.goodsBread) goods++;
     }
     assert.ok(frame >= 2, face + ' 后平面后沿柱(随朝向旋转)');
     assert.ok(goods >= 1, face + ' 后平面货品(随朝向旋转)');
   }
-  /* mirror sm: dx 对称形 → 同盒同形(逐字节); mirror=标准 -dx 先翻后旋(shop 口径) */
+  /* mirror sm: 奇宽 dx 对称→同盒; v2 角旗@tier2 前角格(dx=1)不对称→翻至西角
+     (v1「逐字节同形」断言退役——角旗破对称, 改钉角旗翻侧+主体同位) */
   k.clear();
   k.pf.place('stall-canopy', ax, y0, az, {ids: STALL_IDS, face: 'south'});
-  const smNoM = k.snap();
   const smBoxM = k.pf.footOf('stall-canopy', ax, y0, az, {ids: STALL_IDS, face: 'south'});
   k.clear();
   k.pf.place('stall-canopy', ax, y0, az, {ids: STALL_IDS, face: 'south', mirror: true});
   assert.deepStrictEqual(k.pf.footOf('stall-canopy', ax, y0, az,
       {ids: STALL_IDS, face: 'south', mirror: true}), smBoxM, 'sm mirror 同盒(奇宽 dx 对称)');
-  assert.ok(smNoM.equals(k.snap()), 'sm mirror 同形(对称形翻不动)');
+  assert.strictEqual(k.cell(ax - 1, y0 + 3, az), STALL_IDS.flag, 'sm mirror 角旗翻至西角(-1,3,0)');
+  assert.strictEqual(k.cell(ax + 1, y0 + 3, az), STALL_IDS.canopyTrim, 'sm mirror 原角位落滚边(dx1)');
+  assert.strictEqual(k.cell(ax, y0 + 2, az), STALL_IDS.canopy, 'sm mirror tier1 布幔主体同位');
   /* mirror md: 偶宽 [-2,1]→[-1,2] 盒东移一格(shop-awning/house-loft 盒平移口径);
-      货品簇随镜像翻转(西簇→东簇), 摊面仍南平面 */
+     货品簇随镜像翻转(西簇→东簇), 摊面仍南平面, 角旗翻至西角 */
   k.clear();
   k.pf.place('stall-canopy', ax, y0, az, {ids: STALL_IDS, size: 'md', face: 'south'});
   assert.strictEqual(k.cell(78, y0, 80), STALL_IDS.counter, 'md south 台面西缘=dx-2');
   assert.strictEqual(k.cell(82, y0, 80), 0, 'md south 台面东缘外(dx2 域外)');
-  assert.strictEqual(k.cell(79, y0 + 1, 79), STALL_IDS.goods, 'md 非镜货品西簇(dx-1)');
+  assert.strictEqual(k.cell(79, y0 + 1, 79), STALL_IDS.goodsBread, 'md 非镜货品西簇(dx-1)');
   k.clear();
   k.pf.place('stall-canopy', ax, y0, az, {ids: STALL_IDS, size: 'md', face: 'south', mirror: true});
   assert.strictEqual(k.cell(78, y0, 80), 0, 'md south+mirror 西让(dx-2 出域)');
   assert.strictEqual(k.cell(79, y0, 80), STALL_IDS.counter, 'md south+mirror 盒东移(dx+1 入)');
   assert.strictEqual(k.cell(82, y0, 80), STALL_IDS.counter, 'md south+mirror 东补(dx-2 翻入)');
   assert.strictEqual(k.cell(79, y0 + 1, 79), STALL_IDS.frame, 'md mirror 货品簇翻走(西簇让位柱)');
-  assert.strictEqual(k.cell(81, y0 + 1, 79), STALL_IDS.goods, 'md mirror 货品簇翻至东簇(dx0..1)');
+  assert.strictEqual(k.cell(81, y0 + 1, 79), STALL_IDS.goodsBread, 'md mirror 货品簇翻至东簇(dx0..1)');
+  assert.strictEqual(k.cell(79, y0 + 4, 81), STALL_IDS.flag, 'md mirror 角旗翻至西角(-1,4,1)');
   const bm = k.pf.footOf('stall-canopy', ax, y0, az,
       {ids: STALL_IDS, size: 'md', face: 'south', mirror: true});
   const fm = stallFrontOf(bm, 'south');
@@ -2913,8 +3054,9 @@ test('材质基线·全行缺省建场安全: 城镇七行零危险旗标块 + �
   /* v2 槽名豁免表(视觉重制总纲 §2 字库; 判据单份=defaults.ids 槽名→旗标集):
      door/doorTop 槽=关态成对门叶(64/65), 豁免 door 旗标——城镇行把门当立面
      建材(tower 先例, cottage/loft 复用); bedGrass/bedFlower1/bedFlower2 槽=
-     墙根花坛 cross 薄块(40/61/62, §2「地被零成本点缀」), 豁免 thin/
-     replaceable——点缀语义, 花坛仍受 BAD 显式清单与旗标其余项管辖; 非豁免槽
+     墙根花坛 cross 薄块(40/61/62, §2「地被零成本点缀」), goodsLeaf1/goodsLeaf2
+     槽=摊位 md 中景花叶饰(61/62 树叶薄块, Step D 新槽), 豁免 thin/
+     replaceable——点缀语义, 仍受 BAD 显式清单与旗标其余项管辖; 非豁免槽
      漏进的门族块(66/67 开态)、草丛/花(裸 40/61/62 无槽名)仍违例。收编三行
      无 defaults.ids → 空集不豁免 */
   const EXEMPT_SLOT_FLAGS = {
@@ -2922,6 +3064,8 @@ test('材质基线·全行缺省建场安全: 城镇七行零危险旗标块 + �
     bedGrass: ['thin', 'replaceable'],
     bedFlower1: ['thin', 'replaceable'],
     bedFlower2: ['thin', 'replaceable'],
+    goodsLeaf1: ['thin', 'replaceable'],
+    goodsLeaf2: ['thin', 'replaceable'],
   };
   const slotExempt = (id) => {
     const d = k.rows[id] && k.rows[id].defaults && k.rows[id].defaults.ids;
@@ -2977,7 +3121,7 @@ test('材质基线·tower-belfry 缺省逐槽(v2 核对表): base13/wall17/roof9
   assert.strictEqual(k.cell(ax, y0 + 3, az + 2), 65, 'doorTop=65 门上叶(关态上格, 与 64 成对)');
 });
 
-test('材质基线·shop-awning 缺省逐槽(v2 核对表): base13/plaster17/awning15/signBg76/window68', () => {
+test('材质基线·shop-awning 缺省逐槽(v2 核对表): base13/plaster17/awning15/signBg76/bird52/comb16/light19/window68', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
@@ -2988,9 +3132,11 @@ test('材质基线·shop-awning 缺省逐槽(v2 核对表): base13/plaster17/awn
   assert.strictEqual(k.cell(ax - 5, y0 + 2, az + 4), 5, 'trim=5 深木廊柱(前廊 dz=4 dy1..3)——v2 柱廊');
   assert.strictEqual(k.cell(ax, y0 + 5, az - 4), 9, 'roof=9 红砖陶橙(dy5 檐层)——不变');
   assert.strictEqual(k.cell(ax, y0 + 5, az + 4), 15, 'awning=15 天蓝主幔(dy5 遮檐全宽)——旧 52 白羊毛, §2「天蓝-布幔」');
-  assert.strictEqual(k.cell(ax, y0 + 6, az + 4), 17, 'awningTrim=17 奶油上滚边(dy6)——v2 新槽双层布幔');
-  assert.strictEqual(k.cell(ax - 2, y0 + 7, az + 4), 76, 'signBg=76 南瓜亮橙招牌板(dy7 中段)——旧 15, checkpoint 定稿「板 76」');
-  assert.strictEqual(k.cell(ax - 1, y0 + 7, az + 4), 17, 'signAccent=17 石英白徽(icon 中央)——旧 38 金矿, checkpoint 定稿「徽 17」');
+  assert.strictEqual(k.cell(ax - 5, y0 + 6, az + 4), 17, 'awningTrim=17 奶油滚边(dy6 两端角饰)——v2 新槽, Step D 缩两端两格');
+  assert.strictEqual(k.cell(ax - 3, y0 + 7, az + 4), 76, 'signBg=76 南瓜亮橙招牌板(dy7 板面)——旧 15, checkpoint 定稿「板 76」');
+  assert.strictEqual(k.cell(ax - 1, y0 + 7, az + 4), 52, 'signBird=52 鸡剪影白身(dy7)——Step D 新槽, lead 终审鸡立板案');
+  assert.strictEqual(k.cell(ax - 2, y0 + 7, az + 4), 16, 'signComb=16 红鸡冠(dy7)——Step D 新槽');
+  assert.strictEqual(k.cell(ax - 3, y0 + 6, az + 4), 19, 'signLight=19 招牌灯点(dy6 两枚, 暖光非火 §8)——Step D 新槽');
   assert.strictEqual(k.cell(ax - 4, y0 + 2, az + 3), 19, 'glow=19 灯块窗台内藏暖光带(dy2 左橱窗, warm 缺省)——不变');
   assert.strictEqual(k.cell(ax - 4, y0 + 3, az + 3), 68, 'window=68 玻璃板橱窗(dy3..4)——旧 18 玻璃, 大面橱窗用带框板');
 });

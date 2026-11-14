@@ -165,7 +165,10 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
        旧值 6 见 map-design §4.2, 被总纲 §3 G 取代) */
     'cottage-gable': {min: 7, max: 8, y: [7, 7]},
     'house-loft': {min: 8, max: 10, y: [8, 9]}, /* 民居 B 10×8 高 8-9 */
-    'stall-canopy': {min: 2, max: 4, y: [3, 4]}, /* 摊位 3×2~4×3 高 3-4 */
+    /* 摊位 3×2~4×3 高 4-5(Step D 双层阶梯顶几何升级+1, §3 G 规格驱动,
+       cottage 先例核准几何升级压文档; 旧值 3-4 见 map-design §4.2,
+       漂移登记 arch 回执) */
+    'stall-canopy': {min: 2, max: 4, y: [4, 5]},
     'under-room': {min: 3, max: 12, y: null}, /* 埋室形状随 v(半宽/出路), 只验界内 */
   };
   for (const p of t.prefab) {

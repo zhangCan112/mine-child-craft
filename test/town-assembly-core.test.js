@@ -47,16 +47,19 @@ const PALETTE_WANT = {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
       window: 68, flag: 78, door: 64, doorTop: 65},
     'shop-awning': {base: 13, wall: 6, plaster: 17, trim: 5, roof: 9,
-      awning: 15, awningTrim: 17, signBg: 76, signAccent: 17, glow: 19, window: 68},
+      awning: 15, awningTrim: 17, signBg: 76, signBird: 52, signComb: 16,
+      signLight: 19, glow: 19, window: 68},
     'windmill-tower': {base: 13, wall: 17, roof: 9, trim: 5, blade: 6, axle: 76, accent: 17},
     'cottage-gable': {base: 13, wall: 6, trim: 5, frame: 17, roof: 9, window: 18,
       door: 64, doorTop: 65, chimney: 4,
       bedGrass: 40, bedFlower1: 61, bedFlower2: 62},
     'house-loft': {base: 13, wallA: 6, wallB: 17, roof: 9, trim: 5, window: 18,
       frame: 17, door: 64, doorTop: 65, balcony: 5, awning: 15},
-    'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 6, metalAccent: 12},
+    'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 64, doorTop: 65,
+      metalAccent: 12, barrel: 5, chest: 51, mossy: 14},
     'under-room': {chest: 51, torch: 48, cap: 8, land: 58},
-    'stall-canopy': {frame: 5, counter: 6, goods: 38},
+    'stall-canopy': {frame: 5, counter: 6, goodsBread: 17, goodsFlower: 78,
+      goodsFruit: 76, goodsLeaf1: 61, goodsLeaf2: 62, flag: 78},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58},
@@ -160,11 +163,13 @@ test('T-09 材质安全基线: 城镇七行零危险旗标(door/doorTop 门叶+b
         for (const f of FLAGS) {
           /* v2 槽名豁免(总纲 §2 字库; prefab-kit EXEMPT_SLOT_FLAGS 同源):
              door/doorTop 槽=关态门叶 64/65 豁免 door 旗标; bedGrass/
-             bedFlower1/bedFlower2 槽=墙根花坛 40/61/62 薄块点缀豁免 thin/
+             bedFlower1/bedFlower2 槽=墙根花坛 40/61/62 薄块点缀, goodsLeaf1/
+             goodsLeaf2 槽=摊位 md 中景花叶 61/62(Step D 新槽)豁免 thin/
              replaceable。槽值仍受 BAD 显式清单管辖, 非槽名门族块/裸草花仍违例 */
           if ((f === 'door' && (slot === 'door' || slot === 'doorTop')) ||
               ((f === 'thin' || f === 'replaceable') &&
-                  (slot === 'bedGrass' || slot === 'bedFlower1' || slot === 'bedFlower2'))) {
+                  (slot === 'bedGrass' || slot === 'bedFlower1' || slot === 'bedFlower2' ||
+                   slot === 'goodsLeaf1' || slot === 'goodsLeaf2'))) {
             continue;
           }
           if (def && def[f]) out.flag.push(row + '.' + slot + '=' + bid + '(' + f + ')');

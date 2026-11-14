@@ -39,22 +39,34 @@
    (窗框楣/门上叶/墙根花坛三格), 换值 base 58→13/door 6→64/chimney
    3→4; house-loft +frame/doorTop/awning(窗框楣/门上叶/布幔), 换值
    base 58→13/wallB 5→17/door 6→64。花坛三槽=40/61/62 cross 薄块,
-   T-09 审计按槽名豁免 thin/replaceable(door/doorTop 槽名豁免先例)。 */
+   T-09 审计按槽名豁免 thin/replaceable(door/doorTop 槽名豁免先例)。
+   Step D 扩键登记(arch 岗, 2026-11-15): shop-awning -signAccent
+   +signBird/signComb/signLight(招牌鸡剪影立板, lead 终审; 新槽值
+   52/16/19); stash-hut +doorTop/barrel/chest/mossy(§3 G 门前桶堆+
+   储物箱+苔石点缀升格入蓝图), 换值 door 6→64; stall-canopy -goods
+   +goodsBread/goodsFlower/goodsFruit/goodsLeaf1/goodsLeaf2/flag(货物
+   主题化+md 叶饰+角旗; 弃 38 金矿旧材质), canopy/canopyTrim 仍不入行
+   (引擎侧 PF_STALL_CANOPY/PF_STALL_TRIM theme 映射单源, 双源即漂移)。
+   goodsLeaf 两槽=61/62 树叶薄块, T-09 审计按槽名豁免 thin/replaceable
+   (花坛三槽先例)。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
       window: 68, flag: 78, door: 64, doorTop: 65},
     'shop-awning': {base: 13, wall: 6, plaster: 17, trim: 5, roof: 9,
-      awning: 15, awningTrim: 17, signBg: 76, signAccent: 17, glow: 19, window: 68},
+      awning: 15, awningTrim: 17, signBg: 76, signBird: 52, signComb: 16,
+      signLight: 19, glow: 19, window: 68},
     'windmill-tower': {base: 13, wall: 17, roof: 9, trim: 5, blade: 6, axle: 76, accent: 17},
     'cottage-gable': {base: 13, wall: 6, trim: 5, frame: 17, roof: 9, window: 18,
       door: 64, doorTop: 65, chimney: 4,
       bedGrass: 40, bedFlower1: 61, bedFlower2: 62},
     'house-loft': {base: 13, wallA: 6, wallB: 17, roof: 9, trim: 5, window: 18,
       frame: 17, door: 64, doorTop: 65, balcony: 5, awning: 15},
-    'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 6, metalAccent: 12},
+    'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 64, doorTop: 65,
+      metalAccent: 12, barrel: 5, chest: 51, mossy: 14},
     'under-room': {chest: 51, torch: 48, cap: 8, land: 58},
-    'stall-canopy': {frame: 5, counter: 6, goods: 38},
+    'stall-canopy': {frame: 5, counter: 6, goodsBread: 17, goodsFlower: 78,
+      goodsFruit: 76, goodsLeaf1: 61, goodsLeaf2: 62, flag: 78},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58},
