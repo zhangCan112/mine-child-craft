@@ -34,9 +34,10 @@
    steps 扩 kind, 本件派生分支域不变。 */
 const TOWN_PALETTE = {
   prefab: {
-    'tower-belfry': {base: 58, wall: 6, pillar: 5, trim: 5, roof: 9, bell: 38, window: 18, flag: 16},
+    'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
+      window: 68, flag: 78, door: 64, doorTop: 65},
     'shop-awning': {base: 58, wall: 6, roof: 9, trim: 5, awning: 52, signBg: 15, signAccent: 38, glow: 19, window: 18},
-    'windmill-tower': {base: 3, wall: 6, roof: 9, trim: 5, blade: 52, axle: 12},
+    'windmill-tower': {base: 13, wall: 17, roof: 9, trim: 5, blade: 6, axle: 76, accent: 17},
     'cottage-gable': {base: 58, wall: 6, roof: 9, trim: 5, window: 18, door: 6, chimney: 3},
     'house-loft': {base: 58, wallA: 6, wallB: 5, roof: 9, trim: 5, window: 18, door: 6, balcony: 5},
     'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 6, metalAccent: 12},

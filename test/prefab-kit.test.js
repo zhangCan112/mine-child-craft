@@ -31,11 +31,13 @@ function loadKit() {/* vm 装载链: 引擎件按 index.html 序; api 经上下�
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
   }
   const api = vm.runInContext(
-      '({PrefabKit, SceneKit, setBlockRaw, getBlock, worldCells, BLOCKS, WORLD_W, WORLD_D, WORLD_H})', eng);
+      '({PrefabKit, SceneKit, setBlockRaw, getBlock, worldCells, BLOCKS, PF_ROWS,' +
+      ' WORLD_W, WORLD_D, WORLD_H})', eng);
   const W = api.WORLD_W; const D = api.WORLD_D;
   return {
     pf: api.PrefabKit, fill: api.SceneKit.fill, set: api.setBlockRaw,
     rand: api.SceneKit.rand, get: api.getBlock, blocks: api.BLOCKS,
+    rows: api.PF_ROWS, /* 蓝图表只读引用(T-09 审计按 defaults 槽名派生门豁免) */
     W, D, H: api.WORLD_H,
     cell: (x, y, z) => vm.runInContext('worldCells', eng)[(y * D + z) * W + x],
     snap: () => Buffer.from(vm.runInContext('worldCells', eng)),
@@ -774,8 +776,10 @@ test('错误两档·P1 行: mat/top/rock 必传缺→throw; torches/exit 子键�
 
 /* ============ T-PREFAB-01 tower-belfry(钟塔, 新增行) ============ */
 
-const TOWER_IDS = {/* ids 槽子键白名单(§4.1): 显式注入避免依赖默认裸数字 */
-  base: 58, wall: 6, pillar: 5, trim: 47, roof: 40, bell: 41, window: 20, flag: 35,
+const TOWER_IDS = {/* ids 槽子键白名单(总纲 §2 字库 v2): 全 10 键互异显式注入,
+    逐槽可判读(不依赖实现缺省裸数字) */
+  base: 210, wall: 211, pillar: 212, trim: 213, roof: 214,
+  bell: 215, window: 216, flag: 217, door: 218, doorTop: 219,
 };
 
 function towerBaseCells(ax, az) {/* dy=0 地基 6×6: dx,dz ∈ [-2,3] */
@@ -790,11 +794,10 @@ test('脚印包含·tower-belfry: ×4 朝向 × mirror × 变体 — 每笔写 �
   const k = loadKit();
   const spy = k.spySet();
   const variants = [
-    ['缺省', {ids: TOWER_IDS}],
-    ['高档 14', {ids: TOWER_IDS, heightTier: 14}],
-    ['高档 16', {ids: TOWER_IDS, heightTier: 16}],
-    ['无门龛无旗', {ids: TOWER_IDS, hasDoorNiche: false, flags: false}],
-    ['钟室非全敞(按 v 开关)', {ids: TOWER_IDS, openBelfry: false}],
+    ['缺省(16 顶旗档)', {ids: TOWER_IDS}],
+    ['低档 14', {ids: TOWER_IDS, heightTier: 14}],
+    ['中档 15', {ids: TOWER_IDS, heightTier: 15}],
+    ['无旗', {ids: TOWER_IDS, flags: false}],
     ['换材质', {ids: Object.assign({}, TOWER_IDS, {base: 1, wall: 2, bell: 3, roof: 4})}],
   ];
   for (const face of ['south', 'west', 'north', 'east']) {
@@ -815,31 +818,46 @@ test('脚印包含·tower-belfry: ×4 朝向 × mirror × 变体 — 每笔写 �
         assert.deepStrictEqual(k.pf.footOf('tower-belfry', 80, 24, 80, v), box,
             name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
         assert.strictEqual(spy.rec().length, n, 'footOf 零写');
-        /* footOf 覆盖最大 6×6 外廓与全高 dy0..14(含檐/顶饰; 旗面若出挑计入盒) */
+        /* footOf 覆盖最大 6×6 外廓与全高 dy0..14+(顶旗档到 dy15; 旗面出挑计入盒) */
         assert.ok(box.x2 - box.x1 + 1 >= 6 && box.z2 - box.z1 + 1 >= 6,
             name + ' ' + face + ' footOf 平面至少覆盖 6×6 外廓');
         assert.ok(box.y1 <= 24 && box.y2 >= 24 + 14,
-            name + ' ' + face + ' footOf 覆盖 dy0..14 全高');
+            name + ' ' + face + ' footOf 覆盖 dy0..14 全高(顶旗档兜 15)');
       }
     }
   }
 });
 
-test('形状·tower-belfry: 地基 6×6/塔身 4×4 同心分层/钟室 6×6 开敞/钟体占位/顶饰分层(缺省)', () => {
+test('形状·tower-belfry: 基座 6×6×2/塔身 4×4×8 half-timber(角柱+dy5·dy9 腰线)/钟亭角柱+檐层/金钟 2×2×2/阶梯顶三级收分(缺省 16 档)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
   k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS});
-  /* dy=0 地基 6×6 */
-  for (const [x, z] of towerBaseCells(ax, az)) {
-    assert.strictEqual(k.cell(x, y0, z), TOWER_IDS.base, '地基 dy=0 (' + (x - ax) + ',' + (z - az) + ')');
+  /* dy0..1 基座: 恰 6×6×2(base)——三段式第一段 */
+  for (let dy = 0; dy <= 1; dy++) {
+    for (const [x, z] of towerBaseCells(ax, az)) {
+      assert.strictEqual(k.cell(x, y0 + dy, z), TOWER_IDS.base,
+          '基座 dy=' + dy + ' (' + (x - ax) + ',' + (z - az) + ')');
+    }
   }
-  /* dy=1..7 塔身 4×4 同心主体([-1,2]², 6×6 内缩1圈; 裁决: PO 超时默认落板 2026-11-13 采纳 4×4) */
-  for (let dy = 1; dy <= 7; dy++) {
+  /* dy2..9 塔身: 恰 4×4×8([-1,2]²)half-timber——角柱贯通/边中腰线 dy5·dy9/石英墙面 */
+  for (let dy = 2; dy <= 9; dy++) {
     for (let dx = -1; dx <= 2; dx++) {
       for (let dz = -1; dz <= 2; dz++) {
-        assert.notStrictEqual(k.cell(ax + dx, y0 + dy, az + dz), 0,
-            '塔身 dy=' + dy + ' 4×4 域实心 (' + dx + ',' + dz + ')');
+        const corner = (dx === -1 || dx === 2) && (dz === -1 || dz === 2);
+        const edge = dx === -1 || dx === 2 || dz === -1 || dz === 2;
+        let want = TOWER_IDS.wall;
+        if (corner) {
+          want = TOWER_IDS.pillar; /* 四角深木柱贯通(half-timber 框架) */
+        } else if (edge && (dy === 5 || dy === 9)) {
+          want = TOWER_IDS.trim; /* dy5·dy9 两道周界腰线 */
+        }
+        /* 前立面 dz=2 覆写格跳过(门/楣 dy2..4 与窗 dy6..7, 后写者赢), 见下方单测 */
+        const frontOver = dz === 2 && ((dx === 0 && dy >= 2 && dy <= 4) ||
+            (dx >= 0 && dx <= 1 && dy >= 6 && dy <= 7));
+        if (frontOver) continue;
+        assert.strictEqual(k.cell(ax + dx, y0 + dy, az + dz), want,
+            '塔身 dy=' + dy + ' (' + dx + ',' + dz + ')');
       }
     }
     for (let dx = -2; dx <= 3; dx++) {
@@ -850,107 +868,119 @@ test('形状·tower-belfry: 地基 6×6/塔身 4×4 同心分层/钟室 6×6 开
       }
     }
   }
-  /* dy=8..10 钟室外扩 6×6 开敞亭式: 四面开口, 柱脚保留, 室内有钟体占位 2×2×2(ids.bell) */
-  let bellCount = 0;
-  for (let dx = -2; dx <= 3; dx++) {
-    for (let dz = -2; dz <= 3; dz++) {
-      for (let dy = 8; dy <= 10; dy++) {
-        if (k.cell(ax + dx, y0 + dy, az + dz) === TOWER_IDS.bell) bellCount++;
+  /* 前立面 dz=2 覆写(序即几何): 门叶两格/门楣/前窗 2w×2h */
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), TOWER_IDS.door, '门叶 dy2');
+  assert.strictEqual(k.cell(ax, y0 + 3, az + 2), TOWER_IDS.doorTop, '门上 dy3');
+  assert.strictEqual(k.cell(ax, y0 + 4, az + 2), TOWER_IDS.trim, '门楣 dy4');
+  for (const dy of [6, 7]) {
+    for (const dx of [0, 1]) {
+      assert.strictEqual(k.cell(ax + dx, y0 + dy, az + 2), TOWER_IDS.window,
+          '前窗 dy' + dy + ' dx' + dx);
+    }
+  }
+  /* dy10..12 钟亭: 四角柱贯通(dy10..11; dy12 角格被后写檐层 trim 覆盖——序即
+      几何) + dy12 檐层恰 4×4 全 trim + dy10..11 边开敞 */
+  for (let dy = 10; dy <= 11; dy++) {
+    for (const dx of [-1, 2]) {
+      for (const dz of [-1, 2]) {
+        assert.strictEqual(k.cell(ax + dx, y0 + dy, az + dz), TOWER_IDS.pillar,
+            '钟亭角柱 dy=' + dy + ' (' + dx + ',' + dz + ')');
       }
     }
   }
-  assert.ok(bellCount >= 8, '钟体占位 2×2×2(ids.bell) 存在(计数 ' + bellCount + ')');
-  /* dy=11..14 顶饰: 有 roof/trim 实体, 且总体封顶不高于 footOf 上界 */
-  let roofCount = 0;
-  for (let dx = -2; dx <= 3; dx++) {
-    for (let dz = -2; dz <= 3; dz++) {
-      for (let dy = 11; dy <= 14; dy++) {
-        const id = k.cell(ax + dx, y0 + dy, az + dz);
-        if (id === TOWER_IDS.roof || id === TOWER_IDS.trim) roofCount++;
+  for (let dx = -1; dx <= 2; dx++) {
+    for (let dz = -1; dz <= 2; dz++) {
+      assert.strictEqual(k.cell(ax + dx, y0 + 12, az + dz), TOWER_IDS.trim,
+          '檐层 dy12 (' + dx + ',' + dz + ')');
+    }
+  }
+  for (const [dx, dz] of [[0, -1], [1, -1], [0, 2], [1, 2], [-1, 0], [-1, 1], [2, 0], [2, 1]]) {
+    assert.strictEqual(k.cell(ax + dx, y0 + 10, az + dz), 0, '钟亭 dy10 边开敞 (' + dx + ',' + dz + ')');
+    assert.strictEqual(k.cell(ax + dx, y0 + 11, az + dz), 0, '钟亭 dy11 边开敞 (' + dx + ',' + dz + ')');
+  }
+  /* 金钟: 恰 2×2×2 室心(dx,dz∈[0,1]×dy10..11)——灯块自发光钟体 */
+  for (let dx = 0; dx <= 1; dx++) {
+    for (let dz = 0; dz <= 1; dz++) {
+      for (let dy = 10; dy <= 11; dy++) {
+        assert.strictEqual(k.cell(ax + dx, y0 + dy, az + dz), TOWER_IDS.bell,
+            '金钟 (' + dx + ',' + dy + ',' + dz + ')');
       }
     }
   }
-  assert.ok(roofCount > 0, '顶饰 dy11..14 有屋顶/饰件实体');
-  assert.strictEqual(k.cell(ax, y0 + 15, az), 0, '缺省 heightTier=15 时 dy15 无实体(封顶于 14)');
+  /* dy13 阶梯顶: 恰 6×6 roof 檐板 → dy14 收分 4×4 roof → dy15 顶旗单格 */
+  for (let dx = -2; dx <= 3; dx++) {
+    for (let dz = -2; dz <= 3; dz++) {
+      assert.strictEqual(k.cell(ax + dx, y0 + 13, az + dz), TOWER_IDS.roof,
+          '顶檐板 dy13 (' + dx + ',' + dz + ')');
+    }
+  }
+  for (let dx = -1; dx <= 2; dx++) {
+    for (let dz = -1; dz <= 2; dz++) {
+      assert.strictEqual(k.cell(ax + dx, y0 + 14, az + dz), TOWER_IDS.roof,
+          '收分帽 dy14 (' + dx + ',' + dz + ')');
+    }
+  }
+  assert.strictEqual(k.cell(ax, y0 + 15, az), TOWER_IDS.flag, '顶旗 dy15 单格');
+  assert.strictEqual(k.cell(ax + 1, y0 + 15, az), 0, '顶旗邻格空(恰单格)');
+  /* 檐下旗两则(dy12 同高外挑一格, 悬空点缀) */
+  assert.strictEqual(k.cell(ax - 2, y0 + 12, az - 1), TOWER_IDS.flag, '檐下旗西后');
+  assert.strictEqual(k.cell(ax + 3, y0 + 12, az + 1), TOWER_IDS.flag, '檐下旗东前');
 });
 
-test('形状·tower-belfry: 前立面装饰门龛 dy1..3(开)/关, 侧窗位 dy4..6, 钟室四面开敞(openBelfry)', () => {
+test('形状·tower-belfry 封顶档: heightTier 16=顶旗/15=收分帽/14=檐板(阶梯收分随档裁尾)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
-  k.clear();
-  k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south', hasDoorNiche: true});
-  /* 前立面朝 +dz: front face 列 dz=+2(5×5 主体前沿), 门龛在中线 dy1..3 */
-  let nicheAir = 0;
-  for (let dy = 1; dy <= 3; dy++) {
-    if (k.cell(ax, y0 + dy, az + 2) === 0 || k.cell(ax, y0 + dy, az + 2) === TOWER_IDS.window) nicheAir++;
-  }
-  assert.ok(nicheAir >= 1, '前立面中线 dy1..3 有装饰门龛/内衬视觉(开口或浅色内衬)');
-  /* 侧窗位 dy4..6: 左右侧(±x)中线存在 window 或开口位 */
-  let sideWindow = 0;
-  for (let dy = 4; dy <= 6; dy++) {
-    const leftW = k.cell(ax - 1, y0 + dy, az + 1) === TOWER_IDS.window ||
-        k.cell(ax - 1, y0 + dy, az) === TOWER_IDS.window;
-    const rightW = k.cell(ax + 2, y0 + dy, az + 1) === TOWER_IDS.window ||
-        k.cell(ax + 2, y0 + dy, az) === TOWER_IDS.window;
-    if (leftW || rightW) sideWindow++;
-  }
-  assert.ok(sideWindow >= 1, '侧面 dy4..6 有小窗位(ids.window)');
-  /* 关门龛: 同位不应比开启态更空(墙体/内衬保留) */
-  k.clear();
-  k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south', hasDoorNiche: false});
-  assert.notStrictEqual(k.cell(ax, y0 + 2, az + 2), 0, 'hasDoorNiche=false 时前立面中线 dy2 非空气洞');
-  /* openBelfry=true: 钟室四面开敞(中段四面均有开口) */
-  k.clear();
-  k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, openBelfry: true});
-  let openSides = 0;
-  if (k.cell(ax, y0 + 9, az - 2) === 0) openSides++;
-  if (k.cell(ax, y0 + 9, az + 3) === 0) openSides++;
-  if (k.cell(ax - 2, y0 + 9, az) === 0) openSides++;
-  if (k.cell(ax + 3, y0 + 9, az) === 0) openSides++;
-  assert.strictEqual(openSides, 4, 'openBelfry=true 钟室 dy9 四面全开敞(计数 ' + openSides + ')');
+  /* 16 档: dy13 檐板 6×6 + dy14 帽 4×4 + dy15 旗 */
+  k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, heightTier: 16});
+  assert.strictEqual(k.cell(ax, y0 + 15, az), TOWER_IDS.flag, '16 档顶旗 dy15');
+  assert.strictEqual(k.cell(ax, y0 + 14, az), TOWER_IDS.roof, '16 档收分帽 dy14');
+  assert.strictEqual(k.cell(ax - 2, y0 + 13, az - 2), TOWER_IDS.roof, '16 档檐板 dy13 角');
+  /* 15 档: 裁到 dy14 帽封顶, dy15 空 */
+  k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, heightTier: 15});
+  assert.strictEqual(k.cell(ax, y0 + 14, az), TOWER_IDS.roof, '15 档帽 dy14');
+  assert.strictEqual(k.cell(ax, y0 + 15, az), 0, '15 档 dy15 空');
+  /* 14 档: 裁到 dy13 檐板封顶, dy14/dy15 空 */
+  k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, heightTier: 14});
+  assert.strictEqual(k.cell(ax, y0 + 13, az), TOWER_IDS.roof, '14 档檐板 dy13');
+  assert.strictEqual(k.cell(ax, y0 + 14, az), 0, '14 档 dy14 空');
+  assert.strictEqual(k.cell(ax, y0 + 15, az), 0, '14 档 dy15 空');
 });
 
-test('逐朝向·tower-belfry: 前立面(+dz, face0=south)门龛/窗随 face 旋转, mirror 翻转 dx', () => {
+test('逐朝向·tower-belfry: 门叶/门楣/前窗随 face 旋转(face0=south 前沿 +dz), mirror 翻转 dx', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
-  /* face0=south: 门龛在 (0, dy1..3, +2) 前沿中线(相对锚) */
+  /* face0=south: 门 (0,2,+2)/楣 (0,4,+2)/窗 (0..1,6..7,+2) */
   k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south'});
-  assert.ok(k.cell(ax, y0 + 2, az + 2) === 0 || k.cell(ax, y0 + 2, az + 2) === TOWER_IDS.window,
-      'south 前立面门龛位在 z+2');
-  /* west: (dx,dz)->(-dz,dx), 门龛前沿转到 x-2 */
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), TOWER_IDS.door, 'south 门叶 z+2');
+  assert.strictEqual(k.cell(ax, y0 + 4, az + 2), TOWER_IDS.trim, 'south 门楣 z+2');
+  assert.strictEqual(k.cell(ax + 1, y0 + 6, az + 2), TOWER_IDS.window, 'south 前窗 (1,6)');
+  /* west: (dx,dz)->(-dz,dx): 塔身域转 [−2,1]², 前沿 x−2; 门 (0,2)→(−2,0) */
   k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'west'});
-  assert.ok(k.cell(ax - 2, y0 + 2, az) === 0 || k.cell(ax - 2, y0 + 2, az) === TOWER_IDS.window,
-      'west 前立面门龛位在 x-2');
-  /* north: (-dx,-dz), 门龛前沿转到 z-2 */
+  assert.strictEqual(k.cell(ax - 2, y0 + 2, az), TOWER_IDS.door, 'west 门叶 x−2');
+  assert.strictEqual(k.cell(ax - 2, y0 + 4, az), TOWER_IDS.trim, 'west 门楣 x−2');
+  /* north: (-dx,-dz): 塔身域转 dz∈[−2,1], 前沿 z−2; 门 (0,2)→(0,−2) */
   k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'north'});
-  assert.ok(k.cell(ax, y0 + 2, az - 2) === 0 || k.cell(ax, y0 + 2, az - 2) === TOWER_IDS.window,
-      'north 前立面门龛位在 z-2');
-  /* east: (dz,-dx), 门龛前沿转到 x+3 或 x+2(朝东 6×6 外廓前沿) */
+  assert.strictEqual(k.cell(ax, y0 + 2, az - 2), TOWER_IDS.door, 'north 门叶 z−2');
+  /* east: (dz,-dx): 塔身域转 dx∈[−1,2] dz∈[−2,1], 前沿 x+2; 门 (0,2)→(2,0) */
   k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'east'});
-  const eastNiche = k.cell(ax + 2, y0 + 2, az) === 0 || k.cell(ax + 2, y0 + 2, az) === TOWER_IDS.window ||
-      k.cell(ax + 3, y0 + 2, az) === 0 || k.cell(ax + 3, y0 + 2, az) === TOWER_IDS.window;
-  assert.ok(eastNiche, 'east 前立面门龛位随朝向旋转到东侧');
-  /* mirror: 先翻 dx 后旋转(south) — 非对称旗位左右互换(镜像非 no-op), 门龛中轴仍在前沿 */
+  assert.strictEqual(k.cell(ax + 2, y0 + 2, az), TOWER_IDS.door, 'east 门叶 x+2');
+  /* mirror: 先翻 dx 后旋转(south) — 门中轴 dx=0 镜像不动, 旗/窗换侧 */
   k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south'});
-  const flagA = [ax - 2, y0 + 10, az - 1];
-  const flagB = [ax + 3, y0 + 10, az + 1];
-  assert.strictEqual(k.cell(flagA[0], flagA[1], flagA[2]), TOWER_IDS.flag, 'south 旗位A在左后');
-  assert.strictEqual(k.cell(flagB[0], flagB[1], flagB[2]), TOWER_IDS.flag, 'south 旗位B在右前');
+  assert.strictEqual(k.cell(ax - 2, y0 + 12, az - 1), TOWER_IDS.flag, 'south 旗西后');
+  assert.strictEqual(k.cell(ax + 3, y0 + 12, az + 1), TOWER_IDS.flag, 'south 旗东前');
   k.clear(); k.pf.place('tower-belfry', ax, y0, az, {ids: TOWER_IDS, face: 'south', mirror: true});
-  assert.ok(k.cell(ax, y0 + 2, az + 2) === 0 || k.cell(ax, y0 + 2, az + 2) === TOWER_IDS.window,
-      'south+mirror 门龛中轴仍在前沿');
-  assert.notStrictEqual(k.cell(flagA[0], flagA[1], flagA[2]), TOWER_IDS.flag,
-      'south+mirror 非对称旗位A不再原位(镜像生效)');
-  assert.strictEqual(k.cell(ax + 2, y0 + 10, az - 1), TOWER_IDS.flag,
-      'south+mirror 旗位A镜像后落左后对称位');
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), TOWER_IDS.door, 'south+mirror 门中轴仍前沿');
+  assert.strictEqual(k.cell(ax - 1, y0 + 6, az + 2), TOWER_IDS.window, 'mirror 前窗翻 (−1,6)');
+  assert.strictEqual(k.cell(ax + 2, y0 + 12, az - 1), TOWER_IDS.flag, 'mirror 旗落 (2,−1)(西后镜像)');
+  assert.strictEqual(k.cell(ax - 3, y0 + 12, az + 1), TOWER_IDS.flag, 'mirror 旗落 (−3,1)(东前镜像)');
 });
 
 test('确定性: tower-belfry 同参两次逐字节一致(多朝向×变体)', () => {
   const k = loadKit();
   const builds = [
     () => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS}),
-    () => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, face: 'east', mirror: true, heightTier: 16}),
-    () => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, face: 'north', hasDoorNiche: false, flags: false}),
+    () => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, face: 'east', mirror: true, heightTier: 15}),
+    () => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, face: 'north', heightTier: 14, flags: false}),
   ];
   for (const build of builds) {
     k.clear(); build();
@@ -961,12 +991,16 @@ test('确定性: tower-belfry 同参两次逐字节一致(多朝向×变体)', (
   }
 });
 
-test('错误两档·tower-belfry: 未知 v 键/ids 子键/face 非法→throw; heightTier 钳域 14..16(数值域)', () => {
+test('错误两档·tower-belfry: 未知 v 键(旧 openBelfry/hasDoorNiche 拒收)/ids 子键/face 非法→throw; heightTier 钳域 14..16(数值域)', () => {
   const k = loadKit();
   assert.throws(() => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, facee: 'north'}),
       /v 键/, '未知 v 键');
   assert.throws(() => k.pf.footOf('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, foo: 1}),
       /v 键/, 'footOf 同走未知 v 键检');
+  assert.throws(() => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, openBelfry: true}),
+      /v 键/, '旧键 openBelfry 已删(v2 钟亭恒开敞, 拼写域拒收)');
+  assert.throws(() => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, hasDoorNiche: false}),
+      /v 键/, '旧键 hasDoorNiche 已删(v2 真门叶两格, 拼写域拒收)');
   assert.throws(() => k.pf.place('tower-belfry', 80, 24, 80, {ids: TOWER_IDS, face: 'up'}),
       /face/, 'face 非法');
   assert.throws(() => k.pf.place('tower-belfry', 80, 24, 80, {ids: Object.assign({}, TOWER_IDS, {roofx: 1})}),
@@ -1519,27 +1553,27 @@ test('错误两档·stash-hut: 未知 v 键/ids 子键(含 torch/glow 去威胁�
 
 /* ============ T-PREFAB-04 windmill-tower(风车塔, 新增行) ============ */
 
-/* ids 槽子键白名单(§4.4): 全互异显式注入, 逐槽可判读(不依赖实现缺省裸数字)。
-   去威胁钉: 机械件无光/火语义槽位(白名单无 torch/glow, §8 红线) */
+/* ids 槽子键白名单(总纲 §2 字库 v2): 全 7 键互异显式注入, 逐槽可判读(不依赖
+   实现缺省裸数字)。去威胁钉: 机械件无光/火语义槽位(白名单无 torch/glow, §8 红线) */
 const WIND_IDS = {
-  base: 130, wall: 131, roof: 132, trim: 133, blade: 134, axle: 135,
+  base: 230, wall: 231, roof: 232, trim: 233, blade: 234, axle: 235, accent: 236,
 };
 
 /* 局部系契约(字面域钉死, 防宽度漂移): face0=south 叶轮面朝 +dz; 锚=塔基地面
    中心投影(偶宽 6 NW 偏置同 pfSpan 口径: 6→dx,dz∈[-3,2], 宽=2−(−3)+1=6,
    中心偏置 −0.5; 5×5 奇宽居中 [-2,2]², 4×4 [-2,1]², 2×2 [-1,0]² 同口径)。
-   dy0 基座=恰 6×6 实心板; dy1..4 塔身 5×5 实心 dy3 箍带=周界 trim 暖木-中
-   (§7.5「可加横向箍带 2 圈」拍板之一); dy5..7 塔身 4×4 实心 dy6 箍带同;
-   dy8 檐层=4×4 roof(暖褐); dy9 锥顶=2×2 roof 封顶; 门洞 1w×2h 局部
-   (0,dy1..2,2)=空气, 小窗 (0,4,2)=trim(§7.5 y4 小窗居中拍板)。叶片组件
-   (sailStatic=true 缺省): 轮面 dz=3(塔前沿外 1 格, 叶轮悬于塔面——真实风车
-   母题), 轴心 ids.axle 3 连格 (0,8,1)根(覆写檐)/(0,8,2)连杆/(0,8,3)轮心,
-   单叶 1厚×2宽×4长: 上臂 dx∈[-1,0] dy9..8+S · 下臂 dx∈[-1,0] dy8-S..7 ·
-   东西臂 dx∈±[1,S] dy∈{7,8}(臂宽 2 偶宽西偏同 pfSpan); 缺省 S=bladeSpan=4
-   → 总高 13(dy0..12), span3 → 7×7×12。sailStatic=false: 叶片组件(叶+轴)
-   整体不入几何(§4.4「资产可分件预留」拍板), 塔体独立成景, 盒收恰 6×6×10;
-   bladeSpan 不参与动态档几何。footOf: 静态=叶片展向保守盒(±S×深 7)随 face
-   旋转, 动态=纯塔体盒。 */
+   dy0 基座=恰 6×6 实心板; dy1..4 塔身 5×5 实心 dy3 箍带=周界 trim;
+   dy5..7 塔身 4×4 实心 dy6 箍带同; dy8 檐层=4×4 roof; dy9 锥顶=2×2 roof;
+   dy10 锥尖=单格 roof(三级收分, v2 新增); 门洞 1w×2h 局部 (0,dy1..2,2)=空气,
+   小窗 (0,4,2)=trim。叶片组件(sailStatic=true 缺省): 轮面 dz=3(塔前沿外 1 格),
+   轴心 axle 3 连格 (0,8,1..3); 十字骨架=石英细肋 accent 单格臂——上 (0,dy,3)
+   dy9..8+S/下 dy8−S..7/东 (dx,8,3) dx1..S/西 dx−S..−1; 帆板=木板 blade 单列
+   贴肋错位外侧——上 (−1,dy,3) dy10..8+S/下 (1,·) dy8−S..6/东 (dx,9,3) dx2..S/
+   西 (dx,7,3) dx−S..−2(「斜格栅」读法); S=4 → 肋16+帆12+轴3=31 组件格,
+   总高 13(dy0..12); S=3 → 肋12+帆8+轴3=23, 总高 12。sailStatic=false: 组件
+   (肋+帆+轴)整体不入几何(§4.4「资产可分件预留」拍板), 塔体独立成景(含锥尖
+   dy10, 盒恰 6×6×11); bladeSpan 不参与动态档几何。footOf: 静态=叶片展向
+   保守盒(±S×深 7)∪塔体, y2=max(8+S,10); 动态=纯塔体盒 y2=10。 */
 test('脚印包含·windmill-tower: ×4 朝向 × mirror × 变体 — 每笔写 ∈ footOf 同参盒, footOf 零写', () => {
   const k = loadKit();
   const spy = k.spySet();
@@ -1569,29 +1603,29 @@ test('脚印包含·windmill-tower: ×4 朝向 × mirror × 变体 — 每笔写
             name + ' ' + face + (mirror ? '+m' : '') + ' footOf 同参同盒');
         assert.strictEqual(spy.rec().length, n, 'footOf 零写');
         /* 盒域钉死: 静态 span4 → 平面 9×7(叶轮轴向 9)×高 13; span3 → 7×7×12;
-           动态 → 恰 6×6×10(叶片组件退场, 叶展不入盒) */
+            动态 → 恰 6×6×11(组件退场, 锥尖 dy10 兜底) */
         const spanX = box.x2 - box.x1 + 1;
         const spanZ = box.z2 - box.z1 + 1;
         assert.strictEqual(box.y1, 24, name + ' ' + face + ' footOf 下界=锚层基座 dy0');
         if (vv.sailStatic === false) {
           assert.strictEqual(spanX, 6, name + ' ' + face + ' 动态盒平面恰宽 6');
           assert.strictEqual(spanZ, 6, name + ' ' + face + ' 动态盒平面恰深 6');
-          assert.strictEqual(box.y2, 33, name + ' ' + face + ' 动态盒高 10(封顶 dy9)');
+          assert.strictEqual(box.y2, 34, name + ' ' + face + ' 动态盒高 11(锥尖 dy10)');
         } else if (vv.bladeSpan === 3) {
           assert.strictEqual(Math.max(spanX, spanZ), 7, name + ' ' + face + ' span3 平面至宽 7');
           assert.strictEqual(Math.min(spanX, spanZ), 7, name + ' ' + face + ' span3 平面至深 7');
-          assert.strictEqual(box.y2, 35, name + ' ' + face + ' span3 总高 12(臂顶 dy11)');
+          assert.strictEqual(box.y2, 35, name + ' ' + face + ' span3 总高 12(帆顶 dy11)');
         } else {
           assert.strictEqual(Math.max(spanX, spanZ), 9, name + ' ' + face + ' span4 平面至宽 9(±4)');
           assert.strictEqual(Math.min(spanX, spanZ), 7, name + ' ' + face + ' span4 平面至深 7');
-          assert.strictEqual(box.y2, 36, name + ' ' + face + ' span4 总高 13(臂顶 dy12)');
+          assert.strictEqual(box.y2, 36, name + ' ' + face + ' span4 总高 13(帆顶 dy12)');
         }
       }
     }
   }
 });
 
-test('形状·windmill-tower: 基座 6×6/收分塔身 5×5→4×4 逐层钉宽/箍带/锥顶/门洞小窗/转轴/四臂叶片(缺省 span4)', () => {
+test('形状·windmill-tower: 基座 6×6/收分塔身 5×5→4×4 逐层钉宽/箍带/锥顶锥尖/门洞小窗/转轴/肋帆叶轮(缺省 span4)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
@@ -1599,8 +1633,7 @@ test('形状·windmill-tower: 基座 6×6/收分塔身 5×5→4×4 逐层钉宽/
   /* 缺省盒手算值: 叶展 dx±4 · 轮面 dz=3 → dz∈[-3,3] · dy0..12(总高 13) */
   assert.deepStrictEqual({...k.pf.footOf('windmill-tower', ax, y0, az, {ids: WIND_IDS})},
       {x1: 76, y1: 24, z1: 77, x2: 84, y2: 36, z2: 83}, '缺省脚印盒=手算盒');
-  /* 逐层 want 制全扫描(dx,dz∈[-5,5] 含塔域+叶展+轮面+余量一圈): 塔体先写,
-     叶片组件后写覆写(序即几何) */
+  /* 逐层 want 制全扫描(dx,dz∈[-5,5]): 塔体先写, 叶片组件后写覆写(序即几何) */
   const inRect = (dx, dz, lo, hi) => dx >= lo && dx <= hi && dz >= lo && dz <= hi;
   const onEdge = (dx, dz, lo, hi) => dx === lo || dx === hi || dz === lo || dz === hi;
   for (let dy = 0; dy <= 13; dy++) {
@@ -1621,54 +1654,62 @@ test('形状·windmill-tower: 基座 6×6/收分塔身 5×5→4×4 逐层钉宽/
             want = WIND_IDS.wall;
             if (dy === 6 && onEdge(dx, dz, -2, 1)) want = WIND_IDS.trim; /* dy6 箍带周界 */
           }
-        } else if (dy === 8) {/* 檐层 4×4(暖褐) */
+        } else if (dy === 8) {/* 檐层 4×4 */
           if (inRect(dx, dz, -2, 1)) want = WIND_IDS.roof;
-        } else if (dy === 9) {/* 锥顶 2×2 封顶 */
+        } else if (dy === 9) {/* 锥顶 2×2 */
           if (inRect(dx, dz, -1, 0)) want = WIND_IDS.roof;
+        } else if (dy === 10) {/* 锥尖单格(v2 三级收分) */
+          if (dx === 0 && dz === 0) want = WIND_IDS.roof;
         }
-        /* 叶片组件(缺省在位): 轴心 3 连格 dz1..3 + 轮面 dz=3 四臂(span4) */
+        /* 叶片组件(缺省在位, S=4): 轴 3 连格 dz1..3@dy8; 十字肋 accent——
+            上 (0,9..12,3)/下 (0,4..7,3)/东 (1..4,8,3)/西 (-4..-1,8,3);
+            帆 blade 错位单列——上 (-1,10..12,3)/下 (1,4..6,3)/东 (2..4,9,3)/
+            西 (-4..-2,7,3) */
         if (dy === 8 && dx === 0 && dz >= 1 && dz <= 3) want = WIND_IDS.axle;
         if (dz === 3) {
-          if ((dy === 7 || dy === 8) && dx !== 0 && dx >= -4 && dx <= 4) {
-            want = WIND_IDS.blade; /* 东西臂(2 宽贴 dy7..8) */
-          }
-          if (dy >= 4 && dy <= 7 && (dx === -1 || dx === 0)) want = WIND_IDS.blade; /* 下臂 */
-          if (dy >= 9 && dy <= 12 && (dx === -1 || dx === 0)) want = WIND_IDS.blade; /* 上臂 */
+          if (dx === 0 && dy >= 4 && dy <= 7) want = WIND_IDS.accent; /* 下臂肋 */
+          if (dx === 0 && dy >= 9 && dy <= 12) want = WIND_IDS.accent; /* 上臂肋 */
+          if (dy === 8 && dx >= 1 && dx <= 4) want = WIND_IDS.accent; /* 东臂肋 */
+          if (dy === 8 && dx >= -4 && dx <= -1) want = WIND_IDS.accent; /* 西臂肋 */
+          if (dx === 1 && dy >= 4 && dy <= 6) want = WIND_IDS.blade; /* 下臂帆 */
+          if (dx === -1 && dy >= 10 && dy <= 12) want = WIND_IDS.blade; /* 上臂帆 */
+          if (dy === 9 && dx >= 2 && dx <= 4) want = WIND_IDS.blade; /* 东臂帆 */
+          if (dy === 7 && dx >= -4 && dx <= -2) want = WIND_IDS.blade; /* 西臂帆 */
         }
         assert.strictEqual(k.cell(ax + dx, y0 + dy, az + dz), want,
             '逐层 dy' + dy + ' (' + dx + ',' + dz + ')');
       }
     }
   }
-  /* 计数第二意见: 叶片恰 31 · 轴心恰 3(根+连杆+轮心)
-     [裁决登记 T-PREFAB-04: 初版计数 32(四臂×8)系红方算术笔误——西臂
-      dx∈[-4,-1]×dy{7,8} 与下臂 dx∈[-1,0]×dy[4,7] 在角格 (-1,7,3) 共格,
-      逐臂 8×4 重复计该格; 逐格 want 图(本测试几何权威)并集=31, 绿方指认
-      属实(独立暴力复算证实), 红方亲修 32→31, 非断言弱化] */
-  let blades = 0; let axles = 0;
+  /* 计数第二意见: 肋恰 16 · 帆恰 12 · 轴恰 3(S=4 手算并集——肋单格臂与帆
+     错位列不相交, 与旧版「臂宽2 共享角格」的 31 并集口径不同, v2 无共格) */
+  let ribs = 0; let sails = 0; let axles = 0;
   for (const b of k.snap()) {
-    if (b === WIND_IDS.blade) blades++;
+    if (b === WIND_IDS.accent) ribs++;
+    if (b === WIND_IDS.blade) sails++;
     if (b === WIND_IDS.axle) axles++;
   }
-  assert.strictEqual(blades, 31, '叶片恰 31 格(上8+下8+东8+西8−共享角1)');
-  assert.strictEqual(axles, 3, '轴心恰 3 格(根覆写檐+连杆+轮心)');
+  assert.strictEqual(ribs, 16, '石英肋恰 16 格(上4+下4+东4+西4)');
+  assert.strictEqual(sails, 12, '木板帆恰 12 格(上3+下3+东3+西3, 错位单列)');
+  assert.strictEqual(axles, 3, '南瓜轴恰 3 格(根覆写檐+连杆+轮心)');
 });
 
-test('形状·windmill-tower 变体: sailStatic=false 叶片组件整体退场(零 blade 零 axle)/span3 臂长与盒收短(防假绿)', () => {
+test('形状·windmill-tower 变体: sailStatic=false 叶片组件整体退场(零 blade 零 accent 零 axle)/span3 肋帆收短(防假绿)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
-  /* sailStatic=false: 叶片组件(叶+轴)整体不入几何(§4.4「资产可分件预留」拍板),
-     塔体/锥顶/门洞小窗不动; 盒收到恰 6×6×10 */
+  /* sailStatic=false: 叶片组件(肋+帆+轴)整体不入几何(§4.4「资产可分件预留」),
+     塔体/锥顶/门洞小窗不动; 盒收到恰 6×6×11(锥尖 dy10 兜底) */
   k.clear();
   k.pf.place('windmill-tower', ax, y0, az, {ids: WIND_IDS, sailStatic: false});
   assert.ok(!k.snap().includes(WIND_IDS.blade), '动态档全场零 blade 块');
+  assert.ok(!k.snap().includes(WIND_IDS.accent), '动态档全场零 accent 块(肋随组件退场)');
   assert.ok(!k.snap().includes(WIND_IDS.axle), '动态档全场零 axle 块(组件整体退场)');
   assert.strictEqual(k.cell(ax, y0 + 1, az + 2), 0, '动态档门洞仍在(塔体不动)');
   assert.strictEqual(k.cell(ax, y0 + 4, az + 2), WIND_IDS.trim, '动态档小窗仍在');
-  assert.strictEqual(k.cell(ax - 1, y0 + 9, az), WIND_IDS.roof, '动态档锥顶封顶层仍在');
+  assert.strictEqual(k.cell(ax, y0 + 10, az), WIND_IDS.roof, '动态档锥尖 dy10 仍在(塔体独立成景)');
   assert.deepStrictEqual(
       {...k.pf.footOf('windmill-tower', ax, y0, az, {ids: WIND_IDS, sailStatic: false})},
-      {x1: 77, y1: 24, z1: 77, x2: 82, y2: 33, z2: 82}, '动态档盒=手算盒(恰 6×6×10)');
+      {x1: 77, y1: 24, z1: 77, x2: 82, y2: 34, z2: 82}, '动态档盒=手算盒(恰 6×6×11)');
   assert.ok(k.snap().includes(WIND_IDS.roof), '动态档 roof 块仍在(防全空假绿)');
   /* bladeSpan 不参与动态档几何: span3+false 与 span4+false 逐字节同形 */
   k.clear();
@@ -1678,15 +1719,19 @@ test('形状·windmill-tower 变体: sailStatic=false 叶片组件整体退场(�
   k.clear();
   k.pf.place('windmill-tower', ax, y0, az, {ids: WIND_IDS, sailStatic: false});
   assert.ok(dynS3.equals(k.snap()), '动态档 bladeSpan 不改几何(同形)');
-  /* span3: 上臂顶收到 dy11/下臂底收到 dy5/东西臂收到 ±3, 盒收 7×7×12 */
+  /* span3(S=3): 上肋顶收到 dy11/上帆顶 dy11/下肋底 dy5/东臂收到 dx3, dy12 零;
+     盒收 7×7×12(y2=35) */
   k.clear();
   k.pf.place('windmill-tower', ax, y0, az, {ids: WIND_IDS, bladeSpan: 3});
-  assert.strictEqual(k.cell(ax - 1, y0 + 11, az + 3), WIND_IDS.blade, 'span3 上臂顶 dy11');
-  assert.strictEqual(k.cell(ax - 1, y0 + 12, az + 3), 0, 'span3 上臂 dy12 无叶');
-  assert.strictEqual(k.cell(ax - 1, y0 + 5, az + 3), WIND_IDS.blade, 'span3 下臂底 dy5');
-  assert.strictEqual(k.cell(ax - 1, y0 + 4, az + 3), 0, 'span3 下臂 dy4 无叶');
-  assert.strictEqual(k.cell(ax + 3, y0 + 8, az + 3), WIND_IDS.blade, 'span3 东臂至 dx3');
-  assert.strictEqual(k.cell(ax + 4, y0 + 8, az + 3), 0, 'span3 东臂 dx4 无叶');
+  assert.strictEqual(k.cell(ax, y0 + 11, az + 3), WIND_IDS.accent, 'span3 上肋顶 dy11');
+  assert.strictEqual(k.cell(ax, y0 + 12, az + 3), 0, 'span3 dy12 无肋');
+  assert.strictEqual(k.cell(ax - 1, y0 + 11, az + 3), WIND_IDS.blade, 'span3 上帆顶 dy11');
+  assert.strictEqual(k.cell(ax - 1, y0 + 12, az + 3), 0, 'span3 dy12 无帆');
+  assert.strictEqual(k.cell(ax, y0 + 5, az + 3), WIND_IDS.accent, 'span3 下肋底 dy5');
+  assert.strictEqual(k.cell(ax, y0 + 4, az + 3), 0, 'span3 dy4 无肋');
+  assert.strictEqual(k.cell(ax + 3, y0 + 8, az + 3), WIND_IDS.accent, 'span3 东肋至 dx3');
+  assert.strictEqual(k.cell(ax + 4, y0 + 8, az + 3), 0, 'span3 东肋 dx4 无');
+  assert.strictEqual(k.cell(ax + 3, y0 + 9, az + 3), WIND_IDS.blade, 'span3 东帆至 dx3(肋上错位)');
   assert.strictEqual(k.cell(ax, y0 + 8, az + 3), WIND_IDS.axle, 'span3 轮心不动');
   assert.deepStrictEqual(
       {...k.pf.footOf('windmill-tower', ax, y0, az, {ids: WIND_IDS, bladeSpan: 3})},
@@ -1696,14 +1741,15 @@ test('形状·windmill-tower 变体: sailStatic=false 叶片组件整体退场(�
 test('叶展计入·windmill-tower: 静态盒=动态塔体盒∪叶片展向保守盒, 叶尖格∈盒(south/east 手算差分)', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
-  /* 手算表: 静态 span4 盒(含叶展) · 动态盒(纯塔体) · 上臂顶叶尖 · 东臂外叶尖
-     (k3(east)=(dz,-dx): 塔体 [-3,2]²→x∈[77,82]×z∈[78,83], 叶展 [-4,4]×[-3,3]→
+  /* 手算表: 静态 span4 盒(含叶展) · 动态盒(纯塔体, 锥尖 dy10 兜底 y2=34) ·
+     上臂帆顶叶尖 · 东臂帆外叶尖(v2 帆单列错位: 东帆外=(4,9,3) 肋上错位;
+     k3(east)=(dz,-dx): 塔体 [-3,2]²→x∈[77,82]×z∈[78,83], 叶展 [-4,4]×[-3,3]→
      x∈[77,83]×z∈[76,84]) */
   const cases = [
     ['south', {x1: 76, y1: 24, z1: 77, x2: 84, y2: 36, z2: 83},
-      {x1: 77, y1: 24, z1: 77, x2: 82, y2: 33, z2: 82}, [79, 36, 83], [84, 32, 83]],
+      {x1: 77, y1: 24, z1: 77, x2: 82, y2: 34, z2: 82}, [79, 36, 83], [84, 33, 83]],
     ['east', {x1: 77, y1: 24, z1: 76, x2: 83, y2: 36, z2: 84},
-      {x1: 77, y1: 24, z1: 78, x2: 82, y2: 33, z2: 83}, [83, 36, 81], [83, 32, 76]],
+      {x1: 77, y1: 24, z1: 78, x2: 82, y2: 34, z2: 83}, [83, 36, 81], [83, 33, 76]],
   ];
   for (const [face, statBox, dynBox, tipUp, tipEast] of cases) {
     const sv = {ids: WIND_IDS, face};
@@ -1712,11 +1758,11 @@ test('叶展计入·windmill-tower: 静态盒=动态塔体盒∪叶片展向保�
         face + ' 静态盒=手算盒(叶片展向计入)');
     assert.deepStrictEqual({...k.pf.footOf('windmill-tower', ax, y0, az, dv)}, dynBox,
         face + ' 动态盒=手算盒(纯塔体)');
-    /* 独立差分: 静态盒 ⊇ 动态盒且平面外廓与总高严格更大——叶展(±4×深 7×高 13)
-       恰是静态盒比动态盒多出的保守域 */
+    /* 独立差分: 静态盒 ⊇ 动态盒且总高严格更大——叶展(±4×高 13)恰是静态盒
+       比动态盒多出的保守域 */
     assert.ok(statBox.x1 <= dynBox.x1 && statBox.x2 >= dynBox.x2 &&
         statBox.z1 <= dynBox.z1 && statBox.z2 >= dynBox.z2 && statBox.y2 > dynBox.y2,
-    face + ' 静态盒包含动态盒且更高(臂顶 dy12)');
+    face + ' 静态盒包含动态盒且更高(帆顶 dy12 > 锥尖 dy10)');
     const statSpan = Math.max(statBox.x2 - statBox.x1, statBox.z2 - statBox.z1);
     const dynSpan = Math.max(dynBox.x2 - dynBox.x1, dynBox.z2 - dynBox.z1);
     assert.ok(statSpan > dynSpan, face + ' 静态平面外廓 9 > 纯塔体 6(叶展计入)');
@@ -1730,18 +1776,18 @@ test('叶展计入·windmill-tower: 静态盒=动态塔体盒∪叶片展向保�
   }
 });
 
-test('逐朝向·windmill-tower: 门洞/小窗/轮心/叶尖随 face 旋转(face0=south 轮面朝 +dz), mirror 翻 dx 非对称差分', () => {
+test('逐朝向·windmill-tower: 门洞/小窗/轮心/肋帆叶尖随 face 旋转(face0=south 轮面朝 +dz), mirror 翻 dx 非对称差分', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   /* 手算表: k1(west)=(dx,dz)→(-dz,dx) · k2(north)=(-dx,-dz) · k3(east)=(dz,-dx);
-     门洞局部 (0,dy1..2,2) · 小窗 (0,4,2) · 轮心 (0,8,3) · 上臂顶西格 (-1,12,3) ·
-     东臂外格 (4,8,3) */
-  const faces = [ /* [face, 门洞格, 小窗格, 轮心格, 上臂顶叶尖, 东臂外叶尖] */
-    ['west', [78, 80], [78, 28, 80], [77, 32, 80], [77, 36, 79], [77, 32, 84]],
-    ['north', [80, 78], [80, 28, 78], [80, 32, 77], [81, 36, 77], [76, 32, 77]],
-    ['east', [82, 80], [82, 28, 80], [83, 32, 80], [83, 36, 81], [83, 32, 76]],
+     门洞局部 (0,dy1..2,2) · 小窗 (0,4,2) · 轮心 (0,8,3) · 上臂肋顶 (0,12,3) ·
+     上臂帆顶 (-1,12,3) · 东臂肋外 (4,8,3) · 东臂帆外 (4,9,3) */
+  const faces = [ /* [face, 门洞格, 小窗格, 轮心格, 上肋顶, 上帆顶, 东肋外, 东帆外] */
+    ['west', [78, 80], [78, 28, 80], [77, 32, 80], [77, 36, 80], [77, 36, 79], [77, 32, 84], [77, 33, 84]],
+    ['north', [80, 78], [80, 28, 78], [80, 32, 77], [80, 36, 77], [81, 36, 77], [76, 32, 77], [76, 33, 77]],
+    ['east', [82, 80], [82, 28, 80], [83, 32, 80], [83, 36, 80], [83, 36, 81], [83, 32, 76], [83, 33, 76]],
   ];
-  for (const [face, door, win, hub, tipUp, tipEast] of faces) {
+  for (const [face, door, win, hub, ribTop, sailTop, ribEast, sailEast] of faces) {
     k.clear();
     k.pf.place('windmill-tower', ax, y0, az, {ids: WIND_IDS, face});
     for (const dy of [1, 2]) {
@@ -1749,10 +1795,14 @@ test('逐朝向·windmill-tower: 门洞/小窗/轮心/叶尖随 face 旋转(face
     }
     assert.strictEqual(k.cell(win[0], win[1], win[2]), WIND_IDS.trim, face + ' 小窗 dy4');
     assert.strictEqual(k.cell(hub[0], hub[1], hub[2]), WIND_IDS.axle, face + ' 轮心 dy8');
-    assert.strictEqual(k.cell(tipUp[0], tipUp[1], tipUp[2]), WIND_IDS.blade,
-        face + ' 上臂顶叶尖(随轮面旋转)');
-    assert.strictEqual(k.cell(tipEast[0], tipEast[1], tipEast[2]), WIND_IDS.blade,
-        face + ' 东臂外叶尖');
+    assert.strictEqual(k.cell(ribTop[0], ribTop[1], ribTop[2]), WIND_IDS.accent,
+        face + ' 上臂肋顶(十字骨架随轮面旋转)');
+    assert.strictEqual(k.cell(sailTop[0], sailTop[1], sailTop[2]), WIND_IDS.blade,
+        face + ' 上臂帆顶(错位单列随轮面旋转)');
+    assert.strictEqual(k.cell(ribEast[0], ribEast[1], ribEast[2]), WIND_IDS.accent,
+        face + ' 东臂肋外');
+    assert.strictEqual(k.cell(sailEast[0], sailEast[1], sailEast[2]), WIND_IDS.blade,
+        face + ' 东臂帆外(肋上错位)');
   }
   /* south 恒等基线: 门洞/小窗在 z+2 前沿, 基座西缘在 dx-3/东缘外 dx3 */
   k.clear();
@@ -1761,26 +1811,26 @@ test('逐朝向·windmill-tower: 门洞/小窗/轮心/叶尖随 face 旋转(face
   assert.strictEqual(k.cell(ax, y0 + 4, az + 2), WIND_IDS.trim, 'south 小窗在 z+2 中轴');
   assert.strictEqual(k.cell(ax - 3, y0, az), WIND_IDS.base, 'south 基座西缘=dx-3');
   assert.strictEqual(k.cell(ax + 3, y0, az), 0, 'south 基座东缘外(dx3 域外)');
-  /* mirror 非对称差分(臂宽 2 西偏 [-1,0] 与偶宽塔体 [-3,2] 各自关于 dx=0 不对称):
-     先翻 dx 后旋转——上臂西列翻到东列, 基座西让东补; 门洞/小窗/轮心在 dx=0
-     中轴 mirror 不动(轴上格不变式) */
+  /* mirror 非对称差分(帆列偏置 [-1]/[1] 与偶宽塔体 [-3,2] 各自关于 dx=0 不对称):
+     先翻 dx 后旋转——上臂帆西列翻到东列, 基座西让东补; 门洞/小窗/轮心/肋在
+     dx=0 中轴 mirror 不动(轴上格不变式) */
   k.clear();
   k.pf.place('windmill-tower', ax, y0, az, {ids: WIND_IDS, face: 'south', mirror: true});
-  assert.strictEqual(k.cell(ax - 1, y0 + 12, az + 3), 0, 'south+mirror 上臂西列翻走');
+  assert.strictEqual(k.cell(ax - 1, y0 + 12, az + 3), 0, 'south+mirror 上臂帆西列翻走');
   assert.strictEqual(k.cell(ax + 1, y0 + 12, az + 3), WIND_IDS.blade,
-      'south+mirror 上臂翻到东列');
-  assert.strictEqual(k.cell(ax, y0 + 12, az + 3), WIND_IDS.blade,
-      'south+mirror 上臂中轴列在(臂宽 2 含轴列)');
+      'south+mirror 上臂帆翻到东列');
+  assert.strictEqual(k.cell(ax, y0 + 12, az + 3), WIND_IDS.accent,
+      'south+mirror 上臂肋中轴列在(肋 dx=0 不变式)');
   assert.strictEqual(k.cell(ax + 3, y0, az), WIND_IDS.base, 'south+mirror 基座东移(dx3 入域)');
   assert.strictEqual(k.cell(ax - 3, y0, az), 0, 'south+mirror 基座西让(dx-3 出域)');
   assert.strictEqual(k.cell(ax, y0 + 2, az + 2), 0, 'south+mirror 门洞仍在中轴');
   assert.strictEqual(k.cell(ax, y0 + 8, az + 3), WIND_IDS.axle, 'south+mirror 轮心仍在中轴');
-  /* east+mirror: 轮心中轴不变式跨朝向成立; 上臂顶西格 (83,36,81) 翻到 (83,36,79) */
+  /* east+mirror: 轮心中轴不变式跨朝向成立; 上臂帆顶 (83,36,81) 翻到 (83,36,79) */
   k.clear();
   k.pf.place('windmill-tower', ax, y0, az, {ids: WIND_IDS, face: 'east', mirror: true});
   assert.strictEqual(k.cell(83, 32, 80), WIND_IDS.axle, 'east+mirror 轮心仍在轮面中轴');
-  assert.strictEqual(k.cell(83, 36, 79), WIND_IDS.blade, 'east+mirror 上臂顶翻到东列');
-  assert.strictEqual(k.cell(83, 36, 81), 0, 'east+mirror 原上臂顶位翻走');
+  assert.strictEqual(k.cell(83, 36, 79), WIND_IDS.blade, 'east+mirror 上臂帆顶翻到北侧');
+  assert.strictEqual(k.cell(83, 36, 81), 0, 'east+mirror 原上臂帆顶位翻走');
 });
 
 test('确定性: windmill-tower 同参两次逐字节一致(多朝向×变体)', () => {
@@ -2759,6 +2809,9 @@ test('错误两档·stall-canopy: 未知 v 键/ids 子键(含 torch/glow 去威�
    portal/fluid/crop/thin/replaceable/door/bed/lchest 旗标即判据)+全行零功能/
    下界/传送门系错用; 收编三行(stilt-hut/under-room/mound)火把 48=既有探险
    语义(oracle 锁死), 不按旗标检、只检显式清单。
+   视觉重制 v2 起: 城镇行缺省按总纲 §2 字库重映射(以各蓝图「v2 核对表」为准,
+   上列 ① 修正值系 T-06/T-09 历史脉络); door=64/65 关态成对块按槽名豁免
+   (defaults.ids 声明 door/doorTop 槽即立面建材, 非槽名门族块仍违例)。
    另一块防回归面(绿态自证, 重构前后同绿): 枚举校验链九轴+size 双型错误消息
    逐字钉——pfMerge 表驱动收编(§1.10 升格: 清单≥3 处+新轴漂移史)的等价基线。 */
 
@@ -2774,6 +2827,15 @@ test('材质基线·全行缺省建场安全: 城镇七行零危险旗标块 + �
      46 工作台 · 47 熔炉 · 63 熄灭门面 · 70..72 巢穴之心与战利品宝箱系——
      城镇行缺省永禁(注入是调用方自由, 缺省须安全, spec §5.2 行内安全缺省) */
   const BAD_EXPLICIT = [30, 31, 33, 34, 41, 46, 47, 63, 70, 71, 72];
+  /* v2 门叶两格按槽名豁免(视觉重制总纲 §2 字库: 门=64/65 关态成对块):
+     行 defaults.ids 声明 door/doorTop 槽的, 其槽值豁免 door 旗标检——城镇行
+     把门当立面建材(tower 先例, cottage/shop 复用); 非 door/doorTop 槽漏进的
+     门族块(66/67 开态、裸 64/65)仍违例。豁免集从蓝图 defaults 派生(判据单份),
+     收编三行无 defaults.ids → 空集不豁免 */
+  const doorExempt = (id) => {
+    const d = k.rows[id] && k.rows[id].defaults && k.rows[id].defaults.ids;
+    return new Set(['door', 'doorTop'].map((s) => d && d[s]).filter((v) => v != null));
+  };
   const townRows = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
     'cottage-gable', 'house-loft', 'stall-canopy'];
   const legacyRows = [['stilt-hut', undefined], ['under-room', {mat: 58}],
@@ -2787,29 +2849,34 @@ test('材质基线·全行缺省建场安全: 城镇七行零危险旗标块 + �
       assert.ok(!snap.includes(bid), id + ' 缺省建场含功能/下界系错用块 ' + bid);
     }
     if (!townRows.includes(id)) continue; /* 收编三行: 火把/宝箱=既有语义止于显式清单 */
+    const exempt = doorExempt(id);
     for (const bid of new Set(snap)) {
       const b = k.blocks[bid];
       if (!b) continue;
       for (const f of DANGER_FLAGS) {
+        if (f === 'door' && exempt.has(bid)) continue; /* v2 门叶两格槽名豁免 */
         assert.ok(!b[f], id + ' 缺省建场含危险旗标块 ' + bid + '(' + f + ' 旗标)');
       }
     }
   }
 });
 
-test('材质基线·tower-belfry 缺省逐槽(修复后核对表): trim5/roof9/bell38/window18/flag16', () => {
+test('材质基线·tower-belfry 缺省逐槽(v2 核对表): base13/wall17/roof9/bell19/window68/flag78/door64/doorTop65', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
   k.pf.place('tower-belfry', ax, y0, az); /* 全缺省 */
-  assert.strictEqual(k.cell(ax, y0, az), 58, 'base=58 砂岩浅石基座(§4.1「base 浅石」)');
-  assert.strictEqual(k.cell(ax, y0 + 1, az + 1), 6, 'wall=6 木板暖木-浅(塔身内域 dy1)');
-  assert.strictEqual(k.cell(ax - 1, y0 + 1, az - 1), 5, 'pillar=5 木头暖木-中(四角立柱)');
-  assert.strictEqual(k.cell(ax, y0 + 1, az - 1), 5, 'trim=5 木头暖木-深(中线竖缝)——旧 47=熔炉功能方块错用, 已修');
-  assert.strictEqual(k.cell(ax, y0 + 11, az), 9, 'roof=9 红砖陶橙(顶饰)——旧 40=草丛 thin 可穿行, 已修');
-  assert.strictEqual(k.cell(ax, y0 + 8, az), 38, 'bell=38 金矿暖金(钟体 2×2×2)——旧 41=耕地功能方块错用, 已修');
-  assert.strictEqual(k.cell(ax - 1, y0 + 4, az), 18, 'window=18 玻璃浅色内衬(侧窗 dy4..6)——旧 20=TNT 可点燃, 已修');
-  assert.strictEqual(k.cell(ax - 2, y0 + 10, az - 1), 16, 'flag=16 红羊毛(檐下小旗, 樱粉最近似·stall flower 先例)——旧 35=传送门面, 已修');
+  assert.strictEqual(k.cell(ax, y0, az), 13, 'base=13 石砖基座(三段式第一段 dy0)——旧 58, 视觉重制 §2 字库重映射');
+  assert.strictEqual(k.cell(ax, y0 + 3, az - 1), 17, 'wall=17 石英奶油白(half-timber 填墙 dy3 后沿)——旧 6 木板');
+  assert.strictEqual(k.cell(ax - 1, y0 + 5, az - 1), 5, 'pillar=5 木头(四角柱贯通, half-timber 框架)');
+  assert.strictEqual(k.cell(ax, y0 + 5, az - 1), 5, 'trim=5 木头(dy5 腰线周界)——v2 竖缝改水平腰线读法');
+  assert.strictEqual(k.cell(ax, y0 + 6, az - 1), 17, 'wall 对照: 非腰线层边格仍石英(腰线只 dy5·dy9)');
+  assert.strictEqual(k.cell(ax, y0 + 13, az), 9, 'roof=9 红砖陶橙(阶梯顶檐板 dy13)');
+  assert.strictEqual(k.cell(ax, y0 + 10, az), 19, 'bell=19 灯块自发光金钟(§2「亮橙-趣味光」, 夜里看得见钟)——旧 38 金矿');
+  assert.strictEqual(k.cell(ax, y0 + 6, az + 2), 68, 'window=68 玻璃板(前窗 dy6)——旧 18, v2 统一玻璃板');
+  assert.strictEqual(k.cell(ax, y0 + 15, az), 78, 'flag=78 粉羊毛顶旗(dy15 樱粉, §4.1「樱粉或天蓝」)——旧 16 红羊毛');
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), 64, 'door=64 门叶(前立面关态下格, 总纲 §2 字库点名)——v2 真门叶替代门龛');
+  assert.strictEqual(k.cell(ax, y0 + 3, az + 2), 65, 'doorTop=65 门上叶(关态上格, 与 64 成对)');
 });
 
 test('材质基线·cottage-gable 缺省逐槽(修复后核对表): roof9/window18(T-06 同款错号清除)', () => {
@@ -2825,17 +2892,20 @@ test('材质基线·cottage-gable 缺省逐槽(修复后核对表): roof9/window
   assert.strictEqual(k.cell(ax - 2, y0 + 5, az - 3), 3, 'chimney=3 石头(装饰烟囱无烟)');
 });
 
-test('材质基线·windmill-tower 缺省逐槽(修复后核对表): roof9(暖褐檐层与锥顶)', () => {
+test('材质基线·windmill-tower 缺省逐槽(v2 核对表): base13/wall17/roof9/trim5/blade6/axle76/accent17', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
   k.pf.place('windmill-tower', ax, y0, az); /* 全缺省 */
-  assert.strictEqual(k.cell(ax, y0, az), 3, 'base=3 石头中石基座');
-  assert.strictEqual(k.cell(ax, y0 + 1, az), 6, 'wall=6 木板暖木-浅(塔身 5×5 内域 dy1)');
-  assert.strictEqual(k.cell(ax + 2, y0 + 3, az + 2), 5, 'trim=5 木头箍带(dy3 周界)');
-  assert.strictEqual(k.cell(ax, y0 + 8, az), 9, 'roof=9 红砖暖褐(檐层 dy8 与锥顶)——旧 40=草丛 thin 可穿行, 已修');
-  assert.strictEqual(k.cell(ax - 1, y0 + 9, az + 3), 52, 'blade=52 羊毛奶油叶面(上臂 dy9)');
-  assert.strictEqual(k.cell(ax, y0 + 8, az + 1), 12, 'axle=12 金属轴心');
+  assert.strictEqual(k.cell(ax, y0, az), 13, 'base=13 石砖基座(dy0)——旧 3 石头, 视觉重制 §2 字库重映射');
+  assert.strictEqual(k.cell(ax, y0 + 1, az), 17, 'wall=17 石英塔身(5×5 内域 dy1)——旧 6 木板');
+  assert.strictEqual(k.cell(ax + 2, y0 + 3, az + 2), 5, 'trim=5 木头(dy3 箍带周界)');
+  assert.strictEqual(k.cell(ax, y0 + 8, az), 9, 'roof=9 红砖暖褐(檐层 dy8 与锥顶锥尖)');
+  assert.strictEqual(k.cell(ax - 1, y0 + 11, az + 3), 6, 'blade=6 木板帆面(上臂帆 dy11 错位列)——旧 52 羊毛');
+  assert.strictEqual(k.cell(ax, y0 + 8, az + 1), 76,
+      'axle=76 南瓜亮橙轴心(根格覆写檐层; 总纲「南瓜 75」系 id 笔误, §2 字库权威' +
+      '南瓜=76, 勘误登记 2026-11-15)——旧 12 金属');
+  assert.strictEqual(k.cell(ax, y0 + 9, az + 3), 17, 'accent=17 石英细肋(十字骨架上臂 dy9)——v2 新增肋槽');
 });
 
 test('枚举校验链·十轴错误消息逐字钉(pfMerge 表驱动收编的等价基线, 重构前后同绿)', () => {

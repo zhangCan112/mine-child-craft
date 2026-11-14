@@ -237,8 +237,6 @@ function pfMerge(row, id, v) {
   if (pfHas(d, 'door')) e.door = !!e.door;
   if (pfHas(d, 'doorOpen')) e.doorOpen = !!e.doorOpen; /* shop-awning 门洞敞开 */
   if (pfHas(d, 'chest')) e.chest = !!e.chest;
-  if (pfHas(d, 'openBelfry')) e.openBelfry = !!e.openBelfry;
-  if (pfHas(d, 'hasDoorNiche')) e.hasDoorNiche = !!e.hasDoorNiche;
   if (pfHas(d, 'flags')) e.flags = !!e.flags;
   if (pfHas(d, 'sailStatic')) e.sailStatic = !!e.sailStatic; /* windmill 叶轮静态 */
   if (pfHas(d, 'hasChimney')) e.hasChimney = !!e.hasChimney; /* cottage-gable 装饰烟囱(无烟) */
@@ -509,110 +507,99 @@ const PF_ROWS = {
     },
   },
   'tower-belfry': {
-    /* 钟塔: 地基+塔身+钟室+顶饰的竖向地标件(town-prefab-specs §4.1). 锚=塔心
-       投影, 局部轴 dx 横/dz 前后/dy 竖; face0=south=前立面朝 +dz */
+    /* 钟塔 v2 三段式立面(视觉重制总纲 §3 G 层): 石砖基座 6×6×2 → 石英/
+       深木 half-timber 塔身 4×4×8 → 开敞钟亭+金钟+阶梯收分顶+顶旗的竖向
+       地标件。锚=塔心投影, 局部轴 dx 横/dz 前后/dy 竖; face0=south=前立面
+       朝 +dz。heightTier=封顶档 {14,15,16}: 16→dy15 顶旗/15→dy14 收分帽/
+       14→dy13 檐板封顶; 缺省 16(总高 ~16 读法, 体量域 [14,16])。
+       door/doorTop=门两格(64/65 关态成对块, 总纲 §2 字库点名)——T-09
+       door 旗标基线显式豁免(见测试); 金钟用灯块 19(自发光=钟亭夜里
+       「看得见钟」的趣味光, §2 字库「亮橙-趣味光」读法) */
     facing0: 'south',
     defaults: {
       face: 'south',
       mirror: false,
-      heightTier: 15, /* 档 {14,15,16} 钳域, 影响顶饰比例/封顶 */
-      openBelfry: true,
-      hasDoorNiche: true,
+      heightTier: 16, /* 档 {14,15,16} 钳域, 封顶比例(缺省 16=顶旗档) */
       flags: true,
-      /* 材质注入, 缺省裸数字(§4.1 语义→现调色板, T-PREFAB-09 逐槽实义核真;
-          旧错号 trim:47=熔炉/roof:40=草丛/bell:41=耕地/window:20=TNT/flag:35=
-          传送门面 已修, 禁回退——测试材质基线钉死): base 砂岩浅石 · wall 木板
-          暖木-浅 · pillar 木头暖木-中 · trim 木头暖木-深(全行 trim 先例) ·
-          roof 红砖陶橙顶饰 · bell 金矿暖金钟体(§4.1「bell 暖金」, shop
-          signAccent 先例) · window 玻璃浅色内衬(shop/house-loft 先例) ·
-          flag 红羊毛檐下小旗(§4.1「樱粉或天蓝」之樱粉最近似, stall flower
-          先例) */
-      ids: {base: 58, wall: 6, pillar: 5, trim: 5, roof: 9, bell: 38, window: 18, flag: 16},
+      /* 材质注入, 缺省裸数字(总纲 §2 字库→现调色板, T-PREFAB-09 逐槽实义
+          核真): base 石砖中石基座 · wall 石英奶油白填墙(half-timber 墙面) ·
+          pillar/trim 木头暖木-深(角柱与腰线/檐层/门楣——half-timber 框架) ·
+          roof 红砖陶橙阶梯顶 · bell 灯块自发光金钟 · window 玻璃板前窗 ·
+          flag 粉羊毛顶旗(樱粉) · door/doorTop 门叶两格(关态成对块) */
+      ids: {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
+        window: 68, flag: 78, door: 64, doorTop: 65},
     },
     kernel(e, x, y, z, orient, put) {
       const ids = e.ids; const tier = e.heightTier;
-      const topDy = tier - 1; /* 缺省 15→封顶 dy14 */
-      /* dy=0 地基 6×6 */
-      for (let dx = -2; dx <= 3; dx++) {
-        for (let dz = -2; dz <= 3; dz++) put(dx, 0, dz, ids.base);
+      const capDy = tier - 1; /* 封顶层: 16→15(顶旗)/15→14(收分帽)/14→13(檐板) */
+      /* dy0..1 基座: 恰 6×6×2 实心(dx,dz∈[-2,3])石砖——三段式第一段,
+          比旧版高一格, 塔身收窄读「坐在石台上」 */
+      for (let dy = 0; dy <= 1; dy++) {
+        for (let dx = -2; dx <= 3; dx++) {
+          for (let dz = -2; dz <= 3; dz++) put(dx, dy, dz, ids.base);
+        }
       }
-      /* dy=1..7 塔身 4×4 主体([-1,2]², 与 6×6 地基/钟室同心=内缩1圈) + 四角立柱 + 中线竖缝装饰
-         [裁决登记 T-PREFAB-01 阻塞项: PO 超时默认落板 2026-11-13, 采纳 4×4 同心读法(PO-pending 可推翻);
-          spec 文面“5×5 主体”与“6×6 内缩1圈”算术互斥, 本票按 4×4 落地并判文样为笔误, 异议已登记需求线;
-          spec 文本未改(视觉唯一权威), 勘误待 PO 确认后由需求线另落] */
-      for (let dy = 1; dy <= 7; dy++) {
+      /* dy2..9 塔身: 恰 4×4×8 实心([-1,2]²)half-timber——石英填墙+四角
+          深木角柱贯通+dy5/dy9 两道周界腰线(边中格覆深木, 外读水平木带) */
+      for (let dy = 2; dy <= 9; dy++) {
         for (let dx = -1; dx <= 2; dx++) {
           for (let dz = -1; dz <= 2; dz++) {
             const corner = (dx === -1 || dx === 2) && (dz === -1 || dz === 2);
+            const edge = dx === -1 || dx === 2 || dz === -1 || dz === 2;
             let id = corner ? ids.pillar : ids.wall;
-            /* 四面中线竖缝装饰(后于墙体): 边中点位覆写 trim */
-            const onEdge = dx === -1 || dx === 2 || dz === -1 || dz === 2;
-            const midX = (dx === 0 || dx === 1) && (dz === -1 || dz === 2);
-            const midZ = (dz === 0 || dz === 1) && (dx === -1 || dx === 2);
-            if (onEdge && !corner && (midX || midZ)) id = ids.trim;
+            if (!corner && edge && (dy === 5 || dy === 9)) id = ids.trim;
             put(dx, dy, dz, id);
           }
         }
       }
-      /* 前立面装饰门龛 dy1..3(南向 +dz 前沿 z=2 中线 dx 0..1): 浅色内衬/开口视觉 */
-      for (let dy = 1; dy <= 3; dy++) put(0, dy, 2, e.hasDoorNiche ? ids.window : ids.wall);
-      /* 侧面 dy4..6 小窗位(ids.window) */
-      for (let dy = 4; dy <= 6; dy++) {
-        put(-1, dy, 0, ids.window);
-        put(2, dy, 0, ids.window);
-      }
-      /* dy=8..10 钟室 6×6 外扩亭式: 柱脚保留, 四面开敞(受 openBelfry), 檐层围合 */
-      for (let dy = 8; dy <= 10; dy++) {
-        for (let dx = -2; dx <= 3; dx++) {
-          for (let dz = -2; dz <= 3; dz++) {
-            const corner = (dx === -2 || dx === 3) && (dz === -2 || dz === 3);
-            const edge = dx === -2 || dx === 3 || dz === -2 || dz === 3;
-            if (!edge) continue; /* 室内先空, 后放钟体 */
-            if (corner) {
-              put(dx, dy, dz, ids.pillar);
-              continue;
-            }
-            if (e.openBelfry && dy < 10) {
-              /* 四面开敞: 中段边开口 */
-              const mid = (dx === 0 || dx === 1) || (dz === 0 || dz === 1);
-              if (mid) {
-                put(dx, dy, dz, 0);
-                continue;
-              }
-            }
-            /* 檐层围合(dy==10)或柱间封边 */
-            put(dx, dy, dz, dy === 10 ? ids.trim : ids.pillar);
-          }
+      /* 前立面 dz=2 覆写(后写者赢, 序即几何): 门叶两格 (0,2..3,2)=
+          door/doorTop(关态成对块) + 门楣 (0,4,2)=trim + 前窗 2w×2h
+          (0..1,6..7,2)=window 玻璃板(门-楣-腰线-窗-腰线的立面节奏) */
+      put(0, 2, 2, ids.door);
+      put(0, 3, 2, ids.doorTop);
+      put(0, 4, 2, ids.trim);
+      put(0, 6, 2, ids.window);
+      put(1, 6, 2, ids.window);
+      put(0, 7, 2, ids.window);
+      put(1, 7, 2, ids.window);
+      /* dy10..12 钟亭 4×4: 四角深木柱贯通三层, dy10..11 四边开敞(不写,
+          金钟四面可见), dy12 檐层恰 4×4 全 trim(平檐板收头) */
+      for (let dy = 10; dy <= 12; dy++) {
+        for (const dx of [-1, 2]) {
+          for (const dz of [-1, 2]) put(dx, dy, dz, ids.pillar);
         }
       }
-      /* 钟体占位 2×2×2(ids.bell), 室内中心偏上 */
+      for (let dx = -1; dx <= 2; dx++) {
+        for (let dz = -1; dz <= 2; dz++) put(dx, 12, dz, ids.trim);
+      }
+      /* 金钟: 恰 2×2×2 室心(dx,dz∈[0,1]×dy10..11)=bell 灯块——自发光,
+          开敞亭四面透光(「夜里看得见钟」) */
       for (let dx = 0; dx <= 1; dx++) {
         for (let dz = 0; dz <= 1; dz++) {
-          for (let dy = 8; dy <= 9; dy++) put(dx, dy, dz, ids.bell);
+          for (let dy = 10; dy <= 11; dy++) put(dx, dy, dz, ids.bell);
         }
       }
-      /* dy=11..14 顶饰: 阶梯收分小屋顶+顶尖饰件(随 tier, 封顶于 topDy) */
-      for (let dy = 11; dy <= topDy; dy++) {
-        const inset = dy <= 12 ? 0 : 1; /* 逐层收分 */
-        const x1 = -2 + inset; const x2 = 3 - inset; const z1 = -2 + inset; const z2 = 3 - inset;
-        if (x1 > x2 || z1 > z2) continue;
-        for (let dx = x1; dx <= x2; dx++) {
-          for (let dz = z1; dz <= z2; dz++) {
-            const edge = dx === x1 || dx === x2 || dz === z1 || dz === z2;
-            const isTop = dy === topDy;
-            put(dx, dy, dz, isTop && !edge ? ids.trim : ids.roof);
-          }
+      /* dy13..cap 阶梯收分顶: dy13 恰 6×6 roof 檐板(盖过基座缘)→
+          cap≥14 再收 4×4 roof 帽 → cap≥15 顶旗单格 (0,15,0)=flag
+          (阶梯-帽-旗的三级收分, 顶旗读「塔尖飘旗」) */
+      for (let dx = -2; dx <= 3; dx++) {
+        for (let dz = -2; dz <= 3; dz++) put(dx, 13, dz, ids.roof);
+      }
+      if (capDy >= 14) {
+        for (let dx = -1; dx <= 2; dx++) {
+          for (let dz = -1; dz <= 2; dz++) put(dx, 14, dz, ids.roof);
         }
       }
-      /* 檐下小旗装饰(受 flags): 面积小, 放在钟室檐下外侧计入 foot */
+      if (capDy >= 15) put(0, 15, 0, ids.flag);
+      /* 檐下小旗(受 flags): 钟亭檐层同高外挑一格, 悬空点缀两则 */
       if (e.flags) {
-        put(-2, 10, -1, ids.flag);
-        put(3, 10, 1, ids.flag);
+        put(-2, 12, -1, ids.flag);
+        put(3, 12, 1, ids.flag);
       }
     },
     foot(e, x, y, z, orient) {
       const tier = e.heightTier;
-      const topDy = Math.max(14, tier - 1); /* 覆盖 dy0..14 全高, 高档可更高 */
+      const topDy = Math.max(14, tier - 1); /* 覆盖 dy0..15 全高, 低档保守兜 14 */
       let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
       for (const dx of [-2, 3]) {
         for (const dz of [-2, 3]) {
@@ -774,28 +761,29 @@ const PF_ROWS = {
     },
   },
   'windmill-tower': {
-    /* 风车塔: 中石基座+收分塔身+暖褐锥顶+四臂叶轮的竖向天际线地标
-       (town-prefab-specs §4.4, 视觉对照 buildings-visual-spec §7.5——
-       风车天际线母题, 门窗小而友好)。锚=塔基地面中心投影, 局部轴 dx 横/
-       dz 前后/dy 竖, face0=south=叶轮面朝 +dz; 偶宽 NW 偏置同 pfSpan
-       口径: 6→[-3,2]², 5×5 居中 [-2,2]², 4×4 [-2,1]², 2×2 [-1,0]²。
-       叶片组件(叶+轴)受 sailStatic 整体收放(§4.4「资产可分件预留」——
-       动态旋转属实现/动画选型, 蓝图只给静态造型; false=组件整体不入
+    /* 风车塔 v2(视觉重制总纲 §3 G 层): 石砖基座+收分塔身(石英墙+深木
+       箍带)+红砖锥顶(檐层/锥/锥尖三级)+「石英肋+木板帆」错位十字叶轮
+       +南瓜亮橙轴心——走查实证的「灰暗风车」换暖色三材读法。锚=塔基地面
+       中心投影, 局部轴 dx 横/dz 前后/dy 竖, face0=south=叶轮面朝 +dz;
+       偶宽 NW 偏置同 pfSpan 口径: 6→[-3,2]², 5×5 居中 [-2,2]², 4×4
+       [-2,1]², 2×2 [-1,0]²。
+       叶片组件(肋+帆+轴)受 sailStatic 整体收放(§4.4「资产可分件预留」
+       ——动态旋转属实现/动画选型, 蓝图只给静态造型; false=组件整体不入
        几何, 塔体独立成景); 无光/火语义槽位(ids 白名单无 torch/glow,
        §8 去威胁红线——机械件无裸露危险) */
     facing0: 'south',
     defaults: {
       face: 'south', /* 缺省=行 facing0(恒等映射) */
       mirror: false,
-      sailStatic: true, /* 叶轮静态: true=叶片组件(叶+轴)入几何/0 值钳 false */
+      sailStatic: true, /* 叶轮静态: true=叶片组件(肋+帆+轴)入几何/0 值钳 false */
       bladeSpan: 4, /* 叶展档 [3,4]: 4=臂顶 dy12(总高 13)/3=收短 dy11(总高 12) */
-      /* 材质注入, 缺省裸数字(§4.4 口径→现调色板, T-PREFAB-09 逐槽实义核真;
-          旧错号 roof:40=草丛 thin 可穿行 已修禁回退——原注「顶先例 40」系
-          错号循环引用, 红砖 9 才是 shop/house-loft 顶先例, 测试材质基线
-          钉死): base 石头中石基座 · wall 木板暖木-浅塔身 · roof 红砖暖褐
-          檐层与锥顶 · trim 木头箍带与小窗 · blade 羊毛奶油叶面 · axle 金属
-          轴心 */
-      ids: {base: 3, wall: 6, roof: 9, trim: 5, blade: 52, axle: 12},
+      /* 材质注入, 缺省裸数字(总纲 §2 字库→现调色板, T-PREFAB-09 逐槽实义
+          核真): base 石砖中石基座 · wall 石英奶油白塔身 · roof 红砖暖褐
+          檐层与锥顶 · trim 木头深箍带与小窗 · blade 木板帆面 · axle 南瓜
+          亮橙轴心(总纲「南瓜轴心」趣味光意象; 总纲正文的「75」系 id 笔误
+          ——§2 字库表权威南瓜=76, 75 是铁块, 勘误登记 2026-11-15) ·
+          accent 石英细肋(叶轮十字骨架) */
+      ids: {base: 13, wall: 17, roof: 9, trim: 5, blade: 6, axle: 76, accent: 17},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z 未用: 纯局部系直写(无地形读数) */
       const ids = e.ids; const S = e.bladeSpan;
@@ -822,13 +810,15 @@ const PF_ROWS = {
           }
         }
       }
-      /* dy=8 檐层 4×4=roof · dy=9 锥顶 2×2([-1,0]²)=roof 封顶, 域外空 */
+      /* dy=8 檐层 4×4=roof · dy=9 锥顶 2×2([-1,0]²)=roof · dy=10 锥尖
+          单格 (0,10,0)=roof(新增第三级收分——塔顶剪影更挺拔), 域外空 */
       for (let dx = -2; dx <= 1; dx++) {
         for (let dz = -2; dz <= 1; dz++) put(dx, 8, dz, ids.roof);
       }
       for (let dx = -1; dx <= 0; dx++) {
         for (let dz = -1; dz <= 0; dz++) put(dx, 9, dz, ids.roof);
       }
+      put(0, 10, 0, ids.roof);
       /* 门洞 1w×2h 前沿中轴 (0,dy1..2,2)=掏空气 · 小窗 (0,4,2)=trim
           (§7.5 y4 小窗居中拍板): 塔身后写覆写——序即几何 */
       put(0, 1, 2, 0);
@@ -836,28 +826,42 @@ const PF_ROWS = {
       put(0, 4, 2, ids.trim);
       /* 叶片组件(sailStatic 才写; 塔体后写, 覆写檐层——序即几何): 轴心
           ids.axle 3 连格——根 (0,8,1) 覆写檐/连杆 (0,8,2)/轮心 (0,8,3);
-          轮面 dz=3(塔前沿外 1 格, 叶轮悬于塔面——真实风车母题)四臂十字,
-          臂宽 2 偶宽西偏 [-1,0] 同 pfSpan: 上臂 dy9..8+S · 下臂 dy8-S..7 ·
-          东西臂 dx∈[1,S]/[-S,-1] 贴 dy∈{7,8} */
+          轮面 dz=3(塔前沿外 1 格, 叶轮悬于塔面)十字骨架=石英细肋 accent
+          (单格臂), 帆板=木板 blade 单列贴肋错位外侧(上臂帆偏西 dx=-1/
+          下臂帆偏东 dx=1/东臂帆偏上 dy=9/西臂帆偏下 dy=7)——「斜格栅」
+          风车读法, 四臂满帆 S4=28 格/S3=20 格 */
       if (e.sailStatic) {
         for (let dz = 1; dz <= 3; dz++) put(0, 8, dz, ids.axle);
-        for (let dy = 9; dy <= 8 + S; dy++) {/* 上臂 */
-          for (const dx of [-1, 0]) put(dx, dy, 3, ids.blade);
+        for (let dy = 9; dy <= 8 + S; dy++) {/* 上臂肋 */
+          put(0, dy, 3, ids.accent);
         }
-        for (let dy = 8 - S; dy <= 7; dy++) {/* 下臂 */
-          for (const dx of [-1, 0]) put(dx, dy, 3, ids.blade);
+        for (let dy = 8 - S; dy <= 7; dy++) {/* 下臂肋 */
+          put(0, dy, 3, ids.accent);
         }
-        for (let dx = -S; dx <= S; dx++) {/* 东西臂(避开轮心 dx=0) */
-          if (dx === 0) continue;
+        for (let dx = 1; dx <= S; dx++) {/* 东臂肋 */
+          put(dx, 8, 3, ids.accent);
+        }
+        for (let dx = -S; dx <= -1; dx++) {/* 西臂肋 */
+          put(dx, 8, 3, ids.accent);
+        }
+        for (let dy = 10; dy <= 8 + S; dy++) {/* 上臂帆(肋西错位) */
+          put(-1, dy, 3, ids.blade);
+        }
+        for (let dy = 8 - S; dy <= 6; dy++) {/* 下臂帆(肋东错位) */
+          put(1, dy, 3, ids.blade);
+        }
+        for (let dx = 2; dx <= S; dx++) {/* 东臂帆(肋上错位) */
+          put(dx, 9, 3, ids.blade);
+        }
+        for (let dx = -S; dx <= -2; dx++) {/* 西臂帆(肋下错位) */
           put(dx, 7, 3, ids.blade);
-          put(dx, 8, 3, ids.blade);
         }
       }
     },
-    /* 脚印: 同参纯算术投影——动态=纯塔体盒([-3,2]²×dy0..9, bladeSpan
-        不参与); 静态并入叶展保守盒(dx∈[-S,S]×dz∈[-3,3]×dy0..8+S)。
-        平面 4 角过同一张朝向表(90° 旋转盒恒轴对齐), y 域取写笔最低/
-        最高层 */
+    /* 脚印: 同参纯算术投影——动态=纯塔体盒([-3,2]²×dy0..10 锥尖, bladeSpan
+        不参与); 静态并入叶展保守盒(dx∈[-S,S]×dz∈[-3,3]×dy0..max(8+S,10)
+        ——锥尖 dy10 兜底, S3 时叶顶 dy11 仍高于锥尖)。平面 4 角过同一张
+        朝向表(90° 旋转盒恒轴对齐), y 域取写笔最低/最高层 */
     foot(e, x, y, z, orient) {
       const S = e.bladeSpan;
       const corners = [[-3, 2], [-3, -3], [2, 2], [2, -3]]; /* 塔体 [-3,2]² */
@@ -872,7 +876,7 @@ const PF_ROWS = {
         x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
         z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
       }
-      return {x1, y1: y, z1, x2, y2: y + (e.sailStatic ? 8 + S : 9), z2};
+      return {x1, y1: y, z1, x2, y2: y + (e.sailStatic ? Math.max(8 + S, 10) : 10), z2};
     },
   },
   'cottage-gable': {

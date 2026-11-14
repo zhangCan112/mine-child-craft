@@ -43,9 +43,10 @@ const CORE_SRC = path.join(ROOT, 'js', 'town-assembly-core.js');
    T-09 基线)的测试侧转录, 不引用实现常量(反同义反复)。 */
 const PALETTE_WANT = {
   prefab: {
-    'tower-belfry': {base: 58, wall: 6, pillar: 5, trim: 5, roof: 9, bell: 38, window: 18, flag: 16},
+    'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
+      window: 68, flag: 78, door: 64, doorTop: 65},
     'shop-awning': {base: 58, wall: 6, roof: 9, trim: 5, awning: 52, signBg: 15, signAccent: 38, glow: 19, window: 18},
-    'windmill-tower': {base: 3, wall: 6, roof: 9, trim: 5, blade: 52, axle: 12},
+    'windmill-tower': {base: 13, wall: 17, roof: 9, trim: 5, blade: 6, axle: 76, accent: 17},
     'cottage-gable': {base: 58, wall: 6, roof: 9, trim: 5, window: 18, door: 6, chimney: 3},
     'house-loft': {base: 58, wallA: 6, wallB: 5, roof: 9, trim: 5, window: 18, door: 6, balcony: 5},
     'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 6, metalAccent: 12},
@@ -139,7 +140,7 @@ test('palette 完整性: 七段结构在册 · prefab 八行对齐实例清单 �
       'stall-canopy 缺 canopy 键: 布幔 theme 映射单源引擎侧 PF_STALL_CANOPY(双源即漂移)');
 });
 
-test('T-09 材质安全基线: 城镇七行零危险旗标+零显式错用 · under-room 只检显式(火把既有语义)', () => {
+test('T-09 材质安全基线: 城镇七行零危险旗标(door/doorTop 槽名豁免)+零显式错用 · under-room 只检显式(火把既有语义)', () => {
   const ctx = loadCore();
   const report = JSON.parse(probe(ctx, `JSON.stringify((() => {
     const FLAGS = ${JSON.stringify(DANGER_FLAGS)};
@@ -151,7 +152,13 @@ test('T-09 材质安全基线: 城镇七行零危险旗标+零显式错用 · un
         if (BAD.includes(bid)) out.bad.push(row + '.' + slot + '=' + bid);
         if (!town.includes(row)) continue; /* 收编行: 旗标检止于显式清单(prefab-kit 先例) */
         const def = BLOCKS[bid];
-        for (const f of FLAGS) if (def && def[f]) out.flag.push(row + '.' + slot + '=' + bid + '(' + f + ')');
+        for (const f of FLAGS) {
+          /* v2 门叶两格按槽名豁免(总纲 §2 字库: 门=64/65 关态成对块, tower
+             先例 cottage/shop 复用; 槽值仍受 BAD 显式清单管辖, 非槽名门族块
+             66/67 开态等仍违例) */
+          if (f === 'door' && (slot === 'door' || slot === 'doorTop')) continue;
+          if (def && def[f]) out.flag.push(row + '.' + slot + '=' + bid + '(' + f + ')');
+        }
       }
     }
     return out;
@@ -159,7 +166,7 @@ test('T-09 材质安全基线: 城镇七行零危险旗标+零显式错用 · un
   assert.deepStrictEqual(report.bad, [],
       'prefab 材质零功能/下界/传送门系错用(30/31/33/34/41/46/47/63/70/71/72)');
   assert.deepStrictEqual(report.flag, [],
-      '城镇七行材质零危险旗标块(TNT/引线/门面/流体/庄稼/薄块/可替换/门/床/配对箱)');
+      '城镇七行材质零危险旗标块(TNT/引线/门面/流体/庄稼/薄块/可替换/门/床/配对箱; 门族仅 door/doorTop 槽豁免)');
 });
 
 /* ---------- ③ 钉值 ---------- */
@@ -215,6 +222,53 @@ test('place 调用面: 10 实例一一对应 prefab 段保序 · face/ids 注入
   assert.ok(refs.idsFresh, 'ids 是新对象(消费方改 op 不许反渗 palette 单源)');
   assert.ok(refs.noIdsInSource, '规划后源清单 v 仍无 ids 键(TOWN_MAP 只读红线)');
   assert.ok(refs.noFaceInV, '规划后源清单 v 仍无 face 键(face 属条目顶层)');
+});
+
+/* ---------- ④' place 执行见证: 行键×蓝图键面的运行时耦合 ---------- */
+
+/* pfMerge 键校验(palette 行键 ⊆ 蓝图 defaults.ids 键)是装配链唯一隐性炸点:
+   palette 行与蓝图 kernel 分居两文件——assembly 侧只钉「行=PALETTE_WANT 同形」,
+   蓝图侧只钉「defaults 键面」, 谁也拦不住「行有键而蓝图没收」的 merge 期 throw;
+   唯一可靠拦截 = 真执行: vm 同上下文载 prefab-kit + 本件, spy 世界把全部
+   place op 落场, 断言每笔写 ⊆ footOf 同参盒——运行时消费方(adventure-dims-core
+   place 执行路径)的等价见证。装具手法借 test/prefab-kit.test.js loadKit。 */
+test('place 执行见证: 13 实例全落场 — pfMerge 行键×蓝图键面耦合不炸, 每笔写 ∈ footOf 同参盒', () => {
+  const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+  for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
+    'js/town-map-core.js', 'js/town-assembly-core.js']) {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
+  }
+  /* spy 世界: setBlockRaw 后到重绑换记录器(voxel 顶函数声明=全局绑定,
+     PrefabKit 调用期解析跟随——prefab-kit.test.js loadKit.spySet 同款) */
+  vm.runInContext('var __rec = [];\n' +
+      'setBlockRaw = function (x, y, z, id) { __rec.push([x, y, z, id]); };', eng);
+  const rec = vm.runInContext('__rec', eng);
+  const ops = JSON.parse(vm.runInContext(
+      'JSON.stringify(townAssemblyOps(townBuildSteps()))', eng));
+  const places = ops.filter((o) => o.op === 'place');
+  assert.strictEqual(places.length, 13, 'place op 13 个(7 建筑+埋室+摊位 6)');
+  /* v2 新键面证据: door/doorTop 与 accent 槽真的并入 place v(注入单源=palette
+     行; 行键漂移时此处先红, pfMerge 执行期 throw 兜底) */
+  const towerOp = places.find((o) => o.id === 'tower-belfry');
+  assert.strictEqual(towerOp.v.ids.door, PALETTE_WANT.prefab['tower-belfry'].door,
+      'tower 行 door 槽已并入 place v');
+  assert.strictEqual(towerOp.v.ids.doorTop, PALETTE_WANT.prefab['tower-belfry'].doorTop,
+      'tower 行 doorTop 槽已并入 place v');
+  const windOp = places.find((o) => o.id === 'windmill-tower');
+  assert.strictEqual(windOp.v.ids.accent, PALETTE_WANT.prefab['windmill-tower'].accent,
+      'windmill 行 accent 槽已并入 place v');
+  for (const o of places) {
+    rec.length = 0;
+    const box = vm.runInContext(
+        'PrefabKit.place(' + JSON.stringify(o.id) + ', ' + o.x + ', ' + o.y + ', ' +
+        o.z + ', ' + JSON.stringify(o.v) + ')', eng);
+    assert.ok(rec.length > 0, o.id + ' 落场有写(防全空假绿)');
+    for (const w of rec) {
+      assert.ok(w[0] >= box.x1 && w[0] <= box.x2 && w[1] >= box.y1 && w[1] <= box.y2 &&
+          w[2] >= box.z1 && w[2] <= box.z2,
+      o.id + ' 写 (' + w + ') ⊄ footOf 盒 ' + JSON.stringify(box) + '(行键/变体与蓝图键面漂移?)');
+    }
+  }
 });
 
 /* ---------- ⑤ 植被道具 ---------- */
