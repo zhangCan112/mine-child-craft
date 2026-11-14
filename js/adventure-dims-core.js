@@ -24,21 +24,35 @@
       · advDenDailyStep(副本刷新判据, D20/D23 两日窗口——日键注入, core 零 Date 依赖)
       · ADV_TOWN(town 维度结构常量{core, spawnAnchor}: 加载期从 TOWN_MAP 派生——
       同对象引用, 零坐标字面量, 坐标唯一权威在 town-map-core)
+      · town 系六装配件(T-SEAM-05 机械迁入维度段, ADR-0011 决策 6b; 原
+      js/modes/town.js 装配件, 模式壳随撤卡三件套退场): TOWN_PHASE_ORDER
+      (建场 phase 权威全序)/townYawOfFace(四正交 face→yaw)/townSpawnIntent
+      (spawn 锚→站立面+朝向出生意图)/townAssemblyPhases(平铺步骤按权威
+      phase 序分组)/townConsumeOp(op 执行器=引擎触点唯一面)/townBuild
+      (建场总装, 内含锚点段出生收口 townSpawnIntent 消费)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
      advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——涌出/副本节拍
      薄壳组装, 加载序先于 adventure-core) · adventure-core.js 的 advPortalFrame/
      advOreSpotsReset/advTryOre(建场调用期消费; index.html 加载序:
      adventure-spawn-core → adventure-core → adventure-maps-core → town-map-core →
      本文件 → modes/adventure → showroom-core) · town-map-core.js 的 TOWN_MAP(ADV_TOWN
-     加载期派生读它, Node CJS 域本文件自举兜底 require) · config.js 的 B_*、WORLD_* 与 voxel.js 的
+     加载期派生读它, Node CJS 域本文件自举兜底 require)与 townBuildSteps
+     (townBuild 建场调用期) · town-assembly-core.js 的 townAssemblyOps
+     (townBuild 建场调用期) · prefab-kit.js 的 PrefabKit(townConsumeOp place
+     op 落位) · mode-kit.js 的 ModeKit.spawn(townBuild 锚点段出生收口;
+     前四者均调用期解析, 浏览器加载序已满足, Node 测试侧装具提取挂全局) ·
+     config.js 的 B_*、WORLD_* 与 voxel.js 的
      setBlockRaw/getBlock、scene-kit.js 的 SceneKit(建场期) ·
      daylight-core.js 的 Daylight(涌出夜门)
    可测性: 零 THREE·零 DOM·有单测(test/adventure-dims-core.test.js;
    vm 装真引擎件+adventure-core 铺全局后 require 直测, adventure-maps-
    core.test 同款惯例——本文件顶层 spawn 派生与建场函数体都经全局名
    读 adventure-core 的符号, Node 侧须先 Object.assign 全局; town 行另有
-   town 系装具前提: vm 补装 town-map/assembly/mode 后提取 TOWN_MAP 挂
-   全局, 须先于 require 本文件(ADV_TOWN 加载期派生)——测试文件头自记)
+   town 系装具前提: vm 补装 town-map/assembly 纯件后提取 TOWN_MAP/
+   townBuildSteps/townAssemblyOps/PrefabKit 挂全局+ModeKit 记录桩
+   (townBuild 建场期全局名解析), 须先于 require 本文件(ADV_TOWN 加载期
+   派生)——测试文件头自记; 六装配件同名单测经本模块导出驱动, 原
+   test/town-mode.test.js 已随模式壳退场(T-SEAM-05))
    ============================================================ */
 
 /* ============================================================
@@ -491,12 +505,101 @@ if (typeof TOWN_MAP === 'undefined' && typeof require === 'function') {
    TOWN_MAP, 浏览器靠 index.html script 序(town-map-core 先于本
    文件)保证; Node CJS 域由上方装载兜底自举, 各 require 方零手工
    铺垫。
-   town 建场装配件链(townBuild 本体)留 js/modes/town.js(T-SEAM-05
-   才迁 dims-core), 行 build 闭包调用期懒引(闭包体跨文件调用期
-   解析)。
+   town 建场六装配件(TOWN_PHASE_ORDER/townYawOfFace/townSpawnIntent/
+   townAssemblyPhases/townConsumeOp/townBuild)T-SEAM-05 已机械迁入本段
+   (ADV_TOWN 下方邻位, nether=advNetherBuild/den=advDenBuild 同栖先例;
+   ADR-0011 决策 6b), js/modes/town.js 模式壳随撤卡三件套退场, 行 build
+   闭包同文件词法直引 townBuild(懒引 seam 消失)。
    ============================================================ */
 const ADV_TOWN = {core: TOWN_MAP.core, spawnAnchor: TOWN_MAP.anchors.find((anchor) => anchor.id === 'spawn')};
 
+/* ---------- 装配 phase 权威全序(§5.1.6 建场次序: 地表→远景→路网→建筑→
+   散布→锚点; 锚点必须末段=「先建场后落人」的装配纪律。组序恒等于此序,
+   不信输入序) ---------- */
+const TOWN_PHASE_ORDER = ['ground', 'backdrop', 'road', 'prefab', 'scatter', 'anchor'];
+
+/* 四正交 face → yaw 朝向协议: 前向向量 = (-sin yaw, -cos yaw)(引擎
+   camera-rig lookDir 同式)——north=-Z(北望广场)/south=+Z/east=+X/
+   west=-X。未知 face 按错误两档先例抛拼写域错误(布局件契约破坏即炸)。 */
+function townYawOfFace(face) {
+  switch (face) {
+    case 'north': return 0;
+    case 'south': return Math.PI;
+    case 'west': return Math.PI / 2;
+    case 'east': return -Math.PI / 2;
+    default:
+      throw new Error('townYawOfFace: 未知 face「' + face + '」(合法域 north|south|east|west)');
+  }
+}
+
+/* 出生意图: 读 TOWN_MAP.anchors 里 id==='spawn' 的唯一锚(南主路上, 面北)
+   → 站立面(锚点 y+1, tank-range groundY+1 先例)与朝向(yaw 由 face 派生,
+   面北望广场/回望钟塔走廊)。出生意图单点, anchor 段消费它。 */
+function townSpawnIntent() {
+  const a = TOWN_MAP.anchors.find((anchor) => anchor.id === 'spawn');
+  if (!a) throw new Error('townSpawnIntent: TOWN_MAP.anchors 缺 spawn 锚(布局件契约破坏)');
+  return {x: a.x, y: a.y + 1, z: a.z, yaw: townYawOfFace(a.face)};
+}
+
+/* 平铺步骤按权威 phase 序分组: 组序恒=权威序(不信输入序)、只保留非空段
+   (可空段不炸)、同段条目保持输入相对次序(无重排); 纯派生零副作用——
+   filter 产新数组, 不改 steps。空表 → []。 */
+function townAssemblyPhases(steps) {
+  const groups = [];
+  for (const phase of TOWN_PHASE_ORDER) {
+    const seg = steps.filter((s) => s.phase === phase);
+    if (seg.length > 0) groups.push({phase, steps: seg});
+  }
+  return groups;
+}
+
+/* op 执行器: 规划器 op → 引擎触点唯一面(本模式的全部世界写入只此一处)。
+   词表封闭 {fill,tree,scrub,recolor,place}: fill→SceneKit.fill 长方体 ·
+   tree→SceneKit.tree 圆冠树(干基=散布点 y+1, 立在地面) · scrub→
+   SceneKit.scrub 矮丛(top=脚下表面格, 盐定形同参同丛) · recolor→盒内
+   from→to 逐格置换(樱花覆写落调用方, 地图设计 §5.4; 只动命中格, 干与
+   立地天然不涉) · place→PrefabKit.place(face/ids 已由规划器注入 v,
+   材质集中映射单源)。未知 op 抛拼写域错误(错误两档先例)。 */
+function townConsumeOp(op) {
+  switch (op.op) {
+    case 'fill':
+      SceneKit.fill(op.x1, op.y1, op.z1, op.x2, op.y2, op.z2, op.id);
+      break;
+    case 'tree':
+      SceneKit.tree(op.x, op.y + 1, op.z);
+      break;
+    case 'scrub':
+      SceneKit.scrub(op.x, op.top, op.z, op.salt);
+      break;
+    case 'recolor':
+      for (let x = op.x1; x <= op.x2; x++) {
+        for (let y = op.y1; y <= op.y2; y++) {
+          for (let z = op.z1; z <= op.z2; z++) {
+            if (getBlock(x, y, z) === op.from) setBlockRaw(x, y, z, op.to);
+          }
+        }
+      }
+      break;
+    case 'place':
+      PrefabKit.place(op.id, op.x, op.y, op.z, op.v);
+      break;
+    default:
+      throw new Error('townConsumeOp: 未知 op「' + op.op +
+        '」(合法域 fill|tree|scrub|recolor|place)');
+  }
+}
+
+/* 建场: 平铺消费规划器 op 序列逐 op 执行(规划器内部已按 §5.1.6 建场次序
+   产出——基底三层垫底是后写者赢的显式见证, 之后远景/路网/建筑/散布依
+   steps 相对次序), 世界写入只经 townConsumeOp 一面; 锚点段规划为零 op,
+   出生在此收口(§5.1.6 末段纪律: 先建场后落人, 恰一次)。 */
+function townBuild() {
+  for (const op of townAssemblyOps(townBuildSteps())) {
+    townConsumeOp(op);
+  }
+  const it = townSpawnIntent();
+  ModeKit.spawn(it.x, it.y, it.z, {yaw: it.yaw});
+}
 /* ============================================================
    维度注册表 ADV_DIMS — 本文件的成立理由(docs/dimension-registry-design.md)
    ------------------------------------------------------------
@@ -535,8 +638,8 @@ const ADV_DIMS = [
     hud: {banner: '🕳️ 苦力怕巢穴 · 深处', showMobs: true}, /* 恒暗不显时段行; 怪物行照显(副本有怪——波次观感) */
     assets: null}, /* 副本素材预留缝(null=走缺省方块集, GLOSSARY『副本素材』) */
   {id: 'town', /* 小镇相位(docs/town-map-design.md §6.3.3, ADR 0011 决策 1) */
-    build: () => {/* 建场懒引现有装配件链(townBuild 本体=js/modes/town.js;
-        建场直写不记账——互锁红线; 装配件迁 dims-core=T-SEAM-05 节拍, 本票不迁) */
+    build: () => {/* 建场直引本文件维度段 townBuild(T-SEAM-05 机械迁入, 懒引 seam 消失);
+        建场直写不记账——互锁红线 */
       townBuild();
     },
     sky: {color: 0x7ec8e3, fogNear: 90, fogFar: 230, sunI: 0.85}, /* 暖亮白天(视觉 spec §4.1 布幔-天蓝色板; 恒白天观感由此承担) */
@@ -572,5 +675,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_DEN, ADV_DEN_TUNNELS, ADV_DEN_GUARDS, advDenRoomCenter,
     advDenBuild, advDenMineRoom, advDenStep, advDenWavePlan,
     ADV_DEN_LOOT, ADV_DEN_LOOT_SMALL, advDenLootRoll, advLootChestPlan,
-    advLootChestSmallPlan, advDenDailyStep};
+    advLootChestSmallPlan, advDenDailyStep,
+    TOWN_PHASE_ORDER, townYawOfFace, townSpawnIntent, townAssemblyPhases,
+    townConsumeOp, townBuild};
 }

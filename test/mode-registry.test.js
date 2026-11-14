@@ -69,8 +69,23 @@ test('模式注册表: main.js 的 MODES 影子清单与表零漂移(漏行=点�
       'MODES 键行应与注册表键集一致(注册表之外多出的键同样是影子滋生)');
 });
 
-test('模式注册表: 儿童时限成员 = gated 模式(专注训练营独立预算不入列)', () => {
-  assert.deepStrictEqual(ModeRegistry.playModeIds(), ['arena', 'build', 'tank', 'adventure', 'town']);
+test('模式注册表: 撤卡收口(T-SEAM-05) — 独立模式缝三件套退场, 维度缝唯一入口(ADR-0011 决策 5)', () => {
+  assert.ok(!ModeRegistry.all.some((m) => m.id === 'town'),
+      '注册表 town 行应已撤(进镇唯一入口=ADV_DIMS town 维度行, ADR-0011 决策 5)');
+  assert.ok(!html.includes('id="cardTown"'), 'index.html 小镇卡 cardTown 应已撤(主菜单无小镇卡)');
+  assert.ok(!html.includes('src="js/modes/town.js"'),
+      'index.html js/modes/town.js script 应已撤(模式壳退场, 撤卡三件套)');
+  assert.ok(!/^ {2}town: \w+Mode,$/m.test(mainSrc),
+      'main.js MODES 无 town 键(组合根影子行随卡退场, 键集一致的另一半)');
+  /* 保留件不误撤(ADR-0011 决策 6d: T-MAP-01/03/04 工件保留+转用途——
+     布局权威/规划器/交互机器仍被维度 build 与壳层宿主消费) */
+  for (const f of ['js/town-map-core.js', 'js/town-assembly-core.js', 'js/town-interact-core.js']) {
+    assert.ok(html.includes('src="' + f + '"'), '保留件 script 在场: ' + f + '(撤卡≠撤核心件)');
+  }
+});
+
+test('模式注册表: 儿童时限成员 = gated 模式(专注训练营独立预算不入列; town 随撤卡出列, 进镇时限随探险共享)', () => {
+  assert.deepStrictEqual(ModeRegistry.playModeIds(), ['arena', 'build', 'tank', 'adventure']);
   assert.ok(!ModeRegistry.playModeIds().includes('focus'));
 });
 
@@ -115,9 +130,9 @@ test('模式注册表: dev 行三层派生产物一致 — 卡在场带 dev 类 
 
 test('模式注册表: 限额文案的模式名由表派生(漏一个模式不再是手滑)', () => {
   const names = ModeRegistry.playModeNames();
-  assert.deepStrictEqual(names, ['竞技场', '建造', '坦克演习场', '探险模式', '小镇漫步']);
+  assert.deepStrictEqual(names, ['竞技场', '建造', '坦克演习场', '探险模式']);
   assert.ok(!ModeRegistry.playModeNames('build').includes('建造'), '建造页文案排除自身');
-  assert.strictEqual(ModeRegistry.playModeNames('build').length, 4);
+  assert.strictEqual(ModeRegistry.playModeNames('build').length, 3);
 });
 
 test('模式注册表: mood 字段值 ∈ 合法情绪集且每行必声明(BGM 接线数据源, 模式情绪唯一权威在此)', () => {

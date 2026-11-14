@@ -33,32 +33,22 @@ const ROOT = path.join(__dirname, '..');
 
 /* ---------- 装具: 注册/机器测试共用(vm 共享词法环境还原) ----------
    条件装载 js/town-interact-core.js: 红期缺席时 core 段红(装载断言即红),
-   绿后全绿; js/modes/town.js 始终装载(接线段对消费端断言)。 */
+   绿后全绿。T-SEAM-05: js/modes/town.js 模式壳退场——壳四桩(mkMode/
+   loadScene/requestLock/ModeKit.spawn 记录)与 ⑤ 接线段随壳撤, 消费端断言
+   由 test/adventure-mode.test.js T-SEAM-04 宿主测试接管。 */
 function interactBoot(extra) {
   const rec = {events: [], builds: []};
-  let tick = 0;
-  const mark = (kind, detail) => rec.events.push({t: ++tick, kind, detail});
   const sandbox = Object.assign({
     console: {log() {}, warn() {}, error() {}},
-    mkMode: (cfg) => Object.assign({}, cfg),
-    loadScene: (fn) => {
-      assert.strictEqual(typeof fn, 'function', 'loadScene(buildFn) 须收到建场函数');
-      rec.builds.push(fn);
-      mark('loadScene');
-      fn();
-    },
-    requestLock: () => mark('requestLock'),
-    ModeKit: {spawn: (x, y, z, o) => mark('spawn', {x, y, z, yaw: (o && o.yaw) || 0})},
   }, extra || {});
   const ctx = vm.createContext(sandbox);
-  /* 引擎件真实装载(T-MAP-03 起 init 实拼世界, town-mode.test.js 同款);
-     交互核心零引擎依赖, 但 town.js 的 init 全链需要真装配器 */
+  /* 引擎件真实装载惯例保留(core 零引擎依赖零消费——纯件装载面不动,
+     extra 数据注入经同一沙盒) */
   const files = ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
     'js/town-map-core.js', 'js/town-assembly-core.js'];
   if (fs.existsSync(path.join(ROOT, 'js/town-interact-core.js'))) {
     files.push('js/town-interact-core.js');
   }
-  files.push('js/modes/town.js');
   for (const f of files) {
     const code = fs.readFileSync(path.join(ROOT, f), 'utf8');
     assert.doesNotThrow(() => vm.runInContext(code, ctx, {filename: f}),
@@ -417,58 +407,6 @@ test('机器: 确定性与零突变 — 同序列同事件轨迹 · snapshot 拷
   probe(ctx, 'a.found(\'windmill\'); a.reset();');
   assert.strictEqual(probe(ctx, 'JSON.stringify(TOWN_INTERACTS)'), before,
       '机器消费零副作用(注册清单只读)');
-});
-
-/* ============================================================
-   ⑤ 模式接线: index.html 装载序 + town.js 注册启动(消费端断言)
-   ============================================================ */
-
-test('接线: index.html 四 script — map-core < assembly-core < interact-core < town < main', () => {
-  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const at = (f) => html.indexOf('src="' + f + '"');
-  const coreAt = at('js/town-map-core.js');
-  const asmAt = at('js/town-assembly-core.js');
-  const interAt = at('js/town-interact-core.js');
-  const modeAt = at('js/modes/town.js');
-  const mainAt = at('js/main.js');
-  assert.ok(mainAt > 0, 'main.js 在场(装具自检)');
-  assert.ok(interAt > 0, 'index.html 缺 script: js/town-interact-core.js(浏览器侧唯一装载点)');
-  assert.ok(asmAt > 0 && asmAt < interAt,
-      '交互核心必须晚于 town-assembly-core.js(消费序: 布局/装配/交互三核递进)');
-  assert.ok(coreAt > 0 && coreAt < interAt, '交互核心晚于 town-map-core.js(消费 TOWN_MAP.anchors)');
-  assert.ok(interAt < modeAt, 'town.js 必须晚于 town-interact-core.js(消费 mkTownTargets)');
-  assert.ok(modeAt < mainAt, '模式 script 先于 main.js(经典脚本序即依赖)');
-});
-
-test('接线: town.js 注册启动 — townInteractBoot 在场 · init 后 townTargets 快照可查且全 active', () => {
-  const {ctx, rec} = interactBoot();
-  assert.strictEqual(probe(ctx, 'typeof townInteractBoot'), 'function',
-      '缺 town.js 的 townInteractBoot(注册启动函数, 模式层装配缝)');
-  assert.doesNotThrow(() => probe(ctx, 'TownMode.init()'), 'init 全链不抛(注册启动并链)');
-  /* 引擎缝不回归: 装配/出生/直进三缝照旧(T-MAP-02 红网借用) */
-  const kinds = rec.events.map((e) => e.kind);
-  assert.ok(kinds.includes('loadScene') && kinds.includes('spawn') && kinds.includes('requestLock'),
-      'init 引擎缝三件照旧(loadScene/spawn/requestLock)');
-  const snap = JSON.parse(probe(ctx, 'JSON.stringify(townTargets.snapshot())'));
-  const ids = [...probe(ctx, 'TOWN_INTERACTS.map((e) => e.id)')];
-  assert.deepStrictEqual(Object.keys(snap.states).sort(), ids.sort(),
-      '模式态快照=注册全集(场景内交互锚点已注册)');
-  assert.strictEqual(snap.focusId, null, '进场无活动目标(U5 回落初始态)');
-  for (const id of Object.keys(snap.states)) {
-    assert.strictEqual(snap.states[id], 'active', '进场 ' + id + ' 初始 active');
-  }
-});
-
-test('接线: boot 幂等与缺省 emit 安全 — 重复 init 快照干净 · focus 经模式态不炸', () => {
-  const {ctx} = interactBoot();
-  probe(ctx, 'TownMode.init(); townTargets.focus(\'bell-tower\'); townTargets.found(\'bell-tower\');');
-  assert.doesNotThrow(() => probe(ctx, 'TownMode.init()'), '重复 init 不抛(boot 重置语义)');
-  const snap = JSON.parse(probe(ctx, 'JSON.stringify(townTargets.snapshot())'));
-  assert.strictEqual(snap.focusId, null, '重进后主目标清空');
-  assert.strictEqual(snap.states['bell-tower'], 'active', '重进后状态干净(新机器, 不串轮)');
-  /* 缺省 emit 安全: 模式态机器发事件不炸(emit 缺省空实现, T-UI 票替换实现) */
-  assert.doesNotThrow(() => probe(ctx, 'townTargets.focus(\'windmill\')'),
-      '缺省 emit 下 focus 不炸(T-UI 票只换 emit 实现, 不改机器)');
 });
 
 /* ============================================================

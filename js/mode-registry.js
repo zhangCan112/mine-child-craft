@@ -29,7 +29,6 @@ const MODE_REGISTRY = [
   {id: 'build', name: '建造', gated: true, menu: true, mood: 'calm'},
   {id: 'tank', name: '坦克演习场', gated: true, menu: true, src: 'js/modes/tank-range.js', mood: 'battle'},
   {id: 'adventure', name: '探险模式', gated: true, enter: true, mood: 'adventure'}, /* enter: 出发页「进入」按钮; 夜晚/下界壳层换曲 */
-  {id: 'town', name: '小镇漫步', gated: true, page: false, mood: 'calm'}, /* 小镇漫步: page:false=U3 点卡直进无出发页; gated 共享儿童时限 */
   {id: 'showroom', name: '体验馆', gated: false, page: false, dev: true, mood: 'none'}, /* dev 调试场: 卡默认隐藏(?dev=1 解锁) */
 ];
 

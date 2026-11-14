@@ -10,12 +10,17 @@
    维度行 id)。建场逐格断言在 test/adventure-den.test.js 与
    test/adventure-nether.test.js(随迁移重指 Dims), 不在此重复。
    T-SEAM-01 扩段: town 维度行(§6.3.3 行规格表)——行完备性三行/值锚
-   (暖亮白天四参+spawn 从 TOWN_MAP 派生)/build 懒引锁(装配件不迁)/
-   ADV_TOWN 单份权威(=== 同对象引用+定义段零坐标字面量)/炉键 town 占空/
+   (暖亮白天四参+spawn 从 TOWN_MAP 派生)/ADV_TOWN 单份权威(=== 同对象
+   引用+定义段零坐标字面量)/炉键 town 占空/
    ADV_SCENE_KEYS 派生集含 town(showroom/livestock/decode 自动跟随)/
    三条全局判据零新分支/index.html 加载序上移/AudioRegistry calm 在册。
-   装具加 town 系(vm 补装 town-map/assembly/mode+prefab-kit, 引擎缝桩;
-   TOWN_MAP 提取挂 Node 全局——ADV_TOWN 加载期派生须先于 require Dims)。 */
+   T-SEAM-05 迁段: town 建场六装配件机械迁入 dims-core 维度段(ADR-0011
+   决策 6b), 同名单测约定=函数住哪文件测试住哪——装配序/装配容错/出生
+   意图/面向协议/拼装落地/世界层见证随迁本文件(原 test/town-mode.test.js
+   随模式壳退场, 撤卡/注册面断言归 test/mode-registry.test.js 撤卡收口段)。
+   装具加 town 系(vm 补装 town-map/assembly/prefab-kit 纯件提取挂全局+
+   ModeKit 记录桩; townBuild 等改走模块导出——TOWN_MAP 提取挂 Node 全局
+   仍须先于 require Dims, ADV_TOWN 加载期派生)。 */
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
@@ -44,22 +49,25 @@ Object.assign(globalThis, require('../js/adventure-spawn-core.js'));
 /* 上一层共享词法: ADV_PORTAL/advPortalFrame/advOreSpotsReset/advTryOre/advOreSpots */
 Object.assign(globalThis, require('../js/adventure-core.js'));
 
-/* ---------- town 维度装具(T-SEAM-01) ----------
-   town 行 build 闭包懒引 js/modes/town.js 的 townBuild(装配件不迁, T-SEAM-05 才
-   迁 dims-core)——vm 域补装 town 系真件(prefab-kit/assembly/map-core/mode, 装
-   载序= town-mode.test.js townBoot 同款); 引擎缝用桩(mkMode 透传 / ModeKit.spawn
-   记录 / loadScene/requestLock 空实现——town.js 顶层只调 mkMode, townBuild 末尾
-   调 ModeKit.spawn)。TOWN_MAP/townBuild 提取挂 Node 全局: ADV_TOWN 加载期派生
-   读 TOWN_MAP(必须在 require Dims 之前就位, nether/den 结构常量同款口径), 行
-   build 调用期经全局名解析 townBuild(CJS 域无经典 script 词法共享)。 */
-vm.runInContext('var mkMode = (cfg) => Object.assign({}, cfg); var ModeKit = {spawn() {}}; ' +
-  'var loadScene = () => {}; var requestLock = () => {};', eng);
-for (const f of ['js/prefab-kit.js', 'js/town-assembly-core.js', 'js/town-map-core.js', 'js/modes/town.js']) {
+/* ---------- town 维度装具(T-SEAM-05 迁入语境) ----------
+   town 建场六装配件已机械迁入 dims-core 维度段(ADR-0011 决策 6b), js/modes/
+   town.js 模式壳退场——vm 域只补装 town 系纯件(prefab-kit/assembly/map-core;
+   townBuildSteps/townAssemblyOps 由 townBuild 建场期经全局名消费, PrefabKit
+   由 townConsumeOp place op 消费); 模式壳四桩(mkMode/ModeKit/loadScene/
+   requestLock)随壳退场——出生断言走 CJS 域 ModeKit 记录桩(随迁段头部自带,
+   townBuild 调用期解析)。TOWN_MAP/townBuildSteps/townAssemblyOps/PrefabKit
+   提取挂 Node 全局: ADV_TOWN 加载期派生读 TOWN_MAP(必须在 require Dims 之前
+   就位, nether/den 结构常量同款口径), Dims.townBuild 建场期经全局名解析
+   townBuildSteps/townAssemblyOps/PrefabKit(CJS 域无经典 script 词法共享)。 */
+for (const f of ['js/prefab-kit.js', 'js/town-assembly-core.js', 'js/town-map-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
-Object.assign(globalThis, vm.runInContext('({TOWN_MAP, townBuild, townSpawnIntent, townYawOfFace})', eng));
+Object.assign(globalThis, vm.runInContext('({TOWN_MAP, townBuildSteps, townAssemblyOps, PrefabKit})', eng));
 
 const Dims = require('../js/adventure-dims-core.js');
+/* townSpawnIntent/townYawOfFace 同走模块导出上全局(既有行 spawn 值锚断言裸名解析;
+   六装配件已迁 dims-core, CJS 域从导出取——town.js 退场后 eng 域无此二名) */
+Object.assign(globalThis, {townSpawnIntent: Dims.townSpawnIntent, townYawOfFace: Dims.townYawOfFace});
 
 const snapshot = () => Buffer.from(vm.runInContext('worldCells', eng));
 const clearWorld = () => vm.runInContext('worldCells.fill(0)', eng);
@@ -198,18 +206,26 @@ test('town 行值锚: 暖亮白天四参/mood calm/恒白天/HUD 无怪/spawn �
       '行 spawn 与 townSpawnIntent 出生意图同值(两派生面同口径活锁)');
 });
 
-test('town 行 build=现有装配件链懒引(装配件不迁住 js/modes/town.js, T-SEAM-05 才迁)· 真实建场可执行', () => {
-  const t = Dims.advDimRow('town');
+test('town 行 build=本文件维度段直引(T-SEAM-05 六装配件机械迁入, 懒引 seam 消失)· 真实建场可执行', () => {
   const dimsSrc = fs.readFileSync(path.join(ROOT, 'js/adventure-dims-core.js'), 'utf8');
   for (const fn of ['TOWN_PHASE_ORDER', 'townYawOfFace', 'townSpawnIntent',
     'townAssemblyPhases', 'townConsumeOp', 'townBuild']) {
-    assert.ok(!(new RegExp('(function ' + fn + '\\b|const ' + fn + ' *=)').test(dimsSrc)),
-        '装配件「' + fn + '」不在 dims-core 定义(单份权威, 提前迁移=越 T-SEAM-05 节拍)');
+    assert.ok(new RegExp('(function ' + fn + '\\b|const ' + fn + ' *=)').test(dimsSrc),
+        '装配件「' + fn + '」在 dims-core 维度段定义(单份权威, 残留旧文件=迁移未收口)');
   }
-  assert.ok(dimsSrc.includes('townBuild()'), 'build 闭包懒引 townBuild(调用期解析)');
-  clearWorld();
-  t.build(); /* 真实执行: townAssemblyOps(townBuildSteps()) 逐 op 经 townConsumeOp + 出生收口 */
+  assert.ok(!fs.existsSync(path.join(ROOT, 'js/modes/town.js')),
+      'js/modes/town.js 已退场(模式壳名实消亡, 非模式文件残留违一文件一模块)');
+  assert.ok(/\btownBuild\(\);/.test(dimsSrc),
+      'build 闭包直引 townBuild(同文件词法解析, 跨文件懒引 seam 消失)');
+  for (const fn of ['townBuild', 'townSpawnIntent', 'townYawOfFace', 'townAssemblyPhases',
+    'townConsumeOp']) {
+    assert.strictEqual(typeof Dims[fn], 'function', '模块导出可驱动: ' + fn + '(同名单测约定)');
+  }
+  runTownBuild();
   assert.ok(snapshot().some((v) => v !== 0), 'town 建场真实写入世界(非空操作)');
+  assert.strictEqual(modeSpawns.length, 1, '出生恰一次(锚点段收口, 机械迁零语义改动)');
+  assert.deepStrictEqual(modeSpawns[0], {x: 79, y: 25, z: 112, yaw: 0},
+      '出生四元组=spawn 锚派生(南主路 79,112 · 站立面 y=25 · 面北 yaw 0)');
 });
 
 test('ADV_TOWN 单份权威: core/spawnAnchor 引用 TOWN_MAP 同对象(不抄第二份坐标)· 定义段零坐标字面量', () => {
@@ -294,4 +310,284 @@ test('加载序: town-map-core 上移至 adventure-maps-core 之后 adventure-di
 test('AudioRegistry mood:calm 曲目在册(town 行 mood 键有曲可依, 残留#1 核对不阻塞)', () => {
   const src = fs.readFileSync(path.join(ROOT, 'js/audio-registry.js'), 'utf8');
   assert.ok(/mood:\s*'calm'/.test(src), 'AudioRegistry 存在 calm 曲目(缺曲才登记音频资产线补曲票)');
+});
+
+/* ============ town 建场世界层(T-SEAM-05 断言随迁, 原 test/town-mode.test.js) ============
+   六装配件机械迁入维度段(T-SEAM-05, ADR-0011 决策 6b), 同名单测约定: 函数住哪
+   文件测试住哪——装配序/装配容错/出生意图/面向协议与世界层实拼见证随迁本文件;
+   驱动方式改经模块导出(Dims.townBuild 直引, 不再走模式壳 TownMode.init 三步链),
+   出生断言走 ModeKit 记录桩(CJS 全局, townBuild 调用期解析)。模式壳/入口卡/
+   注册面断言随壳作废不随迁(撤卡三件套, mode-registry.test.js 撤卡收口段接管);
+   保留件(town-map/assembly/interact-core)规格归各自同名单测, 不在此重复。 */
+
+/* 建场驱动: 清场+清出生记录+Dims.townBuild()(直引维度段, 内含锚点段出生收口) */
+const modeSpawns = [];
+globalThis.ModeKit = {spawn: (x, y, z, o) => modeSpawns.push({x, y, z, yaw: (o && o.yaw) || 0})};
+const runTownBuild = () => {
+  clearWorld();
+  modeSpawns.length = 0;
+  Dims.townBuild();
+};
+/* 世界层探针(原 town-mode.test.js 同款): 逐格见证走 eng 域 getBlock,
+   界域扫描 vm 内跑(万格级免逐格跨界), 非空计数走 snapshot Buffer */
+const cell = (x, y, z) => api.getBlock(x, y, z);
+const scanPair = (x1, x2, y1, y2, z1, z2, idA, idB) => vm.runInContext(
+    '(() => { let a = 0; let b = 0;' +
+    ' for (let x = ' + x1 + '; x <= ' + x2 + '; x++)' +
+    ' for (let y = ' + y1 + '; y <= ' + y2 + '; y++)' +
+    ' for (let z = ' + z1 + '; z <= ' + z2 + '; z++) { const v = getBlock(x, y, z);' +
+    ' if (v === ' + idA + ') a++; if (v === ' + idB + ') b++; } return a + "/" + b; })()', eng);
+const blockCount = () => {
+  const buf = snapshot();
+  let n = 0;
+  for (let i = 0; i < buf.length; i++) if (buf[i] !== 0) n++;
+  return n;
+};
+const nonAir = (x1, x2, y1, y2, z1, z2) => {
+  const zeros = Number(scanPair(x1, x2, y1, y2, z1, z2, 0, 0).split('/')[0]);
+  const vol = (x2 - x1 + 1) * (y2 - y1 + 1) * (z2 - z1 + 1);
+  return vol - zeros; /* 非零格数 */
+};
+
+test('装配序(T-SEAM-05 迁入): townAssemblyPhases 按 §5.1.6 建场 phase 全序分组消费 townBuildSteps', () => {
+  const groups = Dims.townAssemblyPhases(vm.runInContext('townBuildSteps()', eng));
+  assert.ok(Array.isArray(groups) && groups.length > 0, '分组结果非空(六段清单都有货)');
+  /* 权威序 = 架构 §5.1.6 建场次序(地表→远景→路网→建筑→散布→锚点),
+     独立字面量, 不引用实现常量(反同义反复) */
+  const order = ['ground', 'backdrop', 'road', 'prefab', 'scatter', 'anchor'];
+  assert.deepStrictEqual([...groups].map((g) => g.phase), order,
+      'phase 分组全序=建场次序(每段一组, 次序即装配纪律)');
+  /* 每组步骤与源清单保序一致(无增删无重排; 同型多实例如 stall-canopy×3
+     合法——布局权威钉脚印不交, 不钉 id 唯一) */
+  const srcKey = {ground: 'ground', backdrop: 'backdrop', road: 'roads',
+    prefab: 'prefab', scatter: 'scatter', anchor: 'anchors'};
+  let total = 0;
+  for (const g of groups) {
+    total += [...g.steps].length;
+    for (const s of [...g.steps]) assert.strictEqual(s.phase, g.phase, '步骤带本组 phase 标签');
+    const srcIds = [...vm.runInContext('TOWN_MAP.' + srcKey[g.phase] + '.map((e) => e.id)', eng)];
+    assert.deepStrictEqual([...g.steps].map((s) => s.id), srcIds,
+        g.phase + ' 段步骤与源清单 id 序列保序一致');
+  }
+  assert.strictEqual(total, [...vm.runInContext('townBuildSteps()', eng)].length,
+      '步骤总数=源清单和(无增删)');
+  /* 消费只读: 分组不得改动步骤表内容(纯派生, townBuildSteps 两次调用同构) */
+  const before = JSON.stringify([...vm.runInContext('townBuildSteps()', eng)]);
+  Dims.townAssemblyPhases(vm.runInContext('townBuildSteps()', eng));
+  const after = JSON.stringify([...vm.runInContext('townBuildSteps()', eng)]);
+  assert.strictEqual(after, before, '分组消费零副作用(源步骤表内容不变)');
+});
+
+test('装配容错(T-SEAM-05 迁入): 可空段不炸 — 空表得空组 · 乱序缺段表按权威序重整(每段保序)', () => {
+  assert.deepStrictEqual([...Dims.townAssemblyPhases([])], [],
+      '空步骤表 → 空分组不抛(某段可整段为空)');
+  /* 乱序+缺段输入: 输出只保留在段, 但组序=权威序(驱动序, 不信输入序);
+     段内保持输入相对次序(同段条目间无重排) */
+  const partial = [
+    {phase: 'road', id: 'main-south'},
+    {phase: 'anchor', id: 'spawn'},
+    {phase: 'ground', id: 'plaza-paving'},
+    {phase: 'road', id: 'lane-west'},
+  ];
+  const groups = Dims.townAssemblyPhases(partial);
+  assert.deepStrictEqual(groups.map((g) => g.phase), ['ground', 'road', 'anchor'],
+      '缺段表: 只保留在段且组序=权威序(ground→road→anchor)');
+  const road = groups.find((g) => g.phase === 'road');
+  assert.deepStrictEqual(road.steps.map((s) => s.id), ['main-south', 'lane-west'],
+      '同段条目保输入相对次序(road 两步不重排)');
+});
+
+test('出生意图(T-SEAM-05 迁入): townSpawnIntent 派生自 spawn 锚点 — 站立面 y+1 · yaw=0 北望广场', () => {
+  const it = Dims.townSpawnIntent();
+  /* 权威字面 = TOWN_MAP.anchors spawn 锚点(布局权威已钉
+     {x:79, y:24, z:112, face:'north'}), 独立写死防同义反复 */
+  assert.strictEqual(it.x, 79, '出生 x = spawn 锚点 x(79, 南主路上)');
+  assert.strictEqual(it.z, 112, '出生 z = spawn 锚点 z(112)');
+  assert.strictEqual(it.y, 25, '站立面 = 锚点 y+1(基高 24 上站 25, tank-range groundY+1 先例)');
+  assert.strictEqual(it.yaw, 0, 'yaw=0: 前向 -Z=北(引擎 camera-rig/移动同式), 面向广场');
+  /* 意图关系: 面北时广场全域与钟塔锚都在前方(§4.3 出生意图/回望走廊) */
+  assert.ok(TOWN_MAP.plaza.z2 < it.z, '广场全域在出生点前方(北望广场意图成立)');
+  const tower = TOWN_MAP.anchors.find((a) => a.id === 'bell-tower');
+  assert.ok(tower.z < it.z, '钟塔锚在出生点前方(回望钟塔走廊尽头)');
+});
+
+test('面向协议(T-SEAM-05 迁入): townYawOfFace 四正交 face → 前向向量(north=-Z · south=+Z · east=+X · west=-X)', () => {
+  const want = {north: [0, -1], south: [0, 1], east: [1, 0], west: [-1, 0]};
+  for (const [face, pair] of Object.entries(want)) {
+    const yaw = Dims.townYawOfFace(face);
+    assert.strictEqual(typeof yaw, 'number', face + ' → yaw 数值(不炸不 undefined)');
+    const gx = -Math.sin(yaw);
+    const gz = -Math.cos(yaw); /* 前向公式=引擎 camera-rig lookDir/移动同式 */
+    assert.ok(Math.abs(gx - pair[0]) < 1e-9 && Math.abs(gz - pair[1]) < 1e-9,
+        face + ' 前向应为(' + pair[0] + ',' + pair[1] + '), 实得(' + gx.toFixed(3) + ',' +
+        gz.toFixed(3) + ')');
+  }
+});
+
+test('拼装落地(T-SEAM-05 迁入): 规划器/执行器在场 + townBuild 全链实拼世界非空(基底 ≥ 核心区体量)', () => {
+  assert.strictEqual(typeof vm.runInContext('townAssemblyOps', eng), 'function',
+      '缺 js/town-assembly-core.js 的 townAssemblyOps(规划器: townBuildSteps → op 列表)');
+  assert.strictEqual(typeof Dims.townConsumeOp, 'function',
+      '缺 dims-core 维度段的 townConsumeOp(执行器: op → 引擎唯一触点面)');
+  runTownBuild();
+  const blocks = blockCount();
+  assert.ok(blocks > 200000,
+      '装配后世界非空且达基底体量(基底三层 ≈ 23 万格, 五段 no-op 骨架期恒 0), 实得 ' + blocks);
+  assert.strictEqual(modeSpawns.length, 1, '拼装全程出生恰一次(锚点段纪律不变)');
+});
+
+test('地表与路网(T-SEAM-05 迁入): 基底三层恰覆核心区 · 广场/农田/路网对齐布局(锚点立地全覆盖)', () => {
+  runTownBuild();
+  assert.strictEqual(cell(35, 20, 35), 3, '基底 deep 石3 @(35,20,35)');
+  assert.strictEqual(cell(35, 23, 35), 2, '基底 filler 土2 @(35,23,35)');
+  assert.strictEqual(cell(35, 24, 35), 1, '基底 surface 草1 @(35,24,35)');
+  assert.strictEqual(cell(32, 24, 32), 1, '核心区角 surface 恰覆(96×96 居中)');
+  assert.strictEqual(cell(127, 24, 127), 1, '核心区对角 surface 恰覆');
+  assert.strictEqual(cell(31, 24, 31), 0, '核心区外零基底(远景带无立地的一部分)');
+  assert.strictEqual(cell(79, 24, 79), 58, '广场铺装 58(28×28 与核心区同心)');
+  assert.strictEqual(cell(70, 24, 50), 41, '农田 A 耕地 41');
+  assert.strictEqual(cell(84, 24, 50), 41, '农田 B 耕地 41');
+  assert.strictEqual(cell(79, 24, 100), 58, '南主路 58(5 宽)');
+  assert.strictEqual(cell(60, 24, 63), 58, '北主路 58');
+  assert.strictEqual(cell(110, 24, 86), 58, '东主路 58');
+  assert.strictEqual(cell(65, 24, 79), 4, '西支路 4(3 宽)');
+  assert.strictEqual(cell(55, 24, 50), 4, '田园支路 4');
+  assert.strictEqual(cell(60, 24, 95), 4, '储藏支路 4');
+  for (const a of TOWN_MAP.anchors) {
+    assert.ok(cell(a.x, 24, a.z) !== 0,
+        '锚点 ' + a.id + ' 立地有面(基底先铺/地表后写, 站立面由覆盖保证)');
+  }
+});
+
+test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/三摊位实拼格位(集中注入材质落世界)', () => {
+  runTownBuild();
+  /* 钟塔: 基底先铺/建筑后写的写者赢见证 + 结构五件 */
+  assert.strictEqual(cell(79, 24, 72), 58,
+      '塔基 58 @(79,24,72)(surface 草1 被后写者赢覆写——序即几何)');
+  assert.strictEqual(cell(78, 25, 71), 5, '塔柱 5 @(78,25,71)');
+  assert.strictEqual(cell(79, 25, 71), 5, '塔身中线竖缝 trim 5 @(79,25,71)');
+  assert.strictEqual(cell(78, 28, 72), 18, '塔窗玻璃 18 @(78,28,72)');
+  for (const x of [79, 80]) {
+    for (const y of [32, 33]) {
+      for (const z of [72, 73]) {
+        assert.strictEqual(cell(x, y, z), 38, '钟体 2×2×2 全 38 @(' + x + ',' + y + ',' + z + ')');
+      }
+    }
+  }
+  assert.strictEqual(cell(77, 34, 71), 16, '檐下旗 16 @(77,34,71)');
+  assert.strictEqual(cell(82, 34, 73), 16, '檐下旗 16 @(82,34,73)');
+  assert.strictEqual(cell(79, 35, 72), 9, '顶饰红砖 9 @(79,35,72)');
+  assert.strictEqual(cell(79, 38, 72), 5, '塔尖 trim 5 @(79,38,72)');
+  /* Lava Chicken 店(face=west 旋转): 招牌/展示窗/遮檐/门洞敞开 */
+  assert.strictEqual(cell(106, 31, 78), 38, '店招暖金 38 @(106,31,78)');
+  assert.strictEqual(cell(106, 31, 79), 38, '店招暖金 38 @(106,31,79)');
+  assert.strictEqual(cell(106, 31, 76), 15, '店招底板天蓝 15 @(106,31,76)');
+  assert.strictEqual(cell(107, 26, 78), 0, '店门洞白天敞开 @(107,26,78)');
+  assert.strictEqual(cell(107, 27, 76), 19, '展示窗灯块暖光 19 @(107,27,76)');
+  assert.strictEqual(cell(106, 29, 74), 52, '前廊遮檐羊毛 52 @(106,29,74)');
+  /* 风车塔(face=south 恒等): 轴/双臂叶/门洞/小窗 */
+  assert.strictEqual(cell(56, 32, 43), 12, '风车轴 12 @(56,32,43)');
+  assert.strictEqual(cell(56, 32, 44), 12, '风车轴 12 @(56,32,44)');
+  assert.strictEqual(cell(56, 32, 45), 12, '风车轴 12 @(56,32,45)');
+  assert.strictEqual(cell(56, 33, 45), 52, '风车上臂叶 52 @(56,33,45)');
+  assert.strictEqual(cell(56, 31, 45), 52, '风车下臂叶 52 @(56,31,45)');
+  assert.strictEqual(cell(56, 24, 42), 3, '风车基座石 3 @(56,24,42)');
+  assert.strictEqual(cell(56, 25, 42), 6, '风车塔身木板 6 @(56,25,42)');
+  assert.strictEqual(cell(56, 25, 44), 0, '风车门洞 @(56,25,44)');
+  assert.strictEqual(cell(56, 28, 44), 5, '风车小窗 trim @(56,28,44)');
+  /* 双民居: cottage(face=south)/loft(face=north 旋转)门叶+屋顶+阳台 */
+  assert.strictEqual(cell(43, 25, 74), 6, 'cottage 门叶 6 @(43,25,74)');
+  assert.strictEqual(cell(43, 26, 74), 6, 'cottage 门叶 6 @(43,26,74)');
+  assert.strictEqual(cell(42, 29, 68), 3, 'cottage 装饰烟囱石 3 @(42,29,68)');
+  assert.strictEqual(cell(44, 28, 71), 9, 'cottage 陶橙顶 9 @(44,28,71)');
+  assert.strictEqual(cell(43, 25, 82), 6, 'loft 门叶 6 @(43,25,82)');
+  assert.strictEqual(cell(43, 26, 82), 6, 'loft 门叶 6 @(43,26,82)');
+  assert.strictEqual(cell(42, 32, 86), 9, 'loft 高屋面 9 @(42,32,86)');
+  assert.strictEqual(cell(40, 28, 82), 5, 'loft 挑阳台木 5 @(40,28,82)');
+  /* 储藏小屋(face=east 旋转): 门叶+基座 */
+  assert.strictEqual(cell(51, 25, 98), 6, 'stash 门叶 6 @(51,25,98)');
+  assert.strictEqual(cell(51, 26, 98), 6, 'stash 门叶 6 @(51,26,98)');
+  assert.strictEqual(cell(49, 24, 98), 3, 'stash 基座石 3 @(49,24,98)');
+  /* 埋室(face=east): 室底/室腔/家具/顶盖/出路 */
+  assert.strictEqual(cell(57, 18, 99), 3, '埋室室底石 3 @(57,18,99)');
+  assert.strictEqual(cell(57, 19, 99), 0, '埋室室腔掏空 @(57,19,99)');
+  assert.strictEqual(cell(58, 19, 99), 0, '埋室室腔掏空 @(58,19,99)');
+  assert.strictEqual(cell(57, 20, 99), 51, '埋室宝箱 51 @(57,20,99)');
+  assert.strictEqual(cell(56, 19, 98), 48, '埋室火把 48 @(56,19,98)');
+  assert.strictEqual(cell(57, 22, 99), 3, '埋室顶盖石 3 @(57,22,99)');
+  assert.strictEqual(cell(60, 22, 99), 2, '顶盖域外仍是 filler 2 @(60,22,99)(室形有界)');
+  assert.strictEqual(cell(64, 23, 99), 0, '埋室出路末级净空 @(64,23,99)');
+  assert.strictEqual(cell(65, 24, 99), 1,
+      'exit 无 landing → 地表草1 原样 @(65,24,99)(执行器不得发明 v 没有的几何)');
+  /* 三摊位(theme 布幔映射引擎侧单源): 顶棚色三样 + 货品位 */
+  assert.strictEqual(cell(70, 27, 68), 52, '面包摊(md)顶 52 @(70,27,68)');
+  assert.strictEqual(cell(89, 26, 75), 16, '花摊(sm)顶 16 @(89,26,75)');
+  assert.strictEqual(cell(71, 27, 90), 15, '果摊(md)顶 15 @(71,27,90)');
+  assert.strictEqual(cell(69, 25, 67), 38, '面包摊货品 38 @(69,25,67)');
+  assert.strictEqual(cell(90, 25, 75), 38, '花摊货品 38 @(90,25,75)');
+  assert.strictEqual(cell(72, 25, 91), 38, '果摊货品 38 @(72,25,91)');
+});
+
+test('植被与道具(T-SEAM-05 迁入): 樱花=SceneKit 树+樱粉覆写(两型干高冠域全覆盖) · 灌木绿冠 · 灯柱/路标', () => {
+  runTownBuild();
+  /* 樱花 A(广场): 立地铺装 58, 干基 5, 冠盒 y[27,30] 内 16 有余且 7 清零 */
+  assert.strictEqual(cell(68, 24, 88), 58, '广场樱花立地=广场铺装 @(68,24,88)');
+  assert.strictEqual(cell(68, 25, 88), 5, '樱花干基 5 @(68,25,88)');
+  let stat = scanPair(66, 70, 27, 30, 86, 90, 16, 7).split('/').map(Number);
+  assert.ok(stat[0] > 0, '樱花 A 冠盒樱粉 16 有 ' + stat[0] + ' 格(覆写生效)');
+  assert.strictEqual(stat[1], 0, '樱花 A 冠盒残留绿叶 7 = ' + stat[1] + '(覆写必须清零)');
+  stat = scanPair(65, 71, 26, 32, 85, 91, 16, 7).split('/').map(Number);
+  assert.strictEqual(stat[1], 0, '樱花 A 宽域残留 7 = ' + stat[1] + '(冠盒须覆两型干高全冠域)');
+  /* 樱花 B(田园): 立地草 1 */
+  assert.strictEqual(cell(78, 24, 52), 1, '田园樱花立地=草 @(78,24,52)');
+  assert.strictEqual(cell(78, 25, 52), 5, '樱花干基 5 @(78,25,52)');
+  stat = scanPair(76, 80, 27, 30, 50, 54, 16, 7).split('/').map(Number);
+  assert.ok(stat[0] > 0, '樱花 B 冠盒樱粉 16 有 ' + stat[0] + ' 格');
+  assert.strictEqual(stat[1], 0, '樱花 B 冠盒残留 7 = ' + stat[1]);
+  stat = scanPair(75, 81, 26, 32, 49, 55, 16, 7).split('/').map(Number);
+  assert.strictEqual(stat[1], 0, '樱花 B 宽域残留 7 = ' + stat[1]);
+  /* 灌木: SceneKit.scrub 绿冠保留 7(不染) */
+  assert.strictEqual(cell(60, 25, 70), 5, '灌木干 5 @(60,25,70)');
+  stat = scanPair(59, 61, 25, 28, 69, 71, 16, 7).split('/').map(Number);
+  assert.ok(stat[1] > 0, '灌木 A 冠含绿叶 7 有 ' + stat[1] + ' 格(田园绿植不覆写)');
+  stat = scanPair(97, 99, 25, 28, 91, 93, 16, 7).split('/').map(Number);
+  assert.ok(stat[1] > 0, '灌木 B 冠含绿叶 7 有 ' + stat[1] + ' 格');
+  /* 灯柱与路标(props fill) */
+  for (const y of [25, 26, 27]) assert.strictEqual(cell(77, y, 92), 5, '广场灯柱 5 @(' + y + ')');
+  assert.strictEqual(cell(77, 28, 92), 19, '广场灯块 19 @(77,28,92)');
+  assert.strictEqual(cell(64, 25, 67), 5, '西灯柱 5 @(64,25,67)');
+  assert.strictEqual(cell(64, 28, 67), 19, '西灯块 19 @(64,28,67)');
+  assert.strictEqual(cell(73, 25, 67), 5, '广场路标柱 5 @(73,25,67)');
+  assert.strictEqual(cell(73, 26, 67), 5, '广场路标柱 5 @(73,26,67)');
+  assert.strictEqual(cell(73, 27, 67), 6, '广场路牌 6 @(73,27,67)');
+  assert.strictEqual(cell(50, 25, 95), 5, 'stash 路标柱 5 @(50,25,95)');
+  assert.strictEqual(cell(50, 27, 95), 6, 'stash 路牌 6 @(50,27,95)');
+});
+
+test('通廊与不可达(T-SEAM-05 迁入, 世界层): 出生回望走廊全空 · 空隙带无立地 · 山脊崖屋就位', () => {
+  runTownBuild();
+  assert.strictEqual(nonAir(78, 80, 25, 47, 76, 111), 0,
+      '出生回望走廊 x78..80×z76..111×y≥25 全空(塔足 z2=75 → 走廊 z1=76, §4.3 视线管理)');
+  assert.strictEqual(nonAir(0, 159, 0, 47, 29, 31), 0,
+      '空隙带 z29..31 全域零方块(山体 z2=28 · 核心区 z1=32 之间无立地=远景不可达执行见证)');
+  assert.strictEqual(cell(79, 44, 20), 3, '山脊石 3 @(79,44,20)(顶高过钟塔 38)');
+  assert.strictEqual(cell(80, 44, 20), 3, '山脊石 3 @(80,44,20)');
+  assert.strictEqual(cell(16, 24, 20), 3, '山体西缘 topY=24 @(16,24,20)');
+  assert.strictEqual(cell(16, 25, 20), 0, '西缘柱顶即止 @(16,25,20)');
+  assert.strictEqual(cell(143, 24, 20), 3, '山体东缘 topY=24 @(143,24,20)');
+  assert.strictEqual(cell(40, 36, 16), 6, '崖屋 A 底 6 @(40,36,16)');
+  assert.strictEqual(cell(40, 41, 16), 6, '崖屋 A 顶 6 @(40,41,16)');
+  assert.strictEqual(cell(112, 35, 20), 6, '崖屋 B 底 6 @(112,35,20)');
+  assert.strictEqual(cell(112, 40, 20), 6, '崖屋 B 顶 6 @(112,40,20)');
+});
+
+test('确定性(T-SEAM-05 迁入): 清场重建两遍 worldCells 全量逐格相等(装配全链确定性重放)', () => {
+  runTownBuild();
+  const blocks = blockCount();
+  assert.ok(blocks > 200000,
+      '首遍装配非空且达基底体量(空世界对空世界恒相等=假绿, 非空是本测前提), 实得 ' + blocks);
+  const snap1 = snapshot();
+  runTownBuild(); /* 清场 + townBuild 再来一遍 */
+  assert.deepStrictEqual(snap1, snapshot(),
+      '两次装配 worldCells 全等(零随机零墙钟: 散布走 SceneKit.rand/hashRand 确定性散列)');
 });

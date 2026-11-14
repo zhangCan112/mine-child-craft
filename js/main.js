@@ -24,7 +24,6 @@ const MODES = {
   tank: TankRangeMode,
   adventure: AdventureMode,
   showroom: ShowroomMode,
-  town: TownMode,
 };
 MODES.cur = null;
 /* 组合根接线: 触屏按钮像素图标解析器(button-icons.js 工坊)注入引擎

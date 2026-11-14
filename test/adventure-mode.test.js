@@ -80,20 +80,21 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
   'js/inventory-core.js', 'js/craft-core.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
-/* T-SEAM-02 town 系装具 vm 补装(dims-core.test.js 同款惯例): ADV_DIMS town 行
-   build 懒引 townBuild(装配件暂住 js/modes/town.js, T-SEAM-05 才迁)——到达测试
-   advSetDim('town') 经全局名解析消费; mkMode/ModeKit 空壳只通 vm 域, 不沾 CJS 域真实件 */
-const townShellStubs = 'var mkMode = (cfg) => Object.assign({}, cfg); var ModeKit = {spawn() {}}; ' +
-    'var loadScene = () => {}; var requestLock = () => {};'; /* 后两个空壳(T-SEAM-04 共存期
-    隔离用例驱动 TownMode.init 原链所需; eng 域除 init 外无人调用, 零串扰) */
-vm.runInContext(townShellStubs, eng, {filename: 'town-shell-stubs'});
+/* T-SEAM-05 town 系装具 vm 补装(dims-core.test.js 同款惯例): town 维度行 build
+   建场六装配件已机械迁入 dims-core(ADR-0011 决策 6b), js/modes/town.js 模式壳
+   退场——壳层 advSetDim('town') 到达测试经 :421 的 dims-core require 上全局的
+   townBuild(行 build 闭包同文件直引)驱动建场; 模式壳四桩(mkMode/ModeKit/
+   loadScene/requestLock)随壳退场(eng 域无消费方), town-map/assembly/interact
+   三纯件保留 eng 装载(townBuildSteps/townAssemblyOps 由 townBuild 建场期经
+   全局名消费, mkTownTargets 由壳层建机步经全局名消费) */
 for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js',
-  'js/town-interact-core.js', 'js/modes/town.js']) {
+  'js/town-interact-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
-Object.assign(globalThis, vm.runInContext('({TOWN_MAP, townBuild, mkTownTargets})', eng)); /* mkTownTargets
+Object.assign(globalThis, vm.runInContext(
+    '({TOWN_MAP, townBuildSteps, townAssemblyOps, mkTownTargets})', eng)); /* mkTownTargets
     提取 Node 全局(T-SEAM-04: 壳层 advSetDim 建机步经全局名消费 core 工厂, CJS 域调用期解析;
-    机器内部 townInteractRegistry 等闭包变量在 eng 域词法解析, 与 townBuild 提取同款) */
+    机器内部 townInteractRegistry 等闭包变量在 eng 域词法解析, 与 townBuildSteps/townAssemblyOps 提取同款) */
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, isOpaque, world, worldCells,
   SceneKit, PrefabKit,
@@ -5098,26 +5099,6 @@ test('T-SEAM-04 core 零改动守门: 壳层只消费 mkTownTargets 工厂 — �
   const coreTestSrc = fs.readFileSync(path.join(ROOT, 'test', 'town-interact-core.test.js'), 'utf8');
   assert.ok(coreTestSrc.indexOf('town-interact-core') >= 0,
       'core 同名单测指向不变(零改动基线)');
-});
-
-test('T-SEAM-04 共存期隔离: 壳层建机与模式壳旧接线两宿主互不触碰 — TownMode.init 原链照常建机(旧缝可进场, 05 才撤) · 引用与状态双向隔离(单模式激活事实)', () => {
-  mem.clear();
-  freshInit();
-  A.advSetDim('town');
-  const shellT = A.advTownState().targets;
-  assert.ok(shellT, '壳层进镇建机(前置)');
-  assert.strictEqual(vm.runInContext('townTargets', eng), undefined,
-      '模式壳 townTargets 不被壳层触碰(变量空间隔离: 壳层建机只写壳层运行态)');
-  vm.runInContext('TownMode.init()', eng); /* 模式壳原 init 三步链(loadScene stub→boot→requestLock stub) */
-  const modeT = vm.runInContext('townTargets', eng);
-  assert.ok(modeT, '模式壳 init 原链建机在位(townInteractBoot 旧接线不受扰, T-MAP-04 原样)');
-  assert.notStrictEqual(modeT, shellT, '两宿主机器互不共享(单模式激活事实, 引用隔离)');
-  assert.strictEqual(A.advTownState().targets, shellT, '壳层机器不被模式壳建机触碰(反向隔离)');
-  modeT.found('task:visit-stash');
-  assert.strictEqual(modeT.snapshot().states['task:visit-stash'], 'done', '模式壳机器状态留痕');
-  assert.strictEqual(shellT.snapshot().states['task:visit-stash'], 'active', '壳层机器状态不受模式壳影响(状态隔离)');
-  A.advSetDim('overworld');
-  AdventureMode.cleanup();
 });
 
 test('T-SEAM-04 登记回填: dimension-registry-design.md §5 不进表清单有 town 分支登记(票面授权的一句话新增, 设计权威新增条目非改写)', () => {
