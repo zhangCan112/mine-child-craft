@@ -13,7 +13,7 @@
    ② emit 接线: townUiTargetEvent(机器事件名, 载荷)→提示卡随 focus/found
       更新(adventure.js 建机步只换 emit 实参, 判据/触发线/建机弃机步不动);
    ③ TTS 重播入口: 喇叭钮在位+重播完整句+不改状态机状态(prebuild §2.4);
-   ④ 会话避让监听侧: townUiDialogEvent(dialog open/close)→非必要 HUD 收敛,
+   ④ 会话避让监听侧: dialogEvent(dialog open/close)→非必要 HUD 收敛,
       dialog 本体零依赖(T-UI-04 域, 本票只做监听 seam);
    ⑤ 真件集成链: 真 town-interact-core 机器+真 town-ui-core 核心+适配层
       三件在 vm 同笼, 机器 focus/found 事件经 emit 实接线驱动卡片全链。
@@ -299,6 +299,25 @@ test('会话避让: dialog open→L1/L2 收敛 L4 保持; close(continue)→恢�
   assert.ok(slotOf(rec.ui, 'town-hud-praise').children.length >= 1, '完成伴随表扬浮现');
 });
 
+test('会话中意图冻结(轻状态侧): idle-exploring 开会话→found 不弹表扬, focus 不开麦; close 后同事件照给(对照)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
+      '前置: 探索中轻状态(核心状态机对 idle-exploring 无 dialog-open 收敛边, 冻结责在装配)');
+  rec.ui.dialogEvent('town-ui/dialog/open', {npcId: 'V01'});
+  rec.ui.targetEvent('town-ui/target/focus', {target: TARGET});
+  assert.deepStrictEqual(rec.speech.spoken, [],
+      '会话中 focus 不开麦(dialog-spec §2.2 会话播报优先, B 通道独占)');
+  rec.ui.targetEvent('town-ui/target/update', {id: 'task:find-bread', state: 'done'});
+  assert.strictEqual(slotOf(rec.ui, 'town-hud-praise').children.length, 0,
+      '会话中 found 不弹全局表扬(prebuild §2.5 L3 冻结, 轻状态侧同样生效)');
+  rec.ui.dialogEvent('town-ui/dialog/close', {result: 'continue'});
+  rec.ui.targetEvent('town-ui/target/focus', {target: TARGET});
+  assert.deepStrictEqual(rec.speech.spoken, ['我们去钟塔吧！'],
+      'close 后同事件照给(对照: 冻结随会话解除, 非永久静音)');
+});
+
 /* ============================================================
    ⑤ 接线守门(adventure.js emit 缝最小 diff + index.html 装配序)
    ============================================================ */
@@ -315,15 +334,17 @@ test('接线守门: adventure.js 建机步只换 emit 实参(守卫式) — 判�
       '回程触发线原样(触发线不动)');
 });
 
-test('接线守门: index.html 装配序 — css/town.css 链接在位; js/town-ui.js 在 interact-core 之后 mode-registry 之前', () => {
+test('接线守门: index.html 装配序 — css/town.css 链接在位; 四点序 interact-core < ui-core < ui < registry', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   assert.ok(html.includes('css/town.css'), 'css/town.css 链接缺失');
-  assert.ok(html.includes('js/town-ui.js'), 'js/town-ui.js script 缺失');
   const atCore = html.indexOf('js/town-interact-core.js');
+  const atUiCore = html.indexOf('js/town-ui-core.js');
   const atUi = html.indexOf('js/town-ui.js');
   const atRegistry = html.indexOf('js/mode-registry.js');
-  assert.ok(atCore >= 0 && atCore < atUi && atUi < atRegistry,
-      '装载序: town-interact-core < town-ui < mode-registry(emit 面运行时解析, 序即依赖)');
+  assert.ok(atUiCore >= 0,
+      'js/town-ui-core.js script 缺失(浏览器共享词法里适配层双栖解析落 null 分支, 进镇 feed 即炸)');
+  assert.ok(atCore >= 0 && atCore < atUiCore && atUiCore < atUi && atUi < atRegistry,
+      '装载序四点: town-interact-core < town-ui-core < town-ui < mode-registry(序即依赖)');
 });
 
 /* ============================================================
@@ -333,12 +354,19 @@ test('接线守门: index.html 装配序 — css/town.css 链接在位; js/town-
 
 test('集成链: 真 mkTownTargets(emit 实接 townUiTargetEvent) focus/found 全链驱动卡片 — 机器零旁路直通 UI', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
-  /* vm 三件同笼: 机器真件(带 TOWN_MAP 依赖链)+核心真件+适配层工厂 */
-  const sandbox = {console: {log() {}, warn() {}, error() {}}};
-  const ctx = vm.createContext(sandbox);
-  for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
+  /* vm 同笼: 机器真件(带 TOWN_MAP 依赖链)+核心真件+适配层工厂。
+     装具按 index.html 真实装配序装载(装具与它声称守卫的浏览器装配一致):
+     集合=本票依赖闭包, 序=index.html 实际 script 序; html 缺席的件不装不补——
+     ui-core 缺席时适配层双栖解析落 null 分支→本链红, 守门不被自装补缺弄瞎 */
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const closure = ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
     'js/town-map-core.js', 'js/town-assembly-core.js', 'js/town-interact-core.js',
-    'js/town-ui-core.js', 'js/town-ui.js']) {
+    'js/town-ui-core.js', 'js/town-ui.js'];
+  const ordered = closure
+      .filter((f) => html.indexOf(f) >= 0)
+      .sort((a, b) => html.indexOf(a) - html.indexOf(b));
+  const ctx = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+  for (const f of ordered) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
   }
   /* 复刻 adventure.js 建机步形状: 机器 emit 实接 townUiTargetEvent(守卫同款) */
