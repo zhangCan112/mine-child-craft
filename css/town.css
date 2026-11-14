@@ -159,6 +159,102 @@
   transform: scale(0.97);
 }
 
+/* L2 方位指引徽章(T-UI-02, prebuild §3.1): 圆形徽章 64-80px 视口 clamp,
+   奶油底+深描边(L1 卡底板语言同源); 中心图标 32px, 顶部暖金指针扇形按
+   方位档离散转动(150ms 过渡承担低频插值, 动效窗 120-180ms 内取值) */
+.town-hud-pointer-badge {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: clamp(64px, 8vw, 80px);
+  height: clamp(64px, 8vw, 80px);
+  background: var(--town-hud-base);
+  border: 3px solid var(--town-hud-ink);
+  border-radius: 50%;
+  color: var(--town-hud-ink);
+}
+
+.town-hud-pointer-icon {
+  font-size: 32px;
+  line-height: 1;
+}
+
+.town-hud-pointer-arrow {
+  position: absolute;
+  inset-block-start: -13px;
+  inset-inline: 0;
+  margin: auto;
+  width: 0;
+  height: 0;
+  border-inline: 9px solid transparent;
+  border-block-end: 16px solid var(--town-hud-gold);
+  transform: rotate(0deg);
+  transition: transform 150ms ease-out;
+}
+
+/* 方位四档(指针离散转动: 前 0°/右 90°/后 180°/左 -90°) */
+.town-hud-pointer-badge.is-front .town-hud-pointer-arrow {
+  transform: rotate(0deg);
+}
+
+.town-hud-pointer-badge.is-right .town-hud-pointer-arrow {
+  transform: rotate(90deg);
+}
+
+.town-hud-pointer-badge.is-behind .town-hud-pointer-arrow {
+  transform: rotate(180deg);
+}
+
+.town-hud-pointer-badge.is-left .town-hud-pointer-arrow {
+  transform: rotate(-90deg);
+}
+
+/* 距离三档视觉差: far 单细环 / near 双环 / nearby 指针淡出+柔光呼吸 */
+.town-hud-pointer-badge.band-far {
+  box-shadow: 0 0 0 2px var(--town-hud-gold);
+}
+
+.town-hud-pointer-badge.band-near {
+  box-shadow:
+    0 0 0 2px var(--town-hud-gold),
+    0 0 0 5px var(--town-hud-gold-bright);
+}
+
+.town-hud-pointer-badge.band-nearby .town-hud-pointer-arrow {
+  opacity: 0.25; /* 就在附近: 指针淡出(目标即视野中心, 不再指引转向) */
+}
+
+.town-hud-pointer-badge.band-nearby {
+  /* 柔光呼吸(周期 1.6s ≥ 1.2s 慢节奏, 儿童化不催促) */
+  animation: town-hud-pointer-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes town-hud-pointer-breathe {
+  0%,
+  100% {
+    box-shadow:
+      0 0 0 2px var(--town-hud-gold),
+      0 0 10px 4px var(--town-hud-gold-bright);
+  }
+
+  50% {
+    box-shadow:
+      0 0 0 2px var(--town-hud-gold),
+      0 0 3px 1px var(--town-hud-gold-bright);
+  }
+}
+
+/* 目标态常显 / 回落态 50% 半透明弱提示(U5: 无目标仍指钟塔回家方位,
+   弱提示不抢注意力) */
+.town-hud-pointer-badge.is-target {
+  opacity: 1;
+}
+
+.town-hud-pointer-badge.is-fallback {
+  opacity: 0.5;
+}
+
 /* 减少动态偏好: 降级纯淡入淡出、停呼吸/位移动画(hud-spec §4.3 动效行) */
 @media (prefers-reduced-motion: reduce) {
   .town-hud-card,
@@ -168,5 +264,15 @@
     transition: none;
     animation: none;
     transform: none;
+  }
+
+  /* 指引器: town-hud-pointer-breathe 呼吸停(降级为静态柔光); 指针转动
+     过渡停, 方位 rotate 语义保留(不随 transform: none 抹掉) */
+  .town-hud-pointer-badge.band-nearby {
+    animation: none;
+  }
+
+  .town-hud-pointer-arrow {
+    transition: none;
   }
 }

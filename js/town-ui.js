@@ -4,16 +4,22 @@
    ------------------------------------------------------------
    一句话职责: 把 town-ui-core 的五态决策落到 #townHud 四槽 DOM——机器
    身份对账(进镇挂/离镇收/新机清)、emit 事件消费、TTS 意图与表扬节奏
-   落地、会话避让监听入口(L2 槽位本票只预留, 指引内容归 T-UI-02)。
-   interface: mkTownUi({doc, machineRef, speech, timer, showPage, raf})
-      → {targetEvent(name, payload), dialogEvent(name, payload), sync(),
-      start(), cardState(), root} · TownUi(自动实例) ·
-      townUiTargetEvent(name, payload)(adventure.js 建机步 emit 实参)
+   落地、L2 方位指引器(签名门控脏标刷新, 低频位姿采样驱动档位)、会话
+   避让监听入口。
+   interface: mkTownUi({doc, machineRef, poseRef, speech, timer, showPage,
+      raf}) → {targetEvent(name, payload), dialogEvent(name, payload),
+      sync(), start(), cardState(), root} · TownUi(自动实例) ·
+      townUiTargetEvent(name, payload)(adventure.js 建机步 emit 实参);
+      poseRef=位姿采样源({x, y, z, yaw}|null, 缺省惰性读 voxel 全局
+      pos/yaw, 沙盒安全)
    依赖(均经全局名, 调用期解析): town-ui-core.js 的 TOWN_UI_PARAMS/
-      townHudCardState/townHudDimming/townHintSentence(必须先装载; 经典
+      townHudCardState/townHudDimming/townHintSentence/townPointerTarget/
+      townPointerBand/townPointerHeading/townPointerSig(必须先装载; 经典
       script 共享词法直用, Node require 走 core 的 CJS 导出面解析);
       speech.js SpeechKit(缺省桩); modes/adventure.js AdventureMode.adv.
-      advTownState(缺省机器挂点, 闭包内惰性解析); 宿主 chrome showPage
+      advTownState(缺省机器挂点, 闭包内惰性解析); town-map-core.js
+      TOWN_MAP.anchors(bell-tower 回落锚, 惰性解析缺席降级零方位档);
+      voxel 全局 pos/yaw(缺省位姿源, typeof 守卫); 宿主 chrome showPage
       (缺省 null); index.html 装载序 town-interact-core → town-ui-core →
       本文件 → mode-registry。
    可测性声明: THREE 零依赖·DOM 惰性创建(mount 前零触碰, Node 可安全
@@ -38,7 +44,8 @@ const TOWN_CARD_ICONS = {
     共享词法全局名直用; Node require 沙盒无共享词法, 走 core 的 CJS 导出面。
     core 缺席(装载序破坏)→null: 工厂内防御回落, 不炸加载 ---------- */
 const TOWN_UI_CORE = typeof townHudCardState === 'function' ?
-  {TOWN_UI_PARAMS, townHudCardState, townHudDimming, townHintSentence} :
+  {TOWN_UI_PARAMS, townHudCardState, townHudDimming, townHintSentence,
+    townPointerTarget, townPointerBand, townPointerHeading, townPointerSig} :
   (typeof module !== 'undefined' && module.exports ?
     require('./town-ui-core.js') : null);
 
@@ -102,6 +109,13 @@ function mkTownUi(deps) {
     const st = AdventureMode.adv.advTownState();
     return st ? st.targets : null;
   });
+  /* 缺省位姿采样源: 惰性读 voxel 全局词法 pos/yaw(经典 script 共享环境;
+     Node/沙盒无此全局→null, typeof 守卫不炸)。低频采样(事件/对账挂点),
+     非每帧。 */
+  const poseRef = deps.poseRef || (() => {
+    if (typeof pos === 'undefined' || typeof yaw === 'undefined') return null;
+    return {x: pos.x, y: pos.y, z: pos.z, yaw};
+  });
   const speech = deps.speech ||
     (typeof SpeechKit !== 'undefined' ? SpeechKit : {speak() {}, cancel() {}});
   /* timer 缺省守卫 setTimeout(vm/boot 沙盒无定时器原语: 闭包创建即安全) */
@@ -122,6 +136,9 @@ function mkTownUi(deps) {
   let labelEl = null;
   let ttsBtn = null;
   let praiseEl = null;
+  let pointerBadge = null; /* L2 指引器徽章(mount 恒等创建, 刷新零重建) */
+  let pointerIcon = null;
+  let pointerArrow = null;
   let cur = 'hidden'; /* 核心态唯一事实(town-ui-core 状态机输出) */
   let prevMachine;
   let seenMachine = false; /* 首次对账按 m 有无动作(首帧不误判进场) */
@@ -164,7 +181,18 @@ function mkTownUi(deps) {
     card.appendChild(labelEl);
     card.appendChild(ttsBtn);
     pointerSlot = doc.createElement('div');
-    pointerSlot.classList.add('town-hud-pointer'); /* 槽位空留, T-UI-02 填充 */
+    pointerSlot.classList.add('town-hud-pointer'); /* 槽类名不变(显隐归 applyState) */
+    /* L2 指引器徽章三件: 槽内恰一徽章, 内含图标+指针(子件引用恒等,
+       后续刷新只换类名/图标文本, 绝不重建 DOM——签名门控在 refreshPointer) */
+    pointerBadge = doc.createElement('div');
+    pointerBadge.classList.add('town-hud-pointer-badge');
+    pointerIcon = doc.createElement('span');
+    pointerIcon.classList.add('town-hud-pointer-icon');
+    pointerArrow = doc.createElement('span');
+    pointerArrow.classList.add('town-hud-pointer-arrow');
+    pointerBadge.appendChild(pointerIcon);
+    pointerBadge.appendChild(pointerArrow);
+    pointerSlot.appendChild(pointerBadge);
     praiseSlot = doc.createElement('div');
     praiseSlot.classList.add('town-hud-praise');
     sysSlot = doc.createElement('div');
@@ -209,6 +237,62 @@ function mkTownUi(deps) {
     }
     /* TTS 重播钮仅 active/step-done 可见(prebuild §2.4 显隐行) */
     ttsBtn.hidden = !(cur === 'active' || cur === 'step-done');
+  }
+
+  /* ---------- L2 方位指引器(T-UI-02; prebuild §3.1-§3.4) ----------
+      签名门控脏标刷新: 签名不变零 DOM 操作(§3.4 无闪烁), 变了才落档位类
+      (互斥替换先摘后加); 几何输入缺一(无锚/无位姿)即零方位零距离档不伪造
+      方向。有效目标复用装配层既有事件记忆(focusTarget+doneIds): focus 且
+      非 done 才指, done 回落钟塔弱提示(U5); 全程零新增状态源。 */
+  const POINTER_MODE_CLASSES = ['is-target', 'is-fallback'];
+  const POINTER_HEADING_CLASSES =
+    ['is-front', 'is-left', 'is-right', 'is-behind'];
+  const POINTER_BAND_CLASSES = ['band-nearby', 'band-near', 'band-far'];
+  let pointerSig = null; /* 指引签名记忆(脏标对账; leaveTown 清零防串轮) */
+
+  /* 回落锚: TOWN_MAP bell-tower 锚(缺席→null, 沙盒降级为仅图标弱提示) */
+  function bellTowerAnchor() {
+    if (typeof TOWN_MAP === 'undefined' || !TOWN_MAP || !TOWN_MAP.anchors) {
+      return null;
+    }
+    const hit = TOWN_MAP.anchors.find((a) => a && a.id === 'bell-tower');
+    return hit ? {x: hit.x, y: hit.y, z: hit.z} : null;
+  }
+
+  function refreshPointer() {
+    if (!pointerBadge || !root || root.hidden) return;
+    const pose = poseRef();
+    const target = focusTarget && focusTarget.state !== 'done' &&
+      !doneIds.has(focusTarget.id) ? focusTarget : null;
+    const resolved =
+      TOWN_UI_CORE.townPointerTarget(target,
+          {fallback: TOWN_UI_CORE.TOWN_UI_PARAMS.U5_FALLBACK,
+            fallbackAnchor: bellTowerAnchor()});
+    let band = null;
+    let heading = null;
+    if (resolved.anchor && pose) {
+      const dx = resolved.anchor.x - pose.x;
+      const dz = resolved.anchor.z - pose.z;
+      heading = TOWN_UI_CORE.townPointerHeading(dx, dz, pose.yaw);
+      band = TOWN_UI_CORE.townPointerBand(
+          Math.sqrt(dx * dx + dz * dz), heading === 'front');
+    }
+    const sig = TOWN_UI_CORE.townPointerSig(
+      target ? target.id : null, resolved.mode, band, heading);
+    if (sig === pointerSig) return; /* 签名不变: 零 DOM 操作(同位姿采样) */
+    pointerSig = sig;
+    pointerBadge.classList.remove(...POINTER_MODE_CLASSES);
+    pointerBadge.classList.remove(...POINTER_HEADING_CLASSES);
+    pointerBadge.classList.remove(...POINTER_BAND_CLASSES);
+    if (resolved.mode === 'target' || resolved.mode === 'fallback') {
+      pointerBadge.classList.add('is-' + resolved.mode);
+    }
+    if (heading) pointerBadge.classList.add('is-' + heading);
+    if (band) pointerBadge.classList.add('band-' + band);
+    /* 图标只在变化时写文本(回落恒钟塔, 未知 iconKey→⭐ 同 L1 策略) */
+    const glyph = resolved.mode !== 'off' && resolved.iconKey ?
+      (TOWN_CARD_ICONS[resolved.iconKey] || '⭐') : '';
+    if (pointerIcon.textContent !== glyph) pointerIcon.textContent = glyph;
   }
 
   function praiseShow() {
@@ -271,6 +355,7 @@ function mkTownUi(deps) {
     focusTarget = null;
     /* 进场喂核心不依赖 DOM 成败(doc 缺席沙盒态照走, applyState 自守卫) */
     feed({type: 'enter'});
+    refreshPointer(); /* 进镇弱提示按当帧位姿重算(签名记忆已被离镇清零) */
   }
 
   function leaveTown() {
@@ -281,6 +366,19 @@ function mkTownUi(deps) {
     clearHandle(elapseH);
     praiseHideH = null;
     elapseH = null;
+    pointerSig = null; /* 指引签名记忆清零(再进新机重算零残留) */
+  }
+
+  /* 机器身份对账: 引用或快照等价(同一状态机两次 snapshot 拷贝恒等;
+     machineRef 允许返回等价新对象——幂等对账不误判换机, 位姿采样照走;
+     快照真变(focusId/states 迁移)即换机, 串轮复位语义不变) */
+  function sameMachine(a, b) {
+    if (a === b) return true;
+    if (!a || !b || typeof a.snapshot !== 'function' ||
+      typeof b.snapshot !== 'function') {
+      return false;
+    }
+    return JSON.stringify(a.snapshot()) === JSON.stringify(b.snapshot());
   }
 
   function sync() {
@@ -291,7 +389,10 @@ function mkTownUi(deps) {
       if (m) enterTown(); /* 首次对账即按 m 有无动作(root 未事件前保持 null) */
       return;
     }
-    if (m === prevMachine) return; /* 幂等零动作 */
+    if (sameMachine(m, prevMachine)) {
+      refreshPointer(); /* 幂等对账后低频位姿采样(签名门控: 同位姿零 DOM) */
+      return; /* 幂等零动作 */
+    }
     if (!m) {
       leaveTown();
     } else if (!prevMachine) {
@@ -310,10 +411,12 @@ function mkTownUi(deps) {
       if (!root) mount(); /* 先到事件先挂兜底竞态 */
       focusTarget = payload.target || null;
       feed({type: 'target-focus', target: payload.target || null});
+      refreshPointer(); /* 指引随 focus 换目标(签名门控零闪烁) */
     } else if (name === 'town-ui/target/update') {
       if (!root) mount();
       if (payload.state === 'done') doneIds.add(payload.id);
       feed({type: 'target-update', id: payload.id, state: payload.state});
+      refreshPointer(); /* done 目标不再指→回落钟塔(U5), 非-done 档位随动 */
     }
     /* 其他(含 town-ui/interact/*——T-UI-03 域): 静默忽略 */
   }

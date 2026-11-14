@@ -10,7 +10,12 @@
       townHudCardState(current, event) 纯函数(五态机: hidden/idle-exploring/
       active/step-done/dialog-dimmed + 副作用意图 tts-hint|praise-show) ·
       townHudDimming(cardState, dialogOpen) 纯函数(L1-L4 可见性档
-      normal|dim|hidden|frozen) · townHintSentence(label) 纯函数
+      normal|dim|hidden|frozen) · townHintSentence(label) 纯函数 ·
+      townPointerTarget(target, opts) 纯函数(指引目标解析三态: target|
+      fallback|off, 回落策略越域抛错) · townPointerBand(dist, inView, bands?)
+      纯函数(距离三档定性 nearby|near|far) · townPointerHeading(dx, dz, yaw)
+      纯函数(方位四离散 front|left|right|behind) · townPointerSig(targetId,
+      state, band, heading) 纯函数(指引签名, DOM 脏标对账载体)
    依赖: 零运行时依赖——不引用引擎件/件库/DOM/THREE 符号; 事件形状与参数
       默认值出自 docs/design/town-ui-hud-prebuild.md §1-§2/§5-§6 与
       docs/design/town-ui-entry-hud-spec.md §4/§8。
@@ -157,9 +162,74 @@ function townHintSentence(label) {
   return '我们去' + label + '吧！';
 }
 
+/* ---------- 指引目标解析(prebuild §5 函数 3; hud-spec §5.2 U4/U5) ----------
+    有目标原样透传(mode=target, 回落策略不抢活目标); null 按回落策略:
+    钟塔弱提示(U5 默认, 携注入的回落锚)或全收起(off)。核心零依赖: 锚恒
+    由装配层喂, 本层不查表。策略越域即抛(拼写域错静默吞=漂移温床,
+    townInteractRegistry 同款体例)。 */
+function townPointerTarget(target, opts) {
+  opts = opts || {};
+  if (opts.fallback !== 'belltower-fallback' && opts.fallback !== 'hidden') {
+    throw new Error('townPointerTarget: 回落策略越域「' + opts.fallback +
+      '」(合法域 belltower-fallback|hidden)');
+  }
+  if (target) {
+    /* 目标态: 图标/锚点原样透传(mode=target) */
+    return {iconKey: target.iconKey, anchor: target.anchor, mode: 'target'};
+  }
+  if (opts.fallback === 'belltower-fallback') {
+    /* 弱提示态: 恒指钟塔(回家/集合锚点语义), 锚=注入值 */
+    return {iconKey: 'belltower', anchor: opts.fallbackAnchor, mode: 'fallback'};
+  }
+  /* 全收起态: 零锚零图标(不伪造方向) */
+  return {iconKey: null, anchor: null, mode: 'off'};
+}
+
+/* ---------- 距离三档定性(prebuild §5 函数 4+§3.3 阈值口径) ----------
+    阈值缺省消费 TOWN_UI_PARAMS(P_D1_NEARBY/P_D2_NEAR), 可注入覆盖(PO
+    调参位); 「就在附近」需在视野角内(inView=false 时 nearby 不可达,
+    ≤P_D1 落 near); 边界恰等含等号; 儿童化三档不显数字。 */
+function townPointerBand(dist, inView, bands) {
+  bands = bands ||
+    {nearby: TOWN_UI_PARAMS.P_D1_NEARBY, near: TOWN_UI_PARAMS.P_D2_NEAR};
+  if (inView && dist <= bands.nearby) return 'nearby';
+  if (dist <= bands.near) return 'near';
+  return 'far';
+}
+
+/* ---------- 方位四离散(prebuild §5 函数 5; camera-rig lookDir 同式) ----------
+    前向=(-sin yaw, -cos yaw)(yaw=0 面北 -Z, voxel 同式); 相对角 ρ=
+    atan2(叉积, 点积)——|ρ|≤45° front(恰在前方含 ±45°), 45°<ρ≤135° right,
+    -135°≤ρ<-45° left, 其余(|ρ|>135°) behind(四扇全覆无间隙); 零位移
+    atan2(0,0)=0 归 front(踩锚即「在视野」, 配 dist=0 → nearby); yaw 任意
+    圈回绕由三角函数自然吸收。 */
+function townPointerHeading(dx, dz, yaw) {
+  /* 零位移显式归 front(踩锚即「在视野」): atan2(±0, -0) 按 IEEE 语义
+     会返回 ±π(负零点积), 不走下方通用口径 */
+  if (dx === 0 && dz === 0) return 'front';
+  const fx = -Math.sin(yaw);
+  const fz = -Math.cos(yaw);
+  const rho = Math.atan2(fx * dz - fz * dx, fx * dx + fz * dz);
+  const QUARTER = Math.PI / 4;
+  const THREE_EIGHTHS = (3 * Math.PI) / 4;
+  if (Math.abs(rho) <= QUARTER) return 'front';
+  if (rho > QUARTER && rho <= THREE_EIGHTHS) return 'right';
+  if (rho < -QUARTER && rho >= -THREE_EIGHTHS) return 'left';
+  return 'behind';
+}
+
+/* ---------- 指引签名(prebuild §5 函数 6+§3.4 脏标口径) ----------
+    四分量(targetId|state|距离档|方位档)→签名字符串: 同参恒等, 任一分量
+    变则变; null 目标 id 可签名(回落态同样进对账)。适配层拿它对账, 签名
+    不变零 DOM 操作(无闪烁承诺 core 半边, DOM 半边归 town-ui.js)。 */
+function townPointerSig(targetId, state, band, heading) {
+  return JSON.stringify([targetId, state, band, heading]);
+}
+
 /* ---------- CJS 导出面(仅 Node require 双栖用: 适配层 js/town-ui.js 在
     Node 沙盒经此解析 core; 浏览器经典 script 走共享词法环境不走此支) ---------- */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {TOWN_UI_PARAMS, townHudCardState, townHudDimming,
-    townHintSentence};
+    townHintSentence, townPointerTarget, townPointerBand, townPointerHeading,
+    townPointerSig};
 }
