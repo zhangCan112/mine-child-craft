@@ -327,6 +327,10 @@ test('远景: 拱形山体必做横贯 · 崖屋 1-2 栋 · 神庙默认不落 �
   const mts = t.backdrop.filter((b) => b.kind === 'mountain');
   assert.strictEqual(mts.length, 1, '拱形山体恰一处(R-01 必做)');
   const m = mts[0];
+  /* 视觉重制 §3 B(v2 #8): bands 字段显式启用五段分色(派生侧基段石/苔/
+     z27..28 草坡/石/雪, 空段跳笔; 无 bands 旧单色逐柱单笔)——数据侧
+     字段门控断言, 分段几何归派生, 这里钉「开关已开」 */
+  assert.strictEqual(m.bands, true, '山体 bands:true(五段分色启用, v2 #8)');
   assert.ok(spanOf(m.x1, m.x2) >= t.core.size, '山体横贯(宽 ≥ 核心区宽, 聚落背屏)');
   assert.ok(m.z2 < t.core.z1, '山体在核心区外北侧(不可达带)');
   assert.ok(m.topY <= c.WORLD_H - 1, '山体顶 ⊆ 世界高');
@@ -336,6 +340,11 @@ test('远景: 拱形山体必做横贯 · 崖屋 1-2 栋 · 神庙默认不落 �
   assert.ok(m.topY > tb.y2, '山体剪影高过钟塔(背景层次压过竖向地标, §3.3)');
   const cliffs = t.backdrop.filter((b) => b.kind === 'cliff-home');
   assert.ok(cliffs.length >= 1 && cliffs.length <= 2, '崖顶房屋 1-2 栋(R-02/M7 默认)');
+  /* v2 #8 崖屋重皮: style:'v2'(白墙 52+角柱 17+窗 18+橙顶 9 双层+顶缘灯 19,
+     数据 baseY/topY 差恒 6 不变, 几何归派生)——数据侧字段门控断言 */
+  for (const h of cliffs) {
+    assert.strictEqual(h.style, 'v2', '崖屋 style:v2(重皮启用, ' + h.id + ')');
+  }
   for (const h of cliffs) {
     assert.ok(h.x >= m.x1 && h.x <= m.x2 && h.z >= m.z1 && h.z <= m.z2,
         '崖屋落在山体域内(' + h.id + ')');

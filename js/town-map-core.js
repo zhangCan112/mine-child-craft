@@ -134,9 +134,12 @@ const TOWN_MAP = {
       张角 ~4°)两侧 ~14° 不被塔影吞; 白墙 52/17+橙顶 9+19 灯点的造型
       字段走 assembly 侧(见交付报告新 kind 需求表)。 */
   backdrop: [
-    {id: 'mountain-arch', kind: 'mountain', x1: 16, z1: 8, x2: 143, z2: 28, topY: 44, reachable: false},
-    {id: 'cliff-home-a', kind: 'cliff-home', x: 56, z: 22, baseY: 41, topY: 47, reachable: false},
-    {id: 'cliff-home-b', kind: 'cliff-home', x: 103, z: 22, baseY: 41, topY: 47, reachable: false},
+    {id: 'mountain-arch', kind: 'mountain', x1: 16, z1: 8, x2: 143, z2: 28, topY: 44,
+      bands: true, reachable: false},
+    {id: 'cliff-home-a', kind: 'cliff-home', x: 56, z: 22, baseY: 41, topY: 47,
+      style: 'v2', reachable: false},
+    {id: 'cliff-home-b', kind: 'cliff-home', x: 103, z: 22, baseY: 41, topY: 47,
+      style: 'v2', reachable: false},
     /* 山缘植被(v2 #7): 低柱段(x 列顶 ≤27, 东西两缘)墙顶矮丛×4+苔石×3——
         top=脚下表面格=该列拱形列顶(装配侧合脊值, 17/18→25, 19→26,
         21→27, 139→26, 141→25, 143→24); z 带压在 24..28 山体域内南缘,
