@@ -237,6 +237,12 @@ function mkTownUi(deps) {
     const out = TOWN_UI_CORE.townHudCardState(cur, ev);
     cur = out.state;
     applyState();
+    /* 会话中意图冻结(轻状态侧): 核心状态机对 idle-exploring 无 dialog-open
+       收敛边, tts-hint/praise-show 的落地闸由装配层承担——dialogOpen=true
+       时意图照收但不落地(不开麦不弹表扬不换重播句, dialog-spec §2.2 会话
+       播报优先); close 先摘闸再喂(dialogEvent), close 自身 done+taskRef 的
+       落完成+表扬照给(会话避让测试锁死), 冻结随会话解除非永久静音 */
+    if (dialogOpen) return;
     for (const intent of out.intents) {
       if (intent === 'tts-hint') {
         /* cancel-then-speak 统一口径(SpeechKit 单通道不重叠抢话) */
