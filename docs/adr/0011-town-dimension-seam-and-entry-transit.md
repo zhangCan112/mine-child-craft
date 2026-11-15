@@ -49,3 +49,22 @@ PO 2026-11-13 指令（原文见 `.scratch/handoffs/2026-11-13-urgent-po-change-
 - 维度注册表契约：[`docs/dimension-registry-design.md`](../dimension-registry-design.md)（§2 行字段契约／§5 不进表清单／§6 新维度施工单；D8 维度词汇随迁先例）。
 - PO 指令与停工令：`.scratch/handoffs/2026-11-13-urgent-po-change-detach-town-entry.md`（不回滚边界原文）。
 - 既有 seam 先例：[`docs/world-edge-map.md`](../world-edge-map.md)（T8 拍板与东向观感收尾的取代注记）· [ADR-0010](0010-town-prefab-ingest-and-material-authority.md)（蓝图 sole authority——TOWN_MAP/PrefabKit 工件保留的契约依据）。
+
+## 增补（2026-11-15）：两项机制破例（PO 亲裁，想法征集立项批）
+
+PO 在想法征集立项时亲裁两项破例（立项派单原文见 scrum-master 通报 2026-11-15；提案全文
+`.scratch/town-design/ideas/`；汇总回执 `.scratch/handoffs/2026-11-15-town-idea-harvest-receipt.md`
+§三 D1/D3）。本 ADR「零机制扩展」口径自此收窄为**两项显式例外**，其余场景照旧：
+
+1. **镇内场景动画机制（TIDEA-01 风车旋转，D1 批）**：口径=**单 mesh tick**——
+   叶片组件从体素几何改为独立 Three.js mesh，挂场景帧循环做匀速慢旋（4-6 秒/圈，
+   祥和无威胁节奏口径 ≥1s 周期，map-design §5.1）。范围护栏：只此一件旋转体，
+   **不开通用动画系统**；蓝图侧 `sailStatic` 参数位（prefab-kit 预留）即此门的分件缝。
+2. **简化版环境音机制（TIDEA-11，D3 批「简化版」）**：口径=**区域一次性触发**——
+   玩家进预划声景区时播一声一击（one-shot），**不做**定点距离衰减循环音
+   （完整版机制仍属 ADR 外，未批）。资产口径照 ADR-0003（CC0-only/mono 44.1kHz/
+   CREDITS 逐条/loudnorm/respectMute）。
+
+施工落点与实现锚（file:line）由翻新轮收口回执按实补注
+（`.scratch/town-design/receipts/`，翻新基线 7d56ac1）。除上述两项，本 ADR 决策
+1-7 与「不发明新机制」设计纪律维持不变；再冒机制类提议仍逐条呈 PO 裁。
