@@ -25,7 +25,7 @@
    ⑧全链: anchorOf 产物 → placeTownNpc(注册表+锚点表+kit+适配件真装载,
      Node 桩下全链可测)
    装具: vm 经典脚本共享词法环境(registry/anchor 测试先例) — kit 真实例 +
-   14 town look 真声明 + 上游冻结件(interact-core/anchor-core)真装载 +
+   14 town look 真声明 + 上游冻结件(town-map-core/interact-core/anchor-core/dims-core)真装载 +
    THREE 桩(mob-look.test.js stubThree 同款裁剪) + 假 document; vm 域产物
    经 JSON 往返摊平进宿主域再断言(跨域原型比对先例)。红期适配件缺席抛
    明确中文错。 */
@@ -194,8 +194,8 @@ function adapterCtx() {
   const files = fs.readdirSync(LOOK_DIR)
       .filter((f) => f.startsWith('town_') && f.endsWith('.js')).sort()
       .map((f) => 'js/mob-look/' + f)
-      .concat(['js/town-interact-core.js', 'js/town-npc-anchor-core.js',
-        'js/town-npc-registry.js', ADP_REL]);
+      .concat(['js/town-map-core.js', 'js/town-interact-core.js', 'js/town-npc-anchor-core.js',
+        'js/adventure-dims-core.js', 'js/town-npc-registry.js', ADP_REL]);
   for (const f of files) {
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
   }

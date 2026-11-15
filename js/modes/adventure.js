@@ -2398,10 +2398,14 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     (最后进入的门, D6)——其坐标属于离开时的那张图, 回界即回该图 */
   if (dim === advDim) return;
   advTownBellClear(); /* TIDEA-02: 迟到迎宾钟句柄清(换维即清, 漏响不跨场) */
-  if (advDimRow(advDim) === ADV_TOWN_DIM_ROW) advTownTargets = undefined; /* 离镇弃机(T-SEAM-04,
-      ADR-0011 决策 6a): 离开 town 的所有出口同链清机(直呼切界/回程白闪到达/
-      死亡回家), 下次进场新机不串轮; 首行幂等守卫挡住镇内重复调用(建机不重置),
-      行身份比对=回程触发线门先例口径(壳层零 town 字面量特判, dims-core 在册) */
+  if (advDimRow(advDim) === ADV_TOWN_DIM_ROW) {/* 离镇弃机+清场(T-SEAM-04/
+      T-NPC-10, ADR-0011 决策 6a): 机器与镇民傀儡同链清——离开 town 的所有
+      出口同源(直呼切界/回程白闪到达/死亡回家), 下次进场新机新摆不串轮;
+      首行幂等守卫挡住镇内重复调用(建机不重置), 行身份比对=回程触发线门
+      先例口径(壳层零 town 字面量特判, dims-core 在册) */
+    advTownTargets = undefined;
+    advTownPuppetsLeave();
+  }
   advDim = dim; /* advMap 不动: 副本/下界期间保持最后主世界图(T6) */
   advSyncTownChrome(); /* 城镇翻新 TIDEA-12/13: 换维一次性切安静档(进镇挂/出镇摘) */
   /* 城镇翻新 TIDEA-17: 回程预告臂随维度行结转(进镇重臂=一次/进场, 出镇
@@ -2460,6 +2464,9 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     if (drow === ADV_TOWN_DIM_ROW) advTownInteractBoot(); /* 进镇建机(T-SEAM-04,
         ADR-0011 决策 6a): 壳层 town 专属步, den 专属步同位先例(§5 不进表
         清单); 行身份比对口径同弃机步, 「T-UI 票只换 emit 不改机器」契约 */
+    if (drow === ADV_TOWN_DIM_ROW) advTownPuppetsPlace(); /* 进镇摆 14 实体
+        (T-NPC-10): 建机同节拍独立语句, 宿主建机步逐字零扰动(town-ui 接线
+        守门锁原行), 行身份比对口径同上 */
     const dsp = spot || drow.spawn; /* 行落点(结构常量派生); D23 关页续局传快照落点 */
     ModeKit.spawn(dsp.x, dsp.y, dsp.z, {yaw: (dsp.yaw != null) ? dsp.yaw : drow.spawn.yaw});
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
@@ -3009,6 +3016,51 @@ function advTownInteractBoot() {
   if (typeof townUiAttachBubbleCam === 'function') {
     townUiAttachBubbleCam(advTownBubbleCam);
   }
+}
+
+/* ---------- 镇民傀儡摆放宿主(T-NPC-10 接线票) ----------
+   mkTownNpcPuppet/placeTownNpc(T-NPC-05 渲染适配件, 只消费不复制)的壳层
+   宿主: 进镇同步摆 14 实体(注册表 TOWN_NPCS 全行=10 村民+G01+3 氛围动物,
+   动物随注册表 category 一并摆放=纯氛围照常在场)、离镇清场——建机/弃机
+   同节拍(「不进表」清单惯例, advTownInteractBoot 同位先例), 每次进场
+   新摆不串轮。快照=纯标量 {id, look, x, y, z, yaw}(JSON 往返可测, 禁含
+   THREE 对象), 傀儡 root 另账持有(快照零渲染对象, 清场摘场景用); 适配
+   件/锚点表不在装载序时整段跳过(引擎替身沙盒最小装载容差, 建机 typeof
+   容差同款)。站位=anchorOf(锚点表权威, 静态锚取首航点, G01 巡逻取
+   leg0)+站立面 y+1(placeTownNpc 内建口径); legIndex 推进行为归
+   T-NPC-12, 本票恒缺省 leg0。 */
+let advTownPuppets = []; /* 只读快照账: 进镇摆放在位(纯标量行), 离镇回空
+    (A.advTownState 挂点透出, T-SEAM-04 挂点先例扩形) */
+let advTownPuppetRoots = []; /* 傀儡 root 另账(与快照行同序, 不透出挂点) */
+/* 摆放(advSetDim town 分支 loadScene 之后调用, 不进 build 回调——建机
+   同位先例; 同步位置零插值, MobLookKit.puppet 产物 root 直挂场景):
+   幂等由 advSetDim 首行守卫保证(dim===advDim 即 return, 镇内重复进镇
+   不重摆不翻倍), 摆前先清两账=任何路径零残留 */
+function advTownPuppetsPlace() {
+  if (typeof mkTownNpcPuppet === 'undefined' ||
+      typeof placeTownNpc === 'undefined' || typeof TOWN_NPCS === 'undefined' ||
+      typeof anchorOf === 'undefined') return;
+  advTownPuppets.length = 0;
+  advTownPuppetRoots.length = 0;
+  for (const row of TOWN_NPCS) {
+    const puppet = mkTownNpcPuppet(row.id);
+    const spot = placeTownNpc(puppet, anchorOf(row.anchorId));
+    if (typeof scene !== 'undefined') scene.add(puppet.root); /* 沙盒无引擎
+        则只记账不挂场(advFlameMount scene 守卫同形) */
+    advTownPuppetRoots.push(puppet.root);
+    advTownPuppets.push({id: row.id, look: puppet.look,
+      x: spot.x, y: spot.y, z: spot.z, yaw: spot.yaw});
+  }
+}
+/* 清场(advSetDim 离镇弃机同链): root 摘场景(world.js clearWorld 只清
+   chunk 网格, 自挂件须自摘——advFlameOff 先例; 悬空句柄再 remove 无害)
+   +两账清空(快照回空, 下次进场新摆, 与建机/弃机同节拍) */
+function advTownPuppetsLeave() {
+  if (typeof scene !== 'undefined') {
+    for (const root of advTownPuppetRoots) scene.remove(root);
+  }
+  advTownPuppetRoots.length = 0;
+  advTownPuppets.length = 0;
 }
 
 let advBubbleCamVec = null; /* 视采样复用向量(250ms 采样拍频, 零每帧垃圾) */
@@ -5084,9 +5136,11 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
     if ('stoneEggT' in o) advStoneEggT = o.stoneEggT;
   },
   advNetherState: () => ({dim: advDim, map: advMap, portalCd: advPortalCd, exitSpot: advExitSpot}),
-  advTownState: () => ({targets: advTownTargets}), /* 壳层镇内交互机只读快照(T-SEAM-04
-      测试挂点: targets=mkTownTargets 机器引用, 可调 focus/found/reset/snapshot
-      四方法+引用比较验换代; ADR-0011 决策 6a) */
+  advTownState: () => ({targets: advTownTargets, puppets: advTownPuppets}), /* 壳层
+      镇内交互机+镇民傀儡只读快照(T-SEAM-04 挂点先例扩形 T-NPC-10: targets=
+      mkTownTargets 机器引用, 可调 focus/found/reset/snapshot 四方法+引用比较
+      验换代; puppets=纯标量 {id,look,x,y,z,yaw} 行的只读账, 离镇回空,
+      禁含 THREE 对象; ADR-0011 决策 6a) */
   advMineHardText, advHudLines,
   advWornState: () => advWorn, /* 穿戴档只读快照(装备 T5 测试挂点; 形状=mkWorn 归一形) */
   advHitPlayer, advEnvHurt, /* 战斗受击两缝(装备 T6 测试挂点: 漏斗行为面/D8 环境对照) */

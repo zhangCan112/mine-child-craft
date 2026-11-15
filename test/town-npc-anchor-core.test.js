@@ -95,8 +95,10 @@ function makeFacings(c) {
       const a = t.anchors.find((r) => r.id === id);
       return cheb(x, z, a.x, a.z);
     },
+    /* 导览锚=非 npc: 行(升格后布局权威含站位锚, 自身不入避让比对) */
     gapAnchorMin(x, z) {
-      return Math.min(...t.anchors.map((a) => cheb(x, z, a.x, a.z)));
+      return Math.min(...t.anchors.filter((a) => !String(a.id).startsWith('npc:'))
+          .map((a) => cheb(x, z, a.x, a.z)));
     },
     inPlaza(x, z) {
       return x >= t.plaza.x1 && x <= t.plaza.x2 && z >= t.plaza.z1 && z <= t.plaza.z2;
@@ -156,16 +158,29 @@ test('门面: TOWN_NPC_ANCHORS 14 行数据权威 + anchorOf 纯函数出口', (
   assert.strictEqual(typeof c.anchorOf, 'function', 'anchorOf 是函数(取数器出口)');
 });
 
-test('架构裁决: 本表独立成件不并入 TOWN_MAP.anchors(升格会师归 T-NPC-10)', () => {
+test('架构裁决(升格后): 14 行站位锚并入 TOWN_MAP.anchors 成布局权威 — 21 锚 · 导览七锚零漂移 · ' +
+    '布局行与 anchorOf 对账(波次一「独立成件」口径随 T-NPC-10 升格翻转)', () => {
   const c = loadCore();
   const t = c.TOWN_MAP;
-  assert.strictEqual(t.anchors.length, 7, 'TOWN_MAP.anchors 仍七锚(布局权威零改动)');
-  assert.ok(t.anchors.every((a) => !String(a.id).startsWith('npc:')),
-      '导览锚 id 空间无 npc: 前缀(两表零碰撞)');
+  assert.strictEqual(t.anchors.length, 21,
+      'TOWN_MAP.anchors = 7 导览 + 14 站位 = 21 锚(升格并入, 单一布局权威)');
+  const byId = {};
+  for (const a of t.anchors) byId[a.id] = a;
   const npcIds = c.TOWN_NPC_ANCHORS.map((r) => r.id);
   assert.ok(npcIds.every((id) => id.startsWith('npc:')),
       '站位锚 id 恒 npc: 前缀(镜像 task: 先例, 与导览锚零碰撞)');
   assert.strictEqual(new Set(npcIds).size, 14, '站位锚 id 全仓唯一');
+  assert.strictEqual(new Set(t.anchors.map((a) => a.id)).size, 21,
+      '布局权威 21 锚 id 全表唯一(两表合并零碰撞)');
+  for (const row of c.TOWN_NPC_ANCHORS) {
+    const a = byId[row.id];
+    assert.ok(a, '站位锚「' + row.id + '」并入布局权威(锚点在册性单源, T-NPC-10 会师)');
+    const w = row.waypoints[0]; /* 静态站位=单航点; G01 首航点=leg0 现值(T-NPC-12 管推进) */
+    assert.strictEqual(a.x, w.x, '「' + row.id + '」布局行 x=首航点(anchorOf 对账)');
+    assert.strictEqual(a.y, w.y, '「' + row.id + '」布局行 y=首航点(groundY 贴地)');
+    assert.strictEqual(a.z, w.z, '「' + row.id + '」布局行 z=首航点(anchorOf 对账)');
+    assert.strictEqual(a.face, w.face, '「' + row.id + '」布局行 face=首航点(anchorOf 对账)');
+  }
 });
 
 /* ============ ② 行形状与 id 空间(§3.1) ============ */
@@ -285,7 +300,7 @@ test('避让散布: 与 TOWN_MAP.scatter 全点位保持 ≥2 格(樱花/灯柱/
   }
 });
 
-test('避让既有导览锚: 与 TOWN_MAP.anchors 七锚各 ≥2 格(交互点留玩家站位)', () => {
+test('避让既有导览锚: 与 TOWN_MAP.anchors 非 npc: 七导览锚各 ≥2 格(交互点留玩家站位; 升格后站位锚自身不入比对)', () => {
   const c = loadCore();
   const F = makeFacings(c);
   for (const row of c.TOWN_NPC_ANCHORS) {

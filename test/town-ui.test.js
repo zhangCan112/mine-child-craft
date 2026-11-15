@@ -1088,11 +1088,11 @@ test('集成链 T-UI-03(T-UI-04F 改约): 进镇九标→mousemove 瞄钟塔位 
       '  }\n' +
       '  return null;\n' +
       '}', ctx);
-  /* 白闪进镇: 建机(advTownInteractBoot 同形 emit 实接)→九标在册 */
+  /* 白闪进镇: 建机(advTownInteractBoot 同形 emit 实接)→二十标在册 */
   vm.runInContext('__machine = mkTownTargets(' +
       '{emit: function(n, p) { __ui.targetEvent(n, p); }}); __ui.sync();', ctx);
-  assert.strictEqual(hlLayerProbe(ctx).children.length, 9,
-      'TOWN_INTERACTS 九条目(六锚点+三轻任务)一一挂标(生产缺省清单源)');
+  assert.strictEqual(hlLayerProbe(ctx).children.length, 20,
+      'TOWN_INTERACTS 二十条目(9 既有 + 11 npc, T-NPC-10 入册)一一挂标(生产缺省清单源)');
   assert.strictEqual(hlMarkProbe(ctx, 'bell-tower').textContent, '🗼',
       '钟塔标记图标(UI-01 语义键)');
   assert.strictEqual(hlMarkProbe(ctx, 'bell-tower').classList.contains('is-default'),

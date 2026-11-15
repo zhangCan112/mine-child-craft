@@ -4968,9 +4968,12 @@ test('T-SEAM-03 east 锚所落格可站立(建场探针, 三向现锚同款): �
    {targets: advTownTargets}——壳层镇内交互机只读快照(targets=机器引用,
    可调 focus/found/reset/snapshot 四方法 + 引用比较验换代)。建机函数
    advTownInteractBoot(模式壳 townInteractBoot 先例形状+adv 前缀), 弃机
-   行为面由用例锁(内联或函数由实现定, 源文本不重复锚弃机名)。 */
+   行为面由用例锁(内联或函数由实现定, 源文本不重复锚弃机名)。
+   T-NPC-10 扩形: 快照增 puppets 键(进镇摆放 14 实体的只读标量快照数组
+   {id, look, x, y, z, yaw}, 离镇清场回空)——挂载覆盖与摆放行为守于
+   test/boot.test.js T-NPC-10 两测, 本节聚焦交互机。 */
 
-test('T-SEAM-04 进镇建机(直达): advSetDim(\'town\') 专属步建机 — 壳层机器在位 · 注册快照九条全 active · ' +
+test('T-SEAM-04 进镇建机(直达): advSetDim(\'town\') 专属步建机 — 壳层机器在位 · 注册快照二十条全 active · ' +
     'focus/found/reset/snapshot 接口面完整(对齐 T-MAP-04 core 行为)', () => {
   mem.clear();
   freshInit();
@@ -4981,7 +4984,7 @@ test('T-SEAM-04 进镇建机(直达): advSetDim(\'town\') 专属步建机 — �
   assert.ok(t, '进镇即建机: 壳层机器在位(advSetDim(\'town\') 专属步, den 专属步 advDenSeed 同位先例)');
   const snap = t.snapshot();
   const ids = Object.keys(snap.states);
-  assert.strictEqual(ids.length, 9, '交互注册快照九条(TOWN_INTERACTS M8 默认清单, 坐标单源锚点)');
+  assert.strictEqual(ids.length, 20, '交互注册快照二十条(TOWN_INTERACTS: 9 既有+11 npc 条目, T-NPC-10 入册, 坐标单源锚点)');
   for (const id of ids) {
     assert.strictEqual(snap.states[id], 'active', '初始全 active(' + id + ')');
   }
@@ -5009,7 +5012,7 @@ test('T-SEAM-04 进镇建机(端到端): 主径踩线白闪进镇后机器在位
   assert.strictEqual(A.advNetherState().dim, 'town', '白闪满格进镇(T-SEAM-02 链路照旧)');
   const t = A.advTownState().targets;
   assert.ok(t, '端到端进镇机器在位(到达分流 advSetDim(\'town\') 同一专属步)');
-  assert.strictEqual(Object.keys(t.snapshot().states).length, 9, '注册快照九条');
+  assert.strictEqual(Object.keys(t.snapshot().states).length, 20, '注册快照二十条(9 既有+11 npc, T-NPC-10)');
   const r = t.focus('windmill');
   assert.ok(r.changed && Array.isArray(r.events), 'events 面照常可得(emit 缺省空实现旁路, T-UI 票只换 emit 不改机器)');
   A.advSetDim('overworld');
