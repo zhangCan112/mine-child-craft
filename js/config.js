@@ -484,6 +484,14 @@ BLOCKS[B_CARVED_PUMPKIN] = {name: '雕刻南瓜', top: [0.60, 0.44, 0.13], side:
 const B_PINK_WOOL=78;
 BLOCKS[B_PINK_WOOL] = {name: '粉羊毛', all: [0.95, 0.76, 0.85]};
 
+/* ---------- 东带前街陶橙瓦 (id 79, docs/design/town-east-boundary-landscape-spec-v2.md §2 S1) ----------
+   陶橙瓦(2026-11-15): 东带前街「镇屋顶语言」落地(v2 件 F)——钟塔阶梯瓦顶+房×4 平瓦盖。
+   规格色 #D97A4A=镇色板 屋顶-陶橙(RGB 0.851,0.478,0.290); 与粉羊毛 id78 同构:
+   纯色 all 行零贴图不入图集(B_PORTAL 先例), 无 hard(声明式不可破坏, U2 已裁主案)
+   无 drop(零物品注册面)。 */
+const B_ROOF_TILE=79;
+BLOCKS[B_ROOF_TILE] = {name: '陶橙瓦', all: [0.851, 0.478, 0.290]};
+
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段
    (Object.assign 赋值式, 原 soft 旗标先例已随死旗标清偿删除)。hard = MC 硬度原值(徒手石头 7.5s 口径的来源) ·
