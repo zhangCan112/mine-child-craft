@@ -92,4 +92,29 @@ prebuild §5.3 十一条断言面全绿 + 收敛矩阵（§3.1）open 收敛/clo
 
 ### 7.4 绿轨迹与终验（本岗验收后回填）
 
-（验收绿后回填：转绿轨迹、npm test 终值、lint 终值、tip SHA。）
+- 转绿轨迹：红相 d6ebfcf → 绿方 implement-engineer 施工 → 绿相 **8c762eb**
+  「多值边 payload.to 越边拒绝——resolveBranch 验边转绿(六红全收)」。
+  修法语义（仅 js/town-dialog-core.js，+10/-5）：`resolveBranch(type, payload, allowed)`
+  增边数组参——`payload.to` 只认边数组内 outcome（图内照常显式优先，越边返回 null）；
+  handle 调用点对 null 零惩罚拒绝（早退先于 close 分支，to='idle' 侧门封死）；
+  缺省分路零漂移（route 按 sessionKind、next-step 缺省 complete，两缺省值均在边数组内）。
+  五守门测试现状合规，实现零改动。
+- 验收绿（本岗亲跑复核，非绿方自报转抄）：
+  - `node --test test/town-dialog-core.test.js test/town-ui.test.js`：81 测 81 绿 0 红；
+  - `npm test`：**2128 测 0 红**（2122 基线+6 新增；1 skipped=T7 性能钉测 env 门控，基线常态）；
+  - `npm run lint`：eslint + stylelint + htmlhint 全链零错误；
+  - 纪律：测试文件对红相 d6ebfcf 逐字节零漂移（git diff=0 行）；禁触清单
+    （index.html/town-ui.js/town-interact-core.js/town-map-core.js/adventure.js）零触碰；
+    实现域单文件单提交。
+- **票分支 tip = `8c762eb`**（t-npc-11-dialog：80d9ed2 → d6ebfcf 红 → 8c762eb 绿）。
+
+### 7.5 票外发现与移交（不扩票，如实登记）
+
+1. **route 缺省分路对 sessionKind='greet'/'care' 落 'guide'**（ROUTE_BY_KIND 无此二键，
+   `|| 'guide'` 兜底）：现网 task 条目仅 tour/seek/help 三键不受影响；T-NPC-10 接线
+   npc 条目（greet 问候类/care 阿稳关怀类）时须先对齐分路口径——greet 类按 spec §5.3
+   场景 4 应走 L1 轻问候 close 路径而非 guide 导览。本票票面无此断言面，移交 T-NPC-10。
+2. **Speaker 头像位 facePixels 消费未接线**：供给面在册（registry faceSrc:'facePixels'），
+   装配层 Speaker Strip 现只有名字——消费归 T-NPC-10 驱动面（对账表 #26）。
+3. **TTS 排队与 hotbar 会话避让归 T-UI-04**（已裁 2）：ttsPlanFor 纯函数+断言在库，
+   装配层 SpeechKit 排队消费未接线，本票不涉（对账表 #24/#25）。
