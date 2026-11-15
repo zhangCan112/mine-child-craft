@@ -305,10 +305,14 @@ function mkDialogMachine(opts) {
     return p;
   }
 
-  /* 多值边分路: payload.to 显式优先(裁决权移交); route 缺省按
-     sessionKind 映射; next-step 缺省=单步会话本轮完成 */
-  function resolveBranch(type, payload) {
-    if (payload && payload.to) return payload.to;
+  /* 多值边分路: payload.to 显式优先(裁决权移交, 仅限边数组内 outcome);
+     route 缺省按 sessionKind 映射; next-step 缺省=单步会话本轮完成。
+     越边 to(不在边数组内)→null, 调用点零惩罚拒绝: 机器不产生表外态,
+     也不经 close 侧门收会话(§5.3-1/2 运行时半边) */
+  function resolveBranch(type, payload, allowed) {
+    if (payload && payload.to) {
+      return allowed.includes(payload.to) ? payload.to : null;
+    }
     if (type === 'route') return ROUTE_BY_KIND[sessionKind] || 'guide';
     return 'complete';
   }
@@ -323,7 +327,8 @@ function mkDialogMachine(opts) {
       (state === 'idle' || state === 'bubble') ? 'greet' :
       (DIALOG_TRANSITIONS[state] || {})[type];
     if (!to) return {changed: false, events: []}; /* 非法意图零惩罚拒绝 */
-    const next = Array.isArray(to) ? resolveBranch(type, payload) : to;
+    const next = Array.isArray(to) ? resolveBranch(type, payload, to) : to;
+    if (!next) return {changed: false, events: []}; /* 多值边越边 to 零惩罚拒绝 */
     const events = [];
     const fire = (name, p) => {
       events.push({name, payload: p});
