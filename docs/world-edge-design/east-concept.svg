@@ -1,4 +1,7 @@
 <svg viewBox="0 0 1600 420" xmlns="http://www.w3.org/2000/svg" font-family="'Microsoft YaHei','PingFang SC',system-ui,sans-serif">
+  <!-- 【2026-11-15 改稿注记】本概念图属旧「小镇建造中」收尾设计（east-spec 2026-11-06 版），
+       已被 2026-11-15「已开放」改稿取代：设计权威=docs/design/town-east-boundary-landscape-spec.md
+       （镇门牌坊/门前小径/读法升级）。本图保留作历史概念对照，不随新稿更新。 -->
   <!-- ===== 天空：保持 home #8FC7FF，不做全带渐变 ===== -->
   <rect x="0" y="0" width="1600" height="208" fill="#8FC7FF"/>
   <!-- 地平线 4 档暖晕（日出方向语义 + 剪影逆光底） -->
