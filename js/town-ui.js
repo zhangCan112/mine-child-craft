@@ -956,11 +956,16 @@ function mkTownUi(deps) {
       prevCardState = cur;
       dialogOpen = true;
       feed({type: 'dialog-open'});
+      /* 城镇翻新 TIDEA-13: 会话档全隐 hotbar/气泡条(H 层补遗二契约, 优先级高于
+         漫步淡档)——class 与 style.css 的 body.adv-dim-town 门控叠加, 关会话
+         回落淡档。doc 判法同高亮层挂载(284 行先例)。 */
+      if (doc && doc.body) doc.body.classList.add('town-dialog-open');
       refreshHl(); /* 会话降噪档随开落位(选中环保持/其余隐藏) */
     } else if (name === 'town-ui/dialog/close') {
       /* 先摘会话闸再喂: close(done) 的表扬意图要能落槽(L3 会话中冻结由
          核心承担, 关闸后解冻) */
       dialogOpen = false;
+      if (doc && doc.body) doc.body.classList.remove('town-dialog-open'); /* TIDEA-13: 回漫步淡档 */
       feed({type: 'dialog-close', result: payload.result,
         taskRef: payload.taskRef, prev: prevCardState});
       refreshHl(); /* 降噪随会话解除恢复(标记回默认态可见) */

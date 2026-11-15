@@ -306,6 +306,20 @@ advSessionResets.push(() => {
   advPortalCd = 0;
   advExitSpot = null;
 });
+/* 城镇翻新 TIDEA-12/13(镇内安静模式): 冒险壳战斗 chrome 的镇内显隐门控。
+   event-driven 纪律: 挂点只在维度切换三个时点各跑一次(init 复位对齐/
+   advSetDim 换维/模式 cleanup 退场), 从 advDim 派生 body class, 不做每帧
+   轮询; 显隐本体收在 css/style.css(body.adv-dim-town …)——镇内隐准星/
+   hotbar 淡档, 镇外选择器不命中=像素零变化。会话开合档(town-dialog-open)
+   由 town-ui.js dialogEvent 增减, 与本门控正交; 离镇兜底摘会话档(开面板
+   直接走回程线的极端序也回到干净态)。 */
+function advSyncTownChrome() {
+  const town = advDimRow(advDim) === ADV_TOWN_DIM_ROW; /* 行身份比对(T-SEAM-04 先例口径):
+      零 town 字面特判——「三条全局判据零新分支」守门红线, 维度政策住 ADV_DIMS 行 */
+  if (typeof document === 'undefined' || !document.body) return; /* Node 单测无 DOM */
+  document.body.classList.toggle('adv-dim-town', town);
+  if (!town) document.body.classList.remove('town-dialog-open');
+}
 const advSceneEdits = {}; /* 桶账本(advSceneEditsDecode 归一化形状; init 装桶) */
 for (const k of ADV_SCENE_KEYS) advSceneEdits[k] = new Map();
 function advSceneKey() {/* 当前场景键(地图 id | 'nether' | 'den')——换桶/炉键/火焰门禁的单一口径 */
@@ -2326,6 +2340,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
       死亡回家), 下次进场新机不串轮; 首行幂等守卫挡住镇内重复调用(建机不重置),
       行身份比对=回程触发线门先例口径(壳层零 town 字面量特判, dims-core 在册) */
   advDim = dim; /* advMap 不动: 副本/下界期间保持最后主世界图(T6) */
+  advSyncTownChrome(); /* 城镇翻新 TIDEA-12/13: 换维一次性切安静档(进镇挂/出镇摘) */
   advSceneLeave();
   let denFresh = false;
   if (dim === 'den') {/* 副本刷新判据(D20/D23 两日窗口)——必须在 loadScene 之前:
@@ -4451,6 +4466,12 @@ function advHudLines(hit) {
   const drow = advDimRow(advDim);
   if (drow) {/* 维度态(下界/副本, 读维度行): 首行换行横幅; 不显时段行(维度恒停
       dayTime, 时段行无信息); 怪物行按行显隐——下界无怪恒 0 徒增困惑, 副本照显(配额观感) */
+    /* 城镇翻新 TIDEA-12(镇内安静模式, PO 拍板全套): 战斗 chrome 行(生命/位置/
+       手上/家图任务/注视键位)不进镇, 只留镇名牌横幅——镇=安全的地方由 UI 语义
+       直接给出; 家图任务不泄漏进镇(镇内任务语义归 L1 提示卡)。行身份比对零
+       town 字面(守门红线); nether/den 不受影响; town L1-L4 信息架构零改动
+       (entry-hud-spec §4.1 继续有效)。 */
+    if (drow === ADV_TOWN_DIM_ROW) return [drow.hud.banner];
     return [
       drow.hud.banner,
       `❤️ 生命: ${Math.max(0, Math.ceil(advGetPEnt().hp))} / ${ADV.player.maxHp}`,
@@ -4490,6 +4511,8 @@ const AdventureMode = mkMode({
     advRunSessionResets(); /* 会话复位注册表跑表(维度相位/触屏基表态/面板旗/计时器/
        遮罩/量化键等, 登记点见各子系统段; 进场首帧必写口径——上局可能停在带内,
        按键跳写会漏掉首帧渐变) */
+    advSyncTownChrome(); /* 城镇翻新 TIDEA-12/13: 进场对齐安静档(会话复位恒主世界→清档;
+        同会话内他模式折返且停在镇维度的挂档由 advSetDim 兜住, 此处只管复位后的干净态) */
     if (typeof advSetEdgeBarriersHidden === 'function') {
       advSetEdgeBarriersHidden(typeof location !== 'undefined' &&
         /edgeUnlocked=1/.test(location.search || '')); /* 解锁态过渡参数:
@@ -4668,6 +4691,8 @@ const AdventureMode = mkMode({
     applyDaylight();
     advRunSessionResets(); /* 会话复位注册表跑表(维度相位/遮罩/计时/量化键等归零,
        登记点见各子系统段; 天/雾色复位由下行 advMapRowCleanup 内含) */
+    advSyncTownChrome(); /* 城镇翻新 TIDEA-12/13: 退场摘安静档(复位恒主世界→门控类清零,
+       他模式 chrome 零打扰) */
     advMapRowCleanup(); /* 行调色板复位内含 advApplySky(ADV_SKY_OVER), 不另重复调用 */
     advBeamsClear(); /* 红天光束不渗进其他模式 */
     advStore.journal.edits = advSceneEdits.home; /* journal 桶换回 home */
