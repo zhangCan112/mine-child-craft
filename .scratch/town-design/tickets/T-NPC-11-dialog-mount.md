@@ -118,3 +118,12 @@ prebuild §5.3 十一条断言面全绿 + 收敛矩阵（§3.1）open 收敛/clo
    装配层 Speaker Strip 现只有名字——消费归 T-NPC-10 驱动面（对账表 #26）。
 3. **TTS 排队与 hotbar 会话避让归 T-UI-04**（已裁 2）：ttsPlanFor 纯函数+断言在库，
    装配层 SpeechKit 排队消费未接线，本票不涉（对账表 #24/#25）。
+4. **规范正文滞后债（评审 should 补登）**：本票新增四类守门断言（9 态 × 11 意图全枚举/
+   事件名权威/零键盘依赖/零段落文本）后，conventions.md / GLOSSARY.md 无对应回写——
+   存量票豁免硬性验收（README §6 自下批新立票生效），但滞后事实在册；规范正文回写
+   归 scrum-master 会师时统筹。
+5. **备查两则（评审观察项，一句话级）**：①票面 §3 `mkDialogMachine({emit, now})` 措辞
+   与实现 `mkDialogMachine(opts)` 有出入——prebuild §5.2 明示命名以实现票定稿为准，
+   实现零墙钟达成确定性（偏离登记在 core 测试头），非缺陷，票文维护时订正；
+   ②resolveBranch 缺省分路不经 allowed 验边的不对称性已核实有界（route 按
+   sessionKind 与 next-step 缺省 complete 两缺省值均在边数组内），记录备查。
