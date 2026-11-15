@@ -1454,7 +1454,10 @@ function advEdgeWest() {
 function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插值, 渐变全靠地表块
   种类密度——①入口段土路斑 1 patch(x132~135, 主径线 z73~76)·②渐密段土斑
   2 patch + 花田 2 处(主径两侧各 5 朵)。登记偏差: 花田「黄/红/白」红花无图集
-  格位(零新贴图), 以黄/白二色铺(T7 拍板 Q1 销项: 维持二色) */
+  格位(零新贴图), 以黄/白二色铺(T7 拍板 Q1 销项: 维持二色)。
+  v2 spec §5 件 P·引道花径+灯柱(x148~155, 收编 v1 登记项 E3/E5): 主径延长+
+  花带 8 丛+灯柱 3 对——路(z74/75)·花(z73/76)·灯(z72/77)三层断面, 夜里三对
+  暖光点渐次引向门楼; 新件全落既有件零重叠格位 */
   const dirt = () => [2, 0];
   advEdgeRewrite(132, 135, 73, 76, dirt);
   advEdgeRewrite(140, 143, 70, 73, dirt);
@@ -1466,6 +1469,28 @@ function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插�
         SceneKit.rand(i, 1, 8401) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
   }
   advEdgeRewrite(152, 156, 74, 75, dirt); /* ③主径: 与既有东向小径同轴延长 */
+  /* 主径延长(v2 §5 件 P): x148..151×z74/75 补铺 dirt——连续段起点自 x152
+     提前到 x148(花田东侧直通门口); 与花田区(x144~146)零重叠, x147 留草面
+     =延长段不噬花田的边界见证 */
+  advEdgeRewrite(148, 151, 74, 75, dirt);
+  /* 花带 8 丛(v2 §5 件 P): 北列 z73 偶数位·南列 z76 奇数位=对角交错;
+     黄/白由显式盐 8404 掷定(两列走 rand 子流 0/1, 花田 8401 同款) */
+  for (let i = 0; i < 4; i++) {
+    advEdgeDecorate(148 + i * 2, 73,
+        SceneKit.rand(i, 0, 8404) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
+    advEdgeDecorate(149 + i * 2, 76,
+        SceneKit.rand(i, 1, 8404) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
+  }
+  /* 引道灯柱 3 对(v2 §5 件 P): x148/151/154 × z72/77 夹道——石英柱身 2 高+
+     灯块柱顶(light 15 恒亮); 建场常量零盐, 与花带丛位(z73/76)错行零重叠;
+     柱基同源锚=本地表面(x148/151 的 z77 柱落 v1 土斑 patch 面上, spec
+     「柱基草面」措辞对该两柱不成立, 已知票外发现按本地表面直落) */
+  const lampPosts = [[148, 72], [148, 77], [151, 72], [151, 77], [154, 72], [154, 77]];
+  for (const [px, pz] of lampPosts) {
+    const yb = ADV_GROUND + advHeightAt(px, pz);
+    for (let y = yb + 1; y <= yb + 2; y++) setBlockRaw(px, y, pz, 17);
+    setBlockRaw(px, yb + 3, pz, 19);
+  }
 }
 
 function advEdgeEastArrivePad() {/* 回家门墩(T-SEAM-03, town-map-design §6.3.5):
