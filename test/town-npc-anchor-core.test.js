@@ -18,6 +18,8 @@
    注入, 缺省注入视作 0) ⑬未知 id 拼写域抛错(镜像 townInteractRegistry/
    mkTownTargets 口径; 大小写不符属拼写域) ⑭快照拷贝(恰四键/改写不反渗/新引用)
    ⑮源文本守门(零 THREE/DOM/墙钟/随机/定时器——不做时间推进, README §3.3)。
+   T-NPC-12 追加: ⑯重发判定纯谓词 anchorChanged(prev, next)(快照比较——票面 §3
+   建议, 落点裁决=扩本件同域词汇 {x,y,z,face}, 零新 js 文件)。
    几何口径: 「≥2 格」= 两点切比雪夫距离 ≥2(不相邻不重叠, 即 1×1 盒 gapXZ ≥1);
    G01 段查脚印 = 轴对齐段全整数格点不落任何脚印盒。 */
 const test = require('node:test');
@@ -42,7 +44,10 @@ function loadCore() {
     }
     vm.runInContext(fs.readFileSync(p, 'utf8'), eng, {filename: f});
   }
-  return vm.runInContext('({TOWN_MAP, PrefabKit, TOWN_NPC_ANCHORS, anchorOf})', eng);
+  /* T-NPC-12 红期扩提取(守卫式): anchorChanged 未落实现时返 null——既有 18 测
+      保持绿, 新增 ⑯ 节红在「谓词缺席」这一件事上(镜像本文件红期缺件红纪律) */
+  return vm.runInContext('({TOWN_MAP, PrefabKit, TOWN_NPC_ANCHORS, anchorOf,' +
+    'anchorChanged: (typeof anchorChanged === "function") ? anchorChanged : null})', eng);
 }
 
 /* ---- 几何小工具(镜像 town-map-core.test.js 先例) ---- */
@@ -430,4 +435,52 @@ test('源文本守门: 零渲染库·零 DOM·零墙钟·零随机·零定时器
   for (const banned of ['setTimeout', 'setInterval', 'setImmediate', 'requestAnimationFrame']) {
     assert.ok(!src.includes(banned), '零定时器(' + banned + '——消费与重发节奏待入口缝 ADR, 本层零时间推进)');
   }
+});
+
+/* ============ ⑯ 重发判定纯谓词 anchorChanged(T-NPC-12, README §3.3 裁决三) ============
+   快照比较: 航点身份=四键 {x,y,z,face} 全等——任一键跳变即真(到站跳变的判定
+   数据基础), 同参取数幂等即零重发的基础。零时间推进纪律同 ⑮(纯比较无墙钟)。 */
+
+test('anchorChanged·门面: 同域纯谓词在册 · 同快照(同参两取/深等值字面量)恒判不变', () => {
+  const c = loadCore();
+  assert.strictEqual(typeof c.anchorChanged, 'function',
+      'anchorChanged 在册(T-NPC-12 红本体: 重发判定纯函数未落实现)');
+  const a = c.anchorOf('npc:g01', 0);
+  const b = c.anchorOf('npc:g01', 0);
+  assert.notStrictEqual(a, b, '前置: anchorOf 两次调用新引用(既有 ⑭ 规格)');
+  assert.strictEqual(c.anchorChanged(a, b), false,
+      '同参两快照(值等引用异)判不变——取数幂等=零重发的数据基础');
+  assert.strictEqual(c.anchorChanged({x: 66, y: 24, z: 66, face: 'east'},
+      {x: 66, y: 24, z: 66, face: 'east'}), false, '深等值字面量判不变');
+});
+
+test('anchorChanged·任一键跳变即真: x/y/z/face 逐键变体各判真(快照全四键比较)', () => {
+  const c = loadCore();
+  const base = {x: 66, y: 24, z: 66, face: 'east'};
+  const variants = [
+    [{x: 92, y: 24, z: 66, face: 'east'}, 'x'],
+    [{x: 66, y: 25, z: 66, face: 'east'}, 'y'],
+    [{x: 66, y: 24, z: 92, face: 'east'}, 'z'],
+    [{x: 66, y: 24, z: 66, face: 'south'}, 'face'],
+  ];
+  for (const [next, key] of variants) {
+    assert.strictEqual(c.anchorChanged(base, next), true,
+        '任一键(' + key + ')跳变判真(航点身份=四键全等)');
+  }
+  assert.strictEqual(c.anchorChanged(base,
+      {x: 92, y: 24, z: 92, face: 'west'}), true, '全键变判真(G01 对角到站形态)');
+});
+
+test('anchorChanged·退化输入保守判真: 快照缺席 → true(宁重发不漏发); 缺键按键级 !== 比较', () => {
+  const c = loadCore();
+  const snap = {x: 66, y: 24, z: 66, face: 'east'};
+  const degenerates = [[null, snap], [snap, null], [undefined, snap], [snap, undefined]];
+  for (const [prev, next] of degenerates) {
+    const missing = (prev === null || prev === undefined) ? 'prev' : 'next';
+    assert.strictEqual(c.anchorChanged(prev, next), true,
+        '快照缺席(' + missing + ')判真——保守方向, 防脏账本静默漏发');
+  }
+  assert.strictEqual(c.anchorChanged({x: 66, y: 24, z: 66},
+      {x: 66, y: 24, z: 66, face: 'east'}), true,
+  '缺 face 键(undefined) vs 有 face → 键级 !== 判真');
 });

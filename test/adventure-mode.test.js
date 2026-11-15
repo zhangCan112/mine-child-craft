@@ -46,13 +46,18 @@ for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'j
    三纯件保留 eng 装载(townBuildSteps/townAssemblyOps 由 townBuild 建场期经
    全局名消费, mkTownTargets 由壳层建机步经全局名消费) */
 for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js',
-  'js/town-interact-core.js']) {
+  'js/town-interact-core.js', 'js/town-npc-anchor-core.js']) {/* T-NPC-12 红方装具扩装
+    (报备, T-NPC-10 §6.3③ 装具修订先例): 锚点核心=消费机取数器真源, 链序镜像
+    index.html(interact-core → anchor-core, conventions.test.js 镇民链同序) */
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 Object.assign(globalThis, vm.runInContext(
-    '({TOWN_MAP, townBuildSteps, townAssemblyOps, mkTownTargets})', eng)); /* mkTownTargets
-    提取 Node 全局(T-SEAM-04: 壳层 advSetDim 建机步经全局名消费 core 工厂, CJS 域调用期解析;
-    机器内部 townInteractRegistry 等闭包变量在 eng 域词法解析, 与 townBuildSteps/townAssemblyOps 提取同款) */
+    '({TOWN_MAP, townBuildSteps, townAssemblyOps, mkTownTargets,' +
+    'townTargetOf, TOWN_UI_EVENTS, TOWN_INTERACTS, anchorOf, TOWN_NPC_ANCHORS})', eng)); /* T-NPC-12
+    红方扩提取(报备): 消费机协议面四件——townTargetOf(六键形状冻结函数)/
+    TOWN_UI_EVENTS(冻结事件名表)/TOWN_INTERACTS(冻结清单)/anchorOf+TOWN_NPC_ANCHORS
+    (取数器+锚点表)。机器只消费不复制(T-SEAM-04 core 零改动守门口径); 提取供
+    adventure.js CJS 域全局名解析与 T-NPC-12 红测断言引用 */
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, isOpaque, world, worldCells,
   SceneKit, PrefabKit,
@@ -5108,6 +5113,227 @@ test('T-SEAM-04 登记回填: dimension-registry-design.md §5 不进表清单�
   const body = doc.slice(s5, s6);
   assert.ok(body.indexOf('town') >= 0,
       '§5 不进表清单有 town 分支登记(建机/弃机宿主挂壳层, ADR-0011 决策 6a 落地登记)');
+});
+
+/* ============ T-NPC-12 锚点动态化消费机(anchorOf 消费 + focus 重发节奏) ============
+   观测缝契约(本票新增): A.advTownAnchorTick(legById, policy) → {changed, events}——
+   装配层消费机, 裁决三(README §3.3)落事件流: 逐锚 anchorOf(id, legIndex) 取数,
+   anchorChanged(prev, next) 谓词判到站跳变; 跳变且该 NPC 正被主目标 focus →
+   重发恰一条同形状既有事件 TOWN_UI_EVENTS.targetFocus(payload {target: 六键
+   townTarget}, anchor 携新值恰三键 {x,y,z}——face 不入协议载荷, registry 快照
+   口径), 零协议增项; 默认策略「聚焦才发」(无焦点不刷事件), policy='always'
+   「到站即发」参数化。legIndex 全注入(legById 参, 生产行为层未入恒缺省 0);
+   prev 账本随建机建/随离镇清(离镇弃机步同链)。事件经返回值+emit 双面暴露
+   (mkTownTargets 同款惯例, emit 走 townUiTargetEvent 守卫式旁路)。
+   interactFocus 悬挂面: 现状零生产者零悬挂态(T-UI-03 域预留, town-ui
+   targetEvent 对 town-ui/interact/* 静默忽略)——本票对账=主目标面实装,
+   悬挂面扩展留 T-UI-03 落地时按同机器焦点判定点续接(票面施工记录在册)。 */
+
+test('T-NPC-12 消费机挂点在位: 进镇后 advTownAnchorTick 可调(注入式验收缝, adv 挂点透出)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  assert.strictEqual(typeof A.advTownAnchorTick, 'function',
+      '消费机挂点在位(T-NPC-12 红本体: advTownAnchorTick 未落实现)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 G01 聚焦重发恰一条(验收①): npc:g01 在主目标 focus 下 legIndex 0→1 → 恰一条 ' +
+    'targetFocus(anchor=新航点快照恰三键, target 恰六键, state 携当前值)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const t = A.advTownState().targets;
+  t.focus('npc:g01'); /* 主目标挂 G01(原生迁移, 与重发同事件名不同路径) */
+  const r = A.advTownAnchorTick({'npc:g01': 1}); /* 注入到站: leg0(66,66,east)→leg1 */
+  assert.strictEqual(typeof A.advTownAnchorTick, 'function', '消费机挂点在位(前置)');
+  assert.ok(r.changed, '到站跳变记账(leg0→leg1 锚值实变)');
+  assert.strictEqual(r.events.length, 1, '恰一条重发事件(验收①: 恰一条, 不刷屏)');
+  const ev = r.events[0];
+  assert.strictEqual(ev.name, TOWN_UI_EVENTS.targetFocus,
+      '事件名=冻结表 targetFocus(重发既有事件, 零新事件名)');
+  const target = ev.payload.target;
+  assert.deepStrictEqual(Object.keys(target).sort(),
+      ['anchor', 'iconKey', 'id', 'kind', 'label', 'state'],
+      '重发 target 恰六键(townTargetOf 冻结形状, 零键集增项)');
+  assert.strictEqual(target.id, 'npc:g01', 'target.id 对账');
+  assert.strictEqual(target.kind, 'npc', 'target.kind 对账(npc 条目)');
+  assert.strictEqual(target.iconKey, 'care', 'target.iconKey 对账(G01 关怀语义定稿)');
+  assert.strictEqual(target.label, '铁守护·阿稳', 'target.label 对账(注册表定值)');
+  assert.strictEqual(target.state, 'active', 'target.state 携当前值(初聚焦 active)');
+  const leg1 = anchorOf('npc:g01', 1); /* G01 巡逻环 waypoints[1] */
+  assert.deepStrictEqual(target.anchor, {x: leg1.x, y: leg1.y, z: leg1.z},
+      'anchor 携新航点快照恰三键 {x,y,z}(92,24,66 站; face 不入协议载荷)');
+  assert.deepStrictEqual(target.anchor, {x: 92, y: 24, z: 66},
+      'anchor 字面对账 G01 leg1(独立于实现的期望字面值)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 无焦点零事件(验收①反面·默认「聚焦才发」): npc:g01 未被 focus 时到站跳变 → ' +
+    '零事件(跳变照记账, changed=true)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  A.advTownState().targets.focus('bell-tower'); /* 主目标挂非 NPC(对照组: g01 无人挂) */
+  const r = A.advTownAnchorTick({'npc:g01': 1});
+  assert.ok(r.changed, '到站跳变照记账(账本与事件分账)');
+  assert.deepStrictEqual(r.events, [], '零事件(默认策略聚焦才发, 无焦点不刷)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 静态站位 13 键零重发(验收②): 任意 legIndex 注入(含负/超界)零重发——' +
+    '锚不变幂等, 聚焦中的静态 NPC 同样零事件', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const t = A.advTownState().targets;
+  t.focus('npc:v01'); /* 聚焦一个静态站位 NPC: 锚不变 → 即使聚焦也零重发 */
+  const legs = {'npc:v01': 3, 'npc:v02': 99, 'npc:v03': -7, 'npc:v04': 1,
+    'npc:v05': 5, 'npc:v06': 2, 'npc:v07': 11, 'npc:v08': -3, 'npc:v09': 7,
+    'npc:v10': 100, 'npc:a01': 1, 'npc:a02': -1, 'npc:a03': 4}; /* 13 静态键全注入离谱腿 */
+  const r = A.advTownAnchorTick(legs);
+  assert.strictEqual(r.changed, false, '静态锚任意 legIndex 恒返首航点(零跳变)');
+  assert.deepStrictEqual(r.events, [], '零重发(锚不变幂等, 验收②)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 重发稀疏幂等+账本写赢: 同腿重复 tick 零事件 · 到站再跳(leg1→leg2)再发恰一条', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const t = A.advTownState().targets;
+  t.focus('npc:g01');
+  const r1 = A.advTownAnchorTick({'npc:g01': 1});
+  assert.strictEqual(r1.events.length, 1, '首次到站恰一条(前置)');
+  const r2 = A.advTownAnchorTick({'npc:g01': 1});
+  assert.strictEqual(r2.changed, false, '同腿重复 tick 零跳变(账本已写赢)');
+  assert.deepStrictEqual(r2.events, [], '同锚不再发(稀疏: 重发频次≥航点步长时间)');
+  const r3 = A.advTownAnchorTick({'npc:g01': 2});
+  assert.strictEqual(r3.events.length, 1, '再跳到站(leg1→leg2)再发恰一条');
+  const leg2 = anchorOf('npc:g01', 2);
+  assert.deepStrictEqual(r3.events[0].payload.target.anchor, {x: leg2.x, y: leg2.y, z: leg2.z},
+      '再发 anchor 携 leg2 新航点(92,24,92 站)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 重发零状态扰动(对账): 重发是同形状事件刷新非迁移 — 机器 focusId/states 零变', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const t = A.advTownState().targets;
+  t.focus('npc:g01');
+  A.advTownAnchorTick({'npc:g01': 1});
+  const snap = t.snapshot();
+  assert.strictEqual(snap.focusId, 'npc:g01', '重发不迁主目标(focusId 原位)');
+  assert.strictEqual(snap.states['npc:g01'], 'active', '重发不迁状态(active 原位)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 策略参数化·到站即发(policy=always): 无焦点下到站跳变仍发恰一条 ' +
+    '(对照默认策略同场景零事件, 票面 §3 参数化验收)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const r = A.advTownAnchorTick({'npc:g01': 1}, 'always');
+  assert.strictEqual(r.events.length, 1, '到站即发策略生效(无焦点也发恰一条)');
+  assert.strictEqual(r.events[0].name, TOWN_UI_EVENTS.targetFocus, '同冻结事件名(策略不改协议面)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 done 态重发携 done(完成态回看): found 后到站跳变重发 target.state=done 携新锚', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const t = A.advTownState().targets;
+  t.focus('npc:g01');
+  t.found('npc:g01'); /* 完成态: core focus 重复聚焦携 done 的同款回看语义 */
+  const r = A.advTownAnchorTick({'npc:g01': 1});
+  assert.strictEqual(r.events.length, 1, 'done 态重发照发(回看语义)');
+  assert.strictEqual(r.events[0].payload.target.state, 'done', 'state 携当前 done 值');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 同形状既有事件+协议回归(验收③): 重发与原生 focus 事件键集同序 · ' +
+    'TOWN_UI_EVENTS 四名表/townTargetOf 六键零改动(快照形状断言)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const t = A.advTownState().targets;
+  const r0 = t.focus('npc:g01'); /* 原生迁移事件=同形状基线 */
+  assert.strictEqual(r0.events.length, 1, '原生 focus 恰一条(基线前置)');
+  const e0 = r0.events[0];
+  const r1 = A.advTownAnchorTick({'npc:g01': 1});
+  const e1 = r1.events[0];
+  assert.strictEqual(e1.name, e0.name, '重发事件名与原生同款(同形状既有事件)');
+  assert.deepStrictEqual(Object.keys(e1.payload), Object.keys(e0.payload),
+      'payload 键集同序(恰一键 {target}, 零增项)');
+  assert.deepStrictEqual(Object.keys(e1.payload.target), Object.keys(e0.payload.target),
+      'target 键集同序(恰六键, 零增项)');
+  assert.deepStrictEqual(Object.keys(e1.payload.target.anchor).sort(), ['x', 'y', 'z'],
+      '重发 anchor 恰三键(face 不入协议载荷, 与原生 e0 同构)');
+  assert.deepStrictEqual(Object.keys(e0.payload.target.anchor).sort(), ['x', 'y', 'z'],
+      '原生 anchor 亦恰三键(基线自证: 两面同构)');
+  /* 协议回归快照: 冻结名表四事件与六键形状函数零改动(本票零协议增项的表主面) */
+  assert.deepStrictEqual({...TOWN_UI_EVENTS}, {
+    targetFocus: 'town-ui/target/focus', targetUpdate: 'town-ui/target/update',
+    interactFocus: 'town-ui/interact/focus', interactBlur: 'town-ui/interact/blur'},
+  'TOWN_UI_EVENTS 四事件名表快照零改动(冻结面)');
+  const probe = townTargetOf(
+      {id: 'npc:g01', kind: 'npc', iconKey: 'care', label: '铁守护·阿稳'},
+      {anchor: {x: 1, y: 2, z: 3}, state: 'active'});
+  assert.deepStrictEqual(Object.keys(probe).sort(),
+      ['anchor', 'iconKey', 'id', 'kind', 'label', 'state'],
+      'townTargetOf 六键形状零改动(冻结面)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 账本生命周期: 离镇清账·再进重置(首跳再发不串轮) — prev 账本随建机建/随弃机清', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const t1 = A.advTownState().targets;
+  t1.focus('npc:g01');
+  const r1 = A.advTownAnchorTick({'npc:g01': 1});
+  assert.strictEqual(r1.events.length, 1, '第一轮到站重发(前置)');
+  A.advSetDim('overworld'); /* 离镇: 机器与 prev 账本同链清 */
+  A.advSetDim('town');
+  const t2 = A.advTownState().targets;
+  assert.notStrictEqual(t2, t1, '第二轮新机(机器换代前置, T-SEAM-04 既有面)');
+  t2.focus('npc:g01');
+  const r2 = A.advTownAnchorTick({'npc:g01': 1}); /* 同腿再注入: 新账本视作首跳 */
+  assert.strictEqual(r2.events.length, 1,
+      '再进首跳再发(账本重置, 第一轮 leg1 不泄漏——不串轮)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 非镇维度旁路: overworld 下 tick 直调零炸零事件(行身份维度门, 零 town 字面判据)', () => {
+  mem.clear();
+  freshInit();
+  const r = A.advTownAnchorTick({'npc:g01': 1});
+  assert.deepStrictEqual(r, {changed: false, events: []},
+      '非镇维度旁路零炸(维度门+账本未建双守卫)');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-12 update 逐帧接线(源文本守门): 消费机挂 AdventureMode.update 段内(镇专属件邻位, ' +
+    '生产路径恒缺省 leg0) — 镜像 T-SEAM-04 den 先例形状对齐的源文本断言', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const atUpdate = src.indexOf('update(dt) {\n    advStore.tick();'); /* update 段锚(首行签名) */
+  const atNext = src.indexOf('onMouse(button, hit)'); /* update 段界(下一方法) */
+  const atTick = src.indexOf('advTownAnchorTick();');
+  assert.ok(atUpdate > 0 && atNext > atUpdate, 'update 段可定位(段锚=advStore.tick() 首行)');
+  assert.ok(atTick > atUpdate && atTick < atNext,
+      'advTownAnchorTick() 调用在 update 段内(装配层每帧取数, 裁决三生产接线)');
 });
 
 /* ============ 城镇翻新波次三 TIDEA-02: 进镇迎宾钟三响(真链路+真墙钟) ============
