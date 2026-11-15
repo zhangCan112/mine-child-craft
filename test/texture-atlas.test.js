@@ -620,3 +620,52 @@ test('meshChunk: 门额牌竖板路径 — 专用小盒贴西缘, 西面 UV 落�
   assert.strictEqual(quads(r.atlas), 5, '垫块上门额牌 5 面(底面剔除)');
   assert.strictEqual(quads(r.solid), 6, '垫块本体照常实心通道(牌不遮梁)');
 });
+
+/* ============ 门额牌竖板顶点光(T4 返工): 面朝向邻格采样 ============ */
+/* 带光照载荷的 pack(D3): mesh-core.test.js mkPackL 同构先例 — sky/block 与
+   cells 同形同布局, 光值由测试逐格显式写入(断言不经生产代码派生) */
+function mkPackL(border) {
+  const p = mkPack(border);
+  p.sky = new Uint8Array(p.w * p.d * 48); /* 缺省 0: 被遮蔽(取样格全由测试显式给值) */
+  p.block = new Uint8Array(p.w * p.d * 48);
+  p.setL = (lx, y, lz, s, b) => {
+    p.sky[(y*p.d + lz)*p.w + lx] = s;
+    p.block[(y*p.d + lz)*p.w + lx] = b;
+  };
+  return p;
+}
+/* 按面法线收集四边形顶点序号(mesh-core.test.js 同构先例; sky/block 单标量属性) */
+function quadsByNormal(ch) {
+  const map = new Map();
+  for (let q = 0; q < ch.indices.length; q += 6) {
+    const v0 = ch.indices[q];
+    const key = ch.normals[v0*3] + ',' + ch.normals[v0*3+1] + ',' + ch.normals[v0*3+2];
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push([0, 1, 2, 3].map((i) => ch.indices[q+i]));
+  }
+  return map;
+}
+const s15 = (lvl) => lvl / 15;
+const faceSkyEq = (ch, qs, want) => qs.every((qd) => qd.every((v) => Math.abs(ch.sky[v] - want) < 1e-9));
+const faceBlkEq = (ch, qs, want) => qs.every((qd) => qd.every((v) => Math.abs(ch.block[v] - want) < 1e-9));
+
+test('meshChunk: 门额牌竖板顶点光取面朝向邻格 — 西面(图案面)不取自身格(自身被遮蔽恒 0, pane/实心普通面同口径, T4 返工)', () => {
+  const t = loadAtlas();
+  /* 白天口径: 牌格 (8,5,8) solid:true → LightCore opaque 判挡光, sky/block 双通道
+     不入光恒 0; 西邻格 (7,5,8) 露天天光 13。西面顶点若取自身格=全黑牌
+     (voxBright(0)=0.05 昼夜刺眼), 取面朝向邻格=13/15 全亮(架构师 §1.4a 裁定,
+     pushPane 同口径先例) */
+  const p = mkPackL(1);
+  p.set(8, 5, 8, t.B_GATE_SIGN);
+  p.setL(7, 5, 8, 13, 0); /* 西邻格: 白天天光(牌面朝西迎玩家) */
+  p.setL(8, 5, 8, 0, 0);  /* 自身格: 被遮蔽恒 0(旧径黑牌病灶) */
+  let r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  const west = quadsByNormal(r.atlas).get('-1,0,0');
+  assert.ok(west && west.length === 1, '悬空牌西面单四边形在场');
+  assert.ok(faceSkyEq(r.atlas, west, s15(13)), '西面顶点 sky 取西邻格 13(白天全亮), 不取自身格 0');
+  /* 壁灯照牌语义: 西邻格 block=14(壁灯 light15 经空气链照上牌面) → 西面顶点 block 跟随 */
+  p.setL(7, 5, 8, 13, 14);
+  r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.ok(faceBlkEq(r.atlas, quadsByNormal(r.atlas).get('-1,0,0'), s15(14)),
+      '西面顶点 block 跟随西邻格 14(夜间壁灯光照上牌面)');
+});
