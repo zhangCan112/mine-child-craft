@@ -10,9 +10,12 @@
       A.advTownState().targets 只读挂点感知)——白闪进镇→HUD 出现→回程→HUD
       收敛(机器在位/清空的壳层半边已由 test/adventure-mode.test.js T-SEAM-04
       端到端锁死, 本文件锁 UI 半边);
-   ② emit 接线: townUiTargetEvent(机器事件名, 载荷)→提示卡随 focus/found
-      更新(adventure.js 建机步只换 emit 实参, 判据/触发线/建机弃机步不动);
-   ③ TTS 重播入口: 喇叭钮在位+重播完整句+不改状态机状态(prebuild §2.4);
+   ② emit 接线: townUiTargetEvent(机器事件名, 载荷)→核心态随 focus/found
+      步进(adventure.js 建机步只换 emit 实参, 判据/触发线/建机弃机步不动;
+      左上状态卡已移除, PO 返工 2026-11-15——核心态 headless 保留, L3 表扬/
+      L2 指引语义不变, 卡话术 tts-hint 同步撤);
+   ③ TTS 重播入口: 随左上状态卡移除撤除(重播钮=卡右端子件; 保留面=会话
+      TTS B 通道与 L3 表扬, prebuild §2.4 显隐行作废);
    ④ 会话避让监听侧: dialogEvent(dialog open/close)→非必要 HUD 收敛,
       dialog 本体零依赖(T-UI-04 域, 本票只做监听 seam);
    ⑤ 真件集成链: 真 town-interact-core 机器+真 town-ui-core 核心+适配层
@@ -148,7 +151,7 @@ const TARGET = {id: 'bell-tower', kind: 'landmark', iconKey: 'belltower', label:
    ① 进镇出现 / 离镇收敛(机器身份对账)
    ============================================================ */
 
-test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻状态 / L2 指引器徽章(T-UI-02) / L4 回菜单钮', () => {
+test('进镇出现: 机器在位 sync 即挂 #townHud 三槽 — L2 指引器徽章(T-UI-02) / L4 回菜单钮(左上状态卡已移除, PO 返工 2026-11-15)', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
   const machine = {snapshot: () => ({focusId: null, states: {}})};
   const rec = mkHarness(() => machine);
@@ -157,12 +160,13 @@ test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻
   assert.ok(rec.ui.root, '进镇(机器在位)sync 后挂载');
   assert.strictEqual(rec.ui.root.getAttribute('id'), 'townHud',
       '容器 id=townHud(prebuild §1.1)');
-  slotOf(rec.ui, 'town-hud-card');
+  assert.ok(!rec.ui.root.children.some((c) => c.classList.contains('town-hud-card')),
+      '左上状态卡不再挂出(PO 返工: 卡壳整体移除)');
   slotOf(rec.ui, 'town-hud-pointer');
   slotOf(rec.ui, 'town-hud-praise');
   slotOf(rec.ui, 'town-hud-sys');
   assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
-      '进场且无任务=探索中轻状态(P-V1)');
+      '进场且无任务=探索中轻状态(核心态 headless 保留, 无卡 DOM)');
   const pointerSlot = slotOf(rec.ui, 'town-hud-pointer');
   assert.strictEqual(pointerSlot.children.length, 1,
       'L2 指引器徽章就位(T-UI-02: 槽内恰一徽章子件, 不重建不多挂)');
@@ -175,7 +179,7 @@ test('进镇出现: 机器在位 sync 即挂 #townHud 四槽 — L1 探索中轻
       (c) => c.getAttribute('aria-label') === '回主菜单');
   assert.ok(home, 'L4 默认仅「返回主菜单」图标钮(prebuild §2.1)');
   rec.ui.sync(); /* 同机重复对账幂等 */
-  assert.strictEqual(rec.ui.cardState(), 'idle-exploring', '重复 sync 不改卡态');
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring', '重复 sync 不改核心态');
 });
 
 test('回程收敛: 机器弃机(引用清空) sync 即收敛 — 容器隐藏+语音停+卡态归 hidden(零惩罚无残留)', () => {
@@ -209,7 +213,7 @@ test('新机不串轮: 机器引用换代 = 弃旧迎新 — 卡态复位探索�
    ② emit 接线: focus/found 事件驱动卡片(T-SEAM-04 目标协议消费面)
    ============================================================ */
 
-test('emit 接线: focus→卡进行中+图标短标签+自动朗读完整句; found→完成一步+L3 表扬浮现+停留计时在 U7 窗', () => {
+test('emit 接线: focus→核心态进行中; found→完成一步+L3 表扬浮现+停留计时在 U7 窗(卡 DOM 已移除, 态步进与表扬 headless 保留)', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
   const machine = {snapshot: () => ({focusId: 'bell-tower', states: {'bell-tower': 'active'}})};
   const rec = mkHarness(() => machine);
@@ -217,17 +221,11 @@ test('emit 接线: focus→卡进行中+图标短标签+自动朗读完整句; f
 
   rec.ui.targetEvent('town-ui/target/focus', {target: TARGET});
   assert.strictEqual(rec.ui.cardState(), 'active', 'focus→进行中(验收锚字面)');
-  const card = slotOf(rec.ui, 'town-hud-card');
-  const label = card.children.find((c) => c.classList.contains('town-hud-card-label'));
-  assert.ok(label && label.textContent === '钟塔', '短标签在位(1-6 字辅助, §4.3)');
-  const ttsBtn = card.children.find((c) => c.classList.contains('town-hud-card-tts'));
-  assert.ok(ttsBtn && !ttsBtn.hidden, 'TTS 重播钮仅 active/step-done 可见(U6/prebuild §2.4)');
-  assert.deepStrictEqual(rec.speech.spoken, ['我们去钟塔吧！'],
-      '新主提示自动朗读完整句一次(§4.4; 句式=core townHintSentence)');
+  assert.ok(!rec.ui.root.children.some((c) => c.classList.contains('town-hud-card')),
+      '卡 DOM 不随 focus 复活(PO 返工: 卡壳整体移除)');
 
   rec.ui.targetEvent('town-ui/target/update', {id: 'bell-tower', state: 'done'});
   assert.strictEqual(rec.ui.cardState(), 'step-done', 'found→完成一步(验收锚字面)');
-  assert.ok(card.classList.contains('is-step-done'), '完成一步视觉档落卡(草绿语义类)');
   const praise = slotOf(rec.ui, 'town-hud-praise');
   assert.ok(praise.children.length >= 1, 'L3 表扬浮现位出现内容(UI-04 占位, §2.1)');
   const timerItems = rec.timer.pending.filter((h) => h.ms >= 1200 && h.ms <= 2000);
@@ -248,27 +246,10 @@ test('emit 接线: 未知事件名静默忽略(协议面恰四键, 未定事件�
 });
 
 /* ============================================================
-   ③ TTS 重播入口(喇叭钮; prebuild §2.4 逐行)
+   ③ TTS 重播入口——随左上状态卡移除撤除(重播钮=卡右端子件, PO 返工
+   2026-11-15); 卡话术自动朗读(tts-hint)同步不落地, 保留面=会话 TTS
+   (B 侧 dialog 话术)与 L3 表扬, §2.4 显隐行随之作废。
    ============================================================ */
-
-test('重播钮: 点选重播当前提示完整句一次 — cancel-then-speak 不重叠抢话, 且不改状态机状态', () => {
-  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
-  const rec = mkHarness(() => ({snapshot: () => ({focusId: 'bell-tower', states: {'bell-tower': 'active'}})}));
-  rec.ui.sync();
-  rec.ui.targetEvent('town-ui/target/focus', {target: TARGET});
-  assert.strictEqual(rec.ui.cardState(), 'active', '前置: 进行中');
-  const before = rec.speech.spoken.length;
-  const ttsBtn = slotOf(rec.ui, 'town-hud-card')
-      .children.find((c) => c.classList.contains('town-hud-card-tts'));
-  ttsBtn.click();
-  assert.strictEqual(rec.speech.spoken.length, before + 1, '点选重播恰好一次');
-  assert.ok(rec.speech.spoken.includes('我们去钟塔吧！'), '重播完整友好句(短标签只是辅助)');
-  assert.ok(rec.speech.cancels >= 1, 'cancel-then-speak(连点不重叠抢话, SpeechKit 统一通道)');
-  assert.strictEqual(rec.ui.cardState(), 'active', '重播不改变状态机状态(prebuild §2.4 行为行)');
-  /* 热区语义: aria-label 在位(44px 热区由 CSS token 承担, 这里锁可及性标注) */
-  assert.strictEqual(ttsBtn.getAttribute('aria-label'), '再听一遍',
-      '重播钮可及性标注在位');
-});
 
 test('L4 回菜单钮: 点选走宿主 chrome 页面缝(showPage(main)), 本票不另造退出链', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
@@ -285,7 +266,7 @@ test('L4 回菜单钮: 点选走宿主 chrome 页面缝(showPage(main)), 本票�
    ④ 会话避让监听侧(dialog 本体零依赖, T-UI-04 域)
    ============================================================ */
 
-test('会话避让: dialog open→L1/L2 收敛 L4 保持; close(continue)→恢复; close(done+taskRef)→落完成一步+表扬', () => {
+test('会话避让: dialog open→L2 收敛 L4 保持; close(continue)→恢复; close(done+taskRef)→落完成一步+表扬(L1 卡已移除, 避让语义塌为 L2/L4)', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
   const machine = {snapshot: () => ({focusId: 'bell-tower', states: {'bell-tower': 'active'}})};
   const rec = mkHarness(() => machine);
@@ -293,15 +274,12 @@ test('会话避让: dialog open→L1/L2 收敛 L4 保持; close(continue)→恢�
   rec.ui.targetEvent('town-ui/target/focus', {target: TARGET});
 
   rec.ui.dialogEvent('town-ui/dialog/open', {npcId: 'V01'});
-  assert.strictEqual(slotOf(rec.ui, 'town-hud-card').hidden, true,
-      'dialog open→L1 暂隐(P-H1, 监听侧收敛)');
   assert.strictEqual(slotOf(rec.ui, 'town-hud-pointer').hidden, true,
       'dialog open→L2 暂隐(P-H2)');
   assert.strictEqual(slotOf(rec.ui, 'town-hud-sys').hidden, false,
       'L4 保持(安全返回能力不收敛, prebuild §5 函数 2)');
 
   rec.ui.dialogEvent('town-ui/dialog/close', {result: 'continue'});
-  assert.strictEqual(slotOf(rec.ui, 'town-hud-card').hidden, false, 'close(continue)→L1 恢复');
   assert.strictEqual(slotOf(rec.ui, 'town-hud-pointer').hidden, false, 'close(continue)→L2 恢复');
   assert.strictEqual(rec.ui.cardState(), 'active', '恢复原态(进行中)');
 
@@ -321,14 +299,14 @@ test('会话中意图冻结(轻状态侧): idle-exploring 开会话→found 不�
   rec.ui.dialogEvent('town-ui/dialog/open', {npcId: 'V01'});
   rec.ui.targetEvent('town-ui/target/focus', {target: TARGET});
   assert.deepStrictEqual(rec.speech.spoken, [],
-      '会话中 focus 不开麦(dialog-spec §2.2 会话播报优先, B 通道独占)');
+      'focus 零开麦(卡话术 tts-hint 随左上状态卡移除不再落地, PO 返工 2026-11-15; 会话播报优先=B 通道独占)');
   rec.ui.targetEvent('town-ui/target/update', {id: 'task:find-bread', state: 'done'});
   assert.strictEqual(slotOf(rec.ui, 'town-hud-praise').children.length, 0,
       '会话中 found 不弹全局表扬(prebuild §2.5 L3 冻结, 轻状态侧同样生效)');
   rec.ui.dialogEvent('town-ui/dialog/close', {result: 'continue'});
-  rec.ui.targetEvent('town-ui/target/focus', {target: TARGET});
-  assert.deepStrictEqual(rec.speech.spoken, ['我们去钟塔吧！'],
-      'close 后同事件照给(对照: 冻结随会话解除, 非永久静音)');
+  rec.ui.targetEvent('town-ui/target/update', {id: 'task:find-bread', state: 'done'});
+  assert.ok(slotOf(rec.ui, 'town-hud-praise').children.length >= 1,
+      'close 后同事件照给(对照: 冻结随会话解除, 非永久静音; 载体=praise-show, tts 载体随卡撤)');
 });
 
 /* ============================================================
@@ -1279,8 +1257,8 @@ test('会话层挂载: mount 恒等创建 town-dlg-layer(bubble/panel 子树)+�
   const layer2ref = dlgLayerOf(rec);
   rec.ui.sync();
   assert.strictEqual(dlgLayerOf(rec), layer2ref, '幂等 sync 零重建(引用恒等)');
-  assert.ok(rec.ui.root.children.find((c) => c.classList.contains('town-hud-card')),
-      '四槽并存: L1 卡在位');
+  assert.ok(rec.ui.root.children.find((c) => c.classList.contains('town-hud-pointer')),
+      '既有槽并存: L2 指引槽在位(L1 卡已移除, PO 返工 2026-11-15)');
   assert.ok(rec.ui.root.children.find((c) => c.classList.contains('town-hl-layer')),
       '既有层并存: hlLayer 在位');
 });
@@ -1853,10 +1831,11 @@ test('T-UI-05 F5: praise dwell 泵默认取 praiseTotalMs 上限档(表扬句完
 });
 
 /* ============================================================
-   城镇翻新波次二(TIDEA-14/16/19 呈现层三件; 提案源 hud-ideas U-03/U-05/
-   U-08): 世界气泡锚定说话人头顶投影/回望钟塔一次性回礼脉冲/首访轻引导
-   一句。全走公共 seam(注入 camRef/poseRef/timer + 文档级事件泵), 纯
-   追加既有断言零触碰。
+   城镇翻新波次二(TIDEA-14/16 呈现层两件; 提案源 hud-ideas U-03/U-08):
+   世界气泡锚定说话人头顶投影/回望钟塔一次性回礼脉冲。TIDEA-19 首访轻
+   引导随左上状态卡移除撤除(PO 返工 2026-11-15, 见 L2021 撤除注)。全走
+   公共 seam(注入 camRef/poseRef/timer + 文档级事件泵), 纯追加既有断言
+   零触碰。
    ============================================================ */
 
 test('TIDEA-14 世界气泡锚定: hover 说话人→气泡挂头顶投影位(is-anchored+内联 left/top, 安全区夹紧); 相机转走→sync 采样重投影回落底部固定位(摘类清内联, 气泡仍显)', () => {
@@ -2043,45 +2022,9 @@ test('TIDEA-16 回望钟塔回礼: 先离开正前再回正前→L2 徽章 seen-
   }
 });
 
-test('TIDEA-19 首访轻引导: 首进探索态=「村民们在等你呢!」👋; close 非 done 不回落; greet 完成(done)回落「随便逛逛」🚶; 再进零提示', () => {
-  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
-  const machine = {snapshot: () => ({focusId: null, states: {}})};
-  let alive = true;
-  const rec = mkHarness(() => (alive ? machine : null));
-  rec.ui.sync(); /* 首次进镇 */
-  const card = rec.ui.root.children.find(
-      (c) => c.classList.contains('town-hud-card'));
-  const label = card.children.find(
-      (c) => c.classList.contains('town-hud-card-label'));
-  const icon = card.children.find(
-      (c) => c.classList.contains('town-hud-card-icon'));
-  assert.ok(label && icon, '卡构件在册(前置)');
-  assert.strictEqual(rec.ui.cardState(), 'idle-exploring', '探索态(前置)');
-  assert.strictEqual(label.textContent, '村民们在等你呢！',
-      '首访拦截=邀请句(≤10 字, 不完成零压力)');
-  assert.strictEqual(icon.textContent, '👋', '首访图标=招手(邀请语义)');
-  /* 会话 close 非 done(deferred/continue)不回落(零压力口径: 只有真完成
-     才算 greet; idle-exploring 收 close 零动作边, 仅记账面变化) */
-  rec.ui.dialogEvent('town-ui/dialog/close', {result: 'continue'});
-  assert.strictEqual(label.textContent, '村民们在等你呢！',
-      'close continue≠greet 完成(提示保持)');
-  rec.ui.dialogEvent('town-ui/dialog/close', {result: 'deferred'});
-  assert.strictEqual(label.textContent, '村民们在等你呢！',
-      'close deferred≠greet 完成(提示保持)');
-  rec.ui.dialogEvent('town-ui/dialog/close', {result: 'done'});
-  assert.strictEqual(label.textContent, '随便逛逛',
-      '首次 greet 完成(done)→标签回落(轻状态)');
-  assert.strictEqual(icon.textContent, '🚶', '图标回落漫步');
-  /* 离镇再进: enteredOnce 不复位→不再提示(仅本会话首次进镇有效) */
-  alive = false;
-  rec.ui.sync(); /* 离镇弃机 */
-  alive = true;
-  rec.ui.sync(); /* 新机再进 */
-  const card2 = rec.ui.root.children.find(
-      (c) => c.classList.contains('town-hud-card'));
-  const label2 = card2.children.find(
-      (c) => c.classList.contains('town-hud-card-label'));
-  assert.strictEqual(label2.textContent, '随便逛逛',
-      '二进零提示(enteredOnce 会话态不复位)');
-});
+/* TIDEA-19 首访轻引导测试随左上状态卡移除撤除(PO 返工 2026-11-15:
+   首访拦截文案=卡三态之一, 卡壳+文案+记账(enteredOnce/greetDone/hintOn)
+   全清; greet done 事件 feed 链保留=机制 headless, 其行为由上方会话避让
+   与 seek 全链测试承担) */
+
 

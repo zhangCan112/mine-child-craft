@@ -621,22 +621,6 @@ function advTownAmbienceTick() {
   }
 }
 
-function advTownArriveCard() {/* 媒体缝·到达时刻卡(城镇翻新 TIDEA-15, U-04):
-    进镇白闪满格瞬间一次性镇名卡浮现(暖纸底, 入0.4s+驻留1.6s+出0.8s≈2.8s
-    后自摘), 「被欢迎的仪式」——与 hud.banner 常驻横幅并存不冲突(时刻卡=
-    到达一次性, 横幅=常驻轻状态); 文案与横幅译名对齐(dims-core town 行
-    banner)。直改 DOM=advToast 同款装配层先例; Node 沙盒无 document
-    早退(T-SEAM-02 到达分支在 Node 直跑) */
-  if (typeof document === 'undefined') return;
-  const card = document.createElement('div');
-  card.className = 'adv-town-arrive-card';
-  card.textContent = '🏘️ 小镇 · Midport Village';
-  document.body.appendChild(card);
-  setTimeout(() => {/* 动画全长≈2.8s, 留 100ms 余量后摘节点(自清理零残留) */
-    if (card.parentNode) card.parentNode.removeChild(card);
-  }, 2900);
-}
-
 function advSyncHeldVisual() {/* 手持观感 = 选中槽内容(「手持与物品栏一致」的单一出口):
    工具/方块/食物/材料全经 HeldItems.defFor 解析, 空槽 = 空手(MC 口径) */
   const s = advInv.slots[advHb.sel];
@@ -2804,8 +2788,7 @@ function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——
         visit_town 到达记账不做(den 先例不记账) */
     advSetDim(advVeil.to);
     advSpeak('到小镇啦！');
-    advToast('🏘️ 到小镇啦！');
-    advTownArriveCard(); /* 城镇翻新 TIDEA-15: 到达镇名时刻卡(白闪满格瞬间一次性) */
+    advToast('🏘️ 到小镇啦！'); /* C 项裁决保留: ADR-0011 seam 到达播报语义, 既有 toast 系(PO 返工 2026-11-15 非反馈对象) */
     advTownBellRing(); /* 城镇翻新 TIDEA-02: 迎宾钟三响(白闪落定同拍, 回程不响) */
     return;
   }
@@ -4595,9 +4578,9 @@ function advHudLines(hit) {
       dayTime, 时段行无信息); 怪物行按行显隐——下界无怪恒 0 徒增困惑, 副本照显(配额观感) */
     /* 城镇翻新 TIDEA-12(镇内安静模式, PO 拍板全套): 战斗 chrome 行(生命/位置/
        手上/家图任务/注视键位)不进镇, 只留镇名牌横幅——镇=安全的地方由 UI 语义
-       直接给出; 家图任务不泄漏进镇(镇内任务语义归 L1 提示卡)。行身份比对零
-       town 字面(守门红线); nether/den 不受影响; town L1-L4 信息架构零改动
-       (entry-hud-spec §4.1 继续有效)。 */
+       直接给出; 家图任务不泄漏进镇(镇内任务语义归会话/指引交互, 原 L1 提示卡
+       已随 PO 返工 2026-11-15 移除)。行身份比对零 town 字面(守门红线);
+       nether/den 不受影响; 行语义零改动(entry-hud-spec §4.1 继续有效)。 */
     if (drow === ADV_TOWN_DIM_ROW) return [drow.hud.banner];
     return [
       drow.hud.banner,

@@ -4935,15 +4935,10 @@ test('TIDEA-17 缓冲带回程预告(城镇翻新 U-06): 线南 6 格一次性�
   AdventureMode.cleanup();
 });
 
-test('TIDEA-15 到达时刻卡装配在册+Node 沙盒守卫(源切片; 行为面由上方 T-SEAM-02/03 到达链 e2e 承担)', () => {
-  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
-  const hasFn = src.indexOf('function advTownArriveCard') >= 0;
-  const hasGuard = src.indexOf('if (typeof document === \'undefined\') return;') >= 0;
-  const hasText = src.indexOf('card.textContent = \'🏘️ 小镇 · Midport Village\'') >= 0;
-  assert.ok(hasFn, '时刻卡装配函数在册(advToast 同款媒体缝位)');
-  assert.ok(hasGuard && hasText,
-      '无 document 早退守卫+镇名文案与横幅译名对齐(dims-core town 行)');
-});
+/* TIDEA-15 到达时刻卡装配测随卡移除撤除(PO 返工 2026-11-15: 时刻卡=进镇
+   提醒之一被点名「不要」, 函数+装配调用+css 块全清回到 9bca4ac 之前形态;
+   到达播报链保留面=advSpeak+advToast+C 项裁决 toast 在册, 行为面仍由
+   T-SEAM-02/03 到达链 e2e 承担) */
 
 test('T-SEAM-03 east 锚所落格可站立(建场探针, 三向现锚同款): 落点脚箱覆盖格 y24 实垫 y25/26 净空', () => {
   mem.clear();

@@ -248,13 +248,9 @@ function mkTownUi(deps) {
   const hlSource = deps.hlSource || townUiHlDefaultSource;
   const onInteract = deps.onInteract || (() => {});
   let root = null; /* 挂载前 null(零常驻 DOM, 未进镇不挂载) */
-  let card = null;
   let pointerSlot = null;
   let praiseSlot = null;
   let sysSlot = null;
-  let iconEl = null;
-  let labelEl = null;
-  let ttsBtn = null;
   let praiseEl = null;
   let pointerBadge = null; /* L2 指引器徽章(mount 恒等创建, 刷新零重建) */
   let pointerIcon = null;
@@ -280,13 +276,10 @@ function mkTownUi(deps) {
   let prevCardState = 'hidden'; /* 会话打开时的卡态快照(close 恢复用) */
   let focusTarget = null; /* 最近 focus 的目标(标签句/hasNext 判断用) */
   const doneIds = new Set(); /* 装配层自有事件记忆(state==='done' id 集) */
-  let curSentence = ''; /* 当前提示完整句(重播钮口径) */
-  /* 城镇翻新波次二会话态(TIDEA-16/19): enteredOnce 不随离镇复位(首访提示
-     仅本会话首次进镇有效); greet 完成=close result 'done' 记账; 钟塔回望
-     armed=先观察到非正前再回正前(防出生直视即烧), 冷却/脉冲句柄离镇清 */
-  let townEnteredOnce = false;
-  let townGreetDone = false;
-  let firstVisitHintOn = false;
+  /* 城镇翻新波次二会话态(TIDEA-16): 钟塔回望 armed=先观察到非正前再回
+     正前(防出生直视即烧), 冷却/脉冲句柄离镇清。TIDEA-19 首访提示链
+     (enteredOnce/greetDone/hintOn)随左上状态卡移除一并清(PO 返工 2026-11-15;
+     greet done 事件 feed 链保留=机制层不动, 仅撤卡文案消费面) */
   let towerSeenArmed = false;
   let towerSeenLast = 0;
   let towerPulseH = null;
@@ -320,24 +313,9 @@ function mkTownUi(deps) {
     if (root || !doc || !doc.body) return;
     root = doc.createElement('div');
     root.setAttribute('id', 'townHud');
-    card = doc.createElement('div');
-    card.classList.add('town-hud-card');
-    iconEl = doc.createElement('span');
-    iconEl.classList.add('town-hud-card-icon');
-    labelEl = doc.createElement('span');
-    labelEl.classList.add('town-hud-card-label');
-    ttsBtn = doc.createElement('button');
-    ttsBtn.classList.add('town-hud-card-tts');
-    ttsBtn.textContent = '🔊';
-    ttsBtn.setAttribute('aria-label', '再听一遍');
-    ttsBtn.onclick = () => {
-      /* 重播完整句: cancel-then-speak 不重叠抢话; 不喂核心不改态(§2.4) */
-      speech.cancel();
-      if (curSentence) speech.speak(curSentence);
-    };
-    card.appendChild(iconEl);
-    card.appendChild(labelEl);
-    card.appendChild(ttsBtn);
+    /* 左上状态卡(town-hud-card 三件)已移除(PO 返工 2026-11-15: 卡丑且与
+       现 UI 风格不一致; 机制层核心状态机/feed 链 headless 保留, 仅撤持久
+       卡 DOM——四槽语义塌为三槽: L2 指引/L3 表扬/L4 返回) */
     pointerSlot = doc.createElement('div');
     pointerSlot.classList.add('town-hud-pointer'); /* 槽类名不变(显隐归 applyState) */
     /* L2 指引器徽章三件: 槽内恰一徽章, 内含图标+指针(子件引用恒等,
@@ -402,7 +380,6 @@ function mkTownUi(deps) {
       if (typeof gotoPage === 'function') gotoPage('main');
     };
     sysSlot.appendChild(homeBtn);
-    root.appendChild(card);
     root.appendChild(pointerSlot);
     root.appendChild(praiseSlot);
     root.appendChild(sysSlot);
@@ -411,32 +388,14 @@ function mkTownUi(deps) {
     doc.body.appendChild(root);
   }
 
-  /* ---------- apply: 核心态 → 槽显隐与卡内容(每次喂核心后调用) ---------- */
+  /* ---------- apply: 核心态 → 槽显隐(每次喂核心后调用)。左上状态卡已移除
+     (PO 返工 2026-11-15): 卡壳/三态文案/重播钮全撤, 核心态 cur 仍步进
+     (机制 headless 保留——feed/L3 表扬/L2 指引语义不变) ---------- */
   function applyState() {
     if (!root) return;
     const d = TOWN_UI_CORE.townHudDimming(cur, dialogOpen);
-    card.hidden = d.l1 === 'hidden';
     pointerSlot.hidden = d.l2 !== 'normal';
     sysSlot.hidden = false; /* L4 安全返回永不收敛 */
-    /* 卡内容按态刷(P-V1: 无任务=「随便逛逛」轻状态; TIDEA-19 首访未 greet
-       时拦截为邀请句「村民们在等你呢!」, 完成首次 greet 即回落) */
-    const exploring = cur === 'idle-exploring';
-    labelEl.textContent = exploring ?
-      (firstVisitHintOn ? '村民们在等你呢！' : '随便逛逛') :
-      ((focusTarget && focusTarget.label) || '随便逛逛');
-    iconEl.textContent = exploring ?
-      (firstVisitHintOn ? '👋' : '🚶') :
-      TOWN_CARD_ICONS[focusTarget && focusTarget.iconKey] || '⭐';
-    card.classList.remove('is-idle-exploring', 'is-active', 'is-step-done');
-    if (exploring) {
-      card.classList.add('is-idle-exploring');
-    } else if (cur === 'active') {
-      card.classList.add('is-active');
-    } else if (cur === 'step-done') {
-      card.classList.add('is-step-done');
-    }
-    /* TTS 重播钮仅 active/step-done 可见(prebuild §2.4 显隐行) */
-    ttsBtn.hidden = !(cur === 'active' || cur === 'step-done');
   }
 
   /* ---------- L2 方位指引器(T-UI-02; prebuild §3.1-§3.4) ----------
@@ -956,19 +915,14 @@ function mkTownUi(deps) {
     cur = out.state;
     applyState();
     /* 会话中意图冻结(轻状态侧): 核心状态机对 idle-exploring 无 dialog-open
-       收敛边, tts-hint/praise-show 的落地闸由装配层承担——dialogOpen=true
-       时意图照收但不落地(不开麦不弹表扬不换重播句, dialog-spec §2.2 会话
-       播报优先); close 先摘闸再喂(dialogEvent), close 自身 done+taskRef 的
-       落完成+表扬照给(会话避让测试锁死), 冻结随会话解除非永久静音 */
+       收敛边, praise-show 的落地闸由装配层承担——dialogOpen=true 时意图照
+       收但不落地(不弹表扬, dialog-spec §2.2 会话播报优先); close 先摘闸再
+       喂(dialogEvent), close 自身 done+taskRef 的落完成+表扬照给(会话避让
+       测试锁死), 冻结随会话解除非永久静音。tts-hint 意图随左上状态卡移除
+       不再落地(卡话术 TTS 伴随面; 核心态步进照收, PO 返工 2026-11-15) */
     if (dialogOpen) return;
     for (const intent of out.intents) {
-      if (intent === 'tts-hint') {
-        /* cancel-then-speak 统一口径(SpeechKit 单通道不重叠抢话) */
-        speech.cancel();
-        curSentence =
-          TOWN_UI_CORE.townHintSentence((focusTarget && focusTarget.label) || '');
-        speech.speak(curSentence);
-      } else if (intent === 'praise-show' && root) {
+      if (intent === 'praise-show' && root) {
         praiseShow();
         clearHandle(praiseHideH);
         praiseHideH = timer.set(praiseHide, TOWN_PRAISE_MID_MS);
@@ -990,10 +944,8 @@ function mkTownUi(deps) {
     hoveredId = null; /* 高亮命中/按下记忆同清(零跨轮残留) */
     pressedId = null;
     hoveredEntry = null;
-    /* 城镇翻新 TIDEA-16/19 会话态进场结转: 首访提示只认本会话首次进镇
-       (enteredOnce 不随离镇复位); 钟塔回望臂/冷却/脉冲全清零串轮 */
-    firstVisitHintOn = !townEnteredOnce && !townGreetDone;
-    townEnteredOnce = true;
+    /* 城镇翻新 TIDEA-16 会话态进场结转: 钟塔回望臂/冷却/脉冲全清零串轮
+       (TIDEA-19 首访提示结转随左上状态卡移除一并清, PO 返工 2026-11-15) */
     towerSeenArmed = false;
     towerSeenLast = 0;
     clearHandle(towerPulseH);
@@ -1131,16 +1083,11 @@ function mkTownUi(deps) {
       refreshHl(); /* 会话降噪档随开落位(选中环保持/其余隐藏) */
     } else if (name === 'town-ui/dialog/close') {
       /* 先摘会话闸再喂: close(done) 的表扬意图要能落槽(L3 会话中冻结由
-         核心承担, 关闸后解冻) */
+         核心承担, 关闸后解冻)。greet done 事件 feed 链保留(机制层 headless,
+         玩法侧消费 payload.result/taskRef)——TIDEA-19 首访记账随左上状态卡
+         移除一并清(PO 返工 2026-11-15) */
       dialogOpen = false;
       if (doc && doc.body) doc.body.classList.remove('town-dialog-open'); /* TIDEA-13: 回漫步淡档 */
-      /* 城镇翻新 TIDEA-19: 首次 greet 完成(close result='done', 取值域
-         deferred|done|continue)即撤首访提示——记账+即时摘臂, 标签回落由
-         下方 feed 的 applyState 落卡(此处不触 DOM) */
-      if (payload.result === 'done') {
-        townGreetDone = true;
-        firstVisitHintOn = false; /* 即时回落(本会话不再提示) */
-      }
       feed({type: 'dialog-close', result: payload.result,
         taskRef: payload.taskRef, prev: prevCardState});
       refreshHl(); /* 降噪随会话解除恢复(标记回默认态可见) */

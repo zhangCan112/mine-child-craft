@@ -51,84 +51,6 @@
   display: none;
 }
 
-/* L1 主提示卡: 左上安全区, 横向圆角卡片(图标在左短标签在右), 暖纸半透明底
-   +深木细描边+内亮线+坐影(bubble 底板语言复用, §1.2; revamp-spec §3-H 统一质感) */
-.town-hud-card {
-  position: absolute;
-  inset-block-start: var(--town-hud-safe);
-  inset-inline-start: var(--town-hud-safe);
-  max-width: min(320px, 40vw);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: var(--town-hit-min);
-  padding: 10px 18px;
-  background: var(--town-hud-surface);
-  border: 2px solid var(--town-hud-ink);
-  border-radius: 14px;
-  box-shadow:
-    inset 0 0 0 3px var(--town-hud-soft-white),
-    var(--town-hud-shadow);
-  color: var(--town-hud-ink);
-  pointer-events: auto;
-  opacity: 1;
-  transform: translateY(0);
-  transition:
-    opacity var(--town-hud-t-in) ease-out,
-    transform var(--town-hud-t-in) ease-out;
-}
-
-.town-hud-card-icon {
-  font-size: 26px;
-  line-height: 1;
-}
-
-.town-hud-card-label {
-  font-size: 20px;
-  font-weight: 700;
-  white-space: nowrap;
-}
-
-/* 卡片三态类(五态的 DOM 可见面: hidden 由容器/收敛档承担) */
-.town-hud-card.is-idle-exploring {
-  /* P-V1 无任务「探索中」轻状态: 弱化 50% 档, 位置稳定不闪现 */
-  opacity: 0.5;
-}
-
-.town-hud-card.is-active {
-  box-shadow:
-    inset 0 0 0 3px var(--town-hud-soft-white),
-    0 0 0 2px var(--town-hud-highlight),
-    var(--town-hud-shadow);
-}
-
-.town-hud-card.is-step-done {
-  /* 完成一步: 草绿外环语义(正向无惩罚, 不用考试对勾生硬感) */
-  box-shadow:
-    inset 0 0 0 3px var(--town-hud-soft-white),
-    0 0 0 3px var(--town-hud-done),
-    var(--town-hud-shadow);
-}
-
-/* TTS 重播钮: 卡右端喇叭(emoji 🔊 占位), 44px 热区, 按下回弹 */
-.town-hud-card-tts {
-  min-width: var(--town-hit-min);
-  min-height: var(--town-hit-min);
-  border: 2px solid var(--town-hud-ink);
-  border-radius: 12px;
-  background: var(--town-hud-gold);
-  box-shadow: var(--town-hud-shadow);
-  color: var(--town-hud-ink);
-  font-size: 20px;
-  line-height: 1;
-  cursor: pointer;
-  transition: transform var(--town-hud-t-tap) ease-out;
-}
-
-.town-hud-card-tts:active {
-  transform: scale(0.97);
-}
-
 /* L2 方位指引槽: 上中(与 L4 右上避让), 本票零内容只锚位(T-UI-02 填充) */
 .town-hud-pointer {
   position: absolute;
@@ -312,9 +234,7 @@
 
 /* 减少动态偏好: 降级纯淡入淡出、停呼吸/位移动画(hud-spec §4.3 动效行) */
 @media (prefers-reduced-motion: reduce) {
-  .town-hud-card,
   .town-hud-praise,
-  .town-hud-card-tts,
   .town-hud-sys button {
     transition: none;
     animation: none;
@@ -662,68 +582,3 @@
   }
 }
 
-/* ============================================================
-   到达镇名时刻卡 (城镇翻新 TIDEA-15, U-04) — 进镇白闪满格瞬间一次性
-   浮现的「被欢迎的仪式」: 暖纸底+墨字(:root --town-hud-surface 同源,
-   与 B 侧 panel-bg 同值同语言), 顶部居中悬浮; 与 hud.banner 常驻横幅
-   并存不冲突(时刻卡=到达一次性, 横幅=常驻轻状态)。动画全长 ≈2.8s
-   (入 0.4 + 驻留 1.6 + 出 0.8), 节点由 adventure.js 2.9s 后自摘。
-   类名 adv- 前缀=生成方(modes/adventure.js)直挂 body, 样式归城镇色板
-   本表; z-index 16=高于 #fade 白闪 15(卡在退白上浮, 仪式可见), 低于
-   面板 40。
-   ============================================================ */
-.adv-town-arrive-card {
-  position: fixed;
-  inset-block-start: 18vh;
-  inset-inline: 0;
-  margin-inline: auto;
-  width: fit-content;
-  padding: 14px 30px;
-  background: var(--town-hud-surface);
-  border: 2px solid var(--town-hud-ink);
-  border-radius: 20px;
-  box-shadow:
-    inset 0 0 0 3px var(--town-hud-soft-white),
-    var(--town-hud-shadow);
-  color: var(--town-hud-ink);
-  font-size: 26px;
-  font-weight: 700;
-  letter-spacing: 0.05em;
-  text-align: center;
-  pointer-events: none; /* 时刻卡纯展示不挡点选 */
-  z-index: 16;
-  animation: adv-town-arrive-pop 2.8s ease-out both;
-}
-
-@keyframes adv-town-arrive-pop {
-  0% {
-    opacity: 0;
-    transform: translateY(10px) scale(0.96);
-  }
-
-  /* 0.4s/2.8s 入场到位 */
-  14.3% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-
-  /* 2.0s/2.8s 驻留毕开始退场 */
-  71.4% {
-    opacity: 1;
-    transform: translateY(0) scale(1);
-  }
-
-  100% {
-    opacity: 0;
-    transform: translateY(-8px) scale(0.98);
-  }
-}
-
-/* 降级: 减少动态偏好下时刻卡瞬显即隐(JS 2.9s 自摘兜底, forwards 停末帧
-   透明)——「被欢迎的仪式」退化为不加打扰的闪现 */
-@media (prefers-reduced-motion: reduce) {
-  .adv-town-arrive-card {
-    animation-duration: 0.01s;
-    animation-fill-mode: forwards;
-  }
-}
