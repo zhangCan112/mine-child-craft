@@ -1542,41 +1542,59 @@ function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间
   }
 }
 
-function advEdgeEastSkyline() {/* 小镇远景剪影(东 spec §6): 房屋×4+钟楼×1+圆冠树×2+
-  灯点 4 粒, 落栅栏外隔离带 x158~159(体素拼块=「近看不穿帮」约束的便宜实现)。
-  登记偏差: 深蓝灰 #5A6B7A 系无图集格位(零新贴图), 以石色剪影替代(T7 拍板 Q1
-  销项: 维持石色, 深蓝灰新格位走独立图集票); 灯点=火把(夜间发光, 「还没建好但
-  已经有灯亮着」的情绪钩子) */
-  /* 门前小径(东带 spec §3.4 件 D): 开间正后 x158~159×z74~75 表面改土面 id2——
-     路穿过门口开间一直铺到钟楼塔脚, 与主径同材质同读法(旧草面会把路「断」在
-     门后); helper 只换草皮 id1(守卫仅南花海圈), 与塔身(top+1 起)零冲突,
-     建场常量零新盐 */
-  advEdgeRewrite(158, 159, 74, 75, () => [2, 0]);
+function advEdgeEastSkyline() {/* 前街重排(v2 spec §4.2 件 F, 2026-11-15): 门前石板+
+  迎宾灯柱+房×4 门脸化+钟塔+圆冠树×2, 落栅栏外隔离带 x158~159——v1「雾中剪影」
+  (光盒子+石色房)升格为「穿过门看到的第一条街」, 构成(房×4 高低错落+塔最高+同轴)
+  继承、材质形制全升级; v1 灯点计数返回值(lamps)全仓零消费, 随重排退役。
+  瓦顶消费新块 79 陶橙瓦(config 纯色行注册); 本函数沿用既有字面量风格写 79
+  (同 2/3/5/6 先例——B_ROOF_TILE 是 vm 域 config 词法, 本 host 域模块不可见);
+  全建场常量零 Math.random 零新盐 */
+  /* 门前石板(件 D 材质升级): 开间正后 x158~159×z74~75 表面草皮改石砖 13——路穿门
+     的材质升级=「进了镇界」(家门外土路/镇里石板路), 石板直铺塔脚与门楼同料
+     (几何零改动, v1 土面正是这一笔落的); helper 只换草皮 id1, 建场常量零新盐 */
+  advEdgeRewrite(158, 159, 74, 75, () => [13, 0]);
+  /* 房×4 门脸化: 石墙 id3→木头 5(暖木墙)+西面门(6 木板)窗(18 玻璃, 写墙后覆写)+
+     陶橙平瓦盖 top+h+1(2×2=x158..159×z 向两格, 悬挑取 z+1 南向——票文未裁,
+     每屋恰 4 格)+窗灯火把上移瓦顶正上 top+h+2(4 屋全亮, v1「首屋 z24 留白凑
+     3+1」退役) */
   const houses = [[24, 3], [56, 5], [88, 4], [120, 3]]; /* [z, 高]——高低错落 3~5 格 */
-  let lamps = 0;
   for (const [z, h] of houses) {
     const top = ADV_GROUND + advHeightAt(158, z);
     for (let x = 158; x <= 159; x++) {
-      for (let y = top + 1; y <= top + h; y++) setBlockRaw(x, y, z, 3);
+      for (let y = top + 1; y <= top + h; y++) setBlockRaw(x, y, z, 5);
     }
-    /* 窗灯 ×3(首屋留白凑「3 窗灯+1 塔灯=4 粒」) */
-    if (z !== 24) {
-      setBlockRaw(158, top + h + 1, z, B_TORCH);
-      lamps++;
-    }
+    setBlockRaw(158, top + 1, z, 6); /* 西面门(门脸 yb+1) */
+    setBlockRaw(158, top + 2, z, 18); /* 西面窗(yb+2) */
+    SceneKit.fill(158, top + h + 1, z, 159, top + h + 1, z + 1, 79); /* 平瓦盖(覆 v1 火把位) */
+    setBlockRaw(158, top + h + 2, z, B_TORCH); /* 窗灯火把落瓦顶上(原 top+h+1 位上移) */
   }
-  const tt = ADV_GROUND + advHeightAt(158, 74); /* 钟楼: 塔身 7 高全场最高 + 尖顶 + 顶灯 */
-  for (let x = 158; x <= 159; x++) {
-    for (let y = tt + 1; y <= tt + 7; y++) setBlockRaw(x, y, 74, 3);
+  /* 钟塔(推翻 v1 剪影钟楼): 石砖塔身 8 高(footprint x158..159×z73..75, v1 单列宽
+     加宽)+西面空气龛门 yb+1..+2(龛内火把贴 x159 后壁=「有门的塔」)+石英钟面竖排
+     ×2+白檐 10 格出挑 z72..76(檐心换灯块=塔檐灯)+陶橙阶梯瓦顶二级收分——总高
+     恰 yb+11 全场最高(塔最高原则, 上方净空) */
+  const tt = ADV_GROUND + advHeightAt(158, 74);
+  SceneKit.fill(158, tt + 1, 73, 159, tt + 8, 75, 13); /* 塔身石砖 yb+1..+8 */
+  setBlockRaw(158, tt + 1, 74, 0); /* 掏龛: 西面 yb+1 净空 */
+  setBlockRaw(158, tt + 2, 74, 0); /* 掏龛: 西面 yb+2 净空 */
+  setBlockRaw(158, tt + 1, 74, B_TORCH); /* 龛灯(贴 x159 后壁, 夜亮语义) */
+  setBlockRaw(158, tt + 6, 74, 17); /* 钟面石英下格(西面竖排) */
+  setBlockRaw(158, tt + 7, 74, 17); /* 钟面石英上格 */
+  SceneKit.fill(158, tt + 9, 72, 159, tt + 9, 76, 17); /* 塔檐石英(白檐, 与门楼檐口同语言) */
+  setBlockRaw(158, tt + 9, 74, 19); /* 塔檐灯(檐心灯块 light15 恒亮) */
+  SceneKit.fill(158, tt + 10, 73, 159, tt + 10, 75, 79); /* 瓦顶一级(z73..75 全宽) */
+  SceneKit.fill(158, tt + 11, 74, 159, tt + 11, 74, 79); /* 瓦顶二级=塔尖(z74 收分) */
+  /* 迎宾灯柱×2(跨门槛两侧 z72/77, 各用本列 advHeightAt): 石英柱身两高+灯块顶
+     ——「镇给你点灯」的第一秒 */
+  for (const wz of [72, 77]) {
+    const wt = ADV_GROUND + advHeightAt(158, wz);
+    setBlockRaw(158, wt + 1, wz, 17);
+    setBlockRaw(158, wt + 2, wz, 17);
+    setBlockRaw(158, wt + 3, wz, 19);
   }
-  setBlockRaw(158, tt + 8, 74, 5);
-  setBlockRaw(159, tt + 8, 74, B_TORCH);
-  lamps++;
   /* 圆冠树 ×2(贴边裁冠: 树家族带盐口径+内核越界守卫, 2026-11-12 收编,
      同盐 8402 同形零变更——x158 冠层 lx=160 界外就地裁半) */
   SceneKit.tree(158, ADV_GROUND + advHeightAt(158, 40) + 1, 40, 8402);
   SceneKit.tree(158, ADV_GROUND + advHeightAt(158, 108) + 1, 108, 8402);
-  return lamps;
 }
 
 function advEdgeEast() {
