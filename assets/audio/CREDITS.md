@@ -219,3 +219,23 @@
 - RPG 风格战斗循环（59.1s），与 8-bit 首尾时长错开避免连播同感。
 
 - 备注：mood 为曲目听感 + 页面自述推断，真机复核不满意可再换（OpenGameArt CC0 曲库充足）；八曲统一 -21 LUFS 归一，条目增益一律 g=1，无需逐曲配平。
+
+## 5. 城镇翻新环境音批次（2026-11-15，TIDEA-11 环境音四件套备料）
+- 下载日期：**2026-11-15**（PowerShell `curl.exe` 带 UA；原件存仓库外临时目录，不入库）；许可：全部 **CC0 / 公有领域**，无一例外。
+- 转码：128k SFX 口径单遍 loudnorm（`ffmpeg -i <in> -af loudnorm=I=-21:TP=-2:LRA=7 -ac 1 -ar 44100 -c:a aac -b:a 128k <out>.m4a`；时长以转码后 `ffmpeg -i` Duration 实测）。
+- 用途：TIDEA-11 简化版环境音（ADR-0011 增补批：区域一次性触发，非定点循环）；接线归 light 线波次三（SFX_KINDS 注册+触发点）。
+- 弃用记录（防再踩）：OpenGameArt「Chicken Sound Effect」by IMadeIt 为 **CC-BY 3.0 非 CC0**，与红线冲突弃用，改用 BigSoundBank 公鸡（见 5.4）；「Bird chirping sounds」页面 wav 直链是 float32 PCM 解码报错，改取 mp3 变体。
+- TIDEA-02 进镇钟声复用在册样本 `impactbell-heavy-000.m4a`（Kenney Impact Sounds，本文件在案），零新采。
+
+### 5.1 wood-creak.m4a（0.66s，TIDEA-11① 风车吱呀）
+- 作者：Kenney Vleugels（www.kenney.nl）· 许可：CC0（包内 license.txt 明示）
+- 来源：<https://opengameart.org/content/50-rpg-sound-effects>（zip 直链 <https://opengameart.org/sites/default/files/RPGsounds_Kenney.zip>，取包内 `OGG/creak1.ogg`；同族 creak2/creak3 备选未采用）
+### 5.2 birds-chirp.m4a（3.00s，TIDEA-11④ 樱花鸟鸣）
+- 作者：syncopika · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/bird-chirping-sounds>（mp3 直链 <https://opengameart.org/sites/default/files/birdchirping071414_0.mp3>）
+### 5.3 market-ambience.m4a（20.80s，TIDEA-11③ 市集氛围床）
+- 作者：randommind · 许可：CC0（页面明示）
+- 来源：<https://opengameart.org/content/medieval-market-day>（wav 直链 <https://opengameart.org/sites/default/files/Market_Day.wav>）
+### 5.4 rooster-crow.m4a（6.11s，TIDEA-11② 鸡窝偶发，配 TIDEA-08④ 鸡窝）
+- 作者：Joseph SARDIN · 许可：CC0（public domain，站方 licenses 页明示）
+- 来源：BigSoundBank <https://bigsoundbank.com/rooster-s0104.html>（ogg 直链 <https://bigsoundbank.com/UPLOAD/ogg/0104.ogg>）
