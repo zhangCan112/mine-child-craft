@@ -1507,10 +1507,11 @@ function advEdgeEastFence() {/* 远段木栅栏+中段石砖矮墙分段镇界(x
    整格近似(T7 拍板 Q1 销项, 跳缝=翻越彩蛋)。中段(ADV_TOWN_WALL_ZONE z66..90)
    石砖矮墙 13 两高(U1 已裁 2 格): 门框柱 z73/76 同砖两高+17 石英柱头(原两高原木
    桩退役), 端头柱帽 z66/z90 落墙顶石英 17, 墙头花 z68/72/78/82/86 各一丛黄/白
-   (盐 8404)。门口开间(T-SEAM-02, town-map-design §6.3.1): 主径轴线 z74~75 两格
+   (丛位序入 SceneKit.rand, 显式盐 8404)。门口开间(T-SEAM-02, town-map-design
+   §6.3.1): 主径轴线 z74~75 两格
    让位——开间内无墙件(主径自此穿镇界而过)。挖/替换保护判据已落地
    (advEdgeProtectedAt 东向段随件同源), 放置不设禁放柱(翻越=彩蛋口径, T7 转正) */
-  const flowerZ = [68, 72, 78, 82, 86]; /* 墙头花位 5 丛(中段内节奏铺位) */
+  const flowerZ = [68, 72, 78, 82, 86]; /* 墙头花位 5 丛(中段节奏铺位; 下标=丛位序, 入盐 8404) */
   for (let z = 0; z < WORLD_D; z++) {
     if (ADV_TOWN_GATE_OPEN_Z.includes(z)) continue; /* 门口开间: 两格净空无墙无桩 */
     const y = ADV_GROUND + advHeightAt(157, z) + 1;
@@ -1523,7 +1524,7 @@ function advEdgeEastFence() {/* 远段木栅栏+中段石砖矮墙分段镇界(x
         setBlockRaw(157, y + 2, z, 17); /* 端头柱帽石英(墙顶正上一格, 中段两端收口) */
       } else if (flowerZ.includes(z)) {
         setBlockRaw(157, y + 2, z,
-            SceneKit.rand(z, 0, 8404) > 0.5 ? B_FLOWER_Y : B_FLOWER_W); /* 墙头花黄/白 */
+            SceneKit.rand(flowerZ.indexOf(z), 0, 8404) > 0.5 ? B_FLOWER_Y : B_FLOWER_W); /* 墙头花黄/白(丛位序) */
       }
     } else if (z % 3 === 0) {/* 远段桩位: 原木柱两高(NE 融雪楔/SE 栈桩皆落远段, 载体零触碰) */
       setBlockRaw(157, y, z, 5);
