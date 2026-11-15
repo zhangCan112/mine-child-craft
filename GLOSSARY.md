@@ -274,7 +274,7 @@ _Avoid_: 墙钟/表扬停留节奏进核心（归装配层 timer）、emoji/glyp
 _Avoid_: 镇民清单散称复制（消费方只派生不复制）、把镇民塞进 MOB_TYPES 战斗注册表（镇民不入战斗）、村民表（漏 G01 与动物——注册的是 14 实体不止村民）
 
 **镇民锚点表（TownNpcAnchorCore）**:
-应用层纯核心（js/town-npc-anchor-core.js，零运行时依赖，有同名单测）：14 实体站位与巡逻锚点的唯一权威——一份确定性纯数据航点表 + 纯取数器，藏住全部站位坐标拍板；锚点只在到站（legIndex 变化）时跳变，不随移动插值。interface：TOWN_NPC_ANCHORS（14 行纯数据，每行恰四键 {id, npcId, waypoints, note}；id = 'npc:' + npcId 小写，镜像 task: 先例，与 TOWN_MAP.anchors 导览锚 id 空间零碰撞；静态站位=单航点，G01 巡逻环=四航点轴对齐闭环；航点恰四键 {x,y,z,face}，face ∈ 上/北/南/东/西 五值朝向词表，y 恒=groundY 贴地）· anchorOf(id, legIndex) → {x,y,z,face} 快照拷贝（静态锚任意 legIndex 恒返 waypoints[0]，巡逻锚归一取模、负数归一到末腿，未知 id 抛拼写域错，每次新对象外部改写不反渗数据表）。站位合法性（不压脚印/避散布/避导览锚/巡逻可走/语义窗口）全在测试侧锁死，镜像 town-map-core 先例；站位锚 14 行已升格并入 TOWN_MAP.anchors 成单一布局权威（T-NPC-10 会师落位），本表保留为航点计划+anchorOf 真源，双表一致性由对账测试锁。
+应用层纯核心（js/town-npc-anchor-core.js，零运行时依赖，有同名单测）：14 实体站位与巡逻锚点的唯一权威——一份确定性纯数据航点表 + 纯取数器，藏住全部站位坐标拍板；锚点只在到站（legIndex 变化）时跳变，不随移动插值。interface：TOWN_NPC_ANCHORS（14 行纯数据，每行恰四键 {id, npcId, waypoints, note}；id = 'npc:' + npcId 小写，镜像 task: 先例，与 TOWN_MAP.anchors 导览锚 id 空间零碰撞；静态站位=单航点，G01 巡逻环=四航点轴对齐闭环；航点恰四键 {x,y,z,face}，face ∈ 上/北/南/东/西 五值朝向词表，y 恒=groundY 贴地）· anchorOf(id, legIndex) → {x,y,z,face} 快照拷贝（静态锚任意 legIndex 恒返 waypoints[0]，巡逻锚归一取模、负数归一到末腿，未知 id 抛拼写域错，每次新对象外部改写不反渗数据表）· anchorChanged(prev, next) → boolean（快照比较纯谓词：四键 {x,y,z,face} 逐键比较，任一异即真；任一侧非对象保守判真——宁重发不漏发；T-NPC-12 重发判定落）。站位合法性（不压脚印/避散布/避导览锚/巡逻可走/语义窗口）全在测试侧锁死，镜像 town-map-core 先例；站位锚 14 行已升格并入 TOWN_MAP.anchors 成单一布局权威（T-NPC-10 会师落位），本表保留为航点计划+anchorOf 真源，双表一致性由对账测试锁。
 _Avoid_: 站位坐标散写消费方（坐标拍板唯一在本表）、双表漂移（并入后 TOWN_NPC_ANCHORS 与 TOWN_MAP.anchors 改其一必过对账测试）、随移动插值（锚点只在到站跳变）
 
 **镇民适配器（TownNpc）**:

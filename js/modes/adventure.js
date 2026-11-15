@@ -33,7 +33,7 @@
    任务/宝箱, 触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档
    adapter 缺省装配, 触点口径见该缝头注释)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
-     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(33 键:
+     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(39 键:
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口/丢弃与扩容
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调) ·
@@ -50,7 +50,11 @@
       advTownInteractBoot(T-SEAM-04 镇内交互宿主建机: 进镇建 mkTownTargets
       机器/离镇弃机, 每次进场新机不串轮, core 只消费不复制) ·
       advTownTargets(壳层镇内交互机运行态, 经 advTownState 挂点透出;
-      与模式壳 town.js 旧接线两宿主变量空间互不触碰)
+      与模式壳 town.js 旧接线两宿主变量空间互不触碰) ·
+      advTownAnchorTick(T-NPC-12 锚点动态化消费机: 逐锚 anchorOf 取数
+      比对 prev 账本, 到站跳变且聚焦时重发 targetFocus 同形状事件——
+      零协议增项; prev 账本随建机建/随离镇弃机清, legIndex 推进者=
+      未来行为层票)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
       adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
        index.html 加载序在 adventure-core 之前) ·
@@ -2404,6 +2408,8 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
       首行幂等守卫挡住镇内重复调用(建机不重置), 行身份比对=回程触发线门
       先例口径(壳层零 town 字面量特判, dims-core 在册) */
     advTownTargets = undefined;
+    advTownAnchors = undefined; /* T-NPC-12 prev 账本随弃机清(每次进场
+        新账不串轮, 与建机步同链) */
     advTownPuppetsLeave();
   }
   advDim = dim; /* advMap 不动: 副本/下界期间保持最后主世界图(T6) */
@@ -3016,6 +3022,12 @@ function advTownInteractBoot() {
   if (typeof townUiAttachBubbleCam === 'function') {
     townUiAttachBubbleCam(advTownBubbleCam);
   }
+  /* T-NPC-12 prev 账本随建机建: 对全部锚 id 记缺省腿(leg0)快照——到站
+     跳变的比对基线; 锚点核心未装载沙盒跳过(tick 缺席旁路容差) */
+  if (typeof TOWN_NPC_ANCHORS !== 'undefined' && typeof anchorOf !== 'undefined') {
+    advTownAnchors = {};
+    for (const row of TOWN_NPC_ANCHORS) advTownAnchors[row.id] = anchorOf(row.id);
+  }
 }
 
 /* ---------- 镇民傀儡摆放宿主(T-NPC-10 接线票) ----------
@@ -3061,6 +3073,56 @@ function advTownPuppetsLeave() {
   }
   advTownPuppetRoots.length = 0;
   advTownPuppets.length = 0;
+}
+
+/* ---------- 锚点动态化消费机(T-NPC-12, README §3.3 裁决三) ----------
+   装配层每帧取数(town 维度专属早退, 行身份门): 逐锚 anchorOf(id,
+   legIndex) 与 prev 账本比对(anchorChanged 谓词在锚点核心, 经全局名
+   消费), 到站跳变且 policy='always' 或该 NPC 正被主目标 focus 时,
+   重发同形状既有事件 TOWN_UI_EVENTS.targetFocus(payload.target=
+   townTargetOf 六键, anchor 恰三键 {x,y,z} 携新航点——face 不入协议
+   载荷, registry 快照口径)——零协议增项(town-interact-core 冻结面零
+   改动, 只消费全局名, 不在壳层定义协议件); 重发是刷新非迁移: 机器
+   focusId/states 零扰动。legIndex 推进者=未来行为层票(日程/巡逻),
+   生产路径恒缺省 leg0=静态站位天然成立; prev 账本随建机建/随离镇
+   弃机清, 每次进场新账不串轮。 */
+let advTownAnchors; /* prev 快照账本: 进镇记全部 14 锚 id 的缺省腿快照,
+    离镇清空(未进镇=undefined, tick 缺席旁路容差) */
+function advTownAnchorTick(legById, policy = 'focused') {/* 锚点动态化消费机
+    (update 每帧, 生产恒缺省 leg0): 返回 {changed, events}——事件经返回值
+    +emit 双面暴露(mkTownTargets 同款惯例); changed=本 tick 是否有任一
+    跳变(与事件分账: 默认策略无焦点时跳变照记账零事件) */
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) {
+    return {changed: false, events: []};
+  }
+  /* 锚点核心/协议面缺席或账本未建(未进镇/沙盒最小装载)旁路: 取数免费,
+      容差零炸 */
+  if (typeof anchorOf === 'undefined' || typeof anchorChanged === 'undefined' ||
+      typeof TOWN_NPC_ANCHORS === 'undefined' ||
+      typeof townTargetOf === 'undefined' || typeof TOWN_UI_EVENTS === 'undefined' ||
+      typeof TOWN_INTERACTS === 'undefined' || !advTownTargets || !advTownAnchors) {
+    return {changed: false, events: []};
+  }
+  const emit = (typeof townUiTargetEvent === 'function') ? townUiTargetEvent : () => {};
+  const snap = advTownTargets.snapshot(); /* 一次 snapshot 供全 tick 用(只读:
+      判定 focusId 与取 states, 零迁移零扰动) */
+  const events = [];
+  let changed = false;
+  for (const row of TOWN_NPC_ANCHORS) {
+    const next = anchorOf(row.id, legById ? legById[row.id] : undefined);
+    if (!anchorChanged(advTownAnchors[row.id], next)) continue;
+    advTownAnchors[row.id] = next; /* 账本写赢: 同腿重复 tick 零跳变(稀疏幂等) */
+    changed = true;
+    if (policy !== 'always' && snap.focusId !== row.id) continue; /* 默认聚焦才发 */
+    const entry = TOWN_INTERACTS.find((e) => e.id === row.id);
+    if (!entry) continue; /* 零协议条目锚(动物不入册)不重发, 跳变照记账 */
+    const target = townTargetOf(entry,
+        {anchor: {x: next.x, y: next.y, z: next.z}, state: snap.states[row.id]});
+    const ev = {name: TOWN_UI_EVENTS.targetFocus, payload: {target}};
+    emit(ev.name, ev.payload); /* 双面暴露: 返回值与 emit 同一 payload 对象 */
+    events.push(ev);
+  }
+  return {changed, events};
 }
 
 let advBubbleCamVec = null; /* 视采样复用向量(250ms 采样拍频, 零每帧垃圾) */
@@ -4908,6 +4970,9 @@ const AdventureMode = mkMode({
         互斥维度门): 早退链→z≥132 越线瞬间白闪回 home(§6.3.5) */
     advTownAmbienceTick(); /* TIDEA-11 景区四声区域触发(town 维度专属早退):
         进区播一声离区重臂, 一次性 flag 会话态(禁定点循环, ADR-0011 增补) */
+    advTownAnchorTick(); /* T-NPC-12 锚点动态化消费机(town 维度专属早退):
+        逐锚取数比对 prev 账本, 到站跳变且聚焦时重发 targetFocus(生产恒
+        缺省 leg0, legIndex 推进者=未来行为层票) */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */
@@ -5062,12 +5127,14 @@ const AdventureMode = mkMode({
     advSlimeWaterOk 再追加、时钟改版追加 advSleepClock/advSleepClockConfirm、
     装备 T9 追加 advTryWearSlot、怪物合成 T2 追加 advPumpkinRegen/advPumpkinRegenTick、
     T5/T6 追加 advGolemsAll/advGolemTick/advTryRepairGolem/advSweepNightMobs、
-    T-SEAM-04 追加 advTownState(壳层镇内交互机只读快照, ADR-0011 决策 6a)——
-    现 38 键(键计数以本清单为准); 键清单即 interface——
+    T-SEAM-04 追加 advTownState(壳层镇内交互机只读快照, ADR-0011 决策 6a)、
+    T-NPC-12 追加 advTownAnchorTick(锚点动态化消费机直调缝, 到站重发)——
+    现 39 键(键计数以本清单为准); 键清单即 interface——
     adventure-core 常量表与纯函数经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
       · advSleepClock(时钟拨盘态) · advNetherState(下界相位·地图态只读快照: dim/map/portalCd/exitSpot)
       · advTownState(镇内交互机只读快照)
+      · advTownAnchorTick(锚点动态化消费机, T-NPC-12 到站重发直调缝)
       · advPumpkinRegen(南瓜采集账访问器, mob-crafting T2 测试播种缝) · advPumpkinRegenTick(回填直调)
       · advGolemsAll(golems 桶访问器, T6 断言缝) · advGolemTick(AI 直调, 清场测试用)
       · advTryRepairGolem(修理直调, 行为面同触屏键) · advSweepNightMobs(清场直调, 免疫测试缝)
@@ -5141,6 +5208,9 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
       mkTownTargets 机器引用, 可调 focus/found/reset/snapshot 四方法+引用比较
       验换代; puppets=纯标量 {id,look,x,y,z,yaw} 行的只读账, 离镇回空,
       禁含 THREE 对象; ADR-0011 决策 6a) */
+  advTownAnchorTick, /* 锚点动态化消费机(T-NPC-12: 逐锚取数比对 prev 账本,
+      到站跳变且聚焦时重发 targetFocus 同形状事件; 注入式验收缝,
+      legById/policy 参数化) */
   advMineHardText, advHudLines,
   advWornState: () => advWorn, /* 穿戴档只读快照(装备 T5 测试挂点; 形状=mkWorn 归一形) */
   advHitPlayer, advEnvHurt, /* 战斗受击两缝(装备 T6 测试挂点: 漏斗行为面/D8 环境对照) */
