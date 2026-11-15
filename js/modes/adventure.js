@@ -566,6 +566,61 @@ function advToast(text) {/* 媒体缝·toast: 经 profile 取通道(缺省直通
   advProfile.toast(text);
 }
 
+/* ---------- 城镇翻新波次三 TIDEA-02: 进镇迎宾钟三响 ----------
+   白闪落定(advVeilArrive town 到达)同拍首响, 500ms 温和节律三响(儿童舒适
+   口径: 不急促不惊吓, 音量走 registry g=1+总线纪律); 回程不响=仅 town
+   分支调用。setTimeout 真墙钟(Node 沙盒同样存在, 测试可等待); 句柄登记
+   离场清(切图/退出迟到响不跨场漏播) */
+const ADV_TOWN_BELL_GAP_MS = 500;
+let advTownBellTimers = [];
+function advTownBellRing() {
+  advSfx('bell_town');
+  for (let i = 1; i <= 2; i++) {
+    advTownBellTimers.push(setTimeout(() => advSfx('bell_town'),
+        ADV_TOWN_BELL_GAP_MS * i));
+  }
+}
+function advTownBellClear() {/* 迟到发句柄清(advSetDim 换维/cleanup 双挂点) */
+  for (const h of advTownBellTimers) clearTimeout(h);
+  advTownBellTimers = [];
+}
+
+/* ---------- 城镇翻新波次三 TIDEA-11: 景区四声(区域一次性触发) ----------
+   ADR-0011 增补口径: 进区播一声、离区重臂, 禁定点循环。四区边界按
+   TOWN_MAP 地标权威坐标划(圆区, 进区半径 r/离区半径 r+2 迟滞防边界
+   徘徊抖动), 一次性 flag 会话态(advSessionResets 挂钩清, 重进可再响):
+   风车=落位圈(windmill 锚同心); 鸡窝=鸡店西门(派单权威 (105,76),
+   lava-chicken 锚北侧); 市集=广场摊位簇(market 锚); 樱花=南门门廊
+   双株中点(sakura-gate-w/e)。零新机制: 纯距离判定挂 update 已有每帧
+   触点(town 维度专属早退, 同 TIDEA-12 event-driven 精神) */
+const ADV_TOWN_AMBIENCE_ZONES = [
+  {id: 'windmill', kind: 'amb_windmill', x: 56, z: 47, r: 8},
+  {id: 'rooster', kind: 'amb_rooster', x: 105, z: 76, r: 6},
+  {id: 'market', kind: 'amb_market', x: 85, z: 75, r: 10},
+  {id: 'sakura', kind: 'amb_birds', x: 79, z: 101.5, r: 7},
+];
+const ADV_TOWN_AMBIENCE_HYST = 2;
+let advTownAmbDone = {};
+advSessionResets.push(() => {
+  advTownAmbDone = {};
+});
+function advTownAmbienceTick() {
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return;
+  for (const zn of ADV_TOWN_AMBIENCE_ZONES) {
+    const dx = pos.x - zn.x;
+    const dz = pos.z - zn.z;
+    const d2 = dx * dx + dz * dz;
+    const done = !!advTownAmbDone[zn.id];
+    if (!done && d2 <= zn.r * zn.r) {
+      advTownAmbDone[zn.id] = true; /* 进区: 一次性播一声 */
+      advSfx(zn.kind);
+    } else if (done && d2 > (zn.r + ADV_TOWN_AMBIENCE_HYST) *
+        (zn.r + ADV_TOWN_AMBIENCE_HYST)) {
+      advTownAmbDone[zn.id] = false; /* 离区(迟滞窗外): 重臂 */
+    }
+  }
+}
+
 function advTownArriveCard() {/* 媒体缝·到达时刻卡(城镇翻新 TIDEA-15, U-04):
     进镇白闪满格瞬间一次性镇名卡浮现(暖纸底, 入0.4s+驻留1.6s+出0.8s≈2.8s
     后自摘), 「被欢迎的仪式」——与 hud.banner 常驻横幅并存不冲突(时刻卡=
@@ -947,8 +1002,15 @@ function advEnvHurt(dmg, line) {
 }
 
 /* ---------- 头顶血条: CombatKit.mkHpBar 深接口(S2, C6-T3 自 mode-kit 迁入) ----------
-    每帧喂 {hp, maxHp, 世界坐标}(头顶 2.2 格), 重绘节流收在深接口 */
-const advHpBar = CombatKit.mkHpBar();
+    每帧喂 {hp, maxHp, 世界坐标}(头顶 2.2 格), 重绘节流收在深接口。
+    城镇翻新波次三专项二(t2-00 底片定性): THREE Sprite 世界血条在 body
+    .adv-dim-town DOM 门控之外, 镇内漏出——visible 政策缝(深接口预留位)
+    行身份比对收口(安静模式全套=战斗 chrome 含世界层); 镇内无伤害源
+    (§6.3.4 机制无怪=因), 隐条零信息损失。visible 挂 update 已有每帧
+    触点(零新增轮询, TIDEA-12 event-driven 口径不破) */
+const advHpBar = CombatKit.mkHpBar({
+  visible: () => advDimRow(advDim) !== ADV_TOWN_DIM_ROW,
+});
 let advBubbles = null; /* 溺气泡条(liquid D10, init 建/cleanup 收) */
 /* 穿戴状态(装备 T5, 设计稿 §5/§7): worn 归一形状(equipment-core mkWorn 形),
    wear/脱下/破碎唯一改写口在本文件三函数(advTryWear/advWornTakeOff/
@@ -2351,6 +2413,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     (ADV.spawn 账本, 与 advPortalExit 无关), 正常回上界缺省用 advExitSpot
     (最后进入的门, D6)——其坐标属于离开时的那张图, 回界即回该图 */
   if (dim === advDim) return;
+  advTownBellClear(); /* TIDEA-02: 迟到迎宾钟句柄清(换维即清, 漏响不跨场) */
   if (advDimRow(advDim) === ADV_TOWN_DIM_ROW) advTownTargets = undefined; /* 离镇弃机(T-SEAM-04,
       ADR-0011 决策 6a): 离开 town 的所有出口同链清机(直呼切界/回程白闪到达/
       死亡回家), 下次进场新机不串轮; 首行幂等守卫挡住镇内重复调用(建机不重置),
@@ -2743,6 +2806,7 @@ function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——
     advSpeak('到小镇啦！');
     advToast('🏘️ 到小镇啦！');
     advTownArriveCard(); /* 城镇翻新 TIDEA-15: 到达镇名时刻卡(白闪满格瞬间一次性) */
+    advTownBellRing(); /* 城镇翻新 TIDEA-02: 迎宾钟三响(白闪落定同拍, 回程不响) */
     return;
   }
   if (advVeil.to === 'home' && advDim !== 'overworld') {
@@ -2955,6 +3019,36 @@ function advTownInteractBoot() {
   if (typeof mkTownTargets === 'undefined') return;
   /* T-UI-01 只换 emit 不改机器; town-ui.js 未装载沙盒退回空旁路 */
   advTownTargets = mkTownTargets({emit: (typeof townUiTargetEvent === 'function') ? townUiTargetEvent : () => {}});
+  /* 城镇翻新波次三专项一(lead 扩权最薄接线): 锚定功能档相机源注入(幂等
+     重挂同 fn, town-ui 未装载沙盒 typeof 守卫旁路)。点亮面=hover 判定+
+     气泡锚定投影(「hover→气泡→点选会话」整链, 点选随 hover 连带激活);
+     T-UI-03 标记视觉档仍随 camRef=null 休眠(授权边界, 登记不动) */
+  if (typeof townUiAttachBubbleCam === 'function') {
+    townUiAttachBubbleCam(advTownBubbleCam);
+  }
+}
+
+let advBubbleCamVec = null; /* 视采样复用向量(250ms 采样拍频, 零每帧垃圾) */
+function advTownBubbleCam() {/* 波次三专项一: 真相机参数读数(引擎对象只读,
+    引擎文件零改动)。相机视线≠玩家视角射线(第三人称 rig, 波次二走查实证
+    差 10.6°), 投影口径=getWorldDirection 反算视角朝向(townHlProject voxel
+    朝向式: 朝向零值面北 -Z, 仰角正=仰视)+fov/aspect 直读+origin=相机位
+    (屏幕像素级准)。Node/替身沙盒 camera/THREE 缺席早退 null(零伪造,
+    与 mkTownUi camRef 缺省 null 同守卫形)。命名 dirYaw/dirPitch(规范守门:
+    模式文件玩家六绑定字面零直写, 局部名避开 yaw/pitch 裸字) */
+  if (typeof camera === 'undefined' || !camera || !camera.position ||
+      typeof THREE === 'undefined' || !camera.getWorldDirection) return null;
+  if (!advBubbleCamVec) advBubbleCamVec = new THREE.Vector3();
+  const d = camera.getWorldDirection(advBubbleCamVec);
+  const dirPitch = Math.asin(Math.max(-1, Math.min(1, d.y)));
+  const dirYaw = Math.atan2(-d.x, -d.z);
+  return {
+    origin: {x: camera.position.x, y: camera.position.y, z: camera.position.z},
+    dir: {x: d.x, y: d.y, z: d.z},
+    yaw: dirYaw, pitch: dirPitch,
+    fovDeg: camera.fov, aspect: camera.aspect,
+    vw: window.innerWidth, vh: window.innerHeight,
+  };
 }
 
 /* 神殿可疑地板踩塌(审查修复 P1): 站上神殿室内中央 2×2 砂岩地板 → 4 格塌空
@@ -4765,6 +4859,7 @@ const AdventureMode = mkMode({
     advPlaceKit.resetTimers(); /* 话术节流复位(账本在 place-kit 实例) */
     advRingDispose();
     advHpBar.dispose(); /* 头顶血条回收(S2 深接口) */
+    advTownBellClear(); /* TIDEA-02: 迟到迎宾钟句柄清(会话退场零漏响) */
   },
 
   update(dt) {
@@ -4776,6 +4871,8 @@ const AdventureMode = mkMode({
         早退链→越线瞬间白闪传送(解锁向)/近前话术节流(锁定向) */
     advTownReturnTick(dt); /* T-SEAM-03 镇侧回程触发线(town 维度专属, 与上行
         互斥维度门): 早退链→z≥132 越线瞬间白闪回 home(§6.3.5) */
+    advTownAmbienceTick(); /* TIDEA-11 景区四声区域触发(town 维度专属早退):
+        进区播一声离区重臂, 一次性 flag 会话态(禁定点循环, ADR-0011 增补) */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */

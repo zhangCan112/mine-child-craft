@@ -64,6 +64,16 @@ const SFX_KINDS = {
   bark: {synth: {type: 'square', f0: 420, f1: 140, fT: 0.09, dur: 0.13, g: 0.13}, g: 1, gTouch: 1, prio: 2, coolMs: 80}, // 狼嚎短吠(回声矿洞目标声, 2026-10 P1; 方波下坠拟"汪"感; 合成恒定音色=目标声不漂移, 调研 §A2)
   meow: {synth: {type: 'sine', f0: 760, f1: 480, fT: 0.22, dur: 0.3, g: 0.10}, g: 1, gTouch: 1, prio: 2, coolMs: 80}, // 猫叫(回声矿洞干扰声; 正弦缓滑与目标方波在音色上可分, 调研 §A2)
   shear: {synth: {noise: {type: 'highpass', freq: 1800, dur: 0.12}, g: 0.10}, g: 1, gTouch: 1, prio: 1, coolMs: 150}, // 剪羊毛「咔嚓」(剪毛使用档; 高通白噪短促拟剪刀开合, 与 hit 打击音区分)
+  /* ---------- 城镇翻新波次三音频批(TIDEA-02/11/18; 素材 2e5da68 批次五) ---------- */
+  bell_town: {file: 'impactbell-heavy-000.m4a', synth: {type: 'sine', f0: 220, f1: 110, fT: 0.5, dur: 0.5, g: 0.12}, g: 1, gTouch: 1, prio: 4, coolMs: 350}, // 进镇钟声(TIDEA-02 三响)+回望脉冲配对一响(TIDEA-18; 与 death 同样本不同语义——death=丧钟下滑, 本键=迎宾钟; coolMs 350=三响 500ms 节律下防叠)
+  amb_windmill: {file: 'wood-creak.m4a', synth: {type: 'sawtooth', f0: 140, f1: 90, fT: 0.4, dur: 0.45, g: 0.06}, g: 1, gTouch: 1, prio: 1, coolMs: 1000}, // 风车吱呀(TIDEA-11 景区四声; 区域一次性触发非定点循环, ADR-0011 增补口径)
+  amb_rooster: {file: 'rooster-crow.m4a', synth: {type: 'square', f0: 520, f1: 700, fT: 0.25, dur: 0.3, g: 0.07}, g: 1, gTouch: 1, prio: 1, coolMs: 1000}, // 鸡窝公鸡(TIDEA-11; 鸡店西门 (105,76))
+  amb_market: {file: 'market-ambience.m4a', synth: {noise: {type: 'bandpass', freq: 500, dur: 0.6}, g: 0.08}, g: 1, gTouch: 1, prio: 1, coolMs: 1000}, // 市集人声床(TIDEA-11; 广场簇)
+  amb_birds: {file: 'birds-chirp.m4a', synth: {type: 'sine', f0: 2600, f1: 3100, fT: 0.18, dur: 0.25, g: 0.05}, g: 1, gTouch: 1, prio: 1, coolMs: 1000}, // 樱花鸟鸣(TIDEA-11; 南门门廊樱花带)
+  bubble_pop: {file: 'impactsoft-medium-000.m4a', synth: {type: 'sine', f0: 300, f1: 520, fT: 0.05, dur: 0.08, g: 0.07}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 世界气泡冒出(TIDEA-18 五槽; 软啵上滑)
+  chip_pop: {synth: {type: 'sine', f0: 620, f1: 930, fT: 0.04, dur: 0.06, g: 0.06}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 会话选项 chip 轻点(TIDEA-18; 纯合成短 pop 更轻快, 6 岁口径零惊吓)
+  praise_jingle: {file: 'jingles-hit00.m4a', synth: {type: 'sine', steps: [523, 659, 784, 1046], stepT: 0.09, dur: 0.5, g: 0.12}, g: 1, gTouch: 1, prio: 4, coolMs: 0}, // 表扬小曲(TIDEA-18; 会话 praise 态浮现同拍; 仪式音豁免同类冷却)
+  dlg_flip: {file: 'metalclick.m4a', synth: {type: 'square', f0: 1200, dur: 0.05, g: 0.07}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 会话面板开合(TIDEA-18; 与 click 同样本不同语义——click=转辙器, 本键=面板翻转)
 };
 
 /* ---------- BGM 曲目表 ----------

@@ -232,6 +232,19 @@ function mkTownUi(deps) {
       零伪造全隐藏); hlSource=可交互清单源(缺省走注册派生快照);
       onInteract=点选结算出口(玩法侧消费, A 侧不代写玩法, 缺省空旁路) */
   const camRef = deps.camRef || (() => null);
+  /* 城镇翻新波次三专项一(lead 扩权最薄接线): bubbleCamRef=锚定功能档专用
+     视采样源(deps 注入或 attachBubbleCam 运行时挂, 缺省回落 camRef)——
+     消费面=hover 判定(recomputeHit)+气泡锚定投影(positionBubbleAtSpeaker),
+     同相机自洽。产线 camRef=null 休眠态下只接本缝即点亮「hover→气泡→
+     点选会话」整链(点选结算随 hover 连带激活=对话可达前提, 报告披露);
+     T-UI-03 标记视觉档(refreshHl)仍吃 camRef 保持休眠=授权边界。T-UI-03
+     相机源票将来接 camRef 时全档齐活, 本缝缺省回落零破兼容 */
+  let bubbleCamFn = deps.bubbleCamRef || null;
+  const bubbleCamRef = () => (bubbleCamFn ? bubbleCamFn() : camRef());
+  /* 城镇翻新波次三 TIDEA-18: 反馈音效缝(deps 注入, 缺省 null=静默——Node
+     沙盒/替身装具零音频依赖); 自动实例装载时传页全局 sfx(audio.js 在本
+     文件之前装载, typeof 求值即得), respectMute/VoiceGate 纪律全在总线侧 */
+  const sfxFn = typeof deps.sfx === 'function' ? deps.sfx : null;
   const hlSource = deps.hlSource || townUiHlDefaultSource;
   const onInteract = deps.onInteract || (() => {});
   let root = null; /* 挂载前 null(零常驻 DOM, 未进镇不挂载) */
@@ -284,6 +297,11 @@ function mkTownUi(deps) {
   let dlg = null;
   let dlgCtx = null; /* 会话上下文(entry 快照: 视图/话术派生输入) */
   let dlgSig = null; /* 会话层签名记忆(脏标对账, 同态零 DOM 操作) */
+  /* TIDEA-18 翻转沿记忆(音频沿检测: 进面板/浮现表扬/气泡冒出各响一声,
+     持续态零重响; enterTown 清=新机新账零跨轮) */
+  let dlgPanelOpen = false;
+  let dlgPraiseShown = false;
+  let dlgBubbleShown = false;
   let dlgSentence = ''; /* 当前会话播报句(再听 ghost 口径) */
   let dlgConfirmH = null; /* respond 确认泵句柄 */
   let dlgDwellH = null; /* praise 停留泵句柄 */
@@ -501,6 +519,9 @@ function mkTownUi(deps) {
     if (!pointerBadge.classList.contains('seen-pulse')) {
       pointerBadge.classList.add('seen-pulse');
     }
+    /* TIDEA-18: 回望回礼钟鸣配对一响(bell_town 同枚=TIDEA-02 迎宾钟, 语义
+       统一「镇钟」; coolMs 350 不挡低频回望) */
+    if (sfxFn) sfxFn('bell_town');
     clearHandle(towerPulseH);
     towerPulseH = timer.set(() => {
       pointerBadge.classList.remove('seen-pulse');
@@ -593,9 +614,14 @@ function mkTownUi(deps) {
     }
   }
 
-  /* 命中重算(仅鼠标事件到达时跑): cam/清单任一缺席→无命中(零伪造悬停) */
+  /* 命中重算(仅鼠标事件到达时跑): cam/清单任一缺席→无命中(零伪造悬停)。
+     城镇翻新波次三专项一: 判定源=bubbleCamRef(锚定功能档同源——hover 是
+     气泡显隐的前置输入, 与锚定投影同一相机自洽; 产线 camRef=null 休眠态
+     下只接本缝即可点亮「hover→气泡→点选会话」整链)。标记视觉档(refreshHl
+     投影)仍吃 camRef=null→标记 hidden 全隐藏, hover 状态类写进隐藏标记=
+     零视觉溢出(T-UI-03 命中/标记档登记不动的授权边界) */
   function recomputeHit() {
-    const cam = camRef();
+    const cam = bubbleCamRef();
     if (!cam || !cam.origin || !cam.dir) {
       hoveredId = null;
       hoveredEntry = null;
@@ -740,6 +766,19 @@ function mkTownUi(deps) {
       dlgBubble.style.left = '';
       dlgBubble.style.top = '';
     }
+    /* TIDEA-18 翻转沿对账(沿到沿响一声, 持续态零重响): 面板开合/表扬浮现/
+       气泡冒出各一音; sfxFn 缺省 null 静默(沙盒/替身零音频依赖) */
+    const openNow = snap.state !== 'idle';
+    if (openNow !== dlgPanelOpen) {
+      if (sfxFn) sfxFn('dlg_flip');
+      dlgPanelOpen = openNow;
+    }
+    const praiseNow = openNow && !!view.praise;
+    if (praiseNow && !dlgPraiseShown && sfxFn) sfxFn('praise_jingle');
+    dlgPraiseShown = praiseNow;
+    const bubbleNow = bubbleVisible && !dlgBubble.hidden;
+    if (bubbleNow && !dlgBubbleShown && sfxFn) sfxFn('bubble_pop');
+    dlgBubbleShown = bubbleNow;
   }
 
   /* 世界气泡锚定(城镇翻新 TIDEA-14, U-03): 说话人锚屏幕投影挂头顶, 尾尖
@@ -749,7 +788,7 @@ function mkTownUi(deps) {
      对齐, 底边停在锚点上方 GAP 处)。类写按 contains 守卫(同态重入零
      classList 操作, 签名门控纪律同族) */
   function positionBubbleAtSpeaker() {
-    const cam = camRef();
+    const cam = bubbleCamRef(); /* 锚定档专用源(波次三专项一; 缺省回落 camRef) */
     const anchor = hoveredEntry && hoveredEntry.anchor;
     let proj = null;
     if (cam && cam.origin && anchor) {
@@ -790,6 +829,7 @@ function mkTownUi(deps) {
       const optionId = opt.id;
       chip.onclick = () => {
         if (!dlg) return;
+        if (sfxFn) sfxFn('chip_pop'); /* TIDEA-18: 选项轻点 pop(轻快短音) */
         dlg.handle({type: intent, payload: {optionId}});
       };
       dlgOpts.appendChild(chip);
@@ -958,6 +998,10 @@ function mkTownUi(deps) {
     towerSeenLast = 0;
     clearHandle(towerPulseH);
     towerPulseH = null;
+    /* TIDEA-18 翻转沿记忆随进镇清(新机新账, 防残留漏误) */
+    dlgPanelOpen = false;
+    dlgPraiseShown = false;
+    dlgBubbleShown = false;
     if (pointerBadge && pointerBadge.classList.contains('seen-pulse')) {
       pointerBadge.classList.remove('seen-pulse');
     }
@@ -1126,6 +1170,10 @@ function mkTownUi(deps) {
     sync,
     start,
     cardState: () => cur,
+    /* 城镇翻新波次三专项一: 锚定档视采样源运行时换装(app 层进镇 boot 注入) */
+    attachBubbleCam(fn) {
+      bubbleCamFn = fn || null;
+    },
     get root() {
       return root;
     },
@@ -1134,11 +1182,20 @@ function mkTownUi(deps) {
 
 /* ---------- 自动实例与 emit 全局缝(模块装载零 DOM 触碰: mount 惰性到
     首次事件/进镇, boot 冒烟 vm 全放行桩不炸) ---------- */
-const TownUi = mkTownUi({});
+const TownUi = mkTownUi({
+  sfx: (typeof sfx === 'function') ? sfx : null, /* TIDEA-18: 页全局 sfx 直通(audio.js 先于本文件装载); Node 沙盒无→null 静默 */
+});
 
 /* adventure.js 建机步 emit 实参(守卫式: 本文件未装载时退回空旁路) */
 function townUiTargetEvent(name, payload) {
   TownUi.targetEvent(name, payload);
+}
+
+/* 城镇翻新波次三专项一(lead 扩权): 世界气泡锚定档视采样源接线缝——app 层
+   (adventure.js advTownInteractBoot)把真相机参数喂进自动实例, 引擎零改动;
+   只活锚定档, T-UI-03 命中/标记档仍随 camRef=null 休眠(授权边界) */
+function townUiAttachBubbleCam(fn) {
+  TownUi.attachBubbleCam(fn);
 }
 
 if (typeof requestAnimationFrame === 'function') {

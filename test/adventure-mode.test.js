@@ -5112,3 +5112,113 @@ test('T-SEAM-04 登记回填: dimension-registry-design.md §5 不进表清单�
       '§5 不进表清单有 town 分支登记(建机/弃机宿主挂壳层, ADR-0011 决策 6a 落地登记)');
 });
 
+/* ============ 城镇翻新波次三 TIDEA-02: 进镇迎宾钟三响(真链路+真墙钟) ============
+   钟声挂 advVeil 到达分支(白闪落定同拍), 直调 advSetDim 不经过 arrive 分支
+   不响——测试必须走 T-SEAM-02 主径踩线真链路; 三响两迟到发走真 setTimeout
+   (Node 沙盒同源), await 真墙钟等发完; 换维/cleanup 双清点行为用
+   「迟到响在册时回程」黑盒钉死(零跨场漏播)。 */
+
+test('TIDEA-02 进镇迎宾钟三响: 到达帧首响+500ms 节律三响齐(真墙钟) · 回程零钟声 · 二进镇迟到响随换维清(零跨场漏播)', async () => {
+  mem.clear();
+  freshInit();
+  const bellCount = () => calls.filter((x) => x[0] === 'sfx' && x[1] === 'bell_town').length;
+  /* 去程(T-SEAM-02 链路复用): 主径踩线白闪进镇 */
+  globalThis.pos.x = 157.2; globalThis.pos.y = 25; globalThis.pos.z = 74.5;
+  AdventureMode.update(1 / 60); /* 越线瞬间发令 */
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s 满格到达 */
+  assert.strictEqual(A.advNetherState().dim, 'town', '前置: 进镇');
+  assert.strictEqual(bellCount(), 1, '首响与白闪落定同拍(到达帧同步在册)');
+  await new Promise((r) => setTimeout(r, 1150)); /* 真墙钟: 500/1000ms 两迟到响发完 */
+  assert.strictEqual(bellCount(), 3, '三响齐(500ms 温和节律, 儿童舒适口径)');
+  /* 回程不响: 南缘越线白闪回 home, 回程到达分支无钟 */
+  globalThis.pos.z = 132.5;
+  AdventureMode.update(1 / 60);
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'overworld', '前置: 回 home');
+  assert.strictEqual(bellCount(), 3, '回程零钟声(迎宾钟仅进镇向)');
+  /* 二进镇: 每轮迎宾(非会话一次性); 首响后立即回程 → 换维清迟到响 */
+  for (let i = 0; i < 50; i++) AdventureMode.update(1 / 60); /* >0.8s 传送冷却走完(T-SEAM-03 双向先例), 否则去程触发被冷却拒 */
+  globalThis.pos.x = 157.2; globalThis.pos.z = 74.5;
+  AdventureMode.update(1 / 60);
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'town', '前置: 二进镇');
+  assert.strictEqual(bellCount(), 4, '二进镇首响再响(每轮迎宾)');
+  globalThis.pos.z = 132.5;
+  AdventureMode.update(1 / 60); /* 发令回程(两迟到响尚在真墙钟窗外) */
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* 0.45s<500ms 满格回 home */
+  assert.strictEqual(A.advNetherState().dim, 'overworld', '前置: 二回程(迟到响在册时换维)');
+  await new Promise((r) => setTimeout(r, 1150));
+  assert.strictEqual(bellCount(), 4, '迟到响随 advSetDim 清(零跨场漏播)');
+  AdventureMode.cleanup();
+});
+
+/* ============ 城镇翻新波次三 TIDEA-11: 景区四声(区域一次性触发) ============
+   ADR-0011 增补口径黑盒钉死: 进区一声/区内徘徊零重响/迟滞窗(r+2)内往返
+   不重臂/出窗重臂再进再响/四区各就位/会话态归零(重进可再响)。 */
+
+test('TIDEA-11 景区四声: 进区一声·区内徘徊零重响·迟滞带内往返不重臂·出窗重臂再进再响 · 四区各就位 · 进镇零误触', () => {
+  mem.clear();
+  freshInit();
+  const ambCount = (k) => calls.filter((x) => x[0] === 'sfx' && x[1] === k).length;
+  /* 去程进镇(T-SEAM-02 链路复用) */
+  globalThis.pos.x = 157.2; globalThis.pos.y = 25; globalThis.pos.z = 74.5;
+  AdventureMode.update(1 / 60);
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'town', '前置: 进镇');
+  assert.strictEqual(ambCount('amb_windmill') + ambCount('amb_rooster') +
+      ambCount('amb_market') + ambCount('amb_birds'), 0,
+  '镇外+落点(79,112)四区全静(进镇零景区音)');
+  /* 樱花区: 门樱双株中点(79,101.5) r7 → z=102 进区 */
+  globalThis.pos.z = 102;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(ambCount('amb_birds'), 1, '进樱花带一声(birds-chirp)');
+  globalThis.pos.z = 101;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(ambCount('amb_birds'), 1, '区内徘徊零重响(一次性 flag)');
+  globalThis.pos.z = 110.5; /* 距心恰 9.0=迟滞窗缘(r+2): 不出窗不重臂 */
+  AdventureMode.update(1 / 60);
+  globalThis.pos.z = 102;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(ambCount('amb_birds'), 1, '迟滞带内往返不重臂不重响(边界防抖)');
+  globalThis.pos.z = 115; /* 距心 13.5>9 出窗重臂 */
+  AdventureMode.update(1 / 60);
+  globalThis.pos.z = 102;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(ambCount('amb_birds'), 2, '出窗重臂→再进第二声(离区重臂语义)');
+  /* 另外三区各就位(权威坐标: 风车落位圈/鸡店西门(105,76)/广场簇) */
+  globalThis.pos.x = 56; globalThis.pos.z = 47;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(ambCount('amb_windmill'), 1, '风车落位圈一声(wood-creak)');
+  globalThis.pos.x = 105; globalThis.pos.z = 76;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(ambCount('amb_rooster'), 1, '鸡店西门一声(rooster-crow)');
+  globalThis.pos.x = 85; globalThis.pos.z = 75;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(ambCount('amb_market'), 1, '广场簇一声(market-ambience)');
+  AdventureMode.cleanup();
+});
+
+test('TIDEA-11 会话态归零: cleanup 重进后同区再响(一次性 flag 随会话清, 非永久静音)', () => {
+  mem.clear();
+  freshInit();
+  globalThis.pos.x = 157.2; globalThis.pos.y = 25; globalThis.pos.z = 74.5;
+  AdventureMode.update(1 / 60);
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60);
+  globalThis.pos.z = 102;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(calls.filter((x) => x[0] === 'sfx' && x[1] === 'amb_birds').length, 1,
+      '前置: 首轮进区一声');
+  AdventureMode.cleanup();
+  mem.clear();
+  freshInit();
+  /* 二轮进镇同区 → 会话态已清(advSessionResets 挂钩), 再响 */
+  globalThis.pos.x = 157.2; globalThis.pos.y = 25; globalThis.pos.z = 74.5;
+  AdventureMode.update(1 / 60);
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60);
+  globalThis.pos.z = 102;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(calls.filter((x) => x[0] === 'sfx' && x[1] === 'amb_birds').length, 1,
+      '重进后同区再响(freshInit 清桩=本轮口径; 再响即会话态已归零, 非永久静音)');
+  AdventureMode.cleanup();
+});
+

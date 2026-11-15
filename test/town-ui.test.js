@@ -115,9 +115,11 @@ function fakeTimer() {
 /* 组装一只被测适配层: deps 全注入(零全局泄漏), 返回记录面+被测件;
    poseRef 可注入位姿采样源(T-UI-02 指引几何输入; 缺省=适配层生产缺省,
    Node 沙盒读不到 voxel 全局 pos/yaw → null) */
-function mkHarness(machineRef, poseRef) {
+function mkHarness(machineRef, poseRef, opts) {
+  const o = opts || {};
   const doc = fakeDoc();
-  const rec = {speech: fakeSpeech(), timer: fakeTimer(), pages: []};
+  const rec = {speech: fakeSpeech(), timer: fakeTimer(), pages: [],
+    sfxKinds: []}; /* TIDEA-18: 音效记录桩(缺省收集, TIDEA-16 bell 断言用) */
   rec.ui = townUi.mkTownUi({
     doc,
     machineRef: machineRef || (() => rec.machine || null),
@@ -125,6 +127,7 @@ function mkHarness(machineRef, poseRef) {
     timer: rec.timer,
     showPage: (id) => rec.pages.push(id),
     poseRef: poseRef,
+    sfx: o.sfx === undefined ? (k) => rec.sfxKinds.push(k) : o.sfx,
   });
   rec.doc = doc;
   return rec;
@@ -681,7 +684,8 @@ function hlAimDir(target) {/* 归一化瞄向(装具造输入, 非复算实现) 
 function mkHlHarness(machineRef, opts) {
   const o = opts || {};
   const doc = fakeDoc();
-  const rec = {speech: fakeSpeech(), timer: fakeTimer(), pages: [], interact: []};
+  const rec = {speech: fakeSpeech(), timer: fakeTimer(), pages: [], interact: [],
+    sfxKinds: []}; /* TIDEA-18: 五槽音效记录桩(缺省收集 kind 供断言) */
   let cam = o.cam === undefined ?
     JSON.parse(JSON.stringify(HL_CAM_DEFAULT)) : o.cam;
   const source = o.hlSource === undefined ? HL_FIXTURES : o.hlSource;
@@ -694,6 +698,7 @@ function mkHlHarness(machineRef, opts) {
     camRef: () => cam,
     hlSource: () => source,
     onInteract: (payload) => rec.interact.push(payload),
+    sfx: o.sfx === undefined ? (k) => rec.sfxKinds.push(k) : o.sfx,
   });
   rec.doc = doc;
   rec.fire = (type, evt) => doc.fire(type, evt || {});
@@ -1885,6 +1890,98 @@ test('TIDEA-14 世界气泡锚定: hover 说话人→气泡挂头顶投影位(is
   assert.strictEqual(bubble.style.top, '', '清内联位(回落零残留)');
 });
 
+/* ============================================================
+   波次三专项一(lead 扩权): bubbleCamRef 接线缝——产线 camRef=null 休眠态
+   下 attachBubbleCam 点亮「hover 判定→气泡锚定→点选会话」整链; 标记视觉
+   档(refreshHl 投影)仍吃 camRef 保持休眠=授权边界(零视觉溢出)。
+   ============================================================ */
+test('专项一 bubbleCam 缝: camRef=null 休眠态接线后 hover/锚定/点选活而标记档仍 hidden 零溢出; attach(null) 摘除全链回休眠', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const doc = fakeDoc();
+  const rec = {speech: fakeSpeech(), timer: fakeTimer(), pages: [], interact: []};
+  rec.ui = townUi.mkTownUi({
+    doc,
+    machineRef: () => ({snapshot: () => ({focusId: null, states: {}})}),
+    speech: rec.speech.speech,
+    timer: rec.timer,
+    showPage: (id) => rec.pages.push(id),
+    hlSource: () => HL_FIXTURES,
+    onInteract: (payload) => rec.interact.push(payload),
+  }); /* 无 camRef: 产线休眠态同形(mkTownUi({}) 缺省同款) */
+  rec.doc = doc;
+  rec.fire = (type, evt) => doc.fire(type, evt || {});
+  rec.ui.sync(); /* 进镇挂载(标记挂出但无 cam 全隐藏) */
+  const mkA = markOf(rec, 'bell-tower');
+  assert.strictEqual(mkA.hidden, true,
+      '休眠态基线: 标记全隐藏(camRef=null 零伪造投影)');
+  rec.fire('mousemove', {});
+  assert.strictEqual(rec.interact.length, 0,
+      '接线前 hover 死(命中链不可达=波次二披露的产线现状)');
+  /* 接线: attachBubbleCam 注入锚定功能档源(hover 判定+锚定投影同源自洽) */
+  const BUB_CAM = Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_A.anchor)});
+  rec.ui.attachBubbleCam(() => BUB_CAM);
+  rec.fire('mousemove', {});
+  const bubble = dlgElOf(rec, 'town-dlg-bubble');
+  assert.strictEqual(bubble.hidden, false, '接线后 hover 活: 气泡显(判定源点亮)');
+  assert.strictEqual(bubble.classList.contains('is-anchored'), true,
+      '锚定档激活(投影源同缝, is-anchored+内联位)');
+  assert.ok(bubble.style.left !== '' && bubble.style.top !== '',
+      '锚定内联位写入(投影跟帧)');
+  assert.strictEqual(mkA.hidden, true,
+      '标记视觉档仍休眠(refreshHl 仍吃 camRef=null, 授权边界)');
+  assert.strictEqual(mkA.classList.contains('is-hover'), true,
+      'hover 状态类写进隐藏标记(状态记账活, 视觉零溢出)');
+  rec.fire('pointerdown', {});
+  rec.fire('pointerup', {});
+  assert.strictEqual(rec.interact.length, 1,
+      '点选结算随 hover 连带活(T-UI-04 对话可达前提, 报告披露面)');
+  assert.strictEqual(rec.interact[0].id, 'bell-tower', '命中对象=锚条目本尊');
+  rec.ui.attachBubbleCam(null); /* 摘除→回落 camRef=null→全链回休眠 */
+  rec.fire('mousemove', {});
+  assert.strictEqual(bubble.hidden, true, '摘除回落: 气泡隐(全链回休眠)');
+  assert.strictEqual(rec.interact.length, 1, '摘除后点选死(hoveredEntry 已清, 计数不增)');
+});
+
+/* ============================================================
+   波次三 TIDEA-18: 反馈音效五槽(沿语义黑盒钉死)——气泡冒出/面板开合/
+   选项轻点/表扬浮现各沿一声, 同态重入零重响; 第五槽 bell_town(回望脉冲
+   配对)由 TIDEA-16 测试补断言。sfx 桩=mkHlHarness 缺省记录 rec.sfxKinds。
+   ============================================================ */
+test('TIDEA-18 五槽沿语义: 气泡冒出/面板开合/选项轻点/表扬浮现各沿一声, 同态重入零重响; 面内态转移零新声, 关面板沿+回落探索气泡沿各一声', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  assert.deepStrictEqual(rec.sfxKinds, [], '静止态零声(挂载即静)');
+  rec.clickEntry(DLG_TASK_SEEK);
+  assert.deepStrictEqual(rec.sfxKinds, ['bubble_pop', 'dlg_flip'],
+      '气泡冒出+面板开各一声(hover 沿先于点选开面沿)');
+  rec.fire('mousemove', {});
+  rec.ui.sync();
+  assert.strictEqual(rec.sfxKinds.length, 2,
+      '同态重入(mousemove+采样拍)零重响(沿检测非轮询播)');
+  rec.clickEntry(DLG_TASK_SEEK); /* 点中目标→respond(面板内态转移) */
+  assert.strictEqual(rec.sfxKinds.length, 2,
+      '面板内态转移零新声(开合沿只随 open/idle 翻转)');
+  rec.timer.fireAll(); /* confirm 短驻泵→praise */
+  assert.strictEqual(rec.sfxKinds.filter((k) => k === 'praise_jingle').length, 1,
+      '表扬浮现一声(jingle)');
+  rec.ui.sync();
+  assert.strictEqual(rec.sfxKinds.filter((k) => k === 'praise_jingle').length, 1,
+      '表扬持续态零重响');
+  rec.timer.fireAll(); /* dwell 泵→complete */
+  const bye = dlgElOf(rec, 'town-dlg-opts').children.find(
+      (b) => b.textContent.includes('再见'));
+  assert.ok(bye, 'complete 出口[再见]在位(前置)');
+  bye.click(); /* chip_pop + close→关面沿 + 回落探索态气泡沿 */
+  assert.strictEqual(rec.sfxKinds.filter((k) => k === 'chip_pop').length, 1,
+      '选项轻点一声(chip pop)');
+  assert.strictEqual(rec.sfxKinds.filter((k) => k === 'dlg_flip').length, 2,
+      '面板开合各一沿(共两声)');
+  assert.deepStrictEqual(rec.sfxKinds,
+      ['bubble_pop', 'dlg_flip', 'praise_jingle', 'chip_pop', 'dlg_flip', 'bubble_pop'],
+      '全链音序钉死(五槽各就位, 无多余声)');
+});
+
 test('TIDEA-16 回望钟塔回礼: 先离开正前再回正前→L2 徽章 seen-pulse 一次(1.6s 定时摘类); 冷却 30s 内不重烧; 脉冲中离镇→类摘句柄清(零跨轮)', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
   const prevMap = globalThis.TOWN_MAP;
@@ -1906,6 +2003,8 @@ test('TIDEA-16 回望钟塔回礼: 先离开正前再回正前→L2 徽章 seen-
     rec.ui.sync();
     assert.strictEqual(badge.classList.contains('seen-pulse'), true,
         '离开正前→回正前→一次性回礼脉冲');
+    assert.deepStrictEqual(rec.sfxKinds, ['bell_town'],
+        '回礼钟鸣配对一声(TIDEA-18; bell_town 同枚迎宾钟, 语义统一「镇钟」)');
     assert.strictEqual(rec.timer.pending.length, 1, '脉冲驻留计时在册');
     assert.strictEqual(rec.timer.pending[0].ms, 1600, '驻留 1.6s(呼吸周期同族)');
     rec.timer.fireAll();
@@ -1918,6 +2017,7 @@ test('TIDEA-16 回望钟塔回礼: 先离开正前再回正前→L2 徽章 seen-
     assert.strictEqual(badge.classList.contains('seen-pulse'), false,
         '冷却 30s 内不重烧');
     assert.strictEqual(rec.timer.pending.length, 0, '冷却挡零新计时');
+    assert.strictEqual(rec.sfxKinds.length, 1, '冷却挡零新声(不重烧即不重响)');
     /* 离镇卫生(新机=新会话态, 墙钟冷却不跨实例): 脉冲中离镇→类摘+句柄清 */
     const pose2 = {x: 79, y: 25, z: 96, yaw: Math.PI};
     let live = true;
@@ -1931,6 +2031,8 @@ test('TIDEA-16 回望钟塔回礼: 先离开正前再回正前→L2 徽章 seen-
         .children.find((c) => c.classList.contains('town-hud-pointer-badge'));
     assert.strictEqual(badge2.classList.contains('seen-pulse'), true,
         '前置: 实例二脉冲在位');
+    assert.deepStrictEqual(rec2.sfxKinds, ['bell_town'],
+        '实例二回礼钟鸣一声(新机新账, 音随脉冲走)');
     live = false;
     rec2.ui.sync(); /* 离镇弃机 */
     assert.strictEqual(rec2.timer.pending.length, 0, '脉冲句柄随离镇清');
