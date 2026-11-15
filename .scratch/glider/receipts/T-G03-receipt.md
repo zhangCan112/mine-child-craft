@@ -201,3 +201,7 @@ js/mode-kit.js（:43 头注释 mkArmorBar 描述 / :762 renderEquip 槽序注释
   两测试/css/audio-registry）零触碰。
 - 提交哈希: 即本次返工提交自身（自引; 以 git log 为准）。**待窗**: 全量
   npm test/lint 门禁与集成分支合入由经理在 T-G05 落地后统排。
+- **全量门禁补课（2026-11-15, 哈希环境 714f1d9 四票全齐）**: `npm test`
+  **2175 tests / 2174 pass / 0 fail / 1 skipped**（exit 0, 与 T-G05 实测预期
+  逐项一致; T-G03-full-test3.log）+ `npm run lint` **整树零错误**（exit 0,
+  T-G03-full-lint3.log）——挂账清零, 零红零修复。
