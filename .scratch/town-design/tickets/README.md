@@ -24,9 +24,9 @@
 | T-NPC-03 | 14 实体模型注册表票（js/town-npc-registry.js） | 一 | T-NPC-02（测试可随 01 先写红） | 待 02 |
 | T-NPC-04 | 站位锚点数据表票（js/town-npc-anchor-core.js + anchorOf 取数器） | 一 | 无 | **frontier（可立即派，与 01 并行）** |
 | T-NPC-05 | 渲染适配件票（js/town-npc.js，可选降风险件） | 一 | T-NPC-03 | 可选 |
-| T-NPC-10 | townInteractBoot 接线票（交互机宿主落位 + NPC 条目入册 + 站位锚升格会师） | 二 | **入口缝新 ADR** + T-NPC-03 + T-NPC-04 | 立票不排期 |
-| T-NPC-11 | 对话 UI 挂载票（town-dialog-core + 三件套装配 + TTS 排队） | 二 | **入口缝新 ADR** + T-NPC-10（+T-UI 链对口） | 立票不排期 |
-| T-NPC-12 | 锚点动态化消费票（anchorOf 消费 + focus 重发节奏） | 二 | **入口缝新 ADR** + T-NPC-04 + T-NPC-10 | 立票不排期 |
+| T-NPC-10 | townInteractBoot 接线票（交互机宿主落位 + NPC 条目入册 + 站位锚升格会师） | 二 | **入口缝新 ADR** + T-NPC-03 + T-NPC-04 | **已收口**（施工+双轴评审通过，2026-11-15 并入集成；失实销号修正见票面 §6.5） |
+| T-NPC-11 | 对话 UI 挂载票（town-dialog-core + 三件套装配 + TTS 排队） | 二 | **入口缝新 ADR** + T-NPC-10（+T-UI 链对口） | **已收口**（施工+双轴评审+接缝修复，2026-11-15 并入集成；三段式修正见票面 §7.5 第 7 条） |
+| T-NPC-12 | 锚点动态化消费票（anchorOf 消费 + focus 重发节奏） | 二 | **入口缝新 ADR** + T-NPC-04 + T-NPC-10 | **已收口**（施工+双轴评审通过，2026-11-15 并入集成） |
 
 ```
         ┌─────────── T-NPC-01 贴图管线 ───────┐
