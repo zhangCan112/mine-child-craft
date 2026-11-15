@@ -776,17 +776,17 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   /* 墙头花 5 丛(z68/72/78/82/86 落 yb+3, 黄 61/白 62 盐 8404 交替)+端帽 2(z66/z90 石英) */
   let wallFlowers = 0;
   for (let z = 66; z <= 90; z++) {
-    const id = cell(157, top(157, z) + 4, z);
+    const id = cell(157, top(157, z) + 3, z);
     if (id === api.B_FLOWER_Y || id === api.B_FLOWER_W) wallFlowers++;
   }
   assert.strictEqual(wallFlowers, 5, '中段墙头花恰 5 丛(全落 yb+3 层, 黄白二色)');
   for (const z of [68, 72, 78, 82, 86]) {
-    const id = cell(157, top(157, z) + 4, z);
+    const id = cell(157, top(157, z) + 3, z);
     assert.ok(id === api.B_FLOWER_Y || id === api.B_FLOWER_W,
         '墙头花丛位 z' + z + ' 在场(yb+3, 黄/白)');
   }
-  assert.strictEqual(cell(157, top(157, 66) + 4, 66), 17, '矮墙端头柱帽石英(z66, yb+3)');
-  assert.strictEqual(cell(157, top(157, 90) + 4, 90), 17, '矮墙端头柱帽石英(z90, yb+3)');
+  assert.strictEqual(cell(157, top(157, 66) + 3, 66), 17, '矮墙端头柱帽石英(z66, yb+3)');
+  assert.strictEqual(cell(157, top(157, 90) + 3, 90), 17, '矮墙端头柱帽石英(z90, yb+3)');
   /* 门框柱 z73/76 换装: 13 石砖两高 + 17 石英柱头 yb+3(原两高原木桩退役, spec §4.1) */
   for (const z of [73, 76]) {
     const y = top(157, z) + 1;
@@ -2977,24 +2977,30 @@ test('T-SEAM-02 门口开间建场几何: z74~75 栅栏让位(开间内无栅栏
     assert.strictEqual(cell(157, y0(z), z), 0, '(157,y0,' + z + ') 开间内无杆/桩');
     assert.strictEqual(cell(157, y0(z) + 1, z), 0, '(157,y0+1,' + z + ') 开间内无桩顶');
   }
-  /* 桩位让至开间两侧邻格: z73/z76 各一根两高原木桩(门框读法) */
+  /* 桩位让至开间两侧邻格(v2 spec §4.1 门框柱换装): z73/z76 石砖两高+石英柱头
+     yb+3(原两高原木桩退役; 建场计数段已断言, 这里开间几何口径同式钉一遍) */
   for (const z of [73, 76]) {
-    assert.strictEqual(cell(157, y0(z), z), 5, '(157,y0,' + z + ') 开间侧邻格落桩基');
-    assert.strictEqual(cell(157, y0(z) + 1, z), 5, '(157,y0+1,' + z + ') 侧邻桩两高');
+    assert.strictEqual(cell(157, y0(z), z), 13, '(157,y0,' + z + ') 门框柱身下格石砖');
+    assert.strictEqual(cell(157, y0(z) + 1, z), 13, '(157,y0+1,' + z + ') 门框柱身上格石砖');
+    assert.strictEqual(cell(157, y0(z) + 2, z), 17, '(157,y0+2,' + z + ') 门框柱石英柱头');
   }
-  /* 其余段形制照旧: z%3==0 桩两高/缝格横杆一高(抽样 z72 桩/z78 桩/z81 桩/z82 杆) */
-  assert.strictEqual(cell(157, y0(72), 72), 5, '(z72) 常规桩基照旧');
-  assert.strictEqual(cell(157, y0(72) + 1, 72), 5, '(z72) 常规桩两高照旧');
-  assert.strictEqual(cell(157, y0(78), 78), 5, '(z78) 常规桩基照旧');
-  assert.strictEqual(cell(157, y0(81), 81), 5, '(z81) 远段桩基照旧');
-  assert.strictEqual(cell(157, y0(82), 82), 6, '(z82) 缝格横杆照旧');
-  assert.strictEqual(cell(157, y0(82) + 1, 82), 0, '(z82) 横杆单高照旧');
-  /* 其余段不可挖保护照旧(东向恒保护): 桩基/桩顶/横杆/侧邻桩全在保 */
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(81), 81), true, '(z81) 桩基在保');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(81) + 1, 81), true, '(z81) 桩顶在保');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(82), 82), true, '(z82) 横杆在保');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(73), 73), true, '(z73) 侧邻桩在保');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(76) + 1, 76), true, '(z76) 侧邻桩顶在保');
+  /* 远段形制照旧(v2 spec §4.1: z≤65 ∪ z≥91 木栅栏维持=四角楔载体; 原抽样
+     z72/78/81/82 实落中段矮墙带已随形制换装, 远段抽样移 z51/z63/z93 桩与
+     z65/z91 杆, 两翼各顾且贴墙端界) */
+  for (const z of [51, 63, 93]) {
+    assert.strictEqual(cell(157, y0(z), z), 5, '(z' + z + ') 远段桩基照旧');
+    assert.strictEqual(cell(157, y0(z) + 1, z), 5, '(z' + z + ') 远段桩两高照旧');
+  }
+  for (const z of [65, 91]) {
+    assert.strictEqual(cell(157, y0(z), z), 6, '(z' + z + ') 远段缝格横杆照旧');
+    assert.strictEqual(cell(157, y0(z) + 1, z), 0, '(z' + z + ') 远段横杆单高照旧');
+  }
+  /* 远段不可挖保护照旧(东向恒保护): 桩基/桩顶/横杆在保; 门框柱身在保(柱身两格) */
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(63), 63), true, '(z63) 远段桩基在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(63) + 1, 63), true, '(z63) 远段桩顶在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(65), 65), true, '(z65) 远段横杆在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(73), 73), true, '(z73) 门框柱身在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(76) + 1, 76), true, '(z76) 门框柱顶在保');
   /* 开间让位同步让保护: 开间两格栅栏层不再报保护(「对其余段照旧」的对照面,
      门口自成通路——§6.3.1 门口开间条) */
   assert.strictEqual(Core.advEdgeProtectedAt(157, y0(74), 74), false, '(z74) 开间栅栏层保护让位');
