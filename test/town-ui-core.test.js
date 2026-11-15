@@ -362,7 +362,7 @@ test('话术: townHintSentence 由短标签派生完整友好句(§4.4 示例语
    ⑤ CSS token 对齐守门(css/town.css 落点; prebuild §1.1-§1.4)
    ============================================================ */
 
-test('CSS: css/town.css 在位且四槽命名空间/色板 token/安全区热区/减少动态降级逐项落位', () => {
+test('CSS: css/town.css 在位且三槽命名空间/色板 token/安全区热区/减少动态降级逐项落位(卡壳缺席锁死)', () => {
   const file = path.join(ROOT, 'css', 'town.css');
   assert.ok(fs.existsSync(file), '缺 css/town.css(prebuild §1.1 建议落点, stylelint 生效面)');
   const css = fs.readFileSync(file, 'utf8');
@@ -380,14 +380,21 @@ test('CSS: css/town.css 在位且四槽命名空间/色板 token/安全区热区
   assert.ok(css.includes('--town-hud-safe: clamp(16px, 1.6vw, 24px)'),
       '安全区 token 应为 clamp(16px, 1.6vw, 24px)(hud-spec §4.2)');
   assert.ok(css.includes('--town-hit-min: 44px'), '热区下限 token 应为 44px(§4.2/§6.4)');
-  /* 四槽容器类(§1.1 容器结构; #townHud 子容器四槽) */
-  for (const cls of ['town-hud-card', 'town-hud-pointer', 'town-hud-praise', 'town-hud-sys']) {
-    assert.ok(css.includes('.' + cls), '四槽类名缺失: .' + cls);
+  /* 容器槽类(§1.1; 左上状态卡已移除 PO 返工 2026-11-15——四槽塌三槽:
+     L2 指引/L3 表扬/L4 返回) */
+  for (const cls of ['town-hud-pointer', 'town-hud-praise', 'town-hud-sys']) {
+    assert.ok(css.includes('.' + cls), '槽类名缺失: .' + cls);
   }
-  /* 卡片三态类(五态的 DOM 可见面: hidden 由容器显隐承担, dialog-dimmed 由收敛档承担) */
-  for (const cls of ['is-idle-exploring', 'is-active', 'is-step-done']) {
-    assert.ok(css.includes('.' + cls), '卡片态类缺失: .' + cls);
-  }
+  /* 移除锁死(不回潮): 卡壳类+卡三态类+到达时刻卡段全缺席——机制层
+     town-ui-core 状态机 headless 保留与此 css 契约解耦; 卡三态类
+     (is-idle-exploring/is-step-done)载体已亡, is-active 字面现仅由
+     .town-hl-mark.is-active(高亮标记选中档)承担, 非卡契约 */
+  assert.ok(!css.includes('town-hud-card'),
+      '左上状态卡类名应缺席(PO 返工 2026-11-15 移除)');
+  assert.ok(!css.includes('is-idle-exploring') && !css.includes('is-step-done'),
+      '卡三态类应缺席(随卡壳移除)');
+  assert.ok(!css.includes('adv-town-arrive'),
+      '到达时刻卡段应缺席(TIDEA-15 PO 否决同批移除, 复核 22660a6)');
   /* 减少动态偏好降级(hud-spec §4.3 动效行: 降级为纯淡入淡出、停呼吸) */
   assert.ok(css.includes('prefers-reduced-motion'), '缺 prefers-reduced-motion 降级块');
 });

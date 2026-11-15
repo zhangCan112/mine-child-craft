@@ -424,5 +424,33 @@ index.html / town-ui-core.test 零改动(契约面未破)。
   记账变量全删+测试撤; greet done 事件机制层保留(玩法侧不受影响)。
 - 波次一/二其余交付(TIDEA-12/13/14/16/17)PO 未点名, 维持在册。
 
+---
+
+# 返工尾笔·唯一红收口(lead 派单, 2026-11-15, 你线收段)
+
+## 22. CSS 契约测试对齐移除现实(town-ui-core.test.js:365)
+
+- **红因归属**: 我 PO 移除笔的漏网——卡壳+三态类名已从 css/town.css 删净,
+  但 :385 四槽类名断言(:383 段)还钉旧世界四槽(全仓门 1 fail)。CSS 契约
+  面漏同步, 行为面(town-ui.test 三槽改)已同步——两测试文件守门分工不同域。
+- **修法(手法=缺席锁死)**: 四槽断言改三槽(town-hud-pointer/praise/sys 在)
+  + 三条反断言锁死不回潮——`town-hud-card` 缺席(PO 返工移除)/
+  `is-idle-exploring`+`is-step-done` 缺席(卡三态类随壳亡)/`adv-town-arrive`
+  缺席(TIDEA-15 否决复核, 22660a6 双确认入回执)。色板 token/安全区热区/
+  prefers-reduced-motion 降级逐项原样保留(仍有效)。
+- **is-active 字面说明**: css 中 `is-active` 残留=`.town-hl-mark.is-active`
+  (T-UI-03 高亮标记选中档), 非卡三态契约——故不作缺席断言(误伤高亮语义),
+  卡三态以 idle-exploring/step-done 两字面缺席锁死(卡壳类缺席已兜底)。
+- **数账**: town-ui-core 27 全绿(断言改内部无增减)。
+- **全仓门终值(lead 验收口径)**: npm test = 2121 tests / 2120 pass /
+  1 skipped / **0 fail**——skipped=adventure-core.test.js:2800 性能钉测
+  (T7_PERF=1 才跑, 既有基线非红); npm run lint 零错(eslint . + stylelint
+  + htmlhint 全家桶)。
+- **adv-town-arrive-card 残段复核**: 字面扫描 css/town.css ABSENT(删净无
+  残段, css 总 664 行收口状态)。
+
+**你线正式收线**——三线合并终审走查移交 lead。
+
+
 
 
