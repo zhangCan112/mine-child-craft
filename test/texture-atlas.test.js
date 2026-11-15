@@ -658,7 +658,7 @@ test('meshChunk: 门额牌竖板顶点光取面朝向邻格 — 西面(图案面
   const p = mkPackL(1);
   p.set(8, 5, 8, t.B_GATE_SIGN);
   p.setL(7, 5, 8, 13, 0); /* 西邻格: 白天天光(牌面朝西迎玩家) */
-  p.setL(8, 5, 8, 0, 0);  /* 自身格: 被遮蔽恒 0(旧径黑牌病灶) */
+  p.setL(8, 5, 8, 0, 0); /* 自身格: 被遮蔽恒 0(旧径黑牌病灶) */
   let r = t.MeshCore.meshChunk(p, atlasOpt(t));
   const west = quadsByNormal(r.atlas).get('-1,0,0');
   assert.ok(west && west.length === 1, '悬空牌西面单四边形在场');
