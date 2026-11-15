@@ -1,7 +1,7 @@
 'use strict';
 /* check-s2-tile.js — S2 直译 diff 对照(F1 票第四步 design-lead 补充验收项取证)
    成品 tile(gate-sign-tile.png) vs PAINTERS[T_GATE_SIGN] 输出逐像素 RGBA diff。
-   期望: diff=0(pixel-exact)。随票过程装具, 不入库(同 run-green.js 惯例)。
+   期望: diff=0(pixel-exact)。随票对照装具, 已入库(be9f79a, 同 run-green.js 入库惯例)。
    用法: node .scratch/town-east-boundary/check-s2-tile.js
    日志工具直写 stdout(§7.3 禁 Out-File 管道)。 */
 const fs = require('node:fs');

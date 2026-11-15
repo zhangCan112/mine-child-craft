@@ -77,7 +77,7 @@
       ADV_EDGE_SKY_WEST_OPEN(西带解锁态雾减半表,
       advEdgeSkyAt 换表)·advEdgeProtectedAt/advEdgeProtectedZone(边界保护
       政策纯函数, T7 转正新增: T6 修订 v2 不可挖判据/三向足迹列禁放判据
-      ——三向随 advEdgeOpenDir 逐向门控, 东向栅栏线恒保护·门口开间 z74/75 让位(T-SEAM-02))
+      ——三向随 advEdgeOpenDir 逐向门控, 东向镇界件恒保护(中段矮墙+门框柱+远段栅栏, v2 §4.1 分段形制)·门口开间 z74/75 让位(T-SEAM-02))
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
       advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——advNestStep 薄壳/
       advNightStepPool 组装消费, 加载序先于本文件) · config.js 的

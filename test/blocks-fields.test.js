@@ -89,7 +89,7 @@ test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽�
 
 /* ============ 门与玻璃板 id 段(64~68, docs/door-window-design.md §2) ============ */
 
-test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 81+(69~80 已占)', () => {
+test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线 — BLOCKS 至 80(79 陶橙瓦/80 门额牌 已落, 81+ 号段预留)', () => {
   const c = loadCfg();
   const expect = {B_DOOR: 64, B_DOOR_TOP: 65, B_DOOR_OPEN: 66, B_DOOR_TOP_OPEN: 67, B_GLASS_PANE: 68};
   for (const [k, id] of Object.entries(expect)) {
