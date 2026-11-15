@@ -731,8 +731,8 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
      门楣一线+悬牌图案 2×2(上=石塔行/下=原木径行)+柱顶门灯×2, 牌下净空
      yb+1..+2 禁填=穿行契约) + 木栅栏 x157(桩 z%3==0 两高原木,
      缝格 1 高横杆——缝口留空是设计本体; 门口开间 z74~75 让位, 桩让至两侧
-     邻格 z73/76=T-SEAM-02) + 隔离带 x158~159 剪影(房屋/钟楼) + 门前小径
-     x158~159×z74/75(件 D, spec §3.4: 表面改土面, 路穿门铺到塔脚)。
+     邻格 z73/76=T-SEAM-02) + 前街 x158~159(v2 件 F: 钟塔+房×4 门脸化+迎宾灯柱) + 门前石板
+     x158~159×z74/75(件 D 材质升级: 表面土面改石砖 13, 路穿门铺到塔脚)。
      野树候选确定性穿杆(树干无条件覆写、树叶只落空气格): 首跑观测全数在场,
      计数钉死整段规模(候选若变, 这里最先报警) */
   assert.strictEqual(cell(154, top(154, 74), 74), 2, '东主径土面(与既有东向小径同轴)');
@@ -770,13 +770,57 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   assert.strictEqual(flankPosts, 2, '开间两侧让位门框桩 z73/76 两高在场');
   assert.strictEqual(rails, D - 4 - Math.floor((D - 1) / 3),
       '横杆全数在场(106−开间雕出 z74−让位升桩 z73/76; 实测 ' + rails + '；树叶只落空气格, 不啃横杆)');
-  const tt = top(158, 74);
-  assert.strictEqual(cell(158, tt + 1, 74), 3, '钟楼塔身石(隔离带)');
-  assert.strictEqual(cell(158, tt + 8, 74), 5, '钟楼尖顶');
-  assert.strictEqual(cell(159, tt + 8, 74), api.B_TORCH, '钟楼顶灯');
-  assert.strictEqual(cell(158, top(158, 24) + 1, 24), 3, '剪影房屋墙(首屋)');
-  assert.strictEqual(cell(158, top(158, 74), 74), 2, '门前小径土面(x158/z74, 开间正后=路穿门延续, 件 D)');
-  assert.strictEqual(cell(159, top(159, 75), 75), 2, '门前小径土面(x159/z75, 铺到塔脚, 件 D)');
+  const tt = top(158, 74); /* 钟塔锚 yb(z74 列表面); v2 §4.2 件 F 前街重排 */
+  /* 陶橙瓦块行(S1): 纯色 #D97A4A 零贴图; 无 hard(U2 已裁=声明式不可破坏)零 drop */
+  assert.ok(api.BLOCKS[79], '块 id79 陶橙瓦应注册(S1 主案必需, id78 后顺号)');
+  assert.strictEqual(api.BLOCKS[79].name, '陶橙瓦', '陶橙瓦行名');
+  assert.deepStrictEqual(Array.from(api.BLOCKS[79].all), [0.851, 0.478, 0.290],
+      '陶橙瓦纯色 #D97A4A(镇色板 屋顶-陶橙; Array.from 摊平防跨域假红, conventions §7.1)');
+  assert.ok(!('hard' in api.BLOCKS[79]) && !('drop' in api.BLOCKS[79]),
+      '陶橙瓦无 hard 无 drop(粉羊毛 id78 先例同构, 零物品注册面)');
+  /* 钟塔: 石砖塔身 8 高(footprint 2×3)+西面龛门火把+石英钟面竖排+白檐檐灯+
+     陶橙阶梯瓦顶, 总高 yb+11 全场最高(塔最高原则) */
+  assert.strictEqual(cell(158, tt + 1, 73), 13, '钟塔塔身石砖(yb+1, z73..75 加宽正面)');
+  assert.strictEqual(cell(159, tt + 1, 74), 13, '钟塔塔身石砖(龛后壁 x159)');
+  assert.strictEqual(cell(158, tt + 8, 73), 13, '钟塔塔身顶格 yb+8(檐下一级)');
+  assert.strictEqual(cell(158, tt + 1, 74), api.B_TORCH, '塔门龛灯(西面龛内火把, 贴 x159 后壁)');
+  assert.strictEqual(cell(158, tt + 2, 74), 0, '塔门龛净空 yb+2(空气龛=有门的塔)');
+  assert.strictEqual(cell(158, tt + 6, 74), 17, '钟面石英下格(yb+6..+7 竖排, 西面)');
+  assert.strictEqual(cell(158, tt + 7, 74), 17, '钟面石英上格');
+  assert.strictEqual(cell(158, tt + 9, 73), 17, '塔檐石英(z73, 白檐与门楼檐口同语言)');
+  assert.strictEqual(cell(159, tt + 9, 76), 17, '塔檐石英远角(z76 出挑, 檐 10 格在场)');
+  assert.strictEqual(cell(158, tt + 9, 74), 19, '塔檐灯(檐心灯块, 夜间灯火链成员)');
+  assert.strictEqual(cell(158, tt + 10, 74), 79, '瓦顶一级 yb+10(陶橙, z73..75 全宽)');
+  assert.strictEqual(cell(158, tt + 11, 74), 79, '瓦顶二级=塔尖 yb+11(阶梯收分, 全场最高)');
+  assert.strictEqual(cell(159, tt + 11, 74), 79, '瓦顶二级 x159 列');
+  assert.strictEqual(cell(158, tt + 12, 74), 0, '塔尖上方净空(总高恰 yb+11, 塔最高原则)');
+  /* 房×4 门脸化: 木墙+西面门(6)窗(18)+陶橙平瓦盖+窗灯落瓦顶上(4 屋窗灯全亮,
+     v1「首屋留白凑 3+1」退役); 细部抽 z56 屋(h5)钉, 窗灯 4 屋全数钉 */
+  assert.strictEqual(cell(158, top(158, 24) + 1, 24), 6, '首屋门木板(v1 剪影石墙 id3 退役)');
+  const hTop = top(158, 56);
+  assert.strictEqual(cell(158, hTop + 1, 56), 6, '房门木板(西面 yb+1)');
+  assert.strictEqual(cell(158, hTop + 2, 56), 18, '房窗玻璃(西面 yb+2)');
+  assert.strictEqual(cell(158, hTop + 4, 56), 5, '房墙木头(窗上净墙, 暖木墙)');
+  assert.strictEqual(cell(159, hTop + 5, 56), 5, '房墙顶格 x159(后墙满高)');
+  assert.strictEqual(cell(158, hTop + 6, 56), 79, '房瓦顶(平瓦盖 top+h+1)');
+  for (const [hz, hh] of [[24, 3], [56, 5], [88, 4], [120, 3]]) {
+    assert.strictEqual(cell(158, top(158, hz) + hh + 2, hz), api.B_TORCH,
+        '窗灯火把落瓦顶上(z' + hz + ', 4 屋窗灯全亮)');
+  }
+  assert.strictEqual(countId(79, (x) => x >= 158 && x <= 159), 24,
+      '陶橙瓦前街带恰 24 格(塔 8=瓦顶 6+脊 2; 房×4 各 4=2×2 平瓦盖)');
+  /* 门前石板(件 D 材质升级): 表面 id2→13 石砖, 几何零改动, 石板直铺塔脚 */
+  assert.strictEqual(cell(158, tt, 74), 13, '门前石板(x158/z74 表面, 土面改石砖)');
+  assert.strictEqual(cell(159, top(159, 75), 75), 13, '门前石板(x159/z75, 铺到塔脚)');
+  assert.strictEqual(cell(159, top(159, 74), 74), 13, '门前石板(x159/z74, 2×2 全幅)');
+  assert.strictEqual(cell(158, top(158, 75), 75), 13, '门前石板(x158/z75, 2×2 全幅)');
+  /* 迎宾灯柱×2(跨门槛两侧 z72/77): 石英柱身两高+灯块顶=「镇给你点灯」 */
+  for (const wz of [72, 77]) {
+    const wt = top(158, wz);
+    assert.strictEqual(cell(158, wt + 1, wz), 17, '迎宾灯柱身下(z' + wz + ', 石英)');
+    assert.strictEqual(cell(158, wt + 2, wz), 17, '迎宾灯柱身上(z' + wz + ')');
+    assert.strictEqual(cell(158, wt + 3, wz), 19, '迎宾灯顶灯块(z' + wz + ', light15 恒亮)');
+  }
   /* 清场重建: 带改写+植被覆写全链逐字节复现(SceneKit.rand 确定性, 零 Math.random) */
   vm.runInContext('worldCells.fill(0)', eng);
   Core.advBuildWorld();
