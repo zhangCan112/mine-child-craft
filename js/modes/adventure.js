@@ -973,13 +973,22 @@ const advBolts = CombatKit.mkArrows({origin: () => ({x: pos.x, y: pos.y + PLAYER
   }});
 
 /* 环境伤害(liquid D9): 溺水/岩浆计息事件到点 → 扣血走受击观感(音/闪红/
-   节流话术与战斗伤害同源, r.line 换来源话术), 致死走既有死亡计划 */
-function advEnvHurt(dmg, line) {
+   节流话术与战斗伤害同源, r.line 换来源话术), 致死走既有死亡计划。
+   opts.mute(T-G05 摔落): 零 TTS 路径——ADR 0014 明文禁新增播报, 受击观感
+   三件(音/闪红/震屏)与战斗同源保留, 话术豁免; 不经 advHurt.hit
+   (mkHurtAlarm 无条件节流 speak, combat-kit 非本票所有权——静音收在本文件) */
+function advEnvHurt(dmg, line, opts) {
   const pe = advGetPEnt();
   pe.hp = Math.max(0, pe.hp - dmg);
   ADV.player.hp = pe.hp;
   if (pe.hp <= 0) {
     advPlayerDied();
+    return;
+  }
+  if (opts && opts.mute) {
+    sfx('hurt'); /* 受击音/闪红/轻震屏: 与 mkHurtAlarm.hit 非话术段同款(spec: 环境伤观感与战斗同源) */
+    Avatar.flash(0.4);
+    Fx.kick(0.35);
     return;
   }
   advHurt.hit({hp: pe.hp, line});
@@ -1595,6 +1604,21 @@ function advBreedTick(dt) {
    leadAim 预测弹道 + 重力(stepShot 步进), 命中玩家走受击/死亡回调;
    弹道单向(怪 → 玩家, 玩家近战无远程), mesh/寿命/geo 缓存自持 */
 
+/* 传送包装(T-G05): ModeKit.spawn 落位置 pos/vel 并清离地标记(onGround
+   归引擎口径), 但不重置引擎落差累计器 fallPeakY(写面钉死 voxel.js
+   physics)——传送后首物理步的触地跃迁沿会拿残留峰值造幻影 land 事件
+   (landFall=残留峰−落点, 大额, 重生即二次蒸发的路径)。免疫旗=消费缝吞
+   传送后首个 land 事件(init 落位后首事件本就是 vel=0 落位伪事件, 不吞
+   真实摔落), 之后真实摔落照常结算; 收口判据=本模式一切 ModeKit.spawn
+   落位皆经本包装(死亡/回家/睡醒/切图切界/init 有档无档同一落位点),
+   唯一例外 inPlace 死亡分支(原地复活无传送, resetFighter 不动位置且
+   摔死帧已贴地无跃迁沿——天然无幻影, 置旗反造误吞窗) */
+let advLandImmuneNext = false;
+function advTeleport(x, y, z, o) {
+  ModeKit.spawn(x, y, z, o);
+  advLandImmuneNext = true;
+}
+
 /* 死亡结算(T14 致命一击/坠出世界共用): 政策纯函数 advDeathPlan(core);
    只动玩家状态与位置, 背包一个不动。死亡去向经政策缝 advProfile.death(U2):
    缺省 'home'=切图回出生点(现行); 'inPlace'=原地满血复活(U4 体验馆 D5
@@ -1623,7 +1647,7 @@ function advPlayerDied() {
   const plan = advDeathPlan(e, ADV.spawn);
   CombatKit.resetFighter(e); /* 复活五字段不变量(阵亡去向政策在此) */
   e.hp = plan.hp; ADV.player.hp = plan.hp;
-  ModeKit.spawn(plan.x, plan.y, plan.z, {yaw: plan.yaw});
+  advTeleport(plan.x, plan.y, plan.z, {yaw: plan.yaw});
   advStore.flush(); /* 重生态即时落盘: 防 5s 节流窗口内关页面 → 重进在死亡点残血(与死亡语义矛盾);
      炉态不动也不退(F1 拍板①: 炉内物品随档保留, 死亡零惩罚不碰炉子) */
   advSpeak('不怕不怕，回到小屋休息好啦，背包里的宝贝都在！');
@@ -1643,7 +1667,7 @@ function advGoHome() {
   else if (advMap !== 'home') advSetMap('home', ADV.spawn); /* 远征图回家同语义: 先切回 home 图再落小屋(T6) */
   const e = advGetPEnt();
   e.hp = e.maxHp; ADV.player.hp = ADV.player.maxHp; /* 顺带回满血(回家=安全休整, nether 先例) */
-  ModeKit.spawn(ADV.spawn.x, ADV.spawn.y, ADV.spawn.z, {yaw: ADV.spawn.yaw});
+  advTeleport(ADV.spawn.x, ADV.spawn.y, ADV.spawn.z, {yaw: ADV.spawn.yaw});
   advStore.flush(); /* 回家态即时落盘(与死亡同口径): 满血+小屋位置即刻入档, 防节流窗口 */
   advSpeak('回家咯！休息一下再出发！');
   advToast('🏠 回到小屋');
@@ -1711,7 +1735,7 @@ function advSleepWake() {/* 唤醒沿(§7.2 时钟改版): 跳拨盘时刻 + (�
     const spot = advBedSpot(advSleep.x, advSleep.y, advSleep.z, getBlock,
         {x: pos.x, y: pos.y, z: pos.z, yaw}); /* 四邻全堵回落玩家当前位(选址纯函数在 core) */
     ADV.spawn = spot;
-    ModeKit.spawn(spot.x, spot.y, spot.z, {yaw: spot.yaw}); /* 落位+记忆(顺带把黑屏期游走的玩家拉回床边醒来) */
+    advTeleport(spot.x, spot.y, spot.z, {yaw: spot.yaw}); /* 落位+记忆(顺带把黑屏期游走的玩家拉回床边醒来); T-G05 经包装挂幻影免疫 */
   }
   const ph = Daylight.clockPhase(dayTime);
   if (ph.id === 'day' || ph.id === 'dawn') {
@@ -2461,7 +2485,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
         ADR-0011 决策 6a): 壳层 town 专属步, den 专属步同位先例(§5 不进表
         清单); 行身份比对口径同弃机步, 「T-UI 票只换 emit 不改机器」契约 */
     const dsp = spot || drow.spawn; /* 行落点(结构常量派生); D23 关页续局传快照落点 */
-    ModeKit.spawn(dsp.x, dsp.y, dsp.z, {yaw: (dsp.yaw != null) ? dsp.yaw : drow.spawn.yaw});
+    advTeleport(dsp.x, dsp.y, dsp.z, {yaw: (dsp.yaw != null) ? dsp.yaw : drow.spawn.yaw});
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
   } else {
     advDenMobsSave = []; /* 出副本即清续局快照(D23): 关页时人在哪, 重进就在哪——
@@ -2474,7 +2498,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     advNightReset(); /* 夜怪节拍与跨沿账本对齐暂停后的当下 */
     advNestT.fill(0); /* 巢穴节律从头计(世界重播=全清后 60s 再刷口径) */
     const sp = spot || advExitSpot || advMapSpawn(null); /* 显式点 > 回程记录 > 图缺省 */
-    ModeKit.spawn(sp.x, sp.y, sp.z, {yaw: (sp.yaw != null) ? sp.yaw : 0});
+    advTeleport(sp.x, sp.y, sp.z, {yaw: (sp.yaw != null) ? sp.yaw : 0});
     setFly(false);
     advSeedMapMobs(); /* 主世界怪重播(当前行巢穴+牲畜/女巫, init 同款) */
   }
@@ -2510,7 +2534,7 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 地图门站桩传送
   applyDaylight(); /* 天色按行 skyBase 基准落到当前时刻 */
   advNightReset(); /* 夜怪节拍与跨沿账本对齐当下(夜池已随行换装) */
   const sp = advMapSpawn(spot) || ADV.spawn; /* 显式点(死亡/回家/T7 门绑定) > 图缺省 */
-  ModeKit.spawn(sp.x, sp.y, sp.z, {yaw: (sp.yaw != null) ? sp.yaw : 0});
+  advTeleport(sp.x, sp.y, sp.z, {yaw: (sp.yaw != null) ? sp.yaw : 0});
   setFly(false);
   advSeedMapMobs();
   advBeamsRelayout();
@@ -4733,7 +4757,9 @@ const AdventureMode = mkMode({
       advGatesBuild(); /* 地图门建场(T7): 治愈之后立门——门体不被清扫/重放翻动, 每次装场同一份 */
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
-    ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
+    /* 有档用档: 上次退出的位置+朝向; T-G05 经 advTeleport 挂幻影免疫
+       (同会话切模式重进时 fallPeakY 残留若高于落点即幻影扣血) */
+    advTeleport(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw});
     setFly(false); /* 探险步行(不沿用建造的飞行; 走意图入口) */
     advBeamsClear(); /* init 无 advSceneLeave: 旧句柄先摘(重进幂等纪律, 同切界) */
     advBeamsRelayout(); /* 光束重锚(init 也锚: 亮门/巢穴之门的常驻束不再等首次切图/切界才出现) */
@@ -4884,6 +4910,24 @@ const AdventureMode = mkMode({
     if (worldEvents.lavaTick) {
       worldEvents.lavaTick = false;
       advEnvHurt(FLUID.lavaDps, '好烫！快离开岩浆！');
+    }
+    /* 无翼摔落伤害(T-G05, ADR 0014 对零惩罚哲学的显式例外): 消费引擎 land
+       事件(触地跃迁沿, 与流体环境伤同位先例) → 伤害=max(0, floor(landFall)
+       −GLIDE.safeFall)×GLIDE.fallHp 经 advEnvHurt 原值直扣(环境伤漏斗, 血尽
+       走 advPlayerDied 现有死亡流程) · landGliding=true 滑翔触地零伤害 ·
+       零 TTS(ADR 0014 明文: 不配安抚/预警, advEnvHurt mute 路径, 受击观感
+       与战斗同源) · advLandImmuneNext=传送免疫吞首个事件(advTeleport 置旗,
+       fallPeakY 残留峰值的幻影防护) · 无伤事件只消费不结算(消费即清契约) */
+    if (worldEvents.land) {
+      const advFall = worldEvents.landFall; /* 读数先取: 三字段置位同帧, 消费即还原 */
+      const advGlideLand = worldEvents.landGliding;
+      worldEvents.land = false;
+      if (advLandImmuneNext) {
+        advLandImmuneNext = false; /* 免疫只吞传送后首个事件: 此后真实摔落照常结算 */
+      } else if (!advGlideLand) {
+        const advDmg = Math.max(0, Math.floor(advFall) - GLIDE.safeFall) * GLIDE.fallHp;
+        if (advDmg > 0) advEnvHurt(advDmg, null, {mute: true});
+      }
     }
     if (advBubbles) advBubbles.update(playerAirS / FLUID.airMaxS); /* 溺气泡条(liquid D10) */
     if (advArmorBar) advArmorBar.update(advWorn); /* 装备条(kit 签名节流——非 worn 变更帧零重画) */

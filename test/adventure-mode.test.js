@@ -57,7 +57,7 @@ const api = vm.runInContext(`({
   getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, isOpaque, world, worldCells,
   SceneKit, PrefabKit,
   groundTop, lightSkyAt, lightBlockAt,
-  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID,
+  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID, GLIDE,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_BED_FOOT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
@@ -5334,5 +5334,149 @@ test('装备 T-G01: 老档四键无翼键 — 读入归一 glider:null 其余保
   assert.strictEqual(w.glider, null, '老档无翼键 → 第五槽空(wornNormalize 补 null, 无感升级)');
   assert.deepStrictEqual(localW(w.helmet), {id: 'helmet_leather', dur: 110}, '四甲键保真');
   AdventureMode.cleanup();
+});
+
+/* ============================================================
+   T-G05 无翼摔落伤害 — 模式层结算(红测试)
+   票面: docs/glider-tickets.md T-G05 · 规则形状: ADR 0014 钉死 ·
+   计量口径: glider-spec §3.5 · 参数初值: §3.9(无伤阈值 3/每格扣血 1)
+   引擎事实(T-G02 已入库): worldEvents.land 三字段(voxel.js:431-435 置位,
+   landFall=落差格数, landGliding=触地时滑翔态), 消费方读完置回 false。
+   本组只测模式层行为面: 消费 land 事件 → 伤害 = max(0, floor(landFall)−3)
+   经 advEnvHurt 结算(原值直扣不经甲, D8) → 血尽 advPlayerDied 现有流程。
+   事件注入=直写 vm 域 worldEvents 真对象(装具 pos/vel 为假件, 模式层
+   测试不跑引擎物理步, 与引擎置位同帧语义); 块首归零防跨块残留。
+   ============================================================ */
+
+/* T-G05 事件注入: 模拟引擎 land 事件置位(voxel.js:431-435 同帧三字段) */
+function landEvt(fall, gliding) {
+  api.worldEvents.land = true;
+  api.worldEvents.landFall = fall;
+  api.worldEvents.landGliding = !!gliding;
+}
+
+test('T-G05 摔落参数表: 3 格无伤 · 5 格扣 2 · 10 格扣 7 · 击退高度同式(规则一元) · 零 TTS', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp;
+  /* 3 格台: max(0, floor(3)−3)=0 — 无伤阈值 3(ADR 0014, 参数表初值) */
+  landEvt(3);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(api.worldEvents.land, false, '3 格事件被消费(消费即清契约, voxel.js 注释)');
+  assert.strictEqual(pe.hp, hp0, '3 格台无伤(落差 ≤3 无伤)');
+  /* 5 格: floor(5)−3=2 — 扣 2 血 */
+  landEvt(5);
+  spoken.length = 0; calls.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2, '5 格扣 2 血(>3 起每整格 1 血)');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  assert.strictEqual(spoken.length, 0, '摔落扣血零 TTS(ADR 0014 明文: 不配安抚/预警/任何播报)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hurt'),
+      '受击观感照走(环境伤与战斗同源, ADR 只豁免话术)');
+  assert.ok(!calls.some((c) => c[0] === 'toast'), '摔落路径零 toast 播报');
+  /* 10 格: floor(10)−3=7 — 扣 7 血 */
+  landEvt(10);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2 - 7, '10 格扣 7 血');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  /* 被怪物击退上天 6 格后落地: 同公式无豁免分支(边界语义「规则一元」, 票面要求 5) */
+  landEvt(6);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2 - 7 - 3, '击退上天按击飞高度计(6−3=3, 无翼即计)');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 滑翔零伤: 触地滑翔态任意落差零伤害 · 20 格滑到 2 格取消只摔 2 格账(收翼重置原案例)', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp;
+  /* 滑翔中触地(软着陆): landGliding=true 零伤害旗标(票面要求 1) */
+  landEvt(20, true);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '滑翔 20 格直接触地零伤害(滑翔落地永不触发)');
+  assert.strictEqual(api.worldEvents.land, false, '滑翔触地事件同样消费即清');
+  /* spec §3.5 原案例: 20 格高展翼滑到 2 格高取消 → 收翼点重置峰值(引擎 T-G02 保证)
+     → 落地 landFall=2 → max(0, 2−3)=0 无伤 — 滑翔段不计落差的可证账 */
+  landEvt(2, false);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '只摔收翼后 2 格账 → 无伤(滑翔段不计入落差)');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 摔至血尽: 走现有死亡流程(重生满血+背包全保留) — 死亡安抚话术属存量非新增', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  const inv = A.advGetInv();
+  inv.slots[3] = api.mkStack('leather'); /* 塞一件物品看守背包(死亡零惩罚) */
+  const before = api.serialize(inv);
+  const pe = A.advGetPEnt();
+  /* 前置消费帧: 吞掉 init 落位后的首个伪 land 事件(vel=0 落位沿, 非真实摔落;
+     init 免疫吞或结算 0 伤两态皆清) — 本块测其后真实摔落至血尽, 不绑定 init
+     免疫的实现形状(红方裁决: 测试不得钉死实现取舍) */
+  landEvt(0);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(api.worldEvents.land, false, '前置伪事件被消费');
+  landEvt(99); /* floor(99)−3=96 ≥ hp30: 血尽 */
+  AdventureMode.update(1 / 60);
+  assert.ok(calls.some((c) => c[0] === 'spawn'), '血尽走 advPlayerDied(重生落位, 现有流程)');
+  assert.strictEqual(pe.hp, pe.maxHp, '重生满血(现有死亡流程, 本票不开第二套血尽语义)');
+  assert.ok(spoken.some((s) => /[不怕|别怕|休息]/.test(String(s))),
+      '存量死亡安抚话术(现有流程自带 — 零 TTS 禁的是新增播报, 不消现有流程)');
+  assert.deepStrictEqual(api.serialize(A.advGetInv()), before, '装备背包全保留(死亡零惩罚不变)');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 落水零伤(有翼无翼任意高度) + 平地帧零结算: splash 路径与 1.42 格跳跃峰值不扣血(边界语义)', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp;
+  /* 落水: 引擎保证身处流体触底零参与 land + splash 清零(T-G02 已入库) —
+     模式层无 land 事件即零结算; splash 音效分发在 main(模式层不参与) */
+  api.worldEvents.splash = true;
+  for (let i = 0; i < 10; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '落水(splash 事件路径)零伤害(有翼无翼、任意高度, spec §3.5)');
+  api.worldEvents.splash = false; /* 归零(main 分发缝职责, 测试自清防跨块污染) */
+  /* 平地跳跃峰值 1.42 格(spec §3.5 参数表锚): 结算跑公式但恒无伤 */
+  landEvt(1.42);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '平地跳跃峰值 1.42 格恒无伤(floor(1.42)−3<0, 向下取整=儿童友好档)');
+  assert.strictEqual(api.worldEvents.land, false, '无伤事件同样消费即清(不残留跨帧)');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 传送免疫(观察项 2): 死亡/传送(spawn)后首个 land 事件零结算(残留峰值幻影防护), 后续真实摔落照常', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  /* 虚空死亡 = 「高处残留峰值 + 向下传送落地」最典型路径: onVoidFall →
+     advPlayerDied → ModeKit.spawn(kitSpawn 置 onGround=false 且不重置
+     fallPeakY — voxel.js 写面=physics) → 重生首物理步 land 跃迁沿置位 →
+     landFall = 残留峰值 − 落点y = 幻影大额 → 不免疫则满血即二次蒸发 */
+  AdventureMode.onVoidFall();
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp; /* 重生满血后的基线 */
+  spoken.length = 0; calls.length = 0;
+  landEvt(40, false); /* 模拟重生首帧幻影事件(峰值残留 40 格) */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '重生后首个 land 事件零结算(spawn 幻影免疫, 不二次死亡循环)');
+  assert.strictEqual(api.worldEvents.land, false, '幻影事件被吞(消费即清, 不留跨帧)');
+  /* 免疫只吞 spawn 后首个事件: 此后真实摔落照常结算(不误伤真机制) */
+  landEvt(5, false);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2, '免疫窗后的真实 5 格摔落照扣 2');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 他模式零参与: build/arena 不订阅 land 事件(静态守门, 不订阅即天然不参与)', () => {
+  for (const f of ['js/modes/build.js', 'js/modes/arena.js']) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.ok(src.indexOf('worldEvents.land') < 0,
+        f + ' 零 land 消费(建造/竞技场无 HP 不涉, 不加模式分支 — 票面要求 3)');
+  }
 });
 
