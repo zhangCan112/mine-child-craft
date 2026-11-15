@@ -1185,8 +1185,8 @@ test('T7 转正 P2: advEdgeProtectedAt 逐坐标 — 三向屏障体/东栅栏�
   assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 1, 81), '东矮墙基 z81 true(中段, 断言值延续)');
   assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 2, 81), '东矮墙上格 z81 true(中段全高, 旧桩顶断言值延续)');
   assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 78) + 1, 78), '东矮墙基 z78 true');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, edgeTop(157, 80) + 2, 80), false,
-      '东矮墙 y0+2 层 z80 false(N2 花位层, 旧缝格上方断言值延续)');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 80) + 2, 80),
+      '东矮墙上格 z80 true(中段全高, 旧缝格上方断言随分段判据同步为在保)');
   /* 远段原式维持(spec §8.2 采样笔误更正: 原采样 z81/z80 实落中段 z∈[66,90],
      远段逐坐标采样移 z93 桩/z95 缝) */
   assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 93) + 1, 93), '远段桩基 z93 true');
