@@ -1,0 +1,14 @@
+✔ Avatar 翼显隐: 缺省 hidden — 未装备翼骨恒不可见(§6.4 红线: 未装备永不出现翼) (5.5397ms)
+✔ Avatar 翼显隐: setArmor 装备对账 — worn 有 glider → folded 收拢翼鞘(静态无微动) (1.6943ms)
+✔ Avatar 动效: setWings(spread) — 0.25s 线性匀速展开, 端点水平带, 双翼反号(§6.5) (1.4819ms)
+✔ Avatar 动效: setWings(folded) — 反向同参数 0.25s 收回收拢位·端点即停(§6.5) (1.2908ms)
+✔ Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5) (1.8831ms)
+✔ Avatar 翼显隐: 未装备红线 — 意图不越权·卸翼即隐·重穿对账复位 folded(§6.4 验收红线) (1.1786ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 56.3784
