@@ -2054,4 +2054,103 @@ test('事件名权威守门(票面会师 4 已裁): 双 js 源+index.html(只读
   }
 });
 
+/* ============================================================
+   T-NPC-11 接缝修复红测(scoped; 收口规格轴评审证伪 §7.5.6 失实
+   销号后派单): 缺口=town-ui.js 驱动缝(:667 附近)对一切带
+   sessionKind 条目无条件 handle({type:'route'})——greet/care 类
+   npc 条目(T-NPC-10 已入册 11 条中 5 条)被 ROUTE_BY_KIND 兜底误落
+   guide, 非 dialog-spec §5.3 场景 4/5 的 L1 轻问候路径。
+   修法口径(发起侧, 追令钉死): 驱动缝 route 派发只认
+   ROUTE_BY_KIND 在册键(tour|seek|help), greet/care 豁免零派发——
+   判据单份红线, 消费 dialog-core 顶层共享词法名, 勿誊写第二份
+   kind 清单; dialog-core 零改动(route 目标域冻结三值)。
+   npc 条目形状=TOWN_INTERACTS npc 条目经 townInteractRegistry
+   快照同形(六键+anchor 解析); 锚=独立位(90,24,84)单条清单无遮挡。
+   ============================================================ */
+
+function npcEntryOf(id, sessionKind, label) {
+  return {id, kind: 'npc', iconKey: sessionKind === 'care' ? 'care' : 'help',
+    label: label || id, anchor: {x: 90, y: 24, z: 84}, state: 'active',
+    sessionKind};
+}
+
+test('npc greet 接缝(T-NPC-11 修复): 点选开会话零 route 派发——面板停 greet 轻问候播问候句, 挥手再见收尾 close{continue} 非 guide 误路由', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+      [npcEntryOf('npc:v01', 'greet', '阿面')]);
+  rec.ui.sync();
+  rec.clickEntry(npcEntryOf('npc:v01', 'greet', '阿面'));
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.strictEqual(panel.hidden, false, '点选 npc greet 条目→开会话(六键带 sessionKind)');
+  assert.strictEqual(panel.getAttribute('data-state'), 'greet',
+      '零 route 派发: 面板停 greet 轻问候(§5.3 场景 4 L1 路径; 误路由落 guide 在此红)');
+  const speaker = dlgElOf(rec, 'town-dlg-speaker');
+  assert.ok(speaker.textContent.includes('阿面'), 'Speaker 身份=npc 条目名');
+  assert.deepStrictEqual(rec.speech.spoken, ['你好呀, 见到你真开心!'],
+      '播问候句非导览句(误路由会播「跟我一起去看看吧!」)');
+  /* 轻问候收尾: [挥手再见]→pick-option→close{continue}→A 恢复零负面 */
+  const wave = dlgElOf(rec, 'town-dlg-opts').children
+      .find((b) => b.textContent.includes('挥手再见'));
+  assert.ok(wave, 'greet 选项 [挥手再见] 在位(0 任务语义轻问候出口)');
+  wave.click();
+  assert.strictEqual(panel.hidden, true, '挥手再见→面板收起');
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
+      'close{continue} 轻问候收尾→A 恢复探索中(§5.3 场景 4 可无 Complete 语义)');
+});
+
+test('npc care 接缝(T-NPC-11 修复): 点选开会话零 route 派发——面板停 greet(B7 关怀轻交互), 稍后收尾零负面', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+      [npcEntryOf('npc:g01', 'care', '阿稳')]);
+  rec.ui.sync();
+  rec.clickEntry(npcEntryOf('npc:g01', 'care', '阿稳'));
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.strictEqual(panel.hidden, false, '点选 npc care 条目→开会话');
+  assert.strictEqual(panel.getAttribute('data-state'), 'greet',
+      'care 豁免 route: 面板停 greet(B7 轻交互=问候/感谢语境; 误路由落 guide 在此红)');
+  const deferBtn = dlgElOf(rec, 'town-dlg-ghosts').children
+      .find((g) => g.textContent.includes('稍后'));
+  assert.ok(deferBtn, '无压力出口常驻');
+  deferBtn.click();
+  assert.strictEqual(panel.hidden, true, '稍后→close{deferred} 收尾零负面');
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring', 'A 恢复探索中');
+});
+
+test('正控(T-NPC-11 修复零误伤): 任务会话自动 route 照旧——task tour→guide、task help→help(ROUTE_BY_KIND 在册键照常派发)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  for (const [kind, want] of [['tour', 'guide'], ['help', 'help']]) {
+    const entry = {id: 'task:probe-' + kind, kind: 'task', iconKey: 'plaza',
+      label: '正控' + kind, anchor: {x: 90, y: 24, z: 84}, state: 'active',
+      sessionKind: kind, taskRef: 'task:probe-' + kind};
+    const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+        [entry]);
+    rec.ui.sync();
+    rec.clickEntry(entry);
+    assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+        want, 'task ' + kind + ' 自动 route→' + want + ' 照旧(修复不误伤在册键)');
+  }
+});
+
+test('守门矩阵(T-NPC-11 修复): 驱动缝 route 派发只认 ROUTE_BY_KIND 在册键——五值逐条 tour→guide/seek→seek/help→help 自动 route, greet/care 豁免停 greet', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const cases = [
+    ['npc:v04', 'tour', 'guide', '图图'],
+    ['npc:v07', 'seek', 'seek', '多多'],
+    ['npc:v02', 'help', 'help', '朵朵'],
+    ['npc:v01', 'greet', 'greet', '阿面'],
+    ['npc:g01', 'care', 'greet', '阿稳'],
+  ];
+  for (const [id, kind, want, label] of cases) {
+    const entry = npcEntryOf(id, kind, label);
+    const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+        [entry]);
+    rec.ui.sync();
+    rec.clickEntry(entry);
+    assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+        want, 'sessionKind=' + kind + ' 点选终态=' + want +
+        (want === 'greet' ? '(轻问候豁免 route, 误落 guide 在此红)' : '(在册键自动 route)'));
+  }
+});
+
+
 
