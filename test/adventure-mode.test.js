@@ -4416,11 +4416,11 @@ test('T7 转正 TNT: 爆炸覆盖东栅栏件 — 屏障格原地不动+零掉�
   mem.clear();
   freshInit();
   const topY = (x, z) => AdventureCore.ADV_GROUND + AdventureCore.advHeightAt(x, z);
-  /* 锚点 (155,81)(2026-11-06 建场实测): 草面 y22/上空 y23, 东栅栏桩 z81 基 y23
-     两高, 爆球 r=3.5 覆盖 6 个保护格(桩两高+横杆 z79/80/82/83); 东向无禁放柱,
-     TNT 可放(翻越彩蛋同源口径)。前提格断言先钉, 建场漂移时报得明白 */
+  /* 锚点 (155,81)(2026-11-15 F2 矮墙换装): 草面 y22/上空 y23, 中段矮墙 z79..83
+      两高墙身(石砖 13), 爆球 r=3.5 覆盖 10 个保护格(墙身两高×z79..83); 东向
+      无禁放柱, TNT 可放(翻越彩蛋同源口径)。前提格断言先钉, 建场漂移时报得明白 */
   assert.strictEqual(cell(155, topY(155, 81), 81), 1, '锚点草面在册(建场确定性前提)');
-  assert.strictEqual(cell(157, topY(157, 81) + 1, 81), 5, '东栅栏桩基在爆球覆盖内(前提)');
+  assert.strictEqual(cell(157, topY(157, 81) + 1, 81), 13, '中段矮墙下格在爆球覆盖内(前提)');
   assert.strictEqual(AdventureCore.advEdgeProtectedAt(155, topY(155, 81) + 1, 81), false,
       '锚点上方非保护格(东向无禁放柱, TNT 可放)');
   holdOnly('tnt', 1);
@@ -4438,21 +4438,22 @@ test('T7 转正 TNT: 爆炸覆盖东栅栏件 — 屏障格原地不动+零掉�
   listResult = [];
   for (let i = 0; i < 34; i++) AdventureMode.update(0.05); /* 引信 1.5s(ADV_TNT_FUSE)烧完 */
   assert.ok(calls.some((c) => c[0] === 'boom'), '起爆发生(Fx.boom)');
-  /* 屏障 6 格原地不动(桩两高 z81 + 横杆 z79/80/82/83; 高度随地形现算) */
-  assert.strictEqual(cell(157, topY(157, 81) + 1, 81), 5, '栅栏桩基原地不动');
-  assert.strictEqual(cell(157, topY(157, 81) + 2, 81), 5, '栅栏桩顶原地不动');
-  for (const z of [79, 83]) assert.strictEqual(cell(157, topY(157, z) + 1, z), 6, '栅栏横杆原地不动 z' + z);
-  for (const z of [80, 82]) assert.strictEqual(cell(157, topY(157, z) + 1, z), 6, '栅栏横杆原地不动 z' + z);
+  /* 屏障 10 格原地不动(矮墙两高墙身 z79..83; 高度随地形现算) */
+  assert.strictEqual(cell(157, topY(157, 81) + 1, 81), 13, '矮墙下格原地不动 z81');
+  assert.strictEqual(cell(157, topY(157, 81) + 2, 81), 13, '矮墙上格原地不动 z81');
+  for (const z of [79, 83]) assert.strictEqual(cell(157, topY(157, z) + 1, z), 13, '矮墙墙身原地不动 z' + z);
+  for (const z of [80, 82]) assert.strictEqual(cell(157, topY(157, z) + 1, z), 13, '矮墙墙身原地不动 z' + z);
   assert.strictEqual(calls.filter((c) => c[0] === 'edit' &&
       AdventureCore.advEdgeProtectedAt(c[1], c[2], c[3])).length, 0,
   '受保护格零破坏记账(sink 守卫拦直接破坏, cascadeGuard 复原不留级联账)');
   assert.ok(calls.some((c) => c[0] === 'edit' && c[1] === 157), '桩脚普通土格照常破坏(放开语义, 只保件不保土)');
-  /* 屏障件格零掉落: 掷骰落点=被毁格中心(+0.5/+0.8), 对 6 个在爆球内的保护格
-     中心做邻域匹配(桩脚泥土的合法掉落落点也在 x157 列, 只按列过滤会误伤) */
+  /* 屏障件格零掉落: 掷骰落点=被毁格中心(+0.5/+0.8), 对 10 个在爆球内的保护格
+     中心做邻域匹配(墙脚泥土的合法掉落落点也在 x157 列, 只按列过滤会误伤);
+     墙头花 y0+2 不在保, TNT 炸掉合法(N2 口径)——z82 丛位顶层漏保非缺陷 */
   const protCenters = [];
   for (const z of [79, 80, 81, 82, 83]) {
     const y0 = topY(157, z) + 1;
-    for (const y of (z % 3 === 0 ? [y0, y0 + 1] : [y0])) protCenters.push([157.5, y + 0.8, z + 0.5]);
+    for (const y of [y0, y0 + 1]) protCenters.push([157.5, y + 0.8, z + 0.5]);
   }
   const badDrops = globalThis.Drops.list().filter((d) => protCenters.some(([cx2, cy2, cz2]) =>
     Math.abs(d.x - cx2) < 0.3 && Math.abs(d.y - cy2) < 0.3 && Math.abs(d.z - cz2) < 0.3));

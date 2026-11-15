@@ -835,6 +835,9 @@ function advEdgeOpenDir(dir) {/* 单一开放判据(〔世界边界·T8〕, 四�
 
 const ADV_TOWN_GATE_OPEN_Z = [74, 75]; /* 门口开间主径带(town-map-design §6.3.1, T-SEAM-02):
    east 主径轴线 z74~75 两格开间——越线触发/回程门墩/东栅栏让位/开间保护四处同源消费 */
+const ADV_TOWN_WALL_ZONE = {lo: 66, hi: 90}; /* 镇界矮墙中段 z 范围(v2 spec §4.1):
+   中段石砖矮墙分段(远段木栅栏维持)——建场(advEdgeEastFence)与保护判据
+   (advEdgeProtectedAt)同源吃这一份几何, 不抄第二份 */
 function advEdgeTransitDirAt(x, z) {/* 越线传送触发线(纯几何, 解锁判定分离可
    分维测试): 「中心进入最外一行格」与碰撞钳制面等效(voxel.js physics 把玩家
    中心钳在 [PLAYER.hx, WORLD_W−PLAYER.hx] × [PLAYER.hz, WORLD_D−PLAYER.hz],
@@ -1523,21 +1526,36 @@ function advEdgeEastSign() {/* 镇门牌坊(原告示牌, 东带 spec §3.1): �
   setBlockRaw(x, yb + 6, 76, B_TORCH); /* 柱顶门灯(z76) */
 }
 
-function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间留缝是设计本体
-  ——原木柱(2 高)每 3 格一根, 缝格木板横杆(1 高), 缝口净空露出剪影=「看得见、
-  过不去、但不堵心」; 碰撞≈桩 2/缝 1 整格近似(T7 拍板 Q1 销项, 跳缝=翻越彩蛋);
-  挖/替换保护判据已落地(advEdgeProtectedAt 东向段随行), 放置不设禁放柱
-  (翻越=彩蛋口径, T7 转正)。门口开间(T-SEAM-02, town-map-design §6.3.1):
-  主径轴线 z74~75 两格让位——开间内无栅栏件(主径自此穿栅栏而过), 桩位让至
-  开间两侧邻格 z73/76(各一根两高原木桩=门框读法), 其余段形制照旧 */
+function advEdgeEastFence() {/* 远段木栅栏+中段石砖矮墙分段镇界(x157, 东 spec §5+
+   v2 spec §4.1 件 W): 远段(z≤65 ∪ z≥91)原式——原木柱(2 高)每 3 格一根, 缝格木板
+   横杆(1 高), 缝口净空露出剪影=「看得见、过不去、但不堵心」; 碰撞≈桩 2/缝 1
+   整格近似(T7 拍板 Q1 销项, 跳缝=翻越彩蛋)。中段(ADV_TOWN_WALL_ZONE z66..90)
+   石砖矮墙 13 两高(U1 已裁 2 格): 门框柱 z73/76 同砖两高+17 石英柱头(原两高原木
+   桩退役), 端头柱帽 z66/z90 落墙顶石英 17, 墙头花 z68/72/78/82/86 各一丛黄/白
+   (丛位序入 SceneKit.rand, 显式盐 8404)。门口开间(T-SEAM-02, town-map-design
+   §6.3.1): 主径轴线 z74~75 两格
+   让位——开间内无墙件(主径自此穿镇界而过)。挖/替换保护判据已落地
+   (advEdgeProtectedAt 东向段随件同源), 放置不设禁放柱(翻越=彩蛋口径, T7 转正) */
+  const flowerZ = [68, 72, 78, 82, 86]; /* 墙头花位 5 丛(中段节奏铺位; 下标=丛位序, 入盐 8404) */
   for (let z = 0; z < WORLD_D; z++) {
-    if (ADV_TOWN_GATE_OPEN_Z.includes(z)) continue; /* 门口开间: 两格净空无杆无桩 */
+    if (ADV_TOWN_GATE_OPEN_Z.includes(z)) continue; /* 门口开间: 两格净空无墙无桩 */
     const y = ADV_GROUND + advHeightAt(157, z) + 1;
-    if (z === 73 || z === 76 || z % 3 === 0) {/* 常规桩位 + 开间侧邻门框桩(z73/76 让位至此, 恒两高) */
+    if (z >= ADV_TOWN_WALL_ZONE.lo && z <= ADV_TOWN_WALL_ZONE.hi) {
+      setBlockRaw(157, y, z, 13); /* 中段矮墙石砖两高(含端头/门框柱身, U1 已裁 2 格) */
+      setBlockRaw(157, y + 1, z, 13);
+      if (z === 73 || z === 76) {
+        setBlockRaw(157, y + 2, z, 17); /* 门框柱石英柱头(墙顶正上一格) */
+      } else if (z === ADV_TOWN_WALL_ZONE.lo || z === ADV_TOWN_WALL_ZONE.hi) {
+        setBlockRaw(157, y + 2, z, 17); /* 端头柱帽石英(墙顶正上一格, 中段两端收口) */
+      } else if (flowerZ.includes(z)) {
+        setBlockRaw(157, y + 2, z,
+            SceneKit.rand(flowerZ.indexOf(z), 0, 8404) > 0.5 ? B_FLOWER_Y : B_FLOWER_W); /* 墙头花黄/白(丛位序) */
+      }
+    } else if (z % 3 === 0) {/* 远段桩位: 原木柱两高(NE 融雪楔/SE 栈桩皆落远段, 载体零触碰) */
       setBlockRaw(157, y, z, 5);
       setBlockRaw(157, y + 1, z, 5);
     } else {
-      setBlockRaw(157, y, z, 6);
+      setBlockRaw(157, y, z, 6); /* 远段缝格: 木板横杆 1 高 */
     }
   }
 }
@@ -1852,15 +1870,20 @@ function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁�
      (NW 融冰/SW 潮尾水)天然同在保; 〔世界边界·T8〕解锁态判据让开与地表
      换泥岸步道同口advEdgeOpenDir, 步道块可正常挖放) */
   if (!advEdgeOpenDir('west') && x >= 13 && x <= 18 && y >= top - 1 && y <= top + 1) return true;
-  /* 东·栅栏线 x157(east-spec §5 + T-SEAM-02 门口开间): 开间 z74/75 让保护
-     (开间内无栅栏件, 主径通路——town-map-design §6.3.1 门口开间条), 侧邻
-     门框桩 z73/76 桩基+桩顶两高在保; 其余段照旧——杆/桩基 y0 恒在(全 z
-     无条件写, 判据同式无条件), 桩顶 y0+1 只 z%3===0 桩位, 栈桩 y0−1 只
-     z153/154/159(SE 角 post-pass 原木桩脚; 已逐格核对三格均实落桩=建场实录) */
+  /* 东·镇界分段线 x157(east-spec §5 改稿+T-SEAM-02 门口开间): 开间 z74/75 让保护
+      (开间内无墙件, 主径通路——town-map-design §6.3.1 门口开间条); 中段
+      ADV_TOWN_WALL_ZONE 矮墙分段(v2 spec §8.1, 与建场同源)——门框柱 z73/76
+      y0..y0+2 在保(石柱两高+石英柱头), 其余格矮墙全高 y0..y0+1(墙头花/端帽层
+      y0+2 不在保, N2 带内可挖可放维持); 远段(其余 z)原式维持——桩/杆基 y0 恒在
+      (全 z 无条件写, 判据同式无条件), 桩顶 y0+1 只 z%3===0 桩位, 栈桩 y0−1 只
+      z153/154/159(SE 角 post-pass 原木桩脚; 已逐格核对三格均实落桩=建场实录) */
   if (x === 157) {
     const y0 = top + 1; /* = ADV_GROUND + advHeightAt(157,z)+1(advEdgeEastFence 同式) */
     if (ADV_TOWN_GATE_OPEN_Z.includes(z)) return false; /* T-SEAM-02 门口开间: 栅栏层让保护(开间即通路, §6.3.1) */
-    if (z === 73 || z === 76) return y === y0 || y === y0 + 1; /* 侧邻门框桩两高在保 */
+    if (z >= ADV_TOWN_WALL_ZONE.lo && z <= ADV_TOWN_WALL_ZONE.hi) {
+      if (z === 73 || z === 76) return y >= y0 && y <= y0 + 2; /* 门框柱: 石柱两高+石英柱头全在保 */
+      return y === y0 || y === y0 + 1; /* 矮墙全高在保(花/端帽层 y0+2 不在保, z%3 桩顶判据本段不适用) */
+    }
     if (y === y0) return true;
     if (z % 3 === 0 && y === y0 + 1) return true;
     if ((z === 153 || z === 154 || z === 159) && y === y0 - 1) return true;
