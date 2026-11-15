@@ -48,6 +48,7 @@ const TOWN_CARD_ICONS = {
   windmill: '🌬️',
   find: '🔍',
   help: '💬',
+  care: '💗', // T-NPC-10 G01 关怀语义 marker(iconkey-decision.md §五.2 授权随接线落)
 };
 
 /* ---------- core 解析(装载序双栖): 经典 script 里 town-ui-core 先装载,
