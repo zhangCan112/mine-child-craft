@@ -23,11 +23,16 @@ function loadVoxel() {
       packChunkData, lightSky, lightBlock, lightSkyAt, lightBlockAt,
       raycastVoxel, pos, vel, collides, physics, collidesAtPlayer, worldEvents,
       setFly,
+      /* T-G02 滑翔意图 API 用惰性 getter 桥接: 红阶段(引擎未实现)既有 29 条零波及,
+         新测试访问即得干净的 API 缺失红(ReferenceError), 绿阶段返回真函数 */
+      get setGliderEquipped(){ return setGliderEquipped; }, // 装备位意图注入(模式层唯一写面)
+      get isGliding(){ return isGliding; }, // 滑翔态可读出口(T-G04 展/收翼驱动消费)
       keys, touchMove, touchSprint,
       get onGround(){ return onGround; }, set onGround(v){ onGround = v; },
       get yaw(){ return yaw; }, set yaw(v){ yaw = v; },
       get pitch(){ return pitch; }, set pitch(v){ pitch = v; },
       get flyMode(){ return flyMode; }, set flyMode(v){ flyMode = v; },
+      get gliding(){ return gliding; }, // T-G02 滑翔旗标(内部态只读桥接; 写面仅 physics/setGliderEquipped)
       PLAYER, WORLD_W, WORLD_D, WORLD_H, BLOCKS, B_FUSE, B_WATER,
     };
   `, ctx);
@@ -334,6 +339,276 @@ test('physics: autoJump 关闭 → 贴台阶不跳(桌面行走口径不变)', (
   v.keys['KeyD'] = false;
   assert.ok(v.pos.x < 46 - v.PLAYER.hx + 1e-6, '台阶挡住去路: ' + v.pos.x);
   assert.strictEqual(v.pos.y, 11);
+});
+
+/* ============ 滑翔物理 (T-G02: spec §3.4 五态/§3.5 落差计量/§3.9 初值 + ADR 0016) ============
+   引擎层滑翔状态机契约: 装备位意图注入 setGliderEquipped(模式层唯一写面, 语义=玩家
+   背着滑翔翼) · 滑翔态出口 isGliding()(T-G04 展/收翼驱动消费) · land 事件缝
+   worldEvents.land + landFall(本次落差格数) + landGliding(触地时滑翔态, T-G05 零
+   伤害旗标)。参数断言取 spec §3.9 初值: 展翼阈值 2 / 缓降 −3.0 / 水平操控 5.0。 */
+const GLIDE_SINK = -3.0; // spec §3.9 缓降速率初值(格/秒)
+const GLIDE_SPEED = 5.0; // spec §3.9 滑翔水平操控初值(格/秒, 不享受疾跑)
+
+function fillPool(v) { // 两格深水池: 池底 y=8(顶面 9), 水方块 y=9..10(水面顶 11)
+  fill(v, 40, 8, 40, 43, 8, 44, 3);
+  for (let y=9; y<=10; y++) fill(v, 40, y, 40, 43, y, 44, v.B_WATER);
+}
+function assertAccumCleared(v) { // 落差累计清零自证: 入水后换干地低坠只算新段(残留峰值会报≈9)
+  fill(v, 48, 10, 40, 54, 10, 44, 3); // 干地板(顶面 y=11; x 48..54 · z 40..44)
+  v.pos.set(51.5, 15, 42.5); // 离地 4 — 故意低于入水前下落峰值, 清零与否可分辨
+  v.onGround = false; // 池底贴地残留会短路下落循环(零帧), 显式腾空(装具 setter, 夹具操作)
+  for (let i=0; i<600 && !v.onGround; i++) v.physics(DT);
+  assert.strictEqual(v.onGround, true);
+  assert.strictEqual(v.worldEvents.land, true);
+  assert.ok(Math.abs(v.worldEvents.landFall - 4) < 0.6,
+      '落差累计应已入水清零(新段≈4; 残留入水前峰值会报≈9), 实测 ' + v.worldEvents.landFall);
+}
+
+test('滑翔: 装备位 on + 离地>2 自动展翼(vel.y=缓降恒值); 恰 2 格不展(整格比较锚)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setGliderEquipped(true);
+  v.pos.set(42.5, 15, 42.5); // 离地 4 格 — 走落情境(未按跳跃, ADR 0016 不分起因)
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), true, '离地>2 应自动展翼');
+  assert.ok(Math.abs(v.vel.y - GLIDE_SINK) < 1e-9, '展翼即缓降恒值, 实测 ' + v.vel.y);
+  for (let i=0; i<20; i++) {
+    v.physics(DT);
+    assert.ok(Math.abs(v.vel.y - GLIDE_SINK) < 1e-9, '缓降恒值不随帧漂移: ' + v.vel.y);
+  }
+  const v2 = loadVoxel(); // 边界: 恰好离地 2 格(阈值 >2 整格比较)不展翼
+  fill(v2, 40, 10, 40, 44, 10, 44, 3);
+  v2.setGliderEquipped(true);
+  v2.pos.set(42.5, 13, 42.5); // 地板顶 11 → 恰 2 格
+  for (let i=0; i<10; i++) v2.physics(DT);
+  assert.strictEqual(v2.isGliding(), false, '离地恰 2 格不得展翼(阈值 >2)');
+});
+
+test('滑翔: 平地跳跃不误展(阈值 2 > 跳高 1.42 自洽锚); 落地 land 落差≈1.42(恒无伤锚)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.pos.set(42.5, 11, 42.5);
+  assert.ok(settle(v, 200) >= 0, '预落地');
+  v.setGliderEquipped(true); // 已装备 — 平地跳仍不得展翼
+  v.keys['Space'] = true; v.physics(DT); v.keys['Space'] = false;
+  let maxY = v.pos.y; let glidingSeen = false;
+  for (let i=0; i<200 && !v.onGround; i++) {
+    v.physics(DT);
+    maxY = Math.max(maxY, v.pos.y);
+    if (v.isGliding()) glidingSeen = true;
+  }
+  assert.strictEqual(glidingSeen, false, '平地跳跃全程零展翼');
+  assert.ok(maxY - 11 < 2, '自洽锚: 平地跳高应 < 阈值 2, 实测 ' + (maxY - 11).toFixed(3));
+  assert.strictEqual(v.worldEvents.land, true, '平地跳跃落地也报 land');
+  assert.ok(Math.abs(v.worldEvents.landFall - 1.42) < 0.2,
+      '落差≈跳高 1.42(spec §3.5 平地跳恒无伤锚), 实测 ' + v.worldEvents.landFall);
+  assert.strictEqual(v.worldEvents.landGliding, false);
+});
+
+test('滑翔: 高度单调不增; 滑翔触地 land 携带滑翔态=true(T-G05 零伤害旗标)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setGliderEquipped(true);
+  v.pos.set(42.5, 20, 42.5);
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), true);
+  let prev = v.pos.y; let monotonic = true;
+  for (let i=0; i<300 && !v.onGround; i++) {
+    v.physics(DT);
+    if (v.pos.y > prev + 1e-9) monotonic = false;
+    prev = v.pos.y;
+  }
+  assert.strictEqual(monotonic, true, '滑翔全程高度只减不增');
+  assert.strictEqual(v.onGround, true, '一路滑到地面应落地');
+  assert.strictEqual(v.worldEvents.land, true, '滑翔触地也报 land');
+  assert.strictEqual(v.worldEvents.landGliding, true, '触地时滑翔态=true');
+});
+
+test('滑翔: yaw 同源水平操控 5.0 格/秒, 不享受疾跑, 方向随 yaw 旋转', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setGliderEquipped(true);
+  v.pos.set(42.5, 20, 42.5);
+  v.keys['KeyD'] = true;
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), true);
+  assert.ok(Math.abs(v.vel.x - GLIDE_SPEED) < 1e-9, '水平操控速度=5.0, 实测 ' + v.vel.x);
+  v.keys['ShiftLeft'] = true; // 疾跑键 — 滑翔不享受(spec §3.9)
+  v.physics(DT);
+  assert.ok(Math.abs(v.vel.x - GLIDE_SPEED) < 1e-9, '疾跑不得生效: ' + v.vel.x);
+  v.keys['ShiftLeft'] = false;
+  v.yaw = Math.PI / 2; // 转向 — 操控方向与步行分支同一 yaw 同源旋转
+  v.physics(DT);
+  assert.ok(Math.abs(v.vel.z + GLIDE_SPEED) < 1e-9,
+      'yaw=π/2 时 KeyD 应指向 -z, 实测 vel.z=' + v.vel.z);
+});
+
+test('滑翔: 滑翔中按 Space 主动取消 — 立即收翼+闩锁(高处经过不重展, 按住不振荡)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setGliderEquipped(true);
+  v.pos.set(42.5, 20, 42.5);
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), true);
+  v.keys['Space'] = true; // 一次按下并按住 — 取消/再展不得振荡(ADR 0016 闩锁语义)
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), false, '滑翔中按 Space 立即收翼');
+  for (let i=0; i<30; i++) {
+    v.physics(DT);
+    assert.strictEqual(v.isGliding(), false,
+        '按住 Space 期间零振荡; 离地 ' + (v.pos.y - 11).toFixed(2) + ' 不得自动重展(闩锁)');
+  }
+  v.keys['Space'] = false;
+  assert.ok(v.vel.y < GLIDE_SINK - 1, '收翼后转无翼自由坠落(重力回复), vel.y=' + v.vel.y.toFixed(2));
+});
+
+test('滑翔: 闩锁态空中再点 Space = 解除闩锁+主动再展翼', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setGliderEquipped(true);
+  v.pos.set(42.5, 20, 42.5);
+  v.physics(DT);
+  v.keys['Space'] = true; v.physics(DT); v.keys['Space'] = false; // 取消 → 闩锁
+  assert.strictEqual(v.isGliding(), false);
+  for (let i=0; i<10; i++) v.physics(DT); // 无翼坠一段(仍离地 >2)
+  assert.strictEqual(v.isGliding(), false, '闩锁期间高度条件不重展');
+  v.keys['Space'] = true; // 空中再点 = 再展
+  v.physics(DT);
+  v.keys['Space'] = false;
+  assert.strictEqual(v.isGliding(), true, '闩锁中空中再点 Space 应再展翼');
+  assert.ok(Math.abs(v.vel.y - GLIDE_SINK) < 1e-9, '再展即入缓降, 实测 ' + v.vel.y);
+});
+
+test('滑翔: 落地闩锁无条件清除 — 再从高处腾空恢复自动展翼; 落差自收翼点重计', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setGliderEquipped(true);
+  v.pos.set(42.5, 18, 42.5); // 离地 7
+  v.physics(DT);
+  for (let i=0; i<200 && v.isGliding() && v.pos.y > 14.1; i++) v.physics(DT); // 滑到离地≈3
+  v.keys['Space'] = true; v.physics(DT); v.keys['Space'] = false; // 取消 → 闩锁
+  for (let i=0; i<600 && !v.onGround; i++) v.physics(DT); // 落地(闩锁清除)
+  assert.strictEqual(v.onGround, true);
+  assert.strictEqual(v.worldEvents.land, true);
+  assert.ok(v.worldEvents.landFall < 5,
+      '落差自收翼点重计(≈3, 非展翼起点 7), 实测 ' + v.worldEvents.landFall);
+  v.pos.set(42.5, 18, 42.5); // 再上高处 — 闩锁已清, 自动展翼恢复
+  let redeployed = false;
+  for (let i=0; i<20; i++) {
+    v.physics(DT);
+    if (v.isGliding()) {
+      redeployed = true;
+      break;
+    }
+  }
+  assert.strictEqual(redeployed, true, '落地后闩锁清除, 恢复自动展翼');
+});
+
+test('滑翔: land 事件 — 10 格无翼坠落落差≈10、触地滑翔态=false', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setGliderEquipped(false); // 无翼(缺省即 false, 显式声明语义)
+  v.pos.set(42.5, 21, 42.5);
+  assert.strictEqual(v.worldEvents.land, false);
+  for (let i=0; i<600 && !v.onGround; i++) v.physics(DT);
+  assert.strictEqual(v.onGround, true);
+  assert.strictEqual(v.worldEvents.land, true, '触地置位 land(引擎只报事实)');
+  assert.ok(Math.abs(v.worldEvents.landFall - 10) < 0.6,
+      '落差≈10, 实测 ' + v.worldEvents.landFall);
+  assert.strictEqual(v.worldEvents.landGliding, false, '无翼触地滑翔态=false');
+});
+
+test('滑翔: 滑翔段不计落差 — 滑到离地约 2 格取消再坠 2 格落地, land 落差≈2', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setGliderEquipped(true);
+  v.pos.set(42.5, 18, 42.5); // 离地 7
+  v.physics(DT); // 展翼瞬间落差累计重置(峰值=当前高度)
+  assert.strictEqual(v.isGliding(), true);
+  for (let i=0; i<200 && v.isGliding() && v.pos.y > 13.1; i++) v.physics(DT); // 滑降 5 格(不计账)
+  assert.strictEqual(v.isGliding(), true, '到离地≈2 仍应滑翔中');
+  v.keys['Space'] = true; v.physics(DT); v.keys['Space'] = false; // 主动取消(自收翼点重计)
+  assert.strictEqual(v.isGliding(), false);
+  for (let i=0; i<600 && !v.onGround; i++) {
+    v.physics(DT);
+    if (v.pos.y > 13) {
+      assert.strictEqual(v.isGliding(), false, '取消后经过 >2 格高度不自动重展(闩锁)');
+    }
+  }
+  assert.strictEqual(v.onGround, true);
+  assert.strictEqual(v.worldEvents.land, true);
+  assert.ok(Math.abs(v.worldEvents.landFall - 2) < 0.7,
+      '落差≈2(滑翔段不计入), 实测 ' + v.worldEvents.landFall);
+  assert.strictEqual(v.worldEvents.landGliding, false, '取消后触地为无翼态');
+});
+
+test('滑翔: 无翼落入深水 — splash 置位、水下触底零 land 参与、落差累计清零', () => {
+  const v = loadVoxel();
+  fillPool(v);
+  v.pos.set(42, 20, 42); // 池心上空(入水前落差 ≈9)
+  for (let i=0; i<600 && !v.worldEvents.splash; i++) v.physics(DT);
+  assert.strictEqual(v.worldEvents.splash, true, '高速入水 splash(既有语义)');
+  v.worldEvents.splash = false;
+  for (let i=0; i<300 && !v.onGround; i++) {
+    v.physics(DT);
+    assert.strictEqual(v.worldEvents.land, false, '水下触底零伤害参与 — 不得报 land');
+  }
+  assert.strictEqual(v.onGround, true, '应沉到池底');
+  assertAccumCleared(v); // 入水清零(此后无论潜多深上浮都不摔的引擎侧前提)
+});
+
+test('滑翔: 触水面软着陆 — 收翼+溅水+入水转游泳, 零 land 参与, 落差清零', () => {
+  const v = loadVoxel();
+  fillPool(v);
+  v.setGliderEquipped(true);
+  v.pos.set(42, 25, 42); // 池心上空, 离水面 14 > 2
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), true, '水面上空照常按展翼规则判定');
+  let sawSplash = false; let minVel = 0;
+  for (let i=0; i<600 && !v.onGround; i++) {
+    v.physics(DT);
+    if (v.worldEvents.splash) sawSplash = true;
+    if (sawSplash && !v.onGround) minVel = Math.min(minVel, v.vel.y);
+    assert.strictEqual(v.worldEvents.land, false, '滑翔入水零 land 参与(软着陆非触地)');
+  }
+  assert.strictEqual(v.onGround, true, '沉入池底(游泳物理接管)');
+  assert.strictEqual(sawSplash, true, '软着陆溅水(spec §3.4: 收翼+溅水+入水转游泳)');
+  assert.strictEqual(v.isGliding(), false, '触水即收翼');
+  assert.ok(minVel > -2.5, '入水后游泳物理缓沉(非自由坠落), 最深 vel.y=' + minVel.toFixed(2));
+  v.setGliderEquipped(false); // 卸翼后量无翼新段(装备位 on 会按 T1 合同自动再展, 落差≈0)
+  assertAccumCleared(v); // 水面=安全: 落差累计同点清零
+});
+
+test('滑翔: 滑翔中装备位置 off — 立即收翼按无翼坠落, 落差自收翼点重计', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setGliderEquipped(true);
+  v.pos.set(42.5, 18, 42.5); // 离地 7
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), true);
+  for (let i=0; i<200 && v.isGliding() && v.pos.y > 14.1; i++) v.physics(DT); // 滑到离地≈3
+  v.setGliderEquipped(false); // 滑翔中卸翼(spec §3.4 A6 有意设计: 立刻收翼按无翼坠落)
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), false, '卸翼立即收翼');
+  for (let i=0; i<600 && !v.onGround; i++) v.physics(DT);
+  assert.strictEqual(v.onGround, true);
+  assert.strictEqual(v.worldEvents.land, true);
+  assert.ok(Math.abs(v.worldEvents.landFall - 3) < 0.8,
+      '落差自收翼点重计(≈3, 非展翼起点 7), 实测 ' + v.worldEvents.landFall);
+  assert.strictEqual(v.worldEvents.landGliding, false, '卸翼后触地为无翼态');
+});
+
+test('滑翔: flyMode 优先 — 飞行中装备位 on 不判滑翔(引擎分支边界)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 10, 40, 44, 10, 44, 3);
+  v.setFly(true);
+  v.setGliderEquipped(true);
+  v.pos.set(42.5, 20, 42.5); // 离地 9 > 2, 但飞行分支优先
+  v.keys['Space'] = true;
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), false, '飞行中零滑翔参与');
+  assert.ok(Math.abs(v.vel.y - v.PLAYER.flyVert) < 1e-9, '飞行 Space 上升语义不变');
+  v.keys['Space'] = false;
 });
 
 /* ============ 射线 ============ */

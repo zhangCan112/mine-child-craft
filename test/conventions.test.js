@@ -120,17 +120,21 @@ test('规范: 文档指针零死链 — docs/ 引用与 md 相对链接必须指
   assert.ok(refs >= 80, '死链扫描应覆盖 ≥80 处文档引用 — 扫描空集 = 守门静默失效');
 });
 
-/* ---------- 玩家状态守门(C7-T2) ----------
-   玩家六绑定(pos/vel/onGround/yaw/pitch/flyMode, 定义在 voxel.js 玩家段)
-   的可写白名单与例外登记, 唯一权威是 js/voxel.js 玩家段头注释: physics 自身 /
+/* ---------- 玩家状态守门(C7-T2 + T-G02 §1.10 裁决) ----------
+   玩家六绑定(pos/vel/onGround/yaw/pitch/flyMode, 定义在 voxel.js 玩家段)与
+   滑翔旗标 gliding(T-G02 引擎滑翔态, 写面=physics 自身 + setGliderEquipped 意图
+   入口; §1.10 裁决随票记录: 与 flyMode 同待遇入正则 — 模式层手滑直写会绕过意图
+   API 且炸在运行时, 判据两条全中; 闩锁/落差累计为纯内部态不入口)。
+   可写白名单与例外登记, 唯一权威是 js/voxel.js 玩家段头注释: physics 自身 /
    input.js 视角热路径 / math-world.js 自持 rAF / tank.js 引擎同侪——四类例外
    文件都不在本断言扫描范围, 本断言只管模式层 js/modes/*.js(玩家状态的
-   消费方): 传送/出生一律 ModeKit.spawn, 飞行态一律 setFly(voxel.js)。
+   消费方): 传送/出生一律 ModeKit.spawn, 飞行态一律 setFly, 滑翔态读写一律
+   setGliderEquipped / isGliding(voxel.js)。
    正则的 (?<!\.) 排除属性访问: m.yaw/T.onGround 是怪物/载具字段, 不是玩家
    绑定(arena.js m.yaw 判例); 正则曾对全仓 js/ 预检, modes 目录零误报命中。 */
-test('规范: 模式文件零直写玩家六绑定 — 传送/出生走 ModeKit.spawn, 飞行态走 setFly', () => {
+test('规范: 模式文件零直写玩家六绑定与滑翔旗标 — 传送/出生走 ModeKit.spawn, 飞行态走 setFly, 滑翔态走 setGliderEquipped/isGliding', () => {
   const rules = [
-    ['顶层绑定直写', /(?<!\.)\b(yaw|pitch|onGround|flyMode)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/],
+    ['顶层绑定直写', /(?<!\.)\b(yaw|pitch|onGround|flyMode|gliding)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/],
     ['成员直写', /(?<!\.)\b(pos|vel)\.(?:x|y|z)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/],
     ['鸭子 set 直调', /(?<!\.)\b(pos|vel)\.set\(/],
   ];
@@ -140,8 +144,8 @@ test('规范: 模式文件零直写玩家六绑定 — 传送/出生走 ModeKit.
     fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
       for (const [name, re] of rules) {
         assert.ok(!re.test(line), rel(p) + ':' + (i + 1) + ' [' + name + '] ' + line.trim() +
-            ' — 玩家状态传送/出生走 ModeKit.spawn, 飞行态走 setFly(js/voxel.js);' +
-            ' 例外白名单唯一权威在 voxel.js 玩家段头注释');
+            ' — 玩家状态传送/出生走 ModeKit.spawn, 飞行态走 setFly, 滑翔态读写走' +
+            ' setGliderEquipped/isGliding(js/voxel.js); 例外白名单唯一权威在 voxel.js 玩家段头注释');
       }
     });
   }
