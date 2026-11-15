@@ -2027,4 +2027,31 @@ test('TIDEA-16 回望钟塔回礼: 先离开正前再回正前→L2 徽章 seen-
    全清; greet done 事件 feed 链保留=机制 headless, 其行为由上方会话避让
    与 seek 全链测试承担) */
 
+/* ============================================================
+   T-NPC-11 对账补缺红测(§1.7 禁止项硬清单 + 票面会师 4 已裁口径;
+   票面施工记录 §7.3): 对账结论=禁止项四项中「无键盘依赖」与
+   「事件名唯一权威」两域零守门, 立红补缺。守门测试红相自证=
+   突变注入违例见红/还原见绿(票面施工记录 §7.3 自证列)。
+   ============================================================ */
+
+test('禁止项守门(§6.3): 对话链源文本零键盘绑定——keydown/keyup/keypress/KeyboardEvent 全域缺席, 点击为唯一必要操作', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const kb = /addEventListener\(\s*['"]key(?:down|up|press)['"]|onkey(?:down|up|press)|KeyboardEvent/;
+  for (const f of ['js/town-ui.js', 'js/town-dialog-core.js']) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.ok(!kb.test(src), f + ' 出现键盘事件绑定(§6.3: 无键盘快捷键依赖, ' +
+        '纯鼠标点选为唯一必要操作)');
+  }
+});
+
+test('事件名权威守门(票面会师 4 已裁): 双 js 源+index.html(只读)零旧名 town:dialog*, town-ui/dialog/* 唯一权威', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const legacy = /town:dialog/;
+  for (const f of ['js/town-ui.js', 'js/town-dialog-core.js', 'index.html']) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.ok(!legacy.test(src), f + ' 出现旧事件名 town:dialog*(双名歧义已裁: ' +
+        '唯一权威=town-ui/dialog/*, 旧名不实现)');
+  }
+});
+
 
