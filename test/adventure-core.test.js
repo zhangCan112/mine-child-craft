@@ -727,16 +727,29 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   assert.strictEqual(cell(16, top(16, 104) + 1, 104), 14, '深水带苔石冒头 (16,104)');
   assert.strictEqual(cell(2, Core.ADV_GROUND + 4, 24), 6, '高脚木屋地板 y28');
   assert.strictEqual(cell(0, Core.ADV_GROUND + 8, 23), api.B_TORCH, '木屋暖窗火把(顶沿, 脚下实心)');
-  /* 东带: 主径土面 + 告示牌(双柱+板面) + 木栅栏 x157(桩 z%3==0 两高原木,
+  /* 东带: 主径土面 + 镇门牌坊(原告示牌门坊化, 东带 spec §3.1: 双柱 4 高+
+     门楣一线+悬牌图案 2×2(上=石塔行/下=原木径行)+柱顶门灯×2, 牌下净空
+     yb+1..+2 禁填=穿行契约) + 木栅栏 x157(桩 z%3==0 两高原木,
      缝格 1 高横杆——缝口留空是设计本体; 门口开间 z74~75 让位, 桩让至两侧
-     邻格 z73/76=T-SEAM-02) + 隔离带 x158~159 剪影(房屋/钟楼)。
+     邻格 z73/76=T-SEAM-02) + 隔离带 x158~159 剪影(房屋/钟楼) + 门前小径
+     x158~159×z74/75(件 D, spec §3.4: 表面改土面, 路穿门铺到塔脚)。
      野树候选确定性穿杆(树干无条件覆写、树叶只落空气格): 首跑观测全数在场,
      计数钉死整段规模(候选若变, 这里最先报警) */
   assert.strictEqual(cell(154, top(154, 74), 74), 2, '东主径土面(与既有东向小径同轴)');
   const yb = top(156, 74);
-  assert.strictEqual(cell(156, yb + 1, 73), 5, '告示牌立柱(z73)');
-  assert.strictEqual(cell(156, yb + 3, 74), 6, '告示牌板面(主径上方)');
-  assert.strictEqual(cell(156, yb + 3, 75), 6, '告示牌板面(z75)');
+  assert.strictEqual(cell(156, yb + 1, 73), 5, '门坊立柱下格(z73, 原告示牌柱)');
+  assert.strictEqual(cell(156, yb + 3, 74), 5, '门坊悬牌径行(z74, 原板面木板改原木=小径图案)');
+  assert.strictEqual(cell(156, yb + 3, 75), 5, '门坊悬牌径行(z75)');
+  assert.strictEqual(cell(156, yb + 4, 74), 3, '门坊悬牌塔行(z74, 石=钟塔图案, 与剪影同料)');
+  assert.strictEqual(cell(156, yb + 4, 75), 3, '门坊悬牌塔行(z75)');
+  assert.strictEqual(cell(156, yb + 4, 73), 5, '门坊立柱加高格(z73, 3→4 高)');
+  assert.strictEqual(cell(156, yb + 4, 76), 5, '门坊立柱加高格(z76)');
+  for (const z of [73, 74, 75, 76]) {
+    assert.strictEqual(cell(156, yb + 5, z), 6, '门坊门楣一线(z' + z + ', 木板横贯门宽连双柱顶)');
+  }
+  for (const z of [73, 76]) {
+    assert.strictEqual(cell(156, yb + 6, z), api.B_TORCH, '门坊柱顶门灯(z' + z + ', 落楣端正上)');
+  }
   /* 门口开间计数(T-SEAM-02): z74~75 让位无栅栏件(专测另钉), 桩位让至两侧
      邻格 z73/76(门框桩两高, 单列计数); 常规段=桩 53(54−开间雕出 z75)+
      横杆 103(106−开间雕出 z74−让位升桩 z73/76)。候选若变, 这里最先报警 */
@@ -762,6 +775,8 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   assert.strictEqual(cell(158, tt + 8, 74), 5, '钟楼尖顶');
   assert.strictEqual(cell(159, tt + 8, 74), api.B_TORCH, '钟楼顶灯');
   assert.strictEqual(cell(158, top(158, 24) + 1, 24), 3, '剪影房屋墙(首屋)');
+  assert.strictEqual(cell(158, top(158, 74), 74), 2, '门前小径土面(x158/z74, 开间正后=路穿门延续, 件 D)');
+  assert.strictEqual(cell(159, top(159, 75), 75), 2, '门前小径土面(x159/z75, 铺到塔脚, 件 D)');
   /* 清场重建: 带改写+植被覆写全链逐字节复现(SceneKit.rand 确定性, 零 Math.random) */
   vm.runInContext('worldCells.fill(0)', eng);
   Core.advBuildWorld();
@@ -1147,6 +1162,9 @@ test('T7 转正 P2: advEdgeProtectedAt 逐坐标 — 三向屏障体/东栅栏�
   assert.ok(Core.advEdgeProtectedAt(156, yb + 3, 74), '告示牌板面下缘 true');
   assert.ok(Core.advEdgeProtectedAt(156, yb + 4, 74), '告示牌板面上缘 true');
   assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 1, 74), false, '板面下方空气格 false(只钉板/柱体)');
+  assert.ok(Core.advEdgeProtectedAt(156, yb + 4, 76), '门坊柱顶加高格 true(柱 3→4 高, 旧判据 yb+1..+3 不含)');
+  assert.ok(Core.advEdgeProtectedAt(156, yb + 5, 74), '门坊门楣格 true(楣中段 yb+3..+5 扩档)');
+  assert.ok(Core.advEdgeProtectedAt(156, yb + 6, 73), '门坊柱顶门灯格 true(z73/76 在保扩到 yb+6)');
   /* 普通带内格与隔离带: 判据全 false(带内可挖可建=放开语义) */
   assert.strictEqual(Core.advEdgeProtectedAt(30, edgeTop(30, 2), 2), false, '北带普通雪格 false');
   assert.strictEqual(Core.advEdgeProtectedAt(80, edgeTop(80, 100), 100), false, '南带普通沙格 false');

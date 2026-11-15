@@ -1444,10 +1444,10 @@ function advEdgeWest() {
 }
 
 /* ---------- 东带·小镇(x∈[128,159], ①②③ 段, 东 spec §3/§5/§6) ----------
-   T7 拍板 Q1 销项登记(2026-11-06, 登记偏差全维持走查通过现状):
+   T7 拍板 Q1 销项登记(2026-11-06, 登记偏差①②④维持走查通过现状; ③已解除见下):
    ①栅栏碰撞「1.5 格(MC 先例)」≈桩 2/缝 1 的整格近似——跳缝=翻越彩蛋;
    ②花田红花无图集格位, 维持黄/白二色;
-   ③告示牌牌面=拼块形制无字;
+   ③告示牌牌面=拼块形制无字(已由 2026-11-15 东带门坊化改稿解除: 牌面=钟塔+小径拼块图案, 见 docs/design/town-east-boundary-landscape-spec.md §3.1);
    ④远景剪影以石色替代(深蓝灰系无格位)。未来升级(牌面写字/深蓝灰格位/红花)
    一律走独立图集票, 不回 T7。 */
 
@@ -1478,15 +1478,24 @@ function advEdgeEastArrivePad() {/* 回家门墩(T-SEAM-03, town-map-design §6.
   }
 }
 
-function advEdgeEastSign() {/* 告示牌(东 spec §5): 立式双柱牌 x156, 板面朝主径;
-  牌面=拼块形制无字(T7 拍板 Q1 销项); 不可挖保护判据已落地(advEdgeProtectedAt
-  东向恒保护, T7 转正) */
+function advEdgeEastSign() {/* 镇门牌坊(原告示牌, 东带 spec §3.1): 两柱一楣一双灯+
+  悬牌图案 2×2(塔行=石=钟塔图案与剪影同料, 径行=原木=小径图案与脚下主径同轴);
+  柱 4 高框出门宽, 门楣横贯连柱顶, 柱顶门灯落楣端正上(支撑成立); 牌下净空
+  z74/75 yb+1..+2 禁填=穿行契约(不写即净空)。函数名沿革留档不更名
+  (ADV_GATE_PLAZA 先例); 全建场常量零 Math.random 零新盐; 保护判据随件改稿
+  (advEdgeProtectedAt x156 分支, spec §6.1) */
   const x = 156;
   const yb = ADV_GROUND + advHeightAt(x, 74);
   for (const z of [73, 76]) {
-    for (let y = yb + 1; y <= yb + 3; y++) setBlockRaw(x, y, z, 5);
+    for (let y = yb + 1; y <= yb + 4; y++) setBlockRaw(x, y, z, 5); /* 双柱 4 高(原 3 高 +1) */
   }
-  SceneKit.fill(x, yb + 3, 74, x, yb + 4, 75, 6); /* 板面(两柱间 2×2) */
+  setBlockRaw(x, yb + 3, 74, 5); /* 悬牌径行(z74)=小径图案(原木横线) */
+  setBlockRaw(x, yb + 3, 75, 5); /* 悬牌径行(z75) */
+  setBlockRaw(x, yb + 4, 74, 3); /* 悬牌塔行(z74)=钟塔图案(石, 与剪影同料) */
+  setBlockRaw(x, yb + 4, 75, 3); /* 悬牌塔行(z75) */
+  SceneKit.fill(x, yb + 5, 73, x, yb + 5, 76, 6); /* 门楣一线(z73..76)横贯门宽连双柱顶 */
+  setBlockRaw(x, yb + 6, 73, B_TORCH); /* 柱顶门灯(z73, 门楣端正上) */
+  setBlockRaw(x, yb + 6, 76, B_TORCH); /* 柱顶门灯(z76) */
 }
 
 function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间留缝是设计本体
@@ -1513,6 +1522,11 @@ function advEdgeEastSkyline() {/* 小镇远景剪影(东 spec §6): 房屋×4+�
   登记偏差: 深蓝灰 #5A6B7A 系无图集格位(零新贴图), 以石色剪影替代(T7 拍板 Q1
   销项: 维持石色, 深蓝灰新格位走独立图集票); 灯点=火把(夜间发光, 「还没建好但
   已经有灯亮着」的情绪钩子) */
+  /* 门前小径(东带 spec §3.4 件 D): 开间正后 x158~159×z74~75 表面改土面 id2——
+     路穿过门口开间一直铺到钟楼塔脚, 与主径同材质同读法(旧草面会把路「断」在
+     门后); helper 只换草皮 id1(守卫仅南花海圈), 与塔身(top+1 起)零冲突,
+     建场常量零新盐 */
+  advEdgeRewrite(158, 159, 74, 75, () => [2, 0]);
   const houses = [[24, 3], [56, 5], [88, 4], [120, 3]]; /* [z, 高]——高低错落 3~5 格 */
   let lamps = 0;
   for (const [z, h] of houses) {
@@ -1808,12 +1822,14 @@ function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁�
     if (z % 3 === 0 && y === y0 + 1) return true;
     if ((z === 153 || z === 154 || z === 159) && y === y0 - 1) return true;
   }
-  /* 东·告示牌 x156(east-spec §5): 双柱 z73/76=yb+1..yb+3, 板面 z74/75=
-     yb+3..yb+4; 锚 yb 取 advHeightAt(156,74)(advEdgeEastSign 同式) */
+  /* 东·镇门牌坊(原告示牌, 东带 spec §6.1): 柱+门灯 z73/76=yb+1..yb+6
+     (柱 4 高+门楣端+柱顶门灯), 悬牌+门楣 z74/75=yb+3..yb+5(牌 2 行+楣中段);
+     牌下净空 z74/75 yb+1..+2 不加分支恒 false(穿行契约, 建场同式禁填);
+     锚 yb 取 advHeightAt(156,74)(advEdgeEastSign 同式同源) */
   if (x === 156) {
     const yb = ADV_GROUND + advHeightAt(156, 74);
-    if ((z === 73 || z === 76) && y >= yb + 1 && y <= yb + 3) return true;
-    if ((z === 74 || z === 75) && y >= yb + 3 && y <= yb + 4) return true;
+    if ((z === 73 || z === 76) && y >= yb + 1 && y <= yb + 6) return true;
+    if ((z === 74 || z === 75) && y >= yb + 3 && y <= yb + 5) return true;
   }
   return false;
 }
