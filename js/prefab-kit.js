@@ -1556,6 +1556,60 @@ const PF_ROWS = {
       return {x1, y1: y, z1, x2, y2: y + 6, z2}; /* 旗顶 dy6 */
     },
   },
+
+  /* 铁傀儡头(iron-golem-head, PO 亲需③): 村民感恩守卫的方块雕塑头,
+     南面朝镇(facing0 south; scene 落位山肩 x61 一带, 南向注视镇景,
+     6413b00 探勘点位)。7×7 面颅(dy1..6 石英 17 实心)+dy0 基座插桩面
+     (7×7 石头 3, scene 落位下埋 1-2 格)+长鼻(dx0 dy1..4 凸出面 dz+4
+     ——傀儡唯一识别特征, 儿童远读靠轮廓)+眼窝(±2, dy4, 面侧 dz+3
+     铁灰 12 沉稳守卫非红眼敌意, §8 去威胁红线)+苔 6 格岁月点缀非
+     破损(顶后角×2/颊×2/顶心×2)。footprint 7×8(含凸鼻)高 7;
+     v 键 face|mirror|ids 同构无新开关 */
+  'iron-golem-head': {
+    facing0: 'south',
+    defaults: {
+      face: 'south',
+      mirror: false,
+      ids: {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3},
+    },
+    kernel(e, x, y, z, orient, put) {
+      const ids = e.ids;
+      /* 基座 dy0 全 7×7(插桩面: scene 落位后逐格核对) */
+      for (let dx = -3; dx <= 3; dx++) {
+        for (let dz = -3; dz <= 3; dz++) put(dx, 0, dz, ids.plinth);
+      }
+      /* 颅 dy1..6 实心 7×7×6(石英) */
+      for (let dy = 1; dy <= 6; dy++) {
+        for (let dx = -3; dx <= 3; dx++) {
+          for (let dz = -3; dz <= 3; dz++) put(dx, dy, dz, ids.skull);
+        }
+      }
+      /* 长鼻: dx0 dy1..4 凸出面 dz+4(轮廓识别特征) */
+      for (let dy = 1; dy <= 4; dy++) put(0, dy, 4, ids.nose);
+      /* 眼窝: (±2, dy4) 面侧 dz+3 覆颅面格 */
+      put(-2, 4, 3, ids.eye);
+      put(2, 4, 3, ids.eye);
+      /* 苔 6 格岁月死位: 顶后角(±3,6,-3)/颊(±3,3,3)/顶心(±1,6,2) */
+      put(-3, 6, -3, ids.moss);
+      put(3, 6, -3, ids.moss);
+      put(-3, 3, 3, ids.moss);
+      put(3, 3, 3, ids.moss);
+      put(-1, 6, 2, ids.moss);
+      put(1, 6, 2, ids.moss);
+    },
+    foot(e, x, y, z, orient) {
+      const xs = [-3, 3]; const zs = [-3, 4]; /* 含凸鼻 dz+4 */
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of xs) {
+        for (const dz of zs) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + 6, z2}; /* 颅顶 dy6 */
+    },
+  },
 };
 
 function pfRow(id) {/* 行表查找: 未知 id 即炸(拼写防火墙第一档) */

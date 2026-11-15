@@ -5,7 +5,7 @@
    一句话职责: 把 TownMapCore 的建场步骤表规划成一张确定性 op 列表
    (纯计划, 不碰世界), 连同 TOWN_PALETTE 城镇配色映射一起, 藏住全部
    材质拍板与几何派生; 执行器只按 op 词表逐条落地。
-   interface: 全局 TOWN_PALETTE 七段配色映射(prefab 十三行集中注入材质 ·
+   interface: 全局 TOWN_PALETTE 七段配色映射(prefab 十四行集中注入材质 ·
      terrain 基底三层 · ground 铺装 · road 路网 · backdrop 远景 ·
      props 道具 · tree 植被, 值全为 config.js BLOCKS 在册正整数 id) ·
       纯函数 townAssemblyOps(steps) → op 列表(词表封闭 {fill,tree,scrub,
@@ -72,7 +72,18 @@
    报 lead 登记); props +plank/glassPane/crateBox(立面三笔用料);
    scatter +三 kind wallflag/windowbox/crates(TIDEA-03 素墙立面三笔:
    旗幡列 v.len 钳 2..6 缺省 4 三色 i%3 轮转/花窗箱 8 格/桶箱角 4 格,
-   派生分支域扩——落位归 scene 切清单, 本件只收单点条目)。 */
+   派生分支域扩——落位归 scene 切清单, 本件只收单点条目)。
+   Step G 扩键登记(arch 岗, 2026-11-15; PO 亲需批两件能力面+裙板协同
+   6413b00): prefab +'iron-golem-head' 行(铁傀儡头雕像五槽 skull/nose/
+   eye/moss/plinth=17/17/12/14/3, 行键与 prefab-kit defaults ids 同形,
+   几何单源在蓝图 kernel; PO 亲需③村民感恩守卫, 落位归 scene 山肩
+   x61 一带南向注视镇景); mountain 条目 +southCorridor 门控字段
+   ({x1,x2}=台阶列域, PO 亲需②攀登支持; lead 裁定中带 x60..61 切崖,
+   scene 探勘备妥): 走廊列 z 向阶梯包络 h(z)=min(顶,h(z+1)+1) 构造性
+   ≤1 阶北行接山肩平台, 两侧列整柱拱形=崖壁凹槽防护, 水花列域外
+   瀑布零写入保全; 缺字段字节级零变化, 非 bands 拼写域抛错; 合脊
+   预扫键 x→(x,z)(scene 6413b00 裙板硬需求): z 域不重叠条目各归各,
+   裙板拱顶不被主山拱高顶穿, 单条目逐字节不变。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
@@ -96,6 +107,7 @@ const TOWN_PALETTE = {
     'woodpile': {log: 5},
     'hencoop': {hay: 58, henBody: 52, henComb: 16},
     'board-pool': {board: 5, poolEdge: 17, water: 15, flagPole: 5, flag: 78},
+    'iron-golem-head': {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,
@@ -132,8 +144,11 @@ function townAssemblyOps(steps) {
     id: pal.terrain.filler});
   ops.push({op: 'fill', x1: core.x1, y1: groundY, z1: core.z1, x2: core.x2, y2: groundY, z2: core.z2,
     id: pal.terrain.surface});
-  /* 山体合脊预扫(#7 五段弧形): 同列多条目重叠域取 max——先收集
-     列→顶映射, mountain 逐柱派生统一取合脊顶(单条目=自身, 行为不变) */
+  /* 山体合脊预扫(#7 五段弧形): 键 (x,z)=x*64+z(条目 z 域<64 安全),
+     同列同线多条目重叠域取 max——z 域不重叠的条目(主山 z8..28/裙板
+     z29..31)各归各, 裙板拱顶不被主山拱高顶穿(6413b00 裙板协同,
+     旧 x 单键 max 会把 z29..31 顶成拱高墙); 单条目=自身行为不变。
+     mountain 逐柱派生统一取合脊顶 */
   const ridgeTop = {};
   for (const b of steps) {
     if (b.phase === 'backdrop' && b.kind === 'mountain') {
@@ -142,7 +157,10 @@ function townAssemblyOps(steps) {
       for (let x = b.x1; x <= b.x2; x++) {
         const bt = (x - bcx) / bhalf;
         const btop = Math.round(b.topY * (1 - bt * bt) + groundY * (bt * bt));
-        ridgeTop[x] = Math.max(ridgeTop[x] || 0, btop);
+        for (let z = b.z1; z <= b.z2; z++) {
+          const k = x * 64 + z;
+          ridgeTop[k] = Math.max(ridgeTop[k] || 0, btop);
+        }
       }
     }
   }
@@ -227,32 +245,82 @@ function townAssemblyOps(steps) {
     } else if (s.phase === 'backdrop') {
       if (s.kind === 'mountain') {
         /* 拱形山体逐柱满覆盖+合脊(#7 五段弧形): 顶高沿二次拱形自两缘
-           (落地=地表基高)升至脊线 topY, 列顶取 ridgeTop 预扫合脊(同列
-           多条目重叠域取 max, 单条目=自身行为不变); 每柱自 y0 满填
-           (崖体无悬空)。条目 bands 字段显式启用三段分色——基段
+           (落地=地表基高)升至脊线 topY, 列顶取 ridgeTop 预扫合脊(键
+           (x,z): 同列同线多条目重叠域取 max, z 域不重叠条目各归各,
+           单条目=自身行为不变); 每柱自 y0 满填(崖体无悬空), 柱内 z
+           域按合脊顶连续段切 run——单条目常态单 run(逐柱单笔=旧 pin
+           逐字节不动)。条目 bands 字段显式启用三段分色——基段
            y0..groundY-1 石 3 单笔不变, 表层 groundY..30 苔 14(南缘
            z27..28 两行草坡 1 过渡)/31..39 石 3/40..顶 雪 54, 空段跳笔;
            缺省(无 bands)全 3 单色逐柱单笔(旧 pin 逐字节不动) */
+        /* 南缘攀登走廊(southCorridor 门控, PO 亲需②; lead 裁定中带,
+           scene 探勘 6413b00): 值 {x1,x2}=台阶列域(数据化, 东带备胎
+           西带死不焊死)。走廊列改 z 向阶梯——包络 h(z)=min(合脊顶(z),
+           h(z+1)+1) 自南缘 groundY 起步北行, 构造性保证 ≤1 格步高
+           (可攀), 北端自然接列顶平台(山肩); 两侧列维持整柱拱形=崖壁
+           凹槽天然防护(引擎无摔伤机制, 女儿墙不设——儿童口径登记
+           回执 §十二); 水花列不在域内=拱形原样, 瀑布域零写入保全
+           (TIDEA-05)。缺字段字节级零变化(派生分支整体跳过); 非 bands
+           拼写域抛错——单色派生无分段堆叠可切阶, 静默忽略会埋假
+           阶梯(scene 拼错字段时立即红, 不落无效数据) */
+        if (s.southCorridor && !s.bands) {
+          throw new Error('townAssemblyOps: southCorridor 需 bands:true「' +
+            s.id + '」(单色山体无包络可分阶)');
+        }
+        const corr = s.southCorridor;
         for (let x = s.x1; x <= s.x2; x++) {
-          const top = ridgeTop[x];
-          if (!s.bands) {
-            ops.push({op: 'fill', x1: x, y1: 0, z1: s.z1, x2: x, y2: top, z2: s.z2,
-              id: pal.backdrop.mountain});
+          /* 走廊列: z 向阶梯拆线, 每线柱笔组(base+分段堆叠至 h)——
+             南端 z2 贴地(起步 hPrev=groundY-1 → h=groundY 与镇草/裙
+             板平接), 北行每线 ≤+1, h 收敛到合脊顶后维持=自然接顶 */
+          if (corr && x >= corr.x1 && x <= corr.x2) {
+            let hPrev = groundY - 1;
+            for (let z = s.z2; z >= s.z1; z--) {
+              const h = Math.min(ridgeTop[x * 64 + z], hPrev + 1);
+              ops.push({op: 'fill', x1: x, y1: 0, z1: z, x2: x,
+                y2: groundY - 1, z2: z, id: pal.backdrop.mountain});
+              const seg2 = (yA, yB, id) => {
+                if (yA <= yB) {
+                  ops.push({op: 'fill', x1: x, y1: yA, z1: z,
+                    x2: x, y2: yB, z2: z, id});
+                }
+              };
+              seg2(groundY, Math.min(h, 30), pal.backdrop.mountainMoss);
+              seg2(31, Math.min(h, 39), pal.backdrop.mountain);
+              seg2(40, h, pal.backdrop.mountainSnow);
+              hPrev = h;
+            }
             continue;
           }
-          ops.push({op: 'fill', x1: x, y1: 0, z1: s.z1, x2: x, y2: groundY - 1,
-            z2: s.z2, id: pal.backdrop.mountain});
-          const seg = (yA, yB, zA, zB, id) => {
-            if (yA > yB || zA > zB) return;
-            ops.push({op: 'fill', x1: x, y1: yA, z1: zA, x2: x, y2: yB, z2: zB, id});
-          };
-          const sZ1 = Math.max(s.z1, 27); const sZ2 = Math.min(s.z2, 28);
-          const midTop = Math.min(top, 30);
-          seg(groundY, midTop, s.z1, sZ1 - 1, pal.backdrop.mountainMoss);
-          seg(groundY, midTop, sZ1, sZ2, pal.backdrop.mountainGrass);
-          seg(groundY, midTop, sZ2 + 1, s.z2, pal.backdrop.mountainMoss);
-          seg(31, Math.min(top, 39), s.z1, s.z2, pal.backdrop.mountain);
-          seg(40, top, s.z1, s.z2, pal.backdrop.mountainSnow);
+          /* 合脊 run 切分: 柱内 z 域按合脊顶连续段分组——单条目常态
+             全柱单 run(=旧逐柱单笔逐字节不动), 重叠域拆 run 各顶各笔 */
+          const runs = [{z1: s.z1, z2: s.z1, top: ridgeTop[x * 64 + s.z1]}];
+          for (let z = s.z1 + 1; z <= s.z2; z++) {
+            const t = ridgeTop[x * 64 + z];
+            const last = runs[runs.length - 1];
+            if (t === last.top) last.z2 = z;
+            else runs.push({z1: z, z2: z, top: t});
+          }
+          for (const r of runs) {
+            const top = r.top;
+            if (!s.bands) {
+              ops.push({op: 'fill', x1: x, y1: 0, z1: r.z1, x2: x, y2: top,
+                z2: r.z2, id: pal.backdrop.mountain});
+              continue;
+            }
+            ops.push({op: 'fill', x1: x, y1: 0, z1: r.z1, x2: x,
+              y2: groundY - 1, z2: r.z2, id: pal.backdrop.mountain});
+            const seg = (yA, yB, zA, zB, id) => {
+              if (yA > yB || zA > zB) return;
+              ops.push({op: 'fill', x1: x, y1: yA, z1: zA, x2: x, y2: yB, z2: zB, id});
+            };
+            const sZ1 = Math.max(r.z1, 27); const sZ2 = Math.min(r.z2, 28);
+            const midTop = Math.min(top, 30);
+            seg(groundY, midTop, r.z1, sZ1 - 1, pal.backdrop.mountainMoss);
+            seg(groundY, midTop, sZ1, sZ2, pal.backdrop.mountainGrass);
+            seg(groundY, midTop, sZ2 + 1, r.z2, pal.backdrop.mountainMoss);
+            seg(31, Math.min(top, 39), r.z1, r.z2, pal.backdrop.mountain);
+            seg(40, top, r.z1, r.z2, pal.backdrop.mountainSnow);
+          }
         }
         /* TIDEA-05 瀑布白线(波次二): 列域南缘薄片 54 雪(顶接雪带下缘 y40,
            底 y25 山脚)+两翼石英水花——贴面不穿山, 山体北面剪影不被涂白

@@ -271,3 +271,109 @@ pin 即红**(轴3 (56,32,43/44/45)=76→实得 9/0/0; 上/下臂帆 (55,35,45)/
 index.html(+1 script 行) · main.js(+1 tick 行) · GLOSSARY(+1 词条+索引
 计数+PrefabKit 措辞)——三处均机械最小笔; light 在途文件(adventure.js/
 town-ui.js/town.css/light-closeout.md)全程零触碰。
+
+# 12. PO 亲需批能力面契约(2026-11-15 追加; lead 第五批: PO 三条亲需+scene 探勘定案 6413b00 吸收)
+
+## 12.1 字段契约(scene 切数据依据)
+
+**① mountain-arch 条目 +southCorridor**(攀登走廊, PO 亲需②):
+
+    {id: 'mountain-arch', kind: 'mountain', x1: 16, z1: 8, x2: 143, z2: 28,
+     topY: 44, bands: true, waterfall: {x1: 63, x2: 64}, reachable: false,
+     southCorridor: {x1: 60, x2: 61}},   /* ← 唯一新增键, 其余不动 */
+
+- 值 = {x1,x2} 台阶列域(数据化不焊死; lead 裁定中带 x60..61, 东带备胎
+  x68..70 换值即可, 西带 x54..56 崖屋死)。水花列 x62 天然域外=拱形原样。
+- 派生: 走廊列 z 向阶梯, 包络 h(z)=min(合脊顶(z), h(z+1)+1) 自南缘 z28
+  贴地(y24=镇草/裙板平接)北行 ≤1 阶, 北端 z10 接山肩平台(y42),
+  z8..10 维持列顶——与 scene 探勘「z28→z10 恰容 17..20 级」逐点吻合。
+- 缺键 = 字节级零变化(既有全 pin 门控下存活+真布局显式见证 test);
+  非 bands 带键 → 派生即抛拼写域错(不静默埋假阶梯)。
+- reachable: 置 southCorridor 时同步 reachable:true(现无消费方, 语义预留)。
+
+**② mountain-skirt 裙板条目**(PO 亲需①连接, scene 提案逐字采纳零映射差):
+
+    {id: 'mountain-skirt', kind: 'mountain', x1: 16, z1: 29, x2: 143, z2: 31,
+     topY: 25, bands: true, reachable: true},
+
+- 合脊预扫键 x→(x,z)(方案 a, scene 倾向案已拍板): z 域不重叠条目各归各
+  ——裙板拱顶 24..25 不被主山拱高顶穿(旧 x 单键 max 会变全高墙);
+  主山柱笔与单条目版逐笔全等(测试钉死=单条目逐字节不变)。
+- 裙板 bands 苔段自然成立: 拱顶 25<30 → 表层 y24..25 苔 14 单段(石/雪
+  段空域跳笔), 与 z28 草坡→苔过渡正是她要的「材质随山体分带」读法。
+- 满填 y0 无浮空(与主山同款崖体纪律); 走廊南端 z28 h=24 ↔ 裙板 z29
+  拱顶 24..25 衔接 ≤1 ✓ 攀登动线贯通。
+- zero-assembly-改动的裙板不存在——本契约即派生方案, 她按 ② 逐字落
+  map-core 条目即可(等本批入库后随协同波次)。
+
+**③ iron-golem-head 蓝图**(prefab-kit 新行, PO 亲需③守卫雕像):
+
+- place('iron-golem-head', x, y, z) 全缺省面朝 south(镇侧)。
+- 体量: 基座 7×7×1 石头 3(dy0, 全插桩面)+面颅 7×7×6 石英 17(dy1..6
+  实心)高 7; footprint 7×8(长鼻 dx0 dy1..4 凸出面 dz+4 一线)。
+- 识别特征=轮廓: 凸鼻(远读)±眼窝两格(±2, dy4, 面侧 dz+3, 铁灰 12)
+  ——7 宽颅从广场 z66+ 远读可辨傀儡头(3 格高鼻是唯一非对称凸出)。
+- 苔 6 格岁月死位(顶后角×2/颊×2/顶心×2, id14)——点缀非破损。
+- v 键 face|mirror|ids 同构无新开关; mirror 无视觉差(行几何 x 向对称,
+  转向用 face 即可)。ids 槽位: skull/nose/eye/moss/plinth。
+- 点位: 山肩 x61 一带(scene 探勘 [E]: 顶 y42, z12..20 平顶 9 线, 南向
+  注视镇景视线直达); 落位后基座下埋 1-2 格插桩(dy0 全 7×7 id3 就是
+  给这个用的); 走廊北端出口 z10..12 一带→山肩平顶直行即达雕像。
+
+## 12.2 测试面(assembly ⑩ 块+T-PREFAB-10)
+
+- assembly test/town-assembly-core.test.js ⑩ 块四 test: 缺省零变化
+  (真布局走廊列无 z 单线笔)/走廊包络镜像逐点全扫(两列 ≤1 阶全扫+
+  南端 24+北端 42+域外全笔与缺省版逐笔全等=两侧壁/水花列/瀑布零扰)/
+  裙板合脊独立(skirt 段双单条目全等+拱顶 24..25 钉+主山逐笔全等)/
+  非 bands 拼写域抛。
+- prefab-kit test T-PREFAB-10: 抽格钉值(基座/实心颅/凸鼻/眼窝/苔)
+  +footprint 7×8+face east 转向 spot+确定性+未知 v 键抛。
+- palette 双源同形: TOWN_PALETTE.prefab 与 PALETTE_WANT 各 +1 行
+  (十四行); TOWN_ROWS/townRows 清单十三行; iron-golem-head 全零旗标
+  (17/3/12/14 全安全字库)。
+
+## 12.3 取舍登记(lead 追认面)
+
+1. **女儿墙不设**: 我初版南缘步道案带 z28 女儿墙防摔; lead 裁定走廊
+   形态+摔伤问已闭(引擎无摔落伤害, voidFall 零惩罚回出生点
+   adventure.js :5001)——走廊两侧列整柱拱形=崖壁凹槽天然防护,
+   儿童口径达标, 女儿墙冗余撤。
+2. **南缘全带步道案废弃**: 初版落了 x80..143 全南缘步道(东半跨西行
+   接脊); lead 中带裁定后整案重写为走廊切崖。初版只存在于本 worktree
+   工作区(未出库), 零外部可见零迁移成本。
+3. **合脊键 x→(x,z)**: scene 倾向方案 a, 拍板理由=单条目逐字节不变
+   (测试钉)+裙板零独立改动+「同列同线重叠取 max」语义精确化(键域
+   显式化); 方案 b(新 kind/逐条目 top 覆盖)引入第二派生路径, 违反
+   单源纪律, 弃。
+4. **雕像材质**: 眼=铁灰 12(红眼否决——§8 去威胁红线, 守卫叙事沉稳);
+   颅=石英 17「雕成」读法(雪 54 否决防雪堆混淆); 苔=14 岁月点缀;
+   基座=石头 3 与山体同色。全 TOWN_PALETTE 现有字库, 零新 palette
+   键值(行本身是 prefab 段第十四行)。
+5. **走廊段位式分段堆叠**: 走廊列每 z 线柱笔保持 base 0..23+苔(24..30)
+   /石(31..39)/雪(40..h) 分段——山体质感沿攀登动线延续, 低段踏面读
+   苔色, 高段石/雪, 与山体分带同源。
+6. **place 执行见证**: 现值 17(她 6413b00 同步后); scene 落位头后她
+   批次自 +1=18(本批不预动, 见证 pin 归落位批次)。
+
+## 12.4 scene 切数据清单(本批入库后随协同波次执行)
+
+- map-core mountain-arch 条目: +southCorridor:{x1:60, x2:61},
+  reachable:false→true; 其余键零动。
+- map-core +mountain-skirt 条目: §12.1② 逐字落(她提案零映射差)。
+- townBuildSteps 落位 iron-golem-head: 山肩 x61 一带南向(布局清单
+  权限归她; 基座下埋 1-2 格)。
+- 翻红清单: **无**——southCorridor/skirt 均缺省零变化设计, 既有 pin
+  不翻转; 唯一注意=两键拼写真域(拼写错会抛错不是静默, 红了查字段名)。
+
+## 12.5 涉面声明
+
+js/town-assembly-core.js(合脊键 (x,z)+southCorridor 走廊派生+palette
+行+Step G 注) · js/prefab-kit.js(+iron-golem-head 行) ·
+test/town-assembly-core.test.js(⑩ 块+palette pin 四处同步) ·
+test/prefab-kit.test.js(T-PREFAB-10+townRows 十三行) ·
+GLOSSARY.md(PrefabKit 行表十五→十六行)。
+零触碰: index.html/main.js/adventure.js/town-ui.js/town.css/light 与
+scene 在途文件; scene/light 同步(6413b00/beea384)全程保真——
+词表第六词 spinner 在场实证(:327), sailStatic 严格判据三处在场。
+

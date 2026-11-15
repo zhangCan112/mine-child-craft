@@ -27,6 +27,11 @@
    ⑧ 确定性: 同参同输出;
    ⑨ 微改守门: town-map-core 头注释/GLOSSARY TownMapCore 词条「八段→九段」
       措辞随本票校正(九键清单的事实修正, 数据零改动)。
+   ⑩ 南缘攀登走廊与裙板合脊(PO 亲需② southCorridor 门控+scene
+      6413b00 裙板协同): 缺省零变化(真布局走廊列无 z 单线笔)+合成
+      条目镜像公式逐点全扫(走廊包络 ≤1 阶/南端贴地/北端接山肩/
+      两侧壁瀑布不受扰)+裙板合脊独立(z 域不重叠各归各, 主山逐字节
+      不变)+非 bands 拼写域抛。
    装具: vm 载 config + town-map-core + 本件(规划器消费 TOWN_MAP.core 派生
       地表基高与基底范围, 全局名调用期解析——经典脚本同款); 世界层实拼见证
       (place/树/fill 真写世界的格位)归 test/town-mode.test.js T-MAP-03 段。 */
@@ -65,6 +70,7 @@ const PALETTE_WANT = {
     'woodpile': {log: 5},
     'hencoop': {hay: 58, henBody: 52, henComb: 16},
     'board-pool': {board: 5, poolEdge: 17, water: 15, flagPole: 5, flag: 78},
+    'iron-golem-head': {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,
@@ -86,7 +92,7 @@ const DANGER_FLAGS = ['tnt', 'fuse', 'portal', 'fluid', 'crop', 'thin',
 const BAD_EXPLICIT = [30, 31, 33, 34, 41, 46, 47, 63, 70, 71, 72];
 const TOWN_ROWS = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
   'cottage-gable', 'house-loft', 'stall-canopy', 'scarecrow', 'clothesline',
-  'woodpile', 'hencoop', 'board-pool'];
+  'woodpile', 'hencoop', 'board-pool', 'iron-golem-head'];
 /* 布局权威独立转录(docs/town-map-design.md §3-§4, = TOWN_MAP 数据的测试侧镜像;
    只抄本测试用到的坐标, 完整性归 test/town-map-core.test.js。樱花株数/点位
    不在此钉——scene 布局清单高频迭代, ⑤ 段改从 scatter 动态派生防漂移) */
@@ -142,7 +148,7 @@ test('源守门: 裸沙盒可装载 — 零依赖纯核心(无引擎全局也解
 
 /* ---------- ② palette 完整性 + T-09 危险基线 ---------- */
 
-test('palette 完整性: 七段结构在册 · prefab 十三行(8 实例行+TIDEA 五行能力行) · 值全为在册方块 id', () => {
+test('palette 完整性: 七段结构在册 · prefab 十四行(8 实例行+TIDEA 六行能力行) · 值全为在册方块 id', () => {
   const ctx = loadCore();
   const shape = JSON.parse(probe(ctx, `JSON.stringify((() => {
     const p = TOWN_PALETTE;
@@ -158,14 +164,15 @@ test('palette 完整性: 七段结构在册 · prefab 十三行(8 实例行+TIDE
       'palette 七段(预制件/基底/地表/路网/远景/道具/植被)');
   assert.deepStrictEqual(shape.rows, ['tower-belfry', 'shop-awning', 'windmill-tower',
     'cottage-gable', 'house-loft', 'stash-hut', 'under-room', 'stall-canopy',
-    'scarecrow', 'clothesline', 'woodpile', 'hencoop', 'board-pool'],
-  'prefab 十三行 = 布局实例行(7 新行+under-room 复用)+TIDEA 波次一五行能力行(蓝图已立, 落位归 scene)');
+    'scarecrow', 'clothesline', 'woodpile', 'hencoop', 'board-pool',
+    'iron-golem-head'],
+  'prefab 十四行 = 布局实例行(7 新行+under-room 复用)+TIDEA 六行能力行(波次一五+PO 亲需铁傀儡头; 蓝图已立, 落位归 scene)');
   assert.ok(shape.allRegistered, '每个值都是 config BLOCKS 在册正整数 id');
   assert.ok(!('canopy' in probe(ctx, 'TOWN_PALETTE.prefab["stall-canopy"]')),
       'stall-canopy 缺 canopy 键: 布幔 theme 映射单源引擎侧 PF_STALL_CANOPY(双源即漂移)');
 });
 
-test('T-09 材质安全基线: 城镇十二行零危险旗标(door/doorTop 门叶+bed* 花坛槽名豁免)+零显式错用 · under-room 只检显式(火把既有语义)', () => {
+test('T-09 材质安全基线: 城镇十三行零危险旗标(door/doorTop 门叶+bed* 花坛槽名豁免)+零显式错用 · under-room 只检显式(火把既有语义)', () => {
   const ctx = loadCore();
   const report = JSON.parse(probe(ctx, `JSON.stringify((() => {
     const FLAGS = ${JSON.stringify(DANGER_FLAGS)};
@@ -826,4 +833,96 @@ test('微改守门: town-map-core 头注释与 GLOSSARY 词条「八段→九段
   assert.ok(!/八段/.test(entry) && /九段/.test(entry), '词条段数措辞同校「九段」');
   assert.ok(/_Avoid_:.*城镇地图（散称）/.test(entry),
       '词条补 _Avoid_: 城镇地图（散称）(模块名唯一, 散称禁用)');
+});
+
+/* ---------- ⑩ 南缘攀登走廊与裙板合脊(PO 亲需②+scene 6413b00 协同) ---------- */
+
+/* 合成条目独立喂 townAssemblyOps(单条目 steps 纯函数可独立派生);
+   M_STAIR=真布局 mountain 条目逐字转录(权威源); SKIRT=scene 数据提案
+   转录(6413b00 回执 §十三, 她不预写 map-core, 等本契约随协同波次落);
+   CORR=lead 裁定中带台阶列(水花列 x62 景缘域外)。 */
+const M_STAIR = {id: 'm-stair', phase: 'backdrop', kind: 'mountain',
+  x1: 16, z1: 8, x2: 143, z2: 28, topY: 44, bands: true};
+const SKIRT = {id: 'm-skirt', phase: 'backdrop', kind: 'mountain',
+  x1: 16, z1: 29, x2: 143, z2: 31, topY: 25, bands: true, reachable: true};
+const CORR = {x1: 60, x2: 61};
+
+test('southCorridor 缺省零变化: 真布局走廊列无 z 向拆线笔(派生分支未激活的显式见证)', () => {
+  const ctx = loadCore();
+  const ops = opsJson(ctx);
+  const split = ops.filter((o) => o.op === 'fill' && o.x1 === o.x2 &&
+    (o.x1 === 60 || o.x1 === 61) && o.z1 === o.z2 && o.z1 >= 8 && o.z2 <= 28);
+  assert.deepStrictEqual(split, [], '走廊列 x60..61 缺省无 z 单线笔(阶梯未激活)');
+});
+
+test('southCorridor 包络: 镜像公式逐点全扫(两台阶列) · 步高 ≤1 全扫 · 南端贴地 · 北端接山肩 · 走廊域外(两侧壁+水花列+瀑布)与缺省版逐笔全等', () => {
+  const ctx = loadCore();
+  const mk = (expr) => JSON.parse(probe(ctx,
+      'JSON.stringify(townAssemblyOps([' + JSON.stringify(expr) + ']))'));
+  const ops = mk(Object.assign({}, M_STAIR, {southCorridor: CORR}));
+  const opsPlain = mk(M_STAIR);
+  const hAt = (x, z) => Math.max(...ops.filter((o) => o.op === 'fill' &&
+    o.x1 === x && o.x2 === x && o.z1 === z && o.z2 === z).map((o) => o.y2));
+  const colTop = (x, z) => Math.max(...opsPlain.filter((o) => o.op === 'fill' &&
+    o.x1 === x && o.x2 === x && o.z1 <= z && o.z2 >= z).map((o) => o.y2));
+  /* 镜像公式逐点全扫: h(z)=min(合脊顶(z), h(z+1)+1) 自南缘 groundY=24 起步 */
+  for (const x of [CORR.x1, CORR.x2]) {
+    let prev = 23;
+    for (let z = M_STAIR.z2; z >= M_STAIR.z1; z--) {
+      const h = Math.min(colTop(x, z), prev + 1);
+      assert.strictEqual(hAt(x, z), h, '走廊列 x' + x + ' 包络 h(z=' + z + ') 逐点');
+      prev = h;
+    }
+  }
+  /* 步高 ≤1 全扫(可攀判据, 构造性保证的独立验证) */
+  for (const x of [CORR.x1, CORR.x2]) {
+    for (let z = M_STAIR.z2; z > M_STAIR.z1; z--) {
+      assert.ok(hAt(x, z - 1) - hAt(x, z) <= 1,
+          '走廊 x' + x + ' 步高 z' + z + '→' + (z - 1) + ' ≤1(可攀)');
+    }
+  }
+  assert.strictEqual(hAt(CORR.x1, 28), 24, '南端 z28 h=24 贴地(与镇草/裙板平接)');
+  assert.strictEqual(hAt(CORR.x1, 10), 42, '北端 z10 h=42 接山肩平台(scene 探勘中带列顶恒 42)');
+  assert.strictEqual(hAt(CORR.x1, 8), hAt(CORR.x1, 10), '北端收敛后维持列顶(z8..10 平台段)');
+  /* 走廊域外全笔与缺省版逐笔全等: 两侧壁整柱拱形=崖壁凹槽天然防护
+     (引擎无摔伤, 女儿墙不设——取舍登记回执 §十二)+水花列 x62 景缘
+     原样+瀑布三笔照旧(瀑布域零写入, TIDEA-05) */
+  const outS = ops.filter((o) => o.x2 < CORR.x1 || o.x1 > CORR.x2);
+  const outP = opsPlain.filter((o) => o.x2 < CORR.x1 || o.x1 > CORR.x2);
+  assert.deepStrictEqual(outS, outP, '走廊域外全笔与缺省版逐笔全等');
+});
+
+test('裙板合脊独立(scene 6413b00): z 域不重叠条目各归各 — skirt 拱顶 24..25 不被主山拱高顶穿 · 主山柱笔与单条目版逐笔全等(合脊键 (x,z) 单条目逐字节不变)', () => {
+  const ctx = loadCore();
+  const mk = (steps) => JSON.parse(probe(ctx,
+      'JSON.stringify(townAssemblyOps(' + JSON.stringify(steps) + '))'));
+  const plain = mk([M_STAIR]);
+  const both = mk([M_STAIR, SKIRT]);
+  const skOnly = mk([SKIRT]);
+  /* skirt 段: 双条目 vs 单条目逐笔全等(各归各, 独立派生) */
+  const skBoth = both.filter((o) => o.z1 >= 29);
+  assert.deepStrictEqual(skBoth, skOnly, 'skirt 段双条目与单条目逐笔全等');
+  /* skirt 拱顶: 中部 25/两缘 24(旧 x 单键 max 会把全带顶成主山拱高墙) */
+  const skTop = (x) => Math.max(...skOnly.filter((o) => o.op === 'fill' &&
+    o.x1 === x && o.z1 === 29).map((o) => o.y2));
+  assert.strictEqual(skTop(80), 25, 'skirt 中部列顶 25(scene 提案 topY25)');
+  assert.strictEqual(skTop(16), 24, 'skirt 西缘列顶 24(两缘落地=地表基高)');
+  assert.strictEqual(skTop(143), 24, 'skirt 东缘列顶 24');
+  /* 主山段: 排除瀑布笔(waterfall 字段主山独有, skirt 提案不设)后逐笔全等 */
+  const notWf = (o) => !(o.y1 === 25 && o.z1 === 24 && o.z2 === 28) &&
+    !(o.y1 === 25 && o.y2 === 26 && o.z1 === 26 && o.z2 === 26);
+  const mBoth = both.filter((o) => o.z2 <= 28 && notWf(o));
+  const mPlain = plain.filter((o) => o.z2 <= 28 && notWf(o));
+  assert.deepStrictEqual(mBoth, mPlain,
+      '主山柱笔与单条目版逐笔全等(合脊键 (x,z) 单条目逐字节不变)');
+});
+
+test('southCorridor 门控: 非 bands 拼写域抛错(不静默埋假阶梯)', () => {
+  const ctx = loadCore();
+  const bad = JSON.parse(JSON.stringify(M_STAIR));
+  delete bad.bands;
+  bad.southCorridor = CORR;
+  assert.throws(() => probe(ctx,
+      'townAssemblyOps([' + JSON.stringify(bad) + '])'),
+  /southCorridor 需 bands/, '拼写域错误消息点名字段(id 随报)');
 });
