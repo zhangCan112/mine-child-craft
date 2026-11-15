@@ -1,0 +1,35 @@
+$ node --test test/adventure-mode.test.js   [temp worktree @04ce8b4 detached, 2026-11-15]
+基座 js(e98ba3c 旧木栅栏) + TNT 锚改稿测试(04ce8b4) = 纯红态取证(不触绿方未提交工作区)
+temp worktree: C:/Users/user/AppData/Local/Temp/opencode/f2-tnt-red (取证后已 remove --force)
+源日志: 该 worktree 内 .scratch/town-east-boundary/run-green.log(随 worktree 删除, 关键段摘录如下)
+
+ℹ tests 181
+ℹ suites 0
+ℹ pass 180
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 151079.3516
+
+✖ failing tests:
+
+test at test\adventure-mode.test.js:4415:1
+✖ T7 转正 TNT: 爆炸覆盖东栅栏件 — 屏障格原地不动+零掉落(掷骰口), 普通带内格照常破坏 (609.5703ms)
+  AssertionError [ERR_ASSERTION]: 中段矮墙下格在爆球覆盖内(前提)
+
+  5 !== 13
+
+      at TestContext.<anonymous> (C:\Users\user\AppData\Local\Temp\opencode\f2-tnt-red\test\adventure-mode.test.js:4423:10)
+  { actual: 5, expected: 13, operator: 'strictEqual', code: 'ERR_ASSERTION', diff: 'simple' }
+
+[red-cause] (conventions §7.4 机械分类, 以日志实读为准)
+断言红 AssertionError 计数: 1
+装具炸嫌疑计数: 0
+失败测试清单(not ok):
+  ✖ T7 转正 TNT: 爆炸覆盖东栅栏件 — 屏障格原地不动+零掉落(掷骰口), 普通带内格照常破坏
+
+结论: TNT 锚改稿(design-lead 全授权, 04ce8b4)在基座形制下纯断言红——
+旧木栅栏 5 ≠ 新矮墙石砖 13(:4423 前提断言首炸), 装具炸 0;
+同文件其余 180 测全绿 = 改稿对 mode 文件无附带损伤。
+绿方 F2 实现(中段矮墙两高墙身 13)转绿此锚即 TDD 链闭环。
