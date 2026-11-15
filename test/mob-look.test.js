@@ -405,6 +405,38 @@ test('造型档案: 玩家翼骨甲案 — wingL/wingR 语义翼槽·官方 pivo
   /* 双翼共区镜像: wingR 与 wingL 共用同一 UV 区(dragon wingR 共区先例, §6.3) */
   const uvOf = (s) => s.cubes.map((c) => c.uv.join(',')).sort();
   assert.deepStrictEqual(uvOf(S.wingR), uvOf(S.wingL), '双翼共区(贴图单份, 镜像渲染)');
+  /* 收拢基姿态外张预角(UI spec v1.1 §6.2 A1 修订, 2026-11-15): 每侧三盒同
+     ry=±18° 烘焙(kit ry 通道=盒中心绕枢轴 y 转+自转同参, 蜘蛛腿同款刚体旋转)
+     ——非动画轴, §6.5 展/收单轴匀速契约不破; 两块平行竖板 → 两片斜靠背角的
+     收拢翼(MC idle 鞘翅 yRot 同款手法)。原「窄翼鞘凸出 ≤2.5px」经裁决认定
+     与约束组几何不可满足, 修订为弦向竖板凸出 ≈12px(§6.7 鞘翅家族量级) */
+  const DEG = Math.PI / 180;
+  const PXU = 1 / 16;
+  for (const [k, sgn] of [['wingL', 1], ['wingR', -1]]) {
+    const rys = S[k].cubes.map((c) => c.ry || 0);
+    assert.ok(rys.every((r) => Math.abs(r - sgn * 18 * DEG) < 3 * DEG),
+        k + ' 三盒 ry ≈ ' + (sgn > 0 ? '+' : '-') + '18° 外张预角(v1.1 §6.2 A1 修订)');
+    assert.ok(Math.abs(rys[0] - rys[1]) < 1e-9 && Math.abs(rys[1] - rys[2]) < 1e-9,
+        k + ' 三盒同角=刚体旋转(非各盒乱摆)');
+    assert.ok(S[k].boxes.every((b, i) => Math.abs(b.ry + rys[i]) < 1e-12),
+        k + ' 盒自转 ry 透传(rig +Z 镜像系取负, 渲染与声明同刚体角)');
+    const mem = S[k].boxes.reduce((a, b) => (b.d > a.d ? b : a)); /* 膜盒=弦向最深盒 */
+    const mx = mem.x / PXU; const mzAbs = Math.abs(mem.z) / PXU;
+    assert.ok(sgn > 0 ? (mx > 1.5 && mx < 2.5) : (mx < -1.5 && mx > -2.5),
+        k + ' 膜板转后外偏 |x|≈2.3px(外张: 翼板斜向体外侧), 实得 ' + mx.toFixed(2));
+    assert.ok(mzAbs > 4.5 && mzAbs < 6.5,
+        k + ' 膜板中心仍在背后方 |z|≈5.6px(斜靠背), 实得 ' + mzAbs.toFixed(2));
+    const halfProj = (mem.d / PXU * Math.cos(18 * DEG) +
+        mem.w / PXU * Math.sin(18 * DEG)) / 2; /* 弦向+厚 z 投影半宽 */
+    const bulge = 3 + mzAbs + halfProj - 2; /* 外缘 |z| − 背平面 z=2 */
+    assert.ok(bulge > 10 && bulge < 13,
+        k + ' 侧面凸出 ≈12px(v1.1 鞘翅家族量级; 原 ≤2.5px 几何不可达已废), 实得 ' +
+        bulge.toFixed(1));
+    const tip = S[k].boxes.find((b) => Math.abs(b.h - PXU) < 1e-9 &&
+        Math.abs(b.d - PXU) < 1e-9); /* 翼尖粒=h,d 均 1px 的最小盒 */
+    assert.ok(tip && Math.abs(tip.x / PXU) < 1.5 && Math.abs(tip.z / PXU) < 1.5,
+        k + ' 翼尖粒转后仍缀枢轴下方(|x|,|z|<1.5px, 斜靠背角不外甩)');
+  }
 });
 
 test('造型档案: 玩家翼贴图 — 五色同源色族·金辐条/膜主/暗折线俱现·翼尖金粒·方形 64/128 档', () => {
