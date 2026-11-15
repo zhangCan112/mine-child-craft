@@ -273,7 +273,7 @@ test('竞技场 FX 收口: 残留龙息弹/毒云在重开(startBattle→resetBa
    真实装载序下链上符号在位+look 全注册+注册快照 20 条(挂载序错=调用期
    解析不到, 此处红)。链序静态断言另守于 test/conventions.test.js 装载序
    门(hand-view 先例同款分工)。 */
-test('T-NPC-10 挂载覆盖: boot 冒烟扫到镇民链 17 文件 · 链上符号在位 · look 全注册 · 真实装载序下注册快照 20 条', () => {
+test('T-NPC-10 挂载覆盖: boot 冒烟扫到镇民链 18 文件 · 链上符号在位 · look 全注册 · 真实装载序下注册快照 20 条', () => {
   const ctx = boot();
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const srcs = [...html.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g)].map((m) => m[1].replace(/^js\//, ''));

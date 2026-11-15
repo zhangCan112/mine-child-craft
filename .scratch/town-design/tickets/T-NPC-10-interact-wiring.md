@@ -28,7 +28,7 @@ NPC 实体进入交互协议：交互机宿主按 ADR 落位，`TOWN_INTERACTS` 
 ## 4. 验收标准（红绿预算面）
 
 1. NPC 条目过 `townInteractRegistry` 校验（kind/sessionKind/anchorId 在册三重）且快照 anchor 坐标 == anchorOf 站位。
-2. 宿主建机后：`focus('npc:v01')` 发恰一条 `interactFocus`（payload 六键形状不变）；`found`/`reset` 语义对 NPC 条目同样成立。
+2. 宿主建机后：`focus('npc:v01')` 发恰一条 `targetFocus`（`town-ui/target/focus` 冻结事件名，GLOSSARY 权威口径；立票旧称 interactFocus 随评审校字）（payload 六键形状不变）；`found`/`reset` 语义对 NPC 条目同样成立。
 3. 注册表↔交互条目↔锚点表三表对账测试（npcId/anchorId/label 三向一致）。
 4. 既有六锚点+三轻任务回归零漂移；`npm test` 全绿 + lint 零错。
 
@@ -44,6 +44,7 @@ NPC 实体进入交互协议：交互机宿主按 ADR 落位，`TOWN_INTERACTS` 
 2. 站位锚升格：14 行 npc: 锚并入 `TOWN_MAP.anchors`（共 21 锚），town-map-core 保持零依赖纯核，双表一致性由对账测试锁（禁装载序 concat）；`TOWN_NPC_ANCHORS` 保留为航点计划+anchorOf 真源。
 3. iconKey 定源：按 2026-11-15 定稿落（§2.3 标注），11 条数据行 help×10 + care×1，条目块注释同步定稿口径（绿方纯注释裁量，裁定通过）。
 4. 重发节奏：归 T-NPC-12（本票站位恒 leg0，未触行为层）。
+5. 傀儡摆放宿主（补充销号，施工面）：adventure.js 进镇 Place/离镇 Leave 双账 + `advTownState()` 扩 `puppets` 只读键（ADR-0011 6a「装配归壳 town 分支/不进表」惯例）；证据链 commit `b9800bd` + adventure-mode.test.js T-SEAM-04 观测缝契约注释扩 puppets 键改述。
 
 ### 6.2 三备忘销号
 
@@ -76,3 +77,4 @@ dialog-core route 缺省分路（`ROUTE_BY_KIND` 对 greet/care 兜底 'guide'�
 - T-NPC-12：站位锚动态（anchorOf legIndex 推进/重发节奏）——本票零触。
 - T-UI-11：town-ui.test.js :1094 计数钉异议通道（6.3②）。
 - T-NPC-11：Speaker 头像 faceSrc 供数线 + greet/care 不派发 route 的发起侧口径（6.5）。
+- conventions.md 正文滞后债（should，评审随票流转）：「装载序」无正文对应表述——新镇民链 gate（conventions.test.js 镇民链序）与既有 hand-view gate 均为测试侧执法，正文回写归 scrum-master 会师统筹（README §6 债5 精神：豁免硬验收不免滞后登记）。
