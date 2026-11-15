@@ -127,3 +127,13 @@ prebuild §5.3 十一条断言面全绿 + 收敛矩阵（§3.1）open 收敛/clo
    实现零墙钟达成确定性（偏离登记在 core 测试头），非缺陷，票文维护时订正；
    ②resolveBranch 缺省分路不经 allowed 验边的不对称性已核实有界（route 按
    sessionKind 与 next-step 缺省 complete 两缺省值均在边数组内），记录备查。
+6. **移交条目销号 + 发起侧新约束（T-NPC-10 线核毕，2026-11-15 追令回登）**：本台账
+   第 1 条「route 缺省分路对 sessionKind='greet'/'care' 兜底 'guide'」**销号**——
+   dialog-core 零改动定案：①条目六键无 payload 维度，分路裁决权不在条目层；②route
+   缺省兜底仅对显式派发的 route 事件生效，greet 态自有 `end:'idle'` 直达边
+   （click-npc 双起步），即 dialog-spec §5.3 场景 4/5 协议路径，无需流分派；③route
+   目标域冻结三值无问候目标，补映射不可表达，改目标域即动冻结面。**新约束（发起侧
+   口径，归 dialog 装配面）**：greet/care 会话**不得派发 route 边**——town-ui.js:641-665
+   驱动缝现只对任务会话自动 route，npc 条目（greet/care）点选走 click-npc 双起步即达
+   终态不发 route；未来任何 dialog 装配/驱动改动必须保持「greet/care 不派发 route」。
+   出处：T-NPC-10 票面施工记录 / T-NPC-10 回执（核毕证据在其线在册）。
