@@ -585,3 +585,105 @@ assert.strictEqual(topAt(143), 23, '东缘基段笔顶 23');
   工件: mountain-seam-probe-tidea2.cjs+mountain-seam-probe-out8.txt
   (确定性可复跑); 本节回执。翻转笔已先行收官入库 67a7634(§十一)。
 
+## 十三·五 山体数据波落位批(lead 派单七条全执行; arch §十二契约兑现)
+
+### 13.5.1 交付物(map-core 数据四处)
+
+- mountain-arch 条目 +`southCorridor:{x1:60,x2:61}`+`reachable:false→true`
+  (其余键零动, waterfall 域原样; §12.1① 逐字)。
+- +mountain-skirt 条目 `{x1:16,z1:29,x2:143,z2:31,topY:25,bands:true,
+  reachable:true}`(§12.1② 逐字, lead 确认零映射差)。
+- prefab 表尾 +iron-golem-head `{x:65,y:41,z:16,v:{},face:'south',
+  zone:'far-north'}`+落位几何依据注释(见 13.5.2)。
+- far-north zone `reachable:false→true`(+注释: 随走廊+裙板落位北带转可达,
+  消费方语义预留)。
+
+### 13.5.2 落位几何解算(雕像 x65/y41/z16; lead 口头 x61 的修正与授权)
+
+- **x=65 非 x61**: 走廊切列 x60..61 的 trench 顶在雕像盒窗 z13..20 达
+  39..28(h(z)=24+(28−z) 递减), x61 锚(盒 x58..64)必跨切列→基座悬空
+  2..13 格=违反崖体无悬空; x65 锚(盒 x62..68)与切列净隔 1 列(x61 列
+  与 x62 盒缘相邻不重叠)。落位权限 lead 已授(布局清单权限归本岗)。
+- **y=41 下埋 2 格是硬约束**: WORLD_H=48 合法域 0..47, 7 高件 y=42 起
+  顶 y48 出界——契约「1-2 格」容差被世界高锁死为 2; dy0 基座 7×7 石头
+  3 插桩面全埋入山肩(顶 42>41)不显影=坠感防护本意。
+- **z=16**: 盒 z13..20 ⊆ lead 点位窗 z12..20; face south 鼻面齐平 z20
+  南向注视镇景。西岸 x56 方案否决: face 距崖屋 a(x55..57 z21..23)背仅
+  1 格视线挡死; 瀑布 x63..64 z24..28 无 z 交不冲突。
+- 「走廊北端出口 z10..12 出来直行即达」叙事让位几何: 攀者出 trench 后
+  雕像在东邻位(x62 起步入盒), 披露此项松动。
+
+### 13.5.3 翻红清单实际执行(随步改条款; lead ⑦ 判「无」之外的数据侧连带)
+
+lead ⑦ 判定的是 arch 派生面(缺省零变化)——正确; 本批数据落位翻红的
+**测试断言面**按随步改条款机械同步, 全披露:
+
+- test/town-map-core.test.js 九处:
+  ① 实例词表十三→十四种(+iron-golem-head);
+  ② FOOTPRINT +`{min:7,max:8,y:[7,7]}`(footOf 实测: 颅盒 7×7+鼻 dz+4);
+  ③ 脚印「盒⊆核心区」+far-north 山域豁免(§13.3 预告兑现);
+  ④ 「实例 y=地面基高」+「锚点⊆核心区」同款豁免(锚 y41=山肩面);
+  ⑤ 门前可达豁免 +far-north(可达性由攀登走廊承担不辖路网);
+  ⑥ 「远景层不可达」翻 true+消息更新(§13.1 实测翻案的执行);
+  ⑦ 「拱形山体恰一处」1→2(主山+裙板, z 域不重叠断言+skirt.z1=arch.z2+1);
+  ⑧ 新增「山体波数据契约」test: 三 deepStrictEqual 全键 pin(arch/skirt/
+    golem 位姿)+footOf 盒避走廊切列+世界高界内+far-north 翻旗;
+    **vm 对象 JSON 归化后比对**(deepStrictEqual 比原型, 跨 realm 必红;
+    probe 同款手法, prefab-kit.test.js 先例)。
+  ⑨ 定向 17/17 绿。
+- test/town-assembly-core.test.js 四处:
+  ① 「place op 数=实例数」12→13(+golem);
+  ② 「place 执行见证」17→18 实例+分解+雕像(§12.3.6 预告的本批 pin);
+  ③ 「southCorridor 缺省零变化」见证**翻转为激活见证**(原断言前提=
+    map-core 未落键, 已兑现即翻: 拆线笔 122=两列各 61+南端苔顶笔
+    y24+北端雪顶笔 y40..42; corridor-ops-probe-tidea2.cjs 实测);
+  ④ 「拱形山体逐柱满覆盖」xs 豁免走廊两列(柱笔被 carve 拆 z 单线笔,
+    由激活见证另钉); 「通廊与不可达 op 层」空隙带见证翻转(裙板域
+    x16..143 山体笔合法, 域外两缘 x0..15/x144..159 体块零写入不变)。
+  定向与 dims 合跑 21/21 绿。
+- test/adventure-dims-core.test.js 两处:
+  「通廊与不可达(世界层)」空隙带断言翻新——全域零方块→两缘零方块
+  (x0..15/x144..159)+裙板分段色 pin 七笔(中带拱顶 25 苔/基段石顶 23/
+  端点顶 24/走廊口 z28 苔 14 平接镇草/北端 z10 雪 54 接山肩)。
+  **分段色取值=mountain-seam-probe-tidea2.cjs 复跑实测, 勿按契约文字猜**
+  (纪律兑现; 首拍两处猜值被 test actual 纠偏: 裙板石段顶 23 非 24、
+  角外点 (31,24,31) 已被裙板苔覆盖改用 (31,26,31) 零基底)。
+
+### 13.5.4 走查四证(walk-mountain-tidea2-scene.mjs → shots-mountain-tidea2/)
+
+- mtn1-foot-corridor: 山脚仰拍——走廊口 x60..61 阶梯自裙板平接面直上,
+  瀑布白柱右邻入画, 脚下苔顶连续无鸿沟(PO 亲需① 执行见证)。
+- mtn2d-shoulder-town: 山肩回望——雕像颅 3/4 视角(顶后角苔+顶心苔)+
+  走廊全阶俯瞰+崖屋 A 红顶+走廊缝尽头镇缘绿(山顶回望全镇+可攀至顶)。
+- mtn3b-plaza-golem-far: 广场 z66 远读全景——山体雪脊+两崖屋+瀑布白线
+  +走廊 V 形凹槽可见; **雕像轮廓远读披露**: swiftshader 平光+42 格距下
+  颅顶露棱线段弱(数据在场=getBlock 八点全中: 颅 17/鼻 17/眼 12×2/
+  苔 14/基座 3; 露头几何=颅顶 47>山棱 43 约 4 格), 真机方向光阴影下
+  轮廓可辨度更好——arch §12.1③ 的「远读可辨」验收建议以 mtn5 特写+
+  mtn2d 中景为执行口径, 远读弱对比登记为渲染光照限制非数据缺陷。
+- mtn5-golem-face-closeup: 山肩平台面部特写(4 格正脸)——7 宽颅+双眼
+  铁灰 12 对称+凸鼻柱+双颊苔 14 全要素入画(§12.1③ 验收主证)。
+- 诊断工件: diag-mountain-tidea2.mjs(getBlock 八点采样+8 方位环拍——
+  第一轮误判「雕像未显影」实为 diag 漏切第一人称玩家挡镜+远读平光弱;
+  数据/渲染双在场后定位到构图问题, 终轮三张定稿)。
+
+### 13.5.5 验证面与纪律
+
+- 定向三件(town-map-core/assembly/dims): 65/65 绿。
+- 全仓 npm test(tap 口径): **2122 tests / 2121 pass / 0 fail**(skip 1 为
+  既有 todo); lint(eslint+stylelint+htmlhint) 零错(纯缩进 12 错 --fix 收)。
+- town-ui-core.test.js:385(light 返工尾笔)本批跑绿——22660a6 已收官,
+  无跨线红面。
+- 环境 traps 新沉淀: ① PowerShell `>` 重定向=UTF-16, node 读必炸——
+  一律 `cmd /c` 重定向; ② CDP 走查 pos.set 后相机物理不回拉(headless
+  无 dt), 机位构图以照片内容为准非坐标回读; ③ 服务 8091 被旧会话占用
+  时静态现读仍新鲜(curl 验落位字段), 但「蓝图行在≠落位数据在」, 验
+  新鲜度要 grep 未提交字段。
+
+### 13.5.6 待 lead 收口
+
+- §13.2 纪律修订(z29..31 零写入废止于裙板/far-north 旗翻)仍挂账, 本批
+  执行即其兑现面, 收口回执载笔时请并卷。
+- far-north reachable 旗与 southCorridor/skirt 两键均为语义预留(现无
+  消费方), 后续玩法接线(攀登触发/导览锚)归下波需求。
+

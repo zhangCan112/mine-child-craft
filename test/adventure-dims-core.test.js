@@ -447,7 +447,8 @@ test('地表与路网(T-SEAM-05 迁入): 基底三层恰覆核心区 · 广场/�
   assert.strictEqual(cell(35, 24, 35), 1, '基底 surface 草1 @(35,24,35)');
   assert.strictEqual(cell(32, 24, 32), 1, '核心区角 surface 恰覆(96×96 居中)');
   assert.strictEqual(cell(127, 24, 127), 1, '核心区对角 surface 恰覆');
-  assert.strictEqual(cell(31, 24, 31), 0, '核心区外零基底(远景带无立地的一部分)');
+  assert.strictEqual(cell(31, 26, 31), 0, '核心区外角零基底(裙板顶 25 之上空, 远景带无立地的一部分)');
+  assert.strictEqual(cell(31, 24, 31), 14, '裙板苔 14 @(31,24,31)(核心区角外一格贴地拱带, PO 亲需①)');
   assert.strictEqual(cell(70, 24, 70), 17,
       '广场铺装 17 石英 @(70,24,70)(28×28 与核心区同心; pin 点避主轴——花带 x79..80 穿广场中心, TIDEA-07 波次二显影)');
   assert.strictEqual(cell(70, 24, 50), 42, '农田 A 田垄作物 42(farm-rows 行 r=6 轮转)');
@@ -697,12 +698,26 @@ test('植被与道具(T-SEAM-05 迁入): 樱花=SceneKit 树+樱粉覆写(两型
   assert.strictEqual(cell(50, 27, 95), 6, 'stash 路牌 6 @(50,27,95)');
 });
 
-test('通廊与不可达(T-SEAM-05 迁入, 世界层): 出生回望走廊全空 · 空隙带无立地 · 山脊崖屋就位', () => {
+test('通廊与不可达(T-SEAM-05 迁入, 世界层): 出生回望走廊全空 · 空隙带两缘零立地+裙板贴地连接 · 山脊崖屋就位', () => {
   runTownBuild();
   assert.strictEqual(nonAir(78, 80, 25, 47, 76, 111), 0,
       '出生回望走廊 x78..80×z76..111×y≥25 全空(塔足 z2=75 → 走廊 z1=76, §4.3 视线管理)');
-  assert.strictEqual(nonAir(0, 159, 0, 47, 29, 31), 0,
-      '空隙带 z29..31 全域零方块(山体 z2=28 · 核心区 z1=32 之间无立地=远景不可达执行见证)');
+  /* 空隙带 z29..31 见证翻转(PO 亲需①裙板落位, scene §13.5): 裙板域
+     x16..143 贴地拱带在场(中带拱顶 25 苔 14+基段石 3, 端点 24; 分段色=
+     mountain-seam-probe-tidea2 复跑实测, 勿按契约文字猜), 两缘 x0..15/
+     x144..159 仍虚空护城河=远景层次不塌 */
+  assert.strictEqual(nonAir(0, 15, 0, 47, 29, 31), 0,
+      '空隙带西缘 x0..15 零方块(裙板域外虚空护城河保留)');
+  assert.strictEqual(nonAir(144, 159, 0, 47, 29, 31), 0,
+      '空隙带东缘 x144..159 零方块(裙板域外虚空护城河保留)');
+  assert.strictEqual(cell(80, 25, 30), 14, '裙板中带拱顶苔 14 @(80,25,30)');
+  assert.strictEqual(cell(80, 23, 30), 3, '裙板基段石 3 @(80,23,30)(石段顶 23, 苔段 24..25)');
+  assert.strictEqual(cell(16, 24, 30), 14, '裙板西端顶 24 苔 14 @(16,24,30)(拱形端点)');
+  assert.strictEqual(cell(143, 24, 29), 14, '裙板东端顶 24 苔 14 @(143,24,29)');
+  assert.strictEqual(cell(60, 24, 28), 14,
+      '走廊南端顶苔 14 @(60,24,28)(平接镇草 y24=攀登入口, 台阶列 x60..61)');
+  assert.strictEqual(cell(61, 42, 10), 54,
+      '走廊北端顶雪 54 @(61,42,10)(接山肩平台, 阶梯 ≤1 步进 z28→z10)');
   assert.strictEqual(cell(79, 44, 20), 54, '山脊雪 54 @(79,44,20)(顶高过钟塔 38)');
   assert.strictEqual(cell(80, 44, 20), 54, '山脊雪 54 @(80,44,20)');
   assert.strictEqual(cell(16, 24, 20), 14, '山体西缘苔 14 topY=24 @(16,24,20)');

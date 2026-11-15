@@ -34,7 +34,9 @@ const TOWN_MAP = {
   /* 六带(§4.1 方位语义): 除 far-north(核心区外北侧剪影层)外全部
      ⊆ 核心区; hub 域=广场域; south 标 optional(P2 可选彩蛋带)。 */
   zones: [
-    {id: 'far-north', name: '北远景带', x1: 0, z1: 0, x2: 159, z2: 31, reachable: false},
+    /* far-north reachable 随山体波翻旗(PO 亲需①②): 南缘走廊+裙板落位后
+        北带自剪影层转可达, 与 arch §12.1 reachable 语义同步(消费方预留) */
+    {id: 'far-north', name: '北远景带', x1: 0, z1: 0, x2: 159, z2: 31, reachable: true},
     {id: 'north', name: '北田园带', x1: 32, z1: 32, x2: 127, z2: 65, reachable: true},
     {id: 'hub', name: '中心广场带', x1: 66, z1: 66, x2: 93, z2: 93, reachable: true},
     {id: 'east', name: '东商业带', x1: 94, z1: 66, x2: 127, z2: 93, reachable: true},
@@ -138,6 +140,15 @@ const TOWN_MAP = {
         走查实拍自裁, 定稿底片留证 */
       id: 'board-pool', x: 86, y: 24, z: 106, v: {boardLen: 6, poolSize: 2},
       face: 'west', zone: 'south'},
+    {/* iron-golem-head(PO 亲需③, arch §12.3.6 place pin 归本批): 铁傀儡头
+        落山肩平顶。锚 x=65 非 lead 口头 x61——走廊切列 x60..61 的 trench
+        顶在盒窗 z13..20 达 39..28, x61 锚盒 x58..64 必跨切列→基座悬空违
+        崖体无悬空; x65 锚盒 x62..68 与切列净隔 1 列。y=41 下埋 2 格是硬
+        约束: WORLD_H=48, 7 高件 y=42 起顶 y48 出界(dy0 基座插桩面即为此
+        用); z=16 盒 z13..20 ⊆ lead 点位窗 z12..20, face south 鼻面齐平
+        z20 南向注视镇景(广场 z66+ 远读 7 宽颅+3 凸鼻轮廓=arch §12.1③) */
+      id: 'iron-golem-head', x: 65, y: 41, z: 16, v: {},
+      face: 'south', zone: 'far-north'},
   ],
   /* 路网(§4.3): 三条主路 5 宽放射贴广场三缘(北/东/南), 三条支路 3 宽
       通民居门前/田园/储藏角; 均为轴对齐闭域矩形段(厚=窄边跨度),
@@ -206,7 +217,16 @@ const TOWN_MAP = {
         z ≤28 不入空隙带); 派生实现需求归 assembly 侧(未知字段本笔
         静默缺省, op 零变化) */
       id: 'mountain-arch', kind: 'mountain', x1: 16, z1: 8, x2: 143, z2: 28, topY: 44,
-      bands: true, waterfall: {x1: 63, x2: 64}, reachable: false},
+      bands: true, waterfall: {x1: 63, x2: 64}, reachable: true,
+      /* southCorridor 南缘攀登走廊(PO 亲需②, arch §12.1① 逐字): 台阶列
+         x60..61 z28→z10 ≤1 阶北行, 北端接山肩平台; 水花列 x62 天然域外;
+         reachable 同步翻旗(语义预留) */
+      southCorridor: {x1: 60, x2: 61}},
+    {/* mountain-skirt 裙板(PO 亲需①连接, arch §12.1② 逐字): 南缘 z29..31
+        三行贴地拱带(顶 24..25 平接镇草), 填平山脚-核心区鸿沟成可行缓坡;
+        合脊键 (x,z) 化后与主山 z 域不重叠各归各, 主山柱笔逐字节不变 */
+      id: 'mountain-skirt', kind: 'mountain', x1: 16, z1: 29, x2: 143, z2: 31,
+      topY: 25, bands: true, reachable: true},
     {id: 'cliff-home-a', kind: 'cliff-home', x: 56, z: 22, baseY: 41, topY: 47,
       style: 'v2', reachable: false},
     {id: 'cliff-home-b', kind: 'cliff-home', x: 103, z: 22, baseY: 41, topY: 47,

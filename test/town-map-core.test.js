@@ -91,7 +91,8 @@ test('分区: 六带齐备 · 方位语义(北远景/北田园/中广场/东商�
   const byId = Object.fromEntries(t.zones.map((z) => [z.id, z]));
   const {core, plaza} = t;
   const far = byId['far-north'];
-  assert.strictEqual(far.reachable, false, '远景层不可达');
+  assert.strictEqual(far.reachable, true,
+      '远景层随山体波可达(南缘走廊+裙板落位, PO 亲需①②)');
   assert.ok(far.z2 < core.z1, '远景层在核心区外北侧');
   assert.ok(byId.north.z2 < plaza.z1, '田园带在广场北侧');
   assert.deepStrictEqual([byId.hub.x1, byId.hub.z1, byId.hub.x2, byId.hub.z2],
@@ -116,9 +117,10 @@ test('实例映射: P0/P1 全入+under-room 复用 · 波次二五件转正(boar
   const ps = c.TOWN_MAP.prefab;
   const ids = [...new Set(ps.map((p) => p.id))].sort();
   assert.deepStrictEqual(ids, ['board-pool', 'clothesline', 'cottage-gable',
-    'hencoop', 'house-loft', 'scarecrow', 'shop-awning', 'stall-canopy',
-    'stash-hut', 'tower-belfry', 'under-room', 'windmill-tower', 'woodpile'],
-  '实例 id 恰十三种: 七新行 + under-room(复用) + 波次二五件(TIDEA-04/08/10)');
+    'hencoop', 'house-loft', 'iron-golem-head', 'scarecrow', 'shop-awning',
+    'stall-canopy', 'stash-hut', 'tower-belfry', 'under-room',
+    'windmill-tower', 'woodpile'],
+  '实例 id 恰十四种: 七新行 + under-room(复用) + 波次二五件 + PO 亲需铁傀儡头');
   assert.strictEqual(ps.filter((p) => p.id === 'board-pool').length, 1,
       'board-pool 波次二转正落位(scene-plan-tidea2 problems=0, 动骨架-轻)');
   assert.ok(!ids.includes('mound'), 'hill-mound 属条件复用件(近景小丘语义时), 本布局不落');
@@ -141,13 +143,17 @@ test('实例字段: 形状(id,x,y,z,v,face,zone) · y 统一基高 · face 四�
     for (const k of ['id', 'x', 'y', 'z', 'face', 'v', 'zone']) {
       assert.ok(k in p, '实例 ' + p.id + ' 字段「' + k + '」在(票面字段口径)');
     }
-    assert.strictEqual(p.y, core.groundY, '实例 ' + p.id + ' 锚 y=地面基高');
+    /* 山域豁免(PO 山体波): far-north 雕像落山肩平台(y=41 山肩面),
+        不走镇区地面基高; 锚点亦在核心区外北侧 */
+    assert.ok(p.y === core.groundY || p.zone === 'far-north',
+        '实例 ' + p.id + ' 锚 y=地面基高(山域件=山肩锚)');
     assert.ok(['north', 'east', 'south', 'west'].includes(p.face),
         'face ∈ 四正交向(' + p.face + ')');
     assert.ok(p.v && typeof p.v === 'object' && !Object.prototype.hasOwnProperty.call(p.v, 'ids'),
         'v 无材质 ids 槽(集中注入归 T-MAP-03 town-palette, 本票纯几何计划)');
-    assert.ok(p.x >= core.x1 && p.x <= core.x2 && p.z >= core.z1 && p.z <= core.z2,
-        '锚点 ⊆ 核心区');
+    assert.ok(p.zone === 'far-north' ||
+        (p.x >= core.x1 && p.x <= core.x2 && p.z >= core.z1 && p.z <= core.z2),
+    '锚点 ⊆ 核心区(山域件归 far-north 域)');
   }
 });
 
@@ -180,13 +186,18 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
     'woodpile': {min: 1, max: 3, y: [2, 2]},
     'hencoop': {min: 2, max: 2, y: [3, 3]},
     'board-pool': {min: 4, max: 13, y: [7, 7]},
+    /* PO 亲需③铁傀儡头(footOf 实测: 颅盒 7×7+凸鼻 dz+4 → 面向跨 7×8, 高 7) */
+    'iron-golem-head': {min: 7, max: 8, y: [7, 7]},
   };
   for (const p of t.prefab) {
     const v = Object.assign({}, p.v, {face: p.face}); /* face 并入 v = 装配形 */
     const box = c.PrefabKit.footOf(p.id, p.x, p.y, p.z, v); /* 零写纯查询=校验器 */
     assert.ok(box.x1 <= box.x2 && box.z1 <= box.z2 && box.y1 <= box.y2, '盒良序');
-    assert.ok(box.x1 >= t.core.x1 && box.x2 <= t.core.x2 && box.z1 >= t.core.z1 &&
-        box.z2 <= t.core.z2, '脚印 ⊆ 核心区(' + p.id + ')');
+    /* 山域豁免(PO 山体波): far-north 雕像落核心区外北侧山肩(z<32), 核心区
+        断言只对核心区内件生效; far-north 件归分区断言管(域 x0..159 z0..31) */
+    assert.ok(p.zone === 'far-north' ||
+        (box.x1 >= t.core.x1 && box.x2 <= t.core.x2 && box.z1 >= t.core.z1 &&
+        box.z2 <= t.core.z2), '脚印 ⊆ 核心区(' + p.id + ')');
     assert.ok(box.y1 >= 0 && box.y2 <= c.WORLD_H - 1, 'y ⊆ 世界高(' + p.id + ')');
     const z = byId[p.zone];
     assert.ok(z, 'zone「' + p.zone + '」在分区清单');
@@ -264,13 +275,14 @@ test('路网: 主路 4-5/支路 2-3 · 放射贴广场 · 段间连通 · 不压
       Object.assign({}, p.v, {face: p.face}))}));
     /* 陈设件豁免(波次二): scarecrow/clothesline/woodpile/hencoop/board-pool
        是贴建筑/田内/彩蛋带的叙事物, 可达性由所属建筑与既有路网承担,
-       「门前可达」仅辖独立建筑 */
+       「门前可达」仅辖独立建筑; 山域件(far-north 雕像)可达性由攀登
+       走廊承担(PO 山体波), 不辖路网 */
   const PROPS = ['scarecrow', 'clothesline', 'woodpile', 'hencoop', 'board-pool'];
   for (const {p, b} of boxes) {
     for (const r of t.roads) {
       assert.ok(!overlapXZ(b, r), '道路不压建筑: ' + r.id + ' × ' + p.id);
     }
-    if (p.zone !== 'hub' && !PROPS.includes(p.id)) {/* 广场内建筑(塔/摊)立于铺装上, 可达性由广场承担 */
+    if (p.zone !== 'hub' && p.zone !== 'far-north' && !PROPS.includes(p.id)) {/* 广场内建筑(塔/摊)立于铺装上, 可达性由广场承担 */
       const near = Math.min(...t.roads.map((r) => gapXZ(b, r)));
       assert.ok(near <= 4, p.id + ' 门前可达(距最近路段 ≤4 格)');
     }
@@ -333,12 +345,17 @@ test('远景: 拱形山体必做横贯 · 崖屋 1-2 栋 · 神庙默认不落 �
   for (const b of t.backdrop) {
     assert.ok(['mountain', 'cliff-home', 'scrub', 'boulder'].includes(b.kind),
         '远景 kind ∈ mountain/cliff-home/scrub/boulder(v2 山缘植被)');
-    assert.strictEqual(b.reachable, false, '远景不可达(' + b.id + ')');
+    /* 山体波(PO 亲需①②): reachable 翻旗仅限两山条目(southCorridor 主山+
+        裙板), 其余远景件仍不可达 */
+    assert.ok(b.reachable === false ||
+        (b.kind === 'mountain' && b.reachable === true),
+    '远景不可达(山体波两山件例外: ' + b.id + ')');
   }
   assert.ok(!t.backdrop.some((b) => b.kind === 'temple'),
       '神庙剪影默认不落(M7 远景可选, PO 知情批次)');
   const mts = t.backdrop.filter((b) => b.kind === 'mountain');
-  assert.strictEqual(mts.length, 1, '拱形山体恰一处(R-01 必做)');
+  assert.strictEqual(mts.length, 2,
+      '山体恰两处: 主山(R-01 必做)+裙板(PO 亲需①连接, z 域不重叠)');
   const m = mts[0];
   /* 视觉重制 §3 B(v2 #8): bands 字段显式启用五段分色(派生侧基段石/苔/
      z27..28 草坡/石/雪, 空段跳笔; 无 bands 旧单色逐柱单笔)——数据侧
@@ -403,6 +420,46 @@ test('远景: 拱形山体必做横贯 · 崖屋 1-2 栋 · 神庙默认不落 �
           '山缘点避崖屋域(' + r.id + ' × ' + h.id + ')');
     }
   }
+});
+
+test('山体波(PO 亲需①②③): 南缘走廊+裙板字段契约 · 铁傀儡头落位山肩(避走廊切列·界内·far-north 翻旗)', () => {
+  const c = loadCore();
+  const t = c.TOWN_MAP;
+  /* ① 主山全键 pin(arch §12.1① 逐字): +southCorridor 后其余键零动。
+      vm 对象先 JSON 归化本 realm(deepStrictEqual 比原型, 跨 realm 必红;
+      probe 同款手法) */
+  const arch = JSON.parse(JSON.stringify(
+      t.backdrop.find((b) => b.id === 'mountain-arch')));
+  assert.deepStrictEqual(arch, {id: 'mountain-arch', kind: 'mountain',
+    x1: 16, z1: 8, x2: 143, z2: 28, topY: 44, bands: true,
+    waterfall: {x1: 63, x2: 64}, reachable: true,
+    southCorridor: {x1: 60, x2: 61}},
+  'mountain-arch 全键 = §12.1①(+southCorridor·reachable:true, 其余零动)');
+  /* ② 裙板逐字节 pin(arch §12.1②): z29..31 贴地拱带, 北缘紧贴主山南缘 */
+  const skirt = JSON.parse(JSON.stringify(
+      t.backdrop.find((b) => b.id === 'mountain-skirt')));
+  assert.deepStrictEqual(skirt, {id: 'mountain-skirt', kind: 'mountain',
+    x1: 16, z1: 29, x2: 143, z2: 31, topY: 25, bands: true, reachable: true},
+  'mountain-skirt 逐字节 = §12.1②(贴地连接 PO 亲需①)');
+  assert.strictEqual(skirt.z1, arch.z2 + 1,
+      '裙板北缘紧贴主山南缘(z 域不重叠=合脊键 (x,z) 各归各)');
+  /* ③ 铁傀儡头位姿 pin(arch §12.3.6): 山肩平顶南向, footOf 盒避走廊切列 */
+  const golem = JSON.parse(JSON.stringify(
+      t.prefab.find((p) => p.id === 'iron-golem-head')));
+  assert.deepStrictEqual(golem, {id: 'iron-golem-head', x: 65, y: 41, z: 16,
+    v: {}, face: 'south', zone: 'far-north'},
+  '铁傀儡头位姿 = 山肩平顶 x65/y41/z16 南向(落位几何依据见条目注释)');
+  const gb = c.PrefabKit.footOf(golem.id, golem.x, golem.y, golem.z,
+      Object.assign({}, golem.v, {face: golem.face}));
+  assert.ok(gb.x2 < arch.southCorridor.x1 || gb.x1 > arch.southCorridor.x2,
+      '雕像足印与走廊切列 x60..61 净隔(基座不悬空于 trench, x' +
+      gb.x1 + '..' + gb.x2 + ')');
+  assert.ok(gb.y1 >= 0 && gb.y2 <= c.WORLD_H - 1,
+      '雕像盒 ⊆ 世界高(y' + gb.y1 + '..' + gb.y2 + ', 下埋 2 格抵 WORLD_H=48)');
+  /* far-north 翻旗(随步改条款④): 北带自剪影层转可达 */
+  const fn = t.zones.find((z) => z.id === 'far-north');
+  assert.strictEqual(fn.reachable, true,
+      'far-north reachable:true(南缘走廊+裙板落位后北带可达)');
 });
 
 /* ============ ⑩ 散布(prefab-specs §5.1/§5.2 落位政策=调用方=本计划) ============ */

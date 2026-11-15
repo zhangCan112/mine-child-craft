@@ -227,7 +227,8 @@ test('place 调用面: 10 实例一一对应 prefab 段保序 · face/ids 注入
       'JSON.stringify(townBuildSteps().filter((s) => s.phase === "prefab" && ' +
       '!(s.v && s.v.sailStatic === false)))'));
   assert.strictEqual(places.length, steps.length,
-      'place op 数 = prefab 实例数(12: 原十三实例 − windmill 换防 spinner 不列)');
+      'place op 数 = prefab 实例数(13: 原十三实例 − windmill 换防 spinner 不列' +
+      ' + PO 亲需铁傀儡头)');
   for (let i = 0; i < places.length; i++) {
     const [op, s] = [places[i], steps[i]];
     assert.strictEqual(op.id, s.id, '实例 ' + i + ' id 对齐保序');
@@ -274,7 +275,7 @@ test('place 调用面: 10 实例一一对应 prefab 段保序 · face/ids 注入
    唯一可靠拦截 = 真执行: vm 同上下文载 prefab-kit + 本件, spy 世界把全部
    place op 落场, 断言每笔写 ⊆ footOf 同参盒——运行时消费方(adventure-dims-core
    place 执行路径)的等价见证。装具手法借 test/prefab-kit.test.js loadKit。 */
-test('place 执行见证: 17 实例全落场 — pfMerge 行键×蓝图键面耦合不炸, 每笔写 ∈ footOf 同参盒', () => {
+test('place 执行见证: 18 实例全落场 — pfMerge 行键×蓝图键面耦合不炸, 每笔写 ∈ footOf 同参盒', () => {
   const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
   for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
     'js/town-map-core.js', 'js/town-assembly-core.js']) {
@@ -288,10 +289,11 @@ test('place 执行见证: 17 实例全落场 — pfMerge 行键×蓝图键面耦
   const ops = JSON.parse(vm.runInContext(
       'JSON.stringify(townAssemblyOps(townBuildSteps()))', eng));
   const places = ops.filter((o) => o.op === 'place');
-  assert.strictEqual(places.length, 17,
-      'place op 17 个(5 建筑+埋室 1+摊位 6+陈设落位 5: scarecrow/clothesline/' +
-      'woodpile/hencoop/board-pool; windmill-tower 换防 spinner op 不列——' +
-      '蓝图行=波次一 a73623c, 落位数据=scene eb9175e+尾段翻转, scene §10.4 补丁底稿吸收)');
+  assert.strictEqual(places.length, 18,
+      'place op 18 个(5 建筑+埋室 1+摊位 6+陈设落位 5: scarecrow/clothesline/' +
+      'woodpile/hencoop/board-pool+PO 亲需铁傀儡头 1; windmill-tower 换防 ' +
+      'spinner op 不列——蓝图行=波次一 a73623c, 落位数据=scene eb9175e+尾段' +
+      '翻转, scene §10.4 补丁底稿吸收)');
   /* v2 新键面证据: door/doorTop 与 accent 槽真的并入 place v(注入单源=palette
      行; 行键漂移时此处先红, pfMerge 执行期 throw 兜底) */
   const towerOp = places.find((o) => o.id === 'tower-belfry');
@@ -407,9 +409,12 @@ test('几何: 拱形山体逐柱满覆盖(基段笔顶 23, bands 后顶高由雪
   const cols = ops.filter((o) => o.op === 'fill' && o.id === PALETTE_WANT.backdrop.mountain &&
     o.x1 === o.x2 && o.y1 === 0 && o.z1 === MOUNTAIN.z1 && o.z2 === MOUNTAIN.z2);
   const xs = [...new Set(cols.map((c) => c.x1))].sort((a, b) => a - b);
+  /* 走廊两列 x60..61 柱笔被阶梯拆 z 单线笔(southCorridor 激活见证另钉),
+     不在逐柱满覆盖断言之列 */
   assert.deepStrictEqual(xs,
-      Array.from({length: MOUNTAIN.x2 - MOUNTAIN.x1 + 1}, (_, i) => MOUNTAIN.x1 + i),
-      '山体逐柱满覆盖 x16..143(宽 ≥ 核心区 96, map-design §4.2)');
+      Array.from({length: MOUNTAIN.x2 - MOUNTAIN.x1 + 1}, (_, i) => MOUNTAIN.x1 + i)
+          .filter((x) => x < CORR.x1 || x > CORR.x2),
+      '山体逐柱满覆盖 x16..143(走廊两列拆阶梯笔另钉; 宽 ≥ 核心区 96, map-design §4.2)');
   const topAt = (x) => cols.find((c) => c.x1 === x).y2;
   assert.strictEqual(topAt(79), 23, '山脊基段笔顶 23(bands 拆笔后 id3 每柱首笔)');
   assert.strictEqual(topAt(80), 23, '双中心列基段笔顶 23');
@@ -797,16 +802,19 @@ test('通廊与不可达(op 层): 出生回望走廊零写入 · 空隙带 z29..
   assert.ok(boxOps.every((o) => !overlaps(o, CORRIDOR.x1, CORRIDOR.x2,
       CORRIDOR.y1, 47, CORRIDOR.z1, CORRIDOR.z2)),
   '出生回望走廊 x78..80×z76..111×y≥25 零非 place 写入(塔足 z2=75 → 走廊 z1=76; §4.3 视线管理)');
-  /* 空隙带 z29..31: 体块零写入(tree/recolor/跨 y fill/y>27 fill/scrub
-     top>27 仍拦)——Step E 起贴地点缀豁免(scene 需求表 #7 山脚散布域
-     z26..31 跨空隙带): 单格贴地 fill(y1===y2 且 y≤27)与贴地 scrub
-     (top≤27)合法——远景不可达=无立地面, 非无装饰(groundY=24 基准) */
+  /* 空隙带 z29..31 见证翻转(PO 亲需①裙板落位): 裙板域 x16..143 山体
+     基段石/苔拱笔合法在场(分段色归 dims 世界层实测 pin), 域外两缘
+     x0..15/x144..159 仍体块零写入(虚空护城河); tree/recolor/scrub
+     top>27 与域外 fill 仍全域拦——远景不可达翻转为「两缘无立地面+
+     裙板可步行连接」 */
   const giant = boxOps.filter((o) =>
     (o.op !== 'fill' && o.op !== 'scrub') ||
     (o.op === 'fill' && (o.y1 !== o.y2 || o.y2 > 27)) ||
     (o.op === 'scrub' && o.top > 27));
-  assert.ok(giant.every((o) => !overlaps(o, 0, 159, 0, 47, 29, 31)),
-      '空隙带 z29..31 体块零写入(tree/recolor/跨 y fill/y>27 fill/scrub top>27 仍拦; 单格贴地点缀 y≤27 豁免=远景不可达无立地面非无装饰)');
+  assert.ok(giant.every((o) => !overlaps(o, 0, 159, 0, 47, 29, 31) ||
+      ([PALETTE_WANT.backdrop.mountain, PALETTE_WANT.backdrop.mountainMoss]
+          .includes(o.id) && o.x1 >= 16 && o.x2 <= 143)),
+  '空隙带 z29..31: 裙板域 x16..143 山体笔合法(PO 亲需①), 域外两缘+其余体块仍零写入');
 });
 
 /* ---------- ⑧ 确定性 ---------- */
@@ -847,12 +855,24 @@ const SKIRT = {id: 'm-skirt', phase: 'backdrop', kind: 'mountain',
   x1: 16, z1: 29, x2: 143, z2: 31, topY: 25, bands: true, reachable: true};
 const CORR = {x1: 60, x2: 61};
 
-test('southCorridor 缺省零变化: 真布局走廊列无 z 向拆线笔(派生分支未激活的显式见证)', () => {
+test('southCorridor 激活见证: 真布局走廊列 z 向拆线笔 122(两列各 61)· 南端贴地 · 北端接山肩(原「缺省零变化」见证随 map-core 落键翻转)', () => {
   const ctx = loadCore();
   const ops = opsJson(ctx);
   const split = ops.filter((o) => o.op === 'fill' && o.x1 === o.x2 &&
     (o.x1 === 60 || o.x1 === 61) && o.z1 === o.z2 && o.z1 >= 8 && o.z2 <= 28);
-  assert.deepStrictEqual(split, [], '走廊列 x60..61 缺省无 z 单线笔(阶梯未激活)');
+  assert.strictEqual(split.length, 122,
+      '走廊列拆线笔 122(两列各 61: z8..28 每 z 基段石+苔/石/雪分段, corridor-ops-probe 实测)');
+  for (const col of [60, 61]) {
+    assert.strictEqual(split.filter((o) => o.x1 === col).length, 61,
+        'x' + col + ' 拆线笔 61(z28→z8 阶梯全列)');
+  }
+  /* 包络端点对齐真布局(公式逐点归包络 test, 此钉端点两笔) */
+  assert.ok(split.some((o) => o.x1 === 60 && o.z1 === 28 && o.y1 === 24 &&
+      o.y2 === 24 && o.id === PALETTE_WANT.backdrop.mountainMoss),
+  '南端 z28 苔顶笔 y24(平接镇草, 攀登入口)');
+  assert.ok(split.some((o) => o.x1 === 60 && o.z1 === 10 && o.y1 === 40 &&
+      o.y2 === 42 && o.id === PALETTE_WANT.backdrop.mountainSnow),
+  '北端 z10 雪顶笔 y40..42(接山肩平台)');
 });
 
 test('southCorridor 包络: 镜像公式逐点全扫(两台阶列) · 步高 ≤1 全扫 · 南端贴地 · 北端接山肩 · 走廊域外(两侧壁+水花列+瀑布)与缺省版逐笔全等', () => {
