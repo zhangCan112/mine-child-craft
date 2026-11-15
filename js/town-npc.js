@@ -6,9 +6,8 @@
    一句话职责: 把注册表条目与造型档案装配成可摆放的渲染傀儡——
    mkTownNpcPuppet(id) 出傀儡加头顶锚高度, placeTownNpc(puppet, anchor)
    出站位快照; 藏住「注册表→kit 傀儡→站位」装配链, 调用方只给 id 与锚点。
-   face→yaw 双源登记: 本文件自带 face→yaw 纯映射(语义与 js/modes/town.js
-   townYawOfFace 一致但不引用), 双源, 待宿主会师后改为消费迁移后的权威
-   函数消名(T-NPC-10)。
+   face→yaw 单源: placeTownNpc 消费维度段权威 townYawOfFace
+   (js/adventure-dims-core.js, T-NPC-10 会师消名), 本文件不再自带映射。
    interface: mkTownNpcPuppet(id, opts?) → 恰四键 {root, bones, look,
      anchorHeight}(root/bones 系 MobLookKit.puppet(key) 产物透传不改名,
      look=注册表 key, anchorHeight 格: V 系 2.0/G01 2.7 票面权威字面,
@@ -18,10 +17,12 @@
      突变, 不触场景/模式态。
    依赖(均经全局名, 调用期解析): MobLookKit(js/mob-look-kit.js 引擎层,
      puppet(key) 既有傀儡路径) · TOWN_NPCS(js/town-npc-registry.js
-     id→key 唯一权威) · THREE/document 惰性(只经 kit 傀儡期触达, 本文件
-     顶层零触); 加载序 mob-look-kit → mob-look/town_* →
+     id→key 唯一权威) · townYawOfFace(js/adventure-dims-core.js 权威,
+     前向向量口径同源) · THREE/document 惰性(只经 kit 傀儡期触达, 本文件
+     顶层零触); 加载序 town-map-core → adventure-dims-core(顶层消费
+     TOWN_MAP, 须后于 map-core)→ mob-look-kit → mob-look/town_* →
      town-interact-core → town-npc-anchor-core → town-npc-registry →
-     本文件; index.html 挂载归波次二(T-NPC-10)。
+     本文件; index.html 挂载链已按此序落(T-NPC-10)。
    可测性声明: THREE/DOM 惰性创建, Node 测试可安全加载(装载零副作用,
      裸沙盒可装载); 有同名单测(test/town-npc.test.js, THREE 桩直测)。
    ============================================================ */
@@ -38,22 +39,6 @@ const TOWN_NPC_ANCHOR_HEIGHTS = {
   G01: 2.7,
   A01: 14.75 / 16, A02: 14.75 / 16, A03: 27.5 / 16,
 };
-
-/* ---------- face→yaw 纯映射(双源登记见头注释): 前向向量=(-sin yaw,
-    -cos yaw)(引擎 camera-rig lookDir 同式)——north=0(−Z)/south=π(+Z)/
-    west=π/2(−X)/east=−π/2(+X); 词表第五值 up 与未知 face 抛拼写域错
-    (townYawOfFace 同语义, 但不引用该禁触文件)。 ---------- */
-function townNpcYawOfFace(face) {
-  switch (face) {
-    case 'north': return 0;
-    case 'south': return Math.PI;
-    case 'west': return Math.PI / 2;
-    case 'east': return -Math.PI / 2;
-    default:
-      throw new Error('townNpcYawOfFace: 未知 face「' + face +
-        '」(合法域 north|south|east|west)');
-  }
-}
 
 /* ---------- 傀儡工厂: id→key 按注册表行查(未知 id 抛拼写域错, 消息含
     该 id 与合法域提示), 走 MobLookKit.puppet 既有傀儡路径(逐骨
@@ -85,7 +70,7 @@ function placeTownNpc(puppet, anchor) {
   const y = anchor.y + 1;
   const z = anchor.z;
   puppet.root.position.set(x, y, z);
-  return {x, y, z, yaw: townNpcYawOfFace(anchor.face)};
+  return {x, y, z, yaw: townYawOfFace(anchor.face)};
 }
 
 /* ---------- CommonJS 导出守卫(town-npc-registry.js 同款): 浏览器经典

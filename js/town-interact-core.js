@@ -65,28 +65,29 @@ const TOWN_INTERACTS = [
     label: '探秘小屋', sessionKind: 'seek'},
   /* ---- T-NPC-10 条目入册: 11 条 npc 条目追加在册尾(V01~V10+G01, 票面
       §3 冻结六键形状 {id, anchorId, kind, iconKey, label, sessionKind}
-      不多不少; iconKey=候选 A 占位 facePixels, 注册表 faceSrc 已预留) ---- */
-  {id: 'npc:v01', anchorId: 'npc:v01', kind: 'npc', iconKey: 'facePixels',
+      不多不少; iconKey 按 2026-11-15 定稿(receipts/iconkey-decision.md
+      §三): 村民统一 'help'=💬 语义 affordance, G01 'care'=💗 关怀语义) ---- */
+  {id: 'npc:v01', anchorId: 'npc:v01', kind: 'npc', iconKey: 'help',
     label: '阿面', sessionKind: 'greet'},
-  {id: 'npc:v02', anchorId: 'npc:v02', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:v02', anchorId: 'npc:v02', kind: 'npc', iconKey: 'help',
     label: '麦芽', sessionKind: 'help'},
-  {id: 'npc:v03', anchorId: 'npc:v03', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:v03', anchorId: 'npc:v03', kind: 'npc', iconKey: 'help',
     label: '石匠阿砌', sessionKind: 'help'},
-  {id: 'npc:v04', anchorId: 'npc:v04', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:v04', anchorId: 'npc:v04', kind: 'npc', iconKey: 'help',
     label: '图图', sessionKind: 'tour'},
-  {id: 'npc:v05', anchorId: 'npc:v05', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:v05', anchorId: 'npc:v05', kind: 'npc', iconKey: 'help',
     label: '铁匠炉火', sessionKind: 'help'},
-  {id: 'npc:v06', anchorId: 'npc:v06', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:v06', anchorId: 'npc:v06', kind: 'npc', iconKey: 'help',
     label: '朵朵', sessionKind: 'seek'},
-  {id: 'npc:v07', anchorId: 'npc:v07', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:v07', anchorId: 'npc:v07', kind: 'npc', iconKey: 'help',
     label: '小厨乐乐', sessionKind: 'greet'},
-  {id: 'npc:v08', anchorId: 'npc:v08', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:v08', anchorId: 'npc:v08', kind: 'npc', iconKey: 'help',
     label: '钟叔', sessionKind: 'greet'},
-  {id: 'npc:v09', anchorId: 'npc:v09', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:v09', anchorId: 'npc:v09', kind: 'npc', iconKey: 'help',
     label: '牧童豆豆', sessionKind: 'help'},
-  {id: 'npc:v10', anchorId: 'npc:v10', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:v10', anchorId: 'npc:v10', kind: 'npc', iconKey: 'help',
     label: '跑跑妮妮', sessionKind: 'greet'},
-  {id: 'npc:g01', anchorId: 'npc:g01', kind: 'npc', iconKey: 'facePixels',
+  {id: 'npc:g01', anchorId: 'npc:g01', kind: 'npc', iconKey: 'care',
     label: '铁守护·阿稳', sessionKind: 'care'},
 ];
 
