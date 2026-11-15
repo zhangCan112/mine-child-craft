@@ -96,13 +96,12 @@ test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派�
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 随身 13 + 工作台级 63 共 76 条, id 唯一(基线 74 + 怪物合成 T1 铁块/拆包 2 条)', () => {
+test('配方全量: 随身 13 + 工作台级 64 共 77 条, id 唯一(基线 76 + 滑翔翼 T-G01 1 条)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 76,
-      '全表 76 条(基线 74 + 怪物合成 T1 铁块/拆包 2 条, docs/mob-crafting-design.md D1; ' +
-      '下界装备 8 件无直配方=升级唯一来路, 正典口径), 实际 ' + RECIPES.length);
+  assert.strictEqual(RECIPES.length, 77,
+      '全表 77 条(基线 76 + 滑翔翼 1 条 T-G01/glider-spec §3.2, ADR 0015), 实际 ' + RECIPES.length);
   // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9 + 补链 D1 砂岩/羊毛 + 怪物合成 T1 拆包)
   for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
     'bone_meal', 'iron_nuggets', 'snow', 'sandstone', 'wool', 'iron_ingots']) {
@@ -124,7 +123,7 @@ test('配方全量: 随身 13 + 工作台级 63 共 76 条, id 唯一(基线 74 
     'leggings_leather', 'leggings_chain', 'leggings_iron', 'leggings_gold', 'leggings_diamond', 'leggings_netherite',
     'boots_leather', 'boots_chain', 'boots_iron', 'boots_gold', 'boots_diamond', 'boots_netherite',
     'furnace', 'chest', 'bed', 'lantern', 'golden_apple', 'tnt', 'bow_item', 'bread',
-    'door', 'glass_pane', 'iron_ingot', 'iron_block', 'bag_upgrade', 'netherite_ingot'];
+    'door', 'glass_pane', 'iron_ingot', 'iron_block', 'bag_upgrade', 'netherite_ingot', 'glider'];
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');
@@ -958,4 +957,86 @@ test('合金锭: 4 碎片+4 金锭 any 八格台级(正典 shapeless) — 下界
   assert.strictEqual(matchGrid(cellsWith([[0, 'netherite_scrap'], [1, 'netherite_scrap'],
     [3, 'netherite_scrap'], [4, 'netherite_scrap'], [5, 'gold_ingot'], [6, 'gold_ingot'],
     [7, 'gold_ingot'], [8, 'gold_ingot']]), r), true, '4+4 平移命中');
+});
+
+/* ============ 滑翔翼配方(T-G01, glider-spec §3.2 + ADR 0015): 工作台级 3×3, 插于压轴传送门之前 ============ */
+
+test('滑翔翼配方行: station table · 产物 1 件 · 正典图案逐格(金骨外扬/革膜金脊/线绳鞍座, U-05 定稿)', () => {
+  const {RECIPES} = loadCraft();
+  const r = RECIPES.find((x) => x.id === 'glider');
+  assert.ok(r, 'glider 配方应存在(glider-spec §3.2, ADR 0015 甲案)');
+  assert.strictEqual(r.station, 'table', '工作台级 3×3(与盔甲 20 条同口径, R2-02)');
+  assert.deepStrictEqual({...r.out}, {item: 'glider', n: 1}, '产物 glider×1');
+  /* 图案跨 realm 拷回宿主再比(rows 是 vm 数组, 盔甲正典测试同款) */
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.shape.rows)),
+      [['gold_ingot', null, 'gold_ingot'],
+        ['leather', 'gold_ingot', 'leather'],
+        ['string', 'gold_ingot', 'string']],
+      '正典图案 U-05: 翼尖骨外扬/膜面两片+中央金脊/伞绳双系+底部金鞍座');
+});
+
+test('滑翔翼计费: shapeCost 派生 金锭 4+皮革 2+线 2(单一数据源不另存计费表, 数量 PO 终版 2026-11-15)', () => {
+  const {RECIPES, shapeCost} = loadCraft();
+  const r = RECIPES.find((x) => x.id === 'glider');
+  assert.ok(r, 'glider 配方应存在');
+  const c = {};
+  for (const [k, v] of Object.entries(shapeCost(r))) c[k] = v;
+  assert.deepStrictEqual(c, {gold_ingot: 4, leather: 2, string: 2},
+      '材料合计 8 = 4 金锭 + 2 皮革 + 2 线(cost 从图案派生)');
+});
+
+test('滑翔翼摆放: 正摆与镜像皆中(左右对称, 6 岁怎么摆都不吃亏) · 倒摆不中 · 2×2 摆不出', () => {
+  const {RECIPES, matchGrid} = loadCraft();
+  const r = RECIPES.find((x) => x.id === 'glider');
+  assert.ok(r, 'glider 配方应存在');
+  // 正摆顶格: 8 材料 7 格(中央行2空格留白=天空)
+  const top = cellsWith([[0, 'gold_ingot'], [2, 'gold_ingot'],
+    [3, 'leather'], [4, 'gold_ingot'], [5, 'leather'],
+    [6, 'string'], [7, 'gold_ingot'], [8, 'string']]);
+  assert.strictEqual(matchGrid(top, r), true, '正摆顶格命中');
+  // 镜像: 图案每行逆序=自身, 镜像摆放与正摆同形(spec 验收条目「左右翻转同样命中」;
+  // 镜像重试路径本身由铁斧非对称图案守护, 此处守护对称图案不被重试误伤)
+  assert.strictEqual(matchGrid(cellsWith([[2, 'gold_ingot'], [0, 'gold_ingot'],
+    [5, 'leather'], [4, 'gold_ingot'], [3, 'leather'],
+    [8, 'string'], [7, 'gold_ingot'], [6, 'string']]), r), true, '镜像摆放命中(对称图案)');
+  // 倒摆(垂直翻转, 伞绳行到顶): 图案不同构且镜像重试不救行序 → 不中
+  assert.strictEqual(matchGrid(cellsWith([[0, 'string'], [2, 'string'],
+    [3, 'leather'], [4, 'gold_ingot'], [5, 'leather'],
+    [6, 'gold_ingot'], [8, 'gold_ingot']]), r), false, '倒摆不中(垂直翻转不匹配)');
+  // 错料: 中央金脊换成皮革 → 不中
+  assert.strictEqual(matchGrid(cellsWith([[0, 'gold_ingot'], [2, 'gold_ingot'],
+    [3, 'leather'], [4, 'leather'], [5, 'leather'],
+    [6, 'string'], [7, 'gold_ingot'], [8, 'string']]), r), false, '中央金脊≠皮革');
+  // 2×2 随身格: 图案 3 宽放不下(随身 2×2 摆不出, §3.2 验收第 2 条; 4 格数组按 2×2 判)
+  const four = cellsWith([[0, 'gold_ingot'], [2, 'gold_ingot'], [3, 'leather'], [4, 'gold_ingot']]);
+  assert.strictEqual(matchGrid(four, r), false, '宽 3 图案进 2×2 摆不出');
+});
+
+test('滑翔翼合成执行: canCraft 站点门禁+缺料清单 · gridCraft 端到端产 glider 满耐久入包', () => {
+  const h = loadCraft();
+  const {RECIPES, canCraft, gridCraft} = h;
+  const r = RECIPES.find((x) => x.id === 'glider');
+  assert.ok(r, 'glider 配方应存在');
+  // 材料齐但没走近工作台: missing 单条 station(table 级门禁, §3.2 验收)
+  const mats = invWith(h, [['gold_ingot', 4], ['string', 2], ['leather', 2]]);
+  let res = canCraft(mats, r, false);
+  assert.strictEqual(res.ok, false);
+  assert.deepStrictEqual(normMissing(res.missing), [{station: 'table'}], '站点门禁生效');
+  // 空背包+台可用: 缺料三条齐报(材料不足时产出槽不亮; 顺序=shapeCost 键序=图案遍历序)
+  res = canCraft(h.mkInventory(), r, true);
+  assert.strictEqual(res.ok, false);
+  assert.deepStrictEqual(normMissing(res.missing),
+      [{id: 'gold_ingot', need: 4, have: 0}, {id: 'leather', need: 2, have: 0},
+        {id: 'string', need: 2, have: 0}], '缺料清单逐条报');
+  // 端到端: 材料在包+台级摆入 → glider×1 入包(dur=1: ITEMS.glider 永久件, ADR 0012)
+  const inv = invWith(h, [['gold_ingot', 4], ['string', 2], ['leather', 2]]);
+  const cells = cellsWith([[0, 'gold_ingot'], [2, 'gold_ingot'],
+    [3, 'leather'], [4, 'gold_ingot'], [5, 'leather'],
+    [6, 'string'], [7, 'gold_ingot'], [8, 'string']]);
+  const out = gridCraft(cells, inv, true);
+  assert.strictEqual(out.ok, true, 'gridCraft ok');
+  assert.deepStrictEqual({...out.out}, {item: 'glider', n: 1}, '产物 glider×1');
+  const made = inv.slots.find((s) => s && s.id === 'glider');
+  assert.ok(made, 'glider 入包');
+  assert.strictEqual(made.dur, 1, '产物满耐久 dur=1(ITEMS.glider dur 单一权威)');
 });

@@ -2,12 +2,14 @@
 /* ============================================================
    装备核心 (EquipmentCore, 术语见 GLOSSARY.md「装备核心」) — 引擎层·纯核心
    ------------------------------------------------------------
-   穿戴槽模型与减伤公式的纯函数唯一权威: EQUIP_SLOTS 四槽表 · mkWorn 空
+   穿戴槽模型与减伤公式的纯函数唯一权威: EQUIP_SLOTS 五槽表(盔甲四联+
+   滑翔翼专属第五槽, ADR 0013) · mkWorn 空
    穿戴 · wornPut 换装(旧件带耐久原样换出, 非盔甲/槽不符拒收) ·
    armorPoints 穿戴合计盔甲点 · armorReduce 正典减伤公式(D7, 逐字照搬
    minecraft.wiki Armor#Damage_reduction, 权威 docs/equipment-design.md
    §3 与 mc-equipment-research.md) · kbResist 穿戴合计击退抗性(封顶 0.8)
-   · wornWear 命中磨损(归零件入 broke 清单) · wornNormalize 存档归一
+   · wornWear 命中磨损(归零件入 broke 清单; glider 槽耐久豁免——ADR 0012
+   红线, 滑翔翼无消耗永不磨损永不破碎) · wornNormalize 存档归一
    (老档/坏档/半形状幂等兜底)。worn 形状 {helmet: {id, dur}|null, ...}:
    穿戴件不可堆叠, 槽对象省 n 字段(与背包槽形 {id,n,dur} 兼容)。
    零 THREE 零 DOM; armor 判据单份在 items-core(armorOf), 本文件只读
@@ -21,13 +23,15 @@
    可测性: 零 THREE·零 DOM·有单测(test/equipment-core.test.js, vm 直测)
    ============================================================ */
 
-/* 四槽表: 键名照 MC Equipmentslot 口径(snake_case 与 ITEMS 键同惯例);
-   顺序即装备条 UI 展示序(头/胸/腿/靴) */
-const EQUIP_SLOTS = ['helmet', 'chestplate', 'leggings', 'boots'];
+/* 五槽表(滑翔翼 T-G01/ADR 0013: 盔甲四联尾部追加 glider 专属槽, 与四甲
+   互不排斥): 键名照 MC Equipmentslot 口径(snake_case 与 ITEMS 键同惯例);
+   顺序即装备条 UI 展示序(头/胸/腿/靴/翼) */
+const EQUIP_SLOTS = ['helmet', 'chestplate', 'leggings', 'boots', 'glider'];
 
-/* 空穿戴模型: 四槽全 null(老档缺键的归一起点; encode 侧原样四键全出) */
+/* 空穿戴模型: 五槽全 null(老档缺键的归一起点; encode 侧原样五键全出;
+   glider 键恒在, 消费方零判空) */
 function mkWorn() {
-  return {helmet: null, chestplate: null, leggings: null, boots: null};
+  return {helmet: null, chestplate: null, leggings: null, boots: null, glider: null};
 }
 
 /* 合计遍历(armorPoints/toughPoints/kbResist 三函数共用): 逐槽经 armorOf
@@ -78,8 +82,10 @@ function armorReduce(dmg, armor, tough) {
 
 /* 命中磨损: 每件在穿盔甲 dur − n(缺省 1, 战斗命中一次磨一件), 扣到 ≤0
    即破碎——槽清空且 slot 入 broke 清单(模式层据此做破碎仪式: 音/toast/
-   手持同步; 归零消失=工具同款口径)。纯函数: 不改入参, 缺槽跳过,
-   不读注册表(id 只是随件数据——注册校验归 wornNormalize)。 */
+   手持同步; 归零消失=工具同款口径)。**glider 槽豁免**(滑翔翼 T-G01, ADR
+   0012 红线落地点): 滑翔翼无消耗永久, 任何代码路径不得扣减其耐久——此槽
+   原样带过(不入磨损不入 broke, 「翼坏了」不存在)。纯函数: 不改入参, 缺槽
+   跳过, 不读注册表(id 只是随件数据——注册校验归 wornNormalize)。 */
 function wornWear(worn, n) {
   const step = n || 1;
   const out = {};
@@ -88,6 +94,11 @@ function wornWear(worn, n) {
     const piece = worn[s];
     if (!piece) {
       out[s] = null;
+      continue;
+    }
+    /* ADR 0012: 滑翔翼耐久豁免——恒满值恒在槽 */
+    if (s === 'glider') {
+      out[s] = {id: piece.id, dur: piece.dur};
       continue;
     }
     const dur = piece.dur - step;
@@ -126,7 +137,7 @@ function wornPut(worn, slot, stack) {
 
 /* 存档归一(wornNormalize): 存档读取侧的全量兜底 — 缺键补 null(老档半形状
    归全), 坏件逐条丢弃(未注册/非盔甲/槽不符/dur 非正数), 多余键不带走,
-   输出恒为 mkWorn 形状(四键全在, 消费方零判空)。与 wornPut 的交互路径
+   输出恒为 mkWorn 形状(五键全在, 消费方零判空)。与 wornPut 的交互路径
    政策不同勿混: 这里不修复 dur——存档里 dur 缺失=档案坏件, 宁丢弃不脑补
    (满耐久兜底只在穿入侧 wornPut 做)。幂等: normalize 两次=一次(存档往返
    安全)。垃圾入参(null/标量)防炸返回空穿——存档容错的最后一道。

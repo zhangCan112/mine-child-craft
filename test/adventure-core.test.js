@@ -1394,8 +1394,9 @@ test('核心任务表: 16 条主线形状齐 + 谓词口径抽样(全量逐条�
   assert.strictEqual(Core.ADV_MINE_TALLY[3], 'mine_cobble', '石头也计圆石(步7 口径)');
 });
 
-test('远征章(T8): 追加在终章之后 — 11 条(引导 1 + 每图 3 + 巢穴宝箱 1), 前 16 条序不变(老档 step 不回退)', () => {
-  assert.strictEqual(Core.ADV_QUESTS.length, 27, '主线 16 + 远征章 11(den-nest D12 追加巢穴宝箱条)');
+test('远征章(T8): 追加在终章之后 — 11 条(引导 1 + 每图 3 + 巢穴宝箱 1) + 滑翔翼 q27, 前 16 条序不变(老档 step 不回退)', () => {
+  assert.strictEqual(Core.ADV_QUESTS.length, 28,
+      '主线 16 + 远征章 11(den-nest D12 追加巢穴宝箱条) + 滑翔翼 q27(T-G01/glider-spec §3.7, 链尾追加)');
   assert.strictEqual(Core.ADV_QUESTS[16].id, 'q16_plaza', '第 17 条 = home 家园广场引导(远征章首条)');
   assert.strictEqual(Core.ADV_QUESTS[16].unlock, 'desert', '广场引导完成点亮沙漠门(线性链第一环)');
   assert.strictEqual(Core.ADV_QUESTS[19].id, 'q19_temple', '第 20 条 = 沙漠神殿宝箱(远征章链尾)');
@@ -1403,7 +1404,9 @@ test('远征章(T8): 追加在终章之后 — 11 条(引导 1 + 每图 3 + 巢�
   assert.strictEqual(Core.ADV_QUESTS[22].id, 'q22_igloo', '第 23 条 = 雪屋宝箱(雪原链尾)');
   assert.strictEqual(Core.ADV_QUESTS[22].unlock, 'swamp', '雪屋宝箱完成点亮沼泽门(线性链第三环)');
   assert.strictEqual(Core.ADV_QUESTS[25].id, 'q25_witch_chest', '第 26 条 = 女巫小屋宝箱(沼泽链尾, 无 unlock)');
-  assert.strictEqual(Core.ADV_QUESTS[26].id, 'q26_den_chest', '末条 = 巢穴副本宝箱(den-nest D12, 自由探险目标)');
+  assert.strictEqual(Core.ADV_QUESTS[26].id, 'q26_den_chest', '第 27 条 = 巢穴副本宝箱(den-nest D12, 自由探险目标)');
+  assert.strictEqual(Core.ADV_QUESTS[27].id, 'q27_glider',
+      '末条 = 滑翔翼(T-G01 链尾追加: 不插队不移老档 step 下标, 老档顺位接棒)');
   /* unlock 只许挂在三环链尾: 别处冒出 unlock 会破坏「一任务一点亮」的仪式稀缺感 */
   const unlocks = Core.ADV_QUESTS.filter((q) => q.unlock).map((q) => q.id + '→' + q.unlock);
   assert.deepStrictEqual(unlocks, ['q16_plaza→desert', 'q19_temple→snow', 'q22_igloo→swamp'],

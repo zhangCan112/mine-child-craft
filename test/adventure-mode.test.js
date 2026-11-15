@@ -1929,21 +1929,23 @@ test('T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落�
 
 /* ============ 引导链 v2: 15 步主线 + 终章 + 大宝箱 ============ */
 
-test('QUESTS 数据表: 15 步主线 + 终章 + 远征章 11 — 步序照引导链 v2/远征链, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
+test('QUESTS 数据表: 15 步主线 + 终章 + 远征章 11 + 滑翔翼 q27 — 步序照引导链 v2/远征链+链尾追加, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
   const qs = ADV_QUESTS; /* 任务表常量经 core 全局直取 */
-  assert.strictEqual(qs.length, 27, '15 步主线 + 终章 + 远征章 11(引导 1 + 每图 3 + 巢穴宝箱, den-nest D12)');
+  assert.strictEqual(qs.length, 28,
+      '15 步主线 + 终章 + 远征章 11(引导 1 + 每图 3 + 巢穴宝箱, den-nest D12) + 滑翔翼 q27(T-G01/glider-spec §3.7, R2-05)');
   assert.deepStrictEqual(qs.map((q) => q.id),
       ['q1_log', 'q2_planks', 'q3_table', 'q4_chest', 'q5_sapling', 'q6_pick_wood',
         'q7_cobble', 'q8_pick_stone', 'q9_coal', 'q10_torch', 'q11_iron', 'q12_smelt',
         'q13_pick_iron', 'q14_fight', 'q15_diamond', 'finale',
         'q16_plaza', 'q17_desert', 'q18_cactus', 'q19_temple',
         'q20_snow', 'q21_snowball', 'q22_igloo', 'q23_swamp', 'q24_bogged', 'q25_witch_chest',
-        'q26_den_chest'],
-      '步序 = 引导链 v2(砍树→…→钻石剑, docs/story-quest-research.md) + 远征章(T8: 广场→沙漠三连→雪原三连→沼泽三连) + 巢穴宝箱(den-nest)');
+        'q26_den_chest', 'q27_glider'],
+      '步序 = 引导链 v2(砍树→…→钻石剑, docs/story-quest-research.md) + 远征章(T8: 广场→沙漠三连→' +
+        '雪原三连→沼泽三连) + 巢穴宝箱(den-nest) + 滑翔翼(链尾追加, 不插步不移老档 step 下标)');
   assert.strictEqual(qs[15].finale, true, '第 16 条是终章(主线 15 条不带 finale 标记)');
   assert.ok(qs.slice(0, 15).every((q) => !q.finale), '主线步骤无 finale 标记');
-  assert.ok(qs.slice(16).every((q) => !q.finale), '远征章不冒用终章标记(称号仪式感专属)');
-  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 27, 'id 唯一');
+  assert.ok(qs.slice(16).every((q) => !q.finale), '远征章与滑翔翼不冒用终章标记(称号仪式感专属)');
+  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 28, 'id 唯一');
 });
 
 test('T15 谓词逐条: 最小满足触发 / 空账本或差一不触发 / 复合步条件缺一不可', () => {
@@ -4321,8 +4323,8 @@ test('装备 T5: 存档 armor 键 roundtrip — cleanup 落盘重进恢复; 老�
   const w0 = A.advWornState();
   /* vm 跨 realm: EQUIP_SLOTS 是 vm 数组, map 沿 receiver realm 构造——
      展开拷回宿主再 map(null 是 primitive, 元素无原型差) */
-  assert.deepStrictEqual([...EQUIP_SLOTS].map((s) => w0[s]), [null, null, null, null],
-      '老档缺 armor 键 → 四槽全空(wornNormalize 幂等兜底)');
+  assert.deepStrictEqual([...EQUIP_SLOTS].map((s) => w0[s]), [null, null, null, null, null],
+      '老档缺 armor 键 → 五槽全空(wornNormalize 幂等兜底, 第五槽翼同路归一)');
   AdventureMode.cleanup();
 });
 
@@ -5214,6 +5216,123 @@ test('TIDEA-11 会话态归零: cleanup 重进后同区再响(一次性 flag 随
   AdventureMode.update(1 / 60);
   assert.strictEqual(calls.filter((x) => x[0] === 'sfx' && x[1] === 'amb_birds').length, 1,
       '重进后同区再响(freshInit 清桩=本轮口径; 再响即会话态已归零, 非永久静音)');
+  AdventureMode.cleanup();
+});
+
+/* ============ 滑翔翼 T-G01: 数据层集成(任务 q27 + 第五槽穿戴/耐久豁免/存档五键) ============ */
+
+test('q27 数据行: 合成滑翔翼(glider-spec §3.7) — 文案逐字/记账键 craft_glider/无 unlock 无 finale', () => {
+  const q = ADV_QUESTS.find((x) => x.id === 'q27_glider');
+  assert.ok(q, 'q27_glider 应在任务表(链尾追加, R2-05)');
+  assert.strictEqual(q.icon, '🪂', '图标=伞翼');
+  assert.strictEqual(q.goal, '合成滑翔翼');
+  assert.strictEqual(q.target, 1);
+  assert.strictEqual(q.hint, '用 4 块金锭、2 根线、2 张皮革，在工作台合成滑翔翼！');
+  assert.strictEqual(q.praise, '滑翔翼做好啦！穿上它，从高处跳下就会张开翅膀，飞起来咯！');
+  assert.strictEqual(q.prog({craft_glider: 3}), 1, 'prog 封顶 1');
+  assert.strictEqual(q.prog({}), 0, 'prog 空账本 0');
+  assert.strictEqual(q.check({craft_glider: 1}), true, 'check ≥1 触发');
+  assert.strictEqual(q.check({}), false, 'check 空账本不触发');
+  assert.strictEqual(q.unlock, undefined, '链尾追加: 无 unlock(不挂图解锁)');
+  assert.strictEqual(q.finale, undefined, '链尾追加: 无 finale 标记(称号仪式专属)');
+});
+
+test('q27 行为链: 老档全通关 step=27 读入新表恰接棒 q27 — 合成滑翔翼步进表外+praise', () => {
+  mem.clear();
+  /* 旧 27 条全通关的档: step=27(旧表表外上界)——新表 28 条后恰指向 q27_glider */
+  mem.set('adventure_quest_save', JSON.stringify({_v: 1, step: 27, counts: {}}));
+  freshInit();
+  assert.strictEqual(A.ADV.quest.step, 27, '老档 step 27 保留(钳制上界随表长)');
+  assert.strictEqual(ADV_QUESTS[27].id, 'q27_glider',
+      '新表 step 27 恰指向 q27(链尾追加=老档顺位接棒, 不丢步不跳步)');
+  spoken.length = 0;
+  A.advOnCraft({item: 'glider', n: 1, leftover: 0});
+  AdventureMode.update(0.55); /* 越过节流窗触发步进检查 */
+  assert.strictEqual(A.ADV.quest.counts.craft_glider, 1,
+      '合成记账 craft_glider(配方注册即有, 零新记账机制)');
+  assert.strictEqual(A.ADV.quest.step, 28, 'q27 完成(新表表外=自由探险)');
+  assert.ok(spoken.some((s) => String(s).indexOf('滑翔翼做好啦') >= 0), 'praise 播报(链尾正常仪式)');
+});
+
+test('q27 行为链: 引导期提前合成不跳步 — 计数保留, 步进仍按链序', () => {
+  mem.clear();
+  freshInit(); /* step 0 从砍树开始 */
+  A.advOnCraft({item: 'glider', n: 1, leftover: 0});
+  AdventureMode.update(0.55);
+  assert.strictEqual(A.ADV.quest.counts.craft_glider, 1, '提前合成照记账(不丢)');
+  assert.strictEqual(A.ADV.quest.step, 0, 'step 0 不跳步(步进只看当前步谓词)');
+});
+
+test('装备 T-G01: 第五槽穿戴 — 皮全套+翼同穿 armorPoints 7 不变 · advWornTakeOff 卸翼回包 · advTryWearSlot 槽参同效', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_leather', 'chestplate_leather', 'leggings_leather', 'boots_leather', 'glider']);
+  const w = A.advWornState();
+  assert.deepStrictEqual(localW(w.glider), {id: 'glider', dur: 1},
+      '翼入第五槽(手持右键=穿上, 与盔甲同管线)');
+  assert.strictEqual(api.armorPoints(w), 7,
+      '皮全套 7 点+翼 0 点=7(盔甲点不计滑翔翼, sumArmor 机械零贡献)');
+  /* 卸下: 装备条点槽同一条编排 → 回背包(零损失红线) */
+  const before = api.count(inv, 'glider');
+  A.advWornTakeOff('glider');
+  assert.strictEqual(A.advWornState().glider, null, '卸下清槽');
+  assert.strictEqual(api.count(inv, 'glider'), before + 1, '翼回背包(零损失)');
+  /* 装备页槽参同效: mkStack 放指定槽 → advTryWearSlot 穿上(T9 同路径) */
+  inv.slots[6] = api.mkStack('glider');
+  A.advTryWearSlot(6);
+  assert.deepStrictEqual(localW(A.advWornState().glider), {id: 'glider', dur: 1}, '槽参穿上同效');
+  assert.strictEqual(inv.slots[6], null, '背包格消耗');
+  assert.ok(A.advWornState().helmet, '卸/穿翼不动盔甲槽(甲翼互不排斥)');
+  AdventureMode.cleanup();
+});
+
+test('装备 T-G01: 战斗磨损豁免翼 — 命中扣甲翼 dur 恒 1 槽不空(ADR 0012 红线), 盔甲照常磨损', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_leather', 'glider']);
+  const w = A.advWornState();
+  assert.strictEqual(w.glider.dur, 1, '翼满耐久入槽');
+  /* 连打 4 发(hp30 伤 3×4=12 不致死): 盔甲逐发磨损, 翼纹丝不动 */
+  for (let i = 0; i < 4; i++) {
+    nextHit = {hp: 30, dead: false, freshDead: false};
+    A.advHitPlayer(3, 1, 0, 0.2);
+  }
+  assert.strictEqual(w.glider.dur, 1, '翼耐久恒 1(wornWear 豁免 glider 槽, 任何代码路径不扣)');
+  assert.strictEqual(w.glider.id, 'glider', '翼槽仍在(永不因磨损清槽)');
+  assert.strictEqual(w.helmet.dur, 106, '皮帽照常磨损 110−4=106(豁免只翼, 盔甲口径不变)');
+  AdventureMode.cleanup();
+});
+
+test('装备 T-G01: 存档五键 roundtrip — 翼随档恢复, armor 存档视图五键', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_leather', 'glider']);
+  AdventureMode.cleanup(); /* 落盘(journal payload armor 键随节流窗口 flush) */
+  freshInit(); /* 重进 */
+  const w = A.advWornState();
+  assert.deepStrictEqual(localW(w.glider), {id: 'glider', dur: 1}, '翼随档恢复');
+  assert.deepStrictEqual(localW(w.helmet), {id: 'helmet_leather', dur: 110}, '皮帽随档恢复');
+  const view = A.getSaveView().armor;
+  assert.deepStrictEqual(Object.keys(view).sort(),
+      ['boots', 'chestplate', 'glider', 'helmet', 'leggings'],
+      'armor 存档视图五键(第五键=glider, 存档三缝机械改)');
+  assert.deepStrictEqual(localW(view.glider), {id: 'glider', dur: 1}, '视图透出翼(四份存档快照缝)');
+  AdventureMode.cleanup();
+});
+
+test('装备 T-G01: 老档四键无翼键 — 读入归一 glider:null 其余保真(无感升级, 无迁移脚本)', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_leather', 'glider']);
+  AdventureMode.cleanup();
+  /* 老档模拟: 直接剥落盘档的 glider 键(等价本特性上线前的旧版档) */
+  const raw = JSON.parse(mem.get('adventure_world_save'));
+  delete raw.armor.glider;
+  mem.set('adventure_world_save', JSON.stringify(raw));
+  freshInit();
+  const w = A.advWornState();
+  assert.strictEqual(w.glider, null, '老档无翼键 → 第五槽空(wornNormalize 补 null, 无感升级)');
+  assert.deepStrictEqual(localW(w.helmet), {id: 'helmet_leather', dur: 110}, '四甲键保真');
   AdventureMode.cleanup();
 });
 

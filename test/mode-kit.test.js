@@ -820,19 +820,19 @@ test('craft 面板: L1 三页签 — 背包|装备|造物(equip 缝), 默认背�
   assert.strictEqual(stub.log.disposed, 1, 'unmount → 预览 dispose(渲染器退役)');
 });
 
-test('craft 面板: 装备页 — 四槽 EQUIP_SLOTS 序 + 空槽虚位 + 有件图标/耐久条 + 点槽报 onSlot + 盔甲点', () => {
+test('craft 面板: 装备页 — 五槽 EQUIP_SLOTS 序 + 空槽虚位 + 有件图标/耐久条 + 点槽报 onSlot + 盔甲点', () => {
   const doc = mkDoc();
   const inv = {slots: new Array(27).fill(null)};
   const worn = {helmet: {id: 'helmet_iron', dur: 300}, chestplate: null,
-    leggings: null, boots: null};
+    leggings: null, boots: null, glider: null};
   const stub = mkEquipStub(worn);
   const panel = mkCraftPanel({doc, inv, recipes: [R_PICK], onCraft() {}, equip: stub.equip});
   panel.show();
   collect(panel.root, 'mkp-l1tab')[1].onclick(); // 进装备页
   const slots = collect(panel.root, 'mkp-eslot');
-  assert.strictEqual(slots.length, 4);
+  assert.strictEqual(slots.length, 5, '五槽(T-G01/ADR 0013: glider 尾部追加)');
   assert.deepStrictEqual(slots.map((s) => s.dataset.slot),
-      ['helmet', 'chestplate', 'leggings', 'boots'], '槽序=equipment-core 四槽表(展示序唯一权威)');
+      ['helmet', 'chestplate', 'leggings', 'boots', 'glider'], '槽序=equipment-core 五槽表(展示序唯一权威)');
   assert.ok(!slots[0].classList.contains('off'), '有件槽实位');
   assert.ok(slots[0].innerHTML.includes('🥓'), '槽内图标(iconOf 桩 emoji 回落)');
   assert.ok(slots[0].innerHTML.includes('91%'), '槽内耐久条比例 300/330(四舍五入)');
@@ -1603,14 +1603,15 @@ test('可变容量: 33 槽背包区按现长度重画(24 主格 + 9 快捷镜像
   panel.remove();
 });
 
-/* ============ 装备 T5: mkArmorBar 装备条(四槽像素图标 · 空槽虚位 · 点槽脱下意图) ============ */
+/* ============ 装备 T5: mkArmorBar 装备条(五槽像素图标 · 空槽虚位 · 点槽脱下意图) ============ */
 
-test('装备条形状: 四槽按钮按头/胸/腿/靴序 · data-slot 标记 · 空槽虚位(.off)', () => {
+test('装备条形状: 五槽按钮按头/胸/腿/靴/翼序 · data-slot 标记 · 空槽虚位(.off)', () => {
   const doc = mkDoc();
   const bar = ModeKit.mkArmorBar({doc, mount: doc.body, onUnequip() {}});
   const slots = collect(bar.root, 'armorbar-slot');
   assert.deepStrictEqual(slots.map((s) => s.dataset.slot),
-      ['helmet', 'chestplate', 'leggings', 'boots'], '四槽序=EQUIP_SLOTS 展示序');
+      ['helmet', 'chestplate', 'leggings', 'boots', 'glider'],
+      '五槽序=EQUIP_SLOTS 展示序(第五槽翼居末, T-G01/glider-spec §3.3)');
   assert.ok(slots.every((s) => s.classList.contains('off')), '初值全空: 空槽虚位');
   bar.dispose();
   assert.strictEqual(bar.root.parentNode, null, 'dispose 摘除(探险退场清理)');

@@ -1,0 +1,6 @@
+,
+    [6, 'gold_ingot']]), r), false, '缺一碎片不中');
+  assert.strictEqual(matchGrid(cellsWith([[0, 'netherite_scrap'], [1, 'netherite_scrap'],
+    [3, 'netherite_scrap'], [4, 'netherite_scrap'], [5, 'gold_ingot'], [6, 'gold_ingot'],
+    [7, 'gold_ingot'], [8, 'gold_ingot']]), r), true, '4+4 平移命中');
+});

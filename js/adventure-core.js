@@ -2956,6 +2956,13 @@ const ADV_QUESTS = [
     hint: '东北边的黑石丘下藏着怪物的巢穴，钻进最深处，敲碎小宝箱吧！',
     praise: '巢穴宝箱敲碎啦！黑暗深处也难不倒你！',
     prog: (c) => Math.min(c.chest_den || 0, 1), check: (c) => (c.chest_den || 0) >= 1},
+  // 滑翔翼(R2-05, glider-spec §3.7): 链尾追加不插队——step 存数组下标, 插队=
+  //   已通关老档的 step 指错任务(T8 远征章同款老档兼容纪律); 计数走 craft_glider
+  //   既有记账通道(配方注册即有, 零新机制), 无 unlock 无 finale(无实物奖励)
+  {id: 'q27_glider', icon: '🪂', goal: '合成滑翔翼', target: 1,
+    hint: '用 4 块金锭、2 根线、2 张皮革，在工作台合成滑翔翼！',
+    praise: '滑翔翼做好啦！穿上它，从高处跳下就会张开翅膀，飞起来咯！',
+    prog: (c) => Math.min(c.craft_glider || 0, 1), check: (c) => (c.craft_glider || 0) >= 1},
 ];
 
 /* 解锁链反查(§2.3 锁定话术与开放仪式共用): 目标图 id → 挂 unlock 的那条
