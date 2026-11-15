@@ -20,7 +20,7 @@
      侧以 PrefabKit.footOf 校验, 材质集中注入归 T-MAP-03, 建场装配归
      T-MAP-02 消费本清单)。
    可测性声明: 零三维渲染库 · 零 DOM · 零墙钟 · 零随机 · 有同名单测
-     (test/town-map-core.test.js, 15 test 可执行规格)。
+     (test/town-map-core.test.js, 16 test 可执行规格)。
    ============================================================ */
 
 const TOWN_MAP = {
@@ -104,6 +104,37 @@ const TOWN_MAP = {
       face: 'west', zone: 'hub'},
     {id: 'stall-canopy', x: 83, y: 24, z: 90, v: {size: 'md', theme: 'fruit'},
       face: 'north', zone: 'hub'},
+    {/* ---- TIDEA 波次二落位批(scene-plan-tidea2 problems=0; 「动骨架-轻」
+        红线: 全部增量落位, 既有 13 实例零碰) ---- */
+    /* TIDEA-04(W-04②): 稻草人立丰收角金黄区——foot 3×1×3(dy0 桩+dy1 衣/臂+
+        dy2 南瓜头), 桩格覆一格金黄=「立麦中」构图本意(prefab 后写赢);
+        面南朝 farm-a 南缘来客, 与 3 阶金黄高潮区(z45..47)构图互证 */
+      id: 'scarecrow', x: 68, y: 24, z: 45, v: {},
+      face: 'south', zone: 'north'},
+    {/* TIDEA-08(W-08①): 晾衣绳——两桩一线三衣(蓝/粉/奶白), foot 5×1×3;
+        cottage 南墙门脸西段门前第一行(衣格 x40..42 ⊆ 墙段投影, 端桩 x39
+        出段 1 格避 npc a02(45,76) 切比 2); 面南衣横排迎 lane-west 来客 */
+      id: 'clothesline', x: 41, y: 24, z: 75, v: {},
+      face: 'south', zone: 'west'},
+    {/* TIDEA-08(W-08③): 柴堆——墙根五根错叠, foot 3×1×2; house-loft 北墙
+        (face:north 正面)门前第一行东段(flowerbed-loft(42,80) 相邻不重格);
+        与晾衣绳组成 cottage/loft 两组「人家」生活气息 */
+      id: 'woodpile', x: 44, y: 24, z: 81, v: {},
+      face: 'south', zone: 'west'},
+    {/* TIDEA-08(W-08④): 小鸡窝——干草台 2×2+两只块状鸡剪影, foot 2×2×3;
+        鸡店(shop-awning, lava-chicken 锚)西门侧贴墙(x105 与店西墙线 x106
+        相邻, v07(103,79) 切比 2); face west=鸡面西迎广场来客; 声景区位与
+        TIDEA-11② 鸡叫声环境音位对齐(W-08④「鸡店门前小鸡窝」原案) */
+      id: 'hencoop', x: 105, y: 24, z: 76, v: {},
+      face: 'west', zone: 'east'},
+    {/* TIDEA-10(W-10, P2-01 图纸): 高跳板与小水池——板沿 +z 南爬(face west
+        经 rot1: 回程玩家沿 main-south 南下, 东侧平行经过全程可见爬升叙事),
+        池贴板尾(南端)西侧; 缺省档 boardLen 6/poolSize 2(foot 4×10 高 7,
+        dy 序 0,1,2,2,3,4 中段平台读感); 落南彩蛋带东侧空域(回程触发线
+        z≥132 以北, 避 gate-e 樱/灯 ≥3); len/池径选档按 arch §9.3② 授权
+        走查实拍自裁, 定稿底片留证 */
+      id: 'board-pool', x: 86, y: 24, z: 106, v: {boardLen: 6, poolSize: 2},
+      face: 'west', zone: 'south'},
   ],
   /* 路网(§4.3): 三条主路 5 宽放射贴广场三缘(北/东/南), 三条支路 3 宽
       通民居门前/田园/储藏角; 均为轴对齐闭域矩形段(厚=窄边跨度),
@@ -405,6 +436,21 @@ const TOWN_MAP = {
     {id: 'flower-117-73', kind: 'flower', x: 117, y: 24, z: 73, v: {tone: 'w'}},
     {id: 'flower-117-105', kind: 'flower', x: 117, y: 24, z: 105, v: {tone: 'w'}},
     {id: 'flower-117-121', kind: 'flower', x: 117, y: 24, z: 121, v: {tone: 'y'}},
+    {/* ---- TIDEA-03(W-03) 素墙立面三笔: house-loft 北墙(正面 face:north
+        朝 z− 正对广场南缘视线, 南门机位左前视域尽头=W-03「11 号底片
+        那面墙」; 墙段 x38..47 连续墙高 4..7 顶 y31, 探测留痕
+        scene-plan-tidea2)。「西窗-旗-东窗-角箱」立面节奏, 全部格位
+        覆写墙块(后写者赢), 不碰脚印不落地面 ---- */
+      /* ① 店旗列: 竖排 4 格(y25..28)三色 i%3 轮转(78 樱粉/15 蓝/17 奶油,
+        与钟塔脚旗阵同语言; red 16 不入立面轮转) */
+      id: 'wallflag-loft', kind: 'wallflag', x: 42, y: 24, z: 82, v: {len: 4}},
+    {/* ② 花窗箱×2: 箱 plank 2 宽+花 61/62+玻璃 2×2(y25..28)——「檐下
+        开两扇」, 西端扇 x38..39+中东段扇 x44..45 */
+      id: 'windowbox-loft-w', kind: 'windowbox', x: 38, y: 24, z: 82},
+    {id: 'windowbox-loft-e', kind: 'windowbox', x: 44, y: 24, z: 82},
+    {/* ③ 桶箱角: 桶 5 双高+箱 51 双高(x46..47, y25..26)——东端墙根
+        桶箱簇(stash 门前桶堆同语言) */
+      id: 'crates-loft', kind: 'crates', x: 46, y: 24, z: 82},
   ],
 };
 

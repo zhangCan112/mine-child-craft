@@ -370,3 +370,97 @@ assert.strictEqual(topAt(143), 23, '东缘基段笔顶 23');
 - 判定: 本笔零新红零新错; arch 红与 lint 属其 WIP 中间态, 交付自转绿,
   不在本笔责任面(lead 2026-11-15 复核口径一致)。
 
+## 十、TIDEA 波次二落位批(五 prefab 陈设件+素墙立面三笔; §7 v2 体例)
+
+### 10.1 交付物
+
+- js/town-map-core.js(+9 条目): prefab 段五实例——scarecrow(68,24,45)
+  face:south 立丰收角金黄区(farm-a.harvest 构图互证) / clothesline(41,24,75)
+  face:south cottage 门脸西段(衣格投影⊆墙段, 端桩出段 1 格避 a02) /
+  woodpile(44,24,81) face:south loft 北墙门前(花坛邻格) / hencoop(105,24,76)
+  face:west 鸡店西门侧贴墙(W-08④ 原案「鸡店门前小鸡窝」, 声景区位与
+  TIDEA-11② 鸡叫声对齐, v07 切比 2) / board-pool(86,24,106) face:west
+  v{boardLen:6,poolSize:2} 南彩蛋带东侧空域(回程触发线 z≥132 以北);
+  scatter 段四条目——wallflag-loft(42,24,82) v{len:4}+windowbox-loft-w(38)/
+  -e(44)+crates-loft(46) 挂 house-loft 北墙线 z82(W-03「西窗-旗-东窗-角箱」
+  节奏, 全⊆墙段 x38..47 互不重格); 头注释 15→16 test。
+- test/town-map-core.test.js: 16/16 绿——新增 ⑫ 波次二落位契约(①⊆harvest
+  域 ②门前贴墙+避花坛南瓜 ③贴店脸段 ④南带/回程线北+dy 序钉+变体钳
+  len8/ps3 盒 5×13 ⑤立面墙段内+互不重格+间隔≥2+通用切比≥2+脚印两两
+  无交=动骨架-轻); 五处既有钉面同步(ids 八→十三种+board-pool 推迟→转正、
+  FOOTPRINT+5 行、散布词表十→十三类、门前可达豁免 PROPS 五件、散布不落
+  脚印豁免立面三 kind=挂墙覆写语义、实体带宽 40→44、零 DOM `\bwindow\b`
+  词边界防误伤 kind 名)。
+- `.scratch/town-design/scene-plan-tidea2.mjs`: 确定性规划脚本 problems=0
+  (装配 ops 模拟器 fill+place(经重绑 setBlockRaw 导探测 Map)+recolor 三通道;
+  全约束矩阵: 核心区/脚印两两/路缘/广场/驿站坪/空隙带/走廊/散布零重格/
+  npc·G01 环线全格点·锚切比≥2/五件特检/墙线探测); 数据落盘后复算仍 0
+  (FACADE_KINDS/NEW_IDS 滤自撞)。
+- `.scratch/town-design/walk-tidea2-scene.mjs`+`shots-tidea2-scene/`:
+  走查 harness(v2 骨架+第一人称 CameraRig.cycle hack 避玩家模型挡镜头;
+  文件名带 -scene 避 light 线同名撞车——walk-tidea2.mjs 已被 light 覆写
+  为 arrive-card harness, 不属本线)。
+
+### 10.2 验证面
+
+- 定向 node --test test/town-map-core.test.js: 16/16(⑫ 新增即绿)。
+- 定向 eslint 两文件: 零错(--fix 后; 7 错全为缩进已修)。
+- 全仓 npm test 批(2101 测 2096 pass/4 fail/1 skip): 本笔面全绿;
+  4 红归属——arch 1(place 执行见证 13≠18=本笔落位撞其数字面断言, 见 10.4
+  补丁底稿)+light 3(TIDEA-15/16/19 全在其在途文件 adventure.js/town-ui.js,
+  与波次一归档时同款 WIP 噪音)。
+- 全仓 eslint: 4 文件红全归他线(spinner-core.js+test=共享区新 WIP 两件、
+  assembly-core.js+test=arch 在途 2 错 1 警); 本笔两文件零错。
+
+### 10.3 走查底片与拍板(shots-tidea2-scene/, 底片留证)
+
+- **board-pool 选档定稿: 保持缺省档 len6/ps2**(arch §9.3② 授权实拍自裁)。
+  底片: 21b-boardpool-mid.png(主拍: 板阶 0,1,2,2,3,4 爬升+顶旗+池贴板尾
+  西侧+白沙圈蓝水心, 比例幽默完整)/21-boardpool-near.png(近观)/
+  20-boardpool-route.png(回程动线)。判据: len8 伸至 z118 池至 z120, 压
+  驿站坪(z119..123)邻域构图变挤; len6 回程 3 秒读完。
+- **W-03 素墙活化读感定稿**: 41b-wall-west.png(主拍: windowbox 白框玻璃
+  窗+窗台花件挂墙清晰+深木大墙语言)/11b-wall-front.png(东段窗+墙脚箱堆)/
+  11d-wall-from-lane.png(lane-west 路上看西生活带街面连续)。
+- **登记①(设计发现, 需 lead 知悉): W-03 南门读法在当前密度下不成立**——
+  底片 11-gate-west-facade.png+11c-gate-high.png(高机位越障仍被挡):
+  v2 波次落的南门双樱(sakura-gate-e)+门柱阵把 loft 北墙从南门视点完全
+  遮蔽; 该墙的可读观察点已移至广场西南侧(lane-west 一线)。W-03 原文
+  「南门机位左视一面空墙」的前提被 v2 植被蚕食, 素墙活化价值改由西侧
+  动线兑现(窗箱+箱堆读感不受影响)。
+- **登记②(构图取舍, 本岗拍板): wallflag 旗列大部被 cottage 体量遮蔽**——
+  三镜证据(11b/11d/11e-flag-closeup 仰拍撞檐口): 旗列 x42 竖排 y25..28
+  在南侧所有合法机位下被 cottage(盒到 z74 高 y31, 北檐悬挑)遮挡 2/3,
+  仅 11b 中景露出蓝色段半截。落位不动(数据侧合法+派生蓝色段作为窗间
+  点缀), 旗列定位降格为「近观彩蛋」; W-03 主读=窗箱×2+箱堆, 三眼有
+  发现分层兑现(远景素墙活化→中景窗箱→近观旗列)。
+- 其余件底片: 30-scarecrow(金黄区稻草人+风车山缘同框, 构图完美)/
+  40b-clothesline-front(衣绳横梁+蓝衣块与门脸分离)/50b-hencoop-near
+  (红冠白身鸡剪影+踏板+店脸同框)/60-spawn-panorama(镇容对照)/
+  10-gate-north(南门基线)。
+- 走查注意事项兑现: 波次一五件(瀑布/镇徽/花带/记号)派生未实现不显影
+  =正常未当回归(10-gate-north 中南门回程件区域仅记号 groundMark 未现)。
+
+### 10.4 arch 钉面补丁底稿(本笔落位撞其数字面, 报 lead 转派 arch)
+
+- test/town-assembly-core.test.js:281 `place 执行见证: 13 实例全落场`:
+  `assert.strictEqual(places.length, 13)` → 实得 18(本笔 +5 prefab 实例)。
+  建议改法: 数字面 13→18, 措辞「7 建筑+埋室+摊位 6+波次二陈设 5」;
+  同测试同文件 palette 完整性行(T-09 十五行)与钉值面本批已自绿(arch
+  波次一加过五行), 唯此一处数字面。
+- 归属: arch 文件本岗不越权, 底稿如上; 若 lead 裁归本岗补, 一行数字面
+  改动随下波带走。
+
+### 10.5 自查行(全仓批+lint 归属)
+
+- 本笔两文件(js/town-map-core.js+test/town-map-core.test.js): 16/16 绿+
+  eslint 零错+规划脚本 problems=0(落盘前)+0(落盘后复算)。
+- 他线红面清单: arch——assembly place 见证 13≠18(本笔造成, 10.4 底稿)、
+  assembly lint 2 错 1 警(quote-props/operator-linebreak, WIP 中间态非
+  本笔); light——TIDEA-15 到达时刻卡/TIDEA-16 回望脉冲/TIDEA-19 首访引导
+  三测红+spinner-core.js/test lint 红(共享区新 WIP, 文件本笔未触碰);
+  共享区 walk-tidea2.mjs 已被 light 覆写为 arrive-card harness(本线走查
+  工件已改名 walk-tidea2-scene.mjs 隔离, shots 目录亦隔离 shots-tidea2-scene/)。
+- 精确提交面: js/town-map-core.js+test/town-map-core.test.js+
+  .scratch/town-design/receipts/scene-closeout.md 三件, 他线 WIP 零接触。
+

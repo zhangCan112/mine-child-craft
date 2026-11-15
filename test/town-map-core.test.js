@@ -111,14 +111,16 @@ test('分区: 六带齐备 · 方位语义(北远景/北田园/中广场/东商�
 
 /* ============ ④ Prefab 实例清单·映射(prefab-specs §3) ============ */
 
-test('实例映射: P0/P1 全入=七新行+under-room 复用 · board-pool(PO 推迟)不列', () => {
+test('实例映射: P0/P1 全入+under-room 复用 · 波次二五件转正(board-pool 解禁落位)', () => {
   const c = loadCore();
   const ps = c.TOWN_MAP.prefab;
   const ids = [...new Set(ps.map((p) => p.id))].sort();
-  assert.deepStrictEqual(ids, ['cottage-gable', 'house-loft', 'shop-awning', 'stall-canopy',
-    'stash-hut', 'tower-belfry', 'under-room', 'windmill-tower'],
-  '实例 id 恰八种: T-PREFAB-01..07 七新行 + under-room(cache-cellar 复用)');
-  assert.ok(!ids.includes('board-pool'), 'board-pool 按 PO 2026-11-13 裁决推迟, 不虚构实例');
+  assert.deepStrictEqual(ids, ['board-pool', 'clothesline', 'cottage-gable',
+    'hencoop', 'house-loft', 'scarecrow', 'shop-awning', 'stall-canopy',
+    'stash-hut', 'tower-belfry', 'under-room', 'windmill-tower', 'woodpile'],
+  '实例 id 恰十三种: 七新行 + under-room(复用) + 波次二五件(TIDEA-04/08/10)');
+  assert.strictEqual(ps.filter((p) => p.id === 'board-pool').length, 1,
+      'board-pool 波次二转正落位(scene-plan-tidea2 problems=0, 动骨架-轻)');
   assert.ok(!ids.includes('mound'), 'hill-mound 属条件复用件(近景小丘语义时), 本布局不落');
   const stalls = ps.filter((p) => p.id === 'stall-canopy');
   assert.strictEqual(stalls.length, 6, '摊位 3→6(视觉重制 §3 A: 广场 4+主路口 2)');
@@ -171,6 +173,13 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
        漂移登记 arch 回执) */
     'stall-canopy': {min: 2, max: 4, y: [4, 5]},
     'under-room': {min: 3, max: 12, y: null}, /* 埋室形状随 v(半宽/出路), 只验界内 */
+    /* 波次二五件(TIDEA-04/08/10, footOf 实测: 稻草人 3×1×3/晾衣绳 5×1×3/
+       柴堆 3×1×2/鸡窝 2×2×3/跳板池 4×10~5×13 高 7 旗顶) */
+    'scarecrow': {min: 1, max: 3, y: [3, 3]},
+    'clothesline': {min: 1, max: 5, y: [3, 3]},
+    'woodpile': {min: 1, max: 3, y: [2, 2]},
+    'hencoop': {min: 2, max: 2, y: [3, 3]},
+    'board-pool': {min: 4, max: 13, y: [7, 7]},
   };
   for (const p of t.prefab) {
     const v = Object.assign({}, p.v, {face: p.face}); /* face 并入 v = 装配形 */
@@ -253,11 +262,15 @@ test('路网: 主路 4-5/支路 2-3 · 放射贴广场 · 段间连通 · 不压
   }
   const boxes = t.prefab.map((p) => ({p, b: c.PrefabKit.footOf(p.id, p.x, p.y, p.z,
       Object.assign({}, p.v, {face: p.face}))}));
+    /* 陈设件豁免(波次二): scarecrow/clothesline/woodpile/hencoop/board-pool
+       是贴建筑/田内/彩蛋带的叙事物, 可达性由所属建筑与既有路网承担,
+       「门前可达」仅辖独立建筑 */
+  const PROPS = ['scarecrow', 'clothesline', 'woodpile', 'hencoop', 'board-pool'];
   for (const {p, b} of boxes) {
     for (const r of t.roads) {
       assert.ok(!overlapXZ(b, r), '道路不压建筑: ' + r.id + ' × ' + p.id);
     }
-    if (p.zone !== 'hub') {/* 广场内建筑(塔/摊)立于铺装上, 可达性由广场承担 */
+    if (p.zone !== 'hub' && !PROPS.includes(p.id)) {/* 广场内建筑(塔/摊)立于铺装上, 可达性由广场承担 */
       const near = Math.min(...t.roads.map((r) => gapXZ(b, r)));
       assert.ok(near <= 4, p.id + ' 门前可达(距最近路段 ≤4 格)');
     }
@@ -397,12 +410,13 @@ test('远景: 拱形山体必做横贯 · 崖屋 1-2 栋 · 神庙默认不落 �
 test('散布: 十类词表 · 广场樱花必备 · 不落建筑与路面 · 密度分档(实体带宽+地被下限)', () => {
   const c = loadCore();
   const t = c.TOWN_MAP;
-  /* 视觉重制 §3 E(v2): kind 域扩十类(原四类+散布草丛/花/旗/花坛/木桶/南瓜) */
+  /* 视觉重制 §3 E(v2): kind 域扩十类(原四类+散布草丛/花/旗/花坛/木桶/南瓜)
+     · 波次二(W-03): +立面三笔 wallflag/windowbox/crates(挂墙格位陈设) */
   const kinds = ['sakura', 'scrub', 'lamp', 'signpost', 'tuft', 'flower',
-    'flag', 'flowerbed', 'barrel', 'pumpkin'];
+    'flag', 'flowerbed', 'barrel', 'pumpkin', 'wallflag', 'windowbox', 'crates'];
   const groundCover = ['tuft', 'flower']; /* 地被类: 全域密度档+最严避让 */
   const furniture = ['flag', 'flowerbed', 'barrel', 'pumpkin']; /* 家具类: 显式点 */
-  assert.ok(t.scatter.every((s) => kinds.includes(s.kind)), '散布 kind ⊆ 十类');
+  assert.ok(t.scatter.every((s) => kinds.includes(s.kind)), '散布 kind ⊆ 十三类');
   for (const k of kinds) {
     assert.ok(t.scatter.some((s) => s.kind === k), '「' + k + '」类有落点');
   }
@@ -410,8 +424,6 @@ test('散布: 十类词表 · 广场樱花必备 · 不落建筑与路面 · 密
      「每 8×8/16×16 一件档」全域枚举, 数量级另立——实体类保带宽断言,
      地被类保密度下限(过滤后存量), 两档不相乘不混算) */
   const solid = t.scatter.filter((s) => !groundCover.includes(s.kind));
-  assert.ok(solid.length >= 6 && solid.length <= 40,
-      '实体类(非地被)散布总数 6-40(氛围密度带宽)');
   const tufts = t.scatter.filter((s) => s.kind === 'tuft');
   const flowers = t.scatter.filter((s) => s.kind === 'flower');
   assert.ok(tufts.length >= 100,
@@ -419,6 +431,9 @@ test('散布: 十类词表 · 广场樱花必备 · 不落建筑与路面 · 密
   assert.ok(flowers.length >= 20,
       '花 ≥20 件(每 16×16 块 1 件档, 实得 ' + flowers.length + ')');
   assert.ok(t.scatter.length <= 220, '散布总数 ≤220(性能守门, 实得 ' + t.scatter.length + ')');
+  /* 波次二 +4 立面件: 实体类带宽 40→44(v2 拍板 40 恰满额) */
+  assert.ok(solid.length >= 6 && solid.length <= 44,
+      '实体类(非地被)散布总数 6-44(氛围密度带宽)');
   assert.ok(t.scatter.some((s) => s.kind === 'sakura' && s.x >= t.plaza.x1 && s.x <= t.plaza.x2 &&
       s.z >= t.plaza.z1 && s.z <= t.plaza.z2), '广场核心樱花 ≥1 棵(prefab-specs §5.1 必备)');
   /* 视觉重制 §3 A 氛围层密度拍板: 灯柱 2→10(广场环+主路沿线)、广场
@@ -511,13 +526,18 @@ test('散布: 十类词表 · 广场樱花必备 · 不落建筑与路面 · 密
   for (const row of c.TOWN_NPC_ANCHORS) for (const w of row.waypoints) npcPts.push(w);
   const cheb = (ax, az, bx, bz) => Math.max(Math.abs(ax - bx), Math.abs(az - bz));
   const seenXZ = new Set();
+  /* 立面三笔豁免(波次二 W-03): wallflag/windowbox/crates 是挂墙格位
+       陈设(覆写墙块, 后写者赢), 有意落在建筑盒缘行=「挂墙」语义本身 */
+  const FACADE = ['wallflag', 'windowbox', 'crates'];
   for (const s of t.scatter) {
     assert.strictEqual(s.y, t.core.groundY, '散布点 y=地面基高(' + s.id + ')');
     assert.ok(s.x >= t.core.x1 && s.x <= t.core.x2 && s.z >= t.core.z1 && s.z <= t.core.z2,
         '散布点 ⊆ 核心区(' + s.id + ')');
-    for (const b of boxes) {
-      assert.ok(!(s.x >= b.x1 && s.x <= b.x2 && s.z >= b.z1 && s.z <= b.z2),
-          '散布不落建筑脚印(' + s.id + ' × ' + b.x1 + '~' + b.x2 + '/' + b.z1 + '~' + b.z2 + ')');
+    if (!FACADE.includes(s.kind)) {
+      for (const b of boxes) {
+        assert.ok(!(s.x >= b.x1 && s.x <= b.x2 && s.z >= b.z1 && s.z <= b.z2),
+            '散布不落建筑脚印(' + s.id + ' × ' + b.x1 + '~' + b.x2 + '/' + b.z1 + '~' + b.z2 + ')');
+      }
     }
     for (const r of t.roads) {
       assert.ok(!(s.x >= r.x1 && s.x <= r.x2 && s.z >= r.z1 && s.z <= r.z2),
@@ -711,6 +731,150 @@ test('TIDEA 波次一: 瀑布域·南门回程件·镇徽花带·stash 记号·�
 
 /* ============ ⑫ townBuildSteps 确定性(架构 §4.2/§5.1.6 建场序) ============ */
 
+/* ============ ⑫ TIDEA 波次二: 四组落位契约(scene-plan-tidea2 同式复算) ============ */
+
+test('TIDEA 波次二: 丰收角稻草人·人家两件·鸡店鸡窝·南带跳板池·素墙立面三笔(落位契约+变体钳)', () => {
+  const c = loadCore();
+  const t = c.TOWN_MAP;
+  const npcs = c.TOWN_NPC_ANCHORS.flatMap((r) => r.waypoints);
+  /* G01 环线全格点(轴对齐段离散, 与 npc 表同源) */
+  const pts = npcs.slice();
+  for (const row of c.TOWN_NPC_ANCHORS.filter((r) => r.waypoints.length > 1)) {
+    const w = row.waypoints;
+    for (let i = 0; i < w.length; i++) {
+      const a = w[i]; const b = w[(i + 1) % w.length];
+      const steps = Math.max(Math.abs(b.x - a.x), Math.abs(b.z - a.z));
+      for (let s = 0; s <= steps; s++) {
+        pts.push({x: a.x + Math.sign(b.x - a.x) * Math.min(s, Math.abs(b.x - a.x)),
+          z: a.z + Math.sign(b.z - a.z) * Math.min(s, Math.abs(b.z - a.z))});
+      }
+    }
+  }
+  const cheb = (x, z, p) => Math.max(Math.abs(x - p.x), Math.abs(z - p.z));
+  const fb = (p) => c.PrefabKit.footOf(p.id, p.x, p.y, p.z,
+      Object.assign({}, p.v, {face: p.face}));
+  const boxEdgeCheb = (b, p) => {
+    let best = Infinity;
+    for (let x = b.x1; x <= b.x2; x++) {
+      for (let z = b.z1; z <= b.z2; z++) best = Math.min(best, cheb(x, z, p));
+    }
+    return best;
+  };
+  const sc = t.prefab.find((p) => p.id === 'scarecrow');
+  const cl = t.prefab.find((p) => p.id === 'clothesline');
+  const wp = t.prefab.find((p) => p.id === 'woodpile');
+  const hc = t.prefab.find((p) => p.id === 'hencoop');
+  const bp = t.prefab.find((p) => p.id === 'board-pool');
+  assert.ok(sc && cl && wp && hc && bp, '波次二五件全在册');
+  /* ① scarecrow ⊆ harvest 丰收角域+面南(金黄高潮区构图互证) */
+  const farmA = t.ground.find((g) => g.id === 'farm-a');
+  const scb = fb(sc);
+  assert.ok(scb.x1 >= farmA.harvest.x1 && scb.x2 <= farmA.harvest.x2 &&
+      scb.z1 >= farmA.harvest.z1 && scb.z2 <= farmA.harvest.z2,
+  'scarecrow 足印 ⊆ harvest 丰收角域(立麦中)');
+  assert.strictEqual(sc.face, 'south', 'scarecrow 面南(朝 farm-a 南缘来客)');
+  /* ② clothesline 贴 cottage 南墙门前(衣格投影 ⊆ 墙段)/woodpile 贴 loft
+     北墙门前; 各距 npc 切比 ≥2 */
+  const cot = c.PrefabKit.footOf('cottage-gable', 44, 24, 71,
+      {face: 'south'});
+  const clb = fb(cl);
+  assert.strictEqual(clb.z1, cot.z2 + 1, 'clothesline 贴 cottage 南墙门前第一行');
+  assert.ok(clb.x1 + 1 >= cot.x1 && clb.x2 - 1 <= cot.x2,
+      'clothesline 衣格 ⊆ 门脸墙段投影(端桩出段避 a02)');
+  const loft = c.PrefabKit.footOf('house-loft', 42, 24, 85, {face: 'north'});
+  const wpb = fb(wp);
+  assert.strictEqual(wpb.z1, loft.z1 - 1, 'woodpile 贴 loft 北墙门前第一行');
+  const flowerLoft = t.scatter.find((s) => s.id === 'flowerbed-loft');
+  const pumpkin = t.scatter.find((s) => s.id === 'pumpkin-cottage');
+  for (let x = clb.x1; x <= clb.x2; x++) {
+    assert.ok(!(x === pumpkin.x && clb.z1 === pumpkin.z), 'clothesline 不压 pumpkin 格');
+  }
+  for (let x = wpb.x1; x <= wpb.x2; x++) {
+    assert.ok(!(x === flowerLoft.x && wpb.z1 === flowerLoft.z), 'woodpile 不压花坛格');
+  }
+  /* ③ hencoop 贴 shop-awning 西墙线+纵向落店脸段(v07/锚切比 ≥2) */
+  const shop = c.PrefabKit.footOf('shop-awning', 110, 24, 79, {face: 'west'});
+  const hcb = fb(hc);
+  assert.strictEqual(hcb.x2, shop.x1 - 1, 'hencoop 紧贴鸡店西墙线(贴店)');
+  assert.ok(hcb.z1 >= shop.z1 && hcb.z2 <= shop.z2, 'hencoop 纵向落店脸段内');
+  const v07 = pts.find((p) => p.x === 103 && p.z === 79);
+  assert.ok(v07 && boxEdgeCheb(hcb, v07) >= 2, 'hencoop 距 v07 站位切比 ≥2');
+  assert.strictEqual(hc.face, 'west', 'hencoop 面西(鸡迎广场来客)');
+  /* ④ board-pool 南彩蛋带+回程线北+板爬升几何(变体钳) */
+  const bpb = fb(bp);
+  assert.ok(bpb.z1 >= 94 && bpb.z2 <= 127, 'board-pool 落镇南彩蛋带 z94..127');
+  assert.ok(bpb.z2 < 132, 'board-pool 在回程触发线 z≥132 以北');
+  assert.ok(bpb.x2 < 78 || bpb.x1 > 80, 'board-pool 在回望走廊 x78..80 外');
+  assert.strictEqual(bp.v.boardLen, 6, 'board-pool 缺省档 len 6(实拍自裁前的初档)');
+  assert.strictEqual(bp.v.poolSize, 2, 'board-pool 缺省档池径 2');
+  /* 变体钳: len 6/8 dy 序(P2-01 契约, 顶恒 dy4) */
+  const dys6 = []; const dys8 = [];
+  for (let i = 0; i < 6; i++) dys6.push(Math.round(i * 4 / 5));
+  for (let i = 0; i < 8; i++) dys8.push(Math.round(i * 4 / 7));
+  assert.deepStrictEqual(dys6, [0, 1, 2, 2, 3, 4], 'len6 dy 序=中段平台读感');
+  assert.deepStrictEqual(dys8, [0, 1, 1, 2, 2, 3, 3, 4], 'len8 dy 序=匀梯读感');
+  const b8 = c.PrefabKit.footOf('board-pool', bp.x, bp.y, bp.z,
+      Object.assign({}, bp.v, {face: bp.face, boardLen: 8, poolSize: 3}));
+  assert.strictEqual(b8.x2 - b8.x1 + 1, 5, 'len8/池3 档盒宽 5(rot1 宽轴=池径+2)');
+  assert.strictEqual(b8.z2 - b8.z1 + 1, 13, 'len8/池3 档盒深 13(P2-01 契约上限)');
+  /* ④' 立面三笔: 墙段内+互不重格+间隔(W-03 素墙活化) */
+  const wf = t.scatter.find((s) => s.id === 'wallflag-loft');
+  const wbW = t.scatter.find((s) => s.id === 'windowbox-loft-w');
+  const wbE = t.scatter.find((s) => s.id === 'windowbox-loft-e');
+  const cr = t.scatter.find((s) => s.id === 'crates-loft');
+  assert.ok(wf && wbW && wbE && cr, '立面三笔四条目全在册');
+  const wallXs = [38, 39, 40, 41, 42, 43, 44, 45, 46, 47];
+  for (const f of [wf, wbW, wbE, cr]) {
+    assert.strictEqual(f.z, loft.z1, '立面件 ' + f.id + ' 落 loft 北墙线 z82');
+    const span = f.kind === 'wallflag' ? 1 : 2;
+    for (let dx = 0; dx < span; dx++) {
+      assert.ok(wallXs.includes(f.x + dx), '立面件 ' + f.id + ' 格 x' + (f.x + dx) + ' ⊆ 墙段');
+    }
+  }
+  const cells = new Set();
+  for (const f of [wf, wbW, wbE, cr]) {
+    const span = f.kind === 'wallflag' ? 1 : 2;
+    for (let dx = 0; dx < span; dx++) {
+      const k = (f.x + dx) + ',' + f.z;
+      assert.ok(!cells.has(k), '立面格不重复 ' + k);
+      cells.add(k);
+    }
+  }
+  assert.ok(wbE.x - (wbW.x + 1) >= 2, 'windowbox 两扇间隔 ≥2');
+  assert.strictEqual(wf.v.len, 4, 'wallflag len 4(钳域 2..6 缺省档)');
+  /* 通用复算: 五件+立面四件 距全部 npc/锚切比 ≥2 */
+  const newPrefabs = [[sc, scb], [cl, clb], [wp, wpb], [hc, hcb], [bp, bpb]];
+  for (const [p, b] of newPrefabs) {
+    for (const n of pts) {
+      assert.ok(boxEdgeCheb(b, n) >= 2, p.id + ' 距 npc 站位/巡逻格切比 ≥2');
+    }
+    for (const a of t.anchors) {
+      assert.ok(boxEdgeCheb(b, a) >= 2, p.id + ' 距导览锚切比 ≥2');
+    }
+  }
+  for (const f of [wf, wbW, wbE, cr]) {
+    const span = f.kind === 'wallflag' ? 1 : 2;
+    for (let dx = 0; dx < span; dx++) {
+      for (const n of pts) {
+        assert.ok(cheb(f.x + dx, f.z, n) >= 2,
+            f.id + ' 距 npc 站位/巡逻格切比 ≥2');
+      }
+      for (const a of t.anchors) {
+        assert.ok(cheb(f.x + dx, f.z, a) >= 2, f.id + ' 距导览锚切比 ≥2');
+      }
+    }
+  }
+  /* 脚印两两无交: 新五件 vs 既有全部 */
+  for (const p of t.prefab) {
+    if (p === sc || p === cl || p === wp || p === hc || p === bp) continue;
+    const ob = fb(p);
+    for (const [, b] of newPrefabs) {
+      const hit = ob.x1 <= b.x2 && b.x1 <= ob.x2 && ob.z1 <= b.z2 && b.z1 <= ob.z2;
+      assert.ok(!hit, '既有 ' + p.id + ' × 新件脚印无交(动骨架-轻)');
+    }
+  }
+});
+
 test('buildSteps: phase 全序=地表→远景→路网→建筑→散布→锚点 · 与源清单一一对应 · 确定性', () => {
   const c = loadCore();
   const t = c.TOWN_MAP;
@@ -741,7 +905,8 @@ test('源文本守门: 零渲染库·零 DOM·零墙钟·零随机(确定性红�
   const src = fs.readFileSync(path.join(ROOT, 'js', 'town-map-core.js'), 'utf8');
   assert.ok(/^['"]use strict['"];/.test(src), '"use strict"; 首行');
   assert.ok(!src.includes('THREE'), '零三维渲染库(纯数据计划模块)');
-  assert.ok(!src.includes('document') && !src.includes('window'), '零 DOM');
+  assert.ok(!/\bwindow\b/.test(src) && !src.includes('document'),
+      '零 DOM(\\bwindow\\b 词边界: 不误伤 wallflag/windowbox 数据 kind 名)');
   assert.ok(!src.includes('Math.random'), '零随机源(同参同输出)');
   for (const banned of ['Date.now', 'new Date', 'performance.now']) {
     assert.ok(!src.includes(banned), '零墙钟(' + banned + ')');
