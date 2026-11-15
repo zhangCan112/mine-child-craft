@@ -405,6 +405,21 @@ test('craft 面板: 缺料→卡片 dim+chip lack(have/need), 补料刷新恢复
   panel.remove();
 });
 
+/* ============ 滑翔翼 T-G01 评审 R1: 配方卡常显守门 — 不进 KIT_HIDDEN_RECIPES ============ */
+
+test('滑翔翼配方卡常显(T-G01 R1 守门): KIT_HIDDEN_RECIPES 不含 glider(glider-spec §3.2 拍板公开)', () => {
+  /* 清单是 mode-kit 顶层 const(浏览器共享词法名, vm/模块作用域取不到) → 从源码
+     文本正则提取真值(showroom-mode.test.js:356 同法); 严禁改 js/mode-kit.js 本体(T-G03 票面) */
+  const mkSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'mode-kit.js'), 'utf8');
+  const m = mkSrc.match(/const KIT_HIDDEN_RECIPES = (\[[^\]]*\]);/);
+  assert.ok(m, 'KIT_HIDDEN_RECIPES 字面量可解析(源码扫描前提)');
+  const list = JSON.parse(m[1].replace(/'/g, '"'));
+  assert.ok(Array.isArray(list) && list.length > 0, '隐藏清单非空(基线 4 条彩蛋在册)');
+  assert.ok(!list.includes('glider'),
+      'glider 不进隐藏清单: 隐藏配方不参与摆放匹配(mode-kit visibleRecipes 过滤), ' +
+      '藏了孩子摆对材料也合不出; 公开=任务 q27 卡与合成卡天然对齐(glider-spec §3.2 裁定)');
+});
+
 /* ============ 2026-11 卡序排序(刚做过→可制造→缺料) + 卡片 DOM 复用 ============ */
 
 test('craft 面板: 卡序=可制造在前缺料在后(同档稳定=原配方序)', () => {

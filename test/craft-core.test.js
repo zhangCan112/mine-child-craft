@@ -1014,7 +1014,7 @@ test('滑翔翼摆放: 正摆与镜像皆中(左右对称, 6 岁怎么摆都不�
 
 test('滑翔翼合成执行: canCraft 站点门禁+缺料清单 · gridCraft 端到端产 glider 满耐久入包', () => {
   const h = loadCraft();
-  const {RECIPES, canCraft, gridCraft} = h;
+  const {RECIPES, canCraft, gridCraft, fillGrid} = h;
   const r = RECIPES.find((x) => x.id === 'glider');
   assert.ok(r, 'glider 配方应存在');
   // 材料齐但没走近工作台: missing 单条 station(table 级门禁, §3.2 验收)
@@ -1039,4 +1039,15 @@ test('滑翔翼合成执行: canCraft 站点门禁+缺料清单 · gridCraft 端
   const made = inv.slots.find((s) => s && s.id === 'glider');
   assert.ok(made, 'glider 入包');
   assert.strictEqual(made.dur, 1, '产物满耐久 dur=1(ITEMS.glider dur 单一权威)');
+  /* 材料扣减正确(评审 R1 补, spec §3.2 验收): fillGrid 从背包备料入格 →
+     gridCraft 每占用格扣 1 → 背包材料三键清零, 只剩产物 */
+  const inv2 = invWith(h, [['gold_ingot', 4], ['string', 2], ['leather', 2]]);
+  const cells2 = new Array(9).fill(null);
+  const f = fillGrid(inv2, r, cells2);
+  assert.deepStrictEqual([...f.missing], [], '一键备料无缺料(材料恰好 4+2+2)');
+  assert.strictEqual(gridCraft(cells2, inv2, true).ok, true, '备料后合成 ok');
+  assert.strictEqual(h.count(inv2, 'gold_ingot'), 0, '金锭 4/4 扣尽(材料扣减正确)');
+  assert.strictEqual(h.count(inv2, 'string'), 0, '线 2/2 扣尽');
+  assert.strictEqual(h.count(inv2, 'leather'), 0, '皮革 2/2 扣尽');
+  assert.strictEqual(h.count(inv2, 'glider'), 1, '背包只剩产物 glider×1');
 });
