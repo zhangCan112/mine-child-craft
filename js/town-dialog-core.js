@@ -9,7 +9,9 @@
    interface: DIALOG_STATES(冻结九态) · DIALOG_INTENTS(冻结意图词表)
       · DIALOG_TRANSITIONS(冻结转移表, 数组值=多值边) · DIALOG_OPTS
       (冻结参数表 B1-B8+N 系) · TTS_PRIORITIES(冻结五级优先级) ·
-      DIALOG_EVENTS(事件名常量) · mkDialogMachine({emit}) →
+      DIALOG_EVENTS(事件名常量) · ROUTE_BY_KIND(route 分路映射
+      sessionKind→目标态, 映射本体单份在此; T-NPC-11 起随 CJS 导出
+      面双栖可见: 浏览器共享词法/CJS 同源一份) · mkDialogMachine({emit}) →
       {handle, state, snapshot}(非法意图零惩罚拒绝 {changed:false}) ·
       dialogBadgesAfter(before, badge) 纯函数(尾追加, badgesMax 封顶
       丢新不顶替, 入参零突变) · ttsPlanFor(utter, queue, arb) 纯函数
@@ -109,9 +111,11 @@ const DIALOG_TRANSITIONS = Object.freeze({
   complete: Object.freeze({'end': 'idle', 'continue-explore': 'idle'}),
 });
 
-/* ---------- 内部映射(私有, 不导出) ---------- */
+/* ---------- 内部映射(ROUTE_BY_KIND 经 CJS 导出面双栖可见, 其余私有) ---------- */
 /* route 分路: sessionKind→目标态; intent 词(guide=tour/seek=find/
-   help=give, dialog-spec §2.2 矩阵) */
+   help=give, dialog-spec §2.2 矩阵)。ROUTE_BY_KIND 映射本体单份在
+   core(T-NPC-11 起 CJS 导出面可见: 浏览器共享词法环境一直可见,
+   适配层驱动缝的在册判据经此单份消费, 不誊第二份 kind 清单) */
 const ROUTE_BY_KIND = {tour: 'guide', seek: 'seek', help: 'help'};
 const ROUTE_INTENT = {guide: 'tour', seek: 'find', help: 'give'};
 /* 等待玩家选择的态(greet 的等待语义=面板选项, 不在此列) */
@@ -390,7 +394,7 @@ function mkDialogMachine(opts) {
    Node 沙盒经此解析 core; 浏览器经 <script> 走共享词法环境不走此面) ---------- */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {DIALOG_STATES, DIALOG_INTENTS, DIALOG_TRANSITIONS,
-    DIALOG_OPTS, TTS_PRIORITIES, DIALOG_EVENTS, mkDialogMachine,
-    dialogBadgesAfter, ttsPlanFor, hudConvergenceFor, dialogViewFor,
-    dialogUtterFor};
+    DIALOG_OPTS, TTS_PRIORITIES, DIALOG_EVENTS, ROUTE_BY_KIND,
+    mkDialogMachine, dialogBadgesAfter, ttsPlanFor, hudConvergenceFor,
+    dialogViewFor, dialogUtterFor};
 }

@@ -64,8 +64,8 @@ const TOWN_UI_CORE = typeof townHudCardState === 'function' ?
 /* 会话核心解析(T-UI-04): 同款双栖。core 缺席(装载序破坏)→null: 会话
     驱动缝全旁路(点选保持纯 A 侧结算), 不炸加载 */
 const DIALOG_CORE = typeof mkDialogMachine === 'function' ?
-  {DIALOG_EVENTS, DIALOG_OPTS, mkDialogMachine, dialogViewFor,
-    dialogUtterFor} :
+  {DIALOG_EVENTS, DIALOG_OPTS, ROUTE_BY_KIND, mkDialogMachine,
+    dialogViewFor, dialogUtterFor} :
   (typeof module !== 'undefined' && module.exports ?
     require('./town-dialog-core.js') : null);
 
@@ -664,7 +664,15 @@ function mkTownUi(deps) {
         iconKey: entry.iconKey, sessionKind: entry.sessionKind,
         taskRef: entry.taskRef || null, targetIconId: entry.iconKey};
       dlg.handle({type: 'click-npc', payload: {entry}});
-      dlg.handle({type: 'route'}); /* 任务会话点选即接(自动 route) */
+      /* route 派发在册判据(T-NPC-11): 只认 DIALOG_CORE.ROUTE_BY_KIND
+         在册键(任务会话点选即接); greet/care 轻问候豁免零派发——
+         会话停 greet 态, 走 [挥手再见]/[稍后] 出口。判据单份=core
+         的 ROUTE_BY_KIND(双栖解析同源), 零第二份 kind 清单 */
+      if (DIALOG_CORE.ROUTE_BY_KIND &&
+          Object.prototype.hasOwnProperty.call(
+              DIALOG_CORE.ROUTE_BY_KIND, entry.sessionKind)) {
+        dlg.handle({type: 'route'}); /* 自动 route */
+      }
     } else if (entry.id === snap.npcId && snap.hasPendingChoice) {
       dlg.handle({type: 'target-found', payload: {targetId: entry.id}});
     }
@@ -819,9 +827,17 @@ function mkTownUi(deps) {
     if (dlgSentence) speech.speak(dlgSentence);
   }
 
-  /* 会话步进播报(B4 每步自动一次; greet 瞬态不播=矩阵 greet 行) */
+  /* 会话步进播报(B4 每步自动一次): greet 瞬态(在册键将至 route)不播
+     =矩阵 greet 行照旧; greet/care 豁免键驻留 greet 态播问候句
+     (§2.2 矩阵 greet 行自动一次, T-NPC-11 轻问候路径)。判据同源
+     DIALOG_CORE.ROUTE_BY_KIND: 在册=瞬态(零双播), 不在册=驻留(播) */
   function speakDlgStep(step) {
-    if (step === 'greet') return;
+    if (step === 'greet') {
+      const kind = dlgCtx ? dlgCtx.sessionKind : null;
+      if (!DIALOG_CORE.ROUTE_BY_KIND ||
+          Object.prototype.hasOwnProperty.call(
+              DIALOG_CORE.ROUTE_BY_KIND, kind)) return;
+    }
     const line = DIALOG_CORE.dialogUtterFor(step, dlgCtx || {});
     if (!line) return;
     speech.cancel();

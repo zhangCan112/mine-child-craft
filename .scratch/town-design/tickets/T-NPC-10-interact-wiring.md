@@ -68,6 +68,8 @@ NPC 实体进入交互协议：交互机宿主按 ADR 落位，`TOWN_INTERACTS` 
 
 dialog-core route 缺省分路（`ROUTE_BY_KIND` 对 greet/care 兜底 'guide'）**核毕无需改**：① 条目协议恰六键无 payload 维度，分路裁决权不在条目数据层；② 兜底仅对显式派发的 route 事件生效，greet 态自有 `end:'idle'` 边即 dialog-spec §5.3 场景 4/5（轻问候/铁傀儡关怀：单步呈现+表情反馈、可无 Complete 任务语义）的协议内路径，两场景呈现列均无流分派选项；③ route 目标域冻结三值（guide/seek/help）无问候目标，「补 greet/care 映射」在现协议下不可表达，改目标域即动 T-NPC-11 冻结面。约束落发起侧：greet/care 会话不得派发 route 边（归 dialog 装配面口径，T-NPC-11/后续装配票承接）。
 
+**2026-11-15 失实修正（T-NPC-11 接缝票，双票对称）**：上段 dialog-core 侧论证（①②③）成立，但其引申的装配面安全前提已被实测证伪——town-ui.js 驱动缝（:667）对一切带 sessionKind 条目**无条件**派发 route，greet/care npc 条目（5/11：greet×4+care×1）实际误落 guide 兜底，并非「不发 route」。三段式修正+五值行为矩阵+修复（525b19d 红/7231bd2 绿，在册键派发条件化）见 T-NPC-11 票面 §7.5 第 7 条；本条「greet/care 不得派发 route」约束经其守门矩阵测试执法落地。
+
 ### 6.6 commit 谱系（分支 t-npc-10-wiring）
 
 `76cec93` 红测试先行（五面 13 红）→ `b9800bd` 绿方施工一（10 处转绿）→ `34036c8` 红方裁决修（iconKey 定稿对齐+四裁决项+lint 清零）→ `d52aea8` 绿方定稿落地（数据行+消名）→ `f6762fb` town-ui care 行（单独 commit）。tip `f6762fb`，树净。
