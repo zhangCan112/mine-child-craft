@@ -95,7 +95,8 @@ function makeFacings(c) {
       const a = t.anchors.find((r) => r.id === id);
       return cheb(x, z, a.x, a.z);
     },
-    gapAnchorMin(x, z) { /* 导览锚=非 npc: 行(升格后布局权威含站位锚, 自身不入避让比对) */
+    /* 导览锚=非 npc: 行(升格后布局权威含站位锚, 自身不入避让比对) */
+    gapAnchorMin(x, z) {
       return Math.min(...t.anchors.filter((a) => !String(a.id).startsWith('npc:'))
           .map((a) => cheb(x, z, a.x, a.z)));
     },
@@ -157,7 +158,8 @@ test('门面: TOWN_NPC_ANCHORS 14 行数据权威 + anchorOf 纯函数出口', (
   assert.strictEqual(typeof c.anchorOf, 'function', 'anchorOf 是函数(取数器出口)');
 });
 
-test('架构裁决(升格后): 14 行站位锚并入 TOWN_MAP.anchors 成布局权威 — 21 锚 · 导览七锚零漂移 · 布局行与 anchorOf 对账(波次一「独立成件」口径随 T-NPC-10 升格翻转)', () => {
+test('架构裁决(升格后): 14 行站位锚并入 TOWN_MAP.anchors 成布局权威 — 21 锚 · 导览七锚零漂移 · ' +
+    '布局行与 anchorOf 对账(波次一「独立成件」口径随 T-NPC-10 升格翻转)', () => {
   const c = loadCore();
   const t = c.TOWN_MAP;
   assert.strictEqual(t.anchors.length, 21,

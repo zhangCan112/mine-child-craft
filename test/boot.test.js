@@ -276,7 +276,7 @@ test('竞技场 FX 收口: 残留龙息弹/毒云在重开(startBattle→resetBa
 test('T-NPC-10 挂载覆盖: boot 冒烟扫到镇民链 17 文件 · 链上符号在位 · look 全注册 · 真实装载序下注册快照 20 条', () => {
   const ctx = boot();
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
-  const srcs = [...html.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g)].map((m) => m[1]);
+  const srcs = [...html.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g)].map((m) => m[1].replace(/^js\//, ''));
   const townFiles = ['mob-look/town_a01.js', 'mob-look/town_a02.js', 'mob-look/town_a03.js',
     'mob-look/town_g01.js', 'mob-look/town_v01.js', 'mob-look/town_v02.js',
     'mob-look/town_v03.js', 'mob-look/town_v04.js', 'mob-look/town_v05.js',

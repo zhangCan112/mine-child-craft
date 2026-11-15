@@ -80,8 +80,6 @@ function bridge() {
 /* ---------- 独立真源(票面/布局权威现状字面, 非派生) ---------- */
 const NPC_IDS = ['npc:v01', 'npc:v02', 'npc:v03', 'npc:v04', 'npc:v05',
   'npc:v06', 'npc:v07', 'npc:v08', 'npc:v09', 'npc:v10', 'npc:g01'];
-const GUIDE_IDS = ['spawn', 'bell-tower', 'lava-chicken', 'stash', 'windmill',
-  'farm', 'market'];
 const EXISTING_IDS = ['bell-tower', 'lava-chicken', 'windmill', 'farm',
   'market', 'stash', 'task:tour-plaza', 'task:find-bread', 'task:visit-stash'];
 const SESSION_DOMAIN = ['greet', 'tour', 'seek', 'help', 'care'];
@@ -135,7 +133,8 @@ test('T-NPC-10 升格零漂移: 既有七导览锚逐字不动 — id/坐标/朝
 
 /* ============ ② TOWN_INTERACTS +11 条 npc 条目(票面 §1/§3) ============ */
 
-test('T-NPC-10 条目入册: TOWN_INTERACTS 追加 11 条 npc 条目 — 恰六键冻结形状 · kind/sessionKind/iconKey 域 · 追加在册尾(V01..V10+G01)', () => {
+test('T-NPC-10 条目入册: TOWN_INTERACTS 追加 11 条 npc 条目 — 恰六键冻结形状 · ' +
+    'kind/sessionKind/iconKey 域 · 追加在册尾(V01..V10+G01)', () => {
   const c = bridge();
   const list = c.TOWN_INTERACTS;
   assert.strictEqual(list.length, 20, '九条既有 + 11 条 npc = 20 条(现状 ' +
@@ -151,16 +150,18 @@ test('T-NPC-10 条目入册: TOWN_INTERACTS 追加 11 条 npc 条目 — 恰六�
         ['anchorId', 'iconKey', 'id', 'kind', 'label', 'sessionKind'],
         '条目「' + e.id + '」恰六键冻结形状(票面 §3, 不多不少)');
     assert.strictEqual(e.id, e.anchorId, '条目「' + e.id + '」id 恒等 anchorId(目标 id 继承锚 id 空间)');
-    assert.strictEqual(e.iconKey, 'facePixels',
-        '条目「' + e.id + '」iconKey=候选 A 占位 facePixels(注册表 faceSrc 已预留; 待 design 定稿复核)');
+    assert.strictEqual(e.iconKey, e.id === 'npc:g01' ? 'care' : 'help',
+        '条目「' + e.id + '」iconKey=2026-11-15 定稿(§三: 村民统一 help=💬, G01 care=💗)');
   }
 });
 
-test('T-NPC-10 条目过注册校验: townInteractRegistry 全 20 条快照 — npc 条目带 sessionKind 五值 · anchorId 在册 · anchor 坐标单源 == anchorOf 站位', () => {
+test('T-NPC-10 条目过注册校验: townInteractRegistry 全 20 条快照 — npc 条目带 sessionKind 五值 · ' +
+    'anchorId 在册 · anchor 坐标单源 == anchorOf 站位', () => {
   const c = bridge();
   let reg;
-  assert.doesNotThrow(() => { reg = c.townInteractRegistry(); },
-      '全清单构造即抛=注册校验不过(kind/sessionKind/anchorId 在册三重)');
+  assert.doesNotThrow(() => {
+    reg = c.townInteractRegistry();
+  }, '全清单构造即抛=注册校验不过(kind/sessionKind/anchorId 在册三重)');
   assert.strictEqual(reg.length, 20, '快照 20 条');
   const anchorById = {};
   for (const a of c.TOWN_MAP.anchors) anchorById[a.id] = a;
@@ -169,16 +170,16 @@ test('T-NPC-10 条目过注册校验: townInteractRegistry 全 20 条快照 — 
     if (!npcIds.has(s.id)) continue;
     assert.ok(SESSION_DOMAIN.includes(s.sessionKind),
         '「' + s.id + '」sessionKind ∈ 冻结五值(greet|tour|seek|help|care)');
-    assert.deepStrictEqual(s.anchor, {x: anchorById[s.anchorId].x, y: anchorById[s.anchorId].y, z: anchorById[s.anchorId].z},
-        '「' + s.id + '」快照 anchor 坐标单源取锚(票面验收 §4.1)');
-    const w = c.anchorOf(s.anchorId, 0);
+    assert.deepStrictEqual(s.anchor, {x: anchorById[s.id].x, y: anchorById[s.id].y, z: anchorById[s.id].z},
+        '「' + s.id + '」快照 anchor 坐标单源取锚(票面验收 §4.1; 快照行无 anchorId 键, 锚引用=行 id 本身)');
+    const w = c.anchorOf(s.id, 0);
     assert.deepStrictEqual(
         [s.anchor.x, s.anchor.y, s.anchor.z], [w.x, w.y, w.z],
         '「' + s.id + '」快照 anchor 坐标 == anchorOf 站位(验收 §4.1: 两表坐标一张嘴)');
   }
   /* spot 字面: npc:v01 快照全键(六键+sessionKind, state 初始 active) */
   const v01 = reg.find((s) => s.id === 'npc:v01');
-  assert.deepStrictEqual(v01, {id: 'npc:v01', kind: 'npc', iconKey: 'facePixels',
+  assert.deepStrictEqual(v01, {id: 'npc:v01', kind: 'npc', iconKey: 'help',
     label: '阿面', anchor: {x: 79, y: 24, z: 94}, state: 'active', sessionKind: 'greet'},
   'npc:v01 快照字面(独立真源: 票面 §3 示例+注册表 PO 冻结名)');
 });
@@ -215,7 +216,8 @@ test('T-NPC-10 三表对账: 注册表↔交互条目↔锚点表 — 非动物�
 
 /* ============ ④ 宿主建机 npc 条目语义(票面验收 §4.2) ============ */
 
-test('T-NPC-10 建机 npc 语义: focus(npc:v01) 恰一条 target/focus · payload 恰六键形状不变 · found/reset 对 npc 条目成立 · 未知 npc id 仍拼写域炸', () => {
+test('T-NPC-10 建机 npc 语义: focus(npc:v01) 恰一条 target/focus · payload 恰六键形状不变 · ' +
+    'found/reset 对 npc 条目成立 · 未知 npc id 仍拼写域炸', () => {
   const c = bridge();
   c.mkMachine();
   /* focus: 恰一条 targetFocus, payload.target 恰六键(townTargetOf 消费最小面) */
@@ -225,7 +227,7 @@ test('T-NPC-10 建机 npc 语义: focus(npc:v01) 恰一条 target/focus · paylo
   assert.strictEqual(f.r.events.length, 1, '恰发一条事件');
   assert.strictEqual(f.r.events[0].name, 'town-ui/target/focus', '事件名=冻结表 targetFocus(零新事件名)');
   assert.deepStrictEqual(f.r.events[0].payload.target, {id: 'npc:v01', kind: 'npc',
-    iconKey: 'facePixels', label: '阿面', anchor: {x: 79, y: 24, z: 94}, state: 'active'},
+    iconKey: 'help', label: '阿面', anchor: {x: 79, y: 24, z: 94}, state: 'active'},
   'payload.target 恰六键形状不变(票面验收 §4.2; anchor=站位快照, state 携当前值)');
   /* found: active→done 单向, 恰一条 targetUpdate */
   const fd = c.machineCall('__m.found("npc:v01")').r;
