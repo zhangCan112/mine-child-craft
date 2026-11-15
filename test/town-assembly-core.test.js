@@ -83,7 +83,10 @@ const TOWN_ROWS = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
 /* 布局权威独立转录(docs/town-map-design.md §3-§4, = TOWN_MAP 数据的测试侧镜像;
    只抄本测试用到的坐标, 完整性归 test/town-map-core.test.js。樱花株数/点位
    不在此钉——scene 布局清单高频迭代, ⑤ 段改从 scatter 动态派生防漂移) */
-const SCRUBS = [{id: 'scrub-west', x: 60, y: 24, z: 70}, {id: 'scrub-east', x: 98, y: 24, z: 92}];
+const SCRUBS = [{id: 'scrub-rim-w1', x: 17, y: 25, z: 26},
+  {id: 'scrub-rim-w2', x: 19, y: 26, z: 26}, {id: 'scrub-rim-w3', x: 21, y: 27, z: 27},
+  {id: 'scrub-rim-e1', x: 141, y: 25, z: 26},
+  {id: 'scrub-west', x: 60, y: 24, z: 70}, {id: 'scrub-east', x: 98, y: 24, z: 92}];
 const LAMPS = [{id: 'lamp-plaza', x: 77, y: 24, z: 92}, {id: 'lamp-west', x: 64, y: 24, z: 67}];
 const SIGNS = [{id: 'signpost-plaza', x: 73, y: 24, z: 67}, {id: 'signpost-stash', x: 50, y: 24, z: 95}];
 const CORRIDOR = {x1: 78, x2: 80, z1: 76, z2: 111, y1: 25}; /* 塔足 z2=75 → 走廊 z1=76 */
@@ -327,7 +330,7 @@ test('植被道具: op 词表封闭 · 禁 id7 的 fill(无散装树几何) · �
   }), 'recolor 盒恰覆两型干高冠域, 7→78 樱粉覆写(§5.4 覆写策略落调用方)');
   assert.deepStrictEqual(ops.filter((o) => o.op === 'scrub'), SCRUBS.map((s) => {
     return {op: 'scrub', x: s.x, top: s.y, z: s.z, salt: s.x * 131 + s.z};
-  }), 'scrub op 两丛带确定性盐(同参同丛, SceneKit.scrub 契约)');
+  }), 'scrub op 六丛带确定性盐(同参同丛, SceneKit.scrub 契约)');
   const lampSite = (s) => fills.filter((f) => f.x1 === s.x && f.x2 === s.x &&
     f.z1 === s.z && f.z2 === s.z);
   for (const s of LAMPS) {
@@ -366,8 +369,8 @@ test('几何: 基底三层垫底恰覆核心区(序列最前=后写者赢显式�
   assert.deepStrictEqual(fillAt(79, 79, 24),
       {op: 'fill', x1: 66, y1: 24, z1: 66, x2: 93, y2: 24, z2: 93, id: PALETTE_WANT.ground.plaza},
       '广场铺装恰一条 28×28(y=地表基高, ground 条目无 y 字段——基高从 core.groundY 派生)');
-  assert.strictEqual(fillAt(70, 50, 24).id, PALETTE_WANT.ground.farm, '农田 A 铺耕地');
-  assert.strictEqual(fillAt(84, 50, 24).id, PALETTE_WANT.ground.farm, '农田 B 铺耕地');
+  assert.strictEqual(fillAt(70, 50, 24).id, 42, '农田 A 田垄作物 42(farm-rows 轮转, 作物字面不入 palette)');
+  assert.strictEqual(fillAt(84, 50, 24).id, 45, '农田 B 田垄作物 45(farm-rows 轮转)');
   assert.strictEqual(fillAt(79, 100, 24).id, PALETTE_WANT.road.main, '南主路 13 石砖');
   assert.strictEqual(fillAt(60, 63, 24).id, PALETTE_WANT.road.main, '北主路 13 石砖');
   assert.strictEqual(fillAt(110, 86, 24).id, PALETTE_WANT.road.main, '东主路 13 石砖');
@@ -376,7 +379,7 @@ test('几何: 基底三层垫底恰覆核心区(序列最前=后写者赢显式�
   assert.strictEqual(fillAt(60, 95, 24).id, PALETTE_WANT.road.lane, '储藏支路 4');
 });
 
-test('几何: 拱形山体逐柱满覆盖(中心 44 压钟塔 38 · 两缘 24) · 崖屋 3×3×6 坐山体上', () => {
+test('几何: 拱形山体逐柱满覆盖(基段笔顶 23, bands 后顶高由雪段表达) · 崖屋 v2 拆笔坐山体上', () => {
   const ctx = loadCore();
   const ops = opsJson(ctx);
   const cols = ops.filter((o) => o.op === 'fill' && o.id === PALETTE_WANT.backdrop.mountain &&
@@ -386,18 +389,44 @@ test('几何: 拱形山体逐柱满覆盖(中心 44 压钟塔 38 · 两缘 24) �
       Array.from({length: MOUNTAIN.x2 - MOUNTAIN.x1 + 1}, (_, i) => MOUNTAIN.x1 + i),
       '山体逐柱满覆盖 x16..143(宽 ≥ 核心区 96, map-design §4.2)');
   const topAt = (x) => cols.find((c) => c.x1 === x).y2;
-  assert.strictEqual(topAt(79), MOUNTAIN.topCenter, '山脊中心 44(压钟塔 38, 顶高过钟塔)');
-  assert.strictEqual(topAt(80), MOUNTAIN.topCenter, '双中心列同高 44');
-  assert.strictEqual(topAt(16), MOUNTAIN.topEdge, '西缘 24(二次拱形落地)');
-  assert.strictEqual(topAt(143), MOUNTAIN.topEdge, '东缘 24');
+  assert.strictEqual(topAt(79), 23, '山脊基段笔顶 23(bands 拆笔后 id3 每柱首笔)');
+  assert.strictEqual(topAt(80), 23, '双中心列基段笔顶 23');
+  assert.strictEqual(topAt(16), 23, '西缘基段笔顶 23(两缘列顶 24 由苔段表达)');
+  assert.strictEqual(topAt(143), 23, '东缘基段笔顶 23');
   assert.ok(cols.every((c) => c.y1 === 0), '每柱自 y0 满填(崖体无悬空)');
-  assert.deepStrictEqual(ops.filter((o) => o.op === 'fill' &&
-    o.id === PALETTE_WANT.backdrop.cliffHome && o.z2 <= MOUNTAIN.z2), [
-    {op: 'fill', x1: 55, y1: 41, z1: 21, x2: 57, y2: 46, z2: 23, id: PALETTE_WANT.backdrop.cliffHome},
-    {op: 'fill', x1: 102, y1: 41, z1: 21, x2: 104, y2: 46, z2: 23, id: PALETTE_WANT.backdrop.cliffHome},
-  ], '崖顶房屋两栋 3×3×6 盒(baseY..baseY+5, 数据 baseY/topY 差恒 6; x56/x103 脊线' +
-    '肩段露剪影 5 格, 视觉重制 §3 B); 过滤以 z2≤山带28 界定远景——' +
-    'id 6 与路牌 signBoard 共值, 牌在核心区 z≥32 不入集');
+  /* 崖屋 v2 拆笔(style:'v2', scene 9ea581b 条目): 每屋 10 笔=白墙 52 盒
+     (baseY..topY-2)+石英角柱 17×4+窗 18 十字(baseY+2, 后写覆墙不撞角柱)+
+     橙顶 9 双层(topY-1 全 3×3+topY 内缩芯)+顶缘灯 19(x±1 同列一笔);
+     op 序=派生序(底稿 scene-closeout §7.5.1(3) 导出法实测); 过滤以
+     z2≤山带 28 界定远景, id 集排山体 3/14/1/54 */
+  assert.deepStrictEqual(ops.filter((o) => o.op === 'fill' && o.z2 <= MOUNTAIN.z2 &&
+    [PALETTE_WANT.backdrop.cliffWall, PALETTE_WANT.backdrop.cliffFrame,
+      PALETTE_WANT.backdrop.cliffWindow, PALETTE_WANT.backdrop.cliffRoof,
+      PALETTE_WANT.backdrop.cliffLamp].includes(o.id)), [
+    /* A 屋(中心 56) */
+    {op: 'fill', x1: 55, y1: 41, z1: 21, x2: 57, y2: 45, z2: 23, id: PALETTE_WANT.backdrop.cliffWall},
+    {op: 'fill', x1: 55, y1: 41, z1: 21, x2: 55, y2: 45, z2: 21, id: PALETTE_WANT.backdrop.cliffFrame},
+    {op: 'fill', x1: 57, y1: 41, z1: 21, x2: 57, y2: 45, z2: 21, id: PALETTE_WANT.backdrop.cliffFrame},
+    {op: 'fill', x1: 55, y1: 41, z1: 23, x2: 55, y2: 45, z2: 23, id: PALETTE_WANT.backdrop.cliffFrame},
+    {op: 'fill', x1: 57, y1: 41, z1: 23, x2: 57, y2: 45, z2: 23, id: PALETTE_WANT.backdrop.cliffFrame},
+    {op: 'fill', x1: 55, y1: 43, z1: 22, x2: 57, y2: 43, z2: 22, id: PALETTE_WANT.backdrop.cliffWindow},
+    {op: 'fill', x1: 56, y1: 43, z1: 21, x2: 56, y2: 43, z2: 23, id: PALETTE_WANT.backdrop.cliffWindow},
+    {op: 'fill', x1: 55, y1: 46, z1: 21, x2: 57, y2: 46, z2: 23, id: PALETTE_WANT.backdrop.cliffRoof},
+    {op: 'fill', x1: 56, y1: 47, z1: 22, x2: 56, y2: 47, z2: 22, id: PALETTE_WANT.backdrop.cliffRoof},
+    {op: 'fill', x1: 55, y1: 47, z1: 22, x2: 57, y2: 47, z2: 22, id: PALETTE_WANT.backdrop.cliffLamp},
+    /* B 屋(中心 103, 同构 x+47) */
+    {op: 'fill', x1: 102, y1: 41, z1: 21, x2: 104, y2: 45, z2: 23, id: PALETTE_WANT.backdrop.cliffWall},
+    {op: 'fill', x1: 102, y1: 41, z1: 21, x2: 102, y2: 45, z2: 21, id: PALETTE_WANT.backdrop.cliffFrame},
+    {op: 'fill', x1: 104, y1: 41, z1: 21, x2: 104, y2: 45, z2: 21, id: PALETTE_WANT.backdrop.cliffFrame},
+    {op: 'fill', x1: 102, y1: 41, z1: 23, x2: 102, y2: 45, z2: 23, id: PALETTE_WANT.backdrop.cliffFrame},
+    {op: 'fill', x1: 104, y1: 41, z1: 23, x2: 104, y2: 45, z2: 23, id: PALETTE_WANT.backdrop.cliffFrame},
+    {op: 'fill', x1: 102, y1: 43, z1: 22, x2: 104, y2: 43, z2: 22, id: PALETTE_WANT.backdrop.cliffWindow},
+    {op: 'fill', x1: 103, y1: 43, z1: 21, x2: 103, y2: 43, z2: 23, id: PALETTE_WANT.backdrop.cliffWindow},
+    {op: 'fill', x1: 102, y1: 46, z1: 21, x2: 104, y2: 46, z2: 23, id: PALETTE_WANT.backdrop.cliffRoof},
+    {op: 'fill', x1: 103, y1: 47, z1: 22, x2: 103, y2: 47, z2: 22, id: PALETTE_WANT.backdrop.cliffRoof},
+    {op: 'fill', x1: 102, y1: 47, z1: 22, x2: 104, y2: 47, z2: 22, id: PALETTE_WANT.backdrop.cliffLamp},
+  ], '崖屋 v2 拆笔两栋(墙 52+角柱 17×4+窗 18 十字+顶 9 双层+灯 19, 每屋' +
+    '10 笔; x56/x103 脊线肩段, style v2 条目; op 序=派生序)');
 });
 
 /* ---------- ⑥b op 派生 v2(scene 需求表 10 项): 合成 steps 契约 ---------- */
