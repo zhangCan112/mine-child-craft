@@ -412,7 +412,7 @@ test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴�
   }
   assert.ok(n >= 6 && n <= 90, '密度 ~2% 可发现不铺满: ' + n + ' 丛');
   assert.strictEqual(kinds.size, 2, '黄白两款都有');
-  assert.strictEqual(bandN, 10, '东带花田恰 10 丛(主径两侧各 5; 带内无树候选不覆写)');
+  assert.strictEqual(bandN, 18, '东带花丛合计恰 18 丛(花田 10=主径两侧各 5, 引道花带 8=v2 §5 件 P; 带内无树候选不覆写)');
   assert.ok(meadowN >= 100, '花田密铺单算不混入核心圈口径(实测 ' + meadowN + ' 丛)');
 });
 
