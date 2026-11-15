@@ -206,6 +206,40 @@ const MeshCore = (() => {
     }
   }
 
+  /* 门额牌专用小盒(东带 v2 野心版 S2, 火把 pushTorch/床 pushBedBox 双先例拼合):
+     竖版薄板 x∈[x, x+thin](贴格西缘, thin=0.15) · y/z 满格[0,1]——西面(f=0,
+     法线 -x)=镇徽图案面, UV 满幅采样 ae.side(标准盒面映射: 面顶点 v 高端对
+     贴图 y=0 行, 塔尖朝上, 与立方体通道同换算); 其余五面木底(f1/f4/f5=ae.back
+     ·f3=ae.top·f2=ae.bottom, layout 的 back 分面字段仅供本路径读)。顶点光取
+     面朝向邻格(pushPane 同口径, T4 返工: 牌格 solid 挡光, 自身格 sky/block
+     双通道恒 0, 取自身格=全黑牌); 无邻接面剔除(薄板悬空六面全绘)。
+     底面剔除: 脚下格 solid 邻(BLOCKS[nid].solid !== false, torch cullDown
+     同判据)时 f=2 不绘——门额语境牌贴横梁顶面, 不剔会 z-fight。 */
+  function pushGateSign(t, x, y, z, lx, lz, thin, ae, atlas, lget, lsky, lblk, cullDown) {
+    const faceTile = [ae.side, ae.back, ae.bottom, ae.top, ae.back, ae.back]; /* FACES 序 0:-x..5:+z */
+    for (let f=0; f<6; f++) {
+      if (f === 2 && cullDown) continue;
+      const face = FACES[f];
+      /* 面光取面朝向邻格(pushPane 同口径): 每面四顶点共用 fSky/fBlk;
+         lget 按 pushPane 惯例随采样器注入; 越界兜底走 lsky/lblk 既有口径 */
+      const nx = lx + face.dir[0]; const ny = y + face.dir[1]; const nz = lz + face.dir[2];
+      const fSky = lsky(nx, ny, nz) / 15; const fBlk = lblk(nx, ny, nz) / 15;
+      const tile = faceTile[f];
+      const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
+      for (let c=0; c<4; c++) {
+        const cor = face.corners[c];
+        t.positions.push(x + cor[0]*thin, y + cor[1], z + cor[2]);
+        t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
+        const uv = faceUV(face.dir, cor);
+        t.uvs.push((tc + uv[0]) / atlas.cols, (atlas.rows - 1 - tr + uv[1]) / atlas.rows);
+        t.sky.push(fSky);
+        t.block.push(fBlk);
+      }
+      t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
+      t.n += 4;
+    }
+  }
+
   /* 竖直薄板(门/玻璃板, docs/door-window-design.md §5): 图集通道 alphaTest 真透明。
      朝向(2026-11-04 现算, 零存储): 门闭贴缘横跨墙洞——墙沿 x(x±1 实心) →
      板贴北缘(z 0..3/16)横跨 x(缺省几何); 墙沿 z(z±1 实心) → 板贴西缘横跨 z
@@ -429,6 +463,14 @@ const MeshCore = (() => {
                 }
                 pushTorch(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows,
                     lsky(lx, y, lz)/15, lblk(lx, y, lz)/15, lean, onBase);
+                continue;
+              }
+              if (b.gateSign) { // 门额牌(gateSign 旗标): 竖板专用小盒(东带 v2 S2)
+                /* 底面剔除判据=torch cullDown 同款: 脚下 solid 邻(门额语境=横梁,
+                   贴实剔除防 z-fight); 悬空则底面照绘 */
+                const nid = lget(lx, y - 1, lz);
+                const onBase = !!(nid !== 0 && BLOCKS[nid] && BLOCKS[nid].solid !== false);
+                pushGateSign(A, wx, y, wz, lx, lz, b.thin, ae, atlas, lget, lsky, lblk, onBase);
                 continue;
               }
               pushCross(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows,

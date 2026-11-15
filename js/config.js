@@ -484,13 +484,18 @@ BLOCKS[B_CARVED_PUMPKIN] = {name: '雕刻南瓜', top: [0.60, 0.44, 0.13], side:
 const B_PINK_WOOL=78;
 BLOCKS[B_PINK_WOOL] = {name: '粉羊毛', all: [0.95, 0.76, 0.85]};
 
-/* ---------- 东带前街陶橙瓦 (id 79, docs/design/town-east-boundary-landscape-spec-v2.md §2 S1) ----------
-   陶橙瓦(2026-11-15): 东带前街「镇屋顶语言」落地(v2 件 F)——钟塔阶梯瓦顶+房×4 平瓦盖。
-   规格色 #D97A4A=镇色板 屋顶-陶橙(RGB 0.851,0.478,0.290); 与粉羊毛 id78 同构:
-   纯色 all 行零贴图不入图集(B_PORTAL 先例), 无 hard(声明式不可破坏, U2 已裁主案)
-   无 drop(零物品注册面)。 */
+/* ---------- 镇门楼新件 (id 79~80, docs/design/town-east-boundary-landscape-spec-v2.md §2 S1/S2) ----------
+   陶橙瓦/门额牌(2026-11-15, 东带 v2 野心版): 陶橙瓦=镇色板「屋顶-陶橙
+   #D97A4A」纯色行(钟塔瓦顶/房平瓦顶/门楼屋面屋脊——与粉羊毛同构建场写入件,
+   不入图集零贴图成本); 门额牌=门额面竖版薄板(thin 0.15 贴门额面西缘,
+   solid:true 实心薄板入在保判据常规体), all 锚定 S2 牌木 #C89858 纯色兜底,
+   gateSign 旗标驱动 mesh 竖板专用小盒路径(西面镇徽图案/其余五面木底,
+   贴图入集 texture-atlas)。两件均无 hard(声明式不可破坏, U2 已裁主案)
+   零 drop(无物品注册面, 粉羊毛同款)。 */
 const B_ROOF_TILE=79;
 BLOCKS[B_ROOF_TILE] = {name: '陶橙瓦', all: [0.851, 0.478, 0.290]};
+const B_GATE_SIGN=80;
+BLOCKS[B_GATE_SIGN] = {name: '门额牌', all: [0.784, 0.596, 0.345], thin: 0.15, solid: true, gateSign: true};
 
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段

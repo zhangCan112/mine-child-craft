@@ -727,9 +727,10 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   assert.strictEqual(cell(16, top(16, 104) + 1, 104), 14, '深水带苔石冒头 (16,104)');
   assert.strictEqual(cell(2, Core.ADV_GROUND + 4, 24), 6, '高脚木屋地板 y28');
   assert.strictEqual(cell(0, Core.ADV_GROUND + 8, 23), api.B_TORCH, '木屋暖窗火把(顶沿, 脚下实心)');
-  /* 东带: 主径土面 + 镇门牌坊(原告示牌门坊化, 东带 spec §3.1: 双柱 4 高+
-     门楣一线+悬牌图案 2×2(上=石塔行/下=原木径行)+柱顶门灯×2, 牌下净空
-     yb+1..+2 禁填=穿行契约) + 木栅栏 x157(桩 z%3==0 两高原木,
+  /* 东带: 主径土面 + 镇门楼(v2 野心版 spec §3 件 G: 石砌城楼式——门洞 3 格高
+     净空 z74/75 yb+1..+3 禁填=穿行契约, 侧柱 5 高石砖嵌壁灯, 横梁上悬门额
+     牌 ×2(镇徽=钟塔图案), 柱头石英收边, 檐口/屋面/屋脊三级出挑=「有屋顶」的
+     建筑语言) + 木栅栏 x157(桩 z%3==0 两高原木,
      缝格 1 高横杆——缝口留空是设计本体; 门口开间 z74~75 让位, 桩让至两侧
      邻格 z73/76=T-SEAM-02) + 前街 x158~159(v2 件 F: 钟塔+房×4 门脸化+迎宾灯柱) + 门前石板
      x158~159×z74/75(件 D 材质升级: 表面土面改石砖 13, 路穿门铺到塔脚)。
@@ -737,19 +738,39 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
      计数钉死整段规模(候选若变, 这里最先报警) */
   assert.strictEqual(cell(154, top(154, 74), 74), 2, '东主径土面(与既有东向小径同轴)');
   const yb = top(156, 74);
-  assert.strictEqual(cell(156, yb + 1, 73), 5, '门坊立柱下格(z73, 原告示牌柱)');
-  assert.strictEqual(cell(156, yb + 3, 74), 5, '门坊悬牌径行(z74, 原板面木板改原木=小径图案)');
-  assert.strictEqual(cell(156, yb + 3, 75), 5, '门坊悬牌径行(z75)');
-  assert.strictEqual(cell(156, yb + 4, 74), 3, '门坊悬牌塔行(z74, 石=钟塔图案, 与剪影同料)');
-  assert.strictEqual(cell(156, yb + 4, 75), 3, '门坊悬牌塔行(z75)');
-  assert.strictEqual(cell(156, yb + 4, 73), 5, '门坊立柱加高格(z73, 3→4 高)');
-  assert.strictEqual(cell(156, yb + 4, 76), 5, '门坊立柱加高格(z76)');
-  for (const z of [73, 74, 75, 76]) {
-    assert.strictEqual(cell(156, yb + 5, z), 6, '门坊门楣一线(z' + z + ', 木板横贯门宽连双柱顶)');
+  /* 门楼侧柱 5 高(z73/76 yb+1..+5 石砖), 壁灯 yb+3 嵌柱替换该格(昼夜迎宾) */
+  assert.strictEqual(cell(156, yb + 1, 73), 13, '门楼侧柱下格(z73 石砖, 体量感来源)');
+  assert.strictEqual(cell(156, yb + 1, 76), 13, '门楼侧柱下格(z76)');
+  assert.strictEqual(cell(156, yb + 5, 73), 13, '门楼侧柱顶格(z73, 5 高收于柱头下)');
+  assert.strictEqual(cell(156, yb + 5, 76), 13, '门楼侧柱顶格(z76)');
+  assert.strictEqual(cell(156, yb + 3, 73), 19, '门楼壁灯(z73 嵌柱, 灯块 light 15 两面透光)');
+  assert.strictEqual(cell(156, yb + 3, 76), 19, '门楼壁灯(z76)');
+  /* 门洞横梁(净空上缘)+门额牌面(镇徽双徽对称) */
+  assert.strictEqual(cell(156, yb + 4, 74), 13, '门洞横梁(z74 石砖, 净空上缘)');
+  assert.strictEqual(cell(156, yb + 4, 75), 13, '门洞横梁(z75)');
+  assert.strictEqual(cell(156, yb + 5, 74), 80, '门额牌面(z74 门额牌块=镇徽钟塔图)');
+  assert.strictEqual(cell(156, yb + 5, 75), 80, '门额牌面(z75, 双徽各贴同图)');
+  /* 门洞净空 3 格(z74/75 yb+1..+3 空气=穿行契约, v1 净空 2 格升 3 格) */
+  for (const z of [74, 75]) {
+    for (let dy = 1; dy <= 3; dy++) {
+      assert.strictEqual(cell(156, yb + dy, z), 0, '门洞净空(z' + z + ' yb+' + dy + ' 禁填)');
+    }
   }
-  for (const z of [73, 76]) {
-    assert.strictEqual(cell(156, yb + 6, z), api.B_TORCH, '门坊柱顶门灯(z' + z + ', 落楣端正上)');
+  /* 柱头+檐口+屋面+屋脊: 白檐一线 6 格出挑, 陶瓦两级阶梯收分(脊不出 z72/77) */
+  assert.strictEqual(cell(156, yb + 6, 73), 17, '柱头(z73 石英收边提亮)');
+  assert.strictEqual(cell(156, yb + 6, 76), 17, '柱头(z76)');
+  assert.strictEqual(cell(156, yb + 6, 74), 0, '门额上方让空(z74, 牌与檐之间的门额带)');
+  for (let z = 72; z <= 77; z++) {
+    assert.strictEqual(cell(156, yb + 7, z), 17, '檐口一线(z' + z + ' 石英, 宽出墙身一圈)');
   }
+  for (let z = 72; z <= 77; z++) {
+    assert.strictEqual(cell(156, yb + 8, z), 79, '屋面瓦檐一级(z' + z + ' 陶橙瓦)');
+  }
+  for (let z = 73; z <= 76; z++) {
+    assert.strictEqual(cell(156, yb + 9, z), 79, '屋脊收分二级(z' + z + ' 陶橙瓦)');
+  }
+  assert.strictEqual(cell(156, yb + 9, 72), 0, '屋脊收分(z72 不出脊=阶梯坡顶轮廓)');
+  assert.strictEqual(cell(156, yb + 9, 77), 0, '屋脊收分(z77 不出脊)');
   /* 镇界分段计数(v2 spec §4.1 件 W): 中段 z66..90 石砖矮墙(开间 z74/75 净空+
      门框柱 z73/76 换装), 远段 z≤65 ∪ z≥91 木栅栏现状全维持——桩 z%3 两高+
      缝格横杆 1 高原式(四角楔全落远段=楔载体零触碰)。候选若变, 这里最先报警 */
@@ -1287,20 +1308,37 @@ test('T7 转正 P2: advEdgeProtectedAt 逐坐标 — 三向屏障体/东栅栏�
   assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 95) + 1, 95), '远段横杆 z95 true');
   assert.strictEqual(Core.advEdgeProtectedAt(157, edgeTop(157, 95) + 2, 95), false,
       '远段缝格上方 z95 false(可站跳缝, 原式维持)');
-  /* 东·栈桩 z153/154/159(SE 角 post-pass 桩脚)与告示牌 x156 */
+  /* 东·栈桩 z153/154/159(SE 角 post-pass 桩脚)与镇门楼 x156 */
   for (const z of [153, 154, 159]) {
     assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, z), z), '栈桩格 z' + z + ' true');
     assert.strictEqual(Core.advEdgeProtectedAt(157, edgeTop(157, z) - 1, z), false, '栈桩下方土格 z' + z + ' false');
   }
+  /* 镇门楼(v2 spec §8.1 x156 分支): 侧柱列 z73/76 yb+1..+9 全列在保(柱+壁灯+
+     柱头+檐/瓦/脊同列格); 檐角列 z72/77 只 yb+7..+9(檐/瓦出挑格, 脊虽不建也在保);
+     门额带 z74/75 yb+4..+9(横梁+门额牌+檐/瓦/脊中段); 门洞净空 z74/75 yb+1..+3
+     恒 false(穿行契约, v1 2 格扩 3 格=「门高大」) */
   const yb = Core.ADV_GROUND + Core.advHeightAt(156, 74);
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 1, 73), '告示牌柱下格 true');
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 3, 73), '告示牌柱顶格 true');
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 3, 74), '告示牌板面下缘 true');
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 4, 74), '告示牌板面上缘 true');
-  assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 1, 74), false, '板面下方空气格 false(只钉板/柱体)');
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 4, 76), '门坊柱顶加高格 true(柱 3→4 高, 旧判据 yb+1..+3 不含)');
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 5, 74), '门坊门楣格 true(楣中段 yb+3..+5 扩档)');
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 6, 73), '门坊柱顶门灯格 true(z73/76 在保扩到 yb+6)');
+  for (const z of [73, 76]) {
+    for (let dy = 1; dy <= 9; dy++) {
+      assert.ok(Core.advEdgeProtectedAt(156, yb + dy, z), '门楼柱列在保(z' + z + ' yb+' + dy + ', 含壁灯格)');
+    }
+  }
+  for (const z of [74, 75]) {
+    for (let dy = 1; dy <= 3; dy++) {
+      assert.strictEqual(Core.advEdgeProtectedAt(156, yb + dy, z), false, '门洞净空让保护(z' + z + ' yb+' + dy + ')');
+    }
+    for (let dy = 4; dy <= 9; dy++) {
+      assert.ok(Core.advEdgeProtectedAt(156, yb + dy, z), '门额带在保(z' + z + ' yb+' + dy + ')');
+    }
+  }
+  for (const z of [72, 77]) {
+    for (let dy = 7; dy <= 9; dy++) {
+      assert.ok(Core.advEdgeProtectedAt(156, yb + dy, z), '檐角在保(z' + z + ' yb+' + dy + ' 出挑格)');
+    }
+    assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 6, z), false, '檐角下方不在保(z' + z + ' yb+6)');
+  }
+  assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 10, 74), false, '屋脊上空不在保(yb+10)');
+  assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 1, 71), false, '檐外邻列不在保(z71)');
   /* 普通带内格与隔离带: 判据全 false(带内可挖可建=放开语义) */
   assert.strictEqual(Core.advEdgeProtectedAt(30, edgeTop(30, 2), 2), false, '北带普通雪格 false');
   assert.strictEqual(Core.advEdgeProtectedAt(80, edgeTop(80, 100), 100), false, '南带普通沙格 false');
@@ -1321,7 +1359,7 @@ test('T7 转正·开关门控: advSetEdgeBarriersHidden(true) 三向放行/东�
     s: Core.advEdgeProtectedAt(80, edgeTop(80, 145), 145),
     w: Core.advEdgeProtectedAt(15, edgeTop(15, 80), 80),
     ePost: Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 1, 81),
-    eSign: Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 3, 74),
+    eSign: Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 5, 74),
     zoneN: Core.advEdgeProtectedZone(nCol.x, nCol.z),
     zoneW: Core.advEdgeProtectedZone(15, 80),
   });
@@ -1337,7 +1375,7 @@ test('T7 转正·开关门控: advSetEdgeBarriersHidden(true) 三向放行/东�
   assert.strictEqual(gated.zoneN, false, '隐藏后北禁放柱放行');
   assert.strictEqual(gated.zoneW, false, '隐藏后西禁放柱放行');
   assert.ok(gated.ePost, '东桩基恒保护(隐藏不豁免)');
-  assert.ok(gated.eSign, '东告示牌恒保护');
+  assert.ok(gated.eSign, '东镇门楼恒保护(门额格采样)');
   /* 复位还原 + 与解锁前逐值一致(单一开关往返无损) */
   assert.deepStrictEqual(after, before, '复位后全部判据还原(与解锁前逐值一致)');
   assert.ok(before.n && before.s && before.w && before.zoneN && before.zoneW, '解锁前三向判据在保(前提自检)');
@@ -3098,9 +3136,9 @@ test('T-SEAM-02 门口开间建场几何: z74~75 栅栏让位(开间内无栅栏
      门口自成通路——§6.3.1 门口开间条) */
   assert.strictEqual(Core.advEdgeProtectedAt(157, y0(74), 74), false, '(z74) 开间栅栏层保护让位');
   assert.strictEqual(Core.advEdgeProtectedAt(157, y0(75), 75), false, '(z75) 开间栅栏层保护让位');
-  /* 告示牌照旧(收编②零改动抽样) */
-  assert.ok(Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 3, 74),
-      '告示牌板面在保(形制位置不动)');
+  /* 镇门楼在保(v2 重建后收编抽样: 门额带 z74/75 yb+4..+9 在保, 净空 yb+1..+3 让保护) */
+  assert.ok(Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 5, 74),
+      '门楼门额格在保(重建后形制)');
 });
 
 test('T8 引导区(组 1): 锁定向命中 · 解锁态静默 · 强制缝静默 · 东向恒 null · 角区检序', () => {

@@ -32,7 +32,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 59 格已用, 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 61 格已用, 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -81,6 +81,8 @@ const TextureAtlas = (() => {
   const T_CARVED_PUMPKIN = 57; /* 雕刻南瓜(77): 棱瓣底+刻脸(倒三角眼+竖齿嘴) */
   const T_IRON_BLOCK = 58; /* 铁块(75): 银灰金属底+深框线+内亮方+四角铆点 */
   const T_PINK_WOOL = 59; /* 粉羊毛(78, 城镇重制公共件): 樱粉绒毛底+绒团+蓬松亮点 */
+  const T_GATE_SIGN = 60; /* 门额牌(80, 东带 v2 S2): 牌木底+镇徽钟塔图(西面图案) */
+  const T_GATE_WOOD = 61; /* 门额牌纯木底(其余五面): #C89858 平涂(design-lead 预授权第二格位) */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -421,6 +423,33 @@ const TextureAtlas = (() => {
     noiseFill(px, rng, [242, 194, 217], 0.05);
     for (let i=0; i<12; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [224, 172, 200]);
     for (let i=0; i<8; i++) setP(px, Math.floor(rng()*TILE), Math.floor(rng()*TILE), [252, 222, 235]);
+  };
+  /* 门额牌(80, 东带 v2 野心版 S2): 牌木底+镇徽钟塔小图——塔身暖褐 4 宽 8 行+
+     瓦顶两笔阶梯收分(陶橙)+顶上一粒暖金钟点 2px, 「牌上画的就是门后那座塔」;
+     木作线=planksBase 族语言(4 行一板/横缝板末行/竖缝逐板错位/钉点对侧)。
+     零 noiseFill 零 rng(确定性红线: 不依赖派生种子, 邻居条目增删不改变本格
+     输出); 坐标规格权威 .scratch/town-east-boundary/assets/gate-sign/
+     pixel-spec.md §5 伪码逐字直译(工具断言与 §2 逐像素网格 diff=0);
+     镇徽漆在木作线之上(over-paint), 塔门=木底透出零新增色 */
+  PAINTERS[T_GATE_SIGN] = (px)=>{
+    const W = [200, 152, 88]; const D = [146, 109, 60]; /* 牌木底/深木缝线 */
+    const B = [139, 90, 60]; const R = [217, 122, 74]; const G = [227, 178, 60]; /* 塔身/瓦顶/金点 */
+    for (let y=0; y<TILE; y++) for (let x=0; x<TILE; x++) setP(px, x, y, W); /* 木底满铺 */
+    for (const y of [3, 7, 11, 15]) for (let x=0; x<TILE; x++) setP(px, x, y, D); /* 横缝满行 */
+    for (const [sx, y0] of [[2, 0], [13, 4], [2, 8], [13, 12]]) { // 竖缝逐板错位
+      for (let y=y0; y<y0+3; y++) setP(px, sx, y, D);
+    }
+    for (const [nx, ny] of [[14, 1], [1, 5], [14, 9], [1, 13]]) setP(px, nx, ny, D); /* 钉点 */
+    for (const y of [2, 3]) for (let x=5; x<=10; x++) setP(px, x, y, R); /* 瓦顶上笔(6 宽) */
+    for (const y of [4, 5]) for (let x=4; x<=11; x++) setP(px, x, y, R); /* 瓦顶下笔(8 宽阶梯收分) */
+    setP(px, 7, 1, G); setP(px, 8, 1, G); /* 顶钟金点(2px 横对居 x=7.5 对称轴) */
+    for (let y=6; y<=13; y++) for (let x=6; x<=9; x++) setP(px, x, y, B); /* 塔身(4 宽 8 行) */
+    for (const y of [12, 13]) for (const x of [7, 8]) setP(px, x, y, W); /* 塔门(木底透出) */
+  };
+  /* 门额牌纯木底(61): 五面木底 #C89858 平涂——与 60 号格底色同值, 分格仅为
+     分面采样契约独立; 零 rng(与 60 同一确定性口径) */
+  PAINTERS[T_GATE_WOOD] = (px)=>{
+    for (let y=0; y<TILE; y++) for (let x=0; x<TILE; x++) setP(px, x, y, [200, 152, 88]);
   };
   /* ---------- 生态地图(冒险模式生态地图设计稿 §6, 票据 T1): 雪原/沙漠/沼泽 ---------- */
   /* 雪块: 低噪雪白底 + 阴影微点 + 对角双像素亮闪(锚定 faceColor 雪白) */
@@ -815,6 +844,11 @@ const TextureAtlas = (() => {
       /* 粉羊毛 78(城镇重制公共件 revamp-spec §2): 樱花树冠/布幔/旗阵的规格樱粉,
          白羊毛(52)同画法换粉底整格同图 */
       [B_PINK_WOOL]: T_PINK_WOOL,
+      /* 门额牌 80(东带 v2 野心版 S2): 西面=60 镇徽钟塔图, back=61 纯木底(东/
+         南/北三面——back 为 mesh 专用小盒路径读的新分面字段, atlasTileOf 对
+         未知字段无感); top/bottom 同格木底。陶橙瓦 79 不入集(纯色行 faceColor
+         兜底, S1 零贴图成本) */
+      [B_GATE_SIGN]: {side: T_GATE_SIGN, back: T_GATE_WOOD, top: T_GATE_WOOD, bottom: T_GATE_WOOD},
     },
   };
 
