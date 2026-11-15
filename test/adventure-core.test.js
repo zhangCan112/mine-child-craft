@@ -783,6 +783,54 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   assert.deepStrictEqual(snapshot(), a, '两次建场 worldCells 逐块一致(含边界带)');
 });
 
+test('东带引道花径+灯柱(F4, v2 spec §5): 主径延长至花田东缘 + 花带 8 丛对角交错 + 灯柱 3 对', () => {
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  const top = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  /* 主径延长: x148..151 × z74/75 表面补铺土面 id2(advEdgeRewrite dirt 同式),
+     与 x152..156 主径连成「花田东侧 x148 直通门口」连续段; 西界 x147 仍是
+     草面=延长段不噬花田区(x144~146)的边界见证(v2 §5 件 P) */
+  for (const z of [74, 75]) {
+    for (let x = 148; x <= 156; x++) {
+      assert.strictEqual(cell(x, top(x, z), z), 2, '主径连续段土面(' + x + ',' + z + ')');
+    }
+    assert.strictEqual(cell(147, top(147, z), z), 1, '主径西界草面(x' + z + ' 行, 与花田区零重叠)');
+  }
+  /* 花带 8 丛: 北列 z73 x148/150/152/154 + 南列 z76 x149/151/153/155(对角交错);
+     花色黄 61/白 62 由显式盐 8404 决定(确定性; 逐丛色彩不在此断言, 两次建场
+     一致已由上一测覆盖); 脚下按「实感地面」口径断言——N1: 南列 z76 两丛
+     (x149/151) 落 v1 土斑 patch(x148..151×z76..79)面上, 写「脚下草皮」会假红 */
+  const petals = [[148, 73], [150, 73], [152, 73], [154, 73],
+    [149, 76], [151, 76], [153, 76], [155, 76]];
+  for (const [fx, fz] of petals) {
+    const fid = cell(fx, top(fx, fz) + 1, fz);
+    assert.ok(fid === api.B_FLOWER_Y || fid === api.B_FLOWER_W,
+        '花带丛位(' + fx + ',' + fz + ')黄/白花在表面上(advEdgeDecorate 判据口径)');
+    const sid = cell(fx, top(fx, fz), fz);
+    assert.ok(sid !== 0 && sid !== api.B_WATER,
+        '花带脚下实感地面(' + fx + ',' + fz + ' 实测 id ' + sid + ', N1 口径不写草皮)');
+  }
+  let bandPetals = 0;
+  for (let x = 147; x <= 156; x++) {
+    for (const z of [72, 73, 74, 75, 76, 77]) {
+      const id = cell(x, top(x, z) + 1, z);
+      if (id === api.B_FLOWER_Y || id === api.B_FLOWER_W) bandPetals++;
+    }
+  }
+  assert.strictEqual(bandPetals, 8, '引道窗(x147..156 × z72..77)花带恰 8 丛(花田区不在窗内, 无散布混入)');
+  /* 引道灯柱 3 对: (148,72)/(148,77)·(151,72)/(151,77)·(154,72)/(154,77),
+     17 石英柱身 yb+1..+2 + 19 灯块柱顶 yb+3(light 15 恒亮); yb 同源锚=本地
+     表面(柱基落 v1 土斑 patch 的 (148,77)/(151,77) 与草面柱同式, 票外发现
+     已登记: spec「柱基草面」措辞对该两柱不成立); 与花带丛位(z73/76)错行零重叠 */
+  const lampPosts = [[148, 72], [148, 77], [151, 72], [151, 77], [154, 72], [154, 77]];
+  for (const [px, pz] of lampPosts) {
+    const yb = top(px, pz);
+    assert.strictEqual(cell(px, yb + 1, pz), 17, '灯柱柱身下格石英(' + px + ',' + pz + ')');
+    assert.strictEqual(cell(px, yb + 2, pz), 17, '灯柱柱身上格石英(' + px + ',' + pz + ')');
+    assert.strictEqual(cell(px, yb + 3, pz), 19, '灯柱顶灯块(' + px + ',' + pz + ')');
+  }
+});
+
 test('北带走查修订(2026-11-06): 巍峨高山脊剖面 + 落雪寒带杉 + 植物过渡', () => {
   vm.runInContext('worldCells.fill(0)', eng);
   Core.advBuildWorld();
