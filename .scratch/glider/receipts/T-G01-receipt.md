@@ -174,5 +174,15 @@ A1/A2 的价值=防将来分支表改成循环派生误画翼；夹具 :44 已�
    定向复跑 213/213 零扰动；**余 8 errors 全在 test/voxel.test.js:497（T-G02 所有权，
    按令报回经理裁决，不代修不回滚；该文件不在本票 add 清单，8 errors 不进本票提交快照）**。
 5. **提交**：待经理对 T-G02 lint 8 errors 裁决后执行（add 清单=窗口令 15 文件+补充令
-   2 文件=test/items-core.test.js + test/adventure-core.test.js；提交信息：
-   `T-G01 数据层合入: 物品/配方/第五槽/存档五键/wornWear 耐久豁免/任务 q27（21红转绿+守门连锁绿）+守门连锁两处同票修`）。
+   2 文件=test/items-core.test.js + test/adventure-core.test.js；提交信息在提交记录
+   见第 6 条）。
+6. **裁定 A 执行完毕（经理裁定 2026-11-15）**：lint 余 8 errors 归 T-G02 自己的窗口
+   清零（提交快照不含 test/voxel.test.js，快照口径门禁全绿成立）。提交
+   **`41f187f`**：19 文件（6 实现+GLOSSARY+7 测试+回执 5 文件）+740/−53；
+   提交信息=「T-G01 数据层合入: 物品/配方/第五槽/存档五键/wornWear 耐久豁免/任务 q27
+   （21红转绿+守门连锁绿）+守门连锁三处同票修」（末节覆盖 :1397/:105/:823 三处
+   清单外修复）；最终门禁：npm test **tests=2154 pass=2153 fail=0 skipped=1
+   （全绿）**；lint 本票名下文件**零错误**（余 8 errors 全在 T-G02 的
+   test/voxel.test.js:497，未 add 未触碰）。本条补记系提交后落笔（哈希自指），
+   留工作树待下个窗口顺带入库。
+

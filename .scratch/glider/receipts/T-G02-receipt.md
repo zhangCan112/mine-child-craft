@@ -185,4 +185,5 @@ node --test test/boot.test.js       → tests 8 · pass 8 · fail 0（exit 0）
 4. **纪律执行**：docs/glider-tickets.md（状态列归经理）与 T-G01 已入库文件零触碰零
    add；全程未跑 npm install、未切分支、无 junction。
 
-- 提交哈希：（提交后补记——自引用不可能，哈希行不入首次提交）
+- 提交哈希：`c670997`（c6709973309f087854747b43161b188e4655bb19，分支 glider，6 文件
+  +622/−16——本行提交后补记，自引用不可能故哈希行不入首次提交）
