@@ -3097,17 +3097,12 @@ function advTownAnchorTick(legById, policy = 'focused') {/* 锚点动态化消�
   }
   /* 锚点核心/协议面缺席或账本未建(未进镇/沙盒最小装载)旁路: 取数免费,
       容差零炸 */
-  if (typeof anchorOf === 'undefined' || typeof TOWN_NPC_ANCHORS === 'undefined' ||
+  if (typeof anchorOf === 'undefined' || typeof anchorChanged === 'undefined' ||
+      typeof TOWN_NPC_ANCHORS === 'undefined' ||
       typeof townTargetOf === 'undefined' || typeof TOWN_UI_EVENTS === 'undefined' ||
       typeof TOWN_INTERACTS === 'undefined' || !advTownTargets || !advTownAnchors) {
     return {changed: false, events: []};
   }
-  /* 谓词走锚点核心全局名(装载序在前的同域权威); 锚点核心未铺全局名的
-      CJS 沙盒退回同语义四键直比(账本与取数器恒产四键快照, 两路口径
-      一致——谓词的退化保守分支本缝不可达) */
-  const pred = (typeof anchorChanged === 'function') ? anchorChanged :
-      (p, n) => p == null || n == null ||
-          p.x !== n.x || p.y !== n.y || p.z !== n.z || p.face !== n.face;
   const emit = (typeof townUiTargetEvent === 'function') ? townUiTargetEvent : () => {};
   const snap = advTownTargets.snapshot(); /* 一次 snapshot 供全 tick 用(只读:
       判定 focusId 与取 states, 零迁移零扰动) */
@@ -3115,7 +3110,7 @@ function advTownAnchorTick(legById, policy = 'focused') {/* 锚点动态化消�
   let changed = false;
   for (const row of TOWN_NPC_ANCHORS) {
     const next = anchorOf(row.id, legById ? legById[row.id] : undefined);
-    if (!pred(advTownAnchors[row.id], next)) continue;
+    if (!anchorChanged(advTownAnchors[row.id], next)) continue;
     advTownAnchors[row.id] = next; /* 账本写赢: 同腿重复 tick 零跳变(稀疏幂等) */
     changed = true;
     if (policy !== 'always' && snap.focusId !== row.id) continue; /* 默认聚焦才发 */
