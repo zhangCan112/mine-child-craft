@@ -2131,7 +2131,8 @@ test('正控(T-NPC-11 修复零误伤): 任务会话自动 route 照旧——tas
   }
 });
 
-test('守门矩阵(T-NPC-11 修复): 驱动缝 route 派发只认 ROUTE_BY_KIND 在册键——五值逐条 tour→guide/seek→seek/help→help 自动 route, greet/care 豁免停 greet', () => {
+test('守门矩阵(T-NPC-11 修复): 驱动缝 route 派发只认 ROUTE_BY_KIND 在册键——' +
+    '五值逐条 tour→guide/seek→seek/help→help 自动 route, greet/care 豁免停 greet', () => {
   assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
   const cases = [
     ['npc:v04', 'tour', 'guide', '图图'],
@@ -2151,6 +2152,5 @@ test('守门矩阵(T-NPC-11 修复): 驱动缝 route 派发只认 ROUTE_BY_KIND 
         (want === 'greet' ? '(轻问候豁免 route, 误落 guide 在此红)' : '(在册键自动 route)'));
   }
 });
-
 
 

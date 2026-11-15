@@ -137,3 +137,44 @@ prebuild §5.3 十一条断言面全绿 + 收敛矩阵（§3.1）open 收敛/clo
    驱动缝现只对任务会话自动 route，npc 条目（greet/care）点选走 click-npc 双起步即达
    终态不发 route；未来任何 dialog 装配/驱动改动必须保持「greet/care 不派发 route」。
    出处：T-NPC-10 票面施工记录 / T-NPC-10 回执（核毕证据在其线在册）。
+7. **第 6 条装配面前提证伪与接缝修复（T-NPC-11 接缝票，2026-11-15，分支
+   t-npc-11-seamfix）**：
+   - **失实前提（第 6 条原文）**：「town-ui.js:641-665 驱动缝现只对任务会话
+     自动 route，npc 条目（greet/care）点选走 click-npc 双起步即达终态
+     不发 route」。
+   - **实测事实（红相 525b19d 四条测试复现）**：驱动缝（town-ui.js:667）对
+     一切带 sessionKind 条目**无条件**派发 route——5/11 npc 条目误路由
+     （greet×4=v01/v07/v08/v10 + care×1=g01 落 `ROUTE_BY_KIND` 缺键
+     `'guide'` 兜底，非轻问候路径）；tour/seek/help 在册键不受影响。第 6 条
+     ①②③（dialog-core 侧协议论证+冻结面论证）依然成立，失实的仅装配面
+     现状描述。
+   - **修复后口径（绿 7231bd2，裁决选项 A）**：ROUTE_BY_KIND 经 CJS 导出面
+     双栖可见（映射本体单份在 core，映射/冻结三值/机器语义/加载副作用
+     零触碰）；驱动缝 route 派发条件化——只认在册键（tour|seek|help），
+     greet/care 豁免零派发停 greet 态（轻问候路径，§2.2 矩阵 greet 行
+     自动播问候句一次，判据同源 ROUTE_BY_KIND）；speakDlgStep 在册键
+     瞬态不播照旧（任务会话零双播）。「greet/care 不派发 route」约束
+     （第 6 条新约束）自此由守门矩阵测试执法（test/town-ui.test.js 尾
+     四条，绿 commit 对红相逐字节零漂移）。
+   - **sessionKind 五值 × route 派发行为矩阵（条件化前→后，记录完整性
+     追令 2026-11-15）**：
+
+     | sessionKind | 条件化前 | 条件化后 |
+     |---|---|---|
+     | greet | 无条件派发→缺键落 'guide' 兜底（**误路由**） | 不派发→驻留 greet 态（轻问候，播问候句一次） |
+     | care | 同上误落 guide（**误路由**） | 不派发→驻留 greet 态（care 关怀单步呈现，B7） |
+     | seek | 派发→seek | 派发→seek（不变） |
+     | help | 派发→help | 派发→help（不变） |
+     | tour | 派发→guide（**在册派发，非兜底、非行为变更**） | 派发→guide（不变） |
+
+     tour 行实证三源：core 源码 :119 映射在册（tour→'guide' 为显式键值，
+     非缺省兜底）；dialog-core 测试「route 分路」（update 随行 intent 词
+     =机器语义铁证，兜底路径不给 intent）；红相复现 tour→guide 正确。
+     **核对声明**：上表与 dialog-spec §5.3 场景表五行逐行对齐（观察导览
+     →tour / 寻找-回应→seek / 帮助完成→help / 轻问候→greet / 铁傀儡
+     关怀→care），逐行过表核对无冲突。
+   - commit 谱系：525b19d 红相（3 红+正控绿）→ 7231bd2 绿（四条全绿；
+     npm test 2158 测 0 红 1 skipped；测试对红相逐字节零漂移）→ 本条
+     票面修正与红方 lint 自修同 commit 收口（:2134 测试名折行拼接、
+     运行时名逐字节等值，文件尾空行收净；断言零触碰，56 测 0 红复跑；
+     系红相 525b19d 自带 lint 缺陷，绿方零触碰纪律下留红方职权修正）。
