@@ -53,11 +53,14 @@ for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js',
 }
 Object.assign(globalThis, vm.runInContext(
     '({TOWN_MAP, townBuildSteps, townAssemblyOps, mkTownTargets,' +
-    'townTargetOf, TOWN_UI_EVENTS, TOWN_INTERACTS, anchorOf, TOWN_NPC_ANCHORS})', eng)); /* T-NPC-12
+    'townTargetOf, TOWN_UI_EVENTS, TOWN_INTERACTS, anchorOf, TOWN_NPC_ANCHORS,' +
+    'anchorChanged})', eng)); /* T-NPC-12
     红方扩提取(报备): 消费机协议面四件——townTargetOf(六键形状冻结函数)/
     TOWN_UI_EVENTS(冻结事件名表)/TOWN_INTERACTS(冻结清单)/anchorOf+TOWN_NPC_ANCHORS
     (取数器+锚点表)。机器只消费不复制(T-SEAM-04 core 零改动守门口径); 提取供
-    adventure.js CJS 域全局名解析与 T-NPC-12 红测断言引用 */
+    adventure.js CJS 域全局名解析与 T-NPC-12 红测断言引用; anchorChanged
+    (验收补丁)=重发判定谓词铺全局——乙组消费机测试走真谓词单源路径, 不留
+    壳层同语义副本的生存缝(判据单份红线) */
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, isOpaque, world, worldCells,
   SceneKit, PrefabKit,
