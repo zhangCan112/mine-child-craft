@@ -61,7 +61,10 @@ const TOWN_MAP = {
   prefab: [
     {id: 'tower-belfry', x: 79, y: 24, z: 72, v: {}, face: 'south', zone: 'hub'},
     {id: 'shop-awning', x: 110, y: 24, z: 79, v: {}, face: 'west', zone: 'east'},
-    {id: 'windmill-tower', x: 56, y: 24, z: 42, v: {}, face: 'south', zone: 'north'},
+    /* TIDEA-01 尾段笔: v.sailStatic=false 叶片组件(轴/框/帆)整体退场不入格,
+        旋转 mesh 接管(arch 波次二 spinner 全链已备)——assembly 由此派生
+        spinner op, foot 同步收塔体 6×6 高 11(锥尖 dy10) */
+    {id: 'windmill-tower', x: 56, y: 24, z: 42, v: {sailStatic: false}, face: 'south', zone: 'north'},
     {id: 'cottage-gable', x: 44, y: 24, z: 71, v: {}, face: 'south', zone: 'west'},
     {id: 'house-loft', x: 42, y: 24, z: 85, v: {}, face: 'north', zone: 'west'},
     {/* TIDEA-09(W-09): stash 寻宝记号两笔契约(顶层 tidea 命名空间键,
@@ -150,7 +153,7 @@ const TOWN_MAP = {
     {id: 'main-east', kind: 'main', x1: 94, z1: 84, x2: 120, z2: 88, curb: true},
     {id: 'main-south', kind: 'main', x1: 76, z1: 94, x2: 80, z2: 118, curb: true},
     {id: 'lane-west', kind: 'lane', x1: 48, z1: 78, x2: 65, z2: 80, curb: true},
-    {id: 'lane-farm', kind: 'lane', x1: 54, z1: 46, x2: 56, z2: 60, curb: true},
+    {id: 'lane-farm', kind: 'lane', x1: 54, z1: 45, x2: 56, z2: 60, curb: true}, /* 尾段翻转随步: 北延贴塔正面(叶盒退场, §3 E 终站) */
     {id: 'lane-stash', kind: 'lane', x1: 52, z1: 94, x2: 75, z2: 96, curb: true},
   ],
   /* 地表分类(prefab-specs §5.2 场景拼装, 不入 PrefabKit): 广场铺装恰

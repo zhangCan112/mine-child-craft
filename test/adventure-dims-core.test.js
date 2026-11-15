@@ -496,13 +496,14 @@ test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/
   assert.strictEqual(cell(107, 26, 75), 19, '窗内藏暖光 19 @(107,26,75)');
   assert.strictEqual(cell(106, 29, 74), 15, '前廊遮檐布幔 15 @(106,29,74)');
   assert.strictEqual(cell(106, 26, 77), 5, '前廊柱 5 @(106,26,77)');
-  /* 风车塔(face=south 恒等): 轴/十字框叶(石英框+木板叶面)/小窗(新蓝图无门洞) */
-  assert.strictEqual(cell(56, 32, 43), 76, '风车轴 76 @(56,32,43)');
-  assert.strictEqual(cell(56, 32, 44), 76, '风车轴 76 @(56,32,44)');
-  assert.strictEqual(cell(56, 32, 45), 76, '风车轴 76 @(56,32,45)');
-  assert.strictEqual(cell(55, 35, 45), 6, '风车上臂木板叶 6 @(55,35,45)');
-  assert.strictEqual(cell(57, 29, 45), 6, '风车下臂木板叶 6 @(57,29,45)');
-  assert.strictEqual(cell(56, 35, 45), 17, '风车叶框石英 17 @(56,35,45)');
+  /* 风车塔(face=south 恒等): 塔体 voxel 照建(v.sailStatic=false 尾段翻转,
+      叶片组件轴/框/帆整体退场归 spinner mesh 半边)/小窗(新蓝图无门洞) */
+  assert.strictEqual(cell(56, 32, 43), 9, '风车檐层 9 @(56,32,43)(原轴根位, 叶片退场后锥檐显出)');
+  assert.strictEqual(cell(56, 32, 44), 0, '风车叶片位空气 @(56,32,44)');
+  assert.strictEqual(cell(56, 32, 45), 0, '风车轮心位空气 @(56,32,45)(叶片归 mesh 半边)');
+  assert.strictEqual(cell(55, 35, 45), 0, '风车上臂位空气 @(55,35,45)');
+  assert.strictEqual(cell(57, 29, 45), 0, '风车下臂位空气 @(57,29,45)');
+  assert.strictEqual(cell(56, 35, 45), 0, '风车叶框位空气 @(56,35,45)');
   assert.strictEqual(cell(56, 24, 42), 13, '风车基座石砖 13 @(56,24,42)');
   assert.strictEqual(cell(56, 25, 42), 17, '风车塔身石英 17 @(56,25,42)');
   assert.strictEqual(cell(56, 25, 44), 0, '风车门洞 @(56,25,44)(南脸门洞保留)');

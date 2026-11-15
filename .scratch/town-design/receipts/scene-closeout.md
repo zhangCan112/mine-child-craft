@@ -464,3 +464,62 @@ assert.strictEqual(topAt(143), 23, '东缘基段笔顶 23');
 - 精确提交面: js/town-map-core.js+test/town-map-core.test.js+
   .scratch/town-design/receipts/scene-closeout.md 三件, 他线 WIP 零接触。
 
+## 十一、尾段笔·风车数据翻转(sailStatic=false 入 spinner 时代; 对表 arch §10.5)
+
+### 11.1 数据与派生连锁(两处数据+两面测试, 实测先行)
+
+- js/town-map-core.js: ①windmill-tower 条目 v={}→{sailStatic:false}
+  (叶片组件轴/框/帆整体退场不入格, 旋转 mesh 接管; assembly :352 严格
+  判据 ===false 派生 spinner op, 浏览器真数据链 eval 实证 op=spinner)。
+  ②lane-farm 北端 z1 46→45(翻转连带): 叶片盒(含 z45 扫掠面)退场后塔体
+  foot 收至 z44, 路端帽 (55,46) 与盒 gap=1 不再「贴建筑」, §3 E 断头
+  判据触发灯柱红(map-core test :508)——依测试注释设计权威「贴建筑=
+  目的地终站, 如 lane-farm 尽头的风车」北延一格贴塔正面恢复终站语义
+  (z45 格与旋转叶零冲突: mesh 扫掠最低 y≈28.8 远高于路面 y24; 录入前
+  probe 缘石线 x53/x57 列不压塔盒、无 scatter/prefab 撞格)。
+- test/town-map-core.test.js :166(自裁面): 体量域 {6..9,[12,14]}→
+  {6,6,[11,11]}(prefab-kit 动态档 footOf 实测恰 6×6×11, 锥尖 dy10 兜底;
+  测试 footOf 实参含条目 v, 随翻转自动换防)。
+- test/adventure-dims-core.test.js :499..505(lead 授权机械同步): 六条
+  叶片 pin 翻值: 轴根位 (56,32,43) 76→9(檐层显出, 与 arch 预演 B 同值)、
+  (56,32,44/45) 76→0、上/下臂 (55,35,45)/(57,29,45) 6→0、叶框
+  (56,35,45) 17→0; :506..510 塔体五 pin 存活不动(基座/塔身/门洞×2/
+  小窗全绿)。
+
+### 11.2 arch 测试面同步(第四件, 随步改条款交付披露)
+
+- test/town-assembly-core.test.js 三处: arch §10.5 红清单只列了 dims
+  面, 他自己的真实数据链计数 pin 同在翻转半径内, 机械同步并披露:
+  ①place 调用面 steps 过滤补同一严格判据 !(s.v&&s.v.sailStatic===false)
+  保索引对齐(计数 13→12); ②执行见证 18→17, windmill 见证从 places.find
+  换防 ops.find(新 pin op==='spinner', accent 槽见证挂双胞胎 v;
+  assembly :350 v 在分支前并入 ids 有据); ③词表封闭 VOCAB 补第六词
+  spinner(:319+表头:18; arch 更新了 dims 消费端六词, 自己派生端仍五词,
+  本笔真实数据链首次产出 spinner op 顶出来)。
+
+### 11.3 验证与存证
+
+- 定向四件(map-core/dims/assembly/prefab-kit)148/148 绿; 全仓 2119 测
+  2116 pass/2 fail, 2 红全归 light 在途 WIP(adventure-mode.test.js
+  TIDEA-11 重进计数 1!==2 + conventions 守门点名 adventure.js:3035
+  顶层直写), 本笔四文件全仓批内零红; lint 本面零错(自查抓出 map-core
+  :156 行长 130 自修), 全仓余 1 错=light 在途 adventure-mode.test.js
+  :5170 缩进。
+- 存证 shots-tidea2-scene/: windmill-flip-1..3.png(机位 lane-farm 路
+  中段 (56,26.8,56) 面北: 塔体静态十字叶消失=翻转显影; 三帧同姿系
+  headless 无 pointer lock, main.js :383 locked||touchPlaying 门不喂
+  dt 的暂停伪影, 与 fluids 同门)+windmill-probe-before/after.png
+  (手喂 SpinnerCore.tickSpinners(0.5) 帆叶跳转约 36 度=旋转路径活证)。
+  终审两帧对比归 lead: 交互会话 locked 态即转, 缺省周期 5s(spinner-core
+  clampPeriod 缺省=ADR 4-6s 带中点), 条目未带 period 走缺省即可。
+- 脚本: windmill-flip-tidea2-scene.mjs(存证 harness: 新鲜度门 sailStatic
+  在场校验+派生见证 eval)+windmill-tick-probe-tidea2-scene.mjs(机制
+  探针), 均一次性设计工具不入库。
+
+### 11.4 精确提交面(五件, 第四件披露如 11.2)
+
+- js/town-map-core.js+test/town-map-core.test.js+test/adventure-dims-core.test.js
+  (lead 字面三件)+test/town-assembly-core.test.js(全仓绿验收强迫, 随步改
+  条款先例=place 13→18 补丁底稿)+本回执 §十一(波次一/二惯例回执并入
+  同批)。他线 WIP 零接触(light 六文件在途改原样留场)。
+

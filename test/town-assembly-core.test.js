@@ -15,7 +15,7 @@
    ④ place 调用面: 10 实例与 prefab 段一一对应, face(条目顶层字段)/ids 注入
       一律新对象——townBuildSteps 嵌套 v 与源清单共享引用, 原地改即污染布局
       权威(源清单头注释钉死「消费方只读」);
-   ⑤ 植被道具: op 词表封闭 {fill,tree,scrub,recolor,place}; 禁 id 7 的 fill
+   ⑤ 植被道具: op 词表封闭 {fill,tree,scrub,recolor,place,spinner}; 禁 id 7 的 fill
       (「无散装树几何」的可执行形态——植被一律走 SceneKit 树家族 op); 樱花 =
       tree + recolor(7→16 覆写落调用方, map-design §5.4); 灌木带确定性盐;
       灯柱/路标走 fill;
@@ -217,8 +217,10 @@ test('place 调用面: 10 实例一一对应 prefab 段保序 · face/ids 注入
   const ops = opsJson(ctx);
   const places = ops.filter((o) => o.op === 'place');
   const steps = JSON.parse(probe(ctx,
-      'JSON.stringify(townBuildSteps().filter((s) => s.phase === "prefab"))'));
-  assert.strictEqual(places.length, steps.length, 'place op 数 = prefab 实例数(13: 7 建筑+埋室+摊位 6)');
+      'JSON.stringify(townBuildSteps().filter((s) => s.phase === "prefab" && ' +
+      '!(s.v && s.v.sailStatic === false)))'));
+  assert.strictEqual(places.length, steps.length,
+      'place op 数 = prefab 实例数(12: 原十三实例 − windmill 换防 spinner 不列)');
   for (let i = 0; i < places.length; i++) {
     const [op, s] = [places[i], steps[i]];
     assert.strictEqual(op.id, s.id, '实例 ' + i + ' id 对齐保序');
@@ -240,7 +242,8 @@ test('place 调用面: 10 实例一一对应 prefab 段保序 · face/ids 注入
   assert.strictEqual(cellar.v.mat, 3, 'mat=3 石头必传轴在位');
   /* 引用纪律(in-vm 验引用, JSON 过不了引用): v/ids 新对象, 源清单零污染 */
   const refs = JSON.parse(probe(ctx, `JSON.stringify((() => {
-    const steps = townBuildSteps().filter((s) => s.phase === 'prefab');
+    const steps = townBuildSteps().filter((s) => s.phase === 'prefab' &&
+        !(s.v && s.v.sailStatic === false));
     const ops = townAssemblyOps(townBuildSteps());
     const places = ops.filter((o) => o.op === 'place');
     return {
@@ -264,7 +267,7 @@ test('place 调用面: 10 实例一一对应 prefab 段保序 · face/ids 注入
    唯一可靠拦截 = 真执行: vm 同上下文载 prefab-kit + 本件, spy 世界把全部
    place op 落场, 断言每笔写 ⊆ footOf 同参盒——运行时消费方(adventure-dims-core
    place 执行路径)的等价见证。装具手法借 test/prefab-kit.test.js loadKit。 */
-test('place 执行见证: 18 实例全落场 — pfMerge 行键×蓝图键面耦合不炸, 每笔写 ∈ footOf 同参盒', () => {
+test('place 执行见证: 17 实例全落场 — pfMerge 行键×蓝图键面耦合不炸, 每笔写 ∈ footOf 同参盒', () => {
   const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
   for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
     'js/town-map-core.js', 'js/town-assembly-core.js']) {
@@ -278,10 +281,10 @@ test('place 执行见证: 18 实例全落场 — pfMerge 行键×蓝图键面耦
   const ops = JSON.parse(vm.runInContext(
       'JSON.stringify(townAssemblyOps(townBuildSteps()))', eng));
   const places = ops.filter((o) => o.op === 'place');
-  assert.strictEqual(places.length, 18,
-      'place op 18 个(6 建筑+埋室 1+摊位 6+陈设落位 5: scarecrow/clothesline/' +
-      'woodpile/hencoop/board-pool——蓝图行=波次一 a73623c, 落位数据=scene eb9175e, ' +
-      'scene §10.4 补丁底稿吸收)');
+  assert.strictEqual(places.length, 17,
+      'place op 17 个(5 建筑+埋室 1+摊位 6+陈设落位 5: scarecrow/clothesline/' +
+      'woodpile/hencoop/board-pool; windmill-tower 换防 spinner op 不列——' +
+      '蓝图行=波次一 a73623c, 落位数据=scene eb9175e+尾段翻转, scene §10.4 补丁底稿吸收)');
   /* v2 新键面证据: door/doorTop 与 accent 槽真的并入 place v(注入单源=palette
      行; 行键漂移时此处先红, pfMerge 执行期 throw 兜底) */
   const towerOp = places.find((o) => o.id === 'tower-belfry');
@@ -289,9 +292,10 @@ test('place 执行见证: 18 实例全落场 — pfMerge 行键×蓝图键面耦
       'tower 行 door 槽已并入 place v');
   assert.strictEqual(towerOp.v.ids.doorTop, PALETTE_WANT.prefab['tower-belfry'].doorTop,
       'tower 行 doorTop 槽已并入 place v');
-  const windOp = places.find((o) => o.id === 'windmill-tower');
+  const windOp = ops.find((o) => o.id === 'windmill-tower');
+  assert.strictEqual(windOp.op, 'spinner', 'windmill 换防 spinner op(尾段翻转, 不复入 place)');
   assert.strictEqual(windOp.v.ids.accent, PALETTE_WANT.prefab['windmill-tower'].accent,
-      'windmill 行 accent 槽已并入 place v');
+      'windmill 行 accent 槽已并入 spinner v(place 双胞胎同形)');
   const cotOp = places.find((o) => o.id === 'cottage-gable');
   assert.strictEqual(cotOp.v.ids.bedGrass, PALETTE_WANT.prefab['cottage-gable'].bedGrass,
       'cottage 行 bedGrass 槽(花坛)已并入 place v');
@@ -316,7 +320,7 @@ test('place 执行见证: 18 实例全落场 — pfMerge 行键×蓝图键面耦
 test('植被道具: op 词表封闭 · 禁 id7 的 fill(无散装树几何) · 樱花=tree+recolor 覆写落调用方', () => {
   const ctx = loadCore();
   const ops = opsJson(ctx);
-  const VOCAB = ['fill', 'tree', 'scrub', 'recolor', 'place'];
+  const VOCAB = ['fill', 'tree', 'scrub', 'recolor', 'place', 'spinner'];
   assert.ok(ops.every((o) => VOCAB.includes(o.op)), '词表封闭: ' +
     [...new Set(ops.map((o) => o.op))].join('/'));
   const fills = ops.filter((o) => o.op === 'fill');

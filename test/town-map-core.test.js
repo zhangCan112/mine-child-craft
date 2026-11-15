@@ -163,7 +163,7 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
     'tower-belfry': {min: 6, max: 6, y: [14, 16]}, /* 钟塔 6×6 高 14-16 */
     'shop-awning': {min: 8, max: 10, y: [7, 8]}, /* 店 10×8(含前廊 10×9) 高 7-8 */
     'stash-hut': {min: 6, max: 6, y: [5, 6]}, /* 小屋 6×6 高 5-6 */
-    'windmill-tower': {min: 6, max: 9, y: [12, 14]}, /* 风车塔体 6×6+叶展 高 12-14 */
+    'windmill-tower': {min: 6, max: 6, y: [11, 11]}, /* 塔体 6×6 高 11(sailStatic=false 拆叶口径: 叶归 mesh 不入 foot, 锥尖 dy10) */
     /* 民居 A 8×7 高 7(v2 双坡+阶梯山墙, checkpoint 批准几何升级;
        旧值 6 见 map-design §4.2, 被总纲 §3 G 取代) */
     'cottage-gable': {min: 7, max: 8, y: [7, 7]},
