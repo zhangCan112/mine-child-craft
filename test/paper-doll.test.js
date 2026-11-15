@@ -1,5 +1,5 @@
 'use strict';
-/* 纸娃娃翼单测(T-G03 形象层, UI spec §4.2/§4.3) — node --test
+/* 纸娃娃翼单测(T-G03 形象层, UI spec v1.2 §4.2/§4.3/§6.6 无翼常驻) — node --test
    运行: node --test test/paper-doll.test.js
    js/paper-doll.js 宿主 require 装载(闭包自由变量 MobLookKit/
    mkArmorOverlay/EQUIP_SLOTS 经宿主 global 解析, conventions §7.1
@@ -206,48 +206,51 @@ const WORN_GLIDER = {helmet: null, chestplate: null, leggings: null, boots: null
   glider: {id: 'glider', dur: 1}};
 const WORN_NONE = {helmet: null, chestplate: null, leggings: null, boots: null, glider: null};
 
-/* ============ 测试 ============ */
+/* ============ 测试(v1.2 §4.2/§4.3/§6.6: 纸娃娃无翼常驻+构图恒出厂) ============ */
 
-test('纸娃娃翼: paint 未装备 — 翼 hidden 无残影·相机原构图 z=3.55(UI spec §4.2/§4.3)', () => {
-  const d = loadDoll();
-  try {
-    const doll = d.mkPaperDoll({doc: {createElement: () => mkEl()}});
-    doll.paint(WORN_NONE);
-    const [wl, wr] = wingsOf(d.puppet());
-    assert.strictEqual(wl.visible && wr.visible, false,
-        '未装备 → 翼骨 hidden(与现状逐像素一致, 无残影)');
-    assert.ok(d.calls.includes('player'), '纸娃娃消费 puppet(\'player\')(档案共享, 几何零双份)');
-    const cam = d.camera();
-    assert.ok(cam, 'paint 触发 build(惰性首建)应已建相机');
-    assert.ok(Math.abs(cam.position.z - 3.55) < 0.01, '未装备维持原构图 z=3.55');
-  } finally {
-    d.restore();
-  }
-});
-
-test('纸娃娃翼: paint 装备 — 展平静帧(不经意图接口)·相机后移 z≈4.3·lookAt 仍 (0,0.9,0)(UI spec §4.2/§4.3)', () => {
+test('纸娃娃翼: 无翼常驻 — paint 任意 worn 翼恒 hidden, 装备与非装备逐像素一致(v1.2 §4.2)', () => {
   const d = loadDoll();
   try {
     const doll = d.mkPaperDoll({doc: {createElement: () => mkEl()}});
     doll.paint(WORN_GLIDER);
     const [wl, wr] = wingsOf(d.puppet());
-    assert.strictEqual(wl.visible && wr.visible, true, '装备 → 翼展平静帧(试穿预览)');
-    assert.ok(Math.abs(wl.rotation.z) >= Math.PI / 3 && Math.abs(wl.rotation.z) <= 2 * Math.PI / 3,
-        '翼置展平姿态(§6 展平姿态渲染一帧, 60°~120° 带)');
-    assert.ok(Math.sign(wl.rotation.z) !== Math.sign(wr.rotation.z), '双翼镜像反号');
-    const cam = d.camera();
-    assert.ok(Math.abs(cam.position.z - 4.3) < 0.1,
-        '装备时相机后移 z 3.55→≈4.3(双翼尖完整入框), 实得 ' + cam.position.z.toFixed(2));
-    const last = cam.lookAtLog[cam.lookAtLog.length - 1];
-    assert.ok(last && last.length === 3 && Math.abs(last[0]) < 1e-9 &&
-        Math.abs(last[1] - 0.9) < 1e-9 && Math.abs(last[2]) < 1e-9,
-    'lookAt 仍 (0,0.9,0)(其余参数不动)');
+    assert.strictEqual(wl.visible && wr.visible, false,
+        '装备滑翔翼 → 翼仍 hidden(v1.2: 纸娃娃任何状态不显示翼, PO 实机拍板覆盖 R1-13)');
+    assert.ok(d.calls.includes('player'), '纸娃娃消费 puppet(\'player\')(档案共享, 几何零双份)');
+    doll.paint(WORN_NONE);
+    assert.strictEqual(wl.visible && wr.visible, false,
+        '非装备 → 翼恒 hidden(装备前后逐像素一致)');
   } finally {
     d.restore();
   }
 });
 
-test('纸娃娃翼: 卸下构图复原 + 同 worn 幂等不重画(§4.3 构图复原/预览按需一帧)', () => {
+test('纸娃娃翼: paint 不操纵翼骨不碰相机 — 构图恒出厂参数(v1.2 §4.3/§6.6 相机微调作废)', () => {
+  const d = loadDoll();
+  try {
+    const doll = d.mkPaperDoll({doc: {createElement: () => mkEl()}});
+    doll.paint(WORN_GLIDER);
+    const [wl, wr] = wingsOf(d.puppet());
+    assert.ok(Math.abs(wl.rotation.z) <= 1e-9 && Math.abs(wr.rotation.z) <= 1e-9,
+        'paint 不置翼姿态(rotation 恒 0, v1.1 展平静帧作废)');
+    const cam = d.camera();
+    assert.ok(cam, 'paint 触发 build(惰性首建)应已建相机');
+    assert.ok(Math.abs(cam.position.z - 3.55) < 0.01,
+        '构图恒出厂 z=3.55(v1.2: 装备时后移 4.3 作废——无翼尖入框需求)');
+    assert.ok(Math.abs(cam.position.y - 0.95) < 0.01, '眼高 0.95 不动');
+    doll.paint(WORN_NONE);
+    assert.ok(Math.abs(cam.position.z - 3.55) < 0.01,
+        '卸下后相机不往返(恒定, paint 不碰相机)');
+    const last = cam.lookAtLog[cam.lookAtLog.length - 1];
+    assert.ok(last && last.length === 3 && Math.abs(last[0]) < 1e-9 &&
+        Math.abs(last[1] - 0.9) < 1e-9 && Math.abs(last[2]) < 1e-9,
+    'lookAt 恒 (0,0.9,0)(出厂构图, FOV 38 同构)');
+  } finally {
+    d.restore();
+  }
+});
+
+test('纸娃娃翼: 同 worn 幂等不重画 + worn 序列往复构图恒定(预览按需一帧)', () => {
   const d = loadDoll();
   try {
     const doll = d.mkPaperDoll({doc: {createElement: () => mkEl()}});
@@ -257,10 +260,12 @@ test('纸娃娃翼: 卸下构图复原 + 同 worn 幂等不重画(§4.3 构图�
     const n1 = r.renderCount;
     doll.paint(WORN_GLIDER);
     assert.strictEqual(r.renderCount, n1, '同 worn 复 paint 不重画(五槽 id 签名幂等)');
-    doll.paint(WORN_NONE);
-    assert.strictEqual(wl.visible, false, '卸下翼消失');
+    /* 往复序列: 装备↔非装备交替, 翼恒 hidden、构图恒出厂 */
+    for (const w of [WORN_NONE, WORN_GLIDER, WORN_NONE]) doll.paint(w);
+    assert.strictEqual(wl.visible, false, '任意 worn 序列后翼恒 hidden(无残影无复活)');
     const cam = d.camera();
-    assert.ok(Math.abs(cam.position.z - 3.55) < 0.01, '卸下构图复原 z=3.55(人物更大更亲切)');
+    assert.ok(Math.abs(cam.position.z - 3.55) < 0.01,
+        '往复后构图仍恒出厂 z=3.55(人物更大更亲切, §4.3 v1.2)');
   } finally {
     d.restore();
   }

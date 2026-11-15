@@ -205,3 +205,38 @@ js/mode-kit.js（:43 头注释 mkArmorBar 描述 / :762 renderEquip 槽序注释
   **2175 tests / 2174 pass / 0 fail / 1 skipped**（exit 0, 与 T-G05 实测预期
   逐项一致; T-G03-full-test3.log）+ `npm run lint` **整树零错误**（exit 0,
   T-G03-full-lint3.log）——挂账清零, 零红零修复。
+
+## 10. v1.2 rework 记录（2026-11-16, PO 实机拍板「翼只在滑翔时可见」——预角令正式撤销）
+
+> 权威: docs/design/glider-ui-spec.md **v1.2**（2026-11-16, 11 处修订, 入库 72bac91）;
+> 论证与拍板原话: .scratch/glider/ui-design/notes.md §6。本票 v1.1 面合规无责, 纯规格迭代。
+
+### 10.1 三栏清单 ↔ 落地映射
+
+**保留（零改动/契约不变）**: 翼骨结构+贴图 128 档五色+0.25s 动效+微动（§6.3/§6.5 契约不动, 测试 R1/R2/微动断言原值保留）· SFX_KINDS 两键 · HUD 第五槽/装备页槽位/物品图标（mode-kit/css/audio 零触碰）。
+
+**作废 → 落地**:
+| 作废项 | v1.2 处置 | 落地 |
+|---|---|---|
+| 预角 ry ±18°（4013421） | §6.2 注记: 静止不可见后无观感收益, GP03 建议撤销 | player.js 三盒 ry 移除（rotation 0=过渡首/末帧收拢竖板）; mob-look.test 预角断言段移除, 重钉「三盒零 ry」 |
+| §4.2 纸娃娃展翼帧 | 纸娃娃无翼常驻（覆盖 R1-13, PO 原话「不背着」） | paper-doll.js paint 不消费 worn.glider/不碰翼骨; 构造期一次性置翼 hidden |
+| §4.3 相机后移 3.55→4.3 | 相机微调作废, 构图恒出厂参数 | paper-doll.js 相机恒 FOV 38/z=3.55/lookAt (0,0.9,0)（build 期一次, paint 不碰） |
+| 装备态对账路径 | setArmor 与翼显隐解耦, 不消费 worn.glider | avatar.js setArmor 只留 armorOverlay.apply; 翼可见性唯一驱动=模式层 setWings |
+| v1.1 A1 走查判据 | 换 §6.7 v1.2 新过线门 | T-G03-walkthrough.md 判据整体改写（滑翔态主线四条+非滑翔零翼六条） |
+
+**改语义 → 落地**: 四态机 hidden/spreading/spread/folding（folded 降级为过渡起止姿态, §6.2「收拢烘焙=过渡姿态」注记）; setWings 目标态声明 **('hidden'|'spread')**——'spread'=hidden 起步立即以收拢姿态可见转 spreading、folding 中反向续展, 'hidden'=从当前角转 folding、**到位瞬间 visible=false 无残影帧**（§6.5 衔接语义注记）; 对账兜底=新增导出 **forceWingsHidden()**（无条件立即 hidden, 切模式/读档/死亡重生由模式层调用——v1.2 §6.4「无条件安全」注记; 载入期归位）。
+
+### 10.2 测试重钉（spec 驱动的期望修订）
+
+- avatar.test.js 六测试全重写: 缺省+装备未滑翔恒 hidden · setArmor 解耦（穿/卸/置空不触翼不扰动姿态）· setWings('spread') 过渡首帧收拢可见+0.25s 匀速+端点带+反号 · setWings('hidden') 播完前可见+半程≈半+**到位瞬间隐藏** · spread 微动（原断言带全保留）· 非滑翔零翼红线+兜底（hidden 幂等/spreading 中途反向续收不跳变/spread 重复声明幂等/forceWingsHidden 立断+角恰 0）。
+- paper-doll.test.js 三测试重写: 无翼常驻（任意 worn 翼恒 hidden, 装备前后逐像素一致）· paint 不操纵翼骨不碰相机（rotation 恒 0, z 恒 3.55, lookAt 恒 (0,0.9,0)）· 同 worn 幂等+worn 序列往复构图恒定。
+- mob-look.test.js: 预角断言段移除 → 「三盒零 ry（v1.2 预角撤销——过渡姿态无基偏）」; A1 既有断言（pivot/axis/三盒尺寸/共区）+A2 贴图断言零改动。
+
+### 10.3 验证与提交（窗口随令: 门禁+提交立即执行）
+
+- 定向三文件: **24/24 pass, 0 fail**（t-g03-v12c.log; mob-look 15+avatar 6+paper-doll 3）。
+- 下游复核 mode-kit+audio+boot+armor-overlay: **98/98 pass, 0 fail**（t-g03-v12b.log）。
+- eslint 六所有权文件: **零错误**（avatar/paper-doll/player + 三测试; 中途自修 block-spacing ×2）。
+- 全量 `npm test`: **2194 tests / 2174 pass / 19 fail / 1 skipped**——**19 红全部为「T-G04」字样测试**（GP04 WIP 红测试, 落在 test/adventure-mode.test.js 工作区未收敛, 实现未写）; 数学自洽: 2194=2175+19（GP04 新增 19）、pass 2174=旧全量 pass、skipped 1=基线固有——**除 GP04 面外全树绿（含本 v1.2 改动）**。按令报回经理候 GP04 收敛, 不代修（T-G03-v12-full-test.log）。
+- 全量 `npm run lint`: exit 1——**全部错误仅 test/adventure-mode.test.js 一文件**（GP04 WIP, 24 error）; 我面六文件 eslint 零错, css/htmlhint 未及跑（eslint 先断; css 本票零触碰, v1.1 时 stylelint 绿）。同上不代修（T-G03-v12-full-lint.log）。
+- 提交: 仅 add 所有权六文件（js/avatar.js · js/mob-look/player.js · js/paper-doll.js · test/mob-look.test.js · test/avatar.test.js · test/paper-doll.test.js）+ 本回执 + T-G03-walkthrough.md; **不 add**: test/adventure-mode.test.js（GP04 WIP）及任何他人文件。哈希=本提交自身（自引, 以 git log 为准）。

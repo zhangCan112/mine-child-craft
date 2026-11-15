@@ -1,5 +1,5 @@
 'use strict';
-/* Avatar 显隐状态机单测(T-G03 形象层, UI spec §6.4/§6.5) — node --test
+/* Avatar 翼显隐四态机单测(T-G03 形象层, UI spec v1.2 §6.4/§6.5) — node --test
    运行: node --test test/avatar.test.js
    vm 装载 js/avatar.js(载入即建 IIFE, 沙箱喂引擎全局桩); MobLookKit 用
    真件+spy 包装记录 puppet('player') 产物——显隐断言落在翼骨 Group 的
@@ -186,42 +186,57 @@ const WORN_GLIDER = {helmet: null, chestplate: null, leggings: null, boots: null
 const WORN_NO_GLIDER = {helmet: {id: 'helmet_iron', dur: 300}, chestplate: null,
   leggings: null, boots: null, glider: null};
 
-/* ============ 测试 ============ */
+/* ============ 测试(v1.2 四态机: hidden/spreading/spread/folding) ============ */
 
-test('Avatar 翼显隐: 缺省 hidden — 未装备翼骨恒不可见(§6.4 红线: 未装备永不出现翼)', () => {
+test('Avatar 翼显隐: 缺省 hidden — 翼只在滑翔时可见(v1.2 §6.4 红线: 非滑翔时刻永不出现翼)', () => {
   withStubs(() => {
     const {Avatar, puppet} = loadAvatar();
     const [wl, wr] = wingsOf(puppet());
     Avatar.update(0.016, 5);
     assert.strictEqual(wl.visible, false, '缺省 hidden: 翼骨 visible=false');
     assert.strictEqual(wr.visible, false);
-  });
-});
-
-test('Avatar 翼显隐: setArmor 装备对账 — worn 有 glider → folded 收拢翼鞘(静态无微动)', () => {
-  withStubs(() => {
-    const {Avatar, puppet} = loadAvatar();
-    const [wl, wr] = wingsOf(puppet());
     Avatar.setArmor(WORN_GLIDER);
     Avatar.update(0.016, 5);
-    assert.strictEqual(wl.visible, true, '装备即 folded(翼鞘可见)');
-    assert.strictEqual(wr.visible, true);
-    /* folded=烘焙收拢(骨旋转 0 基准), 静态无微动(§6.4: 装备未滑翔=静态) */
-    for (let i = 0; i < 60; i++) Avatar.update(1 / 60, 5);
-    assert.ok(Math.abs(wl.rotation.z) < 0.02 && Math.abs(wr.rotation.z) < 0.02,
-        'folded 静态: 收拢位旋转 ≈ 0(§6.2 烘焙=收拢), 1s 静置无微动');
+    assert.strictEqual(wl.visible && wr.visible, false,
+        '装备未滑翔=完全隐藏(v1.2 §6.4: setArmor 不消费 worn.glider)');
   });
 });
 
-test('Avatar 动效: setWings(spread) — 0.25s 线性匀速展开, 端点水平带, 双翼反号(§6.5)', () => {
+test('Avatar 翼显隐: setArmor 与翼解耦 — 任意 worn 不展不收不扰动(v1.2 §6.4)', () => {
+  withStubs(() => {
+    const {Avatar, puppet} = loadAvatar();
+    const [wl] = wingsOf(puppet());
+    /* 穿/卸/重穿/置空均不触翼: 翼可见性唯一驱动=模式层 setWings */
+    Avatar.setArmor(WORN_GLIDER);
+    Avatar.update(0.016, 5);
+    assert.strictEqual(wl.visible, false, '穿翼(未滑翔)不显翼');
+    Avatar.setWings('spread');
+    Avatar.update(0.25, 5);
+    assert.strictEqual(wl.visible, true, '前置: spread 活动中');
+    const a0 = Math.abs(wl.rotation.z);
+    Avatar.setArmor(WORN_NO_GLIDER); /* 滑翔中卸翼声明 */
+    Avatar.update(0.016, 5);
+    assert.strictEqual(wl.visible, true, 'setArmor 变更不掐翼(收翼走 setWings)');
+    assert.ok(Math.abs(Math.abs(wl.rotation.z) - a0) < 0.02,
+        'setArmor 不扰动翼姿态(spread 微动连续, 无重置跳变)');
+    Avatar.setArmor(null);
+    Avatar.update(0.016, 5);
+    assert.strictEqual(wl.visible, true, 'setArmor(null) 亦不触翼(v1.2 解耦)');
+  });
+});
+
+test('Avatar 动效: setWings(spread) — 收拢姿态可见瞬间起 0.25s 线性匀速展开·端点水平带·双翼反号(v1.2 §6.5)', () => {
   withStubs(() => {
     const {Avatar, puppet} = loadAvatar();
     const [wl, wr] = wingsOf(puppet());
     assert.strictEqual(typeof Avatar.setWings, 'function',
-        '应有意图接口 setWings(\'folded\'|\'spread\')(命名归实现线, 语义照 §6.4)');
-    Avatar.setArmor(WORN_GLIDER);
-    Avatar.update(0.016, 5);
+        '应有目标态接口 setWings(\'hidden\'|\'spread\')(v1.2 §6.4 签名, T-G04 消费)');
     Avatar.setWings('spread');
+    Avatar.update(0.016, 5);
+    assert.strictEqual(wl.visible, true,
+        '出现=以收拢姿态可见的瞬间(v1.2 §6.5 衔接: 过渡首帧可见)');
+    assert.ok(Math.abs(wl.rotation.z) < 0.2,
+        '过渡首帧自收拢位起步(rotation ≈ 0, §6.2 收拢烘焙=过渡起止姿态)');
     /* 四步 0.0625s 采样推进(共 0.25s): 匀速=进度比例 */
     const rs = [];
     for (let i = 0; i < 4; i++) {
@@ -245,37 +260,36 @@ test('Avatar 动效: setWings(spread) — 0.25s 线性匀速展开, 端点水平
   });
 });
 
-test('Avatar 动效: setWings(folded) — 反向同参数 0.25s 收回收拢位·端点即停(§6.5)', () => {
+test('Avatar 动效: setWings(hidden) — 0.25s 收拢·播完前可见·到位瞬间隐藏无残影(v1.2 §6.5)', () => {
   withStubs(() => {
     const {Avatar, puppet} = loadAvatar();
-    const [wl] = wingsOf(puppet());
-    Avatar.setArmor(WORN_GLIDER);
-    Avatar.update(0.016, 5);
+    const [wl, wr] = wingsOf(puppet());
     Avatar.setWings('spread');
     Avatar.update(0.25, 5);
     const end = Math.abs(wl.rotation.z);
     assert.ok(end >= Math.PI / 3, '前置: spread 已到位');
-    Avatar.setWings('folded');
+    Avatar.setWings('hidden');
     Avatar.update(0.125, 5);
     const half = Math.abs(wl.rotation.z);
+    assert.strictEqual(wl.visible, true, '收拢动画播完前翼保持可见(不提前隐藏)');
     assert.ok(Math.abs(half - end / 2) < end * 0.12,
         '收起半程 ≈ 端点一半(反向同参数 0.25s): ' + half.toFixed(3) + ' vs ' + (end / 2).toFixed(3));
     Avatar.update(0.125, 5);
-    assert.ok(Math.abs(wl.rotation.z) <= 0.02, '收起端点=收拢位 ≈ 0');
+    assert.strictEqual(wl.visible, false,
+        '收拢到位瞬间 visible=false(v1.2 §6.5 无残影帧)');
+    assert.ok(Math.abs(wl.rotation.z) <= 0.02, '到位角归 0(收拢位)');
+    assert.strictEqual(wr.visible, false);
     for (let i = 0; i < 30; i++) Avatar.update(1 / 60, 5); /* 再静置 0.5s */
-    assert.ok(Math.abs(wl.rotation.z) <= 0.02,
-        '端点即停无过冲无回弹; folded 态无微动(微动只属 spread)');
+    assert.strictEqual(wl.visible, false, 'hidden 静置无复活');
   });
 });
 
-test('Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5)', () => {
+test('Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5 契约不变)', () => {
   withStubs(() => {
     const {Avatar, puppet} = loadAvatar();
     const [wl, wr] = wingsOf(puppet());
-    Avatar.setArmor(WORN_GLIDER);
-    Avatar.update(0.016, 5);
     Avatar.setWings('spread');
-    Avatar.update(0.25, 5); /* 动效到位, 微动开始 */
+    Avatar.update(0.25, 5); /* 过渡到位, 微动开始 */
     const DT = 0.025; const N = 140; /* 3.5s 采样窗 */
     const zl = []; const zr = [];
     for (let i = 0; i < N; i++) {
@@ -302,39 +316,42 @@ test('Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主
   });
 });
 
-test('Avatar 翼显隐: 未装备红线 — 意图不越权·卸翼即隐·重穿对账复位 folded(§6.4 验收红线)', () => {
+test('Avatar 翼显隐: 非滑翔零翼红线+对账兜底 — hidden 幂等·中途反向续收·forceWingsHidden 立断(v1.2 §6.4)', () => {
   withStubs(() => {
     const {Avatar, puppet} = loadAvatar();
     const [wl, wr] = wingsOf(puppet());
-    /* ① 未装备时意图接口不越权 */
-    Avatar.setWings('spread');
+    /* ① hidden 态 setWings(\'hidden\') 幂等(翼恒不可见) */
+    Avatar.setWings('hidden');
     for (let i = 0; i < 30; i++) Avatar.update(1 / 60, 5);
     assert.strictEqual(wl.visible && wr.visible, false,
-        '未装备时 setWings(spread) 翼仍 hidden(装备判据优先于意图)');
-    /* ② spread 态卸翼=翼立即消失(滑翔中卸翼观感归 T-G04 接线, 形象层先保证消失) */
-    Avatar.setArmor(WORN_GLIDER);
-    Avatar.update(0.016, 5);
+        'hidden 幂等: 非滑翔时刻永不出现翼(v1.2 验收红线)');
+    /* ② spreading 中途 setWings(\'hidden\')=folding 从当前角续收(不重起跳变) */
+    Avatar.setWings('spread');
+    Avatar.update(0.125, 5); /* 展开半程 */
+    const mid = Math.abs(wl.rotation.z);
+    assert.ok(mid >= Math.PI / 6, '前置: 展开半程在途');
+    Avatar.setWings('hidden');
+    Avatar.update(0.0625, 5); /* 续收 1/4 量程 */
+    const q = Math.abs(wl.rotation.z);
+    assert.ok(Math.abs(q - mid / 2) < mid * 0.15,
+        '中途反向=从当前角续收(衔接不跳变): ' + q.toFixed(3) + ' ≈ ' + (mid / 2).toFixed(3));
+    Avatar.update(0.2, 5); /* 收完 */
+    assert.strictEqual(wl.visible, false, '收拢到位即隐藏');
+    /* ③ spread 重复声明幂等(不重起过渡) */
     Avatar.setWings('spread');
     Avatar.update(0.25, 5);
-    assert.strictEqual(wl.visible, true, '前置: spread 可见');
-    Avatar.setArmor(WORN_NO_GLIDER);
+    Avatar.setWings('spread'); /* 已 spread: 无操作 */
     Avatar.update(0.016, 5);
-    assert.strictEqual(wl.visible, false, '卸下(含四甲在场)翼即 hidden');
-    /* ③ 重穿 → 对账复位 folded(非 spread 残留) */
-    Avatar.setArmor(WORN_GLIDER);
+    assert.ok(Math.abs(wl.rotation.z) >= Math.PI / 3,
+        'spread 幂等继续(不重起 0 起步)');
+    /* ④ forceWingsHidden: 无条件立即 hidden(切模式/读档对账兜底出口) */
+    assert.strictEqual(typeof Avatar.forceWingsHidden, 'function',
+        '应有对账兜底出口 forceWingsHidden(v1.2 §6.4: 切模式/读档/死亡重生调用)');
+    Avatar.forceWingsHidden();
+    assert.strictEqual(wl.visible && wr.visible, false, 'spread 态强制立即隐藏');
+    assert.ok(Math.abs(wl.rotation.z) <= 1e-9 && Math.abs(wr.rotation.z) <= 1e-9,
+        '强制归位角恰 0(无残留姿态)');
     Avatar.update(0.016, 5);
-    assert.strictEqual(wl.visible, true, '重穿可见');
-    assert.ok(Math.abs(wl.rotation.z) < 0.05 && Math.abs(wr.rotation.z) < 0.05,
-        '重穿对账复位 folded(收拢位), 不残留 spread 大翼');
-    /* ④ setArmor(null) 兜底 */
-    Avatar.setArmor(null);
-    Avatar.update(0.016, 5);
-    assert.strictEqual(wl.visible, false, 'setArmor(null) → hidden');
-    /* ⑤ 顺序反转: 先意图后装备, 仍按装备对账给 folded */
-    Avatar.setWings('spread');
-    Avatar.setArmor(WORN_GLIDER);
-    Avatar.update(0.016, 5);
-    assert.strictEqual(wl.visible, true);
-    assert.ok(Math.abs(wl.rotation.z) < 0.05, '先意图后装备: 仍 folded(对账单一入口)');
+    assert.strictEqual(wl.visible, false, '强制后自驱亦不复活');
   });
 });

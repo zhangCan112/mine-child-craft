@@ -23,11 +23,13 @@
    HeldItems.ARMOR_TIER_COLORS 穿戴层色板);
    同目标幂等——五槽 id 集不变即不动, 磨损只变 dur 不重建; T9 起几何
    抽件 js/armor-overlay.js 单份权威, Avatar 与纸娃娃共享, 设计稿 §9.4;
-   兼任滑翔翼装备对账入口(T-G03/UI spec §6.4): worn 有 glider=翼骨
-   收拢可见, 无=翼骨隐藏——未装备永不出现翼) / setWings('folded'|
-   'spread' 滑翔翼意图, T-G03/UI spec §6.4: 滑翔态切换由模式层调用
-   (Avatar.flash 同款意图 API 先例), 形象层零玩法知识; 装备判据优先
-   于意图——未装备时意图不越权, 重穿对账复位 folded)。
+   v1.2 起与翼显隐彻底解耦——setArmor 不消费 worn.glider, 装备信号只走
+   HUD/装备页槽位图标) / setWings('hidden'|'spread' 滑翔翼目标态声明,
+   T-G03/UI spec v1.2 §6.4: 滑翔状态沿由模式层调用(Avatar.flash 同款
+   意图 API 先例), 0.25s 过渡插值是形象层内部动作; 'spread'=以收拢
+   姿态可见瞬间起 0.25s 展开, 'hidden'=0.25s 收拢、到位瞬间隐藏;
+   形象层零玩法知识) / forceWingsHidden(对账兜底: 无条件立即隐藏,
+   切模式/读档/死亡重生时由模式层调用, v1.2 §6.4 纪律)。
    建模与动画全部是 implementation。
    人物面向 -Z, 与玩家视线一致。
    依赖: world.js 的 scene, voxel.js 的 pos/vel/yaw/pitch/onGround/
@@ -120,64 +122,90 @@ const Avatar = (() => {
      单份权威: Avatar 与背包面板纸娃娃共享, 尺寸/配色/幂等口径逐字平移);
      本段只持有实例并委托 apply。穿/卸即时贴身, 不走手持物装备动画
      (MC 穿戴即时口径)。 */
-  /* ---------- 滑翔翼显隐与动效 (T-G03 形象层, UI spec §6.4/§6.5) ----------
-     状态机 hidden/folded/spread: hidden=未装备翼骨不可见; folded=收拢
-     翼鞘贴背(烘焙 rotation 0 基准, 静态无微动); spread=旋出水平带 +
-     滑翔微动。装备态对账(hidden↔folded)单一入口=syncWings, 由 setArmor
-     驱动; 滑翔态(folded↔spread)走 setWings 意图接口(模式层调用, 形象层
-     零玩法知识)。动效口径 §6.5: 展/收 0.25s 线性匀速无回弹, 端点即停;
-     展平后微动 ±0.05rad(≈2.9°)正弦双翼反相, 主周期 1.4s。 */
+  /* ---------- 滑翔翼显隐与动效 (T-G03 形象层, UI spec v1.2 §6.4/§6.5) ----------
+     四态机 hidden/spreading/spread/folding——v1.2 完全隐藏口径: 翼只在
+     滑翔时可见(装备未滑翔=完全隐藏; folded 静止态删除——收拢烘焙仅作
+     两过渡的起止姿态, §6.2)。可见性唯一驱动=模式层滑翔状态沿经
+     setWings 目标态声明; 装备态不操纵翼(setArmor 与翼显隐解耦)。
+     衔接语义(§6.5): 出现=以收拢姿态可见的瞬间起 0.25s 展开至水平
+     (「跳下去→翅膀砰地张开」); 消失=水平收拢 0.25s, 收拢到位瞬间
+     visible=false(无残影帧), 播完前翼保持可见, 不做淡出/缩放。
+     动效口径不变: 单轴(axis z)线性匀速无回弹端点即停; 展平后微动
+     ±0.05rad(≈2.9°)正弦双翼反相, 主周期 1.4s。 */
   const WING_SPREAD_A = Math.PI / 2; // 展平端点: 收拢竖拢旋出 90°=水平带(60°~120° 带)
-  const WING_SPREAD_T = 0.25; // 展/收时长(与换手装备动画 ≈0.28s 同拍长家族)
+  const WING_SPREAD_T = 0.25; // 展/收过渡时长(与换手装备动画 ≈0.28s 同拍长家族)
   const WING_FLAP_AMP = 0.05; // 滑翔微动幅度(§6.5 ±2.5°~3° 带内取 ≈2.9°)
   const WING_FLAP_T = 1.4; // 微动主周期(呼吸感, 不干扰第三人称读景)
-  let wingOn = false; // 装备态: worn 有无 glider(对账判据, 意图不越权)
-  let wingPose = 'folded'; // 意图: 'folded' | 'spread'
+  let wingState = 'hidden'; // 'hidden'|'spreading'|'spread'|'folding'(v1.2 四态)
   let wingA = 0; // 当前展角(左翼带符号; 右翼镜像取反)
-  let wingFlap = 0; // 微动相位(秒)
+  let wingFlap = 0; // 微动相位(秒, 仅 spread 态累加)
 
-  function syncWings(on) {/* 装备对账单一入口: 边界翻转才动——同装备态
-      重声明(滑翔中对账)不打扰当前翼姿; 上翼复位 folded(不残留 spread) */
-    if (on === wingOn) return;
-    wingOn = on;
-    wingPose = 'folded';
-    wingA = 0;
-    wingFlap = 0;
+  function setWings(mode) {/* 目标态声明(v1.2 §6.4, 模式层滑翔沿):
+      'spread'——hidden 起步=立即以收拢姿态可见转 spreading; folding 中
+      反向续展(衔接不跳变); spreading/spread 幂等继续。
+      'hidden'——spread/spreading 转 folding(0.25s 收拢, 到位瞬间隐藏);
+      hidden/folding 幂等继续(folding 目标本就是 hidden)。 */
+    if (mode === 'spread') {
+      if (wingState === 'hidden') {
+        wingState = 'spreading'; /* 过渡首帧=收拢姿态可见(§6.2 烘焙) */
+        wingA = 0;
+      } else if (wingState === 'folding') {
+        wingState = 'spreading'; /* 从当前角续展, 不重起跳变 */
+      }
+    } else if (mode === 'hidden') {
+      if (wingState === 'spread' || wingState === 'spreading') {
+        wingState = 'folding'; /* 从当前角续收(含展开中途收) */
+      }
+    }
   }
 
-  function setWings(mode) {/* 滑翔态意图接口(模式层): 只记意图, 装备
-      判据在 updWings 优先——未装备永不出现翼 */
-    if (mode === 'spread' || mode === 'folded') wingPose = mode;
+  function forceWingsHidden() {/* 对账兜底(v1.2 §6.4): 无条件立即 hidden
+      ——切模式/读档/死亡重生时模式层调用(滑翔态不可能跨切模式存活,
+      无条件安全), 载入期亦经此归位; 残影修复同款纪律 */
+    wingState = 'hidden';
+    wingA = 0;
+    wingFlap = 0;
+    wingL.visible = false;
+    wingR.visible = false;
+    wingL.rotation.z = 0;
+    wingR.rotation.z = 0;
   }
 
   function updWings(dt) {/* 每帧自驱(隐藏期间也走完, swing/equip 同惯例):
-      线性匀速趋近目标角, 端点即停无回弹; spread 到位后微动 */
-    if (!wingOn) {
-      wingL.visible = false; wingR.visible = false;
-      return;
-    }
-    wingL.visible = true; wingR.visible = true;
+      线性匀速, 端点即停无回弹; spreading 到位入 spread, spread 微动;
+      folding 收拢到位瞬间 visible=false(§6.5 无残影帧) */
+    if (wingState === 'hidden') return;
     const step = dt * WING_SPREAD_A / WING_SPREAD_T;
-    wingA = wingPose === 'spread' ?
-        Math.min(WING_SPREAD_A, wingA + step) :
-        Math.max(0, wingA - step);
-    let a = wingA;
-    if (wingA >= WING_SPREAD_A && wingPose === 'spread') {
-      wingFlap += dt; // 展平后滑翔微动: 双翼反相(一侧上摆一侧下摆)
-      a = WING_SPREAD_A + WING_FLAP_AMP * Math.sin(wingFlap * Math.PI * 2 / WING_FLAP_T);
-    } else {
+    wingL.visible = true; /* 三活态恒可见(folding 播完前不提前隐藏) */
+    wingR.visible = true;
+    if (wingState === 'spreading') {
+      wingA = Math.min(WING_SPREAD_A, wingA + step);
+      if (wingA >= WING_SPREAD_A) wingState = 'spread';
       wingFlap = 0;
+      wingL.rotation.z = wingA;
+      wingR.rotation.z = -wingA; // 双翼反号镜像(几何共区, 摆位对称)
+    } else if (wingState === 'folding') {
+      wingA = Math.max(0, wingA - step);
+      if (wingA <= 0) {/* 收拢到位瞬间隐藏(§6.5 无残影帧) */
+        forceWingsHidden();
+        return;
+      }
+      wingL.rotation.z = wingA;
+      wingR.rotation.z = -wingA;
+    } else {/* spread: 展平+滑翔微动(双翼反相, 一侧上摆一侧下摆) */
+      wingFlap += dt;
+      const a = WING_SPREAD_A + WING_FLAP_AMP * Math.sin(wingFlap * Math.PI * 2 / WING_FLAP_T);
+      wingL.rotation.z = a;
+      wingR.rotation.z = -a;
     }
-    wingL.rotation.z = a;
-    wingR.rotation.z = -a; // 双翼反号镜像(几何共区, 摆位对称)
   }
 
   const armorOverlay = mkArmorOverlay(puppet); // 载入即建(脚本序 armor-overlay 先于本文件)
 
   function setArmor(worn) {
-    armorOverlay.apply(worn);
-    syncWings(!!(worn && worn.glider)); /* 翼装备对账(§6.4): 收敛进既有
-      装备同步路径——切模式/读档重声明天然复位 */
+    armorOverlay.apply(worn); /* v1.2 起与翼显隐解耦: 不消费 worn.glider
+      (装备信号只走 HUD/装备页槽位图标; 翼可见性唯一驱动=模式层
+      setWings, 切模式/读档对账兜底走 forceWingsHidden) */
   }
 
   function flash(d) {
@@ -245,5 +273,5 @@ const Avatar = (() => {
     }
   }
 
-  return {update, setItem, swing, flash, setArmor, setWings};
+  return {update, setItem, swing, flash, setArmor, setWings, forceWingsHidden};
 })();

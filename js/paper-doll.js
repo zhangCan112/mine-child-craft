@@ -14,10 +14,10 @@
      opts.w/h    画布尺寸 px(缺省 140×176, CSS 同款观感; 2026-11-05
                   二轮放大——旧 116×150 娃娃太小看不清盔甲双色)
      paint(worn) 声明穿戴并按需重画一帧(五槽 id 签名幂等——同穿戴不重画);
-                  翼静帧(T-G03/UI spec §4.2): worn 有 glider=翼骨置展平
-                  端点一帧(试穿预览, 不经意图接口), 无=隐藏无残影; 构图
-                  (§4.3): 装备时相机 z 3.55→4.3 保双翼尖完整入框, 未装
-                  备复原原构图, lookAt 恒 (0,0.9,0)
+                  v1.2 §4.2/§6.6 纸娃娃无翼常驻: paint 不消费 worn.glider、
+                  不碰翼骨(构造期一次性隐藏), 构图恒出厂参数(§4.3 相机
+                  微调作废: FOV 38, z=3.55, lookAt (0,0.9,0))——装备与
+                  非装备逐像素一致, 「已装备」信号由第五槽图标承载
      dispose()   释放渲染器/几何/材质; 幂等(重复调无害)
    依赖(均经全局名, 调用期解析): mob-look-kit.js 的 MobLookKit.puppet,
      armor-overlay.js 的 mkArmorOverlay, equipment-core.js 的 EQUIP_SLOTS
@@ -50,11 +50,16 @@ function mkPaperDoll(opts) {
     scene.add(sun);
     const puppet = MobLookKit.puppet('player');
     puppet.root.rotation.y = Math.PI; /* 玩家原生朝 -Z, 转 180° 正面示人 */
+    /* 纸娃娃无翼常驻(UI spec v1.2 §4.2/§6.6): 任何状态不显示翼——
+       构造期一次性隐藏, paint 不再按 worn.glider 操纵翼骨(装备与
+       非装备逐像素一致; 翼骨几何/贴图仍由档案单份承载) */
+    puppet.bones.wingL.visible = false;
+    puppet.bones.wingR.visible = false;
     scene.add(puppet.root);
     const overlay = mkArmorOverlay(puppet);
     const camera = new THREE.PerspectiveCamera(38, W / H, 0.1, 20);
     camera.position.set(0, 0.95, 3.55); /* 眼高居中, 距离罩住头到靴 */
-    camera.lookAt(0, 0.9, 0);
+    camera.lookAt(0, 0.9, 0); /* 构图恒出厂参数(v1.2 §4.3: 相机微调作废) */
     built = {renderer, scene, camera, puppet, overlay, sig: ''};
   }
   return {
@@ -66,19 +71,9 @@ function mkPaperDoll(opts) {
       if (s === built.sig) return;
       built.sig = s;
       built.overlay.apply(worn);
-      /* 翼静帧(T-G03/UI spec §4.2, 不经意图接口): 装备=展平端点一帧
-         (与 Avatar setWings('spread') 到位姿态同角), 未装备=隐藏无残影 */
-      const winged = !!(worn && worn.glider);
-      const wl = built.puppet.bones.wingL;
-      const wr = built.puppet.bones.wingR;
-      wl.visible = winged; wr.visible = winged;
-      wl.rotation.z = winged ? Math.PI / 2 : 0;
-      wr.rotation.z = winged ? -Math.PI / 2 : 0;
-      /* 构图(T-G03/UI spec §4.3): 展翼翼展≈身宽两倍, 装备时相机后移
-         z→4.3 保双翼尖完整入框; 未装备复原原构图(人物更大更亲切);
-         其余参数不动, lookAt 恒 (0,0.9,0) */
-      built.camera.position.set(0, 0.95, winged ? 4.3 : 3.55);
-      built.camera.lookAt(0, 0.9, 0);
+      /* v1.2 §4.2/§6.6: paint 不消费 worn.glider、不碰翼骨、不动相机
+         (构图恒出厂参数)——装备与非装备逐像素一致; 「已装备」可见信号
+         由第五槽图标承载(HUD 常驻+装备页槽位) */
       built.renderer.render(built.scene, built.camera);
     },
     dispose() {
