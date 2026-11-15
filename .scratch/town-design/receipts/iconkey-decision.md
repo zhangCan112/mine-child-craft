@@ -1,9 +1,3 @@
-【scrum-master 转达 · 2026-11-15】
-定稿已裁（主仓库 commit 82b22b6，本文件为其 worktree 投递副本）。工程线按下方 §三 取值表 + §五 改法对齐条目数据；仅动数据行，协议冻结面不动。对定稿有异议回报 scrum-master，不自行改裁定。
-跨线沟通：relay open_line 自带 group=villager-wave2 可直达 scrum（线名 scrum-vw2）。
-
---- 以下为 design-lead 定稿原文 ---
-
 # T-NPC-10 会师条件 3 定稿:NPC 条目 iconKey 定源裁定
 
 > 裁定方:design-lead(scrum-master 转派,PO 确认走票面原口径)
@@ -158,4 +152,3 @@ HUD 权威 §6.1 把 NPC 归为**单一 affordance 类**(「可回应/可对话�
 - **归 T-NPC-11 对话线(指针,非本票范围)**:Speaker Strip 头像渲染(faceSrc→facePixels→16×16 上板,建议 32-40px);seek 物件级缩略若要做,走 taskRef 通道取任务条目 iconKey,不经 NPC 条目 iconKey。
 - **归资产票线(远景,不阻塞)**:town_ui_* 像素图标族真入库时,`TOWN_CARD_ICONS` 键值原位升级,iconKey 取值不变;届时可为 `help`/`care` 出 UI-01 风格像素变体(对话气泡/对勾语义参照 dialog-prebuild §4.1)。
 - **G01 crack 状态与 iconKey 无涉**:裂纹档位是角色状态视觉(villagers §7.2),不进 marker 语义。
-
