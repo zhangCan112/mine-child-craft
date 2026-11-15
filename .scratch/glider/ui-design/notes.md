@@ -1,0 +1,121 @@
+# 滑翔翼 UI 设计 · 过程笔记(ui-designer, 2026-11-15)
+
+> 定稿在 `docs/design/glider-ui-spec.md`,本文件是过程材料:现状核实记录、
+> 方案取舍推演、PO 问答记录。规格正文以此处的事实链为准绳但独立可读。
+
+## 0. 派令与边界
+
+- 派令方:analyst-mgr(经 analyst 线 U-02 转介:第五槽呈现+翼观感+滑翔态 HUD 反馈)。
+- 全责:滑翔翼全部 UI/视觉面(HUD 装备条、背包装备页、物品图标、第三人称翼、音效键+相机意见)。
+- 不含:滑翔物理/触发逻辑、相机切换最终决策(只给 UI 侧意见,决策规则 U-01 已定)。
+
+## 1. PO 美学问答(阻塞式 ask_user,已拿到答案才继续)
+
+- **工单号:7cd34ace**(relay asks.jsonl answered 事件,2026-11-15,本 worktree 项目)。
+- Q1 物品图标意象 → **A 展开双翼**(金骨+皮革红膜,BotW 伞形/收拢背翼两候选落选)。
+- Q2 翼面配色 → **A 皮革暖红棕膜+金骨纹**(亮黄金膜/蓝白纸鸢膜落选;理由:暖红对蓝天
+  对比最好+配方同源+与人物红背包同族)。
+- 两题均为我给推荐+理由、PO 采纳推荐。色板自此钉死,图标/背部翼/纸娃娃三处同源。
+
+## 2. 现状核实(逐字读源码,行号=本 worktree HEAD)
+
+### 2.1 HUD 装备条(mkArmorBar)
+- js/mode-kit.js:1502-1549:遍历 EQUIP_SLOTS 建槽,flex 行,槽=button.armorbar-slot,
+  空槽 `.off`,点槽报 onUnequip(slot) 意图;update(worn) 四槽 id 签名节流。
+- **`.armorbar` 全仓无任何 CSS**(css/ 目录 + index.html grep 'armor' 零命中)——
+  四槽现在是裸默认按钮行,mount 到 body 静态流(#app 是 fixed inset:0,
+  body 无在流内容)→ 实际落在屏幕左上角 (0,0),与 #hud(style.css:1010,fixed top10 left12)
+  文字区重叠。功能在、观感缺。
+- 接线:adventure.js:4695 建(onUnequip: advWornTakeOff),:4889 每帧 update,
+  :3515 穿脱后重画,:4814 cleanup dispose。
+
+### 2.2 背包装备页
+- mkCraftPanel 装备页 js/mode-kit.js:735-785:mkp-equiprow = mkp-dollbox(140×176)
+  + mkp-eslots(**2 列 grid,58px 槽,gap 10**);renderEquip 遍历 EQUIP_SLOTS →
+  四槽 2×2;第五槽若直接进循环会折行成 2-2-1(末行左格悬空)。
+- 槽样式 css/style.css:1694-1716:黑底 30%、白 22% 3px 边框、圆角 10;
+  `.off` 虚线边框(空槽虚位语言);耐久条 .dur。
+- ptsRow 盔甲点(:747-749, :778)——armorPoints 注入,滑翔翼不该计入(规格已声明)。
+- 纸娃娃 js/paper-doll.js:25-84:puppet('player') 独立实例 + mkArmorOverlay +
+  自建 renderer(140×176, FOV 38, cam(0,0.95,3.55) lookAt(0,0.9,0));
+  paint(worn) 五槽签名幂等,零 rAF,unmount dispose。**puppet('player') 全仓
+  仅 avatar.js 与 paper-doll.js 两个消费者**(grep 证实)。
+
+### 2.3 装备条/装备页与五槽连锁(research-current-state.md §3 已核,UI 侧复认)
+- EQUIP_SLOTS(js/equipment-core.js:26)数组序即 UI 序——HUD 条槽序、装备页槽序
+  都从这里派生,尾部追加 'glider' = 两处自动落位(HUD 右端/装备页末位)。
+- 四槽硬编码守门测试 4 处(equipment-core.test.js:40 / mode-kit.test.js:1613 /
+  armor-overlay.test.js:44 / craft 76 计数)——实现线连锁必改,非 UI 面。
+
+### 2.4 翼的既有先例(挂接方案推演依据)
+- **wingL/wingR 语义翼槽**(axis:'z'):dragon(js/mob-look/dragon.js:39-48,
+  骨杆 56×8×8+膜平面盒 56×0×56+翼尖,wingR 与 wingL **共区镜像**)、
+  phantom.js:24-28、vex.js:24-25、chicken.js:28-30。
+- 引擎通用扇翅 js/mobs.js:365-370:**只作用于怪物渲染批**,玩家(Avatar)不走此路径
+  →玩家翼动效必须自驱(Avatar update 或意图接口),不会意外拍翅。
+- **ArmorOverlay 先例**:js/armor-overlay.js——骨挂盒+显式偏移(不可 copy children[0]
+  的错位根因教训 :10-14)、apply 四槽 id 签名幂等、程序生成 16×16 CanvasTexture
+  (NearestFilter,底色=ARMOR_TIER_COLORS 唯一色源);消费方 Avatar+纸娃娃共享。
+- 逐实例隐藏先例:mobs.js:118 hideSlots(剪毛羊);Avatar 不走 mobs 渲染批,
+  翼显隐要 Avatar/纸娃娃各自管(规格写死显隐纪律)。
+- 玩家档案 js/mob-look/player.js:tex 64 档,画笔全走区域引用(R.head.front 等);
+  humanoid UV 布局(mob-look-kit.js:124-133)=经典 64×64 皮肤布局,
+  右上帽层带等有留白可放共区翼 UV(实现自由度,布局合法性有 mob-look.test 守门)。
+
+### 2.5 像素图标管线
+- js/icons.js:ITEM_PIX 字符画('.'=透明,自由字母+显式 map 先例:bag_upgrade
+  s/L/l/m/d/K/k :1302);drawArt :1378;pixToURL64 :1392(16→64 关平滑);
+  守门 test/icons-item.test.js:74-77(键集=ITEMS,漏画红)。
+- 色板先例:PIX_TIER.gold = main #e9b115 / light #fdff76 / dark #825d16 / outline
+  #3f2e0e(:66);弓弦线色 #e0ded4(BOW_ART map :1314);netherite 金粒 #e9b115(:1370)。
+- 「暗底+亮纹」正典手法:ancient_debris DEBRIS_ART 暗紫灰底+棕纹(:1329-1330)。
+
+### 2.6 音效清单
+- js/audio-registry.js:40-77 SFX_KINDS:file 样本+synth 合成回退互锁「永不哑」;
+  同类键先例:door_swing(开关同键)/chip_pop(轻快 6 岁零惊吓)/praise_jingle
+  (仪式音豁免冷却);sfx('…') 字面量守门(audio-registry.test.js 扫 js/**)。
+- 无环境循环音基建(amb_* 全是一次性触发,ADR-0011 口径)→ 滑翔循环风声不做。
+
+### 2.7 动效拍长家族
+- HELD_EQUIP_HALF=0.14(js/held-item.js:37)→ 换手装备动画全程 ≈0.28s;
+  翼展收动效取 0.25s 与之同家族(快速、不拖沓)。
+- SpinnerCore 简洁哲学/匀速口径 + emil 微交互原则(动效服务状态不抢戏):
+  翼展收=单段匀速无回弹;滑翔微动=小幅正弦呼吸。
+
+## 3. 关键取舍推演(沉淀给评审)
+
+1. **第五槽槽序=尾部(右端)**:数组序即 UI 序零特判;盔甲四联(头→胸→腿→靴
+   身体序)不被打断;「专属槽=盔甲之外的附加件」收尾一位语义贴。
+2. **装备后常驻显示**(不只滑翔时):装备是持久状态,HUD 答「我现在戴着什么」,
+   点槽脱下入口需常驻。
+3. **滑翔中指示=槽位金边呼吸**,不做新 HUD 徽章:R1-19 要孩子看风景,屏幕加
+   常驻新件是反方向;R2-07 退化预案(第一人称)下描边是唯一可见状态信号。
+4. **滑翔中抑制第五槽脱下意图**(UI 建议项):HUD 是一击即发的快捷口,滑翔中
+   误触=直接进入无翼坠落(A6/R1-06),对 6 岁太惩罚;装备页口保留随时可卸
+   (面板开=暂停,无误触面)。标注【建议为儿童安全调整】,PO 可覆盖。
+5. **装备页第五槽=四槽正下方居中独立行**:2-2-1 折行悬空难看;跨两列宽槽
+   (126px 装 64px 图标)显空;居中独立一位读作「另一类装备」,与
+   「专属槽与盔甲互不排斥」语义同构。
+6. **纸娃娃装备即展翼**:R1-13 直译(显示展开的翼)+「试穿预览答穿上什么样」,
+   展翼是信息量最大的一帧;零 rAF 纪律不破(静帧展平)。装备滑翔翼时相机
+   后移保双翼入框(未装备维持原构图)。
+7. **翼挂接=造型档案玩家档加翼骨(甲案)** vs ArmorOverlay 扩翼(乙案):
+   甲赢在先例正典(4 怪同款 wingL/wingR 槽)、MobLook paint 管线观感上限高
+   (区域画笔+辐条,dragon 辐条手法)、双端(avatar/纸娃娃)自动获得骨;
+   乙输在词汇拉伸(overlay=盔甲几何权威,翼非盔甲)与贴图画笔为盒六面设计。
+   甲的风险(玩家皮肤 64→128 重排)被「共区 UV 放留白带」化解(实现自由度,
+   设计验收不绑档位)。详见规格 §6.1。
+8. **翼缺省 hidden 纪律**:忘管翼显隐的失败模式=全模式背插大翼。显隐收敛进
+   装备对账单一入口(Avatar.setArmor worn.glider 判据)+滑翔态走模式层意图
+   (参照 flash 先例),切模式/读档不漏翼(残影修复先例同款纪律)。
+9. **翼展收 0.25s 匀速无回弹**;微动 ±3°/1.4s 双翼反相;转向侧倾列为可选
+   增强(验收不绑定)。
+10. **音效两键 wing_open/wing_close**,合成优先(永不哑互锁);无 TTS(A9);
+    无循环风声(无基建+安静口径)。coolMs 300 防空中连点连开叠爆。
+
+## 4. 遗留观察(非本票,登记备查)
+
+- `.armorbar` 无样式是存量 wart(装备 T5 直接上线的裸件)——本票给最小样式
+  补齐建议(§3.4),是否纳入本票由派令方裁。
+- ptsRow 用 🛡️ emoji(存量);按钮 emoji 已有按钮图标工坊禁令——装备页该行
+  是否换 btnImg 属城镇外存量清理,不在本票展开。
