@@ -5,7 +5,7 @@
    一句话职责: 把 TownMapCore 的建场步骤表规划成一张确定性 op 列表
    (纯计划, 不碰世界), 连同 TOWN_PALETTE 城镇配色映射一起, 藏住全部
    材质拍板与几何派生; 执行器只按 op 词表逐条落地。
-   interface: 全局 TOWN_PALETTE 七段配色映射(prefab 八行集中注入材质 ·
+   interface: 全局 TOWN_PALETTE 七段配色映射(prefab 十三行集中注入材质 ·
      terrain 基底三层 · ground 铺装 · road 路网 · backdrop 远景 ·
      props 道具 · tree 植被, 值全为 config.js BLOCKS 在册正整数 id) ·
      纯函数 townAssemblyOps(steps) → op 列表(词表封闭 {fill,tree,scrub,
@@ -58,7 +58,17 @@
    flowerCore 两组(散布草丛/旗/花坛/木桶/南瓜; 作物 42-45 走派生字面,
    场景语义不入 palette)。新 kind 全走可选字段(bands/style/curb/
    v.tone/v.cloth), 现 steps 条目行为逐字节不变(dims 零连累;
-   花坛三槽=同款先例)。 */
+   花坛三槽=同款先例)。
+   Step F 扩键登记(arch 岗, 2026-11-15; TIDEA 波次一 arch 静态陈设批):
+   prefab +五行 scarecrow/clothesline/woodpile/hencoop/'board-pool'
+   (TIDEA-04 稻草人/TIDEA-08 晾衣绳·柴堆·鸡窝/TIDEA-10 跳板水池,
+   行键与 prefab-kit defaults ids 同形, 几何单源在蓝图 kernel;
+   windowbox 花窗箱不建行——TIDEA-03 ② 走 scatter kind 单源);
+   'board-pool' ids 键面微扩 3→5 键(+flagPole/flag, 板顶旗材质不焊死,
+   报 lead 登记); props +plank/glassPane/crateBox(立面三笔用料);
+   scatter +三 kind wallflag/windowbox/crates(TIDEA-03 素墙立面三笔:
+   旗幡列 v.len 钳 2..6 缺省 4 三色 i%3 轮转/花窗箱 8 格/桶箱角 4 格,
+   派生分支域扩——落位归 scene 切清单, 本件只收单点条目)。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
@@ -77,6 +87,11 @@ const TOWN_PALETTE = {
     'under-room': {chest: 51, torch: 48, cap: 8, land: 58},
     'stall-canopy': {frame: 5, counter: 6, goodsBread: 17, goodsFlower: 78,
       goodsFruit: 76, goodsLeaf1: 61, goodsLeaf2: 62, flag: 78},
+    'scarecrow': {post: 5, arm: 6, shirt: 15, head: 76},
+    'clothesline': {pole: 5, line: 5, shirtBlue: 15, shirtPink: 78, shirtQuartz: 17},
+    'woodpile': {log: 5},
+    'hencoop': {hay: 58, henBody: 52, henComb: 16},
+    'board-pool': {board: 5, poolEdge: 17, water: 15, flagPole: 5, flag: 78},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,
@@ -87,6 +102,7 @@ const TOWN_PALETTE = {
     cliffLamp: 19, cliffWindow: 18},
   props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6,
     tuft: 40, flagPole: 5, flowerbedRing: 40, barrel: 5, pumpkin: 76,
+    plank: 5, glassPane: 68, crateBox: 51,
     flagCloth: {sakura: 78, blue: 15, quartz: 17, red: 16},
     flowerCore: {y: 61, w: 62}},
   tree: {sakuraLeaf: 78},
@@ -337,10 +353,44 @@ function townAssemblyOps(steps) {
         /* 南瓜(#10): 单格 76 于表面格上一格 */
         ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1,
           z2: s.z, id: pal.props.pumpkin});
+      } else if (s.kind === 'wallflag') {
+        /* 店旗列(TIDEA-03/W-03 ①, 素墙立面三笔之一): 竖排旗幡 len 格
+           (v.len 钳 2..6 缺省 4, 数值域→钳口径同 pfMerge), y+1 起逐格
+           单笔 fill, 色 flagCloth 三色 i%3 轮转(78 樱粉/15 蓝/17 奶油,
+           与钟塔脚旗阵同语言; red 16 不入立面轮转) */
+        let n = Math.floor(Number(s.v && s.v.len));
+        if (!Number.isFinite(n)) n = 4;
+        n = Math.max(2, Math.min(6, n));
+        for (let i = 0; i < n; i++) {
+          ops.push({op: 'fill', x1: s.x, y1: s.y + 1 + i, z1: s.z,
+            x2: s.x, y2: s.y + 1 + i, z2: s.z,
+            id: pal.props.flagCloth[['sakura', 'blue', 'quartz'][i % 3]]});
+        }
+      } else if (s.kind === 'windowbox') {
+        /* 花窗箱(TIDEA-03/W-03 ②, 素墙立面三笔之二): 箱 plank 2 宽
+           (y+1)+花 61/62 各一(y+2, 走 flowerCore 组单源, 与墙根花坛
+           同语言)+窗玻璃板 2 宽×2 高(y+3..y+4)——临广场空白窗台的
+           檐下立面向, 全 8 格 */
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x + 1,
+          y2: s.y + 1, z2: s.z, id: pal.props.plank});
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 2, z1: s.z, x2: s.x,
+          y2: s.y + 2, z2: s.z, id: pal.props.flowerCore.y});
+        ops.push({op: 'fill', x1: s.x + 1, y1: s.y + 2, z1: s.z, x2: s.x + 1,
+          y2: s.y + 2, z2: s.z, id: pal.props.flowerCore.w});
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 3, z1: s.z, x2: s.x + 1,
+          y2: s.y + 4, z2: s.z, id: pal.props.glassPane});
+      } else if (s.kind === 'crates') {
+        /* 桶箱角(TIDEA-03/W-03 ③, 素墙立面三笔之三): 桶 5 双高(x 列)+
+           箱 51 双高(x+1 列), 各 y+1..y+2——墙角桶箱簇, stash 门前
+           桶堆同语言 */
+        ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x,
+          y2: s.y + 2, z2: s.z, id: pal.props.barrel});
+        ops.push({op: 'fill', x1: s.x + 1, y1: s.y + 1, z1: s.z, x2: s.x + 1,
+          y2: s.y + 2, z2: s.z, id: pal.props.crateBox});
       } else {
         throw new Error('townAssemblyOps: scatter 条目「' + s.id + '」kind 非法「' + s.kind +
           '」(合法域 sakura|scrub|lamp|signpost|tuft|flower|flag|flowerbed|' +
-          'barrel|pumpkin)');
+          'barrel|pumpkin|wallflag|windowbox|crates)');
       }
     } else if (s.phase !== 'anchor') {
       /* anchor 段零 op(出生归模式层恰一次); 其余未知 phase 抛拼写域错误 */

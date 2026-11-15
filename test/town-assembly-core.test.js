@@ -60,6 +60,11 @@ const PALETTE_WANT = {
     'under-room': {chest: 51, torch: 48, cap: 8, land: 58},
     'stall-canopy': {frame: 5, counter: 6, goodsBread: 17, goodsFlower: 78,
       goodsFruit: 76, goodsLeaf1: 61, goodsLeaf2: 62, flag: 78},
+    'scarecrow': {post: 5, arm: 6, shirt: 15, head: 76},
+    'clothesline': {pole: 5, line: 5, shirtBlue: 15, shirtPink: 78, shirtQuartz: 17},
+    'woodpile': {log: 5},
+    'hencoop': {hay: 58, henBody: 52, henComb: 16},
+    'board-pool': {board: 5, poolEdge: 17, water: 15, flagPole: 5, flag: 78},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,
@@ -70,6 +75,7 @@ const PALETTE_WANT = {
     cliffLamp: 19, cliffWindow: 18},
   props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6,
     tuft: 40, flagPole: 5, flowerbedRing: 40, barrel: 5, pumpkin: 76,
+    plank: 5, glassPane: 68, crateBox: 51,
     flagCloth: {sakura: 78, blue: 15, quartz: 17, red: 16},
     flowerCore: {y: 61, w: 62}},
   tree: {sakuraLeaf: 78},
@@ -79,7 +85,8 @@ const DANGER_FLAGS = ['tnt', 'fuse', 'portal', 'fluid', 'crop', 'thin',
   'replaceable', 'door', 'bed', 'lchest'];
 const BAD_EXPLICIT = [30, 31, 33, 34, 41, 46, 47, 63, 70, 71, 72];
 const TOWN_ROWS = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
-  'cottage-gable', 'house-loft', 'stall-canopy'];
+  'cottage-gable', 'house-loft', 'stall-canopy', 'scarecrow', 'clothesline',
+  'woodpile', 'hencoop', 'board-pool'];
 /* 布局权威独立转录(docs/town-map-design.md §3-§4, = TOWN_MAP 数据的测试侧镜像;
    只抄本测试用到的坐标, 完整性归 test/town-map-core.test.js。樱花株数/点位
    不在此钉——scene 布局清单高频迭代, ⑤ 段改从 scatter 动态派生防漂移) */
@@ -135,7 +142,7 @@ test('源守门: 裸沙盒可装载 — 零依赖纯核心(无引擎全局也解
 
 /* ---------- ② palette 完整性 + T-09 危险基线 ---------- */
 
-test('palette 完整性: 七段结构在册 · prefab 八行对齐实例清单 · 值全为在册方块 id', () => {
+test('palette 完整性: 七段结构在册 · prefab 十三行(8 实例行+TIDEA 五行能力行) · 值全为在册方块 id', () => {
   const ctx = loadCore();
   const shape = JSON.parse(probe(ctx, `JSON.stringify((() => {
     const p = TOWN_PALETTE;
@@ -150,14 +157,15 @@ test('palette 完整性: 七段结构在册 · prefab 八行对齐实例清单 �
       ['prefab', 'terrain', 'ground', 'road', 'backdrop', 'props', 'tree'],
       'palette 七段(预制件/基底/地表/路网/远景/道具/植被)');
   assert.deepStrictEqual(shape.rows, ['tower-belfry', 'shop-awning', 'windmill-tower',
-    'cottage-gable', 'house-loft', 'stash-hut', 'under-room', 'stall-canopy'],
-  'prefab 八行 = 布局实例清单出现的全部 id(7 新行 + under-room 复用)');
+    'cottage-gable', 'house-loft', 'stash-hut', 'under-room', 'stall-canopy',
+    'scarecrow', 'clothesline', 'woodpile', 'hencoop', 'board-pool'],
+  'prefab 十三行 = 布局实例行(7 新行+under-room 复用)+TIDEA 波次一五行能力行(蓝图已立, 落位归 scene)');
   assert.ok(shape.allRegistered, '每个值都是 config BLOCKS 在册正整数 id');
   assert.ok(!('canopy' in probe(ctx, 'TOWN_PALETTE.prefab["stall-canopy"]')),
       'stall-canopy 缺 canopy 键: 布幔 theme 映射单源引擎侧 PF_STALL_CANOPY(双源即漂移)');
 });
 
-test('T-09 材质安全基线: 城镇七行零危险旗标(door/doorTop 门叶+bed* 花坛槽名豁免)+零显式错用 · under-room 只检显式(火把既有语义)', () => {
+test('T-09 材质安全基线: 城镇十二行零危险旗标(door/doorTop 门叶+bed* 花坛槽名豁免)+零显式错用 · under-room 只检显式(火把既有语义)', () => {
   const ctx = loadCore();
   const report = JSON.parse(probe(ctx, `JSON.stringify((() => {
     const FLAGS = ${JSON.stringify(DANGER_FLAGS)};
@@ -190,7 +198,7 @@ test('T-09 材质安全基线: 城镇七行零危险旗标(door/doorTop 门叶+b
   assert.deepStrictEqual(report.bad, [],
       'prefab 材质零功能/下界/传送门系错用(30/31/33/34/41/46/47/63/70/71/72)');
   assert.deepStrictEqual(report.flag, [],
-      '城镇七行材质零危险旗标块(TNT/引线/门面/流体/庄稼/薄块/可替换/门/床/配对箱; 门族仅 door/doorTop 槽豁免)');
+      '城镇十二行材质零危险旗标块(TNT/引线/门面/流体/庄稼/薄块/可替换/门/床/配对箱; 门族仅 door/doorTop 槽豁免)');
 });
 
 /* ---------- ③ 钉值 ---------- */
@@ -588,6 +596,66 @@ test('op 派生 v2: 合成 steps 各新 kind 派生几何与字段缺省(ground/
       /scrub\|boulder/, 'backdrop 合法域消息已扩');
   assert.throws(() => run([{phase: 'scatter', id: 'z', kind: 'statue'}]),
       /tuft\|flower\|flag/, 'scatter 合法域消息已扩');
+});
+
+/* ---------- ⑥c TIDEA 波次一(arch 静态陈设批): 素墙立面三笔 scatter kind 契约 ---------- */
+
+test('op 派生 Step F: wallflag len 钳 2..6 缺省 4 三色 i%3 轮转 · windowbox 8 格 · crates 4 格 · 合法域再扩', () => {
+  const ctx = loadCore();
+  /* 纯函数直验(⑥b 同款装具): 剥全域垫底三笔, 只验派生 */
+  const run = (steps) => JSON.parse(probe(ctx,
+      'JSON.stringify(townAssemblyOps(' + JSON.stringify(steps) + ').filter(' +
+      '(o) => !(o.x1 === TOWN_MAP.core.x1 && o.x2 === TOWN_MAP.core.x2 && ' +
+      'o.z1 === TOWN_MAP.core.z1 && o.z2 === TOWN_MAP.core.z2)))'));
+  const eq = (a, w) => a.op === w.op && a.x1 === w.x1 && a.y1 === w.y1 &&
+      a.z1 === w.z1 && a.x2 === w.x2 && a.y2 === w.y2 && a.z2 === w.z2 &&
+      a.id === w.id;
+  /* wallflag(TIDEA-03 ①): 缺省 len=4 三色轮转 78/15/17(78 樱粉/15 蓝/
+      17 奶油, 与钟塔脚旗阵同语言; red 16 不入立面轮转) */
+  const wf = run([{phase: 'scatter', id: 't-wf', kind: 'wallflag',
+    x: 70, y: 24, z: 90}]).filter((o) => o.op === 'fill');
+  assert.strictEqual(wf.length, 4, 'wallflag 缺省 4 笔');
+  assert.ok(eq(wf[0], {op: 'fill', x1: 70, y1: 25, z1: 90, x2: 70, y2: 25,
+    z2: 90, id: 78}) && eq(wf[1], {op: 'fill', x1: 70, y1: 26, z1: 90,
+    x2: 70, y2: 26, z2: 90, id: 15}), 'wallflag 缺省: y+1 起 78/15');
+  assert.ok(eq(wf[2], {op: 'fill', x1: 70, y1: 27, z1: 90, x2: 70, y2: 27,
+    z2: 90, id: 17}) && eq(wf[3], {op: 'fill', x1: 70, y1: 28, z1: 90,
+    x2: 70, y2: 28, z2: 90, id: 78}), 'wallflag 缺省: 17/78(i%3 轮转回 78)');
+  /* len 值域→钳第二档: 2 下沿/6 上沿/0 收下沿/99 收上沿/小数取整/非有限回落 */
+  const wfLen = (len) => run([{phase: 'scatter', id: 't-wf', kind: 'wallflag',
+    x: 70, y: 24, z: 90, v: {len}}]).filter((o) => o.op === 'fill');
+  assert.strictEqual(wfLen(2).length, 2, 'len 2 下沿');
+  assert.ok(eq(wfLen(2)[0], {op: 'fill', x1: 70, y1: 25, z1: 90, x2: 70,
+    y2: 25, z2: 90, id: 78}) && eq(wfLen(2)[1], {op: 'fill', x1: 70,
+    y1: 26, z1: 90, x2: 70, y2: 26, z2: 90, id: 15}), 'len 2: 78/15');
+  assert.strictEqual(wfLen(99).length, 6, 'len 99→6 上沿');
+  assert.ok(eq(wfLen(99)[5], {op: 'fill', x1: 70, y1: 30, z1: 90, x2: 70,
+    y2: 30, z2: 90, id: 17}), 'len 6: 第 6 笔 17(i%3 轮转 78/15/17/78/15/17)');
+  assert.strictEqual(wfLen(0).length, 2, 'len 0→2 收下沿');
+  assert.strictEqual(wfLen(3.9).length, 3, 'len 3.9→3 小数取整');
+  assert.strictEqual(wfLen('x').length, 4, '非有限数回落缺省 4');
+  /* windowbox(TIDEA-03 ②): 箱 plank 2 宽+花 61/62+窗玻璃板 2×2, 全 8 格
+      ——花走 flowerCore 组单源(与墙根花坛同语言) */
+  const wb = run([{phase: 'scatter', id: 't-wb', kind: 'windowbox',
+    x: 80, y: 24, z: 90}]).filter((o) => o.op === 'fill');
+  assert.strictEqual(wb.length, 4, 'windowbox 4 笔 fill(8 格)');
+  assert.ok(eq(wb[0], {op: 'fill', x1: 80, y1: 25, z1: 90, x2: 81, y2: 25,
+    z2: 90, id: 5}), '窗台箱: plank 5 2 宽 y+1');
+  assert.ok(eq(wb[1], {op: 'fill', x1: 80, y1: 26, z1: 90, x2: 80, y2: 26,
+    z2: 90, id: 61}) && eq(wb[2], {op: 'fill', x1: 81, y1: 26, z1: 90,
+    x2: 81, y2: 26, z2: 90, id: 62}), '花两格: 61@(x,y+2)+62@(x+1,y+2)');
+  assert.ok(eq(wb[3], {op: 'fill', x1: 80, y1: 27, z1: 90, x2: 81, y2: 28,
+    z2: 90, id: 68}), '窗: glassPane 68 2 宽×2 高 y+3..y+4');
+  /* crates(TIDEA-03 ③): 桶 5 双高+箱 51 双高各 1 列, 全 4 格 */
+  const cr = run([{phase: 'scatter', id: 't-cr', kind: 'crates',
+    x: 90, y: 24, z: 90}]).filter((o) => o.op === 'fill');
+  assert.strictEqual(cr.length, 2, 'crates 2 笔 fill(4 格)');
+  assert.ok(eq(cr[0], {op: 'fill', x1: 90, y1: 25, z1: 90, x2: 90, y2: 26,
+    z2: 90, id: 5}) && eq(cr[1], {op: 'fill', x1: 91, y1: 25, z1: 90,
+    x2: 91, y2: 26, z2: 90, id: 51}), '桶箱角: 桶 5@(x,y+1..2)+箱 51@(x+1,y+1..2)');
+  /* 合法域消息再扩(三新 kind 入列) */
+  assert.throws(() => run([{phase: 'scatter', id: 'z2', kind: 'statue'}]),
+      /wallflag\|windowbox\|crates/, 'scatter 合法域消息含三新 kind');
 });
 
 /* ---------- ⑦ 通廊与不可达(op 层) ---------- */

@@ -3023,6 +3023,357 @@ test('错误两档·stall-canopy: 未知 v 键/ids 子键(含 torch/glow 去威�
   assert.ok(m1.includes(STALL_IDS.canopy), '钳 true 建场正常(布幔在位, 防全空假绿)');
 });
 
+/* ============ TIDEA 波次一·静态小件五行(scarecrow/clothesline/woodpile/
+   hencoop/board-pool, 2026-11-15 arch 静态陈设批) ============ */
+
+/* ids 槽子键白名单(全互异显式注入, 逐槽可判读——stall-canopy STALL_IDS
+   同款手法, 不依赖实现缺省裸数字)。号段 180..197: 1xx 段空闲窗口, ≤255
+   世界场 worldCells=Uint8Array 上限内(198 留部分注入探针, 199 备用) */
+const CROW_IDS = {post: 180, arm: 181, shirt: 182, head: 183};
+const LINE_IDS = {pole: 184, line: 185, shirtBlue: 186, shirtPink: 187,
+  shirtQuartz: 188};
+const PILE_IDS = {log: 189};
+const COOP_IDS = {hay: 190, henBody: 191, henComb: 192};
+const POOL_IDS = {board: 193, poolEdge: 194, water: 195, flagPole: 196,
+  flag: 197};
+
+/* 局部系契约(全五行 facing0=south, face 缺省恒等; 锚=脚下接地格, 落位归
+   scene——本批只钉形): scarecrow 桩 (0,0,0)/衣 (0,1,0)/横臂 (±1,1,0)/
+   南瓜头 (0,2,0), 盒 dx[-1,1]。clothesline 双桩 (±2, dy0..2)/绳
+   (-1..1, dy2) 连桩顶/衣三色 (-1..1, dy1) 悬空一格(脚下无支撑=静态晾晒
+   读法), 盒 dx[-2,2]。woodpile 底三根 (-1..1, dy0)/上两根错叠
+   (-1..0, dy1), 盒 dx[-1,1]。hencoop 干草台 58 (0..1, dy0, 0..1)/双鸡身
+   (0..1, dy1, 0)/双红冠 (0..1, dy2, 0) 立台前沿, 盒 dx[0,1]×dz[0,1]。
+   board-pool(§4.8 契约): 板 (i, round(i*4/(len-1)), 0) i∈[0,len)——len 6
+   dy 序 0,1,2,2,3,4 顶恒 dy4=高 5∈「高 4-5」; 旗柱 (len-1, dy4+1)/旗面
+   (len-1, dy4+2); 池贴板尾外 (len..len+ps+1, dy0, -1..ps) 沿环 poolEdge+
+   水心 water(缺省 6/2 → 池 4×4 水心 2×2); 盒 dx[0, len+ps+1]×
+   dz[-1, ps]×dy[0, 6]。 */
+
+function pinWindow(k, ax, y0, az, x0, x1, z0, z1, dy1, want, label) {
+  /* 全窗逐格比对: want 键='dx,dy,dz'(dy 相对 y0), 缺席键=域内必空——
+      逐格钉值+域外空一次扫出(多写/漏写/越写全红) */
+  for (let dx = x0; dx <= x1; dx++) {
+    for (let dy = 0; dy <= dy1; dy++) {
+      for (let dz = z0; dz <= z1; dz++) {
+        const w = want[dx + ',' + dy + ',' + dz];
+        assert.strictEqual(k.cell(ax + dx, y0 + dy, az + dz), w || 0,
+            label + ' (' + dx + ',' + dy + ',' + dz + ') ' +
+            (w ? '应=' + w : '应空'));
+      }
+    }
+  }
+}
+
+test('脚印包含·TIDEA 五行: ×4 朝向 × mirror × 变体 — 每笔写 ∈ footOf 同参盒, footOf 零写', () => {
+  const k = loadKit();
+  const spy = k.spySet();
+  /* 每变体附 [平面长边, 短边, 封顶 dy](手算盒外形第二意见); board-pool
+      随 boardLen/poolSize 变体放长加宽, 封顶恒旗面 dy6 */
+  const cases = [
+    ['scarecrow', [['缺省', undefined, 3, 1, 2], ['注入', {ids: CROW_IDS}, 3, 1, 2]]],
+    ['clothesline', [['缺省', undefined, 5, 1, 2], ['注入', {ids: LINE_IDS}, 5, 1, 2]]],
+    ['woodpile', [['缺省', undefined, 3, 1, 1], ['注入', {ids: PILE_IDS}, 3, 1, 1]]],
+    ['hencoop', [['缺省', undefined, 2, 2, 2], ['注入', {ids: COOP_IDS}, 2, 2, 2]]],
+    ['board-pool', [['缺省', undefined, 10, 4, 6], ['注入', {ids: POOL_IDS}, 10, 4, 6],
+      ['7/3 档', {ids: POOL_IDS, boardLen: 7, poolSize: 3}, 12, 5, 6],
+      ['部分注入', {ids: {water: 198}}, 10, 4, 6]]],
+  ];
+  for (const [id, variants] of cases) {
+    for (const face of ['south', 'west', 'north', 'east']) {
+      for (const mirror of [false, true]) {
+        for (const [name, vv, sMax, sMin, topDy] of variants) {
+          const v = Object.assign({}, vv, {face, mirror});
+          k.clear();
+          spy.reset();
+          const box = k.pf.place(id, 80, 24, 80, v);
+          const writes = spy.rec();
+          const tag = id + ' ' + name + ' ' + face + (mirror ? '+m' : '');
+          assert.ok(writes.length > 0, tag + ' 有写(防全空假绿)');
+          for (const w of writes) {
+            assert.ok(w[0] >= box.x1 && w[0] <= box.x2 && w[1] >= box.y1 &&
+                w[1] <= box.y2 && w[2] >= box.z1 && w[2] <= box.z2,
+            tag + ' 写 (' + w + ') ⊄ 盒 ' + JSON.stringify(box));
+          }
+          const n = writes.length;
+          assert.deepStrictEqual(k.pf.footOf(id, 80, 24, 80, v), box,
+              tag + ' footOf 同参同盒');
+          assert.strictEqual(spy.rec().length, n, tag + ' footOf 零写');
+          /* 方角 90° 旋转平面恒轴对齐: 长短边与封顶=手算外形第二意见 */
+          const spanX = box.x2 - box.x1 + 1;
+          const spanZ = box.z2 - box.z1 + 1;
+          assert.strictEqual(Math.max(spanX, spanZ), sMax, tag + ' 平面长边 ' + sMax);
+          assert.strictEqual(Math.min(spanX, spanZ), sMin, tag + ' 平面短边 ' + sMin);
+          assert.strictEqual(box.y1, 24, tag + ' 盒下界=锚层 dy0');
+          assert.strictEqual(box.y2, 24 + topDy, tag + ' 封顶 dy' + topDy);
+        }
+      }
+    }
+  }
+});
+
+test('形状·scarecrow: 桩/衣贴桩/横臂±1/南瓜头逐格, 臂展计盒 3×1(缺省档+CROW_IDS 注入档)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('scarecrow', ax, y0, az); /* 全缺省(5/6/15/76) */
+  pinWindow(k, ax, y0, az, -2, 2, -1, 1, 3, {
+    '0,0,0': 5, '0,1,0': 15, '-1,1,0': 6, '1,1,0': 6, '0,2,0': 76,
+  }, '缺省档');
+  k.clear();
+  k.pf.place('scarecrow', ax, y0, az, {ids: CROW_IDS});
+  pinWindow(k, ax, y0, az, -2, 2, -1, 1, 3, {
+    '0,0,0': CROW_IDS.post, '0,1,0': CROW_IDS.shirt,
+    '-1,1,0': CROW_IDS.arm, '1,1,0': CROW_IDS.arm, '0,2,0': CROW_IDS.head,
+  }, '注入档');
+});
+
+test('形状·clothesline: 双桩三高/连顶绳/三色衣 dy1 悬空逐格+mirror 衣序翻边', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('clothesline', ax, y0, az, {ids: LINE_IDS});
+  const want = {};
+  for (const px of [-2, 2]) {
+    for (let d = 0; d <= 2; d++) want[px + ',' + d + ',0'] = LINE_IDS.pole;
+  }
+  for (let dx = -1; dx <= 1; dx++) want[dx + ',2,0'] = LINE_IDS.line;
+  want['-1,1,0'] = LINE_IDS.shirtBlue;
+  want['0,1,0'] = LINE_IDS.shirtPink;
+  want['1,1,0'] = LINE_IDS.shirtQuartz;
+  pinWindow(k, ax, y0, az, -3, 3, -1, 1, 3, want, '缺省档');
+  /* mirror: -dx 先翻后旋(facing0=south 序 0)——衣序翻边蓝右乳白左, 桩/绳对称同盒 */
+  k.clear();
+  k.pf.place('clothesline', ax, y0, az, {ids: LINE_IDS, mirror: true});
+  assert.strictEqual(k.cell(ax + 1, y0 + 1, az), LINE_IDS.shirtBlue, 'mirror 蓝翻右');
+  assert.strictEqual(k.cell(ax, y0 + 1, az), LINE_IDS.shirtPink, 'mirror 中衣不动');
+  assert.strictEqual(k.cell(ax - 1, y0 + 1, az), LINE_IDS.shirtQuartz, 'mirror 乳白翻左');
+});
+
+test('形状·woodpile: 底三上二错叠逐格+mirror 错位翻边(上两根移位不镜像对称)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('woodpile', ax, y0, az, {ids: PILE_IDS});
+  pinWindow(k, ax, y0, az, -2, 2, -1, 1, 2, {
+    '-1,0,0': PILE_IDS.log, '0,0,0': PILE_IDS.log, '1,0,0': PILE_IDS.log,
+    '-1,1,0': PILE_IDS.log, '0,1,0': PILE_IDS.log,
+  }, '缺省档');
+  /* mirror: 上两根局部 (-1..0) 翻到世界 (+1..0), 左肩位腾空 */
+  k.clear();
+  k.pf.place('woodpile', ax, y0, az, {ids: PILE_IDS, mirror: true});
+  pinWindow(k, ax, y0, az, -2, 2, -1, 1, 2, {
+    '-1,0,0': PILE_IDS.log, '0,0,0': PILE_IDS.log, '1,0,0': PILE_IDS.log,
+    '0,1,0': PILE_IDS.log, '1,1,0': PILE_IDS.log,
+  }, 'mirror 档');
+});
+
+test('形状·hencoop: 干草台 58 2×2/双鸡身+红冠立台前沿逐格(台后沿 dy1..2 空)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('hencoop', ax, y0, az, {ids: COOP_IDS});
+  const want = {};
+  for (let dx = 0; dx <= 1; dx++) {
+    for (let dz = 0; dz <= 1; dz++) want[dx + ',0,' + dz] = COOP_IDS.hay;
+  }
+  for (const hx of [0, 1]) {
+    want[hx + ',1,0'] = COOP_IDS.henBody;
+    want[hx + ',2,0'] = COOP_IDS.henComb;
+  }
+  pinWindow(k, ax, y0, az, -1, 2, -1, 2, 3, want, '缺省档');
+});
+
+test('形状·board-pool 缺省 6/2: 板阶梯 dy 序 0,1,2,2,3,4/旗柱旗面 dy5..6/池沿环+水心 2×2 全窗逐格', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('board-pool', ax, y0, az, {ids: POOL_IDS});
+  const dy = [0, 1, 2, 2, 3, 4]; /* round(i*4/5) 手算序, 顶恒 dy4=高 5∈§4.8「高 4-5」 */
+  const want = {};
+  for (let i = 0; i < 6; i++) want[i + ',' + dy[i] + ',0'] = POOL_IDS.board;
+  want['5,5,0'] = POOL_IDS.flagPole;
+  want['5,6,0'] = POOL_IDS.flag;
+  for (let dx = 6; dx <= 9; dx++) {
+    for (let dz = -1; dz <= 2; dz++) {
+      const edge = dx === 6 || dx === 9 || dz === -1 || dz === 2;
+      want[dx + ',0,' + dz] = edge ? POOL_IDS.poolEdge : POOL_IDS.water;
+    }
+  }
+  pinWindow(k, ax, y0, az, -1, 10, -2, 3, 7, want, '缺省档');
+});
+
+test('形状·board-pool 8/3 档: 阶梯 dy 序 0,1,1,2,2,3,3,4 顶恒 dy4/池随 poolSize 扩水心 3×3(手算抽查)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('board-pool', ax, y0, az, {ids: POOL_IDS, boardLen: 8, poolSize: 3});
+  const want = [[0, 0], [1, 1], [2, 1], [3, 2], [4, 2], [5, 3], [6, 3], [7, 4]];
+  for (const [i, d] of want) {
+    assert.strictEqual(k.cell(ax + i, y0 + d, az), POOL_IDS.board,
+        '8 档板 (' + i + ',dy' + d + ')');
+  }
+  assert.strictEqual(k.cell(ax + 7, y0 + 5, az), POOL_IDS.flagPole, '8 档旗柱');
+  assert.strictEqual(k.cell(ax + 7, y0 + 6, az), POOL_IDS.flag, '8 档旗面');
+  assert.strictEqual(k.cell(ax + 10, y0, az + 1), POOL_IDS.water, '8 档水心');
+  assert.strictEqual(k.cell(ax + 9, y0, az + 2), POOL_IDS.water, '8 档水心扩域');
+  assert.strictEqual(k.cell(ax + 8, y0, az - 1), POOL_IDS.poolEdge, '8 档沿近角');
+  assert.strictEqual(k.cell(ax + 12, y0, az + 3), POOL_IDS.poolEdge, '8 档沿远角');
+  assert.strictEqual(k.cell(ax + 13, y0, az), 0, '池外空(防多写)');
+});
+
+test('变体钳·board-pool: boardLen/poolSize 域外收敛 [6,8]/[2,3], 非有限数回落缺省(数值域→钳第二档)', () => {
+  const k = loadKit();
+  const box = (v) => k.pf.footOf('board-pool', 80, 24, 80, v);
+  assert.deepStrictEqual(box({boardLen: 99, poolSize: 0.5}),
+      box({boardLen: 8, poolSize: 2}), '99/0.5→8/2(双轴上沿收敛)');
+  assert.deepStrictEqual(box({boardLen: 5}), box({boardLen: 6}), '5→6(下沿收敛)');
+  assert.deepStrictEqual(box({boardLen: 9}), box({boardLen: 8}), '9→8(上沿收敛)');
+  assert.deepStrictEqual(box({boardLen: 7.9}), box({boardLen: 7}), '小数向下取整');
+  assert.deepStrictEqual(box({poolSize: 1}), box(undefined), 'poolSize 1→缺省 2');
+  assert.deepStrictEqual(box({poolSize: 4}), box({poolSize: 3}), 'poolSize 4→3');
+  assert.deepStrictEqual(box({boardLen: 'x'}), box(undefined), '非有限数回落缺省 boardLen');
+  assert.deepStrictEqual(box({poolSize: NaN}), box(undefined), '非有限数回落缺省 poolSize');
+});
+
+test('ids 注入·board-pool: 全槽互异注入逐槽可判读+单槽 water 覆写其余回落缺省', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  k.clear();
+  k.pf.place('board-pool', ax, y0, az, {ids: POOL_IDS});
+  assert.strictEqual(k.cell(ax, y0, az), POOL_IDS.board, '板根=注入 board');
+  assert.strictEqual(k.cell(ax + 5, y0 + 4, az), POOL_IDS.board, '板顶=注入 board');
+  assert.strictEqual(k.cell(ax + 5, y0 + 5, az), POOL_IDS.flagPole, '旗柱=注入 flagPole');
+  assert.strictEqual(k.cell(ax + 5, y0 + 6, az), POOL_IDS.flag, '旗面=注入 flag');
+  assert.strictEqual(k.cell(ax + 6, y0, az - 1), POOL_IDS.poolEdge, '沿=注入 poolEdge');
+  assert.strictEqual(k.cell(ax + 9, y0, az + 2), POOL_IDS.poolEdge, '沿远角=注入 poolEdge');
+  assert.strictEqual(k.cell(ax + 7, y0, az), POOL_IDS.water, '水心=注入 water');
+  assert.strictEqual(k.cell(ax + 8, y0, az + 1), POOL_IDS.water, '水心=注入 water');
+  /* 部分注入: 显式键胜出, 其余槽回落行缺省(17 浅石沿) */
+  k.clear();
+  k.pf.place('board-pool', ax, y0, az, {ids: {water: 198}});
+  assert.strictEqual(k.cell(ax + 7, y0, az), 198, '单槽 water 覆写');
+  assert.strictEqual(k.cell(ax + 6, y0, az - 1), 17, '沿回落缺省 17');
+  assert.strictEqual(k.cell(ax + 5, y0 + 6, az), 78, '旗回落缺省 78');
+});
+
+test('逐朝向·scarecrow 臂沿 face 向 + board-pool 四向 footOf 手算盒(封顶恒旗 dy6)', () => {
+  const k = loadKit();
+  const ax = 80; const az = 80; const y0 = 24;
+  /* scarecrow: 横臂世界格=朝向表手算(face0=south 臂沿 x; west/east 转 z;
+      north 臂沿 x 对称位不变) */
+  for (const face of ['south', 'west', 'north', 'east']) {
+    k.clear();
+    k.pf.place('scarecrow', ax, y0, az, {ids: CROW_IDS, face});
+    assert.strictEqual(k.cell(ax, y0, az), CROW_IDS.post, face + ' 桩恒锚格');
+    assert.strictEqual(k.cell(ax, y0 + 2, az), CROW_IDS.head, face + ' 头恒锚上 dy2');
+    const alongZ = face === 'west' || face === 'east';
+    const xs = alongZ ? [ax] : [ax - 1, ax + 1];
+    const zs = alongZ ? [az - 1, az + 1] : [az];
+    for (const x of xs) {
+      for (const z of zs) {
+        assert.strictEqual(k.cell(x, y0 + 1, z), CROW_IDS.arm,
+            face + ' 臂 (' + x + ',' + z + ')');
+      }
+    }
+  }
+  /* board-pool: 四向手算盒(缺省 6/2; west/east 板沿转 z 轴长边跟转) */
+  const wantBoxes = {
+    south: {x1: 80, y1: 24, z1: 79, x2: 89, y2: 30, z2: 82},
+    west: {x1: 78, y1: 24, z1: 80, x2: 81, y2: 30, z2: 89},
+    north: {x1: 71, y1: 24, z1: 78, x2: 80, y2: 30, z2: 81},
+    east: {x1: 79, y1: 24, z1: 71, x2: 82, y2: 30, z2: 80},
+  };
+  for (const face of Object.keys(wantBoxes)) {
+    assert.deepStrictEqual({...k.pf.footOf('board-pool', ax, y0, az, {face})},
+        wantBoxes[face], 'board-pool ' + face + ' 手算盒');
+  }
+});
+
+test('错误两档·TIDEA 五行: 未知 v 键/未知 ids 子键/face 非法→throw(拼写第一档); mirror 真值钳+数值域→钳(第二档)', () => {
+  const k = loadKit();
+  const rows = ['scarecrow', 'clothesline', 'woodpile', 'hencoop', 'board-pool'];
+  for (const id of rows) {
+    assert.throws(() => k.pf.place(id, 80, 24, 80, {foo: 1}), /未知 v 键/,
+        id + ' 未知 v 键');
+    assert.throws(() => k.pf.place(id, 80, 24, 80, {ids: {nope: 1}}), /ids 未知子键/,
+        id + ' ids 未知子键');
+    assert.throws(() => k.pf.place(id, 80, 24, 80, {face: 'up'}), /face 非法/,
+        id + ' face 非法');
+    k.clear();
+    k.pf.place(id, 80, 24, 80, {mirror: 1}); /* 布尔轴收放不炸(真值钳先例) */
+    assert.ok(k.snap().some((b) => b !== 0), id + ' mirror=1 真值钳建场非空');
+  }
+  /* 数值域→钳第二档(board-pool 专属轴 boardLen/poolSize): 见「变体钳·board-pool」 */
+});
+
+test('确定性·TIDEA 五行: 同参两次逐字节一致(缺省+board-pool 变体)', () => {
+  const k = loadKit();
+  const runs = [
+    () => k.pf.place('scarecrow', 80, 24, 80),
+    () => k.pf.place('clothesline', 80, 24, 80),
+    () => k.pf.place('woodpile', 80, 24, 80),
+    () => k.pf.place('hencoop', 80, 24, 80),
+    () => k.pf.place('board-pool', 80, 24, 80),
+    () => k.pf.place('board-pool', 80, 24, 80,
+        {boardLen: 7, poolSize: 3, face: 'east', mirror: true}),
+  ];
+  for (const run of runs) {
+    k.clear();
+    run();
+    const a = k.snap();
+    k.clear();
+    run();
+    assert.ok(a.equals(k.snap()), '同参两次逐字节一致');
+  }
+});
+
+test('材质基线·TIDEA 五行缺省逐槽: 全现成字库 id 逐格钉(5/6/15/76/58/52/16/17/78/51/68, T-09 全零旗标)', () => {
+  const k = loadKit();
+  /* 五行互不重叠锚位(board-pool 占 z80 带 x60..69, 其余 z60 排) */
+  k.clear();
+  k.pf.place('scarecrow', 60, 24, 60);
+  k.pf.place('clothesline', 70, 24, 60);
+  k.pf.place('woodpile', 80, 24, 60);
+  k.pf.place('hencoop', 88, 24, 60);
+  k.pf.place('board-pool', 60, 24, 80);
+  /* scarecrow: 桩 5/衣 15/臂 6/头 76 */
+  assert.strictEqual(k.cell(60, 24, 60), 5, 'scarecrow 桩=5 木头');
+  assert.strictEqual(k.cell(60, 25, 60), 15, 'scarecrow 衣=15 蓝羊毛(W-04 蓝羊毛衣块)');
+  assert.strictEqual(k.cell(59, 25, 60), 6, 'scarecrow 臂=6 木板');
+  assert.strictEqual(k.cell(61, 25, 60), 6, 'scarecrow 臂=6 木板');
+  assert.strictEqual(k.cell(60, 26, 60), 76, 'scarecrow 头=76 南瓜(零 crop 旗, T-09 安全)');
+  /* clothesline: 桩/绳 5, 衣 15/78/17 三色 */
+  assert.strictEqual(k.cell(68, 24, 60), 5, 'clothesline 桩=5');
+  assert.strictEqual(k.cell(72, 26, 60), 5, 'clothesline 桩顶=5');
+  assert.strictEqual(k.cell(70, 26, 60), 5, 'clothesline 绳=5');
+  assert.strictEqual(k.cell(69, 25, 60), 15, 'clothesline 蓝=15');
+  assert.strictEqual(k.cell(70, 25, 60), 78, 'clothesline 粉=78');
+  assert.strictEqual(k.cell(71, 25, 60), 17, 'clothesline 奶白=17');
+  /* woodpile: 全 5, 上层错叠留空位 */
+  assert.strictEqual(k.cell(79, 24, 60), 5, 'woodpile 底=5');
+  assert.strictEqual(k.cell(81, 24, 60), 5, 'woodpile 底=5');
+  assert.strictEqual(k.cell(79, 25, 60), 5, 'woodpile 上=5');
+  assert.strictEqual(k.cell(80, 25, 60), 5, 'woodpile 上=5');
+  assert.strictEqual(k.cell(81, 25, 60), 0, 'woodpile 错叠空位');
+  /* hencoop: 台 58 干草色砂岩(零旗标实证)/身 52 白/冠 16 红 */
+  assert.strictEqual(k.cell(88, 24, 60), 58, 'hencoop 台=58 砂岩');
+  assert.strictEqual(k.cell(89, 24, 61), 58, 'hencoop 台=58 砂岩');
+  assert.strictEqual(k.cell(88, 25, 60), 52, 'hencoop 身=52 白(招牌鸡同语言)');
+  assert.strictEqual(k.cell(89, 25, 60), 52, 'hencoop 身=52');
+  assert.strictEqual(k.cell(88, 26, 60), 16, 'hencoop 冠=16 红');
+  assert.strictEqual(k.cell(89, 26, 60), 16, 'hencoop 冠=16');
+  /* board-pool: 板/柱 5, 沿 17 浅石, 水 15 蓝羊毛(非流体缺省安全), 旗 78 */
+  assert.strictEqual(k.cell(60, 24, 80), 5, 'board-pool 板根=5');
+  assert.strictEqual(k.cell(65, 28, 80), 5, 'board-pool 板顶=5');
+  assert.strictEqual(k.cell(65, 29, 80), 5, 'board-pool 旗柱=5');
+  assert.strictEqual(k.cell(65, 30, 80), 78, 'board-pool 旗=78');
+  assert.strictEqual(k.cell(66, 24, 79), 17, 'board-pool 沿=17 石英(shop plaster 浅石先例)');
+  assert.strictEqual(k.cell(67, 24, 80), 15, 'board-pool 水心=15 蓝羊毛(静态色块非 B_WATER)');
+  assert.strictEqual(k.cell(67, 24, 81), 15, 'board-pool 水心=15');
+  assert.strictEqual(k.cell(69, 24, 82), 17, 'board-pool 沿远角=17');
+});
+
 /* ============ T-PREFAB-09 复用行校验与材质映射基线 ============ */
 /* 两块红面(bugfix 基线票, 断言按修复后正确基线写): ①三行缺省材质逐槽实义核真
    ——已知错号(T-06 评审票外发现, 逐字沿袭先例): tower-belfry trim:47=熔炉/
@@ -3032,7 +3383,9 @@ test('错误两档·stall-canopy: 未知 v 键/ids 子键(含 torch/glow 去威�
    house-loft 先例) · trim=5 木头暖木-深(全行 trim 先例) · bell=38 金矿暖金
    (§4.1「bell 暖金」, shop signAccent/stall goods 先例) · flag=16 红羊毛
    (§4.1「樱粉或天蓝」之樱粉最近似, stall-canopy flower→16 先例+PO 备忘)。
-   ②全行缺省建场安全审计可执行化: 城镇七行(T-01..07)零危险旗标块(tnt/fuse/
+   ②全行缺省建场安全审计可执行化: 城镇十二行(T-01..07+TIDEA 波次一五行
+   scarecrow/clothesline/woodpile/hencoop/board-pool, 缺省全现成字库
+   5/6/15/17/58/52/16/76/78/51/68 全零旗标)零危险旗标块(tnt/fuse/
    portal/fluid/crop/thin/replaceable/door/bed/lchest 旗标即判据)+全行零功能/
    下界/传送门系错用; 收编三行(stilt-hut/under-room/mound)火把 48=既有探险
    语义(oracle 锁死), 不按旗标检、只检显式清单。
@@ -3042,7 +3395,7 @@ test('错误两档·stall-canopy: 未知 v 键/ids 子键(含 torch/glow 去威�
    另一块防回归面(绿态自证, 重构前后同绿): 枚举校验链九轴+size 双型错误消息
    逐字钉——pfMerge 表驱动收编(§1.10 升格: 清单≥3 处+新轴漂移史)的等价基线。 */
 
-test('材质基线·全行缺省建场安全: 城镇七行零危险旗标块 + 全行零功能/下界/传送门系错用(T-09 审计可执行化)', () => {
+test('材质基线·全行缺省建场安全: 城镇十二行零危险旗标块 + 全行零功能/下界/传送门系错用(T-09 审计可执行化)', () => {
   const k = loadKit();
   /* 危险旗标(判据单份在 config BLOCKS 旗标, 测试动态派生不复制): 20 TNT(tnt) ·
      21 引线(fuse/thin) · 35 传送门面(portal) · 24/25 水岩浆(fluid) · 42..45 麦
@@ -3081,7 +3434,8 @@ test('材质基线·全行缺省建场安全: 城镇七行零危险旗标块 + �
     return map;
   };
   const townRows = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
-    'cottage-gable', 'house-loft', 'stall-canopy'];
+    'cottage-gable', 'house-loft', 'stall-canopy', 'scarecrow', 'clothesline',
+    'woodpile', 'hencoop', 'board-pool'];
   const legacyRows = [['stilt-hut', undefined], ['under-room', {mat: 58}],
     ['mound', {top: 2, rock: 14}]];
   for (const [id, v] of [...townRows.map((r) => [r, undefined]), ...legacyRows]) {

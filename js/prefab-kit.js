@@ -250,6 +250,16 @@ function pfMerge(row, id, v) {
     const bs = Math.floor(Number(e.bladeSpan));
     e.bladeSpan = Number.isFinite(bs) ? Math.max(3, Math.min(4, bs)) : 4;
   }
+  /* board-pool 跳板长钳域 [6,8]/池径钳域 [2,3](§4.8 契约数值域→钳口径;
+     非有限数回落缺省——boardLen 6/poolSize 2) */
+  if (pfHas(d, 'boardLen')) {
+    const bl = Math.floor(Number(e.boardLen));
+    e.boardLen = Number.isFinite(bl) ? Math.max(6, Math.min(8, bl)) : 6;
+  }
+  if (pfHas(d, 'poolSize')) {
+    const ps = Math.floor(Number(e.poolSize));
+    e.poolSize = Number.isFinite(ps) ? Math.max(2, Math.min(3, ps)) : 2;
+  }
   if (pfHas(d, 'mirror')) e.mirror = !!e.mirror;
   if (pfHas(d, 'door')) e.door = !!e.door;
   if (pfHas(d, 'doorOpen')) e.doorOpen = !!e.doorOpen; /* shop-awning 门洞敞开 */
@@ -265,12 +275,15 @@ function pfMerge(row, id, v) {
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。十行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   kernel(几何内核)。十五行: stilt-hut(P0 高脚木屋对)/under-room/mound
    (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔)/shop-awning
    (T-PREFAB-02 店身+前廊遮檐铺面)/stash-hut(T-PREFAB-03 秘密储藏小屋)/
    windmill-tower(T-PREFAB-04 风车塔)/cottage-gable(T-PREFAB-05 民居 A)/
    house-loft(T-PREFAB-06 民居 B 双层挑窗/错顶形)/stall-canopy(T-PREFAB-07
-   市集摊位), 按形命名不按图命名 */
+   市集摊位), 按形命名不按图命名; TIDEA 波次一增五小件(TIDEA-04 稻草人/
+   TIDEA-08 晾衣绳·柴堆·鸡窝(窗台花箱走 assembly windowbox kind 单源
+   不建行)/TIDEA-10 高跳板与小水池=§4.8 board-pool 契约实装, PO 批
+   「动骨架-轻」)——全静态陈设, 零行为接线零波次二预设(town-npc* 零触) */
 const PF_ROWS = {
   'stilt-hut': {
     facing0: 'south',
@@ -1341,6 +1354,191 @@ const PF_ROWS = {
         }
       }
       return {x1, y1: y, z1, x2, y2: y + (md ? 4 : 3), z2};
+    },
+  },
+
+  /* ---------- TIDEA 波次一·静态小件五行(全陈设零行为, 落位归 scene) ---------- */
+
+  /* 稻草人(scarecrow, TIDEA-04/W-04): 田里叙事物——dy0 原木桩 5(腿)+
+      dy1 蓝羊毛衣 15 贴身(桩上段覆读)+木板横臂 6 两格(±dx 同层=肩)+
+      dy2 南瓜头 76。全现成字库, 零字库扩展; footprint 3×1×3(臂展计入)。
+      落位(农田角)归 scene 后续波次 */
+  'scarecrow': {
+    facing0: 'south',
+    defaults: {
+      face: 'south',
+      mirror: false,
+      ids: {post: 5, arm: 6, shirt: 15, head: 76},
+    },
+    kernel(e, x, y, z, orient, put) {
+      const ids = e.ids;
+      put(0, 0, 0, ids.post); /* 桩(腿) */
+      put(0, 1, 0, ids.shirt); /* 衣贴桩上段(蓝羊毛) */
+      put(-1, 1, 0, ids.arm); /* 横臂左 */
+      put(1, 1, 0, ids.arm); /* 横臂右 */
+      put(0, 2, 0, ids.head); /* 南瓜头 */
+    },
+    foot(e, x, y, z, orient) {
+      const xs = [-1, 1]; const zs = [0];
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of xs) {
+        for (const dz of zs) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + 2, z2};
+    },
+  },
+
+  /* 晾衣绳(clothesline, TIDEA-08/W-08 ①): 两桩一线三衣——桩 5 各 3 高
+      (±2), 绳 5 连桩顶(dy2 中段三格), 衣三色块 15 蓝/78 粉/17 奶白挂绳下
+      (dy1 悬空一格, 脚下无支撑=静态晾晒读法)。footprint 5×1×3 */
+  'clothesline': {
+    facing0: 'south',
+    defaults: {
+      face: 'south',
+      mirror: false,
+      ids: {pole: 5, line: 5, shirtBlue: 15, shirtPink: 78, shirtQuartz: 17},
+    },
+    kernel(e, x, y, z, orient, put) {
+      const ids = e.ids;
+      for (const px of [-2, 2]) {
+        for (let dy = 0; dy <= 2; dy++) put(px, dy, 0, ids.pole);
+      }
+      for (let dx = -1; dx <= 1; dx++) put(dx, 2, 0, ids.line); /* 绳连桩顶 */
+      put(-1, 1, 0, ids.shirtBlue); /* 衣挂绳下 dy1 悬空 */
+      put(0, 1, 0, ids.shirtPink);
+      put(1, 1, 0, ids.shirtQuartz);
+    },
+    foot(e, x, y, z, orient) {
+      const xs = [-2, 2]; const zs = [0];
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of xs) {
+        for (const dz of zs) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + 2, z2};
+    },
+  },
+
+  /* 柴堆(woodpile, TIDEA-08/W-08 ③): 墙根五根短桩错叠——底三根 5(dy0
+      ±1)+上两根 5 错位(dy1 −1..0)。footprint 3×1×2 */
+  'woodpile': {
+    facing0: 'south',
+    defaults: {
+      face: 'south',
+      mirror: false,
+      ids: {log: 5},
+    },
+    kernel(e, x, y, z, orient, put) {
+      const ids = e.ids;
+      for (let dx = -1; dx <= 1; dx++) put(dx, 0, 0, ids.log); /* 底三根 */
+      put(-1, 1, 0, ids.log); /* 上两根错叠 */
+      put(0, 1, 0, ids.log);
+    },
+    foot(e, x, y, z, orient) {
+      const xs = [-1, 1]; const zs = [0];
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of xs) {
+        for (const dz of zs) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + 1, z2};
+    },
+  },
+
+  /* 小鸡窝(hencoop, TIDEA-08/W-08 ④): 干草色砂岩台 58 2×2(dy0)+两只静态
+      块状鸡剪影(白身 52 呼应招牌鸡+红冠 16)立于台前沿(dy1..2)。零 spawn
+      零 town-npc* 触——将来「帮阿面数小鸡」寻找类锚点(map-design §6.2)
+      的现成视觉底, 玩法接线不在本件。footprint 2×2×3 */
+  'hencoop': {
+    facing0: 'south',
+    defaults: {
+      face: 'south',
+      mirror: false,
+      ids: {hay: 58, henBody: 52, henComb: 16},
+    },
+    kernel(e, x, y, z, orient, put) {
+      const ids = e.ids;
+      for (let dx = 0; dx <= 1; dx++) {
+        for (let dz = 0; dz <= 1; dz++) put(dx, 0, dz, ids.hay); /* 干草台 */
+      }
+      /* 两只并排(前沿) */
+      for (const hx of [0, 1]) {
+        put(hx, 1, 0, ids.henBody); /* 白身 */
+        put(hx, 2, 0, ids.henComb); /* 红冠 */
+      }
+    },
+    foot(e, x, y, z, orient) {
+      const xs = [0, 1]; const zs = [0, 1];
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of xs) {
+        for (const dz of zs) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + 2, z2};
+    },
+  },
+
+  /* 高跳板与小水池(board-pool, TIDEA-10/W-10, prefab-specs §4.8 契约
+      P2-01 图纸变真, PO 批「动骨架-轻」): 板沿 +dx 排 boardLen 格(6..8 钳)
+      逐格升 dy(round(i*4/(len-1)) 斜率, 顶恒 dy4=高 5∈契约「高 4-5」),
+      板顶小旗(柱 5+旗 78 两格); 池贴板尾外(dx len..len+ps+1)——沿
+      poolEdge 17 浅石一圈(poolSize 2..3 钳+2 宽)+水心静态色块 15 蓝羊毛
+      (缺省安全: 流体身份块禁作缺省——fluid 旗标写入触流体机制, T-09
+      纪律; 非流体零机制, v.ids.water 可注覆)。比例幽默纯观赏, 不接玩法。footprint
+      (len+ps+2)×(ps+2)×7(旗顶) */
+  'board-pool': {
+    facing0: 'south',
+    defaults: {
+      face: 'south',
+      mirror: false,
+      boardLen: 6,
+      poolSize: 2,
+      ids: {board: 5, poolEdge: 17, water: 15, flagPole: 5, flag: 78},
+    },
+    kernel(e, x, y, z, orient, put) {
+      const ids = e.ids;
+      const len = e.boardLen; const ps = e.poolSize;
+      let topDy = 0;
+      for (let i = 0; i < len; i++) {
+        const dy = Math.round(i * 4 / (len - 1)); /* 斜率恒顶 dy4 */
+        put(i, dy, 0, ids.board);
+        topDy = Math.max(topDy, dy);
+      }
+      put(len - 1, topDy + 1, 0, ids.flagPole); /* 板顶小旗 */
+      put(len - 1, topDy + 2, 0, ids.flag);
+      /* 池贴板尾外: 沿环+水心 */
+      for (let dx = 0; dx < ps + 2; dx++) {
+        for (let dz = -1; dz <= ps; dz++) {
+          const edge = dx === 0 || dx === ps + 1 || dz === -1 || dz === ps;
+          put(len + dx, 0, dz, edge ? ids.poolEdge : ids.water);
+        }
+      }
+    },
+    foot(e, x, y, z, orient) {
+      const len = e.boardLen; const ps = e.poolSize;
+      const xs = [0, len + ps + 1]; const zs = [-1, ps];
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of xs) {
+        for (const dz of zs) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y, z1, x2, y2: y + 6, z2}; /* 旗顶 dy6 */
     },
   },
 };
