@@ -1,0 +1,192 @@
+diff --git a/test/audio-registry.test.js b/test/audio-registry.test.js
+index fba4b51..fc8c38e 100644
+--- a/test/audio-registry.test.js
++++ b/test/audio-registry.test.js
+@@ -119,6 +119,30 @@ test('声音清单: 传送门双音效(冒险地图 T7) — 蓄能上行/到达
+       t.steps.every((v, i) => i === 0 || v > t.steps[i - 1]), 'portal_travel 是上行琶音(steps 递增)');
+ });
+ 
++/* ============ 滑翔翼双音效(T-G03 形象层, UI spec §7.1 合成口径) ============ */
++
++test('声音清单: 滑翔翼双音效 — wing_open 上滑/wing_close 下滑更轻, prio 2/coolMs 300, 纯合成可回退', () => {
++  const open = AudioRegistry.SFX_KINDS.wing_open;
++  assert.ok(open, '登记 wing_open(展翼瞬间, 触发接线归 T-G04)');
++  const close = AudioRegistry.SFX_KINDS.wing_close;
++  assert.ok(close, '登记 wing_close(收翼瞬间, 触发接线归 T-G04)');
++  for (const [k, e] of [['wing_open', open], ['wing_close', close]]) {
++    assert.ok(e.synth && typeof e.synth === 'object',
++        k + ' 带合成定义(「永不哑」互锁: 无样本也出声)');
++    assert.strictEqual(e.prio, 2, k + ' 状态音 prio 2(可压环境声, §7.1)');
++    assert.strictEqual(e.coolMs, 300, k + ' coolMs 300(空中可连点再展, 防快速连开叠爆)');
++  }
++  assert.ok(open.synth.f0 === 220 && open.synth.f1 === 520,
++      'wing_open 布面抖开上行短音 220→520(§7.1)');
++  assert.ok(open.synth.dur >= 0.18 && open.synth.dur <= 0.26, 'wing_open dur≈0.22');
++  assert.ok(open.synth.g >= 0.08 && open.synth.g <= 0.12, 'wing_open g≈0.10');
++  assert.ok(close.synth.f0 === 520 && close.synth.f1 === 200,
++      'wing_close 反向下滑 520→200(收=安顿感)');
++  assert.ok(close.synth.dur >= 0.14 && close.synth.dur <= 0.22, 'wing_close dur≈0.18');
++  assert.ok(close.synth.g >= 0.05 && close.synth.g <= 0.09, 'wing_close g≈0.07');
++  assert.ok(close.synth.g < open.synth.g, '收翼比展翼更轻(§7.1 收=安顿感, 比展开安静)');
++});
++
+ test('声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9)', () => {
+   assert.strictEqual(AudioRegistry.MOODS.menu, 'calm');
+ });
+diff --git a/test/mob-look.test.js b/test/mob-look.test.js
+index 0032efb..3997e72 100644
+--- a/test/mob-look.test.js
++++ b/test/mob-look.test.js
+@@ -379,3 +379,78 @@ test('造型档案: 几何 UV 落点 — 逐顶点采样已涂纹素(模型黑
+     global.THREE = prevThree; global.document = prevDoc;
+   }
+ });
++
++/* ============ 玩家翼骨(T-G03 形象层, UI spec §6.1 甲案/§6.2 几何表/§6.3 贴图) ============ */
++
++test('造型档案: 玩家翼骨甲案 — wingL/wingR 语义翼槽·官方 pivot·三盒规格·双翼共区', () => {
++  const S = MobLookKit.rig('player').slots;
++  assert.ok(S.wingL && S.wingR,
++      '玩家档应加 wingL/wingR 两骨(甲案: 档案加骨=Avatar+纸娃娃双端免费, UI spec §6.1)');
++  for (const [k, sx] of [['wingL', 3], ['wingR', -3]]) {
++    const j = S[k].joint;
++    assert.ok(Math.abs(j[0] - sx / 16) < 1e-9,
++        k + ' 枢轴 x=±3px(体宽 8px 的 ±3, 肩胛位; UI spec §6.2)');
++    assert.ok(Math.abs(j[1] - 26 / 16) < 1e-9, k + ' 枢轴 y=26px(肩胛上后方)');
++    assert.ok(Math.abs(Math.abs(j[2]) - 3 / 16) < 1e-9,
++        k + ' 枢轴 |z|=3px(背平面 z=2 外留 1px 转轴隙; rig 镜像 z 取负属口径)');
++    assert.strictEqual(S[k].axis, 'z',
++        k + ' 语义翼槽 axis z(dragon/phantom/vex/chicken 四怪同款)');
++    assert.strictEqual(S[k].cubes.length, 3,
++        k + ' 恰三盒: 骨杆+膜+翼尖(单层, 不做叠影/双翼)');
++    const dims = S[k].cubes.map((c) => c.size.slice().sort((a, b) => a - b).join(',')).sort();
++    assert.deepStrictEqual(dims, ['1,1,1', '1,1,12', '1,10,12'],
++        k + ' 盒规格: 骨杆 1×12×1 · 膜平面盒 12×10×1 · 翼尖粒 1×1×1' +
++        '(排序比: 轴向排布/收拢摆位归实现, 尺寸照 §6.2 几何表)');
++  }
++  /* 双翼共区镜像: wingR 与 wingL 共用同一 UV 区(dragon wingR 共区先例, §6.3) */
++  const uvOf = (s) => s.cubes.map((c) => c.uv.join(',')).sort();
++  assert.deepStrictEqual(uvOf(S.wingR), uvOf(S.wingL), '双翼共区(贴图单份, 镜像渲染)');
++});
++
++test('造型档案: 玩家翼贴图 — 五色同源色族·金辐条/膜主/暗折线俱现·翼尖金粒·方形 64/128 档', () => {
++  const tex = MobLookKit.textureBuffer('player');
++  assert.ok(tex.w === tex.h && (tex.w === 64 || tex.w === 128),
++      '翼区落既有方形画布留白带(64×64 优先; 放不下升 128 档, 五档先例; §6.1)');
++  const R = MobLookKit.regions('player');
++  const wingParts = Object.keys(R).filter((k) => k.startsWith('wing'));
++  assert.ok(wingParts.length >= 2, '翼骨六面区应入 regions(wingL/wingR 系)');
++  /* UI spec §5.1/§6.3 色板(测试持独立真值, 防两处实现漂移):
++     金骨主/金高光/膜亮缘/膜主/暗折线 —— 翼贴图不引第二色源 */
++  const PAL = [[0xe9, 0xb1, 0x15], [0xfd, 0xff, 0x76], [0xd0, 0x8a, 0x5a],
++    [0xb0, 0x55, 0x3a], [0x8a, 0x40, 0x28]];
++  const near = (c, p) =>
++    Math.hypot(c[0] - p[0], c[1] - p[1], c[2] - p[2]) <= 32;
++  const pxOf = (part) => {
++    const out = [];
++    for (const face of Object.values(R[part])) {
++      for (let y = 0; y < face[3]; y++) {
++        for (let x = 0; x < face[2]; x++) {
++          const o = ((face[1] + y) * tex.w + face[0] + x) * 4;
++          out.push([tex.buf[o], tex.buf[o + 1], tex.buf[o + 2]]);
++        }
++      }
++    }
++    return out;
++  };
++  const all = [];
++  for (const part of wingParts) all.push(...pxOf(part));
++  assert.ok(all.every((c) => PAL.some((p) => near(c, p))),
++      '翼区全部像素 ∈ 五色邻域(噪底 0.04~0.05 + 明暗派生容差; 不引第二色源)');
++  assert.ok(all.some((c) => near(c, PAL[0])), '金骨主色族出现(骨杆/辐条/前缘描边)');
++  assert.ok(all.some((c) => near(c, PAL[3])), '膜主色族出现(暖红棕膜身)');
++  assert.ok(all.some((c) => near(c, PAL[4])), '暗折线色族出现(近后缘收拢褶皱暗示)');
++  /* 膜面图案: 膜盒(排序尺寸 1,10,12)自身区里金辐条与膜身同现(§6.3 扇形辐条) */
++  const S = MobLookKit.rig('player').slots;
++  const memIdx = S.wingL.cubes.findIndex((c) =>
++    c.size.slice().sort((a, b) => a - b).join(',') === '1,10,12');
++  assert.ok(memIdx >= 0, '应能按尺寸认出膜盒');
++  const mem = pxOf('wingL' + (memIdx ? memIdx + 1 : ''));
++  assert.ok(mem.some((c) => near(c, PAL[0])), '膜面有金辐条/前缘描边(金主色)');
++  assert.ok(mem.some((c) => near(c, PAL[3])), '膜面有暖红棕膜身');
++  /* 翼尖粒: 1×1×1 盒六面区 ≈ 金高光 #fdff76(§6.2 翼尖金粒) */
++  const tipIdx = S.wingL.cubes.findIndex((c) => c.size.every((v) => v === 1));
++  assert.ok(tipIdx >= 0, '应有 1×1×1 翼尖粒');
++  const tip = pxOf('wingL' + (tipIdx ? tipIdx + 1 : ''));
++  assert.ok(tip.every((c) => near(c, PAL[1])),
++      '翼尖粒=金高光 #fdff76 点缀, 实得 ' + JSON.stringify(tip[0]));
++});
+diff --git a/test/mode-kit.test.js b/test/mode-kit.test.js
+index de7dea9..0169a5b 100644
+--- a/test/mode-kit.test.js
++++ b/test/mode-kit.test.js
+@@ -1677,3 +1677,69 @@ test('装备条点槽: click 派发 onUnequip(slot) — 脱下意图归模式层
+   assert.deepStrictEqual(got, ['helmet', 'leggings'], '空槽也报意图(模式层判空礼貌回应)');
+   bar.dispose();
+ });
++
++/* ============ T-G03 形象层: 第五槽数据边界 + 样式照稿(UI spec §4.1/§4.4/§3.4) ============ */
++
++test('craft 面板: 装备页第五槽数据边界 — 有件显图标但永不渲染耐久条·四甲耐久条不误伤·点槽报 onSlot(§4.4)', () => {
++  const doc = mkDoc();
++  const inv = {slots: new Array(27).fill(null)};
++  const worn = {helmet: {id: 'helmet_iron', dur: 300}, chestplate: null,
++    leggings: null, boots: null, glider: {id: 'glider', dur: 1}};
++  const stub = mkEquipStub(worn);
++  const panel = mkCraftPanel({doc, inv, recipes: [R_PICK], onCraft() {}, equip: stub.equip});
++  panel.show();
++  collect(panel.root, 'mkp-l1tab')[1].onclick(); /* 进装备页 */
++  let slots = collect(panel.root, 'mkp-eslot');
++  assert.strictEqual(slots.length, 5, '五槽');
++  assert.ok(!slots[4].classList.contains('off'), '穿翼: 实位');
++  assert.ok(slots[4].innerHTML.includes('🥓'), '第五槽显像素图标(iconOf 桩 emoji 回落)');
++  assert.ok(!slots[4].innerHTML.includes('class="dur"'),
++      '第五槽永不渲染耐久条(glider dur=1 满值会画满条, §4.4 显式豁免——滑翔翼无耐久)');
++  assert.ok(slots[0].innerHTML.includes('class="dur"'),
++      '四甲耐久条照旧(豁免只及第五槽, §4.4 盔甲点行数据边界)');
++  slots[4].onclick();
++  assert.deepStrictEqual(stub.log.slots, ['glider'],
++      '点第五槽报 onSlot 意图(空槽有件一律报, 政策归模式层)');
++  /* 空第五槽: 虚位虚线 */
++  worn.glider = null;
++  panel.refresh();
++  slots = collect(panel.root, 'mkp-eslot');
++  assert.ok(slots[4].classList.contains('off') && slots[4].innerHTML === '',
++      '卸下后第五槽空槽虚位(.off 空内容)');
++  panel.remove();
++});
++
++test('HUD 装备条与装备页第五槽样式照稿 — css/style.css(UI spec §3.4 最小样式 + §4.1 第三行居中)', () => {
++  const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'style.css'), 'utf8');
++  /* 规则块提取: 全部匹配选择器的声明拼接(逗号选择器任一段命中即算) */
++  const ruleOf = (sel) => {
++    let out = '';
++    const re = /([^{}]+)\{([^{}]*)\}/g;
++    let m;
++    while ((m = re.exec(css)) !== null) {
++      if (m[1].split(',').some((s) => s.trim() === sel)) out += m[2];
++    }
++    return out;
++  };
++  /* §3.4 条容器: 定位让开 #hud 文字区(top 44 > #hud 行高)与触控热区 */
++  const bar = ruleOf('.armorbar');
++  for (const decl of ['position: fixed', 'top: 44px', 'left: 12px', 'display: flex',
++    'gap: 6px', 'padding: 6px', 'border-radius: 8px', 'z-index: 10']) {
++    assert.ok(bar.includes(decl), '.armorbar 应含 ' + decl + '(UI spec §3.4 最小样式)');
++  }
++  assert.ok(bar.includes('rgb(0 0 0 / 35%)'), '.armorbar 黑底 35%(#hotbar 同族)');
++  /* §3.4 槽格: 54×54 + 圆角 6 + 空槽虚线 + 图标 40×40 pixelated */
++  const slot = ruleOf('.armorbar-slot');
++  assert.ok(/width:\s*54px/.test(slot) && /height:\s*54px/.test(slot), '槽格 54×54(hotbar .slot 同尺寸家族)');
++  assert.ok(/border-radius:\s*6px/.test(slot), '槽格圆角 6');
++  assert.ok(/border-style:\s*dashed/.test(ruleOf('.armorbar-slot.off')),
++      '空槽虚线边框(装备页 .off 语言)');
++  const img = ruleOf('.armorbar-slot img');
++  assert.ok(/width:\s*40px/.test(img) && /height:\s*40px/.test(img) &&
++      /image-rendering:\s*pixelated/.test(img), '图标 img 40×40 居中 pixelated');
++  /* §4.1 第五槽落位: 第三行 span 2 居中独立行(58×58 槽格尺寸不变) */
++  const eslotRule = [...css.matchAll(/([^{}]*\.mkp-eslot[^{}]*)\{([^{}]*)\}/g)];
++  assert.ok(eslotRule.some((m) => /grid-column:\s*span 2/.test(m[2]) &&
++      /justify-self:\s*center/.test(m[2])),
++      '第五槽 grid-column: span 2 + justify-self: center(四槽正下方居中独立行)');
++});

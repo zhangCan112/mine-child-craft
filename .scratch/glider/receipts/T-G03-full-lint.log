@@ -1,0 +1,23 @@
+
+> mine-child-craft@1.0.0 lint
+> eslint . && stylelint "css/**/*.css" && htmlhint index.html
+
+
+C:\Users\user\.local\share\opencode\worktree\1631a8\glider\js\mob-look\player.js
+  117:15  error  A function with a name starting with an uppercase letter should only be used as a constructor  new-cap
+  118:15  error  A function with a name starting with an uppercase letter should only be used as a constructor  new-cap
+  119:15  error  A function with a name starting with an uppercase letter should only be used as a constructor  new-cap
+  125:16  error  A function with a name starting with an uppercase letter should only be used as a constructor  new-cap
+
+C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js
+  244:1  error  Expected indentation of 4 spaces but found 8  indent
+
+C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mode-kit.test.js
+  1744:1  error  Expected indentation of 2 spaces but found 6  indent
+
+C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js
+  244:1  error  Expected indentation of 4 spaces but found 8  indent
+
+✖ 7 problems (7 errors, 0 warnings)
+  3 errors and 0 warnings potentially fixable with the `--fix` option.
+

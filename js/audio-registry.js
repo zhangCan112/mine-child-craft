@@ -74,6 +74,10 @@ const SFX_KINDS = {
   chip_pop: {synth: {type: 'sine', f0: 620, f1: 930, fT: 0.04, dur: 0.06, g: 0.06}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 会话选项 chip 轻点(TIDEA-18; 纯合成短 pop 更轻快, 6 岁口径零惊吓)
   praise_jingle: {file: 'jingles-hit00.m4a', synth: {type: 'sine', steps: [523, 659, 784, 1046], stepT: 0.09, dur: 0.5, g: 0.12}, g: 1, gTouch: 1, prio: 4, coolMs: 0}, // 表扬小曲(TIDEA-18; 会话 praise 态浮现同拍; 仪式音豁免同类冷却)
   dlg_flip: {file: 'metalclick.m4a', synth: {type: 'square', f0: 1200, dur: 0.05, g: 0.07}, g: 1, gTouch: 1, prio: 1, coolMs: 60}, // 会话面板开合(TIDEA-18; 与 click 同样本不同语义——click=转辙器, 本键=面板翻转)
+  /* ---------- 滑翔翼双音效(滑翔翼 T-G03, UI spec §7.1; 触发接线归 T-G04
+     装配层——本表只登记, js/ 内不出现 sfx 字面量) ---------- */
+  wing_open: {synth: {type: 'sine', f0: 220, f1: 520, fT: 0.18, dur: 0.22, g: 0.10}, g: 1, gTouch: 1, prio: 2, coolMs: 300}, // 展翼「扑 Jin」上滑(220→520): 布面抖开的轻快短音; prio 2 状态音可压环境声, coolMs 300 防空中连点再展叠爆
+  wing_close: {synth: {type: 'sine', f0: 520, f1: 200, fT: 0.15, dur: 0.18, g: 0.07}, g: 1, gTouch: 1, prio: 2, coolMs: 300}, // 收翼下滑更轻(520→200): 收=安顿感, 比展开安静(§7.1)
 };
 
 /* ---------- BGM 曲目表 ----------

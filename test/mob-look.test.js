@@ -379,3 +379,78 @@ test('造型档案: 几何 UV 落点 — 逐顶点采样已涂纹素(模型黑�
     global.THREE = prevThree; global.document = prevDoc;
   }
 });
+
+/* ============ 玩家翼骨(T-G03 形象层, UI spec §6.1 甲案/§6.2 几何表/§6.3 贴图) ============ */
+
+test('造型档案: 玩家翼骨甲案 — wingL/wingR 语义翼槽·官方 pivot·三盒规格·双翼共区', () => {
+  const S = MobLookKit.rig('player').slots;
+  assert.ok(S.wingL && S.wingR,
+      '玩家档应加 wingL/wingR 两骨(甲案: 档案加骨=Avatar+纸娃娃双端免费, UI spec §6.1)');
+  for (const [k, sx] of [['wingL', 3], ['wingR', -3]]) {
+    const j = S[k].joint;
+    assert.ok(Math.abs(j[0] - sx / 16) < 1e-9,
+        k + ' 枢轴 x=±3px(体宽 8px 的 ±3, 肩胛位; UI spec §6.2)');
+    assert.ok(Math.abs(j[1] - 26 / 16) < 1e-9, k + ' 枢轴 y=26px(肩胛上后方)');
+    assert.ok(Math.abs(Math.abs(j[2]) - 3 / 16) < 1e-9,
+        k + ' 枢轴 |z|=3px(背平面 z=2 外留 1px 转轴隙; rig 镜像 z 取负属口径)');
+    assert.strictEqual(S[k].axis, 'z',
+        k + ' 语义翼槽 axis z(dragon/phantom/vex/chicken 四怪同款)');
+    assert.strictEqual(S[k].cubes.length, 3,
+        k + ' 恰三盒: 骨杆+膜+翼尖(单层, 不做叠影/双翼)');
+    const dims = S[k].cubes.map((c) => c.size.slice().sort((a, b) => a - b).join(',')).sort();
+    assert.deepStrictEqual(dims, ['1,1,1', '1,1,12', '1,10,12'],
+        k + ' 盒规格: 骨杆 1×12×1 · 膜平面盒 12×10×1 · 翼尖粒 1×1×1' +
+        '(排序比: 轴向排布/收拢摆位归实现, 尺寸照 §6.2 几何表)');
+  }
+  /* 双翼共区镜像: wingR 与 wingL 共用同一 UV 区(dragon wingR 共区先例, §6.3) */
+  const uvOf = (s) => s.cubes.map((c) => c.uv.join(',')).sort();
+  assert.deepStrictEqual(uvOf(S.wingR), uvOf(S.wingL), '双翼共区(贴图单份, 镜像渲染)');
+});
+
+test('造型档案: 玩家翼贴图 — 五色同源色族·金辐条/膜主/暗折线俱现·翼尖金粒·方形 64/128 档', () => {
+  const tex = MobLookKit.textureBuffer('player');
+  assert.ok(tex.w === tex.h && (tex.w === 64 || tex.w === 128),
+      '翼区落既有方形画布留白带(64×64 优先; 放不下升 128 档, 五档先例; §6.1)');
+  const R = MobLookKit.regions('player');
+  const wingParts = Object.keys(R).filter((k) => k.startsWith('wing'));
+  assert.ok(wingParts.length >= 2, '翼骨六面区应入 regions(wingL/wingR 系)');
+  /* UI spec §5.1/§6.3 色板(测试持独立真值, 防两处实现漂移):
+     金骨主/金高光/膜亮缘/膜主/暗折线 —— 翼贴图不引第二色源 */
+  const PAL = [[0xe9, 0xb1, 0x15], [0xfd, 0xff, 0x76], [0xd0, 0x8a, 0x5a],
+    [0xb0, 0x55, 0x3a], [0x8a, 0x40, 0x28]];
+  const near = (c, p) =>
+    Math.hypot(c[0] - p[0], c[1] - p[1], c[2] - p[2]) <= 32;
+  const pxOf = (part) => {
+    const out = [];
+    for (const face of Object.values(R[part])) {
+      for (let y = 0; y < face[3]; y++) {
+        for (let x = 0; x < face[2]; x++) {
+          const o = ((face[1] + y) * tex.w + face[0] + x) * 4;
+          out.push([tex.buf[o], tex.buf[o + 1], tex.buf[o + 2]]);
+        }
+      }
+    }
+    return out;
+  };
+  const all = [];
+  for (const part of wingParts) all.push(...pxOf(part));
+  assert.ok(all.every((c) => PAL.some((p) => near(c, p))),
+      '翼区全部像素 ∈ 五色邻域(噪底 0.04~0.05 + 明暗派生容差; 不引第二色源)');
+  assert.ok(all.some((c) => near(c, PAL[0])), '金骨主色族出现(骨杆/辐条/前缘描边)');
+  assert.ok(all.some((c) => near(c, PAL[3])), '膜主色族出现(暖红棕膜身)');
+  assert.ok(all.some((c) => near(c, PAL[4])), '暗折线色族出现(近后缘收拢褶皱暗示)');
+  /* 膜面图案: 膜盒(排序尺寸 1,10,12)自身区里金辐条与膜身同现(§6.3 扇形辐条) */
+  const S = MobLookKit.rig('player').slots;
+  const memIdx = S.wingL.cubes.findIndex((c) =>
+    c.size.slice().sort((a, b) => a - b).join(',') === '1,10,12');
+  assert.ok(memIdx >= 0, '应能按尺寸认出膜盒');
+  const mem = pxOf('wingL' + (memIdx ? memIdx + 1 : ''));
+  assert.ok(mem.some((c) => near(c, PAL[0])), '膜面有金辐条/前缘描边(金主色)');
+  assert.ok(mem.some((c) => near(c, PAL[3])), '膜面有暖红棕膜身');
+  /* 翼尖粒: 1×1×1 盒六面区 ≈ 金高光 #fdff76(§6.2 翼尖金粒) */
+  const tipIdx = S.wingL.cubes.findIndex((c) => c.size.every((v) => v === 1));
+  assert.ok(tipIdx >= 0, '应有 1×1×1 翼尖粒');
+  const tip = pxOf('wingL' + (tipIdx ? tipIdx + 1 : ''));
+  assert.ok(tip.every((c) => near(c, PAL[1])),
+      '翼尖粒=金高光 #fdff76 点缀, 实得 ' + JSON.stringify(tip[0]));
+});

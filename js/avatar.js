@@ -21,8 +21,13 @@
    1/4 盒+鞋头;
    尺寸=对应骨盒 +1px, 观感=每 tier 程序生成像素贴图(底色=
    HeldItems.ARMOR_TIER_COLORS 穿戴层色板);
-   同目标幂等——四槽 id 集不变即不动, 磨损只变 dur 不重建; T9 起几何
-   抽件 js/armor-overlay.js 单份权威, Avatar 与纸娃娃共享, 设计稿 §9.4)。
+   同目标幂等——五槽 id 集不变即不动, 磨损只变 dur 不重建; T9 起几何
+   抽件 js/armor-overlay.js 单份权威, Avatar 与纸娃娃共享, 设计稿 §9.4;
+   兼任滑翔翼装备对账入口(T-G03/UI spec §6.4): worn 有 glider=翼骨
+   收拢可见, 无=翼骨隐藏——未装备永不出现翼) / setWings('folded'|
+   'spread' 滑翔翼意图, T-G03/UI spec §6.4: 滑翔态切换由模式层调用
+   (Avatar.flash 同款意图 API 先例), 形象层零玩法知识; 装备判据优先
+   于意图——未装备时意图不越权, 重穿对账复位 folded)。
    建模与动画全部是 implementation。
    人物面向 -Z, 与玩家视线一致。
    依赖: world.js 的 scene, voxel.js 的 pos/vel/yaw/pitch/onGround/
@@ -49,6 +54,11 @@ const Avatar = (() => {
   const legL = puppet.bones.legR; const legR = puppet.bones.legL;
   const armL = puppet.bones.armR; const armR = puppet.bones.armL;
   const head = puppet.bones.head;
+  /* 滑翔翼翼骨(T-G03 形象层): 档案 wingL/wingR 双端共享, Avatar 只动
+     显隐与 rotation.z; 载入即隐藏——未装备永不出现翼(§6.4 红线) */
+  const wingL = puppet.bones.wingL;
+  const wingR = puppet.bones.wingR;
+  wingL.visible = false; wingR.visible = false;
   scene.add(root); // 加载即挂: 跨模式存活, 主菜单背景也可见
 
   /* ---------- 受击闪红: 材质向红插值再淡出 ----------
@@ -110,10 +120,64 @@ const Avatar = (() => {
      单份权威: Avatar 与背包面板纸娃娃共享, 尺寸/配色/幂等口径逐字平移);
      本段只持有实例并委托 apply。穿/卸即时贴身, 不走手持物装备动画
      (MC 穿戴即时口径)。 */
+  /* ---------- 滑翔翼显隐与动效 (T-G03 形象层, UI spec §6.4/§6.5) ----------
+     状态机 hidden/folded/spread: hidden=未装备翼骨不可见; folded=收拢
+     翼鞘贴背(烘焙 rotation 0 基准, 静态无微动); spread=旋出水平带 +
+     滑翔微动。装备态对账(hidden↔folded)单一入口=syncWings, 由 setArmor
+     驱动; 滑翔态(folded↔spread)走 setWings 意图接口(模式层调用, 形象层
+     零玩法知识)。动效口径 §6.5: 展/收 0.25s 线性匀速无回弹, 端点即停;
+     展平后微动 ±0.05rad(≈2.9°)正弦双翼反相, 主周期 1.4s。 */
+  const WING_SPREAD_A = Math.PI / 2; // 展平端点: 收拢竖拢旋出 90°=水平带(60°~120° 带)
+  const WING_SPREAD_T = 0.25; // 展/收时长(与换手装备动画 ≈0.28s 同拍长家族)
+  const WING_FLAP_AMP = 0.05; // 滑翔微动幅度(§6.5 ±2.5°~3° 带内取 ≈2.9°)
+  const WING_FLAP_T = 1.4; // 微动主周期(呼吸感, 不干扰第三人称读景)
+  let wingOn = false; // 装备态: worn 有无 glider(对账判据, 意图不越权)
+  let wingPose = 'folded'; // 意图: 'folded' | 'spread'
+  let wingA = 0; // 当前展角(左翼带符号; 右翼镜像取反)
+  let wingFlap = 0; // 微动相位(秒)
+
+  function syncWings(on) {/* 装备对账单一入口: 边界翻转才动——同装备态
+      重声明(滑翔中对账)不打扰当前翼姿; 上翼复位 folded(不残留 spread) */
+    if (on === wingOn) return;
+    wingOn = on;
+    wingPose = 'folded';
+    wingA = 0;
+    wingFlap = 0;
+  }
+
+  function setWings(mode) {/* 滑翔态意图接口(模式层): 只记意图, 装备
+      判据在 updWings 优先——未装备永不出现翼 */
+    if (mode === 'spread' || mode === 'folded') wingPose = mode;
+  }
+
+  function updWings(dt) {/* 每帧自驱(隐藏期间也走完, swing/equip 同惯例):
+      线性匀速趋近目标角, 端点即停无回弹; spread 到位后微动 */
+    if (!wingOn) {
+      wingL.visible = false; wingR.visible = false;
+      return;
+    }
+    wingL.visible = true; wingR.visible = true;
+    const step = dt * WING_SPREAD_A / WING_SPREAD_T;
+    wingA = wingPose === 'spread' ?
+        Math.min(WING_SPREAD_A, wingA + step) :
+        Math.max(0, wingA - step);
+    let a = wingA;
+    if (wingA >= WING_SPREAD_A && wingPose === 'spread') {
+      wingFlap += dt; // 展平后滑翔微动: 双翼反相(一侧上摆一侧下摆)
+      a = WING_SPREAD_A + WING_FLAP_AMP * Math.sin(wingFlap * Math.PI * 2 / WING_FLAP_T);
+    } else {
+      wingFlap = 0;
+    }
+    wingL.rotation.z = a;
+    wingR.rotation.z = -a; // 双翼反号镜像(几何共区, 摆位对称)
+  }
+
   const armorOverlay = mkArmorOverlay(puppet); // 载入即建(脚本序 armor-overlay 先于本文件)
 
   function setArmor(worn) {
     armorOverlay.apply(worn);
+    syncWings(!!(worn && worn.glider)); /* 翼装备对账(§6.4): 收敛进既有
+      装备同步路径——切模式/读档重声明天然复位 */
   }
 
   function flash(d) {
@@ -142,6 +206,7 @@ const Avatar = (() => {
       for (const e of bodyMats) e.mat.color.copy(e.base).lerp(FLASH_RED, k*0.9);
       if (flashT < 0) for (const e of bodyMats) e.mat.color.copy(e.base);
     }
+    updWings(dt); /* 翼动效自驱: 隐藏期间也走完(swing/equip 同惯例) */
     root.visible = camDist > CAM.hideDist;
     if (!root.visible) return; // 隐藏时省去全部动画
 
@@ -180,5 +245,5 @@ const Avatar = (() => {
     }
   }
 
-  return {update, setItem, swing, flash, setArmor};
+  return {update, setItem, swing, flash, setArmor, setWings};
 })();

@@ -40,7 +40,7 @@
               mkChestPanel(三者=内部底座 mkPanelShell+差异段, 均含 cellAt
               查询面) · sortInv · spawn · lookName · confirmBtn ·
               editHit(挖/放编辑原语) · mkHoldMine(触屏按住连挖驱动) ·
-              mkArmorBar(装备条, 装备 T5: 四槽像素图标+空槽虚位+点槽脱下
+              mkArmorBar(装备条, 装备 T5: 五槽像素图标+空槽虚位+点槽脱下
               意图——回包政策归模式层; 签名节流重画, 磨损不闪)
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax/durOf ·
      inventory-core 的 HOTBAR_SLOTS/costEntry/remove/add · craft-core 的
@@ -759,18 +759,24 @@ function mkCraftPanel(opts) {
     ensureDoll();
     eslots.innerHTML = '';
     const worn = o.equip.worn() || {};
-    for (const slot of EQUIP_SLOTS) {/* 槽序=装备核心四槽表(展示序唯一权威) */
+    for (const slot of EQUIP_SLOTS) {/* 槽序=装备核心五槽表(展示序唯一权威) */
       const piece = worn[slot] || null;
       const b = doc.createElement('button');
       b.className = 'mkp-eslot' + (piece ? '' : ' off'); /* 空槽虚位(mkArmorBar 同观感) */
       b.dataset.slot = slot;
       if (piece) {
-        const full = durOf(piece.id) || 1;
-        const pct = Math.round(((piece.dur != null ? piece.dur : full) / full) * 100);
-        /* 耐久条: 纯 innerHTML 拼死宽度+档位色(≤25% 红 ≤60% 黄 其余绿) */
-        const col = pct <= 25 ? '#d83a2e' : (pct <= 60 ? '#e9b115' : '#58c14e');
-        b.innerHTML = kitIconHtml(piece.id, 'pic', 'icon') +
-          '<i class="dur" style="width:' + pct + '%;background:' + col + '"></i>';
+        /* 第五槽(glider)永不渲染耐久条(T-G03/UI spec §4.4): 滑翔翼无
+           消耗(ADR 0012), dur=1 恒满值会画满条误导——显式豁免, 四甲照旧 */
+        if (slot !== 'glider') {
+          const full = durOf(piece.id) || 1;
+          const pct = Math.round(((piece.dur != null ? piece.dur : full) / full) * 100);
+          /* 耐久条: 纯 innerHTML 拼死宽度+档位色(≤25% 红 ≤60% 黄 其余绿) */
+          const col = pct <= 25 ? '#d83a2e' : (pct <= 60 ? '#e9b115' : '#58c14e');
+          b.innerHTML = kitIconHtml(piece.id, 'pic', 'icon') +
+            '<i class="dur" style="width:' + pct + '%;background:' + col + '"></i>';
+        } else {
+          b.innerHTML = kitIconHtml(piece.id, 'pic', 'icon');
+        }
       }
       b.onclick = () => o.equip.onSlot(slot); /* 只报意图: 空槽也报(话术归模式层) */
       eslots.appendChild(b);
@@ -1490,9 +1496,9 @@ function mkBubbleBar(opts) {
 }
 
 /* ---------- mkArmorBar: 装备条(装备 T5, 设计稿 §5) ----------
-   HUD 常驻四槽穿戴状态条: 像素图标(iconOf 统一出口)+空槽虚位(.off);
+   HUD 常驻五槽穿戴状态条: 像素图标(iconOf 统一出口)+空槽虚位(.off);
    点槽=脱下意图 onUnequip(slot)——回包政策(满包拒绝+话术)归模式层,
-   本件只报意图不执行。签名节流重画(update 内四槽 id 签名, 炉三槽推进
+   本件只报意图不执行。签名节流重画(update 内五槽 id 签名, 炉三槽推进
    同惯例): 磨损只变 dur 不重画, 常驻条无闪烁。
    opts:
      doc/mount      文档与容器注入(Node 单测假 doc 先例)
@@ -1506,7 +1512,7 @@ function mkArmorBar(opts) {
   const root = doc.createElement('div');
   root.className = 'armorbar';
   const slots = [];
-  for (const slot of EQUIP_SLOTS) {/* 槽序=装备核心四槽表(展示序单一权威) */
+  for (const slot of EQUIP_SLOTS) {/* 槽序=装备核心五槽表(展示序单一权威) */
     const b = doc.createElement('button');
     b.className = 'armorbar-slot off';
     b.dataset.slot = slot;
@@ -1524,7 +1530,7 @@ function mkArmorBar(opts) {
       root.style.display = vis ? 'flex' : 'none';
       if (!vis) return;
       const s = EQUIP_SLOTS.map((k) => (worn && worn[k] ? worn[k].id : '')).join(',');
-      if (s === sig) return; /* 签名节流: 同四槽 id 不重画(磨损不闪) */
+      if (s === sig) return; /* 签名节流: 同五槽 id 不重画(磨损不闪) */
       sig = s;
       EQUIP_SLOTS.forEach((k, i) => {
         const piece = worn && worn[k];

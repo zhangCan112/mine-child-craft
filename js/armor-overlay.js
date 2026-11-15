@@ -32,7 +32,7 @@
                   纸娃娃随场景释放)
    依赖(均经全局名, 调用期解析): js/items-core.js 的 armorOf(判据
      单份), js/held-item.js 的 HeldItems.ARMOR_TIER_COLORS(层色板,
-     贴图底色唯一来源), js/equipment-core.js 的 EQUIP_SLOTS(四槽序),
+     贴图底色唯一来源), js/equipment-core.js 的 EQUIP_SLOTS(五槽序),
      lib/three.min.js(THREE 只在 apply/dispose 期使用, mk 零依赖
      ——Node 冒烟安全)
    可测性: test/armor-overlay.test.js 直测(document+THREE 双桩走

@@ -13,7 +13,11 @@
      opts.doc    文档注入(缺省 document)
      opts.w/h    画布尺寸 px(缺省 140×176, CSS 同款观感; 2026-11-05
                   二轮放大——旧 116×150 娃娃太小看不清盔甲双色)
-     paint(worn) 声明穿戴并按需重画一帧(四槽 id 签名幂等——同穿戴不重画)
+     paint(worn) 声明穿戴并按需重画一帧(五槽 id 签名幂等——同穿戴不重画);
+                  翼静帧(T-G03/UI spec §4.2): worn 有 glider=翼骨置展平
+                  端点一帧(试穿预览, 不经意图接口), 无=隐藏无残影; 构图
+                  (§4.3): 装备时相机 z 3.55→4.3 保双翼尖完整入框, 未装
+                  备复原原构图, lookAt 恒 (0,0.9,0)
      dispose()   释放渲染器/几何/材质; 幂等(重复调无害)
    依赖(均经全局名, 调用期解析): mob-look-kit.js 的 MobLookKit.puppet,
      armor-overlay.js 的 mkArmorOverlay, equipment-core.js 的 EQUIP_SLOTS
@@ -57,11 +61,24 @@ function mkPaperDoll(opts) {
     el,
     paint(worn) {
       if (!built) build();
-      /* 四槽 id 签名(装备核心表序): 同穿戴不重画——预览按需一帧 */
+      /* 五槽 id 签名(装备核心表序): 同穿戴不重画——预览按需一帧 */
       const s = EQUIP_SLOTS.map((k) => (worn && worn[k] ? worn[k].id : '')).join(',');
       if (s === built.sig) return;
       built.sig = s;
       built.overlay.apply(worn);
+      /* 翼静帧(T-G03/UI spec §4.2, 不经意图接口): 装备=展平端点一帧
+         (与 Avatar setWings('spread') 到位姿态同角), 未装备=隐藏无残影 */
+      const winged = !!(worn && worn.glider);
+      const wl = built.puppet.bones.wingL;
+      const wr = built.puppet.bones.wingR;
+      wl.visible = winged; wr.visible = winged;
+      wl.rotation.z = winged ? Math.PI / 2 : 0;
+      wr.rotation.z = winged ? -Math.PI / 2 : 0;
+      /* 构图(T-G03/UI spec §4.3): 展翼翼展≈身宽两倍, 装备时相机后移
+         z→4.3 保双翼尖完整入框; 未装备复原原构图(人物更大更亲切);
+         其余参数不动, lookAt 恒 (0,0.9,0) */
+      built.camera.position.set(0, 0.95, winged ? 4.3 : 3.55);
+      built.camera.lookAt(0, 0.9, 0);
       built.renderer.render(built.scene, built.camera);
     },
     dispose() {

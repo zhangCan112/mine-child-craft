@@ -1677,3 +1677,69 @@ test('装备条点槽: click 派发 onUnequip(slot) — 脱下意图归模式层
   assert.deepStrictEqual(got, ['helmet', 'leggings'], '空槽也报意图(模式层判空礼貌回应)');
   bar.dispose();
 });
+
+/* ============ T-G03 形象层: 第五槽数据边界 + 样式照稿(UI spec §4.1/§4.4/§3.4) ============ */
+
+test('craft 面板: 装备页第五槽数据边界 — 有件显图标但永不渲染耐久条·四甲耐久条不误伤·点槽报 onSlot(§4.4)', () => {
+  const doc = mkDoc();
+  const inv = {slots: new Array(27).fill(null)};
+  const worn = {helmet: {id: 'helmet_iron', dur: 300}, chestplate: null,
+    leggings: null, boots: null, glider: {id: 'glider', dur: 1}};
+  const stub = mkEquipStub(worn);
+  const panel = mkCraftPanel({doc, inv, recipes: [R_PICK], onCraft() {}, equip: stub.equip});
+  panel.show();
+  collect(panel.root, 'mkp-l1tab')[1].onclick(); /* 进装备页 */
+  let slots = collect(panel.root, 'mkp-eslot');
+  assert.strictEqual(slots.length, 5, '五槽');
+  assert.ok(!slots[4].classList.contains('off'), '穿翼: 实位');
+  assert.ok(slots[4].innerHTML.includes('🥓'), '第五槽显像素图标(iconOf 桩 emoji 回落)');
+  assert.ok(!slots[4].innerHTML.includes('class="dur"'),
+      '第五槽永不渲染耐久条(glider dur=1 满值会画满条, §4.4 显式豁免——滑翔翼无耐久)');
+  assert.ok(slots[0].innerHTML.includes('class="dur"'),
+      '四甲耐久条照旧(豁免只及第五槽, §4.4 盔甲点行数据边界)');
+  slots[4].onclick();
+  assert.deepStrictEqual(stub.log.slots, ['glider'],
+      '点第五槽报 onSlot 意图(空槽有件一律报, 政策归模式层)');
+  /* 空第五槽: 虚位虚线 */
+  worn.glider = null;
+  panel.refresh();
+  slots = collect(panel.root, 'mkp-eslot');
+  assert.ok(slots[4].classList.contains('off') && slots[4].innerHTML === '',
+      '卸下后第五槽空槽虚位(.off 空内容)');
+  panel.remove();
+});
+
+test('HUD 装备条与装备页第五槽样式照稿 — css/style.css(UI spec §3.4 最小样式 + §4.1 第三行居中)', () => {
+  const css = fs.readFileSync(path.join(__dirname, '..', 'css', 'style.css'), 'utf8');
+  /* 规则块提取: 全部匹配选择器的声明拼接(逗号选择器任一段命中即算) */
+  const ruleOf = (sel) => {
+    let out = '';
+    const re = /([^{}]+)\{([^{}]*)\}/g;
+    let m;
+    while ((m = re.exec(css)) !== null) {
+      if (m[1].split(',').some((s) => s.trim() === sel)) out += m[2];
+    }
+    return out;
+  };
+  /* §3.4 条容器: 定位让开 #hud 文字区(top 44 > #hud 行高)与触控热区 */
+  const bar = ruleOf('.armorbar');
+  for (const decl of ['position: fixed', 'top: 44px', 'left: 12px', 'display: flex',
+    'gap: 6px', 'padding: 6px', 'border-radius: 8px', 'z-index: 10']) {
+    assert.ok(bar.includes(decl), '.armorbar 应含 ' + decl + '(UI spec §3.4 最小样式)');
+  }
+  assert.ok(bar.includes('rgb(0 0 0 / 35%)'), '.armorbar 黑底 35%(#hotbar 同族)');
+  /* §3.4 槽格: 54×54 + 圆角 6 + 空槽虚线 + 图标 40×40 pixelated */
+  const slot = ruleOf('.armorbar-slot');
+  assert.ok(/width:\s*54px/.test(slot) && /height:\s*54px/.test(slot), '槽格 54×54(hotbar .slot 同尺寸家族)');
+  assert.ok(/border-radius:\s*6px/.test(slot), '槽格圆角 6');
+  assert.ok(/border-style:\s*dashed/.test(ruleOf('.armorbar-slot.off')),
+      '空槽虚线边框(装备页 .off 语言)');
+  const img = ruleOf('.armorbar-slot img');
+  assert.ok(/width:\s*40px/.test(img) && /height:\s*40px/.test(img) &&
+      /image-rendering:\s*pixelated/.test(img), '图标 img 40×40 居中 pixelated');
+  /* §4.1 第五槽落位: 第三行 span 2 居中独立行(58×58 槽格尺寸不变) */
+  const eslotRule = [...css.matchAll(/([^{}]*\.mkp-eslot[^{}]*)\{([^{}]*)\}/g)];
+  assert.ok(eslotRule.some((m) => /grid-column:\s*span 2/.test(m[2]) &&
+      /justify-self:\s*center/.test(m[2])),
+  '第五槽 grid-column: span 2 + justify-self: center(四槽正下方居中独立行)');
+});
