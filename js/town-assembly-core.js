@@ -8,12 +8,16 @@
    interface: 全局 TOWN_PALETTE 七段配色映射(prefab 十三行集中注入材质 ·
      terrain 基底三层 · ground 铺装 · road 路网 · backdrop 远景 ·
      props 道具 · tree 植被, 值全为 config.js BLOCKS 在册正整数 id) ·
-     纯函数 townAssemblyOps(steps) → op 列表(词表封闭 {fill,tree,scrub,
-     recolor,place}): 基底三层垫底(序列最前=后写者赢的显式见证)后按
-     steps 相对次序派生——ground/backdrop/road 段出 fill, prefab 段出
-     place(face/ids 注入一律新对象, 源清单只读), scatter 段出
-     tree+recolor(樱花 7→78 覆写落调用方)/scrub(确定性盐)/灯柱路标
-     fill, anchor 段零 op(出生归模式层恰一次)。
+      纯函数 townAssemblyOps(steps) → op 列表(词表封闭 {fill,tree,scrub,
+      recolor,place,spinner}): 基底三层垫底(序列最前=后写者赢的显式见证)
+      后按 steps 相对次序派生——ground/backdrop/road 段出 fill, prefab 段
+      出 place/spinner 双胞胎(TIDEA-01 波次二: v.sailStatic===false 严格判据
+      →spinner 替代 place, period 顶层钩穿透; tidea.porchLamp→v 注入+
+      groundMark 四笔 fill; face/ids 注入一律新对象, 源清单只读), scatter
+      段出 tree+recolor(樱花 7→78 覆写落调用方)/scrub(确定性盐)/灯柱路标
+      fill, anchor 段零 op(出生归模式层恰一次); 波次二五件派生: 瀑布三笔
+      (mountain.waterfall)/emblem 16+axisBloom 32(plaza, 路面嵌花 inlay 补记
+      后于全 steps)/harvest 非埂行覆 45(farm-rows.harvest)/记号见 prefab 段。
    依赖: 零运行时依赖——本文件不引用任何引擎件/DOM/墙钟符号; 全局
      TOWN_MAP 调用期解析(消费 core.groundY 派生地表基高与基底范围,
      经典脚本同款; index.html 加载序 js/town-map-core.js → 本文件 →
@@ -83,7 +87,7 @@ const TOWN_PALETTE = {
     'house-loft': {base: 13, wallA: 6, wallB: 17, roof: 9, trim: 5, window: 18,
       frame: 17, door: 64, doorTop: 65, balcony: 5, awning: 15},
     'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 64, doorTop: 65,
-      metalAccent: 12, barrel: 5, chest: 51, mossy: 14},
+      metalAccent: 12, barrel: 5, chest: 51, mossy: 14, porchLamp: 19},
     'under-room': {chest: 51, torch: 48, cap: 8, land: 58},
     'stall-canopy': {frame: 5, counter: 6, goodsBread: 17, goodsFlower: 78,
       goodsFruit: 76, goodsLeaf1: 61, goodsLeaf2: 62, flag: 78},
@@ -116,6 +120,10 @@ function townAssemblyOps(steps) {
   const groundY = core.groundY;
   const pal = TOWN_PALETTE;
   const ops = [];
+  /* 路面嵌花补记表(TIDEA-07): emblem/axisBloom 是「嵌 main-south 路面」
+     读法(map-core 条目注)——ground 相位派生会被 road 相位后写覆埋, 故
+     收集延后, 全 steps 循环收口后统一补记(补记序=收集序, 确定性不破) */
+  const inlays = [];
   /* 基底三层垫底(序列最前三笔): deep 0..groundY-4 石 / filler 泥 /
      surface groundY 草——后写者赢, 广场/路网/建筑压得住草地。 */
   ops.push({op: 'fill', x1: core.x1, y1: 0, z1: core.z1, x2: core.x2, y2: groundY - 4, z2: core.z2,
@@ -145,6 +153,29 @@ function townAssemblyOps(steps) {
         const id = s.kind === 'plaza' ? pal.ground.plaza : pal.ground.farm;
         ops.push({op: 'fill', x1: s.x1, y1: groundY, z1: s.z1, x2: s.x2, y2: groundY,
           z2: s.z2, id});
+        /* TIDEA-07 镇徽+花带(波次二): emblem 4×4 逐格覆写(回字环纹图样死
+           字面——78 樱粉 8+17 石英 8, 与 map-core 数据死注释同源, 底稿
+           scene-closeout §8.2.6 「落地低头脚下即徽」); axisBloom 逐行横纹
+           (r=(z−z1)%4<2→13 石砖 else 4 圆石, 行相位款式同 farm-rows)。
+           两者入 inlays 延后补记(嵌路面读法, 见 inlays 声明注) */
+        if (s.emblem) {
+          const EMBLEM = [[78, 17, 17, 78], [17, 78, 78, 17],
+            [17, 78, 78, 17], [78, 17, 17, 78]];
+          for (let ri = 0; ri < 4; ri++) {
+            for (let ci = 0; ci < 4; ci++) {
+              inlays.push({op: 'fill', x1: s.emblem.x1 + ci, y1: groundY,
+                z1: s.emblem.z1 + ri, x2: s.emblem.x1 + ci, y2: groundY,
+                z2: s.emblem.z1 + ri, id: EMBLEM[ri][ci]});
+            }
+          }
+        }
+        if (s.axisBloom) {
+          for (let z = s.axisBloom.z1; z <= s.axisBloom.z2; z++) {
+            inlays.push({op: 'fill', x1: s.axisBloom.x1, y1: groundY, z1: z,
+              x2: s.axisBloom.x2, y2: groundY, z2: z,
+              id: (z - s.axisBloom.z1) % 4 < 2 ? 13 : 4});
+          }
+        }
       } else if (s.kind === 'farm-rows') {
         /* 田垄(#4): 全域 41 沟底先铺, 再逐行条带覆写——行号 r=z-z1,
            周期 5: r%5===0 田埂 58 / 其余 42+(r%5)-1 作物轮转(42/43/44/45
@@ -170,6 +201,16 @@ function townAssemblyOps(steps) {
             y2: groundY + 1, z2: z, id: pal.ground.fieldFence});
           ops.push({op: 'fill', x1: s.x2, y1: groundY + 1, z1: z, x2: s.x2,
             y2: groundY + 1, z2: z, id: pal.ground.fieldFence});
+        }
+        /* TIDEA-04 前半丰收角(波次二): harvest 域内非埂行(r=(z−s.z1)%5!==
+           0, 与上行相位同源)整行覆 45 成熟小麦——埂行跳过保田垄肌理
+           (风车侧 4×4 与周边青苗 42/43 成熟色差高潮, TOWN_MAP 条目注) */
+        if (s.harvest) {
+          for (let z = s.harvest.z1; z <= s.harvest.z2; z++) {
+            if ((z - s.z1) % 5 === 0) continue;
+            ops.push({op: 'fill', x1: s.harvest.x1, y1: groundY, z1: z,
+              x2: s.harvest.x2, y2: groundY, z2: z, id: 45});
+          }
         }
       } else if (s.kind === 'wayshrine') {
         /* 断头小坪(#6): 全域边环 4 先写+内缩一格 13 芯后写——条目须排
@@ -212,6 +253,17 @@ function townAssemblyOps(steps) {
           seg(groundY, midTop, sZ2 + 1, s.z2, pal.backdrop.mountainMoss);
           seg(31, Math.min(top, 39), s.z1, s.z2, pal.backdrop.mountain);
           seg(40, top, s.z1, s.z2, pal.backdrop.mountainSnow);
+        }
+        /* TIDEA-05 瀑布白线(波次二): 列域南缘薄片 54 雪(顶接雪带下缘 y40,
+           底 y25 山脚)+两翼石英水花——贴面不穿山, 山体北面剪影不被涂白
+           (派生契约 scene-closeout §8.2.5) */
+        if (s.waterfall) {
+          ops.push({op: 'fill', x1: s.waterfall.x1, y1: 25, z1: 24,
+            x2: s.waterfall.x2, y2: 39, z2: 28, id: pal.backdrop.mountainSnow});
+          ops.push({op: 'fill', x1: s.waterfall.x1 - 1, y1: 25, z1: 26,
+            x2: s.waterfall.x1 - 1, y2: 26, z2: 26, id: pal.backdrop.cliffFrame});
+          ops.push({op: 'fill', x1: s.waterfall.x2 + 1, y1: 25, z1: 26,
+            x2: s.waterfall.x2 + 1, y2: 26, z2: 26, id: pal.backdrop.cliffFrame});
         }
       } else if (s.kind === 'cliff-home') {
         if (s.style === 'v2') {
@@ -284,14 +336,28 @@ function townAssemblyOps(steps) {
       }
     } else if (s.phase === 'prefab') {
       /* 建筑件: face 在条目顶层(不在 v 内), ids 集中注入——v/ids 一律新
-         对象(op 消费方改写不反渗源清单与 palette 单源) */
+         对象(op 消费方改写不反渗源清单与 palette 单源)。
+         波次二: 顶层 tidea 命名空间键(全链静默, §8.2.2 教训)→porchLamp
+         v 注入(pfMerge 白名单已在 prefab 面合法化)+groundMark 四笔 fill
+         (世界系直加, y=groundY); v.sailStatic===false(严格判据, undefined
+         =静态无 op)→spinner op 替代 place(place 双胞胎——dims spinner
+         case 塔体+叶片 mesh 双消费), period 顶层钩穿透(可选, 秒) */
       const row = pal.prefab[s.id];
       if (!row) {
         throw new Error('townAssemblyOps: prefab 实例「' + s.id + '」缺 palette 材质映射' +
           '(TOWN_PALETTE.prefab 是唯一权威)');
       }
       const v = Object.assign({}, s.v, {face: s.face, ids: Object.assign({}, row)});
-      ops.push({op: 'place', id: s.id, x: s.x, y: s.y, z: s.z, v});
+      if (s.tidea && s.tidea.porchLamp) v.porchLamp = true;
+      ops.push(s.v && s.v.sailStatic === false ?
+        {op: 'spinner', id: s.id, x: s.x, y: s.y, z: s.z, v, period: s.period} :
+        {op: 'place', id: s.id, x: s.x, y: s.y, z: s.z, v});
+      if (s.tidea && s.tidea.groundMark) {
+        for (const t of s.tidea.groundMark.tiles) {
+          ops.push({op: 'fill', x1: s.x + t.dx, y1: groundY, z1: s.z + t.dz,
+            x2: s.x + t.dx, y2: groundY, z2: s.z + t.dz, id: s.tidea.groundMark.id});
+        }
+      }
     } else if (s.phase === 'scatter') {
       if (s.kind === 'sakura') {
         /* 樱花 = 树家族 op + 覆写 op 两笔: 树几何单源引擎(SceneKit.tree,
@@ -398,5 +464,7 @@ function townAssemblyOps(steps) {
         'road|prefab|scatter|anchor)');
     }
   }
+  /* 路面嵌花补记(emblem/axisBloom 延后于全 steps——road 相位后写不再覆埋) */
+  ops.push(...inlays);
   return ops;
 }

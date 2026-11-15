@@ -56,7 +56,7 @@ const PALETTE_WANT = {
     'house-loft': {base: 13, wallA: 6, wallB: 17, roof: 9, trim: 5, window: 18,
       frame: 17, door: 64, doorTop: 65, balcony: 5, awning: 15},
     'stash-hut': {base: 3, wall: 6, roof: 5, trim: 5, door: 64, doorTop: 65,
-      metalAccent: 12, barrel: 5, chest: 51, mossy: 14},
+      metalAccent: 12, barrel: 5, chest: 51, mossy: 14, porchLamp: 19},
     'under-room': {chest: 51, torch: 48, cap: 8, land: 58},
     'stall-canopy': {frame: 5, counter: 6, goodsBread: 17, goodsFlower: 78,
       goodsFruit: 76, goodsLeaf1: 61, goodsLeaf2: 62, flag: 78},
@@ -264,7 +264,7 @@ test('place 调用面: 10 实例一一对应 prefab 段保序 · face/ids 注入
    唯一可靠拦截 = 真执行: vm 同上下文载 prefab-kit + 本件, spy 世界把全部
    place op 落场, 断言每笔写 ⊆ footOf 同参盒——运行时消费方(adventure-dims-core
    place 执行路径)的等价见证。装具手法借 test/prefab-kit.test.js loadKit。 */
-test('place 执行见证: 13 实例全落场 — pfMerge 行键×蓝图键面耦合不炸, 每笔写 ∈ footOf 同参盒', () => {
+test('place 执行见证: 18 实例全落场 — pfMerge 行键×蓝图键面耦合不炸, 每笔写 ∈ footOf 同参盒', () => {
   const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
   for (const f of ['js/config.js', 'js/voxel.js', 'js/scene-kit.js', 'js/prefab-kit.js',
     'js/town-map-core.js', 'js/town-assembly-core.js']) {
@@ -278,7 +278,10 @@ test('place 执行见证: 13 实例全落场 — pfMerge 行键×蓝图键面耦
   const ops = JSON.parse(vm.runInContext(
       'JSON.stringify(townAssemblyOps(townBuildSteps()))', eng));
   const places = ops.filter((o) => o.op === 'place');
-  assert.strictEqual(places.length, 13, 'place op 13 个(7 建筑+埋室+摊位 6)');
+  assert.strictEqual(places.length, 18,
+      'place op 18 个(6 建筑+埋室 1+摊位 6+陈设落位 5: scarecrow/clothesline/' +
+      'woodpile/hencoop/board-pool——蓝图行=波次一 a73623c, 落位数据=scene eb9175e, ' +
+      'scene §10.4 补丁底稿吸收)');
   /* v2 新键面证据: door/doorTop 与 accent 槽真的并入 place v(注入单源=palette
      行; 行键漂移时此处先红, pfMerge 执行期 throw 兜底) */
   const towerOp = places.find((o) => o.id === 'tower-belfry');
@@ -374,9 +377,9 @@ test('几何: 基底三层垫底恰覆核心区(序列最前=后写者赢显式�
   ], '基底三层(deep 0..20 石/filler 21..23 土/surface 24 草)是 op 序列最前三笔——后写者赢, 建筑压得住草地');
   const fillAt = (x, z, y) => ops.findLast((o) => o.op === 'fill' &&
     x >= o.x1 && x <= o.x2 && z >= o.z1 && z <= o.z2 && y >= o.y1 && y <= o.y2); /* 末笔覆盖=写者赢 */
-  assert.deepStrictEqual(fillAt(79, 79, 24),
+  assert.deepStrictEqual(fillAt(70, 70, 24),
       {op: 'fill', x1: 66, y1: 24, z1: 66, x2: 93, y2: 24, z2: 93, id: PALETTE_WANT.ground.plaza},
-      '广场铺装恰一条 28×28(y=地表基高, ground 条目无 y 字段——基高从 core.groundY 派生)');
+      '广场铺装恰一条 28×28(y=地表基高, ground 条目无 y 字段——基高从 core.groundY 派生); pin 点 (70,70) 避开主轴花带(x79..80 穿广场中心, TIDEA-07 显影)');
   assert.strictEqual(fillAt(70, 50, 24).id, 42, '农田 A 田垄作物 42(farm-rows 轮转, 作物字面不入 palette)');
   assert.strictEqual(fillAt(84, 50, 24).id, 45, '农田 B 田垄作物 45(farm-rows 轮转)');
   assert.strictEqual(fillAt(79, 100, 24).id, PALETTE_WANT.road.main, '南主路 13 石砖');
@@ -411,6 +414,11 @@ test('几何: 拱形山体逐柱满覆盖(基段笔顶 23, bands 后顶高由雪
     [PALETTE_WANT.backdrop.cliffWall, PALETTE_WANT.backdrop.cliffFrame,
       PALETTE_WANT.backdrop.cliffWindow, PALETTE_WANT.backdrop.cliffRoof,
       PALETTE_WANT.backdrop.cliffLamp].includes(o.id)), [
+    /* 瀑布两翼(TIDEA-05 波次二显影): 石英水花 id17 撞 cliffFrame 入本
+       过滤器 id 集, z26≤28 在界内——头部前置=派生序(瀑布条目先于崖屋);
+       柱笔 54=mountainSnow 不在 id 集自然排外 */
+    {op: 'fill', x1: 62, y1: 25, z1: 26, x2: 62, y2: 26, z2: 26, id: PALETTE_WANT.backdrop.cliffFrame},
+    {op: 'fill', x1: 65, y1: 25, z1: 26, x2: 65, y2: 26, z2: 26, id: PALETTE_WANT.backdrop.cliffFrame},
     /* A 屋(中心 56) */
     {op: 'fill', x1: 55, y1: 41, z1: 21, x2: 57, y2: 45, z2: 23, id: PALETTE_WANT.backdrop.cliffWall},
     {op: 'fill', x1: 55, y1: 41, z1: 21, x2: 55, y2: 45, z2: 21, id: PALETTE_WANT.backdrop.cliffFrame},
@@ -656,6 +664,114 @@ test('op 派生 Step F: wallflag len 钳 2..6 缺省 4 三色 i%3 轮转 · wind
   /* 合法域消息再扩(三新 kind 入列) */
   assert.throws(() => run([{phase: 'scatter', id: 'z2', kind: 'statue'}]),
       /wallflag\|windowbox\|crates/, 'scatter 合法域消息含三新 kind');
+});
+
+/* ---------- ⑥d TIDEA 波次二(arch 机制与派生批): spinner op + porchLamp +
+   groundMark 契约(合成条目直验, ⑥b/⑥c 同款装具) ---------- */
+
+test('op 派生 ⑥d: spinner op(place 双胞胎, sailStatic===false 严格判据, period 钩穿透) · porchLamp 注入 · groundMark 四笔', () => {
+  const ctx = loadCore();
+  /* 纯函数直验(⑥c 同款装具): 剥全域垫底三笔, 只验派生 */
+  const run = (steps) => JSON.parse(probe(ctx,
+      'JSON.stringify(townAssemblyOps(' + JSON.stringify(steps) + ').filter(' +
+      '(o) => !(o.x1 === TOWN_MAP.core.x1 && o.x2 === TOWN_MAP.core.x2 && ' +
+      'o.z1 === TOWN_MAP.core.z1 && o.z2 === TOWN_MAP.core.z2)))'));
+  /* spinner op: 严格 false 判据——undefined/true 静态无 op(scene 现状 v={}
+     零行为变化, 翻转权在 scene 线) */
+  const spinOps = run([{phase: 'prefab', id: 'windmill-tower', x: 56, y: 24, z: 42,
+    v: {sailStatic: false}, face: 'south'}]);
+  assert.strictEqual(spinOps.length, 1, 'spinner op 恰 1(替代 place)');
+  assert.strictEqual(spinOps[0].op, 'spinner', 'op=spinner(place 双胞胎)');
+  assert.strictEqual(spinOps[0].id, 'windmill-tower', 'id 直带');
+  assert.strictEqual(spinOps[0].x, 56, 'x 直带');
+  assert.strictEqual(spinOps[0].y, 24, 'y 直带');
+  assert.strictEqual(spinOps[0].z, 42, 'z 直带');
+  assert.strictEqual(spinOps[0].v.sailStatic, false,
+      'v 原样带(塔体省叶片的 place 语义归 dims spinner case)');
+  assert.strictEqual(spinOps[0].period, undefined,
+      'period 缺省 undefined(SpinnerCore.clampPeriod 回落 5)');
+  /* period 顶层钩穿透(可选数据钩; 条目顶层键全链静默先例, pfMerge 白名单外) */
+  const spinP = run([{phase: 'prefab', id: 'windmill-tower', x: 56, y: 24, z: 42,
+    v: {sailStatic: false}, face: 'south', period: 4.5}])[0];
+  assert.strictEqual(spinP.period, 4.5, '顶层 period 穿透 op(秒)');
+  /* true/缺省 → place(既有行为不变) */
+  assert.strictEqual(run([{phase: 'prefab', id: 'windmill-tower', x: 56, y: 24,
+    z: 42, v: {sailStatic: true}, face: 'south'}])[0].op, 'place',
+  'sailStatic=true → place');
+  assert.strictEqual(run([{phase: 'prefab', id: 'windmill-tower', x: 56, y: 24,
+    z: 42, v: {}, face: 'south'}])[0].op, 'place', '缺省(v={}) → place');
+  /* porchLamp: tidea.porchLamp → place v.porchLamp=true(pfMerge 白名单合法化,
+     v 键检在 prefab 面已钉) */
+  const stOps = run([{phase: 'prefab', id: 'stash-hut', x: 49, y: 24, z: 98,
+    v: {}, face: 'east',
+    tidea: {porchLamp: {dx: 2, dy: 2, dz: 0},
+      groundMark: {id: 4, tiles: [{dx: 6, dz: 5}, {dx: 7, dz: 4},
+        {dx: 7, dz: 6}, {dx: 9, dz: 5}]}}}]);
+  const stPlace = stOps.find((o) => o.op === 'place');
+  assert.strictEqual(stPlace.v.porchLamp, true, 'tidea.porchLamp → v.porchLamp=true');
+  assert.deepStrictEqual(stOps.filter((o) => o.op === 'fill'), [
+    {op: 'fill', x1: 55, y1: 24, z1: 103, x2: 55, y2: 24, z2: 103, id: 4},
+    {op: 'fill', x1: 56, y1: 24, z1: 102, x2: 56, y2: 24, z2: 102, id: 4},
+    {op: 'fill', x1: 56, y1: 24, z1: 104, x2: 56, y2: 24, z2: 104, id: 4},
+    {op: 'fill', x1: 58, y1: 24, z1: 103, x2: 58, y2: 24, z2: 103, id: 4},
+  ], 'groundMark 四笔: 锚+dx/dz 世界系直加(y=groundY, 顶/双翼/尾 chevron)');
+  /* 无 tidea → 恰 place 一笔, v.porchLamp 不注, tidea 零渗 v(§8.2.2 教训) */
+  const plain = run([{phase: 'prefab', id: 'stash-hut', x: 49, y: 24, z: 98,
+    v: {}, face: 'east'}]);
+  assert.strictEqual(plain.length, 1, '无 tidea: 恰 place 一笔');
+  assert.strictEqual(plain[0].v.porchLamp, undefined, 'v.porchLamp 不注');
+  assert.ok(!('tidea' in plain[0].v), 'tidea 命名空间键不入 v(白名单外零渗)');
+});
+
+test('op 派生 ⑥d: 真实 TIDEA 五件派生显影(瀑布三笔/emblem 16/bloom 32/harvest 3 埂存活/记号 4+灯)', () => {
+  const ctx = loadCore();
+  const ops = opsJson(ctx);
+  const findLast = (x, y, z) => ops.findLast((o) => o.op === 'fill' &&
+    x >= o.x1 && x <= o.x2 && z >= o.z1 && z <= o.z2 && y >= o.y1 && y <= o.y2);
+  /* 瀑布(TIDEA-05): 柱 1 笔(x63..64, y25..39, z24..28, 54)+两翼 2 笔
+     (62/65, y25..26, z26, 17)——派生契约 scene-closeout §8.2.5 逐字 */
+  assert.ok(ops.some((o) => o.op === 'fill' && o.x1 === 63 && o.x2 === 64 &&
+    o.y1 === 25 && o.y2 === 39 && o.z1 === 24 && o.z2 === 28 && o.id === 54),
+  '瀑布柱一笔(雪块 54 南缘薄片, 顶接雪带下缘)');
+  assert.ok(ops.some((o) => o.op === 'fill' && o.x1 === 62 && o.x2 === 62 &&
+    o.y1 === 25 && o.y2 === 26 && o.z1 === 26 && o.z2 === 26 && o.id === 17) &&
+    ops.some((o) => o.op === 'fill' && o.x1 === 65 && o.x2 === 65 &&
+    o.y1 === 25 && o.y2 === 26 && o.z1 === 26 && o.z2 === 26 && o.id === 17),
+  '两翼水花 2 笔(石英 17)');
+  /* emblem(TIDEA-07): 16 笔逐格, 回字环纹(四角 4+芯 2×2=樱粉 78 共 8 格/
+     边中 8 格石英 17——图样死字面 [[78,17,17,78],[17,78,78,17],...]) */
+  const em = ops.filter((o) => o.op === 'fill' && o.y1 === 24 && o.y2 === 24 &&
+    o.x1 >= 77 && o.x2 <= 80 && o.z1 >= 109 && o.z2 <= 112);
+  assert.strictEqual(em.length, 16, 'emblem 16 笔(4×4 逐格)');
+  const emAt = (x, z) => ops.find((o) => o.op === 'fill' && o.y1 === 24 &&
+    o.x1 === x && o.x2 === x && o.z1 === z && o.z2 === z);
+  assert.strictEqual(emAt(77, 109).id, 78, '徽西北角 78');
+  assert.strictEqual(emAt(80, 112).id, 78, '徽东南角 78(南缘含 spawn 行)');
+  assert.strictEqual(emAt(78, 110).id, 78, '徽芯 2×2 樱粉 78 @(78,110)(图样勘误: 芯非石英)');
+  assert.strictEqual(emAt(79, 111).id, 78, '徽芯 2×2 樱粉 78 @(79,111)');
+  assert.strictEqual(emAt(78, 109).id, 17, '边中石英 17 @(78,109)(北边上中)');
+  assert.strictEqual(emAt(77, 110).id, 17, '边中石英 17 @(77,110)(西边中)');
+  assert.strictEqual(emAt(78, 112).id, 17, '边中石英 17 @(78,112)(南边上中)');
+  /* axisBloom(TIDEA-07): 32 笔(z76..107 两列逐行, r=(z−76)%4<2→13 石砖
+     else 4 圆石; 北端 z76 贴塔足) */
+  const bloom = ops.filter((o) => o.op === 'fill' && o.y1 === 24 && o.y2 === 24 &&
+    o.x1 === 79 && o.x2 === 80 && o.z1 >= 76 && o.z2 <= 107);
+  assert.strictEqual(bloom.length, 32, 'bloom 32 笔(z76..107 逐行)');
+  assert.strictEqual(findLast(79, 24, 76).id, 13, 'r0 → 石砖 13(北端贴塔足; 与主路 pin 同色巧合已验)');
+  assert.strictEqual(findLast(80, 24, 78).id, 4, 'r2 → 圆石 4(广场域内末笔)');
+  /* z107 r3=4: inlay 补记后于全 steps, 南主路路面上的花带笔即末笔(嵌路面) */
+  assert.strictEqual(findLast(79, 24, 107).id, 4, 'z107 r3 → 圆石 4(inlay 补记, 路面嵌花)');
+  /* harvest(TIDEA-04 前半): 域内非埂行(r=(z−44)%5!==0)三行覆 45, 埂行
+     z44 跳过(fieldRidge 存活); 与 farm-rows 行相位同源 */
+  assert.strictEqual(findLast(66, 24, 45).id, 45, 'harvest 行 z45 → 小麦 45');
+  assert.strictEqual(findLast(69, 24, 47).id, 45, 'harvest 行 z47 → 小麦 45');
+  assert.strictEqual(findLast(66, 24, 44).id, 58, '埂行 z44 跳过(田埂 58 存活)');
+  assert.strictEqual(findLast(70, 24, 45).id, 42, 'harvest 域外(70)不作 45(青苗相位不变)');
+  /* stash 灯+记号真实显影(TIDEA-09): 真条目 tidea 契约 → v 注入+四笔 */
+  const stashOp = ops.find((o) => o.op === 'place' && o.id === 'stash-hut');
+  assert.strictEqual(stashOp.v.porchLamp, true, '真实 stash 条目 v.porchLamp=true');
+  assert.strictEqual(findLast(55, 24, 103).id, 4, '记号顶 (55,103)');
+  assert.strictEqual(findLast(58, 24, 103).id, 4, '记号尾 (58,103)');
 });
 
 /* ---------- ⑦ 通廊与不可达(op 层) ---------- */

@@ -8,7 +8,9 @@
    interface: PrefabKit.place(id, x, y, z, v?) → 世界脚印盒
      {x1,y1,z1,x2,y2,z2}(闭区间整数) · PrefabKit.footOf(id, x, y, z, v?)
      同参同盒零写纯查询(测试「写出格 ⊆ 脚印盒」口径, 未来 flats/blocked
-     接线的现成缝, 本期不接线)。
+     接线的现成缝, 本期不接线) · PrefabKit.spinnerOf(id, x, y, z, v?)
+     旋转组件查询第三门(TIDEA-01: 两遍差分收叶片组件 {center,axis,cells}
+     世界系零写, 非 spin 行拼写域错——门面「恰好两个入口」拍板自此三门)。
    依赖(均经全局名, 调用期解析): voxel.js 的 setBlockRaw/getBlock(under-room
      出路垫脚「空气才垫」与沙盖置换的世界读数, getBlock 界外=0) +
      config.js 的 WORLD_W/WORLD_D/WORLD_H(越界守卫, scene-kit skInWorld
@@ -266,6 +268,7 @@ function pfMerge(row, id, v) {
   if (pfHas(d, 'chest')) e.chest = !!e.chest;
   if (pfHas(d, 'flags')) e.flags = !!e.flags;
   if (pfHas(d, 'sailStatic')) e.sailStatic = !!e.sailStatic; /* windmill 叶轮静态 */
+  if (pfHas(d, 'porchLamp')) e.porchLamp = !!e.porchLamp; /* stash 门楣挂灯 */
   if (pfHas(d, 'hasChimney')) e.hasChimney = !!e.hasChimney; /* cottage-gable 装饰烟囱(无烟) */
   if (pfHas(d, 'windowLit')) e.windowLit = !!e.windowLit; /* cottage-gable 窗亮观感开关 */
   if (pfHas(d, 'balcony')) e.balcony = !!e.balcony; /* house-loft 二层小阳台收放 */
@@ -778,6 +781,10 @@ const PF_ROWS = {
           檐层即封顶(总高 5)——高 5-6 读作含 dy0 基座总层数 */
       door: true, /* true=门叶块在位(ids.door/doorTop 材质有几何生命)/
           false=门洞敞开空气 */
+      porchLamp: false, /* TIDEA-09 门楣挂灯(波次二): true=门洞上半 (0,2,2)
+          覆 doorTop 挂 ids.porchLamp 单格 19——挂点=数据「基+dy2」(scene
+          closeout §8.3 porchLamp {dx2,dy2,dz0} 世界 (51,26,98) 对账:
+          局部恰门上叶位, 半门挂灯读法; false=门叶成对原样) */
       /* 材质注入, 缺省裸数字(§4.3 语义→现调色板 v2; Step D 换值+扩键):
           base 石头中石基座 · wall 木板暖木-中墙体 · roof/trim 木头暖木-深
           屋顶与屋檐(小巧屋顶同檐材族) · door 木门叶下半(6→64 全局字库
@@ -785,9 +792,10 @@ const PF_ROWS = {
           同族上半) · metalAccent 金属铁灰小配件(门侧点缀, §4.3「可选」
           拍板槽位常驻) · barrel 橡木桶堆(Step D 新槽, 5 木头桶材族) ·
           chest 储物箱(Step D 新槽, 51 箱子——零危险旗标 T-09 审计免
-          豁免) · mossy 苔石基座点缀(Step D 新槽, 14 苔石「隐秘」读法) */
+          豁免) · mossy 苔石基座点缀(Step D 新槽, 14 苔石「隐秘」读法) ·
+           porchLamp 门楣挂灯(波次二新槽, 19 灯块 light15 暖金, TIDEA-09) */
       ids: {base: 3, wall: 6, roof: 5, trim: 5, door: 64, doorTop: 65,
-        metalAccent: 12, barrel: 5, chest: 51, mossy: 14},
+        metalAccent: 12, barrel: 5, chest: 51, mossy: 14, porchLamp: 19},
     },
     kernel(e, x, y, z, orient, put) {/* x/y/z 未用: 纯局部系直写(无地形读数) */
       const ids = e.ids;
@@ -816,6 +824,9 @@ const PF_ROWS = {
           格 dx=0(翻 dx 不变式) */
       put(0, 1, 2, e.door ? ids.door : 0);
       put(0, 2, 2, e.door ? ids.doorTop : 0);
+      /* 门楣挂灯(TIDEA-09, porchLamp 才写): 门洞上半覆 doorTop 单格 19
+         (挂点=数据「基+dy2」; 灯笔在门叶笔后=后写者赢, door=false 亦挂) */
+      if (e.porchLamp) put(0, 2, 2, ids.porchLamp);
       /* 门前陈设(§3 G 升格): 桶堆 2+2+1——dx∈{-3,-2}×dz=2 前墙格 dy1..2
           各两格 barrel+顶格 dy3@(-3,2) 靠角错位码放; 储物箱 chest 一格
           @(-1,1,2) 居门西侧; 门东侧铁灰小配件 (1,1,2)=metalAccent(受
@@ -866,6 +877,10 @@ const PF_ROWS = {
        几何, 塔体独立成景); 无光/火语义槽位(ids 白名单无 torch/glow,
        §8 去威胁红线——机械件无裸露危险) */
     facing0: 'south',
+    /* spin 声明(spinnerOf 第三门参数, TIDEA-01 波次二): center=叶轮 hub
+       局部格(轴心南瓜列 dy8·轮面 dz3)——其他行无此声明, spinnerOf 调用
+       即抛拼写域错(门面拼写域纪律) */
+    spin: {center: {dx: 0, dy: 8, dz: 3}},
     defaults: {
       face: 'south', /* 缺省=行 facing0(恒等映射) */
       mirror: false,
@@ -1551,7 +1566,9 @@ function pfRow(id) {/* 行表查找: 未知 id 即炸(拼写防火墙第一档) 
   return row;
 }
 
-/* 门面: 恰好两个入口(拍板 interface) */
+/* 门面: 三入口 place/footOf/spinnerOf(footOf/spinnerOf 纯查询零写;
+   spinnerOf=TIDEA-01 波次二增, 「恰好两个入口」拍板自此三门, 偏差登记
+   arch 回执 §10) */
 const PrefabKit = {
   place(id, x, y, z, v) {/* 一句落位: 取行→合并缺省与 v→键检→朝向格点变换→写世界 */
     const row = pfRow(id);
@@ -1567,5 +1584,48 @@ const PrefabKit = {
     const row = pfRow(id);
     const e = pfMerge(row, id, v);
     return row.foot(e, x, y, z, pfOrient(row, e.face, e.mirror));
+  },
+  /* spinnerOf 第三门(TIDEA-01, ADR-0011 增补①): 纯查询零写——两遍差分收
+     叶片组件: 钳 sailStatic=false 跑 kernel 收塔体格集 A, 钳 true 收全量
+     B, cells=B−A(§4.4 分件缝的查询面投影, kernel 几何单源不破)。返回
+     {center, axis, cells} 世界系(orient 在本门内做完, 消费方 dims 零
+     orient 负担); period 不归本门(pfMerge 白名单外——op 层数据钩经 dims
+     进 SpinnerCore)。旋转方向=rotation[axis] 正向(+向, ADR 未定口径取
+     + 向, 登记见 arch 回执)。非 spin 行/未知 id 抛拼写域错。 */
+  spinnerOf(id, x, y, z, v) {
+    const row = pfRow(id);
+    if (!row.spin) {
+      throw new Error('PrefabKit.spinnerOf: 蓝图「' + id + '」无 spin 声明' +
+        '(旋转组件中心只对带 spin 声明的行有效)');
+    }
+    const mk = (flag) => pfMerge(row, id, Object.assign({}, v, {sailStatic: flag}));
+    const eB = mk(true);
+    const orient = pfOrient(row, eB.face, eB.mirror);
+    const body = new Map(); /* A 面: 塔体格键→id(Map.set 同键覆写=终态) */
+    row.kernel(mk(false), x, y, z, orient, (dx, dy, dz, bid) => {
+      body.set(dx + ',' + dy + ',' + dz, bid);
+    });
+    const full = new Map(); /* B 面: 同取终态(后写者赢)——kernel 对同格多笔
+       写(如墙环→门洞掏空), 逐笔对比会把 B 中间态误收, 须先折叠再差分 */
+    row.kernel(eB, x, y, z, orient, (dx, dy, dz, bid) => {
+      full.set(dx + ',' + dy + ',' + dz, bid);
+    });
+    const cells = [];
+    for (const [k, bid] of full) {
+      /* 值敏感差分: 同格同值=纯塔体格剔除; 覆写格(叶片覆塔体, 如轴根
+         (0,8,1) 覆檐层)同键异值, 随组件走——语义=B 终态相对 A 终态的可见变化 */
+      if (body.get(k) === bid) continue;
+      const p = k.split(',');
+      const dx = +p[0]; const dy = +p[1]; const dz = +p[2];
+      const o = orient(dx, dz);
+      cells.push({x: x + o[0], y: y + dy, z: z + o[1], id: bid});
+    }
+    const oc = orient(row.spin.center.dx, row.spin.center.dz);
+    const oa = orient(0, 1); /* 局部 +dz(轮面法向)的世界向量 → 旋转轴 */
+    return {
+      center: {x: x + oc[0], y: y + row.spin.center.dy, z: z + oc[1]},
+      axis: oa[0] !== 0 ? 'x' : 'z',
+      cells,
+    };
   },
 };

@@ -30,6 +30,8 @@
       (spawn 锚→站立面+朝向出生意图)/townAssemblyPhases(平铺步骤按权威
       phase 序分组)/townConsumeOp(op 执行器=引擎触点唯一面)/townBuild
       (建场总装, 内含锚点段出生收口 townSpawnIntent 消费)
+      · mkSpinnerMesh(叶片组件单 mesh 装配+SPIN_BOX 顶点表, townConsumeOp
+      spinner op 网格半边消费——TIDEA-01 波次二, ADR-0011 增补①)
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
      advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——涌出/副本节拍
      薄壳组装, 加载序先于 adventure-core) · adventure-core.js 的 advPortalFrame/
@@ -39,12 +41,13 @@
      加载期派生读它, Node CJS 域本文件自举兜底 require)与 townBuildSteps
      (townBuild 建场调用期) · town-assembly-core.js 的 townAssemblyOps
      (townBuild 建场调用期) · prefab-kit.js 的 PrefabKit(townConsumeOp place
-     op 落位) · mode-kit.js 的 ModeKit.spawn(townBuild 锚点段出生收口;
-     前四者均调用期解析, 浏览器加载序已满足, Node 测试侧装具提取挂全局) ·
+      op 落位) · spinner-core.js 的 SpinnerCore(spinner op 注册/townBuild
+      重建场 drain 排空, 调用期解析) · mode-kit.js 的 ModeKit.spawn(townBuild 锚点段出生收口;
+     上述各件均调用期解析, 浏览器加载序已满足, Node 测试侧装具提取挂全局) ·
      config.js 的 B_*、WORLD_* 与 voxel.js 的
      setBlockRaw/getBlock、scene-kit.js 的 SceneKit(建场期) ·
      daylight-core.js 的 Daylight(涌出夜门)
-   可测性: 零 THREE·零 DOM·有单测(test/adventure-dims-core.test.js;
+   可测性: 零 DOM·有单测(THREE 仅 spinner case 守卫面, 装具域零触)(test/adventure-dims-core.test.js;
    vm 装真引擎件+adventure-core 铺全局后 require 直测, adventure-maps-
    core.test 同款惯例——本文件顶层 spawn 派生与建场函数体都经全局名
    读 adventure-core 的符号, Node 侧须先 Object.assign 全局; town 行另有
@@ -553,13 +556,70 @@ function townAssemblyPhases(steps) {
   return groups;
 }
 
+/* 旋转叶片单 mesh 装配(TIDEA-01 波次二, ADR-0011 增补①): SPIN_BOX 是
+   单位体素立方六面顶点表(半边 0.5, 每面 4 顶点, 面外看 CCW, 面序
+   +X/−X/+Y/−Y/+Z/−Z); mkSpinnerMesh 把叶片组件 cells(hub 世界格)折成
+   一张 BufferGeometry——顶点=cell 相对 hub 的整数偏移±半边, 面色取
+   BLOCKS 词条(all 优先/顶底侧分槽/缺档灰), 乘 MC 风格固定面亮度
+   (顶 1.0/±z 0.8/±x 0.6/底 0.5)烘焙进 vertexColors。材质走
+   MeshBasicMaterial(仓库零 THREE 灯, 云朵 Basic 同款先例; 不受光照=
+   夜间不随天光暗, 视觉取舍登记 arch 回执; fog 走缺省=距离雾生效)。
+   组原点=hub 体素心(mesh.position 由调用方 set center+0.5), 旋转绕组
+   原点=绕 hub 轴——cells 全量进旋转组(轴上格自转不可见但随组, ADR 口径)。 */
+const SPIN_BOX = [
+  {n: [1, 0, 0], b: 0.6, v: [[.5, -.5, .5], [.5, -.5, -.5], [.5, .5, -.5], [.5, .5, .5]]},
+  {n: [-1, 0, 0], b: 0.6, v: [[-.5, -.5, -.5], [-.5, -.5, .5], [-.5, .5, .5], [-.5, .5, -.5]]},
+  {n: [0, 1, 0], b: 1.0, v: [[-.5, .5, .5], [.5, .5, .5], [.5, .5, -.5], [-.5, .5, -.5]]},
+  {n: [0, -1, 0], b: 0.5, v: [[-.5, -.5, -.5], [.5, -.5, -.5], [.5, -.5, .5], [-.5, -.5, .5]]},
+  {n: [0, 0, 1], b: 0.8, v: [[-.5, -.5, .5], [.5, -.5, .5], [.5, .5, .5], [-.5, .5, .5]]},
+  {n: [0, 0, -1], b: 0.8, v: [[.5, -.5, -.5], [-.5, -.5, -.5], [-.5, .5, -.5], [.5, .5, -.5]]},
+];
+const SPIN_DEF_COL = [0.5, 0.5, 0.5]; /* BLOCKS 词条全缺档灰(防御, 叶片调色板恒命中) */
+
+function mkSpinnerMesh(cells, center) {
+  const pos = [];
+  const nor = [];
+  const col = [];
+  const idx = [];
+  for (const c of cells) {
+    const e = (typeof BLOCKS !== 'undefined' && BLOCKS[c.id]) || {};
+    for (let f = 0; f < 6; f++) {
+      const face = SPIN_BOX[f];
+      /* 面色: all 优先 → 顶(+Y)/底(−Y)/侧分槽 → 全缺灰; 乘面亮度烘焙 */
+      const raw = e.all || (f === 2 ? (e.top || e.side || e.bottom) :
+        f === 3 ? (e.bottom || e.side || e.top) : (e.side || e.top || e.bottom)) ||
+        SPIN_DEF_COL;
+      const base = pos.length / 3; /* 本面顶点基座(每面独立 4 顶点, 累计) */
+      for (let k = 0; k < 4; k++) {
+        const v = face.v[k];
+        pos.push(c.x - center.x + v[0], c.y - center.y + v[1], c.z - center.z + v[2]);
+        nor.push(face.n[0], face.n[1], face.n[2]);
+        col.push(raw[0] * face.b, raw[1] * face.b, raw[2] * face.b);
+      }
+      idx.push(base, base + 1, base + 2, base, base + 2, base + 3); /* CCW 双三角 */
+    }
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+  geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+  geo.computeBoundingSphere();
+  return new THREE.Mesh(geo, new THREE.MeshBasicMaterial({vertexColors: true}));
+}
+
 /* op 执行器: 规划器 op → 引擎触点唯一面(本模式的全部世界写入只此一处)。
-   词表封闭 {fill,tree,scrub,recolor,place}: fill→SceneKit.fill 长方体 ·
+   词表封闭 {fill,tree,scrub,recolor,place,spinner}: fill→SceneKit.fill 长方体 ·
    tree→SceneKit.tree 圆冠树(干基=散布点 y+1, 立在地面) · scrub→
    SceneKit.scrub 矮丛(top=脚下表面格, 盐定形同参同丛) · recolor→盒内
    from→to 逐格置换(樱花覆写落调用方, 地图设计 §5.4; 只动命中格, 干与
    立地天然不涉) · place→PrefabKit.place(face/ids 已由规划器注入 v,
-   材质集中映射单源)。未知 op 抛拼写域错误(错误两档先例)。 */
+   材质集中映射单源) · spinner→place 双胞胎(TIDEA-01 波次二, ADR-0011
+   增补①): 塔体 voxel 照建(sailStatic=false 叶片本就不落格, 世界数据
+   不翻倍), 叶片组件经 PrefabKit.spinnerOf 差分查得→mkSpinnerMesh 单
+   mesh(scene.add, 组原点=hub 心)→SpinnerCore.register(period 顶层钩
+   透传, 缺省 undefined→钳域回落 5)。THREE/SpinnerCore/scene 三守卫:
+   装具域退化=纯塔体 place, 网格半边浏览器域独占; 帧步进与暂停冻结归
+   main.js(tick 一行)。未知 op 抛拼写域错误(错误两档先例)。 */
 function townConsumeOp(op) {
   switch (op.op) {
     case 'fill':
@@ -583,9 +643,21 @@ function townConsumeOp(op) {
     case 'place':
       PrefabKit.place(op.id, op.x, op.y, op.z, op.v);
       break;
+    case 'spinner':
+      PrefabKit.place(op.id, op.x, op.y, op.z, op.v);
+      if (typeof THREE !== 'undefined' && typeof SpinnerCore !== 'undefined' &&
+          typeof scene !== 'undefined') {
+        const spin = PrefabKit.spinnerOf(op.id, op.x, op.y, op.z, op.v);
+        const mesh = mkSpinnerMesh(spin.cells, spin.center);
+        mesh.position.set(spin.center.x + 0.5, spin.center.y + 0.5,
+            spin.center.z + 0.5);
+        scene.add(mesh);
+        SpinnerCore.register({mesh, axis: spin.axis, period: op.period});
+      }
+      break;
     default:
       throw new Error('townConsumeOp: 未知 op「' + op.op +
-        '」(合法域 fill|tree|scrub|recolor|place)');
+        '」(合法域 fill|tree|scrub|recolor|place|spinner)');
   }
 }
 
@@ -594,6 +666,18 @@ function townConsumeOp(op) {
    steps 相对次序), 世界写入只经 townConsumeOp 一面; 锚点段规划为零 op,
    出生在此收口(§5.1.6 末段纪律: 先建场后落人, 恰一次)。 */
 function townBuild() {
+  /* 旋转体清场(重入安全, TIDEA-01): 叶轮 mesh 注册只在此文件发生, 重建
+     场先排空旧表并卸载旧 mesh(scene.remove+dispose 在这收口——SpinnerCore
+     纯核只交引用)。装具域无 SpinnerCore/scene 时零副作用。 */
+  if (typeof SpinnerCore !== 'undefined') {
+    for (const s of SpinnerCore.drain()) {
+      if (typeof scene !== 'undefined') {
+        scene.remove(s.mesh);
+        s.mesh.geometry.dispose();
+        if (s.mesh.material && s.mesh.material.dispose) s.mesh.material.dispose();
+      }
+    }
+  }
   for (const op of townAssemblyOps(townBuildSteps())) {
     townConsumeOp(op);
   }

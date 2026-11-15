@@ -384,6 +384,7 @@ function loop(now) {
     if (!Tank.driving()) physics(dt);
     Tank.update(dt); // 载具: 驾驶步进 · 在飞炮弹 · 履带动画, 每帧推进
     pumpFluids(dt); // 流体计划刻泵(liquid D5): 20tps 累积, 空队列零成本
+    SpinnerCore.tickSpinners(dt); // 旋转体帧步进(TIDEA-01, ADR-0011 增补①): 注册表空表零成本; 暂停冻结同 fluids
     if (worldEvents.voidFall) { // 引擎事件 → 分发给当前模式的 onVoidFall
       worldEvents.voidFall = false;
       if (MODES.cur && MODES.cur.onVoidFall) MODES.cur.onVoidFall();

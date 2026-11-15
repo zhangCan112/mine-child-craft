@@ -1636,6 +1636,35 @@ test('材质基线·stash-hut 缺省逐槽(v2 核对表): base3/mossy14/door64/d
   assert.strictEqual(k.cell(ax - 3, y0 + 4, az), 5, 'trim=5 深木(dy4 檐层周界)——同檐材族');
 });
 
+/* ---- porchLamp 变体(TIDEA-09 门楣挂灯, 波次二): 缺省 false 零变化 ·
+   true=门洞上半 (0,2,2) 覆 doorTop 挂 19(scene-closeout §8.3 数据「基+dy2」
+   逐字——挂点=门上叶位, 半门挂灯读法, 对账登记见 arch 回执) ·
+   door=false 组合=敞门挂灯(灯笔后写) · foot 同参不变(灯格 ∈ 盒) ---- */
+test('形状·stash-hut porchLamp: 缺省 false 零变化/true 挂 19 覆门上叶/door=false 组合/foot 不变', () => {
+  const k = loadKit();
+  const ax = 80; const y0 = 24; const az = 80;
+  /* 缺省(false): 门上叶 65 原样, 全场零灯块 */
+  k.clear();
+  k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS});
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), STASH_IDS.doorTop, '缺省: 门上叶 65 原样');
+  assert.ok(!k.snap().includes(19), '缺省: 全场零灯块');
+  /* true: 门洞上半覆 doorTop 挂 19, 门叶下格 64 仍在 */
+  k.clear();
+  k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, porchLamp: true});
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), 19, 'porchLamp: 门洞上半挂 19 @(0,2,2)(数据「基+dy2」)');
+  assert.strictEqual(k.cell(ax, y0 + 1, az + 2), STASH_IDS.door, '门叶下格 64 不动(灯只覆上叶)');
+  assert.ok(!k.snap().includes(STASH_IDS.doorTop), 'doorTop 被覆(灯位即门上叶位)');
+  /* door=false + porchLamp=true: 敞门挂灯(灯笔在门叶笔后, 后写者赢) */
+  k.clear();
+  k.pf.place('stash-hut', ax, y0, az, {ids: STASH_IDS, door: false, porchLamp: true});
+  assert.strictEqual(k.cell(ax, y0 + 1, az + 2), 0, 'door=false: 洞下格敞开');
+  assert.strictEqual(k.cell(ax, y0 + 2, az + 2), 19, 'door=false: 洞上半仍是灯(后写)');
+  /* footOf 同参不变(灯格 ∈ [−3,2]² y0..5, foot 静态投影不读 porchLamp) */
+  const f0 = k.pf.footOf('stash-hut', ax, y0, az, {ids: STASH_IDS});
+  const f1 = k.pf.footOf('stash-hut', ax, y0, az, {ids: STASH_IDS, porchLamp: true});
+  assert.deepStrictEqual(f1, f0, 'porchLamp 不改脚印盒');
+});
+
 /* ============ T-PREFAB-04 windmill-tower(风车塔, 新增行) ============ */
 
 /* ids 槽子键白名单(总纲 §2 字库 v2): 全 7 键互异显式注入, 逐槽可判读(不依赖
@@ -1973,6 +2002,65 @@ test('错误两档·windmill-tower: 未知 v 键/ids 子键(含 torch/glow 去�
   const b4 = k.pf.place('windmill-tower', 80, 24, 80, {ids: WIND_IDS, bladeSpan: 4});
   assert.ok(sHi.equals(k.snap()), 'bladeSpan 高于档位钳至 4 同形');
   assert.deepStrictEqual(bHi, b4, '钳后脚印盒一致(高档)');
+});
+
+/* ---- spinnerOf 第三门(TIDEA-01 波次二, ADR-0011 增补①): 门面「恰好两个
+   入口」自此改三门(偏差登记见 arch 回执)——纯查询零写(同 footOf), 两遍
+   差分收叶片组件(塔体剔除): 钳 sailStatic=false 收塔体 A / 钳 true 收
+   全量 B / cells=B−A, kernel 几何单源不破。返回 {center, axis, cells}
+   世界系(orient 内部做完, dims 零 orient 负担); period 不归本门(pfMerge
+   白名单外——op 层数据钩经 dims 进 SpinnerCore)。 */
+test('spinnerOf·windmill-tower: 差分收叶片 31 格(轴3+肋16+帆12) · center=世界 hub · axis 随轮面 · 零写 · 与 sailStatic 入参无关', () => {
+  const k = loadKit();
+  /* face south 恒等: hub 局部 (0,8,3) → 世界 (x, y+8, z+3); axis=z */
+  k.clear();
+  const before = k.snap();
+  const spin = k.pf.spinnerOf('windmill-tower', 80, 24, 80, {ids: WIND_IDS});
+  assert.ok(k.snap().equals(before), 'spinnerOf 零写(纯查询, 同 footOf)');
+  assert.strictEqual(spin.center.x, 80, 'center.x=锚 x');
+  assert.strictEqual(spin.center.y, 32, 'center.y=hub (y+8)(跨 vm 域逐字段比)');
+  assert.strictEqual(spin.center.z, 83, 'center.z=hub (z+3)');
+  assert.strictEqual(spin.axis, 'z', 'face south 轮面朝 +dz → 绕 z');
+  assert.strictEqual(spin.cells.length, 31, 'S=4 叶片组件恰 31 格(轴3+肋16+帆12, 源行注释同数)');
+  let axle = 0; let rib = 0; let sail = 0; let other = 0;
+  for (const c of spin.cells) {
+    if (c.id === WIND_IDS.axle) axle++;
+    else if (c.id === WIND_IDS.accent) rib++;
+    else if (c.id === WIND_IDS.blade) sail++;
+    else other++;
+  }
+  assert.strictEqual(axle, 3, '轴链 3 格');
+  assert.strictEqual(rib, 16, '石英肋 16 格');
+  assert.strictEqual(sail, 12, '木板帆 12 格');
+  assert.strictEqual(other, 0, '塔体格零混入(差分剔除)');
+  /* 世界系抽格: 上臂帆顶局部 (-1,12,3) → (79,36,83); 东臂帆外 (4,9,3) → (84,33,83) */
+  assert.ok(spin.cells.some((c) => c.x === 79 && c.y === 36 && c.z === 83 &&
+    c.id === WIND_IDS.blade), '上臂帆顶格(世界系)');
+  assert.ok(spin.cells.some((c) => c.x === 84 && c.y === 33 && c.z === 83 &&
+    c.id === WIND_IDS.blade), '东臂帆外格(世界系)');
+  /* 值敏感差分: 轴根 (0,8,1) 是塔檐覆写格(同键异值), 随组件不剔除 */
+  assert.ok(spin.cells.some((c) => c.x === 80 && c.y === 32 && c.z === 81 &&
+    c.id === WIND_IDS.axle), '轴根覆写格随组件(0,8,1)覆檐');
+  /* face east(k3=(dz,−dx)): hub → (x+3, y+8, z); 轴向量 (1,0) → axis=x */
+  const spinE = k.pf.spinnerOf('windmill-tower', 80, 24, 80, {ids: WIND_IDS, face: 'east'});
+  assert.strictEqual(spinE.axis, 'x', 'face east 轮面朝 +x → 绕 x');
+  assert.strictEqual(spinE.center.x, 83, 'east hub.x=(x+3)(k3=(dz,−dx))');
+  assert.strictEqual(spinE.center.y, 32, 'east hub.y=y+8');
+  assert.strictEqual(spinE.center.z, 80, 'east hub.z=z');
+  /* 与 sailStatic 入参无关(内部强制两遍差分): 缺省/true/false 三态同 cells */
+  const sT = k.pf.spinnerOf('windmill-tower', 80, 24, 80, {ids: WIND_IDS, sailStatic: true});
+  const sF = k.pf.spinnerOf('windmill-tower', 80, 24, 80, {ids: WIND_IDS, sailStatic: false});
+  assert.deepStrictEqual(sT.cells, spin.cells, 'sailStatic=true 同 cells');
+  assert.deepStrictEqual(sF.cells, spin.cells, 'sailStatic=false 同 cells(动态档调用形态)');
+  /* bladeSpan 收短: S=3 → 肋12+帆8+轴3=23 格 */
+  const s3 = k.pf.spinnerOf('windmill-tower', 80, 24, 80, {ids: WIND_IDS, bladeSpan: 3});
+  assert.strictEqual(s3.cells.length, 23, 'S=3 组件 23 格(收短档)');
+});
+
+test('spinnerOf 错误两档: 非 spin 行 throw(拼写域) · 未知 id 走 pfRow 同款域错', () => {
+  const k = loadKit();
+  assert.throws(() => k.pf.spinnerOf('stash-hut', 80, 24, 80, {}), /spin/, 'stash 无 spin 声明');
+  assert.throws(() => k.pf.spinnerOf('no-such-row', 80, 24, 80, {}), /未知蓝图/, '未知 id 同 pfRow 域错');
 });
 
 /* ============ T-PREFAB-05 cottage-gable(民居 A, 新增行) ============ */

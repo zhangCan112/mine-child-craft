@@ -68,6 +68,10 @@ const Dims = require('../js/adventure-dims-core.js');
 /* townSpawnIntent/townYawOfFace 同走模块导出上全局(既有行 spawn 值锚断言裸名解析;
    六装配件已迁 dims-core, CJS 域从导出取——town.js 退场后 eng 域无此二名) */
 Object.assign(globalThis, {townSpawnIntent: Dims.townSpawnIntent, townYawOfFace: Dims.townYawOfFace});
+/* 旋转核心上全局(TIDEA-01): dims spinner case 经全局名消费(townBuild 重建场
+   drain 同面)——纯核心 CJS 导出, 主域常驻后既有 townBuild 各例多走一次
+   空表排空(零副作用) */
+Object.assign(globalThis, require('../js/spinner-core.js'));
 
 const snapshot = () => Buffer.from(vm.runInContext('worldCells', eng));
 const clearWorld = () => vm.runInContext('worldCells.fill(0)', eng);
@@ -444,7 +448,8 @@ test('地表与路网(T-SEAM-05 迁入): 基底三层恰覆核心区 · 广场/�
   assert.strictEqual(cell(32, 24, 32), 1, '核心区角 surface 恰覆(96×96 居中)');
   assert.strictEqual(cell(127, 24, 127), 1, '核心区对角 surface 恰覆');
   assert.strictEqual(cell(31, 24, 31), 0, '核心区外零基底(远景带无立地的一部分)');
-  assert.strictEqual(cell(79, 24, 79), 17, '广场铺装 17 石英(28×28 与核心区同心)');
+  assert.strictEqual(cell(70, 24, 70), 17,
+      '广场铺装 17 石英 @(70,24,70)(28×28 与核心区同心; pin 点避主轴——花带 x79..80 穿广场中心, TIDEA-07 波次二显影)');
   assert.strictEqual(cell(70, 24, 50), 42, '农田 A 田垄作物 42(farm-rows 行 r=6 轮转)');
   assert.strictEqual(cell(84, 24, 50), 45, '农田 B 田垄作物 45(farm-rows 行 r=4 轮转)');
   assert.strictEqual(cell(79, 24, 100), 13, '南主路 13 石砖(5 宽)');
@@ -512,9 +517,11 @@ test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/
   assert.strictEqual(cell(43, 26, 82), 65, 'loft 门上叶 65 @(43,26,82)');
   assert.strictEqual(cell(42, 32, 86), 9, 'loft 高屋面 9 @(42,32,86)');
   assert.strictEqual(cell(40, 28, 82), 5, 'loft 挑阳台木 5 @(40,28,82)');
-  /* 储藏小屋(face=east 旋转): 门叶+基座 */
+  /* 储藏小屋(face=east 旋转): 门叶+门楣挂灯(TIDEA-09 波次二: porchLamp
+     注入 → 门洞上半覆 doorTop 挂 19——挂点=门上叶位, 半门挂灯读法) */
   assert.strictEqual(cell(51, 25, 98), 64, 'stash 门叶 64 @(51,25,98)');
-  assert.strictEqual(cell(51, 26, 98), 65, 'stash 门上叶 65 @(51,26,98)');
+  assert.strictEqual(cell(51, 26, 98), 19,
+      'stash 门楣挂灯 19 @(51,26,98)(波次二 porchLamp 覆门上叶——原 pin 65 同格转灯)');
   assert.strictEqual(cell(49, 24, 98), 3, 'stash 基座石 3 @(49,24,98)');
   /* 埋室(face=east): 室底/室腔/家具/顶盖/出路 */
   assert.strictEqual(cell(57, 18, 99), 3, '埋室室底石 3 @(57,18,99)');
@@ -534,6 +541,120 @@ test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/
   assert.strictEqual(cell(69, 25, 67), 17, '面包摊货品 17(后沿石英堆) @(69,25,67)');
   assert.strictEqual(cell(90, 25, 75), 78, '花摊货品 78(粉羊毛, face=west 旋转) @(90,25,75)');
   assert.strictEqual(cell(72, 25, 91), 76, '果摊货品 76(南瓜亮橙, face=north 旋转) @(72,25,91)');
+});
+
+test('五件派生显影(TIDEA 波次二): 瀑布/镇徽/花带/丰收角/寻宝记号+门楣灯真数据落世界(voxel 抽格)', () => {
+  runTownBuild();
+  /* 瀑布(TIDEA-05): 柱 x63..64 y25..39 z24..28 id54 + 两翼 (62/65,25..26,26) id17 */
+  assert.strictEqual(cell(63, 30, 26), 54, '瀑布柱雪 54 @(63,30,26)(南缘薄片)');
+  assert.strictEqual(cell(64, 39, 28), 54, '瀑布柱顶接雪带 54 @(64,39,28)');
+  assert.strictEqual(cell(62, 25, 26), 17, '瀑布西翼水花 17 @(62,25,26)');
+  assert.strictEqual(cell(65, 26, 26), 17, '瀑布东翼水花 17 @(65,26,26)');
+  /* 镇徽(TIDEA-07): 4×4 回字环纹 x77..80 z109..112 @y24——角与芯 2×2 樱粉 78/
+     边中石英 17; 嵌 main-south 路面(inlay 补记后于 road, spawn 落徽南缘低头即徽) */
+  assert.strictEqual(cell(77, 24, 109), 78, '徽西北角 78 @(77,24,109)');
+  assert.strictEqual(cell(80, 24, 112), 78, '徽东南角 78 @(80,24,112)');
+  assert.strictEqual(cell(78, 24, 110), 78, '徽芯 78 @(78,24,110)(芯 2×2 樱粉)');
+  assert.strictEqual(cell(79, 24, 111), 78, '徽芯 78 @(79,24,111)');
+  assert.strictEqual(cell(78, 24, 109), 17, '徽边中 17 @(78,24,109)');
+  assert.strictEqual(cell(77, 24, 110), 17, '徽边中 17 @(77,24,110)');
+  /* 花带(TIDEA-07): x79..80 z76..107 逐行横纹 r=(z−76)%4<2→13 else 4——
+     inlay 补记后于全 steps(嵌路面读法), 路域内亦可见 */
+  assert.strictEqual(cell(79, 24, 76), 13, '花带 r0 石砖 13 @(79,24,76)(北端贴塔足, 广场域)');
+  assert.strictEqual(cell(80, 24, 78), 4, '花带 r2 圆石 4 @(80,24,78)(广场域)');
+  assert.strictEqual(cell(80, 24, 102), 4, '花带 r2 圆石 4 嵌南主路路面 @(80,24,102)(inlay 见证, 路色 13 被覆)');
+  /* 丰收角(TIDEA-04 前半): farm-a harvest 域内非埂行 45/埂行 58 存活/域外青苗不变 */
+  assert.strictEqual(cell(66, 24, 45), 45, '丰收角小麦 45 @(66,24,45)(harvest 行)');
+  assert.strictEqual(cell(69, 24, 47), 45, '丰收角小麦 45 @(69,24,47)');
+  assert.strictEqual(cell(66, 24, 44), 58, '埂行田埂 58 存活 @(66,24,44)(harvest 跳埂)');
+  assert.strictEqual(cell(70, 24, 45), 42, 'harvest 域外青苗 42 不变 @(70,24,45)');
+  /* 寻宝记号(TIDEA-09): chevron 4 圆石 @y24 + 门楣灯(见 建筑件 段同步 pin) */
+  assert.strictEqual(cell(55, 24, 103), 4, '记号顶 4 @(55,24,103)');
+  assert.strictEqual(cell(56, 24, 102), 4, '记号西翼 4 @(56,24,102)');
+  assert.strictEqual(cell(56, 24, 104), 4, '记号东翼 4 @(56,24,104)');
+  assert.strictEqual(cell(58, 24, 103), 4, '记号尾 4 @(58,24,103)');
+});
+
+test('spinner op 消费(TIDEA-01): 词表封闭含 spinner · 无桩退化=纯塔体 · 桩 THREE/scene 下 mesh/注册/清场全链', () => {
+  /* 合法域消息 pin: spinner 入封闭面(装配/翻转前先锁词表) */
+  assert.throws(() => Dims.townConsumeOp({op: 'bogus'}), /place\|spinner/,
+      '未知 op 消息含 spinner(词表封闭六件)');
+  const wm = TOWN_MAP.prefab.find((e) => e.id === 'windmill-tower');
+  const v0 = wm.v;
+  wm.v = {sailStatic: false}; /* 场景翻转预演: v 动 → assembly 派生 spinner op */
+  try {
+    /* 无桩退化: CJS 域无 THREE/scene → spinner case 只走 place 半边 */
+    runTownBuild();
+    assert.strictEqual(cell(56, 32, 43), 9,
+        '翻转后轴根位=檐层 9 @(56,32,43)(叶片不落格——原静态 pin 76 在此, 翻转权归 scene)');
+    assert.strictEqual(cell(56, 32, 45), 0, '轮心位空气 @(56,32,45)(叶片归 mesh 半边)');
+    assert.strictEqual(SpinnerCore.drain().length, 0, '无 THREE: 零注册(三守卫退化)');
+    /* 桩 THREE+scene: 网格半边全链(mesh 构造/组原点/注册/清场重入) */
+    const added = [];
+    const removed = [];
+    globalThis.THREE = {
+      BufferGeometry: class {
+        setAttribute(n, a) {
+          (this.attributes = this.attributes || {})[n] = a;
+        }
+        computeBoundingSphere() {}
+        dispose() {}
+      },
+      Float32BufferAttribute: class {
+        constructor(arr, size) {
+          this.array = arr; this.size = size;
+        }
+      },
+      MeshBasicMaterial: class {
+        constructor(p) {
+          this.params = p || {};
+        }
+      },
+      Mesh: class {
+        constructor(g, m) {
+          this.geometry = g; this.material = m;
+          this.position = {set(x, y, z) {
+            this.xyz = [x, y, z];
+          }};
+          this.rotation = {x: 0, y: 0, z: 0};
+        }
+      },
+    };
+    globalThis.scene = {add: (m) => added.push(m), remove: (m) => removed.push(m)};
+    try {
+      runTownBuild();
+      let reg = SpinnerCore.drain();
+      assert.strictEqual(reg.length, 1, '翻转+桩: 恰注册 1 旋转体');
+      assert.strictEqual(reg[0].axis, 'z', 'face south → 轮面法向 z');
+      assert.strictEqual(reg[0].period, 5, 'period 顶层钩缺省 → 钳域回落 5');
+      const mesh = reg[0].mesh;
+      assert.ok(added.length === 1 && added[0] === mesh, 'mesh 恰入 scene 一次');
+      assert.deepStrictEqual(mesh.position.xyz, [56.5, 32.5, 45.5],
+          '组原点=hub 体素心 (56.5,32.5,45.5)(hub (56,32,45)+0.5)');
+      assert.strictEqual(mesh.geometry.attributes.position.array.length,
+          31 * 24 * 3, '顶点分量数=31 格×24 顶点×3(与 spinnerOf 组件格同数)');
+      assert.strictEqual(mesh.geometry.attributes.color.array.length,
+          31 * 24 * 3, '面色分量数=顶点数(vertexColors 烘焙)');
+      assert.ok(mesh.material.params.vertexColors === true, 'vertexColors 材质(仓库零灯光, Basic 烘焙口径)');
+      /* tick 冒烟: 纯核契约跨域见证(dt 折算圈写 rotation) */
+      SpinnerCore.register(reg[0]);
+      SpinnerCore.tickSpinners(2.5);
+      assert.ok(Math.abs(reg[0].mesh.rotation.z - Math.PI) < 1e-9, 'tick 2.5s/period5 → 半圈 π');
+      /* 旧条目留表——二次建场开头 drain 才有 mesh 可卸(重入清场见证) */
+      runTownBuild();
+      reg = SpinnerCore.drain();
+      assert.strictEqual(reg.length, 1, '二次建场: 旧表已排空、新表恰 1(重入安全)');
+      assert.strictEqual(removed.length, 1, '旧 mesh 恰卸载 1 次(scene.remove)');
+      assert.ok(removed[0] === added[0], '卸载的正是首建 mesh');
+      assert.ok(reg[0].mesh !== added[0], '新 mesh 是新对象(非复用)');
+    } finally {
+      delete globalThis.THREE;
+      delete globalThis.scene;
+      SpinnerCore.drain();
+    }
+  } finally {
+    wm.v = v0; /* 翻转还原: 后续测试回到 scene 现状(静态叶片 pin 保持) */
+  }
 });
 
 test('植被与道具(T-SEAM-05 迁入): 樱花=SceneKit 树+樱粉覆写(两型干高冠域全覆盖) · 灌木绿冠 · 灯柱/路标', () => {

@@ -138,3 +138,136 @@
 1. **scene 下轮切第二版清单**: 10 项全部可落(字段契约见交付报告); map-core steps 数据不在本轮文件权内, scene 出清单后按契约落数据——wayshrine 条目须排在 road 段之后(steps 序即写序)。
 2. **斩单边界**: 本轮零触碰 map-core/dims/引擎; prefab-kit 仅 stall theme 面(fish/pumpkin 配平为需求表配平项, 避免下轮开票)。
 
+# 9. TIDEA 波次一 arch 静态陈设批交付(2026-11-15 同日追加; lead 第三单, PO 批 19 条本波四件)
+
+## 9.1 交付物
+
+- 提交 a73623c(4 文件 +684/−14): js/prefab-kit.js(PF_ROWS 十行→十五行: scarecrow/clothesline/woodpile/hencoop/board-pool+pfMerge boardLen 6..8/poolSize 2..3 钳+行表注释登记) · js/town-assembly-core.js(palette.prefab 五行逐键同形+props +plank/glassPane/crateBox+scatter 三新 kind+头注释 Step F 段与 interface 行数口径) · test/prefab-kit.test.js(76→85 测: TIDEA 五行组九测+T-09 townRows 七行→十二行) · test/town-assembly-core.test.js(PALETTE_WANT 同步+T-09/完整性对账+⑥c Step F 契约块)。
+- 四件对应: TIDEA-04 稻草人=scarecrow 行(5 笔); TIDEA-08=clothesline(13 笔)/woodpile(5 笔)/hencoop(8 笔)三行(windowbox 花窗箱复用 scatter kind 不建行, 单源); TIDEA-10=board-pool 行(§4.8 契约实装, 缺省 6/2 池 10×4 高 7 旗顶); TIDEA-03 素墙立面三笔=wallflag/windowbox/crates 三 scatter kind(assembly 侧, 零蓝图行)。
+
+## 9.2 验证面
+
+- npm test 2094 pass/0 fail(scene 线挂账的 3 红全在本批在途文件, 随本笔清账——其 §b65d1e0 报备的「3 红归 arch 在途」兑现闭环); npm run lint 零错; 本两测文件 100/100(prefab-kit 85+assembly 15)。
+- 图谱手动增量完成(worktree 无 hook): built_at_sha=a73623c=HEAD, freshness_advanced=true。
+- 守门插曲一处: 首版 board-pool 注释含字面 B_WATER 撞源守门 /B_[A-Z]/ 正则, 改措辞「流体身份块禁作缺省」后过——判据本身未动。
+
+## 9.3 登记: 需 lead 知悉(裁决项)
+
+1. **board-pool ids 契约微扩(本批唯一偏离 §4.8 原文处)**: ids 3 键→5 键(+flagPole/flag)——板顶小旗材质不焊死, 供场景调色; 其余条款(几何/boardLen 6-8/poolSize 2-3/静态水不绑流体)逐字照 §4.8。请裁: 认可即闭环, 不认可退回改行(测试已钉 5 键面, 退回成本一行)。
+2. **水缺省=15 蓝羊毛**: 流体身份块禁作缺省是 T-09 红线(写入即触流体机制); v.ids.water 可注覆任何 id。池沿 17 石英(shop plaster 浅石先例)。跳板高公式 dy=round(i·4/(len−1)) 三档顶格恒 dy4=高 5∈契约「高 4-5」域; len 6 档 dy 序 0,1,2,2,3,4(中段有平台读感), len 8 档 0,1,1,2,2,3,3,4(匀梯读感)——落位选档归 scene。
+3. **hencoop 静态鸡剪影**: 52 白身+16 红冠两只并排立干草色砂岩台 58(58 经 config 直读实证=砂岩零旗标, 非耕地)——「帮阿面数小鸡」(map-design §6.2)的现成视觉底; 零 spawn 零 town-npc* 触, 玩法接线不在本件。
+4. **wallflag 色轮转口径**: 三色 78/15/17 i%3(W-03 原文「78 樱粉/15 蓝/17 奶油交替」逐字), red 16 不入立面轮转(flagCloth.red 槽保留给既有 flag kind)。
+5. **勘误 §3.8a**: 仍悬置, 随身携带(第 3 次报备)。
+
+## 9.4 同步点(待 scene 落位清单——本批四件全能力/蓝图, TOWN_MAP 零改动)
+
+1. 落位建议与 steps 条目契约: scarecrow→农田角(W-04, prefab 段 {id:'scarecrow',x,y,z,face}) · clothesline/woodpile/hencoop→镇西/镇东民居门前(W-08 分两组) · board-pool→镇南彩蛋带 z94~127 回程触发线以北(W-10; PO「动骨架-轻」审批指落位增量入 TOWN_MAP, 本笔只立蓝图) · wallflag/windowbox/crates→广场西/南缘素墙(W-03, 11 号底片那面墙; scatter 段 {id,phase:'scatter',kind,x,y,z,v?}, wallflag v.len 钳 2..6 缺省 4)。
+2. scene 师注意: board-pool 脚印含池 10×4(缺省 6/2)~13×5(8/3 档), 旗顶高 7; 南带落位勿压回程触发线, 池沿环贴地面 dy0。
+3. light 线零交集确认: 本批四文件全在 arch 权内, adventure.js/index.html/css 零触碰; scene 线本波(瀑布/南门件/镇徽花带/记号/丰收角)与零文件交集, 其落位依赖的本批能力已就绪。
+
+# 10. TIDEA 波次二 arch 机制与派生批交付(2026-11-15 同日; lead 第四波, TIDEA-01+§8.3 五件派生)
+
+## 10.1 交付面
+
+- **新件 js/spinner-core.js+同名单测**(旋转核心, ADR-0011 增补① PO 亲裁破例件):
+  注册表纯核四件——clampPeriod(≥1s 下限/非有限回落 5=4-6s 带中点/无上限) ·
+  register({mesh,axis,period?,phase?}(axis 白名单 x|z 余落 z/phase 缺省 0)) ·
+  tickSpinners(dt)(phase 折算圈数绕回, rotation[axis]=phase·2π) · drain(排空交
+  引用, remove/dispose 归消费方)。零 THREE 零 DOM, 尾部 CJS 守卫导出。
+- **prefab-kit 两笔**: ①windmill 行 spin 声明+spinnerOf 第三门——值敏感终态
+  Map 差分(A/B 两面各收后写者赢的终态再按键+值比对; 两教训实证: 逐笔收集
+  把 kernel 同格多笔写中间态漏进结果 34 格、仅键差分丢覆写格 30 格, 终态+
+  值敏感=31 精确); 返回 {center,axis,cells} 世界系(orient 门内置), 非 spin 行
+  抛拼写域错。②stash-hut porchLamp 键组(defaults:false/ids:19/pfMerge 布尔钳/
+  kernel 灯笔置于门叶笔后——door:false+porchLamp:true=敞门挂灯已测); 门面
+  「恰好两个入口」拍板自此**三门**(interface 变更登记本节)。
+- **town-assembly-core 波次二**: palette stash 行+porchLamp:19; 五件派生落
+  地(mountain.waterfall 瀑布三笔/plaza.emblem 16 笔回字环纹死字面+axisBloom
+  32 笔行相位/farm-rows.harvest 非埂行覆 45 埂行跳/stash tidea.porchLamp→
+  v 注入+groundMark 四笔); **spinner op**(place 双胞胎: v.sailStatic===
+  false 严格判据→spinner 替代 place, period 顶层钩穿透缺省 undefined→
+  SpinnerCore 5); **路面嵌花 inlay 补记**(emblem/axisBloom 收集延后全 steps
+  循环后补记——map-core 条目注「嵌 main-south 路面」读法实证: 原 ground
+  相位派生被 main-south(x76..80 z94..118 id13)后写覆埋, 本笔实现序 bug
+  自纠, 补记后徽/花带在路域内世界态可见)。
+- **adventure-dims-core**: townConsumeOp spinner case(place 半边塔体照建+
+  mkSpinnerMesh 网格半边——SPIN_BOX 六面 CCW 顶点表×31 组件格折叠单
+  BufferGeometry, BLOCKS 面色 all||top/bottom/side 缺档灰×MC 风格固定面亮度
+  烘焙(顶1.0/±z0.8/±x0.6/底0.5), MeshBasicMaterial vertexColors——仓库零
+  THREE 灯, 云朵 Basic 同款先例; THREE/SpinnerCore/scene 三守卫, 装具域
+  退化纯塔体)+townBuild 重入 drain(remove+dispose 收口)+合法域消息加
+  spinner; 头注释 interface/依赖/可测性三行随更。
+- **main.js +1 行**(帧循环 pumpFluids 邻行 SpinnerCore.tickSpinners(dt),
+  暂停冻结=不喂 dt 同 fluids/昼夜口径); **index.html +1 script**(spinner-core,
+  prefab-kit 后 world.js 前); **world.js 零改**(预判成立)。
+- **GLOSSARY**: 新增旋转核心词条(护栏红线随身)+索引 67→68; PrefabKit 词条
+  interface 加 spinnerOf 三门+行表「十行→十五行」+board-pool「推迟未实现→
+  转正」事实校正(波次一遗留措辞, assembly ⑨ 微改守门先例随本笔清)。
+
+## 10.2 验证
+
+- 四核心文件(spinner/prefab-kit/assembly/dims 各自 test)合计 **138/138 绿**
+  (--fix 后复跑同数); 全仓 npm test **2114 tests / 0 fail**(lint 修前);
+  npm run lint **零错**(49 起手: 48 auto-fixable --fix 吸收+1 max-len 手修,
+  全归本笔六文件, light 在途面零涉)。
+- 装具手法登记: spinnerOf 断言跨 vm 域逐字段(center 三轴 strictEqual, 原型
+  链异 deepStrictEqual 必败); dims test B 桩 THREE/scene 网格半边全链
+  (mesh 构造 31×24 顶点/组原点 (56.5,32.5,45.5)/注册 axis=z period=5/
+  tick 半圈 π/二次建场 remove 恰一次旧 mesh)。
+
+## 10.3 测试面(新增/同步)
+
+- 新增: spinner-core 6 例(钳域/注册/tick 绕回/x 轴/排空/表态隔离);
+  prefab-kit porchLamp 四态块+spinnerOf 块(31 格计数/零写/世界系抽格/
+  east 旋转轴 x/S=3→23/错误两档/覆写格随组件/sailStatic 入参无关);
+  assembly ⑥d 两块(合成契约: spinner op 判据+period 穿透+porchLamp 注入+
+  groundMark 四笔; 真实五件显影: 瀑布三笔/emblem 六抽格/bloom 三抽格/
+  harvest 四抽格/记号四抽格+灯); dims 五件显影 voxel 抽格块+spinner 消费
+  全链块(词表封闭 pin/无桩退化/桩全链/重入清场)。
+- 同步(既有 pin, 契约面): dims :517 stash 门上叶 65→**19 门楣挂灯**; dims
+  广场铺装 pin (79,79)→(70,70); assembly 广场 pin 同点同挪; 崖屋
+  deepStrictEqual 期望数组**前置瀑布两翼两笔**(id17 撞 cliffFrame 入过滤
+  集, 柱笔 54 不在 id 集排外); assembly place 计数 13→**18**(见 10.4③)。
+
+## 10.4 登记项
+
+1. **PrefabKit 门面两门→三门**: 「恰好两个入口」系波次一前拍板, spinnerOf
+   增为第三门(纯查询零写同 footOf), GLOSSARY 已随更; 下一票引用门面措辞
+   时以三门为准。
+2. **cells 权威值=31**(轴3+肋16+帆12; 源 prefab-kit.test「31 组件格」注释;
+   S=3→23)。会话摘要曾误记 33——手算/转述一律对仓内 pin 核对。
+3. **place 13→18**: 计数红=波次一落位五件(b65d1e0 已入库)撞波次一数字面
+   断言, scene §10.4 补丁底稿随 lead 转派本笔吸收(「数据变更方披露+权属
+   主落条款」); 底稿措辞「7 建筑+埋室+摊位 6+陈设 5」合计 19 与实拆
+   6+1+6+5=18 差 1, 测试消息按实拆落并注明底稿来源; 同测试标题 stale
+   「13 实例」字面一并校正。
+4. **旋转方向=+向**: ADR-0011 未定口径, 取 rotation[axis] 正向, 注释登记;
+   走查若觉反转改符号一处。
+5. **mkSpinnerMesh 材质取舍**: Basic+烘焙面亮度(仓库零灯光, Lambert 必黑);
+   夜间不随天光暗(视觉读作「地标常亮」, 走查反馈再议, 不扩机制不挂
+   applyDaylight)。
+6. **period=op 顶层钩**: 条目顶层键全链静默先例(§8.2.2 同款), pfMerge
+   白名单外(蓝图纯几何不收动画参数); 缺省 undefined→clampPeriod 回落 5。
+7. **tidea 命名空间键消费**: porchLamp/groundMark 自 map-core 数据经
+   assembly 读 s.tidea→v 注入/直接派生(pfMerge 对 v 未知键抛错故永不入
+   v 原样); 对账成立: scene (dx2,dy2,dz0)+锚 (49,24,98)→世界 (51,26,98)
+   =蓝图门上叶位(半门挂灯读法, 挂点非门楣 dy3——数据「基+dy2」逐字执行)。
+8. **inlay 补记**: 派生序变更登记(ground 相位收集→全 steps 后补记),
+   补记序=收集序确定性不破; assembly/dims 显影抽格以补记后世界态为准
+   (徽角 (77,24,109)=78、花带嵌路 (80,24,102)=4 等已验)。
+
+## 10.5 红清单(scene flip 预演, 只列不改——转 lead→light)
+
+scene 数据翻 v.sailStatic=false 时: dims 建筑件测试 **:500-505 六条叶片
+pin 即红**(轴3 (56,32,43/44/45)=76→实得 9/0/0; 上/下臂帆 (55,35,45)/
+(57,29,45)=6→0; 叶框 (56,35,45)=17→0)——归 light 同步(消费路径语义已由
+本笔 dims test B 全链预演: 翻转后塔体 voxel 照建、叶片归 mesh 半边);
+**:506-510 塔体五 pin 存活**(基座/塔身/门洞/小窗照建)。map-core 测试
+:166 windmill 体量 y 域 [12,14] 若随 foot 拆叶口径变更是 scene 自裁面。
+翻转本身零 arch 依赖——本笔后 scene 可随时翻。
+
+## 10.6 涉面声明(共享文件, lead 确认面)
+
+index.html(+1 script 行) · main.js(+1 tick 行) · GLOSSARY(+1 词条+索引
+计数+PrefabKit 措辞)——三处均机械最小笔; light 在途文件(adventure.js/
+town-ui.js/town.css/light-closeout.md)全程零触碰。
