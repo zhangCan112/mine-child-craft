@@ -1557,48 +1557,79 @@ const PF_ROWS = {
     },
   },
 
-  /* 铁傀儡头(iron-golem-head, PO 亲需③): 村民感恩守卫的方块雕塑头,
-     南面朝镇(facing0 south; scene 落位山肩 x61 一带, 南向注视镇景,
-     6413b00 探勘点位)。7×7 面颅(dy1..6 石英 17 实心)+dy0 基座插桩面
-     (7×7 石头 3, scene 落位下埋 1-2 格)+长鼻(dx0 dy1..4 凸出面 dz+4
-     ——傀儡唯一识别特征, 儿童远读靠轮廓)+眼窝(±2, dy4, 面侧 dz+3
-     铁灰 12 沉稳守卫非红眼敌意, §8 去威胁红线)+苔 6 格岁月点缀非
-     破损(顶后角×2/颊×2/顶心×2)。footprint 7×8(含凸鼻)高 7;
-     v 键 face|mirror|ids 同构无新开关 */
-  'iron-golem-head': {
+  /* 铁傀儡全身立像(iron-golem, PO 亲需③+PO 实屏拍板「头像→全身像」
+     升级, 头版未落位即转全身=零死行): 村民感恩守卫的方块雕塑全身像,
+     南面朝镇(facing0 south)。识别基因全继承: 颅 7 宽(dy12..17 石英 17
+     实心)+凸鼻(dx0 dy12..15 凸出 dz+1 悬挑——头版前凸先例)+眼窝
+     (±2, dy15, 面侧 dz0 铁灰 12 沉稳守卫非红眼, §8 去威胁)+苔岁月
+     点缀非破损(颅苔 6 格平移+身苔 6 格=12 格)。身体傀儡剪影语汇
+     (z 收胸 v3, scene 325e1d7 包络+map-core 分区硬界: 基座承压 ≤3 理想——基座 9×3 贴
+     裙板 z29..31; §4.1 远景层 z≤31 硬界——鼻从 scene 所点 z33 收进
+     z31, 颅 5 深 z28..32 收 3 深 z28..30 背倚山缘, 正面剪影不变):
+     基座 9×3×1 石头 3
+     (dy0 插桩面, 山脚裙板落位嵌面下埋)→粗短腿 2×2×5 ×2 分立(dy1..5)→
+     肩梁 9×3×3(dy6..8, 宽 9>颅 7=宽肩读感)→腰缝铁灰 12 一圈(dy9,
+     腰带读感)→收腰 5×3(dy10..11, 躯干渐收)+垂臂 2×2 续垂 dy9..11
+     (梢 dy11 长过髋 dy5——傀儡标志剪影)→颅 7×3×6(dy12..17, dx±3 格
+     坐臂顶)。全身无悬空(鼻/面前凸悬挑同头版先例)。footprint 9×4
+     (基座 x±4; 背 dz-2 到鼻凸 dz+1)高 18——scene 锚 (70,25,30) 嵌面
+     落位顶 y42 ≤47(约 6 倍玩家身高=宏大喊)。材质全现有字库: 躯干四肢 17
+     统一白(远读剪影不被杂色打碎)+12 眼/腰带+14 苔+3 石座, 零新键。
+     v 键 face|mirror|ids 同构(ids +body/belt 两槽) */
+  'iron-golem': {
     facing0: 'south',
     defaults: {
       face: 'south',
       mirror: false,
-      ids: {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3},
+      ids: {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3,
+        body: 17, belt: 12},
     },
     kernel(e, x, y, z, orient, put) {
       const ids = e.ids;
-      /* 基座 dy0 全 7×7(插桩面: scene 落位后逐格核对) */
-      for (let dx = -3; dx <= 3; dx++) {
-        for (let dz = -3; dz <= 3; dz++) put(dx, 0, dz, ids.plinth);
-      }
-      /* 颅 dy1..6 实心 7×7×6(石英) */
-      for (let dy = 1; dy <= 6; dy++) {
-        for (let dx = -3; dx <= 3; dx++) {
-          for (let dz = -3; dz <= 3; dz++) put(dx, dy, dz, ids.skull);
+      const box = (x1, x2, dy1, dy2, z1, z2, id) => {
+        for (let dy = dy1; dy <= dy2; dy++) {
+          for (let dx = x1; dx <= x2; dx++) {
+            for (let dz = z1; dz <= z2; dz++) put(dx, dy, dz, id);
+          }
         }
-      }
-      /* 长鼻: dx0 dy1..4 凸出面 dz+4(轮廓识别特征) */
-      for (let dy = 1; dy <= 4; dy++) put(0, dy, 4, ids.nose);
-      /* 眼窝: (±2, dy4) 面侧 dz+3 覆颅面格 */
-      put(-2, 4, 3, ids.eye);
-      put(2, 4, 3, ids.eye);
-      /* 苔 6 格岁月死位: 顶后角(±3,6,-3)/颊(±3,3,3)/顶心(±1,6,2) */
-      put(-3, 6, -3, ids.moss);
-      put(3, 6, -3, ids.moss);
-      put(-3, 3, 3, ids.moss);
-      put(3, 3, 3, ids.moss);
-      put(-1, 6, 2, ids.moss);
-      put(1, 6, 2, ids.moss);
+      };
+      /* 基座 dy0: 9×3 石座(dz-1..1 贴裙板三线, 承压理想口径) */
+      box(-4, 4, 0, 0, -1, 1, ids.plinth);
+      /* 粗短腿 ×2: 2×2×5 分立(dy1..5, 腿间通透) */
+      box(-3, -2, 1, 5, -1, 0, ids.body);
+      box(2, 3, 1, 5, -1, 0, ids.body);
+      /* 肩梁 dy6..8: 9×3×3(宽肩, 覆双腿顶) */
+      box(-4, 4, 6, 8, -1, 1, ids.body);
+      /* 垂臂续垂 dy9..11: 肩两端 2×2 ×2(梢 dy11 长过髋 dy5) */
+      box(-4, -3, 9, 11, -1, 0, ids.body);
+      box(3, 4, 9, 11, -1, 0, ids.body);
+      /* 腰缝铁灰一圈 dy9 + 收腰 dy10..11: 5×3(躯干渐收) */
+      box(-2, 2, 9, 9, -1, 1, ids.belt);
+      box(-2, 2, 10, 11, -1, 1, ids.body);
+      /* 颅 dy12..17: 7×3×6 实心(dx±3 格坐臂顶; 背 dz-2 倚 z28 山缘) */
+      box(-3, 3, 12, 17, -2, 0, ids.skull);
+      /* 凸鼻: dx0 dy12..15 凸出 dz+1(悬挑 1 格=z31, 头版前凸先例) */
+      box(0, 0, 12, 15, 1, 1, ids.nose);
+      /* 眼窝: (±2, dy15) 面侧 dz0 覆颅前面格 */
+      put(-2, 15, 0, ids.eye);
+      put(2, 15, 0, ids.eye);
+      /* 颅苔 6 格岁月死位: 顶后角(±3,17,-2)/颊(±3,14,0)/顶心(±1,17,-1) */
+      put(-3, 17, -2, ids.moss);
+      put(3, 17, -2, ids.moss);
+      put(-3, 14, 0, ids.moss);
+      put(3, 14, 0, ids.moss);
+      put(-1, 17, -1, ids.moss);
+      put(1, 17, -1, ids.moss);
+      /* 身苔 6 格: 肩顶(±2,8,-1)/腿(−3,3,0)/(2,4,0)/腰侧(±2,10,1) */
+      put(-2, 8, -1, ids.moss);
+      put(2, 8, -1, ids.moss);
+      put(-3, 3, 0, ids.moss);
+      put(2, 4, 0, ids.moss);
+      put(-2, 10, 1, ids.moss);
+      put(2, 10, 1, ids.moss);
     },
     foot(e, x, y, z, orient) {
-      const xs = [-3, 3]; const zs = [-3, 4]; /* 含凸鼻 dz+4 */
+      const xs = [-4, 4]; const zs = [-2, 1]; /* 背 dz-2 到鼻凸 dz+1 */
       let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
       for (const dx of xs) {
         for (const dz of zs) {
@@ -1607,7 +1638,7 @@ const PF_ROWS = {
           z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
         }
       }
-      return {x1, y1: y, z1, x2, y2: y + 6, z2}; /* 颅顶 dy6 */
+      return {x1, y1: y, z1, x2, y2: y + 17, z2}; /* 颅顶 dy17 */
     },
   },
 };

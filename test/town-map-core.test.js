@@ -117,10 +117,10 @@ test('实例映射: P0/P1 全入+under-room 复用 · 波次二五件转正(boar
   const ps = c.TOWN_MAP.prefab;
   const ids = [...new Set(ps.map((p) => p.id))].sort();
   assert.deepStrictEqual(ids, ['board-pool', 'clothesline', 'cottage-gable',
-    'hencoop', 'house-loft', 'iron-golem-head', 'scarecrow', 'shop-awning',
+    'hencoop', 'house-loft', 'iron-golem', 'scarecrow', 'shop-awning',
     'stall-canopy', 'stash-hut', 'tower-belfry', 'under-room',
     'windmill-tower', 'woodpile'],
-  '实例 id 恰十四种: 七新行 + under-room(复用) + 波次二五件 + PO 亲需铁傀儡头');
+  '实例 id 恰十四种: 七新行 + under-room(复用) + 波次二五件 + PO 亲需铁傀儡全身像');
   assert.strictEqual(ps.filter((p) => p.id === 'board-pool').length, 1,
       'board-pool 波次二转正落位(scene-plan-tidea2 problems=0, 动骨架-轻)');
   assert.ok(!ids.includes('mound'), 'hill-mound 属条件复用件(近景小丘语义时), 本布局不落');
@@ -143,10 +143,10 @@ test('实例字段: 形状(id,x,y,z,v,face,zone) · y 统一基高 · face 四�
     for (const k of ['id', 'x', 'y', 'z', 'face', 'v', 'zone']) {
       assert.ok(k in p, '实例 ' + p.id + ' 字段「' + k + '」在(票面字段口径)');
     }
-    /* 山域豁免(PO 山体波): far-north 雕像落山肩平台(y=41 山肩面),
-        不走镇区地面基高; 锚点亦在核心区外北侧 */
+    /* 山域豁免(PO 山体波): far-north 雕像落核心区外山域(头版山肩面
+        y41/全身像山脚裙板嵌面 y25), 不走镇区地面基高; 锚点亦在核心区外 */
     assert.ok(p.y === core.groundY || p.zone === 'far-north',
-        '实例 ' + p.id + ' 锚 y=地面基高(山域件=山肩锚)');
+        '实例 ' + p.id + ' 锚 y=地面基高(山域件=山肩/山脚锚)');
     assert.ok(['north', 'east', 'south', 'west'].includes(p.face),
         'face ∈ 四正交向(' + p.face + ')');
     assert.ok(p.v && typeof p.v === 'object' && !Object.prototype.hasOwnProperty.call(p.v, 'ids'),
@@ -186,15 +186,17 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
     'woodpile': {min: 1, max: 3, y: [2, 2]},
     'hencoop': {min: 2, max: 2, y: [3, 3]},
     'board-pool': {min: 4, max: 13, y: [7, 7]},
-    /* PO 亲需③铁傀儡头(footOf 实测: 颅盒 7×7+凸鼻 dz+4 → 面向跨 7×8, 高 7) */
-    'iron-golem-head': {min: 7, max: 8, y: [7, 7]},
+    /* PO 亲需③铁傀儡全身像(footOf 实测: 基座/肩 9 宽×背 dz-2 到鼻凸
+       dz+1 → 面向跨 4×9, 高 18) */
+    'iron-golem': {min: 4, max: 9, y: [18, 18]},
   };
   for (const p of t.prefab) {
     const v = Object.assign({}, p.v, {face: p.face}); /* face 并入 v = 装配形 */
     const box = c.PrefabKit.footOf(p.id, p.x, p.y, p.z, v); /* 零写纯查询=校验器 */
     assert.ok(box.x1 <= box.x2 && box.z1 <= box.z2 && box.y1 <= box.y2, '盒良序');
-    /* 山域豁免(PO 山体波): far-north 雕像落核心区外北侧山肩(z<32), 核心区
-        断言只对核心区内件生效; far-north 件归分区断言管(域 x0..159 z0..31) */
+    /* 山域豁免(PO 山体波): far-north 雕像落核心区外北侧山域(z<32,
+        山肩/山脚裙板), 核心区断言只对核心区内件生效; far-north 件归分区
+        断言管(域 x0..159 z0..31——全身像盒 z28..31 ⊆ 此界) */
     assert.ok(p.zone === 'far-north' ||
         (box.x1 >= t.core.x1 && box.x2 <= t.core.x2 && box.z1 >= t.core.z1 &&
         box.z2 <= t.core.z2), '脚印 ⊆ 核心区(' + p.id + ')');
@@ -422,7 +424,7 @@ test('远景: 拱形山体必做横贯 · 崖屋 1-2 栋 · 神庙默认不落 �
   }
 });
 
-test('山体波(PO 亲需①②③): 南缘走廊+裙板字段契约 · 铁傀儡头落位山肩(避走廊切列·界内·far-north 翻旗)', () => {
+test('山体波(PO 亲需①②③): 南缘走廊+裙板字段契约 · 铁傀儡全身像落山脚裙板(避走廊切列·界内·far-north 翻旗)', () => {
   const c = loadCore();
   const t = c.TOWN_MAP;
   /* ① 主山全键 pin(arch §12.1① 逐字): +southCorridor 后其余键零动。
@@ -443,19 +445,20 @@ test('山体波(PO 亲需①②③): 南缘走廊+裙板字段契约 · 铁傀�
   'mountain-skirt 逐字节 = §12.1②(贴地连接 PO 亲需①)');
   assert.strictEqual(skirt.z1, arch.z2 + 1,
       '裙板北缘紧贴主山南缘(z 域不重叠=合脊键 (x,z) 各归各)');
-  /* ③ 铁傀儡头位姿 pin(arch §12.3.6): 山肩平顶南向, footOf 盒避走廊切列 */
+  /* ③ 铁傀儡全身像位姿 pin(arch §12.3.6, 选址=scene §13.7): 山脚裙板
+     南向, footOf 盒避走廊切列 */
   const golem = JSON.parse(JSON.stringify(
-      t.prefab.find((p) => p.id === 'iron-golem-head')));
-  assert.deepStrictEqual(golem, {id: 'iron-golem-head', x: 65, y: 41, z: 16,
+      t.prefab.find((p) => p.id === 'iron-golem')));
+  assert.deepStrictEqual(golem, {id: 'iron-golem', x: 70, y: 25, z: 30,
     v: {}, face: 'south', zone: 'far-north'},
-  '铁傀儡头位姿 = 山肩平顶 x65/y41/z16 南向(落位几何依据见条目注释)');
+  '铁傀儡全身像位姿 = 山脚裙板门口东侧 x70/y25/z30 南向(落位几何依据见条目注释)');
   const gb = c.PrefabKit.footOf(golem.id, golem.x, golem.y, golem.z,
       Object.assign({}, golem.v, {face: golem.face}));
   assert.ok(gb.x2 < arch.southCorridor.x1 || gb.x1 > arch.southCorridor.x2,
       '雕像足印与走廊切列 x60..61 净隔(基座不悬空于 trench, x' +
       gb.x1 + '..' + gb.x2 + ')');
   assert.ok(gb.y1 >= 0 && gb.y2 <= c.WORLD_H - 1,
-      '雕像盒 ⊆ 世界高(y' + gb.y1 + '..' + gb.y2 + ', 下埋 2 格抵 WORLD_H=48)');
+      '雕像盒 ⊆ 世界高(y' + gb.y1 + '..' + gb.y2 + ', 嵌面下埋顶 y42 抵 WORLD_H=48)');
   /* far-north 翻旗(随步改条款④): 北带自剪影层转可达 */
   const fn = t.zones.find((z) => z.id === 'far-north');
   assert.strictEqual(fn.reachable, true,

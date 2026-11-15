@@ -3472,8 +3472,8 @@ test('材质基线·TIDEA 五行缺省逐槽: 全现成字库 id 逐格钉(5/6/1
    (§4.1「bell 暖金」, shop signAccent/stall goods 先例) · flag=16 红羊毛
    (§4.1「樱粉或天蓝」之樱粉最近似, stall-canopy flower→16 先例+PO 备忘)。
    ②全行缺省建场安全审计可执行化: 城镇十三行(T-01..07+TIDEA 波次一五行
-   scarecrow/clothesline/woodpile/hencoop/board-pool+PO 亲需铁傀儡头
-   iron-golem-head, 缺省全现成字库
+   scarecrow/clothesline/woodpile/hencoop/board-pool+PO 亲需铁傀儡全身
+   立像 iron-golem, 缺省全现成字库
    5/6/15/17/58/52/16/76/78/51/68 全零旗标)零危险旗标块(tnt/fuse/
    portal/fluid/crop/thin/replaceable/door/bed/lchest 旗标即判据)+全行零功能/
    下界/传送门系错用; 收编三行(stilt-hut/under-room/mound)火把 48=既有探险
@@ -3524,7 +3524,7 @@ test('材质基线·全行缺省建场安全: 城镇十三行零危险旗标块 
   };
   const townRows = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
     'cottage-gable', 'house-loft', 'stall-canopy', 'scarecrow', 'clothesline',
-    'woodpile', 'hencoop', 'board-pool', 'iron-golem-head'];
+    'woodpile', 'hencoop', 'board-pool', 'iron-golem'];
   const legacyRows = [['stilt-hut', undefined], ['under-room', {mat: 58}],
     ['mound', {top: 2, rock: 14}]];
   for (const [id, v] of [...townRows.map((r) => [r, undefined]), ...legacyRows]) {
@@ -3674,56 +3674,76 @@ test('枚举校验链·十轴错误消息逐字钉(pfMerge 表驱动收编的等
       /size 非法/, 'stall-canopy 对象形拒收(本行 size=字符串枚举轴)');
 });
 
-/* ============ T-PREFAB-10 iron-golem-head(铁傀儡头, PO 亲需③新增行) ============ */
+/* ============ T-PREFAB-10 iron-golem(铁傀儡全身立像, PO 亲需③+实屏
+   升级新增行; 头版 iron-golem-head 未落位即转全身=零死行) ============ */
 
-test('T-PREFAB-10 iron-golem-head: 抽格钉值(基座/实心颅/凸鼻/眼窝/苔) · 脚印 7×8 含鼻 · face east 转向 spot · 确定性 · 未知 v 键抛', () => {
+test('T-PREFAB-10 iron-golem 全身立像: 抽格钉值(基座/腿/肩/腰/臂/颅鼻眼苔) · 脚印 9×4 高 18 · face east 转向 spot · 确定性 · 未知 v 键抛', () => {
   const k = loadKit();
   const ax = 80; const az = 80; const y0 = 24;
   k.clear();
-  k.pf.place('iron-golem-head', ax, y0, az); /* 全缺省 face=south 面朝镇 */
-  /* 基座 dy0 全 7×7 石头 3(插桩面, scene 落位下埋 1-2 格) */
-  assert.strictEqual(k.cell(ax, y0, az), 3, 'plinth=3 石头基座心格(dy0)');
-  assert.strictEqual(k.cell(ax + 3, y0, az + 3), 3, '基座角格 (+3,0,+3) 在场');
-  assert.strictEqual(k.cell(ax - 3, y0, az - 3), 3, '基座角格 (-3,0,-3) 在场');
-  /* 颅 dy1..6 石英 17 实心 7×7×6 */
-  assert.strictEqual(k.cell(ax, y0 + 1, az), 17, 'skull=17 石英颅心(dy1)');
-  assert.strictEqual(k.cell(ax + 3, y0 + 6, az + 3), 17, '颅前上角 (+3,6,+3) 在场');
-  assert.strictEqual(k.cell(ax, y0 + 6, az - 3), 17, '颅背格 (0,6,-3) 在场(实心)');
-  /* 长鼻: dx0 dy1..4 凸出面 dz+4(傀儡唯一识别特征=轮廓远读) */
-  assert.strictEqual(k.cell(ax, y0 + 4, az + 4), 17, '长鼻格 (0,4,+4) 凸出面顶');
-  assert.strictEqual(k.cell(ax, y0 + 1, az + 4), 17, '长鼻格 (0,1,+4) 底');
-  assert.strictEqual(k.cell(ax + 1, y0 + 4, az + 4), 0, '鼻侧 (+1,4,+4) 空(鼻宽 1)');
-  /* 眼窝: (±2, dy4) 面侧 dz+3 铁灰 12(沉稳守卫, 非红眼敌意 §8 去威胁) */
-  assert.strictEqual(k.cell(ax - 2, y0 + 4, az + 3), 12, 'eye=12 左眼窝 (-2,4,+3)');
-  assert.strictEqual(k.cell(ax + 2, y0 + 4, az + 3), 12, '右眼窝 (+2,4,+3) 对称');
-  /* 苔 6 格岁月死位(顶后角×2/颊×2/顶心×2) */
-  assert.strictEqual(k.cell(ax - 3, y0 + 6, az - 3), 14, 'moss=14 顶后角 (-3,6,-3)');
-  assert.strictEqual(k.cell(ax + 3, y0 + 6, az - 3), 14, '顶后角 (+3,6,-3)');
-  assert.strictEqual(k.cell(ax - 3, y0 + 3, az + 3), 14, '颊苔 (-3,3,+3)');
-  assert.strictEqual(k.cell(ax + 3, y0 + 3, az + 3), 14, '颊苔 (+3,3,+3)');
-  assert.strictEqual(k.cell(ax - 1, y0 + 6, az + 2), 14, '顶心苔 (-1,6,+2)');
-  assert.strictEqual(k.cell(ax + 1, y0 + 6, az + 2), 14, '顶心苔 (+1,6,+2)');
-  /* 脚印 7×8(基座 7×7+鼻凸 dz+4) 高 7(dy0..6)——展开浅拷贝落 node
-     realm 再比(跨 realm 原型差异, deepStrictEqual 直比必败) */
-  assert.deepStrictEqual({...k.pf.footOf('iron-golem-head', ax, y0, az)},
-      {x1: ax - 3, y1: y0, z1: az - 3, x2: ax + 3, y2: y0 + 6, z2: az + 4},
-      'footprint 7×8 高 7(纯查询零写)');
-  /* face east 转向 spot: rot3 (dx,dz)→(dz,−dx)——鼻凸 world east,
-     眼窝面侧转 dx=+3; 镜像不设 spot(行几何 x 向对称, mirror 无视觉差) */
+  k.pf.place('iron-golem', ax, y0, az); /* 全缺省 face=south 面朝镇 */
+  /* 基座 dy0: 9×3 石头 3(插桩面, 嵌面下埋读感) */
+  assert.strictEqual(k.cell(ax, y0, az), 3, 'plinth=3 石座心格(dy0)');
+  assert.strictEqual(k.cell(ax + 4, y0, az + 1), 3, '基座角格 (+4,0,+1) 在场(9×3 贴裙板)');
+  assert.strictEqual(k.cell(ax - 4, y0, az - 1), 3, '基座角格 (-4,0,-1) 在场');
+  /* 粗短腿 ×2: 2×2×5 分立(dy1..5)——腿间通透 */
+  assert.strictEqual(k.cell(ax - 3, y0 + 3, az - 1), 17, 'body=17 左腿格 (-3,3,-1)');
+  assert.strictEqual(k.cell(ax + 2, y0 + 5, az), 17, '右腿顶格 (+2,5,0) 在场');
+  assert.strictEqual(k.cell(ax, y0 + 3, az - 1), 0, '腿间 (0,3,-1) 空(双腿分立)');
+  /* 肩梁 dy6..8: 9×3×3(宽 9>颅 7=宽肩读感) */
+  assert.strictEqual(k.cell(ax + 4, y0 + 7, az - 1), 17, '肩梁背角 (+4,7,-1) 在场');
+  assert.strictEqual(k.cell(ax - 4, y0 + 6, az + 1), 17, '肩梁面角 (-4,6,+1) 在场');
+  /* 腰缝铁灰一圈 dy9 + 收腰 dy10..11(躯干渐收) */
+  assert.strictEqual(k.cell(ax, y0 + 9, az), 12, 'belt=12 腰带心格 (0,9,0) 铁灰一圈');
+  assert.strictEqual(k.cell(ax + 2, y0 + 9, az + 1), 12, '腰带面格 (+2,9,+1) 在场');
+  assert.strictEqual(k.cell(ax, y0 + 10, az), 17, '收腰 (0,10,0)=17(腰上躯干)');
+  /* 垂臂续垂 dy9..11——梢 dy11 长过髋 dy5(傀儡标志剪影) */
+  assert.strictEqual(k.cell(ax + 4, y0 + 11, az - 1), 17, '右臂梢 (+4,11,-1) 在场');
+  assert.strictEqual(k.cell(ax - 4, y0 + 11, az), 17, '左臂梢 (-4,11,0) 在场');
+  assert.strictEqual(k.cell(ax + 4, y0 + 12, az - 1), 0, '臂上 (+4,12,-1) 空(臂梢止 dy11 不达颅层)');
+  assert.strictEqual(k.cell(ax - 3, y0 + 5, az - 1), 17, '左腿顶 (-3,5,-1)=髋线(臂梢 11>5 长过髋)');
+  /* 颅 dy12..17: 7×3×6 实心(识别基因平移继承) */
+  assert.strictEqual(k.cell(ax, y0 + 13, az), 17, 'skull=17 颅心 (0,13,0)');
+  assert.strictEqual(k.cell(ax + 3, y0 + 17, az), 17, '颅前上角 (+3,17,0) 在场');
+  assert.strictEqual(k.cell(ax, y0 + 17, az - 2), 17, '颅背格 (0,17,-2) 在场(实心)');
+  /* 凸鼻: dx0 dy12..15 凸出 dz+1(悬挑=z31, 轮廓远读特征) */
+  assert.strictEqual(k.cell(ax, y0 + 15, az + 1), 17, '鼻格 (0,15,+1) 凸出面(悬挑)');
+  assert.strictEqual(k.cell(ax, y0 + 12, az + 1), 17, '鼻底格 (0,12,+1) 在场');
+  assert.strictEqual(k.cell(ax + 1, y0 + 15, az + 1), 0, '鼻侧 (+1,15,+1) 空(鼻宽 1)');
+  /* 眼窝: (±2, dy15) 面侧 dz0 铁灰 12(沉稳守卫非红眼 §8 去威胁) */
+  assert.strictEqual(k.cell(ax - 2, y0 + 15, az), 12, 'eye=12 左眼窝 (-2,15,0)');
+  assert.strictEqual(k.cell(ax + 2, y0 + 15, az), 12, '右眼窝 (+2,15,0) 对称');
+  /* 颅苔 6 格岁月死位(z 收胸平移) */
+  assert.strictEqual(k.cell(ax - 3, y0 + 17, az - 2), 14, 'moss=14 顶后角 (-3,17,-2)');
+  assert.strictEqual(k.cell(ax + 3, y0 + 14, az), 14, '颊苔 (+3,14,0)');
+  assert.strictEqual(k.cell(ax + 1, y0 + 17, az - 1), 14, '顶心苔 (+1,17,-1)');
+  /* 身苔 6 格(肩顶×2/腿×2/腰侧×2——岁月上身) */
+  assert.strictEqual(k.cell(ax - 2, y0 + 8, az - 1), 14, '肩顶苔 (-2,8,-1)');
+  assert.strictEqual(k.cell(ax + 2, y0 + 8, az - 1), 14, '肩顶苔 (+2,8,-1)');
+  assert.strictEqual(k.cell(ax - 3, y0 + 3, az), 14, '左腿苔 (-3,3,0)');
+  assert.strictEqual(k.cell(ax + 2, y0 + 4, az), 14, '右腿苔 (+2,4,0)');
+  assert.strictEqual(k.cell(ax + 2, y0 + 10, az + 1), 14, '腰侧苔 (+2,10,+1)');
+  /* 脚印 9×4(基座 x±4; 背 dz-2 到鼻凸 dz+1) 高 18(dy0..17)——展开
+     浅拷贝落 node realm 再比(跨 realm 原型差异, deepStrictEqual 直比必败) */
+  assert.deepStrictEqual({...k.pf.footOf('iron-golem', ax, y0, az)},
+      {x1: ax - 4, y1: y0, z1: az - 2, x2: ax + 4, y2: y0 + 17, z2: az + 1},
+      'footprint 9×4 高 18(纯查询零写; 基座承压 9×3 贴裙板, 鼻 dz+1 悬挑 ⊆ far-north z≤31)');
+  /* face east 转向 spot: rot3 (dx,dz)→(dz,−dx)——鼻 dz+1 凸 world east (+1,0),
+     眼窝 (±2,0) 转 (0,∓2); 镜像不设 spot(行几何 x 向对称, mirror 无视觉差) */
   k.clear();
-  k.pf.place('iron-golem-head', ax, y0, az, {face: 'east'});
-  assert.strictEqual(k.cell(ax + 4, y0 + 1, az), 17, 'face east: 鼻凸 world east (+4,1,0)');
-  assert.strictEqual(k.cell(ax, y0 + 1, az + 4), 0, 'face east: 原 south 鼻位空(转向生效)');
-  assert.strictEqual(k.cell(ax + 3, y0 + 4, az - 2), 12, 'face east: 眼窝转 (3,4,-2)');
-  assert.strictEqual(k.cell(ax + 3, y0 + 4, az + 2), 12, 'face east: 眼窝转 (3,4,+2)');
+  k.pf.place('iron-golem', ax, y0, az, {face: 'east'});
+  assert.strictEqual(k.cell(ax + 1, y0 + 12, az), 17, 'face east: 鼻凸 world east (+1,12,0)');
+  assert.strictEqual(k.cell(ax - 3, y0 + 12, az), 0, 'face east: 西侧 (-3,12,0) 空(未转向则颅格 17 占位)');
+  assert.strictEqual(k.cell(ax, y0 + 15, az - 2), 12, 'face east: 眼窝转 (0,15,-2)');
+  assert.strictEqual(k.cell(ax, y0 + 15, az + 2), 12, 'face east: 眼窝转 (0,15,+2)');
   /* 确定性: 同参两次建场 snap 全等 */
   k.clear();
-  k.pf.place('iron-golem-head', 50, 30, 50);
+  k.pf.place('iron-golem', 50, 30, 50);
   const a = k.snap();
   k.clear();
-  k.pf.place('iron-golem-head', 50, 30, 50);
+  k.pf.place('iron-golem', 50, 30, 50);
   assert.deepStrictEqual(k.snap(), a, '同参同输出(确定性重放)');
-  /* 未知 v 键抛(行键面 face/mirror/ids 封闭, 无新增开关) */
-  assert.throws(() => k.pf.place('iron-golem-head', 80, 24, 80, {nope: 1}),
+  /* 未知 v 键抛(行键面 face/mirror/ids 封闭) */
+  assert.throws(() => k.pf.place('iron-golem', 80, 24, 80, {nope: 1}),
       /未知 v 键/, '未知键拼写域抛(键集封闭)');
 });

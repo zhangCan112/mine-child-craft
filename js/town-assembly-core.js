@@ -74,10 +74,12 @@
    旗幡列 v.len 钳 2..6 缺省 4 三色 i%3 轮转/花窗箱 8 格/桶箱角 4 格,
    派生分支域扩——落位归 scene 切清单, 本件只收单点条目)。
    Step G 扩键登记(arch 岗, 2026-11-15; PO 亲需批两件能力面+裙板协同
-   6413b00): prefab +'iron-golem-head' 行(铁傀儡头雕像五槽 skull/nose/
-   eye/moss/plinth=17/17/12/14/3, 行键与 prefab-kit defaults ids 同形,
-   几何单源在蓝图 kernel; PO 亲需③村民感恩守卫, 落位归 scene 山肩
-   x61 一带南向注视镇景); mountain 条目 +southCorridor 门控字段
+   6413b00+PO 实屏拍板「头像→全身像」升级): prefab +'iron-golem' 行
+   (铁傀儡全身立像七槽 skull/nose/eye/moss/plinth/body/belt=
+   17/17/12/14/3/17/12, 行键与 prefab-kit defaults ids 同形, 几何单源
+   在蓝图 kernel; 头版 iron-golem-head 未落位即转全身=零死行; PO 亲
+   需③村民感恩守卫, 落位归 scene 山脚裙板登山口侧); mountain 条目
+   +southCorridor 门控字段
    ({x1,x2}=台阶列域, PO 亲需②攀登支持; lead 裁定中带 x60..61 切崖,
    scene 探勘备妥): 走廊列 z 向阶梯包络 h(z)=min(顶,h(z+1)+1) 构造性
    ≤1 阶北行接山肩平台, 两侧列整柱拱形=崖壁凹槽防护, 水花列域外
@@ -107,7 +109,8 @@ const TOWN_PALETTE = {
     'woodpile': {log: 5},
     'hencoop': {hay: 58, henBody: 52, henComb: 16},
     'board-pool': {board: 5, poolEdge: 17, water: 15, flagPole: 5, flag: 78},
-    'iron-golem-head': {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3},
+    'iron-golem': {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3,
+      body: 17, belt: 12},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,

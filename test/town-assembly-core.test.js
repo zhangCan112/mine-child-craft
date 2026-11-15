@@ -70,7 +70,8 @@ const PALETTE_WANT = {
     'woodpile': {log: 5},
     'hencoop': {hay: 58, henBody: 52, henComb: 16},
     'board-pool': {board: 5, poolEdge: 17, water: 15, flagPole: 5, flag: 78},
-    'iron-golem-head': {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3},
+    'iron-golem': {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3,
+      body: 17, belt: 12},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,
@@ -92,7 +93,7 @@ const DANGER_FLAGS = ['tnt', 'fuse', 'portal', 'fluid', 'crop', 'thin',
 const BAD_EXPLICIT = [30, 31, 33, 34, 41, 46, 47, 63, 70, 71, 72];
 const TOWN_ROWS = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
   'cottage-gable', 'house-loft', 'stall-canopy', 'scarecrow', 'clothesline',
-  'woodpile', 'hencoop', 'board-pool', 'iron-golem-head'];
+  'woodpile', 'hencoop', 'board-pool', 'iron-golem'];
 /* 布局权威独立转录(docs/town-map-design.md §3-§4, = TOWN_MAP 数据的测试侧镜像;
    只抄本测试用到的坐标, 完整性归 test/town-map-core.test.js。樱花株数/点位
    不在此钉——scene 布局清单高频迭代, ⑤ 段改从 scatter 动态派生防漂移) */
@@ -165,8 +166,8 @@ test('palette 完整性: 七段结构在册 · prefab 十四行(8 实例行+TIDE
   assert.deepStrictEqual(shape.rows, ['tower-belfry', 'shop-awning', 'windmill-tower',
     'cottage-gable', 'house-loft', 'stash-hut', 'under-room', 'stall-canopy',
     'scarecrow', 'clothesline', 'woodpile', 'hencoop', 'board-pool',
-    'iron-golem-head'],
-  'prefab 十四行 = 布局实例行(7 新行+under-room 复用)+TIDEA 六行能力行(波次一五+PO 亲需铁傀儡头; 蓝图已立, 落位归 scene)');
+    'iron-golem'],
+  'prefab 十四行 = 布局实例行(7 新行+under-room 复用)+TIDEA 六行能力行(波次一五+PO 亲需铁傀儡全身立像; 蓝图已立, 落位归 scene)');
   assert.ok(shape.allRegistered, '每个值都是 config BLOCKS 在册正整数 id');
   assert.ok(!('canopy' in probe(ctx, 'TOWN_PALETTE.prefab["stall-canopy"]')),
       'stall-canopy 缺 canopy 键: 布幔 theme 映射单源引擎侧 PF_STALL_CANOPY(双源即漂移)');
