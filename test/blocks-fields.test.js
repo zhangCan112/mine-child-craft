@@ -32,6 +32,7 @@ function loadCfg() {
     B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
     B_SPAWNER, B_LOOT_CHEST, B_LOOT_CHEST_SMALL, B_ANCIENT_DEBRIS, B_SNOWY_LEAVES,
     B_IRON_BLOCK, B_PUMPKIN, B_CARVED_PUMPKIN, B_PINK_WOOL,
+    B_ROOF_TILE, B_GATE_SIGN,
   };`, ctx);
   return ctx.__c;
 }
@@ -88,7 +89,7 @@ test('生态地图常量与 id 一一对应: 54~62 顺延(雪原/沙漠/沼泽�
 
 /* ============ 门与玻璃板 id 段(64~68, docs/door-window-design.md §2) ============ */
 
-test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 79+(69~78 已占)', () => {
+test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_PORTAL_DIM 先占); 号段红线外推 — BLOCKS 不占 81+(69~80 已占)', () => {
   const c = loadCfg();
   const expect = {B_DOOR: 64, B_DOOR_TOP: 65, B_DOOR_OPEN: 66, B_DOOR_TOP_OPEN: 67, B_GLASS_PANE: 68};
   for (const [k, id] of Object.entries(expect)) {
@@ -101,7 +102,9 @@ test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_POR
      71=战利品宝箱 B_LOOT_CHEST, den-nest §7.5 D16 · 72=低档奖励箱 B_LOOT_CHEST_SMALL, D18 ·
      73=远古残骸 B_ANCIENT_DEBRIS, 装备系统 T7 · 74=覆雪树叶 B_SNOWY_LEAVES, 世界边界 T12 ·
      75~77=怪物合成材料件 B_IRON_BLOCK/B_PUMPKIN/B_CARVED_PUMPKIN, mob-crafting T1 ·
-     78=粉羊毛 B_PINK_WOOL, 城镇重制公共件 revamp-spec §2) */
+     78=粉羊毛 B_PINK_WOOL, 城镇重制公共件 revamp-spec §2 ·
+     79=陶橙瓦 B_ROOF_TILE / 80=门额牌 B_GATE_SIGN, 东带 v2 野心版 S1/S2
+     (town-east-boundary-landscape-spec-v2 §2) */
   assert.strictEqual(c.B_SPAWNER, 70, '巢穴之心占 70(den-nest-design 号段顺延)');
   assert.strictEqual(c.B_LOOT_CHEST, 71, '战利品宝箱占 71(den-nest §7.5 号段顺延)');
   assert.strictEqual(c.B_LOOT_CHEST_SMALL, 72, '低档奖励箱占 72(den-nest §7.5 D18 号段顺延)');
@@ -111,13 +114,39 @@ test('门/玻璃板常量与 id 一一对应: 64~68 顺延(63 已被熄门 B_POR
   assert.strictEqual(c.B_PUMPKIN, 76, '南瓜占 76(mob-crafting T1 号段顺延)');
   assert.strictEqual(c.B_CARVED_PUMPKIN, 77, '雕刻南瓜占 77(mob-crafting T1 号段顺延)');
   assert.strictEqual(c.B_PINK_WOOL, 78, '粉羊毛占 78(城镇重制 revamp-spec §2 号段顺延)');
+  assert.strictEqual(c.B_ROOF_TILE, 79, '陶橙瓦占 79(东带 v2 §2 S1 号段顺延)');
+  assert.strictEqual(c.B_GATE_SIGN, 80, '门额牌占 80(东带 v2 §2 S2 号段顺延)');
   assert.ok(c.BLOCKS[70] && c.BLOCKS[71] && c.BLOCKS[72] && c.BLOCKS[73] && c.BLOCKS[74],
       'BLOCKS[70]/[71]/[72]/[73]/[74] 应有定义');
   assert.ok(c.BLOCKS[75] && c.BLOCKS[76] && c.BLOCKS[77], 'BLOCKS[75]/[76]/[77] 应有定义');
   assert.ok(c.BLOCKS[78], 'BLOCKS[78](粉羊毛)应有定义');
+  assert.ok(c.BLOCKS[79] && c.BLOCKS[80], 'BLOCKS[79](陶橙瓦)/[80](门额牌)应有定义');
   for (const id of Object.keys(c.BLOCKS)) {
-    assert.ok(Number(id) <= 78, 'BLOCKS 出现 79+ 方块 id: ' + id + '(号段红线)');
+    assert.ok(Number(id) <= 80, 'BLOCKS 出现 81+ 方块 id: ' + id + '(号段红线)');
   }
+});
+
+/* ============ 镇门楼新件字段段(79~80, 东带 v2 野心版 spec §2 S1/S2) ============ */
+
+test('镇门楼新件字段: 陶橙瓦纯色行+门额牌竖板行 — 均无 hard(声明式不可破坏)零 drop(无物品注册面)', () => {
+  const c = loadCfg();
+  /* 陶橙瓦 79(S1): 满立方实心纯色行=零贴图成本(粉羊毛同构建场写入件);
+     色值=镇色板屋顶陶橙 #D97A4A(RGB 0.851, 0.478, 0.290) */
+  const roof = c.BLOCKS[c.B_ROOF_TILE];
+  assert.strictEqual(roof.name, '陶橙瓦');
+  /* deepEqual(非 strict): all 数组来自 vm context, 跨 realm 原型不同, strict 恒假阳性红
+     (同文件光源测试嵌套数组同款先例) */
+  assert.deepEqual(roof.all, [0.851, 0.478, 0.290], '陶橙瓦=屋顶陶橙 #D97A4A(镇色板权威)');
+  assert.ok(!('hard' in roof), '陶橙瓦无 hard(声明式不可破坏, U2 已裁主案)');
+  assert.ok(!('drop' in roof), '陶橙瓦零 drop(无物品注册面, 粉羊毛同款)');
+  /* 门额牌 80(S2): 竖版薄板块 thin 0.15 贴门额面西缘, 西面图案其余五面木底;
+     solid:true 实心薄板入在保判据常规体(S2 字段建议) */
+  const sign = c.BLOCKS[c.B_GATE_SIGN];
+  assert.strictEqual(sign.name, '门额牌');
+  assert.strictEqual(sign.thin, 0.15, '门额牌 thin 0.15(竖版薄板, S2 形态)');
+  assert.strictEqual(sign.solid, true, '门额牌 solid true(实心薄板, S2 字段建议)');
+  assert.ok(!('hard' in sign), '门额牌无 hard(不可破坏, 判据在保兜底)');
+  assert.ok(!('drop' in sign), '门额牌零 drop');
 });
 
 /* ============ 怪物合成材料件字段段(75~77, docs/mob-crafting-design.md D1) ============ */

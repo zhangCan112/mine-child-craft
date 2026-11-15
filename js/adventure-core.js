@@ -1478,24 +1478,39 @@ function advEdgeEastArrivePad() {/* 回家门墩(T-SEAM-03, town-map-design §6.
   }
 }
 
-function advEdgeEastSign() {/* 镇门牌坊(原告示牌, 东带 spec §3.1): 两柱一楣一双灯+
-  悬牌图案 2×2(塔行=石=钟塔图案与剪影同料, 径行=原木=小径图案与脚下主径同轴);
-  柱 4 高框出门宽, 门楣横贯连柱顶, 柱顶门灯落楣端正上(支撑成立); 牌下净空
-  z74/75 yb+1..+2 禁填=穿行契约(不写即净空)。函数名沿革留档不更名
-  (ADV_GATE_PLAZA 先例); 全建场常量零 Math.random 零新盐; 保护判据随件改稿
-  (advEdgeProtectedAt x156 分支, spec §6.1) */
+function advEdgeEastSign() {/* 镇门楼(原镇门牌坊/原告示牌, 东带 v2 spec §3 件 G): 石砌城楼式
+  ——门洞 3 格高净空 z74/75 yb+1..+3 禁填=穿行契约(不写即净空, v1 2 格升 3 格
+  =「门高大」); 侧柱 5 高石砖 z73/76 yb+1..+5, 壁灯 yb+3 嵌柱覆写该格(灯块
+  light 15 昼夜迎宾); 横梁 z74/75 yb+4 石砖(净空上缘); 门额牌面 z74/75 yb+5
+  门额牌×2(镇徽=钟塔图案, 穿门仪式视觉焦点); 柱头 z73/76 yb+6 石英收边;
+  檐口 z72..77 yb+7 石英(白檐一线出挑, 宽出墙身一圈); 屋面 z72..77 yb+8
+  陶橙瓦+屋脊 z73..76 yb+9 陶橙瓦(阶梯收分, 脊不出 z72/77)。函数名沿革留档
+  不更名(ADV_GATE_PLAZA 先例); 全建场常量零 Math.random 零新盐; 保护判据
+  随件改稿(advEdgeProtectedAt x156 分支, v2 spec §8.1) */
   const x = 156;
   const yb = ADV_GROUND + advHeightAt(x, 74);
+  /* 门洞侧柱 z73/76 yb+1..+5 石砖(体量感来源); 壁灯 yb+3 嵌柱覆写; 柱头 yb+6 石英 */
   for (const z of [73, 76]) {
-    for (let y = yb + 1; y <= yb + 4; y++) setBlockRaw(x, y, z, 5); /* 双柱 4 高(原 3 高 +1) */
+    for (let y = yb + 1; y <= yb + 5; y++) setBlockRaw(x, y, z, 13);
+    setBlockRaw(x, yb + 3, z, 19);
+    setBlockRaw(x, yb + 6, z, 17);
   }
-  setBlockRaw(x, yb + 3, 74, 5); /* 悬牌径行(z74)=小径图案(原木横线) */
-  setBlockRaw(x, yb + 3, 75, 5); /* 悬牌径行(z75) */
-  setBlockRaw(x, yb + 4, 74, 3); /* 悬牌塔行(z74)=钟塔图案(石, 与剪影同料) */
-  setBlockRaw(x, yb + 4, 75, 3); /* 悬牌塔行(z75) */
-  SceneKit.fill(x, yb + 5, 73, x, yb + 5, 76, 6); /* 门楣一线(z73..76)横贯门宽连双柱顶 */
-  setBlockRaw(x, yb + 6, 73, B_TORCH); /* 柱顶门灯(z73, 门楣端正上) */
-  setBlockRaw(x, yb + 6, 76, B_TORCH); /* 柱顶门灯(z76) */
+  /* 门洞横梁(z74/75 净空上缘)+门额牌面(双徽各贴同图); 门额上方 yb+6 让空。
+     门额牌=id 80(B_GATE_SIGN)/陶橙瓦=id 79(B_ROOF_TILE)——本文件惯例数字
+     字面量(13/17/19 同款): 测试加载清单未收集新块常量, 常量名在 require
+     域不可见, 字面量双环境(浏览器 script/Node require)皆成立 */
+  setBlockRaw(x, yb + 4, 74, 13);
+  setBlockRaw(x, yb + 4, 75, 13);
+  setBlockRaw(x, yb + 5, 74, 80);
+  setBlockRaw(x, yb + 5, 75, 80);
+  /* 檐口一线(z72..77 石英)+屋面瓦檐一级+屋脊收分二级(z73..76, 脊不出 z72/77) */
+  for (let z = 72; z <= 77; z++) {
+    setBlockRaw(x, yb + 7, z, 17);
+    setBlockRaw(x, yb + 8, z, 79);
+  }
+  for (let z = 73; z <= 76; z++) {
+    setBlockRaw(x, yb + 9, z, 79);
+  }
 }
 
 function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间留缝是设计本体
@@ -1822,14 +1837,17 @@ function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁�
     if (z % 3 === 0 && y === y0 + 1) return true;
     if ((z === 153 || z === 154 || z === 159) && y === y0 - 1) return true;
   }
-  /* 东·镇门牌坊(原告示牌, 东带 spec §6.1): 柱+门灯 z73/76=yb+1..yb+6
-     (柱 4 高+门楣端+柱顶门灯), 悬牌+门楣 z74/75=yb+3..yb+5(牌 2 行+楣中段);
-     牌下净空 z74/75 yb+1..+2 不加分支恒 false(穿行契约, 建场同式禁填);
-     锚 yb 取 advHeightAt(156,74)(advEdgeEastSign 同式同源) */
+  /* 东·镇门楼(原镇门牌坊, 东带 v2 spec §8.1): 柱列 z73/76 yb+1..yb+9 全列
+     在保(侧柱含壁灯格+柱头+檐/瓦/脊同列格); 门额带 z74/75 yb+4..yb+9(横梁+
+     门额牌+檐/瓦/脊中段); 檐角列 z72/77 只 yb+7..yb+9(檐/瓦出挑格, 脊虽
+     不建也在保); 门洞净空 z74/75 yb+1..+3 不加分支恒 false(穿行契约, 建场
+     同式禁填, v1 2 格扩 3 格); 锚 yb 取 advHeightAt(156,74)
+     (advEdgeEastSign 同式同源) */
   if (x === 156) {
     const yb = ADV_GROUND + advHeightAt(156, 74);
-    if ((z === 73 || z === 76) && y >= yb + 1 && y <= yb + 6) return true;
-    if ((z === 74 || z === 75) && y >= yb + 3 && y <= yb + 5) return true;
+    if ((z === 73 || z === 76) && y >= yb + 1 && y <= yb + 9) return true;
+    if ((z === 74 || z === 75) && y >= yb + 4 && y <= yb + 9) return true;
+    if ((z === 72 || z === 77) && y >= yb + 7 && y <= yb + 9) return true;
   }
   return false;
 }

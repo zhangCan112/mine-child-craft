@@ -22,7 +22,7 @@ function loadAtlas() {
       ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING,' +
       ' B_BED, B_BED_FOOT, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID,' +
       ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_LOOT_CHEST, B_LOOT_CHEST_SMALL,' +
-      ' B_ANCIENT_DEBRIS, B_SNOWY_LEAVES };', ctx);
+      ' B_ANCIENT_DEBRIS, B_SNOWY_LEAVES, B_ROOF_TILE, B_GATE_SIGN };', ctx);
   return ctx.__t;
 }
 
@@ -74,9 +74,9 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 60,
-      '已绘制格数 = 60(PAINTERS 0~59 连续; 50/51=宝箱, 52=残骸, 53=覆雪叶, 54=冰, 55~57=南瓜/刻脸, ' +
-      '58=铁块, 59=粉羊毛·城镇重制公共件)');
+  assert.strictEqual(t.TextureAtlas.count, 62,
+      '已绘制格数 = 62(PAINTERS 0~61 连续; 50/51=宝箱, 52=残骸, 53=覆雪叶, 54=冰, 55~57=南瓜/刻脸, ' +
+      '58=铁块, 59=粉羊毛·城镇重制公共件, 60=门额牌·东带 v2 S2, 61=门额牌木底·五面纯木色)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   /* 覆雪树叶 74(世界边界 T12): 独立格位整格同图 — 与树叶 7(T_LEAVES)分格,
@@ -510,4 +510,113 @@ test('布局+像素: 覆雪树叶(74)入集 — 整格同图雪盖针叶底, 全
   let snowN = 0;
   for (const p of px) if (p[0] > 200) snowN++; /* 针叶底 R≤58, R>200 只命中雪 */
   assert.ok(snowN > 128, '雪覆盖过半(实测 ' + snowN + '/256, MC 覆雪针叶语言)');
+});
+
+/* ============ 门额牌面(80, 东带 v2 野心版 S2): 镇徽钟塔图+纯木底第二格位 ============ */
+
+test('布局+像素: 门额牌(80)入集 — 60 号格镇徽钟塔图(西面) + 61 号格纯木底(其余五面), 逐像素规格直译(v2 S2)', () => {
+  const t = loadAtlas();
+  const L = t.TextureAtlas.layout;
+  const e = L.tiles[t.B_GATE_SIGN];
+  assert.ok(e && typeof e === 'object', '门额牌分面入集(西面图案/其余木底)');
+  assert.strictEqual(e.side, 60, '门额牌西面图案格=60(59 后第一顺位, pixel-spec §5)');
+  assert.strictEqual(e.back, 61, '门额牌其余五面纯木底格=61(design-lead 预授权第二格位)');
+  assert.strictEqual(e.top, 61, '顶面=木底格');
+  assert.strictEqual(e.bottom, 61, '底面=木底格');
+  /* 陶橙瓦 79(S1)纯色行不入集——零贴图成本(S1 优先纯色行) */
+  assert.ok(!(t.B_ROOF_TILE in L.tiles), '陶橙瓦不入图集(纯色行 faceColor 兜底)');
+  const all = t.TextureAtlas.paintAll();
+  const px = tilePixels(t, all, 60);
+  /* 色板(pixel-spec §1 锁): W 牌木底/D 深木缝线/B 塔身暖褐/R 瓦顶陶橙/G 顶钟暖金 */
+  const W = [200, 152, 88]; const D = [146, 109, 60]; const B = [139, 90, 60];
+  const R = [217, 122, 74]; const G = [227, 178, 60];
+  const rgb = (p) => [p[0], p[1], p[2]];
+  const at = (x, y) => px[y * 16 + x];
+  /* 全不透明(实心漆牌)+色数恰 5(底 2+图形 3, ≤5 红线) */
+  const seen = new Set();
+  for (const p of px) {
+    assert.strictEqual(p[3], 255, '门额牌像素全不透明(实心漆牌无透隙)');
+    seen.add(p[0] + ',' + p[1] + ',' + p[2]);
+  }
+  assert.strictEqual(seen.size, 5, '色数恰 5(实测 ' + seen.size + ')');
+  /* 图案锚点(§2 逐像素网格直译): 金点/瓦顶两笔/塔身/塔门透出 */
+  assert.deepStrictEqual(rgb(at(7, 1)), G, '顶钟金点(7,1)');
+  assert.deepStrictEqual(rgb(at(8, 1)), G, '顶钟金点(8,1, 2px 横对居 x=7.5)');
+  assert.deepStrictEqual(rgb(at(5, 2)), R, '瓦顶上笔左端(5,2)');
+  assert.deepStrictEqual(rgb(at(10, 3)), R, '瓦顶上笔右端(10,3)');
+  assert.deepStrictEqual(rgb(at(7, 3)), R, '瓦顶上笔盖过横缝 y3(镇徽漆在木作线之上)');
+  assert.deepStrictEqual(rgb(at(4, 4)), R, '瓦顶下笔左端(4,4, 8 宽阶梯收分)');
+  assert.deepStrictEqual(rgb(at(11, 5)), R, '瓦顶下笔右端(11,5)');
+  assert.deepStrictEqual(rgb(at(6, 6)), B, '塔身左上(6,6, 4 宽 8 行主剪影)');
+  assert.deepStrictEqual(rgb(at(9, 10)), B, '塔身右中(9,10)');
+  assert.deepStrictEqual(rgb(at(7, 12)), W, '塔门木底透出(7,12, 底色透出=零新增色)');
+  assert.deepStrictEqual(rgb(at(8, 13)), W, '塔门木底透出(8,13)');
+  /* 木作线(planksBase 族): 横缝 4 行一板 + 竖缝错位 + 钉点 */
+  assert.deepStrictEqual(rgb(at(0, 3)), D, '横缝板末行(0,3)');
+  assert.deepStrictEqual(rgb(at(0, 7)), D, '横缝(0,7)');
+  assert.deepStrictEqual(rgb(at(15, 11)), D, '横缝(15,11)');
+  assert.deepStrictEqual(rgb(at(0, 15)), D, '横缝(0,15)');
+  assert.deepStrictEqual(rgb(at(2, 0)), D, '竖缝 x2 板带 1(2,0..2)');
+  assert.deepStrictEqual(rgb(at(13, 4)), D, '竖缝 x13 板带 2(13,4..6)');
+  assert.deepStrictEqual(rgb(at(14, 1)), D, '钉点(14,1)');
+  assert.deepStrictEqual(rgb(at(1, 13)), D, '钉点(1,13)');
+  assert.deepStrictEqual(rgb(at(0, 0)), W, '牌角木底(0,0)');
+  /* 61 号格: 纯木底平涂(五面木底 #C89858, 零噪声确定性) */
+  const wood = tilePixels(t, all, 61);
+  for (const p of wood) {
+    assert.deepStrictEqual(rgb(p), W, '木底格纯 #C89858 平涂');
+    assert.strictEqual(p[3], 255, '木底格全不透明');
+  }
+});
+
+test('meshChunk: 门额牌竖板路径 — 专用小盒贴西缘, 西面 UV 落图案格其余落木底格, 垫块上底面剔除(v2 S2 火把/床双先例)', () => {
+  const t = loadAtlas();
+  assert.strictEqual(t.B_GATE_SIGN, 80, '前置: 门额牌 id=80');
+  const L = t.TextureAtlas.layout;
+  const e = L.tiles[t.B_GATE_SIGN];
+  const rect = (idx) => t.TextureAtlas.tileUV(idx);
+  const inRect = (r, uvs) => uvs.every((q, i) => i % 2 === 0 ?
+    q >= r[0] - 1e-12 && q <= r[2] + 1e-12 : q >= r[1] - 1e-12 && q <= r[3] + 1e-12);
+  /* 悬空孤牌: 6 面全绘(西面图案+东/南北/顶/底木底), 薄板贴西缘 thin=0.15 */
+  let p = mkPack(1);
+  p.set(8, 5, 8, t.B_GATE_SIGN);
+  let r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(r.solid, null, '入集门额牌不走纯色通道');
+  assert.strictEqual(quads(r.atlas), 6, '悬空门额牌 6 面');
+  const xs = new Set();
+  const x0 = Math.floor(r.atlas.positions[0]);
+  for (let i = 0; i < r.atlas.positions.length; i += 3) {
+    xs.add(Math.round((r.atlas.positions[i] - x0) * 10000) / 10000);
+  }
+  assert.deepStrictEqual([...xs].sort(), [0, 0.15], '薄板贴西缘 x∈[0,0.15](竖立满格高/宽)');
+  /* 分面 UV: 法线 -x 面(西面图案)落 60 号格; 其余面(东/南北/顶/底)落 61 号木底格 */
+  const faces = new Map();
+  for (let q = 0; q < r.atlas.indices.length; q += 6) {
+    const vi = r.atlas.indices[q];
+    const nx = r.atlas.normals[vi * 3]; const ny = r.atlas.normals[vi * 3 + 1];
+    const nz = r.atlas.normals[vi * 3 + 2];
+    const uvs = [];
+    for (let c = 0; c < 4; c++) {
+      const v = r.atlas.indices[q + c];
+      uvs.push(r.atlas.uvs[v * 2], r.atlas.uvs[v * 2 + 1]);
+    }
+    faces.set(nx + ',' + ny + ',' + nz, uvs);
+  }
+  assert.ok(inRect(rect(e.side), faces.get('-1,0,0')), '西面 UV 落镇徽图案格(图案面朝西迎玩家)');
+  for (const key of ['1,0,0', '0,0,-1', '0,0,1', '0,1,0', '0,-1,0']) {
+    assert.ok(inRect(rect(e.back), faces.get(key)), '面 ' + key + ' UV 落纯木底格');
+  }
+  /* 西面 UV 满幅采样(整格图案, 非火把式采样窗): 四角恰贴格矩形四角 */
+  const wr = rect(e.side);
+  const wu = faces.get('-1,0,0');
+  assert.ok(wu.some((q, i) => i % 2 === 0 && Math.abs(q - wr[0]) < 1e-9), '西面 U 贴格左缘');
+  assert.ok(wu.some((q, i) => i % 2 === 0 && Math.abs(q - wr[2]) < 1e-9), '西面 U 贴格右缘');
+  /* 垫块上(横梁语境): 底面贴实心剔除=5 面(火把 cullDown 同款, 防与梁顶 z-fight);
+     垫块用 13 石砖(不入集走实心通道)——横梁同料, 若用 3 石头(在集)会混入图集通道 */
+  p = mkPack(1);
+  p.set(8, 5, 8, 13); /* 垫块=门洞横梁同位语境(石砖) */
+  p.set(8, 6, 8, t.B_GATE_SIGN);
+  r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(quads(r.atlas), 5, '垫块上门额牌 5 面(底面剔除)');
+  assert.strictEqual(quads(r.solid), 6, '垫块本体照常实心通道(牌不遮梁)');
 });
