@@ -566,6 +566,22 @@ function advToast(text) {/* 媒体缝·toast: 经 profile 取通道(缺省直通
   advProfile.toast(text);
 }
 
+function advTownArriveCard() {/* 媒体缝·到达时刻卡(城镇翻新 TIDEA-15, U-04):
+    进镇白闪满格瞬间一次性镇名卡浮现(暖纸底, 入0.4s+驻留1.6s+出0.8s≈2.8s
+    后自摘), 「被欢迎的仪式」——与 hud.banner 常驻横幅并存不冲突(时刻卡=
+    到达一次性, 横幅=常驻轻状态); 文案与横幅译名对齐(dims-core town 行
+    banner)。直改 DOM=advToast 同款装配层先例; Node 沙盒无 document
+    早退(T-SEAM-02 到达分支在 Node 直跑) */
+  if (typeof document === 'undefined') return;
+  const card = document.createElement('div');
+  card.className = 'adv-town-arrive-card';
+  card.textContent = '🏘️ 小镇 · Midport Village';
+  document.body.appendChild(card);
+  setTimeout(() => {/* 动画全长≈2.8s, 留 100ms 余量后摘节点(自清理零残留) */
+    if (card.parentNode) card.parentNode.removeChild(card);
+  }, 2900);
+}
+
 function advSyncHeldVisual() {/* 手持观感 = 选中槽内容(「手持与物品栏一致」的单一出口):
    工具/方块/食物/材料全经 HeldItems.defFor 解析, 空槽 = 空手(MC 口径) */
   const s = advInv.slots[advHb.sel];
@@ -2341,6 +2357,9 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
       行身份比对=回程触发线门先例口径(壳层零 town 字面量特判, dims-core 在册) */
   advDim = dim; /* advMap 不动: 副本/下界期间保持最后主世界图(T6) */
   advSyncTownChrome(); /* 城镇翻新 TIDEA-12/13: 换维一次性切安静档(进镇挂/出镇摘) */
+  /* 城镇翻新 TIDEA-17: 回程预告臂随维度行结转(进镇重臂=一次/进场, 出镇
+     清零; 行身份比对=本文件回程触发线门先例口径, 零 town 字面量) */
+  advTownReturnArmed = advDimRow(dim) === ADV_TOWN_DIM_ROW;
   advSceneLeave();
   let denFresh = false;
   if (dim === 'den') {/* 副本刷新判据(D20/D23 两日窗口)——必须在 loadScene 之前:
@@ -2723,6 +2742,7 @@ function advVeilArrive() {/* 渐晕满格瞬间(§4.1 ②③): kind 分流——
     advSetDim(advVeil.to);
     advSpeak('到小镇啦！');
     advToast('🏘️ 到小镇啦！');
+    advTownArriveCard(); /* 城镇翻新 TIDEA-15: 到达镇名时刻卡(白闪满格瞬间一次性) */
     return;
   }
   if (advVeil.to === 'home' && advDim !== 'overworld') {
@@ -2897,12 +2917,25 @@ const ADV_TOWN_DIM_ROW = ADV_DIMS.find((r) => r.id === 'town'); /* 镇维度行(
     (dims-core 在册), 本缝=ADR-0011 决策 4 明令的「真差异留壳」(den 布防
     同款先例), 行身份形态两全: 行为上镇维度专属, 文面上零字面维度判据;
     行若除名则 find=undefined 门恒关(回程静默, 失败安全) */
+let advTownReturnArmed = false; /* 回程预告臂(TIDEA-17, U-06): true=缓冲带
+    预告可发(一次); advSetDim 进镇重臂(一次/进场), 触发即撤, 迟滞退距
+    重臂(见 advTownReturnTick)——hover 在线边不刷屏 */
 function advTownReturnTick(dt) {/* 回程触发装配(update 每帧, advEdgeTick 相邻位,
-    互斥维度门): 早退链(白闪推进中/睡觉)→维度门→带式判据→advVeilFire
-    (白闪+冷却在 veil 段, 到达分流在 advVeilArrive) */
+    互斥维度门): 早退链(白闪推进中/睡觉)→维度门→缓冲带预告→带式判据→
+    advVeilFire(白闪+冷却在 veil 段, 到达分流在 advVeilArrive) */
   if (advVeil.phase === 'in' || advSleep.on) return; /* 白闪推进中/睡觉不触发(淡出期放行, 见上) */
   if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return; /* 回程触发线镇维度专属
       (行身份比对见上; 维度冻结期 advMap 不参判) */
+  /* 城镇翻新 TIDEA-17(U-06): 缓冲带回程预告——线南 6 格一次性邀请句
+      「再往前就回家啦!」(7 字判据合规, 不碰 ADR-0011 决策 3 home 侧话术
+      锁/决策 4 白闪触发线); 迟滞重臂防刷: 撤臂后退到线南 12 格才再可预告
+      (线边徘徊不重复弹), armed 由 advSetDim 进镇置位 */
+  if (advTownReturnArmed && pos.z >= ADV_TOWN_RETURN_Z - 6) {
+    advTownReturnArmed = false;
+    advToast('🌼 再往前就回家啦！');
+  } else if (!advTownReturnArmed && pos.z <= ADV_TOWN_RETURN_Z - 12) {
+    advTownReturnArmed = true;
+  }
   if (pos.z < ADV_TOWN_RETURN_Z) return; /* 未越线(任意 x 带式判据, 无 x 依赖) */
   advVeilFire({to: 'home', kind: 'edge'}); /* 越线瞬间发令(与去程同形, 无站桩) */
 }

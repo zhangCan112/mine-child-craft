@@ -4902,6 +4902,49 @@ test('T-SEAM-03 缓冲常量在位+判据注释回引 §6.3.5(防误触参数可
   assert.ok(ctx.indexOf('6.3.5') >= 0, '常量注释回引 town-map-design §6.3.5(不抄第二份几何)');
 });
 
+test('TIDEA-17 缓冲带回程预告(城镇翻新 U-06): 线南 6 格一次性「再往前就回家啦!」·线边徘徊零重刷(迟滞 12 格重臂)·预告不改变触发线语义(z132 照常发令, ADR-0011 决策 4)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town'); /* 切界唯一入口直达(预告臂随进镇置位, advSetDim) */
+  for (let i = 0; i < 50; i++) AdventureMode.update(1 / 60); /* 冷却窗走空 */
+  const hintToasts = () => calls.filter((x) => x[0] === 'toast' &&
+      String(x[1]).indexOf('再往前') >= 0).length;
+  /* 缓冲带内(线南 6 格窗: z≥126): 一次性预告 */
+  globalThis.pos.x = 79; globalThis.pos.y = 25; globalThis.pos.z = 131.5;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(hintToasts(), 1, '进缓冲带恰一次预告(邀请句, 不碰 home 侧话术)');
+  /* 线边徘徊(126~131 间抖动): armed 已撤且未退到重臂线→零重刷 */
+  globalThis.pos.z = 127.5;
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  globalThis.pos.z = 130.5;
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(hintToasts(), 1, '线边徘徊零重刷(迟滞防抖不刷屏)');
+  /* 退到线南 12 格(z≤120)→迟滞重臂; 再进带→恰再加一次 */
+  globalThis.pos.z = 110.5;
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(hintToasts(), 1, '重臂退距内零预告');
+  globalThis.pos.z = 131.5;
+  for (let i = 0; i < 5; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(hintToasts(), 2, '退距重臂后再进带→恰再加一次');
+  /* 预告不改变触发线: z=132 越线照常发令(白闪链路一格不动) */
+  globalThis.pos.z = 132.5;
+  AdventureMode.update(1 / 60);
+  assert.ok(A.advNetherState().portalCd > 0, '越线照常发令(触发线语义零变化)');
+  for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(A.advNetherState().dim, 'overworld', '白闪回 home(回程链路不变)');
+  AdventureMode.cleanup();
+});
+
+test('TIDEA-15 到达时刻卡装配在册+Node 沙盒守卫(源切片; 行为面由上方 T-SEAM-02/03 到达链 e2e 承担)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const hasFn = src.indexOf('function advTownArriveCard') >= 0;
+  const hasGuard = src.indexOf('if (typeof document === \'undefined\') return;') >= 0;
+  const hasText = src.indexOf('card.textContent = \'🏘️ 小镇 · Midport Village\'') >= 0;
+  assert.ok(hasFn, '时刻卡装配函数在册(advToast 同款媒体缝位)');
+  assert.ok(hasGuard && hasText,
+      '无 document 早退守卫+镇名文案与横幅译名对齐(dims-core town 行)');
+});
+
 test('T-SEAM-03 east 锚所落格可站立(建场探针, 三向现锚同款): 落点脚箱覆盖格 y24 实垫 y25/26 净空', () => {
   mem.clear();
   freshInit(); /* 建场 home 真实世界(建场探针跑真世界, 非表数据自证) */

@@ -89,6 +89,15 @@ const TOWN_PRAISE_MID_MS = TOWN_UI_CORE ?
     TOWN_UI_CORE.TOWN_UI_PARAMS.PRAISE_MS[1]) / 2 :
   1600;
 
+/* ---------- 城镇翻新波次二参数(呈现层节奏, 与 css/town.css 动画同源):
+   BUBBLE_SAFE 安全区夹紧边距(16px) / BUBBLE_GAP 尾尖悬距(锚点→气泡底边,
+   尾尖同高, TIDEA-14); TOWER_SEEN_COOLDOWN 回望回礼冷却 30s 防刷 /
+   TOWER_PULSE 脉冲驻留 1.6s(band-nearby 呼吸周期同族, TIDEA-16) ---------- */
+const TOWN_BUBBLE_SAFE = 16;
+const TOWN_BUBBLE_GAP = 12;
+const TOWN_TOWER_SEEN_COOLDOWN_MS = 30000;
+const TOWN_TOWER_PULSE_MS = 1600;
+
 function mkTownUi(deps) {
   deps = deps || {};
   /* 无件两栖: document 缺席(Node/沙盒)时用内置最小元素桩——状态与 DOM
@@ -259,6 +268,15 @@ function mkTownUi(deps) {
   let focusTarget = null; /* 最近 focus 的目标(标签句/hasNext 判断用) */
   const doneIds = new Set(); /* 装配层自有事件记忆(state==='done' id 集) */
   let curSentence = ''; /* 当前提示完整句(重播钮口径) */
+  /* 城镇翻新波次二会话态(TIDEA-16/19): enteredOnce 不随离镇复位(首访提示
+     仅本会话首次进镇有效); greet 完成=close result 'done' 记账; 钟塔回望
+     armed=先观察到非正前再回正前(防出生直视即烧), 冷却/脉冲句柄离镇清 */
+  let townEnteredOnce = false;
+  let townGreetDone = false;
+  let firstVisitHintOn = false;
+  let towerSeenArmed = false;
+  let towerSeenLast = 0;
+  let towerPulseH = null;
   let praiseHideH = null; /* 未决定时句柄(离镇/换机要清) */
   let elapseH = null;
   let rafStarted = false;
@@ -382,13 +400,14 @@ function mkTownUi(deps) {
     card.hidden = d.l1 === 'hidden';
     pointerSlot.hidden = d.l2 !== 'normal';
     sysSlot.hidden = false; /* L4 安全返回永不收敛 */
-    /* 卡内容按态刷(P-V1: 无任务=「随便逛逛」轻状态) */
+    /* 卡内容按态刷(P-V1: 无任务=「随便逛逛」轻状态; TIDEA-19 首访未 greet
+       时拦截为邀请句「村民们在等你呢!」, 完成首次 greet 即回落) */
     const exploring = cur === 'idle-exploring';
     labelEl.textContent = exploring ?
-      '随便逛逛' :
+      (firstVisitHintOn ? '村民们在等你呢！' : '随便逛逛') :
       ((focusTarget && focusTarget.label) || '随便逛逛');
     iconEl.textContent = exploring ?
-      '🚶' :
+      (firstVisitHintOn ? '👋' : '🚶') :
       TOWN_CARD_ICONS[focusTarget && focusTarget.iconKey] || '⭐';
     card.classList.remove('is-idle-exploring', 'is-active', 'is-step-done');
     if (exploring) {
@@ -456,6 +475,37 @@ function mkTownUi(deps) {
     const glyph = resolved.mode !== 'off' && resolved.iconKey ?
       (TOWN_CARD_ICONS[resolved.iconKey] || '⭐') : '';
     if (pointerIcon.textContent !== glyph) pointerIcon.textContent = glyph;
+  }
+
+  /* 回望钟塔「看到了!」回礼(城镇翻新 TIDEA-16, U-05): 250ms 位姿采样驱动
+     (sync 幂等分支调用, 零新增循环), 钟塔锚入视野中央(yaw 夹角 front 档,
+     同族纯函数)给 L2 徽章一次性柔和脉冲——单次+冷却防刷, 不占 L3 夸奖
+     通道(纯视觉, 钟鸣配对归波次三音频批)。armed=先观察到非正前再回正前
+     (出生直视即烧的防误触, 保「回望」仪式感); 纯方位判定不查遮挡
+     (钟塔=全镇地标尺度)。类写按 contains 守卫(同态重入零 classList) */
+  function checkTowerSeen() {
+    if (!pointerBadge || !root || root.hidden) return;
+    const pose = poseRef();
+    const anchor = bellTowerAnchor();
+    if (!pose || !anchor) return; /* 几何输入缺一零判定(同 refreshPointer) */
+    const heading = TOWN_UI_CORE.townPointerHeading(
+        anchor.x - pose.x, anchor.z - pose.z, pose.yaw);
+    if (heading !== 'front') {
+      towerSeenArmed = true; /* 离开正前=预备「回望」语义 */
+      return;
+    }
+    if (!towerSeenArmed) return; /* 未曾离开正前不烧触发(出生直视) */
+    towerSeenArmed = false; /* 单次: 触发即撤臂(再看须先离开正前) */
+    if (Date.now() - towerSeenLast < TOWN_TOWER_SEEN_COOLDOWN_MS) return;
+    towerSeenLast = Date.now();
+    if (!pointerBadge.classList.contains('seen-pulse')) {
+      pointerBadge.classList.add('seen-pulse');
+    }
+    clearHandle(towerPulseH);
+    towerPulseH = timer.set(() => {
+      pointerBadge.classList.remove('seen-pulse');
+      towerPulseH = null;
+    }, TOWN_TOWER_PULSE_MS);
   }
 
   /* ---------- T-UI-03 可交互高亮/标记与点选反馈(hud-spec §6; prebuild §4) ----------
@@ -644,39 +694,90 @@ function mkTownUi(deps) {
       hoveredEntry.label || '' : '';
     const sig = [snap.state, dlgCtx ? dlgCtx.npcId : null,
       view.praise ? view.praise.level : '', bubbleText].join('|');
-    if (sig === dlgSig) return;
-    dlgSig = sig;
-    dlgPanel.setAttribute('data-state', snap.state);
-    dlgPanel.hidden = snap.state === 'idle';
-    if (dlgPanel.hidden) {
-      dlgSpeaker.textContent = '';
-      dlgBody.textContent = '';
-      clearChildren(dlgOpts);
-      clearChildren(dlgGhosts);
-    } else {
-      dlgSpeaker.textContent = view.panel.speaker.name;
-      dlgBody.textContent = view.panel.body;
-      renderDlgOptions(view.panel.options);
-      renderDlgGhosts(view.panel.ghosts);
+    const bubbleVisible = !!(snap.state === 'idle' && hoveredEntry);
+    if (sig !== dlgSig) {
+      dlgSig = sig;
+      dlgPanel.setAttribute('data-state', snap.state);
+      dlgPanel.hidden = snap.state === 'idle';
+      if (dlgPanel.hidden) {
+        dlgSpeaker.textContent = '';
+        dlgBody.textContent = '';
+        clearChildren(dlgOpts);
+        clearChildren(dlgGhosts);
+      } else {
+        dlgSpeaker.textContent = view.panel.speaker.name;
+        dlgBody.textContent = view.panel.body;
+        renderDlgOptions(view.panel.options);
+        renderDlgGhosts(view.panel.ghosts);
+      }
+      dlgThumb.hidden = !(view.panel && view.panel.thumb);
+      if (view.panel && view.panel.thumb) {
+        /* emoji 占位同 L1/L2 策略(UI-01 语义键入库前) */
+        dlgThumb.textContent = TOWN_CARD_ICONS[dlgCtx.targetIconId] || '⭐';
+      }
+      dlgPraise.hidden = !view.praise;
+      if (view.praise) {
+        dlgPraise.textContent = view.praise.level === 'cheer' ? '🌟' : '⭐';
+      }
+      /* World Bubble 仅 idle 态环境感知(hover 驱动, 局部提示非会话) */
+      dlgBubble.hidden = !bubbleVisible;
+      if (dlgBubble.hidden) {
+        dlgBubble.textContent = '';
+        dlgBubble.setAttribute('data-state', 'idle');
+      } else {
+        dlgBubble.textContent = bubbleText;
+        dlgBubble.setAttribute('data-state', 'bubble');
+      }
     }
-    dlgThumb.hidden = !(view.panel && view.panel.thumb);
-    if (view.panel && view.panel.thumb) {
-      /* emoji 占位同 L1/L2 策略(UI-01 语义键入库前) */
-      dlgThumb.textContent = TOWN_CARD_ICONS[dlgCtx.targetIconId] || '⭐';
+    /* 城镇翻新 TIDEA-14: 锚定位写不进签名门(相机转动签名不变, 位置必须
+       跟帧——250ms 位姿采样经 sync 到此)——可见时无条件重投影; 隐藏/hover
+       丢失时摘锚定残留(类+内联位, 不然下次气泡回底部固定位形态时残留
+       内联位错位——内联优先级高于 CSS inset)。类写按 contains 守卫 */
+    if (bubbleVisible && !dlgBubble.hidden) {
+      positionBubbleAtSpeaker();
+    } else if (dlgBubble.classList.contains('is-anchored')) {
+      dlgBubble.classList.remove('is-anchored');
+      dlgBubble.style.left = '';
+      dlgBubble.style.top = '';
     }
-    dlgPraise.hidden = !view.praise;
-    if (view.praise) {
-      dlgPraise.textContent = view.praise.level === 'cheer' ? '🌟' : '⭐';
+  }
+
+  /* 世界气泡锚定(城镇翻新 TIDEA-14, U-03): 说话人锚屏幕投影挂头顶, 尾尖
+     指向说话人(指针槽同族投影面, 装具契约同 refreshHl); 投影缺席/出视野
+     回落现有底部固定位(摘锚类+清内联位, CSS 兜底)——保底可用性优先。
+     16px 安全区夹紧(offsetWidth 实测半宽; transform -50%/-100% 中心底
+     对齐, 底边停在锚点上方 GAP 处)。类写按 contains 守卫(同态重入零
+     classList 操作, 签名门控纪律同族) */
+  function positionBubbleAtSpeaker() {
+    const cam = camRef();
+    const anchor = hoveredEntry && hoveredEntry.anchor;
+    let proj = null;
+    if (cam && cam.origin && anchor) {
+      proj = TOWN_UI_CORE.townHlProject({
+        x: cam.origin.x, y: cam.origin.y, z: cam.origin.z,
+        yaw: cam.yaw, pitch: cam.pitch, fovDeg: cam.fovDeg,
+        aspect: cam.aspect, vw: cam.vw, vh: cam.vh,
+      }, anchor);
     }
-    /* World Bubble 仅 idle 态环境感知(hover 驱动, 局部提示非会话) */
-    dlgBubble.hidden = !(snap.state === 'idle' && hoveredEntry);
-    if (dlgBubble.hidden) {
-      dlgBubble.textContent = '';
-      dlgBubble.setAttribute('data-state', 'idle');
-    } else {
-      dlgBubble.textContent = bubbleText;
-      dlgBubble.setAttribute('data-state', 'bubble');
+    if (!proj || !proj.visible) {
+      if (dlgBubble.classList.contains('is-anchored')) {
+        dlgBubble.classList.remove('is-anchored');
+      }
+      dlgBubble.style.left = '';
+      dlgBubble.style.top = '';
+      return;
     }
+    const halfW = (dlgBubble.offsetWidth || 0) / 2;
+    const height = dlgBubble.offsetHeight || 0;
+    const minX = TOWN_BUBBLE_SAFE + halfW;
+    const maxX = Math.max(minX, (cam.vw || 0) - TOWN_BUBBLE_SAFE - halfW);
+    const x = Math.min(Math.max(proj.x, minX), maxX);
+    const minY = TOWN_BUBBLE_SAFE + height + TOWN_BUBBLE_GAP;
+    if (!dlgBubble.classList.contains('is-anchored')) {
+      dlgBubble.classList.add('is-anchored');
+    }
+    dlgBubble.style.left = x + 'px';
+    dlgBubble.style.top = Math.max(proj.y - TOWN_BUBBLE_GAP, minY) + 'px';
   }
 
   function renderDlgOptions(options) {
@@ -849,6 +950,17 @@ function mkTownUi(deps) {
     hoveredId = null; /* 高亮命中/按下记忆同清(零跨轮残留) */
     pressedId = null;
     hoveredEntry = null;
+    /* 城镇翻新 TIDEA-16/19 会话态进场结转: 首访提示只认本会话首次进镇
+       (enteredOnce 不随离镇复位); 钟塔回望臂/冷却/脉冲全清零串轮 */
+    firstVisitHintOn = !townEnteredOnce && !townGreetDone;
+    townEnteredOnce = true;
+    towerSeenArmed = false;
+    towerSeenLast = 0;
+    clearHandle(towerPulseH);
+    towerPulseH = null;
+    if (pointerBadge && pointerBadge.classList.contains('seen-pulse')) {
+      pointerBadge.classList.remove('seen-pulse');
+    }
     if (DIALOG_CORE) {
       dlg = DIALOG_CORE.mkDialogMachine({emit: onDlgEvent});
       dlgCtx = null; /* 新机新会话: 上下文/签名/播报句全清(可重入零串轮) */
@@ -883,6 +995,14 @@ function mkTownUi(deps) {
     clearHandle(dlgDwellH);
     dlgConfirmH = null;
     dlgDwellH = null;
+    /* 城镇翻新 TIDEA-16: 脉冲句柄/回望臂随离镇清(零跨轮误摘误烧) */
+    clearHandle(towerPulseH);
+    towerPulseH = null;
+    towerSeenArmed = false;
+    towerSeenLast = 0;
+    if (pointerBadge && pointerBadge.classList.contains('seen-pulse')) {
+      pointerBadge.classList.remove('seen-pulse');
+    }
     dlgCtx = null;
     dlgSentence = '';
     dlgSig = null; /* 会话层签名记忆清零(再进零残留) */
@@ -916,6 +1036,10 @@ function mkTownUi(deps) {
     }
     if (sameMachine(m, prevMachine)) {
       refreshPointer(); /* 幂等对账后低频位姿采样(签名门控: 同位姿零 DOM) */
+      /* 城镇翻新 TIDEA-14/16: 位姿采样半边——气泡锚位跟帧(refreshDlg
+         内容照签名门控, 锚位写在其门之外) + 钟塔回望查检 */
+      refreshDlg();
+      checkTowerSeen();
       return; /* 幂等零动作 */
     }
     if (!m) {
@@ -966,6 +1090,13 @@ function mkTownUi(deps) {
          核心承担, 关闸后解冻) */
       dialogOpen = false;
       if (doc && doc.body) doc.body.classList.remove('town-dialog-open'); /* TIDEA-13: 回漫步淡档 */
+      /* 城镇翻新 TIDEA-19: 首次 greet 完成(close result='done', 取值域
+         deferred|done|continue)即撤首访提示——记账+即时摘臂, 标签回落由
+         下方 feed 的 applyState 落卡(此处不触 DOM) */
+      if (payload.result === 'done') {
+        townGreetDone = true;
+        firstVisitHintOn = false; /* 即时回落(本会话不再提示) */
+      }
       feed({type: 'dialog-close', result: payload.result,
         taskRef: payload.taskRef, prev: prevCardState});
       refreshHl(); /* 降噪随会话解除恢复(标记回默认态可见) */

@@ -271,6 +271,35 @@
   }
 }
 
+/* 回望钟塔「看到了!」一次性回礼脉冲(城镇翻新 TIDEA-16, U-05): 柔光一次
+   涨落 1.6s(呼吸光语言同族, 单次不催促不刷屏), 类由 town-ui.js 计时摘 */
+.town-hud-pointer-badge.seen-pulse {
+  animation: town-hud-seen-pulse 1.6s ease-out 1;
+}
+
+@keyframes town-hud-seen-pulse {
+  0% {
+    box-shadow:
+      0 0 0 2px var(--town-hud-gold),
+      0 0 0 2px var(--town-hud-gold-bright),
+      var(--town-hud-shadow);
+  }
+
+  45% {
+    box-shadow:
+      0 0 0 2px var(--town-hud-gold),
+      0 0 14px 6px var(--town-hud-gold-bright),
+      var(--town-hud-shadow);
+  }
+
+  100% {
+    box-shadow:
+      0 0 0 2px var(--town-hud-gold),
+      0 0 3px 1px var(--town-hud-gold-bright),
+      var(--town-hud-shadow);
+  }
+}
+
 /* 目标态常显 / 回落态 50% 半透明弱提示(U5: 无目标仍指钟塔回家方位,
    弱提示不抢注意力) */
 .town-hud-pointer-badge.is-target {
@@ -293,8 +322,10 @@
   }
 
   /* 指引器: town-hud-pointer-breathe 呼吸停(降级为静态柔光); 指针转动
-     过渡停, 方位 rotate 语义保留(不随 transform: none 抹掉) */
-  .town-hud-pointer-badge.band-nearby {
+     过渡停, 方位 rotate 语义保留(不随 transform: none 抹掉); TIDEA-16
+     一次性回礼脉冲同停(纯装饰动效) */
+  .town-hud-pointer-badge.band-nearby,
+  .town-hud-pointer-badge.seen-pulse {
     animation: none;
   }
 
@@ -454,6 +485,28 @@
   display: none;
 }
 
+/* World Bubble 世界锚定档(城镇翻新 TIDEA-14, U-03): 挂说话人头顶屏幕
+   投影——left/top 内联位由 town-ui.js 实测写入(16px 安全区夹紧), transform
+   中心底对齐锚点; 尾尖=墨色三角指向说话人(悬距 12px 与 JS TOWN_BUBBLE_GAP
+   同值同源)。回落档=本类缺席时上方基础款底部固定位(投影不可用/出视野,
+   保底可用性优先) */
+.town-dlg-bubble.is-anchored {
+  inset-inline: auto;
+  inset-block-end: auto;
+  transform: translate(-50%, -100%);
+}
+
+.town-dlg-bubble.is-anchored::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-end: -12px;
+  transform: translateX(-50%);
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-top: 12px solid var(--town-hud-ink);
+}
+
 /* Session Panel: 底部居中卡片(B1), 暖纸半透明底+墨字, 圆角无棱角;
    宽 min(42vw,600px) 下限 360px / 距底 28px / 圆角 20 / 描边 2px
    ——revamp-spec §3-H 六值裁决定稿 */
@@ -606,5 +659,71 @@
   .town-dlg-praise {
     transition: none;
     animation: none;
+  }
+}
+
+/* ============================================================
+   到达镇名时刻卡 (城镇翻新 TIDEA-15, U-04) — 进镇白闪满格瞬间一次性
+   浮现的「被欢迎的仪式」: 暖纸底+墨字(:root --town-hud-surface 同源,
+   与 B 侧 panel-bg 同值同语言), 顶部居中悬浮; 与 hud.banner 常驻横幅
+   并存不冲突(时刻卡=到达一次性, 横幅=常驻轻状态)。动画全长 ≈2.8s
+   (入 0.4 + 驻留 1.6 + 出 0.8), 节点由 adventure.js 2.9s 后自摘。
+   类名 adv- 前缀=生成方(modes/adventure.js)直挂 body, 样式归城镇色板
+   本表; z-index 16=高于 #fade 白闪 15(卡在退白上浮, 仪式可见), 低于
+   面板 40。
+   ============================================================ */
+.adv-town-arrive-card {
+  position: fixed;
+  inset-block-start: 18vh;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: fit-content;
+  padding: 14px 30px;
+  background: var(--town-hud-surface);
+  border: 2px solid var(--town-hud-ink);
+  border-radius: 20px;
+  box-shadow:
+    inset 0 0 0 3px var(--town-hud-soft-white),
+    var(--town-hud-shadow);
+  color: var(--town-hud-ink);
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-align: center;
+  pointer-events: none; /* 时刻卡纯展示不挡点选 */
+  z-index: 16;
+  animation: adv-town-arrive-pop 2.8s ease-out both;
+}
+
+@keyframes adv-town-arrive-pop {
+  0% {
+    opacity: 0;
+    transform: translateY(10px) scale(0.96);
+  }
+
+  /* 0.4s/2.8s 入场到位 */
+  14.3% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  /* 2.0s/2.8s 驻留毕开始退场 */
+  71.4% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.98);
+  }
+}
+
+/* 降级: 减少动态偏好下时刻卡瞬显即隐(JS 2.9s 自摘兜底, forwards 停末帧
+   透明)——「被欢迎的仪式」退化为不加打扰的闪现 */
+@media (prefers-reduced-motion: reduce) {
+  .adv-town-arrive-card {
+    animation-duration: 0.01s;
+    animation-fill-mode: forwards;
   }
 }

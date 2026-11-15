@@ -1846,3 +1846,140 @@ test('T-UI-05 F5: praise dwell 泵默认取 praiseTotalMs 上限档(表扬句完
   assert.strictEqual(rec.timer.pending[0].ms, 2000,
       'dwell 默认=praiseTotalMs[1] 上限档(F5: 1.2s 下限档截断表扬句 cancel-then-speak)');
 });
+
+/* ============================================================
+   城镇翻新波次二(TIDEA-14/16/19 呈现层三件; 提案源 hud-ideas U-03/U-05/
+   U-08): 世界气泡锚定说话人头顶投影/回望钟塔一次性回礼脉冲/首访轻引导
+   一句。全走公共 seam(注入 camRef/poseRef/timer + 文档级事件泵), 纯
+   追加既有断言零触碰。
+   ============================================================ */
+
+test('TIDEA-14 世界气泡锚定: hover 说话人→气泡挂头顶投影位(is-anchored+内联 left/top, 安全区夹紧); 相机转走→sync 采样重投影回落底部固定位(摘类清内联, 气泡仍显)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = mkHlHarness(() => ({snapshot: () => ({focusId: null, states: {}})}));
+  rec.ui.sync();
+  const bubble = dlgElOf(rec, 'town-dlg-bubble');
+  assert.strictEqual(bubble.hidden, true, '未悬停不显示(idle+hoveredEntry 双门)');
+  /* 瞄准钟塔(正前 20 格)→mousemove 命中→气泡显+锚定位写入
+     (装具投影: cam(79,25,96) yaw0 fov90 vw/vh100, 锚(79,24,76)→屏
+     (50,53); offsetWidth 假 DOM 缺席→0, 夹紧窗 [16,84] 不吃 50) */
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(HL_A.anchor)}));
+  rec.fire('mousemove', {});
+  assert.strictEqual(bubble.hidden, false, '悬停说话人→气泡显(环境感知局部提示)');
+  assert.strictEqual(bubble.classList.contains('is-anchored'), true,
+      '锚定档类在位(世界锚定, 尾尖指向说话人)');
+  assert.strictEqual(bubble.style.left, '50px',
+      '投影 x=50(vw100 水平中心, 夹紧窗内原值直写)');
+  assert.strictEqual(bubble.style.top, '41px',
+      '投影 y=53 上移 GAP 12=头顶悬停(底边停在锚点上方)');
+  /* 相机背转(锚入背后→depth≤0 投影缺席)→不发 mousemove(hover 记忆在)→
+     sync 250ms 采样半边重投影→回落底部固定位(摘类清内联, 保底可用性;
+     锚位写不进签名门: 签名未变内容零重写, 位置照写) */
+  rec.setCam(Object.assign({}, HL_CAM_DEFAULT,
+      {yaw: Math.PI, dir: hlAimDir(HL_A.anchor)}));
+  rec.ui.sync();
+  assert.strictEqual(bubble.hidden, false, '回落档气泡仍显(位置降级非消失)');
+  assert.strictEqual(bubble.classList.contains('is-anchored'), false,
+      '出视野摘锚定类(CSS 基础款底部固定位兜底)');
+  assert.strictEqual(bubble.style.left, '', '清内联位(回落零残留)');
+  assert.strictEqual(bubble.style.top, '', '清内联位(回落零残留)');
+});
+
+test('TIDEA-16 回望钟塔回礼: 先离开正前再回正前→L2 徽章 seen-pulse 一次(1.6s 定时摘类); 冷却 30s 内不重烧; 脉冲中离镇→类摘句柄清(零跨轮)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const prevMap = globalThis.TOWN_MAP;
+  globalThis.TOWN_MAP = {anchors: [{id: 'bell-tower', x: 79, y: 40, z: 60}]};
+  try {
+    /* 出生背对钟塔(yaw π): armed 面前不烧(防出生直视即烧的「回望」语义) */
+    const pose = {x: 79, y: 25, z: 96, yaw: Math.PI};
+    const machine = {snapshot: () => ({focusId: null, states: {}})};
+    const rec = mkHarness(() => machine, () => pose);
+    rec.ui.sync(); /* 进镇挂载 */
+    const badge = rec.ui.root.children
+        .find((c) => c.classList.contains('town-hud-pointer'))
+        .children.find((c) => c.classList.contains('town-hud-pointer-badge'));
+    assert.ok(badge, 'L2 徽章在册(前置)');
+    rec.ui.sync(); /* 位姿采样: 背对→armed=true 零脉冲 */
+    assert.strictEqual(badge.classList.contains('seen-pulse'), false,
+        '出生直视不烧(未曾离开正前不触发)');
+    pose.yaw = 0; /* 回望: 回正前 */
+    rec.ui.sync();
+    assert.strictEqual(badge.classList.contains('seen-pulse'), true,
+        '离开正前→回正前→一次性回礼脉冲');
+    assert.strictEqual(rec.timer.pending.length, 1, '脉冲驻留计时在册');
+    assert.strictEqual(rec.timer.pending[0].ms, 1600, '驻留 1.6s(呼吸周期同族)');
+    rec.timer.fireAll();
+    assert.strictEqual(badge.classList.contains('seen-pulse'), false, '驻留毕摘类');
+    /* 冷却防刷: 再离开+回望(真实墙钟同毫秒=冷却窗内)→armed 撤但不重烧 */
+    pose.yaw = Math.PI;
+    rec.ui.sync();
+    pose.yaw = 0;
+    rec.ui.sync();
+    assert.strictEqual(badge.classList.contains('seen-pulse'), false,
+        '冷却 30s 内不重烧');
+    assert.strictEqual(rec.timer.pending.length, 0, '冷却挡零新计时');
+    /* 离镇卫生(新机=新会话态, 墙钟冷却不跨实例): 脉冲中离镇→类摘+句柄清 */
+    const pose2 = {x: 79, y: 25, z: 96, yaw: Math.PI};
+    let live = true;
+    const rec2 = mkHarness(() => (live ? machine : null), () => pose2);
+    rec2.ui.sync(); /* 进镇(enterTown 清 armed; 进场帧不跑查检) */
+    rec2.ui.sync(); /* 采样: 背对→armed=true(「回望」语义: 先离开正前) */
+    pose2.yaw = 0;
+    rec2.ui.sync(); /* 回望→脉冲(towerSeenLast 初值 0, 冷却恒过) */
+    const badge2 = rec2.ui.root.children
+        .find((c) => c.classList.contains('town-hud-pointer'))
+        .children.find((c) => c.classList.contains('town-hud-pointer-badge'));
+    assert.strictEqual(badge2.classList.contains('seen-pulse'), true,
+        '前置: 实例二脉冲在位');
+    live = false;
+    rec2.ui.sync(); /* 离镇弃机 */
+    assert.strictEqual(rec2.timer.pending.length, 0, '脉冲句柄随离镇清');
+    assert.strictEqual(rec2.ui.root.hidden, true, '容器收敛(离镇语义不变)');
+  } finally {
+    if (prevMap === undefined) delete globalThis.TOWN_MAP;
+    else globalThis.TOWN_MAP = prevMap;
+  }
+});
+
+test('TIDEA-19 首访轻引导: 首进探索态=「村民们在等你呢!」👋; close 非 done 不回落; greet 完成(done)回落「随便逛逛」🚶; 再进零提示', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const machine = {snapshot: () => ({focusId: null, states: {}})};
+  let alive = true;
+  const rec = mkHarness(() => (alive ? machine : null));
+  rec.ui.sync(); /* 首次进镇 */
+  const card = rec.ui.root.children.find(
+      (c) => c.classList.contains('town-hud-card'));
+  const label = card.children.find(
+      (c) => c.classList.contains('town-hud-card-label'));
+  const icon = card.children.find(
+      (c) => c.classList.contains('town-hud-card-icon'));
+  assert.ok(label && icon, '卡构件在册(前置)');
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring', '探索态(前置)');
+  assert.strictEqual(label.textContent, '村民们在等你呢！',
+      '首访拦截=邀请句(≤10 字, 不完成零压力)');
+  assert.strictEqual(icon.textContent, '👋', '首访图标=招手(邀请语义)');
+  /* 会话 close 非 done(deferred/continue)不回落(零压力口径: 只有真完成
+     才算 greet; idle-exploring 收 close 零动作边, 仅记账面变化) */
+  rec.ui.dialogEvent('town-ui/dialog/close', {result: 'continue'});
+  assert.strictEqual(label.textContent, '村民们在等你呢！',
+      'close continue≠greet 完成(提示保持)');
+  rec.ui.dialogEvent('town-ui/dialog/close', {result: 'deferred'});
+  assert.strictEqual(label.textContent, '村民们在等你呢！',
+      'close deferred≠greet 完成(提示保持)');
+  rec.ui.dialogEvent('town-ui/dialog/close', {result: 'done'});
+  assert.strictEqual(label.textContent, '随便逛逛',
+      '首次 greet 完成(done)→标签回落(轻状态)');
+  assert.strictEqual(icon.textContent, '🚶', '图标回落漫步');
+  /* 离镇再进: enteredOnce 不复位→不再提示(仅本会话首次进镇有效) */
+  alive = false;
+  rec.ui.sync(); /* 离镇弃机 */
+  alive = true;
+  rec.ui.sync(); /* 新机再进 */
+  const card2 = rec.ui.root.children.find(
+      (c) => c.classList.contains('town-hud-card'));
+  const label2 = card2.children.find(
+      (c) => c.classList.contains('town-hud-card-label'));
+  assert.strictEqual(label2.textContent, '随便逛逛',
+      '二进零提示(enteredOnce 会话态不复位)');
+});
+
