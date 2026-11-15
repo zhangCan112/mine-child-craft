@@ -595,6 +595,120 @@ test('锚点: 核心导览锚齐 · spawn 北望落南主路 · 回望钟塔视�
   }
 });
 
+/* ============ ⑪b TIDEA 波次一: 五件翻新数据契约(scene-plan-tidea1 同式复算) ============ */
+
+test('TIDEA 波次一: 瀑布域·南门回程件·镇徽花带·stash 记号·丰收角(数据契约)', () => {
+  const c = loadCore();
+  const t = c.TOWN_MAP;
+  const npcs = c.TOWN_NPC_ANCHORS.flatMap((r) => r.waypoints);
+  const cheb = (x, z, p) => Math.max(Math.abs(x - p.x), Math.abs(z - p.z));
+  /* ① TIDEA-05(W-05) 山体瀑布白线: waterfall 列域显式启用——域内列顶
+      ≥40(雪带在场, 白线从雪带下缘接续)·避崖屋剪影·避钟塔影轴·⊆山体域;
+      派生几何(54 柱+17 水花)归 assembly 需求清单, 数据侧钉开关与落域 */
+  const mtn = t.backdrop.find((b) => b.kind === 'mountain');
+  assert.ok(mtn.waterfall, '山体条目带 waterfall 字段(TIDEA-05 契约开关)');
+  const bcx = (mtn.x1 + mtn.x2) / 2;
+  const bhalf = (mtn.x2 - mtn.x1) / 2;
+  for (let x = mtn.waterfall.x1; x <= mtn.waterfall.x2; x++) {
+    const bt = (x - bcx) / bhalf;
+    const top = Math.round(mtn.topY * (1 - bt * bt) + t.core.groundY * (bt * bt));
+    assert.ok(top >= 40, '瀑布列 x' + x + ' 拱形列顶 ' + top + ' ≥40(雪带在场)');
+    assert.ok(x >= mtn.x1 && x <= mtn.x2, '瀑布列 ⊆ 山体域');
+  }
+  for (const cl of t.backdrop.filter((b) => b.kind === 'cliff-home')) {
+    assert.ok(mtn.waterfall.x2 < cl.x - 2 || mtn.waterfall.x1 > cl.x + 2,
+        '瀑布与崖屋剪影 ' + cl.id + ' 间隔 ≥2(白线不叠剪影)');
+  }
+  assert.ok(mtn.waterfall.x2 < 78 || mtn.waterfall.x1 > 80,
+      '瀑布在钟塔影轴 x78..80 外(北望不被塔挡)');
+  /* ② TIDEA-06(W-06, ADR-0011 决策 6c) 南门回程件: 现成 signpost 落南
+      主路终端段 + 灯复用既有(零新增)+npc/锚避让; 栅栏桩契约归需求清单 */
+  const home = t.scatter.find((s) => s.id === 'signpost-home');
+  assert.ok(home && home.kind === 'signpost', '南门回程件 signpost-home 在册(现成 kind)');
+  assert.ok(home.z >= 119 && home.z <= 127 && (home.x <= 75 || home.x >= 81),
+      'signpost-home 落南主路终端段路侧(z119..127, 回程触发线前最后视觉件)');
+  assert.ok(t.scatter.some((s) => s.id === 'lamp-end-south' && s.x === 79 && s.z === 119),
+      '南门灯=既有 lamp-end-south(79,119) 坪芯复用(零新增灯)');
+  for (const w of npcs) {
+    assert.ok(cheb(home.x, home.z, w) >= 2, 'signpost-home 距 npc 站位切比 ≥2');
+  }
+  for (const a of t.anchors) {
+    assert.ok(cheb(home.x, home.z, a) >= 2, 'signpost-home 距导览锚切比 ≥2');
+  }
+  /* ③ TIDEA-07(W-07) 镇徽+主轴花带: plaza 条目双字段——徽 4×4 全嵌
+      main-south 路面且 spawn 落域内(落地低头第一眼); 花带 x79..80 两列
+      全格在广场/路域·零压脚印·贴塔足; 徽与带互斥 */
+  const plaza = t.ground.find((g) => g.id === 'plaza-paving');
+  assert.ok(plaza.emblem && plaza.axisBloom, 'plaza 条目带 emblem/axisBloom 字段(TIDEA-07 契约)');
+  const em = plaza.emblem;
+  const mainS = t.roads.find((r) => r.id === 'main-south');
+  assert.ok(em.x1 >= mainS.x1 && em.x2 <= mainS.x2 && em.z1 >= mainS.z1 && em.z2 <= mainS.z2,
+      '镇徽域全嵌 main-south 路面(嵌路不嵌草)');
+  assert.strictEqual((em.x2 - em.x1 + 1) * (em.z2 - em.z1 + 1), 16, '镇徽恰 4×4');
+  const spawn = t.anchors.find((a) => a.id === 'spawn');
+  assert.ok(spawn.x >= em.x1 && spawn.x <= em.x2 && spawn.z >= em.z1 && spawn.z <= em.z2,
+      'spawn 落在镇徽域内(白闪落地低头第一眼脚下)');
+  const ab = plaza.axisBloom;
+  assert.ok(ab.x2 - ab.x1 + 1 <= 2, '花带宽 ≤2(细地毯带)');
+  assert.ok(!overlapXZ(em, ab), '镇徽与花带域不相交');
+  const foots = t.prefab.map((p) => c.PrefabKit.footOf(p.id, p.x, p.y, p.z,
+      Object.assign({}, p.v, {face: p.face})));
+  for (let z = ab.z1; z <= ab.z2; z++) {
+    for (let x = ab.x1; x <= ab.x2; x++) {
+      const inPlaza = x >= t.plaza.x1 && x <= t.plaza.x2 && z >= t.plaza.z1 && z <= t.plaza.z2;
+      const inRoad = t.roads.some((r) => x >= r.x1 && x <= r.x2 && z >= r.z1 && z <= r.z2);
+      assert.ok(inPlaza || inRoad, '花带格 (' + x + ',' + z + ') 在广场/路域内');
+      assert.ok(!foots.some((f) => x >= f.x1 && x <= f.x2 && z >= f.z1 && z <= f.z2),
+          '花带格 (' + x + ',' + z + ') 不压建筑脚印');
+    }
+  }
+  const towerIdx = t.prefab.findIndex((p) => p.id === 'tower-belfry');
+  assert.ok(ab.z1 > foots[towerIdx].z2, '花带不压钟塔足印(北端贴足=直抵塔前台阶)');
+  /* ④ TIDEA-09(W-09) stash 寻宝记号: 顶层 tidea 命名空间键(pfMerge v 键
+      集守门故不入 v)——挂灯契约+地面 chevron 4 圆石, tiles 全约束复算 */
+  const hut = t.prefab.find((p) => p.id === 'stash-hut');
+  assert.ok(hut.tidea && hut.tidea.porchLamp, 'stash-hut tidea.porchLamp 挂灯契约在');
+  assert.strictEqual(hut.tidea.porchLamp.dx, 2, '挂灯门洞上方居中(门朝东 dx+2)');
+  assert.ok(hut.tidea.groundMark && hut.tidea.groundMark.tiles.length === 4,
+      '地面 chevron 恰 4 圆石(W-09 放射箭头)');
+  const gmAbs = hut.tidea.groundMark.tiles.map((tl) => ({x: hut.x + tl.dx, z: hut.z + tl.dz}));
+  const curbLines = t.roads.map((r) => {
+    const ax = (r.x2 - r.x1) >= (r.z2 - r.z1);
+    return ax ?
+        [{x1: r.x1, z1: r.z1 - 1, x2: r.x2, z2: r.z1 - 1},
+          {x1: r.x1, z1: r.z2 + 1, x2: r.x2, z2: r.z2 + 1}] :
+        [{x1: r.x1 - 1, z1: r.z1, x2: r.x1 - 1, z2: r.z2},
+          {x1: r.x2 + 1, z1: r.z1, x2: r.x2 + 1, z2: r.z2}];
+  }).flat();
+  const inAnyB = (x, z, bs) => bs.some((b) => x >= b.x1 && x <= b.x2 && z >= b.z1 && z <= b.z2);
+  for (const g of gmAbs) {
+    assert.ok(!inAnyB(g.x, g.z, foots), '记号格 (' + g.x + ',' + g.z + ') 不压脚印(埋室足印实测避开)');
+    assert.ok(!inAnyB(g.x, g.z, curbLines), '记号格 (' + g.x + ',' + g.z + ') 不压缘石线');
+    assert.ok(!(g.z >= 29 && g.z <= 31), '记号格 (' + g.x + ',' + g.z + ') 不入空隙带');
+    for (const w of npcs) {
+      assert.ok(cheb(g.x, g.z, w) >= 2, '记号格 (' + g.x + ',' + g.z + ') 距 npc 切比 ≥2');
+    }
+    for (const a of t.anchors) {
+      if (a.id !== 'stash') {
+        assert.ok(cheb(g.x, g.z, a) >= 2, '记号格距锚 ' + a.id + ' 切比 ≥2');
+      }
+    }
+    for (const s of t.scatter) {
+      assert.ok(!(s.x === g.x && s.z === g.z), '记号格与散布 ' + s.id + ' 不同格');
+    }
+  }
+  /* ⑤ TIDEA-04 前半(W-04①) 丰收角: farm-a harvest 域 ⊆ 田域·4×4·风车侧;
+      域内非埂行强制 45 的派生几何归需求清单, 数据侧钉开关与落域 */
+  const fa = t.ground.find((g) => g.id === 'farm-a');
+  assert.ok(fa.harvest, 'farm-a 带 harvest 字段(TIDEA-04 前半契约开关)');
+  const hv = fa.harvest;
+  assert.ok(hv.x1 >= fa.x1 && hv.x2 <= fa.x2 && hv.z1 >= fa.z1 && hv.z2 <= fa.z2,
+      '丰收角域 ⊆ farm-a(格色 override 零几何变化)');
+  assert.strictEqual((hv.x2 - hv.x1 + 1) * (hv.z2 - hv.z1 + 1), 16, '丰收角恰 4×4');
+  const wm = t.prefab.find((p) => p.id === 'windmill-tower');
+  assert.ok(wm.x < fa.x1 && hv.x1 === fa.x1, '丰收角贴 farm-a 西缘(风车侧, W-04 语义)');
+});
+
 /* ============ ⑫ townBuildSteps 确定性(架构 §4.2/§5.1.6 建场序) ============ */
 
 test('buildSteps: phase 全序=地表→远景→路网→建筑→散布→锚点 · 与源清单一一对应 · 确定性', () => {

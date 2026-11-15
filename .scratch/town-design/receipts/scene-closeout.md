@@ -260,3 +260,113 @@ assert.strictEqual(topAt(143), 23, '东缘基段笔顶 23');
 `ops.filter((o) => o.op === 'fill' && o.z2 <= 28 && [52,17,18,9,19].includes(o.id))`
 即两屋全部 v2 笔(z2≤28 排核心区, id 集排山体 3/14/1/54)。
 
+# 八、TIDEA 波次一·scene 五件数据项(2026-11-15)
+
+派单五件全部落地,形态=「现成 kind 活件+字段契约先行件」:派生侧
+(town-assembly-core)对未知 kind 抛错、对未知字段静默忽略——故新几何
+一律以既有条目的新字段表达(op 零变化,全仓零新红),派生实现需求清单
+见 8.3,arch 抄清即视觉生效。落点全部经 `scene-plan-tidea1.mjs` 确定性
+规划 problems=0(报告 scene-plan-tidea1-report.txt)。
+
+## 8.1 五件交付对账
+
+| 件 | 提案 | 落地形态 | 落点 |
+| --- | --- | --- | --- |
+| TIDEA-05 | W-05 瀑布白线 | mountain-arch 加 `waterfall:{x1:63,x2:64}` 字段契约 | 列域 x63..64(列顶 43,雪段 40..43 在场) |
+| TIDEA-06 | W-06 南门回程件 | 活件: scatter `signpost-home` (75,126) + 灯复用既有 lamp-end-south | 坪南 3 格路西侧 |
+| TIDEA-07 | W-07 镇徽+花带 | plaza-paving 加 `emblem`+`axisBloom` 字段契约 | 徽 (77..80,109..112) / 带 x79..80 z76..107 |
+| TIDEA-09 | W-09 寻宝记号 | stash-hut 顶层 `tidea:{porchLamp,groundMark}` 契约 | 挂灯门楣 dx2 / chevron z102..104 |
+| TIDEA-04 前半 | W-04① 丰收角 | farm-a 加 `harvest:{x1:66,z1:44,x2:69,z2:47}` 字段契约 | farm-a 西北角(风车侧) |
+
+## 8.2 设计拍板
+
+1. **派生容错边界实测**: 未知 kind 抛错(ground/backdrop/scatter 三段
+   else throw)→ 五件零新 kind;未知字段静默忽略→字段契约挂在既有条目。
+2. **pfMerge v 键集守门**: stash-hut 契约初版挂 v 内被 prefab-kit
+   pfMerge 抛「未知 v 键」(合法键 face/mirror/roofPitch/door/ids)——
+   改挂条目顶层 `tidea:` 命名空间键:footOf 只读 v/face、派生 place 只带
+   v/ids,顶层新键全链静默(教训留痕:prefab 协议键=严格白名单)。
+3. **南门件位置内收**: ADR-0011 原案「z130 一带」出核心区(z2=127),
+   内收 z126 保「散布 ⊆ 核心区」纪律,语义不变(回程触发线 z≥132 前最后
+   视觉告别件);牌在路西侧草地(缘石线 x75 只到 z118,z126 线外)。
+4. **南门灯零新增**: W-06「配一盏灯柱」由既有 lamp-end-south(79,119)
+   坪芯承担(v1 断头信标先例),恰读作「门内灯」,不再落第二盏。
+5. **瀑布贴面不穿山**: 派生契约=54 柱仅 z24..28 南缘薄片(非全深度柱),
+   山体北面剪影不被涂白;顶接雪带下缘(y40 雪段底,柱 y25..39),底
+   y25 山脚;17 石英水花两翼 x62/x65×y25..26×z26(列顶 42/43 苔面上)。
+6. **镇徽含 spawn 格**: emblem (77..80,109..112) 以 spawn(79,112) 为
+   南缘中央——「落地低头脚下即徽」;图样回字环纹逐行死注释在数据
+   (78 樱粉 8 格+17 石英 8 格);花带序列 r=(z-76)%4 取 r<2→13 石砖
+   否则 4 圆石,北端 z76 贴塔足 z75=「直抵塔前台阶」。
+7. **地面重排豁免立体件避让**: emblem/axisBloom/groundMark 是 y24 平嵌
+   重排,不适用「npc/锚切比 ≥2」立体件纪律(不挡站位不挡视线,走廊
+   断言辖 y≥25 零冲突);v01(79,94) 站花带上=「迎客立地毯」、记号格
+   距 stash 锚切比仍 ≥2(交互位留玩家)。豁免单列于此供复核。
+8. **记号南移一档**: chevron 初排门侧正位(z98..101)被 under-room 埋室
+   足印 x55..64 z97..101 整面挤占(footOf 实测,兼 z97 是 lane-stash
+   缘石线),南移 z102..104 贴院角;chevron 顶点(55,103)朝西仍读
+   「屋在此侧」,「指向门洞」降级为「指向屋角」,叙事召唤保留。
+9. **丰收角 4×4 贴西缘**: farm-a 西北角 (66..69)×(44..47) 风车侧
+   (W-04 语义);域内非埂行强制 45 三阶金黄(埂行 58 不动),角区含埂行
+   z44 故实际金黄作物 3 行×4 列;零几何变化,npc/巡逻零连累。
+
+## 8.3 派生实现需求清单(arch 抄清即视觉生效; 全部「未知字段静默」现状)
+
+1. **瀑布**(mountain 分支,bands 块末尾追加): 条目带 `waterfall` 时,
+   逐柱循环后追加三笔——`fill x63..64 y25..39 z24..28 id 54`(柱)+
+   `fill x62 y25..26 z26 id 17` + `fill x65 y25..26 z26 id 17`(水花)。
+   通用式: 柱=域列×z24..28×y(groundY+1)..39;水花=域两翼列×y(groundY+1)
+   ..(groundY+2)×z26。
+2. **镇徽**(ground plaza 分支): 条目带 `emblem` 时,铺装笔后按死注释
+   图样逐格覆写——z109 [78,17,17,78] / z110 [17,78,78,17] / z111
+   [17,78,78,17] / z112 [78,17,17,78](域内逐格 fill id 78/17)。
+3. **花带**(同分支): 条目带 `axisBloom` 时,铺装笔后按域逐行覆写——
+   r=(z-z 基)%4,r<2 → 13 否则 4(x79..80 两列同相横纹,z76..107)。
+4. **丰收角**(ground farm-rows 分支): 行轮转覆写后,条目带 `harvest`
+   时按域再覆写——非埂行(r%5!==0)fill 域×行 id 45(埂行跳过)。
+5. **stash 记号**(prefab 后/散布前或调用方专步): 读 stash-hut 条目
+   `tidea.groundMark`,tiles 逐格 `fill (x+dx) y24 (z+dz) id 4` 四笔;
+   `tidea.porchLamp` 归蓝图面(prefab-kit 波次一在制): stash-hut 蓝图
+   门楣 (锚+dx2, 基+dy2, 锚+dz0) 挂单格 19。
+6. **南门栅栏桩**(无字段,新增需裁): 现成 kind 无栅栏桩,三案见 8.4。
+
+## 8.4 权衡清单(呈 lead 裁)
+
+| 决策点 | 选项 | 权衡 |
+| --- | --- | --- |
+| 南门栅栏桩 | a) 维持本笔(牌+灯,桩缓) / b) arch 加 scatter kind fence-stub(两桩单笔 fill id5,派生小改) / c) 归波次二与 TIDEA-08/10 落位同票 | a 零成本但门口件少一半; b 派生加分支+词表测试扩; c 波次二有落位票顺路 |
+| 瀑布主色 | a) 54 雪白(本笔契约) / b) 17 石英 | 54 与雪带同色接续自然但雪瀑难分;17 石英对比强但偏冷灰;本笔按 W-05 首选 54,waterfall 契约可加 tone 字段后调 |
+| 花带序列 | a) 横纹 r=(z-76)%4(本笔契约) / b) 纵纹 x 异色 | a 读作地毯横带,B 底片视角清晰; b 竖条拉纵深但 spawn 低视角难读 |
+| 记号朝向 | a) chevron 指西(本笔) / b) 加尾点双石强化 | a 恰 4 圆石合 W-09; b 更醒目但超「4 圆石」口径 |
+
+## 8.5 自查与红面
+
+- 规划: scene-plan-tidea1.mjs problems=0(初版记号 4 格压 under-room
+  埋室足印被脚本拦截,南移后复跑零问题——规划器拦截一次设计错误的
+  实证); probe-foot.mjs 足印实测 13 盒留档。
+- 门: 本测 15/15(新增 ⑪b 五件契约测试约 40 断言) · eslint 零错 ·
+  全仓红面=8.6。
+- 教训: prefab v 键=严格白名单(pfMerge 抛未知键),协议扩展走顶层
+  命名空间键;「蓝图对未知 v 静默」的假设不成立,实测先行救了一课。
+
+## 8.6 全仓红面小节(提交前新批口径)
+
+- 两批全仓 npm test(旧批 sh_1dcbf2fd 与新批 sh_1dcc0bebc, 均含 arch/light
+  波次一在途 WIP)口径一致: 2081 测 2077 pass / 3 fail / 1 skip。
+- 3 红全部归 arch 在途 WIP 两文件(js/prefab-kit.js + js/town-assembly-core.js),
+  与本笔数据零关联:
+  1. test/prefab-kit.test.js:380 源守门「零 config 方块常量」——arch 新蓝图
+     行触引擎层红线守门(WIP 中间态);
+  2. test/town-assembly-core.test.js:138 palette 完整性「prefab 八行对齐实例
+     清单」——arch 新增 5 行(scarecrow/clothesline/woodpile/hencoop/
+     board-pool) vs 测试字面量 8 行未同步;
+  3. test/town-assembly-core.test.js:198 钉值 TOWN_PALETTE 全表逐键相等——
+     同因(prefab 5 新行 + props 3 新键 crateBox/glassPane/plank)。
+- 本笔面绿证: town-map-core.test 15/15(含 ⑪b 五件契约); dims/assembly
+  既有 pin 全绿(v2 遗留 5 pin 已被 arch WIP 顺手同步转绿)——五件字段
+  对派生全静默、op 面零变化的推演被全仓批证实。
+- lint: 全仓 6 错全在 arch 两文件(prefab-kit 1474/1521 block-spacing
+  `{ x`; assembly 90..93 quote-props 四键引号), 本笔两文件零错。
+- 判定: 本笔零新红零新错; arch 红与 lint 属其 WIP 中间态, 交付自转绿,
+  不在本笔责任面(lead 2026-11-15 复核口径一致)。
+

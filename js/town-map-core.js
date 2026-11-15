@@ -20,7 +20,7 @@
      侧以 PrefabKit.footOf 校验, 材质集中注入归 T-MAP-03, 建场装配归
      T-MAP-02 消费本清单)。
    可测性声明: 零三维渲染库 · 零 DOM · 零墙钟 · 零随机 · 有同名单测
-     (test/town-map-core.test.js, 14 test 可执行规格)。
+     (test/town-map-core.test.js, 15 test 可执行规格)。
    ============================================================ */
 
 const TOWN_MAP = {
@@ -64,7 +64,20 @@ const TOWN_MAP = {
     {id: 'windmill-tower', x: 56, y: 24, z: 42, v: {}, face: 'south', zone: 'north'},
     {id: 'cottage-gable', x: 44, y: 24, z: 71, v: {}, face: 'south', zone: 'west'},
     {id: 'house-loft', x: 42, y: 24, z: 85, v: {}, face: 'north', zone: 'west'},
-    {id: 'stash-hut', x: 49, y: 24, z: 98, v: {}, face: 'east', zone: 'west'},
+    {/* TIDEA-09(W-09): stash 寻宝记号两笔契约(顶层 tidea 命名空间键,
+        消费实现前全链静默——pfMerge 对 v 未知键抛错故不入 v; footOf 只
+        读 v/face, 派生 place 只带 v/ids, 顶层新键双静默零影响):
+        porchLamp=门洞上方居中单格 19 暖金挂灯(锚相对 dx2/dy2/dz0, 门朝
+        东 x51 线, 蓝图面波次一在制顺手挂); groundMark=门前地面西向
+        chevron 4 圆石(锚相对 tiles, 派生面 prefab 后覆写): 顶(55,103)+
+        双翼(56,102)/(56,104)+尾(58,103), id 4; under-room 埋室足印
+        x55..64 z97..101 挤占门侧正位, 记号南移一档贴院角(规划脚本
+        problems=0 留痕); 「秘密基地有记号」叙事召唤, 不写文字纯图形暗示 */
+      id: 'stash-hut', x: 49, y: 24, z: 98, v: {},
+      tidea: {porchLamp: {dx: 2, dy: 2, dz: 0},
+        groundMark: {id: 4, tiles: [{dx: 6, dz: 5}, {dx: 7, dz: 4},
+          {dx: 7, dz: 6}, {dx: 9, dz: 5}]}},
+      face: 'east', zone: 'west'},
     {/* cache-cellar(prefab-specs §4.9 覆写): 埋室室心, 室板埋 6 层,
          出路朝东伸入 stash-hut 东南侧空地; v.mat=3 石头(安全实义方块,
          材质基线黑名单外) */
@@ -119,8 +132,25 @@ const TOWN_MAP = {
       柱/圆石小坪 v2 的拍板兑现); 条目按契约排在清单末尾——buildSteps
       平铺时加冠于 road 段之后(后写者赢, 见 townBuildSteps 注) */
   ground: [
-    {id: 'plaza-paving', kind: 'plaza', x1: 66, z1: 66, x2: 93, z2: 93},
-    {id: 'farm-a', kind: 'farm-rows', x1: 66, z1: 44, x2: 75, z2: 56},
+    {/* TIDEA-07(W-07): 镇徽地花+主轴花带——地面格位重排(emblem/axisBloom
+        字段显式启用, 派生侧铺装笔后追加覆写; 未知字段本笔静默缺省):
+        emblem 4×4 回字环纹嵌 main-south 路面(spawn 落徽南缘, 白闪落地
+        低头第一眼), 图样逐行死注释: z109 [78,17,17,78] / z110 [17,78,78,17] /
+        z111 [17,78,78,17] / z112 [78,17,17,78](78 樱粉 8 格+17 石英 8 格);
+        axisBloom 主轴双石色花带 x79..80 两列 z76..107(广场域+路域内),
+        序列 r=(z-76)%4 取 r<2 → 13 石砖否则 4 圆石, 北端贴塔足 z75
+        「直抵塔前台阶」; 平嵌 y24 不挡站位(走廊断言辖 y≥25 零冲突),
+        v01(79,94) 站带上=迎客立地毯(美学拍板留痕 §八) */
+      id: 'plaza-paving', kind: 'plaza', x1: 66, z1: 66, x2: 93, z2: 93,
+      emblem: {x1: 77, z1: 109, x2: 80, z2: 112},
+      axisBloom: {x1: 79, z1: 76, x2: 80, z2: 107}},
+    {/* TIDEA-04 前半(W-04①): 丰收角——harvest 域显式启用, 派生侧田垄
+        行轮转后按域覆写: 非埂行作物强制 45 三阶金黄(埂行 58 不动),
+        风车侧(farm-a 西北角)4×4 与周边青苗 42/43 形成成熟色差高潮;
+        零几何变化, npc/巡逻零连累(只改格色)。稻草人 blueprint 归 arch
+        波次一, 落位归波次二 */
+      id: 'farm-a', kind: 'farm-rows', x1: 66, z1: 44, x2: 75, z2: 56,
+      harvest: {x1: 66, z1: 44, x2: 69, z2: 47}},
     {id: 'farm-b', kind: 'farm-rows', x1: 80, z1: 46, x2: 88, z2: 57},
     {id: 'wayshrine-east', kind: 'wayshrine', x1: 121, z1: 84, x2: 125, z2: 88},
     {id: 'wayshrine-south', kind: 'wayshrine', x1: 76, z1: 119, x2: 80, z2: 123},
@@ -134,8 +164,15 @@ const TOWN_MAP = {
       张角 ~4°)两侧 ~14° 不被塔影吞; 白墙 52/17+橙顶 9+19 灯点的造型
       字段走 assembly 侧(见交付报告新 kind 需求表)。 */
   backdrop: [
-    {id: 'mountain-arch', kind: 'mountain', x1: 16, z1: 8, x2: 143, z2: 28, topY: 44,
-      bands: true, reachable: false},
+    {/* TIDEA-05(W-05): 瀑布白线——waterfall 列域显式启用, 派生侧在 bands
+        五段之后追加: 54 雪白瀑布柱 x63..64×z24..28(南缘薄片贴崖面)×
+        y25..39(雪带下缘 40 之下直落山脚)+17 石英水花两翼 x62/x65×
+        y25..26×z26; 域内列顶 43(拱形公式, 雪段 40..43 在场)。落点过
+        规划脚本全约束(崖屋剪影 x55..57 间隔 ≥3/塔影轴 x78..80 外/
+        z ≤28 不入空隙带); 派生实现需求归 assembly 侧(未知字段本笔
+        静默缺省, op 零变化) */
+      id: 'mountain-arch', kind: 'mountain', x1: 16, z1: 8, x2: 143, z2: 28, topY: 44,
+      bands: true, waterfall: {x1: 63, x2: 64}, reachable: false},
     {id: 'cliff-home-a', kind: 'cliff-home', x: 56, z: 22, baseY: 41, topY: 47,
       style: 'v2', reachable: false},
     {id: 'cliff-home-b', kind: 'cliff-home', x: 103, z: 22, baseY: 41, topY: 47,
@@ -194,6 +231,14 @@ const TOWN_MAP = {
     {id: 'signpost-stash', kind: 'signpost', x: 50, y: 24, z: 95},
     {id: 'signpost-east', kind: 'signpost', x: 95, y: 24, z: 89},
     {id: 'signpost-south', kind: 'signpost', x: 82, y: 24, z: 94},
+    {/* TIDEA-06(W-06, ADR-0011 决策 6c 预授权路径激活): 南门回程仪式件
+        ——出镇方向「回家由此去」告示牌, 现成 signpost kind(柱 5+牌 6
+        两笔), 落 (75,126) 坪南 3 格路西侧草地(原案 z130 一带内收保
+        ⊆核心区纪律, 回程触发线 z≥132 之前最后视觉告别件); 灯柱复用
+        既有 lamp-end-south(79,119) 坪芯「门内灯」零新增; 栅栏开间
+        两桩无现成 kind, 契约归 arch 需求清单(波次一蓝图面/波次二落位)。
+        落点过规划脚本全约束(非路/缘石/脚印/坪, npc·锚切比 ≥2) */
+      id: 'signpost-home', kind: 'signpost', x: 75, y: 24, z: 126},
     /* ---- 视觉重制 §3 E(v2 显式设计点, 全部过规划脚本全约束过滤:
         13 脚印/6 路+12 curb 外扩线/广场/农田/走廊 x78..80/空隙带/2 坪/
         14 npc 站位切比 ≥2/7 导览锚切比 ≥2/散布互不重格) ---- */
