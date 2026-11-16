@@ -12,21 +12,27 @@
    tick 即冻结, 暂停语义归消费方挂缝(菜单/未锁定/暂停不喂, furnace 同拍)。
    interface: CampfireKit.mkCampfireLedger(opts) → ledger
      opts.onBurnout(x,y,z) — 燃尽回调(消费方做 editBlock 收尾; 未注入=静默删条)
+     opts.read(x,y,z)→id — 水浇读缝(T-C3): 传世界 getBlock, tick 每刻经
+       advCampfireQuenchHit 问浇熄几何; 未注入=零问询零炸(燃尽路径原样)
+     opts.onQuench(x,y,z) — 浇熄回调(T-C3): 命中水邻删条后消费方做 id 互换
+       (editBlock B_CAMPFIRE_OUT); 未注入=静默删条
      opts.updraft — 气流注册/注销缝(T-C2, {add,remove} 鸭型; 生产侧传
        world.js 装配的 UPDRAFT_SIM; 未注入全程容忍=装配前/Node 语境零炸):
        plant(燃烧态)=add({x,y,z,r,h,lift}) · tick 燃尽到期=remove ·
        drop 已知格=remove(未知格零回调, presence 口径)
      ledger.map — 台账 Map(裸形状暴露, furnace-kit station.map 同款口径)
      ledger.plant(x,y,z) — 放置即燃: 满时长建条(posKey 键, 键形 x,y,z 逗号串)
-     ledger.tick(dt) — 计划刻泵(20tps 量化整刻, 燃尽条目经 onBurnout 逐条回调)
+     ledger.tick(dt) — 计划刻泵(20tps 量化整刻, 燃尽条目经 onBurnout 逐条回调;
+       水邻条目经 onQuench 逐条回调, 浇熄先于燃尽问)
      ledger.drop(x,y,z) — 挖除/覆盖删条(未知格零炸零副作用, presence Map 口径)
      ledger.reset() — 重进场复位清空(存档重灌归消费方, T-C5 档键缝)
      ledger.encode() — [[posKey,{left}]] 存档形状桩(advCampfiresClean 同形,
        T-C5 接档键时归一对账)
    依赖(均经全局名, 调用期解析): js/adventure-core.js 的 advCampfiresStep/
-     advCampfiresClean(装载序双栖: 经典 script 共享词法全局名直用, Node 走
-     CJS 导出面, town-ui core 解析先例) · js/config.js 的 CAMPFIRE.ticks
-     (Node 装具无 config 导出面时退 spec §3.9 初值——与参数块同源同值)
+     advCampfiresClean/advCampfireQuenchHit(装载序双栖: 经典 script 共享词法
+     全局名直用, Node 走 CJS 导出面, town-ui core 解析先例) · js/config.js 的
+     CAMPFIRE.ticks(Node 装具无 config 导出面时退 spec §3.9 初值——与参数块
+     同源同值)
    可测性: 零 THREE·零 DOM·零墙钟·零随机; 契约由 test/campfire-kit.test.js
      守门(数据接线段+kit 行为段)
    ============================================================ */
@@ -37,11 +43,13 @@
    回落不炸加载 */
 function cfPureResolve() {
   if (typeof advCampfiresStep === 'function') {
-    return {step: advCampfiresStep, clean: advCampfiresClean};
+    return {step: advCampfiresStep, clean: advCampfiresClean,
+      quenchHit: advCampfireQuenchHit};
   }
   if (typeof module !== 'undefined' && module.exports) {
     const c = require('./adventure-core.js');
-    return {step: c.advCampfiresStep, clean: c.advCampfiresClean};
+    return {step: c.advCampfiresStep, clean: c.advCampfiresClean,
+      quenchHit: c.advCampfireQuenchHit};
   }
   return null;
 }
@@ -100,6 +108,18 @@ function mkCampfireLedger(opts) {
     backlog = whole - n; /* 未追平刻数留待后续帧排水(优雅降级不丢刻) */
     acc = avail - fresh * CF_STEP_S; /* 亚刻余量留累积器(丢的是亚刻不是整刻) */
     for (let i = 0; i < n; i++) {
+      /* 水浇问询(T-C3, 每刻先于燃尽步进): read 注入才问(零问询零炸, 装配前/
+         无水世界燃尽路径原样), 纯几何经 CF_PURE.quenchHit; 命中=删条+气流
+         注销+onQuench(同 onBurnout 回调序)——浇熄不是燃尽, 两态互换非消失 */
+      if (o.read) {
+        for (const [k, e] of map) {
+          if (CF_PURE.quenchHit(e.x, e.y, e.z, o.read)) {
+            map.delete(k);
+            if (o.updraft) o.updraft.remove(e.x, e.y, e.z);
+            if (o.onQuench) o.onQuench(e.x, e.y, e.z);
+          }
+        }
+      }
       const due = CF_PURE.step(map, 1); /* 纯函数递减+删条, 出到期清单 */
       for (const e of due) {
         if (o.updraft) o.updraft.remove(e.x, e.y, e.z); /* 燃尽=注销(与 onBurnout 同一状态迁移点, spec §3.5) */

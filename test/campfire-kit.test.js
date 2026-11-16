@@ -300,14 +300,24 @@ test('campfire kit updraft 缺席容忍: opts.updraft 未注入 plant/tick/drop 
 
 test('T-C3 两态回收行: BLOCKS[81]/[82].drop=[["campfire",1,0]] 保底 1 零加成 · rollBlockDrop 消费面恒 1 件(非木炭)', () => {
   assert.ok(cfg.lit != null && cfg.out != null, '两态 id 在册(前置)');
+  /* 红方裁决修正(2026-11-17): drop 行数组产自 vm realm, deepStrictEqual 按
+     prototype 恒等比较跨 realm 必红(内容同形也红)——改字段化断言(本文件
+     数据段 house style: 两态行断言同款) */
   for (const [tag, id] of [['燃烧态', cfg.lit], ['熄灭态', cfg.out]]) {
-    assert.deepStrictEqual(BLOCKS[id].drop, [['campfire', 1, 0]],
-        tag + '回收行=篝火×1 保底零加成(挖走即还篝火, 烧剩价值保留)');
+    const row = BLOCKS[id].drop;
+    assert.ok(Array.isArray(row) && row.length === 1, tag + '回收行恰一条');
+    assert.strictEqual(row[0][0], 'campfire', tag + '回收=篝火(非木炭, PO 拍板沿用)');
+    assert.strictEqual(row[0][1], 1, tag + '保底 1(挖走即还篝火, 烧剩价值保留)');
+    assert.strictEqual(row[0][2], 0, tag + '零加成概率');
   }
-  assert.deepStrictEqual(rollBlockDrop(BLOCKS[cfg.lit], () => 0.99),
-      [{id: 'campfire', n: 1}], '消费面: 燃烧态恒得篝火 1(加成概率 0, 掷骰无关)');
-  assert.deepStrictEqual(rollBlockDrop(BLOCKS[cfg.out], () => 0.99),
-      [{id: 'campfire', n: 1}], '消费面: 熄灭态同款恒 1 件(非木炭, PO 拍板沿用)');
+  const gotLit = rollBlockDrop(BLOCKS[cfg.lit], () => 0.99);
+  assert.ok(Array.isArray(gotLit) && gotLit.length === 1, '消费面: 燃烧态恰得一条');
+  assert.strictEqual(gotLit[0].id, 'campfire', '燃烧态消费 id=篝火');
+  assert.strictEqual(gotLit[0].n, 1, '燃烧态消费 1 件(加成概率 0, 掷骰无关)');
+  const gotOut = rollBlockDrop(BLOCKS[cfg.out], () => 0.99);
+  assert.ok(Array.isArray(gotOut) && gotOut.length === 1, '消费面: 熄灭态恰得一条');
+  assert.strictEqual(gotOut[0].id, 'campfire', '熄灭态同款(烧剩价值保留)');
+  assert.strictEqual(gotOut[0].n, 1, '熄灭态恒 1 件');
 });
 
 test('T-C3 调色板零死数据: BLOCK_HINTS 无 81/82 行(两态不进建造调色板, hint 行=零消费死数据, spec §3.4 裁定)', () => {

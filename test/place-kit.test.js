@@ -821,6 +821,8 @@ test('place-kit 篝火重燃: 熄灭态命中 — id 互换熄→燃+onEdit 记�
   const relit = [];
   const edCF = mkCFEditor({onCampfireRelit: (x, y, z) => relit.push([x, y, z])});
   api.setBlockRaw(10, 13, 20, api.B_CAMPFIRE_OUT); /* 布景: 直写熄灭态(布景构造不限放置路径, T-C1 火把布景同款) */
+  const held = api.count(inv, 'campfire'); /* 红方裁决修正(2026-11-17): 装具背包跨测试共享
+     (T-C1 段已入 campfire), 零扣件改计数基线差值断言(held0 同款), 不写死 0 */
   const hit = {x: 10, y: 13, z: 20, nx: 0, ny: 1, nz: 0};
   assert.strictEqual(edCF.tryCampfireRelight(hit), true, '吞点击(放置链不再下探)');
   assert.strictEqual(api.getBlock(10, 13, 20), api.B_CAMPFIRE, 'id 互换: 熄灭态→燃烧态');
@@ -828,7 +830,7 @@ test('place-kit 篝火重燃: 熄灭态命中 — id 互换熄→燃+onEdit 记�
       'onEdit 记账(改动走编辑链, 探险=journal/体验馆=noop 同缝)');
   assert.ok(touches.some((t) => t[0] === 10 && t[1] === 20), 'mesh touch 收口(渲染侧跟进)');
   assert.deepStrictEqual(relit, [[10, 13, 20]], 'onCampfireRelit 缝坐标全参(消费方挂台账+话术)');
-  assert.strictEqual(api.count(inv, 'campfire'), 0, '零扣件(空手可点, 燃烧账回满归消费方)');
+  assert.strictEqual(api.count(inv, 'campfire'), held, '零扣件(空手可点, 燃烧账回满归消费方)');
 });
 
 test('place-kit 篝火重燃守门: 燃烧态/非篝火命中 — false+零世界写零记账(放置链照常)', () => {

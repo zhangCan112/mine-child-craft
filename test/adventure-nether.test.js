@@ -37,6 +37,8 @@ const api = vm.runInContext(`({
   B_IRON_BLOCK, B_PUMPKIN, B_CARVED_PUMPKIN, /* 怪物合成材料件(mob-crafting T1/T2: 南瓜建场播撒经全局名消费) */
   B_SPAWNER, /* 黑巢巢之心(den-nest: home 行 build 经 advBuildDenNest 消费) */
   B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE,
+  B_CAMPFIRE, B_CAMPFIRE_OUT, /* 篝火两态(T-C3): place-kit tryCampfireRelight 裸名调用期解析
+     (Node 侧 require 产物经 globalThis 找名, 门链 B_DOOR_OPEN 同款装具配菜) */
 })`, eng);
 Object.assign(globalThis, api); /* 纯核心经全局名消费真件(经典 script 词法环境) */
 

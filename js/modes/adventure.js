@@ -914,10 +914,21 @@ function cfKitResolve() {
 }
 const advCampfires = cfKitResolve().mkCampfireLedger({
   /* 气流注册/注销缝(篝火 T-C2, spec §3.5): 燃烧态=plant 即 add、燃尽到期/
-     挖除=remove, 单源装配=world.js 的 UPDRAFT_SIM(fluid sim 同装配位);
+     挖除/浇熄=remove, 单源装配=world.js 装配的 UPDRAFT_SIM(fluid sim 同装配位);
      经典 script 共享词法经 world.js 装载序在前直用, Node require 域无
      world.js → typeof 守卫回落 null(kit 缝未注入=全程容忍零炸) */
   updraft: (typeof UPDRAFT_SIM !== 'undefined') ? UPDRAFT_SIM : null,
+  /* 水浇读缝(篝火 T-C3, spec §3.4): 传体素读面, kit tick 每刻经
+     advCampfireQuenchHit 问浇熄几何(命中=删条+气流注销+onQuench); Node
+     require 域无 voxel.js → typeof 守卫回落 null(零问询零炸, 燃尽路径原样) */
+  read: (typeof getBlock === 'function') ? getBlock : null,
+  /* 浇熄收尾(T-C3): 照 onBurnout 收尾序(记账→editBlock)做 id 互换
+     燃→熄(editBlock 非零 id 不触发级联, 浇熄≠挖掘零掉落)——存档红线件走
+     编辑链记账(重进重放同态), 熄灭态零侧账(条目已由 kit 删) */
+  onQuench: (x, y, z) => {
+    advMarkEdit(x, y, z, B_CAMPFIRE_OUT); /* 浇熄格先记账(id 互换, 后写覆盖才对) */
+    editBlock(x, y, z, B_CAMPFIRE_OUT); /* 编辑链 id 互换(掉光场变化, 不掉落) */
+  },
   onBurnout: (x, y, z) => {
     advMarkEdit(x, y, z, 0); /* 燃尽格先记账(级联清单不含触发格, 后写覆盖才对) */
     advCascadeApply(editBlock(x, y, z, 0), false); /* 编辑链移除+级联(上方依附 thin 块随底座脱落) */
@@ -3409,6 +3420,15 @@ const advPlaceKit = PlaceKit.mkEditor({
   },
   onConsume: advSyncHotbar,
   onPortalPlaced: (by, px, pz) => advBeamAdd(by, px, pz), /* 这扇门的光束顺路锚上(切界时随全量重锚) */
+  /* 篝火重燃后钩(篝火 T-C3, spec §3.4): tryCampfireRelight 命中(id 已互换
+     熄→燃)回来挂账+话术——台账归消费方, kit 零世界写零世界读纪律不破。
+     plant=满时长重建(重燃=新的一炉, 非余量续算); 话术单源 advCampfireRelightHint
+     (tts/desc 逐字定稿, 零第二文案源) */
+  onCampfireRelit: (x, y, z) => {
+    advCampfires.plant(x, y, z);
+    advSpeak(advCampfireRelightHint.tts);
+    advToast(advCampfireRelightHint.desc);
+  },
   cascade: advCascadeSink,
   /* T7 R10 补口(波次二): 级联链豁免——屏障件脚下的普通地形可被炸/挖(放开语义,
      判据只保件不保土), 但 fell 连桩判定(cascade-core P15)会把原木桩/栈桩整串
@@ -5469,6 +5489,9 @@ const AdventureMode = mkMode({
       if (advTryUseHeld()) return; /* 手持使用动作物品(弓/种子/骨粉): 注册表驱动使用(farm-and-recipe D3
         +弓 Route A), 恒算使用 attempt 不落放置——MC 正典弓走使用键 */
       if (advTryHoe()) return; /* 空手锄地(D7 两步正典): 指可垦块才命中, 否则回落放置(空手 noop) */
+      if (advPlaceKit.tryCampfireRelight(hit)) return; /* 篝火重燃(T-C3, spec §3.4 使用先于放置):
+        熄灭态命中=true 吞点击(id 互换+记账+mesh+onCampfireRelit 挂账话术), 空手可点零扣件;
+        燃烧态/非篝火=false 落放置链照常 */
       if (!advGlideOn()) advTryPlace(hit); /* 放置在滑翔中无效(R1-18 四项禁列), 落地即恢复 */
     }
   },

@@ -308,6 +308,8 @@ ModeKit.spawn = (x, y, z, o) => {
 };
 globalThis.FurnaceKit = require('../js/furnace-kit.js');
 globalThis.PlaceKit = require('../js/place-kit.js'); /* 放置链 kit(壳顶层即构造 editor) */
+globalThis.CampfireKit = require('../js/campfire-kit.js'); /* 篝火账 kit(壳顶层即构造 ledger;
+    红方裁决修正 2026-11-17: 装具原漏铺此件, adventure.js 的 typeof 守卫判缺席→零台账→浇熄链无从谈起) */
 globalThis.CombatKit = require('../js/combat-kit.js');
 globalThis.CombatCore = require('../js/combat-core.js'); /* stepShot/leadAim(combat-kit 自由标识符消费) */
 globalThis.Backpack = require('../js/backpack.js'); /* 背包壳(ADR 0002 唯一持有 inventory 存档键) */
@@ -345,6 +347,7 @@ Object.assign(eng, {
   ModeKit, mkMode: globalThis.mkMode, mkMainAct: globalThis.mkMainAct,
   mkBubbleBar: globalThis.mkBubbleBar, mkArmorBar: ModeKit.mkArmorBar, /* 装备条(装备 T5): 真件, 假 DOM 惰性渲染 */
   FurnaceKit: globalThis.FurnaceKit,
+  CampfireKit: globalThis.CampfireKit, /* 篝火账 kit(eng 面: adventure.js 顶层构造 ledger, 加载序在其前) */
   PlaceKit: globalThis.PlaceKit, CombatKit: globalThis.CombatKit, CombatCore: globalThis.CombatCore,
 });/* 注: pos/vel/yaw/pitch/onGround/flyMode/Drops 是 eng 词法绑定(voxel/drops 顶层),
     属性赋值只会被词法遮蔽——Node 侧已改为直接共享词法对象(见上方提取/包装) */

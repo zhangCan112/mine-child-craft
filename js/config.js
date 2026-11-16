@@ -531,13 +531,15 @@ BLOCKS[B_GATE_SIGN] = {name: '门额牌', all: [0.784, 0.596, 0.345], thin: 0.15
    什么」走): 浇熄/重燃=id 互换(T-C3), 熄灭态零侧账(edits 账本天然重放)。
    半格实体(thin 0.5+solid true, 床头 thin 0.55 同款先例): 可碰撞可站立——
    「踩上烫」「踩火起飞」的前提; light 15/0 数据驱动字段(mkPolicy.lightOf 消费,
-   火把 14/灯块 15 先例族); hard 0 徒手可移除(本票挖掘无回收掉落, 回收链归
-   T-C3); thin 0.5 当不了放置支承——两态篝火顶防叠放机械达成(spec §3.3)。
+   火把 14/灯块 15 先例族); hard 0 徒手可移除; drop=[['campfire',1,0]] 两态同
+   行(T-C3 回收: 挖走即还篝火×1 保底零加成, 烧剩价值保留非木炭; rollBlockDrop
+   既有链消费, 零专码)。
+   thin 0.5 当不了放置支承——两态篝火顶防叠放机械达成(spec §3.3)。
    纯色行不入图集零贴图成本(粉羊毛/陶橙瓦同款, 正式贴图归 T-C8)。
    号段 81/82=定稿建议值(config 现用至 80=B_GATE_SIGN 已核实, 两态连号)。 */
 const B_CAMPFIRE=81; const B_CAMPFIRE_OUT=82;
-BLOCKS[B_CAMPFIRE] = {name: '篝火', all: [0.80, 0.42, 0.14], campfire: 'lit', light: 15, thin: 0.5, solid: true, hard: 0};
-BLOCKS[B_CAMPFIRE_OUT] = {name: '熄灭的篝火', all: [0.28, 0.24, 0.22], campfire: 'out', light: 0, thin: 0.5, solid: true, hard: 0};
+BLOCKS[B_CAMPFIRE] = {name: '篝火', all: [0.80, 0.42, 0.14], campfire: 'lit', light: 15, thin: 0.5, solid: true, hard: 0, drop: [['campfire', 1, 0]]};
+BLOCKS[B_CAMPFIRE_OUT] = {name: '熄灭的篝火', all: [0.28, 0.24, 0.22], campfire: 'out', light: 0, thin: 0.5, solid: true, hard: 0, drop: [['campfire', 1, 0]]};
 
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段
