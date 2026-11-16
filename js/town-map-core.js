@@ -9,8 +9,9 @@
    interface: 全局 TOWN_MAP 十段(core{核心区闭域+size/groundY} · plaza
      {广场闭域} · beyond{越界域白名单五段=与 core/plaza 同级的显式越界域
      清单(ADR-0013)} · zones 六带清单 · anchors/prefab/roads/ground/
-     backdrop/scatter 七清单, 闭区间整数坐标, z 小=北) · 纯函数
-     townBuildSteps()
+     backdrop/scatter 七清单, 闭区间整数坐标, z 小=北; ground 含 town-rim
+     防坠墙圈条目=segs 十六段显式分段清单作几何唯一权威, spec §3.3) ·
+     纯函数 townBuildSteps()
      → 步骤数组: 按 phase 全序 ['ground','backdrop','road','prefab',
      'scatter','anchor'] 平铺(wayshrine 条目加冠于 road 后, 见函数注),
      每步 = 源条目浅拷贝+phase 标签
@@ -192,7 +193,9 @@ const TOWN_MAP = {
       wayshrine 断头小坪×2(v2 #6): 贴 main-east/main-south 断头端外侧
       5×5(边环 4 木板+内缩芯 13 圆石), 坪内恰含既有驿站灯柱(v1 先落灯
       柱/圆石小坪 v2 的拍板兑现); 条目按契约排在清单末尾——buildSteps
-      平铺时加冠于 road 段之后(后写者赢, 见 townBuildSteps 注) */
+      平铺时加冠于 road 段之后(后写者赢, 见 townBuildSteps 注)。
+      T2 镇缘防坠墙圈(spec §3.3): kind town-rim 条目=segs 十六段显式
+      分段清单作几何唯一权威, 详载清单末条目注 */
   ground: [
     {/* TIDEA-07(W-07): 镇徽地花+主轴花带——地面格位重排(emblem/axisBloom
         字段显式启用, 派生侧铺装笔后追加覆写; 未知字段本笔静默缺省):
@@ -214,6 +217,50 @@ const TOWN_MAP = {
       id: 'farm-a', kind: 'farm-rows', x1: 66, z1: 44, x2: 75, z2: 56,
       harvest: {x1: 66, z1: 44, x2: 69, z2: 47}},
     {id: 'farm-b', kind: 'farm-rows', x1: 80, z1: 46, x2: 88, z2: 57},
+    {/* ---- T2 镇缘防坠墙圈(spec §3.3 块级规格; ADR-0013 rim-* 白名单的
+        消费权威): ground 相位新 kind——条目无 x/z 顶层域, segs 十六段
+        显式分段清单=几何唯一权威(垫层4+墙身4+接头柱2+柱帽2+翼墙2+
+        端头墩2), 装配侧按段派生恰 48 笔(14 段石砖 13+柱帽 2 石英 17+
+        墙头花 32 簇 61/62, 派生面见 town-assembly-core)。红线四条:
+        开口段 x76..80 归 T1a 门楼/基座桥显式排除; 回程触发线 z132
+        内侧(几何全 z≤128); 北缘不开墙(裙板缓坡=PO 亲需可达线零连累);
+        rim 走道 z29..30 保留(端头墩柱位 x16/x143 豁免=spec 端头封口)。
+        翼墙/端头墩 y25..26=「立实测裙板顶 24 上 2 格」——spec 坐标列
+        y26..27 的「裙板顶 25」前提在翼/墩列不成立(拱形端点实测列顶
+        24, 中带才 25), 按相对定义换算, 裁定注见
+        test/town-map-core.test.js ⑧b。排序契约: 必须排在 wayshrine
+        条目之前——buildSteps 把非 wayshrine 地表条目平铺在前、wayshrine
+        加冠于 road 后, townAssemblyPhases 重分组后 ground 组序=源清单
+        序(装配序测试钉), 条目落 wayshrine 之后会破序 */
+      id: 'town-rim', kind: 'town-rim',
+      segs: [
+        /* 墙基垫层 pad: y24 单层 13, 墙的地基——垫层顶与 core 草地同高
+           (纯埋设件, 「剖面不悬空」纪律); 南段两截避门楼开口 x76..80 */
+        {part: 'pad', x1: 32, z1: 128, x2: 75, z2: 128, y1: 24, y2: 24},
+        {part: 'pad', x1: 81, z1: 128, x2: 127, z2: 128, y1: 24, y2: 24},
+        {part: 'pad', x1: 31, z1: 32, x2: 31, z2: 128, y1: 24, y2: 24},
+        {part: 'pad', x1: 128, z1: 32, x2: 128, z2: 128, y1: 24, y2: 24},
+        /* 墙身 wall: y25..26 两格 13; 东西缘止于 z128 闭南角实接(spec
+           §3.3 东西缘行: 止于 127 会对角缺口+柱帽悬空) */
+        {part: 'wall', x1: 32, z1: 128, x2: 75, z2: 128, y1: 25, y2: 26},
+        {part: 'wall', x1: 81, z1: 128, x2: 127, z2: 128, y1: 25, y2: 26},
+        {part: 'wall', x1: 31, z1: 32, x2: 31, z2: 128, y1: 25, y2: 26},
+        {part: 'wall', x1: 128, z1: 32, x2: 128, z2: 128, y1: 25, y2: 26},
+        /* 北端接头柱 post: y25..27 三格无帽(帽顶会成自裙板下跳登脊的
+           踏板——防登墙) */
+        {part: 'post', x1: 31, z1: 32, x2: 31, z2: 33, y1: 25, y2: 27},
+        {part: 'post', x1: 128, z1: 32, x2: 128, z2: 33, y1: 25, y2: 27},
+        /* 南角柱帽 cap: y27 石英(北端接头格故意不加帽) */
+        {part: 'cap', x1: 31, z1: 128, x2: 31, z2: 128, y1: 27, y2: 27},
+        {part: 'cap', x1: 128, z1: 128, x2: 128, z2: 128, y1: 27, y2: 27},
+        /* 裙板翼墙 wing: z31 行 y25..26(立实测裙板顶 24 上, 见上注) */
+        {part: 'wing', x1: 16, z1: 31, x2: 30, z2: 31, y1: 25, y2: 26},
+        {part: 'wing', x1: 129, z1: 31, x2: 143, z2: 31, y1: 25, y2: 26},
+        /* 北缘端头墩 pier: x16/x143 列 z29..31 y25..26(墩脚=裙板实底,
+           不落虚空) */
+        {part: 'pier', x1: 16, z1: 29, x2: 16, z2: 31, y1: 25, y2: 26},
+        {part: 'pier', x1: 143, z1: 29, x2: 143, z2: 31, y1: 25, y2: 26},
+      ]},
     {id: 'wayshrine-east', kind: 'wayshrine', x1: 121, z1: 84, x2: 125, z2: 88},
     {id: 'wayshrine-south', kind: 'wayshrine', x1: 76, z1: 119, x2: 80, z2: 123},
   ],
