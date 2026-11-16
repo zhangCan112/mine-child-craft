@@ -75,7 +75,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☑ 已并入（tc7 b8b6efb，合并 693ddac；双轴评审零发现；design-lead 视觉验收过，工件 .scratch/campfire/tc7-review/） |
 | T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档） |
 | T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ☑ 已并入+视觉验收 PASS（39261ce，合并 050be81；双轴评审 PASS + design-lead 基线对比验收 PASS） |
-| T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 评审 FAIL 修复中（tc9，SPEC-1 渐起+SPEC-2 燃尽形状+STD-1 重复行，追令原主） |
+| T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 修复完复审中（tc9 691d417，SPEC-1 渐起积分+SPEC-2 余韵形状已修） |
 | T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☑ 已并入（00c6aa2+34363c4，合并 3df8a5c；双轴评审 PASS；通道面出 T-C10b） |
 | T-C10b | 补丁：放置失败话术通道接线（气泡+TTS） | T-C10, 定稿 v1.6✅ | ☑ 已并入（7f7bb96+aeeba89+84ce8fd，合并 09f7659；双轴评审 PASS） |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☐ 待领取 |
@@ -602,7 +602,7 @@ js/mesh-core.js（pushCampfireBox 取光分支 + 头注）· test/texture-atlas.
 
 ## T-C9 UI C 区：世界特效
 
-> 标签：`task`｜状态：◐ 评审 FAIL 修复中（tc9，SPEC-1 渐起+SPEC-2 燃尽形状+STD-1 重复行，追令原主）｜blocked-by：T-C2（气柱存在性）, 设计定稿
+> 标签：`task`｜状态：◐ 修复完复审中（tc9 691d417，SPEC-1 渐起积分+SPEC-2 余韵形状已修）｜blocked-by：T-C2（气柱存在性）, 设计定稿
 > （**已满足**）｜blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
