@@ -1546,6 +1546,18 @@ test('T-C1 挖除删账: 燃尽前挖走篝火 → 方块消失+侧账同步删�
       '本票挖掘无回收掉落(两态行不配 drop, 回收链归 T-C3)');
 });
 
+test('T-C1 合成计数: craft_campfire 经通用 counts 通道自动累加(账照记) · 零任务消费(核心任务表零引用)', () => {
+  mem.clear();
+  freshInit();
+  assert.ok(api.ITEMS.campfire, 'ITEMS.campfire 接线(前置)');
+  A.advOnCraft({item: 'campfire', n: 2, leftover: 0}); /* 合成事件入口(advOnCraft 通用记账) */
+  assert.strictEqual(A.ADV.quest.counts.craft_campfire, 2,
+      '通用链件数口径 +2(一炉两件; spec 3.2 验收「=1」按产 1 假设写死, 件/次单位出入见回执请示)');
+  /* 零消费(⭐R1-13 纯玩具无任务): 核心任务表零引用——二期免费台账只记不判 */
+  const acSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'adventure-core.js'), 'utf8');
+  assert.ok(!acSrc.includes('craft_campfire'), 'adventure-core 任务表零引用 craft_campfire');
+});
+
 test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + 满血不吃不扣', () => {
   mem.clear();
   freshInit();
