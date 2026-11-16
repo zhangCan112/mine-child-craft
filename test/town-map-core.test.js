@@ -12,7 +12,8 @@
    PO 推迟不列) ⑤脚印合法(footOf 校验·⊆核心区∪beyond·体量域·分区归属) ⑥实例两两无交
    ⑦路网(厚度域·贴广场连通·不压建筑·门前可达) ⑧地表分类(广场铺装/农田成组)
    ⑧b town-rim 防坠墙圈(segs 十六段逐件 pin·开口净空·互证 rim-* ⊇ segs·红线)
-   ⑨远景(山体必做/崖屋 1-2 脊线可见/神庙默认不落/不可达) ⑩散布(四类/广场樱花≥3/灯柱≥10/门廊对位/断头信标/
+   ⑧c U4 镇域保护判据(T2b: townProtectedAt 出口/在保不在保采样/同源互证 segs
+       复算+footOf 对拍; ⑧b 红线组守卫转正=在位断言强度不降) ⑨远景(山体必做/崖屋 1-2 脊线可见/神庙默认不落/不可达) ⑩散布(四类/广场樱花≥3/灯柱≥10/门廊对位/断头信标/
    不落建筑与路面) ⑪锚点(spawn 北望·回望钟塔视线通廊) ⑫townBuildSteps 确定性
    (phase 全序=架构 §5.1.6 建场序·两调 deepEqual) ⑬源文本守门(纯核心红线)。
    布局数值不逐坐标钉死(实现自由度), 但全部约束(尺寸/方位/间距/映射)在此钉死。 */
@@ -34,7 +35,9 @@ function loadCore() {/* vm 装载链: 引擎件按 index.html 序 + 本票新件
   }
   return vm.runInContext(
       '({TOWN_MAP, townBuildSteps, PrefabKit, TOWN_NPC_ANCHORS, WORLD_W, WORLD_D, WORLD_H,' +
-      ' worldCells})', eng);
+      ' worldCells, townProtectedAt: (typeof townProtectedAt === "function" ? townProtectedAt : null)})',
+      eng); /* townProtectedAt 桥(T2b): typeof 桥形——判据未落时返 null 不炸装具
+      (红因=出口断言红, 不污染本文件其余测试), 落地后即真函数 */
 }
 
 /* ---- 几何小工具: xz 闭区间矩形(闭盒)的交/隙 ---- */
@@ -616,22 +619,134 @@ test('town-rim 条目: segs 十六段一次立全(spec §3.3 逐件 pin) · 开�
   }
 });
 
-test('town-rim 红线: 散布零连累(花不入 scatter) · U4 townProtectedAt 不落 · modes/adventure.js 零触碰', () => {
+test('town-rim 红线: 散布零连累(花不入 scatter) · U4 townProtectedAt 在位(T2b 落地) · modes/adventure.js 接线在位+零 town-rim 字面', () => {
   const c = loadCore();
   const t = c.TOWN_MAP;
-  /* 散布零连累(硬红线): 墙头花走 town-rim 派生不入 scatter——散布清单
+  /* 散布零连累(硬红线, 维持): 墙头花走 town-rim 派生不入 scatter——散布清单
      无任何条目落墙线域(x≤31/x≥128/z≥128), ⑩ ⊆core 严判维持 */
   for (const s of t.scatter) {
     assert.ok(s.x >= 32 && s.x <= 127 && s.z >= 32 && s.z <= 127,
         '散布维持 ⊆core(墙头花不入 scatter: ' + s.id + ')');
   }
-  /* U4 保护判据不归本票(T2b): townProtectedAt 不落——墙圈先可挖 */
+  /* U4 保护判据在位(T2b, 原「不落」守卫转正——守卫语义转正而非删除, 强度不降:
+     源文本反断改为出口在位+源文本在位双断言) */
+  assert.strictEqual(typeof c.townProtectedAt, 'function',
+      'townProtectedAt 出口在位(U4 判据, 纯函数可测)');
   const mapSrc = fs.readFileSync(path.join(ROOT, 'js', 'town-map-core.js'), 'utf8');
-  assert.ok(!mapSrc.includes('townProtectedAt'),
-      'townProtectedAt 不落(U4 归 T2b 票, 本票墙圈先可挖)');
+  assert.ok(mapSrc.includes('townProtectedAt'),
+      'townProtectedAt 源文本在位(town-map-core 判据本体)');
   const advSrc = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
-  assert.ok(!advSrc.includes('town-rim') && !advSrc.includes('townProtectedAt'),
-      'modes/adventure.js 零触碰(回程判据行为面零改动, T2b 前无镇域接线)');
+  assert.ok(advSrc.includes('townProtectedAt'),
+      'modes/adventure.js 镇域接线在位(U4 三缝消费 townProtectedAt)');
+  assert.ok(!advSrc.includes('town-rim'),
+      'modes/adventure.js 零 town-rim 字面(判据单源 town-map-core, 回程判据行为面零触碰维持)');
+});
+
+/* ============ ⑧c U4 镇域保护判据(T2b, spec §6 U4 + 架构方案 §3.3/§3.4) ============
+   判据形态: townProtectedAt(x,y,z) 纯函数住 town-map-core(零依赖纯数据派生,
+   架构方案 §3.1「判据只吃 beyond 域+part 派生式」选项——头注零件库符号引用纪律
+   与 module.exports require 兜底域双保持): 墙圈吃 ground.town-rim segs(几何唯一
+   权威, part 白名单 pad/wall/post=§3.3 在保拍板); 门楼吃 prefab town-gate 行锚
+   (单源)+保护域政策偏移(footOf 盒同源, 互证对拍锁第二份漂移); 门洞净空
+   x77..79×y25..27×z129 排除(穿行契约, 建场同式禁填)。cap/wing/pier/墙头花
+   不在保(home「端帽/花不保」先例对称, §3.3 表, ADR-0018)。 */
+
+test('U4 判据: townProtectedAt 出口在位 · 在保采样(墙身/垫层/接头柱/门楼全盒) · 不在保采样(净空/柱帽/墙头花/域外/core)', () => {
+  const c = loadCore();
+  assert.strictEqual(typeof c.townProtectedAt, 'function',
+      'townProtectedAt 出口在位(module.exports 扩, ⑧b 转正守卫同源)');
+  const P = c.townProtectedAt;
+  /* 在保: 墙身 y25..26 两格全高(U6 闭销+防坠本体, §3.3 表行 1) */
+  for (const [x, z] of [[60, 128], [90, 128], [31, 64], [128, 64]]) {
+    assert.ok(P(x, 25, z), '墙身 y25 在保(' + x + ',' + z + ')');
+    assert.ok(P(x, 26, z), '墙身 y26 在保(' + x + ',' + z + ')');
+  }
+  /* 在保: 墙基垫层 y24(墙的地基同件同源——挖垫层=墙浮空穿帮+钻缝, 表行 2) */
+  for (const [x, z] of [[40, 128], [100, 128], [31, 64], [128, 90]]) {
+    assert.ok(P(x, 24, z), '垫层 y24 在保(' + x + ',' + z + ')');
+  }
+  /* 在保: 北端接头柱 y25..27 全高(防登墙功能件——挖顶格 y27 即可登, 表行 3) */
+  for (const [x, z] of [[31, 32], [31, 33], [128, 32], [128, 33]]) {
+    for (const y of [25, 26, 27]) {
+      assert.ok(P(x, y, z), '接头柱全高在保(' + x + ',' + y + ',' + z + ')');
+    }
+  }
+  /* 在保: 门楼全盒(锚 town-gate (76,24,128); 楼段 y25..33 含檐口出挑 x75/x81;
+      桥段 y20..24 桥体 x76..80; 表行 6「footOf 盒 y25..33 在保+桥 y20..24 在保」) */
+  for (const [x, y, z, what] of [
+    [76, 25, 129, '门柱'], [80, 25, 129, '门柱'], [76, 27, 129, '壁灯格'],
+    [78, 28, 129, '横梁'], [78, 29, 129, '门额牌'], [76, 30, 129, '柱头'],
+    [75, 31, 129, '檐口出挑'], [81, 32, 130, '檐口出挑背面'], [78, 33, 129, '屋脊'],
+    [78, 22, 129, '桥身'], [78, 24, 130, '桥面'], [76, 20, 131, '桥底']]) {
+    assert.ok(P(x, y, z), '门楼全盒在保: ' + what + ' (' + x + ',' + y + ',' + z + ')');
+  }
+  /* 不在保: 门洞净空 x77..79×y25..27×z129(穿行契约——挖/放/炸三缝同口径,
+     home 门楼「门洞净空不加分支恒 false」先例对称) */
+  for (const [x, y] of [[77, 25], [78, 26], [79, 27]]) {
+    assert.ok(!P(x, y, 129), '净空不在保(' + x + ',' + y + ',129)');
+  }
+  /* 不在保: 南角柱帽 y27(纯装饰顶格, home「端帽不保」先例对称, 表行 4) */
+  assert.ok(!P(31, 27, 128), '西角柱帽不在保(31,27,128)');
+  assert.ok(!P(128, 27, 128), '东角柱帽不在保(128,27,128)');
+  /* 不在保: 墙头花位(墙身顶 y27 花簇格——派生装饰层, home「花不保」N2 口径, 表行 5) */
+  assert.ok(!P(40, 27, 128) && !P(90, 27, 128), '墙头花位 y27 不在保');
+  /* 不在保: y 域外(垫层下 1/墙顶上方/屋脊上方) */
+  assert.ok(!P(60, 23, 128) && !P(60, 29, 128) && !P(78, 34, 129), 'y 域外不在保');
+  /* 不在保: core 内草地与镇内普通格(保护域外零误伤) */
+  assert.ok(!P(79, 24, 112) && !P(79, 25, 100) && !P(45, 24, 50) && !P(79, 25, 76),
+      'core/镇内普通格不在保(零误伤)');
+});
+
+test('U4 同源互证: 白名单 part segs 全格 ⊆ 判据 · cap 全格不在保 · 门楼盒=footOf 对拍(几何第二份防御)', () => {
+  const c = loadCore();
+  const P = c.townProtectedAt;
+  const rim = c.TOWN_MAP.ground.find((e) => e.kind === 'town-rim');
+  /* 墙圈互证(§3.4「seg 域复算」形态): 在保 part(pad/wall/post) seg 全格判据
+     true——判据吃 segs 单源, 遍历=判据域 ⊆ 几何唯一权威的第二份防御 */
+  let n = 0;
+  for (const s of rim.segs) {
+    if (s.part !== 'pad' && s.part !== 'wall' && s.part !== 'post') continue;
+    for (let x = s.x1; x <= s.x2; x++) {
+      for (let z = s.z1; z <= s.z2; z++) {
+        for (let y = s.y1; y <= s.y2; y++) {
+          assert.ok(P(x, y, z), '在保 seg 全格: ' + s.part + ' (' + x + ',' + y + ',' + z + ')');
+          n++;
+        }
+      }
+    }
+  }
+  assert.ok(n >= 500, '墙圈互证采样量在册(白名单 seg 非空, 实测 ' + n + ' 格)');
+  /* cap 全格不在保(与 ⑧ 逐件 pin 的柱帽段对账——判据与几何同源互斥面) */
+  for (const s of rim.segs) {
+    if (s.part !== 'cap') continue;
+    for (let x = s.x1; x <= s.x2; x++) {
+      for (let z = s.z1; z <= s.z2; z++) {
+        for (let y = s.y1; y <= s.y2; y++) {
+          assert.ok(!P(x, y, z), '柱帽全格不在保(' + x + ',' + y + ',' + z + ')');
+        }
+      }
+    }
+  }
+  /* 门楼盒对拍: footOf 盒逐格——判据在保域=楼段(y25..33 全宽含檐口出挑)∪
+     桥段(y20..24 桥体 x76..80)−门洞净空; prefab-kit foot 几何若有变, 对拍即红
+     =强制判据同步(第二份漂移防御, 架构方案 §3.1 红线) */
+  const g = c.TOWN_MAP.prefab.find((p) => p.id === 'town-gate');
+  const foot = c.PrefabKit.footOf('town-gate', g.x, g.y, g.z, g.v);
+  let m = 0;
+  for (let x = foot.x1; x <= foot.x2; x++) {
+    for (let z = foot.z1; z <= foot.z2; z++) {
+      for (let y = foot.y1; y <= foot.y2; y++) {
+        const tower = y >= g.y + 1 && y <= g.y + 9; /* 楼段 y25..33(全宽含出挑) */
+        const bridge = y <= g.y && x >= g.x && x <= g.x + 4; /* 桥段 y20..24(桥体宽) */
+        const clear = x >= g.x + 1 && x <= g.x + 3 &&
+            y >= g.y + 1 && y <= g.y + 3 && z === g.z + 1; /* 门洞净空 */
+        assert.strictEqual(P(x, y, z), (tower || bridge) && !clear,
+            'footOf 盒对拍(' + x + ',' + y + ',' + z + ')');
+        m++;
+      }
+    }
+  }
+  assert.ok(m >= 300, '门楼对拍采样量在册(footOf 盒非空, 实测 ' + m + ' 格)');
 });
 
 /* ============ ⑨ 远景剪影(map-design §4.2 R-01..03 · M7 默认) ============ */

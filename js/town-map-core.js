@@ -16,14 +16,20 @@
      'scatter','anchor'] 平铺(wayshrine 条目加冠于 road 后, 见函数注),
      每步 = 源条目浅拷贝+phase 标签
      (docs/town-architecture-design.md §5.1.6 建场次序: 先地表/远景/
-     路网基底→建筑件→植被道具散布→出生锚点), 同参同输出零副作用。
+     路网基底→建筑件→植被道具散布→出生锚点), 同参同输出零副作用 ·
+     纯函数 townProtectedAt(x,y,z)
+     → 镇域保护判据(U4/T2b, ADR-0018): 「挖/放/炸」三缝同口径的在保单点
+     问询——零依赖 part 派生式(墙圈吃 ground.town-rim segs 白名单
+     pad/wall/post; 门楼吃 prefab town-gate 行锚+保护域政策偏移), 布尔
+     同参同输出零副作用。
    依赖: 零运行时依赖——本文件不引用任何引擎件/件库符号(纯布局计划;
      布局常量对齐 docs/town-map-design.md §3-§4(布局权威)与
      docs/design/town-prefab-specs.md §3(件库映射); 脚印合法性由测试
      侧以 PrefabKit.footOf 校验, 材质集中注入归 T-MAP-03, 建场装配归
      T-MAP-02 消费本清单)。
    可测性声明: 零三维渲染库 · 零 DOM · 零墙钟 · 零随机 · 有同名单测
-     (test/town-map-core.test.js, 19 test 可执行规格)。
+     (test/town-map-core.test.js, 24 test 可执行规格; 计数照实更新 T2b
+     ——⑧c U4 判据两红+⑧b 转正守卫一红入册)。
    ============================================================ */
 
 const TOWN_MAP = {
@@ -595,9 +601,45 @@ function townBuildSteps() {
   return steps;
 }
 
+/* U4 镇域保护判据(T2b, spec §6 U4 + 架构方案 §3.3/§3.4, ADR-0018):
+   「挖/放/炸」三缝同口径的在保单点问询, 纯坐标函数——零运行时依赖纪律
+   保持(不引 PrefabKit, 头注零件库符号引用纪律)。判据两域:
+   ① 墙圈: 吃 ground.town-rim segs(几何唯一权威)part 白名单 pad/wall/post
+     =§3.3 在保拍板(垫层 y24/墙身 y25..26/接头柱 y25..27); cap/wing/pier
+     不在保(柱帽=纯装饰顶格/翼墙+端头墩=裙板域防坠件非镇墙本体——home
+     「端帽/花不保」先例对称, §3.3 表逐行拍板外推); 墙头花=派生面不在
+     segs, 天然不在保。
+   ② 门楼: prefab town-gate 行锚(单源)+保护域政策偏移全盒——楼段
+     dy+1..+9 全宽含檐口出挑 dx-1..+5 / 桥段 dy-4..0 桥体宽 dx0..+4
+     (出处=prefab-kit town-gate foot/kernel + town-prefab-specs §2.2/§2.6
+     + 架构方案 §3.3 表); 门洞净空 gx+1..+3×gy+1..+3×gz+1 排除(穿行
+     契约, 建场同式禁填)。政策偏移是几何的第二份表述——漂移由同名单测
+     ⑧c footOf 逐格对拍锁死(prefab-kit foot 若变, 对拍红=强制同步)。 */
+function townProtectedAt(x, y, z) {
+  /* ① 墙圈: 白名单 part seg 盒内即保(seg 自带 y1..y2, 逐段精确) */
+  const rim = TOWN_MAP.ground.find((e) => e.kind === 'town-rim');
+  if (rim) {
+    for (const s of rim.segs) {
+      if (s.part !== 'pad' && s.part !== 'wall' && s.part !== 'post') continue;
+      if (x >= s.x1 && x <= s.x2 && z >= s.z1 && z <= s.z2 &&
+          y >= s.y1 && y <= s.y2) return true;
+    }
+  }
+  /* ② 门楼: 盒界裁剪(=footOf 同参盒 x±(-1..+5)/y-4..+9/z0..+3, 对拍锁) */
+  const g = TOWN_MAP.prefab.find((p) => p.id === 'town-gate');
+  if (!g) return false;
+  if (x < g.x - 1 || x > g.x + 5 || y < g.y - 4 || y > g.y + 9 ||
+      z < g.z || z > g.z + 3) return false;
+  /* 门洞净空(穿行契约——挖/放/炸三缝同口径, home 门楼先例对称) */
+  if (x >= g.x + 1 && x <= g.x + 3 && y >= g.y + 1 && y <= g.y + 3 &&
+      z === g.z + 1) return false;
+  /* 楼段(y ≥ gy+1, 上界已由盒界保证)∪ 桥段(y ≤ gy 且桥体宽 gx..gx+4) */
+  return y >= g.y + 1 || (y <= g.y && x >= g.x && x <= g.x + 4);
+}
+
 /* Node require 域导出守卫(浏览器域零影响——经典 script 词法共享不需要它):
    adventure-dims-core 的 Node 装载兜底经 require 取 TOWN_MAP 自举挂全局,
    镇件同名单测走 vm 域惯例不受此导出影响(无 module 即跳过) */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {TOWN_MAP, townBuildSteps};
+  module.exports = {TOWN_MAP, townBuildSteps, townProtectedAt};
 }
