@@ -193,16 +193,19 @@ test('实例映射: P0/P1 全入+under-room 复用 · 波次二五件转正(boar
   const ids = [...new Set(ps.map((p) => p.id))].sort();
   assert.deepStrictEqual(ids, ['board-pool', 'clothesline', 'cottage-gable',
     'hencoop', 'house-loft', 'iron-golem', 'scarecrow', 'shop-awning',
-    'stall-canopy', 'stash-hut', 'town-gate', 'tower-belfry', 'under-room',
+    'stall-canopy', 'stash-hut', 'tower-belfry', 'town-gate', 'under-room',
     'windmill-tower', 'woodpile'],
   '实例 id 恰十五种: 七新行 + under-room(复用) + 波次二五件 + PO 亲需铁傀儡全身像 + ②镇侧门楼(T1a)');
   /* town-gate(T1a ②镇侧门楼落行, spec §2.6 候选行逐字): 锚 (76,24,128) 面
      北 zone south(缓冲带服务面, 越带注记豁免归 ⑤), v 素坯空对象 */
   const gates = ps.filter((p) => p.id === 'town-gate');
   assert.strictEqual(gates.length, 1, 'town-gate 恰一处(回程轴唯一正门)');
+  /* v 经展开拷贝摊平进宿主域再断言(conventions §7.1 摊平门面: vm 域对象
+     与宿主对象原型不同 realm, deepStrictEqual 直比必假红——本行逐字断言
+     的 v 是唯一对象字段, 其余皆标量直取) */
   assert.deepStrictEqual(
       {id: gates[0].id, x: gates[0].x, y: gates[0].y, z: gates[0].z,
-        v: gates[0].v, face: gates[0].face, zone: gates[0].zone},
+        v: {...gates[0].v}, face: gates[0].face, zone: gates[0].zone},
       {id: 'town-gate', x: 76, y: 24, z: 128, v: {}, face: 'north', zone: 'south'},
       'town-gate 行=spec §2.6 候选行逐字(锚 76,24,128 · face north 牌面朝北 · zone south)');
   assert.strictEqual(ps.filter((p) => p.id === 'board-pool').length, 1,
@@ -338,7 +341,7 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
   const gateSeg = t.beyond.find((b) => b.id === 'gate-south');
   assert.ok(gateBox.x1 >= gateSeg.x1 && gateBox.x2 <= gateSeg.x2 &&
       gateBox.z1 >= gateSeg.z1 && gateBox.z2 <= gateSeg.z2,
-      'town-gate 脚印 ⊆ beyond.gate-south(ADR-0013 白名单放行, 越界唯一通道)');
+  'town-gate 脚印 ⊆ beyond.gate-south(ADR-0013 白名单放行, 越界唯一通道)');
   assert.ok(gateBox.z2 <= 131,
       'town-gate 几何 z≤131 全在回程判据内侧(ADV_TOWN_RETURN_Z=132 之前, 判据行为面零改动前提)');
 });
