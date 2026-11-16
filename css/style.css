@@ -1717,7 +1717,7 @@ body.dev-on .mode-card.dev {
   display: none;
 }
 
-/* ---------- 装备页: 纸娃娃定格预览 + 四槽穿戴 + 盔甲点 ---------- */
+/* ---------- 装备页: 纸娃娃定格预览 + 五槽穿戴 + 盔甲点 ---------- */
 .mkp-equiprow {
   display: flex;
   align-items: flex-start;

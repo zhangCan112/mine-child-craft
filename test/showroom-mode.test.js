@@ -83,7 +83,7 @@ const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, 
   mkInventory, add, count, remove,
   take, moveSlot, damageTool, serialize, deserialize, costEntry, shapeCost, canCraft, matchGrid, gridCraft, fillGrid,
   RECIPES, SMELTS, FUEL, fuelUnits, smeltOf, breakTime,
-  HOTBAR_SLOTS, INV_SLOTS, EQUIP_SLOTS, /* 装备四槽表: require 的 mkArmorBar 调用期经全局名消费 */
+  HOTBAR_SLOTS, INV_SLOTS, EQUIP_SLOTS, /* 装备五槽表: require 的 mkArmorBar 调用期经全局名消费 */
   WORLD_W, WORLD_D, WORLD_H, PLAYER, IS_TOUCH, FLUID, DAYLIGHT,
   BLOCKS, B_FURNACE, B_CRAFT, B_CHEST, B_BED, B_TORCH, B_DOOR, B_DOOR_TOP, B_DOOR_OPEN,
   B_DOOR_TOP_OPEN, B_GLASS_PANE, B_TNT,

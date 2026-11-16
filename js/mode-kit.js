@@ -18,7 +18,7 @@
    §5; T9 一级三页签 背包|装备|造物(2026-11-05 二轮: 背包+手持栏提为
    第一页, 底部共用背包区退役; 装备页签 equip 缝条件渲染)+造物页分类
    页签四页(工具/食物/方块/材料, 「全部」退役)+装备页(纸娃娃定格预览+
-   四槽穿戴+背包页一键穿上, 数据与意图全经 opts.equip 缝注入,
+   五槽穿戴+背包页一键穿上, 数据与意图全经 opts.equip 缝注入,
    设计权威 docs/equipment-design.md §9)) ·
    mkFurnacePanel(三槽+进度条+燃料余量条, 常驻背包区手动放料/
    点击报意图回调, docs/furnace-design.md F2) · mkChestPanel(大宝箱,
@@ -605,7 +605,7 @@ function mkPanelShell(cfg) {
    装备|造物——背包+手持栏从面板底部提为第一页(面板即 MC「背包」本义,
    底部共用背包区退役); 装备页签仍 equip 缝条件渲染(缺省=两页签,
    向后兼容)。页签图标 show 期注入(整理钮同款延迟口径)。装备页: 页内
-   纸娃娃定格预览(mkPreview 工厂缝, 零 rAF 按需一帧)+四槽穿戴(点槽报
+   纸娃娃定格预览(mkPreview 工厂缝, 零 rAF 按需一帧)+五槽穿戴(点槽报
    onSlot=脱下, 空槽也报)+盔甲点(pts); 背包页点盔甲件=一键穿上
    onWearAt(丢弃态拦截优先; 政策链与刷新全归模式层, 本件只报意图)。
    挂载幂等: 同一遮罩节点反复 show 只挂一次, remove 可重复调 */
@@ -732,7 +732,7 @@ function mkCraftPanel(opts) {
   cards.className = 'mkp-cards';
   pageCraft.appendChild(tabs); pageCraft.appendChild(cards);
 
-  /* —— 装备页(装备 T9, 设计稿 §9.3): 纸娃娃定格预览 + 四槽穿戴 + 盔甲点。
+  /* —— 装备页(装备 T9, 设计稿 §9.3): 纸娃娃定格预览 + 五槽穿戴 + 盔甲点。
      数据与意图全经 equip 缝 {worn, pts, onSlot, onWearAt, mkPreview} 注入,
      本件零 THREE(预览经 mkPreview 工厂缝, 测试用桩工厂)+零装备数值知识
      (armorPoints 由 pts 供给, 耐久比例用既有 durOf) —— */

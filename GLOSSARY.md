@@ -145,11 +145,11 @@ _Avoid_: 相机跟随、第三人称开关（那是它的 implementation）
 _Avoid_: 玩家皮肤（那是官方素材概念，本项目皮肤程序自绘归造型档案）、人物模型（散称）
 
 **穿戴几何 overlay（ArmorOverlay）**:
-四槽盔甲骨挂 overlay 几何的唯一权威（js/armor-overlay.js，引擎层渲染件，装备 T9 自 avatar.js T4 内联闭包抽件，docs/equipment-design.md §9.4）：`mkArmorOverlay(puppet) → {apply(worn), dispose()}`——盔 9×9×9 面具前脸（额带+眼窗+护颊+护鼻，前脸贴图 alphaTest 抠窗露五官）、胸甲主盒+臂骨挂甲袖（正典肩甲语言=臂上段袖筒）、护腿+髋带、靴+鞋头；apply 按四槽 id 集签名幂等（同穿戴零重建），观感=每 tier 程序生成 16×16 像素贴图（底色经 HeldItems.ARMOR_TIER_COLORS 穿戴层色板取色，唯一色源；画布/THREE 不可用回落纯色）。消费方两处共享同一几何权威：avatar.js（玩家身上 setArmor 委托，载入即建、跨模式存活不释放）与 paper-doll.js（纸娃娃预览，unmount 才 dispose）。
+四槽盔甲骨挂 overlay 几何的唯一权威（js/armor-overlay.js，引擎层渲染件，装备 T9 自 avatar.js T4 内联闭包抽件，docs/equipment-design.md §9.4）：`mkArmorOverlay(puppet) → {apply(worn), dispose()}`——盔 9×9×9 面具前脸（额带+眼窗+护颊+护鼻，前脸贴图 alphaTest 抠窗露五官）、胸甲主盒+臂骨挂甲袖（正典肩甲语言=臂上段袖筒）、护腿+髋带、靴+鞋头；apply 按五槽 id 集签名幂等（同穿戴零重建），观感=每 tier 程序生成 16×16 像素贴图（底色经 HeldItems.ARMOR_TIER_COLORS 穿戴层色板取色，唯一色源；画布/THREE 不可用回落纯色）。消费方两处共享同一几何权威：avatar.js（玩家身上 setArmor 委托，载入即建、跨模式存活不释放）与 paper-doll.js（纸娃娃预览，unmount 才 dispose）。
 _Avoid_: 各处自画盔甲盒（几何双份漂移）、把分档配色誊写进本件（单份在手持物注册表）
 
 **纸娃娃预览（PaperDoll）**:
-背包面板装备页的 3D 定格预览（js/paper-doll.js，引擎层渲染件，装备 T9，docs/equipment-design.md §9.3）：`mkPaperDoll(opts) → {el, paint(worn), dispose()}`——MobLookKit.puppet('player') 独立小人 + 穿戴几何 overlay 共享盔甲几何 + 自建小 WebGLRenderer。**零 rAF 循环**（拍板「3D 定格不转」：不旋转、worn 变化按需重画一帧，省电照顾低配 iPad）；paint 四槽 id 签名幂等；THREE/DOM 全惰性（首次 paint 才建，boot 桩环境零触碰，Node 不直测由 boot 冒烟罩）；dispose 遍历释放几何/材质 + forceContextLoss（免 WebGL 上下文泄漏），面板 hide 不 dispose（重开复用）、unmount 才退役。消费方 mode-kit 经 equip 缝的 mkPreview 工厂注入（mode-kit 保持零 THREE，测试用桩工厂替身）。
+背包面板装备页的 3D 定格预览（js/paper-doll.js，引擎层渲染件，装备 T9，docs/equipment-design.md §9.3）：`mkPaperDoll(opts) → {el, paint(worn), dispose()}`——MobLookKit.puppet('player') 独立小人 + 穿戴几何 overlay 共享盔甲几何 + 自建小 WebGLRenderer。**零 rAF 循环**（拍板「3D 定格不转」：不旋转、worn 变化按需重画一帧，省电照顾低配 iPad）；paint 五槽 id 签名幂等；THREE/DOM 全惰性（首次 paint 才建，boot 桩环境零触碰，Node 不直测由 boot 冒烟罩）；dispose 遍历释放几何/材质 + forceContextLoss（免 WebGL 上下文泄漏），面板 hide 不 dispose（重开复用）、unmount 才退役。消费方 mode-kit 经 equip 缝的 mkPreview 工厂注入（mode-kit 保持零 THREE，测试用桩工厂替身）。
 _Avoid_: 常驻渲染循环（已否决的候选——省电口径）、mode-kit 直碰 THREE（预览经工厂缝注入）
 
 **第一人称手持视图（HandView）**:
