@@ -43,7 +43,6 @@ function mk(o) {
   return CampfireFxCore.mkCampfireFx(Object.assign({}, o));
 }
 const FIRE = {x: 10, y: 25, z: 10}; /* 标准火位: 方块基 y=25, 发射点/高度域全相对它 */
-const AT = FIRE.x + ',' + FIRE.y + ',' + FIRE.z;
 
 /* ============ ① 模块在册 + 参数表单源(UI 定稿 §5.2–5.4 逐项) ============ */
 
@@ -402,9 +401,9 @@ test('active/emitters/particles 查询面: 未开格 active=false · emitters=nu
   assert.strictEqual(fx.active(FIRE.x, FIRE.y, FIRE.z), false, '未开=不活跃');
   assert.strictEqual(fx.emitters(FIRE.x, FIRE.y, FIRE.z), null, '未开=无发射器快照');
   const empty = fx.particles(FIRE.x, FIRE.y, FIRE.z);
-  assert.ok(Array.isArray(empty.flame) && Array.isArray(empty.smoke) &&
-      Array.isArray(empty.vortex) && Array.isArray(empty.transients),
-      '未开 particles=四空数组(查询面形状恒定)');
+  const okShape = Array.isArray(empty.flame) && Array.isArray(empty.smoke) &&
+      Array.isArray(empty.vortex) && Array.isArray(empty.transients);
+  assert.ok(okShape, '未开 particles=四空数组(查询面形状恒定)');
 });
 
 /* ============ ⑥ 发射节拍 + 粒子推进(数量守恒/寿命域/运动域) ============ */
@@ -539,8 +538,10 @@ test('零墙钟+零裸随机: campfire-fx-core.js 零 Date.now/performance.now/M
 test('effects.js 零 campfire 音效字面量: sfx(campfire_lit)/sfx(campfire_out) 未登记前零落盘' +
     '(audio-registry 守门口径, 调用位只留注释同 C3 先例)', () => {
   const src = fs.readFileSync(path.join(ROOT, 'js', 'effects.js'), 'utf8');
-  assert.ok(!src.includes("sfx('campfire_lit'"), '零 campfire_lit 调用字面量');
-  assert.ok(!src.includes("sfx('campfire_out'"), '零 campfire_out 调用字面量');
+  const sq = '\''; /* 单引号字元(断言针内含引号形, 转义构造避开引号规) */
+  const lit = (kind) => 'sfx(' + sq + kind + sq;
+  assert.ok(!src.includes(lit('campfire_lit')), '零 campfire_lit 调用字面量');
+  assert.ok(!src.includes(lit('campfire_out')), '零 campfire_out 调用字面量');
   assert.ok(!src.includes('sfx("campfire_lit"'), '双引号变体也零');
   assert.ok(!src.includes('sfx("campfire_out"'), '双引号变体也零');
 });
