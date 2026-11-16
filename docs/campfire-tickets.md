@@ -74,7 +74,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C6 | 性能基准：50 火实测（光 BFS+柱查询+粒子空转） | T-C2 | ☐ 待领取 |
 | T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☑ 已并入（tc7 b8b6efb，合并 693ddac；双轴评审零发现；design-lead 视觉验收过，工件 .scratch/campfire/tc7-review/） |
 | T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档） |
-| T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ◐ 进行中（campfire-ui2/tc8b） |
+| T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ◐ 评审中（tc8b 39261ce，红绿同票交付） |
 | T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 进行中（campfire-ui/tc9） |
 | T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☐ 待领取 |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☐ 待领取 |
@@ -567,7 +567,7 @@ js/config.js（BLOCKS 两态行消费贴图格）· test/（图集单测）。
 
 ## T-C8b 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释
 
-> 标签：`task`｜状态：◐ 进行中（campfire-ui2/tc8b）｜blocked-by：T-C8, T-C1｜blocks：T-C12
+> 标签：`task`｜状态：◐ 评审中（tc8b 39261ce）｜blocked-by：T-C8, T-C1｜blocks：T-C12
 
 **背景**（评审 SPEC-1 实证 + design-lead 裁定 2026-11-16，裁「修」）：熄灭态美术（UI 定稿 §4.3 灰烬斑/灰烬残带/原木床去受光档）与「认得出熄灭篝火→可重燃」可供性（ADR 0018 浇熄教学因果 + 点击重燃交互）依赖白昼可见；pushCampfireBox 现取自身格光，熄灭态 solid+opaque→mkPolicy 挡光格自身格 sky/block 恒 0→白昼近黑（~10% 亮度，灰烬/原木床不可见）。取自身格对透光格（pushThin/pushBedBox 消费者，非挡光格）正确、对挡光格是语义错配；同构先例=pushGateSign T4 返工（取面朝向邻格光，ADR 0012）。
 
