@@ -76,7 +76,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档） |
 | T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ☑ 已并入+视觉验收 PASS（39261ce，合并 050be81；双轴评审 PASS + design-lead 基线对比验收 PASS） |
 | T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 进行中（campfire-ui/tc9） |
-| T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ◐ 进行中（campfire-ui2/tc10） |
+| T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ◐ 完工评审中（tc10 34363c4；通道面裁定在途） |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☐ 待领取 |
 | T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 + T-C8b 全部 | ☐ 待领取 |
 
@@ -671,7 +671,7 @@ js/campfire-kit.js（状态迁移点触发接线）· js/config.js（IS_LOWCORE_
 
 ## T-C10 UI D 区：文案话术
 
-> 标签：`task`｜状态：◐ 进行中（campfire-ui2/tc10）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
+> 标签：`task`｜状态：◐ 完工评审中（tc10 34363c4；通道面裁定在途）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
 > blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
