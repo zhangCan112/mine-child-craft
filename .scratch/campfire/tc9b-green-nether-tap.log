@@ -1,0 +1,286 @@
+TAP version 13
+# Subtest: 下界常量: ADV_PORTAL/ADV_NETHER 形状钉死(施工契约 §3.2 固定名)
+ok 1 - 下界常量: ADV_PORTAL/ADV_NETHER 形状钉死(施工契约 §3.2 固定名)
+  ---
+  duration_ms: 0.8157
+  type: 'test'
+  ...
+# Subtest: 下界门框: advPortalFrame 与退役前原版逐格一致(收集器 sink) + 关键构件抽点
+ok 2 - 下界门框: advPortalFrame 与退役前原版逐格一致(收集器 sink) + 关键构件抽点
+  ---
+  duration_ms: 0.3897
+  type: 'test'
+  ...
+# Subtest: 下界建场: advNetherBuild 确定性重放(两遍逐字节一致) + 地层全下界岩(残骸除外) + 出生区无熔岩 + 远古残骸地下层散布(装备 T7)
+ok 3 - 下界建场: advNetherBuild 确定性重放(两遍逐字节一致) + 地层全下界岩(残骸除外) + 出生区无熔岩 + 远古残骸地下层散布(装备 T7)
+  ---
+  duration_ms: 2349.3227
+  type: 'test'
+  ...
+# Subtest: 下界内口判定: advInPortal 门面内 true(脚/头各一例), 门外/框柱旁/门楣 false
+ok 4 - 下界内口判定: advInPortal 门面内 true(脚/头各一例), 门外/框柱旁/门楣 false
+  ---
+  duration_ms: 0.4713
+  type: 'test'
+  ...
+# Subtest: 下界放置校验: advPortalSiteOk 空地 ok · 盒内有方块 blocked · 玩家入盒 inside
+ok 5 - 下界放置校验: advPortalSiteOk 空地 ok · 盒内有方块 blocked · 玩家入盒 inside
+  ---
+  duration_ms: 0.284
+  type: 'test'
+  ...
+# Subtest: 下界传送出口: advPortalExit yaw 约定钉死(来向退 2.5 格, yaw 反向)
+ok 6 - 下界传送出口: advPortalExit yaw 约定钉死(来向退 2.5 格, yaw 反向)
+  ---
+  duration_ms: 0.116
+  type: 'test'
+  ...
+# Subtest: C1 切界: advSetDim 下界基座(下界岩+回程门内口) + dayCycleOn 关 + 怪清场, 回上界草原复原
+ok 7 - C1 切界: advSetDim 下界基座(下界岩+回程门内口) + dayCycleOn 关 + 怪清场, 回上界草原复原
+  ---
+  duration_ms: 1296.557
+  type: 'test'
+  ...
+# Subtest: C2 传送触发: 站进玩家门的门面 → 切下界 + 冷却期再站回程门被吞 + 冷却尽回上界落 advExitSpot
+ok 8 - C2 传送触发: 站进玩家门的门面 → 切下界 + 冷却期再站回程门被吞 + 冷却尽回上界落 advExitSpot
+  ---
+  duration_ms: 1223.7579
+  type: 'test'
+  ...
+# Subtest: C3 两界分桶: 下界放置记 nether 桶不串 overworld 桶, 回界重放原样重建
+ok 9 - C3 两界分桶: 下界放置记 nether 桶不串 overworld 桶, 回界重放原样重建
+  ---
+  duration_ms: 1239.0044
+  type: 'test'
+  ...
+# Subtest: C4 payload: 下界期间 flush 的档 pos=null + netherEdits 随档 + 旧形状档(无 netherEdits)照常载入
+ok 10 - C4 payload: 下界期间 flush 的档 pos=null + netherEdits 随档 + 旧形状档(无 netherEdits)照常载入
+  ---
+  duration_ms: 1255.1655
+  type: 'test'
+  ...
+# Subtest: C5 下界死亡: 切回上界 + 小屋出生 + 满血 + 回程记录作废(D11)
+ok 11 - C5 下界死亡: 切回上界 + 小屋出生 + 满血 + 回程记录作废(D11)
+  ---
+  duration_ms: 1225.5837
+  type: 'test'
+  ...
+# Subtest: C6 门放置: 空地成功(结构逐格记账+扣物品+光束) · 盒内有石话术不扣 · 玩家站盒内话术不扣
+ok 12 - C6 门放置: 空地成功(结构逐格记账+扣物品+光束) · 盒内有石话术不扣 · 玩家站盒内话术不扣
+  ---
+  duration_ms: 625.6587
+  type: 'test'
+  ...
+# Subtest: C7 多门回程: 最后进入的门优先——门A记录被门B按次序替换, 回程落门B旁
+ok 13 - C7 多门回程: 最后进入的门优先——门A记录被门B按次序替换, 回程落门B旁
+  ---
+  duration_ms: 1807.3142
+  type: 'test'
+  ...
+# Subtest: C8 炉界键(D14): 下界炉键带 n| 前缀 · 与上界同坐标炉互不串 · 异界键不挂火焰 · 退料落点解析剥前缀
+ok 14 - C8 炉界键(D14): 下界炉键带 n| 前缀 · 与上界同坐标炉互不串 · 异界键不挂火焰 · 退料落点解析剥前缀
+  ---
+  duration_ms: 1631.8305
+  type: 'test'
+  ...
+# Subtest: C9 树苗界门禁: 下界树苗计时冻结不长树(不串桶), 上界照常 20s 长成
+ok 15 - C9 树苗界门禁: 下界树苗计时冻结不长树(不串桶), 上界照常 20s 长成
+  ---
+  duration_ms: 1782.2625
+  type: 'test'
+  ...
+# Subtest: C10 HUD 下界态: 首行下界横幅, 不显白日/夜历; 上界照旧有时段行
+ok 16 - C10 HUD 下界态: 首行下界横幅, 不显白日/夜历; 上界照旧有时段行
+  ---
+  duration_ms: 1352.2087
+  type: 'test'
+  ...
+# Subtest: C11 KeyH 在下界: 回上界小屋 + 满血(与死亡同语义, 不走门)
+ok 17 - C11 KeyH 在下界: 回上界小屋 + 满血(与死亡同语义, 不走门)
+  ---
+  duration_ms: 1266.3201
+  type: 'test'
+  ...
+# Subtest: C12 挖不动话术(微默认3): 门框/门面=魔法做的, 下界岩系=太硬, 其他无 hard 方块静默
+ok 18 - C12 挖不动话术(微默认3): 门框/门面=魔法做的, 下界岩系=太硬, 其他无 hard 方块静默
+  ---
+  duration_ms: 0.0987
+  type: 'test'
+  ...
+# Subtest: T6-1 分桶存档: 三桶独立落盘 + map 键随档(分桶 encode/decode 往返一致)
+ok 19 - T6-1 分桶存档: 三桶独立落盘 + map 键随档(分桶 encode/decode 往返一致)
+  ---
+  duration_ms: 1096.7833
+  type: 'test'
+  ...
+# Subtest: T6-2 老档两代自动迁移: 裸 edits 档→home 桶 · netherEdits 档→nether 桶 · map 缺省 home
+ok 20 - T6-2 老档两代自动迁移: 裸 edits 档→home 桶 · netherEdits 档→nether 桶 · map 缺省 home
+  ---
+  duration_ms: 1273.1232
+  type: 'test'
+  ...
+# Subtest: T6-3 切走再切回: 世界逐字节一致(分桶账本互锁红线) + 各桶重放互不渗漏
+ok 21 - T6-3 切走再切回: 世界逐字节一致(分桶账本互锁红线) + 各桶重放互不渗漏
+  ---
+  duration_ms: 1396.6113
+  type: 'test'
+  ...
+# Subtest: T6-4 重进幂等: cleanup→init→cleanup→init 世界逐字节一致 + map/pos 恢复
+ok 22 - T6-4 重进幂等: cleanup→init→cleanup→init 世界逐字节一致 + map/pos 恢复
+  ---
+  duration_ms: 1168.4873
+  type: 'test'
+  ...
+# Subtest: T6-5 装配清单: advSetMap 换桶建场重放 + 地图行池/调色板/出生/HUD/炉键前缀
+ok 23 - T6-5 装配清单: advSetMap 换桶建场重放 + 地图行池/调色板/出生/HUD/炉键前缀
+  ---
+  duration_ms: 1446.9256
+  type: 'test'
+  ...
+# Subtest: T6-6 swamp 女巫常驻 + home 牲畜重播 + 夜怪池随行(替换语义)
+ok 24 - T6-6 swamp 女巫常驻 + home 牲畜重播 + 夜怪池随行(替换语义)
+  ---
+  duration_ms: 630.7623
+  type: 'test'
+  ...
+# Subtest: T6-7 nether 期间保持最后主世界图: 档 map 键不变, 回界回该图
+ok 25 - T6-7 nether 期间保持最后主世界图: 档 map 键不变, 回界回该图
+  ---
+  duration_ms: 1190.2889
+  type: 'test'
+  ...
+# Subtest: T6-8 远征图死亡/回家: 切回 home + 小屋出生 + 满血(§2.2 死了回家)
+ok 26 - T6-8 远征图死亡/回家: 切回 home + 小屋出生 + 满血(§2.2 死了回家)
+  ---
+  duration_ms: 2080.9099
+  type: 'test'
+  ...
+# Subtest: T6-9 调色板复位: cleanup 恢复缺省天基色/水色, 不渗其他模式
+ok 27 - T6-9 调色板复位: cleanup 恢复缺省天基色/水色, 不渗其他模式
+  ---
+  duration_ms: 633.3999
+  type: 'test'
+  ...
+# Subtest: T7-1 地图门建场: home 行无门(壳建场零命中+旧门区零残留) · 远征图回程门常亮 · 门体不记账 · 确定性重建
+ok 28 - T7-1 地图门建场: home 行无门(壳建场零命中+旧门区零残留) · 远征图回程门常亮 · 门体不记账 · 确定性重建
+  ---
+  duration_ms: 1636.5
+  type: 'test'
+  ...
+# Subtest: T7-1c 巢穴之门光束: init 即锚(home 建场件不在 edits/地图门表, advDenDoor 查表派生 2×2 束)
+ok 29 - T7-1c 巢穴之门光束: init 即锚(home 建场件不在 edits/地图门表, advDenDoor 查表派生 2×2 束)
+  ---
+  duration_ms: 1471.1432
+  type: 'test'
+  ...
+# Subtest: T7-2 站桩状态机: 远征图回程门 2s 站满(可反悔) → 渐晕满格切图 → 回 home 落来向缘锚 + TTS 播报
+ok 30 - T7-2 站桩状态机: 远征图回程门 2s 站满(可反悔) → 渐晕满格切图 → 回 home 落来向缘锚 + TTS 播报
+  ---
+  duration_ms: 1477.2341
+  type: 'test'
+  ...
+# Subtest: T7-3 nether 门分流: 玩家自放门任意位置站进去立即切下界(不站桩, T9 后 home 无地图门)
+ok 31 - T7-3 nether 门分流: 玩家自放门任意位置站进去立即切下界(不站桩, T9 后 home 无地图门)
+  ---
+  duration_ms: 669.265
+  type: 'test'
+  ...
+# Subtest: T7-4 回程门: 沼泽图站满 2s 回 home, 落西缘来向锚(T9 家园落点唯一权威)
+ok 32 - T7-4 回程门: 沼泽图站满 2s 回 home, 落西缘来向锚(T9 家园落点唯一权威)
+  ---
+  duration_ms: 1232.8204
+  type: 'test'
+  ...
+# Subtest: 审查修复 P1: 神殿可疑地板 — 站上塌入宝箱室(4 格清空+记账+话术), 塌后不复发
+ok 33 - 审查修复 P1: 神殿可疑地板 — 站上塌入宝箱室(4 格清空+记账+话术), 塌后不复发
+  ---
+  duration_ms: 832.5918
+  type: 'test'
+  ...
+# Subtest: 审查修复 P2: 死畜账按图分桶 — 老档单账迁 home 桶 · 七桶恒写全 · 往返一致
+ok 34 - 审查修复 P2: 死畜账按图分桶 — 老档单账迁 home 桶 · 七桶恒写全 · 往返一致
+  ---
+  duration_ms: 1291.3487
+  type: 'test'
+  ...
+# Subtest: 审查修复 P4: 史莱姆夜刷水边门 — 水洼旁放行 · 远水点拒绝(沼泽夜池专属口径)
+ok 35 - 审查修复 P4: 史莱姆夜刷水边门 — 水洼旁放行 · 远水点拒绝(沼泽夜池专属口径)
+  ---
+  duration_ms: 673.1339
+  type: 'test'
+  ...
+# Subtest: C-DR 切界存档 pos: 维度不进档单点判据(nether/den 一致) — den-nest D8 补锁
+ok 36 - C-DR 切界存档 pos: 维度不进档单点判据(nether/den 一致) — den-nest D8 补锁
+  ---
+  duration_ms: 29.3562
+  type: 'test'
+  ...
+# Subtest: 副本掉落真世界: 落点贴大厅洞底(不瞬移穹顶) — den-nest D14 集成回归
+ok 37 - 副本掉落真世界: 落点贴大厅洞底(不瞬移穹顶) — den-nest D14 集成回归
+  ---
+  duration_ms: 1345.4475
+  type: 'test'
+  ...
+# Subtest: 副本自爆残料: 掷中(60%)掉 1 火药·未掷中不掉(ADV_BOOM_LOOT_P, 用户拍板 D14)
+ok 38 - 副本自爆残料: 掷中(60%)掉 1 火药·未掷中不掉(ADV_BOOM_LOOT_P, 用户拍板 D14)
+  ---
+  duration_ms: 1293.4563
+  type: 'test'
+  ...
+# Subtest: 副本 5 轮封顶真世界: 第 5 波全清刷战利品宝箱 · 敲碎掉落+记账 · 重进不再现
+ok 39 - 副本 5 轮封顶真世界: 第 5 波全清刷战利品宝箱 · 敲碎掉落+记账 · 重进不再现
+  ---
+  duration_ms: 2705.8737
+  type: 'test'
+  ...
+# Subtest: 副本波次门: 守卫活着不挡下一波 — 只数当波波次怪(旧口径 30 守卫卡死波次)
+ok 40 - 副本波次门: 守卫活着不挡下一波 — 只数当波波次怪(旧口径 30 守卫卡死波次)
+  ---
+  duration_ms: 1700.0293
+  type: 'test'
+  ...
+# Subtest: 副本窗口真世界: 窗内续局(破坏保留+尸账不复活+补给不重来) · 第二天仍续局 · 第三日彻底复原
+ok 41 - 副本窗口真世界: 窗内续局(破坏保留+尸账不复活+补给不重来) · 第二天仍续局 · 第三日彻底复原
+  ---
+  duration_ms: 3506.4549
+  type: 'test'
+  ...
+# Subtest: 关页续局·快照取材: 在副本内落盘刷活怪/落点快照(傀儡不入快照, golems 桶专管)
+ok 42 - 关页续局·快照取材: 在副本内落盘刷活怪/落点快照(傀儡不入快照, golems 桶专管)
+  ---
+  duration_ms: 1296.8254
+  type: 'test'
+  ...
+# Subtest: 关页续局·真重载: 上次退出停在副本且窗口未翻篇 → init 直回副本(人物回落点, 活怪原位原血)
+ok 43 - 关页续局·真重载: 上次退出停在副本且窗口未翻篇 → init 直回副本(人物回落点, 活怪原位原血)
+  ---
+  duration_ms: 1369.9074
+  type: 'test'
+  ...
+# Subtest: 关页续局·翻篇重置: 快照在但窗口已过 → init 回主世界复活点(与改版前重置一致)
+ok 44 - 关页续局·翻篇重置: 快照在但窗口已过 → init 回主世界复活点(与改版前重置一致)
+  ---
+  duration_ms: 677.175
+  type: 'test'
+  ...
+# Subtest: 关页续局·通关宝箱: 通关刷箱落账——窗内重进重放复原(没敲就下线回来还在) · 跨窗桶清重跑
+ok 45 - 关页续局·通关宝箱: 通关刷箱落账——窗内重进重放复原(没敲就下线回来还在) · 跨窗桶清重跑
+  ---
+  duration_ms: 2696.7516
+  type: 'test'
+  ...
+# Subtest: 下界常量: ADV_DEBRIS 散布参数形状钉死(装备 T7 施工契约 — ADV_NETHER 形状已被上方测试钉死, 散布参数独立成件)
+ok 46 - 下界常量: ADV_DEBRIS 散布参数形状钉死(装备 T7 施工契约 — ADV_NETHER 形状已被上方测试钉死, 散布参数独立成件)
+  ---
+  duration_ms: 0.1511
+  type: 'test'
+  ...
+1..46
+# tests 46
+# suites 0
+# pass 46
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 53970.6537
