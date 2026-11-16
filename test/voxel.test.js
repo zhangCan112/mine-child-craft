@@ -345,9 +345,9 @@ test('physics: autoJump 关闭 → 贴台阶不跳(桌面行走口径不变)', (
    引擎层滑翔状态机契约: 装备位意图注入 setGliderEquipped(模式层唯一写面, 语义=玩家
    背着滑翔翼) · 滑翔态出口 isGliding()(T-G04 展/收翼驱动消费) · land 事件缝
    worldEvents.land + landFall(本次落差格数) + landGliding(触地时滑翔态, T-G05 零
-   伤害旗标)。参数断言取 PO 实机调参值: 展翼阈值 2 / 缓降 −1.5(2026-11-16 调参, 浮空
-   翻倍; spec §3.9 初值 −3.0 已由调参令取代) / 水平操控 5.0。 */
-const GLIDE_SINK = -1.5; // PO 实机调参值 2026-11-16(config GLIDE.sink 镜像); spec §3.9 初值 −3.0 已由调参令取代(T-G07)
+   伤害旗标)。参数断言取 PO 实机调参值: 展翼阈值 2 / 缓降 −1.2(2026-11-16 二次调参,
+   实飞「非常好」再压; spec §3.9 初值 −3.0 已由调参令取代) / 水平操控 5.0。 */
+const GLIDE_SINK = -1.2; // PO 二次实飞调参值 2026-11-16(config GLIDE.sink 镜像); spec §3.9 初值 −3.0 已由调参令取代(T-G07/T-G08)
 const GLIDE_SPEED = 5.0; // spec §3.9 滑翔水平操控初值(格/秒, 不享受疾跑)
 
 function fillPool(v) { // 两格深水池: 池底 y=8(顶面 9), 水方块 y=9..10(水面顶 11)
