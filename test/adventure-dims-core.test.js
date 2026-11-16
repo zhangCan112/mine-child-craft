@@ -838,20 +838,23 @@ test('墙圈建场(T2): 垫层/墙身/闭角/接头柱无帽/柱帽/翼墙/端�
   /* 南角柱帽(y27 石英 17) */
   assert.strictEqual(cell(31, 27, 128), 17, '南角柱帽 17 @(31,27,128)');
   assert.strictEqual(cell(128, 27, 128), 17, '南角柱帽 17 @(128,27,128)');
-  /* 裙板翼墙(z31 行, 立实测裙板顶 24 上 y25..26 两格——spec 坐标列
-     y26..27 的「裙板顶 25」前提在翼列不成立(拱形端点), 裁定注见
-     town-map-core.test ⑧b; 2 格高/防登数学不变) */
-  assert.strictEqual(cell(20, 25, 31), 13, '西翼墙 13 @(20,25,31)');
+  /* 裙板翼墙(z31 行 y26..27 两格 13——T2c 终审裁定回改 spec 原案绝对值,
+     裁定注见 town-map-core.test ⑧b; 翼墙顶面 y28 级=自 rim 面 2 跳不可达;
+     回改后底 y26 与裙板顶 24 之间露 y25 空气缝, 见 ⑧b 票外实证注) */
+  assert.strictEqual(cell(20, 24, 31), 14, '翼下裙板顶原貌 14 @(20,24,31)(高台顶块未被覆写)');
+  assert.strictEqual(cell(20, 25, 31), 0, '西翼墙下缝空 @(20,25,31)(T2c 回改后 y25 露缝)');
   assert.strictEqual(cell(20, 26, 31), 13, '西翼墙 13 @(20,26,31)');
-  assert.strictEqual(cell(20, 27, 31), 0, '西翼墙顶上空 @(20,27,31)');
-  assert.strictEqual(cell(135, 25, 31), 13, '东翼墙 13 @(135,25,31)');
+  assert.strictEqual(cell(20, 27, 31), 13, '西翼墙 13 @(20,27,31)');
+  assert.strictEqual(cell(20, 28, 31), 0, '西翼墙顶上空 @(20,28,31)');
   assert.strictEqual(cell(135, 26, 31), 13, '东翼墙 13 @(135,26,31)');
-  /* 北缘端头墩(x16/x143 列 z29..31 y25..26, 立裙板顶上 2 格) */
-  assert.strictEqual(cell(16, 25, 30), 13, '西端头墩 13 @(16,25,30)');
+  assert.strictEqual(cell(135, 27, 31), 13, '东翼墙 13 @(135,27,31)');
+  /* 北缘端头墩(x16/x143 列 z29..31 y26..27, spec 原案, T2c 终审回改) */
+  assert.strictEqual(cell(16, 25, 30), 0, '西端头墩下缝空 @(16,25,30)(T2c 回改后 y25 露缝)');
   assert.strictEqual(cell(16, 26, 30), 13, '西端头墩 13 @(16,26,30)');
-  assert.strictEqual(cell(16, 25, 29), 13, '西端头墩 13 @(16,25,29)');
-  assert.strictEqual(cell(143, 25, 31), 13, '东端头墩 13 @(143,25,31)');
+  assert.strictEqual(cell(16, 27, 30), 13, '西端头墩 13 @(16,27,30)');
+  assert.strictEqual(cell(16, 26, 29), 13, '西端头墩 13 @(16,26,29)');
   assert.strictEqual(cell(143, 26, 31), 13, '东端头墩 13 @(143,26,31)');
+  assert.strictEqual(cell(143, 27, 31), 13, '东端头墩 13 @(143,27,31)');
   /* 墙头花(y27, 61/62 按 ⌊(x+z)/8⌋ 奇偶固定交替=独立字面量转录,
      相邻簇必异色; 开口段 x80 跳空) */
   const wantFlower = (x, z, id, tag) => assert.strictEqual(cell(x, 27, z), id,
