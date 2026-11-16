@@ -1,0 +1,781 @@
+✔ campfire 两态行: B_CAMPFIRE=81/B_CAMPFIRE_OUT=82 · campfire 旗标 lit|out · light 15/0 · 半格实体 · hard 0 · 无 replaceable (0.5562ms)
+✔ campfire 参数块: CAMPFIRE 六键照 §3.9 初值(6000 刻/柱高 20/截面半径 1/升速 3.0/烫伤节拍 20/烫伤 1 血) (0.0745ms)
+✔ campfire 物品行: ITEMS.campfire 三字段(name/icon/block 路由) · 无 dur(可堆叠消耗品) (0.0589ms)
+✔ campfire 物品提示: ITEM_HINTS.campfire 逐字=UI 定稿 §6.1 · 全文零剧透禁词(§6.4 词集) (0.0894ms)
+✔ campfire 接线: index.html script 行在册且 adventure-core < campfire-kit < modes/adventure.js(装载序=依赖序, boot 按真实序装载) (0.9203ms)
+✔ campfire 零墙钟: campfire-kit.js 源码零 Date.now/performance.now(确定性重放红线) (0.2262ms)
+✔ campfire kit plant: 满时长建条(posKey 键 + {x,y,z,left} 条目, left=6000=CAMPFIRE.ticks) (0.4645ms)
+✔ campfire kit tick 量化整刻: 0.05s=1 刻零漂 · 不喂即冻结(零墙钟, 账本自己不动) (0.1565ms)
+✔ campfire kit 燃尽恰一次: 5999 刻不燃 · 第 6000 刻回调恰一次+条目删净 · 燃尽后再喂零回调 (1.5405ms)
+✔ campfire kit 掉帧追平: 单帧大 dt 只走 8 刻(guard 防螺旋) · 后续帧累积追平零丢刻(pumpFluids fluidAcc 同款) (0.1495ms)
+✔ campfire kit drop/reset: 挖除删条 · 未知格零炸 · reset 清空(重进场复位口径) (0.0888ms)
+✔ campfire kit encode 桩: [[posKey,{left}]] 存档形状(advCampfiresClean 同形, T-C5 档键缝) (0.172ms)
+✔ campfire kit 无 onBurnout 注入: 燃尽不炸(回调缺省=无观感政策) (1.2098ms)
+✖ campfire kit updraft 接线: plant → sim.add(源格心+CAMPFIRE 柱参三件, 单次单源) (0.4932ms)
+✖ campfire kit updraft 接线: 燃尽(tick 到期) → sim.remove(坐标全参, 与 onBurnout 同拍) (1.2419ms)
+✖ campfire kit updraft 接线: drop 已知格 → sim.remove · 未知格 drop 零注销(presence 口径) (0.1565ms)
+✔ campfire kit updraft 缺席容忍: opts.updraft 未注入 plant/tick/drop 零炸(装配前/Node 语境) (0.8404ms)
+✖ updraft mkSim: env 注入可建 sim(接口面: add/remove/query/count/clear 全在册) (1.1971ms)
+✖ query 命中: 柱内点返回 {lift, top} 且 lift/top 同源, top=火面y+柱高 (0.1186ms)
+✖ 3×3 截面: Chebyshev ≤1 八邻全命中 · 一步之外(Chebyshev 2)零命中 · r 参数驱动不写死 (0.1171ms)
+✖ 垂直界: 火面高度命中(站火旁同地面) · 火面以下零命中 · 柱顶恰命中 · 柱顶之上零命中 (0.0769ms)
+✖ 遮挡列扫: 玩家列火面+1→脚部首个实体即截断 · 实体以下矮段照常 · 部分遮挡按列 · 火源格不自遮挡 · 非实体不截 (0.1016ms)
+✖ 多柱 max: 重叠区取最强一柱(lift 与 top 同源非求和) · 最强柱被遮挡时取次强命中柱 (0.0745ms)
+✖ count/clear/remove: 注册计数 · 注销单柱 · 未知格 remove 零炸 · clear 清场(切模式/换图口径) (0.0771ms)
+✖ add 幂等: 同位重复注册覆盖不叠加(count 恒 1, 新参数整组生效) (0.0646ms)
+✖ env 注入隔离: 两个 sim 各自 env 互不串扰(零全局, read/solidOf 全参数化) (0.0823ms)
+✖ 孤立装载: 仅 updraft-core.js 单文件 vm 装载零炸(加载零副作用, 零全局可解析) (0.2968ms)
+✖ 零墙钟零随机零 THREE 零 DOM: updraft-core.js 源码 grep(确定性重放红线, spec §6-1/6-8) (0.1554ms)
+✖ 乘流·柱内托升: 火旁(3×3 内)平地跳跃立即展翼, 升力替换缓降(vel.y=+lift), 持续上升 (3.0841ms)
+✖ 乘流·出柱回落: 漂出柱(Chebyshev ≥2)vel.y 即回落缓降, 柱外高度只减不增恢复 (1.1732ms)
+✖ 乘流·进入即乘: 柱外展翼滑翔飘入柱内 = 开始上升(BotW 官方口径移植) (1.0996ms)
+✖ 乘流·踩火起飞: 踩着篝火方块本身起跳同此(3×3 含篝火格, thin 半格可站) (1.0671ms)
+✖ 乘流·无翼零参与: 未装备玩家柱内跳跃零展翼零升力(重力弧线照旧, 风托的是翼) (1.0708ms)
+✖ 乘流·静立/步行零被动升空: 装备翼静立柱内与步行穿柱不按跳零展翼(路过篝火不上天, ADR 0017 D 案否决面) (1.0941ms)
+✖ 乘流·闩锁咬合: 柱内取消→闩锁态自由下坠(lift 不作用) · 空中再点跳=解闩+展翼再获升力 · 落地清闩再跳恢复豁免 (1.245ms)
+✖ 乘流·摔落联动·柱内取消: 乘流至高处取消收翼, 落差自收翼点重计(20 格取消≈重伤的账) (1.3908ms)
+✖ 乘流·摔落联动·全程安全: 乘流升高后漂出柱滑翔落地, landGliding=true 且落差≈0(展翼段不计账) (1.0355ms)
+✖ 乘流·滑翔中卸翼(柱内): 立即收翼按无翼坠落, 升力不再接管(卸翼语义优先于气流) (1.0613ms)
+✖ 乘流·遮挡联动: 玩家列火面上方实体→该高度无升力(缓降), 实体下方矮段照常升力 (1.0965ms)
+✖ 乘流·贴顶边界: 柱顶上方天花板压停(不穿墙), 碰撞清 vel.y 下一帧再给 lift 的抖动可接受 (1.1598ms)
+✖ 乘流·空注册表零行为: sim 在册无源时既有滑翔语义零变化(非篝火模式零增量回归金丝雀) (1.0179ms)
+✖ 装配守门·装载序: index.html updraft-core 行在册且先于 voxel.js 与 world.js(消费链硬依赖边) (0.8471ms)
+✖ 装配守门·world.js 装配位: UpdraftCore.mkSim 与 fluid sim 同位(read/solidOf 注入 getBlock/isSolid) · clearWorld 清场 (0.9346ms)
+✖ 装配守门·模式层接线: adventure.js 经 updraft 缝注入(注册/注销经状态迁移点, spec §3.5) (1.3516ms)
+ℹ tests 44
+ℹ suites 0
+ℹ pass 14
+ℹ fail 30
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 78.3724
+
+✖ failing tests:
+
+test at test\campfire-kit.test.js:251:1
+✖ campfire kit updraft 接线: plant → sim.add(源格心+CAMPFIRE 柱参三件, 单次单源) (0.4932ms)
+  AssertionError [ERR_ASSERTION]: 放置即燃=注册恰一次(燃烧态=add, spec §3.5)
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\campfire-kit.test.js:257:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\campfire-kit.test.js:263:1
+✖ campfire kit updraft 接线: 燃尽(tick 到期) → sim.remove(坐标全参, 与 onBurnout 同拍) (1.2419ms)
+  AssertionError [ERR_ASSERTION]: 燃尽=注销(燃尽收尾与 onBurnout 同一状态迁移点, spec §3.5)
+  + actual - expected
+  
+  + []
+  - [
+  -   [
+  -     10,
+  -     20,
+  -     30
+  -   ]
+  - ]
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\campfire-kit.test.js:271:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ [ 10, 20, 30 ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\campfire-kit.test.js:275:1
+✖ campfire kit updraft 接线: drop 已知格 → sim.remove · 未知格 drop 零注销(presence 口径) (0.1565ms)
+  AssertionError [ERR_ASSERTION]: 挖除/覆盖=注销, 邻格不动
+  + actual - expected
+  
+  + []
+  - [
+  -   [
+  -     10,
+  -     20,
+  -     30
+  -   ]
+  - ]
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\campfire-kit.test.js:282:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [],
+    expected: [ [ 10, 20, 30 ] ],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:60:1
+✖ updraft mkSim: env 注入可建 sim(接口面: add/remove/query/count/clear 全在册) (1.1971ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册且暴露 UpdraftCore.mkSim(新建文件, 票面要求 1)
+      at coreReady (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:39:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:61:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.start (node:internal/test_runner/test:1003:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:68:1
+✖ query 命中: 柱内点返回 {lift, top} 且 lift/top 同源, top=火面y+柱高 (0.1186ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册且暴露 UpdraftCore.mkSim(新建文件, 票面要求 1)
+      at coreReady (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:39:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:69:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:80:1
+✖ 3×3 截面: Chebyshev ≤1 八邻全命中 · 一步之外(Chebyshev 2)零命中 · r 参数驱动不写死 (0.1171ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册且暴露 UpdraftCore.mkSim(新建文件, 票面要求 1)
+      at coreReady (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:39:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:81:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:98:1
+✖ 垂直界: 火面高度命中(站火旁同地面) · 火面以下零命中 · 柱顶恰命中 · 柱顶之上零命中 (0.0769ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册且暴露 UpdraftCore.mkSim(新建文件, 票面要求 1)
+      at coreReady (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:39:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:99:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:109:1
+✖ 遮挡列扫: 玩家列火面+1→脚部首个实体即截断 · 实体以下矮段照常 · 部分遮挡按列 · 火源格不自遮挡 · 非实体不截 (0.1016ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册且暴露 UpdraftCore.mkSim(新建文件, 票面要求 1)
+      at coreReady (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:39:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:110:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:132:1
+✖ 多柱 max: 重叠区取最强一柱(lift 与 top 同源非求和) · 最强柱被遮挡时取次强命中柱 (0.0745ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册且暴露 UpdraftCore.mkSim(新建文件, 票面要求 1)
+      at coreReady (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:39:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:133:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:150:1
+✖ count/clear/remove: 注册计数 · 注销单柱 · 未知格 remove 零炸 · clear 清场(切模式/换图口径) (0.0771ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册且暴露 UpdraftCore.mkSim(新建文件, 票面要求 1)
+      at coreReady (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:39:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:151:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:168:1
+✖ add 幂等: 同位重复注册覆盖不叠加(count 恒 1, 新参数整组生效) (0.0646ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册且暴露 UpdraftCore.mkSim(新建文件, 票面要求 1)
+      at coreReady (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:39:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:169:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:179:1
+✖ env 注入隔离: 两个 sim 各自 env 互不串扰(零全局, read/solidOf 全参数化) (0.0823ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册且暴露 UpdraftCore.mkSim(新建文件, 票面要求 1)
+      at coreReady (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:39:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:180:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: null,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:189:1
+✖ 孤立装载: 仅 updraft-core.js 单文件 vm 装载零炸(加载零副作用, 零全局可解析) (0.2968ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册(新建文件)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:191:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:200:1
+✖ 零墙钟零随机零 THREE 零 DOM: updraft-core.js 源码 grep(确定性重放红线, spec §6-1/6-8) (0.1554ms)
+  AssertionError [ERR_ASSERTION]: js/updraft-core.js 在册
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:202:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:288:1
+✖ 乘流·柱内托升: 火旁(3×3 内)平地跳跃立即展翼, 升力替换缓降(vel.y=+lift), 持续上升 (3.0841ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:289:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:310:1
+✖ 乘流·出柱回落: 漂出柱(Chebyshev ≥2)vel.y 即回落缓降, 柱外高度只减不增恢复 (1.1732ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:311:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:334:1
+✖ 乘流·进入即乘: 柱外展翼滑翔飘入柱内 = 开始上升(BotW 官方口径移植) (1.0996ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:335:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:346:1
+✖ 乘流·踩火起飞: 踩着篝火方块本身起跳同此(3×3 含篝火格, thin 半格可站) (1.0671ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:347:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:361:1
+✖ 乘流·无翼零参与: 未装备玩家柱内跳跃零展翼零升力(重力弧线照旧, 风托的是翼) (1.0708ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:362:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:381:1
+✖ 乘流·静立/步行零被动升空: 装备翼静立柱内与步行穿柱不按跳零展翼(路过篝火不上天, ADR 0017 D 案否决面) (1.0941ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:382:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:400:1
+✖ 乘流·闩锁咬合: 柱内取消→闩锁态自由下坠(lift 不作用) · 空中再点跳=解闩+展翼再获升力 · 落地清闩再跳恢复豁免 (1.245ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:401:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:434:1
+✖ 乘流·摔落联动·柱内取消: 乘流至高处取消收翼, 落差自收翼点重计(20 格取消≈重伤的账) (1.3908ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:435:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:457:1
+✖ 乘流·摔落联动·全程安全: 乘流升高后漂出柱滑翔落地, landGliding=true 且落差≈0(展翼段不计账) (1.0355ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:458:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:479:1
+✖ 乘流·滑翔中卸翼(柱内): 立即收翼按无翼坠落, 升力不再接管(卸翼语义优先于气流) (1.0613ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:480:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:499:1
+✖ 乘流·遮挡联动: 玩家列火面上方实体→该高度无升力(缓降), 实体下方矮段照常升力 (1.0965ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:500:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:512:1
+✖ 乘流·贴顶边界: 柱顶上方天花板压停(不穿墙), 碰撞清 vel.y 下一帧再给 lift 的抖动可接受 (1.1598ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册(config/updraft-core/voxel), 缺: js/updraft-core.js
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at mkScene (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:270:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:513:13)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:533:1
+✖ 乘流·空注册表零行为: sim 在册无源时既有滑翔语义零变化(非篝火模式零增量回归金丝雀) (1.0179ms)
+  AssertionError [ERR_ASSERTION]: 被测 js 文件在册
+  + actual - expected
+  
+  + [
+  +   'js/updraft-core.js'
+  + ]
+  - []
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:535:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: [ 'js/updraft-core.js' ],
+    expected: [],
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:561:1
+✖ 装配守门·装载序: index.html updraft-core 行在册且先于 voxel.js 与 world.js(消费链硬依赖边) (0.8471ms)
+  AssertionError [ERR_ASSERTION]: script 行在册(updraft-core.js)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:567:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:573:1
+✖ 装配守门·world.js 装配位: UpdraftCore.mkSim 与 fluid sim 同位(read/solidOf 注入 getBlock/isSolid) · clearWorld 清场 (0.9346ms)
+  AssertionError [ERR_ASSERTION]: world.js 装配 UPDRAFT_SIM(与 FLUID_SIM 同装配位, 票面要求 4)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:575:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\updraft-core.test.js:582:1
+✖ 装配守门·模式层接线: adventure.js 经 updraft 缝注入(注册/注销经状态迁移点, spec §3.5) (1.3516ms)
+  AssertionError [ERR_ASSERTION]: adventure.js 引用 UPDRAFT_SIM(引擎装配实例)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:584:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+===== [red-cause] 分类段(机械生成, 回执引用此段) =====
+失败测试数: 30 / 通过: 14 / 总数: 44
+Error 类名计数(装具炸嫌疑=TypeError/ReferenceError/SyntaxError; 断言红=AssertionError):
+  AssertionError: 30
+失败测试清单:
+  - campfire kit updraft 接线: plant → sim.add(源格心+CAMPFIRE 柱参三件, 单次单源)
+  - campfire kit updraft 接线: 燃尽(tick 到期) → sim.remove(坐标全参, 与 onBurnout 同拍)
+  - campfire kit updraft 接线: drop 已知格 → sim.remove · 未知格 drop 零注销(presence 口径)
+  - updraft mkSim: env 注入可建 sim(接口面: add/remove/query/count/clear 全在册)
+  - query 命中: 柱内点返回 {lift, top} 且 lift/top 同源, top=火面y+柱高
+  - 3×3 截面: Chebyshev ≤1 八邻全命中 · 一步之外(Chebyshev 2)零命中 · r 参数驱动不写死
+  - 垂直界: 火面高度命中(站火旁同地面) · 火面以下零命中 · 柱顶恰命中 · 柱顶之上零命中
+  - 遮挡列扫: 玩家列火面+1→脚部首个实体即截断 · 实体以下矮段照常 · 部分遮挡按列 · 火源格不自遮挡 · 非实体不截
+  - 多柱 max: 重叠区取最强一柱(lift 与 top 同源非求和) · 最强柱被遮挡时取次强命中柱
+  - count/clear/remove: 注册计数 · 注销单柱 · 未知格 remove 零炸 · clear 清场(切模式/换图口径)
+  - add 幂等: 同位重复注册覆盖不叠加(count 恒 1, 新参数整组生效)
+  - env 注入隔离: 两个 sim 各自 env 互不串扰(零全局, read/solidOf 全参数化)
+  - 孤立装载: 仅 updraft-core.js 单文件 vm 装载零炸(加载零副作用, 零全局可解析)
+  - 零墙钟零随机零 THREE 零 DOM: updraft-core.js 源码 grep(确定性重放红线, spec §6-1/6-8)
+  - 乘流·柱内托升: 火旁(3×3 内)平地跳跃立即展翼, 升力替换缓降(vel.y=+lift), 持续上升
+  - 乘流·出柱回落: 漂出柱(Chebyshev ≥2)vel.y 即回落缓降, 柱外高度只减不增恢复
+  - 乘流·进入即乘: 柱外展翼滑翔飘入柱内 = 开始上升(BotW 官方口径移植)
+  - 乘流·踩火起飞: 踩着篝火方块本身起跳同此(3×3 含篝火格, thin 半格可站)
+  - 乘流·无翼零参与: 未装备玩家柱内跳跃零展翼零升力(重力弧线照旧, 风托的是翼)
+  - 乘流·静立/步行零被动升空: 装备翼静立柱内与步行穿柱不按跳零展翼(路过篝火不上天, ADR 0017 D 案否决面)
+  - 乘流·闩锁咬合: 柱内取消→闩锁态自由下坠(lift 不作用) · 空中再点跳=解闩+展翼再获升力 · 落地清闩再跳恢复豁免
+  - 乘流·摔落联动·柱内取消: 乘流至高处取消收翼, 落差自收翼点重计(20 格取消≈重伤的账)
+  - 乘流·摔落联动·全程安全: 乘流升高后漂出柱滑翔落地, landGliding=true 且落差≈0(展翼段不计账)
+  - 乘流·滑翔中卸翼(柱内): 立即收翼按无翼坠落, 升力不再接管(卸翼语义优先于气流)
+  - 乘流·遮挡联动: 玩家列火面上方实体→该高度无升力(缓降), 实体下方矮段照常升力
+  - 乘流·贴顶边界: 柱顶上方天花板压停(不穿墙), 碰撞清 vel.y 下一帧再给 lift 的抖动可接受
+  - 乘流·空注册表零行为: sim 在册无源时既有滑翔语义零变化(非篝火模式零增量回归金丝雀)
+  - 装配守门·装载序: index.html updraft-core 行在册且先于 voxel.js 与 world.js(消费链硬依赖边)
+  - 装配守门·world.js 装配位: UpdraftCore.mkSim 与 fluid sim 同位(read/solidOf 注入 getBlock/isSolid) · clearWorld 清场
+  - 装配守门·模式层接线: adventure.js 经 updraft 缝注入(注册/注销经状态迁移点, spec §3.5)
+通过测试清单(对账零误伤用):
+  + campfire 两态行: B_CAMPFIRE=81/B_CAMPFIRE_OUT=82 · campfire 旗标 lit|out · light 15/0 · 半格实体 · hard 0 · 无 replaceable
+  + campfire 参数块: CAMPFIRE 六键照 §3.9 初值(6000 刻/柱高 20/截面半径 1/升速 3.0/烫伤节拍 20/烫伤 1 血)
+  + campfire 物品行: ITEMS.campfire 三字段(name/icon/block 路由) · 无 dur(可堆叠消耗品)
+  + campfire 物品提示: ITEM_HINTS.campfire 逐字=UI 定稿 §6.1 · 全文零剧透禁词(§6.4 词集)
+  + campfire 接线: index.html script 行在册且 adventure-core < campfire-kit < modes/adventure.js(装载序=依赖序, boot 按真实序装载)
+  + campfire 零墙钟: campfire-kit.js 源码零 Date.now/performance.now(确定性重放红线)
+  + campfire kit plant: 满时长建条(posKey 键 + {x,y,z,left} 条目, left=6000=CAMPFIRE.ticks)
+  + campfire kit tick 量化整刻: 0.05s=1 刻零漂 · 不喂即冻结(零墙钟, 账本自己不动)
+  + campfire kit 燃尽恰一次: 5999 刻不燃 · 第 6000 刻回调恰一次+条目删净 · 燃尽后再喂零回调
+  + campfire kit 掉帧追平: 单帧大 dt 只走 8 刻(guard 防螺旋) · 后续帧累积追平零丢刻(pumpFluids fluidAcc 同款)
+  + campfire kit drop/reset: 挖除删条 · 未知格零炸 · reset 清空(重进场复位口径)
+  + campfire kit encode 桩: [[posKey,{left}]] 存档形状(advCampfiresClean 同形, T-C5 档键缝)
+  + campfire kit 无 onBurnout 注入: 燃尽不炸(回调缺省=无观感政策)
+  + campfire kit updraft 缺席容忍: opts.updraft 未注入 plant/tick/drop 零炸(装配前/Node 语境)
+===== [red-cause] 段尾 =====
