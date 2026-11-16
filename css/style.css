@@ -110,6 +110,20 @@ canvas {
   image-rendering: pixelated; /* 像素画风: 关平滑(iconOf 家族口径) */
 }
 
+/* 滑翔装配 T-G04 金描边呼吸(glider-ui-spec §3.3 定稿): 滑翔沿切 .glide-glow
+   (模式层沿驱动, 不进 mkArmorBar id 签名=零逐帧重画), 描边不透明度 1.0↔0.55
+   循环(即 100%↔55%), 周期 1.6s ease-in-out; 落地收翼摘类即回常态白边 */
+.armorbar-slot.glide-glow {
+  border-color: #e9b115; /* 金描边(与图标金骨 #e9b115 同源) */
+  animation: glide-glow-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes glide-glow-breathe {
+  50% {
+    border-color: rgb(233 177 21 / 55%); /* 呼吸下界: 不透明度 0.55 */
+  }
+}
+
 /* 城镇翻新 TIDEA-12/13: 镇内安静模式(body.adv-dim-town 由 advSetDim 一次性切档;
    镇外两选择器均不命中=像素零变化)。档位分层(补遗二契约): 漫步淡档 → 会话全隐
    (town-dialog-open 由 town-ui.js dialogEvent 增减, 优先级高于淡档) → 关回淡档 →
