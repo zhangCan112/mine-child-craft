@@ -367,7 +367,8 @@
     <script src="js/town-map-core.js" defer></script>
     <script src="js/adventure-dims-core.js" defer></script>
     <!-- T-NPC-10 镇民链挂载(备忘①③): kit(mob-look-kit.js :243) → town_*×14
-         → interact-core → anchor-core → registry → town-npc.js; 全链先于
+         → interact-core → anchor-core → behavior-core(T-NPC-13 行为层推进者
+         纯核心, 消费 anchor-core) → registry → town-npc.js; 全链先于
          两个下游消费方(adventure 模式文件与镇 UI 装配链; 经典脚本顺序即
          依赖, 序门= test/conventions.test.js 镇民链装载序 gate + town-ui
          接线守门四点序; 挂载后 boot 冒烟自动覆盖镇民链, 覆盖债清)。
@@ -390,6 +391,7 @@
     <script src="js/mob-look/town_v10.js" defer></script>
     <script src="js/town-interact-core.js" defer></script>
     <script src="js/town-npc-anchor-core.js" defer></script>
+    <script src="js/town-npc-behavior-core.js" defer></script>
     <script src="js/town-npc-registry.js" defer></script>
     <script src="js/town-npc.js" defer></script>
 <script src="js/paired-block-core.js" defer></script>

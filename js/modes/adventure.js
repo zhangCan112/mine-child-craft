@@ -33,7 +33,7 @@
    任务/宝箱, 触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档
    adapter 缺省装配, 触点口径见该缝头注释)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
-     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(54 键:
+     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(41 键:
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口/丢弃与扩容
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调) ·
@@ -53,8 +53,12 @@
       与模式壳 town.js 旧接线两宿主变量空间互不触碰) ·
       advTownAnchorTick(T-NPC-12 锚点动态化消费机: 逐锚 anchorOf 取数
       比对 prev 账本, 到站跳变且聚焦时重发 targetFocus 同形状事件——
-      零协议增项; prev 账本随建机建/随离镇弃机清, legIndex 推进者=
-      未来行为层票)
+      零协议增项; prev 账本随建机建/随离镇弃机清, legById 生产供数=
+      T-NPC-13 巡逻推进者) ·
+      advTownPatrolTick(T-NPC-13 巡逻推进者消费机: 逐巡逻行 step 写赢+
+      产 legById「HUD 下一站」映射) ·
+      advTownPatrolApply(T-NPC-13 位姿/走摆施加机: 恒写 root.x/z/yaw+
+      快照同步, 仅 moving 帧写四肢, 停驻帧让位 idle)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
       adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
        index.html 加载序在 adventure-core 之前) ·
@@ -79,7 +83,9 @@
      SpeechKit · avatar.js 的 Avatar(setItem/swing/flash) · icons 的 drawArt 与
      button-icons 的 BTN_PIX.flame(炉口火焰贴图)与 btnImg(时段图标, 两者加载序
      在本文件之后, 运行期才取——F2/昼夜 D1) · world.js 的 dayTime/dayCycleOn/
-     applyDaylight 与 daylight-core 的 Daylight(昼夜, 跨文件可写绑定)
+     applyDaylight 与 daylight-core 的 Daylight(昼夜, 跨文件可写绑定) ·
+     town-npc-behavior-core 的 townPatrolState/townPatrolStep/townPatrolPose/
+     townPatrolLegById(T-NPC-13 巡逻纯核心, 加载序 anchor-core 后、本文件前)
    可测性: THREE/DOM 惰性创建(头顶血条/箭矢网格/进度环/炉口火焰), Node 测试可
      安全加载(test/adventure-mode.test.js, 真引擎件经 vm 装载)
    ============================================================ */
@@ -2478,8 +2484,22 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
           advStations/advFurnaces 两不相交的状态, 先后次序无观测差 */
       advFurnaceSettle(dim); /* 维度炉键('n|'/'k|')此时才有块可对(D14 泛化) */
     });
-    advApplySky(drow.sky); /* 暗红/近黑天穹: 行参数, 一眼就知道到了哪个维度 */
-    dayCycleOn = drow.dayCycle; /* 维度恒停 dayTime(日月天体随之隐藏, D10/D6) */
+    if (drow.dayCycle === true) {/* 循环维度(town, ADR-0012 决策 1): 定死切界序四步
+        (对齐 overworld 回界分支现序, 票面 §4)——行色必走天基色缝落白日端点(直写会被
+        applyDaylight 每 50 tick 覆写回主世界端点); 分支内补昼夜首拍=白闪遮罩内首帧
+        即正确, 天体/云/uDim 冻结遗留态随链复活自然消解(ADR §2-5) */
+      if (typeof setSkyBase === 'function') {/* mode 装具无 world.js——typeof 守卫
+          (advEdgeSkyTick 先例): 缺席跳过=白日端点走缺省蓝, 浏览器拿到真缝 */
+        setSkyBase(advEdgeRgb(drow.sky.color)); /* hex→[r,g,b] 0..1(adventure-core 现成助手) */
+      }
+      advApplySky(drow.sky); /* 雾距 75/200 私产直写(applyDaylight 无雾距写点)+首帧
+          初值(sunI 0.92; 循环接管后=基底 0.75) */
+      dayCycleOn = true; /* 时间推进+场景驱动同闸开(main.js 主循环消费) */
+      applyDaylight(); /* 一次: 落当前时刻天色/光强/日月(时间源=全局 dayTime 单钟照推) */
+    } else {
+      advApplySky(drow.sky); /* 暗红/近黑天穹: 行参数, 一眼就知道到了哪个维度 */
+      dayCycleOn = drow.dayCycle; /* 维度恒停 dayTime(日月天体随之隐藏, D10/D6) */
+    }
     setPlayerGlow(false); /* 灯笼随身光熄灭(维度不亮不耗, 门禁见 update) */
     advLanternT = 0; /* 耗秒累计器归零(回主世界从整秒重新累计) */
     if (dim === 'den') {
@@ -3069,8 +3089,8 @@ function advTownInteractBoot() {
    THREE 对象), 傀儡 root 另账持有(快照零渲染对象, 清场摘场景用); 适配
    件/锚点表不在装载序时整段跳过(引擎替身沙盒最小装载容差, 建机 typeof
    容差同款)。站位=anchorOf(锚点表权威, 静态锚取首航点, G01 巡逻取
-   leg0)+站立面 y+1(placeTownNpc 内建口径); legIndex 推进行为归
-   T-NPC-12, 本票恒缺省 leg0。 */
+   leg0)+站立面 y+1(placeTownNpc 内建口径); 到站 legIndex 推进归
+   T-NPC-13 巡逻账(下方 advTownPatrols), 本机摆放只建账。 */
 let advTownPuppets = []; /* 只读快照账: 进镇摆放在位(纯标量行), 离镇回空
     (A.advTownState 挂点透出, T-SEAM-04 挂点先例扩形) */
 let advTownPuppetRoots = []; /* 傀儡 root 另账(与快照行同序, 不透出挂点) */
@@ -3078,6 +3098,10 @@ let advTownIdleParts = []; /* 待机微动画骨柄账(案卷③): 行含 THREE 
     {id,kind,root,bones,x,z,baseY,yaw,off,headYaw}(非纯标量快照口径,
     advTownIdleState 验收缝透出), 摆放建/离镇清与两账同节拍 */
 let advTownIdleT = 0; /* 待机相位账(秒): 注入 dt 累计(零墙钟), 空账/离镇复位 */
+let advTownPatrols = []; /* 巡逻账(T-NPC-13): 行恰五键 {id,anchorId,root,
+    bones,state}(root/bones 含引擎骨柄=非纯标量, advTownIdleParts 同口径;
+    A.advTownState 挂点透出), 仅多航点锚入账(静态 13 锚恒 leg0 零扰动
+    零事件), 摆放建/离镇清与傀儡账同节拍 */
 /* 摆放(advSetDim town 分支 loadScene 之后调用, 不进 build 回调——建机
    同位先例; 同步位置零插值, MobLookKit.puppet 产物 root 直挂场景):
    幂等由 advSetDim 首行守卫保证(dim===advDim 即 return, 镇内重复进镇
@@ -3090,6 +3114,7 @@ function advTownPuppetsPlace() {
   advTownPuppetRoots.length = 0;
   advTownIdleParts.length = 0; /* 案卷③ idle 账摆前同步清(任何路径零残留) */
   advTownIdleT = 0;
+  advTownPatrols.length = 0; /* T-NPC-13 巡逻账摆前同步清(任何路径零残留) */
   for (const row of TOWN_NPCS) {
     const puppet = mkTownNpcPuppet(row.id);
     const spot = placeTownNpc(puppet, anchorOf(row.anchorId));
@@ -3106,6 +3131,16 @@ function advTownPuppetsPlace() {
         x: spot.x, z: spot.z, baseY: spot.y, yaw: spot.yaw,
         off: townNpcIdlePhaseOffset(row.id), headYaw: 0});
     }
+    const anchorRow = (typeof TOWN_NPC_ANCHORS !== 'undefined') ?
+      TOWN_NPC_ANCHORS.find((a) => a.id === row.anchorId) : null;
+    if (anchorRow && anchorRow.waypoints.length > 1 &&
+        typeof townPatrolState === 'function') {/* T-NPC-13 巡逻账: 仅
+        多航点锚入账(静态 13 锚恒 leg0 零扰动零事件), 行为层纯核心在册
+        才建账(旧沙盒缺席照旧零账, idle 建账容差同款) */
+      advTownPatrols.push({id: row.id, anchorId: row.anchorId,
+        root: puppet.root, bones: puppet.bones,
+        state: townPatrolState(row.anchorId)});
+    }
   }
 }
 /* 清场(advSetDim 离镇弃机同链): root 摘场景(world.js clearWorld 只清
@@ -3119,6 +3154,7 @@ function advTownPuppetsLeave() {
   advTownPuppets.length = 0;
   advTownIdleParts.length = 0; /* 案卷③ idle 账离镇同链清(骨柄引用零残留) */
   advTownIdleT = 0;
+  advTownPatrols.length = 0; /* T-NPC-13 巡逻账离镇同链清(状态不串轮) */
 }
 
 /* ---------- 锚点动态化消费机(T-NPC-12, README §3.3 裁决三) ----------
@@ -3129,15 +3165,16 @@ function advTownPuppetsLeave() {
    townTargetOf 六键, anchor 恰三键 {x,y,z} 携新航点——face 不入协议
    载荷, registry 快照口径)——零协议增项(town-interact-core 冻结面零
    改动, 只消费全局名, 不在壳层定义协议件); 重发是刷新非迁移: 机器
-   focusId/states 零扰动。legIndex 推进者=未来行为层票(日程/巡逻),
-   生产路径恒缺省 leg0=静态站位天然成立; prev 账本随建机建/随离镇
+   focusId/states 零扰动。legIndex 推进者=T-NPC-13 巡逻账(advTownPatrolTick
+   每帧供数 legById「HUD 下一站」), 静态 13 锚不进表恒缺省 leg0=静态站位
+   天然成立; prev 账本随建机建/随离镇
    弃机清, 每次进场新账不串轮。 */
 let advTownAnchors; /* prev 快照账本: 进镇记全部 14 锚 id 的缺省腿快照,
     离镇清空(未进镇=undefined, tick 缺席旁路容差) */
 function advTownAnchorTick(legById, policy = 'focused') {/* 锚点动态化消费机
-    (update 每帧, 生产恒缺省 leg0): 返回 {changed, events}——事件经返回值
-    +emit 双面暴露(mkTownTargets 同款惯例); changed=本 tick 是否有任一
-    跳变(与事件分账: 默认策略无焦点时跳变照记账零事件) */
+    (update 每帧, 生产 legById=T-NPC-13 巡逻推进者每帧供数): 返回 {changed,
+    events}——事件经返回值+emit 双面暴露(mkTownTargets 同款惯例);
+    changed=本 tick 是否有任一跳变(与事件分账: 默认策略无焦点时跳变照记账零事件) */
   if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) {
     return {changed: false, events: []};
   }
@@ -3197,6 +3234,62 @@ function advTownNpcIdleTick(dt) {
     }
     const idlePose = townNpcIdlePose(advTownIdleT + row.off, row.kind);
     townNpcIdleApply(row, row.kind, idlePose, row.baseY, row.headYaw);
+  }
+}
+
+/* ---------- 巡逻推进者+位姿施加消费机(T-NPC-13, a2+b1 拍板口径) ----------
+   行为层纯核心(town-npc-behavior-core.js 四函数, 经全局名消费)的镇维度
+   装配机, advTownAnchorTick 同位同节拍(update 链直调):
+   · advTownPatrolTick(dt): 逐巡逻行 step(核心恒返新对象, 写赢行 state)
+     并产 legById「HUD 下一站」映射((leg+1)%n——行走中标记=到站锚而本体
+     在路上, 到站瞬间 legIndex 推进刷新标记, 裁决三到站跳变节奏逐字保持)
+     返回给 update 链喂 advTownAnchorTick 供数; 静态 13 锚不进映射(恒
+     leg0 零扰动零事件)。
+   · advTownPatrolApply(): 恒写 root.x/z/yaw+快照行同步(快照=实位,
+     T-SEAM-04 一致性缝, 零写 y——y 通道归 idle 呼吸), 仅 moving 帧写
+     四肢(与 townNpcIdleApply 同号约定: armL=+armSwing/armR=−armSwing/
+     legL=+legSwing/legR=−legSwing, 左臂右腿同相自然步态; 停驻帧零写
+     四肢=idle 接管, 通道分账); G01 flower/hip 等恒零骨不在写集=零触碰。
+   dt 注入确定性零墙钟零随机; 维度门+空账+核心缺席旁路容差(旧沙盒最小
+   装载不炸, idle 同款); 账由 advTownPuppetsPlace 建/advTownPuppetsLeave
+   清, 本机只消费。 */
+function advTownPatrolTick(dt) {
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return null; /* 维度门(镇专属) */
+  if (!advTownPatrols.length || typeof townPatrolStep !== 'function' ||
+      typeof townPatrolLegById !== 'function') return null; /* 空账/核心
+      缺席旁路容差(取数免费零炸, idle 缺席旁路同款) */
+  const legById = {};
+  for (const row of advTownPatrols) {
+    row.state = townPatrolStep(row.state, dt);
+    legById[row.anchorId] = townPatrolLegById(row.state)[row.anchorId];
+  }
+  return legById;
+}
+
+function advTownPatrolApply() {
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return; /* 维度门(镇专属) */
+  if (!advTownPatrols.length || typeof townPatrolPose !== 'function') return;
+  for (const row of advTownPatrols) {
+    const pose = townPatrolPose(row.state);
+    if (row.root && row.root.position) {
+      row.root.position.x = pose.x;
+      row.root.position.z = pose.z;
+      if (row.root.rotation) row.root.rotation.y = pose.yaw;
+    }
+    const snap = advTownPuppets.find((s) => s.id === row.id);
+    if (snap) {/* 快照=实位逐键同步(零 y 键: y 通道归 idle, 零写) */
+      snap.x = pose.x;
+      snap.z = pose.z;
+      snap.yaw = pose.yaw;
+    }
+    if (pose.moving && pose.walkPose) {/* 仅行走帧写四肢; 停驻帧零写
+        (idle 微动画接管——「停驻望广场」+呼吸不中断, 通道分账) */
+      const bones = row.bones || {};
+      if (bones.armL) bones.armL.rotation.x = pose.walkPose.armSwing;
+      if (bones.armR) bones.armR.rotation.x = -pose.walkPose.armSwing;
+      if (bones.legL) bones.legL.rotation.x = pose.walkPose.legSwing;
+      if (bones.legR) bones.legR.rotation.x = -pose.walkPose.legSwing;
+    }
   }
 }
 
@@ -5340,12 +5433,18 @@ const AdventureMode = mkMode({
         互斥维度门): 早退链→z≥132 越线瞬间白闪回 home(§6.3.5) */
     advTownAmbienceTick(); /* TIDEA-11 景区四声区域触发(town 维度专属早退):
         进区播一声离区重臂, 一次性 flag 会话态(禁定点循环, ADR-0011 增补) */
-    advTownAnchorTick(); /* T-NPC-12 锚点动态化消费机(town 维度专属早退):
-        逐锚取数比对 prev 账本, 到站跳变且聚焦时重发 targetFocus(生产恒
-        缺省 leg0, legIndex 推进者=未来行为层票) */
+    const advLegById = advTownPatrolTick(dt); /* T-NPC-13 巡逻推进者(town
+        维度专属早退): 逐巡逻行 step 写赢+产 legById「HUD 下一站」映射
+        (行走中标记=到站锚而本体在路上, 静态 13 锚不进表) */
+    advTownAnchorTick(advLegById); /* T-NPC-12 锚点动态化消费机(town 维度
+        专属早退): 巡逻 legById 注入供数(缺省/null 恒 leg0), 逐锚取数
+        比对 prev 账本, 到站跳变且聚焦时重发 targetFocus */
     advTownNpcIdleTick(dt); /* 案卷③ 镇民待机微动画(town 维度专属早退):
         逐傀儡 idle pose(t+错峰相位)→apply 骨骼旋转+根浮, humanoid 头转
         朝玩家(注视距离门+限步); dt 注入确定性(零墙钟零随机) */
+    advTownPatrolApply(); /* T-NPC-13 位姿/走摆施加: 恒写 root.x/z/yaw+
+        快照同步(快照=实位), 仅行走帧压四肢通道, 停驻帧让位 idle(通道
+        分账序: 施加在 idle 后) */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */
@@ -5598,17 +5697,24 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
     if ('stoneEggT' in o) advStoneEggT = o.stoneEggT;
   },
   advNetherState: () => ({dim: advDim, map: advMap, portalCd: advPortalCd, exitSpot: advExitSpot}),
-  advTownState: () => ({targets: advTownTargets, puppets: advTownPuppets}), /* 壳层
-      镇内交互机+镇民傀儡只读快照(T-SEAM-04 挂点先例扩形 T-NPC-10: targets=
-      mkTownTargets 机器引用, 可调 focus/found/reset/snapshot 四方法+引用比较
-      验换代; puppets=纯标量 {id,look,x,y,z,yaw} 行的只读账, 离镇回空,
-      禁含 THREE 对象; ADR-0011 决策 6a) */
+  advTownState: () => ({targets: advTownTargets, puppets: advTownPuppets,
+    patrol: advTownPatrols}), /* 壳层镇内交互机+镇民傀儡+巡逻只读快照
+      (恰三键 {targets,puppets,patrol}, T-SEAM-04 挂点先例扩形 T-NPC-10:
+      targets=mkTownTargets 机器引用, 可调 focus/found/reset/snapshot 四方
+      法+引用比较验换代; puppets=纯标量 {id,look,x,y,z,yaw} 行的只读账,
+      离镇回空, 禁含引擎对象; patrol=T-NPC-13 巡逻账 {id,anchorId,root,
+      bones,state} 行——root/bones 含骨柄=非纯标量, advTownIdleState()
+      .parts 同口径, 仅多航点锚入账, 离镇回空; ADR-0011 决策 6a) */
   advTownAnchorTick, /* 锚点动态化消费机(T-NPC-12: 逐锚取数比对 prev 账本,
       到站跳变且聚焦时重发 targetFocus 同形状事件; 注入式验收缝,
       legById/policy 参数化) */
   advTownNpcIdleTick, /* 案卷③ 待机微动画消费机(逐傀儡 pose(t+错峰)→
       apply 骨骼旋转+根浮, humanoid 头转 headTarget/headStep; dt 注入
       确定性, 空账自愈+维度门) */
+  advTownPatrolTick, /* T-NPC-13 巡逻推进者消费机(逐巡逻行 step 写赢+
+      产 legById「HUD 下一站」映射, update 链喂锚点消费机供数) */
+  advTownPatrolApply, /* T-NPC-13 位姿/走摆施加机(恒写 root.x/z/yaw+
+      快照同步[快照=实位], 仅 moving 帧写四肢, 停驻帧让位 idle——通道分账) */
   advTownIdleState: () => ({t: advTownIdleT, parts: advTownIdleParts}), /* 案卷③
       待机账只读缝(恰二键 {t,parts}): t=注入 dt 累计相位(秒), parts=骨柄
       引用账(含 THREE 骨柄非纯标量快照口径, 与 advTownPuppets 纯标量账

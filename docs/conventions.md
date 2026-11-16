@@ -325,6 +325,27 @@ math-track / math-build-world 的 `mkFakeEl`、focus-paradigms 的 `mkFakeElDrv`
 town-ui-dialog-spec.md §5.3（场景表）/§1.7（无段落文本）；test/town-dialog-core.test.js
 与 test/town-ui.test.js 执法；新增会话类型或状态时同步扩枚举。
 
+### 7.7 .scratch 工件追踪口径（villager-wave3 件④裁决——需求线登记）
+
+.scratch 不设 .gitignore 规则，入册与否全由显式 `git add`（收口入库）决定。三类口径：
+
+- **跨会话协调工件一律入册**：tickets/（票面+台账）、receipts/（收口回执/提案/拍板投递）、
+  briefs/、handoffs/、PO-REVIEW-RECORD 等跨会话协调件——产出后在当票收口 commit 入库，
+  不留未跟踪窗口（「收口入库」先例链：63ac879、9989491、dfdb543、ab461bf、342704c）。
+  教训（2026-11-16 villager-wave3）：工件在 A checkout 产出未入库的窗口期，B checkout
+  （worktree）读不到，易误判「未跟踪分裂/数据丢失」而被迫跨仓绝对路径读件——根因是入库
+  窗口与分支不同步，非追踪口径分裂（涉案 receipt 自波前基线 a30f7f6 起即在册）。
+  长驻 worktree 分支开工前先并一次当值 main，防同类误读。
+- **生成器与批产资产有意不入册**：`.scratch/town-design/gen/` 与 `assets/villagers-mobs/`
+  （eslint 不豁免 .scratch，gen js 禁入仓库——town 线裁决一在案）；持久真源由
+  `js/mob-look/town_*.js` + `test/fixtures/town-npc-golden.json` 承接（T-NPC-01 硬要求）。
+- **瞬态运行日志不入册**：跑测/lint 留痕（`*.log`/`*.txt`）落 .scratch 不 add；历史存量
+  （glider/town-seam-change 时代日志）系 worktree 删前保全批量收拢，不回改不迁移。
+
+引用卫生：权威内容已并入 docs/ 的工件（判例：案⑤提案 → `docs/design/town-ui-dialog-spec.md`），
+票面/台账引用一律指 docs/ 权威位，原工件只作过程溯源；存量指针不回改，随所在行下次正当变更改指。
+执行者：纪律（各线收口自查，评审抽查）。
+
 ## 变更记录
 
 - 2026-10-22：初版。基于两份调研报告成文；同日完成存量全量对齐（ESLint 清零 21057→0、
@@ -372,3 +393,7 @@ town-ui-dialog-spec.md §5.3（场景表）/§1.7（无段落文本）；test/to
   去「数据件」后缀对齐被守门钉死的正文头、7 条目随正文归位游戏模式分区 38→45、
   大分块 74→67、玩法时间预算正文头形态统一为 **词条**: 惯例式）；
   新增 GLOSSARY 一览计数=实际+双向对齐确定性检查（A2，手数漂移史 69→70→71→74 一次到位）。
+- 2026-11-16：§7.7 新增（.scratch 工件追踪口径三类：协调工件收口入库 / 生成器与批产资产
+  有意不入册 / 瞬态运行日志不入册 + 引用一律指 docs/ 权威位——villager-wave3 件④转需求线
+  裁决落档；查证勘正「receipts 未跟踪」误诊：涉案 receipt 自波前基线起即在册，根因是入库
+  窗口与分支不同步）。
