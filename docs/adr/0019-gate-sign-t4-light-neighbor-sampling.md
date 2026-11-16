@@ -1,6 +1,8 @@
-# ADR 0017: 门额牌 T4 光照修法——顶点光取面朝向邻格（pushPane 同口径）
+# ADR 0019: 门额牌 T4 光照修法——顶点光取面朝向邻格（pushPane 同口径）
 
 日期：2026-11-15 · 状态：**已采纳**（票史三拍落地：e752ce9 红测 → 9c8b68f 返工 → be9f79a 收尾）
+
+> 考据注记（撞号改号 2026-11-17）：本 ADR 原编号 **0017**，因与在先落库的镇维度昼夜解冻 ADR（[0017-town-day-cycle-unfreeze](0017-town-day-cycle-unfreeze.md)，main 线 741d445 于 2026-11-16 22:15 由 0012 改号）撞号，按 conventions §1.11「编号单调不复用」纪律改号 **0019**（2026-11-17 scrum 裁；原拟 0018 已被镇域保护判据 [0018-town-protection-criteria](0018-town-protection-criteria.md) 占用——同并版 7966484 于 23:10 带入、无撞号史在先无争议——故顺延；0017 已归 town-day-cycle-unfreeze，在先 22:15 vs 本件 23:10）。存量文档凡引「ADR-0017」指门额牌光照修法者，已于 2026-11-17 vw4 件三簿记全仓 git grep 实判 sweep，必改面实测仅 README 索引行与本文件文头；js/test 注释与 retro/登记簿等按当期编号留档的存量引文由本注记兜底解析，其归属域顺改时同步。
 
 ## 背景
 
