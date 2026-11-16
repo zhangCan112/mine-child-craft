@@ -22,7 +22,8 @@ function loadEquipment(extra) {
      假数据用(kbResist 封顶不变量: 真装备 Σkb 最高 0.4, 0.8 cap 到不了) */
   if (extra) vm.runInContext(extra, ctx);
   vm.runInContext('globalThis.__e = {ITEMS, EQUIP_SLOTS, mkWorn, armorReduce,' +
-      ' wornWear, wornPut, armorPoints, toughPoints, kbResist, wornNormalize};', ctx);
+      ' wornWear, wornPut, armorPoints, toughPoints, kbResist, wornNormalize,' +
+      ' armorOf, isArmor, mkStack, stackMax, durOf};', ctx);
   return ctx.__e;
 }
 
@@ -37,15 +38,19 @@ function local(v) {
 test('加载: 顶层暴露槽表 + 8 纯函数(全部切片入列的终态清单)', () => {
   const h = loadEquipment();
   /* vm 跨 realm 数组原型不同, deepStrictEqual 需先拷回本地 realm */
-  assert.deepStrictEqual([...h.EQUIP_SLOTS], ['helmet', 'chestplate', 'leggings', 'boots']);
+  assert.deepStrictEqual([...h.EQUIP_SLOTS],
+      ['helmet', 'chestplate', 'leggings', 'boots', 'glider'],
+      '五槽表(T-G01/ADR 0013): glider 尾部追加——数组序即 UI 序, 盔甲四联不破坏');
   ['mkWorn', 'armorReduce', 'wornWear', 'wornPut', 'armorPoints', 'toughPoints', 'kbResist', 'wornNormalize']
       .forEach((f) => assert.strictEqual(typeof h[f], 'function', f));
 });
 
-test('mkWorn: 四槽全空(老档缺键的归一起点)', () => {
-  const {mkWorn, EQUIP_SLOTS} = loadEquipment();
+test('mkWorn: 五槽全空(老档缺键的归一起点; glider 键恒在, 消费方零判空)', () => {
+  const {mkWorn} = loadEquipment();
   const w = mkWorn();
-  for (const s of EQUIP_SLOTS) assert.strictEqual(w[s], null, s);
+  assert.deepStrictEqual(local(w),
+      {helmet: null, chestplate: null, leggings: null, boots: null, glider: null},
+      '空穿戴=五键全 null(ADR 0013: mkWorn 形状同步扩五键)');
 });
 
 /* ============ 减伤公式(D7 正典逐字, 期望值=手算独立锚) ============ */
@@ -96,8 +101,9 @@ test('wornPut: 空槽穿入 — 槽形存 {id, dur}(n 剥弃, 穿戴件不可堆
   const w = {helmet: null, chestplate: null, leggings: null, boots: null};
   const r = wornPut(w, 'helmet', {id: 'helmet_iron', n: 1, dur: 330});
   assert.deepStrictEqual(local(r.worn),
-      {helmet: {id: 'helmet_iron', dur: 330}, chestplate: null, leggings: null, boots: null},
-      '入槽剥掉 n 存槽形');
+      {helmet: {id: 'helmet_iron', dur: 330}, chestplate: null, leggings: null,
+        boots: null, glider: null},
+      '入槽剥掉 n 存槽形(T-G01 五槽: 四键入参过 wornPut 恒出五键, glider 补 null)');
   assert.strictEqual(r.out, null, '空槽无旧件');
   assert.strictEqual(w.helmet, null, '纯函数: 入参不动');
 });
@@ -217,14 +223,18 @@ test('wornNormalize: 好档原样过 — id/dur 保真, 槽形只带 {id, dur}',
   const {wornNormalize} = loadEquipment();
   const w = {helmet: {id: 'helmet_iron', dur: 123}, chestplate: null,
     leggings: null, boots: {id: 'boots_leather', dur: 5}};
-  assert.deepStrictEqual(local(wornNormalize(w)), local(w));
+  assert.deepStrictEqual(local(wornNormalize(w)),
+      {helmet: {id: 'helmet_iron', dur: 123}, chestplate: null, leggings: null,
+        boots: {id: 'boots_leather', dur: 5}, glider: null},
+      '好档过档恒出 mkWorn 五键形状(T-G01: 四键老档过档补翼键 null, id/dur 保真)');
 });
 
-test('wornNormalize: 老档缺键补 null — 半形状/空对象归全四键', () => {
+test('wornNormalize: 老档缺键补 null — 半形状/空对象归全五键', () => {
   const {wornNormalize, mkWorn} = loadEquipment();
   assert.deepStrictEqual(local(wornNormalize({helmet: {id: 'helmet_iron', dur: 10}})),
-      {helmet: {id: 'helmet_iron', dur: 10}, chestplate: null, leggings: null, boots: null},
-      '只有头键的老档归全');
+      {helmet: {id: 'helmet_iron', dur: 10}, chestplate: null, leggings: null,
+        boots: null, glider: null},
+      '只有头键的老档归全(T-G01 五键)');
   assert.deepStrictEqual(local(wornNormalize({})), local(mkWorn()), '空对象=空穿');
 });
 
@@ -238,7 +248,8 @@ test('wornNormalize: 坏件逐条丢弃 — 未注册/非盔甲/槽不符/dur �
     boots: {id: 'boots_iron', dur: 0}, /* dur 非正数(0) */
   });
   assert.deepStrictEqual(local(bad),
-      {helmet: null, chestplate: null, leggings: null, boots: null}, '四坏全丢');
+      {helmet: null, chestplate: null, leggings: null, boots: null, glider: null},
+      '四坏全丢(T-G01 五键: 坏档归一后翼键也在)');
   /* 一好一坏混档: 金帽保真, 材料塞胸槽丢 */
   const mix = wornNormalize({
     helmet: {id: 'helmet_gold', dur: 7}, chestplate: {id: 'log', dur: 1},
@@ -270,4 +281,158 @@ test('wornNormalize: 垃圾入参防炸 — null/标量返回空穿(存档容错
   /* 槽位本身非对象也是坏件 */
   const r = wornNormalize({helmet: 42, chestplate: null, leggings: null, boots: null});
   assert.strictEqual(r.helmet, null, '槽对象非对象 → 丢弃');
+});
+
+/* ============================================================
+   滑翔翼 T-G01 数据层(spec §3.1/§3.2/§3.3/§3.7, ADR 0012/0013/0015)
+   —— 物品注册判据 / 第五槽专属不互换 / wornWear 耐久豁免(ADR 0012
+   红线落地点) / 存档五键零迁移。红测试只对票文负责。
+   ============================================================ */
+
+/* 话术接线 loader: items-core → item-hint-registry(镜像 item-hint-registry.test.js
+   装载序; item-hint-registry 对 BLOCKS 有 typeof 防御, 不必装 config.js) */
+function loadGliderHints() {
+  const ctx = vm.createContext({console});
+  for (const f of ['items-core.js', 'item-hint-registry.js']) {
+    vm.runInContext(
+        fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
+  }
+  vm.runInContext('globalThis.__h = {ITEMS, ITEM_HINTS, hintForItem};', ctx);
+  return ctx.__h;
+}
+
+test('滑翔翼 T-G01: ITEMS 行 armor 判据(spec §3.1) — slot/tier/pts/tough/dur 形状照盔甲行', () => {
+  const h = loadEquipment();
+  assert.ok(h.ITEMS.glider, 'glider 已注册进 ITEMS(注册红线: 不注册=存档静默丢弃)');
+  assert.strictEqual(h.ITEMS.glider.name, '滑翔翼', '中文名(spec §3.1 定稿)');
+  assert.strictEqual(h.ITEMS.glider.icon, '🪂', 'emoji fallback(UI spec §5.3)');
+  assert.deepStrictEqual(local(h.armorOf('glider')),
+      {slot: 'glider', tier: 'gold', pts: 0, tough: 0, dur: 1},
+      'armor 判据五元组: slot=glider 使 wornPut/wornNormalize 槽校验机械成立 · ' +
+      'tier=gold(spec 裁定: mkArmorDef 六档色表取 gold 档 0xe9b115 与 UI 金骨同值) · ' +
+      'pts/tough=0 使盔甲点合计零贡献 · dur=1 满值占位(wornNormalize 要求 dur>0 才能过档)');
+  assert.strictEqual(h.isArmor('glider'), true, '判 armor 走 armorOf 同源(手持 wear 动作派生前提)');
+  assert.strictEqual(h.stackMax('glider'), 1, '穿戴件不可堆叠(durOf>0 → 上限 1, 盔甲同管线)');
+  const s = h.mkStack('glider', 1);
+  assert.deepStrictEqual(local(s), {id: 'glider', n: 1, dur: 1}, 'mkStack 附满耐久(dur 缺省=1)');
+});
+
+test('滑翔翼 T-G01: 话术接线(UI spec §5.3 定稿话术; ADR 0012 禁耐久/损坏暗示)', () => {
+  const h = loadGliderHints();
+  assert.strictEqual(h.ITEM_HINTS.glider, '穿上它，从高处跳下就会张开翅膀滑翔啦',
+      '说明逐字照 UI spec §5.3 定稿(全角标点)');
+  const hint = h.hintForItem('glider');
+  assert.strictEqual(hint.name, '滑翔翼', '名字唯一权威在 ITEMS');
+  assert.strictEqual(hint.desc, '穿上它，从高处跳下就会张开翅膀滑翔啦', '说明(点到物品既有介绍通道)');
+  assert.strictEqual(hint.tts, '滑翔翼，穿上它，从高处跳下就会张开翅膀滑翔啦', 'tts=名字+逗号+说明');
+  assert.ok(!/耐久|损坏|磨损|碎|坏/.test(hint.desc),
+      '话术无耐久/损坏暗示(ADR 0012: 「翼坏了」不存在)');
+});
+
+test('滑翔翼 T-G01: wornPut glider 槽 — 专属不互换(armor.slot 校验), 与四甲互不排斥', () => {
+  const {wornPut} = loadEquipment();
+  /* 滑翔翼穿入第五槽: dur 缺省=满耐久(armor.dur=1) */
+  const w1 = {helmet: null, chestplate: null, leggings: null, boots: null, glider: null};
+  const r1 = wornPut(w1, 'glider', {id: 'glider', n: 1});
+  assert.strictEqual(r1.out, null, '空槽无旧件');
+  assert.deepStrictEqual(local(r1.worn.glider), {id: 'glider', dur: 1},
+      '第五槽入槽存槽形 {id, dur}(n 剥弃; dur 缺省=armor.dur 满值 1)');
+  /* 专属不互换双向: 盔甲塞翼槽拒收, 翼塞盔甲槽拒收(零新代码, 机械成立) */
+  const w2 = {helmet: null, chestplate: null, leggings: null, boots: null, glider: null};
+  const r2 = wornPut(w2, 'glider', {id: 'helmet_iron', n: 1, dur: 330});
+  assert.strictEqual(r2.out, null, '盔甲塞翼槽拒收(a.slot !== glider)');
+  const r3 = wornPut(w2, 'helmet', {id: 'glider', n: 1, dur: 1});
+  assert.strictEqual(r3.out, null, '翼塞盔甲槽拒收(a.slot !== helmet)');
+  /* 与四件盔甲互不排斥: 全身甲+滑翔翼同穿, 逐槽各归其位 */
+  let w = {helmet: null, chestplate: null, leggings: null, boots: null, glider: null};
+  for (const [slot, id] of [['helmet', 'helmet_leather'], ['chestplate', 'chestplate_leather'],
+    ['leggings', 'leggings_leather'], ['boots', 'boots_leather']]) {
+    w = wornPut(w, slot, {id, n: 1}).worn;
+  }
+  const r4 = wornPut(w, 'glider', {id: 'glider', n: 1});
+  assert.strictEqual(r4.out, null, '全身甲穿翼: 第五槽无旧件');
+  assert.deepStrictEqual(local(r4.worn),
+      {helmet: {id: 'helmet_leather', dur: 110}, chestplate: {id: 'chestplate_leather', dur: 160},
+        leggings: {id: 'leggings_leather', dur: 150}, boots: {id: 'boots_leather', dur: 130},
+        glider: {id: 'glider', dur: 1}},
+      '全身甲+滑翔翼同穿成立(五槽各归其位, ADR 0013 互不排斥)');
+});
+
+test('滑翔翼 T-G01: wornWear 耐久豁免 — 任意次命中 glider.dur 恒不变、永不入 broke(ADR 0012 红线)', () => {
+  const {wornWear} = loadEquipment();
+  const mk = () => ({
+    helmet: {id: 'helmet_iron', dur: 10}, chestplate: {id: 'chestplate_iron', dur: 10},
+    leggings: {id: 'leggings_iron', dur: 10}, boots: {id: 'boots_iron', dur: 10},
+    glider: {id: 'glider', dur: 1}});
+  /* 单次命中: 盔甲照扣, 滑翔翼恒满值 */
+  let r = wornWear(mk());
+  assert.strictEqual(r.worn.glider.dur, 1, '单次命中后 glider.dur 恒 1(任何路径不得扣减)');
+  assert.strictEqual(r.worn.helmet.dur, 9, '对照: 盔甲照常磨损(豁免只对 glider)');
+  assert.deepStrictEqual([...r.broke], [], 'dur=1 的滑翔翼不破碎不入 broke(盔甲 dur=10 也未碎)');
+  /* 大步磨损 n=3 同样豁免 */
+  r = wornWear(mk(), 3);
+  assert.strictEqual(r.worn.glider.dur, 1, '大步磨损 n=3 同样豁免');
+  /* 任意次命中: 连 50 次(盔甲 10 耐久第 10 次全碎尽), 滑翔翼恒在槽恒满值 */
+  let w = mk();
+  for (let i = 0; i < 50; i++) {
+    const step = wornWear(w);
+    w = step.worn;
+    assert.ok(w.glider && w.glider.dur === 1,
+        '第 ' + (i + 1) + ' 次命中后 glider.dur 恒 1 槽恒在');
+    assert.ok(!step.broke.includes('glider'), '滑翔翼永不因磨损清槽(第五槽永不进 broke 名单)');
+  }
+  /* 只穿滑翔翼挨打: 同样恒不变 */
+  const only = wornWear({helmet: null, chestplate: null, leggings: null, boots: null,
+    glider: {id: 'glider', dur: 1}}, 1);
+  assert.deepStrictEqual(local(only.worn.glider), {id: 'glider', dur: 1}, '只穿翼命中: 恒不变');
+  assert.deepStrictEqual([...only.broke], [], '只穿翼命中: 零破碎');
+  /* 纯函数: 入参不动 */
+  const w0 = mk();
+  wornWear(w0);
+  assert.strictEqual(w0.glider.dur, 1, '入参不动');
+});
+
+test('滑翔翼 T-G01: 盔甲合计不因滑翔翼变化(pts/tough/kb 全 0 机械零贡献, spec §3.3)', () => {
+  const {armorPoints, toughPoints, kbResist} = loadEquipment();
+  const full = (t) => ({
+    helmet: {id: 'helmet_' + t, dur: 1}, chestplate: {id: 'chestplate_' + t, dur: 1},
+    leggings: {id: 'leggings_' + t, dur: 1}, boots: {id: 'boots_' + t, dur: 1},
+    glider: {id: 'glider', dur: 1}});
+  assert.strictEqual(armorPoints(full('netherite')), 20, '下界全套+翼 = 20(翼零贡献, 不挡减伤)');
+  assert.strictEqual(toughPoints(full('diamond')), 8, '韧性合计不因翼变化');
+  assert.strictEqual(kbResist(full('netherite')), 0.4, '击退抗性合计不因翼变化');
+  const only = {helmet: null, chestplate: null, leggings: null, boots: null,
+    glider: {id: 'glider', dur: 1}};
+  assert.strictEqual(armorPoints(only), 0, '只穿翼 = 0 盔甲点');
+  assert.strictEqual(toughPoints(only), 0, '只穿翼 = 0 韧性');
+  assert.strictEqual(kbResist(only), 0, '只穿翼 = 0 击退抗性');
+});
+
+test('滑翔翼 T-G01: wornNormalize 存档五键 — 老档四键补 glider:null 零迁移; 好件保真坏件丢弃', () => {
+  const {wornNormalize} = loadEquipment();
+  /* 老档(四键, 无 glider 键)→ 第五键补 null(零迁移, 无报错无提示, spec §3.3) */
+  const old = wornNormalize({helmet: {id: 'helmet_iron', dur: 123}, chestplate: null,
+    leggings: null, boots: {id: 'boots_leather', dur: 5}});
+  assert.deepStrictEqual(local(old),
+      {helmet: {id: 'helmet_iron', dur: 123}, chestplate: null, leggings: null,
+        boots: {id: 'boots_leather', dur: 5}, glider: null},
+      '老档四键 → 五键(glider 补 null)');
+  /* 新档五键好件: glider 过档(slot 校验 armor.slot==='glider' 成立) */
+  const five = wornNormalize({helmet: null, chestplate: null, leggings: null, boots: null,
+    glider: {id: 'glider', dur: 1}});
+  assert.deepStrictEqual(local(five.glider), {id: 'glider', dur: 1}, '滑翔翼好件保真');
+  /* 坏件逐条丢弃: dur 非正数 / 槽不符(翼塞靴槽、盔甲塞翼槽) */
+  const bad = wornNormalize({helmet: null, chestplate: null, leggings: null,
+    boots: {id: 'glider', dur: 1}, glider: {id: 'glider', dur: 0}});
+  assert.strictEqual(bad.glider, null, '滑翔翼 dur=0 → 丢弃不修复');
+  assert.strictEqual(bad.boots, null, '翼塞靴槽 → 槽不符丢弃');
+  const bad2 = wornNormalize({helmet: null, chestplate: null, leggings: null, boots: null,
+    glider: {id: 'helmet_iron', dur: 330}});
+  assert.strictEqual(bad2.glider, null, '盔甲塞翼槽 → 槽不符丢弃');
+  /* 幂等: 五键归一两次=一次(存→读往返幂等, spec §3.3) */
+  const raw = {helmet: {id: 'helmet_iron', dur: 10}, chestplate: null, leggings: null,
+    boots: null, glider: {id: 'glider', dur: 1}};
+  const once = wornNormalize(raw);
+  assert.deepStrictEqual(local(wornNormalize(once)), local(once),
+      'normalize∘normalize = normalize(五键往返安全)');
 });

@@ -366,6 +366,32 @@
     <script src="js/adventure-maps-core.js" defer></script>
     <script src="js/town-map-core.js" defer></script>
     <script src="js/adventure-dims-core.js" defer></script>
+    <!-- T-NPC-10 镇民链挂载(备忘①③): kit(mob-look-kit.js :243) → town_*×14
+         → interact-core → anchor-core → registry → town-npc.js; 全链先于
+         两个下游消费方(adventure 模式文件与镇 UI 装配链; 经典脚本顺序即
+         依赖, 序门= test/conventions.test.js 镇民链装载序 gate + town-ui
+         接线守门四点序; 挂载后 boot 冒烟自动覆盖镇民链, 覆盖债清)。
+         interact-core 自原位(:376)挪入本块——同文件双挂会重复顶层声明
+         炸页面。守门用裸 indexOf 探文件名, 本注释不写任何 js/ 路径字面
+         量以免污染探针。 -->
+    <script src="js/mob-look/town_a01.js" defer></script>
+    <script src="js/mob-look/town_a02.js" defer></script>
+    <script src="js/mob-look/town_a03.js" defer></script>
+    <script src="js/mob-look/town_g01.js" defer></script>
+    <script src="js/mob-look/town_v01.js" defer></script>
+    <script src="js/mob-look/town_v02.js" defer></script>
+    <script src="js/mob-look/town_v03.js" defer></script>
+    <script src="js/mob-look/town_v04.js" defer></script>
+    <script src="js/mob-look/town_v05.js" defer></script>
+    <script src="js/mob-look/town_v06.js" defer></script>
+    <script src="js/mob-look/town_v07.js" defer></script>
+    <script src="js/mob-look/town_v08.js" defer></script>
+    <script src="js/mob-look/town_v09.js" defer></script>
+    <script src="js/mob-look/town_v10.js" defer></script>
+    <script src="js/town-interact-core.js" defer></script>
+    <script src="js/town-npc-anchor-core.js" defer></script>
+    <script src="js/town-npc-registry.js" defer></script>
+    <script src="js/town-npc.js" defer></script>
 <script src="js/paired-block-core.js" defer></script>
 <script src="js/furnace-kit.js" defer></script>
 <script src="js/place-kit.js" defer></script>
@@ -373,7 +399,6 @@
 <script src="js/showroom-core.js" defer></script>
 <script src="js/modes/showroom.js" defer></script>
 <script src="js/town-assembly-core.js" defer></script>
-<script src="js/town-interact-core.js" defer></script>
 <script src="js/town-ui-core.js" defer></script>
 <script src="js/town-dialog-core.js" defer></script>
 <script src="js/town-ui.js" defer></script>

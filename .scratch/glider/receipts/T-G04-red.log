@@ -1,0 +1,584 @@
+﻿鉁?鎺㈤櫓妯″紡: 娉ㄥ唽琛ㄨ鍦ㄥ満(gated 鍏变韩鍎跨鏃堕檺 + 娲剧敓鑴氭湰璺緞) + main.js MODES 鎺ョ嚎 (1.7141ms)
+鉁?鎺㈤櫓妯″紡: init 寤哄満 鈥?鑽夊師鍦板眰/鍑虹敓灏忓眿/鍑虹敓鐐?蹇嵎鏍?9 妲介暅鍍忚儗鍖?(648.3793ms)
+鉁?鏅鸿兘涓诲姩浣?鎵嬫寔鎰熺煡, 2026-10-24): 鎷挎斁缃墿鈫抋imClick(2)+杩?false 涓嶈繛鍙? 宸ュ叿/椋熺墿/绌烘墜鈫抋imClick(0); 鍥炬爣闅忔墜鎸佸埛鏂?(631.662ms)
+鉁?鎺㈤櫓妯″紡: 婀?鈥?姘撮潰 + 娌欏簳 + 婀栧簳榛忓湡灞?绾㈢爾閾炬簮澶? 2~3 鏍煎帤 (636.5656ms)
+鉁?鎺㈤櫓妯″紡: 鍥涚熆鐗╂繁搴﹀甫 + 鐭跨皣瀵嗗害搴?甯歌鈫掔█鏈? 鈥?鍏ㄥ浘鐭夸笉瓒婂甫 (618.2761ms)
+鉁?鎺㈤櫓妯″紡: 2 涓湶澶╃熆鍧?鈥?闃舵婕忔枟鍧戞寲鍒板湴琛ㄤ互涓? 鍧戝瑁搁湶鐓?閾佺熆(鍙鎬ф暀瀛? (620.0765ms)
+鉁?鎺㈤櫓妯″紡: 灞辨礊闅ч亾閫?y<10 娣卞, 娌块€旇８闇查搧/閲?閽荤煶鐭?涓嶇敤鐚滃湴涓嬫湁鐭? (626.7504ms)
+鉁?鎺㈤櫓妯″紡: 4 涓€墿宸㈢┐ 鈥?鍦熶笜娲炵┐鍦板舰灏变綅 + init 姣忓发闄愰噺棣栧埛 2~3 鍙?T14) (624.4826ms)
+鉁?鎺㈤櫓妯″紡: 鏍戞灄 ~40 妫? 閬垮紑鍑虹敓鍖?宸㈢┐/鐭垮潙/婀?灞辨礊/瀹跺洯骞垮満/鍐滅敯/鍥存爮/灏忓緞 (625.1882ms)
+鉁?鎺㈤櫓妯″紡: 涓栫晫瀛樻。寰€杩?鈥?鍦烘櫙纭畾鎬ч噸寤?+ 鐜╁ edits 閲嶆斁(build 妯″紡鍚屾鏋舵瀯) (1251.1356ms)
+鉁?涓栫晫鏀瑰姩鏃ュ織: 娴佷綋鏍兼棫妗ｉ噸鏀?鈥?{id,lv} 鍙岄€氶亾(鏂瑰潡+姘翠綅) + 钀界洏褰㈢姸閫愰敭鍥炲啓(world-journal-core 浜掗攣鐨勭湡閾捐矾渚? (1228.8728ms)
+鉁?鏄煎 D1: dayTime 闅忎笘鐣屾。寰€杩?+ dayCycleOn 杩涘満缃綅/閫€鍦哄浣?+ 鍧忔。鍏滃簳娓呮櫒 (1850.1572ms)
+鉁?鎺㈤櫓妯″紡: 浣嶇疆涓庤閲忛殢涓栫晫妗ｄ繚鐣?鈥?閲嶈繘鍘熷湴缁懡; 鑰佹。鏃?pos/hp 鍥炲嚭鐢熺偣婊¤(涓嶅洖褰? (1243.7787ms)
+鉁?鎺㈤櫓妯″紡: 姝讳骸鍗虫椂钀界洏 鈥?5s 鑺傛祦绐楀彛鍐呴噸杩涗篃鏄嚭鐢熺偣婊¤(涓嶇暀姝讳骸鐐规畫琛€妗? (1237.87ms)
+鉁?鎺㈤櫓妯″紡: 鍥炲鍗虫椂钀界洏 鈥?婊¤+灏忓眿浣嶇疆鍗冲埢鍏ユ。(5s 绐楀彛鍐呴噸杩涗笉鍦ㄥ彈鍥扮偣娈嬭) (618.0783ms)
+鉁?鎺㈤櫓妯″紡: 鍏ㄥ眬鑳屽寘瀛樻。 鈥?inventory_save 搴忓垪鍖栧線杩?T5 serialize 褰㈢姸) + 蹇嵎鏍忛暅鍍?(1248.0572ms)
+鉁?鎺㈤櫓妯″紡: 姝讳骸鏀跨瓥 鈥?鑳屽寘淇濈暀 + 鍥炲嚭鐢熺偣婊¤ + TTS 瀹夋姎(涓嬬晫鍏堜緥鍙ｅ緞) (632.11ms)
+鉁?鎺㈤櫓妯″紡: 馃帓/Tab 寮€鍏宠儗鍖呴厤鏂逛功闈㈡澘(鏈崟鍙寕涓? 鍚堟垚绔欑偣瑙ｉ攣褰?T13) (618.6345ms)
+鉁?T14 宸㈢┐鑺傚緥: 琛屼负 鈥?鍏ㄦ竻 60 绉掑悗鍥涘发鍚勫啀鍒?2~3 鍙?(628.0477ms)
+鉁?T14 宸㈢┐鑺傚緥: 璁℃椂閫愬发鐙珛 鈥?B/C/D 宸㈡湁娲绘€笉閲嶅埛, A 宸㈠埌鐐瑰崟鐙啀鍒?(630.3897ms)
+鉁?T14 鐜╁鎸ュ嚮: 鐐瑰嚮 鈫?鍑嗘槦鏂瑰悜鏈€杩戞€寜宸ュ叿浼ゅ鍙楀嚮 + 鍛戒腑鎵ｈ€愪箙 + 鍐峰嵈鑺傛媿 (631.9642ms)
+鉁?T14 宸ュ叿鑰愪箙: 褰掗浂鍗虫秷澶?+ 瀹夋姎 TTS(涓?T12 鍏辩敤鏀跨瓥, 鐙珛瀹炵幇鍚勭鍚勮矾寰? (615.567ms)
+鉁?T14 鎺夎惤閾捐矾(琛屼负): 鍑绘潃鍥炶皟 鈫?Drops.spawn 閫愭潯钀藉湴(琛ㄤ笌鎺烽涓€鑷? (641.2997ms)
+鉁?T14 鍑绘潃瑙傛劅: 纰庡潡(debrisColor) + 鍑绘潃璁℃暟 toast(nether 鍏堜緥) (622.7633ms)
+鉁?T14 鏀堕泦: 鍏ュ寘+蹇嵎鏍忛暅鍍? 鑳屽寘婊℃嫆鏀惰繑 false + toast銆岎煄?鑳屽寘婊″暒銆?(626.687ms)
+鉁?T14 鏀堕泦鎾姤: 3 绉掑悎骞剁獥 鈥?鍚岄」鍚堟暟閲? 鍒版湡涓€鍙ユ挱鎶?闃插埛灞? (623.5544ms)
+鉁?T14 鐜╁鍙楀嚮: 鍙楀嚮闊?闂孩+闇囧睆+璇煶 3 绉掕妭娴?nether 鍏ㄥ鍏堜緥) (617.6326ms)
+鉁?T14 鐜╁闃典骸: 鎬墿鑷村懡涓€鍑昏蛋 advPlayerDied 鈥?鍥炲嚭鐢熷皬灞嬫弧琛€+鑳屽寘淇濈暀+涓嶆挱鍙楀嚮璇濇湳 (621.5565ms)
+鉁?T14 鍎跨鍙帶: 鑻﹀姏鎬曞崟鍑讳激瀹冲皝椤?33 鈫?10, 婊¤ 30 涓嶈绉掓潃) (617.1653ms)
+鉁?T14 绱㈡晫鏀舵暃: 鐜╁鍦ㄧ储鏁屽崐寰勫鎬┗宸笉杩? 寮曞嚭宸㈠尯杩囪繙鎺夊ご鍥炲发(鏀堕槦) (621.1907ms)
+鉁?T14 楠烽珔杩滅▼: 绱㈡晫鍐呬繚鎸佽窛绂绘斁绠? 绠部棰勬祴寮归亾鍛戒腑鐜╁鍙楀嚮(CombatCore 鍏堜緥) (621.338ms)
+鉁?T12 钃勫姏绾嚱鏁? advMineStep 鈥?breakTime 鐪熷€奸┍鍔?鏃堕棿绱Н/鎹㈢洰鏍?娓呴浂鐩存祴鍦?adventure-core.test.js) (0.1478ms)
+鉁?T12 鑽変笡鏁ｅ竷: 纭畾鎬?+ 鍙暱鑽夊湴椤?+ 瀵嗗害鍙彂鐜颁笉閾烘弧(T11 缂哄彛琛ラ綈) (1261.9176ms)
+鉁?T12 鎸栨帢琛屼负閾? 钃勫姏鍒扮偣鐮村潖 鈥?璁拌处/鎺夎惤鐗?spawn/鑰愪箙 鈭?/瑙﹀睆鏀跨瓥鏈潡鍗冲仠 (633.1119ms)
+鉁?闂峰乏閿紑鍏?鍙抽敭鎷嗛櫎(2026-11-04 鐢ㄦ埛绁ㄣ€岄棬鎷嗕笉鏉ヤ簡銆?: onMouse(0) 鎴愬鎹㈠紑鎬佷笉杩涜搫鍔?路 onMouse(2) 鏁存墖涓ゆ牸娓?鎭版帀闂? (617.8885ms)
+鉁?T12 鎸栨帢琛屼负閾? 鏉炬墜鎬佹崲鐩爣鐔勭伀 鈥?鍗曞嚮鐨勮搫鍔涗笉璺熷噯鏄熸紓鍒板埆鐨勬柟鍧?(624.5346ms)
+鉁?T12 鎸栨帢琛屼负閾? 鎺夎惤鐗╃湡绌烘嬀鍙?鈥?update 鍠傜帺瀹惰兏鍙ｇ偣 鈫?onCollect 鍏ュ寘 (623.8141ms)
+鉁?T12 鎸栨帢琛屼负閾? tier 涓嶈冻 鈥?鎸栦笉鍔ㄥ氨鏄湡鎸栦笉鍔? 鏂瑰潡鍘熷湴涓嶅姩+涓嶈捣钃勫姏+TTS 鎻愮ず(2026-11-04 鐢ㄦ埛绁? (619.0288ms)
+鉁?T12 鑰愪箙鏀跨瓥: damageTool 褰掗浂 鈥?remove 娓呮Ы + 瀹夋姎 TTS + 绌烘墜(妲藉凡绌? MC 鍙ｅ緞) (619.9557ms)
+鉁?鎵嬫寔涓€鑷? 閫変腑妲?鈫?Avatar 璺熼殢(宸ュ叿/鏂瑰潡/钖勭墖 def, 绌烘Ы=绌烘墜) (615.0184ms)
+鉁?鎵嬫寔涓€鑷? 鏀惧畬鏈€鍚庝竴涓柟鍧?鈫?绌烘墜(advSyncHotbar 瑙傛劅璺熻繘, 淇€屼汉鐗╀粛涓剧潃宸茬敤瀹岀殑鏂瑰潡銆? (618.0776ms)
+鉁?T12 鏀剧疆琛屼负閾? 娉ュ湡/鐏妸(椤?璐村)/鏍戣嫍 鈥?钀界偣+鑳屽寘 鈭?+璁拌处; 杩濊钀界偣 toast 鎷掔粷 (624.0507ms)
+鉁?T12 鏍戣嫍鍏抽〉鍏滃簳: 5s 鑺傛祦绐楀彛鍐呭叧椤?鈫?onPageHide 钀界洏 鈫?閲嶈繘鏍戣嫍杩樺湪(2026-10 涓㈡。淇) (1244.8684ms)
+鉁?T12 鏍戣嫍鐢熼暱閾? 20s 鍒版湡闀挎垚鏍?+ 閫愬潡璁拌处 + 閲嶈繘鏍戣繕鍦?璁℃椂涓嶈惤鐩樹笉閲嶆寕) (1251.6617ms)
+鉁?T12 椋熺墿閾? 鐐瑰嚮鍚?鈥?鍥炶鎸?ITEMS.food + 琛€鏉¤处鏈悓姝?+ 婊¤涓嶅悆涓嶆墸 (632.9366ms)
+鉁?T9 闆悆鎶曟幏閾? 鎵嬫寔鍙抽敭鎺峰嚭 鈥?娑堣€?1 棰?鎺峰嚭闊?鎸ヨ噦; 鍛戒腑鎬浂浼ゅ+鍑婚€€+鐧界诞+鍛戒腑闊?(615.3888ms)
+鉁?F3 閲戣嫻鏋滆涓洪摼: 鍗婅鐐瑰嚮鍚?鈥?鍥炴弧琛€ + 鎵?1 涓? 婊¤涓嶅悆涓嶆墸(full 鏃楁爣缁?advEatPolicy) (631.834ms)
+鉁?T13 绔欑偣琛屼负閾? 鏀剧疆宸ヤ綔鍙?鈫?璧拌繎 4 鏍艰В閿?+ 棣栨闈犺繎涓€鍙?TTS 寮曞 + 閲嶈繘缂撳瓨閲嶅缓 (1244.9292ms)
+鉁?T13 onCraft 閾捐矾: TTS 鍏蜂綋琛ㄦ壃(浜х墿鍚嶅叆鍙? + leftover 杞剼涓嬫帀钀界墿 + 闆朵綑閲忎笉 spawn (629.9096ms)
+鉁?T13 鐑х偧鑺傚緥绾嚱鏁? smeltStep 鈥?2.5s/浠?路 鐓ょ儹鍊?8 浠?路 鏃犵儹鏆傚仠杩涘害淇濈暀 路 浣欐椂缁撹浆 (0.2275ms)
+鉁?T13 閫€鐐夋斂绛栫函鍑芥暟: furnaceRefund 鈥?鐐夊唴涓夌瑪鍏ㄩ閫€鍖?+ 婊″寘杞綑閲忔竻鍗?(0.134ms)
+鉁?T13 鐔旂倝琛屼负閾? 璧拌繎鐐瑰嚮寮€闈㈡澘 鈫?鑷姩鏀炬枡(鎵ｅ寘) 鈫?2.5s/浠剁儳鎴?鈫?鍏抽潰鏉垮彇浜у叆鍖?(620.4955ms)
+鉁?F1 姝讳骸涓嶅姩鐐? 闃典骸鍥炲嚭鐢熺偣婊¤, 鐐夊唴瀹瑰師鏍蜂繚鐣?鎷嶆澘鈶犳寔涔呭寲鈥斺€旀棫娓呯倝鏀跨瓥閫€褰? (624.5288ms)
+鉁?F1 鐐夋€佹寔涔呭寲: cleanup 鍙惤鐩樹笉閫€鏂?鏃?D8 閫€鏂欓€€褰? 鈥?閲嶈繘鐐夊唴鐗╁搧/杩涘害鐓ф棫缁х画鐑?(1239.4859ms)
+鉁?F1 澶氱倝鐙珛: 涓ょ倝寮傛枡骞剁儳鍚勪骇鍚勭殑 + 闈㈡澘缁戝畾鍝彴鐪嬪摢鍙?+ TTS 鍙姤缁戝畾鐐?(625.653ms)
+鉁?F1 鎸栫倝閫€鏂? 鎸栨帀鐔旂倝 鈫?涓夌瑪鍏ㄩ鍏ュ寘 + 鐐夌姸鎬佸垹闄?+ 缁戝畾闈㈡澘杩炲甫鍏抽棴(鎸栨帢/TNT 鍚屼竴閽╁瓙) (621.7668ms)
+鉁?F2 鐐夊彛鐏劙宸紓澧炲垹: 鐕冪儳=heat>0涓旀湁鏂欏湪鍒?路 鏃犳枡/鐔勭伃鍑哄垪 路 鎸栫倝鍗虫竻 路 閫€鍑哄叏娓?(613.9112ms)
+鉁?T13 TNT 琛屼负閾? 鏀剧疆 鈫?绌烘墜鐭寜鐐圭噧 鈫?寮曚俊寤舵椂 鈫?鐖嗙偢鐮村潖璁拌处 + 娉㈠強鎬墿鍙楀嚮 (616.3332ms)
+鉁?T13 TNT 鐭寜/鎸変綇浜屽垎(D3): 鎸変綇 0.25s+ 杞搫鍔涙寲璧板洖鏀? 鐭寜鐐圭噧 (622.6336ms)
+鉁?T13 TNT 鎺€搴?鏁村簥鍥炴敹(2026-11-04 鏋舵瀯璇勫鍊欓€夆憼: TNT 閾炬紡鎺ュ簥鐨勮ˉ绾? 闂?瀹濈鍚屾棌鍙ｅ緞) 鈥?鎺€搴婂熬杩炲簥澶?鎭版帀 1 寮?(625.066ms)
+鉁?T12 鍓垁鏍戝彾琛屼负閾?D2): 鍓垁鐮村潖鏍戝彾鎺夋爲鍙舵柟鍧? 鎺夎惤璧?shearDrop 涓撳睘琛?(618.3189ms)
+鉁?QUESTS 鏁版嵁琛? 15 姝ヤ富绾?+ 缁堢珷 + 杩滃緛绔?11 + 婊戠繑缈?q27 鈥?姝ュ簭鐓у紩瀵奸摼 v2/杩滃緛閾?閾惧熬杩藉姞, id 鍞竴(褰㈢姸浜斾欢濂楃洿娴嬪湪 adventure-core.test.js) (0.1332ms)
+鉁?T15 璋撹瘝閫愭潯: 鏈€灏忔弧瓒宠Е鍙?/ 绌鸿处鏈垨宸竴涓嶈Е鍙?/ 澶嶅悎姝ユ潯浠剁己涓€涓嶅彲 (0.2002ms)
+鉁?浜嬩欢璁℃暟绱閾? 鎸栤啋鎷惧彇鈫掑悎鎴愨啋鏀剧疆鈫掔儳鎴愨啋寮€绠扁啋鍑绘潃 涓冪被鎸傜偣鍙?+= (涓庢杩涜В鑰? (617.6802ms)
+鉁?T15 涓嶈秺绾? 绗?n 姝ュ彧鏌ョ n 姝ヨ皳璇?鈥?鍚庢湡璁℃暟鍏ㄦ弧浠嶉€愮骇鎺ㄨ繘(涓€鍛ㄦ湡涓€姝? (617.6149ms)
+鉁?T15 姝ヨ繘閾?琛屼负): 鎹￠綈 5 鍘熸湪 鈫?琛ㄦ壃 TTS+瀹屾垚 toast+闊虫晥+寮曞涓嬩竴姝?钀界洏+浠诲姟鍗″埛鏂?(1233.7404ms)
+鉁?浠诲姟鎻愰啋(2026-11-07 鐢ㄦ埛绁?: Q 閿敜鍑哄綋鍓嶄换鍔?杩涘害 鈥?TTS+toast 鍚屽彞, 2s 鑺傛祦闃茶繛鐐? 鍏ㄥ畬鎴愭€佸垎鏀?(1272.1834ms)
+鉁?T15 鑰佹。褰掍竴鍖? {step:N} 鏃?counts 鈫?琛ョ┖琛ㄥ綋鍓嶆浠庨浂缁х画; counts 鎹熷潖鍚屾牱褰掍竴 (1241.2228ms)
+鉁?T15 閽荤煶棣栬幏浠紡: 棣栨鎸栧埌閽荤煶鐭胯Е鍙戜竴娆?涓撳睘 TTS+闊虫晥+鍐插嚮娉㈢鍧?, 绗簩棰楄捣涓嶅啀 (628.825ms)
+鉁?F3 閲戣嫻鏋滈鑾蜂华寮? 棣栨鍚堟垚瑙﹀彂涓€娆?閲戝厜鍐插嚮娉?gem 鐞堕煶+涓撳睘 TTS), 绗簩娆′笉鍐?(612.4129ms)
+鉁?T15 缁堢珷: 鍚堟垚閽荤煶鍓?鈫?銆屽皬灏忔帰闄╁銆嶇О鍙?鐑熻姳+鍏ユ。; 鍙Е鍙戜竴娆? 閲嶈繘涓嶉噸澶?(1238.3935ms)
+鉁?T15 浠诲姟鍗?UI: 鎵撳紑鑳屽寘鍗宠 鈥?褰撳墠姝ョ洰鏍?杩涘害, 瀹屾垚姝ュ垝绾? 绉板彿缃《, 涓嶅墽閫忔湭鏉ユ (617.6418ms)
+鉁?澶у疂绠? 璧拌繎鐐瑰嚮寮€闈㈡澘(4 鏍奸棬妲? 鐔旂倝鍚屾) 鈫?瀛樺叆骞跺爢/鏁存Ы鎼?鈫?鍙栧嚭鑰愪箙鍘熸牱 鈫?璐︽埛闅忔。 (1239.1284ms)
+鉁?鑳屽寘鐐归€夋惉杩? 蹇嵎鏍忊啍涓绘牸鑵句綅 + 鍚岀墿骞跺爢 + 蹇嵎鏍忛暅鍍忓悓姝?+ 鍗虫椂钀界洏 (610.1496ms)
+鉁?澶у疂绠辨墿瀹? 鏉愭枡涓嶅娓╁拰鎻愮ず涓嶅姩鍖?鈫?8 鍦嗙煶鎵╁埌 18 鏍?鈫?4 閾侀敪椤舵牸 27 鈫?椤舵牸鍚庢棤妗?(1238.2982ms)
+鉁?澶у疂绠辩杞ㄥ閲?ADR 0007): 鏀句竴绠?+9 鈫?鎸栨帀 鈭? 鈫?瓒呭瀛橀噺鐣欐。涓嶄涪, 閲嶈繘鎭㈠ (1246.166ms)
+鉁?澶у疂绠辫仈鍔? 鑳屽寘蹇弧鎻愰啋鍦ㄥ仛杩囩瀛愭鍚庢寚鍚戞敹绾?璇濇湳鍗囩骇涓嶆敼瑙﹀彂鍙ｅ緞) (626.2352ms)
+鉁?S4鈶?浣庤€愪箙棰勮琛屼负閾? 棣栨 <0.25 鎻愰啋涓€娆? 鍚屽懡涓嶅敔鍙? 鐮存澘閲嶇疆鍚庡啀鍋氬悓娆惧彲鍐嶉璀?(620.7284ms)
+鉁?S4鈶?鑳屽寘蹇弧琛屼负閾? 鍗犵敤 鈮?4/27 涓€娆℃€?toast+TTS銆岃儗鍖呭揩婊″暒锛屽幓鍚堟垚涓€浜涘惂銆?(622.1239ms)
+鉁?S4鈶?宸ュ叿鍧忔寚璺涓洪摼: 鐮存澘瀹夋姎 TTS 骞跺彞褰撳墠浠诲姟姝?hint(鎸栨帢璺緞瀹炴祴) (622.5099ms)
+鉁?淇鈶? 鐭垮潙鍙伴樁姣忕骇鎭?1 鏍?鈥?璺宠穬 1.42 鏍煎彲鐧? 涓嬪緱鍘讳篃涓婂緱鏉?鏇炬瘡绾?2 鏍煎洶浜? (616.7516ms)
+鉁?淇鈶? 闈㈡澘鍏抽棴鐘舵€佸悓姝?鈥?鉁?Esc 璧?onClose 鍚?panelOpen 涓嶅崱 true(鏇惧崱浣忔寲涓嶄簡鐭? (637.5994ms)
+鉁?淇鈶? 馃彔 鍥炲皬灞嬮€冪敓鍙?鈥?婊¤浼犻€?+ 60s 鍐峰嵈鎷掔粷(鍙楀洶鑷晳, 涓嶆挱姝讳骸瀹夋姎) (617.5158ms)
+鉁?鏂瑰潡绾ц仈鈶? 鐮嶆爲搴曚竴鑺?鏁存爲鍊?鈥?骞?鍙跺叏娓?鍘熸湪鎺夎惤闆?璇濇湳 (637.1315ms)
+鉁?鏂瑰潡绾ц仈鈶?绾㈢嚎): 绾ц仈鍧楀叏閲忚璐?鈥?cleanup 钀界洏鈫掗噸杩?閲嶅缓+閲嶆斁)鏁存爲涓嶅娲?(1238.1915ms)
+鉁?鏂瑰潡绾ц仈鈶? 鎸栫伀鎶?鏍戣嫍鐨勫簳搴?鈫?渚濋檮鍧楄劚钀芥帀钀? 鏍戣嫍璁℃椂鎾ら攢 (615.9933ms)
+鉁?鏂瑰潡绾ц仈鈶? TNT 娉㈠強鍘熸湪 鈫?鏁存爲绾ц仈鍊?鈥?榛樿琛ㄦ帀钀? 涓嶈繘浠诲姟(P6) (631.7663ms)
+鉁?鏂瑰潡绾ц仈鈶?浜屾湡 D7): 娌欓殢搴曞骇娌夐檷 鈥?绉诲姩涓ゆ牸璁拌处, 閲嶈繘涓嶉敊浣?绾㈢嚎) (1238.6066ms)
+鉁?鏂瑰潡绾ц仈鈶?涓夋湡 P15): 鐮嶆爲骞蹭腑娈?鏁存爲鍊?鏍戞々杩炲甫) 鈥?骞?鍙跺叏娓?璇濇湳 (642.0765ms)
+鉁?鏂瑰潡绾ц仈鈶?涓夋湡 P14 绾㈢嚎): 鏃ф。娴┖鍐犻噸杩涙不鎰?鈥?娌绘剤璁拌处钀界洏, 浜屾杩涗笘鐣屽箓绛?(1875.6809ms)
+鉁?F4 鐗у満: init 鍔ㄧ墿鍦ㄥ満 鈥?纭畾鎬ф竻鍗?10 鍙?鐗?缇?鐚?楦?)鎸?__livestockIdx, 閲嶈繘鍘熶綅澶嶇幇 (1237.0488ms)
+鉁?F4 鏀惰幏閾? 鍑绘潃鍔ㄧ墿鎺夎惤鎺烽鐓у父 + killBurst verb銆屾敹鑾枫€?+ kill_mob 涓嶈璐?鎴樻枟姝ュ彧璁ゆ€墿) (618.4963ms)
+鉁?F4 鎭愭儳娓歌崱: 鐜╁闈犺繎 鈮?.5 璁╁紑(脳0.8 鑳屽悜) 路 鍙楀嚮瀛樻椿 3 绉掗€冪獪(脳2.2) 路 涓嶈繘鎴樻枟 AI 涓嶅弽鍑?(624.1065ms)
+鉁?绱㈡晫瑙嗛噹=瀹炶蛋璺濈: 澧欏悗(walkDist=鈭?涓嶈拷涓嶅姩 路 鐩寸嚎瓒呭湀涓嶆煡 路 鍙揪鐓ц拷 路 闅斿涓嶅嚭鎵?(621.4428ms)
+鉁?F4 姝荤暅璁拌处: 鍑绘潃鍔ㄧ墿 鈫?dead 绱㈠紩钀借处闅忔。 鈫?閲嶈繘璇ョ储寮曚笉澶嶆椿(鐗у満涓嶉噸鐢? MC 鍙ｅ緞) (1257.7506ms)
+鉁?鍓緤姣涜涓洪摼: 鍙抽敭瀵瑰噯缇?鈫?鎺夌緤姣?1~3 + 缇婅繘娌℃瘺鎬?+ 鍓瘺璐﹁惤妗?+ 鑰愪箙 鈭? + shear 闊? 鍓瘺闆朵激瀹?(619.0377ms)
+鉁?鍓緤姣涜Е灞忎笓鐢ㄩ敭: holdAct 鐩磋皟鎵ц鍣?= 鍙抽敭鍚岃建(涓€娆℃€у姩浣滀笉杩涜繛鍙? (629.3329ms)
+鉁?鍓緤姣涢殧澶╅暱鍥? dayTime 鍥炵粫娌?鑷劧杩囧崍澶?鐫￠啋璺抽浂) 鈫?姣涢暱鍥炴潵+鍓瘺璐﹂攢 (625.132ms)
+鉁?鍓瘺璺ㄦ。: 鍓瘺璐﹂殢涓栫晫妗?鈫?閲嶈繘娌℃瘺鎬佸鐜? 绂诲満璺ㄥぉ鍚庨噸杩?= 姣涘凡闀垮洖(璐﹂攢) (1872.3172ms)
+鉁?浼氳瘽澶嶄綅娉ㄥ唽琛ㄦ敹鍙ｂ憼: 鑺傛祦鍣?缇婃瘺璺ㄦ部璐︽湰閲嶈繘褰掗浂(鍗?瑙傚療椤? 琛屼负鍙樻洿鎷嶆澘) (619.4921ms)
+鉁?浼氳瘽澶嶄綅娉ㄥ唽琛ㄦ敹鍙ｂ憽: stale prevT 閲嶈繘涓嶄吉璁″洖缁?鈥?褰撳ぉ鍓殑姣涗笉鎻愬墠闀垮洖 (1259.153ms)
+鉁?鍓繃姣涚殑缇婃浜′笉鎺夌緤姣?MC 鍙ｅ緞): 鑲夌収鎺? 鍑绘潃璐︾収璧?(618.964ms)
+鉁?鍓瘺妗ｅ舰鍏煎: 鑰佸崟璐?{dead:[..]} 璇绘。 鈫?home 妗舵敹鏁?v3 涓夋爮(sheared 鎭掑湪, 涓嶅嚭娈嬬己妗? (615.0568ms)
+鉁?F4 鐔熼閾? 鐐夌儳鐢熻倝鈫掔啛鑲?SMELTS 鍥涙潯, 涓庣熆鐗╁悓濂楄妭寰? + 鍚冪啛鑲夊洖琛€璧?advEatPolicy 鏅€氬彛寰?(623.6661ms)
+鉁?鏄煎 D5 澶滄€埛鎬? 澶滈棿鍒版媿鐜甫鍑烘€寕 __nightMob/__nightHome 路 婊￠厤棰濆皝椤?(616.9594ms)
+鉁?鏄煎 D5 鍏ュ鎾姤: 棣栧骞跺彞鐏妸寮曞涓€娆℃€ц惤浠诲姟妗?路 娆″鍙姤澶╅粦浜?(618.294ms)
+鉁?鏄煎 D5 榛庢槑娓呭満: 涓婃部瑙﹀彂鐏扮櫧鐑?绉婚櫎 路 宸㈢┐鎬?鐗у満鍔ㄧ墿涓嶆竻 路 涓婃部鍙彂涓€娆?(623.3832ms)
+鉁?鏄煎 D5 榛庢槑璐︽湰瀵归綈: 瀛樻。鏃跺埢宸插湪鏄庝晶閲嶈繘涓嶈瑙﹀彂娓呭満 (628.7309ms)
+鉁?鏄煎 D5 闃插埛鎬湀鎺ョ嚎: advNightRead 璇?groundTop+1 鍚屾牸鍙岄€氶亾 路 鐣屽 null 路 鐏妸鏍兼嫆缁?(633.8419ms)
+鉁?鏄煎 D5 澶滄€?AI: 瀹堕敋=鍑虹敓鐜偣涓嶅綊宸㈢┐ 路 鐜╁璧拌繎鐓у父绱㈡晫 (619.9719ms)
+鉁?鏄煎 D6 搴娐锋斁缃?涓ゆ牸搴婃敼鐗?: 缁撴瀯鏀剧疆娌挎湞鍚戝崰涓ゆ牸 鈥?搴婂熬鍦ㄧ偣鍑绘牸/搴婂ご浼稿悜鏈濆悜渚? 涓嬫柟鏃犳敮鎾戞嫆 (622.1192ms)
+鉁?鏄煎 D6 搴娐风潯瑙夋潯浠?鏃堕挓鏀圭増): 鐧藉ぉ寮€鎷ㄧ洏 路 搴婅竟鏈夋€€岄檮杩戞湁鎬墿锛岀潯涓嶇潃銆?路 鍔ㄧ墿涓嶆嫤(搂7.2) (622.599ms)
+鉁?鏄煎 D6 搴娐风潯鐫€杞満: 娓愰粦1.5s鈫掑仠2s鈫掑敜閱掓部(璺虫竻鏅?澶滄€竻鍦虹紳+鍑虹敓鐐硅搴婅竟)鈫掓笎浜増5s(搂7.2) (621.3292ms)
+鉁?鏄煎 D6 搴娐疯浆鍦洪€€鍑哄浣? cleanup 涓柇鐫¤ 鈥?閬僵褰掗浂/鐘舵€佸浣?涓嶆笚鍏ュ叾浠栨ā寮? (615.242ms)
+鉁?鏄煎 D7 鐏鐐逛寒鏀跨瓥: 澶滈噷閫変腑鎵?glow(skyDim>0) 路 鐧藉ぉ/鎹㈡墜/鐕冨敖鍗崇伃 (661.869ms)
+鉁?鏄煎 D7 鐏鑰楃: 澶滈噷姣忔寔婊?1 绉掓墸 1 鑰愪箙(damageTool 绠＄嚎) 路 鍗婄杩涘害涓嶄涪 (664.0814ms)
+鉁?鏄煎 D7 鐏鐕冨敖: 鑰愪箙褰掗浂鏁存Ы娑堝け + TTS 瀹夋姎銆岀伅绗肩敤瀹屼簡锛屾垜浠啀鍋氫竴涓惂銆? 闅忚韩鍏夊嵆鐏?(637.9368ms)
+鉁?鍗楃摐鐢熼暱鐐? 寤哄満鎾拻 3 澶勫湪鍦?鈥?閲囬泦缁忔寲鎺橀摼鎺夊崡鐡滅墿鍝?璁伴噰闆嗘椂 dayTime (658.8605ms)
+鉁?鍗楃摐璺ㄦ父鎴忔棩鍥炲～: 鍒版湡浣嶇┖鍥炲～+edits 璁拌处 路 鏈埌鏈熺暀璐?路 琚崰閿€璐?路 瀛ゅ効/鍧忚处閿€ (686.8957ms)
+鉁?鍗楃摐閲嶈繘涓嶅鎾? 褰撴棩閲囬泦妗ｉ噸杩涗粛绌?鎾拻琚噸鏀惧帇鍥? 鏃犲悓鏃ュ埛娲?, 璺ㄦ棩缁撶畻鍥炲～ (1404.0538ms)
+鉁?鍗楃摐闆曞埢: 鍓垁鍙抽敭 B_PUMPKIN 鈫?鍘熷湴鍙樻崲 B_CARVED_PUMPKIN(璁拌处+鑰愪箙鎵?pick), 闈炲崡鐡滈潤榛?(699.0211ms)
+鉁?鍙敜鎺ョ嚎: 闆曞埢鍗楃摐鏈€鍚庡氨浣?鈫?golem 濉斾綅鐮村３+__golem+瀹堕敋 路 濉旀潗娑堣€?鎷嗗ご閲嶆斁涓嶈兘鍐嶅彫) (692.2824ms)
+鉁?璇炵敓浠紡: advGolemTick 鎷艰缂╂斁 0.25鈫? 绔欐々涓嶈蛋 AI, 钀藉湴閲戝湀+鍙?杩樺師; 妗堕噸鍙笉閲嶆挱 (1355.9622ms)
+鉁?鍙敜閲嶆斁涓嶉噸鍙? 鑰佹。閲嶈繘濉斾笉澶嶆椿(娑堣€楄处鏈€鍚庡啓璧?+鎸夋《 1 鍙?閲嶆斁璧?setBlockRaw 涓嶇粡 advMarkEdit 绾㈢嚎) (1262.2284ms)
+鉁?鍙敜涓婇檺: ADV_GOLEM_MAX 3 鍙?鈥?婊″憳缁撴瀯鎴愮珛浣嗕笉鍙敜+閽夋璇濇湳 (621.7878ms)
+鉁?鍓湰鍙敜钀戒綅: den 鏄惧紡钀藉巺鍦伴潰(鍒楅《=宀╃┕, 涓嶈惤浣?绔欑┕椤剁湅涓嶈) (641.7112ms)
+鉁?鍓湰鍌€鍎＄敓鍛藉懆鏈? 鍚岀獥杩涘嚭鐓у瓨(閲嶅彫钀藉巺鍦伴潰+妗惰澶嶅師) 路 璺ㄧ獥閲嶇疆闄ゅ悕(鍓湰涓€鍒囧悓鍛? (1868.0893ms)
+鉁?淇悊鍌€鍎? 鎵嬫寔閾侀敪瀵硅繎鏃佸彈浼ゅ個鍎?鈫?鎵?1 閿洖 28 琛€+妗跺悓姝? 婊¤ noop 涓嶆墸閿? 闈為搧閿?鏃犲個鍎¤繎鏃佸洖钀?(618.9837ms)
+鉁?鍌€鍎″嚭鎵嬩笌澶滄€姤澶? 鍑烘墜鎸?__hurtBy+闆跺嚮閫€ 鈫?杩戞垬澶滄€浆鐏個鍎? 楠烽珔/鑻﹀姏鎬曚笉鍒嗘淳; 鍌€鍎″洖鏀朵粐鎭ㄨВ闄? 鍙嬪啗涓嶈繘鎴樻枟杞?(616.1385ms)
+鉁?娓呭満鍏嶇柅: advSweepNightMobs 鍙敹 __nightMob 鈥?鍌€鍎?鐗у満鎬笉甯﹁瀛楁澶╃劧璞佸厤(璐熺┖闂撮拤姝? (633.8418ms)
+鉁?鍌€鍎℃浜? onDeath 鍑烘《閿€璐?瀹堕敋鍖归厤)+鎺夐搧閿?3~5(MOB_DROPS 鏃㈡湁琛? 鍑€浜忔垚鏈棤鍒烽搧婕忔礊) (629.8623ms)
+鉁?golems 妗舵寔涔呭寲: 鍙敜闅忔。钀界洏 鈫?閲嶈繘鎸夋《閲嶅彫(瀹堕敋+hp 澶嶅師, 钀界偣鍚屽嚑浣?; 姝讳骸璺ㄦ。涓嶅娲?(1885.9981ms)
+鉁?T8 瑙ｉ攣閾剧涓€鐜? 瀹屾垚 q16 骞垮満寮曞 鈫?瑙ｉ攣閿疆浣?妗ｈ惤鐩?寮€鏀句华寮?鐞堕煶/鐧介棯)+鍗楁矙涓樺睆闅滆寮€; roundtrip 闆堕棬闈?T9 鏃犻棬闃? (1880.0089ms)
+鉁?T8 鑰佹。涓嶅洖閫€: 缁堢珷閫氬叧妗?step=16+绉板彿) 鈫?鎺ユ杩滃緛绔犻鏉? step/绉板彿鍘熸牱淇濈暀 (652.1471ms)
+鉁?T8 璁℃暟鎸傜偣鍥涜矾: 骞垮満鍙戠幇(浣嶇疆鍨? / 缁撴瀯瀹濈(鍥?鍧愭爣) / 闆悆鎶曟幏 / 鎬鍑绘潃 鈥?浜嬩欢澶勫彧 += 涓庢杩涜В鑰?(824.4328ms)
+鉁?寮撳皠鍑?2026-10-28 Route A): 鍙抽敭/灏勭閿部鍑嗘槦鏀剧 鈫?寮规杩涘懡涓嚮鏉€璁拌处; 鎷夊紦鍐峰嵈涓庢尌鍑诲悓杞ㄨ繛鐐逛笉杩炲彂; 鏀诲嚮閿?绌烘墜鎸?鎵?MC 姝ｅ吀鍥炲綊); 瑙﹀睆鏉′袱閿?鍩鸿〃+灏勭閿竟娌块噸澹版槑) (626.3326ms)
+鉁?T8 杈圭紭浼犻€佺湡浠诲姟閾? 骞垮満韪╃偣瀹炲畬鎴?q16 鈫?rite 鐧介棯娉?鈫?鍗楃紭瓒婄嚎鐧介棯鍒?desert 鈫?璁拌处/鍒拌揪鎾姤/鎺ユ q18 鈥?鐪熼摼涓嶆敞鍏?counts(涓庣粍5 娉ㄥ叆璺緞浜掍负鐙珛) (1400.0704ms)
+鉁?鏄煎 D7 鐏閫€鍦哄浣? cleanup 鍏抽殢韬厜(PointLight 涓嶆笚鍏ュ叾浠栨ā寮? (620.9892ms)
+鉁?鍐滅敯 D3 閿勫湴: 绌烘墜鍙抽敭鑽夊湴鈫掕€曞湴(涓栫晫妗ｈ璐?缈诲湡澹?; 鎵嬫寔鏂瑰潡鍙抽敭=鏀剧疆涓嶈閿勫湴鍔寔 (608.4954ms)
+鉁?鍐滅敯 D3 鎾鈫掑偓鐔熲啋鐢熼暱鍏ㄩ摼: 闈炶€曞湴涓嶆墸浠堵疯€曞湴钀借嫍鎵ｇ路楠ㄧ矇+1 闃堵?0s/闃舵鍒扮啛鍗冲仠 (632.7314ms)
+鉁?閰嶆柟瑙ｉ攣鎾姤(D2): 鍑绘潃璁拌处杈炬垚鈫?.5s 鑺傛媿鎾姤涓€娆? 涓嶉噸澶嶆挱 (624.9621ms)
+鉁?涓㈠純: advDropSlot 鏁存憺绂诲寘 鈫?瀹氬悜鎺夎惤鐗?thrown/holdFar/鑰愪箙闅忎欢/10 鍒嗛挓瀛樼暀) 鈫?绔欑潃涓嶅惛鍥? 璧拌繙鍐嶅洖鏉ュ師鑰愪箙鎷惧洖 (633.9719ms)
+鉁?澶ц儗鍖? 鎵嬫寔浣跨敤鎵╁ 27鈫?3 鎭颁竴娆?娑堣€?搴嗙+璁拌处), 宸查《鏍肩ぜ璨屾嫆缁濅笉娑堣€?(613.8229ms)
+鉁?閫€鍦哄洖鏀? advReclaimThrown 鎶婂湴涓婁涪寮冧欢鏀跺洖鍖?鑰愪箙鍘熸牱); 婊″寘瑁呬笉涓嬬殑杞櫘閫氭帀钀界墿鐣欏湴涓?(1242.0243ms)
+鉁?缁村害瑙勬牸鏀跺彛: ADV_SCENE_KEYS 涓ゆ敞鍐岃〃娲剧敓(妗堕敭=鍦板浘琛?缁村害琛? 鍔犵淮搴﹂浂鎵嬫妱) (0.1497ms)
+鉁?瑁呭 T5: wear 鎵ц鍣?鈥?绌夸笂=鎵嬫寔娑堣€楄繘妲?瑙傛劅瀵归綈; 鎹㈣鏃т欢鍥炲寘(闆舵崯澶辩孩绾? (614.6652ms)
+鉁?瑁呭 T5: 瑁呭鏉¤劚涓嬬紪鎺?鈥?鐐规Ы鏃т欢鍥炲寘+妲芥竻绌? 绌烘Ы绀艰矊璇濇湳涓嶇偢 (618.3443ms)
+鉁?瑁呭 T9: advTryWearSlot 鈥?鍏嶉€変腑鎸囧畾妲界┛涓?瑁呭椤电偣鏍煎悓閾?; 鎹㈣鏃т欢鍥炲寘; 婊″寘鎷掔粷涓嶆秷鑰?(622.7916ms)
+鉁?瑁呭 T5: 瀛樻。 armor 閿?roundtrip 鈥?cleanup 钀界洏閲嶈繘鎭㈠; 鑰佹。鏃犻敭 鈫?绌虹┛; advSaveView 閫忓嚭 (1936.3771ms)
+鉁?瑁呭 T6: 鎴樻枟婕忔枟 鈥?鍑忎激/鍑婚€€鎶楁€х粡绌挎埓妗ｆ姌绠?姝ｅ吀鍏紡鎵嬬畻閿?; 绌虹┛鍘熸牱閫忎紶 (647.0425ms)
+鉁?瑁呭 T6: 鍛戒腑纾ㄦ崯涓庣牬纰庝华寮?鈥?姣忎欢 dur鈭?; 褰掗浂妲芥竻绌?鐮磋瘽鏈?瑙傛劅瀵归綈+闅忔。钀界洏 (1297.8921ms)
+鉁?瑁呭 T6: 鐜浼ゅ涓嶅悆鐢?D8) + 鑷存鍒嗘敮璧版浜℃斂绛?婕忔枟涓嶆姠鎴? (654.5614ms)
+鉁?瑁呭 T6: 鍗曚竴婕忔枟婧愮爜閽?鈥?鐜╁鐩存尐 Mobs.hit 缁濊抗(杩戞垬/鑷垎/绠煝鍏ㄦ敹鍙? (1.9104ms)
+鉁?T7 杞 TNT: 鐖嗙偢瑕嗙洊涓滄爡鏍忎欢 鈥?灞忛殰鏍煎師鍦颁笉鍔?闆舵帀钀?鎺烽鍙?, 鏅€氬甫鍐呮牸鐓у父鐮村潖 (645.5868ms)
+鉁?T7 杞 鏂囨: advMineHardText 鍒嗗悜鍛戒腑闈炵┖+涓や袱涓嶅悓, 鏅€氭牸绌轰覆, 鑰佺鍚嶄笉鐐?(643.0771ms)
+鉁?T7 杞 P5: 闈欐鐜╁ 120 甯?鈥?setSkyBase 璋冪敤 鈮?(棣栧抚鍐欎竴娆?, 鑵瑰湴鏃佽矾+閲忓寲閿?memo 鐢熸晥 (623.0167ms)
+鉁?T8 缁? 杈圭紭浼犻€佺鍒扮: 瑙ｉ攣娌欐紶鈫掑崡缂樿鎺ㄥ抚鈫掔櫧闂垏 desert+鍥炵▼闂ㄥ唴渚ц惤鐐?闈㈡湞鍥惧唴+璁拌处/闊?鎾姤/鍐峰嵈; 鍐峰嵈闃叉姈+veil 闈炵┖闂蹭笉浜岃Е (1561.6588ms)
+鉁?T8 缁?b 娌兼辰闂?x 骞抽潰鍒嗘淳: 鏃?z 骞抽潰杩囨浮鎬佺殑 x=160 瓒婄晫鍥炲嵎鍐欐秷闄?鍗风粫鍒楁棤闂ㄤ綋鏍?闂ㄩ潰鍦?x=px 骞抽潰) (630.845ms)
+鉁?T8 缁? 瑙ｉ攣鎷︽埅: counts 鍏ㄩ攣涓夊悜缂樿闆跺垏鍥? 鍖楄繎鍓嶅尯 30s 鑺傛祦(31s 绐楁伆 1 娆°€?2s 绱鎭?2 娆?+鍚笘鐣屽悕+鍒嗙骇鐐瑰悕; 瑙ｉ攣鎬侀潤榛? 涓滃悜浠讳綍鐘舵€侀浂璇濇湳闆朵紶閫?(618.7305ms)
+鉁?T8 缁? 瑙ｉ攣婕斿嚭: home 瀹屾垚鐐逛寒 鈫?rite 鐧介棯鍚庡寳灞辨闈㈡牸鍙樼┖姘?淇濇姢瑙ｉ櫎+杈圭紭鎾姤; 杩滃緛鍥惧畬鎴愮偣浜?鈫?涓嶅垏鍥?鍥炲璇箟鎾姤+鍒囧洖 home 鍚庡北浣撲笉瀛樺湪 (2595.5722ms)
+鉁?T11 涓婚鎹㈡€摵娉? 鍖楀甫閾烘祦娴€?路 鍗楀甫閾哄案澹?路 瑗垮甫閾烘布楠?鐜甫鑺傛媿/CAP/瀹堕敋璺緞涓嶅彉) (1880.9459ms)
+鉁?T11 鍚屾睜鍥炶惤: 鑵瑰湴閾?home 鍚屾睜 路 杩滃緛鍥捐姹犱笉琚甫鐭╁舰涓茶(鍦板浘琛岄棬鎺? (1388.1481ms)
+鉁?T-SEAM-02 鍘荤▼杩涢晣绔埌绔? 涓诲緞韪╃嚎甯﹀唴鎭掑紑鏀剧櫧闂?鈫?advSetDim 钀?spawn 閿?79,25,112) 路 鎾姤/toast 路 浠诲姟閾句笉鎸?town (626.2916ms)
+鉁?T-SEAM-02 east 瑙﹀彂甯﹀澹? 鍋忕涓诲緞鐨勬爡鏍忔涓嶈Е鍙?路 缈昏秺褰╄泲钀界偣(z 鍑哄甫)涓嶈Е鍙戣惤闅旂甯︾収鏃?(622.2084ms)
+鉁?T-SEAM-02 鏍呮爮淇濇姢鎷掔粷璇濇湳鏀圭: east 鍛戒腑淇濇姢鍒ゆ嵁 鈫?瑙嗚 spec B.4 瀹氱(鎸囪矾鏀跺熬, 閫€褰广€岃繕娌＄洊濂姐€? (616.6186ms)
+鉁?T-SEAM-03 鍥炵▼绔埌绔? 闀囧唴鍗楃紭瓒婄嚎(z鈮?32)鐧介棯鍥?home 鈫?钀?east 閿?绾?154.5,75)闈㈡湞瑗?路 缁村害鍥?overworld 鏄煎鐓ц浆 路 鎾姤銆屽洖鍒板鍟︼紒銆嵚?鐧介棯鏁撮摼鍚屾 路 钀界偣涓嶈惤瑙﹀彂绾垮彛琚?路 鍙屽悜鍐嶅叆闀?(1268.2809ms)
+鉁?T-SEAM-03 鍥炵▼瑙﹀彂绾?z 閫愮偣: z=131 涓嶈Е鍙?z=132 瑙﹀彂(浠绘剰 x 甯﹀紡) 路 鍗楀僵铔嬪甫鏁存(z94~127)闆惰瑙?鎶?z=100/127) (1882.5184ms)
+鉁?T-SEAM-03 鍥炵▼鏃╅€€閾?闀囦晶鍚屾绾緥): 鐫¤杞満涓笉瑙﹀彂 路 瑙ｉ櫎鍚庣収甯稿彂浠?鍐峰嵈/鐧介棯涓袱闂稿凡鍦ㄧ鍒扮鍙戜护甯ф柇瑷€) (1240.8749ms)
+鉁?T-SEAM-03 缂撳啿甯搁噺鍦ㄤ綅+鍒ゆ嵁娉ㄩ噴鍥炲紩 搂6.3.5(闃茶瑙﹀弬鏁板彲寰皟, 鍒ゆ嵁褰㈢姸涓嶅彉) (2.0367ms)
+鉁?TIDEA-17 缂撳啿甯﹀洖绋嬮鍛?鍩庨晣缈绘柊 U-06): 绾垮崡 6 鏍间竴娆℃€с€屽啀寰€鍓嶅氨鍥炲鍟?銆嵚风嚎杈瑰緲寰婇浂閲嶅埛(杩熸粸 12 鏍奸噸鑷?路棰勫憡涓嶆敼鍙樿Е鍙戠嚎璇箟(z132 鐓у父鍙戜护, ADR-0011 鍐崇瓥 4) (1233.3134ms)
+鉁?T-SEAM-03 east 閿氭墍钀芥牸鍙珯绔?寤哄満鎺㈤拡, 涓夊悜鐜伴敋鍚屾): 钀界偣鑴氱瑕嗙洊鏍?y24 瀹炲灚 y25/26 鍑€绌?(610.2647ms)
+鉁?T-SEAM-04 杩涢晣寤烘満(鐩磋揪): advSetDim('town') 涓撳睘姝ュ缓鏈?鈥?澹冲眰鏈哄櫒鍦ㄤ綅 路 娉ㄥ唽蹇収涔濇潯鍏?active 路 focus/found/reset/snapshot 鎺ュ彛闈㈠畬鏁?瀵归綈 T-MAP-04 core 琛屼负) (1228.3754ms)
+鉁?T-SEAM-04 杩涢晣寤烘満(绔埌绔?: 涓诲緞韪╃嚎鐧介棯杩涢晣鍚庢満鍣ㄥ湪浣?T-SEAM-02 閾捐矾闆舵壈鍔?路 emit 绌哄疄鐜版梺璺?events 闈㈢収甯? (1237.4309ms)
+鉁?T-SEAM-04 绂婚晣寮冩満+鍐嶈繘鏂版満涓嶄覆杞? found/focus 鐘舵€佺闀囧嵆娓?鈥?涓よ疆杩涢晣鐘舵€侀殧绂?绗竴杞?done/focus 涓嶆硠婕忕浜岃疆) 路 鏈哄櫒寮曠敤鎹唬 路 鍥炵▼鐧介棯璺緞鍚岄摼寮冩満 (2471.9532ms)
+鉁?T-SEAM-04 闀囧唴骞傜瓑: 閲嶅 advSetDim('town') 涓嶉噸缃満鍣?dim===advDim 棣栬瀹堝崼 路 寤烘満鍙湪杩涢晣娌? 闈炴瘡甯ч潪姣忚皟鐢? (1236.3113ms)
+鉁?T-SEAM-04 den 鍏堜緥褰㈢姸瀵归綈: 寤烘満璋冪敤鎸傚湪 advSetDim 鍒囩晫缂?town 涓撳睘姝? den 涓撳睘姝?advDenSeed 鍚屼綅鍏堜緥 路 闈炴瘡甯? (1.8341ms)
+鉁?T-SEAM-04 core 闆舵敼鍔ㄥ畧闂? 澹冲眰鍙秷璐?mkTownTargets 宸ュ巶 鈥?鏈哄櫒閫昏緫浜斾欢闈㈤浂澶嶅埗浜?adventure.js(銆孴-UI 绁ㄥ彧鎹?emit 涓嶆敼鏈哄櫒銆嶅绾? diff 闆?hunk 鐢?commit 璇佹嵁鎵挎媴) (2.7531ms)
+鉁?T-SEAM-04 鐧昏鍥炲～: dimension-registry-design.md 搂5 涓嶈繘琛ㄦ竻鍗曟湁 town 鍒嗘敮鐧昏(绁ㄩ潰鎺堟潈鐨勪竴鍙ヨ瘽鏂板, 璁捐鏉冨▉鏂板鏉＄洰闈炴敼鍐? (0.6593ms)
+鉁?TIDEA-02 杩涢晣杩庡閽熶笁鍝? 鍒拌揪甯ч鍝?500ms 鑺傚緥涓夊搷榻?鐪熷閽? 路 鍥炵▼闆堕挓澹?路 浜岃繘闀囪繜鍒板搷闅忔崲缁存竻(闆惰法鍦烘紡鎾? (4161.2857ms)
+鉁?TIDEA-11 鏅尯鍥涘０: 杩涘尯涓€澹奥峰尯鍐呭緲寰婇浂閲嶅搷路杩熸粸甯﹀唴寰€杩斾笉閲嶈噦路鍑虹獥閲嶈噦鍐嶈繘鍐嶅搷 路 鍥涘尯鍚勫氨浣?路 杩涢晣闆惰瑙?(630.8626ms)
+鉁?TIDEA-11 浼氳瘽鎬佸綊闆? cleanup 閲嶈繘鍚庡悓鍖哄啀鍝?涓€娆℃€?flag 闅忎細璇濇竻, 闈炴案涔呴潤闊? (1252.5198ms)
+鉁?q27 鏁版嵁琛? 鍚堟垚婊戠繑缈?glider-spec 搂3.7) 鈥?鏂囨閫愬瓧/璁拌处閿?craft_glider/鏃?unlock 鏃?finale (0.1161ms)
+鉁?q27 琛屼负閾? 鑰佹。鍏ㄩ€氬叧 step=27 璇诲叆鏂拌〃鎭版帴妫?q27 鈥?鍚堟垚婊戠繑缈兼杩涜〃澶?praise (612.3377ms)
+鉁?q27 琛屼负閾? 寮曞鏈熸彁鍓嶅悎鎴愪笉璺虫 鈥?璁℃暟淇濈暀, 姝ヨ繘浠嶆寜閾惧簭 (617.4966ms)
+鉁?瑁呭 T-G01: 绗簲妲界┛鎴?鈥?鐨叏濂?缈煎悓绌?armorPoints 7 涓嶅彉 路 advWornTakeOff 鍗哥考鍥炲寘 路 advTryWearSlot 妲藉弬鍚屾晥 (626.3598ms)
+鉁?瑁呭 T-G01: 鎴樻枟纾ㄦ崯璞佸厤缈?鈥?鍛戒腑鎵ｇ敳缈?dur 鎭?1 妲戒笉绌?ADR 0012 绾㈢嚎), 鐩旂敳鐓у父纾ㄦ崯 (631.3891ms)
+鉁?瑁呭 T-G01: 瀛樻。浜旈敭 roundtrip 鈥?缈奸殢妗ｆ仮澶? armor 瀛樻。瑙嗗浘浜旈敭 (1260.527ms)
+鉁?瑁呭 T-G01: 鑰佹。鍥涢敭鏃犵考閿?鈥?璇诲叆褰掍竴 glider:null 鍏朵綑淇濈湡(鏃犳劅鍗囩骇, 鏃犺縼绉昏剼鏈? (1270.7063ms)
+鉁?T-G05 鎽旇惤鍙傛暟琛? 3 鏍兼棤浼?路 5 鏍兼墸 2 路 10 鏍兼墸 7 路 鍑婚€€楂樺害鍚屽紡(瑙勫垯涓€鍏? 路 闆?TTS (616.4257ms)
+鉁?T-G05 婊戠繑闆朵激: 瑙﹀湴婊戠繑鎬佷换鎰忚惤宸浂浼ゅ 路 20 鏍兼粦鍒?2 鏍煎彇娑堝彧鎽?2 鏍艰处(鏀剁考閲嶇疆鍘熸渚? (620.2478ms)
+鉁?T-G05 鎽旇嚦琛€灏? 璧扮幇鏈夋浜℃祦绋?閲嶇敓婊¤+鑳屽寘鍏ㄤ繚鐣? 鈥?姝讳骸瀹夋姎璇濇湳灞炲瓨閲忛潪鏂板 (624.8285ms)
+鉁?T-G05 钀芥按闆朵激(鏈夌考鏃犵考浠绘剰楂樺害) + 骞冲湴甯ч浂缁撶畻: splash 璺緞涓?1.42 鏍艰烦璺冨嘲鍊间笉鎵ｈ(杈圭晫璇箟) (628.6ms)
+鉁?T-G05 浼犻€佸厤鐤?瑙傚療椤?2): 姝讳骸/浼犻€?spawn)鍚庨涓?land 浜嬩欢闆剁粨绠?娈嬬暀宄板€煎够褰遍槻鎶?, 鍚庣画鐪熷疄鎽旇惤鐓у父 (611.0237ms)
+鉁?T-G05 浠栨ā寮忛浂鍙備笌: build/arena 涓嶈闃?land 浜嬩欢(闈欐€佸畧闂? 涓嶈闃呭嵆澶╃劧涓嶅弬涓? (0.4972ms)
+鉁?T-G04 瑁呭浣嶆帴绾? 绌夸笂/鍗镐笅/璇绘。瀵硅处鍏ㄨ矾寰勫悓姝ュ紩鎿庤澶囦綅(T-G02 鍞竴閫氶亾) (608.7631ms)
+鉁?T-G04 鑷姩灞曠考(鈮? 鏍奸珮鍙拌烦): setWings(spread)+wing_open+閲戞弿杈?on+鍙紦闄嶉珮搴﹀彧鍑忎笉澧?(608.1044ms)
+鉁?T-G04 璧板礀鑷姩灞曠考(鏈寜璺?: 璧板嚭鎮礀鍚屾牱灞曠考 + 骞冲湴杩炶烦 10 娆￠浂璇睍(闃堝€艰嚜娲介敋) (616.7969ms)
+鉁?T-G04 钀藉湴鑷姩鏀剁考: wing_close+setWings(hidden)+閲戞弿杈?off, 钀藉湴鍗宠窇鍗宠烦 (610.626ms)
+鉁?T-G04 姘撮潰杞潃闄? 瑙︽按鏀剁考+婧呮按+鍏ユ按闆朵激瀹?鏀剁考鍥涜Е鍙戜箣浜? (610.9213ms)
+鉁?T-G04 涓诲姩鍙栨秷闂╅攣涓夋: 鍙栨秷鏀剁考+闂╅攣(楂樺涓嶉噸灞?鈫掔┖涓啀鐐瑰啀灞曗啋钀藉湴闂╅攣娓呮仮澶嶈嚜鍔ㄥ睍 (618.5358ms)
+鉁?T-G04 婊戠繑涓嵏缈?A6 鍏ㄨ涔? 瑁呭椤靛彛鐓у父鐢熸晥+寮曟搸绔嬪嵆鏀剁考+鎸夋棤缈煎潬钀芥墸琛€(鏈夋剰璁捐涓嶅緱淇帀) (627.2607ms)
+鉁?T-G04 鍏ㄦ€佸厹搴暵锋湭瑁呭闆跺弬涓? 鏃犵考楂樺潬闆舵粦缈旈潰(鏃犲睍缈?鏃犻噾杈?鏃犵考闊虫晥) (615.115ms)
+鉁?T-G04 婊戠繑姘村钩杞悜璺熸墜: yaw 鍚屾簮鎿嶆帶(鍙岄€氶亾鍚屼竴绉诲姩鎰忓浘鍏ュ彛, spec 搂3.4 R1-02) (607.912ms)
+鉁?T-G04 閲戞弿杈逛笌婊戠繑鎬佷弗鏍间竴鑷? 灞曚寒鏀剁伃闆堕棯鐑?+ 杈规部鍗曟 class 鍒囨崲(闆堕€愬抚閲嶇敾) (624.3396ms)
+鉁?T-G04 閲戞弿杈?CSS 鍙傛暟(UI spec 搂3.3 瀹氱): #e9b115 + 1.0鈫?.55 + 鍛ㄦ湡 1.6s ease-in-out (0.4422ms)
+鉁?T-G04 HUD 妲芥粦缈斾腑鎶戝埗: 鐐圭浜旀Ы闆跺壇浣滅敤闆惰瘽鏈?涓嶆姤鎰忓浘), 钀藉湴瑙ｉ攣鐓у父鍗镐笅 (622.5023ms)
+鉁?T-G04 婊戠繑涓姩浣滄殏鍋? 鎸?鏀?鍚?鏀惧洓绫绘棤鏁?涓嶈Е鍙戜笉娑堣€楁棤娈嬬暀), 钀藉湴绔嬪嵆鎭㈠ (616.3421ms)
+鉁?T-G04 鎸変綇鎸栧埌涓€鍗婅繘鍏ユ粦缈? 灞曠考娌挎竻钃勫姏(鏃犲崐閫旀畫鐣?, 婊戠繑涓笉缁寲 (614.6747ms)
+鉁?T-G04 鐩告満璺緞 B路FOV 寰墿: 灞曠考娌?+6掳~8掳 0.3s 鍖€閫熻繃娓? 钀藉湴鏀剁考鎭㈠鍘熷€? 闆舵殫瑙掓护闀滈渿灞?(618.5611ms)
+鉁?T-G04 鍒囨ā寮忔竻鍦? 婊戠繑涓€€鍑?鈫?瑁呭浣?off+瑙傛劅澶嶄綅+寮曟搸婊戠繑鎬佸彲鏀? 閲嶈繘闆惰鎾?鏀跺満瑕嗙洊娓呴浂) (610.9503ms)
+鉁?T-G04 姝讳骸閲嶇敓: 婊戠繑涓嚧姝?鈫?婊戠繑鎬佹竻闆?瑁呭淇濈暀+鏃犵考娈嬪奖, 閲嶇敓鍚庨浂璇挱 (608.898ms)
+鉁?T-G04 spec 搂7 U-01 琛屽凡鍥炲～: 鐩告満璺緞缁撹+鐞嗙敱涓€鍙?绁ㄩ潰纭€т氦浠? 缂烘涓嶅仛瀹? (0.6101ms)
+鉁?T-G04 浣撻獙棣嗗悓鍙ｅ緞(搂3.8): showroom 澹抽浂婊戠繑闈㈣鍐?鍚屼竴 adventure 鍐呮牳, 闆跺満鏅‖缂栫爜鍒嗘敮) (1.9018ms)
+鈩?tests 213
+鈩?suites 0
+鈩?pass 193
+鈩?fail 20
+鈩?cancelled 0
+鈩?skipped 0
+鈩?todo 0
+鈩?duration_ms 166709.1923
+
+鉁?failing tests:
+
+test at test\adventure-mode.test.js:4715:1
+鉁?T11 鍚屾睜鍥炶惤: 鑵瑰湴閾?home 鍚屾睜 路 杩滃緛鍥捐姹犱笉琚甫鐭╁舰涓茶(鍦板浘琛岄棬鎺? (1388.1481ms)
+  AssertionError [ERR_ASSERTION]: 娌欐紶鍥惧埌鎷嶈嚦灏戝嚭涓€鍙?      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:4740:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5586:1
+鉁?T-G04 瑁呭浣嶆帴绾? 绌夸笂/鍗镐笅/璇绘。瀵硅处鍏ㄨ矾寰勫悓姝ュ紩鎿庤澶囦綅(T-G02 鍞竴閫氶亾) (608.7631ms)
+  AssertionError [ERR_ASSERTION]: 绌夸笂婊戠繑缈? advTryWear 璺緞鍚屾瑁呭浣?on
+  
+  false !== true
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5593:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5610:1
+鉁?T-G04 鑷姩灞曠考(鈮? 鏍奸珮鍙拌烦): setWings(spread)+wing_open+閲戞弿杈?on+鍙紦闄嶉珮搴﹀彧鍑忎笉澧?(608.1044ms)
+  AssertionError [ERR_ASSERTION]: 鈮? 鏍奸珮鍙拌烦璺?鈫?寮曟搸鑷姩灞曠考(绂诲湴>2 瑙勫垯涓€鍏?
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5626:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5644:1
+鉁?T-G04 璧板礀鑷姩灞曠考(鏈寜璺?: 璧板嚭鎮礀鍚屾牱灞曠考 + 骞冲湴杩炶烦 10 娆￠浂璇睍(闃堝€艰嚜娲介敋) (616.7969ms)
+  AssertionError [ERR_ASSERTION]: 鐩存帴璧板嚭鎮礀(鏈寜璺? 鈫?鍚屾牱鑷姩灞曠考(涓嶅垎璧峰洜, 瑙勫垯涓€鍏?
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5654:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5677:1
+鉁?T-G04 钀藉湴鑷姩鏀剁考: wing_close+setWings(hidden)+閲戞弿杈?off, 钀藉湴鍗宠窇鍗宠烦 (610.626ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5681:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5702:1
+鉁?T-G04 姘撮潰杞潃闄? 瑙︽按鏀剁考+婧呮按+鍏ユ按闆朵激瀹?鏀剁考鍥涜Е鍙戜箣浜? (610.9213ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5706:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5730:1
+鉁?T-G04 涓诲姩鍙栨秷闂╅攣涓夋: 鍙栨秷鏀剁考+闂╅攣(楂樺涓嶉噸灞?鈫掔┖涓啀鐐瑰啀灞曗啋钀藉湴闂╅攣娓呮仮澶嶈嚜鍔ㄥ睍 (618.5358ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5734:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5760:1
+鉁?T-G04 婊戠繑涓嵏缈?A6 鍏ㄨ涔? 瑁呭椤靛彛鐓у父鐢熸晥+寮曟搸绔嬪嵆鏀剁考+鎸夋棤缈煎潬钀芥墸琛€(鏈夋剰璁捐涓嶅緱淇帀) (627.2607ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5765:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5784:1
+鉁?T-G04 鍏ㄦ€佸厹搴暵锋湭瑁呭闆跺弬涓? 鏃犵考楂樺潬闆舵粦缈旈潰(鏃犲睍缈?鏃犻噾杈?鏃犵考闊虫晥) (615.115ms)
+  AssertionError [ERR_ASSERTION]: 鏈澶? 閲戞弿杈逛笉鍔?      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5799:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5803:1
+鉁?T-G04 婊戠繑姘村钩杞悜璺熸墜: yaw 鍚屾簮鎿嶆帶(鍙岄€氶亾鍚屼竴绉诲姩鎰忓浘鍏ュ彛, spec 搂3.4 R1-02) (607.912ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5807:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5822:1
+鉁?T-G04 閲戞弿杈逛笌婊戠繑鎬佷弗鏍间竴鑷? 灞曚寒鏀剁伃闆堕棯鐑?+ 杈规部鍗曟 class 鍒囨崲(闆堕€愬抚閲嶇敾) (624.3396ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5826:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5844:1
+鉁?T-G04 閲戞弿杈?CSS 鍙傛暟(UI spec 搂3.3 瀹氱): #e9b115 + 1.0鈫?.55 + 鍛ㄦ湡 1.6s ease-in-out (0.4422ms)
+  AssertionError [ERR_ASSERTION]: 閲戞弿杈硅壊 #e9b115(涓庡浘鏍囬噾楠ㄥ悓婧?
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5846:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5855:1
+鉁?T-G04 HUD 妲芥粦缈斾腑鎶戝埗: 鐐圭浜旀Ы闆跺壇浣滅敤闆惰瘽鏈?涓嶆姤鎰忓浘), 钀藉湴瑙ｉ攣鐓у父鍗镐笅 (622.5023ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5860:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5883:1
+鉁?T-G04 婊戠繑涓姩浣滄殏鍋? 鎸?鏀?鍚?鏀惧洓绫绘棤鏁?涓嶈Е鍙戜笉娑堣€楁棤娈嬬暀), 钀藉湴绔嬪嵆鎭㈠ (616.3421ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 婊戠繑涓?鎵嬫寔娉ュ湡)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5900:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5943:1
+鉁?T-G04 鎸変綇鎸栧埌涓€鍗婅繘鍏ユ粦缈? 灞曠考娌挎竻钃勫姏(鏃犲崐閫旀畫鐣?, 婊戠繑涓笉缁寲 (614.6747ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 鎸変綇鎸栦腑璧疯烦杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5960:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:5971:1
+鉁?T-G04 鐩告満璺緞 B路FOV 寰墿: 灞曠考娌?+6掳~8掳 0.3s 鍖€閫熻繃娓? 钀藉湴鏀剁考鎭㈠鍘熷€? 闆舵殫瑙掓护闀滈渿灞?(618.5611ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5975:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:6007:1
+鉁?T-G04 鍒囨ā寮忔竻鍦? 婊戠繑涓€€鍑?鈫?瑁呭浣?off+瑙傛劅澶嶄綅+寮曟搸婊戠繑鎬佸彲鏀? 閲嶈繘闆惰鎾?鏀跺満瑕嗙洊娓呴浂) (610.9503ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:6011:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:6029:1
+鉁?T-G04 姝讳骸閲嶇敓: 婊戠繑涓嚧姝?鈫?婊戠繑鎬佹竻闆?瑁呭淇濈暀+鏃犵考娈嬪奖, 閲嶇敓鍚庨浂璇挱 (608.898ms)
+  AssertionError [ERR_ASSERTION]: 鍓嶇疆: 杩涘叆婊戠繑
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:6033:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:6050:1
+鉁?T-G04 spec 搂7 U-01 琛屽凡鍥炲～: 鐩告満璺緞缁撹+鐞嗙敱涓€鍙?绁ㄩ潰纭€т氦浠? 缂烘涓嶅仛瀹? (0.6101ms)
+  AssertionError [ERR_ASSERTION]: U-01 琛屽凡鍥炲～缁撹(璺緞 A 鎴?B)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:6054:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\adventure-mode.test.js:6061:1
+鉁?T-G04 浣撻獙棣嗗悓鍙ｅ緞(搂3.8): showroom 澹抽浂婊戠繑闈㈣鍐?鍚屼竴 adventure 鍐呮牳, 闆跺満鏅‖缂栫爜鍒嗘敮) (1.9018ms)
+  AssertionError [ERR_ASSERTION]: 婊戠繑娑堣垂鍦?adventure 鍐呮牳(浣撻獙棣嗙粡鍚屼竴妯″紡鏂囦欢鍚屽彛寰勫紑鏀?
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:6068:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

@@ -1,0 +1,20 @@
+✔ 声音清单: js/** 每处 sfx(…) 字面量都在 SFX_KINDS 登记(漏登记即红) (49.4438ms)
+✔ 声音清单: 只收活着的 kind — 16 活键齐备, TNT 死键(fss/door)不迁 (0.1038ms)
+✔ 声音清单: 条目形状 — synth/file 至少其一, file 条目须带 synth 回退(降级链互锁) + 增益/优先级/冷却齐全 (0.1585ms)
+✔ 声音清单: MOODS 收窄为仅 menu — 模式情绪唯一权威在 mode-registry 各行 mood 字段, 值 ∈ 合法情绪集 (0.4019ms)
+✔ 声音清单: 传送门双音效(冒险地图 T7) — 蓄能上行/到达琶音, 纯合成无样本(仪式层) (0.096ms)
+✔ 声音清单: 滑翔翼双音效 — wing_open 上滑/wing_close 下滑更轻, prio 2/coolMs 300, 纯合成可回退 (0.107ms)
+✔ 声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9) (0.0495ms)
+✔ 声音清单: MUSIC_TRACKS 条目形状 {file, mood, g, durMs}, 曲目情绪不含 none(A7 起填曲) (0.0789ms)
+✔ 声音清单: 曲目情绪覆盖 — 模式/场景用到的情绪都有曲(空池=该场景永无 BGM) (0.9635ms)
+✔ 声音清单: 样本 file 条目在 assets/audio/ 真实存在且 CREDITS.md 记载(A7 起咬合) (1.4453ms)
+✔ 声音清单: 反向覆盖 — assets/audio/ 下全部素材文件都在 CREDITS.md 记载(备用池 jingles 漏记也红) (0.9587ms)
+✔ 声音清单: 过渡期守卫 — synth 与 effects.js 的 SFX_DEFS 原样一致(A4 删表后自动退场) (0.4509ms)
+ℹ tests 12
+ℹ suites 0
+ℹ pass 12
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 100.3739

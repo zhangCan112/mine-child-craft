@@ -1,0 +1,112 @@
+TAP version 13
+# Subtest: Avatar 翼显隐: 缺省 hidden — 未装备翼骨恒不可见(§6.4 红线: 未装备永不出现翼)
+ok 1 - Avatar 翼显隐: 缺省 hidden — 未装备翼骨恒不可见(§6.4 红线: 未装备永不出现翼)
+  ---
+  duration_ms: 6.058
+  type: 'test'
+  ...
+# Subtest: Avatar 翼显隐: setArmor 装备对账 — worn 有 glider → folded 收拢翼鞘(静态无微动)
+ok 2 - Avatar 翼显隐: setArmor 装备对账 — worn 有 glider → folded 收拢翼鞘(静态无微动)
+  ---
+  duration_ms: 1.7575
+  type: 'test'
+  ...
+# Subtest: Avatar 动效: setWings(spread) — 0.25s 线性匀速展开, 端点水平带, 双翼反号(§6.5)
+ok 3 - Avatar 动效: setWings(spread) — 0.25s 线性匀速展开, 端点水平带, 双翼反号(§6.5)
+  ---
+  duration_ms: 1.7906
+  type: 'test'
+  ...
+# Subtest: Avatar 动效: setWings(folded) — 反向同参数 0.25s 收回收拢位·端点即停(§6.5)
+ok 4 - Avatar 动效: setWings(folded) — 反向同参数 0.25s 收回收拢位·端点即停(§6.5)
+  ---
+  duration_ms: 1.4624
+  type: 'test'
+  ...
+# Subtest: Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5)
+ok 5 - Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5)
+  ---
+  duration_ms: 1.9071
+  type: 'test'
+  ...
+# Subtest: Avatar 翼显隐: 未装备红线 — 意图不越权·卸翼即隐·重穿对账复位 folded(§6.4 验收红线)
+ok 6 - Avatar 翼显隐: 未装备红线 — 意图不越权·卸翼即隐·重穿对账复位 folded(§6.4 验收红线)
+  ---
+  duration_ms: 1.322
+  type: 'test'
+  ...
+# Subtest: 引导链: index.html 全部脚本在共享词法环境依序加载无错
+ok 7 - 引导链: index.html 全部脚本在共享词法环境依序加载无错
+  ---
+  duration_ms: 118.4568
+  type: 'test'
+  ...
+# Subtest: MODES 影子清单: 键集与模式注册表等价, 每键是对象且 init 可调
+ok 8 - MODES 影子清单: 键集与模式注册表等价, 每键是对象且 init 可调
+  ---
+  duration_ms: 0.5499
+  type: 'test'
+  ...
+# Subtest: 训练营预算契约: 注册表 !gated 的每个 id 在 Budgets 有可入账/落账/判满的预算
+ok 9 - 训练营预算契约: 注册表 !gated 的每个 id 在 Budgets 有可入账/落账/判满的预算
+  ---
+  duration_ms: 0.2909
+  type: 'test'
+  ...
+# Subtest: 关页兜底存档接线: main.js pagehide 分发 + mkMode 白名单透传可达
+ok 10 - 关页兜底存档接线: main.js pagehide 分发 + mkMode 白名单透传可达
+  ---
+  duration_ms: 0.3252
+  type: 'test'
+  ...
+# Subtest: switchMode 全 id 不抛: 注册表每个模式可切换且 MODES.cur 落位(尾探针, 不恢复现场)
+ok 11 - switchMode 全 id 不抛: 注册表每个模式可切换且 MODES.cur 落位(尾探针, 不恢复现场)
+  ---
+  duration_ms: 4388.6828
+  type: 'test'
+  ...
+# Subtest: 开战部署冒烟: mix 编队 startBattle → 泵帧 → 队列清空+怪种全注册(状态探针, 不恢复现场)
+ok 12 - 开战部署冒烟: mix 编队 startBattle → 泵帧 → 队列清空+怪种全注册(状态探针, 不恢复现场)
+  ---
+  duration_ms: 86.2815
+  type: 'test'
+  ...
+# Subtest: 装备 T4 冒烟: setArmor 单穿/全穿/换件/卸空 + update 泵帧不炸(THREE 桩全放行罩执行链)
+ok 13 - 装备 T4 冒烟: setArmor 单穿/全穿/换件/卸空 + update 泵帧不炸(THREE 桩全放行罩执行链)
+  ---
+  duration_ms: 1.6039
+  type: 'test'
+  ...
+# Subtest: 竞技场 FX 收口: 残留龙息弹/毒云在重开(startBattle→resetBattleFx)即拆, 独自材质按到期路径 dispose
+ok 14 - 竞技场 FX 收口: 残留龙息弹/毒云在重开(startBattle→resetBattleFx)即拆, 独自材质按到期路径 dispose
+  ---
+  duration_ms: 0.2992
+  type: 'test'
+  ...
+# Subtest: 纸娃娃翼: paint 未装备 — 翼 hidden 无残影·相机原构图 z=3.55(UI spec §4.2/§4.3)
+ok 15 - 纸娃娃翼: paint 未装备 — 翼 hidden 无残影·相机原构图 z=3.55(UI spec §4.2/§4.3)
+  ---
+  duration_ms: 5.8499
+  type: 'test'
+  ...
+# Subtest: 纸娃娃翼: paint 装备 — 展平静帧(不经意图接口)·相机后移 z≈4.3·lookAt 仍 (0,0.9,0)(UI spec §4.2/§4.3)
+ok 16 - 纸娃娃翼: paint 装备 — 展平静帧(不经意图接口)·相机后移 z≈4.3·lookAt 仍 (0,0.9,0)(UI spec §4.2/§4.3)
+  ---
+  duration_ms: 1.4399
+  type: 'test'
+  ...
+# Subtest: 纸娃娃翼: 卸下构图复原 + 同 worn 幂等不重画(§4.3 构图复原/预览按需一帧)
+ok 17 - 纸娃娃翼: 卸下构图复原 + 同 worn 幂等不重画(§4.3 构图复原/预览按需一帧)
+  ---
+  duration_ms: 1.5414
+  type: 'test'
+  ...
+1..17
+# tests 17
+# suites 0
+# pass 17
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 7863.604

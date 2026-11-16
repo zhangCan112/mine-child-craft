@@ -13,7 +13,11 @@
      opts.doc    文档注入(缺省 document)
      opts.w/h    画布尺寸 px(缺省 140×176, CSS 同款观感; 2026-11-05
                   二轮放大——旧 116×150 娃娃太小看不清盔甲双色)
-     paint(worn) 声明穿戴并按需重画一帧(四槽 id 签名幂等——同穿戴不重画)
+     paint(worn) 声明穿戴并按需重画一帧(五槽 id 签名幂等——同穿戴不重画);
+                  v1.2 §4.2/§6.6 纸娃娃无翼常驻: paint 不消费 worn.glider、
+                  不碰翼骨(构造期一次性隐藏), 构图恒出厂参数(§4.3 相机
+                  微调作废: FOV 38, z=3.55, lookAt (0,0.9,0))——装备与
+                  非装备逐像素一致, 「已装备」信号由第五槽图标承载
      dispose()   释放渲染器/几何/材质; 幂等(重复调无害)
    依赖(均经全局名, 调用期解析): mob-look-kit.js 的 MobLookKit.puppet,
      armor-overlay.js 的 mkArmorOverlay, equipment-core.js 的 EQUIP_SLOTS
@@ -46,22 +50,30 @@ function mkPaperDoll(opts) {
     scene.add(sun);
     const puppet = MobLookKit.puppet('player');
     puppet.root.rotation.y = Math.PI; /* 玩家原生朝 -Z, 转 180° 正面示人 */
+    /* 纸娃娃无翼常驻(UI spec v1.2 §4.2/§6.6): 任何状态不显示翼——
+       构造期一次性隐藏, paint 不再按 worn.glider 操纵翼骨(装备与
+       非装备逐像素一致; 翼骨几何/贴图仍由档案单份承载) */
+    puppet.bones.wingL.visible = false;
+    puppet.bones.wingR.visible = false;
     scene.add(puppet.root);
     const overlay = mkArmorOverlay(puppet);
     const camera = new THREE.PerspectiveCamera(38, W / H, 0.1, 20);
     camera.position.set(0, 0.95, 3.55); /* 眼高居中, 距离罩住头到靴 */
-    camera.lookAt(0, 0.9, 0);
+    camera.lookAt(0, 0.9, 0); /* 构图恒出厂参数(v1.2 §4.3: 相机微调作废) */
     built = {renderer, scene, camera, puppet, overlay, sig: ''};
   }
   return {
     el,
     paint(worn) {
       if (!built) build();
-      /* 四槽 id 签名(装备核心表序): 同穿戴不重画——预览按需一帧 */
+      /* 五槽 id 签名(装备核心表序): 同穿戴不重画——预览按需一帧 */
       const s = EQUIP_SLOTS.map((k) => (worn && worn[k] ? worn[k].id : '')).join(',');
       if (s === built.sig) return;
       built.sig = s;
       built.overlay.apply(worn);
+      /* v1.2 §4.2/§6.6: paint 不消费 worn.glider、不碰翼骨、不动相机
+         (构图恒出厂参数)——装备与非装备逐像素一致; 「已装备」可见信号
+         由第五槽图标承载(HUD 常驻+装备页槽位) */
       built.renderer.render(built.scene, built.camera);
     },
     dispose() {

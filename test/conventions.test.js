@@ -120,17 +120,21 @@ test('规范: 文档指针零死链 — docs/ 引用与 md 相对链接必须指
   assert.ok(refs >= 80, '死链扫描应覆盖 ≥80 处文档引用 — 扫描空集 = 守门静默失效');
 });
 
-/* ---------- 玩家状态守门(C7-T2) ----------
-   玩家六绑定(pos/vel/onGround/yaw/pitch/flyMode, 定义在 voxel.js 玩家段)
-   的可写白名单与例外登记, 唯一权威是 js/voxel.js 玩家段头注释: physics 自身 /
+/* ---------- 玩家状态守门(C7-T2 + T-G02 §1.10 裁决) ----------
+   玩家六绑定(pos/vel/onGround/yaw/pitch/flyMode, 定义在 voxel.js 玩家段)与
+   滑翔旗标 gliding(T-G02 引擎滑翔态, 写面=physics 自身 + setGliderEquipped 意图
+   入口; §1.10 裁决随票记录: 与 flyMode 同待遇入正则 — 模式层手滑直写会绕过意图
+   API 且炸在运行时, 判据两条全中; 闩锁/落差累计为纯内部态不入口)。
+   可写白名单与例外登记, 唯一权威是 js/voxel.js 玩家段头注释: physics 自身 /
    input.js 视角热路径 / math-world.js 自持 rAF / tank.js 引擎同侪——四类例外
    文件都不在本断言扫描范围, 本断言只管模式层 js/modes/*.js(玩家状态的
-   消费方): 传送/出生一律 ModeKit.spawn, 飞行态一律 setFly(voxel.js)。
+   消费方): 传送/出生一律 ModeKit.spawn, 飞行态一律 setFly, 滑翔态读写一律
+   setGliderEquipped / isGliding(voxel.js)。
    正则的 (?<!\.) 排除属性访问: m.yaw/T.onGround 是怪物/载具字段, 不是玩家
    绑定(arena.js m.yaw 判例); 正则曾对全仓 js/ 预检, modes 目录零误报命中。 */
-test('规范: 模式文件零直写玩家六绑定 — 传送/出生走 ModeKit.spawn, 飞行态走 setFly', () => {
+test('规范: 模式文件零直写玩家六绑定与滑翔旗标 — 传送/出生走 ModeKit.spawn, 飞行态走 setFly, 滑翔态走 setGliderEquipped/isGliding', () => {
   const rules = [
-    ['顶层绑定直写', /(?<!\.)\b(yaw|pitch|onGround|flyMode)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/],
+    ['顶层绑定直写', /(?<!\.)\b(yaw|pitch|onGround|flyMode|gliding)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/],
     ['成员直写', /(?<!\.)\b(pos|vel)\.(?:x|y|z)\s*(?:\+=|-=|\*=|\/=|=)(?!=)/],
     ['鸭子 set 直调', /(?<!\.)\b(pos|vel)\.set\(/],
   ];
@@ -140,8 +144,8 @@ test('规范: 模式文件零直写玩家六绑定 — 传送/出生走 ModeKit.
     fs.readFileSync(p, 'utf8').split('\n').forEach((line, i) => {
       for (const [name, re] of rules) {
         assert.ok(!re.test(line), rel(p) + ':' + (i + 1) + ' [' + name + '] ' + line.trim() +
-            ' — 玩家状态传送/出生走 ModeKit.spawn, 飞行态走 setFly(js/voxel.js);' +
-            ' 例外白名单唯一权威在 voxel.js 玩家段头注释');
+            ' — 玩家状态传送/出生走 ModeKit.spawn, 飞行态走 setFly, 滑翔态读写走' +
+            ' setGliderEquipped/isGliding(js/voxel.js); 例外白名单唯一权威在 voxel.js 玩家段头注释');
       }
     });
   }
@@ -196,6 +200,39 @@ test('规范: hand-view.js 装载序 held-item → hand-view → avatar(经典�
       'hand-view.js 必须晚于 held-item.js 装载(消费 HeldItems)');
   assert.ok(at('hand-view.js') < at('avatar.js'),
       'hand-view.js 必须先于 avatar.js 装载(design Interface 装载序)');
+});
+
+/* ---------- 镇民链装载序 (T-NPC-10 接线, 备忘①) ----------
+   链序 kit → town look×14 → interact-core → anchor-core → registry →
+   town-npc.js 编码于 2 份测试装具(registry/town-npc 同名单测装载链)与
+   2 份头注释(registry/town-npc 加载序注), 本票挂 index.html 后按
+   hand-view 先例(:189)把序断言扩到挂载面: 相对序即依赖(经典脚本共享
+   词法环境), 且全链先于两个消费方(壳层 adventure.js 建机/摆放, HUD
+   town-ui.js)。序错不抛错(全调用期解析), boot 冒烟探不到, 只有源文本
+   序断言能抓手滑挪行; 挂载清单覆盖面(漏挂)另守于 test/boot.test.js
+   T-NPC-10 挂载覆盖测(静态+行为双面)。 */
+test('规范: 镇民链装载序 kit → town_*×14 → interact-core → anchor-core → registry → town-npc.js, 全链先于消费方(经典脚本顺序即依赖)', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const at = (f) => html.indexOf('src="js/' + f + '"');
+  const LOOKS = ['town_a01', 'town_a02', 'town_a03', 'town_g01', 'town_v01',
+    'town_v02', 'town_v03', 'town_v04', 'town_v05', 'town_v06', 'town_v07',
+    'town_v08', 'town_v09', 'town_v10'].map((k) => 'mob-look/' + k + '.js');
+  const CHAIN = ['mob-look-kit.js'].concat(LOOKS, ['town-interact-core.js',
+    'town-npc-anchor-core.js', 'town-npc-registry.js', 'town-npc.js']);
+  for (const f of CHAIN) {
+    assert.ok(at(f) > 0, 'index.html 缺 script: js/' + f + '(T-NPC-10 挂载, 备忘①/③)');
+  }
+  for (let i = 1; i < CHAIN.length; i++) {
+    assert.ok(at(CHAIN[i - 1]) < at(CHAIN[i]),
+        '装载序: ' + CHAIN[i] + ' 必须晚于 ' + CHAIN[i - 1] + '(备忘①链序, 经典脚本顺序即依赖)');
+  }
+  for (const f of ['town-interact-core.js', 'town-npc-anchor-core.js',
+    'town-npc-registry.js', 'town-npc.js']) {
+    assert.ok(at(f) < at('modes/adventure.js'),
+        f + ' 必须先于 js/modes/adventure.js 装载(壳层消费方: 建机 mkTownTargets/摆放 mkTownNpcPuppet)');
+    assert.ok(at(f) < at('town-ui.js'),
+        f + ' 必须先于 js/town-ui.js 装载(HUD 消费方)');
+  }
 });
 
 /* ---------- 假 DOM 装具单一来源(A1, 2026-11-14) ----------

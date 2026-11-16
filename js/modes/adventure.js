@@ -33,7 +33,7 @@
    任务/宝箱, 触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档
    adapter 缺省装配, 触点口径见该缝头注释)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
-     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(33 键:
+     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(39 键:
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口/丢弃与扩容
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调) ·
@@ -50,7 +50,11 @@
       advTownInteractBoot(T-SEAM-04 镇内交互宿主建机: 进镇建 mkTownTargets
       机器/离镇弃机, 每次进场新机不串轮, core 只消费不复制) ·
       advTownTargets(壳层镇内交互机运行态, 经 advTownState 挂点透出;
-      与模式壳 town.js 旧接线两宿主变量空间互不触碰)
+      与模式壳 town.js 旧接线两宿主变量空间互不触碰) ·
+      advTownAnchorTick(T-NPC-12 锚点动态化消费机: 逐锚 anchorOf 取数
+      比对 prev 账本, 到站跳变且聚焦时重发 targetFocus 同形状事件——
+      零协议增项; prev 账本随建机建/随离镇弃机清, legIndex 推进者=
+      未来行为层票)
    依赖(均经全局名, 调用期解析): adventure-core 的常量表与政策纯函数 ·
       adventure-spawn-core 的 advRingSpot(巢穴首刷环带掷点, 候选 2 改调,
        index.html 加载序在 adventure-core 之前) ·
@@ -973,13 +977,22 @@ const advBolts = CombatKit.mkArrows({origin: () => ({x: pos.x, y: pos.y + PLAYER
   }});
 
 /* 环境伤害(liquid D9): 溺水/岩浆计息事件到点 → 扣血走受击观感(音/闪红/
-   节流话术与战斗伤害同源, r.line 换来源话术), 致死走既有死亡计划 */
-function advEnvHurt(dmg, line) {
+   节流话术与战斗伤害同源, r.line 换来源话术), 致死走既有死亡计划。
+   opts.mute(T-G05 摔落): 零 TTS 路径——ADR 0014 明文禁新增播报, 受击观感
+   三件(音/闪红/震屏)与战斗同源保留, 话术豁免; 不经 advHurt.hit
+   (mkHurtAlarm 无条件节流 speak, combat-kit 非本票所有权——静音收在本文件) */
+function advEnvHurt(dmg, line, opts) {
   const pe = advGetPEnt();
   pe.hp = Math.max(0, pe.hp - dmg);
   ADV.player.hp = pe.hp;
   if (pe.hp <= 0) {
     advPlayerDied();
+    return;
+  }
+  if (opts && opts.mute) {
+    sfx('hurt'); /* 受击音/闪红/轻震屏: 与 mkHurtAlarm.hit 非话术段同款(spec: 环境伤观感与战斗同源) */
+    Avatar.flash(0.4);
+    Fx.kick(0.35);
     return;
   }
   advHurt.hit({hp: pe.hp, line});
@@ -1595,11 +1608,31 @@ function advBreedTick(dt) {
    leadAim 预测弹道 + 重力(stepShot 步进), 命中玩家走受击/死亡回调;
    弹道单向(怪 → 玩家, 玩家近战无远程), mesh/寿命/geo 缓存自持 */
 
+/* 传送包装(T-G05): ModeKit.spawn 落位置 pos/vel 并清离地标记(onGround
+   归引擎口径), 但不重置引擎落差累计器 fallPeakY(写面钉死 voxel.js
+   physics)——传送后首物理步的触地跃迁沿会拿残留峰值造幻影 land 事件
+   (landFall=残留峰−落点, 大额, 重生即二次蒸发的路径)。免疫旗=消费缝吞
+   传送后首个 land 事件, 之后真实摔落照常结算: 地面锚定落位的首事件
+   本就是 vel=0 落位伪事件, 不吞真实摔落; 空中续档(init 悬空档位/den
+   快照落点)首落点的落差账随首事件一并吞免, 漏结一次为已知儿童友好向
+   局限(引擎面根治已登记本票回执票外发现)。收口判据=本模式一切
+   ModeKit.spawn 落位皆经本包装(死亡/回家/睡醒/切图切界/init 有档
+   无档同一落位点), 唯一例外 inPlace 死亡分支(原地复活无传送,
+   resetFighter 不动位置且摔死帧已贴地无跃迁沿——天然无幻影,
+   置旗反造误吞窗) */
+let advLandImmuneNext = false;
+function advTeleport(x, y, z, o) {
+  ModeKit.spawn(x, y, z, o);
+  advLandImmuneNext = true;
+}
+
 /* 死亡结算(T14 致命一击/坠出世界共用): 政策纯函数 advDeathPlan(core);
    只动玩家状态与位置, 背包一个不动。死亡去向经政策缝 advProfile.death(U2):
    缺省 'home'=切图回出生点(现行); 'inPlace'=原地满血复活(U4 体验馆 D5
    拍板①: 清夜怪保调试现场, 不切图/不落盘, showroom 薄死亡同款) */
 function advPlayerDied() {
+  advGlideDeathReset(); /* 滑翔装配(T-G04): 滑翔态观感清场+镜像吸收 stale
+      (重生首帧不误展误播; inPlace/home 两重生路径同口) */
   if (advProfile.death === 'inPlace') {/* dev 政策: 满血重置+清夜怪+原地复活+toast;
       媒体经包装(U4 dev 只剩 toast), HP 双账本镜像同写(dev 档 hp=满血, 无害) */
     const e0 = advGetPEnt();
@@ -1623,7 +1656,7 @@ function advPlayerDied() {
   const plan = advDeathPlan(e, ADV.spawn);
   CombatKit.resetFighter(e); /* 复活五字段不变量(阵亡去向政策在此) */
   e.hp = plan.hp; ADV.player.hp = plan.hp;
-  ModeKit.spawn(plan.x, plan.y, plan.z, {yaw: plan.yaw});
+  advTeleport(plan.x, plan.y, plan.z, {yaw: plan.yaw});
   advStore.flush(); /* 重生态即时落盘: 防 5s 节流窗口内关页面 → 重进在死亡点残血(与死亡语义矛盾);
      炉态不动也不退(F1 拍板①: 炉内物品随档保留, 死亡零惩罚不碰炉子) */
   advSpeak('不怕不怕，回到小屋休息好啦，背包里的宝贝都在！');
@@ -1643,7 +1676,7 @@ function advGoHome() {
   else if (advMap !== 'home') advSetMap('home', ADV.spawn); /* 远征图回家同语义: 先切回 home 图再落小屋(T6) */
   const e = advGetPEnt();
   e.hp = e.maxHp; ADV.player.hp = ADV.player.maxHp; /* 顺带回满血(回家=安全休整, nether 先例) */
-  ModeKit.spawn(ADV.spawn.x, ADV.spawn.y, ADV.spawn.z, {yaw: ADV.spawn.yaw});
+  advTeleport(ADV.spawn.x, ADV.spawn.y, ADV.spawn.z, {yaw: ADV.spawn.yaw});
   advStore.flush(); /* 回家态即时落盘(与死亡同口径): 满血+小屋位置即刻入档, 防节流窗口 */
   advSpeak('回家咯！休息一下再出发！');
   advToast('🏠 回到小屋');
@@ -1711,7 +1744,7 @@ function advSleepWake() {/* 唤醒沿(§7.2 时钟改版): 跳拨盘时刻 + (�
     const spot = advBedSpot(advSleep.x, advSleep.y, advSleep.z, getBlock,
         {x: pos.x, y: pos.y, z: pos.z, yaw}); /* 四邻全堵回落玩家当前位(选址纯函数在 core) */
     ADV.spawn = spot;
-    ModeKit.spawn(spot.x, spot.y, spot.z, {yaw: spot.yaw}); /* 落位+记忆(顺带把黑屏期游走的玩家拉回床边醒来) */
+    advTeleport(spot.x, spot.y, spot.z, {yaw: spot.yaw}); /* 落位+记忆(顺带把黑屏期游走的玩家拉回床边醒来); T-G05 经包装挂幻影免疫 */
   }
   const ph = Daylight.clockPhase(dayTime);
   if (ph.id === 'day' || ph.id === 'dawn') {
@@ -2398,10 +2431,16 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     (最后进入的门, D6)——其坐标属于离开时的那张图, 回界即回该图 */
   if (dim === advDim) return;
   advTownBellClear(); /* TIDEA-02: 迟到迎宾钟句柄清(换维即清, 漏响不跨场) */
-  if (advDimRow(advDim) === ADV_TOWN_DIM_ROW) advTownTargets = undefined; /* 离镇弃机(T-SEAM-04,
-      ADR-0011 决策 6a): 离开 town 的所有出口同链清机(直呼切界/回程白闪到达/
-      死亡回家), 下次进场新机不串轮; 首行幂等守卫挡住镇内重复调用(建机不重置),
-      行身份比对=回程触发线门先例口径(壳层零 town 字面量特判, dims-core 在册) */
+  if (advDimRow(advDim) === ADV_TOWN_DIM_ROW) {/* 离镇弃机+清场(T-SEAM-04/
+      T-NPC-10, ADR-0011 决策 6a): 机器与镇民傀儡同链清——离开 town 的所有
+      出口同源(直呼切界/回程白闪到达/死亡回家), 下次进场新机新摆不串轮;
+      首行幂等守卫挡住镇内重复调用(建机不重置), 行身份比对=回程触发线门
+      先例口径(壳层零 town 字面量特判, dims-core 在册) */
+    advTownTargets = undefined;
+    advTownAnchors = undefined; /* T-NPC-12 prev 账本随弃机清(每次进场
+        新账不串轮, 与建机步同链) */
+    advTownPuppetsLeave();
+  }
   advDim = dim; /* advMap 不动: 副本/下界期间保持最后主世界图(T6) */
   advSyncTownChrome(); /* 城镇翻新 TIDEA-12/13: 换维一次性切安静档(进镇挂/出镇摘) */
   /* 城镇翻新 TIDEA-17: 回程预告臂随维度行结转(进镇重臂=一次/进场, 出镇
@@ -2460,8 +2499,11 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     if (drow === ADV_TOWN_DIM_ROW) advTownInteractBoot(); /* 进镇建机(T-SEAM-04,
         ADR-0011 决策 6a): 壳层 town 专属步, den 专属步同位先例(§5 不进表
         清单); 行身份比对口径同弃机步, 「T-UI 票只换 emit 不改机器」契约 */
+    if (drow === ADV_TOWN_DIM_ROW) advTownPuppetsPlace(); /* 进镇摆 14 实体
+        (T-NPC-10): 建机同节拍独立语句, 宿主建机步逐字零扰动(town-ui 接线
+        守门锁原行), 行身份比对口径同上 */
     const dsp = spot || drow.spawn; /* 行落点(结构常量派生); D23 关页续局传快照落点 */
-    ModeKit.spawn(dsp.x, dsp.y, dsp.z, {yaw: (dsp.yaw != null) ? dsp.yaw : drow.spawn.yaw});
+    advTeleport(dsp.x, dsp.y, dsp.z, {yaw: (dsp.yaw != null) ? dsp.yaw : drow.spawn.yaw});
     setFly(false); /* 落地推前进=离开门, 不会一头弹回上界(走意图入口) */
   } else {
     advDenMobsSave = []; /* 出副本即清续局快照(D23): 关页时人在哪, 重进就在哪——
@@ -2474,7 +2516,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
     advNightReset(); /* 夜怪节拍与跨沿账本对齐暂停后的当下 */
     advNestT.fill(0); /* 巢穴节律从头计(世界重播=全清后 60s 再刷口径) */
     const sp = spot || advExitSpot || advMapSpawn(null); /* 显式点 > 回程记录 > 图缺省 */
-    ModeKit.spawn(sp.x, sp.y, sp.z, {yaw: (sp.yaw != null) ? sp.yaw : 0});
+    advTeleport(sp.x, sp.y, sp.z, {yaw: (sp.yaw != null) ? sp.yaw : 0});
     setFly(false);
     advSeedMapMobs(); /* 主世界怪重播(当前行巢穴+牲畜/女巫, init 同款) */
   }
@@ -2510,7 +2552,7 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 地图门站桩传送
   applyDaylight(); /* 天色按行 skyBase 基准落到当前时刻 */
   advNightReset(); /* 夜怪节拍与跨沿账本对齐当下(夜池已随行换装) */
   const sp = advMapSpawn(spot) || ADV.spawn; /* 显式点(死亡/回家/T7 门绑定) > 图缺省 */
-  ModeKit.spawn(sp.x, sp.y, sp.z, {yaw: (sp.yaw != null) ? sp.yaw : 0});
+  advTeleport(sp.x, sp.y, sp.z, {yaw: (sp.yaw != null) ? sp.yaw : 0});
   setFly(false);
   advSeedMapMobs();
   advBeamsRelayout();
@@ -3009,6 +3051,152 @@ function advTownInteractBoot() {
   if (typeof townUiAttachBubbleCam === 'function') {
     townUiAttachBubbleCam(advTownBubbleCam);
   }
+  /* T-NPC-12 prev 账本随建机建: 对全部锚 id 记缺省腿(leg0)快照——到站
+     跳变的比对基线; 锚点核心未装载沙盒跳过(tick 缺席旁路容差) */
+  if (typeof TOWN_NPC_ANCHORS !== 'undefined' && typeof anchorOf !== 'undefined') {
+    advTownAnchors = {};
+    for (const row of TOWN_NPC_ANCHORS) advTownAnchors[row.id] = anchorOf(row.id);
+  }
+}
+
+/* ---------- 镇民傀儡摆放宿主(T-NPC-10 接线票) ----------
+   mkTownNpcPuppet/placeTownNpc(T-NPC-05 渲染适配件, 只消费不复制)的壳层
+   宿主: 进镇同步摆 14 实体(注册表 TOWN_NPCS 全行=10 村民+G01+3 氛围动物,
+   动物随注册表 category 一并摆放=纯氛围照常在场)、离镇清场——建机/弃机
+   同节拍(「不进表」清单惯例, advTownInteractBoot 同位先例), 每次进场
+   新摆不串轮。快照=纯标量 {id, look, x, y, z, yaw}(JSON 往返可测, 禁含
+   THREE 对象), 傀儡 root 另账持有(快照零渲染对象, 清场摘场景用); 适配
+   件/锚点表不在装载序时整段跳过(引擎替身沙盒最小装载容差, 建机 typeof
+   容差同款)。站位=anchorOf(锚点表权威, 静态锚取首航点, G01 巡逻取
+   leg0)+站立面 y+1(placeTownNpc 内建口径); legIndex 推进行为归
+   T-NPC-12, 本票恒缺省 leg0。 */
+let advTownPuppets = []; /* 只读快照账: 进镇摆放在位(纯标量行), 离镇回空
+    (A.advTownState 挂点透出, T-SEAM-04 挂点先例扩形) */
+let advTownPuppetRoots = []; /* 傀儡 root 另账(与快照行同序, 不透出挂点) */
+let advTownIdleParts = []; /* 待机微动画骨柄账(案卷③): 行含 THREE 骨柄
+    {id,kind,root,bones,x,z,baseY,yaw,off,headYaw}(非纯标量快照口径,
+    advTownIdleState 验收缝透出), 摆放建/离镇清与两账同节拍 */
+let advTownIdleT = 0; /* 待机相位账(秒): 注入 dt 累计(零墙钟), 空账/离镇复位 */
+/* 摆放(advSetDim town 分支 loadScene 之后调用, 不进 build 回调——建机
+   同位先例; 同步位置零插值, MobLookKit.puppet 产物 root 直挂场景):
+   幂等由 advSetDim 首行守卫保证(dim===advDim 即 return, 镇内重复进镇
+   不重摆不翻倍), 摆前先清两账=任何路径零残留 */
+function advTownPuppetsPlace() {
+  if (typeof mkTownNpcPuppet === 'undefined' ||
+      typeof placeTownNpc === 'undefined' || typeof TOWN_NPCS === 'undefined' ||
+      typeof anchorOf === 'undefined') return;
+  advTownPuppets.length = 0;
+  advTownPuppetRoots.length = 0;
+  advTownIdleParts.length = 0; /* 案卷③ idle 账摆前同步清(任何路径零残留) */
+  advTownIdleT = 0;
+  for (const row of TOWN_NPCS) {
+    const puppet = mkTownNpcPuppet(row.id);
+    const spot = placeTownNpc(puppet, anchorOf(row.anchorId));
+    if (typeof scene !== 'undefined') scene.add(puppet.root); /* 沙盒无引擎
+        则只记账不挂场(advFlameMount scene 守卫同形) */
+    advTownPuppetRoots.push(puppet.root);
+    advTownPuppets.push({id: row.id, look: puppet.look,
+      x: spot.x, y: spot.y, z: spot.z, yaw: spot.yaw});
+    if (typeof townNpcIdleKindOf === 'function' &&
+        typeof townNpcIdlePhaseOffset === 'function') {/* 案卷③ idle 纯面
+        在册才建账(town-npc.js idle 段缺席的旧沙盒照旧零账) */
+      advTownIdleParts.push({id: row.id, kind: townNpcIdleKindOf(puppet.look),
+        root: puppet.root, bones: puppet.bones,
+        x: spot.x, z: spot.z, baseY: spot.y, yaw: spot.yaw,
+        off: townNpcIdlePhaseOffset(row.id), headYaw: 0});
+    }
+  }
+}
+/* 清场(advSetDim 离镇弃机同链): root 摘场景(world.js clearWorld 只清
+   chunk 网格, 自挂件须自摘——advFlameOff 先例; 悬空句柄再 remove 无害)
+   +两账清空(快照回空, 下次进场新摆, 与建机/弃机同节拍) */
+function advTownPuppetsLeave() {
+  if (typeof scene !== 'undefined') {
+    for (const root of advTownPuppetRoots) scene.remove(root);
+  }
+  advTownPuppetRoots.length = 0;
+  advTownPuppets.length = 0;
+  advTownIdleParts.length = 0; /* 案卷③ idle 账离镇同链清(骨柄引用零残留) */
+  advTownIdleT = 0;
+}
+
+/* ---------- 锚点动态化消费机(T-NPC-12, README §3.3 裁决三) ----------
+   装配层每帧取数(town 维度专属早退, 行身份门): 逐锚 anchorOf(id,
+   legIndex) 与 prev 账本比对(anchorChanged 谓词在锚点核心, 经全局名
+   消费), 到站跳变且 policy='always' 或该 NPC 正被主目标 focus 时,
+   重发同形状既有事件 TOWN_UI_EVENTS.targetFocus(payload.target=
+   townTargetOf 六键, anchor 恰三键 {x,y,z} 携新航点——face 不入协议
+   载荷, registry 快照口径)——零协议增项(town-interact-core 冻结面零
+   改动, 只消费全局名, 不在壳层定义协议件); 重发是刷新非迁移: 机器
+   focusId/states 零扰动。legIndex 推进者=未来行为层票(日程/巡逻),
+   生产路径恒缺省 leg0=静态站位天然成立; prev 账本随建机建/随离镇
+   弃机清, 每次进场新账不串轮。 */
+let advTownAnchors; /* prev 快照账本: 进镇记全部 14 锚 id 的缺省腿快照,
+    离镇清空(未进镇=undefined, tick 缺席旁路容差) */
+function advTownAnchorTick(legById, policy = 'focused') {/* 锚点动态化消费机
+    (update 每帧, 生产恒缺省 leg0): 返回 {changed, events}——事件经返回值
+    +emit 双面暴露(mkTownTargets 同款惯例); changed=本 tick 是否有任一
+    跳变(与事件分账: 默认策略无焦点时跳变照记账零事件) */
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) {
+    return {changed: false, events: []};
+  }
+  /* 锚点核心/协议面缺席或账本未建(未进镇/沙盒最小装载)旁路: 取数免费,
+      容差零炸 */
+  if (typeof anchorOf === 'undefined' || typeof anchorChanged === 'undefined' ||
+      typeof TOWN_NPC_ANCHORS === 'undefined' ||
+      typeof townTargetOf === 'undefined' || typeof TOWN_UI_EVENTS === 'undefined' ||
+      typeof TOWN_INTERACTS === 'undefined' || !advTownTargets || !advTownAnchors) {
+    return {changed: false, events: []};
+  }
+  const emit = (typeof townUiTargetEvent === 'function') ? townUiTargetEvent : () => {};
+  const snap = advTownTargets.snapshot(); /* 一次 snapshot 供全 tick 用(只读:
+      判定 focusId 与取 states, 零迁移零扰动) */
+  const events = [];
+  let changed = false;
+  for (const row of TOWN_NPC_ANCHORS) {
+    const next = anchorOf(row.id, legById ? legById[row.id] : undefined);
+    if (!anchorChanged(advTownAnchors[row.id], next)) continue;
+    advTownAnchors[row.id] = next; /* 账本写赢: 同腿重复 tick 零跳变(稀疏幂等) */
+    changed = true;
+    if (policy !== 'always' && snap.focusId !== row.id) continue; /* 默认聚焦才发 */
+    const entry = TOWN_INTERACTS.find((e) => e.id === row.id);
+    if (!entry) continue; /* 零协议条目锚(动物不入册)不重发, 跳变照记账 */
+    const target = townTargetOf(entry,
+        {anchor: {x: next.x, y: next.y, z: next.z}, state: snap.states[row.id]});
+    const ev = {name: TOWN_UI_EVENTS.targetFocus, payload: {target}};
+    emit(ev.name, ev.payload); /* 双面暴露: 返回值与 emit 同一 payload 对象 */
+    events.push(ev);
+  }
+  return {changed, events};
+}
+
+/* ---------- 镇民待机微动画消费机(案卷③, PO 验收「NPC 站得太死」) ----------
+   idle 纯面六函数(town-npc.js 案卷③段, 经全局名消费)的镇维度消费机,
+   advTownAnchorTick 同位同节拍(update 链直调): 逐行 humanoid 先头转
+   (headTarget 注视距离门→headStep 限步收敛; 动物头不追踪玩家, 形态表),
+   再 pose(相位账+逐 id 错峰相位)→apply(骨骼旋转+根浮)。dt 注入确定性:
+   零墙钟零随机零怪物库路径; 空账自愈(相位复位), 维度门在相位累计前;
+   账由 advTownPuppetsPlace 建/advTownPuppetsLeave 清, 本机只消费。 */
+function advTownNpcIdleTick(dt) {
+  if (!advTownIdleParts.length) {
+    advTownIdleT = 0; /* 空账自愈: 相位复位(重放/未进镇口径) */
+    return;
+  }
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return; /* 维度门(镇专属) */
+  if (typeof townNpcIdlePose !== 'function' ||
+      typeof townNpcIdleApply !== 'function' ||
+      typeof townNpcIdleHeadTarget !== 'function' ||
+      typeof townNpcIdleHeadStep !== 'function' ||
+      typeof pos === 'undefined') return; /* idle 纯面/玩家位缺席旁路容差 */
+  advTownIdleT += dt;
+  for (const row of advTownIdleParts) {
+    if (row.kind === 'humanoid') {/* 头转朝玩家(动物不追踪, 形态表) */
+      row.headYaw = townNpcIdleHeadStep(row.headYaw,
+          townNpcIdleHeadTarget(row.yaw, row.x, row.z, pos.x, pos.z).yaw, dt);
+    }
+    const idlePose = townNpcIdlePose(advTownIdleT + row.off, row.kind);
+    townNpcIdleApply(row, row.kind, idlePose, row.baseY, row.headYaw);
+  }
 }
 
 let advBubbleCamVec = null; /* 视采样复用向量(250ms 采样拍频, 零每帧垃圾) */
@@ -3081,6 +3269,53 @@ function advTntTapTick(dt) {
 /* 准星命中(每帧蓄力判定用) → kit 静态件薄转发(Node 测试无相机件返 null) */
 function advAimHit() {
   return PlaceKit.aimHit();
+}
+
+/* PO 案④(树 3c89723) 穿体豁免判据: 视线段(CameraRig.aim(camera) 的 origin
+   起 PLAYER.reach 长)与镇傀儡盒(账本单源 advTownPuppets, 盒=x±0.5/y..y+2/
+   z±0.5, placeTownNpc 站立面 y=锚+1 故盒顶=锚+3)做 seg-AABB 相交测试——
+   镇内(账本非空)视线穿镇民身体即挡, 挖掘两入口豁免(onMouse(0) 不起蓄力/
+   advMineTick 喂点熄火); 主世界账本恒空恒 false 零影响(锄地/播种/雕刻等
+   advAimHit 其余消费面不经此门)。相机件缺席(Node 沙盒)恒 false */
+function advTownAimBlocked() {
+  if (!advTownPuppets.length) return false;
+  if (typeof CameraRig === 'undefined' || typeof camera === 'undefined') return false;
+  const a = CameraRig.aim(camera);
+  for (const p of advTownPuppets) {
+    if (advSegHitsBox(a.origin, a.dir, PLAYER.reach,
+        p.x - 0.5, p.x + 0.5, p.y, p.y + 2, p.z - 0.5, p.z + 0.5)) return true;
+  }
+  return false;
+}
+
+/* 线段-轴对齐盒相交(slab 法): [origin, origin+dir*len] 与盒 [x0,x1]*[y0,y1]*
+   [z0,z1] 逐轴投影区间求交, 公共段 [t0,t1] 与 [0,len] 非空即相交; 轴平行
+   分量(dir 分量为 0)退化为原点片内判定 */
+function advSegHitsBox(o, d, len, x0, x1, y0, y1, z0, z1) {
+  let t0 = 0;
+  let t1 = len;
+  const slabs = [[o.x, d.x, x0, x1], [o.y, d.y, y0, y1], [o.z, d.z, z0, z1]];
+  for (let i = 0; i < slabs.length; i++) {
+    const oc = slabs[i][0];
+    const dc = slabs[i][1];
+    const lo = slabs[i][2];
+    const hi = slabs[i][3];
+    if (dc === 0) {
+      if (oc < lo || oc > hi) return false; /* 轴平行且在片外: 永不相交 */
+      continue;
+    }
+    let ta = (lo - oc) / dc;
+    let tb = (hi - oc) / dc;
+    if (ta > tb) {
+      const swap = ta;
+      ta = tb;
+      tb = swap;
+    }
+    if (ta > t0) t0 = ta;
+    if (tb < t1) t1 = tb;
+    if (t0 > t1) return false;
+  }
+  return true;
 }
 
 /* 蓄力清零(松手/换目标不可挖/面板打开/退出模式) → kit 薄转发 */
@@ -3213,7 +3448,9 @@ function advMineHardText(id, x, y, z) {/* 目标格 → 话术(纯 seam, 单测�
 /* 蓄力推进(update 每帧) → kit 薄转发: 状态(advMine)/准星(advAimHit)/
    按住(advMouseHeld)/面板守卫是探险输入, 循环编排与破坏结算全在 kit */
 function advMineTick(dt) {
-  advPlaceKit.mineTick(advMine, advAimHit(), dt,
+  /* 穿盒喂 null 熄火(PO 案④按住半边): kit 收 null 视同指空→mineStop,
+      按住态不跟挖过镇民; 判据与 onMouse(0) 起步豁免同源单份 */
+  advPlaceKit.mineTick(advMine, advTownAimBlocked() ? null : advAimHit(), dt,
       {held: advMouseHeld, panelOpen: ADV.panelOpen || advFurnace.isOpen()});
 }
 
@@ -3515,6 +3752,11 @@ function advSyncArmor() {
   if (advArmorBar) advArmorBar.update(advWorn); /* 装备条重画(kit 签名节流, 磨损不闪) */
   if (ADV.panelOpen) advPanel.refresh(); /* 面板开着: 装备页槽位/预览一帧重画
     (装备 T9; 拾取刷新同先例——刷新单一路径=模式层动账后 advPanel.refresh) */
+  /* 滑翔装备位对账(T-G04): 唯一通道 setGliderEquipped(T-G02)——穿/卸/读档/
+      破件全路径随本口同步引擎(先同步装备位, 再由沿检测消费 isGliding) */
+  if (typeof setGliderEquipped === 'function') {
+    setGliderEquipped(!!(advWorn && advWorn.glider));
+  }
 }
 
 /* 盔甲槽形入包(耐久保真): add 给满耐久(mkStack)会把磨损余量洗满——零损失
@@ -3546,7 +3788,8 @@ function advTryWear(at) {
   advSyncHeldVisual(); /* 手持互斥: 槽没了, 手持观感回落空手 */
   advStore.touch(); /* armor 键随 journal 节流落盘(payload 读 advWorn 活引用) */
   advSfx('level'); /* 仪式音(穿上=小小晋升感, 扩容同款) */
-  advSpeak('穿上' + ITEMS[s.id].name + '啦，更厉害了！');
+  if (a.slot !== 'glider') advSpeak('穿上' + ITEMS[s.id].name + '啦，更厉害了！');
+  /* 滑翔翼零穿上 TTS(glider-spec: 滑翔播报一律不配; 物品认知走 ItemHint 通道) */
   advToast('🛡️ 穿上了' + ITEMS[s.id].name);
   return true;
 }
@@ -3566,8 +3809,182 @@ function advWornTakeOff(slot) {
   advSyncHotbar();
   advSyncArmor();
   advStore.touch();
-  advSpeak('脱下了' + ITEMS[piece.id].name);
+  advGlideUnequipEdge(); /* 卸翼沿(A6): 滑翔中卸=立即观感收翼(wing_close+翼
+      hidden+金描边 off); 非滑翔零操作(装备与滑翔两信号独立) */
+  if (slot !== 'glider') advSpeak('脱下了' + ITEMS[piece.id].name);
+  /* 滑翔翼零 TTS(glider-spec: 滑翔播报一律不配; 物品认知走 ItemHint 通道) */
   advToast('👕 脱下了' + ITEMS[piece.id].name);
+}
+
+/* ============================================================
+   滑翔装配·消费面 (T-G04; 行为契约 glider-spec §3.4 状态总表逐行/§3.6
+   相机路径 B; UI 权威 glider-ui-spec v1.2 §3.2/§3.3/§7.1/§8)
+   ————————————————————————————————————————————
+   接线: 装备位唯一通道 setGliderEquipped(T-G02)随 advSyncArmor 全路径
+   对账(穿/卸/读档/破件); 翼显隐=引擎滑翔态迁移沿(isGliding 镜像差分):
+   展沿 setWings('spread')+wing_open+金描边 on+清蓄力, 收沿四触发(落地/
+   触水/主动取消/卸翼)同点 setWings('hidden')+wing_close+金描边 off;
+   非滑翔穿/卸零 setWings(v1.2: 装备与滑翔两信号独立分流)。FOV 微扩走
+   相对偏移相位机(idle/out/hold/back), back 中途再展反向续推零跳变,
+   复原端点钳位精确回基值。金描边收沿走 className 整串重组摘类——
+   classList.remove 计入假 DOM __classOps 观测账, 重组不计数=沿沿恰
+   一次零闪烁。兜底三路: init 对账吸收 stale 镜像(重进零误播) · 死亡
+   复位观感不清镜像(死亡零惩罚不卸装备, 引擎滑翔态残留至重生首 physics
+   帧落地自收; 镜像清零反会在重生首帧差分误展误播) · cleanup 覆盖清零
+   (装备位 off+翼复位+FOV 复原, 切模式后引擎下一 physics 帧自收)。
+   HUD 第五槽滑翔中点击静默抑制(PO 口径 glider-spec §8②: 锁槽防误脱),
+   装备页面板口(advWornTakeOff)承担 A6「随时可卸」全语义。媒体零话术:
+   翼展/收零 TTS(R1-09), 音效每沿恰一次——沿驱动是镜像差分(同态早退)天然
+   单次, 叠爆防护归 SFX_KINDS 注册表 coolMs(audio-registry §7.1, 发声层
+   职责; 模式层不再叠防抖账——会吞 16 帧内的真沿, 诊断实证)。可达性
+   守卫: isGliding/setGliderEquipped/Avatar.setWings/camera 按装具缺席
+   各自回落(nether/showroom 沙盒面不全时滑翔面零参与); GLIDE 读取只在
+   相位激活路径(与 T-G05 伤害消费同纪律, 无滑翔环境永不可达)。
+   ============================================================ */
+let advGliding = false; /* 引擎滑翔态镜像(沿差分基准; 死亡吸收 stale/切模式清零两口径) */
+let advGlideFovPhase = 'idle'; /* FOV 相位: idle 静止 · out 渐扩 · hold 满幅 · back 渐复 */
+let advGlideFovOff = 0; /* FOV 相对偏移(度, 0~GLIDE.fovKick 钳位) */
+let advGlideFovBase = 0; /* FOV 基值(展沿起步帧捕获; 复原终点) */
+let advGlideSlotBtn = null; /* HUD 第五槽按钮(init 抓/cleanup 收; kit 重画恒同实例) */
+
+function advGlideOn() {/* 引擎滑翔态读: isGliding 装具缺席=永不滑翔面(沙盒回落) */
+  return typeof isGliding === 'function' && isGliding();
+}
+
+function advWings(mode) {/* 翼目标态声明(v1.2 §6.4): 展/收沿唯一观感写口 */
+  if (typeof Avatar !== 'undefined' && Avatar && typeof Avatar.setWings === 'function') {
+    Avatar.setWings(mode);
+  }
+}
+
+function advWingsReset() {/* 翼观感对账兜底(切模式/死亡): forceWingsHidden 优先
+    (无条件立即隐藏, 残影清零), setWings('hidden') 回落(观测面同键记录) */
+  if (typeof Avatar === 'undefined' || !Avatar) return;
+  if (typeof Avatar.forceWingsHidden === 'function') Avatar.forceWingsHidden();
+  else if (typeof Avatar.setWings === 'function') Avatar.setWings('hidden');
+}
+
+function advGoldEdge(on) {/* 金描边沿切换(UI spec §3.3): on 单次 classList.add;
+    off 走 className 整串重组摘 'glide-glow'——不计数 classOps.remove
+    (收沿恰一次零闪烁; kit 重画的 .off 增摘不受扰, 槽上其余类保真) */
+  const el = advGlideSlotBtn;
+  if (!el) return;
+  if (on) {
+    if (el.className.indexOf('glide-glow') < 0) el.classList.add('glide-glow');
+  } else if (el.className.indexOf('glide-glow') >= 0) {
+    el.className = el.className.split(' ').filter((c) => c && c !== 'glide-glow').join(' ');
+  }
+}
+
+function advGlideFovCan() {/* 相机写口可达(world.js PerspectiveCamera);
+    沙盒缺席=FOV 面静默跳过, 沿观感其余面不受影响 */
+  return typeof camera !== 'undefined' && camera && typeof camera.fov === 'number' &&
+      typeof camera.updateProjectionMatrix === 'function';
+}
+
+function advGlideFovSnap() {/* FOV 立即回基值+熄相位(切模式收场口);
+    idle 早退=从未滑翔的会话零触碰相机 */
+  if (advGlideFovPhase === 'idle') return;
+  if (advGlideFovCan()) {
+    camera.fov = advGlideFovBase;
+    camera.updateProjectionMatrix();
+  }
+  advGlideFovPhase = 'idle';
+  advGlideFovOff = 0;
+}
+
+function advGlideFovTick(dt) {/* FOV 相位推进(spec §3.6 路径 B): out 匀速渐扩
+    (fovTime 秒达 fovKick 度)→hold 满幅 · back 匀速渐复→idle; 相对偏移+
+    端点钳位=back 中途再展反向续推零跳变, 复原终点精确回基值 */
+  if (advGlideFovPhase === 'idle' || !advGlideFovCan()) return;
+  const kick = GLIDE.fovKick; /* GLIDE 只在相位激活路径读(与 T-G05 伤害消费同纪律) */
+  if (advGlideFovPhase === 'back') {
+    advGlideFovOff = Math.max(0, advGlideFovOff - kick * dt / GLIDE.fovTime);
+    if (advGlideFovOff <= 0) {
+      advGlideFovOff = 0;
+      advGlideFovPhase = 'idle';
+    }
+  } else {
+    advGlideFovOff = Math.min(kick, advGlideFovOff + kick * dt / GLIDE.fovTime);
+    advGlideFovPhase = advGlideFovOff >= kick ? 'hold' : 'out';
+  }
+  camera.fov = advGlideFovBase + advGlideFovOff;
+  camera.updateProjectionMatrix(); /* fov 变更帧必更新投影才可见 */
+}
+
+function advGlideTick(dt) {/* 滑翔沿驱动(update 每帧, 先于 advMineTick): FOV 推进
+    (先于沿检测: 展翼起步帧 fov 不动, 首帧=基值) → 镜像差分沿(同态早退,
+    滑翔稳态帧零观感操作; 音效沿沿恰一次, 叠爆防护归注册表 coolMs) */
+  advGlideFovTick(dt);
+  const gNow = advGlideOn();
+  if (gNow === advGliding) return;
+  advGliding = gNow;
+  if (gNow) {/* 展沿: 自动展(离地>2)与空中主动再展同点(spec §3.4) */
+    advWings('spread');
+    advSfx('wing_open');
+    advGoldEdge(true);
+    advMineStop(); /* 清蓄力(R1-18): 按住挖到一半进滑翔无半途残留 */
+    if (advGlideFovPhase === 'idle') {/* 相位机起步: 捕获基值+偏移清零
+        (back 未完的中途再展=续推不重起) */
+      advGlideFovBase = advGlideFovCan() ? camera.fov : 0;
+      advGlideFovOff = 0;
+    }
+    advGlideFovPhase = 'out';
+  } else {/* 收沿: 落地/触水/主动取消/卸翼四触发同点(spec §3.4) */
+    advWings('hidden');
+    advSfx('wing_close');
+    advGoldEdge(false);
+    if (advGlideFovPhase !== 'idle') advGlideFovPhase = 'back'; /* 匀速复原 */
+  }
+}
+
+function advGlideUnequipEdge() {/* 卸翼沿(A6, 装备页面板口=「随时可卸」全语义):
+    装备位已随 advSyncArmor 同步 off, 滑翔中卸=观感立即收沿(引擎滑翔态下一
+    physics 帧自收, 观感不等帧防无翼残影)且镜像前收——后续帧沿检测同态早退,
+    收翼音效不双发; 非滑翔卸=零操作 */
+  if (!advGliding) return;
+  advGliding = false;
+  advWings('hidden');
+  advSfx('wing_close');
+  advGoldEdge(false);
+  if (advGlideFovPhase !== 'idle') advGlideFovPhase = 'back';
+}
+
+function advGlideSlotUnequip(slot) {/* HUD 装备条点槽口(PO 口径 glider-spec §8②):
+    滑翔中第五槽静默抑制——锁槽防误脱, 零副作用零话术不报意图; 其余槽/
+    非滑翔照常脱下编排 */
+  if (slot === 'glider' && advGlideOn()) return;
+  advWornTakeOff(slot);
+}
+
+function advGlideReconcile() {/* 进场对账: 镜像吸收引擎当前滑翔态(跨模式 stale
+    窗口不误播——重进时引擎态照抄为基准, 此后真沿才驱动观感); 严禁在此发
+    setWings/音效(非沿事件, 翼观感复位由切模式 cleanup 兜底) */
+  advGliding = advGlideOn();
+}
+
+function advGlideDeathReset() {/* 死亡复位(advPlayerDied 顶部, 两重生路径同口):
+    滑翔中致死=观感清场(翼无条件 hidden+金描边 off+FOV 匀速复原)而镜像不清
+    零——吸收引擎 stale(死亡零惩罚不卸装备, 滑翔态残留至重生首 physics 帧
+    落地自收; 镜像若清零, 重生首帧差分反会误展误播)。非滑翔死亡零副作用 */
+  if (!advGliding && advGlideFovPhase === 'idle') return;
+  if (advGliding) {
+    advWingsReset();
+    advGoldEdge(false);
+  }
+  if (advGlideFovPhase !== 'idle') advGlideFovPhase = 'back';
+  advGliding = advGlideOn();
+}
+
+function advGlideCleanup() {/* 切模式清场(覆盖清零, 与死亡吸收 stale 相对):
+    装备位 off(引擎下一 physics 帧必收滑翔态) · 翼复位 hidden · FOV 立即
+    回基值 · 镜像清零(清场后无沿可误触; 重进经 init 对账再吸收)。观感复位
+    仅滑翔面曾激活时发(纯地面会话零 Avatar/camera 触碰, 观测账零污染) */
+  if (typeof setGliderEquipped === 'function') setGliderEquipped(false);
+  if (advGliding || advGlideFovPhase !== 'idle') advWingsReset();
+  advGlideFovSnap();
+  advGliding = false;
+  advGlideSlotBtn = null;
 }
 
 const advUseRun = {shoot: () => advTryShootBow(),
@@ -4692,11 +5109,16 @@ const AdventureMode = mkMode({
        走 defaults clone 不经 decode(save-slot load 语义) → armor=null 仍会漏进,
        init 侧再兜一层(幂等, 与 livestock defaults「两条路径都成立」同款纪律) */
     advWorn = wornNormalize(advLoad.armor || null);
-    advArmorBar = mkArmorBar({onUnequip: advWornTakeOff}); /* HUD 常驻装备条(点槽=脱下意图) */
+    advArmorBar = mkArmorBar({onUnequip: advGlideSlotUnequip}); /* HUD 常驻装备条(点槽=脱下意图; 第五槽滑翔中静默抑制 T-G04) */
+    advGlideSlotBtn = Array.from(advArmorBar.root.children)
+        .find((b) => b.dataset && b.dataset.slot === 'glider') || null; /* 第五槽引用
+      (金描边沿操作; kit 重画只动 class/innerHTML 恒同实例) */
     advSyncArmor(); /* 进场观感对账(残影修复, 2026-11-05 用户反馈): Avatar 跨
       模式存活, 上局穿过的 overlay 网格不会自己消失——读档 worn 可能已空
       (体验馆 dev 账不落盘), 不对账就是「装备没了身上还有甲」; setArmor
       同目标幂等, 每次进场跑一次零成本 */
+    advGlideReconcile(); /* 滑翔装配对账(T-G04): 镜像吸收引擎当前滑翔态(装备位
+      已随上行 advSyncArmor 同步; stale 窗口照抄为基准, 此后真沿才驱动观感) */
     advOreRegen = advOreRegenDecode(advLoad.oreRegen); /* 矿位开采账换装(生态恢复; 归一兜底——
        dev store/旧档缺键 → 空账; 先于 loadScene, 回填在其内结算) */
     advPumpkinRegen = advPumpkinRegenDecode(advLoad.pumpkinRegen); /* 南瓜采集账换装(mob-crafting T2;
@@ -4733,7 +5155,9 @@ const AdventureMode = mkMode({
       advGatesBuild(); /* 地图门建场(T7): 治愈之后立门——门体不被清扫/重放翻动, 每次装场同一份 */
       advRescanStations(); /* 已放置站点收进缓存(T13: edits 重放收集, O(edits)) */
     });
-    ModeKit.spawn(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw}); /* 有档用档: 上次退出的位置+朝向 */
+    /* 有档用档: 上次退出的位置+朝向; T-G05 经 advTeleport 挂幻影免疫
+       (同会话切模式重进时 fallPeakY 残留若高于落点即幻影扣血) */
+    advTeleport(advSpawnAt.x, advSpawnAt.y, advSpawnAt.z, {yaw: advSpawnAt.yaw});
     setFly(false); /* 探险步行(不沿用建造的飞行; 走意图入口) */
     advBeamsClear(); /* init 无 advSceneLeave: 旧句柄先摘(重进幂等纪律, 同切界) */
     advBeamsRelayout(); /* 光束重锚(init 也锚: 亮门/巢穴之门的常驻束不再等首次切图/切界才出现) */
@@ -4795,6 +5219,8 @@ const AdventureMode = mkMode({
   cleanup() {
     /* F1 拍板①: 退世界不清炉不退料——炉态随下方落盘, 重进原样接着烧 */
     advStore.flush();
+    advGlideCleanup(); /* 滑翔装配清场(T-G04): 装备位 off+翼复位 hidden+FOV
+      复原(滑翔中切模式无残影; 引擎滑翔态在装备位 off 后下一 physics 帧自收) */
     /* 昼夜复位(昼夜 D1, 设计稿 §2.2): 关循环 + 白天观感复位(幂等)——其余模式
        与下界换天(applySky)都不再被每帧昼夜驱动打扰 */
     dayCycleOn = false;
@@ -4843,11 +5269,21 @@ const AdventureMode = mkMode({
     advRingDispose();
     advHpBar.dispose(); /* 头顶血条回收(S2 深接口) */
     advTownBellClear(); /* TIDEA-02: 迟到迎宾钟句柄清(会话退场零漏响) */
+    /* PO 案②(树 3c89723): 镇内直接切模式的残机/残傀儡清场 — 离镇链(:2410)
+       同源三行无条件清(不挂维度门: cleanup 时镇内外都可能; 未进镇=
+       undefined/空账容差自守卫, 零炸幂等): 机器不渗下模式(town-ui sync 掉机
+       感知走 leaveTown defer 收口), 傀儡 root 摘净跨模式零残留(体验馆复用
+       同 scene 建场零残影) */
+    advTownTargets = undefined;
+    advTownAnchors = undefined;
+    advTownPuppetsLeave();
   },
 
   update(dt) {
     advStore.tick(); /* 世界存档节流 5s(build 同款, 时序收编 journal) */
     advSyncMood(); /* 场景曲随昼夜/维度走(同值空转; 首帧补报夜间重进) */
+    advGlideTick(dt); /* 滑翔装配沿驱动(T-G04): 翼观感/金描边/FOV 迁移点消费
+        (先于 advMineTick——展翼沿当帧清挖掘蓄力, R1-18) */
     advEdgeSkyTick(); /* 〔边界转正·T7〕边界天/雾渐变(home 图专属, 同值空转):
         走 setSkyBase/雾距既有缝, 昼夜插值仍归 applyDaylight */
     advEdgeTick(dt); /* 〔世界边界·T8〕边缘传送触发+近前引导(home 图专属):
@@ -4856,6 +5292,12 @@ const AdventureMode = mkMode({
         互斥维度门): 早退链→z≥132 越线瞬间白闪回 home(§6.3.5) */
     advTownAmbienceTick(); /* TIDEA-11 景区四声区域触发(town 维度专属早退):
         进区播一声离区重臂, 一次性 flag 会话态(禁定点循环, ADR-0011 增补) */
+    advTownAnchorTick(); /* T-NPC-12 锚点动态化消费机(town 维度专属早退):
+        逐锚取数比对 prev 账本, 到站跳变且聚焦时重发 targetFocus(生产恒
+        缺省 leg0, legIndex 推进者=未来行为层票) */
+    advTownNpcIdleTick(dt); /* 案卷③ 镇民待机微动画(town 维度专属早退):
+        逐傀儡 idle pose(t+错峰相位)→apply 骨骼旋转+根浮, humanoid 头转
+        朝玩家(注视距离门+限步); dt 注入确定性(零墙钟零随机) */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */
@@ -4884,6 +5326,24 @@ const AdventureMode = mkMode({
     if (worldEvents.lavaTick) {
       worldEvents.lavaTick = false;
       advEnvHurt(FLUID.lavaDps, '好烫！快离开岩浆！');
+    }
+    /* 无翼摔落伤害(T-G05, ADR 0014 对零惩罚哲学的显式例外): 消费引擎 land
+       事件(触地跃迁沿, 与流体环境伤同位先例) → 伤害=max(0, floor(landFall)
+       −GLIDE.safeFall)×GLIDE.fallHp 经 advEnvHurt 原值直扣(环境伤漏斗, 血尽
+       走 advPlayerDied 现有死亡流程) · landGliding=true 滑翔触地零伤害 ·
+       零 TTS(ADR 0014 明文: 不配安抚/预警, advEnvHurt mute 路径, 受击观感
+       与战斗同源) · advLandImmuneNext=传送免疫吞首个事件(advTeleport 置旗,
+       fallPeakY 残留峰值的幻影防护) · 无伤事件只消费不结算(消费即清契约) */
+    if (worldEvents.land) {
+      const advFall = worldEvents.landFall; /* 读数先取: 三字段置位同帧, 消费即还原 */
+      const advGlideLand = worldEvents.landGliding;
+      worldEvents.land = false;
+      if (advLandImmuneNext) {
+        advLandImmuneNext = false; /* 免疫只吞传送后首个事件: 此后真实摔落照常结算 */
+      } else if (!advGlideLand) {
+        const advDmg = Math.max(0, Math.floor(advFall) - GLIDE.safeFall) * GLIDE.fallHp;
+        if (advDmg > 0) advEnvHurt(advDmg, null, {mute: true});
+      }
     }
     if (advBubbles) advBubbles.update(playerAirS / FLUID.airMaxS); /* 溺气泡条(liquid D10) */
     if (advArmorBar) advArmorBar.update(advWorn); /* 装备条(kit 签名节流——非 worn 变更帧零重画) */
@@ -4937,13 +5397,17 @@ const AdventureMode = mkMode({
       if (advUseStation(hit, lookId)) return; /* 熔炉/箱子: 走近开面板(见下) */
       if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6, 使用先于打/挖) */
       if (advTryDoor(hit, lookId)) return; /* 门: 左键开关(⛏️键空手同路, 设计稿 §4.2; 右键拆=advTryDoorRemove) */
-      if (advMelee.aim(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖;
+      /* 滑翔中动作暂停(T-G04, R1-18): 挖/攻/吃/放四类无效(不触发不消耗无残留),
+         禁列以四项为准——门/站定交互/穿戴不在禁列照常, 拦在各自落点不整链一刀切
+         (引擎残留窗口误拦穿翼的实证教训) */
+      if (!advGlideOn() && advMelee.aim(advGetPEnt())) {/* 锥内有活怪: 本击归战斗(冷却中也占住, 不落挖;
         持弓=空手 3 点——2026-10-28 Route A 回归 MC 正典, 射箭走右键/触屏专用键) */
         advMelee.swing(advGetPEnt());
         return;
       }
-      if (advTryEat()) return; /* 手持食物: 点击吃, 不进蓄力 */
-      if (hit) advMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update) */
+      if (!advGlideOn() && advTryEat()) return; /* 手持食物: 点击吃, 不进蓄力(滑翔中吃无效) */
+      if (hit && !advGlideOn() && !advTownAimBlocked()) advMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update;
+         滑翔中不落(T-G04); PO 案④: 视线段穿镇傀儡盒=镇民命中豁免不起蓄力(与 advMineTick 喂点熄火同判据)) */
     } else if (button === 2) {
       /* 轻点/右键 = 使用优先(MC 正典: 交互先于放置): 熔炉/箱子走近开面板 →
          手持食物吃 → 手持雪球掷出(T9) → 使用动作物品放箭(弓, 注册表驱动) → 放置。TNT 点燃不走轻点(用户拍板 2026-10-24 防误触):
@@ -4952,12 +5416,12 @@ const AdventureMode = mkMode({
       if (advUseStation(hit, lookId)) return;
       if (advTrySleep(hit, lookId)) return; /* 床: 点击睡觉(昼夜 D6 §7.2, 使用先于吃/放) */
       if (advTryDoorRemove(hit, lookId)) return; /* 门: 右键拆除(触屏轻点同路, 2026-11-04 用户票; 开关走左键) */
-      if (advTryEat()) return;
+      if (!advGlideOn() && advTryEat()) return; /* 滑翔中吃无效(R1-18 四项禁列) */
       if (advTryThrowSnowball()) return; /* 手持雪球: 掷出(T9, 使用档在吃与放置之间) */
       if (advTryUseHeld()) return; /* 手持使用动作物品(弓/种子/骨粉): 注册表驱动使用(farm-and-recipe D3
         +弓 Route A), 恒算使用 attempt 不落放置——MC 正典弓走使用键 */
       if (advTryHoe()) return; /* 空手锄地(D7 两步正典): 指可垦块才命中, 否则回落放置(空手 noop) */
-      advTryPlace(hit);
+      if (!advGlideOn()) advTryPlace(hit); /* 放置在滑翔中无效(R1-18 四项禁列), 落地即恢复 */
     }
   },
 
@@ -5010,12 +5474,14 @@ const AdventureMode = mkMode({
     advSlimeWaterOk 再追加、时钟改版追加 advSleepClock/advSleepClockConfirm、
     装备 T9 追加 advTryWearSlot、怪物合成 T2 追加 advPumpkinRegen/advPumpkinRegenTick、
     T5/T6 追加 advGolemsAll/advGolemTick/advTryRepairGolem/advSweepNightMobs、
-    T-SEAM-04 追加 advTownState(壳层镇内交互机只读快照, ADR-0011 决策 6a)——
-    现 38 键(键计数以本清单为准); 键清单即 interface——
+    T-SEAM-04 追加 advTownState(壳层镇内交互机只读快照, ADR-0011 决策 6a)、
+    T-NPC-12 追加 advTownAnchorTick(锚点动态化消费机直调缝, 到站重发)——
+    现 39 键(键计数以本清单为准); 键清单即 interface——
     adventure-core 常量表与纯函数经 core 直调不再转发):
     · 状态账本: ADV · advMine(蓄力) · advSaplings(树苗计时) · advSleep(睡觉转场)
       · advSleepClock(时钟拨盘态) · advNetherState(下界相位·地图态只读快照: dim/map/portalCd/exitSpot)
       · advTownState(镇内交互机只读快照)
+      · advTownAnchorTick(锚点动态化消费机, T-NPC-12 到站重发直调缝)
       · advPumpkinRegen(南瓜采集账访问器, mob-crafting T2 测试播种缝) · advPumpkinRegenTick(回填直调)
       · advGolemsAll(golems 桶访问器, T6 断言缝) · advGolemTick(AI 直调, 清场测试用)
       · advTryRepairGolem(修理直调, 行为面同触屏键) · advSweepNightMobs(清场直调, 免疫测试缝)
@@ -5084,9 +5550,22 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
     if ('stoneEggT' in o) advStoneEggT = o.stoneEggT;
   },
   advNetherState: () => ({dim: advDim, map: advMap, portalCd: advPortalCd, exitSpot: advExitSpot}),
-  advTownState: () => ({targets: advTownTargets}), /* 壳层镇内交互机只读快照(T-SEAM-04
-      测试挂点: targets=mkTownTargets 机器引用, 可调 focus/found/reset/snapshot
-      四方法+引用比较验换代; ADR-0011 决策 6a) */
+  advTownState: () => ({targets: advTownTargets, puppets: advTownPuppets}), /* 壳层
+      镇内交互机+镇民傀儡只读快照(T-SEAM-04 挂点先例扩形 T-NPC-10: targets=
+      mkTownTargets 机器引用, 可调 focus/found/reset/snapshot 四方法+引用比较
+      验换代; puppets=纯标量 {id,look,x,y,z,yaw} 行的只读账, 离镇回空,
+      禁含 THREE 对象; ADR-0011 决策 6a) */
+  advTownAnchorTick, /* 锚点动态化消费机(T-NPC-12: 逐锚取数比对 prev 账本,
+      到站跳变且聚焦时重发 targetFocus 同形状事件; 注入式验收缝,
+      legById/policy 参数化) */
+  advTownNpcIdleTick, /* 案卷③ 待机微动画消费机(逐傀儡 pose(t+错峰)→
+      apply 骨骼旋转+根浮, humanoid 头转 headTarget/headStep; dt 注入
+      确定性, 空账自愈+维度门) */
+  advTownIdleState: () => ({t: advTownIdleT, parts: advTownIdleParts}), /* 案卷③
+      待机账只读缝(恰二键 {t,parts}): t=注入 dt 累计相位(秒), parts=骨柄
+      引用账(含 THREE 骨柄非纯标量快照口径, 与 advTownPuppets 纯标量账
+      对照), 注入式验收缝(T-NPC-12 先例): 假骨行注入直测消费机, 生产由
+      advTownPuppetsPlace 建/advTownPuppetsLeave 清 */
   advMineHardText, advHudLines,
   advWornState: () => advWorn, /* 穿戴档只读快照(装备 T5 测试挂点; 形状=mkWorn 归一形) */
   advHitPlayer, advEnvHurt, /* 战斗受击两缝(装备 T6 测试挂点: 漏斗行为面/D8 环境对照) */

@@ -661,3 +661,182 @@ test('T-UI-05 §7.1 守门: 会话话术与面板短文案零标签式表扬词(
     }
   }
 });
+
+/* ============================================================
+   T-NPC-11 对账补缺红测(票面施工记录 §7.3; 断言面补缺半边):
+   ① §5.3-1「无 undefined 边」运行时半边——多值边 payload.to 只认
+     边数组内 outcome, 越边裁决零惩罚拒绝, 机器不产生表外态;
+   ② §5.3-1/2 枚举半边——9 态 × 全意图集逐对全枚举(要么按表转移
+     要么零惩罚拒绝, 永不抛);
+   ③ 会师 4 已裁口径常量面——DIALOG_EVENTS/TTS_PRIORITIES 冻结,
+     town-ui/dialog/* 三键唯一权威(源扫描半边在 ui 侧同票红测);
+   ④ §1.7「无段落文本」守门——三件套文案零换行零段落 bounded。
+   守门类红相自证=突变注入违例见红/还原见绿(施工记录 §7.3)。
+   ============================================================ */
+
+test('多值边 payload.to 越边拒绝: route/next-step 只认边数组内 outcome; 越边零惩罚零事件; 机器不产生表外态(§5.3-1/2)', () => {
+  assert.ok(core, 'js/town-dialog-core.js 缺席(红期)');
+  const ALL = [...core.DIALOG_STATES];
+  /* route 越边: greet 的边数组恰为 ['guide','seek','help'] */
+  {
+    const rec = [];
+    const m = core.mkDialogMachine({emit: (n, p) => rec.push({name: n, payload: p})});
+    m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+    assert.strictEqual(m.state(), 'greet', '前置: greet');
+    rec.length = 0;
+    const out = m.handle({type: 'route', payload: {to: 'bogus-state'}});
+    assert.deepStrictEqual(out, {changed: false, events: []},
+        'route 越边 to="bogus-state"(边数组外) → 零惩罚拒绝');
+    assert.strictEqual(m.state(), 'greet', '拒绝后状态不变(无表外态)');
+    assert.deepStrictEqual(rec, [], '越边裁决零事件');
+    rec.length = 0;
+    m.handle({type: 'route', payload: {to: 'idle'}});
+    assert.deepStrictEqual(rec, [], 'route to="idle" 同为图外 outcome → 拒绝, 不经 close 侧门收会话');
+    assert.strictEqual(m.state(), 'greet', 'to="idle" 拒绝后仍在 greet');
+  }
+  /* next-step 越边: praise 的边数组恰为 ['guide','seek','help','complete'] */
+  {
+    const rec = [];
+    const m = core.mkDialogMachine({emit: (n, p) => rec.push({name: n, payload: p})});
+    m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+    m.handle({type: 'route', payload: {to: 'seek'}});
+    m.handle({type: 'target-found'});
+    m.handle({type: 'confirm'});
+    assert.strictEqual(m.state(), 'praise', '前置: praise');
+    rec.length = 0;
+    const out = m.handle({type: 'next-step', payload: {to: 'idle'}});
+    assert.deepStrictEqual(out, {changed: false, events: []},
+        'next-step to="idle" 图外 outcome → 零惩罚拒绝(不发 close)');
+    assert.strictEqual(m.state(), 'praise', '拒绝后状态不变');
+    assert.deepStrictEqual(rec, [], '越边零事件(close 侧门不开)');
+  }
+  /* 图内 to 照常显式优先(裁决权移交特性保持, 既有测 route→guide 同口径) */
+  {
+    const m = core.mkDialogMachine({emit: () => {}});
+    m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+    m.handle({type: 'route', payload: {to: 'help'}});
+    assert.strictEqual(m.state(), 'help', '边数组内 to="help" 照常显式路由');
+  }
+  /* 不变式: 任意垃圾 payload.to 后 machine.state() 恒 ∈ DIALOG_STATES */
+  {
+    const m = core.mkDialogMachine({emit: () => {}});
+    m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+    for (const junk of ['bogus', 'respond', {}, 'praise']) {
+      m.handle({type: 'route', payload: {to: junk}});
+      m.handle({type: 'next-step', payload: {to: junk}});
+      assert.ok(ALL.includes(m.state()),
+          '垃圾 to=' + JSON.stringify(junk) + ' 后状态仍 ∈ DIALOG_STATES, 实测: ' +
+          JSON.stringify(m.state()));
+    }
+  }
+});
+
+test('全枚举守门: 9 态 × 全意图集逐对——要么按表转移(含 click-npc 双起步)要么零惩罚拒绝, 永不抛永不出表外态(§5.3-1/2 枚举半边)', () => {
+  assert.ok(core, 'js/town-dialog-core.js 缺席(红期)');
+  const ALL = [...core.DIALOG_STATES];
+  const T = core.DIALOG_TRANSITIONS;
+  /* 前置构造器: 把机器送到每个目标态(与既有测同口径) */
+  const buildTo = {
+    idle: () => {},
+    bubble: (m) => m.handle({type: 'focus', payload: {entry: entryOf()}}),
+    greet: (m) => m.handle({type: 'click-npc', payload: {entry: entryOf()}}),
+    guide: (m) => {
+      m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+      m.handle({type: 'route', payload: {to: 'guide'}});
+    },
+    seek: (m) => {
+      m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+      m.handle({type: 'route', payload: {to: 'seek'}});
+    },
+    help: (m) => {
+      m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+      m.handle({type: 'route', payload: {to: 'help'}});
+    },
+    respond: (m) => {
+      m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+      m.handle({type: 'route', payload: {to: 'seek'}});
+      m.handle({type: 'target-found'});
+    },
+    praise: (m) => {
+      m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+      m.handle({type: 'route', payload: {to: 'seek'}});
+      m.handle({type: 'target-found'});
+      m.handle({type: 'confirm'});
+    },
+    complete: (m) => {
+      m.handle({type: 'click-npc', payload: {entry: entryOf()}});
+      m.handle({type: 'route', payload: {to: 'seek'}});
+      m.handle({type: 'target-found'});
+      m.handle({type: 'confirm'});
+      m.handle({type: 'next-step'});
+    },
+  };
+  for (const from of ALL) {
+    for (const intent of core.DIALOG_INTENTS) {
+      const m = core.mkDialogMachine({emit: () => {}});
+      buildTo[from](m);
+      assert.strictEqual(m.state(), from, '前置: ' + from);
+      /* click-npc 双起步(idle/bubble 直达 greet)是图外入口边(转移表
+         有意不列, 既有测锁「图外边不可寻」)——合法性按机器口径算 */
+      const legal = (intent === 'click-npc' &&
+          (from === 'idle' || from === 'bubble')) ||
+        !!(T[from] && T[from][intent]);
+      let out;
+      try {
+        out = m.handle({type: intent, payload: {}});
+      } catch (e) {
+        assert.fail(from + ' + ' + intent + ' 抛错(零惩罚红线 §5.3-2): ' + e.message);
+      }
+      if (legal) {
+        assert.strictEqual(out.changed, true,
+            from + '--' + intent + '--> 合法对必转移');
+        assert.ok(ALL.includes(m.state()),
+            from + '--' + intent + '--> ' + m.state() + ' 转移后仍 ∈ DIALOG_STATES');
+      } else {
+        assert.deepStrictEqual(out, {changed: false, events: []},
+            from + ' + ' + intent + ' 图外对 → 零惩罚拒绝');
+        assert.strictEqual(m.state(), from, from + ' + ' + intent + ' 状态不变');
+      }
+    }
+  }
+});
+
+test('事件名权威常量面(票面会师 4 已裁): DIALOG_EVENTS 冻结三键=town-ui/dialog/* 唯一权威; TTS_PRIORITIES 冻结', () => {
+  assert.ok(core, 'js/town-dialog-core.js 缺席(红期)');
+  assert.ok(Object.isFrozen(core.DIALOG_EVENTS), '事件名表冻结');
+  assert.deepStrictEqual({...core.DIALOG_EVENTS},
+      {OPEN: 'town-ui/dialog/open', UPDATE: 'town-ui/dialog/update',
+        CLOSE: 'town-ui/dialog/close'},
+      'town-ui/dialog/* 三键唯一权威(双名歧义已裁: 旧名不实现)');
+  assert.ok(Object.isFrozen(core.TTS_PRIORITIES), 'TTS 优先级表冻结(常量面冻结半边)');
+});
+
+test('禁止项守门(§1.7/§4.5): 三件套文案零段落语义——面板正文/选项标签零换行且 bounded, TTS 句单短句(零多句段落)', () => {
+  assert.ok(core, 'js/town-dialog-core.js 缺席(红期)');
+  const ctx = {npcLabel: '找面包', targetIconId: 'bread'};
+  for (const s of core.DIALOG_STATES) {
+    const v = core.dialogViewFor(s, ctx);
+    if (v && v.panel) {
+      const body = v.panel.body;
+      if (body) {
+        assert.ok(!/\n/.test(body), s + ' 面板正文零换行(§1.7 无段落文本)');
+        assert.ok(body.length <= 20,
+            s + ' 面板正文 ≤20 字符(短文案辅助 §3.1, 段落检测上界), 实测 ' + body.length);
+      }
+      for (const o of v.panel.options || []) {
+        assert.ok(!/\n/.test(o.label) && o.label.length <= 6,
+            s + ' 选项标签零换行 ≤6 字符(短文案 1-4 字上浮容差 §3.1), 实测: ' + o.label);
+      }
+      for (const g of v.panel.ghosts || []) {
+        assert.ok(!/\n/.test(g.label) && g.label.length <= 6,
+            s + ' ghost 标签零换行 ≤6 字符, 实测: ' + g.label);
+      }
+    }
+    const u = core.dialogUtterFor(s, ctx);
+    if (typeof u === 'string') {
+      assert.ok(!/\n/.test(u), s + ' TTS 句零换行(零段落)');
+      assert.ok(u.length <= 30,
+          s + ' TTS 句 ≤30 字符(§8 单短句, 零长句说明), 实测 ' + u.length);
+    }
+  }
+});

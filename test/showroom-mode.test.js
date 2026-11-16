@@ -83,7 +83,7 @@ const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, 
   mkInventory, add, count, remove,
   take, moveSlot, damageTool, serialize, deserialize, costEntry, shapeCost, canCraft, matchGrid, gridCraft, fillGrid,
   RECIPES, SMELTS, FUEL, fuelUnits, smeltOf, breakTime,
-  HOTBAR_SLOTS, INV_SLOTS, EQUIP_SLOTS, /* 装备四槽表: require 的 mkArmorBar 调用期经全局名消费 */
+  HOTBAR_SLOTS, INV_SLOTS, EQUIP_SLOTS, /* 装备五槽表: require 的 mkArmorBar 调用期经全局名消费 */
   WORLD_W, WORLD_D, WORLD_H, PLAYER, IS_TOUCH, FLUID, DAYLIGHT,
   BLOCKS, B_FURNACE, B_CRAFT, B_CHEST, B_BED, B_TORCH, B_DOOR, B_DOOR_TOP, B_DOOR_OPEN,
   B_DOOR_TOP_OPEN, B_GLASS_PANE, B_TNT,
@@ -1771,4 +1771,79 @@ test('体验馆 U3: dev store 丢弃语义 — 落盘面全 noop · mark 进内�
   const inv = store.loadBag();
   const row = ShowroomCore.showroomPocket().rows[0];
   assert.strictEqual(api.count(inv, row.id), row.n, '背包装配重铸套餐首行');
+});
+
+/* ============================================================
+   ============ PO 实屏验收缺陷修复票案②(showroom 复现路径) ============
+   镇内 cleanup 不清场 → 傀儡渗入体验馆(PO 实屏: 切体验馆 NPC 在馆内
+   漂浮)。②-A(AdventureMode 域)在 test/adventure-mode.test.js; 本条
+   锁 ShowroomMode.init 复用同 scene 建场的集成分支。
+   ============================================================ */
+
+/* ---------- 案②-D 装具扩装(红方报备, 惰性臂装口径与 adventure-mode
+    .test.js poArm 同源): 本文件 adventure.js 与 showroom.js 装在
+    eng(vm) 域(:371-374), 全局名解析落 eng——镇系四纯件 vm 补装
+    (T-SEAM-05 块同款惯例, index.html 加载序镜像: assembly → map →
+    interact → anchor) + 摆放链两件 eng 铺设(town-npc-registry →
+    town-npc; townYawOfFace 已随 :362 dims-core 在 eng) + 假 scene/
+    MobLookKit(记号 __poNpcPuppet 与 adventure-mode 装具同源)。
+    臂装收进测试内自装自治: 既有测试全程零装具基线, 漂移面按构造归零
+    (vm 顶层 const 重装会炸, PO_ENG_ARMED 幂等闸)。 ---------- */
+let PO_ENG_ARMED = false;
+const PO_SR_SCENE_KIDS = [];
+function poSrArm() {
+  if (PO_ENG_ARMED) return;
+  PO_ENG_ARMED = true;
+  for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js',
+    'js/town-interact-core.js', 'js/town-npc-anchor-core.js']) {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
+  }
+  /* 双面铺: dims-core 的 townBuild 是 Node 域闭包(:362 require 装载),
+     其自由名(townBuildSteps/townAssemblyOps/...)解析走 Node globalThis
+     ——vm 装完后提取上全局(adventure-mode.test.js :54-63 同款惯例);
+     eng 侧脚本(adventure.js)经 eng 全局词法环境照常可见 */
+  Object.assign(globalThis, vm.runInContext(
+      '({TOWN_MAP, townBuildSteps, townAssemblyOps, mkTownTargets,' +
+      'townTargetOf, TOWN_UI_EVENTS, TOWN_INTERACTS, anchorOf, TOWN_NPC_ANCHORS,' +
+      'anchorChanged})', eng));
+  /* 摆放链两件双域齐铺: adventure.js(eng 脚本)按 eng 全局名调用, 而
+     require 产物的闭包自由名(TOWN_NPCS/MobLookKit)解析在 Node 域——
+     eng 与 globalThis 各铺一份(require 缓存同件, 零分叉) */
+  Object.assign(eng, require('../js/town-npc-registry.js'));
+  Object.assign(globalThis, require('../js/town-npc-registry.js'));
+  Object.assign(eng, require('../js/town-npc.js'));
+  Object.assign(globalThis, require('../js/town-npc.js'));
+  eng.MobLookKit = {
+    puppet() {
+      return {root: {position: {set() {}}, __poNpcPuppet: true}, bones: {}};
+    },
+  };
+  globalThis.MobLookKit = eng.MobLookKit;
+  eng.scene = {
+    children: PO_SR_SCENE_KIDS,
+    add(o) {
+      PO_SR_SCENE_KIDS.push(o);
+    },
+    remove(o) {
+      const i = PO_SR_SCENE_KIDS.indexOf(o);
+      if (i >= 0) PO_SR_SCENE_KIDS.splice(i, 1);
+    },
+  };
+  PO_SR_SCENE_KIDS.length = 0;
+}
+
+test('PO②-D 跨模式残留(showroom 复现): 镇内切体验馆 — cleanup 摘净傀儡, 展馆建场零 NPC 残影', () => {
+  poSrArm();
+  PO_SR_SCENE_KIDS.length = 0;
+  freshEnter(); /* 冒险壳先在场(home 图, 展馆 init 链跑通一遍) */
+  A.advSetDim('town');
+  assert.ok(A.advTownState().targets, '前置: 进镇建机(town 系件臂装后在位)');
+  assert.strictEqual(A.advTownState().puppets.length, 14, '前置: 傀儡账 14 行');
+  assert.strictEqual(PO_SR_SCENE_KIDS.filter((c) => c.__poNpcPuppet).length, 14,
+      '前置: scene 挂 14 傀儡 root');
+  AdventureMode.cleanup(); /* PO 复现: 镇内直接切模式(体验馆入口, 不走离镇链) */
+  freshEnter(); /* ShowroomMode.init 复用同 scene 建场(showroom.js init 链) */
+  assert.strictEqual(PO_SR_SCENE_KIDS.filter((c) => c.__poNpcPuppet).length, 0,
+      '展馆零 NPC 残影(cleanup 摘净, 跨模式不渗, PO②本体)');
+  assert.strictEqual(A.advTownState().puppets.length, 0, '傀儡账同步回空');
 });

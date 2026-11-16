@@ -1,0 +1,397 @@
+✔ 声音清单: js/** 每处 sfx(…) 字面量都在 SFX_KINDS 登记(漏登记即红) (59.5731ms)
+✔ 声音清单: 只收活着的 kind — 16 活键齐备, TNT 死键(fss/door)不迁 (0.1368ms)
+✔ 声音清单: 条目形状 — synth/file 至少其一, file 条目须带 synth 回退(降级链互锁) + 增益/优先级/冷却齐全 (0.2737ms)
+✔ 声音清单: MOODS 收窄为仅 menu — 模式情绪唯一权威在 mode-registry 各行 mood 字段, 值 ∈ 合法情绪集 (0.4505ms)
+✔ 声音清单: 传送门双音效(冒险地图 T7) — 蓄能上行/到达琶音, 纯合成无样本(仪式层) (0.1021ms)
+✖ 声音清单: 滑翔翼双音效 — wing_open 上滑/wing_close 下滑更轻, prio 2/coolMs 300, 纯合成可回退 (0.3335ms)
+✔ 声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9) (0.0752ms)
+✔ 声音清单: MUSIC_TRACKS 条目形状 {file, mood, g, durMs}, 曲目情绪不含 none(A7 起填曲) (0.0866ms)
+✔ 声音清单: 曲目情绪覆盖 — 模式/场景用到的情绪都有曲(空池=该场景永无 BGM) (0.9355ms)
+✔ 声音清单: 样本 file 条目在 assets/audio/ 真实存在且 CREDITS.md 记载(A7 起咬合) (1.4652ms)
+✔ 声音清单: 反向覆盖 — assets/audio/ 下全部素材文件都在 CREDITS.md 记载(备用池 jingles 漏记也红) (1.1545ms)
+✔ 声音清单: 过渡期守卫 — synth 与 effects.js 的 SFX_DEFS 原样一致(A4 删表后自动退场) (0.4813ms)
+✖ Avatar 翼显隐: 缺省 hidden — 未装备翼骨恒不可见(§6.4 红线: 未装备永不出现翼) (5.0954ms)
+✖ Avatar 翼显隐: setArmor 装备对账 — worn 有 glider → folded 收拢翼鞘(静态无微动) (1.3778ms)
+✖ Avatar 动效: setWings(spread) — 0.25s 线性匀速展开, 端点水平带, 双翼反号(§6.5) (1.2246ms)
+✖ Avatar 动效: setWings(folded) — 反向同参数 0.25s 收回收拢位·端点即停(§6.5) (1.2378ms)
+✖ Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5) (1.5524ms)
+✖ Avatar 翼显隐: 未装备红线 — 意图不越权·卸翼即隐·重穿对账复位 folded(§6.4 验收红线) (1.0791ms)
+✔ 引导链: index.html 全部脚本在共享词法环境依序加载无错 (160.2584ms)
+✔ MODES 影子清单: 键集与模式注册表等价, 每键是对象且 init 可调 (0.4885ms)
+✔ 训练营预算契约: 注册表 !gated 的每个 id 在 Budgets 有可入账/落账/判满的预算 (0.2921ms)
+✔ 关页兜底存档接线: main.js pagehide 分发 + mkMode 白名单透传可达 (0.9116ms)
+✔ switchMode 全 id 不抛: 注册表每个模式可切换且 MODES.cur 落位(尾探针, 不恢复现场) (4253.6305ms)
+✔ 开战部署冒烟: mix 编队 startBattle → 泵帧 → 队列清空+怪种全注册(状态探针, 不恢复现场) (86.3239ms)
+✔ 装备 T4 冒烟: setArmor 单穿/全穿/换件/卸空 + update 泵帧不炸(THREE 桩全放行罩执行链) (1.3698ms)
+✔ 竞技场 FX 收口: 残留龙息弹/毒云在重开(startBattle→resetBattleFx)即拆, 独自材质按到期路径 dispose (0.2471ms)
+✔ 造型档案: 注册表 — 文件名=声明键 · 存量键集 ⊆ keys · town 键 ∈ 镇民注册表键集 (20.3834ms)
+✔ 造型档案: 人形基座换算 — 官方 px → 世界单位(+Z 镜像), 官方等比尺寸 (0.8114ms)
+✔ 造型档案: 细骨基座 — 四肢 2×12×2 · 追加骨(骷髅弓)进 armL 第二盒 (0.1223ms)
+✔ 造型档案: 自有骨架 — 苦力怕无臂四腿 · 蜘蛛八腿独立骨两段折线与前置头 (0.1964ms)
+✔ 造型档案: 票②基座扩展 — 灾厄基座 · 宽头参数 · 翼槽 axis · scale 变体 (0.192ms)
+✔ 造型档案: UV 区域公式 — 玩家布局(官方 64×64) · 羊毛独立骨 (0.1271ms)
+✔ 造型档案: 贴图布局合法性 — 六面矩形不出界 · 不同盒无部分重叠(共区合法) (14.162ms)
+✔ 造型档案: 贴图全覆盖 — 用到的六面区域逐像素必画(alpha=255) (7.3824ms)
+✔ 造型档案: 头像裁切 — 16×16 网居中 · 中心像素非空且对色 (0.2192ms)
+✔ 造型档案: 碎块色声明 — mobs.js debrisColor 的唯一权威 (0.1081ms)
+✔ 造型档案: 确定性 — 同 type 两次声明+绘制逐字节一致(种子化) (21.3912ms)
+✔ 造型档案: 贴图缓冲返回形状 — 键集恰 {w,h,buf}(size=w 兼容字段退役 T-NPC-06 F3) (0.1547ms)
+✔ 造型档案: 几何 UV 落点 — 逐顶点采样已涂纹素(模型黑缝回归) (15.7863ms)
+✖ 造型档案: 玩家翼骨甲案 — wingL/wingR 语义翼槽·官方 pivot·三盒规格·双翼共区 (0.524ms)
+✖ 造型档案: 玩家翼贴图 — 五色同源色族·金辐条/膜主/暗折线俱现·翼尖金粒·方形 64/128 档 (0.1801ms)
+✔ hotbar: 数字键选块(1-based), 越界忽略 (1.264ms)
+✔ hotbar: 滚轮双向环绕 (0.1411ms)
+✔ hotbar: cnt 实时重读与 empty 态 (0.2427ms)
+✔ item 槽: dataURL 喂 img.src / emoji 文本喂 icon / 名称走 ITEMS (0.1862ms)
+✔ item 槽: refresh 重读数量(>1 才显)与耐久条宽/档位, 归零 empty (0.1517ms)
+✔ sortInv: 主格内同项合并·首现序稳定·工具耐久保留·快捷栏不动 (0.4884ms)
+✔ craft 面板: 挂载/卸载幂等 + 背包网格 18 主格+9 快捷镜像+摆放台 9 格 (1.2274ms)
+✔ craft 面板: 🧹 整理按钮 → sortInv 就地合并 + onSort 通知 + 网格重画 (1.0671ms)
+✔ craft 面板: 点非空格起手高亮(pick 类), 点目标格 → onMove(from,to) + 收高亮 (1.253ms)
+✔ craft 面板: 搬运边界 — 再点原格=放下, 无起手点空格=无效, 均不触发 onMove (0.8249ms)
+✔ craft 面板: onMove 后整幅重画反映搬移结果(面板只重读 inv, 搬移在模式层) (0.5771ms)
+✔ craft 面板: 🧹 整理收起搬运起手(主格重排后起手槽号失义) + 关面板收手 (1.4646ms)
+✔ craft 面板: 卡片=产物大图+×数量+材料chip×数+站点徽标, 任选材料逐候选 (0.942ms)
+✔ craft 面板: bread/bone_meal/bow_item 默认过滤, opts.allow 放开 (1.9878ms)
+✔ craft 面板: 缺料→卡片 dim+chip lack(have/need), 补料刷新恢复亮 (0.5611ms)
+✔ 滑翔翼配方卡常显(T-G01 R1 守门): KIT_HIDDEN_RECIPES 不含 glider(glider-spec §3.2 拍板公开) (0.4211ms)
+✔ craft 面板: 卡序=可制造在前缺料在后(同档稳定=原配方序) (0.4845ms)
+✔ craft 面板: 合成后该配方卡置顶(仍可制造时从次位跳第一) (1.2332ms)
+✔ craft 面板: 合成后材料尽(灰卡)不置顶, 沉回缺料档垫底 (0.8951ms)
+✔ craft 面板: 卡片 DOM 复用 — 观感签名未变回挂旧节点, 变了才重建 (0.6044ms)
+✔ craft 面板: 灰卡产物与缺料 chip 走 iconOfGray 灰版, 亮卡零灰版 (1.3937ms)
+✔ craft 面板: 站点外只列 hand 级卡(正典配方书口径), 近台全列 + 外圈锁格 (0.8362ms)
+✔ craft 面板: 点背包格→摆放格整摞入格(真 remove 扣槽)+onGridMove; 异种拒绝收手不散 (2.6879ms)
+✔ craft 面板: 工具/可耗损物不入格(durOf>0 拒绝, 避开耐久重铸) (0.4887ms)
+✔ craft 面板: 摆放格→背包格整摞退回(真 add 收包); 格→格并堆 (1.2388ms)
+✔ craft 面板: 点卡=BE 一键摆入(真 fillGrid) → 产出槽亮 → 点击一发 onCraft (0.8086ms)
+✔ craft 面板: 重复点卡=再备一套, 产出槽长按连做 0.3s/发至材料尽(拍板④) (1.392ms)
+✔ craft 面板: 关面板格内材料退回背包; 满包装不下经 onReturnLeft 报掉落(零惩罚) (1.1609ms)
+✔ craft 面板: 页签改版 — 工具/食物/方块/材料四页, 默认工具页, 材料归材料页(全部页退役) (0.6017ms)
+✔ craft 面板: L1 三页签 — 背包|装备|造物(equip 缝), 默认背包页, 页切翻转+惰性建预览 (0.8553ms)
+✔ craft 面板: 装备页 — 五槽 EQUIP_SLOTS 序 + 空槽虚位 + 有件图标/耐久条 + 点槽报 onSlot + 盔甲点 (2.3959ms)
+✔ craft 面板: 背包页一键穿上 — 点背包盔甲件报 onWearAt(槽号); 非盔甲照旧点选搬运 (0.4709ms)
+✔ craft 面板: 装备页预览 — worn 变化 refresh 重画一帧, hide 重开复用不重建 (0.5455ms)
+✔ furnace 面板: 三槽渲染 + setProgress 进度条 + 挂载/卸载幂等 (0.4872ms)
+✔ furnace 面板: 自动放料 plan — 矿石全放 + FUEL 序最省凑料, 只报意图不动包 (0.6457ms)
+✔ furnace 面板: setFuel 燃料余量条 — 宽度百分比 + 越界钳制 + 熄灭灰显切换 (0.252ms)
+✔ furnace 面板: 背包区常驻 — 27 格(18 主格+9 快捷镜像), 点击格报 onPut 意图不动包 (0.3848ms)
+✔ furnace 面板: 不可入炉物 dim 灰显 — 可烧/燃料亮显, 其余灰显(路由前视觉预告) (0.2301ms)
+✔ furnace 面板: 点击炉三槽报 onSlot 意图 — 料/燃料取回·产物收取的政策归模式层 (0.3859ms)
+✔ furnace 面板: 放料后背包格跟随重画 — onPut/onAutoFill 动包, 面板重读当前包 (0.395ms)
+✔ 面板生命周期契约(craft): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态 (3.5156ms)
+✔ 面板生命周期契约(furnace): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态 (0.4272ms)
+✔ 面板生命周期契约(chest): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态 (1.3074ms)
+✔ chest 面板: 箱格点击报 onTake(箱槽号)/背包格点击报 onPut(背包槽号)意图, 面板不动数据 (0.4151ms)
+✔ chest 面板: 扩容行 — 材料账单 chip have/need + 缺料 lack + 扩容钮报 onExpand; 顶格档隐藏 (0.3401ms)
+✔ chest 面板: 容量提示行(ADR 0007) — 一句话报现存箱子数与总容量(两轨口径) (0.3171ms)
+✔ chest 面板: 存取意图后面板重读现状 — onPut 动包后背包格跟随重画 (0.2249ms)
+✔ KeyB 默认暂停(不转发), 其余键转发给模式 (0.0714ms)
+✔ init: chrome 施加 + hotbar 现身 + touch 声明 (0.115ms)
+✔ init: 无声明的模式安全通过(Node 无 DOM, MK.* 为 null) (0.0351ms)
+✔ mkMainAct: 手持可放置物 → aimClick(2) 且返 false(一次性放置, 不进连发) (0.0538ms)
+✔ mkMainAct: 空手/工具/食物 → aimClick(0) 挖打起步, 返回值非 false 进连发 (0.0358ms)
+✔ mkHeldSync: 哨兵槽/数字方块判定 — isBlock() 与 itemId()(铁锹映射不外泄) (0.0669ms)
+✔ mkHeldSync: sync 调 Avatar.setItem 与主动作键图标切换(铲↔砖块) (0.0966ms)
+✔ mkHeldSync: Avatar/Input 缺装时 sync 静默不炸(精简装载守卫) (0.0464ms)
+✔ spawn 记住出生点, 默认 onVoidFall 回到出生点 (0.0796ms)
+✔ 自定义 onVoidFall 优先 (模式自定义坠落语义) (0.031ms)
+✔ confirmBtn: 首点武装, 再点执行, 超时还原 (0.1229ms)
+✔ 物品提示: hotbar 点选 → 气泡显名字+说明; 空槽静默不改写气泡 (0.1566ms)
+✔ 物品提示: 背包格点击读被点物品; 点灰卡=一键摆入+读产物提示(缺料尾句) (0.6475ms)
+✔ mkMobPicker: 谱系分组渲染 — 组头+组员簇, 头像与名字, data-type (0.2964ms)
+✔ mkMobPicker: headKeys 前置功能位(不归族) + 点击 onPick + 选中态自动重读 (0.1371ms)
+✔ mkMobPicker: 未注册键兜底显键名(不静默丢, 面板分组「不丢桶」同款口径) (0.1041ms)
+✔ mkMobPicker: groupOf 恒 null 平铺(出发配置页卡片流) + itemTag/itemCls/itemHtml 观感差异 (0.1541ms)
+✔ editHit 放置覆盖薄块: 命中 replaceable → 落点=被点格本身盖掉; 实心命中走法线侧旧口径 (0.2203ms)
+✔ 丢弃: 未传 onDrop 无头钮(体验馆零变化); 传了才现身且 paintChrome 注入图标不炸 (0.4979ms)
+✔ 丢弃: craft armed → 点背包格报 onDrop(槽号); 空格不动; 关面板收态后恢复搬运 (0.8263ms)
+✔ 丢弃: chest 面板 wirePut 同口径 — armed 点背包格报 onDrop 不报 onPut (0.3106ms)
+✔ 可变容量: 33 槽背包区按现长度重画(24 主格 + 9 快捷镜像 + 摆放台 9 = 42 格) (0.2335ms)
+✔ 装备条形状: 五槽按钮按头/胸/腿/靴/翼序 · data-slot 标记 · 空槽虚位(.off) (0.2552ms)
+✔ 装备条 update: 有件槽显像素图标 · 空槽虚位; 签名节流 — 同 id 签名不重画(炉三槽推进同惯例) (0.2042ms)
+✔ 装备条点槽: click 派发 onUnequip(slot) — 脱下意图归模式层(满包拒绝政策在消费方) (0.0972ms)
+✖ craft 面板: 装备页第五槽数据边界 — 有件显图标但永不渲染耐久条·四甲耐久条不误伤·点槽报 onSlot(§4.4) (0.5779ms)
+✖ HUD 装备条与装备页第五槽样式照稿 — css/style.css(UI spec §3.4 最小样式 + §4.1 第三行居中) (0.5085ms)
+✖ 纸娃娃翼: paint 未装备 — 翼 hidden 无残影·相机原构图 z=3.55(UI spec §4.2/§4.3) (5.7196ms)
+✖ 纸娃娃翼: paint 装备 — 展平静帧(不经意图接口)·相机后移 z≈4.3·lookAt 仍 (0,0.9,0)(UI spec §4.2/§4.3) (1.2968ms)
+✖ 纸娃娃翼: 卸下构图复原 + 同 worn 幂等不重画(§4.3 构图复原/预览按需一帧) (1.2237ms)
+ℹ tests 118
+ℹ suites 0
+ℹ pass 104
+ℹ fail 14
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7773.0463
+
+✖ failing tests:
+
+test at test\audio-registry.test.js:124:1
+✖ 声音清单: 滑翔翼双音效 — wing_open 上滑/wing_close 下滑更轻, prio 2/coolMs 300, 纯合成可回退 (0.3335ms)
+  AssertionError [ERR_ASSERTION]: 登记 wing_open(展翼瞬间, 触发接线归 T-G04)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\audio-registry.test.js:126:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\avatar.test.js:191:1
+✖ Avatar 翼显隐: 缺省 hidden — 未装备翼骨恒不可见(§6.4 红线: 未装备永不出现翼) (5.0954ms)
+  AssertionError [ERR_ASSERTION]: 玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)
+      at wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+      at C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:194:22
+      at withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:192:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.start (node:internal/test_runner/test:1003:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\avatar.test.js:201:1
+✖ Avatar 翼显隐: setArmor 装备对账 — worn 有 glider → folded 收拢翼鞘(静态无微动) (1.3778ms)
+  AssertionError [ERR_ASSERTION]: 玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)
+      at wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+      at C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:204:22
+      at withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:202:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\avatar.test.js:216:1
+✖ Avatar 动效: setWings(spread) — 0.25s 线性匀速展开, 端点水平带, 双翼反号(§6.5) (1.2246ms)
+  AssertionError [ERR_ASSERTION]: 玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)
+      at wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+      at C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:219:22
+      at withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:217:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\avatar.test.js:248:1
+✖ Avatar 动效: setWings(folded) — 反向同参数 0.25s 收回收拢位·端点即停(§6.5) (1.2378ms)
+  AssertionError [ERR_ASSERTION]: 玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)
+      at wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+      at C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:251:18
+      at withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:249:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\avatar.test.js:271:1
+✖ Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5) (1.5524ms)
+  AssertionError [ERR_ASSERTION]: 玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)
+      at wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+      at C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:274:22
+      at withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:272:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\avatar.test.js:305:1
+✖ Avatar 翼显隐: 未装备红线 — 意图不越权·卸翼即隐·重穿对账复位 folded(§6.4 验收红线) (1.0791ms)
+  AssertionError [ERR_ASSERTION]: 玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)
+      at wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+      at C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:308:22
+      at withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:306:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\mob-look.test.js:385:1
+✖ 造型档案: 玩家翼骨甲案 — wingL/wingR 语义翼槽·官方 pivot·三盒规格·双翼共区 (0.524ms)
+  AssertionError [ERR_ASSERTION]: 玩家档应加 wingL/wingR 两骨(甲案: 档案加骨=Avatar+纸娃娃双端免费, UI spec §6.1)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mob-look.test.js:387:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\mob-look.test.js:410:1
+✖ 造型档案: 玩家翼贴图 — 五色同源色族·金辐条/膜主/暗折线俱现·翼尖金粒·方形 64/128 档 (0.1801ms)
+  AssertionError [ERR_ASSERTION]: 翼骨六面区应入 regions(wingL/wingR 系)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mob-look.test.js:416:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\mode-kit.test.js:1683:1
+✖ craft 面板: 装备页第五槽数据边界 — 有件显图标但永不渲染耐久条·四甲耐久条不误伤·点槽报 onSlot(§4.4) (0.5779ms)
+  AssertionError [ERR_ASSERTION]: 第五槽永不渲染耐久条(glider dur=1 满值会画满条, §4.4 显式豁免——滑翔翼无耐久)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mode-kit.test.js:1696:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\mode-kit.test.js:1712:1
+✖ HUD 装备条与装备页第五槽样式照稿 — css/style.css(UI spec §3.4 最小样式 + §4.1 第三行居中) (0.5085ms)
+  AssertionError [ERR_ASSERTION]: .armorbar 应含 position: fixed(UI spec §3.4 最小样式)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mode-kit.test.js:1728:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\paper-doll.test.js:211:1
+✖ 纸娃娃翼: paint 未装备 — 翼 hidden 无残影·相机原构图 z=3.55(UI spec §4.2/§4.3) (5.7196ms)
+  AssertionError [ERR_ASSERTION]: 玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, 与 Avatar 几何零双份)
+      at wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:200:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:216:22)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.start (node:internal/test_runner/test:1003:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\paper-doll.test.js:228:1
+✖ 纸娃娃翼: paint 装备 — 展平静帧(不经意图接口)·相机后移 z≈4.3·lookAt 仍 (0,0.9,0)(UI spec §4.2/§4.3) (1.2968ms)
+  AssertionError [ERR_ASSERTION]: 玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, 与 Avatar 几何零双份)
+      at wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:200:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:233:22)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\paper-doll.test.js:250:1
+✖ 纸娃娃翼: 卸下构图复原 + 同 worn 幂等不重画(§4.3 构图复原/预览按需一帧) (1.2237ms)
+  AssertionError [ERR_ASSERTION]: 玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, 与 Avatar 几何零双份)
+      at wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:200:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:255:18)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

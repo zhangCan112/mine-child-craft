@@ -1,0 +1,398 @@
+TAP version 13
+# Subtest: T-G04 装备位接线: 穿上/卸下/读档对账全路径同步引擎装备位(T-G02 唯一通道)
+not ok 1 - T-G04 装备位接线: 穿上/卸下/读档对账全路径同步引擎装备位(T-G02 唯一通道)
+  ---
+  duration_ms: 674.952
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5589:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    穿上滑翔翼: advTryWear 路径同步装备位 on
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5596:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.start (node:internal/test_runner/test:1003:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17)
+  ...
+# Subtest: T-G04 自动展翼(≥4 格高台跳): setWings(spread)+wing_open+金描边 on+只缓降高度只减不增
+not ok 2 - T-G04 自动展翼(≥4 格高台跳): setWings(spread)+wing_open+金描边 on+只缓降高度只减不增
+  ---
+  duration_ms: 658.5547
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5613:1'
+  failureType: 'testCodeFailure'
+  error: '≥4 格高台跳跃 → 引擎自动展翼(离地>2 规则一元)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5629:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: T-G04 走崖自动展翼(未按跳): 走出悬崖同样展翼 + 平地连跳 10 次零误展(阈值自洽锚)
+not ok 3 - T-G04 走崖自动展翼(未按跳): 走出悬崖同样展翼 + 平地连跳 10 次零误展(阈值自洽锚)
+  ---
+  duration_ms: 650.5031
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5647:1'
+  failureType: 'testCodeFailure'
+  error: '直接走出悬崖(未按跳) → 同样自动展翼(不分起因, 规则一元)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5657:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 落地自动收翼: wing_close+setWings(hidden)+金描边 off, 落地即跑即跳
+not ok 4 - T-G04 落地自动收翼: wing_close+setWings(hidden)+金描边 off, 落地即跑即跳
+  ---
+  duration_ms: 639.324
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5680:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5684:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 水面软着陆: 触水收翼+溅水+入水零伤害(收翼四触发之二)
+not ok 5 - T-G04 水面软着陆: 触水收翼+溅水+入水零伤害(收翼四触发之二)
+  ---
+  duration_ms: 636.4119
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5705:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5709:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 主动取消闩锁三段: 取消收翼+闩锁(高处不重展)→空中再点再展→落地闩锁清恢复自动展
+not ok 6 - T-G04 主动取消闩锁三段: 取消收翼+闩锁(高处不重展)→空中再点再展→落地闩锁清恢复自动展
+  ---
+  duration_ms: 640.4708
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5733:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5737:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 滑翔中卸翼 A6 全语义: 装备页口照常生效+引擎立即收翼+按无翼坠落扣血(有意设计不得修掉)
+not ok 7 - T-G04 滑翔中卸翼 A6 全语义: 装备页口照常生效+引擎立即收翼+按无翼坠落扣血(有意设计不得修掉)
+  ---
+  duration_ms: 645.2794
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5763:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5768:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 全态兜底·未装备零参与: 无翼高坠零滑翔面(无展翼/无金边/无翼音效)
+ok 8 - T-G04 全态兜底·未装备零参与: 无翼高坠零滑翔面(无展翼/无金边/无翼音效)
+  ---
+  duration_ms: 650.274
+  type: 'test'
+  ...
+# Subtest: T-G04 滑翔水平转向跟手: yaw 同源操控(双通道同一移动意图入口, spec §3.4 R1-02)
+not ok 9 - T-G04 滑翔水平转向跟手: yaw 同源操控(双通道同一移动意图入口, spec §3.4 R1-02)
+  ---
+  duration_ms: 643.5089
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5806:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5810:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 金描边与滑翔态严格一致: 展亮收灭零闪烁 + 边沿单次 class 切换(零逐帧重画)
+not ok 10 - T-G04 金描边与滑翔态严格一致: 展亮收灭零闪烁 + 边沿单次 class 切换(零逐帧重画)
+  ---
+  duration_ms: 656.6791
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5825:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5829:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 金描边 CSS 参数(UI spec §3.3 定稿): \#e9b115 + 1.0↔0.55 + 周期 1.6s ease-in-out
+not ok 11 - T-G04 金描边 CSS 参数(UI spec §3.3 定稿): \#e9b115 + 1.0↔0.55 + 周期 1.6s ease-in-out
+  ---
+  duration_ms: 0.4552
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5847:1'
+  failureType: 'testCodeFailure'
+  error: '金描边色 #e9b115(与图标金骨同源)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5849:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 HUD 槽滑翔中抑制: 点第五槽零副作用零话术(不报意图), 落地解锁照常卸下
+not ok 12 - T-G04 HUD 槽滑翔中抑制: 点第五槽零副作用零话术(不报意图), 落地解锁照常卸下
+  ---
+  duration_ms: 640.1476
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5858:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5863:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 滑翔中动作暂停: 挖/攻/吃/放四类无效(不触发不消耗无残留), 落地立即恢复
+not ok 13 - T-G04 滑翔中动作暂停: 挖/攻/吃/放四类无效(不触发不消耗无残留), 落地立即恢复
+  ---
+  duration_ms: 633.0139
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5886:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 滑翔中(手持泥土)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5903:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 按住挖到一半进入滑翔: 展翼沿清蓄力(无半途残留), 滑翔中不续挖
+not ok 14 - T-G04 按住挖到一半进入滑翔: 展翼沿清蓄力(无半途残留), 滑翔中不续挖
+  ---
+  duration_ms: 642.3021
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5946:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 按住挖中起跳进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5963:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 相机路径 B·FOV 微扩: 展翼沿 +6°~8° 0.3s 匀速过渡, 落地收翼恢复原值; 零暗角滤镜震屏
+not ok 15 - T-G04 相机路径 B·FOV 微扩: 展翼沿 +6°~8° 0.3s 匀速过渡, 落地收翼恢复原值; 零暗角滤镜震屏
+  ---
+  duration_ms: 635.376
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:5974:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:5978:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 切模式清场: 滑翔中退出 → 装备位 off+观感复位+引擎滑翔态可收; 重进零误播(收场覆盖清零)
+not ok 16 - T-G04 切模式清场: 滑翔中退出 → 装备位 off+观感复位+引擎滑翔态可收; 重进零误播(收场覆盖清零)
+  ---
+  duration_ms: 638.0048
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:6010:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:6014:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 死亡重生: 滑翔中致死 → 滑翔态清零+装备保留+无翼残影, 重生后零误播
+not ok 17 - T-G04 死亡重生: 滑翔中致死 → 滑翔态清零+装备保留+无翼残影, 重生后零误播
+  ---
+  duration_ms: 644.7506
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:6032:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:6036:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 spec §7 U-01 行已回填: 相机路径结论+理由一句(票面硬性交付, 缺此不做完)
+ok 18 - T-G04 spec §7 U-01 行已回填: 相机路径结论+理由一句(票面硬性交付, 缺此不做完)
+  ---
+  duration_ms: 0.5582
+  type: 'test'
+  ...
+# Subtest: T-G04 体验馆同口径(§3.8): showroom 壳零滑翔面覆写(同一 adventure 内核, 零场景硬编码分支)
+not ok 19 - T-G04 体验馆同口径(§3.8): showroom 壳零滑翔面覆写(同一 adventure 内核, 零场景硬编码分支)
+  ---
+  duration_ms: 2.1507
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\adventure-mode.test.js:6064:1'
+  failureType: 'testCodeFailure'
+  error: '滑翔消费在 adventure 内核(体验馆经同一模式文件同口径开放)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js:6071:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 2
+# fail 17
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 10420.2473

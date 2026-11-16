@@ -41,7 +41,7 @@ function stubBrowser() {
   };
   const HeldItems = {ARMOR_TIER_COLORS: {iron: 0xb8b8b8, gold: 0xf6d33a}};
   const armorOf = (id) => ({tier: (id.indexOf('gold') === 0) ? 'gold' : 'iron'});
-  const EQUIP_SLOTS = ['helmet', 'chestplate', 'leggings', 'boots'];
+  const EQUIP_SLOTS = ['helmet', 'chestplate', 'leggings', 'boots', 'glider'];
   const mkBone = () => ({
     children: [],
     add(c) {
@@ -139,4 +139,40 @@ test('回落: 无 document(Node 冒烟口径)纯色材质建网不炸', () => {
     }
     delete require.cache[armorOverlayPath];
   }
+});
+
+/* ============ 第五槽翼(T-G01, glider-spec §3.3): overlay 零参与=显式分支表外天然跳过 ============ */
+/* 夹具假 EQUIP_SLOTS 对齐生产五槽表后, 以下两条即绿(armor-overlay 只写死四甲分支,
+   glider 无分支)——非红测试, 防回归锚: 防将来有人把分支表改成 EQUIP_SLOTS 循环
+   派生而误画翼(glider-spec 红线 9: 未装备滑翔翼之外, 装备滑翔翼也不得出现在人物身上)。 */
+
+test('只穿翼: 零贴图零网格 — 滑翔翼不进人物 overlay(glider-spec 红线 9)', () => {
+  withBrowserStubs((s, mkArmorOverlay) => {
+    const ov = mkArmorOverlay(s.puppet);
+    ov.apply({helmet: null, chestplate: null, leggings: null, boots: null,
+      glider: {id: 'glider', dur: 1}});
+    assert.strictEqual(s.texLog.length, 0, '穿翼不建任何贴图');
+    for (const b of Object.keys(s.puppet.bones)) {
+      assert.strictEqual(s.puppet.bones[b].children.length, 0, b + ' 骨不挂翼网格');
+    }
+  });
+});
+
+test('全套甲+翼 与 全套甲: 逐骨 children 完全一致(甲翼同穿互不排斥, 翼零干扰甲渲染)', () => {
+  withBrowserStubs((s, mkArmorOverlay) => {
+    const full = {helmet: {id: 'iron_helmet', dur: 1},
+      chestplate: {id: 'iron_chest', dur: 1}, leggings: {id: 'iron_legs', dur: 1},
+      boots: {id: 'iron_boots', dur: 1}};
+    const a = mkArmorOverlay(s.puppet);
+    a.apply(full);
+    const snap = {};
+    for (const b of Object.keys(s.puppet.bones)) snap[b] = s.puppet.bones[b].children.length;
+    a.dispose();
+    const b2 = mkArmorOverlay(s.puppet);
+    b2.apply({...full, glider: {id: 'glider', dur: 1}});
+    for (const k of Object.keys(snap)) {
+      assert.strictEqual(s.puppet.bones[k].children.length, snap[k],
+          k + ' 骨 children 数穿翼前后一致');
+    }
+  });
 });

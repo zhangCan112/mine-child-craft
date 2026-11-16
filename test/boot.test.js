@@ -235,7 +235,7 @@ test('装备 T4 冒烟: setArmor 单穿/全穿/换件/卸空 + update 泵帧不�
     w.chestplate = {id: 'chestplate_netherite', dur: 1184};
     w.leggings = {id: 'leggings_gold', dur: 210};
     w.boots = {id: 'boots_diamond', dur: 858};
-    Avatar.setArmor(w); /* 四槽全穿 */
+    Avatar.setArmor(w); /* 四件盔甲全穿(glider 槽空, 签名五槽) */
     w.helmet = {id: 'helmet_diamond', dur: 726}; /* 换件(同槽异件) */
     Avatar.setArmor(w);
     w.helmet.dur = 3; /* 磨损只变 dur: 同目标幂等, 不重建 */
@@ -263,4 +263,83 @@ test('竞技场 FX 收口: 残留龙息弹/毒云在重开(startBattle→resetBa
   assert.strictEqual(vm.runInContext('breathBalls.length', ctx), 0, '龙息弹账本清空');
   assert.strictEqual(vm.runInContext('clouds.length', ctx), 0, '毒云账本清空');
   assert.strictEqual(vm.runInContext('globalThis.__fxDispose', ctx), 2, '独自材质两份都 dispose(不泄漏 GPU 资源)');
+});
+
+/* ============ T-NPC-10 接线: 镇民链挂载覆盖 + 进镇摆 14 实体 ============ */
+
+/* 备忘③: boot 冒烟覆盖债——js/town-npc.js 与 14 个 look 文件波次一不挂
+   index.html 冒烟探不到, 本票挂载后此债清。本测双面: ①静态面——boot()
+   同款解析清单必须含镇民链文件(漏挂=冒烟静默跳过, 此处红); ②行为面——
+   真实装载序下链上符号在位+look 全注册+注册快照 20 条(挂载序错=调用期
+   解析不到, 此处红)。链序静态断言另守于 test/conventions.test.js 装载序
+   门(hand-view 先例同款分工)。 */
+test('T-NPC-10 挂载覆盖: boot 冒烟扫到镇民链 18 文件 · 链上符号在位 · look 全注册 · 真实装载序下注册快照 20 条', () => {
+  const ctx = boot();
+  const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
+  const srcs = [...html.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g)].map((m) => m[1].replace(/^js\//, ''));
+  const townFiles = ['mob-look/town_a01.js', 'mob-look/town_a02.js', 'mob-look/town_a03.js',
+    'mob-look/town_g01.js', 'mob-look/town_v01.js', 'mob-look/town_v02.js',
+    'mob-look/town_v03.js', 'mob-look/town_v04.js', 'mob-look/town_v05.js',
+    'mob-look/town_v06.js', 'mob-look/town_v07.js', 'mob-look/town_v08.js',
+    'mob-look/town_v09.js', 'mob-look/town_v10.js',
+    'town-interact-core.js', 'town-npc-anchor-core.js', 'town-npc-registry.js',
+    'town-npc.js'];
+  for (const f of townFiles) {
+    assert.ok(srcs.includes(f), 'boot 扫描清单缺 ' + f + '(备忘③: 挂载后冒烟必须覆盖新挂载文件)');
+  }
+  /* 行为面: 装载期 declare 全注册(look 缺一件注册表校验即炸的同源面) */
+  const keys = [...vm.runInContext('MobLookKit.keys()', ctx)];
+  const TOWN_KEYS = ['town_a01', 'town_a02', 'town_a03', 'town_g01', 'town_v01',
+    'town_v02', 'town_v03', 'town_v04', 'town_v05', 'town_v06', 'town_v07',
+    'town_v08', 'town_v09', 'town_v10'];
+  for (const k of TOWN_KEYS) {
+    assert.ok(keys.includes(k), 'look 档案 ' + k + ' 未注册(装载期 declare 缺席)');
+  }
+  for (const sym of ['TOWN_NPC_ANCHORS', 'TOWN_NPCS', 'anchorOf', 'townNpcRegistry',
+    'mkTownNpcPuppet', 'placeTownNpc']) {
+    assert.notStrictEqual(vm.runInContext('typeof ' + sym, ctx), 'undefined',
+        '镇民链符号 ' + sym + ' 未装载(挂载序/漏挂, 真实加载序下必须可达)');
+  }
+  assert.strictEqual(vm.runInContext('townInteractRegistry().length', ctx), 20,
+      '真实装载序下注册快照 20 条(9 既有 + 11 npc, T-NPC-10)');
+});
+
+test('T-NPC-10 进镇摆放 14 实体(状态探针, 不恢复现场): advSetDim(town) 同步摆傀儡 — 快照对账注册表+anchorOf · 镇内幂等不翻倍 · 离镇清场', () => {
+  const ctx = boot();
+  vm.runInContext('switchMode("adventure")', ctx);
+  assert.strictEqual(vm.runInContext('MODES.cur && MODES.cur.id', ctx), 'adventure');
+  vm.runInContext('AdventureMode.adv.advSetDim("town")', ctx);
+  assert.strictEqual(vm.runInContext('AdventureMode.adv.advNetherState().dim', ctx), 'town');
+  /* 观测缝: A.advTownState() 扩 puppets 只读快照(T-SEAM-04 挂点先例扩形;
+     快照=纯标量 {id, look, x, y, z, yaw}, JSON 往返可测, 不含 THREE 对象) */
+  const hasPuppets = vm.runInContext('(() => { const s = AdventureMode.adv.advTownState();' +
+    ' return !!(s && Array.isArray(s.puppets)); })()', ctx);
+  assert.ok(hasPuppets, 'A.advTownState().puppets 挂点透出(T-NPC-10 摆放未接线=红本体)');
+  const st = JSON.parse(vm.runInContext(
+      'JSON.stringify(AdventureMode.adv.advTownState().puppets)', ctx));
+  assert.strictEqual(st.length, 14, '恰 14 实体(10 村民 + G01 + 3 动物, 动物随注册表 category 一并摆放)');
+  /* 逐实体对账: id/look 单源注册表, 坐标=anchorOf 站位 + 站立面 y+1 */
+  const rows = JSON.parse(vm.runInContext(
+      'JSON.stringify(TOWN_NPCS.map((r) => ({id: r.id, key: r.key, anchorId: r.anchorId})))', ctx));
+  const rowById = {};
+  for (const r of rows) rowById[r.id] = r;
+  for (const p of st) {
+    const row = rowById[p.id];
+    assert.ok(row, '摆放实体「' + p.id + '」在注册表(零私生 id)');
+    assert.strictEqual(p.look, row.key, '「' + p.id + '」look=注册表 key(id→key 单源派生)');
+    const w = JSON.parse(vm.runInContext(
+        'JSON.stringify(anchorOf(' + JSON.stringify(row.anchorId) + '))', ctx));
+    assert.deepStrictEqual([p.x, p.y, p.z], [w.x, w.y + 1, w.z],
+        '「' + p.id + '」站位=(' + w.x + ',' + (w.y + 1) + ',' + w.z + ')(anchorOf 派生, 站立面 y+1)');
+    assert.strictEqual(typeof p.yaw, 'number', '「' + p.id + '」yaw 在快照(face→yaw 消费面)');
+  }
+  /* 镇内重复进镇: 幂等不翻倍(dim===advDim 首行守卫同源) */
+  vm.runInContext('AdventureMode.adv.advSetDim("town")', ctx);
+  assert.strictEqual(vm.runInContext('AdventureMode.adv.advTownState().puppets.length', ctx), 14,
+      '镇内重复进镇不重摆不翻倍(幂等)');
+  /* 离镇清场: 出镇后快照回空(下次进场新摆, 与建机/弃机同节拍) */
+  vm.runInContext('AdventureMode.adv.advSetDim("overworld")', ctx);
+  const off = vm.runInContext('(() => { const s = AdventureMode.adv.advTownState();' +
+    ' return Array.isArray(s.puppets) ? s.puppets.length : -1; })()', ctx);
+  assert.strictEqual(off, 0, '离镇清场: puppets 快照回空(弃机半边同款)');
 });
