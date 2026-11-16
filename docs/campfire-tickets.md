@@ -70,12 +70,12 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C2 | 引擎气流：updraft-core+乘流+展翼豁免+遮挡截断+多柱 max | T-C1 | ☑ 已并入（708e9d0 实现 + 90c6193 裁决 + ababee5 评审修复；规格轴 FAIL→修复→复审 PASS） |
 | T-C3 | 熄灭与重燃：水浇转熄灭态+点击重燃+任意态挖掘回收 | T-C1 | ☑ 已并入（红 ac5c253 + 绿 cc3dcb1 + 修复 7bb4123；评审 FAIL→修复→复审 PASS） |
 | T-C4 | 烫伤：玩家节拍+怪物同规则+fireTick 事件缝 | T-C1 | ◐ 进行中（campfire-mech/tc4） |
-| T-C5 | 存档与口径：campfires 档键+重放对账+跨图同烧+体验馆 dev | T-C1, T-C3 | ☐ 待领取 |
+| T-C5 | 存档与口径：campfires 档键+重放对账+跨图同烧+体验馆 dev | T-C1, T-C3 | ◐ 进行中（campfire-mech/tc5） |
 | T-C6 | 性能基准：50 火实测（光 BFS+柱查询+粒子空转） | T-C2 | ☐ 待领取 |
 | T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☑ 已并入（tc7 b8b6efb，合并 693ddac；双轴评审零发现；design-lead 视觉验收过，工件 .scratch/campfire/tc7-review/） |
 | T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档） |
 | T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ☑ 已并入+视觉验收 PASS（39261ce，合并 050be81；双轴评审 PASS + design-lead 基线对比验收 PASS） |
-| T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 进行中（campfire-ui/tc9） |
+| T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 评审中（tc9 fd4a395） |
 | T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☑ 已并入（00c6aa2+34363c4，合并 3df8a5c；双轴评审 PASS；通道面出 T-C10b） |
 | T-C10b | 补丁：放置失败话术通道接线（气泡+TTS） | T-C10, 定稿 v1.6✅ | ◐ 进行中（campfire-ui2/tc10b） |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☐ 待领取 |
@@ -374,7 +374,7 @@ js/modes/adventure.js（advEnvHurt 玩家结算+怪物更新结算）· js/campf
 
 ## T-C5 存档与口径：campfires 档键 + 重放对账 + 跨图同烧 + 体验馆 dev 口径
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1, T-C3（熄灭态零侧账的对账面
+> 标签：`task`｜状态：◐ 进行中（campfire-mech/tc5）｜blocked-by：T-C1, T-C3（熄灭态零侧账的对账面
 > 依赖两态齐备）｜blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
@@ -602,7 +602,7 @@ js/mesh-core.js（pushCampfireBox 取光分支 + 头注）· test/texture-atlas.
 
 ## T-C9 UI C 区：世界特效
 
-> 标签：`task`｜状态：◐ 进行中（campfire-ui/tc9）｜blocked-by：T-C2（气柱存在性）, 设计定稿
+> 标签：`task`｜状态：◐ 评审中（tc9 fd4a395）｜blocked-by：T-C2（气柱存在性）, 设计定稿
 > （**已满足**）｜blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
