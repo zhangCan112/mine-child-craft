@@ -3440,3 +3440,48 @@ test('T11 池解析缝: 命中返共享池引用(零分配) · 未命中 null �
   assert.strictEqual(r.spawn.type, 'stray', '北带主题池出单=流浪者');
   assert.strictEqual(r.spawn.x !== undefined && r.spawn.z !== undefined, true, '出单带环带落点(铺法路径不变)');
 });
+
+/* ---------- 篝火燃尽步进/档账清扫 (campfire T-C1, ADR 0018) ----------
+   纯函数双件(advFurnaceClean 同居先例): 步进只管刻账(整刻入账, 单位=刻,
+   spec §4 拍板案——20tps 累积器在 kit 侧量化, 这里见到的 ticks 已是整数),
+   清扫只管存档形状([[posKey,{left}]], spec §3.8 campfires 档键同形)。
+   台账条目形状 {x,y,z,left}: 与树苗 advSaplings 同款(到期回调要坐标做
+   editBlock 收尾; 存档侧只挑 left——坐标可由 posKey 还原, 不双写)。 */
+
+test('campfire 燃尽步进 advCampfiresStep: 整刻递减 · 到期出清单并删条 · 未到期留队 · 多条互不串', () => {
+  assert.strictEqual(typeof Core.advCampfiresStep, 'function', 'advCampfiresStep 在册(纯函数宿主)');
+  const map = new Map([
+    ['10,20,30', {x: 10, y: 20, z: 30, left: 5}],
+    ['11,20,30', {x: 11, y: 20, z: 30, left: 6000}],
+    ['12,20,30', {x: 12, y: 20, z: 30, left: 1}],
+  ]);
+  const due = Core.advCampfiresStep(map, 1);
+  /* 递减: 全员 −1(整刻入账, 零浮点) */
+  assert.strictEqual(map.get('10,20,30').left, 4, '未到期 −1 留队');
+  assert.strictEqual(map.get('11,20,30').left, 5999, '满时长条目同步 −1');
+  /* 到期: 出清单(带坐标供燃尽收尾)+从台账删条 */
+  assert.strictEqual(due.length, 1, '恰一条到期');
+  assert.deepStrictEqual(due[0], {x: 12, y: 20, z: 30, left: 1}, '到期条目=递减后原对象(坐标在册)');
+  assert.strictEqual(map.has('12,20,30'), false, '到期条目已删(侧账零残留)');
+  /* 一步跨多刻: 大步一次到负也只出一条(整刻语义, 不产生重复回调) */
+  const due2 = Core.advCampfiresStep(map, 100);
+  assert.deepStrictEqual(due2, [{x: 10, y: 20, z: 30, left: -95}], '一步跨百刻: 大步条目出清单');
+  assert.strictEqual(map.get('11,20,30').left, 5899, '其他条目同刻推进互不串');
+  assert.strictEqual(map.size, 1, '台账只剩满时长条目');
+  /* 空台账: 空清单零炸 */
+  assert.deepStrictEqual(Core.advCampfiresStep(new Map(), 5), [], '空台账空清单');
+});
+
+test('campfire 档账清扫 advCampfiresClean: [[posKey,{left}]] 存档形状 · 零/负刻残账不进档 · 空台账空数组', () => {
+  assert.strictEqual(typeof Core.advCampfiresClean, 'function', 'advCampfiresClean 在册(纯函数宿主)');
+  const map = new Map([
+    ['3,14,15', {x: 3, y: 14, z: 15, left: 2999}],
+    ['4,14,15', {x: 4, y: 14, z: 15, left: 0}],   /* 燃尽残账: 不进档(encode 防膨胀) */
+    ['5,14,15', {x: 5, y: 14, z: 15, left: -7}],  /* 负刻残账: 同不进 */
+  ]);
+  const out = Core.advCampfiresClean(map);
+  assert.ok(Array.isArray(out), '返回数组(存档 campfires 字段形状)');
+  assert.deepStrictEqual(out, [['3,14,15', {left: 2999}]],
+      '条目=[posKey,{left}] 二元组: 只挑 left, 坐标不双写(§3.8 档键同形)');
+  assert.deepStrictEqual(Core.advCampfiresClean(new Map()), [], '空台账空数组');
+});

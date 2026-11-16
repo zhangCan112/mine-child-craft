@@ -70,6 +70,8 @@ const api = vm.runInContext(`({
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID, GLIDE,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_BED_FOOT,
+  B_CAMPFIRE: (typeof B_CAMPFIRE !== 'undefined' ? B_CAMPFIRE : null), /* 篝火两态(红测期安全代理, 绿方落 config 行后为真值) */
+  B_CAMPFIRE_OUT: (typeof B_CAMPFIRE_OUT !== 'undefined' ? B_CAMPFIRE_OUT : null),
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
   B_WHEAT_0, B_WHEAT_1, B_WHEAT_2,
   B_SNOW, B_SNOWY_GRASS, B_ICE, B_SANDSTONE, B_DEAD_BUSH, B_ORCHID,
@@ -1475,6 +1477,73 @@ test('T12 树苗生长链: 20s 到期长成树 + 逐块记账 + 重进树还在(
   freshInit(); /* 重进: 确定性重建 + edits 重放 */
   assert.strictEqual(cell(spot.x, 25, spot.z), 5, '重进树还在(不靠计时重演)');
   assert.strictEqual(A.advSaplings.size, 0, '长成的树不再是树苗, 不重挂计时');
+});
+
+/* ---------- 篝火 tracer 行为链(篝火票据 T-C1: 合成→放置即燃→侧账→燃尽消失) ----------
+   合成链(图案/镜像/手位)由 craft-core.test 全套罩住, 本文件从放置起走模式整链:
+   放置即燃(onPlaced→侧账满时长) → update gameplay 块同拍累喂(20tps 量化) →
+   燃尽干净消失(方块 0/无掉落/台账删净/上方依附薄块随级联脱落) → 挖除删账。 */
+
+test('T-C1 tracer 行为链: 放置即燃侧账满 6000 刻 → update 累喂整刻燃尽 → 方块干净消失无掉落台账删净', () => {
+  mem.clear();
+  freshInit();
+  assert.ok(api.ITEMS.campfire, 'ITEMS.campfire 接线(三件漏一即红)');
+  assert.ok(api.B_CAMPFIRE != null, 'B_CAMPFIRE 接线(config 两态行)');
+  assert.ok(A.advCampfires && A.advCampfires.map instanceof Map,
+      'advCampfires kit 实例经 AdventureMode.adv 导出(测试缝, advFurnace 同款)');
+  const spot = findGrassSpot();
+  holdOnly('campfire', 2); /* 合成产出 ×2(图案合成归 craft-core.test 全套) */
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '放置即燃: 燃烧态方块落格(零点燃步骤)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '背包 −1');
+  const entry = A.advCampfires.map.get(spot.x + ',25,' + spot.z);
+  assert.ok(entry, '侧账建条(onPlaced 同缝, 树苗挂表同款)');
+  assert.strictEqual(entry.left, 6000, '侧账=满时长 6000 刻(spec §3.3)');
+  /* update 同拍累喂: 每帧 0.5s=10 刻(20tps 累积器量化), 599 帧后差 1 刻不燃 */
+  for (let i = 0; i < 599; i++) AdventureMode.update(0.5);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '5990 刻: 火还在(整刻边界不提前燃)');
+  assert.strictEqual(A.advCampfires.map.get(spot.x + ',25,' + spot.z).left, 10, '余量 10 刻(整刻零漂)');
+  dropsState.spawned.length = 0;
+  AdventureMode.update(0.5); /* 恰 6000 刻到点 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '燃尽: 方块消失(干净消失, spec §3.4)');
+  assert.ok(calls.some((c) => c[0] === 'edit' && c[1] === spot.x && c[2] === 25 && c[3] === spot.z && c[4] === 0),
+      '燃尽走编辑链收尾(editBlock+记账, 与挖掘同款——掉落除外)');
+  assert.strictEqual(A.advCampfires.map.size, 0, '侧账删净(零残留)');
+  assert.ok(!dropsState.spawned.some((d) => d.id === 'campfire'),
+      '燃尽无掉落(⭐R1-06 PO 拍板: 推荐掉木炭被否)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '背包无新增(消失不回物品)');
+});
+
+test('T-C1 燃尽级联: 篝火上方依附 thin 块随底座脱落(破坏侧既有机制零新增)', () => {
+  mem.clear();
+  freshInit();
+  assert.ok(api.B_CAMPFIRE != null, 'B_CAMPFIRE 接线');
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  /* 布景: 篝火正上方一格火把(直写布景——火把 thin 依附判据进不了篝火顶,
+     此格验收的是「燃尽收尾走级联链」既有机制本身, 布景构造不限放置路径) */
+  api.setBlockRaw(spot.x, 26, spot.z, api.B_TORCH);
+  for (let i = 0; i < 600; i++) AdventureMode.update(0.5); /* 6000 刻烧尽 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '篝火燃尽消失');
+  assert.strictEqual(cell(spot.x, 26, spot.z), 0, '上方依附 thin 块随之脱落(级联照常)');
+});
+
+test('T-C1 挖除删账: 燃尽前挖走篝火 → 方块消失+侧账同步删条+本票无回收掉落(回收归 T-C3)', () => {
+  mem.clear();
+  freshInit();
+  assert.ok(api.B_CAMPFIRE != null, 'B_CAMPFIRE 接线');
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advCampfires.map.size, 1, '前置: 侧账在册');
+  dropsState.spawned.length = 0;
+  /* 破坏 seam 直调(退炉钩同缝先例: 挖掘/TNT 同路, 破坏钩在 advMarkEdit presence Map) */
+  A.advBreakBlock(spot.x, 25, spot.z, api.B_CAMPFIRE, {time: 0, drops: true});
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '挖走: 方块消失');
+  assert.strictEqual(A.advCampfires.map.size, 0, '侧账同步删条(挖除走 advMarkEdit seam)');
+  assert.ok(!dropsState.spawned.some((d) => d.id === 'campfire'),
+      '本票挖掘无回收掉落(两态行不配 drop, 回收链归 T-C3)');
 });
 
 test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + 满血不吃不扣', () => {

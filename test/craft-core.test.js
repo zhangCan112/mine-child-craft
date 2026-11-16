@@ -96,12 +96,12 @@ test('加载: 顶层暴露三张表 + 九宫格纯函数组(FUEL 从 ITEMS 派�
 
 /* ============ 配方表防错网: 以后加配方漏字段/漏注册当场红 ============ */
 
-test('配方全量: 随身 13 + 工作台级 64 共 77 条, id 唯一(基线 76 + 滑翔翼 T-G01 1 条)', () => {
+test('配方全量: 随身 13 + 工作台级 65 共 78 条, id 唯一(基线 76 + 滑翔翼 T-G01 + 篝火 T-C1 各 1 条)', () => {
   const {RECIPES} = loadCraft();
   const ids = RECIPES.map((r) => r.id);
   assert.strictEqual(new Set(ids).size, ids.length, '配方 id 应唯一');
-  assert.strictEqual(RECIPES.length, 77,
-      '全表 77 条(基线 76 + 滑翔翼 1 条 T-G01/glider-spec §3.2, ADR 0015), 实际 ' + RECIPES.length);
+  assert.strictEqual(RECIPES.length, 78,
+      '全表 78 条(基线 76 + 滑翔翼 T-G01 + 篝火 T-C1 各 1 条, campfire-spec §3.2), 实际 ' + RECIPES.length);
   // 随身级(拍板①②: Wiki 点名 4 例 + 迁回 4 条 + 铁粒 + 雪块 T9 + 补链 D1 砂岩/羊毛 + 怪物合成 T1 拆包)
   for (const id of ['planks', 'stick', 'craft_table', 'torch', 'stone_bricks', 'bricks', 'shears',
     'bone_meal', 'iron_nuggets', 'snow', 'sandstone', 'wool', 'iron_ingots']) {
@@ -123,7 +123,8 @@ test('配方全量: 随身 13 + 工作台级 64 共 77 条, id 唯一(基线 76 
     'leggings_leather', 'leggings_chain', 'leggings_iron', 'leggings_gold', 'leggings_diamond', 'leggings_netherite',
     'boots_leather', 'boots_chain', 'boots_iron', 'boots_gold', 'boots_diamond', 'boots_netherite',
     'furnace', 'chest', 'bed', 'lantern', 'golden_apple', 'tnt', 'bow_item', 'bread',
-    'door', 'glass_pane', 'iron_ingot', 'iron_block', 'bag_upgrade', 'netherite_ingot', 'glider'];
+    'door', 'glass_pane', 'iron_ingot', 'iron_block', 'bag_upgrade', 'netherite_ingot', 'glider',
+    'campfire']; /* 篝火(T-C1, campfire-spec §3.2): 台级 3×3 */
   for (const id of tableIds) {
     const r = RECIPES.find((x) => x.id === id);
     assert.ok(r, '工作台级配方 ' + id + ' 应存在');
@@ -1050,4 +1051,88 @@ test('滑翔翼合成执行: canCraft 站点门禁+缺料清单 · gridCraft 端
   assert.strictEqual(h.count(inv2, 'string'), 0, '线 2/2 扣尽');
   assert.strictEqual(h.count(inv2, 'leather'), 0, '皮革 2/2 扣尽');
   assert.strictEqual(h.count(inv2, 'glider'), 1, '背包只剩产物 glider×1');
+});
+
+/* ---------- 篝火配方(campfire 票据 T-C1, spec §3.2 定稿图案): 3×3 台级,
+   材料=棍 3/原木 3/煤或木炭 1(候选数组格子=火把先例), 产 campfire×2 ---------- */
+
+test('篝火摆放: 正摆命中 · 木炭替煤炭命中(候选数组) · 镜像与正摆同形(对称图案) · 倒摆/错料/2×2 不中', () => {
+  const {RECIPES, matchGrid} = loadCraft();
+  const r = RECIPES.find((x) => x.id === 'campfire');
+  assert.ok(r, 'campfire 配方应存在');
+  assert.strictEqual(r.station, 'table', '台级配方(spec §3.2: 3×3 图案)');
+  assert.deepStrictEqual({...r.out}, {item: 'campfire', n: 2}, '产 campfire×2');
+  assert.deepStrictEqual(r.shape.rows,
+      [['stick', ['coal', 'charcoal'], 'stick'], [null, 'stick', null], ['log', 'log', 'log']],
+      '图案=spec §3.2 定稿(棍/煤/棍 + 中棍 + 三原木, 候选数组格子)');
+  /* 正摆(煤炭): 棍 0/2/4 + 煤 1 + 原木 6/7/8 */
+  const top = cellsWith([[0, 'stick'], [1, 'coal'], [2, 'stick'],
+    [4, 'stick'], [6, 'log'], [7, 'log'], [8, 'log']]);
+  assert.strictEqual(matchGrid(top, r), true, '正摆命中(煤炭)');
+  /* 木炭替煤炭(⭐验收: 木炭替煤炭均命中——烧原木得炭, 新手没挖矿也能点火) */
+  assert.strictEqual(matchGrid(cellsWith([[0, 'stick'], [1, 'charcoal'], [2, 'stick'],
+    [4, 'stick'], [6, 'log'], [7, 'log'], [8, 'log']]), r), true, '木炭替煤炭命中');
+  /* 镜像: 图案三行各自左右对称(棍..棍/中棍/三原木), 镜像摆放=正形同构
+     (滑翔翼先例口径: 对称图案镜像重试不误伤) */
+  assert.strictEqual(matchGrid(cellsWith([[2, 'stick'], [1, 'coal'], [0, 'stick'],
+    [4, 'stick'], [8, 'log'], [7, 'log'], [6, 'log']]), r), true, '镜像摆放命中(对称图案)');
+  /* 倒摆(垂直翻转: 三原木行到顶): 图案不同构且镜像重试不救行序 → 不中 */
+  assert.strictEqual(matchGrid(cellsWith([[0, 'log'], [1, 'log'], [2, 'log'],
+    [4, 'stick'], [6, 'stick'], [7, 'coal'], [8, 'stick']]), r), false, '倒摆不中(垂直翻转)');
+  /* 错料: 煤位换棍 → 不中(材料多重集不匹配) */
+  assert.strictEqual(matchGrid(cellsWith([[0, 'stick'], [1, 'stick'], [2, 'stick'],
+    [4, 'stick'], [6, 'log'], [7, 'log'], [8, 'log']]), r), false, '煤位≠棍');
+  /* 图案外多余物 → 不中 */
+  assert.strictEqual(matchGrid(cellsWith([[0, 'stick'], [1, 'coal'], [2, 'stick'],
+    [4, 'stick'], [6, 'log'], [7, 'log'], [8, 'log'], [5, 'stone']]), r), false, '图案外多余物不中');
+  /* 2×2 随身格摆不出(验收第 1 条: 随身 2×2 摆不出; 4 格数组按 2×2 判, 宽 3 放不下) */
+  const four = cellsWith([[0, 'stick'], [1, 'coal'], [2, 'stick'], [4, 'stick']]);
+  assert.strictEqual(matchGrid(four, r), false, '2×2 摆不出(spec §3.2 判据)');
+});
+
+test('篝火合成执行: canCraft 站点门禁+缺料清单 · gridCraft 端到端产 campfire×2 · 材料扣减正确(棍 3/原木 3/煤 1)', () => {
+  const h = loadCraft();
+  const {RECIPES, canCraft, gridCraft, fillGrid} = h;
+  const r = RECIPES.find((x) => x.id === 'campfire');
+  assert.ok(r, 'campfire 配方应存在');
+  /* 材料齐但没走近工作台: station 门禁(table 级) */
+  const mats = invWith(h, [['stick', 3], ['coal', 1], ['log', 3]]);
+  let res = canCraft(mats, r, false);
+  assert.strictEqual(res.ok, false);
+  assert.deepStrictEqual(normMissing(res.missing), [{station: 'table'}], '站点门禁生效');
+  /* 空背包+台可用: 缺料三条齐报(候选条目=any 形态, 火把先例同款) */
+  res = canCraft(h.mkInventory(), r, true);
+  assert.strictEqual(res.ok, false);
+  assert.deepStrictEqual(normMissing(res.missing),
+      [{id: 'stick', need: 3, have: 0}, {any: ['coal', 'charcoal'], need: 1},
+        {id: 'log', need: 3, have: 0}], '缺料清单逐条报(候选合并一条)');
+  /* 端到端: 台级摆入 → campfire×2 入包 */
+  const inv = invWith(h, [['stick', 3], ['coal', 1], ['log', 3]]);
+  const cells = cellsWith([[0, 'stick'], [1, 'coal'], [2, 'stick'],
+    [4, 'stick'], [6, 'log'], [7, 'log'], [8, 'log']]);
+  const out = gridCraft(cells, inv, true);
+  assert.strictEqual(out.ok, true, 'gridCraft ok');
+  assert.deepStrictEqual({...out.out}, {item: 'campfire', n: 2}, '产物 campfire×2');
+  const made = inv.slots.find((s) => s && s.id === 'campfire');
+  assert.ok(made, 'campfire 入包');
+  assert.strictEqual(made.n, 2, '一炉两件(可堆叠消耗品)');
+  assert.strictEqual(made.dur, undefined, '产物无 dur(燃烧账在方块侧)');
+  /* 材料扣减正确(验收第 1 条): 棍 3/原木 3/煤 1 全部扣尽 */
+  assert.strictEqual(h.count(inv, 'stick'), 0, '棍 3/3 扣尽');
+  assert.strictEqual(h.count(inv, 'log'), 0, '原木 3/3 扣尽');
+  assert.strictEqual(h.count(inv, 'coal'), 0, '煤 1/1 扣尽');
+  /* 一键备料端到端(fillGrid 路径, 滑翔翼同款): 候选格备煤, 合成 ok */
+  const inv2 = invWith(h, [['stick', 3], ['coal', 1], ['log', 3]]);
+  const cells2 = new Array(9).fill(null);
+  const f = fillGrid(inv2, r, cells2);
+  assert.deepStrictEqual([...f.missing], [], '一键备料无缺料');
+  assert.strictEqual(gridCraft(cells2, inv2, true).ok, true, '备料后合成 ok');
+});
+
+test('篝火配方公开在册: KIT_HIDDEN_RECIPES(mode-kit)不含 campfire(配方卡常显, 源码扫描=滑翔翼 T-G01 R1 先例)', () => {
+  const mkSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'mode-kit.js'), 'utf8');
+  const m = mkSrc.match(/const KIT_HIDDEN_RECIPES = (\[[^\]]*\]);/);
+  assert.ok(m, 'KIT_HIDDEN_RECIPES 字面量可解析(源码扫描前提)');
+  const hidden = JSON.parse(m[1].replace(/'/g, '"'));
+  assert.strictEqual(hidden.includes('campfire'), false, '公开配方不进隐藏表(spec §3.2: 任务/合成双来路零隐藏)');
 });
