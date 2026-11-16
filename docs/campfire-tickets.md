@@ -67,17 +67,18 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | 票 | 标题 | 依赖（blocked-by） | 状态 |
 |----|------|------|------|
 | T-C1 | tracer 竖切：合成→放置即燃→侧账→燃尽消失 | — | ☑ 已并入（f8b133b 实现 + 5f634b2 评审修，双轴评审 PASS；含票外相邻改动追认：craft-core shapeCost 显示序，评审 S-1） |
-| T-C2 | 引擎气流：updraft-core+乘流+展翼豁免+遮挡截断+多柱 max | T-C1 | ◐ 进行中（feat/campfire） |
+| T-C2 | 引擎气流：updraft-core+乘流+展翼豁免+遮挡截断+多柱 max | T-C1 | ☑ 已并入（708e9d0 实现 + 90c6193 裁决 + ababee5 评审修复；规格轴 FAIL→修复→复审 PASS） |
 | T-C3 | 熄灭与重燃：水浇转熄灭态+点击重燃+任意态挖掘回收 | T-C1 | ◐ 进行中（campfire-mech/tc3） |
 | T-C4 | 烫伤：玩家节拍+怪物同规则+fireTick 事件缝 | T-C1 | ☐ 待领取 |
 | T-C5 | 存档与口径：campfires 档键+重放对账+跨图同烧+体验馆 dev | T-C1, T-C3 | ☐ 待领取 |
 | T-C6 | 性能基准：50 火实测（光 BFS+柱查询+粒子空转） | T-C2 | ☐ 待领取 |
 | T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☑ 已并入（tc7 b8b6efb，合并 693ddac；双轴评审零发现；design-lead 视觉验收过，工件 .scratch/campfire/tc7-review/） |
-| T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ◐ 进行中（campfire-ui2/tc8） |
+| T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ◐ 评审过待并入（campfire-ui2/tc8，双轴 PASS，SPEC-1/STD-1 出补丁票 T-C8b） |
+| T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ☐ 待领取 |
 | T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ☐ 待领取 |
 | T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☐ 待领取 |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☐ 待领取 |
-| T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 全部 | ☐ 待领取 |
+| T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 + T-C8b 全部 | ☐ 待领取 |
 
 状态图例：☐ 待领取 / ◐ 进行中（附分支名）/ ☑ 已并入（附提交序号）。
 「设计定稿✅」= edge「设计定稿落盘」已满足（UI 定稿 v1.1，2026-11-16）。
@@ -87,11 +88,11 @@ blocking edges 图（与 spec §11 草图一致，无漂移）：
 ```
 T-C1 ──┬─→ T-C2 ─┬─→ T-C6
        ├─→ T-C3 ─┴─→ T-C9      设计定稿（已满足）─┬─→ T-C7
-       ├─→ T-C4                                  ├─→ T-C8
+       ├─→ T-C4                                  ├─→ T-C8 ─→ T-C8b
        ├─→ T-C5（另依赖 T-C3）                   ├─→ T-C9（另依赖 T-C2）
        └─→ T-C7/T-C8/T-C10/T-C11 ───────────────┼─→ T-C10
                                                 └─→ T-C11
-全部 ─→ T-C12
+全部（含 T-C8b）─→ T-C12
 ```
 
 ---
@@ -194,7 +195,7 @@ js/modes/adventure.js（gameplay 块挂 tick，advFurnace.tick 同缝）· index
 
 ## T-C2 引擎气流：updraft-core + 乘流 + 展翼豁免 + 遮挡截断 + 多柱 max
 
-> 标签：`task`｜状态：◐ 进行中（feat/campfire）｜blocked-by：T-C1｜blocks：T-C6, T-C9
+> 标签：`task`｜状态：☑ 已并入（ababee5）｜blocked-by：T-C1｜blocks：T-C6, T-C9
 
 **纪律三件**：见解票须知第 5 条。
 
@@ -508,7 +509,7 @@ js/icons.js（ITEM_PIX.campfire）· js/mode-kit.js（mkCraftPanel/kitIconHtml �
 
 ## T-C8 UI B 区：两态贴图入集
 
-> 标签：`task`｜状态：◐ 进行中（campfire-ui2/tc8）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
+> 标签：`task`｜状态：◐ 评审过待并入（tc8 6788aa9，双轴 PASS）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
 > blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
@@ -559,6 +560,42 @@ js/config.js（BLOCKS 两态行消费贴图格）· test/（图集单测）。
   核实更新：config 现用至 80=B_GATE_SIGN、图集现最高 61）；开工时以实现期
   config.js / texture-atlas.js 现状为准，若号段已被并行工作线占用则顺延并回票
   更新 spec §3.4/§7——不改 spec 自行换号即漂移。
+
+---
+
+---
+
+## T-C8b 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释
+
+> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C8, T-C1｜blocks：T-C12
+
+**背景**（评审 SPEC-1 实证 + design-lead 裁定 2026-11-16，裁「修」）：熄灭态美术（UI 定稿 §4.3 灰烬斑/灰烬残带/原木床去受光档）与「认得出熄灭篝火→可重燃」可供性（ADR 0018 浇熄教学因果 + 点击重燃交互）依赖白昼可见；pushCampfireBox 现取自身格光，熄灭态 solid+opaque→mkPolicy 挡光格自身格 sky/block 恒 0→白昼近黑（~10% 亮度，灰烬/原木床不可见）。取自身格对透光格（pushThin/pushBedBox 消费者，非挡光格）正确、对挡光格是语义错配；同构先例=pushGateSign T4 返工（取面朝向邻格光，ADR 0012）。
+
+### 要求
+
+1. **熄灭态（B_CAMPFIRE_OUT）五面取光改=面朝向邻格光**（T4 口径；评审实测熄灭上邻 sky=15 可用）。
+2. **燃烧态（B_CAMPFIRE）取自身格 block=15 自亮——零改动**（光源格 mkPolicy 例外自身格有值，语义正确）。
+3. **STD-1 注释同点修正**：pushCampfireBox 头注改如实表述——「取光语义与 pushThin/pushBedBox 不同构（彼两类透光格自身格有光；本块挡光格自身格恒 0，熄灭态改取面朝向邻格光=ADR 0012 T4 同构）」。
+
+### 不做
+
+燃烧态取光/几何零改动；篝火下方块顶面剔除零改动（design-lead slab 裁定维持现状）；贴图/画笔零改动（T-C8 已落）。
+
+### 验收标准（design-lead 补充判据 + 门禁）
+
+- [ ] 白昼（dayCycleOn 正午）熄灭态：灰烬斑可辨、原木床三档可辨、读作「熄灭的篝火」而非黑团（design-lead 渲染管线两态对比图复核）。
+- [ ] 夜间仍读暗块（UI 定稿 §4.5-2 原判据不回退，既有红测锚不弱化）。
+- [ ] 燃烧态自亮不受影响（夜间焰部仍读发光体；既有顶点光断言不回退）。
+- [ ] `npm test` 全绿 + `npm run lint` 三门零错误。
+
+### 源码挂靠点
+
+js/mesh-core.js（pushCampfireBox 取光分支 + 头注）· test/texture-atlas.test.js（顶点光断言扩展：熄灭态面取邻格光、燃烧态自亮不回退）。
+
+### 施工注记
+
+- ADR 0012（T4 返工=熄灭态取光同构先例）开工必读；SPEC-1 语义链与实测数据见 T-C8 评审记录。
+- 完工并入后由经理线提请 design-lead-campfire 渲染管线两态对比图复核（同 C7/C8 视觉验收通道）。
 
 ---
 
@@ -775,7 +812,7 @@ js/audio-registry.js（SFX_KINDS 两行）· js/campfire-kit.js（放置/重燃/
 
 ## T-C12 收口：GLOSSARY + README 核账 + 验收走查汇总 + 全量回归
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1~T-C11 全部｜blocks：—
+> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1~T-C11 + T-C8b 全部｜blocks：—
 
 **纪律三件**：见解票须知第 5 条。
 
