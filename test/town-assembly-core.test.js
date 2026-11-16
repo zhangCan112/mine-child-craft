@@ -32,6 +32,9 @@
       条目镜像公式逐点全扫(走廊包络 ≤1 阶/南端贴地/北端接山肩/
       两侧壁瀑布不受扰)+裙板合脊独立(z 域不重叠各归各, 主山逐字节
       不变)+非 bands 拼写域抛。
+   ⑪ T2 墙圈派生(spec §3.3 · 方案 §1.2 ground kind town-rim): 按段出
+      fill 恰 48 笔(14 段 13+2 帽 17+32 花 61/62)·花奇偶交替开口跳空·
+      零盐·合法域扩 town-rim。
    装具: vm 载 config + town-map-core + 本件(规划器消费 TOWN_MAP.core 派生
       地表基高与基底范围, 全局名调用期解析——经典脚本同款); 世界层实拼见证
       (place/树/fill 真写世界的格位)归 test/town-mode.test.js T-MAP-03 段。 */
@@ -812,10 +815,16 @@ test('通廊与不可达(op 层): 出生回望走廊零写入 · 空隙带 z29..
     (o.op !== 'fill' && o.op !== 'scrub') ||
     (o.op === 'fill' && (o.y1 !== o.y2 || o.y2 > 27)) ||
     (o.op === 'scrub' && o.top > 27));
+  /* 墙圈翼墙/端头墩豁免(T2, spec §3.3): 防坠功能件立裙板顶上——石砖
+     13、域 x16..143(裙板带)、y25..27(裙板顶 24 上 2 格, 见 town-map-core
+     ⑧b 裁定注); 除此之外域外两缘+其余体块仍零写入 */
+  const isRimWingPier = (o) => o.id === 13 && o.x1 >= 16 && o.x2 <= 143 &&
+      o.y1 >= 25 && o.y2 <= 27;
   assert.ok(giant.every((o) => !overlaps(o, 0, 159, 0, 47, 29, 31) ||
       ([PALETTE_WANT.backdrop.mountain, PALETTE_WANT.backdrop.mountainMoss]
-          .includes(o.id) && o.x1 >= 16 && o.x2 <= 143)),
-  '空隙带 z29..31: 裙板域 x16..143 山体笔合法(PO 亲需①), 域外两缘+其余体块仍零写入');
+          .includes(o.id) && o.x1 >= 16 && o.x2 <= 143) ||
+      isRimWingPier(o)),
+  '空隙带 z29..31: 裙板域 x16..143 山体笔合法(PO 亲需①)+墙圈翼墙/端头墩合法(T2 防坠件), 域外两缘+其余体块仍零写入');
 });
 
 /* ---------- ⑧ 确定性 ---------- */
@@ -946,4 +955,84 @@ test('southCorridor 门控: 非 bands 拼写域抛错(不静默埋假阶梯)', (
   assert.throws(() => probe(ctx,
       'townAssemblyOps([' + JSON.stringify(bad) + '])'),
   /southCorridor 需 bands/, '拼写域错误消息点名字段(id 随报)');
+});
+
+/* ---------- ⑪ T2 墙圈派生(spec §3.3 · 方案 §1.2 ground kind town-rim) ---------- */
+
+/* 段笔键(spec §3.3 segs 域的独立字面量转录): x1,z1..x2,z2#y1-y2 */
+const RIM_FILL_WANT = [
+  '32,128..75,128#24-24', '81,128..127,128#24-24',
+  '31,32..31,128#24-24', '128,32..128,128#24-24',
+  '32,128..75,128#25-26', '81,128..127,128#25-26',
+  '31,32..31,128#25-26', '128,32..128,128#25-26',
+  '31,32..31,33#25-27', '128,32..128,33#25-27',
+  '16,31..30,31#25-26', '129,31..143,31#25-26',
+  '16,29..16,31#25-26', '143,29..143,31#25-26',
+].sort();
+/* 墙头花独立字面量(spec §3.3 逐位转录: ⌊(x+z)/8⌋ 偶 61 奇 62 的手算
+   结果, 非实现公式复算——反同义反复; 相邻簇必异色, 开口段 x80 跳空
+   =清单不含 80,128) */
+const RIM_FLOWER_WANT = [
+  '31,120:61', '31,112:62', '31,104:61', '31,96:62', '31,88:61',
+  '31,80:62', '31,72:61', '31,64:62', '31,56:61', '31,48:62', '31,40:61',
+  '128,120:62', '128,112:61', '128,104:62', '128,96:61', '128,88:62',
+  '128,80:61', '128,72:62', '128,64:61', '128,56:62', '128,48:61', '128,40:62',
+  '40,128:62', '48,128:61', '56,128:62', '64,128:61', '72,128:62',
+  '88,128:62', '96,128:61', '104,128:62', '112,128:61', '120,128:62',
+].sort();
+
+test('town-rim 派生: 按段出 fill 恰 48 笔(14 段 13+2 帽 17+32 花 61/62) · 花奇偶交替开口跳空 · 零盐 · 合法域扩 town-rim', () => {
+  const ctx = loadCore();
+  /* 墙圈域 fill 抽取(谓词在 vm 内现算): 南缘行 z128 ∪ 东西缘列 x31/
+     x128(z32..) ∪ 翼墙墩带 z29..31(立裙板顶上 y≥25)——域谓词不预设
+     y 终值, 逐笔几何由下方 pin 收紧 */
+  const rimFills = JSON.parse(probe(ctx,
+      'JSON.stringify(townAssemblyOps(townBuildSteps()).filter(' +
+      '(o) => o.op === "fill" && ((o.z1 <= 128 && o.z2 >= 128) || ' +
+      '(o.x1 <= 31 && o.x2 >= 31 && o.z2 >= 32) || ' +
+      '(o.x1 <= 128 && o.x2 >= 128 && o.z2 >= 32) || ' +
+      '(o.z1 <= 31 && o.z2 >= 29 && o.y1 >= 25 && o.y2 >= 26))))'));
+  /* 恰 48 笔: 14 段几何笔(13)+柱帽 2 笔(17)+墙头花 32 簇(61/62)——
+     域内零额外笔(多一笔=越域写入, 少一笔=漏段) */
+  assert.strictEqual(rimFills.length, 48,
+      '墙圈域 fill 恰 48 笔(14 段+2 帽+32 花), 实得 ' + rimFills.length);
+  const byId = (id) => rimFills.filter((o) => o.id === id);
+  assert.strictEqual(byId(13).length, 14,
+      '石砖 13 段笔 14(垫层4+墙身4+接头柱2+翼墙2+端头墩2)');
+  assert.strictEqual(byId(17).length, 2, '石英 17 柱帽笔 2');
+  assert.strictEqual(byId(61).length + byId(62).length, 32, '墙头花 32 簇');
+  assert.strictEqual(
+      rimFills.filter((o) => ![13, 17, 61, 62].includes(o.id)).length, 0,
+      '墙圈域 fill 材质 ∈ 13/17/61/62(无杂材)');
+  /* 段笔逐段 pin(帽=单格笔; 花=逐簇单格笔, 奇偶交替无同色相邻可并) */
+  const capKeys = byId(17).map((o) => o.x1 + ',' + o.z1 + '#' + o.y1).sort();
+  assert.deepStrictEqual(capKeys, ['128,128#27', '31,128#27'],
+      '柱帽恰 (31,128)/(128,128) y27');
+  const segKeys = byId(13)
+      .map((o) => o.x1 + ',' + o.z1 + '..' + o.x2 + ',' + o.z2 +
+          '#' + o.y1 + '-' + o.y2).sort();
+  assert.deepStrictEqual(segKeys, RIM_FILL_WANT, '段笔逐段=spec §3.3 segs 域');
+  /* 墙头花逐位 pin(y27 单格; 奇偶字面量=spec 转录) */
+  const flowerKeys = byId(61).concat(byId(62))
+      .filter((o) => o.x1 === o.x2 && o.z1 === o.z2 && o.y1 === 27 && o.y2 === 27)
+      .map((o) => o.x1 + ',' + o.z1 + ':' + o.id).sort();
+  assert.deepStrictEqual(flowerKeys, RIM_FLOWER_WANT,
+      '墙头花 32 簇逐位+花色=spec §3.3(⌊(x+z)/8⌋ 偶61奇62)');
+  assert.ok(rimFills.every((o) => !('salt' in o)), '墙圈笔零盐(确定性纯算术)');
+  /* 合法域枚举扩 town-rim(拼写域 throw 改一处): 未知 kind 仍抛且点名 */
+  assert.throws(() => probe(ctx,
+      'townAssemblyOps([{phase: "ground", id: "x", kind: "orchard"}])'),
+  /plaza\|farm\|farm-rows\|wayshrine\|town-rim/,
+  'ground 合法域枚举已扩 town-rim(拼写域守卫存活)');
+  /* 合成 town-rim 步骤消费不抛, 按 part 逐段出 fill(真布局外最小样本) */
+  const syn = JSON.parse(probe(ctx,
+      'JSON.stringify(townAssemblyOps([{phase: "ground", id: "t-syn", ' +
+      'kind: "town-rim", segs: [{part: "pad", x1: 31, z1: 32, x2: 31, z2: 33, ' +
+      'y1: 24, y2: 24}, {part: "wall", x1: 31, z1: 32, x2: 31, z2: 33, ' +
+      'y1: 25, y2: 26}]}]).filter((o) => o.op === "fill"))'));
+  assert.strictEqual(syn.length, 2, '合成 town-rim 步骤派生 2 笔(合法域扩生效)');
+  assert.deepStrictEqual(
+      syn.map((o) => [o.id, o.x1, o.z1, o.x2, o.z2, o.y1, o.y2]),
+      [[13, 31, 32, 31, 33, 24, 24], [13, 31, 32, 31, 33, 25, 26]],
+      '合成派生按 part 逐段出 fill(pad→wall 各一笔)');
 });

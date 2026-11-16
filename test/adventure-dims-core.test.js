@@ -739,3 +739,105 @@ test('确定性(T-SEAM-05 迁入): 清场重建两遍 worldCells 全量逐格相
   assert.deepStrictEqual(snap1, snapshot(),
       '两次装配 worldCells 全等(零随机零墙钟: 散布走 SceneKit.rand/hashRand 确定性散列)');
 });
+
+/* ============ town 墙圈建场(T2): spec §3.3 世界层实拼见证 ============ */
+
+test('墙圈建场(T2): 垫层/墙身/闭角/接头柱无帽/柱帽/翼墙/端头墩/墙头花逐块实拼 · 体量恰 965 · 开口净空 · 触发线 z132 零块 · 走道畅行', () => {
+  runTownBuild();
+  /* 垫层 pad(y24 单层 13): 墙的地基, 顶与 core 草地同高(纯埋设件,
+     「剖面不悬空」纪律——虚空段墙线无垫层=墙块浮空穿帮) */
+  assert.strictEqual(cell(40, 24, 128), 13, '南垫层 13 @(40,24,128)');
+  assert.strictEqual(cell(120, 24, 128), 13, '南垫层 13 @(120,24,128)');
+  assert.strictEqual(cell(31, 24, 60), 13, '西垫层 13 @(31,24,60)');
+  assert.strictEqual(cell(128, 24, 60), 13, '东垫层 13 @(128,24,60)');
+  assert.strictEqual(cell(31, 24, 128), 13, '西垫层闭南角 13 @(31,24,128)');
+  assert.strictEqual(cell(128, 24, 128), 13, '东垫层闭南角 13 @(128,24,128)');
+  /* 墙身(y25..26 两格 13) + 门楼开口净空(x76..80 归 T1a, 本票零写入;
+     断言取 y25..27=T1a 桥面 y24 合并不翻) */
+  assert.strictEqual(cell(40, 25, 128), 13, '南墙身 13 @(40,25,128)');
+  assert.strictEqual(cell(40, 26, 128), 13, '南墙身 13 @(40,26,128)');
+  assert.strictEqual(cell(31, 25, 60), 13, '西墙身 13 @(31,25,60)');
+  assert.strictEqual(cell(31, 26, 60), 13, '西墙身 13 @(31,26,60)');
+  assert.strictEqual(cell(128, 25, 60), 13, '东墙身 13 @(128,25,60)');
+  assert.strictEqual(cell(31, 25, 128), 13, '西墙身实接南角 13 @(31,25,128)');
+  assert.strictEqual(cell(128, 26, 128), 13, '东墙身实接南角 13 @(128,26,128)');
+  for (let x = 76; x <= 80; x++) {
+    assert.strictEqual(cell(x, 25, 128), 0, '开口段净空 @(' + x + ',25,128)');
+    assert.strictEqual(cell(x, 26, 128), 0, '开口段净空 @(' + x + ',26,128)');
+    assert.strictEqual(cell(x, 27, 128), 0, '开口段净空(花跳空) @(' + x + ',27,128)');
+  }
+  /* 北端接头柱(y25..27 三格无帽——帽顶会成自裙板下跳登脊的踏板) */
+  for (const [px, tag] of [[31, '西'], [128, '东']]) {
+    for (const y of [25, 26, 27]) {
+      assert.strictEqual(cell(px, y, 32), 13,
+          tag + '接头柱 13 @(' + px + ',' + y + ',32)');
+      assert.strictEqual(cell(px, y, 33), 13,
+          tag + '接头柱 13 @(' + px + ',' + y + ',33)');
+    }
+    assert.strictEqual(cell(px, 28, 32), 0,
+        tag + '接头柱无帽 y28 空(3 格故意不加帽)');
+  }
+  /* 南角柱帽(y27 石英 17) */
+  assert.strictEqual(cell(31, 27, 128), 17, '南角柱帽 17 @(31,27,128)');
+  assert.strictEqual(cell(128, 27, 128), 17, '南角柱帽 17 @(128,27,128)');
+  /* 裙板翼墙(z31 行, 立实测裙板顶 24 上 y25..26 两格——spec 坐标列
+     y26..27 的「裙板顶 25」前提在翼列不成立(拱形端点), 裁定注见
+     town-map-core.test ⑧b; 2 格高/防登数学不变) */
+  assert.strictEqual(cell(20, 25, 31), 13, '西翼墙 13 @(20,25,31)');
+  assert.strictEqual(cell(20, 26, 31), 13, '西翼墙 13 @(20,26,31)');
+  assert.strictEqual(cell(20, 27, 31), 0, '西翼墙顶上空 @(20,27,31)');
+  assert.strictEqual(cell(135, 25, 31), 13, '东翼墙 13 @(135,25,31)');
+  assert.strictEqual(cell(135, 26, 31), 13, '东翼墙 13 @(135,26,31)');
+  /* 北缘端头墩(x16/x143 列 z29..31 y25..26, 立裙板顶上 2 格) */
+  assert.strictEqual(cell(16, 25, 30), 13, '西端头墩 13 @(16,25,30)');
+  assert.strictEqual(cell(16, 26, 30), 13, '西端头墩 13 @(16,26,30)');
+  assert.strictEqual(cell(16, 25, 29), 13, '西端头墩 13 @(16,25,29)');
+  assert.strictEqual(cell(143, 25, 31), 13, '东端头墩 13 @(143,25,31)');
+  assert.strictEqual(cell(143, 26, 31), 13, '东端头墩 13 @(143,26,31)');
+  /* 墙头花(y27, 61/62 按 ⌊(x+z)/8⌋ 奇偶固定交替=独立字面量转录,
+     相邻簇必异色; 开口段 x80 跳空) */
+  const wantFlower = (x, z, id, tag) => assert.strictEqual(cell(x, 27, z), id,
+      '墙头花 ' + id + ' @(' + x + ',27,' + z + ')(' + tag + ')');
+  wantFlower(40, 128, 62, '南'); wantFlower(48, 128, 61, '南');
+  wantFlower(56, 128, 62, '南'); wantFlower(64, 128, 61, '南');
+  wantFlower(72, 128, 62, '南'); wantFlower(88, 128, 62, '南');
+  wantFlower(96, 128, 61, '南'); wantFlower(104, 128, 62, '南');
+  wantFlower(112, 128, 61, '南'); wantFlower(120, 128, 62, '南');
+  wantFlower(31, 40, 61, '西'); wantFlower(31, 48, 62, '西');
+  wantFlower(31, 80, 62, '西'); wantFlower(31, 120, 61, '西');
+  wantFlower(128, 40, 62, '东'); wantFlower(128, 48, 61, '东');
+  wantFlower(128, 80, 61, '东'); wantFlower(128, 120, 62, '东');
+  assert.strictEqual(cell(44, 27, 128), 0, '非簇位不布花 @(44,27,128)');
+  /* rim 走道 z29..30 畅行(spec §3.4 登北山零连累): 走道行 y≥26 零 rim
+     落块(铁傀儡 x66..74 预存件与端头墩柱位 x16/x143 豁免) */
+  for (const [wx, wz] of [[17, 30], [35, 29], [60, 30], [61, 29], [80, 30],
+    [100, 29], [124, 30], [142, 29]]) {
+    assert.strictEqual(cell(wx, 26, wz), 0,
+        'rim 走道畅行 @(' + wx + ',26,' + wz + ')');
+  }
+  assert.strictEqual(cell(20, 25, 30), 0,
+      '走道端带 y25 空 @(20,25,30)(新块不落走道)');
+  assert.strictEqual(cell(140, 25, 30), 0, '走道端带 y25 空 @(140,25,30)');
+  /* 北缘不开墙(world 级): core 北界线 z32 行墙高位零块(裙板缓坡
+     =PO 亲需可达线零触碰) */
+  assert.strictEqual(cell(50, 25, 32), 0, '北缘不开墙 @(50,25,32)');
+  assert.strictEqual(cell(80, 26, 32), 0, '北缘不开墙 @(80,26,32)');
+  assert.strictEqual(cell(100, 27, 32), 0, '北缘不开墙 @(100,27,32)');
+  /* 回程触发线内侧零新增(硬红线): z132 及以南全域零块——回程判据
+     行为面零触碰; 开口段是玩家过线通道, 桥面归 T1a */
+  assert.strictEqual(nonAir(0, 159, 0, 47, 132, 159), 0,
+      '触发线 z132 及以南全域零块(回程判据行为面零触碰)');
+  /* 体量核对(spec §4 口径): 分域计非零格恰数——垫层 285+墙身 570+
+     接头柱加高 4+柱帽 2+翼墙 60+端头墩 12+花 32 = 965 */
+  assert.strictEqual(nonAir(32, 127, 24, 27, 128, 128), 283,
+      '南缘行 283(垫层 91+墙身 182+花 10)');
+  assert.strictEqual(nonAir(31, 31, 24, 28, 32, 128), 305,
+      '西缘列 305(垫层 97+墙身 194+花 11+帽 1+接头柱加高 2)');
+  assert.strictEqual(nonAir(128, 128, 24, 28, 32, 128), 305, '东缘列 305(同西)');
+  assert.strictEqual(nonAir(16, 30, 25, 27, 31, 31), 30, '西翼墙 30');
+  assert.strictEqual(nonAir(129, 143, 25, 27, 31, 31), 30, '东翼墙 30');
+  assert.strictEqual(nonAir(16, 16, 25, 27, 29, 31), 6, '西端头墩 6');
+  assert.strictEqual(nonAir(143, 143, 25, 27, 29, 31), 6, '东端头墩 6');
+  assert.strictEqual(283 + 305 + 305 + 30 + 30 + 6 + 6, 965,
+      '墙圈体量恰 965(spec §4 体量表口径)');
+});
