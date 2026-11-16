@@ -5856,27 +5856,32 @@ test('T-NPC-13 c2 夜间进镇摆放同源: dayTime=night 建账 leg=家(79,96) 
   freshInit();
   globalThis.dayTime = 15000; /* night 段进镇前置: 生产 prev 账本建账同读全局——
       「摆放/建账/注入三方同源」断言的前提(缺此行 prev=工作位即假红, 红方测试
-      缺陷随绿相裁决修; finally 统一重置基线) */
-  A.advSetDim('town');
-  const inj = injectScheduleRow('V01', 15000); /* night 段进镇: 直接在家 */
-  assert.ok(inj, '红因=日程面未施工(桥接缺席, 非装具炸)');
-  const {puppet} = inj;
-  assert.deepStrictEqual([puppet.x, puppet.z], [79, 96],
-      '夜间进镇摆放=家航点(「夜间回屋休息」语义, 摆放与账本同源)');
-  assert.strictEqual(puppet.yaw, 0, '家 face north→yaw=0');
-  /* 注入全 13 村民 night 腿(账本域=prev 键域口径, 红方测试缺陷随绿相裁决修):
-     prev 建账在 night 前提下逐行=家位——单键注入会让其余 12 行 undefined→
-     缺省工作位, 对 prev(家)=12 行假跳变; 全键注入才是「三方同源零首拍跳变」 */
-  const nightLegs = {};
-  for (const id of Object.keys(TOWN_SCHEDULE_PLANS)) {
-    nightLegs[id] = TOWN_SCHEDULE_PLANS[id][2].leg; /* night 段=段表 [2] */
+      缺陷随绿相裁决修; try/finally 重置基线, 不依赖下一测自设自清兜底——
+      评审修复①排序解耦) */
+  try {
+    A.advSetDim('town');
+    const inj = injectScheduleRow('V01', 15000); /* night 段进镇: 直接在家 */
+    assert.ok(inj, '红因=日程面未施工(桥接缺席, 非装具炸)');
+    const {puppet} = inj;
+    assert.deepStrictEqual([puppet.x, puppet.z], [79, 96],
+        '夜间进镇摆放=家航点(「夜间回屋休息」语义, 摆放与账本同源)');
+    assert.strictEqual(puppet.yaw, 0, '家 face north→yaw=0');
+    /* 注入全 13 村民 night 腿(账本域=prev 键域口径, 红方测试缺陷随绿相裁决修):
+       prev 建账在 night 前提下逐行=家位——单键注入会让其余 12 行 undefined→
+       缺省工作位, 对 prev(家)=12 行假跳变; 全键注入才是「三方同源零首拍跳变」 */
+    const nightLegs = {};
+    for (const id of Object.keys(TOWN_SCHEDULE_PLANS)) {
+      nightLegs[id] = TOWN_SCHEDULE_PLANS[id][2].leg; /* night 段=段表 [2] */
+    }
+    const r = A.advTownAnchorTick(nightLegs);
+    assert.strictEqual(r.changed, false,
+        '注入 13 村民账本 night leg(=家)零跳变——摆放/建账/注入三方同源, 进镇首拍零重发');
+    assert.deepStrictEqual(r.events, [], '零事件(夜间进镇零扰动)');
+    A.advSetDim('overworld');
+    AdventureMode.cleanup();
+  } finally {
+    globalThis.dayTime = 0; /* 重置回装具基线值(与其他 c2 测 finally 惯例一致) */
   }
-  const r = A.advTownAnchorTick(nightLegs);
-  assert.strictEqual(r.changed, false,
-      '注入 13 村民账本 night leg(=家)零跳变——摆放/建账/注入三方同源, 进镇首拍零重发');
-  assert.deepStrictEqual(r.events, [], '零事件(夜间进镇零扰动)');
-  A.advSetDim('overworld');
-  AdventureMode.cleanup();
 });
 
 test('T-NPC-13 c2 全日端到端(真 update 泵): V01 日程账随全局 dayTime 走一日——dusk 到聚集 · night 到家 · dawn 回工作位 · 恰三次到站', () => {
