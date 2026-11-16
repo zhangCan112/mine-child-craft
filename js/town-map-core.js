@@ -68,6 +68,25 @@ const TOWN_MAP = {
     {id: 'windmill', x: 56, y: 24, z: 47, face: 'north'},
     {id: 'farm', x: 71, y: 24, z: 58, face: 'north'},
     {id: 'market', x: 85, y: 24, z: 75, face: 'east'},
+    /* ---- T-NPC-10 站位锚升格: 14 行 npc: 锚并入布局权威(会师条件 2,
+        「锚点在册性」单源——交互条目 anchorId 必在本表在册)。行值与
+        js/town-npc-anchor-core.js TOWN_NPC_ANCHORS 站位逐行一致(静态锚
+        取首航点, G01 巡逻取 leg0; 双表并存一致性由对账测试锁, 本表只
+        收编不派生坐标); 升格只增不改, 既有七导览锚零漂移。 ---- */
+    {id: 'npc:v01', x: 79, y: 24, z: 94, face: 'south'},
+    {id: 'npc:v02', x: 69, y: 24, z: 57, face: 'north'},
+    {id: 'npc:v03', x: 91, y: 24, z: 85, face: 'west'},
+    {id: 'npc:v04', x: 76, y: 24, z: 69, face: 'north'},
+    {id: 'npc:v05', x: 90, y: 24, z: 68, face: 'south'},
+    {id: 'npc:v06', x: 87, y: 24, z: 76, face: 'east'},
+    {id: 'npc:v07', x: 103, y: 24, z: 79, face: 'west'},
+    {id: 'npc:v08', x: 83, y: 24, z: 76, face: 'east'},
+    {id: 'npc:v09', x: 83, y: 24, z: 59, face: 'north'},
+    {id: 'npc:v10', x: 84, y: 24, z: 86, face: 'south'},
+    {id: 'npc:g01', x: 66, y: 24, z: 66, face: 'east'},
+    {id: 'npc:a01', x: 72, y: 24, z: 60, face: 'south'},
+    {id: 'npc:a02', x: 45, y: 24, z: 76, face: 'north'},
+    {id: 'npc:a03', x: 73, y: 24, z: 92, face: 'south'},
   ],
   /* Prefab 实例清单(§4.2 映射): P0/P1 全入=七新行+under-room 复用
       (cache-cellar); board-pool 按 PO 2026-11-13 裁决推迟不列, mound
@@ -166,6 +185,14 @@ const TOWN_MAP = {
         arch §12.1③, 几何见 prefab-kit iron-golem 行 z 收胸 v3) */
       id: 'iron-golem', x: 70, y: 25, z: 30, v: {},
       face: 'south', zone: 'far-north'},
+    {/* ②镇侧门楼(town-gate, T1a, spec §2.6 候选行逐字): 回程动线南端的
+        对称门楼——牌面朝北迎回家者, 双门呼应(home 东带门楼牌面朝西);
+        锚 (76,24,128)=主路轴线 x76..80 与基座桥北缘 z128 交点, 桥面 y24
+        与 core 草地同层无缝; zone south=南缓冲带服务面(锚 z128 越带注记
+        豁免归守门测试⑤, 越界放行由 beyond.gate-south 白名单承担,
+        ADR-0013); v 素坯空对象, 几何见 prefab-kit town-gate 行 */
+      id: 'town-gate', x: 76, y: 24, z: 128, v: {},
+      face: 'north', zone: 'south'},
   ],
   /* 路网(§4.3): 三条主路 5 宽放射贴广场三缘(北/东/南), 三条支路 3 宽
       通民居门前/田园/储藏角; 均为轴对齐闭域矩形段(厚=窄边跨度),
@@ -302,14 +329,11 @@ const TOWN_MAP = {
     {id: 'signpost-stash', kind: 'signpost', x: 50, y: 24, z: 95},
     {id: 'signpost-east', kind: 'signpost', x: 95, y: 24, z: 89},
     {id: 'signpost-south', kind: 'signpost', x: 82, y: 24, z: 94},
-    {/* TIDEA-06(W-06, ADR-0011 决策 6c 预授权路径激活): 南门回程仪式件
-        ——出镇方向「回家由此去」告示牌, 现成 signpost kind(柱 5+牌 6
-        两笔), 落 (75,126) 坪南 3 格路西侧草地(原案 z130 一带内收保
-        ⊆核心区纪律, 回程触发线 z≥132 之前最后视觉告别件); 灯柱复用
-        既有 lamp-end-south(79,119) 坪芯「门内灯」零新增; 栅栏开间
-        两桩无现成 kind, 契约归 arch 需求清单(波次一蓝图面/波次二落位)。
-        落点过规划脚本全约束(非路/缘石/脚印/坪, npc·锚切比 ≥2) */
-      id: 'signpost-home', kind: 'signpost', x: 75, y: 24, z: 126},
+    /* 沿革(TIDEA-06 退役): signpost-home 已退役不在册——ADR-0011 决策 6c
+        「回程仪式件」预授权路径升格兑现, 门楼(T1a)建成后拆旧件, 三职能
+        (指引告示/门内灯柱/栅栏开间桩)由门楼整体接棒(spec §2.5 吞并裁定,
+        §6 T3 票面); 留档备选(迁 (75,124))未启, 走查触发再议;
+        不落新 ADR(架构 §5) */
     /* ---- 视觉重制 §3 E(v2 显式设计点, 全部过规划脚本全约束过滤:
         13 脚印/6 路+12 curb 外扩线/广场/农田/走廊 x78..80/空隙带/2 坪/
         14 npc 站位切比 ≥2/7 导览锚切比 ≥2/散布互不重格) ---- */

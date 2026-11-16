@@ -5,7 +5,7 @@
    一句话职责: 把 TownMapCore 的建场步骤表规划成一张确定性 op 列表
    (纯计划, 不碰世界), 连同 TOWN_PALETTE 城镇配色映射一起, 藏住全部
    材质拍板与几何派生; 执行器只按 op 词表逐条落地。
-   interface: 全局 TOWN_PALETTE 七段配色映射(prefab 十四行集中注入材质 ·
+   interface: 全局 TOWN_PALETTE 七段配色映射(prefab 十五行集中注入材质 ·
      terrain 基底三层 · ground 铺装 · road 路网 · backdrop 远景 ·
      props 道具 · tree 植被, 值全为 config.js BLOCKS 在册正整数 id) ·
       纯函数 townAssemblyOps(steps) → op 列表(词表封闭 {fill,tree,scrub,
@@ -85,7 +85,13 @@
    ≤1 阶北行接山肩平台, 两侧列整柱拱形=崖壁凹槽防护, 水花列域外
    瀑布零写入保全; 缺字段字节级零变化, 非 bands 拼写域抛错; 合脊
    预扫键 x→(x,z)(scene 6413b00 裙板硬需求): z 域不重叠条目各归各,
-   裙板拱顶不被主山拱高顶穿, 单条目逐字节不变。 */
+   裙板拱顶不被主山拱高顶穿, 单条目逐字节不变。
+   Step H 扩键登记(arch 岗, 2026-11-16; T1a ②镇侧门楼 prefab 路径,
+   spec §2.6 蓝图 brief): prefab +'town-gate' 行(七槽 base/wall/lamp/
+   sign/capital/eave/roofTile=13/13/19/80/17/17/79, 行键与 prefab-kit
+   defaults ids 同形, 几何单源在蓝图 kernel 素坯直排; 门额牌 80=sign
+   槽 T-09 thin 豁免, 贴图朝北渲染接线归 T1b; 落位行归 TOWN_MAP.prefab
+   锚 (76,24,128) zone south)。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
@@ -111,6 +117,12 @@ const TOWN_PALETTE = {
     'board-pool': {board: 5, poolEdge: 17, water: 15, flagPole: 5, flag: 78},
     'iron-golem': {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3,
       body: 17, belt: 12},
+    /* ②镇侧门楼(T1a, spec §2.3): 石砌主体全 13(基座桥/柱/梁/配块同料,
+       与 G1 石面同语言), 壁灯 19 嵌柱, 门额牌 80(sign 槽, T-09 thin
+       豁免=竖版贴图件形制本体), 柱头/檐口 17 石英, 屋面/屋脊 79 陶橙瓦;
+       行键=prefab-kit defaults ids 同形(七槽, pfMerge 键面耦合) */
+    'town-gate': {base: 13, wall: 13, lamp: 19, sign: 80, capital: 17,
+      eave: 17, roofTile: 79},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,

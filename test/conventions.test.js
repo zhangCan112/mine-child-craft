@@ -198,6 +198,39 @@ test('规范: hand-view.js 装载序 held-item → hand-view → avatar(经典�
       'hand-view.js 必须先于 avatar.js 装载(design Interface 装载序)');
 });
 
+/* ---------- 镇民链装载序 (T-NPC-10 接线, 备忘①) ----------
+   链序 kit → town look×14 → interact-core → anchor-core → registry →
+   town-npc.js 编码于 2 份测试装具(registry/town-npc 同名单测装载链)与
+   2 份头注释(registry/town-npc 加载序注), 本票挂 index.html 后按
+   hand-view 先例(:189)把序断言扩到挂载面: 相对序即依赖(经典脚本共享
+   词法环境), 且全链先于两个消费方(壳层 adventure.js 建机/摆放, HUD
+   town-ui.js)。序错不抛错(全调用期解析), boot 冒烟探不到, 只有源文本
+   序断言能抓手滑挪行; 挂载清单覆盖面(漏挂)另守于 test/boot.test.js
+   T-NPC-10 挂载覆盖测(静态+行为双面)。 */
+test('规范: 镇民链装载序 kit → town_*×14 → interact-core → anchor-core → registry → town-npc.js, 全链先于消费方(经典脚本顺序即依赖)', () => {
+  const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const at = (f) => html.indexOf('src="js/' + f + '"');
+  const LOOKS = ['town_a01', 'town_a02', 'town_a03', 'town_g01', 'town_v01',
+    'town_v02', 'town_v03', 'town_v04', 'town_v05', 'town_v06', 'town_v07',
+    'town_v08', 'town_v09', 'town_v10'].map((k) => 'mob-look/' + k + '.js');
+  const CHAIN = ['mob-look-kit.js'].concat(LOOKS, ['town-interact-core.js',
+    'town-npc-anchor-core.js', 'town-npc-registry.js', 'town-npc.js']);
+  for (const f of CHAIN) {
+    assert.ok(at(f) > 0, 'index.html 缺 script: js/' + f + '(T-NPC-10 挂载, 备忘①/③)');
+  }
+  for (let i = 1; i < CHAIN.length; i++) {
+    assert.ok(at(CHAIN[i - 1]) < at(CHAIN[i]),
+        '装载序: ' + CHAIN[i] + ' 必须晚于 ' + CHAIN[i - 1] + '(备忘①链序, 经典脚本顺序即依赖)');
+  }
+  for (const f of ['town-interact-core.js', 'town-npc-anchor-core.js',
+    'town-npc-registry.js', 'town-npc.js']) {
+    assert.ok(at(f) < at('modes/adventure.js'),
+        f + ' 必须先于 js/modes/adventure.js 装载(壳层消费方: 建机 mkTownTargets/摆放 mkTownNpcPuppet)');
+    assert.ok(at(f) < at('town-ui.js'),
+        f + ' 必须先于 js/town-ui.js 装载(HUD 消费方)');
+  }
+});
+
 /* ---------- 假 DOM 装具单一来源(A1, 2026-11-14) ----------
    依据 docs/conventions.md §7.2: test/ 假元素一律 require test/helpers/fake-dom.js
    的 mkEl, 测试文件禁自定义元素工厂。缘起: T-UI-03/04 两度复发——本地副本假 DOM

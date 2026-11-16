@@ -3,7 +3,7 @@
    城镇 NPC 站位锚点纯核心 (TownNpcAnchorCore) — 应用层·纯核心
    ------------------------------------------------------------
    一句话职责: 14 实体(V01~V10/G01/A01~A03)站位与巡逻锚点的唯一权威——
-   一份确定性纯数据航点表外加一个纯取数器, 藏住全部站位坐标拍板; 锚点
+   一份确定性纯数据航点表外加纯取数器与快照比较谓词, 藏住全部站位坐标拍板; 锚点
    只在到站(legIndex 变化)时跳变, 不随移动插值。
    interface: 全局 TOWN_NPC_ANCHORS(14 行纯数据, 每行恰四键 {id, npcId,
       waypoints, note}; id = 'npc:' + npcId 小写, 镜像 task: 先例, 与
@@ -14,6 +14,9 @@
       waypoints[0]; 巡逻锚返 waypoints[归一取模](缺省视作 0, 负数归一
       到末腿); 未知 id 抛拼写域错(消息含该 id 与「未知」, 镜像
       mkTownTargets.focus 口径); 每次返回新对象, 外部改写不反渗数据表。
+      · 纯函数 anchorChanged(prev, next) → boolean(T-NPC-12 重发判定
+      谓词: 快照恰四键 {x,y,z,face} 逐键 !== 比较, 任一异即真; 任一侧
+      非对象保守判真——宁重发不漏发)。
    依赖: 零运行时依赖——本文件不引用任何引擎件/件库符号(纯站位计划;
       站位合法性由测试侧以 TOWN_MAP/PrefabKit.footOf 校验, 对齐与避让
       约束(不压脚印/避散布/避导览锚/巡逻可走/语义窗口)全在测试侧锁死,
@@ -21,7 +24,7 @@
       §3-§4 与 docs/town-villagers-design.md §5; 本表独立成件不并入
       TOWN_MAP.anchors, 升格会师归 T-NPC-10)。
    可测性声明: 零三维渲染库 · 零 DOM · 零墙钟 · 零随机 · 有同名单测
-      (test/town-npc-anchor-core.test.js, 18 test 可执行规格)。
+      (test/town-npc-anchor-core.test.js, 21 test 可执行规格)。
    ============================================================ */
 
 /* ---------- 站位锚点数据表(14 行纯数据): 坐标拍板死在数据表; note 注
@@ -81,4 +84,17 @@ function anchorOf(id, legIndex) {
   const leg = n === 1 ? 0 : (((legIndex || 0) % n) + n) % n;
   const w = row.waypoints[leg];
   return {x: w.x, y: w.y, z: w.z, face: w.face};
+}
+
+/* ---------- 重发判定纯谓词(T-NPC-12, README §3.3 裁决三) ----------
+   快照比较: 航点身份=四键 {x,y,z,face} 逐键 !== 全等, 任一键跳变即真
+   (到站跳变的判定数据基础); 缺键按键级比较(undefined ≠ 有值); 任一侧
+   非对象(缺席/非快照)保守判真——宁重发不漏发, 防脏账本静默吞事件。
+   零时间推进纪律同 ⑮(纯比较无墙钟), 消费与重发节奏归装配层
+   (advTownAnchorTick); 同参取数幂等即零重发的数据基础。 ---------- */
+function anchorChanged(prev, next) {
+  if (typeof prev !== 'object' || prev === null ||
+      typeof next !== 'object' || next === null) return true;
+  return prev.x !== next.x || prev.y !== next.y ||
+      prev.z !== next.z || prev.face !== next.face;
 }

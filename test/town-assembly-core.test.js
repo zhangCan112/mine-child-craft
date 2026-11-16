@@ -72,6 +72,10 @@ const PALETTE_WANT = {
     'board-pool': {board: 5, poolEdge: 17, water: 15, flagPole: 5, flag: 78},
     'iron-golem': {skull: 17, nose: 17, eye: 12, moss: 14, plinth: 3,
       body: 17, belt: 12},
+    /* ②镇侧门楼(T1a): 石砌主体全 13(基座桥/柱/梁/配块同料), 壁灯 19,
+       门额牌 80(sign 槽, T-09 thin 豁免), 柱头/檐口 17, 屋面/屋脊 79 */
+    'town-gate': {base: 13, wall: 13, lamp: 19, sign: 80, capital: 17,
+      eave: 17, roofTile: 79},
   },
   terrain: {deep: 3, filler: 2, surface: 1},
   ground: {plaza: 17, farm: 41, plazaBand: 58, fieldRidge: 58, fieldFence: 5,
@@ -149,7 +153,7 @@ test('源守门: 裸沙盒可装载 — 零依赖纯核心(无引擎全局也解
 
 /* ---------- ② palette 完整性 + T-09 危险基线 ---------- */
 
-test('palette 完整性: 七段结构在册 · prefab 十四行(8 实例行+TIDEA 六行能力行) · 值全为在册方块 id', () => {
+test('palette 完整性: 七段结构在册 · prefab 十五行(8 实例行+TIDEA 六行能力行+②门楼) · 值全为在册方块 id', () => {
   const ctx = loadCore();
   const shape = JSON.parse(probe(ctx, `JSON.stringify((() => {
     const p = TOWN_PALETTE;
@@ -166,14 +170,14 @@ test('palette 完整性: 七段结构在册 · prefab 十四行(8 实例行+TIDE
   assert.deepStrictEqual(shape.rows, ['tower-belfry', 'shop-awning', 'windmill-tower',
     'cottage-gable', 'house-loft', 'stash-hut', 'under-room', 'stall-canopy',
     'scarecrow', 'clothesline', 'woodpile', 'hencoop', 'board-pool',
-    'iron-golem'],
-  'prefab 十四行 = 布局实例行(7 新行+under-room 复用)+TIDEA 六行能力行(波次一五+PO 亲需铁傀儡全身立像; 蓝图已立, 落位归 scene)');
+    'iron-golem', 'town-gate'],
+  'prefab 十五行 = 布局实例行(7 新行+under-room 复用+②镇侧门楼 T1a)+TIDEA 六行能力行(波次一五+PO 亲需铁傀儡全身立像; 蓝图已立, 落位归 scene)');
   assert.ok(shape.allRegistered, '每个值都是 config BLOCKS 在册正整数 id');
   assert.ok(!('canopy' in probe(ctx, 'TOWN_PALETTE.prefab["stall-canopy"]')),
       'stall-canopy 缺 canopy 键: 布幔 theme 映射单源引擎侧 PF_STALL_CANOPY(双源即漂移)');
 });
 
-test('T-09 材质安全基线: 城镇十三行零危险旗标(door/doorTop 门叶+bed* 花坛槽名豁免)+零显式错用 · under-room 只检显式(火把既有语义)', () => {
+test('T-09 材质安全基线: 城镇十四行零危险旗标(door/doorTop 门叶+bed* 花坛+sign 门额牌槽名豁免)+零显式错用 · under-room 只检显式(火把既有语义)', () => {
   const ctx = loadCore();
   const report = JSON.parse(probe(ctx, `JSON.stringify((() => {
     const FLAGS = ${JSON.stringify(DANGER_FLAGS)};
@@ -190,11 +194,14 @@ test('T-09 材质安全基线: 城镇十三行零危险旗标(door/doorTop 门�
              door/doorTop 槽=关态门叶 64/65 豁免 door 旗标; bedGrass/
              bedFlower1/bedFlower2 槽=墙根花坛 40/61/62 薄块点缀, goodsLeaf1/
              goodsLeaf2 槽=摊位 md 中景花叶 61/62(Step D 新槽)豁免 thin/
-             replaceable。槽值仍受 BAD 显式清单管辖, 非槽名门族块/裸草花仍违例 */
+             replaceable; sign 槽=门额牌 80 S2 竖版贴图件(T1a ②门楼,
+             thin 0.15 是形制本体)只豁免 thin。槽值仍受 BAD 显式清单管辖,
+             非槽名门族块/裸草花仍违例 */
           if ((f === 'door' && (slot === 'door' || slot === 'doorTop')) ||
               ((f === 'thin' || f === 'replaceable') &&
                   (slot === 'bedGrass' || slot === 'bedFlower1' || slot === 'bedFlower2' ||
-                   slot === 'goodsLeaf1' || slot === 'goodsLeaf2'))) {
+                   slot === 'goodsLeaf1' || slot === 'goodsLeaf2')) ||
+              (f === 'thin' && slot === 'sign')) {
             continue;
           }
           if (def && def[f]) out.flag.push(row + '.' + slot + '=' + bid + '(' + f + ')');
@@ -290,11 +297,11 @@ test('place 执行见证: 18 实例全落场 — pfMerge 行键×蓝图键面耦
   const ops = JSON.parse(vm.runInContext(
       'JSON.stringify(townAssemblyOps(townBuildSteps()))', eng));
   const places = ops.filter((o) => o.op === 'place');
-  assert.strictEqual(places.length, 18,
-      'place op 18 个(5 建筑+埋室 1+摊位 6+陈设落位 5: scarecrow/clothesline/' +
-      'woodpile/hencoop/board-pool+PO 亲需铁傀儡头 1; windmill-tower 换防 ' +
-      'spinner op 不列——蓝图行=波次一 a73623c, 落位数据=scene eb9175e+尾段' +
-      '翻转, scene §10.4 补丁底稿吸收)');
+  assert.strictEqual(places.length, 19,
+      'place op 19 个(5 建筑+埋室 1+摊位 6+陈设落位 5: scarecrow/clothesline/' +
+      'woodpile/hencoop/board-pool+PO 亲需铁傀儡头 1+②镇侧门楼 1(T1a); ' +
+      'windmill-tower 换防 spinner op 不列——蓝图行=波次一 a73623c, 落位数据=' +
+      'scene eb9175e+尾段翻转, scene §10.4 补丁底稿吸收)');
   /* v2 新键面证据: door/doorTop 与 accent 槽真的并入 place v(注入单源=palette
      行; 行键漂移时此处先红, pfMerge 执行期 throw 兜底) */
   const towerOp = places.find((o) => o.id === 'tower-belfry');

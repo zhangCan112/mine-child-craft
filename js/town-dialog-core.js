@@ -9,7 +9,9 @@
    interface: DIALOG_STATES(冻结九态) · DIALOG_INTENTS(冻结意图词表)
       · DIALOG_TRANSITIONS(冻结转移表, 数组值=多值边) · DIALOG_OPTS
       (冻结参数表 B1-B8+N 系) · TTS_PRIORITIES(冻结五级优先级) ·
-      DIALOG_EVENTS(事件名常量) · mkDialogMachine({emit}) →
+      DIALOG_EVENTS(事件名常量) · ROUTE_BY_KIND(route 分路映射
+      sessionKind→目标态, 映射本体单份在此; T-NPC-11 起随 CJS 导出
+      面双栖可见: 浏览器共享词法/CJS 同源一份) · mkDialogMachine({emit}) →
       {handle, state, snapshot}(非法意图零惩罚拒绝 {changed:false}) ·
       dialogBadgesAfter(before, badge) 纯函数(尾追加, badgesMax 封顶
       丢新不顶替, 入参零突变) · ttsPlanFor(utter, queue, arb) 纯函数
@@ -109,9 +111,11 @@ const DIALOG_TRANSITIONS = Object.freeze({
   complete: Object.freeze({'end': 'idle', 'continue-explore': 'idle'}),
 });
 
-/* ---------- 内部映射(私有, 不导出) ---------- */
+/* ---------- 内部映射(ROUTE_BY_KIND 经 CJS 导出面双栖可见, 其余私有) ---------- */
 /* route 分路: sessionKind→目标态; intent 词(guide=tour/seek=find/
-   help=give, dialog-spec §2.2 矩阵) */
+   help=give, dialog-spec §2.2 矩阵)。ROUTE_BY_KIND 映射本体单份在
+   core(T-NPC-11 起 CJS 导出面可见: 浏览器共享词法环境一直可见,
+   适配层驱动缝的在册判据经此单份消费, 不誊第二份 kind 清单) */
 const ROUTE_BY_KIND = {tour: 'guide', seek: 'seek', help: 'help'};
 const ROUTE_INTENT = {guide: 'tour', seek: 'find', help: 'give'};
 /* 等待玩家选择的态(greet 的等待语义=面板选项, 不在此列) */
@@ -305,10 +309,14 @@ function mkDialogMachine(opts) {
     return p;
   }
 
-  /* 多值边分路: payload.to 显式优先(裁决权移交); route 缺省按
-     sessionKind 映射; next-step 缺省=单步会话本轮完成 */
-  function resolveBranch(type, payload) {
-    if (payload && payload.to) return payload.to;
+  /* 多值边分路: payload.to 显式优先(裁决权移交, 仅限边数组内 outcome);
+     route 缺省按 sessionKind 映射; next-step 缺省=单步会话本轮完成。
+     越边 to(不在边数组内)→null, 调用点零惩罚拒绝: 机器不产生表外态,
+     也不经 close 侧门收会话(§5.3-1/2 运行时半边) */
+  function resolveBranch(type, payload, allowed) {
+    if (payload && payload.to) {
+      return allowed.includes(payload.to) ? payload.to : null;
+    }
     if (type === 'route') return ROUTE_BY_KIND[sessionKind] || 'guide';
     return 'complete';
   }
@@ -323,7 +331,8 @@ function mkDialogMachine(opts) {
       (state === 'idle' || state === 'bubble') ? 'greet' :
       (DIALOG_TRANSITIONS[state] || {})[type];
     if (!to) return {changed: false, events: []}; /* 非法意图零惩罚拒绝 */
-    const next = Array.isArray(to) ? resolveBranch(type, payload) : to;
+    const next = Array.isArray(to) ? resolveBranch(type, payload, to) : to;
+    if (!next) return {changed: false, events: []}; /* 多值边越边 to 零惩罚拒绝 */
     const events = [];
     const fire = (name, p) => {
       events.push({name, payload: p});
@@ -385,7 +394,7 @@ function mkDialogMachine(opts) {
    Node 沙盒经此解析 core; 浏览器经 <script> 走共享词法环境不走此面) ---------- */
 if (typeof module !== 'undefined' && module.exports) {
   module.exports = {DIALOG_STATES, DIALOG_INTENTS, DIALOG_TRANSITIONS,
-    DIALOG_OPTS, TTS_PRIORITIES, DIALOG_EVENTS, mkDialogMachine,
-    dialogBadgesAfter, ttsPlanFor, hudConvergenceFor, dialogViewFor,
-    dialogUtterFor};
+    DIALOG_OPTS, TTS_PRIORITIES, DIALOG_EVENTS, ROUTE_BY_KIND,
+    mkDialogMachine, dialogBadgesAfter, ttsPlanFor, hudConvergenceFor,
+    dialogViewFor, dialogUtterFor};
 }
