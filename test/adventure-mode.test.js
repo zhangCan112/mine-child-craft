@@ -6121,4 +6121,38 @@ test('T-G04 体验馆同口径(§3.8): showroom 壳零滑翔面覆写(同一 adv
   assert.ok(src.indexOf('setGliderEquipped') >= 0, '装备位接线在 adventure 内核(探险/体验馆同缝)');
 });
 
+test('T-G05 inPlace 血尽变体(dev 政策): 原地满血复活零传送/零免疫置位/零背包操作(评审补测·源码切片守门)', () => {
+  /* 追令原意=动态切 inPlace 后注入致死摔落断言原地复活链(对照 R3 的 home
+     变体)。装具事实: advProfile 政策缝是本模块(CJS require)作用域内 let,
+     运行时换装经 showroom 门面的 vm 共享词法(test/showroom-mode.test.js
+     :371-383 专用装具先例)——本文件无动态切换缝且追令纪律禁扩接口面。
+     inPlace 死亡链的行为面(满血+夜怪清场+原地复活)已由 showroom 装具
+     覆盖(:1388); 本块钉死摔落机制不变量的静态等价网(经理已认可): 后人
+     以任何形式(advTeleport 包装/直写免疫旗/触背包)在 inPlace 分支误动,
+     切片即红——「空中复活真摔落被吞无人报警」的回归网眼等效闭合 */
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const mDied = src.indexOf('function advPlayerDied');
+  const mBranch = src.indexOf('if (advProfile.death === \x27inPlace\x27)');
+  assert.ok(mDied > 0 && mBranch > mDied, 'inPlace 分支定位(advPlayerDied 首分支)');
+  const mEnd = src.indexOf('return;', mBranch);
+  assert.ok(mEnd > mBranch && mEnd - mBranch < 600, '分支体窗口(首个 return 前 ≤600 字符, 形状大改须人核)');
+  const body = src.slice(mBranch, mEnd);
+  assert.ok(body.indexOf('advTeleport') < 0,
+      'inPlace 分支零传送包装(原地复活无落位 — 空中复活后真摔落照常结算)');
+  assert.ok(body.indexOf('advLandImmuneNext') < 0,
+      'inPlace 分支零免疫置位(置旗即吞空中复活真摔落, 违票面要求 5「按击飞高度计」)');
+  assert.ok(body.indexOf('advInv') < 0, 'inPlace 分支零背包操作(装备背包全保留, 死亡零惩罚)');
+});
+
+test('T-G05 传送免疫单点收口(静态守门): ModeKit.spawn 调用仅存于 advTeleport 内部(评审补测)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const hit = [...src.matchAll(/ModeKit\.spawn\(/g)];
+  assert.strictEqual(hit.length, 1,
+      'js/modes/adventure.js 内 ModeKit.spawn( 调用恰一处(死亡/回家/睡醒/切界×2/切图/init 七口共享单点)');
+  const tpDef = src.indexOf('function advTeleport');
+  const tpEnd = src.indexOf('\n}', tpDef);
+  assert.ok(tpDef > 0 && tpEnd > tpDef && hit[0].index > tpDef && hit[0].index < tpEnd,
+      '唯一调用位于 advTeleport 函数体内(新增传送口必须经包装挂免疫, 幻影防护链不漏)');
+});
+
 

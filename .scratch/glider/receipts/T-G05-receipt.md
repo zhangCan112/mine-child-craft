@@ -109,3 +109,38 @@ test/conventions.test.js / T-G03 已入库面 / docs/glider-tickets.md（状态�
    三件）。若后续第二消费方需要零话术, 值得给 kit 加显式静音位（归 kit 所有权线, 本票未动）。
 3. **摔落不消耗受击话术 3s 节流窗**（mute 路径副作用, 正面）: 摔后 3 秒内被怪打照说受击话术。
    登记备查非缺陷。
+
+## 8. 评审补测窗口（2026-11-16, 解冻追令落地）
+
+> 评审通过零阻塞项; 经理裁定两条可选补测落防回归网 + 一条注释措辞修正。
+> 中途经历暂停令/摘除令（T-G04 并行施工同文件让位, 本人 hunk 整体还原零残留）,
+> T-G04 合入（4a00290）后树净解冻重落。基线 HEAD=6d54554。
+
+### 三件 ↔ 评审缺口映射
+
+| 件 | 落点 | 堵的回归网眼 |
+|---|---|---|
+| 块 A inPlace 血尽变体 | test 尾追加（T-G04 块后, 零触碰其块） | 后人误在 inPlace 分支置传送/免疫旗 → 空中复活真摔落被吞无人报警 |
+| 块 B 传送单点收口 | 同上 | 新增传送口绕过 advTeleport 直调 ModeKit.spawn → 幻影防护链漏口 |
+| advTeleport 注释修正 | js/modes/adventure.js 仅注释 | 「不吞真实摔落」对空中档位过度声明 → 按实际行为改准确（地面锚定落位不吞; 空中续档首落点落差账随首事件吞免, 漏结一次为已知儿童友好向局限, 引擎面根治登记 §7.1） |
+
+### 块 A 装具事实（经理已认可的等效方案）
+
+追令原意动态切 inPlace（freshInit 后换 profile 注入致死摔落）在本装具不可达:
+advProfile 是 adventure.js（CJS require）模块作用域 let, 运行时换装走 showroom
+门面的 vm 共享词法（test/showroom-mode.test.js:371-383 专用装具先例）, 本文件
+无动态切换缝且纪律禁扩接口面。inPlace 死亡链行为面（满血+夜怪清场+原地复活）
+已由 showroom 装具覆盖（:1388）。等效静态切片守门: inPlace 分支体（首个 return
+前 ≤600 字符窗）零 advTeleport / 零 advLandImmuneNext / 零 advInv——任何形式的
+误置位/误触背包都被切片抓住, 网眼等效闭合。
+
+### 门禁（窗口随令）
+
+- 定向: `node --test --test-name-pattern "T-G05" test/adventure-mode.test.js` →
+  **8 pass / 0 fail**（原 6 + 新 2）
+- `npx eslint test/adventure-mode.test.js js/modes/adventure.js` → 零错误
+- 全量 `npm test`: **tests 2196 / pass 2195 / fail 0 / skipped 1**（exit 0,
+  duration≈176s, T-G05-patch-full-test.log）——与追令预期逐项一致
+  （基线 2194/2193 + 新 2）
+- `npm run lint`: **exit 0 整树零错误**（T-G05-patch-lint.log）
+- 提交哈希: 即本提交自身（自引; 以 git log 为准）

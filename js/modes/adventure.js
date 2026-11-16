@@ -1608,11 +1608,14 @@ function advBreedTick(dt) {
    归引擎口径), 但不重置引擎落差累计器 fallPeakY(写面钉死 voxel.js
    physics)——传送后首物理步的触地跃迁沿会拿残留峰值造幻影 land 事件
    (landFall=残留峰−落点, 大额, 重生即二次蒸发的路径)。免疫旗=消费缝吞
-   传送后首个 land 事件(init 落位后首事件本就是 vel=0 落位伪事件, 不吞
-   真实摔落), 之后真实摔落照常结算; 收口判据=本模式一切 ModeKit.spawn
-   落位皆经本包装(死亡/回家/睡醒/切图切界/init 有档无档同一落位点),
-   唯一例外 inPlace 死亡分支(原地复活无传送, resetFighter 不动位置且
-   摔死帧已贴地无跃迁沿——天然无幻影, 置旗反造误吞窗) */
+   传送后首个 land 事件, 之后真实摔落照常结算: 地面锚定落位的首事件
+   本就是 vel=0 落位伪事件, 不吞真实摔落; 空中续档(init 悬空档位/den
+   快照落点)首落点的落差账随首事件一并吞免, 漏结一次为已知儿童友好向
+   局限(引擎面根治已登记本票回执票外发现)。收口判据=本模式一切
+   ModeKit.spawn 落位皆经本包装(死亡/回家/睡醒/切图切界/init 有档
+   无档同一落位点), 唯一例外 inPlace 死亡分支(原地复活无传送,
+   resetFighter 不动位置且摔死帧已贴地无跃迁沿——天然无幻影,
+   置旗反造误吞窗) */
 let advLandImmuneNext = false;
 function advTeleport(x, y, z, o) {
   ModeKit.spawn(x, y, z, o);
