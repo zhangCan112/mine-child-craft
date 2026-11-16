@@ -68,6 +68,7 @@ const api = vm.runInContext(`({
   SceneKit, PrefabKit,
   groundTop, lightSkyAt, lightBlockAt,
   BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID, GLIDE,
+  CAMPFIRE, /* 篝火参数块(T-C4 烫伤节拍/伤害口径, config 真件) */
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_BED_FOOT,
   B_CAMPFIRE: (typeof B_CAMPFIRE !== 'undefined' ? B_CAMPFIRE : null), /* 篝火两态(红测期安全代理, 绿方落 config 行后为真值) */
@@ -1638,6 +1639,154 @@ test('T-C3 挖掘回收整链: 燃烧态/熄灭态挖走均还篝火×1 — 燃�
   const got2 = dropsState.spawned.filter((d) => d.id === 'campfire');
   assert.strictEqual(got2.length, 1, '熄灭态同款回收(烧剩价值保留)');
   assert.strictEqual(got2[0].n, 1, '熄灭态保底 1');
+});
+
+/* ---------- 篝火 T-C4: 烫伤模式层(玩家结算+怪物同规则, campfire-spec §3.6, ADR 0019) ----------
+   引擎只报事件(spec §6-2: emit 时点在 voxel.test 钉死), 本组只测模式行为面:
+   消费 fireTick → advEnvHurt(CAMPFIRE.burnHp) 原值直扣不经甲(D8, 摔落/岩浆
+   同通道) · 零 TTS 零 toast(安静的环境反馈, 受击音照走既有 hurt 通道) ·
+   血尽走现有零惩罚死亡(不开第二套血尽语义) · 怪物同节拍同伤害(结算归模式层
+   怪物更新, R2-2 防御工事玩法; 烫死零击杀归属, 掉落归 mobs.js onDeath 现有链
+   — 本装具不触发该回调, 模式层零代发即无 spawn 记账) · 事件注入=直写 vm 域
+   worldEvents 真对象(T-G05 同款, 模式层测试不跑引擎物理步); 块首归零防残留。 */
+
+/* T-C4 事件注入: 模拟引擎 fireTick 置位(voxel.js 计息到点同帧语义) */
+function fireEvt() {
+  api.worldEvents.fireTick = true;
+}
+
+test('T-C4 玩家烫伤: fireTick 消费 → 每拍扣 1 血原值直扣 · 消费即清 · 零 TTS 零 toast 受击音照走', () => {
+  mem.clear();
+  freshInit();
+  api.worldEvents.fireTick = false;
+  assert.strictEqual(api.CAMPFIRE.burnTick, 20, '参数锚: 节拍 20 刻=1s(spec §3.9 拍板锚, GLIDE.sink 对账同款)');
+  assert.strictEqual(api.CAMPFIRE.burnHp, 1, '参数锚: 每拍 1 血(spec §3.9 初值, 微调不判变更但须同步本锚)');
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp;
+  fireEvt();
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 1, '一拍扣 1 血(§3.9 初值, 环境伤原值直扣 D8)');
+  assert.strictEqual(A.ADV.player.hp, hp0 - 1, '账本同步(头顶血条重绘依据)');
+  assert.strictEqual(api.worldEvents.fireTick, false, '事件消费即清(T-G05 land 同款契约)');
+  assert.strictEqual(spoken.length, 0, '零 TTS(安静的环境反馈 — 无「好烫」类播报)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hurt'),
+      '受击音照走(既有 hurt 通道, UI 定稿 §8-6 零新增)');
+  assert.ok(!calls.some((c) => c[0] === 'toast'), '零 toast 播报');
+  fireEvt();
+  calls.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2, '两拍两血(站 2.1s 扣 2 的模式面; 节拍边界 emit 在 voxel.test 可证)');
+  AdventureMode.cleanup();
+});
+
+test('T-C4 全身钻甲不折减: 环境伤原值直扣不经甲(D8) — 四件钻甲在身穿戴仍扣满 1 血', () => {
+  mem.clear(); /* 测试隔离(armor 键跨测试泄漏防法, 装备 T9 同款手法) */
+  freshInit();
+  api.worldEvents.fireTick = false;
+  const inv = A.advGetInv();
+  inv.slots[5] = api.mkStack('helmet_diamond');
+  inv.slots[6] = api.mkStack('chestplate_diamond');
+  inv.slots[7] = api.mkStack('leggings_diamond');
+  inv.slots[8] = api.mkStack('boots_diamond');
+  for (let s = 5; s <= 8; s++) A.advTryWearSlot(s); /* 免选中指定槽穿上(装备页同链) */
+  const w = A.advWornState();
+  assert.ok(w.helmet && w.chestplate && w.leggings && w.boots,
+      '前置: 四件钻甲全在身(armor pts 3+8+6+3>0, 折减通道若被误走必可见)');
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp;
+  fireEvt();
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 1, '钻甲不折减: 仍扣满 1 血(环境伤不经 advArmorFold 折算漏斗)');
+  assert.strictEqual(api.worldEvents.fireTick, false, '消费即清');
+  /* 尾部卫生: 脱甲回包再落盘, 防四件钻甲顺存档泄入后续测试(armor 键持久化,
+     装备 T9 注同款顾虑); 再清 mem 双保险 */
+  A.advWornTakeOff('helmet');
+  A.advWornTakeOff('chestplate');
+  A.advWornTakeOff('leggings');
+  A.advWornTakeOff('boots');
+  AdventureMode.cleanup();
+  mem.clear();
+});
+
+test('T-C4 烫至血尽: 走现有零惩罚死亡流程 — 重生满血+背包全保留(不开第二套血尽语义)', () => {
+  mem.clear();
+  freshInit();
+  api.worldEvents.fireTick = false;
+  const inv = A.advGetInv();
+  inv.slots[3] = api.mkStack('leather'); /* 塞一件物品看守背包(死亡零惩罚) */
+  const before = api.serialize(inv);
+  const pe = A.advGetPEnt();
+  pe.hp = 1;
+  A.ADV.player.hp = 1; /* 濒死直驱(账本与实体同源口径) */
+  const births = calls.filter((c) => c[0] === 'spawn').length; /* init 落位那记(基线) */
+  fireEvt();
+  AdventureMode.update(1 / 60);
+  assert.ok(calls.filter((c) => c[0] === 'spawn').length > births,
+      '血尽走 advPlayerDied(重生落位, 现有流程 — 与 init 落位区分的增量记账)');
+  assert.strictEqual(pe.hp, pe.maxHp, '重生满血(零惩罚语义不回归)');
+  assert.deepStrictEqual(api.serialize(A.advGetInv()), before, '装备背包全保留(死亡零惩罚)');
+  assert.strictEqual(api.worldEvents.fireTick, false, '致死事件照常消费即清');
+  AdventureMode.cleanup();
+});
+
+test('T-C4 怪物同规则: 踩燃烧篝火 0.9s 零拍 · 续站至 2.1s 恰两拍(零击退零归属参数) · 离火清零再踩从零起拍', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '前置: 燃烧态在册(T-C3 同链放置)');
+  globalThis.yaw = 0;
+  globalThis.pos.x = 100; globalThis.pos.y = 25; globalThis.pos.z = 100; /* 玩家停远(距 spot≥70>索敌圈): 怪不索敌不移动 */
+  const mob = mkAdvMob('zombie', spot.x + 0.5, 26, spot.z + 0.5,
+      {__nightHome: {x: spot.x + 0.5, z: spot.z + 0.5}, attackCd: 99}); /* 家锚=脚下(distHome=0)站桩(索敌测试同款) */
+  listResult = [mob];
+  nextHit = {hp: 29, dead: false, freshDead: false}; /* 非致命脚本 */
+  for (let i = 0; i < 54; i++) AdventureMode.update(1 / 60); /* 0.9s */
+  assert.ok(!moveLog.some((e) => e.m === mob), '前置: 怪站桩不动(超圈不索敌, 火上位置不漂移)');
+  assert.strictEqual(hitLog.filter((h) => h.m === mob).length, 0,
+      '0.9s 零拍(接触不满节拍不烫, ADR 0019 — 与玩家同门)');
+  for (let i = 0; i < 72; i++) AdventureMode.update(1 / 60); /* 续站至 2.1s */
+  const beats = hitLog.filter((h) => h.m === mob);
+  assert.strictEqual(beats.length, 2, '2.1s 恰两拍(每满 1s 一拍, 怪物与玩家同节拍 R2-2)');
+  assert.ok(beats.every((h) => h.dmg === 1 && h.kdx === 0 && h.kdz === 0 && h.kpow === 0),
+      '每拍 dmg=1(§3.9 burnHp 初值)+零击退零归属(Mobs.hit 后三参全零)');
+  mob.pos.x = spot.x + 2.5; /* 挪离火格(支撑格非燃烧篝火) */
+  for (let i = 0; i < 54; i++) AdventureMode.update(1 / 60); /* 离火 0.9s */
+  assert.strictEqual(hitLog.filter((h) => h.m === mob).length, 2,
+      '离火段零事件(离火即刻清零, 计数冻结在 2)');
+  mob.pos.x = spot.x + 0.5; /* 再踩回火顶 */
+  for (let i = 0; i < 66; i++) AdventureMode.update(1 / 60); /* 1.1s */
+  assert.strictEqual(hitLog.filter((h) => h.m === mob).length, 3,
+      '再踩 1.1s 恰第三拍(从零起拍; 残留 0.9+1.1 会伪两拍共 4 记)');
+  listResult = [];
+  AdventureMode.cleanup();
+});
+
+test('T-C4 怪物烫死: 血尽走 Mobs.hit 现有死亡返回 — 零击杀记账(killCount 不动/无击杀 toast) · 死后零参与', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  globalThis.yaw = 0;
+  globalThis.pos.x = 100; globalThis.pos.y = 25; globalThis.pos.z = 100;
+  const mob = mkAdvMob('zombie', spot.x + 0.5, 26, spot.z + 0.5,
+      {__nightHome: {x: spot.x + 0.5, z: spot.z + 0.5}, attackCd: 99});
+  listResult = [mob];
+  nextHit = {hp: 0, dead: true, freshDead: true}; /* 致死脚本: 首拍到点即死 */
+  for (let i = 0; i < 66; i++) AdventureMode.update(1 / 60); /* 1.1s: 首拍结到即死 */
+  assert.strictEqual(hitLog.filter((h) => h.m === mob).length, 1,
+      '前置: 烫死一拍结到(结算走 Mobs.hit 现有死亡返回, 掉落归 mobs.js onDeath 现有链)');
+  assert.strictEqual(A.ADV.killCount, 0, '零击杀记账(环境烫死无归属, 不走 advOnKill)');
+  assert.ok(!calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('击杀') >= 0),
+      '无击杀 toast(零归属特判 R2-2)');
+  hitLog.length = 0;
+  for (let i = 0; i < 72; i++) AdventureMode.update(1 / 60); /* 死后仍站火上 1.2s */
+  assert.strictEqual(hitLog.filter((h) => h.m === mob).length, 0,
+      '死后零参与(尸体不再结算烫伤)');
+  listResult = [];
+  AdventureMode.cleanup();
 });
 
 test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + 满血不吃不扣', () => {

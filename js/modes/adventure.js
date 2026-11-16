@@ -1368,6 +1368,33 @@ function advCreepBoom(m, p) {
 /* 受击提醒已收 CombatKit.mkHurtAlarm(C6-T3, advHurt 实例 — nether 全套同源):
    账本同步 + 受击音 + 闪红 + 震屏 + 语音 3s 节流 */
 
+/* ---------- 怪物烫伤节拍结算 (篝火票据 T-C4, campfire-spec §3.6, ADR 0019/R2-2) ----------
+   「怪物也怕火」防御工事玩法: 怪物支撑格=燃烧态篝火→与玩家同节拍同伤害。
+   判据/步进=adventure-core 纯件(与引擎计息器同一语义单源); 逐帧脚格采样
+   (advTempleTrapTick 同款 floor(y−0.05)), per-mob __fireAcc 挂 mob 体
+   (__nightHome 同款), 离火即刻清零(再踩从零起拍)。结算归模式层怪物更新
+   (引擎只报事件): 到拍 Mobs.hit 后三参全零=零击退零归属; freshDead 不走
+   advOnKill——killCount/任务分账/toast 均属击杀归属, 环境烫死零特判, 掉落
+   归 mobs.js onDeath 现有链; 死亡回执镜像 m.dead(真库 hitState 已置位,
+   幂等重申, 窄面桩不回写时由此冻结参与)。维度无关不门禁(nether/副本同烫),
+   怪物不主动避火=本期零 AI(门口烧火=防御工事玩法成立)。 */
+function advMobFireTick(dt) {
+  for (const m of Mobs.list()) {
+    if (m.dead || m.gone) continue; /* 尸体/已回收零参与 */
+    const under = getBlock(Math.floor(m.pos.x), Math.floor(m.pos.y - 0.05), Math.floor(m.pos.z));
+    if (!advCampfireBurnHit(under)) {
+      m.__fireAcc = 0; /* 离火即刻清零 */
+      continue;
+    }
+    const r = advCampfireBurnStep(m.__fireAcc || 0, dt, CAMPFIRE.burnTick);
+    m.__fireAcc = r.acc;
+    for (let i = 0; i < r.fires; i++) {
+      const hr = Mobs.hit(m, CAMPFIRE.burnHp, 0, 0, 0); /* 零击退零归属参数(拍板④口径) */
+      if (hr && hr.dead) m.dead = true; /* 尸体不再参与(见段注释) */
+    }
+  }
+}
+
 /* 怪物 AI(nether 同款骨架 + 巢穴收敛): 索敌=玩家且同巢; 超收队半径掉头回巢;
    近战逼近→贴身打, 骷髅(ranged)保持 7 格巡航放箭(leadAim 预测弹道) */
 function advMobAI(dt) {
@@ -5395,6 +5422,15 @@ const AdventureMode = mkMode({
       worldEvents.lavaTick = false;
       advEnvHurt(FLUID.lavaDps, '好烫！快离开岩浆！');
     }
+    /* 篝火烫伤(篝火 T-C4, campfire-spec §3.6/§3.9): 引擎计息到点的事件在此
+       结算 HP——环境伤 advEnvHurt 原值直扣不经甲(与摔落/岩浆同通道, D8),
+       mute=零 TTS 路径(ADR 0014 零新增播报, 受击观感三件照走既有 hurt 通道);
+       血尽走 advPlayerDied 现有零惩罚死亡流程(不开第二套血尽语义) */
+    if (worldEvents.fireTick) {
+      worldEvents.fireTick = false;
+      advEnvHurt(CAMPFIRE.burnHp, null, {mute: true});
+    }
+    advMobFireTick(dt); /* 怪物同规则(R2-2): 每帧脚格采样计息, 与玩家同节拍同伤害 */
     /* 无翼摔落伤害(T-G05, ADR 0014 对零惩罚哲学的显式例外): 消费引擎 land
        事件(触地跃迁沿, 与流体环境伤同位先例) → 伤害=max(0, floor(landFall)
        −GLIDE.safeFall)×GLIDE.fallHp 经 advEnvHurt 原值直扣(环境伤漏斗, 血尽

@@ -230,6 +230,8 @@ let prevSpace = false; // Space 上一帧快照(physics 内部边沿检测: 按�
    与接触计息器——模式层只读 playerAirS/消费 worldEvents 事件, 不直写 */
 let playerAirS = 15; // 满值在 physics 首帧经 FLUID.airMaxS 校准(config 加载序在前)
 let drownAcc = 0; let lavaAcc = 0; let prevBodyFluid = null;
+let fireAcc = 0; /* 篝火烫伤计息器(篝火 T-C4, campfire-spec §3.6): 引擎内累积器,
+   离火即刻清零——结算面在帧尾支撑格采样段(下方), HP 归模式层 */
 /* 飞行态意图入口: 模式/组合根切换飞行一律经此, 禁止裸写 flyMode(白名单
    见本段头注释)。语义: 切换时清垂直速度 — 关飞行瞬间不被残留升/坠速
    拖着走(照 build.js F 键开关的既有语义), 复位场景 vel.y 本就近 0,
@@ -508,6 +510,29 @@ function physics(dt) {
       }
     }
   }
+  /* 篝火烫伤计息(篝火 T-C4, campfire-spec §3.6/§6-2, ADR 0019): 引擎只报事件
+     不知 HP。判据=onGround 且支撑格(脚下整格——可站立前提=T-C1 solid:true,
+     thin 不参与物理, 站立面=整格贴齐)方块带 config campfire:'lit' 旗标(§6-6
+     只读旗标, 与模式层判据同一单源)。进账满 CAMPFIRE.burnTick(20tps 计划刻,
+     秒换算 burnTick/20, campfire-kit CF_STEP_S 同款口径)置位 worldEvents.fireTick,
+     余量回累积器; 任何非接触帧即刻清零(浇熄/燃尽/挖走/跳离同门)——滞空在火
+     上方也算离火, 踩火起跳接触不满节拍天然豁免, 不设起飞特判/无敌帧(ADR 0019
+     有意设计, 不得当 bug 修掉)。放帧尾: onGround 由本帧移动结算写出, 计息读
+     最终接触事实(走离火格的当帧即清, 不欠一帧账) */
+  let onFire = false;
+  if (onGround) {
+    const supB = BLOCKS[getBlock(Math.floor(pos.x), Math.floor(pos.y - 1e-4), Math.floor(pos.z))];
+    onFire = !!(supB && supB.campfire === 'lit');
+  }
+  if (onFire) {
+    fireAcc += dt;
+    if (fireAcc >= CAMPFIRE.burnTick / 20) {
+      fireAcc -= CAMPFIRE.burnTick / 20;
+      worldEvents.fireTick = true;
+    }
+  } else {
+    fireAcc = 0;
+  }
   /* 落差累计器(spec §3.5 钉定义): 贴地/滑翔中/身处流体 → 峰值锚定当前高度;
      无翼腾空 → 取最高(下落段峰值)。展翼重置在展翼分支、入水清零在触流体分支、
      land 事件读数在其置位点 — 均先于本行, 读到的是重置前的正确峰值 */
@@ -517,9 +542,10 @@ function physics(dt) {
   prevSpace = !!keys['Space']; // Space 帧尾快照: 下帧滑翔取消/解闩边沿检测的基准
 }
 const worldEvents = {voidFall: false, drownTick: false, lavaTick: false, splash: false,
-  land: false, landFall: 0, landGliding: false};
+  land: false, landFall: 0, landGliding: false, fireTick: false};
 // 引擎→应用 的单向事件通道(分层规则见 GLOSSARY.md): voidFall 坠出世界 ·
 // drownTick/lavaTick 溺水与岩浆接触的计息到点(HP 结算在模式层, liquid D9) ·
+// fireTick 篝火烫伤计息到点(篝火 T-C4, 每满 1s 一拍, HP 结算在模式层) ·
 // splash 高速入水/滑翔触水软着陆(音效分发在主循环) · land 触地跃迁沿(T-G02):
 // landFall=本次落差格数, landGliding=触地时滑翔态; 消费方读完置回 false
 
