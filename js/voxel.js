@@ -400,7 +400,7 @@ function physics(dt) {
     } else lavaAcc = 0;
     /* splash 判据用帧首速度 vyStart(入水瞬间速度): 游泳物理本帧已把 vel.y 钳到
        缓沉值, 事后读恒过不了 −4 门(高速入水永不触发的既有缺陷, T-G02 修正);
-       滑翔触水缓降(−3.0)同样过不了高速门, 按 spec §3.4「收翼+溅水+入水转游泳」
+       滑翔触水缓降(−1.5, T-G07 调参后; 初值 −3.0 同理)同样过不了高速门, 按 spec §3.4「收翼+溅水+入水转游泳」
        经 glidedIntoFluid 显式置位 */
     if (bodyF && bodyF !== prevBodyFluid && (vyStart < -4 || glidedIntoFluid)) worldEvents.splash = true;
     prevBodyFluid = bodyF;
