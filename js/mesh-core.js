@@ -207,16 +207,27 @@ const MeshCore = (() => {
   }
 
   /* 门额牌专用小盒(东带 v2 野心版 S2, 火把 pushTorch/床 pushBedBox 双先例拼合):
-     竖版薄板 x∈[x, x+thin](贴格西缘, thin=0.15) · y/z 满格[0,1]——西面(f=0,
-     法线 -x)=镇徽图案面, UV 满幅采样 ae.side(标准盒面映射: 面顶点 v 高端对
-     贴图 y=0 行, 塔尖朝上, 与立方体通道同换算); 其余五面木底(f1/f4/f5=ae.back
+     薄板轴向二选一(wallAlongX 由调用点现算传入, 零存储):
+     缺省(东西邻空, 恒等既有几何): 薄 x——x∈[x, x+thin](贴格西缘, thin=0.15)
+     ·y/z 满格[0,1], 图案面朝西; 墙沿 x(东西邻实心): 薄 z——z∈[z, z+thin](贴格
+     北缘)·x/y 满格, 图案面朝北(faceUV 北面 u=1-x 保从北看不镜像)。
+     图案位=faceTile 里 ae.side 所在朝向位(缺省 f0 西面, 墙沿 x 仅挪到 f4 北面,
+     back/bottom/top 各归其位), UV 满幅采样(标准盒面映射: 面顶点 v 高端对
+     贴图 y=0 行, 塔尖朝上, 与立方体通道同换算); 其余五面木底(f1/f5=ae.back
      ·f3=ae.top·f2=ae.bottom, layout 的 back 分面字段仅供本路径读)。顶点光取
      面朝向邻格(pushPane 同口径, T4 返工: 牌格 solid 挡光, 自身格 sky/block
      双通道恒 0, 取自身格=全黑牌); 无邻接面剔除(薄板悬空六面全绘)。
      底面剔除: 脚下格 solid 邻(BLOCKS[nid].solid !== false, torch cullDown
-     同判据)时 f=2 不绘——门额语境牌贴横梁顶面, 不剔会 z-fight。 */
-  function pushGateSign(t, x, y, z, lx, lz, thin, ae, atlas, lget, lsky, lblk, cullDown) {
-    const faceTile = [ae.side, ae.back, ae.bottom, ae.top, ae.back, ae.back]; /* FACES 序 0:-x..5:+z */
+     同判据)时 f=2 不绘——牌贴横梁顶面形态, 不剔会 z-fight。 */
+  function pushGateSign(t, x, y, z, lx, lz, thin, ae, atlas, lget, lsky, lblk, cullDown,
+      wallAlongX) {
+    /* 图案位随轴向: 墙沿 x → 仅 side 从 f0(西)挪 f4(北), 其余面各归其位 */
+    const faceTile = wallAlongX ?
+      [ae.back, ae.back, ae.bottom, ae.top, ae.side, ae.back] :
+      [ae.side, ae.back, ae.bottom, ae.top, ae.back, ae.back]; /* FACES 序 0:-x..5:+z */
+    /* 薄轴换算: 缺省薄 x; 墙沿 x → 薄 z(满轴乘 1 与既有恒等分支逐字节同值) */
+    const sx = wallAlongX ? 1 : thin;
+    const sz = wallAlongX ? thin : 1;
     for (let f=0; f<6; f++) {
       if (f === 2 && cullDown) continue;
       const face = FACES[f];
@@ -228,7 +239,7 @@ const MeshCore = (() => {
       const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
       for (let c=0; c<4; c++) {
         const cor = face.corners[c];
-        t.positions.push(x + cor[0]*thin, y + cor[1], z + cor[2]);
+        t.positions.push(x + cor[0]*sx, y + cor[1], z + cor[2]*sz);
         t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
         const uv = faceUV(face.dir, cor);
         t.uvs.push((tc + uv[0]) / atlas.cols, (atlas.rows - 1 - tr + uv[1]) / atlas.rows);
@@ -465,12 +476,18 @@ const MeshCore = (() => {
                     lsky(lx, y, lz)/15, lblk(lx, y, lz)/15, lean, onBase);
                 continue;
               }
-              if (b.gateSign) { // 门额牌(gateSign 旗标): 竖板专用小盒(东带 v2 S2)
-                /* 底面剔除判据=torch cullDown 同款: 脚下 solid 邻(门额语境=横梁,
+              if (b.gateSign) { // 门额牌(gateSign 旗标): 薄板小盒(轴向泛化, 火把 lean 现算同构)
+                /* 底面剔除判据=torch cullDown 同款: 脚下 solid 邻(牌贴横梁形态,
                    贴实剔除防 z-fight); 悬空则底面照绘 */
                 const nid = lget(lx, y - 1, lz);
                 const onBase = !!(nid !== 0 && BLOCKS[nid] && BLOCKS[nid].solid !== false);
-                pushGateSign(A, wx, y, wz, lx, lz, b.thin, ae, atlas, lget, lsky, lblk, onBase);
+                /* 薄轴现算(零存储, 门朝向/火把 lean 现算同构): 东西邻(x±1)任一
+                   实心(solid!==false 判据同 onBase) → 墙沿 x, 板贴北缘薄 z、图案
+                   面朝北; 东西邻全空 → 恒等既有几何(贴西缘薄 x、图案面朝西) */
+                const isSolid = (n) => !!(n !== 0 && BLOCKS[n] && BLOCKS[n].solid !== false);
+                const wallAlongX = isSolid(lget(lx - 1, y, lz)) || isSolid(lget(lx + 1, y, lz));
+                pushGateSign(A, wx, y, wz, lx, lz, b.thin, ae, atlas, lget, lsky, lblk, onBase,
+                    wallAlongX);
                 continue;
               }
               pushCross(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows,

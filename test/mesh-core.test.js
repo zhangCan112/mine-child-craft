@@ -21,7 +21,7 @@ function loadMeshCore() {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', f), 'utf8'), ctx, {filename: f});
   }
   vm.runInContext('globalThis.__m = { MeshCore, BLOCKS, TNT_TILES, B_TNT, B_FUSE, B_TORCH, faceColor,\n' +
-      '    B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE };', ctx);
+      '    B_DOOR, B_DOOR_TOP, B_DOOR_OPEN, B_DOOR_TOP_OPEN, B_GLASS_PANE, B_GATE_SIGN };', ctx);
   return ctx.__m;
 }
 
@@ -578,4 +578,127 @@ test('剔面规则: 实心方块贴门格的面不剔除(门是薄板, 面被剔
     atlas: paneOpt().atlas});
   assert.strictEqual(quads(withDoor.solid), 6, '邻格是门 → 石头面保留(pane 不算遮挡体)');
   assert.strictEqual(quads(withDoor.atlas), 6, '门本体照常出图集通道');
+});
+
+/* ============ 门额牌小盒·轴向泛化(墙沿轴向→图案面朝开阔向) ============ */
+
+/* 牌测试用注入 atlas: 形状仿 texture-atlas.js 的 T_GATE_SIGN 真条目
+   {side:图案格, back/top/bottom:木底格}(格号合成: 图案 26 · 木底 27/底 28/顶 29) */
+const signOpt = () => ({hashRand: HR_HALF, tntTiles: 4,
+  atlas: {cols: 16, rows: 16, tiles: {
+    [loadMeshCoreOnce().B_GATE_SIGN]: {side: 26, back: 27, bottom: 28, top: 29}}}});
+/* UV 窗辨认: 图案格 26 → 图集列 10 行 1 → u∈[10/16,11/16] · v∈[14/16,15/16];
+   木底格 27 → 列 11 → u∈[11/16,12/16] — 按 UV 窗辨认各面采的格 */
+
+/* T1b 恒等分支金标(独立真值源): 改动前现码(0e253b5)对 fixture 的逐字节输出,
+   由 .scratch/t1b-golden-capture.js 机械捕获生成 — 手改即废证 */
+const GOLD_POSITIONS = [
+  102, 6, 102, 102, 5, 102, 102, 6, 103, 102, 5, 103,
+  102.15, 6, 103, 102.15, 5, 103, 102.15, 6, 102, 102.15, 5, 102,
+  102, 6, 103, 102.15, 6, 103, 102, 6, 102, 102.15, 6, 102,
+  102.15, 5, 102, 102, 5, 102, 102.15, 6, 102, 102, 6, 102,
+  102, 5, 103, 102.15, 5, 103, 102, 6, 103, 102.15, 6, 103,
+];
+const GOLD_UVS = [
+  0.625, 0.9375, 0.625, 0.875, 0.6875, 0.9375, 0.6875, 0.875,
+  0.6875, 0.9375, 0.6875, 0.875, 0.75, 0.9375, 0.75, 0.875,
+  0.8125, 0.875, 0.875, 0.875, 0.8125, 0.9375, 0.875, 0.9375,
+  0.6875, 0.875, 0.75, 0.875, 0.6875, 0.9375, 0.75, 0.9375,
+  0.6875, 0.875, 0.75, 0.875, 0.6875, 0.9375, 0.75, 0.9375,
+];
+const GOLD_NORMALS = [
+  -1, 0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0,
+  1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0,
+  0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0,
+  0, 0, -1, 0, 0, -1, 0, 0, -1, 0, 0, -1,
+  0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1,
+];
+const GOLD_INDICES = [
+  0, 1, 2, 2, 1, 3,
+  4, 5, 6, 6, 5, 7,
+  8, 9, 10, 10, 9, 11,
+  12, 13, 14, 14, 13, 15,
+  16, 17, 18, 18, 17, 19,
+];
+const GOLD_SKY = [
+  1, 1, 1, 1,
+  1, 1, 1, 1,
+  1, 1, 1, 1,
+  1, 1, 1, 1,
+  1, 1, 1, 1,
+];
+const GOLD_BLOCK = [
+  0, 0, 0, 0,
+  0, 0, 0, 0,
+  0, 0, 0, 0,
+  0, 0, 0, 0,
+  0, 0, 0, 0,
+];
+
+test('门额牌·东西邻空 → 恒等现状(贴西缘薄 x·图案西面·底面贴横梁剔除) — 基线金标逐字节对拍', () => {
+  const m = loadMeshCoreOnce();
+  const p = mkPack(1);
+  p.set(3, 5, 3, m.B_GATE_SIGN);
+  p.set(3, 4, 3, 3); // 横梁(脚下 solid → 底面剔除, 牌贴横梁形态)
+  const r = m.MeshCore.meshChunk(p, signOpt());
+  assert.strictEqual(quads(r.atlas), 5, '5 面(底面剔除)');
+  assert.deepStrictEqual(Array.from(r.atlas.positions), GOLD_POSITIONS, 'positions 逐字节');
+  assert.deepStrictEqual(Array.from(r.atlas.uvs), GOLD_UVS, 'uvs 逐字节');
+  assert.deepStrictEqual(Array.from(r.atlas.normals), GOLD_NORMALS, 'normals 逐字节');
+  assert.deepStrictEqual(Array.from(r.atlas.indices), GOLD_INDICES, 'indices 逐字节');
+  assert.deepStrictEqual(Array.from(r.atlas.sky), GOLD_SKY, 'sky 逐字节');
+  assert.deepStrictEqual(Array.from(r.atlas.block), GOLD_BLOCK, 'block 逐字节');
+});
+
+test('门额牌·东西邻实心 → 板贴北缘横跨 x(薄 z) · 图案位从西面挪北面(轴向泛化)', () => {
+  const m = loadMeshCoreOnce();
+  const p = mkPack(1);
+  p.set(3, 5, 3, m.B_GATE_SIGN);
+  p.set(2, 5, 3, 3); // 西邻实心
+  p.set(4, 5, 3, 3); // 东邻实心
+  const r = m.MeshCore.meshChunk(p, signOpt());
+  assert.strictEqual(quads(r.atlas), 6, '悬空 6 面全绘');
+  const zs = new Set();
+  for (let i = 0; i < r.atlas.positions.length; i += 3) {
+    zs.add(r.atlas.positions[i + 2].toFixed(4));
+  }
+  assert.deepStrictEqual([...zs].sort(), ['102.0000', '102.1500'], '板贴北缘(z ∈ [z, z+thin])');
+  const xs = new Set();
+  for (let i = 0; i < r.atlas.positions.length; i += 3) {
+    xs.add(r.atlas.positions[i].toFixed(4));
+  }
+  assert.deepStrictEqual([...xs].sort(), ['102.0000', '103.0000'], '横跨 x 全宽');
+  /* 图案位辨认: 北面(normal 0,0,-1)采图案格 26(u∈{10/16,11/16}); 西面(-1,0,0)
+     改采木底格 27(u∈{11/16,12/16}) — 图案不再朝西 */
+  const uOf = (key) => {
+    const qs = quadsByNormal(r.atlas).get(key);
+    assert.ok(qs && qs.length === 1, key + ' 向恰一面');
+    const us = new Set();
+    for (const v of qs[0]) us.add(r.atlas.uvs[v * 2]);
+    return [...us].sort((a, b) => a - b);
+  };
+  assert.deepStrictEqual(uOf('0,0,-1'), [10 / 16, 11 / 16], '北面采图案格(图案位 f=4)');
+  assert.deepStrictEqual(uOf('-1,0,0'), [11 / 16, 12 / 16], '西面改采木底格(图案位已挪走)');
+});
+
+test('门额牌·北面图案不镜像: 从北看读序与西面同序(贴图左缘在视左) · 塔尖朝上(贴图顶行在 y 顶)', () => {
+  const m = loadMeshCoreOnce();
+  const p = mkPack(1);
+  p.set(3, 5, 3, m.B_GATE_SIGN);
+  p.set(2, 5, 3, 3);
+  p.set(4, 5, 3, 3);
+  const r = m.MeshCore.meshChunk(p, signOpt());
+  const qs = quadsByNormal(r.atlas).get('0,0,-1');
+  assert.ok(qs && qs.length === 1, '北向分支: 北面恰一面');
+  /* faceUV 北面 u=1-x: 站北朝南看, 视左=东端(x=wx+1) → 应采贴图左缘 tc/16;
+     视右=西端(x=wx) → 贴图右缘 (tc+1)/16 — 镜像则两缘互换;
+     v=y: y 顶 → 贴图顶行 15/16(图案顶格=塔尖), y 底 → 底行 14/16 */
+  for (const v of qs[0]) {
+    const px = r.atlas.positions[v * 3]; const py = r.atlas.positions[v * 3 + 1];
+    const u = r.atlas.uvs[v * 2]; const vv = r.atlas.uvs[v * 2 + 1];
+    if (px === 103) assert.ok(Math.abs(u - 10 / 16) < 1e-9, '东端(北看视左)=贴图左缘 10/16');
+    if (px === 102) assert.ok(Math.abs(u - 11 / 16) < 1e-9, '西端(北看视右)=贴图右缘 11/16');
+    if (py === 6) assert.ok(Math.abs(vv - 15 / 16) < 1e-9, '顶(y=6)=贴图顶行 15/16(塔尖朝上)');
+    if (py === 5) assert.ok(Math.abs(vv - 14 / 16) < 1e-9, '底(y=5)=贴图底行 14/16');
+  }
 });
