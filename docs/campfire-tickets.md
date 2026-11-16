@@ -76,7 +76,8 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档） |
 | T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ☑ 已并入+视觉验收 PASS（39261ce，合并 050be81；双轴评审 PASS + design-lead 基线对比验收 PASS） |
 | T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 进行中（campfire-ui/tc9） |
-| T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ◐ 完工评审中（tc10 34363c4；通道面裁定在途） |
+| T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ◐ 评审中（tc10 34363c4；通道面裁 (b) 出补丁票 T-C10b） |
+| T-C10b | 补丁：放置失败话术通道接线（气泡+TTS） | T-C10, 定稿 v1.6（在途） | ☐ 待领取 |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☐ 待领取 |
 | T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 + T-C8b 全部 | ☐ 待领取 |
 
@@ -90,9 +91,9 @@ T-C1 ──┬─→ T-C2 ─┬─→ T-C6
        ├─→ T-C3 ─┴─→ T-C9      设计定稿（已满足）─┬─→ T-C7
        ├─→ T-C4                                  ├─→ T-C8 ─→ T-C8b
        ├─→ T-C5（另依赖 T-C3）                   ├─→ T-C9（另依赖 T-C2）
-       └─→ T-C7/T-C8/T-C10/T-C11 ───────────────┼─→ T-C10
+       └─→ T-C7/T-C8/T-C10/T-C11 ───────────────┼─→ T-C10 ─→ T-C10b
                                                 └─→ T-C11
-全部（含 T-C8b）─→ T-C12
+全部（含 T-C8b、T-C10b）─→ T-C12
 ```
 
 ---
@@ -671,7 +672,7 @@ js/campfire-kit.js（状态迁移点触发接线）· js/config.js（IS_LOWCORE_
 
 ## T-C10 UI D 区：文案话术
 
-> 标签：`task`｜状态：◐ 完工评审中（tc10 34363c4；通道面裁定在途）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
+> 标签：`task`｜状态：◐ 评审中（tc10 34363c4；通道面裁 (b) 出补丁票 T-C10b）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
 > blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
@@ -740,6 +741,43 @@ js/item-hint-registry.js（ITEM_HINTS/BLOCK_HINTS 注册表）· js/mode-kit.js
   话术逐字=UI 定稿 §6.3 案 1 熄灭态条）。UI 定稿 §6.5 判据 4 的「BLOCK_HINTS
   双 id 落位」表述按本裁定改读，§6.3 案 1 **话术本身不变**（改的是通道，
   不是文案）。
+
+---
+
+## T-C10b 补丁：放置失败话术通道接线（气泡+TTS）
+
+> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C10, 定稿 v1.6（在途，落盘即基准）｜blocks：T-C12
+
+**背景**（C10 审计通道面核查 + design-lead 裁定 2026-11-17，裁 (b) 教学面）：篝火失败句是**篝火专属放置教学句**（教「结实地面」这条放置规则=T-2 裁定确认的核心学习点），归物品认知面；mode-kit.js:102 分工「toast 承载系统消息，气泡承载物品认知」——现状 o.say→advToast→#toast 纯视觉不符定稿 §6.2 原文「TTS 走 SpeechKit、气泡走 kitHint」与 §6.5-3「气泡+TTS 逐字」（T-C1 落地时偏离、两轮评审漏核，C10 审计揪出，裁定=打回修复非改定稿）。generic「这里放不了哦」=系统消息，留 toast 不动。
+
+### 要求
+
+1. **篝火失败分支接线双通道**（js/place-kit.js 篝火失败分支）：视觉=ModeKit.kitHintShow 气泡（双行 `{name:'篝火', desc:'要放在结实的东西上面哦'}`），听觉=SpeechKit 朗读全文逐字**含句尾「哦」**（软化词是设计语声）；**不做名字拼装**（消息自带主语「篝火」，拼名会读出重复——区别于 §6.5-1 ItemHint 拼装：hint 话术无主语、本句有）。
+2. **generic 分支与其余 o.say 话术零改动**：「这里放不了哦」仍走 toast；床/门/传送门等其余 o.say 消费点不在 §6.2 权威面，通道不动（防范围蔓延）。
+3. **首次失败必读**：失败话术是教学时刻，首次放置失败必呈现（气泡+TTS 同拍）；高频重复失败节流=实现自由度（SpeechKit 自带 cancel-then-speak latest-wins 不堆积，mode-kit.js:103；combat-kit.js:63 有高频场景 3 秒节流先例可抄），节流参数实现期调参不判变更。
+
+### 不做
+
+文案零改动（三句定稿逐字已在位）；generic 话术通道零改动；其余 o.say 消费点零触碰；贴图/特效/玩法零改动；定稿文档零改动（v1.6 归设计线）。
+
+### 验收标准（design-lead 判据 + 门禁）
+
+- [ ] §6.5-3（v1.6）通道断言：篝火失败同拍气泡呈现（kitHint 双行形态）+ SpeechKit 朗读（全文逐字含「哦」，无拼名）+ 首次失败必读；仅 toast=不符（红测先行）。
+- [ ] generic 分支行为零变化（既有断言不回退：「这里放不了哦」仍走 toast）。
+- [ ] 高频失败面节流/latest-wins 行为符合申报口径（实现自选，测试锚定）。
+- [ ] 两模式同文同通道（探险+体验馆；体验馆 dev 降噪既有口径不破）。
+- [ ] `npm test` 全绿 + `npm run lint` 三门零错误。
+
+### 源码挂靠点
+
+js/place-kit.js（篝火失败分支）· js/mode-kit.js（kitHintShow/SpeechKit 既有缝，预期零改动或导出面最小调整）· test/place-kit.test.js（通道断言）· test/adventure-mode.test.js / test/showroom-mode.test.js（整链与两模式同文）。
+
+### 施工注记
+
+- 定稿 v1.6（§6.2 通道口径括注+§6.5-3 通道断言细化+修订登记）design-lead 线在飞，**落盘即验收基准**；开工时若未落盘以本票面判据为准，落盘后核对无冲突（零文案改动，仅通道口径）。
+- mode-kit 分工头注与 C3 修复先例（kitHintShow 导出缝，单例气泡+双行 markup+3.2s 淡出）=直接复用面，**零第二份实现**。
+- 并行票警告：T-C4（mech/tc4 在飞）改动面=voxel/adventure-core/modes/adventure/campfire-kit——本票主改动面=place-kit+test，冲突面趋零；如需触 adventure.js 装配面先在回执报备。
+- 零 sfx 字面量落盘（audio-registry 守门）；假 DOM 一律 mkEl。
 
 ---
 
@@ -812,7 +850,7 @@ js/audio-registry.js（SFX_KINDS 两行）· js/campfire-kit.js（放置/重燃/
 
 ## T-C12 收口：GLOSSARY + README 核账 + 验收走查汇总 + 全量回归
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1~T-C11 + T-C8b 全部｜blocks：—
+> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1~T-C11 + T-C8b + T-C10b 全部｜blocks：—
 
 **纪律三件**：见解票须知第 5 条。
 
