@@ -31,6 +31,7 @@
 | T-NPC-14 | 镇昼夜解冻施工票（ADR-0012 §6 T-DAY-01 面终名落此：town 行 dayCycle 翻正 + setSkyBase 改道 + 钉测/文档债收口；日程时间轴本体归 T-NPC-13 c2） | 三+ | 上游无硬边（ADR-0012 决策 7 PO 终拍 2026-11-16 全通过，ADR 状态行已回填）；下游解锁 T-NPC-13 c2 面与 T-NPC-15 | **已立票（待派工）**（票面 `T-NPC-14-town-day-cycle-unfreeze.md`，2026-11-16；与 T-NPC-13 a2+b1 同文件不同段，排期终裁归 scrum） |
 | T-NPC-15 | 镇夜间氛围票（light 线：夜间光照/氛围门控） | 三+（占位） | T-NPC-14 昼夜机制落地 | **占位**（依赖昼夜票，light 线） |
 | T-UI-DLG-01 | 对话卡视觉实装票（案⑤转正：方向乙·毛边绘本对话泡 + spec §4.6 公共欠账三项一次装，css/town.css 唯一施工文件/DOM-JS 零改） | 三+（UI 线） | **无硬边**（PO 2026-11-16 六问实答选乙 + spec 修订定稿 @9440be4）；注记：npm test 装具 8080 撞车面→串行排在 T-NPC-14 施工之后，终裁归 scrum（票面 §6） | **已立票（待派工）**（票面 `T-UI-DLG-01-dialog-card-visual.md`，2026-11-16；选型案卷 `receipts/dialog-visual-redesign-proposals.md`） |
+| T-TEST-T11 | 沙漠图间歇债 test-only 小票（adventure-mode.test.js「T11 同池回落」沙漠分支「至少出一只」概率断言无种子化，同树跨轮次 4 绿 1 红消红；候选二档成本升序：①铺怪窗口加宽 ②测试内确定性随机源置换；生产代码零改） | 三+ | **无硬边**；排期注记：串行排 T-NPC-14 施工之后（同文件相邻作业减翻动），终裁归 scrum（票面 §6） | **已立票（待派工）**（票面 `T-TEST-T11-desert-spawn-flake.md`，2026-11-16；证据：engmgr retro §2 @e97b235 + T-NPC-13 票面 §11.6 防误归因注记） |
 
 ```
         ┌─────────── T-NPC-01 贴图管线 ───────┐
