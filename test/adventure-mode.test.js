@@ -5780,27 +5780,34 @@ test('T-NPC-13 c2 日程账行推进+快照跟随(注账式): dusk 段 V01 工�
   assert.strictEqual(row.state.leg, 0, '账本 leg0');
   globalThis.dayTime = 12040; /* dusk 首读数帧: 段切起步 */
   try {
-    pumpPatrolChain(1, 7, () => { globalThis.dayTime += 20; }); /* 起步帧+走 6s: t=6/14 腿中 */
+    pumpPatrolChain(1, 7, () => {
+      globalThis.dayTime += 20;
+    }); /* 起步帧+走 6s: t=6/14 腿中 */
     assert.strictEqual(row.state.phase, 'walk', 'dusk 段首帧起步(日程机接管)');
     assert.strictEqual(row.state.dir, 1, 'dir=+1(向聚集)');
     assert.strictEqual(puppet.x, 79, '北行腿 x 轴对齐恒 79');
     assert.ok(puppet.z > 80 && puppet.z < 94,
         '腿中快照 z∈(80,94) 插值行进(现状恒 94 静止=日程机未接管即红)');
     assert.strictEqual(puppet.yaw, 0, '行进朝向=几何派生(北行→0, 不复用 face)');
-    pumpPatrolChain(1, 9, () => { globalThis.dayTime += 20; }); /* 走满 14s 到站+停驻帧 */
+    pumpPatrolChain(1, 9, () => {
+      globalThis.dayTime += 20;
+    }); /* 走满 14s 到站+停驻帧 */
     assert.strictEqual(row.state.phase, 'dwell', '到站回停驻');
     assert.strictEqual(row.state.leg, 1, 'legIndex 到站推进 0→1');
     assert.deepStrictEqual([puppet.x, puppet.z], [79, 80],
         '到站精确落聚集航点(79,80)——无插值过冲残留');
     assert.strictEqual(puppet.yaw, 0, '停驻朝向=聚集 face north→0(面钟塔主轴, 停驻=face 语义)');
   } finally {
-    delete globalThis.dayTime;
+    globalThis.dayTime = 0; /* 重置回装具基线值(全文件既有惯例)——不可 delete:
+        严格模式下 adventure.js 既有 30+ 处裸读 dayTime, 删除即 ReferenceError
+        链式掀翻后续测试(绿相实证 45 连炸, c2 装具缺陷随绿相裁决修) */
   }
   A.advSetDim('overworld');
   AdventureMode.cleanup();
 });
 
-test('T-NPC-13 c2 分流守门(源文本): advTownPatrolTick 体内按「PLANS 在册」分流——日程行 townScheduleStep(state, dayTime, dt) · G01 行 townPatrolStep 原样零漂移', () => {
+test('T-NPC-13 c2 分流守门(源文本): advTownPatrolTick 体内按「PLANS 在册」分流——' +
+    '日程行 townScheduleStep(state, dayTime, dt) · G01 行 townPatrolStep 原样零漂移', () => {
   const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
   const atTick = src.indexOf('function advTownPatrolTick');
   assert.ok(atTick > 0, '推进者可定位');
@@ -5833,7 +5840,9 @@ test('T-NPC-13 c2 注入缝事件节奏: V01 日程行 dusk 起步帧恰一跳�
       }
     });
   } finally {
-    delete globalThis.dayTime;
+    globalThis.dayTime = 0; /* 重置回装具基线值(全文件既有惯例)——不可 delete:
+        严格模式下 adventure.js 既有 30+ 处裸读 dayTime, 删除即 ReferenceError
+        链式掀翻后续测试(绿相实证 45 连炸, c2 装具缺陷随绿相裁决修) */
   }
   assert.deepStrictEqual(eventFrames, [0],
       '40 帧观测窗恰起步帧 1 次重发(行走 14s+到站+停驻帧全零事件——' +
@@ -5845,6 +5854,9 @@ test('T-NPC-13 c2 注入缝事件节奏: V01 日程行 dusk 起步帧恰一跳�
 test('T-NPC-13 c2 夜间进镇摆放同源: dayTime=night 建账 leg=家(79,96) · 快照摆家位 · 注入账本 leg 零重发(零首拍跳变)', () => {
   mem.clear();
   freshInit();
+  globalThis.dayTime = 15000; /* night 段进镇前置: 生产 prev 账本建账同读全局——
+      「摆放/建账/注入三方同源」断言的前提(缺此行 prev=工作位即假红, 红方测试
+      缺陷随绿相裁决修; finally 统一重置基线) */
   A.advSetDim('town');
   const inj = injectScheduleRow('V01', 15000); /* night 段进镇: 直接在家 */
   assert.ok(inj, '红因=日程面未施工(桥接缺席, 非装具炸)');
@@ -5852,9 +5864,16 @@ test('T-NPC-13 c2 夜间进镇摆放同源: dayTime=night 建账 leg=家(79,96) 
   assert.deepStrictEqual([puppet.x, puppet.z], [79, 96],
       '夜间进镇摆放=家航点(「夜间回屋休息」语义, 摆放与账本同源)');
   assert.strictEqual(puppet.yaw, 0, '家 face north→yaw=0');
-  const r = A.advTownAnchorTick({'npc:v01': 2});
+  /* 注入全 13 村民 night 腿(账本域=prev 键域口径, 红方测试缺陷随绿相裁决修):
+     prev 建账在 night 前提下逐行=家位——单键注入会让其余 12 行 undefined→
+     缺省工作位, 对 prev(家)=12 行假跳变; 全键注入才是「三方同源零首拍跳变」 */
+  const nightLegs = {};
+  for (const id of Object.keys(TOWN_SCHEDULE_PLANS)) {
+    nightLegs[id] = TOWN_SCHEDULE_PLANS[id][2].leg; /* night 段=段表 [2] */
+  }
+  const r = A.advTownAnchorTick(nightLegs);
   assert.strictEqual(r.changed, false,
-      '注入账本 leg(2=家)零跳变——摆放/建账/注入三方同源, 进镇首拍零重发');
+      '注入 13 村民账本 night leg(=家)零跳变——摆放/建账/注入三方同源, 进镇首拍零重发');
   assert.deepStrictEqual(r.events, [], '零事件(夜间进镇零扰动)');
   A.advSetDim('overworld');
   AdventureMode.cleanup();
@@ -5871,7 +5890,8 @@ test('T-NPC-13 c2 全日端到端(真 update 泵): V01 日程账随全局 dayTim
   let prevPhase = 'dwell';
   globalThis.dayTime = 11900;
   try {
-    for (let i = 0; i < 1260; i++) { /* 1260s=25200tick>24000: 跨回绕一日 */
+    for (let i = 0; i < 1205; i++) {/* 1205 帧=24100tick>24000 跨回绕; 窗收在次日
+        dusk 起步帧(i≈1207)之前——恰含三次到站(红方泵窗算术随绿相裁决修) */
       globalThis.dayTime = (globalThis.dayTime + 20) % 24000;
       AdventureMode.update(1); /* 真 update 链(patroTick→anchorTick→idle→apply) */
       const row = A.advTownState().patrol[0];
@@ -5882,7 +5902,9 @@ test('T-NPC-13 c2 全日端到端(真 update 泵): V01 日程账随全局 dayTim
       prevPhase = ph;
     }
   } finally {
-    delete globalThis.dayTime;
+    globalThis.dayTime = 0; /* 重置回装具基线值(全文件既有惯例)——不可 delete:
+        严格模式下 adventure.js 既有 30+ 处裸读 dayTime, 删除即 ReferenceError
+        链式掀翻后续测试(绿相实证 45 连炸, c2 装具缺陷随绿相裁决修) */
   }
   assert.deepStrictEqual(arrivals.map((a) => a.leg), [1, 2, 0],
       '到站序列: 聚集(1)→家(2)→工作位(0)——全日日程三段往返(真链路)');

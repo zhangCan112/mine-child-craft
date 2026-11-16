@@ -41,7 +41,7 @@ const ROOT = path.join(__dirname, '..');
 const ctx = vm.createContext({console: {log() {}, warn() {}, error() {}}});
 for (const f of ['js/town-map-core.js', 'js/town-interact-core.js',
   'js/town-npc-anchor-core.js', 'js/adventure-dims-core.js',
-  'js/daylight-core.js' /* c2: 日程 tick 常量/phase 词表跨表对账权威(ADR-0017 决策 2/3) */]) {
+  'js/daylight-core.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
 }
 Object.assign(globalThis, vm.runInContext(
@@ -384,9 +384,9 @@ test('c2·TOWN_NPC_SCHEDULE 四键字面锁: SPEED_GPT=1 秒/格 · 三 tick 常
   assert.deepStrictEqual(Object.keys(s).sort(),
       ['DAWN_T', 'DUSK_T', 'NIGHT_T', 'SPEED_GPT'], '参数表恰四键(零杂散零遗漏)');
   assert.deepStrictEqual({SPEED_GPT: s.SPEED_GPT, DUSK_T: s.DUSK_T,
-      NIGHT_T: s.NIGHT_T, DAWN_T: s.DAWN_T},
-    {SPEED_GPT: 1, DUSK_T: 12040, NIGHT_T: 13670, DAWN_T: 22330},
-      '参数初值字面锁(1 格/秒与 G01 LEG_T=26/26 格同速口径; 断点=ADR-0017 §2-8)');
+    NIGHT_T: s.NIGHT_T, DAWN_T: s.DAWN_T},
+  {SPEED_GPT: 1, DUSK_T: 12040, NIGHT_T: 13670, DAWN_T: 22330},
+  '参数初值字面锁(1 格/秒与 G01 LEG_T=26/26 格同速口径; 断点=ADR-0017 §2-8)');
   /* 跨表对账: 与 daylight-core 同源零漂移(改 DAYLIGHT 曲线须连带日程过评审) */
   assert.strictEqual(s.DUSK_T, DAYLIGHT.DIM_KEYS[1][0], 'DUSK_T=白天→傍晚折线转折 tick');
   assert.strictEqual(s.NIGHT_T, DAYLIGHT.DIM_KEYS[2][0], 'NIGHT_T=傍晚→夜晚折线转折 tick');
@@ -408,7 +408,8 @@ test('c2·TOWN_SCHEDULE_PLANS 键域: 恰 13 村民锚 id 键(npc: 形) · 与 T
   assert.strictEqual(keys.length, 13, '恰 13 键(十三村民, c2 口径)');
 });
 
-test('c2·PLANS 行形状: 每行恰四段×恰三键 {from,leg,phase} · from 字面升序覆盖全天 · phase=clockPhase id 词表序 · leg 界内且 day/dawn=0 · night=末航点(家) · dusk 指向∈hub 带', () => {
+test('c2·PLANS 行形状: 每行恰四段×恰三键 {from,leg,phase} · from 字面升序覆盖全天 · ' +
+    'phase=clockPhase id 词表序 · leg 界内且 day/dawn=0 · night=末航点(家) · dusk 指向∈hub 带', () => {
   schedGuard();
   const FROMS = [0, schedTbl().DUSK_T, schedTbl().NIGHT_T, schedTbl().DAWN_T];
   const PHASES = ['day', 'dusk', 'night', 'dawn'];
@@ -440,7 +441,8 @@ test('c2·PLANS 行形状: 每行恰四段×恰三键 {from,leg,phase} · from �
   }
 });
 
-test('c2·townScheduleLegOf 四段取样(V01): day→{0,day} · dusk→{1,dusk} · night→{2,night} · dawn→{0,dawn}(纯函数 f(dayTime) 本体)', () => {
+test('c2·townScheduleLegOf 四段取样(V01): day→{0,day} · dusk→{1,dusk} · night→{2,night} · ' +
+    'dawn→{0,dawn}(纯函数 f(dayTime) 本体)', () => {
   schedGuard();
   const legOf = (t) => flat(BC.townScheduleLegOf('npc:v01', t));
   assert.deepStrictEqual(Object.keys(legOf(1000)).sort(), ['leg', 'phase'],
@@ -474,7 +476,8 @@ test('c2·townScheduleLegOf 域错: 未知锚抛含「未知」中文错(拼写�
       'G01 不在段表=非日程锚(装配层「PLANS 含该锚」分流的数据面同源判定)');
 });
 
-test('c2·townScheduleState 白天在岗: V01@dayTime=1000 恰七键(无 dwellT——与巡逻机差异点) · leg0/dwell/dir0 · yaw=yawFrom=工作位 face 语义朝向(面南迎客, SEM 零漂移)', () => {
+test('c2·townScheduleState 白天在岗: V01@dayTime=1000 恰七键(无 dwellT——与巡逻机差异点) · ' +
+    'leg0/dwell/dir0 · yaw=yawFrom=工作位 face 语义朝向(面南迎客, SEM 零漂移)', () => {
   schedGuard();
   const s = flat(schedState('npc:v01', 1000));
   assert.deepStrictEqual(Object.keys(s).sort(),
@@ -490,7 +493,8 @@ test('c2·townScheduleState 白天在岗: V01@dayTime=1000 恰七键(无 dwellT�
   assert.strictEqual(s.yawFrom, Math.PI, 'yawFrom 同 yaw(零转向初值)');
 });
 
-test('c2·townScheduleState 段切初值: dusk→聚集 dwell · night→家 dwell(yaw=家 face) · dawn→工作位 dwell——「夜间进镇直接在家」摆放同源零首拍跳变', () => {
+test('c2·townScheduleState 段切初值: dusk→聚集 dwell · night→家 dwell(yaw=家 face) · ' +
+    'dawn→工作位 dwell——「夜间进镇直接在家」摆放同源零首拍跳变', () => {
   schedGuard();
   const dusk = flat(schedState('npc:v01', 12100));
   assert.strictEqual(dusk.leg, 1, 'dusk 段初始 leg=聚集点(段表 leg 直取)');
@@ -538,7 +542,8 @@ test('c2·段切起步+起步帧余量弃: dusk 段 dwell≠target 首帧起步 
   assert.strictEqual(big.leg, 0, 'leg 不动');
 });
 
-test('c2·walk 行进线性与位姿插值: t=dt/(腿格数×SPEED_GPT) · V01 北行 t=0.5→(79,87) yaw=0 · V03 西行 t=0.5→(79.5,85) yaw=π/2(行进朝向=几何派生, 不复用 face)', () => {
+test('c2·walk 行进线性与位姿插值: t=dt/(腿格数×SPEED_GPT) · V01 北行 t=0.5→(79,87) yaw=0 · ' +
+    'V03 西行 t=0.5→(79.5,85) yaw=π/2(行进朝向=几何派生, 不复用 face)', () => {
   schedGuard();
   let s = BC.townScheduleStep(schedState('npc:v01', 11000), 12040, 1); /* dusk 起步 */
   s = BC.townScheduleStep(s, 12100, 7); /* 腿 0→1 长 14 格×1=14s: t=0.5 */
@@ -585,9 +590,10 @@ test('c2·过冲单步+到站不连跳两腿(V02 五点 dawn 逆行): 巨 dt 起
   assert.strictEqual(w.phase, 'walk', 'dawn 段首帧起步(逆行回家→工作位)');
   assert.strictEqual(w.dir, -1, 'dir=sign(0−4)=−1(沿序列逆行)');
   assert.strictEqual(w.t, 0, '起步帧余量弃');
-  const a = flat(BC.townScheduleStep(s, 22331 + 20 * 1e3, 1e3)); /* 巨 dt 行进帧 */
+  const a = flat(BC.townScheduleStep(w, 22331 + 20 * 1e3, 1e3)); /* 巨 dt 行进帧(自起步帧 w 续泵, 红方 :588 入参笔误随绿相裁决修) */
   assert.strictEqual(a.leg, 3, '单步单 transition: leg 4→3(不连到 2)');
-  assert.strictEqual(a.phase, 'walk', 'leg3≠target0 续 walk(拐点不停驻)');
+  assert.strictEqual(a.phase, 'walk',
+      '到站重判 target(42331 归一 18331∈night→target=2≠3)续 walk(拐点不停驻)');
   assert.strictEqual(a.t, 0, '新腿 t=0(到站帧余量弃, 下一帧才走)');
 });
 
@@ -617,7 +623,9 @@ test('c2·全日端到端泵(V01, dt=1s 泵一日回绕): dusk 到聚集 · nigh
   const arrivals = [];
   const phases = new Set(['day']);
   let prev = flat(s).phase;
-  for (let i = 0; i < 1260; i++) { /* 1260s=25200tick>24000: 跨回绕一日 */
+  for (let i = 0; i < 1210; i++) {/* 1210 帧=24200tick>24000 跨回绕; 窗收在次日
+      dusk 起步帧(i=1212)之前——恰含三次到站(dusk/night/dawn), 次日循环不入窗
+      (原 1260 帧会把第 4 次到站卷进来, 红方泵窗算术随绿相裁决修) */
     const dayTime = ((11800 + i * 20) % 24000 + 24000) % 24000;
     s = BC.townScheduleStep(s, dayTime, 1);
     const ph = flat(s).phase;
@@ -657,7 +665,8 @@ test('c2·townScheduleLegById: dwell=本体位(HUD 气泡在脚下) · walk=下�
   assert.strictEqual(lb(night), 2, 'night 停驻: legById=2=家=本体位');
 });
 
-test('c2·townSchedulePose 形与走摆: dwell 全零停驻 · walk 起步摆过零 · 中段显著+腿臂反号幅比=PATROL 参数比 · swingPhase=t·腿秒·SWING_HZ·2π(复用摆频表不复制)', () => {
+test('c2·townSchedulePose 形与走摆: dwell 全零停驻 · walk 起步摆过零 · ' +
+    '中段显著+腿臂反号幅比=PATROL 参数比 · swingPhase=t·腿秒·SWING_HZ·2π(复用摆频表不复制)', () => {
   schedGuard();
   const p0 = flat(BC.townSchedulePose(schedState('npc:v01', 1000)));
   assert.deepStrictEqual(Object.keys(p0).sort(),

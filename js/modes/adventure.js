@@ -3094,11 +3094,22 @@ function advTownInteractBoot() {
   if (typeof townUiAttachBubbleCam === 'function') {
     townUiAttachBubbleCam(advTownBubbleCam);
   }
-  /* T-NPC-12 prev 账本随建机建: 对全部锚 id 记缺省腿(leg0)快照——到站
-     跳变的比对基线; 锚点核心未装载沙盒跳过(tick 缺席旁路容差) */
+  /* T-NPC-12 prev 账本随建机建: 对全部锚 id 记缺省腿快照——到站
+     跳变的比对基线; 锚点核心未装载沙盒跳过(tick 缺席旁路容差)。
+     c2(T-NPC-13 §11.7.0-④): 日程锚基线=当前段目标 leg 快照(dayTime
+     单钟裸名 typeof 守卫, 缺席回落 0=day 段 leg0=工作位现网零漂移;
+     夜间进镇 prev=家——摆放/建账/注入三方同源零首拍跳变) */
   if (typeof TOWN_NPC_ANCHORS !== 'undefined' && typeof anchorOf !== 'undefined') {
     advTownAnchors = {};
-    for (const row of TOWN_NPC_ANCHORS) advTownAnchors[row.id] = anchorOf(row.id);
+    const dayTimeNow = (typeof dayTime !== 'undefined') ? dayTime : 0;
+    for (const row of TOWN_NPC_ANCHORS) {
+      const isSched = typeof TOWN_SCHEDULE_PLANS !== 'undefined' &&
+          typeof townScheduleState === 'function' &&
+          Object.prototype.hasOwnProperty.call(TOWN_SCHEDULE_PLANS, row.id);
+      advTownAnchors[row.id] = isSched ?
+        anchorOf(row.id, townScheduleState(row.id, dayTimeNow).leg) :
+        anchorOf(row.id);
+    }
   }
 }
 
@@ -3137,9 +3148,20 @@ function advTownPuppetsPlace() {
   advTownIdleParts.length = 0; /* 案卷③ idle 账摆前同步清(任何路径零残留) */
   advTownIdleT = 0;
   advTownPatrols.length = 0; /* T-NPC-13 巡逻账摆前同步清(任何路径零残留) */
+  /* c2 日程读数(T-NPC-13 §11.7.0-④): 全局 dayTime 单钟裸名 typeof 守卫
+     (沙盒容差惯例, 昼夜 seam 同款)——缺席回落 0=day 段(现网零漂移) */
+  const dayTimeNow = (typeof dayTime !== 'undefined') ? dayTime : 0;
   for (const row of TOWN_NPCS) {
     const puppet = mkTownNpcPuppet(row.id);
-    const spot = placeTownNpc(puppet, anchorOf(row.anchorId));
+    /* c2 建账分流判据=「TOWN_SCHEDULE_PLANS 含该锚」(票面 §11.7.0-④):
+       日程锚带初始 leg 建日程账(G01 不在册走巡逻机, 数据面同源判定);
+       核心缺席的旧沙盒照旧零账/缺省 leg(idle 建账容差同款) */
+    const isSched = typeof TOWN_SCHEDULE_PLANS !== 'undefined' &&
+        typeof townScheduleState === 'function' &&
+        Object.prototype.hasOwnProperty.call(TOWN_SCHEDULE_PLANS, row.anchorId);
+    const leg0 = isSched ?
+      townScheduleState(row.anchorId, dayTimeNow).leg : 0;
+    const spot = placeTownNpc(puppet, anchorOf(row.anchorId, leg0));
     if (typeof scene !== 'undefined') scene.add(puppet.root); /* 沙盒无引擎
         则只记账不挂场(advFlameMount scene 守卫同形) */
     advTownPuppetRoots.push(puppet.root);
@@ -3155,9 +3177,15 @@ function advTownPuppetsPlace() {
     }
     const anchorRow = (typeof TOWN_NPC_ANCHORS !== 'undefined') ?
       TOWN_NPC_ANCHORS.find((a) => a.id === row.anchorId) : null;
-    if (anchorRow && anchorRow.waypoints.length > 1 &&
-        typeof townPatrolState === 'function') {/* T-NPC-13 巡逻账: 仅
-        多航点锚入账(静态 13 锚恒 leg0 零扰动零事件), 行为层纯核心在册
+    if (isSched) {/* c2 日程账: state=townScheduleState(id, dayTime) 带段
+        初值(白天=工作位/夜间=家, 与摆放同源零首拍跳变)——账行五键零扩形
+        (与巡逻账同账本异机种) */
+      advTownPatrols.push({id: row.id, anchorId: row.anchorId,
+        root: puppet.root, bones: puppet.bones,
+        state: townScheduleState(row.anchorId, dayTimeNow)});
+    } else if (anchorRow && anchorRow.waypoints.length > 1 &&
+        typeof townPatrolState === 'function') {/* T-NPC-13 巡逻账(G01):
+        仅多航点锚入账(静态 13 锚恒 leg0 零扰动零事件), 行为层纯核心在册
         才建账(旧沙盒缺席照旧零账, idle 建账容差同款) */
       advTownPatrols.push({id: row.id, anchorId: row.anchorId,
         root: puppet.root, bones: puppet.bones,
@@ -3280,10 +3308,23 @@ function advTownPatrolTick(dt) {
   if (!advTownPatrols.length || typeof townPatrolStep !== 'function' ||
       typeof townPatrolLegById !== 'function') return null; /* 空账/核心
       缺席旁路容差(取数免费零炸, idle 缺席旁路同款) */
+  /* c2 日程读数: 全局 dayTime 单钟裸名 typeof 守卫(沙盒容差惯例)——
+     日程机=纯函数 f(dayTime), 每帧读数经参数注入(零墙钟) */
+  const dayTimeNow = (typeof dayTime !== 'undefined') ? dayTime : 0;
   const legById = {};
   for (const row of advTownPatrols) {
-    row.state = townPatrolStep(row.state, dt);
-    legById[row.anchorId] = townPatrolLegById(row.state)[row.anchorId];
+    /* c2 逐行分流(票面 §11.7.0-④): PLANS 在册=日程机 townScheduleStep(
+       state, dayTime, dt); 否则巡逻机 townPatrolStep(state, dt) 原样
+       (G01 零触碰)——机种由建账分流定, 本处按锚 id 再判同源判据 */
+    if (typeof TOWN_SCHEDULE_PLANS !== 'undefined' &&
+        typeof townScheduleStep === 'function' &&
+        Object.prototype.hasOwnProperty.call(TOWN_SCHEDULE_PLANS, row.anchorId)) {
+      row.state = townScheduleStep(row.state, dayTimeNow, dt);
+      legById[row.anchorId] = townScheduleLegById(row.state)[row.anchorId];
+    } else {
+      row.state = townPatrolStep(row.state, dt);
+      legById[row.anchorId] = townPatrolLegById(row.state)[row.anchorId];
+    }
   }
   return legById;
 }
@@ -3292,7 +3333,14 @@ function advTownPatrolApply() {
   if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return; /* 维度门(镇专属) */
   if (!advTownPatrols.length || typeof townPatrolPose !== 'function') return;
   for (const row of advTownPatrols) {
-    const pose = townPatrolPose(row.state);
+    /* c2 位姿供给分流(§11.7.0-④「日程 pose 恰七键同形」的消费面): 日程行
+       走 townSchedulePose(from=wp[leg] to=wp[leg+dir]——逆行腿 dir=-1 的
+       插值通道; 巡逻 pose 恒取 leg+1 对逆行腿会反插), 位姿写入/快照同步/
+       四肢通道分账循环体逐字复用零改形 */
+    const isSched = typeof TOWN_SCHEDULE_PLANS !== 'undefined' &&
+        typeof townSchedulePose === 'function' &&
+        Object.prototype.hasOwnProperty.call(TOWN_SCHEDULE_PLANS, row.anchorId);
+    const pose = isSched ? townSchedulePose(row.state) : townPatrolPose(row.state);
     if (row.root && row.root.position) {
       row.root.position.x = pose.x;
       row.root.position.z = pose.z;

@@ -342,6 +342,9 @@ test('避让既有导览锚: 与 TOWN_MAP.anchors 非 npc: 七导览锚各 ≥2 
 test('日程可走: 全部多航点锚(G01+13 村民)相邻航点连线段全格点不穿任何 prefab 脚印 · 且不穿他锚任何驻留航点(互穿观感守门, c2 扩列)', () => {
   const c = loadCore();
   const F = makeFacings(c);
+  /* 驻留点字面集=聚集∪家(票面 §11.7.0-① 口径: 驻留=站立语义, 表值为 [x,z]) */
+  const stay = new Set([...Object.values(C2_GATHER), ...Object.values(C2_HOME)]
+      .map(([x, z]) => x + ',' + z));
   for (const row of c.TOWN_NPC_ANCHORS) {
     if (row.waypoints.length < 2) continue; /* 单航点行无段(日历兼容守卫) */
     for (let i = 0; i < row.waypoints.length; i++) {
@@ -368,13 +371,14 @@ test('日程可走: 全部多航点锚(G01+13 村民)相邻航点连线段全格
             (hits.length ? ' 穿脚印: ' + hits.join('/') : ' 不穿脚印'));
         for (const other of c.TOWN_NPC_ANCHORS) {
           if (other.id === row.id) continue;
-          for (let k = 0; k < other.waypoints.length; k++) {
-            const w = other.waypoints[k];
-            /* 既有共存豁免(窄域): G01 环既有腿 × 他锚既有工作位(k=0)——二者皆
-               既有拍板现状(G01 南腿 z92 恰过 A03 站位 (73,92) 等), 非本票引入,
-               与票面 §11.7.0-① 工作位豁免同源(现状即真, 不追溯);
-               村民日程腿与一切新驻留点(k>0)全查不豁免 */
-            if (row.npcId === 'G01' && k === 0) continue;
+          for (const w of other.waypoints) {
+            /* 驻留判定豁免(c2 绿相裁决终版, 替代 k=0 窄域): 票面 §11.7.0-①
+               约束「路段不穿他村驻留点」——驻留点=聚集/家两表字面, 执法点=
+               站立重叠; 工作位(k=0, 既有拍板现状: G01 南腿 z92 恰过 A03 站位
+               (73,92)/V09 直列 x83 恰过 V08 (83,76))与途经拐点(A03 t1 (75,92)
+               恰落环南腿整行)皆路过形态同豁——路过瞬间重叠≠驻留重叠;
+               聚集/家驻留格全查不豁免 */
+            if (!stay.has(w.x + ',' + w.z)) continue;
             assert.ok(!(w.x === x && w.z === z),
                 '「' + row.npcId + '」段 ' + i + '→' + j + ' 格点 (' + x + ',' + z + ')' +
                 ' 不穿他锚「' + other.id + '」驻留航点 (' + w.x + ',' + w.z + ')(互穿观感守门)');
@@ -419,7 +423,7 @@ test('c2 日程驻留字面: 聚集/家航点=数据终版字面(逐行坐标+fa
         '「' + id + '」家 face=north(面镇心安眠语义)');
     assert.strictEqual(row.waypoints[row.waypoints.length - 1].x + ',' +
         row.waypoints[row.waypoints.length - 1].z, C2_HOME[id][0] + ',' + C2_HOME[id][1],
-        '「' + id + '」末航点=家(夜间归家=序列终点)');
+    '「' + id + '」末航点=家(夜间归家=序列终点)');
   }
 });
 

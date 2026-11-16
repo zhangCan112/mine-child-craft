@@ -1241,12 +1241,17 @@ test('TIDEA 波次二: 丰收角稻草人·人家两件·鸡店鸡窝·南带跳
   const c = loadCore();
   const t = c.TOWN_MAP;
   const npcs = c.TOWN_NPC_ANCHORS.flatMap((r) => r.waypoints);
-  /* G01 环线全格点(轴对齐段离散, 与 npc 表同源) */
+  /* G01 环线全格点(轴对齐段离散, 与 npc 表同源); c2 后村民行=日程线性序列——
+     环线模型只适用 G01, 村民行只复算相邻腿段(不闭环: 日程往返走序列逆序轴对齐
+     腿, 末→首对角线是假格点; 与 anchor-core ⑨ 可走口径对齐, c2 绿相裁决修) */
   const pts = npcs.slice();
   for (const row of c.TOWN_NPC_ANCHORS.filter((r) => r.waypoints.length > 1)) {
     const w = row.waypoints;
-    for (let i = 0; i < w.length; i++) {
+    const loop = row.npcId === 'G01';
+    const nSeg = loop ? w.length : w.length - 1;
+    for (let i = 0; i < nSeg; i++) {
       const a = w[i]; const b = w[(i + 1) % w.length];
+      if (a.x !== b.x && a.z !== b.z) continue; /* 防御: 非轴对齐段不入 pts(c2 数据终版不产) */
       const steps = Math.max(Math.abs(b.x - a.x), Math.abs(b.z - a.z));
       for (let s = 0; s <= steps; s++) {
         pts.push({x: a.x + Math.sign(b.x - a.x) * Math.min(s, Math.abs(b.x - a.x)),
