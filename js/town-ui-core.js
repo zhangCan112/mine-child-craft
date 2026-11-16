@@ -87,6 +87,9 @@ const TOWN_UI_PARAMS = Object.freeze({
   IDLE_LLAMA_GRAZE_AMP: 0.28, /* A03 颈俯啄草幅度(rad) */
   IDLE_LLAMA_GRAZE_S: 4.0, /* A03 颈俯周期(秒) */
   IDLE_LLAMA_HEAD_RATIO: 0.35, /* A03 头随颈俯比例 */
+  DLG_AWAY_DIST: 12, /* PO 案①(树 3c89723) 会话走远收口水平阈 12 格: 镇内
+    会话中水平远离对话对象超阈即 defer 收会话(阈内会话存活; 镇内走远
+    ≠离镇, HUD 不收敛) */
 });
 
 /* ---------- 提示卡五态状态机(prebuild §2.3; hud-spec §4.3 状态行) ----------

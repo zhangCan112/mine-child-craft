@@ -3242,6 +3242,53 @@ function advAimHit() {
   return PlaceKit.aimHit();
 }
 
+/* PO 案④(树 3c89723) 穿体豁免判据: 视线段(CameraRig.aim(camera) 的 origin
+   起 PLAYER.reach 长)与镇傀儡盒(账本单源 advTownPuppets, 盒=x±0.5/y..y+2/
+   z±0.5, placeTownNpc 站立面 y=锚+1 故盒顶=锚+3)做 seg-AABB 相交测试——
+   镇内(账本非空)视线穿镇民身体即挡, 挖掘两入口豁免(onMouse(0) 不起蓄力/
+   advMineTick 喂点熄火); 主世界账本恒空恒 false 零影响(锄地/播种/雕刻等
+   advAimHit 其余消费面不经此门)。相机件缺席(Node 沙盒)恒 false */
+function advTownAimBlocked() {
+  if (!advTownPuppets.length) return false;
+  if (typeof CameraRig === 'undefined' || typeof camera === 'undefined') return false;
+  const a = CameraRig.aim(camera);
+  for (const p of advTownPuppets) {
+    if (advSegHitsBox(a.origin, a.dir, PLAYER.reach,
+        p.x - 0.5, p.x + 0.5, p.y, p.y + 2, p.z - 0.5, p.z + 0.5)) return true;
+  }
+  return false;
+}
+
+/* 线段-轴对齐盒相交(slab 法): [origin, origin+dir*len] 与盒 [x0,x1]*[y0,y1]*
+   [z0,z1] 逐轴投影区间求交, 公共段 [t0,t1] 与 [0,len] 非空即相交; 轴平行
+   分量(dir 分量为 0)退化为原点片内判定 */
+function advSegHitsBox(o, d, len, x0, x1, y0, y1, z0, z1) {
+  let t0 = 0;
+  let t1 = len;
+  const slabs = [[o.x, d.x, x0, x1], [o.y, d.y, y0, y1], [o.z, d.z, z0, z1]];
+  for (let i = 0; i < slabs.length; i++) {
+    const oc = slabs[i][0];
+    const dc = slabs[i][1];
+    const lo = slabs[i][2];
+    const hi = slabs[i][3];
+    if (dc === 0) {
+      if (oc < lo || oc > hi) return false; /* 轴平行且在片外: 永不相交 */
+      continue;
+    }
+    let ta = (lo - oc) / dc;
+    let tb = (hi - oc) / dc;
+    if (ta > tb) {
+      const swap = ta;
+      ta = tb;
+      tb = swap;
+    }
+    if (ta > t0) t0 = ta;
+    if (tb < t1) t1 = tb;
+    if (t0 > t1) return false;
+  }
+  return true;
+}
+
 /* 蓄力清零(松手/换目标不可挖/面板打开/退出模式) → kit 薄转发 */
 function advMineStop() {
   advPlaceKit.mineStop(advMine);
@@ -3372,7 +3419,9 @@ function advMineHardText(id, x, y, z) {/* 目标格 → 话术(纯 seam, 单测�
 /* 蓄力推进(update 每帧) → kit 薄转发: 状态(advMine)/准星(advAimHit)/
    按住(advMouseHeld)/面板守卫是探险输入, 循环编排与破坏结算全在 kit */
 function advMineTick(dt) {
-  advPlaceKit.mineTick(advMine, advAimHit(), dt,
+  /* 穿盒喂 null 熄火(PO 案④按住半边): kit 收 null 视同指空→mineStop,
+      按住态不跟挖过镇民; 判据与 onMouse(0) 起步豁免同源单份 */
+  advPlaceKit.mineTick(advMine, advTownAimBlocked() ? null : advAimHit(), dt,
       {held: advMouseHeld, panelOpen: ADV.panelOpen || advFurnace.isOpen()});
 }
 
@@ -5002,6 +5051,14 @@ const AdventureMode = mkMode({
     advRingDispose();
     advHpBar.dispose(); /* 头顶血条回收(S2 深接口) */
     advTownBellClear(); /* TIDEA-02: 迟到迎宾钟句柄清(会话退场零漏响) */
+    /* PO 案②(树 3c89723): 镇内直接切模式的残机/残傀儡清场 — 离镇链(:2410)
+       同源三行无条件清(不挂维度门: cleanup 时镇内外都可能; 未进镇=
+       undefined/空账容差自守卫, 零炸幂等): 机器不渗下模式(town-ui sync 掉机
+       感知走 leaveTown defer 收口), 傀儡 root 摘净跨模式零残留(体验馆复用
+       同 scene 建场零残影) */
+    advTownTargets = undefined;
+    advTownAnchors = undefined;
+    advTownPuppetsLeave();
   },
 
   update(dt) {
@@ -5108,7 +5165,8 @@ const AdventureMode = mkMode({
         return;
       }
       if (advTryEat()) return; /* 手持食物: 点击吃, 不进蓄力 */
-      if (hit) advMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update) */
+      if (hit && !advTownAimBlocked()) advMine.down = true; /* 准星指住方块: 蓄力开始(推进在 update);
+         PO 案④: 视线段穿镇傀儡盒=镇民命中豁免不起蓄力(与 advMineTick 喂点熄火同判据) */
     } else if (button === 2) {
       /* 轻点/右键 = 使用优先(MC 正典: 交互先于放置): 熔炉/箱子走近开面板 →
          手持食物吃 → 手持雪球掷出(T9) → 使用动作物品放箭(弓, 注册表驱动) → 放置。TNT 点燃不走轻点(用户拍板 2026-10-24 防误触):

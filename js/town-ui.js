@@ -275,6 +275,9 @@ function mkTownUi(deps) {
   let seenMachine = false; /* 首次对账按 m 有无动作(首帧不误判进场) */
   let dialogOpen = false;
   let prevCardState = 'hidden'; /* 会话打开时的卡态快照(close 恢复用) */
+  let dlgSessionHad = false; /* PO 案①(树 3c89723): 本镇轮开过会话的留痕
+      (open 置真, 进镇复位)——掉机时已收口会话的卡态已由 CLOSE 链复原,
+      leaveTown 据此走 defer 半边(idle 零惩罚 no-op)不 feed(leave) 覆盖 */
   let focusTarget = null; /* 最近 focus 的目标(标签句/hasNext 判断用) */
   const doneIds = new Set(); /* 装配层自有事件记忆(state==='done' id 集) */
   /* 城镇翻新波次二会话态(TIDEA-16): 钟塔回望 armed=先观察到非正前再回
@@ -979,6 +982,7 @@ function mkTownUi(deps) {
       dlgCtx = null; /* 新机新会话: 上下文/签名/播报句全清(可重入零串轮) */
       dlgSig = null;
       dlgSentence = '';
+      dlgSessionHad = false; /* PO 案①: 会话留痕随进镇清(新轮新账) */
     }
     /* 进场喂核心不依赖 DOM 成败(doc 缺席沙盒态照走, applyState 自守卫) */
     feed({type: 'enter'});
@@ -990,10 +994,13 @@ function mkTownUi(deps) {
   }
 
   function leaveTown() {
-    if (dlg && dlg.state() !== 'idle') {
+    if (dlg && (dlg.state() !== 'idle' || dlgSessionHad)) {
       /* 会话中离镇=defer 语义收会话(A 收 deferred 恢复 prev 卡态, 零
          负面); close 事件已恢复卡态, 跳过 feed(leave)——leave 会把卡
-         推回 hidden, 覆盖 close 的恢复语义 */
+         推回 hidden, 覆盖 close 的恢复语义。PO 案①(树 3c89723)扩门:
+         本镇轮已收口过的会话(走远 defer 先收, dlgSessionHad 留痕)同此
+         口——idle 态 defer 零惩罚拒绝 no-op, 卡态保持 CLOSE 已复原值;
+         未开过会话的纯离场才 feed(leave) 推 hidden(既有语义) */
       dlg.handle({type: 'defer'});
     } else {
       feed({type: 'leave'});
@@ -1039,6 +1046,23 @@ function mkTownUi(deps) {
     return JSON.stringify(a.snapshot()) === JSON.stringify(b.snapshot());
   }
 
+  /* PO 案①(树 3c89723) 镇内会话走远收口: 会话中水平远离对话对象超阈即
+     defer 收会话(leaveTown :992-999 会话半边同构 CLOSE 链, 零新事件名;
+     A 卡 deferred 复原, HUD 不收敛——镇内走远≠离镇, 与 leaveTown 的区分
+     面)。锚=会话上下文 npcId 回查高亮清单(锚点单源在条目, 清单缺席/无锚
+     容差跳过), 位姿=poseRef 低频采样(缺省沙盒 null 同跳过), 阈值=参数表
+     DLG_AWAY_DIST 单源(锁表即规格, 阈内会话存活零抖动) */
+  function checkDialogAway() {
+    if (!dlg || !dlgCtx || dlg.state() === 'idle') return;
+    const entry = hlSource().find((e) => e && e.id === dlgCtx.npcId);
+    const pose = poseRef();
+    if (!entry || !entry.anchor || !pose) return;
+    if (Math.hypot(pose.x - entry.anchor.x, pose.z - entry.anchor.z) >
+        TOWN_UI_CORE.TOWN_UI_PARAMS.DLG_AWAY_DIST) {
+      dlg.handle({type: 'defer'}); /* CLOSE 链收口(onDlgEvent 内含卡态复原+面板收敛) */
+    }
+  }
+
   function sync() {
     const m = machineRef();
     if (!seenMachine) {
@@ -1051,6 +1075,8 @@ function mkTownUi(deps) {
       refreshPointer(); /* 幂等对账后低频位姿采样(签名门控: 同位姿零 DOM) */
       /* 城镇翻新 TIDEA-14/16: 位姿采样半边——气泡锚位跟帧(refreshDlg
          内容照签名门控, 锚位写在其门之外) + 钟塔回望查检 */
+      checkDialogAway(); /* PO 案①: 会话走远收口(与下行刷新同排零新泵; 收口走
+          CLOSE 链内含 refreshDlg, 未收口/阈内时零动作) */
       refreshDlg();
       checkTowerSeen();
       return; /* 幂等零动作 */
@@ -1092,6 +1118,7 @@ function mkTownUi(deps) {
     if (name === 'town-ui/dialog/open') {
       prevCardState = cur;
       dialogOpen = true;
+      dlgSessionHad = true; /* PO 案①: 本镇轮会话留痕(掉机时不覆盖 close 复原) */
       feed({type: 'dialog-open'});
       /* 城镇翻新 TIDEA-13: 会话档全隐 hotbar/气泡条(H 层补遗二契约, 优先级高于
          漫步淡档)——class 与 style.css 的 body.adv-dim-town 门控叠加, 关会话

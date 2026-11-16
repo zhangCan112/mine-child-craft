@@ -5666,3 +5666,307 @@ test('案卷③ 注视距离门回正 · 离镇清 idle 账 · 非镇维度零�
   AdventureMode.cleanup();
 });
 
+/* ============================================================
+   ============ PO 实屏验收缺陷修复票红测(树 3c89723) ============
+   案②: NPC 跨模式残留——镇内 AdventureMode.cleanup() 不清场
+        (会话复位表只归维度相位, 不摘傀儡), 傀儡渗入体验馆;
+   案④: 镇民「可拆解」穿体误挖——体素射线对 puppet mesh 不可见,
+        视线穿傀儡盒即挖穿身后/脚下块(SM 三候选根因全源码否,
+        真路径=第四条, 判据见票文)。
+   ============================================================ */
+
+/* ---------- 案②④装具扩装(红方报备, T-NPC-12 §6.3③ 装具修订先例
+    口径): 惰性臂装——镇民摆放链三件+假 scene 收进 poArm(), 本票各测试
+    开跑时自装自治。理由(两害并防):
+    ① 既有「腹地雾距」测试 :4511-4525 自装 scene 后 delete 防渗漏
+       (装→断言→delete 先例), 模块级安装会被它摘走(全量跑实测)——
+       每测试重挂即免疫;
+    ② 本票测试排在文件尾, 惰性臂装让既有测试全程跑在零装具
+       基线(摆放链 typeof 守卫照旧跳过), 漂移面按构造归零。
+    adventure.js 在本文件为 Node 域 require(:410), 全局名解析落
+    globalThis——摆放链两件按 index.html 加载序镜像: town-npc-registry
+    (TOWN_NPCS) → town-npc(mkTownNpcPuppet/placeTownNpc); anchorOf/
+    TOWN_NPC_ANCHORS/mkTownTargets/townYawOfFace 已由 :48-63 T-SEAM-05
+    块与 :388 dims-core 铺好。MobLookKit 以最小假桩替身(mkTownNpcPuppet
+    唯一消费面=MobLookKit.puppet; placeTownNpc 唯一触面=root.position.set)。
+    假 scene 记账账本直曝供测试清点; root 带 __poNpcPuppet 标(断言面)。 */
+const PO_SCENE_CHILDREN = [];
+function poArm() {/* 幂等臂装: 摆放链三件 + 假 scene, 并清零账本 */
+  globalThis.MobLookKit = {
+    puppet() {
+      return {root: {position: {set() {}}, __poNpcPuppet: true}, bones: {}};
+    },
+  };
+  Object.assign(globalThis, require('../js/town-npc-registry.js'));
+  Object.assign(globalThis, require('../js/town-npc.js'));
+  globalThis.scene = {
+    children: PO_SCENE_CHILDREN,
+    add(o) {
+      PO_SCENE_CHILDREN.push(o);
+    },
+    remove(o) {
+      const i = PO_SCENE_CHILDREN.indexOf(o);
+      if (i >= 0) PO_SCENE_CHILDREN.splice(i, 1);
+    },
+  };
+  PO_SCENE_CHILDREN.length = 0;
+  return PO_SCENE_CHILDREN;
+}
+const poNpcRootsInScene = () => PO_SCENE_CHILDREN.filter((c) => c.__poNpcPuppet).length;
+let PoTownUi = null; /* 案②-B: town-ui 适配层(红期容忍装载, town-ui.test.js 同款) */
+try {
+  PoTownUi = require('../js/town-ui.js');
+} catch {
+  PoTownUi = null;
+}
+
+/* ---------- 案②-B 专用窄桩: 带监听记录的文档桩 + 类名递归寻件
+    (town-ui.test.js fakeDoc/dlgElOf 同形; 元素工厂仍走 mkEl 单源) ---------- */
+function poFakeDoc() {
+  const body = mkEl('body');
+  const listeners = {};
+  return {
+    body,
+    createElement: (tag) => mkEl(tag),
+    getElementById: () => null,
+    addEventListener: (type, fn) => {
+      (listeners[type] = listeners[type] || []).push(fn);
+    },
+    removeEventListener: (type, fn) => {
+      const list = listeners[type] || [];
+      const i = list.indexOf(fn);
+      if (i >= 0) list.splice(i, 1);
+    },
+    fire: (type, evt) => {
+      for (const fn of (listeners[type] || []).slice()) fn(evt || {});
+    },
+  };
+}
+function poFindByClass(root, cls) {
+  if (root.classList && root.classList.contains(cls)) return root;
+  for (const c of root.children || []) {
+    const hit = poFindByClass(c, cls);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+test('PO②-A 跨模式残留守门: 镇内 cleanup() 清场 — scene 傀儡摘净 · 弃机 · 傀儡账回空 · 源形状挂镇清场链', () => {
+  mem.clear();
+  freshInit();
+  poArm();
+  A.advSetDim('town');
+  assert.ok(A.advTownState().targets, '前置: 进镇建机');
+  assert.strictEqual(A.advTownState().puppets.length, 14, '前置: 傀儡账 14 行');
+  assert.strictEqual(poNpcRootsInScene(), 14, '前置: scene 挂 14 傀儡 root');
+  AdventureMode.cleanup(); /* PO 复现路径: 镇内直接切模式, 不走 advSetDim 离镇链 */
+  assert.strictEqual(poNpcRootsInScene(), 0,
+      'cleanup 摘净 scene 傀儡(跨模式零残留, PO②本体)');
+  assert.strictEqual(A.advTownState().targets, undefined,
+      'cleanup 弃机(机器不渗下模式, 会话复位表只归维度相位的缺口半边)');
+  assert.strictEqual(A.advTownState().puppets.length, 0, 'cleanup 傀儡账回空');
+  /* 源形状(:5081 先例口径): cleanup 体挂镇清场链(advSetDim 离镇链同源) */
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const head = src.indexOf('  cleanup() {');
+  const next = src.indexOf('  update(dt) {', head);
+  assert.ok(head >= 0 && next > head, 'cleanup 函数体可定位');
+  assert.ok(src.slice(head, next).indexOf('advTownPuppetsLeave') >= 0,
+      'cleanup 体内挂镇清场(advTownPuppetsLeave, 离镇链 :2413 同源三行)');
+});
+
+test('PO②-B 衍生缝: 会话中切模式(cleanup 弃机)→ town-ui sync 掉机 defer 收口 — 卡态复原+面板 idle+HUD 收敛', () => {
+  assert.ok(PoTownUi, '前置: js/town-ui.js 可装载');
+  mem.clear();
+  freshInit();
+  poArm();
+  A.advSetDim('town');
+  assert.ok(A.advTownState().targets, '前置: 进镇建机(机器在位)');
+  const doc = poFakeDoc();
+  const spoken = [];
+  const pending = [];
+  const pages = [];
+  const entry = {/* town-ui.test.js DLG_TASK_SEEK 同形快照
+      (形状=townInteractRegistry 快照同形, 锚=真 market 锚) */
+    id: 'task:find-bread', kind: 'task', iconKey: 'find', label: '找面包',
+    anchor: {x: 90, y: 24, z: 84}, state: 'active', sessionKind: 'seek',
+    taskRef: 'task:find-bread'};
+  const dl = Math.hypot(1.5, 4); /* 锚前 4 格 · 高 1.5 → 距 4.27 < 24 命中门内 */
+  const cam = {/* 八键形状照 town-ui.test.js :1105 先例(cam 只用 origin/dir) */
+    origin: {x: entry.anchor.x, y: entry.anchor.y + 1.5, z: entry.anchor.z + 4},
+    dir: {x: 0, y: -1.5 / dl, z: -4 / dl},
+    yaw: 0, pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100};
+  const ui = PoTownUi.mkTownUi({
+    doc,
+    machineRef: () => A.advTownState().targets || null, /* 壳层运行态直连(生产同源) */
+    speech: {speak: (s) => spoken.push(String(s)), cancel() {}},
+    timer: {
+      set: (fn, ms) => {
+        const h = {fn, ms};
+        pending.push(h);
+        return h;
+      },
+      clear: (h) => {
+        const i = pending.indexOf(h);
+        if (i >= 0) pending.splice(i, 1);
+      },
+    },
+    showPage: (id) => pages.push(id),
+    camRef: () => cam,
+    hlSource: () => [entry],
+    poseRef: () => ({x: entry.anchor.x, y: entry.anchor.y + 1,
+      z: entry.anchor.z + 4, yaw: 0}),
+    onInteract: () => {},
+    sfx: () => {},
+  });
+  ui.sync(); /* 进镇挂载(首次对账) */
+  doc.fire('mousemove', {}); /* hover 命中(事件驱动口径) */
+  doc.fire('pointerdown', {});
+  doc.fire('pointerup', {}); /* 点选开会话(完整点选链, :1478 先例同驱动) */
+  assert.strictEqual(ui.cardState(), 'dialog-dimmed', '前置: 会话中(A 卡收敛)');
+  AdventureMode.cleanup(); /* PO 复现: 残机不清 → UI 掉机感知靠本票弃机 */
+  ui.sync(); /* 壳层每帧对账 */
+  assert.strictEqual(ui.cardState(), 'idle-exploring',
+      '掉机→defer 收会话(A 卡 deferred 复原, PO②衍生缝本体)');
+  const panel = poFindByClass(ui.root, 'town-dlg-panel');
+  assert.ok(panel, '会话面板构件在位');
+  assert.strictEqual(panel.hidden, true, '面板收起');
+  assert.strictEqual(panel.getAttribute('data-state'), 'idle', '会话态归零(idle)');
+  assert.strictEqual(ui.root.hidden, true, 'HUD 容器收敛(leaveTown 既有语义)');
+});
+
+test('PO②-C 正控: 镇↔主世界往返照旧清场 · 镇内 cleanup 后重进不翻倍 · 主世界直接 cleanup 零炸零多余', () => {
+  mem.clear();
+  freshInit();
+  poArm();
+  A.advSetDim('town');
+  assert.strictEqual(poNpcRootsInScene(), 14, '进镇 14');
+  A.advSetDim('overworld');
+  assert.strictEqual(poNpcRootsInScene(), 0, '离镇照旧清(既有离镇链, :3049 幂等守卫不回归)');
+  A.advSetDim('town');
+  assert.strictEqual(poNpcRootsInScene(), 14, '重进重摆 14(往返不翻倍)');
+  AdventureMode.cleanup(); /* 镇内 cleanup(清场本体由 ②-A 锁, 此处驱动残账场景) */
+  freshInit(); /* cleanup 残账零串场: 再走一轮完整往返 */
+  poArm();
+  A.advSetDim('town');
+  assert.strictEqual(poNpcRootsInScene(), 14, 'cleanup 后再进镇仍 14(账不叠)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup(); /* 主世界直接 cleanup: 镇外路径零炸零多余动作 */
+  assert.strictEqual(poNpcRootsInScene(), 0, '主世界 cleanup 零傀儡动作(不误伤)');
+});
+
+/* ---------- 案④装具: 靶场构造(进镇+净空走廊+摆靶石+可切换瞄准
+    rig)。几何全部自锚点表运行时派生(anchorOf('npc:v01') 单源, 不钉
+    地图字面): eye=(锚+0.06, 锚+2.5, 锚−2.5) · 靶石 B=(锚, 锚+2,
+    锚+2)(视线穿 v01 傀儡盒后命中) · 对照石 C=(锚+2, 锚+2, 锚+2)
+    (视线不穿任何傀儡盒)。石头 id=3 木镐 1.125s(徒手 tier1 不掉落
+    不起蓄力, T12 断言在册); 60×0.15=9s ≫ 蓄力窗 ---------- */
+function poTownGun() {
+  A.advSetDim('town');
+  const a = anchorOf('npc:v01');
+  for (let x = a.x; x <= a.x + 3; x++) {/* 视线走廊净空(含 B/C 落位列) */
+    for (let y = a.y + 1; y <= a.y + 3; y++) {
+      for (let z = a.z - 3; z <= a.z + 3; z++) {
+        api.worldCells[(y * D + z) * W + x] = 0;
+      }
+    }
+  }
+  const B = {x: a.x, y: a.y + 2, z: a.z + 2};
+  const C = {x: a.x + 2, y: a.y + 2, z: a.z + 2};
+  api.worldCells[(B.y * D + B.z) * W + B.x] = 3;
+  api.worldCells[(C.y * D + C.z) * W + C.x] = 3;
+  const eye = {x: a.x + 0.06, y: a.y + 2.5, z: a.z - 2.5};
+  const faceB = {x: B.x + 0.5, y: B.y + 0.5, z: B.z - 0.5}; /* B 的 −z 面心 */
+  const faceC = {x: C.x + 0.5, y: C.y + 0.5, z: C.z - 0.5};
+  const line = (f) => {
+    const dx = f.x - eye.x;
+    const dy = f.y - eye.y;
+    const dz = f.z - eye.z;
+    const l = Math.hypot(dx, dy, dz);
+    return {origin: {x: eye.x, y: eye.y, z: eye.z},
+      dir: {x: dx / l, y: dy / l, z: dz / l}};
+  };
+  let which = 'B';
+  globalThis.camera = {}; /* 准星 fake(aimDownAt :1161 先例同口径) */
+  globalThis.CameraRig = {aim: () => line(which === 'B' ? faceB : faceC)};
+  return {a, B, C, eye, faceB, faceC, lineB: line(faceB), lineC: line(faceC),
+    aimAt(w) {
+      which = w;
+    }};
+}
+function poLerp(p, q, t) {/* 线段采样点(穿盒断言: eye→面心 ×t) */
+  return {x: p.x + (q.x - p.x) * t, y: p.y + (q.y - p.y) * t, z: p.z + (q.z - p.z) * t};
+}
+
+test('PO④-1 穿体守门: 视线穿镇民傀儡盒指靶石 — onMouse(0) 不起蓄力 · 到时窗后靶石完好 · 傀儡账无扰', () => {
+  mem.clear();
+  freshInit();
+  poArm();
+  holdOnly('pick_wood', 1, 120);
+  const g = poTownGun();
+  const hitB = api.raycastVoxel(g.lineB.origin, g.lineB.dir, PLAYER.reach);
+  assert.ok(hitB && hitB.x === g.B.x && hitB.y === g.B.y && hitB.z === g.B.z,
+      '前置: 体素射线命中靶石 B(几何真值, 非同义反复)');
+  const row = A.advTownState().puppets.find((p) => p.id === 'V01');
+  assert.ok(row, '前置: v01 傀儡在账');
+  const mid = poLerp(g.eye, g.faceB, 0.6);
+  const midInBox = mid.x >= row.x - 0.5 && mid.x <= row.x + 0.5 &&
+      mid.y >= row.y && mid.y <= row.y + 2 &&
+      mid.z >= row.z - 0.5 && mid.z <= row.z + 0.5;
+  assert.ok(midInBox,
+      '前置: 视线段穿 v01 傀儡盒(×0.6 采样点入盒, 傀儡账单源)');
+  AdventureMode.onMouse(0, hitB);
+  assert.strictEqual(A.advMine.down, false,
+      '穿体点击=镇民命中豁免: 不起蓄力(PO④本体)');
+  for (let i = 0; i < 60; i++) AdventureMode.update(0.15);
+  assert.strictEqual(cell(g.B.x, g.B.y, g.B.z), 3, '靶石 B 完好(豁免持续, 未破坏)');
+  assert.strictEqual(A.advTownState().puppets.length, 14, '傀儡账无扰(14 在场)');
+  clearAim();
+});
+
+test('PO④-2 按住漂移: 按住中准星扫过镇民换靶 — 每帧喂点豁免熄火不跟挖(松手态熄火既有 place-kit :362, 按住态为本票)', () => {
+  mem.clear();
+  freshInit();
+  poArm();
+  holdOnly('pick_wood', 1, 120);
+  const g = poTownGun();
+  g.aimAt('C');
+  const hitC = api.raycastVoxel(g.lineC.origin, g.lineC.dir, PLAYER.reach);
+  assert.ok(hitC && hitC.x === g.C.x && hitC.y === g.C.y && hitC.z === g.C.z,
+      '前置: C 线命中对照石 C');
+  for (const p of A.advTownState().puppets) {
+    assert.ok(Math.hypot(p.x - g.C.x, p.z - g.C.z) >= 2.5,
+        '前置: C 与全体傀儡水平距≥2.5(对照线无穿盒歧义: ' + p.id + ')');
+  }
+  AdventureMode.onMouse(0, hitC);
+  AdventureMode.onHold(true); /* 桌面按住(触屏连挖同标志, :1863 先例) */
+  AdventureMode.update(0.15);
+  AdventureMode.update(0.15);
+  assert.ok(A.advMine.t > 0, '前置: C 蓄力已起步(进度>0)');
+  g.aimAt('B'); /* 按住中扫到 B 线(穿 v01 盒) */
+  AdventureMode.update(0.15);
+  assert.strictEqual(A.advMine.down, false,
+      '穿盒喂点=豁免熄火(按住不跟挖过镇民, PO④按住半边)');
+  for (let i = 0; i < 59; i++) AdventureMode.update(0.15);
+  assert.strictEqual(cell(g.B.x, g.B.y, g.B.z), 3, 'B 完好(豁免贯穿整个按住窗)');
+  AdventureMode.onHold(false);
+  clearAim();
+});
+
+test('PO④-3 正控: 无傀儡遮挡靶石照常挖穿(豁免不误伤普通挖掘)', () => {
+  mem.clear();
+  freshInit();
+  poArm();
+  holdOnly('pick_wood', 1, 120);
+  const g = poTownGun();
+  g.aimAt('C');
+  const hitC = api.raycastVoxel(g.lineC.origin, g.lineC.dir, PLAYER.reach);
+  assert.ok(hitC, '前置: C 线命中');
+  AdventureMode.onMouse(0, hitC);
+  for (let i = 0; i < 60 && cell(g.C.x, g.C.y, g.C.z) !== 0; i++) {
+    AdventureMode.update(0.15);
+  }
+  assert.strictEqual(cell(g.C.x, g.C.y, g.C.z), 0,
+      'C 照常挖穿(木镐 1.125s, 60 帧富余; 触屏单击本块完成即停)');
+  clearAim();
+});
+
