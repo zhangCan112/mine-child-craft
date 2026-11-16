@@ -113,14 +113,20 @@ test('campfire 物品提示: ITEM_HINTS.campfire 逐字=UI 定稿 §6.1 · 全�
   }
 });
 
-test('campfire 接线: index.html script 行在册且先于 adventure.js(装载序=依赖序, boot 按真实序装载)', () => {
+test('campfire 接线: index.html script 行在册且 adventure-core < campfire-kit < modes/adventure.js' +
+    '(装载序=依赖序, boot 按真实序装载)', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const srcs = [...html.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g)].map((m) => m[1]);
   const iKit = srcs.indexOf('js/campfire-kit.js');
   const iAdv = srcs.indexOf('js/modes/adventure.js');
+  const iCore = srcs.indexOf('js/adventure-core.js');
   assert.ok(iKit >= 0, 'script 行在册(campfire-kit.js)');
   assert.ok(iAdv >= 0, 'adventure.js 在册(哨兵)');
   assert.ok(iKit < iAdv, 'campfire-kit.js 先于 modes/adventure.js(adventure 顶层构造 kit 实例, 加载序即依赖序)');
+  assert.ok(iCore >= 0, 'adventure-core.js 在册(哨兵)');
+  assert.ok(iCore < iKit,
+      'adventure-core.js 先于 campfire-kit.js(kit 头注释声明的硬依赖边: cfKitResolve 顶层' +
+      '求值依赖 adventure-core 的 advCampfiresStep/Clean 先在册, 加载序即依赖序)');
 });
 
 /* ============ ⑦ 零墙钟红线(spec §6-8): 账本源码 grep 断言 ============ */
