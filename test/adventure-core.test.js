@@ -397,8 +397,8 @@ test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴�
           continue;
         }
         if (x >= 128) {
-          bandN++; /* 〔边界原型·T2~T5〕东带花田是带建场件(主径两侧各 5 朵),
-            不属「核心圈散布」口径, 归边界带测试验收 */
+          bandN++; /* 〔边界原型·T2~T5〕东带花丛普查(x≥128 口径): 花田 10+
+            镇界墙头花 5(v2 §4.1, x157 yb+3)=票内 15; F4 花带 8 并线后集成值归调度线裁 */
           continue;
         }
         n++;
@@ -412,7 +412,7 @@ test('T5 花丛草场: 蒲公英黄/雏菊白核心圈确定性散布(~2%), 贴�
   }
   assert.ok(n >= 6 && n <= 90, '密度 ~2% 可发现不铺满: ' + n + ' 丛');
   assert.strictEqual(kinds.size, 2, '黄白两款都有');
-  assert.strictEqual(bandN, 10, '东带花田恰 10 丛(主径两侧各 5; 带内无树候选不覆写)');
+  assert.strictEqual(bandN, 23, '东带花丛合计恰 23 丛(花田 10=主径两侧各 5, 引道花带 8=v2 §5 件 P, 镇界墙头花 5=v2 §4.1 件 W; 带内无树候选不覆写)');
   assert.ok(meadowN >= 100, '花田密铺单算不混入核心圈口径(实测 ' + meadowN + ' 丛)');
 });
 
@@ -727,45 +727,216 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   assert.strictEqual(cell(16, top(16, 104) + 1, 104), 14, '深水带苔石冒头 (16,104)');
   assert.strictEqual(cell(2, Core.ADV_GROUND + 4, 24), 6, '高脚木屋地板 y28');
   assert.strictEqual(cell(0, Core.ADV_GROUND + 8, 23), api.B_TORCH, '木屋暖窗火把(顶沿, 脚下实心)');
-  /* 东带: 主径土面 + 告示牌(双柱+板面) + 木栅栏 x157(桩 z%3==0 两高原木,
+  /* 东带: 主径石板 + 镇门楼(v2 野心版 spec §3 件 G: 石砌城楼式——门洞 3 格高
+     净空 z74/75 yb+1..+3 禁填=穿行契约, 侧柱 5 高石砖嵌壁灯, 横梁上悬门额
+     牌 ×2(镇徽=钟塔图案), 柱头石英收边, 檐口/屋面/屋脊三级出挑=「有屋顶」的
+     建筑语言) + 木栅栏 x157(桩 z%3==0 两高原木,
      缝格 1 高横杆——缝口留空是设计本体; 门口开间 z74~75 让位, 桩让至两侧
-     邻格 z73/76=T-SEAM-02) + 隔离带 x158~159 剪影(房屋/钟楼)。
+     邻格 z73/76=T-SEAM-02) + 前街 x158~159(v2 件 F: 钟塔+房×4 门脸化+迎宾灯柱) + 门前石板
+     x158~159×z74/75(件 D 材质升级: 表面土面改石砖 13, 路穿门铺到塔脚)。
      野树候选确定性穿杆(树干无条件覆写、树叶只落空气格): 首跑观测全数在场,
      计数钉死整段规模(候选若变, 这里最先报警) */
-  assert.strictEqual(cell(154, top(154, 74), 74), 2, '东主径土面(与既有东向小径同轴)');
+  assert.strictEqual(cell(154, top(154, 74), 74), 13, '东主径石板(石板引道段, 与门前石板同语言; 走查修正 G1a)');
   const yb = top(156, 74);
-  assert.strictEqual(cell(156, yb + 1, 73), 5, '告示牌立柱(z73)');
-  assert.strictEqual(cell(156, yb + 3, 74), 6, '告示牌板面(主径上方)');
-  assert.strictEqual(cell(156, yb + 3, 75), 6, '告示牌板面(z75)');
-  /* 门口开间计数(T-SEAM-02): z74~75 让位无栅栏件(专测另钉), 桩位让至两侧
-     邻格 z73/76(门框桩两高, 单列计数); 常规段=桩 53(54−开间雕出 z75)+
-     横杆 103(106−开间雕出 z74−让位升桩 z73/76)。候选若变, 这里最先报警 */
-  let posts = 0; let rails = 0; let flankPosts = 0;
+  /* 门楼侧柱 5 高(z73/76 yb+1..+5 石砖), 壁灯 yb+3 嵌柱替换该格(昼夜迎宾) */
+  assert.strictEqual(cell(156, yb + 1, 73), 13, '门楼侧柱下格(z73 石砖, 体量感来源)');
+  assert.strictEqual(cell(156, yb + 1, 76), 13, '门楼侧柱下格(z76)');
+  assert.strictEqual(cell(156, yb + 5, 73), 13, '门楼侧柱顶格(z73, 5 高收于柱头下)');
+  assert.strictEqual(cell(156, yb + 5, 76), 13, '门楼侧柱顶格(z76)');
+  assert.strictEqual(cell(156, yb + 3, 73), 19, '门楼壁灯(z73 嵌柱, 灯块 light 15 两面透光)');
+  assert.strictEqual(cell(156, yb + 3, 76), 19, '门楼壁灯(z76)');
+  /* 门洞横梁(净空上缘)+门额牌面(镇徽双徽对称) */
+  assert.strictEqual(cell(156, yb + 4, 74), 13, '门洞横梁(z74 石砖, 净空上缘)');
+  assert.strictEqual(cell(156, yb + 4, 75), 13, '门洞横梁(z75)');
+  assert.strictEqual(cell(156, yb + 5, 74), 80, '门额牌面(z74 门额牌块=镇徽钟塔图)');
+  assert.strictEqual(cell(156, yb + 5, 75), 80, '门额牌面(z75, 双徽各贴同图)');
+  /* 门洞净空 3 格(z74/75 yb+1..+3 空气=穿行契约, v1 净空 2 格升 3 格) */
+  for (const z of [74, 75]) {
+    for (let dy = 1; dy <= 3; dy++) {
+      assert.strictEqual(cell(156, yb + dy, z), 0, '门洞净空(z' + z + ' yb+' + dy + ' 禁填)');
+    }
+  }
+  /* 柱头+檐口+屋面+屋脊: 白檐一线 6 格出挑, 陶瓦两级阶梯收分(脊不出 z72/77) */
+  assert.strictEqual(cell(156, yb + 6, 73), 17, '柱头(z73 石英收边提亮)');
+  assert.strictEqual(cell(156, yb + 6, 76), 17, '柱头(z76)');
+  assert.strictEqual(cell(156, yb + 6, 74), 0, '门额上方让空(z74, 牌与檐之间的门额带)');
+  for (let z = 72; z <= 77; z++) {
+    assert.strictEqual(cell(156, yb + 7, z), 17, '檐口一线(z' + z + ' 石英, 宽出墙身一圈)');
+  }
+  for (let z = 72; z <= 77; z++) {
+    assert.strictEqual(cell(156, yb + 8, z), 79, '屋面瓦檐一级(z' + z + ' 陶橙瓦)');
+  }
+  for (let z = 73; z <= 76; z++) {
+    assert.strictEqual(cell(156, yb + 9, z), 79, '屋脊收分二级(z' + z + ' 陶橙瓦)');
+  }
+  assert.strictEqual(cell(156, yb + 9, 72), 0, '屋脊收分(z72 不出脊=阶梯坡顶轮廓)');
+  assert.strictEqual(cell(156, yb + 9, 77), 0, '屋脊收分(z77 不出脊)');
+  /* 镇界分段计数(v2 spec §4.1 件 W): 中段 z66..90 石砖矮墙(开间 z74/75 净空+
+     门框柱 z73/76 换装), 远段 z≤65 ∪ z≥91 木栅栏现状全维持——桩 z%3 两高+
+     缝格横杆 1 高原式(四角楔全落远段=楔载体零触碰)。候选若变, 这里最先报警 */
+  let posts = 0; let rails = 0;
   for (let z = 0; z < D; z++) {
-    if (z === 74 || z === 75) continue; /* 门口开间: 两格净空 */
+    if (z >= 66 && z <= 90) continue; /* 中段矮墙分段: 墙件/门框柱专测另钉 */
     const y = top(157, z) + 1;
-    if (z === 73 || z === 76) {
-      if (cell(157, y, z) === 5 && cell(157, y + 1, z) === 5) flankPosts++;
-    } else if (z % 3 === 0) {
+    if (z % 3 === 0) {
       if (cell(157, y, z) === 5 && cell(157, y + 1, z) === 5) posts++;
     } else {
       if (cell(157, y, z) === 6) rails++;
     }
   }
-  assert.strictEqual(posts, Math.floor((D - 1) / 3),
-      '常规桩全数在场(54−开间雕出 z75; 实测 ' + posts + '；带内无树候选, 首跑零缺失)');
-  assert.strictEqual(flankPosts, 2, '开间两侧让位门框桩 z73/76 两高在场');
-  assert.strictEqual(rails, D - 4 - Math.floor((D - 1) / 3),
-      '横杆全数在场(106−开间雕出 z74−让位升桩 z73/76; 实测 ' + rails + '；树叶只落空气格, 不啃横杆)');
-  const tt = top(158, 74);
-  assert.strictEqual(cell(158, tt + 1, 74), 3, '钟楼塔身石(隔离带)');
-  assert.strictEqual(cell(158, tt + 8, 74), 5, '钟楼尖顶');
-  assert.strictEqual(cell(159, tt + 8, 74), api.B_TORCH, '钟楼顶灯');
-  assert.strictEqual(cell(158, top(158, 24) + 1, 24), 3, '剪影房屋墙(首屋)');
+  assert.strictEqual(posts, 45,
+      '远段常规桩全数在场(z0..65 计 22 + z91..159 计 23; 实测 ' + posts + ')');
+  assert.strictEqual(rails, 90,
+      '远段横杆全数在场(z0..65 计 44 + z91..159 计 46; 实测 ' + rails + ')');
+  const tt = top(158, 74); /* 钟塔锚 yb(z74 列表面); v2 §4.2 件 F 前街重排 */
+  /* 陶橙瓦块行(S1): 纯色 #D97A4A 零贴图; 无 hard(U2 已裁=声明式不可破坏)零 drop */
+  assert.ok(api.BLOCKS[79], '块 id79 陶橙瓦应注册(S1 主案必需, id78 后顺号)');
+  assert.strictEqual(api.BLOCKS[79].name, '陶橙瓦', '陶橙瓦行名');
+  assert.deepStrictEqual(Array.from(api.BLOCKS[79].all), [0.851, 0.478, 0.290],
+      '陶橙瓦纯色 #D97A4A(镇色板 屋顶-陶橙; Array.from 摊平防跨域假红, conventions §7.1)');
+  assert.ok(!('hard' in api.BLOCKS[79]) && !('drop' in api.BLOCKS[79]),
+      '陶橙瓦无 hard 无 drop(粉羊毛 id78 先例同构, 零物品注册面)');
+  /* 钟塔: 石砖塔身 8 高(footprint 2×3)+西面龛门火把+石英钟面竖排+白檐檐灯+
+     陶橙阶梯瓦顶, 总高 yb+11 全场最高(塔最高原则) */
+  assert.strictEqual(cell(158, tt + 1, 73), 13, '钟塔塔身石砖(yb+1, z73..75 加宽正面)');
+  assert.strictEqual(cell(159, tt + 1, 74), 13, '钟塔塔身石砖(龛后壁 x159)');
+  assert.strictEqual(cell(158, tt + 8, 73), 13, '钟塔塔身顶格 yb+8(檐下一级)');
+  assert.strictEqual(cell(158, tt + 1, 74), api.B_TORCH, '塔门龛灯(西面龛内火把, 贴 x159 后壁)');
+  assert.strictEqual(cell(158, tt + 2, 74), 0, '塔门龛净空 yb+2(空气龛=有门的塔)');
+  assert.strictEqual(cell(158, tt + 6, 74), 17, '钟面石英下格(yb+6..+7 竖排, 西面)');
+  assert.strictEqual(cell(158, tt + 7, 74), 17, '钟面石英上格');
+  assert.strictEqual(cell(158, tt + 9, 73), 17, '塔檐石英(z73, 白檐与门楼檐口同语言)');
+  assert.strictEqual(cell(159, tt + 9, 76), 17, '塔檐石英远角(z76 出挑, 檐 10 格在场)');
+  assert.strictEqual(cell(158, tt + 9, 74), 19, '塔檐灯(檐心灯块, 夜间灯火链成员)');
+  assert.strictEqual(cell(158, tt + 10, 74), 79, '瓦顶一级 yb+10(陶橙, z73..75 全宽)');
+  assert.strictEqual(cell(158, tt + 11, 74), 79, '瓦顶二级=塔尖 yb+11(阶梯收分, 全场最高)');
+  assert.strictEqual(cell(159, tt + 11, 74), 79, '瓦顶二级 x159 列');
+  assert.strictEqual(cell(158, tt + 12, 74), 0, '塔尖上方净空(总高恰 yb+11, 塔最高原则)');
+  /* 房×4 门脸化: 木墙+西面门(6)窗(18)+陶橙平瓦盖+窗灯落瓦顶上(4 屋窗灯全亮,
+     v1「首屋留白凑 3+1」退役); 细部抽 z56 屋(h5)钉, 窗灯 4 屋全数钉 */
+  assert.strictEqual(cell(158, top(158, 24) + 1, 24), 6, '首屋门木板(v1 剪影石墙 id3 退役)');
+  const hTop = top(158, 56);
+  assert.strictEqual(cell(158, hTop + 1, 56), 6, '房门木板(西面 yb+1)');
+  assert.strictEqual(cell(158, hTop + 2, 56), 18, '房窗玻璃(西面 yb+2)');
+  assert.strictEqual(cell(158, hTop + 4, 56), 5, '房墙木头(窗上净墙, 暖木墙)');
+  assert.strictEqual(cell(159, hTop + 5, 56), 5, '房墙顶格 x159(后墙满高)');
+  assert.strictEqual(cell(158, hTop + 6, 56), 79, '房瓦顶(平瓦盖 top+h+1)');
+  for (const [hz, hh] of [[24, 3], [56, 5], [88, 4], [120, 3]]) {
+    assert.strictEqual(cell(158, top(158, hz) + hh + 2, hz), api.B_TORCH,
+        '窗灯火把落瓦顶上(z' + hz + ', 4 屋窗灯全亮)');
+  }
+  assert.strictEqual(countId(79, (x) => x >= 158 && x <= 159), 24,
+      '陶橙瓦前街带恰 24 格(塔 8=瓦顶 6+脊 2; 房×4 各 4=2×2 平瓦盖)');
+  /* 门前石板(件 D 材质升级): 表面 id2→13 石砖, 几何零改动, 石板直铺塔脚 */
+  assert.strictEqual(cell(158, tt, 74), 13, '门前石板(x158/z74 表面, 土面改石砖)');
+  assert.strictEqual(cell(159, top(159, 75), 75), 13, '门前石板(x159/z75, 铺到塔脚)');
+  assert.strictEqual(cell(159, top(159, 74), 74), 13, '门前石板(x159/z74, 2×2 全幅)');
+  assert.strictEqual(cell(158, top(158, 75), 75), 13, '门前石板(x158/z75, 2×2 全幅)');
+  /* 迎宾灯柱×2(跨门槛两侧 z72/77): 石英柱身两高+灯块顶=「镇给你点灯」 */
+  for (const wz of [72, 77]) {
+    const wt = top(158, wz);
+    assert.strictEqual(cell(158, wt + 1, wz), 17, '迎宾灯柱身下(z' + wz + ', 石英)');
+    assert.strictEqual(cell(158, wt + 2, wz), 17, '迎宾灯柱身上(z' + wz + ')');
+    assert.strictEqual(cell(158, wt + 3, wz), 19, '迎宾灯顶灯块(z' + wz + ', light15 恒亮)');
+  }
+  /* 中段矮墙抽样 z68/80/88: 13 石砖 yb+1..+2 两格(U1 已裁 2 格高) */
+  for (const z of [68, 80, 88]) {
+    const y = top(157, z) + 1;
+    assert.strictEqual(cell(157, y, z), 13, '中段矮墙下格石砖(z' + z + ')');
+    assert.strictEqual(cell(157, y + 1, z), 13, '中段矮墙上格石砖(z' + z + ', U1 已裁 2 格高)');
+  }
+  /* 墙头花 5 丛(z68/72/78/82/86 落 yb+3, 黄 61/白 62 盐 8404 交替)+端帽 2(z66/z90 石英) */
+  let wallFlowers = 0;
+  for (let z = 66; z <= 90; z++) {
+    const id = cell(157, top(157, z) + 3, z);
+    if (id === api.B_FLOWER_Y || id === api.B_FLOWER_W) wallFlowers++;
+  }
+  assert.strictEqual(wallFlowers, 5, '中段墙头花恰 5 丛(全落 yb+3 层, 黄白二色)');
+  for (const z of [68, 72, 78, 82, 86]) {
+    const id = cell(157, top(157, z) + 3, z);
+    assert.ok(id === api.B_FLOWER_Y || id === api.B_FLOWER_W,
+        '墙头花丛位 z' + z + ' 在场(yb+3, 黄/白)');
+  }
+  assert.strictEqual(cell(157, top(157, 66) + 3, 66), 17, '矮墙端头柱帽石英(z66, yb+3)');
+  assert.strictEqual(cell(157, top(157, 90) + 3, 90), 17, '矮墙端头柱帽石英(z90, yb+3)');
+  /* 门框柱 z73/76 换装: 13 石砖两高 + 17 石英柱头 yb+3(原两高原木桩退役, spec §4.1) */
+  for (const z of [73, 76]) {
+    const y = top(157, z) + 1;
+    assert.strictEqual(cell(157, y, z), 13, '门框柱石砖下格(z' + z + ')');
+    assert.strictEqual(cell(157, y + 1, z), 13, '门框柱石砖上格(z' + z + ')');
+    assert.strictEqual(cell(157, y + 2, z), 17, '门框柱石英柱头(z' + z + ', yb+3)');
+  }
+
   /* 清场重建: 带改写+植被覆写全链逐字节复现(SceneKit.rand 确定性, 零 Math.random) */
   vm.runInContext('worldCells.fill(0)', eng);
   Core.advBuildWorld();
   assert.deepStrictEqual(snapshot(), a, '两次建场 worldCells 逐块一致(含边界带)');
+});
+
+test('东带引道花径+灯柱(F4, v2 spec §5): 主径延长至花田东缘 + 花带 8 丛对角交错 + 灯柱 3 对', () => {
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  const top = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  /* 主径石板引道(走查修正 G1a, 2026-11-16): x148..156 × z74/75 表面 dirt→
+     13 石砖——「草土(x128~147)→石板引道(x148~156)→石砌门楼(x156)→石板
+     前街(x158~159)」材质递进接通连续石面; 西界 x147 仍是草面=石板段不噬
+     花田区(x144~146)的边界见证(v2 §5 件 P+走查修正附录) */
+  for (const z of [74, 75]) {
+    for (let x = 148; x <= 156; x++) {
+      assert.strictEqual(cell(x, top(x, z), z), 13, '主径连续段石板(' + x + ',' + z + ')');
+    }
+    assert.strictEqual(cell(147, top(147, z), z), 1, '主径西界草面(z' + z + ' 行, 与花田区零重叠)');
+  }
+  /* 花带 8 丛: 北列 z73 x148/150/152/154 + 南列 z76 x149/151/153/155(对角交错);
+     花色黄 61/白 62 由显式盐 8404 决定(确定性; 逐丛色彩不在此断言, 两次建场
+     一致已由上一测覆盖); 脚下按「实感地面」口径断言——N1: 南列 z76 两丛
+     (x149/151) 落 v1 土斑 patch(x148..151×z76..79)面上, 写「脚下草皮」会假红 */
+  const petals = [[148, 73], [150, 73], [152, 73], [154, 73],
+    [149, 76], [151, 76], [153, 76], [155, 76]];
+  for (const [fx, fz] of petals) {
+    const fid = cell(fx, top(fx, fz) + 1, fz);
+    assert.ok(fid === api.B_FLOWER_Y || fid === api.B_FLOWER_W,
+        '花带丛位(' + fx + ',' + fz + ')黄/白花在表面上(advEdgeDecorate 判据口径)');
+    const sid = cell(fx, top(fx, fz), fz);
+    assert.ok(sid !== 0 && sid !== api.B_WATER,
+        '花带脚下实感地面(' + fx + ',' + fz + ' 实测 id ' + sid + ', N1 口径不写草皮)');
+  }
+  let bandPetals = 0;
+  for (let x = 147; x <= 156; x++) {
+    for (const z of [72, 73, 74, 75, 76, 77]) {
+      const id = cell(x, top(x, z) + 1, z);
+      if (id === api.B_FLOWER_Y || id === api.B_FLOWER_W) bandPetals++;
+    }
+  }
+  assert.strictEqual(bandPetals, 8, '引道窗(x147..156 × z72..77)花带恰 8 丛(花田区不在窗内, 无散布混入)');
+  /* 引道灯柱 3 对: (148,72)/(148,77)·(151,72)/(151,77)·(154,72)/(154,77),
+     17 石英柱身 yb+1..+2 + 19 灯块柱顶 yb+3(light 15 恒亮); yb 同源锚=本地
+     表面(柱基落 v1 土斑 patch 的 (148,77)/(151,77) 与草面柱同式, 票外发现
+     已登记: spec「柱基草面」措辞对该两柱不成立); 与花带丛位(z73/76)错行零重叠 */
+  const lampPosts = [[148, 72], [148, 77], [151, 72], [151, 77], [154, 72], [154, 77]];
+  for (const [px, pz] of lampPosts) {
+    const yb = top(px, pz);
+    assert.strictEqual(cell(px, yb + 1, pz), 17, '灯柱柱身下格石英(' + px + ',' + pz + ')');
+    assert.strictEqual(cell(px, yb + 2, pz), 17, '灯柱柱身上格石英(' + px + ',' + pz + ')');
+    assert.strictEqual(cell(px, yb + 3, pz), 19, '灯柱顶灯块(' + px + ',' + pz + ')');
+  }
+});
+
+test('东带门墩门槛石化(G1b, 走查修正附录 2026-11-16): (154,74)/(154,75) 垫墩 dirt 改 13 石砖仅换材质, 垫高格几何零改动', () => {
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  const top = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  /* 材质面(观感票本体): 回程门槛石读法——石板路上一块 dirt 是「土包/堵路」,
+     石砖门墩在石板路上是「门槛石」(回家跨过门槛, 定稿 G1b)。仅换材质:
+     垫高格 y=top+1 与顶面高度零改动, 回程锚 (154.5,75) 落点 y24 压平功能
+     行为面锁定在 adventure-mode.test.js T-SEAM-03 建场探针(y24 实垫+y25/26
+     净空, 材质无关), 此处不重复锁, 只以「上方净空」作几何零改动的本地见证 */
+  for (const z of [74, 75]) {
+    assert.strictEqual(cell(154, top(154, z) + 1, z), 13,
+        '门墩门槛石(z' + z + ' 列垫高格, 材质 13 石砖)');
+    assert.strictEqual(cell(154, top(154, z) + 2, z), 0,
+        '门墩上方净空(z' + z + ' 列, 垫高格几何零改动见证)');
+  }
 });
 
 test('北带走查修订(2026-11-06): 巍峨高山脊剖面 + 落雪寒带杉 + 植物过渡', () => {
@@ -1130,23 +1301,77 @@ test('T7 转正 P2: advEdgeProtectedAt 逐坐标 — 三向屏障体/东栅栏�
   }
   assert.strictEqual(Core.advEdgeProtectedAt(12, edgeTop(12, 80), 80), false, '西出带 x12 false');
   assert.strictEqual(Core.advEdgeProtectedAt(19, edgeTop(19, 80), 80), false, '西出带 x19 false');
-  /* 东·栅栏线 x157: 桩基恒保/桩顶只 z%3===0/缝格上方可站(翻越彩蛋的落点语义) */
-  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 1, 81), '东桩基 z81 true');
-  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 2, 81), '东桩顶 z81 true(81%3===0)');
-  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 78) + 1, 78), '东桩基 z78 true');
-  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 80) + 1, 80), '东横杆 z80 true');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, edgeTop(157, 80) + 2, 80), false, '东缝格上方 z80 false(可站跳缝)');
-  /* 东·栈桩 z153/154/159(SE 角 post-pass 桩脚)与告示牌 x156 */
+  /* 东·镇界分段线 x157(v2 spec §8.1): 中段 z∈[66,90] 矮墙全高 y0/y0+1 在保
+     (U1 已裁 2 格), 墙头花/端帽层 y0+2 不在保(N2: 带内可挖可放维持);
+     门框柱 z73/76 y0..y0+2 在保(含石英柱头); 远段(z≤65 ∪ z≥91)原式维持
+     ——桩基恒保/桩顶只 z%3===0/缝格上方可站(z%3 桩顶判据中段不适用);
+     栈桩 z153/154/159 见下段(远段维持, 断言照旧) */
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 70) + 1, 70), '东矮墙基 z70 true');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 70) + 2, 70), '东矮墙上格 z70 true(中段全高在保)');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, edgeTop(157, 70) + 3, 70), false,
+      '东矮墙 y0+2 层 z70 false(N2: 墙头花/端帽层不在保)');
+  for (const z of [73, 76]) {
+    assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, z) + 3, z),
+        '东门框柱柱头 z' + z + ' true(y0+2 含石英柱头在保)');
+  }
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 1, 81), '东矮墙基 z81 true(中段, 断言值延续)');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 2, 81), '东矮墙上格 z81 true(中段全高, 旧桩顶断言值延续)');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 78) + 1, 78), '东矮墙基 z78 true');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 80) + 2, 80),
+      '东矮墙上格 z80 true(中段全高, 旧缝格上方断言随分段判据同步为在保)');
+  /* 远段原式维持(spec §8.2 采样笔误更正: 原采样 z81/z80 实落中段 z∈[66,90],
+     远段逐坐标采样移 z93 桩/z95 缝) */
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 93) + 1, 93), '远段桩基 z93 true');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 93) + 2, 93), '远段桩顶 z93 true(93%3===0, z%3 判据远段适用)');
+  assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, 95) + 1, 95), '远段横杆 z95 true');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, edgeTop(157, 95) + 2, 95), false,
+      '远段缝格上方 z95 false(可站跳缝, 原式维持)');
+  /* 东·栈桩 z153/154/159(SE 角 post-pass 桩脚)与镇门楼 x156 */
   for (const z of [153, 154, 159]) {
     assert.ok(Core.advEdgeProtectedAt(157, edgeTop(157, z), z), '栈桩格 z' + z + ' true');
     assert.strictEqual(Core.advEdgeProtectedAt(157, edgeTop(157, z) - 1, z), false, '栈桩下方土格 z' + z + ' false');
   }
+  /* 镇门楼(v2 spec §8.1 x156 分支): 侧柱列 z73/76 yb+1..+9 全列在保(柱+壁灯+
+     柱头+檐/瓦/脊同列格); 檐角列 z72/77 只 yb+7..+9(檐/瓦出挑格, 脊虽不建也在保);
+     门额带 z74/75 yb+4..+9(横梁+门额牌+檐/瓦/脊中段); 门洞净空 z74/75 yb+1..+3
+     恒 false(穿行契约, v1 2 格扩 3 格=「门高大」) */
   const yb = Core.ADV_GROUND + Core.advHeightAt(156, 74);
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 1, 73), '告示牌柱下格 true');
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 3, 73), '告示牌柱顶格 true');
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 3, 74), '告示牌板面下缘 true');
-  assert.ok(Core.advEdgeProtectedAt(156, yb + 4, 74), '告示牌板面上缘 true');
-  assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 1, 74), false, '板面下方空气格 false(只钉板/柱体)');
+  for (const z of [73, 76]) {
+    for (let dy = 1; dy <= 9; dy++) {
+      assert.ok(Core.advEdgeProtectedAt(156, yb + dy, z), '门楼柱列在保(z' + z + ' yb+' + dy + ', 含壁灯格)');
+    }
+  }
+  for (const z of [74, 75]) {
+    for (let dy = 1; dy <= 3; dy++) {
+      assert.strictEqual(Core.advEdgeProtectedAt(156, yb + dy, z), false, '门洞净空让保护(z' + z + ' yb+' + dy + ')');
+    }
+    for (let dy = 4; dy <= 9; dy++) {
+      assert.ok(Core.advEdgeProtectedAt(156, yb + dy, z), '门额带在保(z' + z + ' yb+' + dy + ')');
+    }
+  }
+  for (const z of [72, 77]) {
+    for (let dy = 7; dy <= 9; dy++) {
+      assert.ok(Core.advEdgeProtectedAt(156, yb + dy, z), '檐角在保(z' + z + ' yb+' + dy + ' 出挑格)');
+    }
+    assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 6, z), false, '檐角下方不在保(z' + z + ' yb+6)');
+  }
+  assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 10, 74), false, '屋脊上空不在保(yb+10)');
+  assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 1, 71), false, '檐外邻列不在保(z71)');
+  /* 东·回家门墩 x154(PO 裁决 2026-11-16, 加保护): 门墩=回程功能件(T-SEAM-03
+     垫高锚落点), 与 U2 镇界不可挖/U4 防坠墙不可挖同族「牢固镇界设施群」
+     保护语义。保护范围=仅门墩垫高格(建场权威=advEdgeEastArrivePad 同式
+     top(154,z)+1, G1b 实测垫高格 y24); 表面主径石面(G1a 范围)与上方净空
+     y25/26 维持不在保(N2 带内可挖口径维持, 与 G1b 专测「上方净空」几何
+     见证对齐) */
+  for (const z of [74, 75]) {
+    assert.ok(Core.advEdgeProtectedAt(154, edgeTop(154, z) + 1, z), '门墩垫高格 z' + z + ' true(回程门槛石在保)');
+    assert.strictEqual(Core.advEdgeProtectedAt(154, edgeTop(154, z), z), false,
+        '门墩下主径石面 y23 z' + z + ' false(G1a 表面层不在保, 带内可挖口径维持)');
+    assert.strictEqual(Core.advEdgeProtectedAt(154, edgeTop(154, z) + 2, z), false,
+        '门墩上方净空 y25 z' + z + ' false(净空层不保, N2 对称)');
+    assert.strictEqual(Core.advEdgeProtectedAt(154, edgeTop(154, z) + 3, z), false,
+        '门墩上方净空 y26 z' + z + ' false(禁填空气格维持不在保)');
+  }
   /* 普通带内格与隔离带: 判据全 false(带内可挖可建=放开语义) */
   assert.strictEqual(Core.advEdgeProtectedAt(30, edgeTop(30, 2), 2), false, '北带普通雪格 false');
   assert.strictEqual(Core.advEdgeProtectedAt(80, edgeTop(80, 100), 100), false, '南带普通沙格 false');
@@ -1167,7 +1392,7 @@ test('T7 转正·开关门控: advSetEdgeBarriersHidden(true) 三向放行/东�
     s: Core.advEdgeProtectedAt(80, edgeTop(80, 145), 145),
     w: Core.advEdgeProtectedAt(15, edgeTop(15, 80), 80),
     ePost: Core.advEdgeProtectedAt(157, edgeTop(157, 81) + 1, 81),
-    eSign: Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 3, 74),
+    eSign: Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 5, 74),
     zoneN: Core.advEdgeProtectedZone(nCol.x, nCol.z),
     zoneW: Core.advEdgeProtectedZone(15, 80),
   });
@@ -1183,7 +1408,7 @@ test('T7 转正·开关门控: advSetEdgeBarriersHidden(true) 三向放行/东�
   assert.strictEqual(gated.zoneN, false, '隐藏后北禁放柱放行');
   assert.strictEqual(gated.zoneW, false, '隐藏后西禁放柱放行');
   assert.ok(gated.ePost, '东桩基恒保护(隐藏不豁免)');
-  assert.ok(gated.eSign, '东告示牌恒保护');
+  assert.ok(gated.eSign, '东镇门楼恒保护(门额格采样)');
   /* 复位还原 + 与解锁前逐值一致(单一开关往返无损) */
   assert.deepStrictEqual(after, before, '复位后全部判据还原(与解锁前逐值一致)');
   assert.ok(before.n && before.s && before.w && before.zoneN && before.zoneW, '解锁前三向判据在保(前提自检)');
@@ -2919,31 +3144,37 @@ test('T-SEAM-02 门口开间建场几何: z74~75 栅栏让位(开间内无栅栏
     assert.strictEqual(cell(157, y0(z), z), 0, '(157,y0,' + z + ') 开间内无杆/桩');
     assert.strictEqual(cell(157, y0(z) + 1, z), 0, '(157,y0+1,' + z + ') 开间内无桩顶');
   }
-  /* 桩位让至开间两侧邻格: z73/z76 各一根两高原木桩(门框读法) */
+  /* 桩位让至开间两侧邻格(v2 spec §4.1 门框柱换装): z73/z76 石砖两高+石英柱头
+     yb+3(原两高原木桩退役; 建场计数段已断言, 这里开间几何口径同式钉一遍) */
   for (const z of [73, 76]) {
-    assert.strictEqual(cell(157, y0(z), z), 5, '(157,y0,' + z + ') 开间侧邻格落桩基');
-    assert.strictEqual(cell(157, y0(z) + 1, z), 5, '(157,y0+1,' + z + ') 侧邻桩两高');
+    assert.strictEqual(cell(157, y0(z), z), 13, '(157,y0,' + z + ') 门框柱身下格石砖');
+    assert.strictEqual(cell(157, y0(z) + 1, z), 13, '(157,y0+1,' + z + ') 门框柱身上格石砖');
+    assert.strictEqual(cell(157, y0(z) + 2, z), 17, '(157,y0+2,' + z + ') 门框柱石英柱头');
   }
-  /* 其余段形制照旧: z%3==0 桩两高/缝格横杆一高(抽样 z72 桩/z78 桩/z81 桩/z82 杆) */
-  assert.strictEqual(cell(157, y0(72), 72), 5, '(z72) 常规桩基照旧');
-  assert.strictEqual(cell(157, y0(72) + 1, 72), 5, '(z72) 常规桩两高照旧');
-  assert.strictEqual(cell(157, y0(78), 78), 5, '(z78) 常规桩基照旧');
-  assert.strictEqual(cell(157, y0(81), 81), 5, '(z81) 远段桩基照旧');
-  assert.strictEqual(cell(157, y0(82), 82), 6, '(z82) 缝格横杆照旧');
-  assert.strictEqual(cell(157, y0(82) + 1, 82), 0, '(z82) 横杆单高照旧');
-  /* 其余段不可挖保护照旧(东向恒保护): 桩基/桩顶/横杆/侧邻桩全在保 */
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(81), 81), true, '(z81) 桩基在保');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(81) + 1, 81), true, '(z81) 桩顶在保');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(82), 82), true, '(z82) 横杆在保');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(73), 73), true, '(z73) 侧邻桩在保');
-  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(76) + 1, 76), true, '(z76) 侧邻桩顶在保');
+  /* 远段形制照旧(v2 spec §4.1: z≤65 ∪ z≥91 木栅栏维持=四角楔载体; 原抽样
+     z72/78/81/82 实落中段矮墙带已随形制换装, 远段抽样移 z51/z63/z93 桩与
+     z65/z91 杆, 两翼各顾且贴墙端界) */
+  for (const z of [51, 63, 93]) {
+    assert.strictEqual(cell(157, y0(z), z), 5, '(z' + z + ') 远段桩基照旧');
+    assert.strictEqual(cell(157, y0(z) + 1, z), 5, '(z' + z + ') 远段桩两高照旧');
+  }
+  for (const z of [65, 91]) {
+    assert.strictEqual(cell(157, y0(z), z), 6, '(z' + z + ') 远段缝格横杆照旧');
+    assert.strictEqual(cell(157, y0(z) + 1, z), 0, '(z' + z + ') 远段横杆单高照旧');
+  }
+  /* 远段不可挖保护照旧(东向恒保护): 桩基/桩顶/横杆在保; 门框柱身在保(柱身两格) */
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(63), 63), true, '(z63) 远段桩基在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(63) + 1, 63), true, '(z63) 远段桩顶在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(65), 65), true, '(z65) 远段横杆在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(73), 73), true, '(z73) 门框柱身在保');
+  assert.strictEqual(Core.advEdgeProtectedAt(157, y0(76) + 1, 76), true, '(z76) 门框柱顶在保');
   /* 开间让位同步让保护: 开间两格栅栏层不再报保护(「对其余段照旧」的对照面,
      门口自成通路——§6.3.1 门口开间条) */
   assert.strictEqual(Core.advEdgeProtectedAt(157, y0(74), 74), false, '(z74) 开间栅栏层保护让位');
   assert.strictEqual(Core.advEdgeProtectedAt(157, y0(75), 75), false, '(z75) 开间栅栏层保护让位');
-  /* 告示牌照旧(收编②零改动抽样) */
-  assert.ok(Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 3, 74),
-      '告示牌板面在保(形制位置不动)');
+  /* 镇门楼在保(v2 重建后收编抽样: 门额带 z74/75 yb+4..+9 在保, 净空 yb+1..+3 让保护) */
+  assert.ok(Core.advEdgeProtectedAt(156, Core.ADV_GROUND + Core.advHeightAt(156, 74) + 5, 74),
+      '门楼门额格在保(重建后形制)');
 });
 
 test('T8 引导区(组 1): 锁定向命中 · 解锁态静默 · 强制缝静默 · 东向恒 null · 角区检序', () => {

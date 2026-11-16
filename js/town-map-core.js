@@ -6,21 +6,30 @@
    (核心区/广场常量 + 分区/锚点/Prefab 实例/路网/地表/远景/散布七清单)
    外加一个建场步骤平铺纯函数, 藏住全部坐标拍板; 建场装配与材质注入只
    消费不自定坐标。
-   interface: 全局 TOWN_MAP 九段(core{核心区闭域+size/groundY} · plaza
-     {广场闭域} · zones 六带清单 · anchors/prefab/roads/ground/backdrop/
-     scatter 七清单, 闭区间整数坐标, z 小=北) · 纯函数 townBuildSteps()
+   interface: 全局 TOWN_MAP 十段(core{核心区闭域+size/groundY} · plaza
+     {广场闭域} · beyond{越界域白名单五段=与 core/plaza 同级的显式越界域
+     清单(ADR-0013)} · zones 六带清单 · anchors/prefab/roads/ground/
+     backdrop/scatter 七清单, 闭区间整数坐标, z 小=北; ground 含 town-rim
+     防坠墙圈条目=segs 十六段显式分段清单作几何唯一权威, spec §3.3) ·
+     纯函数 townBuildSteps()
      → 步骤数组: 按 phase 全序 ['ground','backdrop','road','prefab',
      'scatter','anchor'] 平铺(wayshrine 条目加冠于 road 后, 见函数注),
      每步 = 源条目浅拷贝+phase 标签
      (docs/town-architecture-design.md §5.1.6 建场次序: 先地表/远景/
-     路网基底→建筑件→植被道具散布→出生锚点), 同参同输出零副作用。
+     路网基底→建筑件→植被道具散布→出生锚点), 同参同输出零副作用 ·
+     纯函数 townProtectedAt(x,y,z)
+     → 镇域保护判据(U4/T2b, ADR-0018): 「挖/放/炸」三缝同口径的在保单点
+     问询——零依赖 part 派生式(墙圈吃 ground.town-rim segs 白名单
+     pad/wall/post; 门楼吃 prefab town-gate 行锚+保护域政策偏移), 布尔
+     同参同输出零副作用。
    依赖: 零运行时依赖——本文件不引用任何引擎件/件库符号(纯布局计划;
      布局常量对齐 docs/town-map-design.md §3-§4(布局权威)与
      docs/design/town-prefab-specs.md §3(件库映射); 脚印合法性由测试
      侧以 PrefabKit.footOf 校验, 材质集中注入归 T-MAP-03, 建场装配归
      T-MAP-02 消费本清单)。
    可测性声明: 零三维渲染库 · 零 DOM · 零墙钟 · 零随机 · 有同名单测
-     (test/town-map-core.test.js, 16 test 可执行规格)。
+     (test/town-map-core.test.js, 24 test 可执行规格; 计数照实更新 T2b
+     ——⑧c U4 判据两红+⑧b 转正守卫一红入册)。
    ============================================================ */
 
 const TOWN_MAP = {
@@ -31,6 +40,20 @@ const TOWN_MAP = {
   /* 主广场: 28×28 与核心区同心(中心同为 79.5, ±1 内); 钟塔/摊位簇/
      广场樱花全落于此, 四缘贴放射路网(§3.2/§4.3 视线通廊)。 */
   plaza: {x1: 66, z1: 66, x2: 93, z2: 93, size: 28},
+  /* beyond 不是通行证(ADR-0013, 方案 .scratch/town-east-boundary/
+     arch-town-side-gate-and-edge-fence.md §2.1): core 外显式合法域白名单
+     单源(布局守门判据「⊆ core ∪ beyond」的 beyond), 每段=一件越界件的
+     声明域, 三准入语义=缓冲带服务面/回程判据服务面/防坠功能件; 加段须先
+     过判据票(docs/adr/0013-town-beyond-whitelist.md), 不收「散写越界」。 */
+  beyond: [
+    /* ②门楼+基座桥域(含檐口出挑 x75/x81; G3 四格案: 桥延伸段 z132..135
+       归同一件越界件域, ADR-0013 语义不变) */
+    {id: 'gate-south', x1: 75, z1: 128, x2: 81, z2: 135},
+    {id: 'rim-south', x1: 32, z1: 128, x2: 127, z2: 128}, /* ③南缘墙线 z128 行(墙身+垫层, 开口段含于域) */
+    {id: 'rim-west', x1: 31, z1: 32, x2: 31, z2: 128}, /* 西缘墙线(含北端接头柱 z32..33 与南角) */
+    {id: 'rim-east', x1: 128, z1: 32, x2: 128, z2: 128}, /* 东缘墙线(同上) */
+    {id: 'rim-skirt', x1: 16, z1: 29, x2: 143, z2: 31}, /* 裙板翼墙+端头墩域(实际写入仅翼段) */
+  ],
   /* 六带(§4.1 方位语义): 除 far-north(核心区外北侧剪影层)外全部
      ⊆ 核心区; hub 域=广场域; south 标 optional(P2 可选彩蛋带)。 */
   zones: [
@@ -171,6 +194,14 @@ const TOWN_MAP = {
         arch §12.1③, 几何见 prefab-kit iron-golem 行 z 收胸 v3) */
       id: 'iron-golem', x: 70, y: 25, z: 30, v: {},
       face: 'south', zone: 'far-north'},
+    {/* ②镇侧门楼(town-gate, T1a, spec §2.6 候选行逐字): 回程动线南端的
+        对称门楼——牌面朝北迎回家者, 双门呼应(home 东带门楼牌面朝西);
+        锚 (76,24,128)=主路轴线 x76..80 与基座桥北缘 z128 交点, 桥面 y24
+        与 core 草地同层无缝; zone south=南缓冲带服务面(锚 z128 越带注记
+        豁免归守门测试⑤, 越界放行由 beyond.gate-south 白名单承担,
+        ADR-0013); v 素坯空对象, 几何见 prefab-kit town-gate 行 */
+      id: 'town-gate', x: 76, y: 24, z: 128, v: {},
+      face: 'north', zone: 'south'},
   ],
   /* 路网(§4.3): 三条主路 5 宽放射贴广场三缘(北/东/南), 三条支路 3 宽
       通民居门前/田园/储藏角; 均为轴对齐闭域矩形段(厚=窄边跨度),
@@ -197,7 +228,9 @@ const TOWN_MAP = {
       wayshrine 断头小坪×2(v2 #6): 贴 main-east/main-south 断头端外侧
       5×5(边环 4 木板+内缩芯 13 圆石), 坪内恰含既有驿站灯柱(v1 先落灯
       柱/圆石小坪 v2 的拍板兑现); 条目按契约排在清单末尾——buildSteps
-      平铺时加冠于 road 段之后(后写者赢, 见 townBuildSteps 注) */
+      平铺时加冠于 road 段之后(后写者赢, 见 townBuildSteps 注)。
+      T2 镇缘防坠墙圈(spec §3.3): kind town-rim 条目=segs 十六段显式
+      分段清单作几何唯一权威, 详载清单末条目注 */
   ground: [
     {/* TIDEA-07(W-07): 镇徽地花+主轴花带——地面格位重排(emblem/axisBloom
         字段显式启用, 派生侧铺装笔后追加覆写; 未知字段本笔静默缺省):
@@ -219,6 +252,61 @@ const TOWN_MAP = {
       id: 'farm-a', kind: 'farm-rows', x1: 66, z1: 44, x2: 75, z2: 56,
       harvest: {x1: 66, z1: 44, x2: 69, z2: 47}},
     {id: 'farm-b', kind: 'farm-rows', x1: 80, z1: 46, x2: 88, z2: 57},
+    {/* ---- T2 镇缘防坠墙圈(spec §3.3 块级规格; ADR-0013 rim-* 白名单的
+        消费权威): ground 相位新 kind——条目无 x/z 顶层域, segs 十六段
+        显式分段清单=几何唯一权威(垫层4+墙身4+接头柱2+柱帽2+翼墙2+
+        端头墩2), 装配侧按段派生恰 48 笔(14 段石砖 13+柱帽 2 石英 17+
+        墙头花 32 簇 61/62, 派生面见 town-assembly-core)。红线四条:
+        开口段 x76..80 归 T1a 门楼/基座桥显式排除; 回程触发线 z132
+        内侧(几何全 z≤128); 北缘不开墙(裙板缓坡=PO 亲需可达线零连累);
+        rim 走道 z29..30 保留(端头墩柱位 x16/x143 豁免=spec 端头封口)。
+        翼墙/端头墩 y26..27=spec 原案绝对值(T2c design-lead 终审裁定回
+        改, 裁定全文=.scratch/town-east-boundary/gate-review-town-side.md
+        「补录·T2 翼墙/端头墩高度票内偏差终审裁定」节): 决定性理由=功能
+        非观感——墙顶面 y28 级须自 rim 面 2 跳不可达(spec :148), 矮化即
+        防坠失效; 且翼墙顶与普通墙脊同高会复活「登墙绕圈」链(接头柱加
+        高无帽封死的正是此链)。域差档: 裙板顶=y25 块(spec :123), 「立裙
+        板顶」件基高一律+1——core 域墙圈南/东/西缘 y25..26 正确勿动, 偏
+        差仅裙板域两件。实测注: scene 6413b00 裙板「两缘落地」提案在翼/
+        墩列列顶=24(中带 25), 施工案 y25..26 曾按「立实测顶 24 上」换算
+        ——经终审按功能裁定不采, 域差与回改后 y25 缝的处置留后续票, 详
+        注见 test/town-map-core.test.js ⑧b。G4 补底终态(上缝已闭合):
+        翼/墩加底块 y25, 终形三格 y25..27, 顶面 y28 级不变(+36 格),
+        design-lead 裁路径 B, 裁决出处=.scratch/town-east-boundary/
+        gate-review-town-side.md「补录·G4 翼/墩补缝裁决」节。排序契约: 必须排在 wayshrine
+        条目之前——buildSteps 把非 wayshrine 地表条目平铺在前、wayshrine
+        加冠于 road 后, townAssemblyPhases 重分组后 ground 组序=源清单
+        序(装配序测试钉), 条目落 wayshrine 之后会破序 */
+      id: 'town-rim', kind: 'town-rim',
+      segs: [
+        /* 墙基垫层 pad: y24 单层 13, 墙的地基——垫层顶与 core 草地同高
+           (纯埋设件, 「剖面不悬空」纪律); 南段两截避门楼开口 x76..80 */
+        {part: 'pad', x1: 32, z1: 128, x2: 75, z2: 128, y1: 24, y2: 24},
+        {part: 'pad', x1: 81, z1: 128, x2: 127, z2: 128, y1: 24, y2: 24},
+        {part: 'pad', x1: 31, z1: 32, x2: 31, z2: 128, y1: 24, y2: 24},
+        {part: 'pad', x1: 128, z1: 32, x2: 128, z2: 128, y1: 24, y2: 24},
+        /* 墙身 wall: y25..26 两格 13; 东西缘止于 z128 闭南角实接(spec
+           §3.3 东西缘行: 止于 127 会对角缺口+柱帽悬空) */
+        {part: 'wall', x1: 32, z1: 128, x2: 75, z2: 128, y1: 25, y2: 26},
+        {part: 'wall', x1: 81, z1: 128, x2: 127, z2: 128, y1: 25, y2: 26},
+        {part: 'wall', x1: 31, z1: 32, x2: 31, z2: 128, y1: 25, y2: 26},
+        {part: 'wall', x1: 128, z1: 32, x2: 128, z2: 128, y1: 25, y2: 26},
+        /* 北端接头柱 post: y25..27 三格无帽(帽顶会成自裙板下跳登脊的
+           踏板——防登墙) */
+        {part: 'post', x1: 31, z1: 32, x2: 31, z2: 33, y1: 25, y2: 27},
+        {part: 'post', x1: 128, z1: 32, x2: 128, z2: 33, y1: 25, y2: 27},
+        /* 南角柱帽 cap: y27 石英(北端接头格故意不加帽) */
+        {part: 'cap', x1: 31, z1: 128, x2: 31, z2: 128, y1: 27, y2: 27},
+        {part: 'cap', x1: 128, z1: 128, x2: 128, z2: 128, y1: 27, y2: 27},
+        /* 裙板翼墙 wing: z31 行 y25..27(G4 补底终形三格, 顶面 y28 级
+           不变; T2c 终审沿革见上注) */
+        {part: 'wing', x1: 16, z1: 31, x2: 30, z2: 31, y1: 25, y2: 27},
+        {part: 'wing', x1: 129, z1: 31, x2: 143, z2: 31, y1: 25, y2: 27},
+        /* 北缘端头墩 pier: x16/x143 列 z29..31 y25..27(G4 补底终形
+           三格; 墩脚语义见上注域差档, T2c 终审沿革) */
+        {part: 'pier', x1: 16, z1: 29, x2: 16, z2: 31, y1: 25, y2: 27},
+        {part: 'pier', x1: 143, z1: 29, x2: 143, z2: 31, y1: 25, y2: 27},
+      ]},
     {id: 'wayshrine-east', kind: 'wayshrine', x1: 121, z1: 84, x2: 125, z2: 88},
     {id: 'wayshrine-south', kind: 'wayshrine', x1: 76, z1: 119, x2: 80, z2: 123},
   ],
@@ -307,14 +395,11 @@ const TOWN_MAP = {
     {id: 'signpost-stash', kind: 'signpost', x: 50, y: 24, z: 95},
     {id: 'signpost-east', kind: 'signpost', x: 95, y: 24, z: 89},
     {id: 'signpost-south', kind: 'signpost', x: 82, y: 24, z: 94},
-    {/* TIDEA-06(W-06, ADR-0011 决策 6c 预授权路径激活): 南门回程仪式件
-        ——出镇方向「回家由此去」告示牌, 现成 signpost kind(柱 5+牌 6
-        两笔), 落 (75,126) 坪南 3 格路西侧草地(原案 z130 一带内收保
-        ⊆核心区纪律, 回程触发线 z≥132 之前最后视觉告别件); 灯柱复用
-        既有 lamp-end-south(79,119) 坪芯「门内灯」零新增; 栅栏开间
-        两桩无现成 kind, 契约归 arch 需求清单(波次一蓝图面/波次二落位)。
-        落点过规划脚本全约束(非路/缘石/脚印/坪, npc·锚切比 ≥2) */
-      id: 'signpost-home', kind: 'signpost', x: 75, y: 24, z: 126},
+    /* 沿革(TIDEA-06 退役): signpost-home 已退役不在册——ADR-0011 决策 6c
+        「回程仪式件」预授权路径升格兑现, 门楼(T1a)建成后拆旧件, 三职能
+        (指引告示/门内灯柱/栅栏开间桩)由门楼整体接棒(spec §2.5 吞并裁定,
+        §6 T3 票面); 留档备选(迁 (75,124))未启, 走查触发再议;
+        不落新 ADR(架构 §5) */
     /* ---- 视觉重制 §3 E(v2 显式设计点, 全部过规划脚本全约束过滤:
         13 脚印/6 路+12 curb 外扩线/广场/农田/走廊 x78..80/空隙带/2 坪/
         14 npc 站位切比 ≥2/7 导览锚切比 ≥2/散布互不重格) ---- */
@@ -522,9 +607,50 @@ function townBuildSteps() {
   return steps;
 }
 
+/* U4 镇域保护判据(T2b, spec §6 U4 + 架构方案 §3.3/§3.4, ADR-0018):
+   「挖/放/炸」三缝同口径的在保单点问询, 纯坐标函数——零运行时依赖纪律
+   保持(不引 PrefabKit, 头注零件库符号引用纪律)。判据两域:
+   ① 墙圈: 吃 ground.town-rim segs(几何唯一权威)part 白名单 pad/wall/post
+     =§3.3 在保拍板(垫层 y24/墙身 y25..26/接头柱 y25..27); cap/wing/pier
+     不在保(柱帽=纯装饰顶格/翼墙+端头墩=裙板域防坠件非镇墙本体——home
+     「端帽/花不保」先例对称, §3.3 表逐行拍板外推); 墙头花=派生面不在
+     segs, 天然不在保。
+   ② 门楼: prefab town-gate 行锚(单源)+保护域政策偏移全盒——楼段
+     dy+1..+9 全宽含檐口出挑 dx-1..+5 / 桥段 dy-4..0 桥体宽 dx0..+4
+     (出处=prefab-kit town-gate foot/kernel + town-side-gate-and-edge-fence-spec §2.2/§2.6
+     + 架构方案 §3.3 表); z 域: 总盒 gz..gz+7, 楼段限 gz..gz+3——G3 四格案
+     (桥延伸补丁, 扩域过票=ADR-0018 决策 2 沿革注): 桥延伸段 z132..135 归
+     桥段域, 延伸段上方无楼, 楼段域不随桥扩; 门洞净空 gx+1..+3×gy+1..+3×gz+1
+     排除(穿行契约, 建场同式禁填)。政策偏移是几何的第二份表述——漂移由
+     同名单测 ⑧c footOf 逐格对拍锁死(prefab-kit foot 若变, 对拍红=强制同步)。 */
+function townProtectedAt(x, y, z) {
+  /* ① 墙圈: 白名单 part seg 盒内即保(seg 自带 y1..y2, 逐段精确) */
+  const rim = TOWN_MAP.ground.find((e) => e.kind === 'town-rim');
+  if (rim) {
+    for (const s of rim.segs) {
+      if (s.part !== 'pad' && s.part !== 'wall' && s.part !== 'post') continue;
+      if (x >= s.x1 && x <= s.x2 && z >= s.z1 && z <= s.z2 &&
+          y >= s.y1 && y <= s.y2) return true;
+    }
+  }
+  /* ② 门楼: 盒界裁剪(=footOf 同参盒 x±(-1..+5)/y-4..+9/z0..+7, 对拍锁;
+     G3 四格案: 总盒 z 上界 +3→+7 吃桥延伸段 z132..135) */
+  const g = TOWN_MAP.prefab.find((p) => p.id === 'town-gate');
+  if (!g) return false;
+  if (x < g.x - 1 || x > g.x + 5 || y < g.y - 4 || y > g.y + 9 ||
+      z < g.z || z > g.z + 7) return false;
+  /* 门洞净空(穿行契约——挖/放/炸三缝同口径, home 门楼先例对称) */
+  if (x >= g.x + 1 && x <= g.x + 3 && y >= g.y + 1 && y <= g.y + 3 &&
+      z === g.z + 1) return false;
+  /* 楼段(y ≥ gy+1 且 z ≤ gz+3——G3 四格案: 延伸段上方 z132..135 无楼,
+     楼段域不随桥扩)∪ 桥段(y ≤ gy 且桥体宽 gx..gx+4, z 域吃总盒) */
+  return (y >= g.y + 1 && z <= g.z + 3) ||
+      (y <= g.y && x >= g.x && x <= g.x + 4);
+}
+
 /* Node require 域导出守卫(浏览器域零影响——经典 script 词法共享不需要它):
    adventure-dims-core 的 Node 装载兜底经 require 取 TOWN_MAP 自举挂全局,
    镇件同名单测走 vm 域惯例不受此导出影响(无 module 即跳过) */
 if (typeof module !== 'undefined' && module.exports) {
-  module.exports = {TOWN_MAP, townBuildSteps};
+  module.exports = {TOWN_MAP, townBuildSteps, townProtectedAt};
 }

@@ -1,0 +1,48 @@
+F5 文档收口票验收门留痕(run-green.log)
+================================================
+- 运行时间: 2026-11-15 晚(npm test duration_ms 154030, 约 160s)
+- worktree: C:\Users\user\.local\share\opencode\worktree\1631a8\f5-docs(分支 f5-docs)
+- 最终 commit: 822fd97(基 8c6ea4f 集成终态; 本票全部改动单次提交, 8 文件, +48/-8)
+- 票性质: 纯文档+措辞级修正, 零行为变更(测试消息字符串 x 改 z 与测试标题字符串为仅有的
+  两处 test 文件触碰, 断言语义零触碰)
+
+命令 1: npm test(node --test 全量)
+------------------------------------------------
+统计(node --test 汇总行原样):
+  tests 2127
+  pass 2126
+  fail 0
+  cancelled 0
+  skipped 1
+  todo 0
+  duration_ms 154030.0587
+结论: 零红。1 skip 为 T7 性能钉 env 门控(预期内, 与集成终态 8c6ea4f 口径一致:
+2126 通过 + 1 skip)。测试名变更(blocks-fields :92 标题改「至 80 封口式」)体现在
+测试输出, 属追令预告的预期表现。
+
+命令 2: npm run lint(eslint . && stylelint "css/**/*.css" && htmlhint index.html)
+------------------------------------------------
+- ESLint(google 基线, 含本票改动的 js/adventure-core.js 头注横幅行/texture-atlas.js
+  :35 注释行/check-s2-tile.js 头注): 零错误零警告(&& 链继续执行即证)
+- Stylelint(css/**/*.css): 零错误零警告(&& 链继续执行即证)
+- htmlhint(index.html): "Scanned 1 files, no errors found"(明确零错)
+结论: 三件套各自零错, 退出码 0。
+
+门判定: 双门全过。
+================================================
+
+================================================
+【验收复核段】(tdd-engineer 主岗亲跑, 2026-11-16)
+------------------------------------------------
+1. 提交订正记录: 绿方完工 commit 822fd97(上方证据段所引 hash); 主岗裁定其提交消息第二条
+   「z81 勘误与 blocks-fields 标题...本票零改」括注与追令后事实相悖(e/f 两项系本票实改,
+   由第三条 -m 承载), 予 amend 订正剔除该括注——订正后 F5 主提交为 431378e,
+   git diff --stat 822fd97 431378e 为空(树内容逐字节相同, 仅提交消息变化; 分支未推送,
+   amend 安全)。错误源=主岗追补令文本误引首令, 绿方照原文执行并如实上报, 无责。
+2. 主岗亲跑 npm test(431378e 树, 2026-11-16 07:37 后复核): tests 2127 / pass 2126 /
+   fail 0 / skipped 1(T7 性能钉 env 门控), duration_ms 151089 — 零红, 与绿方证据段
+   及集成终态 8c6ea4f 口径一致。
+3. 主岗亲跑 npm run lint: eslint+stylelint+htmlhint 三件套退出码 0, htmlhint
+   "Scanned 1 files, no errors found" — 零错。
+4. 验收判定: 双门全过, F5 票放行。
+================================================

@@ -77,7 +77,7 @@
       ADV_EDGE_SKY_WEST_OPEN(西带解锁态雾减半表,
       advEdgeSkyAt 换表)·advEdgeProtectedAt/advEdgeProtectedZone(边界保护
       政策纯函数, T7 转正新增: T6 修订 v2 不可挖判据/三向足迹列禁放判据
-      ——三向随 advEdgeOpenDir 逐向门控, 东向栅栏线恒保护·门口开间 z74/75 让位(T-SEAM-02))
+      ——三向随 advEdgeOpenDir 逐向门控, 东向镇界件恒保护(中段矮墙+门框柱+远段栅栏, v2 §4.1 分段形制)·门口开间 z74/75 让位(T-SEAM-02))
    依赖(均经全局名, 调用期解析): adventure-spawn-core.js 的 advSpawnPulse/
       advWeightedPick/advRingSpot(刷怪三件, 候选 2 归一——advNestStep 薄壳/
       advNightStepPool 组装消费, 加载序先于本文件) · config.js 的
@@ -834,7 +834,10 @@ function advEdgeOpenDir(dir) {/* 单一开放判据(〔世界边界·T8〕, 四�
 }
 
 const ADV_TOWN_GATE_OPEN_Z = [74, 75]; /* 门口开间主径带(town-map-design §6.3.1, T-SEAM-02):
-   east 主径轴线 z74~75 两格开间——越线触发/回程门墩/东栅栏让位/开间保护四处同源消费 */
+   east 主径轴线 z74~75 两格开间——越线触发/回程门墩/东栅栏让位/开间保护/x154 门墩保护五处同源消费 */
+const ADV_TOWN_WALL_ZONE = {lo: 66, hi: 90}; /* 镇界矮墙中段 z 范围(v2 spec §4.1):
+   中段石砖矮墙分段(远段木栅栏维持)——建场(advEdgeEastFence)与保护判据
+   (advEdgeProtectedAt)同源吃这一份几何, 不抄第二份 */
 function advEdgeTransitDirAt(x, z) {/* 越线传送触发线(纯几何, 解锁判定分离可
    分维测试): 「中心进入最外一行格」与碰撞钳制面等效(voxel.js physics 把玩家
    中心钳在 [PLAYER.hx, WORLD_W−PLAYER.hx] × [PLAYER.hz, WORLD_D−PLAYER.hz],
@@ -1444,18 +1447,22 @@ function advEdgeWest() {
 }
 
 /* ---------- 东带·小镇(x∈[128,159], ①②③ 段, 东 spec §3/§5/§6) ----------
-   T7 拍板 Q1 销项登记(2026-11-06, 登记偏差全维持走查通过现状):
+   T7 拍板 Q1 销项登记(2026-11-06, 登记偏差①②④维持走查通过现状; ③已解除见下):
    ①栅栏碰撞「1.5 格(MC 先例)」≈桩 2/缝 1 的整格近似——跳缝=翻越彩蛋;
    ②花田红花无图集格位, 维持黄/白二色;
-   ③告示牌牌面=拼块形制无字;
+   ③告示牌牌面=拼块形制无字(已由 2026-11-15 东带门坊化改稿解除: 牌面=钟塔+小径拼块图案, 见 docs/design/town-east-boundary-landscape-spec.md §3.1);
    ④远景剪影以石色替代(深蓝灰系无格位)。未来升级(牌面写字/深蓝灰格位/红花)
    一律走独立图集票, 不回 T7。 */
 
 function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插值, 渐变全靠地表块
   种类密度——①入口段土路斑 1 patch(x132~135, 主径线 z73~76)·②渐密段土斑
   2 patch + 花田 2 处(主径两侧各 5 朵)。登记偏差: 花田「黄/红/白」红花无图集
-  格位(零新贴图), 以黄/白二色铺(T7 拍板 Q1 销项: 维持二色) */
+  格位(零新贴图), 以黄/白二色铺(T7 拍板 Q1 销项: 维持二色)。
+  v2 spec §5 件 P·引道花径+灯柱(x148~155, 收编 v1 登记项 E3/E5): 主径延长+
+  花带 8 丛+灯柱 3 对——路(z74/75)·花(z73/76)·灯(z72/77)三层断面, 夜里三对
+  暖光点渐次引向门楼; 新件全落既有件零重叠格位 */
   const dirt = () => [2, 0];
+  const stone = () => [13, 0]; /* 石砖面(G1 主径石板化: 观感纯材质, 高度场零改动) */
   advEdgeRewrite(132, 135, 73, 76, dirt);
   advEdgeRewrite(140, 143, 70, 73, dirt);
   advEdgeRewrite(148, 151, 76, 79, dirt);
@@ -1465,79 +1472,164 @@ function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插�
     advEdgeDecorate(144 + ((i + 1) % 3), 84 - i * 2,
         SceneKit.rand(i, 1, 8401) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
   }
-  advEdgeRewrite(152, 156, 74, 75, dirt); /* ③主径: 与既有东向小径同轴延长 */
+  advEdgeRewrite(152, 156, 74, 75, stone); /* ③主径: 与既有东向小径同轴延长(G1a 石板化) */
+  /* 主径延长(v2 §5 件 P)+石板化(G1a): x148..151×z74/75 补铺石砖——连续段起点
+     自 x152 提前到 x148(花田东侧直通门口); 与花田区(x144~146)零重叠, x147 留草面
+     =延长段不噬花田的边界见证; 材质 dirt→13 石砖为观感纯材质返工, 垫高/高度场零改动 */
+  advEdgeRewrite(148, 151, 74, 75, stone);
+  /* 花带 8 丛(v2 §5 件 P): 北列 z73 偶数位·南列 z76 奇数位=对角交错;
+     黄/白由显式盐 8404 掷定(两列走 rand 子流 0/1, 花田 8401 同款) */
+  for (let i = 0; i < 4; i++) {
+    advEdgeDecorate(148 + i * 2, 73,
+        SceneKit.rand(i, 0, 8404) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
+    advEdgeDecorate(149 + i * 2, 76,
+        SceneKit.rand(i, 1, 8404) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
+  }
+  /* 引道灯柱 3 对(v2 §5 件 P): x148/151/154 × z72/77 夹道——石英柱身 2 高+
+     灯块柱顶(light 15 恒亮); 建场常量零盐, 与花带丛位(z73/76)错行零重叠;
+     柱基同源锚=本地表面(x148/151 的 z77 柱落 v1 土斑 patch 面上, spec
+     「柱基草面」措辞对该两柱不成立, 已知票外发现按本地表面直落) */
+  const lampPosts = [[148, 72], [148, 77], [151, 72], [151, 77], [154, 72], [154, 77]];
+  for (const [px, pz] of lampPosts) {
+    const yb = ADV_GROUND + advHeightAt(px, pz);
+    for (let y = yb + 1; y <= yb + 2; y++) setBlockRaw(px, y, pz, 17);
+    setBlockRaw(px, yb + 3, pz, 19);
+  }
 }
 
 function advEdgeEastArrivePad() {/* 回家门墩(T-SEAM-03, town-map-design §6.3.5):
   east 来向锚落点 (154.5,75) 脚箱覆盖格 (154,74)/(154,75) 垫到基准地表 y24 顶
   (带区高度场 −1=地表 y23, 三向现锚皆 heightAt 0 唯 east 缺——advMapArriveAt
-  y=ADV_GROUND+1 的「门位压平区建场保证 y24 顶面」口径在此兑现)。主径土面
-  同材质垫高成门槛读法(2 格全幅跨主径), 探针实测 y24 实垫 y25/26 净空 */
+  y=ADV_GROUND+1 的「门位压平区建场保证 y24 顶面」口径在此兑现)。主径石板
+  同材质垫高成门槛读法(2 格全幅跨主径; G1b 观感纯材质返工: dirt→13 石砖,
+  垫高格 y 位与顶面高度零改动), 探针实测 y24 实垫 y25/26 净空 */
   for (const z of ADV_TOWN_GATE_OPEN_Z) {
-    setBlockRaw(154, ADV_GROUND + advHeightAt(154, z) + 1, z, 2);
+    setBlockRaw(154, ADV_GROUND + advHeightAt(154, z) + 1, z, 13);
   }
 }
 
-function advEdgeEastSign() {/* 告示牌(东 spec §5): 立式双柱牌 x156, 板面朝主径;
-  牌面=拼块形制无字(T7 拍板 Q1 销项); 不可挖保护判据已落地(advEdgeProtectedAt
-  东向恒保护, T7 转正) */
+function advEdgeEastSign() {/* 镇门楼(原镇门牌坊/原告示牌, 东带 v2 spec §3 件 G): 石砌城楼式
+  ——门洞 3 格高净空 z74/75 yb+1..+3 禁填=穿行契约(不写即净空, v1 2 格升 3 格
+  =「门高大」); 侧柱 5 高石砖 z73/76 yb+1..+5, 壁灯 yb+3 嵌柱覆写该格(灯块
+  light 15 昼夜迎宾); 横梁 z74/75 yb+4 石砖(净空上缘); 门额牌面 z74/75 yb+5
+  门额牌×2(镇徽=钟塔图案, 穿门仪式视觉焦点); 柱头 z73/76 yb+6 石英收边;
+  檐口 z72..77 yb+7 石英(白檐一线出挑, 宽出墙身一圈); 屋面 z72..77 yb+8
+  陶橙瓦+屋脊 z73..76 yb+9 陶橙瓦(阶梯收分, 脊不出 z72/77)。函数名沿革留档
+  不更名(ADV_GATE_PLAZA 先例); 全建场常量零 Math.random 零新盐; 保护判据
+  随件改稿(advEdgeProtectedAt x156 分支, v2 spec §8.1) */
   const x = 156;
   const yb = ADV_GROUND + advHeightAt(x, 74);
+  /* 门洞侧柱 z73/76 yb+1..+5 石砖(体量感来源); 壁灯 yb+3 嵌柱覆写; 柱头 yb+6 石英 */
   for (const z of [73, 76]) {
-    for (let y = yb + 1; y <= yb + 3; y++) setBlockRaw(x, y, z, 5);
+    for (let y = yb + 1; y <= yb + 5; y++) setBlockRaw(x, y, z, 13);
+    setBlockRaw(x, yb + 3, z, 19);
+    setBlockRaw(x, yb + 6, z, 17);
   }
-  SceneKit.fill(x, yb + 3, 74, x, yb + 4, 75, 6); /* 板面(两柱间 2×2) */
+  /* 门洞横梁(z74/75 净空上缘)+门额牌面(双徽各贴同图); 门额上方 yb+6 让空。
+     门额牌=id 80(B_GATE_SIGN)/陶橙瓦=id 79(B_ROOF_TILE)——本文件惯例数字
+     字面量(13/17/19 同款): 测试加载清单未收集新块常量, 常量名在 require
+     域不可见, 字面量双环境(浏览器 script/Node require)皆成立 */
+  setBlockRaw(x, yb + 4, 74, 13);
+  setBlockRaw(x, yb + 4, 75, 13);
+  setBlockRaw(x, yb + 5, 74, 80);
+  setBlockRaw(x, yb + 5, 75, 80);
+  /* 檐口一线(z72..77 石英)+屋面瓦檐一级+屋脊收分二级(z73..76, 脊不出 z72/77) */
+  for (let z = 72; z <= 77; z++) {
+    setBlockRaw(x, yb + 7, z, 17);
+    setBlockRaw(x, yb + 8, z, 79);
+  }
+  for (let z = 73; z <= 76; z++) {
+    setBlockRaw(x, yb + 9, z, 79);
+  }
 }
 
-function advEdgeEastFence() {/* 木栅栏横贯东缘 x157(东 spec §5): 桩间留缝是设计本体
-  ——原木柱(2 高)每 3 格一根, 缝格木板横杆(1 高), 缝口净空露出剪影=「看得见、
-  过不去、但不堵心」; 碰撞≈桩 2/缝 1 整格近似(T7 拍板 Q1 销项, 跳缝=翻越彩蛋);
-  挖/替换保护判据已落地(advEdgeProtectedAt 东向段随行), 放置不设禁放柱
-  (翻越=彩蛋口径, T7 转正)。门口开间(T-SEAM-02, town-map-design §6.3.1):
-  主径轴线 z74~75 两格让位——开间内无栅栏件(主径自此穿栅栏而过), 桩位让至
-  开间两侧邻格 z73/76(各一根两高原木桩=门框读法), 其余段形制照旧 */
+function advEdgeEastFence() {/* 远段木栅栏+中段石砖矮墙分段镇界(x157, 东 spec §5+
+   v2 spec §4.1 件 W): 远段(z≤65 ∪ z≥91)原式——原木柱(2 高)每 3 格一根, 缝格木板
+   横杆(1 高), 缝口净空露出剪影=「看得见、过不去、但不堵心」; 碰撞≈桩 2/缝 1
+   整格近似(T7 拍板 Q1 销项, 跳缝=翻越彩蛋)。中段(ADV_TOWN_WALL_ZONE z66..90)
+   石砖矮墙 13 两高(U1 已裁 2 格): 门框柱 z73/76 同砖两高+17 石英柱头(原两高原木
+   桩退役), 端头柱帽 z66/z90 落墙顶石英 17, 墙头花 z68/72/78/82/86 各一丛黄/白
+   (丛位序入 SceneKit.rand, 显式盐 8404)。门口开间(T-SEAM-02, town-map-design
+   §6.3.1): 主径轴线 z74~75 两格
+   让位——开间内无墙件(主径自此穿镇界而过)。挖/替换保护判据已落地
+   (advEdgeProtectedAt 东向段随件同源), 放置不设禁放柱(翻越=彩蛋口径, T7 转正) */
+  const flowerZ = [68, 72, 78, 82, 86]; /* 墙头花位 5 丛(中段节奏铺位; 下标=丛位序, 入盐 8404) */
   for (let z = 0; z < WORLD_D; z++) {
-    if (ADV_TOWN_GATE_OPEN_Z.includes(z)) continue; /* 门口开间: 两格净空无杆无桩 */
+    if (ADV_TOWN_GATE_OPEN_Z.includes(z)) continue; /* 门口开间: 两格净空无墙无桩 */
     const y = ADV_GROUND + advHeightAt(157, z) + 1;
-    if (z === 73 || z === 76 || z % 3 === 0) {/* 常规桩位 + 开间侧邻门框桩(z73/76 让位至此, 恒两高) */
+    if (z >= ADV_TOWN_WALL_ZONE.lo && z <= ADV_TOWN_WALL_ZONE.hi) {
+      setBlockRaw(157, y, z, 13); /* 中段矮墙石砖两高(含端头/门框柱身, U1 已裁 2 格) */
+      setBlockRaw(157, y + 1, z, 13);
+      if (z === 73 || z === 76) {
+        setBlockRaw(157, y + 2, z, 17); /* 门框柱石英柱头(墙顶正上一格) */
+      } else if (z === ADV_TOWN_WALL_ZONE.lo || z === ADV_TOWN_WALL_ZONE.hi) {
+        setBlockRaw(157, y + 2, z, 17); /* 端头柱帽石英(墙顶正上一格, 中段两端收口) */
+      } else if (flowerZ.includes(z)) {
+        setBlockRaw(157, y + 2, z,
+            SceneKit.rand(flowerZ.indexOf(z), 0, 8404) > 0.5 ? B_FLOWER_Y : B_FLOWER_W); /* 墙头花黄/白(丛位序) */
+      }
+    } else if (z % 3 === 0) {/* 远段桩位: 原木柱两高(NE 融雪楔/SE 栈桩皆落远段, 载体零触碰) */
       setBlockRaw(157, y, z, 5);
       setBlockRaw(157, y + 1, z, 5);
     } else {
-      setBlockRaw(157, y, z, 6);
+      setBlockRaw(157, y, z, 6); /* 远段缝格: 木板横杆 1 高 */
     }
   }
 }
 
-function advEdgeEastSkyline() {/* 小镇远景剪影(东 spec §6): 房屋×4+钟楼×1+圆冠树×2+
-  灯点 4 粒, 落栅栏外隔离带 x158~159(体素拼块=「近看不穿帮」约束的便宜实现)。
-  登记偏差: 深蓝灰 #5A6B7A 系无图集格位(零新贴图), 以石色剪影替代(T7 拍板 Q1
-  销项: 维持石色, 深蓝灰新格位走独立图集票); 灯点=火把(夜间发光, 「还没建好但
-  已经有灯亮着」的情绪钩子) */
+function advEdgeEastSkyline() {/* 前街重排(v2 spec §4.2 件 F, 2026-11-15): 门前石板+
+  迎宾灯柱+房×4 门脸化+钟塔+圆冠树×2, 落栅栏外隔离带 x158~159——v1「雾中剪影」
+  (光盒子+石色房)升格为「穿过门看到的第一条街」, 构成(房×4 高低错落+塔最高+同轴)
+  继承、材质形制全升级; v1 灯点计数返回值(lamps)全仓零消费, 随重排退役。
+  瓦顶消费新块 79 陶橙瓦(config 纯色行注册); 本函数沿用既有字面量风格写 79
+  (同 2/3/5/6 先例——B_ROOF_TILE 是 vm 域 config 词法, 本 host 域模块不可见);
+  全建场常量零 Math.random 零新盐 */
+  /* 门前石板(件 D 材质升级): 开间正后 x158~159×z74~75 表面草皮改石砖 13——路穿门
+     的材质升级=「进了镇界」(家门外土路/镇里石板路), 石板直铺塔脚与门楼同料
+     (几何零改动, v1 土面正是这一笔落的); helper 只换草皮 id1, 建场常量零新盐 */
+  advEdgeRewrite(158, 159, 74, 75, () => [13, 0]);
+  /* 房×4 门脸化: 石墙 id3→木头 5(暖木墙)+西面门(6 木板)窗(18 玻璃, 写墙后覆写)+
+     陶橙平瓦盖 top+h+1(2×2=x158..159×z 向两格, 悬挑取 z+1 南向——票文未裁,
+     每屋恰 4 格)+窗灯火把上移瓦顶正上 top+h+2(4 屋全亮, v1「首屋 z24 留白凑
+     3+1」退役) */
   const houses = [[24, 3], [56, 5], [88, 4], [120, 3]]; /* [z, 高]——高低错落 3~5 格 */
-  let lamps = 0;
   for (const [z, h] of houses) {
     const top = ADV_GROUND + advHeightAt(158, z);
     for (let x = 158; x <= 159; x++) {
-      for (let y = top + 1; y <= top + h; y++) setBlockRaw(x, y, z, 3);
+      for (let y = top + 1; y <= top + h; y++) setBlockRaw(x, y, z, 5);
     }
-    /* 窗灯 ×3(首屋留白凑「3 窗灯+1 塔灯=4 粒」) */
-    if (z !== 24) {
-      setBlockRaw(158, top + h + 1, z, B_TORCH);
-      lamps++;
-    }
+    setBlockRaw(158, top + 1, z, 6); /* 西面门(门脸 yb+1) */
+    setBlockRaw(158, top + 2, z, 18); /* 西面窗(yb+2) */
+    SceneKit.fill(158, top + h + 1, z, 159, top + h + 1, z + 1, 79); /* 平瓦盖(覆 v1 火把位) */
+    setBlockRaw(158, top + h + 2, z, B_TORCH); /* 窗灯火把落瓦顶上(原 top+h+1 位上移) */
   }
-  const tt = ADV_GROUND + advHeightAt(158, 74); /* 钟楼: 塔身 7 高全场最高 + 尖顶 + 顶灯 */
-  for (let x = 158; x <= 159; x++) {
-    for (let y = tt + 1; y <= tt + 7; y++) setBlockRaw(x, y, 74, 3);
+  /* 钟塔(推翻 v1 剪影钟楼): 石砖塔身 8 高(footprint x158..159×z73..75, v1 单列宽
+     加宽)+西面空气龛门 yb+1..+2(龛内火把贴 x159 后壁=「有门的塔」)+石英钟面竖排
+     ×2+白檐 10 格出挑 z72..76(檐心换灯块=塔檐灯)+陶橙阶梯瓦顶二级收分——总高
+     恰 yb+11 全场最高(塔最高原则, 上方净空) */
+  const tt = ADV_GROUND + advHeightAt(158, 74);
+  SceneKit.fill(158, tt + 1, 73, 159, tt + 8, 75, 13); /* 塔身石砖 yb+1..+8 */
+  setBlockRaw(158, tt + 1, 74, 0); /* 掏龛: 西面 yb+1 净空 */
+  setBlockRaw(158, tt + 2, 74, 0); /* 掏龛: 西面 yb+2 净空 */
+  setBlockRaw(158, tt + 1, 74, B_TORCH); /* 龛灯(贴 x159 后壁, 夜亮语义) */
+  setBlockRaw(158, tt + 6, 74, 17); /* 钟面石英下格(西面竖排) */
+  setBlockRaw(158, tt + 7, 74, 17); /* 钟面石英上格 */
+  SceneKit.fill(158, tt + 9, 72, 159, tt + 9, 76, 17); /* 塔檐石英(白檐, 与门楼檐口同语言) */
+  setBlockRaw(158, tt + 9, 74, 19); /* 塔檐灯(檐心灯块 light15 恒亮) */
+  SceneKit.fill(158, tt + 10, 73, 159, tt + 10, 75, 79); /* 瓦顶一级(z73..75 全宽) */
+  SceneKit.fill(158, tt + 11, 74, 159, tt + 11, 74, 79); /* 瓦顶二级=塔尖(z74 收分) */
+  /* 迎宾灯柱×2(跨门槛两侧 z72/77, 各用本列 advHeightAt): 石英柱身两高+灯块顶
+     ——「镇给你点灯」的第一秒 */
+  for (const wz of [72, 77]) {
+    const wt = ADV_GROUND + advHeightAt(158, wz);
+    setBlockRaw(158, wt + 1, wz, 17);
+    setBlockRaw(158, wt + 2, wz, 17);
+    setBlockRaw(158, wt + 3, wz, 19);
   }
-  setBlockRaw(158, tt + 8, 74, 5);
-  setBlockRaw(159, tt + 8, 74, B_TORCH);
-  lamps++;
   /* 圆冠树 ×2(贴边裁冠: 树家族带盐口径+内核越界守卫, 2026-11-12 收编,
      同盐 8402 同形零变更——x158 冠层 lx=160 界外就地裁半) */
   SceneKit.tree(158, ADV_GROUND + advHeightAt(158, 40) + 1, 40, 8402);
   SceneKit.tree(158, ADV_GROUND + advHeightAt(158, 108) + 1, 108, 8402);
-  return lamps;
 }
 
 function advEdgeEast() {
@@ -1795,25 +1887,45 @@ function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁�
      (NW 融冰/SW 潮尾水)天然同在保; 〔世界边界·T8〕解锁态判据让开与地表
      换泥岸步道同口advEdgeOpenDir, 步道块可正常挖放) */
   if (!advEdgeOpenDir('west') && x >= 13 && x <= 18 && y >= top - 1 && y <= top + 1) return true;
-  /* 东·栅栏线 x157(east-spec §5 + T-SEAM-02 门口开间): 开间 z74/75 让保护
-     (开间内无栅栏件, 主径通路——town-map-design §6.3.1 门口开间条), 侧邻
-     门框桩 z73/76 桩基+桩顶两高在保; 其余段照旧——杆/桩基 y0 恒在(全 z
-     无条件写, 判据同式无条件), 桩顶 y0+1 只 z%3===0 桩位, 栈桩 y0−1 只
-     z153/154/159(SE 角 post-pass 原木桩脚; 已逐格核对三格均实落桩=建场实录) */
+  /* 东·回家门墩 x154(PO 裁决 2026-11-16 加保护): 门墩=回程功能件(T-SEAM-03
+     垫高锚落点), 与 U2 镇界不可挖/U4 防坠墙不可挖同族「牢固镇界设施群」
+     保护语义。保护范围=仅门墩垫高格: y=ADV_GROUND+advHeightAt(154,z)+1
+     (建场权威 advEdgeEastArrivePad 同源同式, 实测 y24), z 域共用
+     ADV_TOWN_GATE_OPEN_Z(门口开间五处同源消费之一); 该两列其余 y 不在保
+     ——表面主径石面(G1a 范围)与上方净空 y25/26 维持不在保(N2 带内可挖
+     口径维持); 门墩两列之外(z74/75 以外)不进本分支, 既有口径零外溢 */
+  if (x === 154 && ADV_TOWN_GATE_OPEN_Z.includes(z)) {
+    return y === ADV_GROUND + advHeightAt(154, z) + 1; /* 仅垫高格 true, 表面/净空 false */
+  }
+  /* 东·镇界分段线 x157(east-spec §5 改稿+T-SEAM-02 门口开间): 开间 z74/75 让保护
+      (开间内无墙件, 主径通路——town-map-design §6.3.1 门口开间条); 中段
+      ADV_TOWN_WALL_ZONE 矮墙分段(v2 spec §8.1, 与建场同源)——门框柱 z73/76
+      y0..y0+2 在保(石柱两高+石英柱头), 其余格矮墙全高 y0..y0+1(墙头花/端帽层
+      y0+2 不在保, N2 带内可挖可放维持); 远段(其余 z)原式维持——桩/杆基 y0 恒在
+      (全 z 无条件写, 判据同式无条件), 桩顶 y0+1 只 z%3===0 桩位, 栈桩 y0−1 只
+      z153/154/159(SE 角 post-pass 原木桩脚; 已逐格核对三格均实落桩=建场实录) */
   if (x === 157) {
     const y0 = top + 1; /* = ADV_GROUND + advHeightAt(157,z)+1(advEdgeEastFence 同式) */
     if (ADV_TOWN_GATE_OPEN_Z.includes(z)) return false; /* T-SEAM-02 门口开间: 栅栏层让保护(开间即通路, §6.3.1) */
-    if (z === 73 || z === 76) return y === y0 || y === y0 + 1; /* 侧邻门框桩两高在保 */
+    if (z >= ADV_TOWN_WALL_ZONE.lo && z <= ADV_TOWN_WALL_ZONE.hi) {
+      if (z === 73 || z === 76) return y >= y0 && y <= y0 + 2; /* 门框柱: 石柱两高+石英柱头全在保 */
+      return y === y0 || y === y0 + 1; /* 矮墙全高在保(花/端帽层 y0+2 不在保, z%3 桩顶判据本段不适用) */
+    }
     if (y === y0) return true;
     if (z % 3 === 0 && y === y0 + 1) return true;
     if ((z === 153 || z === 154 || z === 159) && y === y0 - 1) return true;
   }
-  /* 东·告示牌 x156(east-spec §5): 双柱 z73/76=yb+1..yb+3, 板面 z74/75=
-     yb+3..yb+4; 锚 yb 取 advHeightAt(156,74)(advEdgeEastSign 同式) */
+  /* 东·镇门楼(原镇门牌坊, 东带 v2 spec §8.1): 柱列 z73/76 yb+1..yb+9 全列
+     在保(侧柱含壁灯格+柱头+檐/瓦/脊同列格); 门额带 z74/75 yb+4..yb+9(横梁+
+     门额牌+檐/瓦/脊中段); 檐角列 z72/77 只 yb+7..yb+9(檐/瓦出挑格, 脊虽
+     不建也在保); 门洞净空 z74/75 yb+1..+3 不加分支恒 false(穿行契约, 建场
+     同式禁填, v1 2 格扩 3 格); 锚 yb 取 advHeightAt(156,74)
+     (advEdgeEastSign 同式同源) */
   if (x === 156) {
     const yb = ADV_GROUND + advHeightAt(156, 74);
-    if ((z === 73 || z === 76) && y >= yb + 1 && y <= yb + 3) return true;
-    if ((z === 74 || z === 75) && y >= yb + 3 && y <= yb + 4) return true;
+    if ((z === 73 || z === 76) && y >= yb + 1 && y <= yb + 9) return true;
+    if ((z === 74 || z === 75) && y >= yb + 4 && y <= yb + 9) return true;
+    if ((z === 72 || z === 77) && y >= yb + 7 && y <= yb + 9) return true;
   }
   return false;
 }
