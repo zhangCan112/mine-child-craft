@@ -797,6 +797,17 @@ test('篝火共享缝零场景分支: 非 campfire 物品失败话术回归(老�
   assert.strictEqual(BLOCKS[cb.out].replaceable, undefined, '熄灭态无 replaceable');
 });
 
+/* 篝火 T-C10(UI 定稿 §6 D 区): CF_HIT_TEXT 已被上方四类失败行为断言逐字锚定
+   (says===CF_HIT_TEXT), 本测把常量本身锚回 UI 定稿 §6.2 逐字——常量漂移即红;
+   并落 §6.4 禁词表扫描(⭐R2-3 守门, 经理线要求落地的【UI 建议】项) */
+test('T-C10 判据2+3: 失败话术常量逐字定稿+§6.4 禁词零命中(四类失败共用一句, 禁改写)', () => {
+  assert.strictEqual(CF_HIT_TEXT, '篝火要放在结实的东西上面哦',
+      '逐字=UI 定稿 §6.2(四类失败共用一句; 定稿 v1.5 五类共句含玩家重叠, 行为面同走本句)');
+  for (const w of ['风', '升', '上升', '飞', '气流', '翅膀', '翼', '滑翔', '乘', '托', '任务', '倒计时']) {
+    assert.ok(!CF_HIT_TEXT.includes(w), '禁词「' + w + '」零命中(§6.4 词集)');
+  }
+});
+
 /* ============ 篝火重燃/回收(T-C3): tryCampfireRelight 缝 + 两态回收链 ============ */
 
 /* 重燃测试专用小编排(与共享 ed 同缝; onCampfireRelit 是本票新缝, 记录型) */
