@@ -193,8 +193,8 @@ test('孤立装载: 仅 updraft-core.js 单文件 vm 装载零炸(加载零副�
   assert.doesNotThrow(() => {
     vm.runInContext(fs.readFileSync(p, 'utf8'), ctx, {filename: 'updraft-core.js'});
   }, '孤立装载零炸(不引用任何其他模块的全局——引擎纯核心)');
-  assert.strictEqual(vm.runInContext('typeof UpdraftCore', ctx), 'function',
-      'UpdraftCore 在孤立词法环境可用');
+  assert.strictEqual(vm.runInContext('typeof UpdraftCore', ctx), 'object',
+      'UpdraftCore 在孤立词法环境可用(FluidCore 同形: 对象面单入口 mkSim)');
 });
 
 test('零墙钟零随机零 THREE 零 DOM: updraft-core.js 源码 grep(确定性重放红线, spec §6-1/6-8)', () => {
@@ -398,7 +398,7 @@ test('乘流·静立/步行零被动升空: 装备翼静立柱内与步行穿柱
   v.keys['KeyD'] = false;
 });
 
-test('乘流·闩锁咬合: 柱内取消→闩锁态自由下坠(lift 不作用) · 空中再点跳=解闩+展翼再获升力 · 落地清闩再跳恢复豁免', () => {
+test('乘流·闩锁咬合: 柱内取消→闩锁态自由下坠(lift 不作用) · 空中再点跳=解闩+展翼持续升力直至柱顶 · 出柱回落落地 · 落地清闩再跳恢复豁免', () => {
   const v = mkScene();
   v.setGliderEquipped(true);
   v.pos.set(41.5, 11, 42.5);
@@ -418,19 +418,76 @@ test('乘流·闩锁咬合: 柱内取消→闩锁态自由下坠(lift 不作用)
     assert.ok(v.vel.y < 0, '闩锁优先: 柱内自由下坠(lift 只作用于滑翔态), vel.y=' + v.vel.y.toFixed(2));
   }
   assert.strictEqual(v.worldEvents.land, false, '仍在空中');
+  const cancelY = v.pos.y;
   v.keys['Space'] = true;
-  v.physics(DT); // 柱内空中再点跳
+  v.physics(DT); // 柱内空中再点跳=解闩+主动展翼(既有语义, 零特判)
   v.keys['Space'] = false;
   assert.strictEqual(v.isGliding(), true, '解闩+主动展翼(既有语义)');
   assert.ok(Math.abs(v.vel.y - LIFT) < 1e-9, '再获升力(两契约自然咬合), 实测 ' + v.vel.y);
-  for (let i = 0; i < 600 && !v.onGround; i++) v.physics(DT); // 滑翔落地(收翼+清闩)
+  for (let i = 0; i < 30; i++) { // 解闩再展=完整未闩滑翔态: 持续升力非单帧爆发(spec §3.5「再获升力」自然咬合)
+    v.physics(DT);
+    assert.ok(Math.abs(v.vel.y - LIFT) < 1e-9,
+        '解闩后持续升力(第 ' + i + ' 帧, vel.y=' + v.vel.y.toFixed(3) + ', 非爆发单帧)');
+    assert.ok(v.pos.y > cancelY - 1, '闩锁已解: 不再自由下坠');
+  }
+  let prevY = v.pos.y;
+  let topped = false;
+  for (let i = 0; i < 400; i++) { // 持续乘流升至柱顶(top=31, 露天贴顶区 y 稳在 31±抖动)
+    v.physics(DT);
+    if (v.pos.y >= 30) {
+      topped = true;
+      break;
+    }
+    assert.ok(v.pos.y > prevY, '乘流持续上升(帧 ' + i + ')');
+    prevY = v.pos.y;
+  }
+  assert.ok(topped, '解闩再展升至柱顶区(实测 y=' + v.pos.y.toFixed(2) + ', 自 ' +
+      cancelY.toFixed(1) + ' 续升≈' + (v.pos.y - cancelY).toFixed(1) + ' 格——爆发单帧实现升不到顶)');
+  v.pos.set(39.5, v.pos.y, 39.5); // 搬运出柱(装具先例): 出柱即回落缓降
+  v.physics(DT);
+  assert.ok(Math.abs(v.vel.y - v.GLIDE.sink) < 1e-9, '出柱回落缓降, 实测 ' + v.vel.y.toFixed(3));
+  v.worldEvents.land = false;
+  for (let i = 0; i < 1900 && !v.onGround; i++) v.physics(DT); // 缓降落地(≈31→11 需 28.6s≈1717 帧, 1900 留富余)
   assert.strictEqual(v.onGround, true);
   assert.strictEqual(v.isGliding(), false);
+  v.pos.set(41.5, v.pos.y, 42.5); // 搬回柱内(落地清闩后验「恢复豁免」: 豁免=柱内展翼豁免, 判定面在柱内)
   v.keys['Space'] = true;
   v.physics(DT); // 落地后再跳
   v.keys['Space'] = false;
   assert.strictEqual(v.isGliding(), true, '落地闩锁清零后再跳恢复豁免起飞');
   assert.ok(Math.abs(v.vel.y - LIFT) < 1e-9, '豁免恢复, 实测 ' + v.vel.y);
+});
+
+test('乘流·柱外取消→解闩再展→飘入柱内=开始上升(次生面: 解闩回完整未闩滑翔态, 进入即乘零特判)', () => {
+  const v = mkScene();
+  v.setGliderEquipped(true);
+  v.pos.set(39.5, 15, 42.5); // 柱外空中起步(离地 4>2 阈值; 平地跳峰值≈1.4 格本就不展=spec 不外溢回归面)
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), true, '柱外正常展翼(>2 阈值)');
+  assert.ok(Math.abs(v.vel.y - v.GLIDE.sink) < 1e-9, '柱外滑翔缓降');
+  v.keys['Space'] = true;
+  v.physics(DT); // 柱外滑翔中再点跳=主动取消 → 收翼+闩锁
+  v.keys['Space'] = false;
+  assert.strictEqual(v.isGliding(), false, '柱外取消立即收翼');
+  v.physics(DT); // 沿间隔帧(keys 松开复位 prevSpace): 闩锁态延续自由下坠
+  assert.ok(v.vel.y < 0, '闩锁态自由下坠');
+  v.keys['Space'] = true;
+  v.physics(DT); // 空中再点跳=解闩+展翼(gHeight>2 既有阈值, 既有语义)
+  v.keys['Space'] = false;
+  assert.strictEqual(v.isGliding(), true, '解闩+主动展翼');
+  assert.ok(Math.abs(v.vel.y - v.GLIDE.sink) < 1e-9, '柱外缓降(未闩滑翔态, 无气流无升力)');
+  v.pos.set(41.5, v.pos.y, 42.5); // 飘入柱内(装具搬运=飘入的帧级等价, 进入即乘先例同款)
+  v.physics(DT);
+  assert.strictEqual(v.isGliding(), true, '滑翔态持有');
+  assert.ok(Math.abs(v.vel.y - LIFT) < 1e-9,
+      '入柱即获升力(解闩态零残留: 无闩锁门无爆发门, 单一判据「处于柱内」), 实测 ' + v.vel.y);
+  let prevY = v.pos.y;
+  for (let i = 0; i < 20; i++) {
+    v.physics(DT);
+    assert.ok(Math.abs(v.vel.y - LIFT) < 1e-9, '柱内持续升力(帧 ' + i + ')');
+    assert.ok(v.pos.y > prevY, '开始上升');
+    prevY = v.pos.y;
+  }
 });
 
 test('乘流·摔落联动·柱内取消: 乘流至高处取消收翼, 落差自收翼点重计(20 格取消≈重伤的账)', () => {

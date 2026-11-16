@@ -325,7 +325,6 @@ function physics(dt) {
     if (typeof UPDRAFT_SIM !== 'undefined' && UPDRAFT_SIM) {
       updraftHit = UPDRAFT_SIM.query(pos.x, pos.y, pos.z);
     }
-    let updraftBurst = false; // 本帧展翼沿标记: 解闩再展的爆发帧升力照给(闩锁优先, 见下)
     if (gliding) {
       if (bodyF) { // 触流体帧: 收翼+清闩锁+落差清零, 本帧起交游泳物理(spec §3.4 水面软着陆)
         gliding = false; glideLatch = false; fallPeakY = 0;
@@ -341,10 +340,7 @@ function physics(dt) {
         if (vel.y > 0) vel.y = 0; // 乘流正速同理不延续(滑翔态速度不带入闩锁坠落, 与卸翼钳制同口径)
       }
     } else if (gliderEquipped) {
-      let unlatched = false;
-      if (glideLatch && spaceEdge) { // 闩锁中空中再点 Space=解闩, 同帧顺势主动再展(既有语义)
-        glideLatch = false; unlatched = true;
-      }
+      if (glideLatch && spaceEdge) glideLatch = false; // 闩锁中空中再点 Space=解闩(既有语义), 顺势走正常展翼判定
       if (!glideLatch && !bodyF) {
         const gHit = raycastVoxel({x: pos.x, y: pos.y, z: pos.z}, {x: 0, y: -1, z: 0}, WORLD_H, isSolid);
         const gHeight = gHit ? pos.y - (gHit.y + 1) : Infinity;
@@ -357,21 +353,16 @@ function physics(dt) {
         if (gHeight > GLIDE.deployHeight || exempt) {
           gliding = true;
           fallPeakY = pos.y; // 展翼瞬间落差累计重置: 峰值=当前高度(spec §3.5, 滑翔段不计账)
-          updraftBurst = true;
-          if (unlatched) {
-            /* 闩锁×气流咬合(spec §3.5 闩锁优先): 解闩再展的滑翔仍带闩——
-               升力只给本帧爆发(「再获升力」), 随后柱内照常滑翔缓降; 真清闩
-               仍归落地/入水(既有语义), 气流不清闩锁, 落地再跳恢复豁免起飞 */
-            glideLatch = true;
-          }
         }
       }
     }
     if (gliding) { // 滑翔: 垂直=缓降恒值(不吃重力不积累), 水平=yaw 同源操控(不享受疾跑);
       // 乘流(ADR 0017 例外一, 例外边界=「处于活跃气流柱内」单一判据): 柱内
-      // query 命中→升力替换缓降(vel.y=+lift, 出柱即回落); 闩锁态不给持续
-      // 升力(闩锁优先, spec §3.5——lift 只作用于非闩锁滑翔), 爆发帧除外
-      vel.y = (updraftHit && (!glideLatch || updraftBurst)) ? updraftHit.lift : GLIDE.sink;
+      // query 命中→升力替换缓降(vel.y=+lift, 出柱即回落); 闩锁态不给升力
+      // (闩锁优先, spec §3.5——lift 只作用于非闩锁滑翔); 解闩即回完整未闩
+      // 滑翔态, 升力由本单一门自然给出(零特判, 柱内空中再点跳=解闩+展翼
+      // +持续升力直至柱顶, 「再获升力」自然咬合)
+      vel.y = (updraftHit && !glideLatch) ? updraftHit.lift : GLIDE.sink;
       vel.x = dx*GLIDE.speed; vel.z = dz*GLIDE.speed;
       onGround = false;
     } else if (swim && bodyF === 'water') {

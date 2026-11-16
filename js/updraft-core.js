@@ -2,7 +2,7 @@
 /* ============================================================
    热气流核心 (UpdraftCore, 术语见 GLOSSARY.md「热气流」) — 引擎层纯核心
    ------------------------------------------------------------
-   篝火特性 T-C2(campfire-spec §3.5, ADR 0017)的气流源注册表+柱查询:
+   热气流特性 T-C2（spec §3.5，ADR 0017）的气流源注册表+柱查询:
    引擎只知「气流源」不知源是什么(篝火是第一个注册源, 将来风柱/喷泉
    复用同一注册面, 不写死篝火)。纯注册+查询零状态步进——比 fluid-core
    更纯: 零时钟推进零随机零渲染(确定性重放红线, spec §6-1/6-8)。
@@ -13,7 +13,7 @@
      遇首个实体方块即截断(该列此高程无升力; ≤柱高格列扫零预计算);
    · 多柱重叠=max 语义(取 lift 最强一柱非求和; 遮挡过滤先于 max)。
    interface: mkSim(env) → sim, env = {read(x,y,z)→id, solidOf(id)→bool}
-    (导出面=函数工厂: UpdraftCore(env)≡UpdraftCore.mkSim(env) 同形便捷入口;
+    (导出面=FluidCore 同形对象面: UpdraftCore.mkSim(env) 单入口;
      依赖全参数注入, world.js 与单测共用同一装配防两份漂移)
      · sim.add({x,y,z,r,h,lift})  注册气流源: 源格心+水平半径/柱高/升速;
        键=源格心 x,y,z(同位重注册=整组覆盖, 放置覆盖/重燃形态)
@@ -36,7 +36,7 @@ const UpdraftCore = (() => {
           {x: src.x, y: src.y, z: src.z, r: src.r, h: src.h, lift: src.lift});
     }
 
-    /* 注销: 未知格零炸零副作用(presence 口径, 与 campfire-kit drop 同纪律) */
+    /* 注销: 未知格零炸零副作用(presence 口径, 与台账 presence 同纪律) */
     function remove(x, y, z) {
       srcs.delete(x + ',' + y + ',' + z);
     }
@@ -77,13 +77,7 @@ const UpdraftCore = (() => {
     return {add, remove, query, count, clear};
   }
 
-  /* 导出面=函数工厂(同名单测「孤立装载」合同 typeof UpdraftCore==='function'):
-     函数本体即 mkSim 同形便捷入口(UpdraftCore(env)≡UpdraftCore.mkSim(env)),
-     mkSim 挂静态主入口——两形态同一实现零分叉 */
-  function updraftCore(env) {
-    return mkSim(env);
-  }
-  updraftCore.mkSim = mkSim;
-  return updraftCore;
+  /* 导出面=FluidCore 同形对象面(单入口 mkSim, 全仓统一工厂形态零分叉) */
+  return {mkSim};
 })();
 if (typeof module !== 'undefined' && module.exports) module.exports = UpdraftCore;
