@@ -5449,3 +5449,220 @@ test('TIDEA-11 会话态归零: cleanup 重进后同区再响(一次性 flag 随
   AdventureMode.cleanup();
 });
 
+/* ============ 案卷③ NPC 待机微动画(PO 验收体验反馈, po-idle-fix) ============
+   观测缝契约(本票新增): A.advTownNpcIdleTick(dt) — 镇维度专属 idle 消费机
+   (advTownAnchorTick 同位同节拍, update 链直调挂点): 逐傀儡 townNpcIdlePose
+   (t+逐 id 错峰相位)→townNpcIdleApply(骨骼旋转+根浮, 形态表与纯面单测见
+   test/town-npc-idle.test.js 头注释表); humanoid 头转朝玩家经
+   townNpcIdleHeadTarget(注视距离门)/townNpcIdleHeadStep(限步 lerp)。
+   A.advTownIdleState() → 恰二键 {t, parts}: t=注入 dt 累计相位(秒),
+   parts=骨柄引用账(注入式验收缝, T-NPC-12 注入先例; 含 THREE 骨柄非纯
+   标量快照口径, 生产由 advTownPuppetsPlace 建/advTownPuppetsLeave 清)。
+   装具: idle 纯面注入独立小沙盒(town-ui-core.js+town-npc.js 源, 不桥
+   mkTownNpcPuppet/placeTownNpc——摆放链缺席则 advTownPuppetsPlace 照旧
+   整段跳过, 既有测试零扰动), 六函数经 globalThis 桥接供宿主域
+   adventure.js 消费(T-SEAM-05 桥接先例); 假骨行注入 parts 账直测消费机
+   (骨柄最小面 {rotation:{x,y,z}, position:{y}}, 零 THREE 依赖)。 */
+
+let idleBridged = false;
+let idleFnsPresent = false;
+function bridgeIdleFns() {
+  if (idleBridged) return;
+  idleBridged = true;
+  const ctx = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+  for (const f of ['js/town-ui-core.js', 'js/town-npc.js']) {
+    vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), ctx, {filename: f});
+  }
+  /* 红期容差: idle 段缺席则不桥(挂点断言负责报红), 全员在册才桥(部分落
+      实现视为未完丁, 同样走红) */
+  const ok = vm.runInContext(
+      '["townNpcIdleKindOf","townNpcIdlePose","townNpcIdlePhaseOffset",' +
+      '"townNpcIdleHeadTarget","townNpcIdleHeadStep","townNpcIdleApply"]' +
+      '.every((n) => typeof globalThis[n] === "function")', ctx);
+  if (!ok) return;
+  idleFnsPresent = true;
+  const fns = vm.runInContext(
+      '({townNpcIdleKindOf, townNpcIdlePose, townNpcIdlePhaseOffset,' +
+      ' townNpcIdleHeadTarget, townNpcIdleHeadStep, townNpcIdleApply})', ctx);
+  Object.assign(globalThis, fns);
+}
+/* 红因守卫(T-NPC-05 先例口径): idle 纯面缺席时抛明确中文错, 红=实现缺席
+ * 可归因, 不留裸 TypeError/ReferenceError 装具炸嫌疑 */
+function idleImplGuard() {
+  bridgeIdleFns();
+  if (!idleFnsPresent) {
+    throw new Error('案卷③ 红期: town-npc.js idle 段六函数未落实现' +
+      '(红因=实现缺席非装具炸)');
+  }
+}
+
+/* closeTo 助手: node:assert 无 closeTo(Chai 专属 API)——案卷③红段 8 处
+   assert.closeTo 全数 TypeError, 红期被未落实现守卫早退掩盖(2026-11-16
+   绿方争议裁定成律, 与 test/town-npc-idle.test.js 同款本地补
+   |actual-expected|<=delta 断言, 语义与 chai 同形) */
+function closeTo(actual, expected, delta, msg) {
+  assert.ok(Math.abs(actual - expected) <= delta,
+      (msg || 'closeTo') + '(实际 ' + actual + ', 期望 ' + expected +
+      ', 容差 ' + delta + ')');
+}
+
+/* 假骨柄(最小面): rotation 三轴可写 + 根浮动只写 position.y */
+function mkFakeBone() {
+  return {rotation: {x: 0, y: 0, z: 0}, position: {x: 0, y: 0, z: 0}};
+}
+/* 假 idle 账行: 形状=生产 parts 行 {id,kind,root,bones,x,z,baseY,yaw,off,headYaw} */
+function mkIdleRow(id, kind, bones, x, z, yaw) {
+  return {id, kind, root: {position: {y: 0}}, bones, x, z,
+    baseY: 25, yaw, off: globalThis.townNpcIdlePhaseOffset(id), headYaw: 0};
+}
+function humanoidBones(withG01Flower) {
+  const b = {head: mkFakeBone(), armL: mkFakeBone(), armR: mkFakeBone(),
+    legL: mkFakeBone(), legR: mkFakeBone()};
+  if (withG01Flower) {
+    b.flower = mkFakeBone();
+    b.hip = mkFakeBone();
+  }
+  return b;
+}
+function injectIdleRows() {
+  const parts = A.advTownIdleState().parts;
+  parts.length = 0;
+  /* V01 广场南入口(79,94) 面南 yaw=pi · G01 巡逻首角(66,66) 面东 yaw=-pi/2
+     (townYawOfFace 口径: 前向 (-sin,·,-cos)); 动物三只按各自氛围锚。 */
+  parts.push(mkIdleRow('V01', 'humanoid', humanoidBones(false), 79, 94, Math.PI));
+  parts.push(mkIdleRow('G01', 'humanoid', humanoidBones(true), 66, 66, -Math.PI / 2));
+  parts.push(mkIdleRow('A01', 'bird',
+      {head: mkFakeBone(), tail: mkFakeBone(), legR: mkFakeBone(), legL: mkFakeBone()},
+      105, 79, -Math.PI / 2));
+  parts.push(mkIdleRow('A02', 'cat',
+      {head: mkFakeBone(), tail: mkFakeBone(), legR: mkFakeBone(), legL: mkFakeBone()},
+      56, 47, 0));
+  parts.push(mkIdleRow('A03', 'llama',
+      {head: mkFakeBone(), neck: mkFakeBone(), legR: mkFakeBone(), legL: mkFakeBone()},
+      53, 98, Math.PI));
+  /* 远端对照 humanoid: 注视距离外头恒回正 */
+  parts.push(mkIdleRow('V99', 'humanoid', humanoidBones(false), 200, 200, 0));
+  return parts;
+}
+function readIdleRow(row) {
+  const bones = {};
+  for (const k of Object.keys(row.bones)) {
+    bones[k] = {rx: row.bones[k].rotation.x, ry: row.bones[k].rotation.y,
+      rz: row.bones[k].rotation.z};
+  }
+  return {headYaw: row.headYaw, rootY: row.root.position.y, bones};
+}
+
+test('案卷③ idle 消费机挂点在位 + 空账安全幂等(离镇/未进镇零炸)', () => {
+  bridgeIdleFns();
+  mem.clear();
+  freshInit();
+  assert.strictEqual(typeof A.advTownNpcIdleTick, 'function',
+      'advTownNpcIdleTick 未落实现(案卷③红本体: idle 消费机缺席)');
+  assert.strictEqual(typeof A.advTownIdleState, 'function',
+      'advTownIdleState 未落实现(案卷③红本体: 注入式验收缝缺席)');
+  A.advSetDim('town');
+  const st = A.advTownIdleState();
+  assert.deepStrictEqual(Object.keys(st).sort(), ['parts', 't'],
+      'advTownIdleState 恰二键 {t, parts}');
+  assert.strictEqual(st.t, 0, '初始相位 0');
+  assert.strictEqual(st.parts.length, 0,
+      '空账(town-npc 摆放链缺席沙盒)——消费机旁路不建账');
+  /* 空账连调三次: 幂等零炸, t 不累计 */
+  A.advTownNpcIdleTick(1 / 60);
+  A.advTownNpcIdleTick(1 / 60);
+  A.advTownNpcIdleTick(1 / 60);
+  assert.strictEqual(A.advTownIdleState().t, 0, '空账不累计相位(旁路幂等)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('案卷③ 注入式行为: 全员形态逐帧生效 · 头转收敛+注视门 · dt 确定性重放', () => {
+  idleImplGuard();
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const parts = injectIdleRows();
+  globalThis.pos.x = 83; globalThis.pos.y = 24; globalThis.pos.z = 94; /* V01 正东 4 格 */
+  const dt = 1 / 60;
+  for (let i = 0; i < 300; i++) A.advTownNpcIdleTick(dt); /* 5 秒 */
+  const t = A.advTownIdleState().t;
+  closeTo(t, 5, 1e-9, '注入 dt 逐帧累计=300×1/60(相位账=dt 和, 零墙钟)');
+  const v01 = parts[0];
+  closeTo(v01.headYaw, 1.0, 1e-9,
+      'V01 头转收敛到 +HEAD_YAW_MAX=1.0(面南身体, 玩家在东=rel +90° 越角域, ' +
+      '钳到边界——原版期望 +π/2 与角域钳自相矛盾, 与纯面②同款裁定修正)');
+  /* 假骨柄形状是 {rotation:{x,y,z}}(mkFakeBone), 原版直取 .rx/.ry/.rz 是
+     装具形状笔误(undefined 恒不等), 首次真执行即暴露——已裁定修正 */
+  assert.strictEqual(v01.bones.head.rotation.y, v01.headYaw,
+      '头骨 ry=headYaw 账(apply 直写)');
+  const pose = globalThis.townNpcIdlePose;
+  closeTo(v01.bones.armL.rotation.x,
+      pose(t + v01.off, 'humanoid').armSwing, 1e-12,
+      'V01 左臂=pose(t+错峰相位).armSwing(相位累计+错峰+apply 三链对账)');
+  assert.strictEqual(v01.bones.armR.rotation.x, -v01.bones.armL.rotation.x,
+      'V01 右臂反相');
+  const g01 = parts[1];
+  assert.strictEqual(g01.bones.flower.rotation.x, 0, 'G01 flower 骨零转(红线)');
+  assert.strictEqual(g01.bones.flower.rotation.y, 0, 'G01 flower 骨零转(红线)');
+  assert.strictEqual(g01.bones.flower.rotation.z, 0, 'G01 flower 骨零转(红线)');
+  closeTo(g01.bones.armL.rotation.x, pose(t + g01.off, 'humanoid').armSwing, 1e-12,
+      'G01 臂摆照常(铁傀儡 humanoid 骨架)');
+  const a01 = parts[2];
+  closeTo(a01.bones.head.rotation.x, pose(t + a01.off, 'bird').headPitch, 1e-12,
+      'A01 啄地点头=pose.headPitch(形态表: bird)');
+  const a02 = parts[3];
+  closeTo(a02.bones.tail.rotation.y, pose(t + a02.off, 'cat').tailYaw, 1e-12,
+      'A02 尾慢摆=pose.tailYaw(形态表: cat)');
+  const a03 = parts[4];
+  closeTo(a03.bones.neck.rotation.x, pose(t + a03.off, 'llama').neckPitch, 1e-12,
+      'A03 低头啃草=pose.neckPitch(形态表: llama)');
+  const v99 = parts[5];
+  assert.strictEqual(v99.headYaw, 0, '远端对照(200,200)注视距离外头恒 0(不扭头)');
+  /* dt 确定性重放: 同 dt 序列从复位态重放, 逐骨逐帧读数 deepEqual */
+  const snap = parts.map(readIdleRow);
+  parts.length = 0;
+  A.advTownNpcIdleTick(dt); /* 空账一拍=相位账复位(自愈) */
+  assert.strictEqual(A.advTownIdleState().t, 0, '空账拍后相位复位');
+  const again = injectIdleRows();
+  globalThis.pos.x = 83; globalThis.pos.z = 94;
+  for (let i = 0; i < 300; i++) A.advTownNpcIdleTick(dt);
+  assert.deepStrictEqual(again.map(readIdleRow), snap,
+      '同 dt 序列重放逐骨逐帧一致(确定性: 零随机零墙钟)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('案卷③ 注视距离门回正 · 离镇清 idle 账 · 非镇维度零消费', () => {
+  idleImplGuard();
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const parts = injectIdleRows();
+  const v01 = parts[0];
+  globalThis.pos.x = 83; globalThis.pos.y = 24; globalThis.pos.z = 94;
+  for (let i = 0; i < 100; i++) A.advTownNpcIdleTick(1 / 60);
+  closeTo(v01.headYaw, 1.0, 1e-9,
+      '近距收敛后头钳在 +HEAD_YAW_MAX=1.0 边界(前置; 原版 |headYaw|>1 在钳域下' +
+      '不可达=纯面②同款裁定修正)');
+  globalThis.pos.x = 130; globalThis.pos.z = 130; /* 出注视距离 */
+  for (let i = 0; i < 200; i++) A.advTownNpcIdleTick(1 / 60);
+  closeTo(v01.headYaw, 0, 1e-9, '出注视距离后头缓回正(目标 0 限步收敛)');
+  /* 离镇: idle 账随 advTownPuppetsLeave 同节拍清(空账零残留) */
+  A.advSetDim('overworld');
+  assert.strictEqual(A.advTownIdleState().parts.length, 0,
+      '离镇清 idle 账(离镇弃机同链, 骨柄引用零残留)');
+  assert.strictEqual(A.advTownIdleState().t, 0, '离镇相位账复位');
+  /* 非镇维度: 注入账也不消费(维度门在消费前) */
+  injectIdleRows();
+  for (let i = 0; i < 5; i++) A.advTownNpcIdleTick(1 / 60);
+  const st = A.advTownIdleState();
+  assert.strictEqual(st.t, 0, '非镇维度不累计相位');
+  for (const row of st.parts) {
+    for (const k of Object.keys(row.bones)) {
+      assert.strictEqual(row.bones[k].rotation.x, 0, '非镇维度骨零消费(' + row.id + '.' + k + ')');
+    }
+  }
+  AdventureMode.cleanup();
+});
+
