@@ -673,7 +673,9 @@ test('hashRand: 确定性且落在 [0,1)', () => {
    契约(T-G05 land 同款), standFrames 逐帧读旗自清模拟消费方。 */
 
 const FDT = 1 / 60; /* 物理帧步长(秒); 20 刻节拍=1s=60 帧 */
-function standFrames(v, n, each) { /* 站立跑 n 帧并按消费合同清点 fireTick 次数(each=逐帧探针) */
+/* 站立跑 n 帧并按消费合同清点 fireTick 次数(each=逐帧探针; 消费合同=读到 true
+   计数并自清, 模拟消费方) */
+function standFrames(v, n, each) {
   let fires = 0;
   for (let i = 0; i < n; i++) {
     v.physics(FDT);
@@ -685,7 +687,8 @@ function standFrames(v, n, each) { /* 站立跑 n 帧并按消费合同清点 fi
   }
   return fires;
 }
-function settleOn(v) { /* 跑物理直到贴地(600 帧封顶) */
+/* 跑物理直到贴地(600 帧封顶) */
+function settleOn(v) {
   for (let i = 0; i < 600 && !v.onGround; i++) v.physics(FDT);
 }
 

@@ -1664,6 +1664,7 @@ test('T-C4 玩家烫伤: fireTick 消费 → 每拍扣 1 血原值直扣 · 消�
   const pe = A.advGetPEnt();
   const hp0 = pe.hp;
   fireEvt();
+  spoken.length = 0; calls.length = 0; /* T-G05 同款双清(:5947): 吞掉 init 欢迎语音/toast 残留, 断言面只看本拍 */
   AdventureMode.update(1 / 60);
   assert.strictEqual(pe.hp, hp0 - 1, '一拍扣 1 血(§3.9 初值, 环境伤原值直扣 D8)');
   assert.strictEqual(A.ADV.player.hp, hp0 - 1, '账本同步(头顶血条重绘依据)');
