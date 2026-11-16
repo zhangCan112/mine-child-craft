@@ -26,17 +26,20 @@ const ROOT = path.join(__dirname, '..');
 
 /* ---------- 真数据表: config + voxel(blockKey) + items/hints, 共享一个 vm 词法环境 ---------- */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+/* drops.js 装载: T-C3 回收行消费面(rollBlockDrop) */
 for (const f of ['js/config.js', 'js/mob-registry.js', 'js/voxel.js',
-  'js/items-core.js', 'js/item-hint-registry.js']) {
+  'js/items-core.js', 'js/item-hint-registry.js', 'js/drops.js']) {
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
 /* config 词法绑定不挂 vm 全局: 上下文内具名求值铺 Node globalThis(kit 经全局名
    调用期解析到真件——classic script 共享词法环境的 Node 侧镜像)。
    篝火三新名(B_CAMPFIRE/B_CAMPFIRE_OUT/CAMPFIRE)用安全代理取——红测期 config
    尚无此行, 顶层硬求值会把整文件炸成「test failed」, 各测试改收干净断言红 */
-for (const n of ['BLOCKS', 'ITEMS', 'ITEM_HINTS']) {
+/* BLOCK_HINTS 铺全局: T-C3 调色板零死数据守门 */
+for (const n of ['BLOCKS', 'ITEMS', 'ITEM_HINTS', 'BLOCK_HINTS']) {
   globalThis[n] = vm.runInContext(n, eng);
 }
+const rollBlockDrop = vm.runInContext('rollBlockDrop', eng); /* 回收行消费面(drops.js 真件, T-C3) */
 const cfg = vm.runInContext(`({
   lit: typeof B_CAMPFIRE !== 'undefined' ? B_CAMPFIRE : null,
   out: typeof B_CAMPFIRE_OUT !== 'undefined' ? B_CAMPFIRE_OUT : null,
@@ -291,4 +294,106 @@ test('campfire kit updraft 缺席容忍: opts.updraft 未注入 plant/tick/drop 
   assert.doesNotThrow(() => burnTicks(ledger, 6000), '燃尽路径零 updraft 注入不炸');
   assert.doesNotThrow(() => ledger.drop(1, 2, 3), '挖除路径零 updraft 注入不炸');
   assert.strictEqual(ledger.map.size, 0, '台账行为不受影响');
+});
+
+/* ============ T-C3 水浇熄灭/回收(篝火票据 T-C3, campfire-spec §3.4) ============ */
+
+test('T-C3 两态回收行: BLOCKS[81]/[82].drop=[["campfire",1,0]] 保底 1 零加成 · rollBlockDrop 消费面恒 1 件(非木炭)', () => {
+  assert.ok(cfg.lit != null && cfg.out != null, '两态 id 在册(前置)');
+  for (const [tag, id] of [['燃烧态', cfg.lit], ['熄灭态', cfg.out]]) {
+    assert.deepStrictEqual(BLOCKS[id].drop, [['campfire', 1, 0]],
+        tag + '回收行=篝火×1 保底零加成(挖走即还篝火, 烧剩价值保留)');
+  }
+  assert.deepStrictEqual(rollBlockDrop(BLOCKS[cfg.lit], () => 0.99),
+      [{id: 'campfire', n: 1}], '消费面: 燃烧态恒得篝火 1(加成概率 0, 掷骰无关)');
+  assert.deepStrictEqual(rollBlockDrop(BLOCKS[cfg.out], () => 0.99),
+      [{id: 'campfire', n: 1}], '消费面: 熄灭态同款恒 1 件(非木炭, PO 拍板沿用)');
+});
+
+test('T-C3 调色板零死数据: BLOCK_HINTS 无 81/82 行(两态不进建造调色板, hint 行=零消费死数据, spec §3.4 裁定)', () => {
+  assert.strictEqual(BLOCK_HINTS[cfg.lit], undefined, '燃烧态无 hint 行');
+  assert.strictEqual(BLOCK_HINTS[cfg.out], undefined, '熄灭态无 hint 行');
+});
+
+/* 水面桩: cells=有水格集合('x,y,z' 键形), 其余空气——read 缝的测试形态 */
+function mkWaterRead(cells) {
+  return (x, y, z) => (cells.has(x + ',' + y + ',' + z) ? 24 : 0);
+}
+
+test('T-C3 水浇接线: read 缝命中(水邻) → 下一刻台账删条+onQuench 坐标全参+updraft 注销同拍 · 零燃尽回调', () => {
+  kitReady();
+  const quenched = [];
+  const burned = [];
+  const rec = mkUpdraftRecorder();
+  const ledger = CampfireKit.mkCampfireLedger({
+    onBurnout: (x, y, z) => burned.push([x, y, z]),
+    onQuench: (x, y, z) => quenched.push([x, y, z]),
+    read: mkWaterRead(new Set(['11,20,30'])), /* 东邻有水 */
+    updraft: rec.updraft,
+  });
+  ledger.plant(10, 20, 30);
+  assert.strictEqual(ledger.map.size, 1, '前置: 燃烧条目在册');
+  burnTicks(ledger, 1); /* 水邻后的第一刻 */
+  assert.strictEqual(ledger.map.size, 0, '下一刻内台账删条(零残留)');
+  assert.deepStrictEqual(quenched, [[10, 20, 30]], 'onQuench 坐标全参(消费方做 id 互换收尾)');
+  assert.deepStrictEqual(rec.removed, [[10, 20, 30]], '浇熄=气流注销(与燃尽同一状态迁移点)');
+  assert.deepStrictEqual(burned, [], '浇熄不是燃尽(零燃尽回调, 两态互换非消失)');
+});
+
+test('T-C3 水浇几何: 正上有水=熄 · 正下有水不熄(火在实体块顶, 底面不沾水)', () => {
+  kitReady();
+  const q = [];
+  const ledAbove = CampfireKit.mkCampfireLedger({
+    onQuench: () => q.push('above'), read: mkWaterRead(new Set(['5,3,5'])), /* 正上 */
+  });
+  ledAbove.plant(5, 2, 5);
+  burnTicks(ledAbove, 1);
+  assert.deepStrictEqual(q, ['above'], '正上有水: 下一刻熄');
+  const ledBelow = CampfireKit.mkCampfireLedger({
+    onQuench: () => q.push('below'), read: mkWaterRead(new Set(['7,1,7'])), /* 正下 */
+  });
+  ledBelow.plant(7, 2, 7);
+  burnTicks(ledBelow, 10);
+  assert.strictEqual(ledBelow.map.get('7,2,7').left, 5990, '正下有水: 照常烧(10 刻整减)');
+  assert.strictEqual(q.length, 1, '正下不熄(零浇熄回调)');
+});
+
+test('T-C3 熄灭后零侧账长期保留: 浇熄后再喂 700s(14000 刻) — 零复活零燃尽零重复回调', () => {
+  kitReady();
+  let quenches = 0;
+  const rec = mkUpdraftRecorder();
+  const ledger = CampfireKit.mkCampfireLedger({
+    onQuench: () => quenches++, read: mkWaterRead(new Set(['1,3,1'])), updraft: rec.updraft,
+  });
+  ledger.plant(1, 2, 1);
+  burnTicks(ledger, 1); /* 浇熄 */
+  burnTicks(ledger, 14000); /* 700s 长期喂: 水一直邻接 */
+  assert.strictEqual(quenches, 1, '浇熄恰一次(条目已删, 无账可浇)');
+  assert.strictEqual(ledger.map.size, 0, '零复活(不重挂账)');
+  assert.strictEqual(rec.added.length, 1, '气流零重注册(放置时恰一次)');
+  assert.strictEqual(rec.removed.length, 1, '注销恰一次');
+});
+
+test('T-C3 自然因果零防呆: 水仍邻接时重燃(plant) → 下一刻再熄(无「浇过一次就免疫」闩)', () => {
+  kitReady();
+  const quenched = [];
+  const ledger = CampfireKit.mkCampfireLedger({
+    onQuench: (x, y, z) => quenched.push([x, y, z]), read: mkWaterRead(new Set(['3,2,3'])),
+  });
+  ledger.plant(2, 2, 3); /* 水在东邻 (3,2,3) */
+  burnTicks(ledger, 1);
+  assert.strictEqual(ledger.map.size, 0, '前置: 第一次浇熄');
+  ledger.plant(2, 2, 3); /* 点击重燃(kit 级=plant 满时长重建条) */
+  assert.strictEqual(ledger.map.size, 1, '重燃建条');
+  burnTicks(ledger, 1);
+  assert.deepStrictEqual(quenched, [[2, 2, 3], [2, 2, 3]], '下一刻再熄(自然因果, 零防呆)');
+});
+
+test('T-C3 read 缺席容忍: 无 read 注入 — 燃尽路径照常(装配前/无水世界零炸)', () => {
+  kitReady();
+  const burned = [];
+  const ledger = CampfireKit.mkCampfireLedger({onBurnout: (x, y, z) => burned.push([x, y, z])});
+  ledger.plant(1, 1, 1);
+  assert.doesNotThrow(() => burnTicks(ledger, 6000), '全程零 read 注入不炸');
+  assert.deepStrictEqual(burned, [[1, 1, 1]], '燃尽照常(6000 刻到期恰一次)');
 });

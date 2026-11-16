@@ -1,0 +1,377 @@
+TAP version 13
+# Subtest: campfire 两态行: B_CAMPFIRE=81/B_CAMPFIRE_OUT=82 · campfire 旗标 lit|out · light 15/0 · 半格实体 · hard 0 · 无 replaceable
+ok 1 - campfire 两态行: B_CAMPFIRE=81/B_CAMPFIRE_OUT=82 · campfire 旗标 lit|out · light 15/0 · 半格实体 · hard 0 · 无 replaceable
+  ---
+  duration_ms: 0.5607
+  type: 'test'
+  ...
+# Subtest: campfire 参数块: CAMPFIRE 六键照 §3.9 初值(6000 刻/柱高 20/截面半径 1/升速 3.0/烫伤节拍 20/烫伤 1 血)
+ok 2 - campfire 参数块: CAMPFIRE 六键照 §3.9 初值(6000 刻/柱高 20/截面半径 1/升速 3.0/烫伤节拍 20/烫伤 1 血)
+  ---
+  duration_ms: 0.0755
+  type: 'test'
+  ...
+# Subtest: campfire 物品行: ITEMS.campfire 三字段(name/icon/block 路由) · 无 dur(可堆叠消耗品)
+ok 3 - campfire 物品行: ITEMS.campfire 三字段(name/icon/block 路由) · 无 dur(可堆叠消耗品)
+  ---
+  duration_ms: 0.0595
+  type: 'test'
+  ...
+# Subtest: campfire 物品提示: ITEM_HINTS.campfire 逐字=UI 定稿 §6.1 · 全文零剧透禁词(§6.4 词集)
+ok 4 - campfire 物品提示: ITEM_HINTS.campfire 逐字=UI 定稿 §6.1 · 全文零剧透禁词(§6.4 词集)
+  ---
+  duration_ms: 0.0811
+  type: 'test'
+  ...
+# Subtest: campfire 接线: index.html script 行在册且 adventure-core < campfire-kit < modes/adventure.js(装载序=依赖序, boot 按真实序装载)
+ok 5 - campfire 接线: index.html script 行在册且 adventure-core < campfire-kit < modes/adventure.js(装载序=依赖序, boot 按真实序装载)
+  ---
+  duration_ms: 0.3854
+  type: 'test'
+  ...
+# Subtest: campfire 零墙钟: campfire-kit.js 源码零 Date.now/performance.now(确定性重放红线)
+ok 6 - campfire 零墙钟: campfire-kit.js 源码零 Date.now/performance.now(确定性重放红线)
+  ---
+  duration_ms: 0.2865
+  type: 'test'
+  ...
+# Subtest: campfire kit plant: 满时长建条(posKey 键 + {x,y,z,left} 条目, left=6000=CAMPFIRE.ticks)
+ok 7 - campfire kit plant: 满时长建条(posKey 键 + {x,y,z,left} 条目, left=6000=CAMPFIRE.ticks)
+  ---
+  duration_ms: 0.5481
+  type: 'test'
+  ...
+# Subtest: campfire kit tick 量化整刻: 0.05s=1 刻零漂 · 不喂即冻结(零墙钟, 账本自己不动)
+ok 8 - campfire kit tick 量化整刻: 0.05s=1 刻零漂 · 不喂即冻结(零墙钟, 账本自己不动)
+  ---
+  duration_ms: 0.1948
+  type: 'test'
+  ...
+# Subtest: campfire kit 燃尽恰一次: 5999 刻不燃 · 第 6000 刻回调恰一次+条目删净 · 燃尽后再喂零回调
+ok 9 - campfire kit 燃尽恰一次: 5999 刻不燃 · 第 6000 刻回调恰一次+条目删净 · 燃尽后再喂零回调
+  ---
+  duration_ms: 1.5796
+  type: 'test'
+  ...
+# Subtest: campfire kit 掉帧追平: 单帧大 dt 只走 8 刻(guard 防螺旋) · 后续帧累积追平零丢刻(pumpFluids fluidAcc 同款)
+ok 10 - campfire kit 掉帧追平: 单帧大 dt 只走 8 刻(guard 防螺旋) · 后续帧累积追平零丢刻(pumpFluids fluidAcc 同款)
+  ---
+  duration_ms: 0.1655
+  type: 'test'
+  ...
+# Subtest: campfire kit drop/reset: 挖除删条 · 未知格零炸 · reset 清空(重进场复位口径)
+ok 11 - campfire kit drop/reset: 挖除删条 · 未知格零炸 · reset 清空(重进场复位口径)
+  ---
+  duration_ms: 0.11
+  type: 'test'
+  ...
+# Subtest: campfire kit encode 桩: [[posKey,{left}]] 存档形状(advCampfiresClean 同形, T-C5 档键缝)
+ok 12 - campfire kit encode 桩: [[posKey,{left}]] 存档形状(advCampfiresClean 同形, T-C5 档键缝)
+  ---
+  duration_ms: 0.1829
+  type: 'test'
+  ...
+# Subtest: campfire kit 无 onBurnout 注入: 燃尽不炸(回调缺省=无观感政策)
+ok 13 - campfire kit 无 onBurnout 注入: 燃尽不炸(回调缺省=无观感政策)
+  ---
+  duration_ms: 1.3322
+  type: 'test'
+  ...
+# Subtest: campfire kit updraft 接线: plant → sim.add(源格心+CAMPFIRE 柱参三件, 单次单源)
+ok 14 - campfire kit updraft 接线: plant → sim.add(源格心+CAMPFIRE 柱参三件, 单次单源)
+  ---
+  duration_ms: 0.107
+  type: 'test'
+  ...
+# Subtest: campfire kit updraft 接线: 燃尽(tick 到期) → sim.remove(坐标全参, 与 onBurnout 同拍)
+ok 15 - campfire kit updraft 接线: 燃尽(tick 到期) → sim.remove(坐标全参, 与 onBurnout 同拍)
+  ---
+  duration_ms: 0.9663
+  type: 'test'
+  ...
+# Subtest: campfire kit updraft 接线: drop 已知格 → sim.remove · 未知格 drop 零注销(presence 口径)
+ok 16 - campfire kit updraft 接线: drop 已知格 → sim.remove · 未知格 drop 零注销(presence 口径)
+  ---
+  duration_ms: 0.0889
+  type: 'test'
+  ...
+# Subtest: campfire kit updraft 缺席容忍: opts.updraft 未注入 plant/tick/drop 零炸(装配前/Node 语境)
+ok 17 - campfire kit updraft 缺席容忍: opts.updraft 未注入 plant/tick/drop 零炸(装配前/Node 语境)
+  ---
+  duration_ms: 0.8371
+  type: 'test'
+  ...
+# Subtest: updraft mkSim: env 注入可建 sim(接口面: add/remove/query/count/clear 全在册)
+ok 18 - updraft mkSim: env 注入可建 sim(接口面: add/remove/query/count/clear 全在册)
+  ---
+  duration_ms: 1.1861
+  type: 'test'
+  ...
+# Subtest: query 命中: 柱内点返回 {lift, top} 且 lift/top 同源, top=火面y+柱高
+ok 19 - query 命中: 柱内点返回 {lift, top} 且 lift/top 同源, top=火面y+柱高
+  ---
+  duration_ms: 0.4309
+  type: 'test'
+  ...
+# Subtest: 3×3 截面: Chebyshev ≤1 八邻全命中 · 一步之外(Chebyshev 2)零命中 · r 参数驱动不写死
+ok 20 - 3×3 截面: Chebyshev ≤1 八邻全命中 · 一步之外(Chebyshev 2)零命中 · r 参数驱动不写死
+  ---
+  duration_ms: 0.1467
+  type: 'test'
+  ...
+# Subtest: 垂直界: 火面高度命中(站火旁同地面) · 火面以下零命中 · 柱顶恰命中 · 柱顶之上零命中
+ok 21 - 垂直界: 火面高度命中(站火旁同地面) · 火面以下零命中 · 柱顶恰命中 · 柱顶之上零命中
+  ---
+  duration_ms: 0.0847
+  type: 'test'
+  ...
+# Subtest: 遮挡列扫: 玩家列火面+1→脚部首个实体即截断 · 实体以下矮段照常 · 部分遮挡按列 · 火源格不自遮挡 · 非实体不截
+not ok 22 - 遮挡列扫: 玩家列火面+1→脚部首个实体即截断 · 实体以下矮段照常 · 部分遮挡按列 · 火源格不自遮挡 · 非实体不截
+  ---
+  duration_ms: 0.6837
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\campfire\\test\\updraft-core.test.js:109:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    部分遮挡: 被挡列(10,11)有石即截
+    + actual - expected
+    
+    + {
+    +   lift: 3,
+    +   top: 31
+    + }
+    - null
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: ~
+  actual:
+    lift: 3
+    top: 31
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:117:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 多柱 max: 重叠区取最强一柱(lift 与 top 同源非求和) · 最强柱被遮挡时取次强命中柱
+ok 23 - 多柱 max: 重叠区取最强一柱(lift 与 top 同源非求和) · 最强柱被遮挡时取次强命中柱
+  ---
+  duration_ms: 0.1258
+  type: 'test'
+  ...
+# Subtest: count/clear/remove: 注册计数 · 注销单柱 · 未知格 remove 零炸 · clear 清场(切模式/换图口径)
+ok 24 - count/clear/remove: 注册计数 · 注销单柱 · 未知格 remove 零炸 · clear 清场(切模式/换图口径)
+  ---
+  duration_ms: 0.1535
+  type: 'test'
+  ...
+# Subtest: add 幂等: 同位重复注册覆盖不叠加(count 恒 1, 新参数整组生效)
+ok 25 - add 幂等: 同位重复注册覆盖不叠加(count 恒 1, 新参数整组生效)
+  ---
+  duration_ms: 0.0746
+  type: 'test'
+  ...
+# Subtest: env 注入隔离: 两个 sim 各自 env 互不串扰(零全局, read/solidOf 全参数化)
+ok 26 - env 注入隔离: 两个 sim 各自 env 互不串扰(零全局, read/solidOf 全参数化)
+  ---
+  duration_ms: 0.087
+  type: 'test'
+  ...
+# Subtest: 孤立装载: 仅 updraft-core.js 单文件 vm 装载零炸(加载零副作用, 零全局可解析)
+ok 27 - 孤立装载: 仅 updraft-core.js 单文件 vm 装载零炸(加载零副作用, 零全局可解析)
+  ---
+  duration_ms: 1.0322
+  type: 'test'
+  ...
+# Subtest: 零墙钟零随机零 THREE 零 DOM: updraft-core.js 源码 grep(确定性重放红线, spec §6-1/6-8)
+ok 28 - 零墙钟零随机零 THREE 零 DOM: updraft-core.js 源码 grep(确定性重放红线, spec §6-1/6-8)
+  ---
+  duration_ms: 0.4149
+  type: 'test'
+  ...
+# Subtest: 乘流·柱内托升: 火旁(3×3 内)平地跳跃立即展翼, 升力替换缓降(vel.y=+lift), 持续上升
+ok 29 - 乘流·柱内托升: 火旁(3×3 内)平地跳跃立即展翼, 升力替换缓降(vel.y=+lift), 持续上升
+  ---
+  duration_ms: 4.5238
+  type: 'test'
+  ...
+# Subtest: 乘流·出柱回落: 漂出柱(Chebyshev ≥2)vel.y 即回落缓降, 柱外高度只减不增恢复
+ok 30 - 乘流·出柱回落: 漂出柱(Chebyshev ≥2)vel.y 即回落缓降, 柱外高度只减不增恢复
+  ---
+  duration_ms: 1.7633
+  type: 'test'
+  ...
+# Subtest: 乘流·进入即乘: 柱外展翼滑翔飘入柱内 = 开始上升(BotW 官方口径移植)
+ok 31 - 乘流·进入即乘: 柱外展翼滑翔飘入柱内 = 开始上升(BotW 官方口径移植)
+  ---
+  duration_ms: 1.3094
+  type: 'test'
+  ...
+# Subtest: 乘流·踩火起飞: 踩着篝火方块本身起跳同此(3×3 含篝火格, thin 半格可站)
+not ok 32 - 乘流·踩火起飞: 踩着篝火方块本身起跳同此(3×3 含篝火格, thin 半格可站)
+  ---
+  duration_ms: 1.2267
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\campfire\\test\\updraft-core.test.js:346:1'
+  failureType: 'testCodeFailure'
+  error: '站上火面半格顶(11.5), 实测 12'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:353:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 乘流·无翼零参与: 未装备玩家柱内跳跃零展翼零升力(重力弧线照旧, 风托的是翼)
+ok 33 - 乘流·无翼零参与: 未装备玩家柱内跳跃零展翼零升力(重力弧线照旧, 风托的是翼)
+  ---
+  duration_ms: 1.4454
+  type: 'test'
+  ...
+# Subtest: 乘流·静立/步行零被动升空: 装备翼静立柱内与步行穿柱不按跳零展翼(路过篝火不上天, ADR 0017 D 案否决面)
+not ok 34 - 乘流·静立/步行零被动升空: 装备翼静立柱内与步行穿柱不按跳零展翼(路过篝火不上天, ADR 0017 D 案否决面)
+  ---
+  duration_ms: 2.8784
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\campfire\\test\\updraft-core.test.js:381:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    步行穿柱零展翼(帧 69, x=47.3)
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:395:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 乘流·闩锁咬合: 柱内取消→闩锁态自由下坠(lift 不作用) · 空中再点跳=解闩+展翼再获升力 · 落地清闩再跳恢复豁免
+not ok 35 - 乘流·闩锁咬合: 柱内取消→闩锁态自由下坠(lift 不作用) · 空中再点跳=解闩+展翼再获升力 · 落地清闩再跳恢复豁免
+  ---
+  duration_ms: 2.3874
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\campfire\\test\\updraft-core.test.js:400:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    仍在空中
+    
+    true !== false
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: false
+  actual: true
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:418:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 乘流·摔落联动·柱内取消: 乘流至高处取消收翼, 落差自收翼点重计(20 格取消≈重伤的账)
+ok 36 - 乘流·摔落联动·柱内取消: 乘流至高处取消收翼, 落差自收翼点重计(20 格取消≈重伤的账)
+  ---
+  duration_ms: 3.87
+  type: 'test'
+  ...
+# Subtest: 乘流·摔落联动·全程安全: 乘流升高后漂出柱滑翔落地, landGliding=true 且落差≈0(展翼段不计账)
+not ok 37 - 乘流·摔落联动·全程安全: 乘流升高后漂出柱滑翔落地, landGliding=true 且落差≈0(展翼段不计账)
+  ---
+  duration_ms: 6.2881
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\campfire\\test\\updraft-core.test.js:457:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    Expected values to be strictly equal:
+    
+    false !== true
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire\test\updraft-core.test.js:472:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 乘流·滑翔中卸翼(柱内): 立即收翼按无翼坠落, 升力不再接管(卸翼语义优先于气流)
+ok 38 - 乘流·滑翔中卸翼(柱内): 立即收翼按无翼坠落, 升力不再接管(卸翼语义优先于气流)
+  ---
+  duration_ms: 1.9188
+  type: 'test'
+  ...
+# Subtest: 乘流·遮挡联动: 玩家列火面上方实体→该高度无升力(缓降), 实体下方矮段照常升力
+ok 39 - 乘流·遮挡联动: 玩家列火面上方实体→该高度无升力(缓降), 实体下方矮段照常升力
+  ---
+  duration_ms: 1.2171
+  type: 'test'
+  ...
+# Subtest: 乘流·贴顶边界: 柱顶上方天花板压停(不穿墙), 碰撞清 vel.y 下一帧再给 lift 的抖动可接受
+ok 40 - 乘流·贴顶边界: 柱顶上方天花板压停(不穿墙), 碰撞清 vel.y 下一帧再给 lift 的抖动可接受
+  ---
+  duration_ms: 3.3355
+  type: 'test'
+  ...
+# Subtest: 乘流·空注册表零行为: sim 在册无源时既有滑翔语义零变化(非篝火模式零增量回归金丝雀)
+ok 41 - 乘流·空注册表零行为: sim 在册无源时既有滑翔语义零变化(非篝火模式零增量回归金丝雀)
+  ---
+  duration_ms: 2.6974
+  type: 'test'
+  ...
+# Subtest: 装配守门·装载序: index.html updraft-core 行在册且先于 voxel.js 与 world.js(消费链硬依赖边)
+ok 42 - 装配守门·装载序: index.html updraft-core 行在册且先于 voxel.js 与 world.js(消费链硬依赖边)
+  ---
+  duration_ms: 0.4231
+  type: 'test'
+  ...
+# Subtest: 装配守门·world.js 装配位: UpdraftCore.mkSim 与 fluid sim 同位(read/solidOf 注入 getBlock/isSolid) · clearWorld 清场
+ok 43 - 装配守门·world.js 装配位: UpdraftCore.mkSim 与 fluid sim 同位(read/solidOf 注入 getBlock/isSolid) · clearWorld 清场
+  ---
+  duration_ms: 0.3331
+  type: 'test'
+  ...
+# Subtest: 装配守门·模式层接线: adventure.js 经 updraft 缝注入(注册/注销经状态迁移点, spec §3.5)
+ok 44 - 装配守门·模式层接线: adventure.js 经 updraft 缝注入(注册/注销经状态迁移点, spec §3.5)
+  ---
+  duration_ms: 1.3387
+  type: 'test'
+  ...
+1..44
+# tests 44
+# suites 0
+# pass 39
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 101.2129

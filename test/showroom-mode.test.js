@@ -1847,3 +1847,22 @@ test('PO②-D 跨模式残留(showroom 复现): 镇内切体验馆 — cleanup �
       '展馆零 NPC 残影(cleanup 摘净, 跨模式不渗, PO②本体)');
   assert.strictEqual(A.advTownState().puppets.length, 0, '傀儡账同步回空');
 });
+
+/* ---------- 篝火 T-C3 体验馆同口径: 水浇熄灭走统一壳(零场景分支的机械证明) ----------
+   展馆与冒险共用同一 place-kit 实例与同一账本(ShowroomMode.pk=advPlaceKit,
+   ShowroomMode.update→AdventureMode.update): 放置链/浇熄链照 adventure-mode
+   T-C3 整链, 本文件只证「同壳同拍」——东条带整地(x81 地平恒 G)。 */
+
+test('体验馆同口径: 篝火放置即燃 → 邻格水浇 → 同壳 update 整链浇熄(统一壳同一账本)', () => {
+  freshEnter();
+  const IDS = vm.runInContext('({lit: B_CAMPFIRE, out: B_CAMPFIRE_OUT, water: B_WATER})', eng);
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0}); /* 篝火落 (81,G+1,58) */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.lit, '放置即燃: 燃烧态落格(同一放置链)');
+  globalThis.editBlock(81, G + 1, 57, IDS.water); /* 北邻水浇 */
+  ShowroomMode.update(0.5); /* 统一壳: ShowroomMode.update→AdventureMode.update(账本 tick 同拍) */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.out, '浇熄: 熄灭态落格(同壳零场景分支)');
+  assert.strictEqual(A.advCampfires.map.size, 0, '侧账删条(统一壳同一账本)');
+});

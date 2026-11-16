@@ -3441,6 +3441,44 @@ test('T11 池解析缝: 命中返共享池引用(零分配) · 未命中 null �
   assert.strictEqual(r.spawn.x !== undefined && r.spawn.z !== undefined, true, '出单带环带落点(铺法路径不变)');
 });
 
+/* ---------- 篝火 T-C3 浇熄/重燃纯函数 (campfire-spec §3.4 两态互换) ---------- */
+
+test('T-C3 浇熄几何: advCampfireQuenchHit — 四水平邻+正上有水=熄 · 正下/斜角不熄 · ' +
+    '岩浆不熄 · 无水不熄', () => {
+  assert.strictEqual(typeof Core.advCampfireQuenchHit, 'function',
+      'advCampfireQuenchHit 在册(纯函数宿主, campfire-kit read 缝消费)');
+  const IDS = vm.runInContext('({water: B_WATER, lava: B_LAVA})', eng);
+  const cf = {x: 10, y: 20, z: 30};
+  const mkRead = (cells) => {
+    const set = new Set(cells);
+    return (x, y, z) => (set.has(x + ',' + y + ',' + z) ? IDS.water : 0);
+  };
+  const hit = Core.advCampfireQuenchHit;
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['9,20,30'])), true, '西邻有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['11,20,30'])), true, '东邻有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['10,20,29'])), true, '北邻有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['10,20,31'])), true, '南邻有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['10,21,30'])), true, '正上有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['10,19,30'])), false, '正下有水不熄(火在实体块顶, 底面不沾水)');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['9,20,29'])), false, '斜角不熄(十字面+顶, 非 3×3)');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, () => IDS.lava), false, '岩浆不熄(浇熄只认水)');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, () => 0), false, '无水不熄');
+});
+
+test('T-C3 重燃话术: advCampfireRelightHint — 形状 {name,desc,tts} · desc 逐字定稿 · ' +
+    'name=熄灭态方块名 · tts=desc 零第二文案源 · 禁词扫描', () => {
+  const hint = Core.advCampfireRelightHint;
+  assert.ok(hint && typeof hint === 'object', 'advCampfireRelightHint 在册(纯函数宿主)');
+  const IDS = vm.runInContext('({out: B_CAMPFIRE_OUT})', eng);
+  assert.strictEqual(hint.name, BLOCKS[IDS.out].name, '名字=熄灭态方块名(单源不誊写)');
+  assert.strictEqual(hint.desc, '点一下，就能再点着的火堆', 'desc 逐字定稿(禁改写——逐字核对锚)');
+  assert.strictEqual(hint.tts, hint.desc, 'tts=desc(同一句话零第二文案源)');
+  for (const w of ['风', '升', '上升', '飞', '气流', '翅膀', '翼', '滑翔', '乘', '托', '任务', '倒计时']) {
+    assert.ok(!hint.desc.includes(w) && !hint.name.includes(w),
+        '禁词「' + w + '」零命中(⭐R2-3 不剧透红线, 与物品提示同词集)');
+  }
+});
+
 /* ---------- 篝火燃尽步进/档账清扫 (campfire T-C1, ADR 0018) ----------
    纯函数双件(advFurnaceClean 同居先例): 步进只管刻账(整刻入账, 单位=刻,
    spec §4 拍板案——20tps 累积器在 kit 侧量化, 这里见到的 ticks 已是整数),

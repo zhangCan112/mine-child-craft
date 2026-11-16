@@ -1529,7 +1529,8 @@ test('T-C1 燃尽级联: 篝火上方依附 thin 块随底座脱落(破坏侧既
   assert.strictEqual(cell(spot.x, 26, spot.z), 0, '上方依附 thin 块随之脱落(级联照常)');
 });
 
-test('T-C1 挖除删账: 燃尽前挖走篝火 → 方块消失+侧账同步删条+本票无回收掉落(回收归 T-C3)', () => {
+test('T-C1 挖除删账: 燃尽前挖走篝火 → 方块消失+侧账同步删条+回收篝火×1' +
+    '(T-C3 翻新: 两态行配 drop, 旧「无回收」断言随行为翻转)', () => {
   mem.clear();
   freshInit();
   assert.ok(api.B_CAMPFIRE != null, 'B_CAMPFIRE 接线');
@@ -1542,8 +1543,10 @@ test('T-C1 挖除删账: 燃尽前挖走篝火 → 方块消失+侧账同步删�
   A.advBreakBlock(spot.x, 25, spot.z, api.B_CAMPFIRE, {time: 0, drops: true});
   assert.strictEqual(cell(spot.x, 25, spot.z), 0, '挖走: 方块消失');
   assert.strictEqual(A.advCampfires.map.size, 0, '侧账同步删条(挖除走 advMarkEdit seam)');
-  assert.ok(!dropsState.spawned.some((d) => d.id === 'campfire'),
-      '本票挖掘无回收掉落(两态行不配 drop, 回收链归 T-C3)');
+  assert.strictEqual(dropsState.spawned.filter((d) => d.id === 'campfire').length, 1,
+      '挖掘回收: campfire 掉落恰一条(T-C3 翻新——原「两态行不配 drop」已由 T-C3 配回收行, 裁决记录见票回执)');
+  assert.strictEqual(dropsState.spawned.find((d) => d.id === 'campfire').n, 1,
+      '保底 1 零加成(非木炭, PO 拍板沿用)');
 });
 
 test('T-C1 合成计数: craft_campfire 经通用 counts 通道自动累加(账照记) · 零任务消费(核心任务表零引用)', () => {
@@ -1556,6 +1559,85 @@ test('T-C1 合成计数: craft_campfire 经通用 counts 通道自动累加(账�
   /* 零消费(⭐R1-13 纯玩具无任务): 核心任务表零引用——二期免费台账只记不判 */
   const acSrc = fs.readFileSync(path.join(__dirname, '..', 'js', 'adventure-core.js'), 'utf8');
   assert.ok(!acSrc.includes('craft_campfire'), 'adventure-core 任务表零引用 craft_campfire');
+});
+
+/* ---------- 篝火 T-C3: 水浇熄灭/点击重燃/挖掘回收(模式整链, campfire-spec §3.4) ----------
+   纯函数几何/话术在 adventure-core.test, kit 接线在 campfire-kit.test, 本文件走
+   模式整链: 放置→水浇(editBlock 世界缝)→update 同拍浇熄→空手点击重燃→水邻再熄
+   (自然因果)→两态挖掘回收。 */
+
+test('T-C3 水浇整链: 放置即燃 → 邻格水(editBlock 缝) → update 下一拍浇熄 — 熄灭态落格+侧账删条+编辑链记账+零掉落', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '前置: 放置即燃');
+  assert.strictEqual(A.advCampfires.map.size, 1, '前置: 侧账在册');
+  globalThis.editBlock(spot.x, 25, spot.z + 1, api.B_WATER); /* 南邻水浇(世界编辑缝) */
+  dropsState.spawned.length = 0;
+  AdventureMode.update(0.5); /* 一帧至多 10 刻: 浇熄判定在第一刻 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE_OUT, '浇熄: 熄灭态落格(id 互换, spec §3.4)');
+  assert.strictEqual(cell(spot.x, 25, spot.z + 1), api.B_WATER, '水保留(浇熄不是吸水)');
+  assert.strictEqual(A.advCampfires.map.size, 0, '侧账删条(熄灭态零侧账)');
+  assert.ok(calls.some((c) => c[0] === 'edit' && c[1] === spot.x && c[2] === 25 &&
+      c[3] === spot.z && c[4] === api.B_CAMPFIRE_OUT),
+  'id 互换走编辑链记账(与燃尽收尾同缝)');
+  assert.strictEqual(dropsState.spawned.length, 0, '浇熄零掉落(两态互换非挖掘回收)');
+});
+
+test('T-C3 点击重燃整链: 半烧→浇熄→空手点击 — 燃烧态落格+侧账满时长重建(非余量)+话术逐字 · 水仍邻接下一拍再熄(自然因果)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  for (let i = 0; i < 375; i++) AdventureMode.update(0.5); /* 半烧 ~3000 刻(远不及 6000 燃尽) */
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '前置: 半烧仍在燃');
+  assert.ok(A.advCampfires.map.get(spot.x + ',25,' + spot.z).left < 6000, '前置: 余量已亏(半烧)');
+  globalThis.editBlock(spot.x, 25, spot.z + 1, api.B_WATER);
+  AdventureMode.update(0.5);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE_OUT, '前置: 浇熄');
+  holdOnly(null); /* 空手点击(TNT 空手先例: 手持任意口径, 重燃不扣件) */
+  spoken.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '重燃: 燃烧态落格(id 互换)');
+  assert.strictEqual(A.advCampfires.map.get(spot.x + ',25,' + spot.z).left, 6000,
+      '侧账满时长重建(非余量续算, 重燃=新的一炉)');
+  assert.ok(spoken.some((s) => String(s).includes('点一下，就能再点着的火堆')),
+      '话术逐字(重燃引导定稿, advCampfireRelightHint 消费)');
+  assert.strictEqual(A.advGetInv().slots[0], null,
+      '重燃零扣件(空手可点)');
+  AdventureMode.update(0.5); /* 水仍邻接 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE_OUT, '水仍邻接: 重燃后下一拍再熄(自然因果零防呆)');
+  assert.strictEqual(A.advCampfires.map.size, 0, '再熄删条');
+});
+
+test('T-C3 挖掘回收整链: 燃烧态/熄灭态挖走均还篝火×1 — 燃烧态挖走侧账删条(保底 1 零加成, 非木炭)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  /* 燃烧态 */
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  dropsState.spawned.length = 0;
+  A.advBreakBlock(spot.x, 25, spot.z, api.B_CAMPFIRE, {time: 0, drops: true});
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '燃烧态挖走: 方块消失');
+  assert.strictEqual(A.advCampfires.map.size, 0, '侧账同步删条(advMarkEdit seam)');
+  const got = dropsState.spawned.filter((d) => d.id === 'campfire');
+  assert.strictEqual(got.length, 1, '燃烧态回收: campfire 掉落恰一条');
+  assert.strictEqual(got[0].n, 1, '保底 1 零加成(恒 1 件, 非木炭)');
+  /* 熄灭态 */
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  globalThis.editBlock(spot.x, 25, spot.z + 1, api.B_WATER);
+  AdventureMode.update(0.5);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE_OUT, '前置: 浇熄成熄灭态');
+  dropsState.spawned.length = 0;
+  A.advBreakBlock(spot.x, 25, spot.z, api.B_CAMPFIRE_OUT, {time: 0, drops: true});
+  const got2 = dropsState.spawned.filter((d) => d.id === 'campfire');
+  assert.strictEqual(got2.length, 1, '熄灭态同款回收(烧剩价值保留)');
+  assert.strictEqual(got2[0].n, 1, '熄灭态保底 1');
 });
 
 test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + 满血不吃不扣', () => {

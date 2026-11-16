@@ -1,0 +1,16 @@
+篝火 T-C2 评审修复(S-1 major + S-2/ST-1 minor): 闩锁乘流咬合回归 spec 钉死语义
+
+S-1: 删 voxel.js unlatched/updraftBurst 复闩特判——解闩再展回完整未闩滑翔态,
+持续升力由 updraftHit 与非闩锁单一门自然给出(spec §3.5「柱内空中再点跳=
+解闩+展翼再获升力」零特判)。TDD 正序: 测试先红(持续升力断言+升至柱顶情节
++次生面「柱外取消→解闩→入柱即乘」新用例), 红自证 3 红后删特判转绿; 既有
+闩锁自由下坠/落地恢复豁免用例原样保持全绿。
+
+S-2: updraft-core.js 注释 campfire 字样中性化两处(行5/行39)。
+
+ST-1: 工厂收敛 FluidCore 同形对象面(IIFE return {mkSim} 单入口, 删双形态
+函数工厂), test:196 typeof 同步 object; 全仓零直调消费方(world.js 走
+mkSim 属性访问)。
+
+门禁: npm test 2347 总/2346 pass/0 fail/1 skip(基线+1 净增对账吻合),
+lint 三门零错误。
