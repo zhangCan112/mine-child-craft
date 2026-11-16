@@ -211,7 +211,8 @@ test('规范: hand-view.js 装载序 held-item → hand-view → avatar(经典�
    town-ui.js)。序错不抛错(全调用期解析), boot 冒烟探不到, 只有源文本
    序断言能抓手滑挪行; 挂载清单覆盖面(漏挂)另守于 test/boot.test.js
    T-NPC-10 挂载覆盖测(静态+行为双面)。 */
-test('规范: 镇民链装载序 kit → town_*×14 → interact-core → anchor-core → behavior-core → registry → town-npc.js, 全链先于消费方(经典脚本顺序即依赖)', () => {
+test('规范: 镇民链装载序 kit → town_*×14 → interact-core → anchor-core → behavior-core' +
+    ' → registry → town-npc.js, 全链先于消费方(经典脚本顺序即依赖)', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const at = (f) => html.indexOf('src="js/' + f + '"');
   const LOOKS = ['town_a01', 'town_a02', 'town_a03', 'town_g01', 'town_v01',

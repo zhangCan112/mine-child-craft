@@ -5451,14 +5451,16 @@ test('T-NPC-13 挂点在位: advTownPatrolTick/advTownPatrolApply + advTownState
   AdventureMode.cleanup();
 });
 
-test('T-NPC-13 推进者+位姿(木头桩红本体 §6.1-1): 生产节拍 35s 后 G01 到站 wp1(92,66) · leg 推进 0→1 · 静态 V01 零扰动', () => {
+test('T-NPC-13 推进者+位姿(木头桩红本体 §6.1-1): 生产节拍 30s 后 G01 到站 wp1(92,66) · leg 推进 0→1 · 静态 V01 零扰动', () => {
   mem.clear();
   freshInit();
   A.advSetDim('town');
   assert.strictEqual(typeof A.advTownPatrolTick, 'function',
       '红因=推进者挂点缺席(实现缺席非装具炸)');
   const {puppets, patrol} = injectPatrolRows();
-  pumpPatrolChain(0.5, 70); /* 35s > 首腿全行程 29s(停驻 3+行 26, 参数表锁) */
+  pumpPatrolChain(0.5, 60); /* 30s=首站停驻窗口 [29,32) 内观测(29s 到站+3s 停驻,
+      32s 起步第二腿——红方裁决: 原 35s 窗已跨起步沿实态第二腿, 与节奏测停驻
+      预算互斥, 观测窗收进窗口而非放松断言; 争议裁决记录入票面 §11.5) */
   const g01 = puppets.find((p) => p.id === 'G01');
   assert.strictEqual(g01.x, 92, 'G01 到站 wp1 x=92(木头桩红本体: 现状恒 66 静止)');
   assert.strictEqual(g01.z, 66, '到站 z=66(东行腿轴对齐)');
@@ -5478,6 +5480,9 @@ test('T-NPC-13 位姿跟随+快照=实位(T-SEAM-04 扩形): 腿中 root 与快�
   A.advSetDim('town');
   assert.strictEqual(typeof A.advTownPatrolTick, 'function',
       '红因=推进者挂点缺席(实现缺席非装具炸)');
+  idleImplGuard(); /* mkIdleRow 依赖 idle 桥接纯面(townNpcIdlePhaseOffset 等,
+      bridgeIdleFns 后方可装)——红方裁决: 本测原缺 guard=装具炸非断言红,
+      补齐归位(走摆测同款先例; 争议裁决记录入票面 §11.5) */
   const {puppets, patrol} = injectPatrolRows();
   const parts = A.advTownIdleState().parts;
   parts.length = 0;
@@ -5544,15 +5549,17 @@ test('T-NPC-13 到站事件节奏(裁决三守门 §6.1-2): 进场首拍对齐�
       '红因=推进者挂点缺席(实现缺席非装具炸)');
   injectPatrolRows();
   A.advTownState().targets.focus('npc:g01'); /* 主目标挂 G01(聚焦策略下跳变才发事件) */
+  /* 锚点表真源字面(四航点, TOWN_NPC_ANCHORS G01 环) */
   const WP_ANCHORS = [
     {x: 66, y: 24, z: 66}, {x: 92, y: 24, z: 66},
-    {x: 92, y: 24, z: 92}, {x: 66, y: 24, z: 92}]; /* 锚点表真源字面(四航点) */
+    {x: 92, y: 24, z: 92}, {x: 66, y: 24, z: 92}];
   const eventFrames = [];
   const legChangeFrames = [];
   const anchors = [];
   let prevLeg = 0;
   let totalEvents = 0;
-  pumpPatrolChain(0.5, 240, (i, legById, r) => { /* 120s > 全环 116s */
+  /* 120s > 全环 116s(4×(3+26)), 观测窗覆盖一闭环 */
+  pumpPatrolChain(0.5, 240, (i, legById, r) => {
     assert.ok(Object.keys(legById).every((k) => k === 'npc:g01'),
         'legById 键域恒仅 g01(静态 13 锚零进表, 每帧执法)');
     totalEvents += r.events.length;
@@ -5572,9 +5579,8 @@ test('T-NPC-13 到站事件节奏(裁决三守门 §6.1-2): 进场首拍对齐�
       '恰 5 事件=进场首拍账本对齐一跳+4 次到站跳变(「下一站」语义; 到站跳变节奏每腿恰一, 裁决三)');
   assert.deepStrictEqual(eventFrames, [0].concat(legChangeFrames),
       '事件帧集=首拍+到站帧(腿中数百帧零事件——锚点不逐帧插值化的节奏证明)');
-  assert.deepStrictEqual(anchors, [
-    {x: 92, y: 24, z: 66}, {x: 92, y: 24, z: 92},
-    {x: 66, y: 24, z: 92}, {x: 66, y: 24, z: 66}, {x: 92, y: 24, z: 66}],
+  assert.deepStrictEqual(anchors,
+      [WP_ANCHORS[1], WP_ANCHORS[2], WP_ANCHORS[3], WP_ANCHORS[0], WP_ANCHORS[1]],
       '事件 anchor 序列=下一站航点精确值循环(wp1→wp2→wp3→wp0→wp1, 恰三键协议载荷, 零插值坐标)');
   A.advSetDim('overworld');
   AdventureMode.cleanup();

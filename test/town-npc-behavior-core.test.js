@@ -49,11 +49,14 @@ Object.assign(globalThis, vm.runInContext(
 /* vm 域产物摊平进宿主域(跨域原型比对必假红, conventions §7.1-1) */
 const flat = (o) => JSON.parse(JSON.stringify(o));
 
-/* 红期归因装载: 模块缺席不炸装具(红因=实现缺席非装具炸, T-NPC-05 先例口径) */
+/* 红期归因装载: 模块缺席不炸装具(红因=实现缺席非装具炸, T-NPC-05 先例口径;
+   optional catch binding, town-ui.test.js 装具先例) */
 let BC = null;
 try {
   BC = require('../js/town-npc-behavior-core.js');
-} catch (e) { /* 红期: 模块缺席, 各测试首断言归因 */ }
+} catch {
+  BC = null;
+}
 function behaviorGuard() {
   assert.ok(BC, 'T-NPC-13 红期: js/town-npc-behavior-core.js 缺席' +
       '(红因=推进者核心未落实现, 非装具炸)');
@@ -65,7 +68,7 @@ function behaviorGuard() {
    西=π/2 北=0(js/adventure-dims-core.js:527)。 */
 const EAST = -Math.PI / 2;
 const SOUTH = Math.PI;
-const P = () => BC.TOWN_NPC_PATROL;
+const pTbl = () => BC.TOWN_NPC_PATROL;
 
 test('导出面恰五名 + 参数表六键字面锁(PO 后验可调, 改值须连测试过评审)', () => {
   behaviorGuard();
@@ -73,18 +76,20 @@ test('导出面恰五名 + 参数表六键字面锁(PO 后验可调, 改值须�
       ['TOWN_NPC_PATROL', 'townPatrolLegById', 'townPatrolPose',
         'townPatrolState', 'townPatrolStep'],
       '导出面恰五名(参数表+状态机四函数, 零杂散零遗漏——interface 即测试面)');
-  assert.deepStrictEqual(Object.keys(P()).sort(),
+  assert.deepStrictEqual(Object.keys(pTbl()).sort(),
       ['DWELL_T', 'LEG_T', 'SWING_HZ', 'TURN_T', 'WALK_ARM_AMP', 'WALK_LEG_AMP'],
       '参数表恰六键(零杂散零遗漏)');
-  assert.deepStrictEqual({LEG_T: P().LEG_T, DWELL_T: P().DWELL_T, TURN_T: P().TURN_T,
-    SWING_HZ: P().SWING_HZ, WALK_ARM_AMP: P().WALK_ARM_AMP, WALK_LEG_AMP: P().WALK_LEG_AMP},
-  {LEG_T: 26, DWELL_T: 3, TURN_T: 1.2, SWING_HZ: 0.9,
-    WALK_ARM_AMP: 0.55, WALK_LEG_AMP: 0.7},
+  assert.deepStrictEqual(
+      {LEG_T: pTbl().LEG_T, DWELL_T: pTbl().DWELL_T, TURN_T: pTbl().TURN_T,
+        SWING_HZ: pTbl().SWING_HZ, WALK_ARM_AMP: pTbl().WALK_ARM_AMP,
+        WALK_LEG_AMP: pTbl().WALK_LEG_AMP},
+      {LEG_T: 26, DWELL_T: 3, TURN_T: 1.2, SWING_HZ: 0.9,
+        WALK_ARM_AMP: 0.55, WALK_LEG_AMP: 0.7},
       '参数初值字面锁表(26 格腿≈1 格/秒慢巡逻; 停驻 3s; 过渡 1.2s; 0.9Hz 重步频; ' +
       '摆幅腿>臂——红方裁决初值, 依据 docs/town-villagers-design.md §5.3)');
-  for (const k of Object.keys(P())) {
-    assert.strictEqual(typeof P()[k], 'number', k + ' 为数值');
-    assert.ok(Number.isFinite(P()[k]) && P()[k] > 0, k + ' 为正有限数(物理量)');
+  for (const k of Object.keys(pTbl())) {
+    assert.strictEqual(typeof pTbl()[k], 'number', k + ' 为数值');
+    assert.ok(Number.isFinite(pTbl()[k]) && pTbl()[k] > 0, k + ' 为正有限数(物理量)');
   }
 });
 
@@ -200,7 +205,8 @@ test('闭环回归: 四腿循环 leg 0→1→2→3→0 · 每腿恰一到站 · 
   let arrivals = 0;
   const legByIdSeq = [flat(BC.townPatrolLegById(s))['npc:g01']];
   let prevPhase = flat(s).phase;
-  for (let i = 0; i < 480; i++) { /* 120s=0.25×480 > 全环 116s(4×(3+26)) */
+  /* 480 帧×0.25s=120s > 全环 116s(4×(3+26)), 观测窗恰覆盖一闭环 */
+  for (let i = 0; i < 480; i++) {
     s = BC.townPatrolStep(s, 0.25);
     const ph = flat(s).phase;
     if (prevPhase === 'walk' && ph === 'dwell') {
@@ -290,9 +296,9 @@ test('走摆相位: 行走起步臂摆过零(sin 起点) · 幅度=参数表 · 
   s = BC.townPatrolStep(s, 13); /* progress=0.5: swingPhase=23.4π → sin=−0.951 */
   const w = flat(BC.townPatrolPose(s)).walkPose;
   assert.ok(Math.abs(w.armSwing) > 0.4, '腿中段臂摆显著(摆幅可读, |armSwing|≈0.52)');
-  assert.ok(Math.abs(w.armSwing) <= P().WALK_ARM_AMP + 1e-9, '臂幅不越参数上界');
-  assert.ok(Math.abs(w.legSwing) <= P().WALK_LEG_AMP + 1e-9, '腿幅不越参数上界');
-  assert.ok(Math.abs(w.legSwing / w.armSwing - (-P().WALK_LEG_AMP / P().WALK_ARM_AMP)) < 1e-9,
+  assert.ok(Math.abs(w.armSwing) <= pTbl().WALK_ARM_AMP + 1e-9, '臂幅不越参数上界');
+  assert.ok(Math.abs(w.legSwing) <= pTbl().WALK_LEG_AMP + 1e-9, '腿幅不越参数上界');
+  assert.ok(Math.abs(w.legSwing / w.armSwing - (-pTbl().WALK_LEG_AMP / pTbl().WALK_ARM_AMP)) < 1e-9,
       '腿摆/臂摆恒负比(反号=左臂右腿同相自然步态, 幅比=参数比)');
   assert.strictEqual(w.floatY, 0, '行走中 floatY 恒 0(y 通道归 idle)');
   assert.strictEqual(w.headPitch, 0, 'walkPose 零头俯(头转通道归 idle 注视)');
