@@ -12,17 +12,19 @@
     "researcher",
     "bug-doctor",
     "env-steward",
-    "architect"
+    "architect",
+    "asset-artist",
+    "design-lead"
   ],
   "edges": {
     "analyst-manager": [
       "business-analyst",
       "researcher",
-      "ui-designer",
       "wayfinder"
     ],
     "scrum-master": [
       "analyst-manager",
+      "design-lead",
       "engineer-manager",
       "env-steward"
     ],
@@ -34,11 +36,15 @@
     "bug-doctor": [
       "researcher"
     ],
-    "tdd-engineer": [
-      "implement-engineer"
-    ],
     "wayfinder": [
       "researcher"
+    ],
+    "design-lead": [
+      "asset-artist",
+      "ui-designer"
+    ],
+    "tdd-engineer": [
+      "implement-engineer"
     ]
   }
 }
