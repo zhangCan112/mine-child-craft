@@ -5496,6 +5496,16 @@ function idleImplGuard() {
   }
 }
 
+/* closeTo 助手: node:assert 无 closeTo(Chai 专属 API)——案卷③红段 8 处
+   assert.closeTo 全数 TypeError, 红期被未落实现守卫早退掩盖(2026-11-16
+   绿方争议裁定成律, 与 test/town-npc-idle.test.js 同款本地补
+   |actual-expected|<=delta 断言, 语义与 chai 同形) */
+function closeTo(actual, expected, delta, msg) {
+  assert.ok(Math.abs(actual - expected) <= delta,
+      (msg || 'closeTo') + '(实际 ' + actual + ', 期望 ' + expected +
+      ', 容差 ' + delta + ')');
+}
+
 /* 假骨柄(最小面): rotation 三轴可写 + 根浮动只写 position.y */
 function mkFakeBone() {
   return {rotation: {x: 0, y: 0, z: 0}, position: {x: 0, y: 0, z: 0}};
@@ -5577,30 +5587,35 @@ test('案卷③ 注入式行为: 全员形态逐帧生效 · 头转收敛+注视
   const dt = 1 / 60;
   for (let i = 0; i < 300; i++) A.advTownNpcIdleTick(dt); /* 5 秒 */
   const t = A.advTownIdleState().t;
-  assert.closeTo(t, 5, 1e-9, '注入 dt 逐帧累计=300×1/60(相位账=dt 和, 零墙钟)');
+  closeTo(t, 5, 1e-9, '注入 dt 逐帧累计=300×1/60(相位账=dt 和, 零墙钟)');
   const v01 = parts[0];
-  assert.closeTo(v01.headYaw, Math.PI / 2, 1e-9,
-      'V01 头转收敛到 +pi/2(面南身体, 玩家在东, 目标在角域内)');
-  assert.strictEqual(v01.bones.head.ry, v01.headYaw, '头骨 ry=headYaw 账(apply 直写)');
+  closeTo(v01.headYaw, 1.0, 1e-9,
+      'V01 头转收敛到 +HEAD_YAW_MAX=1.0(面南身体, 玩家在东=rel +90° 越角域, ' +
+      '钳到边界——原版期望 +π/2 与角域钳自相矛盾, 与纯面②同款裁定修正)');
+  /* 假骨柄形状是 {rotation:{x,y,z}}(mkFakeBone), 原版直取 .rx/.ry/.rz 是
+     装具形状笔误(undefined 恒不等), 首次真执行即暴露——已裁定修正 */
+  assert.strictEqual(v01.bones.head.rotation.y, v01.headYaw,
+      '头骨 ry=headYaw 账(apply 直写)');
   const pose = globalThis.townNpcIdlePose;
-  assert.closeTo(v01.bones.armL.rx,
+  closeTo(v01.bones.armL.rotation.x,
       pose(t + v01.off, 'humanoid').armSwing, 1e-12,
       'V01 左臂=pose(t+错峰相位).armSwing(相位累计+错峰+apply 三链对账)');
-  assert.strictEqual(v01.bones.armR.rx, -v01.bones.armL.rx, 'V01 右臂反相');
+  assert.strictEqual(v01.bones.armR.rotation.x, -v01.bones.armL.rotation.x,
+      'V01 右臂反相');
   const g01 = parts[1];
-  assert.strictEqual(g01.bones.flower.rx, 0, 'G01 flower 骨零转(红线)');
-  assert.strictEqual(g01.bones.flower.ry, 0, 'G01 flower 骨零转(红线)');
-  assert.strictEqual(g01.bones.flower.rz, 0, 'G01 flower 骨零转(红线)');
-  assert.closeTo(g01.bones.armL.rx, pose(t + g01.off, 'humanoid').armSwing, 1e-12,
+  assert.strictEqual(g01.bones.flower.rotation.x, 0, 'G01 flower 骨零转(红线)');
+  assert.strictEqual(g01.bones.flower.rotation.y, 0, 'G01 flower 骨零转(红线)');
+  assert.strictEqual(g01.bones.flower.rotation.z, 0, 'G01 flower 骨零转(红线)');
+  closeTo(g01.bones.armL.rotation.x, pose(t + g01.off, 'humanoid').armSwing, 1e-12,
       'G01 臂摆照常(铁傀儡 humanoid 骨架)');
   const a01 = parts[2];
-  assert.closeTo(a01.bones.head.rx, pose(t + a01.off, 'bird').headPitch, 1e-12,
+  closeTo(a01.bones.head.rotation.x, pose(t + a01.off, 'bird').headPitch, 1e-12,
       'A01 啄地点头=pose.headPitch(形态表: bird)');
   const a02 = parts[3];
-  assert.closeTo(a02.bones.tail.ry, pose(t + a02.off, 'cat').tailYaw, 1e-12,
+  closeTo(a02.bones.tail.rotation.y, pose(t + a02.off, 'cat').tailYaw, 1e-12,
       'A02 尾慢摆=pose.tailYaw(形态表: cat)');
   const a03 = parts[4];
-  assert.closeTo(a03.bones.neck.rx, pose(t + a03.off, 'llama').neckPitch, 1e-12,
+  closeTo(a03.bones.neck.rotation.x, pose(t + a03.off, 'llama').neckPitch, 1e-12,
       'A03 低头啃草=pose.neckPitch(形态表: llama)');
   const v99 = parts[5];
   assert.strictEqual(v99.headYaw, 0, '远端对照(200,200)注视距离外头恒 0(不扭头)');
@@ -5627,10 +5642,12 @@ test('案卷③ 注视距离门回正 · 离镇清 idle 账 · 非镇维度零�
   const v01 = parts[0];
   globalThis.pos.x = 83; globalThis.pos.y = 24; globalThis.pos.z = 94;
   for (let i = 0; i < 100; i++) A.advTownNpcIdleTick(1 / 60);
-  assert.ok(Math.abs(v01.headYaw) > 1, '近距收敛后头已转(前置: |headYaw|>1)');
+  closeTo(v01.headYaw, 1.0, 1e-9,
+      '近距收敛后头钳在 +HEAD_YAW_MAX=1.0 边界(前置; 原版 |headYaw|>1 在钳域下' +
+      '不可达=纯面②同款裁定修正)');
   globalThis.pos.x = 130; globalThis.pos.z = 130; /* 出注视距离 */
   for (let i = 0; i < 200; i++) A.advTownNpcIdleTick(1 / 60);
-  assert.closeTo(v01.headYaw, 0, 1e-9, '出注视距离后头缓回正(目标 0 限步收敛)');
+  closeTo(v01.headYaw, 0, 1e-9, '出注视距离后头缓回正(目标 0 限步收敛)');
   /* 离镇: idle 账随 advTownPuppetsLeave 同节拍清(空账零残留) */
   A.advSetDim('overworld');
   assert.strictEqual(A.advTownIdleState().parts.length, 0,

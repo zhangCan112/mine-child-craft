@@ -46,6 +46,16 @@ const ROOT = path.join(__dirname, '..');
 const LOOK_DIR = path.join(ROOT, 'js', 'mob-look');
 const MobLookKit = require('../js/mob-look-kit.js');
 
+/* closeTo 助手: node:assert 无 closeTo(Chai 专属 API, 2026-11-16 绿方争议
+   裁定成律——本测原 35 处 + adventure-mode.test.js 案卷③段 8 处(合计 43)
+   assert.closeTo 全数 TypeError, 红期被未落实现守卫早退掩盖;
+   本地补 |actual-expected|<=delta 断言, 语义与 chai 同形) */
+function closeTo(actual, expected, delta, msg) {
+  assert.ok(Math.abs(actual - expected) <= delta,
+      (msg || 'closeTo') + '(实际 ' + actual + ', 期望 ' + expected +
+      ', 容差 ' + delta + ')');
+}
+
 /* ---------- 独立推导字面(票面拍板参数, 锁表即规格; 与实现零共享) ---------- */
 const IDLE_KEYS = {
   IDLE_BREATH_AMP: 0.035, /* 呼吸微浮幅度(格) */
@@ -300,9 +310,13 @@ function applyPose(id, poseObj, baseY, headYaw) {
     ' const p = mkTownNpcPuppet(' + JSON.stringify(id) + ');' +
     ' placeTownNpc(p, {x: 79, y: 24, z: 94, face: "south"});' +
     ' const kind = townNpcIdleKindOf(p.look);' +
+    ' const pre = {};' +
+    ' for (const k of Object.keys(p.bones)) pre[k] = {' +
+    '   px: p.bones[k].position.x, py: p.bones[k].position.y,' +
+    '   pz: p.bones[k].position.z};' +
     ' townNpcIdleApply(p, kind, ' + JSON.stringify(poseObj) + ',' +
     ' ' + JSON.stringify(baseY) + ', ' + JSON.stringify(headYaw) + ');' +
-    ' const out = {kind: kind, rootY: p.root.position.y, bones: {}};' +
+    ' const out = {kind: kind, rootY: p.root.position.y, pre: pre, bones: {}};' +
     ' for (const k of Object.keys(p.bones)) out.bones[k] = {' +
     '   rx: p.bones[k].rotation.x, ry: p.bones[k].rotation.y, rz: p.bones[k].rotation.z,' +
     '   px: p.bones[k].position.x, py: p.bones[k].position.y, pz: p.bones[k].position.z};' +
@@ -346,57 +360,62 @@ test('案卷③ ① pose 形状与零点: 恰六键 · 同参同输出 · t=0 �
 
 test('案卷③ ① 工作例字面: 四分之一/半/四分之三周期与参数表单源对账(closeTo 防结合序)', () => {
   const P = tableParams();
-  /* humanoid: 呼吸+摆+反相半幅腿 */
+  /* humanoid 呼吸: 浮动通道按呼吸周期取工作例 */
   let p = pose(P.IDLE_BREATH_S / 4, 'humanoid');
-  assert.closeTo(p.floatY, P.IDLE_BREATH_AMP, 1e-12, '呼吸四分之一周期=幅度上限');
-  assert.closeTo(p.armSwing, P.IDLE_SWING_AMP, 1e-12, '臂摆四分之一周期=幅度');
-  assert.closeTo(p.legSwing, -P.IDLE_SWING_AMP * P.IDLE_LEG_RATIO, 1e-12,
-      '腿摆反相且按比例(四分之一周期=-比例×幅度)');
+  closeTo(p.floatY, P.IDLE_BREATH_AMP, 1e-12, '呼吸四分之一周期=幅度上限');
   p = pose(P.IDLE_BREATH_S / 2, 'humanoid');
-  assert.closeTo(p.floatY, 0, 1e-12, '呼吸半周期回零');
+  closeTo(p.floatY, 0, 1e-12, '呼吸半周期回零');
   p = pose(3 * P.IDLE_BREATH_S / 4, 'humanoid');
-  assert.closeTo(p.floatY, -P.IDLE_BREATH_AMP, 1e-12, '呼吸四分之三周期=-幅度');
+  closeTo(p.floatY, -P.IDLE_BREATH_AMP, 1e-12, '呼吸四分之三周期=-幅度');
+  /* humanoid 摆动: 臂/腿按各自的摆动周期取工作例(与呼吸周期不同频,
+     采样点须分开取——原版混用 0.7s 采样点是本测缺陷已裁定修正) */
+  p = pose(P.IDLE_SWING_S / 4, 'humanoid');
+  closeTo(p.armSwing, P.IDLE_SWING_AMP, 1e-12, '臂摆四分之一周期=幅度');
+  closeTo(p.legSwing, -P.IDLE_SWING_AMP * P.IDLE_LEG_RATIO, 1e-12,
+      '腿摆反相且按比例(四分之一周期=-比例×幅度)');
   p = pose(3 * P.IDLE_SWING_S / 4, 'humanoid');
-  assert.closeTo(p.armSwing, -P.IDLE_SWING_AMP, 1e-12, '臂摆四分之三周期=-幅度');
-  assert.closeTo(p.legSwing, P.IDLE_SWING_AMP * P.IDLE_LEG_RATIO, 1e-12, '腿随臂反相');
+  closeTo(p.armSwing, -P.IDLE_SWING_AMP, 1e-12, '臂摆四分之三周期=-幅度');
+  closeTo(p.legSwing, P.IDLE_SWING_AMP * P.IDLE_LEG_RATIO, 1e-12, '腿随臂反相');
   /* bird: 啄地+尾摆各按各的周期 */
   p = pose(P.IDLE_BIRD_PECK_S / 4, 'bird');
-  assert.closeTo(p.headPitch, P.IDLE_BIRD_PECK_AMP, 1e-12, 'A01 啄地四分之一周期=幅度');
+  closeTo(p.headPitch, P.IDLE_BIRD_PECK_AMP, 1e-12, 'A01 啄地四分之一周期=幅度');
   assert.strictEqual(p.armSwing, 0, 'A01 无臂摆(形态表: 鸟无臂通道)');
   p = pose(P.IDLE_BIRD_TAIL_S / 4, 'bird');
-  assert.closeTo(p.tailYaw, P.IDLE_BIRD_TAIL_AMP, 1e-12, 'A01 尾摆四分之一周期=幅度');
+  closeTo(p.tailYaw, P.IDLE_BIRD_TAIL_AMP, 1e-12, 'A01 尾摆四分之一周期=幅度');
   /* cat: 尾摆+点头, 零浮零臂 */
   p = pose(P.IDLE_CAT_TAIL_S / 4, 'cat');
-  assert.closeTo(p.tailYaw, P.IDLE_CAT_TAIL_AMP, 1e-12, 'A02 尾摆四分之一周期=幅度');
+  closeTo(p.tailYaw, P.IDLE_CAT_TAIL_AMP, 1e-12, 'A02 尾摆四分之一周期=幅度');
   assert.strictEqual(p.floatY, 0, 'A02 坐姿零浮(形态表)');
   p = pose(P.IDLE_CAT_NOD_S / 4, 'cat');
-  assert.closeTo(p.headPitch, P.IDLE_CAT_NOD_AMP, 1e-12, 'A02 点头四分之一周期=幅度');
+  closeTo(p.headPitch, P.IDLE_CAT_NOD_AMP, 1e-12, 'A02 点头四分之一周期=幅度');
   /* llama: 颈俯+头随比例 */
   p = pose(P.IDLE_LLAMA_GRAZE_S / 4, 'llama');
-  assert.closeTo(p.neckPitch, P.IDLE_LLAMA_GRAZE_AMP, 1e-12, 'A03 颈俯四分之一周期=幅度');
-  assert.closeTo(p.headPitch, P.IDLE_LLAMA_GRAZE_AMP * P.IDLE_LLAMA_HEAD_RATIO, 1e-12,
+  closeTo(p.neckPitch, P.IDLE_LLAMA_GRAZE_AMP, 1e-12, 'A03 颈俯四分之一周期=幅度');
+  closeTo(p.headPitch, P.IDLE_LLAMA_GRAZE_AMP * P.IDLE_LLAMA_HEAD_RATIO, 1e-12,
       'A03 头随颈俯按比例');
   assert.strictEqual(p.floatY, 0, 'A03 零浮(形态表)');
   assert.strictEqual(p.tailYaw, 0, 'A03 无尾通道(形态表)');
 });
 
-test('案卷③ ① 周期回绕与幅值有界: 逐 kind 整数倍周期复现(closeTo 1e-9) · 全通道 |值|≤幅度', () => {
+test('案卷③ ① 周期回绕与幅值有界: 逐 kind 公倍周期复现(closeTo 1e-9) · 全通道 |值|≤幅度', () => {
   const P = tableParams();
-  /* 逐 kind 的本征周期表: 偏移=各通道周期的整数倍之和(每通道都整周期回绕) */
-  const PERIODS = {
-    humanoid: [P.IDLE_BREATH_S, P.IDLE_SWING_S],
-    bird: [P.IDLE_BREATH_S, P.IDLE_BIRD_PECK_S, P.IDLE_BIRD_TAIL_S],
-    cat: [P.IDLE_CAT_TAIL_S, P.IDLE_CAT_NOD_S],
-    llama: [P.IDLE_LLAMA_GRAZE_S],
+  /* 逐 kind 的回绕偏移=全部本征周期的公倍数(每通道都整数倍回绕;
+     原版「(i+2)×周期求和」非公倍是本测缺陷已裁定修正):
+     humanoid 22.4=8×2.8=7×3.2 · bird 123.2=44×2.8=56×2.2=77×1.6 ·
+     cat 26=10×2.6=13×2.0 · llama 8=2×4.0 */
+  const WRAP_OFFSET = {
+    humanoid: 8 * P.IDLE_BREATH_S,
+    bird: 44 * P.IDLE_BREATH_S,
+    cat: 10 * P.IDLE_CAT_TAIL_S,
+    llama: 2 * P.IDLE_LLAMA_GRAZE_S,
   };
-  for (const kind of Object.keys(PERIODS)) {
+  for (const kind of Object.keys(WRAP_OFFSET)) {
     const t = 0.918;
     const a = pose(t, kind);
-    const offset = PERIODS[kind].reduce((s, per, i) => s + (i + 2) * per, 0);
-    const b = pose(t + offset, kind);
+    const b = pose(t + WRAP_OFFSET[kind], kind);
     for (const k of POSE_KEYS) {
-      assert.closeTo(b[k], a[k], 1e-9,
-          kind + '.' + k + ' 整数倍周期回绕复现(相位累计不发散)');
+      closeTo(b[k], a[k], 1e-9,
+          kind + '.' + k + ' 公倍周期回绕复现(相位累计不发散)');
     }
   }
   /* 有界: 200 个采样点全通道不越幅度上限 */
@@ -428,7 +447,7 @@ test('案卷③ ① 逐帧 dt 注入: 1/60 序列相位累计单调上升段+顶
     prev = v;
     t += dt;
   }
-  assert.closeTo(prev, P.IDLE_BREATH_AMP, 5e-3, '顶点帧逼近幅度上限');
+  closeTo(prev, P.IDLE_BREATH_AMP, 5e-3, '顶点帧逼近幅度上限');
   /* 越过顶点后回落 */
   t += 4 * dt;
   assert.ok(pose(t, 'humanoid').floatY < prev, '越过四分之一周期后回落');
@@ -440,9 +459,9 @@ test('案卷③ ① 域错与参数化: 未知 kind 抛中文域错 · 注入覆
   const P = tableParams();
   const alt = Object.assign({}, P, {IDLE_SWING_AMP: 0.5, IDLE_SWING_S: 4.4});
   const t = alt.IDLE_SWING_S / 4;
-  assert.closeTo(pose(t, 'humanoid', alt).armSwing, 0.5, 1e-12,
+  closeTo(pose(t, 'humanoid', alt).armSwing, 0.5, 1e-12,
       '臂幅随注入参数变(0.07→0.5, 禁硬编码字面)');
-  assert.closeTo(pose(alt.IDLE_SWING_S / 2, 'humanoid', alt).armSwing, 0, 1e-12,
+  closeTo(pose(alt.IDLE_SWING_S / 2, 'humanoid', alt).armSwing, 0, 1e-12,
       '新周期半周处回零(周期参数同样被消费)');
 });
 
@@ -450,32 +469,48 @@ test('案卷③ ① 域错与参数化: 未知 kind 抛中文域错 · 注入覆
 
 test('案卷③ ② headTarget 方位字面: 东/西/北独立推导(前向向量口径) · 角域钳到边界', () => {
   const P = tableParams();
-  /* V01 站 (79,·,94) 面南: 面南 yaw=π(前向 (-sinπ,-cosπ)=(0,1) 即 +Z) */
-  let r = headTarget(Math.PI, 79, 94, 83, 94); /* 玩家正东 4 格: yaw_t=-π/2, rel=+π/2 */
+  /* 界内斜向(独立推导, 不触钳): yaw_t=∓0.7 → 方向 (±sin0.7, -cos0.7) 取 5 格 */
+  const ex = 5 * Math.sin(0.7);
+  const ez = 5 * Math.cos(0.7);
+  let r = headTarget(0, 0, 0, ex, -ez); /* yaw_t=-0.7(东北偏北) */
+  assert.strictEqual(r.engaged, true, '5 格在注视距离内');
+  closeTo(r.yaw, -0.7, 1e-12, '斜向目标=-0.7(角域内不钳, 方位字面)');
+  r = headTarget(0, 0, 0, -ex, -ez); /* 镜像 yaw_t=+0.7(方向 (-sin0.7,-cos0.7);
+     原版 (-ex,+ez) 是 π-0.7 越域点的笔误, 本测缺陷已裁定修正) */
+  closeTo(r.yaw, 0.7, 1e-12, '斜向目标=+0.7(角域内不钳)');
+  /* V01 站 (79,·,94) 面南: 面南 yaw=π(前向 (-sinπ,-cosπ)=(0,1) 即 +Z);
+     正东/正西=±90° 侧向, 越 ±HEAD_YAW_MAX(约 57°)角域, 钳到边界(原版期望
+     ±π/2 与本文件角域钳断言自相矛盾, 本测缺陷已裁定修正) */
+  r = headTarget(Math.PI, 79, 94, 83, 94); /* 玩家正东 4 格: rel=+π/2 越域 */
   assert.strictEqual(r.engaged, true, '4 格在注视距离内');
-  assert.closeTo(r.yaw, Math.PI / 2, 1e-12, '东向目标=+π/2(面南身体, 右转 90°)');
-  r = headTarget(Math.PI, 79, 94, 75, 94); /* 正西: yaw_t=+π/2, rel=-π/2 */
-  assert.closeTo(r.yaw, -Math.PI / 2, 1e-12, '西向目标=-π/2');
-  r = headTarget(Math.PI, 79, 94, 79, 90); /* 正北(面南的身后): yaw_t=0, rel=wrap(-π)=-π 越域 */
-  assert.closeTo(r.yaw, -P.IDLE_HEAD_YAW_MAX, 1e-12, '身后目标钳到 -HEAD_YAW_MAX(角域钳)');
+  closeTo(r.yaw, P.IDLE_HEAD_YAW_MAX, 1e-12, '东向 90° 侧向钳到 +HEAD_YAW_MAX');
+  r = headTarget(Math.PI, 79, 94, 75, 94); /* 正西: rel=-π/2 越域 */
+  closeTo(r.yaw, -P.IDLE_HEAD_YAW_MAX, 1e-12, '西向 90° 侧向钳到 -HEAD_YAW_MAX');
+  r = headTarget(Math.PI, 79, 94, 79, 90); /* 正北(面南的身后): rel=±π 越域 */
+  closeTo(r.yaw, -P.IDLE_HEAD_YAW_MAX, 1e-12, '身后目标钳到 -HEAD_YAW_MAX(角域钳)');
   r = headTarget(Math.PI, 79, 94, 79, 98); /* 正南(正前): rel=0 */
-  assert.closeTo(r.yaw, 0, 1e-12, '正前目标=0(不转头)');
-  /* 斜后 2.5 rad 越域钳正界(独立推导: 目标方向 yaw_t=π+2.5 相对身体) */
+  closeTo(r.yaw, 0, 1e-12, '正前目标=0(不转头)');
+  /* 斜后 2.5 rad 越域钳正界(独立推导: 目标方向 yaw_t=2.5 相对身体) */
   const dx = -5 * Math.sin(2.5); /* yaw_t=2.5 → 方向 (-sin2.5,-cos2.5) */
   const dz = -5 * Math.cos(2.5);
   r = headTarget(0, 0, 0, dx, dz);
-  assert.closeTo(r.yaw, P.IDLE_HEAD_YAW_MAX, 1e-12, '越 +MAX 钳到 +HEAD_YAW_MAX');
-  r = headTarget(0, 0, 0, -dx, -dz); /* 镜像 -2.5 */
-  assert.closeTo(r.yaw, -P.IDLE_HEAD_YAW_MAX, 1e-12, '越 -MAX 钳到 -HEAD_YAW_MAX');
+  closeTo(r.yaw, P.IDLE_HEAD_YAW_MAX, 1e-12, '越 +MAX 钳到 +HEAD_YAW_MAX');
+  r = headTarget(0, 0, 0, -dx, dz); /* 镜像 -2.5(yaw→-yaw=方向 x 分量取反;
+     原版 (-dx,-dz) 点对称是 π-2.5=-0.64 界内点, 本测缺陷已裁定修正) */
+  closeTo(r.yaw, -P.IDLE_HEAD_YAW_MAX, 1e-12, '越 -MAX 钳到 -HEAD_YAW_MAX');
 });
 
 test('案卷③ ② 注视距离门: ≤GAZE_DIST engaged · 界外 {yaw:0, engaged:false}(太远不扭头)', () => {
   const P = tableParams();
-  const d = P.IDLE_GAZE_DIST;
-  let r = headTarget(0, 0, 0, d, 0); /* 恰在门界(东 d 格) */
+  /* 沿角域内斜向(-0.7)推进到门界采字面(原版正东 -π/2 未过钳域, 本测缺陷
+     已裁定修正): 单位方向 (sin0.7, -cos0.7), 距离=GAZE_DIST 恰含界 */
+  const ux = Math.sin(0.7);
+  const uz = -Math.cos(0.7);
+  let r = headTarget(0, 0, 0, P.IDLE_GAZE_DIST * ux, P.IDLE_GAZE_DIST * uz);
   assert.strictEqual(r.engaged, true, '恰在 GAZE_DIST 内(含界)');
-  assert.closeTo(r.yaw, -Math.PI / 2, 1e-12, '界内照常给目标');
-  r = headTarget(0, 0, 0, d + 0.001, 0);
+  closeTo(r.yaw, -0.7, 1e-12, '界内照常给目标(角域内不钳)');
+  r = headTarget(0, 0, 0, (P.IDLE_GAZE_DIST + 0.001) * ux,
+      (P.IDLE_GAZE_DIST + 0.001) * uz);
   assert.strictEqual(r.engaged, false, '出界 1 毫格即不注视');
   assert.strictEqual(r.yaw, 0, '界外 yaw=0(头回正语义)');
   assert.deepStrictEqual(Object.keys(r).sort(), ['engaged', 'yaw'],
@@ -486,7 +521,7 @@ test('案卷③ ② headStep 速率限步+收敛+大步直达 · 回正', () => 
   const P = tableParams();
   /* 限步: |Δ|>rate·dt 时单步只走 rate·dt */
   let y = headStep(0, 1.0, 0.1);
-  assert.closeTo(y, P.IDLE_HEAD_RATE * 0.1, 1e-12, '单步上限=HEAD_RATE×dt');
+  closeTo(y, P.IDLE_HEAD_RATE * 0.1, 1e-12, '单步上限=HEAD_RATE×dt');
   /* 收敛: 反复小步单调逼近并最终贴合目标 */
   let cur = 0;
   let last = -1;
@@ -495,13 +530,13 @@ test('案卷③ ② headStep 速率限步+收敛+大步直达 · 回正', () => 
     assert.ok(cur >= last - 1e-15, '单调不减(目标在正侧)');
     last = cur;
   }
-  assert.closeTo(cur, 1.0, 1e-12, '200 步内贴合目标');
+  closeTo(cur, 1.0, 1e-12, '200 步内贴合目标');
   /* 大步直达: rate·dt ≥ |Δ| 时一步到位 */
   y = headStep(0.3, -0.3, 10);
-  assert.closeTo(y, -0.3, 1e-12, '大 dt 一步直达目标');
+  closeTo(y, -0.3, 1e-12, '大 dt 一步直达目标');
   /* 回正: 目标 0 */
   y = headStep(0.8, 0, 10);
-  assert.closeTo(y, 0, 1e-12, '目标 0 一步回正(界外玩家→头回正)');
+  closeTo(y, 0, 1e-12, '目标 0 一步回正(界外玩家→头回正)');
 });
 
 test('案卷③ ② ±π 回绕最短方向(参数注入放大角域触达)+对称 · 步内角域钳', () => {
@@ -510,15 +545,15 @@ test('案卷③ ② ±π 回绕最短方向(参数注入放大角域触达)+对�
       {IDLE_HEAD_YAW_MAX: 2.5, IDLE_HEAD_RATE: 3}); /* 角域放大后 |cur-target| 可越 π */
   /* cur=1.9, target=-1.9: 原始差 -3.8, 最短方向=+2.483(穿 +π 侧) */
   let y = headStep(1.9, -1.9, 0.1, wide);
-  assert.closeTo(y, 1.9 + 3 * 0.1, 1e-12,
+  closeTo(y, 1.9 + 3 * 0.1, 1e-12,
       '回绕取最短方向: 向 +2.48 走而非向 -3.8 走(限步 +0.3)');
   y = headStep(-1.9, 1.9, 0.1, wide); /* 镜像 */
-  assert.closeTo(y, -1.9 - 3 * 0.1, 1e-12, '对称: 向 -2.48 方向走');
+  closeTo(y, -1.9 - 3 * 0.1, 1e-12, '对称: 向 -2.48 方向走');
   /* 步内钳: 沿最短方向推进, 越过角域即钳回边界 */
   y = headStep(2.4, 2.5, 10, wide);
-  assert.closeTo(y, 2.5, 1e-12, '界内目标直达');
+  closeTo(y, 2.5, 1e-12, '界内目标直达');
   y = headStep(2.4, -2.5, 10, wide); /* 原始差 -4.9 → 回绕 +1.383(穿 +π 侧) → 推进后越界钳 +2.5 */
-  assert.closeTo(y, 2.5, 1e-12, '沿最短方向推进并钳在 +HEAD_YAW_MAX 边界');
+  closeTo(y, 2.5, 1e-12, '沿最短方向推进并钳在 +HEAD_YAW_MAX 边界');
 });
 
 /* ============ ③ 全员覆盖: 14 实体逐 id 形态表差异 ============ */
@@ -590,22 +625,29 @@ test('案卷③ ③ apply 全员逐 id 形态映射(真傀儡): 形态表骨动 
   }
 });
 
-test('案卷③ ③ 骨 position 孪生对账(apply 只写旋转不写关节) · 幂等复位(零姿势回零)', () => {
+test('案卷③ ③ 骨 position 孪生对账(键集孪生+apply 前后快照: 只写旋转+根浮) · 幂等复位(零姿势回零)', () => {
   const HAND = {floatY: 0.02, armSwing: 0.05, legSwing: -0.025,
     headPitch: 0.1, tailYaw: 0.2, neckPitch: 0.15};
   for (const id of ALL_IDS) {
-    const fresh = mkPuppet(id); /* 孪生: 未 apply 的直产傀儡 */
+    const fresh = mkPuppet(id); /* 孪生: 未 apply 的直产傀儡(骨账键集基准) */
     const r = applyPose(id, HAND, 25, 0.3);
     assert.deepStrictEqual(Object.keys(r.bones).sort(), fresh.boneKeys,
         id + ' 骨账零增删(apply 不造骨不删骨)');
-    for (const k of Object.keys(fresh.bones)) {
-      assert.closeTo(r.bones[k].px, fresh.bones[k].px, 1e-12,
+    /* 关节对账=同傀儡 apply 前后快照: 跨孪生比 position 是摆放差非 apply 差
+       (bones.root 即 root 载体, placeTownNpc 写其 x/z=锚位——原版与未摆放
+       孪生直比是本测缺陷已裁定修正); root.position.y 是根浮设计通道单列 */
+    for (const k of Object.keys(r.bones)) {
+      closeTo(r.bones[k].px, r.pre[k].px, 1e-12,
           id + '.' + k + ' 骨关节 position.x 零改(apply 只写旋转)');
-      assert.closeTo(r.bones[k].py, fresh.bones[k].py, 1e-12,
-          id + '.' + k + ' 骨关节 position.y 零改');
-      assert.closeTo(r.bones[k].pz, fresh.bones[k].pz, 1e-12,
+      closeTo(r.bones[k].pz, r.pre[k].pz, 1e-12,
           id + '.' + k + ' 骨关节 position.z 零改');
+      if (k !== 'root') {
+        closeTo(r.bones[k].py, r.pre[k].py, 1e-12,
+            id + '.' + k + ' 骨关节 position.y 零改');
+      }
     }
+    closeTo(r.bones.root.py, 25 + HAND.floatY, 1e-12,
+        id + '.root position.y=baseY+floatY(根浮唯一位置通道, 骨槽 root 即载体)');
   }
   /* 幂等复位: 零姿势+headYaw=0 → 全形态骨回零 */
   const ZERO = {floatY: 0, armSwing: 0, legSwing: 0, headPitch: 0,
