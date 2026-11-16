@@ -1,0 +1,32 @@
+
+> mine-child-craft@1.0.0 lint
+> eslint . && stylelint "css/**/*.css" && htmlhint index.html
+
+
+C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js
+   204:20  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5524:57  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5529:25  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5535:29  error  Statement inside of curly braces should be on next line                                                        brace-style
+  5535:30  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5535:92  error  Unexpected space(s) before '}'                                                                                 block-spacing
+  5535:93  error  Closing curly brace should be on the same line as opening curly brace or on the line after the previous block  brace-style
+  5536:28  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5552:34  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5557:25  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5562:23  error  Statement inside of curly braces should be on next line                                                        brace-style
+  5562:24  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5562:90  error  Unexpected space(s) before '}'                                                                                 block-spacing
+  5562:91  error  Closing curly brace should be on the same line as opening curly brace or on the line after the previous block  brace-style
+  5563:25  error  Statement inside of curly braces should be on next line                                                        brace-style
+  5563:26  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5563:94  error  Unexpected space(s) before '}'                                                                                 block-spacing
+  5563:95  error  Closing curly brace should be on the same line as opening curly brace or on the line after the previous block  brace-style
+  5564:25  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5569:25  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5933:1   error  This line has a length of 126. Maximum allowed is 120                                                          max-len
+  5979:33  error  Unexpected space(s) after '{'                                                                                  block-spacing
+
+✖ 22 problems (22 errors, 0 warnings)
+  21 errors and 0 warnings potentially fixable with the `--fix` option.
+

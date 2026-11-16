@@ -1,0 +1,154 @@
+TAP version 13
+# Subtest: Avatar 翼显隐: 缺省 hidden — 翼只在滑翔时可见(v1.2 §6.4 红线: 非滑翔时刻永不出现翼)
+ok 1 - Avatar 翼显隐: 缺省 hidden — 翼只在滑翔时可见(v1.2 §6.4 红线: 非滑翔时刻永不出现翼)
+  ---
+  duration_ms: 5.5469
+  type: 'test'
+  ...
+# Subtest: Avatar 翼显隐: setArmor 与翼解耦 — 任意 worn 不展不收不扰动(v1.2 §6.4)
+ok 2 - Avatar 翼显隐: setArmor 与翼解耦 — 任意 worn 不展不收不扰动(v1.2 §6.4)
+  ---
+  duration_ms: 1.5676
+  type: 'test'
+  ...
+# Subtest: Avatar 动效: setWings(spread) — 收拢姿态可见瞬间起 0.25s 线性匀速展开·端点水平带·双翼反号(v1.2 §6.5)
+ok 3 - Avatar 动效: setWings(spread) — 收拢姿态可见瞬间起 0.25s 线性匀速展开·端点水平带·双翼反号(v1.2 §6.5)
+  ---
+  duration_ms: 1.5509
+  type: 'test'
+  ...
+# Subtest: Avatar 动效: setWings(hidden) — 0.25s 收拢·播完前可见·到位瞬间隐藏无残影(v1.2 §6.5)
+ok 4 - Avatar 动效: setWings(hidden) — 0.25s 收拢·播完前可见·到位瞬间隐藏无残影(v1.2 §6.5)
+  ---
+  duration_ms: 1.4004
+  type: 'test'
+  ...
+# Subtest: Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5 契约不变)
+ok 5 - Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5 契约不变)
+  ---
+  duration_ms: 1.8616
+  type: 'test'
+  ...
+# Subtest: Avatar 翼显隐: 非滑翔零翼红线+对账兜底 — hidden 幂等·中途反向续收·forceWingsHidden 立断(v1.2 §6.4)
+ok 6 - Avatar 翼显隐: 非滑翔零翼红线+对账兜底 — hidden 幂等·中途反向续收·forceWingsHidden 立断(v1.2 §6.4)
+  ---
+  duration_ms: 1.2468
+  type: 'test'
+  ...
+# Subtest: 造型档案: 注册表 — 文件名=声明键 · 存量键集 ⊆ keys · town 键 ∈ 镇民注册表键集
+ok 7 - 造型档案: 注册表 — 文件名=声明键 · 存量键集 ⊆ keys · town 键 ∈ 镇民注册表键集
+  ---
+  duration_ms: 19.6799
+  type: 'test'
+  ...
+# Subtest: 造型档案: 人形基座换算 — 官方 px → 世界单位(+Z 镜像), 官方等比尺寸
+ok 8 - 造型档案: 人形基座换算 — 官方 px → 世界单位(+Z 镜像), 官方等比尺寸
+  ---
+  duration_ms: 0.5681
+  type: 'test'
+  ...
+# Subtest: 造型档案: 细骨基座 — 四肢 2×12×2 · 追加骨(骷髅弓)进 armL 第二盒
+ok 9 - 造型档案: 细骨基座 — 四肢 2×12×2 · 追加骨(骷髅弓)进 armL 第二盒
+  ---
+  duration_ms: 0.1139
+  type: 'test'
+  ...
+# Subtest: 造型档案: 自有骨架 — 苦力怕无臂四腿 · 蜘蛛八腿独立骨两段折线与前置头
+ok 10 - 造型档案: 自有骨架 — 苦力怕无臂四腿 · 蜘蛛八腿独立骨两段折线与前置头
+  ---
+  duration_ms: 0.1774
+  type: 'test'
+  ...
+# Subtest: 造型档案: 票②基座扩展 — 灾厄基座 · 宽头参数 · 翼槽 axis · scale 变体
+ok 11 - 造型档案: 票②基座扩展 — 灾厄基座 · 宽头参数 · 翼槽 axis · scale 变体
+  ---
+  duration_ms: 0.188
+  type: 'test'
+  ...
+# Subtest: 造型档案: UV 区域公式 — 玩家布局(官方 64×64) · 羊毛独立骨
+ok 12 - 造型档案: UV 区域公式 — 玩家布局(官方 64×64) · 羊毛独立骨
+  ---
+  duration_ms: 0.099
+  type: 'test'
+  ...
+# Subtest: 造型档案: 贴图布局合法性 — 六面矩形不出界 · 不同盒无部分重叠(共区合法)
+ok 13 - 造型档案: 贴图布局合法性 — 六面矩形不出界 · 不同盒无部分重叠(共区合法)
+  ---
+  duration_ms: 15.1608
+  type: 'test'
+  ...
+# Subtest: 造型档案: 贴图全覆盖 — 用到的六面区域逐像素必画(alpha=255)
+ok 14 - 造型档案: 贴图全覆盖 — 用到的六面区域逐像素必画(alpha=255)
+  ---
+  duration_ms: 6.2446
+  type: 'test'
+  ...
+# Subtest: 造型档案: 头像裁切 — 16×16 网居中 · 中心像素非空且对色
+ok 15 - 造型档案: 头像裁切 — 16×16 网居中 · 中心像素非空且对色
+  ---
+  duration_ms: 0.2448
+  type: 'test'
+  ...
+# Subtest: 造型档案: 碎块色声明 — mobs.js debrisColor 的唯一权威
+ok 16 - 造型档案: 碎块色声明 — mobs.js debrisColor 的唯一权威
+  ---
+  duration_ms: 0.1127
+  type: 'test'
+  ...
+# Subtest: 造型档案: 确定性 — 同 type 两次声明+绘制逐字节一致(种子化)
+ok 17 - 造型档案: 确定性 — 同 type 两次声明+绘制逐字节一致(种子化)
+  ---
+  duration_ms: 5.3421
+  type: 'test'
+  ...
+# Subtest: 造型档案: 贴图缓冲返回形状 — 键集恰 {w,h,buf}(size=w 兼容字段退役 T-NPC-06 F3)
+ok 18 - 造型档案: 贴图缓冲返回形状 — 键集恰 {w,h,buf}(size=w 兼容字段退役 T-NPC-06 F3)
+  ---
+  duration_ms: 0.1523
+  type: 'test'
+  ...
+# Subtest: 造型档案: 几何 UV 落点 — 逐顶点采样已涂纹素(模型黑缝回归)
+ok 19 - 造型档案: 几何 UV 落点 — 逐顶点采样已涂纹素(模型黑缝回归)
+  ---
+  duration_ms: 15.2265
+  type: 'test'
+  ...
+# Subtest: 造型档案: 玩家翼骨甲案 — wingL/wingR 语义翼槽·官方 pivot·三盒规格·双翼共区
+ok 20 - 造型档案: 玩家翼骨甲案 — wingL/wingR 语义翼槽·官方 pivot·三盒规格·双翼共区
+  ---
+  duration_ms: 0.2235
+  type: 'test'
+  ...
+# Subtest: 造型档案: 玩家翼贴图 — 五色同源色族·金辐条/膜主/暗折线俱现·翼尖金粒·方形 64/128 档
+ok 21 - 造型档案: 玩家翼贴图 — 五色同源色族·金辐条/膜主/暗折线俱现·翼尖金粒·方形 64/128 档
+  ---
+  duration_ms: 0.4841
+  type: 'test'
+  ...
+# Subtest: 纸娃娃翼: 无翼常驻 — paint 任意 worn 翼恒 hidden, 装备与非装备逐像素一致(v1.2 §4.2)
+ok 22 - 纸娃娃翼: 无翼常驻 — paint 任意 worn 翼恒 hidden, 装备与非装备逐像素一致(v1.2 §4.2)
+  ---
+  duration_ms: 5.9133
+  type: 'test'
+  ...
+# Subtest: 纸娃娃翼: paint 不操纵翼骨不碰相机 — 构图恒出厂参数(v1.2 §4.3/§6.6 相机微调作废)
+ok 23 - 纸娃娃翼: paint 不操纵翼骨不碰相机 — 构图恒出厂参数(v1.2 §4.3/§6.6 相机微调作废)
+  ---
+  duration_ms: 1.5267
+  type: 'test'
+  ...
+# Subtest: 纸娃娃翼: 同 worn 幂等不重画 + worn 序列往复构图恒定(预览按需一帧)
+ok 24 - 纸娃娃翼: 同 worn 幂等不重画 + worn 序列往复构图恒定(预览按需一帧)
+  ---
+  duration_ms: 1.5184
+  type: 'test'
+  ...
+1..24
+# tests 24
+# suites 0
+# pass 24
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 126.4343
