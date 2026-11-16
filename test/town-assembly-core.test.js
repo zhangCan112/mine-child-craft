@@ -1024,13 +1024,16 @@ test('town-rim 派生: 按段出 fill 恰 48 笔(14 段 13+2 帽 17+32 花 61/62
       'townAssemblyOps([{phase: "ground", id: "x", kind: "orchard"}])'),
   /plaza\|farm\|farm-rows\|wayshrine\|town-rim/,
   'ground 合法域枚举已扩 town-rim(拼写域守卫存活)');
-  /* 合成 town-rim 步骤消费不抛, 按 part 逐段出 fill(真布局外最小样本) */
+  /* 合成 town-rim 步骤消费不抛, 按 part 逐段出 fill(真布局外最小样本)。
+     基底三层是无条件序列最前三笔(⑥ 已 pin slice(0,3)), 宿主侧 slice(3)
+     剥离后恰 2 笔 rim 派生——多一笔=越域/杂派生也抓, 少一笔=漏段 */
   const syn = JSON.parse(probe(ctx,
       'JSON.stringify(townAssemblyOps([{phase: "ground", id: "t-syn", ' +
       'kind: "town-rim", segs: [{part: "pad", x1: 31, z1: 32, x2: 31, z2: 33, ' +
       'y1: 24, y2: 24}, {part: "wall", x1: 31, z1: 32, x2: 31, z2: 33, ' +
-      'y1: 25, y2: 26}]}]).filter((o) => o.op === "fill"))'));
-  assert.strictEqual(syn.length, 2, '合成 town-rim 步骤派生 2 笔(合法域扩生效)');
+      'y1: 25, y2: 26}]}]).filter((o) => o.op === "fill"))')).slice(3);
+  assert.strictEqual(syn.length, 2,
+      '合成 town-rim 步骤派生恰 2 笔(剥离无条件基底三层后, 合法域扩生效)');
   assert.deepStrictEqual(
       syn.map((o) => [o.id, o.x1, o.z1, o.x2, o.z2, o.y1, o.y2]),
       [[13, 31, 32, 31, 33, 24, 24], [13, 31, 32, 31, 33, 25, 26]],

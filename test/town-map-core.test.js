@@ -499,8 +499,10 @@ test('town-rim 条目: segs 十六段一次立全(spec §3.3 逐件 pin) · 开�
     const walkHit = s.z1 <= 30 && s.z2 >= 29 && s.x1 <= 142 && s.x2 >= 17;
     assert.ok(!walkHit, 'seg 不占 rim 走道 z29..30 行(' + rimSegKey(s) + ')');
   }
-  /* 逐段 pin(集合相等不拘清单序) */
-  assert.deepStrictEqual(rim.segs.map(rimSegKey).sort(), RIM_SEGS_WANT,
+  /* 逐段 pin(集合相等不拘清单序); vm 域数组先展开归化宿主域再比
+     (conventions §7.1: 跨 realm 原型 deepStrictEqual 必炸, 打印全同仍 fail) */
+  const segKeys = [...rim.segs].map(rimSegKey).sort();
+  assert.deepStrictEqual(segKeys, RIM_SEGS_WANT,
       'segs 逐段表=spec §3.3(part:x,z..x,z#y..y)');
   /* 门楼开口净空(硬红线): x76..80×z128 归 T1a 门楼/基座桥, 本票显式排除 */
   for (const s of rim.segs) {
@@ -514,8 +516,10 @@ test('town-rim 条目: segs 十六段一次立全(spec §3.3 逐件 pin) · 开�
       '东西缘墙身实接南角 (31,128)/(128,128)');
   assert.ok(wallAt(31, 32) && wallAt(128, 32), '东西缘墙身北端起 z32');
   /* 接头柱恰两根三格无帽; 柱帽恰两枚只在南角 y27(spec §3.3) */
-  const shape = (part) => rim.segs.filter((s) => s.part === part)
-      .map((s) => [s.x1, s.z1, s.x2, s.z2, s.y1, s.y2]).sort();
+  /* [...segs] 先归化宿主域(§7.1 跨 realm 原型, 同上) */
+  const shape = (part) => [...rim.segs].filter((s) => s.part === part)
+      .map((s) => [s.x1, s.z1, s.x2, s.z2, s.y1, s.y2])
+      .sort((a, b) => a[0] - b[0]); /* 首格数值序(默认 sort 按字符串序, 128 会排在 31 前) */
   assert.deepStrictEqual(shape('post'),
       [[31, 32, 31, 33, 25, 27], [128, 32, 128, 33, 25, 27]],
       '北端接头柱恰两根 (31/128, z32..33) y25..27 无帽(防登墙)');
