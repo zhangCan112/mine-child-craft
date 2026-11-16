@@ -6,6 +6,12 @@
 > ⚠ **拍板前零施工**：§7 四方案点未拍板前不得动工；README §3.2 裁决二 / §3.3 裁决三不可推翻，方案只在留白面内展开。
 > ⚠ **氛围 NPC 不可攻击**：本票全部 NPC 沿用「氛围 NPC 不可攻击、不入 MOB_TYPES」定位，与工程线案卷④（NPC 可拆解）修复口径一致——施工方勿做相反假设。
 
+> **施工留档注记（2026-11-16 批收口）**：PO 拍板四点后开工即停（PO 实拍本批告一段落）——**未动工零 commit**（开工前核查已完成：票 worktree 开设/独立 npm install 非 junction/图谱全量建成/票面·拍板·intake 三件读毕）。断点核查结论（续工参考，红方 ses_e1dd1948affeVvnHyHQLpZ6p6O 会话内核实，未落盘转记）：
+> ① 派令线报「G01 木头桩红测现任在库」**核实为伪**——库里只有 T-NPC-12 注入式消费机绿测（adventure-mode.test.js :5121 起）与 po-idle-fix idle 批（town-npc-idle.test.js），无本票红测，续工按「缺则自写」办理；
+> ② 两处既有源切片 gate 与本票接线强相关：`town-npc-idle.test.js:698`（钉 `advTownAnchorTick();` 字面在 idle 前）+ `adventure-mode.test.js:5331`（钉该字面在 update 段内）——推进者上链后后者必红，红相内修订并票面登记；
+> ③ 装具约束：harness eng 域无 kit/THREE，真实傀儡建不了，傀儡面红测循 idle 先例往账本注假行（`advTownState().puppets` / `advTownIdleState().parts` 引用注入）。
+> 续工入口：README 状态列（a2 中止留档）；c2 面等 T-NPC-14 昼夜机制票（ADR-0012）。
+
 ## 1. 目标
 
 G01 铁守护·阿稳的巡逻环活起来 + 全体镇民 NPC 摆脱「木头」静止感：
