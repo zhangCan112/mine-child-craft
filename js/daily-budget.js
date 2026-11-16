@@ -29,13 +29,14 @@ const PLAY_EXTRA_KEY = 'play_extra_save'; /* 家长加时: {date, ms} 单设备�
    历史上的"按日期临时调整表"(TEMP_PLAY_LIMIT_MIN)已随过期退役:
    临时调整请走存储(家长面板写 sync/localStorage), 不把日期写进源码
    — 会静默过期成无人删除的死数据。 */
-const PLAY_LIMIT_DEFAULT_MIN = 10;
+/* 2026-11-14 用户拍板: 全部时间预算统一 +5 分钟(play 10→15, 三营 20→25) */
+const PLAY_LIMIT_DEFAULT_MIN = 15;
 const FOCUS_DAILY_LEVELS = 6;
-const FOCUS_DAILY_MIN = 20;
+const FOCUS_DAILY_MIN = 25;
 const MATH_DAILY_LEVELS = 6; /* 数学冒险岛每日限额(与 FOCUS 同址同形态, plan D7) */
-const MATH_DAILY_MIN = 20;
+const MATH_DAILY_MIN = 25;
 const ROBOT_DAILY_LEVELS = 6; /* 怪物指挥官每日限额(与 FOCUS/MATH 同址同形态, docs/robot-program-design.md §8) */
-const ROBOT_DAILY_MIN = 20;
+const ROBOT_DAILY_MIN = 25;
 
 /* 本模块的存档键在加载期注册(sync.js 的回填依赖; Node 单测直载时 sync 未加载, 静默跳过) */
 if (typeof registerSyncKeys === 'function') registerSyncKeys(BUDGET_SAVE_KEY, PLAY_EXTRA_KEY);
