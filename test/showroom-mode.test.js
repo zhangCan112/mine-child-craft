@@ -23,7 +23,7 @@
    ⑩ TNT 链: 短按点燃/引信/爆炸清空+70% 掉落/链式接力/按住转蓄力/掀炉
      兜底 + 波及怪物段随统一进馆(§4 行为变化) + 重进世界无痕;
    ⑪ 拾取入包: 收集回调入包并堆/满包拒返 false;
-   ⑫ 玩家 HP 实体+进食+雪球(壳的链): 吃判据/金苹果 full/零伤害弹道;
+   ⑫ 玩家 HP 实体+进食+雪球(壳的链): 吃判据/金苹果 full/雪球弹道(伤害 1 点);
    ⑬ 昼夜+夜怪+床(统一壳 + dev 政策): 入夜上沿固定点位铺怪(边沿制/
      __nightMob 标记)/黎明清场共用壳实现/睡觉三分支/唤醒两连(床边无
      出生点, D5 拍板①)/完整 AI 索敌逼近掉血/原地满血复活/击杀掉落/
@@ -1166,7 +1166,7 @@ test('体验馆: 金苹果 — 半血右键吃回满(full 旗标经 advEatPolicy
   assert.strictEqual(inv.slots[0].n, 1, '吃掉 1 个');
 });
 
-test('体验馆: 雪球投掷 — 右键掷出: 扣 1+弹池出膛+冷却内再掷被拒不扣; 零伤害红线(命中怪 dmg=0)', () => {
+test('体验馆: 雪球投掷 — 右键掷出: 扣 1+弹池出膛+冷却内再掷被拒不扣; 伤害 1 点(命中怪 dmg=1, PO 拍板撤旧零伤害红线)', () => {
   freshEnter();
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('snowball', 3);
@@ -1186,10 +1186,10 @@ test('体验馆: 雪球投掷 — 右键掷出: 扣 1+弹池出膛+冷却内再�
     ShowroomMode.onMouse(2, {x: 47, y: G, z: 62, nx: 0, ny: 1, nz: 0});
     assert.strictEqual(inv.slots[0].n, 2, '冷却内连点不扣(swingAction 与挥击同轨)');
     assert.strictEqual(ShowroomMode.snowballs.count(), 1, '冷却内不出膛');
-    /* 弹道步进至命中: 零伤害红线 — update 喂弹池的行为面同证 */
+    /* 弹道步进至命中: 伤害 1 点(PO 拍板撤旧零伤害红线) — update 喂弹池的行为面同证 */
     for (let i = 0; i < 90 && !mobsRig.hits.length; i++) ShowroomMode.update(1 / 60);
     assert.strictEqual(mobsRig.hits.length, 1, '雪球飞到怪(update 喂弹道)');
-    assert.strictEqual(mobsRig.hits[0].dmg, 0, '零伤害红线: 雪球永不扣血');
+    assert.strictEqual(mobsRig.hits[0].dmg, 1, '伤害 1 点(PO 拍板撤旧零伤害红线, 引 1a050a1)');
     assert.strictEqual(ShowroomMode.snowballs.count(), 0, '命中出池');
   } finally {
     globalThis.CameraRig = origRig;
