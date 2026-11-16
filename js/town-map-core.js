@@ -6,9 +6,11 @@
    (核心区/广场常量 + 分区/锚点/Prefab 实例/路网/地表/远景/散布七清单)
    外加一个建场步骤平铺纯函数, 藏住全部坐标拍板; 建场装配与材质注入只
    消费不自定坐标。
-   interface: 全局 TOWN_MAP 九段(core{核心区闭域+size/groundY} · plaza
-     {广场闭域} · zones 六带清单 · anchors/prefab/roads/ground/backdrop/
-     scatter 七清单, 闭区间整数坐标, z 小=北) · 纯函数 townBuildSteps()
+   interface: 全局 TOWN_MAP 十段(core{核心区闭域+size/groundY} · plaza
+     {广场闭域} · beyond{越界域白名单五段=与 core/plaza 同级的显式越界域
+     清单(ADR-0013)} · zones 六带清单 · anchors/prefab/roads/ground/
+     backdrop/scatter 七清单, 闭区间整数坐标, z 小=北) · 纯函数
+     townBuildSteps()
      → 步骤数组: 按 phase 全序 ['ground','backdrop','road','prefab',
      'scatter','anchor'] 平铺(wayshrine 条目加冠于 road 后, 见函数注),
      每步 = 源条目浅拷贝+phase 标签
@@ -20,7 +22,7 @@
      侧以 PrefabKit.footOf 校验, 材质集中注入归 T-MAP-03, 建场装配归
      T-MAP-02 消费本清单)。
    可测性声明: 零三维渲染库 · 零 DOM · 零墙钟 · 零随机 · 有同名单测
-     (test/town-map-core.test.js, 16 test 可执行规格)。
+     (test/town-map-core.test.js, 19 test 可执行规格)。
    ============================================================ */
 
 const TOWN_MAP = {
@@ -31,6 +33,18 @@ const TOWN_MAP = {
   /* 主广场: 28×28 与核心区同心(中心同为 79.5, ±1 内); 钟塔/摊位簇/
      广场樱花全落于此, 四缘贴放射路网(§3.2/§4.3 视线通廊)。 */
   plaza: {x1: 66, z1: 66, x2: 93, z2: 93, size: 28},
+  /* beyond 不是通行证(ADR-0013, 方案 .scratch/town-east-boundary/
+     arch-town-side-gate-and-edge-fence.md §2.1): core 外显式合法域白名单
+     单源(布局守门判据「⊆ core ∪ beyond」的 beyond), 每段=一件越界件的
+     声明域, 三准入语义=缓冲带服务面/回程判据服务面/防坠功能件; 加段须先
+     过判据票(docs/adr/0013-town-beyond-whitelist.md), 不收「散写越界」。 */
+  beyond: [
+    {id: 'gate-south', x1: 75, z1: 128, x2: 81, z2: 131}, /* ②门楼+基座桥域(含檐口出挑 x75/x81) */
+    {id: 'rim-south', x1: 32, z1: 128, x2: 127, z2: 128}, /* ③南缘墙线 z128 行(墙身+垫层, 开口段含于域) */
+    {id: 'rim-west', x1: 31, z1: 32, x2: 31, z2: 128}, /* 西缘墙线(含北端接头柱 z32..33 与南角) */
+    {id: 'rim-east', x1: 128, z1: 32, x2: 128, z2: 128}, /* 东缘墙线(同上) */
+    {id: 'rim-skirt', x1: 16, z1: 29, x2: 143, z2: 31}, /* 裙板翼墙+端头墩域(实际写入仅翼段) */
+  ],
   /* 六带(§4.1 方位语义): 除 far-north(核心区外北侧剪影层)外全部
      ⊆ 核心区; hub 域=广场域; south 标 optional(P2 可选彩蛋带)。 */
   zones: [
