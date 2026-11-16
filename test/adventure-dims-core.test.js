@@ -545,6 +545,64 @@ test('建筑件(T-SEAM-05 迁入): 钟塔/店/风车/双民居/储藏屋/埋室/
   assert.strictEqual(cell(72, 25, 91), 76, '果摊货品 76(南瓜亮橙, face=north 旋转) @(72,25,91)');
 });
 
+test('town-gate 门楼建场逐块(T1a, spec §2.7 锚 3): 柱/壁灯/牌/檐/瓦/桥面 + 净空/让空/剖面实心 + 回程判据内侧', () => {
+  runTownBuild();
+  /* 门洞侧柱: x76/x80 × y25..29 × z129 石砌 5 高(壁灯格 y27 嵌柱替换) */
+  for (const x of [76, 80]) {
+    for (const y of [25, 26, 28, 29]) {
+      assert.strictEqual(cell(x, y, 129), 13, '侧柱 13 石砖 @(' + x + ',' + y + ',129)');
+    }
+    assert.strictEqual(cell(x, 27, 129), 19,
+        '壁灯 19 嵌柱替换 @(' + x + ',27,129)(light 15 两面透光, 背面素面亦有光)');
+  }
+  /* 门洞横梁: x77..79 × y28(净空上缘) */
+  for (const x of [77, 78, 79]) {
+    assert.strictEqual(cell(x, 28, 129), 13, '横梁 13 @(' + x + ',28,129)');
+  }
+  /* 门额带: 牌 80 居中 1 格 + 配块 13 两翼(对称衬座) */
+  assert.strictEqual(cell(78, 29, 129), 80,
+      '门额牌 80 @(78,29,129)(镇徽居中; S2 图案面朝北的渲染接线归 T1b)');
+  assert.strictEqual(cell(77, 29, 129), 13, '门额配块 13 @(77,29,129)');
+  assert.strictEqual(cell(79, 29, 129), 13, '门额配块 13 @(79,29,129)');
+  /* 柱头石英 + 中段让空(v2 东带「门额上方让空」同构) */
+  assert.strictEqual(cell(76, 30, 129), 17, '柱头 17 石英 @(76,30,129)');
+  assert.strictEqual(cell(80, 30, 129), 17, '柱头 17 石英 @(80,30,129)');
+  for (const x of [77, 78, 79]) {
+    assert.strictEqual(cell(x, 30, 129), 0, '中段让空 @(' + x + ',30,129)');
+  }
+  /* 檐口/屋面(出挑 x75..81)/屋脊(收分 x76..80, 脊不出挑 v2 同构) */
+  for (let x = 75; x <= 81; x++) {
+    assert.strictEqual(cell(x, 31, 129), 17, '檐口 17 石英 @(' + x + ',31,129)');
+    assert.strictEqual(cell(x, 32, 129), 79, '屋面 79 陶橙瓦 @(' + x + ',32,129)');
+  }
+  for (let x = 76; x <= 80; x++) {
+    assert.strictEqual(cell(x, 33, 129), 79, '屋脊 79 陶橙瓦 @(' + x + ',33,129)');
+  }
+  /* 门洞净空: x77..79 × y25..27 × z129 三面空气(3 格高穿行契约, 禁填) */
+  for (const x of [77, 78, 79]) {
+    for (const y of [25, 26, 27]) {
+      assert.strictEqual(cell(x, y, 129), 0, '净空空气 @(' + x + ',' + y + ',129)');
+    }
+  }
+  /* 桥面: y24 全平面与 core 草地同高无缝(spec §2.2 桥面 y24 顶) */
+  for (let x = 76; x <= 80; x++) {
+    for (let z = 128; z <= 131; z++) {
+      assert.strictEqual(cell(x, 24, z), 13, '桥面 13 @(' + x + ',24,' + z + ')(草地 y24 同高无缝)');
+    }
+  }
+  /* 桥体剖面实心(spec §2.2: 防侧面看「1 格薄板悬空」穿帮)——抽样三格 */
+  assert.strictEqual(cell(78, 22, 130), 13, '桥剖面实心 13 @(78,22,130)');
+  assert.strictEqual(cell(78, 20, 131), 13, '桥剖面底缘 13 @(78,20,131)');
+  assert.strictEqual(cell(76, 23, 128), 13, '桥剖面角格 13 @(76,23,128)');
+  /* 回程判据内侧(spec §2.2 四拍时序: 预告 z126→穿门 z129→缓冲 z130..131→
+     白闪 z132): 几何最深笔 z131, 触发线 z132 处零几何; 判据行为面零改动
+     =票面显式断言(ADV_TOWN_RETURN_Z 常量值钉 + 几何不越 z131) */
+  assert.strictEqual(cell(78, 24, 132), 0, '触发线 z132 处零几何(缓冲带末排留白, 判据内侧收口)');
+  const advSrc = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  assert.ok(/const ADV_TOWN_RETURN_Z = 132;/.test(advSrc),
+      'ADV_TOWN_RETURN_Z=132 判据面零改动(T1a 票面显式核对)');
+});
+
 test('五件派生显影(TIDEA 波次二): 瀑布/镇徽/花带/丰收角/寻宝记号+门楣灯真数据落世界(voxel 抽格)', () => {
   runTownBuild();
   /* 瀑布(TIDEA-05): 柱 x63..64 y25..39 z24..28 id54 + 两翼 (62/65,25..26,26) id17 */
