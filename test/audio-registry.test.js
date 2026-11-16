@@ -31,16 +31,24 @@ const walk = (d) => {
 };
 const rel = (p) => path.relative(ROOT, p).replace(/\\/g, '/');
 
-/* 扫 js/** 全部 sfx('…') / sfx("…") 字面量调用: [{where: '文件:行', kind}]。
-   动态 kind(变量传参)无法静态收网, 现全库 37 处调用均为字面量;
-   新代码若出现动态 kind, 应改回字面量或来注册表补登后再议。 */
+/* 扫 js/** 全部 sfx('…') / advSfx('…') 字面量调用: [{where: '文件:行', kind}]。
+   动态 kind(变量传参)无法静态收网(如 o.sfx 缝以变量注入的动态转发不在此列
+   ——本正则只收带引号字面量), 新代码若出现动态 kind, 应改回字面量或来注册表
+   补登后再议。
+   T-C11 翻新裁定(2026-11-17, 票面授权: 守门断言翻新): 正则扩罩 advSfx(。
+   依据=GLOSSARY advProfile 词条「媒体三通道——壳内直接调用点全量经薄包装
+   advSpeak/advSfx/advToast 路由」: 冒险壳新接线一律走 advSfx 媒体缝(dev
+   静默经 profile 置换, 体验馆同装配零分支), 字面量落 advSfx 者此前是扫描
+   盲区(bell_town/pick/snow_throw 等既有调用均漏罩)——kind 在册判据与 sfx
+   直调同权, 漏登记即红。纯扩面: 既有 sfx 直调 62 处+advSfx/缝字面量 39 处
+   翻新日全量在册, 零弱化(禁词面零改), 守门从 62 处罩到 101 处。 */
 function scanSfxLiterals() {
   const found = [];
   for (const p of walk(path.join(ROOT, 'js'))) {
     if (!p.endsWith('.js')) continue;
     const src = fs.readFileSync(p, 'utf8');
     let m;
-    const re = /\bsfx\(\s*(['"])([A-Za-z0-9_-]+)\1\s*\)/g;
+    const re = /\b(?:advSfx|sfx)\(\s*(['"])([A-Za-z0-9_-]+)\1\s*\)/g;
     while ((m = re.exec(src)) !== null) {
       found.push({where: rel(p) + ':' + src.slice(0, m.index).split('\n').length, kind: m[2]});
     }
@@ -141,6 +149,61 @@ test('声音清单: 滑翔翼双音效 — wing_open 上滑/wing_close 下滑更
   assert.ok(close.synth.dur >= 0.14 && close.synth.dur <= 0.22, 'wing_close dur≈0.18');
   assert.ok(close.synth.g >= 0.05 && close.synth.g <= 0.09, 'wing_close g≈0.07');
   assert.ok(close.synth.g < open.synth.g, '收翼比展翼更轻(§7.1 收=安顿感, 比展开安静)');
+});
+
+/* ============ 篝火双音效(T-C11 UI E 区, UI 定稿 §7.1 参数表逐格照抄) ============
+   声音性格(§7.1 转写): campfire_lit=PO A15「噗地点着」的声学直译(低通 480Hz
+   白噪短噗); campfire_out=「轻轻熄灭」的安顿音(更低 320/更轻 g0.08/更长 0.45s)。
+   触发接线归本票(js/modes/adventure.js 三锚), 断言在 adventure-mode.test。 */
+
+test('声音清单: 篝火双音效 — campfire_lit 软噗/campfire_out 轻叹更低更轻更长, prio 2/coolMs 300/g 1·1, synth-only 永不哑, 命名定稿恰两枚', () => {
+  const lit = AudioRegistry.SFX_KINDS.campfire_lit;
+  assert.ok(lit, '登记 campfire_lit(放置即燃成功/熄灭态点击重燃成功同拍, 同键共用)');
+  const out = AudioRegistry.SFX_KINDS.campfire_out;
+  assert.ok(out, '登记 campfire_out(自然燃尽=方块移除帧, spec §3.7「消失瞬间」)');
+  for (const [k, e] of [['campfire_lit', lit], ['campfire_out', out]]) {
+    assert.strictEqual(e.file, undefined,
+        k + ' synth-only 无 file 字段(wing_open 同款「永不哑」互锁: 无样本直接走合成; CC0 样本后补列 UI 定稿 §9.2-5 非本票)');
+    assert.strictEqual(e.prio, 2, k + ' 状态音 prio 2(wing 先例; 仪式档 4 留给升级/胜利/穿门, §7.1 参数依据)');
+    assert.strictEqual(e.coolMs, 300, k + ' coolMs 300(防连放多座/浇熄秒重燃的同声叠爆, wing 同款)');
+    assert.strictEqual(e.g, 1, k + ' 桌面增益中性 1(响度由 synth 内 g 配平, 注册表「中性 1 起步」现行纪律)');
+    assert.strictEqual(e.gTouch, 1, k + ' 触屏增益中性 1(触屏总线级衰减收在 AUDIO_MIX, 条目级不叠加)');
+  }
+  /* 逐格(§7.1 表): lit={noise:{lowpass,480,0.18},g:0.10} / out={noise:{lowpass,320,0.45},g:0.08} */
+  assert.strictEqual(lit.synth.noise.type, 'lowpass', 'campfire_lit 低通白噪(snow_throw 低通闷噗家族放长, 比 fuse 高通急嘶柔两档, 儿童零惊吓)');
+  assert.strictEqual(lit.synth.noise.freq, 480, 'campfire_lit freq 480(§7.1 逐格)');
+  assert.strictEqual(lit.synth.noise.dur, 0.18, 'campfire_lit dur 0.18(短噗不拖尾)');
+  assert.strictEqual(lit.synth.g, 0.10, 'campfire_lit 合成增益 0.10(§7.1 逐格)');
+  assert.strictEqual(out.synth.noise.type, 'lowpass', 'campfire_out 同族低通(轻轻熄灭)');
+  assert.strictEqual(out.synth.noise.freq, 320, 'campfire_out freq 320(更低, §7.1 逐格)');
+  assert.strictEqual(out.synth.noise.dur, 0.45, 'campfire_out dur 0.45(更长=安顿不惊悚)');
+  assert.strictEqual(out.synth.g, 0.08, 'campfire_out 合成增益 0.08(更轻, wing_close「收=安顿感」口径)');
+  /* 声音性格关系(§7.1 转写): out 比 lit 更低/更轻/更长 */
+  assert.ok(out.synth.noise.freq < lit.synth.noise.freq, '燃尽比点燃更低(§7.1)');
+  assert.ok(out.synth.g < lit.synth.g, '燃尽比点燃更轻(§7.1)');
+  assert.ok(out.synth.noise.dur > lit.synth.noise.dur, '燃尽比点燃更长(§7.1)');
+  /* 命名定稿(§7.1): 否决 campfire_light(动词歧义)/campfire_burnout(过长且「燃尽」语义偏机制), 不改名 */
+  assert.ok(!AudioRegistry.SFX_KINDS.campfire_light && !AudioRegistry.SFX_KINDS.campfire_burnout,
+      '否决名不收(命名定稿 campfire_lit/campfire_out, UI 定稿 §7.1)');
+  assert.deepStrictEqual(
+      Object.keys(AudioRegistry.SFX_KINDS).filter((k) => k.startsWith('campfire')),
+      ['campfire_lit', 'campfire_out'],
+      'campfire* 键恰两枚(任何第三声不做: 循环燃烧声 R1-15/浇熄音效不新增/事件 TTS 零条目, §7.2 不做清单)');
+});
+
+test('声音清单: 篝火音效接线白名单 — campfire* 调用字面量恰 3 处全在 modes/adventure.js' +
+    '(放置/重燃/燃尽三锚=终态), 其余文件零(T-C11 翻新裁定: 两键合法化仅限登记行+接线点)', () => {
+  const cf = scanSfxLiterals().filter((f) => f.kind.startsWith('campfire'));
+  assert.strictEqual(cf.length, 3,
+      'campfire 音效调用恰 3 处(放置即燃/重燃成功/燃尽移除帧三锚; 超出=超票面, 少于=接线缺席)');
+  for (const f of cf) {
+    assert.ok(f.where.startsWith('js/modes/adventure.js:'),
+        f.where + ' campfire 音效接线越权(白名单=模式壳 adventure.js 共享装配——引擎层 effects.js/' +
+        '纯核心 campfire-kit.js+campfire-fx-core.js/体验馆 showroom.js 永久零 campfire 音效字面量, 其余文件仍禁)');
+  }
+  const kinds = new Set(cf.map((f) => f.kind));
+  assert.ok(kinds.has('campfire_lit') && kinds.has('campfire_out'),
+      '两键齐接线(lit=放置+重燃两锚共用一键, out=燃尽移除帧一锚, §7.1 触发列)');
 });
 
 test('声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9)', () => {

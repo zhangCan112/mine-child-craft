@@ -1713,7 +1713,8 @@ test('T-C3 挖掘回收整链: 燃烧态/熄灭态挖走均还篝火×1 — 燃�
    (advPlaceKit onPlaced 即燃/onCampfireRelit 重燃/advCampfires opts onQuench 浇熄/
    onBurnout 燃尽/advMarkEdit drop 挖掘缝), 装配面驱动 A.advCampfireFx 管理器。
    句柄生命周期(开/三态摘/clear/悬空无害)与观感参数由核心测试守门, 这里只证
-   「谁在何时调」——C3 缝同拍触发 + 行为红线面(零震屏碎块/零 campfire 音效字面量/
+   「谁在何时调」——C3 缝同拍触发 + 行为红线面(零震屏碎块/点燃恰 1 次〔T-C11
+   翻新: 原「零 campfire 音效字面量」守门随登记接线翻新, 见 T-C11 段〕/
    渐弱零 UI 倒计时件)。 */
 
 /* 导出缝守卫: 绿方未落地时红因=AssertionError(非 TypeError 装具炸, conventions §7.4 红因分类) */
@@ -1723,7 +1724,8 @@ function fxMgr() {
   return A.advCampfireFx;
 }
 
-test('T-C9 放置即燃: fx 三发射器在册(句柄开) · 零 kick/零 debris · 零 campfire 音效调用', () => {
+test('T-C9 放置即燃: fx 三发射器在册(句柄开) · 零 kick/零 debris · 点燃恰 1 次' +
+    '(T-C11 守门翻新: 登记后接线才合法, 原零调用断言随票翻新为恰 1 次)', () => {
   mem.clear();
   freshInit();
   const spot = findGrassSpot();
@@ -1738,8 +1740,10 @@ test('T-C9 放置即燃: fx 三发射器在册(句柄开) · 零 kick/零 debris
       '火苗/烟/旋涡/柔柱四件快照在册(§5.1 五件套之常驻三件+柔柱)');
   assert.ok(!calls.some((c) => c[0] === 'kick' || c[0] === 'debris'),
       '点燃零震屏零碎块(§5.5-4 禁用: kick/debrisBurst)');
-  assert.ok(!calls.some((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0),
-      '零 campfire 音效调用(声本体归 T-C11, 本票零落盘)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && c[1] === 'campfire_lit').length, 1,
+      '点燃恰 1 次(放置成功同拍, spec §3.7; 声本体 campfire_lit=T-C11 登记+接线)');
+  assert.ok(!calls.some((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire_') === 0 && c[1] !== 'campfire_lit'),
+      '放置场景零其他 campfire 声(零燃尽声零第三声, R1-15)');
 });
 
 test('T-C9 水浇同拍摘柱: 放置→邻水→update 一帧 — fx 即刻摘(零残帧)+白汽 4 粒在册', () => {
@@ -1817,6 +1821,106 @@ test('T-C9 挖掘: fx 即刻摘零过渡(advMarkEdit seam) — 零 pop 零白汽
       'fx 即刻摘(挖掘=摘, advMarkEdit seam 同拍)');
   assert.strictEqual(A.advCampfireFx.particles(spot.x, 25, spot.z).transients.length, 0,
       '零过渡零 pop(挖掘是回收非事件, §5.1)');
+});
+
+/* ---------- 篝火 T-C11: 音效登记与接线(模式整链, spec §3.7+UI 定稿 §7) ----------
+   声本体两行登记(js/audio-registry.js, 逐格断言归 audio-registry.test), 触发点
+   接线按 spec §11 排进本票: lit=放置成功/熄灭态重燃成功同拍(两锚共用一键);
+   out=方块移除帧(侧账归零→editBlock 移除同一帧=spec §3.7「消失瞬间」精确语义,
+   不等 §5.6-1 发射器渐熄/粒子清尾观感尾巴)。通道=advSfx 媒体缝(GLOSSARY
+   advProfile 词条「壳内直接调用点全量经薄包装路由」; dev 静默经 profile 置换,
+   体验馆同装配零分支——showroom-mode.test 体验馆同口径段锁通道面)。
+   红线面: 零循环燃烧声/事件 TTS 零条目(R1-15)/浇熄缺省不配声(§7.2)。 */
+
+test('T-C11 放置/浇熄/重燃三场景恰 1 次: lit=放置+重燃同拍各 1 · 浇熄零声零播报(缺省不配声 §7.2) · 重燃 TTS 恰既有话术 1 条(零新增)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  calls.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '前置: 放置即燃(T-C1 链)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && c[1] === 'campfire_lit').length, 1,
+      '点燃恰 1 次(放置成功同拍, spec §3.7「点燃 1 声(放置/重燃同点)」)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'speak').length, 0,
+      '放置零 TTS(事件播报零条目, R1-15)');
+  /* 浇熄: 邻水→下一刻转熄灭态——缺省不配声不播报(§7.2 不做清单, lava_hiss 复用与否列 §9.2-1 非本票) */
+  globalThis.editBlock(spot.x, 25, spot.z + 1, api.B_WATER);
+  calls.length = 0;
+  spoken.length = 0;
+  AdventureMode.update(0.5);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE_OUT, '前置: 浇熄成熄灭态(T-C3 链)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0).length, 0,
+      '浇熄零 campfire 声(不新增浇熄音效, §7.2/§9.2-1)');
+  assert.strictEqual(spoken.length, 0, '浇熄零播报(事件 TTS 零条目, R1-15)');
+  /* 重燃: 空手点击熄灭态→燃烧态——lit 恰 1 次(与放置共用一键 §7.1 触发列), TTS 恰既有教学话术 */
+  holdOnly(null);
+  calls.length = 0;
+  spoken.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '前置: 重燃成功(T-C3 链)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && c[1] === 'campfire_lit').length, 1,
+      '重燃点燃恰 1 次(熄灭态点击重燃成功同拍, 与放置同键共用)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0).length, 1,
+      '重燃场景 campfire 声总账恰 1(lit 本体, 零第二声)');
+  assert.strictEqual(spoken.length, 1,
+      '重燃 TTS 恰 1 条=既有教学话术(T-C3 既有条目非事件播报——本票零新增 TTS 条目)');
+});
+
+test('T-C11 燃尽恰 1 次+长站火边零循环: 5990 刻燃烧期仅放置 1 lit 零 out · 燃尽帧 out 恰 1 与 editBlock 移除同帧 · 全生命周期总账恰 2', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  calls.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  /* 长站火边: 599 帧=5990 刻(299.5s 游戏时)——循环燃烧声 R1-15 负断言(全程只此放置 1 声) */
+  for (let i = 0; i < 599; i++) AdventureMode.update(0.5);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '前置: 5990 刻火还在(T-C1 整刻边界)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && c[1] === 'campfire_lit').length, 1,
+      '燃烧期 lit 恰 1(放置帧, 不重复=零循环燃烧声)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && c[1] === 'campfire_out').length, 0,
+      '燃烧期零 out(燃尽声只在消失瞬间)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0).length, 1,
+      '长站火边 campfire 声总账恰 1(R1-15 零循环声可证: 299.5s 仅 1 声)');
+  /* 燃尽帧: 侧账归零→editBlock 移除同一帧触发(施工注记精确语义, 不等 §5.6-1 观感尾巴) */
+  const from = calls.length;
+  AdventureMode.update(0.5);
+  const frame = calls.slice(from);
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '燃尽: 方块移除(spec §3.7「消失瞬间」)');
+  assert.ok(frame.some((c) => c[0] === 'edit' && c[1] === spot.x && c[2] === 25 && c[3] === spot.z && c[4] === 0),
+      '燃尽帧内 editBlock 移除(T-C1 既有断言同款证据)');
+  assert.strictEqual(frame.filter((c) => c[0] === 'sfx' && c[1] === 'campfire_out').length, 1,
+      '燃尽恰 1 次且在移除帧(与 editBlock 移除同一同步帧, 施工注记=UI 定稿 §5.6-5「同拍」)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0).length, 2,
+      '全生命周期 campfire 声总账恰 2(lit 1+out 1, spec §3.4 拍板口径「点燃 1 声+燃尽 1 声」)');
+});
+
+test('T-C11 三锚窗口零播报面+字面量归属(R1-15 静态网+源码切片, T-G05 先例): campfire_lit 恰在 onPlaced+onCampfireRelit 体窗口 · ' +
+    'campfire_out 恰在 onBurnout 体窗口(移除帧同体) · onPlaced/onBurnout 窗口零 advSpeak 零 kitHintShow · onCampfireRelit 窗口 advSpeak 恰 1(既有话术)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const cut = (anchor, close, tag) => {
+    const s = src.indexOf(anchor);
+    assert.ok(s >= 0, '锚定位: ' + tag);
+    const e = src.indexOf(close, s);
+    assert.ok(e > s, '体闭合定位: ' + tag);
+    return src.slice(s, e);
+  };
+  const placed = cut('onPlaced: (blockId, x, y, z) => {', '\n  },', 'onPlaced');
+  const relit = cut('onCampfireRelit: (x, y, z) => {', '\n  },', 'onCampfireRelit');
+  const burnout = cut('onBurnout: (x, y, z) => {', '\n  }});', 'onBurnout');
+  const litTok = "advSfx('campfire_lit')";
+  const outTok = "advSfx('campfire_out')";
+  assert.strictEqual(placed.split(litTok).length - 1, 1, '放置窗口 campfire_lit 恰 1 处(放置成功同拍)');
+  assert.strictEqual(relit.split(litTok).length - 1, 1, '重燃窗口 campfire_lit 恰 1 处(重燃成功同拍, 与放置同键共用)');
+  assert.strictEqual(burnout.split(outTok).length - 1, 1,
+      '燃尽窗口 campfire_out 恰 1 处(onBurnout 体=editBlock 移除同一同步体=移除帧精确语义)');
+  assert.ok(placed.indexOf('advSpeak') < 0 && placed.indexOf('kitHintShow') < 0,
+      '放置窗口零 TTS 零气泡(点燃事件播报零条目, R1-15)');
+  assert.ok(burnout.indexOf('advSpeak') < 0 && burnout.indexOf('kitHintShow') < 0 && burnout.indexOf('advToast') < 0,
+      '燃尽窗口零 TTS 零气泡零 toast(燃尽事件播报零条目, R1-15)');
+  assert.strictEqual(relit.split('advSpeak(').length - 1, 1,
+      '重燃窗口 advSpeak 恰 1 条(既有教学话术, 本票零新增播报)');
 });
 
 test('T-C9 渐弱期: 烧至剩余 ≤600 刻窗内 — 火苗降档气柱满额 · 零话术新增(禁 UI 倒计时件)', () => {

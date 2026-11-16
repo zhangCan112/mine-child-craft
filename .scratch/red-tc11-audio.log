@@ -1,0 +1,75 @@
+✔ 声音清单: js/** 每处 sfx(…) 字面量都在 SFX_KINDS 登记(漏登记即红) (20.3995ms)
+✔ 声音清单: 只收活着的 kind — 16 活键齐备, TNT 死键(fss/door)不迁 (0.1062ms)
+✔ 声音清单: 条目形状 — synth/file 至少其一, file 条目须带 synth 回退(降级链互锁) + 增益/优先级/冷却齐全 (0.1579ms)
+✔ 声音清单: MOODS 收窄为仅 menu — 模式情绪唯一权威在 mode-registry 各行 mood 字段, 值 ∈ 合法情绪集 (0.3981ms)
+✔ 声音清单: 传送门双音效(冒险地图 T7) — 蓄能上行/到达琶音, 纯合成无样本(仪式层) (0.1154ms)
+✔ 声音清单: 滑翔翼双音效 — wing_open 上滑/wing_close 下滑更轻, prio 2/coolMs 300, 纯合成可回退 (0.104ms)
+✖ 声音清单: 篝火双音效 — campfire_lit 软噗/campfire_out 轻叹更低更轻更长, prio 2/coolMs 300/g 1·1, synth-only 永不哑, 命名定稿恰两枚 (0.4176ms)
+✖ 声音清单: 篝火音效接线白名单 — campfire* 调用字面量恰 3 处全在 modes/adventure.js(放置/重燃/燃尽三锚=终态), 其余文件零(T-C11 翻新裁定: 两键合法化仅限登记行+接线点) (17.6246ms)
+✔ 声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9) (0.0877ms)
+✔ 声音清单: MUSIC_TRACKS 条目形状 {file, mood, g, durMs}, 曲目情绪不含 none(A7 起填曲) (0.1493ms)
+✔ 声音清单: 曲目情绪覆盖 — 模式/场景用到的情绪都有曲(空池=该场景永无 BGM) (0.5182ms)
+✔ 声音清单: 样本 file 条目在 assets/audio/ 真实存在且 CREDITS.md 记载(A7 起咬合) (1.3757ms)
+✔ 声音清单: 反向覆盖 — assets/audio/ 下全部素材文件都在 CREDITS.md 记载(备用池 jingles 漏记也红) (1.0337ms)
+✔ 声音清单: 过渡期守卫 — synth 与 effects.js 的 SFX_DEFS 原样一致(A4 删表后自动退场) (0.227ms)
+ℹ tests 14
+ℹ suites 0
+ℹ pass 12
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 88.9772
+
+✖ failing tests:
+
+test at test\audio-registry.test.js:159:1
+✖ 声音清单: 篝火双音效 — campfire_lit 软噗/campfire_out 轻叹更低更轻更长, prio 2/coolMs 300/g 1·1, synth-only 永不哑, 命名定稿恰两枚 (0.4176ms)
+  AssertionError [ERR_ASSERTION]: 登记 campfire_lit(放置即燃成功/熄灭态点击重燃成功同拍, 同键共用)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\audio-registry.test.js:161:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\audio-registry.test.js:194:1
+✖ 声音清单: 篝火音效接线白名单 — campfire* 调用字面量恰 3 处全在 modes/adventure.js(放置/重燃/燃尽三锚=终态), 其余文件零(T-C11 翻新裁定: 两键合法化仅限登记行+接线点) (17.6246ms)
+  AssertionError [ERR_ASSERTION]: campfire 音效调用恰 3 处(放置即燃/重燃成功/燃尽移除帧三锚; 超出=超票面, 少于=接线缺席)
+  
+  0 !== 3
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\audio-registry.test.js:197:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":2}
+verdict: 断言红(AssertionError=2)
+failed_tests:
+  - 声音清单: 篝火双音效 — campfire_lit 软噗/campfire_out 轻叹更低更轻更长, prio 2/coolMs 300/g 1·1, synth-only 永不哑, 命名定稿恰两枚 (0.4176ms)
+  - 声音清单: 篝火音效接线白名单 — campfire* 调用字面量恰 3 处全在 modes/adventure.js(放置/重燃/燃尽三锚=终态), 其余文件零(T-C11 翻新裁定: 两键合法化仅限登记行+接线点) (17.6246ms)
+  - failing tests:
+  - 声音清单: 篝火双音效 — campfire_lit 软噗/campfire_out 轻叹更低更轻更长, prio 2/coolMs 300/g 1·1, synth-only 永不哑, 命名定稿恰两枚 (0.4176ms)
+  - 声音清单: 篝火音效接线白名单 — campfire* 调用字面量恰 3 处全在 modes/adventure.js(放置/重燃/燃尽三锚=终态), 其余文件零(T-C11 翻新裁定: 两键合法化仅限登记行+接线点) (17.6246ms)

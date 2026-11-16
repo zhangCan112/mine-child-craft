@@ -1912,6 +1912,29 @@ test('体验馆壳源码零篝火分支: showroom.js 零 campfire 字样(特效�
       ' advPlaceKit/advCampfires 共享实例缝上)');
 });
 
+/* ---------- 篝火 T-C11 体验馆同口径: sfx 走 advProfile.sfx 缝(dev 静默=政策非通道差异) ----------
+   接线在共享装配(advPlaceKit 三锚/onBurnout 缝=探险体验馆同一条线), 声本体参数
+   注册表单键(audio-registry.test 逐格); 本组只锁通道面: dev profile 的 sfx noop
+   拦截→campfire 零声——若接线直调 sfx 绕缝(如 combat hurt 既有口径), 本组即红
+   (T-C10b TTS 通道同构先例: 通道同装, dev 静默是政策非通道差异)。 */
+
+test('体验馆同口径 T-C11: 放置即燃零 campfire 声(dev 静默经缝=通道面双模式同听感) · 烧尽零声(共享装配缺省直通只在探险档)', () => {
+  freshEnter();
+  const IDS = vm.runInContext('({lit: B_CAMPFIRE})', eng);
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  calls.length = 0;
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.lit, '前置: 放置即燃(同一放置链)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0).length, 0,
+      '放置零 campfire 声(dev profile 媒体缝静默=接线经 advProfile.sfx; 直调 sfx 绕缝即红)');
+  for (let i = 0; i < 600; i++) ShowroomMode.update(0.5); /* 6000 刻烧尽(统一壳 tick 同拍) */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), 0, '前置: 烧尽方块移除(燃尽路径同装配)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0).length, 0,
+      '全生命周期零 campfire 声(dev 静默; 同听感=同装配+缺省档直通, 降噪是政策非通道差异)');
+});
+
 /* ---------- 篝火 T-C4 体验馆同口径: fireTick 消费与血尽 inPlace(统一壳零场景分支) ----------
    结算全在 AdventureMode.update(壳 update 直通), 展馆零本体改动即同口径——
    本组只证「同壳同拍」: 放置链照 T-C3 先例; 事件注入=T-G05 同款直写 vm 域
