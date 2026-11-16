@@ -16,3 +16,16 @@ node --version: v24.13.0
   test/adventure-nether.test.js   tests 46 / pass 46 / fail 0  装具铺装零回归零新断言
   合计: 36 断言红, 恰落本票三文件; 零计划外红。
   tap 证据: tc9-red-core-tap.log / tc9-red-adv-tap2.log / tc9-red-showroom-tap.log / tc9-red-nether-tap.log
+
+[green] 转绿与验收(tc9 分支):
+  绿方提交 05894cb: fx-core 新建+effects 入口+adventure 五缝+index.html+GLOSSARY, 四红测文件全绿
+  红方裁决 2b52aef: fx-core 红测 4 lint 机械修复(语义零变, 29/29 复验); §5.9 座数门控裁决=绿方读法正确
+  绿跑亲验(红方复跑 tap): fx-core 29/29 + adv 251/251 + showroom 59/59 + nether 46/46
+  全量: 2412 tests / 2411 pass / 0 fail / 1 skipped; lint 三门零错
+
+[merge] 集成对齐 eb8814c:
+  feat/campfire tip 0ae9e53(T-C10 已并入) merge 入 tc9; adventure.js 单冲突取并集
+  (T-C9 fx.open 重燃渐起 + T-C10 kitHintShow 气泡通道迁移, 两票语义互斥零交叠)
+  合并后全量复验: 2420 tests / 2419 pass / 0 fail / 1 skipped(2412+上游 8 新增对账), 零非本票红
+  lint 三门零错; 图谱增量 built_at=HEAD head_matches_build=true
+  证据: tc9-green-*-tap*.log / tc9-full-green.log / tc9-lint.log / tc9-post-merge-*.log

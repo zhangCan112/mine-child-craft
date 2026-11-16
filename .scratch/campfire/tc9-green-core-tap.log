@@ -1,0 +1,184 @@
+TAP version 13
+# Subtest: 篝火特效核心在册: js/campfire-fx-core.js 暴露 mkCampfireFx 工厂(纯核心新文件)
+ok 1 - 篝火特效核心在册: js/campfire-fx-core.js 暴露 mkCampfireFx 工厂(纯核心新文件)
+  ---
+  duration_ms: 0.5719
+  type: 'test'
+  ...
+# Subtest: §5.2 火苗发射器参数表(桌面列逐项): 速率 6/寿命 0.5~0.7/上升 0.9~1.3/漂移 ±0.15/发射点 y+0.4 散布 ±0.25/尺寸 0.10~0.16→0.02/透明度 0.9
+ok 2 - §5.2 火苗发射器参数表(桌面列逐项): 速率 6/寿命 0.5~0.7/上升 0.9~1.3/漂移 ±0.15/发射点 y+0.4 散布 ±0.25/尺寸 0.10~0.16→0.02/透明度 0.9
+  ---
+  duration_ms: 0.1825
+  type: 'test'
+  ...
+# Subtest: §5.3 烟柱发射器参数表(桌面列逐项): 速率 2/发射点 y+1.2 ±0.2/寿命 3.5~4.5/初速 1.4 减速至 0.4/摆 ±0.35 周期 2.5s/尺寸 0.14→0.55/暖灰白恒色/opacity 0.45→0
+ok 3 - §5.3 烟柱发射器参数表(桌面列逐项): 速率 2/发射点 y+1.2 ±0.2/寿命 3.5~4.5/初速 1.4 减速至 0.4/摆 ±0.35 周期 2.5s/尺寸 0.14→0.55/暖灰白恒色/opacity 0.45→0
+  ---
+  duration_ms: 0.0965
+  type: 'test'
+  ...
+# Subtest: §5.4 柔柱+旋涡参数表(桌面列逐项): 柱径 2.6/高=柱满高/风白 \#f5f7f3/opacity 0.10±0.05 周期 3.7s/低核 0.06 常值 · 旋涡 16 粒/角速 1.3/半径 0.5~1.1/上升 3.0±0.5/y+0.5 起/尺寸 0.08~0.13
+ok 4 - §5.4 柔柱+旋涡参数表(桌面列逐项): 柱径 2.6/高=柱满高/风白 \#f5f7f3/opacity 0.10±0.05 周期 3.7s/低核 0.06 常值 · 旋涡 16 粒/角速 1.3/半径 0.5~1.1/上升 3.0±0.5/y+0.5 起/尺寸 0.08~0.13
+  ---
+  duration_ms: 0.0967
+  type: 'test'
+  ...
+# Subtest: §5.4 柔柱柱高单源: 注入 columnH 覆盖生效(观感柱恒满高, 遮挡穿模=已知边界不跟随截断)
+ok 5 - §5.4 柔柱柱高单源: 注入 columnH 覆盖生效(观感柱恒满高, 遮挡穿模=已知边界不跟随截断)
+  ---
+  duration_ms: 0.0805
+  type: 'test'
+  ...
+# Subtest: 火苗颜色生命周期三锚(\#ffff97 出生→40% \#ff8f00→80% \#e05a1a): 锚点逐字+段间连续插值
+ok 6 - 火苗颜色生命周期三锚(\#ffff97 出生→40% \#ff8f00→80% \#e05a1a): 锚点逐字+段间连续插值
+  ---
+  duration_ms: 0.1545
+  type: 'test'
+  ...
+# Subtest: 烟暖白 \#d6d2c8 vs 风冷白 \#f5f7f3 色温差分色(§5.10 同屏对比走查的程序面)
+ok 7 - 烟暖白 \#d6d2c8 vs 风冷白 \#f5f7f3 色温差分色(§5.10 同屏对比走查的程序面)
+  ---
+  duration_ms: 0.0956
+  type: 'test'
+  ...
+# Subtest: 低核触屏档: 速率减半(火苗 3/烟 1/旋涡 8 粒)+柔柱 0.06 常值(脉动砍)
+ok 8 - 低核触屏档: 速率减半(火苗 3/烟 1/旋涡 8 粒)+柔柱 0.06 常值(脉动砍)
+  ---
+  duration_ms: 0.0981
+  type: 'test'
+  ...
+# Subtest: 桌面档柔柱脉动: 0.10±0.05 正弦周期 3.7s(portalBeam 脉动手法同源)
+ok 9 - 桌面档柔柱脉动: 0.10±0.05 正弦周期 3.7s(portalBeam 脉动手法同源)
+  ---
+  duration_ms: 0.1339
+  type: 'test'
+  ...
+# Subtest: §5.9 多篝火预算: ≤3 座全额 · 第 4 座起「烟全额+火苗半速+旋涡半数」 · >40 格只留烟柱
+ok 10 - §5.9 多篝火预算: ≤3 座全额 · 第 4 座起「烟全额+火苗半速+旋涡半数」 · >40 格只留烟柱
+  ---
+  duration_ms: 1.5631
+  type: 'test'
+  ...
+# Subtest: §5.9 预算缺省容忍: distOf 未注入=全额档(装配前/测试语境零炸)
+ok 11 - §5.9 预算缺省容忍: distOf 未注入=全额档(装配前/测试语境零炸)
+  ---
+  duration_ms: 0.1563
+  type: 'test'
+  ...
+# Subtest: §5.8 渐弱触发: 剩余比例 ≤10%(600 刻)进入渐弱窗 · 桌面满额零渐弱
+ok 12 - §5.8 渐弱触发: 剩余比例 ≤10%(600 刻)进入渐弱窗 · 桌面满额零渐弱
+  ---
+  duration_ms: 0.0915
+  type: 'test'
+  ...
+# Subtest: §5.8 渐弱档位: 火苗线性降至满额 40%+焰色向 \#e05a1a 插值 · 烟与气柱 scale 恒 1(不衰减)
+ok 13 - §5.8 渐弱档位: 火苗线性降至满额 40%+焰色向 \#e05a1a 插值 · 烟与气柱 scale 恒 1(不衰减)
+  ---
+  duration_ms: 0.0936
+  type: 'test'
+  ...
+# Subtest: 渐弱喂缝: setLeft 驱动发射器实际速率(渐弱只发生在世界内火焰本身)
+ok 14 - 渐弱喂缝: setLeft 驱动发射器实际速率(渐弱只发生在世界内火焰本身)
+  ---
+  duration_ms: 0.1422
+  type: 'test'
+  ...
+# Subtest: §5.5 点燃过渡: pop(\#ff8f00, r 0.3→1.6, 0.35s, op 0.9)+三发射器 0.5s 线性渐起
+ok 15 - §5.5 点燃过渡: pop(\#ff8f00, r 0.3→1.6, 0.35s, op 0.9)+三发射器 0.5s 线性渐起
+  ---
+  duration_ms: 0.1515
+  type: 'test'
+  ...
+# Subtest: §5.5 禁用面: 点燃零 kick 震屏零 debrisBurst(一次性面只有 pop/白汽/尾烟三 kind)
+ok 16 - §5.5 禁用面: 点燃零 kick 震屏零 debrisBurst(一次性面只有 pop/白汽/尾烟三 kind)
+  ---
+  duration_ms: 0.1886
+  type: 'test'
+  ...
+# Subtest: §5.6 燃尽过渡: 火苗 0.4s 降 0 · 柔柱 0.3s 降 0 · 旋涡停止补充 · ≤2s 全清无残影 · 轻灰 pop(\#d6d2c8, 0.4→1.2, 0.5s, op 0.5)+尾烟 3 粒 1.5s 散尽
+ok 17 - §5.6 燃尽过渡: 火苗 0.4s 降 0 · 柔柱 0.3s 降 0 · 旋涡停止补充 · ≤2s 全清无残影 · 轻灰 pop(\#d6d2c8, 0.4→1.2, 0.5s, op 0.5)+尾烟 3 粒 1.5s 散尽
+  ---
+  duration_ms: 0.1767
+  type: 'test'
+  ...
+# Subtest: §5.7 浇熄过渡: 即刻摘除零火苗残帧 · 白汽 pop(\#f5f7f3, 0.3→1.4, 0.4s, op 0.6)+4 粒 0.8s 上升 1 格/s
+ok 18 - §5.7 浇熄过渡: 即刻摘除零火苗残帧 · 白汽 pop(\#f5f7f3, 0.3→1.4, 0.4s, op 0.6)+4 粒 0.8s 上升 1 格/s
+  ---
+  duration_ms: 0.1388
+  type: 'test'
+  ...
+# Subtest: 挖掘=摘(§5.1): 即刻摘除零过渡零 pop · 燃尽渐熄中再 dig 不重启不炸(悬空无害)
+ok 19 - 挖掘=摘(§5.1): 即刻摘除零过渡零 pop · 燃尽渐熄中再 dig 不重启不炸(悬空无害)
+  ---
+  duration_ms: 0.11
+  type: 'test'
+  ...
+# Subtest: §5.1 句柄五纪律: open 幂等(不重置不翻倍) · clear 清场 · 悬空无害 · 摘后重开恢复
+ok 20 - §5.1 句柄五纪律: open 幂等(不重置不翻倍) · clear 清场 · 悬空无害 · 摘后重开恢复
+  ---
+  duration_ms: 0.1222
+  type: 'test'
+  ...
+# Subtest: active/emitters/particles 查询面: 未开格 active=false · emitters=null · particles 空形状可查
+ok 21 - active/emitters/particles 查询面: 未开格 active=false · emitters=null · particles 空形状可查
+  ---
+  duration_ms: 0.0394
+  type: 'test'
+  ...
+# Subtest: 发射数量守恒(emitted 计数): 火苗 6/s×0.5s=3 · 累计 1s=6 · 低核 3/s 累计 1s=3 · 烟 2/s×0.5s=1
+ok 22 - 发射数量守恒(emitted 计数): 火苗 6/s×0.5s=3 · 累计 1s=6 · 低核 3/s 累计 1s=3 · 烟 2/s×0.5s=1
+  ---
+  duration_ms: 0.0945
+  type: 'test'
+  ...
+# Subtest: 寿命域与粒子带: 火苗 life∈0.5~0.7 · age≤life · 尺寸带 [0.02, 0.16] · 透明度带 [0, 0.9] · 从发射点(y+0.4)上升 · 水平不超散布+漂移幅
+ok 23 - 寿命域与粒子带: 火苗 life∈0.5~0.7 · age≤life · 尺寸带 [0.02, 0.16] · 透明度带 [0, 0.9] · 从发射点(y+0.4)上升 · 水平不超散布+漂移幅
+  ---
+  duration_ms: 0.0987
+  type: 'test'
+  ...
+# Subtest: 烟柱运动: 从 y+1.2 起升 · 摆幅带 ±(0.2 散布+0.35 摆) · 恒色 \#d6d2c8 · 尺寸膨胀方向 · 速度曲线 1.4→0.4 线性(积分口径可见烟高 ≈4~5 格)
+ok 24 - 烟柱运动: 从 y+1.2 起升 · 摆幅带 ±(0.2 散布+0.35 摆) · 恒色 \#d6d2c8 · 尺寸膨胀方向 · 速度曲线 1.4→0.4 线性(积分口径可见烟高 ≈4~5 格)
+  ---
+  duration_ms: 0.1218
+  type: 'test'
+  ...
+# Subtest: 旋涡: 渐起后人口恒 16(柱顶回卷取模零缺口) · 高度域 [y+0.5, y+柱满高] · 半径带 0.5~1.1 · 同向公转
+ok 25 - 旋涡: 渐起后人口恒 16(柱顶回卷取模零缺口) · 高度域 [y+0.5, y+柱满高] · 半径带 0.5~1.1 · 同向公转
+  ---
+  duration_ms: 0.1238
+  type: 'test'
+  ...
+# Subtest: 确定性: 同格同种子重开=同粒子流(逐字段一致) · 异格=异流(相位错开有据)
+ok 26 - 确定性: 同格同种子重开=同粒子流(逐字段一致) · 异格=异流(相位错开有据)
+  ---
+  duration_ms: 0.5257
+  type: 'test'
+  ...
+# Subtest: 零墙钟+零裸随机: campfire-fx-core.js 零 Date.now/performance.now/Math.random 实调(确定性重放红线; 粒子随机走 mulberry32 每源派生先例)
+ok 27 - 零墙钟+零裸随机: campfire-fx-core.js 零 Date.now/performance.now/Math.random 实调(确定性重放红线; 粒子随机走 mulberry32 每源派生先例)
+  ---
+  duration_ms: 0.2849
+  type: 'test'
+  ...
+# Subtest: effects.js 零 campfire 音效字面量: sfx(campfire_lit)/sfx(campfire_out) 未登记前零落盘(audio-registry 守门口径, 调用位只留注释同 C3 先例)
+ok 28 - effects.js 零 campfire 音效字面量: sfx(campfire_lit)/sfx(campfire_out) 未登记前零落盘(audio-registry 守门口径, 调用位只留注释同 C3 先例)
+  ---
+  duration_ms: 0.1785
+  type: 'test'
+  ...
+# Subtest: index.html script 行: campfire-fx-core.js 在册且先于 modes/adventure.js(壳顶层构造 fx 管理器)
+ok 29 - index.html script 行: campfire-fx-core.js 在册且先于 modes/adventure.js(壳顶层构造 fx 管理器)
+  ---
+  duration_ms: 0.1759
+  type: 'test'
+  ...
+1..29
+# tests 29
+# suites 0
+# pass 29
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 54.3878
