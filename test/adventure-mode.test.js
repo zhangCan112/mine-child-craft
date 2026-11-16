@@ -5449,3 +5449,191 @@ test('TIDEA-11 会话态归零: cleanup 重进后同区再响(一次性 flag 随
   AdventureMode.cleanup();
 });
 
+/* ============================================================
+   ============ PO 实屏验收缺陷修复票红测(树 3c89723) ============
+   案②: NPC 跨模式残留——镇内 AdventureMode.cleanup() 不清场
+        (会话复位表只归维度相位, 不摘傀儡), 傀儡渗入体验馆;
+   案④: 镇民「可拆解」穿体误挖——体素射线对 puppet mesh 不可见,
+        视线穿傀儡盒即挖穿身后/脚下块(SM 三候选根因全源码否,
+        真路径=第四条, 判据见票文)。
+   ============================================================ */
+
+/* ---------- 案②④装具扩装(红方报备, T-NPC-12 §6.3③ 装具修订先例
+    口径): 惰性臂装——镇民摆放链三件+假 scene 收进 poArm(), 本票各测试
+    开跑时自装自治。理由(两害并防):
+    ① 既有「腹地雾距」测试 :4511-4525 自装 scene 后 delete 防渗漏
+       (装→断言→delete 先例), 模块级安装会被它摘走(全量跑实测)——
+       每测试重挂即免疫;
+    ② 本票测试排在文件尾, 惰性臂装让既有测试全程跑在零装具
+       基线(摆放链 typeof 守卫照旧跳过), 漂移面按构造归零。
+    adventure.js 在本文件为 Node 域 require(:410), 全局名解析落
+    globalThis——摆放链两件按 index.html 加载序镜像: town-npc-registry
+    (TOWN_NPCS) → town-npc(mkTownNpcPuppet/placeTownNpc); anchorOf/
+    TOWN_NPC_ANCHORS/mkTownTargets/townYawOfFace 已由 :48-63 T-SEAM-05
+    块与 :388 dims-core 铺好。MobLookKit 以最小假桩替身(mkTownNpcPuppet
+    唯一消费面=MobLookKit.puppet; placeTownNpc 唯一触面=root.position.set)。
+    假 scene 记账账本直曝供测试清点; root 带 __poNpcPuppet 标(断言面)。 */
+const PO_SCENE_CHILDREN = [];
+function poArm() {/* 幂等臂装: 摆放链三件 + 假 scene, 并清零账本 */
+  globalThis.MobLookKit = {
+    puppet() {
+      return {root: {position: {set() {}}, __poNpcPuppet: true}, bones: {}};
+    },
+  };
+  Object.assign(globalThis, require('../js/town-npc-registry.js'));
+  Object.assign(globalThis, require('../js/town-npc.js'));
+  globalThis.scene = {
+    children: PO_SCENE_CHILDREN,
+    add(o) {
+      PO_SCENE_CHILDREN.push(o);
+    },
+    remove(o) {
+      const i = PO_SCENE_CHILDREN.indexOf(o);
+      if (i >= 0) PO_SCENE_CHILDREN.splice(i, 1);
+    },
+  };
+  PO_SCENE_CHILDREN.length = 0;
+  return PO_SCENE_CHILDREN;
+}
+const poNpcRootsInScene = () => PO_SCENE_CHILDREN.filter((c) => c.__poNpcPuppet).length;
+let PoTownUi = null; /* 案②-B: town-ui 适配层(红期容忍装载, town-ui.test.js 同款) */
+try {
+  PoTownUi = require('../js/town-ui.js');
+} catch {
+  PoTownUi = null;
+}
+
+/* ---------- 案②-B 专用窄桩: 带监听记录的文档桩 + 类名递归寻件
+    (town-ui.test.js fakeDoc/dlgElOf 同形; 元素工厂仍走 mkEl 单源) ---------- */
+function poFakeDoc() {
+  const body = mkEl('body');
+  const listeners = {};
+  return {
+    body,
+    createElement: (tag) => mkEl(tag),
+    getElementById: () => null,
+    addEventListener: (type, fn) => {
+      (listeners[type] = listeners[type] || []).push(fn);
+    },
+    removeEventListener: (type, fn) => {
+      const list = listeners[type] || [];
+      const i = list.indexOf(fn);
+      if (i >= 0) list.splice(i, 1);
+    },
+    fire: (type, evt) => {
+      for (const fn of (listeners[type] || []).slice()) fn(evt || {});
+    },
+  };
+}
+function poFindByClass(root, cls) {
+  if (root.classList && root.classList.contains(cls)) return root;
+  for (const c of root.children || []) {
+    const hit = poFindByClass(c, cls);
+    if (hit) return hit;
+  }
+  return null;
+}
+
+test('PO②-A 跨模式残留守门: 镇内 cleanup() 清场 — scene 傀儡摘净 · 弃机 · 傀儡账回空 · 源形状挂镇清场链', () => {
+  mem.clear();
+  freshInit();
+  poArm();
+  A.advSetDim('town');
+  assert.ok(A.advTownState().targets, '前置: 进镇建机');
+  assert.strictEqual(A.advTownState().puppets.length, 14, '前置: 傀儡账 14 行');
+  assert.strictEqual(poNpcRootsInScene(), 14, '前置: scene 挂 14 傀儡 root');
+  AdventureMode.cleanup(); /* PO 复现路径: 镇内直接切模式, 不走 advSetDim 离镇链 */
+  assert.strictEqual(poNpcRootsInScene(), 0,
+      'cleanup 摘净 scene 傀儡(跨模式零残留, PO②本体)');
+  assert.strictEqual(A.advTownState().targets, undefined,
+      'cleanup 弃机(机器不渗下模式, 会话复位表只归维度相位的缺口半边)');
+  assert.strictEqual(A.advTownState().puppets.length, 0, 'cleanup 傀儡账回空');
+  /* 源形状(:5081 先例口径): cleanup 体挂镇清场链(advSetDim 离镇链同源) */
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const head = src.indexOf('  cleanup() {');
+  const next = src.indexOf('  update(dt) {', head);
+  assert.ok(head >= 0 && next > head, 'cleanup 函数体可定位');
+  assert.ok(src.slice(head, next).indexOf('advTownPuppetsLeave') >= 0,
+      'cleanup 体内挂镇清场(advTownPuppetsLeave, 离镇链 :2413 同源三行)');
+});
+
+test('PO②-B 衍生缝: 会话中切模式(cleanup 弃机)→ town-ui sync 掉机 defer 收口 — 卡态复原+面板 idle+HUD 收敛', () => {
+  assert.ok(PoTownUi, '前置: js/town-ui.js 可装载');
+  mem.clear();
+  freshInit();
+  poArm();
+  A.advSetDim('town');
+  assert.ok(A.advTownState().targets, '前置: 进镇建机(机器在位)');
+  const doc = poFakeDoc();
+  const spoken = [];
+  const pending = [];
+  const pages = [];
+  const entry = {/* town-ui.test.js DLG_TASK_SEEK 同形快照
+      (形状=townInteractRegistry 快照同形, 锚=真 market 锚) */
+    id: 'task:find-bread', kind: 'task', iconKey: 'find', label: '找面包',
+    anchor: {x: 90, y: 24, z: 84}, state: 'active', sessionKind: 'seek',
+    taskRef: 'task:find-bread'};
+  const dl = Math.hypot(1.5, 4); /* 锚前 4 格 · 高 1.5 → 距 4.27 < 24 命中门内 */
+  const cam = {/* 八键形状照 town-ui.test.js :1105 先例(cam 只用 origin/dir) */
+    origin: {x: entry.anchor.x, y: entry.anchor.y + 1.5, z: entry.anchor.z + 4},
+    dir: {x: 0, y: -1.5 / dl, z: -4 / dl},
+    yaw: 0, pitch: 0, fovDeg: 90, aspect: 1, vw: 100, vh: 100};
+  const ui = PoTownUi.mkTownUi({
+    doc,
+    machineRef: () => A.advTownState().targets || null, /* 壳层运行态直连(生产同源) */
+    speech: {speak: (s) => spoken.push(String(s)), cancel() {}},
+    timer: {
+      set: (fn, ms) => {
+        const h = {fn, ms};
+        pending.push(h);
+        return h;
+      },
+      clear: (h) => {
+        const i = pending.indexOf(h);
+        if (i >= 0) pending.splice(i, 1);
+      },
+    },
+    showPage: (id) => pages.push(id),
+    camRef: () => cam,
+    hlSource: () => [entry],
+    poseRef: () => ({x: entry.anchor.x, y: entry.anchor.y + 1,
+      z: entry.anchor.z + 4, yaw: 0}),
+    onInteract: () => {},
+    sfx: () => {},
+  });
+  ui.sync(); /* 进镇挂载(首次对账) */
+  doc.fire('mousemove', {}); /* hover 命中(事件驱动口径) */
+  doc.fire('pointerdown', {});
+  doc.fire('pointerup', {}); /* 点选开会话(完整点选链, :1478 先例同驱动) */
+  assert.strictEqual(ui.cardState(), 'dialog-dimmed', '前置: 会话中(A 卡收敛)');
+  AdventureMode.cleanup(); /* PO 复现: 残机不清 → UI 掉机感知靠本票弃机 */
+  ui.sync(); /* 壳层每帧对账 */
+  assert.strictEqual(ui.cardState(), 'idle-exploring',
+      '掉机→defer 收会话(A 卡 deferred 复原, PO②衍生缝本体)');
+  const panel = poFindByClass(ui.root, 'town-dlg-panel');
+  assert.ok(panel, '会话面板构件在位');
+  assert.strictEqual(panel.hidden, true, '面板收起');
+  assert.strictEqual(panel.getAttribute('data-state'), 'idle', '会话态归零(idle)');
+  assert.strictEqual(ui.root.hidden, true, 'HUD 容器收敛(leaveTown 既有语义)');
+});
+
+test('PO②-C 正控: 镇↔主世界往返照旧清场 · 镇内 cleanup 后重进不翻倍 · 主世界直接 cleanup 零炸零多余', () => {
+  mem.clear();
+  freshInit();
+  poArm();
+  A.advSetDim('town');
+  assert.strictEqual(poNpcRootsInScene(), 14, '进镇 14');
+  A.advSetDim('overworld');
+  assert.strictEqual(poNpcRootsInScene(), 0, '离镇照旧清(既有离镇链, :3049 幂等守卫不回归)');
+  A.advSetDim('town');
+  assert.strictEqual(poNpcRootsInScene(), 14, '重进重摆 14(往返不翻倍)');
+  AdventureMode.cleanup(); /* 镇内 cleanup(清场本体由 ②-A 锁, 此处驱动残账场景) */
+  freshInit(); /* cleanup 残账零串场: 再走一轮完整往返 */
+  poArm();
+  A.advSetDim('town');
+  assert.strictEqual(poNpcRootsInScene(), 14, 'cleanup 后再进镇仍 14(账不叠)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup(); /* 主世界直接 cleanup: 镇外路径零炸零多余动作 */
+  assert.strictEqual(poNpcRootsInScene(), 0, '主世界 cleanup 零傀儡动作(不误伤)');
+});
+
