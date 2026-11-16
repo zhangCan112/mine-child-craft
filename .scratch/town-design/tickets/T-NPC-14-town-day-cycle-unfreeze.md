@@ -1,9 +1,9 @@
-# T-NPC-14 镇昼夜解冻施工票（ADR-0012 §6 拆票表 T-DAY-01 面 · 终名落此）
+# T-NPC-14 镇昼夜解冻施工票（ADR-0017 §6 拆票表 T-DAY-01 面 · 终名落此）
 
 > 波次：**三+**（本票落地即解锁 T-NPC-13 c2 面与 T-NPC-15/T-LIGHT；light 线另票另派，见 §7）
-> blocking edges：**无硬边**——ADR-0012 决策 7 PO 终拍 2026-11-16 实答齐备（P1–P6 全按推荐/确认通过、无否决项），本票即 frontier。
-> 票名口径：ADR-0012 §6/决策 1/决策 5 所称「**T-DAY-01**」=本票建议名，**终名 T-NPC-14**（ADR 原文「终名归需求线」；台账 T-LIGHT↔T-NPC-15 同款映射先例）。全文检索 T-DAY-01 命中本票即为同一票。
-> 权威输入：`docs/adr/0012-town-day-cycle-unfreeze.md`（决策 1/2/3/4/5 为技术权威；状态行与 §7 表末列=PO 拍板记录，2026-11-16 回填）。
+> blocking edges：**无硬边**——ADR-0017 决策 7 PO 终拍 2026-11-16 实答齐备（P1–P6 全按推荐/确认通过、无否决项），本票即 frontier。
+> 票名口径：ADR-0017 §6/决策 1/决策 5 所称「**T-DAY-01**」=本票建议名，**终名 T-NPC-14**（ADR 原文「终名归需求线」；台账 T-LIGHT↔T-NPC-15 同款映射先例）。全文检索 T-DAY-01 命中本票即为同一票。
+> 权威输入：`docs/adr/0017-town-day-cycle-unfreeze.md`（决策 1/2/3/4/5 为技术权威；状态行与 §7 表末列=PO 拍板记录，2026-11-16 回填）。
 > ⚠ **本线只立票不施工**：派工与施工排期（a2+b1 收口后串行 vs 另开 worktree 并行）归 scrum 终裁，票面只注记冲突面（§6）。
 
 ## 1. 目标
@@ -43,7 +43,7 @@
 | `js/modes/adventure.js` | 改 | advSetDim 维度分支（:2395-2483 段）循环行 setSkyBase 改道 + 分支内 applyDaylight 一拍（对齐 overworld 分支 :2471-2473 序）；**热文件：与 T-NPC-13 a2+b1 面同文件不同段**（§6 排期注记） |
 | `test/adventure-dims-core.test.js` | 改 | :198 行值锚 `dayCycle:false` 断言翻正（红→绿翻钉） |
 | `test/adventure-mode.test.js` | 改 | :4815「镇内昼夜冻结」断言与 :4827 回 home 断言翻新（**值不变、文案随语义改写**）；:762-771 init/cleanup 昼夜断言**不动** |
-| `docs/town-map-design.md` | 改 | §6.3.3 行规格表逐字段修订（勿另起炉灶，ADR 决策 1 表为口径）+ §6.3.4 昼夜配合段改写（「镇内时间冻结不推进主世界昼夜」语义反转）+ :168 主态注记同步 + §6.3.6 取代记录加行（ADR-0011→ADR-0012 修订链） |
+| `docs/town-map-design.md` | 改 | §6.3.3 行规格表逐字段修订（勿另起炉灶，ADR 决策 1 表为口径）+ §6.3.4 昼夜配合段改写（「镇内时间冻结不推进主世界昼夜」语义反转）+ :168 主态注记同步 + §6.3.6 取代记录加行（ADR-0011→ADR-0017 修订链） |
 | `GLOSSARY.md` | 改 | 「小镇维度」词条改写（恒白天→随世界钟昼夜） |
 | 本票面 + `tickets/README.md` | 改 | 施工记录回填 + 台账状态列 |
 
@@ -91,7 +91,7 @@
 ## 7. 波次注记
 
 - **本票落地解锁**：
-  - **T-NPC-13 c2 面**（13 单航点扩多航点日程 + 日程时钟消费）——其硬边「ADR-0012 决策 7 终拍 + T-DAY-01 落地」随本票销号（终拍已销一半，本票销另一半）；「傍晚钟塔停驻」预留指针自本票落地起激活。
+  - **T-NPC-13 c2 面**（13 单航点扩多航点日程 + 日程时钟消费）——其硬边「ADR-0017 决策 7 终拍 + T-DAY-01 落地」随本票销号（终拍已销一半，本票销另一半）；「傍晚钟塔停驻」预留指针自本票落地起激活。
   - **T-NPC-15 镇夜间氛围**（ADR §6 所称 T-LIGHT，light 线**另票另派**）——依赖本票「对着真夜调参」；含灯柱/窗光/（可选）夜端点暖化缝，视觉方案由 light 线出，届时另呈不夹带。
 - **首版明确不含（防夹带清单，ADR §挡回域）**：夜间美术件全归 T-NPC-15；夜端点暖化缝 / 保 0.92 缝加宽 / 夜间换曲 / 时段行 =「不挡回也不随票夹带」届时另呈；「出镇保温」挡回（P6 知会已接受）；镇独立时钟 / 时间缩放挡回；镇夜间刷怪挡回。
 
@@ -101,7 +101,7 @@
 
 | 文件 | 动作 | 内容 |
 |---|---|---|
-| `test/adventure-dims-core.test.js` | 改（钉翻新 ×4） | ① :192 测题「恒白天」→「随世界钟昼夜」（同钉语义翻新）；② **:198 行值锚 `dayCycle:false→true` + 文案随 ADR-0012 决策 1 改写（主红钉）**；③ :94 全行「恒停昼夜」循环断言——town 豁免（值单份权威归 :198 值锚），nether/den 恒停钉**原样保留**（票面钉清单漏列的第四处结构性钉，红方裁决补翻，见 8.3-1）；④ :135 advMusicMood('town', true) 断言**值不变**（P4 恒 calm）、文案「dayCycle 冻结, 恒白天」→「P4 拍板: 维度行锁 mood, 昼夜不变曲」 |
+| `test/adventure-dims-core.test.js` | 改（钉翻新 ×4） | ① :192 测题「恒白天」→「随世界钟昼夜」（同钉语义翻新）；② **:198 行值锚 `dayCycle:false→true` + 文案随 ADR-0017 决策 1 改写（主红钉）**；③ :94 全行「恒停昼夜」循环断言——town 豁免（值单份权威归 :198 值锚），nether/den 恒停钉**原样保留**（票面钉清单漏列的第四处结构性钉，红方裁决补翻，见 8.3-1）；④ :135 advMusicMood('town', true) 断言**值不变**（P4 恒 calm）、文案「dayCycle 冻结, 恒白天」→「P4 拍板: 维度行锁 mood, 昼夜不变曲」 |
 | `test/adventure-mode.test.js` | 改（钉翻新 ×2） | ① **:4862「镇内昼夜冻结」`dayCycleOn:false→true` + 文案随语义翻新（主红钉）**；② :4874 回 home 断言**值不变（true）**、文案「镇内时间冻结不外溢」→「镇内时间随世界钟, 回程端点既有链自动复位零残留」；:807-827 昼夜 D1 init/cleanup 断言**零触碰**（票面红线） |
 
 行号漂移注记：票面 §3.2/§5.2 所记 :4815/:4827 系立票日行号，T-NPC-13 上链后实漂至 :4862/:4874（语义定位不受影响，按票面语义 grep 锚定）。
@@ -117,16 +117,16 @@
 
 ### 8.3 红方裁决记录（随票面归档；绿方签名与行为以下列为准）
 
-1. **:94 结构钉补翻裁决**：票面红面清单只列 :198/:4815/:4827 三处，实查发现 :94「三行恒停昼夜」循环断言与翻正后 town 行结构性互斥（不补翻则绿相必红、票面 §5.1 无法满足）。裁决：按 ADR-0012 决策 1 权威豁免 town（town 值单份权威归 :198 值锚测，不在循环断言里复制第二份），nether/den 恒停钉原样保留。不打回需求线理由：ADR 权威明确无歧义、修法机械、该测试文件本就在票面 §3.2 文件域内。
+1. **:94 结构钉补翻裁决**：票面红面清单只列 :198/:4815/:4827 三处，实查发现 :94「三行恒停昼夜」循环断言与翻正后 town 行结构性互斥（不补翻则绿相必红、票面 §5.1 无法满足）。裁决：按 ADR-0017 决策 1 权威豁免 town（town 值单份权威归 :198 值锚测，不在循环断言里复制第二份），nether/den 恒停钉原样保留。不打回需求线理由：ADR 权威明确无歧义、修法机械、该测试文件本就在票面 §3.2 文件域内。
 2. **:135 文案刷新裁决**：值不变（P4 终拍恒 calm），仅文案陈旧语义（「dayCycle 冻结, 恒白天」）随解冻反转刷新，文案新据=P4 拍板口径。零红影响（翻钉后该钉即绿）。
 3. **行号漂移裁决**：钉位以语义定位为准（见 8.1 漂移注记），票面行号不回改（立票日史料）。
-4. **红面纪律自证**：未写票文外新测试；全部测试改动均为既有钉的翻值/豁免/文案刷新，断言语义逐条对得上 ADR-0012 决策 1 与票面 §5。
+4. **红面纪律自证**：未写票文外新测试；全部测试改动均为既有钉的翻值/豁免/文案刷新，断言语义逐条对得上 ADR-0017 决策 1 与票面 §5。
 
 ### 8.4 绿相施工域指针（§3.2 文件域内，红钉已全数钉形；绿方**不得改任何测试**，测试争议回红方裁决）
 
-- `js/adventure-dims-core.js`：town 行（:724-738 段）`dayCycle: false → true` + 行注释改写（恒白天→随世界钟昼夜，ADR-0012 决策 1 口径）；**nether（:706）/den（:719）行与 ADV_TOWN 结构常量零触碰**。
+- `js/adventure-dims-core.js`：town 行（:724-738 段）`dayCycle: false → true` + 行注释改写（恒白天→随世界钟昼夜，ADR-0017 决策 1 口径）；**nether（:706）/den（:719）行与 ADV_TOWN 结构常量零触碰**。
 - `js/modes/adventure.js`：advSetDim 维度分支（现址 :2487-2488 `advApplySky(drow.sky); dayCycleOn = drow.dayCycle;` 两行处）——对 `drow.dayCycle === true` 行落**票面 §4 定死切界序四步**：`setSkyBase(行色 hex→[r,g,b] 0..1)` → `advApplySky(drow.sky)`（雾距 75/200 私产直写+首帧初值）→ `dayCycleOn = true` → `applyDaylight()` 一次（对齐 overworld 分支 :2519-2521 现序）；`setSkyBase` 须 `typeof` 守卫（mode 测试装具无 world.js，advEdgeSkyTick :2067 先例）；非循环行走现径零改。**热文件红线（零触碰，diff 自证点）**：advTownPatrolTick/advTownPatrolApply（:3241/:3254）、update 调用点（:5374/:5383）、导出挂点（:5652/:5654）。
-- `docs/town-map-design.md`：§6.3.3 行规格表（:294-303）逐字段修订（**ADR-0012 决策 1 对照表为口径勿另起炉灶**：dayCycle/sky.color/sky.sunI 三行更新，spawn/hud/assets/mood/build 零牵动）+ §6.3.4 昼夜配合段（:336-337）语义反转改写 + :168 主态注记同步 + §6.3.6（:377-383）取代记录加行（ADR-0011→ADR-0012 修订链）。
+- `docs/town-map-design.md`：§6.3.3 行规格表（:294-303）逐字段修订（**ADR-0017 决策 1 对照表为口径勿另起炉灶**：dayCycle/sky.color/sky.sunI 三行更新，spawn/hud/assets/mood/build 零牵动）+ §6.3.4 昼夜配合段（:336-337）语义反转改写 + :168 主态注记同步 + §6.3.6（:377-383）取代记录加行（ADR-0011→ADR-0017 修订链）。
 - `GLOSSARY.md`：「小镇维度」词条（:477-479）改写——恒白天（dayCycle:false+暖亮 sky 参）→随世界钟昼夜（dayCycle:true，白日端点经 setSkyBase 落行色、夜侧=Daylight 折线月光蓝；无怪/恒 calm/白闪进出语义不变）；**只改写不增删词条**（计数勿手数，收尾 `node --test test/conventions.test.js` GLOSSARY 断言验平=T-NPC-13 后的 69）。
 - 本票面 §8.5 回填 + `tickets/README.md` 台账**只动 T-NPC-14 行**（状态「已立票（待派工）」→施工完成口径，参照 T-NPC-13 行格式）。
 
@@ -134,10 +134,10 @@
 
 **绿相交付**（implement-engineer 施工；工作树**全绿未提交态**交回，提交归红方验收后单条执行——Windows 纪律 §7.3）：改动面恰四文件零夹带——
 
-1. `js/adventure-dims-core.js`：town 行 `dayCycle:false→true` + 行注释改写（ADR-0012 决策 1 口径：随世界钟昼夜——时间随全局 dayTime 单钟推进+天体/云解隐+uDim/uSkyFloor 真实调暗；白日端点经 setSkyBase 落行色；sunI 0.92 降为首帧初值 P1 拍板）；行头权威引用补「昼夜解冻 ADR 0012」；**nether/den 行与 ADV_TOWN 结构常量零触碰**（diff 实证：改动全落在 town 行段内）。
+1. `js/adventure-dims-core.js`：town 行 `dayCycle:false→true` + 行注释改写（ADR-0017 决策 1 口径：随世界钟昼夜——时间随全局 dayTime 单钟推进+天体/云解隐+uDim/uSkyFloor 真实调暗；白日端点经 setSkyBase 落行色；sunI 0.92 降为首帧初值 P1 拍板）；行头权威引用补「昼夜解冻 ADR 0012」；**nether/den 行与 ADV_TOWN 结构常量零触碰**（diff 实证：改动全落在 town 行段内）。
 2. `js/modes/adventure.js`：advSetDim 维度分支（现址 :2487）循环行**定死切界序四步**——`setSkyBase(advEdgeRgb(drow.sky.color)) → advApplySky(drow.sky) → dayCycleOn=true → applyDaylight()` 一次（对齐 overworld 回界分支现序 :2533-2535 现址）；`setSkyBase` **typeof 守卫**（mode 装具无 world.js，advEdgeSkyTick :2067 先例）；hex→[r,g,b] **复用 adventure-core 现成助手 `advEdgeRgb`**（浏览器 index.html :365→:400 加载序与 mode 装具 :402 `Object.assign(globalThis, AdventureCore)` 双侧可达，零新装具零新助手）；非循环行走 else 分支原两行原样（nether/den 现径零改）。**diff 恰一 hunk（@@ 首行 `function advSetDim` 函数内）**——热文件红线段（advTownPatrolTick/advTownPatrolApply、update 调用点、导出挂点）零触碰实证：`git diff js/modes/adventure.js | grep advTownPatrol` 零命中。
-3. `docs/town-map-design.md` 四处同收口（两改同收口不拆期）：§5.2 :168 主态注记语义反转（2026-11-13 注记→2026-11-16 再变更链）；§6.3.3 行规格表 sky/dayCycle 两行逐字段修订（**ADR-0012 决策 1 对照表为口径**：sky.color 经 setSkyBase 落白日端点/fog 75/200 不变/sunI 首帧初值/dayCycle true 语义；mood/build/spawn/hud/assets 行零牵动）；§6.3.4 昼夜配合段语义反转（镇内时间照推主世界昼夜+四步切界序+回程端点既有链复位零残留+P6 离镇入夜知会+恒无怪维持）；§6.3.6 取代记录**加行 4**（ADR-0011 决策 1→ADR-0012 修订链）。
-4. `GLOSSARY.md`：「小镇维度」词条正文改写（恒白天→随世界钟昼夜，含 setSkyBase 落行色/Daylight 折线夜侧月光蓝口径；权威引用补 ADR-0012）。**只改写不增删**自证：diff 恰 2 行（同条正文 1 删 1 增），词条头行与一览行零出现，`node --test test/conventions.test.js` GLOSSARY 确定性断言绿=declared=实际机械验平。
+3. `docs/town-map-design.md` 四处同收口（两改同收口不拆期）：§5.2 :168 主态注记语义反转（2026-11-13 注记→2026-11-16 再变更链）；§6.3.3 行规格表 sky/dayCycle 两行逐字段修订（**ADR-0017 决策 1 对照表为口径**：sky.color 经 setSkyBase 落白日端点/fog 75/200 不变/sunI 首帧初值/dayCycle true 语义；mood/build/spawn/hud/assets 行零牵动）；§6.3.4 昼夜配合段语义反转（镇内时间照推主世界昼夜+四步切界序+回程端点既有链复位零残留+P6 离镇入夜知会+恒无怪维持）；§6.3.6 取代记录**加行 4**（ADR-0011 决策 1→ADR-0017 修订链）。
+4. `GLOSSARY.md`：「小镇维度」词条正文改写（恒白天→随世界钟昼夜，含 setSkyBase 落行色/Daylight 折线夜侧月光蓝口径；权威引用补 ADR-0017）。**只改写不增删**自证：diff 恰 2 行（同条正文 1 删 1 增），词条头行与一览行零出现，`node --test test/conventions.test.js` GLOSSARY 确定性断言绿=declared=实际机械验平。
 
 **终值（当值全量 gates，非转抄亲验）**：
 

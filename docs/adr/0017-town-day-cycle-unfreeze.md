@@ -1,6 +1,8 @@
-# ADR 0012: 镇维度昼夜解冻（town 维度行 `dayCycle:false → true`，PO 亲裁推翻 ADR-0011 决策 1 恒白天）
+# ADR 0017: 镇维度昼夜解冻（town 维度行 `dayCycle:false → true`，PO 亲裁推翻 ADR-0011 决策 1 恒白天）
 
 日期：2026-11-16 · 状态：**已终拍（PO 六点 P1–P6 ask_user 实答 2026-11-16：P1=0.75 标准 · P2=接受月光小镇中间态先行 · P3/P4/P5=按推荐拍 · P6=知会接受；无否决项，逐点见 §7 表末列）· 施工票已立=T-NPC-14 镇昼夜解冻（§6 建议名 T-DAY-01，票落 `.scratch/town-design/tickets/`）**
+
+> 考据注记（撞号改号 2026-11-16）：本 ADR 原编号 **0012**，因与先落库的滑翔翼 ADR 0012（[0012-glider-no-cost-permanent](0012-glider-no-cost-permanent.md)）撞号，按 conventions §1.11「编号单调不复用」纪律改号 **0017**——滑翔翼群 0012–0016 在先不动。存量文档凡引「ADR-0012」指镇昼夜解冻者，已于 2026-11-16 件十簿记全仓 sweep 改指 0017（范围=docs/ 与 .scratch/town-design/ 实测命中，含件九当日落库的定稿文档）；js/test 注释与 retro/历史回执等按当期编号留档的存量「ADR-0012」引文，由本注记兜底解析，其归属域顺改时同步。
 
 ## 背景
 

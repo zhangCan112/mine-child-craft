@@ -10,7 +10,7 @@
 > ① 派令线报「G01 木头桩红测现任在库」**核实为伪**——库里只有 T-NPC-12 注入式消费机绿测（adventure-mode.test.js :5121 起）与 po-idle-fix idle 批（town-npc-idle.test.js），无本票红测，续工按「缺则自写」办理；
 > ② 两处既有源切片 gate 与本票接线强相关：`town-npc-idle.test.js:698`（钉 `advTownAnchorTick();` 字面在 idle 前）+ `adventure-mode.test.js:5331`（钉该字面在 update 段内）——推进者上链后后者必红，红相内修订并票面登记；
 > ③ 装具约束：harness eng 域无 kit/THREE，真实傀儡建不了，傀儡面红测循 idle 先例往账本注假行（`advTownState().puppets` / `advTownIdleState().parts` 引用注入）。
-> 续工入口：README 状态列（a2 中止留档）；c2 面等 T-NPC-14 昼夜机制票（ADR-0012）。
+> 续工入口：README 状态列（a2 中止留档）；c2 面等 T-NPC-14 昼夜机制票（ADR-0017，原编号 0012 撞号改号）。
 
 ## 1. 目标
 
@@ -183,7 +183,7 @@ PO 已批的是**改善诉求**；动画选型与移动方式是产品裁决，�
 
 ## 11. 施工记录（红方红相，2026-11-16，红方 ses_e1ca94ba8ffe4r1zOXXSPVLDFM）
 
-> 施工分支 `t-npc-13-patrol`（自 a30f7f6 开设；分支上另有异线随车 commit 00b701a=需求线簿记 ADR-0012+T-NPC-14 立票+台账行，非本线产出，本线不触碰、原样保留）。
+> 施工分支 `t-npc-13-patrol`（自 a30f7f6 开设；分支上另有异线随车 commit 00b701a=需求线簿记 ADR-0012（撞号后改号 0017）+T-NPC-14 立票+台账行，非本线产出，本线不触碰、原样保留）。
 > 拍板口径（DECISION-RELAY PO 终拍）：**a2 航点间匀速滑行 + b1 动画面收窄为「走摆」**（idle 面已由 po-idle-fix 先行落地，本票勿重做）；**c2 日程面已拆 T-NPC-14 昼夜解冻票**（时钟机制连锁裁决随该票，本票零涉）；d 面同 po-idle-fix 先行落地。本节只登记红相；绿相施工记录由绿方随完工回执回填。
 
 ### 11.1 红相落盘清单（§4.2 文件域逐项对账）

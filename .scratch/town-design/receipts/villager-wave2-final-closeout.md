@@ -3,6 +3,8 @@
 - 日期：2026-11-16 · 收口：engineer-manager（eng2-villager 接棒线）
 - 派令方：scrum-vw2 · 性质：PO 实拍批次告一段落，停工转收口（收口令七件全办结）
 
+> 〔2026-11-16 撞号改号注记〕本文历史性提及的 ADR-0012=镇昼夜解冻 ADR，现编号 **ADR-0017**（docs/adr/0017-town-day-cycle-unfreeze.md，原编号 0012 因与滑翔翼 ADR 0012 撞号让位，滑翔翼群 0012–0016 在先不动）；文中 @hash 等历史提法按当期编号留档不改。
+
 ## 1. 全批谱系（集成 → main 双段）
 
 **集成段（villager-wave2 分支，基点 main@3f6a96d）**：
@@ -40,7 +42,7 @@
 
 | 序 | 票 | 依赖 | 说明 |
 |---|---|---|---|
-| 1 | T-NPC-14 昼夜机制票 | ADR-0012 PO 待拍点终拍（PO 手里） | 立票入口：docs/adr/0012-town-day-cycle-unfreeze.md 六面方案+待拍点清单；c2 面随此票解冻 |
+| 1 | T-NPC-14 昼夜机制票 | ADR-0012 PO 待拍点终拍（PO 手里） | 立票入口：docs/adr/0017-town-day-cycle-unfreeze.md 六面方案+待拍点清单；c2 面随此票解冻 |
 | 2 | T-NPC-13 a2+走摆面续工 | 无硬阻塞（断点结论在票面） | 建议：随 T-NPC-14 之后或并行排——两票均翻动 adventure.js 热文件，避免双线同窗 |
 | 3 | T-NPC-15 镇夜间氛围票（light 线） | T-NPC-14 落地 | 占位在册 |
 | 4 | 案⑤ 对话卡视觉票 | PO 选型（proposals 已入库 ab461bf） | 占位在册 |

@@ -3,16 +3,16 @@
 > 波次：**三+（test-only 覆盖钉债票）**
 > blocking edges：**无硬边**（不依赖任何未收口票）。唯一冲突面=施工排期：与 T-TEST-T11 / T-UI-DLG-01 同文件相邻作业，串行队列 T11 → 本票 → T-UI-DLG-01（§6），终裁归 scrum。
 > 票名口径：票名中「T14」承接 T-NPC-14 票号（镇昼夜解冻施工票，被测四步切界序的施工出处），本票是其覆盖钉债票，非施工面翻新票、与其票系无隶属换算；与 T-TEST-T11 同款防检索混串注记（T-NPC-14 票名别名注记同款先例）。
-> 证据底座：T-NPC-14 票面 §8.5（绿相四步切界序自证）+ 合并预告自证（engmgr-vw3-2 群内 2026-11-16，非阻塞观察项；scrum 终裁补钉 2026-11-16）+ ADR-0012 决策 1（行色必经 setSkyBase 改道口径权威）。
+> 证据底座：T-NPC-14 票面 §8.5（绿相四步切界序自证）+ 合并预告自证（engmgr-vw3-2 群内 2026-11-16，非阻塞观察项；scrum 终裁补钉 2026-11-16）+ ADR-0017 决策 1（行色必经 setSkyBase 改道口径权威）。
 > ⚠ **test-only 票：文件域唯一 `test/adventure-mode.test.js`，生产代码（`js/` 全域）零改**。派工与施工排期归 scrum，票面只如实注记冲突面（§6）。
 
 ## 1. 目标与事实底座
 
-给 T-NPC-14 落地的 advSetDim 循环行分支四步切界序补 CI 直接钉：「setSkyBase 改道调用（实参=行色端点）」与「分支内 applyDaylight 恰一次（首拍）」，使 ADR-0012 决策 1 施工口径的回归由全量门捕捉，不再只靠 PO 实屏肉眼兜底。
+给 T-NPC-14 落地的 advSetDim 循环行分支四步切界序补 CI 直接钉：「setSkyBase 改道调用（实参=行色端点）」与「分支内 applyDaylight 恰一次（首拍）」，使 ADR-0017 决策 1 施工口径的回归由全量门捕捉，不再只靠 PO 实屏肉眼兜底。
 
 - **缝隙成因（立票日 @8451960 树核实）**：生产切界序在 `js/modes/adventure.js:2487-2498`——`if (drow.dayCycle === true)` 分支内 `typeof setSkyBase === 'function'` 守卫（:2491）→ `setSkyBase(advEdgeRgb(drow.sky.color))`（:2493，hex→[r,g,b] 0..1）→ `advApplySky(drow.sky)`（:2495，雾距私产）→ `dayCycleOn = true`（:2497）→ `applyDaylight()` 一次（:2498）。mode 测试装具无 world.js，装具面缺 `setSkyBase`，守卫静默跳过（:2491 注释自认「缺席跳过=白日端点走缺省蓝」）——进镇分支的改道与首拍在全量门零直接断言。
-- **既有钉登记（本票不动它们）**：test/adventure-mode.test.js :4862「镇内昼夜解冻(dayCycle:true 随世界钟昼夜, ADR-0012 决策 1)」只钉 `dayCycleOn=true`；:4874-:4875「回 home 主世界昼夜照转」与「applyDaylight 恢复当下天色」在 overworld 回界面（且后者为 `.some()` 存在断言非计数），均非 town 分支内两拍。dims-core 侧行值锚（test/adventure-dims-core.test.js :201）钉 `dayCycle:true` 行值，不触 mode 装具缝。
-- **后果面（ADR-0012 §2-4 / 决策 1）**：循环维度的行 sky.color 必经 setSkyBase 改道，否则被 applyDaylight 每 50 tick 覆写回主世界端点=天色破相；分支内首拍同时消解天体/云/uDim 冻结遗留态（ADR §2-5）。此口径是 ADR-0012 决策 1 施工口径核心——reviewer 判定为覆盖选择非票面缺口，scrum 终裁补钉（CI 捕捉优于肉眼，2026-11-16）。
+- **既有钉登记（本票不动它们）**：test/adventure-mode.test.js :4862「镇内昼夜解冻(dayCycle:true 随世界钟昼夜, ADR-0017 决策 1)」只钉 `dayCycleOn=true`；:4874-:4875「回 home 主世界昼夜照转」与「applyDaylight 恢复当下天色」在 overworld 回界面（且后者为 `.some()` 存在断言非计数），均非 town 分支内两拍。dims-core 侧行值锚（test/adventure-dims-core.test.js :201）钉 `dayCycle:true` 行值，不触 mode 装具缝。
+- **后果面（ADR-0017 §2-4 / 决策 1）**：循环维度的行 sky.color 必经 setSkyBase 改道，否则被 applyDaylight 每 50 tick 覆写回主世界端点=天色破相；分支内首拍同时消解天体/云/uDim 冻结遗留态（ADR §2-5）。此口径是 ADR-0017 决策 1 施工口径核心——reviewer 判定为覆盖选择非票面缺口，scrum 终裁补钉（CI 捕捉优于肉眼，2026-11-16）。
 
 ## 2. 文件域（README §6 立票规约逐条回应）
 
@@ -37,7 +37,7 @@
 票面只定两钉的验收语义；注入缝与捕获窗的具体落法（装具 globalThis 注入/测试内捕获包装/计数差分等）由红方按装具现状自裁，票面不写死。装具注入先例指针：同文件 :4875 的 `calls` 捕获阵列（`calls.some((x) => x[0] === 'applyDaylight')`）即事件捕获风格在案；装具装载规约 conventions §7.1；mkEl/fake-dom.js 纪律不动。
 
 1. **钉 1（改道钉）**：进 town 分支时 `setSkyBase` 被调用，且实参=行色端点（语义=`advEdgeRgb(drow.sky.color)` 同源 [r,g,b] 0..1 换算；断言形状红方裁——按端点数值直断或与 `advEdgeRgb` 同源对照均可，但不得弱化为「被调用过」零参断言）。
-2. **钉 2（首拍钉）**：`applyDaylight` 在进镇分支执行窗内**恰一次**（首拍语义=ADR-0012 决策 1 施工口径「分支内补昼夜首拍」；「分支内」与主循环后续每帧拍的捕获窗区分归红方，票面不写死）。
+2. **钉 2（首拍钉）**：`applyDaylight` 在进镇分支执行窗内**恰一次**（首拍语义=ADR-0017 决策 1 施工口径「分支内补昼夜首拍」；「分支内」与主循环后续每帧拍的捕获窗区分归红方，票面不写死）。
 
 **钉有效性（红能力）**：两钉须具备红能力，恒绿假钉不予验收——钉 1 天然红（缝缺位即断言红）；钉 2 红能力自证方式红方裁（如临时致断分支调用验证即红，实验态不落盘）；红因分类留痕按 conventions §7.4（机械段实录，勿手写红因）。
 
@@ -65,5 +65,5 @@
 
 - T-NPC-14 票面 §8.5：四步切界序绿相自证（:2491 typeof 守卫 + :2493 `setSkyBase(advEdgeRgb(drow.sky.color))` + :2495-:2498 advApplySky/dayCycleOn/applyDaylight）——缝隙事实出处。
 - 合并预告自证：engmgr-vw3-2 群内 2026-11-16（villager-wave3 relay，未落盘回执件，以群记录为准）——非阻塞观察项原始出处；scrum 终裁补钉同日（件七派令）。
-- ADR-0012 决策 1（`docs/adr/0012-town-day-cycle-unfreeze.md`）：行色必经 setSkyBase 改道口径权威（§2-4：直写被 applyDaylight 每 50 tick 覆写；决策 1 施工口径=四步切界序）。
-- 断言锚：测试「T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → 落 east 锚(约 154.5,75)面朝西 …」内「镇内昼夜解冻(dayCycle:true 随世界钟昼夜, ADR-0012 决策 1)」断言（立票日 :4862，@8451960 树）。
+- ADR-0017 决策 1（`docs/adr/0017-town-day-cycle-unfreeze.md`）：行色必经 setSkyBase 改道口径权威（§2-4：直写被 applyDaylight 每 50 tick 覆写；决策 1 施工口径=四步切界序）。
+- 断言锚：测试「T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → 落 east 锚(约 154.5,75)面朝西 …」内「镇内昼夜解冻(dayCycle:true 随世界钟昼夜, ADR-0017 决策 1)」断言（立票日 :4862，@8451960 树）。
