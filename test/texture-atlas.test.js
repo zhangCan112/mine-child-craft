@@ -714,17 +714,17 @@ const CAMPFIRE_OUT_ART = [ /* UI 定稿 §4.3 熄灭态(同位形去焰: 灰烬�
   'dLLLLLLLLLLLLLLd',
   'dddddddddddddddd',
 ];
-const CF_PAL = { /* UI 定稿 §3.1 九色 + §4.2 C + §4.3 a(hex 逐值换算) */
+const CF_PAL = {/* UI 定稿 §3.1 九色 + §4.2 C + §4.3 a(hex 逐值换算) */
   w: [255, 255, 255], /* 焰心白 #ffffff */
   W: [255, 255, 151], /* 焰芯亮黄 #ffff97 */
-  f: [255, 216, 0],   /* 焰亮黄 #ffd800 */
-  F: [255, 143, 0],   /* 焰橙 #ff8f00 */
-  e: [224, 90, 26],   /* 余烬红 #e05a1a */
-  k: [47, 42, 38],    /* 炭黑 #2f2a26 */
-  L: [138, 90, 43],   /* 原木主 #8a5a2b */
-  l: [168, 116, 61],  /* 原木受光 #a8743d */
-  d: [107, 69, 31],   /* 原木背光 #6b451f */
-  C: [35, 26, 18],    /* 暗炭底 #231a12(noiseFill amp 0.06 铺噪) */
+  f: [255, 216, 0], /* 焰亮黄 #ffd800 */
+  F: [255, 143, 0], /* 焰橙 #ff8f00 */
+  e: [224, 90, 26], /* 余烬红 #e05a1a */
+  k: [47, 42, 38], /* 炭黑 #2f2a26 */
+  L: [138, 90, 43], /* 原木主 #8a5a2b */
+  l: [168, 116, 61], /* 原木受光 #a8743d */
+  d: [107, 69, 31], /* 原木背光 #6b451f */
+  C: [35, 26, 18], /* 暗炭底 #231a12(noiseFill amp 0.06 铺噪) */
   a: [185, 180, 168], /* 灰烬灰 #b9b4a8 */
 };
 const cfEq = (p, c) => p[3] === 255 && p[0] === c[0] && p[1] === c[1] && p[2] === c[2];
@@ -772,7 +772,9 @@ test('篝火像素: 燃烧态 62 号格逐字符=UI 定稿 §4.2 — 焰四档+�
         assert.ok(cfCNoise(p), 'C 底噪声像素 (' + x + ',' + y + ') 实测 ' + p);
       } else if (ch === 'L' && (y === 12 || y === 14)) {
         /* 原木床 L 行: 本色或被 rng 木纹 d 短划覆盖(§4.2 画笔纪律) */
-        if (cfEq(p, CF_PAL.d)) { dashPx++; continue; }
+        if (cfEq(p, CF_PAL.d)) {
+          dashPx++; continue;
+        }
         assert.ok(cfEq(p, CF_PAL.L), '原木主 L (' + x + ',' + y + ') 实测 ' + p);
       } else {
         assert.ok(cfEq(p, CF_PAL[ch]), '固定像素 ' + ch + ' (' + x + ',' + y + ') 实测 ' + p);
@@ -803,7 +805,9 @@ test('篝火像素: 熄灭态 63 号格逐字符=UI 定稿 §4.3 — 同位形�
       const ch = art[y][x]; const p = at(x, y);
       if (ch === 'C') {
         /* r0~r8 C 区可被 rng 灰烬散斑覆盖; r9+ 固定像素零 rng(散斑域 y∈[2,8]) */
-        if (y <= 8 && cfEq(p, CF_PAL.a)) { specks.push([x, y]); continue; }
+        if (y <= 8 && cfEq(p, CF_PAL.a)) {
+          specks.push([x, y]); continue;
+        }
         assert.ok(cfCNoise(p), 'C 底噪声像素 (' + x + ',' + y + ') 实测 ' + p);
       } else {
         assert.ok(cfEq(p, CF_PAL[ch]), '固定像素 ' + ch + ' (' + x + ',' + y + ') 实测 ' + p);
@@ -843,7 +847,9 @@ test('篝火可辨性: 燃烧态焰四档 ≥50px 且白芯亮黄 ≥20px / 熄�
   let best = out[0]; let bestLum = -1;
   for (const p of out) {
     const lum = p[0] + p[1] + p[2];
-    if (lum > bestLum) { bestLum = lum; best = p; }
+    if (lum > bestLum) {
+      bestLum = lum; best = p;
+    }
   }
   assert.ok(cfEq(best, CF_PAL.a), '熄灭态最高亮像素=灰烬灰(§4.5-1 亮部上限), 实测 ' + key(best));
 });
@@ -892,9 +898,11 @@ test('篝火 meshChunk: 两态走半格扁盒图集通道 — 5 面/半格高/UV
       assert.ok(inRect(rect, uvs), tag + ' UV 应全落目标格 ' + rect);
     }
   };
-  /* 燃烧态: 垫石上放置 → 图集通道半格扁盒(thin 0.5, spec §3.4; 不得走十字面片) */
+  /* 燃烧态: 篝火独置 → 图集通道半格扁盒(thin 0.5, spec §3.4; 不得走十字面片)。
+     布景纪律(红方裁决): 不垫块——id 3 石头自身在图集 layout, 会以 6 面污染
+     通道面计数(mesh-core.test.js 火把最小场景同款纪律); 半格扁盒无底面,
+     面数/薄高/UV 均与下方方块无关, 独置即钉住全部票面断言 */
   let p = mkPack(1);
-  p.set(8, 5, 8, 3); /* 石头垫底 */
   p.set(8, 6, 8, t.B_CAMPFIRE);
   let r = t.MeshCore.meshChunk(p, atlasOpt(t));
   assert.strictEqual(r.solid, null, '入集篝火不走纯色兜底通道');
@@ -922,7 +930,7 @@ test('篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自�
   const p = mkPackL(1);
   p.set(8, 5, 8, t.B_CAMPFIRE);
   p.setL(8, 5, 8, 0, 15); /* 夜: sky 0; 光源格自身 block=15(light-core 光源格例外口径, T-C1 light 行) */
-  let r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
   assert.strictEqual(quads(r.atlas), 5, '燃烧态在图集通道(半格扁盒)');
   for (let i = 0; i < r.atlas.block.length; i++) {
     assert.strictEqual(r.atlas.block[i], 1, '燃烧态面顶点 block 光=15/15(夜间读作发光体)');
