@@ -834,7 +834,7 @@ function advEdgeOpenDir(dir) {/* 单一开放判据(〔世界边界·T8〕, 四�
 }
 
 const ADV_TOWN_GATE_OPEN_Z = [74, 75]; /* 门口开间主径带(town-map-design §6.3.1, T-SEAM-02):
-   east 主径轴线 z74~75 两格开间——越线触发/回程门墩/东栅栏让位/开间保护四处同源消费 */
+   east 主径轴线 z74~75 两格开间——越线触发/回程门墩/东栅栏让位/开间保护/x154 门墩保护五处同源消费 */
 const ADV_TOWN_WALL_ZONE = {lo: 66, hi: 90}; /* 镇界矮墙中段 z 范围(v2 spec §4.1):
    中段石砖矮墙分段(远段木栅栏维持)——建场(advEdgeEastFence)与保护判据
    (advEdgeProtectedAt)同源吃这一份几何, 不抄第二份 */
@@ -1891,7 +1891,7 @@ function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁�
      垫高锚落点), 与 U2 镇界不可挖/U4 防坠墙不可挖同族「牢固镇界设施群」
      保护语义。保护范围=仅门墩垫高格: y=ADV_GROUND+advHeightAt(154,z)+1
      (建场权威 advEdgeEastArrivePad 同源同式, 实测 y24), z 域共用
-     ADV_TOWN_GATE_OPEN_Z(门口开间四处同源消费之一); 该两列其余 y 不在保
+     ADV_TOWN_GATE_OPEN_Z(门口开间五处同源消费之一); 该两列其余 y 不在保
      ——表面主径石面(G1a 范围)与上方净空 y25/26 维持不在保(N2 带内可挖
      口径维持); 门墩两列之外(z74/75 以外)不进本分支, 既有口径零外溢 */
   if (x === 154 && ADV_TOWN_GATE_OPEN_Z.includes(z)) {
