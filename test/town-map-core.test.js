@@ -5,9 +5,11 @@
    vm 装载链 config→voxel→scene-kit→prefab-kit→town-map-core(prefab-kit.test.js
    同款手法, 词法 const 桥 globalThis)。规格锚 = docs/town-map-design.md §3-§4(布局
    权威)+ docs/design/town-prefab-specs.md §3(件库映射)+ §4.9(cache-cellar 覆写)。
-   断言组: ①门面/结构 ②规模口径(~96×96 核心/28×28 广场/主路 4-5 支路 2-3) ③六分区
+   断言组: ①门面/结构 ②规模口径(~96×96 核心/28×28 广场/主路 4-5 支路 2-3)
+   ②b beyond 白名单自检(ADR-0013 五段钉死·⊆世界界·贴界越界·判据面采样)
+   ③六分区
    方位语义 ④Prefab 实例清单映射(P0/P1 全入=七新行+under-room 复用+摊位 6; board-pool
-   PO 推迟不列) ⑤脚印合法(footOf 校验·⊆核心区·体量域·分区归属) ⑥实例两两无交
+   PO 推迟不列) ⑤脚印合法(footOf 校验·⊆核心区∪beyond·体量域·分区归属) ⑥实例两两无交
    ⑦路网(厚度域·贴广场连通·不压建筑·门前可达) ⑧地表分类(广场铺装/农田成组)
    ⑨远景(山体必做/崖屋 1-2 脊线可见/神庙默认不落/不可达) ⑩散布(四类/广场樱花≥3/灯柱≥10/门廊对位/断头信标/
    不落建筑与路面) ⑪锚点(spawn 北望·回望钟塔视线通廊) ⑫townBuildSteps 确定性
@@ -40,10 +42,19 @@ const gapXZ = (a, b) => {/* 盒间空隙格数: 相交=0 · 边相邻=0 · 隔 n
 };
 const center = (a, b) => (a + b) / 2; /* 闭域中心 */
 const spanOf = (a, b) => b - a + 1; /* 闭域跨度 */
+/* beyond 白名单判据(ADR-0013, 方案 §2.2; 本文件单份, 不散写第二份几何):
+   盒 ⊆ core 或 ⊆ beyond 某段(闭盒整数坐标语义)。beyond 未落时退化为
+   core 严判——红态=越界样本被拒(T0 判据先行票的红形态) */
+const inCoreOrBeyond = (t, box) => {
+  if (box.x1 >= t.core.x1 && box.x2 <= t.core.x2 && box.z1 >= t.core.z1 &&
+      box.z2 <= t.core.z2) return true;
+  return (t.beyond || []).some((b) =>
+    box.x1 >= b.x1 && box.x2 <= b.x2 && box.z1 >= b.z1 && box.z2 <= b.z2);
+};
 
 /* ============ ① 门面与结构 ============ */
 
-test('门面: TOWN_MAP 八段数据权威 + townBuildSteps 纯函数出口', () => {
+test('门面: TOWN_MAP 十段数据权威 + townBuildSteps 纯函数出口', () => {
   const c = loadCore();
   assert.ok(c.TOWN_MAP, 'TOWN_MAP 数据权威存在');
   for (const k of ['core', 'plaza']) {
@@ -77,6 +88,69 @@ test('规模: 核心区 ~96×96 居世界 · 广场 28×28 与核心同心 · �
   assert.ok(Number.isInteger(core.groundY) && core.groundY > 0, '地面基高 groundY 为正整数');
   assert.ok(core.groundY + 16 <= c.WORLD_H - 1,
       '基高之上放得下最高档钟塔 16 层(WORLD_H 界内)');
+});
+
+/* ============ ②b beyond 白名单自检(ADR-0013, 方案 §2.1/§2.2) ============ */
+
+test('beyond 自检: 五段显式闭域一次立全 · ⊆ 世界界 · 贴界越界(防域飞出)', () => {
+  const c = loadCore();
+  const t = c.TOWN_MAP;
+  /* beyond 不是通行证(ADR-0013 准入语义): 每段=一件有正当语义的越界件
+     声明域——②门楼+基座桥=回程缓冲带服务面 / ③墙圈=防坠功能件;
+     加段须先过判据, 不收「散写越界」(方案 §2.3) */
+  assert.ok(Array.isArray(t.beyond), 'beyond 白名单域在册(TOWN_MAP 顶层段)');
+  const segs = [...t.beyond]; /* vm 数组先归化本 realm(③分区同款手法) */
+  assert.strictEqual(segs.length, 5, 'beyond 恰五段(一次立全, 方案 §2.1)');
+  assert.deepStrictEqual(segs.map((b) => b.id).sort(),
+      ['gate-south', 'rim-east', 'rim-skirt', 'rim-south', 'rim-west'],
+      '段 id 恰五个: 门楼缓冲带 1 段+墙圈 4 段');
+  /* 逐段坐标钉死(闭域整数坐标, 方案 §2.1): 白名单=判据权威, 动坐标必须
+     连判据面一起过票(N5 防第二份几何的字面落点) */
+  const byId = Object.fromEntries(segs.map((b) => [b.id, b]));
+  const pin = (id, x1, z1, x2, z2) => {
+    const b = byId[id];
+    assert.ok(b, '段「' + id + '」在册');
+    assert.deepStrictEqual([b.x1, b.z1, b.x2, b.z2], [x1, z1, x2, z2],
+        '段「' + id + '」坐标(闭域)=' + JSON.stringify([x1, z1, x2, z2]));
+  };
+  pin('gate-south', 75, 128, 81, 131); /* ②门楼+基座桥域(含檐口出挑 x75/x81) */
+  pin('rim-south', 32, 128, 127, 128); /* ③南缘墙线 z128 行(开口段含于域) */
+  pin('rim-west', 31, 32, 31, 128); /* 西缘墙线(含接头柱 z32..33 与南角) */
+  pin('rim-east', 128, 32, 128, 128); /* 东缘墙线(同上, 闭南角) */
+  pin('rim-skirt', 16, 29, 143, 31); /* 裙板翼墙+端头墩域(实际写入仅翼段) */
+  for (const b of segs) {
+    assert.ok(Number.isInteger(b.x1) && Number.isInteger(b.z1) &&
+        Number.isInteger(b.x2) && Number.isInteger(b.z2) &&
+        b.x1 <= b.x2 && b.z1 <= b.z2, '段「' + b.id + '」闭域良序(整数坐标)');
+    assert.ok(b.x1 >= 0 && b.x2 < c.WORLD_W && b.z1 >= 0 && b.z2 < c.WORLD_D,
+        '段「' + b.id + '」⊆ 世界界(160×160)');
+    /* 贴界(方案 §2.2「与 core 交集逐段非空」的闭域离散读法): gapXZ=0=
+       相交或边相邻——段必须贴着 core 界, 不许悬空飞出 */
+    assert.ok(gapXZ(b, t.core) === 0,
+        '段「' + b.id + '」贴 core 界(相交或边相邻, 防域飞出)');
+    assert.ok(b.x1 < t.core.x1 || b.x2 > t.core.x2 ||
+        b.z1 < t.core.z1 || b.z2 > t.core.z2,
+    '段「' + b.id + '」有出界部分(越界域非空, 不是 core 内改名)');
+  }
+});
+
+test('beyond 判据面: inCoreOrBeyond 单份判据(core∪beyond 闭盒 ⊆ 语义采样)', () => {
+  const c = loadCore();
+  const t = c.TOWN_MAP;
+  const box = (x1, z1, x2, z2) => ({x1, z1, x2, z2});
+  /* 基线语义不回退: core 内样本恒真 */
+  assert.ok(inCoreOrBeyond(t, box(40, 40, 45, 45)), 'core 内样本放行');
+  /* 界外远样本(缓冲带以南悬空域): 严判拒绝——白名单不是通行证 */
+  assert.ok(!inCoreOrBeyond(t, box(76, 135, 80, 136)), '界外远样本拒绝');
+  /* 部分压 beyond 段但溢出段的盒: 判据=⊆ 某段, 不是相交 */
+  assert.ok(!inCoreOrBeyond(t, box(74, 128, 76, 129)), '溢段样本拒绝(闭盒 ⊆ 语义)');
+  /* beyond 五段逐段采样(几何未落时现判据拒绝=红; beyond 段落地后转绿):
+     断言只依赖 TOWN_MAP.beyond 本体, 不依赖消费方几何(T1a/T2 未上) */
+  assert.ok(inCoreOrBeyond(t, box(76, 129, 80, 131)), '门楼缓冲带样本放行(gate-south)');
+  assert.ok(inCoreOrBeyond(t, box(32, 128, 127, 128)), '南缘墙线样本放行(rim-south)');
+  assert.ok(inCoreOrBeyond(t, box(31, 100, 31, 100)), '西缘墙线样本放行(rim-west)');
+  assert.ok(inCoreOrBeyond(t, box(128, 64, 128, 64)), '东缘墙线样本放行(rim-east)');
+  assert.ok(inCoreOrBeyond(t, box(70, 30, 70, 30)), '裙板墩域样本放行(rim-skirt)');
 });
 
 /* ============ ③ 分区方位语义(map-design §4.1) ============ */
@@ -151,9 +225,11 @@ test('实例字段: 形状(id,x,y,z,v,face,zone) · y 统一基高 · face 四�
         'face ∈ 四正交向(' + p.face + ')');
     assert.ok(p.v && typeof p.v === 'object' && !Object.prototype.hasOwnProperty.call(p.v, 'ids'),
         'v 无材质 ids 槽(集中注入归 T-MAP-03 town-palette, 本票纯几何计划)');
+    /* 判据扩 beyond(ADR-0013, 方案 §2.2 行 2): town-gate 行锚 z128 将落
+        南缓冲带服务面(T1a 落行后经 beyond.gate-south 放行); helper 单份 */
     assert.ok(p.zone === 'far-north' ||
-        (p.x >= core.x1 && p.x <= core.x2 && p.z >= core.z1 && p.z <= core.z2),
-    '锚点 ⊆ 核心区(山域件归 far-north 域)');
+        inCoreOrBeyond(c.TOWN_MAP, {x1: p.x, x2: p.x, z1: p.z, z2: p.z}),
+    '锚点 ⊆ 核心区∪beyond(山域件归 far-north 域)');
   }
 });
 
@@ -197,14 +273,21 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
     /* 山域豁免(PO 山体波): far-north 雕像落核心区外北侧山域(z<32,
         山肩/山脚裙板), 核心区断言只对核心区内件生效; far-north 件归分区
         断言管(域 x0..159 z0..31——全身像盒 z28..31 ⊆ 此界) */
-    assert.ok(p.zone === 'far-north' ||
-        (box.x1 >= t.core.x1 && box.x2 <= t.core.x2 && box.z1 >= t.core.z1 &&
-        box.z2 <= t.core.z2), '脚印 ⊆ 核心区(' + p.id + ')');
+    /* 判据扩 beyond(ADR-0013, 方案 §2.2 行 1): town-gate 脚印(含基座桥
+        z128..131)将越 core 南界, 经 beyond.gate-south 放行(T1a 落行后
+        生效; 几何未落时对本批既有件判据恒等, 空转不红) */
+    assert.ok(p.zone === 'far-north' || inCoreOrBeyond(t, box),
+        '脚印 ⊆ 核心区∪beyond(' + p.id + ')');
     assert.ok(box.y1 >= 0 && box.y2 <= c.WORLD_H - 1, 'y ⊆ 世界高(' + p.id + ')');
     const z = byId[p.zone];
     assert.ok(z, 'zone「' + p.zone + '」在分区清单');
-    assert.ok(box.x1 >= z.x1 && box.x2 <= z.x2 && box.z1 >= z.z1 && box.z2 <= z.z2,
-        '脚印 ⊆ 标注分区(' + p.id + '→' + p.zone + ')');
+    /* town-gate 注记豁免(方案 §2.2 行 3/§2.3): zone 归 'south'(带 z2=127)
+        而脚印 z128..131 越带 1 格=南缓冲带服务面(锚=带外服务面的自然
+        延伸, beyond 注释同源); 不新开 zone 不动六带设计权威(map-design
+        §4.1)。越界放行由「脚印 ⊆ 核心区∪beyond」判据承担(T1a 落行生效) */
+    assert.ok(p.id === 'town-gate' ||
+        (box.x1 >= z.x1 && box.x2 <= z.x2 && box.z1 >= z.z1 && box.z2 <= z.z2),
+    '脚印 ⊆ 标注分区(' + p.id + '→' + p.zone + ')');
     const f = FOOTPRINT[p.id];
     const w = span(box.x1, box.x2); const d = span(box.z1, box.z2);
     assert.ok(Math.min(w, d) >= f.min && Math.max(w, d) <= f.max,
@@ -280,11 +363,16 @@ test('路网: 主路 4-5/支路 2-3 · 放射贴广场 · 段间连通 · 不压
        「门前可达」仅辖独立建筑; 山域件(far-north 雕像)可达性由攀登
        走廊承担(PO 山体波), 不辖路网 */
   const PROPS = ['scarecrow', 'clothesline', 'woodpile', 'hencoop', 'board-pool'];
+  /* 出镇门楼豁免(GATE 注记, 方案 §2.2 行 4/spec §2.7 预注): town-gate=
+     动线终点仪式件, 可达性由 main-south 轴线 x76..80 直连承担, 路口
+     距离断言不适用(T1a 落行后生效; 几何未落时豁免名单空转不红) */
+  const GATE = ['town-gate'];
   for (const {p, b} of boxes) {
     for (const r of t.roads) {
       assert.ok(!overlapXZ(b, r), '道路不压建筑: ' + r.id + ' × ' + p.id);
     }
-    if (p.zone !== 'hub' && p.zone !== 'far-north' && !PROPS.includes(p.id)) {/* 广场内建筑(塔/摊)立于铺装上, 可达性由广场承担 */
+    if (p.zone !== 'hub' && p.zone !== 'far-north' &&
+        !PROPS.includes(p.id) && !GATE.includes(p.id)) {/* 广场内建筑(塔/摊)立于铺装上, 可达性由广场承担 */
       const near = Math.min(...t.roads.map((r) => gapXZ(b, r)));
       assert.ok(near <= 4, p.id + ' 门前可达(距最近路段 ≤4 格)');
     }
@@ -315,8 +403,18 @@ test('地表: 广场铺装=广场域 · 农田成组(8×12~10×14)归田园带 �
   assert.strictEqual(farms.filter((f) => f.kind === 'farm-rows').length, 2,
       '农田恰 2 组且全为 farm-rows 田垄(v2 升格)');
   for (const g of t.ground) {
-    assert.ok(g.x1 >= t.core.x1 && g.x2 <= t.core.x2 && g.z1 >= t.core.z1 && g.z2 <= t.core.z2,
-        '地表条目 ⊆ 核心区(' + g.id + ')');
+    /* 判据扩 beyond(ADR-0013, 方案 §2.2 行 5): town-rim 条目(③墙圈, T2
+       落条目)主域=segs 显式分段清单——逐 seg 判 ⊆∪beyond; 其余地表条目
+       维持 ⊆core 严判(几何未落时本批既有条目全走严判分支, 空转不红) */
+    if (g.kind === 'town-rim') {
+      for (const seg of g.segs) {
+        assert.ok(inCoreOrBeyond(t, seg),
+            'town-rim seg ⊆ 核心区∪beyond(' + g.id + ':' + (seg.part || 'seg') + ')');
+      }
+    } else {
+      assert.ok(g.x1 >= t.core.x1 && g.x2 <= t.core.x2 && g.z1 >= t.core.z1 && g.z2 <= t.core.z2,
+          '地表条目 ⊆ 核心区(' + g.id + ')');
+    }
   }
   /* 断头小坪(v2 #6): 恰 2 处 5×5, 贴 main-east/main-south 断头端外侧,
      与任何路域/缘石线零交(写序无关化), 坪内恰含既有驿站灯柱 1 根 */
@@ -591,6 +689,8 @@ test('散布: 十类词表 · 广场樱花必备 · 不落建筑与路面 · 密
   const FACADE = ['wallflag', 'windowbox', 'crates'];
   for (const s of t.scatter) {
     assert.strictEqual(s.y, t.core.groundY, '散布点 y=地面基高(' + s.id + ')');
+    /* 镇域散布维持 ⊆core 严判(方案 §2.2 行 6 红线, 本判据不扩 beyond):
+       墙头花走 town-rim 派生不入 scatter(T2), 开放通道不设白名单 */
     assert.ok(s.x >= t.core.x1 && s.x <= t.core.x2 && s.z >= t.core.z1 && s.z <= t.core.z2,
         '散布点 ⊆ 核心区(' + s.id + ')');
     if (!FACADE.includes(s.kind)) {

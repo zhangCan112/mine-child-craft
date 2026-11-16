@@ -253,7 +253,7 @@ _Avoid_: MODE_CARDS（历史名——三份影子表达已归一）、模式列�
 _Avoid_: 把兜底当模式 cleanup 的替代（私有物不清）、在兜底里解除 Tank 钩子（不存在该 API，契约禁）
 
 **城镇地图核心（TownMapCore）**:
-应用层纯核心（js/town-map-core.js，零运行时依赖，有同名单测）：Midport Village 城镇布局唯一权威——一份确定性纯数据 TOWN_MAP 九段（core 核心区闭域+size/groundY · plaza 广场闭域 · zones 六带清单 · anchors 导览锚〔spawn 唯一，南主路上面北〕· prefab/roads/ground/backdrop/scatter 六清单，闭区间整数坐标，z 小=北）+ 建场步骤平铺纯函数 townBuildSteps()：六清单按 phase 全序展开成一张步骤表（地表→远景→路网→建筑→散布→锚点，docs/town-architecture-design.md §5.1.6 建场次序；每步=源条目浅拷贝+phase 标签，同参同输出零副作用），嵌套 v 与源清单共享引用、消费方只读。坐标拍板全部藏在这里——建场装配与材质注入只消费不自定坐标（js/adventure-dims-core.js 维度段起被 townBuild 的 townAssemblyPhases/townSpawnIntent 消费；T-MAP-03 起实拼注入）。
+应用层纯核心（js/town-map-core.js，零运行时依赖，有同名单测）：Midport Village 城镇布局唯一权威——一份确定性纯数据 TOWN_MAP 十段（core 核心区闭域+size/groundY · plaza 广场闭域 · beyond 越界白名单五段闭域（ADR-0013，T0 判据票）· zones 六带清单 · anchors 导览锚〔spawn 唯一，南主路上面北〕· prefab/roads/ground/backdrop/scatter 六清单，闭区间整数坐标，z 小=北）+ 建场步骤平铺纯函数 townBuildSteps()：六清单按 phase 全序展开成一张步骤表（地表→远景→路网→建筑→散布→锚点，docs/town-architecture-design.md §5.1.6 建场次序；每步=源条目浅拷贝+phase 标签，同参同输出零副作用），嵌套 v 与源清单共享引用、消费方只读。坐标拍板全部藏在这里——建场装配与材质注入只消费不自定坐标（js/adventure-dims-core.js 维度段起被 townBuild 的 townAssemblyPhases/townSpawnIntent 消费；T-MAP-03 起实拼注入）。
 _Avoid_: 城镇地图（散称）——模块名唯一，指代 js/town-map-core.js 时一律称城镇地图核心/TownMapCore
 
 **城镇交互核心（TownInteractCore）**:

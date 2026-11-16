@@ -25,8 +25,8 @@
       (map-design §4.3 视线管理; 塔足 z2=75), 空隙带 z29..31 体块零写入
       (Step E 起单格贴地点缀豁免——远景不可达=无立地面, 非无装饰);
    ⑧ 确定性: 同参同输出;
-   ⑨ 微改守门: town-map-core 头注释/GLOSSARY TownMapCore 词条「八段→九段」
-      措辞随本票校正(九键清单的事实修正, 数据零改动)。
+   ⑨ 微改守门: town-map-core 头注释/GLOSSARY TownMapCore 词条「九段→十段」
+      措辞随票校正(T0 beyond 判据票十键清单的事实进位, 数据零改动)。
    ⑩ 南缘攀登走廊与裙板合脊(PO 亲需② southCorridor 门控+scene
       6413b00 裙板协同): 缺省零变化(真布局走廊列无 z 单线笔)+合成
       条目镜像公式逐点全扫(走廊包络 ≤1 阶/南端贴地/北端接山肩/
@@ -829,17 +829,17 @@ test('确定性: 同参同输出 — townAssemblyOps(townBuildSteps()) 两次调
 
 /* ---------- ⑨ 微改守门 ---------- */
 
-test('微改守门: town-map-core 头注释与 GLOSSARY 词条「八段→九段」措辞校正(数据零改动)', () => {
+test('微改守门: town-map-core 头注释与 GLOSSARY 词条「九段→十段」措辞校正(数据零改动)', () => {
   const coreSrc = fs.readFileSync(path.join(ROOT, 'js', 'town-map-core.js'), 'utf8');
-  assert.ok(!/八段/.test(coreSrc) && /九段/.test(coreSrc),
-      'town-map-core interface 行「八段」→「九段」(TOWN_MAP 实有九键: core/plaza/zones + 六清单)');
+  assert.ok(!/八段/.test(coreSrc) && !/九段/.test(coreSrc) && /十段/.test(coreSrc),
+      'town-map-core interface 行「九段」→「十段」(TOWN_MAP 实有十键: core/plaza/beyond + 七清单; T0 beyond 判据票进位)');
   const gloss = fs.readFileSync(path.join(ROOT, 'GLOSSARY.md'), 'utf8');
   /* 定位锚用正文词条头形态(带换行+**: 后缀): 词条一览索引行也含同名条目
      (A2 双向对齐后), 裸名 indexOf 会先命中索引行致切片失效——精确锚非放宽 */
   const at = gloss.indexOf('\n**城镇地图核心（TownMapCore）**:');
   assert.ok(at > 0, 'GLOSSARY TownMapCore 词条在场(装具自检)');
   const entry = gloss.slice(at, gloss.indexOf('\n### ', at));
-  assert.ok(!/八段/.test(entry) && /九段/.test(entry), '词条段数措辞同校「九段」');
+  assert.ok(!/八段/.test(entry) && !/九段/.test(entry) && /十段/.test(entry), '词条段数措辞同校「十段」');
   assert.ok(/_Avoid_:.*城镇地图（散称）/.test(entry),
       '词条补 _Avoid_: 城镇地图（散称）(模块名唯一, 散称禁用)');
 });
