@@ -94,3 +94,43 @@ test('hintForSlot: 三型槽 — item(含空槽判空) / block / icon 名字-onl
   assert.strictEqual(sw.tts, '剑');
   assert.strictEqual(h.hintForSlot({icon: '❓'}), null, 'icon 型无名 → null');
 });
+
+/* ============ 篝火文案守门(篝火票据 T-C10, UI 定稿 §6 D 区) ============
+   审计型守门(设计即绿, C3 守门先例): ①§6.5-1 逐字+长度+tts 名字拼装
+   ②§6.4 禁词表零命中(⭐R2-3 防回潮——【UI 建议】项, 本票经理线要求落地)
+   ③BLOCK_HINTS 改道核对(spec §3.4 裁定: 81/82=零消费死数据不挂,
+   熄灭态话术走重燃点击气泡通道, 物品级说明由 ITEM_HINTS.campfire 承担)。 */
+
+/* UI 定稿 §6.4 禁词集(设计冻结, 逐字照抄; spec §3.1 红线词四枚全在列) */
+const CF_BANNED = ['风', '升', '上升', '飞', '气流', '翅膀', '翼', '滑翔', '乘', '托', '任务', '倒计时'];
+
+test('T-C10 判据1: ITEM_HINTS.campfire 逐字定稿+≤16 字+tts 名字拼装(UI 定稿 §6.1/§6.5-1)', () => {
+  const h = loadHints();
+  assert.strictEqual(h.ITEM_HINTS.campfire, '放在地上，烧好久好久，又亮又暖',
+      '逐字=UI 定稿 §6.1(禁改写; 不复述名字, 「篝火」二字由 tts 拼装带出)');
+  assert.ok(h.ITEM_HINTS.campfire.length <= 16, '长度 ≤16(§6.1 定稿 15 字)');
+  const hint = h.hintForItem('campfire');
+  assert.strictEqual(hint.name, '篝火', '名字单源 ITEMS');
+  assert.strictEqual(hint.tts, '篝火，放在地上，烧好久好久，又亮又暖',
+      'tts=名字+，+说明(§6.5-1: 点选读出「篝火，放在地上……」)');
+});
+
+test('T-C10 判据2: §6.4 禁词表扫描 — §6.1 物品提示零命中(⭐R2-3 不剧透守门)', () => {
+  const h = loadHints();
+  for (const w of CF_BANNED) {
+    assert.ok(!h.ITEM_HINTS.campfire.includes(w), '禁词「' + w + '」零命中(§6.4 词集)');
+  }
+});
+
+test('T-C10 判据4(按 spec §3.4 裁定改读): BLOCK_HINTS 无 81/82 行 · 无 campfire 旗标行' +
+    '(改道=熄灭态话术走重燃点击气泡通道, 消费面见 place-kit tryCampfireRelight)', () => {
+  const h = loadHints();
+  assert.ok(!('81' in h.BLOCK_HINTS), '无 81(燃烧态)行——燃烧态条不落注册表(零消费死数据)');
+  assert.ok(!('82' in h.BLOCK_HINTS), '无 82(熄灭态)行——重燃可供性话术在点击气泡通道, 不挂注册表');
+  const cfIds = Object.keys(h.BLOCKS).filter((k) => h.BLOCKS[k] && h.BLOCKS[k].campfire);
+  assert.deepStrictEqual(cfIds.sort(), ['81', '82'],
+      '前置: 两态 id=81/82(config 现状; 若号段顺延, 本行随票面施工注记同步)');
+  for (const k of cfIds) {
+    assert.ok(!(k in h.BLOCK_HINTS), 'campfire 旗标行 ' + k + ' 不落 BLOCK_HINTS(旗标判据, id 改号免疫)');
+  }
+});
