@@ -1243,24 +1243,25 @@ const PUMPKIN_FACE_ART = [
   '................',
 ];
 
-/* 篝火字符画(篝火 T-C1 占位): 焰柱 + 三根原木垫底的简易形——正式 16×16
-   字符画归 T-C7 照 UI 定稿 §3.2 逐字符落位, 本票只求键集守门过+3 格外可辨 */
+/* 篝火字符画(UI 定稿 §3.2 定稿, 篝火 T-C7 逐字符落位): 火坑柴堆侧视——上半四档
+   色阶火苗(白芯→亮黄→橙), 下半原木床三档横梁+两端对角短棍+余烬炭点; 九色色板
+   同源见 UI 定稿 §3.1, 密度 106 实像素与 glider 同档 */
 const CAMPFIRE_ART = [
   '................',
   '................',
-  '.......f........',
-  '......ff........',
-  '.....fff...f....',
-  '....ffff..ff....',
-  '.....FFF..ff....',
-  '....FFFFF.fF....',
-  '....FFFFFFF.....',
-  '.....FFFFF......',
-  '....FFFFFFF.....',
-  '.....FFFFF......',
-  '..LL..LLL..LL...',
-  '.LLLL.LLLL.LLL..',
-  '...dddddddddd...',
+  '........f.......',
+  '........fF......',
+  '.......fFFf.....',
+  '......fFWWFf....',
+  '.....fFWwWFf....',
+  '....fFWwwWFf....',
+  '....FFWwwWFF....',
+  '...fFFWWWWFFf...',
+  '..keFFWWWFFek...',
+  '.L..ekkeekk...L.',
+  '..LllllllllllL..',
+  '.dLLLLLLLLLLLLd.',
+  '.dddddddddddddd.',
   '................',
 ];
 
@@ -1334,7 +1335,6 @@ const ITEM_PIX = {
     W: '#96693c', w: '#7d5730', m: '#5d3f21', d: '#46301c'}}, // 昼夜 D6: 白枕红毯 + 原木系框脚(log 色板)
   lantern: {art: LANTERN_ART, map: {h: '#4a5058', K: '#3d434c', k: '#23272e',
     W: '#fff3b0', F: '#ffd83d', f: '#ff9d2e'}}, // 昼夜 D7: 深色铁骨架 + 暖黄光芯(焰色与火把/太阳亮心同板)
-  campfire: {art: CAMPFIRE_ART, map: {f: '#e8632c', F: '#ffd83d', L: '#96693c', d: '#5d3f21'}}, // 篝火 T-C1 占位画(正式版归 T-C7)
   tnt: {art: TNT_ART, map: {r: '#d0342c', R: '#f05545', w: '#ececec', k: '#1a1a1a', d: '#a02018'}},
   door: {art: DOOR_ART, map: {d: '#6b451f', l: '#caa06e', m: '#b1804f', k: '#4a4f57', K: '#d8dde5'}}, // 门(设计稿 §5.3): 板色与箱子同板
   glass_pane: {art: PANE_ART, map: {f: '#cfe8ef', g: 'rgba(205,235,245,0.30)', h: '#ffffff'}}, // 玻璃板: 框+透明芯, GLASS_ART 同板
@@ -1418,6 +1418,12 @@ for (const [slot, art] of [['helmet', HELMET_ART], ['chestplate', CHESTPLATE_ART
 ITEM_PIX.glider = {art: GLIDER_ART, map: {
   'g': PIX_TIER.gold.main, 'G': PIX_TIER.gold.light,
   '+': '#d08a5a', '-': '#b0553a', 'w': '#e0ded4'}};
+
+/* 篝火单条目(篝火 T-C7, UI 定稿 §3.1/§3.2 定稿逐字符): 火坑柴堆九色——
+   焰四档(w/W/f/F)+余烬红 e+炭黑 k+原木三档(L/l/d), hex 逐字照抄 §3.1 不改档 */
+ITEM_PIX.campfire = {art: CAMPFIRE_ART, map: {
+  'w': '#ffffff', 'W': '#ffff97', 'f': '#ffd800', 'F': '#ff8f00',
+  'e': '#e05a1a', 'k': '#2f2a26', 'L': '#8a5a2b', 'l': '#a8743d', 'd': '#6b451f'}};
 
 /* ---------- 渲染与出口 ---------- */
 

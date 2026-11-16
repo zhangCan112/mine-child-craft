@@ -68,12 +68,12 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 |----|------|------|------|
 | T-C1 | tracer 竖切：合成→放置即燃→侧账→燃尽消失 | — | ☑ 已并入（f8b133b 实现 + 5f634b2 评审修，双轴评审 PASS；含票外相邻改动追认：craft-core shapeCost 显示序，评审 S-1） |
 | T-C2 | 引擎气流：updraft-core+乘流+展翼豁免+遮挡截断+多柱 max | T-C1 | ◐ 进行中（feat/campfire） |
-| T-C3 | 熄灭与重燃：水浇转熄灭态+点击重燃+任意态挖掘回收 | T-C1 | ☐ 待领取 |
+| T-C3 | 熄灭与重燃：水浇转熄灭态+点击重燃+任意态挖掘回收 | T-C1 | ◐ 进行中（campfire-mech/tc3） |
 | T-C4 | 烫伤：玩家节拍+怪物同规则+fireTick 事件缝 | T-C1 | ☐ 待领取 |
 | T-C5 | 存档与口径：campfires 档键+重放对账+跨图同烧+体验馆 dev | T-C1, T-C3 | ☐ 待领取 |
 | T-C6 | 性能基准：50 火实测（光 BFS+柱查询+粒子空转） | T-C2 | ☐ 待领取 |
-| T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☐ 待领取 |
-| T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☐ 待领取 |
+| T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☑ 已并入（tc7 b8b6efb，合并 693ddac；双轴评审零发现；design-lead 视觉验收过，工件 .scratch/campfire/tc7-review/） |
+| T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ◐ 进行中（campfire-ui2/tc8） |
 | T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ☐ 待领取 |
 | T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☐ 待领取 |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☐ 待领取 |
@@ -134,7 +134,8 @@ T-C1 ──┬─→ T-C2 ─┬─→ T-C6
    `B_CAMPFIRE_OUT`=**81/82**（定稿建议值；现号段已用至 80=B_GATE_SIGN，
    2026-11-16 核实；**落位以实现期 config.js 现状为准**，冲突经派令方回票不改
    spec）+ `campfire: 'lit'|'out'` 身份旗标 + 燃烧态 `light: 15`/熄灭态 `light: 0` +
-   `thin: 0.5, solid: true`（半格实体、可碰撞可站立）；CAMPFIRE 参数块照 §3.9
+   `thin: 0.5, solid: true`（半格实体观感、可碰撞可站立——站立面=voxel 整格
+   贴齐，thin 不参与物理，见 spec §3.4 勘误）；CAMPFIRE 参数块照 §3.9
    初值（6000 刻/柱高 20/截面 3×3/升速 +3.0 等）。
 4. **放置即燃**（spec §3.3）：PlaceKit.tryPlace（探险/体验馆共享缝，零场景分支）
    + onPlaced 钩挂侧账建条（满 6000 刻，树苗挂表同缝先例）；底座判据=任何实体
@@ -262,7 +263,7 @@ test/updraft-core.test.js（**新建**同名单测）· 既有滑翔回归测试
 
 ## T-C3 熄灭与重燃：水浇转熄灭态 + 点击重燃 + 任意态挖掘回收
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1｜blocks：T-C5
+> 标签：`task`｜状态：◐ 进行中（campfire-mech/tc3）｜blocked-by：T-C1｜blocks：T-C5
 
 **纪律三件**：见解票须知第 5 条。
 
@@ -333,8 +334,9 @@ js/mode-kit.js（kitHint 气泡通道消费）· js/items-core.js（drops 回收
 ### 要求
 
 1. **引擎侧**（voxel.js physics，spec §6-2 红线「引擎只报事件」）：支撑格采样
-   （onGround 且支撑格=燃烧态篝火——半格实体可站立是 T-C1 `thin: 0.5, solid:
-   true` 的前提）+ 计息器（节拍 20 刻，lavaAcc 同款：引擎内累积器、离火清零）；
+   （onGround 且支撑格=燃烧态篝火——可站立前提=T-C1 `solid: true`，站立面=
+   voxel 整格贴齐、thin 不参与物理，spec §3.4 勘误）+ 计息器（节拍 20 刻，
+   lavaAcc 同款：引擎内累积器、离火清零）；
    到拍置位 `worldEvents.fireTick`（**新事件**，voidFall/splash/land/lavaTick
    先例族）；引擎不知 HP。
 2. **玩家结算**（模式层）：环境伤 advEnvHurt（**不经盔甲折减**，与摔落/岩浆同
@@ -456,7 +458,7 @@ js/effects.js（粒子负载面）· 基准脚本（落位与命名实现线定�
 
 ## T-C7 UI A 区：道具图标 + 配方卡观感
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1, 设计定稿（**已满足**：UI 定稿
+> 标签：`task`｜状态：☑ 已并入（tc7 b8b6efb，合并 693ddac）｜blocked-by：T-C1, 设计定稿（**已满足**：UI 定稿
 > v1.1 落盘 2026-11-16）｜blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
@@ -506,7 +508,7 @@ js/icons.js（ITEM_PIX.campfire）· js/mode-kit.js（mkCraftPanel/kitIconHtml �
 
 ## T-C8 UI B 区：两态贴图入集
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1, 设计定稿（**已满足**）｜
+> 标签：`task`｜状态：◐ 进行中（campfire-ui2/tc8）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
 > blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。

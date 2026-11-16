@@ -912,10 +912,16 @@ function cfKitResolve() {
   };
   return {mkCampfireLedger: () => bareLedger};
 }
-const advCampfires = cfKitResolve().mkCampfireLedger({onBurnout: (x, y, z) => {
-  advMarkEdit(x, y, z, 0); /* 燃尽格先记账(级联清单不含触发格, 后写覆盖才对) */
-  advCascadeApply(editBlock(x, y, z, 0), false); /* 编辑链移除+级联(上方依附 thin 块随底座脱落) */
-}});
+const advCampfires = cfKitResolve().mkCampfireLedger({
+  /* 气流注册/注销缝(篝火 T-C2, spec §3.5): 燃烧态=plant 即 add、燃尽到期/
+     挖除=remove, 单源装配=world.js 的 UPDRAFT_SIM(fluid sim 同装配位);
+     经典 script 共享词法经 world.js 装载序在前直用, Node require 域无
+     world.js → typeof 守卫回落 null(kit 缝未注入=全程容忍零炸) */
+  updraft: (typeof UPDRAFT_SIM !== 'undefined') ? UPDRAFT_SIM : null,
+  onBurnout: (x, y, z) => {
+    advMarkEdit(x, y, z, 0); /* 燃尽格先记账(级联清单不含触发格, 后写覆盖才对) */
+    advCascadeApply(editBlock(x, y, z, 0), false); /* 编辑链移除+级联(上方依附 thin 块随底座脱落) */
+  }});
 /* 大宝箱面板(引导链 v2): 政策与存档在本文件下方箱子段, 面板只管格子 */
 const advChestPanel = ModeKit.mkChestPanel({inv: advInv, chest: () => advChest,
   next: () => advChestNext(advChest.base), have: (id) => count(advInv, id),
