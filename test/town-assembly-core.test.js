@@ -87,7 +87,7 @@ const PALETTE_WANT = {
   backdrop: {mountain: 3, cliffHome: 6, mountainSnow: 54, mountainMoss: 14,
     mountainGrass: 1, boulder: 14, cliffWall: 52, cliffFrame: 17, cliffRoof: 9,
     cliffLamp: 19, cliffWindow: 18},
-  props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6,
+  props: {lampBase: 17, lampPost: 5, lampLight: 19, lampShade: 80, signPost: 5, signBoard: 6,
     tuft: 40, flagPole: 5, flowerbedRing: 40, barrel: 5, pumpkin: 76,
     plank: 5, glassPane: 68, crateBox: 51,
     flagCloth: {sakura: 78, blue: 15, quartz: 17, red: 16},
@@ -226,6 +226,146 @@ test('钉值: TOWN_PALETTE 全表独立字面量逐键相等(设计权威转录,
   const got = JSON.parse(probe(ctx, 'JSON.stringify(TOWN_PALETTE)'));
   assert.deepStrictEqual(got, PALETTE_WANT,
       '全表与设计权威字面量逐键相等(含键集形状: 多键少键换值皆红)');
+});
+
+/* ---------- ③b 夜态落位(T-NPC-15b: E1 暖金灯罩键 + E5 窗光/塔灯, 权威 =
+   docs/design/town-night-ambiance-design.md §2.1/§2.2/§5-E1/E5) ---------- */
+
+/* E1 独立判据: 键名按用途命名(lampShade=灯罩造型笔用色, 供 15c 引用, 定稿
+   §5-E1「案②街灯完形前置」); 值=既有 atlas 薄片件兜底(立票复核项 1 默认路:
+   现役块面 0-19 无 #E3B23C 字面档 → 80 门额牌 #C89858=[0.784,0.596,0.345]
+   是全表最贴 #E3B23C=227,178,60 的非花色档, 零新增块/件=零静默回执升级;
+   值可重映射=revamp-spec §5 契约, 15c 定稿可换值)。票外留痕: 80 带
+   gateSign 旗标=mesh 竖板专用小盒路径(镇徽图案面), 15c 造型笔消费时若
+   观感冲突即走值重映射或按复核项 1 三路走新件登记。
+   债 5 同收口: revamp-spec §5 键集登记(键名/色值/用途)与改源同 commit
+   不许拆期——本断言读规格文本, 源键落地而登记缺席即红。 */
+test('E1 暖金灯罩键: props.lampShade=80 在册(既有 atlas 薄片件兜底, 造型件零光源) + revamp-spec §5 键集登记同收口(债 5)', () => {
+  const ctx = loadCore();
+  assert.strictEqual(probe(ctx, 'TOWN_PALETTE.props.lampShade'),
+      PALETTE_WANT.props.lampShade,
+      '暖金灯罩键在册(props 段, 与钉值全表转录同值, 防漂移)');
+  const def = JSON.parse(probe(ctx, 'JSON.stringify(BLOCKS[TOWN_PALETTE.props.lampShade])'));
+  assert.ok(def && def.thin > 0 && def.gateSign,
+      '兜底值=80 门额牌(既有 atlas 薄片件, 立票复核项 1 默认路; 新增块/件须票面登记回执=未走)');
+  assert.ok(!def.light, '灯罩=造型增笔非光源(零 light 旗标, 定稿 §2.1 灯块原位保留零新增光源)');
+  const spec = fs.readFileSync(
+      path.join(ROOT, 'docs', 'design', 'town-visual-revamp-spec.md'), 'utf8');
+  assert.ok(spec.includes('lampShade') && spec.includes('#E3B23C'),
+      'revamp-spec §5 新键登记在册(键名 lampShade/#E3B23C 色档/用途=灯罩造型笔用色), 两改同收口(债 5)');
+});
+
+/* E5 落位独立判据(定稿 §2.1/§2.2 逐项): 窗光=民居 A 2 扇+民居 B 1 扇=3 扇
+   (1 扇=1 窗开口 1 灯点), 钟塔灯=钟室暖点 1, 全载体 A=窗内侧嵌灯块 id19
+   烘焙(玻璃 id18 全透光=窗光可透, GLOSSARY 光照核心差异 #7; 屋内同步点亮
+   =「有人家」加分读法, 定稿 §2.2 注)——零载体 B ⇒ 15a registerNightGlow
+   零消费(N1 注销缝零触发留痕)、门控衔接=烘焙类零门控天然渐显(验收 #7 前支)。
+   落位机制: tidea.nightLight 顶层命名空间键(stash porchLamp/groundMark 同款
+   「pfMerge 只读 v/footOf 只读 v·face, 顶层新键双静默」契约), 世界系锚相对
+   偏移=groundMark 先例零朝向变换, 装配面派生单格 fill(lampLight 槽材质单源),
+   零触 prefab-kit/零触 lamp 清单段(红线结构保证)。
+   密度护栏(定稿 §2.1 写死三值): 灯柱 11 零新增(scatter 结构保证)/新增光源
+   点 4∈[3,5]/总暖点 17≤18(台账=定稿 §1-7 现册 13 装置: 11 柱+Lava Chicken
+   招牌灯/橱窗 1+stash 门廊挂灯 1; 钟体 bell:19 是钟非灯点不入台账, 崖屋
+   灯点属远景 backdrop 不入全镇口径)。点位避让(复核项 2): 灯点=门窗格内侧
+   空腔格, 零触门窗开合格与花坛域, 且 ⊆ 宿主脚印盒(footOf 语义)。 */
+test('E5 夜态落位: 窗光 3 扇+钟室灯点 1 载体 A 烘焙(tidea.nightLight 世界系派生 fill) · 密度护栏三值 · 点位避让 · 零门控依赖', () => {
+  const ctx = loadCore();
+  const ops = opsJson(ctx);
+  const rowsOf = (id) => JSON.parse(probe(ctx,
+      'JSON.stringify(townBuildSteps().filter((s) => s.phase === "prefab" && s.id === ' +
+      JSON.stringify(id) + '))'));
+  const tower = rowsOf('tower-belfry');
+  const cottage = rowsOf('cottage-gable');
+  const loft = rowsOf('house-loft');
+  assert.strictEqual(tower.length, 1, '钟塔恰一栋(塔灯点位宿主唯一)');
+  assert.strictEqual(cottage.length, 1, '民居 A 恰一栋(定稿 §2.1 光源件清单)');
+  assert.strictEqual(loft.length, 1, '民居 B 恰一栋(定稿 §2.1 光源件清单)');
+  /* tidea.nightLight 在册: 世界系偏移独立字面量(几何推导锚=js/prefab-kit.js
+      kernel: cottage 前窗玻璃 (44+1..2,26,74) 门叶 (43,25..26,74) 侧窗玻璃
+      (47,26,71); loft face north=(−dx,−dz) 旋转变换, 前窗玻璃 (41/40,26,82);
+      belfry 钟室环 8 空气位取钟西侧 (−1,10,0)——四面开敞透光读法) */
+  assert.deepStrictEqual(cottage[0].tidea.nightLight,
+      [{dx: 1, dy: 2, dz: 2}, {dx: 2, dy: 2, dz: 0}],
+      '民居 A 2 扇: 前窗西格内侧 + 侧窗内侧(窗内侧嵌=载体 A, 定稿 §2.2)');
+  assert.deepStrictEqual(loft[0].tidea.nightLight,
+      [{dx: -1, dy: 2, dz: -2}],
+      '民居 B 1 扇: 一层前窗内侧(偏移已折 face north 世界系)');
+  assert.deepStrictEqual(tower[0].tidea.nightLight,
+      [{dx: -1, dy: 10, dz: 0}],
+      '钟室暖点 1: 开敞钟室环位贴钟西侧(金钟 dy10..11 室心 2×2×2, 远看「塔还醒着」)');
+  /* fill 派生: 恰 4 笔单格 id19(lampLight 槽单源), 世界坐标=锚+偏移;
+     过滤口径: 排 11 柱灯头(scatter 锚 y+5 单格)与崖屋远景灯点(z≤28 山带) */
+  const scatterLamps = JSON.parse(probe(ctx,
+      'JSON.stringify(townBuildSteps().filter((s) => s.phase === "scatter" && s.kind === "lamp"))'));
+  const isLampHead = (o) => scatterLamps.some((s) =>
+      o.x1 === s.x && o.x2 === s.x && o.z1 === s.z && o.z2 === s.z &&
+      o.y1 === s.y + 5 && o.y2 === s.y + 5);
+  const nightLights = ops.filter((o) => o.op === 'fill' &&
+      o.id === PALETTE_WANT.props.lampLight && !isLampHead(o) && o.z2 > 28);
+  assert.deepStrictEqual(nightLights, [
+    {op: 'fill', x1: 45, y1: 26, z1: 73, x2: 45, y2: 26, z2: 73,
+      id: PALETTE_WANT.props.lampLight},
+    {op: 'fill', x1: 46, y1: 26, z1: 71, x2: 46, y2: 26, z2: 71,
+      id: PALETTE_WANT.props.lampLight},
+    {op: 'fill', x1: 41, y1: 26, z1: 83, x2: 41, y2: 26, z2: 83,
+      id: PALETTE_WANT.props.lampLight},
+    {op: 'fill', x1: 78, y1: 34, z1: 72, x2: 78, y2: 34, z2: 72,
+      id: PALETTE_WANT.props.lampLight},
+  ], '夜态灯点恰 4 笔(窗光 3+钟室 1, 载体 A id19 烘焙; 全表无第 5 笔新增光源=护栏兑现)');
+  /* 密度护栏三值(定稿 §2.1 写死) */
+  assert.strictEqual(scatterLamps.length, 11,
+      '灯柱 11 零新增(lamp 清单段零 diff=结构保证, 定稿 §2.1 口径一)');
+  assert.ok(nightLights.length >= 3 && nightLights.length <= 5,
+      '新增光源点 4 ∈ [3,5](定稿 §2.1 口径二)');
+  const LEDGER_BASE = 13; /* 定稿 §1-7 现册装置: 11 柱+Lava Chicken 灯 1+stash 挂灯 1 */
+  assert.ok(LEDGER_BASE + nightLights.length <= 18,
+      '总暖点 ' + (LEDGER_BASE + nightLights.length) + ' ≤ 18(定稿 §2.1 口径三, 装置台账口径)');
+  /* 扇数口径(定稿 §2.1 每栋 1-2 扇, 合计 2-4) */
+  assert.strictEqual(cottage[0].tidea.nightLight.length + loft[0].tidea.nightLight.length, 3,
+      '窗光 3 扇 ∈ [2,4](民居 A 2+民居 B 1, 回退预案=每栋降 1 扇可裁)');
+  /* 点位避让(复核项 2): 门窗开合格与花坛域零触 + ⊆ 宿主脚印盒 */
+  const FORBID = [
+    43, 25, 74, 43, 26, 74, /* cottage 前门叶两格(开合避让) */
+    45, 26, 74, 46, 26, 74, 45, 27, 74, 46, 27, 74, 47, 26, 71, /* cottage 前窗玻璃/框楣+侧窗玻璃 */
+    43, 25, 82, 43, 26, 82, /* loft 前门叶两格 */
+    41, 26, 82, 40, 26, 82, 38, 26, 85, /* loft 一层前窗玻璃+东侧窗玻璃 */
+    45, 29, 82, 44, 29, 82, 41, 29, 83, 40, 29, 83, /* loft 二层挑窗/阳台落地窗玻璃 */
+  ];
+  const forbid = new Set();
+  for (let i = 0; i < FORBID.length; i += 3) forbid.add(FORBID.slice(i, i + 3).join(','));
+  const BEDS = [{x: 42, z: 76}, {x: 42, z: 80}, {x: 90, z: 92}]; /* 花坛锚三处(map-core 在册) */
+  const FEET = {
+    cottage: {x1: 40, y1: 24, z1: 68, x2: 47, y2: 30, z2: 74}, /* 8×7 高 7 */
+    loft: {x1: 38, y1: 24, z1: 82, x2: 47, y2: 32, z2: 89}, /* 10×8 高 9 */
+    tower: {x1: 77, y1: 24, z1: 70, x2: 82, y2: 39, z2: 75}, /* 6×6 高 16 档 */
+  };
+  const hostOf = (L) => L.y1 === 34 ? 'tower' : (L.z1 > 79 ? 'loft' : 'cottage');
+  for (const L of nightLights) {
+    const key = [L.x1, L.y1, L.z1].join(',');
+    assert.ok(!forbid.has(key), '灯点避让门窗开合格: ' + key);
+    assert.ok(!BEDS.some((b) => Math.abs(L.x1 - b.x) <= 1 && Math.abs(L.z1 - b.z) <= 1),
+        '灯点避让花坛域(3×3 环 ±1 格): ' + key);
+    const f = FEET[hostOf(L)];
+    assert.ok(L.x1 >= f.x1 && L.x1 <= f.x2 && L.y1 >= f.y1 && L.y1 <= f.y2 &&
+        L.z1 >= f.z1 && L.z1 <= f.z2, '灯点 ⊆ 宿主脚印盒(footOf 语义, 屋内嵌灯不出格): ' + key);
+  }
+  /* 序=后写者赢: 灯点 fill 在宿主 place 之后(腔格覆写有据) */
+  for (const L of nightLights) {
+    const hostId = {cottage: 'cottage-gable', loft: 'house-loft',
+      tower: 'tower-belfry'}[hostOf(L)];
+    const pi = ops.findIndex((o) => o.op === 'place' && o.id === hostId);
+    const fi = ops.findIndex((o) => o.op === 'fill' && o.x1 === L.x1 &&
+        o.y1 === L.y1 && o.z1 === L.z1);
+    assert.ok(pi >= 0 && fi > pi, hostId + ' 灯点 fill 在 place 后(序即几何)');
+  }
+  /* 门控衔接(验收 #7 前支): 全载体 A=装配核零 15a 机制消费(烘焙类天然渐显) */
+  const src = fs.readFileSync(CORE_SRC, 'utf8');
+  assert.ok(!/NightGlow/.test(src),
+      '装配核零 registerNightGlow 消费(全载体 A 零门控依赖; N1 注销缝零触发留痕)');
+  const def19 = JSON.parse(probe(ctx, 'JSON.stringify(BLOCKS[19])'));
+  assert.strictEqual(def19.light, 15,
+      '灯点载体=灯块 19 烘焙类(light15 方块光, 零逐帧零新 mesh, 定稿 §3.c)');
 });
 
 /* ---------- ④ place 调用面 ---------- */
