@@ -1613,6 +1613,35 @@ test('T-C3 点击重燃整链: 半烧→浇熄→空手点击 — 燃烧态落�
   assert.strictEqual(A.advCampfires.map.size, 0, '再熄删条');
 });
 
+test('T-C3-R1 重燃话术视觉通道: hint-bubble 双行气泡(name 金大+desc 白小) · 零 toast · TTS 通道零改动(评审 SPEC-1)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  globalThis.editBlock(spot.x, 25, spot.z + 1, api.B_WATER);
+  AdventureMode.update(0.5);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE_OUT, '前置: 浇熄成熄灭态');
+  holdOnly(null);
+  spoken.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '前置: 重燃成功(因果链既有断言原样)');
+  /* 视觉通道: 单例 div.hint-bubble 挂 body, 双行 markup=<b>名</b><i>desc</i>
+     (mode-kit §②两通道分工: toast 承载系统消息, 气泡承载物品认知——重燃提示是
+     「物品认知」教学面, ADR 0018 可供性, 评审裁定走气泡); 3.2s 淡出档复用
+     mode-kit 渲染路径(时点行为归 mode-kit.test 既有断言, 此处不重复计时) */
+  const bubble = docBody.children.find((c) => c.classList.contains('hint-bubble'));
+  assert.ok(bubble, '重燃同拍出现提示气泡(div.hint-bubble 挂 body)');
+  assert.strictEqual(bubble.innerHTML,
+      '<b>' + api.BLOCKS[api.B_CAMPFIRE_OUT].name + '</b><i>点一下，就能再点着的火堆</i>',
+      '双行全消费: name 金大字+desc 白小字(ItemHint 形态, advCampfireRelightHint 单源)');
+  assert.strictEqual(+bubble.style.opacity, 1, '气泡即刻可见');
+  assert.ok(!calls.some((c) => c[0] === 'toast' && String(c[1]).includes('点一下')),
+      '视觉通道零 toast(旧通道退役, 零双通道并发出声)');
+  assert.ok(spoken.some((s) => String(s).includes('点一下，就能再点着的火堆')),
+      'TTS 通道零改动(advSpeak 照旧, 视觉/语音双通道同拍)');
+});
+
 test('T-C3 挖掘回收整链: 燃烧态/熄灭态挖走均还篝火×1 — 燃烧态挖走侧账删条(保底 1 零加成, 非木炭)', () => {
   mem.clear();
   freshInit();
