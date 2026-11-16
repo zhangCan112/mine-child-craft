@@ -299,7 +299,7 @@ test('E5 夜态落位: 窗光 3 扇+钟室灯点 1 载体 A 烘焙(tidea.nightLi
   const scatterLamps = JSON.parse(probe(ctx,
       'JSON.stringify(townBuildSteps().filter((s) => s.phase === "scatter" && s.kind === "lamp"))'));
   const isLampHead = (o) => scatterLamps.some((s) =>
-      o.x1 === s.x && o.x2 === s.x && o.z1 === s.z && o.z2 === s.z &&
+    o.x1 === s.x && o.x2 === s.x && o.z1 === s.z && o.z2 === s.z &&
       o.y1 === s.y + 5 && o.y2 === s.y + 5);
   const nightLights = ops.filter((o) => o.op === 'fill' &&
       o.id === PALETTE_WANT.props.lampLight && !isLampHead(o) && o.z2 > 28);
