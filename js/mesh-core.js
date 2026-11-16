@@ -127,24 +127,36 @@ const MeshCore = (() => {
   /* 篝火(半格扁盒 + 图集, 篝火 T-C8; spec §3.4 半格实体 + UI 定稿 §4.1 全脸同图):
      几何同 pushBedBox(thin 0.5 扁盒跳底面, top+4 侧五面); 贴图全脸同图——五面
      满幅采样同一画师格(侧面主视图+顶面同图, number 简写经 atlasTileOf 取格),
-     侧面纵向 2:1 压扁(slab 同惯例)。顶点光取自身格(薄块口径 §4.1, pushThin/
-     pushBedBox 一致: 燃烧态自身格 light 15 夜面自亮读作发光体, 熄灭态读作暗块);
+     侧面纵向 2:1 压扁(slab 同惯例)。取光语义与 pushThin/pushBedBox 不同构
+     (彼两类透光格自身格有光; 本块 solid+opaque 挡光格自身格恒 0): 燃烧态取
+     自身格(光源格 mkPolicy 例外自身格有值, light 15 夜面自亮读作发光体),
+     熄灭态取面朝向邻格光(ADR 0012 pushGateSign T4 同构——白昼上邻天光点亮
+     灰烬/原木床, 夜间邻格无光仍读暗块; 越界兜底走 lsky/lblk 既有口径)。
      不乘 tint(图集通道无 colors, 噪点自带)。无 bed/wall/gateSign 旗标:
      campfire 旗标块专行分派, 不走十字面片/纯色兜底通道。 */
-  function pushCampfireBox(t, x, y, z, h, ae, atlas, lvSky, lvBlk) {
+  function pushCampfireBox(t, x, y, z, lx, lz, h, ae, atlas, lsky, lblk, out) {
     const tile = atlasTileOf(ae, FACES[3].dir); /* 全脸同图: 任一面朝向同格 */
     const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
     for (let f=0; f<6; f++) {
       if (f===2) continue; // 底面贴地不可见, 不绘(pushBedBox 同款)
       const face = FACES[f];
+      /* 两态取光分口径(每面四顶点共用 fSky/fBlk, pushGateSign 同构):
+         out=熄灭态取面朝向邻格; 燃烧态取自身格(零改动锚) */
+      let fSky; let fBlk;
+      if (out) {
+        fSky = lsky(lx + face.dir[0], y + face.dir[1], lz + face.dir[2]) / 15;
+        fBlk = lblk(lx + face.dir[0], y + face.dir[1], lz + face.dir[2]) / 15;
+      } else {
+        fSky = lsky(lx, y, lz) / 15; fBlk = lblk(lx, y, lz) / 15;
+      }
       for (let c=0; c<4; c++) {
         const cor = face.corners[c];
         t.positions.push(x+cor[0], y+cor[1]*h, z+cor[2]);
         t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
         const uv = faceUV(face.dir, cor);
         t.uvs.push((tc+uv[0])/atlas.cols, (atlas.rows-1-tr+uv[1])/atlas.rows);
-        t.sky.push(lvSky);
-        t.block.push(lvBlk);
+        t.sky.push(fSky);
+        t.block.push(fBlk);
       }
       t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
       t.n += 4;
@@ -503,9 +515,10 @@ const MeshCore = (() => {
               }
               if (b.campfire) { // 篝火(campfire 旗标两态 81/82): 半格扁盒图集通道(UI 定稿 §4.1)
                 /* thin 0.5+solid 半格实体(spec §3.4): top+4 侧五面跳底面;
-                   顶点光取自身格(薄块口径, 燃烧态夜面自亮/熄灭态暗块) */
-                pushCampfireBox(A, wx, y, wz, b.thin, ae, atlas,
-                    lsky(lx, y, lz)/15, lblk(lx, y, lz)/15);
+                   取光两态分口径: 熄灭态取面朝向邻格(挡光格自身格恒 0,
+                   ADR 0012 T4 同构), 燃烧态取自身格(light 15 自亮) */
+                pushCampfireBox(A, wx, y, wz, lx, lz, b.thin, ae, atlas,
+                    lsky, lblk, b.campfire === 'out');
                 continue;
               }
               pushCross(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows,

@@ -943,3 +943,67 @@ test('篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自�
     assert.strictEqual(r2.atlas.block[i], 0, '熄灭态面顶点 block 光=0');
   }
 });
+
+/* ============ 篝火熄灭态顶点光(T-C8b 补丁): 面朝向邻格采样, ADR 0012 T4 同构 ============ */
+/* SPEC-1 评审实证: 熄灭态 solid+opaque → mkPolicy 挡光格, 自身格 sky/block 恒 0,
+   pushCampfireBox 旧径取自身格=五面全 0, 白昼近黑(灰烬斑/原木床不可见, 读作黑团)
+   ——「认得出熄灭篝火→可重燃」可供性依赖白昼可见(design-lead 裁定 2026-11-16, 裁「修」)。
+   取自身格对透光格(pushThin/pushBedBox 消费者)正确、对挡光格是语义错配;
+   修法=T4 口径: 每面取面朝向邻格光(pushGateSign/ADR 0012 同构)。燃烧态零改动:
+   光源格 mkPolicy 例外自身格 block=15, 取自身格语义正确(既有断言不回退)。 */
+test('meshChunk: 篝火熄灭态顶点光取面朝向邻格 — 五面逐面各取朝向格(白昼上邻 sky 15 顶面高亮, T-C8b T4 同构)', () => {
+  const t = loadAtlas();
+  /* 白昼口径: 熄灭篝火 (8,5,8) 挡光格自身恒 0; 上邻露天天光 15(评审 SPEC-1 实测可用);
+     四水平邻异值(13/6/0/5)——异值才能钉死「逐面各取朝向格」(同值分辨不出采样源) */
+  const p = mkPackL(1);
+  p.set(8, 5, 8, t.B_CAMPFIRE_OUT);
+  p.setL(8, 5, 8, 0, 0); /* 自身格: 挡光格恒 0(旧径白昼近黑病灶) */
+  p.setL(8, 6, 8, 15, 0); /* 上邻: 白昼露天天光 */
+  p.setL(7, 5, 8, 13, 0); /* 西邻: 天光 13(T4 白天口径同款值) */
+  p.setL(9, 5, 8, 6, 0); /* 东邻 */
+  p.setL(8, 5, 7, 0, 0); /* 北邻: 无天光 */
+  p.setL(8, 5, 9, 5, 0); /* 南邻 */
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(quads(r.atlas), 5, '熄灭态仍半格扁盒 5 面(几何零改动)');
+  const byN = quadsByNormal(r.atlas);
+  assert.ok(faceSkyEq(r.atlas, byN.get('0,1,0'), s15(15)),
+      '顶面 sky=上邻格 15(白昼灰烬斑/原木床三档可辨), 不取自身格 0');
+  assert.ok(faceSkyEq(r.atlas, byN.get('-1,0,0'), s15(13)), '西面 sky=西邻格 13');
+  assert.ok(faceSkyEq(r.atlas, byN.get('1,0,0'), s15(6)), '东面 sky=东邻格 6');
+  assert.ok(faceSkyEq(r.atlas, byN.get('0,0,-1'), s15(0)), '北面 sky=北邻格 0');
+  assert.ok(faceSkyEq(r.atlas, byN.get('0,0,1'), s15(5)), '南面 sky=南邻格 5');
+  /* block 通道同口径(T4 壁灯照牌同构): 邻格光源照熄灭篝火 → 对应面顶点跟随 */
+  p.setL(7, 5, 8, 13, 14);
+  const r3 = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.ok(faceBlkEq(r3.atlas, quadsByNormal(r3.atlas).get('-1,0,0'), s15(14)),
+      '熄灭态西面 block=西邻格 14(邻光照灰烬, T4 口径双通道)');
+});
+
+test('meshChunk: 篝火两态取光口径不回退 — 熄灭态夜间全邻无光仍读暗块(§4.5-2), 燃烧态自亮仍取自身格(T-C8b 零改动锚)', () => {
+  const t = loadAtlas();
+  /* 夜间熄灭态: 五邻全 0 → 全面 0(design-lead 判据「夜间仍读暗块」程序面) */
+  const p = mkPackL(1);
+  p.set(8, 5, 8, t.B_CAMPFIRE_OUT);
+  p.setL(8, 5, 8, 0, 0);
+  let r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  for (let i = 0; i < r.atlas.sky.length; i++) {
+    assert.strictEqual(r.atlas.sky[i], 0, '夜间熄灭态面顶点 sky=0(暗块不回退)');
+  }
+  for (let i = 0; i < r.atlas.block.length; i++) {
+    assert.strictEqual(r.atlas.block[i], 0, '夜间熄灭态面顶点 block=0(暗块不回退)');
+  }
+  /* 燃烧态零改动锚: 取光分支只属熄灭态——自身格仍取自身(夜 sky 0/block 15),
+     上邻白昼天光 15 不得渗入燃烧态任一通道 */
+  const q = mkPackL(1);
+  q.set(8, 5, 8, t.B_CAMPFIRE);
+  q.setL(8, 5, 8, 0, 15); /* 光源格例外: block=15 自亮(T-C1 light 行) */
+  q.setL(8, 6, 8, 15, 0); /* 上邻白昼天光(误改燃烧态=邻格采样即渗入, 此锚红) */
+  r = t.MeshCore.meshChunk(q, atlasOpt(t));
+  assert.strictEqual(quads(r.atlas), 5, '燃烧态仍半格扁盒 5 面');
+  for (let i = 0; i < r.atlas.block.length; i++) {
+    assert.strictEqual(r.atlas.block[i], 1, '燃烧态面顶点 block=15/15 自亮(既有锚原样)');
+  }
+  for (let i = 0; i < r.atlas.sky.length; i++) {
+    assert.strictEqual(r.atlas.sky[i], 0, '燃烧态面顶点 sky=自身格 0(零改动: 邻格天光不渗入)');
+  }
+});

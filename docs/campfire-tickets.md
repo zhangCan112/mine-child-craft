@@ -68,15 +68,16 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 |----|------|------|------|
 | T-C1 | tracer 竖切：合成→放置即燃→侧账→燃尽消失 | — | ☑ 已并入（f8b133b 实现 + 5f634b2 评审修，双轴评审 PASS；含票外相邻改动追认：craft-core shapeCost 显示序，评审 S-1） |
 | T-C2 | 引擎气流：updraft-core+乘流+展翼豁免+遮挡截断+多柱 max | T-C1 | ☑ 已并入（708e9d0 实现 + 90c6193 裁决 + ababee5 评审修复；规格轴 FAIL→修复→复审 PASS） |
-| T-C3 | 熄灭与重燃：水浇转熄灭态+点击重燃+任意态挖掘回收 | T-C1 | ◐ 进行中（campfire-mech/tc3） |
-| T-C4 | 烫伤：玩家节拍+怪物同规则+fireTick 事件缝 | T-C1 | ☐ 待领取 |
+| T-C3 | 熄灭与重燃：水浇转熄灭态+点击重燃+任意态挖掘回收 | T-C1 | ☑ 已并入（红 ac5c253 + 绿 cc3dcb1 + 修复 7bb4123；评审 FAIL→修复→复审 PASS） |
+| T-C4 | 烫伤：玩家节拍+怪物同规则+fireTick 事件缝 | T-C1 | ◐ 进行中（campfire-mech/tc4） |
 | T-C5 | 存档与口径：campfires 档键+重放对账+跨图同烧+体验馆 dev | T-C1, T-C3 | ☐ 待领取 |
 | T-C6 | 性能基准：50 火实测（光 BFS+柱查询+粒子空转） | T-C2 | ☐ 待领取 |
 | T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☑ 已并入（tc7 b8b6efb，合并 693ddac；双轴评审零发现；design-lead 视觉验收过，工件 .scratch/campfire/tc7-review/） |
-| T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ◐ 评审过待并入（campfire-ui2/tc8，双轴 PASS，SPEC-1/STD-1 出补丁票 T-C8b） |
-| T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ☐ 待领取 |
-| T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ☐ 待领取 |
-| T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☐ 待领取 |
+| T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档） |
+| T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ☑ 已并入+视觉验收 PASS（39261ce，合并 050be81；双轴评审 PASS + design-lead 基线对比验收 PASS） |
+| T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 进行中（campfire-ui/tc9） |
+| T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☑ 已并入（00c6aa2+34363c4，合并 3df8a5c；双轴评审 PASS；通道面出 T-C10b） |
+| T-C10b | 补丁：放置失败话术通道接线（气泡+TTS） | T-C10, 定稿 v1.6✅ | ◐ 进行中（campfire-ui2/tc10b） |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☐ 待领取 |
 | T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 + T-C8b 全部 | ☐ 待领取 |
 
@@ -90,9 +91,9 @@ T-C1 ──┬─→ T-C2 ─┬─→ T-C6
        ├─→ T-C3 ─┴─→ T-C9      设计定稿（已满足）─┬─→ T-C7
        ├─→ T-C4                                  ├─→ T-C8 ─→ T-C8b
        ├─→ T-C5（另依赖 T-C3）                   ├─→ T-C9（另依赖 T-C2）
-       └─→ T-C7/T-C8/T-C10/T-C11 ───────────────┼─→ T-C10
+       └─→ T-C7/T-C8/T-C10/T-C11 ───────────────┼─→ T-C10 ─→ T-C10b
                                                 └─→ T-C11
-全部（含 T-C8b）─→ T-C12
+全部（含 T-C8b、T-C10b）─→ T-C12
 ```
 
 ---
@@ -264,7 +265,7 @@ test/updraft-core.test.js（**新建**同名单测）· 既有滑翔回归测试
 
 ## T-C3 熄灭与重燃：水浇转熄灭态 + 点击重燃 + 任意态挖掘回收
 
-> 标签：`task`｜状态：◐ 进行中（campfire-mech/tc3）｜blocked-by：T-C1｜blocks：T-C5
+> 标签：`task`｜状态：☑ 已并入（红 ac5c253 + 绿 cc3dcb1 + 修复 7bb4123，复审 PASS）｜blocked-by：T-C1｜blocks：T-C5
 
 **纪律三件**：见解票须知第 5 条。
 
@@ -322,7 +323,7 @@ js/mode-kit.js（kitHint 气泡通道消费）· js/items-core.js（drops 回收
 
 ## T-C4 烫伤：玩家节拍 + 怪物同规则 + fireTick 事件缝
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1｜blocks：—（T-C12 除外）
+> 标签：`task`｜状态：◐ 进行中（campfire-mech/tc4）｜blocked-by：T-C1｜blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
 
@@ -509,7 +510,7 @@ js/icons.js（ITEM_PIX.campfire）· js/mode-kit.js（mkCraftPanel/kitIconHtml �
 
 ## T-C8 UI B 区：两态贴图入集
 
-> 标签：`task`｜状态：◐ 评审过待并入（tc8 6788aa9，双轴 PASS）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
+> 标签：`task`｜状态：☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
 > blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
@@ -567,7 +568,7 @@ js/config.js（BLOCKS 两态行消费贴图格）· test/（图集单测）。
 
 ## T-C8b 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C8, T-C1｜blocks：T-C12
+> 标签：`task`｜状态：☑ 已并入+视觉验收 PASS（39261ce，合并 050be81）｜blocked-by：T-C8, T-C1｜blocks：T-C12
 
 **背景**（评审 SPEC-1 实证 + design-lead 裁定 2026-11-16，裁「修」）：熄灭态美术（UI 定稿 §4.3 灰烬斑/灰烬残带/原木床去受光档）与「认得出熄灭篝火→可重燃」可供性（ADR 0018 浇熄教学因果 + 点击重燃交互）依赖白昼可见；pushCampfireBox 现取自身格光，熄灭态 solid+opaque→mkPolicy 挡光格自身格 sky/block 恒 0→白昼近黑（~10% 亮度，灰烬/原木床不可见）。取自身格对透光格（pushThin/pushBedBox 消费者，非挡光格）正确、对挡光格是语义错配；同构先例=pushGateSign T4 返工（取面朝向邻格光，ADR 0012）。
 
@@ -601,7 +602,7 @@ js/mesh-core.js（pushCampfireBox 取光分支 + 头注）· test/texture-atlas.
 
 ## T-C9 UI C 区：世界特效
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C2（气柱存在性）, 设计定稿
+> 标签：`task`｜状态：◐ 进行中（campfire-ui/tc9）｜blocked-by：T-C2（气柱存在性）, 设计定稿
 > （**已满足**）｜blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
@@ -671,7 +672,7 @@ js/campfire-kit.js（状态迁移点触发接线）· js/config.js（IS_LOWCORE_
 
 ## T-C10 UI D 区：文案话术
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1, 设计定稿（**已满足**）｜
+> 标签：`task`｜状态：☑ 已并入（双轴评审 PASS；通道面出 T-C10b）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
 > blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
@@ -740,6 +741,43 @@ js/item-hint-registry.js（ITEM_HINTS/BLOCK_HINTS 注册表）· js/mode-kit.js
   话术逐字=UI 定稿 §6.3 案 1 熄灭态条）。UI 定稿 §6.5 判据 4 的「BLOCK_HINTS
   双 id 落位」表述按本裁定改读，§6.3 案 1 **话术本身不变**（改的是通道，
   不是文案）。
+
+---
+
+## T-C10b 补丁：放置失败话术通道接线（气泡+TTS）
+
+> 标签：`task`｜状态：◐ 进行中（campfire-ui2/tc10b）｜blocked-by：T-C10, 定稿 v1.6（**已满足**）｜blocks：T-C12
+
+**背景**（C10 审计通道面核查 + design-lead 裁定 2026-11-17，裁 (b) 教学面）：篝火失败句是**篝火专属放置教学句**（教「结实地面」这条放置规则=T-2 裁定确认的核心学习点），归物品认知面；mode-kit.js:102 分工「toast 承载系统消息，气泡承载物品认知」——现状 o.say→advToast→#toast 纯视觉不符定稿 §6.2 原文「TTS 走 SpeechKit、气泡走 kitHint」与 §6.5-3「气泡+TTS 逐字」（T-C1 落地时偏离、两轮评审漏核，C10 审计揪出，裁定=打回修复非改定稿）。generic「这里放不了哦」=系统消息，留 toast 不动。
+
+### 要求
+
+1. **篝火失败分支接线双通道**（js/place-kit.js 篝火失败分支）：视觉=ModeKit.kitHintShow 气泡（双行 `{name:'篝火', desc:'要放在结实的东西上面哦'}`），听觉=SpeechKit 朗读全文逐字**含句尾「哦」**（软化词是设计语声）；**不做名字拼装**（消息自带主语「篝火」，拼名会读出重复——区别于 §6.5-1 ItemHint 拼装：hint 话术无主语、本句有）。
+2. **generic 分支与其余 o.say 话术零改动**：「这里放不了哦」仍走 toast；床/门/传送门等其余 o.say 消费点不在 §6.2 权威面，通道不动（防范围蔓延）。
+3. **首次失败必读**：失败话术是教学时刻，首次放置失败必呈现（气泡+TTS 同拍）；高频重复失败节流=实现自由度（SpeechKit 自带 cancel-then-speak latest-wins 不堆积，mode-kit.js:103；combat-kit.js:63 有高频场景 3 秒节流先例可抄），节流参数实现期调参不判变更。
+
+### 不做
+
+文案零改动（三句定稿逐字已在位）；generic 话术通道零改动；其余 o.say 消费点零触碰；贴图/特效/玩法零改动；定稿文档零改动（v1.6 归设计线）。
+
+### 验收标准（design-lead 判据 + 门禁）
+
+- [ ] §6.5-3（v1.6）通道断言：篝火失败同拍气泡呈现（kitHint 双行形态）+ SpeechKit 朗读（全文逐字含「哦」，无拼名）+ 首次失败必读；仅 toast=不符（红测先行）。
+- [ ] generic 分支行为零变化（既有断言不回退：「这里放不了哦」仍走 toast）。
+- [ ] 高频失败面节流/latest-wins 行为符合申报口径（实现自选，测试锚定）。
+- [ ] 两模式同文同通道（探险+体验馆；体验馆 dev 降噪既有口径不破）。
+- [ ] `npm test` 全绿 + `npm run lint` 三门零错误。
+
+### 源码挂靠点
+
+js/place-kit.js（篝火失败分支）· js/mode-kit.js（kitHintShow/SpeechKit 既有缝，预期零改动或导出面最小调整）· test/place-kit.test.js（通道断言）· test/adventure-mode.test.js / test/showroom-mode.test.js（整链与两模式同文）。
+
+### 施工注记
+
+- 定稿 v1.6（§6.2 通道口径括注+§6.5-3 通道断言细化+修订登记）design-lead 线在飞，**落盘即验收基准**；开工时若未落盘以本票面判据为准，落盘后核对无冲突（零文案改动，仅通道口径）。
+- mode-kit 分工头注与 C3 修复先例（kitHintShow 导出缝，单例气泡+双行 markup+3.2s 淡出）=直接复用面，**零第二份实现**。
+- 并行票警告：T-C4（mech/tc4 在飞）改动面=voxel/adventure-core/modes/adventure/campfire-kit——本票主改动面=place-kit+test，冲突面趋零；如需触 adventure.js 装配面先在回执报备。
+- 零 sfx 字面量落盘（audio-registry 守门）；假 DOM 一律 mkEl。
 
 ---
 
@@ -812,7 +850,7 @@ js/audio-registry.js（SFX_KINDS 两行）· js/campfire-kit.js（放置/重燃/
 
 ## T-C12 收口：GLOSSARY + README 核账 + 验收走查汇总 + 全量回归
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1~T-C11 + T-C8b 全部｜blocks：—
+> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1~T-C11 + T-C8b + T-C10b 全部｜blocks：—
 
 **纪律三件**：见解票须知第 5 条。
 

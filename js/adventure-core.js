@@ -2877,7 +2877,11 @@ function advCampfiresClean(map) {
 /* 浇熄几何(纯函数): 十字面四水平邻 + 正上共五格见水(B_WATER)=熄——正下不熄
    (火在实体块顶, 底面不沾水), 斜角不熄(十字面+顶, 非 3×3), 岩浆不熄(浇熄只
    认水)。read 是 (x,y,z)→方块 id 注入缝(campfire-kit tick 每刻传世界读缝,
-   纯测传假 read; 缝缺席返 false 零炸); B_WATER 经全局名调用期解析。 */
+   纯测传假 read; 缝缺席返 false 零炸); B_WATER 经全局名调用期解析。
+   边界注(T-C3 评审 SPEC-3): 本判据按 id(===B_WATER)与流体引擎旗标判据
+   (fluid-core mkPolicy 的 kindOf==='water')在现结构下等价——本项目水=单 id
+   B_WATER, 源/流动同 id 仅水位分档; 若未来新增第二种水族方块(药水染色水/
+   沼泽水等), id 比较将漏判, 须改走 fluid 旗标判据(政策上收 mkPolicy 派生面)。 */
 function advCampfireQuenchHit(x, y, z, read) {
   if (typeof read !== 'function') return false;
   return read(x + 1, y, z) === B_WATER || read(x - 1, y, z) === B_WATER ||
