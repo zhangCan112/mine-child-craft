@@ -1,0 +1,82 @@
+TAP version 13
+# Subtest: 规范: 模块文件名一律 kebab-case, 后缀只许语义表内的几种
+ok 1 - 规范: 模块文件名一律 kebab-case, 后缀只许语义表内的几种
+  ---
+  duration_ms: 1.3522
+  type: 'test'
+  ...
+# Subtest: 规范: 每个模块文件以 "use strict" 开头且有 ==== 包边的头注释契约
+ok 2 - 规范: 每个模块文件以 "use strict" 开头且有 ==== 包边的头注释契约
+  ---
+  duration_ms: 13.7659
+  type: 'test'
+  ...
+# Subtest: 规范: -core/-registry 纯核心与注册表必有同名单测(可测性是后缀语义的一部分)
+ok 3 - 规范: -core/-registry 纯核心与注册表必有同名单测(可测性是后缀语义的一部分)
+  ---
+  duration_ms: 0.3764
+  type: 'test'
+  ...
+# Subtest: 规范: 源文件文本卫生 — LF 行尾 · 无 BOM · 收尾换行 · 无尾随空白
+ok 4 - 规范: 源文件文本卫生 — LF 行尾 · 无 BOM · 收尾换行 · 无尾随空白
+  ---
+  duration_ms: 302.5366
+  type: 'test'
+  ...
+# Subtest: 规范: 文档指针零死链 — docs/ 引用与 md 相对链接必须指向存在的文件
+ok 5 - 规范: 文档指针零死链 — docs/ 引用与 md 相对链接必须指向存在的文件
+  ---
+  duration_ms: 96.9947
+  type: 'test'
+  ...
+# Subtest: 规范: 模式文件零直写玩家六绑定与滑翔旗标 — 传送/出生走 ModeKit.spawn, 飞行态走 setFly, 滑翔态走 setGliderEquipped/isGliding
+ok 6 - 规范: 模式文件零直写玩家六绑定与滑翔旗标 — 传送/出生走 ModeKit.spawn, 飞行态走 setFly, 滑翔态走 setGliderEquipped/isGliding
+  ---
+  duration_ms: 42.7664
+  type: 'test'
+  ...
+# Subtest: 规范: 模式文件零直写怪物实体水平位移 — 位移走 Mobs.move/setPos(内部序贴地)
+ok 7 - 规范: 模式文件零直写怪物实体水平位移 — 位移走 Mobs.move/setPos(内部序贴地)
+  ---
+  duration_ms: 14.7311
+  type: 'test'
+  ...
+# Subtest: 规范: 竞技场列边判据注入引擎 groundUnderAt — 地面语义单源, 本地只留圆形边界
+ok 8 - 规范: 竞技场列边判据注入引擎 groundUnderAt — 地面语义单源, 本地只留圆形边界
+  ---
+  duration_ms: 0.4221
+  type: 'test'
+  ...
+# Subtest: 规范: hand-view.js 装载序 held-item → hand-view → avatar(经典脚本顺序即依赖)
+ok 9 - 规范: hand-view.js 装载序 held-item → hand-view → avatar(经典脚本顺序即依赖)
+  ---
+  duration_ms: 0.2659
+  type: 'test'
+  ...
+# Subtest: 规范: 假 DOM 元素工厂单一来源 — test/ 禁自定义 fakeEl/mkEl 工厂, 一律用 test/helpers/fake-dom.js
+ok 10 - 规范: 假 DOM 元素工厂单一来源 — test/ 禁自定义 fakeEl/mkEl 工厂, 一律用 test/helpers/fake-dom.js
+  ---
+  duration_ms: 9.9927
+  type: 'test'
+  ...
+# Subtest: 规范: 假 DOM 工厂 smoke — 标准面行为抽验(className↔classList / live children / 属性私有 / NotFoundError)
+ok 11 - 规范: 假 DOM 工厂 smoke — 标准面行为抽验(className↔classList / live children / 属性私有 / NotFoundError)
+  ---
+  duration_ms: 1.0357
+  type: 'test'
+  ...
+# Subtest: 规范: GLOSSARY 词条一览 declared 计数=实际, 一览与正文词条双向对齐
+ok 12 - 规范: GLOSSARY 词条一览 declared 计数=实际, 一览与正文词条双向对齐
+  ---
+  duration_ms: 1.0678
+  type: 'test'
+  ...
+1..12
+# tests 12
+# suites 0
+# pass 12
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 534.3539

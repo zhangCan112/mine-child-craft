@@ -1,0 +1,39 @@
+
+> mine-child-craft@1.0.0 lint
+> eslint . && stylelint "css/**/*.css" && htmlhint index.html
+
+
+C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js
+   204:20  error  Unexpected space(s) after '{'                                                                                  block-spacing
+   206:1   error  This line has a length of 135. Maximum allowed is 120                                                          max-len
+   206:24  error  Unexpected space(s) after '{'                                                                                  block-spacing
+   458:26  error  Unexpected space(s) after '{'                                                                                  block-spacing
+   462:45  error  Statement inside of curly braces should be on next line                                                        brace-style
+   462:46  error  Unexpected space(s) after '{'                                                                                  block-spacing
+   462:74  error  Unexpected space(s) before '}'                                                                                 block-spacing
+   462:75  error  Closing curly brace should be on the same line as opening curly brace or on the line after the previous block  brace-style
+  5537:25  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5543:29  error  Statement inside of curly braces should be on next line                                                        brace-style
+  5543:30  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5543:92  error  Unexpected space(s) before '}'                                                                                 block-spacing
+  5543:93  error  Closing curly brace should be on the same line as opening curly brace or on the line after the previous block  brace-style
+  5544:28  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5560:34  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5565:25  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5570:23  error  Statement inside of curly braces should be on next line                                                        brace-style
+  5570:24  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5570:90  error  Unexpected space(s) before '}'                                                                                 block-spacing
+  5570:91  error  Closing curly brace should be on the same line as opening curly brace or on the line after the previous block  brace-style
+  5571:25  error  Statement inside of curly braces should be on next line                                                        brace-style
+  5571:26  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5571:94  error  Unexpected space(s) before '}'                                                                                 block-spacing
+  5571:95  error  Closing curly brace should be on the same line as opening curly brace or on the line after the previous block  brace-style
+  5572:25  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5577:25  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5583:27  error  Unexpected space(s) after '{'                                                                                  block-spacing
+  5731:1   error  This line has a length of 134. Maximum allowed is 120                                                          max-len
+  6011:33  error  Unexpected space(s) after '{'                                                                                  block-spacing
+
+✖ 29 problems (29 errors, 0 warnings)
+  27 errors and 0 warnings potentially fixable with the `--fix` option.
+
