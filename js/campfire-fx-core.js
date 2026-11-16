@@ -93,6 +93,8 @@ const CampfireFxCore = (function() {
     const FAR_D = 40; /* 只留烟柱的距离界(§5.9) */
     const NEAR_N = 3; /* 全额档座数(§5.9: 第 4 座起降档) */
     const VORTEX_DIE_S = 0.8; /* 燃尽后旋涡存量散尽时长(≤2s 全清预算内) */
+    const BURN_FLAME_S = 0.4; /* 燃尽余韵: 火苗发射率 0.4s 线性降 0(§5.6 评审 SPEC-2) */
+    const BURN_COLUMN_S = 0.3; /* 燃尽余韵: 柔柱透明度 0.3s 线性降 0(§5.6 评审 SPEC-2) */
 
     /* ---------- 参数表单源(§5.2/§5.3/§5.4 定稿数值, 低核档速率减半 §5.9) ---------- */
     const params = {
@@ -216,11 +218,14 @@ const CampfireFxCore = (function() {
       }
     }
 
-    /* §5.6 燃尽: 渐熄(火苗自然散/烟压帽/旋涡停补零补员)+轻灰 pop+尾烟一撮 3 粒 */
+    /* §5.6 燃尽: 渐熄(火苗发射 0.4s 线性降 0/烟压帽/旋涡停补零补员/柔柱 0.3s 降 0)
+       +轻灰 pop+尾烟一撮 3 粒; 余韵期(<0.4s)格保持可查, 期满查询面退场
+       (emitters null/cells 剔除, tick 内执行), 存量尾巴散尽后才回收格 */
     function burnout(x, y, z) {
       const c = cellsMap.get(key(x, y, z));
-      if (!c || !c.open) return; /* 悬空无害 */
+      if (!c || !c.open) return; /* 悬空无害(幂等: 余韵中再燃尽不重置起点) */
       c.open = false;
+      c.burnoutAt = now; /* 余韵期起点(§5.6 评审 SPEC-2: 燃尽非一帧消失, 期满摘格) */
       for (const p of c.smoke) p.life = Math.min(p.life, p.age + 1.6); /* ≤2s 全清预算 */
       for (const p of c.vortex) if (p.active) p.dying = 1e-6; /* 存量散散启动, 不补员 */
       c.transients.length = 0; /* 旧观感尾巴让位新过渡(轻灰散掉是本格此刻唯一事件面) */
@@ -265,8 +270,11 @@ const CampfireFxCore = (function() {
           const fadeS = fadeOf(c.left);
           c.tint = fadeS.tint;
           const rateF = tier === 'far' ? 0 : (tier === 'near' ? fP.rate / 2 : fP.rate);
-          /* 火苗发射: 渐弱窗内速率线性降档(§5.8); 渐起不侵计数(emitted=rate×t 口径) */
-          c.accF += rateF * fadeS.flameScale * dt;
+          /* 火苗发射: 实际乘子=渐起×渐弱线性降档(§5.5-2/§5.8), 梯形采样积分
+             (emitted=∫rate·ramp·fade dt, 评审 SPEC-1: 火「噗」地起来非瞬满;
+             线性 ramp 下梯形积分精确, 人口/快照等现时点面仍按当前 now 采样) */
+          const rampK = (Math.max(0, Math.min(1, (now - dt - c.openAt) / RAMP_S)) + ramp) / 2;
+          c.accF += rateF * fadeS.flameScale * rampK * dt;
           let n = Math.floor(c.accF + 1e-9);
           if (n > 0) {
             c.accF -= n;
@@ -274,8 +282,8 @@ const CampfireFxCore = (function() {
             /* 错龄入场: 负预龄=本帧将老化掉的量, 老化后恰落在窗口内的发射时点 */
             for (let j = 0; j < n; j++) spawnFlame(c, -dt * (j + 1) / n);
           }
-          /* 烟发射: 恒满额(降档清单没它/渐弱不衰减, §5.8/§5.9) */
-          c.accS += sP.rate * dt;
+          /* 烟发射: 渐起同口径积分(预算不降档/渐弱不衰减, §5.8/§5.9) */
+          c.accS += sP.rate * rampK * dt;
           n = Math.floor(c.accS + 1e-9);
           if (n > 0) {
             c.accS -= n;
@@ -289,6 +297,25 @@ const CampfireFxCore = (function() {
             const p = c.vortex[i];
             if (!p.active && !p.dying && i < target) p.active = true;
             else if (p.active && !p.dying && i >= target) p.active = false;
+          }
+        } else if (c.burnoutAt !== undefined) {
+          /* 燃尽余韵(§5.6 评审 SPEC-2): 火苗发射乘子=渐起×渐弱×0.4s 线性衰减,
+             梯形采样同口径(烟/旋涡停补保持现状=零补员); dAge≥0.4 发射停,
+             查询面退场(emitters null/cells 剔除), 存量尾巴自然散尽后回收格 */
+          const dAge = now - c.burnoutAt;
+          if (dAge < BURN_FLAME_S) {
+            const fadeG = fadeOf(c.left);
+            const rateFG = tier === 'far' ? 0 : (tier === 'near' ? fP.rate / 2 : fP.rate);
+            const ageA = Math.max(0, dAge - dt);
+            const burnK = (Math.max(0, 1 - ageA / BURN_FLAME_S) +
+                Math.max(0, 1 - dAge / BURN_FLAME_S)) / 2;
+            c.accF += rateFG * fadeG.flameScale * ramp * burnK * dt;
+            const nG = Math.floor(c.accF + 1e-9);
+            if (nG > 0) {
+              c.accF -= nG;
+              c.emittedF += nG;
+              for (let j = 0; j < nG; j++) spawnFlame(c, -dt * (j + 1) / nG);
+            }
           }
         }
         /* 旋涡推进: 公转+上升, 柱顶回卷取模(portalBeam motes 同款); 摘后 dying 散散 */
@@ -351,6 +378,14 @@ const CampfireFxCore = (function() {
             if (tr.age >= tr.hold) c.transients.splice(i, 1);
           }
         }
+        /* 余韵期满且存量清空 → 回收格(摘除面已在 ≥0.4s 退场; 在飞尾焰/尾烟
+           自然散尽才删, 燃尽同帧 0.5s 大步不吞 pop/尾烟——余韵增量 ≤0.4s 出生
+           +寿命 ≤0.7s, ≤2s 全清预算不破) */
+        if (!c.open && c.burnoutAt !== undefined && now - c.burnoutAt >= BURN_FLAME_S &&
+            !c.flame.length && !c.smoke.length && !c.transients.length &&
+            !c.vortex.some((p) => p.active)) {
+          cellsMap.delete(k);
+        }
       }
     }
 
@@ -374,7 +409,11 @@ const CampfireFxCore = (function() {
     }
     function cellsList() {
       const out = [];
-      for (const c of cellsMap.values()) out.push({x: c.x, y: c.y, z: c.z, open: c.open});
+      for (const c of cellsMap.values()) {
+        /* 燃尽余韵期满格剔除(§5.6 评审 SPEC-2): 查询面退场(内含格待尾巴散尽回收) */
+        if (!c.open && c.burnoutAt !== undefined && now - c.burnoutAt >= BURN_FLAME_S) continue;
+        out.push({x: c.x, y: c.y, z: c.z, open: c.open});
+      }
       return out;
     }
     function particles(x, y, z) {
@@ -384,23 +423,36 @@ const CampfireFxCore = (function() {
       for (const p of c.vortex) if (p.active) vs.push(p);
       return {flame: c.flame, smoke: c.smoke, vortex: vs, transients: c.transients};
     }
-    /* 发射器快照: budget 档位/rate 档后速率/rateScale=渐起×渐弱/emitted 守恒计数 */
+    /* 发射器快照: budget 档位/rate 档后速率/rateScale=渐起×渐弱(×燃尽余韵衰减)=
+       实际发射乘子/emitted 守恒计数; 燃尽余韵格(<0.4s, §5.6 评审 SPEC-2)可达:
+       火苗×(1−dAge/0.4)·柔柱×(1−dAge/0.3) 如实, 烟/旋涡停补记 0, 期满 null */
     function emitters(x, y, z) {
       const c = cellsMap.get(key(x, y, z));
-      if (!c || !c.open) return null;
+      if (!c) return null;
+      if (!c.open && c.burnoutAt === undefined) return null; /* 浇熄: 即刻摘无快照 */
       const tier = computeBudget().get(key(x, y, z)) || 'full';
       const fadeS = fadeOf(c.left);
       const ramp = Math.max(0, Math.min(1, (now - c.openAt) / RAMP_S));
       const rateF = tier === 'far' ? 0 : (tier === 'near' ? params.flame.rate / 2 : params.flame.rate);
       const countV = tier === 'far' ? 0 : (tier === 'near' ? params.vortex.count / 2 : params.vortex.count);
+      let burnF = 1; /* 余韵火苗衰减(燃烧中=1) */
+      let burnC = 1; /* 余韵柔柱衰减(燃烧中=1) */
+      if (!c.open) {
+        const dAge = now - c.burnoutAt;
+        if (dAge >= BURN_FLAME_S) return null; /* 余韵期满(tick 摘格, 此为防御兜底) */
+        burnF = Math.max(0, 1 - dAge / BURN_FLAME_S); /* 火苗发射 0.4s 线性降 0 */
+        burnC = Math.max(0, 1 - dAge / BURN_COLUMN_S); /* 柔柱透明度 0.3s 线性降 0 */
+      }
+      const afterglow = !c.open; /* 余韵格: 烟/旋涡停补, 实际乘子如实记 0 */
+      const colScale = (tier === 'far' ? 0 : 1) * burnC;
       return {budget: tier,
-        flame: {rate: rateF, rateScale: ramp * fadeS.flameScale, emitted: c.emittedF,
-          tint: fadeS.tint},
-        smoke: {rate: params.smoke.rate, rateScale: ramp * fadeS.smokeScale,
-          emitted: c.emittedS},
-        vortex: {count: countV},
-        column: {opacityScale: tier === 'far' ? 0 : 1,
-          opacity: (tier === 'far' ? 0 : 1) * columnOpacityAt(now)}};
+        flame: {rate: rateF, rateScale: ramp * fadeS.flameScale * burnF,
+          emitted: c.emittedF, tint: fadeS.tint},
+        smoke: {rate: afterglow ? 0 : params.smoke.rate,
+          rateScale: afterglow ? 0 : ramp * fadeS.smokeScale, emitted: c.emittedS},
+        vortex: {count: afterglow ? 0 : countV},
+        column: {opacityScale: colScale,
+          opacity: colScale * columnOpacityAt(now)}};
     }
 
     return {open, quench, burnout, dig, clear, tick, active, activeCount,
