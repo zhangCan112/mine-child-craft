@@ -611,7 +611,7 @@ function townBuildSteps() {
      segs, 天然不在保。
    ② 门楼: prefab town-gate 行锚(单源)+保护域政策偏移全盒——楼段
      dy+1..+9 全宽含檐口出挑 dx-1..+5 / 桥段 dy-4..0 桥体宽 dx0..+4
-     (出处=prefab-kit town-gate foot/kernel + town-prefab-specs §2.2/§2.6
+     (出处=prefab-kit town-gate foot/kernel + town-side-gate-and-edge-fence-spec §2.2/§2.6
      + 架构方案 §3.3 表); 门洞净空 gx+1..+3×gy+1..+3×gz+1 排除(穿行
      契约, 建场同式禁填)。政策偏移是几何的第二份表述——漂移由同名单测
      ⑧c footOf 逐格对拍锁死(prefab-kit foot 若变, 对拍红=强制同步)。 */

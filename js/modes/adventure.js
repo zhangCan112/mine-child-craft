@@ -2956,6 +2956,7 @@ function advEdgeTick(dt) {/* 边缘机制装配(update 每帧, advEdgeSkyTick �
     advPortalTick 同款口径)→触发线判据→开放即 advVeilFire(白闪+冷却在 veil 段);
     未解锁→近前引导节流话术 */
   advEdgeHintT = Math.max(0, advEdgeHintT - dt);
+  advTownTntSayT = Math.max(0, advTownTntSayT - dt); /* U4 镇域 TNT 拦截话术节流(同拍递减, 账本声明见 advTownTntSayOnce 旁) */
   if (advPortalCd > 0 || advVeil.phase !== 'idle' || advSleep.on) return; /* 冷却/白闪进行中/睡觉不触发 */
   if (advDim !== 'overworld' || advMap !== 'home') return; /* 边缘机制 home 图专属(两比较先退) */
   const dir = advEdgeTransitDirAt(Math.floor(pos.x), Math.floor(pos.z));
@@ -3429,12 +3430,12 @@ function advMineHardText(id, x, y, z) {/* 目标格 → 话术(纯 seam, 单测�
      镇话术, 未命中静默, 绝不落 home 方位分支(镇坐标喂 home 高度场/方位桶
      =跨图误判语义错位: pier/翼墙域 z29..31 撞 home 北雪桶 z≤31 等)。维度
      门=行身份比对(壳层先例口径); 判据消费 townProtectedAt(typeof 守卫=
-     判据件缺席时静默零炸)。TODO 话术待 design-lead 定稿(下方占位文案=
-     T2b 红面裁决字面; 测试只锁非空+零 home 方位特征词, 定稿追令换文案
-     不破测试) */
+     判据件缺席时静默零炸)。话术=design-lead 定稿 2026-11-16, 见把关记录
+     「U4 话术定稿」节(.scratch/town-east-boundary/gate-review-town-side.md);
+     测试只锁非空+零 home 方位特征词, 换字面不破测试 */
   if (advDimRow(advDim) === ADV_TOWN_DIM_ROW) {
     if (x != null && typeof townProtectedAt === 'function' && townProtectedAt(x, y, z)) {
-      return '镇的城墙牢固实实, 挖不动——走大门进镇, 里面热闹着呢!';
+      return '小镇的东西盖得牢牢的，挖不动哦——它们护着你回家呢！';
     }
     return '';
   }
@@ -4623,6 +4624,22 @@ function advEdgeTntProtected(x, y, z) {
   if (advDim !== 'overworld' || advMap !== 'home') return false;
   return typeof advEdgeProtectedAt === 'function' && advEdgeProtectedAt(x, y, z);
 }
+/* U4 镇域 TNT 拦截话术链(T2b 微改包, 把关记录 :145 授权归工程; advEdgeHintT
+   节流账本先例同构): 一次爆炸多格豁免→3s 账本只播一遍。镇维度门在函数内——
+   home 屏障格豁免不播镇话术; 文本=design-lead 定稿 2026-11-16, 见把关记录
+   「U4 话术定稿」节(town-boundary worktree 只读版 :140), 测试锁非空不锁字面 */
+let advTownTntSayT = 0; /* 镇域 TNT 拦截话术节流秒(advEdgeTick 函数顶同拍递减) */
+advSessionResets.push(() => {
+  advTownTntSayT = 0;
+}); /* 会话复位(advEdgeHintT 先例; counts 引用不清——进场 init 重注入同对象幂等) */
+const ADV_TOWN_TNT_SAY_CD = 3; /* 同爆节流(place-kit hardT 3s 先例, 不啰嗦) */
+function advTownTntSayOnce(x, y, z) {
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return; /* 镇维度门=行身份比对(死门禁用, ADR-0018) */
+  if (typeof townProtectedAt !== 'function' || !townProtectedAt(x, y, z)) return; /* 判据件缺席静默/非镇域件不播 */
+  if (advTownTntSayT > 0) return; /* 节流窗内: 静默 */
+  advTownTntSayT = ADV_TOWN_TNT_SAY_CD;
+  advSpeak('镇的东西盖得牢牢的，TNT 也炸不动哦！');
+}
 /* U4 放置缝镇侧守卫(T2b, ADR-0018): 镇侧守卫具名提取+挂点导出(测试挂点
    纪律, advMineHardText 挂点先例)——行身份门+townProtectedAt; 消费方
    placeGuard 表达式 OR 并列(镇/home 判据坐标域不相交, 架构方案 §3.2
@@ -4634,7 +4651,10 @@ function advTownPlaceGuardAt(x, y, z) {
 const advExplodeSink = {
   ignite: advIgnite,
   edit: (bx, by, bz, id) => {/* 触发格先记账(级联移动可能落回此格) → 破坏+级联记账(不进任务, P6); id 由 advExplodeCells 透传(配对方块触发格身份门读它) */
-    if (advEdgeTntProtected(bx, by, bz)) return; /* T7: 屏障格跳过破坏(R10) */
+    if (advEdgeTntProtected(bx, by, bz)) {/* T7: 屏障格跳过破坏(R10) */
+      advTownTntSayOnce(bx, by, bz); /* U4: 镇域件被炸→节流话术(镇维度门在函数内, home 屏障不播; 只接 edit 主出口——镇墙圈皆实块, 爆炸波及必经 edit) */
+      return;
+    }
     advMarkEdit(bx, by, bz, 0);
     advCascadeApply(editBlock(bx, by, bz, 0), false);
     advOreMined(id, bx, by, bz); /* 被炸格开采记账(与挖掘链同账, 2026-11-08 补起点——级联清单不含触发格) */
