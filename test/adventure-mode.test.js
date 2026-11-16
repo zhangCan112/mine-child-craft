@@ -4751,7 +4751,7 @@ test('T11 主题换怪铺法: 北带铺流浪者 · 南带铺尸壳 · 西带铺
     globalThis.dayTime = 18000; /* 午夜 */
     globalThis.pos.x = x; globalThis.pos.z = z; /* 落点进带(主题判据读玩家位) */
     const before = mobsState.spawned.length; /* init 的巢穴+牧场存量(不进配额口径) */
-    for (let i = 0; i < 110; i++) AdventureMode.update(0.1); /* 11s > 5 拍: 带内掷环必有界内过光拍 */
+    for (let i = 0; i < 220; i++) AdventureMode.update(0.1); /* 22s > 10 拍: 带内掷环必有界内过光拍(T-TEST-T11 姊妹加固: 110→220 帧) */
     const night = mobsState.spawned.slice(before).filter((m) => m.__nightMob && !m.__erupt);
     assert.ok(night.length >= 1, label + ': 到拍至少出一只(测试世界光场全 0=暗)');
     for (const m of night) {
@@ -4776,7 +4776,7 @@ test('T11 同池回落: 腹地铺 home 同池 · 远征图行池不被带矩形�
   globalThis.dayTime = 18000;
   globalThis.pos.x = 80; globalThis.pos.z = 80;
   const before = mobsState.spawned.length;
-  for (let i = 0; i < 110; i++) AdventureMode.update(0.1);
+  for (let i = 0; i < 220; i++) AdventureMode.update(0.1); /* T-TEST-T11 姊妹加固: 110→220 帧(22s≈11 掷), 腹地同机制同型断言同票同法消间歇红 */
   const night = mobsState.spawned.slice(before).filter((m) => m.__nightMob && !m.__erupt);
   assert.ok(night.length >= 1, '腹地到拍至少出一只');
   for (const m of night) {
@@ -4791,7 +4791,7 @@ test('T11 同池回落: 腹地铺 home 同池 · 远征图行池不被带矩形�
   globalThis.dayTime = 18000;
   globalThis.pos.x = 80; globalThis.pos.z = 10; /* 坐标撞 home 北带矩形 */
   const before2 = mobsState.spawned.length;
-  for (let i = 0; i < 110; i++) AdventureMode.update(0.1);
+  for (let i = 0; i < 220; i++) AdventureMode.update(0.1); /* T-TEST-T11 消间歇红: 110→220 帧, 掷环光门全废概率可忽略; 断言零放松 */
   const dNight = mobsState.spawned.slice(before2).filter((m) => m.__nightMob && !m.__erupt);
   assert.ok(dNight.length >= 1, '沙漠图到拍至少出一只');
   for (const m of dNight) {
