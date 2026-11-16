@@ -359,7 +359,7 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
   };
   /* ---------- 假应用层 ---------- */
   globalThis.sfx = (k) => callsC.push(['sfx', k]);
-  globalThis.Fx = {
+  globalThis.Fx = new Proxy({
     debrisBurst() {
       callsC.push(['debris']);
     },
@@ -383,7 +383,11 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     removeBeam(h) {
       fxRemoved.push(h);
     },
-  };
+  }, {get(t, k) {
+    /* T-C9 红方装具演进: 未知入口容忍记录(篝火特效 Fx 句柄制新入口命名=实现自由度) */
+    if (typeof k === 'symbol' || Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+    return () => {};
+  }});
   globalThis.SyncDB = {
     ready: Promise.resolve(),
     slot(key, schema) {
@@ -513,6 +517,14 @@ function loadModeFixture() {/* 幂等装载: 只在首个模式级测试进入�
     furnaceRefund: CraftCoreC.furnaceRefund});
   globalThis.FurnaceKit = require('../js/furnace-kit.js');
   globalThis.PlaceKit = require('../js/place-kit.js'); /* 放置链 kit(T9 前置装配, 壳顶层即构造 editor) */
+  /* 篝火特效核心(T-C9 红方装具铺装, CampfireKit 同款惯例): 壳顶层即构造 fx 管理器;
+     红测期文件缺位=容错 null(绿方 typeof 守卫兜底) */
+  globalThis.CampfireFxCore = null;
+  try {
+    globalThis.CampfireFxCore = require('../js/campfire-fx-core.js');
+  } catch {
+    globalThis.CampfireFxCore = null;
+  }
   globalThis.Backpack = require('../js/backpack.js');
   globalThis.WorldJournal = require('../js/world-journal-core.js');
   globalThis.mkWorldJournal = WorldJournal.mkWorldJournal;

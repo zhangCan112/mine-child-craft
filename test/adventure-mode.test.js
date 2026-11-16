@@ -341,7 +341,7 @@ globalThis.Drops = {
 globalThis.sfx = (n) => {
   calls.push(['sfx', n]);
 };
-globalThis.Fx = {debrisBurst() {
+globalThis.Fx = new Proxy({debrisBurst() {
   calls.push(['debris']);
 }, kick() {
   calls.push(['kick']);
@@ -351,7 +351,12 @@ globalThis.Fx = {debrisBurst() {
   calls.push(['arc']);
 }, pop() {
   calls.push(['pop']);
-}}; /* T13 爆炸组合/引信火花观感走调用记录; T15 仪式冲击波/烟花再加 pop */
+}}, {get(t, k) {
+  /* T-C9 红方装具演进: 未知入口容忍记录(篝火特效走 Fx 句柄制新入口, 入口命名=
+     实现自由度[UI 定稿 §5.1]——桩不绑名, 未知键落 calls 供禁用面扫描) */
+  if (typeof k === 'symbol' || Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+  return (...a) => calls.push(['fx:' + String(k)]);
+}}); /* T13 爆炸组合/引信火花观感走调用记录; T15 仪式冲击波/烟花再加 pop */
 globalThis.CombatCore = require('../js/combat-core.js'); /* 战斗核心: 真模块(弹道/盒判定是纯函数) */
 globalThis.CombatKit = require('../js/combat-kit.js'); /* 玩家战斗壳: 真模块(C6-T3) */
 globalThis.pos = {x: 61.5, y: 25, z: 76.5, set() {}};
@@ -415,6 +420,15 @@ globalThis.DailyBudget = require('../js/daily-budget.js'); /* 每日预算(零 D
   budgetDateStr 经全局名被 advOreMined/繁育账消费——挖掘起点记账(2026-11-08 补)活了
   之前 mined sink 从未触发, 这条全局缺失被掩盖(T15 钻石测试现形) */
 globalThis.budgetDateStr = DailyBudget.budgetDateStr;
+/* 篝火特效核心(T-C9 红方装具铺装, CampfireKit 同款惯例): 壳顶层即构造 fx 管理器,
+   Node 侧先铺全局再 require 壳(绿方三域解析 cfKitResolve 同款); 红测期文件缺位=
+   容错 null(绿方 typeof 守卫兜底, 各测试自断言在册红) */
+globalThis.CampfireFxCore = null;
+try {
+  globalThis.CampfireFxCore = require('../js/campfire-fx-core.js');
+} catch {
+  globalThis.CampfireFxCore = null;
+}
 
 const AdventureMode = require('../js/modes/adventure.js');
 const A = AdventureMode.adv; /* 内部挂点(键计数以 adventure.js 尾部清单为准——
@@ -1638,6 +1652,154 @@ test('T-C3 挖掘回收整链: 燃烧态/熄灭态挖走均还篝火×1 — 燃�
   const got2 = dropsState.spawned.filter((d) => d.id === 'campfire');
   assert.strictEqual(got2.length, 1, '熄灭态同款回收(烧剩价值保留)');
   assert.strictEqual(got2[0].n, 1, '熄灭态保底 1');
+});
+
+/* ---------- 篝火 T-C9: 世界特效触发接线(模式整链, UI 定稿 §5/§5.10) ----------
+   纯逻辑面在 campfire-fx-core.test, 本文件走模式挂缝: 特效触发点直接挂 C3 已建缝
+   (advPlaceKit onPlaced 即燃/onCampfireRelit 重燃/advCampfires opts onQuench 浇熄/
+   onBurnout 燃尽/advMarkEdit drop 挖掘缝), 装配面驱动 A.advCampfireFx 管理器。
+   句柄生命周期(开/三态摘/clear/悬空无害)与观感参数由核心测试守门, 这里只证
+   「谁在何时调」——C3 缝同拍触发 + 行为红线面(零震屏碎块/零 campfire 音效字面量/
+   渐弱零 UI 倒计时件)。 */
+
+/* 导出缝守卫: 绿方未落地时红因=AssertionError(非 TypeError 装具炸, conventions §7.4 红因分类) */
+function fxMgr() {
+  assert.ok(A.advCampfireFx && typeof A.advCampfireFx.open === 'function',
+      'advCampfireFx 管理器经 adv 测试缝导出(advCampfires 同款, T-C9 新测试缝)');
+  return A.advCampfireFx;
+}
+
+test('T-C9 放置即燃: fx 三发射器在册(句柄开) · 零 kick/零 debris · 零 campfire 音效调用', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '前置: 放置即燃(T-C1 链)');
+  fxMgr();
+  assert.strictEqual(A.advCampfireFx.active(spot.x, 25, spot.z), true,
+      'fx 开: 三发射器在册(放置=开, UI 定稿 §5.1 句柄制)');
+  const e = A.advCampfireFx.emitters(spot.x, 25, spot.z);
+  assert.ok(e && e.flame && e.smoke && e.vortex && e.column,
+      '火苗/烟/旋涡/柔柱四件快照在册(§5.1 五件套之常驻三件+柔柱)');
+  assert.ok(!calls.some((c) => c[0] === 'kick' || c[0] === 'debris'),
+      '点燃零震屏零碎块(§5.5-4 禁用: kick/debrisBurst)');
+  assert.ok(!calls.some((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0),
+      '零 campfire 音效调用(声本体归 T-C11, 本票零落盘)');
+});
+
+test('T-C9 水浇同拍摘柱: 放置→邻水→update 一帧 — fx 即刻摘(零残帧)+白汽 4 粒在册', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  globalThis.editBlock(spot.x, 25, spot.z + 1, api.B_WATER);
+  AdventureMode.update(0.5);
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE_OUT, '前置: 浇熄落格(T-C3 链)');
+  fxMgr();
+  assert.strictEqual(A.advCampfireFx.active(spot.x, 25, spot.z), false,
+      'fx 即刻摘(浇熄=摘, onQuench 缝同拍)');
+  const now = A.advCampfireFx.particles(spot.x, 25, spot.z);
+  assert.strictEqual(now.flame.length + now.smoke.length + now.vortex.length, 0,
+      '零火苗残帧(§5.7-3 三发射器即刻摘除)');
+  assert.strictEqual(now.transients.filter((t) => t.kind === 'steam').length, 4,
+      '白汽 4 粒在册(§5.7-2 一缕白汽)');
+});
+
+test('T-C9 点击重燃: fx 恢复且渐起重爬(rateScale 归 0 起步) — place-kit onCampfireRelit 缝同拍', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  globalThis.editBlock(spot.x, 25, spot.z + 1, api.B_WATER);
+  AdventureMode.update(0.5);
+  fxMgr();
+  assert.strictEqual(A.advCampfireFx.active(spot.x, 25, spot.z), false, '前置: 浇熄已摘柱');
+  holdOnly(null);
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '前置: 重燃落格(T-C3 链)');
+  assert.strictEqual(A.advCampfireFx.active(spot.x, 25, spot.z), true,
+      'fx 重开(重燃=新的一炉, onCampfireRelit 缝同拍)');
+  assert.strictEqual(A.advCampfireFx.emitters(spot.x, 25, spot.z).flame.rateScale, 0,
+      '渐起重爬(点燃过渡 §5.5 置燃共用, 非续旧相位)');
+});
+
+test('T-C9 燃尽: 6000 刻烧尽 — fx 摘+轻灰 pop+尾烟 3 粒 · 再 2s 粒子全清(onBurnout 缝同拍)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  for (let i = 0; i < 599; i++) AdventureMode.update(0.5);
+  AdventureMode.update(0.5); /* 恰 6000 刻燃尽(T-C1 链同款喂刻) */
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '前置: 燃尽方块消失');
+  fxMgr();
+  assert.strictEqual(A.advCampfireFx.active(spot.x, 25, spot.z), false,
+      'fx 摘(燃尽=摘, onBurnout 缝同拍)');
+  const now = A.advCampfireFx.particles(spot.x, 25, spot.z);
+  const pop = now.transients.find((t) => t.kind === 'pop');
+  assert.ok(pop && pop.color === '#d6d2c8', '轻灰 pop 在册(§5.6-2 轻轻散掉)');
+  assert.strictEqual(now.transients.filter((t) => t.kind === 'tailSmoke').length, 3,
+      '尾烟恰 3 粒(§5.6-3 一撮)');
+  for (let i = 0; i < 4; i++) AdventureMode.update(0.5); /* 2.0s 渐熄尾巴 */
+  const after = A.advCampfireFx.particles(spot.x, 25, spot.z);
+  assert.strictEqual(after.flame.length + after.smoke.length + after.vortex.length, 0,
+      '≤2s 粒子全清(§5.6-1 无残影帧)');
+});
+
+test('T-C9 挖掘: fx 即刻摘零过渡(advMarkEdit seam) — 零 pop 零白汽零尾烟', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  dropsState.spawned.length = 0;
+  A.advBreakBlock(spot.x, 25, spot.z, api.B_CAMPFIRE, {time: 0, drops: true});
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '前置: 挖走(T-C3 链)');
+  fxMgr();
+  assert.strictEqual(A.advCampfireFx.active(spot.x, 25, spot.z), false,
+      'fx 即刻摘(挖掘=摘, advMarkEdit seam 同拍)');
+  assert.strictEqual(A.advCampfireFx.particles(spot.x, 25, spot.z).transients.length, 0,
+      '零过渡零 pop(挖掘是回收非事件, §5.1)');
+});
+
+test('T-C9 渐弱期: 烧至剩余 ≤600 刻窗内 — 火苗降档气柱满额 · 零话术新增(禁 UI 倒计时件)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  for (let i = 0; i < 545; i++) AdventureMode.update(0.5); /* 5450 刻: 余 550 刻(<600 渐弱窗内) */
+  const entry = A.advCampfires.map.get(spot.x + ',25,' + spot.z);
+  assert.ok(entry && entry.left === 550, '前置: 余量 550 刻(渐弱窗内, 整刻零漂)');
+  spoken.length = 0;
+  calls.length = 0;
+  fxMgr();
+  const e = A.advCampfireFx.emitters(spot.x, 25, spot.z);
+  assert.ok(e.flame.rateScale < 1 && e.flame.rateScale >= 0.4,
+      '火苗降档中(§5.8 线性降至 40% 的窗内值)');
+  assert.strictEqual(e.smoke.rateScale, 1, '烟量不变(§5.8)');
+  assert.strictEqual(e.column.opacityScale, 1, '气柱观感不衰减(§5.8/ADR 0017 相容)');
+  AdventureMode.update(0.5);
+  assert.strictEqual(spoken.length, 0, '渐弱期零话术(无任何 UI 倒计时/进度条式表达)');
+  assert.ok(!calls.some((c) => c[0] === 'sfx'), '渐弱期零音效(渐弱只发生在世界内火焰本身)');
+});
+
+test('T-C9 clear 连带清场: init 复位(reset 缝)后 fx 零残留 — 切模式/重进场纪律', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  fxMgr();
+  assert.strictEqual(A.advCampfireFx.active(spot.x, 25, spot.z), true, '前置: fx 在册');
+  freshInit(); /* init 链 advCampfires.reset() 同缝(T-C1: 台账复位) */
+  assert.strictEqual(A.advCampfireFx.active(spot.x, 25, spot.z), false,
+      'clear 连带清场(UI 定稿 §5.1: clear 模式切换连带清场)');
+  assert.strictEqual(A.advCampfireFx.particles(spot.x, 25, spot.z).flame.length, 0,
+      '粒子零残留(§5.10 切模式 Fx.clear 后零残留)');
 });
 
 test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + 满血不吃不扣', () => {

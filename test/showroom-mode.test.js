@@ -223,7 +223,12 @@ globalThis.playerAirS = 15; /* 溺气余秒: 恒满气(气泡条藏, adventure �
 globalThis.camera = {}; /* 相机件: shootFromAim 的取景入参(raycastVoxel 缺席, aimHit 守卫返 null) */
 globalThis.Avatar = {swing() {}, flash() {}, setItem() {}, setArmor() {}}; /* 挥臂/闪红/穿戴观感桩
     (装备 T5: setArmor 冒烟桩不记账——showroom 行为断言不涉甲, nether 段同款) */
-globalThis.Fx = {debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}}; /* 观感桩 */
+globalThis.Fx = new Proxy({debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}},
+    {get(t, k) {
+      /* T-C9 红方装具演进: 未知入口容忍(篝火特效 Fx 句柄制新入口命名=实现自由度) */
+      if (typeof k === 'symbol' || Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+      return () => {};
+    }}); /* 观感桩 */
 
 /* ---------- 怪物库桩(窄面桩法, 行为断言全走调用记录; 玩家实体受击走真实
     受击状态机 mob-core——血量断言有据) ---------- */
@@ -310,6 +315,14 @@ globalThis.FurnaceKit = require('../js/furnace-kit.js');
 globalThis.PlaceKit = require('../js/place-kit.js'); /* 放置链 kit(壳顶层即构造 editor) */
 globalThis.CampfireKit = require('../js/campfire-kit.js'); /* 篝火账 kit(壳顶层即构造 ledger;
     红方裁决修正 2026-11-17: 装具原漏铺此件, adventure.js 的 typeof 守卫判缺席→零台账→浇熄链无从谈起) */
+/* 篝火特效核心(T-C9 红方装具铺装, CampfireKit 同款惯例): 壳顶层即构造 fx 管理器;
+   红测期文件缺位=容错 null(绿方 typeof 守卫兜底) */
+globalThis.CampfireFxCore = null;
+try {
+  globalThis.CampfireFxCore = require('../js/campfire-fx-core.js');
+} catch {
+  globalThis.CampfireFxCore = null;
+}
 globalThis.CombatKit = require('../js/combat-kit.js');
 globalThis.CombatCore = require('../js/combat-core.js'); /* stepShot/leadAim(combat-kit 自由标识符消费) */
 globalThis.Backpack = require('../js/backpack.js'); /* 背包壳(ADR 0002 唯一持有 inventory 存档键) */
@@ -348,6 +361,7 @@ Object.assign(eng, {
   mkBubbleBar: globalThis.mkBubbleBar, mkArmorBar: ModeKit.mkArmorBar, /* 装备条(装备 T5): 真件, 假 DOM 惰性渲染 */
   FurnaceKit: globalThis.FurnaceKit,
   CampfireKit: globalThis.CampfireKit, /* 篝火账 kit(eng 面: adventure.js 顶层构造 ledger, 加载序在其前) */
+  CampfireFxCore: globalThis.CampfireFxCore, /* 篝火特效核心(eng 面, T-C9 同款惯例) */
   PlaceKit: globalThis.PlaceKit, CombatKit: globalThis.CombatKit, CombatCore: globalThis.CombatCore,
 });/* 注: pos/vel/yaw/pitch/onGround/flyMode/Drops 是 eng 词法绑定(voxel/drops 顶层),
     属性赋值只会被词法遮蔽——Node 侧已改为直接共享词法对象(见上方提取/包装) */
@@ -1868,4 +1882,31 @@ test('体验馆同口径: 篝火放置即燃 → 邻格水浇 → 同壳 update 
   ShowroomMode.update(0.5); /* 统一壳: ShowroomMode.update→AdventureMode.update(账本 tick 同拍) */
   assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.out, '浇熄: 熄灭态落格(同壳零场景分支)');
   assert.strictEqual(A.advCampfires.map.size, 0, '侧账删条(统一壳同一账本)');
+});
+
+/* ---------- 篝火 T-C9 体验馆同壳: 世界特效走共享缝(零场景分支) ----------
+   展馆与冒险共用同一 place-kit 实例/同一账本/同一 fx 管理器(A.advCampfireFx,
+   ShowroomMode.pk=advPlaceKit): 本文件只证「同壳同拍」+壳源码零篝火分支的机械面。
+   观感参数与句柄纪律归 campfire-fx-core.test, 模式挂缝归 adventure-mode.test T-C9 段。 */
+
+test('体验馆同壳 T-C9: 放置→fx 开(A.advCampfireFx 同一管理器) → 水浇→同拍摘(零场景分支)', () => {
+  freshEnter();
+  const IDS = vm.runInContext('({lit: B_CAMPFIRE, out: B_CAMPFIRE_OUT, water: B_WATER})', eng);
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0}); /* 篝火落 (81,G+1,58) */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.lit, '前置: 放置即燃(同一放置链)');
+  assert.ok(A.advCampfireFx && A.advCampfireFx.active(81, G + 1, 58),
+      'fx 开(同一管理器: 特效挂共享缝, 展馆零特判)');
+  globalThis.editBlock(81, G + 1, 57, IDS.water);
+  ShowroomMode.update(0.5); /* 统一壳: ShowroomMode.update→AdventureMode.update */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.out, '前置: 同壳浇熄(T-C3 链)');
+  assert.ok(!A.advCampfireFx.active(81, G + 1, 58), 'fx 同拍摘(浇熄=摘, 统一壳同一缝)');
+});
+
+test('体验馆壳源码零篝火分支: showroom.js 零 campfire 字样(特效挂共享缝的机械面)', () => {
+  assert.ok(!/campfire/i.test(showroomSrc),
+      'showroom.js 零 campfire 字样(字面量与分支双零——同壳零场景分支, 特效触发全在' +
+      ' advPlaceKit/advCampfires 共享实例缝上)');
 });
