@@ -3476,8 +3476,8 @@ test('campfire 档账清扫 advCampfiresClean: [[posKey,{left}]] 存档形状 ·
   assert.strictEqual(typeof Core.advCampfiresClean, 'function', 'advCampfiresClean 在册(纯函数宿主)');
   const map = new Map([
     ['3,14,15', {x: 3, y: 14, z: 15, left: 2999}],
-    ['4,14,15', {x: 4, y: 14, z: 15, left: 0}],   /* 燃尽残账: 不进档(encode 防膨胀) */
-    ['5,14,15', {x: 5, y: 14, z: 15, left: -7}],  /* 负刻残账: 同不进 */
+    ['4,14,15', {x: 4, y: 14, z: 15, left: 0}], /* 燃尽残账: 不进档(encode 防膨胀) */
+    ['5,14,15', {x: 5, y: 14, z: 15, left: -7}], /* 负刻残账: 同不进 */
   ]);
   const out = Core.advCampfiresClean(map);
   assert.ok(Array.isArray(out), '返回数组(存档 campfires 字段形状)');

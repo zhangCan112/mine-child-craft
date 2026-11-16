@@ -1062,7 +1062,7 @@ test('篝火摆放: 正摆命中 · 木炭替煤炭命中(候选数组) · 镜�
   assert.ok(r, 'campfire 配方应存在');
   assert.strictEqual(r.station, 'table', '台级配方(spec §3.2: 3×3 图案)');
   assert.deepStrictEqual({...r.out}, {item: 'campfire', n: 2}, '产 campfire×2');
-  assert.deepStrictEqual(r.shape.rows,
+  assert.deepStrictEqual(JSON.parse(JSON.stringify(r.shape.rows)),
       [['stick', ['coal', 'charcoal'], 'stick'], [null, 'stick', null], ['log', 'log', 'log']],
       '图案=spec §3.2 定稿(棍/煤/棍 + 中棍 + 三原木, 候选数组格子)');
   /* 正摆(煤炭): 棍 0/2/4 + 煤 1 + 原木 6/7/8 */
@@ -1117,16 +1117,17 @@ test('篝火合成执行: canCraft 站点门禁+缺料清单 · gridCraft 端到
   assert.ok(made, 'campfire 入包');
   assert.strictEqual(made.n, 2, '一炉两件(可堆叠消耗品)');
   assert.strictEqual(made.dur, undefined, '产物无 dur(燃烧账在方块侧)');
-  /* 材料扣减正确(验收第 1 条): 棍 3/原木 3/煤 1 全部扣尽 */
-  assert.strictEqual(h.count(inv, 'stick'), 0, '棍 3/3 扣尽');
-  assert.strictEqual(h.count(inv, 'log'), 0, '原木 3/3 扣尽');
-  assert.strictEqual(h.count(inv, 'coal'), 0, '煤 1/1 扣尽');
   /* 一键备料端到端(fillGrid 路径, 滑翔翼同款): 候选格备煤, 合成 ok */
   const inv2 = invWith(h, [['stick', 3], ['coal', 1], ['log', 3]]);
   const cells2 = new Array(9).fill(null);
   const f = fillGrid(inv2, r, cells2);
   assert.deepStrictEqual([...f.missing], [], '一键备料无缺料');
   assert.strictEqual(gridCraft(cells2, inv2, true).ok, true, '备料后合成 ok');
+  /* 材料扣减正确(验收第 1 条, 断言挂 fillGrid 管线段=滑翔翼先例 1050 口径):
+     fillGrid 备料即从背包扣包 → gridCraft 消耗格内料(格账), 合成后材料三键扣尽 */
+  assert.strictEqual(h.count(inv2, 'stick'), 0, '棍 3/3 扣尽');
+  assert.strictEqual(h.count(inv2, 'log'), 0, '原木 3/3 扣尽');
+  assert.strictEqual(h.count(inv2, 'coal'), 0, '煤 1/1 扣尽');
 });
 
 test('篝火配方公开在册: KIT_HIDDEN_RECIPES(mode-kit)不含 campfire(配方卡常显, 源码扫描=滑翔翼 T-G01 R1 先例)', () => {

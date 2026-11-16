@@ -48,11 +48,14 @@ const cfg = vm.runInContext(`({
 const acSrc = fs.readFileSync(path.join(ROOT, 'js', 'adventure-core.js'), 'utf8');
 const bNames = [...new Set(acSrc.match(/\bB_[A-Z0-9_]+\b/g) || [])];
 for (const n of bNames) globalThis[n] = vm.runInContext(n, eng);
-const Core = require('../js/adventure-core.js'); /* advCampfiresStep/advCampfiresClean */
 /* 被测 kit 容错装载: 红测期 js/campfire-kit.js 尚未新建, MODULE_NOT_FOUND 在
    顶层会把整文件炸成「test failed」——改为缺位旗标, 各测试自行断言在册红 */
 let CampfireKit = null;
-try { CampfireKit = require('../js/campfire-kit.js'); } catch (e) { CampfireKit = null; }
+try {
+  CampfireKit = require('../js/campfire-kit.js');
+} catch {
+  CampfireKit = null;
+}
 const kitReady = () => {
   assert.ok(CampfireKit && typeof CampfireKit.mkCampfireLedger === 'function',
       'js/campfire-kit.js 在册且暴露 CampfireKit.mkCampfireLedger(新建文件, 票面要求 5)');
@@ -60,7 +63,8 @@ const kitReady = () => {
 
 /* ============ ① 数据接线守门(票面要求 1/3, spec §3.1/§3.4/§3.9) ============ */
 
-test('campfire 两态行: B_CAMPFIRE=81/B_CAMPFIRE_OUT=82 · campfire 旗标 lit|out · light 15/0 · 半格实体 · hard 0 · 无 replaceable', () => {
+test('campfire 两态行: B_CAMPFIRE=81/B_CAMPFIRE_OUT=82 · campfire 旗标 lit|out · ' +
+    'light 15/0 · 半格实体 · hard 0 · 无 replaceable', () => {
   assert.strictEqual(cfg.lit, 81, '燃烧态 id=81(定稿建议值, 现号段 81/82 空闲已核实)');
   assert.strictEqual(cfg.out, 82, '熄灭态 id=82(两态连号)');
   const lit = BLOCKS[cfg.lit];

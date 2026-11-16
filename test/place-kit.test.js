@@ -719,13 +719,14 @@ test('篝火放置成功(放置即燃): 落块+扣件+onPlaced 钩全参(侧账�
 test('篝火四类失败①水面: 温和话术逐字+不扣件+世界零变化(水 solid:false 当不了支承)', () => {
   reset();
   assert.ok(ITEMS.campfire && cb.lit != null, '接线前置(ITEMS 行+两态 id)');
+  const held0 = api.count(inv, 'campfire'); /* 计数基线(共享装具 reset 不清背包, 断言用差值) */
   for (const row of [['campfire', 1]]) api.add(inv, row[0], row[1]);
   sel = slotOf('campfire');
   api.setBlockRaw(14, 13, 38, api.B_WATER); /* 一格水(测试布景) */
   const hit = {x: 14, y: 13, z: 38, nx: 0, ny: 1, nz: 0};
   assert.strictEqual(ed.tryPlace(hit), false, '水面拒绝');
   assert.strictEqual(api.getBlock(14, 14, 38), 0, '落点仍是空气(世界零变化)');
-  assert.strictEqual(api.count(inv, 'campfire'), 1, '不扣物品');
+  assert.strictEqual(api.count(inv, 'campfire'), held0 + 1, '不扣物品(失败零扣件)');
   assert.ok(says.some((m) => String(m) === CF_HIT_TEXT), '话术逐字(UI 定稿 §6.2)');
   assert.ok(!says.some((m) => String(m).includes('放不了')), '非老话术(手持篝火时切换, 共享缝按 campfire 旗标分)');
 });
@@ -733,32 +734,35 @@ test('篝火四类失败①水面: 温和话术逐字+不扣件+世界零变化(
 test('篝火四类失败②悬空(侧面依附): 无 wall 旗标, 点实心侧面拒(不能挂墙/不能悬空)', () => {
   reset();
   assert.ok(ITEMS.campfire && cb.lit != null, '接线前置');
+  const held1 = api.count(inv, 'campfire'); /* 计数基线(同①) */
   for (const row of [['campfire', 1]]) api.add(inv, row[0], row[1]);
   sel = slotOf('campfire');
   api.setBlockRaw(16, 14, 38, 3); /* 悬空石块(布景: y14 腾空) */
   const hit = {x: 16, y: 14, z: 38, nx: 1, ny: 0, nz: 0}; /* 点石块东侧面 */
   assert.strictEqual(ed.tryPlace(hit), false, '侧面依附拒绝(篝火非墙挂件, thin 依附门 sideFace 分支)');
   assert.strictEqual(api.getBlock(17, 14, 38), 0, '落点仍是空气');
-  assert.strictEqual(api.count(inv, 'campfire'), 1, '不扣物品');
+  assert.strictEqual(api.count(inv, 'campfire'), held1 + 1, '不扣物品');
   assert.ok(says.some((m) => String(m) === CF_HIT_TEXT), '话术逐字');
 });
 
 test('篝火四类失败③薄块顶(引线): thin 块当不了支承(spec §3.3 零第二份实现)', () => {
   reset();
   assert.ok(ITEMS.campfire && cb.lit != null, '接线前置');
+  const held2 = api.count(inv, 'campfire'); /* 计数基线(同①) */
   for (const row of [['campfire', 1]]) api.add(inv, row[0], row[1]);
   sel = slotOf('campfire');
   api.setBlockRaw(18, 13, 38, api.B_FUSE); /* 引线(thin 0.14, 无 replaceable: 走支承拒绝路径) */
   const hit = {x: 18, y: 13, z: 38, nx: 0, ny: 1, nz: 0};
   assert.strictEqual(ed.tryPlace(hit), false, '薄块顶拒绝');
   assert.strictEqual(api.getBlock(18, 14, 38), 0, '落点仍是空气');
-  assert.strictEqual(api.count(inv, 'campfire'), 1, '不扣物品');
+  assert.strictEqual(api.count(inv, 'campfire'), held2 + 1, '不扣物品');
   assert.ok(says.some((m) => String(m) === CF_HIT_TEXT), '话术逐字');
 });
 
 test('篝火四类失败④篝火顶(两态): 防火塔叠罗马——燃烧态/熄灭态顶面均拒(thin 支承门机械达成)', () => {
   reset();
   assert.ok(ITEMS.campfire && cb.lit != null && cb.out != null, '接线前置(两态 id)');
+  const held3 = api.count(inv, 'campfire'); /* 计数基线(共享装具残留归属前测, 断言用差值) */
   for (const row of [['campfire', 2]]) api.add(inv, row[0], row[1]);
   sel = slotOf('campfire');
   /* 燃烧态篝火布景+点其顶面 */
@@ -766,23 +770,24 @@ test('篝火四类失败④篝火顶(两态): 防火塔叠罗马——燃烧态/
   assert.strictEqual(ed.tryPlace({x: 20, y: 13, z: 38, nx: 0, ny: 1, nz: 0}), false,
       '燃烧态篝火顶拒绝');
   assert.strictEqual(api.getBlock(20, 14, 38), 0, '落点仍是空气');
-  assert.strictEqual(api.count(inv, 'campfire'), 2, '不扣物品');
+  assert.strictEqual(api.count(inv, 'campfire'), held3 + 2, '不扣物品');
   /* 熄灭态篝火布景(直写布景, 浇熄链归 T-C3)+点其顶面 */
   reset();
   api.setBlockRaw(22, 13, 38, cb.out);
   assert.strictEqual(ed.tryPlace({x: 22, y: 13, z: 38, nx: 0, ny: 1, nz: 0}), false,
       '熄灭态篝火顶拒绝(两态同判据, spec §3.3 技术裁定 1)');
   assert.strictEqual(api.getBlock(22, 14, 38), 0, '落点仍是空气');
-  assert.strictEqual(api.count(inv, 'campfire'), 2, '不扣物品');
+  assert.strictEqual(api.count(inv, 'campfire'), held3 + 2, '不扣物品');
   assert.ok(says.some((m) => String(m) === CF_HIT_TEXT), '话术逐字(两态共用一句)');
 });
 
 test('篝火共享缝零场景分支: 非 campfire 物品失败话术回归(老话术不变)+篝火无 replaceable 旗标机械核验', () => {
   reset();
   sel = slotOf('torch');
-  api.setBlockRaw(24, 13, 38, api.B_TORCH); /* 火把在手(草地面上) */
-  assert.strictEqual(ed.tryPlace({x: 24, y: 13, z: 38, nx: 1, ny: 0, nz: 0}), false,
-      '落点非空气(叠放)拒绝');
+  api.setBlockRaw(24, 13, 38, api.B_FUSE); /* 手持火把点引线顶面(与四类失败③同布景不同手持:
+      引线 thin 非实心当不了支承, 火把 below 非实心+四邻无实心 wall 依附 → 同门拒绝) */
+  assert.strictEqual(ed.tryPlace({x: 24, y: 13, z: 38, nx: 0, ny: 1, nz: 0}), false,
+      '薄块顶拒绝(非篝火物品走同一条支承检查)');
   assert.ok(says.some((m) => String(m).includes('放不了')), '老话术回归: 非 campfire 手持不切话术');
   assert.ok(!says.some((m) => String(m).includes('结实')), '篝火话术不外溢(旗标判据精确)');
   /* 机械核验: 篝火行无 replaceable → 点篝火不进覆盖放置路径(四类失败④的前提,
