@@ -7272,7 +7272,8 @@ test('PO④-3 正控: 无傀儡遮挡靶石照常挖穿(豁免不误伤普通挖
    记账)+记账 scene——spinner case 三守卫全开, 走真 townBuild→spinner case
    注册链(非等价直注); 桩挂宿主 global(conventions §7.1 条 3), finally 摘除。 */
 
-test('T-SPINNER-LEAK 离场排空: 进镇真注册叶片后出镇, advSceneLeave 排空 SpinnerCore 注册表 + scene.remove + geometry/material dispose · 切图零残留 · 重进镇链路照常', () => {
+test('T-SPINNER-LEAK 离场排空: 进镇真注册叶片后出镇, advSceneLeave 排空 SpinnerCore 注册表 ' +
+    '+ scene.remove + geometry/material dispose · 切图零残留 · 重进镇链路照常', () => {
   mem.clear();
   const {SpinnerCore} = require('../js/spinner-core.js'); /* 引擎真件(鸭子类型哑 mesh, spinner-core.test.js 同约定) */
   const geoDisposed = [];
@@ -7286,7 +7287,9 @@ test('T-SPINNER-LEAK 离场排空: 进镇真注册叶片后出镇, advSceneLeave
     globalThis.SpinnerCore = SpinnerCore;
     globalThis.THREE = {
       BufferGeometry: function() {
-        this.setAttribute = (name, attr) => { this[name] = attr; };
+        this.setAttribute = (name, attr) => {
+          this[name] = attr;
+        };
         this.computeBoundingSphere = () => {};
         this.dispose = () => geoDisposed.push(this);
       },
