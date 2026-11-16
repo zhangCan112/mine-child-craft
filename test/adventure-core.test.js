@@ -1357,6 +1357,21 @@ test('T7 转正 P2: advEdgeProtectedAt 逐坐标 — 三向屏障体/东栅栏�
   }
   assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 10, 74), false, '屋脊上空不在保(yb+10)');
   assert.strictEqual(Core.advEdgeProtectedAt(156, yb + 1, 71), false, '檐外邻列不在保(z71)');
+  /* 东·回家门墩 x154(PO 裁决 2026-11-16, 加保护): 门墩=回程功能件(T-SEAM-03
+     垫高锚落点), 与 U2 镇界不可挖/U4 防坠墙不可挖同族「牢固镇界设施群」
+     保护语义。保护范围=仅门墩垫高格(建场权威=advEdgeEastArrivePad 同式
+     top(154,z)+1, G1b 实测垫高格 y24); 表面主径石面(G1a 范围)与上方净空
+     y25/26 维持不在保(N2 带内可挖口径维持, 与 G1b 专测「上方净空」几何
+     见证对齐) */
+  for (const z of [74, 75]) {
+    assert.ok(Core.advEdgeProtectedAt(154, edgeTop(154, z) + 1, z), '门墩垫高格 z' + z + ' true(回程门槛石在保)');
+    assert.strictEqual(Core.advEdgeProtectedAt(154, edgeTop(154, z), z), false,
+        '门墩下主径石面 y23 z' + z + ' false(G1a 表面层不在保, 带内可挖口径维持)');
+    assert.strictEqual(Core.advEdgeProtectedAt(154, edgeTop(154, z) + 2, z), false,
+        '门墩上方净空 y25 z' + z + ' false(净空层不保, N2 对称)');
+    assert.strictEqual(Core.advEdgeProtectedAt(154, edgeTop(154, z) + 3, z), false,
+        '门墩上方净空 y26 z' + z + ' false(禁填空气格维持不在保)');
+  }
   /* 普通带内格与隔离带: 判据全 false(带内可挖可建=放开语义) */
   assert.strictEqual(Core.advEdgeProtectedAt(30, edgeTop(30, 2), 2), false, '北带普通雪格 false');
   assert.strictEqual(Core.advEdgeProtectedAt(80, edgeTop(80, 100), 100), false, '南带普通沙格 false');
