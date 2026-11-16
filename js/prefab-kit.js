@@ -278,12 +278,13 @@ function pfMerge(row, id, v) {
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。十五行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   kernel(几何内核)。十七行: stilt-hut(P0 高脚木屋对)/under-room/mound
    (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔)/shop-awning
    (T-PREFAB-02 店身+前廊遮檐铺面)/stash-hut(T-PREFAB-03 秘密储藏小屋)/
    windmill-tower(T-PREFAB-04 风车塔)/cottage-gable(T-PREFAB-05 民居 A)/
    house-loft(T-PREFAB-06 民居 B 双层挑窗/错顶形)/stall-canopy(T-PREFAB-07
-   市集摊位), 按形命名不按图命名; TIDEA 波次一增五小件(TIDEA-04 稻草人/
+   市集摊位)/iron-golem(PO 亲需③全身立像)/town-gate(T1a ②镇侧门楼),
+   按形命名不按图命名; TIDEA 波次一增五小件(TIDEA-04 稻草人/
    TIDEA-08 晾衣绳·柴堆·鸡窝(窗台花箱走 assembly windowbox kind 单源
    不建行)/TIDEA-10 高跳板与小水池=§4.8 board-pool 契约实装, PO 批
    「动骨架-轻」)——全静态陈设, 零行为接线零波次二预设(town-npc* 零触) */
