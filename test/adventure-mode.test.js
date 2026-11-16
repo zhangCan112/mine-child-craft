@@ -7260,3 +7260,97 @@ test('PO④-3 正控: 无傀儡遮挡靶石照常挖穿(豁免不误伤普通挖
       'C 照常挖穿(木镐 1.125s, 60 帧富余; 触屏单击本块完成即停)');
   clearAim();
 });
+
+/* ============ T-SPINNER-LEAK: 风车叶片 mesh 不跨场(离场清场清单) ============
+   票面病灶: 进过一次小镇后, 叶片 mesh(townBuild spinner case 挂全局 scene 根 +
+   SpinnerCore.register)残留到所有地图持续旋转——清场唯一生产调用点在
+   townBuild(只防重建场重复注册), 离场共通清单 advSceneLeave 清了
+   beams/flames/saplings/entities 独缺 spinner。修复方向: SpinnerCore.drain +
+   scene.remove + dispose 挂进 advSceneLeave(与 advBeamsClear「旧世界的束不
+   跨场」同原则); townBuild 现存 drain 保留作重入护栏。
+   装具: 真 SpinnerCore(require 单例)+哑 THREE(mkSpinnerMesh 消费面, dispose
+   记账)+记账 scene——spinner case 三守卫全开, 走真 townBuild→spinner case
+   注册链(非等价直注); 桩挂宿主 global(conventions §7.1 条 3), finally 摘除。 */
+
+test('T-SPINNER-LEAK 离场排空: 进镇真注册叶片后出镇, advSceneLeave 排空 SpinnerCore 注册表 + scene.remove + geometry/material dispose · 切图零残留 · 重进镇链路照常', () => {
+  mem.clear();
+  const {SpinnerCore} = require('../js/spinner-core.js'); /* 引擎真件(鸭子类型哑 mesh, spinner-core.test.js 同约定) */
+  const geoDisposed = [];
+  const matDisposed = [];
+  const removed = [];
+  const spawned = []; /* THREE.Mesh 构造账=叶片 mesh 全集(仅 mkSpinnerMesh 消费此桩;
+      傀儡 root 走 MobLookKit 桩, PO 段粘性安装的摆放链在场也不混账) */
+  try {
+    /* 旋转三桩只在本测试在场(conventions §7.1 条 3: 桩挂宿主 global);
+       BufferGeometry/Mesh 带 rotation——哑对象消费面=rotation[axis]+dispose */
+    globalThis.SpinnerCore = SpinnerCore;
+    globalThis.THREE = {
+      BufferGeometry: function() {
+        this.setAttribute = (name, attr) => { this[name] = attr; };
+        this.computeBoundingSphere = () => {};
+        this.dispose = () => geoDisposed.push(this);
+      },
+      Float32BufferAttribute: function(array, itemSize) {
+        this.array = array;
+        this.itemSize = itemSize;
+      },
+      MeshBasicMaterial: function(params) {
+        Object.assign(this, params);
+        this.dispose = () => matDisposed.push(this);
+      },
+      Mesh: function(geometry, material) {
+        this.geometry = geometry;
+        this.material = material;
+        this.position = {set() {}};
+        this.rotation = {x: 0, y: 0, z: 0};
+        spawned.push(this);
+      },
+    };
+    globalThis.scene = {add: () => {}, remove: (o) => removed.push(o)};
+    SpinnerCore.drain(); /* 表态隔离(require 单例, 进程内跨测试共享) */
+    freshInit();
+    /* 进镇(切界唯一入口直达, T-SEAM-03 同款): 行 build→townBuild→spinner case
+       全真链——mkSpinnerMesh 产真哑 mesh, scene.add + SpinnerCore.register */
+    A.advSetDim('town');
+    assert.strictEqual(A.advNetherState().dim, 'town', '前提: 在镇维度');
+    assert.ok(spawned.length >= 1, '前提: 进镇建上叶片 mesh(spinner case 走通), 实建 ' + spawned.length);
+    SpinnerCore.tickSpinners(0.5); /* 步进半秒: 注册表活的实证(此刻未排水) */
+    for (const m of spawned) {
+      assert.ok(m.rotation.x !== 0 || m.rotation.z !== 0,
+          '前提: 叶片注册在册且 tick 写 rotation(axis 白名单 x|z)');
+    }
+    /* 出镇(离场共通清单 advSceneLeave 的生产入口之一, T6 同款) */
+    A.advSetDim('overworld');
+    assert.strictEqual(A.advNetherState().dim, 'overworld', '前提: 已出镇');
+    /* ① 注册表排空: 出镇后注册表恒空(main.js tickSpinners 对空表自然 no-op) */
+    assert.deepStrictEqual(SpinnerCore.drain(), [],
+        '①出镇排空 SpinnerCore 注册表(孤儿叶片根除)');
+    /* ② mesh 卸载: 进镇建上的每片叶已 scene.remove(引用一一对应)+双 dispose */
+    assert.ok(spawned.every((m) => removed.includes(m)),
+        '②进镇建上的叶片 mesh 已 scene.remove(引用一一对应, 实摘 ' +
+        spawned.filter((m) => removed.includes(m)).length + '/' + spawned.length + ')');
+    assert.ok(spawned.every((m) => geoDisposed.includes(m.geometry)),
+        '②geometry.dispose 每片叶到位');
+    assert.ok(spawned.every((m) => matDisposed.includes(m.material)),
+        '②material.dispose 每片叶到位');
+    /* 跨图残留症状锁(票面: 进过一次镇, 每张地图都转): 出镇后切图, 注册表保持空 */
+    A.advSetMap('desert');
+    A.advSetMap('home', A.ADV.spawn);
+    assert.deepStrictEqual(SpinnerCore.drain(), [], '切图后注册表仍空(跨图零残留)');
+    /* 重进镇链路照常(townBuild 重入护栏与离场排空共存零冲突): 新进场新叶新注册 */
+    const before = spawned.length;
+    A.advSetDim('town');
+    assert.ok(spawned.length > before, '重进镇重新挂叶建场(新建场链路未被排空误伤)');
+    SpinnerCore.tickSpinners(0.5);
+    for (const m of spawned.slice(before)) {
+      assert.ok(m.rotation.x !== 0 || m.rotation.z !== 0, '重进镇新叶重新注册在册');
+    }
+    A.advSetDim('overworld');
+    assert.deepStrictEqual(SpinnerCore.drain(), [], '再次出镇再次排空(离场清单幂等)');
+  } finally {
+    delete globalThis.THREE;
+    delete globalThis.scene;
+    delete globalThis.SpinnerCore;
+    SpinnerCore.drain(); /* 单例表态复位(同文件后续测试零残留) */
+  }
+});
