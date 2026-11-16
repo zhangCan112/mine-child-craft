@@ -185,7 +185,9 @@ interface: 入口函数/对象一行清单
 所有 js 文件是经典 `<script defer>`：顶层声明互为全局（加载序即依赖序）；Node 侧经
 CommonJS 导出守卫 `if (typeof module !== 'undefined' && module.exports)` 供单测 require。
 eslint.config.mjs 在加载时**动态扫描 js/ 顶层声明生成跨文件全局名单**——`no-undef`
-由此可查跨文件引用手滑，新增模块无需登记。
+由此可查跨文件引用手滑，新增模块无需登记。关键链的**加载序**由守门断言执法
+（test/conventions.test.js 的 hand-view 链序 gate 与镇民链序 gate 先例——index.html
+script 列表逐对比较）；正文不逐链誊写链序清单，新增多文件链时同步在 gate 扩列。
 
 由此产生的两条本地规则：
 
@@ -313,6 +315,15 @@ math-track / math-build-world 的 `mkFakeEl`、focus-paradigms 的 `mkFakeElDrv`
 （`.attrs` 等），一律以真实 Element 契约为准（js/town-ui.js 禁 `.attrs` 直读 +
 禁 `.children.数组方法` 直调的源码切片守门已在库）。
 执行者：评审 + 既有源码切片守门（面扩列随守门走，不另立清单脚本——第二份清单必漂移）。
+
+### 7.6 对话域守门四面（T-NPC-11 登记——测试侧执法）
+
+对话链四类既有守门断言：①状态机 **9 态 × 全意图集**逐对全枚举（按表转移/click-npc
+双起步/零惩罚拒绝三择，永不抛永不出表外）②事件名权威常量面（DIALOG_EVENTS 冻结三键
+= town-ui/dialog/* 唯一权威，禁第二份誊写）③对话链源文本零键盘绑定（点击为唯一
+必要操作）④三件套文案零段落语义（面板正文/选项标签零换行且 bounded）。权威面：
+town-ui-dialog-spec.md §5.3（场景表）/§1.7（无段落文本）；test/town-dialog-core.test.js
+与 test/town-ui.test.js 执法；新增会话类型或状态时同步扩枚举。
 
 ## 变更记录
 

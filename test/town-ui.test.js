@@ -673,6 +673,9 @@ function mkHlHarness(machineRef, opts) {
     speech: rec.speech.speech,
     timer: rec.timer,
     showPage: (id) => rec.pages.push(id),
+    poseRef: o.poseRef, /* PO①(红方报备, 加法透传): 位姿采样源注入缝——
+       缺省 undefined 走适配层生产缺省(既有行为零漂移), 本票 ① 组测试
+       用来驱动「镇内走远收口」的位姿变化 */
     camRef: () => cam,
     hlSource: () => source,
     onInteract: (payload) => rec.interact.push(payload),
@@ -1088,11 +1091,11 @@ test('集成链 T-UI-03(T-UI-04F 改约): 进镇九标→mousemove 瞄钟塔位 
       '  }\n' +
       '  return null;\n' +
       '}', ctx);
-  /* 白闪进镇: 建机(advTownInteractBoot 同形 emit 实接)→九标在册 */
+  /* 白闪进镇: 建机(advTownInteractBoot 同形 emit 实接)→二十标在册 */
   vm.runInContext('__machine = mkTownTargets(' +
       '{emit: function(n, p) { __ui.targetEvent(n, p); }}); __ui.sync();', ctx);
-  assert.strictEqual(hlLayerProbe(ctx).children.length, 9,
-      'TOWN_INTERACTS 九条目(六锚点+三轻任务)一一挂标(生产缺省清单源)');
+  assert.strictEqual(hlLayerProbe(ctx).children.length, 20,
+      'TOWN_INTERACTS 二十条目(9 既有 + 11 npc, T-NPC-10 入册)一一挂标(生产缺省清单源)');
   assert.strictEqual(hlMarkProbe(ctx, 'bell-tower').textContent, '🗼',
       '钟塔标记图标(UI-01 语义键)');
   assert.strictEqual(hlMarkProbe(ctx, 'bell-tower').classList.contains('is-default'),
@@ -2026,5 +2029,260 @@ test('TIDEA-16 回望钟塔回礼: 先离开正前再回正前→L2 徽章 seen-
    首访拦截文案=卡三态之一, 卡壳+文案+记账(enteredOnce/greetDone/hintOn)
    全清; greet done 事件 feed 链保留=机制 headless, 其行为由上方会话避让
    与 seek 全链测试承担) */
+
+/* ============================================================
+   T-NPC-11 对账补缺红测(§1.7 禁止项硬清单 + 票面会师 4 已裁口径;
+   票面施工记录 §7.3): 对账结论=禁止项四项中「无键盘依赖」与
+   「事件名唯一权威」两域零守门, 立红补缺。守门测试红相自证=
+   突变注入违例见红/还原见绿(票面施工记录 §7.3 自证列)。
+   ============================================================ */
+
+test('禁止项守门(§6.3): 对话链源文本零键盘绑定——keydown/keyup/keypress/KeyboardEvent 全域缺席, 点击为唯一必要操作', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const kb = /addEventListener\(\s*['"]key(?:down|up|press)['"]|onkey(?:down|up|press)|KeyboardEvent/;
+  for (const f of ['js/town-ui.js', 'js/town-dialog-core.js']) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.ok(!kb.test(src), f + ' 出现键盘事件绑定(§6.3: 无键盘快捷键依赖, ' +
+        '纯鼠标点选为唯一必要操作)');
+  }
+});
+
+test('事件名权威守门(票面会师 4 已裁): 双 js 源+index.html(只读)零旧名 town:dialog*, town-ui/dialog/* 唯一权威', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const legacy = /town:dialog/;
+  for (const f of ['js/town-ui.js', 'js/town-dialog-core.js', 'index.html']) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.ok(!legacy.test(src), f + ' 出现旧事件名 town:dialog*(双名歧义已裁: ' +
+        '唯一权威=town-ui/dialog/*, 旧名不实现)');
+  }
+});
+
+/* ============================================================
+   T-NPC-11 接缝修复红测(scoped; 收口规格轴评审证伪 §7.5.6 失实
+   销号后派单): 缺口=town-ui.js 驱动缝(:667 附近)对一切带
+   sessionKind 条目无条件 handle({type:'route'})——greet/care 类
+   npc 条目(T-NPC-10 已入册 11 条中 5 条)被 ROUTE_BY_KIND 兜底误落
+   guide, 非 dialog-spec §5.3 场景 4/5 的 L1 轻问候路径。
+   修法口径(发起侧, 追令钉死): 驱动缝 route 派发只认
+   ROUTE_BY_KIND 在册键(tour|seek|help), greet/care 豁免零派发——
+   判据单份红线, 消费 dialog-core 顶层共享词法名, 勿誊写第二份
+   kind 清单; dialog-core 零改动(route 目标域冻结三值)。
+   npc 条目形状=TOWN_INTERACTS npc 条目经 townInteractRegistry
+   快照同形(六键+anchor 解析); 锚=独立位(90,24,84)单条清单无遮挡。
+   ============================================================ */
+
+function npcEntryOf(id, sessionKind, label) {
+  return {id, kind: 'npc', iconKey: sessionKind === 'care' ? 'care' : 'help',
+    label: label || id, anchor: {x: 90, y: 24, z: 84}, state: 'active',
+    sessionKind};
+}
+
+test('npc greet 接缝(T-NPC-11 修复): 点选开会话零 route 派发——面板停 greet 轻问候播问候句, 挥手再见收尾 close{continue} 非 guide 误路由', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+      [npcEntryOf('npc:v01', 'greet', '阿面')]);
+  rec.ui.sync();
+  rec.clickEntry(npcEntryOf('npc:v01', 'greet', '阿面'));
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.strictEqual(panel.hidden, false, '点选 npc greet 条目→开会话(六键带 sessionKind)');
+  assert.strictEqual(panel.getAttribute('data-state'), 'greet',
+      '零 route 派发: 面板停 greet 轻问候(§5.3 场景 4 L1 路径; 误路由落 guide 在此红)');
+  const speaker = dlgElOf(rec, 'town-dlg-speaker');
+  assert.ok(speaker.textContent.includes('阿面'), 'Speaker 身份=npc 条目名');
+  assert.deepStrictEqual(rec.speech.spoken, ['你好呀, 见到你真开心!'],
+      '播问候句非导览句(误路由会播「跟我一起去看看吧!」)');
+  /* 轻问候收尾: [挥手再见]→pick-option→close{continue}→A 恢复零负面 */
+  const wave = dlgElOf(rec, 'town-dlg-opts').children
+      .find((b) => b.textContent.includes('挥手再见'));
+  assert.ok(wave, 'greet 选项 [挥手再见] 在位(0 任务语义轻问候出口)');
+  wave.click();
+  assert.strictEqual(panel.hidden, true, '挥手再见→面板收起');
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
+      'close{continue} 轻问候收尾→A 恢复探索中(§5.3 场景 4 可无 Complete 语义)');
+});
+
+test('npc care 接缝(T-NPC-11 修复): 点选开会话零 route 派发——面板停 greet(B7 关怀轻交互), 稍后收尾零负面', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+      [npcEntryOf('npc:g01', 'care', '阿稳')]);
+  rec.ui.sync();
+  rec.clickEntry(npcEntryOf('npc:g01', 'care', '阿稳'));
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.strictEqual(panel.hidden, false, '点选 npc care 条目→开会话');
+  assert.strictEqual(panel.getAttribute('data-state'), 'greet',
+      'care 豁免 route: 面板停 greet(B7 轻交互=问候/感谢语境; 误路由落 guide 在此红)');
+  const deferBtn = dlgElOf(rec, 'town-dlg-ghosts').children
+      .find((g) => g.textContent.includes('稍后'));
+  assert.ok(deferBtn, '无压力出口常驻');
+  deferBtn.click();
+  assert.strictEqual(panel.hidden, true, '稍后→close{deferred} 收尾零负面');
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring', 'A 恢复探索中');
+});
+
+test('正控(T-NPC-11 修复零误伤): 任务会话自动 route 照旧——task tour→guide、task help→help(ROUTE_BY_KIND 在册键照常派发)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  for (const [kind, want] of [['tour', 'guide'], ['help', 'help']]) {
+    const entry = {id: 'task:probe-' + kind, kind: 'task', iconKey: 'plaza',
+      label: '正控' + kind, anchor: {x: 90, y: 24, z: 84}, state: 'active',
+      sessionKind: kind, taskRef: 'task:probe-' + kind};
+    const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+        [entry]);
+    rec.ui.sync();
+    rec.clickEntry(entry);
+    assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+        want, 'task ' + kind + ' 自动 route→' + want + ' 照旧(修复不误伤在册键)');
+  }
+});
+
+test('守门矩阵(T-NPC-11 修复): 驱动缝 route 派发只认 ROUTE_BY_KIND 在册键——' +
+    '五值逐条 tour→guide/seek→seek/help→help 自动 route, greet/care 豁免停 greet', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const cases = [
+    ['npc:v04', 'tour', 'guide', '图图'],
+    ['npc:v07', 'seek', 'seek', '多多'],
+    ['npc:v02', 'help', 'help', '朵朵'],
+    ['npc:v01', 'greet', 'greet', '阿面'],
+    ['npc:g01', 'care', 'greet', '阿稳'],
+  ];
+  for (const [id, kind, want, label] of cases) {
+    const entry = npcEntryOf(id, kind, label);
+    const rec = dlgHarness(() => ({snapshot: () => ({focusId: null, states: {}})}),
+        [entry]);
+    rec.ui.sync();
+    rec.clickEntry(entry);
+    assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').getAttribute('data-state'),
+        want, 'sessionKind=' + kind + ' 点选终态=' + want +
+        (want === 'greet' ? '(轻问候豁免 route, 误落 guide 在此红)' : '(在册键自动 route)'));
+  }
+});
+
+/* ============================================================
+   ============ PO 实屏验收缺陷修复票案①红测(树 3c89723) ============
+   镇内对话距离失焦: 会话中走远不收口(原票「已知问题1」被本案吸收)。
+   缺省口径立即实装——超水平阈(参数表 DLG_AWAY_DIST, 缺省 12)即走
+   defer 收会话(leaveTown :992-999 同构 CLOSE 链, 零新事件名); 语义
+   增补(design-lead 件一豁免细则)到达后只对账「语义对账点」标注处。
+   ============================================================ */
+
+const townUiCore = require('../js/town-ui-core.js'); /* 参数表(锁表即规格) */
+const poAwayTh = () => {/* 阈值单源: 表键在册随表走, 缺席回落缺省口径 12 */
+  const v = townUiCore.TOWN_UI_PARAMS.DLG_AWAY_DIST;
+  return typeof v === 'number' ? v : 12;
+};
+
+/* ---------- 案①装具: dlgHarness 形 + poseRef 透传(mkHlHarness 本票
+    加法缝)。位姿闭包可变: 测试内改 pose 变量即模拟走远/走近 ---------- */
+function poDlgHarness(source) {
+  const pose = {x: 90, y: 25, z: 84}; /* 起手位=npc 夹具锚上方(锚 90,24,84) */
+  const rec = mkHlHarness(null, {hlSource: source, poseRef: () => (
+    {x: pose.x, y: pose.y, z: pose.z, yaw: 0})});
+  rec.machine = {snapshot: () => ({focusId: null, states: {}})};
+  rec.clickEntry = (entry) => {
+    rec.setCam(Object.assign({}, HL_CAM_DEFAULT, {dir: hlAimDir(entry.anchor)}));
+    rec.fire('mousemove', {});
+    rec.fire('pointerdown', {});
+    rec.fire('pointerup', {});
+  };
+  rec.pose = pose; /* 可变位姿(直接改字段即走位) */
+  return rec;
+}
+
+test('PO①-1 镇内走远收口: 会话中超水平阈离开 — defer 收会话(A 卡复原)+面板收, HUD 在场(与离镇收口的区分面)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const th = poAwayTh();
+  const entry = npcEntryOf('npc:v07', 'seek', '多多');
+  const rec = poDlgHarness([entry]);
+  rec.ui.sync();
+  rec.clickEntry(entry);
+  assert.strictEqual(rec.ui.cardState(), 'dialog-dimmed', '前置: 会话中(A 卡收敛)');
+  rec.pose.x = entry.anchor.x + th + 2; /* 走远: 水平超阈(边界对 TH+2) */
+  rec.ui.sync();
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
+      '超阈=defer 收会话(A 卡 deferred 复原, PO①本体)');
+  const panel = dlgElOf(rec, 'town-dlg-panel');
+  assert.strictEqual(panel.hidden, true, '面板收起');
+  assert.strictEqual(panel.getAttribute('data-state'), 'idle', '会话态归零(idle)');
+  assert.strictEqual(rec.ui.root.hidden, false,
+      'HUD 在场(镇内走远≠离镇: 容器不收敛, 与 leaveTown 的区分面)');
+});
+
+test('PO①-2 阈内不收口(正控): 会话中阈内走动 — sync×3 会话存活零抖动(边界对 TH−2)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const th = poAwayTh();
+  const entry = npcEntryOf('npc:v07', 'seek', '多多');
+  const rec = poDlgHarness([entry]);
+  rec.ui.sync();
+  rec.clickEntry(entry);
+  assert.strictEqual(rec.ui.cardState(), 'dialog-dimmed', '前置: 会话中');
+  rec.pose.x = entry.anchor.x + th - 2; /* 阈内走动(不收口) */
+  rec.ui.sync();
+  rec.ui.sync();
+  rec.ui.sync();
+  assert.strictEqual(rec.ui.cardState(), 'dialog-dimmed',
+      '阈内会话存活(边界对 TH−2; 过敏感收口在此红)');
+});
+
+test('PO①-3 五值全覆盖: greet/care/tour/seek/help 各开各收(超阈 defer 收口, 会话类型零豁免死角)', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const th = poAwayTh();
+  /* 语义对账点: design-lead 件一(豁免细则)——tour/seek/help 三行任务会话
+     是否豁免距离收口在此对账; 缺省口径=五值全收, 到达后只对账本标注点 */
+  const cases = [
+    ['npc:v04', 'tour', '图图'],
+    ['npc:v07', 'seek', '多多'],
+    ['npc:v02', 'help', '朵朵'],
+    ['npc:v01', 'greet', '阿面'],
+    ['npc:g01', 'care', '阿稳'],
+  ];
+  for (const [id, kind, label] of cases) {
+    const entry = npcEntryOf(id, kind, label);
+    const rec = poDlgHarness([entry]);
+    rec.ui.sync();
+    rec.clickEntry(entry);
+    assert.strictEqual(rec.ui.cardState(), 'dialog-dimmed',
+        '前置: ' + kind + ' 会话开(A 卡收敛)');
+    rec.pose.x = entry.anchor.x + th + 2;
+    rec.ui.sync();
+    assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
+        kind + ' 超阈 defer 收口(五值零死角)');
+    assert.strictEqual(dlgElOf(rec, 'town-dlg-panel').hidden, true,
+        kind + ' 面板收起');
+  }
+});
+
+test('PO①-4 参数表驱动: DLG_AWAY_DIST 键在册(数型)+town-ui.js 源消费 token(锁表即规格, 禁硬编码字面)', () => {
+  assert.strictEqual(typeof townUiCore.TOWN_UI_PARAMS.DLG_AWAY_DIST, 'number',
+      'TOWN_UI_PARAMS.DLG_AWAY_DIST 键在册(缺键=干净红; 缺省口径 12 随表可调)');
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'town-ui.js'), 'utf8');
+  assert.ok(src.indexOf('DLG_AWAY_DIST') >= 0,
+      'town-ui.js 消费 DLG_AWAY_DIST(参数表单源取值; 硬编码他值时 ①-1/①-2 边界对翻红)');
+});
+
+test('PO①-5 组合幂等(与案②并轨面): 先距后掉机/先掉机后距 — 两序零炸零双收, 再进会话可重开', () => {
+  assert.ok(townUi, 'js/town-ui.js 缺席(红期)');
+  const th = poAwayTh();
+  const entry = npcEntryOf('npc:v07', 'seek', '多多');
+  const rec = poDlgHarness([entry]);
+  rec.ui.sync();
+  rec.clickEntry(entry);
+  assert.strictEqual(rec.ui.cardState(), 'dialog-dimmed', '前置: 会话中');
+  /* 序一: 先距(收)后掉机(离镇)——已收会话上的 leaveTown 幂等零炸 */
+  rec.pose.x = entry.anchor.x + th + 2;
+  rec.ui.sync(); /* 距收 */
+  rec.machine = null; /* 掉机(模拟切模式/弃机, ② 案同源场景) */
+  rec.ui.sync(); /* leaveTown 走 defer 半边 */
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring', '先距后掉机: 终态复原零炸');
+  assert.strictEqual(rec.ui.root.hidden, true, '掉机半边照常收敛(容器)');
+  /* 序二: 先掉机后距——再进镇重开会话, 距收照常(两序幂等等价) */
+  rec.machine = {snapshot: () => ({focusId: null, states: {}})};
+  rec.ui.sync(); /* 再进镇 */
+  rec.pose.x = entry.anchor.x; /* 回到锚旁 */
+  rec.clickEntry(entry); /* 重开会话 */
+  assert.strictEqual(rec.ui.cardState(), 'dialog-dimmed', '再进重开会话(可重入零串轮)');
+  rec.pose.x = entry.anchor.x + th + 2;
+  rec.ui.sync();
+  assert.strictEqual(rec.ui.cardState(), 'idle-exploring',
+      '先掉机后距: 距收照常(与序一等价, 组合零双收)');
+});
 
 
