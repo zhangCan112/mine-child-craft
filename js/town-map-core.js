@@ -268,7 +268,10 @@ const TOWN_MAP = {
         差仅裙板域两件。实测注: scene 6413b00 裙板「两缘落地」提案在翼/
         墩列列顶=24(中带 25), 施工案 y25..26 曾按「立实测顶 24 上」换算
         ——经终审按功能裁定不采, 域差与回改后 y25 缝的处置留后续票, 详
-        注见 test/town-map-core.test.js ⑧b。排序契约: 必须排在 wayshrine
+        注见 test/town-map-core.test.js ⑧b。G4 补底终态(上缝已闭合):
+        翼/墩加底块 y25, 终形三格 y25..27, 顶面 y28 级不变(+36 格),
+        design-lead 裁路径 B, 裁决出处=.scratch/town-east-boundary/
+        gate-review-town-side.md「补录·G4 翼/墩补缝裁决」节。排序契约: 必须排在 wayshrine
         条目之前——buildSteps 把非 wayshrine 地表条目平铺在前、wayshrine
         加冠于 road 后, townAssemblyPhases 重分组后 ground 组序=源清单
         序(装配序测试钉), 条目落 wayshrine 之后会破序 */
@@ -293,13 +296,14 @@ const TOWN_MAP = {
         /* 南角柱帽 cap: y27 石英(北端接头格故意不加帽) */
         {part: 'cap', x1: 31, z1: 128, x2: 31, z2: 128, y1: 27, y2: 27},
         {part: 'cap', x1: 128, z1: 128, x2: 128, z2: 128, y1: 27, y2: 27},
-        /* 裙板翼墙 wing: z31 行 y26..27(spec 原案, T2c 终审回改, 见上注) */
-        {part: 'wing', x1: 16, z1: 31, x2: 30, z2: 31, y1: 26, y2: 27},
-        {part: 'wing', x1: 129, z1: 31, x2: 143, z2: 31, y1: 26, y2: 27},
-        /* 北缘端头墩 pier: x16/x143 列 z29..31 y26..27(spec 原案; 墩脚
-           语义见上注域差档, T2c 终审回改) */
-        {part: 'pier', x1: 16, z1: 29, x2: 16, z2: 31, y1: 26, y2: 27},
-        {part: 'pier', x1: 143, z1: 29, x2: 143, z2: 31, y1: 26, y2: 27},
+        /* 裙板翼墙 wing: z31 行 y25..27(G4 补底终形三格, 顶面 y28 级
+           不变; T2c 终审沿革见上注) */
+        {part: 'wing', x1: 16, z1: 31, x2: 30, z2: 31, y1: 25, y2: 27},
+        {part: 'wing', x1: 129, z1: 31, x2: 143, z2: 31, y1: 25, y2: 27},
+        /* 北缘端头墩 pier: x16/x143 列 z29..31 y25..27(G4 补底终形
+           三格; 墩脚语义见上注域差档, T2c 终审沿革) */
+        {part: 'pier', x1: 16, z1: 29, x2: 16, z2: 31, y1: 25, y2: 27},
+        {part: 'pier', x1: 143, z1: 29, x2: 143, z2: 31, y1: 25, y2: 27},
       ]},
     {id: 'wayshrine-east', kind: 'wayshrine', x1: 121, z1: 84, x2: 125, z2: 88},
     {id: 'wayshrine-south', kind: 'wayshrine', x1: 76, z1: 119, x2: 80, z2: 123},
