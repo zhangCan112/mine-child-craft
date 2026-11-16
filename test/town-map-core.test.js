@@ -349,7 +349,9 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
       gateBox.z1 >= gateSeg.z1 && gateBox.z2 <= gateSeg.z2,
   'town-gate 脚印 ⊆ beyond.gate-south(ADR-0013 白名单放行, 越界唯一通道)');
   assert.strictEqual(gateBox.z2, 135,
-      'town-gate 最深笔 z135(G3 四格案沿革: 桥延伸段=回程路地面延伸跨回程触发线 z132 系有意设计——物理复验白闪窗步行 2.0/疾跑 3.4 格, 四格=全动作零坠感; 判据行为面零改动前提不变, ADV_TOWN_RETURN_Z=132 源码正则仍在位)');
+      'town-gate 最深笔 z135(G3 四格案沿革: 桥延伸段=回程路地面延伸跨回程触发线 z132 系' +
+      '有意设计——物理复验白闪窗步行 2.0/疾跑 3.4 格, 四格=全动作零坠感; 判据行为面零改动' +
+      '前提不变, ADV_TOWN_RETURN_Z=132 源码正则仍在位)');
 });
 
 /* ============ ⑥ 实例两两无交 ============ */
@@ -758,8 +760,11 @@ test('U4 同源互证: 白名单 part segs 全格 ⊆ 判据 · cap 全格不在
           skipped++; /* 白名单 seg 格: 判据值归 segs 循环管(在保 true), 不在对拍域 */
           continue;
         }
-        const tower = y >= g.y + 1 && y <= g.y + 9; /* 楼段 y25..33(全宽含出挑) */
-        const bridge = y <= g.y && x >= g.x && x <= g.x + 4; /* 桥段 y20..24(桥体宽) */
+        /* 楼段政策域 z+0..3(G3 四格案后显式化: 楼段几何立 z129 平面+檐背,
+           延伸段 z132..135 上方无楼——楼段域不随桥扩, 与 townProtectedAt
+           头注②及 :691 对称守卫同口径) */
+        const tower = y >= g.y + 1 && y <= g.y + 9 && z <= g.z + 3;
+        const bridge = y <= g.y && x >= g.x && x <= g.x + 4; /* 桥段 y20..24(桥体宽, z 吃总盒 G3 扩域) */
         const clear = x >= g.x + 1 && x <= g.x + 3 &&
             y >= g.y + 1 && y <= g.y + 3 && z === g.z + 1; /* 门洞净空 */
         assert.strictEqual(prot(x, y, z), (tower || bridge) && !clear,

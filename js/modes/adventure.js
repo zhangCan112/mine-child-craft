@@ -33,7 +33,9 @@
    任务/宝箱, 触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档
    adapter 缺省装配, 触点口径见该缝头注释)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
-     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(41 键:
+     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(56 键,
+      G3 基座同步合并后语法层实数 2026-11-16: T2b 后 54 键 + T-NPC-13 两挂点
+      advTownPatrolTick/advTownPatrolApply;
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口/丢弃与扩容
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调) ·

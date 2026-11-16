@@ -3762,29 +3762,30 @@ test('T-PREFAB-10 iron-golem 全身立像: 抽格钉值(基座/腿/肩/腰/臂/�
    断言四组(票面): foot/逐格/门洞净空禁填/越界守卫; 材质基线入册见上
    「全行缺省建场安全」(sign 槽豁免 thin)。 */
 
-test('town-gate foot: 恒等 north 精确盒 7×14×4——檐口出挑 x75/x81, 桥垫层 y20..24, 总高 y33(groundY+9)', () => {
+test('town-gate foot: 恒等 north 精确盒 7×14×8——檐口出挑 x75/x81, 桥垫层 y20..24, 总高 y33(groundY+9), 桥深至 z135(G3 四格案)', () => {
   const k = loadKit();
   assert.deepStrictEqual({...k.pf.footOf('town-gate', 76, 24, 128)},
-      {x1: 75, y1: 20, z1: 128, x2: 81, y2: 33, z2: 131},
-      'footprint x75..81(檐口出挑 7)×y20..33(桥底到屋脊 14)×z128..131(桥深 4)——精确=beyond.gate-south 域');
+      {x1: 75, y1: 20, z1: 128, x2: 81, y2: 33, z2: 135},
+      'footprint x75..81(檐口出挑 7)×y20..33(桥底到屋脊 14)×z128..135(桥深 8, G3 四格案延伸 z132..135)——精确=beyond.gate-south 域');
   const spy = k.spySet();
   k.pf.footOf('town-gate', 76, 24, 128);
   assert.strictEqual(spy.rec().length, 0, 'footOf 零写(纯查询)');
   k.clear();
   const box = k.pf.place('town-gate', 76, 24, 128);
-  assert.deepStrictEqual({...box}, {x1: 75, y1: 20, z1: 128, x2: 81, y2: 33, z2: 131},
-      'place 返回世界脚印盒=footOf 同参同盒');
+  assert.deepStrictEqual({...box}, {x1: 75, y1: 20, z1: 128, x2: 81, y2: 33, z2: 135},
+      'place 返回世界脚印盒=footOf 同参同盒(G3 桥深 z135)');
 });
 
 test('town-gate 逐格: spec §2.3 部位全表——桥实心/侧柱/壁灯嵌柱/横梁/牌居中/配块/柱头/檐口/屋面/屋脊', () => {
   const k = loadKit();
   k.clear();
   k.pf.place('town-gate', 76, 24, 128);
-  /* 基座桥: x76..80 × y20..24 × z128..131 全实心 13(spec §2.2 剖面实心,
-     防侧面看 1 格薄板悬空穿帮; 桥面 y24 与 core 草地同层) */
+  /* 基座桥: x76..80 × y20..24 × z128..135 全实心 13(spec §2.2 剖面实心,
+     防侧面看 1 格薄板悬空穿帮; 桥面 y24 与 core 草地同层; G3 四格案:
+     延伸段 z132..135 同构剖面续铺=回程路地面延伸, 端头 z135 齐头收) */
   for (let x = 76; x <= 80; x++) {
     for (let y = 20; y <= 24; y++) {
-      for (let z = 128; z <= 131; z++) {
+      for (let z = 128; z <= 135; z++) {
         assert.strictEqual(k.cell(x, y, z), 13, '桥体 13 石砖 @(' + x + ',' + y + ',' + z + ')');
       }
     }
