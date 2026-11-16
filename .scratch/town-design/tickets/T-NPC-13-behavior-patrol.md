@@ -248,3 +248,8 @@ PO 已批的是**改善诉求**；动画选型与移动方式是产品裁决，�
 **绿方 lint 遗留与裁决修清账**：绿方自报 lint 零错与亲验不符（29 错：绿方 js 两文件 operator-linebreak×5 + 红方测试三文件卫生债×24——红相时未跑 lint 门所致）。处置：js 侧 eslint --fix 机械样式修（修后复跑全量证行为零漂）；测试侧红方亲修（P→pTbl 改名避 new-cap / optional catch binding 先例形 / deepStrictEqual 重排同构合法形 / 块注释挪行 / WP_ANCHORS 启用进断言（引用值=原字面逐键同）/ gate 标题拆行）。**教训登记**：红相收口即跑 lint 门，卫生债不过夜。
 
 **台账**：README T-NPC-13 行状态改「施工完成待评审」（评审/集成归上游，本岗边界止于红+绿同票交付）。
+
+### 11.6 评审修复项与本线外债附记（2026-11-16，评审「有条件通过」后收口）
+
+- **评审修复四条全兑现**（单条 commit）：①GLOSSARY 回写（新词条「镇民行为层核心（TownNpcBehaviorCore）」+ 一览 declared 68→69，interface 恰五名以 core 导出面实测为准，`_Avoid_` 四条按词条纪律；conventions GLOSSARY 确定性断言验平过）；②gate 扩列注释失准改真（「与维度段 townYawOfFace」→「同式自铸 patrolYawOfFace，语义锚定 dims-core 同式」，与本节注记及 core 头注对齐，零语句改动）；③advTownAnchorTick 体内头注「生产恒缺省 leg0」改真（生产现由 advLegById 每帧供数；同事实的 :3154 变量段块注释同批改真防半修矛盾，仅注释零语句）；④本条即 T11 附记。
+- **T11 间歇债附记（债责不归本票）**：收口核验发现 adventure-mode.test.js T11「沙漠图到拍」（:4766-4797）为既有间歇性测试（同树跨轮次 4 绿 1 红，本线 diff 未触铺怪路径——绿方与红方多轮全量运行均未见其红，评审轮撞红一例）。处置归独立小票/债册，后续轮次撞红勿误归因到本线改动。

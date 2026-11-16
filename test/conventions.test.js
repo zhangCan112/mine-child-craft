@@ -219,9 +219,10 @@ test('规范: 镇民链装载序 kit → town_*×14 → interact-core → anchor
     'town_v02', 'town_v03', 'town_v04', 'town_v05', 'town_v06', 'town_v07',
     'town_v08', 'town_v09', 'town_v10'].map((k) => 'mob-look/' + k + '.js');
   /* T-NPC-13 gate 扩列(数据跟随, §2.1 登记先例): 行为层推进者核心入链——
-     消费 anchor-core(anchorOf/TOWN_NPC_ANCHORS)与维度段 townYawOfFace, 故
-     恒晚于 anchor-core; registry/town-npc/adventure/town-ui 不消费它, 位序
-     取「紧随其依赖」最小扰动。 */
+     消费 anchor-core(anchorOf/TOWN_NPC_ANCHORS), 故恒晚于 anchor-core;
+     face→yaw 同式自铸 patrolYawOfFace(语义锚定维度段权威 townYawOfFace 同式,
+     不引第二份模块依赖——core 头注纪律, 票面 §11.5 注记同口径); registry/
+     town-npc/adventure/town-ui 不消费它, 位序取「紧随其依赖」最小扰动。 */
   const CHAIN = ['mob-look-kit.js'].concat(LOOKS, ['town-interact-core.js',
     'town-npc-anchor-core.js', 'town-npc-behavior-core.js', 'town-npc-registry.js',
     'town-npc.js']);

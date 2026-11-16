@@ -3150,15 +3150,16 @@ function advTownPuppetsLeave() {
    townTargetOf 六键, anchor 恰三键 {x,y,z} 携新航点——face 不入协议
    载荷, registry 快照口径)——零协议增项(town-interact-core 冻结面零
    改动, 只消费全局名, 不在壳层定义协议件); 重发是刷新非迁移: 机器
-   focusId/states 零扰动。legIndex 推进者=未来行为层票(日程/巡逻),
-   生产路径恒缺省 leg0=静态站位天然成立; prev 账本随建机建/随离镇
+   focusId/states 零扰动。legIndex 推进者=T-NPC-13 巡逻账(advTownPatrolTick
+   每帧供数 legById「HUD 下一站」), 静态 13 锚不进表恒缺省 leg0=静态站位
+   天然成立; prev 账本随建机建/随离镇
    弃机清, 每次进场新账不串轮。 */
 let advTownAnchors; /* prev 快照账本: 进镇记全部 14 锚 id 的缺省腿快照,
     离镇清空(未进镇=undefined, tick 缺席旁路容差) */
 function advTownAnchorTick(legById, policy = 'focused') {/* 锚点动态化消费机
-    (update 每帧, 生产恒缺省 leg0): 返回 {changed, events}——事件经返回值
-    +emit 双面暴露(mkTownTargets 同款惯例); changed=本 tick 是否有任一
-    跳变(与事件分账: 默认策略无焦点时跳变照记账零事件) */
+    (update 每帧, 生产 legById=T-NPC-13 巡逻推进者每帧供数): 返回 {changed,
+    events}——事件经返回值+emit 双面暴露(mkTownTargets 同款惯例);
+    changed=本 tick 是否有任一跳变(与事件分账: 默认策略无焦点时跳变照记账零事件) */
   if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) {
     return {changed: false, events: []};
   }
