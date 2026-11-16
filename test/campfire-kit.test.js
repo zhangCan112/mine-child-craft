@@ -228,3 +228,67 @@ test('campfire kit 无 onBurnout 注入: 燃尽不炸(回调缺省=无观感政�
   assert.doesNotThrow(() => burnTicks(ledger, 6000), '燃尽路径零注入不炸');
   assert.strictEqual(ledger.map.size, 0, '条目照删');
 });
+
+/* ============ ③ updraft 注册/注销接线(篝火 T-C2, spec §3.5) ============
+   票面要求 4: 模式层在状态迁移点调 add/remove——燃烧态=plant 时 add、
+   燃尽(tick 到期)与挖除(drop)=remove; 注入走 opts.updraft 缝(onBurnout
+   同款先例), 生产侧传 world.js 装配的 UPDRAFT_SIM(adventure 接线守门在
+   test/updraft-core.test.js 装配守门段)。add 参数三件来自 CAMPFIRE 参数块
+   (columnR/columnH/lift, 字面值已由本文件参数块测试钉死, 此处只钉转发)。 */
+
+function mkUpdraftRecorder() {
+  const added = [];
+  const removed = [];
+  return {
+    added, removed,
+    updraft: {
+      add: (s) => added.push(s),
+      remove: (x, y, z) => removed.push([x, y, z]),
+    },
+  };
+}
+
+test('campfire kit updraft 接线: plant → sim.add(源格心+CAMPFIRE 柱参三件, 单次单源)', () => {
+  kitReady();
+  assert.ok(cfg.params, 'CAMPFIRE 参数块在册(柱参单源)');
+  const rec = mkUpdraftRecorder();
+  const ledger = CampfireKit.mkCampfireLedger({updraft: rec.updraft});
+  ledger.plant(10, 20, 30);
+  assert.strictEqual(rec.added.length, 1, '放置即燃=注册恰一次(燃烧态=add, spec §3.5)');
+  assert.deepStrictEqual(rec.added[0],
+      {x: 10, y: 20, z: 30, r: cfg.params.columnR, h: cfg.params.columnH, lift: cfg.params.lift},
+      'add 载荷=源格心+柱参三件(r/h/lift 全部来自 CAMPFIRE 参数块, 单源不誊写)');
+});
+
+test('campfire kit updraft 接线: 燃尽(tick 到期) → sim.remove(坐标全参, 与 onBurnout 同拍)', () => {
+  kitReady();
+  const rec = mkUpdraftRecorder();
+  const ledger = CampfireKit.mkCampfireLedger({onBurnout: () => {}, updraft: rec.updraft});
+  ledger.plant(10, 20, 30);
+  burnTicks(ledger, 5999);
+  assert.strictEqual(rec.removed.length, 0, '未燃尽零注销');
+  burnTicks(ledger, 1);
+  assert.deepStrictEqual(rec.removed, [[10, 20, 30]],
+      '燃尽=注销(燃尽收尾与 onBurnout 同一状态迁移点, spec §3.5)');
+});
+
+test('campfire kit updraft 接线: drop 已知格 → sim.remove · 未知格 drop 零注销(presence 口径)', () => {
+  kitReady();
+  const rec = mkUpdraftRecorder();
+  const ledger = CampfireKit.mkCampfireLedger({updraft: rec.updraft});
+  ledger.plant(10, 20, 30);
+  ledger.plant(11, 20, 30);
+  ledger.drop(10, 20, 30);
+  assert.deepStrictEqual(rec.removed, [[10, 20, 30]], '挖除/覆盖=注销, 邻格不动');
+  ledger.drop(99, 98, 97);
+  assert.strictEqual(rec.removed.length, 1, '未知格 drop 零注销(未知格零副作用口径)');
+});
+
+test('campfire kit updraft 缺席容忍: opts.updraft 未注入 plant/tick/drop 零炸(装配前/Node 语境)', () => {
+  kitReady();
+  const ledger = CampfireKit.mkCampfireLedger({});
+  ledger.plant(1, 2, 3);
+  assert.doesNotThrow(() => burnTicks(ledger, 6000), '燃尽路径零 updraft 注入不炸');
+  assert.doesNotThrow(() => ledger.drop(1, 2, 3), '挖除路径零 updraft 注入不炸');
+  assert.strictEqual(ledger.map.size, 0, '台账行为不受影响');
+});
