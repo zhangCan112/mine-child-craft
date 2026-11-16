@@ -727,7 +727,7 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
   assert.strictEqual(cell(16, top(16, 104) + 1, 104), 14, '深水带苔石冒头 (16,104)');
   assert.strictEqual(cell(2, Core.ADV_GROUND + 4, 24), 6, '高脚木屋地板 y28');
   assert.strictEqual(cell(0, Core.ADV_GROUND + 8, 23), api.B_TORCH, '木屋暖窗火把(顶沿, 脚下实心)');
-  /* 东带: 主径土面 + 镇门楼(v2 野心版 spec §3 件 G: 石砌城楼式——门洞 3 格高
+  /* 东带: 主径石板 + 镇门楼(v2 野心版 spec §3 件 G: 石砌城楼式——门洞 3 格高
      净空 z74/75 yb+1..+3 禁填=穿行契约, 侧柱 5 高石砖嵌壁灯, 横梁上悬门额
      牌 ×2(镇徽=钟塔图案), 柱头石英收边, 檐口/屋面/屋脊三级出挑=「有屋顶」的
      建筑语言) + 木栅栏 x157(桩 z%3==0 两高原木,
@@ -736,7 +736,7 @@ test('边界带建场: 四方向落位抽查+屏障在场+清场重建逐字节�
      x158~159×z74/75(件 D 材质升级: 表面土面改石砖 13, 路穿门铺到塔脚)。
      野树候选确定性穿杆(树干无条件覆写、树叶只落空气格): 首跑观测全数在场,
      计数钉死整段规模(候选若变, 这里最先报警) */
-  assert.strictEqual(cell(154, top(154, 74), 74), 2, '东主径土面(与既有东向小径同轴)');
+  assert.strictEqual(cell(154, top(154, 74), 74), 13, '东主径石板(石板引道段, 与门前石板同语言; 走查修正 G1a)');
   const yb = top(156, 74);
   /* 门楼侧柱 5 高(z73/76 yb+1..+5 石砖), 壁灯 yb+3 嵌柱替换该格(昼夜迎宾) */
   assert.strictEqual(cell(156, yb + 1, 73), 13, '门楼侧柱下格(z73 石砖, 体量感来源)');
@@ -877,12 +877,13 @@ test('东带引道花径+灯柱(F4, v2 spec §5): 主径延长至花田东缘 + 
   vm.runInContext('worldCells.fill(0)', eng);
   Core.advBuildWorld();
   const top = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
-  /* 主径延长: x148..151 × z74/75 表面补铺土面 id2(advEdgeRewrite dirt 同式),
-     与 x152..156 主径连成「花田东侧 x148 直通门口」连续段; 西界 x147 仍是
-     草面=延长段不噬花田区(x144~146)的边界见证(v2 §5 件 P) */
+  /* 主径石板引道(走查修正 G1a, 2026-11-16): x148..156 × z74/75 表面 dirt→
+     13 石砖——「草土(x128~147)→石板引道(x148~156)→石砌门楼(x156)→石板
+     前街(x158~159)」材质递进接通连续石面; 西界 x147 仍是草面=石板段不噬
+     花田区(x144~146)的边界见证(v2 §5 件 P+走查修正附录) */
   for (const z of [74, 75]) {
     for (let x = 148; x <= 156; x++) {
-      assert.strictEqual(cell(x, top(x, z), z), 2, '主径连续段土面(' + x + ',' + z + ')');
+      assert.strictEqual(cell(x, top(x, z), z), 13, '主径连续段石板(' + x + ',' + z + ')');
     }
     assert.strictEqual(cell(147, top(147, z), z), 1, '主径西界草面(z' + z + ' 行, 与花田区零重叠)');
   }
@@ -918,6 +919,23 @@ test('东带引道花径+灯柱(F4, v2 spec §5): 主径延长至花田东缘 + 
     assert.strictEqual(cell(px, yb + 1, pz), 17, '灯柱柱身下格石英(' + px + ',' + pz + ')');
     assert.strictEqual(cell(px, yb + 2, pz), 17, '灯柱柱身上格石英(' + px + ',' + pz + ')');
     assert.strictEqual(cell(px, yb + 3, pz), 19, '灯柱顶灯块(' + px + ',' + pz + ')');
+  }
+});
+
+test('东带门墩门槛石化(G1b, 走查修正附录 2026-11-16): (154,74)/(154,75) 垫墩 dirt 改 13 石砖仅换材质, 垫高格几何零改动', () => {
+  vm.runInContext('worldCells.fill(0)', eng);
+  Core.advBuildWorld();
+  const top = (x, z) => Core.ADV_GROUND + Core.advHeightAt(x, z);
+  /* 材质面(观感票本体): 回程门槛石读法——石板路上一块 dirt 是「土包/堵路」,
+     石砖门墩在石板路上是「门槛石」(回家跨过门槛, 定稿 G1b)。仅换材质:
+     垫高格 y=top+1 与顶面高度零改动, 回程锚 (154.5,75) 落点 y24 压平功能
+     行为面锁定在 adventure-mode.test.js T-SEAM-03 建场探针(y24 实垫+y25/26
+     净空, 材质无关), 此处不重复锁, 只以「上方净空」作几何零改动的本地见证 */
+  for (const z of [74, 75]) {
+    assert.strictEqual(cell(154, top(154, z) + 1, z), 13,
+        '门墩门槛石(z' + z + ' 列垫高格, 材质 13 石砖)');
+    assert.strictEqual(cell(154, top(154, z) + 2, z), 0,
+        '门墩上方净空(z' + z + ' 列, 垫高格几何零改动见证)');
   }
 });
 
