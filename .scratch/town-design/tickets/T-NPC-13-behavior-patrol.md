@@ -72,7 +72,7 @@ PO 已批的是**改善诉求**；动画选型与移动方式是产品裁决，�
 
 - **基线域（b1 骨骼路径拍板时的答案）：无。** 推进者/位姿/动画全走新文件与装配接线，不触碰 gen 导出链，`test/fixtures/town-npc-golden.json` 零漂移（骨骼旋转不触贴图，golden 是面内容摘要）。
 - **拍板 b2（UV 姿态帧）时的答案：有，且必须列入。** `gen-export-look.js` 再生成将触碰既有产物 `js/mob-look/town_*.js` ×14 + `test/fixtures/town-npc-golden.json` 全量重出（golden 再生成纪律：按面内容对账，T-NPC-01 §3.1 先例）；gen 侧画稿改 `.scratch/town-design/gen/`（不入库——eslint ignores 不含 .scratch，勿提交）。**拍板若选 b2，本节文件域自动扩列上两项 + 设计工派工单（姿态帧画稿），开工前由红方修订票面登记。**
-- **拍板 c2（日程入批）时的答案：无再生成面，但有数据表扩改。** 13 条单航点行扩多航点将触碰 `js/town-npc-anchor-core.js` 数据表 + `test/town-npc-anchor-core.test.js`（同名单测）+ 站位对账测试（21 锚↔TOWN_MAP.anchors）——同样开工前红方修订登记。**【c2 扩列登记（2026-11-17 红方，开工前落定）】扩改面八项：① `js/town-npc-anchor-core.js` 13 村民行 waypoints 扩日程航点序列（2~5 航点，首航点=工作位=TOWN_MAP.anchors 布局行恒不动——升格对账零漂移；G01 行零触碰）；② `test/town-npc-anchor-core.test.js` 同名单测扩列+翻钉（③拓扑「静态行恰单航点」翻「日程行航点序列 2~5」、⑪取数器静态锚例翻日程锚取模、⑨巡逻可走扩全部多航点锚全腿段、新语义窗=聚集点∈hub 带/家位∈西·南生活带）；③ 站位对账（②节 21 锚升格断言）零改——首航点不动即布局权威零漂移，⑥⑦⑧避让/贴地/可达域全航点遍历自动纳入新航点；④ `js/town-npc-behavior-core.js` 日程面（段表 TOWN_SCHEDULE_PLANS+参数表 TOWN_NPC_SCHEDULE+日程状态机族，导出面五名→恰十名）与同名单测扩列；⑤ `js/modes/adventure.js` 镇民段日程消费（建账/摆放/分流），`test/adventure-mode.test.js` 端到端扩列+「静态 13 键零重发」翻钉；⑥ `test/boot.test.js` 摆放对账白天零漂移不翻钉（装具 dayTime=0=day 段恒首航点）；⑦ conventions gate 零扩列（零新文件，behavior-core 已在链）；⑧ GLOSSARY 回写随收口评估（§4.4）。数据终版=红方探针验证器全过（13 村民日程航点表+可走路段+节奏核算），登记见 §11.7。**
+- **拍板 c2（日程入批）时的答案：无再生成面，但有数据表扩改。** 13 条单航点行扩多航点将触碰 `js/town-npc-anchor-core.js` 数据表 + `test/town-npc-anchor-core.test.js`（同名单测）+ 站位对账测试（21 锚↔TOWN_MAP.anchors）——同样开工前红方修订登记。**【c2 扩列登记（2026-11-17 红方，开工前落定）】扩改面八项：① `js/town-npc-anchor-core.js` 13 村民行 waypoints 扩日程航点序列（2~5 航点，首航点=工作位=TOWN_MAP.anchors 布局行恒不动——升格对账零漂移；G01 行零触碰）；② `test/town-npc-anchor-core.test.js` 同名单测扩列+翻钉（③拓扑「静态行恰单航点」翻「日程行航点序列 2~5」、⑪取数器静态锚例翻日程锚取模、⑨巡逻可走扩全部多航点锚全腿段、新语义窗=聚集点∈hub 带/家位∈西·南生活带）；③ 站位对账（②节 21 锚升格断言）零改——首航点不动即布局权威零漂移，⑥⑦⑧避让/贴地/可达域全航点遍历自动纳入新航点；④ `js/town-npc-behavior-core.js` 日程面（段表 TOWN_SCHEDULE_PLANS+参数表 TOWN_NPC_SCHEDULE+日程状态机族，导出面五名→恰十二名）与同名单测扩列；⑤ `js/modes/adventure.js` 镇民段日程消费（建账/摆放/分流），`test/adventure-mode.test.js` 端到端扩列+「静态 13 键零重发」翻钉；⑥ `test/boot.test.js` 摆放对账白天零漂移不翻钉（装具 dayTime=0=day 段恒首航点）；⑦ conventions gate 零扩列（零新文件，behavior-core 已在链）；⑧ GLOSSARY 回写随收口评估（§4.4）。数据终版=红方探针验证器全过（13 村民日程航点表+可走路段+节奏核算），登记见 §11.7。**
 
 ### 4.2 基线文件域（按拍板 b1+c1 即「G01 先行 + 骨骼微动画」口径枚举；其余口径按 §4.1 扩列）
 
@@ -92,8 +92,8 @@ PO 已批的是**改善诉求**；动画选型与移动方式是产品裁决，�
 |---|---|---|
 | `js/town-npc-anchor-core.js` | 改 | 13 村民行 waypoints 扩日程航点序列（工作位→[途经拐点]→聚集点→家；G01 行零触碰）；头注 interface 随扩形改真（「静态站位=单航点」→「村民锚=日程航点序列」） |
 | `test/town-npc-anchor-core.test.js` | 改 | 同名单测扩列+翻钉（§4.1-② 四处；21 锚升格对账断言零改） |
-| `js/town-npc-behavior-core.js` | 改 | 日程面追加：TOWN_NPC_SCHEDULE（参数表）· TOWN_SCHEDULE_PLANS（13 村民段表数据）· townScheduleState/Step/Pose/LegById/LegOf 五函数（导出面恰十名）；巡逻五名与 G01 行为零触碰 |
-| `test/town-npc-behavior-core.test.js` | 改 | 日程节扩列（段表对账/纯函数/状态机/位姿/legById/节奏可观察）+「导出面恰五名」翻「恰十名」 |
+| `js/town-npc-behavior-core.js` | 改 | 日程面追加：TOWN_NPC_SCHEDULE（参数表）· TOWN_SCHEDULE_PLANS（13 村民段表数据）· townScheduleState/Step/Pose/LegById/LegOf 五函数（导出面恰十二名）；巡逻五名与 G01 行为零触碰 |
+| `test/town-npc-behavior-core.test.js` | 改 | 日程节扩列（段表对账/纯函数/状态机/位姿/legById/节奏可观察）+「导出面恰五名」翻「恰十二名」 |
 | `js/modes/adventure.js` | 改 | 镇民段日程消费：建账按段表分流（日程锚走日程机/G01 走巡逻机）、摆放与建账带日程初始 leg（白天零漂移）、update 注入 dayTime 读数 |
 | `test/adventure-mode.test.js` | 改 | 日程端到端扩列（白昼在岗/傍晚聚集/夜间归家/清晨回岗+legById 注入缝重发零漂移+夜间进镇摆放）+「静态站位 13 键零重发」翻钉 |
 | 本票面 + `tickets/README.md` | 改 | §11.7 c2 施工记录回填 + 台账状态列 |
@@ -297,7 +297,7 @@ PO 已批的是**改善诉求**；动画选型与移动方式是产品裁决，�
 
 **② face 双语义拆分裁决**：G01 巡逻环 face=第 i 腿行进方向（沿走方向）；村民工作位 face=**SEM 工作朝向**（V01 面南迎客等，测试语义窗锁定）——日程腿行进方向**不得复用 waypoint.face**。裁决：日程锚停驻朝向=锚点 face 语义（day 段@工作位面工作朝向=现网镇貌零扰动；到站聚集/家=面塔/面镇）；**行进朝向=几何派生**（`legYawOf(from,to)` 主轴四正交：dx 主轴=东西、dz 主轴=南北，与 townYawOfFace 前向向量同式）——face 词表五值零扩。
 
-**③ 日程核心签名与语义（behavior-core 追加，导出面恰十名）**：
+**③ 日程核心签名与语义（behavior-core 追加，导出面恰十二名——「恰十名」为登记笔误随红相 commit 修字）**：
 - `TOWN_NPC_SCHEDULE` 参数表（PO 后验可调）：`{SPEED_GPT: 1, DUSK_T: 12040, NIGHT_T: 13670, DAWN_T: 22330}`——三 tick 常量=DAYLIGHT.DIM_KEYS 转折值字面（零新魔法数；权威=ADR-0017 §2-8 clockPhase 断点）；SPEED_GPT=秒/格=1（与 G01 LEG_T=26/26 格同速口径）。
 - `TOWN_SCHEDULE_PLANS`：13 锚 id 键控段表，每行恰四段 `[{from:0,leg:0,phase:'day'},{from:12040,leg:g,phase:'dusk'},{from:13670,leg:h,phase:'night'},{from:22330,leg:0,phase:'dawn'}]`——phase 词表=Daylight.clockPhase id 四值字面（零新枚举）；`from` 升序覆盖全天 [0,24000)；leg 引用行内航点索引。
 - `townScheduleLegOf(anchorId, dayTime)` → `{leg, phase}`：纯函数 f(dayTime) 本体；dayTime 归一 [0,24000) 回绕；段=最后一个 from≤t 的段。
@@ -317,11 +317,17 @@ PO 已批的是**改善诉求**；动画选型与移动方式是产品裁决，�
 
 #### 11.7.1 红相落盘清单（红相 commit 回填）
 
-（红方红测落盘后回填）
+三测试文件一次落盘（红相 commit），红面与翻钉点逐文件对账：
+
+| 文件 | 测数 | 红 | 落盘面 |
+|---|---|---|---|
+| `test/town-npc-anchor-core.test.js` | 24（+3） | 2 | ③ 拓扑翻钉=13 村民日程航点序列字面锁（SEQ_N 逐行 2~5 点/互异/轴对齐/首航点=工作位=布局行恒不动）；⑨ 可走扩列全部多航点锚（脚印+互穿守门，**G01 环既有腿×他锚既有工作位窄域豁免**——G01 南腿 z92 恰过 A03 站位 (73,92)，既有共存现状非本票引入，与 §11.7.0-① 工作位豁免同源；村民日程腿与一切新驻留点全查）；⑨-2 驻留语义窗三测（聚集/家字面+face 语义/hub·西·南生活带域/距 G01 环≥2+驻留互距≥2）；⑪ 取数器翻钉=日程锚线性取数+越界两端钳制（线性序列非环——取模会「末段绕回首段」错位，钳制保夜间恒在家语义；n=1 旧数据上退化重合，数据扩列后真绑定）；头注断言组描述随扩形改真 |
+| `test/town-npc-behavior-core.test.js` | 35（+20） | 21 | 导出面翻钉恰**十二名**（巡逻 5+日程 7=两表+五函数；票面 §4.2.1-④/§11.7.0-③「恰十名」为登记算术笔误，**本 commit 随修**——7 个新名逐项可数，实测面为准）；日程节 20 测=TOWN_NPC_SCHEDULE 四键字面锁+DIM_KEYS 转折值/Daylight.TICKS 跨表对账（装具链加装 daylight-core）· PLANS 13 键域对账（无 g01）+行形状（恰四段×恰三键/from 字面升序/phase=clockPhase id 词表/leg 界内且 day·dawn=0·night=末·dusk∈hub 带）· legOf 四段取样+边界沿（from≤t 左闭/24000 回绕/负值归一）+域错（未知锚与 G01 均抛「未知」）· State 七键（无 dwellT=与巡逻机差异点）白天在岗+段切初值（dusk→聚集/night→家/dawn→工作位，夜间进镇摆放同源）· Step dwell 恒等保持+段切起步（起步帧余量弃/巨 dt 只起步）+walk 线性行进（V01 北行/V03 西行证行进朝向=几何派生不复用 face）+到站（leg+=dir 单沿/落点精确/停驻 yaw=face 语义）+过冲单步（V02 五点 dawn 逆行 leg4→3 不连跳）+腿中段切沿延迟到腿尾（拨 night 不中途改向，到站重判续走）+全日端到端泵（dt=1s×1260 帧跨回绕，恰三到站序列 1→2→0）· LegById dwell=本体位/walk=下一站/起步帧恰一跳/到站帧同值零跳变 · Pose 恰七键+dwell 全零+起步摆过零+swingPhase=t·腿秒·SWING_HZ·2π（复用 PATROL 摆频表）· 纯度+dt 边界+跨段切确定性重放 · 节奏三方对账（13 村民 dusk≤81.5s/night≤433s/dawn≤83.5s，20tick/秒换算锚定）；日程节专用 schedGuard 红因守卫（巡逻节 behaviorGuard 零污染——日程红在日程语义上，巡逻 14 测保持绿） |
+| `test/adventure-mode.test.js` | +7 面 | 7 | 「静态 13 键零重发」翻钉=白天账本域（leg0=工作位）13 村民注入零重发+离谱腿注入=真跳变重发恰一条（旧「任意 legIndex 零重发」死语废除）；日程账行推进+快照跟随（注账式 injectScheduleRow 装具——state 由桥接真核心构造判据单份；红期桥接缺席返 null 红因归首断言）；分流守门源切片（advTownPatrolTick 体内 PLANS 在册→townScheduleStep(state,dayTime,dt)/G01 行 townPatrolStep 原样）；注入缝事件节奏（起步帧恰一跳/行走零事件/到站帧零事件）；夜间进镇摆放同源（dayTime=night 建账 leg=家(79,96)+注入账本 leg 零重发）；全日端到端真 update 泵（globalThis.dayTime 注入裸名全局，finally 清除；恰三到站 1→2→0）；建账分流源切片（advTownPuppetsPlace 按段表在册+townScheduleState 初始 leg，13 村民全入账）；装具日程桥接守卫式扩装（五函数+两表独立 every 分组，红期缺席跳过——巡逻桥接零触碰，既有 T-NPC-13 八测保持绿） |
 
 #### 11.7.2 红基线自证（红相 commit 回填）
 
-（红相落盘后回填）
+全量 `node --test`（=npm test）红基线实测：**2350 测 = 2319 绿 + 30 红 + 1 skipped**（skip=既有容差位，非本票）——fail 分布恰落本票三文件：anchor-core 2 + behavior-core 21 + adventure-mode 7 = 30，**零计划外红**（其余 2319 既有测全绿：T-NPC-12/13 既有段/boot 摆放对账/conventions 守门链无一被翻动）。分文件红计数：anchor 24 测 22 绿 2 红（③ 数据未扩+⑨-2 字面未落=票文要求本身）；behavior 35 测 14 绿 21 红（1 翻钉恰十二名+20 日程面未施工 schedGuard 红因）；adventure T-NPC-13 段 15 测 8 绿 7 红（1 翻钉静态死语+4 注账式桥接缺席+2 源切片判据缺席）。红因归类：**数据扩列红**（③⑨-2——绿相扩 anchor 表即绿）/**签名缺席红**（behavior 20+adventure 4——绿相落日程面即绿）/**装配接线红**（源切片 2+注入缝 3——绿相分流施工即绿）/**翻钉红**（导出面+零重发死语——随绿相新形状自然转绿）。红相证据：`git show <red-commit> --stat` 三测试文件 diff；全量跑日志见本节计数（复跑命令 `npm test`，ℹ 行汇总）。
 
 #### 11.7.3 绿相施工记录（绿方完工回执后回填）
 

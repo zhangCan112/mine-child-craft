@@ -65,6 +65,18 @@ if (fs.existsSync(path.join(ROOT, 'js/town-npc-behavior-core.js'))) {
     Object.assign(globalThis, vm.runInContext('({townPatrolState, townPatrolStep,' +
         'townPatrolPose, townPatrolLegById})', eng));
   }
+  /* T-NPC-13 c2 红方装具扩装(报备, 上行同款先例): 日程面五函数+两表守卫式桥接——
+      红期(日程面未施工)整段跳过, 红因归日程测试首断言; 巡逻桥接零触碰
+      (分组独立 every, 不因日程缺席拖垮巡逻桥)。 */
+  if (vm.runInContext('["townScheduleState","townScheduleStep","townSchedulePose",' +
+      '"townScheduleLegById","townScheduleLegOf"].every((n) => typeof globalThis[n] === "function")', eng)) {
+    Object.assign(globalThis, vm.runInContext('({townScheduleState, townScheduleStep,' +
+        'townSchedulePose, townScheduleLegById, townScheduleLegOf})', eng));
+  }
+  if (vm.runInContext('typeof TOWN_NPC_SCHEDULE === "object" &&' +
+      ' typeof TOWN_SCHEDULE_PLANS === "object"', eng)) {
+    Object.assign(globalThis, vm.runInContext('({TOWN_NPC_SCHEDULE, TOWN_SCHEDULE_PLANS})', eng));
+  }
 }
 Object.assign(globalThis, vm.runInContext(
     '({TOWN_MAP, townBuildSteps, townAssemblyOps, mkTownTargets,' +
@@ -5300,19 +5312,27 @@ test('T-NPC-12 无焦点零事件(验收①反面·默认「聚焦才发」): np
   AdventureMode.cleanup();
 });
 
-test('T-NPC-12 静态站位 13 键零重发(验收②): 任意 legIndex 注入(含负/超界)零重发——' +
-    '锚不变幂等, 聚焦中的静态 NPC 同样零事件', () => {
+test('T-NPC-13 c2 零重发翻钉(原「静态 13 键零重发」随日程扩形翻转): 白天账本域 leg0 注入 13 村民零重发(在岗幂等) · 离谱腿注入=真跳变重发恰一条(日程锚=真多航点锚)', () => {
   mem.clear();
   freshInit();
   A.advSetDim('town');
   const t = A.advTownState().targets;
-  t.focus('npc:v01'); /* 聚焦一个静态站位 NPC: 锚不变 → 即使聚焦也零重发 */
-  const legs = {'npc:v01': 3, 'npc:v02': 99, 'npc:v03': -7, 'npc:v04': 1,
-    'npc:v05': 5, 'npc:v06': 2, 'npc:v07': 11, 'npc:v08': -3, 'npc:v09': 7,
-    'npc:v10': 100, 'npc:a01': 1, 'npc:a02': -1, 'npc:a03': 4}; /* 13 静态键全注入离谱腿 */
-  const r = A.advTownAnchorTick(legs);
-  assert.strictEqual(r.changed, false, '静态锚任意 legIndex 恒返首航点(零跳变)');
-  assert.deepStrictEqual(r.events, [], '零重发(锚不变幂等, 验收②)');
+  t.focus('npc:v01'); /* 聚焦一个日程 NPC: 账本域内注入零事件, 跳变重发恰一条 */
+  /* 白天账本域注入: 日程机白天 dwell@工作位 leg0(装配建账同源 leg), 13 村民全 0 */
+  const zero = {};
+  for (const row of TOWN_NPC_ANCHORS) {
+    if (row.npcId !== 'G01') zero[row.id] = 0;
+  }
+  const r0 = A.advTownAnchorTick(zero);
+  assert.strictEqual(r0.changed, false,
+      '13 村民账本域(leg0=工作位)注入零跳变(白天在岗幂等)');
+  assert.deepStrictEqual(r0.events, [], '零重发(账本域内幂等, 验收②日程版)');
+  /* 对照组: 离谱腿注入=真跳变——c2 后 13 村民是多航点日程锚,
+     旧「任意 legIndex 恒返首航点零重发」死语废除(跳变照记账+聚焦重发) */
+  const r2 = A.advTownAnchorTick({'npc:v01': 2});
+  assert.strictEqual(r2.changed, true,
+      '日程锚注入 leg2=真跳变(聚集位≠工作位账本——静态死语翻钉本体)');
+  assert.strictEqual(r2.events.length, 1, '聚焦中的跳变重发恰一条(协议不变)');
   A.advSetDim('overworld');
   AdventureMode.cleanup();
 });
@@ -5713,6 +5733,179 @@ test('T-NPC-13 update 链接线钉(源文本): patrol tick→anchor 供数→idl
   assert.ok(atApply > atIdle,
       '走摆/位姿施加在 idle 后(行走帧压手脚通道, 停驻帧让位 idle——通道分账序)');
   assert.ok(atApply < atNext, '四站全在 update 段内');
+});
+
+
+/* ============ T-NPC-13 c2 面: 十三村民日程时间轴(装配层) ============
+   票面 §11.7.0-④ 装配裁决: 分流判据=「TOWN_SCHEDULE_PLANS 含该锚」→日程机,
+   否则巡逻机(G01); 账行五键 {id,anchorId,root,bones,state} 零扩形; 建账/摆放带
+   日程初始 leg(白天 dayTime∈day 段恒 leg0=工作位=现网零漂移; 夜间进镇直接在家);
+   dayTime 读全局(裸名, typeof 守卫); update 链四站字面零改动;
+   advTownPatrolApply 零改动(日程 pose 恰七键同形); advTownAnchorTick 零改动
+   (legById 供数面不变——T-NPC-12 十二条零漂移)。
+   装具: mkScheduleRow/injectScheduleRow 注账式(案卷③ 先例), state 由桥接真核心
+   townScheduleState 构造(装具不造第二份状态机——判据单份红线); 红期(日程面未
+   施工)桥接缺席返 null, 红因归各测首断言。真 update 泵的 dayTime 经
+   globalThis.dayTime 注入(裸名全局, 生产 main.js 同款来源), 测试尾 finally 清除。 */
+
+/* 假日程账行+快照行注入(形状=生产 advTownPatrols 行五键, T-NPC-13 先例同款):
+   初始摆放=初始 leg 航点(白天=工作位/夜间=家, 摆放与账本同源)。红期容差:
+   日程桥接缺席返 null(不炸装具, 红因=日程面未施工)。 */
+function injectScheduleRow(npcId, dayTime) {
+  if (typeof townScheduleState !== 'function') return null; /* 红期容差桩 */
+  const id = 'npc:' + npcId.toLowerCase();
+  const st = townScheduleState(id, dayTime);
+  const leg0 = anchorOf(id, st.leg); /* 初始 leg 航点(夜间进镇=家, 与账本同源) */
+  const puppets = A.advTownState().puppets;
+  puppets.length = 0;
+  puppets.push({id: npcId, look: 'town_' + npcId.toLowerCase(),
+    x: leg0.x, y: leg0.y + 1, z: leg0.z, yaw: st.yaw});
+  const patrol = A.advTownState().patrol;
+  patrol.length = 0;
+  patrol.push({id: npcId, anchorId: id, root: mkFakeBone(),
+    bones: humanoidBones(true), state: st});
+  return {puppet: puppets[0], row: patrol[0]};
+}
+
+test('T-NPC-13 c2 日程账行推进+快照跟随(注账式): dusk 段 V01 工作位起步 → 腿中插值 → 到站精确落聚集(79,80) · 行进朝向=几何派生 / 停驻朝向=face 语义', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const inj = injectScheduleRow('V01', 11000); /* 白天建账: 工作位 leg0 dwell */
+  assert.ok(inj, '红因=日程面未施工(townScheduleState 桥接缺席, 非装具炸)');
+  const {puppet, row} = inj;
+  assert.deepStrictEqual([puppet.x, puppet.z], [79, 94],
+      '建账摆放=工作位(白天 dayTime∈day 段恒 leg0——现网镇貌零漂移)');
+  assert.strictEqual(puppet.yaw, Math.PI, '摆放 yaw=工作位 face 语义(面南迎客, SEM 零漂移)');
+  assert.strictEqual(row.state.leg, 0, '账本 leg0');
+  globalThis.dayTime = 12040; /* dusk 首读数帧: 段切起步 */
+  try {
+    pumpPatrolChain(1, 7, () => { globalThis.dayTime += 20; }); /* 起步帧+走 6s: t=6/14 腿中 */
+    assert.strictEqual(row.state.phase, 'walk', 'dusk 段首帧起步(日程机接管)');
+    assert.strictEqual(row.state.dir, 1, 'dir=+1(向聚集)');
+    assert.strictEqual(puppet.x, 79, '北行腿 x 轴对齐恒 79');
+    assert.ok(puppet.z > 80 && puppet.z < 94,
+        '腿中快照 z∈(80,94) 插值行进(现状恒 94 静止=日程机未接管即红)');
+    assert.strictEqual(puppet.yaw, 0, '行进朝向=几何派生(北行→0, 不复用 face)');
+    pumpPatrolChain(1, 9, () => { globalThis.dayTime += 20; }); /* 走满 14s 到站+停驻帧 */
+    assert.strictEqual(row.state.phase, 'dwell', '到站回停驻');
+    assert.strictEqual(row.state.leg, 1, 'legIndex 到站推进 0→1');
+    assert.deepStrictEqual([puppet.x, puppet.z], [79, 80],
+        '到站精确落聚集航点(79,80)——无插值过冲残留');
+    assert.strictEqual(puppet.yaw, 0, '停驻朝向=聚集 face north→0(面钟塔主轴, 停驻=face 语义)');
+  } finally {
+    delete globalThis.dayTime;
+  }
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 c2 分流守门(源文本): advTownPatrolTick 体内按「PLANS 在册」分流——日程行 townScheduleStep(state, dayTime, dt) · G01 行 townPatrolStep 原样零漂移', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const atTick = src.indexOf('function advTownPatrolTick');
+  assert.ok(atTick > 0, '推进者可定位');
+  const atEnd = src.indexOf('\nfunction ', atTick + 10);
+  const body = src.slice(atTick, atEnd);
+  assert.ok(body.indexOf('TOWN_SCHEDULE_PLANS') >= 0,
+      '分流判据=段表在册(「PLANS 含该锚」票面 §11.7.0-④)');
+  assert.ok(body.indexOf('townScheduleStep') >= 0,
+      '日程行走日程机 townScheduleStep(state, dayTime, dt)');
+  assert.ok(body.indexOf('townPatrolStep') >= 0,
+      'G01 行巡逻机原样(G01 零触碰——硬约束)');
+  assert.ok(body.indexOf('dayTime') >= 0,
+      'dayTime 读数入日程机(全局单钟注入, ADR-0017 决策 4)');
+});
+
+test('T-NPC-13 c2 注入缝事件节奏: V01 日程行 dusk 起步帧恰一跳重发 · 行走中逐帧零事件 · 到站帧零事件(dwell legById=本体位同值, 账本幂等)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const inj = injectScheduleRow('V01', 11000);
+  assert.ok(inj, '红因=日程面未施工(桥接缺席, 非装具炸)');
+  A.advTownState().targets.focus('npc:v01');
+  const eventFrames = [];
+  globalThis.dayTime = 12040;
+  try {
+    pumpPatrolChain(1, 40, (i, legById, r) => {
+      if (r.events.length > 0) {
+        eventFrames.push(i);
+        assert.strictEqual(r.events.length, 1, '事件帧恰一事件(无逐帧刷屏)');
+      }
+    });
+  } finally {
+    delete globalThis.dayTime;
+  }
+  assert.deepStrictEqual(eventFrames, [0],
+      '40 帧观测窗恰起步帧 1 次重发(行走 14s+到站+停驻帧全零事件——' +
+      '到站帧 legById=1=dwell 本体位同值零跳变, 重发节奏=每腿起步帧恰一跳)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 c2 夜间进镇摆放同源: dayTime=night 建账 leg=家(79,96) · 快照摆家位 · 注入账本 leg 零重发(零首拍跳变)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const inj = injectScheduleRow('V01', 15000); /* night 段进镇: 直接在家 */
+  assert.ok(inj, '红因=日程面未施工(桥接缺席, 非装具炸)');
+  const {puppet} = inj;
+  assert.deepStrictEqual([puppet.x, puppet.z], [79, 96],
+      '夜间进镇摆放=家航点(「夜间回屋休息」语义, 摆放与账本同源)');
+  assert.strictEqual(puppet.yaw, 0, '家 face north→yaw=0');
+  const r = A.advTownAnchorTick({'npc:v01': 2});
+  assert.strictEqual(r.changed, false,
+      '注入账本 leg(2=家)零跳变——摆放/建账/注入三方同源, 进镇首拍零重发');
+  assert.deepStrictEqual(r.events, [], '零事件(夜间进镇零扰动)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 c2 全日端到端(真 update 泵): V01 日程账随全局 dayTime 走一日——dusk 到聚集 · night 到家 · dawn 回工作位 · 恰三次到站', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  const inj = injectScheduleRow('V01', 11900);
+  assert.ok(inj, '红因=日程面未施工(桥接缺席, 非装具炸)');
+  A.advTownState().targets.focus('npc:v01');
+  const arrivals = [];
+  let prevPhase = 'dwell';
+  globalThis.dayTime = 11900;
+  try {
+    for (let i = 0; i < 1260; i++) { /* 1260s=25200tick>24000: 跨回绕一日 */
+      globalThis.dayTime = (globalThis.dayTime + 20) % 24000;
+      AdventureMode.update(1); /* 真 update 链(patroTick→anchorTick→idle→apply) */
+      const row = A.advTownState().patrol[0];
+      const ph = row.state.phase;
+      if (prevPhase === 'walk' && ph === 'dwell') {
+        arrivals.push({leg: row.state.leg, dayTime: globalThis.dayTime});
+      }
+      prevPhase = ph;
+    }
+  } finally {
+    delete globalThis.dayTime;
+  }
+  assert.deepStrictEqual(arrivals.map((a) => a.leg), [1, 2, 0],
+      '到站序列: 聚集(1)→家(2)→工作位(0)——全日日程三段往返(真链路)');
+  assert.ok(arrivals.length === 3 && arrivals[0].dayTime >= 12040 && arrivals[0].dayTime < 13670,
+      '第一次到站落 dusk 段(到聚集)');
+  assert.ok(arrivals[1].dayTime >= 13670 && arrivals[1].dayTime < 22330,
+      '第二次到站落 night 段(到家)');
+  const end = A.advTownState().patrol[0].state;
+  assert.strictEqual(end.leg, 0, '一日终态: 回工作位 leg0(day 段在岗)');
+});
+
+test('T-NPC-13 c2 建账分流(源文本): advTownPuppetsPlace 镇民建账按「PLANS 在册」判据——日程锚带初始 leg 建日程账 · G01 建巡逻账(同函数双机种)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const placeStart = src.indexOf('function advTownPuppetsPlace');
+  assert.ok(placeStart > 0, '建账函数可定位');
+  const placeEnd = src.indexOf('\n}', placeStart);
+  const body = src.slice(placeStart, placeEnd);
+  assert.ok(body.indexOf('TOWN_SCHEDULE_PLANS') >= 0,
+      '建账分流判据=段表在册(c2 后 13 村民全入账——旧「多航点锚才入账」口径翻转)');
+  assert.ok(body.indexOf('townScheduleState') >= 0,
+      '日程锚建日程账(state=townScheduleState(id, dayTime) 带段初值)');
+  assert.ok(body.indexOf('advTownPatrols') >= 0,
+      '仍建 patrol 账(账行五键零扩形——G01 巡逻账与日程账同账本异机种)');
 });
 
 

@@ -9,11 +9,15 @@
    镜像 town-map-core 先例: 坐标拍板死在数据表, 对齐与避让约束全在测试侧锁死)。
    断言组: ①门面与架构裁决(独立成件不并入 TOWN_MAP.anchors, npc: 前缀零碰撞)
    ②行形状恰四键+id 空间(npc:+小写 npcId, 双唯一, 字面 14 键跨表对账——
-   T-NPC-03 注册表未落, 对字面清单断言) ③航点形状(face 五值词表, 静态单航点/
-   G01 四航点轴对齐闭环) ④贴地 y=groundY ⑤可达域 ⊆ 核心区与可达带
+   T-NPC-03 注册表未落, 对字面清单断言) ③航点形状(face 五值词表, 日程序列
+   2~5 航点字面锁/G01 四航点轴对齐闭环——c2 翻钉: 旧「静态单航点」随日程扩形翻转)
+   ④贴地 y=groundY ⑤可达域 ⊆ 核心区与可达带
    ⑥不压建筑脚印(PrefabKit.footOf 全清单) ⑦避散布「≥2 格」 ⑧避导览锚「≥2 格」
-   ⑨G01 巡逻逐段格点不穿脚印 ⑩场景语义锚定(窗口表锁语义不锁值——票文: 建议
-   坐标与约束冲突时约束赢, 实现微调坐标不改约束) ⑪取数器静态锚恒返 waypoints[0]
+   ⑨日程可走: 全部多航点锚逐段格点不穿脚印+不穿他锚驻留(c2 扩列, 含 ⑨-2
+   驻留语义窗三测: 聚集/家字面+hub/生活带域+距环互距≥2)
+   ⑩场景语义锚定(窗口表锁语义不锁值——票文: 建议
+   坐标与约束冲突时约束赢, 实现微调坐标不改约束; c2 只查 waypoints[0] 工作位)
+   ⑪取数器: G01 环取模+日程锚线性钳制(c2 翻钉: 旧「静态恒返 waypoints[0]」)
    ⑫G01 取模归一(-1/n/n+1; 缺省 legIndex=首腿, 红方拍板口径: legIndex 由装配层
    注入, 缺省注入视作 0) ⑬未知 id 拼写域抛错(镜像 townInteractRegistry/
    mkTownTargets 口径; 大小写不符属拼写域) ⑭快照拷贝(恰四键/改写不反渗/新引用)
@@ -232,16 +236,32 @@ test('航点形状: 恰四键 x/y/z/face · 非负整数 · face ∈ 五值朝�
   }
 });
 
-test('航点拓扑: 静态行(13 条 V/A)恰单航点 · G01 恰四航点轴对齐闭环', () => {
+test('航点拓扑: 13 村民行=日程航点序列(2~5 航点·首航点=工作位·互异·轴对齐) · G01 恰四航点轴对齐闭环(c2 扩列, 票面 §11.7.0 数据终版字面锁)', () => {
   const c = loadCore();
   const byNpcId = Object.fromEntries(c.TOWN_NPC_ANCHORS.map((r) => [r.npcId, r]));
+  /* c2 数据终版字面锁(红方探针验证器 ALL 13 PASS, 票面 §11.7.0-①): 航点数逐行锁定 */
+  const SEQ_N = {V01: 3, V02: 5, V03: 3, V04: 3, V05: 4, V06: 3, V07: 3,
+    V08: 3, V09: 3, V10: 3, A01: 3, A02: 3, A03: 5};
   for (const row of c.TOWN_NPC_ANCHORS) {
     if (row.npcId === 'G01') continue;
-    assert.strictEqual(row.waypoints.length, 1,
-        '「' + row.npcId + '」单航点=静态站位(票文 §3.1 口径)');
+    assert.strictEqual(row.waypoints.length, SEQ_N[row.npcId],
+        '「' + row.npcId + '」日程航点序列恰 ' + SEQ_N[row.npcId] + ' 点(c2 数据终版字面锁)');
+    const pts = row.waypoints.map((w) => w.x + ',' + w.z);
+    assert.strictEqual(new Set(pts).size, row.waypoints.length,
+        '「' + row.npcId + '」航点互异(零零长段)');
+    assert.strictEqual(row.waypoints[0].x + ',' + row.waypoints[0].z,
+        c.TOWN_MAP.anchors.find((a) => a.id === row.id).x + ',' +
+        c.TOWN_MAP.anchors.find((a) => a.id === row.id).z,
+        '「' + row.npcId + '」首航点=工作位=布局行(升格对账锚, c2 扩列首航点恒不动)');
+    for (let i = 0; i < row.waypoints.length - 1; i++) {
+      const a = row.waypoints[i];
+      const b = row.waypoints[i + 1];
+      assert.ok(a.x === b.x || a.z === b.z,
+          '「' + row.npcId + '」日程段 ' + i + '→' + (i + 1) + ' 轴对齐(曼哈顿路径可沿走)');
+    }
   }
   const g = byNpcId.G01;
-  assert.ok(g, 'G01 巡逻行在册');
+  assert.ok(g, 'G01 巡逻行在册(c2 零触碰)');
   assert.strictEqual(g.waypoints.length, 4, 'G01 恰四航点(巡逻环, villagers 设计 §5.3)');
   const pts = g.waypoints.map((w) => w.x + ',' + w.z);
   assert.strictEqual(new Set(pts).size, 4, 'G01 四航点互异(零零长段)');
@@ -319,26 +339,137 @@ test('避让既有导览锚: 与 TOWN_MAP.anchors 非 npc: 七导览锚各 ≥2 
 
 /* ============ ⑨ 巡逻可走(验收 6) ============ */
 
-test('巡逻可走: G01 相邻航点连线段(含闭环边)全格点不穿任何 prefab 脚印', () => {
+test('日程可走: 全部多航点锚(G01+13 村民)相邻航点连线段全格点不穿任何 prefab 脚印 · 且不穿他锚任何驻留航点(互穿观感守门, c2 扩列)', () => {
   const c = loadCore();
   const F = makeFacings(c);
-  const g = c.TOWN_NPC_ANCHORS.find((r) => r.npcId === 'G01');
-  for (let i = 0; i < g.waypoints.length; i++) {
-    const a = g.waypoints[i];
-    const b = g.waypoints[(i + 1) % g.waypoints.length];
-    const cells = [];
+  for (const row of c.TOWN_NPC_ANCHORS) {
+    if (row.waypoints.length < 2) continue; /* 单航点行无段(日历兼容守卫) */
+    for (let i = 0; i < row.waypoints.length; i++) {
+      /* G01 闭环边含末→首; 村民日程行不含闭环(首末不相连=日程往返路径) */
+      const j = row.npcId === 'G01' ? (i + 1) % row.waypoints.length : i + 1;
+      if (j >= row.waypoints.length) break;
+      const a = row.waypoints[i];
+      const b = row.waypoints[j];
+      const cells = [];
+      if (a.x === b.x) {
+        const [z1, z2] = a.z <= b.z ? [a.z, b.z] : [b.z, a.z];
+        for (let z = z1; z <= z2; z++) cells.push([a.x, z]);
+      } else if (a.z === b.z) {
+        const [x1, x2] = a.x <= b.x ? [a.x, b.x] : [b.x, a.x];
+        for (let x = x1; x <= x2; x++) cells.push([x, a.z]);
+      } else {
+        cells.push(null); /* 斜腿守卫(拓扑测已锁轴对齐, 此处防静默) */
+      }
+      assert.ok(cells[0] !== null, '「' + row.npcId + '」段 ' + i + '→' + j + ' 轴对齐(可走格点法前提)');
+      for (const [x, z] of cells) {
+        const hits = F.footHit(x, z).map((f) => f.p.id + '@' + f.p.x + ',' + f.p.z);
+        assert.strictEqual(hits.length, 0,
+            '「' + row.npcId + '」段 ' + i + '→' + j + ' 格点 (' + x + ',' + z + ')' +
+            (hits.length ? ' 穿脚印: ' + hits.join('/') : ' 不穿脚印'));
+        for (const other of c.TOWN_NPC_ANCHORS) {
+          if (other.id === row.id) continue;
+          for (let k = 0; k < other.waypoints.length; k++) {
+            const w = other.waypoints[k];
+            /* 既有共存豁免(窄域): G01 环既有腿 × 他锚既有工作位(k=0)——二者皆
+               既有拍板现状(G01 南腿 z92 恰过 A03 站位 (73,92) 等), 非本票引入,
+               与票面 §11.7.0-① 工作位豁免同源(现状即真, 不追溯);
+               村民日程腿与一切新驻留点(k>0)全查不豁免 */
+            if (row.npcId === 'G01' && k === 0) continue;
+            assert.ok(!(w.x === x && w.z === z),
+                '「' + row.npcId + '」段 ' + i + '→' + j + ' 格点 (' + x + ',' + z + ')' +
+                ' 不穿他锚「' + other.id + '」驻留航点 (' + w.x + ',' + w.z + ')(互穿观感守门)');
+          }
+        }
+      }
+    }
+  }
+});
+
+/* ============ ⑨-2 c2 日程驻留语义窗与互避(数据终版=票面 §11.7.0-①) ============
+   驻留点=末位航点(家 h)与段表聚集位——段表在 behavior-core, 本层以「航点语义」
+   锁位置域: 聚集候选∈hub 带(广场集会)·家∈西/南生活带(回屋休息)·距 G01 环
+   ≥2(铁傀儡不穿站立村民)·驻留互距≥2。字面逐行锚定见拓扑测 SEQ_N 与取数器测。 */
+const C2_GATHER = {
+  V01: [79, 80], V02: [73, 72], V03: [68, 85], V04: [74, 69], V05: [90, 71],
+  V06: [87, 80], V07: [68, 79], V08: [76, 76], V09: [83, 78], V10: [78, 86],
+  A01: [72, 70], A02: [70, 76], A03: [80, 84],
+};
+const C2_HOME = {
+  V01: [79, 96], V02: [56, 72], V03: [56, 85], V04: [74, 96], V05: [88, 96],
+  V06: [87, 94], V07: [56, 79], V08: [76, 96], V09: [34, 78], V10: [64, 86],
+  A01: [48, 70], A02: [56, 76], A03: [80, 98],
+};
+
+test('c2 日程驻留字面: 聚集/家航点=数据终版字面(逐行坐标+face 语义锚定, 红方探针定案)', () => {
+  const c = loadCore();
+  const FACES_G = {V01: 'north', V02: 'east', V03: 'east', V04: 'south', V05: 'west',
+    V06: 'west', V07: 'east', V08: 'east', V09: 'west', V10: 'north',
+    A01: 'east', A02: 'east', A03: 'north'};
+  const byNpcId = Object.fromEntries(c.TOWN_NPC_ANCHORS.map((r) => [r.npcId, r]));
+  for (const id of Object.keys(C2_GATHER)) {
+    const row = byNpcId[id];
+    assert.ok(row, '「' + id + '」行在册');
+    const gi = row.waypoints.findIndex((w) => w.x === C2_GATHER[id][0] && w.z === C2_GATHER[id][1]);
+    assert.ok(gi > 0, '「' + id + '」聚集航点 (' + C2_GATHER[id] + ') 在序列中(非首航点)');
+    assert.strictEqual(row.waypoints[gi].face, FACES_G[id],
+        '「' + id + '」聚集 face=' + FACES_G[id] + '(面钟塔主轴语义)');
+    const hi = row.waypoints.findIndex((w) => w.x === C2_HOME[id][0] && w.z === C2_HOME[id][1]);
+    assert.ok(hi > gi, '「' + id + '」家航点 (' + C2_HOME[id] + ') 在聚后(日程序: 工作位→聚集→家)');
+    assert.strictEqual(row.waypoints[hi].face, 'north',
+        '「' + id + '」家 face=north(面镇心安眠语义)');
+    assert.strictEqual(row.waypoints[row.waypoints.length - 1].x + ',' +
+        row.waypoints[row.waypoints.length - 1].z, C2_HOME[id][0] + ',' + C2_HOME[id][1],
+        '「' + id + '」末航点=家(夜间归家=序列终点)');
+  }
+});
+
+test('c2 日程驻留域: 聚集 ∈ hub 带(广场集会语义) · 家 ∈ 西/南生活带(回屋休息语义)', () => {
+  const c = loadCore();
+  const t = c.TOWN_MAP;
+  const hub = t.zones.find((zn) => zn.id === 'hub');
+  const inHub = (x, z) => x >= hub.x1 && x <= hub.x2 && z >= hub.z1 && z <= hub.z2;
+  const inLife = (x, z) => t.zones.some((zn) => (zn.id === 'west' || zn.id === 'south') &&
+      zn.reachable && x >= zn.x1 && x <= zn.x2 && z >= zn.z1 && z <= zn.z2);
+  for (const id of Object.keys(C2_GATHER)) {
+    assert.ok(inHub(C2_GATHER[id][0], C2_GATHER[id][1]),
+        '「' + id + '」聚集 (' + C2_GATHER[id] + ') ∈ hub 带(傍晚向广场/钟塔聚集, villagers 设计 §5.1)');
+    assert.ok(inLife(C2_HOME[id][0], C2_HOME[id][1]),
+        '「' + id + '」家 (' + C2_HOME[id] + ') ∈ 西/南生活带(夜间回屋休息语义)');
+  }
+});
+
+test('c2 日程驻留互避: 新驻留点距 G01 环全格点 ≥2(铁傀儡不穿站立村民) · 驻留互距 ≥2(集会散布观感)', () => {
+  const c = loadCore();
+  const g01 = c.TOWN_NPC_ANCHORS.find((r) => r.npcId === 'G01');
+  const ring = [];
+  for (let i = 0; i < g01.waypoints.length; i++) {
+    const a = g01.waypoints[i];
+    const b = g01.waypoints[(i + 1) % g01.waypoints.length];
     if (a.x === b.x) {
       const [z1, z2] = a.z <= b.z ? [a.z, b.z] : [b.z, a.z];
-      for (let z = z1; z <= z2; z++) cells.push([a.x, z]);
+      for (let z = z1; z <= z2; z++) ring.push([a.x, z]);
     } else {
       const [x1, x2] = a.x <= b.x ? [a.x, b.x] : [b.x, a.x];
-      for (let x = x1; x <= x2; x++) cells.push([x, a.z]);
+      for (let x = x1; x <= x2; x++) ring.push([x, a.z]);
     }
-    for (const [x, z] of cells) {
-      const hits = F.footHit(x, z).map((f) => f.p.id + '@' + f.p.x + ',' + f.p.z);
-      assert.strictEqual(hits.length, 0,
-          'G01 段 ' + i + '→' + ((i + 1) % g.waypoints.length) + ' 格点 (' + x + ',' + z + ')' +
-          (hits.length ? ' 穿脚印: ' + hits.join('/') : ' 不穿脚印'));
+  }
+  const stays = [];
+  for (const id of Object.keys(C2_GATHER)) {
+    stays.push([id, 'g', C2_GATHER[id]]);
+    stays.push([id, 'h', C2_HOME[id]]);
+  }
+  for (const [id, role, [x, z]] of stays) {
+    for (const [rx, rz] of ring) {
+      const d = Math.max(Math.abs(x - rx), Math.abs(z - rz));
+      assert.ok(d >= 2, '「' + id + role + '」(' + x + ',' + z + ') 距 G01 环格 (' + rx + ',' + rz + ') ' +
+          d + ' ≥2(铁傀儡巡逻不穿站立村民)');
+    }
+    for (const [oid, orole, [ox, oz]] of stays) {
+      if (oid === id && orole === role) continue;
+      if (oid === id && orole !== role) continue; /* 同村 g/h 可近(往返两端) */
+      const d = Math.max(Math.abs(x - ox), Math.abs(z - oz));
+      assert.ok(d >= 2, '「' + id + role + '」(' + x + ',' + z + ') 与「' + oid + orole +
+          '」(' + ox + ',' + oz + ') 距 ' + d + ' ≥2(驻留互距, 集会散布)');
     }
   }
 });
@@ -366,15 +497,28 @@ test('语义锚定: 14 行站位逐条落对齐依据窗口(建议坐标与约�
 
 /* ============ ⑪⑫⑬ 取数器 anchorOf(验收 7 + §3.2) ============ */
 
-test('取数器·静态锚: 任意 legIndex 恒返 waypoints[0](单航点=静态站位)', () => {
+test('取数器·日程锚: legIndex 线性取数 waypoints[leg](界内全覆盖) · 越界两端钳制(线性序列非环, c2 翻钉: 旧「静态恒返 waypoints[0]」随日程取数翻转)', () => {
   const c = loadCore();
   const row = c.TOWN_NPC_ANCHORS.find((r) => r.id === 'npc:v01');
-  const expect = row.waypoints[0];
-  for (const leg of [undefined, 0, 1, 99, -7]) {
-    assert.deepStrictEqual({...c.anchorOf('npc:v01', leg)},
-        {x: expect.x, y: expect.y, z: expect.z, face: expect.face},
-        'npc:v01 legIndex=' + leg + ' 恒返 waypoints[0]');
+  const n = row.waypoints.length;
+  const flat = (w) => ({x: w.x, y: w.y, z: w.z, face: w.face});
+  /* 界内逐腿: 日程机产出域 [0, n-1] 全覆盖(工作位→[途经]→聚集→家 线性取数) */
+  for (let leg = 0; leg < n; leg++) {
+    assert.deepStrictEqual({...c.anchorOf('npc:v01', leg)}, flat(row.waypoints[leg]),
+        'npc:v01 legIndex=' + leg + ' 返 waypoints[' + leg + '](日程线性取数)');
   }
+  /* 缺省=首航点(工作位=白天初值, 与 G01 缺省=首腿同口径) */
+  assert.deepStrictEqual({...c.anchorOf('npc:v01')}, flat(row.waypoints[0]),
+      '缺省 legIndex=首航点(工作位=白天初值)');
+  /* 越界钳制: 线性序列非环——超界读数钉两端不绕回
+     (取模会使 leg=n 绕回 waypoints[0]「家绕回工作位」错位; 钳制=日程终点语义;
+      leg=n 取模返 wp[0] 而钳制返 wp[n-1], 两语义可区分, 本断言排除取模) */
+  assert.deepStrictEqual({...c.anchorOf('npc:v01', n)}, flat(row.waypoints[n - 1]),
+      'legIndex=n 越上界钳末航点(家=日程序终点, 非取模绕回)');
+  assert.deepStrictEqual({...c.anchorOf('npc:v01', 99)}, flat(row.waypoints[n - 1]),
+      'legIndex=99 钳末航点(防御性, 日程机永不产)');
+  assert.deepStrictEqual({...c.anchorOf('npc:v01', -7)}, flat(row.waypoints[0]),
+      'legIndex=-7 钳首航点(防御性, 日程机永不产)');
 });
 
 test('取数器·巡逻锚: G01 航点环取模正确(legIndex=-1/n/n+1 归一; 缺省=首腿)', () => {
