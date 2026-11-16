@@ -1,0 +1,140 @@
+[OLD_9ba1821] ops=1390
+=== OLD_9ba1821 ops intersecting south-edge domain ===
+  #1 fill [32 24 128 75 24 128] id=13 cellsInD=44
+  #2 fill [81 24 128 127 24 128] id=13 cellsInD=47
+  #3 fill [32 25 128 75 26 128] id=13 cellsInD=88
+  #4 fill [40 27 128 40 27 128] id=62 cellsInD=1
+  #5 fill [48 27 128 48 27 128] id=61 cellsInD=1
+  #6 fill [56 27 128 56 27 128] id=62 cellsInD=1
+  #7 fill [64 27 128 64 27 128] id=61 cellsInD=1
+  #8 fill [72 27 128 72 27 128] id=62 cellsInD=1
+  #9 fill [81 25 128 127 26 128] id=13 cellsInD=94
+  #10 fill [88 27 128 88 27 128] id=62 cellsInD=1
+  #11 fill [96 27 128 96 27 128] id=61 cellsInD=1
+  #12 fill [104 27 128 104 27 128] id=62 cellsInD=1
+  #13 fill [112 27 128 112 27 128] id=61 cellsInD=1
+  #14 fill [120 27 128 120 27 128] id=62 cellsInD=1
+  #15 place [     ] id=tower-belfry
+  #16 place [     ] id=shop-awning
+  #17 place [     ] id=cottage-gable
+  #18 place [     ] id=house-loft
+  #19 place [     ] id=stash-hut
+  #20 place [     ] id=under-room
+  #21 place [     ] id=stall-canopy
+  #22 place [     ] id=stall-canopy
+  #23 place [     ] id=stall-canopy
+  #24 place [     ] id=stall-canopy
+  #25 place [     ] id=stall-canopy
+  #26 place [     ] id=stall-canopy
+  #27 place [     ] id=scarecrow
+  #28 place [     ] id=clothesline
+  #29 place [     ] id=woodpile
+  #30 place [     ] id=hencoop
+  #31 place [     ] id=board-pool
+  #32 place [     ] id=iron-golem
+[NEW_b4cd21d] ops=1389
+=== NEW_b4cd21d ops intersecting south-edge domain ===
+  #1 fill [32 24 128 75 24 128] id=13 cellsInD=44
+  #2 fill [81 24 128 127 24 128] id=13 cellsInD=47
+  #3 fill [32 25 128 75 26 128] id=13 cellsInD=88
+  #4 fill [40 27 128 40 27 128] id=62 cellsInD=1
+  #5 fill [48 27 128 48 27 128] id=61 cellsInD=1
+  #6 fill [56 27 128 56 27 128] id=62 cellsInD=1
+  #7 fill [64 27 128 64 27 128] id=61 cellsInD=1
+  #8 fill [72 27 128 72 27 128] id=62 cellsInD=1
+  #9 fill [81 25 128 127 26 128] id=13 cellsInD=94
+  #10 fill [88 27 128 88 27 128] id=62 cellsInD=1
+  #11 fill [96 27 128 96 27 128] id=61 cellsInD=1
+  #12 fill [104 27 128 104 27 128] id=62 cellsInD=1
+  #13 fill [112 27 128 112 27 128] id=61 cellsInD=1
+  #14 fill [120 27 128 120 27 128] id=62 cellsInD=1
+  #15 place [     ] id=tower-belfry
+  #16 place [     ] id=shop-awning
+  #17 place [     ] id=cottage-gable
+  #18 place [     ] id=house-loft
+  #19 place [     ] id=stash-hut
+  #20 place [     ] id=under-room
+  #21 place [     ] id=stall-canopy
+  #22 place [     ] id=stall-canopy
+  #23 place [     ] id=stall-canopy
+  #24 place [     ] id=stall-canopy
+  #25 place [     ] id=stall-canopy
+  #26 place [     ] id=stall-canopy
+  #27 place [     ] id=scarecrow
+  #28 place [     ] id=clothesline
+  #29 place [     ] id=woodpile
+  #30 place [     ] id=hencoop
+  #31 place [     ] id=board-pool
+  #32 place [     ] id=iron-golem
+  #33 place [     ] id=town-gate
+
+[OLD] ops=1390
+=== OLD ops intersecting OPENING x76..80 y25..27 z128 ===
+  place [     ] id=tower-belfry
+  place [     ] id=shop-awning
+  place [     ] id=cottage-gable
+  place [     ] id=house-loft
+  place [     ] id=stash-hut
+  place [     ] id=under-room
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=scarecrow
+  place [     ] id=clothesline
+  place [     ] id=woodpile
+  place [     ] id=hencoop
+  place [     ] id=board-pool
+  place [     ] id=iron-golem
+[NEW] ops=1389
+=== NEW ops intersecting OPENING x76..80 y25..27 z128 ===
+  place [     ] id=tower-belfry
+  place [     ] id=shop-awning
+  place [     ] id=cottage-gable
+  place [     ] id=house-loft
+  place [     ] id=stash-hut
+  place [     ] id=under-room
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=stall-canopy
+  place [     ] id=scarecrow
+  place [     ] id=clothesline
+  place [     ] id=woodpile
+  place [     ] id=hencoop
+  place [     ] id=board-pool
+  place [     ] id=iron-golem
+  place [     ] id=town-gate
+
+[OLD] ops=1390
+=== OLD ops touching cell 75,27,128 ===
+  (none)
+[NEW] ops=1389
+=== NEW ops touching cell 75,27,128 ===
+  (none)
+node:fs:2427
+    return binding.writeFileUtf8(
+                   ^
+
+Error: EBUSY: resource busy or locked, open 'C:\Users\user\.local\share\opencode\worktree\1631a8\t2-rim\.scratch\t2-joint-verify-v2.out.txt'
+    at Object.writeFileSync (node:fs:2427:20)
+    at Object.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\t2-rim\.scratch\t2-joint-verify-v2.js:88:4)
+    at Module._compile (node:internal/modules/cjs/loader:1761:14)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module._load (node:internal/modules/cjs/loader:1300:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  errno: -4082,
+  code: 'EBUSY',
+  syscall: 'open',
+  path: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\t2-rim\\.scratch\\t2-joint-verify-v2.out.txt'
+}
+
+Node.js v24.13.0
