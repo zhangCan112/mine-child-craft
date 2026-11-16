@@ -27,6 +27,7 @@
      opts.onFelled() — 整树倒观感
      opts.wear() — 破坏成功磨损(探险=advWearHeld('mine'); 体验馆=简版)
      opts.say/speak/sfx — 观感三件(体验馆 dev 降噪全不传=静默)
+     opts.hint(h) — 教学气泡缝(T-C10b): 物品认知面话术的视觉通道(探险/体验馆=ModeKit.kitHintShow(h, document) 单源装配);未注入容忍(静默无气泡)
      opts.ring(p)/opts.swing() — 准星进度环/挥动观感
      opts.mesh — {touch(x,z), flush()} setBlockRaw 直写后的网格收口
      opts.onCampfireRelit(x,y,z) — 篝火重燃后钩(T-C3): tryCampfireRelight 命中
@@ -282,13 +283,21 @@ function mkEditor(opts) {
     const pc = advPlaceCheck(hit, it.block, lookId, targetId,
         replace ? getBlock(hit.x, hit.y - 1, hit.z) : null); /* belowId 仅覆盖+thin 新块消费 */
     if (!pc.ok || collidesAtPlayer(pc.x, pc.y, pc.z)) {/* 不与玩家身体重叠(arena 先例) */
-      /* 篝火话术切换(T-C1, UI 定稿 §6.2): 手持篝火的失败一律温和话术「要放在
-         结实的东西上面」——四类失败(水面/悬空/薄块顶/篝火顶)共用一句; 判据读
-         放置对象的 campfire 身份旗标(spec §6-6 只读旗标), 非篝火物品老话术零改动。
-         UI 定稿 v1.5 已收编(T-C10, design-lead 2026-11-17 裁定): 玩家身体重叠
-         (collidesAtPlayer 合并分支)=第⑤类, 同走本句共句 */
+      /* 篝火失败话术双通道接线(T-C10b, UI 定稿 v1.6 §6.2 通道口径+§6.5-3 通道
+         断言): 篝火失败句是物品认知教学面, 退役出 toast 接双通道——视觉=hint
+         缝气泡({name,desc} 双行, 消费方装配 ModeKit.kitHintShow 单源), 听觉=
+         speak 缝全文逐字(句尾「哦」在文案内, 不做名字拼装); 判据读放置对象的
+         campfire 身份旗标(spec §6-6 只读旗标), 五类失败(水面/悬空/薄块顶/
+         篝火顶/玩家重叠=collidesAtPlayer 合并分支)共句; kit 层零节流(高频
+         不堆积归 SpeechKit cancel-then-speak latest-wins 上游); generic
+         「这里放不了哦」=系统消息仍走 say(toast) 零改动(T-C1 文案逐字保留) */
       const cf = !!(BLOCKS[it.block] && BLOCKS[it.block].campfire);
-      if (o.say) o.say(cf ? '篝火要放在结实的东西上面哦' : '这里放不了哦');
+      if (cf) {
+        if (o.hint) o.hint({name: '篝火', desc: '要放在结实的东西上面哦'});
+        if (o.speak) o.speak('篝火要放在结实的东西上面哦');
+      } else if (o.say) {
+        o.say('这里放不了哦');
+      }
       return false;
     }
     if (guard && guard(pc.x, pc.y, pc.z)) return guardReject(); /* T7: 禁放柱拒绝(目标格=落点, 含覆盖落点) */
