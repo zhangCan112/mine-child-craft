@@ -1,0 +1,1558 @@
+TAP version 13
+# Subtest: 探险模式: 注册表行在场(gated 共享儿童时限 + 派生脚本路径) + main.js MODES 接线
+ok 1 - 探险模式: 注册表行在场(gated 共享儿童时限 + 派生脚本路径) + main.js MODES 接线
+  ---
+  duration_ms: 2.1074
+  type: 'test'
+  ...
+# Subtest: 探险模式: init 建场 — 草原地层/出生小屋/出生点/快捷栏 9 槽镜像背包
+ok 2 - 探险模式: init 建场 — 草原地层/出生小屋/出生点/快捷栏 9 槽镜像背包
+  ---
+  duration_ms: 642.6085
+  type: 'test'
+  ...
+# Subtest: 智能主动作(手持感知, 2026-10-24): 拿放置物→aimClick(2)+返 false 不连发; 工具/食物/空手→aimClick(0); 图标随手持刷新
+ok 3 - 智能主动作(手持感知, 2026-10-24): 拿放置物→aimClick(2)+返 false 不连发; 工具/食物/空手→aimClick(0); 图标随手持刷新
+  ---
+  duration_ms: 614.6337
+  type: 'test'
+  ...
+# Subtest: 探险模式: 湖 — 水面 + 沙底 + 湖底黏土层(红砖链源头) 2~3 格厚
+ok 4 - 探险模式: 湖 — 水面 + 沙底 + 湖底黏土层(红砖链源头) 2~3 格厚
+  ---
+  duration_ms: 623.8354
+  type: 'test'
+  ...
+# Subtest: 探险模式: 四矿物深度带 + 矿簇密度序(常见→稀有) — 全图矿不越带
+ok 5 - 探险模式: 四矿物深度带 + 矿簇密度序(常见→稀有) — 全图矿不越带
+  ---
+  duration_ms: 619.165
+  type: 'test'
+  ...
+# Subtest: 探险模式: 2 个露天矿坑 — 阶梯漏斗坑挖到地表以下, 坑壁裸露煤/铁矿(可见性教学)
+ok 6 - 探险模式: 2 个露天矿坑 — 阶梯漏斗坑挖到地表以下, 坑壁裸露煤/铁矿(可见性教学)
+  ---
+  duration_ms: 667.3566
+  type: 'test'
+  ...
+# Subtest: 探险模式: 山洞隧道通 y<10 深处, 沿途裸露铁/金/钻石矿(不用猜地下有矿)
+ok 7 - 探险模式: 山洞隧道通 y<10 深处, 沿途裸露铁/金/钻石矿(不用猜地下有矿)
+  ---
+  duration_ms: 636.7633
+  type: 'test'
+  ...
+# Subtest: 探险模式: 4 个怪物巢穴 — 土丘洞穴地形就位 + init 每巢限量首刷 2~3 只(T14)
+ok 8 - 探险模式: 4 个怪物巢穴 — 土丘洞穴地形就位 + init 每巢限量首刷 2~3 只(T14)
+  ---
+  duration_ms: 606.5666
+  type: 'test'
+  ...
+# Subtest: 探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞/家园广场/农田/围栏/小径
+ok 9 - 探险模式: 树林 ~40 棵, 避开出生区/巢穴/矿坑/湖/山洞/家园广场/农田/围栏/小径
+  ---
+  duration_ms: 629.0549
+  type: 'test'
+  ...
+# Subtest: 探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 重放(build 模式同款架构)
+ok 10 - 探险模式: 世界存档往返 — 场景确定性重建 + 玩家 edits 重放(build 模式同款架构)
+  ---
+  duration_ms: 1560.5969
+  type: 'test'
+  ...
+# Subtest: 世界改动日志: 流体格旧档重放 — {id,lv} 双通道(方块+水位) + 落盘形状逐键回写(world-journal-core 互锁的真链路侧)
+ok 11 - 世界改动日志: 流体格旧档重放 — {id,lv} 双通道(方块+水位) + 落盘形状逐键回写(world-journal-core 互锁的真链路侧)
+  ---
+  duration_ms: 1337.0798
+  type: 'test'
+  ...
+# Subtest: 昼夜 D1: dayTime 随世界档往返 + dayCycleOn 进场置位/退场复位 + 坏档兜底清晨
+ok 12 - 昼夜 D1: dayTime 随世界档往返 + dayCycleOn 进场置位/退场复位 + 坏档兜底清晨
+  ---
+  duration_ms: 1975.1324
+  type: 'test'
+  ...
+# Subtest: 探险模式: 位置与血量随世界档保留 — 重进原地续命; 老档无 pos/hp 回出生点满血(不回归)
+ok 13 - 探险模式: 位置与血量随世界档保留 — 重进原地续命; 老档无 pos/hp 回出生点满血(不回归)
+  ---
+  duration_ms: 1393.2844
+  type: 'test'
+  ...
+# Subtest: 探险模式: 死亡即时落盘 — 5s 节流窗口内重进也是出生点满血(不留死亡点残血档)
+ok 14 - 探险模式: 死亡即时落盘 — 5s 节流窗口内重进也是出生点满血(不留死亡点残血档)
+  ---
+  duration_ms: 1262.8463
+  type: 'test'
+  ...
+# Subtest: 探险模式: 回家即时落盘 — 满血+小屋位置即刻入档(5s 窗口内重进不在受困点残血)
+ok 15 - 探险模式: 回家即时落盘 — 满血+小屋位置即刻入档(5s 窗口内重进不在受困点残血)
+  ---
+  duration_ms: 651.0629
+  type: 'test'
+  ...
+# Subtest: 探险模式: 全局背包存档 — inventory_save 序列化往返(T5 serialize 形状) + 快捷栏镜像
+ok 16 - 探险模式: 全局背包存档 — inventory_save 序列化往返(T5 serialize 形状) + 快捷栏镜像
+  ---
+  duration_ms: 1390.8237
+  type: 'test'
+  ...
+# Subtest: 探险模式: 死亡政策 — 背包保留 + 回出生点满血 + TTS 安抚(下界先例口径)
+ok 17 - 探险模式: 死亡政策 — 背包保留 + 回出生点满血 + TTS 安抚(下界先例口径)
+  ---
+  duration_ms: 756.2906
+  type: 'test'
+  ...
+# Subtest: 探险模式: 🎒/Tab 开关背包配方书面板(本单只挂上, 合成站点解锁归 T13)
+ok 18 - 探险模式: 🎒/Tab 开关背包配方书面板(本单只挂上, 合成站点解锁归 T13)
+  ---
+  duration_ms: 738.8004
+  type: 'test'
+  ...
+# Subtest: T14 巢穴节律: 行为 — 全清 60 秒后四巢各再刷 2~3 只
+ok 19 - T14 巢穴节律: 行为 — 全清 60 秒后四巢各再刷 2~3 只
+  ---
+  duration_ms: 770.3504
+  type: 'test'
+  ...
+# Subtest: T14 巢穴节律: 计时逐巢独立 — B/C/D 巢有活怪不重刷, A 巢到点单独再刷
+ok 20 - T14 巢穴节律: 计时逐巢独立 — B/C/D 巢有活怪不重刷, A 巢到点单独再刷
+  ---
+  duration_ms: 625.0041
+  type: 'test'
+  ...
+# Subtest: T14 玩家挥击: 点击 → 准星方向最近怪按工具伤害受击 + 命中扣耐久 + 冷却节拍
+ok 21 - T14 玩家挥击: 点击 → 准星方向最近怪按工具伤害受击 + 命中扣耐久 + 冷却节拍
+  ---
+  duration_ms: 656.263
+  type: 'test'
+  ...
+# Subtest: T14 工具耐久: 归零即消失 + 安抚 TTS(与 T12 共用政策, 独立实现各管各路径)
+ok 22 - T14 工具耐久: 归零即消失 + 安抚 TTS(与 T12 共用政策, 独立实现各管各路径)
+  ---
+  duration_ms: 769.1347
+  type: 'test'
+  ...
+# Subtest: T14 掉落链路(行为): 击杀回调 → Drops.spawn 逐条落地(表与掷骰一致)
+ok 23 - T14 掉落链路(行为): 击杀回调 → Drops.spawn 逐条落地(表与掷骰一致)
+  ---
+  duration_ms: 587.8341
+  type: 'test'
+  ...
+# Subtest: T14 击杀观感: 碎块(debrisColor) + 击杀计数 toast(nether 先例)
+ok 24 - T14 击杀观感: 碎块(debrisColor) + 击杀计数 toast(nether 先例)
+  ---
+  duration_ms: 704.0803
+  type: 'test'
+  ...
+# Subtest: T14 收集: 入包+快捷栏镜像; 背包满拒收返 false + toast「🎒 背包满啦」
+ok 25 - T14 收集: 入包+快捷栏镜像; 背包满拒收返 false + toast「🎒 背包满啦」
+  ---
+  duration_ms: 769.7423
+  type: 'test'
+  ...
+# Subtest: T14 收集播报: 3 秒合并窗 — 同项合数量, 到期一句播报(防刷屏)
+ok 26 - T14 收集播报: 3 秒合并窗 — 同项合数量, 到期一句播报(防刷屏)
+  ---
+  duration_ms: 739.7662
+  type: 'test'
+  ...
+# Subtest: T14 玩家受击: 受击音+闪红+震屏+语音 3 秒节流(nether 全套先例)
+ok 27 - T14 玩家受击: 受击音+闪红+震屏+语音 3 秒节流(nether 全套先例)
+  ---
+  duration_ms: 729.2153
+  type: 'test'
+  ...
+# Subtest: T14 玩家阵亡: 怪物致命一击走 advPlayerDied — 回出生小屋满血+背包保留+不播受击话术
+ok 28 - T14 玩家阵亡: 怪物致命一击走 advPlayerDied — 回出生小屋满血+背包保留+不播受击话术
+  ---
+  duration_ms: 710.143
+  type: 'test'
+  ...
+# Subtest: T14 儿童可控: 苦力怕单击伤害封顶(33 → 10, 满血 30 不被秒杀)
+ok 29 - T14 儿童可控: 苦力怕单击伤害封顶(33 → 10, 满血 30 不被秒杀)
+  ---
+  duration_ms: 623.0578
+  type: 'test'
+  ...
+# Subtest: T14 索敌收敛: 玩家在索敌半径外怪驻巢不追; 引出巢区过远掉头回巢(收队)
+ok 30 - T14 索敌收敛: 玩家在索敌半径外怪驻巢不追; 引出巢区过远掉头回巢(收队)
+  ---
+  duration_ms: 616.4091
+  type: 'test'
+  ...
+# Subtest: T14 骷髅远程: 索敌内保持距离放箭, 箭沿预测弹道命中玩家受击(CombatCore 先例)
+ok 31 - T14 骷髅远程: 索敌内保持距离放箭, 箭沿预测弹道命中玩家受击(CombatCore 先例)
+  ---
+  duration_ms: 685.5175
+  type: 'test'
+  ...
+# Subtest: T12 蓄力纯函数: advMineStep — breakTime 真值驱动(时间累积/换目标/清零直测在 adventure-core.test.js)
+ok 32 - T12 蓄力纯函数: advMineStep — breakTime 真值驱动(时间累积/换目标/清零直测在 adventure-core.test.js)
+  ---
+  duration_ms: 0.1667
+  type: 'test'
+  ...
+# Subtest: T12 草丛散布: 确定性 + 只长草地顶 + 密度可发现不铺满(T11 缺口补齐)
+ok 33 - T12 草丛散布: 确定性 + 只长草地顶 + 密度可发现不铺满(T11 缺口补齐)
+  ---
+  duration_ms: 1409.0059
+  type: 'test'
+  ...
+# Subtest: T12 挖掘行为链: 蓄力到点破坏 — 记账/掉落物 spawn/耐久 −1/触屏政策本块即停
+ok 34 - T12 挖掘行为链: 蓄力到点破坏 — 记账/掉落物 spawn/耐久 −1/触屏政策本块即停
+  ---
+  duration_ms: 688.2066
+  type: 'test'
+  ...
+# Subtest: 门·左键开关/右键拆除(2026-11-04 用户票「门拆不来了」): onMouse(0) 成对换开态不进蓄力 · onMouse(2) 整扇两格清+恰掉门×1
+ok 35 - 门·左键开关/右键拆除(2026-11-04 用户票「门拆不来了」): onMouse(0) 成对换开态不进蓄力 · onMouse(2) 整扇两格清+恰掉门×1
+  ---
+  duration_ms: 608.6973
+  type: 'test'
+  ...
+# Subtest: T12 挖掘行为链: 松手态换目标熄火 — 单击的蓄力不跟准星漂到别的方块
+ok 36 - T12 挖掘行为链: 松手态换目标熄火 — 单击的蓄力不跟准星漂到别的方块
+  ---
+  duration_ms: 762.2443
+  type: 'test'
+  ...
+# Subtest: T12 挖掘行为链: 掉落物真空拾取 — update 喂玩家胸口点 → onCollect 入包
+ok 37 - T12 挖掘行为链: 掉落物真空拾取 — update 喂玩家胸口点 → onCollect 入包
+  ---
+  duration_ms: 694.8504
+  type: 'test'
+  ...
+# Subtest: T12 挖掘行为链: tier 不足 — 挖不动就是真挖不动: 方块原地不动+不起蓄力+TTS 提示(2026-11-04 用户票)
+ok 38 - T12 挖掘行为链: tier 不足 — 挖不动就是真挖不动: 方块原地不动+不起蓄力+TTS 提示(2026-11-04 用户票)
+  ---
+  duration_ms: 664.8998
+  type: 'test'
+  ...
+# Subtest: T12 耐久政策: damageTool 归零 — remove 清槽 + 安抚 TTS + 空手(槽已空, MC 口径)
+ok 39 - T12 耐久政策: damageTool 归零 — remove 清槽 + 安抚 TTS + 空手(槽已空, MC 口径)
+  ---
+  duration_ms: 661.7459
+  type: 'test'
+  ...
+# Subtest: 手持一致: 选中槽 → Avatar 跟随(工具/方块/薄片 def, 空槽=空手)
+ok 40 - 手持一致: 选中槽 → Avatar 跟随(工具/方块/薄片 def, 空槽=空手)
+  ---
+  duration_ms: 685.569
+  type: 'test'
+  ...
+# Subtest: 手持一致: 放完最后一个方块 → 空手(advSyncHotbar 观感跟进, 修「人物仍举着已用完的方块」)
+ok 41 - 手持一致: 放完最后一个方块 → 空手(advSyncHotbar 观感跟进, 修「人物仍举着已用完的方块」)
+  ---
+  duration_ms: 616.7137
+  type: 'test'
+  ...
+# Subtest: T12 放置行为链: 泥土/火把(顶+贴墙)/树苗 — 落点+背包 −1+记账; 违规落点 toast 拒绝
+ok 42 - T12 放置行为链: 泥土/火把(顶+贴墙)/树苗 — 落点+背包 −1+记账; 违规落点 toast 拒绝
+  ---
+  duration_ms: 735.1335
+  type: 'test'
+  ...
+# Subtest: T12 树苗关页兜底: 5s 节流窗口内关页 → onPageHide 落盘 → 重进树苗还在(2026-10 丢档修复)
+ok 43 - T12 树苗关页兜底: 5s 节流窗口内关页 → onPageHide 落盘 → 重进树苗还在(2026-10 丢档修复)
+  ---
+  duration_ms: 1391.3679
+  type: 'test'
+  ...
+# Subtest: T12 树苗生长链: 20s 到期长成树 + 逐块记账 + 重进树还在(计时不落盘不重挂)
+ok 44 - T12 树苗生长链: 20s 到期长成树 + 逐块记账 + 重进树还在(计时不落盘不重挂)
+  ---
+  duration_ms: 1214.1393
+  type: 'test'
+  ...
+# Subtest: T-C1 tracer 行为链: 放置即燃侧账满 6000 刻 → update 累喂整刻燃尽 → 方块干净消失无掉落台账删净
+ok 45 - T-C1 tracer 行为链: 放置即燃侧账满 6000 刻 → update 累喂整刻燃尽 → 方块干净消失无掉落台账删净
+  ---
+  duration_ms: 654.2272
+  type: 'test'
+  ...
+# Subtest: T-C1 燃尽级联: 篝火上方依附 thin 块随底座脱落(破坏侧既有机制零新增)
+ok 46 - T-C1 燃尽级联: 篝火上方依附 thin 块随底座脱落(破坏侧既有机制零新增)
+  ---
+  duration_ms: 674.8557
+  type: 'test'
+  ...
+# Subtest: T-C1 挖除删账: 燃尽前挖走篝火 → 方块消失+侧账同步删条+回收篝火×1(T-C3 翻新: 两态行配 drop, 旧「无回收」断言随行为翻转)
+ok 47 - T-C1 挖除删账: 燃尽前挖走篝火 → 方块消失+侧账同步删条+回收篝火×1(T-C3 翻新: 两态行配 drop, 旧「无回收」断言随行为翻转)
+  ---
+  duration_ms: 617.6613
+  type: 'test'
+  ...
+# Subtest: T-C1 合成计数: craft_campfire 经通用 counts 通道自动累加(账照记) · 零任务消费(核心任务表零引用)
+ok 48 - T-C1 合成计数: craft_campfire 经通用 counts 通道自动累加(账照记) · 零任务消费(核心任务表零引用)
+  ---
+  duration_ms: 617.0331
+  type: 'test'
+  ...
+# Subtest: T-C3 水浇整链: 放置即燃 → 邻格水(editBlock 缝) → update 下一拍浇熄 — 熄灭态落格+侧账删条+编辑链记账+零掉落
+ok 49 - T-C3 水浇整链: 放置即燃 → 邻格水(editBlock 缝) → update 下一拍浇熄 — 熄灭态落格+侧账删条+编辑链记账+零掉落
+  ---
+  duration_ms: 639.7066
+  type: 'test'
+  ...
+# Subtest: T-C3 点击重燃整链: 半烧→浇熄→空手点击 — 燃烧态落格+侧账满时长重建(非余量)+话术逐字 · 水仍邻接下一拍再熄(自然因果)
+ok 50 - T-C3 点击重燃整链: 半烧→浇熄→空手点击 — 燃烧态落格+侧账满时长重建(非余量)+话术逐字 · 水仍邻接下一拍再熄(自然因果)
+  ---
+  duration_ms: 642.839
+  type: 'test'
+  ...
+# Subtest: T-C3-R1 重燃话术视觉通道: hint-bubble 双行气泡(name 金大+desc 白小) · 零 toast · TTS 通道零改动(评审 SPEC-1)
+ok 51 - T-C3-R1 重燃话术视觉通道: hint-bubble 双行气泡(name 金大+desc 白小) · 零 toast · TTS 通道零改动(评审 SPEC-1)
+  ---
+  duration_ms: 594.2991
+  type: 'test'
+  ...
+# Subtest: T-C10b 放置失败话术通道(定稿 v1.6 §6.5-3): 篝火失败同拍 hint-bubble 双行气泡+TTS 全文逐字含「哦」 · 零 toast(仅 toast=不符)
+ok 52 - T-C10b 放置失败话术通道(定稿 v1.6 §6.5-3): 篝火失败同拍 hint-bubble 双行气泡+TTS 全文逐字含「哦」 · 零 toast(仅 toast=不符)
+  ---
+  duration_ms: 612.7876
+  type: 'test'
+  ...
+# Subtest: T-C3 挖掘回收整链: 燃烧态/熄灭态挖走均还篝火×1 — 燃烧态挖走侧账删条(保底 1 零加成, 非木炭)
+ok 53 - T-C3 挖掘回收整链: 燃烧态/熄灭态挖走均还篝火×1 — 燃烧态挖走侧账删条(保底 1 零加成, 非木炭)
+  ---
+  duration_ms: 617.5142
+  type: 'test'
+  ...
+# Subtest: T-C9 放置即燃: fx 三发射器在册(句柄开) · 零 kick/零 debris · 零 campfire 音效调用
+ok 54 - T-C9 放置即燃: fx 三发射器在册(句柄开) · 零 kick/零 debris · 零 campfire 音效调用
+  ---
+  duration_ms: 657.4595
+  type: 'test'
+  ...
+# Subtest: T-C9 水浇同拍摘柱: 放置→邻水→update 一帧 — fx 即刻摘(零残帧)+白汽 4 粒在册
+ok 55 - T-C9 水浇同拍摘柱: 放置→邻水→update 一帧 — fx 即刻摘(零残帧)+白汽 4 粒在册
+  ---
+  duration_ms: 601.1447
+  type: 'test'
+  ...
+# Subtest: T-C9 点击重燃: fx 恢复且渐起重爬(rateScale 归 0 起步) — place-kit onCampfireRelit 缝同拍
+ok 56 - T-C9 点击重燃: fx 恢复且渐起重爬(rateScale 归 0 起步) — place-kit onCampfireRelit 缝同拍
+  ---
+  duration_ms: 589.5983
+  type: 'test'
+  ...
+# Subtest: T-C9 燃尽: 6000 刻烧尽 — fx 摘+轻灰 pop+尾烟 3 粒 · 再 2s 粒子全清(onBurnout 缝同拍)
+ok 57 - T-C9 燃尽: 6000 刻烧尽 — fx 摘+轻灰 pop+尾烟 3 粒 · 再 2s 粒子全清(onBurnout 缝同拍)
+  ---
+  duration_ms: 591.8402
+  type: 'test'
+  ...
+# Subtest: T-C9 挖掘: fx 即刻摘零过渡(advMarkEdit seam) — 零 pop 零白汽零尾烟
+ok 58 - T-C9 挖掘: fx 即刻摘零过渡(advMarkEdit seam) — 零 pop 零白汽零尾烟
+  ---
+  duration_ms: 585.2999
+  type: 'test'
+  ...
+# Subtest: T-C9 渐弱期: 烧至剩余 ≤600 刻窗内 — 火苗降档气柱满额 · 零话术新增(禁 UI 倒计时件)
+ok 59 - T-C9 渐弱期: 烧至剩余 ≤600 刻窗内 — 火苗降档气柱满额 · 零话术新增(禁 UI 倒计时件)
+  ---
+  duration_ms: 591.934
+  type: 'test'
+  ...
+# Subtest: T-C9 clear 连带清场: init 复位(reset 缝)后 fx 零残留 — 切模式/重进场纪律
+ok 60 - T-C9 clear 连带清场: init 复位(reset 缝)后 fx 零残留 — 切模式/重进场纪律
+  ---
+  duration_ms: 1315.5468
+  type: 'test'
+  ...
+# Subtest: T-C4 玩家烫伤: fireTick 消费 → 每拍扣 1 血原值直扣 · 消费即清 · 零 TTS 零 toast 受击音照走
+ok 61 - T-C4 玩家烫伤: fireTick 消费 → 每拍扣 1 血原值直扣 · 消费即清 · 零 TTS 零 toast 受击音照走
+  ---
+  duration_ms: 662.3264
+  type: 'test'
+  ...
+# Subtest: T-C4 全身钻甲不折减: 环境伤原值直扣不经甲(D8) — 四件钻甲在身穿戴仍扣满 1 血
+ok 62 - T-C4 全身钻甲不折减: 环境伤原值直扣不经甲(D8) — 四件钻甲在身穿戴仍扣满 1 血
+  ---
+  duration_ms: 653.5656
+  type: 'test'
+  ...
+# Subtest: T-C4 烫至血尽: 走现有零惩罚死亡流程 — 重生满血+背包全保留(不开第二套血尽语义)
+ok 63 - T-C4 烫至血尽: 走现有零惩罚死亡流程 — 重生满血+背包全保留(不开第二套血尽语义)
+  ---
+  duration_ms: 613.9501
+  type: 'test'
+  ...
+# Subtest: T-C4 怪物同规则: 踩燃烧篝火 0.9s 零拍 · 续站至 2.1s 恰两拍(零击退零归属参数) · 离火清零再踩从零起拍
+ok 64 - T-C4 怪物同规则: 踩燃烧篝火 0.9s 零拍 · 续站至 2.1s 恰两拍(零击退零归属参数) · 离火清零再踩从零起拍
+  ---
+  duration_ms: 665.2613
+  type: 'test'
+  ...
+# Subtest: T-C4 怪物烫死: 血尽走 Mobs.hit 现有死亡返回 — 零击杀记账(killCount 不动/无击杀 toast) · 掉落链触发 · 死后零参与
+ok 65 - T-C4 怪物烫死: 血尽走 Mobs.hit 现有死亡返回 — 零击杀记账(killCount 不动/无击杀 toast) · 掉落链触发 · 死后零参与
+  ---
+  duration_ms: 590.4505
+  type: 'test'
+  ...
+# Subtest: T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + 满血不吃不扣
+ok 66 - T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + 满血不吃不扣
+  ---
+  duration_ms: 588.7705
+  type: 'test'
+  ...
+# Subtest: T9 雪球投掷链: 手持右键掷出 — 消耗 1 颗+掷出音+挥臂; 命中怪零伤害+击退+白絮+命中音
+ok 67 - T9 雪球投掷链: 手持右键掷出 — 消耗 1 颗+掷出音+挥臂; 命中怪零伤害+击退+白絮+命中音
+  ---
+  duration_ms: 589.9183
+  type: 'test'
+  ...
+# Subtest: F3 金苹果行为链: 半血点击吃 — 回满血 + 扣 1 个, 满血不吃不扣(full 旗标经 advEatPolicy)
+ok 68 - F3 金苹果行为链: 半血点击吃 — 回满血 + 扣 1 个, 满血不吃不扣(full 旗标经 advEatPolicy)
+  ---
+  duration_ms: 603.0309
+  type: 'test'
+  ...
+# Subtest: T13 站点行为链: 放置工作台 → 走近 4 格解锁 + 首次靠近一句 TTS 引导 + 重进缓存重建
+ok 69 - T13 站点行为链: 放置工作台 → 走近 4 格解锁 + 首次靠近一句 TTS 引导 + 重进缓存重建
+  ---
+  duration_ms: 1208.9603
+  type: 'test'
+  ...
+# Subtest: T13 onCraft 链路: TTS 具体表扬(产物名入句) + leftover 转脚下掉落物 + 零余量不 spawn
+ok 70 - T13 onCraft 链路: TTS 具体表扬(产物名入句) + leftover 转脚下掉落物 + 零余量不 spawn
+  ---
+  duration_ms: 591.8648
+  type: 'test'
+  ...
+# Subtest: T13 烧炼节律纯函数: smeltStep — 2.5s/件 · 煤热值 8 件 · 无热暂停进度保留 · 余时结转
+ok 71 - T13 烧炼节律纯函数: smeltStep — 2.5s/件 · 煤热值 8 件 · 无热暂停进度保留 · 余时结转
+  ---
+  duration_ms: 0.2398
+  type: 'test'
+  ...
+# Subtest: T13 退炉政策纯函数: furnaceRefund — 炉内三笔全额退包 + 满包转余量清单
+ok 72 - T13 退炉政策纯函数: furnaceRefund — 炉内三笔全额退包 + 满包转余量清单
+  ---
+  duration_ms: 0.1286
+  type: 'test'
+  ...
+# Subtest: T13 熔炉行为链: 走近点击开面板 → 自动放料(扣包) → 2.5s/件烧成 → 关面板取产入包
+ok 73 - T13 熔炉行为链: 走近点击开面板 → 自动放料(扣包) → 2.5s/件烧成 → 关面板取产入包
+  ---
+  duration_ms: 597.9155
+  type: 'test'
+  ...
+# Subtest: F1 死亡不动炉: 阵亡回出生点满血, 炉内容原样保留(拍板①持久化——旧清炉政策退役)
+ok 74 - F1 死亡不动炉: 阵亡回出生点满血, 炉内容原样保留(拍板①持久化——旧清炉政策退役)
+  ---
+  duration_ms: 596.1899
+  type: 'test'
+  ...
+# Subtest: F1 炉态持久化: cleanup 只落盘不退料(旧 D8 退料退役) — 重进炉内物品/进度照旧继续烧
+ok 75 - F1 炉态持久化: cleanup 只落盘不退料(旧 D8 退料退役) — 重进炉内物品/进度照旧继续烧
+  ---
+  duration_ms: 1194.8386
+  type: 'test'
+  ...
+# Subtest: F1 多炉独立: 两炉异料并烧各产各的 + 面板绑定哪台看哪台 + TTS 只报绑定炉
+ok 76 - F1 多炉独立: 两炉异料并烧各产各的 + 面板绑定哪台看哪台 + TTS 只报绑定炉
+  ---
+  duration_ms: 590.2176
+  type: 'test'
+  ...
+# Subtest: F1 挖炉退料: 挖掉熔炉 → 三笔全额入包 + 炉状态删除 + 绑定面板连带关闭(挖掘/TNT 同一钩子)
+ok 77 - F1 挖炉退料: 挖掉熔炉 → 三笔全额入包 + 炉状态删除 + 绑定面板连带关闭(挖掘/TNT 同一钩子)
+  ---
+  duration_ms: 593.2115
+  type: 'test'
+  ...
+# Subtest: F2 炉口火焰差异增删: 燃烧=heat>0且有料在列 · 无料/熄灭出列 · 挖炉即清 · 退出全清
+ok 78 - F2 炉口火焰差异增删: 燃烧=heat>0且有料在列 · 无料/熄灭出列 · 挖炉即清 · 退出全清
+  ---
+  duration_ms: 588.3706
+  type: 'test'
+  ...
+# Subtest: T13 TNT 行为链: 放置 → 空手短按点燃 → 引信延时 → 爆炸破坏记账 + 波及怪物受击
+ok 79 - T13 TNT 行为链: 放置 → 空手短按点燃 → 引信延时 → 爆炸破坏记账 + 波及怪物受击
+  ---
+  duration_ms: 608.8199
+  type: 'test'
+  ...
+# Subtest: T13 TNT 短按/按住二分(D3): 按住 0.25s+ 转蓄力挖走回收, 短按点燃
+ok 80 - T13 TNT 短按/按住二分(D3): 按住 0.25s+ 转蓄力挖走回收, 短按点燃
+  ---
+  duration_ms: 598.6484
+  type: 'test'
+  ...
+# Subtest: T13 TNT 掀床=整床回收(2026-11-04 架构评审候选①: TNT 链漏接床的补线, 门/宝箱同族口径) — 掀床尾连床头+恰掉 1 张
+ok 81 - T13 TNT 掀床=整床回收(2026-11-04 架构评审候选①: TNT 链漏接床的补线, 门/宝箱同族口径) — 掀床尾连床头+恰掉 1 张
+  ---
+  duration_ms: 590.5766
+  type: 'test'
+  ...
+# Subtest: T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落走 shearDrop 专属表
+ok 82 - T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落走 shearDrop 专属表
+  ---
+  duration_ms: 595.0382
+  type: 'test'
+  ...
+# Subtest: QUESTS 数据表: 15 步主线 + 终章 + 远征章 11 + 滑翔翼 q27 — 步序照引导链 v2/远征链+链尾追加, id 唯一(形状五件套直测在 adventure-core.test.js)
+ok 83 - QUESTS 数据表: 15 步主线 + 终章 + 远征章 11 + 滑翔翼 q27 — 步序照引导链 v2/远征链+链尾追加, id 唯一(形状五件套直测在 adventure-core.test.js)
+  ---
+  duration_ms: 0.1244
+  type: 'test'
+  ...
+# Subtest: T15 谓词逐条: 最小满足触发 / 空账本或差一不触发 / 复合步条件缺一不可
+ok 84 - T15 谓词逐条: 最小满足触发 / 空账本或差一不触发 / 复合步条件缺一不可
+  ---
+  duration_ms: 0.1994
+  type: 'test'
+  ...
+# Subtest: 事件计数累计链: 挖→拾取→合成→放置→烧成→开箱→击杀 七类挂点只 += (与步进解耦)
+ok 85 - 事件计数累计链: 挖→拾取→合成→放置→烧成→开箱→击杀 七类挂点只 += (与步进解耦)
+  ---
+  duration_ms: 605.255
+  type: 'test'
+  ...
+# Subtest: T15 不越级: 第 n 步只查第 n 步谓词 — 后期计数全满仍逐级推进(一周期一步)
+ok 86 - T15 不越级: 第 n 步只查第 n 步谓词 — 后期计数全满仍逐级推进(一周期一步)
+  ---
+  duration_ms: 613.6261
+  type: 'test'
+  ...
+# Subtest: T15 步进链(行为): 捡齐 5 原木 → 表扬 TTS+完成 toast+音效+引导下一步+落盘+任务卡刷新
+ok 87 - T15 步进链(行为): 捡齐 5 原木 → 表扬 TTS+完成 toast+音效+引导下一步+落盘+任务卡刷新
+  ---
+  duration_ms: 1182.6966
+  type: 'test'
+  ...
+# Subtest: 任务提醒(2026-11-07 用户票): Q 键唤出当前任务+进度 — TTS+toast 同句, 2s 节流防连点, 全完成态分支
+ok 88 - 任务提醒(2026-11-07 用户票): Q 键唤出当前任务+进度 — TTS+toast 同句, 2s 节流防连点, 全完成态分支
+  ---
+  duration_ms: 1188.448
+  type: 'test'
+  ...
+# Subtest: T15 老档归一化: {step:N} 无 counts → 补空表当前步从零继续; counts 损坏同样归一
+ok 89 - T15 老档归一化: {step:N} 无 counts → 补空表当前步从零继续; counts 损坏同样归一
+  ---
+  duration_ms: 1205.5267
+  type: 'test'
+  ...
+# Subtest: T15 钻石首获仪式: 首次挖到钻石矿触发一次(专属 TTS+音效+冲击波碎块), 第二颗起不再
+ok 90 - T15 钻石首获仪式: 首次挖到钻石矿触发一次(专属 TTS+音效+冲击波碎块), 第二颗起不再
+  ---
+  duration_ms: 592.1115
+  type: 'test'
+  ...
+# Subtest: F3 金苹果首获仪式: 首次合成触发一次(金光冲击波+gem 琶音+专属 TTS), 第二次不再
+ok 91 - F3 金苹果首获仪式: 首次合成触发一次(金光冲击波+gem 琶音+专属 TTS), 第二次不再
+  ---
+  duration_ms: 586.4555
+  type: 'test'
+  ...
+# Subtest: T15 终章: 合成钻石剑 → 「小小探险家」称号+烟花+入档; 只触发一次, 重进不重复
+ok 92 - T15 终章: 合成钻石剑 → 「小小探险家」称号+烟花+入档; 只触发一次, 重进不重复
+  ---
+  duration_ms: 1206.553
+  type: 'test'
+  ...
+# Subtest: T15 任务卡 UI: 打开背包即见 — 当前步目标+进度, 完成步划线, 称号置顶, 不剧透未来步
+ok 93 - T15 任务卡 UI: 打开背包即见 — 当前步目标+进度, 完成步划线, 称号置顶, 不剧透未来步
+  ---
+  duration_ms: 587.4854
+  type: 'test'
+  ...
+# Subtest: 大宝箱: 走近点击开面板(4 格门槛, 熔炉同款) → 存入并堆/整槽搬 → 取出耐久原样 → 账户随档
+ok 94 - 大宝箱: 走近点击开面板(4 格门槛, 熔炉同款) → 存入并堆/整槽搬 → 取出耐久原样 → 账户随档
+  ---
+  duration_ms: 1181.396
+  type: 'test'
+  ...
+# Subtest: 背包点选搬运: 快捷栏↔主格腾位 + 同物并堆 + 快捷栏镜像同步 + 即时落盘
+ok 95 - 背包点选搬运: 快捷栏↔主格腾位 + 同物并堆 + 快捷栏镜像同步 + 即时落盘
+  ---
+  duration_ms: 587.973
+  type: 'test'
+  ...
+# Subtest: 大宝箱扩容: 材料不够温和提示不动包 → 8 圆石扩到 18 格 → 4 铁锭顶格 27 → 顶格后无档
+ok 96 - 大宝箱扩容: 材料不够温和提示不动包 → 8 圆石扩到 18 格 → 4 铁锭顶格 27 → 顶格后无档
+  ---
+  duration_ms: 1207.6671
+  type: 'test'
+  ...
+# Subtest: 大宝箱箱轨容量(ADR 0007): 放一箱 +9 → 挖掉 −9 → 超容存量留档不丢, 重进恢复
+ok 97 - 大宝箱箱轨容量(ADR 0007): 放一箱 +9 → 挖掉 −9 → 超容存量留档不丢, 重进恢复
+  ---
+  duration_ms: 1193.2363
+  type: 'test'
+  ...
+# Subtest: 大宝箱联动: 背包快满提醒在做过箱子步后指向收纳(话术升级不改触发口径)
+ok 98 - 大宝箱联动: 背包快满提醒在做过箱子步后指向收纳(话术升级不改触发口径)
+  ---
+  duration_ms: 595.9801
+  type: 'test'
+  ...
+# Subtest: S4① 低耐久预警行为链: 首次 <0.25 提醒一次, 同命不唠叨, 破板重置后再做同款可再预警
+ok 99 - S4① 低耐久预警行为链: 首次 <0.25 提醒一次, 同命不唠叨, 破板重置后再做同款可再预警
+  ---
+  duration_ms: 623.815
+  type: 'test'
+  ...
+# Subtest: S4② 背包快满行为链: 占用 ≥24/27 一次性 toast+TTS「背包快满啦，去合成一些吧」
+ok 100 - S4② 背包快满行为链: 占用 ≥24/27 一次性 toast+TTS「背包快满啦，去合成一些吧」
+  ---
+  duration_ms: 596.1836
+  type: 'test'
+  ...
+# Subtest: S4③ 工具坏指路行为链: 破板安抚 TTS 并句当前任务步 hint(挖掘路径实测)
+ok 101 - S4③ 工具坏指路行为链: 破板安抚 TTS 并句当前任务步 hint(挖掘路径实测)
+  ---
+  duration_ms: 595.8423
+  type: 'test'
+  ...
+# Subtest: 修复①: 矿坑台阶每级恰 1 格 — 跳跃 1.42 格可登, 下得去也上得来(曾每级 2 格困人)
+ok 102 - 修复①: 矿坑台阶每级恰 1 格 — 跳跃 1.42 格可登, 下得去也上得来(曾每级 2 格困人)
+  ---
+  duration_ms: 588.4039
+  type: 'test'
+  ...
+# Subtest: 修复②: 面板关闭状态同步 — ✕/Esc 走 onClose 后 panelOpen 不卡 true(曾卡住挖不了矿)
+ok 103 - 修复②: 面板关闭状态同步 — ✕/Esc 走 onClose 后 panelOpen 不卡 true(曾卡住挖不了矿)
+  ---
+  duration_ms: 588.1638
+  type: 'test'
+  ...
+# Subtest: 修复③: 🏠 回小屋逃生口 — 满血传送 + 60s 冷却拒绝(受困自救, 不播死亡安抚)
+ok 104 - 修复③: 🏠 回小屋逃生口 — 满血传送 + 60s 冷却拒绝(受困自救, 不播死亡安抚)
+  ---
+  duration_ms: 610.624
+  type: 'test'
+  ...
+# Subtest: 方块级联①: 砍树底一节=整树倒 — 干/叶全清+原木掉落雨+话术
+ok 105 - 方块级联①: 砍树底一节=整树倒 — 干/叶全清+原木掉落雨+话术
+  ---
+  duration_ms: 605.4555
+  type: 'test'
+  ...
+# Subtest: 方块级联②(红线): 级联块全量记账 — cleanup 落盘→重进(重建+重放)整树不复活
+ok 106 - 方块级联②(红线): 级联块全量记账 — cleanup 落盘→重进(重建+重放)整树不复活
+  ---
+  duration_ms: 1219.7888
+  type: 'test'
+  ...
+# Subtest: 方块级联③: 挖火把/树苗的底座 → 依附块脱落掉落, 树苗计时撤销
+ok 107 - 方块级联③: 挖火把/树苗的底座 → 依附块脱落掉落, 树苗计时撤销
+  ---
+  duration_ms: 607.948
+  type: 'test'
+  ...
+# Subtest: 方块级联④: TNT 波及原木 → 整树级联倒 — 默认表掉落, 不进任务(P6)
+ok 108 - 方块级联④: TNT 波及原木 → 整树级联倒 — 默认表掉落, 不进任务(P6)
+  ---
+  duration_ms: 621.2171
+  type: 'test'
+  ...
+# Subtest: 方块级联⑤(二期 D7): 沙随底座沉降 — 移动两格记账, 重进不错位(红线)
+ok 109 - 方块级联⑤(二期 D7): 沙随底座沉降 — 移动两格记账, 重进不错位(红线)
+  ---
+  duration_ms: 1182.5654
+  type: 'test'
+  ...
+# Subtest: 方块级联⑥(三期 P15): 砍树干中段=整树倒(树桩连带) — 干/叶全清+话术
+ok 110 - 方块级联⑥(三期 P15): 砍树干中段=整树倒(树桩连带) — 干/叶全清+话术
+  ---
+  duration_ms: 594.9601
+  type: 'test'
+  ...
+# Subtest: 方块级联⑦(三期 P14 红线): 旧档浮空冠重进治愈 — 治愈记账落盘, 二次进世界幂等
+ok 111 - 方块级联⑦(三期 P14 红线): 旧档浮空冠重进治愈 — 治愈记账落盘, 二次进世界幂等
+  ---
+  duration_ms: 1788.4086
+  type: 'test'
+  ...
+# Subtest: F4 牧场: init 动物在场 — 确定性清单 10 只(牛2羊2猪3鸡3)挂 __livestockIdx, 重进原位复现
+ok 112 - F4 牧场: init 动物在场 — 确定性清单 10 只(牛2羊2猪3鸡3)挂 __livestockIdx, 重进原位复现
+  ---
+  duration_ms: 1201.5073
+  type: 'test'
+  ...
+# Subtest: F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 + kill_mob 不记账(战斗步只认怪物)
+ok 113 - F4 收获链: 击杀动物掉落掷骰照常 + killBurst verb「收获」 + kill_mob 不记账(战斗步只认怪物)
+  ---
+  duration_ms: 607.6816
+  type: 'test'
+  ...
+# Subtest: F4 恐惧游荡: 玩家靠近 ≤2.5 让开(×0.8 背向) · 受击存活 3 秒逃窜(×2.2) · 不进战斗 AI 不反击
+ok 114 - F4 恐惧游荡: 玩家靠近 ≤2.5 让开(×0.8 背向) · 受击存活 3 秒逃窜(×2.2) · 不进战斗 AI 不反击
+  ---
+  duration_ms: 602.2754
+  type: 'test'
+  ...
+# Subtest: 索敌视野=实走距离: 墙后(walkDist=∞)不追不动 · 直线超圈不查 · 可达照追 · 隔墙不出手
+ok 115 - 索敌视野=实走距离: 墙后(walkDist=∞)不追不动 · 直线超圈不查 · 可达照追 · 隔墙不出手
+  ---
+  duration_ms: 596.959
+  type: 'test'
+  ...
+# Subtest: F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索引不复活(牧场不重生, MC 口径)
+ok 116 - F4 死畜记账: 击杀动物 → dead 索引落账随档 → 重进该索引不复活(牧场不重生, MC 口径)
+  ---
+  duration_ms: 1189.4395
+  type: 'test'
+  ...
+# Subtest: 剪羊毛行为链: 右键对准羊 → 掉羊毛 1~3 + 羊进没毛态 + 剪毛账落桶 + 耐久 −1 + shear 音; 剪毛零伤害
+ok 117 - 剪羊毛行为链: 右键对准羊 → 掉羊毛 1~3 + 羊进没毛态 + 剪毛账落桶 + 耐久 −1 + shear 音; 剪毛零伤害
+  ---
+  duration_ms: 604.7533
+  type: 'test'
+  ...
+# Subtest: 剪羊毛触屏专用键: holdAct 直调执行器 = 右键同轨(一次性动作不进连发)
+ok 118 - 剪羊毛触屏专用键: holdAct 直调执行器 = 右键同轨(一次性动作不进连发)
+  ---
+  duration_ms: 605.8955
+  type: 'test'
+  ...
+# Subtest: 剪羊毛隔天长回: dayTime 回绕沿(自然过午夜/睡醒跳零) → 毛长回来+剪毛账销
+ok 119 - 剪羊毛隔天长回: dayTime 回绕沿(自然过午夜/睡醒跳零) → 毛长回来+剪毛账销
+  ---
+  duration_ms: 591.8372
+  type: 'test'
+  ...
+# Subtest: 剪毛跨档: 剪毛账随世界档 → 重进没毛态复现; 离场跨天后重进 = 毛已长回(账销)
+ok 120 - 剪毛跨档: 剪毛账随世界档 → 重进没毛态复现; 离场跨天后重进 = 毛已长回(账销)
+  ---
+  duration_ms: 1797.1802
+  type: 'test'
+  ...
+# Subtest: 会话复位注册表收口①: 节流器/羊毛跨沿账本重进归零(卡1观察项, 行为变更拍板)
+ok 121 - 会话复位注册表收口①: 节流器/羊毛跨沿账本重进归零(卡1观察项, 行为变更拍板)
+  ---
+  duration_ms: 606.6147
+  type: 'test'
+  ...
+# Subtest: 会话复位注册表收口②: stale prevT 重进不伪计回绕 — 当天剪的毛不提前长回
+ok 122 - 会话复位注册表收口②: stale prevT 重进不伪计回绕 — 当天剪的毛不提前长回
+  ---
+  duration_ms: 1185.7386
+  type: 'test'
+  ...
+# Subtest: 剪过毛的羊死亡不掉羊毛(MC 口径): 肉照掉, 击杀账照走
+ok 123 - 剪过毛的羊死亡不掉羊毛(MC 口径): 肉照掉, 击杀账照走
+  ---
+  duration_ms: 590.8116
+  type: 'test'
+  ...
+# Subtest: 剪毛档形兼容: 老单账 {dead:[..]} 读档 → home 桶收敛 v3 三栏(sheared 恒在, 不出残缺桶)
+ok 124 - 剪毛档形兼容: 老单账 {dead:[..]} 读档 → home 桶收敛 v3 三栏(sheared 恒在, 不出残缺桶)
+  ---
+  duration_ms: 586.8738
+  type: 'test'
+  ...
+# Subtest: F4 熟食链: 炉烧生肉→熟肉(SMELTS 四条, 与矿物同套节律) + 吃熟肉回血走 advEatPolicy 普通口径
+ok 125 - F4 熟食链: 炉烧生肉→熟肉(SMELTS 四条, 与矿物同套节律) + 吃熟肉回血走 advEatPolicy 普通口径
+  ---
+  duration_ms: 614.9095
+  type: 'test'
+  ...
+# Subtest: 昼夜 D5 夜怪刷怪: 夜间到拍环带出怪挂 __nightMob/__nightHome · 满配额封顶
+ok 126 - 昼夜 D5 夜怪刷怪: 夜间到拍环带出怪挂 __nightMob/__nightHome · 满配额封顶
+  ---
+  duration_ms: 597.6296
+  type: 'test'
+  ...
+# Subtest: 昼夜 D5 入夜播报: 首夜并句火把引导一次性落任务档 · 次夜只报天黑了
+ok 127 - 昼夜 D5 入夜播报: 首夜并句火把引导一次性落任务档 · 次夜只报天黑了
+  ---
+  duration_ms: 594.9467
+  type: 'test'
+  ...
+# Subtest: 昼夜 D5 黎明清场: 上沿触发灰白烟+移除 · 巢穴怪/牧场动物不清 · 上沿只发一次
+ok 128 - 昼夜 D5 黎明清场: 上沿触发灰白烟+移除 · 巢穴怪/牧场动物不清 · 上沿只发一次
+  ---
+  duration_ms: 600.0425
+  type: 'test'
+  ...
+# Subtest: 昼夜 D5 黎明账本对齐: 存档时刻已在明侧重进不误触发清场
+ok 129 - 昼夜 D5 黎明账本对齐: 存档时刻已在明侧重进不误触发清场
+  ---
+  duration_ms: 599.5934
+  type: 'test'
+  ...
+# Subtest: 昼夜 D5 防刷怪圈接线: advNightRead 读 groundTop+1 同格双通道 · 界外 null · 火把格拒绝
+ok 130 - 昼夜 D5 防刷怪圈接线: advNightRead 读 groundTop+1 同格双通道 · 界外 null · 火把格拒绝
+  ---
+  duration_ms: 606.7238
+  type: 'test'
+  ...
+# Subtest: 昼夜 D5 夜怪 AI: 家锚=出生环点不归巢穴 · 玩家走近照常索敌
+ok 131 - 昼夜 D5 夜怪 AI: 家锚=出生环点不归巢穴 · 玩家走近照常索敌
+  ---
+  duration_ms: 590.8527
+  type: 'test'
+  ...
+# Subtest: 昼夜 D6 床·放置(两格床改版): 结构放置沿朝向占两格 — 床尾在点击格/床头伸向朝向侧, 下方无支撑拒
+ok 132 - 昼夜 D6 床·放置(两格床改版): 结构放置沿朝向占两格 — 床尾在点击格/床头伸向朝向侧, 下方无支撑拒
+  ---
+  duration_ms: 597.4539
+  type: 'test'
+  ...
+# Subtest: 昼夜 D6 床·睡觉条件(时钟改版): 白天开拨盘 · 床边有怪「附近有怪物，睡不着」 · 动物不拦(§7.2)
+ok 133 - 昼夜 D6 床·睡觉条件(时钟改版): 白天开拨盘 · 床边有怪「附近有怪物，睡不着」 · 动物不拦(§7.2)
+  ---
+  duration_ms: 596.3892
+  type: 'test'
+  ...
+# Subtest: 昼夜 D6 床·睡着转场: 渐黑1.5s→停2s→唤醒沿(跳清晨+夜怪清场缝+出生点设床边)→渐亮≈5s(§7.2)
+ok 134 - 昼夜 D6 床·睡着转场: 渐黑1.5s→停2s→唤醒沿(跳清晨+夜怪清场缝+出生点设床边)→渐亮≈5s(§7.2)
+  ---
+  duration_ms: 590.9053
+  type: 'test'
+  ...
+# Subtest: 昼夜 D6 床·转场退出复位: cleanup 中断睡觉 — 遮罩归零/状态复位(不渗入其他模式)
+ok 135 - 昼夜 D6 床·转场退出复位: cleanup 中断睡觉 — 遮罩归零/状态复位(不渗入其他模式)
+  ---
+  duration_ms: 603.8388
+  type: 'test'
+  ...
+# Subtest: 昼夜 D7 灯笼点亮政策: 夜里选中才 glow(skyDim>0) · 白天/换手/燃尽即灭
+ok 136 - 昼夜 D7 灯笼点亮政策: 夜里选中才 glow(skyDim>0) · 白天/换手/燃尽即灭
+  ---
+  duration_ms: 589.792
+  type: 'test'
+  ...
+# Subtest: 昼夜 D7 灯笼耗秒: 夜里每持满 1 秒扣 1 耐久(damageTool 管线) · 半秒进度不丢
+ok 137 - 昼夜 D7 灯笼耗秒: 夜里每持满 1 秒扣 1 耐久(damageTool 管线) · 半秒进度不丢
+  ---
+  duration_ms: 598.932
+  type: 'test'
+  ...
+# Subtest: 昼夜 D7 灯笼燃尽: 耐久归零整槽消失 + TTS 安抚「灯笼用完了，我们再做一个吧」+ 随身光即灭
+ok 138 - 昼夜 D7 灯笼燃尽: 耐久归零整槽消失 + TTS 安抚「灯笼用完了，我们再做一个吧」+ 随身光即灭
+  ---
+  duration_ms: 596.4198
+  type: 'test'
+  ...
+# Subtest: 南瓜生长点: 建场播撒 3 处在场 — 采集经挖掘链掉南瓜物品+记采集时 dayTime
+ok 139 - 南瓜生长点: 建场播撒 3 处在场 — 采集经挖掘链掉南瓜物品+记采集时 dayTime
+  ---
+  duration_ms: 596.1374
+  type: 'test'
+  ...
+# Subtest: 南瓜跨游戏日回填: 到期位空回填+edits 记账 · 未到期留账 · 被占销账 · 孤儿/坏账销
+ok 140 - 南瓜跨游戏日回填: 到期位空回填+edits 记账 · 未到期留账 · 被占销账 · 孤儿/坏账销
+  ---
+  duration_ms: 604.7751
+  type: 'test'
+  ...
+# Subtest: 南瓜重进不复播: 当日采集档重进仍空(播撒被重放压回, 无同日刷洞), 跨日结算回填
+ok 141 - 南瓜重进不复播: 当日采集档重进仍空(播撒被重放压回, 无同日刷洞), 跨日结算回填
+  ---
+  duration_ms: 1189.9628
+  type: 'test'
+  ...
+# Subtest: 南瓜雕刻: 剪刀右键 B_PUMPKIN → 原地变换 B_CARVED_PUMPKIN(记账+耐久扣+pick), 非南瓜静默
+ok 142 - 南瓜雕刻: 剪刀右键 B_PUMPKIN → 原地变换 B_CARVED_PUMPKIN(记账+耐久扣+pick), 非南瓜静默
+  ---
+  duration_ms: 595.0141
+  type: 'test'
+  ...
+# Subtest: 召唤接线: 雕刻南瓜最后就位 → golem 塔位破壳+__golem+家锚 · 塔材消耗(拆头重放不能再召)
+ok 143 - 召唤接线: 雕刻南瓜最后就位 → golem 塔位破壳+__golem+家锚 · 塔材消耗(拆头重放不能再召)
+  ---
+  duration_ms: 593.0747
+  type: 'test'
+  ...
+# Subtest: 诞生仪式: advGolemTick 拼装缩放 0.25→1 站桩不走 AI, 落地金圈+叮+还原; 桶重召不重播
+ok 144 - 诞生仪式: advGolemTick 拼装缩放 0.25→1 站桩不走 AI, 落地金圈+叮+还原; 桶重召不重播
+  ---
+  duration_ms: 1197.6468
+  type: 'test'
+  ...
+# Subtest: 召唤重放不重召: 老档重进塔不复活(消耗账最后写赢)+按桶 1 只(重放走 setBlockRaw 不经 advMarkEdit 红线)
+ok 145 - 召唤重放不重召: 老档重进塔不复活(消耗账最后写赢)+按桶 1 只(重放走 setBlockRaw 不经 advMarkEdit 红线)
+  ---
+  duration_ms: 1193.5774
+  type: 'test'
+  ...
+# Subtest: 召唤上限: ADV_GOLEM_MAX 3 只 — 满员结构成立但不召唤+钉死话术
+ok 146 - 召唤上限: ADV_GOLEM_MAX 3 只 — 满员结构成立但不召唤+钉死话术
+  ---
+  duration_ms: 621.7573
+  type: 'test'
+  ...
+# Subtest: 副本召唤落位: den 显式落厅地面(列顶=岩穹, 不落位=站穹顶看不见)
+ok 147 - 副本召唤落位: den 显式落厅地面(列顶=岩穹, 不落位=站穹顶看不见)
+  ---
+  duration_ms: 637.2807
+  type: 'test'
+  ...
+# Subtest: 副本傀儡生命周期: 同窗进出照存(重召落厅地面+桶血复原) · 跨窗重置除名(副本一切同命)
+ok 148 - 副本傀儡生命周期: 同窗进出照存(重召落厅地面+桶血复原) · 跨窗重置除名(副本一切同命)
+  ---
+  duration_ms: 1797.463
+  type: 'test'
+  ...
+# Subtest: 修理傀儡: 手持铁锭对近旁受伤傀儡 → 扣 1 锭回 28 血+桶同步; 满血 noop 不扣锭, 非铁锭/无傀儡近旁回落
+ok 149 - 修理傀儡: 手持铁锭对近旁受伤傀儡 → 扣 1 锭回 28 血+桶同步; 满血 noop 不扣锭, 非铁锭/无傀儡近旁回落
+  ---
+  duration_ms: 591.0598
+  type: 'test'
+  ...
+# Subtest: 傀儡出手与夜怪报复: 出手挂 __hurtBy+零击退 → 近战夜怪转火傀儡; 骷髅/苦力怕不分派; 傀儡回收仇恨解除; 友军不进战斗轨
+ok 150 - 傀儡出手与夜怪报复: 出手挂 __hurtBy+零击退 → 近战夜怪转火傀儡; 骷髅/苦力怕不分派; 傀儡回收仇恨解除; 友军不进战斗轨
+  ---
+  duration_ms: 635.9547
+  type: 'test'
+  ...
+# Subtest: 清场免疫: advSweepNightMobs 只收 __nightMob — 傀儡/牧场怪不带该字段天然豁免(负空间钉死)
+ok 151 - 清场免疫: advSweepNightMobs 只收 __nightMob — 傀儡/牧场怪不带该字段天然豁免(负空间钉死)
+  ---
+  duration_ms: 588.4723
+  type: 'test'
+  ...
+# Subtest: 傀儡死亡: onDeath 出桶销账(家锚匹配)+掉铁锭 3~5(MOB_DROPS 既有行, 净亏成本无刷铁漏洞)
+ok 152 - 傀儡死亡: onDeath 出桶销账(家锚匹配)+掉铁锭 3~5(MOB_DROPS 既有行, 净亏成本无刷铁漏洞)
+  ---
+  duration_ms: 585.9231
+  type: 'test'
+  ...
+# Subtest: golems 桶持久化: 召唤随档落盘 → 重进按桶重召(家锚+hp 复原, 落点同几何); 死亡跨档不复活
+ok 153 - golems 桶持久化: 召唤随档落盘 → 重进按桶重召(家锚+hp 复原, 落点同几何); 死亡跨档不复活
+  ---
+  duration_ms: 1785.345
+  type: 'test'
+  ...
+# Subtest: T8 解锁链第一环: 完成 q16 广场引导 → 解锁键置位+档落盘+开放仪式(琶音/白闪)+南沙丘屏障让开; roundtrip 零门面(T9 无门阵)
+ok 154 - T8 解锁链第一环: 完成 q16 广场引导 → 解锁键置位+档落盘+开放仪式(琶音/白闪)+南沙丘屏障让开; roundtrip 零门面(T9 无门阵)
+  ---
+  duration_ms: 1769.6918
+  type: 'test'
+  ...
+# Subtest: T8 老档不回退: 终章通关档(step=16+称号) → 接棒远征章首条, step/称号原样保留
+ok 155 - T8 老档不回退: 终章通关档(step=16+称号) → 接棒远征章首条, step/称号原样保留
+  ---
+  duration_ms: 594.144
+  type: 'test'
+  ...
+# Subtest: T8 计数挂点四路: 广场发现(位置型) / 结构宝箱(图+坐标) / 雪球投掷 / 怪种击杀 — 事件处只 += 与步进解耦
+ok 156 - T8 计数挂点四路: 广场发现(位置型) / 结构宝箱(图+坐标) / 雪球投掷 / 怪种击杀 — 事件处只 += 与步进解耦
+  ---
+  duration_ms: 799.5358
+  type: 'test'
+  ...
+# Subtest: 弓射击(2026-10-28 Route A): 右键/射箭键沿准星放箭 → 弹步进命中击杀记账; 拉弓冷却与挥击同轨连点不连发; 攻击键=空手挖/打(MC 正典回归); 触屏条两键(基表+射箭键边沿重声明)
+ok 157 - 弓射击(2026-10-28 Route A): 右键/射箭键沿准星放箭 → 弹步进命中击杀记账; 拉弓冷却与挥击同轨连点不连发; 攻击键=空手挖/打(MC 正典回归); 触屏条两键(基表+射箭键边沿重声明)
+  ---
+  duration_ms: 590.8624
+  type: 'test'
+  ...
+# Subtest: T8 边缘传送真任务链: 广场踩点实完成 q16 → rite 白闪泵 → 南缘越线白闪切 desert → 记账/到达播报/接棒 q18 — 真链不注入 counts(与组5 注入路径互为独立)
+ok 158 - T8 边缘传送真任务链: 广场踩点实完成 q16 → rite 白闪泵 → 南缘越线白闪切 desert → 记账/到达播报/接棒 q18 — 真链不注入 counts(与组5 注入路径互为独立)
+  ---
+  duration_ms: 1347.9297
+  type: 'test'
+  ...
+# Subtest: 昼夜 D7 灯笼退场复位: cleanup 关随身光(PointLight 不渗入其他模式)
+ok 159 - 昼夜 D7 灯笼退场复位: cleanup 关随身光(PointLight 不渗入其他模式)
+  ---
+  duration_ms: 613.4471
+  type: 'test'
+  ...
+# Subtest: 农田 D3 锄地: 空手右键草地→耕地(世界档记账+翻土声); 手持方块右键=放置不被锄地劫持
+ok 160 - 农田 D3 锄地: 空手右键草地→耕地(世界档记账+翻土声); 手持方块右键=放置不被锄地劫持
+  ---
+  duration_ms: 604.3946
+  type: 'test'
+  ...
+# Subtest: 农田 D3 播种→催熟→生长全链: 非耕地不扣件·耕地落苗扣种·骨粉+1 阶·20s/阶段到熟即停
+ok 161 - 农田 D3 播种→催熟→生长全链: 非耕地不扣件·耕地落苗扣种·骨粉+1 阶·20s/阶段到熟即停
+  ---
+  duration_ms: 629.8908
+  type: 'test'
+  ...
+# Subtest: 配方解锁播报(D2): 击杀记账达成→0.5s 节拍播报一次, 不重复播
+ok 162 - 配方解锁播报(D2): 击杀记账达成→0.5s 节拍播报一次, 不重复播
+  ---
+  duration_ms: 606.1734
+  type: 'test'
+  ...
+# Subtest: 丢弃: advDropSlot 整摞离包 → 定向掉落物(thrown/holdFar/耐久随件/10 分钟存留) → 站着不吸回, 走远再回来原耐久拾回
+ok 163 - 丢弃: advDropSlot 整摞离包 → 定向掉落物(thrown/holdFar/耐久随件/10 分钟存留) → 站着不吸回, 走远再回来原耐久拾回
+  ---
+  duration_ms: 599.1271
+  type: 'test'
+  ...
+# Subtest: 大背包: 手持使用扩容 27→33 恰一次(消耗+庆祝+记账), 已顶格礼貌拒绝不消耗
+ok 164 - 大背包: 手持使用扩容 27→33 恰一次(消耗+庆祝+记账), 已顶格礼貌拒绝不消耗
+  ---
+  duration_ms: 615.7937
+  type: 'test'
+  ...
+# Subtest: 退场回收: advReclaimThrown 把地上丢弃件收回包(耐久原样); 满包装不下的转普通掉落物留地上
+ok 165 - 退场回收: advReclaimThrown 把地上丢弃件收回包(耐久原样); 满包装不下的转普通掉落物留地上
+  ---
+  duration_ms: 1193.3833
+  type: 'test'
+  ...
+# Subtest: 维度规格收口: ADV_SCENE_KEYS 两注册表派生(桶键=地图行+维度行, 加维度零手抄)
+ok 166 - 维度规格收口: ADV_SCENE_KEYS 两注册表派生(桶键=地图行+维度行, 加维度零手抄)
+  ---
+  duration_ms: 0.1413
+  type: 'test'
+  ...
+# Subtest: 装备 T5: wear 执行器 — 穿上=手持消耗进槽+观感对齐; 换装旧件回包(零损失红线)
+ok 167 - 装备 T5: wear 执行器 — 穿上=手持消耗进槽+观感对齐; 换装旧件回包(零损失红线)
+  ---
+  duration_ms: 632.0755
+  type: 'test'
+  ...
+# Subtest: 装备 T5: 装备条脱下编排 — 点槽旧件回包+槽清空; 空槽礼貌话术不炸
+ok 168 - 装备 T5: 装备条脱下编排 — 点槽旧件回包+槽清空; 空槽礼貌话术不炸
+  ---
+  duration_ms: 593.8428
+  type: 'test'
+  ...
+# Subtest: 装备 T9: advTryWearSlot — 免选中指定槽穿上(装备页点格同链); 换装旧件回包; 满包拒绝不消耗
+ok 169 - 装备 T9: advTryWearSlot — 免选中指定槽穿上(装备页点格同链); 换装旧件回包; 满包拒绝不消耗
+  ---
+  duration_ms: 610.7985
+  type: 'test'
+  ...
+# Subtest: 装备 T5: 存档 armor 键 roundtrip — cleanup 落盘重进恢复; 老档无键 → 空穿; advSaveView 透出
+ok 170 - 装备 T5: 存档 armor 键 roundtrip — cleanup 落盘重进恢复; 老档无键 → 空穿; advSaveView 透出
+  ---
+  duration_ms: 1807.2693
+  type: 'test'
+  ...
+# Subtest: 装备 T6: 战斗漏斗 — 减伤/击退抗性经穿戴档折算(正典公式手算锚); 空穿原样透传
+ok 171 - 装备 T6: 战斗漏斗 — 减伤/击退抗性经穿戴档折算(正典公式手算锚); 空穿原样透传
+  ---
+  duration_ms: 589.875
+  type: 'test'
+  ...
+# Subtest: 装备 T6: 命中磨损与破碎仪式 — 每件 dur−1; 归零槽清空+破话术+观感对齐+随档落盘
+ok 172 - 装备 T6: 命中磨损与破碎仪式 — 每件 dur−1; 归零槽清空+破话术+观感对齐+随档落盘
+  ---
+  duration_ms: 1202.7089
+  type: 'test'
+  ...
+# Subtest: 装备 T6: 环境伤害不吃甲(D8) + 致死分支走死亡政策(漏斗不抢戏)
+ok 173 - 装备 T6: 环境伤害不吃甲(D8) + 致死分支走死亡政策(漏斗不抢戏)
+  ---
+  duration_ms: 593.3273
+  type: 'test'
+  ...
+# Subtest: 装备 T6: 单一漏斗源码钉 — 玩家直挨 Mobs.hit 绝迹(近战/自爆/箭矢全收口)
+ok 174 - 装备 T6: 单一漏斗源码钉 — 玩家直挨 Mobs.hit 绝迹(近战/自爆/箭矢全收口)
+  ---
+  duration_ms: 2.2788
+  type: 'test'
+  ...
+# Subtest: T7 转正 TNT: 爆炸覆盖东栅栏件 — 屏障格原地不动+零掉落(掷骰口), 普通带内格照常破坏
+ok 175 - T7 转正 TNT: 爆炸覆盖东栅栏件 — 屏障格原地不动+零掉落(掷骰口), 普通带内格照常破坏
+  ---
+  duration_ms: 598.368
+  type: 'test'
+  ...
+# Subtest: T7 转正 文案: advMineHardText 分向命中非空+两两不同, 普通格空串, 老签名不炸
+ok 176 - T7 转正 文案: advMineHardText 分向命中非空+两两不同, 普通格空串, 老签名不炸
+  ---
+  duration_ms: 591.8991
+  type: 'test'
+  ...
+# Subtest: T7 转正 P5: 静止玩家 120 帧 — setSkyBase 调用 ≤2(首帧写一次), 腹地旁路+量化键 memo 生效
+ok 177 - T7 转正 P5: 静止玩家 120 帧 — setSkyBase 调用 ≤2(首帧写一次), 腹地旁路+量化键 memo 生效
+  ---
+  duration_ms: 598.661
+  type: 'test'
+  ...
+# Subtest: T8 组5 边缘传送端到端: 解锁沙漠→南缘行推帧→白闪切 desert+回程门内侧落点+面朝图内+记账/音/播报/冷却; 冷却防抖+veil 非空闲不二触
+ok 178 - T8 组5 边缘传送端到端: 解锁沙漠→南缘行推帧→白闪切 desert+回程门内侧落点+面朝图内+记账/音/播报/冷却; 冷却防抖+veil 非空闲不二触
+  ---
+  duration_ms: 1550.0575
+  type: 'test'
+  ...
+# Subtest: T8 组5b 沼泽门 x 平面分派: 旧 z 平面过渡态的 x=160 越界回卷写消除(卷绕列无门体格+门面在 x=px 平面)
+ok 179 - T8 组5b 沼泽门 x 平面分派: 旧 z 平面过渡态的 x=160 越界回卷写消除(卷绕列无门体格+门面在 x=px 平面)
+  ---
+  duration_ms: 607.6658
+  type: 'test'
+  ...
+# Subtest: T8 组6 解锁拦截: counts 全锁三向缘行零切图; 北近前区 30s 节流(31s 窗恰 1 次、62s 累计恰 2 次)+含世界名+分级点名; 解锁态静默; 东向任何状态零话术零传送
+ok 180 - T8 组6 解锁拦截: counts 全锁三向缘行零切图; 北近前区 30s 节流(31s 窗恰 1 次、62s 累计恰 2 次)+含世界名+分级点名; 解锁态静默; 东向任何状态零话术零传送
+  ---
+  duration_ms: 616.9653
+  type: 'test'
+  ...
+# Subtest: T8 组7 解锁演出: home 完成点亮 → rite 白闪后北山正面格变空气+保护解除+边缘播报; 远征图完成点亮 → 不切图+回家语义播报+切回 home 后山体不存在
+ok 181 - T8 组7 解锁演出: home 完成点亮 → rite 白闪后北山正面格变空气+保护解除+边缘播报; 远征图完成点亮 → 不切图+回家语义播报+切回 home 后山体不存在
+  ---
+  duration_ms: 2493.5151
+  type: 'test'
+  ...
+# Subtest: T11 主题换怪铺法: 北带铺流浪者 · 南带铺尸壳 · 西带铺沼骸(环带节拍/CAP/家锚路径不变)
+ok 182 - T11 主题换怪铺法: 北带铺流浪者 · 南带铺尸壳 · 西带铺沼骸(环带节拍/CAP/家锚路径不变)
+  ---
+  duration_ms: 1794.7634
+  type: 'test'
+  ...
+# Subtest: T11 同池回落: 腹地铺 home 同池 · 远征图行池不被带矩形串装(地图行门控)
+ok 183 - T11 同池回落: 腹地铺 home 同池 · 远征图行池不被带矩形串装(地图行门控)
+  ---
+  duration_ms: 1943.0717
+  type: 'test'
+  ...
+# Subtest: T-SEAM-02 去程进镇端到端: 主径踩线带内恒开放白闪 → advSetDim 落 spawn 锚(79,25,112) · 播报/toast · 任务链不挂 town
+ok 184 - T-SEAM-02 去程进镇端到端: 主径踩线带内恒开放白闪 → advSetDim 落 spawn 锚(79,25,112) · 播报/toast · 任务链不挂 town
+  ---
+  duration_ms: 609.8276
+  type: 'test'
+  ...
+# Subtest: T-SEAM-02 east 触发带外壳: 偏离主径的栅栏段不触发 · 翻越彩蛋落点(z 出带)不触发落隔离带照旧
+ok 185 - T-SEAM-02 east 触发带外壳: 偏离主径的栅栏段不触发 · 翻越彩蛋落点(z 出带)不触发落隔离带照旧
+  ---
+  duration_ms: 593.2198
+  type: 'test'
+  ...
+# Subtest: T-SEAM-02 栅栏保护拒绝话术改稿: east 命中保护判据 → 视觉 spec B.4 定稿(指路收尾, 退役「还没盖好」)
+ok 186 - T-SEAM-02 栅栏保护拒绝话术改稿: east 命中保护判据 → 视觉 spec B.4 定稿(指路收尾, 退役「还没盖好」)
+  ---
+  duration_ms: 589.2248
+  type: 'test'
+  ...
+# Subtest: T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → 落 east 锚(约 154.5,75)面朝西 · 维度回 overworld 昼夜照转 · 播报「回到家啦！」· 白闪整链同款 · 落点不落触发线口袋 · 双向再入镇
+ok 187 - T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → 落 east 锚(约 154.5,75)面朝西 · 维度回 overworld 昼夜照转 · 播报「回到家啦！」· 白闪整链同款 · 落点不落触发线口袋 · 双向再入镇
+  ---
+  duration_ms: 1217.6329
+  type: 'test'
+  ...
+# Subtest: T-SEAM-03 回程触发线 z 逐点: z=131 不触发/z=132 触发(任意 x 带式) · 南彩蛋带整段(z94~127)零误触(抽 z=100/127)
+ok 188 - T-SEAM-03 回程触发线 z 逐点: z=131 不触发/z=132 触发(任意 x 带式) · 南彩蛋带整段(z94~127)零误触(抽 z=100/127)
+  ---
+  duration_ms: 1874.8424
+  type: 'test'
+  ...
+# Subtest: T-SEAM-03 回程早退链(镇侧同款纪律): 睡觉转场中不触发 · 解除后照常发令(冷却/白闪中两闸已在端到端发令帧断言)
+ok 189 - T-SEAM-03 回程早退链(镇侧同款纪律): 睡觉转场中不触发 · 解除后照常发令(冷却/白闪中两闸已在端到端发令帧断言)
+  ---
+  duration_ms: 1216.7286
+  type: 'test'
+  ...
+# Subtest: T-SEAM-03 缓冲常量在位+判据注释回引 §6.3.5(防误触参数可微调, 判据形状不变)
+ok 190 - T-SEAM-03 缓冲常量在位+判据注释回引 §6.3.5(防误触参数可微调, 判据形状不变)
+  ---
+  duration_ms: 2.0955
+  type: 'test'
+  ...
+# Subtest: TIDEA-17 缓冲带回程预告(城镇翻新 U-06): 线南 6 格一次性「再往前就回家啦!」·线边徘徊零重刷(迟滞 12 格重臂)·预告不改变触发线语义(z132 照常发令, ADR-0011 决策 4)
+ok 191 - TIDEA-17 缓冲带回程预告(城镇翻新 U-06): 线南 6 格一次性「再往前就回家啦!」·线边徘徊零重刷(迟滞 12 格重臂)·预告不改变触发线语义(z132 照常发令, ADR-0011 决策 4)
+  ---
+  duration_ms: 1212.6793
+  type: 'test'
+  ...
+# Subtest: T-SEAM-03 east 锚所落格可站立(建场探针, 三向现锚同款): 落点脚箱覆盖格 y24 实垫 y25/26 净空
+ok 192 - T-SEAM-03 east 锚所落格可站立(建场探针, 三向现锚同款): 落点脚箱覆盖格 y24 实垫 y25/26 净空
+  ---
+  duration_ms: 594.8944
+  type: 'test'
+  ...
+# Subtest: T-SEAM-04 进镇建机(直达): advSetDim('town') 专属步建机 — 壳层机器在位 · 注册快照二十条全 active · focus/found/reset/snapshot 接口面完整(对齐 T-MAP-04 core 行为)
+ok 193 - T-SEAM-04 进镇建机(直达): advSetDim('town') 专属步建机 — 壳层机器在位 · 注册快照二十条全 active · focus/found/reset/snapshot 接口面完整(对齐 T-MAP-04 core 行为)
+  ---
+  duration_ms: 1196.4306
+  type: 'test'
+  ...
+# Subtest: T-SEAM-04 进镇建机(端到端): 主径踩线白闪进镇后机器在位(T-SEAM-02 链路零扰动 · emit 空实现旁路 events 面照常)
+ok 194 - T-SEAM-04 进镇建机(端到端): 主径踩线白闪进镇后机器在位(T-SEAM-02 链路零扰动 · emit 空实现旁路 events 面照常)
+  ---
+  duration_ms: 1189.626
+  type: 'test'
+  ...
+# Subtest: T-SEAM-04 离镇弃机+再进新机不串轮: found/focus 状态离镇即清 — 两轮进镇状态隔离(第一轮 done/focus 不泄漏第二轮) · 机器引用换代 · 回程白闪路径同链弃机
+ok 195 - T-SEAM-04 离镇弃机+再进新机不串轮: found/focus 状态离镇即清 — 两轮进镇状态隔离(第一轮 done/focus 不泄漏第二轮) · 机器引用换代 · 回程白闪路径同链弃机
+  ---
+  duration_ms: 2408.6892
+  type: 'test'
+  ...
+# Subtest: T-SEAM-04 镇内幂等: 重复 advSetDim('town') 不重置机器(dim===advDim 首行守卫 · 建机只在进镇沿, 非每帧非每调用)
+ok 196 - T-SEAM-04 镇内幂等: 重复 advSetDim('town') 不重置机器(dim===advDim 首行守卫 · 建机只在进镇沿, 非每帧非每调用)
+  ---
+  duration_ms: 1175.5908
+  type: 'test'
+  ...
+# Subtest: T-SEAM-04 den 先例形状对齐: 建机调用挂在 advSetDim 切界缝(town 专属步, den 专属步 advDenSeed 同位先例 · 非每帧)
+ok 197 - T-SEAM-04 den 先例形状对齐: 建机调用挂在 advSetDim 切界缝(town 专属步, den 专属步 advDenSeed 同位先例 · 非每帧)
+  ---
+  duration_ms: 1.9858
+  type: 'test'
+  ...
+# Subtest: T-SEAM-04 core 零改动守门: 壳层只消费 mkTownTargets 工厂 — 机器逻辑五件面零复制于 adventure.js(「T-UI 票只换 emit 不改机器」契约, diff 零 hunk 由 commit 证据承担)
+ok 198 - T-SEAM-04 core 零改动守门: 壳层只消费 mkTownTargets 工厂 — 机器逻辑五件面零复制于 adventure.js(「T-UI 票只换 emit 不改机器」契约, diff 零 hunk 由 commit 证据承担)
+  ---
+  duration_ms: 2.1118
+  type: 'test'
+  ...
+# Subtest: T-SEAM-04 登记回填: dimension-registry-design.md §5 不进表清单有 town 分支登记(票面授权的一句话新增, 设计权威新增条目非改写)
+ok 199 - T-SEAM-04 登记回填: dimension-registry-design.md §5 不进表清单有 town 分支登记(票面授权的一句话新增, 设计权威新增条目非改写)
+  ---
+  duration_ms: 0.5162
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 消费机挂点在位: 进镇后 advTownAnchorTick 可调(注入式验收缝, adv 挂点透出)
+ok 200 - T-NPC-12 消费机挂点在位: 进镇后 advTownAnchorTick 可调(注入式验收缝, adv 挂点透出)
+  ---
+  duration_ms: 1199.0939
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 G01 聚焦重发恰一条(验收①): npc:g01 在主目标 focus 下 legIndex 0→1 → 恰一条 targetFocus(anchor=新航点快照恰三键, target 恰六键, state 携当前值)
+ok 201 - T-NPC-12 G01 聚焦重发恰一条(验收①): npc:g01 在主目标 focus 下 legIndex 0→1 → 恰一条 targetFocus(anchor=新航点快照恰三键, target 恰六键, state 携当前值)
+  ---
+  duration_ms: 1189.8303
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 无焦点零事件(验收①反面·默认「聚焦才发」): npc:g01 未被 focus 时到站跳变 → 零事件(跳变照记账, changed=true)
+ok 202 - T-NPC-12 无焦点零事件(验收①反面·默认「聚焦才发」): npc:g01 未被 focus 时到站跳变 → 零事件(跳变照记账, changed=true)
+  ---
+  duration_ms: 1218.5865
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 静态站位 13 键零重发(验收②): 任意 legIndex 注入(含负/超界)零重发——锚不变幂等, 聚焦中的静态 NPC 同样零事件
+ok 203 - T-NPC-12 静态站位 13 键零重发(验收②): 任意 legIndex 注入(含负/超界)零重发——锚不变幂等, 聚焦中的静态 NPC 同样零事件
+  ---
+  duration_ms: 1374.8501
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 重发稀疏幂等+账本写赢: 同腿重复 tick 零事件 · 到站再跳(leg1→leg2)再发恰一条
+ok 204 - T-NPC-12 重发稀疏幂等+账本写赢: 同腿重复 tick 零事件 · 到站再跳(leg1→leg2)再发恰一条
+  ---
+  duration_ms: 1191.2964
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 重发零状态扰动(对账): 重发是同形状事件刷新非迁移 — 机器 focusId/states 零变
+ok 205 - T-NPC-12 重发零状态扰动(对账): 重发是同形状事件刷新非迁移 — 机器 focusId/states 零变
+  ---
+  duration_ms: 1288.0049
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 策略参数化·到站即发(policy=always): 无焦点下到站跳变仍发恰一条 (对照默认策略同场景零事件, 票面 §3 参数化验收)
+ok 206 - T-NPC-12 策略参数化·到站即发(policy=always): 无焦点下到站跳变仍发恰一条 (对照默认策略同场景零事件, 票面 §3 参数化验收)
+  ---
+  duration_ms: 1285.9657
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 done 态重发携 done(完成态回看): found 后到站跳变重发 target.state=done 携新锚
+ok 207 - T-NPC-12 done 态重发携 done(完成态回看): found 后到站跳变重发 target.state=done 携新锚
+  ---
+  duration_ms: 1322.9772
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 同形状既有事件+协议回归(验收③): 重发与原生 focus 事件键集同序 · TOWN_UI_EVENTS 四名表/townTargetOf 六键零改动(快照形状断言)
+ok 208 - T-NPC-12 同形状既有事件+协议回归(验收③): 重发与原生 focus 事件键集同序 · TOWN_UI_EVENTS 四名表/townTargetOf 六键零改动(快照形状断言)
+  ---
+  duration_ms: 1199.0093
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 账本生命周期: 离镇清账·再进重置(首跳再发不串轮) — prev 账本随建机建/随弃机清
+ok 209 - T-NPC-12 账本生命周期: 离镇清账·再进重置(首跳再发不串轮) — prev 账本随建机建/随弃机清
+  ---
+  duration_ms: 1831.8067
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 非镇维度旁路: overworld 下 tick 直调零炸零事件(行身份维度门, 零 town 字面判据)
+ok 210 - T-NPC-12 非镇维度旁路: overworld 下 tick 直调零炸零事件(行身份维度门, 零 town 字面判据)
+  ---
+  duration_ms: 624.0597
+  type: 'test'
+  ...
+# Subtest: T-NPC-12 update 逐帧接线(源文本守门): 消费机挂 AdventureMode.update 段内(镇专属件邻位, 生产路径恒缺省 leg0) — 镜像 T-SEAM-04 den 先例形状对齐的源文本断言
+ok 211 - T-NPC-12 update 逐帧接线(源文本守门): 消费机挂 AdventureMode.update 段内(镇专属件邻位, 生产路径恒缺省 leg0) — 镜像 T-SEAM-04 den 先例形状对齐的源文本断言
+  ---
+  duration_ms: 2.1946
+  type: 'test'
+  ...
+# Subtest: TIDEA-02 进镇迎宾钟三响: 到达帧首响+500ms 节律三响齐(真墙钟) · 回程零钟声 · 二进镇迟到响随换维清(零跨场漏播)
+ok 212 - TIDEA-02 进镇迎宾钟三响: 到达帧首响+500ms 节律三响齐(真墙钟) · 回程零钟声 · 二进镇迟到响随换维清(零跨场漏播)
+  ---
+  duration_ms: 4120.7033
+  type: 'test'
+  ...
+# Subtest: TIDEA-11 景区四声: 进区一声·区内徘徊零重响·迟滞带内往返不重臂·出窗重臂再进再响 · 四区各就位 · 进镇零误触
+ok 213 - TIDEA-11 景区四声: 进区一声·区内徘徊零重响·迟滞带内往返不重臂·出窗重臂再进再响 · 四区各就位 · 进镇零误触
+  ---
+  duration_ms: 670.0196
+  type: 'test'
+  ...
+# Subtest: TIDEA-11 会话态归零: cleanup 重进后同区再响(一次性 flag 随会话清, 非永久静音)
+ok 214 - TIDEA-11 会话态归零: cleanup 重进后同区再响(一次性 flag 随会话清, 非永久静音)
+  ---
+  duration_ms: 1277.8023
+  type: 'test'
+  ...
+# Subtest: q27 数据行: 合成滑翔翼(glider-spec §3.7) — 文案逐字/记账键 craft_glider/无 unlock 无 finale
+ok 215 - q27 数据行: 合成滑翔翼(glider-spec §3.7) — 文案逐字/记账键 craft_glider/无 unlock 无 finale
+  ---
+  duration_ms: 0.114
+  type: 'test'
+  ...
+# Subtest: q27 行为链: 老档全通关 step=27 读入新表恰接棒 q27 — 合成滑翔翼步进表外+praise
+ok 216 - q27 行为链: 老档全通关 step=27 读入新表恰接棒 q27 — 合成滑翔翼步进表外+praise
+  ---
+  duration_ms: 670.9824
+  type: 'test'
+  ...
+# Subtest: q27 行为链: 引导期提前合成不跳步 — 计数保留, 步进仍按链序
+ok 217 - q27 行为链: 引导期提前合成不跳步 — 计数保留, 步进仍按链序
+  ---
+  duration_ms: 659.9282
+  type: 'test'
+  ...
+# Subtest: 装备 T-G01: 第五槽穿戴 — 皮全套+翼同穿 armorPoints 7 不变 · advWornTakeOff 卸翼回包 · advTryWearSlot 槽参同效
+ok 218 - 装备 T-G01: 第五槽穿戴 — 皮全套+翼同穿 armorPoints 7 不变 · advWornTakeOff 卸翼回包 · advTryWearSlot 槽参同效
+  ---
+  duration_ms: 584.7055
+  type: 'test'
+  ...
+# Subtest: 装备 T-G01: 战斗磨损豁免翼 — 命中扣甲翼 dur 恒 1 槽不空(ADR 0012 红线), 盔甲照常磨损
+ok 219 - 装备 T-G01: 战斗磨损豁免翼 — 命中扣甲翼 dur 恒 1 槽不空(ADR 0012 红线), 盔甲照常磨损
+  ---
+  duration_ms: 652.4586
+  type: 'test'
+  ...
+# Subtest: 装备 T-G01: 存档五键 roundtrip — 翼随档恢复, armor 存档视图五键
+ok 220 - 装备 T-G01: 存档五键 roundtrip — 翼随档恢复, armor 存档视图五键
+  ---
+  duration_ms: 1271.2375
+  type: 'test'
+  ...
+# Subtest: 装备 T-G01: 老档四键无翼键 — 读入归一 glider:null 其余保真(无感升级, 无迁移脚本)
+ok 221 - 装备 T-G01: 老档四键无翼键 — 读入归一 glider:null 其余保真(无感升级, 无迁移脚本)
+  ---
+  duration_ms: 1297.8051
+  type: 'test'
+  ...
+# Subtest: T-G05 摔落参数表: 3 格无伤 · 5 格扣 2 · 10 格扣 7 · 击退高度同式(规则一元) · 零 TTS
+ok 222 - T-G05 摔落参数表: 3 格无伤 · 5 格扣 2 · 10 格扣 7 · 击退高度同式(规则一元) · 零 TTS
+  ---
+  duration_ms: 650.5852
+  type: 'test'
+  ...
+# Subtest: T-G05 滑翔零伤: 触地滑翔态任意落差零伤害 · 20 格滑到 2 格取消只摔 2 格账(收翼重置原案例)
+ok 223 - T-G05 滑翔零伤: 触地滑翔态任意落差零伤害 · 20 格滑到 2 格取消只摔 2 格账(收翼重置原案例)
+  ---
+  duration_ms: 589.9746
+  type: 'test'
+  ...
+# Subtest: T-G05 摔至血尽: 走现有死亡流程(重生满血+背包全保留) — 死亡安抚话术属存量非新增
+ok 224 - T-G05 摔至血尽: 走现有死亡流程(重生满血+背包全保留) — 死亡安抚话术属存量非新增
+  ---
+  duration_ms: 586.6328
+  type: 'test'
+  ...
+# Subtest: T-G05 落水零伤(有翼无翼任意高度) + 平地帧零结算: splash 路径与 1.42 格跳跃峰值不扣血(边界语义)
+ok 225 - T-G05 落水零伤(有翼无翼任意高度) + 平地帧零结算: splash 路径与 1.42 格跳跃峰值不扣血(边界语义)
+  ---
+  duration_ms: 637.1827
+  type: 'test'
+  ...
+# Subtest: T-G05 传送免疫(观察项 2): 死亡/传送(spawn)后首个 land 事件零结算(残留峰值幻影防护), 后续真实摔落照常
+ok 226 - T-G05 传送免疫(观察项 2): 死亡/传送(spawn)后首个 land 事件零结算(残留峰值幻影防护), 后续真实摔落照常
+  ---
+  duration_ms: 634.451
+  type: 'test'
+  ...
+# Subtest: T-G05 他模式零参与: build/arena 不订阅 land 事件(静态守门, 不订阅即天然不参与)
+ok 227 - T-G05 他模式零参与: build/arena 不订阅 land 事件(静态守门, 不订阅即天然不参与)
+  ---
+  duration_ms: 0.5011
+  type: 'test'
+  ...
+# Subtest: 滑翔锚对账: config GLIDE.sink === spec §3.9 拍板锚(T-G04 前置守门: 调参 = 改 config + 同步 glide-anchors.js)
+ok 228 - 滑翔锚对账: config GLIDE.sink === spec §3.9 拍板锚(T-G04 前置守门: 调参 = 改 config + 同步 glide-anchors.js)
+  ---
+  duration_ms: 0.0603
+  type: 'test'
+  ...
+# Subtest: T-G04 装备位接线: 穿上/卸下/读档对账全路径同步引擎装备位(T-G02 唯一通道)
+ok 229 - T-G04 装备位接线: 穿上/卸下/读档对账全路径同步引擎装备位(T-G02 唯一通道)
+  ---
+  duration_ms: 1200.6394
+  type: 'test'
+  ...
+# Subtest: T-G04 自动展翼(≥4 格高台跳): setWings(spread)+wing_open+金描边 on+只缓降高度只减不增
+ok 230 - T-G04 自动展翼(≥4 格高台跳): setWings(spread)+wing_open+金描边 on+只缓降高度只减不增
+  ---
+  duration_ms: 594.6566
+  type: 'test'
+  ...
+# Subtest: T-G04 走崖自动展翼(未按跳): 走出悬崖同样展翼 + 平地连跳 10 次零误展(阈值自洽锚)
+ok 231 - T-G04 走崖自动展翼(未按跳): 走出悬崖同样展翼 + 平地连跳 10 次零误展(阈值自洽锚)
+  ---
+  duration_ms: 623.9588
+  type: 'test'
+  ...
+# Subtest: T-G04 落地自动收翼: wing_close+setWings(hidden)+金描边 off, 落地即跑即跳
+ok 232 - T-G04 落地自动收翼: wing_close+setWings(hidden)+金描边 off, 落地即跑即跳
+  ---
+  duration_ms: 617.5482
+  type: 'test'
+  ...
+# Subtest: T-G04 水面软着陆: 触水收翼+溅水+入水零伤害(收翼四触发之二)
+ok 233 - T-G04 水面软着陆: 触水收翼+溅水+入水零伤害(收翼四触发之二)
+  ---
+  duration_ms: 611.8927
+  type: 'test'
+  ...
+# Subtest: T-G04 主动取消闩锁三段: 取消收翼+闩锁(高处不重展)→空中再点再展→落地闩锁清恢复自动展
+ok 234 - T-G04 主动取消闩锁三段: 取消收翼+闩锁(高处不重展)→空中再点再展→落地闩锁清恢复自动展
+  ---
+  duration_ms: 672.9024
+  type: 'test'
+  ...
+# Subtest: T-G04 滑翔中卸翼 A6 全语义: 装备页口照常生效+引擎立即收翼+按无翼坠落扣血(有意设计不得修掉)
+ok 235 - T-G04 滑翔中卸翼 A6 全语义: 装备页口照常生效+引擎立即收翼+按无翼坠落扣血(有意设计不得修掉)
+  ---
+  duration_ms: 657.0587
+  type: 'test'
+  ...
+# Subtest: T-G04 全态兜底·未装备零参与: 无翼高坠零滑翔面(无展翼/无金边/无翼音效)
+ok 236 - T-G04 全态兜底·未装备零参与: 无翼高坠零滑翔面(无展翼/无金边/无翼音效)
+  ---
+  duration_ms: 672.6711
+  type: 'test'
+  ...
+# Subtest: T-G04 滑翔水平转向跟手: yaw 同源操控(双通道同一移动意图入口, spec §3.4 R1-02)
+ok 237 - T-G04 滑翔水平转向跟手: yaw 同源操控(双通道同一移动意图入口, spec §3.4 R1-02)
+  ---
+  duration_ms: 652.1542
+  type: 'test'
+  ...
+# Subtest: T-G04 金描边与滑翔态严格一致: 展亮收灭零闪烁 + 边沿单次 class 切换(零逐帧重画)
+ok 238 - T-G04 金描边与滑翔态严格一致: 展亮收灭零闪烁 + 边沿单次 class 切换(零逐帧重画)
+  ---
+  duration_ms: 639.9541
+  type: 'test'
+  ...
+# Subtest: T-G04 金描边 CSS 参数(UI spec §3.3 定稿): \#e9b115 + 1.0↔0.55 + 周期 1.6s ease-in-out
+ok 239 - T-G04 金描边 CSS 参数(UI spec §3.3 定稿): \#e9b115 + 1.0↔0.55 + 周期 1.6s ease-in-out
+  ---
+  duration_ms: 3.257
+  type: 'test'
+  ...
+# Subtest: T-G04 HUD 槽滑翔中抑制: 点第五槽零副作用零话术(不报意图), 落地解锁照常卸下
+ok 240 - T-G04 HUD 槽滑翔中抑制: 点第五槽零副作用零话术(不报意图), 落地解锁照常卸下
+  ---
+  duration_ms: 638.6137
+  type: 'test'
+  ...
+# Subtest: T-G04 滑翔中动作暂停: 挖/攻/吃/放四类无效(不触发不消耗无残留), 落地立即恢复
+ok 241 - T-G04 滑翔中动作暂停: 挖/攻/吃/放四类无效(不触发不消耗无残留), 落地立即恢复
+  ---
+  duration_ms: 589.3568
+  type: 'test'
+  ...
+# Subtest: T-G04 按住挖到一半进入滑翔: 展翼沿清蓄力(无半途残留), 滑翔中不续挖
+ok 242 - T-G04 按住挖到一半进入滑翔: 展翼沿清蓄力(无半途残留), 滑翔中不续挖
+  ---
+  duration_ms: 596.1581
+  type: 'test'
+  ...
+# Subtest: T-G04 相机路径 B·FOV 微扩: 展翼沿 +6°~8° 0.3s 匀速过渡, 落地收翼恢复原值; 零暗角滤镜震屏
+ok 243 - T-G04 相机路径 B·FOV 微扩: 展翼沿 +6°~8° 0.3s 匀速过渡, 落地收翼恢复原值; 零暗角滤镜震屏
+  ---
+  duration_ms: 606.3698
+  type: 'test'
+  ...
+# Subtest: T-G04 切模式清场: 滑翔中退出 → 装备位 off+观感复位+引擎滑翔态可收; 重进零误播(收场覆盖清零)
+ok 244 - T-G04 切模式清场: 滑翔中退出 → 装备位 off+观感复位+引擎滑翔态可收; 重进零误播(收场覆盖清零)
+  ---
+  duration_ms: 1223.2354
+  type: 'test'
+  ...
+# Subtest: T-G04 死亡重生: 滑翔中致死 → 滑翔态清零+装备保留+无翼残影, 重生后零误播
+ok 245 - T-G04 死亡重生: 滑翔中致死 → 滑翔态清零+装备保留+无翼残影, 重生后零误播
+  ---
+  duration_ms: 628.7692
+  type: 'test'
+  ...
+# Subtest: T-G04 spec §7 U-01 行已回填: 相机路径结论+理由一句(票面硬性交付, 缺此不做完)
+ok 246 - T-G04 spec §7 U-01 行已回填: 相机路径结论+理由一句(票面硬性交付, 缺此不做完)
+  ---
+  duration_ms: 1.0049
+  type: 'test'
+  ...
+# Subtest: T-G04 体验馆同口径(§3.8): showroom 壳零滑翔面覆写(同一 adventure 内核, 零场景硬编码分支)
+ok 247 - T-G04 体验馆同口径(§3.8): showroom 壳零滑翔面覆写(同一 adventure 内核, 零场景硬编码分支)
+  ---
+  duration_ms: 1.9032
+  type: 'test'
+  ...
+# Subtest: T-G05 inPlace 血尽变体(dev 政策): 原地满血复活零传送/零免疫置位/零背包操作(评审补测·源码切片守门)
+ok 248 - T-G05 inPlace 血尽变体(dev 政策): 原地满血复活零传送/零免疫置位/零背包操作(评审补测·源码切片守门)
+  ---
+  duration_ms: 1.5187
+  type: 'test'
+  ...
+# Subtest: T-G05 传送免疫单点收口(静态守门): ModeKit.spawn 调用仅存于 advTeleport 内部(评审补测)
+ok 249 - T-G05 传送免疫单点收口(静态守门): ModeKit.spawn 调用仅存于 advTeleport 内部(评审补测)
+  ---
+  duration_ms: 1.3563
+  type: 'test'
+  ...
+# Subtest: 案卷③ idle 消费机挂点在位 + 空账安全幂等(离镇/未进镇零炸)
+ok 250 - 案卷③ idle 消费机挂点在位 + 空账安全幂等(离镇/未进镇零炸)
+  ---
+  duration_ms: 1304.3495
+  type: 'test'
+  ...
+# Subtest: 案卷③ 注入式行为: 全员形态逐帧生效 · 头转收敛+注视门 · dt 确定性重放
+ok 251 - 案卷③ 注入式行为: 全员形态逐帧生效 · 头转收敛+注视门 · dt 确定性重放
+  ---
+  duration_ms: 1197.6787
+  type: 'test'
+  ...
+# Subtest: 案卷③ 注视距离门回正 · 离镇清 idle 账 · 非镇维度零消费
+ok 252 - 案卷③ 注视距离门回正 · 离镇清 idle 账 · 非镇维度零消费
+  ---
+  duration_ms: 1268.5023
+  type: 'test'
+  ...
+# Subtest: PO②-A 跨模式残留守门: 镇内 cleanup() 清场 — scene 傀儡摘净 · 弃机 · 傀儡账回空 · 源形状挂镇清场链
+ok 253 - PO②-A 跨模式残留守门: 镇内 cleanup() 清场 — scene 傀儡摘净 · 弃机 · 傀儡账回空 · 源形状挂镇清场链
+  ---
+  duration_ms: 624.901
+  type: 'test'
+  ...
+# Subtest: PO②-B 衍生缝: 会话中切模式(cleanup 弃机)→ town-ui sync 掉机 defer 收口 — 卡态复原+面板 idle+HUD 收敛
+ok 254 - PO②-B 衍生缝: 会话中切模式(cleanup 弃机)→ town-ui sync 掉机 defer 收口 — 卡态复原+面板 idle+HUD 收敛
+  ---
+  duration_ms: 626.029
+  type: 'test'
+  ...
+# Subtest: PO②-C 正控: 镇↔主世界往返照旧清场 · 镇内 cleanup 后重进不翻倍 · 主世界直接 cleanup 零炸零多余
+ok 255 - PO②-C 正控: 镇↔主世界往返照旧清场 · 镇内 cleanup 后重进不翻倍 · 主世界直接 cleanup 零炸零多余
+  ---
+  duration_ms: 2384.946
+  type: 'test'
+  ...
+# Subtest: PO④-1 穿体守门: 视线穿镇民傀儡盒指靶石 — onMouse(0) 不起蓄力 · 到时窗后靶石完好 · 傀儡账无扰
+ok 256 - PO④-1 穿体守门: 视线穿镇民傀儡盒指靶石 — onMouse(0) 不起蓄力 · 到时窗后靶石完好 · 傀儡账无扰
+  ---
+  duration_ms: 604.8939
+  type: 'test'
+  ...
+# Subtest: PO④-2 按住漂移: 按住中准星扫过镇民换靶 — 每帧喂点豁免熄火不跟挖(松手态熄火既有 place-kit :362, 按住态为本票)
+ok 257 - PO④-2 按住漂移: 按住中准星扫过镇民换靶 — 每帧喂点豁免熄火不跟挖(松手态熄火既有 place-kit :362, 按住态为本票)
+  ---
+  duration_ms: 605.1312
+  type: 'test'
+  ...
+# Subtest: PO④-3 正控: 无傀儡遮挡靶石照常挖穿(豁免不误伤普通挖掘)
+ok 258 - PO④-3 正控: 无傀儡遮挡靶石照常挖穿(豁免不误伤普通挖掘)
+  ---
+  duration_ms: 599.5309
+  type: 'test'
+  ...
+1..258
+# tests 258
+# suites 0
+# pass 258
+# fail 0
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 203543.31

@@ -406,6 +406,7 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
   /* 篝火破坏钩(T-C1): 台账即 presence Map——不读世界值, 未知格 drop 零炸零副作用
      (挖除/TNT/覆盖/燃尽收尾同走此 seam; 放置格也过此缝, drop 幂等) */
   advCampfires.drop(x, y, z);
+  advCampfireFx.dig(x, y, z); /* 篝火特效挖掘=摘(T-C9 §5.1: 即刻摘零过渡零 pop; 幂等 presence 口径) */
   /* ADR 0007: 箱子进账/出账(放置/挖除/TNT 掀/覆盖同走此缝) → 容量随之重算;
      结构宝箱不在账本里, 天然不触发 */
   if ((id === B_CHEST) !== (pv === B_CHEST)) advChestResync();
@@ -926,13 +927,53 @@ const advCampfires = cfKitResolve().mkCampfireLedger({
      燃→熄(editBlock 非零 id 不触发级联, 浇熄≠挖掘零掉落)——存档红线件走
      编辑链记账(重进重放同态), 熄灭态零侧账(条目已由 kit 删) */
   onQuench: (x, y, z) => {
+    advCampfireFx.quench(x, y, z); /* 白汽即刻摘(T-C9 §5.7): 先摘后记账——dig 幂等不吞过渡尾巴 */
     advMarkEdit(x, y, z, B_CAMPFIRE_OUT); /* 浇熄格先记账(id 互换, 后写覆盖才对) */
     editBlock(x, y, z, B_CAMPFIRE_OUT); /* 编辑链 id 互换(掉光场变化, 不掉落) */
   },
   onBurnout: (x, y, z) => {
+    advCampfireFx.burnout(x, y, z); /* 渐熄+轻灰 pop+尾烟(T-C9 §5.6): 先摘后记账同幂等序;
+        campfire_out 声位=方块移除帧(spec §3.7 对位裁定, 声本体登记 T-C11 后落) */
     advMarkEdit(x, y, z, 0); /* 燃尽格先记账(级联清单不含触发格, 后写覆盖才对) */
     advCascadeApply(editBlock(x, y, z, 0), false); /* 编辑链移除+级联(上方依附 thin 块随底座脱落) */
   }});
+/* ---------- 篝火特效管理器(CampfireFxCore, 篝火 T-C9) ---------- ----------
+   装载序三域解析(cfKitResolve 同款): 经典 script 里 campfire-fx-core 先于
+   本文件装载共享词法直用; Node CJS 装具走 require 导出面; 两路皆缺(纯 vm
+   陈列域)回落零观感空转管理器(句柄面形状不变, 消费面零判空)。
+   参数注入单源: 柱满高/燃尽满刻=config CAMPFIRE(Node 装具退 spec §3.9 初值
+   同 campfire-kit 纪律), 低核档=IS_LOWCORE_TOUCH, distOf 注入玩家距离喂
+   多篝火预算分档(§5.9)。渲染适配在 effects.js campfireField(句柄制),
+   无引擎域自然缺席零挂。 */
+function cfFxResolve() {
+  if (typeof CampfireFxCore !== 'undefined' && CampfireFxCore &&
+      typeof CampfireFxCore.mkCampfireFx === 'function') return CampfireFxCore;
+  if (typeof require === 'function') {
+    const m = require('../campfire-fx-core.js');
+    if (m && typeof m.mkCampfireFx === 'function') return m;
+  }
+  return null;
+}
+const advCampfireFx = (function() {
+  const core = cfFxResolve();
+  if (!core) {
+    const empty = () => ({flame: [], smoke: [], vortex: [], transients: []});
+    return {open() {}, quench() {}, burnout() {}, dig() {}, clear() {}, tick() {},
+      active: () => false, activeCount: () => 0, emitters: () => null,
+      particles: empty, setLeft() {}, fadeState: () => ({active: false}),
+      columnOpacityAt: () => 0, cells: () => [], now: () => 0, params: null};
+  }
+  const cfFxParams = typeof CAMPFIRE !== 'undefined' ? CAMPFIRE : null;
+  return core.mkCampfireFx({
+    lowcore: typeof IS_LOWCORE_TOUCH !== 'undefined' ? !!IS_LOWCORE_TOUCH : false,
+    columnH: (cfFxParams && cfFxParams.columnH > 0) ? cfFxParams.columnH : 20,
+    fullTicks: (cfFxParams && cfFxParams.ticks > 0) ? cfFxParams.ticks : 6000,
+    distOf: (x, y, z) => Math.hypot(x - pos.x, y - pos.y, z - pos.z),
+  });
+})();
+if (typeof Fx !== 'undefined' && Fx && typeof Fx.campfireField === 'function') {
+  Fx.campfireField(advCampfireFx); /* 篝火特效场挂渲染适配器(句柄制, 无引擎域缺席零挂) */
+}
 /* 大宝箱面板(引导链 v2): 政策与存档在本文件下方箱子段, 面板只管格子 */
 const advChestPanel = ModeKit.mkChestPanel({inv: advInv, chest: () => advChest,
   next: () => advChestNext(advChest.base), have: (id) => count(advInv, id),
@@ -3430,6 +3471,8 @@ const advPlaceKit = PlaceKit.mkEditor({
     if (blockId === B_CHEST) advTally('place_chest', 1); /* 引导链 v2: 箱子步(合成/放置/打开三条件) */
     if (BLOCKS[blockId] && BLOCKS[blockId].campfire) {
       advCampfires.plant(x, y, z); /* 篝火放置即燃: 侧账建满时长(树苗挂表同缝, spec §3.3) */
+      advCampfireFx.open(x, y, z); /* 放置即燃特效(T-C9 §5.5): 点燃 pop+三发射器 0.5s 渐起;
+          campfire_lit 声位同拍(spec §3.7/§5.5-3, 声本体登记 T-C11 后落) */
     }
     if (blockId === B_SAPLING) {
       advTally('place_sapling', 1); /* 引导链 v2: 种树苗步(砍了树要种回去) */
@@ -3453,6 +3496,7 @@ const advPlaceKit = PlaceKit.mkEditor({
      (tts/desc 逐字定稿, 零第二文案源) */
   onCampfireRelit: (x, y, z) => {
     advCampfires.plant(x, y, z);
+    advCampfireFx.open(x, y, z); /* 重燃=新的一炉(T-C9 §5.5 点燃过渡共用): 重开渐起重爬非续旧 */
     advSpeak(advCampfireRelightHint.tts); /* TTS 通道零改动(评审 SPEC-1: 触发时点原样) */
     /* 视觉通道=kitHintShow 气泡(T-C3 评审 SPEC-1 裁定): 重燃提示是「物品认知」
        教学面(ADR 0018 可供性), 走 mode-kit §② 气泡通道——name+desc 双行全消费,
@@ -5257,6 +5301,7 @@ const AdventureMode = mkMode({
     advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
     advFurnace.reset(); /* T4: 炉态/绑定/开态/签名复位(kit Map 引用不变, 开态真值在 kit 不设镜像); 档里有什么恢复什么(F1) */
     advCampfires.reset(); /* 篝火账内存态复位(T-C1: 台账不落盘, 读档火不续烧属预期——档键+重放对账归 T-C5) */
+    advCampfireFx.clear(); /* 篝火特效连带清场(T-C9 §5.1: 台账复位同拍, 粒子零残留) */
     advFlamesClear(); /* F2: 炉口火焰一并复位(上一场的观感不渗进来) */
     for (const [k, s] of advLoad.furnaces) advFurnaces.set(k, s); /* F1: 每炉独立炉态重进照旧(decode 已过滤非法) */
     advFurnaceSettle(advMap); /* D14: 当前图炉键对重放后的世界核销(块没了炉态丢); 他图/界键进那张图建场后再核 */
@@ -5406,6 +5451,10 @@ const AdventureMode = mkMode({
        10 刻, 长帧多口, 整刻零漂零丢 */
     for (let cfT = 0; cfT < dt; cfT += 0.4) {
       advCampfires.tick(Math.min(dt - cfT, 0.4));
+    }
+    advCampfireFx.tick(dt); /* 篝火特效粒子推进(T-C9: 发射节拍/过渡尾巴/预算重排, 零玩法) */
+    for (const cfE of advCampfires.map.values()) {
+      advCampfireFx.setLeft(cfE.x, cfE.y, cfE.z, cfE.left); /* 渐弱窗喂缝(§5.8: 剩余刻驱动火苗降档, 气柱烟不衰减) */
     }
     advFlameTick(dt); /* F2 炉口火焰: 差异增删 + 脉动(原烧炼节律尾钩, T4 起独立挂 update) */
     advFuseTick(dt); /* TNT 引信倒计时到点起爆(T13, 先于怪物 AI——当帧爆炸位置不漂移) */
@@ -5643,6 +5692,7 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   heightAt: advHeightAt, /* T5 圈层高度场(建场件与测试共用的唯一高度权威) */
   advFurnace, advFlameCount: () => advFlames.size,
   advCampfires, /* 篝火账 kit 实例(T-C1 测试缝: 台账 Map/放置/燃尽链直断言, advFurnace 同款) */
+  advCampfireFx, /* 篝火特效管理器(T-C9 测试缝: 句柄/发射器快照直断言, advCampfires 同款) */
   advBreakBlock, advOnCraft, advInvMove, advDropSlot, advTryExpandBag, advReclaimThrown,
   advChestDeposit, advChestWithdraw, advChestExpand, advPanelClose,
   advStationOk, advNightRead, advQuestPaint, advSlimeWaterOk,
