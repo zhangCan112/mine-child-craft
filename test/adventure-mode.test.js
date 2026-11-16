@@ -56,13 +56,17 @@ for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js',
 Object.assign(globalThis, vm.runInContext(
     '({TOWN_MAP, townBuildSteps, townAssemblyOps, mkTownTargets,' +
     'townTargetOf, TOWN_UI_EVENTS, TOWN_INTERACTS, anchorOf, TOWN_NPC_ANCHORS,' +
-    'anchorChanged})', eng)); /* T-NPC-12
+    'anchorChanged,' +
+    'townProtectedAt: (typeof townProtectedAt === "function" ? townProtectedAt : null)})',
+    eng)); /* T-NPC-12
     红方扩提取(报备): 消费机协议面四件——townTargetOf(六键形状冻结函数)/
     TOWN_UI_EVENTS(冻结事件名表)/TOWN_INTERACTS(冻结清单)/anchorOf+TOWN_NPC_ANCHORS
     (取数器+锚点表)。机器只消费不复制(T-SEAM-04 core 零改动守门口径); 提取供
     adventure.js CJS 域全局名解析与 T-NPC-12 红测断言引用; anchorChanged
     (验收补丁)=重发判定谓词铺全局——乙组消费机测试走真谓词单源路径, 不留
-    壳层同语义副本的生存缝(判据单份红线) */
+    壳层同语义副本的生存缝(判据单份红线); townProtectedAt 桥(T2b 红方装具扩,
+    报备): typeof 桥形铺全局供壳层三缝「调用期解析」消费(U4 镇域判据, advEdgeProtectedAt
+    同款形态), 判据未落时返 null(红因=挂点/接线断言红), 落地后即真函数 */
 const api = vm.runInContext(`({
   getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, isOpaque, world, worldCells,
   SceneKit, PrefabKit,
@@ -6936,4 +6940,90 @@ test('PO④-3 正控: 无傀儡遮挡靶石照常挖穿(豁免不误伤普通挖
   assert.strictEqual(cell(g.C.x, g.C.y, g.C.z), 0,
       'C 照常挖穿(木镐 1.125s, 60 帧富余; 触屏单击本块完成即停)');
   clearAim();
+});
+
+/* ============ U4 镇域保护判据(T2b)· 行为面三缝接线(架构方案 §3.2) ============
+   装态: 镇维度直达(A.advSetDim('town') 切界唯一入口先例); 话术/TNT/放置缝均
+   纯 seam 直触(:4512 hardText 直触先例), 镇墙圈几何由 T1a+T2 已落 TOWN_MAP
+   单源。镇维度门=行身份比对(advDimRow(advDim)===ADV_TOWN_DIM_ROW, 壳层零
+   town 字面特判守门红线, dims-core 在册)——镇态 advMap 保持 'home'(T6 维度
+   期间不动), advMap==='town' 是死门, 三缝接线禁用该形态。 */
+
+test('U4 话术缝: 镇态镇域命中出镇域话术(先于 home 方位分支——零误中沙丘/雾塘) · 不在保静默 · 镇态零 home 判据误中 · home 态既有话术零漂移', () => {
+  A.advSetDim('town');
+  /* 镇墙圈在保格 → 镇域话术(非空, 且零 home 四向文案特征——镇判据先于
+     home 方位分支, 票面验收「不误中 home 沙丘/雾塘」) */
+  for (const [x, y, z, what] of [
+    [60, 25, 128, '南墙身'], [60, 24, 128, '南垫层'], [31, 25, 64, '西墙身'],
+    [31, 27, 32, '西接头柱顶'], [78, 29, 129, '门额牌'], [128, 26, 90, '东墙身']]) {
+    const t = A.advMineHardText(13, x, y, z);
+    assert.ok(t.length > 0, '镇域命中非空: ' + what + ' (' + x + ',' + y + ',' + z + ')');
+    assert.ok(!t.includes('沙丘') && !t.includes('雾塘') && !t.includes('雪冻') && !t.includes('栅栏'),
+        '镇话术零误中 home 方位文案(' + x + ',' + y + ',' + z + '): ' + t);
+  }
+  /* 不在保格 → 静默(柱帽/净空/镇内普通格/y 域外) */
+  for (const [x, y, z] of [[31, 27, 128], [78, 26, 129], [79, 25, 100], [60, 23, 128]]) {
+    assert.strictEqual(A.advMineHardText(13, x, y, z), '',
+        '不在保静默(' + x + ',' + y + ',' + z + ')');
+  }
+  /* 镇态零 home 判据误中(pier/翼墙域窗遍历——镇态坐标不喂 home 几何判据,
+     早返形态规格: 镇态话术缝只消费镇判据, home 高度场/方位桶对镇坐标零误判) */
+  for (let x = 14; x <= 20; x++) {
+    for (let z = 29; z <= 31; z++) {
+      for (let y = 24; y <= 28; y++) {
+        const t = A.advMineHardText(13, x, y, z);
+        assert.ok(!t.includes('雾塘') && !t.includes('雪冻') && !t.includes('沙丘') && !t.includes('栅栏'),
+            '镇态零 home 话术误中(' + x + ',' + y + ',' + z + '): ' + t);
+      }
+    }
+  }
+  /* home 态回归(分支重排零漂移锁): 南沙/西雾塘/东界三向既有话术照旧非空 */
+  A.advSetDim('home');
+  const topY = (x, z) => AdventureCore.ADV_GROUND + AdventureCore.advHeightAt(x, z);
+  assert.ok(A.advMineHardText(api.B_SANDSTONE, 80, topY(80, 145), 145).length > 0,
+      'home 南沙话术照旧(分支重排零漂移)');
+  assert.ok(A.advMineHardText(api.B_WATER, 15, topY(15, 80), 80).length > 0,
+      'home 西雾塘话术照旧(分支重排零漂移)');
+  assert.ok(A.advMineHardText(5, 157, topY(157, 81) + 1, 81).length > 0,
+      'home 东界话术照旧(分支重排零漂移)');
+  assert.strictEqual(A.advMineHardText(13, 60, 25, 128), '',
+      'home 态镇墙坐标格零误触镇分支(判据各归各维度)');
+});
+
+test('U4 TNT 缝: advEdgeTntProtected 镇维度同守(挂点在位) · 在保 true/不在保 false · home 态零漂移', () => {
+  assert.strictEqual(typeof A.advEdgeTntProtected, 'function',
+      'advEdgeTntProtected 挂点在位(测试挂点纪律, advMineHardText 挂点先例)');
+  A.advSetDim('town');
+  for (const [x, y, z, what] of [
+    [60, 25, 128, '南墙身'], [31, 24, 64, '西垫层'], [31, 27, 32, '西接头柱顶'],
+    [78, 29, 129, '门额牌']]) {
+    assert.ok(A.advEdgeTntProtected(x, y, z), '镇 TNT 在保: ' + what + ' (' + x + ',' + y + ',' + z + ')');
+  }
+  for (const [x, y, z] of [[31, 27, 128], [78, 26, 129], [79, 25, 100]]) {
+    assert.ok(!A.advEdgeTntProtected(x, y, z), '镇 TNT 不在保(' + x + ',' + y + ',' + z + ')');
+  }
+  A.advSetDim('home');
+  assert.ok(!A.advEdgeTntProtected(79, 25, 100), 'home 态普通格 false(零漂移)');
+  assert.strictEqual(A.advEdgeTntProtected(60, 25, 128),
+      typeof advEdgeProtectedAt === 'function' && advEdgeProtectedAt(60, 25, 128),
+      'home 态同坐标=home 判据语义(镇判据不越界, 维度门形态照抄)');
+});
+
+test('U4 放置缝: advTownPlaceGuardAt 镇守卫(挂点在位) · 在保 true · 净空/柱帽/普通 false · home 态零误伤', () => {
+  assert.strictEqual(typeof A.advTownPlaceGuardAt, 'function',
+      'advTownPlaceGuardAt 挂点在位(镇侧放置守卫具名提取, placeGuard OR 并列缝)');
+  A.advSetDim('town');
+  for (const [x, y, z, what] of [
+    [60, 25, 128, '南墙身'], [31, 24, 64, '西垫层'], [31, 27, 32, '西接头柱顶'],
+    [76, 25, 129, '门柱'], [78, 29, 129, '门额牌']]) {
+    assert.ok(A.advTownPlaceGuardAt(x, y, z), '镇放置守卫在保: ' + what + ' (' + x + ',' + y + ',' + z + ')');
+  }
+  for (const [x, y, z] of [[77, 25, 129], [31, 27, 128], [79, 25, 100]]) {
+    assert.ok(!A.advTownPlaceGuardAt(x, y, z), '镇放置守卫不在保(' + x + ',' + y + ',' + z + ')');
+  }
+  A.advSetDim('home');
+  for (const [x, y, z] of [[60, 25, 128], [31, 25, 64], [79, 25, 100]]) {
+    assert.ok(!A.advTownPlaceGuardAt(x, y, z),
+        'home 态镇守卫恒 false(' + x + ',' + y + ',' + z + ')');
+  }
 });

@@ -33,7 +33,7 @@
    任务/宝箱, 触点收拢进存档 store 缝 advStore(ADR 0005 票 U1, 真档
    adapter 缺省装配, 触点口径见该缝头注释)。
    interface: AdventureMode(mkMode 深接口: init/cleanup/update/onKey/
-     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(39 键:
+     onMouse/hud/touch) · AdventureMode.adv — 接线挂点与单测触达面(54 键:
      状态账本/存档 seam·getSaveView 只读快照/布置缝/交互链入口/丢弃与扩容
      执行器(advDropSlot/advTryExpandBag/advReclaimThrown, 2026-10);
      adventure-core 的常量表与纯函数不再转发——测试侧 core 直调) ·
@@ -3405,8 +3405,9 @@ const advPlaceKit = PlaceKit.mkEditor({
      showroom 与冒险共用本 kit 实例(v2 统一终态, showroom.js「pk = advPlaceKit」),
      其世界同为 home 边界带世界=守卫语义一致非误伤; R9 的「不误伤无边界带
      世界」由场景门保证(下界/副本零影响) */
-  placeGuard: (x, y, z) => advDim === 'overworld' && advMap === 'home' &&
-      typeof advEdgeProtectedZone === 'function' && advEdgeProtectedZone(x, z),
+  placeGuard: (x, y, z) => advTownPlaceGuardAt(x, y, z) ||
+      (advDim === 'overworld' && advMap === 'home' &&
+      typeof advEdgeProtectedZone === 'function' && advEdgeProtectedZone(x, z)),
 });
 function advCascadeApply(removed, quest) {
   return advPlaceKit.applyCascade(removed, quest);
@@ -3424,6 +3425,19 @@ function advMineHardText(id, x, y, z) {/* 目标格 → 话术(纯 seam, 单测�
     T7 扩签名 (id,x,y,z): 坐标供边界屏障判据(PK mineTick 起手统一问询——屏障
     件与带内可挖件同 id, 只有坐标判据能分; 老调用 (id) 形态坐标缺席=undefined,
     屏障分支自然跳过零影响) */
+  /* U4 镇域话术缝(T2b, ADR-0018): 镇维度**早返**——只消费镇判据, 命中出
+     镇话术, 未命中静默, 绝不落 home 方位分支(镇坐标喂 home 高度场/方位桶
+     =跨图误判语义错位: pier/翼墙域 z29..31 撞 home 北雪桶 z≤31 等)。维度
+     门=行身份比对(壳层先例口径); 判据消费 townProtectedAt(typeof 守卫=
+     判据件缺席时静默零炸)。TODO 话术待 design-lead 定稿(下方占位文案=
+     T2b 红面裁决字面; 测试只锁非空+零 home 方位特征词, 定稿追令换文案
+     不破测试) */
+  if (advDimRow(advDim) === ADV_TOWN_DIM_ROW) {
+    if (x != null && typeof townProtectedAt === 'function' && townProtectedAt(x, y, z)) {
+      return '镇的城墙牢固实实, 挖不动——走大门进镇, 里面热闹着呢!';
+    }
+    return '';
+  }
   /* T7 屏障拒绝(方案 P2): 判据命中(未解锁屏障体)→分向占位文案。文案骨架=各向
      spec 建议(北=§6 例句原文; 南/西=§7/§6 挡路主案改「挖不动」同族占位;
      东=§7 拒绝话术原文, T-SEAM-02 随恒开放改稿→视觉 spec §B.4 定稿见下),
@@ -4600,8 +4614,22 @@ function advFuseTick(dt) {/* 引信倒计时: 顶上火花弧观感 + 到点起�
    → fell 连桩判定把原木桩/栈桩整串放倒, 移除在 cascadeRemove 内已直写——
    补 cascadeGuard 缝(见 advPlaceKit 注入处)在账本前复原+剔除。 */
 function advEdgeTntProtected(x, y, z) {
+  /* U4 镇分支前置(T2b, ADR-0018): 镇维度同守镇域——判据同单源
+     townProtectedAt(typeof 守卫同款形态), 维度门=行身份比对(壳层先例
+     口径, 禁 advMap==='town' 死门——镇态 advMap 恒 'home'(T6)) */
+  if (advDimRow(advDim) === ADV_TOWN_DIM_ROW) {
+    return typeof townProtectedAt === 'function' && townProtectedAt(x, y, z);
+  }
   if (advDim !== 'overworld' || advMap !== 'home') return false;
   return typeof advEdgeProtectedAt === 'function' && advEdgeProtectedAt(x, y, z);
+}
+/* U4 放置缝镇侧守卫(T2b, ADR-0018): 镇侧守卫具名提取+挂点导出(测试挂点
+   纪律, advMineHardText 挂点先例)——行身份门+townProtectedAt; 消费方
+   placeGuard 表达式 OR 并列(镇/home 判据坐标域不相交, 架构方案 §3.2
+   「并列 OR」授权), home 侧表达式零改动 */
+function advTownPlaceGuardAt(x, y, z) {
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return false;
+  return typeof townProtectedAt === 'function' && townProtectedAt(x, y, z);
 }
 const advExplodeSink = {
   ignite: advIgnite,
@@ -5567,6 +5595,8 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
       对照), 注入式验收缝(T-NPC-12 先例): 假骨行注入直测消费机, 生产由
       advTownPuppetsPlace 建/advTownPuppetsLeave 清 */
   advMineHardText, advHudLines,
+  advEdgeTntProtected, advTownPlaceGuardAt, /* U4 镇域三缝挂点(T2b: TNT 同守
+      +镇侧放置守卫, 测试挂点纪律——红面三缝行为测试触达面, ADR-0018) */
   advWornState: () => advWorn, /* 穿戴档只读快照(装备 T5 测试挂点; 形状=mkWorn 归一形) */
   advHitPlayer, advEnvHurt, /* 战斗受击两缝(装备 T6 测试挂点: 漏斗行为面/D8 环境对照) */
   advWornTakeOff, /* 装备条点槽的同一条脱下编排(模式层回包, 装备 T5) */
