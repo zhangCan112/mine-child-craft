@@ -3469,7 +3469,6 @@ const advPlaceKit = PlaceKit.mkEditor({
      (tts/desc 逐字定稿, 零第二文案源) */
   onCampfireRelit: (x, y, z) => {
     advCampfires.plant(x, y, z);
-    advCampfires.plant(x, y, z);
     advCampfireFx.open(x, y, z); /* 重燃=新的一炉(T-C9 §5.5 点燃过渡共用): 重开渐起重爬非续旧 */
     advSpeak(advCampfireRelightHint.tts); /* TTS 通道零改动(评审 SPEC-1: 触发时点原样) */
     /* 视觉通道=kitHintShow 气泡(T-C3 评审 SPEC-1 裁定): 重燃提示是「物品认知」

@@ -29,3 +29,12 @@ node --version: v24.13.0
   合并后全量复验: 2420 tests / 2419 pass / 0 fail / 1 skipped(2412+上游 8 新增对账), 零非本票红
   lint 三门零错; 图谱增量 built_at=HEAD head_matches_build=true
   证据: tc9-green-*-tap*.log / tc9-full-green.log / tc9-lint.log / tc9-post-merge-*.log
+
+[red-cause-fix1] 评审规格轴 FAIL 修复红批(追令 SPEC-1 major+SPEC-2 minor, TDD 正序先红):
+  翻新面: campfire-fx-core.test.js 三处(:411 积分口径/:296 余韵形状/:435 驱动粒度), 测试数 29 不变
+  test/campfire-fx-core.test.js   tests 29 / pass 27 / fail 2  ERR_ASSERTION x2, 零装具炸
+    NOT OK §5.6 燃尽两处形状(SPEC-2): 燃尽后 0.2s 火苗半速断言红(现实现燃尽即摘快照 null)
+    NOT OK 发射积分口径(SPEC-1): 渐起窗 0.5s 发 1~2 粒断言红(现实现矩形满速=3)
+  test/adventure-mode.test.js     tests 252 / pass 252 / fail 0  零波及(252=合并后基线)
+  STD-1: adventure.js:3472 双 plant 伪影行随手删(merge 并集机械残渣, 行为惰性零测试变化)
+  tap 证据: tc9b-red-core-tap.log / tc9b-red-adv-tap.log

@@ -293,15 +293,23 @@ test('§5.5 禁用面: 点燃零 kick 震屏零 debrisBurst(一次性面只有 p
   fx.burnout(FIRE.x, FIRE.y, FIRE.z); /* 空转: 已摘零炸 */
 });
 
-test('§5.6 燃尽过渡: 火苗 0.4s 降 0 · 柔柱 0.3s 降 0 · 旋涡停止补充 · ≤2s 全清无残影 · ' +
-    '轻灰 pop(#d6d2c8, 0.4→1.2, 0.5s, op 0.5)+尾烟 3 粒 1.5s 散尽', () => {
+test('§5.6 燃尽两处形状(评审 SPEC-2 翻新裁定): 火苗发射率 0.4s 线性降 0 · 柔柱透明度 0.3s 线性降 0 后摘 · ' +
+    '旋涡停止补充 · ≤2s 全清无残影 · 轻灰 pop(#d6d2c8, 0.4→1.2, 0.5s, op 0.5)+尾烟 3 粒 1.5s 散尽', () => {
   coreReady();
   const fx = mk();
   fx.open(FIRE.x, FIRE.y, FIRE.z);
-  fx.tick(0.5); /* 渐起爬满, 粒子在飞 */
+  for (let i = 0; i < 5; i++) fx.tick(0.1); /* 渐起爬满, 粒子在飞 */
   fx.burnout(FIRE.x, FIRE.y, FIRE.z);
-  assert.strictEqual(fx.active(FIRE.x, FIRE.y, FIRE.z), false, '燃尽即摘(三发射器停补)');
-  assert.strictEqual(fx.emitters(FIRE.x, FIRE.y, FIRE.z), null, '发射器快照退场');
+  assert.strictEqual(fx.active(FIRE.x, FIRE.y, FIRE.z), false, '燃尽即摘(燃烧在册退场, onBurnout 缝同拍)');
+  /* 余韵期发射器可达+两处衰减形状如实(评审 SPEC-2: 燃尽非一帧消失) */
+  fx.tick(0.1);
+  fx.tick(0.1); /* 燃尽后 0.2s */
+  const eg = fx.emitters(FIRE.x, FIRE.y, FIRE.z);
+  assert.ok(eg && Math.abs(eg.flame.rateScale - 0.5) < 1e-9,
+      '燃尽后 0.2s 火苗半速(rateScale=(0.4−0.2)/0.4=0.5, 实际发射乘子如实 — ' +
+      '断言红实证: 现实现燃尽即摘快照 null)');
+  assert.ok(eg && Math.abs(eg.column.opacityScale - 1 / 3) < 1e-9 && eg.column.opacity > 0,
+      '燃尽后 0.2s 柔柱仍可见(opacityScale=(0.3−0.2)/0.3≈1/3, §5.6 柔柱 0.3s 降 0)');
   const pop = fx.particles(FIRE.x, FIRE.y, FIRE.z).transients.find((t) => t.kind === 'pop');
   assert.ok(pop && pop.color === '#d6d2c8', '轻灰 pop #d6d2c8(「轻轻散掉」)');
   assert.strictEqual(pop.r0, 0.4, 'r0 0.4');
@@ -313,11 +321,13 @@ test('§5.6 燃尽过渡: 火苗 0.4s 降 0 · 柔柱 0.3s 降 0 · 旋涡停止
   assert.ok(tail.every((t) => t.color === '#d6d2c8'), '尾烟灰白(§5.3 参数族)');
   assert.ok(tail.every((t) => t.life <= 1.5), '尾烟 1.5s 散尽(寿命帽)');
   assert.ok(fx.particles(FIRE.x, FIRE.y, FIRE.z).flame.length > 0,
-      '渐熄期存量火苗自然消散(非即刻清)');
+      '渐熄期存量+余韵火苗在飞(非即刻清)');
+  for (let i = 0; i < 3; i++) fx.tick(0.1); /* 燃尽后 0.5s: 两衰减均完(火苗 0.4s/柔柱 0.3s) */
+  assert.strictEqual(fx.emitters(FIRE.x, FIRE.y, FIRE.z), null, '余韵期满(0.4s): 发射器快照退场');
   fx.tick(2.0);
   const after = fx.particles(FIRE.x, FIRE.y, FIRE.z);
   assert.strictEqual(after.flame.length + after.smoke.length + after.vortex.length, 0,
-      '≤2s 全清(无残影帧, ADR 0018 干净消失)');
+      '≤2s 全清(无残影帧, ADR 0018 干净消失; 余韵增量粒子 ≤0.4s+寿命 ≤0.7s 不破预算)');
   assert.strictEqual(after.transients.length, 0, '过渡尾巴也清(pop 0.5s/尾烟 1.5s ≤ 2s)');
 });
 
@@ -408,24 +418,41 @@ test('active/emitters/particles 查询面: 未开格 active=false · emitters=nu
 
 /* ============ ⑥ 发射节拍 + 粒子推进(数量守恒/寿命域/运动域) ============ */
 
-test('发射数量守恒(emitted 计数): 火苗 6/s×0.5s=3 · 累计 1s=6 · 低核 3/s 累计 1s=3 · 烟 2/s×0.5s=1', () => {
+test('发射积分口径(评审 SPEC-1 翻新裁定, 修法①改实现): 渐起窗发射=∫rate·ramp dt 非矩形满速 — ' +
+    '0.5s 期望 ≤2 粒(∫₀^0.5 6·(t/0.5)dt=1.5) · 1s ∈{4,5}(∫=4.5) · 满速段守恒恢复 0.5s=3 · ' +
+    '快照 rateScale=实际发射乘子(0.2s 处=0.4 如实)', () => {
   coreReady();
   const fx = mk();
   fx.open(FIRE.x, FIRE.y, FIRE.z);
-  fx.tick(0.5);
+  for (let i = 0; i < 5; i++) fx.tick(0.1); /* 0.5s 渐起窗细分驱动(拍内采样离散不越带) */
   let e = fx.emitters(FIRE.x, FIRE.y, FIRE.z);
-  assert.strictEqual(e.flame.emitted, 3, '0.5s 发 3 粒(6 粒/s, 分数累积零丢)');
-  assert.strictEqual(e.smoke.emitted, 1, '烟 0.5s 发 1 粒(2 粒/s)');
-  fx.tick(0.5);
+  assert.ok(e.flame.emitted >= 1 && e.flame.emitted <= 2,
+      '渐起窗 0.5s 发 1~2 粒(积分 1.5, 累积器相位带 ±1; 矩形满速=3 必红 — ' +
+      '评审 SPEC-1: 火「噗」地起来不是瞬满, 第一拍即有发射非下一拍延迟起火)');
+  assert.ok(e.smoke.emitted <= 1, '烟渐起窗 ≤1 粒(积分 0.5, 期望 0 粒容采样顶到 1)');
+  /* 快照如实化: rateScale=实际发射乘子(渐起快照语义本如实, 发射面跟上它即撤虚报) */
+  const mid = mk();
+  mid.open(FIRE.x, FIRE.y, FIRE.z);
+  mid.tick(0.1);
+  mid.tick(0.1); /* now=0.2, ramp=0.4 */
+  assert.ok(Math.abs(mid.emitters(FIRE.x, FIRE.y, FIRE.z).flame.rateScale - 0.4) < 1e-9,
+      '0.2s 处 rateScale=0.4(现时点渐起乘子, 与实际发射积分同源如实)');
+  for (let i = 0; i < 5; i++) fx.tick(0.1); /* 至 1.0s */
   e = fx.emitters(FIRE.x, FIRE.y, FIRE.z);
-  assert.strictEqual(e.flame.emitted, 6, '累计 1s 发 6 粒(寿命淘汰不侵计数)');
+  const at1s = e.flame.emitted;
+  assert.ok(at1s >= 4 && at1s <= 5,
+      '累计 1s 发 4~5 粒(∫₀¹ 6·ramp dt=4.5 相位带; 矩形满速=6 必红)');
+  for (let i = 0; i < 5; i++) fx.tick(0.1); /* 至 1.5s(满速段) */
+  e = fx.emitters(FIRE.x, FIRE.y, FIRE.z);
+  assert.strictEqual(e.flame.emitted - at1s, 3,
+      '满速段 [1.0,1.5]s 恢复矩形守恒: 恰 +3(寿命淘汰不侵计数)');
   const low = mk({lowcore: true});
   low.open(FIRE.x, FIRE.y, FIRE.z);
-  low.tick(0.5);
-  low.tick(0.5);
+  for (let i = 0; i < 10; i++) low.tick(0.1); /* 1s */
   const le = low.emitters(FIRE.x, FIRE.y, FIRE.z);
-  assert.strictEqual(le.flame.emitted, 3, '低核累计 1s 发 3 粒(3 粒/s 减半档)');
-  assert.strictEqual(le.smoke.emitted, 1, '低核烟累计 1s 发 1 粒(1 粒/s)');
+  assert.ok(le.flame.emitted >= 2 && le.flame.emitted <= 3,
+      '低核累计 1s 发 2~3 粒(∫ 3·ramp dt=2.25; 矩形=3 必红)');
+  assert.ok(le.smoke.emitted <= 1, '低核烟累计 1s ≤1 粒(积分 0.75)');
 });
 
 test('寿命域与粒子带: 火苗 life∈0.5~0.7 · age≤life · 尺寸带 [0.02, 0.16] · 透明度带 [0, 0.9] · ' +
@@ -433,7 +460,7 @@ test('寿命域与粒子带: 火苗 life∈0.5~0.7 · age≤life · 尺寸带 [0
   coreReady();
   const fx = mk();
   fx.open(FIRE.x, FIRE.y, FIRE.z);
-  fx.tick(0.5);
+  for (let i = 0; i < 10; i++) fx.tick(0.1); /* 喂满 1s(评审 SPEC-1 积分口径: 渐起窗首拍 1~2 粒, 满速段 3 粒全在飞, 前置带不弱化) */
   const ps = fx.particles(FIRE.x, FIRE.y, FIRE.z).flame;
   assert.ok(ps.length >= 2, '前置: 火苗在飞');
   for (const p of ps) {
