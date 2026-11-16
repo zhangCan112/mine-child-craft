@@ -91,7 +91,10 @@ test('注册表行完备性: 三行 · id 唯一且非 overworld · 八键齐全
     assert.ok(r.sky.fogNear > 0 && r.sky.fogFar > r.sky.fogNear, r.id + ' sky 雾距序');
     assert.ok(r.sky.sunI > 0 && r.sky.sunI < 1, r.id + ' sky.sunI 域');
     assert.strictEqual(typeof r.mood, 'string', r.id + ' mood');
-    assert.strictEqual(r.dayCycle, false, r.id + ' 维度恒停昼夜(D10/D6 口径)');
+    if (r.id !== 'town') {/* town 行已解冻随世界钟(ADR-0012 决策 1), 值锚在 town 行值锚测单份钉;
+        此处钉恒停行政策: nether/den 恒停昼夜(D10/D6 口径不变) */
+      assert.strictEqual(r.dayCycle, false, r.id + ' 维度恒停昼夜(D10/D6 口径)');
+    }
     for (const f of ['x', 'y', 'z', 'yaw']) assert.strictEqual(typeof r.spawn[f], 'number', r.id + ' spawn.' + f);
     assert.strictEqual(typeof r.hud.banner, 'string', r.id + ' hud.banner');
     assert.ok(r.hud.banner.length > 0, r.id + ' 横幅非空');
@@ -132,7 +135,7 @@ test('场景 BGM advMusicMood: 维度行恒行值 · 上界夜=night · 上界�
   assert.strictEqual(Dims.advMusicMood('den', false), 'nether', '副本恒 nether(D13)');
   assert.strictEqual(Dims.advMusicMood('den', true), 'nether', '副本不随昼夜变');
   assert.strictEqual(Dims.advMusicMood('town', false), 'calm', '小镇恒 calm(AudioRegistry calm-piano 在册)');
-  assert.strictEqual(Dims.advMusicMood('town', true), 'calm', '小镇不随昼夜变(dayCycle 冻结, 恒白天)');
+  assert.strictEqual(Dims.advMusicMood('town', true), 'calm', '小镇恒 calm(P4 拍板: 维度行锁 mood, 昼夜不变曲)');
 });
 
 /* ============ 行建场确定性(经行 interface 驱动, 不旁敲实现) ============ */
@@ -189,14 +192,14 @@ test('炉键前缀守门: ADV_FURN_PREFIX 单份权威键集覆盖全部维度�
 
 /* ============ town 维度行(T-SEAM-01, docs/town-map-design.md §6.3.3 行规格表) ============ */
 
-test('town 行值锚: 午后暖阳四参/mood calm/恒白天/HUD 无怪/spawn 从 TOWN_MAP 加载期派生', () => {
+test('town 行值锚: 午后暖阳四参/mood calm/随世界钟昼夜/HUD 无怪/spawn 从 TOWN_MAP 加载期派生', () => {
   const t = Dims.advDimRow('town');
   assert.ok(t, 'town 行在册(§6.3.3 逐字段)');
   assert.deepStrictEqual(t.sky, {color: 0xa8cbe0, fogNear: 75, fogFar: 200, sunI: 0.92},
       'town 天穹(视觉重制 §3-F 午后暖阳定稿: 四档试拍 f0-f4, 档4越「亮而不白」界回退; 雾即奶油天际线软山)');
   assert.strictEqual(t.mood, 'calm', '曲目 calm(沿用旧模式注册表行 mood 键)');
-  assert.strictEqual(t.dayCycle, false,
-      'dayCycle:false=时间冻结+天体隐藏+基底亮光, ≠恒夜——暗 sky 参才是恒夜, town 暖亮即恒白天(§6.3.3)');
+  assert.strictEqual(t.dayCycle, true,
+      'dayCycle:true=随世界钟昼夜(ADR-0012 决策 1 解冻: 时间推进+天体/云解隐+uDim 真实调暗; 白日端点经 setSkyBase 落行色, 夜侧=Daylight 折线自带)');
   assert.strictEqual(t.hud.banner, '🏘️ 小镇 · Midport Village', 'HUD 横幅(文案终稿归 ui-designer, 现值锁)');
   assert.strictEqual(t.hud.showMobs, false, '无怪隐怪物行(§6.3.4 机制无怪=因, 行参隐行=观感果)');
   assert.strictEqual(t.assets, null, '副本素材预留缝不启用(GLOSSARY 占坑纪律)');

@@ -4859,7 +4859,7 @@ test('T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → �
   AdventureMode.update(1 / 60); /* 越线瞬间发令(无站桩) */
   for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s 满格到达 */
   assert.strictEqual(A.advNetherState().dim, 'town', '进镇(town 维度在场方可回程)');
-  assert.strictEqual(globalThis.dayCycleOn, false, '镇内昼夜冻结(dayCycle:false, §6.3.4)');
+  assert.strictEqual(globalThis.dayCycleOn, true, '镇内昼夜解冻(dayCycle:true 随世界钟昼夜, ADR-0012 决策 1)');
   /* 回程发令: 南向镇口带式 z≥132(核心区南界 z127 外 5 格缓冲, §6.3.5);
      发令帧维态实证=「直喂 advMap 会落南锚」反例的现场 */
   globalThis.pos.z = 132.5; /* 任意 x: 站主路 x79 */
@@ -4871,7 +4871,7 @@ test('T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → �
   for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s 满格到达 */
   assert.strictEqual(A.advNetherState().dim, 'overworld', '回 home: 维度回 overworld');
   assert.strictEqual(A.advNetherState().map, 'home', '图账 home');
-  assert.strictEqual(globalThis.dayCycleOn, true, '回 home 主世界昼夜照转(镇内时间冻结不外溢)');
+  assert.strictEqual(globalThis.dayCycleOn, true, '回 home 主世界昼夜照转(镇内时间随世界钟, 回程端点既有链自动复位零残留)');
   assert.ok(calls.some((x) => x[0] === 'applyDaylight'), 'applyDaylight 恢复当下天色(昼夜照转)');
   /* 落点=east 锚门口内侧(§6.3.5 约 (154.5,75)), 绝不落南锚(56.5,126) */
   const ax = globalThis.pos.x; const az = globalThis.pos.z;

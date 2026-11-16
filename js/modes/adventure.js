@@ -2484,8 +2484,22 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
           advStations/advFurnaces 两不相交的状态, 先后次序无观测差 */
       advFurnaceSettle(dim); /* 维度炉键('n|'/'k|')此时才有块可对(D14 泛化) */
     });
-    advApplySky(drow.sky); /* 暗红/近黑天穹: 行参数, 一眼就知道到了哪个维度 */
-    dayCycleOn = drow.dayCycle; /* 维度恒停 dayTime(日月天体随之隐藏, D10/D6) */
+    if (drow.dayCycle === true) {/* 循环维度(town, ADR-0012 决策 1): 定死切界序四步
+        (对齐 overworld 回界分支现序, 票面 §4)——行色必走天基色缝落白日端点(直写会被
+        applyDaylight 每 50 tick 覆写回主世界端点); 分支内补昼夜首拍=白闪遮罩内首帧
+        即正确, 天体/云/uDim 冻结遗留态随链复活自然消解(ADR §2-5) */
+      if (typeof setSkyBase === 'function') {/* mode 装具无 world.js——typeof 守卫
+          (advEdgeSkyTick 先例): 缺席跳过=白日端点走缺省蓝, 浏览器拿到真缝 */
+        setSkyBase(advEdgeRgb(drow.sky.color)); /* hex→[r,g,b] 0..1(adventure-core 现成助手) */
+      }
+      advApplySky(drow.sky); /* 雾距 75/200 私产直写(applyDaylight 无雾距写点)+首帧
+          初值(sunI 0.92; 循环接管后=基底 0.75) */
+      dayCycleOn = true; /* 时间推进+场景驱动同闸开(main.js 主循环消费) */
+      applyDaylight(); /* 一次: 落当前时刻天色/光强/日月(时间源=全局 dayTime 单钟照推) */
+    } else {
+      advApplySky(drow.sky); /* 暗红/近黑天穹: 行参数, 一眼就知道到了哪个维度 */
+      dayCycleOn = drow.dayCycle; /* 维度恒停 dayTime(日月天体随之隐藏, D10/D6) */
+    }
     setPlayerGlow(false); /* 灯笼随身光熄灭(维度不亮不耗, 门禁见 update) */
     advLanternT = 0; /* 耗秒累计器归零(回主世界从整秒重新累计) */
     if (dim === 'den') {

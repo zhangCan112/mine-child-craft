@@ -475,7 +475,7 @@ _Avoid_: 镜像装配（v2 形态——~600 行编排镜像 + 每个冒险特性
 _Avoid_: debug 模式（散称——DEV 是旗标名）、把 dev 判定写进纯核心（-core 零全局依赖，旁路一律放模式层消费点或经 opts 注入）、在 dev 下断记账（图章/家长面板的数据源会断，拍板是照常写档）
 
 **小镇维度（Town Dimension）**:
-探险模式第三维度相位（ADV_DIMS town 行，js/adventure-dims-core.js 维度段，docs/town-map-design.md §6.3 / ADR-0011）——进镇=home 图主路尽头触发线→白闪(kind='edge')→advSetDim('town')，恒白天(dayCycle:false+暖亮 sky 参)/无怪/恒 calm 曲；回程=南缘带式触发线(z≥132)白闪回 home 落 east 键锚；建场=维度段六装配件（townBuild 平铺消费 townAssemblyOps(townBuildSteps()) 逐 op 经 townConsumeOp 引擎唯一触点面（词表封闭 {fill,tree,scrub,recolor,place}），锚点段出生收口 townSpawnIntent（spawn 锚 y+1 站立面+face 派生朝向 yaw=0 北望广场），townAssemblyPhases 权威 phase 序分组，townYawOfFace 四正交 face→yaw）；镇内交互机宿主=adventure 壳 town 分支（advSetDim('town') 专属步建机/离镇弃机，机器本体=城镇交互核心零改动）；儿童时限随探险模式共享（无独立时限面）。
+探险模式第三维度相位（ADV_DIMS town 行，js/adventure-dims-core.js 维度段，docs/town-map-design.md §6.3 / ADR-0011 · 昼夜解冻 ADR-0012）——进镇=home 图主路尽头触发线→白闪(kind='edge')→advSetDim('town')，随世界钟昼夜(dayCycle:true——时间随全局 dayTime 单钟推进+天体/云解隐，白日端点经 setSkyBase 落行色（advSetDim 循环行四步切界序）、夜侧=Daylight 折线自带月光蓝，ADR-0012 决策 1)/无怪/恒 calm 曲；回程=南缘带式触发线(z≥132)白闪回 home 落 east 键锚；建场=维度段六装配件（townBuild 平铺消费 townAssemblyOps(townBuildSteps()) 逐 op 经 townConsumeOp 引擎唯一触点面（词表封闭 {fill,tree,scrub,recolor,place}），锚点段出生收口 townSpawnIntent（spawn 锚 y+1 站立面+face 派生朝向 yaw=0 北望广场），townAssemblyPhases 权威 phase 序分组，townYawOfFace 四正交 face→yaw）；镇内交互机宿主=adventure 壳 town 分支（advSetDim('town') 专属步建机/离镇弃机，机器本体=城镇交互核心零改动）；儿童时限随探险模式共享（无独立时限面）。
 _Avoid_: 小镇漫步（TownMode 旧名——独立模式缝已撤，ADR-0009 被 ADR-0011 取代，点卡入口/模式壳退场）、城镇模式（散称别名）、绕过分组函数直拼清单（装配纪律=组序恒等权威序，不信输入序）、给 town 维度行挂 gates 字段（维度行是相位不是生态图，ADR-0011 决策 4）
 
 **滑翔翼**:
