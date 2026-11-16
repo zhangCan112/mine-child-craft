@@ -262,6 +262,12 @@ const RECIPES = [
   //   公开配方不进 KIT_HIDDEN_RECIPES(解锁表零改动), 插在压轴传送门之前(最末契约不动)
   {id: 'glider', out: {item: 'glider', n: 1}, station: 'table',
     shape: {rows: [['gold_ingot', null, 'gold_ingot'], ['leather', 'gold_ingot', 'leather'], ['string', 'gold_ingot', 'string']]}},
+  // 篝火(篝火 T-C1, campfire-spec §3.2 定稿图案): 工作台级 3×3——MC 正典篝火图案直译
+  //   「煤在上、棍成三角、原木垫底」; 煤/木炭候选任选(火把候选数组先例), 三行左右
+  //   对称(镜像摆放同形不吃亏); 产 ×2=消耗品路线补偿(ADR 0018); 公开配方不进
+  //   KIT_HIDDEN_RECIPES, 插在压轴传送门之前(最末契约不动)
+  {id: 'campfire', out: {item: 'campfire', n: 2}, station: 'table',
+    shape: {rows: [['stick', ['coal', 'charcoal'], 'stick'], [null, 'stick', null], ['log', 'log', 'log']]}},
   // 下界传送门(下界并入探险 D3): 8 金锭环形+中心钻石, 全表最贵合成压轴; 放下长出整座门(结构放置, 探险壳拦截)
   {id: 'nether_portal', out: {item: 'nether_portal', n: 1}, station: 'table',
     shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', 'diamond', 'gold_ingot'], ['gold_ingot', 'gold_ingot', 'gold_ingot']]}},
@@ -368,24 +374,35 @@ function furnaceRefund(inv, f) {
 /* shapeCost — 图案→派生 cost 表(单一数据源): 配方卡亮灰(canCraft)与
    一键摆入预检共用。值 = 数量 或 [候选id数组, 数量](任选形状,
    inventory-core costEntry 统一形状; 候选组键名仅占位, 同集合多格
-   合并计数)。 */
+   合并计数)。键序 = 图案遍历序且任选组在首现位插队(campfire 缺料
+   清单顺序合同: 棍→任选燃料→原木, 缺料逐条按图案序报)。 */
 function shapeCost(recipe) {
-  const cost = {};
+  const plain = {}; // 单一材料计数(键 = 材料 id)
   const groups = {}; // 候选组桶: 键 = 候选排序拼接 → {cands, n}
+  const order = []; // 输出键序 = 图案遍历序(任选组首现位插队, 不垫表尾)
   const bump = (spec) => {
     if (spec == null) return;
     if (typeof spec === 'string') {
-      cost[spec] = (cost[spec] || 0) + 1;
+      if (!(spec in plain)) order.push(spec);
+      plain[spec] = (plain[spec] || 0) + 1;
       return;
     }
     const key = spec.slice().sort().join('|');
-    const g = groups[key] || (groups[key] = {cands: spec.slice(), n: 0});
-    g.n += 1;
+    const g = groups[key];
+    if (!g) {
+      groups[key] = {cands: spec.slice(), n: 1};
+      order.push(key);
+    } else {
+      g.n += 1;
+    }
   };
   const shape = recipe.shape;
   if (shape.any) shape.any.forEach(bump);
   else shape.rows.forEach((row) => row.forEach(bump));
-  for (const key of Object.keys(groups)) cost[key] = [groups[key].cands, groups[key].n];
+  const cost = {};
+  for (const key of order) {
+    cost[key] = (key in groups) ? [groups[key].cands, groups[key].n] : plain[key];
+  }
   return cost;
 }
 

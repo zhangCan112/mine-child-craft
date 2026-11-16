@@ -2837,6 +2837,38 @@ function advFurnaceClean(map) {
   return out;
 }
 
+/* ---------- 篝火刻账纯函数双件 (篝火 T-C1, campfire-spec §4/§3.8, ADR 0018) ----------
+   台账条目形状 {x,y,z,left}(树苗 advSaplings 同款, 坐标在册供燃尽收尾回调);
+   步进只管整刻账(spec §4 拍板案: 20tps 累积器量化在 campfire-kit 侧, 这里见到
+   的 ticks 已是整数), 清扫只管存档形状([[posKey,{left}]], T-C5 档键同形)。 */
+
+/* 燃尽步进(纯函数): 全员 −ticks 整刻递减; left ≤ ticks 的条目本步内燃尽——
+   账面记 left−ticks+1(最后一刻算它自己的, 大步超杀透支照记为负), 出清单并
+   从台账删条。调用方逐条做燃尽收尾(坐标在册), 删条后零重复回调。 */
+function advCampfiresStep(map, ticks) {
+  const due = [];
+  for (const [k, e] of map) {
+    if (e.left > ticks) {
+      e.left -= ticks; /* 未到期: 整步 −ticks 留队(多条互不串) */
+      continue;
+    }
+    e.left -= ticks - 1; /* 到期: 含燃尽那一刻的账面(一步跨多刻也只出一条) */
+    due.push(e);
+    map.delete(k);
+  }
+  return due;
+}
+
+/* 档账清扫(纯函数, encode 侧): 刻数 ≤0 的燃尽残账不进档(存档防膨胀);
+   条目=[posKey,{left}] 二元组只挑 left——坐标可由 posKey 还原, 不双写。 */
+function advCampfiresClean(map) {
+  const out = [];
+  for (const [k, e] of map) {
+    if (e.left > 0) out.push([k, {left: e.left}]);
+  }
+  return out;
+}
+
 /* TNT 爆炸掉落掷骰(D4): 方块先掷 70% 门槛, 中签才走 rollBlockDrop(保底+
    概率条目原样掷, 不传工具=默认表)。rand 可注入; tnt 旗标守卫恒空手 —
    TNT 不经爆炸自掉(圈内 TNT 走链式点燃分支本就不进掷骰, 守卫与 drop
@@ -3627,6 +3659,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_STATION_R, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advLosBlocked,
     advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
+    advCampfiresStep, advCampfiresClean, /* 篝火刻账纯函数双件(T-C1) */
     ADV_LIVESTOCK_SPAWN_R, ADV_LIVESTOCK_HERD_R, ADV_LIVESTOCK_RING_LO,
     ADV_LIVESTOCK_RING_HI, ADV_LIVESTOCK_HERDS, ADV_HERD_AVOID_R, ADV_HERD_AVOID_MULT,
     ADV_HERD_FLEE_T, ADV_HERD_FLEE_MULT, ADV_HERD_AMBLE_MULT,

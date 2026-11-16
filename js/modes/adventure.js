@@ -403,6 +403,9 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
   else advStations.delete(k); /* 挖除/覆盖皆注销(爆炸掀掉站点同样走此 seam) */
   /* F1: 炉子消失(挖/TNT/覆盖) → 炉内三笔退包; 炉态键带界前缀(D14) */
   if (prev && prev.id === B_FURNACE && id !== B_FURNACE) advFurnace.drop(advFurnKey(x, y, z));
+  /* 篝火破坏钩(T-C1): 台账即 presence Map——不读世界值, 未知格 drop 零炸零副作用
+     (挖除/TNT/覆盖/燃尽收尾同走此 seam; 放置格也过此缝, drop 幂等) */
+  advCampfires.drop(x, y, z);
   /* ADR 0007: 箱子进账/出账(放置/挖除/TNT 掀/覆盖同走此缝) → 容量随之重算;
      结构宝箱不在账本里, 天然不触发 */
   if ((id === B_CHEST) !== (pv === B_CHEST)) advChestResync();
@@ -885,6 +888,34 @@ const advFurnace = FurnaceKit.mkFurnaceStation({
     }
   },
 });
+/* ---------- 篝火账 kit 实例(CampfireKit, 篝火 T-C1) ---------- ----------
+    装载序三域解析(town-ui core 解析先例): 经典 script 里 campfire-kit 先于
+    本文件装载, 共享词法全局名直用; Node CJS 装具未铺全局名则走 kit 的 CJS
+    导出面(require 存在性守卫); 陈列壳等既无全局名也不带 require 的 vm 域
+    回落零刻空账(账本形状不变, 消费面零判空——陈列壳零篝火交互)。
+    政策走 onBurnout 缝: 燃尽收尾照抄 breakBlock 收尾序(记账→editBlock→
+    级联, place-kit breakBlock 同款)——掉落除外=干净消失无掉落(ADR 0018 ⭐R1-06);
+    quest=false: 燃尽非亲手挖, 不计任务账(级联 quest 口径同 TNT 链) */
+function cfKitResolve() {
+  if (typeof CampfireKit !== 'undefined') return CampfireKit;
+  if (typeof require === 'function') return require('../campfire-kit.js');
+  /* 陈列壳 vm 域兜底: 零刻空账(账本形状不变, 消费面零判空) */
+  const bareLedger = {
+    map: new Map(),
+    plant() {/* 无源域: 陈列壳零篝火交互 */},
+    tick() {/* 同上: 不喂即冻结 */},
+    drop() {/* 同上 */},
+    reset() {/* 同上 */},
+    encode() {
+      return [];
+    },
+  };
+  return {mkCampfireLedger: () => bareLedger};
+}
+const advCampfires = cfKitResolve().mkCampfireLedger({onBurnout: (x, y, z) => {
+  advMarkEdit(x, y, z, 0); /* 燃尽格先记账(级联清单不含触发格, 后写覆盖才对) */
+  advCascadeApply(editBlock(x, y, z, 0), false); /* 编辑链移除+级联(上方依附 thin 块随底座脱落) */
+}});
 /* 大宝箱面板(引导链 v2): 政策与存档在本文件下方箱子段, 面板只管格子 */
 const advChestPanel = ModeKit.mkChestPanel({inv: advInv, chest: () => advChest,
   next: () => advChestNext(advChest.base), have: (id) => count(advInv, id),
@@ -3353,6 +3384,9 @@ const advPlaceKit = PlaceKit.mkEditor({
     if (blockId === B_CRAFT) advTally('place_craft_table', 1); /* T15: 站点放置记账(任务链消费的两键) */
     if (blockId === B_FURNACE) advTally('place_furnace', 1);
     if (blockId === B_CHEST) advTally('place_chest', 1); /* 引导链 v2: 箱子步(合成/放置/打开三条件) */
+    if (BLOCKS[blockId] && BLOCKS[blockId].campfire) {
+      advCampfires.plant(x, y, z); /* 篝火放置即燃: 侧账建满时长(树苗挂表同缝, spec §3.3) */
+    }
     if (blockId === B_SAPLING) {
       advTally('place_sapling', 1); /* 引导链 v2: 种树苗步(砍了树要种回去) */
       advSapPlant(x, y, z);
@@ -5163,6 +5197,7 @@ const AdventureMode = mkMode({
     advBeamsRelayout(); /* 光束重锚(init 也锚: 亮门/巢穴之门的常驻束不再等首次切图/切界才出现) */
     advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
     advFurnace.reset(); /* T4: 炉态/绑定/开态/签名复位(kit Map 引用不变, 开态真值在 kit 不设镜像); 档里有什么恢复什么(F1) */
+    advCampfires.reset(); /* 篝火账内存态复位(T-C1: 台账不落盘, 读档火不续烧属预期——档键+重放对账归 T-C5) */
     advFlamesClear(); /* F2: 炉口火焰一并复位(上一场的观感不渗进来) */
     for (const [k, s] of advLoad.furnaces) advFurnaces.set(k, s); /* F1: 每炉独立炉态重进照旧(decode 已过滤非法) */
     advFurnaceSettle(advMap); /* D14: 当前图炉键对重放后的世界核销(块没了炉态丢); 他图/界键进那张图建场后再核 */
@@ -5306,6 +5341,13 @@ const AdventureMode = mkMode({
     advSmeltTtsT = Math.max(0, advSmeltTtsT - dt); /* 完成播报节流递减(T13) */
     advFurnace.tick(dt); /* 烧炼节律常开(面板只是回显, 烧成经 kit onMade 回调), ✕ 关闭对账(T13);
       下界照烧不门禁(MC 口径, 炉态键已分界 D14) */
+    /* 篝火刻账推进(T-C1: 20tps 量化整刻, furnace 同缝——菜单/未锁定/暂停
+       不喂即冻结, spec §4): kit tick 单次调用以 guard=8 刻封顶(小口喂养,
+       掉帧防螺旋), 模式侧按 0.4s(恰 8 刻)切片连喂——标准帧 0.5s=两口恰
+       10 刻, 长帧多口, 整刻零漂零丢 */
+    for (let cfT = 0; cfT < dt; cfT += 0.4) {
+      advCampfires.tick(Math.min(dt - cfT, 0.4));
+    }
     advFlameTick(dt); /* F2 炉口火焰: 差异增删 + 脉动(原烧炼节律尾钩, T4 起独立挂 update) */
     advFuseTick(dt); /* TNT 引信倒计时到点起爆(T13, 先于怪物 AI——当帧爆炸位置不漂移) */
     advTntTapTick(dt); /* TNT 短按/按住判定(D3): 转蓄力需先于 advMineTick 同帧生效 */
@@ -5529,6 +5571,7 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advSleepClockConfirm,
   heightAt: advHeightAt, /* T5 圈层高度场(建场件与测试共用的唯一高度权威) */
   advFurnace, advFlameCount: () => advFlames.size,
+  advCampfires, /* 篝火账 kit 实例(T-C1 测试缝: 台账 Map/放置/燃尽链直断言, advFurnace 同款) */
   advBreakBlock, advOnCraft, advInvMove, advDropSlot, advTryExpandBag, advReclaimThrown,
   advChestDeposit, advChestWithdraw, advChestExpand, advPanelClose,
   advStationOk, advNightRead, advQuestPaint, advSlimeWaterOk,

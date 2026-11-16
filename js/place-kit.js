@@ -277,7 +277,11 @@ function mkEditor(opts) {
     const pc = advPlaceCheck(hit, it.block, lookId, targetId,
         replace ? getBlock(hit.x, hit.y - 1, hit.z) : null); /* belowId 仅覆盖+thin 新块消费 */
     if (!pc.ok || collidesAtPlayer(pc.x, pc.y, pc.z)) {/* 不与玩家身体重叠(arena 先例) */
-      if (o.say) o.say('这里放不了哦');
+      /* 篝火话术切换(T-C1, UI 定稿 §6.2): 手持篝火的失败一律温和话术「要放在
+         结实的东西上面」——四类失败(水面/悬空/薄块顶/篝火顶)共用一句; 判据读
+         放置对象的 campfire 身份旗标(spec §6-6 只读旗标), 非篝火物品老话术零改动 */
+      const cf = !!(BLOCKS[it.block] && BLOCKS[it.block].campfire);
+      if (o.say) o.say(cf ? '篝火要放在结实的东西上面哦' : '这里放不了哦');
       return false;
     }
     if (guard && guard(pc.x, pc.y, pc.z)) return guardReject(); /* T7: 禁放柱拒绝(目标格=落点, 含覆盖落点) */
