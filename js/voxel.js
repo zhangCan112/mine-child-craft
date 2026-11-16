@@ -316,28 +316,62 @@ function physics(dt) {
        Space 按下边沿(spaceEdge)每帧至多消费一次 — 按帧首滑翔态单次分派:
        滑翔中=主动取消, 闩锁中=解闩再展, 二者 XOR(防同一帧边沿自相抵消/振荡) */
     const spaceEdge = !!keys['Space'] && !prevSpace;
+    /* 乘流查询(篝火 T-C2, spec §3.5/ADR 0017): 处活跃气流柱内→{lift,top}|null。
+       UPDRAFT_SIM=world.js 装配的引擎实例(fluid sim 同装配位), 经共享词法
+       调用期解析(world.js 加载序在后); 本文件会被无 world.js 的域装载
+       (voxel 单测/worker 语境), 调用期 typeof 守卫——缺席=恒 null, 既有
+       滑翔语义零变化(glider 回归金丝雀) */
+    let updraftHit = null;
+    if (typeof UPDRAFT_SIM !== 'undefined' && UPDRAFT_SIM) {
+      updraftHit = UPDRAFT_SIM.query(pos.x, pos.y, pos.z);
+    }
+    let updraftBurst = false; // 本帧展翼沿标记: 解闩再展的爆发帧升力照给(闩锁优先, 见下)
     if (gliding) {
       if (bodyF) { // 触流体帧: 收翼+清闩锁+落差清零, 本帧起交游泳物理(spec §3.4 水面软着陆)
         gliding = false; glideLatch = false; fallPeakY = 0;
         glidedIntoFluid = true;
       } else if (!gliderEquipped) { // 滑翔中卸翼: 立即收翼按无翼坠落(峰值已随滑翔帧锚定=收翼点)
         gliding = false;
+        /* 柱内乘流卸翼(T-C2, spec §3.4「立刻…坠落」): 滑翔升力残留的正向
+           速度不延续——卸翼瞬间钳 0 交还重力(负速缓降残留照旧自然衰减,
+           既有缓降卸翼零变化); 不钳则升速惯性还托 7 帧才转坠 */
+        if (vel.y > 0) vel.y = 0;
       } else if (spaceEdge) { // 主动取消: 收翼+闩锁, 转无翼重力坠落; 闩锁期间高度条件不重展
         gliding = false; glideLatch = true;
+        if (vel.y > 0) vel.y = 0; // 乘流正速同理不延续(滑翔态速度不带入闩锁坠落, 与卸翼钳制同口径)
       }
     } else if (gliderEquipped) {
-      if (glideLatch && spaceEdge) glideLatch = false; // 闩锁中空中再点 Space=解闩, 同帧顺势主动再展
+      let unlatched = false;
+      if (glideLatch && spaceEdge) { // 闩锁中空中再点 Space=解闩, 同帧顺势主动再展(既有语义)
+        glideLatch = false; unlatched = true;
+      }
       if (!glideLatch && !bodyF) {
         const gHit = raycastVoxel({x: pos.x, y: pos.y, z: pos.z}, {x: 0, y: -1, z: 0}, WORLD_H, isSolid);
         const gHeight = gHit ? pos.y - (gHit.y + 1) : Infinity;
-        if (gHeight > GLIDE.deployHeight) {
+        /* 柱内展翼豁免(篝火 T-C2, ADR 0017 门槛豁免): 处活跃气流柱内且
+           (跳跃沿 或 离地腾空 gHeight>0)→无视 >2 阈值直接展翼——站火边一跳
+           即升空, 踩火起跳同此, 柱内走落矮坎离地即展; 贴地静立/步行(离地 0
+           且无跳跃沿)不触发——路过篝火不上天(ADR 0017 D 案否决面); 无翼玩家
+           不入本分支(零参与) */
+        const exempt = !!updraftHit && (spaceEdge || gHeight > 0);
+        if (gHeight > GLIDE.deployHeight || exempt) {
           gliding = true;
           fallPeakY = pos.y; // 展翼瞬间落差累计重置: 峰值=当前高度(spec §3.5, 滑翔段不计账)
+          updraftBurst = true;
+          if (unlatched) {
+            /* 闩锁×气流咬合(spec §3.5 闩锁优先): 解闩再展的滑翔仍带闩——
+               升力只给本帧爆发(「再获升力」), 随后柱内照常滑翔缓降; 真清闩
+               仍归落地/入水(既有语义), 气流不清闩锁, 落地再跳恢复豁免起飞 */
+            glideLatch = true;
+          }
         }
       }
     }
-    if (gliding) { // 滑翔: 垂直恒缓降(不吃重力不积累, 高度只减不增), 水平=yaw 同源操控(不享受疾跑)
-      vel.y = GLIDE.sink;
+    if (gliding) { // 滑翔: 垂直=缓降恒值(不吃重力不积累), 水平=yaw 同源操控(不享受疾跑);
+      // 乘流(ADR 0017 例外一, 例外边界=「处于活跃气流柱内」单一判据): 柱内
+      // query 命中→升力替换缓降(vel.y=+lift, 出柱即回落); 闩锁态不给持续
+      // 升力(闩锁优先, spec §3.5——lift 只作用于非闩锁滑翔), 爆发帧除外
+      vel.y = (updraftHit && (!glideLatch || updraftBurst)) ? updraftHit.lift : GLIDE.sink;
       vel.x = dx*GLIDE.speed; vel.z = dz*GLIDE.speed;
       onGround = false;
     } else if (swim && bodyF === 'water') {
