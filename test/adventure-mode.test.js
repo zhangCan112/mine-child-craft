@@ -56,7 +56,9 @@ for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js',
 Object.assign(globalThis, vm.runInContext(
     '({TOWN_MAP, townBuildSteps, townAssemblyOps, mkTownTargets,' +
     'townTargetOf, TOWN_UI_EVENTS, TOWN_INTERACTS, anchorOf, TOWN_NPC_ANCHORS,' +
-    'anchorChanged, townProtectedAt: (typeof townProtectedAt === "function" ? townProtectedAt : null)})', eng)); /* T-NPC-12
+    'anchorChanged,' +
+    'townProtectedAt: (typeof townProtectedAt === "function" ? townProtectedAt : null)})',
+    eng)); /* T-NPC-12
     红方扩提取(报备): 消费机协议面四件——townTargetOf(六键形状冻结函数)/
     TOWN_UI_EVENTS(冻结事件名表)/TOWN_INTERACTS(冻结清单)/anchorOf+TOWN_NPC_ANCHORS
     (取数器+锚点表)。机器只消费不复制(T-SEAM-04 core 零改动守门口径); 提取供

@@ -655,20 +655,20 @@ test('U4 判据: townProtectedAt 出口在位 · 在保采样(墙身/垫层/接�
   const c = loadCore();
   assert.strictEqual(typeof c.townProtectedAt, 'function',
       'townProtectedAt 出口在位(module.exports 扩, ⑧b 转正守卫同源)');
-  const P = c.townProtectedAt;
+  const prot = c.townProtectedAt;
   /* 在保: 墙身 y25..26 两格全高(U6 闭销+防坠本体, §3.3 表行 1) */
   for (const [x, z] of [[60, 128], [90, 128], [31, 64], [128, 64]]) {
-    assert.ok(P(x, 25, z), '墙身 y25 在保(' + x + ',' + z + ')');
-    assert.ok(P(x, 26, z), '墙身 y26 在保(' + x + ',' + z + ')');
+    assert.ok(prot(x, 25, z), '墙身 y25 在保(' + x + ',' + z + ')');
+    assert.ok(prot(x, 26, z), '墙身 y26 在保(' + x + ',' + z + ')');
   }
   /* 在保: 墙基垫层 y24(墙的地基同件同源——挖垫层=墙浮空穿帮+钻缝, 表行 2) */
   for (const [x, z] of [[40, 128], [100, 128], [31, 64], [128, 90]]) {
-    assert.ok(P(x, 24, z), '垫层 y24 在保(' + x + ',' + z + ')');
+    assert.ok(prot(x, 24, z), '垫层 y24 在保(' + x + ',' + z + ')');
   }
   /* 在保: 北端接头柱 y25..27 全高(防登墙功能件——挖顶格 y27 即可登, 表行 3) */
   for (const [x, z] of [[31, 32], [31, 33], [128, 32], [128, 33]]) {
     for (const y of [25, 26, 27]) {
-      assert.ok(P(x, y, z), '接头柱全高在保(' + x + ',' + y + ',' + z + ')');
+      assert.ok(prot(x, y, z), '接头柱全高在保(' + x + ',' + y + ',' + z + ')');
     }
   }
   /* 在保: 门楼全盒(锚 town-gate (76,24,128); 楼段 y25..33 含檐口出挑 x75/x81;
@@ -678,28 +678,28 @@ test('U4 判据: townProtectedAt 出口在位 · 在保采样(墙身/垫层/接�
     [78, 28, 129, '横梁'], [78, 29, 129, '门额牌'], [76, 30, 129, '柱头'],
     [75, 31, 129, '檐口出挑'], [81, 32, 130, '檐口出挑背面'], [78, 33, 129, '屋脊'],
     [78, 22, 129, '桥身'], [78, 24, 130, '桥面'], [76, 20, 131, '桥底']]) {
-    assert.ok(P(x, y, z), '门楼全盒在保: ' + what + ' (' + x + ',' + y + ',' + z + ')');
+    assert.ok(prot(x, y, z), '门楼全盒在保: ' + what + ' (' + x + ',' + y + ',' + z + ')');
   }
   /* 不在保: 门洞净空 x77..79×y25..27×z129(穿行契约——挖/放/炸三缝同口径,
      home 门楼「门洞净空不加分支恒 false」先例对称) */
   for (const [x, y] of [[77, 25], [78, 26], [79, 27]]) {
-    assert.ok(!P(x, y, 129), '净空不在保(' + x + ',' + y + ',129)');
+    assert.ok(!prot(x, y, 129), '净空不在保(' + x + ',' + y + ',129)');
   }
   /* 不在保: 南角柱帽 y27(纯装饰顶格, home「端帽不保」先例对称, 表行 4) */
-  assert.ok(!P(31, 27, 128), '西角柱帽不在保(31,27,128)');
-  assert.ok(!P(128, 27, 128), '东角柱帽不在保(128,27,128)');
+  assert.ok(!prot(31, 27, 128), '西角柱帽不在保(31,27,128)');
+  assert.ok(!prot(128, 27, 128), '东角柱帽不在保(128,27,128)');
   /* 不在保: 墙头花位(墙身顶 y27 花簇格——派生装饰层, home「花不保」N2 口径, 表行 5) */
-  assert.ok(!P(40, 27, 128) && !P(90, 27, 128), '墙头花位 y27 不在保');
+  assert.ok(!prot(40, 27, 128) && !prot(90, 27, 128), '墙头花位 y27 不在保');
   /* 不在保: y 域外(垫层下 1/墙顶上方/屋脊上方) */
-  assert.ok(!P(60, 23, 128) && !P(60, 29, 128) && !P(78, 34, 129), 'y 域外不在保');
+  assert.ok(!prot(60, 23, 128) && !prot(60, 29, 128) && !prot(78, 34, 129), 'y 域外不在保');
   /* 不在保: core 内草地与镇内普通格(保护域外零误伤) */
-  assert.ok(!P(79, 24, 112) && !P(79, 25, 100) && !P(45, 24, 50) && !P(79, 25, 76),
+  assert.ok(!prot(79, 24, 112) && !prot(79, 25, 100) && !prot(45, 24, 50) && !prot(79, 25, 76),
       'core/镇内普通格不在保(零误伤)');
 });
 
 test('U4 同源互证: 白名单 part segs 全格 ⊆ 判据 · cap 全格不在保 · 门楼盒=footOf 对拍(几何第二份防御)', () => {
   const c = loadCore();
-  const P = c.townProtectedAt;
+  const prot = c.townProtectedAt;
   const rim = c.TOWN_MAP.ground.find((e) => e.kind === 'town-rim');
   /* 墙圈互证(§3.4「seg 域复算」形态): 在保 part(pad/wall/post) seg 全格判据
      true——判据吃 segs 单源, 遍历=判据域 ⊆ 几何唯一权威的第二份防御 */
@@ -709,7 +709,7 @@ test('U4 同源互证: 白名单 part segs 全格 ⊆ 判据 · cap 全格不在
     for (let x = s.x1; x <= s.x2; x++) {
       for (let z = s.z1; z <= s.z2; z++) {
         for (let y = s.y1; y <= s.y2; y++) {
-          assert.ok(P(x, y, z), '在保 seg 全格: ' + s.part + ' (' + x + ',' + y + ',' + z + ')');
+          assert.ok(prot(x, y, z), '在保 seg 全格: ' + s.part + ' (' + x + ',' + y + ',' + z + ')');
           n++;
         }
       }
@@ -722,31 +722,48 @@ test('U4 同源互证: 白名单 part segs 全格 ⊆ 判据 · cap 全格不在
     for (let x = s.x1; x <= s.x2; x++) {
       for (let z = s.z1; z <= s.z2; z++) {
         for (let y = s.y1; y <= s.y2; y++) {
-          assert.ok(!P(x, y, z), '柱帽全格不在保(' + x + ',' + y + ',' + z + ')');
+          assert.ok(!prot(x, y, z), '柱帽全格不在保(' + x + ',' + y + ',' + z + ')');
         }
       }
     }
   }
   /* 门楼盒对拍: footOf 盒逐格——判据在保域=楼段(y25..33 全宽含檐口出挑)∪
      桥段(y20..24 桥体 x76..80)−门洞净空; prefab-kit foot 几何若有变, 对拍即红
-     =强制判据同步(第二份漂移防御, 架构方案 §3.1 红线) */
+     =强制判据同步(第二份漂移防御, 架构方案 §3.1 红线)。
+     归属语义(红方裁定 2026-11-16, 缺口 1 收口): 判据=并集(segs 白名单 ∪ 门楼
+     盒), 白名单 seg 延伸进 foot 盒的格(南垫层端格 (75,24,128)/(81,24,128)——
+     垫层在保=§3.3 表行 2 票面语义)判据值由上方 segs 全格循环钉死 true, 对拍
+     循环跳过之——两循环各管各域(seg=墙圈域, 对拍=门楼独有域), 零交叠矛盾,
+     强度不降(392−2 格仍逐格对拍) */
+  const inProtectedSeg = (x, y, z) => rim.segs.some((s) =>
+    (s.part === 'pad' || s.part === 'wall' || s.part === 'post') &&
+    x >= s.x1 && x <= s.x2 && z >= s.z1 && z <= s.z2 && y >= s.y1 && y <= s.y2);
   const g = c.TOWN_MAP.prefab.find((p) => p.id === 'town-gate');
   const foot = c.PrefabKit.footOf('town-gate', g.x, g.y, g.z, g.v);
   let m = 0;
+  let skipped = 0;
   for (let x = foot.x1; x <= foot.x2; x++) {
     for (let z = foot.z1; z <= foot.z2; z++) {
       for (let y = foot.y1; y <= foot.y2; y++) {
+        if (inProtectedSeg(x, y, z)) {
+          skipped++; /* 白名单 seg 格: 判据值归 segs 循环管(在保 true), 不在对拍域 */
+          continue;
+        }
         const tower = y >= g.y + 1 && y <= g.y + 9; /* 楼段 y25..33(全宽含出挑) */
         const bridge = y <= g.y && x >= g.x && x <= g.x + 4; /* 桥段 y20..24(桥体宽) */
         const clear = x >= g.x + 1 && x <= g.x + 3 &&
             y >= g.y + 1 && y <= g.y + 3 && z === g.z + 1; /* 门洞净空 */
-        assert.strictEqual(P(x, y, z), (tower || bridge) && !clear,
+        assert.strictEqual(prot(x, y, z), (tower || bridge) && !clear,
             'footOf 盒对拍(' + x + ',' + y + ',' + z + ')');
         m++;
       }
     }
   }
-  assert.ok(m >= 300, '门楼对拍采样量在册(footOf 盒非空, 实测 ' + m + ' 格)');
+  assert.ok(m >= 300, '门楼对拍采样量在册(footOf 盒独有域非空, 实测 ' + m + ' 格)');
+  const footTotal = (foot.x2 - foot.x1 + 1) * (foot.z2 - foot.z1 + 1) *
+      (foot.y2 - foot.y1 + 1);
+  assert.ok(skipped >= 2 && m + skipped === footTotal,
+      '对拍域覆盖完整(跳过格恰为白名单 seg 交叠格, 实测跳 ' + skipped + ' 格)');
 });
 
 /* ============ ⑨ 远景剪影(map-design §4.2 R-01..03 · M7 默认) ============ */
