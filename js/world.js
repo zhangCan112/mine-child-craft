@@ -12,7 +12,8 @@
       / applyDaylight(昼夜场景驱动: 天色/平行光强/日月轨道/云层漂移 +
       顶点光材质 uniforms uDim/uSkyFloor 节拍, 设计稿 mc-daylight-torch §2.3/§4.2)
       / setPlayerGlow(玩家随身光机制缝: 方块光 uniform + 实体侧 PointLight,
-      政策归 D7) / setSkyBase(白日天色基准调制缝: 冒险地图 T6 换端点, 可选雾色
+      政策归 D7) / registerNightGlow(夜灯自发光面片注册缝: 注册快照基色 +
+      applyDaylight 同款 50 tick 键广播夜灯因子, 夜间氛围定稿 §3.b/§5-E3) / setSkyBase(白日天色基准调制缝: 冒险地图 T6 换端点, 可选雾色
       基准槽, 昼夜插值仍在 applyDaylight) / dayTime·dayCycleOn(昼夜顶层绑定, 跨文件可写:
       main.js 推进·模式层换景) / pumpFluids(流体计划刻泵, 设计稿 liquid D5)
       / activateFluids(装场全场激活) / setFluidEditSink(流体写格→模式账本
@@ -169,6 +170,24 @@ function wrapRange(v, min, max) {
   return ((v - min) % span + span) % span + min;
 }
 
+/* 夜灯自发光面片注册缝(夜间氛围 T-NPC-15a, 定稿 town-night-ambiance-design
+   §3.b/§5-E3): 自发光面片类载体(载体 B, Basic 观感面不进光场)的门控机制 —
+   机制不绑点位,「何时亮」政策与面片落位归消费方票(15b)。注册时快照 mat.color
+   的 r/g/b 为基色(存 Map, 不依赖 userData 面), 广播段在 applyDaylight 的
+   50 tick 比较键段内按 Daylight.nightGlow 因子缩放基色写回(云朵同款键写值
+   先例); 零注册数组空守卫零成本; 零逐帧更新对象、零光源对象(烘焙灯块类
+   零门控红线, 两者载体分野互不相扰)。dayCycleOn=false 复位口径天然归 0
+   (applyDaylight 以 t=0 → 因子 0 熄灯, 幂等)。 */
+const nightGlowMats = [];
+const nightGlowBase = new Map(); /* 材质 → {r,g,b} 基色快照(注册时 color 原值) */
+function registerNightGlow(mat) {
+  if (nightGlowBase.has(mat)) return; /* 幂等: 同材质重复注册零副作用 */
+  const c = mat.color;
+  nightGlowBase.set(mat, {r: c.r, g: c.g, b: c.b});
+  nightGlowMats.push(mat);
+  daylightKey = null; /* 比较键作废让下一帧立即广播(不等 50 tick), setSkyBase 同款 */
+}
+
 /* 每帧昼夜驱动(§2.3 驱动表): 天色/雾/AmbientLight/sun 强度/光斑显隐按
    颜色比较键值变化才写(量化 50 tick ≈ 2.5s, 颜色阶进无感); 日月轨道逐帧
    连续跟随。dayCycleOn=false 时以 tick 0 口径复位白天观感(幂等, 探险
@@ -189,6 +208,16 @@ function applyDaylight() {
     /* 云随昼夜同调: 白天纯白 → 夜深灰(云不吃光也不受雾, 手动跟同一折线) */
     const cloudB = 1 - (dim / 11) * 0.75;
     for (const cm of cloudMats) cm.color.setScalar(cloudB);
+    /* 夜灯广播(同款 50 tick 比较键节拍): 基色 × nightGlow 因子写回 —
+       dusk/dawn 渐变窗读数单份在昼夜核心(GLOSSARY _Avoid_: 折线判据
+       不散写消费方); 空数组守卫 = 15b 落位前零成本空跑 */
+    if (nightGlowMats.length) {
+      const g = Daylight.nightGlow(t);
+      for (const gm of nightGlowMats) {
+        const base = nightGlowBase.get(gm);
+        gm.color.setRGB(base.r * g, base.g * g, base.b * g);
+      }
+    }
     /* 顶点光材质 uniforms(D3 §4.2/§4.4): 与天色同一比较键节拍(50 tick 量化,
        夜色阶进无感); uSkyFloor 两态 — 探险(dayCycleOn)真实洞穴/夜, 其余模式
        恒 15 ≈ 现状观感(向后兼容, 关循环复位幂等) */

@@ -11,7 +11,7 @@
    (MC 数值依据与差异登记: docs/mc-daylight-torch-research.md)。
    interface: DAYLIGHT(常量表) · Daylight.advance/skyDim/isNight/
      internalSky/renderBright/skyTint/skyColor/sleepWindow/
-     clockSnap/clockDelta/clockPhase/clockLabel
+     clockSnap/clockDelta/clockPhase/clockLabel/nightGlow
    依赖(均经全局名, 调用期解析): 无 — 纯核心, 消费方为 world.js(场景驱动)/
      main.js(主循环推进)/modes/adventure.js(存档与 HUD)
    可测性: 零 THREE·零 DOM·有单测(test/daylight-core.test.js)
@@ -140,5 +140,21 @@ const Daylight = {
     const h = (Math.floor(tick / 1000) + 6) % 24;
     const m = Math.floor((tick % 1000) / 1000 * 60);
     return (h < 10 ? '0' : '') + h + ':' + (m < 10 ? '0' : '') + m;
+  },
+
+  /* 夜灯亮度因子 0..1(夜间氛围 T-NPC-15a, 定稿 town-night-ambiance-design
+     §3.b/§5-E3): 自发光面片载体(载体 B)的 dusk/dawn 渐变窗读数面 — dusk 段
+     随天暗线性渐亮(0→1, 因果读法「天黑了灯亮了」)· night 段亮稳(1)· dawn 段
+     随天亮线性渐熄(1→0)· 其余熄稳(0)。断点读 DIM_KEYS 转折 tick(零新常量
+     零新魔法数), 分段半开区间与 clockPhase 同款(t < k[i][0] 链); 窗端点四
+     断点连续无跳变, 窗内线性 → 50 tick 键阶进无感, 禁瞬亮瞬灭(§A.6)。 */
+  nightGlow(dayTime) {
+    const t = dlNorm(dayTime);
+    const k = DAYLIGHT.DIM_KEYS;
+    if (t < k[1][0]) return 0; /* 白天熄稳 */
+    if (t < k[2][0]) return (t - k[1][0]) / (k[2][0] - k[1][0]); /* dusk 渐亮 0→1 */
+    if (t < k[3][0]) return 1; /* 夜稳段亮稳 */
+    if (t < k[4][0]) return 1 - (t - k[3][0]) / (k[4][0] - k[3][0]); /* dawn 渐熄 1→0 */
+    return 0; /* 次日白天熄稳 */
   },
 };
