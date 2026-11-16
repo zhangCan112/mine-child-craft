@@ -32,7 +32,8 @@ function loadCore() {/* vm 装载链: 引擎件按 index.html 序 + 本票新件
     vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
   }
   return vm.runInContext(
-      '({TOWN_MAP, townBuildSteps, PrefabKit, TOWN_NPC_ANCHORS, WORLD_W, WORLD_D, WORLD_H})', eng);
+      '({TOWN_MAP, townBuildSteps, PrefabKit, TOWN_NPC_ANCHORS, WORLD_W, WORLD_D, WORLD_H,' +
+      ' worldCells})', eng);
 }
 
 /* ---- 几何小工具: xz 闭区间矩形(闭盒)的交/隙 ---- */
@@ -192,9 +193,21 @@ test('实例映射: P0/P1 全入+under-room 复用 · 波次二五件转正(boar
   const ids = [...new Set(ps.map((p) => p.id))].sort();
   assert.deepStrictEqual(ids, ['board-pool', 'clothesline', 'cottage-gable',
     'hencoop', 'house-loft', 'iron-golem', 'scarecrow', 'shop-awning',
-    'stall-canopy', 'stash-hut', 'tower-belfry', 'under-room',
+    'stall-canopy', 'stash-hut', 'tower-belfry', 'town-gate', 'under-room',
     'windmill-tower', 'woodpile'],
-  '实例 id 恰十四种: 七新行 + under-room(复用) + 波次二五件 + PO 亲需铁傀儡全身像');
+  '实例 id 恰十五种: 七新行 + under-room(复用) + 波次二五件 + PO 亲需铁傀儡全身像 + ②镇侧门楼(T1a)');
+  /* town-gate(T1a ②镇侧门楼落行, spec §2.6 候选行逐字): 锚 (76,24,128) 面
+     北 zone south(缓冲带服务面, 越带注记豁免归 ⑤), v 素坯空对象 */
+  const gates = ps.filter((p) => p.id === 'town-gate');
+  assert.strictEqual(gates.length, 1, 'town-gate 恰一处(回程轴唯一正门)');
+  /* v 经展开拷贝摊平进宿主域再断言(conventions §7.1 摊平门面: vm 域对象
+     与宿主对象原型不同 realm, deepStrictEqual 直比必假红——本行逐字断言
+     的 v 是唯一对象字段, 其余皆标量直取) */
+  assert.deepStrictEqual(
+      {id: gates[0].id, x: gates[0].x, y: gates[0].y, z: gates[0].z,
+        v: {...gates[0].v}, face: gates[0].face, zone: gates[0].zone},
+      {id: 'town-gate', x: 76, y: 24, z: 128, v: {}, face: 'north', zone: 'south'},
+      'town-gate 行=spec §2.6 候选行逐字(锚 76,24,128 · face north 牌面朝北 · zone south)');
   assert.strictEqual(ps.filter((p) => p.id === 'board-pool').length, 1,
       'board-pool 波次二转正落位(scene-plan-tidea2 problems=0, 动骨架-轻)');
   assert.ok(!ids.includes('mound'), 'hill-mound 属条件复用件(近景小丘语义时), 本布局不落');
@@ -265,6 +278,9 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
     /* PO 亲需③铁傀儡全身像(footOf 实测: 基座/肩 9 宽×背 dz-2 到鼻凸
        dz+1 → 面向跨 4×9, 高 18) */
     'iron-golem': {min: 4, max: 9, y: [18, 18]},
+    /* ②镇侧门楼(T1a, footOf 实测: 檐口出挑 x75..81 宽 7 × 桥深 z128..131
+       4 × 桥底 y20 到屋脊 y33 高 14——恒等 north 单形制无旋转变体) */
+    'town-gate': {min: 4, max: 7, y: [14, 14]},
   };
   for (const p of t.prefab) {
     const v = Object.assign({}, p.v, {face: p.face}); /* face 并入 v = 装配形 */
@@ -314,6 +330,20 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
     assert.ok(sb.x1 >= t.plaza.x1 && sb.x2 <= t.plaza.x2 && sb.z1 >= t.plaza.z1 &&
         sb.z2 <= t.plaza.z2, '摊位 ⊆ 广场(沿边缘成组, 不出广场)');
   }
+  /* town-gate 精确盒(T1a 门楼专项前置): 脚印=几何权威 footOf 的恒等 north
+     投影, 精确=beyond.gate-south 域(x75..81 × z128..131) */
+  const gate = t.prefab.find((p) => p.id === 'town-gate');
+  assert.ok(gate, 'town-gate 行在册(T1a 落行后转绿; 红态=行未加)');
+  const gateBox = c.PrefabKit.footOf(gate.id, gate.x, gate.y, gate.z,
+      Object.assign({}, gate.v, {face: gate.face}));
+  assert.deepStrictEqual({...gateBox}, {x1: 75, y1: 20, z1: 128, x2: 81, y2: 33, z2: 131},
+      'town-gate 脚印精确盒(檐口出挑 x75/x81 · 桥垫层 y20..24 · 总高 y33)');
+  const gateSeg = t.beyond.find((b) => b.id === 'gate-south');
+  assert.ok(gateBox.x1 >= gateSeg.x1 && gateBox.x2 <= gateSeg.x2 &&
+      gateBox.z1 >= gateSeg.z1 && gateBox.z2 <= gateSeg.z2,
+  'town-gate 脚印 ⊆ beyond.gate-south(ADR-0013 白名单放行, 越界唯一通道)');
+  assert.ok(gateBox.z2 <= 131,
+      'town-gate 几何 z≤131 全在回程判据内侧(ADV_TOWN_RETURN_Z=132 之前, 判据行为面零改动前提)');
 });
 
 /* ============ ⑥ 实例两两无交 ============ */
@@ -331,6 +361,46 @@ test('布局自洽: 实例脚印两两无交(建筑互不叠压)', () => {
       const hit = overlapXZ(a, q) && a.y1 <= q.y2 && q.y1 <= a.y2;
       assert.ok(!hit, '无交: ' + boxes[i].p.id + '(' + boxes[i].p.zone + ') × ' +
           boxes[j].p.id + '(' + boxes[j].p.zone + ')');
+    }
+  }
+});
+
+/* ============ ⑥' 门楼专项(T1a, spec §2.7 锚 3 的蓝图世界面) ============ */
+
+test('town-gate 门楼专项: z129 墙身平面逐行 · 净空 x77..79×y25..27 · 桥面 y24 与 core 草地同高 · 牌格 (78,29,129)=80', () => {
+  const c = loadCore();
+  const t = c.TOWN_MAP;
+  const g = t.prefab.find((p) => p.id === 'town-gate');
+  assert.ok(g, 'town-gate 行在册(T1a 落行后转绿; 红态=行未加)');
+  /* 蓝图落场(TOWN_MAP 行锚直驱, face north=行 facing0 恒等): 清空世界单件
+     落位, 断言不掺地表/散布笔——纯蓝图几何世界面 */
+  c.worldCells.fill(0);
+  c.PrefabKit.place(g.id, g.x, g.y, g.z, Object.assign({}, g.v, {face: g.face}));
+  const cell = (x, y, z) => c.worldCells[(y * c.WORLD_D + z) * c.WORLD_W + x];
+  /* z129 墙身平面: 侧柱 x76/x80 y25..29(壁灯 y27 嵌柱替换)/横梁 y28/
+     门额带 y29(牌居中+配块两翼)/柱头 y30+中段让空(v2 同构) */
+  for (const x of [76, 80]) {
+    for (const y of [25, 26, 28, 29]) {
+      assert.strictEqual(cell(x, y, 129), 13, '侧柱 13 @(' + x + ',' + y + ',129)');
+    }
+    assert.strictEqual(cell(x, 27, 129), 19, '壁灯 19 嵌柱 @(' + x + ',27,129)');
+    assert.strictEqual(cell(x, 30, 129), 17, '柱头 17 @(' + x + ',30,129)');
+  }
+  for (const x of [77, 78, 79]) {
+    for (const y of [25, 26, 27]) {
+      assert.strictEqual(cell(x, y, 129), 0, '净空空气 @(' + x + ',' + y + ',129)');
+    }
+    assert.strictEqual(cell(x, 28, 129), 13, '横梁 13 @(' + x + ',28,129)');
+    assert.strictEqual(cell(x, 30, 129), 0, '中段让空 @(' + x + ',30,129)');
+  }
+  assert.strictEqual(cell(77, 29, 129), 13, '门额配块 13 @(77,29,129)');
+  assert.strictEqual(cell(78, 29, 129), 80, '门额牌 80 @(78,29,129)(居中 1 格, 贴图朝北归 T1b)');
+  assert.strictEqual(cell(79, 29, 129), 13, '门额配块 13 @(79,29,129)');
+  /* 桥面 y24 与 core 草地同高(spec §2.2: 无缝衔接=同层) */
+  assert.strictEqual(t.core.groundY, 24, 'core 草地层 y24(同高语义锚)');
+  for (let x = 76; x <= 80; x++) {
+    for (let z = 128; z <= 131; z++) {
+      assert.strictEqual(cell(x, 24, z), 13, '桥面 13 @(' + x + ',24,' + z + ')');
     }
   }
 });

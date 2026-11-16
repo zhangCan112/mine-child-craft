@@ -3484,7 +3484,7 @@ test('材质基线·TIDEA 五行缺省逐槽: 全现成字库 id 逐格钉(5/6/1
    另一块防回归面(绿态自证, 重构前后同绿): 枚举校验链九轴+size 双型错误消息
    逐字钉——pfMerge 表驱动收编(§1.10 升格: 清单≥3 处+新轴漂移史)的等价基线。 */
 
-test('材质基线·全行缺省建场安全: 城镇十三行零危险旗标块 + 全行零功能/下界/传送门系错用(T-09 审计可执行化)', () => {
+test('材质基线·全行缺省建场安全: 城镇十四行零危险旗标块 + 全行零功能/下界/传送门系错用(T-09 审计可执行化)', () => {
   const k = loadKit();
   /* 危险旗标(判据单份在 config BLOCKS 旗标, 测试动态派生不复制): 20 TNT(tnt) ·
      21 引线(fuse/thin) · 35 传送门面(portal) · 24/25 水岩浆(fluid) · 42..45 麦
@@ -3511,6 +3511,11 @@ test('材质基线·全行缺省建场安全: 城镇十三行零危险旗标块 
     bedFlower2: ['thin', 'replaceable'],
     goodsLeaf1: ['thin', 'replaceable'],
     goodsLeaf2: ['thin', 'replaceable'],
+    /* town-gate sign 槽(T1a ②镇侧门楼): 门额牌 80 = S2 竖版贴图件
+       (thin 0.15 贴门额面, gateSign 旗标不在危险清单)——「贴图面朝北」
+       的镇徽载体, thin 是形制本体不是点缀误用; 仍受 BAD 显式清单与
+       旗标其余项管辖(town-assembly T-09 同源豁免) */
+    sign: ['thin'],
   };
   const slotExempt = (id) => {
     const d = k.rows[id] && k.rows[id].defaults && k.rows[id].defaults.ids;
@@ -3524,7 +3529,7 @@ test('材质基线·全行缺省建场安全: 城镇十三行零危险旗标块 
   };
   const townRows = ['tower-belfry', 'shop-awning', 'stash-hut', 'windmill-tower',
     'cottage-gable', 'house-loft', 'stall-canopy', 'scarecrow', 'clothesline',
-    'woodpile', 'hencoop', 'board-pool', 'iron-golem'];
+    'woodpile', 'hencoop', 'board-pool', 'iron-golem', 'town-gate'];
   const legacyRows = [['stilt-hut', undefined], ['under-room', {mat: 58}],
     ['mound', {top: 2, rock: 14}]];
   for (const [id, v] of [...townRows.map((r) => [r, undefined]), ...legacyRows]) {
@@ -3746,4 +3751,95 @@ test('T-PREFAB-10 iron-golem 全身立像: 抽格钉值(基座/腿/肩/腰/臂/�
   /* 未知 v 键抛(行键面 face/mirror/ids 封闭) */
   assert.throws(() => k.pf.place('iron-golem', 80, 24, 80, {nope: 1}),
       /未知 v 键/, '未知键拼写域抛(键集封闭)');
+});
+
+/* ============ town-gate 行(T1a ②镇侧门楼, prefab 路径) ============
+   票面: docs/design/town-side-gate-and-edge-fence-spec.md §2.2/§2.3(几何
+   权威)+§2.6(蓝图 brief: {id:'town-gate', x:76, y:24, z:128, v:{},
+   face:'north', zone:'south'}, 素坯直排无桩脚/屋顶变种需求)。形制同款
+   =v2 东带门楼(advEdgeEastSign)两处差异: 门洞净空 2→3 格(x77..79 ×
+   y25..27)+门额牌 2→1 格居中(x78)。face north=行 facing0(恒等序 0)。
+   断言四组(票面): foot/逐格/门洞净空禁填/越界守卫; 材质基线入册见上
+   「全行缺省建场安全」(sign 槽豁免 thin)。 */
+
+test('town-gate foot: 恒等 north 精确盒 7×14×4——檐口出挑 x75/x81, 桥垫层 y20..24, 总高 y33(groundY+9)', () => {
+  const k = loadKit();
+  assert.deepStrictEqual({...k.pf.footOf('town-gate', 76, 24, 128)},
+      {x1: 75, y1: 20, z1: 128, x2: 81, y2: 33, z2: 131},
+      'footprint x75..81(檐口出挑 7)×y20..33(桥底到屋脊 14)×z128..131(桥深 4)——精确=beyond.gate-south 域');
+  const spy = k.spySet();
+  k.pf.footOf('town-gate', 76, 24, 128);
+  assert.strictEqual(spy.rec().length, 0, 'footOf 零写(纯查询)');
+  k.clear();
+  const box = k.pf.place('town-gate', 76, 24, 128);
+  assert.deepStrictEqual({...box}, {x1: 75, y1: 20, z1: 128, x2: 81, y2: 33, z2: 131},
+      'place 返回世界脚印盒=footOf 同参同盒');
+});
+
+test('town-gate 逐格: spec §2.3 部位全表——桥实心/侧柱/壁灯嵌柱/横梁/牌居中/配块/柱头/檐口/屋面/屋脊', () => {
+  const k = loadKit();
+  k.clear();
+  k.pf.place('town-gate', 76, 24, 128);
+  /* 基座桥: x76..80 × y20..24 × z128..131 全实心 13(spec §2.2 剖面实心,
+     防侧面看 1 格薄板悬空穿帮; 桥面 y24 与 core 草地同层) */
+  for (let x = 76; x <= 80; x++) {
+    for (let y = 20; y <= 24; y++) {
+      for (let z = 128; z <= 131; z++) {
+        assert.strictEqual(k.cell(x, y, z), 13, '桥体 13 石砖 @(' + x + ',' + y + ',' + z + ')');
+      }
+    }
+  }
+  /* z129 墙身平面逐行(spec §2.3): 行序 x76..80; y30 中段让空=v2 东带
+     「门额上方让空」同构 */
+  const PLANE = {
+    25: [13, 0, 0, 0, 13],
+    26: [13, 0, 0, 0, 13],
+    27: [19, 0, 0, 0, 19], /* 壁灯嵌柱替换该格 */
+    28: [13, 13, 13, 13, 13], /* 横梁(净空上缘)+柱 */
+    29: [13, 13, 80, 13, 13], /* 门额带: 牌居中 1 格+配块两翼 */
+    30: [17, 0, 0, 0, 17], /* 柱头石英+中段让空 */
+  };
+  for (const [y, row] of Object.entries(PLANE)) {
+    for (let i = 0; i < 5; i++) {
+      assert.strictEqual(k.cell(76 + i, Number(y), 129), row[i],
+          'z129 平面 y' + y + ' x' + (76 + i) + '=' + row[i]);
+    }
+  }
+  /* 檐口/屋面 x75..81 出挑一级, 屋脊 x76..80 收分不出挑(v2「脊不出」同构) */
+  for (let x = 75; x <= 81; x++) {
+    assert.strictEqual(k.cell(x, 31, 129), 17, '檐口 17 石英 @(' + x + ',31,129)');
+    assert.strictEqual(k.cell(x, 32, 129), 79, '屋面 79 陶橙瓦 @(' + x + ',32,129)');
+  }
+  for (let x = 76; x <= 80; x++) {
+    assert.strictEqual(k.cell(x, 33, 129), 79, '屋脊 79 陶橙瓦 @(' + x + ',33,129)');
+  }
+  /* 背面素面: 墙身只立 z129 一面(z130 侧除桥外零写, spec §2.2), 檐口出挑只在 x 向 */
+  assert.strictEqual(k.cell(78, 27, 130), 0, '背面 z130 素面 @(78,27,130) 空');
+  assert.strictEqual(k.cell(78, 29, 130), 0, '背面 z130 素面 @(78,29,130) 空');
+  assert.strictEqual(k.cell(78, 31, 130), 0, '檐口不出 z 向 @(78,31,130) 空');
+});
+
+test('town-gate 门洞净空禁填: x77..79 × y25..27 × z129 三面空气——3 格高穿行契约(禁填=终态空气)', () => {
+  const k = loadKit();
+  k.clear();
+  k.pf.place('town-gate', 76, 24, 128);
+  for (let x = 77; x <= 79; x++) {
+    for (let y = 25; y <= 27; y++) {
+      assert.strictEqual(k.cell(x, y, 129), 0, '净空空气 @(' + x + ',' + y + ',129)');
+    }
+  }
+});
+
+test('town-gate 越界守卫: 贴世界南缘桥跨出界静默裁剪不炸, 平面数组不回卷(z=0/1 列零污染)', () => {
+  const k = loadKit();
+  k.clear();
+  const box = k.pf.place('town-gate', 76, 24, k.D - 2);
+  assert.ok(box.x1 <= box.x2 && box.z1 <= box.z2, '盒坐标序合法(算术盒不因越界变形)');
+  assert.strictEqual(k.cell(78, 24, k.D - 2), 13, '界内桥面 @z=D-2 正常写');
+  assert.strictEqual(k.cell(78, 29, k.D - 1), 80, '界内墙身平面(dz1) @z=D-1 门额牌在');
+  /* 无守卫时平面数组回卷位: z=D → y+1 层 z=0 列, z=D+1 → y+1 层 z=1 列 */
+  for (let y = 20; y <= 24; y++) {
+    assert.strictEqual(k.cell(78, y + 1, 0), 0, '回卷位 (78,' + (y + 1) + ',0) 零写入');
+    assert.strictEqual(k.cell(78, y + 1, 1), 0, '回卷位 (78,' + (y + 1) + ',1) 零写入');
+  }
 });

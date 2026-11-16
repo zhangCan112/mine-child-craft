@@ -278,12 +278,13 @@ function pfMerge(row, id, v) {
 
 /* 行表(清单唯一权威, kit 自持): 行字段 facing0(现朝向)/defaults(变种缺省
    面, 键集=合法 v 键)/require(必传轴)/foot(脚印模板, 形常数纯算术投影)/
-   kernel(几何内核)。十五行: stilt-hut(P0 高脚木屋对)/under-room/mound
+   kernel(几何内核)。十七行: stilt-hut(P0 高脚木屋对)/under-room/mound
    (P1 地下宝箱室与巢穴丘)/tower-belfry(T-PREFAB-01 钟塔)/shop-awning
    (T-PREFAB-02 店身+前廊遮檐铺面)/stash-hut(T-PREFAB-03 秘密储藏小屋)/
    windmill-tower(T-PREFAB-04 风车塔)/cottage-gable(T-PREFAB-05 民居 A)/
    house-loft(T-PREFAB-06 民居 B 双层挑窗/错顶形)/stall-canopy(T-PREFAB-07
-   市集摊位), 按形命名不按图命名; TIDEA 波次一增五小件(TIDEA-04 稻草人/
+   市集摊位)/iron-golem(PO 亲需③全身立像)/town-gate(T1a ②镇侧门楼),
+   按形命名不按图命名; TIDEA 波次一增五小件(TIDEA-04 稻草人/
    TIDEA-08 晾衣绳·柴堆·鸡窝(窗台花箱走 assembly windowbox kind 单源
    不建行)/TIDEA-10 高跳板与小水池=§4.8 board-pool 契约实装, PO 批
    「动骨架-轻」)——全静态陈设, 零行为接线零波次二预设(town-npc* 零触) */
@@ -1639,6 +1640,74 @@ const PF_ROWS = {
         }
       }
       return {x1, y1: y, z1, x2, y2: y + 17, z2}; /* 颅顶 dy17 */
+    },
+  },
+
+  /* ②镇侧门楼(town-gate, T1a, spec §2.2/§2.3 定稿+§2.6 蓝图 brief):
+     回程动线 main-south 南端的对称门楼, 形制与 v2 东带门楼(advEdgeEastSign)
+     同款语言(石砌城楼+门额镇徽牌+白檐陶瓦坡顶+壁灯双嵌, 总高 groundY+9),
+     定稿差异两处: 门洞净空 2→3 格(x77..79 × y25..27)+门额牌 2→1 格居中
+     (x78)。素坯直排路径(无桩脚/屋顶变种需求, clothesline/woodpile 同构):
+     kernel 局部系逐格 put, 键面=face+ids 两轴, 无 spin/mirror; face
+     north=牌面朝北语义行 facing0(恒等序 0=直写代码同构)。基座桥垫层
+     y20..24 在蓝图内直排(spec §2.6「piles:'slab' 语义或直接 cells」裁量,
+     桥面 dy0 与 core 草地同层, 剖面实心防侧面看薄板悬空穿帮); 门洞净空
+     与柱头中段让空 kernel 零笔(禁填=终态空气); 背面 z130 侧零写=素面
+     (spec §2.2, 灯块实心嵌柱两面透光)。footprint 7×14×4(檐口出挑
+     x75/x81, 桥深 z128..131, 桥底 y20 到屋脊 y33) */
+  'town-gate': {
+    facing0: 'north',
+    defaults: {
+      face: 'north',
+      ids: {base: 13, wall: 13, lamp: 19, sign: 80, capital: 17,
+        eave: 17, roofTile: 79},
+    },
+    kernel(e, x, y, z, orient, put) {
+      const ids = e.ids;
+      /* 基座桥: dx0..4 × dy-4..0 × dz0..3 全实心 13(spec §2.2 回程桥面
+         +门楼地基, 补过渡带虚空; 桥面 dy0 与 core 草地同层无缝) */
+      for (let dx = 0; dx <= 4; dx++) {
+        for (let dy = -4; dy <= 0; dy++) {
+          for (let dz = 0; dz <= 3; dz++) put(dx, dy, dz, ids.base);
+        }
+      }
+      /* z129 墙身平面(dz=1, spec §2.3 逐行): 净空 dx1..3 × dy1..3 与
+         柱头中段让空 dy6 dx1..3 零笔, 只写实心格 */
+      /* y25..26 门洞侧柱(石砌 5 高起两格) */
+      for (const dy of [1, 2]) {
+        put(0, dy, 1, ids.wall);
+        put(4, dy, 1, ids.wall);
+      }
+      put(0, 3, 1, ids.lamp); /* y27 壁灯嵌柱替换(light 15 两面透光) */
+      put(4, 3, 1, ids.lamp);
+      for (let dx = 0; dx <= 4; dx++) put(dx, 4, 1, ids.wall); /* y28 横梁 */
+      /* y29 门额带: 柱顶续+配块两翼+牌居中(S2 同图, 朝向渲染归 T1b) */
+      put(0, 5, 1, ids.wall);
+      put(1, 5, 1, ids.wall);
+      put(2, 5, 1, ids.sign);
+      put(3, 5, 1, ids.wall);
+      put(4, 5, 1, ids.wall);
+      put(0, 6, 1, ids.capital); /* y30 柱头石英收边(中段让空=v2 同构) */
+      put(4, 6, 1, ids.capital);
+      /* 檐口/屋面 y31..32: x75..81 出挑一级(dx-1..5, 只在 x 向不出 z 向) */
+      for (let dx = -1; dx <= 5; dx++) {
+        put(dx, 7, 1, ids.eave);
+        put(dx, 8, 1, ids.roofTile);
+      }
+      /* 屋脊 y33: x76..80 收分不出挑(v2「脊不出」同构, 阶梯坡顶收口) */
+      for (let dx = 0; dx <= 4; dx++) put(dx, 9, 1, ids.roofTile);
+    },
+    foot(e, x, y, z, orient) {
+      const xs = [-1, 5]; const zs = [0, 3]; /* 檐口出挑缘到桥南缘 */
+      let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
+      for (const dx of xs) {
+        for (const dz of zs) {
+          const o = orient(dx, dz);
+          x1 = Math.min(x1, x + o[0]); x2 = Math.max(x2, x + o[0]);
+          z1 = Math.min(z1, z + o[1]); z2 = Math.max(z2, z + o[1]);
+        }
+      }
+      return {x1, y1: y - 4, z1, x2, y2: y + 9, z2}; /* 桥底 dy-4 到屋脊 dy9 */
     },
   },
 };
