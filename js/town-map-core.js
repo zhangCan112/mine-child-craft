@@ -68,6 +68,25 @@ const TOWN_MAP = {
     {id: 'windmill', x: 56, y: 24, z: 47, face: 'north'},
     {id: 'farm', x: 71, y: 24, z: 58, face: 'north'},
     {id: 'market', x: 85, y: 24, z: 75, face: 'east'},
+    /* ---- T-NPC-10 站位锚升格: 14 行 npc: 锚并入布局权威(会师条件 2,
+        「锚点在册性」单源——交互条目 anchorId 必在本表在册)。行值与
+        js/town-npc-anchor-core.js TOWN_NPC_ANCHORS 站位逐行一致(静态锚
+        取首航点, G01 巡逻取 leg0; 双表并存一致性由对账测试锁, 本表只
+        收编不派生坐标); 升格只增不改, 既有七导览锚零漂移。 ---- */
+    {id: 'npc:v01', x: 79, y: 24, z: 94, face: 'south'},
+    {id: 'npc:v02', x: 69, y: 24, z: 57, face: 'north'},
+    {id: 'npc:v03', x: 91, y: 24, z: 85, face: 'west'},
+    {id: 'npc:v04', x: 76, y: 24, z: 69, face: 'north'},
+    {id: 'npc:v05', x: 90, y: 24, z: 68, face: 'south'},
+    {id: 'npc:v06', x: 87, y: 24, z: 76, face: 'east'},
+    {id: 'npc:v07', x: 103, y: 24, z: 79, face: 'west'},
+    {id: 'npc:v08', x: 83, y: 24, z: 76, face: 'east'},
+    {id: 'npc:v09', x: 83, y: 24, z: 59, face: 'north'},
+    {id: 'npc:v10', x: 84, y: 24, z: 86, face: 'south'},
+    {id: 'npc:g01', x: 66, y: 24, z: 66, face: 'east'},
+    {id: 'npc:a01', x: 72, y: 24, z: 60, face: 'south'},
+    {id: 'npc:a02', x: 45, y: 24, z: 76, face: 'north'},
+    {id: 'npc:a03', x: 73, y: 24, z: 92, face: 'south'},
   ],
   /* Prefab 实例清单(§4.2 映射): P0/P1 全入=七新行+under-room 复用
       (cache-cellar); board-pool 按 PO 2026-11-13 裁决推迟不列, mound

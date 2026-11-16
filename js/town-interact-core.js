@@ -8,8 +8,10 @@
    interface: TOWN_UI_EVENTS(冻结事件名表: targetFocus/targetUpdate/
       interactFocus/interactBlur) · TOWN_INTERACT_KINDS(冻结交互四类
       landmark|npc|prop|task) · TOWN_SESSION_KINDS(冻结会话五值
-      greet|tour|seek|help|care) · TOWN_INTERACTS(M8 默认注册清单九条:
-      六锚点条目 id 恒等 TOWN_MAP.anchors 锚 id + 三轻任务 task: 前缀) ·
+      greet|tour|seek|help|care) · TOWN_INTERACTS(M8 默认注册清单二十条:
+      六锚点条目 id 恒等 TOWN_MAP.anchors 锚 id + 三轻任务 task: 前缀 +
+      11 条 npc 条目(T-NPC-10 追加在册尾, V01~V10+G01, label/sessionKind
+      =注册表 TOWN_NPCS 定值, 动物零条目)) ·
       townInteractRegistry(list?) 纯函数(校验+快照: 坐标单源锚点/taskRef
       恒=id/拼写域抛错, 同参同输出零副作用) · townTargetOf(entry, snap)
       纯函数(消费最小面恰六键) · mkTownTargets({emit}) → {focus, found,
@@ -37,10 +39,15 @@ const TOWN_INTERACT_KINDS = Object.freeze(['landmark', 'npc', 'prop', 'task']);
 const TOWN_SESSION_KINDS = Object.freeze(['greet', 'tour', 'seek', 'help', 'care']);
 
 /* ---------- 交互锚点注册清单(M8 默认, map-design §8#8: 广场导览+2-3 个
-    观察-寻找-回应轻任务): 六锚点条目 id 恒等锚 id(目标 id 继承
-    TOWN_MAP.anchors 空间, 零第二命名规则), 三轻任务 id 用 task: 前缀
-    (任务与目标同一 id 空间); 坐标不在此拍板——registry 派生时单源取自
-    TOWN_MAP.anchors; spawn 出生锚非交互点不在册。 ---------- */
+    观察-寻找-回应轻任务; T-NPC-10 起 +11 条 npc 条目追加在册尾): 六锚点
+    条目 id 恒等锚 id(目标 id 继承 TOWN_MAP.anchors 空间, 零第二命名规
+    则), 三轻任务 id 用 task: 前缀(任务与目标同一 id 空间), npc 条目
+    id='npc:'+npcId 小写(镜像 task: 先例); 坐标不在此拍板——registry
+    派生时单源取自 TOWN_MAP.anchors; spawn 出生锚非交互点不在册。
+    npc 条目 label/sessionKind=注册表(js/town-npc-registry.js TOWN_NPCS)
+    定值——「派生不复制」由三表对账测试(npcId/anchorId/label 三向一致)
+    锁一致, 真值由 town-npc-registry.test.js 字面表另锁; 动物(A01~A03
+    纯氛围)零条目不进协议。 ---------- */
 const TOWN_INTERACTS = [
   {id: 'bell-tower', anchorId: 'bell-tower', kind: 'landmark', iconKey: 'belltower',
     label: '钟塔'},
@@ -56,6 +63,32 @@ const TOWN_INTERACTS = [
     label: '找面包', sessionKind: 'seek'},
   {id: 'task:visit-stash', anchorId: 'stash', kind: 'task', iconKey: 'stash',
     label: '探秘小屋', sessionKind: 'seek'},
+  /* ---- T-NPC-10 条目入册: 11 条 npc 条目追加在册尾(V01~V10+G01, 票面
+      §3 冻结六键形状 {id, anchorId, kind, iconKey, label, sessionKind}
+      不多不少; iconKey 按 2026-11-15 定稿(receipts/iconkey-decision.md
+      §三): 村民统一 'help'=💬 语义 affordance, G01 'care'=💗 关怀语义) ---- */
+  {id: 'npc:v01', anchorId: 'npc:v01', kind: 'npc', iconKey: 'help',
+    label: '阿面', sessionKind: 'greet'},
+  {id: 'npc:v02', anchorId: 'npc:v02', kind: 'npc', iconKey: 'help',
+    label: '麦芽', sessionKind: 'help'},
+  {id: 'npc:v03', anchorId: 'npc:v03', kind: 'npc', iconKey: 'help',
+    label: '石匠阿砌', sessionKind: 'help'},
+  {id: 'npc:v04', anchorId: 'npc:v04', kind: 'npc', iconKey: 'help',
+    label: '图图', sessionKind: 'tour'},
+  {id: 'npc:v05', anchorId: 'npc:v05', kind: 'npc', iconKey: 'help',
+    label: '铁匠炉火', sessionKind: 'help'},
+  {id: 'npc:v06', anchorId: 'npc:v06', kind: 'npc', iconKey: 'help',
+    label: '朵朵', sessionKind: 'seek'},
+  {id: 'npc:v07', anchorId: 'npc:v07', kind: 'npc', iconKey: 'help',
+    label: '小厨乐乐', sessionKind: 'greet'},
+  {id: 'npc:v08', anchorId: 'npc:v08', kind: 'npc', iconKey: 'help',
+    label: '钟叔', sessionKind: 'greet'},
+  {id: 'npc:v09', anchorId: 'npc:v09', kind: 'npc', iconKey: 'help',
+    label: '牧童豆豆', sessionKind: 'help'},
+  {id: 'npc:v10', anchorId: 'npc:v10', kind: 'npc', iconKey: 'help',
+    label: '跑跑妮妮', sessionKind: 'greet'},
+  {id: 'npc:g01', anchorId: 'npc:g01', kind: 'npc', iconKey: 'care',
+    label: '铁守护·阿稳', sessionKind: 'care'},
 ];
 
 /* ---------- 注册派生: 校验+快照(纯函数) ----------
