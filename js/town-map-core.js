@@ -46,7 +46,9 @@ const TOWN_MAP = {
      声明域, 三准入语义=缓冲带服务面/回程判据服务面/防坠功能件; 加段须先
      过判据票(docs/adr/0013-town-beyond-whitelist.md), 不收「散写越界」。 */
   beyond: [
-    {id: 'gate-south', x1: 75, z1: 128, x2: 81, z2: 131}, /* ②门楼+基座桥域(含檐口出挑 x75/x81) */
+    /* ②门楼+基座桥域(含檐口出挑 x75/x81; G3 四格案: 桥延伸段 z132..135
+       归同一件越界件域, ADR-0013 语义不变) */
+    {id: 'gate-south', x1: 75, z1: 128, x2: 81, z2: 135},
     {id: 'rim-south', x1: 32, z1: 128, x2: 127, z2: 128}, /* ③南缘墙线 z128 行(墙身+垫层, 开口段含于域) */
     {id: 'rim-west', x1: 31, z1: 32, x2: 31, z2: 128}, /* 西缘墙线(含北端接头柱 z32..33 与南角) */
     {id: 'rim-east', x1: 128, z1: 32, x2: 128, z2: 128}, /* 东缘墙线(同上) */
@@ -616,9 +618,11 @@ function townBuildSteps() {
    ② 门楼: prefab town-gate 行锚(单源)+保护域政策偏移全盒——楼段
      dy+1..+9 全宽含檐口出挑 dx-1..+5 / 桥段 dy-4..0 桥体宽 dx0..+4
      (出处=prefab-kit town-gate foot/kernel + town-side-gate-and-edge-fence-spec §2.2/§2.6
-     + 架构方案 §3.3 表); 门洞净空 gx+1..+3×gy+1..+3×gz+1 排除(穿行
-     契约, 建场同式禁填)。政策偏移是几何的第二份表述——漂移由同名单测
-     ⑧c footOf 逐格对拍锁死(prefab-kit foot 若变, 对拍红=强制同步)。 */
+     + 架构方案 §3.3 表); z 域: 总盒 gz..gz+7, 楼段限 gz..gz+3——G3 四格案
+     (桥延伸补丁, 扩域过票=ADR-0018 决策 2 沿革注): 桥延伸段 z132..135 归
+     桥段域, 延伸段上方无楼, 楼段域不随桥扩; 门洞净空 gx+1..+3×gy+1..+3×gz+1
+     排除(穿行契约, 建场同式禁填)。政策偏移是几何的第二份表述——漂移由
+     同名单测 ⑧c footOf 逐格对拍锁死(prefab-kit foot 若变, 对拍红=强制同步)。 */
 function townProtectedAt(x, y, z) {
   /* ① 墙圈: 白名单 part seg 盒内即保(seg 自带 y1..y2, 逐段精确) */
   const rim = TOWN_MAP.ground.find((e) => e.kind === 'town-rim');
@@ -629,16 +633,19 @@ function townProtectedAt(x, y, z) {
           y >= s.y1 && y <= s.y2) return true;
     }
   }
-  /* ② 门楼: 盒界裁剪(=footOf 同参盒 x±(-1..+5)/y-4..+9/z0..+3, 对拍锁) */
+  /* ② 门楼: 盒界裁剪(=footOf 同参盒 x±(-1..+5)/y-4..+9/z0..+7, 对拍锁;
+     G3 四格案: 总盒 z 上界 +3→+7 吃桥延伸段 z132..135) */
   const g = TOWN_MAP.prefab.find((p) => p.id === 'town-gate');
   if (!g) return false;
   if (x < g.x - 1 || x > g.x + 5 || y < g.y - 4 || y > g.y + 9 ||
-      z < g.z || z > g.z + 3) return false;
+      z < g.z || z > g.z + 7) return false;
   /* 门洞净空(穿行契约——挖/放/炸三缝同口径, home 门楼先例对称) */
   if (x >= g.x + 1 && x <= g.x + 3 && y >= g.y + 1 && y <= g.y + 3 &&
       z === g.z + 1) return false;
-  /* 楼段(y ≥ gy+1, 上界已由盒界保证)∪ 桥段(y ≤ gy 且桥体宽 gx..gx+4) */
-  return y >= g.y + 1 || (y <= g.y && x >= g.x && x <= g.x + 4);
+  /* 楼段(y ≥ gy+1 且 z ≤ gz+3——G3 四格案: 延伸段上方 z132..135 无楼,
+     楼段域不随桥扩)∪ 桥段(y ≤ gy 且桥体宽 gx..gx+4, z 域吃总盒) */
+  return (y >= g.y + 1 && z <= g.z + 3) ||
+      (y <= g.y && x >= g.x && x <= g.x + 4);
 }
 
 /* Node require 域导出守卫(浏览器域零影响——经典 script 词法共享不需要它):

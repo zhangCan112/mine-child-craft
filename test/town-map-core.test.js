@@ -118,7 +118,7 @@ test('beyond 自检: 五段显式闭域一次立全 · ⊆ 世界界 · 贴界�
     assert.deepStrictEqual([b.x1, b.z1, b.x2, b.z2], [x1, z1, x2, z2],
         '段「' + id + '」坐标(闭域)=' + JSON.stringify([x1, z1, x2, z2]));
   };
-  pin('gate-south', 75, 128, 81, 131); /* ②门楼+基座桥域(含檐口出挑 x75/x81) */
+  pin('gate-south', 75, 128, 81, 135); /* ②门楼+基座桥域(含檐口出挑 x75/x81; G3 四格案: 桥延伸段 z132..135 归同一件越界件域, ADR-0013 语义不变) */
   pin('rim-south', 32, 128, 127, 128); /* ③南缘墙线 z128 行(开口段含于域) */
   pin('rim-west', 31, 32, 31, 128); /* 西缘墙线(含接头柱 z32..33 与南角) */
   pin('rim-east', 128, 32, 128, 128); /* 东缘墙线(同上, 闭南角) */
@@ -152,6 +152,7 @@ test('beyond 判据面: inCoreOrBeyond 单份判据(core∪beyond 闭盒 ⊆ 语
   /* beyond 五段逐段采样(几何未落时现判据拒绝=红; beyond 段落地后转绿):
      断言只依赖 TOWN_MAP.beyond 本体, 不依赖消费方几何(T1a/T2 未上) */
   assert.ok(inCoreOrBeyond(t, box(76, 129, 80, 131)), '门楼缓冲带样本放行(gate-south)');
+  assert.ok(inCoreOrBeyond(t, box(78, 132, 78, 135)), '门楼桥延伸段样本放行(gate-south G3 扩域 z132..135)');
   assert.ok(inCoreOrBeyond(t, box(32, 128, 127, 128)), '南缘墙线样本放行(rim-south)');
   assert.ok(inCoreOrBeyond(t, box(31, 100, 31, 100)), '西缘墙线样本放行(rim-west)');
   assert.ok(inCoreOrBeyond(t, box(128, 64, 128, 64)), '东缘墙线样本放行(rim-east)');
@@ -282,9 +283,10 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
     /* PO 亲需③铁傀儡全身像(footOf 实测: 基座/肩 9 宽×背 dz-2 到鼻凸
        dz+1 → 面向跨 4×9, 高 18) */
     'iron-golem': {min: 4, max: 9, y: [18, 18]},
-    /* ②镇侧门楼(T1a, footOf 实测: 檐口出挑 x75..81 宽 7 × 桥深 z128..131
-       4 × 桥底 y20 到屋脊 y33 高 14——恒等 north 单形制无旋转变体) */
-    'town-gate': {min: 4, max: 7, y: [14, 14]},
+    /* ②镇侧门楼(T1a, footOf 实测: 檐口出挑 x75..81 宽 7 × 桥深 z128..135
+       8(G3 四格案: z132..135 跨线延伸段) × 桥底 y20 到屋脊 y33 高 14——
+       恒等 north 单形制无旋转变体) */
+    'town-gate': {min: 4, max: 8, y: [14, 14]},
   };
   for (const p of t.prefab) {
     const v = Object.assign({}, p.v, {face: p.face}); /* face 并入 v = 装配形 */
@@ -335,19 +337,21 @@ test('脚印合法: footOf 同参不炸 · 盒 ⊆ 核心区与世界 · 体量�
         sb.z2 <= t.plaza.z2, '摊位 ⊆ 广场(沿边缘成组, 不出广场)');
   }
   /* town-gate 精确盒(T1a 门楼专项前置): 脚印=几何权威 footOf 的恒等 north
-     投影, 精确=beyond.gate-south 域(x75..81 × z128..131) */
+     投影, 精确=beyond.gate-south 域(x75..81 × z128..135, G3 扩域同 track) */
   const gate = t.prefab.find((p) => p.id === 'town-gate');
   assert.ok(gate, 'town-gate 行在册(T1a 落行后转绿; 红态=行未加)');
   const gateBox = c.PrefabKit.footOf(gate.id, gate.x, gate.y, gate.z,
       Object.assign({}, gate.v, {face: gate.face}));
-  assert.deepStrictEqual({...gateBox}, {x1: 75, y1: 20, z1: 128, x2: 81, y2: 33, z2: 131},
-      'town-gate 脚印精确盒(檐口出挑 x75/x81 · 桥垫层 y20..24 · 总高 y33)');
+  assert.deepStrictEqual({...gateBox}, {x1: 75, y1: 20, z1: 128, x2: 81, y2: 33, z2: 135},
+      'town-gate 脚印精确盒(檐口出挑 x75/x81 · 桥垫层 y20..24 · 总高 y33 · 桥深至 z135 G3)');
   const gateSeg = t.beyond.find((b) => b.id === 'gate-south');
   assert.ok(gateBox.x1 >= gateSeg.x1 && gateBox.x2 <= gateSeg.x2 &&
       gateBox.z1 >= gateSeg.z1 && gateBox.z2 <= gateSeg.z2,
   'town-gate 脚印 ⊆ beyond.gate-south(ADR-0013 白名单放行, 越界唯一通道)');
-  assert.ok(gateBox.z2 <= 131,
-      'town-gate 几何 z≤131 全在回程判据内侧(ADV_TOWN_RETURN_Z=132 之前, 判据行为面零改动前提)');
+  assert.strictEqual(gateBox.z2, 135,
+      'town-gate 最深笔 z135(G3 四格案沿革: 桥延伸段=回程路地面延伸跨回程触发线 z132 系' +
+      '有意设计——物理复验白闪窗步行 2.0/疾跑 3.4 格, 四格=全动作零坠感; 判据行为面零改动' +
+      '前提不变, ADV_TOWN_RETURN_Z=132 源码正则仍在位)');
 });
 
 /* ============ ⑥ 实例两两无交 ============ */
@@ -400,10 +404,11 @@ test('town-gate 门楼专项: z129 墙身平面逐行 · 净空 x77..79×y25..27
   assert.strictEqual(cell(77, 29, 129), 13, '门额配块 13 @(77,29,129)');
   assert.strictEqual(cell(78, 29, 129), 80, '门额牌 80 @(78,29,129)(居中 1 格, 贴图朝北归 T1b)');
   assert.strictEqual(cell(79, 29, 129), 13, '门额配块 13 @(79,29,129)');
-  /* 桥面 y24 与 core 草地同高(spec §2.2: 无缝衔接=同层) */
+  /* 桥面 y24 与 core 草地同高(spec §2.2: 无缝衔接=同层; G3 四格案: 延伸
+     段 z132..135 桥面同层连续——白闪全程脚踏实地) */
   assert.strictEqual(t.core.groundY, 24, 'core 草地层 y24(同高语义锚)');
   for (let x = 76; x <= 80; x++) {
-    for (let z = 128; z <= 131; z++) {
+    for (let z = 128; z <= 135; z++) {
       assert.strictEqual(cell(x, 24, z), 13, '桥面 13 @(' + x + ',24,' + z + ')');
     }
   }
@@ -679,9 +684,13 @@ test('U4 判据: townProtectedAt 出口在位 · 在保采样(墙身/垫层/接�
     [76, 25, 129, '门柱'], [80, 25, 129, '门柱'], [76, 27, 129, '壁灯格'],
     [78, 28, 129, '横梁'], [78, 29, 129, '门额牌'], [76, 30, 129, '柱头'],
     [75, 31, 129, '檐口出挑'], [81, 32, 130, '檐口出挑背面'], [78, 33, 129, '屋脊'],
-    [78, 22, 129, '桥身'], [78, 24, 130, '桥面'], [76, 20, 131, '桥底']]) {
+    [78, 22, 129, '桥身'], [78, 24, 130, '桥面'], [76, 20, 131, '桥底'],
+    [76, 22, 132, '桥身延伸西缘'], [78, 24, 133, '桥面延伸'], [78, 20, 135, '桥底延伸最深笔']]) {
     assert.ok(prot(x, y, z), '门楼全盒在保: ' + what + ' (' + x + ',' + y + ',' + z + ')');
   }
+  /* 不在保: 延伸段上方 y25+(G3 扩域只及桥段 y20..24, 楼段 z 域不随桥扩
+     ——z132..135 无楼, 防判据楼段域虚扩的对称守卫) */
+  assert.ok(!prot(78, 25, 133), '延伸段上方楼段域外不在保(78,25,133)');
   /* 不在保: 门洞净空 x77..79×y25..27×z129(穿行契约——挖/放/炸三缝同口径,
      home 门楼「门洞净空不加分支恒 false」先例对称) */
   for (const [x, y] of [[77, 25], [78, 26], [79, 27]]) {
@@ -751,8 +760,11 @@ test('U4 同源互证: 白名单 part segs 全格 ⊆ 判据 · cap 全格不在
           skipped++; /* 白名单 seg 格: 判据值归 segs 循环管(在保 true), 不在对拍域 */
           continue;
         }
-        const tower = y >= g.y + 1 && y <= g.y + 9; /* 楼段 y25..33(全宽含出挑) */
-        const bridge = y <= g.y && x >= g.x && x <= g.x + 4; /* 桥段 y20..24(桥体宽) */
+        /* 楼段政策域 z+0..3(G3 四格案后显式化: 楼段几何立 z129 平面+檐背,
+           延伸段 z132..135 上方无楼——楼段域不随桥扩, 与 townProtectedAt
+           头注②及 :691 对称守卫同口径) */
+        const tower = y >= g.y + 1 && y <= g.y + 9 && z <= g.z + 3;
+        const bridge = y <= g.y && x >= g.x && x <= g.x + 4; /* 桥段 y20..24(桥体宽, z 吃总盒 G3 扩域) */
         const clear = x >= g.x + 1 && x <= g.x + 3 &&
             y >= g.y + 1 && y <= g.y + 3 && z === g.z + 1; /* 门洞净空 */
         assert.strictEqual(prot(x, y, z), (tower || bridge) && !clear,

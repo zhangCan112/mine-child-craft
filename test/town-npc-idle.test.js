@@ -697,9 +697,16 @@ test('案卷③ ④ 引擎共享面零触碰: mobs/mob-look-kit/mob-look/* 源�
 
 test('案卷③ ④ adventure 源切片: idle tick 挂点在锚点消费机后 + tick 体零 Mobs/零墙钟零随机', () => {
   const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
-  const atAnchor = src.indexOf('advTownAnchorTick();');
-  const atIdle = src.indexOf('advTownNpcIdleTick(dt);');
-  assert.ok(atAnchor >= 0, 'advTownAnchorTick 挂点在位(基线)');
+  /* T-NPC-13 断点注记② 修订: 定位收进 update 段内+实参形态兼容(推进者上链后
+     生产路径 advTownAnchorTick(legById) 供数, 零参字面消失; 钉的意图=消费机
+     挂点在 update 链内且先于 idle——段内定位对零参/带参皆稳, 意图不变)。 */
+  const atUpdate = src.indexOf('update(dt) {\n    advStore.tick();');
+  const atNext = src.indexOf('onMouse(button, hit)');
+  const atAnchor = src.indexOf('advTownAnchorTick(', atUpdate);
+  const atIdle = src.indexOf('advTownNpcIdleTick(dt);', atUpdate);
+  assert.ok(atUpdate > 0 && atNext > atUpdate, 'update 段可定位(段锚=advStore.tick() 首行)');
+  assert.ok(atAnchor > atUpdate && atAnchor < atNext,
+      'advTownAnchorTick 挂点在 update 段内(基线; T-NPC-13 起带 legById 实参供数)');
   assert.ok(atIdle > atAnchor,
       'advTownNpcIdleTick(dt) 挂 update 链且在锚点消费机后(同位同节拍, 案卷③红本体)');
   /* tick 函数体切片: 顶格 '}' 收界(K&R+2 空格缩进, 内层闭界必缩进) */

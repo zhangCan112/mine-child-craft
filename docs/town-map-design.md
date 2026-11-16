@@ -165,7 +165,7 @@ flowchart TB
 
 ### 5.2 昼夜与光照
 
-- **默认主态（推荐）**：**【建议为游戏性调整】** 固定明亮白天/午后暖阳；高亮低阴影，材质色板按 buildings spec §4 暖亮低威胁执行。（**2026-11-13 PO 变更注记**：固定明亮白天已由机制承接——town 维度行 `dayCycle:false`（冻结 dayTime）+ 暖亮天穹四参；日月/云随 `dayCycle:false` 隐藏系引擎口径，见 §6.3.3/§6.3.4。）
+- **默认主态（推荐）**：**【建议为游戏性调整】** 白日=午后暖阳（高亮低阴影，材质色板按 buildings spec §4 暖亮低威胁执行），**随世界钟昼夜推进**。（**2026-11-13 PO 变更注记 → 2026-11-16 再变更**：原「固定明亮白天恒白天」拍板已被 [ADR-0012](adr/0012-town-day-cycle-unfreeze.md) 解冻取代（PO 亲裁③）——town 维度行 `dayCycle:true`（时间随全局 dayTime 单钟推进）+ 暖亮天穹四参经 `setSkyBase` 落白日端点；夜侧=Daylight 折线自带月光蓝，日月/云随昼夜显隐；见 §6.3.3/§6.3.4。）
 - **夜晚可选态**：**【待 PO 确认】** 若保留夜晚，仅柔和暖光点（参考 buildings spec `#FFD89A`），低密度、无闪烁惊吓；**不出现**怪物、警报、阴森暗紫黑主色、火把烟雾或危险光效。
 - **禁止观感**：战损、血迹、焦痕、尖刺、铁笼压迫感、真实熔岩流/火焰威胁（Lava Chicken 仅暖橙装饰光意象，见 buildings spec §8）。
 
@@ -295,9 +295,9 @@ flowchart TB
   |---|---|---|
   | id | `'town'` | 桶键/炉键/BGM 判定（≠'overworld'） |
   | build | 闭包=现有城镇装配件链：`townAssemblyOps(townBuildSteps())` 逐 op 经 `townConsumeOp` 执行（现 `townBuild()` 本体，js/modes/town.js:114-120） | 建场直写不记账（维度建场互锁红线，nether/den 同款）；装配件 salvage 落点（迁 dims-core 维度段 / 留原文件闭包消费）由 architect 裁 |
-  | sky | 暖亮白天四参（color/fogNear/fogFar/sunI 具体值随实施按 buildings visual spec §4 暖亮低阴影色板定，视觉参数域） | 「固定明亮白天」的观感由天穹四参承担（见下 dayCycle 行引擎语义） |
+  | sky | 暖亮白天四参（定稿 color `0xa8cbe0`/fogNear `75`/fogFar `200`/sunI `0.92`，revamp-spec §3-F 四档试拍定稿，视觉参数域） | color **经 `setSkyBase` 落白日端点**（循环维度的行色走天基色缝，否则每 50 tick 被 applyDaylight 覆写回主世界端点，ADR-0012 决策 1）；fogNear/fogFar 75/200 **不变**（advApplySky 私产直写，applyDaylight 无雾距写点）；sunI 0.92 降为**首帧初值**（循环接管后基底=applyDaylight 硬编码 0.75，P1 拍板）；夜侧端点=Daylight 折线自带月光蓝，**无新行字段** |
   | mood | `'calm'`（沿用旧模式注册表行 mood 键，js/mode-registry.js:32） | AudioRegistry 域；若现库无 calm 曲目，补曲归音频资产线（残留已登记） |
-  | dayCycle | `false` | **固定明亮白天**=dayTime 冻结（本文 §5.2/M3 拍板口径）。引擎语义注意：`dayCycle:false`=时间冻结+天体/云隐藏+基底亮光（world.js applyDaylight tick0 白天观感+uSkyFloor 满档，js/world.js:174-207），nether/den 的「恒夜」观感来自它们行上的暗 sky 参——**不是 dayCycle 字段本身**；town 暖亮 sky 参 + dayCycle:false 即恒白天，零机制扩展 |
+  | dayCycle | `true` | **随世界钟昼夜**（ADR-0012 决策 1 解冻，2026-11-16 PO 亲裁③推翻本表原 `false` 恒白天口径）：时间随全局 dayTime 单钟推进+天体/云解隐+uDim/uSkyFloor 真实调暗；白日端点经 setSkyBase 落行色，夜侧=Daylight 折线自带。引擎语义留档：`dayCycle:false`=时间冻结+天体/云隐藏+基底亮光（world.js applyDaylight tick0 白天观感+uSkyFloor 满档），nether/den 的「恒夜」观感来自它们行上的暗 sky 参——**不是 dayCycle 字段本身**；nether/den 恒停口径不变 |
   | spawn | `{x:79, y:25, z:112, yaw:0}`——派生自 TOWN_MAP.anchors spawn（js/town-map-core.js:47，y=groundY+1 站立面，face:'north'→yaw 0 按 townSpawnIntent/townYawOfFace 派生口径） | 落点+朝向对齐本文 §3 布局与 townSpawnIntent 语言：南主路上、**面北望广场、回望钟塔走廊**；加载期从结构常量派生（行不做坐标权威） |
   | hud | `{banner:'🏘️ 小镇 · Midport Village', showMobs:false}` | showMobs:false 隐怪物行（无怪口径的观感面，nether 先例 D10）；横幅文案终稿归 ui-designer |
   | assets | `null` | 副本素材预留缝不启用（GLOSSARY「副本素材」占坑纪律，勿提前填实） |
@@ -333,8 +333,13 @@ PO 要求「小镇氛围受控（怪刷不进来）」。口径：**维度门禁
   实体不跨场），town build 无任何怪播种 → **镇内恒无怪**。
 - 施工自查项（架构需求一句话）：工程线施工时逐池复核判据是**维度判据**而非
   advMap 判据（现网实证均为维度门禁；若发现例外以维度判据收口）。
-- 昼夜配合：dayCycle:false 冻结 dayTime → 镇内无入夜时刻；dayTime 是全局单钟，
-  镇内时间冻结不推进主世界昼夜（回 home 恢复昼夜照转，js/modes/adventure.js:2376）。
+- 昼夜配合：dayCycle:true 随世界钟昼夜（ADR-0012 解冻）→ dayTime 是全局单钟，
+  镇内时间照推主世界昼夜——进镇 advSetDim 循环行四步切界序接上昼夜链（行色经
+  setSkyBase 落白日端点 → advApplySky 雾距/首帧初值 → dayCycleOn=true → applyDaylight
+  一拍，白闪遮罩内首帧即正确；天体/云/材质暗档冻结遗留态随链复活自然消解）；
+  回 home 既有链恢复昼夜照转，端点自动复位零残留（advApplyMapPalette/advMapRowCleanup
+  承担）。离镇可能已入夜=既有 home 夜怪机制（ADR-0012 决策 3 知会项 P6，首版不做
+  「出镇保温」）；**镇内恒无怪维持**——门禁是维度判据非光照判据（上文门禁链零牵动）。
 - HUD 观感面：`hud.showMobs:false` 隐怪物行（§6.3.3 行规格），与「无怪」互为表里
   （机制无怪=因，行参隐行=观感果）。
 
@@ -381,6 +386,7 @@ PO 要求「小镇氛围受控（怪刷不进来）」。口径：**维度门禁
 | 1 | 「east 恒无传送语义（东向是栅栏小镇收尾）」+ _Avoid_「东向加传送」 | js/adventure-maps-core.js:511 · js/adventure-core.js:836 · GLOSSARY「边缘传送」词条 | **被取代**：east 获得主路尽头带式触发线（§6.3.1）；GLOSSARY 该词条表述待实现落地时随新缝一并改写（本文只登记，不提前改词条防名实不符—— TownMode 词条已有变更注记） |
 | 2 | 「小镇本体 out of scope（未来独立努力；本次只做东向观感收尾）」 | docs/world-edge-map.md:56（拍板 4） | **被取代**：小镇本体经本缝接入冒险模式；该文档已加取代注记（2026-11-13） |
 | 3 | ADR-0009 城镇独立模式（MODE_REGISTRY 卡+js/modes/town.js 模式缝；决策 1「不向 ADV_DIMS 新增城镇维度行」） | docs/adr/0009-town-standalone-mode.md | **停用待取代**：新 ADR（town 维度行+到达面扩展+撤卡三件套）由 architect 出；旧缝工件不回滚，salvage 归 architect（T-MAP-01..04 蓝图与 core 工件保留，urgent note 明文） |
+| 4 | ADR-0011 决策 1 town 行恒白天（`dayCycle:false` 冻结 dayTime，本文 §5.2 主态/§6.3.3 行规格/§6.3.4 昼夜配合同拍） | docs/adr/0011-town-dimension-seam-and-entry-transit.md 决策 1 · 本文 §5.2/§6.3.3/§6.3.4 | **被取代**：[ADR-0012](adr/0012-town-day-cycle-unfreeze.md) 镇昼夜解冻（2026-11-16 PO 亲裁③推翻恒白天——`dayCycle:true`+行色经 setSkyBase 改道白日端点+advSetDim 循环行四步切界序）；本文三处与 GLOSSARY「小镇维度」词条已随 T-NPC-14 同票改写（两改同收口不拆期） |
 
 ## 7. 【电影原样】与【建议为游戏性调整】对照
 

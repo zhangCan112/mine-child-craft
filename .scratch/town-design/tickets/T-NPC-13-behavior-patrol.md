@@ -180,3 +180,76 @@ PO 已批的是**改善诉求**；动画选型与移动方式是产品裁决，�
 3. 「HUD 指到站锚、本体在路上」若拍板 a2，此口径写入票面施工记录并在测试注释固化（6 岁可读性论证：标记稳定不抖=裁决三原论证）。
 4. 头顶锚高度（anchorHeight）与本票位姿更新正交，勿顺手改（V 系 2.0/G01 2.7 票面权威字面）。
 5. 本票不涉 iconkey-decision.md（已回退主仓正本 @3c89723）；两份 RELAY-JOIN-REQUEST.md 残片非规范工件，勿引用。
+
+## 11. 施工记录（红方红相，2026-11-16，红方 ses_e1ca94ba8ffe4r1zOXXSPVLDFM）
+
+> 施工分支 `t-npc-13-patrol`（自 a30f7f6 开设；分支上另有异线随车 commit 00b701a=需求线簿记 ADR-0012+T-NPC-14 立票+台账行，非本线产出，本线不触碰、原样保留）。
+> 拍板口径（DECISION-RELAY PO 终拍）：**a2 航点间匀速滑行 + b1 动画面收窄为「走摆」**（idle 面已由 po-idle-fix 先行落地，本票勿重做）；**c2 日程面已拆 T-NPC-14 昼夜解冻票**（时钟机制连锁裁决随该票，本票零涉）；d 面同 po-idle-fix 先行落地。本节只登记红相；绿相施工记录由绿方随完工回执回填。
+
+### 11.1 红相落盘清单（§4.2 文件域逐项对账）
+
+| 文件 | 动作 | 内容 |
+|---|---|---|
+| `test/town-npc-behavior-core.test.js` | 新（15 测） | 推进者核心可执行规格：导出面恰五名+参数表六键字面锁/状态机边界（起步·到站·过冲单过渡·闭环回归）/位姿线性插值/朝向最短弧过渡/legById 键域与序列/纯度（入参零突变+step 恒新对象）/dt 边界（零步恒等·非有限回落·确定性重放）/走摆相位幅度/源文本卫生（零 THREE·DOM·墙钟·随机·定时器） |
+| `test/adventure-mode.test.js` | 改（+8 测+装具扩装+1 钉修订） | ①装具：behavior-core 入 eng 链（镜像 index.html：anchor-core→behavior-core→registry）+红期容差双门（existsSync+四函数全名 typeof，bridgeIdleFns 同款口径）；②T-NPC-12 接线钉修订（注记②授权）：升级为「`advTownAnchorTick(带实参)` 供数契约」（零参字面随推进者上链退役）；③新 T-NPC-13 节 8 测：挂点在位+advTownState 恰三键扩形/推进者+位姿木头桩红本体（35s 到站 wp1+leg 0→1+V01 零扰动）/位姿跟随+快照=实位+零写 y/走摆+flower·hip 零触碰+停驻零写四肢/到站事件节奏守门（裁决三：首拍对齐一跳+每腿恰一跳+腿中零事件+anchor 恒精确航点值）/离镇清账+place·leave 源切片/全链端到端真 update 泵/接线钉四站序 |
+| `test/town-npc-idle.test.js` | 改（钉修订，注记②明示授权） | 案卷③④源切片钉：零参字面定位改 update 段内定位+实参形态兼容（钉的意图不变=消费机挂点在 update 链内且先于 idle；今绿、绿后仍绿） |
+| `test/conventions.test.js` | 改（gate 扩列，§4.2 已列） | 镇民链装载序 gate CHAIN 扩 behavior-core（anchor-core 后、registry 前；数据跟随，§2.1 登记先例）；现红=漏挂归因 |
+| `test/boot.test.js` | 改（**偏离登记**，§4.2 域外） | townFiles 18→19 + 链上符号清单 +townPatrolState——与 gate CHAIN 是同链两份枚举，随动防漂移（T-NPC-10 备忘③「boot 冒烟自动覆盖」的清单面兑现；理由同 gate 行「数据跟随，非新约定」） |
+| 本票面 | 改 | 本节（§11） |
+
+偏离登记汇总（均基线域外）：`test/town-npc-idle.test.js`（注记②两钉修订授权，其一）· `test/boot.test.js`（数据跟随第二份枚举）。GLOSSARY 本阶段零动作（§4.4 立票口径维持，词条随绿相实现定形后评估）。
+
+### 11.2 红基线自证（全量）
+
+`npm test` 全量（日志 `.scratch/t13-red-full.log` 不入库）：**2292 测 / 2265 过 / 26 红 / 1 skip**（施工前绿底 2269/2268/0/1 核实在案；+15 core +8 adventure 新测）。26 红归因零杂散：
+
+- `town-npc-behavior-core.test.js` 15 红（模块缺席守卫，红因归各测首断言，零装具炸）；
+- `adventure-mode.test.js` 9 红（8 新测 + 1 修订钉@:5378「带实参供数契约」）；
+- `conventions.test.js` 1 红@:214（index.html 漏挂 behavior-core）；
+- `boot.test.js` 1 红@:276（boot 扫描清单漏 behavior-core）。
+
+分片自证轨迹：core 首验文件级装载炸（dims-core 装载期消费 TOWN_MAP）→循 `test/town-npc.test.js:197` 链序补齐后归位 15/15 断言红；idle 钉修订 19/19 绿（中性）；conventions 13 测 12 过 1 红；boot 10 测 9 过 1 红；adventure 245 测 236 过 9 红（既有面零扰动实证）。
+
+### 11.3 红方裁决记录（§5.1「签名细节红方裁」授权，随票面归档；绿方签名与行为以下列为准）
+
+1. **core 导出面恰五名**：`TOWN_NPC_PATROL`（参数表）/`townPatrolState`/`townPatrolStep`/`townPatrolPose`/`townPatrolLegById`。§5.1 建议形状「step(state,dt)→{legById,...}」收窄为状态机式（step 恒返新对象、入参零突变）+legById 独立导出（消费机逐帧取账直用，免拆包）。
+2. **推进者=纯时间状态机**：到站判定=t 计时沿；锚点身份判定单源留在消费机 anchorChanged（T-NPC-12 零改动）——不复制重发判定（判据单份红线）。§5.1「到站判定复用 anchorChanged 数据基础」落为：航点读取经 anchorOf 单源，身份判定不复制。
+3. **state 平键恰七**：`{anchorId,leg,t,phase,dwellT,yaw,yawFrom}`——leg=当前腿出发航点索引；phase∈'dwell'|'walk'；t=腿内进度 0..1；yaw=最近朝向；yawFrom=起步朝向（过渡插值起点）。
+4. **pose 恰七键**：`{x,z,yaw,moving,progress,swingPhase,walkPose}`——零 y 键（y 通道归 idle 呼吸，装配层零写）；walkPose 恰六键同 idle 形，floatY 恒 0。
+5. **legById 语义=「HUD 下一站」**（拍板回执原话口径）：`(leg+1)%n`——行走中标记=到站锚（本体在路上），停驻中=下一站；停驻→行走跨界恒值（离站零跳变），仅到站帧变值；键域恰巡逻锚（静态 13 锚不进表=零扰动零事件的数据前提）。§10-3 口径已固化进测试注释。
+6. **参数表六键初值**（PO 后验可调，§3.2）：LEG_T=26（26 格≈1 格/秒慢巡逻）/DWELL_T=3/TURN_T=1.2/SWING_HZ=0.9/WALK_ARM_AMP=0.55/WALK_LEG_AMP=0.7——依据 docs/town-villagers-design.md §5.3「慢速巡逻·停驻望广场·稍微有点动作」。
+7. **走摆复用 townNpcIdleApply 幂等面**（不开通用动画系统红线）：armL=+armSwing/armR=−armSwing/legL=+legSwing/legR=−legSwing（与 idle 同号约定=左臂右腿同相自然步态）；腿幅>臂幅；摆臂=sin(t·LEG_T·SWING_HZ·2π)·WALK_ARM_AMP。
+8. **朝向过渡**：行走前 TURN_T 秒 lerpAngle(yawFrom→townYawOfFace(行进 face)) 最短弧回绕，之后恒行进方向；到站 yaw=行进方向，停驻保持。townYawOfFace 单源 `js/adventure-dims-core.js:527`（north=0/south=π/west=π/2/east=−π/2），核心不桥第二份。
+9. **dt 边界**：大 dt 单过渡（到站不连跳两腿）+过冲钳制（进度归零无残留）；dt=0 恒等（新对象同值）；负/非有限 dt 回落零步零炸；同 dt 序列确定性重放。
+10. **未知锚 id 抛中文域错**（anchorOf 拼写域同款）。
+11. **apply 契约（消费机侧）**：恒写 root.x/z/yaw+快照同步（快照=实位，T-SEAM-04 一致性缝）；仅 moving 帧写四肢——停驻帧零写（idle 接管，通道分账）。
+12. **挂点扩形**：`advTownState()` 恰三键 `{targets,puppets,patrol}`（T-SEAM-04 先例扩形）；patrol 账行 `{id,anchorId,root,bones,state}`（root/bones 含 THREE 柄=非纯标量，advTownIdleState().parts 同口径）；place 建/leave 清与 puppets 同节拍。
+13. **绿方 update 链四站字面**（接线钉已锁，绿方照落勿改形）：`const advLegById = advTownPatrolTick(dt);` → `advTownAnchorTick(advLegById);` → `advTownNpcIdleTick(dt);` → `advTownPatrolApply();`。
+14. **core 挂载位序**：index.html 镇民链 anchor-core 之后、registry 之前（消费 anchor-core+dims-core，恒晚于依赖；gate CHAIN 与 boot 清单已按此扩列）。
+15. **红测稳健性策略**：精确值断言用单步大 dt（13/26=0.5 二进制精确零累积误差）；节奏测按「腿变帧集合=事件帧集合+首帧」断言，不钉具体帧号（0.5/26 累加浮点 ±1 帧漂移容忍）。
+
+### 11.4 绿相施工域指针（§4.2 域内，红测已全数钉形）
+
+`js/town-npc-behavior-core.js`（新，签名=§11.3-1/3/4，行为=同名单测逐条）· `js/modes/adventure.js`（接线四站+挂点扩形+place/leave 建清账）· `index.html`（挂载一行）——绿方照钉落实现，**不得改任何测试**；测试争议回红方裁决。
+
+### 11.5 绿相施工记录与红方裁决（2026-11-16，绿相收口）
+
+**绿相交付**（implement-engineer `ses_e1c730625ffelBI35oaR3NV7HP` 施工，中途撞平台限额一次，现场保全后续收口）：commit `0b01586`——三文件域恰边界（core 新 190 行 / adventure.js 接线+挂点+建清账 / index.html 挂载+链注释）；绿方首报 26 红转 24 + 2 红申报「测试侧缺件」待裁决，红方亲验裁决后全绿。
+
+**终值（红方亲验，非转抄）**：`npm test` 2292 测 / 2291 过 / **0 红** / 1 skip；`npm run lint` 三关零错；零漂移三证明（golden 逐字节不变、mob-look-kit 与 mob-look/ 零改动、协议四表+anchor 机零改形——全 diff 关键词扫描 sessionKind/townTargetOf/TOWN_UI_EVENTS/DIALOG_EVENTS/anchorChanged/ROUTE_BY_KIND 零触）；测试文件改动全部出自红方裁决（见下），绿方零改测试。
+
+**红方裁决记录（两条测试缺件，均裁决成立、测试由红方亲修，断言语义零改动）**：
+
+1. **木头桩测观测窗预算错（:5454）**：绿方实证——29s 到站 wp1（精确落 (92,66)）→32s 起步第二腿→35s 实态 walk leg1 z=69，而原测断言 35s 时 dwell@wp1。硬证明：与节奏测（:5539）互斥——节奏测约束停驻 D≈(120−29−78)/3≈4.33s<6s，原 :5454 字面要求 29+D>35 即 D>6s，参数表无解。**裁决**：原测预算错（只算首腿行程、漏算到站后停驻再起步），节奏测与参数表字面为准。修法=观测窗 35s→30s（停驻窗口 [29,32) 内），全部断言逐字不动。
+2. **位姿跟随测装具桥接缺件（:5475）**：绿方实证——mkIdleRow（:6748）依赖 idle 桥接纯面（townNpcIdlePhaseOffset 等），须先调 idleImplGuard()；文件内既有调用点（走摆测 :5507 及三处既有测）均先调 guard，唯本测漏调，红因实为 TypeError 装具炸而非断言红（红相归因失真，红方自认）。**裁决**：补 idleImplGuard() 一行（先例同款），断言零改动。
+
+**§11.3 落法注记（裁决随施工定形的微修订）**：裁决 8「核心不桥第二份 townYawOfFace」在装具现实下落为「同式源生」——adventure-mode 装具 eng 链不含 dims-core（townYawOfFace 不可达），核心内自铸同式纯函数，行为面由同名单测 15/15 以权威值（EAST=−π/2 等）锚定对照，单源语义不破（权威仍在 dims-core，核心副本仅装具可达性所限，测试锚定值防漂）。
+
+**绿方 lint 遗留与裁决修清账**：绿方自报 lint 零错与亲验不符（29 错：绿方 js 两文件 operator-linebreak×5 + 红方测试三文件卫生债×24——红相时未跑 lint 门所致）。处置：js 侧 eslint --fix 机械样式修（修后复跑全量证行为零漂）；测试侧红方亲修（P→pTbl 改名避 new-cap / optional catch binding 先例形 / deepStrictEqual 重排同构合法形 / 块注释挪行 / WP_ANCHORS 启用进断言（引用值=原字面逐键同）/ gate 标题拆行）。**教训登记**：红相收口即跑 lint 门，卫生债不过夜。
+
+**台账**：README T-NPC-13 行状态改「施工完成待评审」（评审/集成归上游，本岗边界止于红+绿同票交付）。
+
+### 11.6 评审修复项与本线外债附记（2026-11-16，评审「有条件通过」后收口）
+
+- **评审修复四条全兑现**（单条 commit）：①GLOSSARY 回写（新词条「镇民行为层核心（TownNpcBehaviorCore）」+ 一览 declared 68→69，interface 恰五名以 core 导出面实测为准，`_Avoid_` 四条按词条纪律；conventions GLOSSARY 确定性断言验平过）；②gate 扩列注释失准改真（「与维度段 townYawOfFace」→「同式自铸 patrolYawOfFace，语义锚定 dims-core 同式」，与本节注记及 core 头注对齐，零语句改动）；③advTownAnchorTick 体内头注「生产恒缺省 leg0」改真（生产现由 advLegById 每帧供数；同事实的 :3154 变量段块注释同批改真防半修矛盾，仅注释零语句）；④本条即 T11 附记。
+- **T11 间歇债附记（债责不归本票）**：收口核验发现 adventure-mode.test.js T11「沙漠图到拍」（:4766-4797）为既有间歇性测试（同树跨轮次 4 绿 1 红，本线 diff 未触铺怪路径——绿方与红方多轮全量运行均未见其红，评审轮撞红一例）。处置归独立小票/债册，后续轮次撞红勿误归因到本线改动。

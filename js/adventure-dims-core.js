@@ -721,7 +721,7 @@ const ADV_DIMS = [
     /* 大厅南侧开阔区, 面朝北; 坐标唯一权威在 ADV_DEN, 加载期派生 */
     hud: {banner: '🕳️ 苦力怕巢穴 · 深处', showMobs: true}, /* 恒暗不显时段行; 怪物行照显(副本有怪——波次观感) */
     assets: null}, /* 副本素材预留缝(null=走缺省方块集, GLOSSARY『副本素材』) */
-  {id: 'town', /* 小镇相位(docs/town-map-design.md §6.3.3, ADR 0011 决策 1) */
+  {id: 'town', /* 小镇相位(docs/town-map-design.md §6.3.3, ADR 0011 决策 1 · 昼夜解冻 ADR 0012) */
     build: () => {/* 建场直引本文件维度段 townBuild(T-SEAM-05 机械迁入, 懒引 seam 消失);
         建场直写不记账——互锁红线 */
       townBuild();
@@ -729,8 +729,11 @@ const ADV_DIMS = [
     sky: {color: 0xa8cbe0, fogNear: 75, fogFar: 200, sunI: 0.92}, /* 午后暖阳定稿(revamp-spec §3-F: 四档试拍 f0-f4, 档4越「亮而不白」界回退;
         天穹+雾同色单值通道——雾即奶油天际线, 软化远山; sunI 0.85→0.92 日光微升) */
     mood: 'calm', /* calm-piano 曲目键(AudioRegistry BGM 表在册) */
-    dayCycle: false, /* 时间冻结+天体/云隐藏+基底亮光, ≠恒夜——nether/den 的恒夜
-        观感来自它们行上的暗 sky 参, town 暖亮 sky 参即恒白天, 零机制扩展 */
+    dayCycle: true, /* 随世界钟昼夜(ADR-0012 决策 1 解冻, PO 亲裁推翻 ADR-0011 恒白天):
+        时间随全局 dayTime 单钟推进+天体/云解隐+uDim/uSkyFloor 真实调暗; 白日端点经
+        setSkyBase 落行色(advSetDim 循环行四步切界序), 夜侧=Daylight 折线自带月光蓝;
+        sunI 0.92 降为首帧初值(循环接管后基底=applyDaylight 硬编码 0.75, P1 拍板);
+        nether/den 恒停口径不变(恒夜观感来自它们行上的暗 sky 参) */
     spawn: {x: ADV_TOWN.spawnAnchor.x, y: ADV_TOWN.core.groundY + 1, z: ADV_TOWN.spawnAnchor.z, yaw: 0},
     /* 落点在南主路上, yaw 0=face:'north'(townYawOfFace 派生口径)面北望广场;
         坐标唯一权威在 TOWN_MAP, 此处加载期从 ADV_TOWN 派生(行不做坐标权威) */

@@ -91,7 +91,10 @@ test('注册表行完备性: 三行 · id 唯一且非 overworld · 八键齐全
     assert.ok(r.sky.fogNear > 0 && r.sky.fogFar > r.sky.fogNear, r.id + ' sky 雾距序');
     assert.ok(r.sky.sunI > 0 && r.sky.sunI < 1, r.id + ' sky.sunI 域');
     assert.strictEqual(typeof r.mood, 'string', r.id + ' mood');
-    assert.strictEqual(r.dayCycle, false, r.id + ' 维度恒停昼夜(D10/D6 口径)');
+    if (r.id !== 'town') {/* town 行已解冻随世界钟(ADR-0012 决策 1), 值锚在 town 行值锚测单份钉;
+        此处钉恒停行政策: nether/den 恒停昼夜(D10/D6 口径不变) */
+      assert.strictEqual(r.dayCycle, false, r.id + ' 维度恒停昼夜(D10/D6 口径)');
+    }
     for (const f of ['x', 'y', 'z', 'yaw']) assert.strictEqual(typeof r.spawn[f], 'number', r.id + ' spawn.' + f);
     assert.strictEqual(typeof r.hud.banner, 'string', r.id + ' hud.banner');
     assert.ok(r.hud.banner.length > 0, r.id + ' 横幅非空');
@@ -132,7 +135,7 @@ test('场景 BGM advMusicMood: 维度行恒行值 · 上界夜=night · 上界�
   assert.strictEqual(Dims.advMusicMood('den', false), 'nether', '副本恒 nether(D13)');
   assert.strictEqual(Dims.advMusicMood('den', true), 'nether', '副本不随昼夜变');
   assert.strictEqual(Dims.advMusicMood('town', false), 'calm', '小镇恒 calm(AudioRegistry calm-piano 在册)');
-  assert.strictEqual(Dims.advMusicMood('town', true), 'calm', '小镇不随昼夜变(dayCycle 冻结, 恒白天)');
+  assert.strictEqual(Dims.advMusicMood('town', true), 'calm', '小镇恒 calm(P4 拍板: 维度行锁 mood, 昼夜不变曲)');
 });
 
 /* ============ 行建场确定性(经行 interface 驱动, 不旁敲实现) ============ */
@@ -189,14 +192,14 @@ test('炉键前缀守门: ADV_FURN_PREFIX 单份权威键集覆盖全部维度�
 
 /* ============ town 维度行(T-SEAM-01, docs/town-map-design.md §6.3.3 行规格表) ============ */
 
-test('town 行值锚: 午后暖阳四参/mood calm/恒白天/HUD 无怪/spawn 从 TOWN_MAP 加载期派生', () => {
+test('town 行值锚: 午后暖阳四参/mood calm/随世界钟昼夜/HUD 无怪/spawn 从 TOWN_MAP 加载期派生', () => {
   const t = Dims.advDimRow('town');
   assert.ok(t, 'town 行在册(§6.3.3 逐字段)');
   assert.deepStrictEqual(t.sky, {color: 0xa8cbe0, fogNear: 75, fogFar: 200, sunI: 0.92},
       'town 天穹(视觉重制 §3-F 午后暖阳定稿: 四档试拍 f0-f4, 档4越「亮而不白」界回退; 雾即奶油天际线软山)');
   assert.strictEqual(t.mood, 'calm', '曲目 calm(沿用旧模式注册表行 mood 键)');
-  assert.strictEqual(t.dayCycle, false,
-      'dayCycle:false=时间冻结+天体隐藏+基底亮光, ≠恒夜——暗 sky 参才是恒夜, town 暖亮即恒白天(§6.3.3)');
+  assert.strictEqual(t.dayCycle, true,
+      'dayCycle:true=随世界钟昼夜(ADR-0012 决策 1 解冻: 时间推进+天体/云解隐+uDim 真实调暗; 白日端点经 setSkyBase 落行色, 夜侧=Daylight 折线自带)');
   assert.strictEqual(t.hud.banner, '🏘️ 小镇 · Midport Village', 'HUD 横幅(文案终稿归 ui-designer, 现值锁)');
   assert.strictEqual(t.hud.showMobs, false, '无怪隐怪物行(§6.3.4 机制无怪=因, 行参隐行=观感果)');
   assert.strictEqual(t.assets, null, '副本素材预留缝不启用(GLOSSARY 占坑纪律)');
@@ -594,10 +597,15 @@ test('town-gate 门楼建场逐块(T1a, spec §2.7 锚 3): 柱/壁灯/牌/檐/�
   assert.strictEqual(cell(78, 22, 130), 13, '桥剖面实心 13 @(78,22,130)');
   assert.strictEqual(cell(78, 20, 131), 13, '桥剖面底缘 13 @(78,20,131)');
   assert.strictEqual(cell(76, 23, 128), 13, '桥剖面角格 13 @(76,23,128)');
-  /* 回程判据内侧(spec §2.2 四拍时序: 预告 z126→穿门 z129→缓冲 z130..131→
-     白闪 z132): 几何最深笔 z131, 触发线 z132 处零几何; 判据行为面零改动
-     =票面显式断言(ADV_TOWN_RETURN_Z 常量值钉 + 几何不越 z131) */
-  assert.strictEqual(cell(78, 24, 132), 0, '触发线 z132 处零几何(缓冲带末排留白, 判据内侧收口)');
+  /* 桥延伸段=回程路地面延伸(spec §2.3 G3 注记四格案): 最深笔 z135 跨回程
+     触发线 z132 系有意设计——物理复验白闪 0.4s 窗步行 2.0/疾跑 3.4 格,
+     四格纵深=全动作零坠感(物证档 .scratch/town-east-boundary/
+     g3-fall-physics-verification.md); 判据行为面零改动=票面显式断言
+     (ADV_TOWN_RETURN_Z 常量值钉不变, 本票只动几何面) */
+  assert.strictEqual(cell(78, 24, 132), 13, '桥延伸段桥面 13 @(78,24,132)(G3 四格案首格, 跨线脚踏实地)');
+  assert.strictEqual(cell(78, 24, 133), 13, '桥延伸段桥面 13 @(78,24,133)');
+  assert.strictEqual(cell(78, 24, 134), 13, '桥延伸段桥面 13 @(78,24,134)');
+  assert.strictEqual(cell(78, 24, 135), 13, '桥延伸段桥面 13 @(78,24,135)(G3 最深笔, 端头齐头收)');
   const advSrc = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
   assert.ok(/const ADV_TOWN_RETURN_Z = 132;/.test(advSrc),
       'ADV_TOWN_RETURN_Z=132 判据面零改动(T1a 票面显式核对)');
@@ -885,10 +893,19 @@ test('墙圈建场(T2): 垫层/墙身/闭角/接头柱无帽/柱帽/翼墙/端�
   assert.strictEqual(cell(50, 25, 32), 0, '北缘不开墙 @(50,25,32)');
   assert.strictEqual(cell(80, 26, 32), 0, '北缘不开墙 @(80,26,32)');
   assert.strictEqual(cell(100, 27, 32), 0, '北缘不开墙 @(100,27,32)');
-  /* 回程触发线内侧零新增(硬红线): z132 及以南全域零块——回程判据
-     行为面零触碰; 开口段是玩家过线通道, 桥面归 T1a */
-  assert.strictEqual(nonAir(0, 159, 0, 47, 132, 159), 0,
-      '触发线 z132 及以南全域零块(回程判据行为面零触碰)');
+  /* 触发线 z132 及以南守卫(G3 四格案重构, 原「全域零块」断言退役):
+     豁免=桥延伸段精确矩形盒 x76..80 × y20..24 × z132..135——豁免域=票面
+     几何逐维镜像(spec §2.3 G3 注记), y 域收紧到桥体剖面(非行级/整柱
+     放宽: 盒上 y25+ 与盒下 y19− 未授权加块仍红, 南缘东西段守卫不失守);
+     盒内恰 100 格(5×5×4 同构剖面实心, 计数机械联动)+盒外三带零块
+     (带式差集=全域减盒)。判据行为面零触碰(ADV_TOWN_RETURN_Z=132 正则
+     守卫在位)——本票只动几何面, 回程判定语义不变 */
+  assert.strictEqual(nonAir(76, 80, 20, 24, 132, 135), 100,
+      '桥延伸段盒内恰 100 格(G3 四格案同构剖面实心, spec §2.3 G3 注记)');
+  assert.strictEqual(nonAir(0, 159, 0, 19, 132, 159) +
+      nonAir(0, 75, 20, 24, 132, 159) + nonAir(81, 159, 20, 24, 132, 159) +
+      nonAir(0, 159, 25, 47, 132, 159), 0,
+  '触发线 z132 及以南除桥延伸盒外全域零块(带式差集, 盒外漂移守卫)');
   /* 缓冲带 z129..131(reviewer 联验面观察进位, 口径收窄): 毯式「零写入」在
      T1a 门楼落地后不再成立(桥深 z128..131+塔身立 z129, 实测 112 块全落
      ADR-0013 gate-south 白名单域 x 跨距 x75..81)——收窄为「白名单域外

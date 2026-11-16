@@ -273,17 +273,18 @@ test('竞技场 FX 收口: 残留龙息弹/毒云在重开(startBattle→resetBa
    真实装载序下链上符号在位+look 全注册+注册快照 20 条(挂载序错=调用期
    解析不到, 此处红)。链序静态断言另守于 test/conventions.test.js 装载序
    门(hand-view 先例同款分工)。 */
-test('T-NPC-10 挂载覆盖: boot 冒烟扫到镇民链 18 文件 · 链上符号在位 · look 全注册 · 真实装载序下注册快照 20 条', () => {
+test('T-NPC-10 挂载覆盖: boot 冒烟扫到镇民链 19 文件 · 链上符号在位 · look 全注册 · 真实装载序下注册快照 20 条', () => {
   const ctx = boot();
   const html = fs.readFileSync(path.join(__dirname, '..', 'index.html'), 'utf8');
   const srcs = [...html.matchAll(/<script src="([^"]+)"[^>]*><\/script>/g)].map((m) => m[1].replace(/^js\//, ''));
+  /* T-NPC-13 扩列(数据跟随): behavior-core 入挂载覆盖清单(conventions gate 链序同源枚举, 两清单同步防漂移) */
   const townFiles = ['mob-look/town_a01.js', 'mob-look/town_a02.js', 'mob-look/town_a03.js',
     'mob-look/town_g01.js', 'mob-look/town_v01.js', 'mob-look/town_v02.js',
     'mob-look/town_v03.js', 'mob-look/town_v04.js', 'mob-look/town_v05.js',
     'mob-look/town_v06.js', 'mob-look/town_v07.js', 'mob-look/town_v08.js',
     'mob-look/town_v09.js', 'mob-look/town_v10.js',
-    'town-interact-core.js', 'town-npc-anchor-core.js', 'town-npc-registry.js',
-    'town-npc.js'];
+    'town-interact-core.js', 'town-npc-anchor-core.js', 'town-npc-behavior-core.js',
+    'town-npc-registry.js', 'town-npc.js'];
   for (const f of townFiles) {
     assert.ok(srcs.includes(f), 'boot 扫描清单缺 ' + f + '(备忘③: 挂载后冒烟必须覆盖新挂载文件)');
   }
@@ -295,8 +296,8 @@ test('T-NPC-10 挂载覆盖: boot 冒烟扫到镇民链 18 文件 · 链上符�
   for (const k of TOWN_KEYS) {
     assert.ok(keys.includes(k), 'look 档案 ' + k + ' 未注册(装载期 declare 缺席)');
   }
-  for (const sym of ['TOWN_NPC_ANCHORS', 'TOWN_NPCS', 'anchorOf', 'townNpcRegistry',
-    'mkTownNpcPuppet', 'placeTownNpc']) {
+  for (const sym of ['TOWN_NPC_ANCHORS', 'TOWN_NPCS', 'anchorOf', 'townPatrolState',
+    'townNpcRegistry', 'mkTownNpcPuppet', 'placeTownNpc']) {
     assert.notStrictEqual(vm.runInContext('typeof ' + sym, ctx), 'undefined',
         '镇民链符号 ' + sym + ' 未装载(挂载序/漏挂, 真实加载序下必须可达)');
   }

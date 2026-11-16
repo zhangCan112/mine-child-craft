@@ -1653,8 +1653,8 @@ const PF_ROWS = {
      y20..24 在蓝图内直排(spec §2.6「piles:'slab' 语义或直接 cells」裁量,
      桥面 dy0 与 core 草地同层, 剖面实心防侧面看薄板悬空穿帮); 门洞净空
      与柱头中段让空 kernel 零笔(禁填=终态空气); 背面 z130 侧零写=素面
-     (spec §2.2, 灯块实心嵌柱两面透光)。footprint 7×14×4(檐口出挑
-     x75/x81, 桥深 z128..131, 桥底 y20 到屋脊 y33) */
+     (spec §2.2, 灯块实心嵌柱两面透光)。footprint 7×14×8(檐口出挑
+     x75/x81, 桥深 z128..135(G3 四格案), 桥底 y20 到屋脊 y33) */
   'town-gate': {
     facing0: 'north',
     defaults: {
@@ -1664,11 +1664,14 @@ const PF_ROWS = {
     },
     kernel(e, x, y, z, orient, put) {
       const ids = e.ids;
-      /* 基座桥: dx0..4 × dy-4..0 × dz0..3 全实心 13(spec §2.2 回程桥面
-         +门楼地基, 补过渡带虚空; 桥面 dy0 与 core 草地同层无缝) */
+      /* 基座桥: dx0..4 × dy-4..0 × dz0..7 全实心 13(spec §2.2 回程桥面
+         +门楼地基, 补过渡带虚空; 桥面 dy0 与 core 草地同层无缝;
+         G3 四格案: dz4..7=回程路地面延伸 z132..135 同构剖面实心, 最深笔
+         z135 跨回程触发线 z132 系有意设计——物理复验白闪 0.4s 窗步行
+         2.0/疾跑 3.4 格, 四格纵深=全动作零坠感; 端头 z135 齐头收不加端帽) */
       for (let dx = 0; dx <= 4; dx++) {
         for (let dy = -4; dy <= 0; dy++) {
-          for (let dz = 0; dz <= 3; dz++) put(dx, dy, dz, ids.base);
+          for (let dz = 0; dz <= 7; dz++) put(dx, dy, dz, ids.base);
         }
       }
       /* z129 墙身平面(dz=1, spec §2.3 逐行): 净空 dx1..3 × dy1..3 与
@@ -1698,7 +1701,7 @@ const PF_ROWS = {
       for (let dx = 0; dx <= 4; dx++) put(dx, 9, 1, ids.roofTile);
     },
     foot(e, x, y, z, orient) {
-      const xs = [-1, 5]; const zs = [0, 3]; /* 檐口出挑缘到桥南缘 */
+      const xs = [-1, 5]; const zs = [0, 7]; /* 檐口出挑缘到桥南缘(G3 延伸 z135) */
       let x1 = Infinity; let x2 = -Infinity; let z1 = Infinity; let z2 = -Infinity;
       for (const dx of xs) {
         for (const dz of zs) {

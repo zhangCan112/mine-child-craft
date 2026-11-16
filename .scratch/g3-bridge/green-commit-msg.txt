@@ -1,0 +1,26 @@
+G3 绿相: 桥延伸四格案(js 三处+ADR-0018 沿革注)
+
+- prefab-kit.js town-gate: kernel 基座桥 dz0..7(z128..135 同构剖面实心
+  ids.base=13, 端头 z135 齐头收不加端帽)/foot zs=[0,7](z2=135)/
+  行注 footprint 7x14x8 桥深 z128..135(G3 四格案)
+- town-map-core.js: beyond.gate-south z2 131->135(桥延伸段归同一件越界
+  件域, ADR-0013 语义不变); townProtectedAt 总盒 z 上界 g.z+3->g.z+7,
+  楼段分支补 z<=gz+3(延伸段上方 z132..135 无楼, 楼段域不虚扩),
+  桥段分支吃总盒; 判据仍锚相对偏移纯函数形态
+- ADR-0018 决策 2 补沿革注: 桥段域随 G3 延伸扩 dz 跨距(扩域过票=本票)
+
+验证: 七红全转绿; 全量 2318 tests / 2315 pass / 2 fail / 1 skipped。
+2 fail 均测试面缺陷待红方(本票禁改测试):
+1. test/prefab-kit.test.js:3765 旧锚 foot 精确盒 z2=131, 与
+   test/town-map-core.test.js:345/:351 z2=135 直接互斥(红相未覆盖此文件)
+2. test/town-map-core.test.js:765 对拍 tower 公式(y25..33)无 z 界,
+   盒扩到 z132..135 后在 (75,25,132) 实得 false !== 期望 true,
+   与红相自加的 :691 对称守卫 prot(78,25,133)=false 互斥
+   (公式为 trunk 既有, 红相未触; 修法=补 && z<=g.z+3)
+
+偏离说明: 票文循环界简写 dz0..6/zs[0,6]/g.z+6 与票文自身语义目标
+(延伸 z132..135 / z2=135 / 桥深 z128..135)差一格, 按七红测试权威
+(dims:605-608/:903, tm:345/:351/:408-411/:686)取 dz<=7/zs=[0,7]/g.z+7。
+
+lint: 本票改动面零错(eslint/stylelint/htmlhint); 唯一余错=
+test/town-map-core.test.js:352 max-len 149>120, 红相提交 d6464dd 自带。
