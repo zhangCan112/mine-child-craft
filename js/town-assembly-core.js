@@ -10,7 +10,9 @@
      props 道具 · tree 植被, 值全为 config.js BLOCKS 在册正整数 id) ·
       纯函数 townAssemblyOps(steps) → op 列表(词表封闭 {fill,tree,scrub,
       recolor,place,spinner}): 基底三层垫底(序列最前=后写者赢的显式见证)
-      后按 steps 相对次序派生——ground/backdrop/road 段出 fill, prefab 段
+      后按 steps 相对次序派生——ground/backdrop/road 段出 fill(ground 含
+      T2 town-rim 墙圈: segs 逐段派生+墙头花, 见 palette 注 Step H),
+      prefab 段
       出 place/spinner 双胞胎(TIDEA-01 波次二: v.sailStatic===false 严格判据
       →spinner 替代 place, period 顶层钩穿透; tidea.porchLamp→v 注入+
       groundMark 四笔 fill; face/ids 注入一律新对象, 源清单只读), scatter
@@ -91,7 +93,18 @@
    sign/capital/eave/roofTile=13/13/19/80/17/17/79, 行键与 prefab-kit
    defaults ids 同形, 几何单源在蓝图 kernel 素坯直排; 门额牌 80=sign
    槽 T-09 thin 豁免, 贴图朝北渲染接线归 T1b; 落位行归 TOWN_MAP.prefab
-   锚 (76,24,128) zone south)。 */
+   锚 (76,24,128) zone south)。
+   Step H 扩键登记(2026-11-16, T2 镇缘防坠墙圈, spec §3.3): ground 段新
+   kind 'town-rim'(零 palette 扩键——墙体石砖 13/柱帽石英 17 走派生字面,
+   作物 42..45 同款先例; 墙头花 61/62 复用 props.flowerCore 组单源):
+   条目顶层无 x/z 域, segs 显式分段清单=几何唯一权威(map-core 单源),
+   按 part 逐段派生——pad/wall/post/wing/pier→seg 自身闭盒一笔 13,
+   cap→seg 单格一笔 17; 墙头花只从 wall 段派生(spec §3.3「每 8 格一簇」:
+   沿线坐标 ≡0 mod 8 且 ∈40..120 簇位带, 落墙顶格=段顶+1; 开口段无
+   墙身=自然跳空零特判; 翼墙/端头墩/接头柱段无花), 花色 ⌊(x+z)/8⌋
+   偶 61 奇 62 固定交替零盐(spec 拍板: x+z 奇偶在定 z 墙线恒同值
+   不可用)。纯几何零随机, 合成短段(簇位带外)=恰段笔本身零花。
+   合法域枚举同步扩 'town-rim'。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
@@ -253,9 +266,39 @@ function townAssemblyOps(steps) {
           z2: s.z2, id: pal.ground.shrineEdge});
         ops.push({op: 'fill', x1: s.x1 + 1, y1: groundY, z1: s.z1 + 1, x2: s.x2 - 1,
           y2: groundY, z2: s.z2 - 1, id: pal.ground.shrineCore});
+      } else if (s.kind === 'town-rim') {
+        /* 镇缘防坠墙圈(T2, spec §3.3 块级规格): 条目顶层无 x/z 域, segs
+           显式分段清单=几何唯一权威, 按 part 逐段派生——pad/wall/post/
+           wing/pier→seg 自身闭盒一笔石砖 13(pad 数据即单层 y1=y2);
+           cap→seg 单格一笔石英 17(南角帽)。墙头花只从 wall 段派生(spec
+           §3.3「每 8 格一簇」): 沿线坐标 ≡0 mod 8 且 ∈40..120 簇位带,
+           落墙顶格(段顶+1, 真墙顶 26→27); 开口段无墙身=自然跳空(x80
+           不布, 零特判), 翼墙/端头墩/接头柱段无花; 花色 ⌊(x+z)/8⌋ 偶
+           61 奇 62 固定交替零盐(spec 拍板——x+z 奇偶在定 z 墙线恒同值
+           不可用), 61/62 走 props.flowerCore 组单源(与散布花/花坛芯同
+           语言)。纯几何零随机: 合成短段(簇位带外)=恰段笔本身零花。
+           材质 13/17 为派生字面(场景功能件不入 palette——作物 42..45
+           同款先例, 见 palette 注 Step H) */
+        for (const seg of s.segs) {
+          ops.push({op: 'fill', x1: seg.x1, y1: seg.y1, z1: seg.z1,
+            x2: seg.x2, y2: seg.y2, z2: seg.z2,
+            id: seg.part === 'cap' ? 17 : 13});
+          if (seg.part !== 'wall') continue;
+          const col = seg.x1 === seg.x2; /* 列墙(东西缘)沿线=z, 行墙(南缘)沿线=x */
+          for (let x = seg.x1; x <= seg.x2; x++) {
+            for (let z = seg.z1; z <= seg.z2; z++) {
+              const along = col ? z : x;
+              if (along % 8 !== 0 || along < 40 || along > 120) continue;
+              ops.push({op: 'fill', x1: x, y1: seg.y2 + 1, z1: z,
+                x2: x, y2: seg.y2 + 1, z2: z,
+                id: Math.floor((x + z) / 8) % 2 === 0 ?
+                  pal.props.flowerCore.y : pal.props.flowerCore.w});
+            }
+          }
+        }
       } else {
         throw new Error('townAssemblyOps: ground 条目「' + s.id + '」kind 非法「' + s.kind +
-          '」(合法域 plaza|farm|farm-rows|wayshrine)');
+          '」(合法域 plaza|farm|farm-rows|wayshrine|town-rim)');
       }
     } else if (s.phase === 'backdrop') {
       if (s.kind === 'mountain') {

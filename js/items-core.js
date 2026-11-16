@@ -3,7 +3,7 @@
    物品核心 (ItemsCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
    物品注册表 ITEMS 是全游戏物品的唯一数据源(材料/放置型/食物/工具/
-   盔甲五类条目, 加物品 = 加一行纯数据); 外加七个无状态纯函数: stackMax
+   盔甲五类条目 + 滑翔翼专属第五槽件, 加物品 = 加一行纯数据); 外加七个无状态纯函数: stackMax
    堆叠上限 · mkStack 造一摞(可耗损物带满耐久) · isTool 工具判定 ·
    toolOf 工具参数查询 · isArmor 盔甲判定 · armorOf 盔甲参数查询 ·
    durOf 可耗损物满耐久查询(工具/盔甲/灯笼, 昼夜 D7 §8.1)。
@@ -212,6 +212,13 @@ const ITEMS = {
   boots_gold: {name: '金靴', icon: '🥾', armor: {slot: 'boots', tier: 'gold', pts: 1, tough: 0, dur: 182}},
   boots_diamond: {name: '钻石靴', icon: '🥾', armor: {slot: 'boots', tier: 'diamond', pts: 3, tough: 2, dur: 858}},
   boots_netherite: {name: '下界合金靴', icon: '🥾', armor: {slot: 'boots', tier: 'netherite', pts: 3, tough: 3, dur: 962, kb: 0.1}},
+
+  /* —— 滑翔翼(滑翔翼特性 T-G01, glider-spec §3.1 + ADR 0012/0013): 走盔甲管线
+     的专属第五槽件——slot:'glider' 使 wornPut/wornNormalize 槽校验机械成立,
+     pts/tough=0 盔甲点零贡献(不挡减伤), dur=1 满值占位(wornNormalize 要求
+     dur>0 才过档; ADR 0012 红线: 耐久永不扣减, 豁免落地点在 equipment-core
+     的 wornWear——注册红线: 不注册=存档静默丢弃, 不能下线) —— */
+  glider: {name: '滑翔翼', icon: '🪂', armor: {slot: 'glider', tier: 'gold', pts: 0, tough: 0, dur: 1}},
 };
 
 /* ------------------------------------------------------------

@@ -17,6 +17,8 @@ const vm = require('node:vm');
    (conventions §7.2: 测试文件禁自定义元素工厂, 防「第四站点」漏网; 本文件原为
    家族 B 原型副本, T-UI-03/04 教训后收敛) ---------- */
 const {mkEl} = require('./helpers/fake-dom.js');
+const {assertSinkMirror, sinkFrames} =
+    require('./helpers/glide-anchors.js'); /* 滑翔拍板锚对账+缓降窗口派生(fake-dom 同款 helpers 缝) */
 
 const fakeClock = 0;
 globalThis.performance = {now: () => fakeClock};
@@ -29,7 +31,7 @@ globalThis.document = {
 };
 
 /* ---------- 真引擎件: config + voxel + scene-kit + 四纯核心/库, 共享一个 vm 词法环境 ---------- */
-const ROOT = path.join(__dirname, '..');
+const ROOT = path.join(__dirname, '..'); /* 诊断镜像: .scratch/glider 下放, 多退一级到仓库根 */
 /* groundTop 桩: drops 壳段 restY 用(world.js 太重不装) */
 const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}, groundTop: () => 24});
 for (const f of ['js/config.js', 'js/mob-registry.js', 'js/daylight-core.js', 'js/voxel.js',
@@ -65,7 +67,7 @@ const api = vm.runInContext(`({
   getBlock, setBlockRaw, getFluidLv, setFluidLv, worldEvents, hashRand, blockKey, isOpaque, world, worldCells,
   SceneKit, PrefabKit,
   groundTop, lightSkyAt, lightBlockAt,
-  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID,
+  BLOCKS, PLAYER, WORLD_W, WORLD_D, WORLD_H, IS_TOUCH, DAYLIGHT, Daylight, FLUID, GLIDE,
   B_COAL_ORE, B_IRON_ORE, B_GOLD_ORE, B_DIAMOND_ORE, B_CLAY, B_WATER, B_CRAFT, B_FURNACE,
   B_GRASS_TUFT, B_SAPLING, B_TORCH, B_CHEST, B_BED, B_BED_FOOT,
   B_FARMLAND, B_WHEAT_3, B_FLOWER_Y, B_FLOWER_W, B_CACTUS,
@@ -209,6 +211,11 @@ globalThis.Avatar = {setItem(id) {
   calls.push(['swing']);
 }, flash() {
   calls.push(['flash']);
+}, setWings(mode) {/* T-G04 滑翔态意图接口(v1.2 目标态声明 'hidden'|'spread'): 模式层展/收翼迁移点消费 */
+  calls.push(['setWings', mode]);
+}, forceWingsHidden() {/* GP03 v1.2 对账兜底导出(deecefb): 进场/读档/死亡/切模式强制 hidden
+    —— 与 setWings('hidden') 同键记录(观测面统一"翼目标态声明", 装具不钉 API 选型) */
+  calls.push(['setWings', 'hidden']);
 }, setArmor(worn) {
   calls.push(['setArmor', worn ? EQUIP_SLOTS.map((s) => (worn[s] ? worn[s].id : '')).join(',') : '']);
 }};
@@ -459,6 +466,29 @@ function treeTrunks(skip) {
 const inCircle = (x, z, c, r) => Math.hypot(x - c.cx, z - c.cz) <= r;
 const inRect = (x, z, x1, z1, x2, z2) => x >= x1 && x <= x2 && z >= z1 && z <= z2;
 
+function glideCamStub() {/* world.js:51 PerspectiveCamera(72) 桩(T-G04 相机面): fov 基值 72
+   + updateProjectionMatrix 记账(「fov 变更帧必更新投影」断言用); freshInit 每测重置——
+   老段 aimDownAt/clearAim 会运行时覆盖/删除 globalThis.camera, 全量跑序下 T-G04 段
+   基值被污染(定向跑不显), 故在公共入口统一复位 */
+  return {fov: 72, updateProjectionMatrix() {
+    calls.push(['projMatrix']);
+  }};
+}
+
+function glideHygiene() {/* 滑翔态卫生复位(相机桩同款「公共入口统一复位」先例):
+   尾块桥接(见 :5767 globalThis.isGliding = G.isGliding)铺后不撤, 老段测试若收尾
+   残留滑翔态(T-G04 死亡重生: cleanup 卸装备后零物理帧, eng 域 gliding 收不掉),
+   模式层 advGlideOn() 经桥接读到 true, 后续挖掘类测试蓄力被误判不起(全量跑序
+   红而定向跑绿)。浏览器主循环下残留在卸装备后下一物理帧即收(voxel.js 滑翔中
+   卸翼路径) — 此处代跑同款一帧: 强卸装备恰一帧再还原装备位; 无残留零开销
+   (不跑帧), 有残留只动 eng 物理绑定态(pos/vel 单帧位移对断言面不可观测) */
+  if (!G.gliding) return;
+  const keep = G.gliderEquipped;
+  G.setGliderEquipped(false);
+  G.physics(GDT);
+  G.setGliderEquipped(keep);
+}
+
 function freshInit() {
   calls.length = 0;
   spoken.length = 0;
@@ -469,7 +499,9 @@ function freshInit() {
   nextWalkDist = 0;
   listResult = [];
   nextHit = {hp: 10, dead: false, freshDead: false};
+  globalThis.camera = glideCamStub(); /* 相机桩复位(防老段运行时污染, 见上注) */
   AdventureMode.init();
+  glideHygiene(); /* 滑翔态复位(防老段残留直通桥接件, 见 glideHygiene 注) */
 }
 
 /* 造一只战斗用怪(形状=模式 AI 消费的最小集; cfg 摘 MOB_TYPES, extra 覆盖测试剧本) */
@@ -1937,21 +1969,23 @@ test('T12 剪刀树叶行为链(D2): 剪刀破坏树叶掉树叶方块, 掉落�
 
 /* ============ 引导链 v2: 15 步主线 + 终章 + 大宝箱 ============ */
 
-test('QUESTS 数据表: 15 步主线 + 终章 + 远征章 11 — 步序照引导链 v2/远征链, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
+test('QUESTS 数据表: 15 步主线 + 终章 + 远征章 11 + 滑翔翼 q27 — 步序照引导链 v2/远征链+链尾追加, id 唯一(形状五件套直测在 adventure-core.test.js)', () => {
   const qs = ADV_QUESTS; /* 任务表常量经 core 全局直取 */
-  assert.strictEqual(qs.length, 27, '15 步主线 + 终章 + 远征章 11(引导 1 + 每图 3 + 巢穴宝箱, den-nest D12)');
+  assert.strictEqual(qs.length, 28,
+      '15 步主线 + 终章 + 远征章 11(引导 1 + 每图 3 + 巢穴宝箱, den-nest D12) + 滑翔翼 q27(T-G01/glider-spec §3.7, R2-05)');
   assert.deepStrictEqual(qs.map((q) => q.id),
       ['q1_log', 'q2_planks', 'q3_table', 'q4_chest', 'q5_sapling', 'q6_pick_wood',
         'q7_cobble', 'q8_pick_stone', 'q9_coal', 'q10_torch', 'q11_iron', 'q12_smelt',
         'q13_pick_iron', 'q14_fight', 'q15_diamond', 'finale',
         'q16_plaza', 'q17_desert', 'q18_cactus', 'q19_temple',
         'q20_snow', 'q21_snowball', 'q22_igloo', 'q23_swamp', 'q24_bogged', 'q25_witch_chest',
-        'q26_den_chest'],
-      '步序 = 引导链 v2(砍树→…→钻石剑, docs/story-quest-research.md) + 远征章(T8: 广场→沙漠三连→雪原三连→沼泽三连) + 巢穴宝箱(den-nest)');
+        'q26_den_chest', 'q27_glider'],
+      '步序 = 引导链 v2(砍树→…→钻石剑, docs/story-quest-research.md) + 远征章(T8: 广场→沙漠三连→' +
+        '雪原三连→沼泽三连) + 巢穴宝箱(den-nest) + 滑翔翼(链尾追加, 不插步不移老档 step 下标)');
   assert.strictEqual(qs[15].finale, true, '第 16 条是终章(主线 15 条不带 finale 标记)');
   assert.ok(qs.slice(0, 15).every((q) => !q.finale), '主线步骤无 finale 标记');
-  assert.ok(qs.slice(16).every((q) => !q.finale), '远征章不冒用终章标记(称号仪式感专属)');
-  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 27, 'id 唯一');
+  assert.ok(qs.slice(16).every((q) => !q.finale), '远征章与滑翔翼不冒用终章标记(称号仪式感专属)');
+  assert.strictEqual(new Set(qs.map((q) => q.id)).size, 28, 'id 唯一');
 });
 
 test('T15 谓词逐条: 最小满足触发 / 空账本或差一不触发 / 复合步条件缺一不可', () => {
@@ -4329,8 +4363,8 @@ test('装备 T5: 存档 armor 键 roundtrip — cleanup 落盘重进恢复; 老�
   const w0 = A.advWornState();
   /* vm 跨 realm: EQUIP_SLOTS 是 vm 数组, map 沿 receiver realm 构造——
      展开拷回宿主再 map(null 是 primitive, 元素无原型差) */
-  assert.deepStrictEqual([...EQUIP_SLOTS].map((s) => w0[s]), [null, null, null, null],
-      '老档缺 armor 键 → 四槽全空(wornNormalize 幂等兜底)');
+  assert.deepStrictEqual([...EQUIP_SLOTS].map((s) => w0[s]), [null, null, null, null, null],
+      '老档缺 armor 键 → 五槽全空(wornNormalize 幂等兜底, 第五槽翼同路归一)');
   AdventureMode.cleanup();
 });
 
@@ -5450,6 +5484,933 @@ test('TIDEA-11 会话态归零: cleanup 重进后同区再响(一次性 flag 随
   AdventureMode.cleanup();
 });
 
+/* ============ 滑翔翼 T-G01: 数据层集成(任务 q27 + 第五槽穿戴/耐久豁免/存档五键) ============ */
+
+test('q27 数据行: 合成滑翔翼(glider-spec §3.7) — 文案逐字/记账键 craft_glider/无 unlock 无 finale', () => {
+  const q = ADV_QUESTS.find((x) => x.id === 'q27_glider');
+  assert.ok(q, 'q27_glider 应在任务表(链尾追加, R2-05)');
+  assert.strictEqual(q.icon, '🪂', '图标=伞翼');
+  assert.strictEqual(q.goal, '合成滑翔翼');
+  assert.strictEqual(q.target, 1);
+  assert.strictEqual(q.hint, '用 4 块金锭、2 根线、2 张皮革，在工作台合成滑翔翼！');
+  assert.strictEqual(q.praise, '滑翔翼做好啦！穿上它，从高处跳下就会张开翅膀，飞起来咯！');
+  assert.strictEqual(q.prog({craft_glider: 3}), 1, 'prog 封顶 1');
+  assert.strictEqual(q.prog({}), 0, 'prog 空账本 0');
+  assert.strictEqual(q.check({craft_glider: 1}), true, 'check ≥1 触发');
+  assert.strictEqual(q.check({}), false, 'check 空账本不触发');
+  assert.strictEqual(q.unlock, undefined, '链尾追加: 无 unlock(不挂图解锁)');
+  assert.strictEqual(q.finale, undefined, '链尾追加: 无 finale 标记(称号仪式专属)');
+});
+
+test('q27 行为链: 老档全通关 step=27 读入新表恰接棒 q27 — 合成滑翔翼步进表外+praise', () => {
+  mem.clear();
+  /* 旧 27 条全通关的档: step=27(旧表表外上界)——新表 28 条后恰指向 q27_glider */
+  mem.set('adventure_quest_save', JSON.stringify({_v: 1, step: 27, counts: {}}));
+  freshInit();
+  assert.strictEqual(A.ADV.quest.step, 27, '老档 step 27 保留(钳制上界随表长)');
+  assert.strictEqual(ADV_QUESTS[27].id, 'q27_glider',
+      '新表 step 27 恰指向 q27(链尾追加=老档顺位接棒, 不丢步不跳步)');
+  spoken.length = 0;
+  A.advOnCraft({item: 'glider', n: 1, leftover: 0});
+  AdventureMode.update(0.55); /* 越过节流窗触发步进检查 */
+  assert.strictEqual(A.ADV.quest.counts.craft_glider, 1,
+      '合成记账 craft_glider(配方注册即有, 零新记账机制)');
+  assert.strictEqual(A.ADV.quest.step, 28, 'q27 完成(新表表外=自由探险)');
+  assert.ok(spoken.some((s) => String(s).indexOf('滑翔翼做好啦') >= 0), 'praise 播报(链尾正常仪式)');
+});
+
+test('q27 行为链: 引导期提前合成不跳步 — 计数保留, 步进仍按链序', () => {
+  mem.clear();
+  freshInit(); /* step 0 从砍树开始 */
+  A.advOnCraft({item: 'glider', n: 1, leftover: 0});
+  AdventureMode.update(0.55);
+  assert.strictEqual(A.ADV.quest.counts.craft_glider, 1, '提前合成照记账(不丢)');
+  assert.strictEqual(A.ADV.quest.step, 0, 'step 0 不跳步(步进只看当前步谓词)');
+});
+
+test('装备 T-G01: 第五槽穿戴 — 皮全套+翼同穿 armorPoints 7 不变 · advWornTakeOff 卸翼回包 · advTryWearSlot 槽参同效', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_leather', 'chestplate_leather', 'leggings_leather', 'boots_leather', 'glider']);
+  const w = A.advWornState();
+  assert.deepStrictEqual(localW(w.glider), {id: 'glider', dur: 1},
+      '翼入第五槽(手持右键=穿上, 与盔甲同管线)');
+  assert.strictEqual(api.armorPoints(w), 7,
+      '皮全套 7 点+翼 0 点=7(盔甲点不计滑翔翼, sumArmor 机械零贡献)');
+  /* 卸下: 装备条点槽同一条编排 → 回背包(零损失红线) */
+  const before = api.count(inv, 'glider');
+  A.advWornTakeOff('glider');
+  assert.strictEqual(A.advWornState().glider, null, '卸下清槽');
+  assert.strictEqual(api.count(inv, 'glider'), before + 1, '翼回背包(零损失)');
+  /* 装备页槽参同效: mkStack 放指定槽 → advTryWearSlot 穿上(T9 同路径) */
+  inv.slots[6] = api.mkStack('glider');
+  A.advTryWearSlot(6);
+  assert.deepStrictEqual(localW(A.advWornState().glider), {id: 'glider', dur: 1}, '槽参穿上同效');
+  assert.strictEqual(inv.slots[6], null, '背包格消耗');
+  assert.ok(A.advWornState().helmet, '卸/穿翼不动盔甲槽(甲翼互不排斥)');
+  AdventureMode.cleanup();
+});
+
+test('装备 T-G01: 战斗磨损豁免翼 — 命中扣甲翼 dur 恒 1 槽不空(ADR 0012 红线), 盔甲照常磨损', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_leather', 'glider']);
+  const w = A.advWornState();
+  assert.strictEqual(w.glider.dur, 1, '翼满耐久入槽');
+  /* 连打 4 发(hp30 伤 3×4=12 不致死): 盔甲逐发磨损, 翼纹丝不动 */
+  for (let i = 0; i < 4; i++) {
+    nextHit = {hp: 30, dead: false, freshDead: false};
+    A.advHitPlayer(3, 1, 0, 0.2);
+  }
+  assert.strictEqual(w.glider.dur, 1, '翼耐久恒 1(wornWear 豁免 glider 槽, 任何代码路径不扣)');
+  assert.strictEqual(w.glider.id, 'glider', '翼槽仍在(永不因磨损清槽)');
+  assert.strictEqual(w.helmet.dur, 106, '皮帽照常磨损 110−4=106(豁免只翼, 盔甲口径不变)');
+  AdventureMode.cleanup();
+});
+
+test('装备 T-G01: 存档五键 roundtrip — 翼随档恢复, armor 存档视图五键', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_leather', 'glider']);
+  AdventureMode.cleanup(); /* 落盘(journal payload armor 键随节流窗口 flush) */
+  freshInit(); /* 重进 */
+  const w = A.advWornState();
+  assert.deepStrictEqual(localW(w.glider), {id: 'glider', dur: 1}, '翼随档恢复');
+  assert.deepStrictEqual(localW(w.helmet), {id: 'helmet_leather', dur: 110}, '皮帽随档恢复');
+  const view = A.getSaveView().armor;
+  assert.deepStrictEqual(Object.keys(view).sort(),
+      ['boots', 'chestplate', 'glider', 'helmet', 'leggings'],
+      'armor 存档视图五键(第五键=glider, 存档三缝机械改)');
+  assert.deepStrictEqual(localW(view.glider), {id: 'glider', dur: 1}, '视图透出翼(四份存档快照缝)');
+  AdventureMode.cleanup();
+});
+
+test('装备 T-G01: 老档四键无翼键 — 读入归一 glider:null 其余保真(无感升级, 无迁移脚本)', () => {
+  freshInit();
+  const inv = A.advGetInv();
+  wearAll(inv, ['helmet_leather', 'glider']);
+  AdventureMode.cleanup();
+  /* 老档模拟: 直接剥落盘档的 glider 键(等价本特性上线前的旧版档) */
+  const raw = JSON.parse(mem.get('adventure_world_save'));
+  delete raw.armor.glider;
+  mem.set('adventure_world_save', JSON.stringify(raw));
+  freshInit();
+  const w = A.advWornState();
+  assert.strictEqual(w.glider, null, '老档无翼键 → 第五槽空(wornNormalize 补 null, 无感升级)');
+  assert.deepStrictEqual(localW(w.helmet), {id: 'helmet_leather', dur: 110}, '四甲键保真');
+  AdventureMode.cleanup();
+});
+
+/* ============================================================
+   T-G05 无翼摔落伤害 — 模式层结算(红测试)
+   票面: docs/glider-tickets.md T-G05 · 规则形状: ADR 0014 钉死 ·
+   计量口径: glider-spec §3.5 · 参数初值: §3.9(无伤阈值 3/每格扣血 1)
+   引擎事实(T-G02 已入库): worldEvents.land 三字段(voxel.js:431-435 置位,
+   landFall=落差格数, landGliding=触地时滑翔态), 消费方读完置回 false。
+   本组只测模式层行为面: 消费 land 事件 → 伤害 = max(0, floor(landFall)−3)
+   经 advEnvHurt 结算(原值直扣不经甲, D8) → 血尽 advPlayerDied 现有流程。
+   事件注入=直写 vm 域 worldEvents 真对象(装具 pos/vel 为假件, 模式层
+   测试不跑引擎物理步, 与引擎置位同帧语义); 块首归零防跨块残留。
+   ============================================================ */
+
+/* T-G05 事件注入: 模拟引擎 land 事件置位(voxel.js:431-435 同帧三字段) */
+function landEvt(fall, gliding) {
+  api.worldEvents.land = true;
+  api.worldEvents.landFall = fall;
+  api.worldEvents.landGliding = !!gliding;
+}
+
+test('T-G05 摔落参数表: 3 格无伤 · 5 格扣 2 · 10 格扣 7 · 击退高度同式(规则一元) · 零 TTS', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp;
+  /* 3 格台: max(0, floor(3)−3)=0 — 无伤阈值 3(ADR 0014, 参数表初值) */
+  landEvt(3);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(api.worldEvents.land, false, '3 格事件被消费(消费即清契约, voxel.js 注释)');
+  assert.strictEqual(pe.hp, hp0, '3 格台无伤(落差 ≤3 无伤)');
+  /* 5 格: floor(5)−3=2 — 扣 2 血 */
+  landEvt(5);
+  spoken.length = 0; calls.length = 0;
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2, '5 格扣 2 血(>3 起每整格 1 血)');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  assert.strictEqual(spoken.length, 0, '摔落扣血零 TTS(ADR 0014 明文: 不配安抚/预警/任何播报)');
+  assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'hurt'),
+      '受击观感照走(环境伤与战斗同源, ADR 只豁免话术)');
+  assert.ok(!calls.some((c) => c[0] === 'toast'), '摔落路径零 toast 播报');
+  /* 10 格: floor(10)−3=7 — 扣 7 血 */
+  landEvt(10);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2 - 7, '10 格扣 7 血');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  /* 被怪物击退上天 6 格后落地: 同公式无豁免分支(边界语义「规则一元」, 票面要求 5) */
+  landEvt(6);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2 - 7 - 3, '击退上天按击飞高度计(6−3=3, 无翼即计)');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 滑翔零伤: 触地滑翔态任意落差零伤害 · 20 格滑到 2 格取消只摔 2 格账(收翼重置原案例)', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp;
+  /* 滑翔中触地(软着陆): landGliding=true 零伤害旗标(票面要求 1) */
+  landEvt(20, true);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '滑翔 20 格直接触地零伤害(滑翔落地永不触发)');
+  assert.strictEqual(api.worldEvents.land, false, '滑翔触地事件同样消费即清');
+  /* spec §3.5 原案例: 20 格高展翼滑到 2 格高取消 → 收翼点重置峰值(引擎 T-G02 保证)
+     → 落地 landFall=2 → max(0, 2−3)=0 无伤 — 滑翔段不计落差的可证账 */
+  landEvt(2, false);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '只摔收翼后 2 格账 → 无伤(滑翔段不计入落差)');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 摔至血尽: 走现有死亡流程(重生满血+背包全保留) — 死亡安抚话术属存量非新增', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  const inv = A.advGetInv();
+  inv.slots[3] = api.mkStack('leather'); /* 塞一件物品看守背包(死亡零惩罚) */
+  const before = api.serialize(inv);
+  const pe = A.advGetPEnt();
+  /* 前置消费帧: 吞掉 init 落位后的首个伪 land 事件(vel=0 落位沿, 非真实摔落;
+     init 免疫吞或结算 0 伤两态皆清) — 本块测其后真实摔落至血尽, 不绑定 init
+     免疫的实现形状(红方裁决: 测试不得钉死实现取舍) */
+  landEvt(0);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(api.worldEvents.land, false, '前置伪事件被消费');
+  landEvt(99); /* floor(99)−3=96 ≥ hp30: 血尽 */
+  AdventureMode.update(1 / 60);
+  assert.ok(calls.some((c) => c[0] === 'spawn'), '血尽走 advPlayerDied(重生落位, 现有流程)');
+  assert.strictEqual(pe.hp, pe.maxHp, '重生满血(现有死亡流程, 本票不开第二套血尽语义)');
+  assert.ok(spoken.some((s) => /[不怕|别怕|休息]/.test(String(s))),
+      '存量死亡安抚话术(现有流程自带 — 零 TTS 禁的是新增播报, 不消现有流程)');
+  assert.deepStrictEqual(api.serialize(A.advGetInv()), before, '装备背包全保留(死亡零惩罚不变)');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 落水零伤(有翼无翼任意高度) + 平地帧零结算: splash 路径与 1.42 格跳跃峰值不扣血(边界语义)', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp;
+  /* 落水: 引擎保证身处流体触底零参与 land + splash 清零(T-G02 已入库) —
+     模式层无 land 事件即零结算; splash 音效分发在 main(模式层不参与) */
+  api.worldEvents.splash = true;
+  for (let i = 0; i < 10; i++) AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '落水(splash 事件路径)零伤害(有翼无翼、任意高度, spec §3.5)');
+  api.worldEvents.splash = false; /* 归零(main 分发缝职责, 测试自清防跨块污染) */
+  /* 平地跳跃峰值 1.42 格(spec §3.5 参数表锚): 结算跑公式但恒无伤 */
+  landEvt(1.42);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '平地跳跃峰值 1.42 格恒无伤(floor(1.42)−3<0, 向下取整=儿童友好档)');
+  assert.strictEqual(api.worldEvents.land, false, '无伤事件同样消费即清(不残留跨帧)');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 传送免疫(观察项 2): 死亡/传送(spawn)后首个 land 事件零结算(残留峰值幻影防护), 后续真实摔落照常', () => {
+  freshInit();
+  api.worldEvents.land = false;
+  /* 虚空死亡 = 「高处残留峰值 + 向下传送落地」最典型路径: onVoidFall →
+     advPlayerDied → ModeKit.spawn(kitSpawn 置 onGround=false 且不重置
+     fallPeakY — voxel.js 写面=physics) → 重生首物理步 land 跃迁沿置位 →
+     landFall = 残留峰值 − 落点y = 幻影大额 → 不免疫则满血即二次蒸发 */
+  AdventureMode.onVoidFall();
+  const pe = A.advGetPEnt();
+  const hp0 = pe.hp; /* 重生满血后的基线 */
+  spoken.length = 0; calls.length = 0;
+  landEvt(40, false); /* 模拟重生首帧幻影事件(峰值残留 40 格) */
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0, '重生后首个 land 事件零结算(spawn 幻影免疫, 不二次死亡循环)');
+  assert.strictEqual(api.worldEvents.land, false, '幻影事件被吞(消费即清, 不留跨帧)');
+  /* 免疫只吞 spawn 后首个事件: 此后真实摔落照常结算(不误伤真机制) */
+  landEvt(5, false);
+  AdventureMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2, '免疫窗后的真实 5 格摔落照扣 2');
+  assert.strictEqual(api.worldEvents.land, false, '事件消费即清');
+  AdventureMode.cleanup();
+});
+
+test('T-G05 他模式零参与: build/arena 不订阅 land 事件(静态守门, 不订阅即天然不参与)', () => {
+  for (const f of ['js/modes/build.js', 'js/modes/arena.js']) {
+    const src = fs.readFileSync(path.join(ROOT, f), 'utf8');
+    assert.ok(src.indexOf('worldEvents.land') < 0,
+        f + ' 零 land 消费(建造/竞技场无 HP 不涉, 不加模式分支 — 票面要求 3)');
+  }
+});
+
+/* ============================================================
+   T-G04 探险装配 — 滑翔接线/迁移点消费/金描边/HUD 槽抑制/动作暂停/相机 U-01（红测试）
+   票面: docs/glider-tickets.md T-G04 · 行为契约: glider-spec §3.4 状态总表
+   逐行 + §3.6 相机(路径 B 口径) + §3.8 体验馆 + §4.2 接缝 ·
+   UI 权威: glider-ui-spec v1.2(2026-11-16) §3.2/§3.3/§7.1/§6.4/§6.5/§8 ·
+   PO 确认口径: glider-spec §8②(HUD 第五槽滑翔中抑制脱下意图)。
+   v1.2 语义纠偏(72bac91): setWings 意图签名=目标态声明
+   ('hidden'|'spread'), 'folded' 不再是可调用目标; 装备态不再操纵翼
+   (Avatar.setArmor 不消费 worn.glider)——模式层只剩滑翔态迁移驱动:
+   展沿→setWings('spread'), 收翼四触发→setWings('hidden'); 非滑翔
+   穿/卸零 setWings 调用(装备与滑翔两信号独立分流)。
+   引擎事实(T-G02 已入库): 装备位唯一通道 setGliderEquipped/on 经
+   isGliding 可读(voxel.js:247-253); 滑翔态唯一写面=physics——
+   装备位不同步, 物理永不展翼, 后续全链红(红因自证点)。
+   消费点时序(T-G02 评审观察项 1, 经理随令路由): 引擎 gliding 在
+   setFly/切模式时无同步复位——模式层全路径先同步引擎装备位再消费
+   isGliding 驱动观感; 切模式/死亡收场路径覆盖清零。
+   驱动形态: vm 真物理帧(physics)先于模式帧(update), 与 main.js
+   主循环同序(main.js:384→396); land 事件注入先例=T-G05 landEvt。
+   ============================================================ */
+
+/* T-G04 装具: vm 域 voxel 滑翔真件桥接(voxel.test.js __v 同款惯例) */
+vm.runInContext(`
+  var keys = {}; var touchMove = {x: 0, y: 0}; var touchSprint = false;
+  /* input.js 占位(仅 physics 调用期读取, voxel.test.js:18 同款) */
+  globalThis.__glide = {
+    physics, keys, touchMove,
+    setGliderEquipped, isGliding,
+    get pos() { return pos; }, get vel() { return vel; },
+    get onGround() { return onGround; },
+    get gliding() { return gliding; },
+    get gliderEquipped() { return gliderEquipped; },
+    get glideLatch() { return glideLatch; },
+    get yaw() { return yaw; }, set yaw(v) { yaw = v; },
+  };
+`, eng);
+const G = eng.__glide;
+globalThis.isGliding = G.isGliding; /* 模式层经全局名消费(浏览器顶层函数=全局, Node 侧铺真件直通 vm) */
+globalThis.setGliderEquipped = G.setGliderEquipped;
+globalThis.camera = glideCamStub(); /* T-G04 段消费面: 相机桩(每测试经 freshInit 复位, 见 glideCamStub 注) */
+
+test('滑翔锚对账: config GLIDE.sink === spec §3.9 拍板锚(T-G04 前置守门: 调参 = 改 config + 同步 glide-anchors.js)', () => {
+  assertSinkMirror(api.GLIDE);
+});
+
+const GDT = 1 / 60;
+function glideFrame(n) {/* 主循环同序: physics 先于 mode.update(main.js:384→396) */
+  for (let i = 0; i < n; i++) {
+    G.physics(GDT);
+    AdventureMode.update(GDT);
+  }
+}
+function glideClearEvents() {
+  api.worldEvents.land = false; api.worldEvents.splash = false;
+}
+function glideTopAt(x, z) {/* 列扫表面(eng 的 groundTop 是装具桩, 不可用于选址) */
+  for (let y = api.WORLD_H - 1; y >= 0; y--) if (api.getBlock(x, y, z)) return y;
+  return 0;
+}
+/* 滑翔高台: (x,z) 列上空清空(防树叶/地形歧义)后立 h 格石柱, 周围 5×5 清空;
+   返回柱顶方块 y(玩家脚位=柱顶+1; 台旁地面=原表面, 离地=柱高) */
+function glideTower(x, z, h) {
+  const gy = glideTopAt(x, z);
+  for (let dx = -2; dx <= 2; dx++) {
+    for (let dz = -2; dz <= 2; dz++) {
+      for (let y = gy + 1; y <= gy + h + 10; y++) api.setBlockRaw(x + dx, y, z + dz, 0);
+    }
+  }
+  for (let y = gy + 1; y <= gy + h; y++) api.setBlockRaw(x, y, z, 3);
+  return gy + h;
+}
+function glidePlace(x, topY, z) {/* 摆玩家到 (x,topY,z) 方块顶面并跑一帧落定贴地 */
+  G.pos.set(x + 0.5, topY + 1, z + 0.5);
+  G.vel.set(0, 0, 0);
+  glideFrame(2);
+}
+function glideTap(key) {/* 单键边沿一帧(keys 帧首快照 prevSpace 防按住振荡) */
+  G.keys[key] = true;
+  glideFrame(1);
+  G.keys[key] = false;
+}
+function glideWings() {
+  return calls.filter((c) => c[0] === 'setWings').map((c) => c[1]);
+}
+function glideSfx(kind) {
+  return calls.filter((c) => c[0] === 'sfx' && c[1] === kind).length;
+}
+function glideSlotEl() {/* HUD 第五槽按钮(mkArmorBar 真件建在 docBody, 取最新一条) */
+  const roots = docBody.children.filter((c) => c.className === 'armorbar');
+  const root = roots[roots.length - 1];
+  return root && root.children.find((b) => b.dataset.slot === 'glider');
+}
+function glideGoldOn() {/* 金描边态: 装备态基名 'armorbar-slot'(空槽多 .off), 滑翔中沿触发
+  class 切换多出描边类; 未装备空槽恒不算金边 */
+  const el = glideSlotEl();
+  return !!el && !el.classList.contains('off') && el.className !== 'armorbar-slot';
+}
+/* 进入稳定滑翔态并停在空中(展翼断言前置): 装备+高台跳跃, 循环至引擎展翼 */
+function glideAirborne() {/* 诊断镜像 patch: 走崖法进滑翔(原「跳+单帧 W」剧本在水平
+  速度逐帧赋值模型下单帧位移≈0.08 格、纯垂直跳高 1.42<2, 物理不可达——
+  .scratch/glider/repro-jump-glide.js 纯引擎实证; 本体断言链逐字保留) */
+  const top = glideTower(80, 80, 6); /* 诊断 patch: 塔挪 (80,80)——(20,20) 在西界引导带
+      (advEdgeHintAt: x≤22)内, 走崖滑翔误触「西边雾气」话术入 spoken */
+  glidePlace(80, top, 80);
+  G.keys['KeyW'] = true;
+  for (let i = 0; i < 60 && !G.gliding; i++) glideFrame(1);
+  G.keys['KeyW'] = false; /* 滑翔中松 W 水平立停(GLIDE.speed 逐帧赋值) */
+  return G.gliding;
+}
+
+/* ---------- 装备位→引擎意图接线(票面要求 1) ---------- */
+
+test('T-G04 装备位接线: 穿上/卸下/读档对账全路径同步引擎装备位(T-G02 唯一通道)', () => {
+  freshInit();
+  glideClearEvents();
+  assert.strictEqual(G.gliderEquipped, false, '无翼进场: 引擎装备位 off');
+  calls.length = 0;
+  const inv = A.advGetInv();
+  wearAll(inv, ['glider']);
+  assert.strictEqual(G.gliderEquipped, true, '穿上滑翔翼: advTryWear 路径同步装备位 on');
+  assert.strictEqual(glideWings().length, 0, '非滑翔穿上零 setWings 调用(v1.2: 装备态不再操纵翼, 装备→HUD/装备页图标分流)');
+  A.advWornTakeOff('glider');
+  assert.strictEqual(G.gliderEquipped, false, '卸下: advWornTakeOff 路径同步装备位 off');
+  assert.strictEqual(glideWings().length, 0, '非滑翔卸下零 setWings 调用(翼可见性唯一驱动=滑翔状态沿)');
+  /* 读档对账: 落盘→重进, 有翼档装备位 on; 再全清重进 off */
+  inv.slots[0] = api.mkStack('glider');
+  AdventureMode.hotbar.select(0);
+  AdventureMode.onMouse(2);
+  AdventureMode.cleanup();
+  freshInit();
+  assert.strictEqual(G.gliderEquipped, true, '有翼档重进: init 对账同步装备位 on(advSyncArmor 全路径)');
+  AdventureMode.cleanup();
+});
+
+/* ---------- 滑翔态迁移点消费: spec §3.4 状态总表逐行(票面要求 2, 验收主线) ---------- */
+
+test('T-G04 自动展翼(≥4 格高台跳): setWings(spread)+wing_open+金描边 on+只缓降高度只减不增', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  const top = glideTower(20, 20, 6);
+  glidePlace(20, top, 20);
+  spoken.length = 0; calls.length = 0;
+  G.keys['KeyW'] = true; /* 诊断镜像 patch: 走崖法进滑翔(单帧起跳物理不可达), 本体断言逐字保留 */
+  let opened = -1;
+  for (let i = 0; i < 60; i++) {
+    glideFrame(1);
+    if (G.gliding && opened < 0) opened = i;
+    if (opened >= 0) break;
+  }
+  G.keys['KeyW'] = false;
+  assert.ok(G.gliding, '≥4 格高台跳出 → 引擎自动展翼(离地>2 规则一元)');
+  assert.ok(glideWings().includes('spread'), '展翼迁移点 → Avatar.setWings("spread")(UI spec §6.4 意图接口)');
+  assert.strictEqual(glideSfx('wing_open'), 1, '展翼瞬间 → sfx("wing_open") 恰一次(UI spec §7.1)');
+  assert.ok(glideGoldOn(), '展翼 → HUD 第五槽金描边 class on(UI spec §3.3)');
+  assert.strictEqual(spoken.length, 0, '展翼零 TTS(R1-09)');
+  /* 只缓降: 垂直恒 sink 匀速 + 高度单调不增(任意操作不能回升) */
+  let yPrev = G.pos.y;
+  for (let i = 0; i < 10; i++) {
+    glideFrame(1);
+    assert.strictEqual(G.vel.y, api.GLIDE.sink, '滑翔中垂直速度恒=缓降速率(格/秒恒值)');
+    assert.ok(G.pos.y <= yPrev + 1e-9, '高度只减不增(无任何爬升手段)');
+    yPrev = G.pos.y;
+  }
+  assert.ok(glideGoldOn(), '持续滑翔金描边保持 on(与滑翔态严格一致)');
+  assert.strictEqual(glideSfx('wing_open'), 1, '持续滑翔帧不重播 wing_open(防叠爆半场)');
+  AdventureMode.cleanup();
+});
+
+test('T-G04 走崖自动展翼(未按跳): 走出悬崖同样展翼 + 平地连跳 10 次零误展(阈值自洽锚)', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  /* 正向锚①: 直接走出台沿(不按跳)→展翼 */
+  const top = glideTower(20, 20, 6);
+  glidePlace(20, top, 20);
+  G.keys['KeyW'] = true;
+  for (let i = 0; i < 60 && !G.gliding; i++) glideFrame(1);
+  G.keys['KeyW'] = false;
+  assert.ok(G.gliding, '直接走出悬崖(未按跳) → 同样自动展翼(不分起因, 规则一元)');
+  assert.strictEqual(glideSfx('wing_open'), 1, '走崖展翼同点 wing_open');
+  /* 落地收翼回到地面态(为平地段清态) */
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
+  assert.ok(G.onGround, '走崖滑翔落地(测试段收尾)');
+  /* 正向锚②: 平地连跳 10 次 → 零误展(跳高 1.42 < 阈值 2) */
+  calls.length = 0;
+  let jumps = 0;
+  for (let i = 0; i < 600 && jumps < 10; i++) {
+    if (G.onGround && !G.keys['Space']) {
+      glideTap('Space');
+      jumps++;
+    } else {
+      glideFrame(1);
+    }
+    assert.strictEqual(G.gliding, false, '平地跳跃全程零误展(第 ' + jumps + ' 跳, 帧 ' + i + ')');
+  }
+  assert.strictEqual(jumps, 10, '完成 10 次平地连跳');
+  assert.strictEqual(glideSfx('wing_open'), 0, '平地连跳零展翼音效');
+  assert.ok(!glideWings().includes('spread'), '平地连跳零 setWings("spread")');
+  AdventureMode.cleanup();
+});
+
+test('T-G04 落地自动收翼: wing_close+setWings(hidden)+金描边 off, 落地即跑即跳', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  calls.length = 0; spoken.length = 0; /* 诊断 patch: 补 spoken 清零(原稿漏清——init 欢迎句会入账, test 2 的 5619 同款先例) */
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
+  assert.ok(G.onGround, '滑翔落地');
+  assert.strictEqual(glideSfx('wing_close'), 1, '落地自动收翼 → sfx("wing_close") 恰一次(四触发之一)');
+  assert.ok(glideWings().includes('hidden'), '收翼迁移点 → Avatar.setWings("hidden")(v1.2 目标态声明)');
+  assert.ok(!glideGoldOn(), '落地收翼 → 金描边 class off(回常态白边)');
+  assert.strictEqual(spoken.length, 0, '落地收翼零 TTS(零话术红线)');
+  /* 即跑即跳: 落地后立即恢复地面移动(R1-04) */
+  const x0 = G.pos.x; const z0 = G.pos.z;
+  G.keys['KeyW'] = true;
+  glideFrame(15); /* 诊断 patch: 落地跑动窗 10→15 帧——原稿 10 帧位移约 0.9x 格,
+      浮点边界 1.0±ε(引擎速度逐帧赋值+摩擦), 15 帧过阈语义不变(证「立即能跑」) */
+  G.keys['KeyW'] = false;
+  assert.ok(Math.hypot(G.pos.x - x0, G.pos.z - z0) > 1, '落地后立即能跑(地面移动恢复)');
+  glideTap('Space');
+  assert.ok(!G.onGround, '落地后立即能跳(起跳离地)');
+  for (let i = 0; i < 120 && !G.onGround; i++) glideFrame(1);
+  assert.strictEqual(G.gliding, false, '平地跳零误展(收尾自洽)');
+  AdventureMode.cleanup();
+});
+
+test('T-G04 水面软着陆: 触水收翼+溅水+入水零伤害(收翼四触发之二)', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  /* 摆玩家到水面上方(装具直写 vm pos, 等效传送): 3×3×1 静水池 */
+  const cx = 40; const cz = 40;
+  const gy = glideTopAt(cx, cz);
+  for (let dx = -1; dx <= 1; dx++) {
+    for (let dz = -1; dz <= 1; dz++) {
+      api.setBlockRaw(cx + dx, gy, cz + dz, api.B_WATER);
+      api.setBlockRaw(cx + dx, gy + 1, cz + dz, 0);
+    }
+  }
+  G.pos.set(cx + 0.5, gy + 2.5, cz + 0.5);
+  G.vel.set(0, 0, 0);
+  const hp0 = A.advGetPEnt().hp;
+  calls.length = 0; spoken.length = 0; /* 诊断 patch: 补 spoken 清零(原稿漏清欢迎句) */
+  for (let i = 0; i < sinkFrames(2) && G.gliding; i++) glideFrame(1); /* 从 gy+2.5 到
+      bodyF 采样入水线 gy+0.5 = 2 格缓降, 窗=派生(sinkFrames, 速率知识单点在
+      glide-anchors.js; 历史手数 30→60→160 系按当时锚逐次放宽) */
+  assert.strictEqual(G.gliding, false, '滑翔触水面 → 软着陆收翼(spec §3.4 R1-05)');
+  assert.strictEqual(api.worldEvents.splash, true, '溅水事件置位(引擎事实, 轻溅入泳)');
+  assert.strictEqual(glideSfx('wing_close'), 1, '软着陆 → wing_close(四触发同点)');
+  assert.ok(glideWings().includes('hidden'), '软着陆 → setWings("hidden")(v1.2 目标态声明)');
+  assert.strictEqual(A.advGetPEnt().hp, hp0, '软着陆零伤害');
+  assert.strictEqual(spoken.length, 0, '软着陆零 TTS');
+  AdventureMode.cleanup();
+});
+
+test('T-G04 主动取消闩锁三段: 取消收翼+闩锁(高处不重展)→空中再点再展→落地闩锁清恢复自动展', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  calls.length = 0; spoken.length = 0; /* 诊断 patch: 补 spoken 清零(原稿漏清欢迎句) */
+  /* 段一: 滑翔中再点跳跃 = 立即收翼+闩锁(R2-04) */
+  glideTap('Space');
+  assert.strictEqual(G.gliding, false, '滑翔中按跳跃 → 立即收翼转无翼坠落');
+  assert.strictEqual(glideSfx('wing_close'), 1, '主动取消 → wing_close(四触发之三)');
+  assert.ok(glideWings().includes('hidden'), '主动取消 → setWings("hidden")(v1.2 目标态声明)');
+  assert.ok(!glideGoldOn(), '取消即金描边 off');
+  assert.strictEqual(spoken.length, 0, '取消零 TTS');
+  /* 段二: 闩锁期高处继续坠落不自动重展(R2-03), 空中再点跳跃=解除+主动再展 */
+  glideFrame(8);
+  assert.strictEqual(G.gliding, false, '闩锁期间高处经过 → 不自动重展(取消闩锁)');
+  glideTap('Space');
+  assert.strictEqual(G.gliding, true, '空中再点跳跃 → 解除闩锁+主动再展翼');
+  assert.strictEqual(glideSfx('wing_open'), 1, '主动再展与自动展同点 wing_open(UI spec §7.1)');
+  assert.ok(glideGoldOn(), '再展 → 金描边重新 on');
+  /* 段三: 落地闩锁无条件清除 → 再跳崖恢复自动展翼 */
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
+  assert.ok(G.onGround, '落地');
+  assert.strictEqual(G.glideLatch, false, '落地闩锁无条件清除(ADR 0016)');
+  calls.length = 0;
+  assert.ok(glideAirborne(), '落地后再跳崖 → 恢复自动展翼(闩锁已清)');
+  assert.strictEqual(glideSfx('wing_open'), 1, '闩锁清后再跳崖自动展(全链第四次展翼音效)');
+  AdventureMode.cleanup();
+});
+
+test('T-G04 滑翔中卸翼 A6 全语义: 装备页口照常生效+引擎立即收翼+按无翼坠落扣血(有意设计不得修掉)', () => {
+  freshInit();
+  glideClearEvents();
+  const inv = A.advGetInv();
+  wearAll(inv, ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  const hp0 = A.advGetPEnt().hp;
+  calls.length = 0; spoken.length = 0; /* 诊断 patch: 补 spoken 漏清(init 欢迎句会
+      入账, test 4 的 5685 同款先例; 断言窗=卸翼+坠落全程, 前置期旧账不该算) */
+  /* 装备页面板口(A6 合法入口, UI spec §3.2: 面板口承担「随时可卸」全语义) */
+  A.advWornTakeOff('glider');
+  assert.strictEqual(A.advWornState().glider, null, '装备页卸下照常生效(不受 HUD 抑制影响)');
+  assert.strictEqual(G.gliderEquipped, false, '卸下同步引擎装备位 off');
+  /* 诊断 patch: 原稿此处同步断言 G.gliding===false——引擎契约是 physics 帧级
+     (voxel.js:243-245「滑翔中卸翼=立即收翼按无翼坠落(physics 帧级判定)」;
+     setGliderEquipped 只翻装备位), 模式层物理隔离不可达——改一帧等价验证 A6 语义 */
+  glideFrame(1);
+  assert.strictEqual(G.gliding, false, '滑翔中卸翼 → 引擎下一 physics 帧收翼(A6: 立刻收翼)');
+  assert.strictEqual(glideSfx('wing_close'), 1, '滑翔中卸翼 → wing_close(四触发之四)');
+  assert.ok(glideWings().includes('hidden'), '卸翼收翼 → setWings("hidden") 无翼残影(v1.2 目标态声明)');
+  /* 按无翼坠落: 落地落差自收翼点重计 → 扣血(ADR 0014 有意设计, 不得当 bug 修掉) */
+  for (let i = 0; i < 400 && !G.onGround; i++) glideFrame(1);
+  assert.ok(G.onGround, '卸翼后无翼坠落到地(无卡死)');
+  assert.ok(A.advGetPEnt().hp < hp0, '落地按无翼坠落扣血(高空卸翼 → 高→摔因果出口)');
+  assert.strictEqual(glideSfx('wing_close'), 1, '卸翼收翼后无重复音效');
+  assert.strictEqual(spoken.length, 0, '卸翼坠落全程零 TTS');
+  AdventureMode.cleanup();
+});
+
+test('T-G04 全态兜底·未装备零参与: 无翼高坠零滑翔面(无展翼/无金边/无翼音效)', () => {
+  freshInit();
+  glideClearEvents();
+  /* 守门型: 接线后防「未装备也展翼」回归; 现状接线缺失天然零参与 */
+  const top = glideTower(20, 20, 6);
+  glidePlace(20, top, 20);
+  calls.length = 0;
+  G.keys['Space'] = true; G.keys['KeyW'] = true;
+  glideFrame(1);
+  G.keys['Space'] = false; G.keys['KeyW'] = false;
+  for (let i = 0; i < 400 && !G.onGround; i++) glideFrame(1);
+  assert.ok(G.onGround, '无翼高台跳落地');
+  assert.strictEqual(G.gliding, false, '未装备: 零滑翔参与');
+  assert.strictEqual(glideSfx('wing_open'), 0, '未装备: 零展翼音效');
+  assert.ok(!glideWings().includes('spread'), '未装备: 零 setWings("spread")(身上永不出现翼)');
+  assert.ok(!glideGoldOn(), '未装备: 金描边不动');
+  AdventureMode.cleanup();
+});
+
+test('T-G04 滑翔水平转向跟手: yaw 同源操控(双通道同一移动意图入口, spec §3.4 R1-02)', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  /* 转向后水平移动方向随 yaw(操控=yaw 视角控制同源; vm 物理即桌面/触屏共用移动意图) */
+  G.yaw = Math.PI / 2; /* 原朝 -z, 转 90° 后前方 = -x(yaw 同源: dx=-sin(yaw), dz=-cos(yaw)) */
+  const x0 = G.pos.x; const z0 = G.pos.z;
+  G.keys['KeyW'] = true;
+  glideFrame(15); /* 诊断 patch: 12→15 帧(12 帧位移恰 1.0 格卡浮点边界, 断言是严格小于) */
+  G.keys['KeyW'] = false;
+  assert.ok(G.pos.x < x0 - 1, '转向后前移朝 -x(yaw=90° 时 dx=-sin(90°)=-1)');
+  assert.ok(Math.abs(G.pos.z - z0) < 0.5, 'z 向位移可忽略(方向随 yaw 旋转)');
+  assert.ok(G.gliding, '操控转向期间保持滑翔(轻操控不收翼)');
+  AdventureMode.cleanup();
+});
+
+/* ---------- 金描边呼吸(UI spec §3.3, 票面要求 3) ---------- */
+
+test('T-G04 金描边与滑翔态严格一致: 展亮收灭零闪烁 + 边沿单次 class 切换(零逐帧重画)', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  const el = glideSlotEl();
+  assert.ok(el, 'HUD 第五槽按钮在场');
+  const ops0 = {add: el.__classOps.add, remove: el.__classOps.remove};
+  /* 持续滑翔 30 帧: class 稳定 on 且零新增切换(不进 mkArmorBar 签名, 无逐帧重画) */
+  glideFrame(30);
+  assert.ok(glideGoldOn(), '持续滑翔金描边保持 on');
+  assert.strictEqual(el.__classOps.add, ops0.add, '持续滑翔帧零新增 class add(零逐帧重画)');
+  const ops1 = {add: el.__classOps.add, remove: el.__classOps.remove};
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
+  assert.ok(G.onGround, '落地');
+  assert.ok(!glideGoldOn(), '收翼即回常态(描边与滑翔态严格一致)');
+  assert.strictEqual(el.__classOps.remove, ops1.remove, '收翼沿 class remove 恰一次(零闪烁抖动)');
+  /* 第一人称退化兜底同样生效(UI spec §3.3): 金描边是 HUD DOM class, 不依赖
+     相机视角状态——本链全程零视角参数参与即证(路径 B 下唯一可见滑翔状态信号) */
+  AdventureMode.cleanup();
+});
+
+test('T-G04 金描边 CSS 参数(UI spec §3.3 定稿): #e9b115 + 1.0↔0.55 + 周期 1.6s ease-in-out', () => {
+  const css = fs.readFileSync(path.join(ROOT, 'css', 'style.css'), 'utf8');
+  assert.ok(css.indexOf('#e9b115') >= 0, '金描边色 #e9b115(与图标金骨同源)');
+  assert.ok(/1\.6s/.test(css), '呼吸周期 ≈1.6s');
+  assert.ok(/0\.55/.test(css), '不透明度下界 0.55(1.0↔0.55 循环)');
+  assert.ok(/ease-in-out/.test(css), 'ease-in-out 缓动');
+  assert.ok(/@keyframes/.test(css), '呼吸走 CSS animation keyframes(class 切换零逐帧重画)');
+});
+
+/* ---------- HUD 第五槽滑翔中抑制(spec §8② PO 已确认, 票面要求 4) ---------- */
+
+test('T-G04 HUD 槽滑翔中抑制: 点第五槽零副作用零话术(不报意图), 落地解锁照常卸下', () => {
+  freshInit();
+  glideClearEvents();
+  const inv = A.advGetInv();
+  wearAll(inv, ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  const el = glideSlotEl();
+  assert.ok(el, 'HUD 第五槽在场');
+  const wingsBefore = api.count(inv, 'glider');
+  calls.length = 0; spoken.length = 0;
+  el._ev.click(); /* 滑翔中点第五槽(mode-kit.test.js:1674 同款派发) */
+  assert.ok(A.advWornState().glider, '滑翔中点槽: 装备不动(锁槽防误脱)');
+  assert.strictEqual(api.count(inv, 'glider'), wingsBefore, '滑翔中点槽: 零背包变动');
+  assert.strictEqual(G.gliderEquipped, true, '滑翔中点槽: 引擎装备位不动');
+  assert.strictEqual(spoken.length, 0, '滑翔中点槽: 零 TTS(不弹话术)');
+  assert.ok(!calls.some((c) => c[0] === 'toast'), '滑翔中点槽: 零 toast(不报意图)');
+  assert.ok(!calls.some((c) => c[0] === 'sfx'), '滑翔中点槽: 零音效副作用');
+  /* 落地解锁: 同一入口照常生效 */
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
+  assert.ok(G.onGround, '落地');
+  el._ev.click();
+  assert.strictEqual(A.advWornState().glider, null, '落地后点槽: 卸下照常生效(落地解锁)');
+  assert.strictEqual(api.count(inv, 'glider'), wingsBefore + 1, '落地后点槽: 翼回背包(零损失)');
+  AdventureMode.cleanup();
+});
+
+/* ---------- 滑翔中动作暂停(spec §3.4/R1-18, 票面要求 5) ---------- */
+
+test('T-G04 滑翔中动作暂停: 挖/攻/吃/放四类无效(不触发不消耗无残留), 落地立即恢复', () => {
+  freshInit();
+  glideClearEvents();
+  const inv = A.advGetInv();
+  inv.slots[0] = api.mkStack('apple'); /* 手持食物(吃) */
+  inv.slots[1] = api.mkStack('dirt'); /* 手持可放置方块(放) */
+  AdventureMode.hotbar.select(1);
+  wearAll(A.advGetInv(), ['glider']); /* 翼另穿(穿戴走手持槽, 先备好手持再穿翼;
+      诊断 patch: 原稿 wearAll(inv, []) 是漏穿翼笔误——空列表零循环, 前置永败) */
+  inv.slots[0] = api.mkStack('apple');
+  inv.slots[1] = api.mkStack('dirt');
+  AdventureMode.hotbar.select(1);
+  const top = glideTower(80, 80, 6); /* 诊断 patch: 塔挪 (80,80)——(20,20) 在西界引导带
+      (advEdgeHintAt: x≤22)内, spoken 误收「西边雾气」话术(见 diag-v4.tap) */
+  glidePlace(80, top, 80);
+  G.keys['KeyW'] = true; /* 诊断镜像 patch: 走崖法进滑翔(单帧起跳物理不可达) */
+  for (let i = 0; i < 60 && !G.gliding; i++) glideFrame(1);
+  G.keys['KeyW'] = false;
+  assert.ok(G.gliding, '前置: 滑翔中(手持泥土)');
+  /* 模式层动作坐标对齐(vm 世界台柱旁, 距离<reach): 挖/放 hit 指向台柱, 攻击怪摆锥内 */
+  globalThis.pos.x = 80.5; globalThis.pos.y = top + 1; globalThis.pos.z = 80.5;
+  globalThis.yaw = 0;
+  const hit = {x: 80, y: top, z: 80, nx: 0, ny: 1, nz: 0}; /* 台柱顶方块(脚下) */
+  listResult = [mkAdvMob('zombie', globalThis.pos.x, globalThis.pos.y, globalThis.pos.z - 2)];
+  /* 挖: 蓄力不推进(方块完好, 零 edit) */
+  const cellBefore = api.getBlock(80, top - 1, 80);
+  const pe = A.advGetPEnt();
+  pe.hp = 20; A.ADV.player.hp = 20; /* 扣血至非满(吃的前置: 满血不吃) */
+  const apples0 = api.count(inv, 'apple');
+  const dirts0 = api.count(inv, 'dirt');
+  calls.length = 0; spoken.length = 0; hitLog.length = 0;
+  AdventureMode.onMouse(0, hit); /* 挖(左键) */
+  AdventureMode.onMouse(2, hit); /* 放(右键, 手持泥土) */
+  globalThis.yaw = -Math.PI / 2; /* 前方=+x? 转向正对怪(z-2 处, yaw=π 时前方 +z) */
+  globalThis.yaw = 0; /* 前方 -z, 怪在 z-2 正前 */
+  AdventureMode.onMouse(0, null); /* 攻击(锥内有怪) */
+  AdventureMode.hotbar.select(0);
+  AdventureMode.onMouse(2, null); /* 吃(手持苹果) */
+  glideFrame(30); /* 30 帧(0.5s)蓄力观察窗 */
+  assert.strictEqual(api.getBlock(80, top - 1, 80), cellBefore, '滑翔中挖: 方块完好(不触发无半途残留)');
+  assert.ok(!calls.some((c) => c[0] === 'edit'), '滑翔中挖/放: 零方块编辑');
+  assert.strictEqual(hitLog.length, 0, '滑翔中攻击: Mobs.hit 零调用(不触发)');
+  assert.strictEqual(api.count(inv, 'apple'), apples0, '滑翔中吃: 食物零消耗');
+  assert.strictEqual(api.count(inv, 'dirt'), dirts0, '滑翔中放: 材料零消耗');
+  assert.strictEqual(pe.hp, 20, '滑翔中吃: 不回血(无效果)');
+  assert.strictEqual(spoken.length, 0, '滑翔中四类动作零话术(准星原位原样零惊扰)');
+  /* 落地立即恢复: 放/攻/吃即时三断言 */
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
+  assert.ok(G.onGround, '落地');
+  globalThis.pos.x = G.pos.x; globalThis.pos.y = G.pos.y; globalThis.pos.z = G.pos.z;
+  calls.length = 0; hitLog.length = 0;
+  AdventureMode.hotbar.select(1); /* 诊断 patch: 剧本补手持复位——原稿滑翔段 select(0)
+      切苹果后未切回泥土槽, 落地放手持苹果→放置前置失败(道具前置断裂非实现问题) */
+  /* 诊断 patch: 布独立放置踏板——原稿 hit 指玩家脚下顶面(目标格=玩家脚位被
+      collidesAtPlayer 拒, place-kit.js:279), 挪旁格又撞柱体(走崖滑翔落地贴柱,
+      v8 打印实证 hitTgt=3 被石柱占): 放置断言需要一块确定可放格——基面实体+
+      目标格/头顶清空, 对踏板顶面放 */
+  const padX = Math.floor(G.pos.x) + 1; const padY = Math.floor(G.pos.y) - 1; const padZ = Math.floor(G.pos.z);
+  api.setBlockRaw(padX, padY, padZ, 3);
+  api.setBlockRaw(padX, padY + 1, padZ, 0);
+  api.setBlockRaw(padX, padY + 2, padZ, 0);
+  AdventureMode.onMouse(2, {x: padX, y: padY, z: padZ, nx: 0, ny: 1, nz: 0});
+  assert.ok(calls.some((c) => c[0] === 'edit'), '落地后放: 立即生效(edit 记账)');
+  listResult = [mkAdvMob('zombie', globalThis.pos.x, globalThis.pos.y, globalThis.pos.z - 2)];
+  AdventureMode.onMouse(0, null);
+  assert.strictEqual(hitLog.length, 1, '落地后攻击: 立即生效(Mobs.hit 收口)');
+  pe.hp = 10; A.ADV.player.hp = 10; /* 诊断 patch: 剧本补饥饿前置——原稿 5923 设 hp=20 满血,
+      「落地后吃」需 hp<max(满血不吃是吃的自有前置, 与滑翔闸无关) */
+  AdventureMode.hotbar.select(0); /* 诊断 patch: 切回苹果(吃断言的手持前置, 原稿依赖滑翔段残留) */
+  AdventureMode.onMouse(2, null);
+  assert.strictEqual(api.count(inv, 'apple'), apples0 - 1, '落地后吃: 立即生效(食物消耗)');
+  AdventureMode.cleanup();
+});
+
+test('T-G04 按住挖到一半进入滑翔: 展翼沿清蓄力(无半途残留), 滑翔中不续挖', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  const top = glideTower(20, 20, 6);
+  glidePlace(20, top, 20);
+  globalThis.pos.x = 20.5; globalThis.pos.y = top + 1; globalThis.pos.z = 20.5;
+  const hit = {x: 20, y: top, z: 20, nx: 0, ny: 1, nz: 0};
+  /* 地面按住挖(蓄力进行中) */
+  AdventureMode.onMouse(0, hit);
+  G.keys['KeyW'] = false;
+  glideFrame(10); /* 蓄力推进若干帧(未到破坏点) */
+  /* 走崖进入滑翔(按住状态保留——桌面 mousedown 未松; 诊断镜像 patch: 单帧起跳
+     物理不可达, 改持续 W 走出柱沿, 本体断言链逐字保留) */
+  G.keys['KeyW'] = true;
+  for (let i = 0; i < 60 && !G.gliding; i++) {
+    glideFrame(1);
+  }
+  G.keys['KeyW'] = false;
+  assert.ok(G.gliding, '前置: 按住挖中走崖进入滑翔');
+  const cellTop = api.getBlock(20, top, 20);
+  glideFrame(120); /* 2 秒滑翔窗(蓄力若残留早该挖穿) */
+  assert.strictEqual(api.getBlock(20, top, 20), cellTop, '滑翔期方块完好(蓄力已清, 无半途残留)');
+  assert.ok(!calls.some((c) => c[0] === 'edit' && c[1] === 20 && c[2] === top && c[3] === 20),
+      '滑翔期零挖掘 edit');
+  AdventureMode.cleanup();
+});
+
+/* ---------- 相机 U-01 路径 B(UI spec §8 定稿口径, 票面要求 6) ---------- */
+
+test('T-G04 相机路径 B·FOV 微扩: 展翼沿 +6°~8° 0.3s 匀速过渡, 落地收翼恢复原值; 零暗角滤镜震屏', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  assert.strictEqual(globalThis.camera.fov, 72, 'FOV 基值 72(world.js:51 口径)');
+  /* 与翼展开同拍起的 0.3s 匀速微扩(速度感的最小表达) */
+  const frames = [];
+  for (let i = 0; i < 18; i++) {/* 0.3s = 18 帧 */
+    glideFrame(1);
+    frames.push(globalThis.camera.fov);
+  }
+  const kick = frames[frames.length - 1] - 72;
+  assert.ok(kick >= 6 && kick <= 8, 'FOV 微扩终值 = 原值 +6°~8°(实测 +' + kick.toFixed(2) + '°)');
+  for (let i = 1; i < frames.length; i++) {
+    const step = frames[i] - frames[i - 1];
+    const stepPrev = i > 1 ? frames[i - 1] - frames[i - 2] : step;
+    assert.ok(Math.abs(step - stepPrev) < 1e-6, '匀速过渡(每帧等步长, 0.3s 线性)');
+  }
+  assert.ok(calls.some((c) => c[0] === 'projMatrix'), 'fov 变更帧调用 updateProjectionMatrix(改 fov 必更新投影才可见)');
+  /* 落地收翼恢复原值 */
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
+  assert.ok(G.onGround, '落地');
+  glideFrame(30); /* 恢复过渡窗 */
+  assert.strictEqual(globalThis.camera.fov, 72, '落地收翼 → FOV 恢复原值 72');
+  /* 零暗角/滤镜/震屏/色偏: 滑翔全程 Fx 观感全家零调用(惊悚面禁用, A9 安静口径) */
+  assert.ok(!calls.some((c) => ['kick', 'debris', 'boom', 'arc', 'pop'].includes(c[0])),
+      '滑翔全程零 Fx 观感副作用(除 FOV 外不加任何屏效)');
+  /* 准星原位原样: 模式层零触碰准星(静态守门, #crosshair 归输入层) */
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  assert.ok(src.indexOf('crosshair') < 0, '模式文件零准星触碰(准星保持原位原样)');
+  AdventureMode.cleanup();
+});
+
+/* ---------- 全态兜底: 切模式复位/死亡重生(票面要求 1 收场路径+§3.4 兜底) ---------- */
+
+test('T-G04 切模式清场: 滑翔中退出 → 装备位 off+观感复位+引擎滑翔态可收; 重进零误播(收场覆盖清零)', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  calls.length = 0;
+  AdventureMode.cleanup(); /* 滑翔中直接切模式 */
+  assert.strictEqual(G.gliderEquipped, false, 'cleanup: 引擎装备位收场清零(观察项 1 路由要求)');
+  assert.ok(glideWings().slice(-1)[0] === 'hidden', 'cleanup: 翼观感复位 hidden(收场覆盖清零, 切模式翼显隐复位无残影)');
+  assert.ok(!glideGoldOn() || !glideSlotEl(), 'cleanup: 金描边随装备条卸载(无残影)');
+  assert.strictEqual(globalThis.camera.fov, 72, 'cleanup: FOV 收场复原(滑翔中退出不留扩幅)');
+  glideFrame(1); /* 切出后引擎物理照跑(main 循环全局): 装备位 off → 引擎收滑翔态 */
+  assert.strictEqual(G.gliding, false, '装备位 off 后引擎物理帧收滑翔态(stale 窗口收口)');
+  /* 重进(有翼档): 进场对账先同步装备位, isGliding 消费不误播(T-G02 观察项 1) */
+  calls.length = 0;
+  /* 诊断 patch: spawn 复位到已知地面——ADV.spawn 跨测试残留(前段测试睡床设点/塔顶),
+     重进时 spawn 在高空+装备 on → 引擎「离地>2 规则一元」自动展翼属真沿非误播 */
+  {
+    const sGy = glideTopAt(25, 25);
+    A.ADV.spawn = {x: 25.5, y: sGy + 1, z: 25.5, yaw: 0};
+  }
+  freshInit();
+  glidePlace(25, glideTopAt(25, 25), 25); /* 诊断 patch: 重进剧本补落地——cleanup 落盘档
+      pos 在塔顶高空(滑翔中退出), 装备保留语义→重进对账装备位 on→「离地>2 规则一元」
+      自动展翼属真沿非误播(v6 打印实证 pos=(79.67,30.84,80.50) equip=true); 断言语义=
+      进场对账零 stale 误播, 场景须玩家在地面(摆到已知地表贴地, 等效档 pos 落地) */
+  glideFrame(3); /* 进场对账落地态三帧稳定 */
+  assert.strictEqual(glideSfx('wing_open'), 0, '重进后零误播 wing_open(进场对账, stale 不触发观感)');
+  assert.ok(!glideWings().includes('spread'), '重进后零误展翼观感(无残影)');
+  AdventureMode.cleanup();
+});
+
+test('T-G04 死亡重生: 滑翔中致死 → 滑翔态清零+装备保留+无翼残影, 重生后零误播', () => {
+  freshInit();
+  glideClearEvents();
+  wearAll(A.advGetInv(), ['glider']);
+  assert.ok(glideAirborne(), '前置: 进入滑翔');
+  calls.length = 0;
+  /* 滑翔中被致命一击(摔不死的滑翔态, 用战斗击杀构造死亡) */
+  nextHit = {hp: 0, dead: true, freshDead: true};
+  A.advHitPlayer(999, 0, 0, 0);
+  assert.ok(A.advWornState().glider, '死亡零惩罚: 装备保留(滑翔翼仍在第五槽)');
+  assert.ok(glideWings().slice(-1)[0] === 'hidden', '死亡路径: 翼观感复位 hidden(滑翔态清零无残影)');
+  assert.ok(!glideGoldOn() || !glideSlotEl(), '死亡路径: 金描边复位(无残影)');
+  calls.length = 0;
+  glideFrame(3); /* 重生后帧(重生传送经 advTeleport 免疫, 物理收滑翔态) */
+  assert.strictEqual(glideSfx('wing_open'), 0, '重生后零误播 wing_open');
+  assert.strictEqual(G.gliderEquipped, true, '重生后装备位对账 on(装备保留语义)');
+  AdventureMode.cleanup();
+});
+
+/* ---------- 收口: spec §7 U-01 回填(票面硬性交付) + 体验馆同口径(§3.8) ---------- */
+
+test('T-G04 spec §7 U-01 行已回填: 相机路径结论+理由一句(票面硬性交付, 缺此不做完)', () => {
+  const spec = fs.readFileSync(path.join(ROOT, 'docs', 'glider-spec.md'), 'utf8');
+  const row = spec.split('\n').find((l) => l.indexOf('| U-01 |') >= 0);
+  assert.ok(row, '§7 U-01 行在场');
+  assert.ok(row.indexOf('路径 B') >= 0 || row.indexOf('路径 A') >= 0,
+      'U-01 行已回填结论(路径 A 或 B)');
+  assert.ok(/代价|理由|基建|落在/.test(row), '结论附理由一句(实现侧评估记录)');
+  assert.ok(row.indexOf('回填本行') < 0 || row.indexOf('路径') >= 0,
+      '遗留回填语已被结论取代');
+});
+
+test('T-G04 体验馆同口径(§3.8): showroom 壳零滑翔面覆写(同一 adventure 内核, 零场景硬编码分支)', () => {
+  /* 守门型: 结构证明——体验馆=adventure.js 同一内核+dev 政策缝, 滑翔面无第二实现 */
+  const shell = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'showroom.js'), 'utf8');
+  for (const tok of ['setWings', 'wing_open', 'wing_close', 'isGliding', 'setGliderEquipped']) {
+    assert.ok(shell.indexOf(tok) < 0, 'showroom 壳零覆写滑翔面(' + tok + ' 不出现——同口径零第二实现)');
+  }
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  assert.ok(src.indexOf('isGliding') >= 0, '滑翔消费在 adventure 内核(体验馆经同一模式文件同口径开放)');
+  assert.ok(src.indexOf('setGliderEquipped') >= 0, '装备位接线在 adventure 内核(探险/体验馆同缝)');
+});
+
+test('T-G05 inPlace 血尽变体(dev 政策): 原地满血复活零传送/零免疫置位/零背包操作(评审补测·源码切片守门)', () => {
+  /* 追令原意=动态切 inPlace 后注入致死摔落断言原地复活链(对照 R3 的 home
+     变体)。装具事实: advProfile 政策缝是本模块(CJS require)作用域内 let,
+     运行时换装经 showroom 门面的 vm 共享词法(test/showroom-mode.test.js
+     :371-383 专用装具先例)——本文件无动态切换缝且追令纪律禁扩接口面。
+     inPlace 死亡链的行为面(满血+夜怪清场+原地复活)已由 showroom 装具
+     覆盖(:1388); 本块钉死摔落机制不变量的静态等价网(经理已认可): 后人
+     以任何形式(advTeleport 包装/直写免疫旗/触背包)在 inPlace 分支误动,
+     切片即红——「空中复活真摔落被吞无人报警」的回归网眼等效闭合 */
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const mDied = src.indexOf('function advPlayerDied');
+  const mBranch = src.indexOf('if (advProfile.death === \x27inPlace\x27)');
+  assert.ok(mDied > 0 && mBranch > mDied, 'inPlace 分支定位(advPlayerDied 首分支)');
+  const mEnd = src.indexOf('return;', mBranch);
+  assert.ok(mEnd > mBranch && mEnd - mBranch < 600, '分支体窗口(首个 return 前 ≤600 字符, 形状大改须人核)');
+  const body = src.slice(mBranch, mEnd);
+  assert.ok(body.indexOf('advTeleport') < 0,
+      'inPlace 分支零传送包装(原地复活无落位 — 空中复活后真摔落照常结算)');
+  assert.ok(body.indexOf('advLandImmuneNext') < 0,
+      'inPlace 分支零免疫置位(置旗即吞空中复活真摔落, 违票面要求 5「按击飞高度计」)');
+  assert.ok(body.indexOf('advInv') < 0, 'inPlace 分支零背包操作(装备背包全保留, 死亡零惩罚)');
+});
+
+test('T-G05 传送免疫单点收口(静态守门): ModeKit.spawn 调用仅存于 advTeleport 内部(评审补测)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const hit = [...src.matchAll(/ModeKit\.spawn\(/g)];
+  assert.strictEqual(hit.length, 1,
+      'js/modes/adventure.js 内 ModeKit.spawn( 调用恰一处(死亡/回家/睡醒/切界×2/切图/init 七口共享单点)');
+  const tpDef = src.indexOf('function advTeleport');
+  const tpEnd = src.indexOf('\n}', tpDef);
+  assert.ok(tpDef > 0 && tpEnd > tpDef && hit[0].index > tpDef && hit[0].index < tpEnd,
+      '唯一调用位于 advTeleport 函数体内(新增传送口必须经包装挂免疫, 幻影防护链不漏)');
+});
+
+
 /* ============ 案卷③ NPC 待机微动画(PO 验收体验反馈, po-idle-fix) ============
    观测缝契约(本票新增): A.advTownNpcIdleTick(dt) — 镇维度专属 idle 消费机
    (advTownAnchorTick 同位同节拍, update 链直调挂点): 逐傀儡 townNpcIdlePose
@@ -5976,4 +6937,3 @@ test('PO④-3 正控: 无傀儡遮挡靶石照常挖穿(豁免不误伤普通挖
       'C 照常挖穿(木镐 1.125s, 60 帧富余; 触屏单击本块完成即停)');
   clearAim();
 });
-

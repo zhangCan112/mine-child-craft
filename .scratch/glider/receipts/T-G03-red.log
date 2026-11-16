@@ -1,0 +1,900 @@
+TAP version 13
+# Subtest: 声音清单: js/** 每处 sfx(…) 字面量都在 SFX_KINDS 登记(漏登记即红)
+ok 1 - 声音清单: js/** 每处 sfx(…) 字面量都在 SFX_KINDS 登记(漏登记即红)
+  ---
+  duration_ms: 66.2977
+  type: 'test'
+  ...
+# Subtest: 声音清单: 只收活着的 kind — 16 活键齐备, TNT 死键(fss/door)不迁
+ok 2 - 声音清单: 只收活着的 kind — 16 活键齐备, TNT 死键(fss/door)不迁
+  ---
+  duration_ms: 0.1421
+  type: 'test'
+  ...
+# Subtest: 声音清单: 条目形状 — synth/file 至少其一, file 条目须带 synth 回退(降级链互锁) + 增益/优先级/冷却齐全
+ok 3 - 声音清单: 条目形状 — synth/file 至少其一, file 条目须带 synth 回退(降级链互锁) + 增益/优先级/冷却齐全
+  ---
+  duration_ms: 0.2037
+  type: 'test'
+  ...
+# Subtest: 声音清单: MOODS 收窄为仅 menu — 模式情绪唯一权威在 mode-registry 各行 mood 字段, 值 ∈ 合法情绪集
+ok 4 - 声音清单: MOODS 收窄为仅 menu — 模式情绪唯一权威在 mode-registry 各行 mood 字段, 值 ∈ 合法情绪集
+  ---
+  duration_ms: 0.5153
+  type: 'test'
+  ...
+# Subtest: 声音清单: 传送门双音效(冒险地图 T7) — 蓄能上行/到达琶音, 纯合成无样本(仪式层)
+ok 5 - 声音清单: 传送门双音效(冒险地图 T7) — 蓄能上行/到达琶音, 纯合成无样本(仪式层)
+  ---
+  duration_ms: 0.1126
+  type: 'test'
+  ...
+# Subtest: 声音清单: 滑翔翼双音效 — wing_open 上滑/wing_close 下滑更轻, prio 2/coolMs 300, 纯合成可回退
+not ok 6 - 声音清单: 滑翔翼双音效 — wing_open 上滑/wing_close 下滑更轻, prio 2/coolMs 300, 纯合成可回退
+  ---
+  duration_ms: 0.3299
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\audio-registry.test.js:124:1'
+  failureType: 'testCodeFailure'
+  error: '登记 wing_open(展翼瞬间, 触发接线归 T-G04)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\audio-registry.test.js:126:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9)
+ok 7 - 声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9)
+  ---
+  duration_ms: 0.072
+  type: 'test'
+  ...
+# Subtest: 声音清单: MUSIC_TRACKS 条目形状 {file, mood, g, durMs}, 曲目情绪不含 none(A7 起填曲)
+ok 8 - 声音清单: MUSIC_TRACKS 条目形状 {file, mood, g, durMs}, 曲目情绪不含 none(A7 起填曲)
+  ---
+  duration_ms: 0.0877
+  type: 'test'
+  ...
+# Subtest: 声音清单: 曲目情绪覆盖 — 模式/场景用到的情绪都有曲(空池=该场景永无 BGM)
+ok 9 - 声音清单: 曲目情绪覆盖 — 模式/场景用到的情绪都有曲(空池=该场景永无 BGM)
+  ---
+  duration_ms: 0.9878
+  type: 'test'
+  ...
+# Subtest: 声音清单: 样本 file 条目在 assets/audio/ 真实存在且 CREDITS.md 记载(A7 起咬合)
+ok 10 - 声音清单: 样本 file 条目在 assets/audio/ 真实存在且 CREDITS.md 记载(A7 起咬合)
+  ---
+  duration_ms: 1.5844
+  type: 'test'
+  ...
+# Subtest: 声音清单: 反向覆盖 — assets/audio/ 下全部素材文件都在 CREDITS.md 记载(备用池 jingles 漏记也红)
+ok 11 - 声音清单: 反向覆盖 — assets/audio/ 下全部素材文件都在 CREDITS.md 记载(备用池 jingles 漏记也红)
+  ---
+  duration_ms: 1.1994
+  type: 'test'
+  ...
+# Subtest: 声音清单: 过渡期守卫 — synth 与 effects.js 的 SFX_DEFS 原样一致(A4 删表后自动退场)
+ok 12 - 声音清单: 过渡期守卫 — synth 与 effects.js 的 SFX_DEFS 原样一致(A4 删表后自动退场)
+  ---
+  duration_ms: 0.7024
+  type: 'test'
+  ...
+# Subtest: Avatar 翼显隐: 缺省 hidden — 未装备翼骨恒不可见(§6.4 红线: 未装备永不出现翼)
+not ok 13 - Avatar 翼显隐: 缺省 hidden — 未装备翼骨恒不可见(§6.4 红线: 未装备永不出现翼)
+  ---
+  duration_ms: 5.3051
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\avatar.test.js:191:1'
+  failureType: 'testCodeFailure'
+  error: '玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+    C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:194:22
+    withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:192:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.start (node:internal/test_runner/test:1003:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17)
+  ...
+# Subtest: Avatar 翼显隐: setArmor 装备对账 — worn 有 glider → folded 收拢翼鞘(静态无微动)
+not ok 14 - Avatar 翼显隐: setArmor 装备对账 — worn 有 glider → folded 收拢翼鞘(静态无微动)
+  ---
+  duration_ms: 1.4057
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\avatar.test.js:201:1'
+  failureType: 'testCodeFailure'
+  error: '玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+    C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:204:22
+    withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:202:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: Avatar 动效: setWings(spread) — 0.25s 线性匀速展开, 端点水平带, 双翼反号(§6.5)
+not ok 15 - Avatar 动效: setWings(spread) — 0.25s 线性匀速展开, 端点水平带, 双翼反号(§6.5)
+  ---
+  duration_ms: 1.4845
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\avatar.test.js:216:1'
+  failureType: 'testCodeFailure'
+  error: '玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+    C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:219:22
+    withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:217:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: Avatar 动效: setWings(folded) — 反向同参数 0.25s 收回收拢位·端点即停(§6.5)
+not ok 16 - Avatar 动效: setWings(folded) — 反向同参数 0.25s 收回收拢位·端点即停(§6.5)
+  ---
+  duration_ms: 1.6535
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\avatar.test.js:248:1'
+  failureType: 'testCodeFailure'
+  error: '玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+    C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:251:18
+    withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:249:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5)
+not ok 17 - Avatar 动效: spread 滑翔微动 — ±2.5~3° 正弦·双翼反相·主周期 ≈1.4s(§6.5)
+  ---
+  duration_ms: 1.6405
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\avatar.test.js:271:1'
+  failureType: 'testCodeFailure'
+  error: '玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+    C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:274:22
+    withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:272:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: Avatar 翼显隐: 未装备红线 — 意图不越权·卸翼即隐·重穿对账复位 folded(§6.4 验收红线)
+not ok 18 - Avatar 翼显隐: 未装备红线 — 意图不越权·卸翼即隐·重穿对账复位 folded(§6.4 验收红线)
+  ---
+  duration_ms: 1.1052
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\avatar.test.js:305:1'
+  failureType: 'testCodeFailure'
+  error: '玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, UI spec §6.1)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:179:10)
+    C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:308:22
+    withStubs (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:169:5)
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\avatar.test.js:306:3)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 造型档案: 注册表 — 文件名=声明键 · 存量键集 ⊆ keys · town 键 ∈ 镇民注册表键集
+ok 19 - 造型档案: 注册表 — 文件名=声明键 · 存量键集 ⊆ keys · town 键 ∈ 镇民注册表键集
+  ---
+  duration_ms: 21.1465
+  type: 'test'
+  ...
+# Subtest: 造型档案: 人形基座换算 — 官方 px → 世界单位(+Z 镜像), 官方等比尺寸
+ok 20 - 造型档案: 人形基座换算 — 官方 px → 世界单位(+Z 镜像), 官方等比尺寸
+  ---
+  duration_ms: 0.5757
+  type: 'test'
+  ...
+# Subtest: 造型档案: 细骨基座 — 四肢 2×12×2 · 追加骨(骷髅弓)进 armL 第二盒
+ok 21 - 造型档案: 细骨基座 — 四肢 2×12×2 · 追加骨(骷髅弓)进 armL 第二盒
+  ---
+  duration_ms: 0.113
+  type: 'test'
+  ...
+# Subtest: 造型档案: 自有骨架 — 苦力怕无臂四腿 · 蜘蛛八腿独立骨两段折线与前置头
+ok 22 - 造型档案: 自有骨架 — 苦力怕无臂四腿 · 蜘蛛八腿独立骨两段折线与前置头
+  ---
+  duration_ms: 0.3658
+  type: 'test'
+  ...
+# Subtest: 造型档案: 票②基座扩展 — 灾厄基座 · 宽头参数 · 翼槽 axis · scale 变体
+ok 23 - 造型档案: 票②基座扩展 — 灾厄基座 · 宽头参数 · 翼槽 axis · scale 变体
+  ---
+  duration_ms: 0.3004
+  type: 'test'
+  ...
+# Subtest: 造型档案: UV 区域公式 — 玩家布局(官方 64×64) · 羊毛独立骨
+ok 24 - 造型档案: UV 区域公式 — 玩家布局(官方 64×64) · 羊毛独立骨
+  ---
+  duration_ms: 0.1738
+  type: 'test'
+  ...
+# Subtest: 造型档案: 贴图布局合法性 — 六面矩形不出界 · 不同盒无部分重叠(共区合法)
+ok 25 - 造型档案: 贴图布局合法性 — 六面矩形不出界 · 不同盒无部分重叠(共区合法)
+  ---
+  duration_ms: 17.3112
+  type: 'test'
+  ...
+# Subtest: 造型档案: 贴图全覆盖 — 用到的六面区域逐像素必画(alpha=255)
+ok 26 - 造型档案: 贴图全覆盖 — 用到的六面区域逐像素必画(alpha=255)
+  ---
+  duration_ms: 6.674
+  type: 'test'
+  ...
+# Subtest: 造型档案: 头像裁切 — 16×16 网居中 · 中心像素非空且对色
+ok 27 - 造型档案: 头像裁切 — 16×16 网居中 · 中心像素非空且对色
+  ---
+  duration_ms: 0.2625
+  type: 'test'
+  ...
+# Subtest: 造型档案: 碎块色声明 — mobs.js debrisColor 的唯一权威
+ok 28 - 造型档案: 碎块色声明 — mobs.js debrisColor 的唯一权威
+  ---
+  duration_ms: 0.1247
+  type: 'test'
+  ...
+# Subtest: 造型档案: 确定性 — 同 type 两次声明+绘制逐字节一致(种子化)
+ok 29 - 造型档案: 确定性 — 同 type 两次声明+绘制逐字节一致(种子化)
+  ---
+  duration_ms: 26.8053
+  type: 'test'
+  ...
+# Subtest: 造型档案: 贴图缓冲返回形状 — 键集恰 {w,h,buf}(size=w 兼容字段退役 T-NPC-06 F3)
+ok 30 - 造型档案: 贴图缓冲返回形状 — 键集恰 {w,h,buf}(size=w 兼容字段退役 T-NPC-06 F3)
+  ---
+  duration_ms: 0.2117
+  type: 'test'
+  ...
+# Subtest: 造型档案: 几何 UV 落点 — 逐顶点采样已涂纹素(模型黑缝回归)
+ok 31 - 造型档案: 几何 UV 落点 — 逐顶点采样已涂纹素(模型黑缝回归)
+  ---
+  duration_ms: 16.9424
+  type: 'test'
+  ...
+# Subtest: 造型档案: 玩家翼骨甲案 — wingL/wingR 语义翼槽·官方 pivot·三盒规格·双翼共区
+not ok 32 - 造型档案: 玩家翼骨甲案 — wingL/wingR 语义翼槽·官方 pivot·三盒规格·双翼共区
+  ---
+  duration_ms: 0.4282
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\mob-look.test.js:385:1'
+  failureType: 'testCodeFailure'
+  error: '玩家档应加 wingL/wingR 两骨(甲案: 档案加骨=Avatar+纸娃娃双端免费, UI spec §6.1)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mob-look.test.js:387:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 造型档案: 玩家翼贴图 — 五色同源色族·金辐条/膜主/暗折线俱现·翼尖金粒·方形 64/128 档
+not ok 33 - 造型档案: 玩家翼贴图 — 五色同源色族·金辐条/膜主/暗折线俱现·翼尖金粒·方形 64/128 档
+  ---
+  duration_ms: 0.1622
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\mob-look.test.js:410:1'
+  failureType: 'testCodeFailure'
+  error: '翼骨六面区应入 regions(wingL/wingR 系)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mob-look.test.js:416:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: hotbar: 数字键选块(1-based), 越界忽略
+ok 34 - hotbar: 数字键选块(1-based), 越界忽略
+  ---
+  duration_ms: 1.2817
+  type: 'test'
+  ...
+# Subtest: hotbar: 滚轮双向环绕
+ok 35 - hotbar: 滚轮双向环绕
+  ---
+  duration_ms: 0.1487
+  type: 'test'
+  ...
+# Subtest: hotbar: cnt 实时重读与 empty 态
+ok 36 - hotbar: cnt 实时重读与 empty 态
+  ---
+  duration_ms: 0.2399
+  type: 'test'
+  ...
+# Subtest: item 槽: dataURL 喂 img.src / emoji 文本喂 icon / 名称走 ITEMS
+ok 37 - item 槽: dataURL 喂 img.src / emoji 文本喂 icon / 名称走 ITEMS
+  ---
+  duration_ms: 0.2114
+  type: 'test'
+  ...
+# Subtest: item 槽: refresh 重读数量(>1 才显)与耐久条宽/档位, 归零 empty
+ok 38 - item 槽: refresh 重读数量(>1 才显)与耐久条宽/档位, 归零 empty
+  ---
+  duration_ms: 0.158
+  type: 'test'
+  ...
+# Subtest: sortInv: 主格内同项合并·首现序稳定·工具耐久保留·快捷栏不动
+ok 39 - sortInv: 主格内同项合并·首现序稳定·工具耐久保留·快捷栏不动
+  ---
+  duration_ms: 0.4998
+  type: 'test'
+  ...
+# Subtest: craft 面板: 挂载/卸载幂等 + 背包网格 18 主格+9 快捷镜像+摆放台 9 格
+ok 40 - craft 面板: 挂载/卸载幂等 + 背包网格 18 主格+9 快捷镜像+摆放台 9 格
+  ---
+  duration_ms: 1.5913
+  type: 'test'
+  ...
+# Subtest: craft 面板: 🧹 整理按钮 → sortInv 就地合并 + onSort 通知 + 网格重画
+ok 41 - craft 面板: 🧹 整理按钮 → sortInv 就地合并 + onSort 通知 + 网格重画
+  ---
+  duration_ms: 1.2131
+  type: 'test'
+  ...
+# Subtest: craft 面板: 点非空格起手高亮(pick 类), 点目标格 → onMove(from,to) + 收高亮
+ok 42 - craft 面板: 点非空格起手高亮(pick 类), 点目标格 → onMove(from,to) + 收高亮
+  ---
+  duration_ms: 1.3672
+  type: 'test'
+  ...
+# Subtest: craft 面板: 搬运边界 — 再点原格=放下, 无起手点空格=无效, 均不触发 onMove
+ok 43 - craft 面板: 搬运边界 — 再点原格=放下, 无起手点空格=无效, 均不触发 onMove
+  ---
+  duration_ms: 0.9158
+  type: 'test'
+  ...
+# Subtest: craft 面板: onMove 后整幅重画反映搬移结果(面板只重读 inv, 搬移在模式层)
+ok 44 - craft 面板: onMove 后整幅重画反映搬移结果(面板只重读 inv, 搬移在模式层)
+  ---
+  duration_ms: 0.5655
+  type: 'test'
+  ...
+# Subtest: craft 面板: 🧹 整理收起搬运起手(主格重排后起手槽号失义) + 关面板收手
+ok 45 - craft 面板: 🧹 整理收起搬运起手(主格重排后起手槽号失义) + 关面板收手
+  ---
+  duration_ms: 1.4183
+  type: 'test'
+  ...
+# Subtest: craft 面板: 卡片=产物大图+×数量+材料chip×数+站点徽标, 任选材料逐候选
+ok 46 - craft 面板: 卡片=产物大图+×数量+材料chip×数+站点徽标, 任选材料逐候选
+  ---
+  duration_ms: 1.002
+  type: 'test'
+  ...
+# Subtest: craft 面板: bread/bone_meal/bow_item 默认过滤, opts.allow 放开
+ok 47 - craft 面板: bread/bone_meal/bow_item 默认过滤, opts.allow 放开
+  ---
+  duration_ms: 1.525
+  type: 'test'
+  ...
+# Subtest: craft 面板: 缺料→卡片 dim+chip lack(have/need), 补料刷新恢复亮
+ok 48 - craft 面板: 缺料→卡片 dim+chip lack(have/need), 补料刷新恢复亮
+  ---
+  duration_ms: 0.5548
+  type: 'test'
+  ...
+# Subtest: 滑翔翼配方卡常显(T-G01 R1 守门): KIT_HIDDEN_RECIPES 不含 glider(glider-spec §3.2 拍板公开)
+ok 49 - 滑翔翼配方卡常显(T-G01 R1 守门): KIT_HIDDEN_RECIPES 不含 glider(glider-spec §3.2 拍板公开)
+  ---
+  duration_ms: 0.5152
+  type: 'test'
+  ...
+# Subtest: craft 面板: 卡序=可制造在前缺料在后(同档稳定=原配方序)
+ok 50 - craft 面板: 卡序=可制造在前缺料在后(同档稳定=原配方序)
+  ---
+  duration_ms: 0.493
+  type: 'test'
+  ...
+# Subtest: craft 面板: 合成后该配方卡置顶(仍可制造时从次位跳第一)
+ok 51 - craft 面板: 合成后该配方卡置顶(仍可制造时从次位跳第一)
+  ---
+  duration_ms: 1.5454
+  type: 'test'
+  ...
+# Subtest: craft 面板: 合成后材料尽(灰卡)不置顶, 沉回缺料档垫底
+ok 52 - craft 面板: 合成后材料尽(灰卡)不置顶, 沉回缺料档垫底
+  ---
+  duration_ms: 0.9201
+  type: 'test'
+  ...
+# Subtest: craft 面板: 卡片 DOM 复用 — 观感签名未变回挂旧节点, 变了才重建
+ok 53 - craft 面板: 卡片 DOM 复用 — 观感签名未变回挂旧节点, 变了才重建
+  ---
+  duration_ms: 0.6528
+  type: 'test'
+  ...
+# Subtest: craft 面板: 灰卡产物与缺料 chip 走 iconOfGray 灰版, 亮卡零灰版
+ok 54 - craft 面板: 灰卡产物与缺料 chip 走 iconOfGray 灰版, 亮卡零灰版
+  ---
+  duration_ms: 1.7014
+  type: 'test'
+  ...
+# Subtest: craft 面板: 站点外只列 hand 级卡(正典配方书口径), 近台全列 + 外圈锁格
+ok 55 - craft 面板: 站点外只列 hand 级卡(正典配方书口径), 近台全列 + 外圈锁格
+  ---
+  duration_ms: 0.9821
+  type: 'test'
+  ...
+# Subtest: craft 面板: 点背包格→摆放格整摞入格(真 remove 扣槽)+onGridMove; 异种拒绝收手不散
+ok 56 - craft 面板: 点背包格→摆放格整摞入格(真 remove 扣槽)+onGridMove; 异种拒绝收手不散
+  ---
+  duration_ms: 2.9139
+  type: 'test'
+  ...
+# Subtest: craft 面板: 工具/可耗损物不入格(durOf>0 拒绝, 避开耐久重铸)
+ok 57 - craft 面板: 工具/可耗损物不入格(durOf>0 拒绝, 避开耐久重铸)
+  ---
+  duration_ms: 0.4621
+  type: 'test'
+  ...
+# Subtest: craft 面板: 摆放格→背包格整摞退回(真 add 收包); 格→格并堆
+ok 58 - craft 面板: 摆放格→背包格整摞退回(真 add 收包); 格→格并堆
+  ---
+  duration_ms: 1.1534
+  type: 'test'
+  ...
+# Subtest: craft 面板: 点卡=BE 一键摆入(真 fillGrid) → 产出槽亮 → 点击一发 onCraft
+ok 59 - craft 面板: 点卡=BE 一键摆入(真 fillGrid) → 产出槽亮 → 点击一发 onCraft
+  ---
+  duration_ms: 0.8183
+  type: 'test'
+  ...
+# Subtest: craft 面板: 重复点卡=再备一套, 产出槽长按连做 0.3s/发至材料尽(拍板④)
+ok 60 - craft 面板: 重复点卡=再备一套, 产出槽长按连做 0.3s/发至材料尽(拍板④)
+  ---
+  duration_ms: 1.5149
+  type: 'test'
+  ...
+# Subtest: craft 面板: 关面板格内材料退回背包; 满包装不下经 onReturnLeft 报掉落(零惩罚)
+ok 61 - craft 面板: 关面板格内材料退回背包; 满包装不下经 onReturnLeft 报掉落(零惩罚)
+  ---
+  duration_ms: 1.2415
+  type: 'test'
+  ...
+# Subtest: craft 面板: 页签改版 — 工具/食物/方块/材料四页, 默认工具页, 材料归材料页(全部页退役)
+ok 62 - craft 面板: 页签改版 — 工具/食物/方块/材料四页, 默认工具页, 材料归材料页(全部页退役)
+  ---
+  duration_ms: 0.6818
+  type: 'test'
+  ...
+# Subtest: craft 面板: L1 三页签 — 背包|装备|造物(equip 缝), 默认背包页, 页切翻转+惰性建预览
+ok 63 - craft 面板: L1 三页签 — 背包|装备|造物(equip 缝), 默认背包页, 页切翻转+惰性建预览
+  ---
+  duration_ms: 0.9981
+  type: 'test'
+  ...
+# Subtest: craft 面板: 装备页 — 五槽 EQUIP_SLOTS 序 + 空槽虚位 + 有件图标/耐久条 + 点槽报 onSlot + 盔甲点
+ok 64 - craft 面板: 装备页 — 五槽 EQUIP_SLOTS 序 + 空槽虚位 + 有件图标/耐久条 + 点槽报 onSlot + 盔甲点
+  ---
+  duration_ms: 2.5003
+  type: 'test'
+  ...
+# Subtest: craft 面板: 背包页一键穿上 — 点背包盔甲件报 onWearAt(槽号); 非盔甲照旧点选搬运
+ok 65 - craft 面板: 背包页一键穿上 — 点背包盔甲件报 onWearAt(槽号); 非盔甲照旧点选搬运
+  ---
+  duration_ms: 0.4907
+  type: 'test'
+  ...
+# Subtest: craft 面板: 装备页预览 — worn 变化 refresh 重画一帧, hide 重开复用不重建
+ok 66 - craft 面板: 装备页预览 — worn 变化 refresh 重画一帧, hide 重开复用不重建
+  ---
+  duration_ms: 0.5984
+  type: 'test'
+  ...
+# Subtest: furnace 面板: 三槽渲染 + setProgress 进度条 + 挂载/卸载幂等
+ok 67 - furnace 面板: 三槽渲染 + setProgress 进度条 + 挂载/卸载幂等
+  ---
+  duration_ms: 0.5093
+  type: 'test'
+  ...
+# Subtest: furnace 面板: 自动放料 plan — 矿石全放 + FUEL 序最省凑料, 只报意图不动包
+ok 68 - furnace 面板: 自动放料 plan — 矿石全放 + FUEL 序最省凑料, 只报意图不动包
+  ---
+  duration_ms: 0.6645
+  type: 'test'
+  ...
+# Subtest: furnace 面板: setFuel 燃料余量条 — 宽度百分比 + 越界钳制 + 熄灭灰显切换
+ok 69 - furnace 面板: setFuel 燃料余量条 — 宽度百分比 + 越界钳制 + 熄灭灰显切换
+  ---
+  duration_ms: 0.2534
+  type: 'test'
+  ...
+# Subtest: furnace 面板: 背包区常驻 — 27 格(18 主格+9 快捷镜像), 点击格报 onPut 意图不动包
+ok 70 - furnace 面板: 背包区常驻 — 27 格(18 主格+9 快捷镜像), 点击格报 onPut 意图不动包
+  ---
+  duration_ms: 0.3947
+  type: 'test'
+  ...
+# Subtest: furnace 面板: 不可入炉物 dim 灰显 — 可烧/燃料亮显, 其余灰显(路由前视觉预告)
+ok 71 - furnace 面板: 不可入炉物 dim 灰显 — 可烧/燃料亮显, 其余灰显(路由前视觉预告)
+  ---
+  duration_ms: 0.2517
+  type: 'test'
+  ...
+# Subtest: furnace 面板: 点击炉三槽报 onSlot 意图 — 料/燃料取回·产物收取的政策归模式层
+ok 72 - furnace 面板: 点击炉三槽报 onSlot 意图 — 料/燃料取回·产物收取的政策归模式层
+  ---
+  duration_ms: 0.3928
+  type: 'test'
+  ...
+# Subtest: furnace 面板: 放料后背包格跟随重画 — onPut/onAutoFill 动包, 面板重读当前包
+ok 73 - furnace 面板: 放料后背包格跟随重画 — onPut/onAutoFill 动包, 面板重读当前包
+  ---
+  duration_ms: 3.3024
+  type: 'test'
+  ...
+# Subtest: 面板生命周期契约(craft): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态
+ok 74 - 面板生命周期契约(craft): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态
+  ---
+  duration_ms: 0.7731
+  type: 'test'
+  ...
+# Subtest: 面板生命周期契约(furnace): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态
+ok 75 - 面板生命周期契约(furnace): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态
+  ---
+  duration_ms: 1.6399
+  type: 'test'
+  ...
+# Subtest: 面板生命周期契约(chest): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态
+ok 76 - 面板生命周期契约(chest): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态
+  ---
+  duration_ms: 0.3468
+  type: 'test'
+  ...
+# Subtest: chest 面板: 箱格点击报 onTake(箱槽号)/背包格点击报 onPut(背包槽号)意图, 面板不动数据
+ok 77 - chest 面板: 箱格点击报 onTake(箱槽号)/背包格点击报 onPut(背包槽号)意图, 面板不动数据
+  ---
+  duration_ms: 0.3602
+  type: 'test'
+  ...
+# Subtest: chest 面板: 扩容行 — 材料账单 chip have/need + 缺料 lack + 扩容钮报 onExpand; 顶格档隐藏
+ok 78 - chest 面板: 扩容行 — 材料账单 chip have/need + 缺料 lack + 扩容钮报 onExpand; 顶格档隐藏
+  ---
+  duration_ms: 0.3205
+  type: 'test'
+  ...
+# Subtest: chest 面板: 容量提示行(ADR 0007) — 一句话报现存箱子数与总容量(两轨口径)
+ok 79 - chest 面板: 容量提示行(ADR 0007) — 一句话报现存箱子数与总容量(两轨口径)
+  ---
+  duration_ms: 0.3063
+  type: 'test'
+  ...
+# Subtest: chest 面板: 存取意图后面板重读现状 — onPut 动包后背包格跟随重画
+ok 80 - chest 面板: 存取意图后面板重读现状 — onPut 动包后背包格跟随重画
+  ---
+  duration_ms: 0.2176
+  type: 'test'
+  ...
+# Subtest: KeyB 默认暂停(不转发), 其余键转发给模式
+ok 81 - KeyB 默认暂停(不转发), 其余键转发给模式
+  ---
+  duration_ms: 0.0867
+  type: 'test'
+  ...
+# Subtest: init: chrome 施加 + hotbar 现身 + touch 声明
+ok 82 - init: chrome 施加 + hotbar 现身 + touch 声明
+  ---
+  duration_ms: 0.1092
+  type: 'test'
+  ...
+# Subtest: init: 无声明的模式安全通过(Node 无 DOM, MK.* 为 null)
+ok 83 - init: 无声明的模式安全通过(Node 无 DOM, MK.* 为 null)
+  ---
+  duration_ms: 0.0361
+  type: 'test'
+  ...
+# Subtest: mkMainAct: 手持可放置物 → aimClick(2) 且返 false(一次性放置, 不进连发)
+ok 84 - mkMainAct: 手持可放置物 → aimClick(2) 且返 false(一次性放置, 不进连发)
+  ---
+  duration_ms: 0.0568
+  type: 'test'
+  ...
+# Subtest: mkMainAct: 空手/工具/食物 → aimClick(0) 挖打起步, 返回值非 false 进连发
+ok 85 - mkMainAct: 空手/工具/食物 → aimClick(0) 挖打起步, 返回值非 false 进连发
+  ---
+  duration_ms: 0.039
+  type: 'test'
+  ...
+# Subtest: mkHeldSync: 哨兵槽/数字方块判定 — isBlock() 与 itemId()(铁锹映射不外泄)
+ok 86 - mkHeldSync: 哨兵槽/数字方块判定 — isBlock() 与 itemId()(铁锹映射不外泄)
+  ---
+  duration_ms: 0.0743
+  type: 'test'
+  ...
+# Subtest: mkHeldSync: sync 调 Avatar.setItem 与主动作键图标切换(铲↔砖块)
+ok 87 - mkHeldSync: sync 调 Avatar.setItem 与主动作键图标切换(铲↔砖块)
+  ---
+  duration_ms: 0.0975
+  type: 'test'
+  ...
+# Subtest: mkHeldSync: Avatar/Input 缺装时 sync 静默不炸(精简装载守卫)
+ok 88 - mkHeldSync: Avatar/Input 缺装时 sync 静默不炸(精简装载守卫)
+  ---
+  duration_ms: 0.0469
+  type: 'test'
+  ...
+# Subtest: spawn 记住出生点, 默认 onVoidFall 回到出生点
+ok 89 - spawn 记住出生点, 默认 onVoidFall 回到出生点
+  ---
+  duration_ms: 0.0819
+  type: 'test'
+  ...
+# Subtest: 自定义 onVoidFall 优先 (模式自定义坠落语义)
+ok 90 - 自定义 onVoidFall 优先 (模式自定义坠落语义)
+  ---
+  duration_ms: 0.033
+  type: 'test'
+  ...
+# Subtest: confirmBtn: 首点武装, 再点执行, 超时还原
+ok 91 - confirmBtn: 首点武装, 再点执行, 超时还原
+  ---
+  duration_ms: 0.1302
+  type: 'test'
+  ...
+# Subtest: 物品提示: hotbar 点选 → 气泡显名字+说明; 空槽静默不改写气泡
+ok 92 - 物品提示: hotbar 点选 → 气泡显名字+说明; 空槽静默不改写气泡
+  ---
+  duration_ms: 0.1626
+  type: 'test'
+  ...
+# Subtest: 物品提示: 背包格点击读被点物品; 点灰卡=一键摆入+读产物提示(缺料尾句)
+ok 93 - 物品提示: 背包格点击读被点物品; 点灰卡=一键摆入+读产物提示(缺料尾句)
+  ---
+  duration_ms: 0.6596
+  type: 'test'
+  ...
+# Subtest: mkMobPicker: 谱系分组渲染 — 组头+组员簇, 头像与名字, data-type
+ok 94 - mkMobPicker: 谱系分组渲染 — 组头+组员簇, 头像与名字, data-type
+  ---
+  duration_ms: 0.4579
+  type: 'test'
+  ...
+# Subtest: mkMobPicker: headKeys 前置功能位(不归族) + 点击 onPick + 选中态自动重读
+ok 95 - mkMobPicker: headKeys 前置功能位(不归族) + 点击 onPick + 选中态自动重读
+  ---
+  duration_ms: 0.2468
+  type: 'test'
+  ...
+# Subtest: mkMobPicker: 未注册键兜底显键名(不静默丢, 面板分组「不丢桶」同款口径)
+ok 96 - mkMobPicker: 未注册键兜底显键名(不静默丢, 面板分组「不丢桶」同款口径)
+  ---
+  duration_ms: 0.1484
+  type: 'test'
+  ...
+# Subtest: mkMobPicker: groupOf 恒 null 平铺(出发配置页卡片流) + itemTag/itemCls/itemHtml 观感差异
+ok 97 - mkMobPicker: groupOf 恒 null 平铺(出发配置页卡片流) + itemTag/itemCls/itemHtml 观感差异
+  ---
+  duration_ms: 0.1765
+  type: 'test'
+  ...
+# Subtest: editHit 放置覆盖薄块: 命中 replaceable → 落点=被点格本身盖掉; 实心命中走法线侧旧口径
+ok 98 - editHit 放置覆盖薄块: 命中 replaceable → 落点=被点格本身盖掉; 实心命中走法线侧旧口径
+  ---
+  duration_ms: 0.3434
+  type: 'test'
+  ...
+# Subtest: 丢弃: 未传 onDrop 无头钮(体验馆零变化); 传了才现身且 paintChrome 注入图标不炸
+ok 99 - 丢弃: 未传 onDrop 无头钮(体验馆零变化); 传了才现身且 paintChrome 注入图标不炸
+  ---
+  duration_ms: 0.5153
+  type: 'test'
+  ...
+# Subtest: 丢弃: craft armed → 点背包格报 onDrop(槽号); 空格不动; 关面板收态后恢复搬运
+ok 100 - 丢弃: craft armed → 点背包格报 onDrop(槽号); 空格不动; 关面板收态后恢复搬运
+  ---
+  duration_ms: 0.7158
+  type: 'test'
+  ...
+# Subtest: 丢弃: chest 面板 wirePut 同口径 — armed 点背包格报 onDrop 不报 onPut
+ok 101 - 丢弃: chest 面板 wirePut 同口径 — armed 点背包格报 onDrop 不报 onPut
+  ---
+  duration_ms: 0.3252
+  type: 'test'
+  ...
+# Subtest: 可变容量: 33 槽背包区按现长度重画(24 主格 + 9 快捷镜像 + 摆放台 9 = 42 格)
+ok 102 - 可变容量: 33 槽背包区按现长度重画(24 主格 + 9 快捷镜像 + 摆放台 9 = 42 格)
+  ---
+  duration_ms: 0.2487
+  type: 'test'
+  ...
+# Subtest: 装备条形状: 五槽按钮按头/胸/腿/靴/翼序 · data-slot 标记 · 空槽虚位(.off)
+ok 103 - 装备条形状: 五槽按钮按头/胸/腿/靴/翼序 · data-slot 标记 · 空槽虚位(.off)
+  ---
+  duration_ms: 0.1794
+  type: 'test'
+  ...
+# Subtest: 装备条 update: 有件槽显像素图标 · 空槽虚位; 签名节流 — 同 id 签名不重画(炉三槽推进同惯例)
+ok 104 - 装备条 update: 有件槽显像素图标 · 空槽虚位; 签名节流 — 同 id 签名不重画(炉三槽推进同惯例)
+  ---
+  duration_ms: 0.23
+  type: 'test'
+  ...
+# Subtest: 装备条点槽: click 派发 onUnequip(slot) — 脱下意图归模式层(满包拒绝政策在消费方)
+ok 105 - 装备条点槽: click 派发 onUnequip(slot) — 脱下意图归模式层(满包拒绝政策在消费方)
+  ---
+  duration_ms: 0.1221
+  type: 'test'
+  ...
+# Subtest: craft 面板: 装备页第五槽数据边界 — 有件显图标但永不渲染耐久条·四甲耐久条不误伤·点槽报 onSlot(§4.4)
+not ok 106 - craft 面板: 装备页第五槽数据边界 — 有件显图标但永不渲染耐久条·四甲耐久条不误伤·点槽报 onSlot(§4.4)
+  ---
+  duration_ms: 0.7019
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\mode-kit.test.js:1683:1'
+  failureType: 'testCodeFailure'
+  error: '第五槽永不渲染耐久条(glider dur=1 满值会画满条, §4.4 显式豁免——滑翔翼无耐久)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mode-kit.test.js:1696:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: HUD 装备条与装备页第五槽样式照稿 — css/style.css(UI spec §3.4 最小样式 + §4.1 第三行居中)
+not ok 107 - HUD 装备条与装备页第五槽样式照稿 — css/style.css(UI spec §3.4 最小样式 + §4.1 第三行居中)
+  ---
+  duration_ms: 0.6176
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\mode-kit.test.js:1712:1'
+  failureType: 'testCodeFailure'
+  error: '.armorbar 应含 position: fixed(UI spec §3.4 最小样式)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mode-kit.test.js:1728:12)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 纸娃娃翼: paint 未装备 — 翼 hidden 无残影·相机原构图 z=3.55(UI spec §4.2/§4.3)
+not ok 108 - 纸娃娃翼: paint 未装备 — 翼 hidden 无残影·相机原构图 z=3.55(UI spec §4.2/§4.3)
+  ---
+  duration_ms: 5.9345
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\paper-doll.test.js:211:1'
+  failureType: 'testCodeFailure'
+  error: '玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, 与 Avatar 几何零双份)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:200:10)
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:216:22)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.start (node:internal/test_runner/test:1003:17)
+    startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17)
+  ...
+# Subtest: 纸娃娃翼: paint 装备 — 展平静帧(不经意图接口)·相机后移 z≈4.3·lookAt 仍 (0,0.9,0)(UI spec §4.2/§4.3)
+not ok 109 - 纸娃娃翼: paint 装备 — 展平静帧(不经意图接口)·相机后移 z≈4.3·lookAt 仍 (0,0.9,0)(UI spec §4.2/§4.3)
+  ---
+  duration_ms: 1.3776
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\paper-doll.test.js:228:1'
+  failureType: 'testCodeFailure'
+  error: '玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, 与 Avatar 几何零双份)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:200:10)
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:233:22)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3)
+  ...
+# Subtest: 纸娃娃翼: 卸下构图复原 + 同 worn 幂等不重画(§4.3 构图复原/预览按需一帧)
+not ok 110 - 纸娃娃翼: 卸下构图复原 + 同 worn 幂等不重画(§4.3 构图复原/预览按需一帧)
+  ---
+  duration_ms: 1.2352
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\test\\paper-doll.test.js:250:1'
+  failureType: 'testCodeFailure'
+  error: '玩家傀儡应有 wingL/wingR 翼骨(MobLook 甲案, 与 Avatar 几何零双份)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    wingsOf (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:200:10)
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\paper-doll.test.js:255:18)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+1..110
+# tests 110
+# suites 0
+# pass 96
+# fail 14
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 3306.85

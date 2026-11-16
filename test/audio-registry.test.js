@@ -119,6 +119,30 @@ test('声音清单: 传送门双音效(冒险地图 T7) — 蓄能上行/到达�
       t.steps.every((v, i) => i === 0 || v > t.steps[i - 1]), 'portal_travel 是上行琶音(steps 递增)');
 });
 
+/* ============ 滑翔翼双音效(T-G03 形象层, UI spec §7.1 合成口径) ============ */
+
+test('声音清单: 滑翔翼双音效 — wing_open 上滑/wing_close 下滑更轻, prio 2/coolMs 300, 纯合成可回退', () => {
+  const open = AudioRegistry.SFX_KINDS.wing_open;
+  assert.ok(open, '登记 wing_open(展翼瞬间, 触发接线归 T-G04)');
+  const close = AudioRegistry.SFX_KINDS.wing_close;
+  assert.ok(close, '登记 wing_close(收翼瞬间, 触发接线归 T-G04)');
+  for (const [k, e] of [['wing_open', open], ['wing_close', close]]) {
+    assert.ok(e.synth && typeof e.synth === 'object',
+        k + ' 带合成定义(「永不哑」互锁: 无样本也出声)');
+    assert.strictEqual(e.prio, 2, k + ' 状态音 prio 2(可压环境声, §7.1)');
+    assert.strictEqual(e.coolMs, 300, k + ' coolMs 300(空中可连点再展, 防快速连开叠爆)');
+  }
+  assert.ok(open.synth.f0 === 220 && open.synth.f1 === 520,
+      'wing_open 布面抖开上行短音 220→520(§7.1)');
+  assert.ok(open.synth.dur >= 0.18 && open.synth.dur <= 0.26, 'wing_open dur≈0.22');
+  assert.ok(open.synth.g >= 0.08 && open.synth.g <= 0.12, 'wing_open g≈0.10');
+  assert.ok(close.synth.f0 === 520 && close.synth.f1 === 200,
+      'wing_close 反向下滑 520→200(收=安顿感)');
+  assert.ok(close.synth.dur >= 0.14 && close.synth.dur <= 0.22, 'wing_close dur≈0.18');
+  assert.ok(close.synth.g >= 0.05 && close.synth.g <= 0.09, 'wing_close g≈0.07');
+  assert.ok(close.synth.g < open.synth.g, '收翼比展翼更轻(§7.1 收=安顿感, 比展开安静)');
+});
+
 test('声音清单: MOODS.menu = calm(主菜单轻柔迎接, spec 故事 9)', () => {
   assert.strictEqual(AudioRegistry.MOODS.menu, 'calm');
 });

@@ -1,0 +1,2 @@
+﻿[DEBUG-mb1] before-hold isGliding? function true G.gliding= true G.gliderEquipped= false down= false
+[DEBUG-mb1] after-updates t= 0 down= false

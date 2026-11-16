@@ -1,0 +1,223 @@
+TAP version 13
+# [diag test13] spoken=["西边雾气那边的路还在睡觉呢！先把任务卡上的任务做完，雾就会散开的，就能去青苔沼泽啦！"]
+# [diag test14] 帧10 gliding=false latch=false equip=false pos=(19.67,30.99,20.50) onGround=false
+# [diag test14] 帧20 gliding=false latch=false equip=false pos=(18.83,30.52,20.50) onGround=false
+# [diag test14] 帧30 gliding=false latch=false equip=false pos=(18.00,29.33,20.50) onGround=false
+# [diag test14] 帧40 gliding=false latch=false equip=false pos=(17.17,27.42,20.50) onGround=false
+# [diag test14] 帧50 gliding=false latch=false equip=false pos=(16.33,24.78,20.50) onGround=false
+# [diag test14] 帧60 gliding=false latch=false equip=false pos=(15.86,24.24,20.50) onGround=false
+# Subtest: T-G04 装备位接线: 穿上/卸下/读档对账全路径同步引擎装备位(T-G02 唯一通道)
+ok 1 - T-G04 装备位接线: 穿上/卸下/读档对账全路径同步引擎装备位(T-G02 唯一通道)
+  ---
+  duration_ms: 1271.2336
+  type: 'test'
+  ...
+# Subtest: T-G04 自动展翼(≥4 格高台跳): setWings(spread)+wing_open+金描边 on+只缓降高度只减不增
+ok 2 - T-G04 自动展翼(≥4 格高台跳): setWings(spread)+wing_open+金描边 on+只缓降高度只减不增
+  ---
+  duration_ms: 618.8273
+  type: 'test'
+  ...
+# Subtest: T-G04 走崖自动展翼(未按跳): 走出悬崖同样展翼 + 平地连跳 10 次零误展(阈值自洽锚)
+ok 3 - T-G04 走崖自动展翼(未按跳): 走出悬崖同样展翼 + 平地连跳 10 次零误展(阈值自洽锚)
+  ---
+  duration_ms: 618.8055
+  type: 'test'
+  ...
+# Subtest: T-G04 落地自动收翼: wing_close+setWings(hidden)+金描边 off, 落地即跑即跳
+not ok 4 - T-G04 落地自动收翼: wing_close+setWings(hidden)+金描边 off, 落地即跑即跳
+  ---
+  duration_ms: 612.2822
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\.scratch\\glider\\tg04-diagnostic.test.js:5680:1'
+  failureType: 'testCodeFailure'
+  error: '落地后立即能跑(地面移动恢复)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\.scratch\glider\tg04-diagnostic.test.js:5697:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 水面软着陆: 触水收翼+溅水+入水零伤害(收翼四触发之二)
+ok 5 - T-G04 水面软着陆: 触水收翼+溅水+入水零伤害(收翼四触发之二)
+  ---
+  duration_ms: 609.8933
+  type: 'test'
+  ...
+# Subtest: T-G04 主动取消闩锁三段: 取消收翼+闩锁(高处不重展)→空中再点再展→落地闩锁清恢复自动展
+ok 6 - T-G04 主动取消闩锁三段: 取消收翼+闩锁(高处不重展)→空中再点再展→落地闩锁清恢复自动展
+  ---
+  duration_ms: 624.6495
+  type: 'test'
+  ...
+# Subtest: T-G04 滑翔中卸翼 A6 全语义: 装备页口照常生效+引擎立即收翼+按无翼坠落扣血(有意设计不得修掉)
+not ok 7 - T-G04 滑翔中卸翼 A6 全语义: 装备页口照常生效+引擎立即收翼+按无翼坠落扣血(有意设计不得修掉)
+  ---
+  duration_ms: 608.4437
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\.scratch\\glider\\tg04-diagnostic.test.js:5763:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    卸翼坠落全程零 TTS
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\.scratch\glider\tg04-diagnostic.test.js:5787:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 全态兜底·未装备零参与: 无翼高坠零滑翔面(无展翼/无金边/无翼音效)
+ok 8 - T-G04 全态兜底·未装备零参与: 无翼高坠零滑翔面(无展翼/无金边/无翼音效)
+  ---
+  duration_ms: 628.6452
+  type: 'test'
+  ...
+# Subtest: T-G04 滑翔水平转向跟手: yaw 同源操控(双通道同一移动意图入口, spec §3.4 R1-02)
+ok 9 - T-G04 滑翔水平转向跟手: yaw 同源操控(双通道同一移动意图入口, spec §3.4 R1-02)
+  ---
+  duration_ms: 626.9196
+  type: 'test'
+  ...
+# Subtest: T-G04 金描边与滑翔态严格一致: 展亮收灭零闪烁 + 边沿单次 class 切换(零逐帧重画)
+ok 10 - T-G04 金描边与滑翔态严格一致: 展亮收灭零闪烁 + 边沿单次 class 切换(零逐帧重画)
+  ---
+  duration_ms: 607.7278
+  type: 'test'
+  ...
+# Subtest: T-G04 金描边 CSS 参数(UI spec §3.3 定稿): \#e9b115 + 1.0↔0.55 + 周期 1.6s ease-in-out
+ok 11 - T-G04 金描边 CSS 参数(UI spec §3.3 定稿): \#e9b115 + 1.0↔0.55 + 周期 1.6s ease-in-out
+  ---
+  duration_ms: 0.3667
+  type: 'test'
+  ...
+# Subtest: T-G04 HUD 槽滑翔中抑制: 点第五槽零副作用零话术(不报意图), 落地解锁照常卸下
+ok 12 - T-G04 HUD 槽滑翔中抑制: 点第五槽零副作用零话术(不报意图), 落地解锁照常卸下
+  ---
+  duration_ms: 604.3305
+  type: 'test'
+  ...
+# Subtest: T-G04 滑翔中动作暂停: 挖/攻/吃/放四类无效(不触发不消耗无残留), 落地立即恢复
+not ok 13 - T-G04 滑翔中动作暂停: 挖/攻/吃/放四类无效(不触发不消耗无残留), 落地立即恢复
+  ---
+  duration_ms: 605.5801
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\.scratch\\glider\\tg04-diagnostic.test.js:5890:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    滑翔中四类动作零话术(准星原位原样零惊扰)
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\.scratch\glider\tg04-diagnostic.test.js:5935:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 按住挖到一半进入滑翔: 展翼沿清蓄力(无半途残留), 滑翔中不续挖
+not ok 14 - T-G04 按住挖到一半进入滑翔: 展翼沿清蓄力(无半途残留), 滑翔中不续挖
+  ---
+  duration_ms: 609.2146
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\.scratch\\glider\\tg04-diagnostic.test.js:5951:1'
+  failureType: 'testCodeFailure'
+  error: '前置: 按住挖中走崖进入滑翔'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  actual: false
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\.scratch\glider\tg04-diagnostic.test.js:5973:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 相机路径 B·FOV 微扩: 展翼沿 +6°~8° 0.3s 匀速过渡, 落地收翼恢复原值; 零暗角滤镜震屏
+ok 15 - T-G04 相机路径 B·FOV 微扩: 展翼沿 +6°~8° 0.3s 匀速过渡, 落地收翼恢复原值; 零暗角滤镜震屏
+  ---
+  duration_ms: 603.4935
+  type: 'test'
+  ...
+# Subtest: T-G04 切模式清场: 滑翔中退出 → 装备位 off+观感复位+引擎滑翔态可收; 重进零误播(收场覆盖清零)
+not ok 16 - T-G04 切模式清场: 滑翔中退出 → 装备位 off+观感复位+引擎滑翔态可收; 重进零误播(收场覆盖清零)
+  ---
+  duration_ms: 1245.5715
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\glider\\.scratch\\glider\\tg04-diagnostic.test.js:6020:1'
+  failureType: 'testCodeFailure'
+  error: |-
+    重进后零误播 wing_open(进场对账, stale 不触发观感)
+    
+    1 !== 0
+    
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: 0
+  actual: 1
+  operator: 'strictEqual'
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\.scratch\glider\tg04-diagnostic.test.js:6043:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: T-G04 死亡重生: 滑翔中致死 → 滑翔态清零+装备保留+无翼残影, 重生后零误播
+ok 17 - T-G04 死亡重生: 滑翔中致死 → 滑翔态清零+装备保留+无翼残影, 重生后零误播
+  ---
+  duration_ms: 626.6551
+  type: 'test'
+  ...
+# Subtest: T-G04 spec §7 U-01 行已回填: 相机路径结论+理由一句(票面硬性交付, 缺此不做完)
+ok 18 - T-G04 spec §7 U-01 行已回填: 相机路径结论+理由一句(票面硬性交付, 缺此不做完)
+  ---
+  duration_ms: 0.4898
+  type: 'test'
+  ...
+# Subtest: T-G04 体验馆同口径(§3.8): showroom 壳零滑翔面覆写(同一 adventure 内核, 零场景硬编码分支)
+ok 19 - T-G04 体验馆同口径(§3.8): showroom 壳零滑翔面覆写(同一 adventure 内核, 零场景硬编码分支)
+  ---
+  duration_ms: 1.3214
+  type: 'test'
+  ...
+1..19
+# tests 19
+# suites 0
+# pass 14
+# fail 5
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 11206.5178

@@ -2,8 +2,9 @@
 /* ============================================================
    合成核心 (CraftCore, 术语见 GLOSSARY.md — 词条随 T16 收尾合入) — 引擎层·纯核心
    ------------------------------------------------------------
-   合成系统的唯一数据源: RECIPES 全表(随身 12 + 工作台级 28, 九宫格
-   改造 crafting-grid 设计稿 §3; 站点 'hand'=2×2 随身摆放格随时可摆 /
+   合成系统的唯一数据源: RECIPES 全表(随身 13 + 工作台级 64, 九宫格
+   改造 crafting-grid 设计稿 §3; 滑翔翼 T-G01 1 条=glider-spec §3.2;
+   站点 'hand'=2×2 随身摆放格随时可摆 /
    'table'=3×3 摆放台需走近工作台 4 格, 拍板①④) · SMELTS 烧炼
    映射 · FUEL 燃料择优序(从 ITEMS fuel 字段按热值降序派生)。
    九宫格纯函数组(crafting-grid §4, 口径全正典 minecraft.wiki):
@@ -35,10 +36,10 @@
    ============================================================ */
 
 /* ------------------------------------------------------------
-   RECIPES 配方表 — 84 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
+   RECIPES 配方表 — 77 条(crafting-grid 设计稿 §3 + 下界并入探险 D3 压轴 1 条 +
       雪球 T9 + 门/玻璃板 2 条 + 补链 3 条 + 大背包 1 条 + 装备系统 T2 合成链
       41 条[盔甲 24 + 金银阶工具 8 + 下界升级 8 + 合金锭 1] + 怪物合成 T1 铁块/拆包
-      2 条, 图案逐条查证自
+      2 条 + 滑翔翼 T-G01 1 条[glider-spec §3.2/ADR 0015], 图案逐条查证自
       minecraft.wiki——大背包为原创件, docs/bag-and-drop-design.md §2),
       见 docs/mc-crafting-grid-research.md §3 · docs/door-window-research.md ·
       docs/equipment-design.md §2)
@@ -256,6 +257,11 @@ const RECIPES = [
       'iron_ingot', 'iron_ingot', 'iron_ingot', 'iron_ingot']}},
   {id: 'iron_ingots', out: {item: 'iron_ingot', n: 9}, station: 'hand',
     shape: {any: ['iron_block']}},
+  // 滑翔翼(滑翔翼 T-G01, glider-spec §3.2 + ADR 0015 甲案): 工作台级 3×3 正典图案
+  //   U-05 定稿(金锭 4 居中列=翼骨/皮革 2=膜面/线 2=伞绳, 左右对称——镜像摆放同中);
+  //   公开配方不进 KIT_HIDDEN_RECIPES(解锁表零改动), 插在压轴传送门之前(最末契约不动)
+  {id: 'glider', out: {item: 'glider', n: 1}, station: 'table',
+    shape: {rows: [['gold_ingot', null, 'gold_ingot'], ['leather', 'gold_ingot', 'leather'], ['string', 'gold_ingot', 'string']]}},
   // 下界传送门(下界并入探险 D3): 8 金锭环形+中心钻石, 全表最贵合成压轴; 放下长出整座门(结构放置, 探险壳拦截)
   {id: 'nether_portal', out: {item: 'nether_portal', n: 1}, station: 'table',
     shape: {rows: [['gold_ingot', 'gold_ingot', 'gold_ingot'], ['gold_ingot', 'diamond', 'gold_ingot'], ['gold_ingot', 'gold_ingot', 'gold_ingot']]}},

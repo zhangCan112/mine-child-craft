@@ -1,0 +1,5 @@
+﻿3266: if (r.act && r.act.mine) advMine.down = true; /* 鎸変綇杞搫鍔?鍑嗘槦宸茬Щ寮€鍒欒搫鍔涢摼鑷竻) */
+3280: function advTownAimBlocked() {
+3850: function advGlideOn() {/* 寮曟搸婊戠繑鎬佽: isGliding 瑁呭叿缂哄腑=姘镐笉婊戠繑闈?娌欑洅鍥炶惤) */
+3879: function advGlideFovCan() {/* 鐩告満鍐欏彛鍙揪(world.js PerspectiveCamera);
+5409: if (hit && !advGlideOn() && !advTownAimBlocked()) advMine.down = true; /* 鍑嗘槦鎸囦綇鏂瑰潡: 钃勫姏寮€濮?鎺ㄨ繘鍦?update;

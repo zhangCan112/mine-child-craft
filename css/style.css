@@ -71,6 +71,59 @@ canvas {
   z-index: 16; /* 高于触屏控件层 #touchUI(14): 摇杆区不挡快捷栏点选(MC: 快捷栏始终可点) */
 }
 
+.armorbar {
+  /* HUD 装备条(T-G03 形象层样式补齐, UI spec §3.4): 左上 fixed 让开
+     #hud 文字行(top 44 > 行高)与触控热区(摇杆左下/跳跃右下/顶部小键
+     上缘); 黑底半透明+圆角与 #hotbar 同族——四甲槽与第五槽(滑翔翼)
+     观感一并升级为槽语言(装备 T5 存量裸样式补齐) */
+  position: fixed;
+  top: 44px;
+  left: 12px;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  background: rgb(0 0 0 / 35%);
+  border-radius: 8px;
+  z-index: 10; /* 与 #hud 同层, 低于 #hotbar(16)——常驻信息不抢操作面 */
+}
+
+.armorbar-slot {
+  /* 槽格 54×54(hotbar .slot 同尺寸家族); 圆角 6; 空槽虚线见 .off */
+  width: 54px;
+  height: 54px;
+  padding: 0;
+  cursor: pointer;
+  background: rgb(0 0 0 / 30%);
+  border: 3px solid rgb(255 255 255 / 22%);
+  border-radius: 6px;
+}
+
+.armorbar-slot.off {
+  border-style: dashed; /* 空槽虚位(装备页 .off 语言) */
+}
+
+.armorbar-slot img {
+  display: block;
+  width: 40px;
+  height: 40px;
+  margin: auto; /* 40×40 像素图标在 54×54 槽内居中 */
+  image-rendering: pixelated; /* 像素画风: 关平滑(iconOf 家族口径) */
+}
+
+/* 滑翔装配 T-G04 金描边呼吸(glider-ui-spec §3.3 定稿): 滑翔沿切 .glide-glow
+   (模式层沿驱动, 不进 mkArmorBar id 签名=零逐帧重画), 描边不透明度 1.0↔0.55
+   循环(即 100%↔55%), 周期 1.6s ease-in-out; 落地收翼摘类即回常态白边 */
+.armorbar-slot.glide-glow {
+  border-color: #e9b115; /* 金描边(与图标金骨 #e9b115 同源) */
+  animation: glide-glow-breathe 1.6s ease-in-out infinite;
+}
+
+@keyframes glide-glow-breathe {
+  50% {
+    border-color: rgb(233 177 21 / 55%); /* 呼吸下界: 不透明度 0.55 */
+  }
+}
+
 /* 城镇翻新 TIDEA-12/13: 镇内安静模式(body.adv-dim-town 由 advSetDim 一次性切档;
    镇外两选择器均不命中=像素零变化)。档位分层(补遗二契约): 漫步淡档 → 会话全隐
    (town-dialog-open 由 town-ui.js dialogEvent 增减, 优先级高于淡档) → 关回淡档 →
@@ -1664,7 +1717,7 @@ body.dev-on .mode-card.dev {
   display: none;
 }
 
-/* ---------- 装备页: 纸娃娃定格预览 + 四槽穿戴 + 盔甲点 ---------- */
+/* ---------- 装备页: 纸娃娃定格预览 + 五槽穿戴 + 盔甲点 ---------- */
 .mkp-equiprow {
   display: flex;
   align-items: flex-start;
@@ -1704,6 +1757,13 @@ body.dev-on .mode-card.dev {
 
 .mkp-eslot.off {
   border-style: dashed;
+}
+
+/* 第五槽(glider, T-G03/UI spec §4.1): 四槽 2×2 正下方居中独立行——
+   span 2 跨双列 + 水平居中, 58×58 槽格尺寸与边框/虚位样式不变 */
+.mkp-eslot:last-child {
+  grid-column: span 2;
+  justify-self: center;
 }
 
 .mkp-eslot .dur {

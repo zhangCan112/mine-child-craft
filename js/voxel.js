@@ -5,8 +5,8 @@
    方块世界的数据与规则: 存取 / 光场存储 / 碰撞 / 物理 / 射线。
    零 THREE · 零 DOM · 加载零副作用 → Node 可直接加载单测。
    渲染(场景/网格/贴图)是它之上的 adapter, 见 world.js。
-   依赖(均经全局名, 调用期解析): config.js 的 BLOCKS·PLAYER·WORLD_*·FLUID(流体物理参数),
-   input.js 的 keys/touchMove/touchSprint(仅 physics 读取)。
+   依赖(均经全局名, 调用期解析): config.js 的 BLOCKS·PLAYER·WORLD_*·FLUID(流体物理参数)·
+   GLIDE(滑翔参数), input.js 的 keys/touchMove/touchSprint(仅 physics 读取)。
    ============================================================ */
 
 /* ---------- 哈希 ---------- */
@@ -203,8 +203,13 @@ function raycastVoxel(origin, dir, maxDist, filter) {
    · robot-world.js    直写 pitch(固定俯角看棋盘, tick 每帧复归) — 怪物指挥官
      世界宿主, 相机是看盘装置同 math-world 口径(该文件头已自白)
    · tank.js           引擎同侪直写(驾驶锁舱姿态/上下车视角对齐, 引擎层内部)
+   滑翔绑定(gliding/glideLatch/fallPeakY/gliderEquipped/prevSpace)写面=physics
+   自身 + setGliderEquipped 意图入口(T-G02); 模式层零裸写, 滑翔态读走 isGliding
+   (gliding 已入 conventions.test.js 玩家绑定守门正则, 与 flyMode 同待遇;
+   闩锁/落差累计/装备位/边沿快照为纯内部态不入口)
    其余写者一律走意图入口: 传送/出生 → ModeKit.spawn(mode-kit.js),
-   飞行态 → setFly(下方); 模式文件与组合根(main.js)零裸写。 */
+   飞行态 → setFly、滑翔翼装备位 → setGliderEquipped(下方);
+   模式文件与组合根(main.js)零裸写。 */
 const pos = {x: 0, y: 0, z: 0, set(x, y, z) {
   this.x=x; this.y=y; this.z=z; return this;
 }};
@@ -214,6 +219,13 @@ const vel = {x: 0, y: 0, z: 0, set(x, y, z) {
 let onGround = false;
 let yaw = 0; let pitch = 0;
 let flyMode = false; // 建造模式:飞行(空格升 · Shift 降, 无重力)
+/* 滑翔绑定(T-G02, spec §3.4 五态 + ADR 0016): 写面=physics 自身 +
+   setGliderEquipped 意图入口(下方), 模式层零裸写 — 滑翔态读走 isGliding() */
+let gliding = false; // 滑翔态(展翼持有至收翼: 落地/触流体/主动取消/卸翼)
+let glideLatch = false; // 取消闩锁(ADR 0016): 主动取消后展翼暂停, 空中再点 Space 解除, 落地/入水清除
+let fallPeakY = 0; // 落差累计峰值(spec §3.5): 贴地/滑翔/身处流体=当前高度, 无翼腾空取最高
+let gliderEquipped = false; // 滑翔翼装备位(语义=玩家背着滑翔翼; 唯一写面=意图入口)
+let prevSpace = false; // Space 上一帧快照(physics 内部边沿检测: 按住只算一次, 防取消/再展振荡)
 /* 流体玩家态(liquid 设计稿 D9): 溺力气泡余秒(头出水即刻回满, HUD 气泡条读它)
    与接触计息器——模式层只读 playerAirS/消费 worldEvents 事件, 不直写 */
 let playerAirS = 15; // 满值在 physics 首帧经 FLUID.airMaxS 校准(config 加载序在前)
@@ -226,6 +238,18 @@ let drownAcc = 0; let lavaAcc = 0; let prevBodyFluid = null;
 function setFly(v) {
   flyMode = v;
   vel.y = 0;
+}
+
+/* 滑翔翼装备位意图入口(模式层唯一写面, 先例 setFly): 语义=「玩家背着滑翔翼」,
+   装备判断归模式层, 引擎只收结果。不替 vel — 滑翔中卸翼=立即收翼按无翼坠落,
+   落差自收翼点重计(physics 帧级判定, spec §3.4 A6 有意设计)。
+   滑翔态对外只读: isGliding()(模式层展/收翼驱动消费, T-G04 接线) */
+function setGliderEquipped(on) {
+  gliderEquipped = on;
+}
+
+function isGliding() {
+  return gliding;
 }
 
 function collides(px, py, pz) {
@@ -253,7 +277,10 @@ function physics(dt) {
   mf += -touchMove.y; ms += touchMove.x; // 虚拟摇杆
   mf = Math.max(-1, Math.min(1, mf));
   ms = Math.max(-1, Math.min(1, ms));
-  const wasGround = onGround; // 帧首贴地快照: 自动跳的判定基准(下方 Y 结算会改写 onGround)
+  const wasGround = onGround; // 帧首贴地快照: 自动跳/land 跃迁沿的判定基准(下方 Y 结算会改写 onGround)
+  const vyStart = vel.y; // 帧首垂直速度快照: splash 判据用(入水速度须取游泳钳制前的值)
+  let bodyFluidThisFrame = null; // 本帧身处流体(land 事件触底零参与判定; 飞行分支不采样恒 null)
+  let glidedIntoFluid = false; // 滑翔触流体帧标记(软着陆溅水: 缓降过不了高速 splash 门, 显式置位)
   const sinY=Math.sin(yaw); const cosY=Math.cos(yaw);
   let dx = (-sinY)*mf + (cosY)*ms;
   let dz = (-cosY)*mf + (-sinY)*ms;
@@ -276,11 +303,44 @@ function physics(dt) {
     const feetF = fluidAt(pos.x, pos.y + 0.05, pos.z);
     const wade = feetF && onGround && !fluidAt(pos.x, pos.y + 1.2, pos.z);
     const swim = bodyF && !wade;
+    bodyFluidThisFrame = bodyF; // 本帧流体采样存档(land 事件「身处流体触底零参与」判定用)
     const spd0 = (keys['ShiftLeft']||keys['ShiftRight']||touchSprint) ? PLAYER.sprint : PLAYER.speed;
     const spd = swim ? spd0 * (bodyF === 'lava' ? FLUID.lavaMult : FLUID.swimMult) :
       (feetF ? spd0 * 0.75 : spd0);
     vel.x = dx*spd; vel.z = dz*spd;
-    if (swim && bodyF === 'water') {
+    /* 滑翔状态机(T-G02, spec §3.4 五态 + ADR 0016): 展翼=装备位 on + 未闩锁 +
+       离地>2(整格比较), 规则一元不分起因(跳跃/走落/被击飞一律); 离地列探引擎内
+       自实现(向下列探脚下地面取 pos.y−地表顶面, 探测落空=脚下全空按可展翼),
+       严禁引 mobs.js groundUnderAt(引擎→应用反向依赖违分层红线)。
+       收翼四路: 落地(下方 hitY 落地分支)/触流体/滑翔中卸翼/主动取消。
+       Space 按下边沿(spaceEdge)每帧至多消费一次 — 按帧首滑翔态单次分派:
+       滑翔中=主动取消, 闩锁中=解闩再展, 二者 XOR(防同一帧边沿自相抵消/振荡) */
+    const spaceEdge = !!keys['Space'] && !prevSpace;
+    if (gliding) {
+      if (bodyF) { // 触流体帧: 收翼+清闩锁+落差清零, 本帧起交游泳物理(spec §3.4 水面软着陆)
+        gliding = false; glideLatch = false; fallPeakY = 0;
+        glidedIntoFluid = true;
+      } else if (!gliderEquipped) { // 滑翔中卸翼: 立即收翼按无翼坠落(峰值已随滑翔帧锚定=收翼点)
+        gliding = false;
+      } else if (spaceEdge) { // 主动取消: 收翼+闩锁, 转无翼重力坠落; 闩锁期间高度条件不重展
+        gliding = false; glideLatch = true;
+      }
+    } else if (gliderEquipped) {
+      if (glideLatch && spaceEdge) glideLatch = false; // 闩锁中空中再点 Space=解闩, 同帧顺势主动再展
+      if (!glideLatch && !bodyF) {
+        const gHit = raycastVoxel({x: pos.x, y: pos.y, z: pos.z}, {x: 0, y: -1, z: 0}, WORLD_H, isSolid);
+        const gHeight = gHit ? pos.y - (gHit.y + 1) : Infinity;
+        if (gHeight > GLIDE.deployHeight) {
+          gliding = true;
+          fallPeakY = pos.y; // 展翼瞬间落差累计重置: 峰值=当前高度(spec §3.5, 滑翔段不计账)
+        }
+      }
+    }
+    if (gliding) { // 滑翔: 垂直恒缓降(不吃重力不积累, 高度只减不增), 水平=yaw 同源操控(不享受疾跑)
+      vel.y = GLIDE.sink;
+      vel.x = dx*GLIDE.speed; vel.z = dz*GLIDE.speed;
+      onGround = false;
+    } else if (swim && bodyF === 'water') {
       vel.y -= PLAYER.gravity * FLUID.gravMul * dt;
       if (vel.y < -FLUID.sinkSpeed) vel.y = -FLUID.sinkSpeed; // 缓沉; 坠落截断=入水免摔伤
       if (keys['Space']) vel.y = headF === 'water' ? FLUID.swimUp : PLAYER.jump * 0.62; // 上浮/水面跃出
@@ -338,7 +398,11 @@ function physics(dt) {
         lavaAcc -= FLUID.lavaTickS; worldEvents.lavaTick = true;
       }
     } else lavaAcc = 0;
-    if (bodyF && bodyF !== prevBodyFluid && vel.y < -4) worldEvents.splash = true;
+    /* splash 判据用帧首速度 vyStart(入水瞬间速度): 游泳物理本帧已把 vel.y 钳到
+       缓沉值, 事后读恒过不了 −4 门(高速入水永不触发的既有缺陷, T-G02 修正);
+       滑翔触水缓降(−1.2, T-G08 二次调参后; 初值 −3.0 同理)同样过不了高速门, 按 spec §3.4「收翼+溅水+入水转游泳」
+       经 glidedIntoFluid 显式置位 */
+    if (bodyF && bodyF !== prevBodyFluid && (vyStart < -4 || glidedIntoFluid)) worldEvents.splash = true;
     prevBodyFluid = bodyF;
   }
   /* 轴向子步进移动(每步≤PLAYER.substep 格): 防止斜向贴角/高速一步跨过碰撞判定穿墙
@@ -360,6 +424,17 @@ function physics(dt) {
   if (hitY) {
     if (vel.y < 0) {
       pos.y = Math.floor(hitY.ny+1e-4)+1; onGround = true;
+      /* land 事件缝(T-G02, spec §3.5): 只在触地跃迁沿(帧首离地)置位 — 平地行走
+         不刷事件; 身处流体的触底零参与(水面/水下不报 land)。携带本次落差
+         (本段无翼下落峰值−贴齐后落点)与触地时滑翔态(landGliding=T-G05 零伤害
+         旗标); 引擎只报事实, 结算归模式层。置位与数据同帧写入, 消费方自清 */
+      if (!wasGround && !bodyFluidThisFrame) {
+        worldEvents.land = true;
+        worldEvents.landFall = fallPeakY - pos.y;
+        worldEvents.landGliding = gliding;
+      }
+      gliding = false; // 落地触地即收翼, 回地面移动(spec §3.4 R1-04)
+      glideLatch = false; // 落地闩锁无条件清除(ADR 0016), 恢复自动展翼
     } else {
       pos.y = Math.floor(hitY.ny+PLAYER.height-1e-4)-PLAYER.height;
     }
@@ -408,12 +483,20 @@ function physics(dt) {
       }
     }
   }
+  /* 落差累计器(spec §3.5 钉定义): 贴地/滑翔中/身处流体 → 峰值锚定当前高度;
+     无翼腾空 → 取最高(下落段峰值)。展翼重置在展翼分支、入水清零在触流体分支、
+     land 事件读数在其置位点 — 均先于本行, 读到的是重置前的正确峰值 */
+  if (onGround || gliding || bodyFluidThisFrame) fallPeakY = pos.y;
+  else fallPeakY = Math.max(fallPeakY, pos.y);
   if (pos.y < PLAYER.voidY) worldEvents.voidFall = true; // 掉出世界: 引擎只报事件, 处理由应用层分发(main loop)
+  prevSpace = !!keys['Space']; // Space 帧尾快照: 下帧滑翔取消/解闩边沿检测的基准
 }
-const worldEvents = {voidFall: false, drownTick: false, lavaTick: false, splash: false};
+const worldEvents = {voidFall: false, drownTick: false, lavaTick: false, splash: false,
+  land: false, landFall: 0, landGliding: false};
 // 引擎→应用 的单向事件通道(分层规则见 GLOSSARY.md): voidFall 坠出世界 ·
 // drownTick/lavaTick 溺水与岩浆接触的计息到点(HP 结算在模式层, liquid D9) ·
-// splash 高速入水(音效分发在主循环); 消费方读完置回 false
+// splash 高速入水/滑翔触水软着陆(音效分发在主循环) · land 触地跃迁沿(T-G02):
+// landFall=本次落差格数, landGliding=触地时滑翔态; 消费方读完置回 false
 
 function collidesAtPlayer(bx, by, bz) {
   const minX=pos.x-PLAYER.hx; const maxX=pos.x+PLAYER.hx;

@@ -1,0 +1,20 @@
+﻿467: function glideCamStub() {/* world.js:51 PerspectiveCamera(72) 妗?T-G04 鐩告満闈?: fov 鍩哄€?72
+476: function freshInit() {
+486: globalThis.camera = glideCamStub(); /* 鐩告満妗╁浣?闃茶€佹杩愯鏃舵薄鏌? 瑙佷笂娉? */
+1177: globalThis.camera = {};
+1178: globalThis.CameraRig = {aim: () => ({origin: {x: spot.x + 0.5, y: 28.5, z: spot.z + 0.5},
+1182: delete globalThis.camera;
+1183: delete globalThis.CameraRig;
+1322: globalThis.camera = {};
+1323: globalThis.CameraRig = {aim: () => ({origin: {x: spot.x + 0.5, y: 24.5, z: spot.z + 0.5},
+1490: globalThis.camera = {};
+1491: globalThis.CameraRig = {aim: () => ({origin: {x: 40, y: 26.4, z: 50}, dir: {x: 0, y: 0, z: -1}})};
+3972: globalThis.camera = {};
+3973: globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.4, z: pos.z}, dir: {x: 0, y: 0, z: -1}})}
+4004: globalThis.camera = {};
+4005: globalThis.CameraRig = {aim: () => ({origin: {x: pos.x, y: pos.y + 1.4, z: pos.z}, dir: {x: 0, y: 0, z: -1}})}
+4107: globalThis.camera = {};
+4108: globalThis.CameraRig = {aim: () => ({origin: {x: spot.x + 3.5, y: 28.5, z: spot.z + 0.5},
+5769: globalThis.camera = glideCamStub(); /* T-G04 娈垫秷璐归潰: 鐩告満妗?姣忔祴璇曠粡 freshInit 澶嶄綅, 瑙?glideCamStub 娉? */
+6835: globalThis.camera = {}; /* 鍑嗘槦 fake(aimDownAt :1161 鍏堜緥鍚屽彛寰? */
+6836: globalThis.CameraRig = {aim: () => line(which === 'B' ? faceB : faceC)};

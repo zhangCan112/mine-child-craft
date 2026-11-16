@@ -102,7 +102,8 @@ test('条目形状: 每个物品必备 name/icon, 类别字段(block/food/fuel/t
     if ('armor' in it) {
       const a = it.armor;
       ['slot', 'tier', 'pts', 'tough', 'dur'].forEach((k) => assert.ok(k in a, id + ' armor.' + k + ' 必备'));
-      assert.ok(['helmet', 'chestplate', 'leggings', 'boots'].includes(a.slot), id + ' armor.slot 槽位合法');
+      assert.ok(['helmet', 'chestplate', 'leggings', 'boots', 'glider'].includes(a.slot),
+          id + ' armor.slot 槽位合法(四甲槽+滑翔翼第五槽, T-G01/ADR 0013)');
       assert.ok(typeof a.tier === 'string' && a.tier.length > 0, id + ' armor.tier 材质键');
       assert.ok(Number.isInteger(a.pts) && a.pts >= 0 && a.pts <= 8, id + ' armor.pts 单件 0~8(正典封顶钻/下界胸甲 8)');
       assert.ok(Number.isInteger(a.tough) && a.tough >= 0, id + ' armor.tough 非负整数');

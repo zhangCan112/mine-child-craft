@@ -1,0 +1,5 @@
+﻿5742: isGliding 鍙(voxel.js:247-253); 婊戠繑鎬佸敮涓€鍐欓潰=physics鈥斺€?5746: isGliding 椹卞姩瑙傛劅; 鍒囨ā寮?姝讳骸鏀跺満璺緞瑕嗙洊娓呴浂銆?5757: setGliderEquipped, isGliding,
+5767: globalThis.isGliding = G.isGliding; /* 妯″紡灞傜粡鍏ㄥ眬鍚嶆秷璐?娴忚鍣ㄩ《灞傚嚱鏁?鍏ㄥ眬, Node 渚ч摵鐪熶欢鐩撮€?vm) */
+6295: /* 閲嶈繘(鏈夌考妗?: 杩涘満瀵硅处鍏堝悓姝ヨ澶囦綅, isGliding 娑堣垂涓嶈鎾?T-G02 瑙傚療椤?1) */
+6349: for (const tok of ['setWings', 'wing_open', 'wing_close', 'isGliding', 'setGliderEquipped']) {
+6353: assert.ok(src.indexOf('isGliding') >= 0, '婊戠繑娑堣垂鍦?adventure 鍐呮牳(浣撻獙棣嗙粡鍚屼竴妯″紡鏂囦欢鍚屽彛寰勫紑鏀?');

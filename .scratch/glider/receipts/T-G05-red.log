@@ -1,0 +1,33 @@
+# T-G05 红自证日志(定向, --test-name-pattern "T-G05" test/adventure-mode.test.js)
+# 环境: glider worktree, HEAD=2b09379, node --test
+# 日期: 2026-11-15
+
+✖ T-G05 摔落参数表: 3 格无伤 · 5 格扣 2 · 10 格扣 7 · 击退高度同式(规则一元) · 零 TTS (661.6881ms)
+✖ T-G05 滑翔零伤: 触地滑翔态任意落差零伤害 · 20 格滑到 2 格取消只摔 2 格账(收翼重置原案例) (658.9881ms)
+✖ T-G05 摔至血尽: 走现有死亡流程(重生满血+背包全保留) — 死亡安抚话术属存量非新增 (651.7351ms)
+✖ T-G05 落水零伤(有翼无翼任意高度) + 平地帧零结算: splash 路径与 1.42 格跳跃峰值不扣血(边界语义) (631.2221ms)
+✖ T-G05 传送免疫(观察项 2): 死亡/传送(spawn)后首个 land 事件零结算(残留峰值幻影防护), 后续真实摔落照常 (628.1561ms)
+✔ T-G05 他模式零参与: build/arena 不订阅 land 事件(静态守门, 不订阅即天然不参与) (1.7002ms)
+ℹ tests 6
+ℹ pass 1
+ℹ fail 5
+
+# --- 逐块失败断言(实读) ---
+# 1. 摔落参数表块 @5366: AssertionError '3 格事件被消费(消费即清契约)' — actual true / expected false
+# 2. 滑翔零伤块 @5400: AssertionError '滑翔触地事件同样消费即清' — actual true / expected false
+# 3. 摔至血尽块 @5421: AssertionError '存量死亡安抚话术' — actual false(血尽未走死亡流程: landFall=99 未结算, 未死无话术)
+# 4. 落水护栏块 @5442: AssertionError '无伤事件同样消费即清' — actual true / expected false(1.42 格事件无人清)
+# 5. 传送免疫块 @5460: AssertionError '幻影事件被吞(消费即清)' — actual true / expected false
+
+[red-cause]
+Error 类名计数: AssertionError ×5, TypeError ×0, ReferenceError ×0
+分类: 断言红 ×5(全部), 装具炸 ×0
+失败测试清单(5):
+  - T-G05 摔落参数表: 3 格无伤 · 5 格扣 2 · 10 格扣 7 · 击退高度同式(规则一元) · 零 TTS
+  - T-G05 滑翔零伤: 触地滑翔态任意落差零伤害 · 20 格滑到 2 格取消只摔 2 格账(收翼重置原案例)
+  - T-G05 摔至血尽: 走现有死亡流程(重生满血+背包全保留) — 死亡安抚话术属存量非新增
+  - T-G05 落水零伤(有翼无翼任意高度) + 平地帧零结算: splash 路径与 1.42 格跳跃峰值不扣血(边界语义)
+  - T-G05 传送免疫(观察项 2): 死亡/传送(spawn)后首个 land 事件零结算(残留峰值幻影防护), 后续真实摔落照常
+恒绿护栏(1, 红因=不适用·票面要求 3 的负向静态守门):
+  - T-G05 他模式零参与: build/arena 不订阅 land 事件(静态守门, 不订阅即天然不参与)
+单一根因: 模式层无 worldEvents.land 消费代码 — 事件无人清回 false / 伤害无人结算 / 血尽无人触发死亡流程

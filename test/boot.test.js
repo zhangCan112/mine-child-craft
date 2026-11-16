@@ -235,7 +235,7 @@ test('装备 T4 冒烟: setArmor 单穿/全穿/换件/卸空 + update 泵帧不�
     w.chestplate = {id: 'chestplate_netherite', dur: 1184};
     w.leggings = {id: 'leggings_gold', dur: 210};
     w.boots = {id: 'boots_diamond', dur: 858};
-    Avatar.setArmor(w); /* 四槽全穿 */
+    Avatar.setArmor(w); /* 四件盔甲全穿(glider 槽空, 签名五槽) */
     w.helmet = {id: 'helmet_diamond', dur: 726}; /* 换件(同槽异件) */
     Avatar.setArmor(w);
     w.helmet.dur = 3; /* 磨损只变 dur: 同目标幂等, 不重建 */

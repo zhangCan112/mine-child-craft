@@ -11,6 +11,7 @@
    方位语义 ④Prefab 实例清单映射(P0/P1 全入=七新行+under-room 复用+摊位 6; board-pool
    PO 推迟不列) ⑤脚印合法(footOf 校验·⊆核心区∪beyond·体量域·分区归属) ⑥实例两两无交
    ⑦路网(厚度域·贴广场连通·不压建筑·门前可达) ⑧地表分类(广场铺装/农田成组)
+   ⑧b town-rim 防坠墙圈(segs 十六段逐件 pin·开口净空·互证 rim-* ⊇ segs·红线)
    ⑨远景(山体必做/崖屋 1-2 脊线可见/神庙默认不落/不可达) ⑩散布(四类/广场樱花≥3/灯柱≥10/门廊对位/断头信标/
    不落建筑与路面) ⑪锚点(spawn 北望·回望钟塔视线通廊) ⑫townBuildSteps 确定性
    (phase 全序=架构 §5.1.6 建场序·两调 deepEqual) ⑬源文本守门(纯核心红线)。
@@ -505,6 +506,123 @@ test('地表: 广场铺装=广场域 · 农田成组(8×12~10×14)归田园带 �
       g.x1 > 120 && g.z1 > 83 && g.z2 < 89), '东驿站坪贴 main-east 断头端');
   assert.ok(t.ground.some((g) => g.kind === 'wayshrine' &&
       g.z1 > 118 && g.x1 > 75 && g.x2 < 81), '南驿站坪贴 main-south 断头端');
+});
+
+/* ============ ⑧b town-rim 防坠墙圈(T2, spec §3.3 块级规格逐件 pin) ============ */
+
+/* segs 逐段规格(spec §3.3 坐标表的测试侧独立字面量转录, 防漂移)。
+   翼墙/端头墩 y 域裁定注(T2 票内发现): spec 坐标列写 y26..27, 前提是
+   「立裙板顶 y25 上」——但裙板在翼/墩列(x16..30/x129..143/x16/x143)的
+   实测列顶=24(拱形端点; 下方裙板合脊测试 skTop(16)=24 与 dims 世界层
+   断言 (16,24,30)=14 同证), 中带 x35..124 才是 25; 按 y26..27 落将浮空
+   1 格, 违同表说明列「墩脚=裙板实底,不落虚空」与垫层行「剖面不悬空」
+   纪律。按 spec 相对定义「立裙板顶上 2 格」换算实测地形 → y25..26
+   (2 格高/封口/防登数学不变, spec §4 体量表 60+12=72 格不变)。提请
+   design-lead 走查终审; 若裁回绝对值 26..27, 改本清单与 segs 各一行。 */
+const RIM_SEGS_WANT = [
+  /* 墙基垫层 pad: y24 单层 13, 南段两截避门楼开口 x76..80(T1a 桥域) */
+  'pad:32,128..75,128#24..24', 'pad:81,128..127,128#24..24',
+  'pad:31,32..31,128#24..24', 'pad:128,32..128,128#24..24',
+  /* 墙身 wall: y25..26 两格 13; 东西缘 z32..128(闭南角, 止于 127 会对角
+     缺口+柱帽悬空——spec §3.3 东西缘行说明) */
+  'wall:32,128..75,128#25..26', 'wall:81,128..127,128#25..26',
+  'wall:31,32..31,128#25..26', 'wall:128,32..128,128#25..26',
+  /* 北端接头柱 post: y25..27 三格无帽(防自裙板登脊) */
+  'post:31,32..31,33#25..27', 'post:128,32..128,33#25..27',
+  /* 南角柱帽 cap: y27 石英(北端接头格故意不加帽) */
+  'cap:31,128..31,128#27..27', 'cap:128,128..128,128#27..27',
+  /* 裙板翼墙 wing: z31 行 y25..26(立实测裙板顶 24 上 2 格, 见上注) */
+  'wing:16,31..30,31#25..26', 'wing:129,31..143,31#25..26',
+  /* 北缘端头墩 pier: x16/x143 列 z29..31 y25..26(同上) */
+  'pier:16,29..16,31#25..26', 'pier:143,29..143,31#25..26',
+].sort();
+const rimSegKey = (s) => s.part + ':' + s.x1 + ',' + s.z1 + '..' + s.x2 + ',' +
+  s.z2 + '#' + s.y1 + '..' + s.y2;
+
+test('town-rim 条目: segs 十六段一次立全(spec §3.3 逐件 pin) · 开口段 x76..80 净空 · 闭南角实接 · 互证 rim-* ⊇ 各 seg', () => {
+  const c = loadCore();
+  const t = c.TOWN_MAP;
+  const rims = t.ground.filter((g) => g.kind === 'town-rim');
+  assert.strictEqual(rims.length, 1, 'town-rim 条目恰一条(几何权威单源)');
+  const rim = rims[0];
+  assert.strictEqual(rim.id, 'town-rim', '条目 id=town-rim');
+  assert.ok(Array.isArray(rim.segs) && rim.segs.length === 16,
+      'segs 显式分段清单恰十六段(垫层4+墙身4+接头柱2+柱帽2+翼墙2+端头墩2)');
+  for (const s of rim.segs) {
+    assert.ok(['pad', 'wall', 'post', 'cap', 'wing', 'pier'].includes(s.part),
+        'seg part ∈ pad/wall/post/cap/wing/pier(实得 ' + (s.part || '缺') + ')');
+    assert.ok(Number.isInteger(s.x1) && Number.isInteger(s.x2) &&
+        Number.isInteger(s.z1) && Number.isInteger(s.z2) &&
+        Number.isInteger(s.y1) && Number.isInteger(s.y2) &&
+        s.x1 <= s.x2 && s.z1 <= s.z2 && s.y1 <= s.y2,
+    'seg 坐标良序闭域(' + rimSegKey(s) + ')');
+    /* 回程触发线内侧(硬红线): 几何全在 z≤131, 触发线 z132 不设任何新块 */
+    assert.ok(s.z2 <= 131, 'seg ⊆ z≤131(触发线 z132 内侧: ' + rimSegKey(s) + ')');
+    /* 北缘不开墙(PO 亲需可达线): core 北界线 z32 行 x32..127 不闭 */
+    const northWall = s.z1 <= 32 && s.z2 >= 32 && s.x1 <= 127 && s.x2 >= 32;
+    assert.ok(!northWall, 'seg 不闭北缘 z32 行(' + rimSegKey(s) + ')');
+    /* 登北山走廊零连累: 攀登走廊列 x60..61 及其裙板进深 z28..31 不落块 */
+    const corrHit = s.x1 <= 61 && s.x2 >= 60 && s.z1 <= 31 && s.z2 >= 28;
+    assert.ok(!corrHit, 'seg 不入登北山走廊域 x60..61×z28..31(' + rimSegKey(s) + ')');
+    /* rim 走道保留(spec §3.4): z29..30 两行 x17..142 零 rim 落块(端头墩
+       柱位 x16/x143 豁免=spec 端头封口) */
+    const walkHit = s.z1 <= 30 && s.z2 >= 29 && s.x1 <= 142 && s.x2 >= 17;
+    assert.ok(!walkHit, 'seg 不占 rim 走道 z29..30 行(' + rimSegKey(s) + ')');
+  }
+  /* 逐段 pin(集合相等不拘清单序); vm 域数组先展开归化宿主域再比
+     (conventions §7.1: 跨 realm 原型 deepStrictEqual 必炸, 打印全同仍 fail) */
+  const segKeys = [...rim.segs].map(rimSegKey).sort();
+  assert.deepStrictEqual(segKeys, RIM_SEGS_WANT,
+      'segs 逐段表=spec §3.3(part:x,z..x,z#y..y)');
+  /* 门楼开口净空(硬红线): x76..80×z128 归 T1a 门楼/基座桥, 本票显式排除 */
+  for (const s of rim.segs) {
+    const hitOpen = s.x1 <= 80 && s.x2 >= 76 && s.z1 <= 128 && s.z2 >= 128;
+    assert.ok(!hitOpen, 'seg 不入开口段 x76..80(' + rimSegKey(s) + ')');
+  }
+  /* 闭南角实接(spec §3.3 东西缘行): 墙身两缘 seg 止于 z128 */
+  const wallAt = (x, z) => rim.segs.some((s) => s.part === 'wall' &&
+      s.x1 <= x && s.x2 >= x && s.z1 <= z && s.z2 >= z);
+  assert.ok(wallAt(31, 128) && wallAt(128, 128),
+      '东西缘墙身实接南角 (31,128)/(128,128)');
+  assert.ok(wallAt(31, 32) && wallAt(128, 32), '东西缘墙身北端起 z32');
+  /* 接头柱恰两根三格无帽; 柱帽恰两枚只在南角 y27(spec §3.3) */
+  /* [...segs] 先归化宿主域(§7.1 跨 realm 原型, 同上) */
+  const shape = (part) => [...rim.segs].filter((s) => s.part === part)
+      .map((s) => [s.x1, s.z1, s.x2, s.z2, s.y1, s.y2])
+      .sort((a, b) => a[0] - b[0]); /* 首格数值序(默认 sort 按字符串序, 128 会排在 31 前) */
+  assert.deepStrictEqual(shape('post'),
+      [[31, 32, 31, 33, 25, 27], [128, 32, 128, 33, 25, 27]],
+      '北端接头柱恰两根 (31/128, z32..33) y25..27 无帽(防登墙)');
+  assert.deepStrictEqual(shape('cap'),
+      [[31, 128, 31, 128, 27, 27], [128, 128, 128, 128, 27, 27]],
+      '南角柱帽恰两枚 (31,128)/(128,128) y27(北端故意不加帽)');
+  /* 互证 rim-* ⊇ town-rim 各 seg(ADR-0013 待办随本票补=T0 ②b 遗留):
+     白名单 ⊇ 实际几何, 几何第二份防御 */
+  for (const s of rim.segs) {
+    const host = (t.beyond || []).find((b) => b.id.indexOf('rim-') === 0 &&
+        s.x1 >= b.x1 && s.x2 <= b.x2 && s.z1 >= b.z1 && s.z2 <= b.z2);
+    assert.ok(host, '互证: seg ⊆ beyond.rim-*(seg=' + rimSegKey(s) + ')');
+    assert.ok(inCoreOrBeyond(t, s),
+        '⑧判据复跑: seg ⊆ 核心区∪beyond(' + rimSegKey(s) + ')');
+  }
+});
+
+test('town-rim 红线: 散布零连累(花不入 scatter) · U4 townProtectedAt 不落 · modes/adventure.js 零触碰', () => {
+  const c = loadCore();
+  const t = c.TOWN_MAP;
+  /* 散布零连累(硬红线): 墙头花走 town-rim 派生不入 scatter——散布清单
+     无任何条目落墙线域(x≤31/x≥128/z≥128), ⑩ ⊆core 严判维持 */
+  for (const s of t.scatter) {
+    assert.ok(s.x >= 32 && s.x <= 127 && s.z >= 32 && s.z <= 127,
+        '散布维持 ⊆core(墙头花不入 scatter: ' + s.id + ')');
+  }
+  /* U4 保护判据不归本票(T2b): townProtectedAt 不落——墙圈先可挖 */
+  const mapSrc = fs.readFileSync(path.join(ROOT, 'js', 'town-map-core.js'), 'utf8');
+  assert.ok(!mapSrc.includes('townProtectedAt'),
+      'townProtectedAt 不落(U4 归 T2b 票, 本票墙圈先可挖)');
+  const advSrc = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  assert.ok(!advSrc.includes('town-rim') && !advSrc.includes('townProtectedAt'),
+      'modes/adventure.js 零触碰(回程判据行为面零改动, T2b 前无镇域接线)');
 });
 
 /* ============ ⑨ 远景剪影(map-design §4.2 R-01..03 · M7 默认) ============ */

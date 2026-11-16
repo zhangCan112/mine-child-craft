@@ -1,0 +1,102 @@
+✔ hotbar: 数字键选块(1-based), 越界忽略 (1.1894ms)
+✔ hotbar: 滚轮双向环绕 (0.1211ms)
+✔ hotbar: cnt 实时重读与 empty 态 (0.1987ms)
+✔ item 槽: dataURL 喂 img.src / emoji 文本喂 icon / 名称走 ITEMS (0.2485ms)
+✔ item 槽: refresh 重读数量(>1 才显)与耐久条宽/档位, 归零 empty (0.1548ms)
+✔ sortInv: 主格内同项合并·首现序稳定·工具耐久保留·快捷栏不动 (0.4691ms)
+✔ craft 面板: 挂载/卸载幂等 + 背包网格 18 主格+9 快捷镜像+摆放台 9 格 (1.1539ms)
+✔ craft 面板: 🧹 整理按钮 → sortInv 就地合并 + onSort 通知 + 网格重画 (1.0004ms)
+✔ craft 面板: 点非空格起手高亮(pick 类), 点目标格 → onMove(from,to) + 收高亮 (1.3227ms)
+✔ craft 面板: 搬运边界 — 再点原格=放下, 无起手点空格=无效, 均不触发 onMove (0.882ms)
+✔ craft 面板: onMove 后整幅重画反映搬移结果(面板只重读 inv, 搬移在模式层) (0.5311ms)
+✔ craft 面板: 🧹 整理收起搬运起手(主格重排后起手槽号失义) + 关面板收手 (1.3697ms)
+✔ craft 面板: 卡片=产物大图+×数量+材料chip×数+站点徽标, 任选材料逐候选 (0.9611ms)
+✔ craft 面板: bread/bone_meal/bow_item 默认过滤, opts.allow 放开 (1.552ms)
+✔ craft 面板: 缺料→卡片 dim+chip lack(have/need), 补料刷新恢复亮 (0.4364ms)
+✔ 滑翔翼配方卡常显(T-G01 R1 守门): KIT_HIDDEN_RECIPES 不含 glider(glider-spec §3.2 拍板公开) (0.4909ms)
+✔ craft 面板: 卡序=可制造在前缺料在后(同档稳定=原配方序) (0.3898ms)
+✔ craft 面板: 合成后该配方卡置顶(仍可制造时从次位跳第一) (1.3002ms)
+✔ craft 面板: 合成后材料尽(灰卡)不置顶, 沉回缺料档垫底 (0.9163ms)
+✔ craft 面板: 卡片 DOM 复用 — 观感签名未变回挂旧节点, 变了才重建 (0.6661ms)
+✔ craft 面板: 灰卡产物与缺料 chip 走 iconOfGray 灰版, 亮卡零灰版 (1.4422ms)
+✔ craft 面板: 站点外只列 hand 级卡(正典配方书口径), 近台全列 + 外圈锁格 (0.9048ms)
+✔ craft 面板: 点背包格→摆放格整摞入格(真 remove 扣槽)+onGridMove; 异种拒绝收手不散 (2.4993ms)
+✔ craft 面板: 工具/可耗损物不入格(durOf>0 拒绝, 避开耐久重铸) (0.4871ms)
+✔ craft 面板: 摆放格→背包格整摞退回(真 add 收包); 格→格并堆 (1.35ms)
+✔ craft 面板: 点卡=BE 一键摆入(真 fillGrid) → 产出槽亮 → 点击一发 onCraft (0.9379ms)
+✔ craft 面板: 重复点卡=再备一套, 产出槽长按连做 0.3s/发至材料尽(拍板④) (1.2854ms)
+✔ craft 面板: 关面板格内材料退回背包; 满包装不下经 onReturnLeft 报掉落(零惩罚) (1.0703ms)
+✔ craft 面板: 页签改版 — 工具/食物/方块/材料四页, 默认工具页, 材料归材料页(全部页退役) (0.6136ms)
+✔ craft 面板: L1 三页签 — 背包|装备|造物(equip 缝), 默认背包页, 页切翻转+惰性建预览 (0.7668ms)
+✔ craft 面板: 装备页 — 五槽 EQUIP_SLOTS 序 + 空槽虚位 + 有件图标/耐久条 + 点槽报 onSlot + 盔甲点 (2.2533ms)
+✔ craft 面板: 背包页一键穿上 — 点背包盔甲件报 onWearAt(槽号); 非盔甲照旧点选搬运 (0.5384ms)
+✔ craft 面板: 装备页预览 — worn 变化 refresh 重画一帧, hide 重开复用不重建 (0.5501ms)
+✔ furnace 面板: 三槽渲染 + setProgress 进度条 + 挂载/卸载幂等 (0.4799ms)
+✔ furnace 面板: 自动放料 plan — 矿石全放 + FUEL 序最省凑料, 只报意图不动包 (0.7916ms)
+✔ furnace 面板: setFuel 燃料余量条 — 宽度百分比 + 越界钳制 + 熄灭灰显切换 (0.2773ms)
+✔ furnace 面板: 背包区常驻 — 27 格(18 主格+9 快捷镜像), 点击格报 onPut 意图不动包 (0.3989ms)
+✔ furnace 面板: 不可入炉物 dim 灰显 — 可烧/燃料亮显, 其余灰显(路由前视觉预告) (0.2525ms)
+✔ furnace 面板: 点击炉三槽报 onSlot 意图 — 料/燃料取回·产物收取的政策归模式层 (0.3696ms)
+✔ furnace 面板: 放料后背包格跟随重画 — onPut/onAutoFill 动包, 面板重读当前包 (0.4077ms)
+✔ 面板生命周期契约(craft): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态 (4.5532ms)
+✔ 面板生命周期契约(furnace): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态 (1.5954ms)
+✔ 面板生命周期契约(chest): 挂卸幂等 · Esc=close · 重开复明 · refresh 不碰开合态 (0.328ms)
+✔ chest 面板: 箱格点击报 onTake(箱槽号)/背包格点击报 onPut(背包槽号)意图, 面板不动数据 (0.3829ms)
+✔ chest 面板: 扩容行 — 材料账单 chip have/need + 缺料 lack + 扩容钮报 onExpand; 顶格档隐藏 (0.3144ms)
+✔ chest 面板: 容量提示行(ADR 0007) — 一句话报现存箱子数与总容量(两轨口径) (0.2891ms)
+✔ chest 面板: 存取意图后面板重读现状 — onPut 动包后背包格跟随重画 (0.2144ms)
+✔ KeyB 默认暂停(不转发), 其余键转发给模式 (0.0693ms)
+✔ init: chrome 施加 + hotbar 现身 + touch 声明 (0.1027ms)
+✔ init: 无声明的模式安全通过(Node 无 DOM, MK.* 为 null) (0.0352ms)
+✔ mkMainAct: 手持可放置物 → aimClick(2) 且返 false(一次性放置, 不进连发) (0.0533ms)
+✔ mkMainAct: 空手/工具/食物 → aimClick(0) 挖打起步, 返回值非 false 进连发 (0.0359ms)
+✔ mkHeldSync: 哨兵槽/数字方块判定 — isBlock() 与 itemId()(铁锹映射不外泄) (0.0695ms)
+✔ mkHeldSync: sync 调 Avatar.setItem 与主动作键图标切换(铲↔砖块) (0.0881ms)
+✔ mkHeldSync: Avatar/Input 缺装时 sync 静默不炸(精简装载守卫) (0.044ms)
+✔ spawn 记住出生点, 默认 onVoidFall 回到出生点 (0.0824ms)
+✔ 自定义 onVoidFall 优先 (模式自定义坠落语义) (0.0332ms)
+✔ confirmBtn: 首点武装, 再点执行, 超时还原 (0.1265ms)
+✔ 物品提示: hotbar 点选 → 气泡显名字+说明; 空槽静默不改写气泡 (0.1707ms)
+✔ 物品提示: 背包格点击读被点物品; 点灰卡=一键摆入+读产物提示(缺料尾句) (0.7479ms)
+✔ mkMobPicker: 谱系分组渲染 — 组头+组员簇, 头像与名字, data-type (0.3102ms)
+✔ mkMobPicker: headKeys 前置功能位(不归族) + 点击 onPick + 选中态自动重读 (0.1239ms)
+✔ mkMobPicker: 未注册键兜底显键名(不静默丢, 面板分组「不丢桶」同款口径) (0.1241ms)
+✔ mkMobPicker: groupOf 恒 null 平铺(出发配置页卡片流) + itemTag/itemCls/itemHtml 观感差异 (0.1863ms)
+✔ editHit 放置覆盖薄块: 命中 replaceable → 落点=被点格本身盖掉; 实心命中走法线侧旧口径 (0.2936ms)
+✔ 丢弃: 未传 onDrop 无头钮(体验馆零变化); 传了才现身且 paintChrome 注入图标不炸 (0.3283ms)
+✔ 丢弃: craft armed → 点背包格报 onDrop(槽号); 空格不动; 关面板收态后恢复搬运 (0.5992ms)
+✔ 丢弃: chest 面板 wirePut 同口径 — armed 点背包格报 onDrop 不报 onPut (0.2692ms)
+✔ 可变容量: 33 槽背包区按现长度重画(24 主格 + 9 快捷镜像 + 摆放台 9 = 42 格) (0.204ms)
+✔ 装备条形状: 五槽按钮按头/胸/腿/靴/翼序 · data-slot 标记 · 空槽虚位(.off) (0.1388ms)
+✔ 装备条 update: 有件槽显像素图标 · 空槽虚位; 签名节流 — 同 id 签名不重画(炉三槽推进同惯例) (0.254ms)
+✔ 装备条点槽: click 派发 onUnequip(slot) — 脱下意图归模式层(满包拒绝政策在消费方) (0.1558ms)
+✔ craft 面板: 装备页第五槽数据边界 — 有件显图标但永不渲染耐久条·四甲耐久条不误伤·点槽报 onSlot(§4.4) (0.4197ms)
+✖ HUD 装备条与装备页第五槽样式照稿 — css/style.css(UI spec §3.4 最小样式 + §4.1 第三行居中) (0.7752ms)
+ℹ tests 74
+ℹ suites 0
+ℹ pass 73
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3284.0877
+
+✖ failing tests:
+
+test at test\mode-kit.test.js:1712:1
+✖ HUD 装备条与装备页第五槽样式照稿 — css/style.css(UI spec §3.4 最小样式 + §4.1 第三行居中) (0.7752ms)
+  AssertionError [ERR_ASSERTION]: .armorbar 应含 position: fixed(UI spec §3.4 最小样式)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\mode-kit.test.js:1728:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }

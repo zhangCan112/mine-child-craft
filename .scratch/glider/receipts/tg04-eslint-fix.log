@@ -1,0 +1,7 @@
+
+C:\Users\user\.local\share\opencode\worktree\1631a8\glider\test\adventure-mode.test.js
+   206:1  error  This line has a length of 134. Maximum allowed is 120  max-len
+  5739:1  error  This line has a length of 134. Maximum allowed is 120  max-len
+
+✖ 2 problems (2 errors, 0 warnings)
+
