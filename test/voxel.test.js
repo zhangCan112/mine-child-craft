@@ -36,6 +36,7 @@ function loadVoxel() {
       get flyMode(){ return flyMode; }, set flyMode(v){ flyMode = v; },
       get gliding(){ return gliding; }, // T-G02 滑翔旗标(内部态只读桥接; 写面仅 physics/setGliderEquipped)
       PLAYER, WORLD_W, WORLD_D, WORLD_H, BLOCKS, B_FUSE, B_WATER, GLIDE,
+      B_CAMPFIRE, B_CAMPFIRE_OUT, CAMPFIRE, /* 篝火两态 id+参数块(T-C4 烫伤计息断言面) */
     };
   `, ctx);
   return ctx.__v;
@@ -661,4 +662,106 @@ test('hashRand: 确定性且落在 [0,1)', () => {
   assert.strictEqual(a, v.hashRand(123, 456));
   assert.ok(a >= 0 && a < 1);
   assert.notStrictEqual(a, v.hashRand(124, 456));
+});
+
+/* ============ 篝火烫伤计息器 (篝火 T-C4, campfire-spec §3.6, ADR 0019) ============ */
+/* 引擎只报事件(spec §3.6 红线): onGround 且支撑格=燃烧态篝火(可站立前提=
+   solid:true 整格贴齐, thin 不参与物理——支撑格=脚下那格) → 计息器进账,
+   满 CAMPFIRE.burnTick(20tps 20 刻=1s)置位 worldEvents.fireTick; 离火即刻
+   清零(浇熄/燃尽/挖走/跳离同门——支撑格不再是燃烧态)。HP 结算归模式层
+   (adventure-mode.test 消费合同段), 本组只测 emit 时点。事件消费=消费即清
+   契约(T-G05 land 同款), standFrames 逐帧读旗自清模拟消费方。 */
+
+const FDT = 1 / 60; /* 物理帧步长(秒); 20 刻节拍=1s=60 帧 */
+/* 站立跑 n 帧并按消费合同清点 fireTick 次数(each=逐帧探针; 消费合同=读到 true
+   计数并自清, 模拟消费方) */
+function standFrames(v, n, each) {
+  let fires = 0;
+  for (let i = 0; i < n; i++) {
+    v.physics(FDT);
+    if (each) each();
+    if (v.worldEvents.fireTick) {
+      fires++;
+      v.worldEvents.fireTick = false;
+    }
+  }
+  return fires;
+}
+/* 跑物理直到贴地(600 帧封顶) */
+function settleOn(v) {
+  for (let i = 0; i < 600 && !v.onGround; i++) v.physics(FDT);
+}
+
+test('篝火烫伤节拍: 站燃烧篝火 0.9s 零事件 · 续站至 2.1s 恰 2 拍(节拍 20 刻=1s, spec §3.9)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 22, 40, 40, 22, 40, 3); /* 石基座(布景: 火不悬空) */
+  v.setBlockRaw(40, 23, 40, v.B_CAMPFIRE); /* 燃烧态篝火落 (40,23,40) */
+  v.pos.set(40.5, 24, 40.5); /* 站火顶: 整格贴齐 y=24, 支撑格=火格 y=23 */
+  settleOn(v);
+  assert.strictEqual(v.onGround, true, '前置: 贴地站上篝火顶(solid:true 可站立)');
+  assert.strictEqual(standFrames(v, 54), 0,
+      '0.9s 零事件(接触不满节拍不烫 — 踩火起飞天然豁免的引擎面, ADR 0019)');
+  assert.strictEqual(standFrames(v, 72), 2, '续站至 2.1s 恰 2 拍(每满 1 秒 1 拍)');
+});
+
+test('篝火烫伤离火清零: 0.9s 离火 → 再踩从零起拍(累积器残留会伪起拍, spec §3.6)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 22, 40, 40, 22, 40, 3);
+  v.setBlockRaw(40, 23, 40, v.B_CAMPFIRE);
+  fill(v, 44, 22, 44, 44, 23, 44, 3); /* 邻列石柱(顶 y=23) */
+  v.pos.set(40.5, 24, 40.5);
+  settleOn(v);
+  assert.strictEqual(standFrames(v, 54), 0, '第一段 0.9s 零事件');
+  v.pos.set(44.5, 24, 44.5); /* 挪到石柱顶(支撑=石, 非火) */
+  settleOn(v);
+  assert.strictEqual(standFrames(v, 30), 0, '离火段零事件');
+  v.pos.set(40.5, 24, 40.5); /* 再踩回火顶 */
+  settleOn(v);
+  assert.strictEqual(standFrames(v, 54), 0,
+      '再踩 0.9s 仍零事件(离火已清零, 从零起拍; 残留 0.9+0.9 会伪置位)');
+});
+
+test('篝火烫伤不烫面: 熄灭态篝火站立任意时长零事件 · 普通方块支撑零事件(燃尽后/物品/掉落同门=无采样)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 22, 40, 40, 22, 40, 3);
+  v.setBlockRaw(40, 23, 40, v.B_CAMPFIRE_OUT); /* 熄灭态(T-C3 同格同形) */
+  v.pos.set(40.5, 24, 40.5);
+  settleOn(v);
+  assert.strictEqual(v.onGround, true, '前置: 熄灭态同样可站立(solid:true 两态一致)');
+  assert.strictEqual(standFrames(v, 130), 0, '熄灭态站立 ~2.2s 零事件(不烫, ADR 0019 例外边界)');
+  const w = loadVoxel();
+  fill(w, 40, 22, 40, 40, 23, 40, 3); /* 纯石柱(支撑=石: 燃尽后空气/物品/掉落形态同门=无采样) */
+  w.pos.set(40.5, 24, 40.5);
+  settleOn(w);
+  assert.strictEqual(standFrames(w, 130), 0, '非篝火支撑零事件');
+});
+
+test('篝火烫伤不烫面: 篝火正上方石台站立零事件(气柱本身不烫 — 支撑格非火格, ADR 0019)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 22, 40, 40, 22, 40, 3);
+  v.setBlockRaw(40, 23, 40, v.B_CAMPFIRE); /* 火在 (40,23,40) */
+  fill(v, 40, 28, 40, 41, 28, 41, 3); /* 正上方石台(y28, 顶=29) */
+  v.pos.set(40.5, 29, 40.5);
+  settleOn(v);
+  assert.strictEqual(v.onGround, true, '前置: 站上台面(火正上方空中, 气柱段)');
+  assert.strictEqual(standFrames(v, 130), 0, '火正上方站立零事件(支撑格=石非火)');
+});
+
+test('篝火烫伤起飞豁免: 踩火半拍起跳离地全程零事件(ADR 0019 有意设计 — 离地即离火清零, 不设特判)', () => {
+  const v = loadVoxel();
+  fill(v, 40, 22, 40, 40, 22, 40, 3);
+  v.setBlockRaw(40, 23, 40, v.B_CAMPFIRE);
+  v.pos.set(40.5, 24, 40.5);
+  settleOn(v);
+  assert.strictEqual(standFrames(v, 30), 0, '踩火 0.5s(<1 拍)零事件');
+  v.keys['Space'] = true;
+  v.physics(FDT); /* 起跳(踩火起飞同门) */
+  v.keys['Space'] = false;
+  let sawAir = false;
+  const fires = standFrames(v, 90, () => {
+    if (!v.onGround) sawAir = true;
+  });
+  assert.strictEqual(sawAir, true, '前置: 起跳离地(jump 8.6/g 26, 滞空 ~0.66s)');
+  assert.strictEqual(fires, 0,
+      '滞空+回落段全程零事件(滞空=离火清零; 若滞空仍进账或残留 0.5s 会伪置位)');
 });
