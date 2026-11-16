@@ -33,6 +33,7 @@
 - 症状：定向绿/全量红——camera 桩（globalThis.camera）老段残留污染新段，级联 2 红。
 - 根因证据：GP04 回执验收期二次裁决（freshInit 统一复位收口后自愈）。
 - 修复建议：新装具桩一律经 freshInit 复位出口；候下次触点全树排查同类 globalThis 桩（小票）。
+- **旁注（2026-11-16 glider×villager 并版新增案例）**：跨线装具桥接污染——`T-G04 死亡重生`测试残留引擎 gliding 态（cleanup 卸装备后零物理帧，收翼系 voxel.js 帧级判定）×glider 尾块 `globalThis.isGliding` 桥接铺后不撤，全量跑序中 `advGlideOn()` 恒真致另一线蓄力测试误判不起（两侧单独各绿、首次同进程相遇才红；bug-doctor 钉根因，合并态 2 红）。修复=freshInit 姊妹件 `glideHygiene()`（无残留零开销，有残留代跑浏览器同款卸翼一帧）。教训升格：**桥接类全局装具必须「铺撤配对」，或统一登记进 freshInit 复位清单**——单侧树绿不等于合并绿，跨线并版必跑合并态全量门禁（本次被合并前门禁惯例抓住）。
 
 ## 二、环境债 / judgement call（不阻塞，列后续票建议）
 
