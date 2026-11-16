@@ -260,7 +260,7 @@ function mkArmorOverlay(puppet) {
 
   return {
     apply(worn) {
-      /* 四槽 id 签名: 槽形 {id, dur}|null → id|''(armorOf 判据单份在 items-core) */
+      /* 五槽 id 签名: 槽形 {id, dur}|null → id|''(armorOf 判据单份在 items-core) */
       const s = EQUIP_SLOTS.map((k) => (worn && worn[k] ? worn[k].id : '')).join(',');
       if (s === sig) return; /* 同目标幂等(磨损/重声明不动网格) */
       sig = s;
