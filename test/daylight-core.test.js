@@ -188,3 +188,74 @@ test('clockLabel: MC 表盘 tick 0=06:00 → HH:MM(步长 500 ⇒ 分钟只出 0
   assert.strictEqual(Daylight.clockLabel(12500), '18:30', '半步(500 tick=30 分钟)');
 });
 
+/* ============ nightGlow: 夜灯亮度因子(夜间氛围 T-NPC-15a, 定稿 §3.b/§5-E3) ============
+   自发光面片载体(载体 B)的 dusk/dawn 渐变窗读数面: 断点 = DIM_KEYS 转折 tick
+   (12040/13670/22330/23961, 零新枚举零新魔法数) — dusk 随天暗渐亮(0→1) ·
+   night 亮稳(1) · dawn 随天亮渐熄(1→0) · 其余熄稳(0)。窗端点连续无跳变;
+   禁瞬亮瞬灭(§A.6 惊吓闪禁项)。派生量语义单份在昼夜核心(GLOSSARY _Avoid_:
+   折线/窗口判据不得散写回消费方)。 */
+
+test('nightGlow: 断点四值精确(12040=0 → 13670=1 → 22330=1 → 23961=0)且 DAYLIGHT 键集零新增', () => {
+  const {DAYLIGHT, Daylight} = loadCore();
+  assert.strictEqual(typeof Daylight.nightGlow, 'function', '夜灯亮度因子导出面在位');
+  /* 零新常量自证: 因子断点读 DIM_KEYS 折线, 常量表零新增键(票面红线) */
+  assert.strictEqual(JSON.stringify(Object.keys(DAYLIGHT)),
+      JSON.stringify(['TICKS', 'CLOCK_STEP', 'NIGHT_A', 'NIGHT_B', 'SLEEP_A',
+        'SLEEP_B', 'DIM_KEYS', 'BRIGHT', 'TINT_DROP']),
+      '常量表键集零变 — 因子零新魔法数');
+  assert.strictEqual(Daylight.nightGlow(12040), 0, 'dusk 窗起: 灯全灭(与白天稳态连续)');
+  assert.strictEqual(Daylight.nightGlow(13670), 1, 'dusk 窗止: 灯全亮(与夜稳连续)');
+  assert.strictEqual(Daylight.nightGlow(22330), 1, 'dawn 窗起: 灯仍全亮(与夜稳连续)');
+  assert.strictEqual(Daylight.nightGlow(23961), 0, 'dawn 窗止: 灯全灭(与白天稳态连续)');
+});
+
+test('nightGlow: dusk 窗内随天暗单调升 · dawn 窗内随天亮单调降', () => {
+  const {Daylight} = loadCore();
+  assert.strictEqual(typeof Daylight.nightGlow, 'function', '夜灯亮度因子导出面在位');
+  const dusk = [];
+  const dawn = [];
+  for (let i = 0; i <= 8; i++) {
+    dusk.push(Daylight.nightGlow(12040 + i * 200)); /* 12040 → 13670 */
+    dawn.push(Daylight.nightGlow(22330 + i * 204)); /* 22330 → 23962>23961 步进取窗内 */
+  }
+  for (let i = 0; i < 8; i++) {
+    assert.ok(dusk[i + 1] > dusk[i],
+        'dusk 窗内第 ' + i + '→' + (i + 1) + ' 步严格升: ' + dusk[i] + ' → ' + dusk[i + 1]);
+    if (22330 + (i + 1) * 204 <= 23961) {
+      assert.ok(dawn[i + 1] < dawn[i],
+          'dawn 窗内第 ' + i + '→' + (i + 1) + ' 步严格降: ' + dawn[i] + ' → ' + dawn[i + 1]);
+    }
+  }
+  assert.ok(dusk[8] === 1, 'dusk 窗止全亮');
+});
+
+test('nightGlow: 窗外稳态恒值(白天 0 · 夜稳 1)且四断点连续无跳变', () => {
+  const {Daylight} = loadCore();
+  assert.strictEqual(typeof Daylight.nightGlow, 'function', '夜灯亮度因子导出面在位');
+  /* 窗外稳态恒值 */
+  assert.strictEqual(Daylight.nightGlow(0), 0, '清晨熄稳');
+  assert.strictEqual(Daylight.nightGlow(6000), 0, '正午熄稳');
+  assert.strictEqual(Daylight.nightGlow(12039), 0, 'dusk 前一 tick 仍熄稳');
+  assert.strictEqual(Daylight.nightGlow(13671), 1, '夜稳段起后一 tick 全亮');
+  assert.strictEqual(Daylight.nightGlow(18000), 1, '午夜亮稳');
+  assert.strictEqual(Daylight.nightGlow(22329), 1, 'dawn 前一 tick 仍亮稳');
+  assert.strictEqual(Daylight.nightGlow(23962), 0, 'dawn 止后一 tick 熄稳');
+  assert.strictEqual(Daylight.nightGlow(23999), 0, '日末仍熄稳');
+  /* 窗端点连续: 断点 ±1 tick 差 < 0.002(1 tick = 1/1630 ≈ 0.000613) */
+  const eps = 0.002;
+  assert.ok(Math.abs(Daylight.nightGlow(12040) - Daylight.nightGlow(12039)) < eps, '12040 端点连续');
+  assert.ok(Math.abs(Daylight.nightGlow(13670) - Daylight.nightGlow(13669)) < eps, '13670 端点连续');
+  assert.ok(Math.abs(Daylight.nightGlow(22330) - Daylight.nightGlow(22329)) < eps, '22330 端点连续');
+  assert.ok(Math.abs(Daylight.nightGlow(23961) - Daylight.nightGlow(23960)) < eps, '23961 端点连续');
+});
+
+test('nightGlow: 一日回绕与越界输入归一(纯函数零状态)', () => {
+  const {Daylight} = loadCore();
+  assert.strictEqual(typeof Daylight.nightGlow, 'function', '夜灯亮度因子导出面在位');
+  assert.strictEqual(Daylight.nightGlow(24000 + 6000), Daylight.nightGlow(6000), '越界一日回绕取同相位');
+  assert.strictEqual(Daylight.nightGlow(24000 + 18000), Daylight.nightGlow(18000), '回绕夜稳仍全亮');
+  assert.strictEqual(Daylight.nightGlow(24000 + 12550), Daylight.nightGlow(12550), '回绕窗内同因子');
+  assert.strictEqual(Daylight.nightGlow(-7600), 1, '负值归一(−7600+24000=16400 夜稳)');
+  assert.strictEqual(Daylight.nightGlow(-23400), 0, '负值归一(−23400+24000=600 白天)');
+});
+
