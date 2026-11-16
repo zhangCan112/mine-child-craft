@@ -1462,6 +1462,7 @@ function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插�
   花带 8 丛+灯柱 3 对——路(z74/75)·花(z73/76)·灯(z72/77)三层断面, 夜里三对
   暖光点渐次引向门楼; 新件全落既有件零重叠格位 */
   const dirt = () => [2, 0];
+  const stone = () => [13, 0]; /* 石砖面(G1 主径石板化: 观感纯材质, 高度场零改动) */
   advEdgeRewrite(132, 135, 73, 76, dirt);
   advEdgeRewrite(140, 143, 70, 73, dirt);
   advEdgeRewrite(148, 151, 76, 79, dirt);
@@ -1471,11 +1472,11 @@ function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插�
     advEdgeDecorate(144 + ((i + 1) % 3), 84 - i * 2,
         SceneKit.rand(i, 1, 8401) > 0.5 ? B_FLOWER_Y : B_FLOWER_W);
   }
-  advEdgeRewrite(152, 156, 74, 75, dirt); /* ③主径: 与既有东向小径同轴延长 */
-  /* 主径延长(v2 §5 件 P): x148..151×z74/75 补铺 dirt——连续段起点自 x152
-     提前到 x148(花田东侧直通门口); 与花田区(x144~146)零重叠, x147 留草面
-     =延长段不噬花田的边界见证 */
-  advEdgeRewrite(148, 151, 74, 75, dirt);
+  advEdgeRewrite(152, 156, 74, 75, stone); /* ③主径: 与既有东向小径同轴延长(G1a 石板化) */
+  /* 主径延长(v2 §5 件 P)+石板化(G1a): x148..151×z74/75 补铺石砖——连续段起点
+     自 x152 提前到 x148(花田东侧直通门口); 与花田区(x144~146)零重叠, x147 留草面
+     =延长段不噬花田的边界见证; 材质 dirt→13 石砖为观感纯材质返工, 垫高/高度场零改动 */
+  advEdgeRewrite(148, 151, 74, 75, stone);
   /* 花带 8 丛(v2 §5 件 P): 北列 z73 偶数位·南列 z76 奇数位=对角交错;
      黄/白由显式盐 8404 掷定(两列走 rand 子流 0/1, 花田 8401 同款) */
   for (let i = 0; i < 4; i++) {
@@ -1499,10 +1500,11 @@ function advEdgeEastDress() {/* 渐变节奏(东 spec §3): 草色全程不插�
 function advEdgeEastArrivePad() {/* 回家门墩(T-SEAM-03, town-map-design §6.3.5):
   east 来向锚落点 (154.5,75) 脚箱覆盖格 (154,74)/(154,75) 垫到基准地表 y24 顶
   (带区高度场 −1=地表 y23, 三向现锚皆 heightAt 0 唯 east 缺——advMapArriveAt
-  y=ADV_GROUND+1 的「门位压平区建场保证 y24 顶面」口径在此兑现)。主径土面
-  同材质垫高成门槛读法(2 格全幅跨主径), 探针实测 y24 实垫 y25/26 净空 */
+  y=ADV_GROUND+1 的「门位压平区建场保证 y24 顶面」口径在此兑现)。主径石板
+  同材质垫高成门槛读法(2 格全幅跨主径; G1b 观感纯材质返工: dirt→13 石砖,
+  垫高格 y 位与顶面高度零改动), 探针实测 y24 实垫 y25/26 净空 */
   for (const z of ADV_TOWN_GATE_OPEN_Z) {
-    setBlockRaw(154, ADV_GROUND + advHeightAt(154, z) + 1, z, 2);
+    setBlockRaw(154, ADV_GROUND + advHeightAt(154, z) + 1, z, 13);
   }
 }
 
