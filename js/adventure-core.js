@@ -2028,7 +2028,8 @@ const ADV_AIM_COS = 0.5; /* 准星锥余弦(±60°): 「对准星方向最近怪
 const ADV_ATTACK_T = 0.5; /* 怪物挥击姿态时长(nether 同款, gait 第 4 参) */
 const ADV_ARROW_SPEED = 16; /* 骷髅箭速(竞技场/nether 弹道档) */
 const ADV_SNOWBALL_SPEED = 12; const ADV_SNOWBALL_G = 14; /* 雪球弹道: 低初速高重力(比箭慢比箭坠, T9 打雪仗) */
-const ADV_SNOWBALL_KPOW = 1.1; /* 雪球击退力(零伤害红线: 只推不疼, 重击退档) */
+const ADV_SNOWBALL_KPOW = 1.1; /* 雪球击退力(重击退档, 打雪仗主反馈) */
+const ADV_SNOWBALL_DMG = 1; /* 雪球伤害默认 1 点(2026-11-16 用户拍板——撤旧「零伤害红线」, 雪仗也能打疼) */
 const ADV_SNOWBALL_LIFE = 1.6; const ADV_SNOWBALL_CD = 0.6; /* 雪球寿命/投掷冷却秒(T9) */
 const ADV_BOW_SPEED = 22; const ADV_BOW_G = 9.5; /* 玩家弓箭弹道: 高初速低重力(nether
    箭道口径; 2026-10-28 弓物品化启用——雪球之外的第二条使用档弹道, 比雪球快且平) */
@@ -3045,7 +3046,7 @@ const ADV_QUESTS = [
     praise: '到白雪雪原啦！雪白的世界真漂亮！',
     prog: (c) => Math.min(c.visit_snow || 0, 1), check: (c) => (c.visit_snow || 0) >= 1},
   {id: 'q21_snowball', icon: '❄️', goal: '扔 5 个雪球', target: 5,
-    hint: '挖雪块能拿到雪球，拿着雪球轻轻一点，扔出去吧！',
+    hint: '挖雪块能拿到雪球，拿着雪球点「扔雪球」键，扔出去吧！',
     praise: '雪球扔得又远又好！你玩得真开心！',
     prog: (c) => Math.min(c.throw_snowball || 0, 5), check: (c) => (c.throw_snowball || 0) >= 5},
   {id: 'q22_igloo', icon: '📦', goal: '打开雪屋里的宝箱', target: 1, unlock: 'swamp',
@@ -3618,7 +3619,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_NEST_MIN, ADV_NEST_MAX, ADV_NEST_RESPAWN_T, ADV_NEST_AGGRO_R, ADV_NEST_LEASH_R,
     ADV_NEST_HOME_R, ADV_NEST_RING_LO, ADV_NEST_RING_HI, ADV_DMG_CAP, ADV_MELEE_R,
     ADV_SWING_CD, ADV_FIST_DMG, ADV_AIM_COS, ADV_ATTACK_T, ADV_ARROW_SPEED, ADV_PICKUP_WINDOW,
-    ADV_SNOWBALL_SPEED, ADV_SNOWBALL_G, ADV_SNOWBALL_KPOW, ADV_SNOWBALL_LIFE, ADV_SNOWBALL_CD,
+    ADV_SNOWBALL_SPEED, ADV_SNOWBALL_G, ADV_SNOWBALL_KPOW, ADV_SNOWBALL_DMG, ADV_SNOWBALL_LIFE, ADV_SNOWBALL_CD,
     ADV_BOW_SPEED, ADV_BOW_G, ADV_BOW_DMG, ADV_BOW_KPOW, ADV_BOW_LIFE, ADV_BOW_CD,
     advNestCount, advNestStep, advSwingDmg, advMobDmg, advDeathDrops, advPickupText,
     ADV_NIGHT, ADV_HOME_ROW, advNightCanSpawn, advNightStep, advNightStepPool,

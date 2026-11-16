@@ -146,7 +146,9 @@ test('委托单一来源: pick/shovel/table 等委托 itemIcon 同一物品图, 
   assert.strictEqual(h.btnIcon('tank'), h.tankIcon());
   assert.strictEqual(h.btnIcon('mat'), h.itemIcon('stick'), 'mat 委托木棍物品图(材料页签, 装备 T9 零新画)');
   assert.strictEqual(h.btnIcon('repair'), h.itemIcon('iron_ingot'), 'repair 委托铁锭物品图(修理傀儡专用键, mob-crafting D5 零新画)');
-  assert.strictEqual(Object.keys(h.BTN_DELEGATE).length, 17, '委托清单规模 sanity(T9 +mat, mob-crafting +repair)');
+  assert.strictEqual(h.btnIcon('snowball'), h.itemIcon('snowball'), 'snowball 委托雪球物品图(扔雪球专用键, 2026-11-16 用户票 零新画)');
+  assert.strictEqual(Object.keys(h.BTN_DELEGATE).length, 18,
+      '委托清单规模 sanity(T9 +mat, mob-crafting +repair, 雪球 +snowball)');
 });
 
 test('跨库委托防御: Mobs/chiefFace 未加载时 creeper/devil 返空串不抛异常', () => {

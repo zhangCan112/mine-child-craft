@@ -903,6 +903,7 @@ const BTN_DELEGATE = {
   bagup: () => itemIcon('bag_upgrade'), /* 背包扩容专用键(使用动作注册表, 2026-10) */
   shear: () => itemIcon('shears'), /* 剪羊毛专用键(探险触屏, 使用动作注册表; 剪刀物品图同源) */
   repair: () => itemIcon('iron_ingot'), /* 修理傀儡专用键(mob-crafting D5, 使用动作注册表; 铁锭物品图同源) */
+  snowball: () => itemIcon('snowball'), /* 扔雪球专用键(探险触屏, 使用动作注册表 icon 键; 雪球物品图同源, 2026-11-16 用户票) */
   mat: () => itemIcon('stick'), /* 配方书·材料页签(T9): 木棍=材料像, 委托物品工坊零新画 */
   apple: () => itemIcon('apple'), /* 配方书·食物页签 */
   brick: () => itemIcon('brick'), /* 配方书·方块页签 */

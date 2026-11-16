@@ -38,6 +38,10 @@ const ITEM_USES = {
      回一档血(正典「1 锭=一档裂纹」); 行为在模式层执行器 act 'repair_golem',
      满血 noop 节流同 */
   iron_ingot: [{act: 'repair_golem', icon: 'repair', label: '修理傀儡'}],
+  /* 雪球投掷使用档(T9, 2026-11-16 用户票): 手持雪球右键/专用键 = 掷出(伤害 1);
+     行为在模式层执行器 act 'throw_snowball' ——此前触屏无专用键只能靠轻点
+     画布, 任务 q21「扔 5 个雪球」不可完成 */
+  snowball: [{act: 'throw_snowball', icon: 'snowball', label: '扔雪球'}],
 };
 
 /* 盔甲 wear 使用档派生(装备 T5, 设计稿 §5): 由 ITEMS 盔甲键集**派生生成**

@@ -961,14 +961,18 @@ const advArrows = CombatKit.mkArrows({color: 0xd8d0b8, player: advGetPEnt,
     if (res.freshDead) advPlayerDied();
     else advHurt.hit(res);
   }});
-/* 雪球管线(T9 第二实例, 一实例一弹种): sphere 白球·不 lookAt·零伤害+
+/* 雪球管线(T9 第二实例, 一实例一弹种): sphere 白球·不 lookAt·伤害默认 1 点+
    击退政策在逐发 spec; muteSfx 抑制内置 shoot/hit 音(音效归本层字面量,
-   sfx 守门口径), 命中观感白絮 = Fx.debrisBurst 现成件(debrisBurst 白色) */
+   sfx 守门口径), 命中观感白絮 = Fx.debrisBurst 现成件(debrisBurst 白色);
+   伤害 1 可击杀 → 击杀记账走 advOnKill(掉落在 Mobs.onDeath 回调, 弓箭同拍),
+   受击存活照 F4 逃窜 */
 const advSnowballs = CombatKit.mkArrows({mesh: 'sphere', color: 0xffffff, lookAt: false,
   muteSfx: true,
-  onHitMob: (m) => {
-    advSfx('snow_hit'); /* 命中「噗嗤」(零伤害的主反馈音) */
+  onHitMob: (m, res) => {
+    advSfx('snow_hit'); /* 命中「噗嗤」(打雪仗主反馈音) */
     Fx.debrisBurst(m.pos.x, m.pos.y + 1, m.pos.z, 5, {color: 0xffffff, life: 0.5});
+    if (res.freshDead) advOnKill(m);
+    else advHerdPanic(m);
   }});
 /* 玩家弓箭管线(第三实例, 一实例一弹种): 盒形箭与骷髅箭同观感(弹道方向即归属,
    不必另配色); 命中政策与近战挥击同拍——击杀走 advOnKill(任务记账+击杀观感,
@@ -3827,13 +3831,14 @@ function advTryEat() {
 
 /* 投掷雪球(T9): 手持雪球右键/触屏轻点 — swingAction 占冷却与剑同一条轨道
    (换手不躲冷却, 下界弓口径), 弹沿准星出膛(低初速高重力), 消耗手持 1 颗;
-   零伤害红线: dmg 0 只击退(kpow 1.1), 命中观感/音效归 advSnowballs.onHitMob */
+   伤害默认 1 点(2026-11-16 用户拍板, ADV_SNOWBALL_DMG), 命中观感/音效归
+   advSnowballs.onHitMob; 触屏专用键经使用动作注册表 act 'throw_snowball' 两路同达 */
 function advTryThrowSnowball() {
   const slot = advHb.sel;
   const s = advInv.slots[slot];
   if (!s || s.id !== 'snowball') return false;
   const threw = advMelee.swingAction(advGetPEnt(), {cooldown: ADV_SNOWBALL_CD, act: () => {
-    advSnowballs.shootFromAim({speed: ADV_SNOWBALL_SPEED, dmg: 0, kpow: ADV_SNOWBALL_KPOW,
+    advSnowballs.shootFromAim({speed: ADV_SNOWBALL_SPEED, dmg: ADV_SNOWBALL_DMG, kpow: ADV_SNOWBALL_KPOW,
       g: ADV_SNOWBALL_G, life: ADV_SNOWBALL_LIFE});
     remove(advInv, slot, 1);
     advTally('throw_snowball', 1); /* 投掷记账(T8 雪原远征步): 掷出即算, 不问命中 */
@@ -4118,10 +4123,13 @@ const advUseRun = {shoot: () => advTryShootBow(),
   expand_bag: () => advTryExpandBag(),
   shear: () => advTryShear(),
   repair_golem: () => advTryRepairGolem(),
+  throw_snowball: () => advTryThrowSnowball(), /* 雪球投掷执行器(触屏专用键直调, T9) */
   wear: () => advTryWear()}; /* 使用动作注册表 act 键 → 执行器
    (行为不进注册表——「战斗政策在模式层」红线, 手持物注册表词条同款口径;
     plant/ripen 为农田链两键, farm-and-recipe D3; expand_bag 为扩容件, 2026-10;
-    shear 为剪羊毛键, 2026-10-28; repair_golem 为傀儡修理键, mob-crafting D5) */
+    shear 为剪羊毛键, 2026-10-28; repair_golem 为傀儡修理键, mob-crafting D5;
+    throw_snowball 为扔雪球键, 2026-11-16 用户票——触屏此前只能靠轻点画布,
+    对 6 岁孩子不可发现, 补弓同款专用键 affordance) */
 function advTryUseHeld() {/* 使用档通用分派(2026-10-28 Route A): 选中物品在使用动作
    注册表有条目 → 逐 act 调执行器, 有使用动作的物品点击恒算使用 attempt
    不落放置(弓同雪球口径); 未注册物品返 false 回落吃/放置链 */

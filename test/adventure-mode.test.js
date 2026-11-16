@@ -1513,10 +1513,15 @@ test('T12 食物链: 点击吃 — 回血按 ITEMS.food + 血条账本同步 + �
   assert.strictEqual(A.advGetInv().slots[0].n, 1, '满血不吃不扣');
 });
 
-test('T9 雪球投掷链: 手持右键掷出 — 消耗 1 颗+掷出音+挥臂; 命中怪零伤害+击退+白絮+命中音', () => {
+test('T9 雪球投掷链: 手持右键掷出 — 消耗 1 颗+掷出音+挥臂; 命中怪伤害 1 点+击退+白絮+命中音; 触屏专用键(使用动作注册表)同路', () => {
   mem.clear();
   freshInit();
   holdOnly('snowball', 3);
+  /* 触屏条边沿重声明(2026-11-16 用户票): 选中雪球 → 基表 4 键(含「任务」键) + ❄️ 扔雪球键
+     ——此前触屏无专用键只能靠轻点画布, 任务 q21 不可完成 */
+  assert.ok(Array.isArray(touchList) && touchList.length === 5, '触屏条 = 基表 4 + 扔雪球键 1');
+  const throwKey = touchList.find((b) => b.icon === 'snowball');
+  assert.ok(throwKey && throwKey.label === '扔雪球', '扔雪球专用键: snowball 图标(委托雪球物品图)+无障碍名');
   globalThis.pos.x = 40; globalThis.pos.y = 25; globalThis.pos.z = 50;
   const zombie = mkAdvMob('zombie', 40, 25, 47.4, {attackCd: 99}); /* 北侧 2.6 格 */
   listResult = [zombie];
@@ -1532,14 +1537,23 @@ test('T9 雪球投掷链: 手持右键掷出 — 消耗 1 颗+掷出音+挥臂; 
   /* 冷却内连点不重复消耗(swingAction 与剑同轨占冷却) */
   AdventureMode.onMouse(2, {x: 40, y: 24, z: 46, nx: 0, ny: 1, nz: 0});
   assert.strictEqual(A.advGetInv().slots[0].n, 2, '冷却内连点不扣');
-  /* 弹道步进至命中: 零伤害红线 + 击退政策 + 白絮观感 + 命中音 */
+  /* 弹道步进至命中: 伤害 1 点(2026-11-16 用户拍板) + 击退政策 + 白絮观感 + 命中音 */
   for (let i = 0; i < 60 && !hitLog.length; i++) AdventureMode.update(1 / 60);
   assert.strictEqual(hitLog.length, 1, '雪球飞到怪(hurt 前 Mobs.hit 先结算)');
-  assert.strictEqual(hitLog[0].dmg, 0, '零伤害红线: 雪球永不扣血');
+  assert.strictEqual(hitLog[0].dmg, 1, '雪球伤害默认 1 点(ADV_SNOWBALL_DMG)');
   assert.strictEqual(hitLog[0].kpow, 1.1, '击退政策(打雪仗主反馈)');
   assert.ok(calls.some((c) => c[0] === 'sfx' && c[1] === 'snow_hit'), '命中「噗嗤」音');
   assert.ok(calls.some((c) => c[0] === 'debris'), '命中白絮小粒子(Fx.debrisBurst 现成件)');
   assert.ok(!calls.some((c) => c[0] === 'sfx' && c[1] === 'hit'), '不吃近战/箭命中音(muteSfx 口径)');
+  clearAim();
+  /* 触屏专用键同路: holdAct 直调执行器(advUseRun 'throw_snowball' 绑定), 再掷 1 颗 */
+  for (let i = 0; i < 40; i++) AdventureMode.update(1 / 60); /* 推过投掷冷却 0.6s(挥击同轨) */
+  holdOnly('snowball', 2);
+  const key2 = touchList.find((b) => b.icon === 'snowball');
+  globalThis.camera = {};
+  globalThis.CameraRig = {aim: () => ({origin: {x: 40, y: 26.4, z: 50}, dir: {x: 0, y: 0, z: -1}})};
+  assert.strictEqual(key2.holdAct(), false, '专用键 holdAct 返 false(一次性, 不进连发)');
+  assert.strictEqual(A.advGetInv().slots[0].n, 1, '专用键同路掷出扣 1(执行器绑定)');
   clearAim();
   /* 手持非雪球: 右键链照旧走放置(投掷不拦截) */
   holdOnly('dirt', 2);
