@@ -24,7 +24,7 @@
    ——几何单份, 不落双份。
    interface: mkArmorOverlay(puppet) → {apply(worn) · dispose()}
      apply(worn)  声明目标穿戴({helmet:{id,dur}|null, ...}); 同目标
-                  幂等——四槽 id 集不变即不动(磨损只变 dur, 不重建
+                  幂等——五槽 id 集不变即不动(磨损只变 dur, 不重建
                   网格); 穿/卸即时贴身
      dispose()    卸全部 overlay 网格并释放几何/材质(贴图模块级共享
                   缓存不释放——全表至多十二张(六 tier × 盒身/前脸),
@@ -212,7 +212,7 @@ function armorFrontTexture(tier) {
 function mkArmorOverlay(puppet) {
   const SCALE = puppet.scale || 1; // 官方 px → 格(mob-look-kit 建模换算, 缺省 1)
   const meshes = []; // [{bone, mesh}] 卸甲/换件的全量清单
-  let sig = ''; // 当前穿戴四槽 id 签名(幂等判据; ''=空穿)
+  let sig = ''; // 当前穿戴五槽 id 签名(幂等判据; ''=空穿)
   const head = puppet.bones.head;
   const body = puppet.bones.body; /* 躯干骨(mob-look-kit 槽位 root 改名 body) */
   /* 骨架名 ≠ 解剖学左右(镜像装配, avatar.js 头注释详述): overlay 几何
