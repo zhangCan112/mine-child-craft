@@ -77,7 +77,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ☑ 已并入+视觉验收 PASS（39261ce，合并 050be81；双轴评审 PASS + design-lead 基线对比验收 PASS） |
 | T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 评审 FAIL 修复中（tc9，SPEC-1 渐起+SPEC-2 燃尽形状+STD-1 重复行，追令原主） |
 | T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☑ 已并入（00c6aa2+34363c4，合并 3df8a5c；双轴评审 PASS；通道面出 T-C10b） |
-| T-C10b | 补丁：放置失败话术通道接线（气泡+TTS） | T-C10, 定稿 v1.6✅ | ◐ 评审中（tc10b 84ce8fd） |
+| T-C10b | 补丁：放置失败话术通道接线（气泡+TTS） | T-C10, 定稿 v1.6✅ | ☑ 已并入（7f7bb96+aeeba89+84ce8fd，合并 09f7659；双轴评审 PASS） |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☐ 待领取 |
 | T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 + T-C8b 全部 | ☐ 待领取 |
 
@@ -746,7 +746,7 @@ js/item-hint-registry.js（ITEM_HINTS/BLOCK_HINTS 注册表）· js/mode-kit.js
 
 ## T-C10b 补丁：放置失败话术通道接线（气泡+TTS）
 
-> 标签：`task`｜状态：◐ 评审中（tc10b 84ce8fd）｜blocked-by：T-C10, 定稿 v1.6（**已满足**）｜blocks：T-C12
+> 标签：`task`｜状态：☑ 已并入（84ce8fd，合并 09f7659，双轴评审 PASS）｜blocked-by：T-C10, 定稿 v1.6（**已满足**）｜blocks：T-C12
 
 **背景**（C10 审计通道面核查 + design-lead 裁定 2026-11-17，裁 (b) 教学面）：篝火失败句是**篝火专属放置教学句**（教「结实地面」这条放置规则=T-2 裁定确认的核心学习点），归物品认知面；mode-kit.js:102 分工「toast 承载系统消息，气泡承载物品认知」——现状 o.say→advToast→#toast 纯视觉不符定稿 §6.2 原文「TTS 走 SpeechKit、气泡走 kitHint」与 §6.5-3「气泡+TTS 逐字」（T-C1 落地时偏离、两轮评审漏核，C10 审计揪出，裁定=打回修复非改定稿）。generic「这里放不了哦」=系统消息，留 toast 不动。
 
