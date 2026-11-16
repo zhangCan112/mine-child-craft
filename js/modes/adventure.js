@@ -3484,6 +3484,7 @@ const advPlaceKit = PlaceKit.mkEditor({
   wear: () => advWearHeld('mine'),
   say: advToast, /* say/speak/sfx 媒体三通道经包装走政策缝 advProfile(U2): 缺省直通, U4 dev 静默 */
   speak: (t) => advSpeak(t),
+  hint: (h) => ModeKit.kitHintShow(h, document), /* T-C10b 篝火失败教学气泡(kitHintShow 单源, C3 重燃气泡同装配) */
   sfx: advSfx,
   ring: advRingSet,
   swing: () => Avatar.swing(),

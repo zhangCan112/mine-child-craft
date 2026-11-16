@@ -1646,6 +1646,27 @@ test('T-C3-R1 重燃话术视觉通道: hint-bubble 双行气泡(name 金大+des
       'TTS 通道零改动(advSpeak 照旧, 视觉/语音双通道同拍)');
 });
 
+test('T-C10b 放置失败话术通道(定稿 v1.6 §6.5-3): 篝火失败同拍 hint-bubble 双行气泡+TTS 全文逐字含「哦」 · 零 toast(仅 toast=不符)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  globalThis.editBlock(spot.x, 24, spot.z, api.B_WATER); /* 地表换水: 支承门拒绝(五类失败①同门) */
+  spoken.length = 0;
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), 0, '落点仍是空气(拒绝零世界变化)');
+  /* 视觉通道(mode-kit §② 两通道分工: toast 承载系统消息/气泡承载物品认知——
+     篝火失败句=教学面归气泡, T-C10b 接线): 单例 div.hint-bubble 挂 body+双行 markup */
+  const bubble = docBody.children.find((c) => c.classList.contains('hint-bubble'));
+  assert.ok(bubble, '失败同拍出现教学气泡(div.hint-bubble 挂 body)');
+  assert.strictEqual(bubble.innerHTML, '<b>篝火</b><i>要放在结实的东西上面哦</i>',
+      '双行全消费: name「篝火」+desc 逐字(v1.6 §6.5-3 通道断言)');
+  assert.ok(spoken.some((s) => String(s) === '篝火要放在结实的东西上面哦'),
+      'TTS 全文逐字含句尾「哦」(SpeechKit 消费, 无拼名)');
+  assert.ok(!calls.some((c) => c[0] === 'toast' && String(c[1]).includes('结实')),
+      '篝火句零 toast(通道退役, 仅 toast=不符)');
+});
+
 test('T-C3 挖掘回收整链: 燃烧态/熄灭态挖走均还篝火×1 — 燃烧态挖走侧账删条(保底 1 零加成, 非木炭)', () => {
   mem.clear();
   freshInit();
