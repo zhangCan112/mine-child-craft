@@ -2,13 +2,29 @@
   "positions": [
     {
       "id": "scrum-master",
-      "description": "接活分派:理解来活,按编制把活路由给合适的 manager;决策权在用户(PO),本岗不拍板",
+      "description": "接活分派:理解来活,按编制把活路由给合适的 manager(分析/工程/设计三线);决策权在用户(PO),本岗不拍板",
       "mode": "primary",
       "reportsTo": []
     },
     {
       "id": "analyst-manager",
-      "description": "业务分析经理:驾驶「想法→可施工票」,前置判雾——大雾工程新起 wayfinder 开图、图清后照常三阶段;三阶段(磨需求/定 spec/拆票)派 business-analyst、UI 需求派 ui-designer、调研派 researcher;wayfinder 图内质询经本岗转派;审阶段产物,关键定稿请用户确认,sessionID 追令续用不换岗",
+      "description": "业务分析经理:驾驶「想法→可施工票」,前置判雾——大雾工程新起 wayfinder 开图、图清后照常三阶段;三阶段(磨需求/定 spec/拆票)派 business-analyst、UI 需求直派设计团队(design-lead,spec 前置评审硬通道)、调研派 researcher;wayfinder 图内质询经本岗转派;审阶段产物,关键定稿请用户确认,sessionID 追令续用不换岗",
+      "mode": "primary",
+      "reportsTo": [
+        "scrum-master"
+      ]
+    },
+    {
+      "id": "engineer-manager",
+      "description": "实现工程师经理:驾驶「票→落地」。blockers-first 选票,每票显式新起 tdd-engineer(红方主人),收合并回执、派 reviewer 评审、修复结论追令回主,循环至票清出收口回执;集成分支合并权在本岗;坏了的东西派 bug-doctor 诊断;实现期视觉与素材补活走 design-sync 群组提需求",
+      "mode": "primary",
+      "reportsTo": [
+        "scrum-master"
+      ]
+    },
+    {
+      "id": "design-lead",
+      "description": "设计团队经理:设计需求统一接口——分析线 spec 前置的 UI 评审与设计定稿、工程线实现期的视觉与素材补活、游戏画面与造型素材的规格产出;内部分派 ui-designer 出设计、asset-artist 落素材,把关全项目风格一致性;跨团队沟通走 relay 群组 design-sync;美学裁决归用户(PO),本岗不裁美学",
       "mode": "primary",
       "reportsTo": [
         "scrum-master"
@@ -31,14 +47,6 @@
       ]
     },
     {
-      "id": "ui-designer",
-      "description": "UI设计工:本游戏UI效果设计唯一归属——凡有UI相关需求,具体设计方案(HUD/菜单/覆盖层、多端适配、视觉规格/原型)由本岗产出,并进spec随票下流",
-      "mode": "subagent",
-      "reportsTo": [
-        "analyst-manager"
-      ]
-    },
-    {
       "id": "researcher",
       "description": "调研工:接调研派令做背景阅读腿活——只认一手信源(官方文档/源码/规格/一方 API),每条结论追到信源本体,产出带引用的 md 落盘,喂磨需求与写 spec;后台跑不挡主线",
       "mode": "subagent",
@@ -48,11 +56,19 @@
       ]
     },
     {
-      "id": "engineer-manager",
-      "description": "实现工程师经理:驾驶「票→落地」。blockers-first 选票,每票显式新起 tdd-engineer(红方主人),收合并回执、派 reviewer 评审、修复结论追令回主,循环至票清出收口回执;集成分支合并权在本岗;坏了的东西派 bug-doctor 诊断",
-      "mode": "primary",
+      "id": "ui-designer",
+      "description": "UI设计工:本游戏UI效果设计唯一归属——凡有UI相关需求,具体设计方案(HUD/菜单/覆盖层、多端适配、视觉规格/原型)由本岗产出并交 design-lead 汇总,定稿进 spec 随票下流;素材类需求出规格交 asset-artist 落地",
+      "mode": "subagent",
       "reportsTo": [
-        "scrum-master"
+        "design-lead"
+      ]
+    },
+    {
+      "id": "asset-artist",
+      "description": "素材实现工:游戏画面与造型素材的实现落地——贴图/角色场景造型/UI 素材图/体素模型,按设计规格产出素材文件落盘并回执;不擅自改设计,规格不符或做不到回炉 design-lead",
+      "mode": "subagent",
+      "reportsTo": [
+        "design-lead"
       ]
     },
     {
@@ -88,21 +104,21 @@
       ]
     },
     {
-      "id": "env-steward",
-      "description": "环境治理工:养车间不造车,跨两线的参谋岗——收口复盘(retro:把导航指针/自动检查/编码规范/steering 落成环境改动)、深模块审计(improve-codebase-architecture:出加深化机会报告,选中项生成活进主线)、积压分诊(triage:把原始 issue/外 PR 磨成 agent-ready brief);产出的是更好的环境和下一批活,不是功能",
-      "mode": "subagent",
-      "reportsTo": [
-        "scrum-master"
-      ]
-    },
-    {
       "id": "architect",
-      "description": "架构师负责新需求新功能到来时的架构设计，由架构优化的需求也由架构师来安排任务，让实现lead去安排人手去做",
+      "description": "架构师:承接新需求与架构优化的设计,产出架构方案与任务拆解,交由实现负责人排期落地",
       "mode": "subagent",
       "reportsTo": [
         "engineer-manager"
       ]
+    },
+    {
+      "id": "env-steward",
+      "description": "环境治理工:养车间不造车,跨两线的参谋岗——收口复盘(retro:把导航指针/自动检查/编码规范/steering 落成环境改动)、深模块审计(出加深化机会报告,选中项生成活进主线)、积压分诊(把原始 issue/外 PR 磨成 agent-ready brief);产出的是更好的环境和下一批活,不是功能",
+      "mode": "subagent",
+      "reportsTo": [
+        "scrum-master"
+      ]
     }
   ],
-  "notes": "v2(wayfinder 复位裁定):①wayfinder 不设岗→BA 装技能→最终复位为分析线第 -1 阶段专用岗(高级顾问模型,staff authority)——BA 的画像是对话与文档,装不下勘探(读代码/查信源/比方案);analyst-manager 不亲探(经理零施工例外 + flash 轻档错配);也不挂 scrum-master 直属(路由层破三层架构,图→spec 坍缩跨经理边界)。②权力栅栏:握图权全归 wayfinder;召唤事实权只 researcher 一个通道(task 锁死,与 tdd→implement 同构,硬验收=带引用备忘录);质询(UI/需求侧)经 analyst-manager 转派;产线指挥为零——grill/spec/拆票/定稿设计图清前不碰。③依赖:wayfinder 的派权要 researcher 落地才生效——蓝图卡先造 researcher 再造 wayfinder(或同批)。④坍缩归 BA(to-spec 按图坍缩),BA 岗位单几乎不动。其余 v1 结论不变(Shaping/Upkeep/坏了的入口三缺口、bug-doctor、env-steward、pr 補装)。"
+  "notes": "v3(设计团队独立裁定):①设计从分析线独立成团,编制成三条线(分析/工程/设计)——design-lead(primary)单父行政挂 scrum-master(常设团队不破三层;用户裁定不设分析线直派边)——「UI 活未经设计评审不得进实现」硬纪律改由 design-sync 群组承接跨线设计需求(design-lead 接单),编制边只保行政归属。②沟通层与指挥层分离:relay 群组 design-sync,analyst-manager/engineer-manager/design-lead 三经理入群——需求提出/进度同步/异议回炉群内直连零摩擦;正式任务带需求单(分区边界/交付物/验收标准),design-lead 裁内部优先级;正式派令的 sessionID 续用与验收回执纪律不变;美学裁决归用户(PO),design-lead/ui-designer 直接 ask_user。③设计与施工分离延伸进设计线:ui-designer 出设计规格,新岗 asset-artist 落地素材(与 tdd→implement 主从链同构);ui-designer 摘出 analyst-manager 改归 design-lead;asset-artist 装配 create-game-assets skill。④落地顺序:先造 design-lead,再迁 ui-designer 边、造 asset-artist(可同批);analyst-manager/engineer-manager/ui-designer 三岗正文按新口径改写(派活通道、群组机制、协作段)。其余 v2 结论不变(wayfinder 栅栏、TDD 主从链、researcher 双父、architect 归 engineer-manager)。"
 }
