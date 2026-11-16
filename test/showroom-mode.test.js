@@ -1869,3 +1869,28 @@ test('体验馆同口径: 篝火放置即燃 → 邻格水浇 → 同壳 update 
   assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.out, '浇熄: 熄灭态落格(同壳零场景分支)');
   assert.strictEqual(A.advCampfires.map.size, 0, '侧账删条(统一壳同一账本)');
 });
+
+/* ---------- 篝火 T-C10b 体验馆同口径: 放置失败话术通道(定稿 v1.6 §6.5-3) ----------
+   同一 place-kit 装配(advPlaceKit)双通道同构: 气泡 hint 缝→kitHintShow 挂 body,
+   TTS speak 缝→advSpeak→dev profile noop(U4 降噪既有口径不破——通道同装、
+   dev 静默是政策非通道差异); generic 老话术仍走 toast 零改动。 */
+
+test('体验馆同口径 T-C10b: 篝火放置失败同走双通道 — hint-bubble 双行气泡挂 body+TTS 通道同装(dev 静默)+零 toast', () => {
+  freshEnter();
+  const IDS = vm.runInContext('({water: B_WATER})', eng);
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  globalThis.editBlock(81, G, 58, IDS.water); /* 地表换水: 支承门拒绝(五类失败①同门) */
+  spoken.length = 0;
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(api.getBlock(81, G + 1, 58), 0, '落点仍是空气(拒绝零世界变化)');
+  const bubble = docBody.children.find((c) => c.classList.contains('hint-bubble'));
+  assert.ok(bubble, '失败同拍出现教学气泡(同一 place-kit 装配, 同通道)');
+  assert.strictEqual(bubble.innerHTML, '<b>篝火</b><i>要放在结实的东西上面哦</i>',
+      '双行 markup 同文(两模式同文同通道, v1.6 §6.5-3)');
+  assert.strictEqual(spoken.length, 0,
+      'TTS 静默=dev 降噪既有口径(speak 缝→advProfile.speak noop, 通道本身同装; U4 不破)');
+  assert.ok(!calls.some((c) => c[0] === 'toast' && String(c[1]).includes('结实')),
+      '篝火句零 toast(体验馆同退役, 仅 toast=不符)');
+});

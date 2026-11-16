@@ -18,6 +18,8 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
+const {mkEl} = require('./helpers/fake-dom.js');
+const ModeKit = require('../js/mode-kit.js'); /* T-C10b 气泡 DOM 形态断言: 消费方装配面同形态(kitHintShow 单源) */
 
 const ROOT = path.join(__dirname, '..');
 
@@ -75,6 +77,7 @@ const drops = [];
 const mined = [];
 const says = [];
 const speaks = [];
+const hints = []; /* T-C10b 教学气泡缝记录(篝火失败=物品认知面, 气泡通道) */
 const sfxs = [];
 const rings = [];
 const touches = [];
@@ -113,6 +116,7 @@ const ed = PlaceKit.mkEditor({
   onFelled: () => felled++,
   wear: () => wearCalls++,
   say: (m) => says.push(m),
+  hint: (h) => hints.push(h), /* T-C10b: 教学气泡缝(消费方装配 ModeKit.kitHintShow) */
   speak: (t) => speaks.push(t),
   sfx: (n) => sfxs.push(n),
   ring: (p) => rings.push(p),
@@ -129,7 +133,7 @@ const ed = PlaceKit.mkEditor({
 });
 function reset() {
   journal.length = 0; placed.length = 0; drops.length = 0; mined.length = 0;
-  says.length = 0; speaks.length = 0; sfxs.length = 0; rings.length = 0; touches.length = 0;
+  says.length = 0; speaks.length = 0; hints.length = 0; sfxs.length = 0; rings.length = 0; touches.length = 0;
   sapCleared.length = 0; cropCleared.length = 0; chestBreaks.length = 0;
   flushes = 0; wearCalls = 0; felled = 0;
 }
@@ -727,7 +731,7 @@ test('篝火四类失败①水面: 温和话术逐字+不扣件+世界零变化(
   assert.strictEqual(ed.tryPlace(hit), false, '水面拒绝');
   assert.strictEqual(api.getBlock(14, 14, 38), 0, '落点仍是空气(世界零变化)');
   assert.strictEqual(api.count(inv, 'campfire'), held0 + 1, '不扣物品(失败零扣件)');
-  assert.ok(says.some((m) => String(m) === CF_HIT_TEXT), '话术逐字(UI 定稿 §6.2)');
+  assert.ok(speaks.some((t) => String(t) === CF_HIT_TEXT), '话术逐字走 TTS 缝(T-C10b: 篝火句退役出 toast, 通道=气泡+TTS)');
   assert.ok(!says.some((m) => String(m).includes('放不了')), '非老话术(手持篝火时切换, 共享缝按 campfire 旗标分)');
 });
 
@@ -742,7 +746,7 @@ test('篝火四类失败②悬空(侧面依附): 无 wall 旗标, 点实心侧�
   assert.strictEqual(ed.tryPlace(hit), false, '侧面依附拒绝(篝火非墙挂件, thin 依附门 sideFace 分支)');
   assert.strictEqual(api.getBlock(17, 14, 38), 0, '落点仍是空气');
   assert.strictEqual(api.count(inv, 'campfire'), held1 + 1, '不扣物品');
-  assert.ok(says.some((m) => String(m) === CF_HIT_TEXT), '话术逐字');
+  assert.ok(speaks.some((t) => String(t) === CF_HIT_TEXT), '话术逐字(T-C10b 通道: TTS 缝逐字)');
 });
 
 test('篝火四类失败③薄块顶(引线): thin 块当不了支承(spec §3.3 零第二份实现)', () => {
@@ -756,7 +760,7 @@ test('篝火四类失败③薄块顶(引线): thin 块当不了支承(spec §3.3
   assert.strictEqual(ed.tryPlace(hit), false, '薄块顶拒绝');
   assert.strictEqual(api.getBlock(18, 14, 38), 0, '落点仍是空气');
   assert.strictEqual(api.count(inv, 'campfire'), held2 + 1, '不扣物品');
-  assert.ok(says.some((m) => String(m) === CF_HIT_TEXT), '话术逐字');
+  assert.ok(speaks.some((t) => String(t) === CF_HIT_TEXT), '话术逐字(T-C10b 通道: TTS 缝逐字)');
 });
 
 test('篝火四类失败④篝火顶(两态): 防火塔叠罗马——燃烧态/熄灭态顶面均拒(thin 支承门机械达成)', () => {
@@ -778,7 +782,7 @@ test('篝火四类失败④篝火顶(两态): 防火塔叠罗马——燃烧态/
       '熄灭态篝火顶拒绝(两态同判据, spec §3.3 技术裁定 1)');
   assert.strictEqual(api.getBlock(22, 14, 38), 0, '落点仍是空气');
   assert.strictEqual(api.count(inv, 'campfire'), held3 + 2, '不扣物品');
-  assert.ok(says.some((m) => String(m) === CF_HIT_TEXT), '话术逐字(两态共用一句)');
+  assert.ok(speaks.some((t) => String(t) === CF_HIT_TEXT), '话术逐字(两态共用一句, T-C10b 通道)');
 });
 
 test('篝火共享缝零场景分支: 非 campfire 物品失败话术回归(老话术不变)+篝火无 replaceable 旗标机械核验', () => {
@@ -820,8 +824,85 @@ test('T-C10 判据3 第⑤类(定稿 v1.5 §6.5-3): 落点与玩家身体重叠�
       '玩家重叠拒放(collidesAtPlayer 合并分支, UI 定稿 v1.5 第⑤类共句)');
   assert.strictEqual(api.getBlock(0, 1, 0), 0, '落点仍是空气(世界零变化)');
   assert.strictEqual(api.count(inv, 'campfire'), held5 + 1, '不扣物品(零惩罚)');
-  assert.ok(says.some((m) => String(m) === CF_HIT_TEXT), '话术逐字=五类共句(UI 定稿 §6.2 v1.5)');
+  assert.ok(speaks.some((t) => String(t) === CF_HIT_TEXT), '话术逐字=五类共句(UI 定稿 §6.2 v1.5, T-C10b 通道)');
   assert.strictEqual(api.getBlock(0, 0, 0), 3, '基座布景原样(零副作用)');
+});
+
+/* ============ 篝火失败话术通道接线(T-C10b, UI 定稿 §6.2/§6.5-3 v1.6): 气泡+TTS 双通道 ============
+   票面裁定链: 篝火失败句是篝火专属放置教学句(物品认知面——mode-kit 两通道分工=
+   toast 承载系统消息/气泡承载物品认知), 退役出 toast 接双通道: 视觉=kitHint 双行
+   (hint 缝, 消费方装配 ModeKit.kitHintShow 单源), 听觉=speak 缝(SpeechKit 全文
+   逐字含句尾「哦」; 消息自带主语, 不做名字拼装——区别 §6.5-1 ItemHint);
+   generic「这里放不了哦」=系统消息仍走 toast 零改动; 首次失败必读, 高频节流/
+   latest-wins 归 SpeechKit 上游(kit 层零节流=申报口径) */
+
+test('T-C10b 判据(v1.6 §6.5-3): 篝火失败同拍双通道 — hint 气泡双行+speak 全文逐字含「哦」, toast 退役(仅 toast=不符)', () => {
+  reset();
+  assert.ok(ITEMS.campfire && cb.lit != null, '接线前置');
+  for (const row of [['campfire', 1]]) api.add(inv, row[0], row[1]);
+  sel = slotOf('campfire');
+  api.setBlockRaw(26, 13, 38, api.B_WATER); /* 一格水(五类失败①同门, 走廊新格不与他测撞) */
+  const hit = {x: 26, y: 13, z: 38, nx: 0, ny: 1, nz: 0};
+  assert.strictEqual(ed.tryPlace(hit), false, '水面拒绝');
+  assert.deepStrictEqual(hints, [{name: '篝火', desc: '要放在结实的东西上面哦'}],
+      '气泡双行: name「篝火」+desc 逐字(拼读=全文逐字, §6.5-3 v1.6 通道断言)');
+  assert.deepStrictEqual(speaks, [CF_HIT_TEXT],
+      'TTS 恰一次全文逐字含句尾「哦」(无拼名——消息自带主语, 区别 §6.5-1 ItemHint)');
+  assert.strictEqual(says.length, 0, 'toast 退役(篝火句零 toast, 仅 toast=不符)');
+});
+
+test('T-C10b 气泡 DOM 形态: 失败同拍 div.hint-bubble 挂 body+双行 markup+即刻可见(kitHintShow 单源渲染, 零第二份气泡实现)', () => {
+  reset();
+  assert.ok(ITEMS.campfire && cb.lit != null, '接线前置');
+  for (const row of [['campfire', 1]]) api.add(inv, row[0], row[1]);
+  sel = slotOf('campfire');
+  const body = mkEl('body');
+  const fakeDoc = {body, createElement: (tag) => mkEl(tag)};
+  const edHint = PlaceKit.mkEditor({
+    inv,
+    sel: () => sel,
+    pos: () => playerPos,
+    hint: (h) => ModeKit.kitHintShow(h, fakeDoc), /* 消费方装配面(=adventure.js 同形态) */
+    say: () => {},
+    speak: () => {},
+    onEdit: () => {},
+    cascade: {mark() {}, sapling() {}, crop() {}, drop() {}, questMine() {}},
+  });
+  api.setBlockRaw(28, 13, 38, api.B_WATER);
+  assert.strictEqual(
+      edHint.tryPlace({x: 28, y: 13, z: 38, nx: 0, ny: 1, nz: 0}), false, '水面拒绝');
+  const bubble = body.children.find((c) => c.classList.contains('hint-bubble'));
+  assert.ok(bubble, '失败同拍出现教学气泡(div.hint-bubble 挂 body)');
+  assert.strictEqual(bubble.innerHTML, '<b>篝火</b><i>要放在结实的东西上面哦</i>',
+      '双行 markup: name 金大字+desc 白小字逐字(ItemHint 形态, mode-kit §② 单源)');
+  assert.strictEqual(+bubble.style.opacity, 1, '气泡即刻可见');
+});
+
+test('T-C10b 首次失败必读+高频重复失败: kit 层零节流 — 每次失败同拍 hint+speak(申报: 高频不堆积靠 SpeechKit cancel-then-speak latest-wins, combat-kit 3s 节流先例不上 kit)', () => {
+  reset();
+  assert.ok(ITEMS.campfire && cb.lit != null, '接线前置');
+  const heldB = api.count(inv, 'campfire'); /* 计数基线(共享装具, ①~⑤同款差值法) */
+  for (const row of [['campfire', 3]]) api.add(inv, row[0], row[1]);
+  sel = slotOf('campfire');
+  api.setBlockRaw(30, 13, 38, api.B_WATER);
+  const hit = {x: 30, y: 13, z: 38, nx: 0, ny: 1, nz: 0};
+  for (let i = 0; i < 3; i++) {
+    assert.strictEqual(ed.tryPlace(hit), false, '高频连点均拒');
+  }
+  assert.strictEqual(api.count(inv, 'campfire'), heldB + 3, '失败零扣件(零惩罚)');
+  assert.strictEqual(hints.length, 3, '气泡照常每显(v1.6 §6.2 验收口径)');
+  assert.strictEqual(speaks.length, 3, '首次失败必读+每失败同拍 speak(kit 层零节流)');
+});
+
+test('T-C10b generic 分支零变化: 非篝火失败仍 toast 单通道 — hint/speak 缝零触碰(教学通道不外溢)', () => {
+  reset();
+  sel = slotOf('torch');
+  api.setBlockRaw(32, 13, 38, api.B_FUSE); /* 薄块顶(与③同门, 非篝火手持) */
+  assert.strictEqual(ed.tryPlace({x: 32, y: 13, z: 38, nx: 0, ny: 1, nz: 0}), false,
+      '薄块顶拒绝');
+  assert.ok(says.some((m) => String(m).includes('放不了')), 'generic 老话术仍走 toast(零变化)');
+  assert.strictEqual(hints.length, 0, 'hint 缝零触碰(教学气泡不外溢到 generic)');
+  assert.strictEqual(speaks.length, 0, 'speak 缝零触碰(TTS 不外溢到 generic)');
 });
 
 /* ============ 篝火重燃/回收(T-C3): tryCampfireRelight 缝 + 两态回收链 ============ */
