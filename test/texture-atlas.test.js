@@ -22,7 +22,8 @@ function loadAtlas() {
       ' B_COAL_ORE, B_GRASS_TUFT, B_FURNACE, B_TORCH, B_SAPLING,' +
       ' B_BED, B_BED_FOOT, B_ICE, B_SNOWY_GRASS, B_DEAD_BUSH, B_ORCHID,' +
       ' B_OBSIDIAN, B_GLOWSTONE, B_PORTAL, B_PORTAL_DIM, B_LOOT_CHEST, B_LOOT_CHEST_SMALL,' +
-      ' B_ANCIENT_DEBRIS, B_SNOWY_LEAVES, B_ROOF_TILE, B_GATE_SIGN };', ctx);
+      ' B_ANCIENT_DEBRIS, B_SNOWY_LEAVES, B_ROOF_TILE, B_GATE_SIGN,' +
+       ' B_CAMPFIRE, B_CAMPFIRE_OUT };', ctx);
   return ctx.__t;
 }
 
@@ -74,9 +75,10 @@ test('布局: 新方块 36~62 每个都有格子且格号合法(未入集方块�
           '方块 ' + id + '(' + t.BLOCKS[id].name + ') 格号 ' + idx + ' 应在 [0,' + count + ')');
     }
   }
-  assert.strictEqual(t.TextureAtlas.count, 62,
-      '已绘制格数 = 62(PAINTERS 0~61 连续; 50/51=宝箱, 52=残骸, 53=覆雪叶, 54=冰, 55~57=南瓜/刻脸, ' +
-      '58=铁块, 59=粉羊毛·城镇重制公共件, 60=门额牌·东带 v2 S2, 61=门额牌木底·五面纯木色)');
+  assert.strictEqual(t.TextureAtlas.count, 64,
+      '已绘制格数 = 64(PAINTERS 0~63 连续; 50/51=宝箱, 52=残骸, 53=覆雪叶, 54=冰, 55~57=南瓜/刻脸, ' +
+      '58=铁块, 59=粉羊毛·城镇重制公共件, 60=门额牌·东带 v2 S2, 61=门额牌木底·五面纯木色, ' +
+      '62=篝火燃烧态/63=篝火熄灭态·篝火 T-C8)');
   const snowy = t.TextureAtlas.layout.tiles[t.B_SNOWY_GRASS];
   assert.notStrictEqual(snowy.top, snowy.side, '雪覆草顶(雪白)与侧(雪泥带)应分格');
   /* 覆雪树叶 74(世界边界 T12): 独立格位整格同图 — 与树叶 7(T_LEAVES)分格,
@@ -668,4 +670,268 @@ test('meshChunk: 门额牌竖板顶点光取面朝向邻格 — 西面(图案面
   r = t.MeshCore.meshChunk(p, atlasOpt(t));
   assert.ok(faceBlkEq(r.atlas, quadsByNormal(r.atlas).get('-1,0,0'), s15(14)),
       '西面顶点 block 跟随西邻格 14(夜间壁灯光照上牌面)');
+});
+
+/* ============ 篝火两态贴图(篝火 T-C8, UI 定稿 docs/design/campfire-visual-spec.md §4) ============ */
+/* 观感唯一权威=UI 定稿 §4.2(燃烧态)/§4.3(熄灭态) char art 逐字符照抄 + §4.4 可辨性
+   + §4.5 五项判据。色板=§3.1 九色 + §4.2 暗炭底 C(#231a12) + §4.3 灰烬灰 a(#b9b4a8),
+   hex→RGB 逐值换算; 画笔纪律内嵌: C 底 noiseFill amp 0.06(±6% 值噪)、燃烧态原木床
+   L 行 4~5 道 rng 竖向 d 短划、熄灭态 r0~r8 补撒 6~10 粒 a 散斑(y∈[2,8])、
+   焰部与固定像素零 rng(逐像素精确)。 */
+const CAMPFIRE_LIT_ART = [ /* UI 定稿 §4.2 燃烧态(焰四档+余烬带+原木床) */
+  'CCCCCCCCCCCCCCCC',
+  'CCCCCCCfFCCCCCCC',
+  'CCCCCCfFFfCCCCCC',
+  'CCCCCfFWWFfCCCCC',
+  'CCCCCFWwwWFCCCCC',
+  'CCCCfFWwwWFfCCCC',
+  'CCCCFWwwwwWFCCCC',
+  'CCCfFFWwwWFFfCCC',
+  'CCCFFFWWWWFFFCCC',
+  'CCeFFFWWWWFFFeCC',
+  'CCekeFFeeFFekeCC',
+  'kllllllllllllllk',
+  'dLLLLLLLLLLLLLLd',
+  'dddddddddddddddd',
+  'dLLLLLLLLLLLLLLd',
+  'dddddddddddddddd',
+];
+const CAMPFIRE_OUT_ART = [ /* UI 定稿 §4.3 熄灭态(同位形去焰: 灰烬带+原木床去受光档) */
+  'CCCCCCCCCCCCCCCC',
+  'CCCCCCCCCCCCCCCC',
+  'CCCCCCCCCCCCCCCC',
+  'CCCCCCCCCCCCCCCC',
+  'CCCCCCCCCCCCCCCC',
+  'CCCCCCCCCCCCCCCC',
+  'CCCCCCCCCCCCCCCC',
+  'CCCCCCCCCCCCCCCC',
+  'CCCCCCCCCCCCCCCC',
+  'CCaCCCaCCaCCaCCC',
+  'CCCCaCCCCCaCCCCC',
+  'kLLLLLLLLLLLLLLk',
+  'dLLLLLLLLLLLLLLd',
+  'dddddddddddddddd',
+  'dLLLLLLLLLLLLLLd',
+  'dddddddddddddddd',
+];
+const CF_PAL = { /* UI 定稿 §3.1 九色 + §4.2 C + §4.3 a(hex 逐值换算) */
+  w: [255, 255, 255], /* 焰心白 #ffffff */
+  W: [255, 255, 151], /* 焰芯亮黄 #ffff97 */
+  f: [255, 216, 0],   /* 焰亮黄 #ffd800 */
+  F: [255, 143, 0],   /* 焰橙 #ff8f00 */
+  e: [224, 90, 26],   /* 余烬红 #e05a1a */
+  k: [47, 42, 38],    /* 炭黑 #2f2a26 */
+  L: [138, 90, 43],   /* 原木主 #8a5a2b */
+  l: [168, 116, 61],  /* 原木受光 #a8743d */
+  d: [107, 69, 31],   /* 原木背光 #6b451f */
+  C: [35, 26, 18],    /* 暗炭底 #231a12(noiseFill amp 0.06 铺噪) */
+  a: [185, 180, 168], /* 灰烬灰 #b9b4a8 */
+};
+const cfEq = (p, c) => p[3] === 255 && p[0] === c[0] && p[1] === c[1] && p[2] === c[2];
+/* C 底噪声窗: noiseFill amp 0.06 → 每通道 ×[0.94,1.06](Uint8Clamped 取整, 窗口放宽到 floor/ceil) */
+const cfCNoise = (p) => {
+  const c = CF_PAL.C;
+  return p[3] === 255 && [0, 1, 2].every((i) =>
+    p[i] >= Math.floor(c[i] * 0.94) && p[i] <= Math.ceil(c[i] * 1.06));
+};
+
+test('篝火施工期断言: 两张 B 区 char art 行宽全=16(UI 定稿 §4.5-5, icons-item 同款先例)', () => {
+  for (const [name, art] of [['燃烧态 §4.2', CAMPFIRE_LIT_ART], ['熄灭态 §4.3', CAMPFIRE_OUT_ART]]) {
+    assert.strictEqual(art.length, 16, name + ' 应为 16 行');
+    art.forEach((row, y) => assert.strictEqual(row.length, 16, name + ' 行 ' + y + ' 行宽应=16'));
+  }
+});
+
+test('篝火布局: 两态入集 — 62 燃烧/63 熄灭整格同图(全脸同图数值简写), count=64(UI 定稿 §4.1, T-C8)', () => {
+  const t = loadAtlas();
+  assert.strictEqual(t.B_CAMPFIRE, 81, '前置: 燃烧态 id=81(T-C1 已落)');
+  assert.strictEqual(t.B_CAMPFIRE_OUT, 82, '前置: 熄灭态 id=82(T-C1 已落)');
+  assert.strictEqual(t.TextureAtlas.layout.tiles[t.B_CAMPFIRE], 62,
+      '燃烧态=62 号格(现最高 61 后第一顺位, 票面建议值, 实现期现状已核实)');
+  assert.strictEqual(t.TextureAtlas.layout.tiles[t.B_CAMPFIRE_OUT], 63, '熄灭态=63 号格');
+  assert.strictEqual(typeof t.TextureAtlas.layout.tiles[t.B_CAMPFIRE], 'number',
+      '全脸同图数值简写(§4.1: 侧面主视图+顶面同图, 无分面画师格需求)');
+  assert.strictEqual(t.TextureAtlas.count, 64, 'count=64(PAINTERS 0~63 连续)');
+  /* config 消费锚: 贴图格指向以 config 两态 id 为键(B_CAMPFIRE 行 T-C1 已落) */
+  assert.strictEqual(t.BLOCKS[t.B_CAMPFIRE].campfire, 'lit', '燃烧态旗标 lit(T-C1 行)');
+  assert.strictEqual(t.BLOCKS[t.B_CAMPFIRE_OUT].campfire, 'out', '熄灭态旗标 out(T-C1 行)');
+});
+
+test('篝火像素: 燃烧态 62 号格逐字符=UI 定稿 §4.2 — 焰四档+余烬带+原木床固定像素精确, C 底噪±6%, 木纹 d 短划 4~5 道', () => {
+  const t = loadAtlas();
+  const all = t.TextureAtlas.paintAll();
+  const idx = t.TextureAtlas.layout.tiles[t.B_CAMPFIRE];
+  const px = tilePixels(t, all, idx);
+  const art = CAMPFIRE_LIT_ART;
+  const at = (x, y) => px[y * 16 + x];
+  let dashPx = 0;
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const ch = art[y][x]; const p = at(x, y);
+      if (ch === 'C') {
+        assert.ok(cfCNoise(p), 'C 底噪声像素 (' + x + ',' + y + ') 实测 ' + p);
+      } else if (ch === 'L' && (y === 12 || y === 14)) {
+        /* 原木床 L 行: 本色或被 rng 木纹 d 短划覆盖(§4.2 画笔纪律) */
+        if (cfEq(p, CF_PAL.d)) { dashPx++; continue; }
+        assert.ok(cfEq(p, CF_PAL.L), '原木主 L (' + x + ',' + y + ') 实测 ' + p);
+      } else {
+        assert.ok(cfEq(p, CF_PAL[ch]), '固定像素 ' + ch + ' (' + x + ',' + y + ') 实测 ' + p);
+      }
+    }
+  }
+  assert.ok(dashPx >= 4 && dashPx <= 10,
+      '木纹 d 短划(4~5 道×1px 宽, 落 r12/r14)应盖中 ≥4 且 ≤10 个 L 行像素, 实测 ' + dashPx);
+  /* 木纹不得越出原木床(r12/r14 锚定): r0~r11 出现 d 色像素即红 */
+  for (let y = 0; y <= 11; y++) {
+    for (let x = 0; x < 16; x++) {
+      assert.ok(!cfEq(at(x, y), CF_PAL.d), 'd 色像素不得出现在原木床锚行之上 (' + x + ',' + y + ')');
+    }
+  }
+  for (const p of px) assert.strictEqual(p[3], 255, '燃烧态像素全不透明(实心半格块)');
+});
+
+test('篝火像素: 熄灭态 63 号格逐字符=UI 定稿 §4.3 — 同位形去焰固定像素精确, C 底噪±6%, 灰烬散斑 6~10 粒(y∈[2,8])', () => {
+  const t = loadAtlas();
+  const all = t.TextureAtlas.paintAll();
+  const idx = t.TextureAtlas.layout.tiles[t.B_CAMPFIRE_OUT];
+  const px = tilePixels(t, all, idx);
+  const art = CAMPFIRE_OUT_ART;
+  const at = (x, y) => px[y * 16 + x];
+  const specks = [];
+  for (let y = 0; y < 16; y++) {
+    for (let x = 0; x < 16; x++) {
+      const ch = art[y][x]; const p = at(x, y);
+      if (ch === 'C') {
+        /* r0~r8 C 区可被 rng 灰烬散斑覆盖; r9+ 固定像素零 rng(散斑域 y∈[2,8]) */
+        if (y <= 8 && cfEq(p, CF_PAL.a)) { specks.push([x, y]); continue; }
+        assert.ok(cfCNoise(p), 'C 底噪声像素 (' + x + ',' + y + ') 实测 ' + p);
+      } else {
+        assert.ok(cfEq(p, CF_PAL[ch]), '固定像素 ' + ch + ' (' + x + ',' + y + ') 实测 ' + p);
+      }
+    }
+  }
+  assert.ok(specks.length >= 6 && specks.length <= 10,
+      '灰烬散斑 6~10 粒(§4.3 画笔纪律), 实测 ' + specks.length);
+  for (const [x, y] of specks) {
+    assert.ok(y >= 2 && y <= 8, '散斑域 y∈[2,8], 实测 (' + x + ',' + y + ')');
+  }
+  for (const p of px) assert.strictEqual(p[3], 255, '熄灭态像素全不透明(实心半格块)');
+});
+
+test('篝火可辨性: 燃烧态焰四档 ≥50px 且白芯亮黄 ≥20px / 熄灭态零焰色零余烬红·最高亮像素=灰烬灰(UI 定稿 §4.4/§4.5-1)', () => {
+  const t = loadAtlas();
+  const all = t.TextureAtlas.paintAll();
+  const lit = tilePixels(t, all, t.TextureAtlas.layout.tiles[t.B_CAMPFIRE]);
+  const out = tilePixels(t, all, t.TextureAtlas.layout.tiles[t.B_CAMPFIRE_OUT]);
+  const key = (p) => p[0] + ',' + p[1] + ',' + p[2];
+  const FLAME = new Set([CF_PAL.w, CF_PAL.W, CF_PAL.f, CF_PAL.F].map(key));
+  let flameN = 0; let coreN = 0; let emberN = 0;
+  for (const p of lit) {
+    if (FLAME.has(key(p))) {
+      flameN++;
+      if (key(p) === key(CF_PAL.w) || key(p) === key(CF_PAL.W)) coreN++;
+    }
+    if (cfEq(p, CF_PAL.e)) emberN++;
+  }
+  assert.ok(flameN >= 50, '焰四档合计 ≥50px(§4.5-1), 实测 ' + flameN);
+  assert.ok(coreN >= 20, '白芯/亮黄 ≥20px(§4.4 高亮簇构成), 实测 ' + coreN);
+  assert.ok(emberN >= 1, '余烬红在场(焰根焦点带)');
+  for (const p of out) {
+    assert.ok(!FLAME.has(key(p)) && !cfEq(p, CF_PAL.e),
+        '熄灭态零焰色零余烬红(§4.5-1), 实测 ' + key(p));
+  }
+  let best = out[0]; let bestLum = -1;
+  for (const p of out) {
+    const lum = p[0] + p[1] + p[2];
+    if (lum > bestLum) { bestLum = lum; best = p; }
+  }
+  assert.ok(cfEq(best, CF_PAL.a), '熄灭态最高亮像素=灰烬灰(§4.5-1 亮部上限), 实测 ' + key(best));
+});
+
+test('篝火确定性: 两格同 seed 两次绘制逐像素一致(mulberry32 纪律, UI 定稿 §4.5-3)', () => {
+  const t = loadAtlas();
+  const a = t.TextureAtlas.paintAll();
+  const b = t.TextureAtlas.paintAll();
+  for (const idx of [62, 63]) {
+    const pa = tilePixels(t, a, idx); const pb = tilePixels(t, b, idx);
+    for (let i = 0; i < pa.length; i++) {
+      assert.deepStrictEqual(pb[i], pa[i], '格 ' + idx + ' 像素 ' + i + ' 两次绘制应一致');
+    }
+  }
+});
+
+test('篝火图集相邻: 62/63 暗炭底 vs 61 门额牌亮木底(#C89858)灰度差大 — LOD 串色程序面锚(UI 定稿 §4.1/§4.5-4; 人眼走查归 T-C12)', () => {
+  const t = loadAtlas();
+  const all = t.TextureAtlas.paintAll();
+  const meanLum = (idx) => {
+    const px = tilePixels(t, all, idx);
+    return px.reduce((s, p) => s + p[0] + p[1] + p[2], 0) / px.length / 3;
+  };
+  /* 暗底程序面锚(§4.1「62/63 暗炭底」): 熄灭态全格平均灰度显著低于中灰 */
+  const outMean = meanLum(63);
+  assert.ok(outMean < 70, '熄灭态暗炭底: 全格平均灰度 <70, 实测 ' + outMean.toFixed(1));
+  const wood = meanLum(61);
+  const gapLit = Math.abs(meanLum(62) - wood);
+  const gapOut = Math.abs(outMean - wood);
+  assert.ok(gapLit >= 30, '燃烧态与木底格平均灰度差 ≥30(§4.1 灰度差大), 实测 ' + gapLit.toFixed(1));
+  assert.ok(gapOut >= 60, '熄灭态与木底格平均灰度差 ≥60(§4.1 灰度差大), 实测 ' + gapOut.toFixed(1));
+});
+
+test('篝火 meshChunk: 两态走半格扁盒图集通道 — 5 面/半格高/UV 落 62·63 号格(§4.1 全脸同图对半格块, layout 接线消费端断言)', () => {
+  const t = loadAtlas();
+  const inRect = (rect, uvs) => uvs.every((q, i) => i % 2 === 0 ?
+    q >= rect[0] - 1e-12 && q <= rect[2] + 1e-12 :
+    q >= rect[1] - 1e-12 && q <= rect[3] + 1e-12);
+  const uvRects = (r, rect, tag) => {
+    for (let q = 0; q < r.atlas.indices.length; q += 6) {
+      const uvs = [];
+      for (let c = 0; c < 4; c++) {
+        const vi = r.atlas.indices[q + c];
+        uvs.push(r.atlas.uvs[vi * 2], r.atlas.uvs[vi * 2 + 1]);
+      }
+      assert.ok(inRect(rect, uvs), tag + ' UV 应全落目标格 ' + rect);
+    }
+  };
+  /* 燃烧态: 垫石上放置 → 图集通道半格扁盒(thin 0.5, spec §3.4; 不得走十字面片) */
+  let p = mkPack(1);
+  p.set(8, 5, 8, 3); /* 石头垫底 */
+  p.set(8, 6, 8, t.B_CAMPFIRE);
+  let r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(r.solid, null, '入集篝火不走纯色兜底通道');
+  assert.strictEqual(quads(r.atlas), 5, '半格扁盒 5 面(top+4 侧, 跳底面 pushThin/pushBedBox 同款)');
+  const ys = new Set();
+  for (let i = 1; i < r.atlas.positions.length; i += 3) ys.add(r.atlas.positions[i]);
+  assert.ok(ys.has(6) && ys.has(6.5) && ys.size === 2,
+      '扁盒高度=thin 0.5(半格实体块), 实际 ' + [...ys]);
+  uvRects(r, t.TextureAtlas.tileUV(62), '燃烧态');
+  /* 熄灭态: 同通道落 63 */
+  p = mkPack(1);
+  p.set(8, 5, 8, t.B_CAMPFIRE_OUT);
+  r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(r.solid, null, '熄灭态入集不走纯色兜底通道');
+  assert.strictEqual(quads(r.atlas), 5, '熄灭态同款半格扁盒 5 面');
+  const ys2 = new Set();
+  for (let i = 1; i < r.atlas.positions.length; i += 3) ys2.add(r.atlas.positions[i]);
+  assert.ok(ys2.has(5) && ys2.has(5.5) && ys2.size === 2,
+      '熄灭态扁盒高度=thin 0.5, 实际 ' + [...ys2]);
+  uvRects(r, t.TextureAtlas.tileUV(63), '熄灭态');
+});
+
+test('篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自亮/熄灭态暗块(UI 定稿 §4.5-2 程序面; 人眼夜辨归 T-C12)', () => {
+  const t = loadAtlas();
+  const p = mkPackL(1);
+  p.set(8, 5, 8, t.B_CAMPFIRE);
+  p.setL(8, 5, 8, 0, 15); /* 夜: sky 0; 光源格自身 block=15(light-core 光源格例外口径, T-C1 light 行) */
+  let r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(quads(r.atlas), 5, '燃烧态在图集通道(半格扁盒)');
+  for (let i = 0; i < r.atlas.block.length; i++) {
+    assert.strictEqual(r.atlas.block[i], 1, '燃烧态面顶点 block 光=15/15(夜间读作发光体)');
+  }
+  const q = mkPackL(1);
+  q.set(8, 5, 8, t.B_CAMPFIRE_OUT);
+  q.setL(8, 5, 8, 13, 0); /* 熄灭态零光(§4.5-2: 夜间读作暗块) */
+  const r2 = t.MeshCore.meshChunk(q, atlasOpt(t));
+  for (let i = 0; i < r2.atlas.block.length; i++) {
+    assert.strictEqual(r2.atlas.block[i], 0, '熄灭态面顶点 block 光=0');
+  }
 });
