@@ -932,8 +932,9 @@ const advCampfires = cfKitResolve().mkCampfireLedger({
     editBlock(x, y, z, B_CAMPFIRE_OUT); /* 编辑链 id 互换(掉光场变化, 不掉落) */
   },
   onBurnout: (x, y, z) => {
-    advCampfireFx.burnout(x, y, z); /* 渐熄+轻灰 pop+尾烟(T-C9 §5.6): 先摘后记账同幂等序;
-        campfire_out 声位=方块移除帧(spec §3.7 对位裁定, 声本体登记 T-C11 后落) */
+    advCampfireFx.burnout(x, y, z); /* 渐熄+轻灰 pop+尾烟(T-C9 §5.6): 先摘后记账同幂等序 */
+    advSfx('campfire_out'); /* 燃尽声=方块移除帧, 与 editBlock 移除同一同步体(T-C11,
+        spec §3.7「消失瞬间」/UI 定稿 §5.6-5「同拍」; 不等渐熄粒子清尾观感尾巴) */
     advMarkEdit(x, y, z, 0); /* 燃尽格先记账(级联清单不含触发格, 后写覆盖才对) */
     advCascadeApply(editBlock(x, y, z, 0), false); /* 编辑链移除+级联(上方依附 thin 块随底座脱落) */
   }});
@@ -3471,8 +3472,8 @@ const advPlaceKit = PlaceKit.mkEditor({
     if (blockId === B_CHEST) advTally('place_chest', 1); /* 引导链 v2: 箱子步(合成/放置/打开三条件) */
     if (BLOCKS[blockId] && BLOCKS[blockId].campfire) {
       advCampfires.plant(x, y, z); /* 篝火放置即燃: 侧账建满时长(树苗挂表同缝, spec §3.3) */
-      advCampfireFx.open(x, y, z); /* 放置即燃特效(T-C9 §5.5): 点燃 pop+三发射器 0.5s 渐起;
-          campfire_lit 声位同拍(spec §3.7/§5.5-3, 声本体登记 T-C11 后落) */
+      advCampfireFx.open(x, y, z); /* 放置即燃特效(T-C9 §5.5): 点燃 pop+三发射器 0.5s 渐起 */
+      advSfx('campfire_lit'); /* 点燃声与点燃过渡同拍(T-C11 登记接线, spec §3.7「点燃 1 声(放置/重燃同点)」/§5.5-3) */
     }
     if (blockId === B_SAPLING) {
       advTally('place_sapling', 1); /* 引导链 v2: 种树苗步(砍了树要种回去) */
@@ -3503,7 +3504,7 @@ const advPlaceKit = PlaceKit.mkEditor({
        3.2s 档复用其渲染路径(零第二份实现); toast 通道退役(两通道分工: toast
        承载系统消息, 气泡承载物品认知, mode-kit 头注 §②) */
     ModeKit.kitHintShow(advCampfireRelightHint, document);
-    /* sfx 调用位: 点燃音效, 本体 T-C11 登记 */
+    advSfx('campfire_lit'); /* 点燃声与气泡/TTS 同拍(T-C11: 熄灭态点击重燃成功同拍, 与放置同键共用, §7.1 触发列) */
   },
   cascade: advCascadeSink,
   /* T7 R10 补口(波次二): 级联链豁免——屏障件脚下的普通地形可被炸/挖(放开语义,

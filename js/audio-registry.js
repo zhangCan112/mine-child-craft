@@ -78,6 +78,10 @@ const SFX_KINDS = {
      装配层——本表只登记, js/ 内不出现 sfx 字面量) ---------- */
   wing_open: {synth: {type: 'sine', f0: 220, f1: 520, fT: 0.18, dur: 0.22, g: 0.10}, g: 1, gTouch: 1, prio: 2, coolMs: 300}, // 展翼「扑 Jin」上滑(220→520): 布面抖开的轻快短音; prio 2 状态音可压环境声, coolMs 300 防空中连点再展叠爆
   wing_close: {synth: {type: 'sine', f0: 520, f1: 200, fT: 0.15, dur: 0.18, g: 0.07}, g: 1, gTouch: 1, prio: 2, coolMs: 300}, // 收翼下滑更轻(520→200): 收=安顿感, 比展开安静(§7.1)
+  /* ---------- 篝火双音效(篝火 T-C11, UI 定稿 §7.1 参数表逐格; 触发接线在
+     js/modes/adventure.js 三锚=放置/重燃/燃尽) ---------- */
+  campfire_lit: {synth: {noise: {type: 'lowpass', freq: 480, dur: 0.18}, g: 0.10}, g: 1, gTouch: 1, prio: 2, coolMs: 300}, // 点燃「噗地点着」短噗(低通 480Hz 白噪 0.18s, snow_throw 低通闷噗家族放长, 比 fuse 高通急嘶柔两档, 儿童零惊吓); 触发=放置即燃成功/熄灭态点击重燃成功同键共用(UI 定稿 §7.1)
+  campfire_out: {synth: {noise: {type: 'lowpass', freq: 320, dur: 0.45}, g: 0.08}, g: 1, gTouch: 1, prio: 2, coolMs: 300}, // 燃尽「轻轻熄灭」安顿音(更低 320/更轻 g 0.08/更长 0.45s, wing_close「收=安顿感」口径); 触发=自然燃尽方块移除帧(UI 定稿 §7.1)
 };
 
 /* ---------- BGM 曲目表 ----------
