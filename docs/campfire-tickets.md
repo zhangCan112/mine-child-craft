@@ -73,7 +73,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C5 | 存档与口径：campfires 档键+重放对账+跨图同烧+体验馆 dev | T-C1, T-C3 | ☐ 待领取 |
 | T-C6 | 性能基准：50 火实测（光 BFS+柱查询+粒子空转） | T-C2 | ☐ 待领取 |
 | T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☑ 已并入（tc7 b8b6efb，合并 693ddac；双轴评审零发现；design-lead 视觉验收过，工件 .scratch/campfire/tc7-review/） |
-| T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☑ 已并入（6788aa9，合并 9806477；双轴评审 PASS；白昼熄灭态判据归 T-C8b） |
+| T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档） |
 | T-C8b | 补丁：熄灭态取光口径修正（白昼可见性）+ STD-1 注释 | T-C8, T-C1 | ◐ 进行中（campfire-ui2/tc8b） |
 | T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ◐ 进行中（campfire-ui/tc9） |
 | T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☐ 待领取 |
@@ -509,7 +509,7 @@ js/icons.js（ITEM_PIX.campfire）· js/mode-kit.js（mkCraftPanel/kitIconHtml �
 
 ## T-C8 UI B 区：两态贴图入集
 
-> 标签：`task`｜状态：☑ 已并入（6788aa9，合并 9806477；双轴评审 PASS；白昼熄灭态判据归 T-C8b）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
+> 标签：`task`｜状态：☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
 > blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
