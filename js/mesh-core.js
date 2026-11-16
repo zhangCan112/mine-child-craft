@@ -6,7 +6,8 @@
    方块图集 texture-atlas; 图集内薄块走十字面片、床走薄块扁盒 pushBedBox、
    火把走专用小盒 pushTorch
    (MC 同款, mc-torch-model-research §1/§2)、pane 旗标走竖直薄板
-   pushPane — 门/玻璃板, docs/door-window-design.md §5)。
+   pushPane — 门/玻璃板, docs/door-window-design.md §5)、篝火走半格扁盒
+   pushCampfireBox(campfire 旗标两态 81/82, UI 定稿 §4.1 全脸同图)。
    零 THREE · 零 DOM ·
    加载零副作用 →
    Node 可直接加载单测; 同一份代码在主线程(world.js 兜底路径)与
@@ -115,6 +116,33 @@ const MeshCore = (() => {
         } else {
           t.uvs.push(su0 + fuv[0]*du, sv0 + (1 - (1 - fuv[1])*h)*dv);
         }
+        t.sky.push(lvSky);
+        t.block.push(lvBlk);
+      }
+      t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
+      t.n += 4;
+    }
+  }
+
+  /* 篝火(半格扁盒 + 图集, 篝火 T-C8; spec §3.4 半格实体 + UI 定稿 §4.1 全脸同图):
+     几何同 pushBedBox(thin 0.5 扁盒跳底面, top+4 侧五面); 贴图全脸同图——五面
+     满幅采样同一画师格(侧面主视图+顶面同图, number 简写经 atlasTileOf 取格),
+     侧面纵向 2:1 压扁(slab 同惯例)。顶点光取自身格(薄块口径 §4.1, pushThin/
+     pushBedBox 一致: 燃烧态自身格 light 15 夜面自亮读作发光体, 熄灭态读作暗块);
+     不乘 tint(图集通道无 colors, 噪点自带)。无 bed/wall/gateSign 旗标:
+     campfire 旗标块专行分派, 不走十字面片/纯色兜底通道。 */
+  function pushCampfireBox(t, x, y, z, h, ae, atlas, lvSky, lvBlk) {
+    const tile = atlasTileOf(ae, FACES[3].dir); /* 全脸同图: 任一面朝向同格 */
+    const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
+    for (let f=0; f<6; f++) {
+      if (f===2) continue; // 底面贴地不可见, 不绘(pushBedBox 同款)
+      const face = FACES[f];
+      for (let c=0; c<4; c++) {
+        const cor = face.corners[c];
+        t.positions.push(x+cor[0], y+cor[1]*h, z+cor[2]);
+        t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
+        const uv = faceUV(face.dir, cor);
+        t.uvs.push((tc+uv[0])/atlas.cols, (atlas.rows-1-tr+uv[1])/atlas.rows);
         t.sky.push(lvSky);
         t.block.push(lvBlk);
       }
@@ -471,6 +499,13 @@ const MeshCore = (() => {
                 const nid = lget(lx, y - 1, lz);
                 const onBase = !!(nid !== 0 && BLOCKS[nid] && BLOCKS[nid].solid !== false);
                 pushGateSign(A, wx, y, wz, lx, lz, b.thin, ae, atlas, lget, lsky, lblk, onBase);
+                continue;
+              }
+              if (b.campfire) { // 篝火(campfire 旗标两态 81/82): 半格扁盒图集通道(UI 定稿 §4.1)
+                /* thin 0.5+solid 半格实体(spec §3.4): top+4 侧五面跳底面;
+                   顶点光取自身格(薄块口径, 燃烧态夜面自亮/熄灭态暗块) */
+                pushCampfireBox(A, wx, y, wz, b.thin, ae, atlas,
+                    lsky(lx, y, lz)/15, lblk(lx, y, lz)/15);
                 continue;
               }
               pushCross(A, wx, y, wz, atlasTileOf(ae, [0, 0, 1]), atlas.cols, atlas.rows,
