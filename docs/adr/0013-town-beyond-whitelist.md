@@ -1,6 +1,6 @@
 # ADR 0013: 镇域越界白名单——TOWN_MAP.beyond 显式域与「⊆ core ∪ beyond」判据
 
-日期：2026-11-16 · 状态：**草案**（随 T0 判据票落，T4 收口终稿）
+日期：2026-11-16 · 状态：**已采纳**（随 T0 判据票落，2026-11-16 T4 收口终稿）
 
 ## 背景
 
@@ -27,7 +27,7 @@
 
 ## 证据与关联
 
-- 架构方案：.scratch/town-east-boundary/arch-town-side-gate-and-edge-fence.md §2（白名单判据方案=N5 兑现）/ §4（票图 T0 判据先行）/ §5（ADR 建议）——工作区留档，未随 git（0012 同款引用形态）。
+- 架构方案：.scratch/town-east-boundary/arch-town-side-gate-and-edge-fence.md §2（白名单判据方案=N5 兑现）/ §2.1（五段外接盒：每越界件一段显式闭域矩形，形态与落点定案）/ §4（票图 T0 判据先行）/ §5（ADR 建议）——已随 git 入库（4eb4c6e）。
 - 把关记录：.scratch/town-east-boundary/gate-review-town-side.md N5（白名单域显式常量，不散写字面量）。
-- 设计定稿：[docs/design/town-side-gate-and-edge-fence-spec.md](../design/town-side-gate-and-edge-fence-spec.md) §2.6（town-gate zone 归属 south）/ §3.3（五段坐标终稿）。
+- 设计定稿：[docs/design/town-side-gate-and-edge-fence-spec.md](../design/town-side-gate-and-edge-fence-spec.md) §2.6（town-gate zone 归属 south）/ §3.3（件级几何；五段外接盒化出自架构方案 §2.1）。
 - 测试：test/town-map-core.test.js ②b 组（beyond 自检：五段 pin/⊆ 世界界/贴界越界；判据面：inCoreOrBeyond 采样）。

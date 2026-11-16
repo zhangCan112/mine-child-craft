@@ -278,6 +278,11 @@ assert.strictEqual(topAt(143), 23, '东缘基段笔顶 23');
 | TIDEA-09 | W-09 寻宝记号 | stash-hut 顶层 `tidea:{porchLamp,groundMark}` 契约 | 挂灯门楣 dx2 / chevron z102..104 |
 | TIDEA-04 前半 | W-04① 丰收角 | farm-a 加 `harvest:{x1:66,z1:44,x2:69,z2:47}` 字段契约 | farm-a 西北角(风车侧) |
 
+> **[2026-11-16 T4 收口批注]**（历史时点快照不改, 只加此批注, 登记簿 T3 评审追加项）上表
+> TIDEA-06 行「活件: scatter `signpost-home` (75,126)」已随 ②镇侧对称门楼定稿被吞并退役
+> （docs/design/town-side-gate-and-edge-fence-spec.md: 双门呼应门楼含基座回程桥, 南门回程件
+> 由门楼承接）——`signpost-home` 不再在册, 后来者勿据本表误判其仍活。
+
 ## 8.2 设计拍板
 
 1. **派生容错边界实测**: 未知 kind 抛错(ground/backdrop/scatter 三段
