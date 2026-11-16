@@ -6,7 +6,9 @@
    TTS 完整句派生+三票共用参数表; DOM/CSS 装配与墙钟节奏归适配层
    js/town-ui.js, 本层只算数不渲染。
    interface: TOWN_UI_PARAMS(冻结参数表: 安全区 clamp/L1 最大宽/热区下限/
-      L3 浮现带/动效窗/表扬节奏窗/U4-U8 与 P 前缀参数化落点, 供 PO 一处改) ·
+      L3 浮现带/动效窗/表扬节奏窗/U4-U8 与 P 前缀参数化落点+案卷③ IDLE 前缀
+      待机微动画 19 键(呼吸/摆动/头转限步/注视门/动物形态通道, 镇民 idle 段
+      懒解析消费), 供 PO 一处改) ·
       townHudCardState(current, event) 纯函数(五态机: hidden/idle-exploring/
       active/step-done/dialog-dimmed + 副作用意图 tts-hint|praise-show) ·
       townHudDimming(cardState, dialogOpen) 纯函数(L1-L4 可见性档
@@ -64,6 +66,27 @@ const TOWN_UI_PARAMS = Object.freeze({
     指针锁定世界的角度映射) */
   HL_AIM_MAX_DIST: 24, /* T-UI-03 命中/标记展示最大距离 24 格(广场尺度可点,
     远景不误触, §6.4) */
+  /* 案卷③ 镇民待机微动画 IDLE 段(恰 19 键, js/town-npc.js idle 段调用期
+    懒解析消费; 锁表即规格: 改值须连 test/town-npc-idle.test.js 过评审) */
+  IDLE_BREATH_AMP: 0.035, /* 呼吸微浮幅度(格) */
+  IDLE_BREATH_S: 2.8, /* 呼吸周期(秒) */
+  IDLE_SWING_AMP: 0.07, /* 臂摆幅度(rad) */
+  IDLE_SWING_S: 3.2, /* 摆动周期(秒) */
+  IDLE_LEG_RATIO: 0.5, /* 腿摆=臂摆×比例(反相) */
+  IDLE_HEAD_RATE: 2.4, /* 头转最大角速度(rad/s) */
+  IDLE_HEAD_YAW_MAX: 1.0, /* 头相对身体最大偏转(rad, 约 57°) */
+  IDLE_GAZE_DIST: 9, /* 注视水平距离(格), 界外头回正 */
+  IDLE_BIRD_PECK_AMP: 0.22, /* A01 啄地头俯幅度(rad) */
+  IDLE_BIRD_PECK_S: 2.2, /* A01 啄地周期(秒) */
+  IDLE_BIRD_TAIL_AMP: 0.3, /* A01 尾摆幅度(rad) */
+  IDLE_BIRD_TAIL_S: 1.6, /* A01 尾摆周期(秒) */
+  IDLE_CAT_TAIL_AMP: 0.45, /* A02 尾慢摆幅度(rad) */
+  IDLE_CAT_TAIL_S: 2.6, /* A02 尾摆周期(秒) */
+  IDLE_CAT_NOD_AMP: 0.08, /* A02 头微点幅度(rad) */
+  IDLE_CAT_NOD_S: 2.0, /* A02 点头周期(秒) */
+  IDLE_LLAMA_GRAZE_AMP: 0.28, /* A03 颈俯啄草幅度(rad) */
+  IDLE_LLAMA_GRAZE_S: 4.0, /* A03 颈俯周期(秒) */
+  IDLE_LLAMA_HEAD_RATIO: 0.35, /* A03 头随颈俯比例 */
 });
 
 /* ---------- 提示卡五态状态机(prebuild §2.3; hud-spec §4.3 状态行) ----------

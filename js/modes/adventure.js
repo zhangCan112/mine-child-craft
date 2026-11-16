@@ -3044,6 +3044,10 @@ function advTownInteractBoot() {
 let advTownPuppets = []; /* 只读快照账: 进镇摆放在位(纯标量行), 离镇回空
     (A.advTownState 挂点透出, T-SEAM-04 挂点先例扩形) */
 let advTownPuppetRoots = []; /* 傀儡 root 另账(与快照行同序, 不透出挂点) */
+let advTownIdleParts = []; /* 待机微动画骨柄账(案卷③): 行含 THREE 骨柄
+    {id,kind,root,bones,x,z,baseY,yaw,off,headYaw}(非纯标量快照口径,
+    advTownIdleState 验收缝透出), 摆放建/离镇清与两账同节拍 */
+let advTownIdleT = 0; /* 待机相位账(秒): 注入 dt 累计(零墙钟), 空账/离镇复位 */
 /* 摆放(advSetDim town 分支 loadScene 之后调用, 不进 build 回调——建机
    同位先例; 同步位置零插值, MobLookKit.puppet 产物 root 直挂场景):
    幂等由 advSetDim 首行守卫保证(dim===advDim 即 return, 镇内重复进镇
@@ -3054,6 +3058,8 @@ function advTownPuppetsPlace() {
       typeof anchorOf === 'undefined') return;
   advTownPuppets.length = 0;
   advTownPuppetRoots.length = 0;
+  advTownIdleParts.length = 0; /* 案卷③ idle 账摆前同步清(任何路径零残留) */
+  advTownIdleT = 0;
   for (const row of TOWN_NPCS) {
     const puppet = mkTownNpcPuppet(row.id);
     const spot = placeTownNpc(puppet, anchorOf(row.anchorId));
@@ -3062,6 +3068,14 @@ function advTownPuppetsPlace() {
     advTownPuppetRoots.push(puppet.root);
     advTownPuppets.push({id: row.id, look: puppet.look,
       x: spot.x, y: spot.y, z: spot.z, yaw: spot.yaw});
+    if (typeof townNpcIdleKindOf === 'function' &&
+        typeof townNpcIdlePhaseOffset === 'function') {/* 案卷③ idle 纯面
+        在册才建账(town-npc.js idle 段缺席的旧沙盒照旧零账) */
+      advTownIdleParts.push({id: row.id, kind: townNpcIdleKindOf(puppet.look),
+        root: puppet.root, bones: puppet.bones,
+        x: spot.x, z: spot.z, baseY: spot.y, yaw: spot.yaw,
+        off: townNpcIdlePhaseOffset(row.id), headYaw: 0});
+    }
   }
 }
 /* 清场(advSetDim 离镇弃机同链): root 摘场景(world.js clearWorld 只清
@@ -3073,6 +3087,8 @@ function advTownPuppetsLeave() {
   }
   advTownPuppetRoots.length = 0;
   advTownPuppets.length = 0;
+  advTownIdleParts.length = 0; /* 案卷③ idle 账离镇同链清(骨柄引用零残留) */
+  advTownIdleT = 0;
 }
 
 /* ---------- 锚点动态化消费机(T-NPC-12, README §3.3 裁决三) ----------
@@ -3123,6 +3139,35 @@ function advTownAnchorTick(legById, policy = 'focused') {/* 锚点动态化消�
     events.push(ev);
   }
   return {changed, events};
+}
+
+/* ---------- 镇民待机微动画消费机(案卷③, PO 验收「NPC 站得太死」) ----------
+   idle 纯面六函数(town-npc.js 案卷③段, 经全局名消费)的镇维度消费机,
+   advTownAnchorTick 同位同节拍(update 链直调): 逐行 humanoid 先头转
+   (headTarget 注视距离门→headStep 限步收敛; 动物头不追踪玩家, 形态表),
+   再 pose(相位账+逐 id 错峰相位)→apply(骨骼旋转+根浮)。dt 注入确定性:
+   零墙钟零随机零怪物库路径; 空账自愈(相位复位), 维度门在相位累计前;
+   账由 advTownPuppetsPlace 建/advTownPuppetsLeave 清, 本机只消费。 */
+function advTownNpcIdleTick(dt) {
+  if (!advTownIdleParts.length) {
+    advTownIdleT = 0; /* 空账自愈: 相位复位(重放/未进镇口径) */
+    return;
+  }
+  if (advDimRow(advDim) !== ADV_TOWN_DIM_ROW) return; /* 维度门(镇专属) */
+  if (typeof townNpcIdlePose !== 'function' ||
+      typeof townNpcIdleApply !== 'function' ||
+      typeof townNpcIdleHeadTarget !== 'function' ||
+      typeof townNpcIdleHeadStep !== 'function' ||
+      typeof pos === 'undefined') return; /* idle 纯面/玩家位缺席旁路容差 */
+  advTownIdleT += dt;
+  for (const row of advTownIdleParts) {
+    if (row.kind === 'humanoid') {/* 头转朝玩家(动物不追踪, 形态表) */
+      row.headYaw = townNpcIdleHeadStep(row.headYaw,
+          townNpcIdleHeadTarget(row.yaw, row.x, row.z, pos.x, pos.z).yaw, dt);
+    }
+    const idlePose = townNpcIdlePose(advTownIdleT + row.off, row.kind);
+    townNpcIdleApply(row, row.kind, idlePose, row.baseY, row.headYaw);
+  }
 }
 
 let advBubbleCamVec = null; /* 视采样复用向量(250ms 采样拍频, 零每帧垃圾) */
@@ -4973,6 +5018,9 @@ const AdventureMode = mkMode({
     advTownAnchorTick(); /* T-NPC-12 锚点动态化消费机(town 维度专属早退):
         逐锚取数比对 prev 账本, 到站跳变且聚焦时重发 targetFocus(生产恒
         缺省 leg0, legIndex 推进者=未来行为层票) */
+    advTownNpcIdleTick(dt); /* 案卷③ 镇民待机微动画(town 维度专属早退):
+        逐傀儡 idle pose(t+错峰相位)→apply 骨骼旋转+根浮, humanoid 头转
+        朝玩家(注视距离门+限步); dt 注入确定性(零墙钟零随机) */
     advPlaceKit.tickTimers(dt); /* tier/硬块话术节流递减(账本在 place-kit 实例, T12/微默认3) */
     advStationTick(); /* 站点沿检测: 首次靠近工作台 TTS 引导 + 开面板亮灰刷新(T13) */
     advQuestTick(dt); /* 任务链推进: 节流查当前步谓词, 完成走表扬/引导/落盘(T15) */
@@ -5211,6 +5259,14 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   advTownAnchorTick, /* 锚点动态化消费机(T-NPC-12: 逐锚取数比对 prev 账本,
       到站跳变且聚焦时重发 targetFocus 同形状事件; 注入式验收缝,
       legById/policy 参数化) */
+  advTownNpcIdleTick, /* 案卷③ 待机微动画消费机(逐傀儡 pose(t+错峰)→
+      apply 骨骼旋转+根浮, humanoid 头转 headTarget/headStep; dt 注入
+      确定性, 空账自愈+维度门) */
+  advTownIdleState: () => ({t: advTownIdleT, parts: advTownIdleParts}), /* 案卷③
+      待机账只读缝(恰二键 {t,parts}): t=注入 dt 累计相位(秒), parts=骨柄
+      引用账(含 THREE 骨柄非纯标量快照口径, 与 advTownPuppets 纯标量账
+      对照), 注入式验收缝(T-NPC-12 先例): 假骨行注入直测消费机, 生产由
+      advTownPuppetsPlace 建/advTownPuppetsLeave 清 */
   advMineHardText, advHudLines,
   advWornState: () => advWorn, /* 穿戴档只读快照(装备 T5 测试挂点; 形状=mkWorn 归一形) */
   advHitPlayer, advEnvHurt, /* 战斗受击两缝(装备 T6 测试挂点: 漏斗行为面/D8 环境对照) */
