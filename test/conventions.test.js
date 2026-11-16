@@ -211,14 +211,19 @@ test('规范: hand-view.js 装载序 held-item → hand-view → avatar(经典�
    town-ui.js)。序错不抛错(全调用期解析), boot 冒烟探不到, 只有源文本
    序断言能抓手滑挪行; 挂载清单覆盖面(漏挂)另守于 test/boot.test.js
    T-NPC-10 挂载覆盖测(静态+行为双面)。 */
-test('规范: 镇民链装载序 kit → town_*×14 → interact-core → anchor-core → registry → town-npc.js, 全链先于消费方(经典脚本顺序即依赖)', () => {
+test('规范: 镇民链装载序 kit → town_*×14 → interact-core → anchor-core → behavior-core → registry → town-npc.js, 全链先于消费方(经典脚本顺序即依赖)', () => {
   const html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   const at = (f) => html.indexOf('src="js/' + f + '"');
   const LOOKS = ['town_a01', 'town_a02', 'town_a03', 'town_g01', 'town_v01',
     'town_v02', 'town_v03', 'town_v04', 'town_v05', 'town_v06', 'town_v07',
     'town_v08', 'town_v09', 'town_v10'].map((k) => 'mob-look/' + k + '.js');
+  /* T-NPC-13 gate 扩列(数据跟随, §2.1 登记先例): 行为层推进者核心入链——
+     消费 anchor-core(anchorOf/TOWN_NPC_ANCHORS)与维度段 townYawOfFace, 故
+     恒晚于 anchor-core; registry/town-npc/adventure/town-ui 不消费它, 位序
+     取「紧随其依赖」最小扰动。 */
   const CHAIN = ['mob-look-kit.js'].concat(LOOKS, ['town-interact-core.js',
-    'town-npc-anchor-core.js', 'town-npc-registry.js', 'town-npc.js']);
+    'town-npc-anchor-core.js', 'town-npc-behavior-core.js', 'town-npc-registry.js',
+    'town-npc.js']);
   for (const f of CHAIN) {
     assert.ok(at(f) > 0, 'index.html 缺 script: js/' + f + '(T-NPC-10 挂载, 备忘①/③)');
   }
@@ -227,7 +232,7 @@ test('规范: 镇民链装载序 kit → town_*×14 → interact-core → anchor
         '装载序: ' + CHAIN[i] + ' 必须晚于 ' + CHAIN[i - 1] + '(备忘①链序, 经典脚本顺序即依赖)');
   }
   for (const f of ['town-interact-core.js', 'town-npc-anchor-core.js',
-    'town-npc-registry.js', 'town-npc.js']) {
+    'town-npc-behavior-core.js', 'town-npc-registry.js', 'town-npc.js']) {
     assert.ok(at(f) < at('modes/adventure.js'),
         f + ' 必须先于 js/modes/adventure.js 装载(壳层消费方: 建机 mkTownTargets/摆放 mkTownNpcPuppet)');
     assert.ok(at(f) < at('town-ui.js'),

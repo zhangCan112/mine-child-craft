@@ -53,6 +53,19 @@ for (const f of ['js/town-assembly-core.js', 'js/town-map-core.js',
     index.html(interact-core → anchor-core, conventions.test.js 镇民链同序) */
   vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
 }
+/* T-NPC-13 红方装具扩装(报备, 上行 T-NPC-12 同款先例): 行为层推进者核心入 eng 链
+    (镜像 index.html: anchor-core → behavior-core → registry, conventions gate 同序;
+    adventure.js 经全局名消费, 故桥接宿主域)。红期容差: 文件缺席或四函数未齐则整段
+    跳过(实现落位前装具不炸, 红因归各测试首断言——bridgeIdleFns 同款口径)。 */
+if (fs.existsSync(path.join(ROOT, 'js/town-npc-behavior-core.js'))) {
+  vm.runInContext(fs.readFileSync(path.join(ROOT, 'js/town-npc-behavior-core.js'), 'utf8'),
+      eng, {filename: 'js/town-npc-behavior-core.js'});
+  if (vm.runInContext('["townPatrolState","townPatrolStep","townPatrolPose",' +
+      '"townPatrolLegById"].every((n) => typeof globalThis[n] === "function")', eng)) {
+    Object.assign(globalThis, vm.runInContext('({townPatrolState, townPatrolStep,' +
+        'townPatrolPose, townPatrolLegById})', eng));
+  }
+}
 Object.assign(globalThis, vm.runInContext(
     '({TOWN_MAP, townBuildSteps, townAssemblyOps, mkTownTargets,' +
     'townTargetOf, TOWN_UI_EVENTS, TOWN_INTERACTS, anchorOf, TOWN_NPC_ANCHORS,' +
@@ -5362,16 +5375,274 @@ test('T-NPC-12 非镇维度旁路: overworld 下 tick 直调零炸零事件(行�
   AdventureMode.cleanup();
 });
 
-test('T-NPC-12 update 逐帧接线(源文本守门): 消费机挂 AdventureMode.update 段内(镇专属件邻位, ' +
-    '生产路径恒缺省 leg0) — 镜像 T-SEAM-04 den 先例形状对齐的源文本断言', () => {
+test('T-NPC-12/13 update 逐帧接线(源文本守门): 消费机挂 AdventureMode.update 段内且 ' +
+    '生产路径带 legById 实参供数(推进者上链, 票面断点注记② 修订原「恒缺省 leg0」钉) — ' +
+    '镜像 T-SEAM-04 den 先例形状对齐的源文本断言', () => {
   const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
   const atUpdate = src.indexOf('update(dt) {\n    advStore.tick();'); /* update 段锚(首行签名) */
   const atNext = src.indexOf('onMouse(button, hit)'); /* update 段界(下一方法) */
-  const atTick = src.indexOf('advTownAnchorTick();');
+  const seg = src.slice(atUpdate, atNext);
   assert.ok(atUpdate > 0 && atNext > atUpdate, 'update 段可定位(段锚=advStore.tick() 首行)');
-  assert.ok(atTick > atUpdate && atTick < atNext,
-      'advTownAnchorTick() 调用在 update 段内(装配层每帧取数, 裁决三生产接线)');
+  assert.ok(/advTownAnchorTick\(.+\);/.test(seg),
+      'advTownAnchorTick(带实参) 调用在 update 段内(T-NPC-13: 生产路径 legById 注入供数, ' +
+      '零参调用随推进者上链退役——消费机形零改, 只换供数)');
 });
+
+/* ============ T-NPC-13 行为层票(a2+b1 面): G01 巡逻环推进者+本体滑行+走摆 ============
+   票面 §6.1-1 四面红(现状即红): 生产路径下 G01 恒 leg0 静止/快照恒进场初值/
+   bones 恒 bind——推进者+位姿+走摆任一缺席即红。拍板口径(拍板回执 a2+b1):
+   本体=航点间匀速滑行(root 插值+yaw 过渡+快照同步), 动画=骨骼级走摆(与腿内
+   进度强耦合); idle 面已由 po-idle-fix 先行落地(d 面勿重做), 本票动画面只做
+   走摆。口径固化(§10-3): HUD 标记=「下一站」语义——行走中标记指到站锚而本体
+   在路上, 到站瞬间 legIndex 推进刷新标记(裁决三到站跳变节奏逐字保持, 纯
+   legIndex 整数缝不变, 6 岁可读性论证=标记稳定不抖)。
+   装具: eng 域无 kit/THREE——傀儡面循案卷③ idle 先例往账本注假行
+   (advTownState().puppets / .patrol / advTownIdleState().parts 引用注入);
+   生产链节拍用「镜像四步」直驱(patrol tick → anchor tick(legById) → idle →
+   patrol apply), 真链序由源文本接线钉锁; 全链端到端另有一测直泵 update()。
+   红期归因: 各测首断言=挂点/核心缺席归因(红因=实现缺席非装具炸)。 */
+
+/* 假巡逻账行(形状=生产 advTownPatrols 行 {id,anchorId,root,bones,state}): state
+    由桥接真核心构造(装具不造第二份状态机——判据单份红线)。 */
+function mkPatrolRow(state) {
+  return {id: 'G01', anchorId: 'npc:g01',
+    root: mkFakeBone(), bones: humanoidBones(true), state};
+}
+/* 注入 G01+V01 快照行(placeTownNpc 口径: 站立面 y+1, face 派生 yaw)+巡逻行。
+    红期容差: patrol 挂点/核心缺席只注快照行不炸(全链木头桩测专靠此容差走红)。 */
+function injectPatrolRows() {
+  const puppets = A.advTownState().puppets;
+  puppets.length = 0;
+  puppets.push({id: 'G01', look: 'town_g01', x: 66, y: 25, z: 66, yaw: -Math.PI / 2});
+  puppets.push({id: 'V01', look: 'town_v01', x: 79, y: 25, z: 94, yaw: Math.PI});
+  const patrol = A.advTownState().patrol;
+  if (!patrol || typeof globalThis.townPatrolState !== 'function') {
+    return {puppets, patrol: null}; /* 红期: 挂点缺席, 木头桩测以移动断言归因 */
+  }
+  patrol.length = 0;
+  patrol.push(mkPatrolRow(globalThis.townPatrolState('npc:g01')));
+  return {puppets, patrol};
+}
+/* 生产链节拍镜像(真链序由接线钉锁, 本驱动供行为断言): patrol → anchor → idle → apply */
+function pumpPatrolChain(dt, frames, onFrame) {
+  for (let i = 0; i < frames; i++) {
+    const legById = A.advTownPatrolTick(dt);
+    const r = A.advTownAnchorTick(legById);
+    A.advTownNpcIdleTick(dt);
+    A.advTownPatrolApply();
+    if (onFrame) onFrame(i, legById || {}, r || {changed: false, events: []});
+  }
+}
+
+test('T-NPC-13 挂点在位: advTownPatrolTick/advTownPatrolApply + advTownState 恰三键扩形(patrol 账)', () => {
+  mem.clear();
+  freshInit();
+  assert.strictEqual(typeof A.advTownPatrolTick, 'function',
+      '红因=advTownPatrolTick 缺席(推进者消费机未落实现, 非装具炸)');
+  assert.strictEqual(typeof A.advTownPatrolApply, 'function',
+      '红因=advTownPatrolApply 缺席(位姿/走摆施加机未落实现)');
+  A.advSetDim('town');
+  const st = A.advTownState();
+  assert.deepStrictEqual(Object.keys(st).sort(), ['patrol', 'puppets', 'targets'],
+      'advTownState 恰三键 {targets,puppets,patrol}(T-SEAM-04 挂点扩形, T-NPC-10 puppets 先例)');
+  assert.ok(Array.isArray(st.patrol), 'patrol 账为数组(eng 沙盒无 kit=空账, 生产由 place 建)');
+  assert.strictEqual(st.patrol.length, 0, '沙盒空账(摆放链缺席不建账, idle 同款容差)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 推进者+位姿(木头桩红本体 §6.1-1): 生产节拍 35s 后 G01 到站 wp1(92,66) · leg 推进 0→1 · 静态 V01 零扰动', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  assert.strictEqual(typeof A.advTownPatrolTick, 'function',
+      '红因=推进者挂点缺席(实现缺席非装具炸)');
+  const {puppets, patrol} = injectPatrolRows();
+  pumpPatrolChain(0.5, 70); /* 35s > 首腿全行程 29s(停驻 3+行 26, 参数表锁) */
+  const g01 = puppets.find((p) => p.id === 'G01');
+  assert.strictEqual(g01.x, 92, 'G01 到站 wp1 x=92(木头桩红本体: 现状恒 66 静止)');
+  assert.strictEqual(g01.z, 66, '到站 z=66(东行腿轴对齐)');
+  assert.strictEqual(g01.yaw, -Math.PI / 2, '到站朝向=行进方向(面东)');
+  assert.strictEqual(patrol[0].state.leg, 1, 'legIndex 到站推进 0→1(票面 §6.2)');
+  assert.strictEqual(patrol[0].state.phase, 'dwell', '到站回停驻');
+  const v01 = puppets.find((p) => p.id === 'V01');
+  assert.deepStrictEqual(v01, {id: 'V01', look: 'town_v01', x: 79, y: 25, z: 94, yaw: Math.PI},
+      '静态锚零扰动(V01 快照逐键恒进场初值——硬约束 2)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 位姿跟随+快照=实位(T-SEAM-04 扩形): 腿中 root 与快照逐键同步 · patrol 零写 y(y 通道归 idle) · 到站精确落点', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  assert.strictEqual(typeof A.advTownPatrolTick, 'function',
+      '红因=推进者挂点缺席(实现缺席非装具炸)');
+  const {puppets, patrol} = injectPatrolRows();
+  const parts = A.advTownIdleState().parts;
+  parts.length = 0;
+  parts.push(mkIdleRow('G01', 'humanoid', humanoidBones(true), 66, 66, -Math.PI / 2));
+  const root = patrol[0].root;
+  pumpPatrolChain(0.5, 20); /* 10s=停驻 3+行走 7s(progress≈7/26, 腿中) */
+  const g01 = puppets.find((p) => p.id === 'G01');
+  assert.ok(g01.x > 66 && g01.x < 92, '腿中: 本体在路上(66<x<92, 「HUD 指到站锚、本体在路上」)');
+  assert.strictEqual(g01.x, root.position.x, '快照 x=root 实位(T-SEAM-04 一致性, patrol 同步缝)');
+  assert.strictEqual(g01.z, root.position.z, '快照 z=root 实位');
+  assert.strictEqual(g01.yaw, root.rotation.y, '快照 yaw=root 实位');
+  assert.strictEqual(root.position.y, 0, 'patrol 零写 y(注入值原样——y 通道归 idle 呼吸, 通道分账)');
+  pumpPatrolChain(0.5, 40); /* 跨到站沿(共 30s>29s), 到站后 apply 精确落 wp1 */
+  assert.strictEqual(g01.x, 92, '到站精确落点 x=92(无插值过冲残留)');
+  assert.strictEqual(g01.z, 66, '到站精确落点 z=66');
+  assert.strictEqual(g01.yaw, -Math.PI / 2, '到站朝向面东(行进方向)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 走摆(动画面收窄): 行走中四肢骨骼反相摆动(幅度=参数表) · flower/hip 零触碰 · 停驻零写四肢(idle 接管)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  assert.strictEqual(typeof A.advTownPatrolTick, 'function',
+      '红因=推进者挂点缺席(实现缺席非装具炸)');
+  idleImplGuard(); /* 走摆复用 idle apply 幂等面(桥接纯面, 案卷③装具同款) */
+  const {patrol} = injectPatrolRows();
+  const parts = A.advTownIdleState().parts;
+  parts.length = 0;
+  parts.push(mkIdleRow('G01', 'humanoid', humanoidBones(true), 66, 66, -Math.PI / 2));
+  const bones = patrol[0].bones;
+  pumpPatrolChain(0.5, 20); /* 腿中(行走 7s, 摆相≈0.6π 非过零, 读数稳) */
+  assert.ok(Math.abs(bones.armR.rotation.x) > 0.05,
+      '行走摆臂显著(|armR|≈0.52 rad——「稍微有点动作」的走动观感)');
+  assert.strictEqual(bones.armL.rotation.x, -bones.armR.rotation.x, '双臂反相(apply 同号约定)');
+  assert.strictEqual(bones.legL.rotation.x, -bones.legR.rotation.x, '双腿反相');
+  assert.ok(bones.armL.rotation.x * bones.legL.rotation.x < 0,
+      '左臂×左腿反号(左臂右腿同相=自然步态, 与 idle 同号约定)');
+  assert.ok(Math.abs(bones.armL.rotation.x) <= 0.55 + 1e-9, '臂幅≤WALK_ARM_AMP(参数表上界)');
+  assert.ok(Math.abs(bones.legL.rotation.x) <= 0.7 + 1e-9, '腿幅≤WALK_LEG_AMP(参数表上界)');
+  assert.strictEqual(bones.flower.rotation.x, 0, 'G01 flower 骨零转(零触碰红线)');
+  assert.strictEqual(bones.flower.rotation.y, 0, 'flower 零转 y');
+  assert.strictEqual(bones.flower.rotation.z, 0, 'flower 零转 z');
+  assert.strictEqual(bones.hip.rotation.x, 0, 'hip 骨零转(零触碰红线)');
+  /* 到站停驻: patrol 零写四肢(idle 微动画接管——「停驻望广场」+呼吸不中断) */
+  pumpPatrolChain(0.5, 40); /* 跨到站沿 */
+  const frozen = ['armL', 'armR', 'legL', 'legR'].map(
+      (k) => bones[k].rotation.x);
+  for (let i = 0; i < 5; i++) A.advTownPatrolApply(); /* 停驻中连拍 apply(无 idle tick) */
+  ['armL', 'armR', 'legL', 'legR'].forEach((k, i) => {
+    assert.strictEqual(bones[k].rotation.x, frozen[i],
+        '停驻中 patrol 零写 ' + k + '(四肢通道归 idle, 走摆只在行走帧施加)');
+  });
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 到站事件节奏(裁决三守门 §6.1-2): 进场首拍对齐一跳+每腿恰一到站一跳 · 腿中逐帧零事件 · anchor 恒精确航点值(零逐帧插值)', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  assert.strictEqual(typeof A.advTownPatrolTick, 'function',
+      '红因=推进者挂点缺席(实现缺席非装具炸)');
+  injectPatrolRows();
+  A.advTownState().targets.focus('npc:g01'); /* 主目标挂 G01(聚焦策略下跳变才发事件) */
+  const WP_ANCHORS = [
+    {x: 66, y: 24, z: 66}, {x: 92, y: 24, z: 66},
+    {x: 92, y: 24, z: 92}, {x: 66, y: 24, z: 92}]; /* 锚点表真源字面(四航点) */
+  const eventFrames = [];
+  const legChangeFrames = [];
+  const anchors = [];
+  let prevLeg = 0;
+  let totalEvents = 0;
+  pumpPatrolChain(0.5, 240, (i, legById, r) => { /* 120s > 全环 116s */
+    assert.ok(Object.keys(legById).every((k) => k === 'npc:g01'),
+        'legById 键域恒仅 g01(静态 13 锚零进表, 每帧执法)');
+    totalEvents += r.events.length;
+    if (r.events.length > 0) {
+      eventFrames.push(i);
+      assert.strictEqual(r.events.length, 1, '事件帧恰一事件(无逐帧刷屏)');
+      anchors.push(r.events[0].payload.target.anchor);
+    }
+    const leg = A.advTownState().patrol[0].state.leg;
+    if (leg !== prevLeg) {
+      legChangeFrames.push(i);
+      prevLeg = leg;
+    }
+  });
+  assert.strictEqual(legChangeFrames.length, 4, '120s 内恰 4 次到站推进(全环 116s)');
+  assert.strictEqual(totalEvents, 5,
+      '恰 5 事件=进场首拍账本对齐一跳+4 次到站跳变(「下一站」语义; 到站跳变节奏每腿恰一, 裁决三)');
+  assert.deepStrictEqual(eventFrames, [0].concat(legChangeFrames),
+      '事件帧集=首拍+到站帧(腿中数百帧零事件——锚点不逐帧插值化的节奏证明)');
+  assert.deepStrictEqual(anchors, [
+    {x: 92, y: 24, z: 66}, {x: 92, y: 24, z: 92},
+    {x: 66, y: 24, z: 92}, {x: 66, y: 24, z: 66}, {x: 92, y: 24, z: 66}],
+      '事件 anchor 序列=下一站航点精确值循环(wp1→wp2→wp3→wp0→wp1, 恰三键协议载荷, 零插值坐标)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 离镇清账+重建(不串轮): 离镇 patrol 账回空 · place/leave 双端接线(源切片) · 重进新账', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  assert.strictEqual(typeof A.advTownPatrolTick, 'function',
+      '红因=推进者挂点缺席(实现缺席非装具炸)');
+  const {patrol} = injectPatrolRows();
+  assert.strictEqual(patrol.length, 1, '前置: 巡逻账在位');
+  pumpPatrolChain(0.5, 10); /* 5s: 行进中离镇 */
+  A.advSetDim('overworld');
+  assert.strictEqual(A.advTownState().patrol.length, 0,
+      '离镇清巡逻账(advTownPuppetsLeave 同节拍, 状态不串轮)');
+  /* place/leave 双端接线源切片(eng 沙盒建不了真傀儡, 生产重建半边以源切片锁) */
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const placeStart = src.indexOf('function advTownPuppetsPlace');
+  const placeEnd = src.indexOf('\n}', placeStart);
+  assert.ok(src.slice(placeStart, placeEnd).indexOf('advTownPatrols') >= 0,
+      'advTownPuppetsPlace 建巡逻账(生产重建半边: 多航点锚才入账)');
+  const leaveStart = src.indexOf('function advTownPuppetsLeave');
+  const leaveEnd = src.indexOf('\n}', leaveStart);
+  assert.ok(src.slice(leaveStart, leaveEnd).indexOf('advTownPatrols') >= 0,
+      'advTownPuppetsLeave 清巡逻账(离镇同节拍)');
+  A.advSetDim('town');
+  assert.strictEqual(A.advTownState().patrol.length, 0,
+      '重进新账(eng 沙盒摆放链缺席=空账; 真实重建归 boot 摆放测+上行 place 切片)');
+  A.advSetDim('overworld');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 全链端到端(木头桩红 §6.1-1): 真 AdventureMode.update 生产节拍 35s, G01 离场行进', () => {
+  mem.clear();
+  freshInit();
+  A.advSetDim('town');
+  injectPatrolRows(); /* 红期容差: 只注快照行(挂点/核心缺席不炸) */
+  const parts = A.advTownIdleState().parts;
+  parts.length = 0;
+  parts.push(mkIdleRow('G01', 'humanoid', humanoidBones(true), 66, 66, -Math.PI / 2));
+  for (let i = 0; i < 70; i++) AdventureMode.update(0.5); /* 35s 真链路 */
+  const g01 = A.advTownState().puppets.find((p) => p.id === 'G01');
+  assert.ok(g01.x > 66,
+      '木头桩红本体: 生产 update 链 35s 后 G01 已离 wp0 行进(现状恒 66 静止——' +
+      '推进者/位姿接线任一缺席即红, 票面 §6.1-1)');
+  AdventureMode.cleanup();
+});
+
+test('T-NPC-13 update 链接线钉(源文本): patrol tick→anchor 供数→idle→patrol apply 四站序(§4.2 节拍)', () => {
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
+  const atUpdate = src.indexOf('update(dt) {\n    advStore.tick();');
+  const atNext = src.indexOf('onMouse(button, hit)');
+  const atPatrol = src.indexOf('const advLegById = advTownPatrolTick(dt);');
+  const atFeed = src.indexOf('advTownAnchorTick(advLegById);');
+  const atIdle = src.indexOf('advTownNpcIdleTick(dt);', atUpdate);
+  const atApply = src.indexOf('advTownPatrolApply();', atUpdate);
+  assert.ok(atUpdate > 0 && atNext > atUpdate, 'update 段可定位');
+  assert.ok(atPatrol > atUpdate && atPatrol < atNext,
+      '推进者在 update 段内(绿方按此形状接线——签名细节红方裁, 派令随附)');
+  assert.ok(atFeed > atPatrol, 'legById 注入在推进之后(供数序)');
+  assert.ok(atIdle > atFeed, 'idle 在 anchor 消费机后(既有钉保持)');
+  assert.ok(atApply > atIdle,
+      '走摆/位姿施加在 idle 后(行走帧压手脚通道, 停驻帧让位 idle——通道分账序)');
+  assert.ok(atApply < atNext, '四站全在 update 段内');
+});
+
 
 /* ============ 城镇翻新波次三 TIDEA-02: 进镇迎宾钟三响(真链路+真墙钟) ============
    钟声挂 advVeil 到达分支(白闪落定同拍), 直调 advSetDim 不经过 arrive 分支
