@@ -4898,6 +4898,53 @@ test('T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → �
   AdventureMode.cleanup();
 });
 
+/* ============ T-TEST-T14 镇天缝覆盖钉(ADR-0012 决策 1 四步切界序, test-only 覆盖钉债票) ============ */
+
+test('T-TEST-T14 钉1 改道钉: 进镇分支 setSkyBase 改道调用, 实参=行色端点(advEdgeRgb 同源 [r,g,b] 0..1)', () => {
+  mem.clear();
+  freshInit();
+  /* 缝注入(先例: T7 转正 P5 装→断言→delete 防渗漏; null 安全照 nether 先例):
+     装具缺省无 setSkyBase, advSetDim 进镇分支 typeof 守卫静默跳过=行色改道在全量门
+     零直接断言(本票缝隙成因); 同缝另有 advMapRowCleanup 退场复位 setSkyBase(null)
+     (cleanup 链 :2109, 窗外), mock 须 null 安全防渗漏炸。实参断言直锚行色端点数值
+     +同源换算双证, 非零参弱化(T-TEST-T14 票面 §3 钉1) */
+  const skyBaseCalls = [];
+  globalThis.setSkyBase = (c) => skyBaseCalls.push(c ? [c[0], c[1], c[2]] : null);
+  try {
+    const before = skyBaseCalls.length;
+    A.advSetDim('town'); /* 切界唯一入口直达(先例: T-SEAM-03 回程触发线逐点) */
+    const win = skyBaseCalls.slice(before); /* 分支执行窗切片(与钉2 同构窗口哲学) */
+    assert.strictEqual(A.advNetherState().dim, 'town', '前提: 直达镇维度(dayCycle:true 分支执行前提)');
+    assert.strictEqual(win.length, 1, '进镇分支执行窗内 setSkyBase 改道恰一次(行色必走天基色缝)');
+    assert.deepStrictEqual(win[0], AdventureCore.advEdgeRgb(0xa8cbe0),
+        '改道实参=行色端点(town 行 sky.color 午后暖阳, advEdgeRgb 同源 [r,g,b] 0..1 对照)');
+    assert.deepStrictEqual(win[0], [168 / 255, 203 / 255, 224 / 255],
+        '端点数值直断(独立锚 0xa8cbe0=[168,203,224]/255; 直写会被 applyDaylight 每 50 tick 覆写回主世界端点)');
+  } finally {
+    AdventureMode.cleanup(); /* 复位 mode 内部态(dayCycleOn 等) */
+    delete globalThis.setSkyBase; /* 防渗漏(先例同款) */
+  }
+});
+
+test('T-TEST-T14 钉2 首拍钉: 进镇分支执行窗内 applyDaylight 恰一次(首拍, 与主循环每帧拍捕获窗区分)', () => {
+  mem.clear();
+  freshInit();
+  /* 捕获窗=本次 advSetDim('town') 同步执行窗: 窗前后对 calls 内 applyDaylight 记账
+     快照差分(:4875 .some() 存在断言在此升格为窗口内恰一次计数); freshInit→init 的
+     切图首拍记账落在窗前快照不入窗; 装具无 main.js 主循环, 窗后零帧=每帧拍零混入。
+     setSkyBase 缺席时 typeof 守卫只跳过改道, 不触首拍链(advApplySky/dayCycleOn/applyDaylight) */
+  const daylightCount = () => calls.filter((x) => x[0] === 'applyDaylight').length;
+  const before = daylightCount();
+  A.advSetDim('town'); /* 切界唯一入口直达(先例: T-SEAM-03 回程触发线逐点) */
+  const after = daylightCount();
+  assert.strictEqual(A.advNetherState().dim, 'town', '前提: 直达镇维度(dayCycle:true 分支执行前提)');
+  assert.strictEqual(after - before, 1,
+      '分支执行窗内 applyDaylight 恰一次(首拍=ADR-0012 决策 1「分支内补昼夜首拍」, 消解天体/云/uDim 冻结遗留态)');
+  assert.strictEqual(globalThis.dayCycleOn, true,
+      '首拍挂在分支内非主循环(dayCycleOn 同闸开, 时间推进+场景驱动同源)');
+  AdventureMode.cleanup();
+});
+
 test('T-SEAM-03 回程触发线 z 逐点: z=131 不触发/z=132 触发(任意 x 带式) · 南彩蛋带整段(z94~127)零误触(抽 z=100/127)', () => {
   mem.clear();
   freshInit();
