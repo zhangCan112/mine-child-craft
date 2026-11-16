@@ -3453,8 +3453,13 @@ const advPlaceKit = PlaceKit.mkEditor({
      (tts/desc 逐字定稿, 零第二文案源) */
   onCampfireRelit: (x, y, z) => {
     advCampfires.plant(x, y, z);
-    advSpeak(advCampfireRelightHint.tts);
-    advToast(advCampfireRelightHint.desc);
+    advSpeak(advCampfireRelightHint.tts); /* TTS 通道零改动(评审 SPEC-1: 触发时点原样) */
+    /* 视觉通道=kitHintShow 气泡(T-C3 评审 SPEC-1 裁定): 重燃提示是「物品认知」
+       教学面(ADR 0018 可供性), 走 mode-kit §② 气泡通道——name+desc 双行全消费,
+       3.2s 档复用其渲染路径(零第二份实现); toast 通道退役(两通道分工: toast
+       承载系统消息, 气泡承载物品认知, mode-kit 头注 §②) */
+    ModeKit.kitHintShow(advCampfireRelightHint, document);
+    /* sfx 调用位: 点燃音效, 本体 T-C11 登记 */
   },
   cascade: advCascadeSink,
   /* T7 R10 补口(波次二): 级联链豁免——屏障件脚下的普通地形可被炸/挖(放开语义,
