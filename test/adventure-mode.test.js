@@ -17,6 +17,8 @@ const vm = require('node:vm');
    (conventions §7.2: 测试文件禁自定义元素工厂, 防「第四站点」漏网; 本文件原为
    家族 B 原型副本, T-UI-03/04 教训后收敛) ---------- */
 const {mkEl} = require('./helpers/fake-dom.js');
+const {assertSinkMirror, sinkFrames} =
+    require('./helpers/glide-anchors.js'); /* 滑翔拍板锚对账+缓降窗口派生(fake-dom 同款 helpers 缝) */
 
 const fakeClock = 0;
 globalThis.performance = {now: () => fakeClock};
@@ -5783,6 +5785,10 @@ globalThis.isGliding = G.isGliding; /* 模式层经全局名消费(浏览器顶�
 globalThis.setGliderEquipped = G.setGliderEquipped;
 globalThis.camera = glideCamStub(); /* T-G04 段消费面: 相机桩(每测试经 freshInit 复位, 见 glideCamStub 注) */
 
+test('滑翔锚对账: config GLIDE.sink === spec §3.9 拍板锚(T-G04 前置守门: 调参 = 改 config + 同步 glide-anchors.js)', () => {
+  assertSinkMirror(api.GLIDE);
+});
+
 const GDT = 1 / 60;
 function glideFrame(n) {/* 主循环同序: physics 先于 mode.update(main.js:384→396) */
   for (let i = 0; i < n; i++) {
@@ -5920,7 +5926,7 @@ test('T-G04 走崖自动展翼(未按跳): 走出悬崖同样展翼 + 平地连�
   assert.ok(G.gliding, '直接走出悬崖(未按跳) → 同样自动展翼(不分起因, 规则一元)');
   assert.strictEqual(glideSfx('wing_open'), 1, '走崖展翼同点 wing_open');
   /* 落地收翼回到地面态(为平地段清态) */
-  for (let i = 0; i < 400 && !G.onGround; i++) glideFrame(1);
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
   assert.ok(G.onGround, '走崖滑翔落地(测试段收尾)');
   /* 正向锚②: 平地连跳 10 次 → 零误展(跳高 1.42 < 阈值 2) */
   calls.length = 0;
@@ -5946,7 +5952,7 @@ test('T-G04 落地自动收翼: wing_close+setWings(hidden)+金描边 off, 落�
   wearAll(A.advGetInv(), ['glider']);
   assert.ok(glideAirborne(), '前置: 进入滑翔');
   calls.length = 0; spoken.length = 0; /* 诊断 patch: 补 spoken 清零(原稿漏清——init 欢迎句会入账, test 2 的 5619 同款先例) */
-  for (let i = 0; i < 400 && !G.onGround; i++) glideFrame(1);
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
   assert.ok(G.onGround, '滑翔落地');
   assert.strictEqual(glideSfx('wing_close'), 1, '落地自动收翼 → sfx("wing_close") 恰一次(四触发之一)');
   assert.ok(glideWings().includes('hidden'), '收翼迁移点 → Avatar.setWings("hidden")(v1.2 目标态声明)');
@@ -5984,9 +5990,9 @@ test('T-G04 水面软着陆: 触水收翼+溅水+入水零伤害(收翼四触发
   G.vel.set(0, 0, 0);
   const hp0 = A.advGetPEnt().hp;
   calls.length = 0; spoken.length = 0; /* 诊断 patch: 补 spoken 清零(原稿漏清欢迎句) */
-  for (let i = 0; i < 160 && G.gliding; i++) glideFrame(1); /* 诊断 patch: 30→60→160 帧(缓降
-      3/s 需 40 帧, 原窗口不够; T-G07 调参窗口放宽: 滞空翻倍 — sink −1.5/s 从 gy+2.5 到
-      bodyF 采样入水线 gy+0.5 需 80 帧) */
+  for (let i = 0; i < sinkFrames(2) && G.gliding; i++) glideFrame(1); /* 从 gy+2.5 到
+      bodyF 采样入水线 gy+0.5 = 2 格缓降, 窗=派生(sinkFrames, 速率知识单点在
+      glide-anchors.js; 历史手数 30→60→160 系按当时锚逐次放宽) */
   assert.strictEqual(G.gliding, false, '滑翔触水面 → 软着陆收翼(spec §3.4 R1-05)');
   assert.strictEqual(api.worldEvents.splash, true, '溅水事件置位(引擎事实, 轻溅入泳)');
   assert.strictEqual(glideSfx('wing_close'), 1, '软着陆 → wing_close(四触发同点)');
@@ -6017,7 +6023,7 @@ test('T-G04 主动取消闩锁三段: 取消收翼+闩锁(高处不重展)→空
   assert.strictEqual(glideSfx('wing_open'), 1, '主动再展与自动展同点 wing_open(UI spec §7.1)');
   assert.ok(glideGoldOn(), '再展 → 金描边重新 on');
   /* 段三: 落地闩锁无条件清除 → 再跳崖恢复自动展翼 */
-  for (let i = 0; i < 400 && !G.onGround; i++) glideFrame(1);
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
   assert.ok(G.onGround, '落地');
   assert.strictEqual(G.glideLatch, false, '落地闩锁无条件清除(ADR 0016)');
   calls.length = 0;
@@ -6106,7 +6112,7 @@ test('T-G04 金描边与滑翔态严格一致: 展亮收灭零闪烁 + 边沿单
   assert.ok(glideGoldOn(), '持续滑翔金描边保持 on');
   assert.strictEqual(el.__classOps.add, ops0.add, '持续滑翔帧零新增 class add(零逐帧重画)');
   const ops1 = {add: el.__classOps.add, remove: el.__classOps.remove};
-  for (let i = 0; i < 400 && !G.onGround; i++) glideFrame(1);
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
   assert.ok(G.onGround, '落地');
   assert.ok(!glideGoldOn(), '收翼即回常态(描边与滑翔态严格一致)');
   assert.strictEqual(el.__classOps.remove, ops1.remove, '收翼沿 class remove 恰一次(零闪烁抖动)');
@@ -6144,7 +6150,7 @@ test('T-G04 HUD 槽滑翔中抑制: 点第五槽零副作用零话术(不报意�
   assert.ok(!calls.some((c) => c[0] === 'toast'), '滑翔中点槽: 零 toast(不报意图)');
   assert.ok(!calls.some((c) => c[0] === 'sfx'), '滑翔中点槽: 零音效副作用');
   /* 落地解锁: 同一入口照常生效 */
-  for (let i = 0; i < 400 && !G.onGround; i++) glideFrame(1);
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
   assert.ok(G.onGround, '落地');
   el._ev.click();
   assert.strictEqual(A.advWornState().glider, null, '落地后点槽: 卸下照常生效(落地解锁)');
@@ -6201,7 +6207,7 @@ test('T-G04 滑翔中动作暂停: 挖/攻/吃/放四类无效(不触发不消�
   assert.strictEqual(pe.hp, 20, '滑翔中吃: 不回血(无效果)');
   assert.strictEqual(spoken.length, 0, '滑翔中四类动作零话术(准星原位原样零惊扰)');
   /* 落地立即恢复: 放/攻/吃即时三断言 */
-  for (let i = 0; i < 400 && !G.onGround; i++) glideFrame(1);
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
   assert.ok(G.onGround, '落地');
   globalThis.pos.x = G.pos.x; globalThis.pos.y = G.pos.y; globalThis.pos.z = G.pos.z;
   calls.length = 0; hitLog.length = 0;
@@ -6279,7 +6285,7 @@ test('T-G04 相机路径 B·FOV 微扩: 展翼沿 +6°~8° 0.3s 匀速过渡, �
   }
   assert.ok(calls.some((c) => c[0] === 'projMatrix'), 'fov 变更帧调用 updateProjectionMatrix(改 fov 必更新投影才可见)');
   /* 落地收翼恢复原值 */
-  for (let i = 0; i < 400 && !G.onGround; i++) glideFrame(1);
+  for (let i = 0; i < sinkFrames(6) && !G.onGround; i++) glideFrame(1); // 塔高 6 格缓降窗=派生(glide-anchors.js)
   assert.ok(G.onGround, '落地');
   glideFrame(30); /* 恢复过渡窗 */
   assert.strictEqual(globalThis.camera.fov, 72, '落地收翼 → FOV 恢复原值 72');
