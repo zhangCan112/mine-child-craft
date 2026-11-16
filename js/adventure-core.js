@@ -1887,6 +1887,16 @@ function advEdgeProtectedAt(x, y, z) {/* 不可挖判据(T6 v2: 三向未解锁�
      (NW 融冰/SW 潮尾水)天然同在保; 〔世界边界·T8〕解锁态判据让开与地表
      换泥岸步道同口advEdgeOpenDir, 步道块可正常挖放) */
   if (!advEdgeOpenDir('west') && x >= 13 && x <= 18 && y >= top - 1 && y <= top + 1) return true;
+  /* 东·回家门墩 x154(PO 裁决 2026-11-16 加保护): 门墩=回程功能件(T-SEAM-03
+     垫高锚落点), 与 U2 镇界不可挖/U4 防坠墙不可挖同族「牢固镇界设施群」
+     保护语义。保护范围=仅门墩垫高格: y=ADV_GROUND+advHeightAt(154,z)+1
+     (建场权威 advEdgeEastArrivePad 同源同式, 实测 y24), z 域共用
+     ADV_TOWN_GATE_OPEN_Z(门口开间四处同源消费之一); 该两列其余 y 不在保
+     ——表面主径石面(G1a 范围)与上方净空 y25/26 维持不在保(N2 带内可挖
+     口径维持); 门墩两列之外(z74/75 以外)不进本分支, 既有口径零外溢 */
+  if (x === 154 && ADV_TOWN_GATE_OPEN_Z.includes(z)) {
+    return y === ADV_GROUND + advHeightAt(154, z) + 1; /* 仅垫高格 true, 表面/净空 false */
+  }
   /* 东·镇界分段线 x157(east-spec §5 改稿+T-SEAM-02 门口开间): 开间 z74/75 让保护
       (开间内无墙件, 主径通路——town-map-design §6.3.1 门口开间条); 中段
       ADV_TOWN_WALL_ZONE 矮墙分段(v2 spec §8.1, 与建场同源)——门框柱 z73/76
