@@ -878,7 +878,8 @@ test('T-C10b 气泡 DOM 形态: 失败同拍 div.hint-bubble 挂 body+双行 mar
   assert.strictEqual(+bubble.style.opacity, 1, '气泡即刻可见');
 });
 
-test('T-C10b 首次失败必读+高频重复失败: kit 层零节流 — 每次失败同拍 hint+speak(申报: 高频不堆积靠 SpeechKit cancel-then-speak latest-wins, combat-kit 3s 节流先例不上 kit)', () => {
+test('T-C10b 首次失败必读+高频重复失败: kit 层零节流 — 每次失败同拍 hint+speak' +
+    '(申报: 高频不堆积靠 SpeechKit cancel-then-speak latest-wins, combat-kit 3s 节流先例不上 kit)', () => {
   reset();
   assert.ok(ITEMS.campfire && cb.lit != null, '接线前置');
   const heldB = api.count(inv, 'campfire'); /* 计数基线(共享装具, ①~⑤同款差值法) */
