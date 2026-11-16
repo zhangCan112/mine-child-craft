@@ -1652,3 +1652,84 @@ test('下界常量: ADV_DEBRIS 散布参数形状钉死(装备 T7 施工契约 �
   assert.deepStrictEqual(Dims.ADV_DEBRIS, {p: 0.003, deep: 5},
       '残骸散布参数: 地下 deep 层内每格 p 概率成点(64×64×5×p ≈ 60 块, 稀有但挖井必得)');
 });
+
+/* ---------- 篝火 T-C5 跨图同烧(campfire-spec §3.8): 台账键带图前缀 → 同钟步进 →
+   误淬门禁 → 跨图燃尽收尾落自己场景的桶。三测走 C 段夹具(freshC/advSetDim),
+   两态 id 经 vm 取(nether 夹具 apiC 未导出篝火两态, showroom 1861 同款先例)。 */
+
+function campfireIdsC() {
+  /* 两态 id 经 BLOCKS 旗标扫描单源取(C 段 engC/apiC 是夹具局部, 尾部摸不到;
+     300 行 Object.assign(globalThis, apiC) 已铺 BLOCKS/B_WATER——advCampfireRelightHint
+     回落扫描同款口径, 零第二真值源) */
+  let lit = 0;
+  let out = 0;
+  for (const k of Object.keys(BLOCKS)) {
+    const b = BLOCKS[k];
+    if (b && b.campfire === 'lit') lit = +k;
+    if (b && b.campfire === 'out') out = +k;
+  }
+  return {lit, out, water: B_WATER};
+}
+
+test('C5 跨图同烧: 下界放置台账键 n| 前缀 → 回上界同钟步进 → 回下界余量接续(跨图不重置)', () => {
+  freshC();
+  const IDS = campfireIdsC();
+  AN.advSetDim('nether');
+  const ns = netherSpotC();
+  holdOnlyC('campfire', 1);
+  AM.onMouse(2, {x: ns.x, y: 20, z: ns.z, nx: 0, ny: 1, nz: 0});
+  const k = 'n|' + ns.x + ',21,' + ns.z;
+  assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), IDS.lit, '前置: 下界火落格');
+  assert.ok(AN.advCampfires.map.has(k), '台账键带 n| 图前缀(键形跨图单源)');
+  assert.strictEqual(AN.advCampfires.map.get(k).left, 6000, '满时长建条');
+  AN.advSetDim('overworld');
+  for (let i = 0; i < 20; i++) AM.update(0.5); /* 上界喂 200 刻 */
+  assert.strictEqual(AN.advCampfires.map.get(k).left, 5800,
+      '跨图同钟: 上界步进下界条目(同烧——账跟着全局计划钟走)');
+  AN.advSetDim('nether');
+  assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), IDS.lit, '回下界: 方块仍燃烧态');
+  assert.strictEqual(AN.advCampfires.map.get(k).left, 5800, '余量接续(非满时长重置)');
+});
+
+test('C5 误淬门禁: 上界水压下界火坐标正上方 — 门禁拒答不误淬(条目存活+上界世界不被写)', () => {
+  freshC();
+  const IDS = campfireIdsC();
+  AN.advSetDim('nether');
+  const ns = netherSpotC();
+  holdOnlyC('campfire', 1);
+  AM.onMouse(2, {x: ns.x, y: 20, z: ns.z, nx: 0, ny: 1, nz: 0});
+  const k = 'n|' + ns.x + ',21,' + ns.z;
+  AN.advSetDim('overworld');
+  globalThis.editBlock(ns.x, 22, ns.z, IDS.water); /* 上界世界同坐标正上方布水(纯直写布景) */
+  for (let i = 0; i < 10; i++) AM.update(0.5); /* 上界喂 100 刻 */
+  assert.ok(AN.advCampfires.map.has(k), '跨图条目存活(sceneGate 拒答, 零误淬)');
+  assert.strictEqual(apiC.getBlock(ns.x, 22, ns.z), IDS.water,
+      '上界世界不被误写(浇熄收尾不落当前世界)');
+  assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), 0,
+      '上界同坐标格不被换熄灭态(onQuench 收尾不误落上界)');
+  AN.advSetDim('nether');
+  assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), IDS.lit, '回下界: 火仍燃(未被他图水误熄)');
+});
+
+test('C5 跨图燃尽: 下界条目在上界到期 → 收尾落 nether 桶记账+上界世界零碰 → 回下界重放火格消失', () => {
+  freshC();
+  const IDS = campfireIdsC();
+  AN.advSetDim('nether');
+  const ns = netherSpotC();
+  holdOnlyC('campfire', 1);
+  AM.onMouse(2, {x: ns.x, y: 20, z: ns.z, nx: 0, ny: 1, nz: 0});
+  const k = 'n|' + ns.x + ',21,' + ns.z;
+  AN.advCampfires.map.get(k).left = 10; /* 亏刻布景(燃尽步进路径归 kit 测试罩) */
+  AN.advSetDim('overworld');
+  globalThis.editBlock(ns.x, 21, ns.z, IDS.water); /* 上界同坐标布哨兵(基座该格在地下) */
+  AM.update(0.5); /* 10 刻: 到期燃尽(上界喂拍, 收下界的账) */
+  assert.ok(!A.advCampfires.map.has(k), '燃尽删条(台账出清)');
+  assert.strictEqual(AN.advSceneEdits.nether.get(k), 0,
+      '收尾记账落 nether 桶(posKey→0——第 4 参按键落自己场景的桶, 不串当前图)');
+  assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), IDS.water,
+      '上界世界零碰(哨兵水原样——跨图收尾不 editBlock 当前世界)');
+  AN.advSetDim('nether');
+  assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), 0,
+      '回下界: 重放 nether 桶后火格消失(燃尽跨图生效, 非僵尸火)');
+});
+

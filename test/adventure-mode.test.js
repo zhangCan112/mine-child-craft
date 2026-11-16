@@ -155,6 +155,30 @@ globalThis.applySweep = () => {
 };
 globalThis.sfx = (k) => calls.push(['sfx', k]);
 
+/* 篝火 T-C5 装具扩装(报备): Node 侧气流 sim 录制器——镜像 world.js 装配的
+   UPDRAFT_SIM 消费面(add/remove/clear, 键控去重同 updraft-core)。必须在下方
+   require adventure.js 之前铺全局: adventure.js 顶层构造 advCampfires 时捕获
+   UPDRAFT_SIM(require 期), 后铺不生效(C3 vm 全局装载序同款陷阱) */
+globalThis.UPDRAFT_SIM = {
+  added: [], removed: [], /* 断言面: 注册载荷/注销坐标逐条记录 */
+  _keys: new Set(),
+  add(e) {
+    const k = e.x + ',' + e.y + ',' + e.z;
+    if (this._keys.has(k)) return; /* 键去重(镜像真 sim 注册口径) */
+    this._keys.add(k);
+    this.added.push(e);
+  },
+  remove(x, y, z) {
+    if (!this._keys.delete(x + ',' + y + ',' + z)) return;
+    this.removed.push([x, y, z]);
+  },
+  clear() {
+    this._keys.clear();
+    this.added.length = 0;
+    this.removed.length = 0;
+  },
+};
+
 /* ---------- 假应用层(调用期解析的全局名) ---------- */
 const calls = [];
 const spoken = [];
@@ -177,6 +201,7 @@ globalThis.SyncDB = {
 globalThis.loadScene = (fn) => {
   calls.push(['loadScene']);
   api.world.clear();
+  if (UPDRAFT_SIM) UPDRAFT_SIM.clear(); /* T-C5 镜像生产 clearWorld(world.js:844): 换场景注销全量——残留注册会掩盖 readd 重注册缺陷 */
   fn();
 }; /* 场景装填 seam: 清场+建场(收尾重建归渲染层, 行为断言不需要) */
 /* 昼夜 seam(world.js 未装, 昼夜 D1): dayTime/dayCycleOn 是 world.js 顶层
@@ -7129,3 +7154,152 @@ test('PO④-3 正控: 无傀儡遮挡靶石照常挖穿(豁免不误伤普通挖
       'C 照常挖穿(木镐 1.125s, 60 帧富余; 触屏单击本块完成即停)');
   clearAim();
 });
+
+/* ---------- 篝火 T-C5: 存档与口径(campfire-spec §3.8/§4/§6 红线 7) ----------
+   台账档键(campfires, 只记燃烧态) + 重放对账(缺账补满/僵账核销/非法拒收) +
+   重进续烧(整刻零漂) + 气流重注册。对账落点四处(init/切图/切界×2)由本文件
+   init 路径与 adventure-nether 跨图段分头罩。 */
+
+/* 相邻两格草地净空(T-C5 对账/双火测试布景: 两燃块)——基座确定性建场,
+   freshInit 前后扫格结果一致 */
+function findTwoGrassSpots() {
+  for (let x = 3; x < W - 1; x++) {
+    for (let z = 3; z < D; z++) {
+      if (cell(x, 24, z) === 1 && cell(x, 25, z) === 0 &&
+          cell(x + 1, 24, z) === 1 && cell(x + 1, 25, z) === 0) {
+        return [{x, z}, {x: x + 1, z}];
+      }
+    }
+  }
+  throw new Error('找不到相邻双草地净空');
+}
+
+test('T-C5 存档往返: 放置→亏刻→cleanup 落盘 campfires 档键 → 重进台账恢复续烧(非重置, 整刻零漂)', () => {
+  mem.clear();
+  freshInit();
+  assert.ok(api.B_CAMPFIRE != null, '接线前置');
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  for (let i = 0; i < 20; i++) AdventureMode.update(0.5); /* 亏 200 刻 */
+  const k = spot.x + ',25,' + spot.z;
+  assert.strictEqual(A.advCampfires.map.get(k).left, 5800, '前置: 亏 200 刻(余 5800)');
+  AdventureMode.cleanup(); /* 落盘(journal payload campfires 键随 flush) */
+  const saved = JSON.parse(mem.get('adventure_world_save'));
+  assert.deepStrictEqual(saved.campfires, [[k, {left: 5800}]],
+      'campfires 档键落地([[posKey,{left}]], 只记燃烧态, 刻数随存档)');
+  freshInit(); /* 重进 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '重进: 方块仍燃烧态(edits 重放)');
+  assert.strictEqual(A.advCampfires.map.get(k).left, 5800,
+      '台账恢复 5800(档键灌装, 非满时长重置——重进续烧口径)');
+  for (let i = 0; i < 300; i++) AdventureMode.update(0.5); /* 再烧 3000 刻 */
+  assert.strictEqual(A.advCampfires.map.get(k).left, 2800,
+      '续烧零漂移: 5800−3000=2800 恰(§4 整刻域, 重进不重置不跳变)');
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '仍在燃(2800 刻远未燃尽)');
+});
+
+test('T-C5 熄灭态重进: 浇熄→档键空数组(只记燃烧态) → 重进熄灭态在+台账空 → 空手重燃满时长', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  holdOnly('campfire', 1);
+  AdventureMode.onMouse(2, {x: spot.x, y: 24, z: spot.z, nx: 0, ny: 1, nz: 0});
+  globalThis.editBlock(spot.x, 25, spot.z + 1, api.B_WATER);
+  AdventureMode.update(0.5); /* 浇熄(T-C3 链) */
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE_OUT, '前置: 浇熄(id 互换)');
+  AdventureMode.cleanup();
+  const saved = JSON.parse(mem.get('adventure_world_save'));
+  assert.deepStrictEqual(saved.campfires, [], '熄灭态不进档(encode 清扫永不产 ≤0 残账)');
+  freshInit(); /* 重进 */
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE_OUT, '重进: 熄灭态在(edits 重放同态)');
+  assert.strictEqual(A.advCampfires.map.size, 0, '台账空(熄灭态零侧账)');
+  holdOnly(null); /* 空手点击重燃(T-C3 先例) */
+  AdventureMode.onMouse(2, {x: spot.x, y: 25, z: spot.z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(cell(spot.x, 25, spot.z), api.B_CAMPFIRE, '重燃: 燃烧态落格');
+  assert.strictEqual(A.advCampfires.map.get(spot.x + ',25,' + spot.z).left, 6000,
+      '满时长重建(重燃=新的一炉, 非余量续算)');
+});
+
+test('T-C5 重放对账: 缺账燃块补满 6000 + 非法档条整条拒收(合法 keep 刻数原样)', () => {
+  mem.clear();
+  freshInit(); /* 建基座(确定性建场: 找格结果跨 init 稳定) */
+  const spots = findTwoGrassSpots();
+  const k1 = spots[0].x + ',25,' + spots[0].z;
+  const k2 = spots[1].x + ',25,' + spots[1].z;
+  mem.clear();
+  mem.set('adventure_world_save', JSON.stringify({
+    edits: {home: [[k1, api.B_CAMPFIRE], [k2, api.B_CAMPFIRE]]},
+    campfires: [[k1, {left: 2500}], ['broken-key', {left: 100}], [k2 + ',', {left: -5}]],
+  }));
+  freshInit(); /* 重进: edits 重放两燃块 + 档键对账 */
+  assert.strictEqual(cell(spots[0].x, 25, spots[0].z), api.B_CAMPFIRE, '燃块 k1 重放在场');
+  assert.strictEqual(cell(spots[1].x, 25, spots[1].z), api.B_CAMPFIRE, '燃块 k2 重放在场');
+  assert.strictEqual(A.advCampfires.map.get(k1).left, 2500, '合法条 keep(刻数原样, 非补满非重置)');
+  assert.strictEqual(A.advCampfires.map.get(k2).left, 6000,
+      '缺账燃块补满 6000(重放对账 plant——在世无账=满时长)');
+  assert.strictEqual(A.advCampfires.map.size, 2,
+      '非法档条整条拒收(垃圾键/负刻; 台账恰 2 条零夹带)');
+});
+
+test('T-C5 僵账核销: 档含条目而世界无燃块 → 重进对账 drop 删条(在账无世=核销)', () => {
+  mem.clear();
+  freshInit();
+  const spot = findGrassSpot();
+  const k = spot.x + ',25,' + spot.z;
+  const kz = (spot.x + 3) + ',25,' + spot.z; /* 僵尸账: 无对应燃块 */
+  mem.clear();
+  mem.set('adventure_world_save', JSON.stringify({
+    edits: {home: [[k, api.B_CAMPFIRE]]},
+    campfires: [[k, {left: 4000}], [kz, {left: 4000}]],
+  }));
+  freshInit(); /* 重进 */
+  assert.strictEqual(A.advCampfires.map.get(k).left, 4000, '在账在世: keep(对照组)');
+  assert.ok(!A.advCampfires.map.has(kz) && cell(spot.x + 3, 25, spot.z) !== api.B_CAMPFIRE,
+      '在账无世: 僵账核销 drop(台账删条, 世界不被凭空补块)');
+  assert.strictEqual(A.advCampfires.map.size, 1, '核销后台账恰 1 条');
+});
+
+test('T-C5 气流重注册: 重进对账后 sim 注册数=燃烧态格数(readd 缝; 装具清场镜像生产, 残留必露馅)', () => {
+  mem.clear();
+  freshInit();
+  const spots = findTwoGrassSpots();
+  holdOnly('campfire', 2);
+  AdventureMode.onMouse(2, {x: spots[0].x, y: 24, z: spots[0].z, nx: 0, ny: 1, nz: 0});
+  AdventureMode.onMouse(2, {x: spots[1].x, y: 24, z: spots[1].z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(UPDRAFT_SIM.added.length, 2, '前置: 放置即注册(两格, T-C2 链)');
+  AdventureMode.cleanup();
+  freshInit(); /* loadScene 桩已镜像生产清场: sim 注册全清后重挂 */
+  assert.strictEqual(UPDRAFT_SIM.added.length, 2,
+      '重进对账后 sim 重注册恰 2(台账恢复≠注册恢复, readd 缝补注册)');
+  const got = UPDRAFT_SIM.added.map((e) => e.x + ',' + e.y + ',' + e.z).sort();
+  const want = [spots[0].x + ',25,' + spots[0].z, spots[1].x + ',25,' + spots[1].z].sort();
+  assert.deepStrictEqual(got, want, '注册键=两燃烧格(presence 口径)');
+  freshInit(); /* 再重进: 清场→重挂, 幂等不累加 */
+  assert.strictEqual(UPDRAFT_SIM.added.length, 2, '再重进: 重注册仍恰 2(幂等, 残留注册即红)');
+});
+
+test('T-C5 fx 增项(C9 评审 SPEC-3 移交): 读档恢复特效句柄重开 — 存档含燃烧态→重进发射器在位; 熄灭态零特效照旧', () => {
+  mem.clear();
+  freshInit();
+  const fx = A.advCampfireFx; /* C9 测试缝(advCampfires 同款导出)——缝缺席时本条首断言干净红 */
+  assert.ok(fx && typeof fx.active === 'function',
+      'advCampfireFx 经 adv 测试缝导出(句柄制, fx.open 幂等)');
+  const spots = findTwoGrassSpots();
+  holdOnly('campfire', 2);
+  AdventureMode.onMouse(2, {x: spots[0].x, y: 24, z: spots[0].z, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(fx.active(spots[0].x, 25, spots[0].z), true, '前置: 放置即燃发射器在位');
+  AdventureMode.onMouse(2, {x: spots[1].x, y: 24, z: spots[1].z, nx: 0, ny: 1, nz: 0});
+  globalThis.editBlock(spots[1].x, 25, spots[1].z + 1, api.B_WATER);
+  AdventureMode.update(0.5); /* 第二格浇熄(一燃一熄双态布景) */
+  assert.strictEqual(cell(spots[1].x, 25, spots[1].z), api.B_CAMPFIRE_OUT, '前置: 第二格浇熄');
+  AdventureMode.cleanup();
+  freshInit(); /* 读档重进: init 重放+对账完成后逐燃烧格重开 fx(§5.10 程序面) */
+  assert.strictEqual(cell(spots[0].x, 25, spots[0].z), api.B_CAMPFIRE, '前置: 燃烧态恢复');
+  assert.strictEqual(A.advCampfireFx.active(spots[0].x, 25, spots[0].z), true,
+      '读档恢复: 燃烧格发射器在位(重开缝接线, 不钉速率——渐起语义归 C9)');
+  assert.ok(A.advCampfireFx.emitters(spots[0].x, 25, spots[0].z), '发射器句柄在位(非裸布尔)');
+  assert.strictEqual(cell(spots[1].x, 25, spots[1].z), api.B_CAMPFIRE_OUT, '前置: 熄灭态恢复');
+  assert.strictEqual(A.advCampfireFx.active(spots[1].x, 25, spots[1].z), false,
+      '熄灭态格零特效照旧(重开只认燃烧态)');
+});
+

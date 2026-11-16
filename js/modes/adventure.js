@@ -236,7 +236,7 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
      oreRegen: 矿位开采账(生态恢复, '<场景>:x,y,z'→'Y-M-D', 跨天回填); dayTime: 昼夜全局单钟 */
   /* v3(2026-10-28 剪羊毛): livestock 桶增剪毛账 sheared({初始畜索引: 剪毛时刻
      dayTime}; 繁育畜剪毛时刻挂 bred 条目上)——跨天长回判据的持久化半边 */
-  defaults: {edits: [], map: 'home', pos: null, hp: null, furnaces: [],
+  defaults: {edits: [], map: 'home', pos: null, hp: null, furnaces: [], campfires: [],
     den: null, /* 每日副本态(D20): {day 'Y-M-D', wave, chestDone, deadGuards 守卫表序} */
     denMobs: [], /* 副本活怪快照(D23): [{t,x,y,z,hp,mhp,gi?,wv?,spd?,dmg?,hx?,hz?}]——
        关页续局的怪半边(在副本内落盘时刷新, 出副本/跨窗清空) */
@@ -259,6 +259,9 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     pos: st.pos || null,
     hp: (typeof st.hp === 'number') ? st.hp : null,
     furnaces: advFurnaceClean(st.furnaces), /* 空炉条目清扫(存档防膨胀) */
+    campfires: advCampfiresClean(st.campfires), /* 燃烧态台账档键(T-C5, §3.8
+       furnaces 同款形状 [[posKey,{left}]]; ≤0 残账清扫; 只记燃烧态——熄灭态
+       状态全在方块 id, edits 账本天然重放零侧账, §6 红线 7) */
     den: st.den || null, /* 每日副本态(D20) */
     denMobs: Array.isArray(st.denMobs) ? st.denMobs : [], /* 副本活怪快照(D23) */
     denPos: st.denPos || null, /* 副本落点快照(D23) */
@@ -274,6 +277,9 @@ const advWorldSlot = SyncDB.slot(ADV_WORLD_KEY, {
     pos: sv.pos || null,
     hp: (typeof sv.hp === 'number') ? sv.hp : null,
     furnaces: new Map((sv.furnaces || []).filter((e) => advFurnaceValid(e && e[1]))), /* 非法炉态整条拒收 */
+    campfires: advCampfiresDecode(sv.campfires), /* 台账档键解码(T-C5, §3.8):
+       [[posKey,{left}]] → Map(posKey→{x,y,z,left}); 非法条目整条拒收不抛,
+       旧档缺键 undefined → 空 Map 零迁移 */
     den: advDenDailyDecode(sv.den), /* 每日副本态归一(老档/坏档 null=首进全新, D20) */
     denMobs: advDenMobsDecode(sv.denMobs), /* 副本活怪快照归一(D23; 老档缺键=空) */
     denPos: advDenPosDecode(sv.denPos), /* 副本落点快照归一(D23; 老档缺键=null) */
@@ -350,7 +356,8 @@ const advJournal = mkWorldJournal(advWorldSlot, {
       pos: advDim !== 'overworld' ? null : {x: pos.x, y: pos.y, z: pos.z, yaw},
       /* 维度不进档(nether D9+den D8 单点判据, dimension-registry §2); 副本关页
         续局走 denPos/denMobs 副本专属字段(D23), pos 判据本身不动 */
-      hp: ADV.player.hp, furnaces: advFurnaces, livestock: advLivestockAll, oreRegen: advOreRegen,
+      hp: ADV.player.hp, furnaces: advFurnaces, campfires: advCampfires.map,
+      livestock: advLivestockAll, oreRegen: advOreRegen,
       pumpkinRegen: advPumpkinRegen, dayTime,
       golems: advGolemsAll, /* golems 桶随世界档(mob-crafting D6: 存活跨档——漏此键
         桶只在内存, 重进全丢; slot encode/decode 与本 payload 两处都要在) */
@@ -905,12 +912,25 @@ function cfKitResolve() {
     plant() {/* 无源域: 陈列壳零篝火交互 */},
     tick() {/* 同上: 不喂即冻结 */},
     drop() {/* 同上 */},
+    readd() {/* 同上: 无 sim 可挂(T-C5 对账缝缺席=零注册) */},
+    simClear() {/* 同上: 登记册作废零动作(T-C5) */},
     reset() {/* 同上 */},
     encode() {
       return [];
     },
   };
   return {mkCampfireLedger: () => bareLedger};
+}
+/* 跨图收尾记账(T-C5, campfire-spec §3.8): 燃尽/浇熄发生在键所属场景之外时
+   (下界的火在上界烧到头), 只按台账键归属落桶——两笔: 台账键形(posKey→值,
+   跨图收尾的记账面, 与台账/encode 同键形) + 裸键世界真值(edits 重放按裸键
+   落格, 重进那张图火格如实消失/换熄——缺这笔重放会复燃僵尸火); 当前世界
+   零碰零级联(touch 置脏让收尾随档; editBlock 只属于「人在场」的收尾)。 */
+function advCampfireCrossMark(k, x, y, z, val) {
+  const scene = advFurnKeyDim(k);
+  advSceneEdits[scene].set(k, val);
+  advSceneEdits[scene].set(blockKey(x, y, z), val);
+  advStore.touch();
 }
 const advCampfires = cfKitResolve().mkCampfireLedger({
   /* 气流注册/注销缝(篝火 T-C2, spec §3.5): 燃烧态=plant 即 add、燃尽到期/
@@ -922,14 +942,31 @@ const advCampfires = cfKitResolve().mkCampfireLedger({
      advCampfireQuenchHit 问浇熄几何(命中=删条+气流注销+onQuench); Node
      require 域无 voxel.js → typeof 守卫回落 null(零问询零炸, 燃尽路径原样) */
   read: (typeof getBlock === 'function') ? getBlock : null,
+  /* 键形注入(T-C5 跨图同烧, D14 炉键同源): 前缀知识单份在 ADV_FURN_PREFIX,
+     home 不前缀=旧档天然兼容; 台账/encode/两回调全链同一键形 */
+  key: (x, y, z) => ADV_FURN_PREFIX[advSceneKey()] + blockKey(x, y, z),
+  /* 浇熄问询门禁(T-C5 误淬防线): 跨图条目拒答当前世界的水问询——下界的火
+     不因上界同坐标的水被误淬(门禁只拦跨图, 本图浇熄照常) */
+  sceneGate: (k) => advFurnKeyDim(k) === advSceneKey(),
   /* 浇熄收尾(T-C3): 照 onBurnout 收尾序(记账→editBlock)做 id 互换
      燃→熄(editBlock 非零 id 不触发级联, 浇熄≠挖掘零掉落)——存档红线件走
-     编辑链记账(重进重放同态), 熄灭态零侧账(条目已由 kit 删) */
-  onQuench: (x, y, z) => {
+     编辑链记账(重进重放同态), 熄灭态零侧账(条目已由 kit 删); 第 4 参 k=
+     台账键(T-C5): 跨图键只按归属场景记账, 当前世界零碰零级联 */
+  onQuench: (x, y, z, k) => {
+    if (advFurnKeyDim(k) !== advSceneKey()) {
+      advCampfireCrossMark(k, x, y, z, B_CAMPFIRE_OUT); /* 跨图兜底(sceneGate
+        拒答在先, 生产 wiring 不可达; kit 直调域防线两道) */
+      return;
+    }
     advMarkEdit(x, y, z, B_CAMPFIRE_OUT); /* 浇熄格先记账(id 互换, 后写覆盖才对) */
     editBlock(x, y, z, B_CAMPFIRE_OUT); /* 编辑链 id 互换(掉光场变化, 不掉落) */
   },
-  onBurnout: (x, y, z) => {
+  onBurnout: (x, y, z, k) => {
+    if (advFurnKeyDim(k) !== advSceneKey()) {
+      advCampfireCrossMark(k, x, y, z, 0); /* 跨图燃尽: 收尾落归属场景的桶
+         (回那张图重放后火格消失, 不串当前世界) */
+      return;
+    }
     advMarkEdit(x, y, z, 0); /* 燃尽格先记账(级联清单不含触发格, 后写覆盖才对) */
     advCascadeApply(editBlock(x, y, z, 0), false); /* 编辑链移除+级联(上方依附 thin 块随底座脱落) */
   }});
@@ -2429,6 +2466,35 @@ function advFurnaceSettle(sceneKey) {/* 炉态核销(参照 decode 侧 advFurnac
   }
 }
 
+/* ---------- 篝火重放对账 (T-C5, campfire-spec §3.8: 重放后一次完成, 双向宽容) ----------
+    与炉态核销(advFurnaceSettle)同段同拍四处挂: init/切图/切界两分支。对账体:
+    lit=扫当前场景桶收燃烧态(campfire 全为玩家放置, edits 全量权威) → 纯函数
+    advCampfiresReconcile 三清单 → 灌装(缺账补满孩子不亏/僵账核销/keep 留);
+    随后当前场景燃烧格逐格 sim 重注册(readd, §3.8 验收=注册数对齐燃烧块数;
+    fx 特效重开随 C9 合并对账缝第四步接线)。调用点恒在 loadScene 重放之后
+    (sim 已随清场清空)。 */
+function advCampfireSettle(sceneKey) {
+  advCampfires.simClear(); /* sim 侧注册已随 loadScene 清场: 登记册作废, 其后 readd 全数重挂 */
+  const lit = new Set();
+  const prefix = ADV_FURN_PREFIX[sceneKey]; /* lit 灌台账规范键形(带本场景前缀):
+      edits 桶键=裸键(blockKey), 台账键=带前缀(D14 同源)——键形对齐归本缝,
+      纯函数只按键体比较(advCampfiresReconcile 契约) */
+  for (const [k, v] of advSceneEdits[sceneKey]) {
+    const id = (v && typeof v === 'object') ? v.id : v; /* 流体格 {id,lv} 双通道解包 */
+    if (id === B_CAMPFIRE) lit.add(prefix + k);
+  }
+  const r = advCampfiresReconcile(advCampfires.map, {
+    lit,
+    sceneOf: (k) => advFurnKeyDim(k) === sceneKey, /* 布尔闭包: 跨图键不入三清单 */
+  });
+  for (const [k, e] of r.plant) advCampfires.map.set(k, e); /* 在世无账=补满(直灌对偶形, 键形已对齐台账) */
+  for (const k of r.drop) advCampfires.map.delete(k); /* 在账无世=僵账核销 */
+  for (const [k, e] of advCampfires.map) {
+    if (advFurnKeyDim(k) !== sceneKey) continue; /* 他图条目: 进那张图再核(炉键同口径) */
+    advCampfires.readd(e.x, e.y, e.z); /* 气流柱重挂(presence+登记册幂等) */
+  }
+}
+
 /* ---------- 切图/切界(D8/D10/D11 泛化, §3.3 + 票据 T6) ----------
      换装共通清单抽 advSceneLeave(nether 合并既有清单照抄扩位): 换桶→清蓄力/
      TNT 判定/炉面板/光束/火焰/树苗计时/引信→清怪清掉落清箭→重挂实体回调。
@@ -2471,6 +2537,7 @@ function advOverworldReload() {/* 主世界当前图整场重建(〔世界边界
     advGolemsRespawn(); /* 按桶重召当前图傀儡(mob-crafting D6: 存活跨档, 家锚+hp 复原) */
     advRescanStations();
     advFurnaceSettle(advMap);
+    advCampfireSettle(advMap); /* T-C5: 重放对账(缺账补满/僵账核销)+气流重注册 */
   });
 }
 function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前桶重放) → 换天/昼夜门 →
@@ -2525,6 +2592,7 @@ function advSetDim(dim, spot) {/* 切界: 换桶 → 重装场景(基座+当前�
       advRescanStations(); /* 站点缓存只反映当前场景(读当前桶); 与炉键核销分属
           advStations/advFurnaces 两不相交的状态, 先后次序无观测差 */
       advFurnaceSettle(dim); /* 维度炉键('n|'/'k|')此时才有块可对(D14 泛化) */
+      advCampfireSettle(dim); /* T-C5: 维度篝火键('n|'/'k|')重放对账+气流重注册 */
     });
     advApplySky(drow.sky); /* 暗红/近黑天穹: 行参数, 一眼就知道到了哪个维度 */
     dayCycleOn = drow.dayCycle; /* 维度恒停 dayTime(日月天体随之隐藏, D10/D6) */
@@ -2595,6 +2663,7 @@ function advSetMap(mapId, spot) {/* 切主世界图(T6, T7 地图门站桩传送
     advGolemsRespawn(); /* 按桶重召当前图傀儡(mob-crafting D6: 存活跨档, 家锚+hp 复原) */
     advRescanStations();
     advFurnaceSettle(advMap);
+    advCampfireSettle(advMap); /* T-C5: 切图重放对账(远征图各自的燃烧态)+气流重注册 */
   });
   dayCycleOn = true; /* 主世界图昼夜照转(D10 只关 nether) */
   applyDaylight(); /* 天色按行 skyBase 基准落到当前时刻 */
@@ -5232,6 +5301,9 @@ const AdventureMode = mkMode({
     advFlamesClear(); /* F2: 炉口火焰一并复位(上一场的观感不渗进来) */
     for (const [k, s] of advLoad.furnaces) advFurnaces.set(k, s); /* F1: 每炉独立炉态重进照旧(decode 已过滤非法) */
     advFurnaceSettle(advMap); /* D14: 当前图炉键对重放后的世界核销(块没了炉态丢); 他图/界键进那张图建场后再核 */
+    for (const [k, e] of advLoad.campfires) advCampfires.map.set(k, e); /* T-C5: 台账档键灌装
+       (decode 已拒非法条目; 直灌不走 plant——注册归对账 readd, 防双挂) */
+    advCampfireSettle(advMap); /* T-C5: 重放对账双向一次(缺账补满/僵账核销)+气流重注册 */
     advMineStop(); /* 蓄力状态复位(上次退出可能按住) */
     advMouseListeners(true); /* 桌面按住连挖检测(capture) */
     advSyncHotbar();

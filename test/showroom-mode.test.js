@@ -1869,3 +1869,38 @@ test('体验馆同口径: 篝火放置即燃 → 邻格水浇 → 同壳 update 
   assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.out, '浇熄: 熄灭态落格(同壳零场景分支)');
   assert.strictEqual(A.advCampfires.map.size, 0, '侧账删条(统一壳同一账本)');
 });
+
+/* ---------- 篝火 T-C5 体验馆 dev 口径(campfire-spec §6 红线 7): 发放/内存态/退场清/零污染 ----------
+   dev 口径四锚: 套餐发放篝火(≥1 行, 数量不钉) · 台账纯内存态(同壳同账本) ·
+   cleanup 退场即清(dev 会话账不渗下一进场) · 存档介质零污染(dev store 丢弃一切,
+   campfires 键不落盘)。 */
+
+test('体验馆 T-C5 发放与内存态: dev 套餐含 campfire 行(≥1) — 放置台账内存态活(同壳同账本)', () => {
+  freshEnter();
+  assert.ok(ShowroomMode.stock.some((r) => r.id === 'campfire'),
+      'dev 套餐发放篝火(体验馆可试玩, 数量不钉)');
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0});
+  assert.ok(A.advCampfires.map.has('81,' + (G + 1) + ',58'),
+      '台账内存态在册(同壳同账本, home 场景键形)');
+});
+
+test('体验馆 T-C5 退场即清+零污染: cleanup 台账复位(dev 账不渗) — 存档介质零写入+重进原装', () => {
+  freshEnter();
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advCampfires.map.size, 1, '前置: 台账在册');
+  ShowroomMode.cleanup();
+  assert.strictEqual(A.advCampfires.map.size, 0,
+      '退场即清(dev 会话台账复位, 不渗进下一模式/下一进场)');
+  assert.strictEqual(mem.size, 0,
+      '存档介质零污染(dev store 丢弃一切, campfires 键不落盘)');
+  freshEnter(); /* 重进: 世界=基座+展馆账本重放, dev 会话改动随丢弃消失 */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), 0, '重进: 篝火不在场(非账本内容不重放)');
+  assert.strictEqual(A.advCampfires.map.size, 0, '重进: 台账空(零复活)');
+});
+

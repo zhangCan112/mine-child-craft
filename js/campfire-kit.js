@@ -11,23 +11,33 @@
    零墙钟(墙钟读数禁用, spec §6-8 确定性重放红线)——不喂
    tick 即冻结, 暂停语义归消费方挂缝(菜单/未锁定/暂停不喂, furnace 同拍)。
    interface: CampfireKit.mkCampfireLedger(opts) → ledger
-     opts.onBurnout(x,y,z) — 燃尽回调(消费方做 editBlock 收尾; 未注入=静默删条)
+     opts.onBurnout(x,y,z,k) — 燃尽回调(消费方做 editBlock 收尾; 未注入=静默
+       删条); 第 4 参 k=台账键(T-C5: 跨图收尾按键落自己场景的桶)
      opts.read(x,y,z)→id — 水浇读缝(T-C3): 传世界 getBlock, tick 每刻经
        advCampfireQuenchHit 问浇熄几何; 未注入=零问询零炸(燃尽路径原样)
-     opts.onQuench(x,y,z) — 浇熄回调(T-C3): 命中水邻删条后消费方做 id 互换
-       (editBlock B_CAMPFIRE_OUT); 未注入=静默删条
+     opts.onQuench(x,y,z,k) — 浇熄回调(T-C3): 命中水邻删条后消费方做 id 互换
+       (editBlock B_CAMPFIRE_OUT); 未注入=静默删条; 第 4 参同上(T-C5)
+     opts.key(x,y,z)→posKey — 键形注入(T-C5 跨图): 台账/encode/回调全链同源
+       一键形(带图前缀族); 缺省裸键(旧装配零迁移)
+     opts.sceneGate(k)→bool — 浇熄问询门禁(T-C5 误淬防线): 拒答=该条目本刻
+       不问水(跨图条目不被当前世界水误淬); 缺省全查(=旧行为)
      opts.updraft — 气流注册/注销缝(T-C2, {add,remove} 鸭型; 生产侧传
        world.js 装配的 UPDRAFT_SIM; 未注入全程容忍=装配前/Node 语境零炸):
        plant(燃烧态)=add({x,y,z,r,h,lift}) · tick 燃尽到期=remove ·
        drop 已知格=remove(未知格零回调, presence 口径)
      ledger.map — 台账 Map(裸形状暴露, furnace-kit station.map 同款口径)
-     ledger.plant(x,y,z) — 放置即燃: 满时长建条(posKey 键, 键形 x,y,z 逗号串)
+     ledger.plant(x,y,z) — 放置即燃: 满时长建条(键形经 opts.key)
      ledger.tick(dt) — 计划刻泵(20tps 量化整刻, 燃尽条目经 onBurnout 逐条回调;
        水邻条目经 onQuench 逐条回调, 浇熄先于燃尽问)
      ledger.drop(x,y,z) — 挖除/覆盖删条(未知格零炸零副作用, presence Map 口径)
+     ledger.readd(x,y,z) — presence 重注册(T-C5 对账缝): 台账在册才挂柱
+       (柱三参单源转发 CF_COLUMN, mode 层零誊抄), 未知格零炸零注册; 登记册
+       去重=重复调用幂等
+     ledger.simClear() — 登记册作废(T-C5): sim 侧注册被外力清空(loadScene
+       清场链)后调, 其后 readd 全数重挂(台账不清——跨图同烧条目留档)
      ledger.reset() — 重进场复位清空(存档重灌归消费方, T-C5 档键缝)
-     ledger.encode() — [[posKey,{left}]] 存档形状桩(advCampfiresClean 同形,
-       T-C5 接档键时归一对账)
+     ledger.encode() — [[posKey,{left}]] 存档形状(advCampfiresClean 同形,
+       台账键原样=带注入前缀)
    依赖(均经全局名, 调用期解析): js/adventure-core.js 的 advCampfiresStep/
      advCampfiresClean/advCampfireQuenchHit(装载序双栖: 经典 script 共享词法
      全局名直用, Node 走 CJS 导出面, town-ui core 解析先例) · js/config.js 的
@@ -81,11 +91,20 @@ function cfKey(x, y, z) {
 function mkCampfireLedger(opts) {
   const o = opts || {};
   const map = new Map(); /* posKey → 燃烧条目 {x,y,z,left}; 引用跨 init 稳定 */
+  /* 键形/门禁注入(T-C5 跨图四缝之二): key 缺省裸键(旧装配零迁移),
+     sceneGate 缺省全查(=旧行为)——两缝缺省路径与 T-C1/C3 时代逐字节同效 */
+  const key = o.key || cfKey;
+  const sceneGate = o.sceneGate || (() => true);
+  /* 登记册: 账本自认已在 sim 侧的键(readd 幂等据此; plant 挂/drop·浇熄·
+     燃尽摘/reset·simClear 清)——sim 本体按格键幂等, 册=账本侧对齐镜像 */
+  const simKeys = new Set();
 
   /* 放置即燃(spec §3.3): 满时长建条——燃烧账在方块侧, 物品零 dur;
      燃烧态=气流注册(spec §3.5): 源格心+柱参三件单源转发(T-C2 updraft 缝) */
   function plant(x, y, z) {
-    map.set(cfKey(x, y, z), {x, y, z, left: CF_FULL_TICKS});
+    const k = key(x, y, z);
+    map.set(k, {x, y, z, left: CF_FULL_TICKS});
+    simKeys.add(k);
     if (o.updraft) {
       o.updraft.add({x, y, z, r: CF_COLUMN.r, h: CF_COLUMN.h, lift: CF_COLUMN.lift});
     }
@@ -109,21 +128,26 @@ function mkCampfireLedger(opts) {
     acc = avail - fresh * CF_STEP_S; /* 亚刻余量留累积器(丢的是亚刻不是整刻) */
     for (let i = 0; i < n; i++) {
       /* 水浇问询(T-C3, 每刻先于燃尽步进): read 注入才问(零问询零炸, 装配前/
-         无水世界燃尽路径原样), 纯几何经 CF_PURE.quenchHit; 命中=删条+气流
-         注销+onQuench(同 onBurnout 回调序)——浇熄不是燃尽, 两态互换非消失 */
+         无水世界燃尽路径原样), 纯几何经 CF_PURE.quenchHit; sceneGate 拒答的
+         条目本刻不问(T-C5 误淬防线——跨图条目不吃当前世界的水问询); 命中=
+         删条+气流注销+onQuench(同 onBurnout 回调序)——浇熄不是燃尽, 两态
+         互换非消失; 回调第 4 参=台账键(T-C5 跨图收尾按键落桶) */
       if (o.read) {
         for (const [k, e] of map) {
+          if (!sceneGate(k)) continue;
           if (CF_PURE.quenchHit(e.x, e.y, e.z, o.read)) {
             map.delete(k);
+            simKeys.delete(k);
             if (o.updraft) o.updraft.remove(e.x, e.y, e.z);
-            if (o.onQuench) o.onQuench(e.x, e.y, e.z);
+            if (o.onQuench) o.onQuench(e.x, e.y, e.z, k);
           }
         }
       }
       const due = CF_PURE.step(map, 1); /* 纯函数递减+删条, 出到期清单 */
       for (const e of due) {
+        simKeys.delete(key(e.x, e.y, e.z)); /* 登记册随条目出清(键形同源) */
         if (o.updraft) o.updraft.remove(e.x, e.y, e.z); /* 燃尽=注销(与 onBurnout 同一状态迁移点, spec §3.5) */
-        if (o.onBurnout) o.onBurnout(e.x, e.y, e.z);
+        if (o.onBurnout) o.onBurnout(e.x, e.y, e.z, key(e.x, e.y, e.z));
       }
     }
   }
@@ -131,23 +155,46 @@ function mkCampfireLedger(opts) {
   /* 破坏钩(挖除/TNT/覆盖, advMarkEdit seam): presence Map 口径——未知格
      零炸零副作用, 不读世界值; 已知格删条连带气流注销(挖除=remove, T-C2) */
   function drop(x, y, z) {
-    if (map.delete(cfKey(x, y, z)) && o.updraft) o.updraft.remove(x, y, z);
+    const k = key(x, y, z);
+    if (map.delete(k)) {
+      simKeys.delete(k);
+      if (o.updraft) o.updraft.remove(x, y, z);
+    }
+  }
+
+  /* presence 重注册(T-C5 对账缝): 台账在册才挂柱(未知格零炸零注册), 柱三参
+     单源转发 CF_COLUMN(mode 层零誊抄); 登记册去重=重复调用幂等(sim 本体
+     按格键覆盖, 册=免重复载荷的账本侧镜像) */
+  function readd(x, y, z) {
+    const k = key(x, y, z);
+    const e = map.get(k);
+    if (!e || simKeys.has(k) || !o.updraft) return;
+    simKeys.add(k);
+    o.updraft.add({x: e.x, y: e.y, z: e.z, r: CF_COLUMN.r, h: CF_COLUMN.h, lift: CF_COLUMN.lift});
+  }
+
+  /* 登记册作废(T-C5): sim 侧注册被外力清空(loadScene 清场链 UPDRAFT_SIM.clear)
+     后调——册=注册态镜像, 外力清场后册已过期, 作废使其后 readd 全数重挂;
+     台账不动(跨图同烧条目留档) */
+  function simClear() {
+    simKeys.clear();
   }
 
   /* 重进场复位(init 消费): 台账清空(存档重灌归消费方) */
   function reset() {
     map.clear();
+    simKeys.clear();
     acc = 0;
     backlog = 0;
   }
 
-  /* 存档形状桩(T-C5 档键缝): [[posKey,{left}]] 二元组数组——纯函数
-     advCampfiresClean 同形, 只挑 left 坐标不双写 */
+  /* 存档形状(T-C5 档键缝): [[posKey,{left}]] 二元组数组——纯函数
+     advCampfiresClean 同形, 只挑 left 坐标不双写; 键=台账键原样(带注入前缀) */
   function encode() {
     return CF_PURE.clean(map);
   }
 
-  return {map, plant, tick, drop, reset, encode};
+  return {map, plant, tick, drop, readd, simClear, reset, encode};
 }
 
 const CampfireKit = {mkCampfireLedger};

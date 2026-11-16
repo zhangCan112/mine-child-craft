@@ -407,3 +407,83 @@ test('T-C3 read 缺席容忍: 无 read 注入 — 燃尽路径照常(装配前/�
   assert.doesNotThrow(() => burnTicks(ledger, 6000), '全程零 read 注入不炸');
   assert.deepStrictEqual(burned, [[1, 1, 1]], '燃尽照常(6000 刻到期恰一次)');
 });
+
+/* ---------- 篝火 T-C5: 跨图四缝(campfire-spec §3.8 跨图同烧) ----------
+   opts.key 键形注入(台账/encode/回调同源) · opts.sceneGate 浇熄门禁(跨图条目
+   不被当前世界水误淬) · onQuench/onBurnout 第 4 参 posKey(跨图收尾按键落桶)
+   · ledger.readd presence 重注册(重进对账后气流柱重挂, 柱参单源不誊抄)。 */
+
+test('T-C5 opts.key 注入: 台账键=注入前缀+坐标 — encode/drop/建条同源一键形(跨图键不誊抄)', () => {
+  kitReady();
+  const ledger = CampfireKit.mkCampfireLedger({
+    key: (x, y, z) => 'n|' + x + ',' + y + ',' + z,
+  });
+  ledger.plant(1, 2, 3);
+  assert.ok(ledger.map.has('n|1,2,3'), '建条走注入键形(带图前缀)');
+  assert.ok(!ledger.map.has('1,2,3'), '裸键不在(键形单源)');
+  assert.strictEqual(ledger.encode()[0][0], 'n|1,2,3', 'encode 键形同源(档键带前缀)');
+  ledger.drop(1, 2, 3);
+  assert.strictEqual(ledger.map.size, 0, 'drop 同键删条(破坏缝同形)');
+});
+
+test('T-C5 opts.sceneGate 门禁: 跨图条目拒答浇熄问询(误淬防线) — 放行路径照常浇熄(对照)', () => {
+  kitReady();
+  const quenched = [];
+  const blocked = CampfireKit.mkCampfireLedger({
+    key: (x, y, z) => 'n|' + x + ',' + y + ',' + z,
+    read: mkWaterRead(new Set(['1,3,1'])), /* 当前世界正上方见水(纯布景) */
+    sceneGate: () => false, /* 跨图条目: 不属于当前场景 → 不问 */
+    onQuench: (x, y, z) => quenched.push([x, y, z]),
+  });
+  blocked.plant(1, 2, 1);
+  burnTicks(blocked, 10);
+  assert.strictEqual(blocked.map.size, 1, '门禁拒答: 跨图条目存活(零误淬)');
+  assert.strictEqual(quenched.length, 0, '零浇熄回调');
+  /* 对照: 同布景 sceneGate 放行 → 照常浇熄(门禁只拦跨图, 不拦本图) */
+  const passed = CampfireKit.mkCampfireLedger({
+    read: mkWaterRead(new Set(['1,3,1'])), sceneGate: () => true,
+    onQuench: (x, y, z) => quenched.push([x, y, z]),
+  });
+  passed.plant(1, 2, 1);
+  burnTicks(passed, 1);
+  assert.strictEqual(passed.map.size, 0, '放行路径: 浇熄照常(本图水浇本图火)');
+  assert.strictEqual(quenched.length, 1, '对照回调恰一次');
+});
+
+test('T-C5 回调第 4 参 posKey: onQuench/onBurnout 收台账键(带注入前缀) — 跨图收尾按键落桶的依据', () => {
+  kitReady();
+  const got = [];
+  const quencher = CampfireKit.mkCampfireLedger({
+    key: (x, y, z) => 'n|' + x + ',' + y + ',' + z,
+    read: mkWaterRead(new Set(['1,3,1'])), sceneGate: () => true,
+    onQuench: (x, y, z, k) => got.push(['q', x, y, z, k]),
+  });
+  quencher.plant(1, 2, 1);
+  burnTicks(quencher, 1);
+  assert.deepStrictEqual(got, [['q', 1, 2, 1, 'n|1,2,1']], '浇熄回调第 4 参=台账键(坐标在前键在后)');
+  const burned = [];
+  const burner = CampfireKit.mkCampfireLedger({
+    key: (x, y, z) => 'n|' + x + ',' + y + ',' + z,
+    onBurnout: (x, y, z, k) => burned.push(['b', x, y, z, k]),
+  });
+  burner.plant(1, 2, 1);
+  burnTicks(burner, 6000);
+  assert.deepStrictEqual(burned, [['b', 1, 2, 1, 'n|1,2,1']], '燃尽回调第 4 参=台账键');
+});
+
+test('T-C5 ledger.readd: presence 口径 sim 重注册(柱三参单源) — 未知格零炸零注册', () => {
+  kitReady();
+  const rec = mkUpdraftRecorder();
+  const ledger = CampfireKit.mkCampfireLedger({updraft: rec.updraft});
+  assert.strictEqual(typeof ledger.readd, 'function', 'readd 缝在场(重进重注册, 免誊抄柱参)');
+  ledger.map.set('1,2,3', {x: 1, y: 2, z: 3, left: 4000}); /* 档恢复灌装(模拟 init 对账后) */
+  ledger.readd(1, 2, 3);
+  assert.strictEqual(rec.added.length, 1, '注册恰一次');
+  assert.deepStrictEqual(rec.added[0], {x: 1, y: 2, z: 3, r: 1, h: 20, lift: 3},
+      '柱三参单源(CAMPFIRE 参数值, spec §3.9——mode 层零誊抄)');
+  ledger.readd(1, 2, 3);
+  assert.strictEqual(rec.added.length, 1, '重复 readd 幂等(sim 键去重口径)');
+  ledger.readd(9, 9, 9); /* 未知格: presence 口径 */
+  assert.strictEqual(rec.added.length, 1, '未知格零炸零注册(台账无条不挂柱)');
+});
+
