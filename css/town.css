@@ -17,11 +17,17 @@
   --town-hud-highlight: #f6c96b;
 
   /* 村民盘 Sky Cloth(B 侧会话引导/链接性交互强调, prebuild §1.2 双蓝澄清);
-     勿与 A 侧 --town-hud-sky(#7EC8E3 建筑盘布幔-天蓝)互换 — 分属两盘 */
+     勿与 A 侧 --town-hud-sky(#7EC8E3 建筑盘布幔-天蓝)互换 — 分属两盘。
+     引导豆提亮档 #9AD6E2 走 .town-dlg-layer 段 --town-dlg-bean-guide 新增行,
+     本基色行字面被 test/town-ui.test.js 守门切片锁死禁改(dialog-spec §4.1
+     「基色档保留, 目标缩略图沿用」) */
   --town-dlg-guide: #7ec8d8;
 
-  /* 暖纸底面语言(revamp-spec §3-H: 暖色半透明底统一质感; 与 B 侧
-     --town-dlg-panel-bg 同值同语言——Bread Cream #F4D9A6 @ 0.94, 字库暖木奶油系) */
+  /* A 侧暖纸表面语言(revamp-spec §3-H: 暖色半透明底统一质感;
+     Bread Cream #F4D9A6 @ 0.94, 字库暖木奶油系)。2026-11-16 dialog-spec
+     §4.1 标注 A 方向乙换岗后: B 侧会话泡主底已改 Soft White 白纸档,
+     旧注「与 B 侧 --town-dlg-panel-bg 同值同语言」失效——本 token 为
+     A 侧 HUD 自有表面语言, 值不动(A 侧 HUD 非对话票施工面) */
   --town-hud-surface: rgb(244 217 166 / 94%);
 
   /* 坐影: 深木暖褐低透明落影, 让悬浮圈/卡「坐进画面」而非贴纸悬浮 */
@@ -356,18 +362,41 @@
 /* ============================================================
    T-UI-04 会话三件套 (town-dlg- 独立命名空间; dialog-spec §4/§6,
    prebuild §1 token/§4.2 热区/§4.5 克制动效)
-   六岁语义: 暖纸底+墨字+天蓝聚焦(同 town-hud 族), 零警示红零倒计时;
-   chip 64px 主选项触点(§4.2), ghost 44px 热区下限(§4.5 纯鼠标);
-   panel 底部居中+安全区让位(B1); 弹入 180ms(§5.4), 零闪烁零惊吓。
+   六岁语义: 白纸泡底+墨字+毛边四角(方向乙 2026-11-16, §4.1 标注 A/B),
+   零警示红零倒计时; chip 64px 主选项触点(§4.2), ghost 44px 热区下限
+   (§4.5 纯鼠标); panel 吹泡泡入场 220ms / bubble 入场 180ms(§5.4 窗内档),
+   出场 200ms 淡出冻结口径; 零闪烁零惊吓。
    ============================================================ */
 .town-dlg-layer {
-  /* B 侧 token(色板/动效窗引用 town-hud 族, 单源不另立权威);
-     panel-bg/panel-bottom 为 revamp-spec §3-H 六值裁决定稿
-     (Bread Cream #F4D9A6 @ 0.94 半透明 + 距底 28px) */
-  --town-dlg-panel-bg: rgb(244 217 166 / 94%);
+  /* B 侧 token(dialog-spec §4.1/§4.2 方向乙 2026-11-16 定稿落值;
+     bean 三档/shadow-float 命名采纳 prebuild §1.2 对账底册建议)。
+     panel-bg=白纸泡底 Soft White #FFF9EC @ 96%(90-96 区间上限档,
+     §4.1 替代硬数字标注 A), 取代 revamp-spec §3-H 旧值 Bread Cream @ 0.94;
+     panel-bottom=距底 28px 维持 revamp §3-H 六值裁决(§4.2 距底 24-40 窗内) */
+  --town-dlg-panel-bg: rgb(255 249 236 / 96%);
   --town-dlg-chip-size: 64px;
   --town-dlg-panel-bottom: 28px;
   --town-dlg-t-pop: 180ms;
+
+  /* 泡豆语义三档底色(§4.1 泡豆分色行): 金=推荐(视觉起始位 §6.1)/
+     蓝=引导(天蓝提亮档, 基色 #7EC8D8 在册保留)/绿=正向(done 值复用);
+     正向语义基色档 §4.1 在册保留(鼓边深一档用) */
+  --town-dlg-bean-warm: #ffd89a;
+  --town-dlg-bean-guide: #9ad6e2;
+  --town-dlg-bean-done: #9bcf7a;
+  --town-dlg-go: #7fb069;
+
+  /* 双层悬浮影(§4.1 影层行, 公共欠账修正之三): 近影贴边显厚度+
+     远影大半径显悬浮, panel/bubble 共用; 墨棕家族透明度戏法零新造色 */
+  --town-dlg-shadow-float:
+    0 3px 0 rgb(90 70 54 / 15%),
+    0 12px 28px rgb(90 70 54 / 14%);
+
+  /* 动效 token(§4.2/§5.4): 吹泡泡入场窗上限档 / bubble 入场档 /
+     出场 200ms 冻结口径(JS 时序链不动, CSS 只配合淡出) / praise 弹入档 */
+  --town-dlg-t-in-panel: 220ms;
+  --town-dlg-t-in-bubble: 180ms;
+  --town-dlg-t-out: 200ms;
 
   position: absolute;
   inset: 0;
@@ -375,7 +404,8 @@
 }
 
 /* World Bubble: 悬停环境感知的短气泡(Bubble-S), 底部居中不挡世界;
-   暖纸半透明底(panel-bg 同源, dlg-prebuild §1.2「Panel/Bubble 主底」) */
+   白纸泡皮(同款同族大小泡, dialog-spec §4.2 Bubble-S 换皮), 毛边四角
+   随同族(§4.1 标注 B: 小泡四角不等、12-28 区间内, 落值 24/28/20/26) */
 .town-dlg-bubble {
   position: absolute;
   inset-inline: 0;
@@ -389,16 +419,30 @@
   padding: 6px 18px;
   background: var(--town-dlg-panel-bg);
   border: 2px solid var(--town-hud-ink);
-  border-radius: 999px;
-  box-shadow:
-    inset 0 0 0 3px var(--town-hud-soft-white),
-    var(--town-hud-shadow);
+  border-radius: 24px 28px 20px 26px;
+  box-shadow: var(--town-dlg-shadow-float);
   color: var(--town-hud-ink);
   font-size: 18px;
   font-weight: 700;
   pointer-events: none; /* 纯提示不挡点选 */
   opacity: 1;
+  animation: town-dlg-bubble-in var(--town-dlg-t-in-bubble) ease-out;
   transition: opacity var(--town-dlg-t-pop) ease-out;
+}
+
+/* 入场 180ms 轻缩放+淡入(§4.2 Bubble-S 行, §4.6-1 欠账修正之一:
+   animation 在 display 切换显示时播放, 修复 transition 对 hidden
+   切换不播放的欠账) */
+@keyframes town-dlg-bubble-in {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .town-dlg-bubble[hidden] {
@@ -414,6 +458,10 @@
   inset-inline: auto;
   inset-block-end: auto;
   transform: translate(-50%, -100%);
+
+  /* 入场动画换锚定档键帧: transform 键帧内含 -50%/-100% 位移,
+     防动画期间覆盖布局 transform 致气泡从锚点跳位 */
+  animation-name: town-dlg-bubble-in-anchored;
 }
 
 .town-dlg-bubble.is-anchored::after {
@@ -427,9 +475,23 @@
   border-top: 12px solid var(--town-hud-ink);
 }
 
-/* Session Panel: 底部居中卡片(B1), 暖纸半透明底+墨字, 圆角无棱角;
-   宽 min(42vw,600px) 下限 360px / 距底 28px / 圆角 20 / 描边 2px
-   ——revamp-spec §3-H 六值裁决定稿 */
+@keyframes town-dlg-bubble-in-anchored {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -100%) scale(0.92);
+  }
+
+  to {
+    opacity: 1;
+    transform: translate(-50%, -100%) scale(1);
+  }
+}
+
+/* Session Panel: 底部居中气泡卡(B1), 白纸泡底+墨字, 毛边四角+墨尾尖;
+   宽 clamp(360px,42vw,600px) 维持 revamp-spec §3-H 六值裁决——dialog-spec
+   §4.2 min(720px,92vw) 分歧未销号(登记在案待需求线另呈), 销号前两出处并注;
+   距底 28px; 毛边圆角 28px 32px 26px 34px(dialog-spec §4.1 标注 B 方向乙,
+   取代旧 revamp §3-H「统一 12-20、Panel 上限 20」) */
 .town-dlg-panel {
   position: absolute;
   inset-inline: 0;
@@ -439,35 +501,92 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 14px 18px;
+  padding: 44px 18px 14px; /* 顶部让位骑缝名牌(零占位装饰, 名牌悬出 36px) */
   background: var(--town-dlg-panel-bg);
   border: 2px solid var(--town-hud-ink);
-  border-radius: 20px;
-  box-shadow:
-    inset 0 0 0 3px rgb(255 255 255 / 60%),
-    var(--town-hud-shadow);
+  border-radius: 28px 32px 26px 34px;
+  box-shadow: var(--town-dlg-shadow-float);
   color: var(--town-hud-ink);
   pointer-events: auto;
   opacity: 1;
-  transition: opacity var(--town-dlg-t-pop) ease-out;
+
+  /* 入场「吹泡泡」220ms(§4.2 Panel 行, §4.6-1 欠账修正之一): scale 0.8→1
+     双弹 + translateY(20px)→0 + 淡入; 1.02 双弹由 easeOutBack 标准近似
+     cubic-bezier(0.34, 1.56, 0.64, 1) 过冲承载(先例: praise-pop 同法);
+     animation 在 display 切换显示时播放, 修复 hidden 切换零动效欠账 */
+  animation: town-dlg-panel-bubble-in var(--town-dlg-t-in-panel)
+    cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition: opacity var(--town-dlg-t-out) ease-out; /* 出场 200ms 淡出(§5.4 冻结) */
+}
+
+/* 静态墨尾尖(§4.2 Panel 行): ::after 实心三角朝下、不占布局位
+   (同法先例: .town-dlg-bubble.is-anchored::after); 屏幕空间示意性
+   装饰, 非精确投影/不锚 NPC 实位(选乙即接受的示意性权衡, §7.1) */
+.town-dlg-panel::after {
+  content: '';
+  position: absolute;
+  inset-inline-start: 50%;
+  inset-block-end: -12px;
+  transform: translateX(-50%);
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 12px solid var(--town-hud-ink);
+}
+
+@keyframes town-dlg-panel-bubble-in {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.8);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .town-dlg-panel[hidden] {
   display: none;
 }
 
+/* 骑缝名牌(§4.2 Speaker 行): position:absolute 半悬泡顶外沿(上移 -12px)
+   零占位, 暖纸深一档底(Bread Cream 点缀名档, §4.1 标注 A 换岗落点)+
+   墨描边+胶囊形态; 高 48-56 不变 */
 .town-dlg-speaker {
+  position: absolute;
+  inset-block-start: -12px;
+  inset-inline-start: 18px; /* 横向靠左(与 panel 内边距对齐) */
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 4px 16px;
+  background: var(--town-hud-base);
+  border: 2px solid var(--town-hud-ink);
+  border-radius: 999px;
   font-size: 20px;
   font-weight: 700;
   color: var(--town-hud-ink);
 }
 
+/* 左侧身份色条 4×20px 圆头短条(§4.2): 首版统一暖金档;
+   守护语境按 §4.1 用 Golem Vine(--town-dlg-guard 候选, 当前零守护语境) */
+.town-dlg-speaker::before {
+  content: '';
+  width: 4px;
+  height: 20px;
+  border-radius: 999px;
+  background: var(--town-hud-gold);
+}
+
 .town-dlg-body {
-  font-size: 17px;
+  font-size: 18px; /* §4.6-2 短文案 18px 修正(旧 17px 欠账回线) */
   line-height: 1.4;
 }
 
-/* 目标缩略图(B6): seek 态常驻小徽标, 村民盘蓝底圆牌 */
+/* 目标缩略图(B6): seek 态常驻小徽标, 村民盘蓝底圆牌(--town-dlg-guide
+   既有使用点沿用); 外圈 3px 柔白包边圈=「泡中泡」(§4.2 目标缩略图行,
+   与泡家族同语法) */
 .town-dlg-thumb {
   align-self: flex-start;
   min-width: var(--town-hit-min);
@@ -478,6 +597,7 @@
   background: var(--town-dlg-guide);
   border: 2px solid var(--town-hud-ink);
   border-radius: 12px;
+  box-shadow: 0 0 0 3px var(--town-hud-soft-white);
   font-size: 24px;
   line-height: 1;
 }
@@ -486,8 +606,10 @@
   display: none;
 }
 
-/* 选项 chips: 主选项触点 64px(§4.2), 间距 16px(§3-H 裁决: 儿童点触容错
-   呼吸感下限), 暖金底按下回弹(§4.5) */
+/* 选项泡豆 pill 化(§4.2 chip 行): 999px 全圆(构件形态语言, 与 12-28
+   圆角区间互不混用 §4.1); 豆高 64(触点 64×64, pill 拉宽只增不减),
+   间距 16px(§3-H 裁决保留, §4.2 相邻 ≥16 不变), 按压 110ms scale(0.97)
+   (§4.2/§4.5, 豆被轻捏) */
 .town-dlg-opts {
   display: flex;
   flex-wrap: wrap;
@@ -497,11 +619,9 @@
 .town-dlg-chip {
   min-width: 64px;
   min-height: 64px;
-  padding: 8px 18px;
-  background: var(--town-hud-gold);
+  padding: 8px 20px;
   border: 2px solid var(--town-hud-ink);
-  border-radius: 14px;
-  box-shadow: var(--town-hud-shadow);
+  border-radius: 999px;
   color: var(--town-hud-ink);
   font-size: 18px;
   font-weight: 700;
@@ -509,11 +629,39 @@
   transition: transform var(--town-hud-t-tap) ease-out;
 }
 
-.town-dlg-chip:active {
-  transform: scale(0.95);
+/* 语义分色走结构位选择器(DOM 冻结面: chip 为纯文字按钮、无逐豆语义类,
+   js/town-ui.js 渲染链不动; 语义分色是辅助通道 §4.1, 排序仍是主信息):
+   首位推荐豆=暖金亮档(视觉起始位 §6.1)/次位引导豆=天蓝提亮档/
+   末位正向豆=麦绿; 鼓边影 0 3px 0 深一档同色(基色档在册成员, 零新造色)
+   + 远层悬浮影共用(§4.1 影层行「pill 泡豆另加鼓边」) */
+.town-dlg-chip:first-child {
+  background: var(--town-dlg-bean-warm);
+  box-shadow:
+    0 3px 0 var(--town-hud-gold),
+    0 12px 28px rgb(90 70 54 / 14%);
 }
 
-/* Action ghosts: 无压力出口恒在, 热区 ≥44px(§4.5 硬约束), 低调描边 */
+.town-dlg-chip:nth-child(2) {
+  background: var(--town-dlg-bean-guide);
+  box-shadow:
+    0 3px 0 var(--town-dlg-guide),
+    0 12px 28px rgb(90 70 54 / 14%);
+}
+
+.town-dlg-chip:last-child {
+  background: var(--town-dlg-bean-done);
+  box-shadow:
+    0 3px 0 var(--town-dlg-go),
+    0 12px 28px rgb(90 70 54 / 14%);
+}
+
+.town-dlg-chip:active {
+  transform: scale(0.97);
+}
+
+/* Action ghosts: 无压力出口恒在, 热区 ≥44px(§4.5 硬约束), 低调描边;
+   字号 ≥18px(§4.6-2 修正, 旧 15px 欠账回线)——弱化用透明底+描边表达,
+   不靠缩字号(§4.2 ghost 行) */
 .town-dlg-ghosts {
   display: flex;
   gap: 10px;
@@ -527,7 +675,7 @@
   border: 2px solid var(--town-hud-ink);
   border-radius: 999px;
   color: var(--town-hud-ink);
-  font-size: 15px;
+  font-size: 18px;
   font-weight: 700;
   cursor: pointer;
   transition: transform var(--town-hud-t-tap) ease-out;
@@ -537,20 +685,28 @@
   transform: scale(0.95);
 }
 
-/* 会话内表扬徽章(B owner, §7.3): 中上浮现不挡面板; 弹入 pop-in
-   scale 0.6→1.0 / 200ms ease-out-back(revamp-spec §3-H 裁决,
-   cubic-bezier 为 easeOutBack 标准近似), 淡出仍走 opacity 过渡 */
+/* 会话内表扬徽章(B owner, §7.3): 中上浮现不挡面板; 换皮「白泡徽章+
+   墨描边」(§4.2 Praise 行, 泡家族同语法: 白纸底牌+毛边四角+双层影);
+   弹入 pop-in scale 0.6→1.0 / 180ms(spec §5.4 冻结节奏, 对齐旧
+   revamp-spec §3-H 200ms 残留), 停留 ≥800ms 归既有 JS 链, 淡出走
+   opacity 过渡 */
 .town-dlg-praise {
   position: absolute;
   inset-inline: 0;
   inset-block-start: 30vh;
   margin-inline: auto;
   width: fit-content;
+  padding: 4px 18px;
+  background: var(--town-dlg-panel-bg);
+  border: 2px solid var(--town-hud-ink);
+  border-radius: 22px 28px 20px 26px;
+  box-shadow: var(--town-dlg-shadow-float);
   font-size: 56px;
   line-height: 1;
   pointer-events: none;
   opacity: 1;
-  animation: town-dlg-praise-pop 200ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  animation: town-dlg-praise-pop var(--town-dlg-t-pop)
+    cubic-bezier(0.34, 1.56, 0.64, 1);
   transition: opacity var(--town-dlg-t-pop) ease-out;
 }
 
@@ -570,7 +726,20 @@
   display: none;
 }
 
-/* 克制动效降级(§4.5): 减少动态偏好下全部会话构件零过渡零闪烁 */
+/* 窄窗断点(§4.2 chip 行, 92vw 窄窗档 panel 实宽 ≤360px 的视口等价断点,
+   票面 §4 复核项 2 视口口径写死、不留临场发挥): 豆 min-width 96px
+   (3 豆+2×gap16 ≈320 < 360 ✓); 宽窗横排; 现状纯文字豆 label 竖排退化
+   不适用, min-width 生效拉宽兜住触点 */
+@media (width <= 391px) {
+  .town-dlg-chip {
+    min-width: 96px;
+  }
+}
+
+/* 克制动效降级(§4.5): 减少动态偏好下全部会话构件零过渡零闪烁——
+   元素级 animation:none/transition:none 覆盖全部会话动效(含新增
+   town-dlg-panel-bubble-in/town-dlg-bubble-in(-anchored)/praise-pop
+   四组 @keyframes 与出场过渡), 零闪烁零惊吓(§4.5) */
 @media (prefers-reduced-motion: reduce) {
   .town-dlg-bubble,
   .town-dlg-panel,

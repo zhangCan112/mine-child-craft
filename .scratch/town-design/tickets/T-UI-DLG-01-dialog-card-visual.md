@@ -173,3 +173,66 @@
 - **甲/丙方向残留**（spec 已按乙落格，任何出自甲/丙案卷的视觉语言回流=挡回；案卷见 `receipts/dialog-visual-redesign-proposals.md`）——含旧主底 `#F4D9A6` 回潮作会话泡主底、对称等角圆角（读作几何卡片）等乙格外值；
 - panel 宽度对齐 spec 720（§7.2 分歧未销号前不动）；
 - test/ 断言改源（预判零翻新；若复核推翻按 §3.3 条件条款走——那是规约路径，非夹带）。
+
+## 8. 施工记录（2026-11-16 施工方回填）
+
+### 8.1 §3.3 守门面复核结论（开工前复核条款兑现）
+
+- **town-ui-core.test.js ⑤ CSS token 对齐守门**（按断言语义定位）：锁 A 侧 `--town-hud-*` 八色字面（`token: value` 冒号空格式）+ `--town-hud-safe`/`--town-hit-min` + 三槽类在位 + 缺席锁四串（`town-hud-card`/`is-idle-exploring`/`is-step-done`/`adv-town-arrive`）+ `prefers-reduced-motion` 在册——全在 A 侧命名空间与全文件负面锁，方向乙零触碰 → **零翻新预判成立**。
+- **town-ui.test.js CSS 守门切片**：锁 token **名**在册不锁值 + `.town-dlg-chip` 块含 `64` + `.town-dlg-ghost` 块含 `44` + 零警示红正则 + `--town-dlg-guide: #7ec8d8` 字面 + thumb **首个出现块**走 `var(--town-dlg-guide)` 且不引 `--town-hud-sky` → **零翻新预判成立**；test/ 未入文件域，债 5 未触发，GLOSSARY 零词条变动（conventions 13/13 随车验平）。
+- **复核出的施工级暗礁（已落施工）**：① thumb 断言用 `css.indexOf('.town-dlg-thumb')` 取文件内**首个出现**——「泡中泡」包边圈须并入基础 thumb 块（不得新增前置 thumb 伪元素规则，防首个出现漂移致红）；② chip 基础块保留字面 `64`、ghost 基础块保留字面 `44`；③ 全文件含注释零警示红字面与缺席锁四串字面。
+
+### 8.2 18 项硬数字逐项对账表（绿面自检；值出 spec @9440be4 §4.1/§4.2 原文行）
+
+| # | 项 | 落值 | spec 出处 | 落点 css/town.css |
+|---|---|---|---|---|
+| 1 | 泡主底 | `rgb(255 249 236 / 96%)`=#FFF9EC @96%（90-96 上限档）；#F4D9A6 降点缀=名牌底（--town-hud-base 引用） | §4.1 主底行+标注 A | :376（token）/ :420 bubble / :505 panel / :564 名牌 |
+| 2 | 描边与尾尖 | `#5A4636` 2px 描边；panel `::after` 实心三角朝下零占位（同法 bubble.is-anchored::after 先例） | §4.1 描边行/§4.2 Panel 行 | :506/:525-534 |
+| 3 | 毛边四角 | panel `28px 32px 26px 34px`；bubble `24px 28px 20px 26px`（12-28 内四角不等，施工裁并记于此）；praise `22px 28px 20px 26px` 同族 | §4.1 圆角行+标注 B/§4.2 | :507 / :422 / :702 |
+| 4 | pill 泡豆 | `border-radius: 999px` 全圆 | §4.1 圆角行/§4.2 chip 行 | :624 |
+| 5 | 豆三档 | 推荐 `#ffd89a`/引导 `#9ad6e2`/正向 `#9bcf7a`（bean 三档 token）；`--town-dlg-go: #7fb069` 新增行在册；guide 基色行字面未动；Market Red 未启用（仅点缀可选） | §4.1 泡豆分色行 | :384-387 / :637-655 |
+| 6 | 影层 | panel/bubble/praise `0 3px 0 rgb(90 70 54/15%), 0 12px 28px rgb(90 70 54/14%)`（shadow-float token）；豆鼓边 `0 3px 0` 深一档=各档在册基色档（warm→--town-hud-gold/guide→--town-dlg-guide/done→--town-dlg-go，零新造色） | §4.1 影层行 | :391-393 / :638-655 |
+| 7 | 对比度 | 白泡主文 ≈7.9:1、三豆 ≈6.4/5.6/4.8:1——spec §4.1 陈述句，由 #1/#5 落值承载，非 CSS 独立落点 | §4.1 主底行/泡豆行 | （对账注记） |
+| 8 | 字号 ≥18 | body 17→**18px** / ghost 15→**18px** / chip-label **18px** 维持；speaker **20px 不变**；ghost 弱化=透明底+描边不靠缩字号 | §4.6-2/§4.2 | :583 / :678 / :626 / :567 |
+| 9 | 骑缝名牌 | `position:absolute` 上移 `-12px` 零占位；`min-height:48px`（48-56 档）；暖纸深一档底+墨描边+胶囊；左色条 4×20px 圆头（::before 暖金档） | §4.2 Speaker 行 | :555-570/:574-580 |
+| 10 | 泡豆尺寸 | 豆高 `min-height:64px`+触点 64（min-width 64）；pill 拉宽只增不减；相邻 `gap:16px` | §4.2 chip 行 | :620-621 / :616 |
+| 11 | 窄窗断点 | `@media (width <= 391px)`（92vw 档视口等价，区间记法=stylelint 口径）豆 `min-width:96px`；宽窗横排；断点写死 | §4.2 chip 行 | :733-737 |
+| 12 | 世界可见 | 骑缝/尾尖均 absolute 零占位装饰，上半屏 ≥55% 布局零侵入 | §4.2 头注/§4.3 | :557 / :526-533 |
+| 13 | panel 吹泡泡 | `220ms`：`translateY(20px)→0`+`scale(0.8→1)`+淡入，`cubic-bezier(0.34, 1.56, 0.64, 1)`（1.02 双弹由该 easeOutBack 标准近似过冲承载，先例 praise-pop 同法；见 §8.4） | §4.2 Panel 行 | :517-518 / :536-546 |
+| 14 | bubble 入场 | `180ms` 轻缩放+淡入（scale 0.92→1）；锚定档换独立键帧防 transform 覆盖跳位 | §4.2 Bubble-S 行 | :429 / :436-443 / :464/:478-488 |
+| 15 | 按压 | `110ms scale(0.97)`（var(--town-hud-t-tap)=110ms；0.95→0.97 对齐） | §4.2 chip 行/§4.5 | :624 / :658-660 |
+| 16 | 出场 | `200ms` 淡出（--town-dlg-t-out，§5.4 冻结口径；JS 时序链零改，CSS 只配合 opacity 过渡） | §4.2 Panel 行/§5.4 | :399 / :519 |
+| 17 | 豆入场 | 豆无独立动画=随 panel 整体入场，不逐个 stagger | §4.2 Panel 行 | （缺席即落点） |
+| 18 | praise | 白泡徽章（panel-bg 底）+墨描边+毛边+双层影；弹入 `var(--town-dlg-t-pop)`=**180ms**（对齐旧 revamp 200ms 残留，复核项 3 默认）；停留 ≥800ms 归既有 JS 链 | §4.2 Praise 行/§5.4 | :693-711 / :379 |
+
+### 8.3 结构性守门清单核对（§5.1 守门行）
+
+- 零警示红（正则口径）：全文件（含新增注释）无 `#f00`/`#ff0000`/`: red` ✓
+- `--town-dlg-guide: #7ec8d8` 字面保持：基色行逐字未动（仅上方注释扩注）✓
+- thumb 走 `var(--town-dlg-guide)` 且不引 `--town-hud-sky`：基础块维持首个出现，包边圈并入基础块 ✓
+- `prefers-reduced-motion` 降级块保持并覆盖新增动效：元素级 `animation:none/transition:none` 覆盖全部四组 @keyframes（panel-bubble-in/bubble-in/bubble-in-anchored/praise-pop）与出场过渡 ✓
+- A 侧 `--town-hud-*` 八色与 `--town-hud-safe`/`--town-hit-min` 零漂移：八色定义区零触碰（:24-31 surface 注记随值翻新、值不动）✓
+- 缺席锁四串继续缺席：四字串零引入 ✓
+
+### 8.4 施工裁并解释记录（token 命名自由度行使与解释项）
+
+1. **token 命名**：豆三档/影层采纳 prebuild §1.2 建议名（`--town-dlg-bean-warm/-guide/-done`、`--town-dlg-shadow-float`）；新增 `--town-dlg-go`（§4.1 基色档在册，兼作正向豆鼓边色）与 `--town-dlg-t-in-panel/-in-bubble/-out` 动效 token；`--town-dlg-chip-size`/`-panel-bottom`/`-t-pop` 维持在册。
+2. **吹泡泡「0.8→1.02→1 双弹」承载方式**：显式 1.02 中间键帧会与 bezier 段内过冲叠加成双重弹跳，故取单段 from/to+`cubic-bezier(0.34, 1.56, 0.64, 1)` 过冲承载（该 bezier 即 easeOutBack 标准近似，先例=praise-pop 注记原文），屏上峰值即 spec 描述的双弹形态。
+3. **豆鼓边「深一档同色」取色**：三档各取家族在册基色档（#FFD89A→#E3B23C=--town-hud-gold；#9AD6E2→#7EC8D8=--town-dlg-guide 引用不改锁行；#9BCF7A→#7FB069=--town-dlg-go），零新造色；远层悬浮影与 panel/bubble 共用 `--town-dlg-shadow-float` 远段。
+4. **名牌底选值**：暖纸正档 Bread Cream #F4D9A6（`var(--town-hud-base)` 引用，prebuild §1.2 换岗注记明文许可「B 侧可引用 A 侧同值」）；prebuild 候选 panel-alt #D7D2C8 未启用——spec §4.2 尾尖行无「内侧衬线」要求，尾尖=纯墨三角（#D7D2C8 留候选）。
+5. **chip 结构位语义**：单豆回合 first-child 与 last-child 同中、last-child 规则后置胜出=绿（「继续/好的」单主操作=正向语义，§6.1 口径）；双豆=金+绿；三豆=金/蓝/绿。豆 DOM 为纯文字按钮，竖排 label 在现状退化（min-width 生效），与票面 §4 口径一致。
+6. **panel padding-top 44px**：名牌 absolute 零占位后内容让位（名牌悬入泡内 36px+呼吸 8px）；panel 高 180-320 自适应窗内。
+7. **窄窗断点记法**：`(width <= 391px)` 为 stylelint `media-feature-range-notation` 强制记法，语义同 `max-width: 391px`（票面 §4 复核项 2 视口口径不变）。
+8. **票外发现（如实登记）**：`npm test` 装具实为 vm 装载制、全 test/ 零 `createServer`/http 绑口——票面 §6「装具占 8080」注记与实装具不符，撞车面实际不存在；施工日 8080 上有并行线手动 `node server.js`（未惊动）。本登记不改票面权威区，销号归需求线。
+
+### 8.5 Gates 当值证据（2026-11-16 施工日）
+
+- `npm test`：**2294 测 / 2293 pass / 0 fail / 1 skip**（当值基线 2294 总/1 skip 吻合；含两守门面随车全绿）。
+- `npm run lint`：eslint + stylelint + htmlhint 三关零错（stylelint 初报 6 处已修：块内注释空行×5 + 媒体查询区间记法×1）。
+- `node --test test/conventions.test.js`：**13/13**（GLOSSARY 零词条断言在内）。
+- 跑测前 8080 探针：被并行线手动 server 占用（见 §8.4-8，装具不绑口，零阻塞）。
+
+### 8.6 提交
+
+- 簿记一笔：`d84ce2a`（scrum 终裁簿记：ADR-0012→0017 改指 3 处 + 钉1 先例句改指；派令口径 4 处 vs 实改 3 处差异在册——:4874 钉 message 无字面 ADR 引文无从改指，:5877 为滑翔翼群在先编号不动）。
+- 施工一笔：本票面所在 commit（单条，只含 css/town.css + 本票面 + 台账案⑤行；提交号见合并回执）。
