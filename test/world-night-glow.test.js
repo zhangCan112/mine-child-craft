@@ -1,7 +1,7 @@
 'use strict';
 /* 夜灯自发光面片广播缝 (js/world.js) — node --test (零依赖)
    运行: node --test test/world-night-glow.test.js
-   对应票: T-NPC-15a 夜间氛围·门控机制(定稿 docs/town-night-ambiance-design.md
+   对应票: T-NPC-15a 夜间氛围·门控机制(定稿 docs/design/town-night-ambiance-design.md
    §3.b/§5-E3; ADR-0017 决策 4)。命名沿 world-rings/world-integrity/
    world-vertexlight 的专题惯例(conventions §1.9 存量偏差); 装具同
    world-vertexlight 的手写迷你 THREE 桩形态(要读回材质 color 真实值),
@@ -219,7 +219,7 @@ test('registerNightGlow: 注册缝在位 · 夜稳(午夜)写基色满亮 · 零
   w.applyDaylight();
   assert.ok(Math.abs(mat.color.r - BASE_R) < 1e-9 &&
       Math.abs(mat.color.g - BASE_G) < 1e-9 && Math.abs(mat.color.b - BASE_B) < 1e-9,
-      '午夜(18000)夜灯因子=1: color=基色 #FFD89A 原值');
+  '午夜(18000)夜灯因子=1: color=基色 #FFD89A 原值');
 });
 
 test('registerNightGlow: 窗端点与窗外稳态(白天 0 · 夜稳满 · 端点连续)· 关循环复位熄灯幂等', () => {
@@ -297,7 +297,10 @@ test('性能护栏: 全窗驱动零逐帧 PointLight · setPlayerGlow 既有缝�
   const mat = mkGlowMat(w.THREE);
   w.registerNightGlow(mat);
   w.dayCycleOn = true;
-  const countLights = () => w.scene.children.filter((o) => o instanceof w.THREE.PointLight).length;
+  /* 有效点亮光源计数(筛 visible): 既有 setPlayerGlow 缝语义=惰性创建/
+     隐藏不移除(world-vertexlight 同款钉), 性能护栏数的是参与渲染的光源 */
+  const countLights = () =>
+    w.scene.children.filter((o) => o instanceof w.THREE.PointLight && o.visible).length;
   /* 全窗驱动(dusk 起点前 → dawn 止点后, 50 tick 步进): 夜灯广播段零光源对象 */
   for (let t = 12000; t <= 24100; t += 50) {
     w.dayTime = t;
@@ -313,5 +316,5 @@ test('性能护栏: 全窗驱动零逐帧 PointLight · setPlayerGlow 既有缝�
   }
   assert.strictEqual(countLights(), 1, '随身光开启下全窗驱动仍恰 1 盏(零新增)');
   w.setPlayerGlow(false);
-  assert.strictEqual(countLights(), 0, '关回隐藏');
+  assert.strictEqual(countLights(), 0, '关回隐藏: 有效点亮光源归 0(实例保留, 既有缝语义)');
 });
