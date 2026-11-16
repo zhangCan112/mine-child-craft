@@ -32,7 +32,7 @@
    判据**不引** PrefabKit; 门楼锚(x,y,z)读 `TOWN_MAP.prefab` town-gate 行(单源),
    保护域政策偏移(楼段 dy+1..+9 全宽含檐口出挑 dx-1..+5 / 桥段 dy-4..0 桥体宽
    dx0..+4 / 净空 dx+1..+3×dy+1..+3×dz+1 排除)带出处注(prefab-kit town-gate
-   foot/kernel + spec §2.2/§2.6 + 架构方案 §3.3 表); **第二份漂移由 ⑧c footOf
+   foot/kernel + town-side-gate-and-edge-fence-spec §2.2/§2.6 + 架构方案 §3.3 表); **第二份漂移由 ⑧c footOf
    逐格对拍断言锁死**(prefab-kit foot 若变, 对拍红=强制同步)。
 2. **墙圈**: 吃 `TOWN_MAP.ground` town-rim segs(几何唯一权威), part 白名单
    `pad/wall/post`; `cap/wing/pier` 不在保(§3.3 表逐行拍板外推+ADR-0018 记录);
