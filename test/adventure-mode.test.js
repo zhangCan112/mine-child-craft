@@ -7360,6 +7360,8 @@ test('T-SPINNER-LEAK 离场排空: 进镇真注册叶片后出镇, advSceneLeave
     delete globalThis.scene;
     delete globalThis.SpinnerCore;
     SpinnerCore.drain(); /* 单例表态复位(同文件后续测试零残留) */
+  }
+});
 
 /* ============ U4 镇域保护判据(T2b)· 行为面三缝接线(架构方案 §3.2) ============
    装态: 镇维度直达(A.advSetDim('town') 切界唯一入口先例); 话术/TNT/放置缝均
