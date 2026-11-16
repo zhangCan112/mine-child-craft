@@ -178,6 +178,11 @@ B1 确认点对此**留白**(只约束右上小地图/左上信息区),本条即
 - 资产保护:不删不破坏 town-npc* 族 14 件/入口缝机制(ADR-0011 落地件)/mode-registry 契约。
 - 契约不变:PrefabKit 脚印盒(footOf)语义、TOWN_MAP 坐标唯一权威、TOWN_PALETTE 键集
   (值可重映射,新增键需登记)、v 变种键集=行 defaults。
+- 键集登记(T-NPC-15b, 2026-11-17, 与改源同 commit=债 5 同收口): `TOWN_PALETTE.props`
+  新增 `lampShade`——暖金灯罩造型笔用色, 色档 `#E3B23C`(buildings §4.1 金属-暖金
+  「钟/灯罩/扣件」既定用途), 值=80 门额牌既有 atlas 薄片件兜底(值可重映射, 15c
+  灯罩造型笔引用时若观感冲突可重映射); 造型件非光源(零 light 旗标)。定稿指针=
+  town-night-ambiance-design.md §5-E1。
 - 工程门:动源码必跑 `npm test` 全绿+`npm run lint` 零错;蓝图/清单变更必须同步同名单测。
 - 注释中文;新文件走 conventions §1 决策树;类名/id kebab-case(CSS)。
 

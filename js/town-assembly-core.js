@@ -15,7 +15,8 @@
       prefab 段
       出 place/spinner 双胞胎(TIDEA-01 波次二: v.sailStatic===false 严格判据
       →spinner 替代 place, period 顶层钩穿透; tidea.porchLamp→v 注入+
-      groundMark 四笔 fill; face/ids 注入一律新对象, 源清单只读), scatter
+      groundMark 四笔 fill; tidea.nightLight→place 后单格灯块 fill(载体
+      A 烘焙); face/ids 注入一律新对象, 源清单只读), scatter
       段出 tree+recolor(樱花 7→78 覆写落调用方)/scrub(确定性盐)/灯柱路标
       fill, anchor 段零 op(出生归模式层恰一次); 波次二五件派生: 瀑布三笔
       (mountain.waterfall)/emblem 16+axisBloom 32(plaza, 路面嵌花 inlay 补记
@@ -104,7 +105,17 @@
    墙身=自然跳空零特判; 翼墙/端头墩/接头柱段无花), 花色 ⌊(x+z)/8⌋
    偶 61 奇 62 固定交替零盐(spec 拍板: x+z 奇偶在定 z 墙线恒同值
    不可用)。纯几何零随机, 合成短段(簇位带外)=恰段笔本身零花。
-   合法域枚举同步扩 'town-rim'。 */
+   合法域枚举同步扩 'town-rim'。
+   Step I 扩键登记(2026-11-17, T-NPC-15b 夜态落位, 定稿
+   docs/design/town-night-ambiance-design.md §5-E1/E5): props +lampShade
+   (暖金灯罩造型笔用色=门额牌 80 既有 atlas 薄片件兜底, 值可重映射,
+   零新增块/件=零静默回执升级; 造型件非光源零 light 旗标, 供 15c
+   灯罩造型笔引用; revamp-spec §5 键集登记与改源同 commit=债 5 同
+   收口)。prefab 派生面扩 tidea.nightLight(顶层命名空间键, 世界系锚
+   相对偏移数组=groundMark 先例零朝向变换, face 旋转已折进偏移字面
+   归 map-core 数据单源): 宿主 place 后逐笔单格 fill lampLight id19
+   (窗光 3 扇+钟室灯点 1, 载体 A 烘焙方块光=零门控零逐帧, 定稿
+   §2.2; lamp 清单段零触=灯柱零新增, 新增光源点 4∈[3,5])。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
@@ -144,7 +155,8 @@ const TOWN_PALETTE = {
   backdrop: {mountain: 3, cliffHome: 6, mountainSnow: 54, mountainMoss: 14,
     mountainGrass: 1, boulder: 14, cliffWall: 52, cliffFrame: 17, cliffRoof: 9,
     cliffLamp: 19, cliffWindow: 18},
-  props: {lampBase: 17, lampPost: 5, lampLight: 19, signPost: 5, signBoard: 6,
+  props: {lampBase: 17, lampPost: 5, lampLight: 19, lampShade: 80,
+    signPost: 5, signBoard: 6,
     tuft: 40, flagPole: 5, flowerbedRing: 40, barrel: 5, pumpkin: 76,
     plank: 5, glassPane: 68, crateBox: 51,
     flagCloth: {sakura: 78, blue: 15, quartz: 17, red: 16},
@@ -164,6 +176,12 @@ function townAssemblyOps(steps) {
      读法(map-core 条目注)——ground 相位派生会被 road 相位后写覆埋, 故
      收集延后, 全 steps 循环收口后统一补记(补记序=收集序, 确定性不破) */
   const inlays = [];
+  /* 夜态灯点补记表(T-NPC-15b): 与 inlays 同款「收集延后、全 steps 循环
+     收口后统一出笔」——宿主 place 必已入列(fill 序在宿主 place 之后
+     =后写者赢, 腔格覆写有据); 出笔按宿主 id 稳定排序(窗光两栋先、
+     塔灯收尾=「窗光 3+钟室 1」读法, 同参同序确定性不破, 同宿主保持
+     偏移字面序) */
+  const nightLamps = [];
   /* 基底三层垫底(序列最前三笔): deep 0..groundY-4 石 / filler 泥 /
      surface groundY 草——后写者赢, 广场/路网/建筑压得住草地。 */
   ops.push({op: 'fill', x1: core.x1, y1: 0, z1: core.z1, x2: core.x2, y2: groundY - 4, z2: core.z2,
@@ -484,6 +502,21 @@ function townAssemblyOps(steps) {
             x2: s.x + t.dx, y2: groundY, z2: s.z + t.dz, id: s.tidea.groundMark.id});
         }
       }
+      if (s.tidea && s.tidea.nightLight) {
+        /* 夜态灯点(T-NPC-15b, 定稿 §2.2 载体 A 窗内侧嵌/钟室嵌): 世界系
+           锚相对偏移数组(groundMark 先例零朝向变换——face 旋转已折进
+           偏移字面, 数据单源 map-core), 单格 fill id19 灯块(lampLight
+           槽单源, 烘焙方块光零门控零逐帧; 窗内侧嵌=屋内同步点亮
+           「有人家」读法, 玻璃 id18 全透光可透)。出笔收集延后(见
+           nightLamps 声明注), 保「fill 在宿主 place 之后」与窗光先
+           塔灯后的规格序 */
+        for (const t of s.tidea.nightLight) {
+          nightLamps.push({host: s.id,
+            fill: {op: 'fill', x1: s.x + t.dx, y1: s.y + t.dy, z1: s.z + t.dz,
+              x2: s.x + t.dx, y2: s.y + t.dy, z2: s.z + t.dz,
+              id: pal.props.lampLight}});
+        }
+      }
     } else if (s.phase === 'scatter') {
       if (s.kind === 'sakura') {
         /* 樱花 = 树家族 op + 覆写 op 两笔: 树几何单源引擎(SceneKit.tree,
@@ -592,5 +625,8 @@ function townAssemblyOps(steps) {
   }
   /* 路面嵌花补记(emblem/axisBloom 延后于全 steps——road 相位后写不再覆埋) */
   ops.push(...inlays);
+  /* 夜态灯点补记(宿主 id 稳定排序出笔, 见 nightLamps 声明注) */
+  nightLamps.sort((a, b) => (a.host < b.host ? -1 : a.host > b.host ? 1 : 0));
+  for (const nl of nightLamps) ops.push(nl.fill);
   return ops;
 }

@@ -103,14 +103,34 @@ const TOWN_MAP = {
       簇注)。字段 {id,x,y,z,v,face,zone}, y 统一=groundY, v 无
       ids 槽(材质集中注入归 T-MAP-03)。脚印盒两两无交(布局自洽)。 */
   prefab: [
-    {id: 'tower-belfry', x: 79, y: 24, z: 72, v: {}, face: 'south', zone: 'hub'},
+    {/* 夜态钟室灯点(T-NPC-15b, 定稿 §5-E2/§2.2 载体 A 钟室内灯块 1 烘焙):
+        顶层 tidea 命名空间键(stash 同款「pfMerge 只读 v/footOf 只读
+        v·face, 顶层新键双静默」契约), 世界系锚相对偏移=groundMark 先例
+        零朝向变换。开敞钟室环空位贴钟西侧(78,34,72)——金钟 dy10..11
+        室心 2×2×2, 四面开口透光远看「塔还醒着」(home 剪影「塔灯 1」
+        互文, entry-transition §B.3) */
+      id: 'tower-belfry', x: 79, y: 24, z: 72, v: {},
+      tidea: {nightLight: [{dx: -1, dy: 10, dz: 0}]},
+      face: 'south', zone: 'hub'},
     {id: 'shop-awning', x: 110, y: 24, z: 79, v: {}, face: 'west', zone: 'east'},
     /* TIDEA-01 尾段笔: v.sailStatic=false 叶片组件(轴/框/帆)整体退场不入格,
         旋转 mesh 接管(arch 波次二 spinner 全链已备)——assembly 由此派生
         spinner op, foot 同步收塔体 6×6 高 11(锥尖 dy10) */
     {id: 'windmill-tower', x: 56, y: 24, z: 42, v: {sailStatic: false}, face: 'south', zone: 'north'},
-    {id: 'cottage-gable', x: 44, y: 24, z: 71, v: {}, face: 'south', zone: 'west'},
-    {id: 'house-loft', x: 42, y: 24, z: 85, v: {}, face: 'north', zone: 'west'},
+    {/* 夜态窗光(T-NPC-15b, 定稿 §2.1/§2.2 载体 A=窗内侧嵌灯块 id19,
+        玻璃 id18 全透光=窗光可透+屋内同步点亮「有人家」; 偏移=锚相对
+        世界系字面, face 旋转已折进)。民居 A 2 扇: 前窗西格玻璃
+        (45,26,74)内侧+侧窗玻璃(47,26,71)内侧——灯点=窗开口内侧空腔
+        格, 门窗开合格与花坛域零触, ⊆宿主脚印盒(footOf 语义) */
+      id: 'cottage-gable', x: 44, y: 24, z: 71, v: {},
+      tidea: {nightLight: [{dx: 1, dy: 2, dz: 2}, {dx: 2, dy: 2, dz: 0}]},
+      face: 'south', zone: 'west'},
+    {/* 民居 B 1 扇: 一层前窗玻璃(40/41,26,82)东格内侧(41,26,83)——
+        face north=(−dx,−dz) 旋转变换已折进偏移字面, 回退预案=降为每栋
+        1 扇可裁(定稿 §2.1) */
+      id: 'house-loft', x: 42, y: 24, z: 85, v: {},
+      tidea: {nightLight: [{dx: -1, dy: 2, dz: -2}]},
+      face: 'north', zone: 'west'},
     {/* TIDEA-09(W-09): stash 寻宝记号两笔契约(顶层 tidea 命名空间键,
         消费实现前全链静默——pfMerge 对 v 未知键抛错故不入 v; footOf 只
         读 v/face, 派生 place 只带 v/ids, 顶层新键双静默零影响):
