@@ -871,20 +871,21 @@ test('TIDEA 波次一: 瀑布域·南门回程件·镇徽花带·stash 记号·�
   }
   assert.ok(mtn.waterfall.x2 < 78 || mtn.waterfall.x1 > 80,
       '瀑布在钟塔影轴 x78..80 外(北望不被塔挡)');
-  /* ② TIDEA-06(W-06, ADR-0011 决策 6c) 南门回程件: 现成 signpost 落南
-      主路终端段 + 灯复用既有(零新增)+npc/锚避让; 栅栏桩契约归需求清单 */
-  const home = t.scatter.find((s) => s.id === 'signpost-home');
-  assert.ok(home && home.kind === 'signpost', '南门回程件 signpost-home 在册(现成 kind)');
-  assert.ok(home.z >= 119 && home.z <= 127 && (home.x <= 75 || home.x >= 81),
-      'signpost-home 落南主路终端段路侧(z119..127, 回程触发线前最后视觉件)');
+  /* ② TIDEA-06(W-06, ADR-0011 决策 6c 预授权路径升格兑现) 南门回程件退役:
+      门楼(T1a)建成后三职能整体由门楼接棒——门本身=最大指路件·壁灯接棒
+      「门内灯」·门洞兑现开间(spec §2.5 升级吞并裁定); signpost-home 退役
+      不在册: 散布清单无此 id·建场写序零此件·十段全域无孤儿引用;
+      lamp-end-south 保留照明(服务 wayshrine 小坪非门楼专属);
+      留档备选(迁 (75,124))不做, 走查触发再裁(spec §2.5); 不落新 ADR(架构 §5) */
+  assert.ok(!t.scatter.some((s) => s.id === 'signpost-home'),
+      'signpost-home 已退役不在册(门楼 T1a 建成后拆旧件, spec §6)');
+  assert.ok(!JSON.stringify(t).includes('signpost-home'),
+      'TOWN_MAP 十段全域无 signpost-home 孤儿引用(退役=整件摘除非移位)');
+  const steps = c.townBuildSteps();
+  assert.ok(!steps.some((st) => st.id === 'signpost-home'),
+      '建场写序零 signpost-home 步骤(门楼前无冗余件, spec §6 走查判据)');
   assert.ok(t.scatter.some((s) => s.id === 'lamp-end-south' && s.x === 79 && s.z === 119),
       '南门灯=既有 lamp-end-south(79,119) 坪芯复用(零新增灯)');
-  for (const w of npcs) {
-    assert.ok(cheb(home.x, home.z, w) >= 2, 'signpost-home 距 npc 站位切比 ≥2');
-  }
-  for (const a of t.anchors) {
-    assert.ok(cheb(home.x, home.z, a) >= 2, 'signpost-home 距导览锚切比 ≥2');
-  }
   /* ③ TIDEA-07(W-07) 镇徽+主轴花带: plaza 条目双字段——徽 4×4 全嵌
       main-south 路面且 spawn 落域内(落地低头第一眼); 花带 x79..80 两列
       全格在广场/路域·零压脚印·贴塔足; 徽与带互斥 */
