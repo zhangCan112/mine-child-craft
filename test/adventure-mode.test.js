@@ -4878,7 +4878,7 @@ test('T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → �
   AdventureMode.update(1 / 60); /* 越线瞬间发令(无站桩) */
   for (let i = 0; i < 27; i++) AdventureMode.update(1 / 60); /* +0.45s 满格到达 */
   assert.strictEqual(A.advNetherState().dim, 'town', '进镇(town 维度在场方可回程)');
-  assert.strictEqual(globalThis.dayCycleOn, true, '镇内昼夜解冻(dayCycle:true 随世界钟昼夜, ADR-0012 决策 1)');
+  assert.strictEqual(globalThis.dayCycleOn, true, '镇内昼夜解冻(dayCycle:true 随世界钟昼夜, ADR-0017 决策 1)');
   /* 回程发令: 南向镇口带式 z≥132(核心区南界 z127 外 5 格缓冲, §6.3.5);
      发令帧维态实证=「直喂 advMap 会落南锚」反例的现场 */
   globalThis.pos.z = 132.5; /* 任意 x: 站主路 x79 */
@@ -4917,12 +4917,12 @@ test('T-SEAM-03 回程端到端: 镇内南缘越线(z≥132)白闪回 home → �
   AdventureMode.cleanup();
 });
 
-/* ============ T-TEST-T14 镇天缝覆盖钉(ADR-0012 决策 1 四步切界序, test-only 覆盖钉债票) ============ */
+/* ============ T-TEST-T14 镇天缝覆盖钉(ADR-0017 决策 1 四步切界序, test-only 覆盖钉债票) ============ */
 
 test('T-TEST-T14 钉1 改道钉: 进镇分支 setSkyBase 改道调用, 实参=行色端点(advEdgeRgb 同源 [r,g,b] 0..1)', () => {
   mem.clear();
   freshInit();
-  /* 缝注入(先例: T7 转正 P5 装→断言→delete 防渗漏; null 安全照 nether 先例):
+  /* 缝注入(先例: T7 转正 P5 装→断言→delete 防渗漏; null 安全照本文件 :4274 展开式 + T7 :4551 mock 先例, nether 测试件已退役):
      装具缺省无 setSkyBase, advSetDim 进镇分支 typeof 守卫静默跳过=行色改道在全量门
      零直接断言(本票缝隙成因); 同缝另有 advMapRowCleanup 退场复位 setSkyBase(null)
      (cleanup 链 :2109, 窗外), mock 须 null 安全防渗漏炸。实参断言直锚行色端点数值
@@ -4958,7 +4958,7 @@ test('T-TEST-T14 钉2 首拍钉: 进镇分支执行窗内 applyDaylight 恰一�
   const after = daylightCount();
   assert.strictEqual(A.advNetherState().dim, 'town', '前提: 直达镇维度(dayCycle:true 分支执行前提)');
   assert.strictEqual(after - before, 1,
-      '分支执行窗内 applyDaylight 恰一次(首拍=ADR-0012 决策 1「分支内补昼夜首拍」, 消解天体/云/uDim 冻结遗留态)');
+      '分支执行窗内 applyDaylight 恰一次(首拍=ADR-0017 决策 1「分支内补昼夜首拍」, 消解天体/云/uDim 冻结遗留态)');
   assert.strictEqual(globalThis.dayCycleOn, true,
       '首拍挂在分支内非主循环(dayCycleOn 同闸开, 时间推进+场景驱动同源)');
   AdventureMode.cleanup();
