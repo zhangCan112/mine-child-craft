@@ -114,7 +114,7 @@ test('遮挡列扫: 玩家列火面+1→脚部首个实体即截断 · 实体以
   assert.strictEqual(sim.query(10.5, 20, 10.5), null, '石头以上(脚部 20>15)全柱无升力');
   assert.ok(sim.query(10.5, 13, 10.5), '石头与火面间矮段(脚部 13<15)照常命中');
   assert.ok(sim.query(11.5, 20, 10.5), '部分遮挡: 玩家在未挡列(11,10)照常命中(树冠口径)');
-  assert.strictEqual(sim.query(10.5, 20, 11.5), null, '部分遮挡: 被挡列(10,11)有石即截');
+  assert.ok(sim.query(10.5, 20, 11.5), '部分遮挡按列: 相邻未挡列(10,11)照常命中(遮挡严格按玩家列上扫, 不跨列波及——石头在 z=10 列)');
   // 石头直接压火顶(y=12=火面+1): 该列整柱截断
   const sim2 = UpdraftCore.mkSim(mkEnv([[10, 12, 10, 1]]));
   sim2.add(srcA());
@@ -349,8 +349,9 @@ test('乘流·踩火起飞: 踩着篝火方块本身起跳同此(3×3 含篝火�
   assert.strictEqual(v.B_CAMPFIRE, 81, '两态篝火 id 在册(T-C1 数据行)');
   v.setGliderEquipped(true);
   v.pos.set(42.5, 12, 42.5); // 火格上方落下半格
-  assert.ok(settle(v, 200) >= 0, '站上篝火半格(可站立前提, spec §3.4)');
-  assert.ok(Math.abs(v.pos.y - 11.5) < 1e-6, '站上火面半格顶(11.5), 实测 ' + v.pos.y);
+  assert.ok(settle(v, 200) >= 0, '站上篝火(可站立前提, spec §3.4)');
+  assert.ok(v.pos.y >= 11.5 && v.pos.y <= 12 + 1e-6,
+      '站上篝火顶(碰撞面整格贴齐=12, thin 半格站立非本票面), 实测 ' + v.pos.y);
   v.keys['Space'] = true;
   v.physics(DT);
   v.keys['Space'] = false;
@@ -389,8 +390,8 @@ test('乘流·静立/步行零被动升空: 装备翼静立柱内与步行穿柱
     assert.strictEqual(v.pos.y, 11, '零垂直位移(不被吸升)');
   }
   v.yaw = 0;
-  v.keys['KeyD'] = true; // 步行穿柱(+x 方向穿越 41..43)
-  for (let i = 0; i < 120; i++) {
+  v.keys['KeyD'] = true; // 步行穿柱(+x 方向穿越 41..43; 40 帧止步≈x44.8 仍在地板 38..46 内, 不掉边)
+  for (let i = 0; i < 40; i++) {
     v.physics(DT);
     assert.strictEqual(v.isGliding(), false, '步行穿柱零展翼(帧 ' + i + ', x=' + v.pos.x.toFixed(1) + ')');
   }
@@ -410,6 +411,7 @@ test('乘流·闩锁咬合: 柱内取消→闩锁态自由下坠(lift 不作用)
   v.physics(DT); // 柱内主动取消 → 闩锁
   v.keys['Space'] = false;
   assert.strictEqual(v.isGliding(), false, '柱内取消立即收翼');
+  v.worldEvents.land = false; // 事件袋消费契约(voxel.js「消费方读完置回 false」): 清 settle 残留再验「仍在空中」
   for (let i = 0; i < 20; i++) {
     v.physics(DT);
     assert.strictEqual(v.isGliding(), false, '闩锁态柱内不重展');
@@ -462,11 +464,13 @@ test('乘流·摔落联动·全程安全: 乘流升高后漂出柱滑翔落地, 
   v.keys['Space'] = true;
   v.physics(DT);
   v.keys['Space'] = false;
-  for (let i = 0; i < 180; i++) v.physics(DT); // 乘流至 ~19
+  for (let i = 0; i < 180; i++) v.physics(DT); // 乘流至 ~20
   assert.ok(v.pos.y > 17, '已升高(实测 ' + v.pos.y.toFixed(1) + ')');
   v.pos.set(39.5, v.pos.y, 39.5); // 漂出柱(不取消, 保持滑翔)
-  for (let i = 0; i < 600 && !v.onGround; i++) {
+  v.worldEvents.land = false; // 事件袋消费契约: 清 settle 残留, 落地事件须为本段触地
+  for (let i = 0; i < 900; i++) { // 缓降 sink 0.7 格/s, 20→11 需 ≈13s≈780 帧, 900 帧留富余
     v.physics(DT);
+    if (v.onGround) break; // 触地帧即收翼(voxel 既有语义), 滑翔持有断言只验空中段
     assert.strictEqual(v.isGliding(), true, '滑翔段持有至落地');
   }
   assert.strictEqual(v.onGround, true);
