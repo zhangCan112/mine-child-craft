@@ -1,7 +1,7 @@
 ---
 description: 施工工(红方主人):单票测试先行——写红、派绿、验收绿、裁测试争议;红测试是可执行的命令,绿方服从不擅改
 mode: subagent
-model: zhipuai-coding-plan/glm-5.3#max
+model: zhipuai-coding-plan/glm-5.3-flash#max
 permission:
   skill:
     "tdd": "allow"

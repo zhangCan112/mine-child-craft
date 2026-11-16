@@ -1,7 +1,7 @@
 ---
 description: 施工工(绿方):单票实现落地——验红起步、写绿、重构、落进集成线,出 PR;不得改测试迁就实现
 mode: subagent
-model: zhipuai-coding-plan/glm-5.3#max
+model: zhipuai-coding-plan/glm-5.3-flash#high
 permission:
   skill:
     "pr": "allow"
