@@ -5737,8 +5737,9 @@ test('T-G04 水面软着陆: 触水收翼+溅水+入水零伤害(收翼四触发
   G.vel.set(0, 0, 0);
   const hp0 = A.advGetPEnt().hp;
   calls.length = 0; spoken.length = 0; /* 诊断 patch: 补 spoken 清零(原稿漏清欢迎句) */
-  for (let i = 0; i < 60 && G.gliding; i++) glideFrame(1); /* 诊断 patch: 30→60 帧(缓降 3/s
-      从 gy+2.5 到 bodyF 采样入水线 gy+0.5 需 40 帧, 原窗口不够) */
+  for (let i = 0; i < 160 && G.gliding; i++) glideFrame(1); /* 诊断 patch: 30→60→160 帧(缓降
+      3/s 需 40 帧, 原窗口不够; T-G07 调参窗口放宽: 滞空翻倍 — sink −1.5/s 从 gy+2.5 到
+      bodyF 采样入水线 gy+0.5 需 80 帧) */
   assert.strictEqual(G.gliding, false, '滑翔触水面 → 软着陆收翼(spec §3.4 R1-05)');
   assert.strictEqual(api.worldEvents.splash, true, '溅水事件置位(引擎事实, 轻溅入泳)');
   assert.strictEqual(glideSfx('wing_close'), 1, '软着陆 → wing_close(四触发同点)');

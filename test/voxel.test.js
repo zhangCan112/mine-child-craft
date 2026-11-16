@@ -345,8 +345,9 @@ test('physics: autoJump 关闭 → 贴台阶不跳(桌面行走口径不变)', (
    引擎层滑翔状态机契约: 装备位意图注入 setGliderEquipped(模式层唯一写面, 语义=玩家
    背着滑翔翼) · 滑翔态出口 isGliding()(T-G04 展/收翼驱动消费) · land 事件缝
    worldEvents.land + landFall(本次落差格数) + landGliding(触地时滑翔态, T-G05 零
-   伤害旗标)。参数断言取 spec §3.9 初值: 展翼阈值 2 / 缓降 −3.0 / 水平操控 5.0。 */
-const GLIDE_SINK = -3.0; // spec §3.9 缓降速率初值(格/秒)
+   伤害旗标)。参数断言取 PO 实机调参值: 展翼阈值 2 / 缓降 −1.5(2026-11-16 调参, 浮空
+   翻倍; spec §3.9 初值 −3.0 已由调参令取代) / 水平操控 5.0。 */
+const GLIDE_SINK = -1.5; // PO 实机调参值 2026-11-16(config GLIDE.sink 镜像); spec §3.9 初值 −3.0 已由调参令取代(T-G07)
 const GLIDE_SPEED = 5.0; // spec §3.9 滑翔水平操控初值(格/秒, 不享受疾跑)
 
 function fillPool(v) { // 两格深水池: 池底 y=8(顶面 9), 水方块 y=9..10(水面顶 11)
@@ -413,7 +414,7 @@ test('滑翔: 高度单调不增; 滑翔触地 land 携带滑翔态=true(T-G05 �
   v.physics(DT);
   assert.strictEqual(v.isGliding(), true);
   let prev = v.pos.y; let monotonic = true;
-  for (let i=0; i<300 && !v.onGround; i++) {
+  for (let i=0; i<720 && !v.onGround; i++) { // T-G07 调参窗口放宽: 滞空翻倍(9 格 @−1.5/s 需 360 帧, 原 300 不够)
     v.physics(DT);
     if (v.pos.y > prev + 1e-9) monotonic = false;
     prev = v.pos.y;
@@ -525,7 +526,8 @@ test('滑翔: 滑翔段不计落差 — 滑到离地约 2 格取消再坠 2 格�
   v.pos.set(42.5, 18, 42.5); // 离地 7
   v.physics(DT); // 展翼瞬间落差累计重置(峰值=当前高度)
   assert.strictEqual(v.isGliding(), true);
-  for (let i=0; i<200 && v.isGliding() && v.pos.y > 13.1; i++) v.physics(DT); // 滑降 5 格(不计账)
+  // T-G07 调参窗口放宽: 滞空翻倍(@−1.5/s 需 196 帧, 原 200 余量过紧)
+  for (let i=0; i<400 && v.isGliding() && v.pos.y > 13.1; i++) v.physics(DT); // 滑降 5 格(不计账)
   assert.strictEqual(v.isGliding(), true, '到离地≈2 仍应滑翔中');
   v.keys['Space'] = true; v.physics(DT); v.keys['Space'] = false; // 主动取消(自收翼点重计)
   assert.strictEqual(v.isGliding(), false);
@@ -565,7 +567,7 @@ test('滑翔: 触水面软着陆 — 收翼+溅水+入水转游泳, 零 land 参
   v.physics(DT);
   assert.strictEqual(v.isGliding(), true, '水面上空照常按展翼规则判定');
   let sawSplash = false; let minVel = 0;
-  for (let i=0; i<600 && !v.onGround; i++) {
+  for (let i=0; i<1200 && !v.onGround; i++) { // T-G07 调参窗口放宽: 滞空翻倍(14 格滑降 @−1.5/s 需 560 帧+沉底, 原 600 不够)
     v.physics(DT);
     if (v.worldEvents.splash) sawSplash = true;
     if (sawSplash && !v.onGround) minVel = Math.min(minVel, v.vel.y);
