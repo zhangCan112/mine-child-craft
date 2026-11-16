@@ -6,7 +6,7 @@
    零 THREE · 零 DOM · 加载零副作用 → Node 可直接加载单测。
    渲染(场景/网格/贴图)是它之上的 adapter, 见 world.js。
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS·PLAYER·WORLD_*·FLUID(流体物理参数)·
-   GLIDE(滑翔参数), input.js 的 keys/touchMove/touchSprint(仅 physics 读取)。
+   GLIDE(滑翔参数)·CAMPFIRE(篝火烫伤节拍), input.js 的 keys/touchMove/touchSprint(仅 physics 读取)。
    ============================================================ */
 
 /* ---------- 哈希 ---------- */

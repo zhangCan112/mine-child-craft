@@ -23,7 +23,8 @@
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 篝火 T-C1/C3
      纯件 advCampfiresStep/advCampfiresClean(刻账/档账)·
      advCampfireQuenchHit(浇熄几何, read 注入)/advCampfireRelightHint(重燃
-     话术常量, name 引用熄灭态方块名) · 昼夜 D5 夜怪
+     话术常量, name 引用熄灭态方块名) · 篝火 T-C4 advCampfireBurnHit(燃烧
+      判据)/advCampfireBurnStep(节拍步进) · 昼夜 D5 夜怪
       政策 ADV_NIGHT/advNightCanSpawn/advNightStep(缺省池薄壳, 签名冻结)/
       advDawnSweep · home 地图行缺省 ADV_HOME_ROW(巢穴池/夜怪池的
       行缺省权威, 冒险地图 T2——壳与 T4 注册表各行经它换池, 常量本体不动) · F4 牧场

@@ -263,6 +263,9 @@ globalThis.Mobs = {
   hit(m, dmg, kdx, kdz, kpow) {
     hitLog.push({m, dmg, kdx, kdz, kpow});
     if (m.pos === globalThis.pos) RealMobCore.hitState(m, dmg); /* 玩家实体走真实受击(血量断言有据) */
+    /* T-C4 评审 SPEC-1: 对齐真库 mobs.js freshDead 触链行为(:507-510) —
+       烫死与战斗死同走触链, 掉落掷骰归消费方; sfx('death') 产品音装具不模拟 */
+    if (nextHit.freshDead) for (const cb of mobsState.deathCbs) cb(m);
     return nextHit;
   },
   onDeath(cb) {
@@ -1793,7 +1796,7 @@ test('T-C4 怪物同规则: 踩燃烧篝火 0.9s 零拍 · 续站至 2.1s 恰两
   AdventureMode.cleanup();
 });
 
-test('T-C4 怪物烫死: 血尽走 Mobs.hit 现有死亡返回 — 零击杀记账(killCount 不动/无击杀 toast) · 死后零参与', () => {
+test('T-C4 怪物烫死: 血尽走 Mobs.hit 现有死亡返回 — 零击杀记账(killCount 不动/无击杀 toast) · 掉落链触发 · 死后零参与', () => {
   mem.clear();
   freshInit();
   const spot = findGrassSpot();
@@ -1805,9 +1808,15 @@ test('T-C4 怪物烫死: 血尽走 Mobs.hit 现有死亡返回 — 零击杀记�
       {__nightHome: {x: spot.x + 0.5, z: spot.z + 0.5}, attackCd: 99});
   listResult = [mob];
   nextHit = {hp: 0, dead: true, freshDead: true}; /* 致死脚本: 首拍到点即死 */
+  let burnDeathProbe = null;
+  mobsState.deathCbs.push((m) => {
+    burnDeathProbe = m; /* 探针: onDeath 掉落链触发记录(票尾验收子句「烫死照常掉落」的链侧证) */
+  });
   for (let i = 0; i < 66; i++) AdventureMode.update(1 / 60); /* 1.1s: 首拍结到即死 */
   assert.strictEqual(hitLog.filter((h) => h.m === mob).length, 1,
       '前置: 烫死一拍结到(结算走 Mobs.hit 现有死亡返回, 掉落归 mobs.js onDeath 现有链)');
+  assert.ok(burnDeathProbe === mob,
+      '烫死触发 onDeath 掉落链(与战斗死同走 freshDead 触链, 参数=实体 m — 零归属特判只挡记账链 advOnKill, 不挡掉落链)');
   assert.strictEqual(A.ADV.killCount, 0, '零击杀记账(环境烫死无归属, 不走 advOnKill)');
   assert.ok(!calls.some((c) => c[0] === 'toast' && String(c[1]).indexOf('击杀') >= 0),
       '无击杀 toast(零归属特判 R2-2)');
