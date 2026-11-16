@@ -69,7 +69,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C1 | tracer 竖切：合成→放置即燃→侧账→燃尽消失 | — | ☑ 已并入（f8b133b 实现 + 5f634b2 评审修，双轴评审 PASS；含票外相邻改动追认：craft-core shapeCost 显示序，评审 S-1） |
 | T-C2 | 引擎气流：updraft-core+乘流+展翼豁免+遮挡截断+多柱 max | T-C1 | ☑ 已并入（708e9d0 实现 + 90c6193 裁决 + ababee5 评审修复；规格轴 FAIL→修复→复审 PASS） |
 | T-C3 | 熄灭与重燃：水浇转熄灭态+点击重燃+任意态挖掘回收 | T-C1 | ☑ 已并入（红 ac5c253 + 绿 cc3dcb1 + 修复 7bb4123；评审 FAIL→修复→复审 PASS） |
-| T-C4 | 烫伤：玩家节拍+怪物同规则+fireTick 事件缝 | T-C1 | ◐ 评审过 minor 修复中（tc4 已并 4e8943b；SPEC-1 补测+头注×2 追令原主） |
+| T-C4 | 烫伤：玩家节拍+怪物同规则+fireTick 事件缝 | T-C1 | ☑ 已并入（34c28c7+4a61a64，合并 4e8943b；双轴评审 PASS；minor 修复 3c3d3f8：SPEC-1 掉落链探针+头注×2） |
 | T-C5 | 存档与口径：campfires 档键+重放对账+跨图同烧+体验馆 dev | T-C1, T-C3 | ◐ 进行中（campfire-mech/tc5） |
 | T-C6 | 性能基准：50 火实测（光 BFS+柱查询+粒子空转） | T-C2 | ☐ 待领取 |
 | T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☑ 已并入（tc7 b8b6efb，合并 693ddac；双轴评审零发现；design-lead 视觉验收过，工件 .scratch/campfire/tc7-review/） |
@@ -323,7 +323,7 @@ js/mode-kit.js（kitHint 气泡通道消费）· js/items-core.js（drops 回收
 
 ## T-C4 烫伤：玩家节拍 + 怪物同规则 + fireTick 事件缝
 
-> 标签：`task`｜状态：◐ 评审过 minor 修复中（tc4 已并 4e8943b；SPEC-1 补测+头注×2 追令原主）｜blocked-by：T-C1｜blocks：—（T-C12 除外）
+> 标签：`task`｜状态：☑ 已并入（合并 4e8943b+修复 3c3d3f8，双轴评审 PASS）｜blocked-by：T-C1｜blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
 
