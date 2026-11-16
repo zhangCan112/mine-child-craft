@@ -413,6 +413,7 @@ function advMarkEdit(x, y, z, id) {/* T12 挖掘/放置在 editBlock 后调此�
   /* 篝火破坏钩(T-C1): 台账即 presence Map——不读世界值, 未知格 drop 零炸零副作用
      (挖除/TNT/覆盖/燃尽收尾同走此 seam; 放置格也过此缝, drop 幂等) */
   advCampfires.drop(x, y, z);
+  advCampfireFx.dig(x, y, z); /* 篝火特效挖掘=摘(T-C9 §5.1: 即刻摘零过渡零 pop; 幂等 presence 口径) */
   /* ADR 0007: 箱子进账/出账(放置/挖除/TNT 掀/覆盖同走此缝) → 容量随之重算;
      结构宝箱不在账本里, 天然不触发 */
   if ((id === B_CHEST) !== (pv === B_CHEST)) advChestResync();
@@ -921,6 +922,14 @@ function cfKitResolve() {
   };
   return {mkCampfireLedger: () => bareLedger};
 }
+/* 台账退场复位缝(T-C5 dev 口径): reset 的无字面量别名——showroom.js 源码
+   零 campfire 字样守门(C9 同壳机械面, /campfire/i 全词扫描)下, 体验馆
+   cleanup 经此挂「退场即清」; 语义与 advCampfires.reset() 逐字节一致
+   (台账+登记册+累积器归零, 纯内存态)。探险壳自身 cleanup 不调(退场不清
+   账、档已落, 炉态先例)。 */
+function advLedgerReset() {
+  advCampfires.reset();
+}
 /* 跨图收尾记账(T-C5, campfire-spec §3.8): 燃尽/浇熄发生在键所属场景之外时
    (下界的火在上界烧到头), 只按台账键归属落桶——两笔: 台账键形(posKey→值,
    跨图收尾的记账面, 与台账/encode 同键形) + 裸键世界真值(edits 重放按裸键
@@ -953,6 +962,7 @@ const advCampfires = cfKitResolve().mkCampfireLedger({
      编辑链记账(重进重放同态), 熄灭态零侧账(条目已由 kit 删); 第 4 参 k=
      台账键(T-C5): 跨图键只按归属场景记账, 当前世界零碰零级联 */
   onQuench: (x, y, z, k) => {
+    advCampfireFx.quench(x, y, z); /* 白汽即刻摘(T-C9 §5.7): 先摘后记账——dig 幂等不吞过渡尾巴 */
     if (advFurnKeyDim(k) !== advSceneKey()) {
       advCampfireCrossMark(k, x, y, z, B_CAMPFIRE_OUT); /* 跨图兜底(sceneGate
         拒答在先, 生产 wiring 不可达; kit 直调域防线两道) */
@@ -962,6 +972,8 @@ const advCampfires = cfKitResolve().mkCampfireLedger({
     editBlock(x, y, z, B_CAMPFIRE_OUT); /* 编辑链 id 互换(掉光场变化, 不掉落) */
   },
   onBurnout: (x, y, z, k) => {
+    advCampfireFx.burnout(x, y, z); /* 渐熄+轻灰 pop+尾烟(T-C9 §5.6): 先摘后记账同幂等序;
+        campfire_out 声位=方块移除帧(spec §3.7 对位裁定, 声本体登记 T-C11 后落) */
     if (advFurnKeyDim(k) !== advSceneKey()) {
       advCampfireCrossMark(k, x, y, z, 0); /* 跨图燃尽: 收尾落归属场景的桶
          (回那张图重放后火格消失, 不串当前世界) */
@@ -970,6 +982,43 @@ const advCampfires = cfKitResolve().mkCampfireLedger({
     advMarkEdit(x, y, z, 0); /* 燃尽格先记账(级联清单不含触发格, 后写覆盖才对) */
     advCascadeApply(editBlock(x, y, z, 0), false); /* 编辑链移除+级联(上方依附 thin 块随底座脱落) */
   }});
+/* ---------- 篝火特效管理器(CampfireFxCore, 篝火 T-C9) ---------- ----------
+   装载序三域解析(cfKitResolve 同款): 经典 script 里 campfire-fx-core 先于
+   本文件装载共享词法直用; Node CJS 装具走 require 导出面; 两路皆缺(纯 vm
+   陈列域)回落零观感空转管理器(句柄面形状不变, 消费面零判空)。
+   参数注入单源: 柱满高/燃尽满刻=config CAMPFIRE(Node 装具退 spec §3.9 初值
+   同 campfire-kit 纪律), 低核档=IS_LOWCORE_TOUCH, distOf 注入玩家距离喂
+   多篝火预算分档(§5.9)。渲染适配在 effects.js campfireField(句柄制),
+   无引擎域自然缺席零挂。 */
+function cfFxResolve() {
+  if (typeof CampfireFxCore !== 'undefined' && CampfireFxCore &&
+      typeof CampfireFxCore.mkCampfireFx === 'function') return CampfireFxCore;
+  if (typeof require === 'function') {
+    const m = require('../campfire-fx-core.js');
+    if (m && typeof m.mkCampfireFx === 'function') return m;
+  }
+  return null;
+}
+const advCampfireFx = (function() {
+  const core = cfFxResolve();
+  if (!core) {
+    const empty = () => ({flame: [], smoke: [], vortex: [], transients: []});
+    return {open() {}, quench() {}, burnout() {}, dig() {}, clear() {}, tick() {},
+      active: () => false, activeCount: () => 0, emitters: () => null,
+      particles: empty, setLeft() {}, fadeState: () => ({active: false}),
+      columnOpacityAt: () => 0, cells: () => [], now: () => 0, params: null};
+  }
+  const cfFxParams = typeof CAMPFIRE !== 'undefined' ? CAMPFIRE : null;
+  return core.mkCampfireFx({
+    lowcore: typeof IS_LOWCORE_TOUCH !== 'undefined' ? !!IS_LOWCORE_TOUCH : false,
+    columnH: (cfFxParams && cfFxParams.columnH > 0) ? cfFxParams.columnH : 20,
+    fullTicks: (cfFxParams && cfFxParams.ticks > 0) ? cfFxParams.ticks : 6000,
+    distOf: (x, y, z) => Math.hypot(x - pos.x, y - pos.y, z - pos.z),
+  });
+})();
+if (typeof Fx !== 'undefined' && Fx && typeof Fx.campfireField === 'function') {
+  Fx.campfireField(advCampfireFx); /* 篝火特效场挂渲染适配器(句柄制, 无引擎域缺席零挂) */
+}
 /* 大宝箱面板(引导链 v2): 政策与存档在本文件下方箱子段, 面板只管格子 */
 const advChestPanel = ModeKit.mkChestPanel({inv: advInv, chest: () => advChest,
   next: () => advChestNext(advChest.base), have: (id) => count(advInv, id),
@@ -1404,6 +1453,33 @@ function advCreepBoom(m, p) {
 
 /* 受击提醒已收 CombatKit.mkHurtAlarm(C6-T3, advHurt 实例 — nether 全套同源):
    账本同步 + 受击音 + 闪红 + 震屏 + 语音 3s 节流 */
+
+/* ---------- 怪物烫伤节拍结算 (篝火票据 T-C4, campfire-spec §3.6, ADR 0019/R2-2) ----------
+   「怪物也怕火」防御工事玩法: 怪物支撑格=燃烧态篝火→与玩家同节拍同伤害。
+   判据/步进=adventure-core 纯件(与引擎计息器同一语义单源); 逐帧脚格采样
+   (advTempleTrapTick 同款 floor(y−0.05)), per-mob __fireAcc 挂 mob 体
+   (__nightHome 同款), 离火即刻清零(再踩从零起拍)。结算归模式层怪物更新
+   (引擎只报事件): 到拍 Mobs.hit 后三参全零=零击退零归属; freshDead 不走
+   advOnKill——killCount/任务分账/toast 均属击杀归属, 环境烫死零特判, 掉落
+   归 mobs.js onDeath 现有链; 死亡回执镜像 m.dead(真库 hitState 已置位,
+   幂等重申, 窄面桩不回写时由此冻结参与)。维度无关不门禁(nether/副本同烫),
+   怪物不主动避火=本期零 AI(门口烧火=防御工事玩法成立)。 */
+function advMobFireTick(dt) {
+  for (const m of Mobs.list()) {
+    if (m.dead || m.gone) continue; /* 尸体/已回收零参与 */
+    const under = getBlock(Math.floor(m.pos.x), Math.floor(m.pos.y - 0.05), Math.floor(m.pos.z));
+    if (!advCampfireBurnHit(under)) {
+      m.__fireAcc = 0; /* 离火即刻清零 */
+      continue;
+    }
+    const r = advCampfireBurnStep(m.__fireAcc || 0, dt, CAMPFIRE.burnTick);
+    m.__fireAcc = r.acc;
+    for (let i = 0; i < r.fires; i++) {
+      const hr = Mobs.hit(m, CAMPFIRE.burnHp, 0, 0, 0); /* 零击退零归属参数(拍板④口径) */
+      if (hr && hr.dead) m.dead = true; /* 尸体不再参与(见段注释) */
+    }
+  }
+}
 
 /* 怪物 AI(nether 同款骨架 + 巢穴收敛): 索敌=玩家且同巢; 超收队半径掉头回巢;
    近战逼近→贴身打, 骷髅(ranged)保持 7 格巡航放箭(leadAim 预测弹道) */
@@ -2470,8 +2546,8 @@ function advFurnaceSettle(sceneKey) {/* 炉态核销(参照 decode 侧 advFurnac
     与炉态核销(advFurnaceSettle)同段同拍四处挂: init/切图/切界两分支。对账体:
     lit=扫当前场景桶收燃烧态(campfire 全为玩家放置, edits 全量权威) → 纯函数
     advCampfiresReconcile 三清单 → 灌装(缺账补满孩子不亏/僵账核销/keep 留);
-    随后当前场景燃烧格逐格 sim 重注册(readd, §3.8 验收=注册数对齐燃烧块数;
-    fx 特效重开随 C9 合并对账缝第四步接线)。调用点恒在 loadScene 重放之后
+    随后当前场景燃烧格逐格 sim 重注册(readd, §3.8 验收=注册数对齐燃烧块数)
+    +特效重开(fx.open, C9 评审 SPEC-3 移交)。调用点恒在 loadScene 重放之后
     (sim 已随清场清空)。 */
 function advCampfireSettle(sceneKey) {
   advCampfires.simClear(); /* sim 侧注册已随 loadScene 清场: 登记册作废, 其后 readd 全数重挂 */
@@ -2492,6 +2568,9 @@ function advCampfireSettle(sceneKey) {
   for (const [k, e] of advCampfires.map) {
     if (advFurnKeyDim(k) !== sceneKey) continue; /* 他图条目: 进那张图再核(炉键同口径) */
     advCampfires.readd(e.x, e.y, e.z); /* 气流柱重挂(presence+登记册幂等) */
+    advCampfireFx.open(e.x, e.y, e.z); /* 特效重开(T-C9 句柄制 open 幂等, C9 评审
+       SPEC-3 移交本票接线): 读档/切图回场后燃烧格发射器在位; 熄灭态格不在
+       台账=天然零开; 渐起语义归 fx 侧(重开走其实现口径, 本缝不钉速率) */
   }
 }
 
@@ -3472,6 +3551,8 @@ const advPlaceKit = PlaceKit.mkEditor({
     if (blockId === B_CHEST) advTally('place_chest', 1); /* 引导链 v2: 箱子步(合成/放置/打开三条件) */
     if (BLOCKS[blockId] && BLOCKS[blockId].campfire) {
       advCampfires.plant(x, y, z); /* 篝火放置即燃: 侧账建满时长(树苗挂表同缝, spec §3.3) */
+      advCampfireFx.open(x, y, z); /* 放置即燃特效(T-C9 §5.5): 点燃 pop+三发射器 0.5s 渐起;
+          campfire_lit 声位同拍(spec §3.7/§5.5-3, 声本体登记 T-C11 后落) */
     }
     if (blockId === B_SAPLING) {
       advTally('place_sapling', 1); /* 引导链 v2: 种树苗步(砍了树要种回去) */
@@ -3495,6 +3576,7 @@ const advPlaceKit = PlaceKit.mkEditor({
      (tts/desc 逐字定稿, 零第二文案源) */
   onCampfireRelit: (x, y, z) => {
     advCampfires.plant(x, y, z);
+    advCampfireFx.open(x, y, z); /* 重燃=新的一炉(T-C9 §5.5 点燃过渡共用): 重开渐起重爬非续旧 */
     advSpeak(advCampfireRelightHint.tts); /* TTS 通道零改动(评审 SPEC-1: 触发时点原样) */
     /* 视觉通道=kitHintShow 气泡(T-C3 评审 SPEC-1 裁定): 重燃提示是「物品认知」
        教学面(ADR 0018 可供性), 走 mode-kit §② 气泡通道——name+desc 双行全消费,
@@ -3526,6 +3608,7 @@ const advPlaceKit = PlaceKit.mkEditor({
   wear: () => advWearHeld('mine'),
   say: advToast, /* say/speak/sfx 媒体三通道经包装走政策缝 advProfile(U2): 缺省直通, U4 dev 静默 */
   speak: (t) => advSpeak(t),
+  hint: (h) => ModeKit.kitHintShow(h, document), /* T-C10b 篝火失败教学气泡(kitHintShow 单源, C3 重燃气泡同装配) */
   sfx: advSfx,
   ring: advRingSet,
   swing: () => Avatar.swing(),
@@ -5298,6 +5381,7 @@ const AdventureMode = mkMode({
     advSyncHeldVisual(); /* 进场观感对齐选中槽(空档 = 空手) */
     advFurnace.reset(); /* T4: 炉态/绑定/开态/签名复位(kit Map 引用不变, 开态真值在 kit 不设镜像); 档里有什么恢复什么(F1) */
     advCampfires.reset(); /* 篝火账内存态复位(T-C1: 台账不落盘, 读档火不续烧属预期——档键+重放对账归 T-C5) */
+    advCampfireFx.clear(); /* 篝火特效连带清场(T-C9 §5.1: 台账复位同拍, 粒子零残留) */
     advFlamesClear(); /* F2: 炉口火焰一并复位(上一场的观感不渗进来) */
     for (const [k, s] of advLoad.furnaces) advFurnaces.set(k, s); /* F1: 每炉独立炉态重进照旧(decode 已过滤非法) */
     advFurnaceSettle(advMap); /* D14: 当前图炉键对重放后的世界核销(块没了炉态丢); 他图/界键进那张图建场后再核 */
@@ -5451,6 +5535,10 @@ const AdventureMode = mkMode({
     for (let cfT = 0; cfT < dt; cfT += 0.4) {
       advCampfires.tick(Math.min(dt - cfT, 0.4));
     }
+    advCampfireFx.tick(dt); /* 篝火特效粒子推进(T-C9: 发射节拍/过渡尾巴/预算重排, 零玩法) */
+    for (const cfE of advCampfires.map.values()) {
+      advCampfireFx.setLeft(cfE.x, cfE.y, cfE.z, cfE.left); /* 渐弱窗喂缝(§5.8: 剩余刻驱动火苗降档, 气柱烟不衰减) */
+    }
     advFlameTick(dt); /* F2 炉口火焰: 差异增删 + 脉动(原烧炼节律尾钩, T4 起独立挂 update) */
     advFuseTick(dt); /* TNT 引信倒计时到点起爆(T13, 先于怪物 AI——当帧爆炸位置不漂移) */
     advTntTapTick(dt); /* TNT 短按/按住判定(D3): 转蓄力需先于 advMineTick 同帧生效 */
@@ -5472,6 +5560,15 @@ const AdventureMode = mkMode({
       worldEvents.lavaTick = false;
       advEnvHurt(FLUID.lavaDps, '好烫！快离开岩浆！');
     }
+    /* 篝火烫伤(篝火 T-C4, campfire-spec §3.6/§3.9): 引擎计息到点的事件在此
+       结算 HP——环境伤 advEnvHurt 原值直扣不经甲(与摔落/岩浆同通道, D8),
+       mute=零 TTS 路径(ADR 0014 零新增播报, 受击观感三件照走既有 hurt 通道);
+       血尽走 advPlayerDied 现有零惩罚死亡流程(不开第二套血尽语义) */
+    if (worldEvents.fireTick) {
+      worldEvents.fireTick = false;
+      advEnvHurt(CAMPFIRE.burnHp, null, {mute: true});
+    }
+    advMobFireTick(dt); /* 怪物同规则(R2-2): 每帧脚格采样计息, 与玩家同节拍同伤害 */
     /* 无翼摔落伤害(T-G05, ADR 0014 对零惩罚哲学的显式例外): 消费引擎 land
        事件(触地跃迁沿, 与流体环境伤同位先例) → 伤害=max(0, floor(landFall)
        −GLIDE.safeFall)×GLIDE.fallHp 经 advEnvHurt 原值直扣(环境伤漏斗, 血尽
@@ -5678,6 +5775,7 @@ AdventureMode.adv = {ADV, advJournal, getSaveView: advSaveView,
   heightAt: advHeightAt, /* T5 圈层高度场(建场件与测试共用的唯一高度权威) */
   advFurnace, advFlameCount: () => advFlames.size,
   advCampfires, /* 篝火账 kit 实例(T-C1 测试缝: 台账 Map/放置/燃尽链直断言, advFurnace 同款) */
+  advCampfireFx, /* 篝火特效管理器(T-C9 测试缝: 句柄/发射器快照直断言, advCampfires 同款) */
   advBreakBlock, advOnCraft, advInvMove, advDropSlot, advTryExpandBag, advReclaimThrown,
   advChestDeposit, advChestWithdraw, advChestExpand, advPanelClose,
   advStationOk, advNightRead, advQuestPaint, advSlimeWaterOk,

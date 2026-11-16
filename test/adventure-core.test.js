@@ -3479,6 +3479,42 @@ test('T-C3 重燃话术: advCampfireRelightHint — 形状 {name,desc,tts} · de
   }
 });
 
+/* ---------- 篝火烫伤纯函数双件 (篝火票据 T-C4, campfire-spec §3.6, ADR 0019) ----------
+   支撑格采样判据(身份判据只读旗标, spec §6-6)与节拍累计(20tps 计划刻→秒, spec §4
+   拍板案): 引擎计息器(voxel.js 支撑格采样, lavaAcc 同款)与模式层怪物结算
+   (adventure.js)共用同一判据语义——判据单源=config campfire 旗标, 零第二份。
+   不烫面(ADR 0019 例外边界): 熄灭态/燃尽后(空气)/物品与掉落形态(无采样)/
+   气柱本身(支撑格非火格)一律 false; 起飞豁免=接触不满节拍零拍(无特殊豁免分支)。 */
+
+test('T-C4 支撑格采样判据 advCampfireBurnHit: 燃烧态=烫 · 熄灭态/空气/其他方块不烫(不烫面, ADR 0019)', () => {
+  assert.strictEqual(typeof Core.advCampfireBurnHit, 'function',
+      'advCampfireBurnHit 在册(纯函数宿主, 引擎采样与模式怪物结算共用判据语义)');
+  const IDS = vm.runInContext('({lit: B_CAMPFIRE, out: B_CAMPFIRE_OUT})', eng);
+  assert.strictEqual(Core.advCampfireBurnHit(IDS.lit), true, '燃烧态篝火=烫(campfire 旗标 lit 单源)');
+  assert.strictEqual(Core.advCampfireBurnHit(IDS.out), false, '熄灭态不烫(旗标 out, 同 id 族不同态)');
+  assert.strictEqual(Core.advCampfireBurnHit(0), false, '空气不烫(燃尽后=方块消失, 支撑格无火)');
+  assert.strictEqual(Core.advCampfireBurnHit(3), false, '普通方块(石头)不烫');
+  assert.strictEqual(Core.advCampfireBurnHit(999), false, '未知 id 不烫(防御式, 表驱动判据)');
+});
+
+test('T-C4 节拍累计 advCampfireBurnStep: 每满 20 刻(1s)出 1 拍 · 0.9s 零拍 · 2.1s 恰 2 拍 · 余量回累积器', () => {
+  assert.strictEqual(typeof Core.advCampfireBurnStep, 'function',
+      'advCampfireBurnStep 在册(纯函数宿主, 模式层怪物节拍结算)');
+  const step = Core.advCampfireBurnStep;
+  const BEAT = vm.runInContext('CAMPFIRE.burnTick', eng); /* 20 刻=1s(spec §3.9, 参数单源) */
+  let r = step(0, 0.9, BEAT);
+  assert.strictEqual(r.fires, 0, '0.9s 不满一拍零拍(接触不足 1 秒不烫 — 起飞豁免机械面, ADR 0019)');
+  assert.ok(Math.abs(r.acc - 0.9) < 1e-9, '余量 0.9s 回累积器(不丢账)');
+  r = step(r.acc, 1.2, BEAT); /* 累计 2.1s */
+  assert.strictEqual(r.fires, 2, '累计 2.1s 恰 2 拍(每满 1 秒 1 拍, 节拍边界可证)');
+  assert.ok(Math.abs(r.acc - 0.1) < 1e-9, '余量 0.1s 回累积器');
+  r = step(0, 2.5, BEAT); /* 大步进跨多拍(掉帧追平语义) */
+  assert.strictEqual(r.fires, 2, '单步 2.5s 出 2 拍(大 dt 多拍不丢)');
+  assert.ok(Math.abs(r.acc - 0.5) < 1e-9, '余量 0.5s 回累积器');
+  r = step(0, 0, BEAT); /* 零帧空转 */
+  assert.strictEqual(r.fires, 0, '零 dt 零拍(不喂即冻结同族口径)');
+});
+
 /* ---------- 篝火燃尽步进/档账清扫 (campfire T-C1, ADR 0018) ----------
    纯函数双件(advFurnaceClean 同居先例): 步进只管刻账(整刻入账, 单位=刻,
    spec §4 拍板案——20tps 累积器在 kit 侧量化, 这里见到的 ticks 已是整数),

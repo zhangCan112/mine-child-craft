@@ -25,7 +25,8 @@
      advCampfiresDecode(档键解码, T-C5)/advCampfiresReconcile(重放对账
      三清单, T-C5)·
      advCampfireQuenchHit(浇熄几何, read 注入)/advCampfireRelightHint(重燃
-     话术常量, name 引用熄灭态方块名) · 昼夜 D5 夜怪
+     话术常量, name 引用熄灭态方块名) · 篝火 T-C4 advCampfireBurnHit(燃烧
+      判据)/advCampfireBurnStep(节拍步进) · 昼夜 D5 夜怪
       政策 ADV_NIGHT/advNightCanSpawn/advNightStep(缺省池薄壳, 签名冻结)/
       advDawnSweep · home 地图行缺省 ADV_HOME_ROW(巢穴池/夜怪池的
       行缺省权威, 冒险地图 T2——壳与 T4 注册表各行经它换池, 常量本体不动) · F4 牧场
@@ -2979,6 +2980,33 @@ const advCampfireRelightHint = {
   tts: ADV_CAMPFIRE_RELIGHT_DESC,
 };
 
+/* ---------- 篝火烫伤纯函数双件 (篝火票据 T-C4, campfire-spec §3.6/§4, ADR 0019) ----------
+   支撑格采样判据与节拍累计(20tps 计划刻→秒换算, campfire-kit CF_STEP_S 同款
+   口径): 引擎计息器(voxel.js)与模式层怪物结算(adventure.js)共用同一判据语义
+   ——判据单源=config campfire 身份旗标(spec §6-6 只读旗标), 零第二份 id 清单。 */
+
+/* 燃烧态判据(纯函数): id 查方块表 campfire 旗标==='lit' 才是烫面。不烫面
+   (ADR 0019 例外边界): 熄灭态(旗标 'out')/空气(燃尽后方块消失=无采样)/
+   普通方块/未知 id(防御式, 表驱动)一律 false; BLOCKS 经全局名调用期解析。 */
+function advCampfireBurnHit(id) {
+  const b = BLOCKS[id];
+  return !!(b && b.campfire === 'lit');
+}
+
+/* 节拍累计(纯函数): acc+=dt 进账, 每满 beatTicks(刻, 20tps 游戏钟=1s)出 1 拍,
+   亚拍余量回累积器(不丢账); 大 dt 跨多拍同步追平(掉帧不丢拍), 零 dt 零拍。
+   返回 {acc, fires}: acc=新余量, fires=本步拍数(调用方逐拍结算)。 */
+function advCampfireBurnStep(acc, dt, beatTicks) {
+  const beatS = beatTicks / 20;
+  let a = acc + dt;
+  let fires = 0;
+  while (a >= beatS) {
+    a -= beatS;
+    fires++;
+  }
+  return {acc: a, fires};
+}
+
 /* TNT 爆炸掉落掷骰(D4): 方块先掷 70% 门槛, 中签才走 rollBlockDrop(保底+
    概率条目原样掷, 不传工具=默认表)。rand 可注入; tnt 旗标守卫恒空手 —
    TNT 不经爆炸自掉(圈内 TNT 走链式点燃分支本就不进掷骰, 守卫与 drop
@@ -3772,6 +3800,7 @@ if (typeof module !== 'undefined' && module.exports) {
     advCampfiresStep, advCampfiresClean, /* 篝火刻账纯函数双件(T-C1) */
     advCampfiresDecode, advCampfiresReconcile, /* 档键解码/重放对账(T-C5) */
     advCampfireQuenchHit, advCampfireRelightHint, /* 浇熄几何/重燃话术(T-C3) */
+    advCampfireBurnHit, advCampfireBurnStep, /* 烫伤燃烧判据/节拍累计纯函数双件(T-C4) */
     ADV_LIVESTOCK_SPAWN_R, ADV_LIVESTOCK_HERD_R, ADV_LIVESTOCK_RING_LO,
     ADV_LIVESTOCK_RING_HI, ADV_LIVESTOCK_HERDS, ADV_HERD_AVOID_R, ADV_HERD_AVOID_MULT,
     ADV_HERD_FLEE_T, ADV_HERD_FLEE_MULT, ADV_HERD_AMBLE_MULT,
