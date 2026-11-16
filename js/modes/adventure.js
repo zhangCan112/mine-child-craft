@@ -2389,7 +2389,8 @@ function advFurnaceSettle(sceneKey) {/* 炉态核销(参照 decode 侧 advFurnac
 
 /* ---------- 切图/切界(D8/D10/D11 泛化, §3.3 + 票据 T6) ----------
      换装共通清单抽 advSceneLeave(nether 合并既有清单照抄扩位): 换桶→清蓄力/
-     TNT 判定/炉面板/光束/火焰/树苗计时/引信→清怪清掉落清箭→重挂实体回调。
+     TNT 判定/炉面板/光束/火焰/转体(spinner)/树苗计时/引信→清怪清掉落清箭→
+     重挂实体回调。
      advSetDim 切维度(nether 期间 advMap 保持最后主世界图), advSetMap 切主世界
      图(T7 的地图门站桩触发器接此; 本票可被测试直调) */
 function advSceneLeave() {/* 离开当前场景的共通清单: 世界无关观感/实体/计时一次清空 */
@@ -2399,6 +2400,21 @@ function advSceneLeave() {/* 离开当前场景的共通清单: 世界无关观�
   if (advFurnace.isOpen()) advFurnace.close(); /* 炉面板绑定旧场景炉: 先收 */
   advBeamsClear(); /* 光束句柄全清再重锚(旧世界的束不跨场) */
   advFlamesClear(); /* 炉口火焰 Sprite 同理(炉态随档跨场保留, 观感不跨) */
+  /* 转体清场(T-SPINNER-LEAK, 旧世界的转体不跨场): 镇风车叶片 mesh 只在
+     townBuild 的 spinner case 注册挂 scene, 离场一律排空注册表并卸载旧
+     mesh(scene.remove+geometry/material dispose 收口在此——SpinnerCore
+     纯核只交引用); 与 advBeamsClear「旧世界的束不跨场」同原则。写法照抄
+     townBuild 现存 drain 循环(那里自留重入护栏不删); 装具域无 SpinnerCore/
+     scene 时零副作用。 */
+  if (typeof SpinnerCore !== 'undefined') {
+    for (const s of SpinnerCore.drain()) {
+      if (typeof scene !== 'undefined') {
+        scene.remove(s.mesh);
+        s.mesh.geometry.dispose();
+        if (s.mesh.material && s.mesh.material.dispose) s.mesh.material.dispose();
+      }
+    }
+  }
   advSaplings.clear(); /* 树苗计时不跨场(进图重扫重建, 防旧图坐标在新图长树——串档事故) */
   advTreeRegen.clear(); /* 凋零树位恢复计时同不跨场(同款串档防线) */
   advEntitiesClear(); /* 实体五池清+丢弃件收回包(不跨场: 门只渡人——下界无怪,
