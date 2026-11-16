@@ -4957,6 +4957,14 @@ const AdventureMode = mkMode({
     advRingDispose();
     advHpBar.dispose(); /* 头顶血条回收(S2 深接口) */
     advTownBellClear(); /* TIDEA-02: 迟到迎宾钟句柄清(会话退场零漏响) */
+    /* PO 案②(树 3c89723): 镇内直接切模式的残机/残傀儡清场 — 离镇链(:2410)
+       同源三行无条件清(不挂维度门: cleanup 时镇内外都可能; 未进镇=
+       undefined/空账容差自守卫, 零炸幂等): 机器不渗下模式(town-ui sync 掉机
+       感知走 leaveTown defer 收口), 傀儡 root 摘净跨模式零残留(体验馆复用
+       同 scene 建场零残影) */
+    advTownTargets = undefined;
+    advTownAnchors = undefined;
+    advTownPuppetsLeave();
   },
 
   update(dt) {
