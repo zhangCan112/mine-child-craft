@@ -1743,3 +1743,89 @@ test('HUD 装备条与装备页第五槽样式照稿 — css/style.css(UI spec �
       /justify-self:\s*center/.test(m[2])),
   '第五槽 grid-column: span 2 + justify-self: center(四槽正下方居中独立行)');
 });
+
+/* ============ 篝火 T-C7: 配方卡观感走查(UI 定稿 §3.4/§3.6-5; mkCraftPanel 既有卡式零样式改动) ============ */
+
+/* 真配方(真核心已 vm 装载): 走查对象=craft-core RECIPES 的 campfire 行(T-C1 落) */
+const R_CAMPFIRE = RECIPES.find((x) => x.id === 'campfire');
+
+test('篝火配方卡(T-C7 走查): 方块页签在列+工作台徽标+产物槽 ×2 角标+料齐亮卡', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'stick', n: 3}, {id: 'coal', n: 1},
+    {id: 'log', n: 3}, ...Array(15).fill(null)]};
+  const panel = mkCraftPanel({doc, inv, recipes: [R_CAMPFIRE], onCraft() {}});
+  panel.show();
+  pickL1(panel, 'craft');
+  pickTab(panel, 'block'); /* 页签归属: 产物是放置型(ITEMS.campfire.block)→方块页(§3.4) */
+  const cards = collect(panel.root, 'mkp-card');
+  assert.deepStrictEqual(cards.map((c) => c.dataset.recipe), ['campfire'], '篝火卡在方块页在列');
+  const card = cards[0];
+  assert.ok(!card.classList.contains('dim'), '材料齐(棍3+煤1+原木3)→亮卡');
+  assert.ok(card.innerHTML.includes('data-btn="table"'), '工作台徽标(KIT_STATION_BADGE.table 现行件, §3.4)');
+  assert.ok(card.innerHTML.includes('<b class="mkp-n">×2</b>'), '产物槽 ×2 角标(r.out.n=2, mkp-n 现行渲染)');
+  panel.remove();
+});
+
+test('篝火配方卡(T-C7 走查): chips 恰四枚=棍×3/原木×3/煤×1/木炭×1, 渲染序=图案遍历序 stick→煤炭组→log(S-1)', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'stick', n: 3}, {id: 'coal', n: 1},
+    {id: 'log', n: 3}, ...Array(15).fill(null)]};
+  const panel = mkCraftPanel({doc, inv, recipes: [R_CAMPFIRE], onCraft() {}});
+  panel.show();
+  pickL1(panel, 'craft');
+  pickTab(panel, 'block');
+  const html = collect(panel.root, 'mkp-card')[0].innerHTML;
+  const pos = (id) => html.indexOf('data-id="' + id + '"');
+  for (const id of ['stick', 'coal', 'charcoal', 'log']) {
+    assert.ok(pos(id) >= 0, 'chip ' + id + ' 应在卡上(恰四枚: 任选=逐候选一枚, §3.4)');
+  }
+  assert.ok(pos('stick') < pos('coal') && pos('coal') < pos('charcoal') &&
+      pos('charcoal') < pos('log'), '渲染序=shapeCost 键序展开=图案遍历序 stick→煤/炭组→log(S-1 追认合同)');
+  const seg = (id) => html.slice(pos(id), pos(id) + 160);
+  assert.ok(seg('stick').includes('<b>×3</b>'), '木棍 ×3');
+  assert.ok(seg('log').includes('<b>×3</b>'), '原木 ×3');
+  assert.ok(seg('coal').includes('<b>×1</b>'), '煤 ×1(任选组数量同一份)');
+  assert.ok(seg('charcoal').includes('<b>×1</b>'), '木炭 ×1(任选组数量同一份)');
+  assert.ok(!html.includes('mkp-chip lack'), '料齐→零缺料灰显');
+  panel.remove();
+});
+
+test('篝火配方卡(T-C7 走查): 缺任选组→煤/炭两 chip 灰显(灰版图标)+整卡 dim, 棍/原木 chip 常色', () => {
+  const doc = mkDoc();
+  const inv = {slots: [...Array(9).fill(null), {id: 'stick', n: 3}, {id: 'log', n: 3},
+    ...Array(16).fill(null)]}; /* 唯缺煤/炭 */
+  const grayLog = [];
+  globalThis.iconOfGray = (id) => {
+    grayLog.push(id);
+    return 'data:image/png;base64,GRAY';
+  };
+  try {
+    const panel = mkCraftPanel({doc, inv, recipes: [R_CAMPFIRE], onCraft() {}});
+    panel.show();
+    pickL1(panel, 'craft');
+    pickTab(panel, 'block');
+    const card = collect(panel.root, 'mkp-card')[0];
+    const html = card.innerHTML;
+    assert.ok(card.classList.contains('dim'), '缺料→整卡 dim(§3.6-5)');
+    /* 段基准=chip 的 span 开标签(class 在 data-id 之前, 从 data-id 切会丢 lack 类) */
+    const spanAt = (id) => html.lastIndexOf('<span class="mkp-chip', html.indexOf('data-id="' + id + '"'));
+    const ids = ['stick', 'coal', 'charcoal', 'log'];
+    const seg = (id) => html.slice(spanAt(id),
+        ids.indexOf(id) + 1 < ids.length ? spanAt(ids[ids.indexOf(id) + 1]) : html.length);
+    const stickSeg = seg('stick');
+    const coalSeg = seg('coal');
+    const charSeg = seg('charcoal');
+    const logSeg = seg('log');
+    assert.ok(coalSeg.includes('mkp-chip lack') && charSeg.includes('mkp-chip lack'),
+        '缺任选组→煤/炭两 chip 灰显(lack 类)');
+    assert.ok(coalSeg.includes('src="data:image/png;base64,GRAY"') &&
+        charSeg.includes('src="data:image/png;base64,GRAY"'), '缺料 chip 走 iconOfGray 灰版');
+    assert.ok(!stickSeg.includes('lack') && !logSeg.includes('lack'), '棍/原木 chip 常色(缺哪枚灰哪枚)');
+    assert.ok(grayLog.includes('campfire') && grayLog.includes('coal') &&
+        grayLog.includes('charcoal'), '灰版取用=产物+煤+炭(灰卡产物同灰版)');
+    assert.ok(!grayLog.includes('stick') && !grayLog.includes('log'), '棍/原木不取灰版');
+    panel.remove();
+  } finally {
+    delete globalThis.iconOfGray; /* 还原全局(镜像本文件 iconOfGray 桩口径) */
+  }
+});

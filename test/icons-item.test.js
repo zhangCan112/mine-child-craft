@@ -295,3 +295,75 @@ test('下界链材料 3 键: 残骸新画(深底棕纹) · 碎片/锭复用团�
   assert.strictEqual(h.ITEM_PIX.netherite_ingot.art, h.ITEM_PIX.iron_ingot.art,
       '合金锭复用锭梯形(iron_ingot 同款共用形先例)');
 });
+
+/* ============ 篝火 T-C7: UI 定稿 §3.1/§3.2 定稿字符画(逐字符照抄, 红方=誊写权威) ============ */
+
+/* UI 定稿 docs/design/campfire-visual-spec.md §3.2 CAMPFIRE_ART——观感唯一权威,
+   此处逐字符誊抄为验收基准(实现不自创图案); 16 行×16 列, 行宽程序验证同段断言 */
+const CAMPFIRE_SPEC_ART = [
+  '................',
+  '................',
+  '........f.......',
+  '........fF......',
+  '.......fFFf.....',
+  '......fFWWFf....',
+  '.....fFWwWFf....',
+  '....fFWwwWFf....',
+  '....FFWwwWFF....',
+  '...fFFWWWWFFf...',
+  '..keFFWWWFFek...',
+  '.L..ekkeekk...L.',
+  '..LllllllllllL..',
+  '.dLLLLLLLLLLLLd.',
+  '.dddddddddddddd.',
+  '................',
+];
+
+/* UI 定稿 §3.1 九色映射: 焰四档(w/W/f/F)+余烬红 e+炭黑 k+原木三档(L/l/d), hex 逐字 */
+const CAMPFIRE_SPEC_MAP = {
+  w: '#ffffff', W: '#ffff97', f: '#ffd800', F: '#ff8f00',
+  e: '#e05a1a', k: '#2f2a26', L: '#8a5a2b', l: '#a8743d', d: '#6b451f',
+};
+
+test('篝火定稿(T-C7): 字符画逐字符=UI 定稿 §3.2, 16 行×16 列(行宽程序验证)', () => {
+  const {h} = loadIcons();
+  const def = h.ITEM_PIX.campfire;
+  assert.ok(def, 'ITEM_PIX.campfire 应已登记(T-C1 占位; 键集守门同源)');
+  assert.strictEqual(def.art.length, 16, '行数=16');
+  def.art.forEach((row, y) => {
+    assert.strictEqual(typeof row, 'string', '第 ' + y + ' 行应为字符串');
+    assert.strictEqual(row.length, 16, '第 ' + y + ' 行列数=16(程序验证行宽)');
+  });
+  assert.deepStrictEqual([...def.art], CAMPFIRE_SPEC_ART,
+      '字符画逐字符=UI 定稿 §3.2(vm 域数组先摊平进宿主域, conventions §7.1)');
+});
+
+test('篝火定稿(T-C7): 色板九色逐字对账 UI 定稿 §3.1(键集恰九+hex 逐字, 不改色值)', () => {
+  const {h} = loadIcons();
+  const map = h.ITEM_PIX.campfire.map;
+  assert.ok(map, 'campfire 色板应在');
+  assert.deepStrictEqual(Object.keys(map).sort(), Object.keys(CAMPFIRE_SPEC_MAP).sort(),
+      '色板键集恰九色(w/W/f/F/e/k/L/l/d), 不自创不改档');
+  for (const [ch, hex] of Object.entries(CAMPFIRE_SPEC_MAP)) {
+    assert.strictEqual(map[ch], hex, '色板字符 ' + ch + ' hex 逐字=§3.1');
+  }
+});
+
+test('篝火定稿(T-C7): 密度=106 实像素(glider 同档 §3.6-4)+九色字符全在画中(色阶有源 §3.6-1)', () => {
+  const {h} = loadIcons();
+  const art = h.ITEM_PIX.campfire.art;
+  let n = 0;
+  const used = new Set();
+  for (const row of art) {
+    for (const ch of row) {
+      if (ch !== '.') {
+        n++;
+        used.add(ch);
+      }
+    }
+  }
+  assert.strictEqual(n, 106, '实像素=106(UI 定稿 §3.2 密度自查, glider 110 同档)');
+  for (const ch of Object.keys(CAMPFIRE_SPEC_MAP)) {
+    assert.ok(used.has(ch), '九色字符 ' + ch + ' 应出现在画中(§3.6-1 焰四档/原木三档可辨有源)');
+  }
+});
