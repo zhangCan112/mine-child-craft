@@ -166,6 +166,14 @@ const TOWN_MAP = {
         arch §12.1③, 几何见 prefab-kit iron-golem 行 z 收胸 v3) */
       id: 'iron-golem', x: 70, y: 25, z: 30, v: {},
       face: 'south', zone: 'far-north'},
+    {/* ②镇侧门楼(town-gate, T1a, spec §2.6 候选行逐字): 回程动线南端的
+        对称门楼——牌面朝北迎回家者, 双门呼应(home 东带门楼牌面朝西);
+        锚 (76,24,128)=主路轴线 x76..80 与基座桥北缘 z128 交点, 桥面 y24
+        与 core 草地同层无缝; zone south=南缓冲带服务面(锚 z128 越带注记
+        豁免归守门测试⑤, 越界放行由 beyond.gate-south 白名单承担,
+        ADR-0013); v 素坯空对象, 几何见 prefab-kit town-gate 行 */
+      id: 'town-gate', x: 76, y: 24, z: 128, v: {},
+      face: 'north', zone: 'south'},
   ],
   /* 路网(§4.3): 三条主路 5 宽放射贴广场三缘(北/东/南), 三条支路 3 宽
       通民居门前/田园/储藏角; 均为轴对齐闭域矩形段(厚=窄边跨度),
