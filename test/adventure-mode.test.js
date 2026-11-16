@@ -5699,6 +5699,12 @@ function poArm() {/* 幂等臂装: 摆放链三件 + 假 scene, 并清零账本 
   };
   Object.assign(globalThis, require('../js/town-npc-registry.js'));
   Object.assign(globalThis, require('../js/town-npc.js'));
+  /* 合并收尾(po-accept-fix⊕po-idle-fix 同进程, 集成线裁定): poArm 镜像
+     index.html 镇民链生产装载序补挂 TOWN_UI_PARAMS——③案卷 idle tick
+     生产路径(advTownNpcIdleTick)对非空傀儡账调 townNpcIdleHeadTarget,
+     参数懒解析缺席即抛(③票设计, 不静默)。假傀儡 bones={} 空骨走缺骨
+     容差零写, 本装具断言面(scene 清点/蓄力/挖掘)零语义变化。 */
+  globalThis.TOWN_UI_PARAMS = require('../js/town-ui-core.js').TOWN_UI_PARAMS;
   globalThis.scene = {
     children: PO_SCENE_CHILDREN,
     add(o) {
