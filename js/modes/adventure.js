@@ -931,13 +931,13 @@ function advLedgerReset() {
   advCampfires.reset();
 }
 /* 跨图收尾记账(T-C5, campfire-spec §3.8): 燃尽/浇熄发生在键所属场景之外时
-   (下界的火在上界烧到头), 只按台账键归属落桶——两笔: 台账键形(posKey→值,
-   跨图收尾的记账面, 与台账/encode 同键形) + 裸键世界真值(edits 重放按裸键
-   落格, 重进那张图火格如实消失/换熄——缺这笔重放会复燃僵尸火); 当前世界
-   零碰零级联(touch 置脏让收尾随档; editBlock 只属于「人在场」的收尾)。 */
+   (下界的火在上界烧到头), 按台账键归属定桶, 落一笔裸键世界真值——edits 重放
+   按裸键解析落格, 重进那张图火格如实消失/换熄; 台账键形笔曾双写, 评审 SPEC-1
+   判死数据删除(重放/settle lit/stations 均不消费带前缀键, 净效应=随档死数据
+   +NaN 无效写); 当前世界零碰零级联(touch 置脏让收尾随档; editBlock 只属于
+   「人在场」的收尾)。 */
 function advCampfireCrossMark(k, x, y, z, val) {
   const scene = advFurnKeyDim(k);
-  advSceneEdits[scene].set(k, val);
   advSceneEdits[scene].set(blockKey(x, y, z), val);
   advStore.touch();
 }

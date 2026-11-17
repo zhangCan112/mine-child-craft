@@ -1736,8 +1736,11 @@ test('C5 跨图燃尽: 下界条目在上界到期 → 收尾落 nether 桶记�
   globalThis.editBlock(ns.x, 21, ns.z, IDS.water); /* 上界同坐标布哨兵(基座该格在地下) */
   AM.update(0.5); /* 10 刻: 到期燃尽(上界喂拍, 收下界的账) */
   assert.ok(!AN.advCampfires.map.has(k), '燃尽删条(台账出清)');
-  assert.strictEqual(AN.advSceneEdits.nether.get(k), 0,
-      '收尾记账落 nether 桶(posKey→0——第 4 参按键落自己场景的桶, 不串当前图)');
+  const bk = ns.x + ',21,' + ns.z;
+  assert.strictEqual(AN.advSceneEdits.nether.get(bk), 0,
+      '收尾记账落 nether 桶(裸键→0——第 4 参按键定桶, 桶键=裸键不变式)');
+  assert.ok(!AN.advSceneEdits.nether.has(k),
+      '台账键形笔不落桶(评审 SPEC-1 死数据笔已删, edits 桶零前缀键)');
   assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), IDS.water,
       '上界世界零碰(哨兵水原样——跨图收尾不 editBlock 当前世界)');
   AN.advSetDim('nether');
