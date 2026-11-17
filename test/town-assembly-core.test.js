@@ -510,10 +510,16 @@ test('植被道具: op 词表封闭 · 禁 id7 的 fill(无散装树几何) · �
   assert.deepStrictEqual(ops.filter((o) => o.op === 'scrub'), SCRUBS.map((s) => {
     return {op: 'scrub', x: s.x, top: s.y, z: s.z, salt: s.x * 131 + s.z};
   }), 'scrub op 六丛带确定性盐(同参同丛, SceneKit.scrub 契约)');
-  const lampSite = (s) => fills.filter((f) => f.x1 === s.x && f.x2 === s.x &&
-    f.z1 === s.z && f.z2 === s.z);
+  /* 逐站收集(裁决修正 2026-11-17, T-NPC-15c 灯罩造型笔): 谓词原为整列
+     y 无关——罩形笔入册后(定稿 §3)他件造型笔可与路标同列异层(lamp-north
+     悬挑环西端 (73,30,67) × signpost-plaza (73,67), 定稿 §5 邻接在册,
+     体素级零冲突), 旧谓词误收他件笔=分层盲视。收窄至本件派生 y 域
+     (灯柱三笔 y+1..y+5 / 路标两笔 y+1..y+3): 同列异层邻件不入场,
+     本件域内多笔仍被抓=断言面不放松(15b 裁决先例: 归红方修测单行零语义)。 */
+  const siteFills = (s, yTop) => fills.filter((f) => f.x1 === s.x && f.x2 === s.x &&
+    f.z1 === s.z && f.z2 === s.z && f.y1 >= s.y + 1 && f.y2 <= s.y + yTop);
   for (const s of LAMPS) {
-    assert.deepStrictEqual(lampSite(s), [
+    assert.deepStrictEqual(siteFills(s, 5), [
       {op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 1, z2: s.z,
         id: PALETTE_WANT.props.lampBase},
       {op: 'fill', x1: s.x, y1: s.y + 2, z1: s.z, x2: s.x, y2: s.y + 4, z2: s.z,
@@ -523,7 +529,7 @@ test('植被道具: op 词表封闭 · 禁 id7 的 fill(无散装树几何) · �
     ], s.id + ' 灯柱=座1+柱3+灯1 三笔 fill(props palette 单源, 视觉重制 §3 M)');
   }
   for (const s of SIGNS) {
-    assert.deepStrictEqual(lampSite(s), [
+    assert.deepStrictEqual(siteFills(s, 3), [
       {op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 2, z2: s.z,
         id: PALETTE_WANT.props.signPost},
       {op: 'fill', x1: s.x, y1: s.y + 3, z1: s.z, x2: s.x, y2: s.y + 3, z2: s.z,
