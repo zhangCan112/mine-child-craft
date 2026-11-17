@@ -50,7 +50,7 @@
 | 怪物共享/分类 | [shared-monsters-plan](shared-monsters-plan.md) · [monster-taxonomy-plan](monster-taxonomy-plan.md) | 已完工 → 对应 -design |
 | 体验馆 | [spec](showroom-spec.md) · [tickets](showroom-tickets.md) | 已完工 → [showroom-design.md](showroom-design.md) + [adr/0005](adr/0005-unified-adventure-shell-dev-profile.md) |
 | 滑翔翼 | [spec](glider-spec.md)（已定稿 2026-11-15）· [tickets](glider-tickets.md)（UI 设计定稿已归上方「滑翔翼」设计权威行） | 施工中（票图 T-G01–T-G06，U-01 相机形态由实现票回填 spec §7） |
-| 篝火 | [spec](campfire-spec.md)（已确认 2026-11-16：PO 中间确认+§4 时钟拍板）· [票据](campfire-tickets.md)（12 票 tracer 切分，2026-11-16）· [调研](botw-campfire-research.md)（BotW 取证） | 需求线（grill 已收口 19 项；UI 设计定稿 [design/campfire-visual-spec.md](design/campfire-visual-spec.md) v1.1 已落盘并替换占位；施工待领取） |
+| 篝火 | [spec](campfire-spec.md)（已确认 2026-11-16：PO 中间确认+§4 时钟拍板）· [票据](campfire-tickets.md)（12 主票+2 补丁全 ☑，2026-11-16 切分）· [调研](botw-campfire-research.md)（BotW 取证）· [走查报告](campfire-acceptance-report.md)（T-C12 验收汇总，2026-11-17） | 已完工 → [GLOSSARY](../GLOSSARY.md)（行为权威归词条，spec §8 先例；UI 设计定稿 [design/campfire-visual-spec.md](design/campfire-visual-spec.md) v1.6 终态；ADR 0017–0019） |
 | 第一人称手持视图 | [tickets](first-person-hand-tickets.md) | 已完工 → [first-person-hand-design.md](first-person-hand-design.md) |
 | 下界独立模式 | [plan](nether-plan.md) | **已废弃**（模式退役并入探险）→ [nether-merge-design.md](nether-merge-design.md) |
 | 挖矿缺口分析 | [mining-gap-analysis.md](mining-gap-analysis.md) | 分析快照 → [mining-hardness-design.md](mining-hardness-design.md)（config.js 注释仍引用） |
