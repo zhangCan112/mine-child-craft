@@ -1897,7 +1897,8 @@ test('T-C11 燃尽恰 1 次+长站火边零循环: 5990 刻燃烧期仅放置 1 
 });
 
 test('T-C11 三锚窗口零播报面+字面量归属(R1-15 静态网+源码切片, T-G05 先例): campfire_lit 恰在 onPlaced+onCampfireRelit 体窗口 · ' +
-    'campfire_out 恰在 onBurnout 体窗口(移除帧同体) · onPlaced/onBurnout 窗口零 advSpeak 零 kitHintShow · onCampfireRelit 窗口 advSpeak 恰 1(既有话术)', () => {
+    'campfire_out 恰在 onBurnout 体窗口(移除帧同体) · onPlaced/onBurnout 窗口零 advSpeak 零 kitHintShow · ' +
+    'onCampfireRelit 窗口 advSpeak 恰 1(既有话术)', () => {
   const src = fs.readFileSync(path.join(ROOT, 'js', 'modes', 'adventure.js'), 'utf8');
   const cut = (anchor, close, tag) => {
     const s = src.indexOf(anchor);
@@ -1909,8 +1910,8 @@ test('T-C11 三锚窗口零播报面+字面量归属(R1-15 静态网+源码切�
   const placed = cut('onPlaced: (blockId, x, y, z) => {', '\n  },', 'onPlaced');
   const relit = cut('onCampfireRelit: (x, y, z) => {', '\n  },', 'onCampfireRelit');
   const burnout = cut('onBurnout: (x, y, z) => {', '\n  }});', 'onBurnout');
-  const litTok = "advSfx('campfire_lit')";
-  const outTok = "advSfx('campfire_out')";
+  const litTok = 'advSfx(\'campfire_lit\')';
+  const outTok = 'advSfx(\'campfire_out\')';
   assert.strictEqual(placed.split(litTok).length - 1, 1, '放置窗口 campfire_lit 恰 1 处(放置成功同拍)');
   assert.strictEqual(relit.split(litTok).length - 1, 1, '重燃窗口 campfire_lit 恰 1 处(重燃成功同拍, 与放置同键共用)');
   assert.strictEqual(burnout.split(outTok).length - 1, 1,
