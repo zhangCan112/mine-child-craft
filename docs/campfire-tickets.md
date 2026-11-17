@@ -70,7 +70,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C2 | 引擎气流：updraft-core+乘流+展翼豁免+遮挡截断+多柱 max | T-C1 | ☑ 已并入（708e9d0 实现 + 90c6193 裁决 + ababee5 评审修复；规格轴 FAIL→修复→复审 PASS） |
 | T-C3 | 熄灭与重燃：水浇转熄灭态+点击重燃+任意态挖掘回收 | T-C1 | ☑ 已并入（红 ac5c253 + 绿 cc3dcb1 + 修复 7bb4123；评审 FAIL→修复→复审 PASS） |
 | T-C4 | 烫伤：玩家节拍+怪物同规则+fireTick 事件缝 | T-C1 | ☑ 已并入（34c28c7+4a61a64，合并 4e8943b；双轴评审 PASS；minor 修复 3c3d3f8：SPEC-1 掉落链探针+头注×2） |
-| T-C5 | 存档与口径：campfires 档键+重放对账+跨图同烧+体验馆 dev | T-C1, T-C3 | ◐ 评审过 SPEC-1 小修中（tc5 c8d77af；双轴 PASS，删台账键形死数据笔） |
+| T-C5 | 存档与口径：campfires 档键+重放对账+跨图同烧+体验馆 dev | T-C1, T-C3 | ☑ 已并入（7b6902a+f4a8b42+8b15782+e702853+c8d77af+28f6587，合并 8f142ea；双轴评审 PASS+SPEC-1 小修） |
 | T-C6 | 性能基准：50 火实测（光 BFS+柱查询+粒子空转） | T-C2 | ☑ 已并入（79f77c1+3022fde，合并 4ae92de；双轴评审 PASS；基准不超标 §3.9 收档） |
 | T-C7 | UI A 区：道具图标+配方卡观感 | T-C1, 设计定稿✅ | ☑ 已并入（tc7 b8b6efb，合并 693ddac；双轴评审零发现；design-lead 视觉验收过，工件 .scratch/campfire/tc7-review/） |
 | T-C8 | UI B 区：两态贴图入集 | T-C1, 设计定稿✅ | ☑ 已并入+验收全过（6788aa9，合并 9806477；双轴评审 PASS + design-lead 视觉验收 PASS；白昼熄灭态判据归 T-C8b，修复前基线已存档） |
@@ -374,7 +374,7 @@ js/modes/adventure.js（advEnvHurt 玩家结算+怪物更新结算）· js/campf
 
 ## T-C5 存档与口径：campfires 档键 + 重放对账 + 跨图同烧 + 体验馆 dev 口径
 
-> 标签：`task`｜状态：◐ 评审过 SPEC-1 小修中（双轴 PASS；STD-1 红绿同盘判据升格归 C12/retro 裁量）｜blocked-by：T-C1, T-C3（熄灭态零侧账的对账面
+> 标签：`task`｜状态：☑ 已并入（8f142ea，双轴评审 PASS+SPEC-1 小修；kit 键形纪律头注已沉淀 c8d77af）｜blocked-by：T-C1, T-C3（熄灭态零侧账的对账面
 > 依赖两态齐备）｜blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
