@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>我的世界 · 方块乐园</title>
+    <!-- 草方块 favicon(内联 SVG, 零资产; 色板与按钮像素图标工坊 grassblock 同源) -->
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23866043'/%3E%3Crect width='16' height='5' fill='%235abf5a'/%3E%3Crect y='5' width='16' height='1' fill='%233f8f3f'/%3E%3C/svg%3E">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/focus.css">
+    <link rel="stylesheet" href="css/math.css">
+    <link rel="stylesheet" href="css/robot.css">
+    <link rel="stylesheet" href="css/town.css">
+    <link rel="stylesheet" href="css/touch.css">
+  <base href="/">
+<script>/* T-C6 基准 prelude(生成件, 非产品) */
+if ((location.search || '').indexOf('lowcore=1') >= 0) {
+  try {
+    Object.defineProperty(navigator, 'hardwareConcurrency', {value: 2, configurable: true});
+  } catch (e) {}
+}
+</script>
+</head>
+  <body>
+    <div id="app"></div>
+    <!-- 加载屏(设计权威 docs/menu-ui-design.md §4): 夜空+草地像素门面,
+         ⛏️ 前缀由 button-icons.js 静态注入换像素草方块; init() 淡出后兜底 remove -->
+    <div id="splash">
+      <div class="splash-inner">
+        <div class="splash-logo" id="splashTitle">⛏️ 方块乐园</div>
+        <div class="splash-bar"><div class="splash-fill"></div></div>
+        <div class="splash-tip">正在铺方块，马上就好…</div>
+      </div>
+    </div>
+
+    <div id="crosshair"></div>
+
+    <div id="hotbar"></div>
+
+    <div id="hud"></div>
+
+    <div id="score">
+      <span class="red" id="scoreA">红方 0</span>
+      <span class="mid" id="scoreMid">备战中</span>
+      <span class="blue" id="scoreB">蓝方 0</span>
+    </div>
+
+    <div id="toast"></div>
+
+    <div id="fade"></div>
+
+    <div id="portalVeil"></div>
+
+    <div id="overlay">
+
+      <!-- 主菜单:模式选择(结构设计权威 docs/menu-ui-design.md §2;
+           卡片/音量/页脚的 id 均为 JS 接线契约, 不可改名) -->
+      <div class="menu-page active" id="menuMain">
+        <header class="menu-hero">
+          <div class="hero-art" aria-hidden="true"></div>
+          <div>
+            <div class="hero-eyebrow">我的世界</div>
+            <h1 class="hero-title">方块乐园</h1>
+          </div>
+          <div class="hero-art hero-art-r" aria-hidden="true"></div>
+        </header>
+        <p class="hero-tag">今天想去哪里玩？</p>
+        <div id="modeCards">
+          <div class="mode-card arena" id="cardArena">
+            <div class="big">⚔️</div>
+            <h2>怪物竞技场</h2>
+            <small>双阵营团队 PVP 观战</small>
+          </div>
+          <div class="mode-card focus" id="cardFocus">
+            <div class="big">🧠</div>
+            <h2>专注训练营</h2>
+            <small>每天 6 关 · 越玩越专注</small>
+          </div>
+          <div class="mode-card math" id="cardMath">
+            <div class="big">🧮</div>
+            <h2>数学冒险岛</h2>
+            <small>每天 6 关 · 边玩边动脑筋</small>
+          </div>
+          <div class="mode-card robot" id="cardRobot">
+            <div class="big">🤖</div>
+            <h2>怪物指挥官</h2>
+            <small>每天 6 关 · 下指令带怪物回家</small>
+          </div>
+          <div class="mode-card build" id="cardBuild">
+            <div class="big">🔨</div>
+            <h2>建造模式</h2>
+            <small>自由搭建 · 精选初始场景</small>
+          </div>
+          <div class="mode-card tank" id="cardTank">
+            <div class="big">🚙</div>
+            <h2>坦克演习场</h2>
+            <small>先挑坦克 · 开炮打靶 · 冲呀！</small>
+          </div>
+          <div class="mode-card adventure" id="cardAdventure">
+            <div class="big">🌲</div>
+            <h2>探险模式</h2>
+            <small>挖矿 · 合成 · 做任务</small>
+          </div>
+          <!-- 体验馆: dev 专属调试场, class 的 dev 是身份层(CSS 默认隐藏, ?dev=1 由 main.js 解锁) -->
+          <div class="mode-card showroom dev" id="cardShowroom">
+            <div class="big">🧪</div>
+            <h2>体验馆</h2>
+            <small>开发者调试场 · ?dev=1 可见</small>
+          </div>
+        </div>
+        <!-- 音量面板(A8): 🎵 开关 + 音乐/音效滑杆, 接线在 js/audio-vol-ui.js(id 契约不可动) -->
+        <div id="volWrap">
+          <button class="play" id="volBtn" type="button">🎵 声音</button>
+          <div class="vol-panel" id="volPanel">
+            <label class="vol-row" id="volMusicRow">🎵 音乐
+              <input type="range" id="volMusic" min="0" max="1" step="0.05" aria-label="音乐音量">
+            </label>
+            <label class="vol-row" id="volSfxRow">🔔 音效
+              <input type="range" id="volSfx" min="0" max="1" step="0.05" aria-label="音效音量">
+            </label>
+          </div>
+        </div>
+        <div class="keys">
+          <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift &nbsp; <b>开坦克</b>：走近按 E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc<br>
+          <span class="safe">版本 2026.10.28-1 · 若本行版本号和电脑上约定的一致, 说明运行的是最新版</span>
+        </div>
+      </div>
+
+      <!-- 竞技场配置页 -->
+      <div class="menu-page" id="menuArena">
+        <h1>怪物<span>竞技场</span></h1>
+        <p>我的世界 · 环形竞技场 · 团队 PVP</p>
+        <div id="panel">
+          <div class="team-box red">
+            <h3>红方 (西侧)</h3>
+            <div class="mob-btns" data-team="A"></div>
+            <div class="count-row">数量
+              <button data-cnt="A" data-d="-100">-100</button><button data-cnt="A" data-d="-10">-10</button><button data-cnt="A" data-d="-1">-</button><b id="cntA">8</b><button data-cnt="A" data-d="1">+</button><button data-cnt="A" data-d="10">+10</button><button data-cnt="A" data-d="100">+100</button>
+            </div>
+            <div class="count-row pw">总战力 <b id="powA" class="ok">0</b>（每只 <span id="unitA">0</span>）</div>
+          </div>
+          <div class="vs">VS</div>
+          <div class="team-box blue">
+            <h3>蓝方 (东侧)</h3>
+            <div class="mob-btns" data-team="B"></div>
+            <div class="count-row">数量
+              <button data-cnt="B" data-d="-100">-100</button><button data-cnt="B" data-d="-10">-10</button><button data-cnt="B" data-d="-1">-</button><b id="cntB">8</b><button data-cnt="B" data-d="1">+</button><button data-cnt="B" data-d="10">+10</button><button data-cnt="B" data-d="100">+100</button>
+            </div>
+            <div class="count-row pw">总战力 <b id="powB" class="ok">0</b>（每只 <span id="unitB">0</span>）</div>
+          </div>
+        </div>
+        <div class="btn-row">
+          <button class="play primary" id="fightBtn">开 战</button>
+          <button class="play" id="balBtn">战力配平：开</button>
+          <button class="play" id="resumeBtn">进入观战</button>
+          <button class="play" id="clearBtn">清场</button>
+          <button class="play back-pin" id="arenaBackBtn">⬅ 返回</button>
+        </div>
+        <div class="keys">
+          <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>加速</b>：Shift<br>
+          <b>挖/放方块</b>：鼠标左右键 &nbsp; <b>选方块</b>：数字键 1~9 / 滚轮<br>
+          <b>R</b>：用当前配置重新开战 &nbsp; <b>B / Esc</b>：打开本面板<br>
+          <b>战力配平</b>：按怪物强度计算总战力，开启时另一队数量自动匹配（<span id="arenaPowerNote"></span>）<br>
+          <b>怪物图鉴</b>：全系列 37 种怪物(数值按 Minecraft 原版等比映射)按种族分组(种族=长相接近) — 僵尸一家 · 骷髅一家 · 虫虫族 · 猪猪一家(人形猪+野兽猪) · 鬼一族 · 守卫组(都是守卫) · 灾厄帮 · 软软族 · 草木族(苦力怕+嘎枝) · 龙族(末影龙) · 海族(潜影贝)；同族共享家传技能(狂暴/强力节奏/疾爬突进/蛮冲/阴风/磐石/袭击协同/分裂)<br>
+          <b>特有技能</b>：僵尸 半血狂暴(加速+群体冲锋) · 骷髅 每3箭强力矢 · 苦力怕 扑袭跃进+吐舌平A(自爆不伤友军) · 铁傀儡 震地震慑/震落飞行 · 末影龙 龙息毒云 · 远程怪(女巫/流浪者/掠夺者/守卫者…)放箭 · 飞行炮台(恶魂/烈焰人/凋灵/旋风人)投爆裂火球 · 掠食者(幻翼/恼鬼)贴地盘旋俯冲撕咬 · 潜影贝原地开壳射击 · 混合编队随机杂牌军<br>
+          <b>升级系统</b>：击杀累积晋升 精英★(属性暴涨+技能强化) / 王者★★(解锁新技能：狂暴冲击波·箭雨·连环爆破·巨石投掷·三重龙息)，升级回复20%生命+短暂金身，劣势方经验加成，苦力怕享队友击杀分成(每击杀随机一只)<br>
+          <b>克制关系</b>：僵尸→骷髅→苦力怕→铁傀儡→僵尸 · 末影人克骷髅(瞬移闪箭) · 烈焰人克流浪者(火克冰) · 流浪者克岩浆怪 · 旋风人克骷髅(吹偏箭矢) · 监守者克劫掠兽 · 末影龙制空克制地面近战<br>
+          <span class="safe">你出生在南侧看台顶端，有玻璃护栏，怪物只会互相战斗，不会攻击你</span>
+        </div>
+      </div>
+
+      <!-- 建造模式:场景选择页 -->
+      <div class="menu-page" id="menuBuild">
+        <h1>建造 <span>创意工坊</span></h1>
+        <p>自由搭建你的世界 · 点一张卡片开始建造</p>
+        <div id="buildScenes"></div>
+        <div class="btn-row">
+          <button class="play primary" id="buildEnterBtn">继续建造 ▶</button>
+          <button class="play back-pin" id="buildBackBtn">⬅ 返回</button>
+        </div>
+        <div class="keys">
+          <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>挖/放方块</b>：鼠标左右键 &nbsp; <b>选方块</b>：1~9 / 滚轮<br>
+          <b>F</b>：飞行开关（空格上升 · Shift 下降） &nbsp; <b>R</b>：重置场景 &nbsp; <b>B / Esc</b>：返回本页<br>
+          <span class="safe" id="buildTimeRule">额度加载中…</span>
+        </div>
+      </div>
+
+      <!-- 坦克演习场 · 出发配置页(坦克一行 + 怪物一行, 型号卡来自 TANK_MODELS, 怪物卡来自怪物库) -->
+      <div class="menu-page" id="menuTank">
+        <h1>坦克<span>演习场</span></h1>
+        <p>先挑一辆坦克，再选一种怪物，出发！</p>
+        <div class="cfg-row-title" id="tankPickTitle">🚙 选坦克</div>
+        <div id="tankPick"></div>
+        <div class="cfg-row-title" id="mobPickTitle">👾 选怪物</div>
+        <div id="tankMobPick"></div>
+        <div class="btn-row">
+          <button class="play primary" id="tankGoBtn">🚀 出发！</button>
+          <button class="play back-pin" id="tankBackBtn">⬅ 返回</button>
+        </div>
+        <div class="keys">
+          <b>开车</b>：W 前进 · S 倒车 · A D 转向 &nbsp; <b>开炮</b>：左键 &nbsp; <b>上下车</b>：E &nbsp; <b>换怪物</b>：M &nbsp; <b>菜单</b>：Esc<br>
+          <span class="safe">每辆坦克的速度、炮弹和爆炸都不一样 · 想换车就按 Esc 回来再挑一辆！</span>
+        </div>
+      </div>
+
+      <!-- 探险模式页: 确定性草原(树林/湖/矿坑/山洞) · 背包与配方书(T11 骨架) -->
+      <div class="menu-page" id="menuAdventure">
+        <h1>探险 <span>模式</span></h1>
+        <p>大草原上有树林 · 湖泊 · 矿坑和山洞 🌲 空手出发，成为小小探险家！攒够 8 块金锭和 1 颗钻石，可以合成下界传送门 🌀 放下它就能去下界看看啦！</p>
+        <div class="btn-row">
+          <button class="play primary" id="adventureEnterBtn">🌲 出发探险 ▶</button>
+          <button class="play back-pin" id="adventureBackBtn">⬅ 返回</button>
+        </div>
+        <div class="keys">
+          <b>移动</b>：W A S D &nbsp; <b>跳跃</b>：空格 &nbsp; <b>背包</b>：Tab / 🎒 &nbsp; <b>整理</b>：🧹 &nbsp; <b>菜单</b>：Esc<br>
+          <span class="safe">背包和配方书已经就位 · 挖矿、合成和怪物伙伴即将开放 · 死亡不掉背包，回小屋满血再来</span>
+        </div>
+      </div>
+
+      <!-- 儿童时限提醒页(page-night: 深夜蓝主题, 设计稿 menu-ui §3) -->
+      <div class="menu-page page-night" id="menuPlayTime">
+        <h1>🌙 今天的冒险时间到啦！</h1>
+        <p>怪物们也要休息了，明天再来挑战吧！</p>
+        <div class="btn-row">
+          <button class="play primary" id="playTimeHomeBtn">🏠 回主页</button>
+        </div>
+        <div class="keys">
+          <span class="safe" id="playTimeRule">额度加载中…</span>
+        </div>
+      </div>
+
+
+    </div>
+
+    <!-- 坦克演习场 · 游戏内选怪浮动面板(👾 按钮 / M 键开关) — 自有 pk* 类, 不复用竞技场面板类名 -->
+    <div id="mobPicker">
+      <div class="pk-title">👾 选怪物</div>
+      <div class="pk-row" id="pkMobBtns"></div>
+      <div class="pk-cnt-row">数量
+        <button id="pkCntM">−</button><b id="pkCnt">6</b><button id="pkCntP">＋</button>
+      </div>
+      <div class="pk-btn-row">
+        <button id="pkGo">🚀 部署！</button>
+        <button id="pkClose">✕ 关闭</button>
+      </div>
+    </div>
+
+    <script src="lib/three.min.js" defer></script>
+    <script src="js/config.js" defer></script>
+    <script src="js/mob-registry.js" defer></script>
+    <script src="js/mob-look-kit.js" defer></script>
+    <script src="js/mob-look/player.js" defer></script>
+    <script src="js/mob-look/zombie.js" defer></script>
+    <script src="js/mob-look/skeleton.js" defer></script>
+    <script src="js/mob-look/creeper.js" defer></script>
+    <script src="js/mob-look/creeper_king.js" defer></script>
+    <script src="js/mob-look/mutant_creeper.js" defer></script>
+    <script src="js/mob-look/spider.js" defer></script>
+    <script src="js/mob-look/sheep.js" defer></script>
+    <script src="js/mob-look/husk.js" defer></script>
+    <script src="js/mob-look/stray.js" defer></script>
+    <script src="js/mob-look/bogged.js" defer></script>
+    <script src="js/mob-look/wither_skeleton.js" defer></script>
+<script src="js/mob-look/skeleton_spider_jockey.js" defer></script>
+<script src="js/mob-look/stray_spider_jockey.js" defer></script>
+<script src="js/mob-look/wither_skeleton_spider_jockey.js" defer></script>
+    <script src="js/mob-look/piglin.js" defer></script>
+    <script src="js/mob-look/piglin_brute.js" defer></script>
+    <script src="js/mob-look/zombified_piglin.js" defer></script>
+    <script src="js/mob-look/vindicator.js" defer></script>
+    <script src="js/mob-look/evoker.js" defer></script>
+    <script src="js/mob-look/pillager.js" defer></script>
+    <script src="js/mob-look/witch.js" defer></script>
+<script src="js/mob-look/illusioner.js" defer></script>
+    <script src="js/mob-look/cow.js" defer></script>
+    <script src="js/mob-look/pig.js" defer></script>
+    <script src="js/mob-look/chicken.js" defer></script>
+    <script src="js/mob-look/hoglin.js" defer></script>
+    <script src="js/mob-look/zoglin.js" defer></script>
+    <script src="js/mob-look/ravager.js" defer></script>
+    <script src="js/mob-look/silverfish.js" defer></script>
+    <script src="js/mob-look/endermite.js" defer></script>
+    <script src="js/mob-look/slime.js" defer></script>
+    <script src="js/mob-look/magma_cube.js" defer></script>
+    <script src="js/mob-look/enderman.js" defer></script>
+    <script src="js/mob-look/vex.js" defer></script>
+    <script src="js/mob-look/phantom.js" defer></script>
+    <script src="js/mob-look/blaze.js" defer></script>
+    <script src="js/mob-look/ghast.js" defer></script>
+    <script src="js/mob-look/wither.js" defer></script>
+    <script src="js/mob-look/golem.js" defer></script>
+    <script src="js/mob-look/guardian.js" defer></script>
+    <script src="js/mob-look/elder_guardian.js" defer></script>
+    <script src="js/mob-look/shulker.js" defer></script>
+    <script src="js/mob-look/warden.js" defer></script>
+    <script src="js/mob-look/dragon.js" defer></script>
+    <script src="js/mob-look/creaking.js" defer></script>
+    <script src="js/mob-look/cave_spider.js" defer></script>
+    <script src="js/mob-look/drowned.js" defer></script>
+    <script src="js/daylight-core.js" defer></script>
+    <script src="js/light-core.js" defer></script>
+    <script src="js/updraft-core.js" defer></script>
+    <script src="js/voxel.js" defer></script>
+    <script src="js/cascade-core.js" defer></script>
+    <script src="js/fluid-core.js" defer></script>
+    <script src="js/mesh-core.js" defer></script>
+<script src="js/texture-atlas.js" defer></script>
+    <script src="js/mob-core.js" defer></script>
+    <script src="js/combat-core.js" defer></script>
+    <script src="js/tank-core.js" defer></script>
+    <script src="js/quality-core.js" defer></script>
+    <script src="js/perf-kit.js" defer></script>
+    <script src="js/scene-kit.js" defer></script>
+    <script src="js/prefab-kit.js" defer></script>
+    <script src="js/spinner-core.js" defer></script>
+    <script src="js/world.js" defer></script>
+    <script src="js/audio-registry.js" defer></script>
+    <script src="js/audio-core.js" defer></script>
+    <script src="js/audio.js" defer></script>
+    <script src="js/audio-vol-ui.js" defer></script>
+    <script src="js/effects.js" defer></script>
+    <script src="js/mobs.js" defer></script>
+<script src="js/drops.js" defer></script>
+    <script src="js/camera-rig.js" defer></script>
+    <script src="js/held-item.js" defer></script>
+    <script src="js/hand-view.js" defer></script>
+    <script src="js/rand-core.js" defer></script>
+<script src="js/items-core.js" defer></script>
+<script src="js/equipment-core.js" defer></script>
+<script src="js/inventory-core.js" defer></script>
+<script src="js/craft-core.js" defer></script>
+<script src="js/item-hint-registry.js" defer></script>
+<script src="js/item-use-registry.js" defer></script>
+<script src="js/armor-overlay.js" defer></script>
+    <script src="js/avatar.js" defer></script>
+<script src="js/paper-doll.js" defer></script>
+    <script src="js/tank.js" defer></script>
+    <script src="js/speech.js" defer></script>
+    <script src="js/touch-core.js" defer></script>
+    <script src="js/input.js" defer></script>
+    <script src="js/mode-kit.js" defer></script>
+    <script src="js/combat-kit.js" defer></script>
+    <script src="js/save-slot.js" defer></script>
+    <script src="js/sync.js" defer></script>
+    <script src="js/world-journal-core.js" defer></script>
+<script src="js/backpack.js" defer></script>
+    <script src="js/daily-budget.js" defer></script>
+<script src="js/camp-rotation-core.js" defer></script>
+    <script src="js/focus-icons.js" defer></script>
+    <script src="js/camp-core.js" defer></script>
+    <script src="js/focus-levels.js" defer></script>
+    <script src="js/math-levels.js" defer></script>
+    <script src="js/math-puzzles-core.js" defer></script>
+    <script src="js/math-build-world-core.js" defer></script>
+    <script src="js/hop-world-core.js" defer></script>
+    <script src="js/math-track-core.js" defer></script>
+    <script src="js/math-paradigms.js" defer></script>
+    <script src="js/math-world.js" defer></script>
+    <script src="js/math-build-world.js" defer></script>
+    <script src="js/math-track.js" defer></script>
+    <script src="js/robot-levels.js" defer></script>
+    <script src="js/robot-core.js" defer></script>
+    <script src="js/robot-world.js" defer></script>
+    <script src="js/focus-paradigms.js" defer></script>
+    <script src="js/camp-kit.js" defer></script>
+    <script src="js/arena-core.js" defer></script>
+    <script src="js/modes/arena.js" defer></script>
+    <script src="js/modes/focus.js" defer></script>
+    <script src="js/modes/math.js" defer></script>
+    <script src="js/modes/robot.js" defer></script>
+    <script src="js/modes/build.js" defer></script>
+    <script src="js/modes/tank-range.js" defer></script>
+    <script src="js/adventure-spawn-core.js" defer></script>
+    <script src="js/adventure-core.js" defer></script>
+    <script src="js/adventure-maps-core.js" defer></script>
+    <script src="js/town-map-core.js" defer></script>
+    <script src="js/adventure-dims-core.js" defer></script>
+    <!-- T-NPC-10 镇民链挂载(备忘①③): kit(mob-look-kit.js :243) → town_*×14
+         → interact-core → anchor-core → registry → town-npc.js; 全链先于
+         两个下游消费方(adventure 模式文件与镇 UI 装配链; 经典脚本顺序即
+         依赖, 序门= test/conventions.test.js 镇民链装载序 gate + town-ui
+         接线守门四点序; 挂载后 boot 冒烟自动覆盖镇民链, 覆盖债清)。
+         interact-core 自原位(:376)挪入本块——同文件双挂会重复顶层声明
+         炸页面。守门用裸 indexOf 探文件名, 本注释不写任何 js/ 路径字面
+         量以免污染探针。 -->
+    <script src="js/mob-look/town_a01.js" defer></script>
+    <script src="js/mob-look/town_a02.js" defer></script>
+    <script src="js/mob-look/town_a03.js" defer></script>
+    <script src="js/mob-look/town_g01.js" defer></script>
+    <script src="js/mob-look/town_v01.js" defer></script>
+    <script src="js/mob-look/town_v02.js" defer></script>
+    <script src="js/mob-look/town_v03.js" defer></script>
+    <script src="js/mob-look/town_v04.js" defer></script>
+    <script src="js/mob-look/town_v05.js" defer></script>
+    <script src="js/mob-look/town_v06.js" defer></script>
+    <script src="js/mob-look/town_v07.js" defer></script>
+    <script src="js/mob-look/town_v08.js" defer></script>
+    <script src="js/mob-look/town_v09.js" defer></script>
+    <script src="js/mob-look/town_v10.js" defer></script>
+    <script src="js/town-interact-core.js" defer></script>
+    <script src="js/town-npc-anchor-core.js" defer></script>
+    <script src="js/town-npc-registry.js" defer></script>
+    <script src="js/town-npc.js" defer></script>
+<script src="js/paired-block-core.js" defer></script>
+<script src="js/furnace-kit.js" defer></script>
+<script src="js/campfire-kit.js" defer></script>
+<script src="js/campfire-fx-core.js" defer></script>
+<script src="js/place-kit.js" defer></script>
+<script src="js/modes/adventure.js" defer></script>
+<script src="js/showroom-core.js" defer></script>
+<script src="js/modes/showroom.js" defer></script>
+<script src="js/town-assembly-core.js" defer></script>
+<script src="js/town-ui-core.js" defer></script>
+<script src="js/town-dialog-core.js" defer></script>
+<script src="js/town-ui.js" defer></script>
+    <script src="js/mode-registry.js" defer></script>
+    <script src="js/icons.js" defer></script>
+    <script src="js/button-icons.js" defer></script>
+    <script src="js/main.js" defer></script>
+  <script>/* T-C6 基准驱动(生成件, 非产品) */
+window.addEventListener('load', function() {
+  var LOG = function(m) { try { console.log('TC6LOG:' + m); } catch (e) {} };
+  function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+  function sampleFrames(ms) {
+    return new Promise(function(resolve) {
+      var xs = []; var last = 0; var t0 = performance.now();
+      function step(t) {
+        if (last) xs.push(t - last);
+        last = t;
+        if (t - t0 >= ms) return resolve(xs);
+        requestAnimationFrame(step);
+      }
+      requestAnimationFrame(step);
+    });
+  }
+  function stats(xs) {
+    if (!xs.length) return null;
+    var s = xs.slice().sort(function(a, b) { return a - b; });
+    var mean = 0;
+    for (var i = 0; i < s.length; i++) mean += s[i];
+    mean /= s.length;
+    function pct(p) { return s[Math.min(s.length - 1, Math.floor(p * s.length))]; }
+    return {n: s.length, mean: mean, p50: pct(0.5), p95: pct(0.95),
+      p99: pct(0.99), max: s[s.length - 1]};
+  }
+  /* 50 火确定性摆位(网格偏移, 相对玩家; 禁随机) */
+  function grid50(step) {
+    var out = [];
+    for (var row = 0; row < 7; row++) {
+      for (var col = 0; col < 7; col++) {
+        if ((row === 0 || row === 6) && (col === 0 || col === 6)) continue;
+        out.push([(col - 3) * step, (row - 3) * step]);
+      }
+    }
+    out.push([-2 * step, 6 * step], [-1 * step, 6 * step], [0, 6 * step],
+        [1 * step, 6 * step], [2 * step, 6 * step]);
+    return out; /* 50 项 */
+  }
+  function countMeshes() {
+    var n = 0;
+    scene.traverse(function(o) { if (o.isMesh) n++; });
+    return n;
+  }
+  function collectCounts(placed) {
+    var flame = 0; var smoke = 0; var vortex = 0; var transients = 0;
+    var tiers = {full: 0, near: 0, far: 0};
+    for (var i = 0; i < placed.length; i++) {
+      var p = placed[i];
+      var ps = advCampfireFx.particles(p.x, p.y, p.z);
+      flame += ps.flame.length; smoke += ps.smoke.length;
+      vortex += ps.vortex.length; transients += ps.transients.length;
+      var em = advCampfireFx.emitters(p.x, p.y, p.z);
+      if (em && em.budget) tiers[em.budget]++;
+    }
+    return {fires: placed.length, flame: flame, smoke: smoke, vortex: vortex,
+      transients: transients, total: flame + smoke + vortex + transients,
+      perFire: (flame + smoke + vortex) / placed.length, tiers: tiers,
+      fxActive: advCampfireFx.activeCount(), updraft: UPDRAFT_SIM.count(),
+      meshes: countMeshes()};
+  }
+  function placeAll(offs, px, pz, sinkMs) {
+    var placed = [];
+    for (var i = 0; i < offs.length; i++) {
+      var x = px + offs[i][0]; var z = pz + offs[i][1];
+      var y = groundTop(x, z) + 1;
+      var t0 = performance.now();
+      editBlock(x, y, z, B_CAMPFIRE); /* 写格+增量光 BFS+网格收口(生产同缝) */
+      advCampfires.plant(x, y, z); /* 台账+气柱注册 */
+      advCampfireFx.open(x, y, z); /* 特效句柄开 */
+      sinkMs.push(performance.now() - t0);
+      placed.push({x: x, y: y, z: z});
+    }
+    return placed;
+  }
+  function removeAll(placed, sinkMs) {
+    for (var i = 0; i < placed.length; i++) {
+      var p = placed[i];
+      var t0 = performance.now();
+      editBlock(p.x, p.y, p.z, 0, {debris: false});
+      advCampfires.drop(p.x, p.y, p.z);
+      advCampfireFx.dig(p.x, p.y, p.z);
+      sinkMs.push(performance.now() - t0);
+    }
+  }
+  function timeQuery(n) {
+    var px = pos.x + 0.5; var pz = pos.z + 0.5;
+    var ys = groundTop(Math.round(pos.x), Math.round(pos.z));
+    var t0 = performance.now();
+    var hit = 0;
+    for (var i = 0; i < n; i++) {
+      if (UPDRAFT_SIM.query(px, ys, pz)) hit++;
+    }
+    return {calls: n, ms: performance.now() - t0, usPerCall: (performance.now() - t0) * 1000 / n, hits: hit};
+  }
+  function statsOf(xs) { return stats(xs); }
+
+  async function main() {
+    LOG('driver start, lowcore=' + (typeof IS_LOWCORE_TOUCH !== 'undefined' ? IS_LOWCORE_TOUCH : '?'));
+    switchMode('showroom');
+    touchPlaying = true; /* 主循环 gameplay 门(headless 无手势, 直开等价位) */
+    await sleep(3000); /* 体验馆 loadScene+渐进铺满 */
+
+    var base = await sampleFrames(6000);
+
+    var px = Math.round(pos.x); var pz = Math.round(pos.z);
+    LOG('spawn=' + px + ',' + pz);
+
+    /* 场景 A: 密集 50(间距 5, 全部 ≤40 格 → 全额 3+降半 47) */
+    var placeMsA = [];
+    var placedA = placeAll(grid50(5), px, pz, placeMsA);
+    LOG('A placed=' + placedA.length);
+    await sleep(6500); /* 渐起 0.5s+烟寿 4.5s+余量 */
+    var framesA = await sampleFrames(10000);
+    var countsA = collectCounts(placedA);
+    var queryA = timeQuery(2000);
+
+    var rmMs = [];
+    removeAll(placedA, rmMs);
+    await sleep(2000);
+
+    /* 场景 B: 疏散 50(间距 18, 远格 → far 档混入) */
+    var placeMsB = [];
+    var placedB = placeAll(grid50(18), px, pz, placeMsB);
+    LOG('B placed=' + placedB.length);
+    await sleep(6500);
+    var framesB = await sampleFrames(10000);
+    var countsB = collectCounts(placedB);
+    var queryB = timeQuery(2000);
+
+    removeAll(placedB, rmMs);
+    await sleep(1000);
+
+    var report = {
+      lowcore: (typeof IS_LOWCORE_TOUCH !== 'undefined') ? !!IS_LOWCORE_TOUCH : null,
+      dpr: (typeof renderer !== 'undefined' && renderer.getPixelRatio) ? renderer.getPixelRatio() : null,
+      viewport: {w: innerWidth, h: innerHeight},
+      baselineFrames: stats(base),
+      sceneA: {step: 5, frames: stats(framesA), counts: countsA, query: queryA,
+        placeMs: stats(placeMsA)},
+      sceneB: {step: 18, frames: stats(framesB), counts: countsB, query: queryB,
+        placeMs: stats(placeMsB)},
+      removeMs: stats(rmMs),
+      fxNow: advCampfireFx.now(), fxCellsLeft: advCampfireFx.cells().length,
+    };
+    console.log('TC6JSON:' + JSON.stringify(report));
+    LOG('done');
+  }
+  main().catch(function(e) {
+    console.log('TC6ERR:' + ((e && e.stack) ? e.stack : String(e)));
+  });
+});
+</script>
+</body>
+</html>
