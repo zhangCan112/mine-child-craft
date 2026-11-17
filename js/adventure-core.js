@@ -22,6 +22,8 @@
      craft-core 的 SMELT_T)/advTntRoll/
      advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 篝火 T-C1/C3
      纯件 advCampfiresStep/advCampfiresClean(刻账/档账)·
+     advCampfiresDecode(档键解码, T-C5)/advCampfiresReconcile(重放对账
+     三清单, T-C5)·
      advCampfireQuenchHit(浇熄几何, read 注入)/advCampfireRelightHint(重燃
      话术常量, name 引用熄灭态方块名) · 篝火 T-C4 advCampfireBurnHit(燃烧
       判据)/advCampfireBurnStep(节拍步进) · 昼夜 D5 夜怪
@@ -2873,6 +2875,76 @@ function advCampfiresClean(map) {
   return out;
 }
 
+/* ---------- 篝火 T-C5: 档键解码与重放对账 (campfire-spec §3.8/§6 红线 7) ----------
+   decode: [[posKey,{left}]] → Map(posKey→{x,y,z,left})(mode 一行灌装, furnaces
+   decode 先例同族); 非法条目整条拒收不抛(advFurnaceValid「非法整条拒收」口径)。
+   reconcile: 纯查询三清单——lit=当前场景燃烧态 posKey 集(edits 全量权威),
+   sceneOf(posKey)→是否属于当前场景(布尔, mode 层闭包); 跨图键不入三清单
+   (跨图同烧保留, §3.8)。 */
+
+/* 档键解码(纯函数, slot decode 灌装缝): 存档 campfires 数组 → 台账形状 Map
+   (posKey→{x,y,z,left})。逐条独立校验: 键(可带场景前缀——'n|' 图前缀族,
+   encode 按台账键原样出档, 最后一个竖线之后是坐标段)剥前缀后恰三段整数且
+   在世界内(WORLD_W/H/D 经全局名调用期解析), 值对象 left 恒正整数(encode
+   清扫永不产 ≤0, 进档即坏)。坏条整条拒收不抛(混合批合法零夹带);
+   旧档缺键(undefined)/空档 → 空 Map 零迁移。 */
+function advCampfiresDecode(list) {
+  const out = new Map();
+  if (!Array.isArray(list)) return out;
+  for (const e of list) {
+    if (!Array.isArray(e) || e.length !== 2) continue;
+    const k = e[0];
+    const v = e[1];
+    if (typeof k !== 'string' || !v || typeof v !== 'object') continue;
+    const body = k.slice(k.lastIndexOf('|') + 1); /* 剥场景前缀(裸键无竖线原样) */
+    const parts = body.split(',');
+    if (parts.length !== 3) continue;
+    const x = +parts[0];
+    const y = +parts[1];
+    const z = +parts[2];
+    if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z)) continue;
+    if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H || z < 0 || z >= WORLD_D) continue;
+    if (!Number.isInteger(v.left) || v.left < 1) continue;
+    out.set(k, {x, y, z, left: v.left});
+  }
+  return out;
+}
+
+/* 重放对账(纯查询, 对账落点灌装缝): 台账 × 当前场景燃烧态集 → 三清单。
+   keep=在账在世(刻数原样) · drop=在账无世(僵账核销) · plant=在世无账
+   (缺账补满——孩子不亏, [[posKey,条目]] 对偶形可直灌, 满时长=CAMPFIRE.ticks
+   经全局名调用期解析, 无参数块域回落 6000=spec §3.9 初值)。台账零改动
+   (灌装归消费方); 跨图键(sceneOf=false)不入三清单, 他图条目留档跨图同烧。
+   键形口径: 台账键可带场景前缀('n|' 图前缀族), lit 集的键形由消费方定——
+   比较按键体(最后一个竖线之后的坐标段, 与 decode 剥前缀同规约)对齐, plant
+   键=lit 给出的键原样(键形权威在消费方: 探险灌前缀键形与台账同源)。 */
+function advCampfiresReconcile(map, opts) {
+  const o = opts || {};
+  const lit = (o.lit instanceof Set) ? o.lit : new Set();
+  const sceneOf = (typeof o.sceneOf === 'function') ? o.sceneOf : () => true;
+  const full = (typeof CAMPFIRE !== 'undefined' && CAMPFIRE && CAMPFIRE.ticks > 0) ?
+    CAMPFIRE.ticks : 6000;
+  const bodyOf = (k) => k.slice(k.lastIndexOf('|') + 1); /* 剥场景前缀(裸键原样) */
+  const keep = [];
+  const drop = [];
+  const plant = [];
+  for (const [k] of map) {
+    if (!sceneOf(k)) continue; /* 跨图键: 不核销不补种(跨图同烧保留) */
+    if (lit.has(bodyOf(k)) || lit.has(k)) keep.push(k);
+    else drop.push(k);
+  }
+  for (const k of lit) {
+    if (map.has(k) || map.has(bodyOf(k)) || !sceneOf(k)) continue;
+    const p = bodyOf(k).split(',');
+    const x = +p[0];
+    const y = +p[1];
+    const z = +p[2];
+    if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z)) continue;
+    plant.push([k, {x, y, z, left: full}]);
+  }
+  return {plant, drop, keep};
+}
+
 /* ---------- 篝火浇熄几何/重燃话术 (篝火票据 T-C3, campfire-spec §3.4 两态互换) ---------- */
 
 /* 浇熄几何(纯函数): 十字面四水平邻 + 正上共五格见水(B_WATER)=熄——正下不熄
@@ -3726,6 +3798,7 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advLosBlocked,
     advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
     advCampfiresStep, advCampfiresClean, /* 篝火刻账纯函数双件(T-C1) */
+    advCampfiresDecode, advCampfiresReconcile, /* 档键解码/重放对账(T-C5) */
     advCampfireQuenchHit, advCampfireRelightHint, /* 浇熄几何/重燃话术(T-C3) */
     advCampfireBurnHit, advCampfireBurnStep, /* 烫伤燃烧判据/节拍累计纯函数双件(T-C4) */
     ADV_LIVESTOCK_SPAWN_R, ADV_LIVESTOCK_HERD_R, ADV_LIVESTOCK_RING_LO,

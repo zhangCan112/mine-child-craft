@@ -12,6 +12,8 @@
        (候选展开), 每 id 一行 n=stackMax; 超 INV_SLOTS 预算的尾部行溢出
        进 overflow(由消费方并入「套餐补箱」)。同步不变量: 从套餐出发每条
        配方 canCraft(inv, r, true) 全绿(test/showroom-core.test.js 守门)。
+       非派生例外一行: campfire(T-C5 体验馆 dev 发放, 放置件不进材料并集,
+       ADR 0018——本文件唯一手抄行)。
      - showroomCrateRows(): 仓库箱 = ITEMS 字段驱动五桶的首中归桶划分:
        工具·耗损(tool‖dur) → 食物(food) → 烧炼·燃料(SMELTS∪fuel) →
        方块·功能(block) → 材料杂物(兜底); 桶内按注册序, 桶满 INV_SLOTS 行
@@ -119,6 +121,13 @@ function showroomPocket() {
     }
   }
   const rows = ids.map((id) => ({id, n: stackMax(id)}));
+  /* 篝火行追加(T-C5 体验馆 dev 口径, ADR 0018/R1-01): campfire 是放置件不进
+     任何配方材料清单(派生集天然不含), dev 套餐补发一行让试玩可放——行形状
+     对齐派生行 {id, n=stackMax}(数量不钉); 非派生例外全文件仅此一处 */
+  if (!seen.has('campfire')) {
+    seen.add('campfire');
+    rows.push({id: 'campfire', n: stackMax('campfire')});
+  }
   return {rows: rows.slice(0, INV_SLOTS), overflow: rows.slice(INV_SLOTS)};
 }
 
@@ -405,6 +414,8 @@ function showroomWorldPayload(entries) {/* 世界档篡改 payload: 展馆账本
     pos: {x: SHOWROOM.spawn.x, y: L.groundY + 1, z: SHOWROOM.spawn.z, yaw: SHOWROOM.spawn.yaw},
     hp: 30,
     furnaces: [],
+    campfires: [], /* 篝火台账档键(T-C5): dev store 裸 payload 直供不走 decode,
+       形状须自带(展馆零燃烧态=空; 灌装缝 for...of 直吃) */
     livestock: showroomEmptyBuckets(),
     dayTime: 0};
 }

@@ -3559,3 +3559,72 @@ test('campfire 档账清扫 advCampfiresClean: [[posKey,{left}]] 存档形状 ·
       '条目=[posKey,{left}] 二元组: 只挑 left, 坐标不双写(§3.8 档键同形)');
   assert.deepStrictEqual(Core.advCampfiresClean(new Map()), [], '空台账空数组');
 });
+
+/* ---------- 篝火 T-C5: 档键解码与重放对账(campfire-spec §3.8/§4, ADR 0018) ----------
+   decode: [[posKey,{left}]] → Map(posKey→{x,y,z,left})(mode 一行灌装对齐 furnaces
+   先例); 非法整条拒收不抛(advFurnaceValid「非法整条拒收」口径)。reconcile: 纯
+   查询三清单——lit=当前场景燃烧态 posKey 集(edits 全量权威), sceneOf(posKey)→
+   是否属于当前场景(布尔, mode 层闭包), 跨图键不在三清单(跨图同烧保留)。 */
+
+test('T-C5 档键解码 advCampfiresDecode: [[posKey,{left}]]→Map(posKey→{x,y,z,left}) — 坐标还原+缺键容忍', () => {
+  assert.strictEqual(typeof Core.advCampfiresDecode, 'function', '解码纯函数在场(slot decode 灌装缝)');
+  const m = Core.advCampfiresDecode([['1,2,3', {left: 100}], ['4,5,6', {left: 200}]]);
+  assert.ok(m instanceof Map, '返回 Map(可直接灌台账)');
+  assert.strictEqual(m.size, 2, '两条全收');
+  assert.deepStrictEqual(m.get('1,2,3'), {x: 1, y: 2, z: 3, left: 100}, '条目=坐标还原+left(可直 set 台账)');
+  assert.deepStrictEqual(m.get('4,5,6'), {x: 4, y: 5, z: 6, left: 200}, '第二条同形');
+  assert.deepStrictEqual(Core.advCampfiresDecode([]), new Map(), '空档空 Map');
+  assert.deepStrictEqual(Core.advCampfiresDecode(undefined), new Map(), '旧档缺键容忍(undefined→空 Map, 零迁移)');
+});
+
+test('T-C5 解码拒收(整条拒收不抛): 负刻/零刻/非整数/坏值/越界坐标/垃圾键/非数组对 — 合法零夹带', () => {
+  assert.strictEqual(typeof Core.advCampfiresDecode, 'function', '解码纯函数在场(守卫: 缺席即干净红)');
+  const bad = [
+    ['1,2,3', {left: -1}], /* 负刻 */
+    ['1,2,3', {left: 0}], /* 零刻(encode 清扫永不产 ≤0, 进档即坏) */
+    ['1,2,3', {left: 2.5}], /* 非整数(§4 整刻域) */
+    ['1,2,3', {left: 'abc'}], /* 字符串 */
+    ['1,2,3', {left: null}], /* null */
+    ['99999,2,3', {left: 10}], /* x 越界(世界外) */
+    ['1,-2,3', {left: 10}], /* y 负 */
+    ['1,2,99999', {left: 10}], /* z 越界 */
+    ['1,2', {left: 10}], /* 缺段 */
+    ['1,2,3,4', {left: 10}], /* 多段 */
+    ['no-comma', {left: 10}], /* 无逗号 */
+    [null, {left: 10}], /* 键 null */
+    ['1,2,3', null], /* 值 null */
+    ['1,2,3', 'x'], /* 值非对象 */
+    ['1,2,3'], /* 非数组对(缺值) */
+    'junk', /* 条目非数组 */
+  ];
+  const m = Core.advCampfiresDecode(bad);
+  assert.strictEqual(m.size, 0, '全部整条拒收(不抛错零炸)');
+  /* 混合批: 合法保留+非法拒收同批互不拖累 */
+  const mixed = Core.advCampfiresDecode([['7,8,9', {left: 300}], ['bad', {left: 5}], ['2,3,4', {left: -1}]]);
+  assert.strictEqual(mixed.size, 1, '混合批只收合法');
+  assert.deepStrictEqual(mixed.get('7,8,9'), {x: 7, y: 8, z: 9, left: 300}, '合法条形状不变');
+});
+
+test('T-C5 重放对账 advCampfiresReconcile: 纯查询三清单 — keep/drop/plant + 跨图键不核销 + 台账零改动', () => {
+  assert.strictEqual(typeof Core.advCampfiresReconcile, 'function', '对账纯函数在场(对账落点灌装缝)');
+  const map = new Map([
+    ['1,2,3', {x: 1, y: 2, z: 3, left: 5000}], /* lit 在 → keep */
+    ['5,6,7', {x: 5, y: 6, z: 7, left: 6000}], /* lit 无 → drop(僵账) */
+    ['n|8,9,10', {x: 8, y: 9, z: 10, left: 4000}], /* 跨图键 → 不核销(跨图同烧保留) */
+  ]);
+  const lit = new Set(['1,2,3', '9,9,9']);
+  const sceneOf = (k) => k.indexOf('|') < 0; /* 布尔: 裸键=home 当前场景, 带前缀=跨图 */
+  const before = [];
+  for (const [k, e] of map) before.push([k, e.left]);
+  const r = Core.advCampfiresReconcile(map, {lit, sceneOf});
+  assert.deepStrictEqual(r.keep, ['1,2,3'], '在账在世=keep(刻数原样)');
+  assert.deepStrictEqual(r.drop, ['5,6,7'], '在账无世=drop(僵账核销)');
+  assert.deepStrictEqual(r.plant, [['9,9,9', {x: 9, y: 9, z: 9, left: 6000}]],
+      '在世无账=plant(对偶形 [posKey,条目] 可直灌, 满时长 6000=spec §3.9)');
+  assert.ok(!r.keep.includes('n|8,9,10') && !r.drop.includes('n|8,9,10'),
+      '跨图键不入三清单(sceneOf≠当前, 他图条目留档跨图同烧)');
+  const after = [];
+  for (const [k, e] of map) after.push([k, e.left]);
+  assert.deepStrictEqual(after, before, '纯查询: 台账零改动(灌装归消费方)');
+});
+

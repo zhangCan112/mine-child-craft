@@ -137,6 +137,10 @@ const ShowroomMode = mkMode({
       落盘全落进 noop; 收尾还原真档缺省——「退出无痕」红线在此闭环 */
     showroomDevInstall();
     AdventureMode.cleanup();
+    advLedgerReset(); /* 台账退场即清(T-C5 dev 口径, ADR 0018): 落盘已随 dev store
+       丢弃, reset 纯内存态=dev 会话账不渗下一进场; 经 advLedgerReset 别名缝挂
+       (本文件源码零篝火字样守门, C9 同壳机械面); adventure 自己的 cleanup 不调
+       ——退场不清账、档已落, 炉态先例 */
     showroomDevRestore();
     touchPlaying = false; /* 解「进行中」态(v2 口径) */
   },
