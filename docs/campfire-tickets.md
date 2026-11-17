@@ -78,7 +78,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C9 | UI C 区：世界特效 | T-C2, 设计定稿✅ | ☑ 已并入（f025ae9+05894cb+2b52aef+修复 d1f872b/4300e5e，合并 36246ad；评审 FAIL→修复→复审 PASS） |
 | T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☑ 已并入（00c6aa2+34363c4，合并 3df8a5c；双轴评审 PASS；通道面出 T-C10b） |
 | T-C10b | 补丁：放置失败话术通道接线（气泡+TTS） | T-C10, 定稿 v1.6✅ | ☑ 已并入（7f7bb96+aeeba89+84ce8fd，合并 09f7659；双轴评审 PASS） |
-| T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☑ 已并入（3b802ab+bb8a23c+fde4bb8，合并 ff5eef6；双轴评审 PASS；听感走查在途） |
+| T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☑ 已并入+听感走查 PASS（3b802ab+bb8a23c+fde4bb8，合并 ff5eef6；双轴评审 PASS；数值波形走查 PASS，音色美感终审归 PO 试玩） |
 | T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 + T-C8b 全部 | ☐ 待领取 |
 
 状态图例：☐ 待领取 / ◐ 进行中（附分支名）/ ☑ 已并入（附提交序号）。
@@ -783,7 +783,7 @@ js/place-kit.js（篝火失败分支）· js/mode-kit.js（kitHintShow/SpeechKit
 
 ## T-C11 UI E 区：音效登记与接线
 
-> 标签：`task`｜状态：☑ 已并入（1155b00，合并 ff5eef6，双轴评审 PASS；人耳面听感走查并行在途）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
+> 标签：`task`｜状态：☑ 已并入+听感走查 PASS（合并 ff5eef6；音色美感终审归 PO 试玩）｜blocked-by：T-C1, 设计定稿（**已满足**）｜
 > blocks：—（T-C12 除外）
 
 **纪律三件**：见解票须知第 5 条。
