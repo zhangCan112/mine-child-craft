@@ -10,6 +10,8 @@
    fluidAcc 同款, guard=8 掉帧防螺旋), 燃尽余量全按整刻记账(整数入档零漂)。
    零墙钟(墙钟读数禁用, spec §6-8 确定性重放红线)——不喂
    tick 即冻结, 暂停语义归消费方挂缝(菜单/未锁定/暂停不喂, furnace 同拍)。
+   键形纪律(条目键=身份, T-C5 裁决沉淀): 凡从台账条目反查键(回调/收尾/核销),
+   一律用迭代键或 step 前采样键, 禁按当下场景重拼——跨图燃尽曾因此漂移出裸键。
    interface: CampfireKit.mkCampfireLedger(opts) → ledger
      opts.onBurnout(x,y,z,k) — 燃尽回调(消费方做 editBlock 收尾; 未注入=静默
        删条); 第 4 参 k=台账键(T-C5: 跨图收尾按键落自己场景的桶)
