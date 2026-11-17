@@ -1934,7 +1934,7 @@ test('T-C11 三锚窗口零播报面+字面量归属(R1-15 静态网+源码切�
   };
   const placed = cut('onPlaced: (blockId, x, y, z) => {', '\n  },', 'onPlaced');
   const relit = cut('onCampfireRelit: (x, y, z) => {', '\n  },', 'onCampfireRelit');
-  const burnout = cut('onBurnout: (x, y, z) => {', '\n  }});', 'onBurnout');
+  const burnout = cut('onBurnout: (x, y, z, k) => {', '\n  }});', 'onBurnout');
   const litTok = 'advSfx(\'campfire_lit\')';
   const outTok = 'advSfx(\'campfire_out\')';
   assert.strictEqual(placed.split(litTok).length - 1, 1, '放置窗口 campfire_lit 恰 1 处(放置成功同拍)');
