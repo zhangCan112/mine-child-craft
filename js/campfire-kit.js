@@ -143,11 +143,17 @@ function mkCampfireLedger(opts) {
           }
         }
       }
+      /* 到期键采样(条目键=身份, 与 step 同序): 回调携实际 map 键——燃尽可发生在
+         键所属场景之外(T-C5 跨图同烧), 当下重拼会随 advSceneKey() 漂移(人在哪张图
+         拼出哪张图的前缀), 消费方按键归属收尾——键形必须稳 */
+      const dueK = [];
+      for (const [k, e] of map) if (e.left <= 1) dueK.push(k);
       const due = CF_PURE.step(map, 1); /* 纯函数递减+删条, 出到期清单 */
-      for (const e of due) {
-        simKeys.delete(key(e.x, e.y, e.z)); /* 登记册随条目出清(键形同源) */
+      for (let i = 0; i < due.length; i++) {
+        const e = due[i];
+        simKeys.delete(dueK[i]); /* 登记册随条目出清(携条目实际键, 同下) */
         if (o.updraft) o.updraft.remove(e.x, e.y, e.z); /* 燃尽=注销(与 onBurnout 同一状态迁移点, spec §3.5) */
-        if (o.onBurnout) o.onBurnout(e.x, e.y, e.z, key(e.x, e.y, e.z));
+        if (o.onBurnout) o.onBurnout(e.x, e.y, e.z, dueK[i]);
       }
     }
   }
