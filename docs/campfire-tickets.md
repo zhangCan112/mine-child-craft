@@ -79,7 +79,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C10 | UI D 区：文案话术 | T-C1, 设计定稿✅ | ☑ 已并入（00c6aa2+34363c4，合并 3df8a5c；双轴评审 PASS；通道面出 T-C10b） |
 | T-C10b | 补丁：放置失败话术通道接线（气泡+TTS） | T-C10, 定稿 v1.6✅ | ☑ 已并入（7f7bb96+aeeba89+84ce8fd，合并 09f7659；双轴评审 PASS） |
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☑ 已并入+听感走查 PASS（3b802ab+bb8a23c+fde4bb8，合并 ff5eef6；双轴评审 PASS；数值波形走查 PASS，音色美感终审归 PO 试玩） |
-| T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 + T-C8b 全部 | ☐ 待领取 |
+| T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 + T-C8b 全部 | ◐ 进行中（campfire-ui2/tc12，台账 7 项+手玩锚两组随派令下发） |
 
 状态图例：☐ 待领取 / ◐ 进行中（附分支名）/ ☑ 已并入（附提交序号）。
 「设计定稿✅」= edge「设计定稿落盘」已满足（UI 定稿 v1.1，2026-11-16）。
@@ -850,7 +850,7 @@ js/audio-registry.js（SFX_KINDS 两行）· js/campfire-kit.js（放置/重燃/
 
 ## T-C12 收口：GLOSSARY + README 核账 + 验收走查汇总 + 全量回归
 
-> 标签：`task`｜状态：☐ 待领取｜blocked-by：T-C1~T-C11 + T-C8b + T-C10b 全部｜blocks：—
+> 标签：`task`｜状态：◐ 进行中（campfire-ui2/tc12）｜blocked-by：T-C1~T-C11 + T-C8b + T-C10b 全部（**已满足**：12 主票+2 补丁全链闭）｜blocks：—
 
 **纪律三件**：见解票须知第 5 条。
 
