@@ -1902,8 +1902,9 @@ test('体验馆 T-C5 发放与内存态: dev 套餐含 campfire 行(≥1) — �
       '台账内存态在册(同壳同账本, home 场景键形)');
 });
 
-test('体验馆 T-C5 退场即清+零污染: cleanup 台账复位(dev 账不渗) — 存档介质零写入+重进原装', () => {
+test('体验馆 T-C5 退场即清+零污染: cleanup 台账复位(dev 账不渗) — 存档介质零新增写入+重进原装', () => {
   freshEnter();
+  const memBefore = mem.size; /* 相对断言基准(满跑序前置测试可能已落真档键, 绝对 0 与 U4 结构互斥——红方裁决修订) */
   const inv = ShowroomMode.getInv();
   inv.slots[0] = api.mkStack('campfire', 1);
   ShowroomMode.hotbar.select(0);
@@ -1912,8 +1913,8 @@ test('体验馆 T-C5 退场即清+零污染: cleanup 台账复位(dev 账不渗)
   ShowroomMode.cleanup();
   assert.strictEqual(A.advCampfires.map.size, 0,
       '退场即清(dev 会话台账复位, 不渗进下一模式/下一进场)');
-  assert.strictEqual(mem.size, 0,
-      '存档介质零污染(dev store 丢弃一切, campfires 键不落盘)');
+  assert.strictEqual(mem.size, memBefore,
+      '存档介质零新增写入(dev store 丢弃一切, 本 dev 会话不落任何键——campfires 键不落盘)');
   freshEnter(); /* 重进: 世界=基座+展馆账本重放, dev 会话改动随丢弃消失 */
   assert.strictEqual(api.getBlock(81, G + 1, 58), 0, '重进: 篝火不在场(非账本内容不重放)');
   assert.strictEqual(A.advCampfires.map.size, 0, '重进: 台账空(零复活)');

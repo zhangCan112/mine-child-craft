@@ -1717,8 +1717,8 @@ test('C5 误淬门禁: 上界水压下界火坐标正上方 — 门禁拒答不�
   assert.ok(AN.advCampfires.map.has(k), '跨图条目存活(sceneGate 拒答, 零误淬)');
   assert.strictEqual(apiC.getBlock(ns.x, 22, ns.z), IDS.water,
       '上界世界不被误写(浇熄收尾不落当前世界)');
-  assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), 0,
-      '上界同坐标格不被换熄灭态(onQuench 收尾不误落上界)');
+  assert.notStrictEqual(apiC.getBlock(ns.x, 21, ns.z), IDS.out,
+      '上界同坐标格不被换熄灭态(onQuench 收尾不误落上界; 判非熄灭态而非空格——该格自然地形为地下石)');
   AN.advSetDim('nether');
   assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), IDS.lit, '回下界: 火仍燃(未被他图水误熄)');
 });
@@ -1735,7 +1735,7 @@ test('C5 跨图燃尽: 下界条目在上界到期 → 收尾落 nether 桶记�
   AN.advSetDim('overworld');
   globalThis.editBlock(ns.x, 21, ns.z, IDS.water); /* 上界同坐标布哨兵(基座该格在地下) */
   AM.update(0.5); /* 10 刻: 到期燃尽(上界喂拍, 收下界的账) */
-  assert.ok(!A.advCampfires.map.has(k), '燃尽删条(台账出清)');
+  assert.ok(!AN.advCampfires.map.has(k), '燃尽删条(台账出清)');
   assert.strictEqual(AN.advSceneEdits.nether.get(k), 0,
       '收尾记账落 nether 桶(posKey→0——第 4 参按键落自己场景的桶, 不串当前图)');
   assert.strictEqual(apiC.getBlock(ns.x, 21, ns.z), IDS.water,
