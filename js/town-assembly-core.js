@@ -115,7 +115,13 @@
    相对偏移数组=groundMark 先例零朝向变换, face 旋转已折进偏移字面
    归 map-core 数据单源): 宿主 place 后逐笔单格 fill lampLight id19
    (窗光 3 扇+钟室灯点 1, 载体 A 烘焙方块光=零门控零逐帧, 定稿
-   §2.2; lamp 清单段零触=灯柱零新增, 新增光源点 4∈[3,5])。 */
+   §2.2; lamp 清单段零触=灯柱零新增, 新增光源点 4∈[3,5])。
+   Step J 消费登记(2026-11-17, T-NPC-15c 灯罩造型笔执行面, 定稿
+   docs/design/town-lamp-shade-styling-spec.md §3): lampShade 键
+   正式消费——scatter lamp 分支灯柱三笔后逐柱追加罩形造型 fill
+   (11 柱 75 笔/111 体素=标准冠形 8 笔七柱共用+PLAZA/WEST/GATE_W/
+   GATE_E 四变体让位减法, §3.2/§3.3 直译; 零 palette 改动零改源
+   零转录, 债 5 不触发)。 */
 const TOWN_PALETTE = {
   prefab: {
     'tower-belfry': {base: 13, wall: 17, pillar: 5, trim: 5, roof: 9, bell: 19,
@@ -162,6 +168,38 @@ const TOWN_PALETTE = {
     flagCloth: {sakura: 78, blue: 15, quartz: 17, red: 16},
     flowerCore: {y: 61, w: 62}},
   tree: {sakuraLeaf: 78},
+};
+
+/* 灯罩造型笔变体表(T-NPC-15c, 定稿 docs/design/town-lamp-shade-styling-spec.md
+   §3 直译): 盒=相对灯块格 (x, y+5, z) 的闭区间偏移 [dx1,dx2, dy1,dy2, dz1,dz2],
+   dy=0 → y+5 层(立柱框·灯块同层四对角), dy=1 → y+6 层(悬挑环·周环, 中口敞开
+   =罩形不包顶)。标准冠形 8 笔/12 体素(§3.2)七柱共用; 四变体=邻域让位只做减法
+   零移位(§3.3): PLAZA 东缘让出生回望走廊/GATE_E 西北双收进让走廊+樱树冠/
+   WEST 东南角让 sakura-corner-nw 树冠/GATE_W 北缘让 sakura-gate-w 树冠。
+   11 柱合计 75 笔/111 体素; 用色单键 pal.props.lampShade(Step I 在册)。 */
+const LAMP_SHADE_STD = [
+  [-1, -1, 0, 0, -1, -1], [1, 1, 0, 0, -1, -1], /* 立柱框·西北/东北角 */
+  [-1, -1, 0, 0, 1, 1], [1, 1, 0, 0, 1, 1], /* 立柱框·西南/东南角 */
+  [-1, 1, 1, 1, -1, -1], [-1, 1, 1, 1, 1, 1], /* 悬挑环·北/南长边 */
+  [-1, -1, 1, 1, 0, 0], [1, 1, 1, 1, 0, 0], /* 悬挑环·西/东端 */
+];
+const LAMP_SHADE_SHAPES = {
+  STD: LAMP_SHADE_STD,
+  PLAZA: [[-1, -1, 0, 0, -1, -1], [-1, -1, 0, 0, 1, 1],
+    [-1, 0, 1, 1, -1, -1], [-1, 0, 1, 1, 1, 1], [-1, -1, 1, 1, 0, 0]],
+  WEST: [[-1, -1, 0, 0, -1, -1], [1, 1, 0, 0, -1, -1], [-1, -1, 0, 0, 1, 1],
+    [-1, 1, 1, 1, -1, -1], [-1, 0, 1, 1, 1, 1], [-1, -1, 1, 1, 0, 0]],
+  GATE_W: [[-1, -1, 0, 0, 1, 1], [1, 1, 0, 0, 1, 1],
+    [-1, 1, 1, 1, 1, 1], [-1, -1, 1, 1, 0, 0], [1, 1, 1, 1, 0, 0]],
+  GATE_E: [[1, 1, 0, 0, 1, 1], [0, 1, 1, 1, 1, 1], [1, 1, 1, 1, 0, 0]],
+};
+/* 11 柱变体逐柱指派(定稿 §3.3 五表逐字; 锚坐标权威=TOWN_MAP 现册零改写,
+   本表只持 id→变体名映射, 世界坐标仍走 scatter 步骤 s.x/s.y/s.z) */
+const LAMP_SHADE_VARIANT_OF = {
+  'lamp-plaza': 'PLAZA', 'lamp-west': 'WEST', 'lamp-north': 'STD',
+  'lamp-east': 'STD', 'lamp-southeast': 'STD', 'lamp-north-road': 'STD',
+  'lamp-gate-w': 'GATE_W', 'lamp-gate-e': 'GATE_E', 'lamp-end-east': 'STD',
+  'lamp-end-south': 'STD', 'lamp-end-west': 'STD',
 };
 
 /* 装配规划器: 步骤表 → op 列表。纯函数零副作用——只读 steps 与
@@ -537,6 +575,21 @@ function townAssemblyOps(steps) {
           id: pal.props.lampPost});
         ops.push({op: 'fill', x1: s.x, y1: s.y + 5, z1: s.z, x2: s.x, y2: s.y + 5, z2: s.z,
           id: pal.props.lampLight});
+        /* 灯罩造型笔(T-NPC-15c, 定稿 §3 直译): 灯柱三笔之后逐柱追加暖金
+           灯罩造型 fill(lampShade 单键, 衔接序=§3.1「三笔后追加」, 后写
+           不覆写三笔任何格——立柱框只占灯块同层四对角/悬挑环骑 y+6 层且
+           中口敞开, 出光面六格构造性零触)。变体按 s.id 查指派表(§3.3),
+           未在册柱 id 显式抛错=零静默缺罩。 */
+        const shadeShape = LAMP_SHADE_SHAPES[LAMP_SHADE_VARIANT_OF[s.id]];
+        if (!shadeShape) {
+          throw new Error('townAssemblyOps: 灯罩造型表未在册灯柱「' + s.id +
+            '」(定稿 §3.3 五表之外, 拒绝静默缺罩)');
+        }
+        for (const [dx1, dx2, dy1, dy2, dz1, dz2] of shadeShape) {
+          ops.push({op: 'fill', x1: s.x + dx1, y1: s.y + 5 + dy1, z1: s.z + dz1,
+            x2: s.x + dx2, y2: s.y + 5 + dy2, z2: s.z + dz2,
+            id: pal.props.lampShade});
+        }
       } else if (s.kind === 'signpost') {
         /* 路标=柱2+牌1 两笔 fill */
         ops.push({op: 'fill', x1: s.x, y1: s.y + 1, z1: s.z, x2: s.x, y2: s.y + 2, z2: s.z,
