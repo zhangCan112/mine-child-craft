@@ -35,6 +35,10 @@
    ⑪ T2 墙圈派生(spec §3.3 · 方案 §1.2 ground kind town-rim): 按段出
       fill 恰 48 笔(14 段 13+2 帽 17+32 花 61/62)·花奇偶交替开口跳空·
       零盐·合法域扩 town-rim。
+   ⑫ T-NPC-15c 灯罩造型笔(执行面, 定稿 docs/design/town-lamp-shade-styling-spec.md
+      §3 直译输入): 11 柱 75 笔/111 体素逐柱直译对账(五表独立转录)·键联动
+      props.lampShade 单键·罩形不包顶 11/11·衔接序+零覆写·密度护栏/零坐标
+      改写·走廊钉·全量装配见证(体素级零冲突+罩形格显影)。
    装具: vm 载 config + town-map-core + 本件(规划器消费 TOWN_MAP.core 派生
       地表基高与基底范围, 全局名调用期解析——经典脚本同款); 世界层实拼见证
       (place/树/fill 真写世界的格位)归 test/town-mode.test.js T-MAP-03 段。 */
@@ -1188,4 +1192,241 @@ test('town-rim 派生: 按段出 fill 恰 48 笔(14 段 13+2 帽 17+32 花 61/62
       syn.map((o) => [o.id, o.x1, o.z1, o.x2, o.z2, o.y1, o.y2]),
       [[13, 31, 32, 31, 33, 24, 24], [13, 31, 32, 31, 33, 25, 26]],
       '合成派生按 part 逐段出 fill(pad→wall 各一笔)');
+});
+
+/* ---------- ⑫ T-NPC-15c 灯罩造型笔(执行面) ---------- */
+
+/* 15c 罩形设计表(独立字面量转录=定稿 docs/design/town-lamp-shade-styling-spec.md
+   §3.2/§3.3 五表; 预期值出自设计定稿不引实现常量=反同义反复)。盒=相对灯块格
+   (x, y+5, z) 的闭区间偏移 [dx1,dx2, dy1,dy2, dz1,dz2]: dy=0 → y+5 层(立柱框·
+   灯块同层四对角), dy=1 → y+6 层(悬挑环·周环, 中口敞开=罩形不包顶, 定稿 §2.1)。 */
+const SHADE_STD = [
+  [-1, -1, 0, 0, -1, -1], [1, 1, 0, 0, -1, -1],
+  [-1, -1, 0, 0, 1, 1], [1, 1, 0, 0, 1, 1],
+  [-1, 1, 1, 1, -1, -1], [-1, 1, 1, 1, 1, 1],
+  [-1, -1, 1, 1, 0, 0], [1, 1, 1, 1, 0, 0],
+];
+const SHADE_PLAZA = [ /* lamp-plaza 东缘收进: 让出生回望走廊 x78..80, 掉 dx=+1 侧 5 格 */
+  [-1, -1, 0, 0, -1, -1], [-1, -1, 0, 0, 1, 1],
+  [-1, 0, 1, 1, -1, -1], [-1, 0, 1, 1, 1, 1], [-1, -1, 1, 1, 0, 0],
+];
+const SHADE_WEST = [ /* lamp-west 东南角收进: 让 sakura-corner-nw 树冠域, 掉东南角 3 格 */
+  [-1, -1, 0, 0, -1, -1], [1, 1, 0, 0, -1, -1], [-1, -1, 0, 0, 1, 1],
+  [-1, 1, 1, 1, -1, -1], [-1, 0, 1, 1, 1, 1], [-1, -1, 1, 1, 0, 0],
+];
+const SHADE_GATE_W = [ /* lamp-gate-w 北缘收进: 让 sakura-gate-w 树冠域, 掉 z=103 整侧 5 格 */
+  [-1, -1, 0, 0, 1, 1], [1, 1, 0, 0, 1, 1],
+  [-1, 1, 1, 1, 1, 1], [-1, -1, 1, 1, 0, 0], [1, 1, 1, 1, 0, 0],
+];
+const SHADE_GATE_E = [ /* lamp-gate-e 西北双收进: 让走廊(x80)+sakura-gate-e 树冠域, 留东南托架 4 格 */
+  [1, 1, 0, 0, 1, 1], [0, 1, 1, 1, 1, 1], [1, 1, 1, 1, 0, 0],
+];
+/* 11 柱锚独立转录(定稿 §3.3=现册镜像; 与 TOWN_MAP 动态对账见密度护栏测试) */
+const SHADE_LAMPS = [
+  ['lamp-plaza', 77, 92, SHADE_PLAZA], ['lamp-west', 64, 67, SHADE_WEST],
+  ['lamp-north', 74, 67, SHADE_STD], ['lamp-east', 91, 80, SHADE_STD],
+  ['lamp-southeast', 91, 90, SHADE_STD], ['lamp-north-road', 62, 60, SHADE_STD],
+  ['lamp-gate-w', 75, 104, SHADE_GATE_W], ['lamp-gate-e', 81, 105, SHADE_GATE_E],
+  ['lamp-end-east', 121, 86, SHADE_STD], ['lamp-end-south', 79, 119, SHADE_STD],
+  ['lamp-end-west', 47, 79, SHADE_STD],
+];
+const SHADE_LIGHT_DY = 5; /* 灯块=锚 y+5(灯柱三笔: 座 y+1/柱 y+2..4/灯头 y+5) */
+const shadeBoxWorld = (b, x, z) => ({
+  x1: x + b[0], y1: 24 + SHADE_LIGHT_DY + b[2], z1: z + b[4],
+  x2: x + b[1], y2: 24 + SHADE_LIGHT_DY + b[3], z2: z + b[5],
+});
+const shadeFillsOf = (ops) =>
+  ops.filter((o) => o.op === 'fill' && o.id === PALETTE_WANT.props.lampShade);
+const shadeBoxKey = (o) => [o.x1, o.y1, o.z1, o.x2, o.y2, o.z2].join(',');
+const shadeVoxels = (o) => (o.x2 - o.x1 + 1) * (o.y2 - o.y1 + 1) * (o.z2 - o.z1 + 1);
+const shadeOverlaps = (a, b) => a.x1 <= b.x2 && a.x2 >= b.x1 &&
+  a.y1 <= b.y2 && a.y2 >= b.y1 && a.z1 <= b.z2 && a.z2 >= b.z1;
+/* 11 柱锚两两距离 ≥10, ±1 邻域归柱零歧义(逐柱抽取公共谓词) */
+const shadeNearOf = (ops, x, z) => ops.filter((o) =>
+  o.x1 >= x - 1 && o.x1 <= x + 1 && o.z1 >= z - 1 && o.z1 <= z + 1);
+
+test('15c 直译对账: 11 柱 75 笔/111 体素逐柱=定稿 §3 五表(独立转录) · 键联动 props.lampShade 单键', () => {
+  const ctx = loadCore();
+  const shade = shadeFillsOf(opsJson(ctx));
+  assert.strictEqual(shade.length, 75,
+      '罩形 fill 恰 75 笔(标准 7×8+plaza 5+west 6+gate-w 5+gate-e 3), 实得 ' + shade.length);
+  assert.strictEqual(new Set(shade.map((o) => o.id)).size, 1,
+      '罩形笔材质单键(11 柱同色同族, 定稿 §7 变体/朝向分色=无)');
+  for (const [id, x, z, boxes] of SHADE_LAMPS) {
+    const got = shadeNearOf(shade, x, z).sort((a, b) =>
+      shadeBoxKey(a).localeCompare(shadeBoxKey(b)));
+    const want = boxes.map((b) => ({op: 'fill', ...shadeBoxWorld(b, x, z),
+      id: PALETTE_WANT.props.lampShade}))
+        .sort((a, b) => shadeBoxKey(a).localeCompare(shadeBoxKey(b)));
+    assert.deepStrictEqual(got, want, id + ' 罩形笔逐笔=定稿 §3.3 世界系直译');
+  }
+  const voxels = shade.reduce((acc, o) => acc + shadeVoxels(o), 0);
+  assert.strictEqual(voxels, 111,
+      '罩形体素恰 111(7×12+7+9+7+4), 实得 ' + voxels);
+});
+
+test('15c 罩形不包顶 11/11(定稿 §4 执行核): 灯块格/上格中口/四侧六出光面格零罩形', () => {
+  const ctx = loadCore();
+  const shade = shadeFillsOf(opsJson(ctx));
+  assert.strictEqual(shade.length, 75, '前置: 罩形笔 75 笔在册(定稿 §3.3 合计)');
+  const cells = new Set(shade.flatMap((o) => {
+    const out = [];
+    for (let x = o.x1; x <= o.x2; x++) {
+      for (let y = o.y1; y <= o.y2; y++) {
+        for (let z = o.z1; z <= o.z2; z++) out.push(x + ',' + y + ',' + z);
+      }
+    }
+    return out;
+  }));
+  assert.strictEqual(cells.size, 111, '前置: 罩形格恰 111(逐盒展开零重叠)');
+  const lamps = JSON.parse(probe(ctx,
+      'JSON.stringify(TOWN_MAP.scatter.filter((s) => s.kind === "lamp"))'));
+  for (const s of lamps) {
+    const forbids = [[0, 5, 0], [0, 6, 0], [-1, 5, 0], [1, 5, 0], [0, 5, -1], [0, 5, 1]]
+        .map(([dx, dy, dz]) => (s.x + dx) + ',' + (s.y + dy) + ',' + (s.z + dz));
+    const hit = forbids.find((k) => cells.has(k));
+    assert.ok(!hit, s.id + ' 六出光面格零罩形(违例格 ' + hit + ')');
+  }
+});
+
+test('15c 衔接序与零覆写: 每柱罩形笔在灯柱三笔之后追加 · 罩形盒×同批非 place ops 零盒域交叠', () => {
+  const ctx = loadCore();
+  const ops = opsJson(ctx);
+  const shade = shadeFillsOf(ops);
+  assert.strictEqual(shade.length, 75, '前置: 罩形笔 75 笔在册');
+  const scatterLamps = JSON.parse(probe(ctx,
+      'JSON.stringify(townBuildSteps().filter((s) => s.phase === "scatter" && s.kind === "lamp"))'));
+  for (const s of scatterLamps) {
+    const headIdx = ops.findIndex((o) => o.op === 'fill' &&
+        o.id === PALETTE_WANT.props.lampLight && o.x1 === s.x &&
+        o.y1 === s.y + SHADE_LIGHT_DY && o.z1 === s.z);
+    assert.ok(headIdx >= 0, s.id + ' 灯头笔在册(灯柱三笔既件)');
+    const near = shadeNearOf(shade, s.x, s.z);
+    assert.ok(near.length > 0, s.id + ' 罩形笔在册');
+    const idxs = near.map((o) => ops.indexOf(o));
+    assert.ok(Math.min(...idxs) > headIdx,
+        s.id + ' 罩形笔全在灯头笔之后(衔接=三笔后追加, 定稿 §3.1)');
+  }
+  /* 零覆写既有格: 罩形盒×全部非罩形非 place ops 零盒域交叠(place 盒归世界层
+     footOf 见证=④' 同款口径; scrub/tree 锚柱展开与机械自证脚本断言④同构) */
+  const boxOps = ops.filter((o) =>
+    o.op !== 'place' && o.id !== PALETTE_WANT.props.lampShade);
+  const hits = [];
+  for (const sh of shade) {
+    for (const o of boxOps) {
+      const ob = o.op === 'scrub' ?
+          {x1: o.x, x2: o.x, y1: o.top, y2: o.top, z1: o.z, z2: o.z} :
+          o.op === 'tree' ?
+              {x1: o.x, x2: o.x, y1: o.y + 1, y2: o.y + 6, z1: o.z, z2: o.z} :
+              o;
+      if (shadeOverlaps(sh, ob)) hits.push(shadeBoxKey(sh) + '×' + o.op);
+    }
+  }
+  assert.strictEqual(hits.length, 0,
+      '罩形盒零覆写既有格(交叠 ' + hits.length + ' 处: ' + hits.slice(0, 8).join(' ') + ')');
+});
+
+test('15c 密度护栏与零改写: 灯柱现册 11 行=定稿锚逐字 · 灯块笔恰 11(光源零新增) · place 数=实例数(复核)', () => {
+  const ctx = loadCore();
+  const ops = opsJson(ctx);
+  const rows = JSON.parse(probe(ctx,
+      'JSON.stringify(TOWN_MAP.scatter.filter((s) => s.kind === "lamp")' +
+      '.map((s) => [s.id, s.x, s.y, s.z]))'));
+  assert.deepStrictEqual(rows, SHADE_LAMPS.map(([id, x, z]) => [id, x, 24, z]),
+      '灯柱现册 11 行逐字=定稿 §3.3 锚(零坐标改写·零新增, TOWN_MAP 唯一权威)');
+  const anchorSet = new Set(SHADE_LAMPS.map(([, x, z]) => x + ',' + z));
+  const lightFills = ops.filter((o) => o.op === 'fill' &&
+      o.id === PALETTE_WANT.props.lampLight && o.x1 === o.x2 && o.y1 === o.y2 &&
+      o.z1 === o.z2 && o.y1 === 24 + SHADE_LIGHT_DY && anchorSet.has(o.x1 + ',' + o.z1));
+  assert.strictEqual(lightFills.length, 11,
+      '灯柱灯块笔恰 11(一柱一笔, 灯块芯原位保留=光源点零新增)');
+  const places = ops.filter((o) => o.op === 'place');
+  const steps = JSON.parse(probe(ctx,
+      'JSON.stringify(townBuildSteps().filter((s) => s.phase === "prefab" && ' +
+      '!(s.v && s.v.sailStatic === false)))'));
+  assert.strictEqual(places.length, steps.length,
+      'place 数=prefab 实例数(fill 笔不增 place 数, 15b 动态断言同口径复核)');
+});
+
+test('15c 走廊钉: 罩形盒不入出生回望走廊 x78..80×z76..111×y≥25(PLAZA 东缘/GATE_E 西缘收进判据)', () => {
+  const ctx = loadCore();
+  const shade = shadeFillsOf(opsJson(ctx));
+  assert.strictEqual(shade.length, 75, '前置: 罩形笔 75 笔在册');
+  const corridor = {...CORRIDOR, y2: 47}; /* y2=47 与 ⑦ 通廊测试同包络 */
+  const hits = shade.filter((o) => shadeOverlaps(o, corridor));
+  assert.strictEqual(hits.length, 0,
+      '罩形盒×走廊域零交叠(违例: ' + hits.map((o) => shadeBoxKey(o)).join(' ') + ')');
+});
+
+test('15c 全量装配见证: 非罩形 ops 装配后罩形格全空气(体素级零冲突, 含 prefab kernel/树冠真几何) · 全量装配后 111 格显影罩形键', () => {
+  /* 世界层实拼装具(④' place 执行见证同款扩载): op 序=写序真消费(fill 逐格/
+     tree/scrub/recolor 条件覆写/place 真几何; spinner 退场不入格=v.sailStatic
+     契约, 塔体几何归 dims spinner 消费)。两遍装配各起独立世界: ①摘罩层装配
+     =零冲突证据(与定稿 §9 回退零耦合同源, 机械自证脚本⑤同构); ②全量装配
+     =罩形格逐格显影罩形键(落位显影)。 */
+  const FILES = ['js/config.js', 'js/voxel.js', 'js/scene-kit.js',
+    'js/prefab-kit.js', 'js/town-map-core.js', 'js/town-assembly-core.js'];
+  const makeRun = () => {
+    const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+    for (const f of FILES) {
+      vm.runInContext(fs.readFileSync(path.join(ROOT, f), 'utf8'), eng, {filename: f});
+    }
+    return (expr) => vm.runInContext(expr, eng);
+  };
+  const ops = opsJson(loadCore());
+  const apply = (run, withShade) => {
+    for (const o of ops) {
+      if (!withShade && o.op === 'fill' && o.id === PALETTE_WANT.props.lampShade) continue;
+      if (o.op === 'fill') {
+        for (let x = o.x1; x <= o.x2; x++) {
+          for (let y = o.y1; y <= o.y2; y++) {
+            for (let z = o.z1; z <= o.z2; z++) run(`setBlockRaw(${x},${y},${z},${o.id})`);
+          }
+        }
+      } else if (o.op === 'tree') {
+        run(`SceneKit.tree(${o.x},${o.y},${o.z})`);
+      } else if (o.op === 'scrub') {
+        run(`SceneKit.scrub(${o.x},${o.top},${o.z},${o.salt})`);
+      } else if (o.op === 'recolor') {
+        for (let x = o.x1; x <= o.x2; x++) {
+          for (let y = o.y1; y <= o.y2; y++) {
+            for (let z = o.z1; z <= o.z2; z++) {
+              if (run(`getBlock(${x},${y},${z})`) === o.from) {
+                run(`setBlockRaw(${x},${y},${z},${o.to})`);
+              }
+            }
+          }
+        }
+      } else if (o.op === 'place') {
+        run(`PrefabKit.place(${JSON.stringify(o.id)},${o.x},${o.y},${o.z},${JSON.stringify(o.v)})`);
+      } else if (o.op === 'spinner') {
+        /* 叶片退场不入格(sailStatic=false; 塔体几何归 dims spinner 消费) */
+      } else {
+        throw new Error('未知 op: ' + o.op);
+      }
+    }
+  };
+  const expectedCells = [];
+  for (const [, x, z, boxes] of SHADE_LAMPS) {
+    for (const b of boxes) {
+      const w = shadeBoxWorld(b, x, z);
+      for (let x2 = w.x1; x2 <= w.x2; x2++) {
+        for (let y2 = w.y1; y2 <= w.y2; y2++) {
+          for (let z2 = w.z1; z2 <= w.z2; z2++) expectedCells.push(x2 + ',' + y2 + ',' + z2);
+        }
+      }
+    }
+  }
+  assert.strictEqual(expectedCells.length, 111, '定稿罩形格 111(逐盒展开零重叠)');
+  const run1 = makeRun();
+  apply(run1, false);
+  const occupied = expectedCells.filter((k) => run1(`getBlock(${k})`) !== 0);
+  assert.strictEqual(occupied.length, 0,
+      '罩形格全空气=体素级零冲突(违例: ' + occupied.slice(0, 8).join(' ') + ')');
+  const shadeId = PALETTE_WANT.props.lampShade;
+  const run2 = makeRun();
+  apply(run2, true);
+  const missing = expectedCells.filter((k) => run2(`getBlock(${k})`) !== shadeId);
+  assert.strictEqual(missing.length, 0,
+      '全量装配后罩形格逐格显影罩形键(缺影: ' + missing.slice(0, 8).join(' ') + ')');
 });
