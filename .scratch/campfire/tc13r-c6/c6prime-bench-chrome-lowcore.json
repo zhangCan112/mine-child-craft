@@ -1,0 +1,943 @@
+{
+  "lowcore": true,
+  "dpr": 1,
+  "viewport": {
+    "w": 1258,
+    "h": 702
+  },
+  "baseline": {
+    "frames": {
+      "n": 177,
+      "mean": 33.99152542372882,
+      "p50": 33.399999999999636,
+      "p95": 41.70000000000073,
+      "p99": 41.80000000000018,
+      "max": 41.80000000000018
+    },
+    "dc": {
+      "n": 178,
+      "median": 126,
+      "min": 124,
+      "max": 128
+    },
+    "tri": {
+      "n": 178,
+      "median": 76644,
+      "min": 76620,
+      "max": 76668
+    },
+    "fxActive": 1,
+    "census": {
+      "meshes": 285,
+      "meshesVisible": 256,
+      "chunkAtlasMeshes": 100,
+      "sheetBasic": 1,
+      "sheetDrawable": 12,
+      "frustumCulledFalse": 57,
+      "atlasMapPresent": true
+    }
+  },
+  "sceneA": {
+    "step": 5,
+    "frames": {
+      "n": 250,
+      "mean": 40.09839999999999,
+      "p50": 41.60000000000218,
+      "p95": 41.70000000000073,
+      "p99": 41.79999999999927,
+      "max": 50
+    },
+    "counts": {
+      "fires": 50,
+      "flame": 15,
+      "smoke": 198,
+      "vortex": 212,
+      "transients": 0,
+      "total": 425,
+      "perFire": 8.5,
+      "tiers": {
+        "full": 3,
+        "near": 47,
+        "far": 0
+      },
+      "fxActive": 51,
+      "updraft": 51,
+      "meshes": 2435
+    },
+    "query": {
+      "calls": 2000,
+      "ms": 0.8000000715255737,
+      "usPerCall": 0.40000003576278687,
+      "hits": 2000
+    },
+    "placeMs": {
+      "n": 50,
+      "mean": 0.4759999990463257,
+      "p50": 0.5,
+      "p95": 0.8000000715255737,
+      "p99": 1.100000023841858,
+      "max": 1.100000023841858
+    },
+    "dc": {
+      "n": 251,
+      "median": 241,
+      "min": 231,
+      "max": 247
+    },
+    "tri": {
+      "n": 251,
+      "median": 80880,
+      "min": 80760,
+      "max": 80952
+    },
+    "dcInc": 115,
+    "triInc": 4236,
+    "phase": {
+      "n": 36,
+      "worstCovered": 2,
+      "moments": [
+        {
+          "t": 17.36,
+          "readAt": 17.3909,
+          "dist": [
+            1,
+            31,
+            18
+          ],
+          "covered": 3
+        },
+        {
+          "t": 17.41,
+          "readAt": 17.4326,
+          "dist": [
+            0,
+            26,
+            24
+          ],
+          "covered": 2
+        },
+        {
+          "t": 17.46,
+          "readAt": 17.4659,
+          "dist": [
+            0,
+            23,
+            27
+          ],
+          "covered": 2
+        },
+        {
+          "t": 17.51,
+          "readAt": 17.5076,
+          "dist": [
+            0,
+            19,
+            31
+          ],
+          "covered": 2
+        },
+        {
+          "t": 17.56,
+          "readAt": 17.5909,
+          "dist": [
+            3,
+            8,
+            39
+          ],
+          "covered": 3
+        },
+        {
+          "t": 17.61,
+          "readAt": 17.6326,
+          "dist": [
+            11,
+            5,
+            34
+          ],
+          "covered": 3
+        },
+        {
+          "t": 17.66,
+          "readAt": 17.6659,
+          "dist": [
+            15,
+            2,
+            33
+          ],
+          "covered": 3
+        },
+        {
+          "t": 17.71,
+          "readAt": 17.7076,
+          "dist": [
+            23,
+            0,
+            27
+          ],
+          "covered": 2
+        },
+        {
+          "t": 17.76,
+          "readAt": 17.7909,
+          "dist": [
+            29,
+            0,
+            21
+          ],
+          "covered": 2
+        },
+        {
+          "t": 17.81,
+          "readAt": 17.8243,
+          "dist": [
+            34,
+            0,
+            16
+          ],
+          "covered": 2
+        },
+        {
+          "t": 17.86,
+          "readAt": 17.8659,
+          "dist": [
+            36,
+            3,
+            11
+          ],
+          "covered": 3
+        },
+        {
+          "t": 17.91,
+          "readAt": 17.9076,
+          "dist": [
+            40,
+            3,
+            7
+          ],
+          "covered": 3
+        },
+        {
+          "t": 17.96,
+          "readAt": 17.9909,
+          "dist": [
+            31,
+            18,
+            1
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.01,
+          "readAt": 18.0242,
+          "dist": [
+            26,
+            24,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.06,
+          "readAt": 18.0659,
+          "dist": [
+            23,
+            27,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.11,
+          "readAt": 18.1076,
+          "dist": [
+            19,
+            31,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.16,
+          "readAt": 18.1826,
+          "dist": [
+            9,
+            38,
+            3
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.21,
+          "readAt": 18.2243,
+          "dist": [
+            5,
+            37,
+            8
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.26,
+          "readAt": 18.2659,
+          "dist": [
+            2,
+            33,
+            15
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.31,
+          "readAt": 18.3493,
+          "dist": [
+            0,
+            23,
+            27
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.36,
+          "readAt": 18.3826,
+          "dist": [
+            0,
+            21,
+            29
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.41,
+          "readAt": 18.4243,
+          "dist": [
+            0,
+            16,
+            34
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.46,
+          "readAt": 18.4659,
+          "dist": [
+            3,
+            11,
+            36
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.51,
+          "readAt": 18.5076,
+          "dist": [
+            3,
+            7,
+            40
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.56,
+          "readAt": 18.5826,
+          "dist": [
+            16,
+            1,
+            33
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.61,
+          "readAt": 18.6243,
+          "dist": [
+            24,
+            0,
+            26
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.66,
+          "readAt": 18.6659,
+          "dist": [
+            27,
+            0,
+            23
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.71,
+          "readAt": 18.7409,
+          "dist": [
+            38,
+            0,
+            12
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.76,
+          "readAt": 18.7825,
+          "dist": [
+            38,
+            3,
+            9
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.81,
+          "readAt": 18.8242,
+          "dist": [
+            37,
+            8,
+            5
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.86,
+          "readAt": 18.8659,
+          "dist": [
+            33,
+            15,
+            2
+          ],
+          "covered": 3
+        },
+        {
+          "t": 18.91,
+          "readAt": 18.9409,
+          "dist": [
+            24,
+            26,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 18.96,
+          "readAt": 18.9826,
+          "dist": [
+            21,
+            29,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 19.01,
+          "readAt": 19.0242,
+          "dist": [
+            16,
+            34,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 19.06,
+          "readAt": 19.0659,
+          "dist": [
+            11,
+            36,
+            3
+          ],
+          "covered": 3
+        },
+        {
+          "t": 19.11,
+          "readAt": 19.1408,
+          "dist": [
+            4,
+            33,
+            13
+          ],
+          "covered": 3
+        }
+      ],
+      "spread": {
+        "n": 50,
+        "distinct": 50,
+        "buckets": [
+          12,
+          19,
+          19
+        ]
+      }
+    }
+  },
+  "sceneB": {
+    "step": 18,
+    "frames": {
+      "n": 251,
+      "mean": 40.00517928286854,
+      "p50": 41.60000000000582,
+      "p95": 41.700000000004366,
+      "p99": 49.89999999999418,
+      "max": 50
+    },
+    "counts": {
+      "fires": 50,
+      "flame": 7,
+      "smoke": 196,
+      "vortex": 68,
+      "transients": 0,
+      "total": 271,
+      "perFire": 5.42,
+      "tiers": {
+        "full": 2,
+        "near": 13,
+        "far": 35
+      },
+      "fxActive": 51,
+      "updraft": 51,
+      "meshes": 2435
+    },
+    "query": {
+      "calls": 2000,
+      "ms": 0.19999992847442627,
+      "usPerCall": 0.09999996423721313,
+      "hits": 2000
+    },
+    "placeMs": {
+      "n": 50,
+      "mean": 0.40200000047683715,
+      "p50": 0.3999999761581421,
+      "p95": 0.6000000238418579,
+      "p99": 0.7000000476837158,
+      "max": 0.7000000476837158
+    },
+    "dc": {
+      "n": 252,
+      "median": 199,
+      "min": 191,
+      "max": 206
+    },
+    "tri": {
+      "n": 252,
+      "median": 79540,
+      "min": 79444,
+      "max": 79624
+    },
+    "dcInc": 73,
+    "triInc": 2896,
+    "phase": {
+      "n": 36,
+      "worstCovered": 2,
+      "moments": [
+        {
+          "t": 35.99,
+          "readAt": 36.0235,
+          "dist": [
+            27,
+            23,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.04,
+          "readAt": 36.0652,
+          "dist": [
+            23,
+            27,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.09,
+          "readAt": 36.0986,
+          "dist": [
+            18,
+            32,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.14,
+          "readAt": 36.1402,
+          "dist": [
+            13,
+            37,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.19,
+          "readAt": 36.2235,
+          "dist": [
+            7,
+            33,
+            10
+          ],
+          "covered": 3
+        },
+        {
+          "t": 36.24,
+          "readAt": 36.2568,
+          "dist": [
+            6,
+            31,
+            13
+          ],
+          "covered": 3
+        },
+        {
+          "t": 36.29,
+          "readAt": 36.2986,
+          "dist": [
+            0,
+            36,
+            14
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.34,
+          "readAt": 36.3402,
+          "dist": [
+            0,
+            25,
+            25
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.39,
+          "readAt": 36.4152,
+          "dist": [
+            0,
+            16,
+            34
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.44,
+          "readAt": 36.4568,
+          "dist": [
+            0,
+            12,
+            38
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.49,
+          "readAt": 36.4985,
+          "dist": [
+            4,
+            7,
+            39
+          ],
+          "covered": 3
+        },
+        {
+          "t": 36.54,
+          "readAt": 36.5818,
+          "dist": [
+            14,
+            4,
+            32
+          ],
+          "covered": 3
+        },
+        {
+          "t": 36.59,
+          "readAt": 36.6235,
+          "dist": [
+            23,
+            0,
+            27
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.64,
+          "readAt": 36.6568,
+          "dist": [
+            26,
+            0,
+            24
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.69,
+          "readAt": 36.6985,
+          "dist": [
+            32,
+            0,
+            18
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.74,
+          "readAt": 36.7402,
+          "dist": [
+            37,
+            0,
+            13
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.79,
+          "readAt": 36.8235,
+          "dist": [
+            33,
+            10,
+            7
+          ],
+          "covered": 3
+        },
+        {
+          "t": 36.84,
+          "readAt": 36.8651,
+          "dist": [
+            31,
+            13,
+            6
+          ],
+          "covered": 3
+        },
+        {
+          "t": 36.89,
+          "readAt": 36.8985,
+          "dist": [
+            36,
+            14,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.94,
+          "readAt": 36.9818,
+          "dist": [
+            20,
+            30,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 36.99,
+          "readAt": 37.0234,
+          "dist": [
+            15,
+            35,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 37.04,
+          "readAt": 37.0568,
+          "dist": [
+            12,
+            38,
+            0
+          ],
+          "covered": 2
+        },
+        {
+          "t": 37.09,
+          "readAt": 37.0984,
+          "dist": [
+            7,
+            39,
+            4
+          ],
+          "covered": 3
+        },
+        {
+          "t": 37.14,
+          "readAt": 37.1402,
+          "dist": [
+            6,
+            32,
+            12
+          ],
+          "covered": 3
+        },
+        {
+          "t": 37.19,
+          "readAt": 37.2234,
+          "dist": [
+            0,
+            27,
+            23
+          ],
+          "covered": 2
+        },
+        {
+          "t": 37.24,
+          "readAt": 37.2568,
+          "dist": [
+            0,
+            24,
+            26
+          ],
+          "covered": 2
+        },
+        {
+          "t": 37.29,
+          "readAt": 37.2985,
+          "dist": [
+            0,
+            18,
+            32
+          ],
+          "covered": 2
+        },
+        {
+          "t": 37.34,
+          "readAt": 37.3734,
+          "dist": [
+            2,
+            10,
+            38
+          ],
+          "covered": 3
+        },
+        {
+          "t": 37.39,
+          "readAt": 37.4152,
+          "dist": [
+            10,
+            7,
+            33
+          ],
+          "covered": 3
+        },
+        {
+          "t": 37.44,
+          "readAt": 37.4568,
+          "dist": [
+            13,
+            6,
+            31
+          ],
+          "covered": 3
+        },
+        {
+          "t": 37.49,
+          "readAt": 37.5318,
+          "dist": [
+            23,
+            0,
+            27
+          ],
+          "covered": 2
+        },
+        {
+          "t": 37.54,
+          "readAt": 37.5735,
+          "dist": [
+            29,
+            0,
+            21
+          ],
+          "covered": 2
+        },
+        {
+          "t": 37.59,
+          "readAt": 37.6151,
+          "dist": [
+            34,
+            0,
+            16
+          ],
+          "covered": 2
+        },
+        {
+          "t": 37.64,
+          "readAt": 37.6485,
+          "dist": [
+            38,
+            0,
+            12
+          ],
+          "covered": 2
+        },
+        {
+          "t": 37.69,
+          "readAt": 37.7318,
+          "dist": [
+            32,
+            11,
+            7
+          ],
+          "covered": 3
+        },
+        {
+          "t": 37.74,
+          "readAt": 37.7735,
+          "dist": [
+            31,
+            14,
+            5
+          ],
+          "covered": 3
+        }
+      ],
+      "spread": {
+        "n": 50,
+        "distinct": 50,
+        "buckets": [
+          12,
+          22,
+          16
+        ]
+      }
+    }
+  },
+  "removeMs": {
+    "n": 100,
+    "mean": 0.5969999992847442,
+    "p50": 0.5,
+    "p95": 1.100000023841858,
+    "p99": 2.8000000715255737,
+    "max": 2.8000000715255737
+  },
+  "switchCheck": {
+    "attempted": true,
+    "roundtripMs": 4725,
+    "afterA": {
+      "meshes": 2435,
+      "meshesVisible": 726,
+      "chunkAtlasMeshes": 100,
+      "sheetBasic": 1,
+      "sheetDrawable": 612,
+      "frustumCulledFalse": 57,
+      "atlasMapPresent": true
+    },
+    "afterB": {
+      "meshes": 2435,
+      "meshesVisible": 541,
+      "chunkAtlasMeshes": 100,
+      "sheetBasic": 1,
+      "sheetDrawable": 612,
+      "frustumCulledFalse": 57,
+      "atlasMapPresent": true
+    },
+    "afterClear": {
+      "meshes": 285,
+      "meshesVisible": 255,
+      "chunkAtlasMeshes": 100,
+      "sheetBasic": 1,
+      "sheetDrawable": 12,
+      "frustumCulledFalse": 57,
+      "atlasMapPresent": true
+    }
+  },
+  "fxNow": 46.998118000000204,
+  "fxCellsLeft": 1
+}

@@ -1,0 +1,64 @@
+✖ 判别力探针(永红)·错相面: 相位源塌缩喂帧分布断言——恒红(覆盖 1 非 3) (0.963ms)
+✖ 判别力探针(永红)·错相面: 相位源塌缩喂散布断言——恒红(distinct 1 非 50) (0.1378ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 50.7138
+
+✖ failing tests:
+
+test at .scratch\campfire\tc13r-c6\probe-red-phase-collapse.js:32:1
+✖ 判别力探针(永红)·错相面: 相位源塌缩喂帧分布断言——恒红(覆盖 1 非 3) (0.963ms)
+  AssertionError [ERR_ASSERTION]: 塌缩源 t=0.05s 帧分布应覆盖 3 帧 (实测 [50,0,0])
+  
+  1 !== 3
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\.scratch\campfire\tc13r-c6\probe-red-phase-collapse.js:39:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.start (node:internal/test_runner/test:1003:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .scratch\campfire\tc13r-c6\probe-red-phase-collapse.js:44:1
+✖ 判别力探针(永红)·错相面: 相位源塌缩喂散布断言——恒红(distinct 1 非 50) (0.1378ms)
+  AssertionError [ERR_ASSERTION]: 塌缩源 50 格相位应两两全异 (实测全同值)
+  
+  1 !== 50
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\.scratch\campfire\tc13r-c6\probe-red-phase-collapse.js:47:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 1,
+    expected: 50,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":2}
+verdict: 断言红(AssertionError=2)
+failed_tests:
+  - 判别力探针(永红)·错相面: 相位源塌缩喂帧分布断言——恒红(覆盖 1 非 3) (0.963ms)
+  - 判别力探针(永红)·错相面: 相位源塌缩喂散布断言——恒红(distinct 1 非 50) (0.1378ms)
+  - failing tests:
+  - 判别力探针(永红)·错相面: 相位源塌缩喂帧分布断言——恒红(覆盖 1 非 3) (0.963ms)
+  - 判别力探针(永红)·错相面: 相位源塌缩喂散布断言——恒红(distinct 1 非 50) (0.1378ms)

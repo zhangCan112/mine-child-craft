@@ -1,0 +1,9 @@
+基准页生成: C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\.scratch\campfire\tc13r-c6\c6prime-bench.html
+(node:32632) [DEP0190] DeprecationWarning: Passing args to a child process with shell option true can lead to security vulnerabilities, as the arguments are not escaped, only concatenated.
+(Use `node --trace-deprecation ...` to show where the warning was created)
+server.js 就绪 :8808
+跑 desktop ...
+desktop 完成: 场景A p50=33.4ms dcInc=200 场景B p50=33.4ms dcInc=153
+跑 lowcore ...
+lowcore 完成: 场景A p50=41.6ms dcInc=115 场景B p50=41.6ms dcInc=73
+全部落盘 .scratch/campfire/tc13r-c6/c6prime-bench-chrome*.json
