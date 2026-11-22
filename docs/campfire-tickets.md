@@ -84,7 +84,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C13-R | 二次返工母票：篝火几何建模化（架构=静态驻 chunk 批+焰片全场景共享 sheet，方案 .scratch/campfire/tc13r-arch/） | T-C13, 定稿 v1.10✅ | ◐ 架构落定（architect 回执：否决每座 Group，dc 增量 ≈+1，装配链零改动），施工票 R-1~R-6 派生 |
 | T-C13-R1 | 图集九枚 tile 落集（PAINTERS 68~76+焰帧判据换新） | T-C13-R, 定稿 v1.10 | ◐ 派工中（tc13r1，无依赖无争议先行） |
 | T-C13-R2 | MeshCore 多部件几何（pushCampfireParts+layout 切换+ADR-0020 落册） | T-C13-R1 | ☐ |
-| T-C13-R3 | fx-core 增量面（flamePlanes+flamePhase+§5.2 转性档） | T-C13-R | ◐ 派工中（tc13r3，五裁已批：降档保留 2/1 粒/s+帧率 0.15s+渐弱 0.30 封顶+低核 ×2+N=1） |
+| T-C13-R3 | fx-core 增量面（flamePlanes+flamePhase+§5.2 转性档） | T-C13-R | ◐ 完工评审中（tc13r3 684f3c0；门禁 2480/2479/0/1；烟路径 diff 为零已兑现） |
 | T-C13-R4 | 焰片渲染适配（campfireField 场内共享 sheet，UV 翻页+错相） | T-C13-R1, T-C13-R3 | ☐ |
 | T-C13-R5 | 装配对账+台账重放恢复+守门收口（GLOSSARY 翻新随票） | T-C13-R2, T-C13-R4 | ☐ |
 | T-C13-R6 | C6' 基准重跑+收档（新基线+dc/tri 采样+错相结构断言） | T-C13-R5 | ☐ |
