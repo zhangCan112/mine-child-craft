@@ -1,0 +1,9 @@
+T-C13-R1 门禁基线记录(红提交前实测)
+- 分支: tc13r1 @ 17e664c(基点, 干净检出零改动时测)
+- 命令: npm test(全套)
+- 结果: tests 2476 / pass 2475 / fail 0 / cancelled 0 / skipped 1 / todo 0, duration_ms 215040
+- 与派令预期 2476/2475/0/1 一致
+- 另: 双脚本判据复核(node .scratch/campfire/tc13-review/verify-v110-doc.js 与 verify-v110-blocks.js)
+  焰帧四档 84/86/86(判据 ≥80), 白芯亮黄 30/27/27(判据 ≥20);
+  70 燃顶 k 连通块=3, f=4 粒, e=1 粒; 71 燃侧 e=3 粒; 72 熄顶 k 露头斑=2 块(判据 ≤4);
+  73 熄侧 k=4; 三帧焰形 diff 73/105/124(互异)
