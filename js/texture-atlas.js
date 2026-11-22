@@ -18,7 +18,9 @@
    粉羊毛 78(城镇重制公共件, revamp-spec §2——羊毛画法换樱粉底, 樱花树冠/布幔/旗阵) +
    篝火 62~67(燃烧 81/熄灭 82, 篝火 T-C8 落旧全脸同图两格 62/63——T-C13 v1.9 分面
    返工作废存档不删; 新增分面双 tile 四格 64~67: 燃灶面/燃侧脸/熄灶面/熄侧脸,
-   顶=灶面俯视/四侧=侧脸正视/底不绘, 观感权威 docs/design/campfire-visual-spec.md §4)。
+   顶=灶面俯视/四侧=侧脸正视/底不绘, 观感权威 docs/design/campfire-visual-spec.md §4) +
+   篝火几何建模九格 68~76(T-C13-R1, v1.10: 端面/皮侧/燃顶/燃侧/熄顶/熄侧/焰帧×3,
+   燃熄成对 fallback=70↔72、71↔73, 权威同上 §4.2/§4.3)。
    风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
@@ -35,7 +37,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 最高格号 67(count=68, 篝火分面四格), 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 最高格号 76(count=77, 篝火几何建模九格 v1.10), 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -94,6 +96,17 @@ const TextureAtlas = (() => {
   const T_CAMPFIRE_SIDE = 65; /* 篝火燃烧态·侧脸(81, T-C13): 上半透明+中心火舌+原木横梁 */
   const T_CAMPFIRE_OUT_TOP = 66; /* 篝火熄灭态·灶面顶(82, T-C13): 同构木框+灰烬坑+中央炭心 */
   const T_CAMPFIRE_OUT_SIDE = 67; /* 篝火熄灭态·侧脸(82, T-C13): 零火舌+暗炭缝+原木同位形 */
+  /* T-C13-R1 v1.10 几何建模九格(68~76 连续落集, count=77; T_LOG_SIDE 名已被 7 号格
+     占用, 本段一律 T_CF_ 前缀避撞); 接线归 R-2, 本票只落画师 */
+  const T_CF_LOG_END = 68; /* 原木端面: 外皮 d 环+年轮 L/l 三重方环+中心 k 节疤 */
+  const T_CF_LOG_SIDE = 69; /* 原木皮侧: 上下皮缘 d/L 底横纹+l 受光长条+短划纹 */
+  const T_CF_TOP_LIT = 70; /* 炭堆燃顶: a 灰烬地+k 炭斑三群+f 橙芯嵌炭内+e 灼点 */
+  const T_CF_SIDE_LIT = 71; /* 炭堆燃侧: 顶底 a 灰缘+k 炭主体+中央竖向橙缝 f/F+e 灼点 */
+  const T_CF_TOP_OUT = 72; /* 炭堆熄顶: a 灰主导+k 露头斑(与 70 同构三群位), 零焰色零 e */
+  const T_CF_SIDE_OUT = 73; /* 炭堆熄侧: a 灰主体+竖向 k 暗缝(橙缝冷灭残迹), 零焰色零 e */
+  const T_CF_FLAME_F1 = 74; /* 焰帧 F1: 中立位相火舌(外 f→F→W→w 白芯/焰根 e, alpha 真透) */
+  const T_CF_FLAME_F2 = 75; /* 焰帧 F2: 左倾位相火舌(同一火舌摆动/翻页帧) */
+  const T_CF_FLAME_F3 = 76; /* 焰帧 F3: 右倾位相火舌(同一火舌摆动/翻页帧) */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -704,6 +717,206 @@ const TextureAtlas = (() => {
     cfStamp(px, CF_OUT_SIDE67_ART); /* r0~r6 全透零火舌; 炭缝/原木固定零 rng */
     cfAshSpecks(px, rng, cfGroundSpots(CF_OUT_SIDE67_ART, true, 9)); /* a 散斑落炭缝外围透明带(y≤9) */
     cfWoodDashes(px, rng); /* 原木木纹与 65 同构 */
+  };
+  /* ---------- 篝火几何建模九格(68~76, 篝火 T-C13-R1, UI 定稿 §4.2/§4.3 v1.10) ----------
+     篝火改「几何建模」的贴图物料格: 原木端面/皮侧 68/69、炭堆燃顶/燃侧 70/71、
+     炭堆熄顶/熄侧 72/73、焰帧 F1~F3 74~76(翻页动画源)。
+     观感唯一权威=§4.2(端面/皮侧/燃顶/燃侧/焰帧)/§4.3(熄顶/熄侧) char art 逐字符照抄。
+     画笔纪律(票面红线): 全格固定像素零 rng——画师签名 (px)=> 不接 rng, 同 seed
+     同图天然成立; 色板复用 CF_PAL8(九色+C+a), 零新色; 九稿无 'C', cfStamp 直落;
+     焰帧 '.' 位不绘制=mkTile 缺省 alpha 0 真透(65/67 同口径)。
+     fallback 燃熄成对(接线归 R-2): 顶 70↔72 同构灰烬盖顶翻页不刺眼、
+     侧 71↔73 成对可辨(k 主+橙缝 vs a 主+暗缝)。 */
+  const CF_LOG_END68_ART = [ /* UI 定稿 §4.2 原木端面 68: 外皮 d 环+年轮 L/l 三重方环+中心 k 节疤 */
+    'dddddddddddddddd',
+    'dLLLLLLLLLLLLLLd',
+    'dLllllllllllllLd',
+    'dLlLLLLLLLLLLlLd',
+    'dLlLllllllllLlLd',
+    'dLlLlLLLLLLlLlLd',
+    'dLlLlLkkkkLlLlLd',
+    'dLlLlLkkkkLlLlLd',
+    'dLlLlLkkkkLlLlLd',
+    'dLlLlLkkkkLlLlLd',
+    'dLlLlLLLLLLlLlLd',
+    'dLlLllllllllLlLd',
+    'dLlLLLLLLLLLLlLd',
+    'dLllllllllllllLd',
+    'dLLLLLLLLLLLLLLd',
+    'dddddddddddddddd',
+  ];
+  const CF_LOG_SIDE69_ART = [ /* UI 定稿 §4.2 原木皮侧 69: 上下皮缘 d+L 底横纹+l 受光长条+短划纹 */
+    'dddddddddddddddd',
+    'dLLLLLLLLLLLLLLd',
+    'dLLdLLLLLLLLdLLd',
+    'dLLLLLLLLLLLLLLd',
+    'dLllllllllllllLd',
+    'dLLLLLLLLLLLLLLd',
+    'dLLLLLdddddLLLLd',
+    'dLLLLLLLLLLLLLLd',
+    'dLLdLLLLLLLLdLLd',
+    'dLLLLLLLLLLLLLLd',
+    'dLllllllllllllLd',
+    'dLLLLLLLLLLLLLLd',
+    'dLLLLLLLddLLLLLd',
+    'dLLLLLLLLLLLLLLd',
+    'dLLLLLLLLLLLLLLd',
+    'dddddddddddddddd',
+  ];
+  const CF_TOP_LIT70_ART = [ /* UI 定稿 §4.2 炭堆燃顶 70: a 灰烬地满铺+k 炭斑三群+f 橙芯嵌炭内+e 灼点 */
+    'aaaaaaaaaaaaaaaa',
+    'aaaaakkkaaaaaaaa',
+    'aaaakkkkkkaaaaaa',
+    'aaaakkfkkkkaaaaa',
+    'aaaaakkkkkaaaaaa',
+    'aaaaaaaaakkkkaaa',
+    'aaaaaaaakfkkkaaa',
+    'aaaaaaaafkkkkaaa',
+    'aaaaaaaaakkekaaa',
+    'aaaakkkkaaaaaaaa',
+    'aaaakkfkkaaaaaaa',
+    'aaaakkkkkaaaaaaa',
+    'aaaaaakkaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+  ];
+  const CF_SIDE_LIT71_ART = [ /* UI 定稿 §4.2 炭堆燃侧 71: 顶底 a 灰缘+k 炭主体+中央竖向橙缝 f/F+e 灼点 */
+    'aaaaaaaaaaaaaaaa',
+    'akkkkkkkkkkkkkka',
+    'akkkkkffkkkkkkka',
+    'akkkkfFFfkkkkkka',
+    'akkkkfFFfkkkkkka',
+    'akkkkkffkkkkkkka',
+    'akkekkkkkkkkekka',
+    'akkkkkkkkkkkkkka',
+    'akkkkffkkkkkkkka',
+    'akkkfFFfkkkkkkka',
+    'akkkkkffkkkkkkka',
+    'akkkkkkkkkkkkkka',
+    'akkekkkkkkkkkkka',
+    'akkkkkkkkkkkkkka',
+    'akkkkkkkkkkkkkka',
+    'aaaaaaaaaaaaaaaa',
+  ];
+  const CF_TOP_OUT72_ART = [ /* UI 定稿 §4.3 炭堆熄顶 72: a 灰烬主+k 露头斑(与 70 同构三群位), 零焰色零 e */
+    'aaaaaaaaaaaaaaaa',
+    'aaaaakkkkaaaaaaa',
+    'aaaakkkkkkaaaaaa',
+    'aaaakkkkkkkaaaaa',
+    'aaaaakkkkkaaaaaa',
+    'aaaaaaaaakkkaaaa',
+    'aaaaaakkkkaaaaaa',
+    'aaaaaaakkkaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaakkkaaaaaaaaaa',
+    'aaakkkkkaaaaaaaa',
+    'aaaakkkkkkaaaaaa',
+    'aaaaaakkkaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+  ];
+  const CF_SIDE_OUT73_ART = [ /* UI 定稿 §4.3 炭堆熄侧 73: a 灰主体+竖向 k 暗缝(橙缝冷灭残迹), 零焰色零 e */
+    'aaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaakkkaaaakkaaa',
+    'aaaakkkaaaakkaaa',
+    'aaaakkkaaaakkaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaaaakkaaaaaaaa',
+    'aaaaaakkaaaaaaaa',
+    'aaaaaakkaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaakkkkaaaaaaaa',
+    'aaaakkkkaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+    'aaaaaaaaaaaaaaaa',
+  ];
+  const CF_FLAME74_ART = [ /* UI 定稿 §4.2 焰帧 F1 74: 中立位相火舌(外 f→F→W→w 白芯/焰根 e/alpha 真透) */
+    '................',
+    '.......f........',
+    '.......F........',
+    '......fFf.......',
+    '......FWF.......',
+    '.....fFWWf......',
+    '.....FWwWF......',
+    '....fFWwWFf.....',
+    '....FWwwWF......',
+    '...fFWwwWFf.....',
+    '...FFWwwWFF.....',
+    '...FFFWwWFFF....',
+    '..fFFFWWWFFFf...',
+    '..FFeFWWWeFF....',
+    '..FFeFFFFFeFF...',
+    '................',
+  ];
+  const CF_FLAME75_ART = [ /* UI 定稿 §4.2 焰帧 F2 75: 左倾位相火舌(同一火舌摆动/翻页帧) */
+    '................',
+    '.....f..........',
+    '.....F..........',
+    '....fFf.........',
+    '....FWF.........',
+    '...fFWWf........',
+    '...FWwWF........',
+    '...FWwwWFf......',
+    '..fFWwwWF.......',
+    '..FFWwwWFF......',
+    '..FFFWwWFFF.....',
+    '.fFFFWWWFFFf....',
+    '.FFeFWWWeFF.....',
+    '.FFeFFFFFeFF....',
+    '..FFFFFFFFF.....',
+    '................',
+  ];
+  const CF_FLAME76_ART = [ /* UI 定稿 §4.2 焰帧 F3 76: 右倾位相火舌(同一火舌摆动/翻页帧) */
+    '................',
+    '..........f.....',
+    '..........F.....',
+    '.........fFf....',
+    '.........FWF....',
+    '........fFWWf...',
+    '........FWwWF...',
+    '......fFWwwWF...',
+    '.......FWwwWFf..',
+    '......FFWwwWFF..',
+    '.....FFFWwWFFF..',
+    '....fFFFWWWFFFf.',
+    '.....FFeFWWWeFF.',
+    '....FFeFFFFFeFF.',
+    '.....FFFFFFFFF..',
+    '................',
+  ];
+  /* 九格画师: v1.10 九稿全固定像素(无 'C' 底噪无 rng 笔触), cfStamp 一笔直落;
+     '.' 位不绘制留缺省透明(焰帧真透), 68~73 全不透明稿零 '.' */
+  PAINTERS[T_CF_LOG_END] = (px)=>{
+    cfStamp(px, CF_LOG_END68_ART); /* 外皮环/年轮方环/k 节疤固定像素零 rng */
+  };
+  PAINTERS[T_CF_LOG_SIDE] = (px)=>{
+    cfStamp(px, CF_LOG_SIDE69_ART); /* 皮缘/底横纹/l 受光条/短划纹固定像素零 rng */
+  };
+  PAINTERS[T_CF_TOP_LIT] = (px)=>{
+    cfStamp(px, CF_TOP_LIT70_ART); /* a 灰地/k 炭斑三群/f 橙芯/e 灼点固定像素零 rng */
+  };
+  PAINTERS[T_CF_SIDE_LIT] = (px)=>{
+    cfStamp(px, CF_SIDE_LIT71_ART); /* a 缘/k 主体/竖向橙缝 f/F/e 灼点固定像素零 rng */
+  };
+  PAINTERS[T_CF_TOP_OUT] = (px)=>{
+    cfStamp(px, CF_TOP_OUT72_ART); /* a 主导+k 露头斑(与 70 同构位)固定像素零 rng */
+  };
+  PAINTERS[T_CF_SIDE_OUT] = (px)=>{
+    cfStamp(px, CF_SIDE_OUT73_ART); /* a 主体+竖向 k 暗缝固定像素零 rng */
+  };
+  PAINTERS[T_CF_FLAME_F1] = (px)=>{
+    cfStamp(px, CF_FLAME74_ART); /* 中立位相火舌固定像素零 rng; '.' 位 alpha 0 真透 */
+  };
+  PAINTERS[T_CF_FLAME_F2] = (px)=>{
+    cfStamp(px, CF_FLAME75_ART); /* 左倾位相火舌固定像素零 rng; '.' 位 alpha 0 真透 */
+  };
+  PAINTERS[T_CF_FLAME_F3] = (px)=>{
+    cfStamp(px, CF_FLAME76_ART); /* 右倾位相火舌固定像素零 rng; '.' 位 alpha 0 真透 */
   };
   /* ---------- 生态地图(冒险模式生态地图设计稿 §6, 票据 T1): 雪原/沙漠/沼泽 ---------- */
   /* 雪块: 低噪雪白底 + 阴影微点 + 对角双像素亮闪(锚定 faceColor 雪白) */
