@@ -66,6 +66,18 @@ R-1 图集九枚落集(可并行┐
 - **验收要点**：①dc 增量 ≤100 判定（含区块通道边角如实计入）；②帧时分位数对照陈列（新旧并排语境，不作门槛）；③错相自然感断言（确定性：采样时刻三帧全覆盖+相位散布）；④判定纪律沿用「不在测试里自断阈值，报告落判定」；⑤50 火连置/连熄放置链成本复测。
 - **预估面**：M。
 
+## R-7 · 复验打回三修并车（熄态黑区光修复 H2 + lowcore 相位窗 + fx 熄格回收）
+
+> 2026-11-23 追加。缘起：design-lead 管线复验打回（`.scratch/campfire/tc13r-review/black-region-attribution.md`——熄态黑框=篝火特有稳定态渲染 bug）。裁量定谳与证据链全文见 **`r7-disposition.md`**（本节为票面摘要，冲突以回执为准）。
+
+- **范围**（三修同票，均小面、互不纠缠、整体可回退；红线复申段全文适用）：
+  1. **H2 光挡光谓词**：js/light-core.js:37-41 `opaque` 加 `&& !b.thin`（单谓词双通道）；头注 :11-12 挡光规则句与 :32 镜像声明改写（光挡光与视线遮挡 isOpaque 在 solid∧thin 刻意分叉）；连带注记刷新 world-integrity.test.js:95-96、texture-atlas.test.js:661/:1702（夹具前提描述，**断言不动**）；**ADR-0021 随票入册**（回执 §5 要点）。**不改**：voxel.js isOpaque、mesh-core 采样六处、pushCampfireParts、config 81/82/80 方块行。
+  2. **lowcore 相位窗**：js/campfire-fx-core.js:144 `period = fp.frames * fsEff`（:134 注记同步「T=frames·fs_eff」）。
+  3. **fx 熄格回收**：js/campfire-fx-core.js `quench()` 置 `c.quenchAt = now`；回收门 :405-408 与 cellsList :435 过滤扩展认 quenchAt（closedAt = burnoutAt ?? quenchAt；dig() 不动）。**粒子参数零触碰**——通用回收分支条件扩展，烟/火苗/旋涡/瞬态参数族零改。
+- **依赖**：blocked-by R-6（复验打回语境）；与 R-1~R-6 无回退纠缠（三修均不触 64~67 存档面/粒子路径/几何断言）。
+- **验收要点**：①**红先红三条**（红因直证落盘，conventions §7）：light-core.test.js mkPolicy 新断言 `opaque(80/81/82)===false`+标题公式更新；fx-core「lowcore 多时刻帧覆盖=3」结构断言（现行 ≤2 帧）；fx-core「quench 后白汽散尽（≤1s）格出 cells()+同址重燃恢复」断言（现行永驻）。②观感三判据（归因报告 §3，design-lead 自锁）：熄态四周接缝自然无黑框 / 燃熄切换无「光晕翻黑框」闪变（含夜间暗差变体）/ 石头·火把·床·门额牌零回归。③lowcore 档错相复测：R-6 基准套件错相面补 lowcore 档跑（覆盖=3+相位散布），桌面档 5 测保持绿。④泄漏清零断言口径：probe-light 家族复跑——quench/挖熄格后 ≤1s 场格退场、篝火位址 mesh 清点归零（cells() 吐回后 effects disposeFieldCell 连带）。⑤不变量自动绿对账：light-core.test.js:251 随机 50 步增量===全量、world-integrity scanLightViolations、T4/SPEC-1 采样断言。⑥`npm test` 全绿+`npm run lint` 三门零错+boot 冒烟。⑦红线复申：config 方块行/voxel 格层面/粒子路径参数/62~67 存档六格零改；玩法读者变更申报（advNightRead 夜刷怪 eligibility 微收紧，回执 §1.4）进 PO 走查。
+- **预估面**：S/M（三处小修+两组红测+注记刷新+ADR）。
+
 ---
 
 ## 派工备注（给施工线经理）
@@ -74,3 +86,4 @@ R-1 图集九枚落集(可并行┐
 2. **R-2 是架构落锚票**（ADR-0020 随票入册）；评审重点=几何不变量断言集（拾取配套「⊆格」与防 z-fight「非共面」两条是新守门）。
 3. 管线复验（几何断言+近景探针+焰帧走查+五锚实机）在 R-6 后走 design-lead，照 C13 模式；8090 回 PO 复验为最终口令。
 4. 回退性：R-1/R-2 联合可整体回退到 64~67 旧接线（存档六格全程未动）；R-3/R-4 联合可独立回退（sheet 摘除即回旧粒子-only 观感）；R-5/R-6 无产品回退面。
+5. **R-7 偏离声明回示口**：H2 与 design-lead 草案 H 的差异=block 通道不再对熄态格恒 0（回执 §1.2）。若 design-lead 对此另有语义期待，须在 R-7 开工前回示，否则按 H2 施工；观感验收三判据以归因报告 §3 为准。

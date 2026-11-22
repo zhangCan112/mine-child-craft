@@ -22,7 +22,7 @@
     "minY": 30,
     "baseVerts": 32,
     "meshIds": [
-      663
+      668
     ],
     "maxYrel": 0.34,
     "minYrel": 0
@@ -147,7 +147,7 @@
     "minY": 30,
     "baseVerts": 32,
     "meshIds": [
-      678
+      683
     ],
     "maxYrel": 0.34,
     "minYrel": 0
@@ -163,7 +163,7 @@
     "minY": 30,
     "baseVerts": 20,
     "meshIds": [
-      693
+      698
     ],
     "maxYrel": 1,
     "minYrel": 0
