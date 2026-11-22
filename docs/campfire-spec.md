@@ -452,7 +452,7 @@
 | 烫伤 | 1 血/秒（节拍 20 刻） | 玩家+怪物同规则，环境伤通道 | R2-1/ADR 0019 |
 | 光照等级 | **15** | 数据驱动字段（MC 正典，火把 14/灯块 15 先例族） | MC 正典/事实底座 |
 | 音效 coolMs | 300ms | 两枚音效防连点叠爆（wing_open 惯例） | 本 spec 惯例值 |
-| 侧账上限（单图燃烧篝火数） | **不设**（R1-11 拍板不限制） | 性能基准票实测超标才回填上限，回填需 PO；✅ **T-C6 已实测收档**（2026-11-17：50 火×两景×两档不超标，上限维持不设——报告 [.scratch/campfire/tc6-bench-report.md](../.scratch/campfire/tc6-bench-report.md)） | R1-11 |
+| 侧账上限（单图燃烧篝火数） | **不设**（R1-11 拍板不限制） | 性能基准票实测超标才回填上限，回填需 PO；✅ **T-C6 已实测收档**（2026-11-17：50 火×两景×两档不超标，上限维持不设——报告 [.scratch/campfire/tc6-bench-report.md](../.scratch/campfire/tc6-bench-report.md)）；✅ **T-C13-R6 已按焰片架构重立基线收档**（2026-11-23：静态件 chunk 通道 dc 增量实测 0+焰片共享 sheet 恒 1 张不随火数、50 火帧时尾部桌面档零增长、CPU 侧与旧基线同量级，上限维持不设；总 scene dc 增量双层并记——超红归因 tc6 既有粒子路径视内 draw，处置另票裁定——报告 [.scratch/campfire/tc13r-c6/c6prime-bench-report.md](../.scratch/campfire/tc13r-c6/c6prime-bench-report.md)） | R1-11 |
 
 ## 4. 时钟语义独立决策项（scrum-master 点名单独成节）
 
