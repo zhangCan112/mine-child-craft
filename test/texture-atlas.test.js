@@ -658,8 +658,11 @@ const faceBlkEq = (ch, qs, want) => qs.every((qd) => qd.every((v) => Math.abs(ch
 
 test('meshChunk: 门额牌竖板顶点光取面朝向邻格 — 西面(图案面)不取自身格(自身被遮蔽恒 0, pane/实心普通面同口径, T4 返工)', () => {
   const t = loadAtlas();
-  /* 白天口径: 牌格 (8,5,8) solid:true → LightCore opaque 判挡光, sky/block 双通道
-     不入光恒 0; 西邻格 (7,5,8) 露天天光 13。西面顶点若取自身格=全黑牌
+  /* 白天口径: 牌格 (8,5,8) solid:true(H2 前 LightCore opaque 判挡光, sky/block 双通道
+     不入光恒 0; R-7/ADR-0021 起光挡光谓词加 thin 例外=实心且非玻璃且非薄块,
+     实场牌格自身格有真实光值 — 与视线 isOpaque 刻意分叉)。
+     本测试 mkPackL 手注入光值不跑真引擎, 锁的是 mesh 采样口径(口径本身不变,
+     断言零弱化); 西邻格 (7,5,8) 露天天光 13。西面顶点若取自身格=全黑牌
      (voxBright(0)=0.05 昼夜刺眼), 取面朝向邻格=13/15 全亮(架构师 §1.4a 裁定,
      pushPane 同口径先例) */
   const p = mkPackL(1);
@@ -1699,12 +1702,16 @@ test('篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自�
 });
 
 /* ============ 篝火熄灭态顶点光(T-C8b 补丁): 面朝向邻格采样, ADR 0012 T4 同构 ============ */
-/* SPEC-1 评审实证: 熄灭态 solid+opaque → mkPolicy 挡光格, 自身格 sky/block 恒 0,
-   pushCampfireBox 旧径取自身格=五面全 0, 白昼近黑(灰烬斑/原木床不可见, 读作黑团)
-   ——「认得出熄灭篝火→可重燃」可供性依赖白昼可见(design-lead 裁定 2026-11-16, 裁「修」)。
-   取自身格对透光格(pushThin/pushBedBox 消费者)正确、对挡光格是语义错配;
-   修法=T4 口径: 每面取面朝向邻格光(pushGateSign/ADR 0012 同构)。燃烧态零改动:
-   光源格 mkPolicy 例外自身格 block=15, 取自身格语义正确(既有断言不回退)。 */
+/* SPEC-1 评审实证(H2 前口径): 熄灭态 solid+opaque → 旧 mkPolicy 判挡光格, 自身格
+   sky/block 恒 0, pushCampfireBox 旧径取自身格=五面全 0, 白昼近黑(灰烬斑/原木床
+   不可见, 读作黑团)——「认得出熄灭篝火→可重燃」可供性依赖白昼可见(design-lead
+   裁定 2026-11-16, 裁「修」)。取自身格对透光格(pushThin/pushBedBox 消费者)正确、
+   对挡光格是语义错配; 修法=T4 口径: 每面取面朝向邻格光(pushGateSign/ADR 0012
+   同构)。燃烧态零改动: 光源格 mkPolicy 例外自身格 block=15, 取自身格语义正确
+   (既有断言不回退)。
+   R-7/ADR-0021 注记: 光挡光谓词已加 thin 例外(实心且非玻璃且非薄块), 实场熄格
+   自身格有 sky=15 直灌值 — 熄态黑框已由引擎面归位; 本组断言 mkPackL 手注入
+   不跑真引擎, 锁 mesh 逐面朝向格采样口径 — 口径不变, 断言零弱化。 */
 test('meshChunk: 篝火熄灭态顶点光取面朝向邻格 — 逐面各取朝向格(R-2 多部件换载体, 白昼上邻 sky 15 顶面高亮, T-C8b T4 同构)', () => {
   const t = loadAtlas();
   /* 白昼口径: 熄灭篝火 (8,5,8) 挡光格自身恒 0; 上邻露天天光 15(评审 SPEC-1 实测可用);

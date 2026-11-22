@@ -3,6 +3,9 @@
    运行: node --test test/light-core.test.js
    手法: 纯核心直接 require; 合成小世界(平铺 Uint8Array + read/write 闭包),
    policy 用核心自己的 mkPolicy 派生(与 world.js 同一装配, 防两份漂移)。
+   另有真实 config BLOCKS 集成面(H2, T-C13-R7): config.js 是浏览器共享词法
+   脚本(无导出), vm 装载后取 BLOCKS(campfire-kit.test.js 同款范式)——挡光
+   谓词 thin 例外(ADR-0021)与熄态篝火格值面在真表上直证。
    断言按设计稿 docs/mc-daylight-torch-design.md §3 与 §10 光照行:
    · 方块通道: 单火把菱形(曼哈顿 −1 · 半径 13) · 双源取 max · 遮挡投阴影
      · 玻璃/水/薄块透光(不衰减, 差异 #7)
@@ -11,10 +14,26 @@
    光场布局契约: idx = (y*D + z)*W + x(与 voxel.js cellIdx 同式)。 */
 const test = require('node:test');
 const assert = require('node:assert');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
 const LightCore = require('../js/light-core.js');
 
-/* 合成方块表: 挡光口径与 config.js BLOCKS 现判一致(solid 缺省=实心,
-   glass/水/thin 透光), light 字段形状即 D4 将给 BLOCKS 补的形状 */
+const ROOT = path.join(__dirname, '..');
+
+/* 真实 config BLOCKS: 共享词法脚本 vm 装载(零依赖原则不破——只读数据表) */
+const eng = vm.createContext({console: {log() {}, warn() {}, error() {}}});
+vm.runInContext(fs.readFileSync(path.join(ROOT, 'js', 'config.js'), 'utf8'), eng,
+    {filename: 'js/config.js'});
+const REAL_BLOCKS = vm.runInContext('BLOCKS', eng);
+const RID = vm.runInContext('({torch: B_TORCH, water: B_WATER, tnt: B_TNT, ' +
+    'obsidian: B_OBSIDIAN, glow: B_GLOWSTONE, sign: B_GATE_SIGN, ' +
+    'lit: B_CAMPFIRE, out: B_CAMPFIRE_OUT})', eng);
+
+/* 合成方块表: 挡光口径与 mkPolicy 现判一致(solid 缺省=实心, glass/水/thin 透光;
+   R-7/ADR-0021 注记: 光挡光谓词对 solid∧thin 组合加 thin 例外, 与视线 isOpaque
+   刻意分叉——合成表 thin 族均为 solid:false, solid∧thin 组合在下方真表集成面直证),
+   light 字段形状即 D4 将给 BLOCKS 补的形状 */
 const BT = {
   1: {name: '石头'}, // 实心挡光
   2: {name: '玻璃', glass: true}, // 透光
@@ -58,9 +77,16 @@ function mkWorld(W, D, H) {
   };
 }
 
+/* 真表小世界: 同款装具换真实 config BLOCKS 装配(H2 集成面专用) */
+function mkWorldReal(W, D, H) {
+  const w = mkWorld(W, D, H);
+  w.policy = LightCore.mkPolicy(REAL_BLOCKS);
+  return w;
+}
+
 /* ============ mkPolicy: 挡光/发光判定(镜像 isOpaque 现判 + light 字段) ============ */
 
-test('mkPolicy: lightOf 读 light 字段(缺省 0), opaque = 实心且非玻璃(镜像 isOpaque)', () => {
+test('mkPolicy: lightOf 读 light 字段(缺省 0), opaque = 实心且非玻璃且非薄块(与视线 isOpaque 刻意分叉, ADR-0021)', () => {
   const policy = LightCore.mkPolicy(BT);
   assert.strictEqual(policy.lightOf(3), 14); // 火把
   assert.strictEqual(policy.lightOf(4), 15); // 灯块
@@ -75,6 +101,87 @@ test('mkPolicy: lightOf 读 light 字段(缺省 0), opaque = 实心且非玻璃(
   assert.strictEqual(policy.opaque(3), false); // 火把(thin)
   assert.strictEqual(policy.opaque(6), false); // 薄板
   assert.strictEqual(policy.opaque(99), true); // 未知 id 按实心(与 isOpaque 兜底一致)
+});
+
+/* ============ mkPolicy 真表集成面(H2, T-C13-R7/ADR-0021): solid∧thin 透光族 ============
+   归因链(docs/campfire 复验黑区归因报告 §2): 熄态篝火 81/82 与门额牌 80 是全表仅有的
+   solid∧thin 组合(config.js:527/:544-545), 旧判 solid∧¬glass 把它们判成挡光格 →
+   熄态格双通道恒 0(skyCompute 直灌遇 opaque 即 break; bfsIncrease 邻格 opaque 即 skip)
+   → 沙壁侧面顶点光采样熄格 0/0 渲染纯黑。H2: 谓词加 ¬thin 一处, 双通道共用。 */
+
+test('mkPolicy(真实 config BLOCKS): solid∧thin 透光族 80/81/82 不挡光(与视线 isOpaque 刻意分叉, ADR-0021; 全表恰此三 id)', () => {
+  const policy = LightCore.mkPolicy(REAL_BLOCKS);
+  /* H2 主断言(对 H2 前实现真红: 旧判 solid∧¬glass → 三 id 全 true) */
+  assert.strictEqual(policy.opaque(RID.sign), false,
+      '门额牌 80(thin 0.15 实心)不挡光 — 横梁朝牌面黑变亮归位的谓词面');
+  assert.strictEqual(policy.opaque(RID.lit), false,
+      '燃态篝火 81(thin 0.4375 实心, light 15)不挡光 — 源格自亮例外不受影响');
+  assert.strictEqual(policy.opaque(RID.out), false,
+      '熄态篝火 82(thin 0.4375 实心, light 0)不挡光 — 熄态黑框病灶谓词面');
+  /* 受影响面登记锁: 全表 solid∧thin 恰此三 id(数据驱动, 新增块自动继承) */
+  const solidThin = Object.entries(REAL_BLOCKS)
+      .filter(([, b]) => b && b.solid === true && b.thin)
+      .map(([id]) => Number(id))
+      .sort((a, b) => a - b);
+  assert.deepStrictEqual(solidThin, [80, 81, 82],
+      '全表 solid∧thin 恰 {80,81,82}(受影响 id 面=登记锁, 越界扩张必红)');
+  /* 维持面(红线在职证明, 裁量四理由第 4 条): 视线 isOpaque 不动 — 物理 solid
+     仍挡视线/拾取, 本谓词分叉只发生在光域 */
+  assert.strictEqual(policy.opaque(RID.torch), false, '火把(thin 且非实心)透光(既有语义不动)');
+  assert.strictEqual(policy.opaque(RID.water), false, '水(glass)透光(差异 #7 不动)');
+  assert.strictEqual(policy.opaque(RID.tnt), true, 'TNT 实心非 thin 挡光(不动)');
+  assert.strictEqual(policy.opaque(RID.obsidian), true, '黑曜石实心非 thin 挡光(不动)');
+  assert.strictEqual(policy.opaque(RID.glow), true, '萤石光源格自亮不透光(MC 灯口径不动)');
+  assert.strictEqual(policy.opaque(0), false, '空气透光(不动)');
+  assert.strictEqual(policy.opaque(9999), true, '未知 id 实心兜底(不动)');
+  /* 光源字段维持: 燃 15 源/熄 0/火把 14(config 数据驱动字段零动) */
+  assert.strictEqual(policy.lightOf(RID.lit), 15, '燃态 light 15 源维持(红线)');
+  assert.strictEqual(policy.lightOf(RID.out), 0, '熄态 light 0 维持(红线)');
+  assert.strictEqual(policy.lightOf(RID.torch), 14, '火把 light 14 维持');
+});
+
+test('H2 熄态格值面(真实 BLOCKS 小世界): 熄态篝火格 sky=15 直灌穿透(薄块归位全透光) · ' +
+    '火把方块光入格(block 通道不再恒 0) · 燃态源格自亮 15 与 sky 直灌双维持', () => {
+  const w = mkWorldReal(16, 16, 8);
+  w.fill(0, 0, 0, 15, 0, 15, RID.obsidian); // 地面整层(实心非 thin 挡光)
+  w.fill(8, 1, 8, 8, 1, 8, RID.out); // 熄态篝火坐地
+  w.fill(8, 1, 10, 8, 1, 10, RID.torch); // z 向两格外火把(隔一格空气)
+  w.compute();
+  const fi = w.idx(8, 1, 8);
+  /* 黑框病灶格值面(归因报告 §2 病灶链): 沙壁侧面顶点光=面朝向邻格采样=本格;
+     headless 探针读数口径(lightSkyAt/lightBlockAt 同读数)——修复前直灌遇挡光
+     break 恒缺值(sky 0)且 BFS 邻格 skip(block 0), 修复后 sky=15:
+     「薄块归位全透光」的格值面直接证明(比邻面非恒 0 更根本) */
+  assert.strictEqual(w.sky[fi], 15,
+      '熄态篝火格 sky=15(直灌穿透 thin 格; 邻墙面采样值由此点亮)');
+  assert.strictEqual(w.block[fi], 12,
+      '熄态篝火格 block=12(火把 14 经两格入格; 旧判 opaque skip 恒 0 必红)');
+  assert.strictEqual(w.block[w.idx(8, 1, 9)], 13, '中间格 13(BFS 传导路径在格, 方向性变亮)');
+  /* 燃态对照(红线维持面): 源格自亮 15 不透光(MC 灯口径), sky 同获直灌 15 */
+  const w2 = mkWorldReal(16, 16, 8);
+  w2.fill(0, 0, 0, 15, 0, 15, RID.obsidian);
+  w2.fill(8, 1, 8, 8, 1, 8, RID.lit);
+  w2.compute();
+  assert.strictEqual(w2.block[w2.idx(8, 1, 8)], 15, '燃态源格自亮 block=15 维持(红线)');
+  assert.strictEqual(w2.sky[w2.idx(8, 1, 8)], 15, '燃态格 sky=15(H2 连带: 光源格同样 thin 归位)');
+});
+
+test('H2 燃→熄过渡(玩法路径增量面): updateEdit 81→82 — 格值翻 sky15/block0, ' +
+    '邻面采样格恒非双零(「光晕翻黑框」闪变判据程序化)', () => {
+  const w = mkWorldReal(16, 16, 8);
+  w.fill(0, 0, 0, 15, 0, 15, RID.obsidian);
+  w.fill(8, 1, 8, 8, 1, 8, RID.lit);
+  w.compute();
+  assert.strictEqual(w.block[w.idx(8, 1, 8)], 15, '燃态源格在亮(前置)');
+  w.edit(8, 1, 8, RID.out); // 浇熄: 与 world.js editBlock 同装配的增量路径
+  assert.strictEqual(w.block[w.idx(8, 1, 8)], 0, '撤光: 熄格 block 归 0(光源语义退场)');
+  assert.strictEqual(w.sky[w.idx(8, 1, 8)], 15,
+      '浇熄后 sky=15(增量 skyRegion 同步归位; 旧判挡光恒 0 必红)');
+  /* 黑框判据程序化(归因报告 §3 观感判据的读数面): 邻墙面采样格=篝火格,
+     燃态(block15)+熄态(sky15)读数恒非双零 → 渲染不出现纯黑闪变 */
+  const s = w.sky[w.idx(8, 1, 8)];
+  const b = w.block[w.idx(8, 1, 8)];
+  assert.ok(s > 0 || b > 0, '浇熄后采样格非双零(' + s + '/' + b + ' — 黑框闪变判据)');
 });
 
 /* ============ 方块通道: computeAll 光源 BFS(曼哈顿每格 −1) ============ */
