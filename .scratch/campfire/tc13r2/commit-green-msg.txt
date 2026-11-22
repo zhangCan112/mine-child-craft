@@ -1,0 +1,22 @@
+篝火 T-C13-R2 转绿: pushCampfireParts 多部件几何 + 81/82 部件表接线同拍落
+
+js/mesh-core.js: pushCampfireBox 退役, 新 pushCampfireParts + CF_PARTS 部件表
+(方案 §4 逐值: 织席原木 2×2 两轴交错半搭互穿 + 炭堆主盒 + 错位小盒, 静态件 6);
+逐部件逐面取 tile 直读部件表键(logEnd 68/logSide 69 燃熄共用, 炭顶 70/72 与
+炭侧 71/73 两态分格, 不走 atlasTileOf, 防无 bottom 键 undefined NaN UV);
+UV 采样窗照方案 §4 窗列(pushTorch WINS 同款像素窗换算: 端面年轮窗 8×8,
+皮侧窗 v 5..11, 炭侧窗 v 0..6, 小盒侧窗等比缩, 顶全幅);
+跳底面三例(X 原木贴地/主盒底共面 y 0.15/小盒底沉入) + Z 原木底面 0.075 中缝绘;
+两态取光分口径原样继承: 燃=全部件逐面自身格(light 15 自亮), 熄=逐面朝向邻格
+(ADR 0012 T4 同构); 部件坐标互异零共点, 任意两部件无共面重叠面(静态 z-fight
+免疫), 全部件 ⊆ 自有格 [0,1)(ADR 0020 拾取配套); meshChunk 分派点改调
+pushCampfireParts, Worker 路径零改自证(importScripts 同一份代码)。
+
+js/texture-atlas.js: layout.tiles[81]/[82] 切部件表形状(恰四键 {logEnd,logSide,
+top,side}, 旧分面三键条目随切换退役作废存档, 62..67 存档零删), 头注接线描述
+同步部件表; 与 mesh 切换同拍同提交(零中间态)。
+
+验证: texture-atlas 54 测全绿(6 红全转绿); npm test 实测 2494 测 2493 过 0 败
+1 跳(vs R-1 基线 2489 净增 5); verify-parts 值表对撞 6/6 OK; 本票两 js 文件
+lint 零错(全树剩红基线测试文件自带 1 错, 详见回执裁决点); 玩法数据面零触碰
+(config/voxel/world/effects/fx-core/campfire-kit 零改动)。

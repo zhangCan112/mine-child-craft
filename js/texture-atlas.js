@@ -17,8 +17,9 @@
    怪物合成材料件 75~77(南瓜分面/雕刻刻脸/铁块金属框, mob-crafting T1) +
    粉羊毛 78(城镇重制公共件, revamp-spec §2——羊毛画法换樱粉底, 樱花树冠/布幔/旗阵) +
    篝火 62~67(燃烧 81/熄灭 82, 篝火 T-C8 落旧全脸同图两格 62/63——T-C13 v1.9 分面
-   返工作废存档不删; 新增分面双 tile 四格 64~67: 燃灶面/燃侧脸/熄灶面/熄侧脸,
-   顶=灶面俯视/四侧=侧脸正视/底不绘, 观感权威 docs/design/campfire-visual-spec.md §4) +
+   返工 64~67 随 v1.10 R-2 接线切换一并作废存档不删; v1.10 R-2 起 81/82 改部件表
+   接线 {logEnd,logSide,top,side}=端面 68/皮侧 69/炭堆顶 70|72/炭堆侧 71|73,
+   观感权威 docs/design/campfire-visual-spec.md §4) +
    篝火几何建模九格 68~76(T-C13-R1, v1.10: 端面/皮侧/燃顶/燃侧/熄顶/熄侧/焰帧×3,
    燃熄成对 fallback=70↔72、71↔73, 权威同上 §4.2/§4.3)。
    风格参考
@@ -97,7 +98,7 @@ const TextureAtlas = (() => {
   const T_CAMPFIRE_OUT_TOP = 66; /* 篝火熄灭态·灶面顶(82, T-C13): 同构木框+灰烬坑+中央炭心 */
   const T_CAMPFIRE_OUT_SIDE = 67; /* 篝火熄灭态·侧脸(82, T-C13): 零火舌+暗炭缝+原木同位形 */
   /* T-C13-R1 v1.10 几何建模九格(68~76 连续落集, count=77; T_LOG_SIDE 名已被 7 号格
-     占用, 本段一律 T_CF_ 前缀避撞); 接线归 R-2, 本票只落画师 */
+     占用, 本段一律 T_CF_ 前缀避撞); 接线 R-2 已落(81/82 部件表 {logEnd,logSide,top,side}) */
   const T_CF_LOG_END = 68; /* 原木端面: 外皮 d 环+年轮 L/l 三重方环+中心 k 节疤 */
   const T_CF_LOG_SIDE = 69; /* 原木皮侧: 上下皮缘 d/L 底横纹+l 受光长条+短划纹 */
   const T_CF_TOP_LIT = 70; /* 炭堆燃顶: a 灰烬地+k 炭斑三群+f 橙芯嵌炭内+e 灼点 */
@@ -570,7 +571,9 @@ const TextureAtlas = (() => {
   };
   /* ---------- 篝火分面双 tile 四格(81/82, 篝火 T-C13, UI 定稿 §4.1 v1.9 分面返工) ----------
      v1.9 废「全脸同图」(PO 实机手玩: 灶面俯视图贴满四侧→侧面读「火焰方块」):
-     顶=灶面(俯视)/四侧=侧脸(正视)/底不绘(接线见 layout tiles[81]/[82] 分面表)。
+     顶=灶面(俯视)/四侧=侧脸(正视)/底不绘(曾接线 layout tiles[81]/[82] 分面表;
+     R-2 起两态改部件表接线 {logEnd,logSide,top,side}, 本四格转作废存档——
+     画师保留, 存档测试守)。
      观感唯一权威=§4.2(燃烧 64 灶面/65 侧脸)/§4.3(熄灭 66 灶面/67 侧脸) char art
      逐字符照抄; 色板复用 CF_PAL8(§3.1 九色 + 暗炭底 C + 灰烬灰 a, 零新色)。
      画笔纪律(T-C13 票): 灶面 C 地 noiseFill amp 0.06(mulberry32 派生种子同 seed
@@ -1316,12 +1319,14 @@ const TextureAtlas = (() => {
          未知字段无感); top/bottom 同格木底。陶橙瓦 79 不入集(纯色行 faceColor
          兜底, S1 零贴图成本) */
       [B_GATE_SIGN]: {side: T_GATE_SIGN, back: T_GATE_WOOD, top: T_GATE_WOOD, bottom: T_GATE_WOOD},
-      /* 篝火两态 81/82(篝火 T-C13 分面返工, UI 定稿 §4.1 v1.9 分面接线表): 顶=灶面
-         (俯视)/四侧=侧脸(正视)/底=side 兜底(贴地不绘, 三键齐守 usedTiles 覆盖面
-         循环拿 undefined——床/宝箱分面条目同款先例); 旧全脸同图格 62/63 作废存档
-         不接线(画师保留, 存档测试守) */
-      [B_CAMPFIRE]: {top: T_CAMPFIRE_TOP, side: T_CAMPFIRE_SIDE, bottom: T_CAMPFIRE_SIDE},
-      [B_CAMPFIRE_OUT]: {top: T_CAMPFIRE_OUT_TOP, side: T_CAMPFIRE_OUT_SIDE, bottom: T_CAMPFIRE_OUT_SIDE},
+      /* 篝火两态 81/82(R-2 v1.10 几何建模, UI 定稿 §4.1 部件表接线表): 恰四键
+         部件表 {logEnd,logSide,top,side}——原木端面 68/皮侧 69 燃熄共用,
+         炭堆顶 70/72·侧 71/73 两态分格; 无 bottom 键(篝火贴地跳底面, 底面永不
+         取格——tileSet 装具兼容缺键, pushCampfireParts 逐部件逐面直读键不走
+         atlasTileOf, 防 bottom undefined→NaN)。旧分面三键条目(64~67)随本切换
+         作废存档不接线(62~67 存档测试守) */
+      [B_CAMPFIRE]: {logEnd: T_CF_LOG_END, logSide: T_CF_LOG_SIDE, top: T_CF_TOP_LIT, side: T_CF_SIDE_LIT},
+      [B_CAMPFIRE_OUT]: {logEnd: T_CF_LOG_END, logSide: T_CF_LOG_SIDE, top: T_CF_TOP_OUT, side: T_CF_SIDE_OUT},
     },
   };
 
