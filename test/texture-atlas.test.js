@@ -959,8 +959,9 @@ test('篝火像素 v1.9: 燃侧脸 65 号格逐字符=UI 定稿 §4.2 — 透明
   }
   assert.ok(dashCols >= 2 && dashCols <= 3,
       '木纹 d 短划 2~3 道(r12 起 1px 宽 2px 高: r12-r13 同列双 d), 实测 ' + dashCols + ' 道');
-  /* 木纹不得越出原木区: r10 上缘及以上出现 d 色像素即红 */
-  for (let y = 0; y <= 10; y++) {
+  /* 木纹不得越出原木区: 原木上缘(r10, 结构 d 行)之上的火舌区/透明区出现 d 色像素即红;
+     r10 本行是结构上缘(art 固定 12 d), 不在禁区 */
+  for (let y = 0; y < 10; y++) {
     for (let x = 0; x < 16; x++) {
       assert.ok(!cfEq(at(x, y), CF_PAL.d), 'd 色像素不得出现在原木上缘之上 (' + x + ',' + y + ')');
     }
@@ -1100,7 +1101,8 @@ test('篝火 meshChunk v1.9: 两态走矮半格扁盒图集通道 — 5 面/高 
   const inRect = (rect, uvs) => uvs.every((q, i) => i % 2 === 0 ?
     q >= rect[0] - 1e-12 && q <= rect[2] + 1e-12 :
     q >= rect[1] - 1e-12 && q <= rect[3] + 1e-12);
-  const quadUVs = (ch, vs) => vs.map((vi) => [ch.uvs[vi * 2], ch.uvs[vi * 2 + 1]]);
+  /* quadUVs: 扁平 uv 序列(inRect 契约, 草地/门额牌测同构) */
+  const quadUVs = (ch, vs) => vs.flatMap((vi) => [ch.uvs[vi * 2], ch.uvs[vi * 2 + 1]]);
   /* 燃烧态: 篝火独置 → 图集通道矮半格扁盒(thin=BLOCKS 驱动, §4.1 v1.9 倾向 7/16;
       不得走十字面片)。布景纪律(红方裁决): 不垫块——id 3 石头自身在图集 layout,
       会以 6 面污染通道面计数(mesh-core.test.js 火把最小场景同款纪律); 扁盒无底面,
