@@ -1,0 +1,349 @@
+✖ 布局: 新方块 36~62 每个都有格子且格号合法(未入集方块走纯色兜底) (3.9644ms)
+✔ 布局+像素: 战利品宝箱(71)入集 — 顶/侧分格红金配色, 全不透明(den-nest §7.5 D16) (9.03ms)
+✔ 布局: 黑巢地上件入集(den-nest §2.1) — 苔石/黑曜石/发光岩各占一格; 门面/熄门回退玻璃通道不入集 (1.9187ms)
+✔ 像素: 黑巢件不透明口径 — 苔石/黑曜石/发光岩全不透明(门面已回退玻璃通道不入集) (5.9264ms)
+✔ 布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格) (1.2052ms)
+✔ 布局: 图集画布为正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款) (5.9786ms)
+✔ UV: 每个被引用的格 tileUV 落在 [0,1] 且两两不重叠 (2.0397ms)
+✔ 确定性: 两次生成逐像素一致(噪点/斑点用种子化伪随机, 同 seed 同图) (17.5165ms)
+✔ 像素: 每个被引用格至少有一个非透明像素; 植物类有透明像素(alpha 裁切前提) (6.9561ms)
+✔ meshChunk: 图集方块走 atlas 通道 — 煤矿立方体 6 面, UV 全落在煤矿格内 (1.6153ms)
+✔ meshChunk: 顶/侧/底分格 — 草地三面各归各格(草顶/草侧/泥土底) (2.0444ms)
+✔ meshChunk: opts 不带 atlas → 入集方块回落纯色通道(存量调用方零侵入) (1.5733ms)
+✔ meshChunk: 薄块图集走十字面片 — 草丛 2 面×正反共 4 面, 几何全高(UV 全落格) (1.9392ms)
+✔ meshChunk: 生态地图薄块(兰花)同走十字面片 — 4 面 UV 全落兰花格 (1.4672ms)
+✔ meshChunk: 床(bed 旗标)走薄块扁盒图集通道 — 5 面盒(无底面), 高度 0.55, 顶/侧分格 (1.5115ms)
+✔ meshChunk: 床头枕向按床尾方位旋转 — 床尾在东则枕贴西缘(取向不存档, 世界状态派生) (1.3781ms)
+✔ meshChunk: 床无图集注入回落实心通道纯色扁盒(存量行为零变化) (1.4166ms)
+✔ 床贴图像素(床观感票): 床顶白枕在 canvas 顶行(=世界 −Z 北端)+毯身红; 床侧上毯下木框 (5.9974ms)
+✔ meshChunk: 图集立方体邻面剔除同实心规则 — 相邻两煤矿共界面剔成 10 面 (1.2961ms)
+✔ makeCanvas: doc 桩注入 — 尺寸按图集, putImageData 像素与 paintAll 一致 (16.525ms)
+✔ 布局+像素: 远古残骸(73)入集 — 整格同图同心方环螺旋纹, 全不透明(装备系统 T7) (6.3346ms)
+✔ 布局+像素: 覆雪树叶(74)入集 — 整格同图雪盖针叶底, 全不透明, 雪层覆盖过半(世界边界 T12) (6.3967ms)
+✔ 布局+像素: 门额牌(80)入集 — 60 号格镇徽钟塔图(西面) + 61 号格纯木底(其余五面), 逐像素规格直译(v2 S2) (5.944ms)
+✔ meshChunk: 门额牌竖板路径 — 专用小盒贴西缘, 西面 UV 落图案格其余落木底格, 垫块上底面剔除(v2 S2 火把/床双先例) (1.6987ms)
+✔ meshChunk: 门额牌竖板顶点光取面朝向邻格 — 西面(图案面)不取自身格(自身被遮蔽恒 0, pane/实心普通面同口径, T4 返工) (1.7403ms)
+✔ 篝火施工期断言 v1.10: 九张 B 区 char art 行宽全=16(UI 定稿 §4.5-5 连续性: v1.3 两张→v1.9 四张→v1.10 九张; 端面/皮侧/燃顶/燃侧/熄顶/熄侧/焰帧×3; §4.6 存档稿与 §3.2 图标稿口径不在本断言面) (0.088ms)
+✖ 篝火布局: 两态入集分面双 tile — 81={顶64/侧65/底65}·82={顶66/侧67/底67}(UI 定稿 §4.1 v1.9 分面接线, T-C13), count=77 (1.3262ms)
+✔ 篝火像素(作废存档): 62 号格逐字符=v1.0 旧稿(T-C8)固定像素精确, C 底噪±6%, 木纹 d 短划 4~5 道 — T-C13 起仅存档不接线, 画师不得删除 (6.4017ms)
+✔ 篝火像素(作废存档): 63 号格逐字符=v1.0 旧稿(T-C8)同位形去焰固定像素精确, C 底噪±6%, 灰烬散斑 6~10 粒(y∈[2,8]) — T-C13 起仅存档不接线 (5.7748ms)
+✔ 篝火像素 v1.9: 燃灶面 64 号格逐字符=UI 定稿 §4.2 — 木框 L 环/d 内缘/焰团/e 双弧/a 斑固定, C 地 noiseFill ±6%, 全格不透明(灶面俯视) (5.6289ms)
+✔ 篝火像素 v1.9: 燃侧脸 65 号格逐字符=UI 定稿 §4.2 — 透明区 alpha=0 真透(钉 alphaTest 管线, 不用 C 暗底回退), 火舌/原木固定, 木纹 d 短划 2~3 道 r12 起 1px 宽 2px 高 (6.2813ms)
+✔ 篝火像素 v1.9: 熄灶面 66 号格逐字符=UI 定稿 §4.3 — 木框/灰烬坑 a/炭心 k 固定, C 地 noiseFill ±6%, a 散斑补撒 per-tile 4~8 粒, 全格不透明, 零焰色 (5.7513ms)
+✔ 篝火像素 v1.9: 熄侧脸 67 号格逐字符=UI 定稿 §4.3 — r0~r6 全透明(零火舌), 炭缝 a 缘 k 心固定, 原木同 65, a 散斑补撒 per-tile 4~8 粒(炭缝外围) (5.9347ms)
+✖ 篝火像素 v1.10: 原木端面 68 号格逐字符=UI 定稿 §4.2 — 外皮 d 环/年轮 L·l 三重方环/中心 k 节疤 4×4 固定, 全格不透明零 rng (5.4651ms)
+✖ 篝火像素 v1.10: 原木皮侧 69 号格逐字符=UI 定稿 §4.2 — 上下皮缘 d/L 底横纹+l 受光长条+短划纹固定, 全格不透明零 rng (5.4035ms)
+✖ 篝火像素 v1.10: 炭堆燃顶 70 号格逐字符=UI 定稿 §4.2 — a 灰烬地满铺+k 炭斑三群+f 橙芯嵌炭内+e 灼点固定, 全格不透明零 rng (5.7893ms)
+✖ 篝火像素 v1.10: 炭堆燃侧 71 号格逐字符=UI 定稿 §4.2 — 顶底 a 灰缘+k 炭主体+中央竖向橙缝 f/F+e 灼点固定, 全格不透明零 rng (5.4221ms)
+✖ 篝火像素 v1.10: 炭堆熄顶 72 号格逐字符=UI 定稿 §4.3 — a 灰烬主+k 露头斑(与 70 同构三群位), 全域零焰色零 e, 全格不透明零 rng (5.6795ms)
+✖ 篝火像素 v1.10: 炭堆熄侧 73 号格逐字符=UI 定稿 §4.3 — a 灰主体+竖向 k 暗缝(橙缝冷灭残迹), 全域零焰色零 e, 全格不透明零 rng (5.3737ms)
+✖ 篝火像素 v1.10: 焰帧 F1 74 号格逐字符=UI 定稿 §4.2 — 中立位相火舌(外 f→F→W→w 白芯/焰根 e), alpha 真透零 rng (5.6738ms)
+✖ 篝火像素 v1.10: 焰帧 F2 75 号格逐字符=UI 定稿 §4.2 — 左倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (5.8427ms)
+✖ 篝火像素 v1.10: 焰帧 F3 76 号格逐字符=UI 定稿 §4.2 — 右倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (5.4138ms)
+✖ 篝火可辨性 v1.10: 焰帧 74~76 单帧焰四档 ≥80px(静态 84~86)且白芯亮黄 ≥20px(静态 27~30)/三帧焰形互异/燃顶 70 杂色判据(k 斑 ≥3 块+f 橙芯 ≥3 粒+e 灼点 ≥1)/熄顶 72 转灰(a 主导+k 露头斑 ≤4)/熄态 72/73 零焰色零 e/燃熄侧 71 vs 73 成对可辨(亮部=f vs 亮部=a)(UI 定稿 §4.4 v1.10 判据面; v1.9 灶面 94px 口径随 64~67 废弃退役) (6.9791ms)
+✔ 篝火确定性 v1.10: 十五格(62~67 存档+68~76 v1.10 九格)同 seed 两次绘制逐像素一致(mulberry32 纪律, UI 定稿 §4.5-3 九 tile 全走) (10.4816ms)
+✖ 篝火图集相邻 v1.10: 走查对象=68~76 vs 61~67 含存档区+fallback 燃熄成对(70↔72/71↔73) — LOD 串色程序面锚(UI 定稿 §4.1/§4.5-4 v1.10; 人眼走查归 design-lead 管线) (6.4622ms)
+✔ 篝火 meshChunk v1.9: 两态走矮半格扁盒图集通道 — 5 面/高 0.4375(thin 7/16)/分面 UV 顶灶面·四侧侧脸·无底面(UI 定稿 §4.1 v1.9 分面接线消费端, T-C13) (1.6061ms)
+✔ 篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自亮/熄灭态暗块(UI 定稿 §4.5-2 程序面; 人眼夜辨归 T-C12) (1.4422ms)
+✔ meshChunk: 篝火熄灭态顶点光取面朝向邻格 — 五面逐面各取朝向格(白昼上邻 sky 15 顶面高亮, T-C8b T4 同构) (1.4583ms)
+✔ meshChunk: 篝火两态取光口径不回退 — 熄灭态夜间全邻无光仍读暗块(§4.5-2), 燃烧态自亮仍取自身格(T-C8b 零改动锚) (1.4257ms)
+ℹ tests 49
+ℹ suites 0
+ℹ pass 36
+ℹ fail 13
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 289.4923
+
+✖ failing tests:
+
+test at test\texture-atlas.test.js:63:1
+✖ 布局: 新方块 36~62 每个都有格子且格号合法(未入集方块走纯色兜底) (3.9644ms)
+  AssertionError [ERR_ASSERTION]: 已绘制格数 = 77(PAINTERS 0~76 连续; 50/51=宝箱, 52=残骸, 53=覆雪叶, 54=冰, 55~57=南瓜/刻脸, 58=铁块, 59=粉羊毛·城镇重制公共件, 60=门额牌·东带 v2 S2, 61=门额牌木底·五面纯木色, 62/63=篝火 v1.0 全脸同图作废存档格(T-C8 旧稿, T-C13 起只读不接线), 64~67=篝火分面双 tile 燃灶/燃侧/熄灶/熄侧·视觉返工 T-C13, 68~76=篝火几何建模九格 端面/皮侧/燃顶/燃侧/熄顶/熄侧/焰帧×3·T-C13-R1 v1.10)
+  
+  68 !== 77
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:78:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.start (node:internal/test_runner/test:1003:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 68,
+    expected: 77,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1008:1
+✖ 篝火布局: 两态入集分面双 tile — 81={顶64/侧65/底65}·82={顶66/侧67/底67}(UI 定稿 §4.1 v1.9 分面接线, T-C13), count=77 (1.3262ms)
+  AssertionError [ERR_ASSERTION]: count=77(PAINTERS 0~76 连续: 62/63 存档+64~67 v1.9 四格+68~76 v1.10 九格; layout.tiles[81]/[82] 接线不动, R-2 才切)
+  
+  68 !== 77
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1024:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 68,
+    expected: 77,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1222:1
+✖ 篝火像素 v1.10: 原木端面 68 号格逐字符=UI 定稿 §4.2 — 外皮 d 环/年轮 L·l 三重方环/中心 k 节疤 4×4 固定, 全格不透明零 rng (5.4651ms)
+  AssertionError [ERR_ASSERTION]: 原木端面 68 固定像素 d (0,0) 实测 74,74,78,255
+      at cfArtExact (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:988:16)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1225:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1228:1
+✖ 篝火像素 v1.10: 原木皮侧 69 号格逐字符=UI 定稿 §4.2 — 上下皮缘 d/L 底横纹+l 受光长条+短划纹固定, 全格不透明零 rng (5.4035ms)
+  AssertionError [ERR_ASSERTION]: 原木皮侧 69 固定像素 d (0,0) 实测 74,74,78,255
+      at cfArtExact (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:988:16)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1231:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1234:1
+✖ 篝火像素 v1.10: 炭堆燃顶 70 号格逐字符=UI 定稿 §4.2 — a 灰烬地满铺+k 炭斑三群+f 橙芯嵌炭内+e 灼点固定, 全格不透明零 rng (5.7893ms)
+  AssertionError [ERR_ASSERTION]: 炭堆燃顶 70 固定像素 a (0,0) 实测 74,74,78,255
+      at cfArtExact (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:988:16)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1237:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1240:1
+✖ 篝火像素 v1.10: 炭堆燃侧 71 号格逐字符=UI 定稿 §4.2 — 顶底 a 灰缘+k 炭主体+中央竖向橙缝 f/F+e 灼点固定, 全格不透明零 rng (5.4221ms)
+  AssertionError [ERR_ASSERTION]: 炭堆燃侧 71 固定像素 a (0,0) 实测 74,74,78,255
+      at cfArtExact (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:988:16)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1243:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1246:1
+✖ 篝火像素 v1.10: 炭堆熄顶 72 号格逐字符=UI 定稿 §4.3 — a 灰烬主+k 露头斑(与 70 同构三群位), 全域零焰色零 e, 全格不透明零 rng (5.6795ms)
+  AssertionError [ERR_ASSERTION]: 炭堆熄顶 72 固定像素 a (0,0) 实测 74,74,78,255
+      at cfArtExact (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:988:16)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1249:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1252:1
+✖ 篝火像素 v1.10: 炭堆熄侧 73 号格逐字符=UI 定稿 §4.3 — a 灰主体+竖向 k 暗缝(橙缝冷灭残迹), 全域零焰色零 e, 全格不透明零 rng (5.3737ms)
+  AssertionError [ERR_ASSERTION]: 炭堆熄侧 73 固定像素 a (0,0) 实测 74,74,78,255
+      at cfArtExact (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:988:16)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1255:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1258:1
+✖ 篝火像素 v1.10: 焰帧 F1 74 号格逐字符=UI 定稿 §4.2 — 中立位相火舌(外 f→F→W→w 白芯/焰根 e), alpha 真透零 rng (5.6738ms)
+  AssertionError [ERR_ASSERTION]: 焰帧 F1 74 透明区 (0,0) alpha 应=0(真透)
+  
+  255 !== 0
+  
+      at cfArtExact (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:986:16)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1261:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 255,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1264:1
+✖ 篝火像素 v1.10: 焰帧 F2 75 号格逐字符=UI 定稿 §4.2 — 左倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (5.8427ms)
+  AssertionError [ERR_ASSERTION]: 焰帧 F2 75 透明区 (0,0) alpha 应=0(真透)
+  
+  255 !== 0
+  
+      at cfArtExact (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:986:16)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1267:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 255,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1270:1
+✖ 篝火像素 v1.10: 焰帧 F3 76 号格逐字符=UI 定稿 §4.2 — 右倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (5.4138ms)
+  AssertionError [ERR_ASSERTION]: 焰帧 F3 76 透明区 (0,0) alpha 应=0(真透)
+  
+  255 !== 0
+  
+      at cfArtExact (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:986:16)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1273:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 255,
+    expected: 0,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1276:1
+✖ 篝火可辨性 v1.10: 焰帧 74~76 单帧焰四档 ≥80px(静态 84~86)且白芯亮黄 ≥20px(静态 27~30)/三帧焰形互异/燃顶 70 杂色判据(k 斑 ≥3 块+f 橙芯 ≥3 粒+e 灼点 ≥1)/熄顶 72 转灰(a 主导+k 露头斑 ≤4)/熄态 72/73 零焰色零 e/燃熄侧 71 vs 73 成对可辨(亮部=f vs 亮部=a)(UI 定稿 §4.4 v1.10 判据面; v1.9 灶面 94px 口径随 64~67 废弃退役) (6.9791ms)
+  AssertionError [ERR_ASSERTION]: 焰帧 74 单帧焰四档 ≥80px(§4.4 v1.10, 设计稿静态 84), 实测 0
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1313:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1379:1
+✖ 篝火图集相邻 v1.10: 走查对象=68~76 vs 61~67 含存档区+fallback 燃熄成对(70↔72/71↔73) — LOD 串色程序面锚(UI 定稿 §4.1/§4.5-4 v1.10; 人眼走查归 design-lead 管线) (6.4622ms)
+  AssertionError [ERR_ASSERTION]: 熄侧 73 ↔ 焰帧 74 网格邻对灰度差 ≥30(亮灰 vs 透明底焰帧), 实测 0.0
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1400:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":13}
+verdict: 断言红(AssertionError=13)
+failed_tests:
+  - 布局: 新方块 36~62 每个都有格子且格号合法(未入集方块走纯色兜底) (3.9644ms)
+  - 篝火布局: 两态入集分面双 tile — 81={顶64/侧65/底65}·82={顶66/侧67/底67}(UI 定稿 §4.1 v1.9 分面接线, T-C13), count=77 (1.3262ms)
+  - 篝火像素 v1.10: 原木端面 68 号格逐字符=UI 定稿 §4.2 — 外皮 d 环/年轮 L·l 三重方环/中心 k 节疤 4×4 固定, 全格不透明零 rng (5.4651ms)
+  - 篝火像素 v1.10: 原木皮侧 69 号格逐字符=UI 定稿 §4.2 — 上下皮缘 d/L 底横纹+l 受光长条+短划纹固定, 全格不透明零 rng (5.4035ms)
+  - 篝火像素 v1.10: 炭堆燃顶 70 号格逐字符=UI 定稿 §4.2 — a 灰烬地满铺+k 炭斑三群+f 橙芯嵌炭内+e 灼点固定, 全格不透明零 rng (5.7893ms)
+  - 篝火像素 v1.10: 炭堆燃侧 71 号格逐字符=UI 定稿 §4.2 — 顶底 a 灰缘+k 炭主体+中央竖向橙缝 f/F+e 灼点固定, 全格不透明零 rng (5.4221ms)
+  - 篝火像素 v1.10: 炭堆熄顶 72 号格逐字符=UI 定稿 §4.3 — a 灰烬主+k 露头斑(与 70 同构三群位), 全域零焰色零 e, 全格不透明零 rng (5.6795ms)
+  - 篝火像素 v1.10: 炭堆熄侧 73 号格逐字符=UI 定稿 §4.3 — a 灰主体+竖向 k 暗缝(橙缝冷灭残迹), 全域零焰色零 e, 全格不透明零 rng (5.3737ms)
+  - 篝火像素 v1.10: 焰帧 F1 74 号格逐字符=UI 定稿 §4.2 — 中立位相火舌(外 f→F→W→w 白芯/焰根 e), alpha 真透零 rng (5.6738ms)
+  - 篝火像素 v1.10: 焰帧 F2 75 号格逐字符=UI 定稿 §4.2 — 左倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (5.8427ms)
+  - 篝火像素 v1.10: 焰帧 F3 76 号格逐字符=UI 定稿 §4.2 — 右倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (5.4138ms)
+  - 篝火可辨性 v1.10: 焰帧 74~76 单帧焰四档 ≥80px(静态 84~86)且白芯亮黄 ≥20px(静态 27~30)/三帧焰形互异/燃顶 70 杂色判据(k 斑 ≥3 块+f 橙芯 ≥3 粒+e 灼点 ≥1)/熄顶 72 转灰(a 主导+k 露头斑 ≤4)/熄态 72/73 零焰色零 e/燃熄侧 71 vs 73 成对可辨(亮部=f vs 亮部=a)(UI 定稿 §4.4 v1.10 判据面; v1.9 灶面 94px 口径随 64~67 废弃退役) (6.9791ms)
+  - 篝火图集相邻 v1.10: 走查对象=68~76 vs 61~67 含存档区+fallback 燃熄成对(70↔72/71↔73) — LOD 串色程序面锚(UI 定稿 §4.1/§4.5-4 v1.10; 人眼走查归 design-lead 管线) (6.4622ms)
+  - failing tests:
+  - 布局: 新方块 36~62 每个都有格子且格号合法(未入集方块走纯色兜底) (3.9644ms)
+  - 篝火布局: 两态入集分面双 tile — 81={顶64/侧65/底65}·82={顶66/侧67/底67}(UI 定稿 §4.1 v1.9 分面接线, T-C13), count=77 (1.3262ms)
+  - 篝火像素 v1.10: 原木端面 68 号格逐字符=UI 定稿 §4.2 — 外皮 d 环/年轮 L·l 三重方环/中心 k 节疤 4×4 固定, 全格不透明零 rng (5.4651ms)
+  - 篝火像素 v1.10: 原木皮侧 69 号格逐字符=UI 定稿 §4.2 — 上下皮缘 d/L 底横纹+l 受光长条+短划纹固定, 全格不透明零 rng (5.4035ms)
+  - 篝火像素 v1.10: 炭堆燃顶 70 号格逐字符=UI 定稿 §4.2 — a 灰烬地满铺+k 炭斑三群+f 橙芯嵌炭内+e 灼点固定, 全格不透明零 rng (5.7893ms)
+  - 篝火像素 v1.10: 炭堆燃侧 71 号格逐字符=UI 定稿 §4.2 — 顶底 a 灰缘+k 炭主体+中央竖向橙缝 f/F+e 灼点固定, 全格不透明零 rng (5.4221ms)
+  - 篝火像素 v1.10: 炭堆熄顶 72 号格逐字符=UI 定稿 §4.3 — a 灰烬主+k 露头斑(与 70 同构三群位), 全域零焰色零 e, 全格不透明零 rng (5.6795ms)
+  - 篝火像素 v1.10: 炭堆熄侧 73 号格逐字符=UI 定稿 §4.3 — a 灰主体+竖向 k 暗缝(橙缝冷灭残迹), 全域零焰色零 e, 全格不透明零 rng (5.3737ms)
+  - 篝火像素 v1.10: 焰帧 F1 74 号格逐字符=UI 定稿 §4.2 — 中立位相火舌(外 f→F→W→w 白芯/焰根 e), alpha 真透零 rng (5.6738ms)
+  - 篝火像素 v1.10: 焰帧 F2 75 号格逐字符=UI 定稿 §4.2 — 左倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (5.8427ms)
+  - 篝火像素 v1.10: 焰帧 F3 76 号格逐字符=UI 定稿 §4.2 — 右倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (5.4138ms)
+  - 篝火可辨性 v1.10: 焰帧 74~76 单帧焰四档 ≥80px(静态 84~86)且白芯亮黄 ≥20px(静态 27~30)/三帧焰形互异/燃顶 70 杂色判据(k 斑 ≥3 块+f 橙芯 ≥3 粒+e 灼点 ≥1)/熄顶 72 转灰(a 主导+k 露头斑 ≤4)/熄态 72/73 零焰色零 e/燃熄侧 71 vs 73 成对可辨(亮部=f vs 亮部=a)(UI 定稿 §4.4 v1.10 判据面; v1.9 灶面 94px 口径随 64~67 废弃退役) (6.9791ms)
+  - 篝火图集相邻 v1.10: 走查对象=68~76 vs 61~67 含存档区+fallback 燃熄成对(70↔72/71↔73) — LOD 串色程序面锚(UI 定稿 §4.1/§4.5-4 v1.10; 人眼走查归 design-lead 管线) (6.4622ms)
