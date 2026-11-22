@@ -143,15 +143,16 @@ const DRIVER = `(async () => {
     advCampfires.plant(x, y, z);
     await sleep(400);
     const lit = measureCell(x, y, z);
-    const lit62 = tileAlphaStats(62);
     const shotLit = await snap();
+    /* 图集 alpha 审读六格: 62/63=v1.0 存档(满格不透明), 64~67=v1.9 分面(侧脸有孔) */
+    const alphaStats = {};
+    for (const idx of [62, 63, 64, 65, 66, 67]) alphaStats[idx] = tileAlphaStats(idx);
 
     /* ② 熄灭态: 摘账+换块 */
     advCampfires.drop(x, y, z);
     editBlock(x, y, z, 82);
     await sleep(400);
     const out = measureCell(x, y, z);
-    const out63 = tileAlphaStats(63);
     const shotOut = await snap();
 
     /* ③ 石块对照(全尺寸=1.0 判据的测量法自证) */
@@ -177,7 +178,7 @@ const DRIVER = `(async () => {
     BLOCKS[81].thin = thinWas.lit; BLOCKS[82].thin = thinWas.out;
     await sleep(200);
 
-    return {ok: true, cell, atlasInfo, lit, lit62, out, out63, stone, thin,
+    return {ok: true, cell, atlasInfo, lit, alphaStats, out, stone, thin,
       thinWas, shots: {lit: shotLit, out: shotOut, thin: shotThin}};
   } catch (e) {
     return {ok: false, err: String(e && e.stack || e)};
@@ -253,8 +254,10 @@ async function main() {
     console.log('  stone       : maxYrel=%s verts=%s', v.stone.maxYrel, v.stone.verts);
     console.log('  thin 0.4375 : maxYrel=%s minYrel=%s verts=%s baseVerts=%s',
       v.thin.maxYrel, v.thin.minYrel, v.thin.verts, v.thin.baseVerts);
-    console.log('  tile62 alpha: visible=%s/%s (%s)', v.lit62.visible, v.lit62.total, v.lit62.visibleRatio);
-    console.log('  tile63 alpha: visible=%s/%s (%s)', v.out63.visible, v.out63.total, v.out63.visibleRatio);
+    for (const idx of [62, 63, 64, 65, 66, 67]) {
+      const a = v.alphaStats[idx];
+      console.log('  tile%s alpha : visible=%s/%s (%s)', idx, a.visible, a.total, a.visibleRatio);
+    }
     console.log('[probe] done -> probe.json, probe-lit.png, probe-out.png, probe-thin.png');
   } finally {
     try { if (ws) ws.close(); } catch (e) { /* noop */ }
