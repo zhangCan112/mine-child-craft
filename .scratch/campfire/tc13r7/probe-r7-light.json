@@ -263,7 +263,7 @@
           "mat": "MeshBasicMaterial",
           "n": 24,
           "bx": 69.4,
-          "bz": 52.5
+          "bz": 52.6
         },
         {
           "mat": "MeshBasicMaterial",
@@ -275,7 +275,7 @@
           "mat": "MeshBasicMaterial",
           "n": 24,
           "bx": 69.5,
-          "bz": 52.7
+          "bz": 52.8
         },
         {
           "mat": "MeshBasicMaterial",
@@ -287,7 +287,7 @@
           "mat": "MeshBasicMaterial",
           "n": 24,
           "bx": 69.8,
-          "bz": 52.8
+          "bz": 52.9
         },
         {
           "mat": "MeshBasicMaterial",
@@ -341,7 +341,7 @@
           "mat": "MeshBasicMaterial",
           "n": 24,
           "bx": 68.7,
-          "bz": 52.5
+          "bz": 52.4
         },
         {
           "mat": "MeshBasicMaterial",
@@ -352,7 +352,7 @@
         {
           "mat": "MeshBasicMaterial",
           "n": 24,
-          "bx": 69.5,
+          "bx": 69.6,
           "bz": 52.1
         },
         {
@@ -599,7 +599,7 @@
         {
           "mat": "MeshBasicMaterial",
           "n": 24,
-          "bx": 69.2,
+          "bx": 69.1,
           "bz": 52.6
         },
         {
@@ -630,7 +630,7 @@
           "mat": "MeshBasicMaterial",
           "n": 24,
           "bx": 68.1,
-          "bz": 53.6
+          "bz": 53.5
         },
         {
           "mat": "MeshBasicMaterial",
@@ -641,7 +641,7 @@
         {
           "mat": "MeshBasicMaterial",
           "n": 24,
-          "bx": 68.9,
+          "bx": 69,
           "bz": 52.4
         },
         {
@@ -653,7 +653,7 @@
         {
           "mat": "MeshBasicMaterial",
           "n": 24,
-          "bx": 68.6,
+          "bx": 68.7,
           "bz": 52.3
         },
         {
@@ -744,7 +744,7 @@
         {
           "mat": "MeshBasicMaterial",
           "n": 24,
-          "bx": 69.3,
+          "bx": 69.2,
           "bz": 52.9
         },
         {
@@ -757,7 +757,7 @@
           "mat": "MeshBasicMaterial",
           "n": 24,
           "bx": 69,
-          "bz": 52.6
+          "bz": 52.7
         },
         {
           "mat": "MeshBasicMaterial",
@@ -889,7 +889,7 @@
           "mat": "MeshBasicMaterial",
           "n": 24,
           "bx": 68.4,
-          "bz": 52.8
+          "bz": 52.7
         },
         {
           "mat": "MeshBasicMaterial",
