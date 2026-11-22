@@ -78,7 +78,8 @@ test('campfire 两态行: B_CAMPFIRE=81/B_CAMPFIRE_OUT=82 · campfire 旗标 lit
   assert.strictEqual(lit.light, 15, '燃烧态 light 15(数据驱动字段, §3.9)');
   assert.strictEqual(out.light, 0, '熄灭态 light 0(不发光)');
   for (const [tag, def] of [['燃烧态', lit], ['熄灭态', out]]) {
-    assert.strictEqual(def.thin, 0.5, tag + '半格实体 thin 0.5(spec §3.4 物理形态裁定)');
+    assert.strictEqual(def.thin, 0.4375,
+        tag + '矮半格 thin 0.4375(=7/16 正典, UI 定稿 §4.1 v1.9; thin 不参与物理—§3.4 裁定, 仅渲染形态)');
     assert.strictEqual(def.solid, true, tag + '可碰撞可站立 solid true(踩火起飞前提)');
     assert.strictEqual(def.hard, 0, tag + ' hard 0: 徒手可移除(本票挖掘无回收, T-C3 补回收)');
     assert.strictEqual(def.replaceable, undefined,
