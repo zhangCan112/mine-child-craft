@@ -1,0 +1,32 @@
+篝火 T-C13 绿方转绿: v1.9 分面双 tile 施工(9 红中 7 转绿, 2 条红测装具缺陷争议带回红方)
+
+施工面(只动三处生产代码):
+js/texture-atlas.js: 新增分面四画师格 64 至 67(T_CAMPFIRE_TOP/SIDE/OUT_TOP/OUT_SIDE,
+画稿逐字符照抄 UI 定稿 4.2/4.3, 与红测基准及 v19-review render.js 三方逐行一致);
+画笔纪律照票: 灶面 C 地 noiseFill amp 0.06, 焰团/火舌/灰烬斑/木框/炭心固定像素零
+rng, 65 与 67 原木木纹 d 短划 rng 撒 2 至 3 道(r12 起 1px 宽 2px 高, col3 至 12
+Set 去重), 66 与 67 a 灰烬散斑 per-tile 补撒 4 至 8 粒(1px 粒, 只落 C 地或炭缝
+外围透明带), 侧脸透明区 alpha 0 真透(mkTile 缺省全 0 即透明, 只填结构像素,
+不用 C 暗底回退); layout 分面接线 81 等于 顶64/侧65/底65, 82 等于 顶66/侧67/底67
+(三键齐, 床/宝箱先例同款); count 64 至 68; 旧 62/63 画师存档不删(存档测试全绿);
+头部与行注释按 1.7 翻新(分面双 tile 口径, T-C13 票源)。
+js/mesh-core.js: pushCampfireBox 全脸同图单 tile 改逐面 atlasTileOf 分面取 tile
+(顶面取条目 top, 四侧取 side, pushBedBox 分面取法同构); 几何机器零改动(半格
+扁盒, 底面不绘, 两态取光口径, 顶点光全不动), 侧脸 UV 整图压扁 2:1 既有行为。
+js/config.js: BLOCKS 81/82 两态行 thin 0.5 改 0.4375(7/16 正典矮半格, UI 定稿
+4.1 v1.9; thin 不参与物理仅渲染形态, 注释同步翻新)。
+
+验证: 两红测文件 68 tests 66 pass 2 fail; npm test 全量 2476 tests 2473 pass
+2 fail 1 skip(对基线 2472/2471/0/1 零回退, 唯二 fail 均为红测装具自身缺陷,
+非实现缺口); npm run lint 三门零错误。
+
+争议带回(不改测试, 红方裁决):
+1. texture-atlas.test.js 932 燃侧脸 65: 边界循环 y 从 0 到 10 断言无 d 色像素,
+   而本测试自己的画稿 r10 行是 12 个结构 d(原木上缘), 主循环要求其逐像素精确
+   等于 CF_PAL.d, 两断言互斥不可同真; 红期被透明区 alpha 断言先行中止掩盖。
+   修法建议: 上界改 y 小于 10(语义即消息文本「原木上缘之上」)。
+2. texture-atlas.test.js 1097 meshChunk v1.9: quadUVs 产出成对数组 4 组, 而
+   inRect 契约是扁平 uv 序列(302 行草地与 581 行门额牌两个既有通过测同款),
+   数组与数字比较得 NaN 恒 false, 四条分面 UV 断言不可满足; 红期被 thin 高度
+   断言先行中止掩盖。实现侧探针实证顶面 UV 已正确落 64 格矩形, 四侧落 65 格。
+   修法建议: quadUVs 改返回扁平数组(push u 再 push v, 与既有两测同构)。

@@ -16,8 +16,9 @@
    覆盖大部, 世界边界 T12——北带落雪杉冠盖件, 级联随冠消散, north-spec §11) +
    怪物合成材料件 75~77(南瓜分面/雕刻刻脸/铁块金属框, mob-crafting T1) +
    粉羊毛 78(城镇重制公共件, revamp-spec §2——羊毛画法换樱粉底, 樱花树冠/布幔/旗阵) +
-   篝火两态 62~63(燃烧 81/熄灭 82, 篝火 T-C8——暗炭坑+焰四档+余烬带+原木床 /
-   同位形去焰+灰烬带, 观感权威 docs/design/campfire-visual-spec.md §4)。
+   篝火 62~67(燃烧 81/熄灭 82, 篝火 T-C8 落旧全脸同图两格 62/63——T-C13 v1.9 分面
+   返工作废存档不删; 新增分面双 tile 四格 64~67: 燃灶面/燃侧脸/熄灶面/熄侧脸,
+   顶=灶面俯视/四侧=侧脸正视/底不绘, 观感权威 docs/design/campfire-visual-spec.md §4)。
    风格参考
    我的世界的观感语言, 像素全部自绘(零外部素材, 版权口径见设计稿 D13)。
    像素先写进纯数据缓冲(Uint8ClampedArray), 画布只是壳(makeCanvas 惰性
@@ -34,7 +35,7 @@
    ============================================================ */
 const TextureAtlas = (() => {
   const TILE = 16; // 每格格边(像素): MC 经典方块贴图分辨率
-  const COLS = 16; const ROWS = 16; // 16×16 格 = 最高格号 63(count=64, 篝火两态双格), 余量充足
+  const COLS = 16; const ROWS = 16; // 16×16 格 = 最高格号 67(count=68, 篝火分面四格), 余量充足
   const SIZE = TILE * COLS; // 256: 正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款)
 
   /* ---------- 确定性伪随机(mulberry32): 每格派生一个种子 ----------
@@ -85,8 +86,14 @@ const TextureAtlas = (() => {
   const T_PINK_WOOL = 59; /* 粉羊毛(78, 城镇重制公共件): 樱粉绒毛底+绒团+蓬松亮点 */
   const T_GATE_SIGN = 60; /* 门额牌(80, 东带 v2 S2): 牌木底+镇徽钟塔图(西面图案) */
   const T_GATE_WOOD = 61; /* 门额牌纯木底(其余五面): #C89858 平涂(design-lead 预授权第二格位) */
-  const T_CAMPFIRE_LIT = 62; /* 篝火燃烧态(81, 篝火 T-C8): 暗炭坑+焰四档+余烬带+原木床 */
-  const T_CAMPFIRE_OUT = 63; /* 篝火熄灭态(82, 篝火 T-C8): 同位形去焰+灰烬带+原木床去受光档 */
+  const T_CAMPFIRE_LIT = 62; /* 篝火燃烧态旧全脸同图格(T-C8 落, T-C13 v1.9 起作废存档不删) */
+  const T_CAMPFIRE_OUT = 63; /* 篝火熄灭态旧全脸同图格(T-C8 落, T-C13 v1.9 起作废存档不删) */
+  /* T-C13 v1.9 分面双 tile 四格(UI 定稿 §4.1: 顶=灶面俯视/四侧=侧脸正视/底不绘;
+     旧 62/63 单 tile 作废存档——灶面俯视图贴满四侧后侧面读「火焰糊满墙」的根因格) */
+  const T_CAMPFIRE_TOP = 64; /* 篝火燃烧态·灶面顶(81, T-C13): 木框围合 C 灶地+中心焰团+灰烬斑 */
+  const T_CAMPFIRE_SIDE = 65; /* 篝火燃烧态·侧脸(81, T-C13): 上半透明+中心火舌+原木横梁 */
+  const T_CAMPFIRE_OUT_TOP = 66; /* 篝火熄灭态·灶面顶(82, T-C13): 同构木框+灰烬坑+中央炭心 */
+  const T_CAMPFIRE_OUT_SIDE = 67; /* 篝火熄灭态·侧脸(82, T-C13): 零火舌+暗炭缝+原木同位形 */
 
   /* ---------- 像素绘制工具(全在 16×16 RGBA 缓冲上, 无 2d 上下文) ---------- */
   const mkTile = ()=> new Uint8ClampedArray(TILE * TILE * 4); // 默认全 0 = 透明
@@ -455,13 +462,11 @@ const TextureAtlas = (() => {
   PAINTERS[T_GATE_WOOD] = (px)=>{
     for (let y=0; y<TILE; y++) for (let x=0; x<TILE; x++) setP(px, x, y, [200, 152, 88]);
   };
-  /* ---------- 篝火两态(81/82, 篝火 T-C8, UI 定稿 docs/design/campfire-visual-spec.md §4) ----------
-     观感唯一权威=§4.2(燃烧)/§4.3(熄灭) char art 逐字符; 色板=§3.1 九色 + 暗炭底
-     C=#231a12 + 灰烬灰 a=#b9b4a8(hex 逐值换算)。画笔纪律: C 底 noiseFill amp 0.06
-     (±6% 值噪, mulberry32 派生种子同 seed 同图); 焰部与一切固定像素零 rng 逐像素
-     精确; 燃烧态原木床 L 行补 4~5 道 rng 木纹 d 短划(1px 粒, 只落 r12/r14, 不得越
-     到 r11 以上——红测钉死行域); 熄灭态 r0~r8 C 区补撒 rng 灰烬散斑 6~10 粒
-     (y∈[2,8], 1px 粒, 去重防叠粒)。整格不透明(半格实体块)。 */
+  /* ---------- 篝火旧全脸同图两格(T-C8 落; T-C13 v1.9 分面返工起【作废存档】) ----------
+     存档纪律(T-C13 票): 62/63 两格画师原样保留不接线(layout 已改分面四格
+     64~67), 存档测试逐字符守着它们——历史备查, 修正票不得照抄。
+     原观感权威=UI 定稿 §4.2/§4.3 节尾存档稿(v1.0 旧稿); 色板与画笔纪律注释
+     保留原文口径(暗炭底 C=#231a12 / 灰烬灰 a=#b9b4a8 / C 底 noiseFill amp 0.06)。 */
   const CF_C = [35, 26, 18]; /* 暗炭底 #231a12 */
   const CF_A = [185, 180, 168]; /* 灰烬灰 #b9b4a8 */
   const CF_D = [107, 69, 31]; /* 原木背光(木纹短划)#6b451f */
@@ -549,6 +554,156 @@ const TextureAtlas = (() => {
       placed.add(key);
       setP(px, x, y, CF_A);
     }
+  };
+  /* ---------- 篝火分面双 tile 四格(81/82, 篝火 T-C13, UI 定稿 §4.1 v1.9 分面返工) ----------
+     v1.9 废「全脸同图」(PO 实机手玩: 灶面俯视图贴满四侧→侧面读「火焰方块」):
+     顶=灶面(俯视)/四侧=侧脸(正视)/底不绘(接线见 layout tiles[81]/[82] 分面表)。
+     观感唯一权威=§4.2(燃烧 64 灶面/65 侧脸)/§4.3(熄灭 66 灶面/67 侧脸) char art
+     逐字符照抄; 色板复用 CF_PAL8(§3.1 九色 + 暗炭底 C + 灰烬灰 a, 零新色)。
+     画笔纪律(T-C13 票): 灶面 C 地 noiseFill amp 0.06(mulberry32 派生种子同 seed
+     同图); 65/67 原木木纹 d 短划 rng 撒 2~3 道(r12 起 1px 宽 2px 高=r12-r13 同列
+     双 d, 只落 col3..12——端头 col2/13 是结构 d); 66/67 a 灰烬散斑 per-tile 补撒
+     4~8 粒(rng, 1px 粒, 只落 C 地/透明区); 焰团/火舌/灰烬斑/木框/炭心固定像素
+     零 rng; 侧脸透明区 alpha=0 真透(mkTile 缺省全 0 即透明, '.' 位不绘制,
+     world.js atlasMat alphaTest 0.5 管线吃 alpha 位——不用 C 暗底回退)。 */
+  const CF_TOP64_ART = [ /* UI 定稿 §4.2 燃灶面 64: 木框 L 环+d 内缘+焰团+e 双弧+a 斑 */
+    'LLLLLLLLLLLLLLLL',
+    'LddddddddddddddL',
+    'LdCCCCCCCCCCCCdL',
+    'LdCCCaCCCCCaCCdL',
+    'LdCCCeeCCCeeCCdL',
+    'LdCffWWWWffCCCdL',
+    'LdfFWwwwwWFfCCdL',
+    'LdFWwwwwwwWFCCdL',
+    'LdfFWwwwwWFfCCdL',
+    'LdCffWWffCCCCCdL',
+    'LdCCCCeeeeCCCCdL',
+    'LdCCCaCCCCCaCCdL',
+    'LdCCCCCCCCCCCCdL',
+    'LdCCCCCCCCCCCCdL',
+    'LddddddddddddddL',
+    'LLLLLLLLLLLLLLLL',
+  ];
+  const CF_SIDE65_ART = [ /* UI 定稿 §4.2 燃侧脸 65: 上半 '.' 透明+中心火舌+原木横梁 */
+    '................',
+    '................',
+    '.......f........',
+    '......fFf.......',
+    '.....fFWFf......',
+    '.....FWwWF......',
+    '....fFWwwWFf....',
+    '....FFWwwWFF....',
+    '...fFFWwwWFFf...',
+    '...FFFWwwWFFF...',
+    '..dddddddddddd..',
+    '..dLLLLLLLLLLd..',
+    '..dLLdLLLLdLLd..',
+    '..dLLLLLLLLLLd..',
+    '..dddddddddddd..',
+    '..dddddddddddd..',
+  ];
+  const CF_OUT_TOP66_ART = [ /* UI 定稿 §4.3 熄灶面 66: 同构木框+灰烬坑 a+中央炭心 k(4-6-6-4 对称) */
+    'LLLLLLLLLLLLLLLL',
+    'LddddddddddddddL',
+    'LdCCCCCCCCCCCCdL',
+    'LdCCCaCCCCCaCCdL',
+    'LdCCCaaCCCCaaCdL',
+    'LdCaaaaaaaaaaCdL',
+    'LdCaaakkkaaaaCdL',
+    'LdCaakkkkkkaaCdL',
+    'LdCaakkkkkkaaCdL',
+    'LdCaaakkkaaaaCdL',
+    'LdCaaaaaaaaaaCdL',
+    'LdCCCaCCCCCaCCdL',
+    'LdCCCCCCCCCCCCdL',
+    'LdCCCCCCCCCCCCdL',
+    'LddddddddddddddL',
+    'LLLLLLLLLLLLLLLL',
+  ];
+  const CF_OUT_SIDE67_ART = [ /* UI 定稿 §4.3 熄侧脸 67: r0~r6 全透+暗炭缝+原木同 65 */
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '................',
+    '.......aa.......',
+    '......akka......',
+    '.....aakkaa.....',
+    '..dddddddddddd..',
+    '..dLLLLLLLLLLd..',
+    '..dLLdLLLLdLLd..',
+    '..dLLLLLLLLLLd..',
+    '..dddddddddddd..',
+    '..dddddddddddd..',
+  ];
+  /* char art 固定像素落格(T-C13 新四格共用): 非 C 非 '.' 字符零 rng 精确——
+     '.' 留给 mkTile 缺省透明(侧脸真透), 'C' 留给 noiseFill 底噪 */
+  function cfStamp(px, art) {
+    for (let y=0; y<TILE; y++) {
+      for (let x=0; x<TILE; x++) {
+        const ch = art[y][x];
+        if (ch !== 'C' && ch !== '.') setP(px, x, y, CF_PAL8[ch]);
+      }
+    }
+  }
+  /* 灶面 C 地/侧脸透明区收集: a 散斑只落候选位(固定像素零 rng 纪律——撒中
+     非 C 非 '.' 固定像素即毁稿); transparentOnly=true 收 '.'(侧脸散斑走透明区),
+     rowMax 限定行域(67 散斑纪律=炭缝外围即原木上方透明带, 不撒原木行域) */
+  function cfGroundSpots(art, transparentOnly, rowMax) {
+    const spots = [];
+    for (let y=0; y<TILE; y++) {
+      for (let x=0; x<TILE; x++) {
+        const ch = art[y][x];
+        if (transparentOnly ? ch === '.' : ch === 'C') spots.push([x, y]);
+      }
+    }
+    return rowMax === undefined ? spots : spots.filter((s) => s[1] <= rowMax);
+  }
+  /* 原木木纹 d 短划(65/67 共用): rng 撒 2~3 道, r12 起 1px 宽 2px 高(r12-r13
+     同列双 d), 只落 col3..12(端头 col2/13 是结构 d 不算木纹); Set 去重防叠道 */
+  function cfWoodDashes(px, rng) {
+    const dashes = 2 + Math.floor(rng() * 2);
+    const cols = new Set();
+    while (cols.size < dashes) {
+      const x = 3 + Math.floor(rng() * 10);
+      if (cols.has(x)) continue;
+      cols.add(x);
+      setP(px, x, 12, CF_D);
+      setP(px, x, 13, CF_D);
+    }
+  }
+  /* a 灰烬散斑(66/67 共用): per-tile 补撒 4~8 粒(rng, 1px 粒), 候选位由
+     cfGroundSpots 给出; Set 去重保证实撒粒数不缩水(63 存档画师同款先例) */
+  function cfAshSpecks(px, rng, spots) {
+    const placed = new Set();
+    const n = 4 + Math.floor(rng() * 5);
+    while (placed.size < n) {
+      const [x, y] = spots[Math.floor(rng() * spots.length)];
+      const key = y * TILE + x;
+      if (placed.has(key)) continue;
+      placed.add(key);
+      setP(px, x, y, CF_A);
+    }
+  }
+  PAINTERS[T_CAMPFIRE_TOP] = (px, rng)=>{
+    noiseFill(px, rng, CF_C, 0.06); /* §4.2: C 灶地 ±6% 值噪 */
+    cfStamp(px, CF_TOP64_ART); /* 木框/焰团/e 双弧/a 斑固定像素零 rng */
+  };
+  PAINTERS[T_CAMPFIRE_SIDE] = (px, rng)=>{
+    cfStamp(px, CF_SIDE65_ART); /* '.' 位不绘制=alpha 0 真透; 火舌/原木固定零 rng */
+    cfWoodDashes(px, rng); /* 原木木纹 rng d 短划(§4.2 画笔纪律) */
+  };
+  PAINTERS[T_CAMPFIRE_OUT_TOP] = (px, rng)=>{
+    noiseFill(px, rng, CF_C, 0.06); /* §4.3: 同款 C 灶地值噪 */
+    cfStamp(px, CF_OUT_TOP66_ART); /* 木框/灰烬坑 a/炭心 k 固定像素零 rng */
+    cfAshSpecks(px, rng, cfGroundSpots(CF_OUT_TOP66_ART, false)); /* a 散斑只落 C 地 */
+  };
+  PAINTERS[T_CAMPFIRE_OUT_SIDE] = (px, rng)=>{
+    cfStamp(px, CF_OUT_SIDE67_ART); /* r0~r6 全透零火舌; 炭缝/原木固定零 rng */
+    cfAshSpecks(px, rng, cfGroundSpots(CF_OUT_SIDE67_ART, true, 9)); /* a 散斑落炭缝外围透明带(y≤9) */
+    cfWoodDashes(px, rng); /* 原木木纹与 65 同构 */
   };
   /* ---------- 生态地图(冒险模式生态地图设计稿 §6, 票据 T1): 雪原/沙漠/沼泽 ---------- */
   /* 雪块: 低噪雪白底 + 阴影微点 + 对角双像素亮闪(锚定 faceColor 雪白) */
@@ -948,9 +1103,12 @@ const TextureAtlas = (() => {
          未知字段无感); top/bottom 同格木底。陶橙瓦 79 不入集(纯色行 faceColor
          兜底, S1 零贴图成本) */
       [B_GATE_SIGN]: {side: T_GATE_SIGN, back: T_GATE_WOOD, top: T_GATE_WOOD, bottom: T_GATE_WOOD},
-      /* 篝火两态 81/82(篝火 T-C8, UI 定稿 §4.1): 全脸同图数值简写(侧面主视图+
-         顶面同图, 半格扁盒无分面画师格需求; B_GATE_SIGN 数值简写同款先例) */
-      [B_CAMPFIRE]: T_CAMPFIRE_LIT, [B_CAMPFIRE_OUT]: T_CAMPFIRE_OUT,
+      /* 篝火两态 81/82(篝火 T-C13 分面返工, UI 定稿 §4.1 v1.9 分面接线表): 顶=灶面
+         (俯视)/四侧=侧脸(正视)/底=side 兜底(贴地不绘, 三键齐守 usedTiles 覆盖面
+         循环拿 undefined——床/宝箱分面条目同款先例); 旧全脸同图格 62/63 作废存档
+         不接线(画师保留, 存档测试守) */
+      [B_CAMPFIRE]: {top: T_CAMPFIRE_TOP, side: T_CAMPFIRE_SIDE, bottom: T_CAMPFIRE_SIDE},
+      [B_CAMPFIRE_OUT]: {top: T_CAMPFIRE_OUT_TOP, side: T_CAMPFIRE_OUT_SIDE, bottom: T_CAMPFIRE_OUT_SIDE},
     },
   };
 

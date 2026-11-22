@@ -1,0 +1,23 @@
+篝火 T-C13 红方: v1.9 分面守门翻新(红先红自证 9 红)
+
+票文: docs/campfire-tickets.md T-C13, 权威 docs/design/campfire-visual-spec.md §4 v1.9
+
+红测试翻新(test/texture-atlas.test.js + test/campfire-kit.test.js):
+- 四张 v1.9 char art 落测试基准(64 燃灶/65 燃侧/66 熄灶/67 熄侧, 逐字符照抄 §4.2/§4.3)
+- 布局接线测: 81={top:64,side:65,bottom:65}/82={top:66,side:67,bottom:67}, count 64 改 68(两处)
+- 64~67 逐格像素四测: 灶面全不透明零 rng, 侧脸 alpha=0 真透钉 alphaTest 管线,
+  65/67 木纹 d 短划 2~3 道(r12 起 1px 宽 2px 高), 66/67 a 散斑 per-tile 4~8 粒
+- 62/63 旧稿两测重定向固定索引转作废存档测(画师存档不删守门)
+- §4.4 可辨性翻新: 焰四档两 tile 合计大于等于 80(静态 94), 白芯亮黄大于等于 36(静态 46),
+  余烬红等于 8, 熄态零焰色零余烬红加最高亮像素=灰烬灰
+- 确定性循环扩 [62..67]; meshChunk 测翻新: 5 面/高 0.4375/分面 UV 顶灶面四侧侧脸/无底面
+- campfire-kit.test.js thin 0.5 改 0.4375(7/16, thin 不参与物理仅渲染形态)
+- 保留测零弱化: 相邻格灰度/顶点光三测/取光口径不回退, 原样全绿
+
+红自证: node --test 两文件 = 68/59/9, 红因全为票文要求未实现型, 逐条落盘
+.scratch/campfire/tc13-verify/red-cause.md(red-first.log/red-final.log)
+
+票外前置实证(thin 实机核实, 同目录 probe.js/probe.json/三截图):
+- 当前 tip 燃熄两态实测 maxYrel=0.5 半格成立, 石块对照 1.0 自证测量法
+- tile 62/63 alpha 可见像素 256/256 满格不透明: PO 读作全尺寸实心根因在贴图不在几何
+- 主线程热改 BLOCKS.thin 不达 Worker(mesh-worker 独立词法), 0.4375 实机几何归绿后重跑探针

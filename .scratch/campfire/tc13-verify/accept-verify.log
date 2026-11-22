@@ -1,0 +1,114 @@
+﻿鉁?campfire 涓ゆ€佽: B_CAMPFIRE=81/B_CAMPFIRE_OUT=82 路 campfire 鏃楁爣 lit|out 路 light 15/0 路 鍗婃牸瀹炰綋 路 hard 0 路 鏃?replaceable (0.6479ms)
+鉁?campfire 鍙傛暟鍧? CAMPFIRE 鍏敭鐓?搂3.9 鍒濆€?6000 鍒?鏌遍珮 20/鎴潰鍗婂緞 1/鍗囬€?3.0/鐑激鑺傛媿 20/鐑激 1 琛€) (0.0714ms)
+鉁?campfire 鐗╁搧琛? ITEMS.campfire 涓夊瓧娈?name/icon/block 璺敱) 路 鏃?dur(鍙爢鍙犳秷鑰楀搧) (0.0557ms)
+鉁?campfire 鐗╁搧鎻愮ず: ITEM_HINTS.campfire 閫愬瓧=UI 瀹氱 搂6.1 路 鍏ㄦ枃闆跺墽閫忕璇?搂6.4 璇嶉泦) (0.067ms)
+鉁?campfire 鎺ョ嚎: index.html script 琛屽湪鍐屼笖 adventure-core < campfire-kit < modes/adventure.js(瑁呰浇搴?渚濊禆搴? boot 鎸夌湡瀹炲簭瑁呰浇) (0.3218ms)
+鉁?campfire 闆跺閽? campfire-kit.js 婧愮爜闆?Date.now/performance.now(纭畾鎬ч噸鏀剧孩绾? (0.2719ms)
+鉁?campfire kit plant: 婊℃椂闀垮缓鏉?posKey 閿?+ {x,y,z,left} 鏉＄洰, left=6000=CAMPFIRE.ticks) (0.4955ms)
+鉁?campfire kit tick 閲忓寲鏁村埢: 0.05s=1 鍒婚浂婕?路 涓嶅杺鍗冲喕缁?闆跺閽? 璐︽湰鑷繁涓嶅姩) (0.1867ms)
+鉁?campfire kit 鐕冨敖鎭颁竴娆? 5999 鍒讳笉鐕?路 绗?6000 鍒诲洖璋冩伆涓€娆?鏉＄洰鍒犲噣 路 鐕冨敖鍚庡啀鍠傞浂鍥炶皟 (1.9355ms)
+鉁?campfire kit 鎺夊抚杩藉钩: 鍗曞抚澶?dt 鍙蛋 8 鍒?guard 闃茶灪鏃? 路 鍚庣画甯х疮绉拷骞抽浂涓㈠埢(pumpFluids fluidAcc 鍚屾) (0.1616ms)
+鉁?campfire kit drop/reset: 鎸栭櫎鍒犳潯 路 鏈煡鏍奸浂鐐?路 reset 娓呯┖(閲嶈繘鍦哄浣嶅彛寰? (0.1092ms)
+鉁?campfire kit encode 妗? [[posKey,{left}]] 瀛樻。褰㈢姸(advCampfiresClean 鍚屽舰, T-C5 妗ｉ敭缂? (0.1551ms)
+鉁?campfire kit 鏃?onBurnout 娉ㄥ叆: 鐕冨敖涓嶇偢(鍥炶皟缂虹渷=鏃犺鎰熸斂绛? (1.3934ms)
+鉁?campfire kit updraft 鎺ョ嚎: plant 鈫?sim.add(婧愭牸蹇?CAMPFIRE 鏌卞弬涓変欢, 鍗曟鍗曟簮) (0.1375ms)
+鉁?campfire kit updraft 鎺ョ嚎: 鐕冨敖(tick 鍒版湡) 鈫?sim.remove(鍧愭爣鍏ㄥ弬, 涓?onBurnout 鍚屾媿) (1.3843ms)
+鉁?campfire kit updraft 鎺ョ嚎: drop 宸茬煡鏍?鈫?sim.remove 路 鏈煡鏍?drop 闆舵敞閿€(presence 鍙ｅ緞) (0.0757ms)
+鉁?campfire kit updraft 缂哄腑瀹瑰繊: opts.updraft 鏈敞鍏?plant/tick/drop 闆剁偢(瑁呴厤鍓?Node 璇) (1.2934ms)
+鉁?T-C3 涓ゆ€佸洖鏀惰: BLOCKS[81]/[82].drop=[["campfire",1,0]] 淇濆簳 1 闆跺姞鎴?路 rollBlockDrop 娑堣垂闈㈡亽 1 浠?闈炴湪鐐? (0.1618ms)
+鉁?T-C3 璋冭壊鏉块浂姝绘暟鎹? BLOCK_HINTS 鏃?81/82 琛?涓ゆ€佷笉杩涘缓閫犺皟鑹叉澘, hint 琛?闆舵秷璐规鏁版嵁, spec 搂3.4 瑁佸畾) (0.0332ms)
+鉁?T-C3 姘存祰鎺ョ嚎: read 缂濆懡涓?姘撮偦) 鈫?涓嬩竴鍒诲彴璐﹀垹鏉?onQuench 鍧愭爣鍏ㄥ弬+updraft 娉ㄩ攢鍚屾媿 路 闆剁噧灏藉洖璋?(0.1478ms)
+鉁?T-C3 姘存祰鍑犱綍: 姝ｄ笂鏈夋按=鐔?路 姝ｄ笅鏈夋按涓嶇唲(鐏湪瀹炰綋鍧楅《, 搴曢潰涓嶆簿姘? (0.0949ms)
+鉁?T-C3 鐔勭伃鍚庨浂渚ц处闀挎湡淇濈暀: 娴囩唲鍚庡啀鍠?700s(14000 鍒? 鈥?闆跺娲婚浂鐕冨敖闆堕噸澶嶅洖璋?(1.7718ms)
+鉁?T-C3 鑷劧鍥犳灉闆堕槻鍛? 姘翠粛閭绘帴鏃堕噸鐕?plant) 鈫?涓嬩竴鍒诲啀鐔?鏃犮€屾祰杩囦竴娆″氨鍏嶇柅銆嶉棭) (0.0864ms)
+鉁?T-C3 read 缂哄腑瀹瑰繊: 鏃?read 娉ㄥ叆 鈥?鐕冨敖璺緞鐓у父(瑁呴厤鍓?鏃犳按涓栫晫闆剁偢) (0.5498ms)
+鉁?T-C5 opts.key 娉ㄥ叆: 鍙拌处閿?娉ㄥ叆鍓嶇紑+鍧愭爣 鈥?encode/drop/寤烘潯鍚屾簮涓€閿舰(璺ㄥ浘閿笉瑾婃妱) (0.0839ms)
+鉁?T-C5 opts.sceneGate 闂ㄧ: 璺ㄥ浘鏉＄洰鎷掔瓟娴囩唲闂(璇番闃茬嚎) 鈥?鏀捐璺緞鐓у父娴囩唲(瀵圭収) (0.1143ms)
+鉁?T-C5 鍥炶皟绗?4 鍙?posKey: onQuench/onBurnout 鏀跺彴璐﹂敭(甯︽敞鍏ュ墠缂€) 鈥?璺ㄥ浘鏀跺熬鎸夐敭钀芥《鐨勪緷鎹?(1.0599ms)
+鉁?T-C5 ledger.readd: presence 鍙ｅ緞 sim 閲嶆敞鍐?鏌变笁鍙傚崟婧? 鈥?鏈煡鏍奸浂鐐搁浂娉ㄥ唽 (0.1217ms)
+鉁?甯冨眬: 鏂版柟鍧?36~62 姣忎釜閮芥湁鏍煎瓙涓旀牸鍙峰悎娉?鏈叆闆嗘柟鍧楄蛋绾壊鍏滃簳) (4.0949ms)
+鉁?甯冨眬+鍍忕礌: 鎴樺埄鍝佸疂绠?71)鍏ラ泦 鈥?椤?渚у垎鏍肩孩閲戦厤鑹? 鍏ㄤ笉閫忔槑(den-nest 搂7.5 D16) (9.1624ms)
+鉁?甯冨眬: 榛戝发鍦颁笂浠跺叆闆?den-nest 搂2.1) 鈥?鑻旂煶/榛戞洔鐭?鍙戝厜宀╁悇鍗犱竴鏍? 闂ㄩ潰/鐔勯棬鍥為€€鐜荤拑閫氶亾涓嶅叆闆?(2.071ms)
+鉁?鍍忕礌: 榛戝发浠朵笉閫忔槑鍙ｅ緞 鈥?鑻旂煶/榛戞洔鐭?鍙戝厜宀╁叏涓嶉€忔槑(闂ㄩ潰宸插洖閫€鐜荤拑閫氶亾涓嶅叆闆? (6.5705ms)
+鉁?甯冨眬: 瀛橀噺鍗囩骇娆?1~8 鍏ラ泦; 鑽夊湴涓庢湪澶?top鈮爏ide(鑽夐《/鑽変晶 路 骞磋疆/鏍戠毊鍒嗘牸) (1.2964ms)
+鉁?甯冨眬: 鍥鹃泦鐢诲竷涓烘鏂瑰舰 2 鐨勫箓 鈥?WebGL1 mipmap 绾︽潫(TNT 鍥鹃泦鍚屾) (5.8377ms)
+鉁?UV: 姣忎釜琚紩鐢ㄧ殑鏍?tileUV 钀藉湪 [0,1] 涓斾袱涓や笉閲嶅彔 (2.1271ms)
+鉁?纭畾鎬? 涓ゆ鐢熸垚閫愬儚绱犱竴鑷?鍣偣/鏂戠偣鐢ㄧ瀛愬寲浼殢鏈? 鍚?seed 鍚屽浘) (17.7134ms)
+鉁?鍍忕礌: 姣忎釜琚紩鐢ㄦ牸鑷冲皯鏈変竴涓潪閫忔槑鍍忕礌; 妞嶇墿绫绘湁閫忔槑鍍忕礌(alpha 瑁佸垏鍓嶆彁) (7.1119ms)
+鉁?meshChunk: 鍥鹃泦鏂瑰潡璧?atlas 閫氶亾 鈥?鐓ょ熆绔嬫柟浣?6 闈? UV 鍏ㄨ惤鍦ㄧ叅鐭挎牸鍐?(1.5051ms)
+鉁?meshChunk: 椤?渚?搴曞垎鏍?鈥?鑽夊湴涓夐潰鍚勫綊鍚勬牸(鑽夐《/鑽変晶/娉ュ湡搴? (1.4785ms)
+鉁?meshChunk: opts 涓嶅甫 atlas 鈫?鍏ラ泦鏂瑰潡鍥炶惤绾壊閫氶亾(瀛橀噺璋冪敤鏂归浂渚靛叆) (1.432ms)
+鉁?meshChunk: 钖勫潡鍥鹃泦璧板崄瀛楅潰鐗?鈥?鑽変笡 2 闈⒚楁鍙嶅叡 4 闈? 鍑犱綍鍏ㄩ珮(UV 鍏ㄨ惤鏍? (1.6712ms)
+鉁?meshChunk: 鐢熸€佸湴鍥捐杽鍧?鍏拌姳)鍚岃蛋鍗佸瓧闈㈢墖 鈥?4 闈?UV 鍏ㄨ惤鍏拌姳鏍?(1.4429ms)
+鉁?meshChunk: 搴?bed 鏃楁爣)璧拌杽鍧楁墎鐩掑浘闆嗛€氶亾 鈥?5 闈㈢洅(鏃犲簳闈?, 楂樺害 0.55, 椤?渚у垎鏍?(1.5998ms)
+鉁?meshChunk: 搴婂ご鏋曞悜鎸夊簥灏炬柟浣嶆棆杞?鈥?搴婂熬鍦ㄤ笢鍒欐灂璐磋タ缂?鍙栧悜涓嶅瓨妗? 涓栫晫鐘舵€佹淳鐢? (1.4995ms)
+鉁?meshChunk: 搴婃棤鍥鹃泦娉ㄥ叆鍥炶惤瀹炲績閫氶亾绾壊鎵佺洅(瀛橀噺琛屼负闆跺彉鍖? (2.0151ms)
+鉁?搴婅创鍥惧儚绱?搴婅鎰熺エ): 搴婇《鐧芥灂鍦?canvas 椤惰(=涓栫晫 鈭抁 鍖楃)+姣韩绾? 搴婁晶涓婃涓嬫湪妗?(5.5132ms)
+鉁?meshChunk: 鍥鹃泦绔嬫柟浣撻偦闈㈠墧闄ゅ悓瀹炲績瑙勫垯 鈥?鐩搁偦涓ょ叅鐭垮叡鐣岄潰鍓旀垚 10 闈?(1.274ms)
+鉁?makeCanvas: doc 妗╂敞鍏?鈥?灏哄鎸夊浘闆? putImageData 鍍忕礌涓?paintAll 涓€鑷?(17.1544ms)
+鉁?甯冨眬+鍍忕礌: 杩滃彜娈嬮(73)鍏ラ泦 鈥?鏁存牸鍚屽浘鍚屽績鏂圭幆铻烘棆绾? 鍏ㄤ笉閫忔槑(瑁呭绯荤粺 T7) (6.2951ms)
+鉁?甯冨眬+鍍忕礌: 瑕嗛洩鏍戝彾(74)鍏ラ泦 鈥?鏁存牸鍚屽浘闆洊閽堝彾搴? 鍏ㄤ笉閫忔槑, 闆眰瑕嗙洊杩囧崐(涓栫晫杈圭晫 T12) (6.4397ms)
+鉁?甯冨眬+鍍忕礌: 闂ㄩ鐗?80)鍏ラ泦 鈥?60 鍙锋牸闀囧窘閽熷鍥?瑗块潰) + 61 鍙锋牸绾湪搴?鍏朵綑浜旈潰), 閫愬儚绱犺鏍肩洿璇?v2 S2) (5.9165ms)
+鉁?meshChunk: 闂ㄩ鐗岀珫鏉胯矾寰?鈥?涓撶敤灏忕洅璐磋タ缂? 瑗块潰 UV 钀藉浘妗堟牸鍏朵綑钀芥湪搴曟牸, 鍨潡涓婂簳闈㈠墧闄?v2 S2 鐏妸/搴婂弻鍏堜緥) (1.7189ms)
+鉁?meshChunk: 闂ㄩ鐗岀珫鏉块《鐐瑰厜鍙栭潰鏈濆悜閭绘牸 鈥?瑗块潰(鍥炬闈?涓嶅彇鑷韩鏍?鑷韩琚伄钄芥亽 0, pane/瀹炲績鏅€氶潰鍚屽彛寰? T4 杩斿伐) (1.7063ms)
+鉁?绡濈伀鏂藉伐鏈熸柇瑷€: 鍥涘紶 B 鍖?char art 琛屽鍏?16(UI 瀹氱 搂4.5-5 v1.9 鍒嗛潰鍥炲綊鍥涘紶; 鐕冪伓/鐕冧晶/鐔勭伓/鐔勪晶) (0.081ms)
+鉁?绡濈伀甯冨眬: 涓ゆ€佸叆闆嗗垎闈㈠弻 tile 鈥?81={椤?4/渚?5/搴?5}路82={椤?6/渚?7/搴?7}(UI 瀹氱 搂4.1 v1.9 鍒嗛潰鎺ョ嚎, T-C13), count=68 (1.2064ms)
+鉁?绡濈伀鍍忕礌(浣滃簾瀛樻。): 62 鍙锋牸閫愬瓧绗?v1.0 鏃х(T-C8)鍥哄畾鍍忕礌绮剧‘, C 搴曞櫔卤6%, 鏈ㄧ汗 d 鐭垝 4~5 閬?鈥?T-C13 璧蜂粎瀛樻。涓嶆帴绾? 鐢诲笀涓嶅緱鍒犻櫎 (6.2747ms)
+鉁?绡濈伀鍍忕礌(浣滃簾瀛樻。): 63 鍙锋牸閫愬瓧绗?v1.0 鏃х(T-C8)鍚屼綅褰㈠幓鐒板浐瀹氬儚绱犵簿纭? C 搴曞櫔卤6%, 鐏扮儸鏁ｆ枒 6~10 绮?y鈭圼2,8]) 鈥?T-C13 璧蜂粎瀛樻。涓嶆帴绾?(5.7869ms)
+鉁?绡濈伀鍍忕礌 v1.9: 鐕冪伓闈?64 鍙锋牸閫愬瓧绗?UI 瀹氱 搂4.2 鈥?鏈ㄦ L 鐜?d 鍐呯紭/鐒板洟/e 鍙屽姬/a 鏂戝浐瀹? C 鍦?noiseFill 卤6%, 鍏ㄦ牸涓嶉€忔槑(鐏堕潰淇) (5.3107ms)
+鉁?绡濈伀鍍忕礌 v1.9: 鐕冧晶鑴?65 鍙锋牸閫愬瓧绗?UI 瀹氱 搂4.2 鈥?閫忔槑鍖?alpha=0 鐪熼€?閽?alphaTest 绠＄嚎, 涓嶇敤 C 鏆楀簳鍥為€€), 鐏垖/鍘熸湪鍥哄畾, 鏈ㄧ汗 d 鐭垝 2~3 閬?r12 璧?1px 瀹?2px 楂?(6.4385ms)
+鉁?绡濈伀鍍忕礌 v1.9: 鐔勭伓闈?66 鍙锋牸閫愬瓧绗?UI 瀹氱 搂4.3 鈥?鏈ㄦ/鐏扮儸鍧?a/鐐績 k 鍥哄畾, C 鍦?noiseFill 卤6%, a 鏁ｆ枒琛ユ拻 per-tile 4~8 绮? 鍏ㄦ牸涓嶉€忔槑, 闆剁劙鑹?(5.8982ms)
+鉁?绡濈伀鍍忕礌 v1.9: 鐔勪晶鑴?67 鍙锋牸閫愬瓧绗?UI 瀹氱 搂4.3 鈥?r0~r6 鍏ㄩ€忔槑(闆剁伀鑸?, 鐐紳 a 缂?k 蹇冨浐瀹? 鍘熸湪鍚?65, a 鏁ｆ枒琛ユ拻 per-tile 4~8 绮?鐐紳澶栧洿) (6.095ms)
+鉁?绡濈伀鍙鲸鎬?v1.9: 鐕冪儳鎬佷袱 tile 鐒板洓妗ｅ悎璁?鈮?0px(闈欐€?94)涓旂櫧鑺寒榛?鈮?6px(闈欐€?46)/浣欑儸绾?8px/鐔勭伃鎬佷袱 tile 闆剁劙鑹查浂浣欑儸绾⒙锋渶楂樹寒鍍忕礌=鐏扮儸鐏?UI 瀹氱 搂4.4/搂4.5-1) (6.2088ms)
+鉁?绡濈伀纭畾鎬? 鍏牸(62/63 瀛樻。+64~67 鍒嗛潰)鍚?seed 涓ゆ缁樺埗閫愬儚绱犱竴鑷?mulberry32 绾緥, UI 瀹氱 搂4.5-3 v1.9 鍥?tile 鍏ㄨ蛋) (10.3602ms)
+鉁?绡濈伀鍥鹃泦鐩搁偦: 62/63 鏆楃偔搴?vs 61 闂ㄩ鐗屼寒鏈ㄥ簳(#C89858)鐏板害宸ぇ 鈥?LOD 涓茶壊绋嬪簭闈㈤敋(UI 瀹氱 搂4.1/搂4.5-4; 浜虹溂璧版煡褰?T-C12) (5.6291ms)
+鉁?绡濈伀 meshChunk v1.9: 涓ゆ€佽蛋鐭崐鏍兼墎鐩掑浘闆嗛€氶亾 鈥?5 闈?楂?0.4375(thin 7/16)/鍒嗛潰 UV 椤剁伓闈⒙峰洓渚т晶鑴嘎锋棤搴曢潰(UI 瀹氱 搂4.1 v1.9 鍒嗛潰鎺ョ嚎娑堣垂绔? T-C13) (1.7421ms)
+鉁?绡濈伀 meshChunk: 椤剁偣鍏夊彇鑷韩鏍?鈥?鐕冪儳鎬?light 15 澶滈潰鑷寒/鐔勭伃鎬佹殫鍧?UI 瀹氱 搂4.5-2 绋嬪簭闈? 浜虹溂澶滆鲸褰?T-C12) (1.501ms)
+鉁?meshChunk: 绡濈伀鐔勭伃鎬侀《鐐瑰厜鍙栭潰鏈濆悜閭绘牸 鈥?浜旈潰閫愰潰鍚勫彇鏈濆悜鏍?鐧芥樇涓婇偦 sky 15 椤堕潰楂樹寒, T-C8b T4 鍚屾瀯) (1.5308ms)
+鉁?meshChunk: 绡濈伀涓ゆ€佸彇鍏夊彛寰勪笉鍥為€€ 鈥?鐔勭伃鎬佸闂村叏閭绘棤鍏変粛璇绘殫鍧?搂4.5-2), 鐕冪儳鎬佽嚜浜粛鍙栬嚜韬牸(T-C8b 闆舵敼鍔ㄩ敋) (1.5183ms)
+鈩?tests 68
+鈩?suites 0
+鈩?pass 66
+鈩?fail 2
+鈩?cancelled 0
+鈩?skipped 0
+鈩?todo 0
+鈩?duration_ms 243.1175
+
+鉁?failing tests:
+
+test at test\texture-atlas.test.js:932:1
+鉁?绡濈伀鍍忕礌 v1.9: 鐕冧晶鑴?65 鍙锋牸閫愬瓧绗?UI 瀹氱 搂4.2 鈥?閫忔槑鍖?alpha=0 鐪熼€?閽?alphaTest 绠＄嚎, 涓嶇敤 C 鏆楀簳鍥為€€), 鐏垖/鍘熸湪鍥哄畾, 鏈ㄧ汗 d 鐭垝 2~3 閬?r12 璧?1px 瀹?2px 楂?(6.4385ms)
+  AssertionError [ERR_ASSERTION]: d 鑹插儚绱犱笉寰楀嚭鐜板湪鍘熸湪涓婄紭涔嬩笂 (2,10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:965:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1097:1
+鉁?绡濈伀 meshChunk v1.9: 涓ゆ€佽蛋鐭崐鏍兼墎鐩掑浘闆嗛€氶亾 鈥?5 闈?楂?0.4375(thin 7/16)/鍒嗛潰 UV 椤剁伓闈⒙峰洓渚т晶鑴嘎锋棤搴曢潰(UI 瀹氱 搂4.1 v1.9 鍒嗛潰鎺ョ嚎娑堣垂绔? T-C13) (1.7421ms)
+  AssertionError [ERR_ASSERTION]: 椤堕潰 UV 搴旇惤 64 鐕冪伓闈㈡牸(鍒嗛潰: 椤?淇鐏堕潰)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1123:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
