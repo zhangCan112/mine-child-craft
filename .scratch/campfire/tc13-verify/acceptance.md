@@ -62,7 +62,8 @@
 - pushCampfireBox 实际在 **js/mesh-core.js**(票面源码挂靠点写 js/voxel.js)——mesh 消费端
   小改已落该处, voxel.js 零触碰;
 - thin 常数在 **js/config.js** BLOCKS 两态行(非 voxel.js);
-- 测试名裁定记录: 新测试名均带「T-C13」+「v1.9」字样(PO 不过项 #1+定稿 v1.9 授权的载体)。
+- 测试名裁定记录: 11 个新测试名中带「v1.9」者 9、带「T-C13」者 3、两标齐全者 2——授权字样非全称覆盖,
+  但裁定授权全链可溯(票文 T-C13 要求 5/红提交 COMMIT_RED/red-cause.md 均载「PO 不过项 #1+定稿 v1.9 授权」原文)。
 
 ## 六、遗留陈旧点申报(不擅自改, 归各主管线)
 
