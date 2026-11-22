@@ -81,7 +81,13 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C11 | UI E 区：音效登记与接线 | T-C1, 设计定稿✅ | ☑ 已并入+听感走查 PASS（3b802ab+bb8a23c+fde4bb8，合并 ff5eef6；双轴评审 PASS；数值波形走查 PASS，音色美感终审归 PO 试玩） |
 | T-C12 | 收口：GLOSSARY+README 核账+验收走查汇总+全量回归 | T-C1~T-C11 + T-C8b 全部 | ☑ 已并入（daa410a+2b1b7e2，合并 fa043e5；双轴评审 PASS；9 词条+报告 9 节+走查 8/8） |
 | T-C13 | 视觉返工：篝火块分面观感（灶面/侧脸分 tile+thin 核实） | T-C1, T-C8, 定稿 v1.9✅ | ☑ 已并入+管线复验 PASS／PO 复验**不过**（口径升级：弃贴图做几何建模）→T-C13-R 已立票接手 |
-| T-C13-R | 二次返工：篝火几何建模化（独立组合 mesh+织席原木+炭堆+焰片动画） | T-C13, 定稿 v1.10✅ | ◐ architect 在飞（技术方案+任务拆解；必答题 a~j+性能红线+§5.2 技术建议） |
+| T-C13-R | 二次返工母票：篝火几何建模化（架构=静态驻 chunk 批+焰片全场景共享 sheet，方案 .scratch/campfire/tc13r-arch/） | T-C13, 定稿 v1.10✅ | ◐ 架构落定（architect 回执：否决每座 Group，dc 增量 ≈+1，装配链零改动），施工票 R-1~R-6 派生 |
+| T-C13-R1 | 图集九枚 tile 落集（PAINTERS 68~76+焰帧判据换新） | T-C13-R, 定稿 v1.10 | ◐ 派工中（tc13r1，无依赖无争议先行） |
+| T-C13-R2 | MeshCore 多部件几何（pushCampfireParts+layout 切换+ADR-0020 落册） | T-C13-R1 | ☐ |
+| T-C13-R3 | fx-core 增量面（flamePlanes+flamePhase+§5.2 转性档） | T-C13-R | ◐ 派工中（tc13r3，五裁已批：降档保留 2/1 粒/s+帧率 0.15s+渐弱 0.30 封顶+低核 ×2+N=1） |
+| T-C13-R4 | 焰片渲染适配（campfireField 场内共享 sheet，UV 翻页+错相） | T-C13-R1, T-C13-R3 | ☐ |
+| T-C13-R5 | 装配对账+台账重放恢复+守门收口（GLOSSARY 翻新随票） | T-C13-R2, T-C13-R4 | ☐ |
+| T-C13-R6 | C6' 基准重跑+收档（新基线+dc/tri 采样+错相结构断言） | T-C13-R5 | ☐ |
 
 状态图例：☐ 待领取 / ◐ 进行中（附分支名）/ ☑ 已并入（附提交序号）。
 「设计定稿✅」= edge「设计定稿落盘」已满足（UI 定稿 v1.1，2026-11-16）。
@@ -950,7 +956,7 @@ thin 常数）· test/texture-atlas.test.js（守门翻新）· test/voxel.test.
 
 ## T-C13-R 二次返工：篝火几何建模化（独立组合 mesh + 织席原木 + 炭堆 + 焰片动画）
 
-> 标签：`task`｜状态：◐ 架构先行中（architect 在飞：方案+拆解；必答题 a~j 含 h/i/j 三补问；性能红线细化；§5.2 技术建议归 design-lead 终裁）｜
+> 标签：`task`｜状态：◐ 架构落定施工中（architect 回执=方案 tc13r-arch/tc13r-arch.md+票册 tc13r-tickets.md：推荐「静态部件驻 chunk 批+焰片共享单 mesh」否决每座 Group——dc 增量 ≈+1/部件 =7/零新 js 文件/config·voxel·world·adventure 装配链零改动；拾取地基「产品无 mesh 拾取」已亲核成立；施工票图 R-1~R-6 见总览表与票册，R-1 已派、R-3 待设计线三项批）｜ADR-0020 随 R-2 落册（静态驻 chunk+拾取政策+焰片生命周期归属）｜设计线校阅 5 项转介中（均带缺省不悬空）｜
 > blocked-by：T-C13（**已满足**：已并入，其产出转基线）、定稿 v1.10（**已满足**：
 > 2026-11-22 核盘闭合入库）｜blocks：—（施工票按 architect 拆解派生，挂回本票）
 
