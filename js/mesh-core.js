@@ -7,7 +7,7 @@
    火把走专用小盒 pushTorch
    (MC 同款, mc-torch-model-research §1/§2)、pane 旗标走竖直薄板
    pushPane — 门/玻璃板, docs/door-window-design.md §5)、篝火走半格扁盒
-   pushCampfireBox(campfire 旗标两态 81/82, UI 定稿 §4.1 全脸同图)。
+   pushCampfireBox(campfire 旗标两态 81/82, UI 定稿 §4.1 v1.9 起分面双 tile)。
    零 THREE · 零 DOM ·
    加载零副作用 →
    Node 可直接加载单测; 同一份代码在主线程(world.js 兜底路径)与
@@ -124,10 +124,13 @@ const MeshCore = (() => {
     }
   }
 
-  /* 篝火(半格扁盒 + 图集, 篝火 T-C8; spec §3.4 半格实体 + UI 定稿 §4.1 全脸同图):
-     几何同 pushBedBox(thin 0.5 扁盒跳底面, top+4 侧五面); 贴图全脸同图——五面
-     满幅采样同一画师格(侧面主视图+顶面同图, number 简写经 atlasTileOf 取格),
-     侧面纵向 2:1 压扁(slab 同惯例)。取光语义与 pushThin/pushBedBox 不同构
+  /* 篝火(半格扁盒 + 图集, 篝火 T-C8; spec §3.4 半格实体; 贴图 T-C13 v1.9 起
+     分面双 tile——UI 定稿 §4.1 废全脸同图):
+     几何同 pushBedBox(thin 扁盒跳底面, top+4 侧五面, 两态同机); 贴图分面取格——
+     顶面=灶面 tile(俯视)/四侧面=侧脸 tile(正视), 逐面经 atlasTileOf 按面朝向取
+     (分面条目 {top,side,bottom}, pushBedBox topTile/sideTile 分面取法同构;
+     底面不绘故 bottom 不被查询, 条目三键齐兜底), 侧面纵向 2:1 压扁(slab 同
+     惯例, 整图满幅不裁窗)。取光语义与 pushThin/pushBedBox 不同构
      (彼两类透光格自身格有光; 本块 solid+opaque 挡光格自身格恒 0): 燃烧态取
      自身格(光源格 mkPolicy 例外自身格有值, light 15 夜面自亮读作发光体),
      熄灭态取面朝向邻格光(ADR 0012 pushGateSign T4 同构——白昼上邻天光点亮
@@ -135,11 +138,11 @@ const MeshCore = (() => {
      不乘 tint(图集通道无 colors, 噪点自带)。无 bed/wall/gateSign 旗标:
      campfire 旗标块专行分派, 不走十字面片/纯色兜底通道。 */
   function pushCampfireBox(t, x, y, z, lx, lz, h, ae, atlas, lsky, lblk, out) {
-    const tile = atlasTileOf(ae, FACES[3].dir); /* 全脸同图: 任一面朝向同格 */
-    const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
     for (let f=0; f<6; f++) {
       if (f===2) continue; // 底面贴地不可见, 不绘(pushBedBox 同款)
       const face = FACES[f];
+      const tile = atlasTileOf(ae, face.dir); /* 分面: 顶=灶面/四侧=侧脸(T-C13 §4.1) */
+      const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
       /* 两态取光分口径(每面四顶点共用 fSky/fBlk, pushGateSign 同构):
          out=熄灭态取面朝向邻格; 燃烧态取自身格(零改动锚) */
       let fSky; let fBlk;
