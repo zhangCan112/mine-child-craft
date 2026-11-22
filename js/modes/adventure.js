@@ -5250,6 +5250,14 @@ const AdventureMode = mkMode({
   chrome: {score: 'none', hotbar: 'flex'},
 
   init() {
+    /* 篝火特效场重挂(T-C13-R5 A 区装配缺口修复): switchMode 单一收口序
+       cleanup → Fx.clear() → clearWorld → init(), Fx.clear 已摘掉顶层装载期
+       挂的场( effects.js fields 清空)—— 每进场在此自挂回场, 幂等单例句柄
+       (effects.js campfireField 同 fx 二次挂返回既有句柄)保证不双绘。
+       守卫形态与顶层挂场一致: 无引擎域(effects.js 未载)缺席零挂。 */
+    if (typeof Fx !== 'undefined' && Fx && typeof Fx.campfireField === 'function') {
+      Fx.campfireField(advCampfireFx);
+    }
     const advLoad = advStore.load(); /* 读档+decode(桶归一化/老档两代迁移在 advSceneEditsDecode) */
     /* 地图/维度相位装桶(D8/D9 泛化, T6): 维度不进档——重进恒主世界(下界退出时
        pos 存 null); map 键恢复最后主世界图(老档缺省 home), 桶从档收养

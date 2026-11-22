@@ -7750,3 +7750,23 @@ test('T-C5 fx 增项(C9 评审 SPEC-3 移交): 读档恢复特效句柄重开 �
       '熄灭态格零特效照旧(重开只认燃烧态)');
 });
 
+test('R5-A 切模式重入重挂特效场: 每次进场 init 都对 Fx 重挂 campfireField(main.js ' +
+    'switchMode 序 cleanup→Fx.clear() 先摘场 — 挂场若只在模块顶层装载期一次, ' +
+    '摘后无人重挂=篝火特效渲染场全灭不可自愈)', () => {
+  /* 装配契约(T-C13-R5 A 区 §2.2 走查缺口): switchMode 单一收口序 =
+     cleanup → Fx.clear() → clearWorld → 新模式 init(), Fx.clear 摘掉
+     effects.js 全部特效场(含 campfireField 句柄)。campfireField 顶层
+     装载期挂一次是装载期一次性语义, init 必须每进场自挂回场。
+     本测只守「每进场必有挂场调用」; 同 fx 重挂的幂等单例句柄语义
+     (防双绘双 sheet)归 effects-campfire-sheet.test.js R5-A 守门, 两测
+     合取=切模式往返后恰一场一 sheet 自愈。 */
+  const fieldCalls = () => calls.filter((c) => c[0] === 'fx:campfireField').length;
+  freshInit();
+  assert.ok(fieldCalls() >= 1,
+      'init 后应有 campfireField 挂场调用(Fx.clear 摘场后 init 必须自挂) — ' +
+      '现实现 init 零挂场调用, 切模式往返后篝火特效渲染场全灭');
+  freshInit();
+  assert.ok(fieldCalls() >= 1,
+      '第二次进场仍重挂(每进场重挂契约, 防只补首次的半修) — 摘后再进场必须自愈');
+});
+

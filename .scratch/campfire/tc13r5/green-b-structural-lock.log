@@ -1,0 +1,28 @@
+✔ 引导链: index.html 全部脚本在共享词法环境依序加载无错 (119.4519ms)
+✔ MODES 影子清单: 键集与模式注册表等价, 每键是对象且 init 可调 (0.4802ms)
+✔ 训练营预算契约: 注册表 !gated 的每个 id 在 Budgets 有可入账/落账/判满的预算 (0.2651ms)
+✔ 关页兜底存档接线: main.js pagehide 分发 + mkMode 白名单透传可达 (0.3739ms)
+✔ switchMode 全 id 不抛: 注册表每个模式可切换且 MODES.cur 落位(尾探针, 不恢复现场) (4137.5126ms)
+✔ 开战部署冒烟: mix 编队 startBattle → 泵帧 → 队列清空+怪种全注册(状态探针, 不恢复现场) (94.5727ms)
+✔ 装备 T4 冒烟: setArmor 单穿/全穿/换件/卸空 + update 泵帧不炸(THREE 桩全放行罩执行链) (1.3825ms)
+✔ 竞技场 FX 收口: 残留龙息弹/毒云在重开(startBattle→resetBattleFx)即拆, 独自材质按到期路径 dispose (0.2953ms)
+✔ T-NPC-10 挂载覆盖: boot 冒烟扫到镇民链 18 文件 · 链上符号在位 · look 全注册 · 真实装载序下注册快照 20 条 (1.1138ms)
+✔ T-NPC-10 进镇摆放 14 实体(状态探针, 不恢复现场): advSetDim(town) 同步摆傀儡 — 快照对账注册表+anchorOf · 镇内幂等不翻倍 · 离镇清场 (1968.3648ms)
+✔ R4-1 惰性建+材质面: 零在册格零 sheet; 首 open 恰一张共享 sheet, MeshBasic{map=atlasMat.map, alphaTest 0.5, DoubleSide, vertexColors, 不透明队列}, frustumCulled=false (2.1728ms)
+✔ R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.5935ms)
+✔ R4-3 membership 全路径同步: open 挂/浇熄摘/重燃再挂/燃尽摘/挖掘摘 — 顶点数与 fx open 格集同拍且恒一张 sheet (0.5909ms)
+✔ R4-4 open=false 格永不贡献 plane(h 类禁令): 浇熄格/燃尽余韵格 cells() 在册但 sheet 零 plane; 燃尽余韵期满+存量清空后格回收 (0.6456ms)
+✔ R4-5 UV 翻页镜像: 帧窗=tileUV(74+fx.flameFrameAt) 全幅, 帧推进换窗(74/75/76 依次), 与 fx-core 单源逐拍一致 (1.1314ms)
+✔ R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布覆盖全部 3 帧(R5-c1 升锁, 零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (5.0367ms)
+✔ R4-7 渐弱(§5.8 扩含面片): tint=0 顶点色恒白不暗化; tint 增大亮度单调下降(亮度插值随 fx 渐弱窗) (0.3827ms)
+✔ R5-B 结构禁令锁(ADR-0020): effects.js 零 chunk 重建/体素权威符号引用 — 焰片建/摘只吃 fx 句柄缝, 禁扫 campfire id、禁挂区块重建钩子(h 类歧路两条) (0.4143ms)
+✔ R5-C4 恒定属性锁: 成员增摘(attach/detach)后 position/uv/color/index 属性对象身份不变 — 稳态零 GL 缓冲替换(r128 setAttribute 换新后旧 attr 的 GL 缓冲无释放口, 每换必滞留) (0.3114ms)
+✔ R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.6748ms)
+ℹ tests 20
+ℹ suites 0
+ℹ pass 20
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 8036.3059

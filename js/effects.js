@@ -199,6 +199,11 @@ const Fx = (function() {
      透明度全取核心产物, 这里零观感参数副本(参数表单源在 fx-core)。 */
   const fields = [];
   function campfireField(fx) {
+    const held = fields.find((f) => f.fx === fx);
+    if (held) return held; /* 单例句柄(幂等): switchMode 序 Fx.clear 摘场后 init 重挂同一
+       管理器是常态路径(T-C13-R5 A 区装配缺口修复), 同 fx 二次挂必须返回既有句柄 —
+       否则一场双挂=粒子双绘+双 sheet(dc 翻倍); removeField 摘除后 find 不到,
+       再挂是真新挂(句柄语义不变: 摘=整场摘) */
     const h = {fx, cells: new Map()};
     fields.push(h);
     return h;
@@ -294,7 +299,7 @@ const Fx = (function() {
   }
   /* ---------- 焰片 sheet(T-C13-R4, 方案 §2.1/§3-d/§3-i/§4): campfireField 场内
      全场景恰一张共享 mesh — 静态部件驻 chunk 批(ADR-0020), 焰片单独成 sheet:
-     惰性建(场内首格在册才建, 零 open 格零 mesh); 容量按需翻倍(mobs growMobBatch
+     惰性建(场内首格在册才建, 零在册格零 mesh; 在册格必曾 open(见下方门注释), 容量按需翻倍(mobs growMobBatch
      惯例); membership=fx.cells() 过滤 open===true(浇熄/燃尽余韵/挖后格在册但
      零 plane——h 类禁令); 帧号单源 fx.flameFrameAt(tile=74+帧号, UI 定稿 §4.1
      接线表 T_FLAME_F1~F3), tint 单源 fx.emitters().flame.tint, 零相位副本零墙钟;
@@ -311,14 +316,22 @@ const Fx = (function() {
     mesh.frustumCulled = false; // 单 mesh 恒绘: 三角≈8/火可忽略, 免包围球维护
     scene.add(mesh);
     f.sheet = {mesh, geo, mat, fires: new Map(), n: 0, cap: 0,
-      pos: null, uv: null, col: null, idx: null, uvAttr: null, colAttr: null,
+      pos: null, uv: null, col: null, idx: null,
+      posAttr: null, uvAttr: null, colAttr: null,
       dirty: true}; // 首拍必 rebuild: 零火 sheet 也有空属性面(count=0 可读)
     growSheetBuf(f.sheet, 1); // 预分配最小缓冲(rebuild 的 subarray 源就绪)
+    mkSheetAttrs(f.sheet); // 恒定属性对象就位(R5-c4: 满容量一次建, 绘段由 drawRange)
   }
   function disposeSheet(s) { // sheet 专用几何/材质可释放; map 属共享图集零触碰
     scene.remove(s.mesh);
     s.geo.dispose();
     s.mat.dispose();
+  }
+  function rebuildSheetAttrs(s) { // 成员集变后重定绘段+标脏上传(恒定属性, 稳态零 GL 替换 — R5-c4)
+    s.geo.setDrawRange(0, s.n * 12);
+    s.posAttr.needsUpdate = true;
+    s.uvAttr.needsUpdate = true;
+    s.colAttr.needsUpdate = true;
   }
   function fillSheetIndex(s) { // 每火 12 索引=2 片×2 三角(形状恒定, 扩容时全量预写)
     for (let i = 0; i < s.cap; i++) {
@@ -345,17 +358,28 @@ const Fx = (function() {
     s.cap = cap;
     fillSheetIndex(s);
   }
-  function rebuildSheetAttrs(s) { // 成员集变后按活火数重建属性视图(稳态不进此路)
-    const posAttr = new THREE.BufferAttribute(s.pos.subarray(0, s.n * 24), 3);
-    const uvAttr = new THREE.BufferAttribute(s.uv.subarray(0, s.n * 16), 2);
-    const colAttr = new THREE.BufferAttribute(s.col.subarray(0, s.n * 24), 3);
+  /* 恒定属性对象(R5-c4): 满容量一次建、只随缓冲扩容重建 — 绘制段数由
+     drawRange 控制(r128 渲染 indexed geometry 取 index.count 与 drawRange
+     的较小者画前段, 活段之后的数据是 swap-remove 留下的 stale 块, 不画)。
+     背景(评审 c4 查证): r128 全文件唯一 gl.deleteBuffer 在内部
+     WebGLAttributes.remove, 它只由「被渲染过 geometry 的 dispose 事件」
+     触发且只遍历当前 attributes——setAttribute 换新 attr 后旧 GL 缓冲
+     无任何产品可及的释放口(经 GC finalizer 兜底, 时机不定)。此前
+     rebuildSheetAttrs 每次成员变化 new BufferAttribute 替换=稳态滞留;
+     恒定复用从结构上消除该路径。 */
+  function mkSheetAttrs(s) {
+    const posAttr = new THREE.BufferAttribute(s.pos, 3);
+    const uvAttr = new THREE.BufferAttribute(s.uv, 2);
+    const colAttr = new THREE.BufferAttribute(s.col, 3);
     posAttr.setUsage(THREE.DynamicDrawUsage);
     uvAttr.setUsage(THREE.DynamicDrawUsage);
     colAttr.setUsage(THREE.DynamicDrawUsage);
     s.geo.setAttribute('position', posAttr);
     s.geo.setAttribute('uv', uvAttr);
     s.geo.setAttribute('color', colAttr);
-    s.geo.setIndex(new THREE.BufferAttribute(s.idx.subarray(0, s.n * 12), 1));
+    s.geo.setIndex(new THREE.BufferAttribute(s.idx, 1));
+    s.geo.setDrawRange(0, s.n * 12);
+    s.posAttr = posAttr;
     s.uvAttr = uvAttr;
     s.colAttr = colAttr;
   }
@@ -393,7 +417,10 @@ const Fx = (function() {
     s.colAttr.needsUpdate = true;
   }
   function attachFire(s, k, c) { // 挂火: 分槽+写形状; frame/tint 初值 -1=首帧必写
-    if (s.n === s.cap) growSheetBuf(s, s.n + 1);
+    if (s.n === s.cap) {
+      growSheetBuf(s, s.n + 1);
+      mkSheetAttrs(s); // 扩容换缓冲: 恒定属性随缓冲重建(log2 次数级, 非稳态路径)
+    }
     const slot = {base: s.n * 8, frame: -1, tint: -1};
     s.fires.set(k, slot);
     writeSheetFirePos(s, slot, c);
@@ -420,7 +447,7 @@ const Fx = (function() {
   }
   function syncSheetMembership(f, cellsAll) { // 惰性建+成员增摘(open 格集同拍)
     if (!f.sheet) {
-      if (cellsAll.length === 0) return; // 惰性: 场内首格在册才建(零 open 格零 sheet)
+      if (cellsAll.length === 0) return; // 惰性: 场内首格在册才建(零在册格零 sheet — 在册格必曾 open: quench/dig 悬空无害, R5-c2 口径)
       buildSheet(f);
     }
     const s = f.sheet;
@@ -442,12 +469,11 @@ const Fx = (function() {
   }
 
   function stepFields() {
-    /* 倒序遍历(fields 遍历序无生产语义: 场间独立, opaque 队列序与 children 序
-       无关): 后挂场的 sheet 先入 scene.children —— T-C13-R4 红装具 R4-8 的
-       find 探针按 children 序识别目标场 sheet(装具承诺「火序自由」的排列面),
-       倒序属实现自由度内的迎合, 粒子同步路径零触碰 */
-    for (let fi = fields.length - 1; fi >= 0; fi--) {
-      const f = fields[fi];
+    /* 正序遍历(fields 遍历序无生产语义: 场间独立, opaque 队列序与 children 序
+       无关): 先挂场先入 scene.children —— 原倒序是迎合 T-C13-R4 红装具 R4-8
+       find 探针谓词内抛错的权宜(评审收敛窗 c3 撤销, 探针改非抛错格匹配),
+       粒子同步路径零触碰 */
+    for (const f of fields) {
       const fx = f.fx;
       const live = new Set();
       const t = fx.now();

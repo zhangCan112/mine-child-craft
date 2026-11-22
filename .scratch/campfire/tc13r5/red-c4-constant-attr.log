@@ -1,0 +1,131 @@
+✔ R4-1 惰性建+材质面: 零在册格零 sheet; 首 open 恰一张共享 sheet, MeshBasic{map=atlasMat.map, alphaTest 0.5, DoubleSide, vertexColors, 不透明队列}, frustumCulled=false (2.1537ms)
+✔ R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.5637ms)
+✔ R4-3 membership 全路径同步: open 挂/浇熄摘/重燃再挂/燃尽摘/挖掘摘 — 顶点数与 fx open 格集同拍且恒一张 sheet (0.6242ms)
+✔ R4-4 open=false 格永不贡献 plane(h 类禁令): 浇熄格/燃尽余韵格 cells() 在册但 sheet 零 plane; 燃尽余韵期满+存量清空后格回收 (0.6121ms)
+✔ R4-5 UV 翻页镜像: 帧窗=tileUV(74+fx.flameFrameAt) 全幅, 帧推进换窗(74/75/76 依次), 与 fx-core 单源逐拍一致 (1.2143ms)
+✔ R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布覆盖全部 3 帧(R5-c1 升锁, 零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (5.0545ms)
+✔ R4-7 渐弱(§5.8 扩含面片): tint=0 顶点色恒白不暗化; tint 增大亮度单调下降(亮度插值随 fx 渐弱窗) (0.5383ms)
+✖ R5-C4 恒定属性锁: 成员增摘(attach/detach)后 position/uv/color/index 属性对象身份不变 — 稳态零 GL 缓冲替换(r128 setAttribute 换新后旧 attr 的 GL 缓冲无释放口, 每换必滞留) (1.0914ms)
+✔ R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.624ms)
+ℹ tests 9
+ℹ suites 0
+ℹ pass 8
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 67.912
+
+✖ failing tests:
+
+test at test\effects-campfire-sheet.test.js:535:1
+✖ R5-C4 恒定属性锁: 成员增摘(attach/detach)后 position/uv/color/index 属性对象身份不变 — 稳态零 GL 缓冲替换(r128 setAttribute 换新后旧 attr 的 GL 缓冲无释放口, 每换必滞留) (1.0914ms)
+  AssertionError [ERR_ASSERTION]: position 属性对象在 detach 后必须身份不变(恒定复用) — 成员变化走 drawRange+needsUpdate, 不换 BufferAttribute(r128 语义: setAttribute 替换后旧 GL 缓冲仅 geometry.dispose 时按当前 attributes 清理, 被替换者无释放口)
+  + actual - expected
+  ... Skipped lines
+  
+    Attribute {
+  +   array: Float32Array(24) [
+  -   array: Float32Array(48) [
+        20.325000762939453,
+        25.260000228881836,
+        10.5,
+        20.674999237060547,
+        25.260000228881836,
+  ...
+        10.324999809265137,
+  -     20.325000762939453,
+  -     25.260000228881836,
+  -     10.5,
+  -     20.674999237060547,
+  -     25.260000228881836,
+  -     10.5,
+  -     20.674999237060547,
+  -     25.709999084472656,
+  -     10.5,
+  -     20.325000762939453,
+  -     25.709999084472656,
+  -     10.5,
+  -     20.5,
+  -     25.260000228881836,
+  -     10.324999809265137,
+  -     20.5,
+  -     25.260000228881836,
+  -     10.675000190734863,
+  -     20.5,
+  -     25.709999084472656,
+  -     10.675000190734863,
+  -     20.5,
+  -     25.709999084472656,
+  -     10.324999809265137
+      ],
+  +   count: 8,
+  -   count: 16,
+      itemSize: 3,
+      needsUpdate: false
+    }
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\effects-campfire-sheet.test.js:554:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: {
+      array: Float32Array(24) [
+        20.325000762939453, 25.260000228881836,
+                      10.5, 20.674999237060547,
+        25.260000228881836,               10.5,
+        20.674999237060547, 25.709999084472656,
+                      10.5, 20.325000762939453,
+        25.709999084472656,               10.5,
+                      20.5, 25.260000228881836,
+        10.324999809265137,               20.5,
+        25.260000228881836, 10.675000190734863,
+                      20.5, 25.709999084472656,
+        10.675000190734863,               20.5,
+        25.709999084472656, 10.324999809265137
+      ],
+      itemSize: 3,
+      count: 8,
+      needsUpdate: false
+    },
+    expected: {
+      array: Float32Array(48) [
+        20.325000762939453, 25.260000228881836,               10.5,
+        20.674999237060547, 25.260000228881836,               10.5,
+        20.674999237060547, 25.709999084472656,               10.5,
+        20.325000762939453, 25.709999084472656,               10.5,
+                      20.5, 25.260000228881836, 10.324999809265137,
+                      20.5, 25.260000228881836, 10.675000190734863,
+                      20.5, 25.709999084472656, 10.675000190734863,
+                      20.5, 25.709999084472656, 10.324999809265137,
+        20.325000762939453, 25.260000228881836,               10.5,
+        20.674999237060547, 25.260000228881836,               10.5,
+        20.674999237060547, 25.709999084472656,               10.5,
+        20.325000762939453, 25.709999084472656,               10.5,
+                      20.5, 25.260000228881836, 10.324999809265137,
+                      20.5, 25.260000228881836, 10.675000190734863,
+                      20.5, 25.709999084472656, 10.675000190734863,
+                      20.5, 25.709999084472656, 10.324999809265137
+      ],
+      itemSize: 3,
+      count: 16,
+      needsUpdate: false
+    },
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":1}
+verdict: 断言红(AssertionError=1)
+failed_tests:
+  - R5-C4 恒定属性锁: 成员增摘(attach/detach)后 position/uv/color/index 属性对象身份不变 — 稳态零 GL 缓冲替换(r128 setAttribute 换新后旧 attr 的 GL 缓冲无释放口, 每换必滞留) (1.0914ms)
+  - failing tests:
+  - R5-C4 恒定属性锁: 成员增摘(attach/detach)后 position/uv/color/index 属性对象身份不变 — 稳态零 GL 缓冲替换(r128 setAttribute 换新后旧 attr 的 GL 缓冲无释放口, 每换必滞留) (1.0914ms)
