@@ -741,10 +741,12 @@ test('渐弱帧率降档+低核恒档(§5.8 v1.10「火小了也慢了」+设计
   assert.ok(fp && fp.frames && fp.frameS,
       'flamePlanes 在册(前置; 参数行本体由上一测试直证, 此处守卫防装具炸)');
   const T = fp.frames * fp.frameS;
-  /* R-7 注记: 上行 T 为桌面 tint=0 档周期(fs_eff=frameS 时恰=frames×fs_eff);
-     低核/渐弱档通用 period=frames×fs_eff(0.90s)。下行窗尾镜像 expectW 在本
-     确定性扫描格(g 相位恰使两公式同帧, R-7 沙盘实证 expectOld===expectNew)
-     与新公式同值 — 断言零改, 数值巧合有据可查。 */
+  /* R-7 注记: T 为桌面 tint=0 档周期(fs_eff=frameS); 渐弱档通用不变量
+     period=frames×fs_eff, fs_eff=frameS×(1+tint·fadeMul)(0.30s 封顶), 故窗尾
+     周期 TW=frames×frameS×(1+fadeMul)。下行窗尾镜像 expectW 直接以 TW/fs_eff
+     断言该新不变量(追令 minor 2: 与桌面格相位脱钩, 消除「g 恰使两式同帧」
+     的数值巧合耦合; 断言强化归类, 非红转绿, 如实申报)。 */
+  const TW = fp.frames * fp.frameS * (1 + fp.fadeMul);
   /* 节奏断言格: 确定性扫描找相位使 now0 处全额帧距余量 <0.005s 且低口径余量 >0.145s 的格
      (跨 0.15 边界不跨 0.30 边界 ⇔ m\'=(now0+p·T) mod 0.30 ∈[0.005, 0.155), 红测设计已预演) */
   const NOW0 = 10; const DELTA = 0.145;
@@ -772,8 +774,8 @@ test('渐弱帧率降档+低核恒档(§5.8 v1.10「火小了也慢了」+设计
   fxW.tick(DELTA);
   const w1 = fxW.flameFrameAt(g, 25, 10);
   assert.strictEqual(w1, w0, '渐弱窗尾帧距 0.30s: 同距 0.145s 不翻帧(火小了也慢了)');
-  /* 镜像公式: 窗尾 tint=1 帧距=frameS×(1+fadeMul)=0.30 */
-  const expectW = Math.floor((fxW.now() + fxW.flamePhase(g, 25, 10) * T) /
+  /* 镜像公式: 窗尾 tint=1 帧距 fs_eff=frameS×(1+fadeMul)=0.30, 周期 TW=frames×fs_eff */
+  const expectW = Math.floor((fxW.now() + fxW.flamePhase(g, 25, 10) * TW) /
       (fp.frameS * (1 + 1 * fp.fadeMul))) % fp.frames;
   assert.strictEqual(w1, expectW, '渐弱帧号=降档帧距公式(0.30s 封顶逐字)');
   /* 低核恒档: 帧距恒 0.30(lowMul=2), tint=0 与 tint=1 行为一致(恒档=不随渐弱再变) */
