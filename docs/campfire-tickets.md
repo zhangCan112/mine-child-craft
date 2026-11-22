@@ -83,7 +83,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C13 | 视觉返工：篝火块分面观感（灶面/侧脸分 tile+thin 核实） | T-C1, T-C8, 定稿 v1.9✅ | ☑ 已并入+管线复验 PASS／PO 复验**不过**（口径升级：弃贴图做几何建模）→T-C13-R 已立票接手 |
 | T-C13-R | 二次返工母票：篝火几何建模化（架构=静态驻 chunk 批+焰片全场景共享 sheet，方案 .scratch/campfire/tc13r-arch/） | T-C13, 定稿 v1.10✅ | ◐ 架构落定（architect 回执：否决每座 Group，dc 增量 ≈+1，装配链零改动），施工票 R-1~R-6 派生 |
 | T-C13-R1 | 图集九枚 tile 落集（PAINTERS 68~76+焰帧判据换新） | T-C13-R, 定稿 v1.10 | ☑ 已并入（0f3e3e5 红+1670fd3 绿+1d09443 merge+93625d0 修锚，合并 21a0a24；双轴评审 PASS；门禁树内 2485/2484/0/1；R-2/R-4 前置就位） |
-| T-C13-R2 | MeshCore 多部件几何（pushCampfireParts+layout 切换+ADR-0020 落册） | T-C13-R1 | ◐ 派工中（tc13r2 mech 泳道，与 R-4 并行零交集） |
+| T-C13-R2 | MeshCore 多部件几何（pushCampfireParts+layout 切换+ADR-0020 落册） | T-C13-R1 | ◐ 完工评审中（tc13r2 7ff9a69；红绿同票+ADR-0020 落册；门禁 2494/2493/0/1；CF_PARTS 三方对账 6/6） |
 | T-C13-R3 | fx-core 增量面（flamePlanes+flamePhase+§5.2 转性档） | T-C13-R | ☑ 已并入（684f3c0+8d9f4d5，合并 52f1647；双轴评审 PASS 零缺口；门禁 2480/2479/0/1；R-4 前置就位） |
 | T-C13-R4 | 焰片渲染适配（campfireField 场内共享 sheet，UV 翻页+错相） | T-C13-R1, T-C13-R3 | ◐ 派工中（tc13r4 ui 泳道，与 R-2 并行零交集） |
 | T-C13-R5 | 装配对账+台账重放恢复+守门收口（GLOSSARY 翻新随票） | T-C13-R2, T-C13-R4 | ☐ |
