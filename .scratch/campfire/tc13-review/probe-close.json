@@ -1,0 +1,89 @@
+{
+  "ok": true,
+  "cell": {
+    "x": 61,
+    "y": 30,
+    "z": 59
+  },
+  "atlasInfo": {
+    "cols": 16,
+    "rows": 16
+  },
+  "lit": {
+    "verts": 36,
+    "maxY": 30.4375,
+    "minY": 30,
+    "baseVerts": 24,
+    "meshIds": [
+      553
+    ],
+    "maxYrel": 0.4375,
+    "minYrel": 0
+  },
+  "alphaStats": {
+    "62": {
+      "tile": 62,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "63": {
+      "tile": 63,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "64": {
+      "tile": 64,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "65": {
+      "tile": 65,
+      "visible": 122,
+      "transparent": 134,
+      "total": 256,
+      "visibleRatio": 0.4766
+    },
+    "66": {
+      "tile": 66,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "67": {
+      "tile": 67,
+      "visible": 90,
+      "transparent": 166,
+      "total": 256,
+      "visibleRatio": 0.3516
+    }
+  },
+  "out": {
+    "verts": 36,
+    "maxY": 30.4375,
+    "minY": 30,
+    "baseVerts": 24,
+    "meshIds": [
+      568
+    ],
+    "maxYrel": 0.4375,
+    "minYrel": 0
+  },
+  "stone": {
+    "verts": 32,
+    "maxY": 31,
+    "minY": 30,
+    "baseVerts": 20,
+    "meshIds": [
+      583
+    ],
+    "maxYrel": 1,
+    "minYrel": 0
+  }
+}
