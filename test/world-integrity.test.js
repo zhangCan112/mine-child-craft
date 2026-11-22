@@ -92,8 +92,11 @@ function mkH() {
 function litAt(h, x, y, z) {
   return h.lightBlock[(y * h.D + z) * h.W + x];
 }
-/* ①光源格自亮 ②列首个挡光块以上天光满级 —— 挡光口径镜像 isOpaque(实心且
-   非玻璃, 未知 id 按实心兜底), 与 LightCore.mkPolicy.opaque 同判据独立实现 */
+/* ①光源格自亮 ②列首个挡光块以上天光满级 —— 扫描挡光口径独立实现(solid∧¬glass,
+   未知 id 按实心兜底; R-7/ADR-0021 注记: mkPolicy 光挡光已加 thin 例外=实心且
+   非玻璃且非薄块, 与视线 isOpaque 刻意分叉; 本扫描带「挡光块以上」是引擎直灌带
+   的子集, 熄态篝火/门额牌 thin 格透光下探只扩不缩, 旧口径扫描不变量不破 → 判据
+   保持零弱化, 仅注记归位) */
 function scanLightViolations(h) {
   const bad = [];
   const opaqueAt = (x, y, z) => {

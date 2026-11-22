@@ -362,6 +362,53 @@ test('§5.7 浇熄过渡: 即刻摘除零火苗残帧 · 白汽 pop(#f5f7f3, 0.3
   assert.strictEqual(fx.particles(FIRE.x, FIRE.y, FIRE.z).transients.length, 0, '白汽 0.8s 后散尽');
 });
 
+test('浇熄格回收(R-7 加带二): 浇熄格余韵期满查询面退场(燃尽同款对称) · 白汽散尽后格回收' +
+    '(cells 泄漏清零) · 窗口内 dig 悬空无害 · 燃尽对照回收不回退', () => {
+  coreReady();
+  /* 泄漏清零主面: 旧径 quench 不置时间戳 → 回收门只认 burnoutAt → 浇熄格永不
+     回收、永在 cells() 清单(adventure 82 常驻 → 每熄火位址整套场格 Group 滞留) */
+  const listed = (fx) => fx.cells().some(
+      (c) => c.x === FIRE.x && c.y === FIRE.y && c.z === FIRE.z);
+  const fx = mk();
+  fx.open(FIRE.x, FIRE.y, FIRE.z);
+  fx.tick(0.5);
+  fx.quench(FIRE.x, FIRE.y, FIRE.z);
+  assert.ok(listed(fx), '浇熄即刻: 格在册(open=false 过渡期, 白汽在飞)');
+  fx.tick(0.5); /* 累计 0.5s ≥ BURN_FLAME_S 0.4s 余韵期满 */
+  assert.strictEqual(listed(fx), false,
+      '浇熄 0.5s: 查询面退场(燃尽余韵期满同款对称; 旧径永在册必红)');
+  fx.tick(0.5); /* 累计 1.0s ≥ 白汽 0.8s hold */
+  const after = fx.particles(FIRE.x, FIRE.y, FIRE.z);
+  assert.strictEqual(
+      after.flame.length + after.smoke.length + after.vortex.length + after.transients.length, 0,
+      '白汽散尽后四数组全空(格回收, 瞬态池零残留)');
+  /* 在册新格不受误伤(回收门只清期满闭格) */
+  fx.open(11, 25, 10);
+  fx.tick(0.1);
+  assert.ok(fx.cells().some((c) => c.x === 11 && c.y === 25 && c.z === 10),
+      '新燃格恒在册(回收门不误伤开格)');
+  /* 窗口内 dig 悬空无害: 非开格早退(五纪律保留), 残格仍由回收门兜底清账 */
+  const fx2 = mk();
+  fx2.open(FIRE.x, FIRE.y, FIRE.z);
+  fx2.tick(0.5);
+  fx2.quench(FIRE.x, FIRE.y, FIRE.z);
+  fx2.dig(FIRE.x, FIRE.y, FIRE.z); /* 浇熄后 dig: !open 早退零副作用零删除 */
+  fx2.tick(0.1);
+  assert.ok(listed(fx2),
+      '浇熄+dig 窗口内不提前删格(挖=回收非事件, 摘除幂等语义保留)');
+  fx2.tick(0.5);
+  assert.strictEqual(listed(fx2), false,
+      '浇熄+dig 后仍按回收门清账(泄漏清零口径第二路径: 挖掉熄灭篝火也不滞留)');
+  /* 燃尽对照(保全): 既有回收语义不回退(回收门扩展不破燃尽路径) */
+  const fx3 = mk();
+  fx3.open(FIRE.x, FIRE.y, FIRE.z);
+  fx3.tick(0.5);
+  fx3.burnout(FIRE.x, FIRE.y, FIRE.z);
+  fx3.tick(0.5);
+  assert.strictEqual(listed(fx3), false,
+      '燃尽 0.5s: 查询面退场(既有语义, 回收门扩展不回退)');
+});
+
 test('挖掘=摘(§5.1): 即刻摘除零过渡零 pop · 燃尽渐熄中再 dig 不重启不炸(悬空无害)', () => {
   coreReady();
   const fx = mk();
@@ -636,7 +683,9 @@ test('flameFrameAt(x,y,z) 帧号纯函数(方案 §3-d: floor((now+phase·T)/fra
     assert.ok(Number.isInteger(f) && f >= 0 && f < fp.frames,
         '帧号=非负整数 <frames (t=' + acc.toFixed(2) + ' f=' + f + ')');
   }
-  /* 镜像公式断言(票面 §3-d 公式, 红测独立照写): f=floor((now+phase·T)/frameS)%frames, T=frames·frameS */
+  /* 镜像公式断言(票面 §3-d 公式, 红测独立照写): f=floor((now+phase·T)/frameS)%frames, T=frames·frameS
+     (R-7 注记: 通用不变量 T=frames×fs_eff — 桌面 tint=0 时 fs_eff=frameS 二者同值, 本断言数值不变;
+      渐弱/低核档见 fx-core flameFrameAt 注记) */
   fx.clear();
   fx.open(FIRE.x, FIRE.y, FIRE.z);
   fx.tick(0.5);
@@ -692,6 +741,10 @@ test('渐弱帧率降档+低核恒档(§5.8 v1.10「火小了也慢了」+设计
   assert.ok(fp && fp.frames && fp.frameS,
       'flamePlanes 在册(前置; 参数行本体由上一测试直证, 此处守卫防装具炸)');
   const T = fp.frames * fp.frameS;
+  /* R-7 注记: 上行 T 为桌面 tint=0 档周期(fs_eff=frameS 时恰=frames×fs_eff);
+     低核/渐弱档通用 period=frames×fs_eff(0.90s)。下行窗尾镜像 expectW 在本
+     确定性扫描格(g 相位恰使两公式同帧, R-7 沙盘实证 expectOld===expectNew)
+     与新公式同值 — 断言零改, 数值巧合有据可查。 */
   /* 节奏断言格: 确定性扫描找相位使 now0 处全额帧距余量 <0.005s 且低口径余量 >0.145s 的格
      (跨 0.15 边界不跨 0.30 边界 ⇔ m\'=(now0+p·T) mod 0.30 ∈[0.005, 0.155), 红测设计已预演) */
   const NOW0 = 10; const DELTA = 0.145;
@@ -740,6 +793,37 @@ test('渐弱帧率降档+低核恒档(§5.8 v1.10「火小了也慢了」+设计
   assert.strictEqual(l1b, l1a, '低核档窗尾 tint=1: 同行为(恒档不随 tint 复合放大, 封顶对称)');
   assert.ok(Math.abs(fp.frameS * fp.lowMul - fp.frameS * (1 + fp.fadeMul)) < 1e-9,
       '低核恒档帧距=桌面渐弱封顶帧距(0.30s, 设计对称)');
+});
+
+test('lowcore 相位窗(R-7 加带一): 低核档 50 火逐时刻帧覆盖=3 — 相位·T 铺满 fs_eff 整圈' +
+    '(翻页非冻结; 对旧不变量 T=frames×frameS 真红: 低核相位散布只落 ≤2 个帧号档)', () => {
+  coreReady();
+  const fx = mk({lowcore: true});
+  const fp = fx.params.flamePlanes;
+  assert.ok(fp && fp.frames === 3 && fp.lowMul === 2,
+      '前置: 3 帧×低核 lowMul 2(参数行单源, 分档只走因子)');
+  /* bench-c6 同款 50 摆位: 7×7 去四角 45 + 中轴补 5(确定性网格序, 零随机) */
+  const grid = [];
+  for (let row = 0; row < 7; row++) {
+    for (let col = 0; col < 7; col++) {
+      if ((row === 0 || row === 6) && (col === 0 || col === 6)) continue;
+      grid.push({x: col * 5, y: 1, z: row * 5});
+    }
+  }
+  for (let k = 0; k < 5; k++) grid.push({x: (3 + k) * 5, y: 1, z: 7 * 5});
+  assert.strictEqual(grid.length, 50, '摆位装具自检: 50 座');
+  for (const c of grid) fx.open(c.x, c.y, c.z);
+  /* 36 采样时刻(0.05s×36=1.8s ≈ 6 个 0.30s 帧步周期, bench-c6 同协议)逐时刻覆盖 3 帧:
+     低核 fs_eff=0.30s, 相位偏移 phase·T 须铺满一个 0.30s 帧距的整圈(T=frames×fs_eff=0.90s)
+     → 任一时刻 50 格帧分布恒 3 帧; 旧 T=0.45s 时散布跨度 <2 帧步 → 覆盖塌缩 ≤2(冻结) */
+  for (let t = 0; t < 36; t++) {
+    fx.tick(0.05);
+    const d = [0, 0, 0];
+    for (const c of grid) d[fx.flameFrameAt(c.x, c.y, c.z)]++;
+    const covered = d.filter((n) => n > 0).length;
+    assert.strictEqual(covered, 3,
+        '低核 t=' + fx.now().toFixed(2) + 's 帧分布覆盖 3 帧(实测 [' + d.join(',') + '])');
+  }
 });
 
 /* ============ ⑨ 源码卫生扫描(零墙钟/零裸随机/零引擎零 DOM 实调/零 campfire 音效字面量) ============ */
