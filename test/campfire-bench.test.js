@@ -67,9 +67,9 @@ test('基准·粒子面: 50 火全额档稳态——旋涡恰 16/火, 火苗烟�
     /* 同距排序 tie-break 按键序: 恰 3 座全额、余 47 座降半(§5.9 NEAR_N=3) */
     assert.strictEqual(ps.vortex.length, em.budget === 'full' ? 16 : 8,
         '旋涡激活数=档位数(全额 16/降半 8, 渐起期满)');
-    /* 火苗: 全额 6/s×寿命上界 0.7s=4.2 → 存活 ≤5; 降半 3/s×0.7=2.1 → ≤3 */
-    assert.ok(ps.flame.length <= (em.budget === 'full' ? 5 : 3),
-        '火苗存活数不破 rate×lifeMax 上界 (' + em.budget + ' 档实测 ' + ps.flame.length + ')');
+    /* 火苗: v1.10 §5.2 转性降档——全额 2/s×寿命上界 0.7s=1.4 → 存活 ≤2; 降半 1/s×0.7=0.7 → ≤1 */
+    assert.ok(ps.flame.length <= (em.budget === 'full' ? 2 : 1),
+        '火苗存活数不破 rate×lifeMax 上界 (v1.10 降档 2/1 粒/s, ' + em.budget + ' 档实测 ' + ps.flame.length + ')');
     /* 烟: 恒 2/s(预算不降档/渐弱不衰减)×寿命上界 4.5s=9 → ≤10 */
     assert.ok(ps.smoke.length <= 10,
         '烟存活数不破 2/s×4.5s 上界 (实测 ' + ps.smoke.length + ')');
@@ -77,8 +77,9 @@ test('基准·粒子面: 50 火全额档稳态——旋涡恰 16/火, 火苗烟�
   }
   assert.strictEqual(full, 3, '全额档恰 3 座');
   assert.strictEqual(near, 47, '降半档恰 47 座');
-  /* 稳态总存活宽松结构上界(50×(5+10+16)=1550; 实测量级见基准报告, 此处只防翻倍级漂移) */
-  assert.ok(totalAlive <= 1550, '50 火稳态总存活 ≤ 结构上界 (实测 ' + totalAlive + ')');
+  /* 稳态总存活宽松结构上界(50×(2+10+16)=1400, v1.10 降档重算; 实测量级见基准报告,
+     此处只防翻倍级漂移) */
+  assert.ok(totalAlive <= 1400, '50 火稳态总存活 ≤ 结构上界 (实测 ' + totalAlive + ')');
 });
 
 test('基准·粒子面: 远火档(>40 格)只留烟——火苗清零/旋涡归零/柔柱透明度乘子 0', () => {
@@ -114,8 +115,8 @@ test('基准·粒子面: 低核分档复验(IS_LOWCORE_TOUCH 口径)——参数
   const cells = mkGrid50();
   const hi = CampfireFxCore.mkCampfireFx({distOf: () => 10});
   const lo = CampfireFxCore.mkCampfireFx({lowcore: true, distOf: () => 10});
-  assert.strictEqual(hi.params.flame.rate, 6, '桌面火苗 6/s');
-  assert.strictEqual(lo.params.flame.rate, 3, '低核火苗 3/s(§5.9 减半)');
+  assert.strictEqual(hi.params.flame.rate, 2, '桌面火苗 2/s(v1.10 §5.2 转性降档)');
+  assert.strictEqual(lo.params.flame.rate, 1, '低核火苗 1/s(v1.10 降档 3→1 后 §5.9 减半档)');
   assert.strictEqual(lo.params.smoke.rate, 1, '低核烟 1/s');
   assert.strictEqual(lo.params.vortex.count, 8, '低核旋涡 8');
   warmFx(hi, cells, 12);
