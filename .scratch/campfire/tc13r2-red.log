@@ -1,0 +1,194 @@
+✔ 布局: 新方块 36~62 每个都有格子且格号合法(未入集方块走纯色兜底) (3.9861ms)
+✔ 布局+像素: 战利品宝箱(71)入集 — 顶/侧分格红金配色, 全不透明(den-nest §7.5 D16) (9.1506ms)
+✔ 布局: 黑巢地上件入集(den-nest §2.1) — 苔石/黑曜石/发光岩各占一格; 门面/熄门回退玻璃通道不入集 (2.0693ms)
+✔ 像素: 黑巢件不透明口径 — 苔石/黑曜石/发光岩全不透明(门面已回退玻璃通道不入集) (6.3675ms)
+✔ 布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格) (1.2916ms)
+✔ 布局: 图集画布为正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款) (6.0669ms)
+✔ UV: 每个被引用的格 tileUV 落在 [0,1] 且两两不重叠 (2.1976ms)
+✔ 确定性: 两次生成逐像素一致(噪点/斑点用种子化伪随机, 同 seed 同图) (19.8327ms)
+✔ 像素: 每个被引用格至少有一个非透明像素; 植物类有透明像素(alpha 裁切前提) (7.5143ms)
+✔ meshChunk: 图集方块走 atlas 通道 — 煤矿立方体 6 面, UV 全落在煤矿格内 (1.7648ms)
+✔ meshChunk: 顶/侧/底分格 — 草地三面各归各格(草顶/草侧/泥土底) (1.5949ms)
+✔ meshChunk: opts 不带 atlas → 入集方块回落纯色通道(存量调用方零侵入) (1.4969ms)
+✔ meshChunk: 薄块图集走十字面片 — 草丛 2 面×正反共 4 面, 几何全高(UV 全落格) (1.5997ms)
+✔ meshChunk: 生态地图薄块(兰花)同走十字面片 — 4 面 UV 全落兰花格 (1.431ms)
+✔ meshChunk: 床(bed 旗标)走薄块扁盒图集通道 — 5 面盒(无底面), 高度 0.55, 顶/侧分格 (1.8544ms)
+✔ meshChunk: 床头枕向按床尾方位旋转 — 床尾在东则枕贴西缘(取向不存档, 世界状态派生) (1.5154ms)
+✔ meshChunk: 床无图集注入回落实心通道纯色扁盒(存量行为零变化) (1.8667ms)
+✔ 床贴图像素(床观感票): 床顶白枕在 canvas 顶行(=世界 −Z 北端)+毯身红; 床侧上毯下木框 (5.7153ms)
+✔ meshChunk: 图集立方体邻面剔除同实心规则 — 相邻两煤矿共界面剔成 10 面 (1.861ms)
+✔ makeCanvas: doc 桩注入 — 尺寸按图集, putImageData 像素与 paintAll 一致 (16.2225ms)
+✔ 布局+像素: 远古残骸(73)入集 — 整格同图同心方环螺旋纹, 全不透明(装备系统 T7) (6.2596ms)
+✔ 布局+像素: 覆雪树叶(74)入集 — 整格同图雪盖针叶底, 全不透明, 雪层覆盖过半(世界边界 T12) (7.0128ms)
+✔ 布局+像素: 门额牌(80)入集 — 60 号格镇徽钟塔图(西面) + 61 号格纯木底(其余五面), 逐像素规格直译(v2 S2) (6.2216ms)
+✔ meshChunk: 门额牌竖板路径 — 专用小盒贴西缘, 西面 UV 落图案格其余落木底格, 垫块上底面剔除(v2 S2 火把/床双先例) (1.9642ms)
+✔ meshChunk: 门额牌竖板顶点光取面朝向邻格 — 西面(图案面)不取自身格(自身被遮蔽恒 0, pane/实心普通面同口径, T4 返工) (1.8769ms)
+✔ 篝火施工期断言 v1.10: 九张 B 区 char art 行宽全=16(UI 定稿 §4.5-5 连续性: v1.3 两张→v1.9 四张→v1.10 九张; 端面/皮侧/燃顶/燃侧/熄顶/熄侧/焰帧×3; §4.6 存档稿与 §3.2 图标稿口径不在本断言面) (0.0966ms)
+✖ 篝火布局 R-2: 两态切部件表形状 — 81={logEnd:68,logSide:69,top:70,side:71}·82={logEnd:68,logSide:69,top:72,side:73}(UI 定稿 §4.1 v1.10 tile 接线表逐键, T-C13-R2), count=77 (1.9899ms)
+✔ 篝火像素(作废存档): 62 号格逐字符=v1.0 旧稿(T-C8)固定像素精确, C 底噪±6%, 木纹 d 短划 4~5 道 — T-C13 起仅存档不接线, 画师不得删除 (6.7094ms)
+✔ 篝火像素(作废存档): 63 号格逐字符=v1.0 旧稿(T-C8)同位形去焰固定像素精确, C 底噪±6%, 灰烬散斑 6~10 粒(y∈[2,8]) — T-C13 起仅存档不接线 (5.8281ms)
+✔ 篝火像素 v1.9: 燃灶面 64 号格逐字符=UI 定稿 §4.2 — 木框 L 环/d 内缘/焰团/e 双弧/a 斑固定, C 地 noiseFill ±6%, 全格不透明(灶面俯视) (6.426ms)
+✔ 篝火像素 v1.9: 燃侧脸 65 号格逐字符=UI 定稿 §4.2 — 透明区 alpha=0 真透(钉 alphaTest 管线, 不用 C 暗底回退), 火舌/原木固定, 木纹 d 短划 2~3 道 r12 起 1px 宽 2px 高 (6.0208ms)
+✔ 篝火像素 v1.9: 熄灶面 66 号格逐字符=UI 定稿 §4.3 — 木框/灰烬坑 a/炭心 k 固定, C 地 noiseFill ±6%, a 散斑补撒 per-tile 4~8 粒, 全格不透明, 零焰色 (5.8875ms)
+✔ 篝火像素 v1.9: 熄侧脸 67 号格逐字符=UI 定稿 §4.3 — r0~r6 全透明(零火舌), 炭缝 a 缘 k 心固定, 原木同 65, a 散斑补撒 per-tile 4~8 粒(炭缝外围) (6.1646ms)
+✔ 篝火像素 v1.10: 原木端面 68 号格逐字符=UI 定稿 §4.2 — 外皮 d 环/年轮 L·l 三重方环/中心 k 节疤 4×4 固定, 全格不透明零 rng (5.8399ms)
+✔ 篝火像素 v1.10: 原木皮侧 69 号格逐字符=UI 定稿 §4.2 — 上下皮缘 d/L 底横纹+l 受光长条+短划纹固定, 全格不透明零 rng (6.0015ms)
+✔ 篝火像素 v1.10: 炭堆燃顶 70 号格逐字符=UI 定稿 §4.2 — a 灰烬地满铺+k 炭斑三群+f 橙芯嵌炭内+e 灼点固定, 全格不透明零 rng (6.5626ms)
+✔ 篝火像素 v1.10: 炭堆燃侧 71 号格逐字符=UI 定稿 §4.2 — 顶底 a 灰缘+k 炭主体+中央竖向橙缝 f/F+e 灼点固定, 全格不透明零 rng (5.9736ms)
+✔ 篝火像素 v1.10: 炭堆熄顶 72 号格逐字符=UI 定稿 §4.3 — a 灰烬主+k 露头斑(与 70 同构三群位), 全域零焰色零 e, 全格不透明零 rng (6.2113ms)
+✔ 篝火像素 v1.10: 炭堆熄侧 73 号格逐字符=UI 定稿 §4.3 — a 灰主体+竖向 k 暗缝(橙缝冷灭残迹), 全域零焰色零 e, 全格不透明零 rng (5.8938ms)
+✔ 篝火像素 v1.10: 焰帧 F1 74 号格逐字符=UI 定稿 §4.2 — 中立位相火舌(外 f→F→W→w 白芯/焰根 e), alpha 真透零 rng (5.7175ms)
+✔ 篝火像素 v1.10: 焰帧 F2 75 号格逐字符=UI 定稿 §4.2 — 左倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (6.2792ms)
+✔ 篝火像素 v1.10: 焰帧 F3 76 号格逐字符=UI 定稿 §4.2 — 右倾位相火舌(同一火舌摆动/翻页帧), alpha 真透零 rng (5.8931ms)
+✔ 篝火可辨性 v1.10: 焰帧 74~76 单帧焰四档 ≥80px(静态 84~86)且白芯亮黄 ≥20px(静态 27~30)/三帧焰形互异/燃顶 70 杂色判据(k 斑 ≥3 块+f 橙芯 ≥3 粒+e 灼点 ≥1)/熄顶 72 转灰(a 主导+k 露头斑 ≤4)/熄态 72/73 零焰色零 e/燃熄侧 71 vs 73 成对可辨(亮部=f vs 亮部=a)(UI 定稿 §4.4 v1.10 判据面; v1.9 灶面 94px 口径随 64~67 废弃退役) (7.0024ms)
+✔ 篝火确定性 v1.10: 十五格(62~67 存档+68~76 v1.10 九格)同 seed 两次绘制逐像素一致(mulberry32 纪律, UI 定稿 §4.5-3 九 tile 全走) (10.9318ms)
+✔ 篝火图集相邻 v1.10: 走查对象=68~76 vs 61~67 含存档区+fallback 燃熄成对(70↔72/71↔73) — LOD 串色程序面锚(UI 定稿 §4.1/§4.5-4 v1.10; 人眼走查归 design-lead 管线) (6.0479ms)
+✖ 篝火 meshChunk R-2: 多部件几何 — 静态件 6(织席 2×2 两轴交错+炭堆主盒+错位小盒×1)+部件 ≤7/炭堆顶 ≤0.35/静态整体 ≤0.5/贴地跳底面(UI 定稿 §4.1/§4.4 v1.10, T-C13-R2) (2.0568ms)
+✖ 篝火 meshChunk R-2: CF_PARTS 值表逐值=方案 §4(几何尺寸权威) — 原木 0.75×0.15 两轴分层心 0.29/0.71/主盒 0.4 见方/小盒 0.2 见方心(0.56,0.56)沉入 0.06 (1.5154ms)
+✖ 篝火 meshChunk R-2: 两态 tile 分派 — 原木端面 68/皮侧 69(燃熄共用)+炭堆顶 70 侧 71(燃)/顶 72 侧 73(熄) 逐面落格, 每一绘出面 UV 落本态部件表四格之一(UI 定稿 §4.1 接线表) (1.643ms)
+✖ 篝火几何不变量 R-2: 全部件包围盒 ⊆ 自有格 [0,1)³ — 零侵入邻格(ADR-0020 拾取配套: 邻格拾取语义零污染, 方案 b 题) (1.5417ms)
+✔ 篝火几何不变量 R-2: 任意两部件无共面重叠面 — z-fight 静态免疫(面片对面非共面判定, 方案 §4) (1.4361ms)
+✔ 篝火几何不变量 R-2: 同输入同输出零随机 — 同 pack 两次网格化+两独立 vm 重载逐字节一致(§4.5-3 无 rng 几何, 确定性重放红线) (3.0712ms)
+✔ 篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自亮/熄灭态暗块(UI 定稿 §4.5-2 程序面; 人眼夜辨归 T-C12) (1.8943ms)
+✔ meshChunk: 篝火熄灭态顶点光取面朝向邻格 — 逐面各取朝向格(R-2 多部件换载体, 白昼上邻 sky 15 顶面高亮, T-C8b T4 同构) (1.5819ms)
+✔ meshChunk: 篝火两态取光口径不回退 — 熄灭态夜间全邻无光仍读暗块(§4.5-2), 燃烧态自亮仍取自身格(T-C8b 零改动锚) (2.6051ms)
+ℹ tests 54
+ℹ suites 0
+ℹ pass 49
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 312.8515
+
+✖ failing tests:
+
+test at test\texture-atlas.test.js:1011:1
+✖ 篝火布局 R-2: 两态切部件表形状 — 81={logEnd:68,logSide:69,top:70,side:71}·82={logEnd:68,logSide:69,top:72,side:73}(UI 定稿 §4.1 v1.10 tile 接线表逐键, T-C13-R2), count=77 (1.9899ms)
+  AssertionError [ERR_ASSERTION]: 燃烧态部件表恰={logEnd:68,logSide:69,top:70,side:71}(§4.1 接线表逐键)
+  + actual - expected
+  
+    {
+  +   bottom: 65,
+  +   side: 65,
+  +   top: 64
+  -   logEnd: 68,
+  -   logSide: 69,
+  -   side: 71,
+  -   top: 70
+    }
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\texture-atlas.test.js:1023:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: { top: 64, side: 65, bottom: 65 },
+    expected: { logEnd: 68, logSide: 69, top: 70, side: 71 },
+    operator: 'deepStrictEqual',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1477:1
+✖ 篝火 meshChunk R-2: 多部件几何 — 静态件 6(织席 2×2 两轴交错+炭堆主盒+错位小盒×1)+部件 ≤7/炭堆顶 ≤0.35/静态整体 ≤0.5/贴地跳底面(UI 定稿 §4.1/§4.4 v1.10, T-C13-R2) (2.0568ms)
+  AssertionError [ERR_ASSERTION]: 静态部件=6(4 原木+主盒+小盒×1, N=1 已裁): 实际 2
+  
+  2 !== 6
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\texture-atlas.test.js:1488:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 6,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1532:1
+✖ 篝火 meshChunk R-2: CF_PARTS 值表逐值=方案 §4(几何尺寸权威) — 原木 0.75×0.15 两轴分层心 0.29/0.71/主盒 0.4 见方/小盒 0.2 见方心(0.56,0.56)沉入 0.06 (1.5154ms)
+  AssertionError [ERR_ASSERTION]: 部件数=值表条数
+  
+  2 !== 6
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\texture-atlas.test.js:1538:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 6,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1547:1
+✖ 篝火 meshChunk R-2: 两态 tile 分派 — 原木端面 68/皮侧 69(燃熄共用)+炭堆顶 70 侧 71(燃)/顶 72 侧 73(熄) 逐面落格, 每一绘出面 UV 落本态部件表四格之一(UI 定稿 §4.1 接线表) (1.643ms)
+  AssertionError [ERR_ASSERTION]: 前置: 六静态部件(两态同结构 §4.1)
+  
+  2 !== 6
+  
+      at checkState (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\texture-atlas.test.js:1561:12)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\texture-atlas.test.js:1595:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 6,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1599:1
+✖ 篝火几何不变量 R-2: 全部件包围盒 ⊆ 自有格 [0,1)³ — 零侵入邻格(ADR-0020 拾取配套: 邻格拾取语义零污染, 方案 b 题) (1.5417ms)
+  AssertionError [ERR_ASSERTION]: 部件 x ∈ [8,9): 107,5,107,108,5.4375,108
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\texture-atlas.test.js:1607:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":5}
+verdict: 断言红(AssertionError=5)
+failed_tests:
+  - 篝火布局 R-2: 两态切部件表形状 — 81={logEnd:68,logSide:69,top:70,side:71}·82={logEnd:68,logSide:69,top:72,side:73}(UI 定稿 §4.1 v1.10 tile 接线表逐键, T-C13-R2), count=77 (1.9899ms)
+  - 篝火 meshChunk R-2: 多部件几何 — 静态件 6(织席 2×2 两轴交错+炭堆主盒+错位小盒×1)+部件 ≤7/炭堆顶 ≤0.35/静态整体 ≤0.5/贴地跳底面(UI 定稿 §4.1/§4.4 v1.10, T-C13-R2) (2.0568ms)
+  - 篝火 meshChunk R-2: CF_PARTS 值表逐值=方案 §4(几何尺寸权威) — 原木 0.75×0.15 两轴分层心 0.29/0.71/主盒 0.4 见方/小盒 0.2 见方心(0.56,0.56)沉入 0.06 (1.5154ms)
+  - 篝火 meshChunk R-2: 两态 tile 分派 — 原木端面 68/皮侧 69(燃熄共用)+炭堆顶 70 侧 71(燃)/顶 72 侧 73(熄) 逐面落格, 每一绘出面 UV 落本态部件表四格之一(UI 定稿 §4.1 接线表) (1.643ms)
+  - 篝火几何不变量 R-2: 全部件包围盒 ⊆ 自有格 [0,1)³ — 零侵入邻格(ADR-0020 拾取配套: 邻格拾取语义零污染, 方案 b 题) (1.5417ms)
+  - failing tests:
+  - 篝火布局 R-2: 两态切部件表形状 — 81={logEnd:68,logSide:69,top:70,side:71}·82={logEnd:68,logSide:69,top:72,side:73}(UI 定稿 §4.1 v1.10 tile 接线表逐键, T-C13-R2), count=77 (1.9899ms)
+  - 篝火 meshChunk R-2: 多部件几何 — 静态件 6(织席 2×2 两轴交错+炭堆主盒+错位小盒×1)+部件 ≤7/炭堆顶 ≤0.35/静态整体 ≤0.5/贴地跳底面(UI 定稿 §4.1/§4.4 v1.10, T-C13-R2) (2.0568ms)
+  - 篝火 meshChunk R-2: CF_PARTS 值表逐值=方案 §4(几何尺寸权威) — 原木 0.75×0.15 两轴分层心 0.29/0.71/主盒 0.4 见方/小盒 0.2 见方心(0.56,0.56)沉入 0.06 (1.5154ms)
+  - 篝火 meshChunk R-2: 两态 tile 分派 — 原木端面 68/皮侧 69(燃熄共用)+炭堆顶 70 侧 71(燃)/顶 72 侧 73(熄) 逐面落格, 每一绘出面 UV 落本态部件表四格之一(UI 定稿 §4.1 接线表) (1.643ms)
+  - 篝火几何不变量 R-2: 全部件包围盒 ⊆ 自有格 [0,1)³ — 零侵入邻格(ADR-0020 拾取配套: 邻格拾取语义零污染, 方案 b 题) (1.5417ms)

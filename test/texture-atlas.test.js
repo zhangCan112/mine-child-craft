@@ -27,11 +27,14 @@ function loadAtlas() {
   return ctx.__t;
 }
 
-/* 布局条目 → 该方块引用的全部格号(number 简写=全格同图) */
+/* 布局条目 → 该方块引用的全部格号(number 简写=全格同图; 分面条目=top/side/bottom;
+   部件表条目(R-2 v1.10)=logEnd/logSide/top/side——bottom 可缺(篝火贴地跳底面,
+   底面永不取格), 缺键滤掉防 usedTiles 覆盖面循环拿 undefined) */
 function tileSet(t, id) {
   const e = t.TextureAtlas.layout.tiles[id];
   assert.ok(e, '方块 ' + id + '(' + (t.BLOCKS[id] ? t.BLOCKS[id].name : '?') + ') 应在图集布局中');
-  return typeof e === 'number' ? [e] : [e.top, e.side, e.bottom];
+  if (typeof e === 'number') return [e];
+  return [e.top, e.side, e.bottom, e.logEnd, e.logSide].filter((x) => x !== undefined);
 }
 
 /* 全部被引用的格号去重 */
@@ -1005,25 +1008,26 @@ test('篝火施工期断言 v1.10: 九张 B 区 char art 行宽全=16(UI 定稿 
   }
 });
 
-test('篝火布局: 两态入集分面双 tile — 81={顶64/侧65/底65}·82={顶66/侧67/底67}(UI 定稿 §4.1 v1.9 分面接线, T-C13), count=77', () => {
+test('篝火布局 R-2: 两态切部件表形状 — 81={logEnd:68,logSide:69,top:70,side:71}·82={logEnd:68,logSide:69,top:72,side:73}' +
+    '(UI 定稿 §4.1 v1.10 tile 接线表逐键, T-C13-R2), count=77', () => {
   const t = loadAtlas();
   assert.strictEqual(t.B_CAMPFIRE, 81, '前置: 燃烧态 id=81(T-C1 已落)');
   assert.strictEqual(t.B_CAMPFIRE_OUT, 82, '前置: 熄灭态 id=82(T-C1 已落)');
   const lit = t.TextureAtlas.layout.tiles[t.B_CAMPFIRE];
   const out = t.TextureAtlas.layout.tiles[t.B_CAMPFIRE_OUT];
-  /* 分面条目三键齐(bottom=side 兜底抄床/宝箱先例): 否则 usedTiles 覆盖面循环
-     拿 undefined 格号即崩——这是保护既有守门机器, 非过度约束 */
-  assert.ok(lit && typeof lit === 'object', '燃烧态应分面条目(object, v1.9 废全脸同图数值简写)');
-  assert.ok(out && typeof out === 'object', '熄灭态应分面条目(object)');
-  assert.strictEqual(lit.top, 64, '燃烧态顶面=64 燃灶面(俯视, §4.1 接线表)');
-  assert.strictEqual(lit.side, 65, '燃烧态四侧=65 燃侧脸(正视)');
-  assert.strictEqual(lit.bottom, 65, '燃烧态底面=side 兜底(贴地不绘, 条目三键齐防守门循环拿 undefined)');
-  assert.strictEqual(out.top, 66, '熄灭态顶面=66 熄灶面');
-  assert.strictEqual(out.side, 67, '熄灭态四侧=67 熄侧脸');
-  assert.strictEqual(out.bottom, 67, '熄灭态底面=side 兜底(同上)');
+  /* 部件表形状(v1.10 §4.1 tile 接线表): logEnd/logSide 燃熄共用(原木两态同构),
+     top/side 分态; 无 bottom 键(贴地跳底面, 底面永不取格——tileSet 装具已兼容缺键)。
+     deepStrictEqual 用 {...lit} 摊平(vm 门面 §7.1: 跨域原型比对必假红) */
+  assert.ok(lit && typeof lit === 'object', '燃烧态应部件表条目(object, v1.10 几何建模)');
+  assert.ok(out && typeof out === 'object', '熄灭态应部件表条目(object)');
+  assert.deepStrictEqual({...lit}, {logEnd: 68, logSide: 69, top: 70, side: 71},
+      '燃烧态部件表恰={logEnd:68,logSide:69,top:70,side:71}(§4.1 接线表逐键)');
+  assert.deepStrictEqual({...out}, {logEnd: 68, logSide: 69, top: 72, side: 73},
+      '熄灭态部件表恰={logEnd:68,logSide:69,top:72,side:73}(端面 68/皮侧 69 燃熄共用)');
   assert.strictEqual(t.TextureAtlas.count, 77,
-      'count=77(PAINTERS 0~76 连续: 62/63 存档+64~67 v1.9 四格+68~76 v1.10 九格; layout.tiles[81]/[82] 接线不动, R-2 才切)');
-  /* config 消费锚: 贴图格指向以 config 两态 id 为键(B_CAMPFIRE 行 T-C1 已落) */
+      'count=77(PAINTERS 0~76 连续, R-1 已落; R-2 只切接线不动画师)');
+  /* config 消费锚: 贴图格指向以 config 两态 id 为键(B_CAMPFIRE 行 T-C1 已落;
+     玩法数据面零变更红线——本测试只看 layout 接线, 不动 config) */
   assert.strictEqual(t.BLOCKS[t.B_CAMPFIRE].campfire, 'lit', '燃烧态旗标 lit(T-C1 行)');
   assert.strictEqual(t.BLOCKS[t.B_CAMPFIRE_OUT].campfire, 'out', '熄灭态旗标 out(T-C1 行)');
 });
@@ -1410,64 +1414,268 @@ test('篝火图集相邻 v1.10: 走查对象=68~76 vs 61~67 含存档区+fallbac
       'fallback 71↔73 成对可辨(k 主+橙缝 vs a 主+暗缝 §4.4): 平均灰度差 ≥30, 实测 ' + gapSidePair.toFixed(1));
 });
 
-test('篝火 meshChunk v1.9: 两态走矮半格扁盒图集通道 — 5 面/高 0.4375(thin 7/16)/分面 UV 顶灶面·四侧侧脸·无底面' +
-    '(UI 定稿 §4.1 v1.9 分面接线消费端, T-C13)', () => {
-  const t = loadAtlas();
-  const inRect = (rect, uvs) => uvs.every((q, i) => i % 2 === 0 ?
+/* ============ 篝火 meshChunk R-2 多部件几何(v1.10 §4 几何建模, T-C13-R2) ============ */
+/* 部件重建装具: 图集通道四边形 → 环边连通聚类 → 部件 AABB。部件=轴对齐盒;
+   同部件各面共享环边(两端点同坐标), 部件间互穿但坐标互异(§4 值表)不共点不合并。
+   四边形环序=c0→c1→c3→c2(三角化 0,1,2/2,1,3 的对角线是 c1-c2; 环边=(0,1)/(1,3)/
+   (3,2)/(2,0)——用错环序会把对角线当环边, 面间连通断裂聚类翻车)。 */
+function quadsOf(ch) {
+  const out = [];
+  for (let q = 0; q < ch.indices.length; q += 6) {
+    /* 四角顶点号=[q, q+1, q+2, q+5]: push 序 (n,n+1,n+2, n+2,n+1,n+3)
+       三形拼合, 第 4 角 n+3 落在缓冲 q+5(取 q+3 会拿到重复的 n+2, 聚类碎裂) */
+    const vi = [0, 1, 2, 5].map((i) => ch.indices[q + i]);
+    const v = vi.map((k) => [ch.positions[k * 3], ch.positions[k * 3 + 1], ch.positions[k * 3 + 2]]);
+    out.push({vi, v, n: [ch.normals[vi[0] * 3], ch.normals[vi[0] * 3 + 1], ch.normals[vi[0] * 3 + 2]]});
+  }
+  return out;
+}
+const eqc = (a, b) => Math.abs(a - b) < 1e-9;
+function partsOf(ch) {
+  const qs = quadsOf(ch);
+  const parent = qs.map((_, i) => i);
+  const find = (i) => parent[i] === i ? i : (parent[i] = find(parent[i]));
+  const key = (p) => p[0] + '|' + p[1] + '|' + p[2];
+  const edgeOwner = new Map(); /* 环边(两端点坐标无向序偶) → 首见四边形 */
+  for (let i = 0; i < qs.length; i++) {
+    const ks = qs[i].v.map(key);
+    for (const [a, b] of [[0, 1], [1, 3], [3, 2], [2, 0]]) {
+      const ka = ks[a]; const kb = ks[b];
+      const ek = ka < kb ? ka + '~' + kb : kb + '~' + ka;
+      if (!edgeOwner.has(ek)) edgeOwner.set(ek, i);
+      else {
+        const ra = find(i); const rb = find(edgeOwner.get(ek));
+        if (ra !== rb) parent[ra] = rb;
+      }
+    }
+  }
+  const groups = new Map();
+  for (let i = 0; i < qs.length; i++) {
+    const r = find(i);
+    if (!groups.has(r)) groups.set(r, []);
+    groups.get(r).push(qs[i]);
+  }
+  return [...groups.values()].map((faces) => {
+    const bb = [Infinity, Infinity, Infinity, -Infinity, -Infinity, -Infinity];
+    for (const f of faces) {
+      for (const p of f.v) {
+        for (let a = 0; a < 3; a++) {
+          if (p[a] < bb[a]) bb[a] = p[a];
+          if (p[a] > bb[a + 3]) bb[a + 3] = p[a];
+        }
+      }
+    }
+    return {faces, bb};
+  });
+}
+/* AABB → 格内局部坐标(cx/cy/cz=格原点世界坐标) */
+const localBB = (pt, cx, cy, cz) =>
+  [pt.bb[0] - cx, pt.bb[1] - cy, pt.bb[2] - cz, pt.bb[3] - cx, pt.bb[4] - cy, pt.bb[5] - cz];
+const uvInRect = (rect, uvs) => uvs.every((q, i) => i % 2 === 0 ?
     q >= rect[0] - 1e-12 && q <= rect[2] + 1e-12 :
     q >= rect[1] - 1e-12 && q <= rect[3] + 1e-12);
-  /* quadUVs: 扁平 uv 序列(inRect 契约, 草地/门额牌测同构) */
-  const quadUVs = (ch, vs) => vs.flatMap((vi) => [ch.uvs[vi * 2], ch.uvs[vi * 2 + 1]]);
-  /* 燃烧态: 篝火独置 → 图集通道矮半格扁盒(thin=BLOCKS 驱动, §4.1 v1.9 倾向 7/16;
-      不得走十字面片)。布景纪律(红方裁决): 不垫块——id 3 石头自身在图集 layout,
-      会以 6 面污染通道面计数(mesh-core.test.js 火把最小场景同款纪律); 扁盒无底面,
-      面数/薄高/分面 UV 均与下方方块无关, 独置即钉住全部票面断言 */
-  let p = mkPack(1);
-  p.set(8, 6, 8, t.B_CAMPFIRE);
-  let r = t.MeshCore.meshChunk(p, atlasOpt(t));
-  assert.strictEqual(r.solid, null, '入集篝火不走纯色兜底通道');
-  assert.strictEqual(quads(r.atlas), 5, '半格扁盒 5 面(top+4 侧, 跳底面 pushBedBox 同款)');
-  const ys = new Set();
-  for (let i = 1; i < r.atlas.positions.length; i += 3) ys.add(r.atlas.positions[i]);
-  assert.ok(ys.has(6) && ys.has(6.4375) && ys.size === 2,
-      '扁盒高度=thin 0.4375(§4.1 v1.9 矮半格 7/16, spec §3.4 thin 0.5 行随本票变陈旧), 实际 ' + [...ys]);
-  const litFaces = quadsByNormal(r.atlas);
-  assert.strictEqual(litFaces.get('0,1,0').length, 1, '顶面单四边形在场');
-  assert.strictEqual(litFaces.get('-1,0,0').length + litFaces.get('1,0,0').length +
-      litFaces.get('0,0,-1').length + litFaces.get('0,0,1').length, 4, '四侧面各单四边形');
-  assert.ok(!litFaces.get('0,-1,0'), '底面不绘(§4.1: 贴地不可见)');
-  for (const vs of litFaces.get('0,1,0')) {
-    assert.ok(inRect(t.TextureAtlas.tileUV(64), quadUVs(r.atlas, vs)),
-        '顶面 UV 应落 64 燃灶面格(分面: 顶=俯视灶面)');
+const quadUVs = (ch, vs) => vs.flatMap((vi) => [ch.uvs[vi * 2], ch.uvs[vi * 2 + 1]]);
+
+test('篝火 meshChunk R-2: 多部件几何 — 静态件 6(织席 2×2 两轴交错+炭堆主盒+错位小盒×1)+部件 ≤7/' +
+    '炭堆顶 ≤0.35/静态整体 ≤0.5/贴地跳底面(UI 定稿 §4.1/§4.4 v1.10, T-C13-R2)', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_CAMPFIRE);
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  assert.strictEqual(r.solid, null, '入集篝火不走纯色兜底通道(锚不变)');
+  assert.ok(r.atlas && quads(r.atlas) > 0, '篝火走图集通道(第 4 通道)');
+  const parts = partsOf(r.atlas);
+  /* 部件计数口径(UI 定稿 §4.4)=静态件+焰片组(2 片计 1 组): 静态 6+焰片组 1(R-4)=7 ≤7;
+     小盒数量 N=1 设计线已裁(方案 §9-1/§9-5) */
+  assert.strictEqual(parts.length, 6,
+      '静态部件=6(4 原木+主盒+小盒×1, N=1 已裁): 实际 ' + parts.length);
+  assert.ok(parts.length <= 7,
+      '部件 ≤7(§4.4 口径=静态件+焰片组): ' + parts.length + '+1=7 ≤7');
+  const dims = (pt) => [pt.bb[3] - pt.bb[0], pt.bb[4] - pt.bb[1], pt.bb[5] - pt.bb[2]];
+  const logsX = parts.filter((pt) => eqc(dims(pt)[0], 0.75) && eqc(dims(pt)[2], 0.15));
+  const logsZ = parts.filter((pt) => eqc(dims(pt)[2], 0.75) && eqc(dims(pt)[0], 0.15));
+  assert.strictEqual(logsX.length, 2, '织席沿 X 原木 ×2(长 0.75×截面 0.15, 下层)');
+  assert.strictEqual(logsZ.length, 2, '织席沿 Z 原木 ×2(同尺寸, 上层——两轴交错)');
+  for (const pt of logsX) {
+    assert.ok(eqc(pt.bb[1], 5), 'X 原木贴地(y=格底): 实际 ' + pt.bb[1]);
   }
-  for (const nk of ['-1,0,0', '1,0,0', '0,0,-1', '0,0,1']) {
-    for (const vs of litFaces.get(nk)) {
-      assert.ok(inRect(t.TextureAtlas.tileUV(65), quadUVs(r.atlas, vs)),
-          '侧面 ' + nk + ' UV 应落 65 燃侧脸格(分面: 侧=正视木框火舌)');
+  for (const pt of logsZ) {
+    assert.ok(pt.bb[1] > 5 && pt.bb[1] < 5.15,
+        'Z 原木底悬浮于 X 层内(两轴交错半搭互穿 §4): 实际 ' + pt.bb[1]);
+  }
+  const coal = parts.filter((pt) => !logsX.includes(pt) && !logsZ.includes(pt));
+  assert.strictEqual(coal.length, 2, '炭堆=主盒+错位小盒×1');
+  const coalTop = Math.max(...coal.map((pt) => pt.bb[4]));
+  assert.ok(coalTop <= 5.35, '炭堆顶 ≤0.35(§4.4 矮块锚①): 实际 ' + (coalTop - 5));
+  const allTop = Math.max(...parts.map((pt) => pt.bb[4]));
+  assert.ok(allTop <= 5.5,
+      '静态整体顶 ≤0.5(§4.4; 焰片 0.71 归 R-4 不在本口径): 实际 ' + (allTop - 5));
+  assert.ok(eqc(Math.min(...parts.map((pt) => pt.bb[1])), 5), '整体贴地(最低部件触格底)');
+  /* 贴地跳底面: 贴地部件(X 原木)零底面; 悬空部件(Z 原木, 底 0.075 中缝可见)绘底面(§4 表) */
+  const bottomFaces = (pt) => pt.faces.filter((f) => f.n[1] === -1);
+  for (const pt of logsX) {
+    assert.strictEqual(bottomFaces(pt).length, 0,
+        '贴地原木跳底面(pushBedBox 同款, 底面贴地不可见)');
+  }
+  for (const pt of logsZ) {
+    assert.strictEqual(bottomFaces(pt).length, 1,
+        '悬空 Z 原木绘底面(底 0.075 在中缝可见, §4 表备注)');
+  }
+});
+
+const CF_PARTS_WANT = [ /* 方案 §4 建议值表(几何尺寸权威; 格内局部 AABB, verify-parts.js 对撞此常量) */
+  [0.125, 0.000, 0.215, 0.875, 0.150, 0.365], /* 原木·沿 X 1: x∈[0.125,0.875] y∈[0,0.15] z 心 0.29 截面 0.15 */
+  [0.125, 0.000, 0.635, 0.875, 0.150, 0.785], /* 原木·沿 X 2: z 心 0.71 */
+  [0.215, 0.075, 0.125, 0.365, 0.225, 0.875], /* 原木·沿 Z 1: 半搭互穿 y∈[0.075,0.225] x 心 0.29 */
+  [0.635, 0.075, 0.125, 0.785, 0.225, 0.875], /* 原木·沿 Z 2: x 心 0.71 */
+  [0.300, 0.150, 0.300, 0.700, 0.300, 0.700], /* 炭堆主盒: 0.4 见方 y∈[0.15,0.30] */
+  [0.460, 0.240, 0.460, 0.660, 0.340, 0.660], /* 炭堆小盒: 0.2 见方 心(0.56,0.56) y∈[0.24,0.34] 沉入 0.06 */
+];
+test('篝火 meshChunk R-2: CF_PARTS 值表逐值=方案 §4(几何尺寸权威) — ' +
+    '原木 0.75×0.15 两轴分层心 0.29/0.71/主盒 0.4 见方/小盒 0.2 见方心(0.56,0.56)沉入 0.06', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_CAMPFIRE);
+  const parts = partsOf(t.MeshCore.meshChunk(p, atlasOpt(t)).atlas);
+  assert.strictEqual(parts.length, CF_PARTS_WANT.length, '部件数=值表条数');
+  /* 格世界原点自 pack 派生(水平=bx+lx/bz+lz), 不硬编码 */
+  const got = parts.map((pt) => localBB(pt, p.bx + 8, 5, p.bz + 8));
+  for (const w of CF_PARTS_WANT) {
+    assert.ok(got.some((g) => g.every((v, i) => eqc(v, w[i]))),
+        'CF_PARTS 值表缺部件: 期望 [' + w.join(', ') + '] 实有 ' +
+        got.map((g) => '[' + g.map((v) => +v.toFixed(4)).join(',') + ']').join(' '));
+  }
+});
+
+test('篝火 meshChunk R-2: 两态 tile 分派 — 原木端面 68/皮侧 69(燃熄共用)+炭堆顶 70 侧 71(燃)/' +
+    '顶 72 侧 73(熄) 逐面落格, 每一绘出面 UV 落本态部件表四格之一(UI 定稿 §4.1 接线表)', () => {
+  const t = loadAtlas();
+  const classify = (pt) => {
+    const dx = pt.bb[3] - pt.bb[0]; const dz = pt.bb[5] - pt.bb[2];
+    if (eqc(dz, 0.75) && eqc(dx, 0.15)) return {endAxis: 2}; /* Z 原木: 端面=±Z */
+    if (eqc(dx, 0.75) && eqc(dz, 0.15)) return {endAxis: 0}; /* X 原木: 端面=±X */
+    return null; /* 炭堆(顶/侧分态) */
+  };
+  const checkState = (id, topTile, sideTile) => {
+    const p = mkPack(1);
+    p.set(8, 5, 8, id);
+    const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+    const parts = partsOf(r.atlas);
+    assert.strictEqual(parts.length, 6, '前置: 六静态部件(两态同结构 §4.1)');
+    let nEnd = 0; let nLogSide = 0; let nTop = 0; let nCoalSide = 0;
+    for (const pt of parts) {
+      const c = classify(pt);
+      for (const f of pt.faces) {
+        const uvs = quadUVs(r.atlas, f.vi);
+        assert.ok([68, 69, topTile, sideTile].some((ti) => uvInRect(t.TextureAtlas.tileUV(ti), uvs)),
+            '每一绘出面 UV 落本态部件表四格之一(防 undefined 格号 NaN 采样)');
+        if (c) {
+          if (f.n[c.endAxis] !== 0) {
+            assert.ok(uvInRect(t.TextureAtlas.tileUV(68), uvs),
+                '原木端面 UV 落 68(燃熄共用)');
+            nEnd++;
+          } else if (f.n[1] === 0) {
+            assert.ok(uvInRect(t.TextureAtlas.tileUV(69), uvs),
+                '原木皮侧 UV 落 69(燃熄共用)');
+            nLogSide++;
+          }
+        } else if (f.n[1] === 1) {
+          assert.ok(uvInRect(t.TextureAtlas.tileUV(topTile), uvs),
+              '炭堆顶 UV 落 ' + topTile);
+          nTop++;
+        } else if (f.n[1] === 0) {
+          assert.ok(uvInRect(t.TextureAtlas.tileUV(sideTile), uvs),
+              '炭堆侧 UV 落 ' + sideTile);
+          nCoalSide++;
+        }
+      }
+    }
+    assert.ok(nEnd >= 8, '四根原木端面在绘(每根 2 端): ' + nEnd);
+    assert.ok(nLogSide >= 8, '原木皮侧面在绘: ' + nLogSide);
+    assert.ok(nTop >= 2, '炭堆两盒顶面在绘: ' + nTop);
+    assert.ok(nCoalSide >= 8, '炭堆侧面在绘: ' + nCoalSide);
+  };
+  checkState(t.B_CAMPFIRE, 70, 71);
+  checkState(t.B_CAMPFIRE_OUT, 72, 73);
+});
+
+test('篝火几何不变量 R-2: 全部件包围盒 ⊆ 自有格 [0,1)³ — 零侵入邻格(ADR-0020 拾取配套: ' +
+    '邻格拾取语义零污染, 方案 b 题)', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_CAMPFIRE);
+  /* 格世界原点自 pack 派生(水平=bx+lx/bz+lz, 垂直=y 直通), 不硬编码 */
+  const ox = p.bx + 8; const oy = 5; const oz = p.bz + 8;
+  const parts = partsOf(t.MeshCore.meshChunk(p, atlasOpt(t)).atlas);
+  assert.ok(parts.length > 0, '前置: 图集通道有几何');
+  for (const pt of parts) {
+    assert.ok(pt.bb[0] >= ox && pt.bb[3] < ox + 1, '部件 x ∈ [' + ox + ',' + (ox + 1) + '): ' + pt.bb);
+    assert.ok(pt.bb[1] >= oy && pt.bb[4] < oy + 1, '部件 y ∈ [' + oy + ',' + (oy + 1) + '): ' + pt.bb);
+    assert.ok(pt.bb[2] >= oz && pt.bb[5] < oz + 1, '部件 z ∈ [' + oz + ',' + (oz + 1) + '): ' + pt.bb);
+  }
+});
+
+test('篝火几何不变量 R-2: 任意两部件无共面重叠面 — z-fight 静态免疫(面片对面非共面判定, 方案 §4)', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_CAMPFIRE);
+  const parts = partsOf(t.MeshCore.meshChunk(p, atlasOpt(t)).atlas);
+  assert.ok(parts.length >= 2, '前置: 多部件在场(单盒无部件对面可言)');
+  /* z-fight 条件=同法线轴同平面坐标且面内矩形正面积重叠。只判不同部件:
+     同部件盒面拓扑保证互不重叠; 共享环边已被部件聚类归并 */
+  const rectOf = (f, ax) => { /* 法线轴 ax; 返回面内两轴 [min,max,min,max] */
+    const o = [0, 1, 2].filter((a) => a !== ax);
+    let a0 = Infinity; let a1 = -Infinity; let b0 = Infinity; let b1 = -Infinity;
+    for (const p of f.v) {
+      if (p[o[0]] < a0) a0 = p[o[0]];
+      if (p[o[0]] > a1) a1 = p[o[0]];
+      if (p[o[1]] < b0) b0 = p[o[1]];
+      if (p[o[1]] > b1) b1 = p[o[1]];
+    }
+    return [a0, a1, b0, b1];
+  };
+  for (let i = 0; i < parts.length; i++) {
+    for (let j = i + 1; j < parts.length; j++) {
+      for (const fa of parts[i].faces) {
+        for (const fb of parts[j].faces) {
+          const ax = fa.n.findIndex((c) => c !== 0);
+          if (ax < 0 || fb.n[ax] === 0) continue; /* 法线轴不同 → 不共面 */
+          const pa = fa.v[0][ax]; const pb = fb.v[0][ax];
+          if (!eqc(pa, pb)) continue; /* 平面坐标不同 → 不共面 */
+          const ra = rectOf(fa, ax); const rb = rectOf(fb, ax);
+          const ox = Math.min(ra[1], rb[1]) - Math.max(ra[0], rb[0]);
+          const oz = Math.min(ra[3], rb[3]) - Math.max(ra[2], rb[2]);
+          assert.ok(!(ox > 1e-9 && oz > 1e-9),
+              '部件 ' + i + ' 与 ' + j + ' 在轴 ' + ax + ' 平面 ' + pa +
+              ' 共面重叠(重叠 ' + ox + 'x' + oz + ')——z-fight');
+        }
+      }
     }
   }
-  /* 熄灭态: 同通道分面落 66/67 */
-  p = mkPack(1);
-  p.set(8, 5, 8, t.B_CAMPFIRE_OUT);
-  r = t.MeshCore.meshChunk(p, atlasOpt(t));
-  assert.strictEqual(r.solid, null, '熄灭态入集不走纯色兜底通道');
-  assert.strictEqual(quads(r.atlas), 5, '熄灭态同款半格扁盒 5 面');
-  const ys2 = new Set();
-  for (let i = 1; i < r.atlas.positions.length; i += 3) ys2.add(r.atlas.positions[i]);
-  assert.ok(ys2.has(5) && ys2.has(5.4375) && ys2.size === 2,
-      '熄灭态扁盒高度=thin 0.4375, 实际 ' + [...ys2]);
-  const outFaces = quadsByNormal(r.atlas);
-  assert.ok(!outFaces.get('0,-1,0'), '熄灭态底面同样不绘');
-  for (const vs of outFaces.get('0,1,0')) {
-    assert.ok(inRect(t.TextureAtlas.tileUV(66), quadUVs(r.atlas, vs)),
-        '熄灭态顶面 UV 应落 66 熄灶面格');
-  }
-  for (const nk of ['-1,0,0', '1,0,0', '0,0,-1', '0,0,1']) {
-    for (const vs of outFaces.get(nk)) {
-      assert.ok(inRect(t.TextureAtlas.tileUV(67), quadUVs(r.atlas, vs)),
-          '熄灭态侧面 ' + nk + ' UV 应落 67 熄侧脸格');
-    }
-  }
+});
+
+test('篝火几何不变量 R-2: 同输入同输出零随机 — 同 pack 两次网格化+两独立 vm 重载逐字节一致' +
+    '(§4.5-3 无 rng 几何, 确定性重放红线)', () => {
+  const t = loadAtlas();
+  const p = mkPack(1);
+  p.set(8, 5, 8, t.B_CAMPFIRE);
+  const flat = (r) => JSON.stringify({
+    positions: r.atlas.positions, uvs: r.atlas.uvs, normals: r.atlas.normals,
+    indices: r.atlas.indices, sky: r.atlas.sky, block: r.atlas.block, n: r.atlas.n,
+  });
+  const s1 = flat(t.MeshCore.meshChunk(p, atlasOpt(t)));
+  const s2 = flat(t.MeshCore.meshChunk(p, atlasOpt(t)));
+  assert.strictEqual(s1, s2, '同 pack 两次网格化逐字节一致(零随机)');
+  const t2 = loadAtlas();
+  const p2 = mkPack(1);
+  p2.set(8, 5, 8, t2.B_CAMPFIRE);
+  assert.strictEqual(s1, flat(t2.MeshCore.meshChunk(p2, atlasOpt(t2))),
+      '独立 vm 重载再网格化逐字节一致(零模块级 rng)');
+  const q = mkPack(1);
+  q.set(8, 5, 8, t.B_CAMPFIRE_OUT);
+  const s4 = flat(t.MeshCore.meshChunk(q, atlasOpt(t)));
+  assert.strictEqual(s4, flat(t.MeshCore.meshChunk(q, atlasOpt(t))),
+      '熄灭态同 pack 两次逐字节一致(两态同结构同判据)');
 });
 
 test('篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自亮/熄灭态暗块(UI 定稿 §4.5-2 程序面; 人眼夜辨归 T-C12)', () => {
@@ -1476,7 +1684,8 @@ test('篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自�
   p.set(8, 5, 8, t.B_CAMPFIRE);
   p.setL(8, 5, 8, 0, 15); /* 夜: sky 0; 光源格自身 block=15(light-core 光源格例外口径, T-C1 light 行) */
   const r = t.MeshCore.meshChunk(p, atlasOpt(t));
-  assert.strictEqual(quads(r.atlas), 5, '燃烧态在图集通道(半格扁盒)');
+  assert.ok(r.atlas && quads(r.atlas) > 0,
+      '燃烧态在图集通道(R-2 起多部件载体, 取光语义不变)');
   for (let i = 0; i < r.atlas.block.length; i++) {
     assert.strictEqual(r.atlas.block[i], 1, '燃烧态面顶点 block 光=15/15(夜间读作发光体)');
   }
@@ -1496,7 +1705,7 @@ test('篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自�
    取自身格对透光格(pushThin/pushBedBox 消费者)正确、对挡光格是语义错配;
    修法=T4 口径: 每面取面朝向邻格光(pushGateSign/ADR 0012 同构)。燃烧态零改动:
    光源格 mkPolicy 例外自身格 block=15, 取自身格语义正确(既有断言不回退)。 */
-test('meshChunk: 篝火熄灭态顶点光取面朝向邻格 — 五面逐面各取朝向格(白昼上邻 sky 15 顶面高亮, T-C8b T4 同构)', () => {
+test('meshChunk: 篝火熄灭态顶点光取面朝向邻格 — 逐面各取朝向格(R-2 多部件换载体, 白昼上邻 sky 15 顶面高亮, T-C8b T4 同构)', () => {
   const t = loadAtlas();
   /* 白昼口径: 熄灭篝火 (8,5,8) 挡光格自身恒 0; 上邻露天天光 15(评审 SPEC-1 实测可用);
      四水平邻异值(13/6/0/5)——异值才能钉死「逐面各取朝向格」(同值分辨不出采样源) */
@@ -1509,7 +1718,6 @@ test('meshChunk: 篝火熄灭态顶点光取面朝向邻格 — 五面逐面各�
   p.setL(8, 5, 7, 0, 0); /* 北邻: 无天光 */
   p.setL(8, 5, 9, 5, 0); /* 南邻 */
   const r = t.MeshCore.meshChunk(p, atlasOpt(t));
-  assert.strictEqual(quads(r.atlas), 5, '熄灭态仍半格扁盒 5 面(几何零改动)');
   const byN = quadsByNormal(r.atlas);
   assert.ok(faceSkyEq(r.atlas, byN.get('0,1,0'), s15(15)),
       '顶面 sky=上邻格 15(白昼灰烬斑/原木床三档可辨), 不取自身格 0');
@@ -1544,7 +1752,6 @@ test('meshChunk: 篝火两态取光口径不回退 — 熄灭态夜间全邻无�
   q.setL(8, 5, 8, 0, 15); /* 光源格例外: block=15 自亮(T-C1 light 行) */
   q.setL(8, 6, 8, 15, 0); /* 上邻白昼天光(误改燃烧态=邻格采样即渗入, 此锚红) */
   r = t.MeshCore.meshChunk(q, atlasOpt(t));
-  assert.strictEqual(quads(r.atlas), 5, '燃烧态仍半格扁盒 5 面');
   for (let i = 0; i < r.atlas.block.length; i++) {
     assert.strictEqual(r.atlas.block[i], 1, '燃烧态面顶点 block=15/15 自亮(既有锚原样)');
   }
