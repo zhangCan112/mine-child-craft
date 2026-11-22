@@ -243,7 +243,7 @@ function assertCross(mesh, slots, cell, tag) {
     const yHi = Math.max(...q.map((p) => p[1]));
     assert.ok(Math.abs(hi - lo - 0.35) < 1e-3,
         tag + ' ' + tag2 + ': 宽应 0.35(UI 定稿 §4.4), 实得 ' + (hi - lo).toFixed(4));
-    assert.ok(hi - lo > 0.4 - 1e-3 && hi - lo < 0.5 + 1e-3,
+    assert.ok(yHi - yLo > 0.4 - 1e-3 && yHi - yLo < 0.5 + 1e-3,
         tag + ' ' + tag2 + ': 高应在 0.4~0.5(UI 定稿 §4.4), 实得 ' + (yHi - yLo).toFixed(4));
   }
   /* 交叉点在格内中缝(建议值 0.5, 容 ±0.2 实现微调), 且两片轴互相穿越 */
