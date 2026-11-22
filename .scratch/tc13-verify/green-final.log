@@ -1,0 +1,114 @@
+✔ campfire 两态行: B_CAMPFIRE=81/B_CAMPFIRE_OUT=82 · campfire 旗标 lit|out · light 15/0 · 半格实体 · hard 0 · 无 replaceable (0.5993ms)
+✔ campfire 参数块: CAMPFIRE 六键照 §3.9 初值(6000 刻/柱高 20/截面半径 1/升速 3.0/烫伤节拍 20/烫伤 1 血) (0.0694ms)
+✔ campfire 物品行: ITEMS.campfire 三字段(name/icon/block 路由) · 无 dur(可堆叠消耗品) (0.056ms)
+✔ campfire 物品提示: ITEM_HINTS.campfire 逐字=UI 定稿 §6.1 · 全文零剧透禁词(§6.4 词集) (0.0654ms)
+✔ campfire 接线: index.html script 行在册且 adventure-core < campfire-kit < modes/adventure.js(装载序=依赖序, boot 按真实序装载) (0.2958ms)
+✔ campfire 零墙钟: campfire-kit.js 源码零 Date.now/performance.now(确定性重放红线) (0.2269ms)
+✔ campfire kit plant: 满时长建条(posKey 键 + {x,y,z,left} 条目, left=6000=CAMPFIRE.ticks) (0.4657ms)
+✔ campfire kit tick 量化整刻: 0.05s=1 刻零漂 · 不喂即冻结(零墙钟, 账本自己不动) (0.1895ms)
+✔ campfire kit 燃尽恰一次: 5999 刻不燃 · 第 6000 刻回调恰一次+条目删净 · 燃尽后再喂零回调 (2.0571ms)
+✔ campfire kit 掉帧追平: 单帧大 dt 只走 8 刻(guard 防螺旋) · 后续帧累积追平零丢刻(pumpFluids fluidAcc 同款) (0.1912ms)
+✔ campfire kit drop/reset: 挖除删条 · 未知格零炸 · reset 清空(重进场复位口径) (0.1ms)
+✔ campfire kit encode 桩: [[posKey,{left}]] 存档形状(advCampfiresClean 同形, T-C5 档键缝) (0.1653ms)
+✔ campfire kit 无 onBurnout 注入: 燃尽不炸(回调缺省=无观感政策) (1.3323ms)
+✔ campfire kit updraft 接线: plant → sim.add(源格心+CAMPFIRE 柱参三件, 单次单源) (0.1424ms)
+✔ campfire kit updraft 接线: 燃尽(tick 到期) → sim.remove(坐标全参, 与 onBurnout 同拍) (1.55ms)
+✔ campfire kit updraft 接线: drop 已知格 → sim.remove · 未知格 drop 零注销(presence 口径) (0.0723ms)
+✔ campfire kit updraft 缺席容忍: opts.updraft 未注入 plant/tick/drop 零炸(装配前/Node 语境) (1.2228ms)
+✔ T-C3 两态回收行: BLOCKS[81]/[82].drop=[["campfire",1,0]] 保底 1 零加成 · rollBlockDrop 消费面恒 1 件(非木炭) (0.1537ms)
+✔ T-C3 调色板零死数据: BLOCK_HINTS 无 81/82 行(两态不进建造调色板, hint 行=零消费死数据, spec §3.4 裁定) (0.0333ms)
+✔ T-C3 水浇接线: read 缝命中(水邻) → 下一刻台账删条+onQuench 坐标全参+updraft 注销同拍 · 零燃尽回调 (0.1327ms)
+✔ T-C3 水浇几何: 正上有水=熄 · 正下有水不熄(火在实体块顶, 底面不沾水) (0.0985ms)
+✔ T-C3 熄灭后零侧账长期保留: 浇熄后再喂 700s(14000 刻) — 零复活零燃尽零重复回调 (1.5217ms)
+✔ T-C3 自然因果零防呆: 水仍邻接时重燃(plant) → 下一刻再熄(无「浇过一次就免疫」闩) (0.1076ms)
+✔ T-C3 read 缺席容忍: 无 read 注入 — 燃尽路径照常(装配前/无水世界零炸) (0.5324ms)
+✔ T-C5 opts.key 注入: 台账键=注入前缀+坐标 — encode/drop/建条同源一键形(跨图键不誊抄) (0.0759ms)
+✔ T-C5 opts.sceneGate 门禁: 跨图条目拒答浇熄问询(误淬防线) — 放行路径照常浇熄(对照) (0.1043ms)
+✔ T-C5 回调第 4 参 posKey: onQuench/onBurnout 收台账键(带注入前缀) — 跨图收尾按键落桶的依据 (1.0767ms)
+✔ T-C5 ledger.readd: presence 口径 sim 重注册(柱三参单源) — 未知格零炸零注册 (0.1206ms)
+✔ 布局: 新方块 36~62 每个都有格子且格号合法(未入集方块走纯色兜底) (3.868ms)
+✔ 布局+像素: 战利品宝箱(71)入集 — 顶/侧分格红金配色, 全不透明(den-nest §7.5 D16) (8.9423ms)
+✔ 布局: 黑巢地上件入集(den-nest §2.1) — 苔石/黑曜石/发光岩各占一格; 门面/熄门回退玻璃通道不入集 (1.7633ms)
+✔ 像素: 黑巢件不透明口径 — 苔石/黑曜石/发光岩全不透明(门面已回退玻璃通道不入集) (6.6717ms)
+✔ 布局: 存量升级款 1~8 入集; 草地与木头 top≠side(草顶/草侧 · 年轮/树皮分格) (1.3655ms)
+✔ 布局: 图集画布为正方形 2 的幂 — WebGL1 mipmap 约束(TNT 图集同款) (5.7314ms)
+✔ UV: 每个被引用的格 tileUV 落在 [0,1] 且两两不重叠 (2.0796ms)
+✔ 确定性: 两次生成逐像素一致(噪点/斑点用种子化伪随机, 同 seed 同图) (17.3702ms)
+✔ 像素: 每个被引用格至少有一个非透明像素; 植物类有透明像素(alpha 裁切前提) (7.0906ms)
+✔ meshChunk: 图集方块走 atlas 通道 — 煤矿立方体 6 面, UV 全落在煤矿格内 (1.589ms)
+✔ meshChunk: 顶/侧/底分格 — 草地三面各归各格(草顶/草侧/泥土底) (1.6512ms)
+✔ meshChunk: opts 不带 atlas → 入集方块回落纯色通道(存量调用方零侵入) (1.5974ms)
+✔ meshChunk: 薄块图集走十字面片 — 草丛 2 面×正反共 4 面, 几何全高(UV 全落格) (1.71ms)
+✔ meshChunk: 生态地图薄块(兰花)同走十字面片 — 4 面 UV 全落兰花格 (1.4357ms)
+✔ meshChunk: 床(bed 旗标)走薄块扁盒图集通道 — 5 面盒(无底面), 高度 0.55, 顶/侧分格 (1.5336ms)
+✔ meshChunk: 床头枕向按床尾方位旋转 — 床尾在东则枕贴西缘(取向不存档, 世界状态派生) (1.5023ms)
+✔ meshChunk: 床无图集注入回落实心通道纯色扁盒(存量行为零变化) (1.9913ms)
+✔ 床贴图像素(床观感票): 床顶白枕在 canvas 顶行(=世界 −Z 北端)+毯身红; 床侧上毯下木框 (5.5029ms)
+✔ meshChunk: 图集立方体邻面剔除同实心规则 — 相邻两煤矿共界面剔成 10 面 (1.9784ms)
+✔ makeCanvas: doc 桩注入 — 尺寸按图集, putImageData 像素与 paintAll 一致 (16.7092ms)
+✔ 布局+像素: 远古残骸(73)入集 — 整格同图同心方环螺旋纹, 全不透明(装备系统 T7) (6.1985ms)
+✔ 布局+像素: 覆雪树叶(74)入集 — 整格同图雪盖针叶底, 全不透明, 雪层覆盖过半(世界边界 T12) (6.2285ms)
+✔ 布局+像素: 门额牌(80)入集 — 60 号格镇徽钟塔图(西面) + 61 号格纯木底(其余五面), 逐像素规格直译(v2 S2) (5.8707ms)
+✔ meshChunk: 门额牌竖板路径 — 专用小盒贴西缘, 西面 UV 落图案格其余落木底格, 垫块上底面剔除(v2 S2 火把/床双先例) (1.9232ms)
+✔ meshChunk: 门额牌竖板顶点光取面朝向邻格 — 西面(图案面)不取自身格(自身被遮蔽恒 0, pane/实心普通面同口径, T4 返工) (1.7556ms)
+✔ 篝火施工期断言: 四张 B 区 char art 行宽全=16(UI 定稿 §4.5-5 v1.9 分面回归四张; 燃灶/燃侧/熄灶/熄侧) (0.0859ms)
+✔ 篝火布局: 两态入集分面双 tile — 81={顶64/侧65/底65}·82={顶66/侧67/底67}(UI 定稿 §4.1 v1.9 分面接线, T-C13), count=68 (1.2041ms)
+✔ 篝火像素(作废存档): 62 号格逐字符=v1.0 旧稿(T-C8)固定像素精确, C 底噪±6%, 木纹 d 短划 4~5 道 — T-C13 起仅存档不接线, 画师不得删除 (6.2546ms)
+✔ 篝火像素(作废存档): 63 号格逐字符=v1.0 旧稿(T-C8)同位形去焰固定像素精确, C 底噪±6%, 灰烬散斑 6~10 粒(y∈[2,8]) — T-C13 起仅存档不接线 (5.6025ms)
+✔ 篝火像素 v1.9: 燃灶面 64 号格逐字符=UI 定稿 §4.2 — 木框 L 环/d 内缘/焰团/e 双弧/a 斑固定, C 地 noiseFill ±6%, 全格不透明(灶面俯视) (5.7351ms)
+✖ 篝火像素 v1.9: 燃侧脸 65 号格逐字符=UI 定稿 §4.2 — 透明区 alpha=0 真透(钉 alphaTest 管线, 不用 C 暗底回退), 火舌/原木固定, 木纹 d 短划 2~3 道 r12 起 1px 宽 2px 高 (6.4063ms)
+✔ 篝火像素 v1.9: 熄灶面 66 号格逐字符=UI 定稿 §4.3 — 木框/灰烬坑 a/炭心 k 固定, C 地 noiseFill ±6%, a 散斑补撒 per-tile 4~8 粒, 全格不透明, 零焰色 (5.5232ms)
+✔ 篝火像素 v1.9: 熄侧脸 67 号格逐字符=UI 定稿 §4.3 — r0~r6 全透明(零火舌), 炭缝 a 缘 k 心固定, 原木同 65, a 散斑补撒 per-tile 4~8 粒(炭缝外围) (5.7797ms)
+✔ 篝火可辨性 v1.9: 燃烧态两 tile 焰四档合计 ≥80px(静态 94)且白芯亮黄 ≥36px(静态 46)/余烬红=8px/熄灭态两 tile 零焰色零余烬红·最高亮像素=灰烬灰(UI 定稿 §4.4/§4.5-1) (6.1736ms)
+✔ 篝火确定性: 六格(62/63 存档+64~67 分面)同 seed 两次绘制逐像素一致(mulberry32 纪律, UI 定稿 §4.5-3 v1.9 四 tile 全走) (9.7643ms)
+✔ 篝火图集相邻: 62/63 暗炭底 vs 61 门额牌亮木底(#C89858)灰度差大 — LOD 串色程序面锚(UI 定稿 §4.1/§4.5-4; 人眼走查归 T-C12) (5.8357ms)
+✖ 篝火 meshChunk v1.9: 两态走矮半格扁盒图集通道 — 5 面/高 0.4375(thin 7/16)/分面 UV 顶灶面·四侧侧脸·无底面(UI 定稿 §4.1 v1.9 分面接线消费端, T-C13) (1.7007ms)
+✔ 篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自亮/熄灭态暗块(UI 定稿 §4.5-2 程序面; 人眼夜辨归 T-C12) (1.5109ms)
+✔ meshChunk: 篝火熄灭态顶点光取面朝向邻格 — 五面逐面各取朝向格(白昼上邻 sky 15 顶面高亮, T-C8b T4 同构) (1.552ms)
+✔ meshChunk: 篝火两态取光口径不回退 — 熄灭态夜间全邻无光仍读暗块(§4.5-2), 燃烧态自亮仍取自身格(T-C8b 零改动锚) (1.5825ms)
+ℹ tests 68
+ℹ suites 0
+ℹ pass 66
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 242.4669
+
+✖ failing tests:
+
+test at test\texture-atlas.test.js:932:1
+✖ 篝火像素 v1.9: 燃侧脸 65 号格逐字符=UI 定稿 §4.2 — 透明区 alpha=0 真透(钉 alphaTest 管线, 不用 C 暗底回退), 火舌/原木固定, 木纹 d 短划 2~3 道 r12 起 1px 宽 2px 高 (6.4063ms)
+  AssertionError [ERR_ASSERTION]: d 色像素不得出现在原木上缘之上 (2,10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:965:14)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\texture-atlas.test.js:1097:1
+✖ 篝火 meshChunk v1.9: 两态走矮半格扁盒图集通道 — 5 面/高 0.4375(thin 7/16)/分面 UV 顶灶面·四侧侧脸·无底面(UI 定稿 §4.1 v1.9 分面接线消费端, T-C13) (1.7007ms)
+  AssertionError [ERR_ASSERTION]: 顶面 UV 应落 64 燃灶面格(分面: 顶=俯视灶面)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\texture-atlas.test.js:1123:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
