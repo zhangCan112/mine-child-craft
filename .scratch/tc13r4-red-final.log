@@ -1,0 +1,193 @@
+✖ R4-1 惰性建+材质面: 零 open 格零 sheet; 首 open 恰一张共享 sheet, MeshBasic{map=atlasMat.map, alphaTest 0.5, DoubleSide, vertexColors, 不透明队列}, frustumCulled=false (2.1678ms)
+✖ R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.3093ms)
+✖ R4-3 membership 全路径同步: open 挂/浇熄摘/重燃再挂/燃尽摘/挖掘摘 — 顶点数与 fx open 格集同拍且恒一张 sheet (0.2406ms)
+✖ R4-4 open=false 格永不贡献 plane(h 类禁令): 浇熄格/燃尽余韵格 cells() 在册但 sheet 零 plane; 燃尽余韵期满+存量清空后格回收 (0.2619ms)
+✖ R4-5 UV 翻页镜像: 帧窗=tileUV(74+fx.flameFrameAt) 全幅, 帧推进换窗(74/75/76 依次), 与 fx-core 单源逐拍一致 (0.7821ms)
+✖ R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (3.3232ms)
+✖ R4-7 渐弱(§5.8 扩含面片): tint=0 顶点色恒白不暗化; tint 增大亮度单调下降(亮度插值随 fx 渐弱窗) (0.6382ms)
+✖ R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.198ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 0
+ℹ fail 8
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 62.9569
+
+✖ failing tests:
+
+test at test\effects-campfire-sheet.test.js:306:1
+✖ R4-1 惰性建+材质面: 零 open 格零 sheet; 首 open 恰一张共享 sheet, MeshBasic{map=atlasMat.map, alphaTest 0.5, DoubleSide, vertexColors, 不透明队列}, frustumCulled=false (2.1678ms)
+  AssertionError [ERR_ASSERTION]: 恰一张全场景共享 sheet(ADR-0020: 每场 1 mesh, dc 增量 ≈+1)
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:317:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.start (node:internal/test_runner/test:1003:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\effects-campfire-sheet.test.js:332:1
+✖ R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.3093ms)
+  AssertionError [ERR_ASSERTION]: 前置: sheet 在场(R4-1)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:339:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\effects-campfire-sheet.test.js:355:1
+✖ R4-3 membership 全路径同步: open 挂/浇熄摘/重燃再挂/燃尽摘/挖掘摘 — 顶点数与 fx open 格集同拍且恒一张 sheet (0.2406ms)
+  AssertionError [ERR_ASSERTION]: 焰片 sheet 未在场(sheetOf() 空) — sheet 未实现或未挂场(与 R4-1 同因)
+      at fireCount (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:186:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:364:22)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\effects-campfire-sheet.test.js:382:1
+✖ R4-4 open=false 格永不贡献 plane(h 类禁令): 浇熄格/燃尽余韵格 cells() 在册但 sheet 零 plane; 燃尽余韵期满+存量清空后格回收 (0.2619ms)
+  AssertionError [ERR_ASSERTION]: 焰片 sheet 未在场(sheetOf() 空) — sheet 未实现或未挂场(与 R4-1 同因)
+      at fireCount (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:186:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:392:22)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\effects-campfire-sheet.test.js:407:1
+✖ R4-5 UV 翻页镜像: 帧窗=tileUV(74+fx.flameFrameAt) 全幅, 帧推进换窗(74/75/76 依次), 与 fx-core 单源逐拍一致 (0.7821ms)
+  AssertionError [ERR_ASSERTION]: sheet 在场(R4-1)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:428:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\effects-campfire-sheet.test.js:449:1
+✖ R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (3.3232ms)
+  AssertionError [ERR_ASSERTION]: 50 火仍恰一张共享 sheet(容量翻倍 mobs 惯例: 扩容量不扩 mesh 数)
+  
+  0 !== 1
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:467:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\effects-campfire-sheet.test.js:488:1
+✖ R4-7 渐弱(§5.8 扩含面片): tint=0 顶点色恒白不暗化; tint 增大亮度单调下降(亮度插值随 fx 渐弱窗) (0.6382ms)
+  AssertionError [ERR_ASSERTION]: 焰片 sheet 未在场 — 顶点按格分桶无处落
+      at vertsByCell (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:200:10)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:495:17)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\effects-campfire-sheet.test.js:515:1
+✖ R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.198ms)
+  AssertionError [ERR_ASSERTION]: 前置: 本场 sheet 在场
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:522:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":8}
+verdict: 断言红(AssertionError=8)
+failed_tests:
+  - R4-1 惰性建+材质面: 零 open 格零 sheet; 首 open 恰一张共享 sheet, MeshBasic{map=atlasMat.map, alphaTest 0.5, DoubleSide, vertexColors, 不透明队列}, frustumCulled=false (2.1678ms)
+  - R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.3093ms)
+  - R4-3 membership 全路径同步: open 挂/浇熄摘/重燃再挂/燃尽摘/挖掘摘 — 顶点数与 fx open 格集同拍且恒一张 sheet (0.2406ms)
+  - R4-4 open=false 格永不贡献 plane(h 类禁令): 浇熄格/燃尽余韵格 cells() 在册但 sheet 零 plane; 燃尽余韵期满+存量清空后格回收 (0.2619ms)
+  - R4-5 UV 翻页镜像: 帧窗=tileUV(74+fx.flameFrameAt) 全幅, 帧推进换窗(74/75/76 依次), 与 fx-core 单源逐拍一致 (0.7821ms)
+  - R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (3.3232ms)
+  - R4-7 渐弱(§5.8 扩含面片): tint=0 顶点色恒白不暗化; tint 增大亮度单调下降(亮度插值随 fx 渐弱窗) (0.6382ms)
+  - R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.198ms)
+  - failing tests:
+  - R4-1 惰性建+材质面: 零 open 格零 sheet; 首 open 恰一张共享 sheet, MeshBasic{map=atlasMat.map, alphaTest 0.5, DoubleSide, vertexColors, 不透明队列}, frustumCulled=false (2.1678ms)
+  - R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.3093ms)
+  - R4-3 membership 全路径同步: open 挂/浇熄摘/重燃再挂/燃尽摘/挖掘摘 — 顶点数与 fx open 格集同拍且恒一张 sheet (0.2406ms)
+  - R4-4 open=false 格永不贡献 plane(h 类禁令): 浇熄格/燃尽余韵格 cells() 在册但 sheet 零 plane; 燃尽余韵期满+存量清空后格回收 (0.2619ms)
+  - R4-5 UV 翻页镜像: 帧窗=tileUV(74+fx.flameFrameAt) 全幅, 帧推进换窗(74/75/76 依次), 与 fx-core 单源逐拍一致 (0.7821ms)
+  - R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (3.3232ms)
+  - R4-7 渐弱(§5.8 扩含面片): tint=0 顶点色恒白不暗化; tint 增大亮度单调下降(亮度插值随 fx 渐弱窗) (0.6382ms)
+  - R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.198ms)
