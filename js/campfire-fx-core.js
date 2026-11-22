@@ -131,7 +131,9 @@ const CampfireFxCore = (function() {
 
     /* ---------- 焰片面查询(v1.10 §4/§5.8): 相位+帧号纯函数, R-4 焰片 sheet 只消费 ----------
        相位=cellSeed 单一来源派生 ∈[0,1)(同格同流/异格异流/重开一致);
-       帧号=floor((now+phase·T)/fs_eff)%frames, T=frames·frameS 翻页周期,
+       帧号=floor((now+phase·T)/fs_eff)%frames, T=frames·fs_eff
+       (相位 [0,1) 恰铺满一整圈帧 — R-7: 周期随 fs_eff 同步放大, 低核档
+       lowMul 才不冻结翻页; 桌面档随渐弱 tint 微变=正确数学),
        fs_eff=frameS×(低核 lowMul 恒档 : (1+tint·fadeMul) 渐弱降档, 未知格 tint=0) */
     function flamePhase(x, y, z) {
       return cellSeed(rootSeed, x, y, z) / 4294967296;
@@ -141,7 +143,7 @@ const CampfireFxCore = (function() {
       const c = cellsMap.get(key(x, y, z));
       const tint = (c && typeof c.tint === 'number') ? c.tint : 0;
       const fsEff = fp.frameS * (lowcore ? fp.lowMul : (1 + tint * fp.fadeMul));
-      const period = fp.frames * fp.frameS;
+      const period = fp.frames * fsEff;
       return Math.floor((now + flamePhase(x, y, z) * period) / fsEff) % fp.frames;
     }
 
@@ -225,6 +227,7 @@ const CampfireFxCore = (function() {
       const c = cellsMap.get(key(x, y, z));
       if (!c || !c.open) return; /* 悬空无害: 已摘/未知零炸零副作用 */
       c.open = false;
+      c.quenchAt = now; /* 浇熄时间戳(回收门/cellsList 过滤起点, 与燃尽 burnoutAt 对称) */
       c.flame.length = 0;
       c.smoke.length = 0;
       c.vortex.length = 0;
@@ -401,8 +404,11 @@ const CampfireFxCore = (function() {
         }
         /* 余韵期满且存量清空 → 回收格(摘除面已在 ≥0.4s 退场; 在飞尾焰/尾烟
            自然散尽才删, 燃尽同帧 0.5s 大步不吞 pop/尾烟——余韵增量 ≤0.4s 出生
-           +寿命 ≤0.7s, ≤2s 全清预算不破) */
-        if (!c.open && c.burnoutAt !== undefined && now - c.burnoutAt >= BURN_FLAME_S &&
+           +寿命 ≤0.7s, ≤2s 全清预算不破)。R-7: 浇熄路径同门回收 — closedAt
+           缺省取 quenchAt(浇熄: 火苗/烟/旋涡已即清, 白汽瞬态 ≤0.8s 主导等待,
+           实际回收 ≈0.8~0.9s; 旧径浇熄格永不回收的滞留由此清零) */
+        const closedAt = c.burnoutAt !== undefined ? c.burnoutAt : c.quenchAt;
+        if (!c.open && closedAt !== undefined && now - closedAt >= BURN_FLAME_S &&
             !c.flame.length && !c.smoke.length && !c.transients.length &&
             !c.vortex.some((p) => p.active)) {
           cellsMap.delete(k);
@@ -431,8 +437,10 @@ const CampfireFxCore = (function() {
     function cellsList() {
       const out = [];
       for (const c of cellsMap.values()) {
-        /* 燃尽余韵期满格剔除(§5.6 评审 SPEC-2): 查询面退场(内含格待尾巴散尽回收) */
-        if (!c.open && c.burnoutAt !== undefined && now - c.burnoutAt >= BURN_FLAME_S) continue;
+        /* 燃尽余韵期满格剔除(§5.6 评审 SPEC-2): 查询面退场(内含格待尾巴散尽回收)
+           R-7: 浇熄格同款对称 — closedAt 缺省取 quenchAt, 期满即退场(泄漏清零) */
+        const closedAt = c.burnoutAt !== undefined ? c.burnoutAt : c.quenchAt;
+        if (!c.open && closedAt !== undefined && now - closedAt >= BURN_FLAME_S) continue;
         out.push({x: c.x, y: c.y, z: c.z, open: c.open});
       }
       return out;

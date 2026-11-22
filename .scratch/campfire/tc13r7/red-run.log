@@ -1,0 +1,185 @@
+✔ 篝火特效核心在册: js/campfire-fx-core.js 暴露 mkCampfireFx 工厂(纯核心新文件) (0.5875ms)
+✔ §5.2 火苗发射器参数表(桌面列逐项): 速率 2(v1.10 §5.2 转性降档终裁 6→2)/寿命 0.5~0.7/上升 0.9~1.3/漂移 ±0.15/发射点 y+0.4 散布 ±0.25/尺寸 0.10~0.16→0.02/透明度 0.9 (0.2035ms)
+✔ §5.3 烟柱发射器参数表(桌面列逐项): 速率 2/发射点 y+1.2 ±0.2/寿命 3.5~4.5/初速 1.4 减速至 0.4/摆 ±0.35 周期 2.5s/尺寸 0.14→0.55/暖灰白恒色/opacity 0.45→0 (0.0859ms)
+✔ §5.4 柔柱+旋涡参数表(桌面列逐项): 柱径 2.6/高=柱满高/风白 #f5f7f3/opacity 0.10±0.05 周期 3.7s/低核 0.06 常值 · 旋涡 16 粒/角速 1.3/半径 0.5~1.1/上升 3.0±0.5/y+0.5 起/尺寸 0.08~0.13 (0.095ms)
+✔ §5.4 柔柱柱高单源: 注入 columnH 覆盖生效(观感柱恒满高, 遮挡穿模=已知边界不跟随截断) (0.0814ms)
+✔ 火苗颜色生命周期三锚(#ffff97 出生→40% #ff8f00→80% #e05a1a): 锚点逐字+段间连续插值 (0.1581ms)
+✔ 烟暖白 #d6d2c8 vs 风冷白 #f5f7f3 色温差分色(§5.10 同屏对比走查的程序面) (0.1117ms)
+✔ 低核触屏档: 速率减半(火苗 1(v1.10 转性降档 3→1)/烟 1/旋涡 8 粒)+柔柱 0.06 常值(脉动砍) (0.0894ms)
+✔ 桌面档柔柱脉动: 0.10±0.05 正弦周期 3.7s(portalBeam 脉动手法同源) (0.5752ms)
+✔ §5.9 多篝火预算: ≤3 座全额 · 第 4 座起「烟全额+火苗半速+旋涡半数」 · >40 格只留烟柱 (0.9017ms)
+✔ §5.9 预算缺省容忍: distOf 未注入=全额档(装配前/测试语境零炸) (0.1264ms)
+✔ §5.8 渐弱触发: 剩余比例 ≤10%(600 刻)进入渐弱窗 · 桌面满额零渐弱 (0.0831ms)
+✔ §5.8 渐弱档位: 火苗线性降至满额 40%+焰色向 #e05a1a 插值 · 烟与气柱 scale 恒 1(不衰减) (0.1048ms)
+✔ 渐弱喂缝: setLeft 驱动发射器实际速率(渐弱只发生在世界内火焰本身) (0.1184ms)
+✔ §5.5 点燃过渡: pop(#ff8f00, r 0.3→1.6, 0.35s, op 0.9)+三发射器 0.5s 线性渐起 (0.203ms)
+✔ §5.5 禁用面: 点燃零 kick 震屏零 debrisBurst(一次性面只有 pop/白汽/尾烟三 kind) (0.1798ms)
+✔ §5.6 燃尽两处形状(评审 SPEC-2 翻新裁定): 火苗发射率 0.4s 线性降 0 · 柔柱透明度 0.3s 线性降 0 后摘 · 旋涡停止补充 · ≤2s 全清无残影 · 轻灰 pop(#d6d2c8, 0.4→1.2, 0.5s, op 0.5)+尾烟 3 粒 1.5s 散尽 (0.2839ms)
+✔ §5.7 浇熄过渡: 即刻摘除零火苗残帧 · 白汽 pop(#f5f7f3, 0.3→1.4, 0.4s, op 0.6)+4 粒 0.8s 上升 1 格/s (0.1025ms)
+✖ 浇熄格回收(R-7 加带二): 浇熄格余韵期满查询面退场(燃尽同款对称) · 白汽散尽后格回收(cells 泄漏清零) · 窗口内 dig 悬空无害 · 燃尽对照回收不回退 (0.5348ms)
+✔ 挖掘=摘(§5.1): 即刻摘除零过渡零 pop · 燃尽渐熄中再 dig 不重启不炸(悬空无害) (0.1122ms)
+✔ §5.1 句柄五纪律: open 幂等(不重置不翻倍) · clear 清场 · 悬空无害 · 摘后重开恢复 (0.1128ms)
+✔ active/emitters/particles 查询面: 未开格 active=false · emitters=null · particles 空形状可查 (0.0455ms)
+✔ 发射积分口径(评审 SPEC-1 翻新裁定, 修法①改实现; v1.10 转性降档 rate=2 期望值重算): 渐起窗发射=∫rate·ramp dt 非矩形满速 — 0.5s 期望 ≤1 粒(∫₀^0.5 2·(t/0.5)dt=0.5) · 1s ∈{1,2}(∫=1.5) · 满速段守恒恢复 0.5s=1 · 快照 rateScale=实际发射乘子(0.2s 处=0.4 如实) (0.3237ms)
+✔ 寿命域与粒子带: 火苗 life∈0.5~0.7 · age≤life · 尺寸带 [0.02, 0.16] · 透明度带 [0, 0.9] · 从发射点(y+0.4)上升 · 水平不超散布+漂移幅 (0.1307ms)
+✔ 烟柱运动: 从 y+1.2 起升 · 摆幅带 ±(0.2 散布+0.35 摆) · 恒色 #d6d2c8 · 尺寸膨胀方向 · 速度曲线 1.4→0.4 线性(积分口径可见烟高 ≈4~5 格) (0.1222ms)
+✔ 旋涡: 渐起后人口恒 16(柱顶回卷取模零缺口) · 高度域 [y+0.5, y+柱满高] · 半径带 0.5~1.1 · 同向公转 (0.14ms)
+✔ 确定性: 同格同种子重开=同粒子流(逐字段一致) · 异格=异流(相位错开有据) (0.4941ms)
+✔ 焰片面参数行单源(v1.10 §5.8 扩含面片+设计线五裁): params.flamePlanes={frames:3, frameS:0.15, fadeMul:1, lowMul:2} — 翻页 3 帧 0.15s/帧(≈6.7fps MC 量级)/渐弱 ×(1+tint·fadeMul) 0.30s 封顶/低核 ×2 恒档 (0.0653ms)
+✔ flamePhase(x,y,z) 实例方法(v1.10 §5.2 建议·方案 §3-i): cellSeed 派生 ∈[0,1) — 同格同流/异格异流/重开一致/根种子敏感(哈希单一来源复用 cellSeed, 不复制公式) (0.1907ms)
+✔ flameFrameAt(x,y,z) 帧号纯函数(方案 §3-d: floor((now+phase·T)/frameS)%3 下沉 fx-core, R-4 只消费): 翻页周期 0.45s/帧号域 {0,1,2}/50 火任意采样时刻三帧全覆盖/未知格可查 (0.2949ms)
+✔ 渐弱帧率降档+低核恒档(§5.8 v1.10「火小了也慢了」+设计线已批 0.30 封顶): 渐弱窗尾帧距 ×(1+tint·fadeMul)=0.30s(同距采样 full 翻帧 fade 不翻) · 低核帧距恒 0.30s 不随 tint (0.3992ms)
+✖ lowcore 相位窗(R-7 加带一): 低核档 50 火逐时刻帧覆盖=3 — 相位·T 铺满 fs_eff 整圈(翻页非冻结; 对旧不变量 T=frames×frameS 真红: 低核相位散布只落 ≤2 个帧号档) (0.4718ms)
+✔ 零墙钟+零裸随机: campfire-fx-core.js 零 Date.now/performance.now/Math.random 实调(确定性重放红线; 粒子随机走 mulberry32 每源派生先例) (0.3572ms)
+✔ effects.js 零 campfire 音效字面量: sfx(campfire_lit)/sfx(campfire_out) 未登记前零落盘(audio-registry 守门口径, 调用位只留注释同 C3 先例) (0.2311ms)
+✔ index.html script 行: campfire-fx-core.js 在册且先于 modes/adventure.js(壳顶层构造 fx 管理器) (0.1939ms)
+✔ mkPolicy: lightOf 读 light 字段(缺省 0), opaque = 实心且非玻璃且非薄块(与视线 isOpaque 刻意分叉, ADR-0021) (0.6025ms)
+✖ mkPolicy(真实 config BLOCKS): solid∧thin 透光族 80/81/82 不挡光(与视线 isOpaque 刻意分叉, ADR-0021; 全表恰此三 id) (0.4554ms)
+✖ H2 熄态格值面(真实 BLOCKS 小世界): 熄态篝火格 sky=15 直灌穿透(薄块归位全透光) · 火把方块光入格(block 通道不再恒 0) · 燃态源格自亮 15 与 sky 直灌双维持 (1.7929ms)
+✖ H2 燃→熄过渡(玩法路径增量面): updateEdit 81→82 — 格值翻 sky15/block0, 邻面采样格恒非双零(「光晕翻黑框」闪变判据程序化) (2.3509ms)
+✔ 方块通道: 单火把菱形光场 — 源格 14, 曼哈顿 d 处 14−d, 半径 13 外归零 (1.5744ms)
+✔ 方块通道: 双源取 max(火把 14 + 灯 15 交叠区) (2.062ms)
+✔ 方块通道: 遮挡投阴影 — 密封石盒内火把, 盒外全零盒内亮 (0.4386ms)
+✔ 方块通道: 玻璃/水/薄块透光不衰减(差异 #7 口径) (3.3476ms)
+✔ 天空通道: 列直灌 — 地表以上全 15, 地下 0, 玻璃/水不挡天光 (0.268ms)
+✔ 天空通道: 洞口横向渗透 — 竖井 15 直下, 房间内自井口横向 −1 扩散 (0.3619ms)
+✔ 天空通道: 屋檐下暗 — 全深挑檐沿进深每格 −1, 15 格进深处全暗 (0.7584ms)
+✔ updateEdit: 撤源归零 — 挖掉火把后光场全零(空世界无其他源) (1.7161ms)
+✔ updateEdit: 增源 — 空场放火把, 增量 === 全量重算(逐格相等) (4.4486ms)
+✔ updateEdit: 放置挡光块 — 探针值按绕行路径重算, 挖开复原 (2.5456ms)
+✔ updateEdit: 天空通道遮挡变化 — 空场悬石投影列内 14, 移除复原 15 (0.9529ms)
+✔ updateEdit: 脏格包围盒 — 含光达范围; 无变化编辑返 null (1.8772ms)
+✔ updateEdit 不变量: 随机 50 步编辑, 增量累计 === computeAll 全量重算 (533.2749ms)
+ℹ tests 52
+ℹ suites 0
+ℹ pass 47
+ℹ fail 5
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 618.9652
+
+✖ failing tests:
+
+test at test\campfire-fx-core.test.js:365:1
+✖ 浇熄格回收(R-7 加带二): 浇熄格余韵期满查询面退场(燃尽同款对称) · 白汽散尽后格回收(cells 泄漏清零) · 窗口内 dig 悬空无害 · 燃尽对照回收不回退 (0.5348ms)
+  AssertionError [ERR_ASSERTION]: 浇熄 0.5s: 查询面退场(燃尽余韵期满同款对称; 旧径永在册必红)
+  
+  true !== false
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\campfire-fx-core.test.js:378:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\campfire-fx-core.test.js:798:1
+✖ lowcore 相位窗(R-7 加带一): 低核档 50 火逐时刻帧覆盖=3 — 相位·T 铺满 fs_eff 整圈(翻页非冻结; 对旧不变量 T=frames×frameS 真红: 低核相位散布只落 ≤2 个帧号档) (0.4718ms)
+  AssertionError [ERR_ASSERTION]: 低核 t=0.05s 帧分布覆盖 3 帧(实测 [33,17,0])
+  
+  2 !== 3
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\campfire-fx-core.test.js:824:12)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 2,
+    expected: 3,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\light-core.test.js:112:1
+✖ mkPolicy(真实 config BLOCKS): solid∧thin 透光族 80/81/82 不挡光(与视线 isOpaque 刻意分叉, ADR-0021; 全表恰此三 id) (0.4554ms)
+  AssertionError [ERR_ASSERTION]: 门额牌 80(thin 0.15 实心)不挡光 — 横梁朝牌面黑变亮归位的谓词面
+  
+  true !== false
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\light-core.test.js:115:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: true,
+    expected: false,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\light-core.test.js:143:1
+✖ H2 熄态格值面(真实 BLOCKS 小世界): 熄态篝火格 sky=15 直灌穿透(薄块归位全透光) · 火把方块光入格(block 通道不再恒 0) · 燃态源格自亮 15 与 sky 直灌双维持 (1.7929ms)
+  AssertionError [ERR_ASSERTION]: 熄态篝火格 sky=15(直灌穿透 thin 格; 邻墙面采样值由此点亮)
+  
+  0 !== 15
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\light-core.test.js:155:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 15,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at test\light-core.test.js:169:1
+✖ H2 燃→熄过渡(玩法路径增量面): updateEdit 81→82 — 格值翻 sky15/block0, 邻面采样格恒非双零(「光晕翻黑框」闪变判据程序化) (2.3509ms)
+  AssertionError [ERR_ASSERTION]: 浇熄后 sky=15(增量 skyRegion 同步归位; 旧判挡光恒 0 必红)
+  
+  0 !== 15
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\light-core.test.js:178:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 0,
+    expected: 15,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":5}
+verdict: 断言红(AssertionError=5)
+failed_tests:
+  - 浇熄格回收(R-7 加带二): 浇熄格余韵期满查询面退场(燃尽同款对称) · 白汽散尽后格回收(cells 泄漏清零) · 窗口内 dig 悬空无害 · 燃尽对照回收不回退 (0.5348ms)
+  - lowcore 相位窗(R-7 加带一): 低核档 50 火逐时刻帧覆盖=3 — 相位·T 铺满 fs_eff 整圈(翻页非冻结; 对旧不变量 T=frames×frameS 真红: 低核相位散布只落 ≤2 个帧号档) (0.4718ms)
+  - mkPolicy(真实 config BLOCKS): solid∧thin 透光族 80/81/82 不挡光(与视线 isOpaque 刻意分叉, ADR-0021; 全表恰此三 id) (0.4554ms)
+  - H2 熄态格值面(真实 BLOCKS 小世界): 熄态篝火格 sky=15 直灌穿透(薄块归位全透光) · 火把方块光入格(block 通道不再恒 0) · 燃态源格自亮 15 与 sky 直灌双维持 (1.7929ms)
+  - H2 燃→熄过渡(玩法路径增量面): updateEdit 81→82 — 格值翻 sky15/block0, 邻面采样格恒非双零(「光晕翻黑框」闪变判据程序化) (2.3509ms)
+  - failing tests:
+  - 浇熄格回收(R-7 加带二): 浇熄格余韵期满查询面退场(燃尽同款对称) · 白汽散尽后格回收(cells 泄漏清零) · 窗口内 dig 悬空无害 · 燃尽对照回收不回退 (0.5348ms)
+  - lowcore 相位窗(R-7 加带一): 低核档 50 火逐时刻帧覆盖=3 — 相位·T 铺满 fs_eff 整圈(翻页非冻结; 对旧不变量 T=frames×frameS 真红: 低核相位散布只落 ≤2 个帧号档) (0.4718ms)
+  - mkPolicy(真实 config BLOCKS): solid∧thin 透光族 80/81/82 不挡光(与视线 isOpaque 刻意分叉, ADR-0021; 全表恰此三 id) (0.4554ms)
+  - H2 熄态格值面(真实 BLOCKS 小世界): 熄态篝火格 sky=15 直灌穿透(薄块归位全透光) · 火把方块光入格(block 通道不再恒 0) · 燃态源格自亮 15 与 sky 直灌双维持 (1.7929ms)
+  - H2 燃→熄过渡(玩法路径增量面): updateEdit 81→82 — 格值翻 sky15/block0, 邻面采样格恒非双零(「光晕翻黑框」闪变判据程序化) (2.3509ms)

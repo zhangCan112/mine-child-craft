@@ -8,8 +8,9 @@
    · 天空光  列顶直灌 15(至首个挡光块), 横向/向上每格 −1
              (垂直下落不衰减被列直灌包含 — 同列 15 只能来自直灌)。
    逻辑亮度 = max(internalSky, blockLight) 是消费侧口径(D3/D5), 本核心
-   只产出两个独立通道。挡光规则: opaque = 实心且非玻璃(玻璃/水/薄块/
-   十字片全透光不衰减, 差异 #7); 挡光格两通道恒 0, 唯光源格例外
+   只产出两个独立通道。挡光规则: opaque = 实心且非玻璃且非薄块(玻璃/
+   水/薄块/十字片全透光不衰减, 差异 #7 — solid∧thin 组合不挡光, 与视线
+   isOpaque 刻意分叉, ADR-0021); 挡光格两通道恒 0, 唯光源格例外
    (自亮不透光, MC 灯口径)。
    interface: mkPolicy(BLOCKS) → {lightOf(id) 0..15, opaque(id)}
      · computeAll(read, W, D, H, policy, sky, block)   全量: 装场一次写满
@@ -29,15 +30,17 @@ const LightCore = (() => {
 
   /* 发光/挡光判定(config BLOCKS 派生, 装配一次; world.js 与单测共用同一
      装配防两份漂移 — cascade-core mkPolicy 同款缝制)。
-     opaque 镜像 voxel.js isOpaque 现判: 实心(solid 缺省=实心)且非玻璃,
-     未知 id 按实心兜底; lightOf 读 light 字段(D4 给 BLOCKS 补), 缺省 0 */
+     光挡光与视线遮挡(voxel.js isOpaque)在 solid∧thin 上刻意分叉(ADR-0021):
+     本谓词薄块透光不挡光(挡视线不挡光, spec §3.4 物理实心), isOpaque 照挡。
+     opaque: 实心(solid 缺省=实心)且非玻璃且非薄块, 未知 id 按实心兜底;
+     lightOf 读 light 字段(D4 给 BLOCKS 补), 缺省 0 */
   function mkPolicy(BLOCKS) {
     return {
       lightOf: (id) => (BLOCKS[id] && BLOCKS[id].light) || 0,
       opaque: (id) => {
         if (id === 0) return false;
         const b = BLOCKS[id];
-        return b ? (b.solid !== false && !b.glass) : true;
+        return b ? (b.solid !== false && !b.glass && !b.thin) : true;
       },
     };
   }

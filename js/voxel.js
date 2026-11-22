@@ -84,7 +84,8 @@ function isSolid(id) {
   const b = BLOCKS[id];
   return b ? b.solid !== false : true;
 }
-/* 不透明判定: 相机防穿墙用 — 实心且非玻璃(隔着玻璃透视不收拢相机) */
+/* 不透明判定: 相机防穿墙用 — 实心且非玻璃(隔着玻璃透视不收拢相机);
+   光挡光谓词在 solid∧thin 上与本题刻意分叉(ADR-0021) — 本判定照挡视线/拾取 */
 function isOpaque(id) {
   if (id===0) return false;
   const b = BLOCKS[id];
