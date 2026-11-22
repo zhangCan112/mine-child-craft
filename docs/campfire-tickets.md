@@ -85,7 +85,7 @@ T-C1 后可合可放可烧可消失（表现最小：占位贴图/零特效/零�
 | T-C13-R1 | 图集九枚 tile 落集（PAINTERS 68~76+焰帧判据换新） | T-C13-R, 定稿 v1.10 | ☑ 已并入（0f3e3e5 红+1670fd3 绿+1d09443 merge+93625d0 修锚，合并 21a0a24；双轴评审 PASS；门禁树内 2485/2484/0/1；R-2/R-4 前置就位） |
 | T-C13-R2 | MeshCore 多部件几何（pushCampfireParts+layout 切换+ADR-0020 落册） | T-C13-R1 | ☑ 已并入（a29658e 红+ce1ada2 绿+f111df6 收尾+7ff9a69 merge，合并 d136ed9；双轴评审 PASS 无保留；门禁树内 2494/2493/0/1；nit 采样窗双载体归台账；R-5 前置就位一半） |
 | T-C13-R3 | fx-core 增量面（flamePlanes+flamePhase+§5.2 转性档） | T-C13-R | ☑ 已并入（684f3c0+8d9f4d5，合并 52f1647；双轴评审 PASS 零缺口；门禁 2480/2479/0/1；R-4 前置就位） |
-| T-C13-R4 | 焰片渲染适配（campfireField 场内共享 sheet，UV 翻页+错相） | T-C13-R1, T-C13-R3 | ◐ 完工评审中（tc13r4 73dc641；红绿同票+裁决 1 条；门禁 2497/2496/0/1；y-scale 自选题=不做） |
+| T-C13-R4 | 焰片渲染适配（campfireField 场内共享 sheet，UV 翻页+错相） | T-C13-R1, T-C13-R3 | ☑ 已并入（8e2d207 红+0332a27 绿+ab2e652 裁决+73dc641 merge，合并 e948d2d；双轴评审 PASS；3 minor+3 nit 归 R-5 收敛窗；门禁树内 2497/2496/0/1；R-5 前置全满） |
 | T-C13-R5 | 装配对账+台账重放恢复+守门收口（GLOSSARY 翻新随票） | T-C13-R2, T-C13-R4 | ☐ |
 | T-C13-R6 | C6' 基准重跑+收档（新基线+dc/tri 采样+错相结构断言） | T-C13-R5 | ☐ |
 
