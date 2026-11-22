@@ -6,8 +6,9 @@
    方块图集 texture-atlas; 图集内薄块走十字面片、床走薄块扁盒 pushBedBox、
    火把走专用小盒 pushTorch
    (MC 同款, mc-torch-model-research §1/§2)、pane 旗标走竖直薄板
-   pushPane — 门/玻璃板, docs/door-window-design.md §5)、篝火走半格扁盒
-   pushCampfireBox(campfire 旗标两态 81/82, UI 定稿 §4.1 v1.9 起分面双 tile)。
+   pushPane — 门/玻璃板, docs/door-window-design.md §5)、篝火走多部件
+   pushCampfireParts+CF_PARTS 部件表(campfire 旗标两态 81/82, UI 定稿 §4.1
+   v1.10 起部件表接线; ADR 0020 静态驻 chunk 批)。
    零 THREE · 零 DOM ·
    加载零副作用 →
    Node 可直接加载单测; 同一份代码在主线程(world.js 兜底路径)与
@@ -124,45 +125,82 @@ const MeshCore = (() => {
     }
   }
 
-  /* 篝火(半格扁盒 + 图集, 篝火 T-C8; spec §3.4 半格实体; 贴图 T-C13 v1.9 起
-     分面双 tile——UI 定稿 §4.1 废全脸同图):
-     几何同 pushBedBox(thin 扁盒跳底面, top+4 侧五面, 两态同机); 贴图分面取格——
-     顶面=灶面 tile(俯视)/四侧面=侧脸 tile(正视), 逐面经 atlasTileOf 按面朝向取
-     (分面条目 {top,side,bottom}, pushBedBox topTile/sideTile 分面取法同构;
-     底面不绘故 bottom 不被查询, 条目三键齐兜底), 侧面纵向 2:1 压扁(slab 同
-     惯例, 整图满幅不裁窗)。取光语义与 pushThin/pushBedBox 不同构
-     (彼两类透光格自身格有光; 本块 solid+opaque 挡光格自身格恒 0): 燃烧态取
-     自身格(光源格 mkPolicy 例外自身格有值, light 15 夜面自亮读作发光体),
-     熄灭态取面朝向邻格光(ADR 0012 pushGateSign T4 同构——白昼上邻天光点亮
-     灰烬/原木床, 夜间邻格无光仍读暗块; 越界兜底走 lsky/lblk 既有口径)。
-     不乘 tint(图集通道无 colors, 噪点自带)。无 bed/wall/gateSign 旗标:
-     campfire 旗标块专行分派, 不走十字面片/纯色兜底通道。 */
-  function pushCampfireBox(t, x, y, z, lx, lz, h, ae, atlas, lsky, lblk, out) {
-    for (let f=0; f<6; f++) {
-      if (f===2) continue; // 底面贴地不可见, 不绘(pushBedBox 同款)
-      const face = FACES[f];
-      const tile = atlasTileOf(ae, face.dir); /* 分面: 顶=灶面/四侧=侧脸(T-C13 §4.1) */
-      const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
-      /* 两态取光分口径(每面四顶点共用 fSky/fBlk, pushGateSign 同构):
-         out=熄灭态取面朝向邻格; 燃烧态取自身格(零改动锚) */
-      let fSky; let fBlk;
-      if (out) {
-        fSky = lsky(lx + face.dir[0], y + face.dir[1], lz + face.dir[2]) / 15;
-        fBlk = lblk(lx + face.dir[0], y + face.dir[1], lz + face.dir[2]) / 15;
-      } else {
-        fSky = lsky(lx, y, lz) / 15; fBlk = lblk(lx, y, lz) / 15;
+  /* 篝火多部件几何(篝火 T-C13-R2; UI 定稿 §4.1 v1.10 部件表接线, ADR 0020
+     静态驻 chunk 批): 织席原木 2×2 两轴交错 + 炭堆主盒 + 错位小盒 ×1 = 静态件
+     6(部件 ≤7 口径=静态件+焰片组 1, R-4 挂)。CF_PARTS=方案 §4 建议值表逐值
+     (格内局部 AABB, 全确定性零随机; 测试 CF_PARTS_WANT 同源对撞 verify-parts.js),
+     部件间半搭互穿、坐标互异零共点——任意两部件无共面重叠面(z-fight 静态免疫,
+     共面即红), 全部件 ⊆ 自有格 [0,1)³(拾取/邻格语义零污染, ADR 0020 拾取配套)。
+     逐部件逐面取 tile(部件表键直读, 不走 atlasTileOf——条目无 bottom 键, 面
+     朝下查询会拿 undefined→NaN UV): 原木沿轴端面=logEnd 68/其余面=logSide 69
+     (燃熄共用), 炭堆顶=top 70|72/侧=side 71|73 两态分格。UV 采样窗=方案 §4
+     「tile/UV 窗」列(pushTorch WINS 同款像素窗换算): 端面窗 [4,12]×[4,12]
+     (年轮居中)/皮侧窗 u 全幅×v∈[5,11]/炭堆侧窗 u 全幅×v∈[0,6](0.4w:6px 与
+     0.15h 等比=方形像素密度)/小盒侧窗等比缩 [0,8]×[0,4]/顶全幅。
+     跳底面三例+绘一例: X 原木贴地(y=0)跳底面(pushBedBox 惯例); 炭堆主盒底面
+     与 X 原木顶共面(y=0.15, 不跳即触发无共面不变量红); 小盒底面沉入主盒
+     不可见, 同跳; Z 原木底面 0.075 在中缝可见, 绘。取光两态分口径原样继承
+     (旧 pushCampfireBox 口径): 熄灭态逐面取面朝向邻格(挡光格自身格恒 0,
+     ADR 0012 T4 同构), 燃烧态取自身格(light 15 夜面自亮读作发光体)——全部件
+     逐面同一口径; 越界兜底走 lsky/lblk 既有口径。不乘 tint(图集通道无 colors,
+     噪点自带)。Worker 路径零改自证(importScripts 同一份代码, mesh-worker.js)。 */
+  /* 部件布局表(方案 §4 建议值逐值): bb=格内局部 AABB [x0,y0,z0,x1,y1,z1];
+     axis=原木端面轴(X 原木 0/Z 原木 2, 炭堆 -1); sideWin=炭堆侧面像素窗
+     [x,y,w,h](canvas 坐标, x 自格左起/y 自格顶起); skipBottom=底面不绘。 */
+  const CF_PARTS = [
+    /* 原木·沿 X ×2: x∈[0.125,0.875] 长 0.75 · y∈[0,0.15] 截面 0.15 · z 心 0.29/0.71; 下层贴地 */
+    {bb: [0.125, 0.000, 0.215, 0.875, 0.150, 0.365], axis: 0, skipBottom: true},
+    {bb: [0.125, 0.000, 0.635, 0.875, 0.150, 0.785], axis: 0, skipBottom: true},
+    /* 原木·沿 Z ×2: x 心 0.29/0.71 · y∈[0.075,0.225] 半搭互穿; 上层, 底面 0.075 中缝可见故绘 */
+    {bb: [0.215, 0.075, 0.125, 0.365, 0.225, 0.875], axis: 2},
+    {bb: [0.635, 0.075, 0.125, 0.785, 0.225, 0.875], axis: 2},
+    /* 炭堆主盒: x/z∈[0.3,0.7] 0.4 见方 · y∈[0.15,0.30], 坐原木层上与 Z 原木角部互穿非共面 */
+    {bb: [0.300, 0.150, 0.300, 0.700, 0.300, 0.700], axis: -1, skipBottom: true, sideWin: [0, 0, 16, 6]},
+    /* 炭堆小盒 ×1: 0.2 见方 心(0.56,0.56) · y∈[0.24,0.34] 沉入主盒 0.06(炭堆顶 0.34 ≤0.35) */
+    {bb: [0.460, 0.240, 0.460, 0.660, 0.340, 0.660], axis: -1, skipBottom: true, sideWin: [0, 0, 8, 4]},
+  ];
+  function pushCampfireParts(t, x, y, z, lx, lz, ae, atlas, lsky, lblk, out) {
+    for (const part of CF_PARTS) {
+      const bb = part.bb;
+      for (let f=0; f<6; f++) {
+        if (f===2 && part.skipBottom) continue; // 贴地/共面/沉入: 底面不绘(见上)
+        const face = FACES[f];
+        /* 逐部件逐面取 tile: 原木沿轴法线=端面 logEnd, 其余面(含 Z 原木底面)
+           =皮侧 logSide; 炭堆顶面=top/侧面=side 两态分格(键直读防 undefined) */
+        const isEnd = part.axis >= 0 && face.dir[part.axis] !== 0;
+        const tile = isEnd ? ae.logEnd : (part.axis < 0 ?
+            (face.dir[1] === 1 ? ae.top : ae.side) : ae.logSide);
+        /* 采样窗(canvas 像素 [x,y,w,h]): 端面年轮窗/皮侧横纹窗/炭堆侧窗
+           part.sideWin/炭堆顶全幅 */
+        const win = isEnd ? [4, 4, 8, 8] : (part.axis < 0 ?
+            (face.dir[1] === 1 ? [0, 0, 16, 16] : part.sideWin) : [0, 5, 16, 6]);
+        const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
+        const u0 = tc / atlas.cols; const v0 = (atlas.rows - 1 - tr) / atlas.rows;
+        /* 两态取光分口径(每面四顶点共用 fSky/fBlk, pushGateSign 同构):
+           out=熄灭态取面朝向邻格; 燃烧态取自身格(零改动锚) */
+        let fSky; let fBlk;
+        if (out) {
+          fSky = lsky(lx + face.dir[0], y + face.dir[1], lz + face.dir[2]) / 15;
+          fBlk = lblk(lx + face.dir[0], y + face.dir[1], lz + face.dir[2]) / 15;
+        } else {
+          fSky = lsky(lx, y, lz) / 15; fBlk = lblk(lx, y, lz) / 15;
+        }
+        for (let c=0; c<4; c++) {
+          const cor = face.corners[c];
+          /* 角点 0/1 → 部件 AABB min/max(部件坐标系内, 世界坐标=格原点+局部值) */
+          t.positions.push(x + (cor[0] ? bb[3] : bb[0]),
+              y + (cor[1] ? bb[4] : bb[1]), z + (cor[2] ? bb[5] : bb[2]));
+          t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
+          const uv = faceUV(face.dir, cor);
+          /* 像素窗换算(pushTorch WINS 同款): u 左起 · v 底起, 面上沿取窗顶行 */
+          t.uvs.push(u0 + (win[0] + uv[0]*win[2]) / 16 / atlas.cols,
+              v0 + (16 - win[1] - (1 - uv[1])*win[3]) / 16 / atlas.rows);
+          t.sky.push(fSky);
+          t.block.push(fBlk);
+        }
+        t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
+        t.n += 4;
       }
-      for (let c=0; c<4; c++) {
-        const cor = face.corners[c];
-        t.positions.push(x+cor[0], y+cor[1]*h, z+cor[2]);
-        t.normals.push(face.dir[0], face.dir[1], face.dir[2]);
-        const uv = faceUV(face.dir, cor);
-        t.uvs.push((tc+uv[0])/atlas.cols, (atlas.rows-1-tr+uv[1])/atlas.rows);
-        t.sky.push(fSky);
-        t.block.push(fBlk);
-      }
-      t.indices.push(t.n, t.n+1, t.n+2, t.n+2, t.n+1, t.n+3);
-      t.n += 4;
     }
   }
 
@@ -516,11 +554,12 @@ const MeshCore = (() => {
                 pushGateSign(A, wx, y, wz, lx, lz, b.thin, ae, atlas, lget, lsky, lblk, onBase);
                 continue;
               }
-              if (b.campfire) { // 篝火(campfire 旗标两态 81/82): 半格扁盒图集通道(UI 定稿 §4.1)
-                /* thin 0.5+solid 半格实体(spec §3.4): top+4 侧五面跳底面;
-                   取光两态分口径: 熄灭态取面朝向邻格(挡光格自身格恒 0,
-                   ADR 0012 T4 同构), 燃烧态取自身格(light 15 自亮) */
-                pushCampfireBox(A, wx, y, wz, lx, lz, b.thin, ae, atlas,
+              if (b.campfire) { // 篝火(campfire 旗标两态 81/82): 多部件图集通道(UI 定稿 §4.1 v1.10)
+                /* 部件表接线(CF_PARTS=方案 §4, ADR 0020 静态驻 chunk 批):
+                   织席 2×2+炭堆两盒=静态件 6; 取光两态分口径: 熄灭态取面
+                   朝向邻格(挡光格自身格恒 0, ADR 0012 T4 同构), 燃烧态取
+                   自身格(light 15 自亮)——全部件逐面同一口径 */
+                pushCampfireParts(A, wx, y, wz, lx, lz, ae, atlas,
                     lsky, lblk, b.campfire === 'out');
                 continue;
               }
