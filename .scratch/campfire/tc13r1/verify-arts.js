@@ -5,7 +5,12 @@
 const fs = require('node:fs');
 const doc = fs.readFileSync('docs/design/campfire-visual-spec.md', 'utf8').split(/\r?\n/);
 const testSrc = fs.readFileSync('test/texture-atlas.test.js', 'utf8');
-const blockAt = (start) => {
+const blockAt = (start, name) => {
+  // 锚行自检: 锚必须精确落在画稿码块首行(本身即画稿行), 防锚漂移被滑窗掩盖成假 OK
+  if (!/^'(.{16})'$/.test(doc[start - 1])) {
+    console.log('NG ' + name + ': 锚 L' + start + ' 不是画稿行(锚漂移, 拒绝滑窗取块)');
+    return null;
+  }
   const rows = [];
   for (let i = start - 1; i < doc.length && rows.length < 16; i++) {
     const m = doc[i].match(/^'(.{16})'$/);
@@ -14,13 +19,15 @@ const blockAt = (start) => {
   return rows;
 };
 const spec = {
-  CF_LOG_END68_ART: 356, CF_LOG_SIDE69_ART: 379, CF_TOP_LIT70_ART: 403,
-  CF_SIDE_LIT71_ART: 429, CF_FLAME74_ART: 453, CF_FLAME75_ART: 472, CF_FLAME76_ART: 491,
-  CF_TOP_OUT72_ART: 524, CF_SIDE_OUT73_ART: 548,
+  // 锚=各画稿码块首行; 793c237 散文对齐在画稿段前净增 7 行, 旧锚 356/379/403/429/453/472/491/524/548 统一 +7
+  CF_LOG_END68_ART: 363, CF_LOG_SIDE69_ART: 386, CF_TOP_LIT70_ART: 410,
+  CF_SIDE_LIT71_ART: 436, CF_FLAME74_ART: 460, CF_FLAME75_ART: 479, CF_FLAME76_ART: 498,
+  CF_TOP_OUT72_ART: 531, CF_SIDE_OUT73_ART: 555,
 };
 let bad = 0;
 for (const [name, at] of Object.entries(spec)) {
-  const want = blockAt(at);
+  const want = blockAt(at, name);
+  if (!want) { bad++; continue; }
   const m = testSrc.match(new RegExp('const ' + name + ' = \\[([\\s\\S]*?)\\];'));
   const got = m ? [...m[1].matchAll(/'([^']*)'/g)].map((x) => x[1]) : [];
   if (want.length !== 16 || got.length !== 16) {
