@@ -64,9 +64,15 @@ function mkThreeStub() {
   class BufferGeometry {
     constructor() {
       this.attributes = {}; this.index = null;
+      this.drawRange = {start: 0, count: Infinity};
     }
     setAttribute(name, attr) {
       this.attributes[name] = attr; return this;
+    }
+    /* r128 契约: setDrawRange(start, count) 只记录 {start, count}(渲染取
+       index.count 与 count 较小者画前段) — 桩照抄不撒谎 */
+    setDrawRange(start, count) {
+      this.drawRange = {start, count}; return this;
     }
     setIndex(idx) {
       this.index = Array.isArray(idx) ?
@@ -185,7 +191,12 @@ const sheetOf = () =>
 const fireCount = (mesh) => {
   assert.ok(mesh && mesh.geometry,
       '焰片 sheet 未在场(sheetOf() 空) — sheet 未实现或未挂场(与 R4-1 同因)');
-  return mesh.geometry.attributes.position.count / 8;
+  /* R5-c4 恒定属性案: 火数=绘段数/12(每火 12 索引)——满容量属性下
+     position.count 是容量级, 活火数只读 drawRange */
+  const dr = mesh.geometry.drawRange;
+  const live = (dr && typeof dr.count === 'number') ? dr.count : Infinity;
+  if (live === Infinity) return mesh.geometry.attributes.position.count / 8;
+  return live / 12;
 };
 
 /* 顶点世界系 = 属性 + mesh.position(装具口径, 见文件头) */
@@ -195,20 +206,42 @@ function worldVert(mesh, i) {
     a[i * 3 + 2] + mesh.position.z];
 }
 
-/* 顶点按格归属分桶(⊆ 自有格不变量, 方案 §3-b: 面片出格=邻格拾取语义污染) */
-function vertsByCell(mesh, cells) {
-  assert.ok(mesh && mesh.geometry, '焰片 sheet 未在场 — 顶点按格分桶无处落');
+/* 顶点按格归属分桶(⊆ 自有格不变量, 方案 §3-b: 面片出格=邻格拾取语义污染)。
+   守门版: 顶点落任何给定格外即抛(不变量断言面, R4-2/R4-6/R4-7 直测用);
+   探针须用下方 matchVertsByCell(非抛错纯匹配) — R5-c3 裁决: find 谓词内
+   不得抛错(R4-8 曾因此依赖实现倒序, 正序即红, 红证
+   .scratch/campfire/tc13r5/red-c3-serial-order.log)。 */
+function matchVertsByCell(mesh, cells) {
   const out = new Map(cells.map((c) => [key(c), []]));
-  const n = mesh.geometry.attributes.position.count;
+  const unmatched = [];
+  /* R5-c4 恒定属性案: 只读活顶点段(前 n 火×8)——满容量 buffer 的尾段是
+     swap-remove 的 stale 块, 绘段数(drawRange)才是活火面 */
+  const dr = mesh.geometry.drawRange;
+  const liveIdx = (dr && typeof dr.count === 'number') ? dr.count : Infinity;
+  const n = liveIdx === Infinity ?
+    mesh.geometry.attributes.position.count : (liveIdx / 12) * 8;
   for (let i = 0; i < n; i++) {
     const [wx, wy, wz] = worldVert(mesh, i);
     const hit = cells.find((c) =>
       wx >= c.x && wx < c.x + 1 && wy >= c.y && wy < c.y + 1 && wz >= c.z && wz < c.z + 1);
-    assert.ok(hit, '焰片顶点 ' + i + '(' + wx.toFixed(3) + ',' + wy.toFixed(3) + ',' +
-      wz.toFixed(3) + ') 落在任何 open 格外 — 面片出格(⊆自有格不变量)');
+    if (!hit) {
+      unmatched.push([i, wx, wy, wz]);
+      continue;
+    }
     out.get(key(hit)).push(i);
   }
-  return out;
+  return {byCell: out, unmatched};
+}
+
+function vertsByCell(mesh, cells) {
+  assert.ok(mesh && mesh.geometry, '焰片 sheet 未在场 — 顶点按格分桶无处落');
+  const {byCell, unmatched} = matchVertsByCell(mesh, cells);
+  const bad = unmatched[0];
+  if (bad !== undefined) {/* 先判后构造消息(bad 可能 undefined — 装具炸≠断言红, §7.4) */
+    assert.fail('焰片顶点 ' + bad[0] + '(' + bad[1].toFixed(3) + ',' + bad[2].toFixed(3) + ',' +
+      bad[3].toFixed(3) + ') 落在任何 open 格外 — 面片出格(⊆自有格不变量)');
+  }
+  return byCell;
 }
 
 function countNear(vals, v) {
@@ -303,14 +336,15 @@ function brightnessOf(mesh, slots) {
 
 /* ---------- 守门测试 ---------- */
 
-test('R4-1 惰性建+材质面: 零 open 格零 sheet; 首 open 恰一张共享 sheet, ' +
+test('R4-1 惰性建+材质面: 零在册格零 sheet; 首 open 恰一张共享 sheet, ' +
     'MeshBasic{map=atlasMat.map, alphaTest 0.5, DoubleSide, vertexColors, 不透明队列}, frustumCulled=false', () => {
   Fx.clear();
   const fx = mkFx();
   const h = Fx.campfireField(fx);
   Fx.update(0.05);
   assert.strictEqual(sheetOf().length, 0,
-      '零 open 格不得建 sheet(惰性建: membership=fx.cells() open 格, 无燃烧面即无 mesh)');
+      '零在册格不得建 sheet(惰性建: 门=fx.cells() 非空才建; 成员=其中 open 格 — ' +
+      '在册格必曾 open, R5-c2 裁决 ii 口径如实化)');
   fx.open(FIRE.x, FIRE.y, FIRE.z);
   Fx.update(0.05);
   const sheets = sheetOf();
@@ -446,7 +480,7 @@ test('R4-5 UV 翻页镜像: 帧窗=tileUV(74+fx.flameFrameAt) 全幅, 帧推进�
   Fx.removeField(h);
 });
 
-test('R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘', () => {
+test('R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布覆盖全部 3 帧(R5-c1 升锁, 零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘', () => {
   Fx.clear();
   const fx = mkFx();
   const h = Fx.campfireField(fx);
@@ -467,8 +501,8 @@ test('R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单�
   assert.strictEqual(sheets.length, 1,
       '50 火仍恰一张共享 sheet(容量翻倍 mobs 惯例: 扩容量不扩 mesh 数)');
   const s = sheets[0];
-  assert.strictEqual(s.geometry.attributes.position.count, 400,
-      '50 火×8 顶点=400 全员在绘(扩容不丢早挂火)');
+  assert.strictEqual(s.geometry.drawRange.count, 600,
+      '50 火×12 索引=600 全员在绘(扩容不丢早挂火; R5-c4 恒定属性案活火数读 drawRange)');
   const byCell = vertsByCell(s, cells50);
   const frames = new Set();
   for (const c of cells50) {
@@ -480,8 +514,10 @@ test('R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单�
         '火(' + key(c) + ') 渲染帧 tile 必须=74+flameFrameAt(单源镜像)');
     frames.add(fx.flameFrameAt(c.x, c.y, c.z));
   }
-  assert.ok(frames.size >= 2,
-      '采样时刻 50 火帧分布应 ≥2 帧(错相自然感, 票面验收 ①; 实得 ' + frames.size + ' 帧)');
+  assert.ok(frames.size >= 3,
+      '采样时刻 50 火帧分布应覆盖全部 3 帧(R5-c1 锁强化: 评审确定性场景实测 15/18/17 全覆盖, ' +
+      '零 flake——frame-coverage-proof.js 六采样时刻最差覆盖 3/3; 旧锁 >=2 对 2/3 帧不可分, ' +
+      '实得 ' + frames.size + ' 帧)');
   Fx.removeField(h);
 });
 
@@ -512,6 +548,72 @@ test('R4-7 渐弱(§5.8 扩含面片): tint=0 顶点色恒白不暗化; tint 增
   Fx.removeField(h);
 });
 
+test('R5-A 挂场幂等: 同 fx 重复 campfireField 仍恰一场一 sheet(单例句柄 — switchMode 的 Fx.clear 摘场后 init 重挂同一管理器, 防双绘双 sheet)', () => {
+  Fx.clear();
+  const fx = mkFx();
+  Fx.campfireField(fx);
+  const h2 = Fx.campfireField(fx); /* init 重挂场景: 同管理器再挂 */
+  fx.open(FIRE.x, FIRE.y, FIRE.z);
+  Fx.update(0.05);
+  assert.strictEqual(sheetOf().length, 1,
+      '同 fx 重挂后仍恰一张 sheet(幂等: campfireField 返回既有场句柄, 渲染单例) — ' +
+      '重复挂=两场双绘(粒子画两遍)+双 sheet(dc 翻倍)');
+  Fx.removeField(h2);
+  assert.strictEqual(sheetOf().length, 0,
+      '摘幂等句柄=整场摘除(句柄唯一, removeField 语义不变)');
+});
+
+test('R5-B 结构禁令锁(ADR-0020): effects.js 零 chunk 重建/体素权威符号引用 — 焰片建/摘只吃 fx 句柄缝, 禁扫 campfire id、禁挂区块重建钩子(h 类歧路两条)', () => {
+  /* 红线依据: 方案 §3-e/ADR-0020 禁令①禁止扫任意 campfire id(81∪82)建焰片
+     (会把熄态点着)、禁令②禁止挂区块重建事件建焰片(渲染恢复跟错权威源)。
+     共享词法环境下 lint 的 no-undef 抓不到跨文件引用(符号全在全局名单),
+     源码卫生断言是此禁令的唯一机械执法面(R5 补锁, 现实现零命中=守门锁新增)。
+     「js/world.js」字样(头注 atlasMat 来源)是合法依赖, 不在禁令清单。 */
+  const src = fs.readFileSync(path.join(ROOT, 'js', 'effects.js'), 'utf8');
+  const banned = ['remeshQueue', 'markChunkDirty', 'editBlockDirty',
+    'mountChunk', 'unloadChunk', 'packChunkData', 'getBlock', 'B_CAMPFIRE'];
+  const hit = banned.filter((s) => src.includes(s));
+  assert.deepStrictEqual(hit, [],
+      'effects.js 不得引用 chunk 重建/体素权威符号(引用即 h 类歧路在场): 命中 ' + hit.join(','));
+});
+
+test('R5-C4 恒定属性锁: 成员增摘(attach/detach)后 position/uv/color/index 属性对象身份不变 — ' +
+    '稳态零 GL 缓冲替换(r128 setAttribute 换新后旧 attr 的 GL 缓冲无释放口, 每换必滞留)', () => {
+  Fx.clear();
+  const fx = mkFx();
+  const h = Fx.campfireField(fx);
+  const A = {x: 10, y: 25, z: 10};
+  const B = {x: 20, y: 25, z: 10};
+  fx.open(A.x, A.y, A.z);
+  fx.open(B.x, B.y, B.z);
+  Fx.update(0.05);
+  const s = sheetOf()[0];
+  assert.ok(s, '前置: sheet 在场(R4-1)');
+  const names = ['position', 'uv', 'color', 'index'];
+  const ids = () => [s.geometry.attributes.position, s.geometry.attributes.uv,
+    s.geometry.attributes.color, s.geometry.index];
+  const before = ids();
+  fx.quench(A.x, A.y, A.z); /* detach: 成员集变(dirty 路径) */
+  Fx.update(0.05);
+  let after = ids();
+  for (let i = 0; i < names.length; i++) {
+    assert.strictEqual(after[i], before[i],
+        names[i] + ' 属性对象在 detach 后必须身份不变(恒定复用) — ' +
+        '成员变化走 drawRange+needsUpdate, 不换 BufferAttribute(r128 语义: ' +
+        'setAttribute 替换后旧 GL 缓冲仅 geometry.dispose 时按当前 attributes 清理, ' +
+        '被替换者无释放口)');
+  }
+  fx.open(A.x, A.y, A.z); /* attach 再挂(不扩容: cap 已够) */
+  Fx.update(0.05);
+  after = ids();
+  for (let i = 0; i < names.length; i++) {
+    assert.strictEqual(after[i], before[i],
+        names[i] + ' 属性对象在 attach 后必须身份不变(恒定复用, 同上)');
+  }
+  assert.strictEqual(fireCount(s), 2, '前置自检: 恒定属性下两火仍全在绘');
+  Fx.removeField(h);
+});
+
 test('R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染', () => {
   Fx.clear();
   const fx1 = mkFx();
@@ -537,8 +639,10 @@ test('R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留;
   fx3.open(30, 25, 10);
   Fx.update(0.05);
   assert.strictEqual(sheetOf().length, 2, '前置: 两场各一张 sheet');
+  /* 探针=非抛错纯匹配(R5-c3): find 谓词内只做真值判断, 格匹配不合即 false —
+     谓词内抛错曾迫使实现倒序迎合(R4-8 原装具), 现探针火序自由, 实现正序 */
   const keep = sheetOf().find((m) => m !== s1 && fireCount(m) === 1 &&
-    vertsByCell(m, [{x: 30, y: 25, z: 10}]).get('30,25,10').length === 8);
+    matchVertsByCell(m, [{x: 30, y: 25, z: 10}]).byCell.get('30,25,10').length === 8);
   assert.ok(keep, '前置: 识别出 h3 的 sheet');
   const keepGeo = keep.geometry;
   Fx.removeField(h2);
