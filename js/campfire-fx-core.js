@@ -2,15 +2,18 @@
 /* ============================================================
    篝火特效核心 (CampfireFxCore) — 应用层 (术语见 GLOSSARY「篝火特效核心」)
    ------------------------------------------------------------
-   篝火世界特效的观感状态单源(观感权威 docs/design/campfire-visual-spec.md §5):
-   三常驻发射器(火苗/烟柱/柔柱+旋涡)的参数表+发射节拍+粒子推进、三过渡
-   (点燃 pop+渐起/燃尽渐熄/浇熄白汽即刻摘)、燃尽临近渐弱窗与多篝火预算分档。
+   篝火世界特效的观感状态单源(观感权威 docs/design/campfire-visual-spec.md §5,
+   参数表单源含焰片面 flamePlanes):
+   三常驻发射器(火苗/烟柱/柔柱+旋涡)的参数表+发射节拍+粒子推进、焰片面翻页
+   节拍(§5.8 v1.10: 格相位+帧号纯函数)、三过渡(点燃 pop+渐起/燃尽渐熄/浇熄
+   白汽即刻摘)、燃尽临近渐弱窗与多篝火预算分档。
    藏住粒子怎么生怎么灭——调用方只拿句柄(开/三态摘/clear/喂刻/喂余量)与
    查询面(发射器快照/粒子清单/纯函数); 渲染归 js/effects.js 适配器, 玩法账
    (台账/燃尽时钟)归 campfire-kit, 本核心零玩法判定纯表现层。
    interface: CampfireFxCore.mkCampfireFx(opts{lowcore,columnH,fullTicks,
      distOf,seed}) → fx{open,quench,burnout,dig,clear,tick,active,activeCount,
-     emitters,particles,setLeft,fadeState,columnOpacityAt,cells,now,params} /
+     emitters,particles,setLeft,fadeState,columnOpacityAt,cells,now,params,
+     flamePhase(x,y,z),flameFrameAt(x,y,z)} /
      flameColorAt(u) / fadeTint(hex,k) / smokeRiseAt(u)
    依赖(全经 opts 注入, 调用期解析): lowcore 低核档旗标/columnH 柱满高/
      fullTicks 燃尽满刻/distOf(x,y,z)→玩家距/seed 确定性 rng 根——零全局名
@@ -96,12 +99,14 @@ const CampfireFxCore = (function() {
     const BURN_FLAME_S = 0.4; /* 燃尽余韵: 火苗发射率 0.4s 线性降 0(§5.6 评审 SPEC-2) */
     const BURN_COLUMN_S = 0.3; /* 燃尽余韵: 柔柱透明度 0.3s 线性降 0(§5.6 评审 SPEC-2) */
 
-    /* ---------- 参数表单源(§5.2/§5.3/§5.4 定稿数值, 低核档速率减半 §5.9) ---------- */
+    /* ---------- 参数表单源(§5.2/§5.3/§5.4 定稿数值, 低核档速率减半 §5.9;
+       焰片面 flamePlanes 参数行 §5.8 v1.10 — 参数本体不分档, 低核走 lowMul 因子) ---------- */
     const params = {
       lowcore,
-      flame: {rate: lowcore ? 3 : 6, rateLow: 3, lifeMin: 0.5, lifeMax: 0.7,
+      flame: {rate: lowcore ? 1 : 2, rateLow: 1, lifeMin: 0.5, lifeMax: 0.7,
         riseMin: 0.9, riseMax: 1.3, driftAmp: 0.15, launchY: 0.4, scatter: 0.25,
         sizeMin: 0.10, sizeMax: 0.16, sizeEnd: 0.02, opacity: 0.9},
+      flamePlanes: {frames: 3, frameS: 0.15, fadeMul: 1, lowMul: 2},
       smoke: {rate: lowcore ? 1 : 2, rateLow: 1, launchY: 1.2, scatter: 0.2,
         lifeMin: 3.5, lifeMax: 4.5, rise0: 1.4, rise1: 0.4, swayAmp: 0.35,
         swayPeriod: 2.5, size0: 0.14, size1: 0.55, color: '#d6d2c8', opacity0: 0.45},
@@ -122,6 +127,22 @@ const CampfireFxCore = (function() {
       if (lowcore) return params.column.lowOpacity;
       return params.column.opacityBase +
         params.column.pulseAmp * Math.sin(2 * Math.PI * t / params.column.pulsePeriod);
+    }
+
+    /* ---------- 焰片面查询(v1.10 §4/§5.8): 相位+帧号纯函数, R-4 焰片 sheet 只消费 ----------
+       相位=cellSeed 单一来源派生 ∈[0,1)(同格同流/异格异流/重开一致);
+       帧号=floor((now+phase·T)/fs_eff)%frames, T=frames·frameS 翻页周期,
+       fs_eff=frameS×(低核 lowMul 恒档 : (1+tint·fadeMul) 渐弱降档, 未知格 tint=0) */
+    function flamePhase(x, y, z) {
+      return cellSeed(rootSeed, x, y, z) / 4294967296;
+    }
+    function flameFrameAt(x, y, z) {
+      const fp = params.flamePlanes;
+      const c = cellsMap.get(key(x, y, z));
+      const tint = (c && typeof c.tint === 'number') ? c.tint : 0;
+      const fsEff = fp.frameS * (lowcore ? fp.lowMul : (1 + tint * fp.fadeMul));
+      const period = fp.frames * fp.frameS;
+      return Math.floor((now + flamePhase(x, y, z) * period) / fsEff) % fp.frames;
     }
 
     /* ---------- 预算分档(§5.9): 同屏活跃 >3 座才按距排序降档(独火/少量火全额,
@@ -457,6 +478,7 @@ const CampfireFxCore = (function() {
 
     return {open, quench, burnout, dig, clear, tick, active, activeCount,
       emitters, particles, setLeft, fadeState, columnOpacityAt,
+      flamePhase, flameFrameAt,
       cells: cellsList, now: () => now, params};
   }
 

@@ -14,7 +14,12 @@
       同源同流/异源异流=相位错开有据);
    ⑥ 源码卫生: 零墙钟(Date.now/performance.now)/零裸 Math.random/零引擎零 DOM
       实调/零 campfire 音效字面量(T-C11 未登记前零落盘——守门口径,
-      campfire-kit.test 零墙钟扫描先例)。
+      campfire-kit.test 零墙钟扫描先例);
+   ⑦ 焰片面(T-C13-R3, v1.10 §4/§5.8): params.flamePlanes 参数单源(3 帧 0.15s/帧/
+      渐弱 ×(1+tint·fadeMul) 0.30s 封顶/低核 ×2 恒档)+flamePhase 格相位(cellSeed
+      派生 ∈[0,1), 同格同流/异格异流/重开一致)+flameFrameAt 帧号纯函数
+      (翻页/渐弱降档/低核恒档全下沉本核心, R-4 焰片 sheet 只消费);
+      §5.2 火苗发射器转性降档(6→2/3→1 终裁)随 rate 断言与 bench 计数同拍改。
    纯表现层声明(spec §3.7/UI 定稿 §5.1): 粒子可非确定、可按帧率分档、零玩法判定——
    本核心只产观感状态, 不碰世界账本(台账/燃尽时钟归 campfire-kit)。 */
 const test = require('node:test');
@@ -50,12 +55,14 @@ test('篝火特效核心在册: js/campfire-fx-core.js 暴露 mkCampfireFx 工�
   coreReady();
 });
 
-test('§5.2 火苗发射器参数表(桌面列逐项): 速率 6/寿命 0.5~0.7/上升 0.9~1.3/漂移 ±0.15/' +
+test('§5.2 火苗发射器参数表(桌面列逐项): 速率 2(v1.10 §5.2 转性降档终裁 6→2)/寿命 0.5~0.7/上升 0.9~1.3/漂移 ±0.15/' +
     '发射点 y+0.4 散布 ±0.25/尺寸 0.10~0.16→0.02/透明度 0.9', () => {
   coreReady();
   const p = mk().params.flame;
-  assert.strictEqual(p.rate, 6, '发射速率 6 粒/s(桌面档)');
-  assert.strictEqual(p.rateLow, 3, '低核档 3 粒/s(速率减半, §5.9)');
+  assert.strictEqual(p.rate, 2,
+      '发射速率 2 粒/s(桌面档; v1.10 §5.2 转性: 火焰本体归焰片面, 粒子降档为低频焰屑 6→2, 终裁保留)');
+  assert.strictEqual(p.rateLow, 1,
+      '低核档 1 粒/s(§5.9 减半; v1.10 转性降档 3→1 终裁)');
   assert.strictEqual(p.lifeMin, 0.5, '单粒寿命下限 0.5s');
   assert.strictEqual(p.lifeMax, 0.7, '单粒寿命上限 0.7s');
   assert.strictEqual(p.riseMin, 0.9, '上升速度下限 0.9 格/s');
@@ -151,12 +158,12 @@ test('烟暖白 #d6d2c8 vs 风冷白 #f5f7f3 色温差分色(§5.10 同屏对比
 
 /* ============ ② 低核分档 + 多篝火预算(§5.9) ============ */
 
-test('低核触屏档: 速率减半(火苗 3/烟 1/旋涡 8 粒)+柔柱 0.06 常值(脉动砍)', () => {
+test('低核触屏档: 速率减半(火苗 1(v1.10 转性降档 3→1)/烟 1/旋涡 8 粒)+柔柱 0.06 常值(脉动砍)', () => {
   coreReady();
   const fx = mk({lowcore: true});
   const p = fx.params;
   assert.strictEqual(p.lowcore, true, '分档旗标透出');
-  assert.strictEqual(p.flame.rate, 3, '火苗 3 粒/s(6 减半)');
+  assert.strictEqual(p.flame.rate, 1, '火苗 1 粒/s(v1.10 §5.2 转性降档终裁 3→1, §5.9 减半档)');
   assert.strictEqual(p.smoke.rate, 1, '烟 1 粒/s(2 减半)');
   assert.strictEqual(p.vortex.count, 8, '旋涡 8 粒/柱(16 减半)');
   assert.strictEqual(fx.columnOpacityAt(0), 0.06, '柔柱 opacity 恒 0.06(常值, 脉动砍)');
@@ -183,12 +190,12 @@ test('§5.9 多篝火预算: ≤3 座全额 · 第 4 座起「烟全额+火苗�
   fx.tick(0.5); /* 渐起爬满 */
   const full = fx.emitters(10, 25, 10);
   assert.strictEqual(full.budget, 'full', '最近第 1 座: 全额档');
-  assert.strictEqual(full.flame.rate, 6, '火苗全额 6/s');
+  assert.strictEqual(full.flame.rate, 2, '火苗全额 2/s(v1.10 §5.2 转性降档)');
   assert.strictEqual(full.smoke.rate, 2, '烟全额 2/s');
   assert.strictEqual(full.vortex.count, 16, '旋涡全额 16 粒');
   const near = fx.emitters(13, 25, 10);
   assert.strictEqual(near.budget, 'near', '第 4 座(距 20): 降档');
-  assert.strictEqual(near.flame.rate, 3, '火苗半速 3/s');
+  assert.strictEqual(near.flame.rate, 1, '火苗半速 1/s(v1.10 转性降档后 2→1)');
   assert.strictEqual(near.smoke.rate, 2, '烟柱全额(降档清单没它)');
   assert.strictEqual(near.vortex.count, 8, '旋涡半数 8 粒');
   const far = fx.emitters(14, 25, 10);
@@ -418,17 +425,17 @@ test('active/emitters/particles 查询面: 未开格 active=false · emitters=nu
 
 /* ============ ⑥ 发射节拍 + 粒子推进(数量守恒/寿命域/运动域) ============ */
 
-test('发射积分口径(评审 SPEC-1 翻新裁定, 修法①改实现): 渐起窗发射=∫rate·ramp dt 非矩形满速 — ' +
-    '0.5s 期望 ≤2 粒(∫₀^0.5 6·(t/0.5)dt=1.5) · 1s ∈{4,5}(∫=4.5) · 满速段守恒恢复 0.5s=3 · ' +
+test('发射积分口径(评审 SPEC-1 翻新裁定, 修法①改实现; v1.10 转性降档 rate=2 期望值重算): 渐起窗发射=∫rate·ramp dt 非矩形满速 — ' +
+    '0.5s 期望 ≤1 粒(∫₀^0.5 2·(t/0.5)dt=0.5) · 1s ∈{1,2}(∫=1.5) · 满速段守恒恢复 0.5s=1 · ' +
     '快照 rateScale=实际发射乘子(0.2s 处=0.4 如实)', () => {
   coreReady();
   const fx = mk();
   fx.open(FIRE.x, FIRE.y, FIRE.z);
   for (let i = 0; i < 5; i++) fx.tick(0.1); /* 0.5s 渐起窗细分驱动(拍内采样离散不越带) */
   let e = fx.emitters(FIRE.x, FIRE.y, FIRE.z);
-  assert.ok(e.flame.emitted >= 1 && e.flame.emitted <= 2,
-      '渐起窗 0.5s 发 1~2 粒(积分 1.5, 累积器相位带 ±1; 矩形满速=3 必红 — ' +
-      '评审 SPEC-1: 火「噗」地起来不是瞬满, 第一拍即有发射非下一拍延迟起火)');
+  assert.ok(e.flame.emitted <= 1,
+      '渐起窗 0.5s 发 ≤1 粒(积分 0.5, 累积器相位带; 矩形满速=2 必红 — ' +
+      '评审 SPEC-1: 火「噗」地起来不是瞬满, v1.10 降档后期望值 0.5)');
   assert.ok(e.smoke.emitted <= 1, '烟渐起窗 ≤1 粒(积分 0.5, 期望 0 粒容采样顶到 1)');
   /* 快照如实化: rateScale=实际发射乘子(渐起快照语义本如实, 发射面跟上它即撤虚报) */
   const mid = mk();
@@ -440,18 +447,18 @@ test('发射积分口径(评审 SPEC-1 翻新裁定, 修法①改实现): 渐起
   for (let i = 0; i < 5; i++) fx.tick(0.1); /* 至 1.0s */
   e = fx.emitters(FIRE.x, FIRE.y, FIRE.z);
   const at1s = e.flame.emitted;
-  assert.ok(at1s >= 4 && at1s <= 5,
-      '累计 1s 发 4~5 粒(∫₀¹ 6·ramp dt=4.5 相位带; 矩形满速=6 必红)');
+  assert.ok(at1s >= 1 && at1s <= 2,
+      '累计 1s 发 1~2 粒(∫₀¹ 2·ramp dt=1.5 相位带; 矩形满速=2 上界; 降档前 4~5 必红)');
   for (let i = 0; i < 5; i++) fx.tick(0.1); /* 至 1.5s(满速段) */
   e = fx.emitters(FIRE.x, FIRE.y, FIRE.z);
-  assert.strictEqual(e.flame.emitted - at1s, 3,
-      '满速段 [1.0,1.5]s 恢复矩形守恒: 恰 +3(寿命淘汰不侵计数)');
+  assert.strictEqual(e.flame.emitted - at1s, 1,
+      '满速段 [1.0,1.5]s 恢复矩形守恒: 恰 +1(0.5s×2 粒/s; 降档前 +3 必红; 寿命淘汰不侵计数)');
   const low = mk({lowcore: true});
   low.open(FIRE.x, FIRE.y, FIRE.z);
   for (let i = 0; i < 10; i++) low.tick(0.1); /* 1s */
   const le = low.emitters(FIRE.x, FIRE.y, FIRE.z);
-  assert.ok(le.flame.emitted >= 2 && le.flame.emitted <= 3,
-      '低核累计 1s 发 2~3 粒(∫ 3·ramp dt=2.25; 矩形=3 必红)');
+  assert.ok(le.flame.emitted <= 1,
+      '低核累计 1s 发 ≤1 粒(∫ 1·ramp dt=0.75 相位带; 降档前 2~3 必红)');
   assert.ok(le.smoke.emitted <= 1, '低核烟累计 1s ≤1 粒(积分 0.75)');
 });
 
@@ -460,9 +467,10 @@ test('寿命域与粒子带: 火苗 life∈0.5~0.7 · age≤life · 尺寸带 [0
   coreReady();
   const fx = mk();
   fx.open(FIRE.x, FIRE.y, FIRE.z);
-  for (let i = 0; i < 10; i++) fx.tick(0.1); /* 喂满 1s(评审 SPEC-1 积分口径: 渐起窗首拍 1~2 粒, 满速段 3 粒全在飞, 前置带不弱化) */
+  for (let i = 0; i < 10; i++) fx.tick(0.1); /* 喂满 1s(评审 SPEC-1 积分口径
+    v1.10 降档重算: 渐起窗首拍 ≤1 粒, 满速段 1 粒在飞; 在飞下界 ∫_0.3^1 2·ramp≈1.32) */
   const ps = fx.particles(FIRE.x, FIRE.y, FIRE.z).flame;
-  assert.ok(ps.length >= 2, '前置: 火苗在飞');
+  assert.ok(ps.length >= 1, '前置: 火苗在飞(降档后期望 1~2 粒)');
   for (const p of ps) {
     assert.ok(p.life >= 0.5 && p.life <= 0.7, '寿命在域内(0.5~0.7s)');
     assert.ok(p.age <= p.life + 1e-9, '年龄不越寿命(到期即淘汰)');
@@ -547,7 +555,194 @@ test('确定性: 同格同种子重开=同粒子流(逐字段一致) · 异格=�
       '异格异流(发射累积器初相按源派生错开, 多火不齐闪)');
 });
 
-/* ============ ⑧ 源码卫生扫描(零墙钟/零裸随机/零引擎零 DOM 实调/零 campfire 音效字面量) ============ */
+/* ============ ⑧ 焰片面(v1.10 §4 交叉动画面片: T-C13-R3 参数单源+相位+帧号纯逻辑) ============ */
+
+test('焰片面参数行单源(v1.10 §5.8 扩含面片+设计线五裁): params.flamePlanes={frames:3, frameS:0.15, ' +
+    'fadeMul:1, lowMul:2} — 翻页 3 帧 0.15s/帧(≈6.7fps MC 量级)/渐弱 ×(1+tint·fadeMul) 0.30s 封顶/低核 ×2 恒档', () => {
+  coreReady();
+  const fx = mk();
+  const fp = fx.params.flamePlanes;
+  assert.ok(fp && typeof fp === 'object', 'flamePlanes 参数行在册(params 单源, R-4 只消费不复制)');
+  assert.strictEqual(fp.frames, 3, '翻页 3 帧(焰帧 tile 74~76 三帧)');
+  assert.strictEqual(fp.frameS, 0.15, '帧距 0.15s/帧(≈6.7fps 翻页, MC 量级, 设计线已批)');
+  assert.strictEqual(fp.fadeMul, 1, '渐弱帧距乘子系数 1(帧距=frameS×(1+tint·fadeMul), tint=1 时 ×2)');
+  assert.strictEqual(fp.lowMul, 2, '低核恒档帧距 ×2(0.30s, 不随 tint 再变)');
+  /* 封顶数学对称: 桌面渐弱封顶帧距 = 低核恒档帧距 = 0.30s(「火小了也慢了」语义, 设计线已批) */
+  assert.ok(Math.abs(fp.frameS * (1 + 1 * fp.fadeMul) - 0.30) < 1e-9,
+      '桌面渐弱封顶帧距 0.15×(1+tint·fadeMul)|tint=1 = 0.30s(封顶)');
+  assert.ok(Math.abs(fp.frameS * fp.lowMul - 0.30) < 1e-9, '低核恒档帧距 0.15×2 = 0.30s');
+  /* 参数本体不分档: lowcore 实例 flamePlanes 同值(档位因子 lowMul 在表内, 消费端按 lowcore 取) */
+  const lo = mk({lowcore: true}).params.flamePlanes;
+  assert.deepStrictEqual(lo, fp, 'lowcore 实例参数表同形同值(低核分档只走 lowMul 因子)');
+});
+
+test('flamePhase(x,y,z) 实例方法(v1.10 §5.2 建议·方案 §3-i): cellSeed 派生 ∈[0,1) — ' +
+    '同格同流/异格异流/重开一致/根种子敏感(哈希单一来源复用 cellSeed, 不复制公式)', () => {
+  coreReady();
+  const a = mk();
+  assert.strictEqual(typeof a.flamePhase, 'function',
+      'flamePhase 在册(fx 实例方法, 票面 R-3 产品面 2)');
+  for (const g of [FIRE, {x: 0, y: 0, z: 0}, {x: 35, y: 1, z: 35}, {x: -7, y: 30, z: 12}]) {
+    const p = a.flamePhase(g.x, g.y, g.z);
+    assert.ok(p >= 0 && p < 1, '相位 ∈[0,1) (' + g.x + ',' + g.y + ',' + g.z + '→' + p.toFixed(4) + ')');
+  }
+  /* 同格同流: 同实例两次调用一致 + 另实例(同根 seed 缺省)一致 */
+  assert.strictEqual(a.flamePhase(FIRE.x, FIRE.y, FIRE.z), a.flamePhase(FIRE.x, FIRE.y, FIRE.z),
+      '同格两次调用同值(纯查询不漂移)');
+  const b = mk();
+  assert.strictEqual(a.flamePhase(FIRE.x, FIRE.y, FIRE.z), b.flamePhase(FIRE.x, FIRE.y, FIRE.z),
+      '同根 seed 异实例同格同值');
+  /* 重开一致: clear 清场后(格状态不复存在)相位不变 — 相位只依赖(根 seed,格坐标) */
+  a.open(FIRE.x, FIRE.y, FIRE.z);
+  a.tick(1.0);
+  a.clear();
+  assert.strictEqual(a.flamePhase(FIRE.x, FIRE.y, FIRE.z), b.flamePhase(FIRE.x, FIRE.y, FIRE.z),
+      '重开一致(clear/重灌后同格同相位, 确定性重放口径)');
+  /* 异格异流: bench grid50 同款 50 摆位两两全异(多火不齐翻的结构面) */
+  const cells = [];
+  for (let row = 0; row < 7; row++) {
+    for (let col = 0; col < 7; col++) {
+      if ((row === 0 || row === 6) && (col === 0 || col === 6)) continue;
+      cells.push({x: col * 5, y: 1, z: row * 5});
+    }
+  }
+  cells.push({x: 15, y: 1, z: 35}, {x: 20, y: 1, z: 35}, {x: 25, y: 1, z: 35},
+      {x: 30, y: 1, z: 35}, {x: 35, y: 1, z: 35});
+  const phases = cells.map((c) => a.flamePhase(c.x, c.y, c.z));
+  assert.strictEqual(new Set(phases).size, 50,
+      '50 格相位两两全异(异格异流, 恒 0/同值塌缩必红)');
+  const spread = Math.max(...phases) - Math.min(...phases);
+  assert.ok(spread > 0.9, '相位散布极差 >0.9(实测 ' + spread.toFixed(4) + ', 全周期铺开)');
+  /* 根种子敏感: opts.seed 变则同格相位变 */
+  const s1 = mk({seed: 1}).flamePhase(FIRE.x, FIRE.y, FIRE.z);
+  const s2 = mk({seed: 2}).flamePhase(FIRE.x, FIRE.y, FIRE.z);
+  assert.notStrictEqual(s1, s2, '不同根 seed 同格异相位(种子入哈希)');
+});
+
+test('flameFrameAt(x,y,z) 帧号纯函数(方案 §3-d: floor((now+phase·T)/frameS)%3 下沉 fx-core, R-4 只消费): ' +
+    '翻页周期 0.45s/帧号域 {0,1,2}/50 火任意采样时刻三帧全覆盖/未知格可查', () => {
+  coreReady();
+  const fx = mk();
+  assert.strictEqual(typeof fx.flameFrameAt, 'function',
+      'flameFrameAt 在册(fx 实例方法, 帧号纯逻辑单源, R-4 焰片 UV 翻页只消费)');
+  const fp = fx.params.flamePlanes;
+  const p = fx.flamePhase(FIRE.x, FIRE.y, FIRE.z);
+  /* 帧号域: 整数 ∈{0..frames-1}(now 只由 tick 推进, 零墙钟纪律) */
+  let acc = 0;
+  for (const dt of [0.05, 0.08, 0.37, 1.2, 1.6]) {
+    fx.tick(dt);
+    acc += dt;
+    const f = fx.flameFrameAt(FIRE.x, FIRE.y, FIRE.z);
+    assert.ok(Number.isInteger(f) && f >= 0 && f < fp.frames,
+        '帧号=非负整数 <frames (t=' + acc.toFixed(2) + ' f=' + f + ')');
+  }
+  /* 镜像公式断言(票面 §3-d 公式, 红测独立照写): f=floor((now+phase·T)/frameS)%frames, T=frames·frameS */
+  fx.clear();
+  fx.open(FIRE.x, FIRE.y, FIRE.z);
+  fx.tick(0.5);
+  const now = fx.now();
+  const T = fp.frames * fp.frameS;
+  const expect = Math.floor((now + p * T) / fp.frameS) % fp.frames;
+  assert.strictEqual(fx.flameFrameAt(FIRE.x, FIRE.y, FIRE.z), expect,
+      '全额档帧号=票面公式逐字(floor((now+phase·T)/frameS)%3, tint=0 满额帧距)');
+  /* 翻页周期: 相位平移语义 — phase 直接决定帧错位: 找两格相位差 >1/3, 某时刻帧号必不同 */
+  let gA = null; let gB = null;
+  for (let x = 100; x < 200 && (!gA || !gB); x++) {
+    const q = fx.flamePhase(x, 25, 10);
+    if (Math.abs(q - p) > 1 / 3) {
+      if (!gA) gA = x; else if (Math.abs(fx.flamePhase(gA, 25, 10) - q) > 1 / 3) gB = x;
+    }
+  }
+  assert.ok(gA !== null && gB !== null, '前置: 相位差 >1/3 的格对找到(错相结构性存在)');
+  let differ = false;
+  for (let i = 0; i < 10; i++) {
+    fx.tick(0.05);
+    if (fx.flameFrameAt(gA, 25, 10) !== fx.flameFrameAt(gB, 25, 10)) {
+      differ = true;
+      break;
+    }
+  }
+  assert.ok(differ, '相位差 >1/3 的两格在 0.5s 观测窗内帧号必出现错位(翻页错相语义)');
+  /* 50 火任意采样时刻三帧全覆盖(错相自然感程序面, R-4 验收①的纯逻辑前置) */
+  const grid = [];
+  for (let row = 0; row < 7; row++) {
+    for (let col = 0; col < 7; col++) {
+      if ((row === 0 || row === 6) && (col === 0 || col === 6)) continue;
+      grid.push({x: col * 5, y: 1, z: row * 5});
+    }
+  }
+  grid.push({x: 15, y: 1, z: 35}, {x: 20, y: 1, z: 35}, {x: 25, y: 1, z: 35},
+      {x: 30, y: 1, z: 35}, {x: 35, y: 1, z: 35});
+  for (const t of [0, 0.07, 0.5]) {
+    const fxG = mk();
+    fxG.tick(t);
+    const set = new Set(grid.map((c) => fxG.flameFrameAt(c.x, c.y, c.z)));
+    assert.strictEqual(set.size, 3,
+        't=' + t + ' 50 火帧号分布覆盖全部 3 帧(实测 [' + [...set].sort().join(',') + '])');
+  }
+  /* 未知格可查(悬空无害 presence 口径): 与同相位数学一致, 零炸 */
+  const ghost = fx.flameFrameAt(999, 25, 999);
+  assert.ok(Number.isInteger(ghost) && ghost >= 0 && ghost < fp.frames, '未知格帧号可查零炸');
+});
+
+test('渐弱帧率降档+低核恒档(§5.8 v1.10「火小了也慢了」+设计线已批 0.30 封顶): ' +
+    '渐弱窗尾帧距 ×(1+tint·fadeMul)=0.30s(同距采样 full 翻帧 fade 不翻) · 低核帧距恒 0.30s 不随 tint', () => {
+  coreReady();
+  const fp = mk().params.flamePlanes;
+  assert.ok(fp && fp.frames && fp.frameS,
+      'flamePlanes 在册(前置; 参数行本体由上一测试直证, 此处守卫防装具炸)');
+  const T = fp.frames * fp.frameS;
+  /* 节奏断言格: 确定性扫描找相位使 now0 处全额帧距余量 <0.005s 且低口径余量 >0.145s 的格
+     (跨 0.15 边界不跨 0.30 边界 ⇔ m\'=(now0+p·T) mod 0.30 ∈[0.005, 0.155), 红测设计已预演) */
+  const NOW0 = 10; const DELTA = 0.145;
+  let g = -1;
+  for (let x = 100; x < 400 && g < 0; x++) {
+    const q = mk().flamePhase(x, 25, 10);
+    const m = (NOW0 + q * T) % (2 * fp.frameS);
+    if (m >= 0.005 && m < 0.155) g = x;
+  }
+  assert.ok(g >= 0, '前置: 节奏断言格找到(确定性扫描, 非随机)');
+  /* 桌面全额(tint=0, 帧距 0.15): Δ=0.145 跨帧 → 帧号恰 +1(mod 3) */
+  const fxD = mk();
+  fxD.tick(NOW0);
+  const d0 = fxD.flameFrameAt(g, 25, 10);
+  fxD.tick(DELTA);
+  const d1 = fxD.flameFrameAt(g, 25, 10);
+  assert.strictEqual((d1 - d0 + fp.frames) % fp.frames, 1,
+      '全额档 0.145s 跨帧边界: 帧号 +1(帧距 0.15s 的翻页节奏)');
+  /* 渐弱窗尾(setLeft=0 → tint=1, 帧距封顶 0.30): 同距采样不翻帧 */
+  const fxW = mk();
+  fxW.open(g, 25, 10);
+  fxW.setLeft(g, 25, 10, 0);
+  fxW.tick(NOW0);
+  const w0 = fxW.flameFrameAt(g, 25, 10);
+  fxW.tick(DELTA);
+  const w1 = fxW.flameFrameAt(g, 25, 10);
+  assert.strictEqual(w1, w0, '渐弱窗尾帧距 0.30s: 同距 0.145s 不翻帧(火小了也慢了)');
+  /* 镜像公式: 窗尾 tint=1 帧距=frameS×(1+fadeMul)=0.30 */
+  const expectW = Math.floor((fxW.now() + fxW.flamePhase(g, 25, 10) * T) /
+      (fp.frameS * (1 + 1 * fp.fadeMul))) % fp.frames;
+  assert.strictEqual(w1, expectW, '渐弱帧号=降档帧距公式(0.30s 封顶逐字)');
+  /* 低核恒档: 帧距恒 0.30(lowMul=2), tint=0 与 tint=1 行为一致(恒档=不随渐弱再变) */
+  const fxL0 = mk({lowcore: true});
+  fxL0.tick(NOW0);
+  const l0a = fxL0.flameFrameAt(g, 25, 10);
+  fxL0.tick(DELTA);
+  const l0b = fxL0.flameFrameAt(g, 25, 10);
+  assert.strictEqual(l0b, l0a, '低核档 tint=0: 0.145s 不翻帧(恒档帧距 0.30s)');
+  const fxL1 = mk({lowcore: true});
+  fxL1.open(g, 25, 10);
+  fxL1.setLeft(g, 25, 10, 0);
+  fxL1.tick(NOW0);
+  const l1a = fxL1.flameFrameAt(g, 25, 10);
+  fxL1.tick(DELTA);
+  const l1b = fxL1.flameFrameAt(g, 25, 10);
+  assert.strictEqual(l1b, l1a, '低核档窗尾 tint=1: 同行为(恒档不随 tint 复合放大, 封顶对称)');
+  assert.ok(Math.abs(fp.frameS * fp.lowMul - fp.frameS * (1 + fp.fadeMul)) < 1e-9,
+      '低核恒档帧距=桌面渐弱封顶帧距(0.30s, 设计对称)');
+});
+
+/* ============ ⑨ 源码卫生扫描(零墙钟/零裸随机/零引擎零 DOM 实调/零 campfire 音效字面量) ============ */
 
 test('零墙钟+零裸随机: campfire-fx-core.js 零 Date.now/performance.now/Math.random 实调' +
     '(确定性重放红线; 粒子随机走 mulberry32 每源派生先例)', () => {
