@@ -1623,7 +1623,7 @@ test('篝火几何不变量 R-2: 任意两部件无共面重叠面 — z-fight �
   assert.ok(parts.length >= 2, '前置: 多部件在场(单盒无部件对面可言)');
   /* z-fight 条件=同法线轴同平面坐标且面内矩形正面积重叠。只判不同部件:
      同部件盒面拓扑保证互不重叠; 共享环边已被部件聚类归并 */
-  const rectOf = (f, ax) => { /* 法线轴 ax; 返回面内两轴 [min,max,min,max] */
+  const rectOf = (f, ax) => {/* 法线轴 ax; 返回面内两轴 [min,max,min,max] */
     const o = [0, 1, 2].filter((a) => a !== ax);
     let a0 = Infinity; let a1 = -Infinity; let b0 = Infinity; let b1 = -Infinity;
     for (const p of f.v) {

@@ -1,0 +1,16 @@
+篝火 T-C13-R2 红侧收尾: lint 纪律修复 + 门禁复核证据入库
+
+test/texture-atlas.test.js 1626 行箭头块首注释块空格改法定稿: google 基线
+block-spacing=never 要求块首紧跟注释(/* 形), spaced-comment 又要求注释开
+符后留空格, 二者交集为单行形态 {/* 注释 */; 此前误改成去全部空格版,
+致 block-spacing 与 spaced-comment 双错, 现单文件与全树 lint 零错。
+
+门禁复核证据(红侧亲自复跑, cmd 原生字节重定向 UTF-8 落盘):
+red-final-target.log 目标文件 tests 54 pass 54 fail 0
+red-final-npmtest.log 全量 tests 2494 pass 2493 fail 0 skipped 1
+red-final-lint.log eslint 加 stylelint 加 htmlhint 零错误
+verify-parts 对撞 6/6 OK(方案值表与 CF_PARTS_WANT 六行逐值一致)
+
+commit-red-msg.txt 红基线消息文件按 tc13-verify 先例(COMMIT_RED.txt)入库。
+绿方过程日志 green-attempt1/green-lint/green-npmtest 为 PowerShell UTF-16
+落盘且中文碎化, 不入库(红侧同口径复跑证据已替代), 原文件自工作树清除。
