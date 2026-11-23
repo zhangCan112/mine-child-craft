@@ -2,6 +2,8 @@
 
 日期：2026-11-15 · 状态：**已采纳**（票史三拍落地：e752ce9 红测 → 9c8b68f 返工 → be9f79a 收尾）
 
+> **2026-11-23 反转注记**：本文「取面朝向邻格」采样口径已被 T-C13-R8 反转回**自身格**（b590f52，pushGateSign 六面循环 `lsky/lblk(lx,y,lz)`）——反转前提：ADR 0021（H2 挡光谓词 thin 例外）根除了本文立项时的病根「自身格恒 0 全黑」（牌格透光 sky=14，双贴柱邻格 0 才是新的黑面病灶=贴柱缝黑竖面）。本文不可逆性条款「须废本 ADR 方可回自身格」的前提（病根存在）不再成立；反转经 PO 验收后口令裁定立票+design-lead 修法授权+双轴评审 PASS（tc13r8 c16edbe）。本文挡回的「假发光」禁令**不受影响**：牌面仍跟随昼夜光场传播值（sky 14/13 非恒亮），夜间壁灯语义由光场传播自然延续。权威指针：docs/adr/0021（H2 裁定）、js/mesh-core.js pushGateSign 现行采样、.scratch/campfire/tc13r8/r8-evidence.md（对照证据）。
+
 ## 背景
 
 v2 野心版把 home 图东带边界收口为镇门楼（[spec v2](../design/town-east-boundary-landscape-spec-v2.md) §3），门额中央悬镇徽牌（块 id 80 `B_GATE_SIGN`，`thin:0.15 solid:true`）。两条前置拍板构成本决策的约束场：
