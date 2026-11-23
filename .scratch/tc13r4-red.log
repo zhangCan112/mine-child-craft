@@ -1,0 +1,42 @@
+C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\js\texture-atlas.js:1251
+      [B_COAL_ORE]: T_COAL_ORE, [B_IRON_ORE]: T_IRON_ORE,
+       ^
+
+ReferenceError: B_COAL_ORE is not defined
+    at C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\js\texture-atlas.js:1251:8
+    at Object.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\js\texture-atlas.js:1372:3)
+    at Module._compile (node:internal/modules/cjs/loader:1761:14)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module._load (node:internal/modules/cjs/loader:1300:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.require (node:internal/modules/cjs/loader:1504:12)
+    at require (node:internal/modules/helpers:152:16)
+
+Node.js v24.13.0
+✖ test\effects-campfire-sheet.test.js (39.1127ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 43.5485
+
+✖ failing tests:
+
+test at test\effects-campfire-sheet.test.js:1:1
+✖ test\effects-campfire-sheet.test.js (39.1127ms)
+  'test failed'
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"ReferenceError":1}
+verdict: 装具炸嫌疑(TypeError/ReferenceError)
+failed_tests:
+  - test\effects-campfire-sheet.test.js (39.1127ms)
+  - failing tests:
+  - test\effects-campfire-sheet.test.js (39.1127ms)

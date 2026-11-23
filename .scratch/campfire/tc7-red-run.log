@@ -1,0 +1,38 @@
+# T-C7 红测自证日志(红方, 2026-11-16)
+
+基点: tc7 @ 3821cff(feat/campfire tip 同点; worktree campfire-ui)
+基线: npm test = tests 2309 / pass 2308 / fail 0 / skipped 1(与派令起点逐字对上)
+
+## 红测试清单(3 条, 全部落 test/icons-item.test.js)
+
+1. 「篝火定稿(T-C7): 字符画逐字符=UI 定稿 §3.2, 16 行×16 列(行宽程序验证)」
+   - 断言: ITEM_PIX.campfire.art 深等于 CAMPFIRE_SPEC_ART(UI 定稿 §3.2 十六行逐字符誊抄)
+2. 「篝火定稿(T-C7): 色板九色逐字对账 UI 定稿 §3.1(键集恰九+hex 逐字, 不改色值)」
+   - 断言: map 键集恰九 {w,W,f,F,e,k,L,l,d} + 各 hex 逐字=§3.1 表
+3. 「篝火定稿(T-C7): 密度=106 实像素(glider 同档 §3.6-4)+九色字符全在画中(色阶有源 §3.6-1)」
+
+## 红因自证(node --test --test-reporter=tap test/icons-item.test.js)
+
+- not ok 20 - 字符画逐字符 → AssertionError [ERR_ASSERTION]:
+  「字符画逐字符=UI 定稿 §3.2」operator deepStrictEqual(T-C1 占位画 ≠ 定稿画)
+- not ok 21 - 色板九色 → AssertionError: actual = ['F','L','d','f'](占位四色板)
+  expected 九色键集
+- not ok 22 - 密度 → AssertionError: actual = 77(占位画实像素) expected = 106
+- 计数: tests 22 / pass 19 / fail 3 / skipped 0
+- [red-cause] 分类: 断言红 3(全 AssertionError), 装具炸 0(TypeError/ReferenceError 零条)
+
+## 同批走查测试(3 条, test/mode-kit.test.js, 非红——钉 mkCraftPanel 现行派发)
+
+- 方块页签在列+工作台徽标+×2 角标+料齐亮卡 ✅
+- chips 恰四枚(棍×3/原木×3/煤×1/木炭×1)+渲染序=图案遍历序 stick→煤炭组→log(S-1) ✅
+- 缺任选组→煤/炭 chip 灰显+整卡 dim+灰版图标 ✅
+- mode-kit.test.js 计数: tests 77 / pass 77 / fail 0
+
+## 备注
+
+- 红测自证期间修正走查第 3 条自身的切片基准 bug(class 属性在 data-id 之前,
+  从 data-id 起切丢 lack 类; 改以 chip span 开标签为段基准)——测试产物修正,
+  非实现改动。
+- 转绿唯一落点: js/icons.js 占位 CAMPFIRE_ART(:1248-1265)与 ITEM_PIX.campfire
+  行(:1337)换 UI 定稿 §3.2/§3.1 定稿数据(登记形态照 §3.2 注: glider 单条目
+  先例, 滑翔翼条目后追加)。

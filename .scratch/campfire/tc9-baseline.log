@@ -1,0 +1,56 @@
+T-C9 基线记录(worktree campfire-ui, 分支 tc9, 基点 9806477)
+时间: 2026-11-17 (checkout tc9 后、红测落盘前)
+
+npm test: tests 2374 / pass 2373 / fail 0 / skipped 1 / todo 0
+  —— 与派令预期一致(0 fail / 1 skipped)。1 skipped=既有跳过项(非本票面)。
+  第一手复核: 2026-11-17 红方 stash 红测后重跑全量, 数字一致(0 fail / 1 skipped)。
+
+node --version: v24.13.0
+
+[red-cause] 红批分类(conventions §7.4, tap 日志实读, 非手写):
+  test/campfire-fx-core.test.js   tests 29 / pass 1 / fail 28  ERR_ASSERTION x28, 零装具炸
+    (1 pass=「effects.js 零 campfire 音效字面量」负向守门, 设计常绿, T-C11 前哨)
+  test/adventure-mode.test.js     tests 251 / pass 244 / fail 7  ERR_ASSERTION x7, 零装具炸
+    (初跑 6 条 TypeError 装具炸嫌疑, 红方自查修测: 加 fxMgr 导出缝守卫转断言红, tap2 复核零 TypeError)
+  test/showroom-mode.test.js      tests 59 / pass 58 / fail 1  ERR_ASSERTION x1, 零装具炸
+  test/adventure-nether.test.js   tests 46 / pass 46 / fail 0  装具铺装零回归零新断言
+  合计: 36 断言红, 恰落本票三文件; 零计划外红。
+  tap 证据: tc9-red-core-tap.log / tc9-red-adv-tap2.log / tc9-red-showroom-tap.log / tc9-red-nether-tap.log
+
+[green] 转绿与验收(tc9 分支):
+  绿方提交 05894cb: fx-core 新建+effects 入口+adventure 五缝+index.html+GLOSSARY, 四红测文件全绿
+  红方裁决 2b52aef: fx-core 红测 4 lint 机械修复(语义零变, 29/29 复验); §5.9 座数门控裁决=绿方读法正确
+  绿跑亲验(红方复跑 tap): fx-core 29/29 + adv 251/251 + showroom 59/59 + nether 46/46
+  全量: 2412 tests / 2411 pass / 0 fail / 1 skipped; lint 三门零错
+
+[merge] 集成对齐 eb8814c:
+  feat/campfire tip 0ae9e53(T-C10 已并入) merge 入 tc9; adventure.js 单冲突取并集
+  (T-C9 fx.open 重燃渐起 + T-C10 kitHintShow 气泡通道迁移, 两票语义互斥零交叠)
+  合并后全量复验: 2420 tests / 2419 pass / 0 fail / 1 skipped(2412+上游 8 新增对账), 零非本票红
+  lint 三门零错; 图谱增量 built_at=HEAD head_matches_build=true
+  证据: tc9-green-*-tap*.log / tc9-full-green.log / tc9-lint.log / tc9-post-merge-*.log
+
+[red-cause-fix1] 评审规格轴 FAIL 修复红批(追令 SPEC-1 major+SPEC-2 minor, TDD 正序先红):
+  翻新面: campfire-fx-core.test.js 三处(:411 积分口径/:296 余韵形状/:435 驱动粒度), 测试数 29 不变
+  test/campfire-fx-core.test.js   tests 29 / pass 27 / fail 2  ERR_ASSERTION x2, 零装具炸
+    NOT OK §5.6 燃尽两处形状(SPEC-2): 燃尽后 0.2s 火苗半速断言红(现实现燃尽即摘快照 null)
+    NOT OK 发射积分口径(SPEC-1): 渐起窗 0.5s 发 1~2 粒断言红(现实现矩形满速=3)
+  test/adventure-mode.test.js     tests 252 / pass 252 / fail 0  零波及(252=合并后基线)
+  STD-1: adventure.js:3472 双 plant 伪影行随手删(merge 并集机械残渣, 行为惰性零测试变化)
+  tap 证据: tc9b-red-core-tap.log / tc9b-red-adv-tap.log
+
+[green-fix1] 修复转绿与验收(tc9 分支):
+  绿方提交 4300e5e: 仅 js/campfire-fx-core.js(+68/-16)——accF/accS 增量乘 rampK(梯形采样, 线性 ramp 积分精确),
+  burnoutAt 余韵记账(火苗 0.4s/柔柱 0.3s 线性衰减), emitters 衰减合成与期满退场, :268 注释积分口径如实
+  红方亲验: fx-core 29/29 + adv 252/252 + showroom 59/59 + nether 46/46; 全量 2420/2419/0 fail/1 skip; lint 三门零错
+  实现切片抽查: rampK 梯形(:276)/accS 同口径(:286)/burnoutAt 幂等锚(:228)/activeCount 只数 open 格(:397-401)
+  STD-1 复核: adventure.js 重燃缝 plant 单行(:3471), :3446 为放置缝另一合法挂点
+  实测积分: 0.5s 窗 flame=1/smoke=0 · 1s flame=4 · 满速段 +3 · 低核 1s=2 · burnout+0.2s rateScale=0.5/柱 1/3(偏差 1e-16)
+
+[merge-fix1] 票尾对齐 ea13496:
+  feat/campfire tip ceda529(T-C10b 全链闭)并入; 两测试文件冲突系 git 头体错配, 手工并集重组
+  (本票 T-C9 块完整在前, 上游 T-C4 烫伤系列+T-C10b 话术通道块完整在后, 装具前缀各自保留)
+  adv 258/258(本票 252+上游 6) · showroom 62/62(59+3) 同堂全绿
+  合并后全量: 2440/2439/0 fail/1 skip(2420+上游 20 新增对账), 零非本票红; lint 三门零错
+  图谱增量 built_at=ea13496 head_matches_build=true
+  证据: tc9b-green-*-tap*.log / tc9b-merge-*-tap.log / tc9b-full-green.log / tc9b-lint.log / tc9b-post-merge-*.log

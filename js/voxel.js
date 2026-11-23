@@ -6,7 +6,7 @@
    零 THREE · 零 DOM · 加载零副作用 → Node 可直接加载单测。
    渲染(场景/网格/贴图)是它之上的 adapter, 见 world.js。
    依赖(均经全局名, 调用期解析): config.js 的 BLOCKS·PLAYER·WORLD_*·FLUID(流体物理参数)·
-   GLIDE(滑翔参数), input.js 的 keys/touchMove/touchSprint(仅 physics 读取)。
+   GLIDE(滑翔参数)·CAMPFIRE(篝火烫伤节拍), input.js 的 keys/touchMove/touchSprint(仅 physics 读取)。
    ============================================================ */
 
 /* ---------- 哈希 ---------- */
@@ -84,7 +84,8 @@ function isSolid(id) {
   const b = BLOCKS[id];
   return b ? b.solid !== false : true;
 }
-/* 不透明判定: 相机防穿墙用 — 实心且非玻璃(隔着玻璃透视不收拢相机) */
+/* 不透明判定: 相机防穿墙用 — 实心且非玻璃(隔着玻璃透视不收拢相机);
+   光挡光谓词在 solid∧thin 上与本题刻意分叉(ADR-0021) — 本判定照挡视线/拾取 */
 function isOpaque(id) {
   if (id===0) return false;
   const b = BLOCKS[id];
@@ -230,6 +231,8 @@ let prevSpace = false; // Space 上一帧快照(physics 内部边沿检测: 按�
    与接触计息器——模式层只读 playerAirS/消费 worldEvents 事件, 不直写 */
 let playerAirS = 15; // 满值在 physics 首帧经 FLUID.airMaxS 校准(config 加载序在前)
 let drownAcc = 0; let lavaAcc = 0; let prevBodyFluid = null;
+let fireAcc = 0; /* 篝火烫伤计息器(篝火 T-C4, campfire-spec §3.6): 引擎内累积器,
+   离火即刻清零——结算面在帧尾支撑格采样段(下方), HP 归模式层 */
 /* 飞行态意图入口: 模式/组合根切换飞行一律经此, 禁止裸写 flyMode(白名单
    见本段头注释)。语义: 切换时清垂直速度 — 关飞行瞬间不被残留升/坠速
    拖着走(照 build.js F 键开关的既有语义), 复位场景 vel.y 本就近 0,
@@ -316,28 +319,53 @@ function physics(dt) {
        Space 按下边沿(spaceEdge)每帧至多消费一次 — 按帧首滑翔态单次分派:
        滑翔中=主动取消, 闩锁中=解闩再展, 二者 XOR(防同一帧边沿自相抵消/振荡) */
     const spaceEdge = !!keys['Space'] && !prevSpace;
+    /* 乘流查询(篝火 T-C2, spec §3.5/ADR 0017): 处活跃气流柱内→{lift,top}|null。
+       UPDRAFT_SIM=world.js 装配的引擎实例(fluid sim 同装配位), 经共享词法
+       调用期解析(world.js 加载序在后); 本文件会被无 world.js 的域装载
+       (voxel 单测/worker 语境), 调用期 typeof 守卫——缺席=恒 null, 既有
+       滑翔语义零变化(glider 回归金丝雀) */
+    let updraftHit = null;
+    if (typeof UPDRAFT_SIM !== 'undefined' && UPDRAFT_SIM) {
+      updraftHit = UPDRAFT_SIM.query(pos.x, pos.y, pos.z);
+    }
     if (gliding) {
       if (bodyF) { // 触流体帧: 收翼+清闩锁+落差清零, 本帧起交游泳物理(spec §3.4 水面软着陆)
         gliding = false; glideLatch = false; fallPeakY = 0;
         glidedIntoFluid = true;
       } else if (!gliderEquipped) { // 滑翔中卸翼: 立即收翼按无翼坠落(峰值已随滑翔帧锚定=收翼点)
         gliding = false;
+        /* 柱内乘流卸翼(T-C2, spec §3.4「立刻…坠落」): 滑翔升力残留的正向
+           速度不延续——卸翼瞬间钳 0 交还重力(负速缓降残留照旧自然衰减,
+           既有缓降卸翼零变化); 不钳则升速惯性还托 7 帧才转坠 */
+        if (vel.y > 0) vel.y = 0;
       } else if (spaceEdge) { // 主动取消: 收翼+闩锁, 转无翼重力坠落; 闩锁期间高度条件不重展
         gliding = false; glideLatch = true;
+        if (vel.y > 0) vel.y = 0; // 乘流正速同理不延续(滑翔态速度不带入闩锁坠落, 与卸翼钳制同口径)
       }
     } else if (gliderEquipped) {
-      if (glideLatch && spaceEdge) glideLatch = false; // 闩锁中空中再点 Space=解闩, 同帧顺势主动再展
+      if (glideLatch && spaceEdge) glideLatch = false; // 闩锁中空中再点 Space=解闩(既有语义), 顺势走正常展翼判定
       if (!glideLatch && !bodyF) {
         const gHit = raycastVoxel({x: pos.x, y: pos.y, z: pos.z}, {x: 0, y: -1, z: 0}, WORLD_H, isSolid);
         const gHeight = gHit ? pos.y - (gHit.y + 1) : Infinity;
-        if (gHeight > GLIDE.deployHeight) {
+        /* 柱内展翼豁免(篝火 T-C2, ADR 0017 门槛豁免): 处活跃气流柱内且
+           (跳跃沿 或 离地腾空 gHeight>0)→无视 >2 阈值直接展翼——站火边一跳
+           即升空, 踩火起跳同此, 柱内走落矮坎离地即展; 贴地静立/步行(离地 0
+           且无跳跃沿)不触发——路过篝火不上天(ADR 0017 D 案否决面); 无翼玩家
+           不入本分支(零参与) */
+        const exempt = !!updraftHit && (spaceEdge || gHeight > 0);
+        if (gHeight > GLIDE.deployHeight || exempt) {
           gliding = true;
           fallPeakY = pos.y; // 展翼瞬间落差累计重置: 峰值=当前高度(spec §3.5, 滑翔段不计账)
         }
       }
     }
-    if (gliding) { // 滑翔: 垂直恒缓降(不吃重力不积累, 高度只减不增), 水平=yaw 同源操控(不享受疾跑)
-      vel.y = GLIDE.sink;
+    if (gliding) { // 滑翔: 垂直=缓降恒值(不吃重力不积累), 水平=yaw 同源操控(不享受疾跑);
+      // 乘流(ADR 0017 例外一, 例外边界=「处于活跃气流柱内」单一判据): 柱内
+      // query 命中→升力替换缓降(vel.y=+lift, 出柱即回落); 闩锁态不给升力
+      // (闩锁优先, spec §3.5——lift 只作用于非闩锁滑翔); 解闩即回完整未闩
+      // 滑翔态, 升力由本单一门自然给出(零特判, 柱内空中再点跳=解闩+展翼
+      // +持续升力直至柱顶, 「再获升力」自然咬合)
+      vel.y = (updraftHit && !glideLatch) ? updraftHit.lift : GLIDE.sink;
       vel.x = dx*GLIDE.speed; vel.z = dz*GLIDE.speed;
       onGround = false;
     } else if (swim && bodyF === 'water') {
@@ -483,6 +511,29 @@ function physics(dt) {
       }
     }
   }
+  /* 篝火烫伤计息(篝火 T-C4, campfire-spec §3.6/§6-2, ADR 0019): 引擎只报事件
+     不知 HP。判据=onGround 且支撑格(脚下整格——可站立前提=T-C1 solid:true,
+     thin 不参与物理, 站立面=整格贴齐)方块带 config campfire:'lit' 旗标(§6-6
+     只读旗标, 与模式层判据同一单源)。进账满 CAMPFIRE.burnTick(20tps 计划刻,
+     秒换算 burnTick/20, campfire-kit CF_STEP_S 同款口径)置位 worldEvents.fireTick,
+     余量回累积器; 任何非接触帧即刻清零(浇熄/燃尽/挖走/跳离同门)——滞空在火
+     上方也算离火, 踩火起跳接触不满节拍天然豁免, 不设起飞特判/无敌帧(ADR 0019
+     有意设计, 不得当 bug 修掉)。放帧尾: onGround 由本帧移动结算写出, 计息读
+     最终接触事实(走离火格的当帧即清, 不欠一帧账) */
+  let onFire = false;
+  if (onGround) {
+    const supB = BLOCKS[getBlock(Math.floor(pos.x), Math.floor(pos.y - 1e-4), Math.floor(pos.z))];
+    onFire = !!(supB && supB.campfire === 'lit');
+  }
+  if (onFire) {
+    fireAcc += dt;
+    if (fireAcc >= CAMPFIRE.burnTick / 20) {
+      fireAcc -= CAMPFIRE.burnTick / 20;
+      worldEvents.fireTick = true;
+    }
+  } else {
+    fireAcc = 0;
+  }
   /* 落差累计器(spec §3.5 钉定义): 贴地/滑翔中/身处流体 → 峰值锚定当前高度;
      无翼腾空 → 取最高(下落段峰值)。展翼重置在展翼分支、入水清零在触流体分支、
      land 事件读数在其置位点 — 均先于本行, 读到的是重置前的正确峰值 */
@@ -492,9 +543,10 @@ function physics(dt) {
   prevSpace = !!keys['Space']; // Space 帧尾快照: 下帧滑翔取消/解闩边沿检测的基准
 }
 const worldEvents = {voidFall: false, drownTick: false, lavaTick: false, splash: false,
-  land: false, landFall: 0, landGliding: false};
+  land: false, landFall: 0, landGliding: false, fireTick: false};
 // 引擎→应用 的单向事件通道(分层规则见 GLOSSARY.md): voidFall 坠出世界 ·
 // drownTick/lavaTick 溺水与岩浆接触的计息到点(HP 结算在模式层, liquid D9) ·
+// fireTick 篝火烫伤计息到点(篝火 T-C4, 每满 1s 一拍, HP 结算在模式层) ·
 // splash 高速入水/滑翔触水软着陆(音效分发在主循环) · land 触地跃迁沿(T-G02):
 // landFall=本次落差格数, landGliding=触地时滑翔态; 消费方读完置回 false
 

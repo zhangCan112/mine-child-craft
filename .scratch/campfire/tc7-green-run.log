@@ -1,0 +1,49 @@
+篝火 T-C7 绿方门禁留痕（tc7 分支, 基点 bc32d26）
+====================================================
+
+[0] 开工验红（基点 bc32d26, node --test test/icons-item.test.js）
+  exit=1, 全红且红得对（断言红, 非装具炸）:
+  - 字符画逐字符: deepStrictEqual 不符（占位画 != 定稿 §3.2 十六行）
+  - 色板键集: actual ['F','L','d','f'] != expected ['F','L','W','d','e','f','k','l','w']
+  - 密度: 77 !== 106
+  另: test/mode-kit.test.js 三条篝火走查测试基点已绿。
+
+[1] node --test test/icons-item.test.js
+  exit=0
+  tests 22
+  pass 22
+  fail 0
+  （三条「篝火定稿(T-C7)」测试全部转绿）
+
+[2] node --test test/mode-kit.test.js
+  exit=0
+  tests 77
+  pass 77
+  fail 0
+  （三条篝火配方卡走查保持绿）
+
+[3] npm test（全量）
+  exit=0
+  tests 2315
+  pass 2314
+  fail 0
+  skipped 1
+  duration_ms 188525.899
+
+[4] npm run lint（eslint . && stylelint "css/**/*.css" && htmlhint index.html）
+  exit=0, 三门零错误
+  htmlhint: Scanned 1 files, no errors found (9 ms)
+
+改动文件
+========
+- js/icons.js（唯一产品文件）:
+  1) CAMPFIRE_ART 数组 + 就地头注释（原 T-C1 占位说明改定稿说明）换 UI 定稿
+     §3.2 十六行逐字符（密度 106 实像素）
+  2) 删除 ITEM_PIX 对象字面量内占位登记行
+     campfire: {art: CAMPFIRE_ART, map: {f:#e8632c, F:#ffd83d, L:#96693c, d:#5d3f21}}
+  3) ITEM_PIX.glider 条目后追加独立条目 ITEM_PIX.campfire,
+     map 九色逐字=UI 定稿 §3.1（w/W/f/F/e/k/L/l/d）
+- .scratch/campfire/tc7-green-run.log（本日志, 工具直写）
+
+备注: 首轮门禁曾误用 Tee-Object 管道落日志（违反 conventions §7.3）,
+已删除重写为本工具直写日志; 门禁计数以上文原文为准。

@@ -1,0 +1,44 @@
+node:vm:160
+    throw new ERR_INVALID_ARG_TYPE('contextifiedObject', 'vm.Context',
+    ^
+
+TypeError [ERR_INVALID_ARG_TYPE]: The "contextifiedObject" argument must be an vm.Context. Received an instance of Object
+    at validateContext (node:vm:160:11)
+    at Object.runInContext (node:vm:291:3)
+    at Object.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:143:4)
+    at Module._compile (node:internal/modules/cjs/loader:1761:14)
+    at Object..js (node:internal/modules/cjs/loader:1893:10)
+    at Module.load (node:internal/modules/cjs/loader:1481:32)
+    at Module._load (node:internal/modules/cjs/loader:1300:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:328:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:245:24)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5) {
+  code: 'ERR_INVALID_ARG_TYPE'
+}
+
+Node.js v24.13.0
+✖ test\effects-campfire-sheet.test.js (41.4096ms)
+ℹ tests 1
+ℹ suites 0
+ℹ pass 0
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 45.6519
+
+✖ failing tests:
+
+test at test\effects-campfire-sheet.test.js:1:1
+✖ test\effects-campfire-sheet.test.js (41.4096ms)
+  'test failed'
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"TypeError":1}
+verdict: 装具炸嫌疑(TypeError/ReferenceError)
+failed_tests:
+  - test\effects-campfire-sheet.test.js (41.4096ms)
+  - failing tests:
+  - test\effects-campfire-sheet.test.js (41.4096ms)

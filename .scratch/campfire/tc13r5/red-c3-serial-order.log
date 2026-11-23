@@ -1,0 +1,49 @@
+✔ R4-1 惰性建+材质面: 零 open 格零 sheet; 首 open 恰一张共享 sheet, MeshBasic{map=atlasMat.map, alphaTest 0.5, DoubleSide, vertexColors, 不透明队列}, frustumCulled=false (2.191ms)
+✔ R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.5588ms)
+✔ R4-3 membership 全路径同步: open 挂/浇熄摘/重燃再挂/燃尽摘/挖掘摘 — 顶点数与 fx open 格集同拍且恒一张 sheet (0.6254ms)
+✔ R4-4 open=false 格永不贡献 plane(h 类禁令): 浇熄格/燃尽余韵格 cells() 在册但 sheet 零 plane; 燃尽余韵期满+存量清空后格回收 (0.6361ms)
+✔ R4-5 UV 翻页镜像: 帧窗=tileUV(74+fx.flameFrameAt) 全幅, 帧推进换窗(74/75/76 依次), 与 fx-core 单源逐拍一致 (1.1166ms)
+✔ R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (5.2562ms)
+✔ R4-7 渐弱(§5.8 扩含面片): tint=0 顶点色恒白不暗化; tint 增大亮度单调下降(亮度插值随 fx 渐弱窗) (0.3743ms)
+✖ R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.8645ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 7
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65.2178
+
+✖ failing tests:
+
+test at test\effects-campfire-sheet.test.js:515:1
+✖ R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.8645ms)
+  AssertionError [ERR_ASSERTION]: 焰片顶点 0(10.325,25.260,10.500) 落在任何 open 格外 — 面片出格(⊆自有格不变量)
+      at vertsByCell (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\effects-campfire-sheet.test.js:207:12)
+      at C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\effects-campfire-sheet.test.js:541:5
+      at Array.find (<anonymous>)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\test\effects-campfire-sheet.test.js:540:26)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: undefined,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":1}
+verdict: 断言红(AssertionError=1)
+failed_tests:
+  - R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.8645ms)
+  - failing tests:
+  - R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.8645ms)

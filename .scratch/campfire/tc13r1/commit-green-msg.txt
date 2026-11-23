@@ -1,0 +1,15 @@
+篝火 T-C13-R1 绿: 图集九枚 tile 落集 PAINTERS 68-76, count 68 至 77, 只动 js/texture-atlas.js
+
+实现: 新增 T_CF_ 前缀九格常量(T_LOG_SIDE 名已被 7 号格占用故避撞)与九画师段,
+段位落在既有篝火分面四格段与生态地图段之间: 68 原木端面/69 原木皮侧/
+70 炭堆燃顶/71 炭堆燃侧/72 炭堆熄顶/73 炭堆熄侧/74-76 焰帧 F1-F3。
+九个 art 常量逐字符=测试红面九常量(v1.10 定稿 §4.2/§4.3), 机械 diff 双自证:
+verify-arts.js 定稿对 test 9/9 OK + diff-arts-js-vs-test.js test 对 js 9/9 OK。
+画笔纪律: 全格固定像素零 rng, 画师签名 (px)=> 不接 rng; 色板复用 CF_PAL8 零新色;
+九稿无 C, cfStamp 直落; 焰帧 . 位不绘制=alpha 0 真透(65/67 同口径)。
+头注更新: 模块头 tile 清单补 v1.10 九格(fallback 燃熄成对 70↔72/71↔73),
+第 38 行口径改最高格号 76(count=77)。
+红线遵守: layout.tiles[81]/[82] 与 PAINTERS[0..67] 零触碰(62-67 存档六格
+原绿在职=接线归 R-2); config/voxel/world/effects/campfire-fx/icons 零触碰。
+验证: 单文件 49 测全绿 exit=0; npm test tests=2485 pass=2484 fail=0 skipped=1
+(基线 2476+净增 9); npm run lint 三门 eslint/stylelint/htmlhint 零错误。

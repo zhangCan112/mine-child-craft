@@ -27,8 +27,12 @@
      opts.onFelled() — 整树倒观感
      opts.wear() — 破坏成功磨损(探险=advWearHeld('mine'); 体验馆=简版)
      opts.say/speak/sfx — 观感三件(体验馆 dev 降噪全不传=静默)
+     opts.hint(h) — 教学气泡缝(T-C10b): 物品认知面话术的视觉通道(探险/体验馆=ModeKit.kitHintShow(h, document) 单源装配);未注入容忍(静默无气泡)
      opts.ring(p)/opts.swing() — 准星进度环/挥动观感
      opts.mesh — {touch(x,z), flush()} setBlockRaw 直写后的网格收口
+     opts.onCampfireRelit(x,y,z) — 篝火重燃后钩(T-C3): tryCampfireRelight 命中
+        时消费方挂台账+话术(探险=advCampfires.plant+重燃话术; 体验馆同缝);
+        未注入容忍(命中照换 id, 零回调)
      opts.hardText(id, x, y, z) — 不可破坏话术缝(空串=不出声): ①无 hard 方块
         (传送门等, 既有)②边界屏障格(T7 P2: 有 hard 方块坐标落在未解锁屏障体,
         政策拒绝; 老注入 (id) 签名多收三参天然向后兼容——JS 语义)
@@ -40,7 +44,9 @@
         「原位复原受保护格+从清单剔除」的口(探险=屏障格豁免); 未注入=恒等
         (体验馆/零边界带世界零影响)
    interface: PlaceKit.mkEditor(opts) → editor {tryPlace · placeDoor ·
-     placePortal · tryDoorToggle · breakBlock · pairedBreakApply ·
+     placePortal · tryDoorToggle · tryCampfireRelight(hit)(T-C3 篝火重燃:
+     熄灭态命中=true 吞点击+id 互换+记账+mesh 收口+onCampfireRelit 缝;
+     燃烧态/非篝火=false 零写) · breakBlock · pairedBreakApply ·
      applyCascade ·
      mineTick(mine,hit,dt,view) · mineStop(mine) · tickTimers(dt)} ·
      PlaceKit.aimHit()(静态: 准星命中, Node 无相机件返 null)
@@ -277,7 +283,21 @@ function mkEditor(opts) {
     const pc = advPlaceCheck(hit, it.block, lookId, targetId,
         replace ? getBlock(hit.x, hit.y - 1, hit.z) : null); /* belowId 仅覆盖+thin 新块消费 */
     if (!pc.ok || collidesAtPlayer(pc.x, pc.y, pc.z)) {/* 不与玩家身体重叠(arena 先例) */
-      if (o.say) o.say('这里放不了哦');
+      /* 篝火失败话术双通道接线(T-C10b, UI 定稿 v1.6 §6.2 通道口径+§6.5-3 通道
+         断言): 篝火失败句是物品认知教学面, 退役出 toast 接双通道——视觉=hint
+         缝气泡({name,desc} 双行, 消费方装配 ModeKit.kitHintShow 单源), 听觉=
+         speak 缝全文逐字(句尾「哦」在文案内, 不做名字拼装); 判据读放置对象的
+         campfire 身份旗标(spec §6-6 只读旗标), 五类失败(水面/悬空/薄块顶/
+         篝火顶/玩家重叠=collidesAtPlayer 合并分支)共句; kit 层零节流(高频
+         不堆积归 SpeechKit cancel-then-speak latest-wins 上游); generic
+         「这里放不了哦」=系统消息仍走 say(toast) 零改动(T-C1 文案逐字保留) */
+      const cf = !!(BLOCKS[it.block] && BLOCKS[it.block].campfire);
+      if (cf) {
+        if (o.hint) o.hint({name: '篝火', desc: '要放在结实的东西上面哦'});
+        if (o.speak) o.speak('篝火要放在结实的东西上面哦');
+      } else if (o.say) {
+        o.say('这里放不了哦');
+      }
       return false;
     }
     if (guard && guard(pc.x, pc.y, pc.z)) return guardReject(); /* T7: 禁放柱拒绝(目标格=落点, 含覆盖落点) */
@@ -316,6 +336,20 @@ function mkEditor(opts) {
     }
     if (o.sfx) o.sfx('door_swing');
     if (o.say) o.say(plan.open ? '🚪 吱呀～门开啦' : '🚪 咔哒，门关上啦');
+    return true;
+  }
+
+  /* 篝火重燃点击(T-C3, campfire-spec §3.4 两态互换, 使用先于放置): 熄灭态
+     篝火命中才动手——id 互换熄→燃(editBlock)+记账+mesh 收口+onCampfireRelit
+     缝(消费方挂台账+话术), 空手可点零扣件(重燃不消耗物品); 燃烧态/非篝火
+     false 零世界写零记账零回调(放置/挖掘链照常)。返回 true=吞点击(与
+     tryDoorToggle 同语义, 右键链在放置分支前先问) */
+  function tryCampfireRelight(hit) {
+    if (!hit || getBlock(hit.x, hit.y, hit.z) !== B_CAMPFIRE_OUT) return false;
+    editBlock(hit.x, hit.y, hit.z, B_CAMPFIRE); /* id 互换: 熄灭态→燃烧态 */
+    if (o.onEdit) o.onEdit(hit.x, hit.y, hit.z, B_CAMPFIRE); /* 改动走编辑链记账 */
+    if (o.mesh && o.mesh.touch) o.mesh.touch(hit.x, hit.z); /* 网格收口(直写不标脏会等跨环) */
+    if (o.onCampfireRelit) o.onCampfireRelit(hit.x, hit.y, hit.z); /* 消费方挂台账+话术 */
     return true;
   }
 
@@ -398,8 +432,8 @@ function mkEditor(opts) {
     hardT = 0;
   }
 
-  return {tryPlace, placeDoor, placePortal, tryDoorToggle, breakBlock,
-    pairedBreakApply, applyCascade, mineTick, mineStop,
+  return {tryPlace, placeDoor, placePortal, tryDoorToggle, tryCampfireRelight,
+    breakBlock, pairedBreakApply, applyCascade, mineTick, mineStop,
     tickTimers, resetTimers};
 }
 

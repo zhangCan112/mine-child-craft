@@ -92,6 +92,7 @@ const api = vm.runInContext(`({ITEMS, stackMax, mkStack, isTool, toolOf, durOf, 
   B_SNOWY_LEAVES, /* 覆雪树叶(世界边界 T12): 北带落雪杉冠盖件, 建场经全局名消费 */
   B_GLOWSTONE, B_NETHER_BRICK,
   getBlock, setBlockRaw, getFluidLv, setFluidLv, world, worldCells, worldEvents,
+  CAMPFIRE, /* 篝火参数块(T-C4 体验馆同口径结算断言面, config 真件) */
   blockKey, collidesAtPlayer, rollBlockDrop, rollDrops,
   Daylight, SceneKit, PrefabKit, Drops})`, eng);
 Object.assign(globalThis, api); /* 模式/供给核心/放置链经全局名消费这些真件 */
@@ -223,7 +224,12 @@ globalThis.playerAirS = 15; /* 溺气余秒: 恒满气(气泡条藏, adventure �
 globalThis.camera = {}; /* 相机件: shootFromAim 的取景入参(raycastVoxel 缺席, aimHit 守卫返 null) */
 globalThis.Avatar = {swing() {}, flash() {}, setItem() {}, setArmor() {}}; /* 挥臂/闪红/穿戴观感桩
     (装备 T5: setArmor 冒烟桩不记账——showroom 行为断言不涉甲, nether 段同款) */
-globalThis.Fx = {debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}}; /* 观感桩 */
+globalThis.Fx = new Proxy({debrisBurst() {}, kick() {}, boom() {}, arc() {}, pop() {}},
+    {get(t, k) {
+      /* T-C9 红方装具演进: 未知入口容忍(篝火特效 Fx 句柄制新入口命名=实现自由度) */
+      if (typeof k === 'symbol' || Object.prototype.hasOwnProperty.call(t, k)) return t[k];
+      return () => {};
+    }}); /* 观感桩 */
 
 /* ---------- 怪物库桩(窄面桩法, 行为断言全走调用记录; 玩家实体受击走真实
     受击状态机 mob-core——血量断言有据) ---------- */
@@ -308,6 +314,16 @@ ModeKit.spawn = (x, y, z, o) => {
 };
 globalThis.FurnaceKit = require('../js/furnace-kit.js');
 globalThis.PlaceKit = require('../js/place-kit.js'); /* 放置链 kit(壳顶层即构造 editor) */
+globalThis.CampfireKit = require('../js/campfire-kit.js'); /* 篝火账 kit(壳顶层即构造 ledger;
+    红方裁决修正 2026-11-17: 装具原漏铺此件, adventure.js 的 typeof 守卫判缺席→零台账→浇熄链无从谈起) */
+/* 篝火特效核心(T-C9 红方装具铺装, CampfireKit 同款惯例): 壳顶层即构造 fx 管理器;
+   红测期文件缺位=容错 null(绿方 typeof 守卫兜底) */
+globalThis.CampfireFxCore = null;
+try {
+  globalThis.CampfireFxCore = require('../js/campfire-fx-core.js');
+} catch {
+  globalThis.CampfireFxCore = null;
+}
 globalThis.CombatKit = require('../js/combat-kit.js');
 globalThis.CombatCore = require('../js/combat-core.js'); /* stepShot/leadAim(combat-kit 自由标识符消费) */
 globalThis.Backpack = require('../js/backpack.js'); /* 背包壳(ADR 0002 唯一持有 inventory 存档键) */
@@ -345,6 +361,8 @@ Object.assign(eng, {
   ModeKit, mkMode: globalThis.mkMode, mkMainAct: globalThis.mkMainAct,
   mkBubbleBar: globalThis.mkBubbleBar, mkArmorBar: ModeKit.mkArmorBar, /* 装备条(装备 T5): 真件, 假 DOM 惰性渲染 */
   FurnaceKit: globalThis.FurnaceKit,
+  CampfireKit: globalThis.CampfireKit, /* 篝火账 kit(eng 面: adventure.js 顶层构造 ledger, 加载序在其前) */
+  CampfireFxCore: globalThis.CampfireFxCore, /* 篝火特效核心(eng 面, T-C9 同款惯例) */
   PlaceKit: globalThis.PlaceKit, CombatKit: globalThis.CombatKit, CombatCore: globalThis.CombatCore,
 });/* 注: pos/vel/yaw/pitch/onGround/flyMode/Drops 是 eng 词法绑定(voxel/drops 顶层),
     属性赋值只会被词法遮蔽——Node 侧已改为直接共享词法对象(见上方提取/包装) */
@@ -1847,3 +1865,178 @@ test('PO②-D 跨模式残留(showroom 复现): 镇内切体验馆 — cleanup �
       '展馆零 NPC 残影(cleanup 摘净, 跨模式不渗, PO②本体)');
   assert.strictEqual(A.advTownState().puppets.length, 0, '傀儡账同步回空');
 });
+
+/* ---------- 篝火 T-C3 体验馆同口径: 水浇熄灭走统一壳(零场景分支的机械证明) ----------
+   展馆与冒险共用同一 place-kit 实例与同一账本(ShowroomMode.pk=advPlaceKit,
+   ShowroomMode.update→AdventureMode.update): 放置链/浇熄链照 adventure-mode
+   T-C3 整链, 本文件只证「同壳同拍」——东条带整地(x81 地平恒 G)。 */
+
+test('体验馆同口径: 篝火放置即燃 → 邻格水浇 → 同壳 update 整链浇熄(统一壳同一账本)', () => {
+  freshEnter();
+  const IDS = vm.runInContext('({lit: B_CAMPFIRE, out: B_CAMPFIRE_OUT, water: B_WATER})', eng);
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0}); /* 篝火落 (81,G+1,58) */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.lit, '放置即燃: 燃烧态落格(同一放置链)');
+  globalThis.editBlock(81, G + 1, 57, IDS.water); /* 北邻水浇 */
+  ShowroomMode.update(0.5); /* 统一壳: ShowroomMode.update→AdventureMode.update(账本 tick 同拍) */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.out, '浇熄: 熄灭态落格(同壳零场景分支)');
+  assert.strictEqual(A.advCampfires.map.size, 0, '侧账删条(统一壳同一账本)');
+});
+
+/* ---------- 篝火 T-C5 体验馆 dev 口径(campfire-spec §6 红线 7): 发放/内存态/退场清/零污染 ----------
+   dev 口径四锚: 套餐发放篝火(≥1 行, 数量不钉) · 台账纯内存态(同壳同账本) ·
+   cleanup 退场即清(dev 会话账不渗下一进场) · 存档介质零污染(dev store 丢弃一切,
+   campfires 键不落盘)。 */
+
+test('体验馆 T-C5 发放与内存态: dev 套餐含 campfire 行(≥1) — 放置台账内存态活(同壳同账本)', () => {
+  freshEnter();
+  assert.ok(ShowroomMode.stock.some((r) => r.id === 'campfire'),
+      'dev 套餐发放篝火(体验馆可试玩, 数量不钉)');
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0});
+  assert.ok(A.advCampfires.map.has('81,' + (G + 1) + ',58'),
+      '台账内存态在册(同壳同账本, home 场景键形)');
+});
+
+test('体验馆 T-C5 退场即清+零污染: cleanup 台账复位(dev 账不渗) — 存档介质零新增写入+重进原装', () => {
+  freshEnter();
+  const memBefore = mem.size; /* 相对断言基准(满跑序前置测试可能已落真档键, 绝对 0 与 U4 结构互斥——红方裁决修订) */
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(A.advCampfires.map.size, 1, '前置: 台账在册');
+  ShowroomMode.cleanup();
+  assert.strictEqual(A.advCampfires.map.size, 0,
+      '退场即清(dev 会话台账复位, 不渗进下一模式/下一进场)');
+  assert.strictEqual(mem.size, memBefore,
+      '存档介质零新增写入(dev store 丢弃一切, 本 dev 会话不落任何键——campfires 键不落盘)');
+  freshEnter(); /* 重进: 世界=基座+展馆账本重放, dev 会话改动随丢弃消失 */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), 0, '重进: 篝火不在场(非账本内容不重放)');
+  assert.strictEqual(A.advCampfires.map.size, 0, '重进: 台账空(零复活)');
+});
+
+/* ---------- 篝火 T-C9 体验馆同壳: 世界特效走共享缝(零场景分支) ----------
+   展馆与冒险共用同一 place-kit 实例/同一账本/同一 fx 管理器(A.advCampfireFx,
+   ShowroomMode.pk=advPlaceKit): 本文件只证「同壳同拍」+壳源码零篝火分支的机械面。
+   观感参数与句柄纪律归 campfire-fx-core.test, 模式挂缝归 adventure-mode.test T-C9 段。 */
+
+test('体验馆同壳 T-C9: 放置→fx 开(A.advCampfireFx 同一管理器) → 水浇→同拍摘(零场景分支)', () => {
+  freshEnter();
+  const IDS = vm.runInContext('({lit: B_CAMPFIRE, out: B_CAMPFIRE_OUT, water: B_WATER})', eng);
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0}); /* 篝火落 (81,G+1,58) */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.lit, '前置: 放置即燃(同一放置链)');
+  assert.ok(A.advCampfireFx && A.advCampfireFx.active(81, G + 1, 58),
+      'fx 开(同一管理器: 特效挂共享缝, 展馆零特判)');
+  globalThis.editBlock(81, G + 1, 57, IDS.water);
+  ShowroomMode.update(0.5); /* 统一壳: ShowroomMode.update→AdventureMode.update */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.out, '前置: 同壳浇熄(T-C3 链)');
+  assert.ok(!A.advCampfireFx.active(81, G + 1, 58), 'fx 同拍摘(浇熄=摘, 统一壳同一缝)');
+});
+
+test('体验馆壳源码零篝火分支: showroom.js 零 campfire 字样(特效挂共享缝的机械面)', () => {
+  assert.ok(!/campfire/i.test(showroomSrc),
+      'showroom.js 零 campfire 字样(字面量与分支双零——同壳零场景分支, 特效触发全在' +
+      ' advPlaceKit/advCampfires 共享实例缝上)');
+});
+
+/* ---------- 篝火 T-C11 体验馆同口径: sfx 走 advProfile.sfx 缝(dev 静默=政策非通道差异) ----------
+   接线在共享装配(advPlaceKit 三锚/onBurnout 缝=探险体验馆同一条线), 声本体参数
+   注册表单键(audio-registry.test 逐格); 本组只锁通道面: dev profile 的 sfx noop
+   拦截→campfire 零声——若接线直调 sfx 绕缝(如 combat hurt 既有口径), 本组即红
+   (T-C10b TTS 通道同构先例: 通道同装, dev 静默是政策非通道差异)。 */
+
+test('体验馆同口径 T-C11: 放置即燃零 campfire 声(dev 静默经缝=通道面双模式同听感) · 烧尽零声(共享装配缺省直通只在探险档)', () => {
+  freshEnter();
+  const IDS = vm.runInContext('({lit: B_CAMPFIRE})', eng);
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  calls.length = 0;
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.lit, '前置: 放置即燃(同一放置链)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0).length, 0,
+      '放置零 campfire 声(dev profile 媒体缝静默=接线经 advProfile.sfx; 直调 sfx 绕缝即红)');
+  for (let i = 0; i < 600; i++) ShowroomMode.update(0.5); /* 6000 刻烧尽(统一壳 tick 同拍) */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), 0, '前置: 烧尽方块移除(燃尽路径同装配)');
+  assert.strictEqual(calls.filter((c) => c[0] === 'sfx' && String(c[1]).indexOf('campfire') === 0).length, 0,
+      '全生命周期零 campfire 声(dev 静默; 同听感=同装配+缺省档直通, 降噪是政策非通道差异)');
+});
+
+/* ---------- 篝火 T-C4 体验馆同口径: fireTick 消费与血尽 inPlace(统一壳零场景分支) ----------
+   结算全在 AdventureMode.update(壳 update 直通), 展馆零本体改动即同口径——
+   本组只证「同壳同拍」: 放置链照 T-C3 先例; 事件注入=T-G05 同款直写 vm 域
+   worldEvents 真对象(模式层不跑引擎物理步); 血尽走 dev 政策 inPlace 原地满血
+   (票面: 'home' 切图满血/体验馆 'inPlace' 原地满血, 二者皆现有流程零新语义)。 */
+
+test('体验馆同口径: fireTick 消费 → 每拍扣 1 血 · 消费即清 · 零 TTS(与探险同一结算面)', () => {
+  freshEnter();
+  const IDS = vm.runInContext('({lit: B_CAMPFIRE})', eng);
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0}); /* 篝火落 (81,G+1,58) */
+  assert.strictEqual(api.getBlock(81, G + 1, 58), IDS.lit, '前置: 放置即燃(T-C3 同链)');
+  api.worldEvents.fireTick = false; /* 块首归零防跨块残留 */
+  const pe = ShowroomMode.pEnt();
+  const hp0 = pe.hp;
+  api.worldEvents.fireTick = true;
+  ShowroomMode.update(1 / 60); /* 统一壳: 消费在 AdventureMode.update, 展馆零场景分支 */
+  assert.strictEqual(pe.hp, hp0 - 1, '一拍扣 1 血(§3.9 初值, 与探险同口径)');
+  assert.strictEqual(api.worldEvents.fireTick, false, '事件消费即清');
+  assert.strictEqual(spoken.length, 0, '零 TTS(安静的环境反馈)');
+  api.worldEvents.fireTick = true;
+  ShowroomMode.update(1 / 60);
+  assert.strictEqual(pe.hp, hp0 - 2, '两拍两血');
+});
+
+test('体验馆血尽: 烫至 0 血走 inPlace 原地满血复活(dev 政策, 保调试现场)', () => {
+  freshEnter();
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0}); /* 篝火在场(调试现场一部分) */
+  api.worldEvents.fireTick = false;
+  const pe = ShowroomMode.pEnt();
+  pe.hp = 1; /* 濒死直驱 */
+  const px = pos.x; const pz = pos.z;
+  api.worldEvents.fireTick = true;
+  ShowroomMode.update(1 / 60);
+  assert.strictEqual(pe.hp, pe.maxHp, '满血重置(inPlace 原地复活)');
+  assert.strictEqual(pe.dead, false, 'dead 复位(复活不变量)');
+  assert.strictEqual(pos.x, px, '原地复活 x(不落出生点, 保调试现场)');
+  assert.strictEqual(pos.z, pz, '原地复活 z');
+  assert.strictEqual(api.worldEvents.fireTick, false, '致死事件照常消费即清');
+  assert.ok(calls.some((c) => c[0] === 'toast' && String(c[1]).includes('满血')),
+      '提示 toast(存量 inPlace 流程自带)');
+});
+
+/* ---------- 篝火 T-C10b 体验馆同口径: 放置失败话术通道(定稿 v1.6 §6.5-3) ----------
+   同一 place-kit 装配(advPlaceKit)双通道同构: 气泡 hint 缝→kitHintShow 挂 body,
+   TTS speak 缝→advSpeak→dev profile noop(U4 降噪既有口径不破——通道同装、
+   dev 静默是政策非通道差异); generic 老话术仍走 toast 零改动。 */
+
+test('体验馆同口径 T-C10b: 篝火放置失败同走双通道 — hint-bubble 双行气泡挂 body+TTS 通道同装(dev 静默)+零 toast', () => {
+  freshEnter();
+  const IDS = vm.runInContext('({water: B_WATER})', eng);
+  const inv = ShowroomMode.getInv();
+  inv.slots[0] = api.mkStack('campfire', 1);
+  ShowroomMode.hotbar.select(0);
+  globalThis.editBlock(81, G, 58, IDS.water); /* 地表换水: 支承门拒绝(五类失败①同门) */
+  spoken.length = 0;
+  ShowroomMode.onMouse(2, {x: 81, y: G, z: 58, nx: 0, ny: 1, nz: 0});
+  assert.strictEqual(api.getBlock(81, G + 1, 58), 0, '落点仍是空气(拒绝零世界变化)');
+  const bubble = docBody.children.find((c) => c.classList.contains('hint-bubble'));
+  assert.ok(bubble, '失败同拍出现教学气泡(同一 place-kit 装配, 同通道)');
+  assert.strictEqual(bubble.innerHTML, '<b>篝火</b><i>要放在结实的东西上面哦</i>',
+      '双行 markup 同文(两模式同文同通道, v1.6 §6.5-3)');
+  assert.strictEqual(spoken.length, 0,
+      'TTS 静默=dev 降噪既有口径(speak 缝→advProfile.speak noop, 通道本身同装; U4 不破)');
+  assert.ok(!calls.some((c) => c[0] === 'toast' && String(c[1]).includes('结实')),
+      '篝火句零 toast(体验馆同退役, 仅 toast=不符)');
+});
+

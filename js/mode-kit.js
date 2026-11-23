@@ -41,7 +41,10 @@
               查询面) · sortInv · spawn · lookName · confirmBtn ·
               editHit(挖/放编辑原语) · mkHoldMine(触屏按住连挖驱动) ·
               mkArmorBar(装备条, 装备 T5: 五槽像素图标+空槽虚位+点槽脱下
-              意图——回包政策归模式层; 签名节流重画, 磨损不闪)
+              意图——回包政策归模式层; 签名节流重画, 磨损不闪) ·
+              kitHintShow(气泡视觉段, 篝火 T-C3 评审 SPEC-1: 非槽位触发的
+              物品认知气泡独立消费面——双行 markup+3.2s 淡出档单源在此,
+              TTS 不含, kitHint=本段+SpeechKit)
    依赖(均经全局名, 调用期解析): items-core 的 ITEMS/toolOf/stackMax/durOf ·
      inventory-core 的 HOTBAR_SLOTS/costEntry/remove/add · craft-core 的
      RECIPES/canCraft/matchGrid/gridCraft/fillGrid/FUEL/fuelUnits/smeltOf ·
@@ -105,23 +108,28 @@ function kitHintSlot(it) {
 function kitHintItem(id) {
   return (typeof hintForItem === 'function') ? hintForItem(id) : null;
 }
-function kitHint(h, doc) {
-  if (!h) return;
-  if (doc && doc.body) {
-    if (!kitHintEl || kitHintDoc !== doc) {/* 单例: 换 doc(测试环境)才重建 */
-      kitHintEl = doc.createElement('div');
-      kitHintEl.className = 'hint-bubble';
-      kitHintEl.style.opacity = 0;
-      doc.body.appendChild(kitHintEl);
-      kitHintDoc = doc;
-    }
-    kitHintEl.innerHTML = '<b>' + h.name + '</b>' + (h.desc ? '<i>' + h.desc + '</i>' : '');
-    kitHintEl.style.opacity = 1;
-    clearTimeout(kitHintT);
-    kitHintT = setTimeout(()=> {
-      if (kitHintEl) kitHintEl.style.opacity = 0; /* 3.2s 淡出(CSS transition) */
-    }, 3200);
+function kitHintShow(h, doc) {/* 气泡视觉段(kitHint 拆出, 单源不二份): 供非槽位触发的
+   物品认知气泡独立消费(篝火 T-C3 评审 SPEC-1 重燃提示)——TTS 不在此段,
+   视觉/语音双通道可分可合 */
+  if (!h || !doc || !doc.body) return;
+  if (!kitHintEl || kitHintDoc !== doc) {/* 单例: 换 doc(测试环境)才重建 */
+    kitHintEl = doc.createElement('div');
+    kitHintEl.className = 'hint-bubble';
+    kitHintEl.style.opacity = 0;
+    doc.body.appendChild(kitHintEl);
+    kitHintDoc = doc;
   }
+  kitHintEl.innerHTML = '<b>' + h.name + '</b>' + (h.desc ? '<i>' + h.desc + '</i>' : '');
+  kitHintEl.style.opacity = 1;
+  clearTimeout(kitHintT);
+  kitHintT = setTimeout(()=> {
+    if (kitHintEl) kitHintEl.style.opacity = 0; /* 3.2s 淡出(CSS transition) */
+  }, 3200);
+}
+function kitHint(h, doc) {
+  if (!h) return; /* 空提示早退(空槽/无话术): 视觉语音双通道同门——原语义, 空槽
+     select 经 kitHintSlot(null) 进来零炸(有 SpeechKit 的装具实读复证) */
+  kitHintShow(h, doc);
   if (typeof SpeechKit !== 'undefined' && SpeechKit) SpeechKit.speak(h.tts);
 }
 
@@ -1719,5 +1727,5 @@ function mkMode(cfg) {
 const ModeKit = {mkMode, mkHotbar, mkMainAct, mkHeldSync, editHit, mkHoldMine,
   mkMobPicker, mkCraftPanel,
   mkFurnacePanel, mkChestPanel, mkBubbleBar, mkArmorBar, sortInv,
-  spawn: kitSpawn, lookName, confirmBtn};
+  spawn: kitSpawn, lookName, confirmBtn, kitHintShow};
 if (typeof module !== 'undefined' && module.exports) module.exports = ModeKit;

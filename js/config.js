@@ -138,6 +138,20 @@ const FLUID = {
   airMaxS: 15, drownDps: 2, lavaDps: 4, lavaTickS: 0.5, renderDiv: 9,
 };
 
+/* ---------- 篝火参数表 (篝火 T-C1, campfire-spec §3.9 初值) ----------
+   ticks=燃尽时长(刻, 20tps 计划刻游戏钟 spec §4 拍板案) · columnH/columnR/lift=
+   气柱三参(T-C2 updraft-core 消费) · burnTick/burnHp=烫伤节拍与伤害(T-C4 消费)。
+   本票仅 ticks 有消费者(放置即燃满时长建条), 其余五键先行落位防漂移; 数值
+   实现期可调不判需求变更(spec §3.9 口径)。 */
+const CAMPFIRE = {
+  ticks: 6000, // 燃尽时长 6000 刻=300s(灯笼 dur=300s 同档量级, ADR 0018)
+  columnH: 20, // 气柱高度 20 格(⭐PO 拍板, 原 12 被否)
+  columnR: 1, // 气柱截面 Chebyshev 半径 1(3×3 整数格列判定)
+  lift: 3.0, // 乘流升速(格/秒)
+  burnTick: 20, // 烫伤节拍(刻)=1 秒
+  burnHp: 1, // 烫伤每拍扣血
+};
+
 
 /* 坦克载具参数 (tank-core/tank.js 用, 见 js/tank-core.js) */
 const TANK = {
@@ -511,6 +525,24 @@ const B_ROOF_TILE=79;
 BLOCKS[B_ROOF_TILE] = {name: '陶橙瓦', all: [0.851, 0.478, 0.290]};
 const B_GATE_SIGN=80;
 BLOCKS[B_GATE_SIGN] = {name: '门额牌', all: [0.784, 0.596, 0.345], thin: 0.15, solid: true, gateSign: true};
+
+/* ---------- 篝火两态 (篝火 T-C1, campfire-spec §3.4/ADR 0018) ----------
+   两态=两个方块 id + campfire 身份旗标(spec §6-6 只读旗标哲学, 机制跟着「它是
+   什么」走): 浇熄/重燃=id 互换(T-C3), 熄灭态零侧账(edits 账本天然重放)。
+   半格实体(thin 0.4375+solid true): 可碰撞可站立——
+   「踩上烫」「踩火起飞」的前提; light 15/0 数据驱动字段(mkPolicy.lightOf 消费,
+   火把 14/灯块 15 先例族); hard 0 徒手可移除; drop=[['campfire',1,0]] 两态同
+   行(T-C3 回收: 挖走即还篝火×1 保底零加成, 烧剩价值保留非木炭; rollBlockDrop
+   既有链消费, 零专码)。
+   thin 0.4375 当不了放置支承——两态篝火顶防叠放机械达成(spec §3.3);
+   thin=7/16 正典矮半格(UI 定稿 §4.1 v1.9, T-C13 核实落值), thin 不参与
+   物理仅渲染形态(spec §3.4 裁定, solid:true 可站立照旧)。
+   贴图分面双 tile 入图集(燃灶 64/燃侧 65/熄灶 66/熄侧 67, T-C13;
+   layout 接线见 texture-atlas.js §4.1 分面表)。
+   号段 81/82=定稿建议值(config 现用至 80=B_GATE_SIGN 已核实, 两态连号)。 */
+const B_CAMPFIRE=81; const B_CAMPFIRE_OUT=82;
+BLOCKS[B_CAMPFIRE] = {name: '篝火', all: [0.80, 0.42, 0.14], campfire: 'lit', light: 15, thin: 0.4375, solid: true, hard: 0, drop: [['campfire', 1, 0]]};
+BLOCKS[B_CAMPFIRE_OUT] = {name: '熄灭的篝火', all: [0.28, 0.24, 0.22], campfire: 'out', light: 0, thin: 0.4375, solid: true, hard: 0, drop: [['campfire', 1, 0]]};
 
 /* ---------- 存量方块采集字段 (物品与合成一期, 设计稿 §3.4/§3.5) ----------
    只增不改: 名字/颜色/既有旗标原样, 集中在此补 hard/tool/tier/drop 四字段

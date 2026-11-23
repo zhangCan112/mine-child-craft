@@ -1,0 +1,64 @@
+✖ 判别力探针(永红)·装具自检: 每火一 mesh 喂恰一张断言——恒红(50 张非 1) (1.0131ms)
+✖ 判别力探针(永红)·装具自检: 每火一 mesh 喂可绘段断言——恒红(单张 12 非 600) (0.1224ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 0
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 48.2278
+
+✖ failing tests:
+
+test at .scratch\campfire\tc13r-c6\probe-red-per-fire-plane.js:30:1
+✖ 判别力探针(永红)·装具自检: 每火一 mesh 喂恰一张断言——恒红(50 张非 1) (1.0131ms)
+  AssertionError [ERR_ASSERTION]: 50 火应恰 1 张共享 sheet (实测每火独占 50 张)
+  
+  50 !== 1
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\.scratch\campfire\tc13r-c6\probe-red-per-fire-plane.js:32:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.start (node:internal/test_runner/test:1003:17)
+      at startSubtestAfterBootstrap (node:internal/test_runner/harness:358:17) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 50,
+    expected: 1,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+test at .scratch\campfire\tc13r-c6\probe-red-per-fire-plane.js:35:1
+✖ 判别力探针(永红)·装具自检: 每火一 mesh 喂可绘段断言——恒红(单张 12 非 600) (0.1224ms)
+  AssertionError [ERR_ASSERTION]: 共享 sheet 可绘段应=50 火×12 索引=600 (实测单张独占 12)
+  
+  12 !== 600
+  
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-mech\.scratch\campfire\tc13r-c6\probe-red-per-fire-plane.js:37:10)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: 12,
+    expected: 600,
+    operator: 'strictEqual',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":2}
+verdict: 断言红(AssertionError=2)
+failed_tests:
+  - 判别力探针(永红)·装具自检: 每火一 mesh 喂恰一张断言——恒红(50 张非 1) (1.0131ms)
+  - 判别力探针(永红)·装具自检: 每火一 mesh 喂可绘段断言——恒红(单张 12 非 600) (0.1224ms)
+  - failing tests:
+  - 判别力探针(永红)·装具自检: 每火一 mesh 喂恰一张断言——恒红(50 张非 1) (1.0131ms)
+  - 判别力探针(永红)·装具自检: 每火一 mesh 喂可绘段断言——恒红(单张 12 非 600) (0.1224ms)

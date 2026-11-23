@@ -1,0 +1,171 @@
+{
+  "ok": true,
+  "cell": {
+    "x": 61,
+    "y": 30,
+    "z": 59
+  },
+  "atlasInfo": {
+    "cols": 16,
+    "rows": 16
+  },
+  "priorSheet": {
+    "sheets": 1,
+    "fires": 1,
+    "openCells": [
+      "69,26,53"
+    ]
+  },
+  "lit": {
+    "verts": 144,
+    "maxY": 30.34000015258789,
+    "minY": 30,
+    "baseVerts": 32,
+    "meshIds": [
+      653
+    ],
+    "maxYrel": 0.34,
+    "minYrel": 0
+  },
+  "litSheet": {
+    "sheets": 1,
+    "fires": 1,
+    "openCells": [
+      "61,30,59"
+    ]
+  },
+  "alphaStats": {
+    "62": {
+      "tile": 62,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "63": {
+      "tile": 63,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "64": {
+      "tile": 64,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "65": {
+      "tile": 65,
+      "visible": 122,
+      "transparent": 134,
+      "total": 256,
+      "visibleRatio": 0.4766
+    },
+    "66": {
+      "tile": 66,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "67": {
+      "tile": 67,
+      "visible": 90,
+      "transparent": 166,
+      "total": 256,
+      "visibleRatio": 0.3516
+    },
+    "68": {
+      "tile": 68,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "69": {
+      "tile": 69,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "70": {
+      "tile": 70,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "71": {
+      "tile": 71,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "72": {
+      "tile": 72,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "73": {
+      "tile": 73,
+      "visible": 256,
+      "transparent": 0,
+      "total": 256,
+      "visibleRatio": 1
+    },
+    "74": {
+      "tile": 74,
+      "visible": 88,
+      "transparent": 168,
+      "total": 256,
+      "visibleRatio": 0.3438
+    },
+    "75": {
+      "tile": 75,
+      "visible": 90,
+      "transparent": 166,
+      "total": 256,
+      "visibleRatio": 0.3516
+    },
+    "76": {
+      "tile": 76,
+      "visible": 90,
+      "transparent": 166,
+      "total": 256,
+      "visibleRatio": 0.3516
+    }
+  },
+  "out": {
+    "verts": 144,
+    "maxY": 30.34000015258789,
+    "minY": 30,
+    "baseVerts": 32,
+    "meshIds": [
+      670
+    ],
+    "maxYrel": 0.34,
+    "minYrel": 0
+  },
+  "outSheet": {
+    "sheets": 1,
+    "fires": 0,
+    "openCells": []
+  },
+  "stone": {
+    "verts": 32,
+    "maxY": 31,
+    "minY": 30,
+    "baseVerts": 20,
+    "meshIds": [
+      686
+    ],
+    "maxYrel": 1,
+    "minYrel": 0
+  }
+}

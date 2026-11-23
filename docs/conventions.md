@@ -139,8 +139,9 @@ interface: 入口函数/对象一行清单
 - 默认 `test/<模块同名>.test.js`；`-core`/`-registry` 必须同名（§1.2，有守门测试）。
 - THREE/DOM adapter 不强制直测：boot.test.js 按 index.html 真实顺序在共享 vm 全链冒烟，
   专抓共享词法环境的顶层重名/炸错；要直测就先剥 `-core`。
-- 存量命名偏差（world-rings、world-integrity、world-vertexlight、nether-mode、tank-mode）不改名，测试头注释
-  写明对应哪个模块文件。（mob-taxonomy 原列于此，2026-10-25 随 mob-registry.js
+- 存量命名偏差（world-rings、world-integrity、world-vertexlight、nether-mode、tank-mode、
+  effects-campfire-sheet——js/effects.js 的篝火焰片 sheet 段专测，T-C13-R4 落、
+  T-C13-R5 c5 核对登记）不改名，测试头注释写明对应哪个模块文件。（mob-taxonomy 原列于此，2026-10-25 随 mob-registry.js
   落地 git mv 改名收编为 test/mob-registry.test.js，偏差消名。）
 
 ### 1.10 "注册表 + 测试断言"升格判据

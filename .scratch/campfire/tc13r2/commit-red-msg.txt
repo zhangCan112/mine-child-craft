@@ -1,0 +1,11 @@
+篝火 T-C13-R2 红基线: 多部件几何守门翻新 6 红(AssertionError=6 零装具炸)
+
+翻新: 布局部件表形状断言(81/82 四键 logEnd/logSide/top/side, deepStrictEqual 摊平)
+与 meshChunk 两态多部件断言(静态件 6 织席 2x2 两轴交错 炭堆顶 0.35 整体 0.5 贴地跳底面)。
+新增: CF_PARTS 值表逐值断言(方案 §4 六 AABB)+两态 tile 分派(68/69/70/71/72/73 逐面落格)
++几何不变量三断言(全部件 ⊆ 自有格 [0,1) / 任意两部件无共面重叠面 / 同输入同输出零随机)
++部件重建装具 quadsOf 环序修正(q+5 取第 4 角)与格原点自 pack 派生。
+换载体: 顶点光三测去单盒 5 面载体语义不变; tileSet 装具兼容部件表缺 bottom 键;
+红因直证 .scratch/campfire/tc13r2-red2.log [red-cause] AssertionError=6。
+落册: ADR-0020(静态驻 chunk 批+拾取政策+焰片生命周期归属, 方案 §7);
+对撞装具 verify-parts.js 锚行自检 6/6 OK; 玩法数据面零触碰。

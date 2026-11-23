@@ -1,0 +1,68 @@
+✔ R4-1 惰性建+材质面: 零 open 格零 sheet; 首 open 恰一张共享 sheet, MeshBasic{map=atlasMat.map, alphaTest 0.5, DoubleSide, vertexColors, 不透明队列}, frustumCulled=false (2.1208ms)
+✖ R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.7862ms)
+✔ R4-3 membership 全路径同步: open 挂/浇熄摘/重燃再挂/燃尽摘/挖掘摘 — 顶点数与 fx open 格集同拍且恒一张 sheet (0.6109ms)
+✔ R4-4 open=false 格永不贡献 plane(h 类禁令): 浇熄格/燃尽余韵格 cells() 在册但 sheet 零 plane; 燃尽余韵期满+存量清空后格回收 (0.6374ms)
+✔ R4-5 UV 翻页镜像: 帧窗=tileUV(74+fx.flameFrameAt) 全幅, 帧推进换窗(74/75/76 依次), 与 fx-core 单源逐拍一致 (1.1198ms)
+✖ R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (4.1283ms)
+✔ R4-7 渐弱(§5.8 扩含面片): tint=0 顶点色恒白不暗化; tint 增大亮度单调下降(亮度插值随 fx 渐弱窗) (0.8691ms)
+✔ R4-8 释放纪律: Fx.clear 摘 sheet+geometry/material dispose 零残留; removeField 只摘本场(他场 sheet 无恙); 清后再建不受污染 (0.845ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 6
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 65.3905
+
+✖ failing tests:
+
+test at test\effects-campfire-sheet.test.js:332:1
+✖ R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.7862ms)
+  AssertionError [ERR_ASSERTION]: 单火 ±Z 片: 高应在 0.4~0.5(UI 定稿 §4.4), 实得 0.4500
+      at assertCross (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:246:12)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:351:3)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async startSubtestAfterBootstrap (node:internal/test_runner/harness:358:3) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+test at test\effects-campfire-sheet.test.js:449:1
+✖ R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (4.1283ms)
+  AssertionError [ERR_ASSERTION]: 火(100,25,107) ±Z 片: 高应在 0.4~0.5(UI 定稿 §4.4), 实得 0.4500
+      at assertCross (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:246:12)
+      at TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\effects-campfire-sheet.test.js:477:5)
+      at Test.runInAsyncScope (node:async_hooks:214:14)
+      at Test.run (node:internal/test_runner/test:1106:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+      at Test.postRun (node:internal/test_runner/test:1235:19)
+      at Test.run (node:internal/test_runner/test:1163:12)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:788:7) {
+    generatedMessage: false,
+    code: 'ERR_ASSERTION',
+    actual: false,
+    expected: true,
+    operator: '==',
+    diff: 'simple'
+  }
+
+
+[red-cause] 自动分类段(conventions §7.4, 机械生成非手写)
+exit_code: 1
+error_class_counts: {"AssertionError":2}
+verdict: 断言红(AssertionError=2)
+failed_tests:
+  - R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.7862ms)
+  - R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (4.1283ms)
+  - failing tests:
+  - R4-2 几何不变量: 单火恰 8 顶点 12 索引, 2 片 90° 交叉(4 共 z + 4 共 x), 高 0.4~0.5×宽 0.35, 全顶点 ⊆ 自有格 [x,x+1)³ (0.7862ms)
+  - R4-6 错相镜像+容量: 50 火同拍逐火 tile 与 fx.flameFrameAt 单源一致, 帧分布 ≥2 帧(零齐翻), 容量翻倍后仍恰一张 sheet 全员在绘 (4.1283ms)

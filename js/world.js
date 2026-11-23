@@ -763,6 +763,15 @@ const FLUID_SIM = FluidCore.mkSim({
   ids: {water: B_WATER, lava: B_LAVA}, mixIds: {obsidian: B_OBSIDIAN, cobble: 4, stone: 3},
   w: WORLD_W, h: WORLD_H, d: WORLD_D,
 });
+/* 热气流装配(篝火 T-C2, campfire-spec §3.5): 机制在 updraft-core 纯核心
+   (引擎不知玩法), 这里只做装配——sim 实例与 fluid sim 同装配位, env 注入
+   同款 read/solidOf。注册/注销由模式层篝火账本经 campfire-kit 的 updraft 缝
+   在状态迁移点调(燃烧态=add, 燃尽/挖走=remove); voxel.js 物理调用期读
+   (共享词法调用期解析, 加载序在本文件之后)。 */
+/* 装配守卫: 部分装具/域装载 world.js 不带 updraft-core(纯体素/光照域)——
+   缺位=null 不炸装载; voxel.js 调用期已判 UPDRAFT_SIM 真值, null 恒零行为 */
+const UPDRAFT_SIM = typeof UpdraftCore !== 'undefined' ?
+  UpdraftCore.mkSim({read: getBlock, solidOf: isSolid}) : null;
 /* 事件分发: mix=水岩混合(嘶嘶+产物碎屑) · wash=冲毁依附块(掉落物照发, 儿童拾取乐趣) */
 function handleFluidEvents(evs) {
   for (const ev of evs) {
@@ -861,6 +870,7 @@ function pumpRemesh(n) { // 每帧出队(主循环每帧调用; 同步预算 n, 
 function clearWorld() {
   world.clear();
   FLUID_SIM.reset(); // 流体队列与时间基归零(世界数据已清, 残留条目作废)
+  if (UPDRAFT_SIM) UPDRAFT_SIM.clear(); // 气流注册清场(篝火 T-C2): 切模式/换图无幽灵气柱, 重注册归模式层 init(装配守卫缺位=null 时跳过, 同口径)
   meshGen++; // 在途 Worker 响应整体作废
   inFlight.clear();
   meshToken.clear();

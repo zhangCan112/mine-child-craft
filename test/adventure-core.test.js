@@ -3440,3 +3440,191 @@ test('T11 池解析缝: 命中返共享池引用(零分配) · 未命中 null �
   assert.strictEqual(r.spawn.type, 'stray', '北带主题池出单=流浪者');
   assert.strictEqual(r.spawn.x !== undefined && r.spawn.z !== undefined, true, '出单带环带落点(铺法路径不变)');
 });
+
+/* ---------- 篝火 T-C3 浇熄/重燃纯函数 (campfire-spec §3.4 两态互换) ---------- */
+
+test('T-C3 浇熄几何: advCampfireQuenchHit — 四水平邻+正上有水=熄 · 正下/斜角不熄 · ' +
+    '岩浆不熄 · 无水不熄', () => {
+  assert.strictEqual(typeof Core.advCampfireQuenchHit, 'function',
+      'advCampfireQuenchHit 在册(纯函数宿主, campfire-kit read 缝消费)');
+  const IDS = vm.runInContext('({water: B_WATER, lava: B_LAVA})', eng);
+  const cf = {x: 10, y: 20, z: 30};
+  const mkRead = (cells) => {
+    const set = new Set(cells);
+    return (x, y, z) => (set.has(x + ',' + y + ',' + z) ? IDS.water : 0);
+  };
+  const hit = Core.advCampfireQuenchHit;
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['9,20,30'])), true, '西邻有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['11,20,30'])), true, '东邻有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['10,20,29'])), true, '北邻有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['10,20,31'])), true, '南邻有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['10,21,30'])), true, '正上有水=熄');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['10,19,30'])), false, '正下有水不熄(火在实体块顶, 底面不沾水)');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, mkRead(['9,20,29'])), false, '斜角不熄(十字面+顶, 非 3×3)');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, () => IDS.lava), false, '岩浆不熄(浇熄只认水)');
+  assert.strictEqual(hit(cf.x, cf.y, cf.z, () => 0), false, '无水不熄');
+});
+
+test('T-C3 重燃话术: advCampfireRelightHint — 形状 {name,desc,tts} · desc 逐字定稿 · ' +
+    'name=熄灭态方块名 · tts=desc 零第二文案源 · 禁词扫描', () => {
+  const hint = Core.advCampfireRelightHint;
+  assert.ok(hint && typeof hint === 'object', 'advCampfireRelightHint 在册(纯函数宿主)');
+  const IDS = vm.runInContext('({out: B_CAMPFIRE_OUT})', eng);
+  assert.strictEqual(hint.name, BLOCKS[IDS.out].name, '名字=熄灭态方块名(单源不誊写)');
+  assert.strictEqual(hint.desc, '点一下，就能再点着的火堆', 'desc 逐字定稿(禁改写——逐字核对锚)');
+  assert.strictEqual(hint.tts, hint.desc, 'tts=desc(同一句话零第二文案源)');
+  for (const w of ['风', '升', '上升', '飞', '气流', '翅膀', '翼', '滑翔', '乘', '托', '任务', '倒计时']) {
+    assert.ok(!hint.desc.includes(w) && !hint.name.includes(w),
+        '禁词「' + w + '」零命中(⭐R2-3 不剧透红线, 与物品提示同词集)');
+  }
+});
+
+/* ---------- 篝火烫伤纯函数双件 (篝火票据 T-C4, campfire-spec §3.6, ADR 0019) ----------
+   支撑格采样判据(身份判据只读旗标, spec §6-6)与节拍累计(20tps 计划刻→秒, spec §4
+   拍板案): 引擎计息器(voxel.js 支撑格采样, lavaAcc 同款)与模式层怪物结算
+   (adventure.js)共用同一判据语义——判据单源=config campfire 旗标, 零第二份。
+   不烫面(ADR 0019 例外边界): 熄灭态/燃尽后(空气)/物品与掉落形态(无采样)/
+   气柱本身(支撑格非火格)一律 false; 起飞豁免=接触不满节拍零拍(无特殊豁免分支)。 */
+
+test('T-C4 支撑格采样判据 advCampfireBurnHit: 燃烧态=烫 · 熄灭态/空气/其他方块不烫(不烫面, ADR 0019)', () => {
+  assert.strictEqual(typeof Core.advCampfireBurnHit, 'function',
+      'advCampfireBurnHit 在册(纯函数宿主, 引擎采样与模式怪物结算共用判据语义)');
+  const IDS = vm.runInContext('({lit: B_CAMPFIRE, out: B_CAMPFIRE_OUT})', eng);
+  assert.strictEqual(Core.advCampfireBurnHit(IDS.lit), true, '燃烧态篝火=烫(campfire 旗标 lit 单源)');
+  assert.strictEqual(Core.advCampfireBurnHit(IDS.out), false, '熄灭态不烫(旗标 out, 同 id 族不同态)');
+  assert.strictEqual(Core.advCampfireBurnHit(0), false, '空气不烫(燃尽后=方块消失, 支撑格无火)');
+  assert.strictEqual(Core.advCampfireBurnHit(3), false, '普通方块(石头)不烫');
+  assert.strictEqual(Core.advCampfireBurnHit(999), false, '未知 id 不烫(防御式, 表驱动判据)');
+});
+
+test('T-C4 节拍累计 advCampfireBurnStep: 每满 20 刻(1s)出 1 拍 · 0.9s 零拍 · 2.1s 恰 2 拍 · 余量回累积器', () => {
+  assert.strictEqual(typeof Core.advCampfireBurnStep, 'function',
+      'advCampfireBurnStep 在册(纯函数宿主, 模式层怪物节拍结算)');
+  const step = Core.advCampfireBurnStep;
+  const BEAT = vm.runInContext('CAMPFIRE.burnTick', eng); /* 20 刻=1s(spec §3.9, 参数单源) */
+  let r = step(0, 0.9, BEAT);
+  assert.strictEqual(r.fires, 0, '0.9s 不满一拍零拍(接触不足 1 秒不烫 — 起飞豁免机械面, ADR 0019)');
+  assert.ok(Math.abs(r.acc - 0.9) < 1e-9, '余量 0.9s 回累积器(不丢账)');
+  r = step(r.acc, 1.2, BEAT); /* 累计 2.1s */
+  assert.strictEqual(r.fires, 2, '累计 2.1s 恰 2 拍(每满 1 秒 1 拍, 节拍边界可证)');
+  assert.ok(Math.abs(r.acc - 0.1) < 1e-9, '余量 0.1s 回累积器');
+  r = step(0, 2.5, BEAT); /* 大步进跨多拍(掉帧追平语义) */
+  assert.strictEqual(r.fires, 2, '单步 2.5s 出 2 拍(大 dt 多拍不丢)');
+  assert.ok(Math.abs(r.acc - 0.5) < 1e-9, '余量 0.5s 回累积器');
+  r = step(0, 0, BEAT); /* 零帧空转 */
+  assert.strictEqual(r.fires, 0, '零 dt 零拍(不喂即冻结同族口径)');
+});
+
+/* ---------- 篝火燃尽步进/档账清扫 (campfire T-C1, ADR 0018) ----------
+   纯函数双件(advFurnaceClean 同居先例): 步进只管刻账(整刻入账, 单位=刻,
+   spec §4 拍板案——20tps 累积器在 kit 侧量化, 这里见到的 ticks 已是整数),
+   清扫只管存档形状([[posKey,{left}]], spec §3.8 campfires 档键同形)。
+   台账条目形状 {x,y,z,left}: 与树苗 advSaplings 同款(到期回调要坐标做
+   editBlock 收尾; 存档侧只挑 left——坐标可由 posKey 还原, 不双写)。 */
+
+test('campfire 燃尽步进 advCampfiresStep: 整刻递减 · 到期出清单并删条 · 未到期留队 · 多条互不串', () => {
+  assert.strictEqual(typeof Core.advCampfiresStep, 'function', 'advCampfiresStep 在册(纯函数宿主)');
+  const map = new Map([
+    ['10,20,30', {x: 10, y: 20, z: 30, left: 5}],
+    ['11,20,30', {x: 11, y: 20, z: 30, left: 6000}],
+    ['12,20,30', {x: 12, y: 20, z: 30, left: 1}],
+  ]);
+  const due = Core.advCampfiresStep(map, 1);
+  /* 递减: 全员 −1(整刻入账, 零浮点) */
+  assert.strictEqual(map.get('10,20,30').left, 4, '未到期 −1 留队');
+  assert.strictEqual(map.get('11,20,30').left, 5999, '满时长条目同步 −1');
+  /* 到期: 出清单(带坐标供燃尽收尾)+从台账删条 */
+  assert.strictEqual(due.length, 1, '恰一条到期');
+  assert.deepStrictEqual(due[0], {x: 12, y: 20, z: 30, left: 1}, '到期条目=递减后原对象(坐标在册)');
+  assert.strictEqual(map.has('12,20,30'), false, '到期条目已删(侧账零残留)');
+  /* 一步跨多刻: 大步一次到负也只出一条(整刻语义, 不产生重复回调) */
+  const due2 = Core.advCampfiresStep(map, 100);
+  assert.deepStrictEqual(due2, [{x: 10, y: 20, z: 30, left: -95}], '一步跨百刻: 大步条目出清单');
+  assert.strictEqual(map.get('11,20,30').left, 5899, '其他条目同刻推进互不串');
+  assert.strictEqual(map.size, 1, '台账只剩满时长条目');
+  /* 空台账: 空清单零炸 */
+  assert.deepStrictEqual(Core.advCampfiresStep(new Map(), 5), [], '空台账空清单');
+});
+
+test('campfire 档账清扫 advCampfiresClean: [[posKey,{left}]] 存档形状 · 零/负刻残账不进档 · 空台账空数组', () => {
+  assert.strictEqual(typeof Core.advCampfiresClean, 'function', 'advCampfiresClean 在册(纯函数宿主)');
+  const map = new Map([
+    ['3,14,15', {x: 3, y: 14, z: 15, left: 2999}],
+    ['4,14,15', {x: 4, y: 14, z: 15, left: 0}], /* 燃尽残账: 不进档(encode 防膨胀) */
+    ['5,14,15', {x: 5, y: 14, z: 15, left: -7}], /* 负刻残账: 同不进 */
+  ]);
+  const out = Core.advCampfiresClean(map);
+  assert.ok(Array.isArray(out), '返回数组(存档 campfires 字段形状)');
+  assert.deepStrictEqual(out, [['3,14,15', {left: 2999}]],
+      '条目=[posKey,{left}] 二元组: 只挑 left, 坐标不双写(§3.8 档键同形)');
+  assert.deepStrictEqual(Core.advCampfiresClean(new Map()), [], '空台账空数组');
+});
+
+/* ---------- 篝火 T-C5: 档键解码与重放对账(campfire-spec §3.8/§4, ADR 0018) ----------
+   decode: [[posKey,{left}]] → Map(posKey→{x,y,z,left})(mode 一行灌装对齐 furnaces
+   先例); 非法整条拒收不抛(advFurnaceValid「非法整条拒收」口径)。reconcile: 纯
+   查询三清单——lit=当前场景燃烧态 posKey 集(edits 全量权威), sceneOf(posKey)→
+   是否属于当前场景(布尔, mode 层闭包), 跨图键不在三清单(跨图同烧保留)。 */
+
+test('T-C5 档键解码 advCampfiresDecode: [[posKey,{left}]]→Map(posKey→{x,y,z,left}) — 坐标还原+缺键容忍', () => {
+  assert.strictEqual(typeof Core.advCampfiresDecode, 'function', '解码纯函数在场(slot decode 灌装缝)');
+  const m = Core.advCampfiresDecode([['1,2,3', {left: 100}], ['4,5,6', {left: 200}]]);
+  assert.ok(m instanceof Map, '返回 Map(可直接灌台账)');
+  assert.strictEqual(m.size, 2, '两条全收');
+  assert.deepStrictEqual(m.get('1,2,3'), {x: 1, y: 2, z: 3, left: 100}, '条目=坐标还原+left(可直 set 台账)');
+  assert.deepStrictEqual(m.get('4,5,6'), {x: 4, y: 5, z: 6, left: 200}, '第二条同形');
+  assert.deepStrictEqual(Core.advCampfiresDecode([]), new Map(), '空档空 Map');
+  assert.deepStrictEqual(Core.advCampfiresDecode(undefined), new Map(), '旧档缺键容忍(undefined→空 Map, 零迁移)');
+});
+
+test('T-C5 解码拒收(整条拒收不抛): 负刻/零刻/非整数/坏值/越界坐标/垃圾键/非数组对 — 合法零夹带', () => {
+  assert.strictEqual(typeof Core.advCampfiresDecode, 'function', '解码纯函数在场(守卫: 缺席即干净红)');
+  const bad = [
+    ['1,2,3', {left: -1}], /* 负刻 */
+    ['1,2,3', {left: 0}], /* 零刻(encode 清扫永不产 ≤0, 进档即坏) */
+    ['1,2,3', {left: 2.5}], /* 非整数(§4 整刻域) */
+    ['1,2,3', {left: 'abc'}], /* 字符串 */
+    ['1,2,3', {left: null}], /* null */
+    ['99999,2,3', {left: 10}], /* x 越界(世界外) */
+    ['1,-2,3', {left: 10}], /* y 负 */
+    ['1,2,99999', {left: 10}], /* z 越界 */
+    ['1,2', {left: 10}], /* 缺段 */
+    ['1,2,3,4', {left: 10}], /* 多段 */
+    ['no-comma', {left: 10}], /* 无逗号 */
+    [null, {left: 10}], /* 键 null */
+    ['1,2,3', null], /* 值 null */
+    ['1,2,3', 'x'], /* 值非对象 */
+    ['1,2,3'], /* 非数组对(缺值) */
+    'junk', /* 条目非数组 */
+  ];
+  const m = Core.advCampfiresDecode(bad);
+  assert.strictEqual(m.size, 0, '全部整条拒收(不抛错零炸)');
+  /* 混合批: 合法保留+非法拒收同批互不拖累 */
+  const mixed = Core.advCampfiresDecode([['7,8,9', {left: 300}], ['bad', {left: 5}], ['2,3,4', {left: -1}]]);
+  assert.strictEqual(mixed.size, 1, '混合批只收合法');
+  assert.deepStrictEqual(mixed.get('7,8,9'), {x: 7, y: 8, z: 9, left: 300}, '合法条形状不变');
+});
+
+test('T-C5 重放对账 advCampfiresReconcile: 纯查询三清单 — keep/drop/plant + 跨图键不核销 + 台账零改动', () => {
+  assert.strictEqual(typeof Core.advCampfiresReconcile, 'function', '对账纯函数在场(对账落点灌装缝)');
+  const map = new Map([
+    ['1,2,3', {x: 1, y: 2, z: 3, left: 5000}], /* lit 在 → keep */
+    ['5,6,7', {x: 5, y: 6, z: 7, left: 6000}], /* lit 无 → drop(僵账) */
+    ['n|8,9,10', {x: 8, y: 9, z: 10, left: 4000}], /* 跨图键 → 不核销(跨图同烧保留) */
+  ]);
+  const lit = new Set(['1,2,3', '9,9,9']);
+  const sceneOf = (k) => k.indexOf('|') < 0; /* 布尔: 裸键=home 当前场景, 带前缀=跨图 */
+  const before = [];
+  for (const [k, e] of map) before.push([k, e.left]);
+  const r = Core.advCampfiresReconcile(map, {lit, sceneOf});
+  assert.deepStrictEqual(r.keep, ['1,2,3'], '在账在世=keep(刻数原样)');
+  assert.deepStrictEqual(r.drop, ['5,6,7'], '在账无世=drop(僵账核销)');
+  assert.deepStrictEqual(r.plant, [['9,9,9', {x: 9, y: 9, z: 9, left: 6000}]],
+      '在世无账=plant(对偶形 [posKey,条目] 可直灌, 满时长 6000=spec §3.9)');
+  assert.ok(!r.keep.includes('n|8,9,10') && !r.drop.includes('n|8,9,10'),
+      '跨图键不入三清单(sceneOf≠当前, 他图条目留档跨图同烧)');
+  const after = [];
+  for (const [k, e] of map) after.push([k, e.left]);
+  assert.deepStrictEqual(after, before, '纯查询: 台账零改动(灌装归消费方)');
+});
+

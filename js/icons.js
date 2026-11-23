@@ -1243,6 +1243,28 @@ const PUMPKIN_FACE_ART = [
   '................',
 ];
 
+/* 篝火字符画(UI 定稿 §3.2 定稿, 篝火 T-C7 逐字符落位): 火坑柴堆侧视——上半四档
+   色阶火苗(白芯→亮黄→橙), 下半原木床三档横梁+两端对角短棍+余烬炭点; 九色色板
+   同源见 UI 定稿 §3.1, 密度 106 实像素与 glider 同档 */
+const CAMPFIRE_ART = [
+  '................',
+  '................',
+  '........f.......',
+  '........fF......',
+  '.......fFFf.....',
+  '......fFWWFf....',
+  '.....fFWwWFf....',
+  '....fFWwwWFf....',
+  '....FFWwwWFF....',
+  '...fFFWWWWFFf...',
+  '..keFFWWWFFek...',
+  '.L..ekkeekk...L.',
+  '..LllllllllllL..',
+  '.dLLLLLLLLLLLLd.',
+  '.dddddddddddddd.',
+  '................',
+];
+
 /* ------------------------------------------------------------
    ITEM_PIX 字符画数据表 — 键集与 ITEMS 完全一致(test 防错网断言),
    共用形状(矿炭/矿石/锭/粉堆/圆球/砖墙)多条目复用同 art 换色板
@@ -1396,6 +1418,12 @@ for (const [slot, art] of [['helmet', HELMET_ART], ['chestplate', CHESTPLATE_ART
 ITEM_PIX.glider = {art: GLIDER_ART, map: {
   'g': PIX_TIER.gold.main, 'G': PIX_TIER.gold.light,
   '+': '#d08a5a', '-': '#b0553a', 'w': '#e0ded4'}};
+
+/* 篝火单条目(篝火 T-C7, UI 定稿 §3.1/§3.2 定稿逐字符): 火坑柴堆九色——
+   焰四档(w/W/f/F)+余烬红 e+炭黑 k+原木三档(L/l/d), hex 逐字照抄 §3.1 不改档 */
+ITEM_PIX.campfire = {art: CAMPFIRE_ART, map: {
+  'w': '#ffffff', 'W': '#ffff97', 'f': '#ffd800', 'F': '#ff8f00',
+  'e': '#e05a1a', 'k': '#2f2a26', 'L': '#8a5a2b', 'l': '#a8743d', 'd': '#6b451f'}};
 
 /* ---------- 渲染与出口 ---------- */
 

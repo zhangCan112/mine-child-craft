@@ -40,9 +40,11 @@ const FluidCore = (() => {
   }
 
   /* 身份旗标派生(config BLOCKS, 装配一次; 调用期热路径只查闭包数组):
-     kindOf 流体身份('water'|'lava'|null) · flowable 流动可替换面(空气+thin 族,
+     kindOf 流体身份('water'|'lava'|null) · flowable 流动可替换面(空气+thin 软块族,
      与方块级联 isSupport 同判据族: 实心/玻璃/门面一律不可) · washable 被冲毁
-     (thin 依附块——火把/树苗/草丛/麦, 复用既有旗标不新增, 设计稿 D4.3) */
+     (thin 依附块——火把/树苗/草丛/麦, 复用既有旗标不新增, 设计稿 D4.3)。
+     实心半格(thin!=null 且 solid===true: 篝火两态/门额牌)不入 flow/wash
+     (篝火 T-C3 机械前提: 水不入火体零冲毁——旗标组合判据, 引擎零玩法知识) */
   function mkPolicy(BLOCKS) {
     const kind = [];
     const flow = [];
@@ -50,8 +52,9 @@ const FluidCore = (() => {
     for (let id = 0; id < 256; id++) {
       const b = BLOCKS[id];
       kind[id] = (b && b.fluid) || null;
-      flow[id] = id === 0 || !!(b && b.thin != null);
-      wash[id] = !!(b && b.thin != null);
+      const softThin = !!(b && b.thin != null && b.solid !== true); /* thin 软块(solid 非 true) */
+      flow[id] = id === 0 || softThin;
+      wash[id] = softThin;
     }
     return {
       kindOf: (id) => kind[id] || null,

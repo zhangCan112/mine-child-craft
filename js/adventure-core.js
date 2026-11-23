@@ -20,7 +20,13 @@
      advSapDue/advNearStation(losOk 视线缝可选)/advLosBlocked(站点隔墙段采样)/advFurnaceValid/
      advFurnaceClean(F1 每炉独立+持久化的存档防错与清扫; 进度钳制界读
      craft-core 的 SMELT_T)/advTntRoll/
-     advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 昼夜 D5 夜怪
+     advTntDmg/advWearWarn/advBagFullStep/advBreakToolText · 篝火 T-C1/C3
+     纯件 advCampfiresStep/advCampfiresClean(刻账/档账)·
+     advCampfiresDecode(档键解码, T-C5)/advCampfiresReconcile(重放对账
+     三清单, T-C5)·
+     advCampfireQuenchHit(浇熄几何, read 注入)/advCampfireRelightHint(重燃
+     话术常量, name 引用熄灭态方块名) · 篝火 T-C4 advCampfireBurnHit(燃烧
+      判据)/advCampfireBurnStep(节拍步进) · 昼夜 D5 夜怪
       政策 ADV_NIGHT/advNightCanSpawn/advNightStep(缺省池薄壳, 签名冻结)/
       advDawnSweep · home 地图行缺省 ADV_HOME_ROW(巢穴池/夜怪池的
       行缺省权威, 冒险地图 T2——壳与 T4 注册表各行经它换池, 常量本体不动) · F4 牧场
@@ -2838,6 +2844,170 @@ function advFurnaceClean(map) {
   return out;
 }
 
+/* ---------- 篝火刻账纯函数双件 (篝火 T-C1, campfire-spec §4/§3.8, ADR 0018) ----------
+   台账条目形状 {x,y,z,left}(树苗 advSaplings 同款, 坐标在册供燃尽收尾回调);
+   步进只管整刻账(spec §4 拍板案: 20tps 累积器量化在 campfire-kit 侧, 这里见到
+   的 ticks 已是整数), 清扫只管存档形状([[posKey,{left}]], T-C5 档键同形)。 */
+
+/* 燃尽步进(纯函数): 全员 −ticks 整刻递减; left ≤ ticks 的条目本步内燃尽——
+   账面记 left−ticks+1(最后一刻算它自己的, 大步超杀透支照记为负), 出清单并
+   从台账删条。调用方逐条做燃尽收尾(坐标在册), 删条后零重复回调。 */
+function advCampfiresStep(map, ticks) {
+  const due = [];
+  for (const [k, e] of map) {
+    if (e.left > ticks) {
+      e.left -= ticks; /* 未到期: 整步 −ticks 留队(多条互不串) */
+      continue;
+    }
+    e.left -= ticks - 1; /* 到期: 含燃尽那一刻的账面(一步跨多刻也只出一条) */
+    due.push(e);
+    map.delete(k);
+  }
+  return due;
+}
+
+/* 档账清扫(纯函数, encode 侧): 刻数 ≤0 的燃尽残账不进档(存档防膨胀);
+   条目=[posKey,{left}] 二元组只挑 left——坐标可由 posKey 还原, 不双写。 */
+function advCampfiresClean(map) {
+  const out = [];
+  for (const [k, e] of map) {
+    if (e.left > 0) out.push([k, {left: e.left}]);
+  }
+  return out;
+}
+
+/* ---------- 篝火 T-C5: 档键解码与重放对账 (campfire-spec §3.8/§6 红线 7) ----------
+   decode: [[posKey,{left}]] → Map(posKey→{x,y,z,left})(mode 一行灌装, furnaces
+   decode 先例同族); 非法条目整条拒收不抛(advFurnaceValid「非法整条拒收」口径)。
+   reconcile: 纯查询三清单——lit=当前场景燃烧态 posKey 集(edits 全量权威),
+   sceneOf(posKey)→是否属于当前场景(布尔, mode 层闭包); 跨图键不入三清单
+   (跨图同烧保留, §3.8)。 */
+
+/* 档键解码(纯函数, slot decode 灌装缝): 存档 campfires 数组 → 台账形状 Map
+   (posKey→{x,y,z,left})。逐条独立校验: 键(可带场景前缀——'n|' 图前缀族,
+   encode 按台账键原样出档, 最后一个竖线之后是坐标段)剥前缀后恰三段整数且
+   在世界内(WORLD_W/H/D 经全局名调用期解析), 值对象 left 恒正整数(encode
+   清扫永不产 ≤0, 进档即坏)。坏条整条拒收不抛(混合批合法零夹带);
+   旧档缺键(undefined)/空档 → 空 Map 零迁移。 */
+function advCampfiresDecode(list) {
+  const out = new Map();
+  if (!Array.isArray(list)) return out;
+  for (const e of list) {
+    if (!Array.isArray(e) || e.length !== 2) continue;
+    const k = e[0];
+    const v = e[1];
+    if (typeof k !== 'string' || !v || typeof v !== 'object') continue;
+    const body = k.slice(k.lastIndexOf('|') + 1); /* 剥场景前缀(裸键无竖线原样) */
+    const parts = body.split(',');
+    if (parts.length !== 3) continue;
+    const x = +parts[0];
+    const y = +parts[1];
+    const z = +parts[2];
+    if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z)) continue;
+    if (x < 0 || x >= WORLD_W || y < 0 || y >= WORLD_H || z < 0 || z >= WORLD_D) continue;
+    if (!Number.isInteger(v.left) || v.left < 1) continue;
+    out.set(k, {x, y, z, left: v.left});
+  }
+  return out;
+}
+
+/* 重放对账(纯查询, 对账落点灌装缝): 台账 × 当前场景燃烧态集 → 三清单。
+   keep=在账在世(刻数原样) · drop=在账无世(僵账核销) · plant=在世无账
+   (缺账补满——孩子不亏, [[posKey,条目]] 对偶形可直灌, 满时长=CAMPFIRE.ticks
+   经全局名调用期解析, 无参数块域回落 6000=spec §3.9 初值)。台账零改动
+   (灌装归消费方); 跨图键(sceneOf=false)不入三清单, 他图条目留档跨图同烧。
+   键形口径: 台账键可带场景前缀('n|' 图前缀族), lit 集的键形由消费方定——
+   比较按键体(最后一个竖线之后的坐标段, 与 decode 剥前缀同规约)对齐, plant
+   键=lit 给出的键原样(键形权威在消费方: 探险灌前缀键形与台账同源)。 */
+function advCampfiresReconcile(map, opts) {
+  const o = opts || {};
+  const lit = (o.lit instanceof Set) ? o.lit : new Set();
+  const sceneOf = (typeof o.sceneOf === 'function') ? o.sceneOf : () => true;
+  const full = (typeof CAMPFIRE !== 'undefined' && CAMPFIRE && CAMPFIRE.ticks > 0) ?
+    CAMPFIRE.ticks : 6000;
+  const bodyOf = (k) => k.slice(k.lastIndexOf('|') + 1); /* 剥场景前缀(裸键原样) */
+  const keep = [];
+  const drop = [];
+  const plant = [];
+  for (const [k] of map) {
+    if (!sceneOf(k)) continue; /* 跨图键: 不核销不补种(跨图同烧保留) */
+    if (lit.has(bodyOf(k)) || lit.has(k)) keep.push(k);
+    else drop.push(k);
+  }
+  for (const k of lit) {
+    if (map.has(k) || map.has(bodyOf(k)) || !sceneOf(k)) continue;
+    const p = bodyOf(k).split(',');
+    const x = +p[0];
+    const y = +p[1];
+    const z = +p[2];
+    if (!Number.isInteger(x) || !Number.isInteger(y) || !Number.isInteger(z)) continue;
+    plant.push([k, {x, y, z, left: full}]);
+  }
+  return {plant, drop, keep};
+}
+
+/* ---------- 篝火浇熄几何/重燃话术 (篝火票据 T-C3, campfire-spec §3.4 两态互换) ---------- */
+
+/* 浇熄几何(纯函数): 十字面四水平邻 + 正上共五格见水(B_WATER)=熄——正下不熄
+   (火在实体块顶, 底面不沾水), 斜角不熄(十字面+顶, 非 3×3), 岩浆不熄(浇熄只
+   认水)。read 是 (x,y,z)→方块 id 注入缝(campfire-kit tick 每刻传世界读缝,
+   纯测传假 read; 缝缺席返 false 零炸); B_WATER 经全局名调用期解析。
+   边界注(T-C3 评审 SPEC-3): 本判据按 id(===B_WATER)与流体引擎旗标判据
+   (fluid-core mkPolicy 的 kindOf==='water')在现结构下等价——本项目水=单 id
+   B_WATER, 源/流动同 id 仅水位分档; 若未来新增第二种水族方块(药水染色水/
+   沼泽水等), id 比较将漏判, 须改走 fluid 旗标判据(政策上收 mkPolicy 派生面)。 */
+function advCampfireQuenchHit(x, y, z, read) {
+  if (typeof read !== 'function') return false;
+  return read(x + 1, y, z) === B_WATER || read(x - 1, y, z) === B_WATER ||
+      read(x, y, z + 1) === B_WATER || read(x, y, z - 1) === B_WATER ||
+      read(x, y + 1, z) === B_WATER;
+}
+
+/* 重燃话术常量(空手点击熄灭态篝火的手把手引导): name=熄灭态方块名(getter
+   调用期解析——引用不誊写; Node require 域无 id 常量全局名, typeof 守卫后按
+   campfire 身份旗标回落扫行, 单源不变); desc 逐字定稿(⭐R2-3 不剧透红线,
+   禁改写); tts=desc 同一句话零第二文案源。 */
+const ADV_CAMPFIRE_RELIGHT_DESC = '点一下，就能再点着的火堆';
+const advCampfireRelightHint = {
+  get name() {
+    if (typeof B_CAMPFIRE_OUT !== 'undefined') return BLOCKS[B_CAMPFIRE_OUT].name;
+    for (const k of Object.keys(BLOCKS)) {/* 回落: 熄灭态行=campfire 旗标 'out'(全表唯一) */
+      const b = BLOCKS[k];
+      if (b && b.campfire === 'out') return b.name;
+    }
+    return '';
+  },
+  desc: ADV_CAMPFIRE_RELIGHT_DESC,
+  tts: ADV_CAMPFIRE_RELIGHT_DESC,
+};
+
+/* ---------- 篝火烫伤纯函数双件 (篝火票据 T-C4, campfire-spec §3.6/§4, ADR 0019) ----------
+   支撑格采样判据与节拍累计(20tps 计划刻→秒换算, campfire-kit CF_STEP_S 同款
+   口径): 引擎计息器(voxel.js)与模式层怪物结算(adventure.js)共用同一判据语义
+   ——判据单源=config campfire 身份旗标(spec §6-6 只读旗标), 零第二份 id 清单。 */
+
+/* 燃烧态判据(纯函数): id 查方块表 campfire 旗标==='lit' 才是烫面。不烫面
+   (ADR 0019 例外边界): 熄灭态(旗标 'out')/空气(燃尽后方块消失=无采样)/
+   普通方块/未知 id(防御式, 表驱动)一律 false; BLOCKS 经全局名调用期解析。 */
+function advCampfireBurnHit(id) {
+  const b = BLOCKS[id];
+  return !!(b && b.campfire === 'lit');
+}
+
+/* 节拍累计(纯函数): acc+=dt 进账, 每满 beatTicks(刻, 20tps 游戏钟=1s)出 1 拍,
+   亚拍余量回累积器(不丢账); 大 dt 跨多拍同步追平(掉帧不丢拍), 零 dt 零拍。
+   返回 {acc, fires}: acc=新余量, fires=本步拍数(调用方逐拍结算)。 */
+function advCampfireBurnStep(acc, dt, beatTicks) {
+  const beatS = beatTicks / 20;
+  let a = acc + dt;
+  let fires = 0;
+  while (a >= beatS) {
+    a -= beatS;
+    fires++;
+  }
+  return {acc: a, fires};
+}
+
 /* TNT 爆炸掉落掷骰(D4): 方块先掷 70% 门槛, 中签才走 rollBlockDrop(保底+
    概率条目原样掷, 不传工具=默认表)。rand 可注入; tnt 旗标守卫恒空手 —
    TNT 不经爆炸自掉(圈内 TNT 走链式点燃分支本就不进掷骰, 守卫与 drop
@@ -3628,6 +3798,10 @@ if (typeof module !== 'undefined' && module.exports) {
     ADV_STATION_R, ADV_TNT_FUSE, ADV_TNT_R, ADV_TNT_HURT_R, ADV_TNT_DMG_HI,
     ADV_TNT_DMG_LO, ADV_TNT_DROP_P, ADV_SMELT_TTS_T, advNearStation, advLosBlocked,
     advFurnaceValid, advFurnaceClean, advTntRoll, advTntDmg,
+    advCampfiresStep, advCampfiresClean, /* 篝火刻账纯函数双件(T-C1) */
+    advCampfiresDecode, advCampfiresReconcile, /* 档键解码/重放对账(T-C5) */
+    advCampfireQuenchHit, advCampfireRelightHint, /* 浇熄几何/重燃话术(T-C3) */
+    advCampfireBurnHit, advCampfireBurnStep, /* 烫伤燃烧判据/节拍累计纯函数双件(T-C4) */
     ADV_LIVESTOCK_SPAWN_R, ADV_LIVESTOCK_HERD_R, ADV_LIVESTOCK_RING_LO,
     ADV_LIVESTOCK_RING_HI, ADV_LIVESTOCK_HERDS, ADV_HERD_AVOID_R, ADV_HERD_AVOID_MULT,
     ADV_HERD_FLEE_T, ADV_HERD_FLEE_MULT, ADV_HERD_AMBLE_MULT,

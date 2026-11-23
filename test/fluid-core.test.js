@@ -314,3 +314,46 @@ test('确定性: 同一编辑序列跑两遍 → 方块与水位平面逐字节�
   assert.ok(a.cells.equals(b.cells), '方块平面逐字节一致');
   assert.ok(a.lv.equals(b.lv), '水位平面逐字节一致');
 });
+
+/* ============ 实心半格不入水(篝火 T-C3 机械前提): 旗标组合判据, 引擎零玩法知识 ============ */
+
+test('mkPolicy 实心半格: thin+solid true 不入 flowable/washable — 篝火两态/门额牌/床全族 false · thin 软块(火把/草丛/花/麦)照旧 true', () => {
+  const h = mkH();
+  const p = h.policy;
+  const solidThin = [];
+  const softThin = [];
+  for (const k of Object.keys(h.e.BLOCKS)) {
+    const b = h.e.BLOCKS[k];
+    if (!b || b.thin == null) continue;
+    (b.solid === true ? solidThin : softThin).push(Number(k));
+  }
+  for (const id of [81, 82]) {
+    assert.ok(solidThin.includes(id), '前置: 篝火两态(' + id + ')在实心半格族(thin 0.5+solid true)');
+  }
+  assert.ok(solidThin.includes(80), '前置: 门额牌在实心薄块族(thin 0.15+solid true)');
+  for (const id of solidThin) {
+    assert.strictEqual(p.flowable(id), false, '实心半格 ' + id + ' 不可流入(水不入体)');
+    assert.strictEqual(p.washable(id), false, '实心半格 ' + id + ' 不可冲毁(火保留前提)');
+  }
+  assert.ok(softThin.includes(48), '前置: 火把在软薄块族(solid 非 true)');
+  for (const id of softThin) {
+    assert.strictEqual(p.flowable(id), true, '软薄块 ' + id + ' 照旧可流入(冲毁机制不变)');
+    assert.strictEqual(p.washable(id), true, '软薄块 ' + id + ' 照旧可冲毁');
+  }
+});
+
+test('篝火不入水(行为面): 篝火格是水唯一出路 — 零流入零冲毁, 火与水各自保留(T-C3 机械前提)', () => {
+  const h = mkH();
+  h.floor(19, 19, 23, 21, 9); /* 石台 */
+  h.write(20, 10, 20, 81, 0); /* 燃烧篝火 */
+  h.write(21, 10, 20, 24, 0); /* 东邻水源 */
+  h.write(22, 10, 20, 3, 0); /* 石墙封东 */
+  h.write(21, 10, 19, 3, 0); /* 石墙封北 */
+  h.write(21, 10, 21, 3, 0); /* 石墙封南 */
+  h.sim.notifyEdit(21, 10, 20);
+  h.settle(4000);
+  assert.strictEqual(h.e.getBlock(20, 10, 20), 81, '篝火格: 水未流入, 火保留(西是水的唯一出路)');
+  assert.strictEqual(h.e.getBlock(21, 10, 20), 24, '水源格保留(浇熄归 campfire-kit read 缝, 流体零玩法知识)');
+  assert.strictEqual(h.events.find((ev) => ev.type === 'wash' && ev.id === 81), undefined,
+      '零冲毁事件(篝火不被水冲走)');
+});

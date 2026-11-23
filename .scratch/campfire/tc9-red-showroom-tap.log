@@ -1,0 +1,379 @@
+TAP version 13
+# Subtest: 体验馆: 门面经共享词法环境装载 + 注册行形状(dev 调试场) + main.js/index.html 接线
+ok 1 - 体验馆: 门面经共享词法环境装载 + 注册行形状(dev 调试场) + main.js/index.html 接线
+  ---
+  duration_ms: 2.1682
+  type: 'test'
+  ...
+# Subtest: 体验馆: 数据隔离键扫 — 两文件源文本零存储 API 名/零存档键字面量(含注释)
+ok 2 - 体验馆: 数据隔离键扫 — 两文件源文本零存储 API 名/零存档键字面量(含注释)
+  ---
+  duration_ms: 46.8538
+  type: 'test'
+  ...
+# Subtest: 体验馆: 套餐 — stock 行形状/≤27/全 id ∈ ITEMS/n=stackMax(手抄材料表已废, 全派生)
+ok 3 - 体验馆: 套餐 — stock 行形状/≤27/全 id ∈ ITEMS/n=stackMax(手抄材料表已废, 全派生)
+  ---
+  duration_ms: 0.2561
+  type: 'test'
+  ...
+# Subtest: 体验馆: 进场即全开 — dev bag 照套餐重铸, 直配方 canCraft 全绿(升级链两步可达不计入)
+ok 4 - 体验馆: 进场即全开 — dev bag 照套餐重铸, 直配方 canCraft 全绿(升级链两步可达不计入)
+  ---
+  duration_ms: 1947.9667
+  type: 'test'
+  ...
+# Subtest: 体验馆: 壳的快捷栏 — 9 槽镜像 dev 背包前 9 槽, 数字键/滚轮/点选全自动
+ok 5 - 体验馆: 壳的快捷栏 — 9 槽镜像 dev 背包前 9 槽, 数字键/滚轮/点选全自动
+  ---
+  duration_ms: 749.1869
+  type: 'test'
+  ...
+# Subtest: 体验馆: 统一装场 — 展馆结构经壳的建场+重放链在场(家营地平 y24, 真件 getBlock)
+ok 6 - 体验馆: 统一装场 — 展馆结构经壳的建场+重放链在场(家营地平 y24, 真件 getBlock)
+  ---
+  duration_ms: 742.2124
+  type: 'test'
+  ...
+# Subtest: 体验馆: 统一进场 — 房内出生(篡改档 pos)·昼夜接线·昼夜时刻恒清晨(dev 档不落盘)
+ok 7 - 体验馆: 统一进场 — 房内出生(篡改档 pos)·昼夜接线·昼夜时刻恒清晨(dev 档不落盘)
+  ---
+  duration_ms: 1505.8556
+  type: 'test'
+  ...
+# Subtest: 体验馆: 馆内生态 — 巢穴怪与牧场动物随统一壳进馆(拍板③), 白天无夜怪
+ok 8 - 体验馆: 馆内生态 — 巢穴怪与牧场动物随统一壳进馆(拍板③), 白天无夜怪
+  ---
+  duration_ms: 718.7057
+  type: 'test'
+  ...
+# Subtest: 体验馆: 熔炉交互 — 走近点击开面板/太远 toast 拒/✕ 统一出口收起/左键同达
+ok 9 - 体验馆: 熔炉交互 — 走近点击开面板/太远 toast 拒/✕ 统一出口收起/左键同达
+  ---
+  duration_ms: 729.6987
+  type: 'test'
+  ...
+# Subtest: 体验馆: 合成面板 — Tab 开合(统一入口) · 点击工作台不再开面板(统一口径)
+ok 10 - 体验馆: 合成面板 — Tab 开合(统一入口) · 点击工作台不再开面板(统一口径)
+  ---
+  duration_ms: 755.5149
+  type: 'test'
+  ...
+# Subtest: 体验馆: station 行为断言 — 远离工作台台级配方随处可摆(dev 政策, 源码正则已废)
+ok 11 - 体验馆: station 行为断言 — 远离工作台台级配方随处可摆(dev 政策, 源码正则已废)
+  ---
+  duration_ms: 723.1339
+  type: 'test'
+  ...
+# Subtest: 体验馆: 箱子全局单账户 — 顶格预填 · 多箱方块打开同一账户(§4 行为变化)
+ok 12 - 体验馆: 箱子全局单账户 — 顶格预填 · 多箱方块打开同一账户(§4 行为变化)
+  ---
+  duration_ms: 777.5273
+  type: 'test'
+  ...
+# Subtest: 体验馆: 箱轨容量(ADR 0007 修正) — 展馆造箱也 +9 · 挖箱 −9, 与冒险同口径
+ok 13 - 体验馆: 箱轨容量(ADR 0007 修正) — 展馆造箱也 +9 · 挖箱 −9, 与冒险同口径
+  ---
+  duration_ms: 729.8218
+  type: 'test'
+  ...
+# Subtest: 体验馆: 背包点选搬运 — 搬进/搬出/换序快捷栏镜像跟随(壳同一函数)
+ok 14 - 体验馆: 背包点选搬运 — 搬进/搬出/换序快捷栏镜像跟随(壳同一函数)
+  ---
+  duration_ms: 732.3509
+  type: 'test'
+  ...
+# Subtest: 体验馆: 熔炉 — 自动放料(套餐首现矿种全量+最省燃料) · 2.5s/件 · 关面板照烧
+ok 15 - 体验馆: 熔炉 — 自动放料(套餐首现矿种全量+最省燃料) · 2.5s/件 · 关面板照烧
+  ---
+  duration_ms: 771.7619
+  type: 'test'
+  ...
+# Subtest: 体验馆: 收场与重进 — 退炉不退料(统一口径)·零掉落物·背包同实例重铸·账户照派生重铸
+ok 16 - 体验馆: 收场与重进 — 退炉不退料(统一口径)·零掉落物·背包同实例重铸·账户照派生重铸
+  ---
+  duration_ms: 1473.3236
+  type: 'test'
+  ...
+# Subtest: 体验馆: 右键放置 — 套餐首行原木落地+扣件(单格放置走壳的 kit 全链)
+ok 17 - 体验馆: 右键放置 — 套餐首行原木落地+扣件(单格放置走壳的 kit 全链)
+  ---
+  duration_ms: 786.271
+  type: 'test'
+  ...
+# Subtest: 体验馆: 门 — 放置两格+左键点击开关(与冒险同一结构放置/成对换 id)
+ok 18 - 体验馆: 门 — 放置两格+左键点击开关(与冒险同一结构放置/成对换 id)
+  ---
+  duration_ms: 736.3167
+  type: 'test'
+  ...
+# Subtest: 体验馆: 左键蓄力挖 — 到点破坏+掉落物照掉+update 喂真空拾取(与冒险同一实现)
+ok 19 - 体验馆: 左键蓄力挖 — 到点破坏+掉落物照掉+update 喂真空拾取(与冒险同一实现)
+  ---
+  duration_ms: 808.2036
+  type: 'test'
+  ...
+# Subtest: 体验馆: TNT 短按点燃 — tap 记账→引信 1.5s→爆炸圈内清空+70% 掉落+波及怪物段(§4)
+ok 20 - 体验馆: TNT 短按点燃 — tap 记账→引信 1.5s→爆炸圈内清空+70% 掉落+波及怪物段(§4)
+  ---
+  duration_ms: 740.1013
+  type: 'test'
+  ...
+# Subtest: 体验馆: TNT 链式接力 — 圈内第二块被接力点燃(块还在), 二拍连环爆
+ok 21 - 体验馆: TNT 链式接力 — 圈内第二块被接力点燃(块还在), 二拍连环爆
+  ---
+  duration_ms: 770.5526
+  type: 'test'
+  ...
+# Subtest: 体验馆: TNT 按住转蓄力 — ≥0.25s 不点燃转挖(hard 0 挖走回收, 探险 D3 二分同款)
+ok 22 - 体验馆: TNT 按住转蓄力 — ≥0.25s 不点燃转挖(hard 0 挖走回收, 探险 D3 二分同款)
+  ---
+  duration_ms: 832.9185
+  type: 'test'
+  ...
+# Subtest: 体验馆: TNT 掀门 — 整扇回收(掉 1 扇不双掉), 击杀不推任务步(任务档终章态)
+ok 23 - 体验馆: TNT 掀门 — 整扇回收(掉 1 扇不双掉), 击杀不推任务步(任务档终章态)
+  ---
+  duration_ms: 752.1308
+  type: 'test'
+  ...
+# Subtest: 体验馆: 爆炸掀炉兜底 — 炉内三笔退包+炉态删除(壳「炉没了退料」同款缝)
+ok 24 - 体验馆: 爆炸掀炉兜底 — 炉内三笔退包+炉态删除(壳「炉没了退料」同款缝)
+  ---
+  duration_ms: 740.0804
+  type: 'test'
+  ...
+# Subtest: 体验馆: dev store 丢弃一切 — 挖放爆全程改动只活当次进场, 重进世界逐格恢复原装
+ok 25 - 体验馆: dev store 丢弃一切 — 挖放爆全程改动只活当次进场, 重进世界逐格恢复原装
+  ---
+  duration_ms: 1687.2401
+  type: 'test'
+  ...
+# Subtest: 体验馆: cleanup 复位 — 引信清空+tap 状态归零(不渗漏到下一模式)
+ok 26 - 体验馆: cleanup 复位 — 引信清空+tap 状态归零(不渗漏到下一模式)
+  ---
+  duration_ms: 1253.8004
+  type: 'test'
+  ...
+# Subtest: 体验馆: 拾取入包 — 收集回调入包+快捷栏跟进, 满包拒返 false(停地上冷却重试)
+ok 27 - 体验馆: 拾取入包 — 收集回调入包+快捷栏跟进, 满包拒返 false(停地上冷却重试)
+  ---
+  duration_ms: 1076.895
+  type: 'test'
+  ...
+# Subtest: 体验馆: 进食链 — 半血右键吃: hp 回升+扣 1+快捷栏同步; 满血不吃不扣(advEatPolicy 政策)
+ok 28 - 体验馆: 进食链 — 半血右键吃: hp 回升+扣 1+快捷栏同步; 满血不吃不扣(advEatPolicy 政策)
+  ---
+  duration_ms: 924.045
+  type: 'test'
+  ...
+# Subtest: 体验馆: 金苹果 — 半血右键吃回满(full 旗标经 advEatPolicy)+扣 1
+ok 29 - 体验馆: 金苹果 — 半血右键吃回满(full 旗标经 advEatPolicy)+扣 1
+  ---
+  duration_ms: 833.2107
+  type: 'test'
+  ...
+# Subtest: 体验馆: 雪球投掷 — 右键掷出: 扣 1+弹池出膛+冷却内再掷被拒不扣; 零伤害红线(命中怪 dmg=0)
+ok 30 - 体验馆: 雪球投掷 — 右键掷出: 扣 1+弹池出膛+冷却内再掷被拒不扣; 零伤害红线(命中怪 dmg=0)
+  ---
+  duration_ms: 827.5501
+  type: 'test'
+  ...
+# Subtest: 体验馆: 手持非食物/非雪球右键 — 照旧落放置链(使用链不吞点击)
+ok 31 - 体验馆: 手持非食物/非雪球右键 — 照旧落放置链(使用链不吞点击)
+  ---
+  duration_ms: 818.1458
+  type: 'test'
+  ...
+# Subtest: 体验馆: cleanup 复位 — 雪球弹池清空 + 重进满血(壳清场纪律)
+ok 32 - 体验馆: cleanup 复位 — 雪球弹池清空 + 重进满血(壳清场纪律)
+  ---
+  duration_ms: 1604.6602
+  type: 'test'
+  ...
+# Subtest: 体验馆: 入夜上沿铺怪 — 固定点位铺 3 只全带夜怪标记+家锚; 夜内不加铺; 黎明清场共用壳实现
+ok 33 - 体验馆: 入夜上沿铺怪 — 固定点位铺 3 只全带夜怪标记+家锚; 夜内不加铺; 黎明清场共用壳实现
+  ---
+  duration_ms: 827.6057
+  type: 'test'
+  ...
+# Subtest: 体验馆: 清场只收标记怪 — 巢穴怪/牧场动物/脚本怪不动(与壳同源口径)
+ok 34 - 体验馆: 清场只收标记怪 — 巢穴怪/牧场动物/脚本怪不动(与壳同源口径)
+  ---
+  duration_ms: 949.8836
+  type: 'test'
+  ...
+# Subtest: 体验馆: 睡觉三分支(时钟改版) — 白天开拨盘/床边 8 格内有怪拒/怪远开拨盘+确认入睡
+ok 35 - 体验馆: 睡觉三分支(时钟改版) — 白天开拨盘/床边 8 格内有怪拒/怪远开拨盘+确认入睡
+  ---
+  duration_ms: 934.3547
+  type: 'test'
+  ...
+# Subtest: 体验馆: 睡着转场 — 唤醒沿恰一次: 跳清晨+清夜怪+不设床边出生点(D5 拍板①)+遮罩归零
+ok 36 - 体验馆: 睡着转场 — 唤醒沿恰一次: 跳清晨+清夜怪+不设床边出生点(D5 拍板①)+遮罩归零
+  ---
+  duration_ms: 886.3645
+  type: 'test'
+  ...
+# Subtest: 体验馆: 睡觉中 cleanup — 遮罩归零还 CSS transition/转场复位(切模式不渗漏 \#fade)
+ok 37 - 体验馆: 睡觉中 cleanup — 遮罩归零还 CSS transition/转场复位(切模式不渗漏 \#fade)
+  ---
+  duration_ms: 747.905
+  type: 'test'
+  ...
+# Subtest: 体验馆: 左键挥击 — 准星锥内怪命中扣血(advSwingDmg 面)+本击归战斗不落挖
+ok 38 - 体验馆: 左键挥击 — 准星锥内怪命中扣血(advSwingDmg 面)+本击归战斗不落挖
+  ---
+  duration_ms: 742.891
+  type: 'test'
+  ...
+# Subtest: 体验馆: 左键挥击·工具 — 手持木剑伤害按 D9 表+命中扣耐久(与挖掘磨损同一缝)
+ok 39 - 体验馆: 左键挥击·工具 — 手持木剑伤害按 D9 表+命中扣耐久(与挖掘磨损同一缝)
+  ---
+  duration_ms: 822.5291
+  type: 'test'
+  ...
+# Subtest: 体验馆: 完整 AI — 索敌半径内朝玩家走+贴身挥击: pEnt.hp 下降(吃链激活前提)
+ok 40 - 体验馆: 完整 AI — 索敌半径内朝玩家走+贴身挥击: pEnt.hp 下降(吃链激活前提)
+  ---
+  duration_ms: 718.8446
+  type: 'test'
+  ...
+# Subtest: 体验馆: 原地满血复活 — hp 到 0: 满血重置+夜怪清场+原地复活(dev 政策 death=inPlace)
+ok 41 - 体验馆: 原地满血复活 — hp 到 0: 满血重置+夜怪清场+原地复活(dev 政策 death=inPlace)
+  ---
+  duration_ms: 710.5411
+  type: 'test'
+  ...
+# Subtest: 体验馆: 击杀掉落 — Mobs.onDeath → advDeathDrops 掷骰 → Drops.spawn(拾取缝成环)
+ok 42 - 体验馆: 击杀掉落 — Mobs.onDeath → advDeathDrops 掷骰 → Drops.spawn(拾取缝成环)
+  ---
+  duration_ms: 769.1296
+  type: 'test'
+  ...
+# Subtest: 体验馆 U4: HUD 门面包层 — 首行体验馆徽标, 其余行透传壳的 HUD(mkMode 节流链)
+ok 43 - 体验馆 U4: HUD 门面包层 — 首行体验馆徽标, 其余行透传壳的 HUD(mkMode 节流链)
+  ---
+  duration_ms: 925.4039
+  type: 'test'
+  ...
+# Subtest: 体验馆 U4: onMenu dev 特化 — 面板开着收 overlay 不回菜单; 全关回主页(v2 口径)
+ok 44 - 体验馆 U4: onMenu dev 特化 — 面板开着收 overlay 不回菜单; 全关回主页(v2 口径)
+  ---
+  duration_ms: 1793.7154
+  type: 'test'
+  ...
+# Subtest: 体验馆 U4: 媒体降噪 — TTS/音效经政策缝全静默 · toast 保留(v2 口径)
+ok 45 - 体验馆 U4: 媒体降噪 — TTS/音效经政策缝全静默 · toast 保留(v2 口径)
+  ---
+  duration_ms: 733.3761
+  type: 'test'
+  ...
+# Subtest: 体验馆 U4: onKey 单跳 — KeyB 经门面只触发一次 uiPause(委托不双跳)
+ok 46 - 体验馆 U4: onKey 单跳 — KeyB 经门面只触发一次 uiPause(委托不双跳)
+  ---
+  duration_ms: 870.1448
+  type: 'test'
+  ...
+# Subtest: 体验馆 U4: 换装生命周期 — dev 会话真档零写入 · cleanup 还原缺省 · 冒险壳照常读真档
+ok 47 - 体验馆 U4: 换装生命周期 — dev 会话真档零写入 · cleanup 还原缺省 · 冒险壳照常读真档
+  ---
+  duration_ms: 1575.1255
+  type: 'test'
+  ...
+# Subtest: 体验馆 U3: 布局常量迁移 — 模式文件不再声明 SHOWROOM, 供给核心持有(经全局名引用, 行为不变)
+ok 48 - 体验馆 U3: 布局常量迁移 — 模式文件不再声明 SHOWROOM, 供给核心持有(经全局名引用, 行为不变)
+  ---
+  duration_ms: 0.1114
+  type: 'test'
+  ...
+# Subtest: 体验馆 U3: 展馆账本派生确定性 — 两次仿真逐字节一致 · 缓存面同实例 · 条目落整地圈+全裸值
+ok 49 - 体验馆 U3: 展馆账本派生确定性 — 两次仿真逐字节一致 · 缓存面同实例 · 条目落整地圈+全裸值
+  ---
+  duration_ms: 2442.2859
+  type: 'test'
+  ...
+# Subtest: 体验馆 U3: 重放同构 — 基座+账本重放 = 目标态绘制, 全世界逐格一致(迁移等价性的可执行表达)
+ok 50 - 体验馆 U3: 重放同构 — 基座+账本重放 = 目标态绘制, 全世界逐格一致(迁移等价性的可执行表达)
+  ---
+  duration_ms: 2622.4814
+  type: 'test'
+  ...
+# Subtest: 体验馆 U3: 重放后结构全覆盖 — 墙/顶/门/窗/站点件/床/仓库箱/展台展品/火把/地下室(家营地平 y24)
+ok 51 - 体验馆 U3: 重放后结构全覆盖 — 墙/顶/门/窗/站点件/床/仓库箱/展台展品/火把/地下室(家营地平 y24)
+  ---
+  duration_ms: 783.8328
+  type: 'test'
+  ...
+# Subtest: 体验馆 U3: 重放后立面净空+地平实心 — 地平以上除结构外全空 · 地平连圈实心 · 屋南小径完好
+ok 52 - 体验馆 U3: 重放后立面净空+地平实心 — 地平以上除结构外全空 · 地平连圈实心 · 屋南小径完好
+  ---
+  duration_ms: 750.8655
+  type: 'test'
+  ...
+# Subtest: 体验馆 U3: footprint 选址核查 — 不压水面 · 硬结构清单不相交 · 压界恰为登记三处
+ok 53 - 体验馆 U3: footprint 选址核查 — 不压水面 · 硬结构清单不相交 · 压界恰为登记三处
+  ---
+  duration_ms: 706.0264
+  type: 'test'
+  ...
+# Subtest: 体验馆 U3: 世界档 payload(真账本) — home 桶=派生条目 · 房内出生 · 数组桶可归一成 Map
+ok 54 - 体验馆 U3: 世界档 payload(真账本) — home 桶=派生条目 · 房内出生 · 数组桶可归一成 Map
+  ---
+  duration_ms: 1.6811
+  type: 'test'
+  ...
+# Subtest: 体验馆 U3: dev store 丢弃语义 — 落盘面全 noop · mark 进内存账本 · 三档再读仍篡改
+ok 55 - 体验馆 U3: dev store 丢弃语义 — 落盘面全 noop · mark 进内存账本 · 三档再读仍篡改
+  ---
+  duration_ms: 0.6863
+  type: 'test'
+  ...
+# Subtest: PO②-D 跨模式残留(showroom 复现): 镇内切体验馆 — cleanup 摘净傀儡, 展馆建场零 NPC 残影
+ok 56 - PO②-D 跨模式残留(showroom 复现): 镇内切体验馆 — cleanup 摘净傀儡, 展馆建场零 NPC 残影
+  ---
+  duration_ms: 1589.488
+  type: 'test'
+  ...
+# Subtest: 体验馆同口径: 篝火放置即燃 → 邻格水浇 → 同壳 update 整链浇熄(统一壳同一账本)
+ok 57 - 体验馆同口径: 篝火放置即燃 → 邻格水浇 → 同壳 update 整链浇熄(统一壳同一账本)
+  ---
+  duration_ms: 868.2606
+  type: 'test'
+  ...
+# Subtest: 体验馆同壳 T-C9: 放置→fx 开(A.advCampfireFx 同一管理器) → 水浇→同拍摘(零场景分支)
+not ok 58 - 体验馆同壳 T-C9: 放置→fx 开(A.advCampfireFx 同一管理器) → 水浇→同拍摘(零场景分支)
+  ---
+  duration_ms: 808.3975
+  type: 'test'
+  location: 'C:\\Users\\user\\.local\\share\\opencode\\worktree\\1631a8\\campfire-ui\\test\\showroom-mode.test.js:1892:1'
+  failureType: 'testCodeFailure'
+  error: 'fx 开(同一管理器: 特效挂共享缝, 展馆零特判)'
+  code: 'ERR_ASSERTION'
+  name: 'AssertionError'
+  expected: true
+  operator: '=='
+  stack: |-
+    TestContext.<anonymous> (C:\Users\user\.local\share\opencode\worktree\1631a8\campfire-ui\test\showroom-mode.test.js:1900:10)
+    Test.runInAsyncScope (node:async_hooks:214:14)
+    Test.run (node:internal/test_runner/test:1106:25)
+    Test.processPendingSubtests (node:internal/test_runner/test:788:18)
+    Test.postRun (node:internal/test_runner/test:1235:19)
+    Test.run (node:internal/test_runner/test:1163:12)
+    async Test.processPendingSubtests (node:internal/test_runner/test:788:7)
+  ...
+# Subtest: 体验馆壳源码零篝火分支: showroom.js 零 campfire 字样(特效挂共享缝的机械面)
+ok 59 - 体验馆壳源码零篝火分支: showroom.js 零 campfire 字样(特效挂共享缝的机械面)
+  ---
+  duration_ms: 0.0997
+  type: 'test'
+  ...
+1..59
+# tests 59
+# suites 0
+# pass 58
+# fail 1
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 52295.1278
