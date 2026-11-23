@@ -291,9 +291,12 @@ const MeshCore = (() => {
      竖版薄板 x∈[x, x+thin](贴格西缘, thin=0.15) · y/z 满格[0,1]——西面(f=0,
      法线 -x)=镇徽图案面, UV 满幅采样 ae.side(标准盒面映射: 面顶点 v 高端对
      贴图 y=0 行, 塔尖朝上, 与立方体通道同换算); 其余五面木底(f1/f4/f5=ae.back
-     ·f3=ae.top·f2=ae.bottom, layout 的 back 分面字段仅供本路径读)。顶点光取
-     面朝向邻格(pushPane 同口径, T4 返工: 牌格 solid 挡光, 自身格 sky/block
-     双通道恒 0, 取自身格=全黑牌); 无邻接面剔除(薄板悬空六面全绘)。
+     ·f3=ae.top·f2=ae.bottom, layout 的 back 分面字段仅供本路径读)。
+     顶点光取自身格(2026-11-23 贴柱缝黑面翻新, T-C13-R8): ADR-0021 H2 光挡光
+     谓词加 ¬thin 例外后牌格透光(gate-diag 实证 signCell sky=14); 旧 T4 面邻格
+     口径防的『自身格恒 0 全黑』病根已被 H2 根除, 而牌两面贴 opaque 柱格时邻格
+     恒 0 → 主面黑(贴柱缝黑面); 语义迁移登记见 texture-atlas 门额牌顶点光段
+     +ADR-0012。无邻接面剔除(薄板悬空六面全绘)。
      底面剔除: 脚下格 solid 邻(BLOCKS[nid].solid !== false, torch cullDown
      同判据)时 f=2 不绘——门额语境牌贴横梁顶面, 不剔会 z-fight。 */
   function pushGateSign(t, x, y, z, lx, lz, thin, ae, atlas, lget, lsky, lblk, cullDown) {
@@ -301,10 +304,10 @@ const MeshCore = (() => {
     for (let f=0; f<6; f++) {
       if (f === 2 && cullDown) continue;
       const face = FACES[f];
-      /* 面光取面朝向邻格(pushPane 同口径): 每面四顶点共用 fSky/fBlk;
+      /* 面光取自身格(2026-11-23 贴柱缝黑面翻新, T-C13-R8, pushCampfireParts
+         燃烧态同构, 语义迁移登记见函数头+ADR-0012): 每面四顶点共用 fSky/fBlk;
          lget 按 pushPane 惯例随采样器注入; 越界兜底走 lsky/lblk 既有口径 */
-      const nx = lx + face.dir[0]; const ny = y + face.dir[1]; const nz = lz + face.dir[2];
-      const fSky = lsky(nx, ny, nz) / 15; const fBlk = lblk(nx, ny, nz) / 15;
+      const fSky = lsky(lx, y, lz) / 15; const fBlk = lblk(lx, y, lz) / 15;
       const tile = faceTile[f];
       const tc = tile % atlas.cols; const tr = Math.floor(tile / atlas.cols);
       for (let c=0; c<4; c++) {
