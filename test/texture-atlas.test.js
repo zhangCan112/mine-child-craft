@@ -628,7 +628,7 @@ test('meshChunk: 门额牌竖板路径 — 专用小盒贴西缘, 西面 UV 落�
   assert.strictEqual(quads(r.solid), 6, '垫块本体照常实心通道(牌不遮梁)');
 });
 
-/* ============ 门额牌竖板顶点光(T4 返工): 面朝向邻格采样 ============ */
+/* ============ 门额牌竖板顶点光(2026-11-23 贴柱缝黑面裁定翻新): 取自身格(H2 透光开窗) ============ */
 /* 带光照载荷的 pack(D3): mesh-core.test.js mkPackL 同构先例 — sky/block 与
    cells 同形同布局, 光值由测试逐格显式写入(断言不经生产代码派生) */
 function mkPackL(border) {
@@ -656,28 +656,54 @@ const s15 = (lvl) => lvl / 15;
 const faceSkyEq = (ch, qs, want) => qs.every((qd) => qd.every((v) => Math.abs(ch.sky[v] - want) < 1e-9));
 const faceBlkEq = (ch, qs, want) => qs.every((qd) => qd.every((v) => Math.abs(ch.block[v] - want) < 1e-9));
 
-test('meshChunk: 门额牌竖板顶点光取面朝向邻格 — 西面(图案面)不取自身格(自身被遮蔽恒 0, pane/实心普通面同口径, T4 返工)', () => {
+test('meshChunk: 门额牌竖板顶点光取自身格 — 西面(图案面)透光亮起(牌格 H2 起透光有真实光值, 2026-11-23 贴柱缝黑面裁定翻新)', () => {
   const t = loadAtlas();
-  /* 白天口径: 牌格 (8,5,8) solid:true(H2 前 LightCore opaque 判挡光, sky/block 双通道
-     不入光恒 0; R-7/ADR-0021 起光挡光谓词加 thin 例外=实心且非玻璃且非薄块,
-     实场牌格自身格有真实光值 — 与视线 isOpaque 刻意分叉)。
-     本测试 mkPackL 手注入光值不跑真引擎, 锁的是 mesh 采样口径(口径本身不变,
-     断言零弱化); 西邻格 (7,5,8) 露天天光 13。西面顶点若取自身格=全黑牌
-     (voxBright(0)=0.05 昼夜刺眼), 取面朝向邻格=13/15 全亮(架构师 §1.4a 裁定,
-     pushPane 同口径先例) */
+  /* 语义迁移如实登记(ADR 0012 T4 → 2026-11-23 翻新, 零弱化): T4 当年裁定「面邻格
+     采样」防的是 H2 前「自身格恒 0 全黑」病根(solid∧opaque 挡光, sky/block 双通道
+     不入光); R-7/ADR-0021 光挡光谓词加 thin 例外后牌格透光(gate-diag 实证 signCell
+     sky=14=0.933 亮), 旧病根已由 light-core.test.js 谓词面断言(opaque(80)=false+
+     全表 solid∧thin 恰此三 id)根除承接。旧口径反成新病根: 牌两面紧贴 opaque 木柱格
+     → 邻格恒 0 → 东西主面黑(.scratch/campfire/tc13r-review/gate-diag.json +
+     gatediag-gateClose.png, PO 2026-11-23 立票 T-C13-R8)。
+     本测试 mkPackL 手注入光值不跑真引擎, 锁的是 mesh 采样口径: 六面取自身格。
+     白天口径: 自身格 (8,5,8) 透光天光 13(T4 白天口径同款值); 西邻格 (7,5,8)=贴柱
+     遮蔽 0(门洞语境=木柱格)。西面顶点若取面邻格=贴柱缝黑面复发 */
   const p = mkPackL(1);
   p.set(8, 5, 8, t.B_GATE_SIGN);
-  p.setL(7, 5, 8, 13, 0); /* 西邻格: 白天天光(牌面朝西迎玩家) */
-  p.setL(8, 5, 8, 0, 0); /* 自身格: 被遮蔽恒 0(旧径黑牌病灶) */
+  p.setL(8, 5, 8, 13, 0); /* 自身格: H2 透光, 白天天光 13 */
+  p.setL(7, 5, 8, 0, 0); /* 西邻格: 贴柱遮蔽 0(旧口径下西面取此格=黑面) */
   let r = t.MeshCore.meshChunk(p, atlasOpt(t));
   const west = quadsByNormal(r.atlas).get('-1,0,0');
   assert.ok(west && west.length === 1, '悬空牌西面单四边形在场');
-  assert.ok(faceSkyEq(r.atlas, west, s15(13)), '西面顶点 sky 取西邻格 13(白天全亮), 不取自身格 0');
-  /* 壁灯照牌语义: 西邻格 block=14(壁灯 light15 经空气链照上牌面) → 西面顶点 block 跟随 */
-  p.setL(7, 5, 8, 13, 14);
+  assert.ok(faceSkyEq(r.atlas, west, s15(13)), '西面顶点 sky 取自身格 13(透光亮起), 不取贴柱西邻格 0');
+  /* 壁灯照牌语义(H2 后经由透光牌格): 自身格 block=14(壁灯 light15 经透光牌格入格)
+     → 西面顶点跟随(夜间接壁灯入灯火链语义保持) */
+  p.setL(8, 5, 8, 13, 14);
   r = t.MeshCore.meshChunk(p, atlasOpt(t));
   assert.ok(faceBlkEq(r.atlas, quadsByNormal(r.atlas).get('-1,0,0'), s15(14)),
-      '西面顶点 block 跟随西邻格 14(夜间壁灯光照上牌面)');
+      '西面顶点 block 取自身格 14(夜间壁灯光入透光牌格)');
+});
+
+/* gate-diag 探针口径红测: 贴柱缝语境(门洞)主面顶点光非全零。
+   场景直译 .scratch/campfire/tc13r-review/gate-diag.json: signCell sky=14(H2 透光,
+   BFS 侧源绕入), 东西邻格=木柱遮蔽 sky=0。旧口径(面邻格)下东西主面顶点全 0 →
+   门洞左缘纯黑竖面(gatediag-gateClose.png 特写); 新口径(自身格)下六面全亮
+   14/15=0.933(诊断读数 0.933 实证可行) */
+test('meshChunk: 门额牌主面顶点光非全零 — 贴柱缝语境双贴柱邻格 0 自身格透光 14(gate-diag 探针口径, T-C13-R8)', () => {
+  const t = loadAtlas();
+  const p = mkPackL(1);
+  p.set(8, 5, 8, t.B_GATE_SIGN);
+  p.setL(8, 5, 8, 14, 0); /* 牌格: gate-diag signCell sky=14 直译(H2 透光) */
+  p.setL(7, 5, 8, 0, 0); /* 西贴柱邻格: sky 0(gate-diag pillarW 系直译) */
+  p.setL(9, 5, 8, 0, 0); /* 东贴柱邻格: sky 0(gate-diag lintelE 侧同构) */
+  const r = t.MeshCore.meshChunk(p, atlasOpt(t));
+  const qn = quadsByNormal(r.atlas);
+  const west = qn.get('-1,0,0'); const east = qn.get('1,0,0');
+  assert.ok(west && west.length === 1 && east && east.length === 1,
+      '悬空牌东西主面各单四边形在场');
+  assert.ok(r.atlas.sky.some((v) => v > 0), '门额牌顶点光非全零(贴柱缝黑面修复主判据)');
+  assert.ok(faceSkyEq(r.atlas, west, s15(14)), '西主面顶点 sky=自身格 14(0.933 亮, 探针口径)');
+  assert.ok(faceSkyEq(r.atlas, east, s15(14)), '东主面顶点 sky=自身格 14(0.933 亮, 探针口径)');
 });
 
 /* ============ 篝火两态贴图(篝火 T-C8 原落/视觉返工 T-C13, UI 定稿 docs/design/campfire-visual-spec.md §4 v1.9) ============ */
@@ -1707,8 +1733,9 @@ test('篝火 meshChunk: 顶点光取自身格 — 燃烧态 light 15 夜面自�
    不可见, 读作黑团)——「认得出熄灭篝火→可重燃」可供性依赖白昼可见(design-lead
    裁定 2026-11-16, 裁「修」)。取自身格对透光格(pushThin/pushBedBox 消费者)正确、
    对挡光格是语义错配; 修法=T4 口径: 每面取面朝向邻格光(pushGateSign/ADR 0012
-   同构)。燃烧态零改动: 光源格 mkPolicy 例外自身格 block=15, 取自身格语义正确
-   (既有断言不回退)。
+   同构; 门额牌 2026-11-23 起另裁定翻新取自身格=牌格 H2 后透光+贴柱缝黑面修复,
+   见 texture-atlas 门额牌顶点光段, 本组篝火熄态口径不变)。燃烧态零改动: 光源格
+   mkPolicy 例外自身格 block=15, 取自身格语义正确(既有断言不回退)。
    R-7/ADR-0021 注记: 光挡光谓词已加 thin 例外(实心且非玻璃且非薄块), 实场熄格
    自身格有 sky=15 直灌值 — 熄态黑框已由引擎面归位; 本组断言 mkPackL 手注入
    不跑真引擎, 锁 mesh 逐面朝向格采样口径 — 口径不变, 断言零弱化。 */
